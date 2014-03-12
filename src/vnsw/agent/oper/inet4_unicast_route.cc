@@ -767,13 +767,14 @@ Inet4UnicastAgentRouteTable::AddVHostSubnetRecvRoute(const Peer *peer,
 
 void Inet4UnicastAgentRouteTable::AddDropRoute(const string &vm_vrf,
                                                const Ip4Address &addr,
-                                               uint8_t plen) {
+                                               uint8_t plen,
+                                               const string &vn_name) {
     Agent *agent = Agent::GetInstance();
     DBRequest req(DBRequest::DB_ENTRY_ADD_CHANGE);
     req.key.reset(new Inet4UnicastRouteKey(agent->local_peer(), vm_vrf,
                                            GetIp4SubnetAddress(addr, plen),
                                            plen));
-    req.data.reset(new DropRoute());
+    req.data.reset(new DropRoute(vn_name));
     UnicastTableEnqueue(agent, vm_vrf, &req);
 }
 

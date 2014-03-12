@@ -272,7 +272,7 @@ bool GlobalVrouter::LinkLocalRouteManager::VnUpdateWalk(
                                         vrf_entry->GetName(),
                                         agent->vhost_interface_name(),
                                         key.linklocal_service_ip, 32,
-                                        agent->GetLinkLocalVnName(),
+                                        vn_entry->GetName(),
                                         true);
         }
     } else {
@@ -334,7 +334,7 @@ bool GlobalVrouter::LinkLocalRouteManager::VnNotify(DBTablePartBase *partition,
                                         vrf_entry->GetName(),
                                         agent->vhost_interface_name(),
                                         it->first.linklocal_service_ip, 32,
-                                        agent->GetLinkLocalVnName(),
+                                        vn_entry->GetName(),
                                         true);
         }
     }
