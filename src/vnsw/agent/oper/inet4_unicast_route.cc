@@ -675,24 +675,6 @@ static void MakeRemoteVmRouteReq(Agent *agent, DBRequest &rt_req,
     rt_req.data.reset(rt_data);
 }
 
-// Create Route for a Remote VM
-// Also creates Tunnel-NH for the route
-void 
-Inet4UnicastAgentRouteTable::AddRemoteVmRouteReq(const Peer *peer,
-                                                 const string &vm_vrf,
-                                                 const Ip4Address &vm_addr,
-                                                 uint8_t plen,
-                                                 const Ip4Address &server_ip,
-                                                 TunnelType::TypeBmap bmap,
-                                                 uint32_t label,
-                                                 const string &dest_vn_name) {
-    Agent *agent = Agent::GetInstance();
-    DBRequest req;
-    MakeRemoteVmRouteReq(agent, req, peer, vm_vrf, vm_addr, plen, server_ip,
-                         bmap, label, dest_vn_name, SecurityGroupList());
-    UnicastTableEnqueue(agent, vm_vrf, &req);
-}
-
 void 
 Inet4UnicastAgentRouteTable::AddRemoteVmRouteReq(const Peer *peer,
                                                  const string &vm_vrf,
@@ -733,28 +715,6 @@ Inet4UnicastAgentRouteTable::AddRemoteVmRouteReq(const Peer *peer,
     req.data.reset(new Inet4UnicastEcmpRoute(vm_addr, plen, dest_vn_name,
                                              label, false, vm_vrf, sg, nh_req));
     UnicastTableEnqueue(Agent::GetInstance(), vm_vrf, &req);
-}
-
-void
-Inet4UnicastAgentRouteTable::AddLocalEcmpRoute(const Peer *peer,
-                                               const string &vm_vrf,
-                                               const Ip4Address &vm_addr,
-                                               uint8_t plen,
-                                               std::vector<ComponentNHData> 
-                                               comp_nh_list,
-                                               uint32_t label,
-                                               const string &dest_vn_name, 
-                                               const SecurityGroupList &sg) {
-    DBRequest nh_req(DBRequest::DB_ENTRY_ADD_CHANGE);
-    nh_req.key.reset(new CompositeNHKey(vm_vrf, vm_addr, plen, true));
-    nh_req.data.reset(new CompositeNHData(comp_nh_list,
-                                          CompositeNHData::REPLACE));
-
-    DBRequest req(DBRequest::DB_ENTRY_ADD_CHANGE);
-    req.key.reset(new Inet4UnicastRouteKey(peer, vm_vrf, vm_addr, plen));
-    req.data.reset(new Inet4UnicastEcmpRoute(vm_addr, plen, dest_vn_name,
-                                             label, true, vm_vrf, sg, nh_req));
-    UnicastTableProcess(Agent::GetInstance(), vm_vrf, req);
 }
 
 void 

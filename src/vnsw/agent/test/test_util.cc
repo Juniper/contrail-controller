@@ -1144,7 +1144,7 @@ bool TunnelRouteAdd(const char *server, const char *vmip, const char *vm_vrf,
     Inet4UnicastAgentRouteTable::AddRemoteVmRouteReq(bgp_peer_, vm_vrf,
                                         Ip4Address::from_string(vmip, ec),
                                         32, Ip4Address::from_string(server, ec),
-                                        bmap, label, vn);
+                                        bmap, label, vn, SecurityGroupList());
     return true;
 }
 

@@ -75,7 +75,8 @@ public:
         Ip4Address addr = Ip4Address::from_string(remote_vm, ec);
         Ip4Address gw = Ip4Address::from_string(serv, ec);
         Agent::GetInstance()->GetDefaultInet4UnicastRouteTable()->AddRemoteVmRouteReq
-            (peer_, vrf, addr, 32, gw, TunnelType::AllType(), label, vn);
+            (peer_, vrf, addr, 32, gw, TunnelType::AllType(), label, vn,
+             SecurityGroupList());
         client->WaitForIdle(5);
         WAIT_FOR(1000, 500, (RouteFind(vrf, addr, 32) == true));
     }

@@ -142,7 +142,8 @@ protected:
         //Passing vn name as vrf name itself
         Agent::GetInstance()->GetDefaultInet4UnicastRouteTable()->
             AddRemoteVmRouteReq(NULL, vrf_name_, remote_vm_ip, plen, server_ip, 
-                                bmap, label, vrf_name_);
+                                bmap, label, vrf_name_,
+                                SecurityGroupList());
         client->WaitForIdle();
     }
 

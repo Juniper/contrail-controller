@@ -155,11 +155,6 @@ public:
                                 const SecurityGroupList &sg_list,
                                 bool force_policy);
     static void AddRemoteVmRouteReq(const Peer *peer, const string &vm_vrf,
-                                    const Ip4Address &vm_addr,uint8_t plen,
-                                    const Ip4Address &server_ip,
-                                    TunnelType::TypeBmap bmap, uint32_t label,
-                                    const string &dest_vn_name);
-    static void AddRemoteVmRouteReq(const Peer *peer, const string &vm_vrf,
                                     const Ip4Address &vm_addr, uint8_t plen,
                                     const Ip4Address &server_ip,
                                     TunnelType::TypeBmap bmap,uint32_t label,
@@ -171,12 +166,6 @@ public:
                                     uint32_t label,
                                     const string &dest_vn_name,
                                     const SecurityGroupList &sg_list_);
-    static void AddLocalEcmpRoute(const Peer *peer, const string &vm_vrf,
-                                  const Ip4Address &vm_addr,uint8_t plen,
-                                  std::vector<ComponentNHData> comp_nh_list,
-                                  uint32_t label,
-                                  const string &dest_vn_name,
-                                  const SecurityGroupList &sg_list_);
     static void CheckAndAddArpReq(const string &vrf_name, const Ip4Address &ip);
     static void AddArpReq(const string &vrf_name, const Ip4Address &ip); 
     static void ArpRoute(DBRequest::DBOperation op, 
