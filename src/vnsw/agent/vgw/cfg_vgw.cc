@@ -46,11 +46,11 @@ void VirtualGatewayConfigTable::Init
     Ip4Address addr;
     int plen;
 
-    if (!var_map.count("GATEWAY.vn-interface-subnet")) {
+    if (!var_map.count("GATEWAY.vn_interface_subnet")) {
         return;
     }
     const vector<string> &gw_subnet_list = 
-        var_map["GATEWAY.vn-interface-subnet"].as< vector<std::string> >();
+        var_map["GATEWAY.vn_interface_subnet"].as< vector<std::string> >();
     vector<string>::const_iterator it = gw_subnet_list.begin();
     while (it != gw_subnet_list.end()) {
         string str = *it;
@@ -70,9 +70,9 @@ void VirtualGatewayConfigTable::Init
         }
 
     }
-    if (var_map.count("GATEWAY.vn-interface-route")) {
+    if (var_map.count("GATEWAY.vn_interface_route")) {
         const vector<string> &gw_route_list = 
-            var_map["GATEWAY.vn-interface-route"].as< vector<std::string> >();
+            var_map["GATEWAY.vn_interface_route"].as< vector<std::string> >();
         it = gw_route_list.begin();
         while (it != gw_route_list.end()) {
             string str = *it;

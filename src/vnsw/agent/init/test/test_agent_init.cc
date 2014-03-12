@@ -134,7 +134,7 @@ TEST_F(FlowTest, Agent_Param_1) {
         (char *) "--DEFAULT.log_category",  (char *)"Test",
         (char *) "--COLLECTOR.server",     (char *)"1.1.1.1",
         (char *) "--COLLECTOR.port",(char *)"1000",
-        (char *) "--DEFAULT.http-server-port", (char *)"8000",
+        (char *) "--DEFAULT.http_server_port", (char *)"8000",
         (char *) "--DEFAULT.hostname",     (char *)"vhost-1",
     };
 
@@ -159,9 +159,9 @@ TEST_F(FlowTest, Agen_Arg_Override_Config_1) {
         (char *) "--conf-file",
                         (char *)"controller/src/vnsw/agent/init/test/cfg.ini",
         (char *) "--HYPERVISOR.type",    (char *)"xen", 
-        (char *) "--HYPERVISOR.xen-ll-port",   (char *)"xenport",
-        (char *) "--HYPERVISOR.xen-ll-ip-address", (char *)"1.1.1.2",
-        (char *) "--HYPERVISOR.xen-ll-prefix-len", (char *)"16",
+        (char *) "--HYPERVISOR.xen_ll_port",   (char *)"xenport",
+        (char *) "--HYPERVISOR.xen_ll_ip_address", (char *)"1.1.1.2",
+        (char *) "--HYPERVISOR.xen_ll_prefix_len", (char *)"16",
     };
 
     AgentParam param;

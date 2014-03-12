@@ -115,7 +115,7 @@ TestClient *StatsTestInit() {
     int argc = 3;
     char *argv[] = {
         (char *) "test",
-        (char *) "--conf-file", (char *)"controller/src/vnsw/agent/test/vnswa_cfg.xml"
+        (char *) "--conf-file", (char *)"controller/src/vnsw/agent/test/vnswa_cfg.ini"
     };
 
     // Read agent parameters from config file and arguments

@@ -92,27 +92,27 @@ void AgentParam::InitFromCmdLineAndConfig() {
 
     GetOptValue<string>(vhost_.name_, "VHOST.name");
     ConfigToIpAddress("VHOST.ip", &vhost_.addr_);
-    GetOptValue<int>(vhost_.plen_, "VHOST.ip-prefix");
+    GetOptValue<int>(vhost_.plen_, "VHOST.ip_prefix");
     ConfigToIpAddress("VHOST.gateway", &vhost_.gw_);
     GetOptValue<string>(eth_port_, "PHYSICAL.name");
 
-    ConfigToIpAddress("DISCOVERY-SERVER.ip", &dss_server_);
+    ConfigToIpAddress("DISCOVERY.ip", &dss_server_);
     GetOptValue<int>(xmpp_instance_count_, 
-                     "DISCOVERY-SERVER.control-instances");
+                     "DISCOVERY.control_instances");
 
     if (var_map_.count("DEFAULT.log_local")) {
         log_local_ = true;
     }
-    GetOptValue<uint16_t>(http_server_port_, "DEFAULT.http-server-port");
+    GetOptValue<uint16_t>(http_server_port_, "DEFAULT.http_server_port");
     GetOptValue<string>(host_name_, "DEFAULT.hostname");
-    ConfigToIpAddress("DEFAULT.control-ip", &mgmt_ip_);
-    GetOptValue<string>(tunnel_type_, "DEFAULT.tunnel-type");
+    ConfigToIpAddress("DEFAULT.control_ip", &mgmt_ip_);
+    GetOptValue<string>(tunnel_type_, "DEFAULT.tunnel_type");
     if ((tunnel_type_ != "MPLSoUDP") && (tunnel_type_ != "VXLAN")) {
         tunnel_type_ = "MPLSoGRE";
     }
     GetOptValue<string>(metadata_shared_secret_, 
-                        "DEFAULT.metadata-proxy-secret");
-    GetOptValue<uint16_t>(flow_cache_timeout_, "DEFAULT.flow-cache-timeout");
+                        "DEFAULT.metadata_proxy_secret");
+    GetOptValue<uint16_t>(flow_cache_timeout_, "DEFAULT.flow_cache_timeout");
 
     GetOptValue<string>(log_category_, "DEFAULT.log_category");
     GetOptValue<string>(log_file_, "DEFAULT.log_file");
@@ -128,31 +128,31 @@ void AgentParam::InitFromCmdLineAndConfig() {
     ConfigToIpAddress("DNS-SERVER.ip2", &dns_server_2_);
 
     GetOptValue<uint32_t>(linklocal_system_flows_, 
-                          "LINK-LOCAL.max-system-flows");
+                          "LINK-LOCAL.max_system_flows");
     GetOptValue<uint32_t>(linklocal_vm_flows_, 
-                          "LINK-LOCAL.max-vm-flows");
+                          "LINK-LOCAL.max_vm_flows");
 
     GetOptValue<string>(mode, "HYPERVISOR.type");
     if (mode == "xen") {
-        GetOptValue<string>(xen_ll_.name_, "HYPERVISOR.xen-ll-port");
-        GetOptValue<string>(xen_ll_ip_address, "HYPERVISOR.xen-ll-ip-address");
-        GetOptValue<int>(xen_ll_.plen_, "HYPERVISOR.xen-ll-prefix-len");
+        GetOptValue<string>(xen_ll_.name_, "HYPERVISOR.xen_ll_port");
+        GetOptValue<string>(xen_ll_ip_address, "HYPERVISOR.xen_ll_ip_address");
+        GetOptValue<int>(xen_ll_.plen_, "HYPERVISOR.xen_ll_prefix_len");
         mode_ = AgentParam::MODE_XEN;
 
         if (!GetIpAddress(xen_ll_ip_address, &xen_ll_.addr_)) {
-            LOG(ERROR, "Error parsing xen-ll-ip-address");
+            LOG(ERROR, "Error parsing xen_ll_ip_address");
             exit(EINVAL);
         }
 
-        if (var_map_.count("HYPERVISOR.xen-ll-prefix-len")) {
+        if (var_map_.count("HYPERVISOR.xen_ll_prefix_len")) {
             if (xen_ll_.plen_ <= 0 || xen_ll_.plen_ >= 32) {
-                LOG(ERROR, "Error parsing argument for xen-ll-prefix-len");
+                LOG(ERROR, "Error parsing argument for xen_ll_prefix_len");
                 exit(EINVAL);
             }
         }
     } else if (mode == "vmware") {
         GetOptValue<string>(vmware_physical_port_, 
-                            "HYPERVISOR.vmware-physical-port");
+                            "HYPERVISOR.vmware_physical_port");
         mode_ = AgentParam::MODE_VMWARE;
     } else {
         mode_ = AgentParam::MODE_KVM;
@@ -237,6 +237,7 @@ void AgentParam::Init(int argc, char *argv[]) {
         InitFromCmdLineAndConfig();
         Validate();
         vgw_config_table_->Init(var_map_);
+        return;
     } catch (boost::program_options::error &e) {
         cout << "Error " << e.what() << endl;
     } catch (...) {
@@ -244,6 +245,7 @@ void AgentParam::Init(int argc, char *argv[]) {
     }
 
     LogConfig();
+    exit(-1);
 }
 
 void AgentParam::LogConfig() const {
@@ -327,16 +329,16 @@ AgentParam::AgentParam() :
 
        ("DEFAULT.hostname", opt::value<string>()->default_value(hostname),
             "Specific Host Name")
-       ("DEFAULT.http-server-port",
+       ("DEFAULT.http_server_port",
             opt::value<uint16_t>()->default_value(default_http_port),
             "Sandesh HTTP listener port")
-       ("DEFAULT.control-ip", opt::value<string>()->default_value(""),
+       ("DEFAULT.control_ip", opt::value<string>()->default_value(""),
             "IP address for control channel")
-       ("DEFAULT.tunnel-type", opt::value<string>()->default_value(""),
+       ("DEFAULT.tunnel_type", opt::value<string>()->default_value(""),
             "Tunnel type for encapsulation")
-       ("DEFAULT.metadata-proxy-secret", opt::value<string>()->default_value(""),
+       ("DEFAULT.metadata_proxy_secret", opt::value<string>()->default_value(""),
             "Metadata Proxy Shared secret")
-       ("DEFAULT.flow-cache-timeout",
+       ("DEFAULT.flow_cache_timeout",
             opt::value<uint16_t>()->default_value(Agent::kDefaultFlowCacheTimeout),
             "Flow Age time in seconds")
 
@@ -351,33 +353,33 @@ AgentParam::AgentParam() :
 
        ("HYPERVISOR.type", opt::value<string>()->default_value("kvm"),
             "Type of hypervisor <kvm|xen>")
-       ("HYPERVISOR.xen-ll-port",
+       ("HYPERVISOR.xen_ll_port",
            opt::value<string>()->default_value(""), 
            "Port name on host for link-local network")
-       ("HYPERVISOR.xen-ll-ip-address",
+       ("HYPERVISOR.xen_ll_ip_address",
             opt::value<string>()->default_value(""),
             "IP Address for the link local port")
-       ("HYPERVISOR.xen-ll-prefix-len",
+       ("HYPERVISOR.xen_ll_prefix_len",
             opt::value<int>()->default_value(0),
             "IP Prefix Length for the link local address")
-       ("HYPERVISOR.vmware-physical-port",
+       ("HYPERVISOR.vmware_physical_port",
             opt::value<string>()->default_value(""), 
             "Physical port used to connect to VMs in VMWare environement")
 
-       ("KERNEL.disable-vhost", opt::bool_switch(&disable_vhost_),
+       ("KERNEL.disable_vhost", opt::bool_switch(&disable_vhost_),
             "Disable vhost interface")
-       ("KERNEL.disable-ksync", opt::bool_switch(&disable_ksync_),
+       ("KERNEL.disable_ksync", opt::bool_switch(&disable_ksync_),
             "Disable kernel synchronization")
-       ("KERNEL.disable-services", opt::bool_switch(&disable_services_),
+       ("KERNEL.disable_services", opt::bool_switch(&disable_services_),
             "Disable services")
-       ("KERNEL.disable-packet", opt::bool_switch(&disable_packet_services_),
+       ("KERNEL.disable_packet", opt::bool_switch(&disable_packet_services_),
             "Disable packet services")
        
        ("VHOST.name", opt::value<string>()->default_value("vhost0"),
             "Name of virtual host interface")
        ("VHOST.ip", opt::value<string>()->default_value(""),
             "IP Address of virtual host interface")
-       ("VHOST.ip-prefix", opt::value<int>()->default_value(0),
+       ("VHOST.ip_prefix", opt::value<int>()->default_value(0),
             "IP Prefix Length of virtual host interface")
        ("VHOST.gateway", opt::value<string>()->default_value(""),
             "Gateway IP Address of virtual host interface")
@@ -386,9 +388,9 @@ AgentParam::AgentParam() :
             "Name of physical interface")
 
 
-       ("DISCOVERY-SERVER.ip", opt::value<string>()->default_value(""),
+       ("DISCOVERY.ip", opt::value<string>()->default_value(""),
             "IP Address of Discovery Server")
-       ("DISCOVERY-SERVER.control-instances", opt::value<int>()->default_value(0),
+       ("DISCOVERY.control_instances", opt::value<int>()->default_value(0),
             "Control instances count")
 
        ("DNS-SERVER.ip1", opt::value<string>()->default_value(""),
@@ -401,16 +403,16 @@ AgentParam::AgentParam() :
        ("XMPP-SERVER.ip2", opt::value<string>()->default_value(""),
             "IP Address of Secondary XMPP Server")
 
-       ("LINK-LOCAL.max-system-flows", opt::value<uint32_t>()->default_value
+       ("LINK-LOCAL.max_system_flows", opt::value<uint32_t>()->default_value
             (default_max_flows),
             "Maximum link local flows in the system")
-       ("LINK-LOCAL.max-vm-flows", opt::value<uint32_t>()->default_value
+       ("LINK-LOCAL.max_vm_flows", opt::value<uint32_t>()->default_value
             (default_max_flows),
             "Maximum link local flows per VM")
 
-       ("GATEWAY.vn-interface-subnet", opt::value< std::vector<std::string> >(),
+       ("GATEWAY.vn_interface_subnet", opt::value< std::vector<std::string> >(),
             "List of Gateway Virtual Network, interface and subnet")
-       ("GATEWAY.vn-interface-route", opt::value< std::vector<std::string> >(),
+       ("GATEWAY.vn_interface_route", opt::value< std::vector<std::string> >(),
             "List of Gateway Virtual Network, interface and route")
        ;
 
