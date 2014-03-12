@@ -301,31 +301,19 @@ void AgentInit::TriggerInit() {
     trigger_list_.push_back(t);
 }
 
-void AgentInit::Init(AgentParam *param, Agent *agent,
-                     const boost::program_options::variables_map &var_map) {
+void AgentInit::Init(AgentParam *param, Agent *agent) {
 
-    if (var_map.count("disable-vhost")) {
-        create_vhost_ = false;
-    }
-
-    if (var_map.count("disable-ksync")) {
-        ksync_enable_ = false;
-    }
-
-    if (var_map.count("disable-services")) {
-        services_enable_ = false;
-    }
-
-    if (var_map.count("disable-packet")) {
-        packet_enable_ = false;
-    }
+    create_vhost_ = !param->disable_vhost();
+    ksync_enable_ = !param->disable_ksync();
+    services_enable_ = !param->disable_services();
+    packet_enable_ = !param->disable_packet_services();
     params_ = param;
     agent_ = agent;
 }
 
 // TODO: Move the following code to state based initialization
 void AgentInit::Start() {
-    if (params_->log_file() == "") {
+    if (params_->log_file() == "" || params_->log_file() == "<stdout>") {
         LoggingInit();
     } else {
         LoggingInit(params_->log_file());

@@ -2,101 +2,25 @@
  * Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
  */
 
-#include <stdio.h>
-#include <stdlib.h>
-
-#include <boost/uuid/string_generator.hpp>
-#include <boost/program_options.hpp>
-#include <base/logging.h>
-#include <base/contrail_ports.h>
-
 #include "testing/gunit.h"
 #include "test/test_cmn_util.h"
-
-#include <pugixml/pugixml.hpp>
-
-#include <base/task.h>
-#include <io/event_manager.h>
-#include <sandesh/common/vns_types.h>
-#include <sandesh/common/vns_constants.h>
-#include <base/misc_utils.h>
-
-#include <cmn/agent_cmn.h>
-
-#include <cfg/cfg_init.h>
-#include <cfg/cfg_mirror.h>
-#include <cfg/discovery_agent.h>
-
 #include <init/agent_param.h>
-#include <init/agent_init.h>
-
-#include <oper/operdb_init.h>
-#include <oper/vrf.h>
-#include <oper/multicast.h>
-#include <oper/mirror_table.h>
-#include <controller/controller_init.h>
-#include <controller/controller_vrf_export.h>
-#include <pkt/pkt_init.h>
-#include <services/services_init.h>
-#include <uve/agent_uve.h>
-#include <ksync/ksync_init.h>
-#include <kstate/kstate.h>
-#include <pkt/proto.h>
-#include <pkt/proto_handler.h>
-#include <diag/diag.h>
-#include <vgw/vgw.h>
-#include <uve/agent_uve.h>
-
-namespace opt = boost::program_options;
 
 class FlowTest : public ::testing::Test {
-public:
-    virtual void SetUp() {
-        desc.add_options()
-            ("help", "help message")
-            ("config-file", opt::value<string>(), "Configuration file")
-            ("disable-vhost", "Create vhost interface")
-            ("disable-ksync", "Disable kernel synchronization")
-            ("disable-services", "Disable services")
-            ("disable-packet", "Disable packet services")
-            ("log-local", "Enable local logging of sandesh messages")
-            ("log-level", opt::value<string>()->default_value("SYS_DEBUG"),
-             "Severity level for local logging of sandesh messages")
-            ("log-category", opt::value<string>()->default_value(""),
-             "Category filter for local logging of sandesh messages")
-            ("collector", opt::value<string>(), "IP address of sandesh collector")
-            ("collector-port", opt::value<int>(), "Port of sandesh collector")
-            ("http-server-port",
-             opt::value<int>()->default_value(ContrailPorts::HttpPortAgent),
-             "Sandesh HTTP listener port")
-            ("host-name", opt::value<string>(), "Specific Host Name")
-            ("log-file", opt::value<string>(),
-             "Filename for the logs to be written to")
-            ("hypervisor", opt::value<string>(), "Type of hypervisor <kvm|xen>")
-            ("xen-ll-port", opt::value<string>(), 
-             "Port name on host for link-local network")
-            ("xen-ll-ip-address", opt::value<string>(),
-             "IP Address for the link local port")
-            ("xen-ll-prefix-len", opt::value<int>(),
-             "Prefix for link local IP Address")
-            ("version", "Display version information")
-            ;
-    }
-
-    virtual void TearDown() {
-    }
-
-    opt::options_description desc;
-    opt::variables_map var_map;
 };
 
 void RouterIdDepInit() {
 }
 
 TEST_F(FlowTest, Agent_Conf_file_1) {
+    int argc = 3;
+    char *argv[] = {
+        (char *) "test-param",
+        (char *) "--conf-file", (char *)"controller/src/vnsw/agent/init/test/cfg.ini"
+    };
+
     AgentParam param;
-    param.Init("controller/src/vnsw/agent/init/test/cfg.xml", "test-param",
-               var_map);
+    param.Init(argc, argv);
 
     EXPECT_STREQ(param.vhost_name().c_str(), "vhost0");
     EXPECT_EQ(param.vhost_addr().to_ulong(),
@@ -122,14 +46,19 @@ TEST_F(FlowTest, Agent_Conf_file_1) {
     EXPECT_EQ(param.linklocal_system_flows(), 1024);
     EXPECT_EQ(param.linklocal_vm_flows(), 512);
     EXPECT_STREQ(param.config_file().c_str(), 
-                 "controller/src/vnsw/agent/init/test/cfg.xml");
+                 "controller/src/vnsw/agent/init/test/cfg.ini");
     EXPECT_STREQ(param.program_name().c_str(), "test-param");
 }
 
 TEST_F(FlowTest, Agent_Conf_file_2) {
+    int argc = 3;
+    char *argv[] = {
+        (char *) "test-param",
+        (char *) "--conf-file", (char *)"controller/src/vnsw/agent/init/test/cfg1.ini"
+    };
+
     AgentParam param;
-    param.Init("controller/src/vnsw/agent/init/test/cfg1.xml", "test-param",
-               var_map);
+    param.Init(argc, argv);
 
     EXPECT_EQ(param.linklocal_system_flows(), 2048);
     EXPECT_EQ(param.linklocal_vm_flows(), 2048);
@@ -142,9 +71,14 @@ TEST_F(FlowTest, Agent_Conf_file_3) {
     rl.rlim_cur = 64;
     int result = setrlimit(RLIMIT_NOFILE, &rl);
     if (result == 0) {
+        int argc = 3;
+        char *argv[] = {
+            (char *) "test-param",
+            (char *) "--conf-file", (char *)"controller/src/vnsw/agent/init/test/cfg.ini"
+        };
+
         AgentParam param;
-        param.Init("controller/src/vnsw/agent/init/test/cfg.xml", "test-param",
-                   var_map);
+        param.Init(argc, argv);
 
         EXPECT_EQ(param.linklocal_system_flows(), 63);
         EXPECT_EQ(param.linklocal_vm_flows(), 63);
@@ -157,9 +91,14 @@ TEST_F(FlowTest, Agent_Conf_file_4) {
     rl.rlim_cur = 32;
     int result = setrlimit(RLIMIT_NOFILE, &rl);
     if (result == 0) {
+        int argc = 3;
+        char *argv[] = {
+            (char *) "test-param",
+            (char *) "--conf-file", (char *)"controller/src/vnsw/agent/init/test/cfg.ini"
+        };
+
         AgentParam param;
-        param.Init("controller/src/vnsw/agent/init/test/cfg.xml", "test-param",
-                   var_map);
+        param.Init(argc, argv);
 
         EXPECT_EQ(param.linklocal_system_flows(), 0);
         EXPECT_EQ(param.linklocal_vm_flows(), 0);
@@ -167,9 +106,14 @@ TEST_F(FlowTest, Agent_Conf_file_4) {
 }
 
 TEST_F(FlowTest, Agent_Conf_Xen_1) {
+    int argc = 3;
+    char *argv[] = {
+        (char *) "test-param",
+        (char *) "--conf-file", (char *)"controller/src/vnsw/agent/init/test/cfg-xen.ini"
+    };
+
     AgentParam param;
-    param.Init("controller/src/vnsw/agent/init/test/cfg-xen.xml", "test-param",
-               var_map);
+    param.Init(argc, argv);
 
     EXPECT_STREQ(param.xen_ll_name().c_str(), "xenapi");
     EXPECT_EQ(param.xen_ll_addr().to_ulong(),
@@ -182,30 +126,20 @@ TEST_F(FlowTest, Agent_Conf_Xen_1) {
 TEST_F(FlowTest, Agent_Param_1) {
     int argc = 16;
     char *argv[] = {
-        (char *) "",
-        (char *) "--config-file", 
-                        (char *)"controller/src/vnsw/agent/init/test/cfg.xml",
-        (char *) "--log-local",
-        (char *) "--log-level",     (char *)"SYS_DEBUG",
-        (char *) "--log-category",  (char *)"Test",
-        (char *) "--collector",     (char *)"1.1.1.1",
-        (char *) "--collector-port",(char *)"1000",
-        (char *) "--http-server-port", (char *)"8000",
-        (char *) "--host-name",     (char *)"vhost-1",
+        (char *) "test-param",
+        (char *) "--conf-file", 
+                        (char *)"controller/src/vnsw/agent/init/test/cfg-xen.ini",
+        (char *) "--DEFAULT.log_local",
+        (char *) "--DEFAULT.log_level",     (char *)"SYS_DEBUG",
+        (char *) "--DEFAULT.log_category",  (char *)"Test",
+        (char *) "--COLLECTOR.server",     (char *)"1.1.1.1",
+        (char *) "--COLLECTOR.port",(char *)"1000",
+        (char *) "--DEFAULT.http_server_port", (char *)"8000",
+        (char *) "--DEFAULT.hostname",     (char *)"vhost-1",
     };
 
-    try {
-        opt::store(opt::parse_command_line(argc, argv, desc), var_map);
-        opt::notify(var_map);
-    } catch (...) {
-        cout << "Invalid arguments. ";
-        cout << desc << endl;
-        exit(0);
-    }
-
     AgentParam param;
-    param.Init("controller/src/vnsw/agent/init/test/cfg-xen.xml", "test-param",
-               var_map);
+    param.Init(argc, argv);
 
     EXPECT_TRUE(param.log_local());
     EXPECT_STREQ(param.log_level().c_str(), "SYS_DEBUG");
@@ -219,38 +153,44 @@ TEST_F(FlowTest, Agent_Param_1) {
 }
 
 TEST_F(FlowTest, Agen_Arg_Override_Config_1) {
-    int argc = 8;
+    int argc = 11;
     char *argv[] = {
-        (char *) "--config-file",
-                        (char *)"controller/src/vnsw/agent/init/test/cfg.xml",
-        (char *) "--hypervisor",    (char *)"xen", 
-        (char *) "--xen-ll-port",   (char *)"xenport",
-        (char *) "--xen-ll-ip-address", (char *)"1.1.1.2",
-        (char *) "--xen-ll-prefix-len", (char *)"16",
+        (char *) "test-param",
+        (char *) "--conf-file",
+                        (char *)"controller/src/vnsw/agent/init/test/cfg.ini",
+        (char *) "--HYPERVISOR.type",    (char *)"xen", 
+        (char *) "--HYPERVISOR.xen_ll_port",   (char *)"xenport",
+        (char *) "--HYPERVISOR.xen_ll_ip_address", (char *)"1.1.1.2",
+        (char *) "--HYPERVISOR.xen_ll_prefix_len", (char *)"16",
     };
 
-    try {
-        opt::store(opt::parse_command_line(argc, argv, desc), var_map);
-        opt::notify(var_map);
-    } catch (...) {
-        cout << "Invalid arguments. ";
-        cout << desc << endl;
-        exit(0);
-    }
-
     AgentParam param;
-    param.Init("controller/src/vnsw/agent/init/test/cfg.xml", "test-param",
-               var_map);
+    param.Init(argc, argv);
 
     EXPECT_STREQ(param.config_file().c_str(), 
-                 "controller/src/vnsw/agent/init/test/cfg.xml");
+                 "controller/src/vnsw/agent/init/test/cfg.ini");
     EXPECT_EQ(param.mode(), AgentParam::MODE_XEN);
     EXPECT_STREQ(param.xen_ll_name().c_str(), "xenport");
     EXPECT_EQ(param.xen_ll_addr().to_ulong(),
               Ip4Address::from_string("1.1.1.2").to_ulong());
-    EXPECT_EQ(param.xen_ll_prefix().to_ulong(),
-              Ip4Address::from_string("1.1.1.0").to_ulong());
-    EXPECT_EQ(param.xen_ll_plen(), 24);
+    EXPECT_EQ(param.xen_ll_plen(), 16);
+}
+
+TEST_F(FlowTest, Agen_Arg_Override_Config_2) {
+    int argc = 5;
+    char *argv[] = {
+        (char *) "test-param",
+        (char *) "--conf-file",
+                        (char *)"controller/src/vnsw/agent/init/test/cfg.ini",
+        (char *) "--VHOST.name",    (char *)"vhost1", 
+    };
+
+    AgentParam param;
+    param.Init(argc, argv);
+
+    EXPECT_STREQ(param.config_file().c_str(), 
+                 "controller/src/vnsw/agent/init/test/cfg.ini");
+    EXPECT_STREQ(param.vhost_name().c_str(), "vhost1");
 }
 
 int main(int argc, char **argv) {

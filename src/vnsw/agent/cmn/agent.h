@@ -136,6 +136,7 @@ public:
     virtual ~Agent();
     const std::string &GetHostName();
     const std::string &GetProgramName() {return prog_name_;};
+    static const std::string &DefaultConfigFile() {return config_file_;}
     static const std::string &NullString() {return null_str_;};
     static const std::string &VrrpMac() {return vrrp_mac_;};
     static const std::string &BcastMac() {return bcast_mac_;};
@@ -641,6 +642,7 @@ private:
     static Agent *singleton_;
     VxLanNetworkIdentifierMode vxlan_network_identifier_mode_;
 
+    static const std::string config_file_;
     static const std::string null_str_;
     static const std::string fabric_vrf_name_;
     static const std::string fabric_vn_name_;

@@ -69,8 +69,7 @@ public:
     void CreateDefaultVrf();
     void CreateDefaultNextHops();
     void CreateInterfaces(DB *db);
-    void Init(AgentParam *param, Agent *agent,
-              const boost::program_options::variables_map &var_map);
+    void Init(AgentParam *param, Agent *agent);
     void Start();
     void InitXenLinkLocalIntf();
     void InitVmwareInterface();
@@ -89,10 +88,6 @@ public:
     bool vgw_enable() const { return vgw_enable_; }
     bool router_id_dep_enable() const { return router_id_dep_enable_; }
 
-    void set_ksync_enable(bool flag) { ksync_enable_ = flag; }
-    void set_services_enable(bool flag) { services_enable_ = flag; }
-    void set_packet_enable(bool flag) { packet_enable_ = flag; }
-    void set_create_vhost(bool flag) { create_vhost_ = flag; }
     void set_uve_enable(bool flag) { uve_enable_ = flag; }
     void set_vgw_enable(bool flag) { vgw_enable_ = flag; }
     void set_router_id_dep_enable(bool flag) { router_id_dep_enable_ = flag; }
