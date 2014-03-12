@@ -447,6 +447,29 @@ class AnalyticsFixture(fixtures.Fixture):
         return True
 
     @retry(delay=1, tries=6)
+    def verify_message_table_select_uint_type(self):
+        self.logger.info("verify_message_table_select_uint_type")
+        vns = VerificationOpsSrv('127.0.0.1', self.opserver_port)
+        # query for CollectorInfo logs
+        res = vns.post_query('MessageTable',
+                             start_time='-10m', end_time='now',
+                             select_fields=["Level", "Type", "MessageTS", "SequenceNum"],
+                             where_clause='')
+	if (res == []):
+            return False
+	else:
+	    for x in res:
+	        assert('Level' in x)
+		assert('Type' in x)
+		assert('MessageTS' in x)
+		assert('SequenceNum' in x)
+	    	assert(type(x['Level']) is int)
+	    	assert(type(x['Type']) is int)
+	    	assert(type(x['MessageTS']) is int)
+	    	assert(type(x['SequenceNum']) is int)
+	    return True
+    
+    @retry(delay=1, tries=6)
     def verify_message_table_moduleid(self):
         self.logger.info("verify_message_table_moduleid")
         vns = VerificationOpsSrv('127.0.0.1', self.opserver_port)

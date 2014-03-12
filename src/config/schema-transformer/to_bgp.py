@@ -121,39 +121,44 @@ class DictST(object):
 
 
 def _access_control_list_update(acl_obj, name, obj, entries):
-    if entries.get_acl_rule() != []:
-        if acl_obj is None:
+    if acl_obj is None:
+        try:
+            # Check if there is any stale object. If there is, delete it
+            acl_name = copy.deepcopy(obj.get_fq_name())
+            acl_name.append(name)
+            _vnc_lib.access_control_list_delete(fq_name=acl_name)
+        except NoIdError:
+            pass
+
+        if entries is None:
+            return None
+        acl_obj = AccessControlList(name, obj, entries)
+        try:
+            _vnc_lib.access_control_list_create(acl_obj)
+            return acl_obj
+        except HttpError as he:
+            _sandesh._logger.debug(
+                "HTTP error while creating acl %s for %s: %d, %s",
+                name, obj.get_fq_name_str(), he.status_code, he.content)
+        return None
+    else:
+        if entries is None:
             try:
-                # Check if there is any stale object. If there is, delete it
-                acl_name = copy.deepcopy(obj.get_fq_name())
-                acl_name.append(name)
-                _vnc_lib.access_control_list_delete(fq_name=acl_name)
+                _vnc_lib.access_control_list_delete(id=acl_obj.uuid)
             except NoIdError:
                 pass
-
-            acl_obj = AccessControlList(name, obj, entries)
-            try:
-                _vnc_lib.access_control_list_create(acl_obj)
-                return acl_obj
-            except HttpError as he:
-                _sandesh._logger.debug(
-                    "HTTP error while creating acl %s for %s: %d, %s",
-                    name, obj.get_fq_name_str(), he.status_code, he.content)
             return None
-        else:
-            # Set new value of entries on the ACL
-            acl_obj.set_access_control_list_entries(entries)
-            try:
-                _vnc_lib.access_control_list_update(acl_obj)
-            except HttpError as he:
-                _sandesh._logger.debug(
-                    "HTTP error while updating acl %s for %s: %d, %s",
-                    name, obj.get_fq_name_str(), he.status_code, he.content)
-            return acl_obj
-    elif acl_obj is not None:
-        _vnc_lib.access_control_list_delete(id=acl_obj.uuid)
-    return None
-# end _access_control_list_create
+
+        # Set new value of entries on the ACL
+        acl_obj.set_access_control_list_entries(entries)
+        try:
+            _vnc_lib.access_control_list_update(acl_obj)
+        except HttpError as he:
+            _sandesh._logger.debug(
+                "HTTP error while updating acl %s for %s: %d, %s",
+                name, obj.get_fq_name_str(), he.status_code, he.content)
+    return acl_obj
+# end _access_control_list_update
 
 # a struct to store attributes related to Virtual Networks needed by
 # schema transformer
@@ -604,7 +609,11 @@ class VirtualNetworkST(DictST):
 
     def expand_connections(self):
         if '*' in self.connections:
-            return self.connections - set(['*']) | self.get_vns_in_project()
+            conn = self.connections - set(['*']) | self.get_vns_in_project()
+            for vn in self._dict.values():
+                if self.name in vn.connections:
+                    conn.add(vn.name)
+            return conn
         return self.connections
     # end expand_connections
 
@@ -1040,6 +1049,22 @@ class SecurityGroupST(DictST):
     _dict = {}
     _sg_id_allocator = None
 
+    def update_acl(self, from_value, to_value):
+        for acl in [self.ingress_acl, self.egress_acl]:
+            if acl is None:
+                continue
+            acl_entries = acl.get_access_control_list_entries()
+            update = False
+            for acl_rule in acl_entries.get_acl_rule() or []:
+                if (acl_rule.match_condition.src_address.security_group ==
+                        from_value):
+                    acl_rule.match_condition.src_address.security_group =\
+                        to_value
+                    update = True
+            if update:
+                _vnc_lib.access_control_list_update(acl)
+    # end update_acl
+                
     def __init__(self, name):
         self.name = name
         self.obj = _vnc_lib.security_group_read(fq_name_str=name)
@@ -1048,21 +1073,22 @@ class SecurityGroupST(DictST):
             sg_id_num = self._sg_id_allocator.alloc(name)
             self.obj.set_security_group_id(sg_id_num)
             _vnc_lib.security_group_update(self.obj)
-        acl = self.obj.get_access_control_lists()
-        self.acl = _vnc_lib.access_control_list_read(
-            id=acl[0]['uuid']) if acl else None
+        self.ingress_acl = None
+        self.egress_acl = None
+        acls = self.obj.get_access_control_lists()
+        for acl in acls or []:
+            if acl['to'][-1] == 'egress-access-control-list':
+                self.egress_acl = _vnc_lib.access_control_list_read(
+                    id=acl['uuid'])
+            elif acl['to'][-1] == 'ingress-access-control-list':
+                self.igress_acl = _vnc_lib.access_control_list_read(
+                    id=acl['uuid'])
+            else:
+                _vnc_lib.access_control_list_delete(id=acl['uuid'])
+        self.update_policy_entries(self.obj.get_security_group_entries())
         for sg in self._dict.values():
-            if sg.acl is None:
-                continue
-            acl_entries = sg.acl.get_access_control_list_entries()
-            update = False
-            for acl_rule in acl_entries.get_acl_rule() or []:
-                if acl_rule.match_condition.src_address.security_group == name:
-                    acl_rule.match_condition.src_address.security_group =\
-                        self.obj.get_security_group_id()
-                    update = True
-            if update:
-                _vnc_lib.access_control_list_update(sg.acl)
+            sg.update_acl(from_value=name,
+                          to_value=self.obj.get_security_group_id())
         # end for sg
     # end __init__
 
@@ -1076,34 +1102,51 @@ class SecurityGroupST(DictST):
             cls._sg_id_allocator.delete(sg.obj.get_security_group_id())
         del cls._dict[name]
         for sg in cls._dict.values():
-            if sg.acl is None:
-                continue
-            acl_entries = sg.acl.get_access_control_list_entries()
-            update = False
-            for acl_rule in acl_entries.get_acl_rule() or []:
-                if (acl_rule.match_condition.src_address.security_group ==
-                        sg_id):
-                    acl_rule.match_condition.src_address.security_group = name
-                    update = True
-            if update:
-                _vnc_lib.access_control_list_update(sg.acl)
+            sg.update_acl(from_value=sg_id, to_value=name)
         # end for sg
     # end delete
 
     def update_policy_entries(self, policy_rule_entries):
-        acl_entries = AclEntriesType()
-        for prule in policy_rule_entries.get_policy_rule() or []:
-            acl_rule_list = self.policy_to_acl_rule(prule)
-            acl_entries.acl_rule.extend(acl_rule_list)
+        ingress_acl_entries = AclEntriesType()
+        egress_acl_entries = AclEntriesType()
+
+        # Create implicit rules
+        if self.obj.name == 'default':
+            local = [AddressType(security_group='local')]
+            sg = [AddressType(security_group=self.name)]
+            prules = [PolicyRuleType(direction='>', protocol='any',
+                                    src_addresses=sg,
+                                    src_ports=[PortType(0, 65535)],
+                                    dst_addresses=local,
+                                    dst_ports=[PortType(0, 65535)]),
+                      PolicyRuleType(direction='>', protocol='any',
+                                    src_addresses=local,
+                                    src_ports=[PortType(0, 65535)],
+                                    dst_addresses=sg,
+                                    dst_ports=[PortType(0, 65535)])]
+        else:
+            prules = []
+
+        if policy_rule_entries:
+            prules += policy_rule_entries.get_policy_rule() or []
+        for prule in prules:
+            (ingress_list, egress_list) = self.policy_to_acl_rule(prule)
+            ingress_acl_entries.acl_rule.extend(ingress_list)
+            egress_acl_entries.acl_rule.extend(egress_list)
         # end for prule
-        self.acl = _access_control_list_update(
-            self.acl, "default-access-control-list", self.obj, acl_entries)
+
+        self.ingress_acl = _access_control_list_update(
+            self.ingress_acl, "ingress-access-control-list", self.obj,
+            ingress_acl_entries)
+        self.egress_acl = _access_control_list_update(
+            self.egress_acl, "egress-access-control-list", self.obj,
+            egress_acl_entries)
     # end update_policy_entries
 
     def _convert_security_group_name_to_id(self, addr):
         if addr.security_group is None:
             return
-        if addr.security_group == 'local':
+        if addr.security_group in ['local', self.name]:
             addr.security_group = self.obj.get_security_group_id()
         elif addr.security_group == 'any':
             addr.security_group = -1
@@ -1113,7 +1156,8 @@ class SecurityGroupST(DictST):
     # end _convert_security_group_name_to_id
 
     def policy_to_acl_rule(self, prule):
-        result_acl_rule_list = []
+        ingress_acl_rule_list = []
+        egress_acl_rule_list = []
 
         # convert policy proto input(in str) to acl proto (num)
         if prule.protocol.isdigit():
@@ -1122,27 +1166,32 @@ class SecurityGroupST(DictST):
             arule_proto = _PROTO_STR_TO_NUM[prule.protocol.lower()]
         else:
             # TODO log unknown protocol
-            return result_acl_rule_list
+            return (ingress_acl_rule_list, egress_acl_rule_list)
 
+        acl_rule_list = None
         for saddr in prule.src_addresses:
             saddr_match = copy.deepcopy(saddr)
             self._convert_security_group_name_to_id(saddr_match)
+            if saddr.security_group == 'local':
+                acl_rule_list = egress_acl_rule_list
             for sp in prule.src_ports:
                 for daddr in prule.dst_addresses:
                     daddr_match = copy.deepcopy(daddr)
                     self._convert_security_group_name_to_id(daddr_match)
+                    if daddr.security_group == 'local':
+                        acl_rule_list = ingress_acl_rule_list
                     for dp in prule.dst_ports:
                         action = ActionListType(simple_action='pass')
                         match = MatchConditionType(arule_proto,
                                                    saddr_match, sp,
                                                    daddr_match, dp)
                         acl = AclRuleType(match, action)
-                        result_acl_rule_list.append(acl)
+                        acl_rule_list.append(acl)
                     # end for dp
                 # end for daddr
             # end for sp
         # end for saddr
-        return result_acl_rule_list
+        return (ingress_acl_rule_list, egress_acl_rule_list)
     # end policy_to_acl_rule
 # end class SecurityGroupST
 
@@ -2653,14 +2702,18 @@ class SchemaTransformer(object):
             virtual_network.connections = set()
             virtual_network.service_chains = {}
 
-            static_acl_entries = AclEntriesType(dynamic="false")
-            dynamic_acl_entries = AclEntriesType(dynamic="true")
+            static_acl_entries = None
+            dynamic_acl_entries = None
             for policy_name in virtual_network.policies:
                 timer = virtual_network.policies[policy_name].get_timer()
                 if timer is None:
+                    if static_acl_entries is None:
+                        static_acl_entries = AclEntriesType(dynamic="false")
                     acl_entries = static_acl_entries
                     dynamic = False
                 else:
+                    if dynamic_acl_entries is None:
+                        dynamic_acl_entries = AclEntriesType(dynamic="true")
                     acl_entries = dynamic_acl_entries
                     dynamic = True
                 policy = NetworkPolicyST.get(policy_name)
@@ -2698,7 +2751,7 @@ class SchemaTransformer(object):
                 # end for policy_rule_entries.policy_rule
             # end for virtual_network.policies
 
-            if static_acl_entries.get_acl_rule() != []:
+            if static_acl_entries is not None:
                 # if a static acl is created, then for each rule, we need to
                 # add a deny rule and add a my-vn to any allow rule in the end
                 acl_list = AclRuleListST()

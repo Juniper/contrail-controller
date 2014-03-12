@@ -59,6 +59,10 @@ bool StateMachineTest::hold_time_msec_ = StateMachine::GetDefaultHoldTime() * 10
 
 class BgpServerUnitTest : public ::testing::Test {
 protected:
+    BgpServerUnitTest() {
+        ControlNode::SetTestMode(true);
+    }
+
     virtual void SetUp() {
         evm_.reset(new EventManager());
         a_.reset(new BgpServerTest(evm_.get(), "A"));

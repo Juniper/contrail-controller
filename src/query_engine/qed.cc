@@ -113,8 +113,6 @@ static void WaitForIdle() {
     }    
 }
 
-uint64_t QueryEngine::anal_ttl = 0;
-
 int
 main(int argc, char *argv[]) {
     EventManager evm;
@@ -192,7 +190,6 @@ main(int argc, char *argv[]) {
     } else {
         LoggingInit(var_map["log-file"].as<string>());
     }
-    QueryEngine::anal_ttl = var_map["analytics-data-ttl"].as<int>();
 
     error_code error;
     string hostname(ip::host_name(error));
@@ -269,7 +266,8 @@ main(int argc, char *argv[]) {
             var_map["redis-ip"].as<string>(),
             var_map["redis-port"].as<int>(),
             var_map["max-tasks"].as<int>(),
-            var_map["max-slice"].as<int>());
+            var_map["max-slice"].as<int>(),
+            var_map["analytics-data-ttl"].as<int>());
     } else if (var_map.count("start-time")) { 
         qe = new QueryEngine(&evm,
             cassandra_ip,
@@ -277,6 +275,7 @@ main(int argc, char *argv[]) {
             var_map["redis-ip"].as<string>(),
             var_map["max-tasks"].as<int>(),
             var_map["max-slice"].as<int>(),
+            var_map["analytics-data-ttl"].as<int>(),
             var_map["start-time"].as<uint64_t>());
     } else {
         qe = new QueryEngine(&evm,
@@ -285,7 +284,8 @@ main(int argc, char *argv[]) {
             var_map["redis-ip"].as<string>(),
             var_map["redis-port"].as<int>(),
             var_map["max-tasks"].as<int>(),
-            var_map["max-slice"].as<int>());
+            var_map["max-slice"].as<int>(),
+            var_map["analytics-data-ttl"].as<int>());
     }
     (void) qe;
 
