@@ -67,7 +67,7 @@ class IndexAllocator(object):
             id_str = "%(#)010d" % {'#': idx}
             self._disc_service.create_node(self._path + id_str, value)
             return idx
-        except ResourceExistsError
+        except ResourceExistsError:
             return self.alloc(value)
     # end alloc
 
@@ -80,7 +80,7 @@ class IndexAllocator(object):
             self._disc_service.create_node(self._path + id_str, value)
             self._set_in_use(self._get_bit_from_zk_index(idx))
             return idx
-        except ResourceExistsError
+        except ResourceExistsError:
             self._set_in_use(self._get_bit_from_zk_index(idx))
             return None
     # end reserve
