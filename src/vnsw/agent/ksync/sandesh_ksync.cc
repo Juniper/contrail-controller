@@ -47,6 +47,7 @@ void KSyncSandeshContext::FlowMsgHandler(vr_flow_req *r) {
         flow_ksync_->flow_table_size_ = r->get_fr_ftable_size();
         LOG(DEBUG, "Flow table size : " << r->get_fr_ftable_size());
     } else if (r->get_fr_op() == flow_op::FLOW_SET) {
+        const KSyncIoContext *ioc = ksync_io_ctx();
         FlowKey key;
         key.vrf = r->get_fr_flow_vrf();
         key.src.ipv4 = ntohl(r->get_fr_flow_sip());
@@ -75,7 +76,8 @@ void KSyncSandeshContext::FlowMsgHandler(vr_flow_req *r) {
                        << " vrf = " << (int) key.vrf
                        << " src = " << src_str << ":" << key.src_port
                        << " dst = " << dst_str << ":" << key.dst_port
-                       << " proto = " << (int)key.protocol);
+                       << " proto = " << (int)key.protocol
+                       << " flow_handle = " << (int) r->get_fr_index());
             if (entry && (int)entry->flow_handle() == r->get_fr_index()) {
                 entry->set_flow_handle(FlowEntry::kInvalidFlowHandle);
                 entry->MakeShortFlow();
@@ -91,11 +93,16 @@ void KSyncSandeshContext::FlowMsgHandler(vr_flow_req *r) {
         }
 
         if (entry) {
+            if (ioc->event() == KSyncEntry::DEL_ACK) {
+                // Skip delete operation.
+                return;
+            }
+
             if (entry->flow_handle() != FlowEntry::kInvalidFlowHandle) {
                 if ((int)entry->flow_handle() != r->get_fr_index()) {
                     LOG(DEBUG, "Flow index changed from <" << 
                         entry->flow_handle() << "> to <" << 
-                        r->get_fr_rindex() << ">");
+                        r->get_fr_index() << ">");
                 }
             }
             entry->set_flow_handle(r->get_fr_index());

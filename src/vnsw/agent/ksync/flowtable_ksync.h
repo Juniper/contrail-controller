@@ -41,6 +41,7 @@ public:
     void SetPcapData(FlowEntryPtr fe, std::vector<int8_t> &data);
     virtual bool Sync();
     virtual KSyncEntry *UnresolvedReference();
+    bool AllowDeleteStateComp() {return false;}
 private:
     FlowEntryPtr flow_entry_;
     uint32_t hash_id_;
