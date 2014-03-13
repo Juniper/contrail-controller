@@ -138,7 +138,6 @@ class PktHandler {
 public:
     typedef boost::function<bool(boost::shared_ptr<PktInfo>)> RcvQueueFunc;
     typedef boost::function<void(PktTrace::Pkt &)> PktTraceCallback;
-    typedef std::map<uint32_t, std::size_t> PktModuleTraceSize;
 
     enum PktModuleName {
         INVALID,
@@ -190,7 +189,12 @@ public:
     void ClearStats() { stats_.Reset(); }
     void PktTraceIterate(PktModuleName mod, PktTraceCallback cb);
     void PktTraceClear(PktModuleName mod) { pkt_trace_.at(mod).Clear(); }
-    std::size_t GetMaxPktTraceSize(uint32_t mod);
+    void PktTraceSize(PktModuleName mod, uint32_t buffers) {
+        pkt_trace_.at(mod).set_num_buffers(buffers);
+    }
+    uint32_t PktTraceSize(PktModuleName mod) const {
+        return pkt_trace_.at(mod).num_buffers();
+    }
 
 private:
     friend bool ::CallPktParse(PktInfo *pkt_info, uint8_t *ptr, int len);
@@ -210,7 +214,6 @@ private:
 
     PktStats stats_;
     boost::array<PktTrace, MAX_MODULES> pkt_trace_;
-    PktModuleTraceSize pkt_module_trace_size_;
 
     Agent *agent_;
     boost::scoped_ptr<TapInterface> tap_interface_;
