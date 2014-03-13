@@ -2273,10 +2273,10 @@ class SchemaTransformer(object):
 
         if policy:
             policy.networks_back_ref.discard(network_name)
+            self.current_network_set |= policy.analyzer_vn_set
         if virtual_network:
             del virtual_network.policies[policy_name]
             self.current_network_set.add(network_name)
-        self.current_network_set |= policy.analyzer_vn_set
     # end delete_virtual_network_network_policy
 
     def delete_project_virtual_network(self, idents, meta):
