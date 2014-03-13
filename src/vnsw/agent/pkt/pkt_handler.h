@@ -189,11 +189,14 @@ public:
     void ClearStats() { stats_.Reset(); }
     void PktTraceIterate(PktModuleName mod, PktTraceCallback cb);
     void PktTraceClear(PktModuleName mod) { pkt_trace_.at(mod).Clear(); }
-    void PktTraceSize(PktModuleName mod, uint32_t buffers) {
+    void PktTraceBuffers(PktModuleName mod, uint32_t buffers) {
         pkt_trace_.at(mod).set_num_buffers(buffers);
     }
-    uint32_t PktTraceSize(PktModuleName mod) const {
+    uint32_t PktTraceBuffers(PktModuleName mod) const {
         return pkt_trace_.at(mod).num_buffers();
+    }
+    uint32_t PktTraceSize(PktModuleName mod) const {
+        return pkt_trace_.at(mod).pkt_trace_size();
     }
 
 private:

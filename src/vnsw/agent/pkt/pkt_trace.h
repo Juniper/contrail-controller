@@ -5,7 +5,6 @@
 #ifndef vnsw_agent_pkt_trace_hpp
 #define vnsw_agent_pkt_trace_hpp
 
-#include <tbb/mutex.h>
 #include <boost/scoped_array.hpp>
 
 class PktTrace {
@@ -42,7 +41,6 @@ public:
     virtual ~PktTrace() {}
 
     void AddPktTrace(Direction dir, std::size_t len, uint8_t *msg) {
-        tbb::mutex::scoped_lock lock(mutex_);
         if (num_buffers_) {
             end_ = (end_ + 1) % num_buffers_;
             pkt_buffer_[end_].Copy(dir, len, msg, pkt_trace_size_);
@@ -51,14 +49,12 @@ public:
     }
 
     void Clear() {
-        tbb::mutex::scoped_lock lock(mutex_);
         count_ = 0;
         end_ = -1;
     }
 
     void Iterate(Cb cb) {
         if (cb && count_) {
-            tbb::mutex::scoped_lock lock(mutex_);
             uint32_t start_ =
                 (count_ < num_buffers_) ? 0 : (end_ + 1) % num_buffers_;
             for (uint32_t i = 0; i < count_; i++)
@@ -75,7 +71,6 @@ public:
 
     // change number of buffers
     void set_num_buffers(uint32_t num_buffers) {
-        tbb::mutex::scoped_lock lock(mutex_);
         if (num_buffers_ != num_buffers) {
             // existing buffers are cleared upon resizing
             count_ = 0;
@@ -86,7 +81,6 @@ public:
     }
 
 private:
-    tbb::mutex mutex_;
     uint32_t end_;
     uint32_t count_;
     std::size_t num_buffers_;

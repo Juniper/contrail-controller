@@ -709,14 +709,14 @@ void PktTraceInfo::HandleRequest() const {
     if (buffers > PktTrace::kPktMaxNumBuffers ||
         flow_buffers > PktTrace::kPktMaxNumBuffers) {
         resp->set_resp("Invalid Input !!");
-        buffers = handler->PktTraceSize(PktHandler::INVALID);
-        flow_buffers = handler->PktTraceSize(PktHandler::FLOW);
+        buffers = handler->PktTraceBuffers(PktHandler::INVALID);
+        flow_buffers = handler->PktTraceBuffers(PktHandler::FLOW);
     } else {
-        handler->PktTraceSize(PktHandler::FLOW, flow_buffers);
+        handler->PktTraceBuffers(PktHandler::FLOW, flow_buffers);
         for (uint32_t i = 0; i < PktHandler::MAX_MODULES; ++i) {
             if (i == PktHandler::FLOW)
                 continue;
-            handler->PktTraceSize((PktHandler::PktModuleName)i, buffers);
+            handler->PktTraceBuffers((PktHandler::PktModuleName)i, buffers);
         }
     }
     resp->set_num_buffers(buffers);
