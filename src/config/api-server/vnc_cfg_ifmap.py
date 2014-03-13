@@ -938,17 +938,9 @@ class VncZkClient(object):
     _SUBNET_PATH = "/api-server/subnets/"
 
     def __init__(self, zk_server_ip):
-        # logging
-        zk_logger = logging.getLogger('api-server')
-        zk_logger.setLevel(logging.INFO)
-        handler = logging.handlers.RotatingFileHandler('/var/log/contrail/api-server-zk.log', maxBytes=1024*1024, backupCount=10)
-        log_format = logging.Formatter('%(asctime)s [%(name)s]: %(message)s', datefmt='%m/%d/%Y %I:%M:%S %p')
-        handler.setFormatter(log_format)
-        zk_logger.addHandler(handler)
-
         while True:
             try:
-                self._zk_client = DiscoveryService(zk_server_ip, zk_logger)
+                self._zk_client = DiscoveryService("api-server", zk_server_ip)
                 break
             except gevent.event.Timeout as e:
                 pass

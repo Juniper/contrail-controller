@@ -1250,15 +1250,7 @@ def main(args_str=None):
         args_str = ' '.join(sys.argv[1:])
     args = parse_args(args_str)
 
-    # logging
-    logger = logging.getLogger('svc-mon')
-    logger.setLevel(logging.INFO)
-    handler = logging.handlers.RotatingFileHandler('/var/log/contrail/svc-mon-zk.log', maxBytes=1024*1024, backupCount=10)
-    log_format = logging.Formatter('%(asctime)s [%(name)s]: %(message)s', datefmt='%m/%d/%Y %I:%M:%S %p')
-    handler.setFormatter(log_format)
-    logger.addHandler(handler)
-
-    _disc_service = DiscoveryService(args.zk_server_ip, logger)
+    _disc_service = DiscoveryService("svc-mon", args.zk_server_ip)
     _disc_service.master_election("/svc-monitor", os.getpid(),
                                   run_svc_monitor, args)
 # end main
