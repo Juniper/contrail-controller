@@ -117,9 +117,10 @@ if AnalyticsEnv['OPT'] == 'coverage':
     AnalyticsEnv.AppendUnique(CCFLAGS='-g')
     AnalyticsEnv.AppendUnique(CCFLAGS='-O0')
     AnalyticsEnv.AppendUnique(CCFLAGS='--coverage')
-vizd_sources = ['viz_collector.cc', 'ruleeng.cc', 'collector.cc', 'vizd_table_desc.cc',
-                'viz_message.cc','generator.cc','redis_connection.cc', 'redis_processor_vizd.cc',
-                'syslog_collector.cc']
+vizd_sources = ['viz_collector.cc', 'ruleeng.cc', 'collector.cc',
+                'vizd_table_desc.cc', 'viz_message.cc','generator.cc',
+                'redis_connection.cc', 'redis_processor_vizd.cc',
+                'syslog_collector.cc', 'options.cc']
 
 RedisLuaBuild(AnalyticsEnv, 'seqnum')
 RedisLuaBuild(AnalyticsEnv, 'delrequest')

@@ -6,6 +6,7 @@
 #include <iostream>
 
 #include "base/contrail_ports.h"
+#include "base/test/task_test_util.h"
 #include "base/util.h"
 #include "base/logging.h"
 #include "base/test/task_test_util.h"
@@ -16,7 +17,6 @@ using namespace std;
 using namespace boost::asio::ip;
 
 static uint16_t default_bgp_port = ContrailPorts::ControlBgp;
-static uint16_t default_collector_port = ContrailPorts::CollectorPort;
 static uint16_t default_http_server_port = ContrailPorts::HttpPortControl;
 static uint16_t default_xmpp_port = ContrailPorts::ControlXmpp;
 static uint16_t default_discovery_port = ContrailPorts::DiscoveryServerPort;
@@ -29,11 +29,13 @@ protected:
         boost::system::error_code error;
         hostname_ = host_name(error);
         host_ip_ = GetHostIp(evm_.io_service(), hostname_);
+        default_collector_server_list_.push_back("127.0.0.1:8086");
     }
 
     EventManager evm_;
     std::string hostname_;
     std::string host_ip_;
+    std::vector<std::string> default_collector_server_list_;
     Options options_;
 };
 
@@ -47,8 +49,8 @@ TEST_F(OptionsTest, NoArguments) {
 
     EXPECT_EQ(options_.bgp_config_file(), "bgp_config.xml");
     EXPECT_EQ(options_.bgp_port(), default_bgp_port);
-    EXPECT_EQ(options_.collector_server(), "");
-    EXPECT_EQ(options_.collector_port(), default_collector_port);
+    TASK_UTIL_EXPECT_VECTOR_EQ(default_collector_server_list_,
+                     options_.collector_server_list());
     EXPECT_EQ(options_.config_file(), "/etc/contrail/control-node.conf");
     EXPECT_EQ(options_.discovery_server(), "");
     EXPECT_EQ(options_.discovery_port(), default_discovery_port);
@@ -82,8 +84,8 @@ TEST_F(OptionsTest, DefaultConfFile) {
 
     EXPECT_EQ(options_.bgp_config_file(), "bgp_config.xml");
     EXPECT_EQ(options_.bgp_port(), default_bgp_port);
-    EXPECT_EQ(options_.collector_server(), "");
-    EXPECT_EQ(options_.collector_port(), default_collector_port);
+    TASK_UTIL_EXPECT_VECTOR_EQ(default_collector_server_list_,
+                     options_.collector_server_list());
     EXPECT_EQ(options_.config_file(),
               "controller/src/control-node/control-node.conf");
     EXPECT_EQ(options_.discovery_server(), "");
@@ -120,8 +122,8 @@ TEST_F(OptionsTest, OverrideStringFromCommandLine) {
 
     EXPECT_EQ(options_.bgp_config_file(), "bgp_config.xml");
     EXPECT_EQ(options_.bgp_port(), default_bgp_port);
-    EXPECT_EQ(options_.collector_server(), "");
-    EXPECT_EQ(options_.collector_port(), default_collector_port);
+    TASK_UTIL_EXPECT_VECTOR_EQ(default_collector_server_list_,
+                     options_.collector_server_list());
     EXPECT_EQ(options_.config_file(),
               "controller/src/control-node/control-node.conf");
     EXPECT_EQ(options_.discovery_server(), "");
@@ -158,8 +160,8 @@ TEST_F(OptionsTest, OverrideBooleanFromCommandLine) {
 
     EXPECT_EQ(options_.bgp_config_file(), "bgp_config.xml");
     EXPECT_EQ(options_.bgp_port(), default_bgp_port);
-    EXPECT_EQ(options_.collector_server(), "");
-    EXPECT_EQ(options_.collector_port(), default_collector_port);
+    TASK_UTIL_EXPECT_VECTOR_EQ(default_collector_server_list_,
+                     options_.collector_server_list());
     EXPECT_EQ(options_.config_file(),
               "controller/src/control-node/control-node.conf");
     EXPECT_EQ(options_.discovery_server(), "");
@@ -187,6 +189,9 @@ TEST_F(OptionsTest, CustomConfigFile) {
         "[DEFAULT]\n"
         "bgp_config_file=test.xml\n"
         "bgp_port=200\n"
+        "collectors=10.10.10.1:100\n"
+        "collectors=20.20.20.2:200\n"
+        "collectors=30.30.30.3:300\n"
         "hostip=1.2.3.4\n"
         "hostname=test\n"
         "http_server_port=800\n"
@@ -199,10 +204,6 @@ TEST_F(OptionsTest, CustomConfigFile) {
         "log_local=1\n"
         "test_mode=1\n"
         "xmpp_server_port=100\n"
-        "\n"
-        "[COLLECTOR]\n"
-        "port=100\n"
-        "server=3.4.5.6\n"
         "\n"
         "[DISCOVERY]\n"
         "port=100\n"
@@ -230,8 +231,13 @@ TEST_F(OptionsTest, CustomConfigFile) {
 
     EXPECT_EQ(options_.bgp_config_file(), "test.xml");
     EXPECT_EQ(options_.bgp_port(), 200);
-    EXPECT_EQ(options_.collector_server(), "3.4.5.6");
-    EXPECT_EQ(options_.collector_port(), 100);
+
+    vector<string> collector_server_list;
+    collector_server_list.push_back("10.10.10.1:100");
+    collector_server_list.push_back("20.20.20.2:200");
+    collector_server_list.push_back("30.30.30.3:300");
+    TASK_UTIL_EXPECT_VECTOR_EQ(collector_server_list,
+                     options_.collector_server_list());
     EXPECT_EQ(options_.config_file(),
               "/tmp/options_test_config_file.conf");
     EXPECT_EQ(options_.discovery_server(), "1.0.0.1");
@@ -259,6 +265,9 @@ TEST_F(OptionsTest, CustomConfigFileAndOverrideFromCommandLine) {
         "[DEFAULT]\n"
         "bgp_config_file=test.xml\n"
         "bgp_port=200\n"
+        "collectors=10.10.10.1:100\n"
+        "collectors=20.20.20.2:200\n"
+        "collectors=30.30.30.3:300\n"
         "hostip=1.2.3.4\n"
         "hostname=test\n"
         "http_server_port=800\n"
@@ -271,10 +280,6 @@ TEST_F(OptionsTest, CustomConfigFileAndOverrideFromCommandLine) {
         "log_local=0\n"
         "test_mode=1\n"
         "xmpp_server_port=100\n"
-        "\n"
-        "[COLLECTOR]\n"
-        "port=100\n"
-        "server=3.4.5.6\n"
         "\n"
         "[DISCOVERY]\n"
         "port=100\n"
@@ -291,25 +296,35 @@ TEST_F(OptionsTest, CustomConfigFileAndOverrideFromCommandLine) {
     config_file << config;
     config_file.close();
 
-    int argc = 5;
+    int argc = 7;
     char *argv[argc];
     char argv_0[] = "options_test";
     char argv_1[] = "--conf_file=/tmp/options_test_config_file.conf";
     char argv_2[] = "--DEFAULT.log_file=new_test.log";
     char argv_3[] = "--DEFAULT.log_local";
-    char argv_4[] = "--COLLECTOR.port=1000";
+    char argv_4[] = "--DEFAULT.collectors=11.10.10.1:100";
+    char argv_5[] = "--DEFAULT.collectors=21.20.20.2:200";
+    char argv_6[] = "--DEFAULT.collectors=31.30.30.3:300";
     argv[0] = argv_0;
     argv[1] = argv_1;
     argv[2] = argv_2;
     argv[3] = argv_3;
     argv[4] = argv_4;
+    argv[5] = argv_5;
+    argv[6] = argv_6;
 
     options_.Parse(evm_, argc, argv);
 
     EXPECT_EQ(options_.bgp_config_file(), "test.xml");
     EXPECT_EQ(options_.bgp_port(), 200);
-    EXPECT_EQ(options_.collector_server(), "3.4.5.6");
-    EXPECT_EQ(options_.collector_port(), 1000);
+
+    vector<string> collector_server_list;
+    collector_server_list.push_back("11.10.10.1:100");
+    collector_server_list.push_back("21.20.20.2:200");
+    collector_server_list.push_back("31.30.30.3:300");
+    TASK_UTIL_EXPECT_VECTOR_EQ(collector_server_list,
+                     options_.collector_server_list());
+
     EXPECT_EQ(options_.config_file(),
               "/tmp/options_test_config_file.conf");
     EXPECT_EQ(options_.discovery_server(), "1.0.0.1");
