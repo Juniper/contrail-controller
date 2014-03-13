@@ -388,7 +388,6 @@ void DbHandler::MessageTableInsert(const VizMsg *vmsgp) {
     uint64_t temp_u64;
     DbHandler::TagMap tmap;
     DbHandler::AttribMap amap;
-    string sname;
     DbHandler::Var pv;
     DbHandler::AttribMap attribs;
     std::string name_val = string(g_viz_constants.COLLECTOR_GLOBAL_TABLE);
@@ -398,7 +397,6 @@ void DbHandler::MessageTableInsert(const VizMsg *vmsgp) {
     attribs.insert(make_pair(string("name"), pv));
     string sattrname("fields.value");
     pv = string(message_type);
-    tmap.insert(make_pair(sattrname,make_pair(pv,amap)));
     attribs.insert(make_pair(sattrname,pv));
 
     //pv = string(header.get_Source());
@@ -474,7 +472,6 @@ void DbHandler::ObjectTableInsert(const std::string &table, const std::string &r
 	 */
 	DbHandler::TagMap tmap;
 	DbHandler::AttribMap amap;
-	string sname;
 	DbHandler::Var pv;
 	DbHandler::AttribMap attribs;
 	std::string name_val = string(table);
@@ -484,8 +481,12 @@ void DbHandler::ObjectTableInsert(const std::string &table, const std::string &r
 	attribs.insert(make_pair(string("name"), pv));
 	string sattrname("fields.value");
 	pv = string(rowkey_str);
-	tmap.insert(make_pair(sattrname,make_pair(pv,amap)));
 	attribs.insert(make_pair(sattrname,pv));
+        
+        pv = string(col_name_);
+        tmap.insert(make_pair("Source",make_pair(pv,amap)));
+        attribs.insert(make_pair(string("Source"),pv));
+
 	StatTableInsert(timestamp, "FieldNames","fields",tmap,attribs);
     }
         
