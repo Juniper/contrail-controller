@@ -11,8 +11,8 @@
 #include "base/task.h"
 #include "base/task_annotations.h"
 #include "base/util.h"
-#include "bgp/bgp_log.h"       // debug
-#include "bgp/bgp_peer.h"       // debug
+#include "bgp/bgp_factory.h"
+#include "bgp/bgp_log.h"
 #include "bgp/bgp_ribout.h"
 #include "bgp/bgp_ribout_updates.h"
 #include "bgp/bgp_update.h"
@@ -771,8 +771,7 @@ void SchedulingGroup::GetPeerList(PeerList *plist) const {
 void SchedulingGroup::RibOutActive(RibOut *ribout, int queue_id) {
     CHECK_CONCURRENCY("db::DBTable", "bgp::SendTask");
 
-    WorkBase *wentry = new WorkRibOut(ribout, queue_id);
-    WorkEnqueue(wentry);
+    WorkRibOutEnqueue(ribout, queue_id);
 }
 
 //
@@ -794,8 +793,7 @@ void SchedulingGroup::SendReady(IPeerUpdate *peer) {
     // Create and enqueue new WorkPeer entry.
     BGP_LOG_SCHEDULING_GROUP(peer, ": send-ready");
     ps->set_send_ready(true);
-    WorkBase *wentry = new WorkPeer(peer);
-    WorkEnqueue(wentry);
+    WorkPeerEnqueue(peer);
 }
 
 //
@@ -842,6 +840,26 @@ void SchedulingGroup::WorkEnqueue(WorkBase *wentry) {
         scheduler->Enqueue(worker_task_);
         running_ = true;
     }
+}
+
+//
+// Enqueue a WorkPeer to the work queue.
+//
+void SchedulingGroup::WorkPeerEnqueue(IPeerUpdate *peer) {
+    CHECK_CONCURRENCY("bgp::SendReadyTask");
+
+    WorkBase *wentry = new WorkPeer(peer);
+    WorkEnqueue(wentry);
+}
+
+//
+// Enqueue a WorkRibOut to the work queue.
+//
+void SchedulingGroup::WorkRibOutEnqueue(RibOut *ribout, int queue_id) {
+    CHECK_CONCURRENCY("db::DBTable", "bgp::SendTask");
+
+    WorkBase *wentry = new WorkRibOut(ribout, queue_id);
+    WorkEnqueue(wentry);
 }
 
 //
@@ -1181,7 +1199,7 @@ void SchedulingGroupManager::Join(RibOut *ribout, IPeerUpdate *peer) {
     if (i1 == peer_map_.end()) {
         if (i2 == ribout_map_.end()) {
             // Create new empty group
-            sg = new SchedulingGroup();
+            sg = BgpObjectFactory::Create<SchedulingGroup>();
             groups_.push_back(sg);
             ribout_map_.insert(make_pair(ribout, sg));
         } else {
@@ -1329,7 +1347,7 @@ void SchedulingGroupManager::Split(
         SchedulingGroup *sg, const RibOutList &rg1, const RibOutList &rg2) {
     CHECK_CONCURRENCY("bgp::PeerMembership");
 
-    SchedulingGroup *sg2 = new SchedulingGroup();
+    SchedulingGroup *sg2 = BgpObjectFactory::Create<SchedulingGroup>();
     groups_.push_back(sg2);
 
     // Note that calling the Split method results in the creation of all
