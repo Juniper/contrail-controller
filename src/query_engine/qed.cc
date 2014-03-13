@@ -21,6 +21,7 @@
 #include <sandesh/common/vns_types.h>
 #include <sandesh/common/vns_constants.h>
 #include "analytics_cpuinfo_types.h"
+#include "query_engine/options.h"
 #include "query.h"
 #include <base/misc_utils.h>
 #include <query_engine/buildinfo.h>
@@ -33,7 +34,7 @@ using std::vector;
 using boost::assign::list_of;
 using boost::system::error_code;
 using namespace boost::asio;
-namespace opt = boost::program_options;
+using namespace std;
 // This is to force qed to wait for a gdbattach
 // before proceeding.
 // It will make it easier to debug qed during systest
@@ -113,101 +114,56 @@ static void WaitForIdle() {
     }    
 }
 
+static bool OptionsParse(Options &options, EventManager &evm,
+                         int argc, char *argv[]) {
+    try {
+        options.Parse(evm, argc, argv);
+        return true;
+    } catch (boost::program_options::error &e) {
+        cout << "Error " << e.what() << endl;
+    } catch (...) {
+        cout << "Options Parser: Caught fatal unknown exception" << endl;
+    }
+
+    return false;
+}
+
 int
 main(int argc, char *argv[]) {
     EventManager evm;
     pevm = &evm;
-    bool enable_local_logging = false;
-    const string default_log_file = "<stdout>";
-    opt::options_description desc("Command line options");
+    Options options;
+
+    if (!OptionsParse(options, evm, argc, argv)) {
+        exit(-1);
+    }
+
     while (gdbhelper==0) {
         usleep(1000);
     }
-    desc.add_options()
-        ("help", "help message")
-        ("cassandra-server-list",
-         opt::value<vector<string> >()->default_value(
-                 vector<string>(), "127.0.0.1:9160"),
-         "cassandra server list")
-        ("analytics-data-ttl", opt::value<int>()->default_value(g_viz_constants.AnalyticsTTL),
-            "global TTL(hours) for analytics data")
-        ("redis-ip",
-         opt::value<string>()->default_value("127.0.0.1"),
-         "redis server ip")
-        ("redis-port",
-         opt::value<int>()->default_value(6379),
-         "redis server port")
-        ("http-server-port",
-         opt::value<int>()->default_value(ContrailPorts::HttpPortQueryEngine),
-         "Sandesh HTTP listener port")
-        ("log-local", opt::bool_switch(&enable_local_logging),
-         "Enable local logging of sandesh messages")
-        ("log-level", opt::value<string>()->default_value("SYS_NOTICE"),
-         "Severity level for local logging of sandesh messages")
-        ("log-category", opt::value<string>()->default_value(""),
-         "Category filter for local logging of sandesh messages")
-        ("collectors", opt::value<vector<string> >()->multitoken(
-                )->default_value(
-                vector<string>(1,"127.0.0.1:8086"), "127.0.0.1:8086"),
-         "IP address:port of sandesh collectors")
-        ("discovery-server",
-         opt::value<string>(),
-         "Discovery Server IP Addr")
-        ("discovery-port",
-         opt::value<int>()->default_value(ContrailPorts::DiscoveryServerPort),
-         "Discovery Server port")
-        ("log-file", opt::value<string>()->default_value(default_log_file),
-         "Filename for the logs to be written to")
-        ("version", "Display version information")
-        ("start-time",
-         opt::value<uint64_t>(),
-         "Lowest start time for queries")
-        ("max-tasks",
-         opt::value<int>()->default_value(16),
-         "Max number of tasks used for a query")
-        ("max-slice",
-         opt::value<int>()->default_value(100),
-         "Max number of rows in chunk slice")        
-        ;
-    opt::variables_map var_map;
-    opt::store(opt::parse_command_line(argc, argv, desc), var_map);
-    opt::notify(var_map);
 
-    if (var_map.count("help")) {
-        std::cout << desc << std::endl;
-        exit(0);
-    }
-
-    if (var_map.count("version")) {
-        string build_info;
-        QedVersion(build_info);
-        std::cout << build_info << std::endl;
-        exit(0);
-    }
-
-    if (var_map["log-file"].as<string>() == default_log_file) {
+    if (options.log_file() == "<stdout>") {
         LoggingInit();
     } else {
-        LoggingInit(var_map["log-file"].as<string>());
+        LoggingInit(options.log_file(), options.log_file_size(),
+                    options.log_files_count());
     }
 
     error_code error;
-    string hostname(ip::host_name(error));
     DiscoveryServiceClient *ds_client = NULL;
     ip::tcp::endpoint dss_ep;
     Sandesh::CollectorSubFn csf = 0;
     Module::type module = Module::QUERY_ENGINE;
     string module_name = g_vns_constants.ModuleNames.find(module)->second;
-    if (var_map.count("discovery-server")) {
+    if (!options.discovery_server().empty()) {
         error_code error;
         dss_ep.address(
-            ip::address::from_string(var_map["discovery-server"].as<string>(),
-            error));
+            ip::address::from_string(options.discovery_server(), error));
         if (error) {
             LOG(ERROR, __func__ << ": Invalid discovery-server: " << 
-                    var_map["discovery-server"].as<string>());
+                    options.discovery_server());
         } else {
-            dss_ep.port(var_map["discovery-port"].as<int>());
+            dss_ep.port(options.discovery_port());
             string subscriber_name =
                 g_vns_constants.ModuleNames.find(Module::QUERY_ENGINE)->second;
             ds_client = new DiscoveryServiceClient(&evm, dss_ep, 
@@ -218,38 +174,33 @@ main(int argc, char *argv[]) {
         }
     }
 
-    LOG(INFO, "http-server-port " << var_map["http-server-port"].as<int>());
+    LOG(INFO, "http-server-port " << options.http_server_port());
     LOG(INFO, "Endpoint " << dss_ep);
-    LOG(INFO, "Collectors " << var_map.count("collectors"));
-    LOG(INFO, "Max-tasks " << var_map["max-tasks"].as<int>());
-    LOG(INFO, "Max-slice " << var_map["max-slice"].as<int>());
+    LOG(INFO, "Max-tasks " << options.max_tasks());
+    LOG(INFO, "Max-slice " << options.max_slice());
 
     // Initialize Sandesh
     NodeType::type node_type = 
         g_vns_constants.Module2NodeType.find(module)->second;
     Sandesh::InitGenerator(
             module_name,
-            hostname, 
+            options.hostname(),
             g_vns_constants.NodeTypeNames.find(node_type)->second,
             g_vns_constants.INSTANCE_ID_DEFAULT,
             &evm,
-            var_map["http-server-port"].as<int>(),
+            options.http_server_port(),
             csf,
-            var_map["collectors"].as<vector<string> >(),
+            options.collector_server_list(),
             NULL);
-    Sandesh::SetLoggingParams(enable_local_logging,
-                              var_map["log-category"].as<string>(),
-                              var_map["log-level"].as<string>(),
-                              false);
+    Sandesh::SetLoggingParams(options.log_local(), options.log_category(),
+                              options.log_level());
 
-    vector<string> cassandra_server_list(
-            var_map["cassandra-server-list"].as<vector<string> >());
-    string cassandra_server;
-    if (cassandra_server_list.empty()) {
-        cassandra_server = "127.0.0.1:9160";
-    } else {
-        cassandra_server = cassandra_server_list[0];
+    // XXX Disable logging -- for test purposes only
+    if (options.log_disable()) {
+        SetLoggingDisabled(true);
     }
+
+    string cassandra_server = options.cassandra_server_list()[0];
     typedef boost::tokenizer<boost::char_separator<char> > tokenizer;
     boost::char_separator<char> sep(":");
     tokenizer tokens(cassandra_server, sep);
@@ -263,40 +214,32 @@ main(int argc, char *argv[]) {
     QueryEngine *qe;
     if (cassandra_port == 0) {
         qe = new QueryEngine(&evm,
-            var_map["redis-ip"].as<string>(),
-            var_map["redis-port"].as<int>(),
-            var_map["max-tasks"].as<int>(),
-            var_map["max-slice"].as<int>(),
-            var_map["analytics-data-ttl"].as<int>());
-    } else if (var_map.count("start-time")) { 
-        qe = new QueryEngine(&evm,
-            cassandra_ip,
-            cassandra_port,
-            var_map["redis-ip"].as<string>(),
-            var_map["max-tasks"].as<int>(),
-            var_map["max-slice"].as<int>(),
-            var_map["analytics-data-ttl"].as<int>(),
-            var_map["start-time"].as<uint64_t>());
+            options.redis_server(),
+            options.redis_port(),
+            options.max_tasks(),
+            options.max_slice(),
+            options.analytics_data_ttl());
     } else {
         qe = new QueryEngine(&evm,
             cassandra_ip,
             cassandra_port,
-            var_map["redis-ip"].as<string>(),
-            var_map["redis-port"].as<int>(),
-            var_map["max-tasks"].as<int>(),
-            var_map["max-slice"].as<int>(),
-            var_map["analytics-data-ttl"].as<int>());
+            options.redis_server(),
+            options.redis_port(),
+            options.max_tasks(),
+            options.max_slice(),
+            options.analytics_data_ttl(),
+            options.start_time());
     }
     (void) qe;
 
     CpuLoadData::Init();
     qe_info_trigger =
-        new TaskTrigger(boost::bind(&QEInfoLogger, hostname),
+        new TaskTrigger(boost::bind(&QEInfoLogger, options.hostname()),
                     TaskScheduler::GetInstance()->GetTaskId("qe::Stats"), 0);
     qe_info_log_timer = TimerManager::CreateTimer(*evm.io_service(),
                                                     "Collector Info log timer");
     qe_info_log_timer->Start(5*1000, boost::bind(&QEInfoLogTimer), NULL);    
-    signal(SIGTERM,terminate_qe);
+    signal(SIGTERM, terminate_qe);
     evm.Run();
 
     if (ds_client) {

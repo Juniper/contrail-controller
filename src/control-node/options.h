@@ -13,8 +13,9 @@ public:
 
     const std::string bgp_config_file() const { return bgp_config_file_; }
     const uint16_t bgp_port() const { return bgp_port_; }
-    const std::string collector_server() const { return collector_server_; }
-    const uint16_t collector_port() const { return collector_port_; };
+    const std::vector<std::string> collector_server_list() const {
+        return collector_server_list_;
+    }
     const std::string config_file() const { return config_file_; };
     const std::string discovery_server() const { return discovery_server_; }
     const uint16_t discovery_port() const { return discovery_port_; }
@@ -34,6 +35,7 @@ public:
     const std::string ifmap_certs_store() const { return ifmap_certs_store_; }
     const uint16_t xmpp_port() const { return xmpp_port_; }
     const bool test_mode() const { return test_mode_; }
+    const bool collectors_configured() const { return collectors_configured_; }
 
 private:
 
@@ -47,8 +49,7 @@ private:
 
     std::string bgp_config_file_;
     uint16_t bgp_port_;
-    std::string collector_server_;
-    uint16_t collector_port_;
+    std::vector<std::string> collector_server_list_;
     std::string config_file_;
     std::string discovery_server_;
     uint16_t discovery_port_;
@@ -68,6 +69,7 @@ private:
     std::string ifmap_certs_store_;
     uint16_t xmpp_port_;
     bool test_mode_;
+    bool collectors_configured_;
 
     boost::program_options::options_description config_file_options_;
 };

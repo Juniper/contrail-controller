@@ -1,23 +1,24 @@
 /*
- * Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
+ * Copyright (c) 2014 Juniper Networks, Inc. All rights reserved.
  */
 
-#include <boost/asio/ip/host_name.hpp>
 #include <fstream>
 #include <iostream>
+#include <boost/asio/ip/host_name.hpp>
 
 #include "base/contrail_ports.h"
 #include "base/logging.h"
 #include "base/misc_utils.h"
 #include "base/util.h"
-#include "cmn/buildinfo.h"
-#include "cmn/dns_options.h"
+#include "query_engine/buildinfo.h"
+
+#include "options.h"
 
 using namespace std;
 using namespace boost::asio::ip;
 namespace opt = boost::program_options;
 
-// Process command line options for dns.
+// Process command line options for query-engine   .
 Options::Options() {
 }
 
@@ -29,9 +30,9 @@ bool Options::Parse(EventManager &evm, int argc, char *argv[]) {
     return true;
 }
 
-// Initialize dns's command line option tags with appropriate default
+// Initialize query-engine's command line option tags with appropriate default
 // values. Options can from a config file as well. By default, we read
-// options from /etc/contrail/dns.conf
+// options from /etc/contrail/query-engine.conf
 void Options::Initialize(EventManager &evm,
                          opt::options_description &cmdline_options) {
     boost::system::error_code error;
@@ -43,39 +44,44 @@ void Options::Initialize(EventManager &evm,
     // Command line only options.
     generic.add_options()
         ("conf_file", opt::value<string>()->default_value(
-                                                    "/etc/contrail/dns.conf"),
+                                            "/etc/contrail/query-engine.conf"),
              "Configuration file")
          ("help", "help message")
         ("version", "Display version information")
     ;
 
-    uint16_t default_http_server_port = ContrailPorts::HttpPortDns;
+    uint16_t default_redis_port = ContrailPorts::RedisQueryEnginePort;
+    uint16_t default_http_server_port = ContrailPorts::HttpPortQueryEngine;
     uint16_t default_discovery_port = ContrailPorts::DiscoveryServerPort;
 
+    vector<string> default_cassandra_server_list;
+    default_cassandra_server_list.push_back("127.0.0.1:9160");
     vector<string> default_collector_server_list;
     default_collector_server_list.push_back("127.0.0.1:8086");
 
     // Command line and config file options.
     opt::options_description config("Configuration options");
     config.add_options()
+        ("DEFAULT.analytics_data_ttl",
+             opt::value<int>()->default_value(ANALYTICS_DATA_TTL_DEFAULT),
+             "global TTL(hours) for analytics data")
         ("DEFAULT.collectors",
            opt::value<vector<string> >()->default_value(
                default_collector_server_list, "127.0.0.1:8086"),
              "Collector server list")
-        ("DEFAULT.dns_config_file",
-             opt::value<string>()->default_value("dns_config.xml"),
-             "DNS Configuration file")
-
+        ("DEFAULT.cassandra_server_list",
+           opt::value<vector<string> >()->default_value(
+               default_cassandra_server_list, "127.0.0.1:9160"),
+             "Cassandra server list")
         ("DEFAULT.hostip", opt::value<string>()->default_value(host_ip),
-             "IP address of DNS Server")
+             "IP address of query-engine")
         ("DEFAULT.hostname", opt::value<string>()->default_value(hostname),
-             "Hostname of DNS Server")
+             "Hostname of query-engine")
         ("DEFAULT.http_server_port",
              opt::value<uint16_t>()->default_value(default_http_server_port),
              "Sandesh HTTP listener port")
 
-        ("DEFAULT.log_category",
-             opt::value<string>()->default_value(log_category_),
+        ("DEFAULT.log_category", opt::value<string>(),
              "Category filter for local logging of sandesh messages")
         ("DEFAULT.log_disable", opt::bool_switch(&log_disable_),
              "Disable sandesh logging")
@@ -91,8 +97,15 @@ void Options::Initialize(EventManager &evm,
              "Severity level for local logging of sandesh messages")
         ("DEFAULT.log_local", opt::bool_switch(&log_local_),
              "Enable local logging of sandesh messages")
+        ("DEFAULT.max_slice", opt::value<int>()->default_value(100),
+             "Max number of rows in chunk slice")
+        ("DEFAULT.max_tasks", opt::value<int>()->default_value(16),
+             "Max number of tasks used for a query")
+        ("DEFAULT.start_time", opt::value<uint64_t>()->default_value(0),
+             "Lowest start time for queries")
+
         ("DEFAULT.test_mode", opt::bool_switch(&test_mode_),
-             "Enable dns to run in test-mode")
+             "Enable query-engine to run in test-mode")
 
         ("DISCOVERY.port", opt::value<uint16_t>()->default_value(
                                                        default_discovery_port),
@@ -100,16 +113,11 @@ void Options::Initialize(EventManager &evm,
         ("DISCOVERY.server", opt::value<string>(),
              "IP address of Discovery Server")
 
-        ("IFMAP.certs_store",  opt::value<string>(),
-             "Certificates store to use for communication with IFMAP server")
-        ("IFMAP.password", opt::value<string>()->default_value(
-                                                     "dns_user_passwd"),
-             "IFMAP server password")
-        ("IFMAP.server_url",
-             opt::value<string>()->default_value(ifmap_server_url_),
-             "IFMAP server URL")
-        ("IFMAP.user", opt::value<string>()->default_value("dns_user"),
-             "IFMAP server username")
+        ("REDIS.port",
+             opt::value<uint16_t>()->default_value(default_redis_port),
+             "Port of Redis-uve server")
+        ("REDIS.server", opt::value<string>()->default_value("127.0.0.1"),
+             "IP address of Redis Server")
         ;
 
     config_file_options_.add(config);
@@ -153,20 +161,21 @@ void Options::Process(int argc, char *argv[],
 
     if (var_map.count("version")) {
         string build_info;
-        cout << MiscUtils::GetBuildInfo(MiscUtils::Dns, BuildInfo,
+        cout << MiscUtils::GetBuildInfo(MiscUtils::Analytics, BuildInfo,
                                         build_info) << endl;
         exit(0);
     }
 
     // Retrieve the options.
-    GetOptValue<string>(var_map, dns_config_file_, "DEFAULT.dns_config_file");
+    GetOptValue<int>(var_map, analytics_data_ttl_,
+                     "DEFAULT.analytics_data_ttl");
+
+    GetOptValue< vector<string> >(var_map, cassandra_server_list_,
+                                  "DEFAULT.cassandra_server_list");
     GetOptValue< vector<string> >(var_map, collector_server_list_,
                                   "DEFAULT.collectors");
-    collectors_configured_ = (var_map.count("DEFAULT.collectors") != 0);
-
     GetOptValue<string>(var_map, host_ip_, "DEFAULT.hostip");
     GetOptValue<string>(var_map, hostname_, "DEFAULT.hostname");
-
     GetOptValue<uint16_t>(var_map, http_server_port_,
                           "DEFAULT.http_server_port");
 
@@ -175,13 +184,13 @@ void Options::Process(int argc, char *argv[],
     GetOptValue<int>(var_map, log_files_count_, "DEFAULT.log_files_count");
     GetOptValue<long>(var_map, log_file_size_, "DEFAULT.log_file_size");
     GetOptValue<string>(var_map, log_level_, "DEFAULT.log_level");
+    GetOptValue<uint64_t>(var_map, start_time_, "DEFAULT.start_time");
+    GetOptValue<int>(var_map, max_tasks_, "DEFAULT.max_tasks");
+    GetOptValue<int>(var_map, max_slice_, "DEFAULT.max_slice");
 
     GetOptValue<uint16_t>(var_map, discovery_port_, "DISCOVERY.port");
     GetOptValue<string>(var_map, discovery_server_, "DISCOVERY.server");
 
-
-    GetOptValue<string>(var_map, ifmap_password_, "IFMAP.password");
-    GetOptValue<string>(var_map, ifmap_server_url_, "IFMAP.server_url");
-    GetOptValue<string>(var_map, ifmap_user_, "IFMAP.user");
-    GetOptValue<string>(var_map, ifmap_certs_store_, "IFMAP.certs_store");
+    GetOptValue<uint16_t>(var_map, redis_port_, "REDIS.port");
+    GetOptValue<string>(var_map, redis_server_, "REDIS.server");
 }
