@@ -495,8 +495,6 @@ class VncApiServer(VncApiServerGen):
             'listen_port': _WEB_PORT,
             'ifmap_server_ip': _WEB_HOST,
             'ifmap_server_port': "8443",
-            'redis_server_ip': '127.0.0.1',
-            'redis_server_port': '6382',
             'collectors': None,
             'http_server_port': '8084',
             'log_local': False,
@@ -509,6 +507,7 @@ class VncApiServer(VncApiServerGen):
             'disc_server_port': None,
             'zk_server_ip': '127.0.0.1:2181',
             'worker_id': '0',
+            'rabbit_server': 'localhost',
             'rabbit_user': 'guest',
             'rabbit_password': 'guest',
             'rabbit_vhost': 'contrail',
@@ -633,6 +632,9 @@ class VncApiServer(VncApiServerGen):
             "--zk_server_ip",
             help="Ip address:port of zookeeper server")
         parser.add_argument(
+            "--rabbit_server",
+            help="Rabbitmq server address")
+        parser.add_argument(
             "--rabbit_user",
             help="Username for rabbit")
         parser.add_argument(
@@ -687,13 +689,15 @@ class VncApiServer(VncApiServerGen):
         redis_server_port = self._args.redis_server_port
         ifmap_loc = self._args.ifmap_server_loc
         zk_server = self._args.zk_server_ip
+        rabbit_server = self._args.rabbit_server
         rabbit_user = self._args.rabbit_user
         rabbit_password = self._args.rabbit_password
         rabbit_vhost = self._args.rabbit_vhost
 
 
         db_conn = VncDbClient(self, ifmap_ip, ifmap_port, user, passwd,
-                              cass_server_list, rabbit_user, rabbit_password, 
+                              cass_server_list,
+                              rabbit_server, rabbit_user, rabbit_password, 
                               rabbit_vhost, reset_config, ifmap_loc,
                               zk_server)
         self._db_conn = db_conn
