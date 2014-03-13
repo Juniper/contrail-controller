@@ -30,6 +30,11 @@ request sandesh ShowAllInfo {
 request sandesh ClearAllInfo {
 }
 
+request sandesh PktTraceInfo {
+    1: u32 num_buffers = 16;
+    2: u32 flow_num_buffers = 16;
+}
+
 response sandesh PktStats {
     1: i32 total_rcvd;
     2: i32 dhcp_rcvd;
@@ -91,6 +96,12 @@ response sandesh MetadataResponse {
     3: i32 metadata_responses;
     4: i32 metadata_proxy_sessions;
     5: i32 metadata_internal_errors;
+}
+
+response sandesh PktTraceInfoResponse {
+    1: string resp = "   Success !!!   ";
+    2: u32 num_buffers;
+    3: u32 flow_num_buffers;
 }
 
 response sandesh PktErrorResp {

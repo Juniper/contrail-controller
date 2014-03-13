@@ -7,7 +7,6 @@
 #include <netinet/tcp.h>
 #include <netinet/udp.h>
 #include <netinet/ip_icmp.h>
-#include <boost/assign/list_of.hpp>
 
 #include "cmn/agent_cmn.h"
 #include "cmn/agent_stats.h"
@@ -41,17 +40,11 @@ const std::size_t PktTrace::kPktMaxTraceSize;
 PktHandler::PktHandler(Agent *agent, const std::string &if_name,
                        boost::asio::io_service &io_serv, bool run_with_vrouter) 
                       : stats_(), agent_(agent) {
-    pkt_module_trace_size_ = boost::assign::map_list_of<uint32_t, std::size_t>
-                                        (INVALID, 128)
-                                        (FLOW, 128)
-                                        (ARP, 128)
-                                        (DHCP, 512)
-                                        (DNS, 512)
-                                        (ICMP, 128)
-                                        (DIAG, 128);
-
     for (int i = 0; i < MAX_MODULES; ++i) {
-        pkt_trace_.at(i).set_max_pkt_trace_size(GetMaxPktTraceSize(i));
+        if (i == PktHandler::DHCP || i == PktHandler::DNS)
+            pkt_trace_.at(i).set_pkt_trace_size(512);
+        else
+            pkt_trace_.at(i).set_pkt_trace_size(128);
     }
 
     if (run_with_vrouter)
@@ -458,15 +451,6 @@ void PktHandler::PktStats::PktRcvd(PktModuleName mod) {
 void PktHandler::PktStats::PktSent(PktModuleName mod) {
     if (mod < MAX_MODULES)
         sent[mod]++;
-}
-
-std::size_t PktHandler::GetMaxPktTraceSize(uint32_t mod) {
-    std::map<uint32_t, std::size_t>::const_iterator it =
-                                            pkt_module_trace_size_.find(mod);
-    if (it != pkt_module_trace_size_.end())
-        return it->second;
-
-    return PktTrace::kPktMaxTraceSize;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
