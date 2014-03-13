@@ -510,7 +510,7 @@ class VncApiServer(VncApiServerGen):
             'rabbit_server': 'localhost',
             'rabbit_user': 'guest',
             'rabbit_password': 'guest',
-            'rabbit_vhost': 'contrail',
+            'rabbit_vhost': None,
         }
         # ssl options
         secopts = {
