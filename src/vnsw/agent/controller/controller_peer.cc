@@ -530,14 +530,11 @@ void AgentXmppChannel::AddRemoteRoute(string vrf_name, Ip4Address prefix_addr,
 
         case NextHop::VLAN: {
             const VlanNH *vlan_nh = static_cast<const VlanNH *>(nh);
-            const VmInterface *vm_port =
-                static_cast<const VmInterface *>(vlan_nh->GetInterface());
-            std::vector<int> sg_l;
-            vm_port->CopySgIdList(&sg_l);
             rt_table->AddVlanNHRouteReq(bgp_peer_id_, vrf_name, prefix_addr,
                                         prefix_len, vlan_nh->GetIfUuid(),
                                         vlan_nh->GetVlanTag(), label,
-                                        item->entry.virtual_network, sg_l);
+                                        item->entry.virtual_network,
+                                        item->entry.security_group_list.security_group);
             break;
             }
         case NextHop::COMPOSITE: {
