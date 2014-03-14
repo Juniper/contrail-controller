@@ -33,13 +33,20 @@ do {                                                                     \
     Pkt##obj::TraceMsg(PacketTraceBuf, __FILE__, __LINE__, _str.str());  \
 } while (false)                                                          \
 
-const std::size_t PktTrace::kPktTraceSize;
+const std::size_t PktTrace::kPktMaxTraceSize;
 
 ////////////////////////////////////////////////////////////////////////////////
 
 PktHandler::PktHandler(Agent *agent, const std::string &if_name,
                        boost::asio::io_service &io_serv, bool run_with_vrouter) 
                       : stats_(), agent_(agent) {
+    for (int i = 0; i < MAX_MODULES; ++i) {
+        if (i == PktHandler::DHCP || i == PktHandler::DNS)
+            pkt_trace_.at(i).set_pkt_trace_size(512);
+        else
+            pkt_trace_.at(i).set_pkt_trace_size(128);
+    }
+
     if (run_with_vrouter)
         tap_interface_.reset(new TapInterface(agent, if_name, io_serv, 
                              boost::bind(&PktHandler::HandleRcvPkt,
