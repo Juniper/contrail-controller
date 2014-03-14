@@ -83,7 +83,7 @@ class SyslogListeners : public SyslogUDPListener,
     protected:
       virtual void Parse (SyslogQueueEntry *sqe);
     private:
-      std::auto_ptr<SyslogParser> parser_;
+      boost::scoped_ptr<SyslogParser> parser_;
       int           port_;
       std::string   ipaddress_;
       bool          inited_;
