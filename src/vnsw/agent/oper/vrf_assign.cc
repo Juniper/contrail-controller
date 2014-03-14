@@ -181,7 +181,7 @@ void VlanVrfAssign::SetKey(const DBRequestKey *k) {
 bool VlanVrfAssign::DBEntrySandesh(Sandesh *sresp, std::string &name) const {
     VrfAssignResp *resp = static_cast<VrfAssignResp *> (sresp);
 
-    if (interface_->name().find(name) == std::string::npos) {
+    if (!name.empty() && interface_->name() != name) {
         return false;
     }
 
@@ -203,6 +203,7 @@ bool VlanVrfAssign::DBEntrySandesh(Sandesh *sresp, std::string &name) const {
 }
 
 void VrfAssignReq::HandleRequest() const {
-    AgentVrfAssignSandesh *sand = new AgentVrfAssignSandesh(context());
+    AgentVrfAssignSandesh *sand =
+        new AgentVrfAssignSandesh(context(), get_uuid());
     sand->DoSandesh();
 }

@@ -337,7 +337,7 @@ AgentRouteTable *VrfEntry::GetLayer2RouteTable() const {
 bool VrfEntry::DBEntrySandesh(Sandesh *sresp, std::string &name) const {
     VrfListResp *resp = static_cast<VrfListResp *>(sresp);
 
-    if (GetName().find(name) != std::string::npos) {
+    if (name.empty() || GetName() == name) {
         VrfSandeshData data;
         data.set_name(GetName());
         data.set_ucindex(vrf_id());

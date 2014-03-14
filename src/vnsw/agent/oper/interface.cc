@@ -533,7 +533,7 @@ void Interface::SetItfSandeshData(ItfSandeshData &data) const {
 bool Interface::DBEntrySandesh(Sandesh *sresp, std::string &name) const {
     ItfResp *resp = static_cast<ItfResp *>(sresp);
 
-    if (name_.find(name) != std::string::npos) {
+    if (name.empty() || name_ == name) {
         ItfSandeshData data;
         SetItfSandeshData(data);
         std::vector<ItfSandeshData> &list =
