@@ -101,6 +101,11 @@ void FlowStatsCollector::FlowExport(FlowEntry *flow, uint64_t diff_bytes,
     // priority.
     if (!stats.exported) {
         s_flow.set_setup_time(stats.setup_time);
+        // Set flow action
+        std::string action_str;
+        GetFlowSandeshActionParams(flow->match_p().action_info,
+            action_str);
+        s_flow.set_action(action_str);
         stats.exported = true;
         level = SandeshLevel::SYS_ERR;
     }
