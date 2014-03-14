@@ -52,15 +52,14 @@ void Options::Initialize(EventManager &evm,
     uint16_t default_http_server_port = ContrailPorts::HttpPortDns;
     uint16_t default_discovery_port = ContrailPorts::DiscoveryServerPort;
 
-    vector<string> default_collector_server_list;
-    default_collector_server_list.push_back("127.0.0.1:8086");
+    default_collector_server_list_.push_back("127.0.0.1:8086");
 
     // Command line and config file options.
     opt::options_description config("Configuration options");
     config.add_options()
         ("DEFAULT.collectors",
            opt::value<vector<string> >()->default_value(
-               default_collector_server_list, "127.0.0.1:8086"),
+               default_collector_server_list_, "127.0.0.1:8086"),
              "Collector server list")
         ("DEFAULT.dns_config_file",
              opt::value<string>()->default_value("dns_config.xml"),
@@ -162,7 +161,11 @@ void Options::Process(int argc, char *argv[],
     GetOptValue<string>(var_map, dns_config_file_, "DEFAULT.dns_config_file");
     GetOptValue< vector<string> >(var_map, collector_server_list_,
                                   "DEFAULT.collectors");
-    collectors_configured_ = (var_map.count("DEFAULT.collectors") != 0);
+    collectors_configured_ = true;
+    if (collector_server_list_.size() == 1 &&
+        !collector_server_list_[0].compare(default_collector_server_list_[0])) {
+        collectors_configured_ = false;
+    }
 
     GetOptValue<string>(var_map, host_ip_, "DEFAULT.hostip");
     GetOptValue<string>(var_map, hostname_, "DEFAULT.hostname");

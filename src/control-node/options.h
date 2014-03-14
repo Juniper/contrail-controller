@@ -71,5 +71,6 @@ private:
     bool test_mode_;
     bool collectors_configured_;
 
+    std::vector<std::string> default_collector_server_list_;
     boost::program_options::options_description config_file_options_;
 };
