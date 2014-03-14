@@ -117,7 +117,7 @@ class SyslogParser
                 ("local1") ("local2") ("local3") ("local4") ("local5")
                 ("local6") ("local7");
         }
-        ~SyslogParser ()
+        virtual ~SyslogParser ()
         {
             genarators_.erase (genarators_.begin (), genarators_.end ());
         }
