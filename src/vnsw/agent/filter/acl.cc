@@ -58,8 +58,7 @@ bool AclDBEntry::DBEntrySandesh(Sandesh *sresp, std::string &uuid) const {
 
     // request uuid is null, then display upto size given by sandesh req
     // request uuid is not null, then disply the ACL that matches the uuid.
-    if ((uuid.empty()) ||
-        (str_uuid.find(uuid) != std::string::npos)) {
+    if ((uuid.empty()) || (str_uuid == uuid)) {
         AclSandeshData data;
         SetAclSandeshData(data);
         std::vector<AclSandeshData> &list =
