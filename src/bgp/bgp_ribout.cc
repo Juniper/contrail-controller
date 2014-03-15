@@ -20,16 +20,16 @@ using namespace std;
 // Implement operator< for RibExportPolicy by comparing each of the fields.
 //
 bool RibExportPolicy::operator<(const RibExportPolicy &rhs) const {
-    if (type < rhs.type) {
-        return true;
-    }
-    if (type > rhs.type) {
-        return false;
-    }
     if (encoding < rhs.encoding) {
         return true;
     }
     if (encoding > rhs.encoding) {
+        return false;
+    }
+    if (type < rhs.type) {
+        return true;
+    }
+    if (type > rhs.type) {
         return false;
     }
     if (as_number < rhs.as_number) {
