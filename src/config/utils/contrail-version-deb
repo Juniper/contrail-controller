@@ -24,8 +24,8 @@ then
     source $VERSIONFILE
 fi
 
-echo "Package                                Version                 Build-ID | Repo | Package Name"
-echo "-------------------------------------- ----------------------- ----------------------------------"
+echo "Package                                Version                       Build-ID | Repo | Package Name"
+echo "-------------------------------------- ----------------------------- ----------------------------------"
 for i in `cat $CONTRAILRPMS`; do
   ret_code=$?
   if [ $ret_code == 0 ]; then
@@ -39,7 +39,7 @@ for i in `cat $CONTRAILRPMS`; do
   fi
   # Only Installed packages are displayed
   if [[ -n $rr ]]; then
-      printf "%-39s%-24s%-20s\n" $i $v $rr
+      printf "%-39s%-30s%-30s\n" $i $v $rr
       unset rr
   fi
 done
