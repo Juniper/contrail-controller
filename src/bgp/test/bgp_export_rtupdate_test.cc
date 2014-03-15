@@ -2173,6 +2173,76 @@ TEST_F(BgpExportRouteUpdateTest2, NotDuplicate6) {
 }
 
 //
+// Description: Process a route that's already scheduled to be withdrawn from
+//              all but one of the current peers.  Export policy rejects the
+//              route for all peers so it should be withdrawn from all peers.
+//              We should not treat this as a duplicate.  Need to schedule a
+//              withdraw to the peer to which one isn't already scheduled.
+//              Same attribute for all current peers.
+//
+// Old DBState: RouteUpdate in QUPDATE.
+//              AdvertiseInfo peer x=[0,vSchedPeerCount-1], attr A.
+//              UpdateInfo peer x=[0,vSchedPeerCount-2], attr NULL.
+// Export Rslt: Reject peer x=[0,vSchedPeerCount-1].
+// New DBState: RouteUpdate in QUPDATE.
+//              AdvertiseInfo peer x=[0,vSchedPeerCount-1], attr A.
+//              UpdateInfo peer x=[0,vSchedPeerCount-1], attr NULL.
+//
+TEST_F(BgpExportRouteUpdateTest2, NotDuplicate7) {
+    for (int vSchedPeerCount = 2; vSchedPeerCount <= kPeerCount;
+            vSchedPeerCount++) {
+        InitAdvertiseInfo(attrA_, 0, vSchedPeerCount-1);
+        InitUpdateInfo(attr_null_, 0, vSchedPeerCount-2);
+        Initialize();
+
+        RunExport();
+        table_.VerifyExportResult(true);
+
+        RouteUpdate *rt_update = ExpectRouteUpdate(&rt_);
+        VerifyRouteUpdateDequeueEnqueue(rt_update);
+        VerifyUpdates(rt_update, roattr_null_, 0, vSchedPeerCount-1);
+        VerifyHistory(rt_update, roattrA_, 0, vSchedPeerCount-1);
+
+        DrainAndVerifyNoState(&rt_);
+    }
+}
+
+//
+// Description: Process a route that's already scheduled to be withdrawn from
+//              all but one of the current peers.  Export policy rejects the
+//              route for all peers so it should be withdrawn from all peers.
+//              We should not treat this as a duplicate.  Need to schedule a
+//              withdraw to the peer to which one isn't already scheduled.
+//              Different attribute for all current peers.
+//
+// Old DBState: RouteUpdate in QUPDATE.
+//              AdvertiseInfo peer x=[0,vSchedPeerCount-1], alt_attr x.
+//              UpdateInfo peer x=[0,vSchedPeerCount-2], attr NULL.
+// Export Rslt: Reject peer x=[0,vSchedPeerCount-1].
+// New DBState: RouteUpdate in QUPDATE.
+//              AdvertiseInfo peer x=[0,vSchedPeerCount-1], alt_attr x.
+//              UpdateInfo peer x=[0,vSchedPeerCount-1], attr NULL.
+//
+TEST_F(BgpExportRouteUpdateTest2, NotDuplicate8) {
+    for (int vSchedPeerCount = 2; vSchedPeerCount <= kPeerCount;
+            vSchedPeerCount++) {
+        InitAdvertiseInfo(alt_attr_, 0, vSchedPeerCount-1);
+        InitUpdateInfo(attr_null_, 0, vSchedPeerCount-2);
+        Initialize();
+
+        RunExport();
+        table_.VerifyExportResult(true);
+
+        RouteUpdate *rt_update = ExpectRouteUpdate(&rt_);
+        VerifyRouteUpdateDequeueEnqueue(rt_update);
+        VerifyUpdates(rt_update, roattr_null_, 0, vSchedPeerCount-1);
+        VerifyHistory(rt_update, alt_attr_, 0, vSchedPeerCount-1);
+
+        DrainAndVerifyNoState(&rt_);
+    }
+}
+
+//
 // Description: Route that is currently advertised to all peers and scheduled
 //              to all peers with a different attribute is processed again and
 //              the export policy produces the same attribute as the advertised
