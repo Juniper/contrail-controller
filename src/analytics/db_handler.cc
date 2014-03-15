@@ -2,7 +2,6 @@
  * Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
  */
 
-#include "db_handler.h"
 #include <exception>
 #include <boost/lexical_cast.hpp>
 #include <boost/bind.hpp>
@@ -27,6 +26,7 @@
 #include "rapidjson/document.h"
 #include "rapidjson/stringbuffer.h"
 #include "rapidjson/writer.h"
+#include "db_handler.h"
 
 using std::string;
 using boost::system::error_code;
@@ -52,20 +52,11 @@ DbHandler::~DbHandler() {
 }
 
 bool DbHandler::DropMessage(const SandeshHeader &header) {
-    // Only systemlog, objectlog, and flow have level
-    SandeshType::type stype(header.get_Type());
-    if (stype == SandeshType::SYSTEM ||
-        stype == SandeshType::OBJECT ||
-        stype == SandeshType::FLOW) {
-        // Is level above drop level
-        SandeshLevel::type slevel(
-            static_cast<SandeshLevel::type>(header.get_Level()));
-        if (slevel >= drop_level_) {
-            msg_dropped_++;
-            return true;
-        }
+    bool drop(DoDropSandeshMessage(header, drop_level_));
+    if (drop) {
+        msg_dropped_++;
     }
-    return false;
+    return drop;
 }
  
 void DbHandler::SetDropLevel(size_t queue_count, SandeshLevel::type level) {
@@ -122,7 +113,7 @@ bool DbHandler::CreateTables() {
                 it != col_list.columns_.end(); it++) {
             std::string col_name;
             try {
-                col_name = boost::get<std::string>(it->name[0]);
+                col_name = boost::get<std::string>(it->name->at(0));
             } catch (boost::bad_get& ex) {
                 LOG(ERROR, __func__ << ": Exception on col_name get");
             }
@@ -134,19 +125,19 @@ bool DbHandler::CreateTables() {
     }
 
     if (!init_done) {
-        GenDb::ColList *col_list(new GenDb::ColList);
-
+        std::auto_ptr<GenDb::ColList> col_list(new GenDb::ColList);
         col_list->cfname_ = g_viz_constants.SYSTEM_OBJECT_TABLE;
-
+        // Rowkey
         GenDb::DbDataValueVec& rowkey = col_list->rowkey_;
+        rowkey.reserve(1);
         rowkey.push_back(g_viz_constants.SYSTEM_OBJECT_ANALYTICS);
-
+        // Columns
         GenDb::NewColVec& columns = col_list->columns_;
-
-        columns.push_back(GenDb::NewCol(g_viz_constants.SYSTEM_OBJECT_START_TIME, UTCTimestampUsec(), 0));
-
-        std::auto_ptr<GenDb::ColList> col_list_ptr(col_list);
-        if (!dbif_->AddColumnSync(col_list_ptr)) {
+        GenDb::NewCol *col(new GenDb::NewCol(
+            g_viz_constants.SYSTEM_OBJECT_START_TIME, UTCTimestampUsec(), 0));
+        columns.reserve(1);
+        columns.push_back(col);
+        if (!dbif_->AddColumnSync(col_list)) {
             VIZD_ASSERT(0);
         }
     }
@@ -244,7 +235,7 @@ bool DbHandler::Setup(int instance) {
     return true;
 }
 
-void DbHandler::SetDbQueueWaterMarkInfo(DbQueueWaterMarkInfo &wm) {
+void DbHandler::SetDbQueueWaterMarkInfo(Sandesh::QueueWaterMarkInfo &wm) {
     dbif_->Db_SetQueueWaterMark(boost::get<2>(wm),
         boost::get<0>(wm),
         boost::bind(&DbHandler::SetDropLevel, this, _1, boost::get<1>(wm)));
@@ -269,39 +260,36 @@ bool DbHandler::MessageIndexTableInsert(const std::string& cfname,
         const SandeshHeader& header,
         const std::string& message_type,
         const boost::uuids::uuid& unm) {
-    GenDb::ColList *col_list(new GenDb::ColList);
-
+    std::auto_ptr<GenDb::ColList> col_list(new GenDb::ColList);
     col_list->cfname_ = cfname;
+    // Rowkey
     GenDb::DbDataValueVec& rowkey = col_list->rowkey_;
-
-    rowkey.push_back((uint32_t)(header.get_Timestamp() >> g_viz_constants.RowTimeInBits));
+    rowkey.reserve(8);
+    uint32_t T2(header.get_Timestamp() >> g_viz_constants.RowTimeInBits);
+    rowkey.push_back(T2);
     if (cfname == g_viz_constants.MESSAGE_TABLE_SOURCE) {
-            rowkey.push_back(header.get_Source());
+        rowkey.push_back(header.get_Source());
     } else if (cfname == g_viz_constants.MESSAGE_TABLE_MODULE_ID) {
-            rowkey.push_back(header.get_Module());
+        rowkey.push_back(header.get_Module());
     } else if (cfname == g_viz_constants.MESSAGE_TABLE_CATEGORY) {
-            rowkey.push_back(header.get_Category());
+        rowkey.push_back(header.get_Category());
     } else if (cfname == g_viz_constants.MESSAGE_TABLE_MESSAGE_TYPE) {
-            rowkey.push_back(message_type);
+        rowkey.push_back(message_type);
     } else if (cfname == g_viz_constants.MESSAGE_TABLE_TIMESTAMP) {
     } else {
         LOG(ERROR, __func__ << ": Unknown table: " << cfname << ", message: "
                 << message_type << ", message UUID: " << unm);
         return false;
     }
-
+    // Columns
     GenDb::NewColVec& columns = col_list->columns_;
-
-    GenDb::DbDataValueVec col_name;
-    col_name.push_back((uint32_t)(header.get_Timestamp() & g_viz_constants.RowTimeInMask));
-
-    GenDb::DbDataValueVec col_value;
-    col_value.push_back(unm);
-
-    columns.push_back(GenDb::NewCol(col_name, col_value));
-
-    std::auto_ptr<GenDb::ColList> col_list_ptr(col_list);
-    if (!dbif_->NewDb_AddColumn(col_list_ptr)) {
+    columns.reserve(1);
+    uint32_t T1(header.get_Timestamp() & g_viz_constants.RowTimeInMask);
+    GenDb::DbDataValueVec *col_name(new GenDb::DbDataValueVec(1, T1));
+    GenDb::DbDataValueVec *col_value(new GenDb::DbDataValueVec(1, unm));
+    GenDb::NewCol *col(new GenDb::NewCol(col_name, col_value));
+    columns.push_back(col);
+    if (!dbif_->NewDb_AddColumn(col_list)) {
         LOG(ERROR, __func__ << ": Addition of message: " << message_type <<
                 ", message UUID: " << unm << " to table: " << cfname <<
                 " FAILED");
@@ -313,57 +301,65 @@ bool DbHandler::MessageIndexTableInsert(const std::string& cfname,
 void DbHandler::MessageTableOnlyInsert(const VizMsg *vmsgp) {
     const SandeshHeader &header(vmsgp->msg->GetHeader());
     const std::string &message_type(vmsgp->msg->GetMessageType());
-
     uint64_t temp_u64;
     uint32_t temp_u32;
     std::string temp_str;
 
-    GenDb::ColList *col_list(new GenDb::ColList);
+    std::auto_ptr<GenDb::ColList> col_list(new GenDb::ColList);
     col_list->cfname_ = g_viz_constants.COLLECTOR_GLOBAL_TABLE;
-
+    // Rowkey
     GenDb::DbDataValueVec& rowkey = col_list->rowkey_;
+    rowkey.reserve(1);
     rowkey.push_back(vmsgp->unm);
-
+    // Columns
     GenDb::NewColVec& columns = col_list->columns_;
     columns.reserve(16);
-    columns.push_back(GenDb::NewCol(g_viz_constants.SOURCE, header.get_Source()));
-    columns.push_back(GenDb::NewCol(g_viz_constants.NAMESPACE, header.get_Namespace()));
-    columns.push_back(GenDb::NewCol(g_viz_constants.MODULE, header.get_Module()));
+    columns.push_back(new GenDb::NewCol(g_viz_constants.SOURCE,
+        header.get_Source()));
+    columns.push_back(new GenDb::NewCol(g_viz_constants.NAMESPACE,
+        header.get_Namespace()));
+    columns.push_back(new GenDb::NewCol(g_viz_constants.MODULE,
+        header.get_Module()));
     if (!header.get_Context().empty()) {
-        columns.push_back(GenDb::NewCol(g_viz_constants.CONTEXT, header.get_Context()));
+        columns.push_back(new GenDb::NewCol(g_viz_constants.CONTEXT,
+            header.get_Context()));
     }
     if (!header.get_InstanceId().empty()) {
-        columns.push_back(GenDb::NewCol(g_viz_constants.INSTANCE_ID, 
-                                        header.get_InstanceId()));
+        columns.push_back(new GenDb::NewCol(g_viz_constants.INSTANCE_ID, 
+                                            header.get_InstanceId()));
     }
     if (!header.get_NodeType().empty()) {
-        columns.push_back(GenDb::NewCol(g_viz_constants.NODE_TYPE,
-                                        header.get_NodeType()));
+        columns.push_back(new GenDb::NewCol(g_viz_constants.NODE_TYPE,
+                                            header.get_NodeType()));
     }    
     // Convert to network byte order
     temp_u64 = header.get_Timestamp();
-    columns.push_back(GenDb::NewCol(g_viz_constants.TIMESTAMP, temp_u64));
+    columns.push_back(new GenDb::NewCol(g_viz_constants.TIMESTAMP, temp_u64));
 
-    columns.push_back(GenDb::NewCol(g_viz_constants.CATEGORY, header.get_Category()));
+    columns.push_back(new GenDb::NewCol(g_viz_constants.CATEGORY,
+        header.get_Category()));
 
     temp_u32 = header.get_Level();
-    columns.push_back(GenDb::NewCol(g_viz_constants.LEVEL, temp_u32));
+    columns.push_back(new GenDb::NewCol(g_viz_constants.LEVEL, temp_u32));
 
-    columns.push_back(GenDb::NewCol(g_viz_constants.MESSAGE_TYPE, message_type));
+    columns.push_back(new GenDb::NewCol(g_viz_constants.MESSAGE_TYPE,
+        message_type));
 
     temp_u32 = header.get_SequenceNum();
-    columns.push_back(GenDb::NewCol(g_viz_constants.SEQUENCE_NUM, temp_u32));
+    columns.push_back(new GenDb::NewCol(g_viz_constants.SEQUENCE_NUM,
+        temp_u32));
 
     temp_u32 = header.get_VersionSig();
-    columns.push_back(GenDb::NewCol(g_viz_constants.VERSION, temp_u32));
+    columns.push_back(new GenDb::NewCol(g_viz_constants.VERSION, temp_u32));
 
     uint8_t temp_u8 = header.get_Type();
-    columns.push_back(GenDb::NewCol(g_viz_constants.SANDESH_TYPE, temp_u8));
+    columns.push_back(new GenDb::NewCol(g_viz_constants.SANDESH_TYPE,
+        temp_u8));
 
-    columns.push_back(GenDb::NewCol(g_viz_constants.DATA, vmsgp->msg->ExtractMessage()));
+    columns.push_back(new GenDb::NewCol(g_viz_constants.DATA,
+        vmsgp->msg->ExtractMessage()));
 
-    std::auto_ptr<GenDb::ColList> col_list_ptr(col_list);
-    if (!dbif_->NewDb_AddColumn(col_list_ptr)) {
+    if (!dbif_->NewDb_AddColumn(col_list)) {
         LOG(ERROR, __func__ << ": Addition of message: " << message_type <<
                 ", message UUID: " << vmsgp->unm << " COLUMN FAILED");
         return;
@@ -433,19 +429,19 @@ void DbHandler::ObjectTableInsert(const std::string &table, const std::string &r
     uint32_t T1(timestamp & g_viz_constants.RowTimeInMask);
 
       {
-        GenDb::ColList *col_list(new GenDb::ColList);
+        std::auto_ptr<GenDb::ColList> col_list(new GenDb::ColList);
         col_list->cfname_ = table;
         GenDb::DbDataValueVec& rowkey = col_list->rowkey_;
         rowkey.reserve(2);
         rowkey.push_back(T2);
         rowkey.push_back(rowkey_str);
-        GenDb::DbDataValueVec col_name(1, T1);
-        GenDb::DbDataValueVec col_value(1, unm);
+        GenDb::DbDataValueVec *col_name(new GenDb::DbDataValueVec(1, T1));
+        GenDb::DbDataValueVec *col_value(new GenDb::DbDataValueVec(1, unm));
+        GenDb::NewCol *col(new GenDb::NewCol(col_name, col_value));
         GenDb::NewColVec& columns = col_list->columns_;
         columns.reserve(1);
-        columns.push_back(GenDb::NewCol(col_name, col_value));
-        std::auto_ptr<GenDb::ColList> col_list_ptr(col_list);
-        if (!dbif_->NewDb_AddColumn(col_list_ptr)) {
+        columns.push_back(col);
+        if (!dbif_->NewDb_AddColumn(col_list)) {
             LOG(ERROR, __func__ << ": Addition of " << rowkey_str <<
                     ", message UUID " << unm << " into table " << table <<
                     " FAILED");
@@ -454,19 +450,19 @@ void DbHandler::ObjectTableInsert(const std::string &table, const std::string &r
       }
 
       {
-        GenDb::ColList *col_list(new GenDb::ColList);
+        std::auto_ptr<GenDb::ColList> col_list(new GenDb::ColList);
         col_list->cfname_ = g_viz_constants.OBJECT_VALUE_TABLE;
         GenDb::DbDataValueVec& rowkey = col_list->rowkey_;
         rowkey.reserve(2);
         rowkey.push_back(T2);
         rowkey.push_back(table);
-        GenDb::DbDataValueVec col_name(1, T1);
-        GenDb::DbDataValueVec col_value(1, rowkey_str);
+        GenDb::DbDataValueVec *col_name(new GenDb::DbDataValueVec(1, T1));
+        GenDb::DbDataValueVec *col_value(new GenDb::DbDataValueVec(1, rowkey_str));
+        GenDb::NewCol *col(new GenDb::NewCol(col_name, col_value));
         GenDb::NewColVec& columns = col_list->columns_;
         columns.reserve(1);
-        columns.push_back(GenDb::NewCol(col_name, col_value));
-        std::auto_ptr<GenDb::ColList> col_list_ptr(col_list);
-        if (!dbif_->NewDb_AddColumn(col_list_ptr)) {
+        columns.push_back(col);
+        if (!dbif_->NewDb_AddColumn(col_list)) {
             LOG(ERROR, __func__ << ": Addition of " << rowkey_str <<
                     ", message UUID " << unm << " " << table << " into table "
                     << g_viz_constants.OBJECT_VALUE_TABLE << " FAILED");
@@ -556,24 +552,27 @@ void DbHandler::StatTableInsert(uint64_t ts,
             it != attribs_tag.end(); it++) {
         if (it->second.second.empty()) {
 
-            GenDb::ColList *col_list(new GenDb::ColList);
+            std::auto_ptr<GenDb::ColList> col_list(new GenDb::ColList);
 
             GenDb::DbDataValue pv;
             std::string cfname;
 
             if (it->second.first.type == UINT64) {
-                cfname = col_list->cfname_ = g_viz_constants.STATS_TABLE_BY_U64_STR_TAG;
+                cfname = col_list->cfname_ = 
+                    g_viz_constants.STATS_TABLE_BY_U64_STR_TAG;
                 pv = it->second.first.num;
             } else if (it->second.first.type == DOUBLE) {
-                cfname = col_list->cfname_ = g_viz_constants.STATS_TABLE_BY_DBL_STR_TAG;
+                cfname = col_list->cfname_ = 
+                    g_viz_constants.STATS_TABLE_BY_DBL_STR_TAG;
                 pv = it->second.first.dbl;
             } else {
-                cfname = col_list->cfname_ = g_viz_constants.STATS_TABLE_BY_STR_STR_TAG;
+                cfname = col_list->cfname_ = 
+                    g_viz_constants.STATS_TABLE_BY_STR_STR_TAG;
                 pv = it->second.first.str;
             }
 
             GenDb::DbDataValueVec& rowkey = col_list->rowkey_;
-
+            rowkey.reserve(4);
             rowkey.push_back(temp_u32);
             rowkey.push_back(statName);
             rowkey.push_back(statAttr);
@@ -581,24 +580,24 @@ void DbHandler::StatTableInsert(uint64_t ts,
 
             GenDb::NewColVec& columns = col_list->columns_;
 
-            GenDb::DbDataValueVec col_name;
-            col_name.push_back(pv);
-            col_name.push_back(string());
+            GenDb::DbDataValueVec *col_name(new GenDb::DbDataValueVec);
+            col_name->reserve(4);
+            col_name->push_back(pv);
+            col_name->push_back(string());
             if ( statName.compare("FieldNames") != 0) {
-                col_name.push_back((uint32_t)(temp_u64& g_viz_constants.RowTimeInMask));
+                col_name->push_back((uint32_t)
+                    (temp_u64& g_viz_constants.RowTimeInMask));
             } else {
 		//Make t2 0 for 
-                col_name.push_back((uint32_t)0);
+                col_name->push_back((uint32_t)0);
             }
 	    
-            col_name.push_back(unm);
-            GenDb::DbDataValueVec col_value;
-            col_value.push_back(jsonline);
+            col_name->push_back(unm);
+            GenDb::DbDataValueVec *col_value(new GenDb::DbDataValueVec(1, jsonline));
+            GenDb::NewCol *col(new GenDb::NewCol(col_name, col_value));
+            columns.push_back(col);
 
-            columns.push_back(GenDb::NewCol(col_name, col_value));
-
-            std::auto_ptr<GenDb::ColList> col_list_ptr(col_list);
-            if (!dbif_->NewDb_AddColumn(col_list_ptr)) {
+            if (!dbif_->NewDb_AddColumn(col_list)) {
                 LOG(ERROR, __func__ << ": Addition of " << statName <<
                         ", " << statAttr << " attrib " << it->first << " into table "
                         << cfname << " FAILED");
@@ -651,8 +650,8 @@ static void PopulateFlowRecordTableColumns(
          it != frvt.end(); it++) {
         GenDb::DbDataValue &db_value(fvalues[(*it)]);
         if (db_value.which() != GenDb::DB_VALUE_BLANK) {
-            GenDb::NewCol col(g_viz_constants.FlowRecordNames[(*it)],
-                              db_value); 
+            GenDb::NewCol *col(new GenDb::NewCol(
+                g_viz_constants.FlowRecordNames[(*it)], db_value));
             columns.push_back(col);
         }
     }
@@ -746,43 +745,44 @@ static void PopulateFlowIndexTableRowKey(
 // SVN/DVN/Protocol, SIP/DIP/SPORT/DPORT, T1, FLOW_UUID
 static void PopulateFlowIndexTableColumnNames(FlowIndexTableType ftype,
     FlowValueArray &fvalues, uint32_t &T1,
-    GenDb::DbDataValueVec &cnames) {
-    cnames.reserve(4);
+    GenDb::DbDataValueVec *cnames) {
+    cnames->reserve(4);
     switch(ftype) {
     case FLOW_INDEX_TABLE_SVN_SIP:
-        cnames.push_back(fvalues[FlowRecordFields::FLOWREC_SOURCEVN]);
-        cnames.push_back(fvalues[FlowRecordFields::FLOWREC_SOURCEIP]);
+        cnames->push_back(fvalues[FlowRecordFields::FLOWREC_SOURCEVN]);
+        cnames->push_back(fvalues[FlowRecordFields::FLOWREC_SOURCEIP]);
         break;
     case FLOW_INDEX_TABLE_DVN_DIP:
-        cnames.push_back(fvalues[FlowRecordFields::FLOWREC_DESTVN]);
-        cnames.push_back(fvalues[FlowRecordFields::FLOWREC_DESTIP]);
+        cnames->push_back(fvalues[FlowRecordFields::FLOWREC_DESTVN]);
+        cnames->push_back(fvalues[FlowRecordFields::FLOWREC_DESTIP]);
         break;
     case FLOW_INDEX_TABLE_PROTOCOL_SPORT:
-        cnames.push_back(fvalues[FlowRecordFields::FLOWREC_PROTOCOL]);
-        cnames.push_back(fvalues[FlowRecordFields::FLOWREC_SPORT]);
+        cnames->push_back(fvalues[FlowRecordFields::FLOWREC_PROTOCOL]);
+        cnames->push_back(fvalues[FlowRecordFields::FLOWREC_SPORT]);
         break;
     case FLOW_INDEX_TABLE_PROTOCOL_DPORT:
-        cnames.push_back(fvalues[FlowRecordFields::FLOWREC_PROTOCOL]);
-        cnames.push_back(fvalues[FlowRecordFields::FLOWREC_DPORT]);
+        cnames->push_back(fvalues[FlowRecordFields::FLOWREC_PROTOCOL]);
+        cnames->push_back(fvalues[FlowRecordFields::FLOWREC_DPORT]);
         break;
     case FLOW_INDEX_TABLE_VROUTER:
-        cnames.push_back(fvalues[FlowRecordFields::FLOWREC_VROUTER]);
+        cnames->push_back(fvalues[FlowRecordFields::FLOWREC_VROUTER]);
         break;
     default:
         VIZD_ASSERT(0);
         break;
     }
-    cnames.push_back(T1);
-    cnames.push_back(fvalues[FlowRecordFields::FLOWREC_FLOWUUID]);
+    cnames->push_back(T1);
+    cnames->push_back(fvalues[FlowRecordFields::FLOWREC_FLOWUUID]);
 }
 
 static void PopulateFlowIndexTableColumns(FlowIndexTableType ftype,
     FlowValueArray &fvalues, uint32_t &T1,
-    GenDb::NewColVec &columns, GenDb::DbDataValueVec &cvalues) {
+    GenDb::NewColVec &columns, const GenDb::DbDataValueVec &cvalues) {
+    GenDb::DbDataValueVec *names(new GenDb::DbDataValueVec);
+    PopulateFlowIndexTableColumnNames(ftype, fvalues, T1, names);
+    GenDb::DbDataValueVec *values(new GenDb::DbDataValueVec(cvalues));
+    GenDb::NewCol *col(new GenDb::NewCol(names, values));
     columns.reserve(1);
-    GenDb::NewCol col;
-    PopulateFlowIndexTableColumnNames(ftype, fvalues, T1, col.name);
-    col.value = cvalues;
     columns.push_back(col);
 }
 

@@ -211,6 +211,89 @@ TEST_F(LinkLocalTest, LinkLocalChangeTest) {
     client->WaitForIdle();
 }
 
+TEST_F(LinkLocalTest, GlobalVrouterDeleteTest) {
+    Agent::GetInstance()->SetRouterId(Ip4Address::from_string(VHOST_IP));
+    TestLinkLocalService services[MAX_SERVICES];
+    FillServices(services, MAX_SERVICES);
+    AddLinkLocalConfig(services, MAX_SERVICES);
+
+    struct PortInfo input[] = { 
+        {"vnet1", 1, "1.1.1.1", "00:00:00:01:01:01", 1, 1}, 
+    };  
+    CreateVmportEnv(input, 1, 0);
+    client->WaitForIdle();
+    client->Reset();
+
+    IpamInfo ipam_info[] = {
+        {"1.1.1.0", 24, "1.1.1.200"},
+        {"1.2.3.128", 27, "1.2.3.129"},
+        {"7.8.9.0", 24, "7.8.9.12"},
+    };
+    AddIPAM("ipam1", ipam_info, 3);
+    client->WaitForIdle();
+
+    struct PortInfo new_input[] = { 
+        {"vnet2", 2, "2.2.2.2", "00:00:00:02:02:02", 2, 2}, 
+    };  
+    CreateVmportEnv(new_input, 1, 0);
+    client->WaitForIdle();
+    client->Reset();
+
+    // check that all expected routes are added
+    for (int i = 0; i < MAX_SERVICES; ++i) {
+        Inet4UnicastRouteEntry *rt =
+            RouteGet("vrf1", Ip4Address::from_string(linklocal_ip[i]), 32);
+        EXPECT_TRUE(rt != NULL);
+        EXPECT_TRUE(rt->GetActiveNextHop()->GetType() == NextHop::RECEIVE);
+    }
+    for (int i = 0; i < MAX_SERVICES; ++i) {
+        Inet4UnicastRouteEntry *rt =
+            RouteGet("vrf2", Ip4Address::from_string(linklocal_ip[i]), 32);
+        EXPECT_TRUE(rt != NULL);
+        EXPECT_TRUE(rt->GetActiveNextHop()->GetType() == NextHop::RECEIVE);
+    }
+    for (int i = 0; i < MAX_SERVICES; ++i) {
+        Inet4UnicastRouteEntry *rt =
+            RouteGet(Agent::GetInstance()->GetDefaultVrf(),
+                     Ip4Address::from_string(fabric_ip[i]), 32);
+        EXPECT_TRUE(rt != NULL);
+        EXPECT_TRUE(rt->GetActiveNextHop()->GetType() == NextHop::ARP);
+    }
+    int count = 0;
+    while (Agent::GetInstance()->oper_db()->global_vrouter()->IsAddressInUse(
+                Ip4Address::from_string("127.0.0.1")) == false &&
+           count++ < MAX_COUNT)
+        usleep(1000);
+    EXPECT_TRUE(count < MAX_COUNT);
+
+    // Delete global vrouter config; this is different from the earlier case
+    // where we delete the link local entries
+    DeleteGlobalVrouterConfig();
+    client->WaitForIdle();
+
+    // check that all routes are deleted
+    for (int i = 0; i < MAX_SERVICES; ++i) {
+        Inet4UnicastRouteEntry *rt =
+            RouteGet("vrf1", Ip4Address::from_string(linklocal_ip[i]), 32);
+        EXPECT_TRUE(rt == NULL);
+    }
+    for (int i = 0; i < MAX_SERVICES; ++i) {
+        Inet4UnicastRouteEntry *rt =
+            RouteGet("vrf2", Ip4Address::from_string(linklocal_ip[i]), 32);
+        EXPECT_TRUE(rt == NULL);
+    }
+    EXPECT_FALSE(Agent::GetInstance()->oper_db()->global_vrouter()->IsAddressInUse(
+                 Ip4Address::from_string("127.0.0.1")));
+
+    client->Reset();
+    DelIPAM("ipam1");
+    client->WaitForIdle();
+    DeleteVmportEnv(input, 1, 1, 0); 
+    client->WaitForIdle();
+    DeleteVmportEnv(new_input, 1, 1, 0); 
+    client->WaitForIdle();
+}
+
 void RouterIdDepInit() {
 }
 

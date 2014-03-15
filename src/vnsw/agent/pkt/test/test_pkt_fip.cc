@@ -383,7 +383,7 @@ TEST_F(FlowTest, Mdata_FabricToServer_1) {
     client->WaitForIdle();
     EXPECT_TRUE(FlowGet(vnet[1]->vrf()->GetName(), "1.1.1.10",
                         "169.254.169.254", 1, 0, 0, false, "vn1",
-                        Agent::GetInstance()->GetLinkLocalVnName().c_str(), 1, true, false));
+                        "vn1", 1, true, false));
     EXPECT_TRUE(FlowDelete(vnet[1]->vrf()->GetName(), "1.1.1.10",
                            "169.254.169.254", 1, 0, 0));
 
@@ -396,7 +396,7 @@ TEST_F(FlowTest, Mdata_FabricToServer_1) {
     client->WaitForIdle();
     EXPECT_TRUE(FlowGet(vnet[1]->vrf()->GetName(), "1.1.1.10",
                         "169.254.169.254", IPPROTO_TCP, 1001, 80, false, 
-                        "vn1", Agent::GetInstance()->GetLinkLocalVnName().c_str(), 1, true, false));
+                        "vn1", "vn1", 1, true, false));
     EXPECT_TRUE(FlowDelete(vnet[1]->vrf()->GetName(), "1.1.1.10",
                            "169.254.169.254", IPPROTO_TCP, 1001, 80));
     client->WaitForIdle();
@@ -976,6 +976,26 @@ TEST_F(FlowTest, FIP_traffic_to_leaked_routes) {
                                 10000, 80, "vn2", "vn3"));
     vnet_table[2]->DeleteReq(NULL, "vn2:vn2", vnet[5]->ip_addr(), 32);
     client->WaitForIdle();
+}
+
+TEST_F(FlowTest, Fip_preference_over_policy) {
+    Ip4Address addr = Ip4Address::from_string("2.1.1.1");
+    Ip4Address gw = Ip4Address::from_string("10.1.1.2");
+    vnet_table[1]->AddRemoteVmRouteReq(NULL, "vrf1", addr, 32, gw, 
+                                       TunnelType::AllType(), 8, "vn2");
+    client->WaitForIdle();
+    TxUdpPacket(vnet[1]->id(), vnet_addr[1], "2.1.1.1", 10, 20, 1, 1);
+    client->WaitForIdle();
+    EXPECT_EQ(2U, Agent::GetInstance()->pkt()->flow_table()->Size());
+
+    //client->EnqueueFlowFlush();
+    //client->WaitForIdle();
+    vnet_table[1]->DeleteReq(NULL, "vrf1", addr, 32);
+    client->WaitForIdle();
+
+    // since floating IP should be prefferec deleteing the route should
+    // not remove flow entries.
+    EXPECT_EQ(2U, Agent::GetInstance()->pkt()->flow_table()->Size());
 }
 
 int main(int argc, char *argv[]) {

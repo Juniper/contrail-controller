@@ -346,11 +346,12 @@ private:
 
 class DropRoute : public AgentRouteData {
 public:
-    DropRoute() : AgentRouteData(false) { }
+    DropRoute(const string &vn_name) : AgentRouteData(false), vn_(vn_name) { }
     virtual ~DropRoute() { }
     virtual bool AddChangePath(Agent *agent, AgentPath *path);
     virtual string ToString() const {return "drop";}
 private:
+    string vn_;
     DISALLOW_COPY_AND_ASSIGN(DropRoute);
 };
 

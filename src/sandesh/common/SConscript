@@ -46,8 +46,9 @@ sdist_gen = env.Command('dist/sandesh-common-0.1dev.tar.gz',
 
 env.Default(sdist_gen)
 
-install_cmd = env.Command(None, ['setup.py'] + setup_files + gen_init,
-                          'python setup.py install %s' %
-                          env['PYTHON_INSTALL_OPT'],
-                          chdir = 1)
-env.Alias('install', install_cmd)
+if 'install' in BUILD_TARGETS:
+    install_cmd = env.Command(None, ['setup.py'] + setup_files + gen_init,
+                              'python setup.py install %s' %
+                              env['PYTHON_INSTALL_OPT'],
+                              chdir = 1)
+    env.Alias('install', install_cmd)

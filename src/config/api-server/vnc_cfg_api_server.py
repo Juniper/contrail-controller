@@ -509,6 +509,9 @@ class VncApiServer(VncApiServerGen):
             'disc_server_port': None,
             'zk_server_ip': '127.0.0.1:2181',
             'worker_id': '0',
+            'rabbit_user': 'guest',
+            'rabbit_password': 'guest',
+            'rabbit_vhost': 'contrail',
         }
         # ssl options
         secopts = {
@@ -521,6 +524,7 @@ class VncApiServer(VncApiServerGen):
         # keystone options
         ksopts = {
             'auth_host': '127.0.0.1',
+            'auth_port': '35357',
             'auth_protocol': 'http',
             'admin_user': '',
             'admin_password': '',
@@ -628,6 +632,15 @@ class VncApiServer(VncApiServerGen):
         parser.add_argument(
             "--zk_server_ip",
             help="Ip address:port of zookeeper server")
+        parser.add_argument(
+            "--rabbit_user",
+            help="Username for rabbit")
+        parser.add_argument(
+            "--rabbit_vhost",
+            help="vhost for rabbit")
+        parser.add_argument(
+            "--rabbit_password",
+            help="password for rabbit")
         self._args = parser.parse_args(remaining_argv)
         self._args.config_sections = config
         if type(self._args.cassandra_server_list) is str:
@@ -645,7 +658,7 @@ class VncApiServer(VncApiServerGen):
     # end sigchld_handler
 
     def sigterm_handler(self):
-        cleanup()
+        self.cleanup()
         exit()
 
     def _load_extensions(self):
@@ -674,10 +687,14 @@ class VncApiServer(VncApiServerGen):
         redis_server_port = self._args.redis_server_port
         ifmap_loc = self._args.ifmap_server_loc
         zk_server = self._args.zk_server_ip
+        rabbit_user = self._args.rabbit_user
+        rabbit_password = self._args.rabbit_password
+        rabbit_vhost = self._args.rabbit_vhost
+
 
         db_conn = VncDbClient(self, ifmap_ip, ifmap_port, user, passwd,
-                              redis_server_ip, redis_server_port,
-                              cass_server_list, reset_config, ifmap_loc,
+                              cass_server_list, rabbit_user, rabbit_password, 
+                              rabbit_vhost, reset_config, ifmap_loc,
                               zk_server)
         self._db_conn = db_conn
     # end _db_connect
@@ -742,6 +759,22 @@ class VncApiServer(VncApiServerGen):
         obj_type = s_obj.get_type()
         method_name = obj_type.replace('-', '_')
         fq_name = s_obj.get_fq_name()
+
+        # TODO remove backward compat create mapping in zk
+        # for singleton START
+        try:
+            cass_uuid = self._db_conn._cassandra_db.fq_name_to_uuid(obj_type, fq_name)
+            try:
+                zk_uuid = self._db_conn.fq_name_to_uuid(obj_type, fq_name)
+            except NoIdError:
+                # doesn't exist in zookeeper but does so in cassandra,
+                # migrate this info to zookeeper
+                self._db_conn._zk_db.create_fq_name_to_uuid_mapping(obj_type, fq_name, str(cass_uuid))
+        except NoIdError:
+            # doesn't exist in cassandra as well as zookeeper, proceed normal
+            pass
+        # TODO backward compat END
+
 
         # create if it doesn't exist yet
         try:
@@ -845,7 +878,9 @@ class VncApiServer(VncApiServerGen):
                            request.environ['HTTP_USER_AGENT'])
                     self.config_object_error(
                         obj_uuid, fq_name_str, obj_type, 'put', log_msg)
-                    self._db_conn.set_uuid(obj_dict, uuid.UUID(obj_uuid))
+                    self._db_conn.set_uuid(obj_type, obj_dict,
+                                           uuid.UUID(obj_uuid),
+                                           persist=False)
 
             apiConfig = VncApiCommon()
             apiConfig.operation = 'put'

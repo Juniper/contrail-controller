@@ -24,7 +24,8 @@ env.Prepend(LIBS=['ifmap_vnc', 'ifmap_server', 'ifmap_common', 'net', 'ifmapio',
                   'xmpp', 'ds', 'sandeshvns', 'sandesh', 'peer_sandesh',
                   'httpc', 'http', 'http_parser', 'curl',
                   'db', 'io', 'base', 'xml', 'pugixml', 'libxml2',
-                  'boost_regex', 'boost_program_options', 'crypto', 'ssl',
+                  'boost_regex', 'boost_chrono', 'boost_program_options',
+                  'crypto', 'ssl',
                   'boost_filesystem'])
 
 env.Prepend(LIBS=['dns_cfg', 'cmn', 'mgr', 'agent_xmpp', 'bind_interface', 'dns_uve'])
@@ -46,6 +47,8 @@ if sys.platform != 'darwin':
 dnsd = env.Program(target = 'dnsd', source = ['main.cc'])
 env.Alias('src/dns:dnsd', dnsd)
 env.Default(dnsd)
+
+env.Alias('install', env.Install(env['INSTALL_BIN'], dnsd))
 
 DnsEnv = env.Clone()
 DnsEnv.AppendUnique(CCFLAGS='-fno-exceptions')

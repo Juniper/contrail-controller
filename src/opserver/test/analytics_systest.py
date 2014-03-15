@@ -128,6 +128,7 @@ class AnalyticsTest(testtools.TestCase, fixtures.TestWithFixtures):
         assert vizd_obj.verify_on_setup()
         assert vizd_obj.verify_collector_obj_count()
         assert vizd_obj.verify_message_table_moduleid()
+        assert vizd_obj.verify_message_table_select_uint_type()
         assert vizd_obj.verify_message_table_messagetype()
         assert vizd_obj.verify_message_table_where_or()
         assert vizd_obj.verify_message_table_where_and()

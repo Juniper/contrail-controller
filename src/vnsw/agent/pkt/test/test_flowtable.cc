@@ -165,11 +165,14 @@ public:
             const VmInterface::SecurityGroupEntrySet sg_list = intf->sg_list().list_;
             VmInterface::SecurityGroupEntrySet::const_iterator it;
             for (it = sg_list.begin(); it != sg_list.end(); it++) {
-                if (it->sg_->GetAcl() == NULL) {
+                if (it->sg_->GetEgressAcl() == NULL &&
+                    it->sg_->GetIngressAcl() == NULL) {
                     continue;
                 }
-                if (FindAcl(flow->match_p().m_sg_acl_l,
-                            it->sg_->GetAcl()) == false) {
+                if (FindAcl(flow->match_p().m_sg_acl_l, 
+                            (it->sg_->GetEgressAcl())) == false &&
+                    FindAcl(flow->match_p().m_sg_acl_l, 
+                            (it->sg_->GetIngressAcl())) == false) {
                     EXPECT_STREQ("SG not found in flow", "");
                     ret = false;
                 }
@@ -204,11 +207,14 @@ public:
             const VmInterface::SecurityGroupEntrySet sg_list = intf->sg_list().list_;
             VmInterface::SecurityGroupEntrySet::const_iterator it;
             for (it = sg_list.begin(); it != sg_list.end(); it++) {
-                if (it->sg_->GetAcl() == NULL) {
+                if (it->sg_->GetEgressAcl() == NULL &&
+                    it->sg_->GetIngressAcl() == NULL) {
                     continue;
                 }
                 if (FindAcl(flow->match_p().m_out_sg_acl_l,
-                            it->sg_->GetAcl()) == false) {
+                            it->sg_->GetEgressAcl()) == false &&
+                    FindAcl(flow->match_p().m_out_sg_acl_l,
+                            it->sg_->GetIngressAcl()) == false) {
                     EXPECT_STREQ("Out SG not found in flow", "");
                     ret = false;
                 }

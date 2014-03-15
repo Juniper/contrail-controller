@@ -27,9 +27,11 @@ class RibOut;
 class RibOutUpdates;
 class RoutingInstance;
 class RoutingInstanceMgr;
+class SchedulingGroup;
 class StateMachine;
 
 class BgpObjectFactory : public Factory<BgpObjectFactory> {
+    FACTORY_TYPE_N0(BgpObjectFactory, SchedulingGroup);
     FACTORY_TYPE_N1(BgpObjectFactory, BgpConfigListener, BgpConfigManager *);
     FACTORY_TYPE_N1(BgpObjectFactory, BgpConfigManager, BgpServer *);
     FACTORY_TYPE_N1(BgpObjectFactory, BgpExport, RibOut *);

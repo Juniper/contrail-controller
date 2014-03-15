@@ -3,10 +3,17 @@
  */
 
 #include <net/address.h>
+#if defined(__GNUC__)
+#include "base/compiler.h"
+#if __GNUC_PREREQ(4, 5)
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wunused-result"
+#endif
+#endif
 #include <boost/uuid/random_generator.hpp>
+#if defined(__GNUC__) && __GNUC_PREREQ(4, 6)
 #pragma GCC diagnostic pop
+#endif
 
 #include <ifmap/ifmap_table.h>
 #include <ifmap/ifmap_link.h>

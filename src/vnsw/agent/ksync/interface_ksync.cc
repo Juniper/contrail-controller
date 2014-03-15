@@ -387,7 +387,7 @@ int InterfaceKSyncEntry::ChangeMsg(char *buf, int buf_len) {
 }
 
 InterfaceKSyncObject::InterfaceKSyncObject(KSync *ksync) :
-    KSyncDBObject(kInterfaceCount), ksync_(ksync), 
+    KSyncDBObject(), ksync_(ksync), 
     physical_interface_mac_(), test_mode(false) {
 }
 

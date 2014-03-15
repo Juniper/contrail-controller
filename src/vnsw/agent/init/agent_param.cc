@@ -308,6 +308,23 @@ static void ParseLinklocalFlows(const ptree &node,
     }
 }
 
+static void ParseFlowTimeout(const ptree &node,
+                             const string &config_file,
+                             uint32_t *flow_cache_timeout) {
+    try {
+        optional<unsigned int> opt_str;
+        if (opt_str = node.get_optional<unsigned int>
+                      ("config.agent.flow-cache.timeout")) {
+            *flow_cache_timeout = opt_str.get();
+        } else {
+            *flow_cache_timeout = Agent::kDefaultFlowCacheTimeout;
+        }
+    } catch (exception &e) {
+        LOG(ERROR, "Error reading \"flow-cache\" node in config file <"
+            << config_file << ">. Error <" << e.what() << ">");
+    }
+}
+
 // Initialize hypervisor mode based on system information
 // If "/proc/xen" exists it means we are running in Xen dom0
 void AgentParam::InitFromSystem() {
@@ -366,6 +383,7 @@ void AgentParam::InitFromConfig() {
     ParseMetadataProxy(tree, config_file_, &metadata_shared_secret_);
     ParseLinklocalFlows(tree, config_file_, &linklocal_system_flows_,
                         &linklocal_vm_flows_);
+    ParseFlowTimeout(tree, config_file_, &flow_cache_timeout_);
     LOG(DEBUG, "Config file <" << config_file_ << "> read successfully.");
     return;
 }
@@ -542,6 +560,7 @@ void AgentParam::LogConfig() const {
     LOG(DEBUG, "Metadata-Proxy Shared Secret: " << metadata_shared_secret_);
     LOG(DEBUG, "Linklocal Max System Flows  : " << linklocal_system_flows_);
     LOG(DEBUG, "Linklocal Max Vm Flows      : " << linklocal_vm_flows_);
+    LOG(DEBUG, "Flow cache timeout          : " << flow_cache_timeout_);
     if (mode_ == MODE_KVM) {
     LOG(DEBUG, "Hypervisor mode             : kvm");
         return;
@@ -565,7 +584,7 @@ AgentParam::AgentParam() :
         xmpp_server_2_(), dns_server_1_(), dns_server_2_(), dss_server_(),
         mgmt_ip_(), mode_(MODE_KVM), xen_ll_(), tunnel_type_(),
         metadata_shared_secret_(), linklocal_system_flows_(),
-        linklocal_vm_flows_(), config_file_(), program_name_(),
+        linklocal_vm_flows_(), flow_cache_timeout_(), config_file_(), program_name_(),
         log_file_(), log_local_(false), log_level_(), log_category_(),
         collector_(), collector_port_(), http_server_port_(), host_name_(),
         agent_stats_interval_(AgentStatsCollector::AgentStatsInterval), 
@@ -573,4 +592,7 @@ AgentParam::AgentParam() :
         vmware_physical_port_("") {
     vgw_config_table_ = std::auto_ptr<VirtualGatewayConfigTable>
         (new VirtualGatewayConfigTable());
+}
+AgentParam::~AgentParam()
+{
 }

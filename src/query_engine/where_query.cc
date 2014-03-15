@@ -20,13 +20,13 @@ WhereQuery::WhereQuery(const std::string& where_json_string, int direction,
         DbQueryUnit *db_query = new DbQueryUnit(this, main_query);
 
         //TBD not sure if this will work for Message table or Object Log
-        if (m_query->table == g_viz_constants.COLLECTOR_GLOBAL_TABLE) {
+        if (m_query->table() == g_viz_constants.COLLECTOR_GLOBAL_TABLE) {
             db_query->cfname = g_viz_constants.MESSAGE_TABLE_TIMESTAMP;
             db_query->t_only_col = true;
             db_query->t_only_row = true;
         } else if 
-        ((m_query->table == g_viz_constants.FLOW_TABLE)
-        || (m_query->table == g_viz_constants.FLOW_SERIES_TABLE)) {
+        ((m_query->table() == g_viz_constants.FLOW_TABLE)
+        || (m_query->table() == g_viz_constants.FLOW_SERIES_TABLE)) {
 
             db_query->row_key_suffix.push_back((uint8_t)direction_ing);
             db_query->cfname = g_viz_constants.FLOW_TABLE_PROT_SP;
@@ -239,7 +239,7 @@ WhereQuery::WhereQuery(const std::string& where_json_string, int direction,
             {
                 DbQueryUnit *db_query = new DbQueryUnit(and_node, main_query);
 
-                db_query->cfname = m_query->table;
+                db_query->cfname = m_query->table();
 
                 db_query->t_only_col = true;
 
@@ -685,7 +685,7 @@ query_status_t WhereQuery::process_query()
     QE_TRACE(DEBUG, "Starting processing of " << sub_queries.size() <<
             " subqueries");
 
-    if (m_query->table == g_viz_constants.OBJECT_VALUE_TABLE) {
+    if (m_query->table() == g_viz_constants.OBJECT_VALUE_TABLE) {
         status_details = 0;
         parent_query->subquery_processed(this);
         return QUERY_SUCCESS;
@@ -711,7 +711,7 @@ query_status_t WhereQuery::process_query()
 
     QE_TRACE(DEBUG, "Set ops returns # of rows:" << query_result.size());
 
-    if (m_query->table == g_viz_constants.FLOW_TABLE)
+    if (m_query->table() == g_viz_constants.FLOW_TABLE)
     {
         // weed out duplicates
         QE_TRACE(DEBUG, 

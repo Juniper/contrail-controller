@@ -22,19 +22,23 @@ struct SgKey : public AgentKey {
 };
 
 struct SgData : public AgentData {
-    SgData(const uint32_t &sg_id, const uuid &acl_id) :
-           AgentData(), sg_id_(sg_id), acl_id_(acl_id) {
+    SgData(const uint32_t &sg_id, const uuid &egress_acl_id, 
+           const uuid &ingress_acl_id) :
+                   AgentData(), sg_id_(sg_id), 
+                   egress_acl_id_(egress_acl_id), 
+                   ingress_acl_id_(ingress_acl_id) {
     };
     virtual ~SgData() { };
 
     uint32_t sg_id_;
-    uuid acl_id_;
+    uuid egress_acl_id_;
+    uuid ingress_acl_id_;
 };
 
 class SgEntry : AgentRefCount<SgEntry>, public AgentDBEntry {
 public:
     SgEntry(uuid sg_uuid, uint32_t sg_id) : sg_uuid_(sg_uuid), sg_id_(sg_id), 
-                                            acl_(NULL) { };
+                                            egress_acl_(NULL), ingress_acl_(NULL) {};
     SgEntry(uuid sg_uuid) : sg_uuid_(sg_uuid) { };
     virtual ~SgEntry() { };
 
@@ -45,8 +49,11 @@ public:
 
     const uuid &GetSgUuid() const {return sg_uuid_;};
     const uint32_t &GetSgId() const {return sg_id_;};
-    const AclDBEntry *GetAcl() const {return acl_.get();};
-    bool IsAclSet() const { return (acl_ != NULL);};
+    const AclDBEntry *GetIngressAcl() const {return ingress_acl_.get();};
+    const AclDBEntry *GetEgressAcl() const {return egress_acl_.get();};
+    bool IsEgressAclSet() const { return (egress_acl_ != NULL);};
+    bool IsIngressAclSet() const { return (ingress_acl_ != NULL);};
+    bool IsAclSet() const { return (egress_acl_ != NULL || ingress_acl_ != NULL);};
 
     uint32_t GetRefCount() const {
         return AgentRefCount<SgEntry>::GetRefCount();
@@ -58,7 +65,8 @@ private:
     friend class SgTable;
     uuid sg_uuid_;
     uint32_t sg_id_;
-    AclDBEntryRef acl_;
+    AclDBEntryRef egress_acl_;
+    AclDBEntryRef ingress_acl_;
     DISALLOW_COPY_AND_ASSIGN(SgEntry);
 };
 

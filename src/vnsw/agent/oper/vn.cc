@@ -674,7 +674,7 @@ void VnTable::AddSubnetRoute(VnEntry *vn, VnIpam &ipam) {
     VrfEntry *vrf = vn->GetVrf();
     static_cast<Inet4UnicastAgentRouteTable *>(vrf->
         GetInet4UnicastRouteTable())->AddDropRoute
-        (vrf->GetName(), ipam.GetSubnetAddress(), ipam.plen);
+        (vrf->GetName(), ipam.GetSubnetAddress(), ipam.plen, vn->GetName());
 }
 
 // Del receive route for default gw

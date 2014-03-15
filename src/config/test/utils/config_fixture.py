@@ -126,6 +126,10 @@ class ApiServer(object):
                 '--source=%s,%s' % \
                 (bdir + '/config/api-server/vnc_cfg_api_server/',
                  bdir + '/config_test/lib/python2.7/site-packages/cfgm_common/'),
+                '--omit=%s,%s,%s' % \
+                (bdir + '/config/api-server/vnc_cfg_api_server/gen/*',
+                 bdir + '/config_test/lib/python2.7/site-packages/cfgm_common/uve/*',
+                 bdir + '/config/api-server/vnc_cfg_api_server/bottle*'),
                 bdir + '/config/api-server/vnc_cfg_api_server/vnc_cfg_api_server.py',
                 '--redis_server_port', str(self._config_fixture.redis_cfg.port),
                 '--http_server_port', str(self._http_port),
@@ -161,15 +165,16 @@ class ApiServer(object):
     # end stop
         
 class Redis(object):
-    def __init__(self):
+    def __init__(self, builddir):
         self.port = ConfigFixture.get_free_port()
+        self.builddir = builddir
         self.running = False
     # end __init__
 
     def start(self):
         assert(self.running == False)
         self.running = True
-        mockredis.start_redis(self.port) 
+        mockredis.start_redis(self.port, self.builddir + '/testroot/bin/redis-server') 
     # end start
 
     def stop(self):
@@ -225,7 +230,7 @@ class ConfigFixture(fixtures.Fixture):
     def setUp(self):
         super(ConfigFixture, self).setUp()
 
-        self.redis_cfg = Redis()
+        self.redis_cfg = Redis(self.builddir)
         self.redis_cfg.start()
         self.zoo = Zookeeper()
         self.zoo.start()

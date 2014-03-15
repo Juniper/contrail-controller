@@ -160,6 +160,7 @@ void AddVDNS(const char *vdns_name, const char *vdns_attr);
 void DelVDNS(const char *vdns_name);
 void AddLinkLocalConfig(const TestLinkLocalService *services, int count);
 void DelLinkLocalConfig();
+void DeleteGlobalVrouterConfig();
 TestClient *StatsTestInit();
 void send_icmp(int fd, uint8_t smac, uint8_t dmac, uint32_t sip, uint32_t dip);
 bool FlowStats(FlowIp *input, int id, uint32_t bytes, uint32_t pkts);

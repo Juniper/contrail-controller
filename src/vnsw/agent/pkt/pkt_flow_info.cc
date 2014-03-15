@@ -201,7 +201,7 @@ static const string *RouteToVn(const Inet4UnicastRouteEntry *rt) {
         path = rt->GetActivePath();
     }
     if (path == NULL) {
-        return NULL;
+        return &(Agent::NullString());
     }
 
     return &path->dest_vn_name();
@@ -534,20 +534,23 @@ void PktFlowInfo::FloatingIpSNat(const PktInfo *pkt, PktControlInfo *in,
     const VmInterface::FloatingIpSet &fip_list = intf->floating_ip_list().list_;
     VmInterface::FloatingIpSet::const_iterator it = fip_list.begin();
     FlowTable *ftable = Agent::GetInstance()->pkt()->flow_table();
+    const Inet4UnicastRouteEntry *rt = out->rt_;
     // Find Floating-IP matching destination-ip
     for ( ; it != fip_list.end(); ++it) {
         if (it->vrf_.get() == NULL) {
             continue;
         }
 
-        out->rt_ = ftable->GetUcRoute(it->vrf_.get(), Ip4Address(pkt->ip_daddr));
-        if (out->rt_ != NULL) {
+        const Inet4UnicastRouteEntry *rt_match = ftable->GetUcRoute(it->vrf_.get(),
+                Ip4Address(pkt->ip_daddr));
+        if (rt_match != NULL) {
+            out->rt_ = rt_match;
             break;
         }
     }
 
-    if (out->rt_ == NULL) {
-        // No floating-ip found
+    if (out->rt_ == rt) {
+        // No change in route, no floating-ip found
         return;
     }
 
@@ -628,8 +631,10 @@ void PktFlowInfo::IngressProcess(const PktInfo *pkt, PktControlInfo *in,
         }
     }
 
-    // If no route for DA and floating-ip configured try floating-ip SNAT
-    if (out->rt_ == NULL) {
+    // If no route for DA or route points to a different VN
+    // and floating-ip configured try floating-ip SNAT
+    if (out->rt_ == NULL ||
+        (in->vn_ != NULL && *RouteToVn(out->rt_) != in->vn_->GetName())) {
         if (IntfHasFloatingIp(in->intf_)) {
             FloatingIpSNat(pkt, in, out);
         }
