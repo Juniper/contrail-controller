@@ -318,16 +318,40 @@ int RibOut::RouteAdvertiseCount(const BgpRoute *rt) const {
     if (dbstate == NULL) {
         return 0;
     }
+
     const RouteState *rstate = dynamic_cast<const RouteState *>(dbstate);
     if (rstate != NULL) {
         int count = 0;
         for (AdvertiseSList::List::const_iterator iter =
-                rstate->Advertised().list().begin();
-             iter != rstate->Advertised().list().end(); ++iter) {
+             rstate->Advertised()->begin();
+             iter != rstate->Advertised()->end(); ++iter) {
             count += iter->bitset.count();
         }
         return count;
     }
+
+    const RouteUpdate *rt_update = dynamic_cast<const RouteUpdate *>(dbstate);
+    if (rt_update != NULL) {
+        int count = 0;
+        for (AdvertiseSList::List::const_iterator iter =
+             rt_update->History()->begin();
+             iter != rt_update->History()->end(); ++iter) {
+            count += iter->bitset.count();
+        }
+        return count;
+    }
+
+    const UpdateList *uplist = dynamic_cast<const UpdateList *>(dbstate);
+    if (uplist != NULL) {
+        int count = 0;
+        for (AdvertiseSList::List::const_iterator iter =
+             uplist->History()->begin();
+             iter != uplist->History()->end(); ++iter) {
+            count += iter->bitset.count();
+        }
+        return count;
+    }
+
     return 0;
 }
 
