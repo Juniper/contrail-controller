@@ -14,12 +14,18 @@ using namespace std;
 //
 class BgpExportRouteUpdateCommonTest : public BgpExportTest {
 protected:
+
+    BgpExportRouteUpdateCommonTest() : rt_update_(NULL), count_(0) {
+    }
+
     void InitAdvertiseInfo(BgpAttrPtr attrX, int start_idx, int end_idx) {
         InitAdvertiseInfoCommon(attrX, start_idx, end_idx, adv_slist_);
+        count_ = end_idx - start_idx + 1;
     }
 
     void InitAdvertiseInfo(BgpAttrPtr attr_blk[], int start_idx, int end_idx) {
         InitAdvertiseInfoCommon(attr_blk, start_idx, end_idx, adv_slist_);
+        count_ = end_idx - start_idx + 1;
     }
 
     void InitUpdateInfo(BgpAttrPtr attrX, int start_idx, int end_idx,
@@ -49,6 +55,7 @@ protected:
     UpdateInfoSList uinfo_slist_;
     RouteUpdate *rt_update_;
     uint64_t tstamp_;
+    int count_;
 };
 
 //
@@ -57,12 +64,14 @@ protected:
 class BgpExportRouteUpdateTest1 : public BgpExportRouteUpdateCommonTest {
 protected:
     void Initialize() {
+        ASSERT_EQ(0, count_);
         ASSERT_TRUE(adv_slist_->empty());
         ASSERT_TRUE(!uinfo_slist_->empty());
         SchedulerStop();
         table_.SetExportResult(false);
         rt_update_ = BuildRouteUpdate(&rt_, qid_, uinfo_slist_);
         tstamp_ = rt_update_->tstamp();
+        VerifyAdvertiseCount(0);
         usleep(50);
     }
 };
@@ -1089,12 +1098,14 @@ TEST_F(BgpExportRouteUpdateTest1, LeaveDeleted4) {
 class BgpExportRouteUpdateTest2 : public BgpExportRouteUpdateCommonTest {
 protected:
     void Initialize() {
+        ASSERT_NE(0, count_);
         ASSERT_TRUE(!adv_slist_->empty());
         ASSERT_TRUE(!uinfo_slist_->empty());
         SchedulerStop();
         table_.SetExportResult(false);
         rt_update_ = BuildRouteUpdate(&rt_, qid_, uinfo_slist_, adv_slist_);
         tstamp_ = rt_update_->tstamp();
+        VerifyAdvertiseCount(count_);
         usleep(50);
     }
 };
