@@ -246,6 +246,10 @@ bool FlowStatsCollector::Run() {
         it++;
         assert(entry);
         deleted = false;
+        
+        if (entry->deleted()) {
+            continue;
+        }
 
         flow_iteration_key_ = entry->key();
         const vr_flow_entry *k_flow = ksync_obj->GetKernelFlowEntry
