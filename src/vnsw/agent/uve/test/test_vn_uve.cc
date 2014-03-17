@@ -59,12 +59,10 @@ public:
         client->SetFlowAgeExclusionPolicy();
     }
     void FlowSetUp() {
-        unsigned int vn_count = 0;
         EXPECT_EQ(0U, Agent::GetInstance()->pkt()->flow_table()->Size());
         client->Reset();
         CreateVmportEnv(input, 2, 1);
         client->WaitForIdle(5);
-        vn_count++;
 
         EXPECT_TRUE(VmPortActive(input, 0));
         EXPECT_TRUE(VmPortActive(input, 1));

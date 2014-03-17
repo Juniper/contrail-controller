@@ -25,6 +25,7 @@
 
 #include "testing/gunit.h"
 #include "test_cmn_util.h"
+#include "pkt/test/test_flow_util.h"
 #include "vr_types.h"
 #include <uve/vrouter_stats_collector.h>
 #include <uve/vrouter_uve_entry_test.h>
@@ -33,8 +34,19 @@
 
 using namespace std;
 
+#define vm1_ip "11.1.1.1"
+#define vm2_ip "11.1.1.2"
+
+struct PortInfo input[] = {
+        {"flow0", 6, vm1_ip, "00:00:00:01:01:01", 5, 1},
+        {"flow1", 7, vm2_ip, "00:00:00:01:01:02", 5, 2},
+};
+
 void RouterIdDepInit() {
 }
+
+int hash_id;
+VmInterface *flow0, *flow1;
 
 class VRouterStatsCollectorTask : public Task {
 public:
@@ -53,6 +65,62 @@ private:
 
 class UveVrouterUveTest : public ::testing::Test {
 public:
+    static void TestSetup() {
+        client->SetFlowFlushExclusionPolicy();
+        client->SetFlowAgeExclusionPolicy();
+    }
+    void FlowSetUp() {
+        EXPECT_EQ(0U, Agent::GetInstance()->pkt()->flow_table()->Size());
+        client->Reset();
+        CreateVmportEnv(input, 2, 1);
+        client->WaitForIdle(5);
+
+        EXPECT_TRUE(VmPortActive(input, 0));
+        EXPECT_TRUE(VmPortActive(input, 1));
+        EXPECT_TRUE(VmPortPolicyEnable(input, 0));
+        EXPECT_TRUE(VmPortPolicyEnable(input, 1));
+
+        flow0 = VmInterfaceGet(input[0].intf_id);
+        assert(flow0);
+        flow1 = VmInterfaceGet(input[1].intf_id);
+        assert(flow1);
+    }
+
+    void FlowTearDown() {
+        FlushFlowTable();
+        client->Reset();
+        DeleteVmportEnv(input, 2, true, 1);
+        client->WaitForIdle(3);
+        client->PortDelNotifyWait(2);
+        EXPECT_FALSE(VmPortFind(input, 0));
+        EXPECT_FALSE(VmPortFind(input, 1));
+    }
+
+    bool ValidateBmap(const std::vector<uint32_t> &smap, const std::vector<uint32_t> &dmap, 
+                      uint16_t sport, uint16_t dport) {
+        bool ret = true;
+
+        int idx = sport / L4PortBitmap::kBucketCount;
+        int sport_idx = idx / L4PortBitmap::kBitsPerEntry;
+        int sport_bit = (1 << (idx % L4PortBitmap::kBitsPerEntry));
+
+        idx = dport / L4PortBitmap::kBucketCount;
+        int dport_idx = idx / L4PortBitmap::kBitsPerEntry;
+        int dport_bit = (1 << (idx % L4PortBitmap::kBitsPerEntry));
+
+        uint32_t val = smap[sport_idx];
+        if ((val & sport_bit) == 0) {
+            EXPECT_STREQ("TCP Sport bit not set", "");
+            ret = false;
+        }
+
+        val = dmap[dport_idx];
+        if ((val & dport_bit) == 0) {
+            EXPECT_STREQ("TCP Dport bit not set", "");
+            ret = false;
+        }
+        return ret;
+    }
     void EnqueueVRouterStatsCollectorTask(int count) {
         TaskScheduler *scheduler = TaskScheduler::GetInstance();
         VRouterStatsCollectorTask *task = new VRouterStatsCollectorTask(count);
@@ -578,6 +646,117 @@ TEST_F(UveVrouterUveTest, ExceptionPktsChange) {
     EXPECT_EQ(3U, uve.get_exception_packets());
     EXPECT_EQ(1U, uve.get_exception_packets_dropped());
     EXPECT_EQ(2U, uve.get_exception_packets_allowed());
+}
+
+//Flow creation using IP and TCP packets
+TEST_F(UveVrouterUveTest, Bitmap_1) {
+    VrouterUveEntryTest *vr = static_cast<VrouterUveEntryTest *>
+        (Agent::GetInstance()->uve()->vrouter_uve_entry());
+    vr->clear_count();
+
+    FlowSetUp();
+    TestFlow flow[] = {
+        //Add a TCP forward and reverse flow
+        {  TestFlowPkt(vm1_ip, vm2_ip, IPPROTO_TCP, 100, 200, 
+                "vrf5", flow0->id()),
+        {
+            new VerifyVn("vn5", "vn5"),
+            new VerifyVrf("vrf5", "vrf5")
+        }
+        },
+        {  TestFlowPkt(vm2_ip, vm1_ip, IPPROTO_TCP, 200, 100, 
+                "vrf5", flow1->id()),
+        {
+            new VerifyVn("vn5", "vn5"),
+            new VerifyVrf("vrf5", "vrf5")
+        }
+        },
+        //Add a UDP forward and reverse flow
+        {  TestFlowPkt(vm1_ip, vm2_ip, IPPROTO_UDP, 100, 200, 
+                "vrf5", flow0->id()),
+        {
+            new VerifyVn("vn5", "vn5"),
+            new VerifyVrf("vrf5", "vrf5")
+        }
+        },
+        {  TestFlowPkt(vm2_ip, vm1_ip, IPPROTO_UDP, 200, 100, 
+                "vrf5", flow1->id()),
+        {
+            new VerifyVn("vn5", "vn5"),
+            new VerifyVrf("vrf5", "vrf5")
+        }
+        }
+    };
+
+    CreateFlow(flow, 4);
+    EXPECT_EQ(4U, Agent::GetInstance()->pkt()->flow_table()->Size());
+
+    Agent::GetInstance()->uve()->vrouter_stats_collector()->run_counter_ = 0;
+    EnqueueVRouterStatsCollectorTask(1);
+    client->WaitForIdle();
+    WAIT_FOR(1000, 500, (Agent::GetInstance()->uve()->
+                         vrouter_stats_collector()->run_counter_ >= 1));
+
+    const VrouterStatsAgent stats = vr->last_sent_stats();
+    const std::vector<uint32_t> &tcp_smap = stats.get_tcp_sport_bitmap();
+    const std::vector<uint32_t> &tcp_dmap = stats.get_tcp_dport_bitmap();
+    const std::vector<uint32_t> &udp_smap = stats.get_udp_sport_bitmap();
+    const std::vector<uint32_t> &udp_dmap = stats.get_udp_dport_bitmap();
+
+    EXPECT_TRUE(ValidateBmap(tcp_smap, tcp_dmap, 100, 200));
+    EXPECT_TRUE(ValidateBmap(udp_smap, udp_dmap, 100, 200));
+
+    TestFlow flow2[] = {
+        //Add a TCP forward and reverse flow
+        {  TestFlowPkt(vm1_ip, vm2_ip, IPPROTO_TCP, 1000, 2000, 
+                "vrf5", flow0->id()),
+        {
+            new VerifyVn("vn5", "vn5"),
+            new VerifyVrf("vrf5", "vrf5")
+        }
+        },
+        {  TestFlowPkt(vm2_ip, vm1_ip, IPPROTO_TCP, 2000, 1000, 
+                "vrf5", flow1->id()),
+        {
+            new VerifyVn("vn5", "vn5"),
+            new VerifyVrf("vrf5", "vrf5")
+        }
+        },
+        //Add a UDP forward and reverse flow
+        {  TestFlowPkt(vm1_ip, vm2_ip, IPPROTO_UDP, 1000, 2000, 
+                "vrf5", flow0->id()),
+        {
+            new VerifyVn("vn5", "vn5"),
+            new VerifyVrf("vrf5", "vrf5")
+        }
+        },
+        {  TestFlowPkt(vm2_ip, vm1_ip, IPPROTO_UDP, 2000, 1000, 
+                "vrf5", flow1->id()),
+        {
+            new VerifyVn("vn5", "vn5"),
+            new VerifyVrf("vrf5", "vrf5")
+        }
+        }
+    };
+
+    CreateFlow(flow2, 4);
+    EXPECT_EQ(8U, Agent::GetInstance()->pkt()->flow_table()->Size());
+
+    Agent::GetInstance()->uve()->vrouter_stats_collector()->run_counter_ = 0;
+    EnqueueVRouterStatsCollectorTask(1);
+    client->WaitForIdle();
+    WAIT_FOR(1000, 500, (Agent::GetInstance()->uve()->
+                         vrouter_stats_collector()->run_counter_ >= 1));
+
+    const VrouterStatsAgent stats2 = vr->last_sent_stats();
+    const std::vector<uint32_t> &tcp_smap2 = stats2.get_tcp_sport_bitmap();
+    const std::vector<uint32_t> &tcp_dmap2 = stats2.get_tcp_dport_bitmap();
+    const std::vector<uint32_t> &udp_smap2 = stats2.get_udp_sport_bitmap();
+    const std::vector<uint32_t> &udp_dmap2 = stats2.get_udp_dport_bitmap();
+
+    EXPECT_TRUE(ValidateBmap(tcp_smap2, tcp_dmap2, 100, 200));
+    EXPECT_TRUE(ValidateBmap(udp_smap2, udp_dmap2, 100, 200));
+    FlowTearDown();
 }
 
 int main(int argc, char **argv) {
