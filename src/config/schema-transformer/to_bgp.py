@@ -3182,8 +3182,7 @@ def main(args_str=None):
     if not args_str:
         args_str = ' '.join(sys.argv[1:])
     args = parse_args(args_str)
-
-    _disc_service = DiscoveryService(args.zk_server_ip)
+    _disc_service = DiscoveryService("schema", args.zk_server_ip)
     _disc_service.master_election("/schema-transformer", os.getpid(),
                                   run_schema_transformer, args)
 # end main

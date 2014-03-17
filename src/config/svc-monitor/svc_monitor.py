@@ -1250,7 +1250,7 @@ def main(args_str=None):
         args_str = ' '.join(sys.argv[1:])
     args = parse_args(args_str)
 
-    _disc_service = DiscoveryService(args.zk_server_ip)
+    _disc_service = DiscoveryService("svc-monitor", args.zk_server_ip)
     _disc_service.master_election("/svc-monitor", os.getpid(),
                                   run_svc_monitor, args)
 # end main

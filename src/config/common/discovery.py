@@ -115,7 +115,15 @@ class IndexAllocator(object):
 
 class DiscoveryService(object):
 
-    def __init__(self, server_list, logger=None):
+    def __init__(self, module, server_list):
+        # logging
+        logger = logging.getLogger(module)
+        logger.setLevel(logging.INFO)
+        handler = logging.handlers.RotatingFileHandler('/var/log/contrail/' + module + '-zk.log', maxBytes=1024*1024, backupCount=10)
+        log_format = logging.Formatter('%(asctime)s [%(name)s]: %(message)s', datefmt='%m/%d/%Y %I:%M:%S %p')
+        handler.setFormatter(log_format)
+        logger.addHandler(handler)
+
         self._zk_client = \
             kazoo.client.KazooClient(
                 server_list,
