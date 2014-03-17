@@ -106,7 +106,6 @@ class AuthServiceKeystone(object):
         # map keystone id to users. Needed for quantum plugin because contrail
         # plugin doesn't have access to user token and ends up sending admin
         # admin token along with user-id and role
-        self._ks_cached_user_id = None
         self._ks_users = {}
 
         # configure memcache if enabled
@@ -179,9 +178,6 @@ class AuthServiceKeystone(object):
     def user_id_to_name(self, id):
         if id in self._ks_users:
             return self._ks_users[id]
-        if id == self._ks_cached_user_id:
-            return ''
-        self._ks_cached_user_id = id
 
         # fetch from keystone
         content = self.json_request('GET', '/v2.0/users')
@@ -189,7 +185,10 @@ class AuthServiceKeystone(object):
             self._ks_users = dict((user['id'], user['name'])
                                   for user in content['users'])
 
-        # retry
-        return self.user_id_to_name(id)
+        # check it again
+        if id in self._ks_users:
+            return self._ks_users[id]
+        else:
+            return ''
     # end user_id_to_name
 # end class AuthService
