@@ -937,10 +937,10 @@ class VncKombuClient(object):
 class VncZkClient(object):
     _SUBNET_PATH = "/api-server/subnets/"
 
-    def __init__(self, zk_server_ip):
+    def __init__(self, instance_id, zk_server_ip):
         while True:
             try:
-                self._zk_client = DiscoveryService(zk_server_ip)
+                self._zk_client = DiscoveryService("api-" + instance_id, zk_server_ip)
                 break
             except gevent.event.Timeout as e:
                 pass
@@ -1044,7 +1044,7 @@ class VncDbClient(object):
 
         self._msgbus = VncKombuClient(self, ifmap_srv_ip, self._ifmap_db, rabbit_user,
         rabbit_password, rabbit_vhost)
-        self._zk_db = VncZkClient(zk_server_ip)
+        self._zk_db = VncZkClient(api_svr_mgr._args.worker_id, zk_server_ip)
     # end __init__
 
     def db_resync(self):
