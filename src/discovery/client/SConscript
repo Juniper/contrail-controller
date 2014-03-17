@@ -99,6 +99,7 @@ env.Depends(local_sources_rules, autogen_infra_sources)
 
 # install everything before building distribution
 env.Depends(sdist_gen, sdist_depends)
+env.Alias('src/discovery:client', sdist_gen)
 
 def MapBuildDir(list):
     return map(lambda x: '#/' + Dir('..').path + '/../' + x, list)
