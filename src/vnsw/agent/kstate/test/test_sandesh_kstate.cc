@@ -1010,10 +1010,10 @@ TEST_F(KStateSandeshTest, VrfStatsTest_MultiResponse) {
     ClearCount();
     VrfStatsGet(-1);
     client->WaitForIdle();
-    WAIT_FOR(1000, 1000, (response_count_ == 5));
+    WAIT_FOR(1000, 1000, (response_count_ == 6));
 
     //verify the response
-    EXPECT_EQ(5U, type_specific_response_count_);
+    EXPECT_EQ(6U, type_specific_response_count_);
     EXPECT_EQ(100U, num_entries_);
 
     //cleanup

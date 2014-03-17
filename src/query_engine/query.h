@@ -112,7 +112,7 @@ extern SandeshTraceBufferPtr QeTraceBuf;
     if ((AnalyticsQuery *)(this->main_query))\
     {\
         qid = (((AnalyticsQuery *)(this->main_query))->query_id);\
-        table = (((AnalyticsQuery *)(this->main_query))->table);\
+        table = (((AnalyticsQuery *)(this->main_query))->table());\
         batch_num = (((AnalyticsQuery *)(this->main_query))->parallel_batch_num);\
     }\
     std::stringstream ss; ss << ":" << batch_num << ":" << log_msg; \
@@ -127,7 +127,7 @@ extern SandeshTraceBufferPtr QeTraceBuf;
     if ((AnalyticsQuery *)(this->main_query))\
     {\
         qid = (((AnalyticsQuery *)(this->main_query))->query_id);\
-        table = (((AnalyticsQuery *)(this->main_query))->table);\
+        table = (((AnalyticsQuery *)(this->main_query))->table());\
         batch_num = (((AnalyticsQuery *)(this->main_query))->parallel_batch_num);\
     }\
     if (batch_num == 0) {\
@@ -196,6 +196,15 @@ struct flow_tuple {
     flow_tuple() : source_ip(0), dest_ip(0), protocol(0), source_port(0),
                    dest_port(0), direction(0) {
     }
+    
+    flow_tuple(std::string& vr, std::string& svn, std::string& dvn, 
+               uint32_t sip, uint32_t dip, uint32_t proto, 
+               uint32_t sport, uint32_t dport, uint32_t dir) :
+        vrouter(vr), source_vn(svn), dest_vn(dvn), source_ip(sip),
+        dest_ip(dip), protocol(proto), source_port(sport), 
+        dest_port(dport), direction(dir) {
+    }
+    
     bool operator<(const flow_tuple& rhs) const {
         if (vrouter < rhs.vrouter) return true;
         if (vrouter > rhs.vrouter) return false;
@@ -726,11 +735,14 @@ public:
             std::string>& json_api_data, uint64_t analytics_start_time,
             EventManager *evm, const std::string & cassandra_ip, 
             unsigned short cassandra_port, int batch, int total_batches);
-
+    AnalyticsQuery(std::string qid, GenDb::GenDbIf *dbif, 
+            std::map<std::string, std::string> json_api_data,
+            uint64_t analytics_start_time, int batch, int total_batches);
+    virtual ~AnalyticsQuery() {}
 
     virtual query_status_t process_query();
 
-        // Interface to Cassandra
+    // Interface to Cassandra
     GenDb::GenDbIf *dbif;
     boost::scoped_ptr<GenDb::GenDbIf> dbif_;
     void db_err_handler() {};
@@ -740,26 +752,8 @@ public:
     // Query Id
     std::string query_id;
     
-    // Analytics table to query
-    std::string table; 
-
     // if the req is to get objectids, the following will contain the key
     std::string object_value_key; 
-
-    // query start time requested by the user
-    uint64_t req_from_time;
-    // start time of the time range for the queried records.
-    // If the start time requested by the user is earlier than the 
-    // analytics start time, then this field holds the analytics start time.
-    // Else, from_time is same as req_from_time.
-    uint64_t from_time; 
-    // query end time requested by the user
-    uint64_t req_end_time;
-    // end time of the time range for the queried records.
-    // If the end time requested by the user is later than the time @ which the 
-    // query was received, then this field holds the time @ which the query
-    // was received. Else, end_time is same as req_end_time.
-    uint64_t end_time; 
 
     std::string sandesh_moduleid; // module id of the query engine itself
     bool  filter_qe_logs;   // whether to filter query engine logs
@@ -812,20 +806,58 @@ const std::vector<boost::shared_ptr<QEOpServerProxy::BufferT> >& inputs,
         uint64_t& time_period,
         int& parse_status);
 
+    virtual std::string table() const {
+        return table_;
+    }
+    virtual uint64_t req_from_time() const {
+        return req_from_time_;
+    }
+    virtual uint64_t req_end_time() const {
+        return req_end_time_;
+    }
+    virtual uint64_t from_time() const {
+        return from_time_;
+    }
+    virtual uint64_t end_time() const {
+        return end_time_;
+    }
+    virtual std::vector<query_result_unit_t>& where_query_result() {
+        return wherequery_->query_result;
+    }
+    virtual uint32_t direction_ing() const {
+        return wherequery_->direction_ing;
+    }
+    
     // validation functions
     bool is_valid_from_field(const std::string& from_field);
-    bool is_object_table_query();
-    bool is_stat_table_query();
+    virtual bool is_object_table_query();
+    virtual bool is_stat_table_query();
     int  stat_table_index();
     bool is_valid_select_field(const std::string& select_field);
     bool is_valid_where_field(const std::string& where_field);
     bool is_valid_sort_field(const std::string& sort_field);
     std::string get_column_field_datatype(const std::string& col_field);
-    bool is_flow_query(); // either flow-series or flow-records query
+    virtual bool is_flow_query(); // either flow-series or flow-records query
     bool is_query_parallelized() { return parallelize_query_; }
     uint64_t parse_time(const std::string& relative_time);
 
     private:
+    // Analytics table to query
+    std::string table_; 
+    // query start time requested by the user
+    uint64_t req_from_time_;
+    // query end time requested by the user
+    uint64_t req_end_time_;
+    // start time of the time range for the queried records.
+    // If the start time requested by the user is earlier than the 
+    // analytics start time, then this field holds the analytics start time.
+    // Else, from_time is same as req_from_time.
+    uint64_t from_time_; 
+    // end time of the time range for the queried records.
+    // If the end time requested by the user is later than the time @ which the 
+    // query was received, then this field holds the time @ which the query
+    // was received. Else, end_time is same as req_end_time.
+    uint64_t end_time_; 
     bool parallelize_query_;
     // Init function
     void Init(GenDb::GenDbIf *db_if, std::string qid,
@@ -855,16 +887,16 @@ public:
     };
 
     uint64_t stime;
-    static uint64_t anal_ttl; // TTL of analytics data in hours
 
     QueryEngine(EventManager *evm,
             const std::string & cassandra_ip, unsigned short cassandra_port,
             const std::string & redis_ip, unsigned short redis_port, 
-                int max_tasks, int max_slice, uint64_t start_time=0);
+            int max_tasks, int max_slice, uint64_t anal_ttl, 
+            uint64_t start_time=0);
 
     QueryEngine(EventManager *evm,
             const std::string & redis_ip, unsigned short redis_port,
-                int max_tasks, int max_slice);
+                int max_tasks, int max_slice, uint64_t anal_ttl);
     
     int
     QueryPrepare(QueryParams qp,

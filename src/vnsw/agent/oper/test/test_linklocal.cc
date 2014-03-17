@@ -259,12 +259,6 @@ TEST_F(LinkLocalTest, GlobalVrouterDeleteTest) {
         EXPECT_TRUE(rt != NULL);
         EXPECT_TRUE(rt->GetActiveNextHop()->GetType() == NextHop::ARP);
     }
-    int count = 0;
-    while (Agent::GetInstance()->oper_db()->global_vrouter()->IsAddressInUse(
-                Ip4Address::from_string("127.0.0.1")) == false &&
-           count++ < MAX_COUNT)
-        usleep(1000);
-    EXPECT_TRUE(count < MAX_COUNT);
 
     // Delete global vrouter config; this is different from the earlier case
     // where we delete the link local entries
@@ -282,8 +276,6 @@ TEST_F(LinkLocalTest, GlobalVrouterDeleteTest) {
             RouteGet("vrf2", Ip4Address::from_string(linklocal_ip[i]), 32);
         EXPECT_TRUE(rt == NULL);
     }
-    EXPECT_FALSE(Agent::GetInstance()->oper_db()->global_vrouter()->IsAddressInUse(
-                 Ip4Address::from_string("127.0.0.1")));
 
     client->Reset();
     DelIPAM("ipam1");

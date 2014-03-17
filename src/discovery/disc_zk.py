@@ -9,6 +9,7 @@ import kazoo.exceptions
 import kazoo.handlers.gevent
 import kazoo.recipe.election
 
+import logging
 import json
 import time
 import disc_consts
@@ -24,14 +25,24 @@ class DiscoveryZkClient(object):
         self._service_id_to_type = {}
         self._ds = discServer
         self._zk_sem = BoundedSemaphore(1)
+        self._election = None
 
         zk_endpts = []
         for ip in zk_srv_ip.split(','):
             zk_endpts.append('%s:%s' %(ip, zk_srv_port))
 
+        # logging
+        logger = logging.getLogger('discovery-service')
+        logger.setLevel(logging.INFO)
+        handler = logging.handlers.RotatingFileHandler('/var/log/contrail/discovery_zk.log', maxBytes=1024*1024, backupCount=10)
+        log_format = logging.Formatter('%(asctime)s [%(name)s]: %(message)s', datefmt='%m/%d/%Y %I:%M:%S %p')
+        handler.setFormatter(log_format)
+        logger.addHandler(handler)
+
         self._zk = kazoo.client.KazooClient(
             hosts=','.join(zk_endpts),
-            handler=kazoo.handlers.gevent.SequentialGeventHandler())
+            handler=kazoo.handlers.gevent.SequentialGeventHandler(),
+            logger=logger)
 
         # connect
         self.connect()
@@ -93,9 +104,21 @@ class DiscoveryZkClient(object):
         return self._debug
     # end
 
+    def _zk_listener(self, state):
+        if state == "CONNECTED":
+            self._election.cancel()
+    # end
+
+    def _zk_election_callback(self, func, *args, **kwargs):
+        self._zk.remove_listener(self._zk_listener)
+        func(*args, **kwargs)
+    # end
+
     def master_election(self, path, identifier, func, *args, **kwargs):
-        election = self._zk.Election(path, identifier)
-        election.run(func, *args, **kwargs)
+        self._zk.add_listener(self._zk_listener)
+        while True:
+            self._election = self._zk.Election(path, identifier)
+            self._election.run(self._zk_election_callback, func, *args, **kwargs)
     # end master_election
 
     def create_node(self, path, value='', makepath=False, sequence=False):

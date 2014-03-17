@@ -8,9 +8,11 @@
 #include "base/task_annotations.h"
 #include "base/test/task_test_util.h"
 #include "control-node/control_node.h"
+#include "bgp/bgp_factory.h"
 #include "bgp/bgp_log.h"
 #include "bgp/bgp_peer.h"
 #include "bgp/l3vpn/inetvpn_table.h"
+#include "control-node/control_node.h"
 #include "db/db.h"
 #include "testing/gunit.h"
 
@@ -34,6 +36,16 @@ public:
     }
 private:
     int index_;
+};
+
+//
+// Custom SchedulingGroup to prevent creating of bgp::SendReady Task
+// when running tests.  This allows unit tests to exercise code that
+// merges and splits the SchedulingGroup work queues.
+//
+class SchedulingGroupCustom : public SchedulingGroup {
+public:
+    SchedulingGroupCustom() { running_ = true; }
 };
 
 class SchedulingGroupManagerTest : public ::testing::Test {
@@ -73,6 +85,20 @@ protected:
     void GetPeerList(SchedulingGroup *sg, SchedulingGroup::PeerList *plist) {
         ConcurrencyScope scope("bgp::PeerMembership");
         sg->GetPeerList(plist);
+    }
+
+    void WorkPeerEnqueue(SchedulingGroup *sg, IPeerUpdate *peer) {
+        ConcurrencyScope scope("bgp::SendReadyTask");
+        sg->WorkPeerEnqueue(peer);
+    }
+
+    void WorkRibOutEnqueue(SchedulingGroup *sg, RibOut *ribout) {
+        ConcurrencyScope scope("bgp::SendTask");
+        sg->WorkRibOutEnqueue(ribout, 0);
+    }
+
+    size_t GetWorkQueueSize(SchedulingGroup *sg) {
+        return sg->work_queue_.size();
     }
 
     SchedulingGroupManager sgman_;
@@ -419,6 +445,284 @@ TEST_F(SchedulingGroupManagerTest, TwoTablesMultiplePeers) {
     STLDeleteValues(&peers);
 }
 
+// Parameterize number of entries in the work queue and the order in which
+// the entries are added.
+
+typedef std::tr1::tuple<int, bool> TestParams1;
+
+class SchedulingGroupWorkQueueTest :
+    public SchedulingGroupManagerTest,
+    public ::testing::WithParamInterface<TestParams1> {
+
+protected:
+    virtual void SetUp() {
+        SchedulingGroupManagerTest::SetUp();
+        rp1_.reset(new RibOut(inetvpn_table_, &sgman_, RibExportPolicy()));
+        rp2_.reset(new RibOut(inetvpn_table_, &sgman_, RibExportPolicy()));
+        p1_.reset(new BgpTestPeer());
+        p2_.reset(new BgpTestPeer());
+        num_items_ = std::tr1::get<0>(GetParam());
+        condition_ = std::tr1::get<1>(GetParam());
+    }
+    virtual void TearDown() {
+        SchedulingGroupManagerTest::TearDown();
+    }
+
+    auto_ptr<RibOut> rp1_, rp2_;
+    auto_ptr<BgpTestPeer> p1_, p2_;
+    int num_items_;
+    bool condition_;
+};
+
+TEST_P(SchedulingGroupWorkQueueTest, SplitWorkRibOut1) {
+    SchedulingGroup *sg;
+
+    Join(rp1_.get(), p1_.get());
+    Join(rp1_.get(), p2_.get());
+    Join(rp2_.get(), p2_.get());
+    EXPECT_EQ(1, sgman_.size());
+
+    sg = rp1_->GetSchedulingGroup();
+    for (int idx = 0; idx < num_items_; ++idx) {
+        if (condition_) {
+            WorkRibOutEnqueue(sg, rp1_.get());
+            WorkRibOutEnqueue(sg, rp2_.get());
+        } else {
+            WorkRibOutEnqueue(sg, rp2_.get());
+            WorkRibOutEnqueue(sg, rp1_.get());
+        }
+    }
+
+    Leave(rp1_.get(), p2_.get());
+    EXPECT_EQ(2, sgman_.size());
+
+    sg = rp1_->GetSchedulingGroup();
+    EXPECT_EQ(num_items_, GetWorkQueueSize(sg));
+    sg = rp2_->GetSchedulingGroup();
+    EXPECT_EQ(num_items_, GetWorkQueueSize(sg));
+
+    Leave(rp1_.get(), p1_.get());
+    Leave(rp2_.get(), p2_.get());
+    EXPECT_EQ(0, sgman_.size());
+}
+
+TEST_P(SchedulingGroupWorkQueueTest, SplitWorkRibOut2) {
+    SchedulingGroup *sg;
+
+    Join(rp1_.get(), p1_.get());
+    Join(rp1_.get(), p2_.get());
+    Join(rp2_.get(), p2_.get());
+    EXPECT_EQ(1, sgman_.size());
+
+    sg = rp1_->GetSchedulingGroup();
+    for (int idx = 0; idx < num_items_; ++idx) {
+        if (condition_) {
+            WorkRibOutEnqueue(sg, rp1_.get());
+        } else {
+            WorkRibOutEnqueue(sg, rp2_.get());
+        }
+    }
+
+    Leave(rp1_.get(), p2_.get());
+    EXPECT_EQ(2, sgman_.size());
+
+    sg = rp1_->GetSchedulingGroup();
+    EXPECT_EQ(condition_ ? num_items_ : 0, GetWorkQueueSize(sg));
+    sg = rp2_->GetSchedulingGroup();
+    EXPECT_EQ(condition_ ? 0 : num_items_, GetWorkQueueSize(sg));
+
+    Leave(rp1_.get(), p1_.get());
+    Leave(rp2_.get(), p2_.get());
+    EXPECT_EQ(0, sgman_.size());
+}
+
+TEST_P(SchedulingGroupWorkQueueTest, SplitWorkPeer1) {
+    SchedulingGroup *sg;
+
+    Join(rp1_.get(), p1_.get());
+    Join(rp1_.get(), p2_.get());
+    Join(rp2_.get(), p2_.get());
+    EXPECT_EQ(1, sgman_.size());
+
+    sg = rp1_->GetSchedulingGroup();
+    for (int idx = 0; idx < num_items_; ++idx) {
+        if (condition_) {
+            WorkPeerEnqueue(sg, p1_.get());
+            WorkPeerEnqueue(sg, p2_.get());
+        } else {
+            WorkPeerEnqueue(sg, p2_.get());
+            WorkPeerEnqueue(sg, p1_.get());
+        }
+    }
+
+    Leave(rp1_.get(), p2_.get());
+    EXPECT_EQ(2, sgman_.size());
+
+    sg = rp1_->GetSchedulingGroup();
+    EXPECT_EQ(num_items_, GetWorkQueueSize(sg));
+    sg = rp2_->GetSchedulingGroup();
+    EXPECT_EQ(num_items_, GetWorkQueueSize(sg));
+
+    Leave(rp1_.get(), p1_.get());
+    Leave(rp2_.get(), p2_.get());
+    EXPECT_EQ(0, sgman_.size());
+}
+
+TEST_P(SchedulingGroupWorkQueueTest, SplitWorkPeer2) {
+    SchedulingGroup *sg;
+
+    Join(rp1_.get(), p1_.get());
+    Join(rp1_.get(), p2_.get());
+    Join(rp2_.get(), p2_.get());
+    EXPECT_EQ(1, sgman_.size());
+
+    sg = rp1_->GetSchedulingGroup();
+    for (int idx = 0; idx < num_items_; ++idx) {
+        if (condition_) {
+            WorkPeerEnqueue(sg, p1_.get());
+        } else {
+            WorkPeerEnqueue(sg, p2_.get());
+        }
+    }
+
+    Leave(rp1_.get(), p2_.get());
+    EXPECT_EQ(2, sgman_.size());
+
+    sg = rp1_->GetSchedulingGroup();
+    EXPECT_EQ(condition_ ? num_items_ : 0, GetWorkQueueSize(sg));
+    sg = rp2_->GetSchedulingGroup();
+    EXPECT_EQ(condition_ ? 0 : num_items_, GetWorkQueueSize(sg));
+
+    Leave(rp1_.get(), p1_.get());
+    Leave(rp2_.get(), p2_.get());
+    EXPECT_EQ(0, sgman_.size());
+}
+
+TEST_P(SchedulingGroupWorkQueueTest, MergeWorkRibOut1) {
+    SchedulingGroup *sg;
+
+    if (condition_) {
+        Join(rp1_.get(), p1_.get());
+        Join(rp2_.get(), p2_.get());
+    } else {
+        Join(rp2_.get(), p2_.get());
+        Join(rp1_.get(), p1_.get());
+    }
+    EXPECT_EQ(2, sgman_.size());
+
+    sg = rp1_->GetSchedulingGroup();
+    for (int idx = 0; idx < num_items_; ++idx) {
+        WorkRibOutEnqueue(sg, rp1_.get());
+    }
+
+    sg = rp2_->GetSchedulingGroup();
+    for (int idx = 0; idx < num_items_; ++idx) {
+        WorkRibOutEnqueue(sg, rp2_.get());
+    }
+
+    Join(rp1_.get(), p2_.get());
+    EXPECT_EQ(1, sgman_.size());
+    sg = rp1_->GetSchedulingGroup();
+    EXPECT_EQ(2 * num_items_, GetWorkQueueSize(sg));
+
+    Leave(rp1_.get(), p1_.get());
+    Leave(rp2_.get(), p2_.get());
+    Leave(rp1_.get(), p2_.get());
+    EXPECT_EQ(0, sgman_.size());
+}
+
+TEST_P(SchedulingGroupWorkQueueTest, MergeWorkRibOut2) {
+    SchedulingGroup *sg;
+
+    if (condition_) {
+        Join(rp1_.get(), p1_.get());
+        Join(rp2_.get(), p2_.get());
+    } else {
+        Join(rp2_.get(), p2_.get());
+        Join(rp1_.get(), p1_.get());
+    }
+    EXPECT_EQ(2, sgman_.size());
+
+    sg = rp1_->GetSchedulingGroup();
+    for (int idx = 0; idx < num_items_; ++idx) {
+        WorkRibOutEnqueue(sg, rp1_.get());
+    }
+
+    Join(rp1_.get(), p2_.get());
+    EXPECT_EQ(1, sgman_.size());
+    sg = rp1_->GetSchedulingGroup();
+    EXPECT_EQ(num_items_, GetWorkQueueSize(sg));
+
+    Leave(rp1_.get(), p1_.get());
+    Leave(rp2_.get(), p2_.get());
+    Leave(rp1_.get(), p2_.get());
+    EXPECT_EQ(0, sgman_.size());
+}
+
+TEST_P(SchedulingGroupWorkQueueTest, MergeWorkPeer1) {
+    SchedulingGroup *sg;
+
+    if (condition_) {
+        Join(rp1_.get(), p1_.get());
+        Join(rp2_.get(), p2_.get());
+    } else {
+        Join(rp2_.get(), p2_.get());
+        Join(rp1_.get(), p1_.get());
+    }
+    EXPECT_EQ(2, sgman_.size());
+
+    sg = rp1_->GetSchedulingGroup();
+    for (int idx = 0; idx < num_items_; ++idx) {
+        WorkPeerEnqueue(sg, p1_.get());
+    }
+
+    sg = rp2_->GetSchedulingGroup();
+    for (int idx = 0; idx < num_items_; ++idx) {
+        WorkPeerEnqueue(sg, p2_.get());
+    }
+
+    Join(rp1_.get(), p2_.get());
+    EXPECT_EQ(1, sgman_.size());
+    sg = rp1_->GetSchedulingGroup();
+    EXPECT_EQ(2 * num_items_, GetWorkQueueSize(sg));
+
+    Leave(rp1_.get(), p1_.get());
+    Leave(rp2_.get(), p2_.get());
+    Leave(rp1_.get(), p2_.get());
+    EXPECT_EQ(0, sgman_.size());
+}
+
+TEST_P(SchedulingGroupWorkQueueTest, MergeWorkPeer2) {
+    SchedulingGroup *sg;
+
+    if (condition_) {
+        Join(rp1_.get(), p1_.get());
+        Join(rp2_.get(), p2_.get());
+    } else {
+        Join(rp2_.get(), p2_.get());
+        Join(rp1_.get(), p1_.get());
+    }
+    EXPECT_EQ(2, sgman_.size());
+
+    sg = rp1_->GetSchedulingGroup();
+    for (int idx = 0; idx < num_items_; ++idx) {
+        WorkPeerEnqueue(sg, p1_.get());
+    }
+
+    Join(rp1_.get(), p2_.get());
+    EXPECT_EQ(1, sgman_.size());
+    sg = rp1_->GetSchedulingGroup();
+    EXPECT_EQ(num_items_, GetWorkQueueSize(sg));
+
+    Leave(rp1_.get(), p1_.get());
+    Leave(rp2_.get(), p2_.get());
+    Leave(rp1_.get(), p2_.get());
+    EXPECT_EQ(0, sgman_.size());
+}
+
+INSTANTIATE_TEST_CASE_P(One, SchedulingGroupWorkQueueTest,
+    ::testing::Combine(::testing::Range(1, 9), ::testing::Bool()));
+
 static void SetUp() {
     bgp_log_test::init();
     ControlNode::SetDefaultSchedulingPolicy();
@@ -431,6 +735,10 @@ static void TearDown() {
 }
 
 int main(int argc, char **argv) {
+    bgp_log_test::init();
+    ControlNode::SetDefaultSchedulingPolicy();
+    BgpObjectFactory::Register<SchedulingGroup>(
+        boost::factory<SchedulingGroupCustom *>());
     ::testing::InitGoogleTest(&argc, argv);
     SetUp();
     int result = RUN_ALL_TESTS();

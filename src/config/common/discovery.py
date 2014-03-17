@@ -67,7 +67,7 @@ class IndexAllocator(object):
             id_str = "%(#)010d" % {'#': idx}
             self._disc_service.create_node(self._path + id_str, value)
             return idx
-        except kazoo.exceptions.NodeExistsError:
+        except ResourceExistsError:
             return self.alloc(value)
     # end alloc
 
@@ -80,7 +80,7 @@ class IndexAllocator(object):
             self._disc_service.create_node(self._path + id_str, value)
             self._set_in_use(self._get_bit_from_zk_index(idx))
             return idx
-        except kazoo.exceptions.NodeExistsError:
+        except ResourceExistsError:
             self._set_in_use(self._get_bit_from_zk_index(idx))
             return None
     # end reserve
@@ -115,7 +115,15 @@ class IndexAllocator(object):
 
 class DiscoveryService(object):
 
-    def __init__(self, server_list, logger=None):
+    def __init__(self, module, server_list):
+        # logging
+        logger = logging.getLogger(module)
+        logger.setLevel(logging.INFO)
+        handler = logging.handlers.RotatingFileHandler('/var/log/contrail/' + module + '-zk.log', maxBytes=1024*1024, backupCount=10)
+        log_format = logging.Formatter('%(asctime)s [%(name)s]: %(message)s', datefmt='%m/%d/%Y %I:%M:%S %p')
+        handler.setFormatter(log_format)
+        logger.addHandler(handler)
+
         self._zk_client = \
             kazoo.client.KazooClient(
                 server_list,
@@ -123,6 +131,7 @@ class DiscoveryService(object):
                 logger=logger)
 
         self._logger = logger
+        self._election = None
         self.connect()
     # end __init__
 
@@ -158,9 +167,21 @@ class DiscoveryService(object):
         self._logger.debug(msg)
     # end syslog
 
+    def _zk_listener(self, state):
+        if state == "CONNECTED":
+            self._election.cancel()
+    # end
+
+    def _zk_election_callback(self, func, *args, **kwargs):
+        self._zk.remove_listener(self._zk_listener)
+        func(*args, **kwargs)
+    # end
+
     def master_election(self, path, identifier, func, *args, **kwargs):
-        election = self._zk_client.Election(path, identifier)
-        election.run(func, *args, **kwargs)
+        self._zk.add_listener(self._zk_listener)
+        while True:
+            self._election = self._zk_client.Election(path, identifier)
+            self._election.run(self._zk_election_callback, func, *args, **kwargs)
     # end master_election
 
     def create_node(self, path, value):

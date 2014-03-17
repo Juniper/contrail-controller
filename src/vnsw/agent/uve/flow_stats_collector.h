@@ -25,6 +25,7 @@ public:
     static const uint32_t MaxFlows= (256 * 1024); // time in milliseconds
 
     FlowStatsCollector(boost::asio::io_service &io, int intvl,
+                       uint32_t flow_cache_timeout,
                        AgentUve *uve);
     virtual ~FlowStatsCollector();
 

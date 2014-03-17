@@ -43,14 +43,6 @@ void L4PortBitmap::PortBitmap::AddPort(uint16_t port) {
     }
 }
 
-void L4PortBitmap::PortBitmap::DelPort(uint16_t port) {
-    int idx = port / kBucketCount;
-    counts_[idx]--;
-    if (counts_[idx] == 0) {
-        bitmap_[idx / kBitsPerEntry] &= ~(1 << (idx % kBitsPerEntry));
-    }
-}
-
 void L4PortBitmap::PortBitmap::Encode(std::vector<uint32_t> &bmap) {
     for (int i = 0; i < L4PortBitmap::kBmapCount; i++) {
         bmap.push_back(bitmap_[i]);
@@ -85,48 +77,6 @@ void L4PortBitmap::AddPort(uint8_t proto, uint16_t sport, uint16_t dport) {
         tcp_sport_.AddPort(sport);
         tcp_dport_.AddPort(dport);
     }
-}
-
-void L4PortBitmap::DelPort(uint8_t proto, uint16_t sport, uint16_t dport) {
-    if (proto == IPPROTO_UDP) {
-        udp_sport_.DelPort(sport);
-        udp_dport_.DelPort(dport);
-    }
-
-    if (proto == IPPROTO_TCP) {
-        tcp_sport_.DelPort(sport);
-        tcp_dport_.DelPort(dport);
-    }
-}
-
-bool L4PortBitmap::Sync(PortBucketBitmap &bmap) {
-    bool changed = false;
-
-    std::vector<uint32_t> tmp;
-    if (tcp_sport_.Sync(tmp)) {
-        bmap.set_tcp_sport_bitmap(tmp);
-        changed = true;
-    }
-
-    tmp.clear();
-    if (tcp_dport_.Sync(tmp)) {
-        bmap.set_tcp_dport_bitmap(tmp);
-        changed = true;
-    }
-
-    tmp.clear();
-    if (udp_sport_.Sync(tmp)) {
-        bmap.set_udp_sport_bitmap(tmp);
-        changed = true;
-    }
-
-    tmp.clear();
-    if (udp_dport_.Sync(tmp)) {
-        bmap.set_udp_dport_bitmap(tmp);
-        changed = true;
-    }
-
-    return changed;
 }
 
 void L4PortBitmap::Encode(PortBucketBitmap &bmap) {

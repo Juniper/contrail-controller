@@ -317,12 +317,20 @@ bool InetInterfaceRoute::AddChangePath(Agent *agent, AgentPath *path) {
 }
 
 bool DropRoute::AddChangePath(Agent *agent, AgentPath *path) {
+    bool ret = false;
+
+    if (path->dest_vn_name() != vn_) {
+        path->set_dest_vn_name(vn_);
+        ret = true;
+    }
+
     NextHop *nh = agent->nexthop_table()->discard_nh();
     path->set_unresolved(false);
-    if (path->ChangeNH(agent, nh) == true)
-        return true;
+    if (path->ChangeNH(agent, nh) == true) {
+        ret = true;
+    }
 
-    return false;
+    return ret;
 }
 
 bool LocalVmRoute::AddChangePath(Agent *agent, AgentPath *path) {
