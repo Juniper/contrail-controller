@@ -689,7 +689,7 @@ void VnTable::DelSubnetRoute(VnEntry *vn, VnIpam &ipam) {
 bool VnEntry::DBEntrySandesh(Sandesh *sresp, std::string &name)  const {
     VnListResp *resp = static_cast<VnListResp *>(sresp);
 
-    if (GetName().find(name) != std::string::npos) {
+    if (name.empty() || GetName() == name) {
         VnSandeshData data;
         data.set_name(GetName());
         data.set_uuid(UuidToString(GetUuid()));
