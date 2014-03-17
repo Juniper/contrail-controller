@@ -11,9 +11,6 @@
 #include "ksync/ksync_sock_user.h"
 #include <uve/agent_stats_collector_test.h>
 
- 
-#define MAX_VNET 2
-
 using namespace std;
 
 void RouterIdDepInit() {
