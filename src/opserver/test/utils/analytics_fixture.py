@@ -699,6 +699,29 @@ class AnalyticsFixture(fixtures.Fixture):
         
         return True
     # end verify_flow_samples
+ 
+    def verify_where_query_prefix(self,generator_obj):
+        self.logger.info('verify where query in FlowSeriesTable')
+        vns = VerificationOpsSrv('127.0.0.1', self.opserver_port)
+        a_query = Query(table="FlowSeriesTable",
+                start_time=(generator_obj.flow_start_time),
+                end_time=(generator_obj.flow_end_time),
+                select_fields=["sourcevn","sourceip","vrouter"],
+                where=[[{"name":"sourcevn","value":"domain1:admin","op":7},
+                        {"name":"destvn","value":"domain1:admin","op":7},
+                        {"name":"vrouter","value":"","op":1}]])
+        json_qstr = json.dumps(a_query.__dict__)
+        res = vns.post_query_json(json_qstr)
+        assert(len(res)>0)
+        a_query = Query(table="FlowSeriesTable",
+                start_time=(generator_obj.flow_start_time),
+                end_time=(generator_obj.flow_end_time),
+                select_fields=["sourcevn","sourceip","vrouter"],
+                where=[[{"name":"protocol","value":1,"op":1}]])
+        json_qstr = json.dumps(a_query.__dict__)
+        res = vns.post_query_json(json_qstr)
+        assert(len(res)>0)
+        return True 
 
     def verify_flow_table(self, generator_obj):
         # query flow records
@@ -1344,7 +1367,7 @@ class AnalyticsFixture(fixtures.Fixture):
         json_qstr = json.dumps(query.__dict__)
         res = vns.post_query_json(json_qstr)
         self.logger.info(str(res))
-        assert(len(res) > 1)
+        assert(len(res) > 0)
         return True
 
     @retry(delay=2, tries=5)
@@ -1413,6 +1436,21 @@ class AnalyticsFixture(fixtures.Fixture):
         else:
             return True
     # end verify_table_source_module_list
+
+    @retry(delay=1, tries=5)
+    def verify_where_query(self):
+        self.logger.info('Verify where query with int type works');
+        vns = VerificationOpsSrv('127.0.0.1', self.opserver_port);
+        query = Query(table="StatTable.QueryPerfInfo.query_stats",
+                            start_time="now-1h",
+                            end_time="now",
+                            select_fields=["query_stats.rows","query_stats.table","query_stats.time"],
+                            where=[[{"name":"query_stats.rows","value":0,"op":1}]])
+        json_qstr = json.dumps(query.__dict__)
+        res = vns.post_query_json(json_qstr)
+        assert(len(res)>0)
+        return True
+    # end verify_where_query
 
     def cleanUp(self):
         super(AnalyticsFixture, self).cleanUp()
