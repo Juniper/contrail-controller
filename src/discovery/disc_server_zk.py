@@ -191,7 +191,9 @@ class DiscoveryServer():
                                           size=1000)
 
         # DB interface initialization
-        self._db_connect(self._args.reset_config)
+        # self._db_connect(self._args.reset_config)
+        self._db_conn = self._args.zk
+        self._db_conn.set_ds(self)
 
         # update services database (old db didn't keep HB)
         for entry in self._db_conn.service_entries():
@@ -1098,6 +1100,7 @@ def main(args_str=None):
     args = parse_args(args_str)
     zk = DiscoveryZkClient(None, args.zk_server_ip, args.zk_server_port, 
         args.reset_config)
+    args.zk = zk
     zk.master_election("/discovery-server", os.getpid(),
                                   run_discovery_server, args)
 # end main
