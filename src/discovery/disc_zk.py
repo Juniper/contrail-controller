@@ -25,6 +25,7 @@ class DiscoveryZkClient(object):
         self._service_id_to_type = {}
         self._ds = discServer
         self._zk_sem = BoundedSemaphore(1)
+        self._election = None
 
         zk_endpts = []
         for ip in zk_srv_ip.split(','):
@@ -103,9 +104,21 @@ class DiscoveryZkClient(object):
         return self._debug
     # end
 
+    def _zk_listener(self, state):
+        if state == "CONNECTED":
+            self._election.cancel()
+    # end
+
+    def _zk_election_callback(self, func, *args, **kwargs):
+        self._zk.remove_listener(self._zk_listener)
+        func(*args, **kwargs)
+    # end
+
     def master_election(self, path, identifier, func, *args, **kwargs):
-        election = self._zk.Election(path, identifier)
-        election.run(func, *args, **kwargs)
+        self._zk.add_listener(self._zk_listener)
+        while True:
+            self._election = self._zk.Election(path, identifier)
+            self._election.run(self._zk_election_callback, func, *args, **kwargs)
     # end master_election
 
     def create_node(self, path, value='', makepath=False, sequence=False):
