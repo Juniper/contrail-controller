@@ -64,6 +64,11 @@ class DiscoveryZkClient(object):
         }
     # end __init__
 
+    # Discovery server used for syslog, cleanup etc
+    def set_ds(self, discServer):
+        self._ds = discServer
+    # end set_ds
+
     # start or restart
     def connect(self, restart = False):
         while True:
