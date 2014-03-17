@@ -80,7 +80,7 @@ public:
 
     // The index for a specific peer in this group.
     int GetPeerIndex(IPeerUpdate *peer) const;
-    
+
     // The index for a specific ribout.
     int GetRibOutIndex(RibOut *ribout) const;
 
@@ -147,6 +147,8 @@ private:
 
     void SetQueueActive(const RibOut *ribout, RibState *rs, int queue_id,
                         const RibPeerSet &munsync);
+    void SetQueueActive(RibOut *ribout, int queue_id, IPeerUpdate *peer);
+    bool IsQueueActive(RibOut *ribout, int queue_id, IPeerUpdate *peer);
     void SetSendBlocked(const RibOut *ribout, RibState *rs, int queue_id,
                         const RibPeerSet &blocked);
     void SetQueueSync(PeerState *ps, int queue_id);
@@ -161,7 +163,7 @@ private:
 
     PeerStateMap peer_state_imap_;
     RibStateMap rib_state_imap_;
-    
+
     static int send_task_id_;
 
     DISALLOW_COPY_AND_ASSIGN(SchedulingGroup);

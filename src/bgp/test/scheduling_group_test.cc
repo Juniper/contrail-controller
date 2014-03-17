@@ -11,6 +11,7 @@
 #include "bgp/bgp_factory.h"
 #include "bgp/bgp_log.h"
 #include "bgp/bgp_peer.h"
+#include "bgp/bgp_ribout_updates.h"
 #include "bgp/l3vpn/inetvpn_table.h"
 #include "control-node/control_node.h"
 #include "db/db.h"
@@ -99,6 +100,18 @@ protected:
 
     size_t GetWorkQueueSize(SchedulingGroup *sg) {
         return sg->work_queue_.size();
+    }
+
+    void SetQueueActive(SchedulingGroup *sg, RibOut *ribout, int queue_id,
+        IPeerUpdate *peer) {
+        ConcurrencyScope scope("bgp::SendTask");
+        sg->SetQueueActive(ribout, queue_id, peer);
+    }
+
+    bool IsQueueActive(SchedulingGroup *sg, RibOut *ribout, int queue_id,
+        IPeerUpdate *peer) {
+        ConcurrencyScope scope("bgp::SendTask");
+       return sg->IsQueueActive(ribout, queue_id, peer);
     }
 
     SchedulingGroupManager sgman_;
@@ -448,11 +461,11 @@ TEST_F(SchedulingGroupManagerTest, TwoTablesMultiplePeers) {
 // Parameterize number of entries in the work queue and the order in which
 // the entries are added.
 
-typedef std::tr1::tuple<int, bool> TestParams1;
+typedef std::tr1::tuple<int, bool> WorkQueueTestParams;
 
 class SchedulingGroupWorkQueueTest :
     public SchedulingGroupManagerTest,
-    public ::testing::WithParamInterface<TestParams1> {
+    public ::testing::WithParamInterface<WorkQueueTestParams> {
 
 protected:
     virtual void SetUp() {
@@ -722,6 +735,132 @@ TEST_P(SchedulingGroupWorkQueueTest, MergeWorkPeer2) {
 
 INSTANTIATE_TEST_CASE_P(One, SchedulingGroupWorkQueueTest,
     ::testing::Combine(::testing::Range(1, 9), ::testing::Bool()));
+
+// The 4 booleans represent the following:
+//
+// (rp1_ + p1, QBULK)   is active/inactive
+// (rp1_ + p1, QUPDATE) is active/inactive
+// (rp2_ + p2, QBULK)   is active/inactive
+// (rp2_ + p2, QUPDATE) is active/inactive
+
+typedef std::tr1::tuple<bool, bool, bool, bool> QueueActiveTestParams;
+
+class SchedulingGroupQueueActiveTest :
+    public SchedulingGroupManagerTest,
+    public ::testing::WithParamInterface<QueueActiveTestParams> {
+protected:
+    virtual void SetUp() {
+        SchedulingGroupManagerTest::SetUp();
+        rp1_.reset(new RibOut(inetvpn_table_, &sgman_, RibExportPolicy()));
+        rp2_.reset(new RibOut(inetvpn_table_, &sgman_, RibExportPolicy()));
+        p1_.reset(new BgpTestPeer());
+        p2_.reset(new BgpTestPeer());
+        rp1_p1_bulk_active_ = std::tr1::get<0>(GetParam());
+        rp1_p1_update_active_ = std::tr1::get<1>(GetParam());
+        rp2_p2_bulk_active_ = std::tr1::get<2>(GetParam());
+        rp2_p2_update_active_ = std::tr1::get<3>(GetParam());
+    }
+    virtual void TearDown() {
+        SchedulingGroupManagerTest::TearDown();
+    }
+
+    auto_ptr<RibOut> rp1_, rp2_;
+    auto_ptr<BgpTestPeer> p1_, p2_;
+    bool rp1_p1_bulk_active_, rp1_p1_update_active_;
+    bool rp2_p2_bulk_active_, rp2_p2_update_active_;
+};
+
+TEST_P(SchedulingGroupQueueActiveTest, Split) {
+    SchedulingGroup *sg;
+
+    Join(rp1_.get(), p1_.get());
+    Join(rp2_.get(), p2_.get());
+    Join(rp1_.get(), p2_.get());
+    EXPECT_EQ(1, sgman_.size());
+
+    sg = rp1_->GetSchedulingGroup();
+    if (rp1_p1_bulk_active_)
+        SetQueueActive(sg, rp1_.get(), RibOutUpdates::QBULK, p1_.get());
+    if (rp1_p1_update_active_)
+        SetQueueActive(sg, rp1_.get(), RibOutUpdates::QUPDATE, p1_.get());
+
+    sg = rp2_->GetSchedulingGroup();
+    if (rp2_p2_bulk_active_)
+        SetQueueActive(sg, rp2_.get(), RibOutUpdates::QBULK, p2_.get());
+    if (rp2_p2_update_active_)
+        SetQueueActive(sg, rp2_.get(), RibOutUpdates::QUPDATE, p2_.get());
+
+    Leave(rp1_.get(), p2_.get());
+    EXPECT_EQ(2, sgman_.size());
+
+    sg = rp1_->GetSchedulingGroup();
+    EXPECT_EQ(rp1_p1_bulk_active_,
+        IsQueueActive(sg, rp1_.get(), RibOutUpdates::QBULK, p1_.get()));
+    EXPECT_EQ(rp1_p1_update_active_,
+        IsQueueActive(sg, rp1_.get(), RibOutUpdates::QUPDATE, p1_.get()));
+
+    sg = rp2_->GetSchedulingGroup();
+    EXPECT_EQ(rp2_p2_bulk_active_,
+        IsQueueActive(sg, rp2_.get(), RibOutUpdates::QBULK, p2_.get()));
+    EXPECT_EQ(rp2_p2_update_active_,
+        IsQueueActive(sg, rp2_.get(), RibOutUpdates::QUPDATE, p2_.get()));
+
+    Leave(rp1_.get(), p1_.get());
+    Leave(rp2_.get(), p2_.get());
+    EXPECT_EQ(0, sgman_.size());
+}
+
+TEST_P(SchedulingGroupQueueActiveTest, Merge) {
+    SchedulingGroup *sg;
+
+    Join(rp1_.get(), p1_.get());
+    Join(rp2_.get(), p2_.get());
+    EXPECT_EQ(2, sgman_.size());
+
+    sg = rp1_->GetSchedulingGroup();
+    if (rp1_p1_bulk_active_)
+        SetQueueActive(sg, rp1_.get(), RibOutUpdates::QBULK, p1_.get());
+    if (rp1_p1_update_active_)
+        SetQueueActive(sg, rp1_.get(), RibOutUpdates::QUPDATE, p1_.get());
+
+    sg = rp2_->GetSchedulingGroup();
+    if (rp2_p2_bulk_active_)
+        SetQueueActive(sg, rp2_.get(), RibOutUpdates::QBULK, p2_.get());
+    if (rp2_p2_update_active_)
+        SetQueueActive(sg, rp2_.get(), RibOutUpdates::QUPDATE, p2_.get());
+
+    Join(rp1_.get(), p2_.get());
+    EXPECT_EQ(1, sgman_.size());
+
+    sg = rp1_->GetSchedulingGroup();
+    EXPECT_EQ(rp1_p1_bulk_active_,
+        IsQueueActive(sg, rp1_.get(), RibOutUpdates::QBULK, p1_.get()));
+    EXPECT_EQ(rp1_p1_update_active_,
+        IsQueueActive(sg, rp1_.get(), RibOutUpdates::QUPDATE, p1_.get()));
+
+    sg = rp2_->GetSchedulingGroup();
+    EXPECT_EQ(rp2_p2_bulk_active_,
+        IsQueueActive(sg, rp2_.get(), RibOutUpdates::QBULK, p2_.get()));
+    EXPECT_EQ(rp2_p2_update_active_,
+        IsQueueActive(sg, rp2_.get(), RibOutUpdates::QUPDATE, p2_.get()));
+
+    EXPECT_FALSE(
+        IsQueueActive(sg, rp1_.get(), RibOutUpdates::QBULK, p2_.get()));
+    EXPECT_FALSE(
+        IsQueueActive(sg, rp1_.get(), RibOutUpdates::QUPDATE, p2_.get()));
+
+    Leave(rp1_.get(), p1_.get());
+    Leave(rp2_.get(), p2_.get());
+    Leave(rp1_.get(), p2_.get());
+    EXPECT_EQ(0, sgman_.size());
+}
+
+INSTANTIATE_TEST_CASE_P(One, SchedulingGroupQueueActiveTest,
+    ::testing::Combine(
+        ::testing::Bool(),
+        ::testing::Bool(),
+        ::testing::Bool(),
+        ::testing::Bool()));
 
 static void SetUp() {
     bgp_log_test::init();
