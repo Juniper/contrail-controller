@@ -2217,6 +2217,11 @@ class SchemaTransformer(object):
 
         self._fabric_rt_inst_obj = None
         self._cassandra_init()
+
+        # reset zookeeper config
+        if self._args.reset_config:
+            self._disc_service.delete_node("/id", True);
+
         VirtualNetworkST._vn_id_allocator = IndexAllocator(_disc_service,
                                                     _VN_ID_ALLOC_PATH,
                                                     _VN_MAX_ID)
