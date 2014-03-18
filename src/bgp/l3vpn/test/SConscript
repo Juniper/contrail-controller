@@ -95,21 +95,26 @@ else:
 
 env.Append(LIBS = ['bgp_inet', 'bgp_inetmcast'])
 
-inetvpn_table_test = env.Program('inetvpn_table_test',
-                                 ['inetvpn_table_test.cc'])
-env.Alias('src/bgp/l3vpn:inetvpn_table_test', inetvpn_table_test)
+inetvpn_ext_peer_test = env.UnitTest('inetvpn_ext_peer_test',
+                                 ['inetvpn_ext_peer_test.cc'])
+env.Alias('src/bgp/l3vpn:inetvpn_ext_peer_test', inetvpn_ext_peer_test)
 
 inetvpn_peer_test = env.UnitTest('inetvpn_peer_test',
                                  ['inetvpn_peer_test.cc'])
 env.Alias('src/bgp/l3vpn:inetvpn_peer_test', inetvpn_peer_test)
 
-inetvpn_ext_peer_test = env.UnitTest('inetvpn_ext_peer_test',
-                                 ['inetvpn_ext_peer_test.cc'])
-env.Alias('src/bgp/l3vpn:inetvpn_ext_peer_test', inetvpn_ext_peer_test)
+inetvpn_route_test = env.UnitTest('inetvpn_route_test',
+                                  ['inetvpn_route_test.cc'])
+env.Alias('src/bgp/l3vpn:inetvpn_route_test', inetvpn_route_test)
+
+inetvpn_table_test = env.Program('inetvpn_table_test',
+                                 ['inetvpn_table_test.cc'])
+env.Alias('src/bgp/l3vpn:inetvpn_table_test', inetvpn_table_test)
 
 test_suite = [
-    inetvpn_table_test,
-    inetvpn_peer_test
+    inetvpn_peer_test,
+    inetvpn_route_test,
+    inetvpn_table_test
 ]
 
 test = env.TestSuite('bgp-test', test_suite)

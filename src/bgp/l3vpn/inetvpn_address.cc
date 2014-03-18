@@ -95,3 +95,10 @@ bool InetVpnPrefix::IsMoreSpecific(const InetVpnPrefix &rhs) const {
 
     return this_prefix.IsMoreSpecific(match_prefix);
 }
+
+bool InetVpnPrefix::operator==(const InetVpnPrefix &rhs) const {
+    return (rd_ == rhs.rd_ &&
+        addr_ == rhs.addr_ &&
+        prefixlen_ == rhs.prefixlen_);
+}
+
