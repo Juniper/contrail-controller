@@ -12,8 +12,6 @@
 #include <virtual_machine_types.h>
 #include <boost/uuid/uuid_io.hpp>
 #include "base/timer.h"
-#include "base/queue_task.h"
-#include <boost/scoped_ptr.hpp>
 #include <cmn/agent_cmn.h>
 
 class VmStatData;
@@ -75,7 +73,6 @@ private:
     UveVirtualMachineStats prev_stats_;
     uint32_t retry_;
     boost::asio::signal_set signal_;
-    boost::scoped_ptr<WorkQueue<VmStatData *> > event_queue_;
     DoneCb call_back_;
     DISALLOW_COPY_AND_ASSIGN(VmStat);
 };
