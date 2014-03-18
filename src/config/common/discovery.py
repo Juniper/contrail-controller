@@ -173,12 +173,12 @@ class DiscoveryService(object):
     # end
 
     def _zk_election_callback(self, func, *args, **kwargs):
-        self._zk.remove_listener(self._zk_listener)
+        self._zk_client.remove_listener(self._zk_listener)
         func(*args, **kwargs)
     # end
 
     def master_election(self, path, identifier, func, *args, **kwargs):
-        self._zk.add_listener(self._zk_listener)
+        self._zk_client.add_listener(self._zk_listener)
         while True:
             self._election = self._zk_client.Election(path, identifier)
             self._election.run(self._zk_election_callback, func, *args, **kwargs)
