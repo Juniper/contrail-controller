@@ -163,6 +163,37 @@ XmppConnection *XmppServer::FindConnection(const string &peer_addr) {
     return NULL;
 }
 
+XmppConnection *XmppServer::FindConnectionbyHostName(const string hostname) {
+
+    for (XmppConnectionMap::iterator iter = connection_map_.begin(), next = iter;
+                                     iter != connection_map_.end(); 
+                                     iter = next) {
+        next++;
+        XmppConnection *conn = iter->second;
+        if (hostname.compare(conn->GetComputeHostName()) == 0) {
+            return conn;
+        }
+    }
+    return NULL;
+}
+
+void XmppServer::ClearAllConnections() {
+
+    for (XmppConnectionMap::iterator iter = connection_map_.begin(), next = iter;
+                                     iter != connection_map_.end(); 
+                                     iter = next) {
+        next++;
+        XmppConnection *conn = iter->second;
+        conn->Clear();
+    }
+}
+
+void XmppServer::ClearConnection(XmppConnection *conn) {
+    if (conn) {
+        conn->Clear();
+    }
+}
+
 void XmppServer::RegisterConnectionEvent(xmps::PeerId id, 
                                          ConnectionEventCb cb) {
     connection_event_map_.insert(make_pair(id, cb));

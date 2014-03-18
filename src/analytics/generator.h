@@ -23,41 +23,35 @@ class VizSession;
 class Collector;
 class SandeshStateMachineStats;
 
-struct RedisReplyMsg : public ssm::Message {
-    enum RedisReplyMsgType {
-        REDIS_INVALID_REPLY = 0,
-        REDIS_SEQ_REPLY = 1,
-        REDIS_DEL_REPLY = 2
-    };
-
-    RedisReplyMsg(const std::map<std::string, int32_t> &typemap) :
-        msg_type_(REDIS_SEQ_REPLY), typemap_(typemap) {}
-    RedisReplyMsg(const bool res) :
-        msg_type_(REDIS_DEL_REPLY), res_(res) {}
-
-    RedisReplyMsgType msg_type_;
-    std::map<std::string, int32_t> typemap_;
-    bool res_;
-};
-
 class Generator {
 public:
-    Generator(boost::shared_ptr<DbHandler> db_handler);
     virtual ~Generator() {}
 
     virtual const std::string ToString() const = 0;
-    bool ReceiveSandeshMsg(boost::shared_ptr<VizMsg> &vmsg, bool rsc);
-    virtual bool ProcessRules(boost::shared_ptr<VizMsg> &vmsg,
-            bool rsc) = 0;
+    virtual bool ProcessRules(const VizMsg *vmsg, bool rsc) = 0;
+    virtual DbHandler *GetDbHandler() = 0; // db_handler_;
+    
+    bool ReceiveSandeshMsg(const VizMsg *vmsg, bool rsc);
+    void GetSandeshStats(std::vector<SandeshMessageInfo> &sms);
     void GetMessageTypeStats(std::vector<SandeshStats> &ssv) const;
     void GetLogLevelStats(std::vector<SandeshLogLevelStats> &lsv) const;
 
-protected:
-    boost::shared_ptr<DbHandler> db_handler_;
-
 private:
-    void UpdateMessageTypeStats(VizMsg *vmsg);
-    void UpdateLogLevelStats(VizMsg *vmsg);
+    void UpdateMessageStats(const VizMsg *vmsg);
+    void UpdateMessageTypeStats(const VizMsg *vmsg);
+    void UpdateLogLevelStats(const VizMsg *vmsg);
+
+    struct MessageStats {
+	/*Initializing atomics in initialization list does not work
+         * Please refer http://software.intel.com/en-us/forums/topic/287865
+         */
+        MessageStats() { messages_ = 0; bytes_ = 0; }
+        tbb::atomic<uint64_t> messages_;
+        tbb::atomic<uint64_t> bytes_;
+    };
+    typedef boost::ptr_map<std::pair<std::string,std::string> /*Messagetype and log level*/, MessageStats> MessageStatsMap;
+    MessageStatsMap sandesh_stats_map_;
+    MessageStatsMap sandesh_stats_map_old_;
 
     struct Stats {
         Stats() : messages_(0), bytes_(0), last_msg_timestamp_(0) {}
@@ -96,6 +90,7 @@ public:
     void ConnectSession(VizSession *vsession, SandeshStateMachine *state_machine);
 
     bool GetSandeshStateMachineQueueCount(uint64_t &queue_count) const;
+    bool GetSandeshStateMachineDropLevel(std::string &drop_level) const;
     bool GetSandeshStateMachineStats(SandeshStateMachineStats &sm_stats,
                                      SandeshGeneratorStats &sm_msg_stats) const;
     bool GetDbStats(uint64_t &queue_count, uint64_t &enqueues,
@@ -113,14 +108,17 @@ public:
     const std::string State() const;
 
     void GetGeneratorInfo(ModuleServerState &genlist) const;
-    void SetDbQueueWaterMarkInfo(DbHandler::DbQueueWaterMarkInfo &wm);
+    void SetDbQueueWaterMarkInfo(Sandesh::QueueWaterMarkInfo &wm);
     void ResetDbQueueWaterMarkInfo();
+    void SetSmQueueWaterMarkInfo(Sandesh::QueueWaterMarkInfo &wm);
+    void ResetSmQueueWaterMarkInfo();
     void StartDbifReinit();
+    virtual DbHandler *GetDbHandler() { return db_handler_.get (); }
 
 private:
-    virtual bool ProcessRules (boost::shared_ptr<VizMsg> &vmsg, bool rsc);
+    virtual bool ProcessRules(const VizMsg *vmsg, bool rsc);
+    void set_session(VizSession *session);
 
-    void set_session(VizSession *session) { viz_session_ = session; }
     void set_state_machine(SandeshStateMachine *state_machine) {
         state_machine_ = state_machine;
         // Update state machine
@@ -129,7 +127,6 @@ private:
     void HandleSeqRedisReply(const std::map<std::string,int32_t> &typeMap);
     void HandleDelRedisReply(bool res);
     void TimerErrorHandler(std::string name, std::string error);
-    bool DelWaitTimerExpired();
 
     bool DbConnectTimerExpired();
     void Start_Db_Connect_Timer();
@@ -150,26 +147,30 @@ private:
     const std::string source_;
     const std::string module_;
     const std::string name_;
+    int instance_;
 
     Timer *db_connect_timer_;
-    Timer *del_wait_timer_;
     tbb::atomic<bool> disconnected_;
+    boost::scoped_ptr<DbHandler> db_handler_;
 };
 
 class SyslogGenerator : public Generator {
   public:
-    SyslogGenerator (SyslogListeners *const listeners,
+    SyslogGenerator(SyslogListeners *const listeners,
         const std::string &source, const std::string &module);
     const std::string &module() const { return module_; }
     const std::string &source() const { return source_; }
     virtual const std::string ToString() const { return name_; }
+    virtual DbHandler *GetDbHandler() { return db_handler_; }
+
   private:
-    virtual bool ProcessRules (boost::shared_ptr<VizMsg> &vmsg, bool rsc);
+    virtual bool ProcessRules(const VizMsg *vmsg, bool rsc);
 
     SyslogListeners * const syslog_;
     const std::string source_;
     const std::string module_;
     const std::string name_;
+    DbHandler *db_handler_;
 };
 
 #endif

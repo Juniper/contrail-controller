@@ -71,23 +71,23 @@ void SelectQuery::get_flow_class(const flow_tuple& tuple, flow_tuple& flowclass)
     for (it = select_column_fields.begin(); 
          it != select_column_fields.end(); ++it) {
         std::string qstring(get_query_string(*it));
-        if (qstring == g_viz_constants.FlowRecordNames.find(FlowRecordFields::FLOWREC_VROUTER)->second) {
+        if (qstring == g_viz_constants.FlowRecordNames[FlowRecordFields::FLOWREC_VROUTER]) {
             flowclass.vrouter = tuple.vrouter;
-        }  else if (qstring == g_viz_constants.FlowRecordNames.find(FlowRecordFields::FLOWREC_SOURCEVN)->second) {
+        }  else if (qstring == g_viz_constants.FlowRecordNames[FlowRecordFields::FLOWREC_SOURCEVN]) {
             flowclass.source_vn = tuple.source_vn;
-        } else if (qstring == g_viz_constants.FlowRecordNames.find(FlowRecordFields::FLOWREC_SOURCEIP)->second) {
+        } else if (qstring == g_viz_constants.FlowRecordNames[FlowRecordFields::FLOWREC_SOURCEIP]) {
             flowclass.source_ip = tuple.source_ip;
-        } else if (qstring == g_viz_constants.FlowRecordNames.find(FlowRecordFields::FLOWREC_DESTVN)->second) {
+        } else if (qstring == g_viz_constants.FlowRecordNames[FlowRecordFields::FLOWREC_DESTVN]) {
             flowclass.dest_vn = tuple.dest_vn;
-        } else if (qstring == g_viz_constants.FlowRecordNames.find(FlowRecordFields::FLOWREC_DESTIP)->second) {
+        } else if (qstring == g_viz_constants.FlowRecordNames[FlowRecordFields::FLOWREC_DESTIP]) {
             flowclass.dest_ip = tuple.dest_ip;
-        } else if (qstring == g_viz_constants.FlowRecordNames.find(FlowRecordFields::FLOWREC_PROTOCOL)->second) {
+        } else if (qstring == g_viz_constants.FlowRecordNames[FlowRecordFields::FLOWREC_PROTOCOL]) {
             flowclass.protocol = tuple.protocol;
-        } else if (qstring == g_viz_constants.FlowRecordNames.find(FlowRecordFields::FLOWREC_SPORT)->second) {
+        } else if (qstring == g_viz_constants.FlowRecordNames[FlowRecordFields::FLOWREC_SPORT]) {
             flowclass.source_port = tuple.source_port;
-        } else if (qstring == g_viz_constants.FlowRecordNames.find(FlowRecordFields::FLOWREC_DPORT)->second) {
+        } else if (qstring == g_viz_constants.FlowRecordNames[FlowRecordFields::FLOWREC_DPORT]) {
             flowclass.dest_port = tuple.dest_port;
-        } else if (qstring == g_viz_constants.FlowRecordNames.find(FlowRecordFields::FLOWREC_DIRECTION_ING)->second) {
+        } else if (qstring == g_viz_constants.FlowRecordNames[FlowRecordFields::FLOWREC_DIRECTION_ING]) {
             flowclass.direction = tuple.direction;
         }
     }
@@ -107,24 +107,24 @@ void SelectQuery::fs_write_final_result_row(const uint64_t *t,
     for (std::vector<std::string>::const_iterator it = 
          select_column_fields.begin(); it != select_column_fields.end(); ++it) {
         std::string qstring(get_query_string(*it));
-        if (qstring == g_viz_constants.FlowRecordNames.find(FlowRecordFields::FLOWREC_VROUTER)->second) {
+        if (qstring == g_viz_constants.FlowRecordNames[FlowRecordFields::FLOWREC_VROUTER]) {
             cmap.insert(std::make_pair(*it, tuple->vrouter));
-        } else if (qstring == g_viz_constants.FlowRecordNames.find(FlowRecordFields::FLOWREC_SOURCEVN)->second) {
+        } else if (qstring == g_viz_constants.FlowRecordNames[FlowRecordFields::FLOWREC_SOURCEVN]) {
             cmap.insert(std::make_pair(*it, tuple->source_vn));
-        } else if (qstring == g_viz_constants.FlowRecordNames.find(FlowRecordFields::FLOWREC_SOURCEIP)->second) {
+        } else if (qstring == g_viz_constants.FlowRecordNames[FlowRecordFields::FLOWREC_SOURCEIP]) {
             cmap.insert(std::make_pair(*it, integerToString(tuple->source_ip)));
-        } else if (qstring == g_viz_constants.FlowRecordNames.find(FlowRecordFields::FLOWREC_DESTVN)->second) {
+        } else if (qstring == g_viz_constants.FlowRecordNames[FlowRecordFields::FLOWREC_DESTVN]) {
             cmap.insert(std::make_pair(*it, tuple->dest_vn));
-        } else if (qstring == g_viz_constants.FlowRecordNames.find(FlowRecordFields::FLOWREC_DESTIP)->second) {
+        } else if (qstring == g_viz_constants.FlowRecordNames[FlowRecordFields::FLOWREC_DESTIP]) {
             cmap.insert(std::make_pair(*it, integerToString(tuple->dest_ip)));
-        } else if (qstring == g_viz_constants.FlowRecordNames.find(FlowRecordFields::FLOWREC_PROTOCOL)->second) {
+        } else if (qstring == g_viz_constants.FlowRecordNames[FlowRecordFields::FLOWREC_PROTOCOL]) {
             cmap.insert(std::make_pair(*it, integerToString(tuple->protocol)));
-        } else if (qstring == g_viz_constants.FlowRecordNames.find(FlowRecordFields::FLOWREC_SPORT)->second) {
+        } else if (qstring == g_viz_constants.FlowRecordNames[FlowRecordFields::FLOWREC_SPORT]) {
             cmap.insert(std::make_pair(*it, 
                         integerToString(tuple->source_port)));
-        } else if (qstring == g_viz_constants.FlowRecordNames.find(FlowRecordFields::FLOWREC_DPORT)->second) {
+        } else if (qstring == g_viz_constants.FlowRecordNames[FlowRecordFields::FLOWREC_DPORT]) {
             cmap.insert(std::make_pair(*it, integerToString(tuple->dest_port)));
-        } else if (qstring == g_viz_constants.FlowRecordNames.find(FlowRecordFields::FLOWREC_DIRECTION_ING)->second) {
+        } else if (qstring == g_viz_constants.FlowRecordNames[FlowRecordFields::FLOWREC_DIRECTION_ING]) {
             cmap.insert(std::make_pair(*it, integerToString(tuple->direction)));
         } else if (qstring == SELECT_FLOW_CLASS_ID) {
             insert_flow_class_id = true;
@@ -229,8 +229,8 @@ void SelectQuery::fs_write_final_result_row(const uint64_t *t,
 
 inline uint64_t SelectQuery::fs_get_time_slice(const uint64_t& t) {
     AnalyticsQuery *mquery = (AnalyticsQuery*)main_query;
-    uint64_t time_sample = (t - mquery->req_from_time)/granularity;
-    return mquery->req_from_time + ((time_sample+1) * granularity);
+    uint64_t time_sample = (t - mquery->req_from_time())/granularity;
+    return mquery->req_from_time() + (time_sample * granularity);
 }
 
 query_status_t SelectQuery::process_fs_query(
@@ -238,7 +238,7 @@ query_status_t SelectQuery::process_fs_query(
         populate_fs_result_callback populate_fs_result_cb) {
     AnalyticsQuery *mquery = (AnalyticsQuery*)main_query;
     std::vector<query_result_unit_t>& where_query_result = 
-        mquery->wherequery_->query_result; 
+        mquery->where_query_result(); 
     std::vector<query_result_unit_t>::iterator where_result_it;
     // Walk thru each entry in the where result
     for (where_result_it = where_query_result.begin(); 
@@ -247,10 +247,10 @@ query_status_t SelectQuery::process_fs_query(
         flow_stats stats;
         flow_tuple tuple;
         where_result_it->get_uuid_stats_8tuple(uuid, stats, tuple);
-        tuple.direction = mquery->wherequery_->direction_ing;
+        tuple.direction = mquery->direction_ing();
         uint64_t t = where_result_it->timestamp;
         // Check if the timestamp is interesting to us
-        if (t < mquery->from_time || t > mquery->end_time) {
+        if (t < mquery->from_time() || t > mquery->end_time()) {
             continue;
         }
 
@@ -269,7 +269,7 @@ void SelectQuery::process_fs_query_with_ts_stats_fields(
     AnalyticsQuery *mquery = (AnalyticsQuery*)main_query;
     // Get the time slice
     uint64_t ts = fs_get_time_slice(t);
-    if (ts > mquery->end_time) {
+    if (ts > mquery->end_time()) {
         return;
     }
 
@@ -335,7 +335,7 @@ void SelectQuery::process_fs_query_with_ts_tuple_stats_fields(
     get_flow_class(tuple, flowclass);
     // Get the time slice 
     uint64_t ts = fs_get_time_slice(t);
-    if (ts > mquery->end_time) {
+    if (ts > mquery->end_time()) {
         QE_TRACE(DEBUG, "ts > end_time");
         return;
     }
@@ -401,7 +401,7 @@ void SelectQuery::process_fs_query_with_ts_tuple_fields(
     get_flow_class(tuple, flowclass);
     // Get the time slice
     uint64_t ts = fs_get_time_slice(t); 
-    if (ts > mquery->end_time) {
+    if (ts > mquery->end_time()) {
         return;
     }
     // Is the time slice present in the map?

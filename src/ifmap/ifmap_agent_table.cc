@@ -406,6 +406,7 @@ void IFMapAgentLinkTable::Input(DBTablePartition *partition, DBClient *client,
         IFMAP_AGENT_TRACE(Trace, key->left_key.id_seq_num,
             "IFMap Link " + left->name() + right->name() + 
             " with wrong seq number");
+        LinkDefAdd(req);
         return;
     }
 
@@ -414,6 +415,7 @@ void IFMapAgentLinkTable::Input(DBTablePartition *partition, DBClient *client,
         IFMAP_AGENT_TRACE(Trace, key->left_key.id_seq_num,
             "IFMap Link " + left->name() + right->name() + 
             " with wrong seq number");
+        LinkDefAdd(req);
         return;
     }
     

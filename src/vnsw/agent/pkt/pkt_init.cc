@@ -29,7 +29,7 @@ void PktModule::Init(bool run_with_vrouter) {
     pkt_handler_.reset(new PktHandler(agent_, ifname, io, run_with_vrouter));
     pkt_handler_->Init();
 
-    flow_table_.reset(new FlowTable());
+    flow_table_.reset(new FlowTable(agent_));
     flow_table_->Init();
 
     flow_proto_.reset(new FlowProto(agent_, io));

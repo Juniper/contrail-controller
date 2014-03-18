@@ -40,24 +40,24 @@ RouteKSyncEntry::RouteKSyncEntry(RouteKSyncObject* obj,
 
 RouteKSyncEntry::RouteKSyncEntry(RouteKSyncObject* obj, const AgentRoute *rt) :
     KSyncNetlinkDBEntry(kInvalidIndex), ksync_obj_(obj), 
-    vrf_id_(rt->GetVrfId()), nh_(NULL), label_(0), proxy_arp_(false),
+    vrf_id_(rt->vrf_id()), nh_(NULL), label_(0), proxy_arp_(false),
     tunnel_type_(TunnelType::DefaultType()) {
     boost::system::error_code ec;
     switch (rt->GetTableType()) {
     case Agent::INET4_UNICAST: {
           const Inet4UnicastRouteEntry *uc_rt = 
               static_cast<const Inet4UnicastRouteEntry *>(rt);
-          addr_ = uc_rt->GetIpAddress();
+          addr_ = uc_rt->addr();
           src_addr_ = IpAddress::from_string("0.0.0.0", ec).to_v4();
-          prefix_len_ = uc_rt->GetPlen();
+          prefix_len_ = uc_rt->plen();
           rt_type_ = RT_UCAST;
           break;
     }
     case Agent::INET4_MULTICAST: {
           const Inet4MulticastRouteEntry *mc_rt = 
               static_cast<const Inet4MulticastRouteEntry *>(rt);
-          addr_ = mc_rt->GetDstIpAddress();
-          src_addr_ = mc_rt->GetSrcIpAddress();
+          addr_ = mc_rt->dest_ip_addr();
+          src_addr_ = mc_rt->src_ip_addr();
           prefix_len_ = 32;
           rt_type_ = RT_MCAST;
           break;
@@ -191,8 +191,11 @@ bool RouteKSyncEntry::Sync(DBEntry *e) {
         uint32_t old_label = label_;
         const AgentPath *path = 
             (static_cast <Inet4UnicastRouteEntry *>(e))->GetActivePath();
-        label_ = path->GetLabel();
-
+        if (route->is_multicast()) {
+            label_ = path->vxlan_id();
+        } else {
+            label_ = path->GetActiveLabel();
+        }
         if (label_ != old_label) {
             ret = true;
         }
@@ -202,7 +205,7 @@ bool RouteKSyncEntry::Sync(DBEntry *e) {
             ret = true;
         }
 
-        proxy_arp_ = path->GetProxyArp();
+        proxy_arp_ = path->proxy_arp();
     }
 
     return ret;
@@ -519,13 +522,13 @@ void VrfKSyncObject::VrfNotify(DBTablePartBase *partition, DBEntryBase *e) {
 
         // Register route-table with KSync
         RouteKSyncObject *ksync = new RouteKSyncObject(ksync_, rt_table);
-        AddToVrfMap(vrf->GetVrfId(), ksync, RT_UCAST);
+        AddToVrfMap(vrf->vrf_id(), ksync, RT_UCAST);
 
         rt_table = static_cast<AgentRouteTable *>(vrf->
                           GetLayer2RouteTable());
 
         ksync = new RouteKSyncObject(ksync_, rt_table);
-        AddToVrfMap(vrf->GetVrfId(), ksync, RT_LAYER2);
+        AddToVrfMap(vrf->vrf_id(), ksync, RT_LAYER2);
 
         //Now for multicast table. Ksync object for multicast table is 
         //not maintained in vrf list
@@ -534,7 +537,7 @@ void VrfKSyncObject::VrfNotify(DBTablePartBase *partition, DBEntryBase *e) {
         rt_table = static_cast<AgentRouteTable *>(vrf->
                           GetInet4MulticastRouteTable());
         ksync = new RouteKSyncObject(ksync_, rt_table);
-        AddToVrfMap(vrf->GetVrfId(), ksync, RT_MCAST);
+        AddToVrfMap(vrf->vrf_id(), ksync, RT_MCAST);
     }
 }
 

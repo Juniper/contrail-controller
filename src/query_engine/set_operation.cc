@@ -7,21 +7,19 @@
 // for sorting and set operations
 bool query_result_unit_t::operator<(const query_result_unit_t& rhs) const
 {
-#if 0
     if (timestamp == rhs.timestamp)
     {
-        GenDb::DbDataValueVec::iterator it = info.begin();
-        GenDb::DbDataValueVec::iterator jt = rhs.info.begin();
+        GenDb::DbDataValueVec::const_iterator it = info.begin();
+        GenDb::DbDataValueVec::const_iterator jt = rhs.info.begin();
         for (; it != info.end(), jt != rhs.info.end(); it++, jt++) {
             if (*it < *jt) {
                 return true;
-            } else if (*it > *jt) {
+            } else if (*jt < *it) {
                 return false;
             }
         }
         return false;
     }
-#endif
 
     return (timestamp < rhs.timestamp);
 }

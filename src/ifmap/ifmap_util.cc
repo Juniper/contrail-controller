@@ -70,26 +70,34 @@ bool IFMapTypenameFilter::EdgeFilter(const DBGraphVertex *source,
     return true;
 }
 
-// Return true if the node is in the white list
+// Return true if the node-type is in the white list
 bool IFMapTypenameWhiteList::VertexFilter(const DBGraphVertex *vertex) const {
     const IFMapNode *node = static_cast<const IFMapNode *>(vertex);
-    BOOST_FOREACH(const string &incl, include_vertex) {
-        if (node->table()->Typename() == incl) {
-            return true;
-        }
+    if (include_vertex.find(node->table()->Typename()) != include_vertex.end()) {
+        return true;
+    } else {
+        return false;
     }
-    return false;
 }
 
-// Return true if the link is in the white list
+// The whitelist for links, 'include_edge', has strings formatted as:
+//      "source=virtual-router,target=virtual-machine"
+// Create a string of the same format from the source/target nodes and check if
+// its exists in the whitelist. 
+// Return true if the link is part of the white list; false otherwise.
 bool IFMapTypenameWhiteList::EdgeFilter(const DBGraphVertex *source,
                                         const DBGraphVertex *target,
                                         const DBGraphEdge *edge) const {
-    BOOST_FOREACH(const string &incl, include_edge) {
-        if (TypeMatch(source, target, incl)) {
-            return true;
-        }
+    const IFMapNode *srcnode = static_cast<const IFMapNode *>(source);
+    const IFMapNode *tgtnode = static_cast<const IFMapNode *>(target);
+
+    string source_type = srcnode->table()->Typename();
+    string target_type = tgtnode->table()->Typename();
+    string check_string = "source=" + source_type + ",target=" + target_type;
+    if (include_edge.find(check_string) != include_edge.end()) {
+        return true;
+    } else {
+        return false;
     }
-    return false;
 }
 

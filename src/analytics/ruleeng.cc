@@ -2,24 +2,25 @@
  * Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
  */
 
-#include "ruleeng.h"
 #include <sstream>
 #include <exception>
 #include <cstdlib>
 #include <boost/lexical_cast.hpp>
 #include <boost/assign/list_of.hpp>
 
-#include "base/util.h"
-#include "base/logging.h"
-#include "sandesh/sandesh_constants.h"
+#include <base/util.h>
+#include <base/logging.h>
+#include <sandesh/sandesh_constants.h>
+#include <sandesh/sandesh_types.h>
+#include <sandesh/sandesh.h> 
+#include <sandesh/sandesh_trace.h>
+#include <sandesh/sandesh_message_builder.h>
 #include "ruleparser/ruleglob.h"
 #include "db_handler.h"
 #include "OpServerProxy.h"
-#include <sandesh/sandesh_types.h>
-#include <sandesh/sandesh.h> 
-#include <sandesh/sandesh_trace.h> 
 #include "collector_uve_types.h"
 #include "viz_constants.h"
+#include "ruleeng.h"
 
 using std::string;
 
@@ -69,12 +70,13 @@ bool Ruleeng::Parserules(const char *bytes, int len) {
     return true;
 }
 
-bool Ruleeng::rule_present(const boost::shared_ptr<VizMsg> vmsgp) {
-    t_rulemsgtype msgtype(vmsgp->messagetype);
+bool Ruleeng::rule_present(const VizMsg *vmsgp) {
+    t_rulemsgtype msgtype(vmsgp->msg->GetMessageType());
 
-    if (vmsgp->hdr.__isset.Context) {
+    const SandeshHeader &header(vmsgp->msg->GetHeader());
+    if (header.__isset.Context) {
         msgtype.has_context_ = true;
-        msgtype.context_ = vmsgp->hdr.Context;
+        msgtype.context_ = header.Context;
     }
 
     return rulelist_->rule_present(msgtype);
@@ -86,9 +88,9 @@ bool Ruleeng::rule_present(const boost::shared_ptr<VizMsg> vmsgp) {
  * the object trace with the rowkey corresponding to the value of the
  * field
  */
-void Ruleeng::handle_object_log(const pugi::xml_node& parent, const RuleMsg& rmsg,
-        const boost::uuids::uuid& unm, DbHandler *db) {
-    if (!(rmsg.hdr.get_Hints() & g_sandesh_constants.SANDESH_KEY_HINT)) {
+void Ruleeng::handle_object_log(const pugi::xml_node& parent, const VizMsg *rmsg,
+        DbHandler *db, const SandeshHeader &header) {
+    if (!(header.get_Hints() & g_sandesh_constants.SANDESH_KEY_HINT)) {
         return;
     }
 
@@ -113,12 +115,14 @@ void Ruleeng::handle_object_log(const pugi::xml_node& parent, const RuleMsg& rms
             }
         }
     }
+    uint64_t timestamp(header.get_Timestamp());
     for (it = keymap.begin(); it != keymap.end(); it++) {
-        db->ObjectTableInsert(it->first, it->second, rmsg, unm);
+        db->ObjectTableInsert(it->first, it->second, 
+            timestamp, rmsg->unm);
     }
     for (pugi::xml_node node = parent.first_child(); node;
          node = node.next_sibling()) {
-        handle_object_log(node, rmsg, unm, db);
+        handle_object_log(node, rmsg, db, header);
     }
 }
 
@@ -145,26 +149,25 @@ static DbHandler::Var ParseNode(const pugi::xml_node& node) {
     return sample;
 }
 
-bool Ruleeng::handle_uve_publish(const RuleMsg& rmsg, DbHandler *db) {
-    if (rmsg.hdr.get_Type() != SandeshType::UVE) {
+bool Ruleeng::handle_uve_publish(const pugi::xml_node& parent,
+    const VizMsg *rmsg, DbHandler *db, const SandeshHeader& header) {
+    if (header.get_Type() != SandeshType::UVE) {
         return true;
     }
 
-    std::string type(rmsg.messagetype);
-    std::string source(rmsg.hdr.get_Source());
-    std::string module(rmsg.hdr.get_Module());
-    std::string instance_id(rmsg.hdr.get_InstanceId());
-    std::string node_type(rmsg.hdr.get_NodeType());
-    int32_t seq = rmsg.hdr.get_SequenceNum();
-    int64_t ts = rmsg.hdr.get_Timestamp();
+    std::string type(rmsg->msg->GetMessageType());
+    std::string source(header.get_Source());
+    std::string module(header.get_Module());
+    std::string instance_id(header.get_InstanceId());
+    std::string node_type(header.get_NodeType());
+    int32_t seq(header.get_SequenceNum());
+    int64_t ts(header.get_Timestamp());
 
-    pugi::xml_node parent = rmsg.get_doc();
-    RuleMsg::RuleMsgPredicate p1(type);
-    pugi::xml_node object = parent.find_node(p1);
+    pugi::xml_node object(parent);
     if (!object) {
         LOG(ERROR, __func__ << " Message: " << type << " : " << source <<
             ":" << node_type << ":" << module << ":" << instance_id <<
-            " object NOT PRESENT");
+            " object NOT PRESENT: " << rmsg->msg->ExtractMessage());
         return false;
     }
 
@@ -246,7 +249,8 @@ bool Ruleeng::handle_uve_publish(const RuleMsg& rmsg, DbHandler *db) {
 
                 for (pugi::xml_node elem = subs.first_child(); elem;
                         elem = elem.next_sibling()) {
-
+                    if (tstr.empty()) continue;
+         
                     DbHandler::TagMap tmap;
                     size_t pos;
                     size_t npos = 0;
@@ -398,41 +402,41 @@ bool Ruleeng::handle_uve_publish(const RuleMsg& rmsg, DbHandler *db) {
 }
 
 // handle flow message
-bool Ruleeng::handle_flow_object(const RuleMsg& rmsg, DbHandler *db) {
-    if (rmsg.hdr.get_Type() != SandeshType::FLOW) {
+bool Ruleeng::handle_flow_object(const pugi::xml_node &parent,
+    DbHandler *db, const SandeshHeader &header) {
+    if (header.get_Type() != SandeshType::FLOW) {
         return true;
     }
 
-    if (!(db->FlowTableInsert(rmsg))) {
+    if (!(db->FlowTableInsert(parent, header))) {
         return false;
     }
     return true;
 }
 
-bool Ruleeng::rule_execute(const boost::shared_ptr<VizMsg> vmsgp, bool uveproc, DbHandler *db) {
-    if (db->DropMessage(vmsgp->hdr)) {
+bool Ruleeng::rule_execute(const VizMsg *vmsgp, bool uveproc, DbHandler *db) {
+    const SandeshHeader &header(vmsgp->msg->GetHeader());
+    if (db->DropMessage(header)) {
         return true;
     }
-    RuleMsg rmsg(vmsgp);
-
     /*
      *  We would like to execute some actions globally here, before going
      *  through the ruleeng rules
      *  First set of actions is for Object Tracing
      */
-    pugi::xml_node parent = rmsg.get_doc();
+    const SandeshXMLMessage *sxmsg = 
+        static_cast<const SandeshXMLMessage *>(vmsgp->msg);
+    const pugi::xml_node &parent(sxmsg->GetMessageNode());
 
     remove_identifier(parent);
 
-    handle_object_log(parent, rmsg, vmsgp->unm, db);
+    handle_object_log(parent, vmsgp, db, header);
 
-    if (uveproc) handle_uve_publish(rmsg, db);
+    if (uveproc) handle_uve_publish(parent, vmsgp, db, header);
 
-    handle_flow_object(rmsg, db);
+    handle_flow_object(parent, db, header);
 
+    RuleMsg rmsg(vmsgp); 
     rulelist_->rule_execute(rmsg);
-
     return true;
 }
-
-

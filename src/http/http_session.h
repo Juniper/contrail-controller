@@ -59,6 +59,8 @@ class HttpSession: public TcpSession {
     class RequestBuilder;
     class RequestHandler;
     typedef std::map<std::string, HttpSession*> map_type;
+    typedef boost::intrusive_ptr<HttpSession> HttpSessionPtr;
+
     void OnSessionEvent(TcpSession *session,
             enum TcpSession::Event event);
 

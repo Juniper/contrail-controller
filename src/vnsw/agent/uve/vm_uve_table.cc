@@ -64,7 +64,7 @@ void VmUveTable::BuildVmDeleteMsg(const VmEntry *vm,
     entry->FrameVmMsg(vm, uve);
 }
 
-void VmUveTable::DispatchVmMsg(const UveVirtualMachineAgent &uve) const {
+void VmUveTable::DispatchVmMsg(const UveVirtualMachineAgent &uve) {
     UveVirtualMachineAgentTrace::Send(uve);
 }
 

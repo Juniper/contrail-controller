@@ -162,7 +162,7 @@ void VxLanId::SendObjectLog(AgentLogEvent::type event) const {
             str.assign("Unknown");
             break;
     }
-    const NextHop *nh = GetNextHop();
+    const NextHop *nh = nexthop();
     if (nh != NULL) {
         //const VrfNH *vrf_nh;
         switch(nh->GetType()) {

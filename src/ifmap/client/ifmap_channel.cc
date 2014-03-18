@@ -120,6 +120,7 @@ IFMapChannel::IFMapChannel(IFMapManager *manager, const std::string& user,
                 const std::string& passwd, const std::string& certstore)
     : manager_(manager), resolver_(*(manager->io_service())),
       ctx_(*(manager->io_service()), boost::asio::ssl::context::sslv3_client),
+      io_strand_(*(manager->io_service())),
       ssrc_socket_(new SslStream((*manager->io_service()), ctx_)),
       arc_socket_(new SslStream((*manager->io_service()), ctx_)),
       username_(user), password_(passwd), state_machine_(NULL),
@@ -144,8 +145,9 @@ void IFMapChannel::set_connection_status(ConnectionStatus status) {
     connection_status_change_at_ = UTCTimestampUsec();
 }
 
+// Will run in the context of the main task
 void IFMapChannel::CloseSockets(const boost::system::error_code& error,
-        boost::asio::deadline_timer *socket_close_timer) {
+        boost::asio::monotonic_deadline_timer *socket_close_timer) {
     // operation_aborted is the only possible error. Since we are not going to
     // cancel this timer, we should never really get an error.
     if (error) {
@@ -182,8 +184,9 @@ void IFMapChannel::CloseSockets(const boost::system::error_code& error,
     state_machine_->ProcConnectionCleaned();
 }
 
-void IFMapChannel::ReconnectPreparation() {
-    CHECK_CONCURRENCY("ifmap::StateMachine");
+// Will run in the context of the main task
+void IFMapChannel::ReconnectPreparationInMainThr() {
+    CHECK_CONCURRENCY_MAIN_THR();
     if (ConnectionStatusIsDown()) {
         IFMAP_PEER_DEBUG(IFMapServerConnection, 
                          "Retrying connection to Ifmap-server.", "");
@@ -212,8 +215,8 @@ void IFMapChannel::ReconnectPreparation() {
     // in the main task context.
     // Create the timer on the heap so that we release all resources correctly
     // even when we are called multiple times.
-    boost::asio::deadline_timer *socket_close_timer = 
-        new boost::asio::deadline_timer(*manager_->io_service());
+    boost::asio::monotonic_deadline_timer *socket_close_timer = 
+        new boost::asio::monotonic_deadline_timer(*manager_->io_service());
     socket_close_timer->expires_from_now(
         boost::posix_time::seconds(kSocketCloseTimeout), ec);
     socket_close_timer->async_wait(
@@ -221,14 +224,26 @@ void IFMapChannel::ReconnectPreparation() {
                     boost::asio::placeholders::error, socket_close_timer));
 }
 
-void IFMapChannel::DoResolve() {
+void IFMapChannel::ReconnectPreparation() {
     CHECK_CONCURRENCY("ifmap::StateMachine");
+    io_strand_.post(
+        boost::bind(&IFMapChannel::ReconnectPreparationInMainThr, this));
+}
+
+// Will run in the context of the main task
+void IFMapChannel::DoResolveInMainThr() {
+    CHECK_CONCURRENCY_MAIN_THR();
     boost::asio::ip::tcp::resolver::query conn_query = 
         boost::asio::ip::tcp::resolver::query(host_, port_);
     resolver_.async_resolve(conn_query,
                             boost::bind(&IFMapChannel::ReadResolveResponse,
                                         this, boost::asio::placeholders::error,
                                         boost::asio::placeholders::iterator));
+}
+
+void IFMapChannel::DoResolve() {
+    CHECK_CONCURRENCY("ifmap::StateMachine");
+    io_strand_.post(boost::bind(&IFMapChannel::DoResolveInMainThr, this));
 }
 
 void IFMapChannel::ReadResolveResponse(const boost::system::error_code& error,
@@ -239,8 +254,9 @@ void IFMapChannel::ReadResolveResponse(const boost::system::error_code& error,
     state_machine_->ProcResolveResponse(error);
 }
 
-void IFMapChannel::DoConnect(bool is_ssrc) {
-    CHECK_CONCURRENCY("ifmap::StateMachine");
+// Will run in the context of the main task
+void IFMapChannel::DoConnectInMainThr(bool is_ssrc) {
+    CHECK_CONCURRENCY_MAIN_THR();
     SslStream *socket =
         ((is_ssrc == true) ? ssrc_socket_.get() : arc_socket_.get());
 
@@ -262,8 +278,15 @@ void IFMapChannel::DoConnect(bool is_ssrc) {
     }
 }
 
-void IFMapChannel::DoSslHandshake(bool is_ssrc) {
+void IFMapChannel::DoConnect(bool is_ssrc) {
     CHECK_CONCURRENCY("ifmap::StateMachine");
+    io_strand_.post(
+        boost::bind(&IFMapChannel::DoConnectInMainThr, this, is_ssrc));
+}
+
+// Will run in the context of the main task
+void IFMapChannel::DoSslHandshakeInMainThr(bool is_ssrc) {
+    CHECK_CONCURRENCY_MAIN_THR();
     SslStream *socket =
         ((is_ssrc == true) ? ssrc_socket_.get() : arc_socket_.get());
 
@@ -274,6 +297,22 @@ void IFMapChannel::DoSslHandshake(bool is_ssrc) {
     if (!is_ssrc) {
         SetArcSocketOptions();
     }
+}
+
+void IFMapChannel::DoSslHandshake(bool is_ssrc) {
+    CHECK_CONCURRENCY("ifmap::StateMachine");
+    io_strand_.post(
+        boost::bind(&IFMapChannel::DoSslHandshakeInMainThr, this, is_ssrc));
+}
+
+// Will run in the context of the main task
+void IFMapChannel::SendNewSessionRequestInMainThr(std::string ns_str) {
+    CHECK_CONCURRENCY_MAIN_THR();
+    boost::asio::async_write(*ssrc_socket_.get(),
+        boost::asio::buffer(ns_str.c_str(), ns_str.length()),
+        boost::bind(&IFMapStateMachine::ProcNewSessionWrite, state_machine_,
+                    boost::asio::placeholders::error,
+                    boost::asio::placeholders::bytes_transferred));
 }
 
 void IFMapChannel::SendNewSessionRequest() {
@@ -294,21 +333,25 @@ void IFMapChannel::SendNewSessionRequest() {
     ns_str << "\r\n";
     ns_str << body.str();
 
-    boost::asio::async_write(*ssrc_socket_.get(),
-        boost::asio::buffer(ns_str.str().c_str(), ns_str.str().length()),
-        boost::bind(&IFMapStateMachine::ProcNewSessionWrite, state_machine_,
+    io_strand_.post(boost::bind(&IFMapChannel::SendNewSessionRequestInMainThr,
+                                this, ns_str.str()));
+}
+
+// Will run in the context of the main task
+void IFMapChannel::NewSessionResponseWaitInMainThr() {
+    CHECK_CONCURRENCY_MAIN_THR();
+    // Read the http header. Might get extra bytes beyond the header.
+    boost::asio::async_read_until(*ssrc_socket_.get(), reply_, "\r\n\r\n",
+        boost::bind(&IFMapStateMachine::ProcResponse, state_machine_,
                     boost::asio::placeholders::error,
                     boost::asio::placeholders::bytes_transferred));
 }
 
 void IFMapChannel::NewSessionResponseWait() {
     CHECK_CONCURRENCY("ifmap::StateMachine");
-    // Read the http header. Might get extra bytes beyond the header.
     response_state_ = NEWSESSION;
-    boost::asio::async_read_until(*ssrc_socket_.get(), reply_, "\r\n\r\n",
-        boost::bind(&IFMapStateMachine::ProcResponse, state_machine_,
-                    boost::asio::placeholders::error,
-                    boost::asio::placeholders::bytes_transferred));
+    io_strand_.post(
+        boost::bind(&IFMapChannel::NewSessionResponseWaitInMainThr, this));
 }
 
 // TODO search for errorResult, interpret return -1
@@ -393,6 +436,16 @@ int IFMapChannel::ExtractPubSessionId() {
     return 0;
 }
 
+// Will run in the context of the main task
+void IFMapChannel::SendSubscribeInMainThr(std::string sub_msg) {
+    CHECK_CONCURRENCY_MAIN_THR();
+    boost::asio::async_write(*ssrc_socket_.get(),
+        boost::asio::buffer(sub_msg.c_str(), sub_msg.length()),
+        boost::bind(&IFMapStateMachine::ProcSubscribeWrite, state_machine_,
+                    boost::asio::placeholders::error,
+                    boost::asio::placeholders::bytes_transferred));
+}
+
 void IFMapChannel::SendSubscribe() {
     CHECK_CONCURRENCY("ifmap::StateMachine");
     std::ostringstream body;
@@ -410,21 +463,26 @@ void IFMapChannel::SendSubscribe() {
     sub_msg << "\r\n";
     sub_msg << body.str();
 
-    boost::asio::async_write(*ssrc_socket_.get(),
-        boost::asio::buffer(sub_msg.str().c_str(), sub_msg.str().length()),
-        boost::bind(&IFMapStateMachine::ProcSubscribeWrite, state_machine_,
+    io_strand_.post(boost::bind(&IFMapChannel::SendSubscribeInMainThr, this,
+                                sub_msg.str()));
+}
+
+// Will run in the context of the main task
+void IFMapChannel::SubscribeResponseWaitInMainThr() {
+    CHECK_CONCURRENCY_MAIN_THR();
+    // Read the http header. Might get extra bytes beyond the header.
+    boost::asio::async_read_until(*ssrc_socket_.get(), reply_, "\r\n\r\n",
+        boost::bind(&IFMapStateMachine::ProcResponse, state_machine_,
                     boost::asio::placeholders::error,
                     boost::asio::placeholders::bytes_transferred));
 }
 
 void IFMapChannel::SubscribeResponseWait() {
-    CHECK_CONCURRENCY("ifmap::StateMachine");
     // Read the http header. Might get extra bytes beyond the header.
+    CHECK_CONCURRENCY("ifmap::StateMachine");
     response_state_ = SUBSCRIBE;
-    boost::asio::async_read_until(*ssrc_socket_.get(), reply_, "\r\n\r\n",
-        boost::bind(&IFMapStateMachine::ProcResponse, state_machine_,
-                    boost::asio::placeholders::error,
-                    boost::asio::placeholders::bytes_transferred));
+    io_strand_.post(
+        boost::bind(&IFMapChannel::SubscribeResponseWaitInMainThr, this));
 }
 
 int IFMapChannel::ReadSubscribeResponseStr() {
@@ -451,8 +509,17 @@ int IFMapChannel::ReadSubscribeResponseStr() {
     }
 }
 
-void IFMapChannel::SendPollRequest() {
+// Will run in the context of the main task
+void IFMapChannel::SendPollRequestInMainThr(std::string poll_msg) {
+    CHECK_CONCURRENCY_MAIN_THR();
+    boost::asio::async_write(*arc_socket_.get(),
+        boost::asio::buffer(poll_msg.c_str(), poll_msg.length()),
+        boost::bind(&IFMapStateMachine::ProcPollWrite, state_machine_,
+                    boost::asio::placeholders::error,
+                    boost::asio::placeholders::bytes_transferred));
+}
 
+void IFMapChannel::SendPollRequest() {
     CHECK_CONCURRENCY("ifmap::StateMachine");
     std::ostringstream body;
     body << "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<env:Envelope xmlns:env=\"http://www.w3.org/2003/05/soap-envelope\" xmlns:ifmap=\"http://www.trustedcomputinggroup.org/2010/IFMAP/2\" xmlns:contrail=\"http://www.contrailsystems.com/vnc_cfg.xsd\" xmlns:meta=\"http://www.trustedcomputinggroup.org/2010/IFMAP-METADATA/2\" >\n <env:Body>\n\t\t<ifmap:poll session-id=\"";
@@ -469,9 +536,15 @@ void IFMapChannel::SendPollRequest() {
     poll_msg << "\r\n";
     poll_msg << body.str();
 
-    boost::asio::async_write(*arc_socket_.get(),
-        boost::asio::buffer(poll_msg.str().c_str(), poll_msg.str().length()),
-        boost::bind(&IFMapStateMachine::ProcPollWrite, state_machine_,
+    io_strand_.post(boost::bind(&IFMapChannel::SendPollRequestInMainThr, this,
+                                poll_msg.str()));
+}
+
+// Will run in the context of the main task
+void IFMapChannel::PollResponseWaitInMainThr() {
+    CHECK_CONCURRENCY_MAIN_THR();
+    boost::asio::async_read_until(*arc_socket_.get(), reply_, "\r\n\r\n",
+        boost::bind(&IFMapStateMachine::ProcResponse, state_machine_,
                     boost::asio::placeholders::error,
                     boost::asio::placeholders::bytes_transferred));
 }
@@ -479,13 +552,9 @@ void IFMapChannel::SendPollRequest() {
 void IFMapChannel::PollResponseWait() {
     CHECK_CONCURRENCY("ifmap::StateMachine");
     // Read the http header. Might get extra bytes beyond the header.
-    IFMAP_PEER_DEBUG(IFMapServerConnection, "IFMapChannel::PollResponseWait",
-                     GetSizeAsString(reply_.size(), " bytes in reply_."));
     response_state_ = POLLRESPONSE;
-    boost::asio::async_read_until(*arc_socket_.get(), reply_, "\r\n\r\n",
-        boost::bind(&IFMapStateMachine::ProcResponse, state_machine_,
-                    boost::asio::placeholders::error,
-                    boost::asio::placeholders::bytes_transferred));
+    io_strand_.post(
+        boost::bind(&IFMapChannel::PollResponseWaitInMainThr, this));
 }
 
 int IFMapChannel::ReadPollResponse() {
@@ -528,11 +597,18 @@ int IFMapChannel::ReadPollResponse() {
     }
 }
 
+// Will run in the context of the main task
+void IFMapChannel::ProcResponseInMainThr(size_t bytes_to_read) {
+    CHECK_CONCURRENCY_MAIN_THR();
+    SslStream *socket = GetSocket(response_state_);
+    ProcCompleteMsgCb callback = GetCallback(response_state_);
+    boost::asio::async_read(*socket, reply_,
+        boost::asio::transfer_exactly(bytes_to_read), callback);
+}
+
 void IFMapChannel::ProcResponse(const boost::system::error_code& error,
                                 size_t header_length) {
-
     CHECK_CONCURRENCY("ifmap::StateMachine");
-    SslStream *socket = GetSocket(response_state_);
     ProcCompleteMsgCb callback = GetCallback(response_state_);
 
     if (error) {
@@ -598,8 +674,8 @@ void IFMapChannel::ProcResponse(const boost::system::error_code& error,
         // Goto the next state only after finishing the complete read
         size_t bytes_to_read = content_len - 
                                 (reply_str.length() - header_length);
-        boost::asio::async_read(*socket, reply_,
-            boost::asio::transfer_exactly(bytes_to_read), callback);
+        io_strand_.post(boost::bind(&IFMapChannel::ProcResponseInMainThr, this,
+                                    bytes_to_read));
     }
 }
 

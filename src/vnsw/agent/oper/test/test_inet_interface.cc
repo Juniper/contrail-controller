@@ -57,7 +57,7 @@ public:
         intf_count_ = agent_->GetInterfaceTable()->Size();
         nh_count_ = agent_->GetNextHopTable()->Size();
         vrf_count_ = agent_->GetVrfTable()->Size();
-        peer_ = agent_->GetLocalPeer();
+        peer_ = agent_->local_peer();
 
         vrf_table_->CreateVrf(VRF_VHOST);
         vrf_table_->CreateVrf(VRF_LL);
@@ -150,6 +150,20 @@ TEST_F(InetInterfaceTest, vhost_basic_1) {
     EXPECT_TRUE(RouteFind(VRF_VHOST, Ip4Address::from_string("1.1.1.255"), 32));
     EXPECT_TRUE(RouteFind(VRF_VHOST, Ip4Address::from_string("0.0.0.0"), 0));
     EXPECT_TRUE(RouteFind(VRF_VHOST, Ip4Address::from_string("1.1.1.254"), 32));
+
+    DelInterface(this, "vhost1", VRF_VHOST, "1.1.1.254");
+    client->WaitForIdle();
+}
+
+TEST_F(InetInterfaceTest, vhost_key_manipulations) {
+    AddInterface(this, "vhost1", InetInterface::VHOST, VRF_VHOST,
+                 "1.1.1.1", 24, "1.1.1.254");
+    client->WaitForIdle();
+
+    ReceiveNH *nh = static_cast<ReceiveNH *>(ReceiveNHGet(nh_table_, "vhost1", 
+                                                          false));
+    EXPECT_TRUE(nh != NULL);
+    nh->SetKey(nh->GetDBRequestKey().release());
 
     DelInterface(this, "vhost1", VRF_VHOST, "1.1.1.254");
     client->WaitForIdle();

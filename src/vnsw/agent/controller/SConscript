@@ -19,9 +19,9 @@ for src in SandeshGenSrcs:
     obj = env.Object(objname, src)
     sandesh_objs.append(obj)
 
-vnswoperdb = env.Library('vnswctrl',
-                         sandesh_objs +
-                         [ 
+vnswctrl = env.Library('vnswctrl',
+                       sandesh_objs +
+                       [
                           'controller_init.cc',
                           'controller_export.cc',
                           'controller_ifmap.cc',
@@ -29,4 +29,4 @@ vnswoperdb = env.Library('vnswctrl',
                           'controller_vrf_export.cc',
                           'controller_dns.cc',
                           'controller_sandesh.cc'
-                         ])
+                       ])

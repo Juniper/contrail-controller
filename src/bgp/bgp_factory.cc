@@ -41,6 +41,9 @@ FACTORY_STATIC_REGISTER(BgpObjectFactory, RTargetGroupMgr, RTargetGroupMgr);
 #include "bgp/bgp_peer_close.h"
 FACTORY_STATIC_REGISTER(BgpObjectFactory, PeerCloseManager, PeerCloseManager);
 
+#include "bgp/scheduling_group.h"
+FACTORY_STATIC_REGISTER(BgpObjectFactory, SchedulingGroup, SchedulingGroup);
+
 #include "bgp/state_machine.h"
 FACTORY_STATIC_REGISTER(BgpObjectFactory, StateMachine, StateMachine);
 

@@ -42,30 +42,6 @@ std::map<uint32_t, std::string> g_dhcp_msg_types =
                             (DHCP_LEASE_UNKNOWN, "Lease Unknown")
                             (DHCP_LEASE_ACTIVE, "Lease Active");
 
-bool ServicesSandesh::ValidateIP(std::string ip) {
-    struct sockaddr_in sa;
-    int result = inet_pton(AF_INET, ip.c_str(), &(sa.sin_addr));
-    return result != 0;
-}
-
-bool ServicesSandesh::ValidateMac(std::string mac, unsigned char *mac_addr) {
-    unsigned int pos = 0;
-    int colon = 0;
-    std::string mac_copy = mac;
-    while (!(mac.empty()) && (pos = mac.find(':', pos)) != std::string::npos) {
-        colon++;
-        pos += 1;
-    }
-    if (colon != 5) 
-        return false;
-    unsigned int val[ETH_ALEN] = {0, 0, 0, 0, 0, 0};
-    sscanf(mac_copy.data(), "%x:%x:%x:%x:%x:%x", &val[0], &val[1], 
-           &val[2], &val[3], &val[4], &val[5]);
-    for (int i = 0; i < ETH_ALEN; i++)
-        mac_addr[i] = val[i];
-    return true;
-}
-
 void ServicesSandesh::MacToString(const unsigned char *mac, std::string &mac_str) {
     char mstr[32];
     snprintf(mstr, 32, "%02x:%02x:%02x:%02x:%02x:%02x", 
@@ -524,7 +500,9 @@ void ServicesSandesh::DhcpPktTrace(PktTrace::Pkt &pkt, DhcpPktSandesh *resp) {
     ptr += (data.ip_hdr.hdrlen * 4);
     FillUdpHdr((udphdr *)ptr, data.udp_hdr); 
     ptr += sizeof(udphdr);
-    int32_t remaining = std::min(pkt.len, PktTrace::kPktTraceSize) - 
+    PktHandler *pkt_handler = Agent::GetInstance()->pkt()->pkt_handler();
+    std::size_t trace_size = pkt_handler->PktTraceSize(PktHandler::DHCP);
+    int32_t remaining = std::min(pkt.len, trace_size) - 
                         (2 * sizeof(ethhdr) + sizeof(agent_hdr) + 
                          data.ip_hdr.hdrlen * 4 + sizeof(udphdr));
     FillDhcpv4Hdr((dhcphdr *)ptr, data.dhcp_hdr, remaining);
@@ -544,7 +522,9 @@ void ServicesSandesh::DnsPktTrace(PktTrace::Pkt &pkt, DnsPktSandesh *resp) {
     ptr += (data.ip_hdr.hdrlen * 4);
     FillUdpHdr((udphdr *)ptr, data.udp_hdr); 
     ptr += sizeof(udphdr);
-    int32_t remaining = std::min(pkt.len, PktTrace::kPktTraceSize) - 
+    PktHandler *pkt_handler = Agent::GetInstance()->pkt()->pkt_handler();
+    std::size_t trace_size = pkt_handler->PktTraceSize(PktHandler::DNS);
+    int32_t remaining = std::min(pkt.len, trace_size) - 
                         (2 * sizeof(ethhdr) + sizeof(agent_hdr) + 
                          data.ip_hdr.hdrlen * 4 + sizeof(udphdr));
     FillDnsHdr((dnshdr *)ptr, data.dns_hdr, remaining);
@@ -575,7 +555,9 @@ void ServicesSandesh::OtherPktTrace(PktTrace::Pkt &pkt, PktSandesh *resp) {
     uint8_t *ptr = pkt.pkt + sizeof(ethhdr) + sizeof(agent_hdr);
     FillMacHdr((ethhdr *)ptr, data.mac_hdr);
     ptr += sizeof(ethhdr);
-    int32_t remaining = std::min(pkt.len, PktTrace::kPktTraceSize) - 
+    PktHandler *pkt_handler = Agent::GetInstance()->pkt()->pkt_handler();
+    std::size_t trace_size = pkt_handler->PktTraceSize(PktHandler::FLOW);
+    int32_t remaining = std::min(pkt.len, trace_size) - 
                         (2 * sizeof(ethhdr) + sizeof(agent_hdr));
     PktToHexString(ptr, remaining, data.pkt);
     std::vector<PktDump> &list =
@@ -715,6 +697,30 @@ void ClearAllInfo::HandleRequest() const {
     agent->services()->metadataproxy()->ClearStats();
 
     PktErrorResp *resp = new PktErrorResp();
+    resp->set_context(context());
+    resp->Response();
+}
+
+void PktTraceInfo::HandleRequest() const {
+    uint32_t buffers = get_num_buffers();
+    uint32_t flow_buffers = get_flow_num_buffers();
+    PktTraceInfoResponse *resp = new PktTraceInfoResponse();
+    PktHandler *handler = Agent::GetInstance()->pkt()->pkt_handler();
+    if (buffers > PktTrace::kPktMaxNumBuffers ||
+        flow_buffers > PktTrace::kPktMaxNumBuffers) {
+        resp->set_resp("Invalid Input !!");
+        buffers = handler->PktTraceBuffers(PktHandler::INVALID);
+        flow_buffers = handler->PktTraceBuffers(PktHandler::FLOW);
+    } else {
+        handler->PktTraceBuffers(PktHandler::FLOW, flow_buffers);
+        for (uint32_t i = 0; i < PktHandler::MAX_MODULES; ++i) {
+            if (i == PktHandler::FLOW)
+                continue;
+            handler->PktTraceBuffers((PktHandler::PktModuleName)i, buffers);
+        }
+    }
+    resp->set_num_buffers(buffers);
+    resp->set_flow_num_buffers(flow_buffers);
     resp->set_context(context());
     resp->Response();
 }

@@ -17,4 +17,6 @@ librtarget = env.Library('rtarget',
                          'rtarget_route.cc',
                          'rtarget_table.cc'])
                      
-env.SConscript('test/SConscript', exports='BuildEnv', duplicate = 0)
+rtarget_test_cases = env.SConscript('test/SConscript', exports='BuildEnv',
+                                    duplicate = 0)
+Return('rtarget_test_cases')

@@ -21,17 +21,7 @@ local function sub_del(_values)
 end
 
 local sm = ARGV[1]..":"..ARGV[2]..":"..ARGV[3]..":"..ARGV[4] 
-redis.log(redis.LOG_NOTICE,"DelRequest for "..sm.." vizd "..ARGV[5].." timeout "..ARGV[6])
-
--- conditional delete :
---     only delete if this generator is not owned by collector
-if ARGV[6] == "-1" then
-    local lttl = redis.call('exists', "NGENERATOR:"..sm)
-    if lttl == 1 then
-        redis.log(redis.LOG_NOTICE,"DelRequest failed for "..sm)
-        return false
-    end
-end
+redis.log(redis.LOG_NOTICE,"DelRequest for "..sm)
 
 local typ = redis.call('smembers',"TYPES:"..sm)
 
@@ -44,7 +34,7 @@ for k,v in pairs(typ) do
         local delseq = lres[iter+1]
         local st,en
         st,en = string.find(deluve,":")
-        local deltbl = string.sub(deluve, st-1)
+        local deltbl = string.sub(deluve, 1, st-1)
 
         local dkey = "DEL:"..deluve..":"..sm..":"..deltyp..":"..delseq
         redis.log(redis.LOG_NOTICE,"DEL for "..dkey)
@@ -74,18 +64,5 @@ for k,v in pairs(typ) do
 end
 
 redis.call('del', "TYPES:"..ARGV[1]..":"..ARGV[2]..":"..ARGV[3]..":"..ARGV[4])
-
--- A collector is taking ownership of this generator
-if #ARGV[5] >= 1 then
-    redis.call('sadd', "NGENERATORS", sm)
-    if ARGV[6] ~= "0" and ARGV[6] ~= "-1" then
-        redis.call('set', "NGENERATOR:"..sm, ARGV[5], "EX", ARGV[6])
-    else
-        redis.call('set', "NGENERATOR:"..sm, ARGV[5])
-    end
--- This generator is not owned by any collector
-else
-    redis.call('srem', "NGENERATORS", sm)
-    redis.call('del', "NGENERATOR:"..sm)
-end
+redis.call('srem', "NGENERATORS", sm)
 return true

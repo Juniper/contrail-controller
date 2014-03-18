@@ -41,7 +41,7 @@ def redis_version():
 '''
 
 
-def start_redis(port, master_port=None):
+def start_redis(port, exe=None):
     '''
     Client uses this function to start an instance of redis
     Arguments:
@@ -68,11 +68,9 @@ def start_redis(port, master_port=None):
                      ("port 6379", "port " + str(port)),
                      ("/var/log/redis_6379.log", redisbase + "log"),
                      ("/var/lib/redis/6379", redisbase + "cache")])
-    if master_port is not None:
-        replace_string_(redisbase + redis_conf,
-                        [("# slaveof <masterip> <masterport>", 
-                          "slaveof 127.0.0.1 " + str(master_port))])
-    command = "redis-server " + redisbase + redis_conf
+    if exe == None:
+        exe = "redis-server"
+    command = exe + " " + redisbase + redis_conf
     subprocess.Popen(command.split(' '),
                                stdout=subprocess.PIPE,
                                stderr=subprocess.PIPE)
@@ -106,64 +104,6 @@ def stop_redis(port):
     os.kill(pid, signal.SIGTERM)
     '''
     output, _ = call_command_("rm -rf " + redisbase)
-
-
-def start_redis_sentinel(port, redis_port):
-    '''
-    Client uses this function to start an instance of redis sentinel
-    Arguments:
-        port : An unused TCP port for redis sentinel
-        redis_port : redis master port
-    '''
-    sentinel_conf_tmpl = os.path.dirname(os.path.abspath(__file__)) +\
-        "/sentinel.conf"
-    logging.info("Redis Sentinel Port %d" % port)
-    sentinel_conf = "/tmp/sentinel_" + str(port) + ".conf"
-    output, _ = call_command_("rm -f " + sentinel_conf)
-    output, _ = call_command_("cp " + sentinel_conf_tmpl + " " + sentinel_conf)
-    replace_string_(sentinel_conf,
-                    [("/var/run/sentinel_26379.pid", "/tmp/sentinel_" +
-                      str(port) + ".pid"),
-                     ("port 26379", "port " + str(port)),
-                     ("sentinel monitor query 127.0.0.1 6380 1",
-                      "sentinel monitor query 127.0.0.1 " + str(redis_port) +
-                      " 1"),
-                     ("sentinel monitor uvelocal 127.0.0.1 6381 1",
-                      "sentinel monitor uvelocal 127.0.0.1 " + str(redis_port) +
-                      " 1"),
-                     ("sentinel monitor mymaster 127.0.0.1 6381 1",
-                      "sentinel monitor mymaster 127.0.0.1 " + str(redis_port) +
-                      " 1")])
-    command = "redis-server " + sentinel_conf + " --sentinel"
-    subprocess.Popen(command.split(' '),
-                               stdout=subprocess.PIPE,
-                               stderr=subprocess.PIPE)
-    sentinel = redis.StrictRedis(host='localhost', port=port, db=0)
-    done = False
-    while not done:
-        try:
-            sentinel.ping()
-        except:
-            logging.info('Redis Sentinel not ready')
-            time.sleep(1)
-        else:
-            done = True
-    logging.info('Redis Sentinel ready')
-
-
-def stop_redis_sentinel(port):
-    '''
-    Client uses this function to stop an instance of redis sentinel
-    Arguments:
-        port : The Client Port for the instance of redis sentinel to be stopped
-    '''
-    pidfile = "/tmp/sentinel_" + str(port) + ".pid"
-    pid = int(open(pidfile).read())
-    os.kill(pid, signal.SIGTERM)
-    output, _ = call_command_("rm -f " + pidfile)
-    sentinel_conf = "/tmp/sentinel_" + str(port) + ".conf"
-    output, _ = call_command_("rm -f " + sentinel_conf)
-
 
 def replace_string_(filePath, findreplace):
     "replaces all findStr by repStr in file filePath"

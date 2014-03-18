@@ -282,7 +282,7 @@ TEST_F(BitSetTest, find_first1) {
 }
 
 // Run through each of the first 128 bit positions.
-//  - Make sure that find_first returns that postion.
+//  - Make sure that find_first returns that position.
 //  - Then set all bits after the position and make sure the result is same.
 //  - Then set bit 0 and make sure the result is 0.
 //  - Then reset bit 0 and make sure we get the original position.
@@ -371,6 +371,34 @@ TEST_F(BitSetTest, find_next5) {
         EXPECT_EQ(bitset.find_next(pos), 1023);
     }
     EXPECT_EQ(bitset.find_next(1023), BitSet::npos);
+}
+
+// Should always return BitSet::npos (-1) for an empty BitSet.
+TEST_F(BitSetTest, find_last1) {
+    BitSet bitset;
+    EXPECT_EQ(bitset.size(), 0);
+    EXPECT_EQ(bitset.find_last(), BitSet::npos);
+}
+
+// Run through each of the first 128 bit positions.
+//  - Make sure that find_last returns that position.
+//  - Then set all bits before the position and make sure the result is same.
+//  - Then set bit 127 and make sure the result is 127.
+//  - Then reset bit 127 and make sure we get the original position.
+TEST_F(BitSetTest, find_last2) {
+    for (int pos = 0; pos <= 127; pos++) {
+        BitSet bitset;
+        bitset.set(pos);
+        EXPECT_EQ(bitset.find_last(), pos);
+        for (int pos2 = 0; pos2 < pos; pos2++) {
+            bitset.set(pos2);
+        }
+        EXPECT_EQ(bitset.find_last(), pos);
+        bitset.set(127);
+        EXPECT_EQ(bitset.find_last(), 127);
+        if (pos != 127) bitset.reset(127);
+        EXPECT_EQ(bitset.find_last(), pos);
+    }
 }
 
 // Should always return 0 for an empty BitSet.
@@ -1823,7 +1851,7 @@ TEST_F(BitSetTest, String1) {
     EXPECT_EQ(bitset, expected);
 }
 
-// Run through bitsets of size 51 with every Nth bit set, N=[1,64].
+// Run through bitsets of size 511 with every Nth bit set, N=[1,64].
 TEST_F(BitSetTest, String2) {
     for (int num = 1; num <= 64; num++) {
         BitSet bitset, expected;
@@ -1836,20 +1864,53 @@ TEST_F(BitSetTest, String2) {
     }
 }
 
-TEST_F(BitSetTest, NumberedString) {
-    BitSet even_bitset;
-    for (int num = 0; num <=10 ; num+=2) {
-        even_bitset.set(num);
-    }
-    BitSet odd_bitset;
-    for (int num = 1; num <=11 ; num+=2) {
-        odd_bitset.set(num);
+TEST_F(BitSetTest, NumberedString1) {
+    BitSet even_bitset, odd_bitset;
+    for (int num = 0; num <= 11 ; num++) {
+        if (num % 2 == 0) {
+            even_bitset.set(num);
+        } else {
+            odd_bitset.set(num);
+        }
     }
 
-    string even_string = even_bitset.ToNumberedString();
-    string odd_string = odd_bitset.ToNumberedString();
-    EXPECT_EQ(even_string, "0,2,4,6,8,10");
-    EXPECT_EQ(odd_string, "1,3,5,7,9,11");
+    EXPECT_EQ("0,2,4,6,8,10", even_bitset.ToNumberedString());
+    EXPECT_EQ("1,3,5,7,9,11", odd_bitset.ToNumberedString());
+}
+
+TEST_F(BitSetTest, NumberedString2) {
+    BitSet bitset;
+    EXPECT_EQ("", bitset.ToNumberedString());
+    bitset.set(1);
+    EXPECT_EQ("1", bitset.ToNumberedString());
+    bitset.set(3);
+    EXPECT_EQ("1,3", bitset.ToNumberedString());
+    bitset.set(2);
+    EXPECT_EQ("1-3", bitset.ToNumberedString());
+    bitset.reset(3);
+    EXPECT_EQ("1-2", bitset.ToNumberedString());
+    bitset.set(3);
+    EXPECT_EQ("1-3", bitset.ToNumberedString());
+    bitset.reset(1);
+    EXPECT_EQ("2-3", bitset.ToNumberedString());
+    bitset.set(1);
+    EXPECT_EQ("1-3", bitset.ToNumberedString());
+    bitset.set(5);
+    EXPECT_EQ("1-3,5", bitset.ToNumberedString());
+    bitset.set(7);
+    EXPECT_EQ("1-3,5,7", bitset.ToNumberedString());
+    bitset.set(9);
+    EXPECT_EQ("1-3,5,7,9", bitset.ToNumberedString());
+    bitset.set(8);
+    EXPECT_EQ("1-3,5,7-9", bitset.ToNumberedString());
+    bitset.set(11);
+    EXPECT_EQ("1-3,5,7-9,11", bitset.ToNumberedString());
+    bitset.reset(2);
+    EXPECT_EQ("1,3,5,7-9,11", bitset.ToNumberedString());
+    bitset.set(4);
+    EXPECT_EQ("1,3-5,7-9,11", bitset.ToNumberedString());
+    bitset.reset(11);
+    EXPECT_EQ("1,3-5,7-9", bitset.ToNumberedString());
 }
 
 int main(int argc, char **argv) {

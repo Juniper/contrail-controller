@@ -7,8 +7,8 @@
 query_status_t DbQueryUnit::process_query()
 {
     AnalyticsQuery *m_query = (AnalyticsQuery *)main_query;
-    uint32_t t2_start = m_query->from_time >> g_viz_constants.RowTimeInBits;
-    uint32_t t2_end = m_query->end_time >> g_viz_constants.RowTimeInBits;
+    uint32_t t2_start = m_query->from_time() >> g_viz_constants.RowTimeInBits;
+    uint32_t t2_end = m_query->end_time() >> g_viz_constants.RowTimeInBits;
 
     QE_TRACE(DEBUG,  " Database query for " << 
             (t2_end - t2_start + 1) << " rows");
@@ -24,26 +24,20 @@ query_status_t DbQueryUnit::process_query()
     cr.finish_.push_back(timestamp_end);
 
     std::vector<GenDb::DbDataValueVec> keys;    // vector of keys for multi-row get
-    std::vector<GenDb::ColList> mget_res;   // vector of result for each row
+    GenDb::ColListVec mget_res;   // vector of result for each row
     for (uint32_t t2 = t2_start; t2 <= t2_end; t2++)
     {
         GenDb::ColList result;
         GenDb::DbDataValueVec rowkey;
 
-        if (t_only_row)
-        {
-            rowkey.push_back(t2);
-            if (m_query->is_flow_query()) {
-                uint8_t partition_no = 0;
-                rowkey.push_back(partition_no);
-            }
-        } else {
-            rowkey.push_back(t2);
-            if (m_query->is_flow_query()) {
-                uint8_t partition_no = 0;
-                rowkey.push_back(partition_no);
-            }
+        rowkey.push_back(t2);
+        if (m_query->is_flow_query()) {
+            uint8_t partition_no = 0;
+            rowkey.push_back(partition_no);
+        }
 
+        if (!t_only_row)
+        {
             for (GenDb::DbDataValueVec::iterator it = row_key_suffix.begin();
                     it!=row_key_suffix.end(); it++) {
                 rowkey.push_back(*it);
@@ -55,10 +49,10 @@ query_status_t DbQueryUnit::process_query()
     if (!m_query->dbif->Db_GetMultiRow(mget_res, cfname, keys, &cr)) {
         QE_IO_ERROR_RETURN(0, QUERY_FAILURE);
     } else {
-        for (std::vector<GenDb::ColList>::iterator it = mget_res.begin();
+        for (GenDb::ColListVec::iterator it = mget_res.begin();
                 it != mget_res.end(); it++) {
             uint32_t t2 = boost::get<uint32_t>(it->rowkey_.at(0));
-            std::vector<GenDb::NewCol>::iterator i;
+            GenDb::NewColVec::iterator i;
 
             QE_TRACE(DEBUG, "For T2:" << t2 <<
                 " Database returned " << it->columns_.size() << " cols");
@@ -70,28 +64,28 @@ query_status_t DbQueryUnit::process_query()
                     uint32_t t1;
                     
                     if (m_query->is_stat_table_query()) {
-                        assert(i->name.size()==4);
-                        assert(i->value.size()==1);                        
+                        assert(i->name->size()==4);
+                        assert(i->value->size()==1);                        
                         try {
-                            t1 = boost::get<uint32_t>(i->name[2]);
+                            t1 = boost::get<uint32_t>(i->name->at(2));
                         } catch (boost::bad_get& ex) {
                             assert(0);
                         }
                     } else if (m_query->is_flow_query()) {
-                        int ts_at = i->name.size() - 2;
+                        int ts_at = i->name->size() - 2;
                         assert(ts_at >= 0);
                         
                         try {
-                            t1 = boost::get<uint32_t>(i->name.at(ts_at));
+                            t1 = boost::get<uint32_t>(i->name->at(ts_at));
                         } catch (boost::bad_get& ex) {
                             assert(0);
                         }
                     } else {
-                        int ts_at = i->name.size() - 1;
+                        int ts_at = i->name->size() - 1;
                         assert(ts_at >= 0);
                         
                         try {
-                            t1 = boost::get<uint32_t>(i->name.at(ts_at));
+                            t1 = boost::get<uint32_t>(i->name->at(ts_at));
                         } catch (boost::bad_get& ex) {
                             assert(0);
                         }
@@ -99,8 +93,8 @@ query_status_t DbQueryUnit::process_query()
                     result_unit.timestamp = TIMESTAMP_FROM_T2T1(t2, t1);
 
                     if 
-                    ((result_unit.timestamp < m_query->from_time) ||
-                     (result_unit.timestamp > m_query->end_time))
+                    ((result_unit.timestamp < m_query->from_time()) ||
+                     (result_unit.timestamp > m_query->end_time()))
                     {
                         //QE_TRACE(DEBUG, "Discarding timestamp "
                         //        << result_unit.timestamp);
@@ -114,7 +108,7 @@ query_status_t DbQueryUnit::process_query()
                         boost::uuids::uuid uuid;
 
                         try {
-                            uuid = boost::get<boost::uuids::uuid>(i->name[3]);
+                            uuid = boost::get<boost::uuids::uuid>(i->name->at(3));
                         } catch (boost::bad_get& ex) {
                             QE_ASSERT(0);
                         } catch (const std::out_of_range& oor) {
@@ -122,7 +116,7 @@ query_status_t DbQueryUnit::process_query()
                         }
 
                         try {
-                            attribstr = boost::get<std::string>(i->value[0]);
+                            attribstr = boost::get<std::string>(i->value->at(0));
                         } catch (boost::bad_get& ex) {
                             QE_ASSERT(0);
                         } catch (const std::out_of_range& oor) {
@@ -133,7 +127,7 @@ query_status_t DbQueryUnit::process_query()
                             attribstr,
                             uuid);
                     } else {
-                        result_unit.info = i->value;
+                        result_unit.info = *i->value;
                     }
 
                     query_result.push_back(result_unit);

@@ -39,10 +39,19 @@
 #include "controller/controller_peer.h"
 #include "controller/controller_export.h"
 #include "controller/controller_vrf_export.h"
+#include <boost/assign/list_of.hpp>
+
+using namespace boost::assign;
+
 
 using namespace pugi;
 void RouterIdDepInit() {
     VNController::Connect();
+}
+
+static void ValidateSandeshResponse(Sandesh *sandesh, vector<int> &result) {
+    //TBD
+    //Validate the response by the expectation
 }
 
 class VrfTest : public ::testing::Test {
@@ -99,6 +108,35 @@ TEST_F(VrfTest, VrfAddDelTest_1) {
     bgp_peer1->AddRoute("vrf1", "1.1.1.2/32", "10.1.1.10", 10, "vn1");
     WAIT_FOR(100, 10000, (RouteFind("vrf1", vm1_ip, 32) == true));
     WAIT_FOR(100, 10000, (RouteFind("vrf1", vm2_ip, 32) == true));
+
+    VrfDelReq("vrf1");
+    client->WaitForIdle();
+    WAIT_FOR(100, 10000, (VrfFind("vrf1")== false));
+    EXPECT_FALSE(DBTableFind("vrf1.uc.route.0"));
+}
+
+TEST_F(VrfTest, VrfAddDelTest_sandesh_test_1) {
+    client->Reset();
+    VrfAddReq("vrf1");
+    EXPECT_TRUE(client->VrfNotifyWait(1));
+    EXPECT_TRUE(DBTableFind("vrf1.uc.route.0"));
+ 
+    Ip4Address vm1_ip = Ip4Address::from_string("1.1.1.1");
+    Ip4Address vm2_ip = Ip4Address::from_string("1.1.1.2");
+ 
+    client->WaitForIdle();
+    bgp_peer1->AddRoute("vrf1", "1.1.1.1/32", "10.1.1.10", 10, "vn1");
+    bgp_peer1->AddRoute("vrf1", "1.1.1.2/32", "10.1.1.10", 10, "vn1");
+    WAIT_FOR(100, 10000, (RouteFind("vrf1", vm1_ip, 32) == true));
+    WAIT_FOR(100, 10000, (RouteFind("vrf1", vm2_ip, 32) == true));
+
+    VrfListReq *vrf_list_req = new VrfListReq();
+    std::vector<int> result = list_of(1);
+    Sandesh::set_response_callback(boost::bind(ValidateSandeshResponse, _1, result));
+    vrf_list_req->HandleRequest();
+    client->WaitForIdle();
+    vrf_list_req->Release();
+    client->WaitForIdle();
 
     VrfDelReq("vrf1");
     client->WaitForIdle();

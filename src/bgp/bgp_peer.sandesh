@@ -251,6 +251,7 @@ struct ShowBgpStaticRouteConfig {
 struct ShowBgpInstanceConfig {
     1: string name;
     2: string virtual_network;
+    7: i32 virtual_network_index;
     3: list<string> import_target;
     4: list<string> export_target;
     5: ShowBgpServiceChainConfig service_chain_info;
@@ -347,4 +348,12 @@ request sandesh ShowXmppServerReq {
 response sandesh ShowXmppServerResp {
     1: io.TcpServerSocketStats rx_socket_stats;
     2: io.TcpServerSocketStats tx_socket_stats;
+}
+
+response sandesh ClearComputeNodeConnectionResp {
+    1: bool sucess;
+}
+
+request sandesh ClearComputeNodeConnection {
+    1: string hostname_or_all; // HostName of compute-node
 }

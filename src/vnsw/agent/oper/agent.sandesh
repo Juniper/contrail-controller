@@ -59,6 +59,7 @@ struct ItfSandeshData {
    26: i32 vxlan_id;
    27: list<StaticRouteSandesh> static_route_list; //Static route list
    28: string l2_active;
+   30: string vm_project_uuid; // project uuid of the vm to which the interface belongs
 }
 
 struct VnIpamData {
@@ -91,6 +92,8 @@ struct SgSandeshData {
     2: i32 sg_id;
     3: string sg_uuid;
     4: string acl_uuid (link="AclReq");
+    5: string egress_acl_uuid (link="AclReq");
+    6: string ingress_acl_uuid (link="AclReq");
 }
 
 struct VmSgUuid {
@@ -168,6 +171,8 @@ struct PathSandeshData {
     8: optional string vrf (link="VrfListReq"); // Vrf
     9: string proxy_arp;              // Proxy ARP for this path
    10: optional list<i32> sg_list;
+   11: string supported_tunnel_type;
+   12: string active_tunnel_type;
 }
 
 struct RouteUcSandeshData {
@@ -226,6 +231,8 @@ struct SgObjectLogInfo {
     3: u32 id;
     4: string acl_uuid;
     5: u32 ref_count;
+    6: string egress_acl_uuid;
+    7: string ingress_acl_uuid;
 }
 
 objectlog sandesh SgObjectLog {
@@ -385,6 +392,8 @@ struct AclEntrySandeshData {
     6: list <SandeshRange> dst_port_l;
     7: list <SandeshRange> proto_l;
     8: list <ActionStr> action_l;
+    9: string src_type;
+    10: string dst_type;
 }
 
 // ACL to Flow mapping Sandesh
@@ -733,6 +742,7 @@ struct InterfaceInfo {
     8: optional string mac;
     9: optional list<FloatingIPInfo> fip;
    10: optional i32 vxlan_id;
+   11: string vm_project;
 }
 
 struct RouteInfo {
@@ -864,3 +874,14 @@ systemlog sandesh FlowLog {
     2: string message;
 }
 
+systemlog sandesh AgentRouteWalkerLog {
+    1: u32 walk_id;
+    2: u32 walk_type;
+    3: string message;
+    4: string vrf_name;
+    5: u32 route_table_type;
+}
+
+systemlog sandesh GlobalVrouterLog {
+    1: string message;
+}

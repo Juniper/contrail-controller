@@ -119,21 +119,21 @@ void KSyncObject::SafeNotifyEvent(KSyncEntry *entry,
 ///////////////////////////////////////////////////////////////////////////////
 // KSyncDBObject routines
 ///////////////////////////////////////////////////////////////////////////////
-KSyncDBObject::KSyncDBObject() : KSyncObject() {
+KSyncDBObject::KSyncDBObject() : KSyncObject(), test_id_(-1) {
     table_ = NULL;
 }
 
-KSyncDBObject::KSyncDBObject(int max_index) : KSyncObject(max_index) {
+KSyncDBObject::KSyncDBObject(int max_index) : KSyncObject(max_index), test_id_(-1) {
     table_ = NULL;
 }
 
-KSyncDBObject::KSyncDBObject(DBTableBase *table) : KSyncObject() {
+KSyncDBObject::KSyncDBObject(DBTableBase *table) : KSyncObject(), test_id_(-1) {
     table_ = table;
     id_ = table->Register(boost::bind(&KSyncDBObject::Notify, this, _1, _2));
 }
 
 KSyncDBObject::KSyncDBObject(DBTableBase *table, int max_index) 
-    : KSyncObject(max_index) {
+    : KSyncObject(max_index), test_id_(-1) {
     table_ = table;
     id_ = table->Register(boost::bind(&KSyncDBObject::Notify, this, _1, _2));
 }
@@ -157,8 +157,15 @@ void KSyncDBObject::UnregisterDb(DBTableBase *table) {
     table_ = NULL;
 }
 
+void KSyncDBObject::set_test_id(DBTableBase::ListenerId id) {
+    test_id_ = id;
+}
+
 DBTableBase::ListenerId KSyncDBObject::GetListenerId(DBTableBase *table) {
     assert(table_ == table);
+    if (test_id_ != -1) {
+        return test_id_;
+    }
     return id_;
 }
 
@@ -180,8 +187,8 @@ void KSyncDBObject::Notify(DBTablePartBase *partition, DBEntryBase *e) {
     tbb::recursive_mutex::scoped_lock lock(lock_);
     DBEntry *entry = static_cast<DBEntry *>(e);
     DBTableBase *table = partition->parent();
-    DBTableBase::ListenerId listener_id = GetListenerId(table);
-    DBState *state = entry->GetState(table, listener_id);
+    assert(table_ == table);
+    DBState *state = entry->GetState(table, id_);
     KSyncDBEntry *ksync = static_cast<KSyncDBEntry *>(state);
 
     if (entry->IsDeleted()) {
@@ -207,7 +214,7 @@ void KSyncDBObject::Notify(DBTablePartBase *partition, DBEntryBase *e) {
                 ksync = static_cast<KSyncDBEntry *>(found);
             }
             delete key;
-            entry->SetState(table, listener_id, ksync);
+            entry->SetState(table, id_, ksync);
             assert(ksync->GetDBEntry() == NULL);
             ksync->SetDBEntry(entry);
             need_sync = true;
@@ -928,7 +935,10 @@ void KSyncObject::NotifyEvent(KSyncEntry *entry, KSyncEntry::KSyncEvent event) {
     KSyncEntry::KSyncState state;
     bool dep_reval = false;
 
-    KSYNC_TRACE(Event, entry->ToString(), entry->StateString(), entry->EventString(event));
+    if (DoEventTrace()) {
+        KSYNC_TRACE(Event, entry->ToString(), entry->StateString(),
+                entry->EventString(event));
+    }
     switch (entry->GetState()) {
         case KSyncEntry::INIT:
             state = KSyncSM_Init(this, entry, event);

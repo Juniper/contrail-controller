@@ -2,6 +2,7 @@
  * Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
  */
 
+#include "bgp/routing-instance/static_route.h"
 #include "bgp/routing-instance/routing_instance.h"
 
 #include <fstream>
@@ -14,10 +15,12 @@
 #include "base/test/task_test_util.h"
 #include "bgp/bgp_config.h"
 #include "bgp/bgp_log.h"
+#include "bgp/bgp_sandesh.h"
 #include "bgp/inet/inet_table.h"
 #include "bgp/l3vpn/inetvpn_route.h"
 #include "bgp/l3vpn/inetvpn_table.h"
 #include "bgp/origin-vn/origin_vn.h"
+#include "bgp/routing-instance/static_route_types.h"
 #include "bgp/security_group/security_group.h"
 #include "bgp/test/bgp_test_util.h"
 #include "bgp/tunnel_encap/tunnel_encap.h"
@@ -286,14 +289,50 @@ protected:
         return params;
     }
 
+    static void ValidateShowStaticRouteResponse(Sandesh *sandesh, 
+                                                 std::string &result) {
+        ShowStaticRouteResp *resp = 
+            dynamic_cast<ShowStaticRouteResp *>(sandesh);
+        TASK_UTIL_EXPECT_NE((ShowStaticRouteResp *)NULL, resp);
+        validate_done_ = 1;
+
+        TASK_UTIL_EXPECT_EQ(1, resp->get_static_route_entries().size());
+        int i = 0;
+        cout << "*******************************************************"<<endl;
+        BOOST_FOREACH(const StaticRouteEntriesInfo &info, 
+                      resp->get_static_route_entries()) {
+            TASK_UTIL_EXPECT_EQ(info.get_ri_name(), result);
+            cout << info.log() << endl;
+            i++;
+        }
+        cout << "*******************************************************"<<endl;
+    }
+
+    void VerifyStaticRouteSandesh(std::string ri_name) {
+        BgpSandeshContext sandesh_context;
+        sandesh_context.bgp_server = bgp_server_.get();
+        sandesh_context.xmpp_peer_manager = NULL;
+        Sandesh::set_client_context(&sandesh_context);
+        Sandesh::set_response_callback(boost::bind(ValidateShowStaticRouteResponse,
+                                                   _1, ri_name));
+        ShowStaticRouteReq *req = new ShowStaticRouteReq;
+        req->set_ri_name(ri_name);
+        validate_done_ = 0;
+        req->HandleRequest();
+        req->Release();
+        TASK_UTIL_EXPECT_EQ(1, validate_done_);
+    }
+
     EventManager evm_;
     DB config_db_;
     DBGraph config_graph_;
     boost::scoped_ptr<BgpServer> bgp_server_;
     RoutingInstanceMgr *ri_mgr_;
     vector<BgpPeerMock *> peers_;
+    static int validate_done_;
 };
 
+int StaticRouteTest::validate_done_;
 //
 // Basic Test
 // 1. Configure routing instance with static route property
@@ -345,6 +384,7 @@ TEST_F(StaticRouteTest, Basic) {
     EXPECT_EQ(list, config_list);
     EXPECT_EQ(GetOriginVnFromRoute(static_path), "unresolved");
 
+    VerifyStaticRouteSandesh("nat");
     // Delete nexthop route
     DeleteInetRoute(NULL, "nat", "192.168.1.254/32");
     task_util::WaitForIdle();

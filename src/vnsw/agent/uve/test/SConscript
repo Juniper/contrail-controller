@@ -19,10 +19,13 @@ if sys.platform != 'darwin':
     env.Prepend(LIBS=['agent_test'])
     env.Append(LIBS=['agent_test_buildinfo'])
 
-    test_vn_uve = env.Program(target = 'test_vn_uve', source = ['test_vn_uve.cc'])
+    test_vn_uve = env.Program(target = 'test_vn_uve', source = ['test_vn_uve.cc', '../../pkt/test/test_pkt_util.o'])
     env.Alias('src/vnsw/agent/uve/test:test_vn_uve', test_vn_uve)
 
-    test_vrouter_uve = env.Program(target = 'test_vrouter_uve', source = ['test_vrouter_uve.cc'])
+    test_vm_uve = env.Program(target = 'test_vm_uve', source = ['test_vm_uve.cc'])
+    env.Alias('src/vnsw/agent/uve/test:test_vm_uve', test_vm_uve)
+
+    test_vrouter_uve = env.Program(target = 'test_vrouter_uve', source = ['test_vrouter_uve.cc', '../../pkt/test/test_pkt_util.o'])
     env.Alias('src/vnsw/agent/uve/test:test_vrouter_uve', test_vrouter_uve)
 
     test_port_bitmap = env.Program(target = 'test_port_bitmap', source = ['test_port_bitmap.cc'])
@@ -36,6 +39,8 @@ if sys.platform != 'darwin':
 
     uve_test_suite = [
                       test_vn_uve,
+                      test_vm_uve,
+                      test_vrouter_uve,
                       test_port_bitmap,
                       test_stats_mock,
                       test_uve

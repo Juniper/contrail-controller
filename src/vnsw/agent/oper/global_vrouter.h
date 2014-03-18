@@ -11,6 +11,8 @@ class OperDB;
 class VnEntry;
 class VrfEntry;
 class IFMapNode;
+class AgentRouteEncap;
+
 namespace autogen {
     struct LinklocalServiceEntryType;
 }
@@ -80,6 +82,7 @@ private:
     typedef std::vector<autogen::LinklocalServiceEntryType> LinkLocalServiceList;
 
     void UpdateLinkLocalServiceConfig(const LinkLocalServiceList &linklocal_list);
+    void DeleteLinkLocalServiceConfig();
     bool ChangeNotify(LinkLocalServicesMap *old_value,
                       LinkLocalServicesMap *new_value);
     void AddLinkLocalService(const LinkLocalServicesMap::iterator &it);
@@ -91,6 +94,7 @@ private:
     LinkLocalServicesMap linklocal_services_map_;
     boost::scoped_ptr<LinkLocalRouteManager> linklocal_route_mgr_;
     boost::scoped_ptr<FabricDnsResolver> fabric_dns_resolver_;
+    boost::scoped_ptr<AgentRouteEncap> agent_route_encap_update_walker_;
 };
 
 #endif // vnsw_agent_global_router_h_

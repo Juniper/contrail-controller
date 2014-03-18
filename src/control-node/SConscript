@@ -142,6 +142,7 @@ env.Prepend(LIBS=['bgp',
                   'pugixml',
                   'libxml2',
                   'boost_regex',
+		  'boost_chrono',
                   'boost_program_options',
                   'boost_filesystem',
                   'crypto', 'ssl'])
@@ -225,12 +226,13 @@ if sys.platform != 'darwin':
 env.GenerateBuildInfoCode(
 	target = ['buildinfo.h', 'buildinfo.cc'],
 	source = ControlNodeSandeshGenSrcs + buildinfo_dep_libs +
-		['main.cc', 'sandesh/control_node_sandesh.cc'],
+		['main.cc', 'options.cc', 'sandesh/control_node_sandesh.cc'],
 	path = Dir('.').path)
 
 ctrlnode = env.Program(target = 'control-node',
                        source = ['buildinfo.cc',
                                  'main.cc',
+                                 'options.cc',
                                  'sandesh/control_node_sandesh.cc'] +
                                  control_node_sandesh_files_)
 
@@ -247,3 +249,5 @@ env.Depends(ctrlnode, lib_ifmap_server)
 env.Alias('control-node', ctrlnode)
 
 env.SConscript('test/SConscript', exports='BuildEnv', duplicate = 0)
+
+env.Alias('install', env.Install(env['INSTALL_BIN'], ctrlnode))

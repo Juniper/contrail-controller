@@ -13,8 +13,8 @@ public:
                        AgentStatsSandeshContext *ctx, 
                        IoContext::IoContextWorkQId id);
     virtual ~InterfaceStatsIoContext();
-    void Handler();
-    void ErrorHandler(int err);
+    virtual void Handler();
+    virtual void ErrorHandler(int err);
 private:
     DISALLOW_COPY_AND_ASSIGN(InterfaceStatsIoContext);
 };

@@ -35,7 +35,6 @@ class ProtoHandler {
 public:
     ProtoHandler(Agent *agent, boost::shared_ptr<PktInfo> info,
                  boost::asio::io_service &io);
-    ProtoHandler(Agent *agent, boost::asio::io_service &io);
     virtual ~ProtoHandler();
 
     virtual bool Run() = 0;

@@ -40,9 +40,9 @@ bool VmEntry::DBEntrySandesh(Sandesh *sresp, std::string &name) const {
     VmListResp *resp = static_cast<VmListResp *>(sresp);
 
     std::string str_uuid = UuidToString(GetUuid());
-    if (str_uuid.find(name) != std::string::npos) {
+    if (name.empty() || str_uuid == name) {
         VmSandeshData data;
-        data.set_uuid(UuidToString(GetUuid()));
+        data.set_uuid(str_uuid);
         std::vector<VmSandeshData> &list =
                 const_cast<std::vector<VmSandeshData>&>(resp->get_vm_list());
         list.push_back(data);
@@ -92,15 +92,20 @@ DBEntry *VmTable::Add(const DBRequest *req) {
     VmData *data = static_cast<VmData *>(req->data.get());
     VmEntry *vm = new VmEntry(key->uuid_);
     vm->SetCfgName(data->name_);
+    vm->SendObjectLog(AgentLogEvent::ADD);
     return vm;
 }
 
 // Do DIFF walk for Interface and SG List.
 bool VmTable::OnChange(DBEntry *entry, const DBRequest *req) {
+    VmEntry *vm = static_cast<VmEntry *>(entry);
+    vm->SendObjectLog(AgentLogEvent::CHANGE);
     return false;
 }
 
 void VmTable::Delete(DBEntry *entry, const DBRequest *req) {
+    VmEntry *vm = static_cast<VmEntry *>(entry);
+    vm->SendObjectLog(AgentLogEvent::DELETE);
     return;
 }
 
@@ -132,6 +137,6 @@ bool VmTable::IFNodeToReq(IFMapNode *node, DBRequest &req){
 }
 
 void VmListReq::HandleRequest() const {
-    AgentVmSandesh *sand = new AgentVmSandesh(context());
+    AgentVmSandesh *sand = new AgentVmSandesh(context(), get_uuid());
     sand->DoSandesh();
 }

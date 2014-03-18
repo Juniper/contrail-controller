@@ -57,11 +57,14 @@ public:
     void InterfaceWalkDone(DBTableBase *base, StringVectorPtr if_l,
                            StringVectorPtr err_if_l, 
                            StringVectorPtr nova_if_l);
+protected:
+    VrouterStatsAgent prev_stats_;
+    uint8_t bandwidth_count_;
 private:
-    virtual void DispatchVrouterMsg(const VrouterAgent &uve) const;
-    virtual void DispatchVrouterStatsMsg(const VrouterStatsAgent &uve) const;
-    //DispatchComputeCpuStateMsg is not made const function because in derived 
-    //class it needs to be non-const
+    //The following Dispatch functions are not made const function because
+    //in derived class they need to be non-const
+    virtual void DispatchVrouterMsg(const VrouterAgent &uve);
+    virtual void DispatchVrouterStatsMsg(const VrouterStatsAgent &uve);
     virtual void DispatchComputeCpuStateMsg(const ComputeCpuState &ccs);
     void InterfaceNotify(DBTablePartBase *partition, DBEntryBase *e);
     void VmNotify(DBTablePartBase *partition, DBEntryBase *e);
@@ -89,7 +92,6 @@ private:
     DBTableBase::ListenerId vn_listener_id_;
     DBTableBase::ListenerId vm_listener_id_;
     DBTableBase::ListenerId intf_listener_id_;
-    VrouterStatsAgent prev_stats_;
     VrouterAgent prev_vrouter_;
     L4PortBitmap port_bitmap_;
     uint64_t start_time_;

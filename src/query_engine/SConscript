@@ -85,7 +85,8 @@ SandeshGenFiles += env.SandeshGenOnlyCpp('../sandesh/common/query.sandesh')
 SandeshGenSrcs = env.ExtractCpp(SandeshGenFiles)
 
 SandeshGenObjs = env.Object(SandeshGenSrcs)
-#
+env['QE_SANDESH_GEN_OBJS'] = SandeshGenObjs
+
 buildinfo_dep_libs = [
     '../../lib/libboost_program_options.a',
     '../../lib/libboost_regex.a',
@@ -143,6 +144,8 @@ qed = env.Program(
         ['../analytics/vizd_table_desc.o', 'rac_alloc.cc', '../analytics/viz_constants.o']
         )
 
+env.Alias('install', env.InstallAs(env['INSTALL_BIN'] + '/query_engine', qed))
+
 if env['OPT'] == 'coverage':
     env.AppendUnique(CCFLAGS='-g')
     env.AppendUnique(CCFLAGS='-O0')
@@ -167,4 +170,4 @@ env.Depends(qedt, '#/build/include/hiredis/hiredis.h')
 QueryEnv = env.Clone()
 env.Default(qed)
 
-#test_suite = env.SConscript('test/SConscript', exports='QueryEnv', duplicate = 0)
+test_suite = env.SConscript('test/SConscript', exports='QueryEnv', duplicate = 0)

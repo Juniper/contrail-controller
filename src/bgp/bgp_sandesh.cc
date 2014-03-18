@@ -12,6 +12,7 @@
 
 #include "base/util.h"
 #include "io/tcp_server.h"
+#include "control-node/control_node.h"
 #include "bgp/bgp_config.h"
 #include "bgp/bgp_multicast.h"
 #include "bgp/bgp_path.h"
@@ -630,6 +631,14 @@ bool ClearBgpNeighborHandler::CallbackS1(
 // handler for 'clear bgp neighbor'
 void ClearBgpNeighborReq::HandleRequest() const {
 
+    if (ControlNode::GetTestMode() == false) {
+        ClearBgpNeighborResp *resp = new ClearBgpNeighborResp;
+        resp->set_context(context());
+        resp->set_more(false);
+        resp->Response();
+        return;
+    }
+
     // Use config task since neighbors are added/deleted under that task.
     // to compute the number of neighbors.
     RequestPipeline::StageSpec s1;
@@ -1122,6 +1131,7 @@ public:
             ShowBgpInstanceConfig inst;
             inst.set_name(loc->second->name());
             inst.set_virtual_network(loc->second->virtual_network());
+            inst.set_virtual_network_index(loc->second->virtual_network_index());
 
             std::vector<std::string> import_list;
             BOOST_FOREACH(std::string rt, loc->second->import_list()) {
@@ -1398,5 +1408,64 @@ void ShowXmppServerReq::HandleRequest() const {
     s1.cbFn_ = ShowXmppServerHandler::CallbackS1;
     s1.instances_.push_back(0);
     ps.stages_ = list_of(s1);
+    RequestPipeline rp(ps);
+}
+
+class ClearComputeNodeHandler {
+public:
+    static bool CallbackS1(const Sandesh *sr,
+            const RequestPipeline::PipeSpec ps, int stage, int instNum,
+            RequestPipeline::InstData *data) {
+
+        const ClearComputeNodeConnection *req =
+            static_cast<const ClearComputeNodeConnection *>(ps.snhRequest_.get());
+	BgpSandeshContext *bsc =
+	    static_cast<BgpSandeshContext *>(req->client_context());
+	XmppServer *server = bsc->xmpp_peer_manager->xmpp_server();
+     
+	ClearComputeNodeConnectionResp *resp = new ClearComputeNodeConnectionResp;
+	if (req->get_hostname_or_all().compare("all") != 0) {
+	    XmppConnection *connection = 
+		server->FindConnectionbyHostName(req->get_hostname_or_all());
+	    if (connection) {
+	       server->ClearConnection(connection);
+	       resp->set_sucess(true);
+	    } else {
+	       resp->set_sucess(false);
+	    }
+	} else {
+	    if (server->ConnectionsCount()) {
+		server->ClearAllConnections();
+		resp->set_sucess(true);
+	    } else {
+		resp->set_sucess(false);
+	    }
+	}
+
+	resp->set_context(req->context());
+	resp->Response();
+	return(true);
+    }
+};
+
+void ClearComputeNodeConnection::HandleRequest() const {
+
+    if (ControlNode::GetTestMode() == false) {
+	ClearComputeNodeConnectionResp *resp = new ClearComputeNodeConnectionResp;
+        resp->set_context(context());
+        resp->set_more(false);
+        resp->Response();
+        return;
+    }
+
+    // config task is used to create and delete connection objects.
+    // hence use the same task to find the connection
+    RequestPipeline::StageSpec s1;
+    s1.taskId_ = TaskScheduler::GetInstance()->GetTaskId("bgp::Config");
+    s1.instances_.push_back(0);
+    s1.cbFn_ = ClearComputeNodeHandler::CallbackS1;
+
+    RequestPipeline::PipeSpec ps(this);
+    ps.stages_= list_of(s1);
     RequestPipeline rp(ps);
 }

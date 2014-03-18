@@ -63,6 +63,7 @@ struct ModuleServerState {
     12: optional sandesh_uve.SandeshGeneratorStats  sm_msg_stats
     13: optional string                    db_drop_level
     14: optional u64                       db_msg_dropped
+    15: optional string                    sm_drop_level
 }
 
 uve sandesh SandeshModuleServerTrace {
@@ -162,16 +163,46 @@ request sandesh DbQueueParamsReset {
 request sandesh DbQueueParamsStatus {
 }
 
-struct DbQueueParams {
+request sandesh SmQueueParamsSet {
+    1: optional bool high;
+    2: optional u32 queue_count;
+    3: optional string drop_level;
+}    
+
+request sandesh SmQueueParamsReset {
+}
+
+request sandesh SmQueueParamsStatus {
+}
+
+struct QueueParams {
     1: bool high;
     2: u32 queue_count;
     3: string drop_level;
 }
 
-response sandesh DbQueueParamsError {
+response sandesh QueueParamsError {
     1: string error;
 }
 
-response sandesh DbQueueParamsResponse {
-    1: list<DbQueueParams> info;
+response sandesh QueueParamsResponse {
+    1: list<QueueParams> info;
 }
+
+struct SandeshMessageInfo {
+     1: string type
+     2: string level
+     3: u64    messages
+     4: u64    bytes
+}
+
+struct SandeshMessageStat {
+    1: string                            name (key="ObjectGeneratorInfo")
+    2: optional bool                     deleted
+    3: optional list<SandeshMessageInfo> msg_info (tags=".type,.level")
+}
+
+uve sandesh SandeshMessageTrace {
+    1: SandeshMessageStat data
+}
+

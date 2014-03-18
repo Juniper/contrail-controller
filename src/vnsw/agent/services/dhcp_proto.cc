@@ -5,9 +5,6 @@
 #include "cmn/agent_cmn.h"
 #include "services/dhcp_proto.h"
 
-void DhcpProto::Init() {
-}
-
 void DhcpProto::Shutdown() {
 }
 

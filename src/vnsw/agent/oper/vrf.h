@@ -41,7 +41,7 @@ class VrfEntry : AgentRefCount<VrfEntry>, public AgentDBEntry {
 public:
     class VrfNHMap;
     static const uint32_t kInvalidIndex = 0xFFFFFFFF;
-    static const uint32_t kDeleteTimeout = 300 * 1000;
+    static const uint32_t kDeleteTimeout = 900 * 1000;
     VrfEntry(const string &name);
     virtual ~VrfEntry();
 
@@ -50,7 +50,7 @@ public:
     virtual void SetKey(const DBRequestKey *key);
     virtual string ToString() const;
 
-    const uint32_t GetVrfId() const {return id_;};
+    const uint32_t vrf_id() const {return id_;};
     const string &GetName() const {return name_;};
 
     uint32_t GetRefCount() const {
@@ -138,6 +138,10 @@ public:
     // Create a VRF entry with given name
     void CreateVrf(const string &name);
     void DeleteVrf(const string &name);
+    //Add and delete routine for VRF not deleted on VRF config delete
+    void CreateStaticVrf(const string &name);
+    void DeleteStaticVrf(const string &name);
+ 
     // Create VRF Table with given name
     static DBTableBase *CreateTable(DB *db, const std::string &name);
     static VrfTable *GetInstance() {return vrf_table_;};
@@ -145,7 +149,7 @@ public:
     virtual bool IFNodeToReq(IFMapNode *node, DBRequest &req);
 
     VrfEntry *FindVrfFromName(const string &name);
-    VrfEntry *FindVrfFromId(size_t index) {return index_table_.At(index);};
+    VrfEntry *FindVrfFromId(size_t index);
     void FreeVrfId(size_t index) {index_table_.Remove(index);};
 
     void DelPeerRoutes(Peer *peer, Peer::DelPeerDone cb);
@@ -157,6 +161,13 @@ public:
     AgentRouteTable *GetInet4MulticastRouteTable(const std::string &vrf_name);
     AgentRouteTable *GetLayer2RouteTable(const std::string &vrf_name);
     AgentRouteTable *GetRouteTable(const string &vrf_name, uint8_t table_type);
+    bool IsStaticVrf(const std::string &vrf_name) const {
+        if (static_vrf_set_.find(vrf_name) != static_vrf_set_.end()) {
+            return true;
+        }
+        return false;
+    }
+
 private:
     friend class VrfEntry;
     void DelPeerDone(DBTableBase *base, Peer *,Peer::DelPeerDone cb);
@@ -168,6 +179,7 @@ private:
     VrfNameTree name_tree_;
     VrfDbTree dbtree_[Agent::ROUTE_TABLE_MAX];
     DBTableWalker::WalkId walkid_;
+    std::set<std::string> static_vrf_set_;
     DISALLOW_COPY_AND_ASSIGN(VrfTable);
 };
 

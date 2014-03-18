@@ -27,6 +27,7 @@ using namespace std;
 //
 class StateMachineTest : public StateMachine {
     public:
+        static bool hold_time_msec_;
         explicit StateMachineTest(BgpPeer *peer) : StateMachine(peer) { }
         ~StateMachineTest() { }
 
@@ -50,10 +51,18 @@ class StateMachineTest : public StateMachine {
                 boost::bind(&StateMachine::IdleHoldTimerExpired, this),
                 boost::bind(&StateMachine::TimerErrorHanlder, this, _1, _2));
         }
+
+        virtual int hold_time_msecs() const { return hold_time_msec_ /* msec */; }
 };
+
+bool StateMachineTest::hold_time_msec_ = StateMachine::GetDefaultHoldTime() * 1000;
 
 class BgpServerUnitTest : public ::testing::Test {
 protected:
+    BgpServerUnitTest() {
+        ControlNode::SetTestMode(true);
+    }
+
     virtual void SetUp() {
         evm_.reset(new EventManager());
         a_.reset(new BgpServerTest(evm_.get(), "A"));
@@ -90,7 +99,13 @@ protected:
                     string bgp_identifier2 = "192.168.0.11",
                     vector<string> families1 = vector<string>(),
                     vector<string> families2 = vector<string>());
-    void VerifyPeers(int peer_count, bool verify_keepalives = false,
+    void SetupPeers(BgpServerTest *server, int peer_count,
+                    unsigned short port_a, unsigned short port_b,
+                    bool verify_keepalives, as_t as_num1, as_t as_num2,
+                    string peer_address1, string peer_address2,
+                    string bgp_identifier1, string bgp_identifier2,
+                    vector<string> families1, vector<string> families2);
+    void VerifyPeers(int peer_count, int verify_keepalives_count = 0,
                      uint16_t as_num1 = BgpConfigManager::kDefaultAutonomousSystem,
                      uint16_t as_num2 = BgpConfigManager::kDefaultAutonomousSystem);
     string GetConfigStr(int peer_count,
@@ -176,6 +191,20 @@ string BgpServerUnitTest::GetConfigStr(int peer_count,
     return config.str();
 }
 
+void BgpServerUnitTest::SetupPeers(BgpServerTest *server, int peer_count,
+        unsigned short port_a, unsigned short port_b,
+        bool verify_keepalives, as_t as_num1, as_t as_num2,
+        string peer_address1, string peer_address2,
+        string bgp_identifier1, string bgp_identifier2,
+        vector<string> families1, vector<string> families2) {
+    string config = GetConfigStr(peer_count, port_a, port_b, as_num1, as_num2,
+                                 peer_address1, peer_address2,
+                                 bgp_identifier1, bgp_identifier2,
+                                 families1, families2, false);
+    server->Configure(config);
+    task_util::WaitForIdle();
+}
+
 void BgpServerUnitTest::SetupPeers(int peer_count,
         unsigned short port_a, unsigned short port_b,
         bool verify_keepalives, as_t as_num1, as_t as_num2,
@@ -193,7 +222,7 @@ void BgpServerUnitTest::SetupPeers(int peer_count,
 }
 
 void BgpServerUnitTest::VerifyPeers(int peer_count,
-        bool verify_keepalives, as_t as_num1, as_t as_num2) {
+        int verify_keepalives_count, as_t as_num1, as_t as_num2) {
     BgpProto::BgpPeerType peer_type =
         (as_num1 == as_num2) ? BgpProto::IBGP : BgpProto::EBGP;
     const int peers = peer_count;
@@ -216,15 +245,15 @@ void BgpServerUnitTest::VerifyPeers(int peer_count,
         TASK_UTIL_EXPECT_EQ(peer_type, peer_b->PeerType());
         BGP_WAIT_FOR_PEER_STATE(peer_b, StateMachine::ESTABLISHED);
 
-        if (verify_keepalives) {
+        if (verify_keepalives_count) {
 
             //
             // Make sure that a few keepalives are exchanged
             //
-            TASK_UTIL_EXPECT_TRUE(peer_a->get_rx_keepalive() > 2);
-            TASK_UTIL_EXPECT_TRUE(peer_a->get_tr_keepalive() > 2);
-            TASK_UTIL_EXPECT_TRUE(peer_b->get_rx_keepalive() > 2);
-            TASK_UTIL_EXPECT_TRUE(peer_b->get_tr_keepalive() > 2);
+            TASK_UTIL_EXPECT_TRUE(peer_a->get_rx_keepalive() > verify_keepalives_count);
+            TASK_UTIL_EXPECT_TRUE(peer_a->get_tr_keepalive() > verify_keepalives_count);
+            TASK_UTIL_EXPECT_TRUE(peer_b->get_rx_keepalive() > verify_keepalives_count);
+            TASK_UTIL_EXPECT_TRUE(peer_b->get_tr_keepalive() > verify_keepalives_count);
         }
     }
 }
@@ -238,15 +267,27 @@ void BgpServerUnitTest::HandleClearBgpNeighborResponse(
 
 TEST_F(BgpServerUnitTest, Connection) {
 
-    //
     // Enable BgpPeerTest::ToString() to include uuid also in the name of the
     // peer to maintain unique-ness among multiple peering sessions between
     // two BgpServers
-    //
     BgpPeerTest::verbose_name(true);
     SetupPeers(3, a_->session_manager()->GetPort(),
                b_->session_manager()->GetPort(), true);
-    VerifyPeers(3, true);
+    VerifyPeers(3, 2);
+}
+
+// Run this test with a small (30ms) hold time so that a keepalive sent very frequently, once
+// every 10ms or so.
+TEST_F(BgpServerUnitTest, LotsOfKeepAlives) {
+    int hold_time_orig = StateMachineTest::hold_time_msec_;
+    StateMachineTest::hold_time_msec_ = 30;
+    BgpPeerTest::verbose_name(true);
+    SetupPeers(3, a_->session_manager()->GetPort(),
+               b_->session_manager()->GetPort(), true);
+    VerifyPeers(3, 500);
+
+    // Revert the hold time to its original default value.
+    StateMachineTest::hold_time_msec_ = hold_time_orig;
 }
 
 TEST_F(BgpServerUnitTest, ChangeAsNumber1) {
@@ -259,7 +300,7 @@ TEST_F(BgpServerUnitTest, ChangeAsNumber1) {
                BgpConfigManager::kDefaultAutonomousSystem,
                "127.0.0.1", "127.0.0.1",
                "192.168.0.10", "192.168.0.11");
-    VerifyPeers(peer_count, false,
+    VerifyPeers(peer_count, 0,
                 BgpConfigManager::kDefaultAutonomousSystem,
                 BgpConfigManager::kDefaultAutonomousSystem);
 
@@ -288,7 +329,7 @@ TEST_F(BgpServerUnitTest, ChangeAsNumber1) {
                BgpConfigManager::kDefaultAutonomousSystem + 1,
                "127.0.0.1", "127.0.0.1",
                "192.168.0.10", "192.168.0.11");
-    VerifyPeers(peer_count, false,
+    VerifyPeers(peer_count, 0,
                 BgpConfigManager::kDefaultAutonomousSystem + 1,
                 BgpConfigManager::kDefaultAutonomousSystem + 1);
 
@@ -316,7 +357,7 @@ TEST_F(BgpServerUnitTest, ChangeAsNumber2) {
                BgpConfigManager::kDefaultAutonomousSystem,
                "127.0.0.1", "127.0.0.1",
                "192.168.0.10", "192.168.0.11");
-    VerifyPeers(peer_count, false,
+    VerifyPeers(peer_count, 0,
                 BgpConfigManager::kDefaultAutonomousSystem,
                 BgpConfigManager::kDefaultAutonomousSystem);
 
@@ -345,7 +386,7 @@ TEST_F(BgpServerUnitTest, ChangeAsNumber2) {
                BgpConfigManager::kDefaultAutonomousSystem + 1,
                "127.0.0.1", "127.0.0.1",
                "192.168.0.10", "192.168.0.11");
-    VerifyPeers(peer_count, false,
+    VerifyPeers(peer_count, 0,
                 BgpConfigManager::kDefaultAutonomousSystem,
                 BgpConfigManager::kDefaultAutonomousSystem + 1);
 
@@ -374,7 +415,7 @@ TEST_F(BgpServerUnitTest, ChangeAsNumber3) {
                BgpConfigManager::kDefaultAutonomousSystem + 1,
                "127.0.0.1", "127.0.0.1",
                "192.168.0.10", "192.168.0.11");
-    VerifyPeers(peer_count, false,
+    VerifyPeers(peer_count, 0,
                 BgpConfigManager::kDefaultAutonomousSystem,
                 BgpConfigManager::kDefaultAutonomousSystem + 1);
 
@@ -403,7 +444,7 @@ TEST_F(BgpServerUnitTest, ChangeAsNumber3) {
                BgpConfigManager::kDefaultAutonomousSystem,
                "127.0.0.1", "127.0.0.1",
                "192.168.0.10", "192.168.0.11");
-    VerifyPeers(peer_count, false,
+    VerifyPeers(peer_count, 0,
                 BgpConfigManager::kDefaultAutonomousSystem,
                 BgpConfigManager::kDefaultAutonomousSystem);
 
@@ -650,7 +691,7 @@ TEST_F(BgpServerUnitTest, AdminDown) {
     //
     // Make sure that the sessions come up
     //
-    VerifyPeers(peer_count, false);
+    VerifyPeers(peer_count, 0);
 }
 
 //
@@ -1007,6 +1048,34 @@ TEST_F(BgpServerUnitTest, AddressFamilyNegotiation8) {
     }
 }
 
+// Apply bgp neighbor configuration on only one side of the session and
+// verify that the session does not come up.
+TEST_F(BgpServerUnitTest, MissingPeerConfig) {
+    int peer_count = 3;
+
+    vector<string> families_a;
+    vector<string> families_b;
+    families_a.push_back("inet");
+    families_b.push_back("inet-vpn");
+
+    BgpPeerTest::verbose_name(true);
+    SetupPeers(a_.get(), peer_count, a_->session_manager()->GetPort(),
+               b_->session_manager()->GetPort(), false,
+               BgpConfigManager::kDefaultAutonomousSystem,
+               BgpConfigManager::kDefaultAutonomousSystem,
+               "127.0.0.1", "127.0.0.1",
+               "192.168.0.10", "192.168.0.11",
+               families_a, families_b);
+
+    for (int j = 0; j < peer_count; j++) {
+        string uuid = BgpConfigParser::session_uuid("A", "B", j + 1);
+        BgpPeer *peer_a = a_->FindPeerByUuid(BgpConfigManager::kMasterInstance,
+                                             uuid);
+        TASK_UTIL_EXPECT_TRUE(peer_a->get_rx_notification() > 50);
+        TASK_UTIL_EXPECT_NE(peer_a->GetState(), StateMachine::ESTABLISHED);
+    }
+}
+
 TEST_F(BgpServerUnitTest, ClearNeighbor1) {
     int peer_count = 3;
 
@@ -1086,7 +1155,7 @@ TEST_F(BgpServerUnitTest, ClearNeighbor2) {
                BgpConfigManager::kDefaultAutonomousSystem + 1,
                "127.0.0.1", "127.0.0.1",
                "192.168.0.10", "192.168.0.11");
-    VerifyPeers(peer_count, false,
+    VerifyPeers(peer_count, 0,
                 BgpConfigManager::kDefaultAutonomousSystem,
                 BgpConfigManager::kDefaultAutonomousSystem + 1);
 
@@ -1131,7 +1200,7 @@ TEST_F(BgpServerUnitTest, ClearNeighbor2) {
     //
     // Make sure that the peers come up again
     //
-    VerifyPeers(peer_count, false,
+    VerifyPeers(peer_count, 0,
                 BgpConfigManager::kDefaultAutonomousSystem,
                 BgpConfigManager::kDefaultAutonomousSystem + 1);
 

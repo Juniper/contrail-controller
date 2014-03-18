@@ -105,8 +105,11 @@ void Ping::SendRequest() {
         break;
     }
 
-    AgentRoute *rt;
-    rt = Inet4UnicastAgentRouteTable::FindRoute(vrf_name_, sip_);
+    Agent *agent = Agent::GetInstance();
+    Inet4UnicastAgentRouteTable *table = NULL;
+    table = static_cast<Inet4UnicastAgentRouteTable *>
+        (agent->GetVrfTable()->GetInet4UnicastRouteTable(vrf_name_));
+    AgentRoute *rt = table->FindRoute(sip_);
     if (!rt) {
         delete pkt_handler;
         return;
@@ -123,7 +126,7 @@ void Ping::SendRequest() {
     intf_nh = static_cast<const InterfaceNH *>(nh);
 
     uint32_t intf_id = intf_nh->GetInterface()->id();
-    uint32_t vrf_id = diag_table_->agent()->GetVrfTable()->FindVrfFromName(vrf_name_)->GetVrfId();
+    uint32_t vrf_id = diag_table_->agent()->GetVrfTable()->FindVrfFromName(vrf_name_)->vrf_id();
     //Send request out
     pkt_handler->SetDiagChkSum();
     pkt_handler->Send(len_ - IPC_HDR_LEN, intf_id, vrf_id, 
@@ -227,9 +230,12 @@ void PingReq::HandleRequest() const {
         goto error;
     }
 
-    AgentRoute *rt;
-    rt = Inet4UnicastAgentRouteTable::FindRoute(get_vrf_name(), sip);
     const NextHop *nh = NULL;
+    Agent *agent = Agent::GetInstance();
+    Inet4UnicastAgentRouteTable *table = NULL;
+    table = static_cast<Inet4UnicastAgentRouteTable *>
+        (agent->GetVrfTable()->GetInet4UnicastRouteTable(get_vrf_name()));
+    AgentRoute *rt = table->FindRoute(sip);
     if (rt) {
         nh = rt->GetActiveNextHop();
     }

@@ -16,6 +16,7 @@
 #include <oper/route_common.h>
 #include <oper/operdb_init.h>
 #include <oper/global_vrouter.h>
+#include <oper/agent_route_encap.h>
 #include <base/util.h>
 
 const std::string GlobalVrouter::kMetadataService = "metadata";
@@ -191,7 +192,7 @@ public:
     void UpdateAllVns(const LinkLocalServiceKey &key, bool is_add);
 
 private:
-    bool VnUpdateWalk(DBEntryBase *entry, const LinkLocalServiceKey &key,
+    bool VnUpdateWalk(DBEntryBase *entry, const LinkLocalServiceKey key,
                       bool is_add);
     void VnWalkDone();
     bool VnNotify(DBTablePartBase *partition, DBEntryBase *entry);
@@ -243,7 +244,7 @@ void GlobalVrouter::LinkLocalRouteManager::UpdateAllVns(
 // Vn Walk method
 // For each Vn, add or delete receive route for the specified linklocal service
 bool GlobalVrouter::LinkLocalRouteManager::VnUpdateWalk(
-    DBEntryBase *entry, const LinkLocalServiceKey &key, bool is_add) {
+    DBEntryBase *entry, const LinkLocalServiceKey key, bool is_add) {
 
     VnEntry *vn_entry = static_cast<VnEntry *>(entry);
     if (vn_entry->IsDeleted()) {
@@ -267,15 +268,15 @@ bool GlobalVrouter::LinkLocalRouteManager::VnUpdateWalk(
 
     if (is_add) {
         if (vn_entry->Ipv4Forwarding()) {
-            rt_table->AddVHostRecvRoute(agent->GetLinkLocalPeer(),
+            rt_table->AddVHostRecvRoute(agent->link_local_peer(),
                                         vrf_entry->GetName(),
                                         agent->vhost_interface_name(),
                                         key.linklocal_service_ip, 32,
-                                        agent->GetLinkLocalVnName(),
+                                        vn_entry->GetName(),
                                         true);
         }
     } else {
-        rt_table->DeleteReq(agent->GetLinkLocalPeer(), vrf_entry->GetName(),
+        rt_table->DeleteReq(agent->link_local_peer(), vrf_entry->GetName(),
                             key.linklocal_service_ip, 32);
     }
     return true;
@@ -302,7 +303,7 @@ bool GlobalVrouter::LinkLocalRouteManager::VnNotify(DBTablePartBase *partition,
                    global_vrouter_->linklocal_services_map();
         for (GlobalVrouter::LinkLocalServicesMap::const_iterator it =
              services.begin(); it != services.end(); ++it) {
-            rt_table->DeleteReq(agent->GetLinkLocalPeer(),
+            rt_table->DeleteReq(agent->link_local_peer(),
                                 state->vrf_->GetName(),
                                 it->first.linklocal_service_ip, 32);
         }
@@ -329,11 +330,11 @@ bool GlobalVrouter::LinkLocalRouteManager::VnNotify(DBTablePartBase *partition,
                    global_vrouter_->linklocal_services_map();
         for (GlobalVrouter::LinkLocalServicesMap::const_iterator it =
              services.begin(); it != services.end(); ++it) {
-            rt_table->AddVHostRecvRoute(agent->GetLinkLocalPeer(),
+            rt_table->AddVHostRecvRoute(agent->link_local_peer(),
                                         vrf_entry->GetName(),
                                         agent->vhost_interface_name(),
                                         it->first.linklocal_service_ip, 32,
-                                        agent->GetLinkLocalVnName(),
+                                        vn_entry->GetName(),
                                         true);
         }
     }
@@ -346,7 +347,8 @@ GlobalVrouter::GlobalVrouter(OperDB *oper)
     : oper_(oper), linklocal_services_map_(),
       linklocal_route_mgr_(new LinkLocalRouteManager(this)),
       fabric_dns_resolver_(new FabricDnsResolver(this,
-                           *(oper->agent()->GetEventManager()->io_service()))) {
+                           *(oper->agent()->GetEventManager()->io_service()))),
+      agent_route_encap_update_walker_(new AgentRouteEncap(oper->agent())) {
 }
 
 GlobalVrouter::~GlobalVrouter() {
@@ -360,17 +362,19 @@ void GlobalVrouter::CreateDBClients() {
 void GlobalVrouter::GlobalVrouterConfig(IFMapNode *node) {
     Agent::VxLanNetworkIdentifierMode cfg_vxlan_network_identifier_mode = 
                                             Agent::AUTOMATIC;
+    bool encap_changed = false;
     if (node->IsDeleted() == false) {
         autogen::GlobalVrouterConfig *cfg = 
             static_cast<autogen::GlobalVrouterConfig *>(node->GetObject());
-        TunnelType::EncapPrioritySync(cfg->encapsulation_priorities());
+        encap_changed = TunnelType::EncapPrioritySync(cfg->encapsulation_priorities());
         if (cfg->vxlan_network_identifier_mode() == "configured") {
             cfg_vxlan_network_identifier_mode = Agent::CONFIGURED;
         }
         UpdateLinkLocalServiceConfig(cfg->linklocal_services());
     } else {
-        linklocal_services_map_.clear();
+        DeleteLinkLocalServiceConfig();
         TunnelType::DeletePriorityList();
+        encap_changed = true;
     }
 
     if (cfg_vxlan_network_identifier_mode !=                             
@@ -380,6 +384,11 @@ void GlobalVrouter::GlobalVrouterConfig(IFMapNode *node) {
         oper_->agent()->GetVnTable()->UpdateVxLanNetworkIdentifierMode();
         oper_->agent()->GetInterfaceTable()->
                         UpdateVxLanNetworkIdentifierMode();
+    }
+
+    if (encap_changed) {
+        AGENT_LOG(GlobalVrouterLog, "Rebake all routes for changed encap");
+        agent_route_encap_update_walker_.get()->Update();
     }
 }
 
@@ -488,6 +497,15 @@ void GlobalVrouter::UpdateLinkLocalServiceConfig(
             dns_name_list.push_back(it->ip_fabric_DNS_service_name);
     }
 
+    linklocal_services_map_.swap(linklocal_services_map);
+    fabric_dns_resolver_->ResolveList(dns_name_list);
+    ChangeNotify(&linklocal_services_map, &linklocal_services_map_);
+}
+
+void GlobalVrouter::DeleteLinkLocalServiceConfig() {
+    std::vector<std::string> dns_name_list;
+    LinkLocalServicesMap linklocal_services_map;
+    
     linklocal_services_map_.swap(linklocal_services_map);
     fabric_dns_resolver_->ResolveList(dns_name_list);
     ChangeNotify(&linklocal_services_map, &linklocal_services_map_);

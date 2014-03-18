@@ -6,20 +6,20 @@
 # Opserver Sandesh Request Implementation
 #
 
-from sandesh.redis.ttypes import RedisUveMasterInfo, RedisUVEMasterRequest, RedisUVEMasterResponse
+from sandesh.redis.ttypes import RedisUveInfo, RedisUVERequest, RedisUVEResponse
 
 class OpserverSandeshReqImpl(object):
     def __init__(self, opserver):
         self._opserver = opserver
-        RedisUVEMasterRequest.handle_request = self.handle_redis_uve_master_req
+        RedisUVERequest.handle_request = self.handle_redis_uve_info_req
     # end __init__
 
-    def handle_redis_uve_master_req(self, req):
-        uve_master_info = RedisUveMasterInfo()
+    def handle_redis_uve_info_req(self, req):
+        redis_uve_info = RedisUveInfo()
         uve_server = self._opserver.get_uve_server()
-        uve_server.fill_redis_uve_master_info(uve_master_info)
-        uve_master_resp = RedisUVEMasterResponse(uve_master_info)
-        uve_master_resp.response(req.context())
-    # end handle_redis_uve_master_req
+        uve_server.fill_redis_uve_info(redis_uve_info)
+        redis_uve_resp = RedisUVEResponse(redis_uve_info)
+        redis_uve_resp.response(req.context())
+    # end handle_redis_uve_info_req
 
 # end class OpserverSandeshReqImpl

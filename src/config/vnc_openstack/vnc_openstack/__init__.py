@@ -32,11 +32,12 @@ class OpenstackDriver(vnc_plugin_base.Resync):
 
         self._config_sections = conf_sections
         self._auth_host = conf_sections.get('KEYSTONE', 'auth_host')
+        self._auth_port = conf_sections.get('KEYSTONE', 'auth_port')
         self._auth_user = conf_sections.get('KEYSTONE', 'admin_user')
         self._auth_passwd = conf_sections.get('KEYSTONE', 'admin_password')
         self._auth_tenant = conf_sections.get('KEYSTONE', 'admin_tenant_name')
         auth_proto = conf_sections.get('KEYSTONE', 'auth_protocol')
-        auth_url = "%s://%s:35357/v2.0" % (auth_proto, self._auth_host)
+        auth_url = "%s://%s:%s/v2.0" % (auth_proto, self._auth_host, self._auth_port)
         self._auth_url = auth_url
         self._resync_interval_secs = 2
         self._kc = None
@@ -110,6 +111,7 @@ class OpenstackDriver(vnc_plugin_base.Resync):
                 if old_project_ids == new_project_ids:
                     # no change, go back to poll
                     gevent.sleep(self._resync_interval_secs)
+                    continue
 
                 for old_proj_id in old_project_ids - new_project_ids:
                     if old_proj_id in del_proj_list:
@@ -146,6 +148,7 @@ class OpenstackDriver(vnc_plugin_base.Resync):
                 old_project_ids = new_project_ids
 
             except Exception as e:
+                self._kc = None
                 cgitb.Hook(
                     format="text",
                     file=open(self._tmp_file_name,
@@ -197,37 +200,10 @@ class ResourceApiDriver(vnc_plugin_base.ResourceApi):
     #end __call__
 
     def _create_default_security_group(self, proj_dict):
-        sgr_uuid = str(uuid.uuid4())
-        ingress_rule = PolicyRuleType(rule_uuid=sgr_uuid, direction='>',
-                                      protocol='any',
-                                      src_addresses=[
-                                          AddressType(
-                                              subnet=SubnetType(
-                                                  '0.0.0.0', 0))],
-                                      src_ports=[PortType(0, 65535)],
-                                      dst_addresses=[
-                                          AddressType(security_group='local')],
-                                      dst_ports=[PortType(0, 65535)])
-        sg_rules = PolicyEntriesType([ingress_rule])
-
-        sgr_uuid = str(uuid.uuid4())
-        egress_rule = PolicyRuleType(rule_uuid=sgr_uuid, direction='>',
-                                     protocol='any',
-                                     src_addresses=[
-                                         AddressType(security_group='local')],
-                                     src_ports=[PortType(0, 65535)],
-                                     dst_addresses=[
-                                         AddressType(
-                                             subnet=SubnetType('0.0.0.0', 0))],
-                                     dst_ports=[PortType(0, 65535)])
-        sg_rules.add_policy_rule(egress_rule)
-
         proj_obj = vnc_api.Project.from_dict(**proj_dict)
 
         # create security group
-        sg_obj = vnc_api.SecurityGroup(name='default', parent_obj=proj_obj,
-                                       security_group_entries=sg_rules)
-
+        sg_obj = vnc_api.SecurityGroup(name='default', parent_obj=proj_obj)
         self._vnc_lib.security_group_create(sg_obj)
     # end _create_default_security_group
 
@@ -236,9 +212,10 @@ class ResourceApiDriver(vnc_plugin_base.ResourceApi):
         self._create_default_security_group(proj_dict)
     # end post_create_project
 
-    def pre_project_delete(self, proj_dict):
+    def pre_project_delete(self, proj_uuid):
         self._get_api_connection()
-        sec_groups = proj_dict.get('security_groups', [])
+        proj_obj = self._vnc_lib.project_read(id=proj_uuid)
+        sec_groups = proj_obj.get_security_groups()
         for group in sec_groups:
             if group['to'][2] == 'default':
                 self._vnc_lib.security_group_delete(id=group['uuid'])

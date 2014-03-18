@@ -33,13 +33,20 @@ do {                                                                     \
     Pkt##obj::TraceMsg(PacketTraceBuf, __FILE__, __LINE__, _str.str());  \
 } while (false)                                                          \
 
-const std::size_t PktTrace::kPktTraceSize;
+const std::size_t PktTrace::kPktMaxTraceSize;
 
 ////////////////////////////////////////////////////////////////////////////////
 
 PktHandler::PktHandler(Agent *agent, const std::string &if_name,
                        boost::asio::io_service &io_serv, bool run_with_vrouter) 
                       : stats_(), agent_(agent) {
+    for (int i = 0; i < MAX_MODULES; ++i) {
+        if (i == PktHandler::DHCP || i == PktHandler::DNS)
+            pkt_trace_.at(i).set_pkt_trace_size(512);
+        else
+            pkt_trace_.at(i).set_pkt_trace_size(128);
+    }
+
     if (run_with_vrouter)
         tap_interface_.reset(new TapInterface(agent, if_name, io_serv, 
                              boost::bind(&PktHandler::HandleRcvPkt,
@@ -63,10 +70,6 @@ void PktHandler::Shutdown() {
 
 void PktHandler::Register(PktModuleName type, RcvQueueFunc cb) {
     enqueue_cb_.at(type) = cb;
-}
-
-void PktHandler::Unregister(PktModuleName type) {
-    enqueue_cb_.at(type) = NULL;
 }
 
 const unsigned char *PktHandler::mac_address() {
@@ -397,8 +400,6 @@ void PktHandler::SendMessage(PktModuleName mod, InterTaskMsg *msg) {
     if (mod < MAX_MODULES) {
         boost::shared_ptr<PktInfo> pkt_info(new PktInfo(msg));
         if (!(enqueue_cb_.at(mod))(pkt_info)) {
-            std::stringstream str;
-            str << mod;
             PKT_TRACE(Err, "Threshold exceeded while enqueuing IPC Message <" <<
                       mod << ">");
         }

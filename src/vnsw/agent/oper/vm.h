@@ -15,16 +15,16 @@ using namespace std;
 
 struct VmKey : public AgentKey {
     VmKey(uuid id) : AgentKey(), uuid_(id) {} ;
-    virtual ~VmKey() { };
+    virtual ~VmKey() { }
 
     uuid uuid_;
 };
 
 struct VmData : public AgentData {
     typedef vector<uuid> SGUuidList;
-    VmData(const std::string &name, const SGUuidList &sg_list) : 
-        AgentData(), name_(name), sg_list_(sg_list) { };
-    virtual ~VmData() { };
+    VmData(const std::string &name, const SGUuidList &sg_list) :
+        AgentData(), name_(name), sg_list_(sg_list) { }
+    virtual ~VmData() { }
 
     std::string name_;
     SGUuidList sg_list_;
@@ -35,7 +35,7 @@ public:
     static const int kVectorIncreaseSize = 16;
     VmEntry(uuid id) : 
         uuid_(id), name_("") { }
-    virtual ~VmEntry() { };
+    virtual ~VmEntry() { }
 
     virtual bool IsLess(const DBEntry &rhs) const;
     virtual KeyPtr GetDBRequestKey() const;
@@ -44,7 +44,7 @@ public:
     const string &GetCfgName() const { return name_; }
     void SetCfgName(std::string name) { name_ = name; }
 
-    const uuid &GetUuid() const {return uuid_;};
+    const uuid &GetUuid() const { return uuid_; }
 
     uint32_t GetRefCount() const {
         return AgentRefCount<VmEntry>::GetRefCount();
@@ -62,11 +62,11 @@ private:
 class VmTable : public AgentDBTable {
 public:
     VmTable(DB *db, const std::string &name) : AgentDBTable(db, name) { }
-    virtual ~VmTable() { };
+    virtual ~VmTable() { }
 
     virtual std::auto_ptr<DBEntry> AllocEntry(const DBRequestKey *k) const;
-    virtual size_t Hash(const DBEntry *entry) const {return 0;};
-    virtual size_t Hash(const DBRequestKey *key) const {return 0;};
+    virtual size_t Hash(const DBEntry *entry) const {return 0;}
+    virtual size_t Hash(const DBRequestKey *key) const {return 0;}
 
     virtual DBEntry *Add(const DBRequest *req);
     virtual bool OnChange(DBEntry *entry, const DBRequest *req);
@@ -74,7 +74,7 @@ public:
     virtual bool IFNodeToReq(IFMapNode *node, DBRequest &req);
 
     static DBTableBase *CreateTable(DB *db, const std::string &name);
-    static VmTable *GetInstance() {return vm_table_;};
+    static VmTable *GetInstance() {return vm_table_;}
 
 private:
     static VmTable *vm_table_;

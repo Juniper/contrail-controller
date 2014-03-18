@@ -22,6 +22,7 @@
 #include <ksync/ksync_init.h>
 
 FlowStatsCollector::FlowStatsCollector(boost::asio::io_service &io, int intvl,
+                                       uint32_t flow_cache_timeout,
                                        AgentUve *uve) :
         StatsCollector(TaskScheduler::GetInstance()->GetTaskId
                        ("Agent::StatsCollector"),
@@ -30,7 +31,12 @@ FlowStatsCollector::FlowStatsCollector(boost::asio::io_service &io, int intvl,
         agent_uve_(uve) {
         flow_iteration_key_.Reset();
         flow_default_interval_ = intvl;
-        flow_age_time_intvl_ = FlowAgeTime;
+        if (flow_cache_timeout) {
+            // Convert to usec
+            flow_age_time_intvl_ = 1000000 * flow_cache_timeout;
+        } else {
+            flow_age_time_intvl_ = FlowAgeTime;
+        }
         flow_count_per_pass_ = FlowCountPerPass;
         UpdateFlowMultiplier();
 }
@@ -246,6 +252,10 @@ bool FlowStatsCollector::Run() {
         it++;
         assert(entry);
         deleted = false;
+        
+        if (entry->deleted()) {
+            continue;
+        }
 
         flow_iteration_key_ = entry->key();
         const vr_flow_entry *k_flow = ksync_obj->GetKernelFlowEntry

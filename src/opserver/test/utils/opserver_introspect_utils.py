@@ -48,12 +48,23 @@ class VerificationOpsSrv (VerificationUtilBase):
         finally:
             return res
 
-    def get_redis_uve_master(self):
-        path = 'Snh_RedisUVEMasterRequest'
-        xpath = '/RedisUVEMasterResponse/redis_uve_master'
+    def send_tracebuffer_req(self, src, mod, instance, buf_name):
+        return self.dict_get('analytics/send-tracebuffer/%s/%s/%s/%s' \
+                             % (src, mod, instance, buf_name))
+
+    def get_table_column_values(self, table, col_name):
+        return self.dict_get('analytics/table/%s/column-values/%s' \
+                             % (table, col_name)) 
+
+    def uve_query(self, query):
+        return self.dict_get('analytics/uves/%s' % query)
+
+    def get_redis_uve_info(self):
+        path = 'Snh_RedisUVERequest'
+        xpath = '/RedisUVEResponse/redis_uve_info'
         p = self.dict_get(path, XmlDrv)
         return EtreeToDict(xpath).get_all_entry(p)
-    
+
     def post_query_json(self, json_str, sync=True):
         '''
         this module is to support raw query given in json format
@@ -84,7 +95,7 @@ class VerificationOpsSrv (VerificationUtilBase):
     def post_query(self, table, start_time=None, end_time=None,
                    select_fields=None, where_clause=None,
                    sort_fields=None, sort=None, limit=None,
-                   filter=None, sync=True):
+                   filter=None, sync=True,dir=None):
         res = None
         try:
             flows_url = OpServerUtils.opserver_query_url(
@@ -94,7 +105,7 @@ class VerificationOpsSrv (VerificationUtilBase):
                 table, start_time, end_time,
                 select_fields,
                 where_clause,
-                sort_fields, sort, limit, filter)
+                sort_fields, sort, limit, filter, dir)
 
             print json.dumps(query_dict)
             res = []

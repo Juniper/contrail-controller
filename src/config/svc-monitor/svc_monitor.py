@@ -43,7 +43,7 @@ from sandesh.svc_mon_introspect import ttypes as sandesh
 from novaclient import client as nc
 from novaclient import exceptions as nc_exc
 
-import discovery.client as client
+import discoveryclient.client as client
 
 _SVC_VN_MGMT = "svc-vn-mgmt"
 _SVC_VN_LEFT = "svc-vn-left"
@@ -394,7 +394,8 @@ class SvcMonitor(object):
             vmi_obj.set_interface_route_table(rt_obj)
 
         # remove security groups and update vmi
-        vmi_obj.set_security_group_list([])
+        if st_props.service_mode not in ['in-network', 'in-network-nat'] or st_props.service_type == 'analyzer':
+            vmi_obj.set_security_group_list([])
         self._vnc_lib.virtual_machine_interface_update(vmi_obj)
     # end _set_svc_vm_if_properties
 
@@ -935,7 +936,17 @@ class SvcMonitor(object):
     # end _create_svc_vn
 
     def _cassandra_init(self):
-        sys_mgr = SystemManager(self._args.cassandra_server_list[0])
+        server_idx = 0
+        num_dbnodes = len(self._args.cassandra_server_list)
+        connected = False
+        while not connected:
+            try:
+                cass_server = self._args.cassandra_server_list[server_idx]
+                sys_mgr = SystemManager(cass_server)
+                connected = True
+            except Exception as e:
+                server_idx = (server_idx + 1) % num_dbnodes
+                time.sleep(3)
 
         if self._args.reset_config:
             try:
@@ -945,7 +956,7 @@ class SvcMonitor(object):
 
         try:
             sys_mgr.create_keyspace(SvcMonitor._KEYSPACE, SIMPLE_STRATEGY,
-                                    {'replication_factor': '1'})
+                                    {'replication_factor': str(num_dbnodes)})
         except pycassa.cassandra.ttypes.InvalidRequestException as e:
             print "Warning! " + str(e)
 
@@ -960,10 +971,19 @@ class SvcMonitor(object):
 
         conn_pool = pycassa.ConnectionPool(SvcMonitor._KEYSPACE,
                                            self._args.cassandra_server_list)
-        self._svc_vm_cf = pycassa.ColumnFamily(conn_pool, self._SVC_VM_CF)
-        self._svc_si_cf = pycassa.ColumnFamily(conn_pool, self._SVC_SI_CF)
+
+        rd_consistency = pycassa.cassandra.ttypes.ConsistencyLevel.QUORUM
+        wr_consistency = pycassa.cassandra.ttypes.ConsistencyLevel.QUORUM
+        self._svc_vm_cf = pycassa.ColumnFamily(conn_pool, self._SVC_VM_CF,
+                                  read_consistency_level=rd_consistency,
+                                  write_consistency_level=wr_consistency)
+        self._svc_si_cf = pycassa.ColumnFamily(conn_pool, self._SVC_SI_CF,
+                                  read_consistency_level=rd_consistency,
+                                  write_consistency_level=wr_consistency)
         self._cleanup_cf = pycassa.ColumnFamily(conn_pool,
-                                                self._SVC_CLEANUP_CF)
+                                  self._SVC_CLEANUP_CF,
+                                  read_consistency_level=rd_consistency,
+                                  write_consistency_level=wr_consistency)
     # end _cassandra_init
 
 # end class svc_monitor
@@ -1230,7 +1250,7 @@ def main(args_str=None):
         args_str = ' '.join(sys.argv[1:])
     args = parse_args(args_str)
 
-    _disc_service = DiscoveryService(args.zk_server_ip)
+    _disc_service = DiscoveryService("svc-monitor", args.zk_server_ip)
     _disc_service.master_election("/svc-monitor", os.getpid(),
                                   run_svc_monitor, args)
 # end main

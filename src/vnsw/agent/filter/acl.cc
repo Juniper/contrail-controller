@@ -58,8 +58,7 @@ bool AclDBEntry::DBEntrySandesh(Sandesh *sresp, std::string &uuid) const {
 
     // request uuid is null, then display upto size given by sandesh req
     // request uuid is not null, then disply the ACL that matches the uuid.
-    if ((uuid.empty()) ||
-        (str_uuid.find(uuid) != std::string::npos)) {
+    if ((uuid.empty()) || (str_uuid == uuid)) {
         AclSandeshData data;
         SetAclSandeshData(data);
         std::vector<AclSandeshData> &list =
@@ -634,7 +633,7 @@ bool AclDBEntry::PacketMatch(const PacketHeader &packet_header,
                  MirrorActionSpec as;
 		 as.ip = a->GetIp();
 		 as.port = a->GetPort();
-                 as.vrf_name = a->GetVrfName();
+                 as.vrf_name = a->vrf_name();
                  as.analyzer_name = a->GetAnalyzerName();
                  as.encap = a->GetEncap();
                  m_acl.action_info.mirror_l.push_back(as);

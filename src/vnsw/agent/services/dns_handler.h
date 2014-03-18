@@ -52,6 +52,8 @@ public:
                                   uint32_t index);
 
 private:
+    friend class DnsTest;
+
     bool HandleRequest();
     bool HandleDefaultDnsRequest(const VmInterface *vmitf);
     void DefaultDnsSendResponse();

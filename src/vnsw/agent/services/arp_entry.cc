@@ -84,7 +84,7 @@ void ArpEntry::SendGraciousArp() {
                           agent->GetRouterId().to_ulong(), zero_mac,
                           agent->GetRouterId().to_ulong(),
                           arp_proto->ip_fabric_interface_index(), 
-                          key_.vrf->GetVrfId());
+                          key_.vrf->vrf_id());
     }
 
     if (retry_count_ == ArpProto::kGratRetries) {
@@ -112,6 +112,7 @@ void ArpEntry::StartTimer(uint32_t timeout, ArpHandler::ArpMsgType mtype) {
 }
 
 void ArpEntry::SendArpRequest() {
+    const unsigned char zero_mac[] = {0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
     Agent *agent = handler_->agent();
     ArpProto *arp_proto = agent->GetArpProto();
     uint16_t itf_index = arp_proto->ip_fabric_interface_index();
@@ -119,9 +120,9 @@ void ArpEntry::SendArpRequest() {
     Ip4Address ip = agent->GetRouterId();
 
     handler_->SendArp(ARPOP_REQUEST, smac, ip.to_ulong(), 
-                      mac_address_, key_.ip, itf_index, 
+                      zero_mac, key_.ip, itf_index, 
                       agent->GetVrfTable()->FindVrfFromName(
-                          agent->GetDefaultVrf())->GetVrfId());
+                          agent->GetDefaultVrf())->vrf_id());
 
     StartTimer(arp_proto->retry_timeout(), ArpHandler::RETRY_TIMER_EXPIRED);
 }

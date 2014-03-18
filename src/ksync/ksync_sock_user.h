@@ -80,6 +80,11 @@ struct TestVrfAssignCmp {
 //used for unit testing or userspace datapath integration
 class KSyncSockTypeMap : public KSyncSock {
 public:
+    enum KSyncSockEntryType {
+        KSYNC_FLOW_ENTRY_TYPE = 0,
+        KSYNC_MAX_ENTRY_TYPE
+    };
+
     KSyncSockTypeMap(boost::asio::io_service &ios) : KSyncSock(), sock_(ios) {
         block_msg_processing_ = false;
     }
@@ -125,9 +130,11 @@ public:
     virtual void AsyncReceive(boost::asio::mutable_buffers_1, HandlerCb);
     virtual void AsyncSendTo(IoContext *, boost::asio::mutable_buffers_1,
                              HandlerCb);
-    virtual std::size_t SendTo(boost::asio::const_buffers_1);
+    virtual std::size_t SendTo(boost::asio::const_buffers_1, uint32_t);
     virtual void Receive(boost::asio::mutable_buffers_1);
 
+    static void set_error_code(int code) { error_code_ = code; }
+    static int error_code() { return error_code_; }
     static void ProcessSandesh(const uint8_t *, std::size_t, KSyncUserSockContext *);
     static void SimulateResponse(uint32_t, int, int);
     static void SendNetlinkDoneMsg(int seq_num);
@@ -135,6 +142,18 @@ public:
     static void IfNetlinkMsgSend(uint32_t seq_num, ksync_map_if::const_iterator it);
     static void IfStatsUpdate(int, int, int, int, int, int, int);
     static void IfStatsSet(int, int, int, int, int, int, int);
+    static void InterfaceAdd(int id, int flags = 0, int mac_size = 6);
+    static void InterfaceDelete(int id);
+    static void NHAdd(int id, int flags = 0);
+    static void NHDelete(int id);
+    static void MplsAdd(int id);
+    static void MplsDelete(int id);
+    static void MirrorAdd(int id);
+    static void MirrorDelete(int id);
+    static void RouteAdd(vr_route_req &req);
+    static void RouteDelete(vr_route_req &req);
+    static void VrfAssignAdd(vr_vrf_assign_req &req);
+    static void VrfAssignDelete(vr_vrf_assign_req &req);
     static void VrfStatsAdd(int vrf_id);
     static void VrfStatsUpdate(int vrf_id, uint64_t discards, uint64_t resolves, 
                                uint64_t receives, uint64_t udp_tunnels, 
@@ -146,6 +165,11 @@ public:
                                int64_t l3_mcast_composites,
                                int64_t multi_proto_composites,
                                uint64_t encaps, uint64_t l2_encaps);
+    static void VrfStatsDelete(int vrf_id);
+    static void VxlanAdd(int id);
+    static void VxlanDelete(int id);
+
+    static void SetDropStats(const vr_drop_stats_req &req);
     static int IfCount();
     static int NHCount();
     static int MplsCount();
@@ -170,13 +194,23 @@ public:
         return block_msg_processing_;
     }
 
+    void SetKSyncError(KSyncSockEntryType type, int ksync_error) {
+        ksync_error_[type] = ksync_error;
+    }
+
+    int GetKSyncError(KSyncSockEntryType type) {
+        return ksync_error_[type];
+    }
+
 private:
     void PurgeBlockedMsg();
     udp::socket sock_;
     udp::endpoint local_ep_;
+    int ksync_error_[KSYNC_MAX_ENTRY_TYPE];
     bool block_msg_processing_;
     static KSyncSockTypeMap *singleton_;
     static vr_flow_entry *flow_table_;
+    static int error_code_;
     DISALLOW_COPY_AND_ASSIGN(KSyncSockTypeMap);
 };
 

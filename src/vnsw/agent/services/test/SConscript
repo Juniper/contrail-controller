@@ -34,11 +34,19 @@ if sys.platform != 'darwin':
     icmp_test = env.Program(target = 'icmp_test', source = ['icmp_test.cc'])
     env.Alias('src/vnsw/agent/services/test:icmp_test', icmp_test)
 
+    metadata_test = env.Program(target = 'metadata_test', source = ['metadata_test.cc'])
+    env.Alias('src/vnsw/agent/services/test:metadata_test', metadata_test)
+
+    pkt_trace_test = env.Program(target = 'pkt_trace_test', source = ['pkt_trace_test.cc'])
+    env.Alias('src/vnsw/agent/services/test:pkt_trace_test', pkt_trace_test)
+
     srv_test_suite = [
                   dhcp_test,
                   arp_test,
                   dns_test,
                   icmp_test,
+                  metadata_test,
+                  pkt_trace_test,
                  ]
     test = env.TestSuite('agent-test', srv_test_suite)
     env.Alias('src/vnsw/agent:test', test)

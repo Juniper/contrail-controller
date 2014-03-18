@@ -58,7 +58,7 @@ void KSync::RegisterDBClientsTest(DB *db) {
     agent_->SetRouterIdConfigured(false);
 }
 
-void KSync::NetlinkInitTest() {
+void KSync::NetlinkInitTest(bool sync_mode) {
     EventManager *event_mgr;
 
     event_mgr = agent_->GetEventManager();
@@ -69,7 +69,7 @@ void KSync::NetlinkInitTest() {
                                                 (flowtable_ksync_obj_.get()));
 
     GenericNetlinkInitTest();
-    KSyncSock::Start();
+    KSyncSock::Start(sync_mode);
 }
 
 void KSync::NetlinkShutdownTest() {

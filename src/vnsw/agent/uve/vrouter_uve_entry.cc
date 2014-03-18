@@ -21,10 +21,10 @@
 using namespace std;
 
 VrouterUveEntry::VrouterUveEntry(Agent *agent)
-    : agent_(agent), phy_intf_set_(), 
+    : prev_stats_(), bandwidth_count_(0), agent_(agent), phy_intf_set_(), 
       vn_listener_id_(DBTableBase::kInvalidId),
       vm_listener_id_(DBTableBase::kInvalidId), 
-      intf_listener_id_(DBTableBase::kInvalidId), prev_stats_(), 
+      intf_listener_id_(DBTableBase::kInvalidId), 
       prev_vrouter_(), port_bitmap_() {
     start_time_ = UTCTimestampUsec();
 }
@@ -52,12 +52,11 @@ void VrouterUveEntry::Shutdown(void) {
     agent_->GetVnTable()->Unregister(vn_listener_id_);
 }
 
-void VrouterUveEntry::DispatchVrouterMsg(const VrouterAgent &uve) const {
+void VrouterUveEntry::DispatchVrouterMsg(const VrouterAgent &uve) {
     UveVrouterAgent::Send(uve);
 }
 
-void VrouterUveEntry::DispatchVrouterStatsMsg(const VrouterStatsAgent &uve) 
-    const {
+void VrouterUveEntry::DispatchVrouterStatsMsg(const VrouterStatsAgent &uve) {
     VrouterStats::Send(uve);
 }
 
@@ -292,7 +291,6 @@ void VrouterUveEntry::BuildAndSendComputeCpuStateMsg(const CpuLoadInfo &info) {
 bool VrouterUveEntry::SendVrouterMsg() {
     static bool first = true;
     bool change = false;
-    static uint8_t count = 0;
     static uint8_t cpu_stats_count = 0;
     VrouterStatsAgent stats;
 
@@ -412,14 +410,14 @@ bool VrouterUveEntry::SendVrouterMsg() {
         prev_stats_.set_phy_if_stats_list(phy_if_list);
         change = true;
     }
-    count++;
+    bandwidth_count_++;
     if (first) {
         InitPrevStats();
         //First sample of bandwidth is sent after 1.5, 5.5 and 10.5 minutes
-        count = 0;
+        bandwidth_count_ = 0;
     }
     // 1 minute bandwidth
-    if (count && ((count % bandwidth_mod_1min) == 0)) {
+    if (bandwidth_count_ && ((bandwidth_count_ % bandwidth_mod_1min) == 0)) {
         vector<AgentIfBandwidth> phy_if_blist;
         BuildPhysicalInterfaceBandwidth(phy_if_blist, 1);
         if (prev_stats_.get_phy_if_1min_usage() != phy_if_blist) {
@@ -442,7 +440,7 @@ bool VrouterUveEntry::SendVrouterMsg() {
     }
 
     // 5 minute bandwidth
-    if (count && ((count % bandwidth_mod_5min) == 0)) {
+    if (bandwidth_count_ && ((bandwidth_count_ % bandwidth_mod_5min) == 0)) {
         vector<AgentIfBandwidth> phy_if_blist;
         BuildPhysicalInterfaceBandwidth(phy_if_blist, 5);
         if (prev_stats_.get_phy_if_5min_usage() != phy_if_blist) {
@@ -453,7 +451,7 @@ bool VrouterUveEntry::SendVrouterMsg() {
     }
 
     // 10 minute bandwidth
-    if (count && ((count % bandwidth_mod_10min) == 0)) {
+    if (bandwidth_count_ && ((bandwidth_count_ % bandwidth_mod_10min) == 0)) {
         vector<AgentIfBandwidth> phy_if_blist;
         BuildPhysicalInterfaceBandwidth(phy_if_blist, 10);
         if (prev_stats_.get_phy_if_10min_usage() != phy_if_blist) {
@@ -462,7 +460,7 @@ bool VrouterUveEntry::SendVrouterMsg() {
             change = true;
         }
         //The following avoids handling of count overflow cases.
-        count = 0;
+        bandwidth_count_ = 0;
     }
     InetInterfaceKey key(agent_->vhost_interface_name());
     const Interface *vhost = static_cast<const Interface *>
@@ -749,7 +747,7 @@ uint8_t VrouterUveEntry::CalculateBandwitdh(uint64_t bytes, int speed_mbps,
     }
     uint64_t speed_bps = speed_mbps * 1024 * 1024;
     uint64_t bps = bits/diff_seconds;
-    return bps/speed_bps * 100;
+    return (bps * 100)/speed_bps;
 }
 
 uint8_t VrouterUveEntry::GetBandwidthUsage

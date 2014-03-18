@@ -47,7 +47,7 @@ public:
     bool DBEntrySandesh(Sandesh *sresp, std::string &name) const;
     void set_mirror_entrySandeshData(MirrorEntrySandeshData &data) const;
 
-    uint32_t GetVrfId() const {return vrf_ ? vrf_->GetVrfId() : uint32_t(-1);}
+    uint32_t vrf_id() const {return vrf_ ? vrf_->vrf_id() : uint32_t(-1);}
     const VrfEntry *GetVrf() const {return vrf_ ? vrf_.get() : NULL;};
     const std::string GetAnalyzerName() const {return analyzer_name_;};
     const Ip4Address *GetSip() const {return &sip_;};

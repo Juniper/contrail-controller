@@ -94,7 +94,7 @@ test_suite = [
     rtarget_prefix_test,
 ]
 
-test = env.TestSuite('rtarget-test', test_suite)
+test = env.TestSuite('bgp-test', test_suite)
 env.Alias('src/bgp/rtarget:test', test)
 
 Return('test_suite')

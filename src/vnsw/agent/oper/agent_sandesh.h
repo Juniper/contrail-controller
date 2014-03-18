@@ -45,7 +45,8 @@ private:
 
 class AgentVnSandesh : public AgentSandesh {
 public:
-    AgentVnSandesh(std::string context, std::string name) : AgentSandesh(context, name) {}
+    AgentVnSandesh(std::string context, std::string name)
+        : AgentSandesh(context, name) {}
 
 private:
     DBTable *AgentGetTable();
@@ -54,7 +55,8 @@ private:
 
 class AgentSgSandesh : public AgentSandesh {
 public:
-    AgentSgSandesh(std::string context, std::string name) : AgentSandesh(context, name) {}
+    AgentSgSandesh(std::string context, std::string name)
+        : AgentSandesh(context, name) {}
 
 private:
     DBTable *AgentGetTable();
@@ -63,7 +65,8 @@ private:
 
 class AgentVmSandesh : public AgentSandesh {
 public:
-    AgentVmSandesh(std::string context) : AgentSandesh(context, "") {}
+    AgentVmSandesh(std::string context, std::string uuid)
+        : AgentSandesh(context, uuid) {}
 
 private:
     DBTable *AgentGetTable();
@@ -72,7 +75,8 @@ private:
 
 class AgentIntfSandesh : public AgentSandesh {
 public:
-    AgentIntfSandesh(std::string context, std::string name) : AgentSandesh(context, name) {}
+    AgentIntfSandesh(std::string context, std::string name)
+        : AgentSandesh(context, name) {}
 
 private:
     DBTable *AgentGetTable();
@@ -99,7 +103,8 @@ private:
 
 class AgentVrfSandesh : public AgentSandesh {
 public:
-    AgentVrfSandesh(std::string context, std::string name) : AgentSandesh(context, name) {}
+    AgentVrfSandesh(std::string context, std::string name)
+        : AgentSandesh(context, name) {}
 
 private:
     DBTable *AgentGetTable();
@@ -108,12 +113,13 @@ private:
 
 class AgentInet4UcRtSandesh : public AgentSandesh {
 public:
-    AgentInet4UcRtSandesh(VrfEntry *vrf, std::string context) : AgentSandesh(context, ""), vrf_(vrf){
+    AgentInet4UcRtSandesh(VrfEntry *vrf, std::string context)
+        : AgentSandesh(context, ""), vrf_(vrf) {
         dump_table_ = true;
     }
     AgentInet4UcRtSandesh(VrfEntry *vrf, std::string context,
-                          Ip4Address addr, uint8_t plen) : AgentSandesh(context, ""), vrf_(vrf),
-                                                           addr_(addr), plen_(plen){
+                          Ip4Address addr, uint8_t plen)
+        : AgentSandesh(context, ""), vrf_(vrf), addr_(addr), plen_(plen) {
         dump_table_ = false;
     }
 
@@ -130,8 +136,8 @@ private:
 
 class AgentInet4McRtSandesh : public AgentSandesh {
 public:
-    AgentInet4McRtSandesh(VrfEntry *vrf, std::string context,
-                          std::string name) : AgentSandesh(context, name), vrf_(vrf){}
+    AgentInet4McRtSandesh(VrfEntry *vrf, std::string context, std::string name)
+        : AgentSandesh(context, name), vrf_(vrf) {}
 
 private:
     DBTable *AgentGetTable();
@@ -143,8 +149,8 @@ private:
 
 class AgentLayer2RtSandesh : public AgentSandesh {
 public:
-    AgentLayer2RtSandesh(VrfEntry *vrf, std::string context,
-                          std::string name) : AgentSandesh(context, name), vrf_(vrf){}
+    AgentLayer2RtSandesh(VrfEntry *vrf, std::string context, std::string name)
+        : AgentSandesh(context, name), vrf_(vrf) {}
 
 private:
     DBTable *AgentGetTable();
@@ -156,7 +162,8 @@ private:
 
 class AgentAclSandesh : public AgentSandesh {
 public:
-    AgentAclSandesh(std::string context, std::string name) : AgentSandesh(context, name) {}
+    AgentAclSandesh(std::string context, std::string name)
+        : AgentSandesh(context, name) {}
 
 private:
     DBTable *AgentGetTable();
@@ -175,7 +182,8 @@ private:
 
 class AgentVrfAssignSandesh : public AgentSandesh {
 public:
-    AgentVrfAssignSandesh(std::string context) : AgentSandesh(context, "") {}
+    AgentVrfAssignSandesh(std::string context, std::string uuid)
+        : AgentSandesh(context, uuid) {}
 
 private:
     DBTable *AgentGetTable();

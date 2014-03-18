@@ -247,9 +247,44 @@ TEST_F(TimerUT, cancel_fired) {
     EXPECT_TRUE(TimerManager::DeleteTimer(timer1));
 }
 
+bool TimerSleepyCb() {
+    usleep(10000);
+    return false;
+}
+
+TEST_F(TimerUT, cancel_fired_2) {
+    // Start a timer which on expiry only sleeps to keep the TBB thread 
+    // occupied
+    TimerTest *sleepytimer = new TimerTest(*evm_->io_service(), "sleepy-timer");
+    sleepytimer->Start(1, TimerSleepyCb);
+
+    // 1. Start another timer
+    // 2. Cancel the timer after the timer is expired and before the timer task 
+    //    is invoked. Since the TBB thread is occupied with sleepy timer 
+    //    callback, this timer callback will never be invoked
+    // 3. Restart the timer
+    TimerTest *timer1 = new TimerTest(*evm_->io_service(), "cancel-fired-2");
+    timer_count_ = 1;
+    timer1->Start(1, PeriodicTimerCb);
+    // Wait for it to fire
+    // Let the timer task get spawned before cancelling. 
+    // Since TBB is running with one thread(TBB_THREAD_COUNT=1), 
+    // the timer task will not execute for this timer
+    usleep(5000);
+    timer1->Cancel();
+    // Start the timer again and wait for it to fire
+    timer1->Start(1, PeriodicTimerCb);
+
+    TASK_UTIL_EXPECT_EQ(0, timer_count_);
+    task_util::WaitForIdle();
+    EXPECT_TRUE(TimerManager::DeleteTimer(timer1));
+    EXPECT_TRUE(TimerManager::DeleteTimer(sleepytimer));
+}
 
 int main(int argc, char *argv[]) {
     ::testing::InitGoogleTest(&argc, argv);
+    // Run timer test with one thread
+    setenv("TBB_THREAD_COUNT", "1", 1);
     scheduler = TaskScheduler::GetInstance();
     LoggingInit();
     return RUN_ALL_TESTS();

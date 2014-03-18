@@ -10,18 +10,20 @@ public:
     TestFlowPkt(std::string sip, std::string dip, uint16_t proto, uint32_t sport,
                 uint32_t dport, std::string vrf, uint32_t ifindex) : sip_(sip), 
                 dip_(dip), proto_(proto), sport_(sport), dport_(dport), 
-                ifindex_(ifindex), mpls_(0), hash_(0) {
+                ifindex_(ifindex), mpls_(0), hash_(0),
+                allow_wait_for_idle_(true) {
         vrf_ = 
-          Agent::GetInstance()->GetVrfTable()->FindVrfFromName(vrf)->GetVrfId();
+          Agent::GetInstance()->GetVrfTable()->FindVrfFromName(vrf)->vrf_id();
     };
 
     //Ingress flow
     TestFlowPkt(std::string sip, std::string dip, uint16_t proto, uint32_t sport,
                 uint32_t dport, std::string vrf, uint32_t ifindex, uint32_t hash):
                 sip_(sip), dip_(dip), proto_(proto), sport_(sport), dport_(dport),
-                ifindex_(ifindex), mpls_(0), hash_(hash) {
+                ifindex_(ifindex), mpls_(0), hash_(hash),
+                allow_wait_for_idle_(true) {
          vrf_ = 
-          Agent::GetInstance()->GetVrfTable()->FindVrfFromName(vrf)->GetVrfId();
+          Agent::GetInstance()->GetVrfTable()->FindVrfFromName(vrf)->vrf_id();
      };
 
 
@@ -29,18 +31,20 @@ public:
     TestFlowPkt(std::string sip, std::string dip, uint16_t proto, uint32_t sport,
                 uint32_t dport, std::string vrf, std::string osip, uint32_t mpls) :
                 sip_(sip), dip_(dip), proto_(proto), sport_(sport), dport_(dport),
-                ifindex_(0), mpls_(mpls), outer_sip_(osip), hash_(0) {
+                ifindex_(0), mpls_(mpls), outer_sip_(osip), hash_(0),
+                allow_wait_for_idle_(true) {
         vrf_ = 
-         Agent::GetInstance()->GetVrfTable()->FindVrfFromName(vrf)->GetVrfId();
+         Agent::GetInstance()->GetVrfTable()->FindVrfFromName(vrf)->vrf_id();
     };
 
     //Egress flow
     TestFlowPkt(std::string sip, std::string dip, uint16_t proto, uint32_t sport,
                 uint32_t dport, std::string vrf, std::string osip, uint32_t mpls,
                 uint32_t hash) : sip_(sip), dip_(dip), proto_(proto), sport_(sport),
-                dport_(dport), ifindex_(0), mpls_(mpls), hash_(hash) {
+                dport_(dport), ifindex_(0), mpls_(mpls), hash_(hash),
+                allow_wait_for_idle_(true) {
          vrf_ = 
-          Agent::GetInstance()->GetVrfTable()->FindVrfFromName(vrf)->GetVrfId();
+          Agent::GetInstance()->GetVrfTable()->FindVrfFromName(vrf)->vrf_id();
      };
 
     void SendIngressFlow() {
@@ -104,7 +108,12 @@ public:
         } else {
             assert(0);
         }
-        client->WaitForIdle(2);
+        if (allow_wait_for_idle_) {
+            client->WaitForIdle(3);
+        } else {
+            WAIT_FOR(1000, 3000, FlowGet(vrf_, sip_, dip_, proto_,
+                        sport_, dport_) != NULL);
+        }
         //Get flow 
         FlowEntry *fe = FlowGet(vrf_, sip_, dip_, proto_, sport_, dport_);
         EXPECT_TRUE(fe != NULL);
@@ -134,6 +143,10 @@ public:
         return fe;
     }
 
+    void set_allow_wait_for_idle(bool allow) {
+        allow_wait_for_idle_ = allow;
+    }
+
 private:
     std::string    sip_;
     std::string    dip_;
@@ -145,6 +158,7 @@ private:
     uint32_t       mpls_;
     std::string    outer_sip_;
     uint32_t       hash_; 
+    bool           allow_wait_for_idle_;
 };
 
 class FlowVerify {
@@ -176,6 +190,22 @@ private:
     std::string dest_vn_;
 };
 
+class ShortFlow : public FlowVerify {
+public:
+    ShortFlow() {}
+    virtual ~ShortFlow() {};
+
+    virtual void Verify(FlowEntry *fe) {
+        EXPECT_TRUE(fe->is_flags_set(FlowEntry::ShortFlow) == true);
+        EXPECT_TRUE((fe->data().match_p.action_info.action & (1 << TrafficAction::DROP)) != 0);
+        FlowEntry *rev = fe->reverse_flow_entry();
+        EXPECT_TRUE(rev->is_flags_set(FlowEntry::ShortFlow) == true);
+        EXPECT_TRUE((rev->data().match_p.action_info.action & (1 << TrafficAction::DROP)) != 0);
+    }
+private:
+};
+
+
 class VerifyVrf : public FlowVerify {
 public:
     VerifyVrf(std::string src_vrf, std::string dest_vrf):
@@ -191,14 +221,14 @@ public:
             Agent::GetInstance()->GetVrfTable()->FindVrfFromName(dest_vrf_);
         EXPECT_TRUE(dest_vrf != NULL);
 
-        EXPECT_TRUE(fe->data().flow_source_vrf == src_vrf->GetVrfId());
-        EXPECT_TRUE(fe->data().flow_dest_vrf == dest_vrf->GetVrfId());
+        EXPECT_TRUE(fe->key().vrf == src_vrf->vrf_id());
+        EXPECT_TRUE(fe->data().flow_dest_vrf == dest_vrf->vrf_id());
 
         if (true) {
             FlowEntry *rev = fe->reverse_flow_entry();
             EXPECT_TRUE(rev != NULL);
-            EXPECT_TRUE(rev->data().flow_source_vrf == dest_vrf->GetVrfId());
-            EXPECT_TRUE(rev->data().flow_dest_vrf == src_vrf->GetVrfId());
+            EXPECT_TRUE(rev->key().vrf == dest_vrf->vrf_id());
+            EXPECT_TRUE(rev->data().flow_dest_vrf == src_vrf->vrf_id());
         }
     };
 
@@ -221,7 +251,8 @@ public:
         EXPECT_TRUE(rev->key().src.ipv4 == ntohl(inet_addr(nat_sip_.c_str())));
         EXPECT_TRUE(rev->key().dst.ipv4 == ntohl(inet_addr(nat_dip_.c_str())));
         EXPECT_TRUE(rev->key().src_port == nat_sport_);
-        EXPECT_TRUE(rev->key().dst_port == nat_dport_);
+        EXPECT_TRUE(rev->key().dst_port == nat_dport_ ||
+                    rev->key().dst_port == fe->linklocal_src_port());
     };
 
 private:

@@ -115,6 +115,7 @@ bool IFMapXmppChannel::IFMapSender::SendUpdate(const std::string &msg) {
 
     if (sent) {
         incr_msgs_sent();
+        incr_bytes_sent(msg.size());
     } else {
         set_send_is_blocked(true);
         incr_msgs_blocked();

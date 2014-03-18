@@ -143,32 +143,42 @@ DBTableBase *InterfaceTable::CreateTable(DB *db, const std::string &name) {
     return interface_table_;
 };
 
-Interface *InterfaceTable::FindInterfaceFromMetadataIp(const Ip4Address &ip) {
-    uint32_t addr = ip.to_ulong();
-    if ((addr & 0xFFFF0000) != (METADATA_IP_ADDR & 0xFFFF0000))
-        return NULL;
-    return index_table_.At(addr & 0xFF);
+Interface *InterfaceTable::FindInterface(size_t index) {
+    Interface *intf = index_table_.At(index);
+    if (intf && intf->IsDeleted() != true) {
+        return intf;
+    }
+    return NULL;
 }
 
 bool InterfaceTable::FindVmUuidFromMetadataIp(const Ip4Address &ip,
                                               std::string *vm_ip,
-                                              std::string *vm_uuid) {
+                                              std::string *vm_uuid,
+                                              std::string *vm_project_uuid) {
     Interface *intf = FindInterfaceFromMetadataIp(ip);
     if (intf && intf->type() == Interface::VM_INTERFACE) {
         const VmInterface *vintf = static_cast<const VmInterface *>(intf);
         *vm_ip = vintf->ip_addr().to_string();
         if (vintf->vm()) {
             *vm_uuid = UuidToString(vintf->vm()->GetUuid());
+            *vm_project_uuid = UuidToString(vintf->vm_project_uuid());
             return true;
         }
     }
     return false;
 }
 
-void InterfaceTable::VmPortToMetaDataIp(uint16_t ifindex, uint32_t vrfid,
+Interface *InterfaceTable::FindInterfaceFromMetadataIp(const Ip4Address &ip) {
+    uint32_t addr = ip.to_ulong();
+    if ((addr & 0xFFFF0000) != (METADATA_IP_ADDR & 0xFFFF0000))
+        return NULL;
+    return index_table_.At(addr & 0xFFFF);
+}
+
+void InterfaceTable::VmPortToMetaDataIp(uint16_t index, uint32_t vrfid,
                                         Ip4Address *addr) {
     uint32_t ip = METADATA_IP_ADDR & 0xFFFF0000;
-    ip += ((vrfid & 0xFF) << 8) + (ifindex & 0xFF);
+    ip += (index & 0xFFFF);
     *addr = Ip4Address(ip);
 }
 
@@ -259,12 +269,12 @@ void Interface::SetKey(const DBRequestKey *key) {
     name_ = k->name_;
 }
 
-uint32_t Interface::GetVrfId() const {
+uint32_t Interface::vrf_id() const {
     if (vrf_ == NULL) {
         return VrfEntry::kInvalidIndex;
     }
 
-    return vrf_->GetVrfId();
+    return vrf_->vrf_id();
 }
 
 /////////////////////////////////////////////////////////////////////////////
@@ -503,6 +513,7 @@ void Interface::SetItfSandeshData(ItfSandeshData &data) const {
         }
         data.set_sg_uuid_list(intf_sg_uuid_l);
         data.set_vm_name(vintf->vm_name());
+        data.set_vm_project_uuid(UuidToString(vintf->vm_project_uuid()));
         break;
     }
     case Interface::INET:
@@ -521,7 +532,7 @@ void Interface::SetItfSandeshData(ItfSandeshData &data) const {
 bool Interface::DBEntrySandesh(Sandesh *sresp, std::string &name) const {
     ItfResp *resp = static_cast<ItfResp *>(sresp);
 
-    if (name_.find(name) != std::string::npos) {
+    if (name.empty() || name_ == name) {
         ItfSandeshData data;
         SetItfSandeshData(data);
         std::vector<ItfSandeshData> &list =

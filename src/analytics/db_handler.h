@@ -54,19 +54,21 @@ public:
     DbHandler(GenDb::GenDbIf *dbif);
     virtual ~DbHandler();
 
-    bool DropMessage(SandeshHeader &header);
+    bool DropMessage(const SandeshHeader &header);
     bool Init(bool initial, int instance);
-    void UnInit(bool shutdown);
+    void UnInit(int instance);
 
-    inline bool AllowMessageTableInsert(SandeshHeader &header);
-    inline bool MessageIndexTableInsert(const std::string& cfname,
-            const SandeshHeader& header, const std::string& message_type, const boost::uuids::uuid& unm);
-    void MessageTableInsert(boost::shared_ptr<VizMsg> vmsgp);
+    bool AllowMessageTableInsert(const SandeshHeader &header);
+    bool MessageIndexTableInsert(const std::string& cfname,
+        const SandeshHeader& header, const std::string& message_type,
+        const boost::uuids::uuid& unm);
+    virtual void MessageTableInsert(const VizMsg *vmsgp);
+    void MessageTableOnlyInsert(const VizMsg *vmsgp);
 
     void GetRuleMap(RuleMap& rulemap);
 
-    void ObjectTableInsert(const std::string table, const std::string rowkey,
-            const RuleMsg& rmsg, const boost::uuids::uuid& unm);
+    void ObjectTableInsert(const std::string &table, const std::string &rowkey,
+        uint64_t &timestamp, const boost::uuids::uuid& unm);
 
     void StatTableInsert(uint64_t ts, 
             const std::string& statName,
@@ -74,12 +76,12 @@ public:
             const TagMap & attribs_tag,
             const AttribMap & attribs_all);
 
-    bool FlowTableInsert(const RuleMsg& rmsg);
+    bool FlowTableInsert(const pugi::xml_node& parent,
+        const SandeshHeader &header);
     bool GetStats(uint64_t &queue_count, uint64_t &enqueues,
         std::string &drop_level, uint64_t &msg_dropped) const;
 
-    typedef boost::tuple<size_t, SandeshLevel::type, bool> DbQueueWaterMarkInfo;
-    void SetDbQueueWaterMarkInfo(DbQueueWaterMarkInfo &wm);
+    void SetDbQueueWaterMarkInfo(Sandesh::QueueWaterMarkInfo &wm);
     void ResetDbQueueWaterMarkInfo();
 
 private:
@@ -91,9 +93,10 @@ private:
     boost::scoped_ptr<GenDb::GenDbIf> dbif_;
 
     // Random generator for UUIDs
-    tbb::mutex rand_mutex_;
     boost::uuids::random_generator umn_gen_;
+    boost::uuids::string_generator s_gen_;
     std::string name_;
+    std::string col_name_;
     SandeshLevel::type drop_level_;
     uint64_t msg_dropped_;
 
@@ -103,27 +106,32 @@ private:
 /*
  * pugi walker to process flow message
  */
+template <typename T>
 class FlowDataIpv4ObjectWalker : public pugi::xml_tree_walker {
-    public:
+public:
+    FlowDataIpv4ObjectWalker(T &values,
+        boost::uuids::string_generator &s_gen) :
+        values_(values),
+        s_gen_(s_gen) {
+    }
+    ~FlowDataIpv4ObjectWalker() {}
 
-        FlowDataIpv4ObjectWalker(GenDb::ColList *col_list) : col_list(col_list) {}
-        ~FlowDataIpv4ObjectWalker() {}
+    // Callback that is called when traversal begins
+    virtual bool begin(pugi::xml_node& node) {
+        return true;
+    }
 
-        static std::map<std::string, GenDb::DbDataType::type> name_to_type;
+    // Callback that is called for each node traversed
+    virtual bool for_each(pugi::xml_node& node);
 
-        // Callback that is called when traversal begins
-        virtual bool begin(pugi::xml_node& node) {
-            return true;
-        }
+    // Callback that is called when traversal ends
+    virtual bool end(pugi::xml_node& node) {
+        return true;
+    }
 
-        // Callback that is called for each node traversed
-        virtual bool for_each(pugi::xml_node& node);
-
-        // Callback that is called when traversal ends
-        virtual bool end(pugi::xml_node& node) {
-            return true;
-        }
-
-        GenDb::ColList *col_list;
+private:
+    T &values_;
+    boost::uuids::string_generator &s_gen_;
 };
+
 #endif /* DB_HANDLER_H_ */

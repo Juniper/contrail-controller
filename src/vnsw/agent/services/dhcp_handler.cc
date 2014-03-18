@@ -210,14 +210,14 @@ bool DhcpHandler::FindLeaseData() {
                 Inet4UnicastAgentRouteTable::FindResolveRoute(
                              vm_itf_->vrf()->GetName(), ip);
             if (rt) {
-                uint8_t plen = rt->GetPlen();
+                uint8_t plen = rt->plen();
                 uint32_t gw = agent()->GetGatewayId().to_ulong();
                 uint32_t mask = plen ? (0xFFFFFFFF << (32 - plen)) : 0;
                 boost::system::error_code ec;
-                if ((rt->GetIpAddress().to_ulong() & mask) == 
+                if ((rt->addr().to_ulong() & mask) == 
                     Ip4Address::from_string("169.254.0.0", ec).to_ulong())
                     gw = 0;
-                FillDhcpInfo(ip.to_ulong(), rt->GetPlen(), gw, gw);
+                FillDhcpInfo(ip.to_ulong(), rt->plen(), gw, gw);
                 return true;
             }
             agent()->GetDhcpProto()->IncrStatsErrors();
@@ -547,11 +547,6 @@ uint16_t DhcpHandler::DhcpHdr(in_addr_t yiaddr,
             opt->WriteWord(DHCP_OPTION_BCAST_ADDRESS, config_.bcast_addr, opt_len);
         }
 
-        if (config_.gw_addr) {
-            opt = GetNextOptionPtr(opt_len);
-            opt->WriteWord(DHCP_OPTION_ROUTER, config_.gw_addr, opt_len);
-        }
-
         if (client_name_.size()) {
             opt = GetNextOptionPtr(opt_len);
             opt->WriteData(DHCP_OPTION_HOST_NAME, client_name_.size(), 
@@ -639,8 +634,15 @@ uint16_t DhcpHandler::DhcpHdr(in_addr_t yiaddr,
         }
 
         // Add classless route option
+        uint16_t old_opt_len = opt_len;
         if (vm_itf_->vn()) {
             opt_len = AddClasslessRouteOption(opt_len);
+        }
+
+        // Add GW only if classless route option is not present
+        if (opt_len == old_opt_len && config_.gw_addr) {
+                opt = GetNextOptionPtr(opt_len);
+                opt->WriteWord(DHCP_OPTION_ROUTER, config_.gw_addr, opt_len);
         }
     }
 

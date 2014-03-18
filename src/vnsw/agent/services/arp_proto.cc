@@ -15,9 +15,6 @@
 #include "services/services_sandesh.h"
 #include "services_init.h"
 
-void ArpProto::Init() {
-}
-
 void ArpProto::Shutdown() {
 }
 
@@ -88,7 +85,7 @@ void ArpProto::RouteUpdate(DBTablePartBase *part, DBEntryBase *entry) {
     if (entry->IsDeleted()) {
         if (state) {
             if (gracious_arp_entry() && gracious_arp_entry()->key().ip ==
-                                        route->GetIpAddress().to_ulong()) {
+                                        route->addr().to_ulong()) {
                 del_gracious_arp_entry();
             }
             entry->ClearState(part->parent(), fabric_route_table_listener_);
@@ -104,7 +101,7 @@ void ArpProto::RouteUpdate(DBTablePartBase *part, DBEntryBase *entry) {
         del_gracious_arp_entry();
         //Send Grat ARP
         SendArpIpc(ArpHandler::ARP_SEND_GRACIOUS, 
-                   route->GetIpAddress().to_ulong(), route->GetVrfEntry());
+                   route->addr().to_ulong(), route->vrf());
     }
 }
 

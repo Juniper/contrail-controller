@@ -98,7 +98,7 @@ bool XmppConnection::MayDelete() const {
 XmppSession *XmppConnection::CreateSession() {
     TcpSession *session = server_->CreateSession();
     XmppSession *xmpp_session = static_cast<XmppSession *>(session);
-    xmpp_session->SetChannel(this);
+    xmpp_session->SetConnection(this);
     return xmpp_session;
 }
 
@@ -126,7 +126,7 @@ std::string XmppConnection::ToString() const {
 
 std::string XmppConnection::ToUVEKey() const {
     std::ostringstream out;
-    out << ToString() << ":" << endpoint().address().to_string();
+    out << FromString() << ":" << endpoint().address().to_string();
     return out.str();
 }
 
@@ -163,7 +163,7 @@ void XmppConnection::SetAdminDown(bool toggle) {
 }
 
 bool XmppConnection::AcceptSession(XmppSession *session) {
-    session->SetChannel(this);
+    session->SetConnection(this);
     return state_machine_->PassiveOpen(session);
 }
 
@@ -413,8 +413,6 @@ XmppStanza::XmppMessage *XmppConnection::XmppDecode(const string &msg) {
             // iq message merged with collection info
             return last_msg_.release();
         }
-    } else {
-        XMPP_UTDEBUG(XmppChatMessage, minfo->from, minfo->to);
     }
     return minfo.release();
 
@@ -484,7 +482,7 @@ XmppServerConnection::XmppServerConnection(
     deleter_(new DeleteActor(server, this)),
     server_delete_ref_(this, server->deleter()) {
     assert(!config->ClientOnly());
-    XMPP_UTDEBUG(XmppConnectionCreate, "Server", FromString(), ToString());
+    XMPP_INFO(XmppConnectionCreate, "Server", FromString(), ToString());
 }
 
 XmppServerConnection::~XmppServerConnection() {

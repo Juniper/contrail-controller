@@ -239,11 +239,14 @@ DBEntry *VnTable::Add(const DBRequest *req) {
     vn->name_ = data->name_;
 
     ChangeHandler(vn, req);
+    vn->SendObjectLog(AgentLogEvent::ADD);
     return vn;
 }
 
 bool VnTable::OnChange(DBEntry *entry, const DBRequest *req) {
     bool ret = ChangeHandler(entry, req);
+    VnEntry *vn = static_cast<VnEntry *>(entry);
+    vn->SendObjectLog(AgentLogEvent::CHANGE);
     return ret;
 }
 
@@ -318,6 +321,7 @@ bool VnTable::ChangeHandler(DBEntry *entry, const DBRequest *req) {
 void VnTable::Delete(DBEntry *entry, const DBRequest *req) {
     VnEntry *vn = static_cast<VnEntry *>(entry);
     DeleteAllIpamRoutes(vn);
+    vn->SendObjectLog(AgentLogEvent::DELETE);
 }
 
 DBTableBase *VnTable::CreateTable(DB *db, const std::string &name) {
@@ -661,7 +665,7 @@ void VnTable::DelHostRouteForGw(VnEntry *vn, VnIpam &ipam) {
     VrfEntry *vrf = vn->GetVrf();
     static_cast<Inet4UnicastAgentRouteTable *>
         (vrf->GetInet4UnicastRouteTable())->DeleteReq
-        (Agent::GetInstance()->GetLocalPeer(), vrf->GetName(),
+        (Agent::GetInstance()->local_peer(), vrf->GetName(),
          ipam.default_gw, 32);
 }
 
@@ -669,7 +673,7 @@ void VnTable::AddSubnetRoute(VnEntry *vn, VnIpam &ipam) {
     VrfEntry *vrf = vn->GetVrf();
     static_cast<Inet4UnicastAgentRouteTable *>(vrf->
         GetInet4UnicastRouteTable())->AddDropRoute
-        (vrf->GetName(), ipam.GetSubnetAddress(), ipam.plen);
+        (vrf->GetName(), ipam.GetSubnetAddress(), ipam.plen, vn->GetName());
 }
 
 // Del receive route for default gw
@@ -677,14 +681,14 @@ void VnTable::DelSubnetRoute(VnEntry *vn, VnIpam &ipam) {
     VrfEntry *vrf = vn->GetVrf();
     static_cast<Inet4UnicastAgentRouteTable *>(vrf->
         GetInet4UnicastRouteTable())->DeleteReq
-        (Agent::GetInstance()->GetLocalPeer(), vrf->GetName(),
+        (Agent::GetInstance()->local_peer(), vrf->GetName(),
          ipam.GetSubnetAddress(), ipam.plen);
 }
 
 bool VnEntry::DBEntrySandesh(Sandesh *sresp, std::string &name)  const {
     VnListResp *resp = static_cast<VnListResp *>(sresp);
 
-    if (GetName().find(name) != std::string::npos) {
+    if (name.empty() || GetName() == name) {
         VnSandeshData data;
         data.set_name(GetName());
         data.set_uuid(UuidToString(GetUuid()));
