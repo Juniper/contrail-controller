@@ -191,7 +191,6 @@ class DiscoveryServer():
                                           size=1000)
 
         # DB interface initialization
-        # self._db_connect(self._args.reset_config)
         self._db_conn = self._args.zk
         self._db_conn.set_ds(self)
 
