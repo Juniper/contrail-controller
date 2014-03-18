@@ -49,7 +49,7 @@ protected:
     InetVpnTableTest()
             : server_(&evm_), rib_(NULL) {
     }
-              
+
     virtual void SetUp() {
         master_cfg_.reset(new BgpInstanceConfig(BgpConfigManager::kMasterInstance));
         server_.routing_instance_mgr()->CreateRoutingInstance(
@@ -91,6 +91,12 @@ protected:
     tbb::atomic<long> adc_notification_;
     tbb::atomic<long> del_notification_;
 };
+
+TEST_F(InetVpnTableTest, AllocEntryStr) {
+    std::string prefix_str("123:456:192.168.24.0/24");
+    std::auto_ptr<DBEntry> route = rib_->AllocEntryStr(prefix_str);
+    EXPECT_EQ(prefix_str, route->ToString());
+}
 
 TEST_F(InetVpnTableTest, Basic) {
     adc_notification_ = 0;
