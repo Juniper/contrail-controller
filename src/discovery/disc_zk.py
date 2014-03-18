@@ -14,10 +14,10 @@ import time
 import disc_consts
 
 from gevent.coros import BoundedSemaphore
-from cfgm_common.discovery import ZookeeperClient
+from cfgm_common.discovery import DiscoveryService
 
 
-class DiscoveryZkClient(ZookeeperClient):
+class DiscoveryZkClient(DiscoveryService):
 
     def __init__(self, module, zk_srv_ip='127.0.0.1',
                  zk_srv_port='2181', reset_config=False):
@@ -28,7 +28,7 @@ class DiscoveryZkClient(ZookeeperClient):
         for ip in zk_srv_ip.split(','):
             zk_endpts.append('%s:%s' %(ip, zk_srv_port))
 
-        ZookeeperClient.__init__(self, ','.join(zk_endpts))
+        DiscoveryService.__init__(self, ','.join(zk_endpts))
         self._zk = self._zk_client
 
         if reset_config:
