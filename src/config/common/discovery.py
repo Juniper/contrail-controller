@@ -2,6 +2,7 @@
 # Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
 #
 import gevent
+import logging
 import kazoo.client
 import kazoo.exceptions
 import kazoo.handlers.gevent
