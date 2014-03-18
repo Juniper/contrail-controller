@@ -185,7 +185,7 @@ class DiscoveryService(object):
 
     def delete_node(self, path, recursive=False):
         try:
-            self._zk_client.delete(path, recursive)
+            self._zk_client.delete(path, recursive=recursive)
         except (kazoo.exceptions.SessionExpiredError,
                 kazoo.exceptions.ConnectionLoss):
             self.reconnect()
