@@ -1,0 +1,25 @@
+#
+# Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
+#
+
+# -*- mode: python; -*-
+
+Import('BuildEnv')
+env = BuildEnv.Clone()
+
+env.Append(LIBPATH = env['TOP'] + '/bgp/tunnel_encap')
+env.Append(LIBPATH = env['TOP'] + '/net')
+
+env.Prepend(LIBS = ['gunit', 'tunnel_encap', 'net', 'boost_regex'])
+
+tunnel_encap_test = env.UnitTest('tunnel_encap_test', ['tunnel_encap_test.cc'])
+env.Alias('src/bgp/tunnel_encap:tunnel_encap_test', tunnel_encap_test)
+
+test_suite = [
+    tunnel_encap_test,
+]
+
+test = env.TestSuite('bgp-test', test_suite)
+env.Alias('src/bgp/tunnel_encap:test', test)
+
+Return('test_suite')
