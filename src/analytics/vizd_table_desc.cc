@@ -192,6 +192,8 @@ void init_vizd_tables() {
                        GenDb::DbDataType::Unsigned64Type)
                       (g_viz_constants.FlowRecordNames[FlowRecordFields::FLOWREC_DATA_SAMPLE],
                        GenDb::DbDataType::AsciiType)
+                      (g_viz_constants.FlowRecordNames[FlowRecordFields::FLOWREC_ACTION],
+                       GenDb::DbDataType::AsciiType)
                      ))
 
         /* (SVN, SIP) index  table */
@@ -495,4 +497,6 @@ void init_vizd_tables() {
          FlowTypeInfo(FlowRecordFields::FLOWREC_DIFF_PACKETS, GenDb::DbDataType::Unsigned64Type);
     flow_msg2type_map[g_viz_constants.FlowRecordNames[FlowRecordFields::FLOWREC_DATA_SAMPLE]] =
          FlowTypeInfo(FlowRecordFields::FLOWREC_DATA_SAMPLE, GenDb::DbDataType::AsciiType);
+    flow_msg2type_map[g_viz_constants.FlowRecordNames[FlowRecordFields::FLOWREC_ACTION]] =
+         FlowTypeInfo(FlowRecordFields::FLOWREC_ACTION, GenDb::DbDataType::AsciiType);
 }

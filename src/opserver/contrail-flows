@@ -1,0 +1,10 @@
+#!/bin/bash
+
+source /opt/contrail/analytics-venv/bin/activate
+
+python /opt/contrail/utils/flow.py $*
+ret=$?
+
+deactivate
+exit $ret
+

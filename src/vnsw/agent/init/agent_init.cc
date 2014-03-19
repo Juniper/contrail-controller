@@ -331,6 +331,8 @@ void AgentInit::Start() {
         LoggingInit(params_->log_file());
     }
 
+    params_->LogConfig();
+    params_->Validate();
     TriggerInit();
     return;
 }

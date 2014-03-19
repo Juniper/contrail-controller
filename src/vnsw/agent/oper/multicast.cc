@@ -368,9 +368,16 @@ void MulticastHandler::HandleFamilyConfig(const VnEntry *vn)
     bool new_layer2_forwarding = vn->layer2_forwarding();
     bool new_ipv4_forwarding = vn->Ipv4Forwarding();
 
+    if (!vn->GetVrf())
+        return;
+
+    std::string vrf_name = vn->GetVrf()->GetName();
     for (std::set<MulticastGroupObject *>::iterator it =
          MulticastHandler::GetInstance()->GetMulticastObjList().begin(); 
          it != MulticastHandler::GetInstance()->GetMulticastObjList().end(); it++) {
+        if (vrf_name != (*it)->vrf_name())
+            continue;
+
         if (!(new_layer2_forwarding) && (*it)->layer2_forwarding()) {
             (*it)->SetLayer2Forwarding(new_layer2_forwarding);
             if (IS_BCAST_MCAST((*it)->GetGroupAddress())) { 
@@ -385,10 +392,7 @@ void MulticastHandler::HandleFamilyConfig(const VnEntry *vn)
                                            (*it)->GetSourceAddress(), 
                                            (*it)->GetGroupAddress());
             } else {
-                Inet4UnicastAgentRouteTable::DeleteReq(
-                                        Agent::GetInstance()->local_vm_peer(), 
-                                        (*it)->vrf_name(), 
-                                        (*it)->GetGroupAddress(), 32);
+                DeleteSubnetRoute((*it)->vrf_name(), (*it)->GetGroupAddress());
             }
         }
         if ((*it)->IsMultiProtoSupported() && 
