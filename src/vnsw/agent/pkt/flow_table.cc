@@ -373,6 +373,8 @@ void FlowEntry::GetSgList(const Interface *intf) {
         data_.match_p.out_sg_rule_present =
             CopySgEntries(reverse_vm_port, ingress,
                           data_.match_p.m_out_sg_acl_l);
+    } else {
+        data_.match_p.out_sg_rule_present = false;
     }
 }
 

@@ -95,9 +95,7 @@ static void SetOneAclInfo(FlowAclInfo *policy, uint32_t action,
 }
 
 static void SetAclInfo(SandeshFlowData &data, FlowEntry *fe) {
-    std::list<MatchAclParams>::const_iterator it;
     FlowAclInfo policy;
-    std::vector<FlowAclUuid> acl;
 
     SetOneAclInfo(&policy, fe->match_p().policy_action, fe->match_p().m_acl_l);
     data.set_policy(policy);
