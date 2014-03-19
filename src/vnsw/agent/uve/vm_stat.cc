@@ -30,9 +30,6 @@ VmStat::VmStat(Agent *agent, const uuid &vm_uuid):
     timer_(TimerManager::CreateTimer(*(agent_->GetEventManager())->io_service(),
     "VmStatTimer")), marked_delete_(false), pid_(0), retry_(0), 
     signal_(*(agent_->GetEventManager()->io_service())) {
-        event_queue_.reset(new WorkQueue<VmStatData *>
-            (TaskScheduler::GetInstance()->GetTaskId("Agent::Uve"), 0,
-             boost::bind(&VmStat::Process, _1)));
     InitSigHandler();
 }
 
@@ -40,16 +37,6 @@ VmStat::~VmStat() {
     TimerManager::DeleteTimer(timer_);
     boost::system::error_code ec;
     signal_.cancel(ec);
-}
-
-bool VmStat::Process(VmStatData* vm_stat_data) {
-    if (vm_stat_data->vm_stat()->marked_delete()) {
-        delete vm_stat_data->vm_stat();
-    } else {
-        vm_stat_data->vm_stat()->ProcessData();
-    }
-    delete vm_stat_data;
-    return true;
 }
 
 void VmStat::ReadData(const boost::system::error_code &ec,
@@ -65,7 +52,7 @@ void VmStat::ReadData(const boost::system::error_code &ec,
         //Enqueue a request to process data
         VmStatData *vm_stat_data = new VmStatData(this);
 
-        event_queue_->Enqueue(vm_stat_data);
+        agent_->uve()->vm_uve_table()->EnqueueVmStatData(vm_stat_data);
     } else {
         bzero(rx_buff_, sizeof(rx_buff_));
         async_read(input_, boost::asio::buffer(rx_buff_, kBufLen),

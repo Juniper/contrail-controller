@@ -18,6 +18,8 @@
 #include <uve/vm_stat_data.h>
 #include <oper/vm.h>
 #include <uve/vm_uve_entry.h>
+#include <boost/scoped_ptr.hpp>
+#include "base/queue_task.h"
 
 //The container class for objects representing VirtualMachine UVEs
 //Defines routines for storing and managing (add, delete, change and send)
@@ -49,6 +51,8 @@ public:
     void UpdateBitmap(const VmEntry* vm, uint8_t proto, uint16_t sport, 
                       uint16_t dport);
     virtual void DispatchVmMsg(const UveVirtualMachineAgent &uve);
+    void EnqueueVmStatData(VmStatData *data);
+    bool Process(VmStatData *vm_stat_data);
 
 protected:
     UveVmMap uve_vm_map_;
@@ -68,6 +72,7 @@ private:
 
     DBTableBase::ListenerId intf_listener_id_;
     DBTableBase::ListenerId vm_listener_id_;
+    boost::scoped_ptr<WorkQueue<VmStatData *> > event_queue_;
     DISALLOW_COPY_AND_ASSIGN(VmUveTable);
 };
 
