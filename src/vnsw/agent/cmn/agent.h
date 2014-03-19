@@ -323,6 +323,7 @@ public:
     const Peer *local_peer() const {return local_peer_.get();}
     const Peer *local_vm_peer() const {return local_vm_peer_.get();}
     const Peer *link_local_peer() const {return linklocal_peer_.get();}
+    const Peer *ecmp_peer() const {return ecmp_peer_.get();}
 
     VxLanNetworkIdentifierMode vxlan_network_identifier_mode() const {
         return vxlan_network_identifier_mode_;
@@ -629,6 +630,7 @@ private:
     std::auto_ptr<Peer> local_peer_;
     std::auto_ptr<Peer> local_vm_peer_;
     std::auto_ptr<Peer> linklocal_peer_;
+    std::auto_ptr<Peer> ecmp_peer_;
 
     IFMapAgentParser *ifmap_parser_;
     bool router_id_configured_;

@@ -69,6 +69,8 @@ DBEntry *InterfaceTable::Add(const DBRequest *req) {
 
     // Get the os-ifindex and mac of interface
     intf->GetOsParams();
+
+    intf->Add();
     intf->SendTrace(Interface::ADD);
     return intf;
 }

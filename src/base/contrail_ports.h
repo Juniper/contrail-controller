@@ -9,6 +9,11 @@
 
 class ContrailPorts {
 public:
+    static const uint16_t HttpPortConfigNodemgr = 8100;
+    static const uint16_t HttpPortControlNodemgr = 8101;
+    static const uint16_t HttpPortVrouterNodemgr = 8102;
+    static const uint16_t HttpPortDatabaseNodemgr = 8103;
+    static const uint16_t HttpPortAnalyticsNodemgr = 8104;
     static const uint16_t ControlBgp = 179;
     static const uint16_t ControlXmpp = 5269;
     static const uint16_t DiscoveryServerPort = 5998;

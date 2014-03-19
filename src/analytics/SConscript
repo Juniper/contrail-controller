@@ -155,6 +155,7 @@ AnalyticsEnv.Requires(vizd, '#/build/include/boost')
 AnalyticsEnv.Requires(vizd, '#/build/include/thrift/Thrift.h')
 
 AnalyticsEnv.SConscript('ruleparser/SConscript', exports='AnalyticsEnv', duplicate = 0)
+AnalyticsEnv.SConscript('database/SConscript', exports='AnalyticsEnv', duplicate = 0)
 
 test_suite = AnalyticsEnv.SConscript('test/SConscript', exports='AnalyticsEnv', duplicate = 0)
 

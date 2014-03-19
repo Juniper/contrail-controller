@@ -991,14 +991,14 @@ class VncZkClient(object):
 
     def create_fq_name_to_uuid_mapping(self, obj_type, fq_name, id):
         fq_name_str = ':'.join(fq_name)
-        zk_path = _FQ_NAME_TO_UUID_PATH+'/%s:%s' %(obj_type.replace('-', '_'),
+        zk_path = self._FQ_NAME_TO_UUID_PATH+'/%s:%s' %(obj_type.replace('-', '_'),
                                              fq_name_str)
         self._zk_client.create_node(zk_path, id)
     # end create_fq_name_to_uuid_mapping
 
     def fq_name_to_uuid(self, obj_type, fq_name):
         fq_name_str = ':'.join(fq_name)
-        zk_path = _FQ_NAME_TO_UUID_PATH+'/%s:%s' %(obj_type.replace('-', '_'),
+        zk_path = self._FQ_NAME_TO_UUID_PATH+'/%s:%s' %(obj_type.replace('-', '_'),
                                              fq_name_str)
 
         return self._zk_client.read_node(zk_path)
@@ -1006,7 +1006,7 @@ class VncZkClient(object):
 
     def delete_fq_name_to_uuid_mapping(self, obj_type, fq_name):
         fq_name_str = ':'.join(fq_name)
-        zk_path = _FQ_NAME_TO_UUID_PATH+'/%s:%s' %(obj_type.replace('-', '_'),
+        zk_path = self._FQ_NAME_TO_UUID_PATH+'/%s:%s' %(obj_type.replace('-', '_'),
                                              fq_name_str)
         self._zk_client.delete_node(zk_path)
     # end delete_fq_name_to_uuid_mapping
@@ -1048,7 +1048,7 @@ class VncDbClient(object):
 
         self._msgbus = VncKombuClient(self, ifmap_srv_ip, self._ifmap_db, rabbit_user,
         rabbit_password, rabbit_vhost)
-        self._zk_db = VncZkClient(api_svr_mgr._args.worker_id, zk_server_ip)
+        self._zk_db = VncZkClient(api_svr_mgr._args.worker_id, zk_server_ip, reset_config)
     # end __init__
 
     def db_resync(self):
