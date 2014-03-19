@@ -266,10 +266,10 @@ static void SetInEcmpIndex(const PktInfo *pkt, PktFlowInfo *flow_info,
     } else {
         //Destination on remote server
         //Choose local path, which will also pointed by MPLS label
-        if (in->rt_->FindPath(Agent::GetInstance()->local_vm_peer())) {
+        if (in->rt_->FindPath(Agent::GetInstance()->ecmp_peer())) {
             Agent *agent = static_cast<AgentRouteTable *>
                 (in->rt_->get_table())->agent();
-            nh = in->rt_->FindPath(agent->local_vm_peer())->nexthop(agent);
+            nh = in->rt_->FindPath(agent->ecmp_peer())->nexthop(agent);
         } else {
             const CompositeNH *comp_nh = static_cast<const CompositeNH *>
                 (in->rt_->GetActiveNextHop());

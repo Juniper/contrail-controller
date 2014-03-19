@@ -124,7 +124,8 @@ public:
         Agent::GetInstance()->GetDefaultInet4UnicastRouteTable()->
             AddRemoteVmRouteReq(Agent::GetInstance()->local_peer(), 
                                 vrf_name_, remote_vm_ip_, 32, server1_ip_,
-                                l3_bmap, 1000, vrf_name_);
+                                l3_bmap, 1000, vrf_name_,
+                                SecurityGroupList());
         client->WaitForIdle();
 
         Layer2AgentRouteTable::AddRemoteVmRouteReq(

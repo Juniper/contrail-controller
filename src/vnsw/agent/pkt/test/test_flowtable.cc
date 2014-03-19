@@ -101,7 +101,7 @@ public:
         Ip4Address gw = Ip4Address::from_string(serv);
         Agent::GetInstance()->GetDefaultInet4UnicastRouteTable()->
             AddRemoteVmRouteReq(NULL, vrf, addr, 32, gw, TunnelType::AllType(), 
-                                label, vn);
+                                label, vn, SecurityGroupList());
         client->WaitForIdle();
         EXPECT_TRUE(RouteFind(vrf, addr, 32));
     }

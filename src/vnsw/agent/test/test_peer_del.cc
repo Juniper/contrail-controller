@@ -61,7 +61,8 @@ public:
         Ip4Address s = sip.to_v4();
         Ip4Address d = dip.to_v4();
         table->AddRemoteVmRouteReq(peer, vrf_name, s, 32, d, 
-                                   TunnelType::AllType(), label, "");
+                                   TunnelType::AllType(), label, "",
+                                   SecurityGroupList());
     }
 };
 

@@ -711,7 +711,8 @@ TEST_F(CfgTest, EcmpNH_5) {
     //Add a remote VM route
     agent_->GetDefaultInet4UnicastRouteTable()->
         AddRemoteVmRouteReq(NULL, "vrf2", remote_vm_ip, 32, remote_server_ip1,
-                            TunnelType::DefaultType(), 30, "vn2");
+                            TunnelType::DefaultType(), 30, "vn2",
+                            SecurityGroupList());
     client->WaitForIdle();
     //Create component NH list
     //Transition remote VM route to ECMP route
@@ -783,7 +784,8 @@ TEST_F(CfgTest, EcmpNH_6) {
                                                   remote_vm_ip,
                                                   32, remote_server_ip1,
                                                   TunnelType::AllType(),
-                                                  30, "vn2");
+                                                  30, "vn2",
+                                                  SecurityGroupList());
     client->WaitForIdle();
     //Create component NH list
     //Transition remote VM route to ECMP route

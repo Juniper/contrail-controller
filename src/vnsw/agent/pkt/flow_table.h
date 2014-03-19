@@ -6,7 +6,6 @@
 #define __AGENT_FLOW_TABLE_H__
 
 #include <map>
-
 #if defined(__GNUC__)
 #include "base/compiler.h"
 #if __GNUC_PREREQ(4, 5)
@@ -18,7 +17,6 @@
 #if defined(__GNUC__) && __GNUC_PREREQ(4, 6)
 #pragma GCC diagnostic pop
 #endif
-
 
 #include <boost/uuid/uuid_io.hpp>
 #include <boost/intrusive_ptr.hpp>
