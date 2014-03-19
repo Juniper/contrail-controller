@@ -4,9 +4,7 @@
 
 #include "bgp/bgp_message_builder.h"
 
-#include "base/logging.h"
 #include "base/parse_object.h"
-#include "bgp/bgp_log.h"
 #include "bgp/bgp_route.h"
 #include "net/bgp_af.h"
 
@@ -90,11 +88,7 @@ void BgpMessage::StartReach(const RibOutAttr *roattr, const BgpRoute *route) {
 
     datalen_ = BgpProto::Encode(&update, data_, sizeof(data_),
             &encode_offsets_);
-    if (datalen_ <= 0) {
-        BGP_LOG(BgpMessageBuilder, SandeshLevel::SYS_WARN, BGP_LOG_FLAG_ALL,
-                "MP Reach Encoding failed", datalen_, route->ToString());
-        assert(datalen_ > 0);
-    }
+    assert(datalen_ > 0);
 }
 
 void BgpMessage::StartUnreach(const BgpRoute *route) {
@@ -113,13 +107,7 @@ void BgpMessage::StartUnreach(const BgpRoute *route) {
 
     datalen_ = BgpProto::Encode(&update, data_, sizeof(data_),
             &encode_offsets_);
-    if (datalen_ <= 0) {
-        BGP_LOG(BgpMessageBuilder, SandeshLevel::SYS_WARN, BGP_LOG_FLAG_ALL,
-                "MP Unreach Encoding failed", datalen_, route->ToString());
-        assert(datalen_ > 0);
-    }
-    BGP_LOG(BgpMessageBuilder, SandeshLevel::SYS_DEBUG, BGP_LOG_FLAG_TRACE,
-            "Encoded Withdraw NLRI", datalen_, route->ToString());
+    assert(datalen_ > 0);
 }
 
 void BgpMessage::Start(const RibOutAttr *roattr, const BgpRoute *route) {
@@ -163,30 +151,20 @@ bool BgpMessage::AddRoute(const BgpRoute *route, const RibOutAttr *roattr) {
 
     datalen_ += result;
     if (!UpdateLength("BgpMsgLength", 2, result)) {
-        BGP_LOG(BgpMessageBuilder, SandeshLevel::SYS_WARN, BGP_LOG_FLAG_ALL,
-                "Cannot find BGP message length", datalen_, route->ToString());
         assert(false);
         return false;
     }
 
     if (!UpdateLength("BgpPathAttribute", 2, result)) {
-        BGP_LOG(BgpMessageBuilder, SandeshLevel::SYS_WARN, BGP_LOG_FLAG_ALL,
-                "Cannot find BGP attributes length", datalen_,
-                route->ToString());
         assert(false);
         return false;
     }
 
     if (!UpdateLength("MpReachUnreachNlri", 2, result)) {
-        BGP_LOG(BgpMessageBuilder, SandeshLevel::SYS_WARN, BGP_LOG_FLAG_ALL,
-                "Cannot find MP Reach/Unreach NLRI length", datalen_,
-                route->ToString());
         assert(false);
         return false;
     }
 
-    BGP_LOG(BgpMessageBuilder, SandeshLevel::SYS_DEBUG, BGP_LOG_FLAG_TRACE,
-            "Encoded Update NLRI", datalen_, route->ToString());
     return true;
 }
 
