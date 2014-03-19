@@ -421,7 +421,9 @@ bool KSyncSock::ProcessKernelData(char *data) {
 
     AgentSandeshContext *ctxt = context->GetSandeshContext();
     ctxt->SetErrno(0);
+    ctxt->set_ksync_io_ctx(static_cast<KSyncIoContext *>(context));
     Decoder(data, ctxt);
+    ctxt->set_ksync_io_ctx(NULL);
     if (ctxt->GetErrno() != 0) {
         context->ErrorHandler(ctxt->GetErrno());
     }
