@@ -66,6 +66,7 @@ TestClient *TestInit(const char *init_file, bool ksync_init, bool pkt_init,
     init->set_router_id_dep_enable(false);
     if (!ksync_init) {
         agent->SetTestMode();
+        param->set_test_mode(true);
     }
     agent->set_ksync_sync_mode(ksync_sync_mode);
 
@@ -128,6 +129,7 @@ TestClient *StatsTestInit() {
     init->set_vgw_enable(false);
     init->set_router_id_dep_enable(false);
     agent->SetTestMode();
+    param->set_test_mode(true);
 
     // Initialize agent and kick start initialization
     agent->Init(param, init);
@@ -176,6 +178,7 @@ TestClient *VGwInit(const string &init_file, bool ksync_init) {
     init->set_router_id_dep_enable(false);
     if (!ksync_init) {
         agent->SetTestMode();
+        param->set_test_mode(true);
     }
 
     // Initialize agent and kick start initialization

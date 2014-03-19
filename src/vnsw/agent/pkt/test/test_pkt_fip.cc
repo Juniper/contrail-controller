@@ -982,7 +982,8 @@ TEST_F(FlowTest, Fip_preference_over_policy) {
     Ip4Address addr = Ip4Address::from_string("2.1.1.1");
     Ip4Address gw = Ip4Address::from_string("10.1.1.2");
     vnet_table[1]->AddRemoteVmRouteReq(NULL, "vrf1", addr, 32, gw, 
-                                       TunnelType::AllType(), 8, "vn2");
+                                       TunnelType::AllType(), 8, "vn2", 
+                                       SecurityGroupList());
     client->WaitForIdle();
     TxUdpPacket(vnet[1]->id(), vnet_addr[1], "2.1.1.1", 10, 20, 1, 1);
     client->WaitForIdle();
