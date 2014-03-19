@@ -52,6 +52,7 @@ const string XMPP_PEER_INFO_TABLE   = "ObjectXmppPeerInfo"
 const string ROUTING_INSTANCE_TABLE = "ObjectRoutingInstance"
 const string XMPP_CONNECTION_TABLE  = "ObjectXmppConnection"
 const string COLLECTOR_INFO_TABLE   = "ObjectCollectorInfo"
+const string DATABASE_INFO_TABLE   = "ObjectDatabaseInfo"
 const string GENERATOR_INFO_TABLE   = "ObjectGeneratorInfo"
 const string CONFIG_NODE_TABLE      = "ObjectConfigNode"
 const string SERVICE_CHAIN          = "ServiceChain"
@@ -70,6 +71,7 @@ const string BGP_ROUTER_DISPLAY_NAME       = "BGP Router"
 const string XMPP_PEER_INFO_DISPLAY_NAME   = "XMPP Peer Info"
 const string XMPP_CONNECTION_DISPLAY_NAME  = "XMPP Connection"
 const string COLLECTOR_INFO_DISPLAY_NAME   = "Collector Info"
+const string DATABASE_INFO_DISPLAY_NAME   = "Database Info"
 const string GENERATOR_INFO_DISPLAY_NAME   = "Generator Info"
 const string MODULE_INFO_DISPLAY_NAME      = "Module Info"
 const string CONFIG_NODE_DISPLAY_NAME      = "Config Node"
@@ -198,6 +200,7 @@ const map<string, string> UVE_MAP = {
     "bgp-peer" : BGP_PEER_TABLE,
     "xmpp-peer" : XMPP_PEER_INFO_TABLE,
     "collector" : COLLECTOR_INFO_TABLE,
+    "database" : DATABASE_INFO_TABLE,
     "generator" : GENERATOR_INFO_TABLE
     "config-node" : CONFIG_NODE_TABLE,
     "service-chain" : SERVICE_CHAIN,
@@ -241,6 +244,9 @@ const map<string, objtable_info> _OBJECT_TABLES = {
     }
     COLLECTOR_INFO_TABLE   : {
         'objtable_display_name' : COLLECTOR_INFO_DISPLAY_NAME
+    }
+    DATABASE_INFO_TABLE   : {
+        'objtable_display_name' : DATABASE_INFO_DISPLAY_NAME
     }
     GENERATOR_INFO_TABLE   : {
         'objtable_display_name' : GENERATOR_INFO_DISPLAY_NAME
