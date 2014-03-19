@@ -178,6 +178,43 @@ struct FlowStats {
     bool exported;
 };
 
+typedef std::list<MatchAclParams> MatchAclParamsList;
+struct MatchPolicy {
+    MatchPolicy():
+        m_acl_l(), policy_action(0), m_out_acl_l(), out_policy_action(0), 
+        m_out_sg_acl_l(), out_sg_rule_present(false), out_sg_action(0), 
+        m_sg_acl_l(), sg_rule_present(false), sg_action(0),
+        m_mirror_acl_l(), mirror_action(0), m_out_mirror_acl_l(),
+        out_mirror_action(0), action_info() {
+    }
+
+    ~MatchPolicy() {}
+
+    MatchAclParamsList m_acl_l;
+    uint32_t policy_action;
+
+    MatchAclParamsList m_out_acl_l;
+    uint32_t out_policy_action;
+
+    MatchAclParamsList m_out_sg_acl_l;
+    bool out_sg_rule_present;
+    uint32_t out_sg_action;
+
+    MatchAclParamsList m_sg_acl_l;
+    bool sg_rule_present;
+    uint32_t sg_action;
+
+    MatchAclParamsList m_mirror_acl_l;
+    uint32_t mirror_action;
+
+    MatchAclParamsList m_out_mirror_acl_l;
+    uint32_t out_mirror_action;
+
+    // Summary of SG actions
+    uint32_t sg_action_summary;
+    FlowAction action_info;
+};
+
 struct FlowData {
     FlowData() : 
         source_vn(""), dest_vn(""), source_sg_id_l(), dest_sg_id_l(),
@@ -234,8 +271,8 @@ class FlowEntry {
         IngressDir      = 1 << 6,
         Trap            = 1 << 7,
         Multicast       = 1 << 8,
-        LinkLocalBindLocalSrcPort = 1 << 9 // a local port bind is done (used as
-                                           // src port for linklocal nat)
+        // a local port bind is done (used as as src port for linklocal nat)
+        LinkLocalBindLocalSrcPort = 1 << 9,
     };
     FlowEntry(const FlowKey &k);
     virtual ~FlowEntry() {
@@ -279,9 +316,11 @@ class FlowEntry {
 
     void GetPolicy(const VnEntry *vn);
     void GetSgList(const Interface *intf);
-    bool DoPolicy(const PacketHeader &hdr, bool ingress);
+    void SetPacketHeader(PacketHeader *hdr);
+    void ComputeReflexiveAction();
+    bool DoPolicy();
     uint32_t MatchAcl(const PacketHeader &hdr,
-                      std::list<MatchAclParams> &acl, bool add_implicit_deny,
+                      MatchAclParamsList &acl, bool add_implicit_deny,
                       bool add_implicit_allow);
     void ResetPolicy();
     void ResetStats();
@@ -290,8 +329,6 @@ class FlowEntry {
     bool FlowSrcMatch(const RouteFlowKey &rkey) const;
     bool FlowDestMatch(const RouteFlowKey &rkey) const;
     void SetAclAction(std::vector<AclAction> &acl_action_l) const;
-    uint32_t IngressReflexiveAction() const;
-    uint32_t EgressReflexiveAction() const;
     void UpdateReflexiveAction();
     const Interface *intf_entry() const { return data_.intf_entry.get();}
     const VnEntry *vn_entry() const { return data_.vn_entry.get();}
