@@ -5,7 +5,7 @@
 """
 Layer that transforms VNC config objects to ifmap representation
 """
-from cfgm_common.discovery import DiscoveryService, IndexAllocator
+from cfgm_common.zkclient import ZookeeperClient, IndexAllocator
 from gevent import ssl, monkey
 monkey.patch_all()
 import gevent
@@ -941,7 +941,7 @@ class VncZkClient(object):
     def __init__(self, instance_id, zk_server_ip, reset_config):
         while True:
             try:
-                self._zk_client = DiscoveryService("api-" + instance_id, zk_server_ip)
+                self._zk_client = ZookeeperClient("api-" + instance_id, zk_server_ip)
                 break
             except gevent.event.Timeout as e:
                 pass
