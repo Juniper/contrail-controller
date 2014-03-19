@@ -113,7 +113,7 @@ class IndexAllocator(object):
 #end class IndexAllocator
 
 
-class DiscoveryService(object):
+class ZookeeperClient(object):
 
     def __init__(self, module, server_list):
         # logging
@@ -229,4 +229,4 @@ class DiscoveryService(object):
             return []
     # end read_node
 
-# end class DiscoveryService
+# end class ZookeeperClient

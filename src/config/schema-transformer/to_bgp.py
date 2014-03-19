@@ -10,7 +10,7 @@ configuration model/schema to a representation needed by VNC Control Plane
 
 import gevent
 # Import kazoo.client before monkey patching
-from cfgm_common.discovery import DiscoveryService,IndexAllocator
+from cfgm_common.zkclient import ZookeeperClient,IndexAllocator
 from gevent import monkey
 monkey.patch_all()
 import sys
@@ -3191,7 +3191,7 @@ def main(args_str=None):
     if not args_str:
         args_str = ' '.join(sys.argv[1:])
     args = parse_args(args_str)
-    _disc_service = DiscoveryService("schema", args.zk_server_ip)
+    _disc_service = ZookeeperClient("schema", args.zk_server_ip)
     _disc_service.master_election("/schema-transformer", os.getpid(),
                                   run_schema_transformer, args)
 # end main

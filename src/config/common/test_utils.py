@@ -575,7 +575,7 @@ def Fake_uuid_to_time(time_uuid_in_db):
     return ts
 # end of Fake_uuid_to_time
 
-class DiscoveryServiceMock(object):
+class ZookeeperClientMock(object):
 
     def __init__(self, *args, **kwargs):
         self._count = 0
@@ -623,5 +623,5 @@ class DiscoveryServiceMock(object):
     def delete_node(self, path):
         del self._values[path]
     # end delete_node
-# end Class DiscoveryServiceMock
+# end Class ZookeeperClientMock
 
