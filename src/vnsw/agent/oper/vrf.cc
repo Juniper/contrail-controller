@@ -52,97 +52,10 @@ class VrfEntry::DeleteActor : public LifetimeActor {
     VrfEntryRef table_;
 };
 
-class VrfEntry::VrfNHMap {
-public:
-    struct VrfNHMapKey {
-        VrfNHMapKey(Ip4Address ip, uint8_t plen):
-            ip_(ip), plen_(plen) { }
-
-        bool operator< (const VrfNHMapKey &rhs) const{
-            if (ip_ != rhs.ip_) {
-                return ip_ < rhs.ip_;
-            }
-            return plen_ < rhs.plen_;
-        }
-
-        Ip4Address ip_;
-        uint32_t   plen_;
-    };
-    void AddNH(Ip4Address ip, uint8_t plen, ComponentNHData nh_data) {
-        VrfNHMapKey key(ip, plen);
-        ComponentNHData::ComponentNHDataList component_list = nh_map_[key];
-        ComponentNHData::ComponentNHDataList::iterator it = 
-            component_list.begin();
-        while (it != component_list.end()) {
-            if (*it == nh_data) {
-                *it = nh_data;
-                return;
-            }
-            it++;
-        }
-        nh_map_[key].push_back(nh_data);
-    }
-
-        //Decrement the count of NH, a route points to.
-    void DeleteNH(Ip4Address ip, uint8_t plen, ComponentNHData nh_data) {
-        VrfNHMapKey key(ip, plen);
-        ComponentNHData::ComponentNHDataList::iterator it = 
-                                                  nh_map_[key].begin();
-        while (it != nh_map_[key].end()) {
-            if (*it == nh_data) {
-                nh_map_[key].erase(it);
-                break;
-            }
-            it++;
-        }
-        return;
-    }
-
-    uint32_t GetNHCount(Ip4Address ip, uint8_t plen) {
-        VrfNHMapKey key(ip, plen);
-        return nh_map_[key].size();
-    }
-
-    bool FindNH(const Ip4Address &ip, uint8_t plen, 
-                const ComponentNHData &nh_data) {
-        VrfNHMapKey key(ip, plen);
-        ComponentNHData::ComponentNHDataList component_list = nh_map_[key];
-        ComponentNHData::ComponentNHDataList::iterator it = 
-            component_list.begin();
-        while (it != component_list.end()) {
-            if (*it == nh_data) {
-                return true;
-            }
-            it++;
-        }
-        return false;
-    }
-
-    ComponentNHData::ComponentNHDataList* GetNHList(Ip4Address ip,
-                                                    uint8_t plen) {
-        VrfNHMapKey key(ip, plen);
-        return &nh_map_[key];
-    }
-
-    void UpdateLabel(Ip4Address addr, uint8_t plen, uint32_t label) {
-        VrfNHMapKey key(addr, plen);
-        label_map_[key] = label;
-    }
-
-    uint32_t GetLabel(Ip4Address addr, uint8_t plen) {
-        VrfNHMapKey key(addr, plen);
-        return label_map_[key];
-    }
-
-private:
-    std::map<VrfNHMapKey, ComponentNHData::ComponentNHDataList> nh_map_;
-    std::map<VrfNHMapKey, uint32_t> label_map_;
-};
-
 VrfEntry::VrfEntry(const string &name) : 
         name_(name), id_(kInvalidIndex), 
         walkid_(DBTableWalker::kInvalidWalkerId), deleter_(NULL),
-        nh_map_(NULL), rt_table_db_(), delete_timeout_timer_(NULL) { 
+        rt_table_db_(), delete_timeout_timer_(NULL) { 
 }
 
 VrfEntry::~VrfEntry() {
@@ -430,42 +343,8 @@ void VrfEntry::CancelDeleteTimer() {
     delete_timeout_timer_->Cancel();
 }
 
-//Increment the count of NH, a route has
-//Used in ECMP case
-void VrfEntry::AddNH(Ip4Address ip, uint8_t plen, ComponentNHData *nh_data) {
-    nh_map_->AddNH(ip, plen, *nh_data);
-}
-
-//Decrement the count of NH, a route points to.
-void VrfEntry::DeleteNH(Ip4Address ip, uint8_t plen, ComponentNHData *nh_data) {
-    nh_map_->DeleteNH(ip, plen, *nh_data);
-}
-
-uint32_t VrfEntry::GetNHCount(Ip4Address ip, uint8_t plen) {
-    return nh_map_->GetNHCount(ip, plen);
-}
-
-void VrfEntry::UpdateLabel(Ip4Address ip, uint8_t plen, uint32_t label) {
-    nh_map_->UpdateLabel(ip, plen, label);
-}
-
-uint32_t VrfEntry::GetLabel(Ip4Address ip, uint8_t plen) {
-    return nh_map_->GetLabel(ip, plen);
-}
-
-bool VrfEntry::FindNH(const Ip4Address &ip, uint8_t plen,
-                      const ComponentNHData &nh_data) {
-    return nh_map_->FindNH(ip, plen, nh_data);
-
-}
-ComponentNHData::ComponentNHDataList* VrfEntry::GetNHList(Ip4Address ip,
-                                                          uint8_t plen) {
-    return nh_map_->GetNHList(ip, plen);
-}
-
 void VrfEntry::Init() {
     deleter_.reset(new DeleteActor(this));
-    nh_map_.reset(new VrfNHMap());
 }
 
 std::auto_ptr<DBEntry> VrfTable::AllocEntry(const DBRequestKey *k) const {

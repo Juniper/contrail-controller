@@ -2,6 +2,7 @@
 # Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
 #
 import gevent
+import logging
 import kazoo.client
 import kazoo.exceptions
 import kazoo.handlers.gevent
@@ -197,7 +198,7 @@ class DiscoveryService(object):
 
     def delete_node(self, path, recursive=False):
         try:
-            self._zk_client.delete(path, recursive)
+            self._zk_client.delete(path, recursive=recursive)
         except (kazoo.exceptions.SessionExpiredError,
                 kazoo.exceptions.ConnectionLoss):
             self.reconnect()

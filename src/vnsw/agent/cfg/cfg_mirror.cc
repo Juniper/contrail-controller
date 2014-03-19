@@ -3,7 +3,6 @@
  */
 
 #include <net/address.h>
-
 #if defined(__GNUC__)
 #include "base/compiler.h"
 #if __GNUC_PREREQ(4, 5)

@@ -12,8 +12,6 @@
 #include <virtual_machine_types.h>
 #include <boost/uuid/uuid_io.hpp>
 #include "base/timer.h"
-#include "base/queue_task.h"
-#include <boost/scoped_ptr.hpp>
 #include <cmn/agent_cmn.h>
 
 class VmStatData;
@@ -31,8 +29,8 @@ public:
 
     void Start();
     void Stop();
-    static bool Process(VmStatData *vm_stat_data);
     void HandleSigChild(const boost::system::error_code& error, int sig);
+    void ProcessData();
 private:
     bool BuildVmStatsMsg(UveVirtualMachineAgent &uve);
     void RegisterSigHandler();
@@ -52,7 +50,6 @@ private:
     void ReadPid();
     void ReadMemoryQuota();
     void GetMemoryQuota();
-    void ProcessData();
 
     Agent *agent_;
     const boost::uuids::uuid vm_uuid_;
@@ -75,7 +72,6 @@ private:
     UveVirtualMachineStats prev_stats_;
     uint32_t retry_;
     boost::asio::signal_set signal_;
-    boost::scoped_ptr<WorkQueue<VmStatData *> > event_queue_;
     DoneCb call_back_;
     DISALLOW_COPY_AND_ASSIGN(VmStat);
 };

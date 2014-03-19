@@ -935,9 +935,10 @@ class VncKombuClient(object):
 
 
 class VncZkClient(object):
-    _SUBNET_PATH = "/api-server/subnets/"
+    _SUBNET_PATH = "/api-server/subnets"
+    _FQ_NAME_TO_UUID_PATH = "/fq-name-to-uuid"
 
-    def __init__(self, instance_id, zk_server_ip):
+    def __init__(self, instance_id, zk_server_ip, reset_config):
         while True:
             try:
                 self._zk_client = DiscoveryService("api-" + instance_id, zk_server_ip)
@@ -945,6 +946,9 @@ class VncZkClient(object):
             except gevent.event.Timeout as e:
                 pass
 
+        if reset_config:
+            self._zk_client.delete_node(self._SUBNET_PATH, True);
+            self._zk_client.delete_node(self._FQ_NAME_TO_UUID_PATH, True);
         self._subnet_allocators = {}
     # end __init__
 
@@ -952,13 +956,13 @@ class VncZkClient(object):
         # TODO handle subnet resizing change, ignore for now
         if subnet not in self._subnet_allocators:
             self._subnet_allocators[subnet] = IndexAllocator(
-                self._zk_client, self._SUBNET_PATH+subnet+'/',
+                self._zk_client, self._SUBNET_PATH+'/'+subnet+'/',
                 size=last-first, start_idx=first, reverse=True)
     # end create_subnet_allocator
 
     def delete_subnet_allocator(self, subnet):
         IndexAllocator.delete_all(self._zk_client,
-                                  self._SUBNET_PATH+subnet+'/')
+                                  self._SUBNET_PATH+'/'+subnet+'/')
     # end delete_subnet_allocator
 
     def _get_subnet_allocator(self, subnet):
@@ -987,14 +991,14 @@ class VncZkClient(object):
 
     def create_fq_name_to_uuid_mapping(self, obj_type, fq_name, id):
         fq_name_str = ':'.join(fq_name)
-        zk_path = '/fq-name-to-uuid/%s:%s' %(obj_type.replace('-', '_'),
+        zk_path = self._FQ_NAME_TO_UUID_PATH+'/%s:%s' %(obj_type.replace('-', '_'),
                                              fq_name_str)
         self._zk_client.create_node(zk_path, id)
     # end create_fq_name_to_uuid_mapping
 
     def fq_name_to_uuid(self, obj_type, fq_name):
         fq_name_str = ':'.join(fq_name)
-        zk_path = '/fq-name-to-uuid/%s:%s' %(obj_type.replace('-', '_'),
+        zk_path = self._FQ_NAME_TO_UUID_PATH+'/%s:%s' %(obj_type.replace('-', '_'),
                                              fq_name_str)
 
         return self._zk_client.read_node(zk_path)
@@ -1002,7 +1006,7 @@ class VncZkClient(object):
 
     def delete_fq_name_to_uuid_mapping(self, obj_type, fq_name):
         fq_name_str = ':'.join(fq_name)
-        zk_path = '/fq-name-to-uuid/%s:%s' %(obj_type.replace('-', '_'),
+        zk_path = self._FQ_NAME_TO_UUID_PATH+'/%s:%s' %(obj_type.replace('-', '_'),
                                              fq_name_str)
         self._zk_client.delete_node(zk_path)
     # end delete_fq_name_to_uuid_mapping
@@ -1044,7 +1048,7 @@ class VncDbClient(object):
 
         self._msgbus = VncKombuClient(self, ifmap_srv_ip, self._ifmap_db, rabbit_user,
         rabbit_password, rabbit_vhost)
-        self._zk_db = VncZkClient(api_svr_mgr._args.worker_id, zk_server_ip)
+        self._zk_db = VncZkClient(api_svr_mgr._args.worker_id, zk_server_ip, reset_config)
     # end __init__
 
     def db_resync(self):

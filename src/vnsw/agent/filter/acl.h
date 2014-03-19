@@ -45,34 +45,6 @@ struct MatchAclParams {
     bool terminal_rule;
 };
 
-struct MatchPolicy {
-    MatchPolicy(): 
-        m_acl_l(), m_sg_acl_l(), m_mirror_acl_l(), m_out_acl_l(),
-        m_out_sg_acl_l(), m_out_mirror_acl_l(), action_info(),
-        nw_policy(false), policy_action(0), sg_action(0),
-        out_policy_action(0), out_sg_action(0), mirror_action(0),
-        out_mirror_action(0), sg_rule_present(false),
-        sg_out_rule_present(false) {};
-    ~MatchPolicy() {};
-
-    std::list<MatchAclParams> m_acl_l;
-    std::list<MatchAclParams> m_sg_acl_l;
-    std::list<MatchAclParams> m_mirror_acl_l;
-    std::list<MatchAclParams> m_out_acl_l;
-    std::list<MatchAclParams> m_out_sg_acl_l;
-    std::list<MatchAclParams> m_out_mirror_acl_l;
-    FlowAction action_info;
-    bool nw_policy;
-    uint32_t policy_action;
-    uint32_t sg_action;
-    uint32_t out_policy_action;
-    uint32_t out_sg_action;
-    uint32_t mirror_action;
-    uint32_t out_mirror_action;
-    bool sg_rule_present;
-    bool sg_out_rule_present;
-};
-
 struct AclKey : public AgentKey {
     AclKey(uuid id) : AgentKey(), uuid_(id) {} ;
     virtual ~AclKey() {};

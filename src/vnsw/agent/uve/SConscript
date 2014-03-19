@@ -116,6 +116,7 @@ mockEnv.Prepend(LIBS=[
     'boost_program_options',
     'curl',
     'pugixml',
+     'rt'
     ])
 
 if sys.platform != 'darwin':

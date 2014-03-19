@@ -106,7 +106,8 @@ public:
         Ip4Address addr = Ip4Address::from_string(remote_vm);
         Ip4Address gw = Ip4Address::from_string(serv);
         agent()->GetDefaultInet4UnicastRouteTable()->AddRemoteVmRouteReq
-            (peer_, vrf, addr, 32, gw, TunnelType::MplsType(), label, vn);
+            (peer_, vrf, addr, 32, gw, TunnelType::MplsType(), label, vn,
+             SecurityGroupList());
         client->WaitForIdle(2);
         WAIT_FOR(1000, 500, (RouteFind(vrf, addr, 32) == true));
     }
@@ -1843,11 +1844,6 @@ TEST_F(FlowTest, Subnet_broadcast_Flow) {
 TEST_F(FlowTest, Flow_ksync_nh_state_find_failure) {
     EXPECT_EQ(0U, Agent::GetInstance()->pkt()->flow_table()->Size());
 
-    //Create PHYSICAL interface to receive GRE packets on it.
-    PhysicalInterfaceKey key(eth_itf);
-    Interface *intf = static_cast<Interface *>
-        (Agent::GetInstance()->GetInterfaceTable()->FindActiveEntry(&key));
-    EXPECT_TRUE(intf != NULL);
     CreateRemoteRoute("vrf5", remote_vm1_ip, remote_router_ip, 30, "vn5");
     client->WaitForIdle();
     TestFlow flow[] = {
@@ -1878,6 +1874,54 @@ TEST_F(FlowTest, Flow_ksync_nh_state_find_failure) {
     EXPECT_TRUE(FlowTableWait(0));
     nh_object->set_test_id(-1);
     table->Unregister(nh_listener);
+    DeleteRemoteRoute("vrf5", remote_vm1_ip);
+    client->WaitForIdle();
+}
+
+TEST_F(FlowTest, Flow_entry_reuse) {
+    KSyncSockTypeMap *sock = KSyncSockTypeMap::GetKSyncSockTypeMap();
+    EXPECT_EQ(0U, Agent::GetInstance()->pkt()->flow_table()->Size());
+
+    CreateRemoteRoute("vrf5", remote_vm1_ip, remote_router_ip, 30, "vn5");
+    client->WaitForIdle();
+    TestFlow flow[] = {
+        {
+            TestFlowPkt(vm1_ip, remote_vm1_ip, 1, 0, 0, "vrf5",
+                    flow0->id(), 1001),
+            {}
+        }
+    };
+    TestFlow flow1[] = {
+        {
+            TestFlowPkt(vm1_ip, remote_vm1_ip, 1, 0, 0, "vrf5",
+                    flow0->id(), 1002),
+            {}
+        }
+    };  
+    CreateFlow(flow, 1);
+    EXPECT_TRUE(FlowTableWait(2));
+    FlowEntry *fe = 
+        FlowGet(VrfGet("vrf5")->vrf_id(), vm1_ip, remote_vm1_ip, 1, 0, 0); 
+    EXPECT_TRUE(fe->flow_handle() == 1001);
+
+    flow[0].pkt_.set_allow_wait_for_idle(false);
+    flow1[0].pkt_.set_allow_wait_for_idle(false);
+    sock->SetBlockMsgProcessing(true);
+    DeleteFlow(flow, 1);
+    EXPECT_TRUE(FlowTableWait(2));
+    CreateFlow(flow1, 1);
+    sock->SetBlockMsgProcessing(false);
+    flow[0].pkt_.set_allow_wait_for_idle(true);
+    flow1[0].pkt_.set_allow_wait_for_idle(true);
+    WAIT_FOR(1000, 1000, (fe->deleted() == false));
+    client->WaitForIdle();
+    FlowTableKSyncEntry *fe_ksync = 
+        Agent::GetInstance()->ksync()->flowtable_ksync_obj()->Find(fe);
+    WAIT_FOR(1000, 1000, (fe_ksync->GetState() == KSyncEntry::IN_SYNC));
+
+    EXPECT_TRUE(fe->flow_handle() == 1002);
+    DeleteFlow(flow1, 1);
+    EXPECT_TRUE(FlowTableWait(0));
     DeleteRemoteRoute("vrf5", remote_vm1_ip);
     client->WaitForIdle();
 }

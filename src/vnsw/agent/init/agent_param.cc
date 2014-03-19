@@ -467,7 +467,7 @@ void AgentParam::InitFromArguments
 // Update linklocal max flows if they are greater than the max allowed for the
 // process. Also, ensure that the process is allowed to open upto
 // linklocal_system_flows + kMaxOtherOpenFds files
-void AgentParam::ValidateLinkLocalFlows() {
+void AgentParam::ComputeLinkLocalFlowLimits() {
     struct rlimit rl;
     int result = getrlimit(RLIMIT_NOFILE, &rl);
     if (result == 0) {
@@ -508,17 +508,62 @@ void AgentParam::ValidateLinkLocalFlows() {
     }
 }
 
+static bool ValidateInterface(bool test_mode, const std::string &ifname) {
+    if (test_mode) {
+        return true;
+    }
+    int fd = socket(AF_LOCAL, SOCK_STREAM, 0);
+    assert(fd >= 0);
+
+    struct ifreq ifr;
+    memset(&ifr, 0, sizeof(ifr));
+    strncpy(ifr.ifr_name, ifname.c_str(), IF_NAMESIZE);
+    int err = ioctl(fd, SIOCGIFHWADDR, (void *)&ifr);
+    close (fd);
+
+    if (err < 0) {
+        LOG(ERROR, "Error reading interface <" << ifname << ">. Error number "
+            << errno << " : " << strerror(errno));
+        return false;
+    }
+
+    return true;
+}
+
 void AgentParam::Validate() {
-    // Validate vhost_name
+    // Validate vhost interface name
     if (vhost_.name_ == "") {
         LOG(ERROR, "Configuration error. vhost interface name not specified");
         exit(EINVAL);
+    }
+
+    // Check if interface is already present
+    if (ValidateInterface(test_mode_, vhost_.name_) == false) {
+        exit(ENODEV);
     }
 
     // Validate ethernet port
     if (eth_port_ == "") {
         LOG(ERROR, "Configuration error. eth_port not specified");
         exit(EINVAL);
+    }
+
+    // Check if interface is already present
+    if (ValidateInterface(test_mode_, eth_port_) == false) {
+        exit(ENODEV);
+    }
+
+    // Validate physical port used in vmware
+    if (mode_ == MODE_VMWARE) {
+        if (vmware_physical_port_ == "") {
+            LOG(ERROR, "Configuration error. Physical port connecting to "
+                "virtual-machines not specified");
+            exit(EINVAL);
+        }
+
+        if (ValidateInterface(test_mode_, vmware_physical_port_) == false) {
+            exit(ENODEV);
+        }
     }
 
     // Set the prefix address for VHOST and XENLL interfaces
@@ -528,7 +573,6 @@ void AgentParam::Validate() {
     mask = xen_ll_.plen_ ? (0xFFFFFFFF << (32 - xen_ll_.plen_)) : 0;
     xen_ll_.prefix_ = Ip4Address(xen_ll_.addr_.to_ulong() & mask);
 
-    ValidateLinkLocalFlows();
 }
 
 void AgentParam::Init(const string &config_file, const string &program_name,
@@ -539,9 +583,9 @@ void AgentParam::Init(const string &config_file, const string &program_name,
     InitFromSystem();
     InitFromConfig();
     InitFromArguments(var_map);
-    Validate();
     vgw_config_table_->Init(config_file.c_str());
-    LogConfig();
+
+    ComputeLinkLocalFlowLimits();
 }
 
 void AgentParam::LogConfig() const {
@@ -579,6 +623,10 @@ void AgentParam::LogConfig() const {
     }
 }
 
+void AgentParam::set_test_mode(bool mode) {
+    test_mode_ = mode;
+}
+
 AgentParam::AgentParam() :
         vhost_(), eth_port_(), xmpp_instance_count_(), xmpp_server_1_(),
         xmpp_server_2_(), dns_server_1_(), dns_server_2_(), dss_server_(),
@@ -589,7 +637,7 @@ AgentParam::AgentParam() :
         collector_(), collector_port_(), http_server_port_(), host_name_(),
         agent_stats_interval_(AgentStatsCollector::AgentStatsInterval), 
         flow_stats_interval_(FlowStatsCollector::FlowStatsInterval),
-        vmware_physical_port_("") {
+        vmware_physical_port_(""), test_mode_(false) {
     vgw_config_table_ = std::auto_ptr<VirtualGatewayConfigTable>
         (new VirtualGatewayConfigTable());
 }

@@ -265,6 +265,34 @@ class OpServerUtils(object):
     # end convert_to_utc_timestamp_usec
 
     @staticmethod
+    def ip_protocol_to_str(protocol):
+        if protocol == 6:
+            return "TCP"
+        elif protocol == 17:
+            return "UDP"
+        elif protocol == 1:
+            return "ICMP"
+        elif protocol == 2:
+            return "IGMP"
+        else:
+            return str(protocol)
+    #end ip_protocol_to_str
+
+    @staticmethod
+    def str_to_ip_protocol(protocol):
+        if protocol.lower() == "tcp":
+            return 6
+        elif protocol.lower() == "udp":
+            return 17
+        elif protocol.lower() == "icmp":
+            return 1
+        elif protocol.lower() == "igmp":
+            return 2
+        else:
+            return -1
+    #end str_to_ip_protocol
+
+    @staticmethod
     def opserver_url(ip, port):
         return "http://" + ip + ":" + port
     # end opserver_url

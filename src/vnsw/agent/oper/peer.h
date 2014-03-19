@@ -13,9 +13,10 @@
 
 #define LOCAL_PEER_NAME "Local"
 #define LOCAL_VM_PEER_NAME "Local_Vm"
-#define LOCAL_VM_PORT_PEER_NAME "Local_Vm_Port"
+#define LOCAL_VM_PORT_PEER_NAME "LocalVmPort"
 #define NOVA_PEER_NAME "Nova"
 #define LINKLOCAL_PEER_NAME "LinkLocal"
+#define ECMP_PEER_NAME "Ecmp"
 
 class AgentXmppChannel;
 
@@ -25,9 +26,9 @@ public:
     typedef std::map<std::string, Peer *> PeerMap;
     typedef std::pair<std::string, Peer *> PeerPair;
     enum Type {
-        ECMP_PEER,
         BGP_PEER,
-        LOCAL_PEER,  // higher priority for local peer
+        ECMP_PEER,
+        LOCAL_PEER,
         LOCAL_VM_PEER,
         LOCAL_VM_PORT_PEER,
         LINKLOCAL_PEER,
