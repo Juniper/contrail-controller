@@ -1048,7 +1048,7 @@ class VncDbClient(object):
 
         self._msgbus = VncKombuClient(self, ifmap_srv_ip, self._ifmap_db, rabbit_user,
         rabbit_password, rabbit_vhost)
-        self._zk_db = VncZkClient(api_svr_mgr._args.worker_id, zk_server_ip)
+        self._zk_db = VncZkClient(api_svr_mgr._args.worker_id, zk_server_ip, reset_config)
     # end __init__
 
     def db_resync(self):
