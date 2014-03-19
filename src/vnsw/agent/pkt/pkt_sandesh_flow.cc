@@ -73,100 +73,58 @@ const std::string PktSandeshFlow::start_key = "0:0:0:0:0.0.0.0:0.0.0.0";
 
 ////////////////////////////////////////////////////////////////////////////////
 
+static void SetOneAclInfo(FlowAclInfo *policy, uint32_t action,
+                          const MatchAclParamsList &acl_list)  {
+    MatchAclParamsList::const_iterator it;
+    std::vector<FlowAclUuid> acl;
+
+    for (it = acl_list.begin(); it != acl_list.end(); it++) {
+        FlowAclUuid f;
+        f.uuid = UuidToString(it->acl->GetUuid());
+        acl.push_back(f);
+    }
+    policy->set_acl(acl);
+    policy->set_action(action);
+
+    FlowAction action_info;
+    action_info.action = action;
+
+    std::vector<ActionStr> action_str_l;
+    SetActionStr(action_info, action_str_l);
+    policy->set_action_str(action_str_l);
+}
+
 static void SetAclInfo(SandeshFlowData &data, FlowEntry *fe) {
     std::list<MatchAclParams>::const_iterator it;
     FlowAclInfo policy;
     std::vector<FlowAclUuid> acl;
 
-    acl.clear();
-    for (it = fe->match_p().m_acl_l.begin();
-         it != fe->match_p().m_acl_l.end(); it++) {
-        FlowAclUuid f;
-        f.uuid = UuidToString(it->acl->GetUuid());
-        acl.push_back(f);
-    }
-    policy.set_action(fe->match_p().policy_action);
-    std::vector<ActionStr> action_str_l;
-    FlowAction action_info;
-    action_info.action = fe->match_p().policy_action;
-    SetActionStr(action_info, action_str_l);
-    policy.set_action_str(action_str_l);
-    policy.set_acl(acl);
+    SetOneAclInfo(&policy, fe->match_p().policy_action, fe->match_p().m_acl_l);
     data.set_policy(policy);
 
-    acl.clear();
-    for (it = fe->match_p().m_out_acl_l.begin();
-         it != fe->match_p().m_out_acl_l.end(); it++) {
-        FlowAclUuid f;
-        f.uuid = UuidToString(it->acl->GetUuid());
-        acl.push_back(f);
-    }
-    policy.set_action(fe->match_p().out_policy_action);
-    action_str_l.clear();
-    action_info.action = fe->match_p().out_policy_action;
-    SetActionStr(action_info, action_str_l);
-    policy.set_action_str(action_str_l);
-    policy.set_acl(acl);
+    SetOneAclInfo(&policy, fe->match_p().out_policy_action,
+                  fe->match_p().m_out_acl_l);
     data.set_out_policy(policy);
 
-    acl.clear();
-    for (it = fe->match_p().m_sg_acl_l.begin();
-         it != fe->match_p().m_sg_acl_l.end(); it++) {
-        FlowAclUuid f;
-        f.uuid = UuidToString(it->acl->GetUuid());
-        acl.push_back(f);
-    }
-    policy.set_action(fe->match_p().sg_action);
-    action_str_l.clear();
-    action_info.action = fe->match_p().sg_action;
-    SetActionStr(action_info, action_str_l);
-    policy.set_action_str(action_str_l);
-    policy.set_acl(acl);
+    SetOneAclInfo(&policy, fe->match_p().sg_action, fe->match_p().m_sg_acl_l);
     data.set_sg(policy);
 
-    acl.clear();
-    for (it = fe->match_p().m_out_sg_acl_l.begin();
-         it != fe->match_p().m_out_sg_acl_l.end(); it++) {
-        FlowAclUuid f;
-        f.uuid = UuidToString(it->acl->GetUuid());
-        acl.push_back(f);
-    }
-    policy.set_action(fe->match_p().out_sg_action);
-    action_str_l.clear();
-    action_info.action = fe->match_p().out_sg_action;
-    SetActionStr(action_info, action_str_l);
-    policy.set_action_str(action_str_l);
-    policy.set_acl(acl);
+    SetOneAclInfo(&policy, fe->match_p().out_sg_action,
+                  fe->match_p().m_out_sg_acl_l);
     data.set_out_sg(policy);
 
-    acl.clear();
-    for (it = fe->match_p().m_mirror_acl_l.begin();
-         it != fe->match_p().m_mirror_acl_l.end(); it++) {
-        FlowAclUuid f;
-        f.uuid = UuidToString(it->acl->GetUuid());
-        acl.push_back(f);
-    }
-    policy.set_action(fe->match_p().mirror_action);
-    action_str_l.clear();
-    action_info.action = fe->match_p().mirror_action;
+    FlowAction action_info;
+    action_info.action = fe->match_p().sg_action_summary;
+    std::vector<ActionStr> action_str_l;
     SetActionStr(action_info, action_str_l);
-    policy.set_action_str(action_str_l);
-    policy.set_acl(acl);
+    data.set_sg_action_summary(action_str_l);
+
+    SetOneAclInfo(&policy, fe->match_p().mirror_action,
+                  fe->match_p().m_mirror_acl_l);
     data.set_mirror(policy);
 
-    acl.clear();
-    for (it = fe->match_p().m_out_mirror_acl_l.begin();
-         it != fe->match_p().m_out_mirror_acl_l.end(); it++) {
-        FlowAclUuid f;
-        f.uuid = UuidToString(it->acl->GetUuid());
-        acl.push_back(f);
-    }
-    policy.set_action(fe->match_p().out_mirror_action);
-    action_str_l.clear();
-    action_info.action = fe->match_p().out_mirror_action;
-    SetActionStr(action_info, action_str_l);
-    policy.set_action_str(action_str_l);
-    policy.set_acl(acl);
+    SetOneAclInfo(&policy, fe->match_p().out_mirror_action,
+                  fe->match_p().m_out_mirror_acl_l);
     data.set_out_mirror(policy);
 }
 
