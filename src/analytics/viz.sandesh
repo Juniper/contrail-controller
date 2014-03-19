@@ -133,6 +133,7 @@ enum FlowRecordFields {
    FLOWREC_DIFF_PACKETS,
    FLOWREC_SHORT_FLOW,
    FLOWREC_JSON,
+   FLOWREC_ACTION,
    FLOWREC_MAX,
 }
 
@@ -167,8 +168,14 @@ const list<string> FlowRecordNames = [
     "diff_packets",
     "short_flow",
     "json",
+    "action",
     "invalid",
 ]
+
+// Flow Table Query Strings
+const string FLOW_TABLE_UUID       = "UuidKey"
+const string FLOW_TABLE_AGG_PKTS   = "agg-packets"
+const string FLOW_TABLE_AGG_BYTES  = "agg-bytes"
 
 /* REDIS RELATED NAMES/CONSTANTS */
 
@@ -448,11 +455,12 @@ const list<query_table> _TABLES = [
                { 'name' : 'sport', 'datatype' : 'int', 'index' : true },
                { 'name' : 'dport', 'datatype' : 'int', 'index' : true },
                { 'name' : 'direction_ing', 'datatype' : 'int', 'index' : true },
-               { 'name' : 'UuidKey', 'datatype' : 'uuid', 'index' : false },
+               { 'name' : FLOW_TABLE_UUID, 'datatype' : 'uuid', 'index' : false },
                { 'name' : 'setup_time', 'datatype' : 'long', 'index' : false },
                { 'name' : 'teardown_time', 'datatype' : 'long', 'index' : false },
-               { 'name' : 'agg-packets', 'datatype' : 'long', 'index' : false },
-               { 'name' : 'agg-bytes', 'datatype' : 'long', 'index' : false },
+               { 'name' : FLOW_TABLE_AGG_PKTS, 'datatype' : 'long', 'index' : false },
+               { 'name' : FLOW_TABLE_AGG_BYTES, 'datatype' : 'long', 'index' : false },
+               { 'name' : 'action', 'datatype' : 'string', 'index' : false },
                ]
          },
          'columnvalues' : [ ],
