@@ -168,15 +168,20 @@ void Inet4UnicastRouteEntry::SetKey(const DBRequestKey *key) {
     set_plen(k->plen());
 }
 
+// Function to create a ECMP path from path1 and path2
+// Creates Composite-NH with 2 Component-NH (one for each of path1 and path2)
+// Creates a new MPLS Label for the ECMP path
 AgentPath *Inet4UnicastRouteEntry::AllocateEcmpPath(Agent *agent,
                                                     const AgentPath *path1,
                                                     const AgentPath *path2) {
+    // Allocate and insert a path
     AgentPath *path = new AgentPath(agent->ecmp_peer(), NULL);
     InsertPath(path);
 
     // Allocate a new label for the ECMP path
     uint32_t label = agent->GetMplsTable()->AllocLabel();
 
+    // Create Component NH to be added to ECMP path
     DBEntryBase::KeyPtr key1 = path1->nexthop(agent)->GetDBRequestKey();
     NextHopKey *nh_key1 = static_cast<NextHopKey *>(key1.get());
     nh_key1->SetPolicy(false);
@@ -191,7 +196,8 @@ AgentPath *Inet4UnicastRouteEntry::AllocateEcmpPath(Agent *agent,
     component_nh_list.push_back(component_nh_data1);
     component_nh_list.push_back(component_nh_data2);
 
-    // Form the request for Inet4UnicastEcmpRoute and invoke AddChangePath
+    // Directly call AddChangePath to update NH in the ECMP path
+    // It will also create CompositeNH if necessary
     DBRequest nh_req(DBRequest::DB_ENTRY_ADD_CHANGE);
     nh_req.key.reset(new CompositeNHKey(vrf()->GetName(), addr_, plen_, true));
     nh_req.data.reset(new CompositeNHData(component_nh_list,
@@ -202,7 +208,8 @@ AgentPath *Inet4UnicastRouteEntry::AllocateEcmpPath(Agent *agent,
                                nh_req);
 
     data.AddChangePath(agent, path);
-    //Make MPLS label point to composite NH
+
+    //Make MPLS label point to Composite NH
     MplsLabel::CreateEcmpLabel(label, vrf()->GetName(), addr_, plen_);
 
     RouteInfo rt_info;
@@ -214,6 +221,9 @@ AgentPath *Inet4UnicastRouteEntry::AllocateEcmpPath(Agent *agent,
     return path;
 }
 
+// Handle deletion of a path in route. If the path being deleted is part of
+// ECMP, then deletes the Component-NH for the path.
+// Delete ECMP path if there is single Component-NH in Composite-NH
 bool Inet4UnicastRouteEntry::EcmpDeletePath(AgentPath *path) {
     if (path->peer() == NULL) {
         return false;
@@ -226,6 +236,8 @@ bool Inet4UnicastRouteEntry::EcmpDeletePath(AgentPath *path) {
     Agent *agent = 
         (static_cast<Inet4UnicastAgentRouteTable *> (get_table()))->agent();
 
+    // Composite-NH is made from LOCAL_VM_PORT_PEER, count number of paths
+    // with LOCAL_VM_PORT_PEER
     int count = 0;
     for(Route::PathList::const_iterator it = GetPathList().begin(); 
         it != GetPathList().end(); it++) {
@@ -245,11 +257,13 @@ bool Inet4UnicastRouteEntry::EcmpDeletePath(AgentPath *path) {
     }
 
     if (count == 1 && ecmp) {
+        // There is single path of type LOCAL_VM_PORT_PEER. Delete the ECMP path
         remove(ecmp);
         //Enqueue MPLS label delete request
         MplsLabel::Delete(ecmp->label());
         delete ecmp;
     } else if (count > 1) {
+        // Remove Component-NH for the path being deleted
         DBEntryBase::KeyPtr key = path->nexthop(agent)->GetDBRequestKey();
         NextHopKey *nh_key = static_cast<NextHopKey *>(key.get());
         nh_key->SetPolicy(false);
@@ -265,12 +279,16 @@ bool Inet4UnicastRouteEntry::EcmpDeletePath(AgentPath *path) {
     return true;
 }
 
+// Handle add/update of a path in route. 
+// If there are more than one path of type LOCAL_VM_PORT_PEER, creates/updates
+// Composite-NH for them
 bool Inet4UnicastRouteEntry::EcmpAddPath(AgentPath *path) {
 
     if (path->peer() == NULL) {
         return false;
     }
 
+    // We are interested only in path from LOCAL_VM_PORT_PEER
     if (path->peer()->GetType() != Peer::LOCAL_VM_PORT_PEER) {
         return false;
     }
@@ -278,6 +296,7 @@ bool Inet4UnicastRouteEntry::EcmpAddPath(AgentPath *path) {
     Agent *agent = 
         (static_cast<Inet4UnicastAgentRouteTable *> (get_table()))->agent();
 
+    // Count number of paths from LOCAL_VM_PORT_PEER already present
     const AgentPath *ecmp = NULL;
     const AgentPath *vm_port_path = NULL;
     int count = 0;
@@ -311,8 +330,10 @@ bool Inet4UnicastRouteEntry::EcmpAddPath(AgentPath *path) {
     }
 
     if (count == 2 && ecmp == NULL) {
+        // This is second path being added, make ECMP 
         AllocateEcmpPath(agent, vm_port_path, path);
     } else if (count > 2) {
+        // ECMP already present, add/update Component-NH for the path
         DBEntryBase::KeyPtr key = path->nexthop(agent)->GetDBRequestKey();
         NextHopKey *nh_key = static_cast<NextHopKey *>(key.get());
         nh_key->SetPolicy(false);

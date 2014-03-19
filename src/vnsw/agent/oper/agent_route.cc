@@ -367,6 +367,8 @@ void AgentRouteTable::Input(DBTablePartition *part, DBClient *client,
                 EvaluateUnresolvedNH();
             }
 
+            // ECMP path are managed by route module. Update ECMP path with 
+            // addition of new path
             if (rt->EcmpAddPath(path)) {
                 notify = true;
             }
@@ -574,6 +576,8 @@ void AgentRoute::RemovePath(AgentPath *path) {
     const Path *prev_front = front();
     remove(path);
     path->clear_sg_list();
+    // ECMP path are managed by route module. Update ECMP path with this path
+    // delete
     EcmpDeletePath(path);
     Sort(&AgentRouteTable::PathSelection, prev_front);
     delete path;
