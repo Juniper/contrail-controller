@@ -114,7 +114,7 @@ void Layer2AgentRouteTable::AddLayer2BroadcastRoute(const string &vrf_name,
     req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
 
     Layer2RouteKey *key = 
-        new Layer2RouteKey(Agent::GetInstance()->GetLocalVmPeer(), vrf_name);
+        new Layer2RouteKey(Agent::GetInstance()->local_vm_peer(), vrf_name);
     req.key.reset(key);
 
     MulticastRoute *data = new MulticastRoute(sip, dip, vn_name, vrf_name, vxlan_id,
@@ -194,7 +194,7 @@ void Layer2AgentRouteTable::DeleteBroadcastReq(const string &vrf_name) {
     req.oper = DBRequest::DB_ENTRY_DELETE;
 
     Layer2RouteKey *key = 
-        new Layer2RouteKey(Agent::GetInstance()->GetLocalVmPeer(), vrf_name);
+        new Layer2RouteKey(Agent::GetInstance()->local_vm_peer(), vrf_name);
     req.key.reset(key);
     req.data.reset(NULL);
     Layer2TableEnqueue(Agent::GetInstance(), vrf_name, &req);
@@ -214,7 +214,7 @@ int Layer2RouteEntry::CompareTo(const Route &rhs) const {
 
 DBEntryBase::KeyPtr Layer2RouteEntry::GetDBRequestKey() const {
     Layer2RouteKey *key =
-        new Layer2RouteKey(Agent::GetInstance()->GetLocalVmPeer(), 
+        new Layer2RouteKey(Agent::GetInstance()->local_vm_peer(), 
                            vrf()->GetName(), mac_);
     return DBEntryBase::KeyPtr(key);
 }

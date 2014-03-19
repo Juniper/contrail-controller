@@ -32,11 +32,12 @@ class OpenstackDriver(vnc_plugin_base.Resync):
 
         self._config_sections = conf_sections
         self._auth_host = conf_sections.get('KEYSTONE', 'auth_host')
+        self._auth_port = conf_sections.get('KEYSTONE', 'auth_port')
         self._auth_user = conf_sections.get('KEYSTONE', 'admin_user')
         self._auth_passwd = conf_sections.get('KEYSTONE', 'admin_password')
         self._auth_tenant = conf_sections.get('KEYSTONE', 'admin_tenant_name')
         auth_proto = conf_sections.get('KEYSTONE', 'auth_protocol')
-        auth_url = "%s://%s:35357/v2.0" % (auth_proto, self._auth_host)
+        auth_url = "%s://%s:%s/v2.0" % (auth_proto, self._auth_host, self._auth_port)
         self._auth_url = auth_url
         self._resync_interval_secs = 2
         self._kc = None
@@ -199,37 +200,10 @@ class ResourceApiDriver(vnc_plugin_base.ResourceApi):
     #end __call__
 
     def _create_default_security_group(self, proj_dict):
-        sgr_uuid = str(uuid.uuid4())
-        ingress_rule = PolicyRuleType(rule_uuid=sgr_uuid, direction='>',
-                                      protocol='any',
-                                      src_addresses=[
-                                          AddressType(
-                                              subnet=SubnetType(
-                                                  '0.0.0.0', 0))],
-                                      src_ports=[PortType(0, 65535)],
-                                      dst_addresses=[
-                                          AddressType(security_group='local')],
-                                      dst_ports=[PortType(0, 65535)])
-        sg_rules = PolicyEntriesType([ingress_rule])
-
-        sgr_uuid = str(uuid.uuid4())
-        egress_rule = PolicyRuleType(rule_uuid=sgr_uuid, direction='>',
-                                     protocol='any',
-                                     src_addresses=[
-                                         AddressType(security_group='local')],
-                                     src_ports=[PortType(0, 65535)],
-                                     dst_addresses=[
-                                         AddressType(
-                                             subnet=SubnetType('0.0.0.0', 0))],
-                                     dst_ports=[PortType(0, 65535)])
-        sg_rules.add_policy_rule(egress_rule)
-
         proj_obj = vnc_api.Project.from_dict(**proj_dict)
 
         # create security group
-        sg_obj = vnc_api.SecurityGroup(name='default', parent_obj=proj_obj,
-                                       security_group_entries=sg_rules)
-
+        sg_obj = vnc_api.SecurityGroup(name='default', parent_obj=proj_obj)
         self._vnc_lib.security_group_create(sg_obj)
     # end _create_default_security_group
 

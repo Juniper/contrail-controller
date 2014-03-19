@@ -64,7 +64,9 @@ TestClient *TestInit(const char *init_file, bool ksync_init, bool pkt_init,
     init->set_uve_enable(uve_init);
     init->set_vgw_enable(false);
     init->set_router_id_dep_enable(false);
-    agent->SetTestMode();
+    if (!ksync_init) {
+        agent->SetTestMode();
+    }
     agent->set_ksync_sync_mode(ksync_sync_mode);
 
     // Initialize agent and kick start initialization
@@ -92,7 +94,7 @@ TestClient *TestInit(const char *init_file, bool ksync_init, bool pkt_init,
             (Ip4Address::from_string("10.1.1.1", ec));
         //Add a receive router
         agent->GetDefaultInet4UnicastRouteTable()->AddVHostRecvRoute
-            (Agent::GetInstance()->GetLocalPeer(),
+            (Agent::GetInstance()->local_peer(),
              Agent::GetInstance()->GetDefaultVrf(), "vhost0",
              Agent::GetInstance()->GetRouterId(), 32, "", false);
     }
@@ -172,7 +174,9 @@ TestClient *VGwInit(const string &init_file, bool ksync_init) {
     init->set_uve_enable(true);
     init->set_vgw_enable(true);
     init->set_router_id_dep_enable(false);
-    agent->SetTestMode();
+    if (!ksync_init) {
+        agent->SetTestMode();
+    }
 
     // Initialize agent and kick start initialization
     agent->Init(param, init);

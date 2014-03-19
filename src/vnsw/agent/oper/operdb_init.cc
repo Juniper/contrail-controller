@@ -123,17 +123,6 @@ void OperDB::CreateDBTables(DB *db) {
 }
 
 void OperDB::Init() {
-    Peer *local_peer;
-    local_peer = new Peer(Peer::LOCAL_PEER, LOCAL_PEER_NAME);
-    agent_->SetLocalPeer(local_peer);
-
-    Peer *local_vm_peer;
-    local_vm_peer = new Peer(Peer::LOCAL_VM_PEER, LOCAL_VM_PEER_NAME);
-    agent_->SetLocalVmPeer(local_vm_peer);
-
-    Peer *linklocal_peer;
-    linklocal_peer = new Peer(Peer::LINKLOCAL_PEER, LINKLOCAL_PEER_NAME);
-    agent_->SetLinkLocalPeer(linklocal_peer);
 }
 
 void OperDB::CreateDBClients() {
@@ -191,15 +180,6 @@ void OperDB::Shutdown() {
     agent_->GetDB()->RemoveTable(agent_->GetVxLanTable());
     delete agent_->GetVxLanTable();
     agent_->SetVxLanTable(NULL);
-
-    delete agent_->GetLocalPeer();
-    agent_->SetLocalPeer(NULL);
-
-    delete agent_->GetLocalVmPeer();
-    agent_->SetLocalVmPeer(NULL);
-
-    delete agent_->GetLinkLocalPeer();
-    agent_->SetLinkLocalPeer(NULL);
 
     delete agent_->GetDomainConfigTable();
     agent_->SetDomainConfigTable(NULL);

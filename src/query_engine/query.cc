@@ -185,7 +185,7 @@ PostProcessingQuery::PostProcessingQuery(
         }
         // add filter to filter query engine logs if requested
         if ((((AnalyticsQuery *)main_query)->filter_qe_logs) &&
-            (((AnalyticsQuery *)main_query)->table == 
+            (((AnalyticsQuery *)main_query)->table() == 
              g_viz_constants.COLLECTOR_GLOBAL_TABLE))
         {
             QE_TRACE(DEBUG,  " Adding filter for QE logs");
@@ -277,13 +277,13 @@ void AnalyticsQuery::get_query_details(bool& is_merge_needed, bool& is_map_outpu
         select = selectquery_->json_string_;
         post = postprocess_->json_string_;
     }
-    time_period = (end_time - from_time) / 1000000;
+    time_period = (end_time_ - from_time_) / 1000000;
     is_map_output = is_stat_table_query();
 }
 
 bool AnalyticsQuery::can_parallelize_query() {
     parallelize_query_ = true;
-    if (table == g_viz_constants.OBJECT_VALUE_TABLE) {
+    if (table_ == g_viz_constants.OBJECT_VALUE_TABLE) {
         parallelize_query_ = false;
     }
     return parallelize_query_;
@@ -327,25 +327,25 @@ void AnalyticsQuery::Init(GenDb::GenDbIf *db_if, std::string qid,
         QE_PARSE_ERROR(iter != json_api_data.end());
 
         //strip " from the passed string
-        table = iter->second.substr(1, iter->second.size()-2);
+        table_ = iter->second.substr(1, iter->second.size()-2);
 
         // boost::to_upper(table);
-        QE_TRACE(DEBUG,  " table is " << table);
-        QE_INVALIDARG_ERROR(is_valid_from_field(table));
+        QE_TRACE(DEBUG,  " table is " << table_);
+        QE_INVALIDARG_ERROR(is_valid_from_field(table_));
     }
 
     // Start time
     {
         iter = json_api_data.find(QUERY_START_TIME);
         QE_PARSE_ERROR(iter != json_api_data.end());
-        req_from_time = parse_time(iter->second);
-        QE_TRACE(DEBUG,  " from_time is " << req_from_time);
-        if (req_from_time < analytics_start_time) 
+        req_from_time_ = parse_time(iter->second);
+        QE_TRACE(DEBUG,  " from_time is " << req_from_time_);
+        if (req_from_time_ < analytics_start_time) 
         {
-            from_time = analytics_start_time;
-            QE_TRACE(DEBUG, "updated start_time to:" << from_time);
+            from_time_ = analytics_start_time;
+            QE_TRACE(DEBUG, "updated start_time to:" << from_time_);
         } else {
-            from_time = req_from_time;
+            from_time_ = req_from_time_;
         }
     }
 
@@ -356,17 +356,17 @@ void AnalyticsQuery::Init(GenDb::GenDbIf *db_if, std::string qid,
 
         iter = json_api_data.find(QUERY_END_TIME);
         QE_PARSE_ERROR(iter != json_api_data.end());
-        req_end_time = parse_time(iter->second);
-        QE_TRACE(DEBUG,  " end_time is " << req_end_time);
+        req_end_time_ = parse_time(iter->second);
+        QE_TRACE(DEBUG,  " end_time is " << req_end_time_);
 
-        if (req_end_time < analytics_start_time) {
-            end_time = analytics_start_time;
-        } else if (req_end_time > 
+        if (req_end_time_ < analytics_start_time) {
+            end_time_ = analytics_start_time;
+        } else if (req_end_time_ > 
                 (uint64_t)(curr_time.tv_sec*1000000+curr_time.tv_usec)) {
-            end_time = curr_time.tv_sec*1000000+curr_time.tv_usec;
-            QE_TRACE(DEBUG, "updated end_time to:" << end_time);
+            end_time_ = curr_time.tv_sec*1000000+curr_time.tv_usec;
+            QE_TRACE(DEBUG, "updated end_time to:" << end_time_);
         } else {
-            end_time = req_end_time;
+            end_time_ = req_end_time_;
         }
     }
 
@@ -418,14 +418,14 @@ void AnalyticsQuery::Init(GenDb::GenDbIf *db_if, std::string qid,
          */
         if (is_object_table_query()) {
             if (selectquery_->ObjectIdQuery()) {
-                object_value_key = table;
-                table = g_viz_constants.OBJECT_VALUE_TABLE;
+                object_value_key = table_;
+                table_ = g_viz_constants.OBJECT_VALUE_TABLE;
             }
         }
     }
 
     if (this->is_object_table_query() && where_json_string == "") {
-        QE_LOG_GLOBAL(DEBUG, "Cannot support WHERE * query for " << table);
+        QE_LOG_GLOBAL(DEBUG, "Cannot support WHERE * query for " << table_);
         QE_INVALIDARG_ERROR(0);
     }
 
@@ -444,18 +444,18 @@ void AnalyticsQuery::Init(GenDb::GenDbIf *db_if, std::string qid,
     }
 
     // just to take care of issues with Analytics start time 
-         if (from_time > end_time)
-            from_time = end_time - 1; 
+         if (from_time_ > end_time_)
+            from_time_ = end_time_ - 1; 
 
     // Get the right job slice for parallelization
-    original_from_time = from_time;
-    original_end_time = end_time;
+    original_from_time = from_time_;
+    original_end_time = end_time_;
 
     if (can_parallelize_query()) {
         uint64_t smax = pow(2,g_viz_constants.RowTimeInBits) * \
               QueryEngine::max_slice_;
 
-        time_slice = ((end_time - from_time)/total_parallel_batches) + 1;
+        time_slice = ((end_time_ - from_time_)/total_parallel_batches) + 1;
 
         if (time_slice < (uint64_t)pow(2,g_viz_constants.RowTimeInBits)) {
             time_slice = pow(2,g_viz_constants.RowTimeInBits);
@@ -475,8 +475,8 @@ void AnalyticsQuery::Init(GenDb::GenDbIf *db_if, std::string qid,
         }
 
         uint8_t fs_query_type = selectquery_->flowseries_query_type();
-        if ((table == g_viz_constants.FLOW_TABLE) || 
-            (table == g_viz_constants.FLOW_SERIES_TABLE &&
+        if ((table() == g_viz_constants.FLOW_TABLE) || 
+            (table() == g_viz_constants.FLOW_SERIES_TABLE &&
              (fs_query_type == SelectQuery::FS_SELECT_STATS || 
               fs_query_type == SelectQuery::FS_SELECT_FLOW_TUPLE_STATS))) {
             merge_needed = true;
@@ -490,23 +490,23 @@ void AnalyticsQuery::Init(GenDb::GenDbIf *db_if, std::string qid,
         QE_LOG_GLOBAL(DEBUG, "No parallelization for this query");
         merge_needed = false;
         parallelize_query_ = false;
-        time_slice = end_time - from_time;
+        time_slice = end_time_ - from_time_;
     }
 
-    from_time = 
+    from_time_ = 
         original_from_time + time_slice*parallel_batch_num;
-    end_time = from_time + time_slice;
-    if (from_time >= original_end_time)
+    end_time_ = from_time_ + time_slice;
+    if (from_time_ >= original_end_time)
     {
         processing_needed = false;
-    } else if (end_time > original_end_time) {
-        end_time = original_end_time;
+    } else if (end_time_ > original_end_time) {
+        end_time_ = original_end_time;
     }
 
     if (processing_needed)
     {
         // change it to trace later TBD
-        QE_TRACE(DEBUG, "For batch:" << parallel_batch_num << " from_time:" << from_time << " end_time:" << end_time << " time slice:" << time_slice);
+        QE_TRACE(DEBUG, "For batch:" << parallel_batch_num << " from_time:" << from_time_ << " end_time:" << end_time_ << " time slice:" << time_slice);
     } else {
         QE_TRACE(DEBUG, "No processing needed for batch:" << parallel_batch_num);
     }
@@ -876,9 +876,26 @@ AnalyticsQuery::AnalyticsQuery(std::string qid, std::map<std::string,
     Init(dbif, qid, json_api_data, analytics_start_time);
 }
 
+AnalyticsQuery::AnalyticsQuery(std::string qid, GenDb::GenDbIf *dbif,
+    std::map<std::string, std::string> json_api_data, 
+    uint64_t analytics_start_time, int batch, int total_batches) :
+    QueryUnit(NULL, this),
+    dbif_(dbif),
+    query_id(qid),
+    json_api_data_(json_api_data),
+    where_start_(0), 
+    select_start_(0), 
+    postproc_start_(0),
+    merge_needed(false),
+    parallel_batch_num(batch),
+    total_parallel_batches(total_batches),
+    processing_needed(true) {
+    Init(dbif, qid, json_api_data, analytics_start_time);
+}
+
 QueryEngine::QueryEngine(EventManager *evm,
             const std::string & redis_ip, unsigned short redis_port,
-            int max_tasks, int max_slice) :    
+            int max_tasks, int max_slice, uint64_t anal_ttl) :    
         qosp_(new QEOpServerProxy(evm,
             this, redis_ip, redis_port, max_tasks)),
         evm_(evm),
@@ -892,7 +909,7 @@ QueryEngine::QueryEngine(EventManager *evm,
 
     uint64_t curr_time = UTCTimestampUsec();
     QE_LOG_NOQID(DEBUG, "Could not find analytics start time");
-    uint64_t ttl = QueryEngine::anal_ttl*60*60*1000000;
+    uint64_t ttl = anal_ttl*60*60*1000000;
     stime = curr_time - ttl;
     QE_LOG_NOQID(DEBUG, "set stime to " << stime << "and AnalyticsTTL to " << g_viz_constants.AnalyticsTTL);
 }
@@ -900,7 +917,8 @@ QueryEngine::QueryEngine(EventManager *evm,
 QueryEngine::QueryEngine(EventManager *evm,
             const std::string & cassandra_ip, unsigned short cassandra_port,
             const std::string & redis_ip, unsigned short redis_port,
-            int max_tasks, int max_slice, uint64_t start_time) :    
+            int max_tasks, int max_slice, uint64_t anal_ttl, 
+            uint64_t start_time) :  
         dbif_(GenDb::GenDbIf::GenDbIfImpl(evm->io_service(), 
             boost::bind(&QueryEngine::db_err_handler, this),
             cassandra_ip, cassandra_port, 0, "QueryEngine")),
@@ -977,14 +995,14 @@ QueryEngine::QueryEngine(EventManager *evm,
                         it != col_list.columns_.end(); it++) {
                     std::string col_name;
                     try {
-                        col_name = boost::get<std::string>(it->name[0]);
+                        col_name = boost::get<std::string>(it->name->at(0));
                     } catch (boost::bad_get& ex) {
                         QE_LOG_NOQID(ERROR, __func__ << ": Exception on col_name get");
                     }
 
                     if (col_name == g_viz_constants.SYSTEM_OBJECT_START_TIME) {
                         try {
-                            stime = boost::get<uint64_t>(it->value.at(0));
+                            stime = boost::get<uint64_t>(it->value->at(0));
                             init_done = true;
                         } catch (boost::bad_get& ex) {
                             QE_LOG_NOQID(ERROR, __func__ << "Exception for boost::get, what=" << ex.what());
@@ -998,7 +1016,7 @@ QueryEngine::QueryEngine(EventManager *evm,
                 sleep(5);
         }
         if (!init_done) {
-            uint64_t ttl = QueryEngine::anal_ttl*60*60*1000000;
+            uint64_t ttl = anal_ttl*60*60*1000000;
             uint64_t curr_time = UTCTimestampUsec();
             stime = curr_time - ttl;
             QE_LOG_NOQID(ERROR, __func__ << "setting start_time manually to" << stime);
@@ -1033,7 +1051,7 @@ QueryEngine::QueryPrepare(QueryParams qp,
         chunk_size.clear();
         q->get_query_details(need_merge, map_output, chunk_size,
             where, select, post, time_period, ret_code);
-        table = q->table;
+        table = q->table();
         delete q;
     }
     return ret_code;
@@ -1170,15 +1188,15 @@ std::ostream &operator<<(std::ostream &out, query_result_unit_t& res)
 bool AnalyticsQuery::is_object_table_query()
 {
     return (
-        (this->table != g_viz_constants.COLLECTOR_GLOBAL_TABLE) &&
-        (this->table != g_viz_constants.FLOW_TABLE) &&
-        (this->table != g_viz_constants.FLOW_SERIES_TABLE) &&
-        (this->table != g_viz_constants.OBJECT_VALUE_TABLE) &&
+        (this->table_ != g_viz_constants.COLLECTOR_GLOBAL_TABLE) &&
+        (this->table_ != g_viz_constants.FLOW_TABLE) &&
+        (this->table_ != g_viz_constants.FLOW_SERIES_TABLE) &&
+        (this->table_ != g_viz_constants.OBJECT_VALUE_TABLE) &&
         !is_stat_table_query());
 }
 
 bool AnalyticsQuery::is_stat_table_query() {
-    return (!this->table.compare(0, g_viz_constants.STAT_VT_PREFIX.length(),
+    return (!this->table_.compare(0, g_viz_constants.STAT_VT_PREFIX.length(),
             g_viz_constants.STAT_VT_PREFIX));
 }
 
@@ -1187,7 +1205,7 @@ int AnalyticsQuery::stat_table_index() {
         string nm = g_viz_constants.STAT_VT_PREFIX + "." + 
                 g_viz_constants._STAT_TABLES[i].stat_type + "." +
                 g_viz_constants._STAT_TABLES[i].stat_attr;
-        if (nm == this->table) 
+        if (nm == this->table_) 
             return i;
     }
     assert(!is_stat_table_query());
@@ -1218,7 +1236,7 @@ bool AnalyticsQuery::is_valid_select_field(const std::string& select_field)
 {
     for(size_t i = 0; i < g_viz_constants._TABLES.size(); i++)
     {
-        if (g_viz_constants._TABLES[i].name == table)
+        if (g_viz_constants._TABLES[i].name == table_)
         {
             for (size_t j = 0; 
                 j < g_viz_constants._TABLES[i].schema.columns.size(); j++)
@@ -1234,7 +1252,7 @@ bool AnalyticsQuery::is_valid_select_field(const std::string& select_field)
     for (std::map<std::string, objtable_info>::const_iterator it =
             g_viz_constants._OBJECT_TABLES.begin();
             it != g_viz_constants._OBJECT_TABLES.end(); it++) {
-        if (it->first == table)
+        if (it->first == table_)
         {
             for (size_t j = 0; 
                 j < g_viz_constants._OBJECT_TABLE_SCHEMA.columns.size(); j++)
@@ -1254,7 +1272,7 @@ bool AnalyticsQuery::is_valid_where_field(const std::string& where_field)
 {
     for(size_t i = 0; i < g_viz_constants._TABLES.size(); i++)
     {
-        if (g_viz_constants._TABLES[i].name == table)
+        if (g_viz_constants._TABLES[i].name == table_)
         {
             for (size_t j = 0; 
                 j < g_viz_constants._TABLES[i].schema.columns.size(); j++)
@@ -1270,7 +1288,7 @@ bool AnalyticsQuery::is_valid_where_field(const std::string& where_field)
     for (std::map<std::string, objtable_info>::const_iterator it =
             g_viz_constants._OBJECT_TABLES.begin();
             it != g_viz_constants._OBJECT_TABLES.end(); it++) {
-        if (it->first == table)
+        if (it->first == table_)
         {
             for (size_t j = 0; j < g_viz_constants._OBJECT_TABLE_SCHEMA.columns.size(); j++)
             {
@@ -1316,7 +1334,7 @@ bool AnalyticsQuery::is_valid_sort_field(const std::string& sort_field) {
 std::string AnalyticsQuery::get_column_field_datatype(
                                     const std::string& column_field) {
     for(size_t i = 0; i < g_viz_constants._TABLES.size(); i++) {
-        if (g_viz_constants._TABLES[i].name == table) {
+        if (g_viz_constants._TABLES[i].name == table_) {
             for (size_t j = 0; 
                  j < g_viz_constants._TABLES[i].schema.columns.size(); j++) {
                 if (g_viz_constants._TABLES[i].schema.columns[j].name == 
@@ -1330,7 +1348,7 @@ std::string AnalyticsQuery::get_column_field_datatype(
     for (std::map<std::string, objtable_info>::const_iterator it =
             g_viz_constants._OBJECT_TABLES.begin();
             it != g_viz_constants._OBJECT_TABLES.end(); it++) {
-        if (it->first == table) {
+        if (it->first == table_) {
             for (size_t j = 0; j < g_viz_constants._OBJECT_TABLE_SCHEMA.columns.size(); j++) {
                 if (g_viz_constants._OBJECT_TABLE_SCHEMA.columns[j].name == column_field) {
                     return g_viz_constants._OBJECT_TABLE_SCHEMA.columns[j].datatype;
@@ -1360,8 +1378,8 @@ std::string AnalyticsQuery::get_column_field_datatype(
 
 bool AnalyticsQuery::is_flow_query()
 {
-    return ((this->table == g_viz_constants.FLOW_SERIES_TABLE) ||
-        (this->table == g_viz_constants.FLOW_TABLE));
+    return ((this->table_ == g_viz_constants.FLOW_SERIES_TABLE) ||
+        (this->table_ == g_viz_constants.FLOW_TABLE));
 }
 
 #define UNIT_TEST_MESSAGE_FILTERS

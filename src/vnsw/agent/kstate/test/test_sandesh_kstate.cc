@@ -75,7 +75,8 @@ public:
         Ip4Address addr = Ip4Address::from_string(remote_vm, ec);
         Ip4Address gw = Ip4Address::from_string(serv, ec);
         Agent::GetInstance()->GetDefaultInet4UnicastRouteTable()->AddRemoteVmRouteReq
-            (peer_, vrf, addr, 32, gw, TunnelType::AllType(), label, vn);
+            (peer_, vrf, addr, 32, gw, TunnelType::AllType(), label, vn,
+             SecurityGroupList());
         client->WaitForIdle(5);
         WAIT_FOR(1000, 500, (RouteFind(vrf, addr, 32) == true));
     }
@@ -1010,10 +1011,10 @@ TEST_F(KStateSandeshTest, VrfStatsTest_MultiResponse) {
     ClearCount();
     VrfStatsGet(-1);
     client->WaitForIdle();
-    WAIT_FOR(1000, 1000, (response_count_ == 5));
+    WAIT_FOR(1000, 1000, (response_count_ == 6));
 
     //verify the response
-    EXPECT_EQ(5U, type_specific_response_count_);
+    EXPECT_EQ(6U, type_specific_response_count_);
     EXPECT_EQ(100U, num_entries_);
 
     //cleanup

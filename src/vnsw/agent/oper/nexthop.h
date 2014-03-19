@@ -347,7 +347,7 @@ public:
         return AgentRefCount<NextHop>::GetRefCount();
     }
 
-    Type GetType() const {return type_;};
+    Type GetType() const {return type_;}
     bool IsValid() const {return valid_;};
     bool PolicyEnabled() const {return policy_;};
 
@@ -773,7 +773,8 @@ public:
     static void DeleteVmInterfaceNHReq(const uuid &intf_uuid);
     static void CreatePacketInterfaceNhReq(const string &ifname);
     static void DeleteHostPortReq(const string &ifname);
-    static void CreateInetInterfaceNextHop(const string &ifname);
+    static void CreateInetInterfaceNextHop(const string &ifname,
+                                           const string &vrf_name);
     static void DeleteInetInterfaceNextHop(const string &ifname);
 
 private:
@@ -982,8 +983,10 @@ private:
 };
 
 struct ComponentNH {
+    ComponentNH(): label_(0), nh_(NULL) { }
+
     ComponentNH(uint32_t label, NextHop *nh): label_(label), nh_(nh) {
-    };
+    }
 
     bool operator == (const ComponentNH &rhs) const {
         if (label_ == rhs.label_ && nh_.get() == rhs.nh_.get()) {
@@ -991,7 +994,7 @@ struct ComponentNH {
         }
 
         return false;
-    };
+    }
 
     std::string ToString() {
         return nh_->ToString();

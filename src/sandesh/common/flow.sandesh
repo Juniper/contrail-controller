@@ -38,6 +38,7 @@ struct FlowDataIpv4 {
     25: optional binary    data_sample;
     26: optional i64       diff_bytes;
     27: optional i64       diff_packets;
+    28: optional string    action;
 }
 
 flowlog sandesh FlowDataIpv4Object {

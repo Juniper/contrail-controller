@@ -22,6 +22,7 @@ public:
         NEED_SYNC,      // Object changed. Needs Sync
         DEL_DEFER_SYNC, // Del pending to be sent due to sync_wait
         DEL_DEFER_REF,  // Del pending to be sent due to ref-count
+        DEL_DEFER_DEL_ACK, // Del pending to be sent due to Del Ack wait
         DEL_ACK_WAIT,   // Del request sent waiting for ack
         RENEW_WAIT,     // Object renewal waiting for delete-ack
         FREE_WAIT       // Entry to be freed
@@ -91,12 +92,16 @@ public:
     // User define KSync Response handler
     virtual void Response() { };
 
+    // Allow State Compression for delete.
+    virtual bool AllowDeleteStateComp() {return true;}
+
     size_t GetIndex() const {return index_;};
     KSyncState GetState() const {return state_;};
     uint32_t GetRefCount() const {return refcount_;} 
     bool Seen() const {return seen_;}
     void SetSeen() {seen_ = true;}
     bool IsDeleted() { return (state_ == DEL_ACK_WAIT ||
+                               state_ == DEL_DEFER_DEL_ACK ||
                                state_ == DEL_DEFER_SYNC ||
                                state_ == DEL_DEFER_REF); };
 
@@ -142,6 +147,7 @@ public:
     bool Change();
     bool Delete();
     virtual bool Sync() = 0;
+    virtual bool AllowDeleteStateComp() {return true;}
 private:
     DISALLOW_COPY_AND_ASSIGN(KSyncNetlinkEntry);
 };

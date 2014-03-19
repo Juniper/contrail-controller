@@ -86,7 +86,7 @@ void RouteExport::UnicastNotify(AgentXmppChannel *bgp_xmpp_peer,
     AgentRoute *route = static_cast<AgentRoute *>(e);
     State *state = static_cast<State *>(route->GetState(partition->parent(),
                                                         id_));
-    AgentPath *path = route->FindPath(Agent::GetInstance()->GetLocalVmPeer());
+    AgentPath *path = route->FindLocalVmPortPath();
 
     if (marked_delete_) {
         //Ignore route updates on delete marked vrf

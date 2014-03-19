@@ -152,7 +152,7 @@ DBEntryBase::KeyPtr Inet4UnicastRouteEntry::GetDBRequestKey() const {
     Agent *agent = 
         (static_cast<Inet4UnicastAgentRouteTable *>(get_table()))->agent();
     Inet4UnicastRouteKey *key = 
-        new Inet4UnicastRouteKey(agent->GetLocalPeer(),
+        new Inet4UnicastRouteKey(agent->local_peer(),
                                  vrf()->GetName(), addr_, plen_);
     return DBEntryBase::KeyPtr(key);
 }
@@ -166,6 +166,187 @@ void Inet4UnicastRouteEntry::SetKey(const DBRequestKey *key) {
     Ip4Address tmp(k->addr());
     set_addr(tmp);
     set_plen(k->plen());
+}
+
+// Function to create a ECMP path from path1 and path2
+// Creates Composite-NH with 2 Component-NH (one for each of path1 and path2)
+// Creates a new MPLS Label for the ECMP path
+AgentPath *Inet4UnicastRouteEntry::AllocateEcmpPath(Agent *agent,
+                                                    const AgentPath *path1,
+                                                    const AgentPath *path2) {
+    // Allocate and insert a path
+    AgentPath *path = new AgentPath(agent->ecmp_peer(), NULL);
+    InsertPath(path);
+
+    // Allocate a new label for the ECMP path
+    uint32_t label = agent->GetMplsTable()->AllocLabel();
+
+    // Create Component NH to be added to ECMP path
+    DBEntryBase::KeyPtr key1 = path1->nexthop(agent)->GetDBRequestKey();
+    NextHopKey *nh_key1 = static_cast<NextHopKey *>(key1.get());
+    nh_key1->SetPolicy(false);
+    ComponentNHData component_nh_data1(path1->label(), nh_key1);
+
+    DBEntryBase::KeyPtr key2 = path2->nexthop(agent)->GetDBRequestKey();
+    NextHopKey *nh_key2 = static_cast<NextHopKey *>(key2.get());
+    nh_key2->SetPolicy(false);
+    ComponentNHData component_nh_data2(path2->label(), nh_key2);
+
+    std::vector<ComponentNHData> component_nh_list;
+    component_nh_list.push_back(component_nh_data1);
+    component_nh_list.push_back(component_nh_data2);
+
+    // Directly call AddChangePath to update NH in the ECMP path
+    // It will also create CompositeNH if necessary
+    DBRequest nh_req(DBRequest::DB_ENTRY_ADD_CHANGE);
+    nh_req.key.reset(new CompositeNHKey(vrf()->GetName(), addr_, plen_, true));
+    nh_req.data.reset(new CompositeNHData(component_nh_list,
+                                          CompositeNHData::REPLACE));
+
+    Inet4UnicastEcmpRoute data(addr_, plen_, path2->dest_vn_name(),
+                               label, true, vrf()->GetName(), path2->sg_list(),
+                               nh_req);
+
+    data.AddChangePath(agent, path);
+
+    //Make MPLS label point to Composite NH
+    MplsLabel::CreateEcmpLabel(label, vrf()->GetName(), addr_, plen_);
+
+    RouteInfo rt_info;
+    FillTrace(rt_info, AgentRoute::CHANGE_PATH, path);
+    OPER_TRACE(Route, rt_info);
+    AGENT_ROUTE_LOG("Path change", ToString(), vrf()->GetName(),
+                    agent->ecmp_peer());
+
+    return path;
+}
+
+// Handle deletion of a path in route. If the path being deleted is part of
+// ECMP, then deletes the Component-NH for the path.
+// Delete ECMP path if there is single Component-NH in Composite-NH
+bool Inet4UnicastRouteEntry::EcmpDeletePath(AgentPath *path) {
+    if (path->peer() == NULL) {
+        return false;
+    }
+
+    if (path->peer()->GetType() != Peer::LOCAL_VM_PORT_PEER) {
+        return false;
+    }
+
+    Agent *agent = 
+        (static_cast<Inet4UnicastAgentRouteTable *> (get_table()))->agent();
+
+    // Composite-NH is made from LOCAL_VM_PORT_PEER, count number of paths
+    // with LOCAL_VM_PORT_PEER
+    int count = 0;
+    for(Route::PathList::const_iterator it = GetPathList().begin(); 
+        it != GetPathList().end(); it++) {
+        const AgentPath *it_path =
+            static_cast<const AgentPath *>(it.operator->());
+
+        if (it_path->peer() &&
+            it_path->peer()->GetType() == Peer::LOCAL_VM_PORT_PEER)
+            count++;
+    }
+
+    AgentPath *ecmp = NULL;
+    // Sanity check. When more than one LOCAL_VM_PORT_PEER, ECMP must be present
+    if (count >= 1) {
+        ecmp = FindPath(agent->ecmp_peer());
+        assert(ecmp != NULL);
+    }
+
+    if (count == 1 && ecmp) {
+        // There is single path of type LOCAL_VM_PORT_PEER. Delete the ECMP path
+        remove(ecmp);
+        //Enqueue MPLS label delete request
+        MplsLabel::Delete(ecmp->label());
+        delete ecmp;
+    } else if (count > 1) {
+        // Remove Component-NH for the path being deleted
+        DBEntryBase::KeyPtr key = path->nexthop(agent)->GetDBRequestKey();
+        NextHopKey *nh_key = static_cast<NextHopKey *>(key.get());
+        nh_key->SetPolicy(false);
+        // TODO: This is inefficient. Need to fix.
+        ComponentNHData component_nh_data(path->label(), nh_key);
+
+        CompositeNH::DeleteComponentNH(vrf()->GetName(), addr_, plen_, false,
+                                       component_nh_data);
+        CompositeNH::DeleteComponentNH(vrf()->GetName(), addr_, plen_, true,
+                                       component_nh_data);
+    }
+
+    return true;
+}
+
+// Handle add/update of a path in route. 
+// If there are more than one path of type LOCAL_VM_PORT_PEER, creates/updates
+// Composite-NH for them
+bool Inet4UnicastRouteEntry::EcmpAddPath(AgentPath *path) {
+
+    if (path->peer() == NULL) {
+        return false;
+    }
+
+    // We are interested only in path from LOCAL_VM_PORT_PEER
+    if (path->peer()->GetType() != Peer::LOCAL_VM_PORT_PEER) {
+        return false;
+    }
+
+    Agent *agent = 
+        (static_cast<Inet4UnicastAgentRouteTable *> (get_table()))->agent();
+
+    // Count number of paths from LOCAL_VM_PORT_PEER already present
+    const AgentPath *ecmp = NULL;
+    const AgentPath *vm_port_path = NULL;
+    int count = 0;
+    for(Route::PathList::const_iterator it = GetPathList().begin(); 
+        it != GetPathList().end(); it++) {
+        const AgentPath *it_path = 
+            static_cast<const AgentPath *>(it.operator->());
+
+        if (it_path->peer() == agent->ecmp_peer())
+            ecmp = it_path;
+
+        if (it_path->peer() &&
+            it_path->peer()->GetType() == Peer::LOCAL_VM_PORT_PEER) {
+            count++;
+            if (it_path != path)
+                vm_port_path = it_path;
+        }
+    }
+
+    if (count == 0) {
+        return false;
+    }
+
+    // Sanity check. When more than one LOCAL_VM_PORT_PEER, ECMP must be present
+    if (count > 2) {
+        assert(ecmp != NULL);
+    }
+
+    if (count == 1) {
+        assert(ecmp == NULL);
+    }
+
+    if (count == 2 && ecmp == NULL) {
+        // This is second path being added, make ECMP 
+        AllocateEcmpPath(agent, vm_port_path, path);
+    } else if (count > 2) {
+        // ECMP already present, add/update Component-NH for the path
+        DBEntryBase::KeyPtr key = path->nexthop(agent)->GetDBRequestKey();
+        NextHopKey *nh_key = static_cast<NextHopKey *>(key.get());
+        nh_key->SetPolicy(false);
+        ComponentNHData component_nh_data(path->label(), nh_key);
+
+        //Update composite NH pointed by MPLS label
+        CompositeNH::AppendComponentNH(vrf()->GetName(), addr_, plen_, true,
+                                       component_nh_data);
+        //Update new interface to route pointed composite NH
+        CompositeNH::AppendComponentNH(vrf()->GetName(), addr_, plen_, false, 
+                                       component_nh_data);
+    }
+    return true;
 }
 
 /////////////////////////////////////////////////////////////////////////////
@@ -381,7 +562,7 @@ Inet4UnicastAgentRouteTable::AddHostRoute(const string &vrf_name,
                                           const std::string &dest_vn_name) {
     Agent *agent = Agent::GetInstance();
     DBRequest req(DBRequest::DB_ENTRY_ADD_CHANGE);
-    req.key.reset(new Inet4UnicastRouteKey(agent->GetLocalPeer(), vrf_name,
+    req.key.reset(new Inet4UnicastRouteKey(agent->local_peer(), vrf_name,
                                            addr, plen));
 
     PacketInterfaceKey intf_key(nil_uuid(), agent->GetHostInterfaceName());
@@ -515,24 +696,6 @@ static void MakeRemoteVmRouteReq(Agent *agent, DBRequest &rt_req,
     rt_req.data.reset(rt_data);
 }
 
-// Create Route for a Remote VM
-// Also creates Tunnel-NH for the route
-void 
-Inet4UnicastAgentRouteTable::AddRemoteVmRouteReq(const Peer *peer,
-                                                 const string &vm_vrf,
-                                                 const Ip4Address &vm_addr,
-                                                 uint8_t plen,
-                                                 const Ip4Address &server_ip,
-                                                 TunnelType::TypeBmap bmap,
-                                                 uint32_t label,
-                                                 const string &dest_vn_name) {
-    Agent *agent = Agent::GetInstance();
-    DBRequest req;
-    MakeRemoteVmRouteReq(agent, req, peer, vm_vrf, vm_addr, plen, server_ip,
-                         bmap, label, dest_vn_name, SecurityGroupList());
-    UnicastTableEnqueue(agent, vm_vrf, &req);
-}
-
 void 
 Inet4UnicastAgentRouteTable::AddRemoteVmRouteReq(const Peer *peer,
                                                  const string &vm_vrf,
@@ -575,28 +738,6 @@ Inet4UnicastAgentRouteTable::AddRemoteVmRouteReq(const Peer *peer,
     UnicastTableEnqueue(Agent::GetInstance(), vm_vrf, &req);
 }
 
-void
-Inet4UnicastAgentRouteTable::AddLocalEcmpRoute(const Peer *peer,
-                                               const string &vm_vrf,
-                                               const Ip4Address &vm_addr,
-                                               uint8_t plen,
-                                               std::vector<ComponentNHData> 
-                                               comp_nh_list,
-                                               uint32_t label,
-                                               const string &dest_vn_name, 
-                                               const SecurityGroupList &sg) {
-    DBRequest nh_req(DBRequest::DB_ENTRY_ADD_CHANGE);
-    nh_req.key.reset(new CompositeNHKey(vm_vrf, vm_addr, plen, true));
-    nh_req.data.reset(new CompositeNHData(comp_nh_list,
-                                          CompositeNHData::REPLACE));
-
-    DBRequest req(DBRequest::DB_ENTRY_ADD_CHANGE);
-    req.key.reset(new Inet4UnicastRouteKey(peer, vm_vrf, vm_addr, plen));
-    req.data.reset(new Inet4UnicastEcmpRoute(vm_addr, plen, dest_vn_name,
-                                             label, true, vm_vrf, sg, nh_req));
-    UnicastTableProcess(Agent::GetInstance(), vm_vrf, req);
-}
-
 void 
 Inet4UnicastAgentRouteTable::AddArpReq(const string &vrf_name, 
                                        const Ip4Address &ip) {
@@ -608,7 +749,7 @@ Inet4UnicastAgentRouteTable::AddArpReq(const string &vrf_name,
     agent->GetNextHopTable()->Enqueue(&nh_req);
 
     DBRequest  rt_req(DBRequest::DB_ENTRY_ADD_CHANGE);
-    rt_req.key.reset(new Inet4UnicastRouteKey(agent->GetLocalPeer(),
+    rt_req.key.reset(new Inet4UnicastRouteKey(agent->local_peer(),
                                               vrf_name, ip, 32));
     rt_req.data.reset(new Inet4UnicastArpRoute(vrf_name, ip));
     UnicastTableEnqueue(agent, vrf_name, &rt_req);
@@ -632,7 +773,7 @@ Inet4UnicastAgentRouteTable::ArpRoute(DBRequest::DBOperation op,
 
     DBRequest  rt_req(op);
     Inet4UnicastRouteKey *rt_key = 
-        new Inet4UnicastRouteKey(agent->GetLocalPeer(),
+        new Inet4UnicastRouteKey(agent->local_peer(),
                                  vrf_name, ip, plen);
     Inet4UnicastArpRoute *data = NULL;
 
@@ -688,7 +829,7 @@ void Inet4UnicastAgentRouteTable::AddResolveRoute(const string &vrf_name,
                                                   const uint8_t plen) {
     Agent *agent = Agent::GetInstance();
     DBRequest req(DBRequest::DB_ENTRY_ADD_CHANGE);
-    req.key.reset(new Inet4UnicastRouteKey(agent->GetLocalPeer(), vrf_name, ip,
+    req.key.reset(new Inet4UnicastRouteKey(agent->local_peer(), vrf_name, ip,
                                            plen));
     req.data.reset(new ResolveRoute());
     UnicastTableEnqueue(agent, vrf_name, &req);
@@ -767,20 +908,21 @@ Inet4UnicastAgentRouteTable::AddVHostSubnetRecvRoute(const Peer *peer,
 
 void Inet4UnicastAgentRouteTable::AddDropRoute(const string &vm_vrf,
                                                const Ip4Address &addr,
-                                               uint8_t plen) {
+                                               uint8_t plen,
+                                               const string &vn_name) {
     Agent *agent = Agent::GetInstance();
     DBRequest req(DBRequest::DB_ENTRY_ADD_CHANGE);
-    req.key.reset(new Inet4UnicastRouteKey(agent->GetLocalPeer(), vm_vrf,
+    req.key.reset(new Inet4UnicastRouteKey(agent->local_peer(), vm_vrf,
                                            GetIp4SubnetAddress(addr, plen),
                                            plen));
-    req.data.reset(new DropRoute());
+    req.data.reset(new DropRoute(vn_name));
     UnicastTableEnqueue(agent, vm_vrf, &req);
 }
 
 void Inet4UnicastAgentRouteTable::DelVHostSubnetRecvRoute(const string &vm_vrf,
                                                           const Ip4Address &addr,
                                                           uint8_t plen) {
-    DeleteReq(Agent::GetInstance()->GetLocalPeer(), vm_vrf,
+    DeleteReq(Agent::GetInstance()->local_peer(), vm_vrf,
               GetIp4SubnetAddress(addr, plen), 32);
 }
 
@@ -789,7 +931,7 @@ static void AddGatewayRouteInternal(DBRequest *req, const string &vrf_name,
                                     const Ip4Address &gw_ip,
                                     const string &vn_name) {
     req->oper = DBRequest::DB_ENTRY_ADD_CHANGE;
-    req->key.reset(new Inet4UnicastRouteKey(Agent::GetInstance()->GetLocalPeer(),
+    req->key.reset(new Inet4UnicastRouteKey(Agent::GetInstance()->local_peer(),
                                             vrf_name, dst_addr, plen));
     req->data.reset(new Inet4UnicastGatewayRoute(gw_ip, vrf_name));
 }

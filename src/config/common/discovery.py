@@ -2,12 +2,14 @@
 # Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
 #
 import gevent
+import logging
 import kazoo.client
 import kazoo.exceptions
 import kazoo.handlers.gevent
 import kazoo.recipe.election
 from bitarray import bitarray
-from cfgm_common.exceptions import ResourceExhaustionError
+from cfgm_common.exceptions import ResourceExhaustionError, ResourceExistsError
+
 
 
 class IndexAllocator(object):
@@ -66,7 +68,7 @@ class IndexAllocator(object):
             id_str = "%(#)010d" % {'#': idx}
             self._disc_service.create_node(self._path + id_str, value)
             return idx
-        except kazoo.exceptions.NodeExistsError:
+        except ResourceExistsError:
             return self.alloc(value)
     # end alloc
 
@@ -79,16 +81,14 @@ class IndexAllocator(object):
             self._disc_service.create_node(self._path + id_str, value)
             self._set_in_use(self._get_bit_from_zk_index(idx))
             return idx
-        except kazoo.exceptions.NodeExistsError:
+        except ResourceExistsError:
+            self._set_in_use(self._get_bit_from_zk_index(idx))
             return None
     # end reserve
 
     def delete(self, idx):
-        try:
-            id_str = "%(#)010d" % {'#': idx}
-            self._disc_service.delete_node(self._path + id_str)
-        except kazoo.exceptions.NoNodeError:
-            pass
+        id_str = "%(#)010d" % {'#': idx}
+        self._disc_service.delete_node(self._path + id_str)
         bit_idx = self._get_bit_from_zk_index(idx)
         if bit_idx < self._in_use.length():
             self._in_use[bit_idx] = 0
@@ -96,18 +96,35 @@ class IndexAllocator(object):
 
     def read(self, idx):
         id_str = "%(#)010d" % {'#': idx}
-        return self._disc_service.read_node(self._path + id_str)
+        id_val = self._disc_service.read_node(self._path+id_str)
+        if id_val is not None:
+            self._set_in_use(self._get_bit_from_zk_index(idx))
+        return id_val
     # end read
 
     def empty(self):
         return not self._in_use.any()
     # end empty
-# end class IndexAllocator
+
+    @classmethod
+    def delete_all(cls, disc_service, path):
+        disc_service.delete_node(path, recursive=True)
+    # end delete_all
+
+#end class IndexAllocator
 
 
 class DiscoveryService(object):
 
-    def __init__(self, server_list, logger=None):
+    def __init__(self, module, server_list):
+        # logging
+        logger = logging.getLogger(module)
+        logger.setLevel(logging.INFO)
+        handler = logging.handlers.RotatingFileHandler('/var/log/contrail/' + module + '-zk.log', maxBytes=1024*1024, backupCount=10)
+        log_format = logging.Formatter('%(asctime)s [%(name)s]: %(message)s', datefmt='%m/%d/%Y %I:%M:%S %p')
+        handler.setFormatter(log_format)
+        logger.addHandler(handler)
+
         self._zk_client = \
             kazoo.client.KazooClient(
                 server_list,
@@ -115,6 +132,7 @@ class DiscoveryService(object):
                 logger=logger)
 
         self._logger = logger
+        self._election = None
         self.connect()
     # end __init__
 
@@ -123,7 +141,9 @@ class DiscoveryService(object):
         while True:
             try:
                 if restart:
-                    self._zk_client.restart()
+                    self._zk_client.stop()
+                    self._zk_client.close()
+                    self._zk_client.start()
                 else:
                     self._zk_client.start()
                 break
@@ -148,9 +168,21 @@ class DiscoveryService(object):
         self._logger.debug(msg)
     # end syslog
 
+    def _zk_listener(self, state):
+        if state == "CONNECTED":
+            self._election.cancel()
+    # end
+
+    def _zk_election_callback(self, func, *args, **kwargs):
+        self._zk_client.remove_listener(self._zk_listener)
+        func(*args, **kwargs)
+    # end
+
     def master_election(self, path, identifier, func, *args, **kwargs):
-        election = self._zk_client.Election(path, identifier)
-        election.run(func, *args, **kwargs)
+        self._zk_client.add_listener(self._zk_listener)
+        while True:
+            self._election = self._zk_client.Election(path, identifier)
+            self._election.run(self._zk_election_callback, func, *args, **kwargs)
     # end master_election
 
     def create_node(self, path, value):
@@ -160,15 +192,19 @@ class DiscoveryService(object):
                 kazoo.exceptions.ConnectionLoss):
             self.reconnect()
             return self.create_node(path, value)
+        except kazoo.exceptions.NodeExistsError:
+            raise ResourceExistsError(path, str(value))
     # end create_node
 
-    def delete_node(self, path):
+    def delete_node(self, path, recursive=False):
         try:
-            self._zk_client.delete(path)
+            self._zk_client.delete(path, recursive=recursive)
         except (kazoo.exceptions.SessionExpiredError,
                 kazoo.exceptions.ConnectionLoss):
             self.reconnect()
             self.delete_node(path)
+        except kazoo.exceptions.NoNodeError:
+            pass
     # end delete_node
 
     def read_node(self, path):

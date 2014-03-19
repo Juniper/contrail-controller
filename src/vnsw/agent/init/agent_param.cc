@@ -308,6 +308,23 @@ static void ParseLinklocalFlows(const ptree &node,
     }
 }
 
+static void ParseFlowTimeout(const ptree &node,
+                             const string &config_file,
+                             uint32_t *flow_cache_timeout) {
+    try {
+        optional<unsigned int> opt_str;
+        if (opt_str = node.get_optional<unsigned int>
+                      ("config.agent.flow-cache.timeout")) {
+            *flow_cache_timeout = opt_str.get();
+        } else {
+            *flow_cache_timeout = Agent::kDefaultFlowCacheTimeout;
+        }
+    } catch (exception &e) {
+        LOG(ERROR, "Error reading \"flow-cache\" node in config file <"
+            << config_file << ">. Error <" << e.what() << ">");
+    }
+}
+
 // Initialize hypervisor mode based on system information
 // If "/proc/xen" exists it means we are running in Xen dom0
 void AgentParam::InitFromSystem() {
@@ -366,6 +383,7 @@ void AgentParam::InitFromConfig() {
     ParseMetadataProxy(tree, config_file_, &metadata_shared_secret_);
     ParseLinklocalFlows(tree, config_file_, &linklocal_system_flows_,
                         &linklocal_vm_flows_);
+    ParseFlowTimeout(tree, config_file_, &flow_cache_timeout_);
     LOG(DEBUG, "Config file <" << config_file_ << "> read successfully.");
     return;
 }
@@ -449,7 +467,7 @@ void AgentParam::InitFromArguments
 // Update linklocal max flows if they are greater than the max allowed for the
 // process. Also, ensure that the process is allowed to open upto
 // linklocal_system_flows + kMaxOtherOpenFds files
-void AgentParam::ValidateLinkLocalFlows() {
+void AgentParam::ComputeLinkLocalFlowLimits() {
     struct rlimit rl;
     int result = getrlimit(RLIMIT_NOFILE, &rl);
     if (result == 0) {
@@ -490,17 +508,59 @@ void AgentParam::ValidateLinkLocalFlows() {
     }
 }
 
+static bool ValidateInterface(const std::string &ifname) {
+    int fd = socket(AF_LOCAL, SOCK_STREAM, 0);
+    assert(fd >= 0);
+
+    struct ifreq ifr;
+    memset(&ifr, 0, sizeof(ifr));
+    strncpy(ifr.ifr_name, ifname.c_str(), IF_NAMESIZE);
+    int err = ioctl(fd, SIOCGIFHWADDR, (void *)&ifr);
+    close (fd);
+
+    if (err < 0) {
+        LOG(ERROR, "Error reading interface <" << ifname << ">. Error number "
+            << errno << " : " << strerror(errno));
+        return false;
+    }
+
+    return true;
+}
+
 void AgentParam::Validate() {
-    // Validate vhost_name
+    // Validate vhost interface name
     if (vhost_.name_ == "") {
         LOG(ERROR, "Configuration error. vhost interface name not specified");
         exit(EINVAL);
+    }
+
+    // Check if interface is already present
+    if (ValidateInterface(vhost_.name_) == false) {
+        exit(ENODEV);
     }
 
     // Validate ethernet port
     if (eth_port_ == "") {
         LOG(ERROR, "Configuration error. eth_port not specified");
         exit(EINVAL);
+    }
+
+    // Check if interface is already present
+    if (ValidateInterface(eth_port_) == false) {
+        exit(ENODEV);
+    }
+
+    // Validate physical port used in vmware
+    if (mode_ == MODE_VMWARE) {
+        if (vmware_physical_port_ == "") {
+            LOG(ERROR, "Configuration error. Physical port connecting to "
+                "virtual-machines not specified");
+            exit(EINVAL);
+        }
+
+        if (ValidateInterface(vmware_physical_port_) == false) {
+            exit(ENODEV);
+        }
     }
 
     // Set the prefix address for VHOST and XENLL interfaces
@@ -510,7 +570,6 @@ void AgentParam::Validate() {
     mask = xen_ll_.plen_ ? (0xFFFFFFFF << (32 - xen_ll_.plen_)) : 0;
     xen_ll_.prefix_ = Ip4Address(xen_ll_.addr_.to_ulong() & mask);
 
-    ValidateLinkLocalFlows();
 }
 
 void AgentParam::Init(const string &config_file, const string &program_name,
@@ -521,9 +580,9 @@ void AgentParam::Init(const string &config_file, const string &program_name,
     InitFromSystem();
     InitFromConfig();
     InitFromArguments(var_map);
-    Validate();
     vgw_config_table_->Init(config_file.c_str());
-    LogConfig();
+
+    ComputeLinkLocalFlowLimits();
 }
 
 void AgentParam::LogConfig() const {
@@ -542,6 +601,7 @@ void AgentParam::LogConfig() const {
     LOG(DEBUG, "Metadata-Proxy Shared Secret: " << metadata_shared_secret_);
     LOG(DEBUG, "Linklocal Max System Flows  : " << linklocal_system_flows_);
     LOG(DEBUG, "Linklocal Max Vm Flows      : " << linklocal_vm_flows_);
+    LOG(DEBUG, "Flow cache timeout          : " << flow_cache_timeout_);
     if (mode_ == MODE_KVM) {
     LOG(DEBUG, "Hypervisor mode             : kvm");
         return;
@@ -565,7 +625,7 @@ AgentParam::AgentParam() :
         xmpp_server_2_(), dns_server_1_(), dns_server_2_(), dss_server_(),
         mgmt_ip_(), mode_(MODE_KVM), xen_ll_(), tunnel_type_(),
         metadata_shared_secret_(), linklocal_system_flows_(),
-        linklocal_vm_flows_(), config_file_(), program_name_(),
+        linklocal_vm_flows_(), flow_cache_timeout_(), config_file_(), program_name_(),
         log_file_(), log_local_(false), log_level_(), log_category_(),
         collector_(), collector_port_(), http_server_port_(), host_name_(),
         agent_stats_interval_(AgentStatsCollector::AgentStatsInterval), 
@@ -573,4 +633,7 @@ AgentParam::AgentParam() :
         vmware_physical_port_("") {
     vgw_config_table_ = std::auto_ptr<VirtualGatewayConfigTable>
         (new VirtualGatewayConfigTable());
+}
+AgentParam::~AgentParam()
+{
 }

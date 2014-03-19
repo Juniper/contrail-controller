@@ -11,9 +11,6 @@
 #include "ksync/ksync_sock_user.h"
 #include <uve/agent_stats_collector_test.h>
 
- 
-#define MAX_VNET 2
-
 using namespace std;
 
 void RouterIdDepInit() {
@@ -342,6 +339,84 @@ TEST_F(StatsTestMock, FlowStatsOverflow_AgeTest) {
     //Restore flow aging time
     Agent::GetInstance()->uve()->
         flow_stats_collector()->UpdateFlowAgeTime(bkp_age_time);
+}
+
+TEST_F(StatsTestMock, DeletedFlowStatsTest) {
+    hash_id = 1;
+    //Flow creation using IP packet
+    TxIpPacketUtil(flow0->id(), "1.1.1.1", "1.1.1.2", 0, hash_id);
+    client->WaitForIdle(10);
+    EXPECT_TRUE(FlowGet("vrf5", "1.1.1.1", "1.1.1.2", 0, 0, 0, false, 
+                        "vn5", "vn5", hash_id++));
+    //Create flow in reverse direction and make sure it is linked to previous flow
+    TxIpPacketUtil(flow1->id(), "1.1.1.2", "1.1.1.1", 0, hash_id);
+    client->WaitForIdle(10);
+    EXPECT_TRUE(FlowGet("vrf5", "1.1.1.2", "1.1.1.1", 0, 0, 0, true, 
+                          "vn5", "vn5", hash_id++));
+
+    //Flow creation using TCP packet
+    TxTcpPacketUtil(flow0->id(), "1.1.1.1", "1.1.1.2",
+                    1000, 200, hash_id);
+    client->WaitForIdle(10);
+    EXPECT_TRUE(FlowGet("vrf5", "1.1.1.1", "1.1.1.2", 6, 1000, 200, false,
+                        "vn5", "vn5", hash_id++));
+
+    //Create flow in reverse direction and make sure it is linked to previous flow
+    TxTcpPacketUtil(flow1->id(), "1.1.1.2", "1.1.1.1",
+                200, 1000, hash_id);
+    client->WaitForIdle(10);
+    EXPECT_TRUE(FlowGet("vrf5", "1.1.1.2", "1.1.1.1", 6, 200, 1000, true, 
+                        "vn5", "vn5", hash_id++));
+
+    //Verify flow count
+    EXPECT_EQ(4U, Agent::GetInstance()->pkt()->flow_table()->Size());
+
+    //Invoke FlowStatsCollector to update the stats
+    Agent::GetInstance()->uve()->flow_stats_collector()->Run();
+
+    //Verify flow stats
+    EXPECT_TRUE(FlowStatsMatch("vrf5", "1.1.1.1", "1.1.1.2", 0, 0, 0, 1, 30));
+    EXPECT_TRUE(FlowStatsMatch("vrf5", "1.1.1.2", "1.1.1.1", 0, 0, 0, 1, 30));
+    EXPECT_TRUE(FlowStatsMatch("vrf5", "1.1.1.1", "1.1.1.2", 6, 1000, 200, 1, 30));
+    EXPECT_TRUE(FlowStatsMatch("vrf5", "1.1.1.2", "1.1.1.1", 6, 200, 1000, 1, 30));
+
+    VrfEntry *vrf = Agent::GetInstance()->GetVrfTable()->FindVrfFromName("vrf5");
+    EXPECT_TRUE(vrf != NULL);
+    if (vrf == NULL)
+        return;
+
+    FlowEntry* one = FlowGet(vrf->vrf_id(), "1.1.1.1", "1.1.1.2", 0, 0, 0);
+    FlowEntry* two = FlowGet(vrf->vrf_id(), "1.1.1.2", "1.1.1.1", 0, 0, 0);
+
+    //Mark the flow entries as deleted
+    one->set_deleted(true);
+    two->set_deleted(true);
+
+    //Change the stats
+    KSyncSockTypeMap::IncrFlowStats(1, 1, 30);
+    KSyncSockTypeMap::IncrFlowStats(2, 1, 30);
+    KSyncSockTypeMap::IncrFlowStats(3, 1, 30);
+    KSyncSockTypeMap::IncrFlowStats(4, 1, 30);
+
+    //Invoke FlowStatsCollector to update the stats
+    Agent::GetInstance()->uve()->flow_stats_collector()->Run();
+
+    //Verify flow stats are unchanged for deleted flows
+    EXPECT_TRUE(FlowStatsMatch("vrf5", "1.1.1.1", "1.1.1.2", 0, 0, 0, 1, 30));
+    EXPECT_TRUE(FlowStatsMatch("vrf5", "1.1.1.2", "1.1.1.1", 0, 0, 0, 1, 30));
+
+    //Verfiy flow stats are updated for flows which are not marked for delete
+    EXPECT_TRUE(FlowStatsMatch("vrf5", "1.1.1.1", "1.1.1.2", 6, 1000, 200, 2, 60));
+    EXPECT_TRUE(FlowStatsMatch("vrf5", "1.1.1.2", "1.1.1.1", 6, 200, 1000, 2, 60));
+
+    //Remove the deleted flag, so that the cleanup can happen
+    one->set_deleted(false);
+    two->set_deleted(false);
+
+    //cleanup
+    client->EnqueueFlowFlush();
+    client->WaitForIdle();
+    WAIT_FOR(100, 10000, (Agent::GetInstance()->pkt()->flow_table()->Size() == 0U));
 }
 
 TEST_F(StatsTestMock, IntfStatsTest) {

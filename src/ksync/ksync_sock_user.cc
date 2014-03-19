@@ -716,7 +716,8 @@ void KSyncUserSockFlowContext::Process() {
         KSyncSockTypeMap::FlowNatResponse(GetSeqNum(), req_);
         return;
     }
-    KSyncSockTypeMap::SimulateResponse(GetSeqNum(), 0, 0); 
+    SetResponseReqd(false);
+    KSyncSockTypeMap::FlowNatResponse(GetSeqNum(), req_);
 }
 
 void KSyncUserSockContext::FlowMsgHandler(vr_flow_req *req) {

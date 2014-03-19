@@ -54,7 +54,7 @@ void NotifyXMPPofRecipientChange(const std::string &vrf_name,
     if (!IS_BCAST_MCAST(dip)) { 
         MCTRACE(Log, "notify subnet route chg", vrf_name, dip.to_string(), 0);
         Inet4UnicastAgentRouteTable::AddSubnetBroadcastRoute(
-                                     Agent::GetInstance()->GetLocalVmPeer(), 
+                                     Agent::GetInstance()->local_vm_peer(), 
                                      vrf_name,
                                      IpAddress::from_string("0.0.0.0", ec).to_v4(),
                                      dip, vn_name);
@@ -149,7 +149,7 @@ void MulticastHandler::AddSubnetRoute(const std::string &vrf_name,
 
     MCTRACE(Log, "subnet route ", vrf_name, addr.to_string(), 0);
     Inet4UnicastAgentRouteTable::AddSubnetBroadcastRoute(
-                                 Agent::GetInstance()->GetLocalVmPeer(), 
+                                 Agent::GetInstance()->local_vm_peer(), 
                                  vrf_name,
                                  IpAddress::from_string("0.0.0.0", ec).to_v4(),
                                  addr, vn_name);
@@ -164,7 +164,7 @@ void MulticastHandler::DeleteSubnetRoute(const std::string &vrf_name,
                                          const Ip4Address &addr)
 {
     MCTRACE(Log, "delete subnet route ", vrf_name, addr.to_string(), 0);
-    Inet4UnicastAgentRouteTable::DeleteReq(Agent::GetInstance()->GetLocalVmPeer(), 
+    Inet4UnicastAgentRouteTable::DeleteReq(Agent::GetInstance()->local_vm_peer(), 
                                            vrf_name, addr, 32);
     MulticastGroupObject *subnet_broadcast = 
         this->FindGroupObject(vrf_name, addr);
@@ -205,7 +205,7 @@ void MulticastHandler::DeleteVnIPAM(const VnEntry *vn)
                           broadcast_addr);
 
         /*
-        Inet4UcRouteTable::DeleteReq(Agent::GetInstance()->GetLocalVmPeer(), 
+        Inet4UcRouteTable::DeleteReq(Agent::GetInstance()->local_vm_peer(), 
                                      GetAssociatedVrfForVn(vn->GetUuid()), 
                                      broadcast_addr, 32);
                                      */
@@ -368,9 +368,16 @@ void MulticastHandler::HandleFamilyConfig(const VnEntry *vn)
     bool new_layer2_forwarding = vn->layer2_forwarding();
     bool new_ipv4_forwarding = vn->Ipv4Forwarding();
 
+    if (!vn->GetVrf())
+        return;
+
+    std::string vrf_name = vn->GetVrf()->GetName();
     for (std::set<MulticastGroupObject *>::iterator it =
          MulticastHandler::GetInstance()->GetMulticastObjList().begin(); 
          it != MulticastHandler::GetInstance()->GetMulticastObjList().end(); it++) {
+        if (vrf_name != (*it)->vrf_name())
+            continue;
+
         if (!(new_layer2_forwarding) && (*it)->layer2_forwarding()) {
             (*it)->SetLayer2Forwarding(new_layer2_forwarding);
             if (IS_BCAST_MCAST((*it)->GetGroupAddress())) { 
@@ -385,10 +392,7 @@ void MulticastHandler::HandleFamilyConfig(const VnEntry *vn)
                                            (*it)->GetSourceAddress(), 
                                            (*it)->GetGroupAddress());
             } else {
-                Inet4UnicastAgentRouteTable::DeleteReq(
-                                        Agent::GetInstance()->GetLocalVmPeer(), 
-                                        (*it)->vrf_name(), 
-                                        (*it)->GetGroupAddress(), 32);
+                DeleteSubnetRoute((*it)->vrf_name(), (*it)->GetGroupAddress());
             }
         }
         if ((*it)->IsMultiProtoSupported() && 

@@ -229,8 +229,8 @@ void SelectQuery::fs_write_final_result_row(const uint64_t *t,
 
 inline uint64_t SelectQuery::fs_get_time_slice(const uint64_t& t) {
     AnalyticsQuery *mquery = (AnalyticsQuery*)main_query;
-    uint64_t time_sample = (t - mquery->req_from_time)/granularity;
-    return mquery->req_from_time + (time_sample * granularity);
+    uint64_t time_sample = (t - mquery->req_from_time())/granularity;
+    return mquery->req_from_time() + (time_sample * granularity);
 }
 
 query_status_t SelectQuery::process_fs_query(
@@ -238,7 +238,7 @@ query_status_t SelectQuery::process_fs_query(
         populate_fs_result_callback populate_fs_result_cb) {
     AnalyticsQuery *mquery = (AnalyticsQuery*)main_query;
     std::vector<query_result_unit_t>& where_query_result = 
-        mquery->wherequery_->query_result; 
+        mquery->where_query_result(); 
     std::vector<query_result_unit_t>::iterator where_result_it;
     // Walk thru each entry in the where result
     for (where_result_it = where_query_result.begin(); 
@@ -247,10 +247,10 @@ query_status_t SelectQuery::process_fs_query(
         flow_stats stats;
         flow_tuple tuple;
         where_result_it->get_uuid_stats_8tuple(uuid, stats, tuple);
-        tuple.direction = mquery->wherequery_->direction_ing;
+        tuple.direction = mquery->direction_ing();
         uint64_t t = where_result_it->timestamp;
         // Check if the timestamp is interesting to us
-        if (t < mquery->from_time || t > mquery->end_time) {
+        if (t < mquery->from_time() || t > mquery->end_time()) {
             continue;
         }
 
@@ -269,7 +269,7 @@ void SelectQuery::process_fs_query_with_ts_stats_fields(
     AnalyticsQuery *mquery = (AnalyticsQuery*)main_query;
     // Get the time slice
     uint64_t ts = fs_get_time_slice(t);
-    if (ts > mquery->end_time) {
+    if (ts > mquery->end_time()) {
         return;
     }
 
@@ -335,7 +335,7 @@ void SelectQuery::process_fs_query_with_ts_tuple_stats_fields(
     get_flow_class(tuple, flowclass);
     // Get the time slice 
     uint64_t ts = fs_get_time_slice(t);
-    if (ts > mquery->end_time) {
+    if (ts > mquery->end_time()) {
         QE_TRACE(DEBUG, "ts > end_time");
         return;
     }
@@ -401,7 +401,7 @@ void SelectQuery::process_fs_query_with_ts_tuple_fields(
     get_flow_class(tuple, flowclass);
     // Get the time slice
     uint64_t ts = fs_get_time_slice(t); 
-    if (ts > mquery->end_time) {
+    if (ts > mquery->end_time()) {
         return;
     }
     // Is the time slice present in the map?

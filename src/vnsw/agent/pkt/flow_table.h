@@ -6,7 +6,6 @@
 #define __AGENT_FLOW_TABLE_H__
 
 #include <map>
-
 #if defined(__GNUC__)
 #include "base/compiler.h"
 #if __GNUC_PREREQ(4, 5)
@@ -18,7 +17,6 @@
 #if defined(__GNUC__) && __GNUC_PREREQ(4, 6)
 #pragma GCC diagnostic pop
 #endif
-
 
 #include <boost/uuid/uuid_io.hpp>
 #include <boost/intrusive_ptr.hpp>
@@ -235,7 +233,8 @@ class FlowEntry {
         EcmpFlow        = 1 << 5,
         IngressDir      = 1 << 6,
         Trap            = 1 << 7,
-        LinkLocalBindLocalSrcPort = 1 << 8 // a local port bind is done (used as
+        Multicast       = 1 << 8,
+        LinkLocalBindLocalSrcPort = 1 << 9 // a local port bind is done (used as
                                            // src port for linklocal nat)
     };
     FlowEntry(const FlowKey &k);
@@ -275,13 +274,17 @@ class FlowEntry {
     void FillFlowInfo(FlowInfo &info);
     void GetPolicyInfo();
     void GetPolicyInfo(const VnEntry *vn);
+    void SetMirrorVrf(const uint32_t id) {data_.mirror_vrf = id;}
+    void SetMirrorVrfFromAction();
 
     void GetPolicy(const VnEntry *vn);
     void GetSgList(const Interface *intf);
     bool DoPolicy(const PacketHeader &hdr, bool ingress);
     uint32_t MatchAcl(const PacketHeader &hdr,
-                      std::list<MatchAclParams> &acl, bool add_implicit_deny);
+                      std::list<MatchAclParams> &acl, bool add_implicit_deny,
+                      bool add_implicit_allow);
     void ResetPolicy();
+    void ResetStats();
     void set_deleted(bool deleted) { deleted_ = deleted; }
     bool deleted() { return deleted_; }
     bool FlowSrcMatch(const RouteFlowKey &rkey) const;
@@ -639,6 +642,7 @@ struct RouteFlowInfo {
 
 extern SandeshTraceBufferPtr FlowTraceBuf;
 extern void SetActionStr(const FlowAction &, std::vector<ActionStr> &);
+extern void GetFlowSandeshActionParams(const FlowAction &, std::string &);
 
 #define FLOW_TRACE(obj, ...)\
 do {\

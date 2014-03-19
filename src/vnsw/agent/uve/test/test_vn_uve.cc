@@ -59,12 +59,10 @@ public:
         client->SetFlowAgeExclusionPolicy();
     }
     void FlowSetUp() {
-        unsigned int vn_count = 0;
         EXPECT_EQ(0U, Agent::GetInstance()->pkt()->flow_table()->Size());
         client->Reset();
         CreateVmportEnv(input, 2, 1);
         client->WaitForIdle(5);
-        vn_count++;
 
         EXPECT_TRUE(VmPortActive(input, 0));
         EXPECT_TRUE(VmPortActive(input, 1));
@@ -106,7 +104,8 @@ public:
         Ip4Address addr = Ip4Address::from_string(remote_vm, ec);
         Ip4Address gw = Ip4Address::from_string(serv, ec);
         Agent::GetInstance()->GetDefaultInet4UnicastRouteTable()->AddRemoteVmRouteReq
-            (peer_, vrf, addr, 32, gw, TunnelType::AllType(), label, vn);
+            (peer_, vrf, addr, 32, gw, TunnelType::AllType(), label, vn,
+             SecurityGroupList());
         client->WaitForIdle(2);
         WAIT_FOR(1000, 500, (RouteFind(vrf, addr, 32) == true));
     }

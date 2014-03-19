@@ -102,9 +102,9 @@ FlowEntry::FlowEntry(const FlowKey &k) :
 
 uint32_t FlowEntry::MatchAcl(const PacketHeader &hdr,
                              std::list<MatchAclParams> &acl,
-                             bool add_implicit_deny) {
+                             bool add_implicit_deny, bool add_implicit_allow) {
     // If there are no ACL to match, make it pass
-    if (acl.size() == 0) {
+    if (acl.size() == 0 &&  add_implicit_allow) {
         return (1 << TrafficAction::PASS);
     }
 
@@ -147,6 +147,11 @@ uint32_t FlowEntry::MatchAcl(const PacketHeader &hdr,
     }
 
     return action;
+}
+
+void FlowEntry::ResetStats() {
+    stats_.bytes = 0;
+    stats_.packets = 0;
 }
 
 // Recompute FlowEntry action
@@ -210,31 +215,34 @@ bool FlowEntry::DoPolicy(const PacketHeader &hdr, bool ingress_flow) {
 
     // Mirror is valid even if packet is to be dropped. So, apply it first
     data_.match_p.mirror_action = MatchAcl(hdr, data_.match_p.m_mirror_acl_l,
-                                     false);
+                                           false, true);
     data_.match_p.out_mirror_action = MatchAcl(hdr,
-                                         data_.match_p.m_out_mirror_acl_l, false);
+                           data_.match_p.m_out_mirror_acl_l, false, true);
 
     // Apply network policy
-    data_.match_p.policy_action = MatchAcl(hdr, data_.match_p.m_acl_l, true);
+    data_.match_p.policy_action = MatchAcl(hdr, data_.match_p.m_acl_l, true,
+                                           true);
     if (ShouldDrop(data_.match_p.policy_action)) {
         goto done;
     }
 
     data_.match_p.out_policy_action = MatchAcl(hdr, data_.match_p.m_out_acl_l,
-                                         true);
+                                               true, true);
     if (ShouldDrop(data_.match_p.out_policy_action)) {
         goto done;
     }
 
     // Apply security-group
     if (!is_flags_set(FlowEntry::ReverseFlow)) {
-        data_.match_p.sg_action = MatchAcl(hdr, data_.match_p.m_sg_acl_l, true);
+        data_.match_p.sg_action = MatchAcl(hdr, data_.match_p.m_sg_acl_l, true,
+                                           !data_.match_p.sg_rule_present);
         if (ShouldDrop(data_.match_p.sg_action)) {
             goto done;
         }
 
         data_.match_p.out_sg_action = MatchAcl(hdr, data_.match_p.m_out_sg_acl_l,
-                                         true);
+                                               true,
+                                               !data_.match_p.sg_out_rule_present);
         if (ShouldDrop(data_.match_p.out_sg_action)) {
             goto done;
         }
@@ -249,14 +257,42 @@ bool FlowEntry::DoPolicy(const PacketHeader &hdr, bool ingress_flow) {
     }
 
 done:
+    // Set mirror vrf after evaluation of actions
+    SetMirrorVrfFromAction();
     // Summarize the actions based on lookups above
     ActionRecompute();
     return true;
 }
 
+// SetMirrorVrfFromAction
+// For this flow check for mirror action from dynamic ACLs or policy mirroring
+// assign the vrf from its Virtual Nework that ACL is used
+// If it is a local flow and out mirror action or policy is set
+// assign the vrf of the reverse flow, since ACL came from the reverse flow
+void FlowEntry::SetMirrorVrfFromAction() {
+    if (data_.match_p.mirror_action & (1 << TrafficAction::MIRROR) ||
+        data_.match_p.policy_action & (1 << TrafficAction::MIRROR)) {
+        const VnEntry *vn = vn_entry();
+        if (vn && vn->GetVrf()) {
+            SetMirrorVrf(vn->GetVrf()->vrf_id());
+        }
+    }
+    if (data_.match_p.out_mirror_action & (1 << TrafficAction::MIRROR) ||
+        data_.match_p.out_policy_action & (1 << TrafficAction::MIRROR)) {
+        FlowEntry *rflow = reverse_flow_entry_.get();
+        if (rflow) {
+            const VnEntry *rvn = rflow->vn_entry();
+            if (rvn && rvn->GetVrf()) {
+                SetMirrorVrf(rvn->GetVrf()->vrf_id());
+            }
+        }
+    }
+}
+
 void FlowEntry::GetSgList(const Interface *intf) {
-    // Dont apply network-policy for linklocal flow
-    if (is_flags_set(FlowEntry::LinkLocalFlow)) {
+    // Dont apply network-policy for linklocal and subnet broadcast flow
+    if (is_flags_set(FlowEntry::LinkLocalFlow) ||
+        is_flags_set(FlowEntry::Multicast)) {
         return;
     }
 
@@ -270,19 +306,25 @@ void FlowEntry::GetSgList(const Interface *intf) {
     }
 
     const VmInterface *vm_port = static_cast<const VmInterface *>(intf);
+    data_.match_p.sg_rule_present = false;
+    data_.match_p.sg_out_rule_present = false;
     if (vm_port->sg_list().list_.size()) {
         data_.match_p.nw_policy = true;
         VmInterface::SecurityGroupEntrySet::const_iterator it;
         for (it = vm_port->sg_list().list_.begin();
              it != vm_port->sg_list().list_.end(); ++it) {
-            if (it->sg_.get() == NULL)
-                continue;
+            if (it->sg_->IsAclSet()) {
+                data_.match_p.sg_rule_present = true;
+            }
+            // packet flow ingress is same as VM egress
             MatchAclParams acl;
-            acl.acl = it->sg_->GetAcl();
-            // If SG does not have ACL. Skip it
-            if (acl.acl == NULL)
-                continue;
-            data_.match_p.m_sg_acl_l.push_back(acl);
+            if (is_flags_set(FlowEntry::IngressDir)) {
+                acl.acl = it->sg_->GetEgressAcl();
+            } else {
+                acl.acl = it->sg_->GetIngressAcl();
+            }
+            if (acl.acl)
+                data_.match_p.m_sg_acl_l.push_back(acl);
         }
     }
 
@@ -308,14 +350,17 @@ void FlowEntry::GetSgList(const Interface *intf) {
         VmInterface::SecurityGroupEntrySet::const_iterator it;
         for (it = vm_port->sg_list().list_.begin();
              it != vm_port->sg_list().list_.end(); ++it) {
-            if (it->sg_.get() == NULL)
-                continue;
+            if (it->sg_->IsAclSet()) {
+                data_.match_p.sg_out_rule_present = true;
+            }
             MatchAclParams acl;
-            acl.acl = it->sg_->GetAcl();
-            // If SG does not have ACL. Skip it
-            if (acl.acl == NULL)
-                continue;
-            data_.match_p.m_out_sg_acl_l.push_back(acl);
+            if (is_flags_set(FlowEntry::IngressDir)) {
+                acl.acl = it->sg_->GetIngressAcl();
+            } else {
+                acl.acl = it->sg_->GetEgressAcl();
+            }
+            if (acl.acl)
+                data_.match_p.m_out_sg_acl_l.push_back(acl);
         }
     }
 }
@@ -348,8 +393,9 @@ void FlowEntry::GetPolicy(const VnEntry *vn) {
         data_.match_p.m_mirror_acl_l.push_back(acl);
     }
 
-    // Dont apply network-policy for linklocal flow
-    if (is_flags_set(FlowEntry::LinkLocalFlow)) {
+    // Dont apply network-policy for linklocal and subnet broadcast flow
+    if (is_flags_set(FlowEntry::LinkLocalFlow) ||
+        is_flags_set(FlowEntry::Multicast)) {
         return;
     }
 
@@ -528,6 +574,9 @@ void FlowTable::UpdateReverseFlow(FlowEntry *flow, FlowEntry *rflow) {
         if (flow->is_flags_set(FlowEntry::ShortFlow) ||
             rflow->is_flags_set(FlowEntry::ShortFlow)) {
             flow->MakeShortFlow();
+        }
+        if (flow->is_flags_set(FlowEntry::Multicast)) {
+            rflow->set_flags(FlowEntry::Multicast);
         }
     }
 }
@@ -712,26 +761,12 @@ void FlowEntry::SetAclFlowSandeshData(const AclDBEntry *acl,
     SetAclListAceId(acl, data_.match_p.m_out_sg_acl_l, fe_sandesh_data.ace_l);
     SetAclListAceId(acl, data_.match_p.m_out_mirror_acl_l, fe_sandesh_data.ace_l);
 
-    if (reverse_flow_entry()) {
-        fe_sandesh_data.set_reverse_flow("yes");
-    } else {
-        fe_sandesh_data.set_reverse_flow("no");
-    }
-    if (is_flags_set(FlowEntry::NatFlow)) {
-        fe_sandesh_data.set_nat("yes");
-    } else {
-        fe_sandesh_data.set_nat("no");
-    }
-    if (ImplicitDenyFlow()) {
-        fe_sandesh_data.set_implicit_deny("yes");
-    } else {
-        fe_sandesh_data.set_implicit_deny("no");
-    }
-    if (is_flags_set(FlowEntry::ShortFlow)) {
-        fe_sandesh_data.set_short_flow("yes");
-    } else {
-        fe_sandesh_data.set_short_flow("no");
-    }
+    fe_sandesh_data.set_reverse_flow(reverse_flow_entry() ? "yes" : "no");
+    fe_sandesh_data.set_nat(is_flags_set(FlowEntry::NatFlow) ? "yes" : "no");
+    fe_sandesh_data.set_implicit_deny(ImplicitDenyFlow() ? "yes" : "no");
+    fe_sandesh_data.set_short_flow(is_flags_set(FlowEntry::ShortFlow) ? 
+                                   "yes" : "no");
+
 }
 
 bool FlowEntry::SetRpfNH(const Inet4UnicastRouteEntry *rt) {
@@ -863,9 +898,6 @@ void FlowEntry::InitFwdFlow(const PktFlowInfo *info, const PktInfo *pkt,
     data_.flow_source_vrf = info->flow_source_vrf;
     data_.flow_dest_vrf = info->flow_dest_vrf;
     data_.dest_vrf = info->dest_vrf;
-    if (data_.vn_entry && data_.vn_entry->GetVrf()) {
-        data_.mirror_vrf = data_.vn_entry->GetVrf()->vrf_id();
-    }
 
     if (info->ecmp) {
         set_flags(FlowEntry::EcmpFlow);
@@ -876,6 +908,12 @@ void FlowEntry::InitFwdFlow(const PktFlowInfo *info, const PktInfo *pkt,
     reset_flags(FlowEntry::Trap);
     data_.source_plen = info->source_plen;
     data_.dest_plen = info->dest_plen;
+    if (ctrl->rt_ && ctrl->rt_->is_multicast()) {
+        set_flags(FlowEntry::Multicast);
+    }
+    if (rev_ctrl->rt_ && rev_ctrl->rt_->is_multicast()) {
+        set_flags(FlowEntry::Multicast);
+    }
 }
 
 void FlowEntry::InitRevFlow(const PktFlowInfo *info,
@@ -910,9 +948,6 @@ void FlowEntry::InitRevFlow(const PktFlowInfo *info,
     data_.flow_source_vrf = info->flow_dest_vrf;
     data_.flow_dest_vrf = info->flow_source_vrf;
     data_.dest_vrf = info->nat_dest_vrf;
-    if (data_.vn_entry && data_.vn_entry->GetVrf()) {
-        data_.mirror_vrf = data_.vn_entry->GetVrf()->vrf_id();
-    }
     if (info->ecmp) {
         set_flags(FlowEntry::EcmpFlow);
     } else {
@@ -986,6 +1021,7 @@ void FlowTable::DeleteInternal(FlowEntryMap::iterator &it)
 
     fe->stats_.teardown_time = UTCTimestampUsec();
     fec->FlowExport(fe, diff_bytes, diff_packets);
+    fe->ResetStats();
 
     // Unlink the reverse flow, if one exists
     FlowEntry *rflow = fe->reverse_flow_entry();
@@ -1528,6 +1564,20 @@ void FlowTable::ResyncVmPortFlows(const VmInterface *intf) {
     while (it != fet.end()) {
         fet_it = it++;
         FlowEntry *fe = (*fet_it).get();
+        // Local flow needs to evaluate fwd flow then reverse flow
+        if (fe->is_flags_set(FlowEntry::LocalFlow) && 
+            fe->is_flags_set(FlowEntry::ReverseFlow)) {
+            FlowEntry *fwd_flow = fe->reverse_flow_entry();
+            if (fwd_flow) {
+                DeleteFlowInfo(fwd_flow);
+                fwd_flow->GetPolicyInfo();
+                ResyncAFlow(fwd_flow, false);
+                AddFlowInfo(fwd_flow);
+                FlowInfo flow_info;
+                fwd_flow->FillFlowInfo(flow_info);
+                FLOW_TRACE(Trace, "Evaluate VmPort Flows", flow_info);
+            }
+        }
         DeleteFlowInfo(fe);
         fe->GetPolicyInfo(intf->vn());
         ResyncAFlow(fe, false);
@@ -2075,6 +2125,20 @@ void SetActionStr(const FlowAction &action_info, std::vector<ActionStr> &action_
             }
         }
     }
+}
+
+void GetFlowSandeshActionParams(const FlowAction &action_info,
+    std::string &action_str) {
+    std::bitset<32> bs(action_info.action);
+    for (unsigned int i = 0; i <= bs.size(); i++) {
+        if (bs[i]) {
+            if (!action_str.empty()) {
+                action_str += "|";
+            }
+            action_str += TrafficAction::ActionToString(
+                static_cast<TrafficAction::Action>(i));
+        }
+    } 
 }
 
 static void SetAclListAclAction(const std::list<MatchAclParams> &acl_l, std::vector<AclAction> &acl_action_l,

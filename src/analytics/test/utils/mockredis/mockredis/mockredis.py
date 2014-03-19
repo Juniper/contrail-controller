@@ -41,7 +41,7 @@ def redis_version():
 '''
 
 
-def start_redis(port):
+def start_redis(port, exe=None):
     '''
     Client uses this function to start an instance of redis
     Arguments:
@@ -68,7 +68,9 @@ def start_redis(port):
                      ("port 6379", "port " + str(port)),
                      ("/var/log/redis_6379.log", redisbase + "log"),
                      ("/var/lib/redis/6379", redisbase + "cache")])
-    command = "redis-server " + redisbase + redis_conf
+    if exe == None:
+        exe = "redis-server"
+    command = exe + " " + redisbase + redis_conf
     subprocess.Popen(command.split(' '),
                                stdout=subprocess.PIPE,
                                stderr=subprocess.PIPE)

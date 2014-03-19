@@ -193,7 +193,7 @@ bool PostProcessingQuery::merge_processing(
     }
 
 
-    if (mquery->table == g_viz_constants.FLOW_SERIES_TABLE) {
+    if (mquery->table() == g_viz_constants.FLOW_SERIES_TABLE) {
         fcid_rrow_map_t fcid_rrow_map;
         if (flowseries_merge_processing(&input, &output, &fcid_rrow_map)) {
             if (fcid_rrow_map.size() != 0) {
@@ -212,11 +212,27 @@ bool PostProcessingQuery::merge_processing(
         QEOpServerProxy::BufferT *merged_result = &output;
         const QEOpServerProxy::BufferT *raw_result1 = &(input);
 
-        if (result_.get() == NULL)
-        {
-            merged_result->reserve(raw_result1->size());
+        if (result_.get() == NULL) {
+            size_t merged_result_size = merged_result->size();
+            merged_result->reserve(merged_result_size + raw_result1->size());
             copy(raw_result1->begin(), raw_result1->end(), 
-                std::back_inserter(*merged_result));
+                 std::back_inserter(*merged_result));
+            if (merged_result_size) { 
+                if (sorting_type == ASCENDING) {
+                    std::inplace_merge(merged_result->begin(), 
+                        merged_result->begin() + merged_result_size,
+                        merged_result->end(),
+                        boost::bind(&PostProcessingQuery::sort_field_comparator, 
+                                    this, _1, _2));
+                } else {
+                    std::inplace_merge(merged_result->rbegin(),
+                        merged_result->rbegin() + raw_result1->size(),
+                        merged_result->rend(),
+                        boost::bind(&PostProcessingQuery::sort_field_comparator,
+                                    this, _1, _2));
+                }
+            }
+
             goto sort_done;
         }
 
@@ -242,7 +258,7 @@ bool PostProcessingQuery::merge_processing(
     } 
 
 sort_done:
-    if (!sorted && (mquery->table == g_viz_constants.FLOW_TABLE))
+    if (!sorted && (mquery->table() == g_viz_constants.FLOW_TABLE))
     {
         QE_TRACE(DEBUG, "Merge_Processing: Adding inputs to output");
         QEOpServerProxy::BufferT *merged_result = &output;
@@ -287,7 +303,7 @@ const std::vector<boost::shared_ptr<QEOpServerProxy::BufferT> >& inputs,
         return false;
     }
 
-    if (mquery->table == g_viz_constants.FLOW_SERIES_TABLE) {
+    if (mquery->table() == g_viz_constants.FLOW_SERIES_TABLE) {
         fcid_rrow_map_t fcid_rrow_map;
         bool status = false;
         for (size_t i = 0; i < inputs.size(); i++) {
@@ -333,7 +349,7 @@ const std::vector<boost::shared_ptr<QEOpServerProxy::BufferT> >& inputs,
         }
     }
 
-    if (mquery->table == g_viz_constants.FLOW_TABLE)
+    if (mquery->table() == g_viz_constants.FLOW_TABLE)
     {
         QE_TRACE(DEBUG, "Final_Merge_Processing: Uniquify flow records");
         // uniquify the records
@@ -597,8 +613,8 @@ query_status_t PostProcessingQuery::process_query() {
     // If the flow series query is parallelized, we should apply the limit 
     // only after the result from all the tasks are merged 
     // (@ final_merge_processing).
-    if ((mquery->table != g_viz_constants.FLOW_SERIES_TABLE || 
-        (mquery->table == g_viz_constants.FLOW_SERIES_TABLE && 
+    if ((mquery->table() != g_viz_constants.FLOW_SERIES_TABLE || 
+        (mquery->table() == g_viz_constants.FLOW_SERIES_TABLE && 
         !mquery->is_query_parallelized())) && limit) {
         QE_TRACE(DEBUG, "Apply Limit [" << limit << "]");
         if (raw_result->size() > (size_t)limit) {

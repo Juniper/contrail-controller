@@ -16,7 +16,9 @@ public:
         tunnel_type_(TunnelType::ComputeType(TunnelType::AllType())),
         vrf_name_(""), gw_ip_(0), unresolved_(true), dependant_rt_(rt) {
     }
-    virtual ~AgentPath() { }
+    virtual ~AgentPath() { 
+        clear_sg_list();
+    }
 
     const Peer *peer() const {return peer_;}
     const NextHop *nexthop(Agent *agent) const; 
@@ -344,11 +346,12 @@ private:
 
 class DropRoute : public AgentRouteData {
 public:
-    DropRoute() : AgentRouteData(false) { }
+    DropRoute(const string &vn_name) : AgentRouteData(false), vn_(vn_name) { }
     virtual ~DropRoute() { }
     virtual bool AddChangePath(Agent *agent, AgentPath *path);
     virtual string ToString() const {return "drop";}
 private:
+    string vn_;
     DISALLOW_COPY_AND_ASSIGN(DropRoute);
 };
 

@@ -95,17 +95,17 @@ class EcmpTest : public ::testing::Test {
         Agent::GetInstance()->GetDefaultInet4UnicastRouteTable()->
             AddRemoteVmRouteReq(NULL, "vrf2", remote_vm_ip1_, 32, 
                                 remote_server_ip_, TunnelType::AllType(),
-                                30, "vn2");
+                                30, "vn2", SecurityGroupList());
 
         Agent::GetInstance()->GetDefaultInet4UnicastRouteTable()->
             AddRemoteVmRouteReq(NULL, "vn3:vn3", remote_vm_ip2_, 32, 
                                 remote_server_ip_, TunnelType::AllType(),
-                                30, "vn3");
+                                30, "vn3", SecurityGroupList());
 
         Agent::GetInstance()->GetDefaultInet4UnicastRouteTable()->
             AddRemoteVmRouteReq(NULL, "vn4:vn4", remote_vm_ip3_, 32,
                                 remote_server_ip_, TunnelType::AllType(),
-                                30, "vn4");
+                                30, "vn4", SecurityGroupList());
         client->WaitForIdle();
     }
 
@@ -133,10 +133,10 @@ class EcmpTest : public ::testing::Test {
                 remote_vm_ip3_, 32);
 
         client->WaitForIdle();
-        EXPECT_FALSE(VrfFind("vrf1"));
-        EXPECT_FALSE(VrfFind("vrf2"));
-        EXPECT_FALSE(VrfFind("vn3:vn3"));
-        EXPECT_FALSE(VrfFind("vn4:vn4"));
+        EXPECT_FALSE(VrfFind("vrf1", true));
+        EXPECT_FALSE(VrfFind("vrf2", true));
+        EXPECT_FALSE(VrfFind("vn3:vn3", true));
+        EXPECT_FALSE(VrfFind("vn4:vn4", true));
     }
 
 public:
@@ -184,7 +184,8 @@ public:
         Ip4Address vm_ip = Ip4Address::from_string(ip);
         Ip4Address server_ip = Ip4Address::from_string("10.11.1.1");
         Agent::GetInstance()->GetDefaultInet4UnicastRouteTable()->AddRemoteVmRouteReq(bgp_peer,
-                vrf_name, vm_ip, plen, server_ip, TunnelType::AllType(), 16, vn);
+                vrf_name, vm_ip, plen, server_ip, TunnelType::AllType(), 16,
+                vn, SecurityGroupList());
     }
 
     void DeleteRemoteRoute(const string vrf_name, const string ip,
@@ -497,7 +498,8 @@ TEST_F(EcmpTest, EcmpReEval_2) {
     Ip4Address remote_server_ip = Ip4Address::from_string("10.10.10.10");
     Agent::GetInstance()->GetDefaultInet4UnicastRouteTable()->
         AddRemoteVmRouteReq(bgp_peer, "vrf2",remote_vm_ip, 32, 
-                            remote_server_ip, TunnelType::AllType(), 16, "vn2");
+                            remote_server_ip, TunnelType::AllType(), 16, "vn2",
+                            SecurityGroupList());
 
     TxIpPacket(VmPortGetId(1), "1.1.1.1", "3.1.1.10", 1);
     client->WaitForIdle();
@@ -962,7 +964,7 @@ TEST_F(EcmpTest, ServiceVlanTest_4) {
             "virtual-machine-interface", "vnet12");
     DeleteVmportEnv(input2, 2, true);
     DelVrf("service-vrf1");
-    client->WaitForIdle(); 
+    client->WaitForIdle(2); 
     EXPECT_TRUE(Agent::GetInstance()->pkt()->flow_table()->Size() == 0);
 
     DeleteVmportEnv(input1, 1, true);

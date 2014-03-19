@@ -8,7 +8,7 @@
 #include <list>
 #include <map>
 #include <vector>
-#include <boost/ptr_container/ptr_deque.hpp>
+#include <boost/ptr_container/ptr_list.hpp>
 #include <tbb/mutex.h>
 
 #include "base/bitset.h"
@@ -102,9 +102,13 @@ public:
     void clear();
     bool empty() const;
 
+protected:
+    bool running_;
+
 private:
     friend class RibOutUpdatesTest;
     friend class BgpUpdateTest;
+    friend class SchedulingGroupManagerTest;
     friend class SGTest;
     friend void IPeerSendReady(SchedulingGroup *sg, IPeerUpdate *peer);
 
@@ -115,7 +119,7 @@ private:
     struct WorkRibOut;
     struct WorkPeer;
 
-    typedef boost::ptr_deque<WorkBase> WorkQueue;
+    typedef boost::ptr_list<WorkBase> WorkQueue;
     typedef IndexMap<IPeerUpdate *, PeerState, GroupPeerSet> PeerStateMap;
     typedef IndexMap<RibOut *, RibState> RibStateMap;
     class Worker;
@@ -124,6 +128,8 @@ private:
 
     std::auto_ptr<WorkBase> WorkDequeue();
     void WorkEnqueue(WorkBase *wentry);
+    void WorkPeerEnqueue(IPeerUpdate *peer);
+    void WorkRibOutEnqueue(RibOut *ribout, int queue_id);
 
     void UpdateRibOut(RibOut *ribout, int queue_id);
     void UpdatePeer(IPeerUpdate *peer);
@@ -151,7 +157,6 @@ private:
     // The mutex controls access to WorkQueue and related Worker state.
     tbb::mutex mutex_;
     WorkQueue work_queue_;
-    bool running_;
     Worker *worker_task_;
 
     PeerStateMap peer_state_imap_;
