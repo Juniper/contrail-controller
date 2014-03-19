@@ -116,11 +116,6 @@ void BgpTable::RibOutDelete(const RibExportPolicy &policy) {
     ribout_map_.erase(loc);
 }
 
-bool BgpTable::Export(RibOut *ribout, Route *route, const RibPeerSet &peerset,
-        UpdateInfoSList &uinfo_slist) {
-    return true;
-}
-
 UpdateInfo *BgpTable::GetUpdateInfo(RibOut *ribout, BgpRoute *route,
         const RibPeerSet &peerset) {
     const BgpPath *path = route->BestPath();
