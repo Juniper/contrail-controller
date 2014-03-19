@@ -89,7 +89,10 @@ public:
 
     virtual bool Run() {
         tbb::mutex::scoped_lock lock(cdbif_->cdbq_mutex_);
-
+        // Return if cleanup was cancelled
+        if (cdbif_->cleanup_ == NULL) {
+            return true;
+        }
         if (cdbif_->cdbq_.get() != NULL) {
             cdbif_->cdbq_->Shutdown();
             cdbif_->cdbq_.reset();
@@ -688,6 +691,11 @@ bool CdbIf::NewDb_AddColumnfamily(const GenDb::NewCf& cf) {
  * called by the WorkQueue mechanism
  */
 bool CdbIf::Db_AsyncAddColumn(CdbIfColList &cl) {
+    tbb::mutex::scoped_lock lock(cdbq_mutex_);
+    return Db_AsyncAddColumnLocked(cl);
+}
+
+bool CdbIf::Db_AsyncAddColumnLocked(CdbIfColList &cl) {
     bool ret_value = true;
     uint64_t ts(UTCTimestampUsec());
     GenDb::ColList *new_colp(cl.gendb_cl);
@@ -802,7 +810,7 @@ bool CdbIf::NewDb_AddColumn(std::auto_ptr<GenDb::ColList> cl) {
 bool CdbIf::AddColumnSync(std::auto_ptr<GenDb::ColList> cl) {
     CdbIfColList qentry;
     qentry.gendb_cl = cl.release();
-    return (Db_AsyncAddColumn(qentry));
+    return (Db_AsyncAddColumnLocked(qentry));
 }
 
 bool CdbIf::ColListFromColumnOrSuper(GenDb::ColList& ret,
