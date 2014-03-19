@@ -210,6 +210,7 @@ class QueryEngine(object):
                 '--DEFAULT.log_file', self._log_file,
                 '--DEFAULT.collectors', self.primary_collector]
         if self.secondary_collector is not None:
+            args.append('--DEFAULT.collectors')
             args.append(self.secondary_collector)
         if analytics_start_time is not None:
             args += ['--DEFAULT.start_time', str(analytics_start_time)]

@@ -7,6 +7,7 @@
 #include <netdb.h>
 #include <fstream>
 #include <boost/asio/ip/host_name.hpp>
+#include <boost/foreach.hpp>
 #include <boost/program_options.hpp>
 #include <boost/tokenizer.hpp>
 #include "base/logging.h"
@@ -178,6 +179,9 @@ main(int argc, char *argv[]) {
     LOG(INFO, "Endpoint " << dss_ep);
     LOG(INFO, "Max-tasks " << options.max_tasks());
     LOG(INFO, "Max-slice " << options.max_slice());
+    BOOST_FOREACH(std::string collector_ip, options.collector_server_list()) {
+        LOG(INFO, "Collectors  " << collector_ip);
+    }
 
     // Initialize Sandesh
     NodeType::type node_type = 
