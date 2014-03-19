@@ -43,6 +43,11 @@ response sandesh PktStats {
     10: i32 arp_sent;
     11: i32 dns_sent;
     12: i32 icmp_sent;
+    13: i32 dhcp_q_threshold_exceeded;
+    14: i32 arp_q_threshold_exceeded;
+    15: i32 dns_q_threshold_exceeded;
+    16: i32 icmp_q_threshold_exceeded;
+    17: i32 flow_q_threshold_exceeded;
 }
 
 response sandesh DhcpStats {

@@ -172,8 +172,7 @@ enqueue:
 
     if (mod != INVALID) {
         if (!(enqueue_cb_.at(mod))(pkt_info)) {
-            PKT_TRACE(Err, "Threshold exceeded while enqueuing to module <" <<
-                      mod << ">");
+            stats_.PktQThresholdExceeded(mod);
         }
         return;
     }
@@ -444,6 +443,11 @@ void PktHandler::PktStats::PktRcvd(PktModuleName mod) {
 void PktHandler::PktStats::PktSent(PktModuleName mod) {
     if (mod < MAX_MODULES)
         sent[mod]++;
+}
+
+void PktHandler::PktStats::PktQThresholdExceeded(PktModuleName mod) {
+    if (mod < MAX_MODULES)
+        q_threshold_exceeded[mod]++;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
