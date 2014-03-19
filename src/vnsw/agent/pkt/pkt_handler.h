@@ -153,16 +153,18 @@ public:
     struct PktStats {
         uint32_t sent[MAX_MODULES];
         uint32_t received[MAX_MODULES];
+        uint32_t q_threshold_exceeded[MAX_MODULES];
         uint32_t dropped;
         void Reset() {
             for (int i = 0; i < MAX_MODULES; ++i) {
-                sent[i] = received[i] = 0;
+                sent[i] = received[i] = q_threshold_exceeded[i] = 0;
             }
             dropped = 0;
         }
         PktStats() { Reset(); }
         void PktRcvd(PktModuleName mod);
         void PktSent(PktModuleName mod);
+        void PktQThresholdExceeded(PktModuleName mod);
     };
 
     PktHandler(Agent *, const std::string &, boost::asio::io_service &, bool);
