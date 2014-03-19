@@ -112,6 +112,7 @@ if sys.platform != 'darwin':
 qed_sources = [
     'QEOpServerProxy.cc',
     'qed.cc',
+    'options.cc',
 ]
 
 qed_except_sources = [

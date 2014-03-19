@@ -393,14 +393,11 @@ int main(int argc, char *argv[]) {
             g_vns_constants.NodeTypeNames.find(node_type)->second,
             g_vns_constants.INSTANCE_ID_DEFAULT, 
             &evm,
-            options.http_server_port(),
+            options.http_server_port(), 0,
+            options.collector_server_list(),
             &sandesh_context);
     }
 
-    if (!options.collector_server().empty()) {
-        Sandesh::ConnectToCollector(options.collector_server(),
-                                    options.collector_port());
-    }
     Sandesh::SetLoggingParams(options.log_local(), options.log_category(),
                               options.log_level());
 
@@ -473,7 +470,7 @@ int main(int argc, char *argv[]) {
         }
 
         // subscribe to collector service if not configured
-        if (options.collector_server().empty()) {
+        if (!options.collectors_configured()) {
             Module::type module = Module::CONTROL_NODE;
             NodeType::type node_type = 
                 g_vns_constants.Module2NodeType.find(module)->second;
