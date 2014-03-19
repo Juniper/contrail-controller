@@ -99,14 +99,14 @@ public:
               const std::string &program_name,
               const boost::program_options::variables_map &var_map);
 
-private:
-    void ValidateLinkLocalFlows();
     void Validate();
+    void LogConfig() const;
+private:
+    void ComputeLinkLocalFlowLimits();
     void InitFromSystem();
     void InitFromConfig();
     void InitFromArguments
         (const boost::program_options::variables_map &var_map);
-    void LogConfig() const;
 
     PortInfo vhost_;
     std::string eth_port_;
