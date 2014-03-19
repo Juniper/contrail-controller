@@ -52,6 +52,7 @@ public:
                       uint16_t dport);
     virtual void DispatchVmMsg(const UveVirtualMachineAgent &uve);
     void EnqueueVmStatData(VmStatData *data);
+    bool Process(VmStatData *vm_stat_data);
 
 protected:
     UveVmMap uve_vm_map_;

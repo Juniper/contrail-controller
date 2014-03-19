@@ -39,16 +39,6 @@ VmStat::~VmStat() {
     signal_.cancel(ec);
 }
 
-bool VmStat::Process(VmStatData* vm_stat_data) {
-    if (vm_stat_data->vm_stat()->marked_delete()) {
-        delete vm_stat_data->vm_stat();
-    } else {
-        vm_stat_data->vm_stat()->ProcessData();
-    }
-    delete vm_stat_data;
-    return true;
-}
-
 void VmStat::ReadData(const boost::system::error_code &ec,
                       size_t read_bytes, DoneCb &cb) {
     if (read_bytes) {

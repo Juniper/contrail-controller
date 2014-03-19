@@ -29,8 +29,8 @@ public:
 
     void Start();
     void Stop();
-    static bool Process(VmStatData *vm_stat_data);
     void HandleSigChild(const boost::system::error_code& error, int sig);
+    void ProcessData();
 private:
     bool BuildVmStatsMsg(UveVirtualMachineAgent &uve);
     void RegisterSigHandler();
@@ -50,7 +50,6 @@ private:
     void ReadPid();
     void ReadMemoryQuota();
     void GetMemoryQuota();
-    void ProcessData();
 
     Agent *agent_;
     const boost::uuids::uuid vm_uuid_;
