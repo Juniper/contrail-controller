@@ -508,7 +508,10 @@ void AgentParam::ComputeLinkLocalFlowLimits() {
     }
 }
 
-static bool ValidateInterface(const std::string &ifname) {
+static bool ValidateInterface(bool test_mode, const std::string &ifname) {
+    if (test_mode) {
+        return true;
+    }
     int fd = socket(AF_LOCAL, SOCK_STREAM, 0);
     assert(fd >= 0);
 
@@ -535,7 +538,7 @@ void AgentParam::Validate() {
     }
 
     // Check if interface is already present
-    if (ValidateInterface(vhost_.name_) == false) {
+    if (ValidateInterface(test_mode_, vhost_.name_) == false) {
         exit(ENODEV);
     }
 
@@ -546,7 +549,7 @@ void AgentParam::Validate() {
     }
 
     // Check if interface is already present
-    if (ValidateInterface(eth_port_) == false) {
+    if (ValidateInterface(test_mode_, eth_port_) == false) {
         exit(ENODEV);
     }
 
@@ -558,7 +561,7 @@ void AgentParam::Validate() {
             exit(EINVAL);
         }
 
-        if (ValidateInterface(vmware_physical_port_) == false) {
+        if (ValidateInterface(test_mode_, vmware_physical_port_) == false) {
             exit(ENODEV);
         }
     }
@@ -620,6 +623,10 @@ void AgentParam::LogConfig() const {
     }
 }
 
+void AgentParam::set_test_mode(bool mode) {
+    test_mode_ = mode;
+}
+
 AgentParam::AgentParam() :
         vhost_(), eth_port_(), xmpp_instance_count_(), xmpp_server_1_(),
         xmpp_server_2_(), dns_server_1_(), dns_server_2_(), dss_server_(),
@@ -630,7 +637,7 @@ AgentParam::AgentParam() :
         collector_(), collector_port_(), http_server_port_(), host_name_(),
         agent_stats_interval_(AgentStatsCollector::AgentStatsInterval), 
         flow_stats_interval_(FlowStatsCollector::FlowStatsInterval),
-        vmware_physical_port_("") {
+        vmware_physical_port_(""), test_mode_(false) {
     vgw_config_table_ = std::auto_ptr<VirtualGatewayConfigTable>
         (new VirtualGatewayConfigTable());
 }
