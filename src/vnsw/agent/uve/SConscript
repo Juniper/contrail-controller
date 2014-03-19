@@ -118,6 +118,9 @@ mockEnv.Prepend(LIBS=[
     'pugixml',
     ])
 
+if sys.platform != 'darwin':
+    mockEnv.Append(LIBS = ['rt'])
+
 libpath = MapBuildDir(
     [
      'base',

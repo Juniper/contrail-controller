@@ -169,21 +169,21 @@ void VrfEntry::PostAdd() {
     DB *db = get_table()->database();
     rt_table_db_[type] = static_cast<AgentRouteTable *>
         (db->CreateTable(name_ + AgentRouteTable::GetSuffix(type)));
-    rt_table_db_[type]->SetVrf(vrf);
+    rt_table_db_[type]->SetVrf(this);
     ((VrfTable *)get_table())->dbtree_[type].insert(VrfTable::VrfDbPair(name_, 
                                                         rt_table_db_[type]));
 
     type = Agent::INET4_MULTICAST;
     rt_table_db_[type] = static_cast<AgentRouteTable *>
         (db->CreateTable(name_ + AgentRouteTable::GetSuffix(type)));
-    rt_table_db_[type]->SetVrf(vrf);
+    rt_table_db_[type]->SetVrf(this);
     ((VrfTable *)get_table())->dbtree_[type].insert(VrfTable::VrfDbPair(name_, 
                                                         rt_table_db_[type]));
 
     type = Agent::LAYER2;
     rt_table_db_[type] = static_cast<AgentRouteTable *>
         (db->CreateTable(name_ + AgentRouteTable::GetSuffix(type)));
-    rt_table_db_[type]->SetVrf(vrf);
+    rt_table_db_[type]->SetVrf(this);
     ((VrfTable *)get_table())->dbtree_[type].insert(VrfTable::VrfDbPair(name_, 
                                                         rt_table_db_[type]));
 }
