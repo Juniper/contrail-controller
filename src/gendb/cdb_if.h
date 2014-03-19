@@ -177,6 +177,7 @@ class CdbIf : public GenDbIf {
         bool ColListFromColumnOrSuper(GenDb::ColList&, std::vector<org::apache::cassandra::ColumnOrSuperColumn>&, const string&);
 
         bool Db_AsyncAddColumn(CdbIfColList &cl);
+        bool Db_AsyncAddColumnLocked(CdbIfColList &cl);
         void Db_BatchAddColumn(bool done);
         bool Db_Columnfamily_present(const std::string& cfname);
         bool Db_GetColumnfamily(CdbIfCfInfo **info, const std::string& cfname);
