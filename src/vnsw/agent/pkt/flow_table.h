@@ -644,6 +644,7 @@ struct RouteFlowInfo {
 
 extern SandeshTraceBufferPtr FlowTraceBuf;
 extern void SetActionStr(const FlowAction &, std::vector<ActionStr> &);
+extern void GetFlowSandeshActionParams(const FlowAction &, std::string &);
 
 #define FLOW_TRACE(obj, ...)\
 do {\
