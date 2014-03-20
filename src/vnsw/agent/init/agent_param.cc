@@ -566,13 +566,15 @@ void AgentParam::Validate() {
         }
     }
 
+}
+
+void AgentParam::InitVhostAndXenLLPrefix() {
     // Set the prefix address for VHOST and XENLL interfaces
     uint32_t mask = vhost_.plen_ ? (0xFFFFFFFF << (32 - vhost_.plen_)) : 0;
     vhost_.prefix_ = Ip4Address(vhost_.addr_.to_ulong() & mask);
 
     mask = xen_ll_.plen_ ? (0xFFFFFFFF << (32 - xen_ll_.plen_)) : 0;
     xen_ll_.prefix_ = Ip4Address(xen_ll_.addr_.to_ulong() & mask);
-
 }
 
 void AgentParam::Init(const string &config_file, const string &program_name,
@@ -583,8 +585,9 @@ void AgentParam::Init(const string &config_file, const string &program_name,
     InitFromSystem();
     InitFromConfig();
     InitFromArguments(var_map);
-    vgw_config_table_->Init(config_file.c_str());
+    InitVhostAndXenLLPrefix();
 
+    vgw_config_table_->Init(config_file.c_str());
     ComputeLinkLocalFlowLimits();
 }
 
