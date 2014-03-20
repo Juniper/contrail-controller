@@ -29,6 +29,14 @@ using namespace std;
 namespace mpl = boost::mpl;
 namespace sc = boost::statechart;
 
+const int StateMachine::kOpenTime = 15;                // seconds
+const int StateMachine::kConnectInterval = 30;         // seconds
+const int StateMachine::kHoldTime = 90;                // seconds
+const int StateMachine::kOpenSentHoldTime = 240;       // seconds
+const int StateMachine::kIdleHoldTime = 5000;          // milliseconds
+const int StateMachine::kMaxIdleHoldTime = 100 * 1000; // milliseconds
+const int StateMachine::kJitter = 10;                  // percentage
+
 #define SM_LOG(level, _Msg)                                    \
     do {                                                       \
         std::ostringstream out;                                \
@@ -510,7 +518,7 @@ struct Active : sc::state<Active, StateMachine> {
             return discard_event();
 
         // Send OPEN and go to OpenConfirm.
-        int local_holdtime = state_machine->GetDefaultHoldTime();
+        int local_holdtime = state_machine->GetConfiguredHoldTime();
         state_machine->set_hold_time(min(event.msg->holdtime, local_holdtime));
         state_machine->AssignSession(false);
         peer->SendOpen(session);
@@ -645,7 +653,7 @@ struct Connect : sc::state<Connect, StateMachine> {
 
         // Send OPEN and go to OpenConfirm.  Since we've decided to use the
         // passive session, we get rid of the active one.
-        int local_holdtime = state_machine->GetDefaultHoldTime();
+        int local_holdtime = state_machine->GetConfiguredHoldTime();
         state_machine->set_hold_time(min(event.msg->holdtime, local_holdtime));
         state_machine->set_active_session(NULL);
         state_machine->AssignSession(false);
@@ -844,7 +852,7 @@ struct OpenSent : sc::state<OpenSent, StateMachine> {
             }
         }
 
-        int local_holdtime = state_machine->GetDefaultHoldTime();
+        int local_holdtime = state_machine->GetConfiguredHoldTime();
         state_machine->set_hold_time(min(event.msg->holdtime, local_holdtime));
         peer->SetCapabilities(event.msg.get());
         return transit<OpenConfirm>();
@@ -1045,7 +1053,7 @@ StateMachine::StateMachine(BgpPeer *peer)
             "Idle hold timer",
             TaskScheduler::GetInstance()->GetTaskId("bgp::StateMachine"),
             peer->GetIndex())),
-        hold_time_(GetDefaultHoldTime()),
+        hold_time_(GetConfiguredHoldTime()),
         idle_hold_time_(0),
         attempts_(0),
         deleted_(false),
@@ -1510,8 +1518,6 @@ ostream &operator<<(ostream &out, const StateMachine::State &state) {
     return out;
 }
 
-const int StateMachine::kConnectInterval;
-
 // This class determines whether a given class has a method called 'validate'.
 template <typename Ev>
 struct HasValidate {
@@ -1605,22 +1611,30 @@ const std::string StateMachine::last_notification_out_error() const {
 }
 
 //
-// Get the default hold time in seconds
+// Return the configured hold time in seconds.
 //
-const int StateMachine::GetDefaultHoldTime() {
-    static bool init_ = false;
-    static int time_ = kHoldTime;
+int StateMachine::GetConfiguredHoldTime() const {
+    static bool env_checked = false;
+    static int env_hold_time = 0;
 
-    if (!init_) {
-
-        // XXX For testing only - Configure through environment variable
-        char *time_str = getenv("BGP_KEEPALIVE_SECONDS");
-        if (time_str) {
-            time_ = strtoul(time_str, NULL, 0) * 3;
+    // For testing only - configure through environment variable.
+    if (!env_checked) {
+        env_checked = true;
+        char *keepalive_time_str = getenv("BGP_KEEPALIVE_SECONDS");
+        if (keepalive_time_str) {
+            env_hold_time = strtoul(keepalive_time_str, NULL, 0) * 3;
+            return env_hold_time;
         }
-        init_ = true;
+    } else if (env_hold_time) {
+        return env_hold_time;
     }
-    return time_;
+
+    // Use the configured hold-time if available.
+    if (peer_ && peer_->server()->hold_time())
+        return peer_->server()->hold_time();
+
+    // Use hard coded default.
+    return kHoldTime;
 }
 
 void StateMachine::set_last_event(const std::string &event) { 
@@ -1692,7 +1706,7 @@ void StateMachine::set_hold_time(int hold_time) {
 }
 
 void StateMachine::reset_hold_time() { 
-    hold_time_ = GetDefaultHoldTime(); 
+    hold_time_ = GetConfiguredHoldTime();
 
     BgpPeerInfoData peer_info;
     peer_info.set_name(peer()->ToUVEKey());

@@ -148,6 +148,8 @@ private:
     bool cleanup_config_;
 };
 
+typedef boost::shared_ptr<BgpServerTest> BgpServerTestPtr;
+
 class BgpPeerTest : public BgpPeer {
 public:
     BgpPeerTest(BgpServer *server, RoutingInstance *rtinst,
