@@ -8,10 +8,16 @@ Import('AnalyticsEnv')
 
 env = AnalyticsEnv.Clone()
 
-env.Append(LIBS=['libsandeshflow', 'gunit', 'hiredis', 'thrift', 'task_test'])
+env.Append(LIBS=['gunit', 'io', 'sandesh', 'http', 'sandeshvns', 'io', 'base',
+                 'http_parser', 'curl', 'boost_filesystem',
+                 'boost_program_options', 'pugixml', 'rt',
+                 'sandesh', 'sandeshvns',
+                 'libsandeshflow', 'hiredis', 'thrift', 'task_test'])
+
 env.Append(LIBPATH=['#/build/lib', Dir(env['TOP']).abspath + '/base/test/'])
 env.Append(CPPPATH = ['#/'+Dir('.').path ,
                       env['TOP'],
+                      env['TOP'] + '/io',
                       env['TOP'] + '/base/sandesh/'])
 
 env_noWerror = env.Clone()
@@ -84,6 +90,10 @@ db_handler_test = env.UnitTest('db_handler_test',
                               )
 env.Alias('src/analytics:db_handler_test', db_handler_test)
 
+options_test = env.UnitTest('options_test', ['../buildinfo.cc', '../options.cc',
+                                             'options_test.cc'])
+env.Alias('src/analytics:options_test', options_test)
+
 #vizd_test_obj = env_noWerror_excep.Object('vizd_test.o', 'vizd_test.cc')
 #vizd_test = env.UnitTest('vizd_test',
 #        [
@@ -104,6 +114,7 @@ env.Alias('src/analytics:db_handler_test', db_handler_test)
 #env.Alias('src/analytics:vizd_test', vizd_test)
 
 test_suite = [ 
+               options_test,
                viz_message_test,
                db_handler_test,
                syslog_test,

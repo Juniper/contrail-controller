@@ -8,7 +8,11 @@ Import('QueryEnv')
 
 env = QueryEnv.Clone()
 
-env.Append(LIBS=['libsandeshflow', 'gunit', 'hiredis', 'thrift', 'task_test'])
+env.Append(LIBS=['gunit', 'io', 'sandesh', 'http', 'sandeshvns', 'io', 'base',
+                 'http_parser', 'curl', 'boost_filesystem',
+                 'boost_program_options', 'pugixml', 'rt',
+                 'sandesh', 'sandeshvns',
+                 'libsandeshflow', 'hiredis', 'thrift', 'task_test'])
 env.Append(LIBPATH=['#/build/lib', Dir(env['TOP']).abspath + '/base/test/'])
 env.Append(CPPPATH = ['#/'+Dir('.').path ,
                       env['TOP'],
@@ -45,6 +49,10 @@ Analytics_obj = env.Object('vizd_table_desc.o', '../../analytics/vizd_table_desc
 #                              ]
 #                              )
 
+options_test = env.UnitTest('options_test', ['../buildinfo.cc', '../options.cc',
+                                             'options_test.cc'])
+env.Alias('src/query_engine:options_test', options_test)
+
 select_fs_query_test_obj = env_noWerror_excep.Object('select_fs_query_test.o',
                                                      'select_fs_query_test.cc')
 select_fs_query_test = env.UnitTest('select_fs_query_test',
@@ -65,9 +73,11 @@ select_fs_query_test = env.UnitTest('select_fs_query_test',
                                      '../QEOpServerProxy.o'])
 
 test_suite = [
+               options_test,
                select_fs_query_test
              ]
 
 test = env.TestSuite('qe-test', test_suite)
 env.Alias('src/query_engine:test', test)
 
+Return('test_suite')

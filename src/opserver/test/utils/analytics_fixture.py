@@ -69,15 +69,15 @@ class Collector(object):
         assert(self._instance == None)
         self._log_file = '/tmp/vizd.messages.' + str(self.listen_port)
         args = [self.analytics_fixture.builddir + '/analytics/vizd',
-            '--cassandra-server-list', '127.0.0.1:' +
+            '--DEFAULT.cassandra_server_list', '127.0.0.1:' +
             str(self.analytics_fixture.cassandra_port),
-            '--redis-uve-port', 
+            '--REDIS.port', 
             str(self._redis_uve.port),
-            '--listen-port', str(self.listen_port),
-            '--http-server-port', str(self.http_port),
-            '--log-file', self._log_file]
+            '--COLLECTOR.port', str(self.listen_port),
+            '--DEFAULT.http_server_port', str(self.http_port),
+            '--DEFAULT.log_file', self._log_file]
         if self._is_dup is True:
-            args.append('--dup')
+            args.append('--DEFAULT.dup')
         self._instance = subprocess.Popen(args, stdout=subprocess.PIPE,
                              stderr=subprocess.PIPE,
                              preexec_fn = AnalyticsFixture.enable_core)
@@ -202,17 +202,18 @@ class QueryEngine(object):
         assert(self._instance == None)
         self._log_file = '/tmp/qed.messages.' + str(self.listen_port)
         args = [self.analytics_fixture.builddir + '/query_engine/qedt',
-                '--redis-port', str(self.analytics_fixture.redis_query.port),
-                '--cassandra-server-list', '127.0.0.1:' +
+                '--REDIS.port', str(self.analytics_fixture.redis_query.port),
+                '--DEFAULT.cassandra_server_list', '127.0.0.1:' +
                 str(self.analytics_fixture.cassandra_port),
-                '--http-server-port', str(self.listen_port),
-                '--log-local', '--log-level', 'SYS_DEBUG',
-                '--log-file', self._log_file,
-                '--collectors', self.primary_collector]
+                '--DEFAULT.http_server_port', str(self.listen_port),
+                '--DEFAULT.log_local', '--DEFAULT.log_level', 'SYS_DEBUG',
+                '--DEFAULT.log_file', self._log_file,
+                '--DEFAULT.collectors', self.primary_collector]
         if self.secondary_collector is not None:
+            args.append('--DEFAULT.collectors')
             args.append(self.secondary_collector)
         if analytics_start_time is not None:
-            args += ['--start-time', str(analytics_start_time)]
+            args += ['--DEFAULT.start_time', str(analytics_start_time)]
         self._instance = subprocess.Popen(args,
                              stdout=subprocess.PIPE,
                              stderr=subprocess.PIPE,
