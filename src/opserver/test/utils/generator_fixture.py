@@ -36,12 +36,13 @@ class GeneratorFixture(fixtures.Fixture):
     _VN_PREFIX = 'default-domain:vn'
 
     def __init__(self, name, collectors, logger,
-                 opserver_port, start_time=None):
+                 opserver_port, start_time=None, node_type="Test"):
         self._name = name
         self._logger = logger
         self._collectors = collectors
         self._opserver_port = opserver_port
         self._start_time = start_time
+        self._node_type = node_type
     # end __init__
 
     def setUp(self):
@@ -49,11 +50,16 @@ class GeneratorFixture(fixtures.Fixture):
         self._sandesh_instance = Sandesh()
         self._http_port = AnalyticsFixture.get_free_port()
         self._sandesh_instance.init_generator(
-            self._name, socket.gethostname(), "Test", "0", self._collectors,
+            self._name, socket.gethostname(), self._node_type, "0", self._collectors,
             '', self._http_port, sandesh_req_uve_pkg_list=['sandesh'])
         self._sandesh_instance.set_logging_params(enable_local_log=True,
                                                   level=SandeshLevel.UT_DEBUG)
     # end setUp
+
+    def cleanUp(self):
+        self._sandesh_instance._client._connection.set_admin_state(down=True)
+        super(GeneratorFixture, self).cleanUp()
+    # end tearDown
 
     @retry(delay=2, tries=5)
     def verify_on_setup(self):
@@ -233,7 +239,7 @@ class GeneratorFixture(fixtures.Fixture):
         self.vn_all_rows['rows'] = 8
 
         self.vn_sum_rows = {}
-        self.vn_sum_rows['select'] = ['name','COUNT(vn_stats)']
+        self.vn_sum_rows['select'] = ['name','COUNT(vn_stats)','SUM(vn_stats.in_tpkts)']
         self.vn_sum_rows['whereclause'] = 'vn_stats.other_vn=' + self._VN_PREFIX + str(1) 
         self.vn_sum_rows['rows'] = 2
 
