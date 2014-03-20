@@ -41,6 +41,8 @@ const string SYSTEM_OBJECT_TABLE    = "SystemObjectTable"
 const string SYSTEM_OBJECT_ANALYTICS = "SystemObjectAnalytics"
 const string SYSTEM_OBJECT_START_TIME = "SystemObjectStartTime"
 
+// Current version of object tables (to be used as suffix with the names)
+const string OBJ_TABLE_VER          = "Ver2"
 //The following are the object tables and some of them are UVEs
 const string VN_TABLE               = "ObjectVNTable"
 const string VM_TABLE               = "ObjectVMTable"

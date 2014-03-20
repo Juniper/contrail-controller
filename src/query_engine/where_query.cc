@@ -38,6 +38,21 @@ WhereQuery::WhereQuery(const std::string& where_json_string, int direction,
             db_query->cr.finish_.push_back((uint8_t)0xff);
             db_query->cr.finish_.push_back((uint16_t)0xffff);
 
+        } else if (m_query->is_object_table_query()) {
+            SetOperationUnit *or_node= new SetOperationUnit(this, main_query);
+            SetOperationUnit *and_node= 
+                new SetOperationUnit(or_node, main_query);
+            DbQueryUnit *db_query = new DbQueryUnit(and_node, main_query);
+            // These values will encompass all possible ascii strings in their range
+            GenDb::DbDataValue value = "\x1b", value2 = "\x7f";
+
+            db_query->cfname = m_query->table() + g_viz_constants.OBJ_TABLE_VER;
+
+            // Added object id to column
+            db_query->cr.start_.push_back(value);
+            db_query->cr.finish_.push_back(value2);
+
+            QE_TRACE(DEBUG, "where * for object table" << m_query->table());
         }
 
         // This is "where *" query, no need to do JSON parsing
@@ -238,20 +253,25 @@ WhereQuery::WhereQuery(const std::string& where_json_string, int direction,
             if (name == OBJECTID)
             {
                 DbQueryUnit *db_query = new DbQueryUnit(and_node, main_query);
+                GenDb::DbDataValue value2 = value;
 
-                db_query->cfname = m_query->table;
+                db_query->cfname = m_query->table() + g_viz_constants.OBJ_TABLE_VER;
 
-                db_query->t_only_col = true;
+                // only EQUAL or PREFIX op supported currently 
+                QE_INVALIDARG_ERROR((op == EQUAL) || (op == PREFIX));
+                if (op == PREFIX)
+                {
+                    value2 = value + "\x7f";
+                }
 
-                // only EQUAL op supported currently 
-                QE_INVALIDARG_ERROR(op == EQUAL);
-
-                // string encoding
-                db_query->row_key_suffix.push_back(value);
+                // Added object id to column
+                db_query->cr.start_.push_back(value);
+                db_query->cr.finish_.push_back(value2);
 
                 QE_TRACE(DEBUG, "where match term for objectid " << value);
                 object_id_specified = true;
             }
+
             if (name == g_viz_constants.FlowRecordNames[FlowRecordFields::FLOWREC_VROUTER])
             {
                 vr_match = true; vr_op = op; 
