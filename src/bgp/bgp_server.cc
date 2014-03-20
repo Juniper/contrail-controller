@@ -111,6 +111,13 @@ public:
                         << params.autonomous_system);
             server_->autonomous_system_ = params.autonomous_system;
         }
+
+        if (server_->hold_time_ != params.hold_time) {
+            BGP_LOG_STR(BgpConfig, SandeshLevel::SYS_DEBUG, BGP_LOG_FLAG_SYSLOG,
+                        "Updated Hold Time from " <<
+                        server_->hold_time_ << " to " << params.hold_time);
+            server_->hold_time_ = params.hold_time;
+        }
     }
 
     void ProcessNeighborConfig(const BgpNeighborConfig *neighbor_config,
