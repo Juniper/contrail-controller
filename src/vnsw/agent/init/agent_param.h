@@ -101,6 +101,7 @@ public:
 
     void Validate();
     void LogConfig() const;
+    void InitVhostAndXenLLPrefix();
     void set_test_mode(bool mode);
 private:
     void ComputeLinkLocalFlowLimits();
