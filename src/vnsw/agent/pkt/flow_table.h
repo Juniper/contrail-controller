@@ -185,7 +185,7 @@ struct MatchPolicy {
         m_out_sg_acl_l(), out_sg_rule_present(false), out_sg_action(0), 
         m_sg_acl_l(), sg_rule_present(false), sg_action(0),
         m_mirror_acl_l(), mirror_action(0), m_out_mirror_acl_l(),
-        out_mirror_action(0), action_info() {
+        out_mirror_action(0), sg_action_summary(0), action_info() {
     }
 
     ~MatchPolicy() {}
