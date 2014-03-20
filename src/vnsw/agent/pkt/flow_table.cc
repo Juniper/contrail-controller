@@ -1000,7 +1000,11 @@ void FlowTable::DeleteInternal(FlowEntryMap::iterator &it)
 
     fe->stats_.teardown_time = UTCTimestampUsec();
     fec->FlowExport(fe, diff_bytes, diff_packets);
+    /* Reset stats and teardown_time after these information is exported during
+     * flow delete so that if the flow entry is reused they point to right 
+     * values */
     fe->ResetStats();
+    fe->stats_.teardown_time = 0;
 
     // Unlink the reverse flow, if one exists
     FlowEntry *rflow = fe->reverse_flow_entry();
