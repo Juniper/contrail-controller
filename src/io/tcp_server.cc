@@ -43,11 +43,11 @@ void TcpServer::ResetAcceptor() {
     name_ = "";
 }
 
-void TcpServer::Initialize(short port) {
+bool TcpServer::InitializeInternal(short port) {
     acceptor_.reset(new tcp::acceptor(*evm_->io_service()));
     if (!acceptor_) {
         TCP_SERVER_LOG_ERROR(this, TCP_DIR_NA, "Cannot create acceptor");
-        return;
+        return false;
     }
 
     tcp::endpoint localaddr(tcp::v4(), port);
@@ -56,7 +56,7 @@ void TcpServer::Initialize(short port) {
     if (ec) {
         TCP_SERVER_LOG_ERROR(this, TCP_DIR_NA, "TCP open: " << ec.message());
         ResetAcceptor();
-        return;
+        return false;
     }
 
     acceptor_->set_option(boost::asio::socket_base::reuse_address(true), ec);
@@ -64,7 +64,7 @@ void TcpServer::Initialize(short port) {
         TCP_SERVER_LOG_ERROR(this, TCP_DIR_NA, "TCP reuse_address: "
                                                    << ec.message());
         ResetAcceptor();
-        return;
+        return false;
     }
 
     acceptor_->bind(localaddr, ec);
@@ -72,7 +72,7 @@ void TcpServer::Initialize(short port) {
         TCP_SERVER_LOG_ERROR(this, TCP_DIR_NA, "TCP bind(" << port << "): "
                                                << ec.message());
         ResetAcceptor();
-        return;
+        return false;
     }
 
     tcp::endpoint local_endpoint = acceptor_->local_endpoint(ec);
@@ -80,7 +80,7 @@ void TcpServer::Initialize(short port) {
         TCP_SERVER_LOG_ERROR(this, TCP_DIR_NA,
                              "Cannot retrieve acceptor local-endpont");
         ResetAcceptor();
-        return;
+        return false;
     }
 
     //
@@ -93,11 +93,23 @@ void TcpServer::Initialize(short port) {
         TCP_SERVER_LOG_ERROR(this, TCP_DIR_NA, "TCP listen(" << port << "): "
                                                    << ec.message());
         ResetAcceptor();
-        return;
+        return false;
     }
 
     TCP_SERVER_LOG_DEBUG(this, TCP_DIR_NA, "Initialization complete");
     AsyncAccept();
+    return true;
+}
+
+void TcpServer::Initialize(short port) {
+    int count = 0;
+    while (count++ < kMaxInitRetries) {
+        if (InitializeInternal(port)) {
+            break;
+        }
+        sleep(1);
+    }
+    assert(count < kMaxInitRetries);
 }
 
 void TcpServer::Shutdown() {
