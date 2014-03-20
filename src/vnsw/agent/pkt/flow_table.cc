@@ -218,6 +218,7 @@ bool FlowEntry::DoPolicy() {
     data_.match_p.out_sg_action = 0;
     data_.match_p.mirror_action = 0;
     data_.match_p.out_mirror_action = 0;
+    data_.match_p.sg_action_summary = 0;
 
     FlowEntry *rflow = reverse_flow_entry();
     PacketHeader hdr;
