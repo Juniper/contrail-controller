@@ -620,6 +620,15 @@ const NextHop *AgentRoute::GetActiveNextHop() const {
     return path->nexthop(static_cast<AgentRouteTable *>(get_table())->agent());
 }
 
+bool AgentRoute::IsSubnetDiscard() const {
+    const AgentPath *path = GetActivePath();
+    if (path == NULL) {
+        return false;
+    }
+
+    return path->is_subnet_discard();
+}
+
 // This is for handling shared tree across different multicast routes,
 // Unsubscribe shud be sent when all routes using tree are gone. Similarly
 // subscription should be sent only for first route.
