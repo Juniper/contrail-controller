@@ -319,6 +319,11 @@ bool InetInterfaceRoute::AddChangePath(Agent *agent, AgentPath *path) {
 bool DropRoute::AddChangePath(Agent *agent, AgentPath *path) {
     bool ret = false;
 
+    if (path->is_subnet_discard() != is_subnet_discard_) {
+        path->set_is_subnet_discard(is_subnet_discard_);
+        ret = true;
+    }
+
     if (path->dest_vn_name() != vn_) {
         path->set_dest_vn_name(vn_);
         ret = true;

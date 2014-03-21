@@ -14,7 +14,8 @@ public:
         sync_(false), proxy_arp_(false), force_policy_(false), sg_list_(),
         server_ip_(0), tunnel_bmap_(TunnelType::AllType()),
         tunnel_type_(TunnelType::ComputeType(TunnelType::AllType())),
-        vrf_name_(""), gw_ip_(0), unresolved_(true), dependant_rt_(rt) {
+        vrf_name_(""), gw_ip_(0), unresolved_(true),
+        is_subnet_discard_(false), dependant_rt_(rt) {
     }
     virtual ~AgentPath() { 
         clear_sg_list();
@@ -34,6 +35,7 @@ public:
     const Ip4Address& server_ip() const {return server_ip_;}
     const string &dest_vn_name() const {return dest_vn_name_;}
     const SecurityGroupList &sg_list() const {return sg_list_;}
+    bool is_subnet_discard() const {return is_subnet_discard_;}
 
     uint32_t GetActiveLabel() const;
     TunnelType::Type GetTunnelType() const {
@@ -53,6 +55,9 @@ public:
     void set_sg_list(SecurityGroupList &sg) {sg_list_ = sg;}
     void clear_sg_list() { sg_list_.clear(); }
     void set_server_ip(const Ip4Address &server_ip) {server_ip_ = server_ip;}
+    void set_is_subnet_discard(bool discard) {
+        is_subnet_discard_= discard;
+    }
 
     void ResetDependantRoute(AgentRoute *rt) {dependant_rt_.reset(rt);}
     bool ChangeNH(Agent *agent, NextHop *nh);
@@ -104,6 +109,9 @@ private:
     //    - no route present for gw_ip_
     //    - ARP not resolved for gw_ip_
     bool unresolved_;
+
+    bool is_subnet_discard_;
+
     // route for the gateway
     DependencyRef<AgentRoute, AgentRoute> dependant_rt_;
     DISALLOW_COPY_AND_ASSIGN(AgentPath);
@@ -346,12 +354,15 @@ private:
 
 class DropRoute : public AgentRouteData {
 public:
-    DropRoute(const string &vn_name) : AgentRouteData(false), vn_(vn_name) { }
+    DropRoute(const string &vn_name, bool is_subnet_discard) :
+        AgentRouteData(false), vn_(vn_name),
+        is_subnet_discard_(is_subnet_discard){ }
     virtual ~DropRoute() { }
     virtual bool AddChangePath(Agent *agent, AgentPath *path);
     virtual string ToString() const {return "drop";}
 private:
     string vn_;
+    bool is_subnet_discard_;
     DISALLOW_COPY_AND_ASSIGN(DropRoute);
 };
 
