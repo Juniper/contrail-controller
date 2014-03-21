@@ -38,6 +38,7 @@ struct TestFlowKey {
 #define linklocal_ip "169.254.1.10"
 #define linklocal_port 4000
 #define fabric_port 8000
+#define vn5_unused_ip "11.1.1.10"
 
 int fd_table[MAX_VNET];
 
@@ -2143,6 +2144,71 @@ TEST_F(FlowTest, LinkLocalFlow_Fail2) {
 
     DelLinkLocalConfig();
     client->WaitForIdle();
+}
+
+TEST_F(FlowTest, Flow_rpf_failure_missing_route) {
+    EXPECT_EQ(0U, agent()->pkt()->flow_table()->Size());
+
+    TestFlow flow[] = {
+        {
+            TestFlowPkt(remote_vm1_ip, vm1_ip, 1, 0, 0, "vrf5", 
+                    flow0->id()),
+            {}
+        }
+    };
+
+    CreateFlow(flow, 1);
+    client->WaitForIdle();
+
+    uint32_t vrf_id = VrfGet("vrf5")->vrf_id();
+    FlowEntry *fe = FlowGet(vrf_id, remote_vm1_ip, vm1_ip, 1, 0, 0);
+
+    EXPECT_TRUE(fe != NULL);
+    if (fe != NULL) {
+        WAIT_FOR(1000, 500, (fe->is_flags_set(FlowEntry::ShortFlow) == true));
+    }
+    client->WaitForIdle();
+
+    DeleteFlow(flow, 1);
+    client->WaitForIdle();
+
+    EXPECT_TRUE(FlowTableWait(0));
+}
+
+TEST_F(FlowTest, Flow_rpf_failure_subnet_discard_route) {
+    EXPECT_EQ(0U, agent()->pkt()->flow_table()->Size());
+
+    IpamInfo ipam_info[] = {
+        {"11.1.1.0", 24, "11.1.1.200"},
+    };
+    AddIPAM("vn5", ipam_info, 1);
+    client->WaitForIdle();
+
+    TestFlow flow[] = {
+        {
+            TestFlowPkt(vn5_unused_ip, vm1_ip, 1, 0, 0, "vrf5", 
+                    flow0->id()),
+            {}
+        }
+    };
+
+    CreateFlow(flow, 1);
+    client->WaitForIdle();
+
+    uint32_t vrf_id = VrfGet("vrf5")->vrf_id();
+    FlowEntry *fe = FlowGet(vrf_id, vn5_unused_ip, vm1_ip, 1, 0, 0);
+
+    EXPECT_TRUE(fe != NULL);
+    if (fe != NULL) {
+        WAIT_FOR(1000, 500, (fe->is_flags_set(FlowEntry::ShortFlow) == true));
+    }
+    client->WaitForIdle();
+
+    DeleteFlow(flow, 1);
+    DelIPAM("vn5");
+    client->WaitForIdle();
+
+    EXPECT_TRUE(FlowTableWait(0));
 }
 
 int main(int argc, char *argv[]) {
