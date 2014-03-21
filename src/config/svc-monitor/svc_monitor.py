@@ -854,7 +854,8 @@ class SvcMonitor(object):
 
         self._nova[proj_name] = nc.Client(
             '2', username=self._args.admin_user, project_id=proj_name,
-            api_key=self._args.admin_password, service_type='compute',
+            api_key=self._args.admin_password,
+            region_name=self._args.region_name, service_type='compute',
             auth_url='http://' + self._args.auth_host + ':5000/v2.0')
         return self._nova[proj_name]
     # end _novaclient_get
@@ -1096,6 +1097,7 @@ def parse_args(args_str):
                          --log_level SYS_DEBUG
                          --log_category test
                          --log_file <stdout>
+                         [--region_name <name>]
                          [--reset_config]
     '''
 
@@ -1125,6 +1127,7 @@ def parse_args(args_str):
         'log_level': SandeshLevel.SYS_DEBUG,
         'log_category': '',
         'log_file': Sandesh._DEFAULT_LOG_FILE,
+        'region_name': None,
         }
     secopts = {
         'use_certs': False,
@@ -1211,6 +1214,8 @@ def parse_args(args_str):
                         help="Password of keystone admin user")
     parser.add_argument("--admin_tenant_name",
                         help="Tenant name for keystone admin user")
+    parser.add_argument("--region_name",
+                        help="Region name for openstack API")
     args = parser.parse_args(remaining_argv)
     if type(args.cassandra_server_list) is str:
         args.cassandra_server_list = args.cassandra_server_list.split()
