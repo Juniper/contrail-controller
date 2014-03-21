@@ -55,7 +55,7 @@ def start_redis(port, exe=None):
 
     conftemplate = os.path.dirname(os.path.abspath(__file__)) + "/" +\
         redis_conf
-    redisbase = "/tmp/redis." + str(port) + "/"
+    redisbase = "/tmp/redis.%s.%d/" % (os.getenv('USER', 'None'), port)
     output, _ = call_command_("rm -rf " + redisbase)
     output, _ = call_command_("mkdir " + redisbase)
     output, _ = call_command_("mkdir " + redisbase + "cache")
@@ -97,12 +97,7 @@ def stop_redis(port):
     r = redis.StrictRedis(host='localhost', port=port, db=0)
     r.shutdown()
     del r
-    redisbase = "/tmp/redis." + str(port) + "/"
-    '''
-    pidfile  = redisbase + "pid"
-    pid = int(open(pidfile).read())
-    os.kill(pid, signal.SIGTERM)
-    '''
+    redisbase = "/tmp/redis.%s.%d/" % (os.getenv('USER', 'None'), port)
     output, _ = call_command_("rm -rf " + redisbase)
 
 def replace_string_(filePath, findreplace):
