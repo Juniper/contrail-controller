@@ -1228,42 +1228,6 @@ bool AnalyticsQuery::is_valid_from_field(const std::string& from_field)
     return false;
 }
 
-bool AnalyticsQuery::is_valid_select_field(const std::string& select_field)
-{
-    for(size_t i = 0; i < g_viz_constants._TABLES.size(); i++)
-    {
-        if (g_viz_constants._TABLES[i].name == table_)
-        {
-            for (size_t j = 0; 
-                j < g_viz_constants._TABLES[i].schema.columns.size(); j++)
-            {
-                if (g_viz_constants._TABLES[i].schema.columns[j].name ==
-                        select_field)
-                    return true;
-            }
-            return false;
-        }
-    }
-
-    for (std::map<std::string, objtable_info>::const_iterator it =
-            g_viz_constants._OBJECT_TABLES.begin();
-            it != g_viz_constants._OBJECT_TABLES.end(); it++) {
-        if (it->first == table_)
-        {
-            for (size_t j = 0; 
-                j < g_viz_constants._OBJECT_TABLE_SCHEMA.columns.size(); j++)
-            {
-                if (g_viz_constants._OBJECT_TABLE_SCHEMA.columns[j].name ==
-                        select_field)
-                    return true;
-            }
-            return false;
-        }
-    }
-
-    return false;
-}
-
 bool AnalyticsQuery::is_valid_where_field(const std::string& where_field)
 {
     for(size_t i = 0; i < g_viz_constants._TABLES.size(); i++)
