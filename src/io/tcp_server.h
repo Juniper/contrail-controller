@@ -129,10 +129,6 @@ class TcpServer {
     typedef std::set<TcpSessionPtr, TcpSessionPtrCmp> SessionSet;
     typedef std::multimap<Endpoint, TcpSession *> SessionMap;
 
-    static const int kMaxInitRetries = 5;
-
-    virtual bool InitializeInternal(short port);
-
     // Called by the asio service.
     void AcceptHandlerInternal(TcpServerPtr server,
              const boost::system::error_code &error);
