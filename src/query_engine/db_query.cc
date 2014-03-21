@@ -20,11 +20,6 @@ query_status_t DbQueryUnit::process_query()
             << " column_start size:" << cr.start_.size()
             << " column_end size:" << cr.finish_.size());
 
-    if (m_query->is_object_table_query())
-    {    
-        GenDb::DbDataValue timestamp_start = (uint32_t)0x0;
-        cr.start_.push_back(timestamp_start);
-    }
     GenDb::DbDataValue timestamp_end = (uint32_t)(0xffffffff);
     cr.finish_.push_back(timestamp_end);
 
@@ -36,7 +31,7 @@ query_status_t DbQueryUnit::process_query()
         GenDb::DbDataValueVec rowkey;
 
         rowkey.push_back(t2);
-        if (m_query->is_flow_query() || m_query->is_object_table_query()) {
+        if (m_query->is_flow_query()) {
             uint8_t partition_no = 0;
             rowkey.push_back(partition_no);
         }
@@ -50,12 +45,8 @@ query_status_t DbQueryUnit::process_query()
         }
         keys.push_back(rowkey);
     }
-
+        
     if (!m_query->dbif->Db_GetMultiRow(mget_res, cfname, keys, &cr)) {
-         QE_TRACE(DEBUG, "GetMultiRow failed:keys count:"<< keys.size() <<" :cr_s(size):"<<cr.start_.size()<<" :cr_f(size):"<<cr.finish_.size()<<" :cr_s(0):"<<cr.start_.at(0) <<" :cr_f(0):"<<cr.finish_.at(0)<<" :cr_f(1):"<<cr.finish_.at(1));
-        for (size_t i = 0; i < keys.size(); i++)
-            QE_TRACE(DEBUG, "GetMultiRow failed:keys:"<<i<<":"<<keys[i].at(0) << ":keys[1]:" << (keys[i].at(1)));
-   
         QE_IO_ERROR_RETURN(0, QUERY_FAILURE);
     } else {
         for (std::vector<GenDb::ColList>::iterator it = mget_res.begin();

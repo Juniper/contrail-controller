@@ -853,7 +853,7 @@ AnalyticsQuery::AnalyticsQuery(std::string qid, std::map<std::string,
             g_viz_constants._OBJECT_TABLES.begin();
             it != g_viz_constants._OBJECT_TABLES.end(); it++) {
         if (!dbif_->Db_UseColumnfamily(
-                    (GenDb::NewCf(it->first + g_viz_constants.OBJ_TABLE_VER,
+                    (GenDb::NewCf(it->first,
                                   boost::assign::list_of
                                   (GenDb::DbDataType::Unsigned32Type)
                                   (GenDb::DbDataType::AsciiType),
