@@ -440,13 +440,13 @@ void DbHandler::ObjectTableInsert(const std::string &table, const std::string &o
         rowkey.push_back(partition_no);
         rowkey.push_back(table);
         
-        GenDb::DbDataValueVec *col_name(new GenDb::DbDataValueVec());
-        col_name->reserve(2);
-        col_name->push_back(objectkey_str);
-        col_name->push_back(T1);
+        GenDb::DbDataValueVec col_name;
+        col_name.reserve(2);
+        col_name.push_back(objectkey_str);
+        col_name.push_back(T1);
 
-        GenDb::DbDataValueVec *col_value(new GenDb::DbDataValueVec(1, unm));
-        GenDb::NewCol *col(new GenDb::NewCol(col_name, col_value));
+        GenDb::DbDataValueVec col_value(1, unm);
+        GenDb::NewCol col(col_name, col_value);
         GenDb::NewColVec& columns = col_list->columns_;
         columns.reserve(1);
         columns.push_back(col);
@@ -459,19 +459,19 @@ void DbHandler::ObjectTableInsert(const std::string &table, const std::string &o
       }
 
       {
-        GenDb::ColList *col_list(new GenDb::ColList);
+        GenDb::ColList *col_list(new GenDb::ColList); 
         col_list->cfname_ = g_viz_constants.OBJECT_VALUE_TABLE;
         GenDb::DbDataValueVec& rowkey = col_list->rowkey_;
         rowkey.reserve(2);
         rowkey.push_back(T2);
         rowkey.push_back(table);
-        GenDb::DbDataValueVec *col_name(new GenDb::DbDataValueVec(1, T1));
-        GenDb::DbDataValueVec *col_value(new GenDb::DbDataValueVec(1, objectkey_str));
-        GenDb::NewCol *col(new GenDb::NewCol(col_name, col_value));
+        GenDb::DbDataValueVec col_name(1, T1);
+        GenDb::DbDataValueVec col_value(1, objectkey_str);
         GenDb::NewColVec& columns = col_list->columns_;
         columns.reserve(1);
-        columns.push_back(col);
-        if (!dbif_->NewDb_AddColumn(col_list)) {
+        columns.push_back(GenDb::NewCol(col_name, col_value));
+        std::auto_ptr<GenDb::ColList> col_list_ptr(col_list);
+        if (!dbif_->NewDb_AddColumn(col_list_ptr)) {
             LOG(ERROR, __func__ << ": Addition of " << objectkey_str <<
                     ", message UUID " << unm << " " << table << " into table "
                     << g_viz_constants.OBJECT_VALUE_TABLE << " FAILED");

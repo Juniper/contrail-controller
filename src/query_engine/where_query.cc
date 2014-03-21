@@ -47,13 +47,13 @@ WhereQuery::WhereQuery(const std::string& where_json_string, int direction,
             GenDb::DbDataValue value = "\x1b", value2 = "\x7f";
 
             db_query->cfname = g_viz_constants.OBJECT_TABLE;
-            db_query->row_key_suffix.push_back(m_query->table());
+            db_query->row_key_suffix.push_back(m_query->table);
 
             // Added object id to column
             db_query->cr.start_.push_back(value);
             db_query->cr.finish_.push_back(value2);
 
-            QE_TRACE(DEBUG, "where * for object table" << m_query->table());
+            QE_TRACE(DEBUG, "where * for object table" << m_query->table);
         }
 
         // This is "where *" query, no need to do JSON parsing
@@ -257,7 +257,7 @@ WhereQuery::WhereQuery(const std::string& where_json_string, int direction,
                 GenDb::DbDataValue value2 = value;
 
                 db_query->cfname = g_viz_constants.OBJECT_TABLE;
-                db_query->row_key_suffix.push_back(m_query->table());
+                db_query->row_key_suffix.push_back(m_query->table);
 
                 // only EQUAL or PREFIX op supported currently 
                 QE_INVALIDARG_ERROR((op == EQUAL) || (op == PREFIX));

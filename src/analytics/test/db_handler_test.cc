@@ -330,15 +330,15 @@ TEST_F(DbHandlerTest, ObjectTableInsertTest) {
     std::string rowkey_str("ObjectTableInsertTestRowkey");
 
       {
-        DbDataValueVec *colname(new DbDataValueVec());
-        colname->reserve(2);
-        colname->push_back("ObjectTableInsertTestRowkey");
-        colname->push_back((uint32_t)(hdr.get_Timestamp() & g_viz_constants.RowTimeInMask));
+        DbDataValueVec colname;
+        colname.reserve(2);
+        colname.push_back("ObjectTableInsertTestRowkey");
+        colname.push_back((uint32_t)(hdr.get_Timestamp() & g_viz_constants.RowTimeInMask));
 
-        DbDataValueVec *colvalue(new DbDataValueVec(1, unm));
-        boost::ptr_vector<GenDb::NewCol> expected_vector = 
-            boost::assign::ptr_list_of<GenDb::NewCol>
-            (GenDb::NewCol(colname, colvalue));
+        DbDataValueVec colvalue(1, unm);
+        Matcher<GenDb::NewCol> expected_vector[] = {
+            GenDb::NewCol(colname, colvalue)
+        };
 
         GenDb::DbDataValueVec rowkey;
         rowkey.push_back((uint32_t)(hdr.get_Timestamp() >> g_viz_constants.RowTimeInBits));
