@@ -46,8 +46,7 @@ WhereQuery::WhereQuery(const std::string& where_json_string, int direction,
             // These values will encompass all possible ascii strings in their range
             GenDb::DbDataValue value = "\x1b", value2 = "\x7f";
 
-            db_query->cfname = g_viz_constants.OBJECT_TABLE;
-            db_query->row_key_suffix.push_back(m_query->table());
+            db_query->cfname = m_query->table() + g_viz_constants.OBJ_TABLE_VER;
 
             // Added object id to column
             db_query->cr.start_.push_back(value);
@@ -256,8 +255,7 @@ WhereQuery::WhereQuery(const std::string& where_json_string, int direction,
                 DbQueryUnit *db_query = new DbQueryUnit(and_node, main_query);
                 GenDb::DbDataValue value2 = value;
 
-                db_query->cfname = g_viz_constants.OBJECT_TABLE;
-                db_query->row_key_suffix.push_back(m_query->table());
+                db_query->cfname = m_query->table() + g_viz_constants.OBJ_TABLE_VER;
 
                 // only EQUAL or PREFIX op supported currently 
                 QE_INVALIDARG_ERROR((op == EQUAL) || (op == PREFIX));

@@ -848,18 +848,22 @@ AnalyticsQuery::AnalyticsQuery(std::string qid, std::map<std::string,
             this->status_details = EIO;
         }
     }
-    /* setup ObjectTable */
-    if (!dbif_->Db_UseColumnfamily(
-                (GenDb::NewCf(g_viz_constants.OBJECT_TABLE,
-                              boost::assign::list_of
-                              (GenDb::DbDataType::Unsigned32Type)
-                              (GenDb::DbDataType::AsciiType),
-                              boost::assign::list_of
-                              (GenDb::DbDataType::Unsigned32Type),
-                              boost::assign::list_of
-                              (GenDb::DbDataType::LexicalUUIDType))))) {
-        QE_LOG(ERROR, "Database initialization:Db_UseColumnfamily failed");
-        this->status_details = EIO;
+    /* setup ObjectTables */
+    for (std::map<std::string, objtable_info>::const_iterator it =
+            g_viz_constants._OBJECT_TABLES.begin();
+            it != g_viz_constants._OBJECT_TABLES.end(); it++) {
+        if (!dbif_->Db_UseColumnfamily(
+                    (GenDb::NewCf(it->first + g_viz_constants.OBJ_TABLE_VER,
+                                  boost::assign::list_of
+                                  (GenDb::DbDataType::Unsigned32Type)
+                                  (GenDb::DbDataType::AsciiType),
+                                  boost::assign::list_of
+                                  (GenDb::DbDataType::Unsigned32Type),
+                                  boost::assign::list_of
+                                  (GenDb::DbDataType::LexicalUUIDType))))) {
+            QE_LOG(ERROR, "Database initialization:Db_UseColumnfamily failed");
+            this->status_details = EIO;
+        }
     }
     for (std::vector<GenDb::NewCf>::const_iterator it = vizd_flow_tables.begin();
             it != vizd_flow_tables.end(); it++) {

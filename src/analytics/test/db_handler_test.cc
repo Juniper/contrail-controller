@@ -343,11 +343,10 @@ TEST_F(DbHandlerTest, ObjectTableInsertTest) {
         GenDb::DbDataValueVec rowkey;
         rowkey.push_back((uint32_t)(hdr.get_Timestamp() >> g_viz_constants.RowTimeInBits));
         rowkey.push_back((uint8_t)0);
-        rowkey.push_back("ObjectTableInsertTest");
         EXPECT_CALL(*dbif_mock(),
                 NewDb_AddColumnProxy(
                     Pointee(
-                        AllOf(Field(&GenDb::ColList::cfname_, g_viz_constants.OBJECT_TABLE), 
+                        AllOf(Field(&GenDb::ColList::cfname_, "ObjectTableInsertTest" + g_viz_constants.OBJ_TABLE_VER), 
                             Field(&GenDb::ColList::rowkey_, rowkey),
                             Field(&GenDb::ColList::columns_,
                                 ElementsAreArray(expected_vector))))))
