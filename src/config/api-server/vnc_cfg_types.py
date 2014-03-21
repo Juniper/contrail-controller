@@ -27,7 +27,7 @@ class FloatingIpServer(FloatingIpServerGen):
             fip_addr = cls.addr_mgmt.ip_alloc_req(
                 vn_fq_name, asked_ip_addr=req_ip)
         except Exception as e:
-            return (False, (503, str(e)))
+            return (False, (500, str(e)))
         obj_dict['floating_ip_address'] = fip_addr
         print 'AddrMgmt: alloc %s FIP for vn=%s, tenant=%s, askip=%s' \
             % (obj_dict['floating_ip_address'], vn_fq_name, tenant_name,
@@ -77,7 +77,7 @@ class InstanceIpServer(InstanceIpServerGen):
             ip_addr = cls.addr_mgmt.ip_alloc_req(
                 vn_fq_name, asked_ip_addr=req_ip)
         except Exception as e:
-            return (False, (503, str(e)))
+            return (False, (500, str(e)))
         obj_dict['instance_ip_address'] = ip_addr
         print 'AddrMgmt: alloc %s for vn=%s, tenant=%s, askip=%s' \
             % (obj_dict['instance_ip_address'],
@@ -158,7 +158,7 @@ class VirtualNetworkServer(VirtualNetworkServerGen):
         vn_id = {'uuid': id}
         (read_ok, read_result) = db_conn.dbe_read('virtual-network', vn_id)
         if not read_ok:
-            return (False, (503, read_result))
+            return (False, (500, read_result))
         (ok, result) = cls.addr_mgmt.net_check_subnet_overlap(read_result,
                                                               obj_dict)
         if not ok:
@@ -230,7 +230,7 @@ class NetworkIpamServer(NetworkIpamServerGen):
         ipam_id = {'uuid': ipam_uuid}
         (read_ok, read_result) = db_conn.dbe_read('network-ipam', ipam_id)
         if not read_ok:
-            return (False, (503, "Internal error : IPAM is not valid"))
+            return (False, (500, "Internal error : IPAM is not valid"))
         old_ipam_mgmt = read_result.get('network_ipam_mgmt')
         if not old_ipam_mgmt:
             return True, ""
@@ -240,7 +240,7 @@ class NetworkIpamServer(NetworkIpamServerGen):
         new_dns_method = new_ipam_mgmt['ipam_dns_method']
         if not cls.is_change_allowed(old_dns_method, new_dns_method, obj_dict,
                                      db_conn):
-            return (False, (503, "Cannot change DNS Method from " +
+            return (False, (409, "Cannot change DNS Method from " +
                     old_dns_method + " to " + new_dns_method +
                     " with active VMs referring to the IPAM"))
         return True, ""
@@ -303,7 +303,7 @@ class VirtualDnsServer(VirtualDnsServerGen):
             if not read_ok:
                 return (
                     False,
-                    (503, "Internal error : Virtual Dns is not in a domain"))
+                    (500, "Internal error : Virtual Dns is not in a domain"))
             virtual_DNSs = read_result.get('virtual_DNSs', None)
             for vdns in virtual_DNSs:
                 vdns_uuid = vdns['uuid']
@@ -313,7 +313,7 @@ class VirtualDnsServer(VirtualDnsServerGen):
                 if not read_ok:
                     return (
                         False,
-                        (503,
+                        (500,
                          "Internal error : Unable to read Virtual Dns data"))
                 vdns_data = read_result['virtual_DNS_data']
                 if 'next_virtual_DNS' in vdns_data:
