@@ -996,14 +996,6 @@ class VncZkClient(object):
         self._zk_client.create_node(zk_path, id)
     # end create_fq_name_to_uuid_mapping
 
-    def fq_name_to_uuid(self, obj_type, fq_name):
-        fq_name_str = ':'.join(fq_name)
-        zk_path = self._FQ_NAME_TO_UUID_PATH+'/%s:%s' %(obj_type.replace('-', '_'),
-                                             fq_name_str)
-
-        return self._zk_client.read_node(zk_path)
-    # end fq_name_to_uuid
-
     def delete_fq_name_to_uuid_mapping(self, obj_type, fq_name):
         fq_name_str = ':'.join(fq_name)
         zk_path = self._FQ_NAME_TO_UUID_PATH+'/%s:%s' %(obj_type.replace('-', '_'),
@@ -1185,7 +1177,7 @@ class VncDbClient(object):
     def dbe_alloc(self, obj_type, obj_dict, uuid_requested=None):
         try:
             if uuid_requested:
-                ok = self.set_uuid(obj_type, obj_dict, uuid.UUID(uuid_requested))
+                ok = self.set_uuid(obj_type, obj_dict, uuid.UUID(uuid_requested), False)
             else:
                 (ok, obj_uuid) = self._alloc_set_uuid(obj_type, obj_dict)
         except ResourceExistsError:
@@ -1325,10 +1317,7 @@ class VncDbClient(object):
     # end uuid_to_ifmap_id
 
     def fq_name_to_uuid(self, obj_type, fq_name):
-        obj_uuid = self._zk_db.fq_name_to_uuid(obj_type, fq_name)
-        if not obj_uuid:
-            raise NoIdError('%s %s' % (obj_type, fq_name))
-
+        obj_uuid = self._cassandra_db.fq_name_to_uuid(obj_type, fq_name)
         return obj_uuid
     # end fq_name_to_uuid
 
