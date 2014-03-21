@@ -1110,25 +1110,11 @@ class SecurityGroupST(DictST):
         ingress_acl_entries = AclEntriesType()
         egress_acl_entries = AclEntriesType()
 
-        # Create implicit rules
-        if self.obj.name == 'default':
-            local = [AddressType(security_group='local')]
-            sg = [AddressType(security_group=self.name)]
-            prules = [PolicyRuleType(direction='>', protocol='any',
-                                    src_addresses=sg,
-                                    src_ports=[PortType(0, 65535)],
-                                    dst_addresses=local,
-                                    dst_ports=[PortType(0, 65535)]),
-                      PolicyRuleType(direction='>', protocol='any',
-                                    src_addresses=local,
-                                    src_ports=[PortType(0, 65535)],
-                                    dst_addresses=sg,
-                                    dst_ports=[PortType(0, 65535)])]
+        if policy_rule_entries:
+            prules = policy_rule_entries.get_policy_rule() or []
         else:
             prules = []
 
-        if policy_rule_entries:
-            prules += policy_rule_entries.get_policy_rule() or []
         for prule in prules:
             (ingress_list, egress_list) = self.policy_to_acl_rule(prule)
             ingress_acl_entries.acl_rule.extend(ingress_list)
