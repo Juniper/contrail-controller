@@ -352,8 +352,11 @@ TEST_F(DbHandlerTest, ObjectTableInsertTest) {
     std::string rowkey_str("ObjectTableInsertTestRowkey");
 
       {
-        DbDataValueVec *colname(new DbDataValueVec(1,
-            (uint32_t)(hdr.get_Timestamp() & g_viz_constants.RowTimeInMask)));
+        DbDataValueVec *colname(new DbDataValueVec());
+        colname->reserve(2);
+        colname->push_back("ObjectTableInsertTestRowkey");
+        colname->push_back((uint32_t)(hdr.get_Timestamp() & g_viz_constants.RowTimeInMask));
+
         DbDataValueVec *colvalue(new DbDataValueVec(1, unm));
         boost::ptr_vector<GenDb::NewCol> expected_vector = 
             boost::assign::ptr_list_of<GenDb::NewCol>
@@ -361,11 +364,12 @@ TEST_F(DbHandlerTest, ObjectTableInsertTest) {
 
         GenDb::DbDataValueVec rowkey;
         rowkey.push_back((uint32_t)(hdr.get_Timestamp() >> g_viz_constants.RowTimeInBits));
-        rowkey.push_back("ObjectTableInsertTestRowkey");
+        rowkey.push_back((uint8_t)0);
+        rowkey.push_back("ObjectTableInsertTest");
         EXPECT_CALL(*dbif_mock(),
                 NewDb_AddColumnProxy(
                     Pointee(
-                        AllOf(Field(&GenDb::ColList::cfname_, "ObjectTableInsertTest"),
+                        AllOf(Field(&GenDb::ColList::cfname_, g_viz_constants.OBJECT_TABLE), 
                             Field(&GenDb::ColList::rowkey_, rowkey),
                             Field(&GenDb::ColList::columns_,
                                 expected_vector)))))

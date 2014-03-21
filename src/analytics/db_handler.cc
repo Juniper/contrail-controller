@@ -79,19 +79,19 @@ bool DbHandler::CreateTables() {
     }
 
     /* create ObjectTables */
-    for (std::map<std::string, objtable_info>::const_iterator it = g_viz_constants._OBJECT_TABLES.begin(); it != g_viz_constants._OBJECT_TABLES.end(); it++) {
-        if (!dbif_->NewDb_AddColumnfamily(
-                    (GenDb::NewCf(it->first,
-                                  boost::assign::list_of
-                                  (GenDb::DbDataType::Unsigned32Type)
-                                  (GenDb::DbDataType::AsciiType),
-                                  boost::assign::list_of
-                                  (GenDb::DbDataType::Unsigned32Type),
-                                  boost::assign::list_of
-                                  (GenDb::DbDataType::LexicalUUIDType))))) {
-            LOG(ERROR, __func__ << ": " << it->first << " FAILED");
-            return false;
-        }
+    if (!dbif_->NewDb_AddColumnfamily(
+                (GenDb::NewCf(g_viz_constants.OBJECT_TABLE,
+                              boost::assign::list_of
+                              (GenDb::DbDataType::Unsigned32Type)
+                              (GenDb::DbDataType::Unsigned8Type)
+                              (GenDb::DbDataType::AsciiType),
+                              boost::assign::list_of
+                              (GenDb::DbDataType::AsciiType)
+                              (GenDb::DbDataType::Unsigned32Type),
+                              boost::assign::list_of
+                              (GenDb::DbDataType::LexicalUUIDType))))) {
+        LOG(ERROR, __func__ << ": " << g_viz_constants.OBJECT_TABLE << " FAILED");
+        return false;
     }
 
     for (std::vector<GenDb::NewCf>::const_iterator it = vizd_flow_tables.begin();
@@ -207,22 +207,20 @@ bool DbHandler::Setup(int instance) {
             return false;
         }
     }
-    /* setup ObjectTables */
-    for (std::map<std::string, objtable_info>::const_iterator it =
-            g_viz_constants._OBJECT_TABLES.begin();
-            it != g_viz_constants._OBJECT_TABLES.end(); it++) {
-        if (!dbif_->Db_UseColumnfamily(
-                    (GenDb::NewCf(it->first,
-                                  boost::assign::list_of
-                                  (GenDb::DbDataType::Unsigned32Type)
-                                  (GenDb::DbDataType::AsciiType),
-                                  boost::assign::list_of
-                                  (GenDb::DbDataType::Unsigned32Type),
-                                  boost::assign::list_of
-                                  (GenDb::DbDataType::LexicalUUIDType))))) {
-            LOG(ERROR, __func__ << ": Database initialization:Db_UseColumnfamily failed");
-            return false;
-        }
+    /* setup ObjectTable */
+    if (!dbif_->Db_UseColumnfamily(
+                (GenDb::NewCf(g_viz_constants.OBJECT_TABLE,
+                              boost::assign::list_of
+                              (GenDb::DbDataType::Unsigned32Type)
+                              (GenDb::DbDataType::Unsigned8Type)
+                              (GenDb::DbDataType::AsciiType),
+                              boost::assign::list_of
+                              (GenDb::DbDataType::AsciiType)
+                              (GenDb::DbDataType::Unsigned32Type),
+                              boost::assign::list_of
+                              (GenDb::DbDataType::LexicalUUIDType))))) {
+        LOG(ERROR, __func__ << ": Database initialization:Db_UseColumnfamily failed");
+        return false;
     }
     for (std::vector<GenDb::NewCf>::const_iterator it = vizd_flow_tables.begin();
             it != vizd_flow_tables.end(); it++) {
@@ -416,31 +414,38 @@ void DbHandler::GetRuleMap(RuleMap& rulemap) {
 
 /*
  * insert an entry into an ObjectTrace table
- * key is T2:<key>
+ * key is T2
  * column is
- *  name: T1 (value in timestamp)
+ *  name: <key>:T1 (value in timestamp)
  *  value: uuid (of the corresponding global message)
  */
-void DbHandler::ObjectTableInsert(const std::string &table, const std::string &rowkey_str,
+void DbHandler::ObjectTableInsert(const std::string &table, const std::string &objectkey_str,
         uint64_t &timestamp, const boost::uuids::uuid& unm) {
     uint32_t T2(timestamp >> g_viz_constants.RowTimeInBits);
     uint32_t T1(timestamp & g_viz_constants.RowTimeInMask);
 
       {
+        uint8_t partition_no = 0;
         std::auto_ptr<GenDb::ColList> col_list(new GenDb::ColList);
-        col_list->cfname_ = table;
+        col_list->cfname_ = g_viz_constants.OBJECT_TABLE;
         GenDb::DbDataValueVec& rowkey = col_list->rowkey_;
-        rowkey.reserve(2);
+        rowkey.reserve(3);
         rowkey.push_back(T2);
-        rowkey.push_back(rowkey_str);
-        GenDb::DbDataValueVec *col_name(new GenDb::DbDataValueVec(1, T1));
+        rowkey.push_back(partition_no);
+        rowkey.push_back(table);
+        
+        GenDb::DbDataValueVec *col_name(new GenDb::DbDataValueVec());
+        col_name->reserve(2);
+        col_name->push_back(objectkey_str);
+        col_name->push_back(T1);
+
         GenDb::DbDataValueVec *col_value(new GenDb::DbDataValueVec(1, unm));
         GenDb::NewCol *col(new GenDb::NewCol(col_name, col_value));
         GenDb::NewColVec& columns = col_list->columns_;
         columns.reserve(1);
         columns.push_back(col);
         if (!dbif_->NewDb_AddColumn(col_list)) {
-            LOG(ERROR, __func__ << ": Addition of " << rowkey_str <<
+            LOG(ERROR, __func__ << ": Addition of " << objectkey_str <<
                     ", message UUID " << unm << " into table " << table <<
                     " FAILED");
             return;
@@ -455,13 +460,13 @@ void DbHandler::ObjectTableInsert(const std::string &table, const std::string &r
         rowkey.push_back(T2);
         rowkey.push_back(table);
         GenDb::DbDataValueVec *col_name(new GenDb::DbDataValueVec(1, T1));
-        GenDb::DbDataValueVec *col_value(new GenDb::DbDataValueVec(1, rowkey_str));
+        GenDb::DbDataValueVec *col_value(new GenDb::DbDataValueVec(1, objectkey_str));
         GenDb::NewCol *col(new GenDb::NewCol(col_name, col_value));
         GenDb::NewColVec& columns = col_list->columns_;
         columns.reserve(1);
         columns.push_back(col);
         if (!dbif_->NewDb_AddColumn(col_list)) {
-            LOG(ERROR, __func__ << ": Addition of " << rowkey_str <<
+            LOG(ERROR, __func__ << ": Addition of " << objectkey_str <<
                     ", message UUID " << unm << " " << table << " into table "
                     << g_viz_constants.OBJECT_VALUE_TABLE << " FAILED");
             return;
@@ -480,7 +485,8 @@ void DbHandler::ObjectTableInsert(const std::string &table, const std::string &r
 	tmap.insert(make_pair("name", make_pair(pv, amap)));
 	attribs.insert(make_pair(string("name"), pv));
 	string sattrname("fields.value");
-	pv = string(rowkey_str);
+	pv = string(objectkey_str);
+	tmap.insert(make_pair(sattrname,make_pair(pv,amap)));
 	attribs.insert(make_pair(sattrname,pv));
         
         pv = string(col_name_);
