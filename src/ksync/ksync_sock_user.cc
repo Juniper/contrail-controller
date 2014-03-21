@@ -118,11 +118,6 @@ void KSyncSockTypeMap::FlowNatResponse(uint32_t seq_num, vr_flow_req *req) {
     nl_update_header(&cl, encode_len);
     sock->sock_.send_to(buffer(cl.cl_buf, cl.cl_msg_len), sock->local_ep_);
     nl_free(&cl);
-
-    if (fwd_flow_idx != 0xFFFFFFFF) {
-        //Activate the reverse flow-entry in flow mmap
-        KSyncSockTypeMap::SetFlowEntry(req, true);
-    }
 }
 
 void KSyncSockTypeMap::SendNetlinkDoneMsg(int seq_num) {
