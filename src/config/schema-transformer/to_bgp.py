@@ -2220,7 +2220,7 @@ class SchemaTransformer(object):
 
         # reset zookeeper config
         if self._args.reset_config:
-            self._disc_service.delete_node("/id", True);
+            _disc_service.delete_node("/id", True);
 
         VirtualNetworkST._vn_id_allocator = IndexAllocator(_disc_service,
                                                     _VN_ID_ALLOC_PATH,

@@ -68,6 +68,7 @@ class Collector(object):
     def start(self):
         assert(self._instance == None)
         self._log_file = '/tmp/vizd.messages.' + str(self.listen_port)
+        subprocess.call(['rm', '-rf', self._log_file])
         args = [self.analytics_fixture.builddir + '/analytics/vizd',
             '--DEFAULT.cassandra_server_list', '127.0.0.1:' +
             str(self.analytics_fixture.cassandra_port),
@@ -130,6 +131,7 @@ class OpServer(object):
         openv['PYTHONPATH'] = self.analytics_fixture.builddir + \
             '/sandesh/library/python'
         self._log_file = '/tmp/opserver.messages.' + str(self.listen_port)
+        subprocess.call(['rm', '-rf', self._log_file])
         args = ['python', self.analytics_fixture.builddir + \
                 '/opserver/opserver/opserver.py',
                 '--redis_server_port', str(self._redis_port),
@@ -201,6 +203,7 @@ class QueryEngine(object):
     def start(self, analytics_start_time=None):
         assert(self._instance == None)
         self._log_file = '/tmp/qed.messages.' + str(self.listen_port)
+        subprocess.call(['rm', '-rf', self._log_file])
         args = [self.analytics_fixture.builddir + '/query_engine/qedt',
                 '--REDIS.port', str(self.analytics_fixture.redis_query.port),
                 '--DEFAULT.cassandra_server_list', '127.0.0.1:' +
@@ -656,7 +659,7 @@ class AnalyticsFixture(fixtures.Fixture):
         res = vns.post_query('StatTable.UveVirtualNetworkAgent.vn_stats',
                              start_time='-10m',
                              end_time='now',
-                             select_fields=['T', 'name', 'vn_stats.other_vn', 'vn_stats.vrouter', 'vn_stats.in_tpkts'],
+                             select_fields=['T', 'name', 'UUID','vn_stats.other_vn', 'vn_stats.vrouter', 'vn_stats.in_tpkts'],
                              where_clause=gen_obj.vn_all_rows['whereclause'])
         self.logger.info(str(res))
         if len(res) == gen_obj.vn_all_rows['rows']:
@@ -1454,15 +1457,24 @@ class AnalyticsFixture(fixtures.Fixture):
     # end verify_where_query
 
     def cleanUp(self):
-        super(AnalyticsFixture, self).cleanUp()
 
-        self.opserver.stop()
-        self.query_engine.stop()
+        try:
+            self.opserver.stop()
+        except:
+            pass
+        try: 
+            self.query_engine.stop()
+        except:
+            pass
         for collector in self.collectors:
-            collector.stop()
+            try:
+                collector.stop()
+            except:
+                pass
         for redis_uve in self.redis_uves:
             redis_uve.stop()
         self.redis_query.stop()
+        super(AnalyticsFixture, self).cleanUp()
 
     @staticmethod
     def get_free_port():

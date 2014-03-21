@@ -39,8 +39,9 @@ def start_cassandra(cport, sport_arg=None):
 
     basefile = 'apache-cassandra-'+cassandra_version
     tarfile = cassandra_url
-    cassbase = "/tmp/cassandra." + str(cport) + "/"
+    cassbase = "/tmp/cassandra.%s.%d/" % (os.getenv('USER', 'None'), cport)
     confdir = cassbase + basefile + "/conf/"
+    output,_ = call_command_("rm -rf " + cassbase)
     output,_ = call_command_("mkdir " + cassbase)
 
     logging.info('Installing cassandra in ' + cassbase)
@@ -108,7 +109,7 @@ def stop_cassandra(cport):
     Arguments:
         cport : The Client Port for the instance of cassandra to be stopped
     '''
-    cassbase = "/tmp/cassandra." + str(cport) + "/"
+    cassbase = "/tmp/cassandra.%s.%d/" % (os.getenv('USER', 'None'), cport)
     input = open(cassbase + "pid")
     s=input.read()
     logging.info('Killing Cassandra pid %d' % int(s))
