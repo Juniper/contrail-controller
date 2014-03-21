@@ -1284,8 +1284,7 @@ void VmInterface::UpdateL2InterfaceRoute(bool old_l2_active, bool force_update) 
     struct ether_addr *addrp = ether_aton(vm_mac().c_str());
     const string &vrf_name = vrf_.get()->GetName();
 
-    Agent *agent = static_cast<InterfaceTable *>(get_table())->agent();
-    Layer2AgentRouteTable::AddLocalVmRoute(agent->local_vm_peer(), GetUuid(),
+    Layer2AgentRouteTable::AddLocalVmRoute(peer_.get(), GetUuid(),
                                            vn_->GetName(), vrf_name, l2_label_,
                                            vxlan_id_, *addrp, ip_addr(), 32);
 }
@@ -1300,8 +1299,7 @@ void VmInterface::DeleteL2InterfaceRoute(bool old_l2_active, VrfEntry *old_vrf) 
         vxlan_id_ = 0;
     }
     struct ether_addr *addrp = ether_aton(vm_mac_.c_str());
-    Agent *agent = static_cast<InterfaceTable *>(get_table())->agent();
-    Layer2AgentRouteTable::Delete(agent->local_vm_peer(), old_vrf->GetName(),
+    Layer2AgentRouteTable::Delete(peer_.get(), old_vrf->GetName(),
                                   *addrp);
 }
 
