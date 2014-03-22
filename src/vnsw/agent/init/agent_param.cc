@@ -296,6 +296,7 @@ static void ParseLinklocalFlows(const ptree &node,
         } else {
             *max_system_flows = Agent::kDefaultMaxLinkLocalOpenFds;
         }
+        opt_str = boost::none;
         if (opt_str = node.get_optional<unsigned int>
                       ("config.agent.linklocal-flows.max-vm-flows")) {
             *max_vm_flows = opt_str.get();
