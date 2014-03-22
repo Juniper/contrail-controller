@@ -41,7 +41,7 @@ public:
     LifetimeActor *deleter();
 
     virtual TcpSession *CreateSession();
-    virtual void Initialize(short port);
+    virtual bool Initialize(short port);
     virtual void Initialize(short port, bool logUVE);
     virtual XmppConnection *FindConnection(const std::string &peer_addr);
     virtual XmppConnection *FindConnectionbyHostName(const std::string hostname);
