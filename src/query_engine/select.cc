@@ -121,7 +121,7 @@ SelectQuery::SelectQuery(QueryUnit *main_query,
         }      
         // processing other select fields
         else {
-            QE_INVALIDARG_ERROR(m_query->is_valid_select_field(
+            QE_INVALIDARG_ERROR(is_valid_select_field(
                         json_select_fields[i].GetString()));
             select_column_fields.push_back(
                 get_column_name(json_select_fields[i].GetString()));
@@ -137,6 +137,38 @@ SelectQuery::SelectQuery(QueryUnit *main_query,
     if ((m_query->table() == g_viz_constants.FLOW_TABLE) && !uuid_key_selected) {
         select_column_fields.push_back(g_viz_constants.UUID_KEY);
     }
+}
+
+bool SelectQuery::is_valid_select_field(const std::string& select_field) const {
+    AnalyticsQuery *mquery = (AnalyticsQuery*)main_query;
+    const std::string& table = mquery->table();
+
+    for(size_t i = 0; i < g_viz_constants._TABLES.size(); i++) {
+        if (g_viz_constants._TABLES[i].name == table) {
+            for (size_t j = 0; 
+                j < g_viz_constants._TABLES[i].schema.columns.size(); j++) {
+                if (g_viz_constants._TABLES[i].schema.columns[j].name ==
+                        select_field)
+                    return true;
+            }
+            return false;
+        }
+    }
+
+    for (std::map<std::string, objtable_info>::const_iterator it =
+            g_viz_constants._OBJECT_TABLES.begin();
+            it != g_viz_constants._OBJECT_TABLES.end(); it++) {
+        if (it->first == table) {
+            for (size_t j = 0; 
+                j < g_viz_constants._OBJECT_TABLE_SCHEMA.columns.size(); j++) {
+                if (g_viz_constants._OBJECT_TABLE_SCHEMA.columns[j].name ==
+                        select_field)
+                    return true;
+            }
+            return false;
+        }
+    }
+    return false;
 }
 
 bool SelectQuery::is_flow_tuple_specified() {

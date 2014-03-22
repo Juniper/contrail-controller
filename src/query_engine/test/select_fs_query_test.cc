@@ -16,11 +16,12 @@
 using ::testing::Return;
 using ::testing::AnyNumber;
 
-boost::random::mt19937 gen(std::time(NULL));
-boost::random::uniform_int_distribution<> boost_rand(1, 10000);
-
 class SelectFSQueryTest : public ::testing::Test {
 public:
+    // bool indicates whether the ResultRowT is verified or not
+    typedef std::pair<QEOpServerProxy::ResultRowT,bool> RowT;
+    typedef std::vector<RowT> BufferT;
+
     SelectFSQueryTest() {
     }
     
@@ -28,7 +29,8 @@ public:
     }
     
     virtual void SetUp() {
-        populate_where_query_result();
+        populate_where_query_result1();
+        populate_where_query_result2();
     }
     
     virtual void TearDown() {
@@ -48,8 +50,7 @@ public:
             for (uint64_t t = start_time_; t < end_time; t += tdiff_) {
                 stats.pkts = pdiff_;
                 stats.bytes = pdiff_*psize_;
-                uint64_t tdelta = boost_rand(gen);
-                t_stats_.push_back(std::make_pair(t+tdelta, stats));
+                t_stats_.push_back(std::make_pair(t, stats));
             }
         }
 
@@ -78,13 +79,13 @@ public:
         static const uint64_t kSecInMsec = 1000*1000;
     };
 
-    void populate_where_query_result() {
-        for (int i = 0; i < kNumFlows; i++) {
-            flow_tuple& tuple = flowseries_data_[i].tuple();
-            boost::uuids::uuid& fuuid = flowseries_data_[i].flow_uuid();
-            FlowSeriesData::tstats_t& tstats = flowseries_data_[i].t_stats();
-            FlowSeriesData::tstats_t::const_iterator it = tstats.begin();
-            for (; it != tstats.end(); it++) {
+    void update_where_query_result(FlowSeriesData& fs_data, 
+            std::vector<query_result_unit_t>& where_query_result) {
+            flow_tuple& tuple = fs_data.tuple();
+            boost::uuids::uuid& fuuid = fs_data.flow_uuid();
+            FlowSeriesData::tstats_t& tstats = fs_data.t_stats();
+            FlowSeriesData::tstats_t::const_iterator it;
+            for (it = tstats.begin(); it != tstats.end(); it++) {
                 query_result_unit_t qres;
                 qres.timestamp = it->first;
                 qres.info.push_back(GenDb::DbDataValue(it->second.bytes));
@@ -103,13 +104,66 @@ public:
                     static_cast<uint16_t>(tuple.source_port)));
                 qres.info.push_back(GenDb::DbDataValue(
                     static_cast<uint16_t>(tuple.dest_port)));
-                where_query_result_.push_back(qres);
+                where_query_result.push_back(qres);
             }
+    }
+
+    void populate_where_query_result1() {
+        for (int i = 0; i < kNumFlows; i++) {
+            update_where_query_result(flowseries_data_[i], 
+                                      where_query_result1_);
         }
     }
 
-    std::vector<query_result_unit_t>& wherequery_result() {
-        return where_query_result_;
+    std::vector<query_result_unit_t>& wherequery_result1() {
+        return where_query_result1_;
+    }
+
+    void populate_where_query_result2() {
+        update_where_query_result(flowseries_data_[0],
+                                  where_query_result2_);
+    }
+
+    std::vector<query_result_unit_t>& wherequery_result2() {
+        return where_query_result2_;
+    }
+
+    void verify_select_fs_query_result(SelectFSQueryTest::BufferT *expected_res,
+                                       QEOpServerProxy::BufferT *actual_res) {
+        ASSERT_EQ(expected_res->size(), actual_res->size());
+        
+        for (QEOpServerProxy::BufferT::iterator ait = 
+             actual_res->begin(); ait != actual_res->end(); ait++) {
+            QEOpServerProxy::OutRowT& arow = ait->first;
+            bool match = false;
+            for (SelectFSQueryTest::BufferT::iterator eit = 
+                 expected_res->begin(); eit != expected_res->end(); eit++) {
+                // Skip the row if it is already verified.
+                if (eit->second) {
+                    continue;
+                }
+                QEOpServerProxy::OutRowT& erow = eit->first.first;
+                QEOpServerProxy::OutRowT::iterator erow_it;
+                match = true;
+                for (QEOpServerProxy::OutRowT::iterator erow_it = 
+                     erow.begin(); erow_it != erow.end(); erow_it++) {
+                    QEOpServerProxy::OutRowT::iterator arow_it;
+                    arow_it = erow.find(erow_it->first);
+                    ASSERT_NE(arow_it, arow.end());
+                    if (erow_it->second != arow_it->second) {
+                        match = false;
+                        break;
+                    }
+                }
+                if (match) {
+                    // mark the row as verified. 
+                    // This aids in catching duplicate rows
+                    eit->second = true;
+                    break;
+                }
+            }
+            ASSERT_EQ(true, match);
+        }
     }
 
     void select_fs_query_default_expect_init(AnalyticsQueryMock& aqmock) {
@@ -149,8 +203,20 @@ public:
     static uint64_t end_time() {
         return end_time_;
     }
+
+    static int num_flows() {
+        return kNumFlows;
+    }
+
+    static FlowSeriesData* flowseries_data() {
+        return flowseries_data_;
+    }
+
 private:
-    std::vector<query_result_unit_t> where_query_result_;
+    // contains all flow samples from all flows
+    std::vector<query_result_unit_t> where_query_result1_;
+    // contains flows samples from one flow
+    std::vector<query_result_unit_t> where_query_result2_;
     const static uint64_t end_time_ = 1393915103000000; 
     const static uint64_t start_time_ = end_time_ - (60*1000*1000);
     const static int kNumFlows = 2;
@@ -185,39 +251,119 @@ TEST_F(SelectFSQueryTest, SelectT) {
     std::map<std::string, std::string> json_select;
     json_select.insert(std::pair<std::string, std::string>(
         "select_fields", "[\"T\"]"));
-    SelectQuery* select_query = new SelectQuery(&analytics_query_mock, 
-                                                json_select);
+    
     EXPECT_CALL(analytics_query_mock, where_query_result())
         .Times(1)
-        .WillOnce(Invoke(this, &SelectFSQueryTest::wherequery_result));
+        .WillOnce(Invoke(this, &SelectFSQueryTest::wherequery_result1));
+    
+    // Fill the expected result
+    SelectFSQueryTest::BufferT expected_res;
+    std::vector<query_result_unit_t>& where_qres = wherequery_result1();
+    for (std::vector<query_result_unit_t>::const_iterator it = 
+         where_qres.begin(); it != where_qres.end(); it++) {
+        boost::shared_ptr<fsMetaData> metadata;
+        QEOpServerProxy::OutRowT cmap;
+        cmap.insert(std::make_pair(TIMESTAMP_FIELD, 
+                                   integerToString((*it).timestamp)));
+        QEOpServerProxy::ResultRowT rrow(std::make_pair(cmap, metadata));
+        expected_res.push_back(std::make_pair(rrow, false));
+    }
+
+    SelectQuery* select_query = new SelectQuery(&analytics_query_mock, 
+                                                json_select);
     select_query->process_query();
-    ASSERT_EQ(wherequery_result().size(), select_query->result_->size());
+    verify_select_fs_query_result(&expected_res, select_query->result_.get());
 }
 
 TEST_F(SelectFSQueryTest, SelectTS) {
     AnalyticsQueryMock analytics_query_mock;
     select_fs_query_default_expect_init(analytics_query_mock);
 
-    EXPECT_CALL(analytics_query_mock, where_query_result())
-        .Times(2)
-        .WillRepeatedly(Invoke(this, &SelectFSQueryTest::wherequery_result));
-    
+    int granularity = 7;
+    std::stringstream ss;
+    ss << "[\"T=" << granularity << "\"]";
     std::map<std::string, std::string> json_select;
     json_select.insert(std::pair<std::string, std::string>(
-        "select_fields", "[\"T=30\"]"));
+        "select_fields", ss.str()));
+    granularity *= 1000000; // convert to microseconds 
+
+    EXPECT_CALL(analytics_query_mock, where_query_result())
+        .Times(1)
+        .WillOnce(Invoke(this, &SelectFSQueryTest::wherequery_result1));
+
+    // Fill the expected result
+    SelectFSQueryTest::BufferT expected_res;
+    int num_ts = 8; // based on the generated flow samples
+    for (int i = 0; i < num_ts; i++) {
+        uint64_t ts = start_time() + (i*granularity);
+        boost::shared_ptr<fsMetaData> metadata;
+        QEOpServerProxy::OutRowT cmap;
+        cmap.insert(std::make_pair(TIMESTAMP_FIELD, integerToString(ts)));
+        QEOpServerProxy::ResultRowT rrow(std::make_pair(cmap, metadata));
+        expected_res.push_back(std::make_pair(rrow, false));
+    }
+    
     SelectQuery* select_query = new SelectQuery(&analytics_query_mock, 
                                                 json_select);
     select_query->process_query();
-    ASSERT_EQ(2, select_query->result_->size());
+    verify_select_fs_query_result(&expected_res, select_query->result_.get());
+}
 
-    // granularity > (end_time - from_time)
-    json_select.clear();
+TEST_F(SelectFSQueryTest, SelectFlowTuple) {
+    AnalyticsQueryMock analytics_query_mock;
+    select_fs_query_default_expect_init(analytics_query_mock);
+   
+    std::stringstream ss;
+    ss << "[\"vrouter\", \"sourcevn\", \"sourceip\", \"destvn\", \"destip\"" 
+       << ", \"protocol\", \"sport\", \"dport\"]";
+    std::map<std::string, std::string> json_select;
     json_select.insert(std::pair<std::string, std::string>(
-        "select_fields", "[\"T=70\"]"));
-    SelectQuery* select_query1 = new SelectQuery(&analytics_query_mock,
-                                                 json_select);
-    select_query1->process_query();
-    ASSERT_EQ(1, select_query1->result_->size());
+        "select_fields", ss.str())); 
+   
+    EXPECT_CALL(analytics_query_mock, where_query_result())
+        .Times(1)
+        .WillOnce(Invoke(this, &SelectFSQueryTest::wherequery_result1));
+    
+    // Fill the expected result
+    SelectFSQueryTest::BufferT expected_res;
+    std::vector<query_result_unit_t>& where_qres = wherequery_result1();
+    for (std::vector<query_result_unit_t>::iterator it =
+         where_qres.begin(); it != where_qres.end(); it++) {
+        boost::shared_ptr<fsMetaData> metadata;
+        QEOpServerProxy::OutRowT cmap;
+        boost::uuids::uuid uuid; 
+        flow_stats stats;
+        flow_tuple tuple;
+        it->get_uuid_stats_8tuple(uuid, stats, tuple);
+        cmap.insert(std::make_pair(g_viz_constants.FlowRecordNames[
+            FlowRecordFields::FLOWREC_VROUTER], tuple.vrouter));
+        cmap.insert(std::make_pair(g_viz_constants.FlowRecordNames[
+            FlowRecordFields::FLOWREC_SOURCEVN], tuple.source_vn));
+        cmap.insert(std::make_pair(g_viz_constants.FlowRecordNames[
+            FlowRecordFields::FLOWREC_SOURCEIP], 
+            integerToString(tuple.source_ip)));
+        cmap.insert(std::make_pair(g_viz_constants.FlowRecordNames[
+            FlowRecordFields::FLOWREC_DESTVN], tuple.dest_vn));
+        cmap.insert(std::make_pair(g_viz_constants.FlowRecordNames[
+            FlowRecordFields::FLOWREC_DESTIP], 
+            integerToString(tuple.dest_ip)));
+        cmap.insert(std::make_pair(g_viz_constants.FlowRecordNames[
+            FlowRecordFields::FLOWREC_PROTOCOL], 
+            integerToString(tuple.protocol)));
+        cmap.insert(std::make_pair(g_viz_constants.FlowRecordNames[
+            FlowRecordFields::FLOWREC_SPORT], 
+            integerToString(tuple.source_port)));
+        cmap.insert(std::make_pair(g_viz_constants.FlowRecordNames[
+            FlowRecordFields::FLOWREC_DPORT],
+            integerToString(tuple.dest_port)));
+        QEOpServerProxy::ResultRowT rrow(std::make_pair(cmap, metadata));
+        expected_res.push_back(std::make_pair(rrow, false));
+    }
+
+    SelectQuery* select_query = new SelectQuery(&analytics_query_mock, 
+                                                json_select);
+    select_query->process_query();
+    verify_select_fs_query_result(&expected_res, select_query->result_.get());
 }
 
 int main(int argc, char **argv) {
