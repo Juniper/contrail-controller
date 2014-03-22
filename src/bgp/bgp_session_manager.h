@@ -23,7 +23,7 @@ public:
 
     virtual TcpSession *CreateSession();
 
-    virtual void Initialize(short port);
+    virtual bool Initialize(short port);
 
     BgpServer *server() {
         return server_;

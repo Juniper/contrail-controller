@@ -517,8 +517,8 @@ public:
         return ((select_column_fields.size() == 1 &&
                     select_column_fields[0] == g_viz_constants.OBJECT_ID));
     }
-
 private:
+    bool is_valid_select_field(const std::string& select_field) const;
     // 
     // Object table query
     //
@@ -615,8 +615,6 @@ private:
     void populate_fs_query_result_with_tuple_fields();
 
     // 4. SELECT with T 
-    typedef std::set<uint64_t> fs_time_t;
-    fs_time_t fs_time_list_;
     void process_fs_query_with_time(const uint64_t&,
             const boost::uuids::uuid&, const flow_stats&, const flow_tuple&);
     void populate_fs_query_result_with_time();
@@ -833,7 +831,6 @@ const std::vector<boost::shared_ptr<QEOpServerProxy::BufferT> >& inputs,
     virtual bool is_object_table_query();
     virtual bool is_stat_table_query();
     int  stat_table_index();
-    bool is_valid_select_field(const std::string& select_field);
     bool is_valid_where_field(const std::string& where_field);
     bool is_valid_sort_field(const std::string& sort_field);
     std::string get_column_field_datatype(const std::string& col_field);

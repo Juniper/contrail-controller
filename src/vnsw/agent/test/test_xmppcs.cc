@@ -397,7 +397,7 @@ TEST_F(AgentXmppUnitTest, Connection) {
     EXPECT_STREQ(rt->dest_vn_name().c_str(), "vn1");
     //ensure active path is local-vm
     EXPECT_TRUE(rt->GetActivePath()->peer()->GetType() 
-                == Peer::LOCAL_VM_PEER);
+                == Peer::LOCAL_VM_PORT_PEER);
 
     n++; n++; n++; n++; n++;
     n_s++; n_s++; n_s++;
