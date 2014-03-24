@@ -520,7 +520,6 @@ void BgpXmppChannel::RoutingInstanceCallback(std::string vrf_name,
             RTargetRouteOp(rtarget_table, *cur_it, attr, false);
             current.erase(cur_it);
         }
-        assert(current.size());
     }
 }
 
