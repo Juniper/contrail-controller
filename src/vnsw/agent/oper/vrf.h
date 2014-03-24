@@ -75,7 +75,6 @@ public:
     bool DeleteTimeout();
     void CancelDeleteTimer();
     void PostAdd();
-    void Init();
     void AddNH(Ip4Address ip, uint8_t plen, ComponentNHData *nh_data) ;
     void DeleteNH(Ip4Address ip, uint8_t plen, ComponentNHData *nh_data) ;
     uint32_t GetNHCount(Ip4Address ip, uint8_t plen) ;
