@@ -230,10 +230,14 @@ public:
         len += sizeof(udphdr) + len;
     };
 
-    void AddTcpHdr(uint16_t sport, uint16_t dport, int plen) {
-        struct tcphdr *udp = (struct tcphdr *)(buff + len);
-        udp->dest = htons(dport);
-        udp->source = htons(sport);
+    void AddTcpHdr(uint16_t sport, uint16_t dport, bool syn, bool fin, bool ack,
+                   int plen) {
+        struct tcphdr *tcp = (struct tcphdr *)(buff + len);
+        tcp->dest = htons(dport);
+        tcp->source = htons(sport);
+        tcp->fin = fin;
+        tcp->syn = syn;
+        tcp->ack = ack;
         len += sizeof(tcphdr) + len;
     };
 
