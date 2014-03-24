@@ -59,18 +59,6 @@ static bool ShouldDrop(uint32_t action) {
     return false;
 }
 
-static uint32_t ReflexiveAction(uint32_t action) {
-    if (ShouldDrop(action) == false) {
-        return action;
-    }
-
-    // If forward flow is DROP, set action for reverse flow to
-    // TRAP. If packet hits reverse flow, we will re-establish
-    // the flows
-    action &= ~(TrafficAction::DROP_FLAGS);
-    return (action |= (1 << TrafficAction::TRAP));
-}
-
 static void SetAclListAceId(const AclDBEntry *acl, const std::list<MatchAclParams> &acl_l,
                             std::vector<AceId> &ace_l) {
     std::list<MatchAclParams>::const_iterator ma_it;
@@ -158,8 +146,8 @@ void FlowEntry::ResetStats() {
 bool FlowEntry::ActionRecompute() {
     uint32_t action = 0;
 
-    action = data_.match_p.policy_action | data_.match_p.sg_action |
-        data_.match_p.out_policy_action | data_.match_p.out_sg_action |
+    action = data_.match_p.policy_action | data_.match_p.out_policy_action |
+        data_.match_p.sg_action_summary |
         data_.match_p.mirror_action | data_.match_p.out_mirror_action;
 
     // Force short flows to DROP
@@ -185,6 +173,24 @@ bool FlowEntry::ActionRecompute() {
     return false;
 }
 
+void FlowEntry::SetPacketHeader(PacketHeader *hdr) {
+    hdr->vrf = key_.vrf;
+    hdr->src_ip = key_.src.ipv4;
+    hdr->dst_ip = key_.dst.ipv4;
+    hdr->protocol = key_.protocol;
+    if (hdr->protocol == IPPROTO_UDP || hdr->protocol == IPPROTO_TCP) {
+        hdr->src_port = key_.src_port;
+        hdr->dst_port = key_.dst_port;
+    } else {
+        hdr->src_port = 0;
+        hdr->dst_port = 0;
+    }
+    hdr->src_policy_id = &(data_.source_vn);
+    hdr->dst_policy_id = &(data_.dest_vn);
+    hdr->src_sg_id_l = &(data_.source_sg_id_l);
+    hdr->dst_sg_id_l = &(data_.dest_sg_id_l);
+}
+
 // Apply Policy and SG rules for a flow. Rules applied are based on flow type
 // Non-Local Forward Flow
 //      Network Policy. 
@@ -204,7 +210,7 @@ bool FlowEntry::ActionRecompute() {
 //      Network Policy. 
 //      Out-Network Policy
 //      SG and out-SG from forward flow
-bool FlowEntry::DoPolicy(const PacketHeader &hdr, bool ingress_flow) {
+bool FlowEntry::DoPolicy() {
     data_.match_p.action_info.Clear();
     data_.match_p.policy_action = 0;
     data_.match_p.out_policy_action = 0;
@@ -212,10 +218,17 @@ bool FlowEntry::DoPolicy(const PacketHeader &hdr, bool ingress_flow) {
     data_.match_p.out_sg_action = 0;
     data_.match_p.mirror_action = 0;
     data_.match_p.out_mirror_action = 0;
+    data_.match_p.sg_action_summary = 0;
+
+    FlowEntry *rflow = reverse_flow_entry();
+    PacketHeader hdr;
+    SetPacketHeader(&hdr);
 
     // Mirror is valid even if packet is to be dropped. So, apply it first
     data_.match_p.mirror_action = MatchAcl(hdr, data_.match_p.m_mirror_acl_l,
                                            false, true);
+
+    // Apply out-policy. Valid only for local-flow
     data_.match_p.out_mirror_action = MatchAcl(hdr,
                            data_.match_p.m_out_mirror_acl_l, false, true);
 
@@ -236,24 +249,25 @@ bool FlowEntry::DoPolicy(const PacketHeader &hdr, bool ingress_flow) {
     if (!is_flags_set(FlowEntry::ReverseFlow)) {
         data_.match_p.sg_action = MatchAcl(hdr, data_.match_p.m_sg_acl_l, true,
                                            !data_.match_p.sg_rule_present);
-        if (ShouldDrop(data_.match_p.sg_action)) {
-            goto done;
+
+        if (ShouldDrop(data_.match_p.sg_action) == false && rflow) {
+            data_.match_p.out_sg_action =
+                MatchAcl(hdr, data_.match_p.m_out_sg_acl_l, true,
+                         !data_.match_p.out_sg_rule_present);
         }
 
-        data_.match_p.out_sg_action = MatchAcl(hdr, data_.match_p.m_out_sg_acl_l,
-                                               true,
-                                               !data_.match_p.sg_out_rule_present);
-        if (ShouldDrop(data_.match_p.out_sg_action)) {
-            goto done;
+        // Compute summary SG action.
+        //     DROP if either sg_action or sg_out_action says DROP
+        if (ShouldDrop(data_.match_p.sg_action |
+                       data_.match_p.out_sg_action)) {
+            data_.match_p.sg_action_summary = (1 << TrafficAction::DROP);
+        } else {
+            data_.match_p.sg_action_summary = (1 << TrafficAction::PASS);
         }
     } else {
         // SG is reflexive ACL. For reverse-flow, copy SG action from
         // forward flow 
         UpdateReflexiveAction();
-
-        if (ShouldDrop(data_.match_p.sg_action) || ShouldDrop(data_.match_p.out_sg_action)){
-            goto done;
-        }
     }
 
 done:
@@ -289,8 +303,31 @@ void FlowEntry::SetMirrorVrfFromAction() {
     }
 }
 
+static bool CopySgEntries(const VmInterface *vm_port, bool ingress_acl,
+                          std::list<MatchAclParams> &list) {
+    bool ret = false;
+    for (VmInterface::SecurityGroupEntrySet::const_iterator it =
+         vm_port->sg_list().list_.begin();
+         it != vm_port->sg_list().list_.end(); ++it) {
+        if (it->sg_->IsAclSet()) {
+            ret = true;
+        }
+        // packet flow ingress is same as VM egress
+        MatchAclParams acl;
+        if (ingress_acl) {
+            acl.acl = it->sg_->GetIngressAcl();
+        } else {
+            acl.acl = it->sg_->GetEgressAcl();
+        }
+        if (acl.acl)
+            list.push_back(acl);
+    }
+
+    return ret;
+}
+
 void FlowEntry::GetSgList(const Interface *intf) {
-    // Dont apply network-policy for linklocal and subnet broadcast flow
+    // Dont apply network-policy for linklocal and multicast flows
     if (is_flags_set(FlowEntry::LinkLocalFlow) ||
         is_flags_set(FlowEntry::Multicast)) {
         return;
@@ -301,67 +338,44 @@ void FlowEntry::GetSgList(const Interface *intf) {
         return;
     }
 
-    if (intf == NULL) {
+    // Get virtual-machine port for forward flow
+    const VmInterface *vm_port = NULL;
+    if (intf != NULL) {
+        if (intf->type() == Interface::VM_INTERFACE) {
+            vm_port = static_cast<const VmInterface *>(intf);
+         }
+    }
+
+    if (vm_port == NULL) {
         return;
     }
 
-    const VmInterface *vm_port = static_cast<const VmInterface *>(intf);
-    data_.match_p.sg_rule_present = false;
-    data_.match_p.sg_out_rule_present = false;
-    if (vm_port->sg_list().list_.size()) {
-        data_.match_p.nw_policy = true;
-        VmInterface::SecurityGroupEntrySet::const_iterator it;
-        for (it = vm_port->sg_list().list_.begin();
-             it != vm_port->sg_list().list_.end(); ++it) {
-            if (it->sg_->IsAclSet()) {
-                data_.match_p.sg_rule_present = true;
+    // Get virtual-machine port for reverse flow
+    FlowEntry *rflow = reverse_flow_entry();
+    const VmInterface *reverse_vm_port = NULL;
+    if (rflow != NULL) {
+        if (rflow->data().intf_entry.get() != NULL) {
+            if (rflow->data().intf_entry->type() == Interface::VM_INTERFACE) {
+                reverse_vm_port = static_cast<const VmInterface *>
+                    (rflow->data().intf_entry.get());
             }
-            // packet flow ingress is same as VM egress
-            MatchAclParams acl;
-            if (is_flags_set(FlowEntry::IngressDir)) {
-                acl.acl = it->sg_->GetEgressAcl();
-            } else {
-                acl.acl = it->sg_->GetIngressAcl();
-            }
-            if (acl.acl)
-                data_.match_p.m_sg_acl_l.push_back(acl);
         }
     }
 
-    // For local flows, we have to apply SG Policy from out-intf also
-    FlowEntry *rflow = reverse_flow_entry_.get();
-    if (!is_flags_set(FlowEntry::LocalFlow) || rflow == NULL) {
-        // Not local flow
-        return;
-    }
-
-    if (rflow->intf_entry() == NULL) {
-        return;
-    }
-
-    if (rflow->intf_entry()->type() != Interface::VM_INTERFACE) {
-        return;
-    }
-
-    vm_port = static_cast<const VmInterface *>
-        (rflow->intf_entry());
-    if (vm_port->sg_list().list_.size()) {
-        data_.match_p.nw_policy = true;
-        VmInterface::SecurityGroupEntrySet::const_iterator it;
-        for (it = vm_port->sg_list().list_.begin();
-             it != vm_port->sg_list().list_.end(); ++it) {
-            if (it->sg_->IsAclSet()) {
-                data_.match_p.sg_out_rule_present = true;
-            }
-            MatchAclParams acl;
-            if (is_flags_set(FlowEntry::IngressDir)) {
-                acl.acl = it->sg_->GetIngressAcl();
-            } else {
-                acl.acl = it->sg_->GetEgressAcl();
-            }
-            if (acl.acl)
-                data_.match_p.m_out_sg_acl_l.push_back(acl);
-        }
+    // Get SG-Rule for the forward flow
+    bool ingress = is_flags_set(FlowEntry::IngressDir);
+    data_.match_p.sg_rule_present = CopySgEntries(vm_port, !ingress,
+                                                  data_.match_p.m_sg_acl_l);
+    if (is_flags_set(FlowEntry::LocalFlow) && reverse_vm_port) {
+        // We are processing a local flow. We need to simulate SG lookup at both
+        // ends. Assume packet is from VM-A to VM-B.
+        // If we apply Ingress-ACL from VM-A, then apply Egress-ACL from VM-B
+        // If we apply Egress-ACL from VM-A, then apply Ingress-ACL from VM-B
+        data_.match_p.out_sg_rule_present =
+            CopySgEntries(reverse_vm_port, ingress,
+                          data_.match_p.m_out_sg_acl_l);
+    } else {
+        data_.match_p.out_sg_rule_present = false;
     }
 }
 
@@ -402,7 +416,6 @@ void FlowEntry::GetPolicy(const VnEntry *vn) {
     if (vn->GetAcl()) {
         acl.acl = vn->GetAcl();
         data_.match_p.m_acl_l.push_back(acl);
-        data_.match_p.nw_policy = true;
     }
 
     const VnEntry *rvn = NULL;
@@ -421,7 +434,6 @@ void FlowEntry::GetPolicy(const VnEntry *vn) {
     if (rvn->GetAcl()) {
         acl.acl = rvn->GetAcl();
         data_.match_p.m_out_acl_l.push_back(acl);
-        data_.match_p.nw_policy = true;
     }
 
     if (rvn->GetMirrorAcl()) {
@@ -474,7 +486,6 @@ void FlowEntry::MakeShortFlow() {
 
 void FlowEntry::GetPolicyInfo(const VnEntry *vn) {
     // Default make it false
-    data_.match_p.nw_policy = false;
     ResetPolicy();
 
     // Short flows means there is some information missing for the flow. Skip 
@@ -689,22 +700,23 @@ bool FlowEntry::FlowDestMatch(const RouteFlowKey &rkey) const {
     return false;
 }
 
-uint32_t FlowEntry::IngressReflexiveAction() const {
-    return ReflexiveAction(data_.match_p.sg_action);
-}
-
-uint32_t FlowEntry::EgressReflexiveAction() const {
-    return ReflexiveAction(data_.match_p.out_sg_action);
-}
-
 void FlowEntry::UpdateReflexiveAction() {
-    if (reverse_flow_entry_.get()) {
-        data_.match_p.sg_action = reverse_flow_entry_->IngressReflexiveAction();
-        data_.match_p.out_sg_action = reverse_flow_entry_->EgressReflexiveAction();
-    } else {
-        data_.match_p.sg_action = (1 << TrafficAction::PASS);
-        data_.match_p.out_sg_action = (1 << TrafficAction::PASS);
+    data_.match_p.sg_action = (1 << TrafficAction::PASS);
+    data_.match_p.out_sg_action = (1 << TrafficAction::PASS);
+    data_.match_p.sg_action_summary = (1 << TrafficAction::PASS);
+
+    FlowEntry *fwd_flow = reverse_flow_entry();
+    if (fwd_flow) {
+        data_.match_p.sg_action_summary =
+            fwd_flow->data().match_p.sg_action_summary;
     }
+    // If forward flow is DROP, set action for reverse flow to
+    // TRAP. If packet hits reverse flow, we will re-establish
+    // the flows
+    if (ShouldDrop(data_.match_p.sg_action_summary)) {
+        data_.match_p.sg_action &= ~(TrafficAction::DROP_FLAGS);
+        data_.match_p.sg_action |= (1 << TrafficAction::TRAP);
+     }
 }
 
 void FlowEntry::SetAclFlowSandeshData(const AclDBEntry *acl,
@@ -1021,7 +1033,11 @@ void FlowTable::DeleteInternal(FlowEntryMap::iterator &it)
 
     fe->stats_.teardown_time = UTCTimestampUsec();
     fec->FlowExport(fe, diff_bytes, diff_packets);
+    /* Reset stats and teardown_time after these information is exported during
+     * flow delete so that if the flow entry is reused they point to right 
+     * values */
     fe->ResetStats();
+    fe->stats_.teardown_time = 0;
 
     // Unlink the reverse flow, if one exists
     FlowEntry *rflow = fe->reverse_flow_entry();
@@ -2004,23 +2020,7 @@ void FlowTable::AddRouteFlowInfo (FlowEntry *fe)
 }
 
 void FlowTable::ResyncAFlow(FlowEntry *fe, bool create) {
-    PacketHeader hdr;
-    hdr.vrf = fe->key().vrf; hdr.src_ip = fe->key().src.ipv4;
-    hdr.dst_ip = fe->key().dst.ipv4;
-    hdr.protocol = fe->key().protocol;
-    if (hdr.protocol == IPPROTO_UDP || hdr.protocol == IPPROTO_TCP) {
-        hdr.src_port = fe->key().src_port;
-        hdr.dst_port = fe->key().dst_port;
-    } else {
-        hdr.src_port = 0;
-        hdr.dst_port = 0;
-    }
-    hdr.src_policy_id = &(fe->data().source_vn);
-    hdr.dst_policy_id = &(fe->data().dest_vn);
-    hdr.src_sg_id_l = &(fe->data().source_sg_id_l);
-    hdr.dst_sg_id_l = &(fe->data().dest_sg_id_l);
-
-    fe->DoPolicy(hdr, fe->is_flags_set(FlowEntry::IngressDir));
+    fe->DoPolicy();
     fe->CompareAndModify(create);
 
     // If this is forward flow, update the SG action for reflexive entry
@@ -2095,8 +2095,12 @@ DBTableBase::ListenerId FlowTable::nh_listener_id() {
 
 Inet4UnicastRouteEntry * FlowTable::GetUcRoute(const VrfEntry *entry,
         const Ip4Address &addr) {
-        route_key_.set_addr(addr);
-        return entry->GetUcRoute(route_key_);
+    route_key_.set_addr(addr);
+    Inet4UnicastRouteEntry *rt = entry->GetUcRoute(route_key_);
+    if (rt != NULL && rt->IsRPFInvalid()) {
+        return NULL;
+    }
+    return rt;
 }
 
 void SetActionStr(const FlowAction &action_info, std::vector<ActionStr> &action_str_l)
@@ -2125,6 +2129,20 @@ void SetActionStr(const FlowAction &action_info, std::vector<ActionStr> &action_
             }
         }
     }
+}
+
+void GetFlowSandeshActionParams(const FlowAction &action_info,
+    std::string &action_str) {
+    std::bitset<32> bs(action_info.action);
+    for (unsigned int i = 0; i <= bs.size(); i++) {
+        if (bs[i]) {
+            if (!action_str.empty()) {
+                action_str += "|";
+            }
+            action_str += TrafficAction::ActionToString(
+                static_cast<TrafficAction::Action>(i));
+        }
+    } 
 }
 
 static void SetAclListAclAction(const std::list<MatchAclParams> &acl_l, std::vector<AclAction> &acl_action_l,

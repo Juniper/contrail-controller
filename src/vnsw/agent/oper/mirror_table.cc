@@ -45,7 +45,6 @@ std::auto_ptr<DBEntry> MirrorTable::AllocEntry(const DBRequestKey *k) const {
 DBEntry *MirrorTable::Add(const DBRequest *req) {
     const MirrorEntryKey *key = static_cast<const MirrorEntryKey *>(req->key.get());
     MirrorEntry *mirror_entry = new MirrorEntry(key->analyzer_name_);
-    mirror_entry->set_table(this);
     //Get Mirror NH
     OnChange(mirror_entry, req);
     LOG(DEBUG, "Mirror Add");

@@ -114,8 +114,8 @@ int main(int argc, char *argv[]) {
     Dns::GetVersion(build_info_str);
     MiscUtils::LogVersionInfo(build_info_str, Category::DNSAGENT);
 
-    if (!options.collector_server().empty()) {
-        Dns::SetCollector(options.collector_server());
+    if (options.collectors_configured()) {
+        Dns::SetCollector(options.collector_server_list()[0]);
     }
     Dns::SetHttpPort(options.http_server_port());
 
@@ -133,12 +133,9 @@ int main(int argc, char *argv[]) {
                     g_vns_constants.NodeTypeNames.find(node_type)->second,
                     g_vns_constants.INSTANCE_ID_DEFAULT,
                     Dns::GetEventManager(),
-                    options.http_server_port(),
+                    options.http_server_port(), 0,
+                    options.collector_server_list(),
                     &sandesh_context);
-    }
-    if (!options.collector_server().empty()) {
-        Sandesh::ConnectToCollector(options.collector_server(),
-                                    options.collector_port());
     }
     Sandesh::SetLoggingParams(options.log_local(), options.log_category(),
                               options.log_level());
@@ -200,7 +197,7 @@ int main(int argc, char *argv[]) {
         }
 
         //subscribe to collector service if not configured
-        if (options.collector_server().empty()) {
+        if (!options.collectors_configured()) {
             Module::type module = Module::DNS;
             NodeType::type node_type = 
                 g_vns_constants.Module2NodeType.find(module)->second;

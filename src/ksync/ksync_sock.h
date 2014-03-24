@@ -33,6 +33,7 @@ do {\
 } while (false);\
 
 class KSyncEntry;
+class KSyncIoContext;
 
 /* Base class to hold sandesh context information which is passed to 
  * Sandesh decode
@@ -56,8 +57,12 @@ public:
 
     void SetErrno(int err) {errno_ = err;};
     int GetErrno() const {return errno_;};
+
+    void set_ksync_io_ctx(const KSyncIoContext *ioc) {ksync_io_ctx_ = ioc;}
+    const KSyncIoContext *ksync_io_ctx() const {return ksync_io_ctx_;}
 private:
     int errno_;
+    const KSyncIoContext *ksync_io_ctx_;
 };
 
 
@@ -123,6 +128,7 @@ public:
     virtual void Handler();
     void ErrorHandler(int err);
     const KSyncEntry *GetKSyncEntry() const {return entry_;};
+    KSyncEntry::KSyncEvent event() const {return event_;}
 private:
     KSyncEntry *entry_;
     KSyncEntry::KSyncEvent event_;

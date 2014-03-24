@@ -99,14 +99,16 @@ public:
               const std::string &program_name,
               const boost::program_options::variables_map &var_map);
 
-private:
-    void ValidateLinkLocalFlows();
     void Validate();
+    void LogConfig() const;
+    void InitVhostAndXenLLPrefix();
+    void set_test_mode(bool mode);
+private:
+    void ComputeLinkLocalFlowLimits();
     void InitFromSystem();
     void InitFromConfig();
     void InitFromArguments
         (const boost::program_options::variables_map &var_map);
-    void LogConfig() const;
 
     PortInfo vhost_;
     std::string eth_port_;
@@ -139,7 +141,7 @@ private:
     int agent_stats_interval_;
     int flow_stats_interval_;
     std::string vmware_physical_port_;
-
+    bool test_mode_;
     std::auto_ptr<VirtualGatewayConfigTable> vgw_config_table_;
 
     DISALLOW_COPY_AND_ASSIGN(AgentParam);

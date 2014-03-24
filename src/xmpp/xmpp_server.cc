@@ -86,9 +86,11 @@ XmppServer::~XmppServer() {
     TcpServer::ClearSessions();
 }
 
-void XmppServer::Initialize(short port) {
+bool XmppServer::Initialize(short port) {
     TcpServer::Initialize(port);
     log_uve_ = false;
+
+    return true;
 }
 
 void XmppServer::Initialize(short port, bool logUVE) {

@@ -182,7 +182,7 @@ InstanceServiceAsyncHandler::RouteEntryAdd(const std::string& ip_address,
                                      Agent::GetInstance()->local_peer(),
                                      vrf, ipv4, 32, gwv4,
                                      TunnelType::AllType(),
-                                     mpls_label, vn);
+                                     mpls_label, vn, SecurityGroupList());
     return true;
 }
 
@@ -285,7 +285,8 @@ InstanceServiceAsyncHandler::AddRemoteVmRoute(const std::string& ip_address,
 
     Agent::GetInstance()->GetDefaultInet4UnicastRouteTable()->
         AddRemoteVmRouteReq(novaPeer_, vrf, ip.to_v4(), 32,
-                            gw.to_v4(), TunnelType::AllType(), mpls_label, "");
+                            gw.to_v4(), TunnelType::AllType(), mpls_label, "",
+                            SecurityGroupList());
     return true;
 }
 

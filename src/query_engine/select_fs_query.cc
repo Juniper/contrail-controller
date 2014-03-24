@@ -458,15 +458,10 @@ void SelectQuery::process_fs_query_with_time(const uint64_t& t,
         const boost::uuids::uuid& uuid, const flow_stats& stats,
         const flow_tuple& tuple) {
     QE_TRACE(DEBUG, "");
-    fs_time_list_.insert(t);
+    fs_write_final_result_row(&t, NULL, NULL, NULL, NULL);
 }
 
 void SelectQuery::populate_fs_query_result_with_time() {
-    QE_TRACE(DEBUG, "");
-    for (fs_time_t::iterator it = fs_time_list_.begin(); 
-         it != fs_time_list_.end(); ++it) {
-        fs_write_final_result_row(&(*it), NULL, NULL, NULL, NULL);
-    }
 }
 
 void SelectQuery::process_fs_query_with_ts(const uint64_t& t,

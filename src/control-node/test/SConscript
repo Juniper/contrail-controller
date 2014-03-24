@@ -4,6 +4,7 @@
 
 # -*- mode: python; -*-
 Import('BuildEnv')
+import sys
 
 env = BuildEnv.Clone()
 env.Prepend(CPPPATH = [env['TOP'],
@@ -20,6 +21,9 @@ env.Append(LIBPATH = env['TOP'] + '/io')
 env.Prepend(LIBS = ['gunit', 'io', 'sandesh', 'http',
                     'sandeshvns', 'io', 'base', 'http_parser', 'curl',
                     'boost_filesystem', 'boost_program_options', 'pugixml'])
+
+if sys.platform != 'darwin':
+    env.Append(LIBS = ['rt'])
 
 options_test = env.UnitTest('options_test', ['../buildinfo.cc', '../options.cc',
                                              'options_test.cc'])

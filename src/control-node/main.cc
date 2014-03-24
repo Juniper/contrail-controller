@@ -21,6 +21,7 @@
 #include "bgp/bgp_session_manager.h"
 #include "bgp/bgp_xmpp_channel.h"
 #include "bgp/routing-instance/routing_instance.h"
+#include "bgp/routing-instance/rtarget_group_mgr.h"
 #include "control-node/control_node.h"
 #include "db/db_graph.h"
 #include "ifmap/ifmap_link_table.h"
@@ -393,14 +394,11 @@ int main(int argc, char *argv[]) {
             g_vns_constants.NodeTypeNames.find(node_type)->second,
             g_vns_constants.INSTANCE_ID_DEFAULT, 
             &evm,
-            options.http_server_port(),
+            options.http_server_port(), 0,
+            options.collector_server_list(),
             &sandesh_context);
     }
 
-    if (!options.collector_server().empty()) {
-        Sandesh::ConnectToCollector(options.collector_server(),
-                                    options.collector_port());
-    }
     Sandesh::SetLoggingParams(options.log_local(), options.log_category(),
                               options.log_level());
 
@@ -426,6 +424,7 @@ int main(int argc, char *argv[]) {
     BgpConfigParser parser(&config_db);
     parser.Parse(FileRead(options.bgp_config_file().c_str()));
 
+    bgp_server->rtarget_group_mgr()->Initialize();
     // TODO:  Initialize throws an exception (via boost) in case the
     // user does not have permissions to bind to the port.
 
@@ -473,7 +472,7 @@ int main(int argc, char *argv[]) {
         }
 
         // subscribe to collector service if not configured
-        if (options.collector_server().empty()) {
+        if (!options.collectors_configured()) {
             Module::type module = Module::CONTROL_NODE;
             NodeType::type node_type = 
                 g_vns_constants.Module2NodeType.find(module)->second;

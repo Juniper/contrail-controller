@@ -1186,6 +1186,7 @@ static const char *config_template_21 = "\
         <session to=\'Y\'>\
             <address-families>\
                 <family>e-vpn</family>\
+                <family>route-target</family>\
                 <family>inet-vpn</family>\
             </address-families>\
         </session>\
@@ -1197,6 +1198,7 @@ static const char *config_template_21 = "\
         <session to=\'X\'>\
             <address-families>\
                 <family>e-vpn</family>\
+                <family>route-target</family>\
                 <family>inet-vpn</family>\
             </address-families>\
         </session>\
@@ -2063,6 +2065,7 @@ static const char *config_template_23 = "\
         <port>%d</port>\
         <session to=\'Y\'>\
             <address-families>\
+                <family>route-target</family>\
                 <family>e-vpn</family>\
                 <family>inet-vpn</family>\
             </address-families>\
@@ -2074,6 +2077,7 @@ static const char *config_template_23 = "\
         <port>%d</port>\
         <session to=\'X\'>\
             <address-families>\
+                <family>route-target</family>\
                 <family>e-vpn</family>\
                 <family>inet-vpn</family>\
             </address-families>\
@@ -2330,6 +2334,7 @@ static const char *config_template_25 = "\
         <session to=\'Y\'>\
             <address-families>\
                 <family>e-vpn</family>\
+                <family>route-target</family>\
                 <family>inet-vpn</family>\
             </address-families>\
         </session>\
@@ -2341,6 +2346,7 @@ static const char *config_template_25 = "\
         <session to=\'X\'>\
             <address-families>\
                 <family>e-vpn</family>\
+                <family>route-target</family>\
                 <family>inet-vpn</family>\
             </address-families>\
         </session>\

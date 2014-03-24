@@ -207,17 +207,21 @@ public:
     virtual bool DBEntrySandesh(Sandesh *sresp) const = 0;
     virtual std::string ToString() const = 0;
     virtual const std::string GetAddressString() const = 0;
+    virtual bool EcmpAddPath(AgentPath *path) {return false;}
+    virtual bool EcmpDeletePath(AgentPath *path) {return false;}
 
     // Accessor functions
     bool is_multicast() const {return is_multicast_;}
     VrfEntry *vrf() const {return vrf_.get();}
     uint32_t vrf_id() const;
 
+    AgentPath *FindLocalVmPortPath() const;
     AgentPath *FindPath(const Peer *peer) const;
     const AgentPath *GetActivePath() const;
     const NextHop *GetActiveNextHop() const; 
     uint32_t GetMplsLabel() const; 
     const std::string &dest_vn_name() const;
+    bool IsRPFInvalid() const;
 
     void EnqueueRouteResync() const;
     void ResyncTunnelNextHop();
@@ -233,11 +237,11 @@ public:
     void FillTrace(RouteInfo &route, Trace event, const AgentPath *path);
 protected:
     void SetVrf(VrfEntryRef vrf) { vrf_ = vrf; }
+    void RemovePath(AgentPath *path);
+    void InsertPath(const AgentPath *path);
 
 private:
     friend class AgentRouteTable;
-    void RemovePath(AgentPath *path);
-    void InsertPath(const AgentPath *path);
     bool SyncPath(AgentPath *path);
 
     VrfEntryRef vrf_;

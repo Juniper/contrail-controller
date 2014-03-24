@@ -848,22 +848,18 @@ AnalyticsQuery::AnalyticsQuery(std::string qid, std::map<std::string,
             this->status_details = EIO;
         }
     }
-    /* setup ObjectTables */
-    for (std::map<std::string, objtable_info>::const_iterator it =
-            g_viz_constants._OBJECT_TABLES.begin();
-            it != g_viz_constants._OBJECT_TABLES.end(); it++) {
-        if (!dbif_->Db_UseColumnfamily(
-                    (GenDb::NewCf(it->first,
-                                  boost::assign::list_of
-                                  (GenDb::DbDataType::Unsigned32Type)
-                                  (GenDb::DbDataType::AsciiType),
-                                  boost::assign::list_of
-                                  (GenDb::DbDataType::Unsigned32Type),
-                                  boost::assign::list_of
-                                  (GenDb::DbDataType::LexicalUUIDType))))) {
-            QE_LOG(ERROR, "Database initialization:Db_UseColumnfamily failed");
-            this->status_details = EIO;
-        }
+    /* setup ObjectTable */
+    if (!dbif_->Db_UseColumnfamily(
+                (GenDb::NewCf(g_viz_constants.OBJECT_TABLE,
+                              boost::assign::list_of
+                              (GenDb::DbDataType::Unsigned32Type)
+                              (GenDb::DbDataType::AsciiType),
+                              boost::assign::list_of
+                              (GenDb::DbDataType::Unsigned32Type),
+                              boost::assign::list_of
+                              (GenDb::DbDataType::LexicalUUIDType))))) {
+        QE_LOG(ERROR, "Database initialization:Db_UseColumnfamily failed");
+        this->status_details = EIO;
     }
     for (std::vector<GenDb::NewCf>::const_iterator it = vizd_flow_tables.begin();
             it != vizd_flow_tables.end(); it++) {
@@ -1228,42 +1224,6 @@ bool AnalyticsQuery::is_valid_from_field(const std::string& from_field)
     }
     if (stat_table_index()!=-1) 
         return true;
-
-    return false;
-}
-
-bool AnalyticsQuery::is_valid_select_field(const std::string& select_field)
-{
-    for(size_t i = 0; i < g_viz_constants._TABLES.size(); i++)
-    {
-        if (g_viz_constants._TABLES[i].name == table_)
-        {
-            for (size_t j = 0; 
-                j < g_viz_constants._TABLES[i].schema.columns.size(); j++)
-            {
-                if (g_viz_constants._TABLES[i].schema.columns[j].name ==
-                        select_field)
-                    return true;
-            }
-            return false;
-        }
-    }
-
-    for (std::map<std::string, objtable_info>::const_iterator it =
-            g_viz_constants._OBJECT_TABLES.begin();
-            it != g_viz_constants._OBJECT_TABLES.end(); it++) {
-        if (it->first == table_)
-        {
-            for (size_t j = 0; 
-                j < g_viz_constants._OBJECT_TABLE_SCHEMA.columns.size(); j++)
-            {
-                if (g_viz_constants._OBJECT_TABLE_SCHEMA.columns[j].name ==
-                        select_field)
-                    return true;
-            }
-            return false;
-        }
-    }
 
     return false;
 }

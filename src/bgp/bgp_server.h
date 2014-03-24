@@ -28,6 +28,7 @@ class LifetimeManager;
 class PeerRibMembershipManager;
 class RoutePathReplicator;
 class RoutingInstanceMgr;
+class RTargetGroupMgr;
 class SchedulingGroupManager;
 class ServiceChainMgr;
 
@@ -57,6 +58,7 @@ public:
     LifetimeManager *lifetime_manager() { return lifetime_manager_.get(); }
     BgpConfigManager *config_manager() { return config_mgr_.get(); }
     RoutingInstanceMgr *routing_instance_mgr() { return inst_mgr_.get(); }
+    RTargetGroupMgr *rtarget_group_mgr() { return rtarget_group_mgr_.get(); }
     BgpConditionListener *condition_listener() { 
         return condition_listener_.get();
     }
@@ -136,6 +138,7 @@ private:
     BgpSessionManager *session_mgr_;
     boost::scoped_ptr<SchedulingGroupManager> sched_mgr_;
     boost::scoped_ptr<RoutingInstanceMgr> inst_mgr_;
+    boost::scoped_ptr<RTargetGroupMgr> rtarget_group_mgr_;
     boost::scoped_ptr<PeerRibMembershipManager> membership_mgr_;
     boost::scoped_ptr<BgpConditionListener> condition_listener_;
     boost::scoped_ptr<RoutePathReplicator> inetvpn_replicator_;

@@ -11,9 +11,10 @@ public:
     Options();
     bool Parse(EventManager &evm, int argc, char *argv[]);
 
+    const std::vector<std::string> collector_server_list() const {
+        return collector_server_list_;
+    }
     const std::string dns_config_file() const { return dns_config_file_; }
-    const std::string collector_server() const { return collector_server_; }
-    const uint16_t collector_port() const { return collector_port_; };
     const std::string config_file() const { return config_file_; };
     const std::string discovery_server() const { return discovery_server_; }
     const uint16_t discovery_port() const { return discovery_port_; }
@@ -32,6 +33,7 @@ public:
     const std::string ifmap_user() const { return ifmap_user_; }
     const std::string ifmap_certs_store() const { return ifmap_certs_store_; }
     const bool test_mode() const { return test_mode_; }
+    const bool collectors_configured() const { return collectors_configured_; }
 
 private:
 
@@ -43,9 +45,8 @@ private:
     void Initialize(EventManager &evm,
                     boost::program_options::options_description &options);
 
+    std::vector<std::string> collector_server_list_;
     std::string dns_config_file_;
-    std::string collector_server_;
-    uint16_t collector_port_;
     std::string config_file_;
     std::string discovery_server_;
     uint16_t discovery_port_;
@@ -64,6 +65,8 @@ private:
     std::string ifmap_user_;
     std::string ifmap_certs_store_;
     bool test_mode_;
+    bool collectors_configured_;
+    std::vector<std::string> default_collector_server_list_;
 
     boost::program_options::options_description config_file_options_;
 };

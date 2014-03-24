@@ -134,8 +134,15 @@ public:
         }
 
         Agent::GetInstance()->pkt()->flow_table()->Delete(key, true);
-        client->WaitForIdle();
-        EXPECT_TRUE(Agent::GetInstance()->pkt()->flow_table()->Find(key) == NULL);
+        if (allow_wait_for_idle_) {
+            client->WaitForIdle();
+            EXPECT_TRUE(Agent::GetInstance()->pkt()->flow_table()->Find(key) == NULL);
+        } else {
+            FlowEntry *fe = FlowGet(vrf_, sip_, dip_, proto_, sport_, dport_);
+            if (fe == NULL)
+                return;
+            EXPECT_TRUE(fe->deleted() == true);
+        }
     };
 
     const FlowEntry *FlowFetch() {

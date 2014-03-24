@@ -13,6 +13,8 @@ using namespace std;
 
 Peer *bgp_peer_;
 TestClient *client;
+#define MAX_VNET 10
+int test_tap_fd[MAX_VNET];
 
 uuid MakeUuid(int id) {
     char str[50];
@@ -339,6 +341,13 @@ void IntfCfgDel(PortInfo *input, int id) {
     req.data.reset(NULL);
     Agent::GetInstance()->GetIntfCfgTable()->Enqueue(&req);
     usleep(1000);
+}
+
+bool VrfFind(const char *name, bool ret_del) {
+    VrfEntry *vrf;
+    VrfKey key(name);
+    vrf = static_cast<VrfEntry *>(Agent::GetInstance()->GetVrfTable()->Find(&key, ret_del));
+    return (vrf != NULL);
 }
 
 bool VrfFind(const char *name) {
@@ -1137,7 +1146,7 @@ bool TunnelRouteAdd(const char *server, const char *vmip, const char *vm_vrf,
     Inet4UnicastAgentRouteTable::AddRemoteVmRouteReq(bgp_peer_, vm_vrf,
                                         Ip4Address::from_string(vmip, ec),
                                         32, Ip4Address::from_string(server, ec),
-                                        bmap, label, vn);
+                                        bmap, label, vn, SecurityGroupList());
     return true;
 }
 
@@ -1767,6 +1776,10 @@ void DeleteVmportEnv(struct PortInfo *input, int count, int del_vn, int acl_id,
     if (acl_id) {
         DelNode("access-control-list", acl_name);
     }
+
+    if (Agent::GetInstance()->init()->ksync_enable()) {
+        DeleteTapIntf(test_tap_fd, count);
+    }
 }
 
 void CreateVmportFIpEnv(struct PortInfo *input, int count, int acl_id, 
@@ -1828,6 +1841,10 @@ void CreateVmportEnvInternal(struct PortInfo *input, int count, int acl_id,
     char vrf_name[MAX_TESTNAME_LEN];
     char acl_name[MAX_TESTNAME_LEN];
     char instance_ip[MAX_TESTNAME_LEN];
+
+    if (Agent::GetInstance()->init()->ksync_enable()) {
+        CreateTapInterfaces("vnet", count, test_tap_fd);
+    }
 
     if (acl_id) {
         sprintf(acl_name, "acl%d", acl_id);

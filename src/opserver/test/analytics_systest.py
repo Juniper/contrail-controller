@@ -13,6 +13,8 @@
 import sys
 builddir = sys.path[0] + '/../..'
 
+import signal
+import gevent
 from gevent import monkey
 monkey.patch_all()
 import os
@@ -535,5 +537,9 @@ class AnalyticsTest(testtools.TestCase, fixtures.TestWithFixtures):
             return True
         return False
 
+def _term_handler(*_):
+    raise IntSignal()
+
 if __name__ == '__main__':
-    unittest.main()
+    gevent.signal(signal.SIGINT,_term_handler)
+    unittest.main(catchbreak=True)

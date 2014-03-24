@@ -9,6 +9,9 @@ VmUveTable::VmUveTable(Agent *agent)
     : uve_vm_map_(), agent_(agent), 
       intf_listener_id_(DBTableBase::kInvalidId),
       vm_listener_id_(DBTableBase::kInvalidId) {
+    event_queue_.reset(new WorkQueue<VmStatData *>
+            (TaskScheduler::GetInstance()->GetTaskId("Agent::Uve"), 0,
+             boost::bind(&VmUveTable::Process, this, _1)));
 }
 
 VmUveTable::~VmUveTable() {
@@ -222,5 +225,19 @@ void VmUveTable::UpdateBitmap(const VmEntry* vm, uint8_t proto, uint16_t sport,
         VmUveEntry *entry = it->second.get();
         entry->UpdatePortBitmap(proto, sport, dport);
     }
+}
+
+void VmUveTable::EnqueueVmStatData(VmStatData *data) {
+    event_queue_->Enqueue(data);
+}
+
+bool VmUveTable::Process(VmStatData* vm_stat_data) {
+    if (vm_stat_data->vm_stat()->marked_delete()) {
+        delete vm_stat_data->vm_stat();
+    } else {
+        vm_stat_data->vm_stat()->ProcessData();
+    }
+    delete vm_stat_data;
+    return true;
 }
 

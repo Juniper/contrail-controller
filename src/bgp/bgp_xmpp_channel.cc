@@ -15,6 +15,7 @@
 #include "base/task_annotations.h"
 #include "base/util.h"
 
+#include "bgp/bgp_config.h"
 #include "bgp/bgp_factory.h"
 #include "bgp/bgp_log.h"
 #include "bgp/bgp_peer_membership.h"
@@ -26,6 +27,8 @@
 #include "bgp/ipeer.h"
 #include "bgp/origin-vn/origin_vn.h"
 #include "bgp/routing-instance/routing_instance.h"
+#include "bgp/rtarget/rtarget_prefix.h"
+#include "bgp/rtarget/rtarget_table.h"
 #include "bgp/scheduling_group.h"
 #include "bgp/security_group/security_group.h"
 #include "bgp/tunnel_encap/tunnel_encap.h"
@@ -81,6 +84,22 @@ public:
     }
 
     virtual void CustomClose() {
+        if (parent_->routing_instances_.empty()) return;
+        RoutingInstanceMgr *instance_mgr = 
+            parent_->bgp_server_->routing_instance_mgr();
+        RoutingInstance *master = 
+            instance_mgr->GetRoutingInstance(BgpConfigManager::kMasterInstance);
+        assert(master);
+        BgpTable *rtarget_table = master->GetTable(Address::RTARGET);
+        assert(rtarget_table);
+
+        for (SubscribedRoutingInstanceList::iterator 
+             it = parent_->routing_instances_.begin(), next; 
+             it != parent_->routing_instances_.end(); it++) {
+            BOOST_FOREACH(RouteTarget rtarget, it->second) {
+                parent_->RTargetRouteOp(rtarget_table, rtarget, NULL, false);
+            }
+        }
     }
 
     virtual bool CloseComplete(bool from_timer, bool gr_cancelled) {
@@ -401,13 +420,107 @@ std::string BgpXmppChannel::StateName() const {
     return channel_->StateName();
 }
 
-void BgpXmppChannel::RoutingInstanceCreateCallback(std::string vrf_name) {
-    VrfMembershipRequestMap::iterator it = vrf_membership_request_map_.find(vrf_name);
-    if (it == vrf_membership_request_map_.end())
-        return;
-    if (!defer_close_)
-        ProcessDeferredSubscribeRequest(vrf_name, it->second);
-    vrf_membership_request_map_.erase(it);
+void BgpXmppChannel::RTargetRouteOp(BgpTable *rtarget_table, 
+                                    const RouteTarget &rtarget, BgpAttrPtr attr,
+                                    bool add_change) {
+    DBRequest req;
+    RTargetPrefix rt_prefix(bgp_server_->autonomous_system(), rtarget);
+    req.key.reset(new RTargetTable::RequestKey(rt_prefix, Peer()));
+    if (add_change) {
+        req.data.reset(new RTargetTable::RequestData(attr, 0, 0));
+        req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
+    } else {
+        req.oper = DBRequest::DB_ENTRY_DELETE;
+    }
+    rtarget_table->Enqueue(&req);
+}
+
+void BgpXmppChannel::RoutingInstanceCallback(std::string vrf_name, 
+                                             int op) {
+    if (vrf_name == BgpConfigManager::kMasterInstance) return;
+    if (op == RoutingInstanceMgr::INSTANCE_DELETE) return;
+
+    RoutingInstanceMgr *instance_mgr = bgp_server_->routing_instance_mgr();
+    assert(instance_mgr);
+    RoutingInstance *rt_instance = instance_mgr->GetRoutingInstance(vrf_name);
+    assert(rt_instance);
+
+    if (op == RoutingInstanceMgr::INSTANCE_ADD) {
+        VrfMembershipRequestMap::iterator it = 
+            vrf_membership_request_map_.find(vrf_name);
+        if (it == vrf_membership_request_map_.end())
+            return;
+        if (!defer_close_)
+            ProcessDeferredSubscribeRequest(rt_instance, it->second);
+        vrf_membership_request_map_.erase(it);
+    } else {
+        SubscribedRoutingInstanceList::iterator it = 
+            routing_instances_.find(rt_instance);
+        if (it == routing_instances_.end()) return;
+
+        // Prepare for route add to rtarget table
+        // get rtarget_table and locate the attr
+        RoutingInstance *master = 
+            instance_mgr->GetRoutingInstance(BgpConfigManager::kMasterInstance);
+        assert(master);
+        BgpTable *rtarget_table = master->GetTable(Address::RTARGET);
+        assert(rtarget_table);
+
+        BgpAttrSpec attrs;
+        BgpAttrNextHop nexthop(remote_endpoint().address().to_v4().to_ulong());
+        attrs.push_back(&nexthop);
+        BgpAttrOrigin origin(BgpAttrOrigin::IGP);
+        attrs.push_back(&origin);
+        BgpAttrPtr attr = bgp_server_->attr_db()->Locate(attrs);
+
+        // Import list in the routing instance
+        const RoutingInstance::RouteTargetList &new_list = 
+            rt_instance->GetImportList();
+
+        // Previous route target list for which the rtarget route was added
+        RoutingInstance::RouteTargetList &current = it->second;
+
+        RoutingInstance::RouteTargetList::iterator cur_next_it, cur_it;
+        cur_it = cur_next_it = current.begin();
+        RoutingInstance::RouteTargetList::const_iterator new_it = 
+            new_list.begin();
+
+        std::pair<RoutingInstance::RouteTargetList::iterator, bool> r;
+        while (cur_it != current.end() && new_it != new_list.end()) {
+            if (*new_it < *cur_it) {
+                r = current.insert(*new_it);
+                assert(r.second);
+                // Send rtarget route ADD
+                RTargetRouteOp(rtarget_table, *new_it, attr, true);
+                new_it++;
+            } else if (*new_it > *cur_it) {
+                cur_next_it++;
+                // Send rtarget route DELETE
+                RTargetRouteOp(rtarget_table, *cur_it, attr, false);
+                current.erase(cur_it);
+                cur_it = cur_next_it;
+            } else {
+                // Update
+                cur_it++;
+                new_it++;
+            }
+            cur_next_it = cur_it;
+        }
+        for (; new_it != new_list.end(); ++new_it) {
+            r = current.insert(*new_it);
+            assert(r.second);
+            // send rtarget route ADD
+            RTargetRouteOp(rtarget_table, *new_it, attr, true);
+        }
+        for (cur_next_it = cur_it; 
+             cur_it != current.end(); 
+             cur_it = cur_next_it) {
+            cur_next_it++;
+            // Send rtarget route DELETE
+            RTargetRouteOp(rtarget_table, *cur_it, attr, false);
+            current.erase(cur_it);
+        }
+    }
 }
 
 IPeer *BgpXmppChannel::Peer() {
@@ -1320,27 +1433,59 @@ void BgpXmppChannel::FlushDeferQ(std::string vrf_name) {
     }
 }
 
-void BgpXmppChannel::ProcessDeferredSubscribeRequest(std::string vrf_name,
-                                                     int instance_id) {
+void BgpXmppChannel::PublishRTargetRoute(RoutingInstance *rt_instance, 
+                                         bool add_change) {
+    // Add rtarget route for import route target of the routing instance.
     RoutingInstanceMgr *instance_mgr = bgp_server_->routing_instance_mgr();
-    if (!instance_mgr) {
-        BGP_LOG_PEER(Membership, Peer(), SandeshLevel::SYS_WARN,
-                     BGP_LOG_FLAG_ALL, BGP_PEER_DIR_NA,
-                     " ProcessDeferredSubscribeRequest: RIM not found");
-        return;
-    }
-    RoutingInstance *rt_instance = instance_mgr->GetRoutingInstance(vrf_name);
-    assert(rt_instance);
+    RoutingInstance *master = 
+        instance_mgr->GetRoutingInstance(BgpConfigManager::kMasterInstance);
+    assert(master);
+    BgpTable *rtarget_table = master->GetTable(Address::RTARGET);
+    assert(rtarget_table);
 
-    RoutingInstance::RouteTableList const rt_list = rt_instance->GetTables();
+    SubscribedRoutingInstanceList::iterator it; 
+    BgpAttrPtr attr = NULL;
+    if (add_change) {
+        BgpAttrSpec attrs;
+        BgpAttrNextHop nexthop(bgp_server_->bgp_identifier());
+        attrs.push_back(&nexthop);
+        BgpAttrOrigin origin(BgpAttrOrigin::IGP);
+        attrs.push_back(&origin);
+        attr = bgp_server_->attr_db()->Locate(attrs);
+        std::pair<SubscribedRoutingInstanceList::iterator,bool> ret =
+            routing_instances_.insert(
+                  std::pair<RoutingInstance*, RoutingInstance::RouteTargetList>
+                  (rt_instance, rt_instance->GetImportList()));
+        it = ret.first;
+        if (!ret.second) {
+            ret.first->second = rt_instance->GetImportList();
+        }
+    } else {
+        it = routing_instances_.find(rt_instance);
+    }
+
+
+    BOOST_FOREACH(RouteTarget rtarget, it->second) {
+        RTargetRouteOp(rtarget_table, rtarget, attr, add_change);
+    }
+
+    if (!add_change)  {
+        routing_instances_.erase(rt_instance);
+    }
+}
+
+void BgpXmppChannel::ProcessDeferredSubscribeRequest(RoutingInstance *instance,
+                                                     int instance_id) {
+    PublishRTargetRoute(instance, true);
+    RoutingInstance::RouteTableList const rt_list = instance->GetTables();
     for (RoutingInstance::RouteTableList::const_iterator it = rt_list.begin();
          it != rt_list.end(); ++it) {
 
         BgpTable *table = it->second;
-        if (table->family() == Address::INETVPN) {
-            //Do not register to inetvpn table
+        if ((table->family() == Address::INETVPN) || 
+            (table->family() == Address::EVPN)    || 
+            (table->family() == Address::RTARGET))
             continue;
-        }
 
         RegisterTable(table, instance_id);
 
@@ -1391,15 +1536,17 @@ void BgpXmppChannel::ProcessSubscriptionRequest(
         return;
     }
 
+    PublishRTargetRoute(rt_instance, add_change);
+
     // TODO: handle missing inet/inetmcast etc tables??
     RoutingInstance::RouteTableList const rt_list = rt_instance->GetTables();
     for (RoutingInstance::RouteTableList::const_iterator it = rt_list.begin();
          it != rt_list.end(); ++it) {
 
         BgpTable *table = it->second;
-        if (table->family() == Address::INETVPN)
-            continue;
-        if (table->family() == Address::EVPN)
+        if ((table->family() == Address::INETVPN) ||
+            (table->family() == Address::EVPN)    ||
+            (table->family() == Address::RTARGET))
             continue;
 
         if (add_change) {
@@ -1481,7 +1628,8 @@ void BgpXmppChannel::ReceiveUpdate(const XmppStanza::XmppMessage *msg) {
     //
     assert(!defer_close_);
     assert(!peer_->IsDeleted());
-    assert(!channel_->connection() || !channel_->connection()->ShutdownPending());
+    assert(!channel_->connection() || 
+           !channel_->connection()->ShutdownPending());
     if (msg->type == XmppStanza::IQ_STANZA) {
         const XmppStanza::XmppMessageIq *iq =
                    static_cast<const XmppStanza::XmppMessageIq *>(msg);
@@ -1549,8 +1697,9 @@ BgpXmppChannelManager::BgpXmppChannelManager(XmppServer *xmpp_server,
                boost::bind(&BgpXmppChannelManager::XmppHandleChannelEvent,
                            this, _1, _2));
     }
-    id_ = server->routing_instance_mgr()->RegisterCreateCallback(
-        boost::bind(&BgpXmppChannelManager::RoutingInstanceCreateCallback, this, _1));
+    id_ = server->routing_instance_mgr()->RegisterInstanceOpCallback(
+        boost::bind(&BgpXmppChannelManager::RoutingInstanceCallback, 
+                    this, _1, _2));
 }
 
 BgpXmppChannelManager::~BgpXmppChannelManager() {
@@ -1561,7 +1710,7 @@ BgpXmppChannelManager::~BgpXmppChannelManager() {
 
     queue_.Shutdown();
     channel_map_.clear();
-    bgp_server_->routing_instance_mgr()->UnregisterCreateCallback(id_);
+    bgp_server_->routing_instance_mgr()->UnregisterInstanceOpCallback(id_);
 }
 
 bool BgpXmppChannelManager::IsReadyForDeletion() {
@@ -1569,9 +1718,10 @@ bool BgpXmppChannelManager::IsReadyForDeletion() {
 }
 
 
-void BgpXmppChannelManager::RoutingInstanceCreateCallback(std::string vrf_name) {
+void BgpXmppChannelManager::RoutingInstanceCallback(std::string vrf_name,
+                                                          int op) {
     BOOST_FOREACH(XmppChannelMap::value_type &i, channel_map_) {
-        i.second->RoutingInstanceCreateCallback(vrf_name);
+        i.second->RoutingInstanceCallback(vrf_name, op);
     }
 }
 

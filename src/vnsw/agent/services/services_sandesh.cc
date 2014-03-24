@@ -106,6 +106,11 @@ void ServicesSandesh::PktStatsSandesh(std::string ctxt, bool more) {
     resp->set_arp_sent(stats.sent[PktHandler::ARP]);
     resp->set_dns_sent(stats.sent[PktHandler::DNS]);
     resp->set_icmp_sent(stats.sent[PktHandler::ICMP]);
+    resp->set_dhcp_q_threshold_exceeded(stats.q_threshold_exceeded[PktHandler::DHCP]);
+    resp->set_arp_q_threshold_exceeded(stats.q_threshold_exceeded[PktHandler::ARP]);
+    resp->set_dns_q_threshold_exceeded(stats.q_threshold_exceeded[PktHandler::DNS]);
+    resp->set_icmp_q_threshold_exceeded(stats.q_threshold_exceeded[PktHandler::ICMP]);
+    resp->set_flow_q_threshold_exceeded(stats.q_threshold_exceeded[PktHandler::FLOW]);
     resp->set_context(ctxt);
     resp->set_more(more);
     resp->Response();

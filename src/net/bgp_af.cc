@@ -38,6 +38,9 @@ std::string BgpAf::ToString(uint8_t afi, uint16_t safi) {
         case Enet:
             out << "Enet";
             break;
+        case RTarget:
+            out << "RTarget";
+            break;
         default:
             out << "unknown";
             break;
@@ -52,7 +55,26 @@ Address::Family BgpAf::AfiSafiToFamily(uint8_t afi, uint8_t safi) {
         return Address::INETVPN;
     if (afi == BgpAf::L2Vpn && safi == BgpAf::EVpn)
         return Address::EVPN;
+    if (afi == BgpAf::IPv4 && safi == BgpAf::RTarget)
+        return Address::RTARGET;
 
     return Address::UNSPEC;
 }
 
+void BgpAf::FamilyToAfiSafi(Address::Family fmly, uint16_t &afi, uint8_t &safi) {
+    if (fmly == Address::INET) {
+        afi = BgpAf::IPv4;
+        safi = BgpAf::Unicast;
+    } else if (fmly == Address::INETVPN) {
+        afi = BgpAf::IPv4;
+        safi = BgpAf::Vpn;
+    } else if (fmly == Address::EVPN) {
+        afi = BgpAf::L2Vpn; 
+        safi = BgpAf::EVpn;
+    } else if (fmly == Address::RTARGET) {
+        afi = BgpAf::IPv4; 
+        safi = BgpAf::RTarget;
+    } else {
+        assert(0);
+    }
+}

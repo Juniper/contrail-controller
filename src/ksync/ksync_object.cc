@@ -281,6 +281,10 @@ std::string KSyncEntry::StateString() const {
             str << "Delete pending due to reference";
             break;
 
+        case DEL_DEFER_DEL_ACK:
+            str << "Delete pending due to Delete ack wait";
+            break;
+
         case DEL_ACK_WAIT:
             str << "Delete ack wait";
             break;
@@ -483,6 +487,8 @@ bool KSyncNetlinkDBEntry::Delete() {
 //                be sent to kernel on getting ACK
 // DEL_DEFER_REF: Object deleted with pending references . Delete must be sent
 //                to kernel when all pending references goes away.
+// DEL_DEFER_DEL_ACK: Object delete with pending delete ack wait, Delete
+//                needs to be sent after receiving a del ACK.
 // DEL_ACK_WAIT : Delete sent to Kernel. Waiting for ACK from kernel.
 //                Can get renewed if there is request to ADD in this case
 // RENEW_WAIT   : Object being renewed. Waiting for ACK of delete to renew the
@@ -548,7 +554,7 @@ KSyncEntry::KSyncState KSyncSM_Delete(KSyncEntry *entry) {
     }
 
     assert(entry->GetRefCount() == 1);
-    if (!entry->Seen()) {
+    if (!entry->Seen() && entry->AllowDeleteStateComp()) {
         return KSyncEntry::FREE_WAIT;
     }
     if (entry->Delete()) {
@@ -655,7 +661,9 @@ KSyncEntry::KSyncState KSyncSM_AddDefer(KSyncObject *obj, KSyncEntry *entry,
     // state.
     case KSyncEntry::DEL_REQ:
         obj->BackRefDel(entry);
-        if (entry->GetRefCount() > 1) {
+        if (entry->AllowDeleteStateComp() == false) {
+            state = KSyncSM_Delete(entry);
+        } else if (entry->GetRefCount() > 1) {
             state = KSyncEntry::TEMP;
         } else {
             state = KSyncEntry::FREE_WAIT;
@@ -870,6 +878,37 @@ KSyncEntry::KSyncState KSyncSM_DelPending_Ref(KSyncObject *obj,
     return state;
 }
 
+// Object waiting for DELETE to be sent.
+// ADD_CHANGE_REQ will result in renew of object. Send only a Change
+// On DEL ACK, try sending delete
+KSyncEntry::KSyncState KSyncSM_DelPending_DelAck(KSyncObject *obj,
+                                                 KSyncEntry *entry,
+                                                 KSyncEntry::KSyncEvent event) {
+    KSyncEntry::KSyncState state = KSyncEntry::DEL_DEFER_DEL_ACK;
+
+    assert(entry->GetRefCount());
+    assert(entry->AllowDeleteStateComp() == false);
+
+    switch (event) {
+    case KSyncEntry::ADD_CHANGE_REQ:
+        state = KSyncEntry::RENEW_WAIT;
+        break;
+
+    case KSyncEntry::DEL_ACK:
+        state = KSyncSM_Delete(entry);
+        break;
+
+    case KSyncEntry::INT_PTR_REL:
+        break;
+
+    default:
+        assert(0);
+        break;
+    }
+
+    return state;
+}
+
 // Object waiting for ACK of DELETE sent earlier
 // ADD_CHANGE_REQ will result in renew of object. TODO: This is TBD
 KSyncEntry::KSyncState KSyncSM_DelAckWait(KSyncObject *obj, KSyncEntry *entry,
@@ -912,11 +951,15 @@ KSyncEntry::KSyncState KSyncSM_RenewWait(KSyncObject *obj, KSyncEntry *entry,
         break;
 
     case KSyncEntry::DEL_REQ:
-        state = KSyncEntry::DEL_ACK_WAIT;
+        if (entry->AllowDeleteStateComp()) {
+            state = KSyncEntry::DEL_ACK_WAIT;
+        } else {
+            state = KSyncEntry::DEL_DEFER_DEL_ACK;
+        }
         break;
 
     case KSyncEntry::DEL_ACK:
-        state = KSyncSM_Change(obj, entry);
+        state = KSyncSM_Add(obj, entry);
         break;
 
     case KSyncEntry::INT_PTR_REL:
@@ -978,6 +1021,10 @@ void KSyncObject::NotifyEvent(KSyncEntry *entry, KSyncEntry::KSyncEvent event) {
         case KSyncEntry::DEL_DEFER_REF:
             dep_reval = true;
             state = KSyncSM_DelPending_Ref(this, entry, event);
+            break;
+
+        case KSyncEntry::DEL_DEFER_DEL_ACK:
+            state = KSyncSM_DelPending_DelAck(this, entry, event);
             break;
 
         case KSyncEntry::DEL_ACK_WAIT:

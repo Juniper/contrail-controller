@@ -22,8 +22,9 @@ BgpSessionManager::~BgpSessionManager() {
     TcpServer::ClearSessions();
 }
 
-void BgpSessionManager::Initialize(short port) {
+bool BgpSessionManager::Initialize(short port) {
     TcpServer::Initialize(port);
+    return true;
 }
 
 TcpSession *BgpSessionManager::CreateSession() {
