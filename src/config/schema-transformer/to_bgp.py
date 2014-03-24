@@ -2087,7 +2087,10 @@ class VirtualMachineInterfaceST(DictST):
             except NoIdError:
                 _sandesh._logger.debug("NoIdError while updating interface " +
                                        self.name)
-                return
+
+        for lr in LogicalRouterST.values():
+            if self.name in lr.interfaces:
+                lr.add_interface(self.name)
     #end set_virtual_network
     
     def process_analyzer(self):
@@ -2169,20 +2172,68 @@ class LogicalRouterST(DictST):
 
     def __init__(self, name):
         self.name = name
+        self.interfaces = set()
         self.virtual_networks = set()
+        obj = _vnc_lib.logical_router_read(fq_name_str=name)
+        rt_ref = obj.get_route_target_refs()
+        if not rt_ref:
+            rtgt_num = VirtualNetworkST._rt_allocator.alloc(name)
+            rt_key = "target:%s:%d" % (VirtualNetworkST.get_autonomous_system(),
+                                       rtgt_num)
+            rtgt_obj = RouteTargetST.locate(rt_key)
+            obj.set_route_target(rtgt_obj)
+            _vnc_lib.logical_router_update(obj)
+        else:
+            rt_key = rt_ref[0]['to'][0]
+
+        self.route_target = rt_key
     # end __init__
 
     @classmethod
     def delete(cls, name):
         if name in cls._dict:
+            lr = cls._dict[name]
+            rtgt_num = int(lr.route_target.split(':')[-1])
+            VirtualNetworkST._rt_allocator.delete(rtgt_num)
+            _vnc_lib.route_target_delete(fq_name=[lr.route_target])
+            for interface in lr.interfaces:
+                lr.delete_interface(interface)
             del cls._dict[name]
     # end delete
 
-    def add_virtual_network(self, vn_name):
-        self.virtual_networks.add(vn_name)
+    def add_interface(self, intf_name):
+        self.interfaces.add(intf_name)
+        vmi_obj = VirtualMachineInterfaceST.get(intf_name)
+        if vmi_obj is not None:
+            vn_set = self.virtual_networks | {vmi_obj.virtual_network}
+            self.set_virtual_networks(vn_set)
+    # end add_interface
 
-    def delete_virtual_network(self, vn_name):
-        self.virtual_networks.discard(vn_name)
+    def delete_interface(self, intf_name):
+        self.interfaces.discard(intf_name)
+
+        vn_set = set()
+        for vmi in self.interfaces:
+            vmi_obj = VirtualMachineInterfaceST.get(vmi)
+            if vmi_obj is not None:
+                vn_set.add(vmi_obj.virtual_network)
+        self.set_virtual_networks(vn_set)
+    # end delete_interface
+
+    def set_virtual_networks(self, vn_set):
+        for vn in self.virtual_networks - vn_set:
+            vn_obj = VirtualNetworkST.get(vn)
+            if vn_obj is not None:
+                ri_obj = vn_obj.get_primary_routing_instance()
+                ri_obj.update_route_target_list(rt_add=set(),
+                                                rt_del=[self.route_target])
+        for vn in vn_set - self.virtual_networks:
+            vn_obj = VirtualNetworkST.get(vn)
+            if vn_obj is not None:
+                ri_obj = vn_obj.get_primary_routing_instance()
+                ri_obj.update_route_target_list(rt_add=[self.route_target])
+        self.virtual_networks = vn_set
+    # end set_virtual_networks
 # end LogicaliRouterST
 
 
@@ -2629,32 +2680,27 @@ class SchemaTransformer(object):
             self.current_network_set |= route_table.network_back_refs
     # end delete_routes
 
-    def add_virtual_network_logical_router(self, idents, meta):
-        vn_name = idents['virtual-network']
+    def add_logical_router_interface(self, idents, meta):
         lr_name = idents['logical-router']
+        vmi_name = idents['virtual-machine-interface']
 
         lr_obj = LogicalRouterST.locate(lr_name)
-        lr_obj.add_virtual_network(vn_name)
-        self.current_network_set |= lr_obj.virtual_networks
-    # end add_virtual_network_logical_router
+        lr_obj.add_interface(vmi_name)
+    # end add_logical_router_interface
 
-    def delete_virtual_network_logical_router(self, idents, meta):
-        vn_name = idents['virtual-network']
+    def delete_logical_router_interface(self, idents, meta):
         lr_name = idents['logical-router']
+        vmi_name = idents['virtual-machine-interface']
 
         lr_obj = LogicalRouterST.get(lr_name)
-        if lr_obj is None:
-            return
-        self.current_network_set |= lr_obj.virtual_networks
-        lr_obj.delete_virtual_network(vn_name)
-    # end add_virtual_network_logical_router
+        if lr_obj is not None:
+            lr_obj.delete_interface(vmi_name)
+
+        VirtualMachineInterfaceST.delete(vmi_name)
+    # end delete_logical_router_interface
 
     def delete_project_logical_router(self, idents, meta):
         lr_name = idents['logical-router']
-        lr_obj = LogicalRouterST.get(lr_name)
-        if lr_obj is None:
-            return
-        self.current_network_set |= lr_obj.virtual_networks
         LogicalRouterST.delete(lr_name)
     # end delete_project_logical_router
 
