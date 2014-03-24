@@ -76,7 +76,9 @@ string VrfEntry::ToString() const {
 }
 
 void VrfEntry::PostAdd() {
-    Init();
+    // get_table() would return NULL in Add(), so move dependent functions and 
+    // initialization to PostAdd
+    deleter_.reset(new DeleteActor(this));
     // Create the route-tables and insert them into dbtree_
     Agent::RouteTableType type = Agent::INET4_UNICAST;
     DB *db = get_table()->database();
@@ -343,9 +345,6 @@ void VrfEntry::CancelDeleteTimer() {
     delete_timeout_timer_->Cancel();
 }
 
-void VrfEntry::Init() {
-    deleter_.reset(new DeleteActor(this));
-}
 
 std::auto_ptr<DBEntry> VrfTable::AllocEntry(const DBRequestKey *k) const {
     const VrfKey *key = static_cast<const VrfKey *>(k);
