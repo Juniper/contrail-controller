@@ -508,7 +508,10 @@ void AgentParam::ComputeLinkLocalFlowLimits() {
     }
 }
 
-static bool ValidateInterface(const std::string &ifname) {
+static bool ValidateInterface(bool test_mode, const std::string &ifname) {
+    if (test_mode) {
+        return true;
+    }
     int fd = socket(AF_LOCAL, SOCK_STREAM, 0);
     assert(fd >= 0);
 
@@ -535,7 +538,7 @@ void AgentParam::Validate() {
     }
 
     // Check if interface is already present
-    if (ValidateInterface(vhost_.name_) == false) {
+    if (ValidateInterface(test_mode_, vhost_.name_) == false) {
         exit(ENODEV);
     }
 
@@ -546,7 +549,7 @@ void AgentParam::Validate() {
     }
 
     // Check if interface is already present
-    if (ValidateInterface(eth_port_) == false) {
+    if (ValidateInterface(test_mode_, eth_port_) == false) {
         exit(ENODEV);
     }
 
@@ -558,7 +561,7 @@ void AgentParam::Validate() {
             exit(EINVAL);
         }
 
-        if (ValidateInterface(vmware_physical_port_) == false) {
+        if (ValidateInterface(test_mode_, vmware_physical_port_) == false) {
             exit(ENODEV);
         }
     }
@@ -618,6 +621,10 @@ void AgentParam::LogConfig() const {
     LOG(DEBUG, "Hypervisor mode             : vmware");
     LOG(DEBUG, "Vmware port                 : " << vmware_physical_port_);
     }
+}
+
+void AgentParam::set_test_mode(bool mode) {
+    test_mode_ = mode;
 }
 
 AgentParam::AgentParam() :

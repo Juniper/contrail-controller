@@ -126,6 +126,7 @@ TestClient *StatsTestInit() {
     init->set_vgw_enable(false);
     init->set_router_id_dep_enable(false);
     agent->SetTestMode();
+    param->set_test_mode(true);
 
     // Initialize agent and kick start initialization
     agent->Init(param, init);

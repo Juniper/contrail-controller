@@ -101,6 +101,7 @@ public:
 
     void Validate();
     void LogConfig() const;
+    void set_test_mode(bool mode);
 private:
     void ComputeLinkLocalFlowLimits();
     void InitFromSystem();
@@ -139,7 +140,7 @@ private:
     int agent_stats_interval_;
     int flow_stats_interval_;
     std::string vmware_physical_port_;
-
+    bool test_mode_;
     std::auto_ptr<VirtualGatewayConfigTable> vgw_config_table_;
 
     DISALLOW_COPY_AND_ASSIGN(AgentParam);
