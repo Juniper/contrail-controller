@@ -185,12 +185,13 @@ public:
     static void FillBgpNeighborDebugState(BgpNeighborResp &resp, const IPeerDebugStats *peer);
 
     bool ResumeClose();
-    void MembershipRequestCallback(IPeer *ipeer, BgpTable *table);
+    void MembershipRequestCallback(IPeer *ipeer, BgpTable *table, bool start);
 
     virtual void UpdateRefCount(int count) { refcount_ += count; }
     virtual tbb::atomic<int> GetRefCount() const { return refcount_; }
 
     bool IsControlNode() const { return control_node_; }
+    void RegisterToVpnTables(bool established);
 
 private:
     friend class BgpPeerTest;
@@ -205,6 +206,12 @@ private:
     virtual void StartKeepaliveTimerUnlocked();
     void StopKeepaliveTimerUnlocked();
     bool KeepaliveTimerExpired();
+ 
+    void SendEndOfRIB(Address::Family family);
+    void StartEndOfRibTimer();
+    bool EndOfRibTimerExpired();
+    void EndOfRibTimerErrorHandler(std::string error_name,
+                                   std::string error_message);
 
     virtual void BindLocalEndpoint(BgpSession *session);
 
@@ -251,6 +258,7 @@ private:
     tbb::spin_mutex spin_mutex_;
     BgpSession *session_;
     Timer *keepalive_timer_;
+    Timer *end_of_rib_timer_;
     bool send_ready_;
     bool control_node_;
     bool admin_down_;

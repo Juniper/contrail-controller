@@ -80,6 +80,7 @@ public:
                         UpdateInfoSList &uinfo_slist);
 
     virtual Address::Family family() const = 0;
+    virtual bool IsVpnTable() const { return false; }
     virtual std::auto_ptr<DBEntry> AllocEntryStr(const std::string &key) const = 0;
 
     virtual BgpRoute *RouteReplicate(BgpServer *server, BgpTable *table, 

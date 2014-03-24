@@ -2,35 +2,34 @@
  * Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
  */
 
-#ifndef ctrlplane_inetvpn_table_h
-#define ctrlplane_inetvpn_table_h
+#ifndef ctrlplane_rtarget_table_h
+#define ctrlplane_rtarget_table_h
 
 #include "bgp/bgp_attr.h"
 #include "bgp/bgp_table.h"
-#include "bgp/l3vpn/inetvpn_address.h"
-#include "bgp/l3vpn/inetvpn_route.h"
+#include "bgp/rtarget/rtarget_address.h"
+#include "bgp/rtarget/rtarget_route.h"
 
 class BgpServer;
 class BgpRoute;
 
-class InetVpnTable : public BgpTable {
+class RTargetTable : public BgpTable {
 public:
     struct RequestKey : BgpTable::RequestKey {
-        RequestKey(const InetVpnPrefix &prefix, const IPeer *ipeer)
+        RequestKey(const RTargetPrefix &prefix, const IPeer *ipeer)
             : prefix(prefix), peer(ipeer) {
         }
-        InetVpnPrefix prefix;
+        RTargetPrefix prefix;
         const IPeer *peer;
         virtual const IPeer *GetPeer() const { return peer; }
     };
 
-    InetVpnTable(DB *db, const std::string &name);
+    RTargetTable(DB *db, const std::string &name);
 
     virtual std::auto_ptr<DBEntry> AllocEntry(const DBRequestKey *key) const;
     virtual std::auto_ptr<DBEntry> AllocEntryStr(const std::string &key) const;
 
-    virtual Address::Family family() const { return Address::INETVPN; }
-    virtual bool IsVpnTable() const { return true; }
+    virtual Address::Family family() const { return Address::RTARGET; }
 
     virtual size_t Hash(const DBEntry *entry) const;
     virtual size_t Hash(const DBRequestKey *key) const;
@@ -48,7 +47,7 @@ private:
     virtual BgpRoute *TableFind(DBTablePartition *rtp, 
                                 const DBRequestKey *prefix);
 
-    DISALLOW_COPY_AND_ASSIGN(InetVpnTable);
+    DISALLOW_COPY_AND_ASSIGN(RTargetTable);
 };
 
 #endif

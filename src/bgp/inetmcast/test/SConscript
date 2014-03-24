@@ -81,6 +81,7 @@ if sys.platform != 'darwin':
                              '-lbgp_evpn',
                              '-lbgp_inet',
                              '-lbgp_inetmcast',
+                             '-lrtarget',
                              '-ltask_test',
                              '-Wl,--no-whole-archive'])
 else:
@@ -92,6 +93,8 @@ else:
     env.Prepend(LINKFLAGS = ['-Wl,-force_load,' + lib_inet])
     lib_inetmcast = Dir('..').path + '/libbgp_inetmcast.a'
     env.Prepend(LINKFLAGS = ['-Wl,-force_load,' + lib_inetmcast])
+    lib_rtarget = Dir('..').path + '/librtarget.a'
+    env.Prepend(LINKFLAGS = ['-Wl,-force_load,' + lib_rtarget])
 
 inetmcast_table_test = env.UnitTest('inetmcast_table_test',
                                    ['inetmcast_table_test.cc'])

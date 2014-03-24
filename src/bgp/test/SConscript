@@ -69,12 +69,14 @@ if sys.platform == 'darwin':
     bgp_enet = Dir('../enet').path + '/libbgp_enet.a'
     bgp_evpn = Dir('../evpn').path + '/libbgp_evpn.a'
     bgp_l3vpn = Dir('../l3vpn').path + '/libbgp_l3vpn.a'
+    bgp_rtarget = Dir('../rtarget').path + '/librtarget.a'
     env.Prepend(LINKFLAGS =
                 ['-Wl,-force_load,' + bgp_inet,
                  '-Wl,-force_load,' + bgp_inetmcast,
                  '-Wl,-force_load,' + bgp_enet,
                  '-Wl,-force_load,' + bgp_evpn,
-                 '-Wl,-force_load,' + bgp_l3vpn])
+                 '-Wl,-force_load,' + bgp_l3vpn,
+                 '-Wl,-force_load,' + bgp_rtarget])
 else:
     env.Prepend(LINKFLAGS =
                 ['-Wl,--whole-archive',
@@ -84,6 +86,7 @@ else:
                  '-lbgp_enet',
                  '-lbgp_evpn',
                  '-lbgp_l3vpn',
+                 '-lrtarget',
                  '-Wl,--no-whole-archive'])
 
 env.Append(LIBS = ['bgp_enet', 'bgp_evpn'])
@@ -286,6 +289,11 @@ xmpp_sess_toggle_test = env.UnitTest('xmpp_sess_toggle_test',
                              ['xmpp_sess_toggle_test.cc'])
 env.Alias('src/bgp:xmpp_sess_toggle_test', xmpp_sess_toggle_test)
 
+rtarget_peer_test = env.UnitTest('rtarget_peer_test', 
+                                 ['rtarget_peer_test.cc'])
+env.Alias('src/bgp:rtarget_peer_test', rtarget_peer_test)
+
+
 # All Tests
 test_suite = [
     bgp_attr_test,
@@ -323,6 +331,7 @@ test_suite = [
     routepath_replicator_test,
     routing_instance_mgr_test,
     routing_instance_test,
+    rtarget_peer_test,
     rt_network_attr_test,
     scheduling_group_test,
     service_chain_test,
@@ -355,6 +364,7 @@ sc_test_suite = [
     bgp_condition_listener_test,
     routepath_replicator_random_test,
     routepath_replicator_test,
+    rtarget_peer_test,
     service_chain_test,
     static_route_test,
     svc_static_route_intergration_test,

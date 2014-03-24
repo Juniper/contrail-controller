@@ -22,6 +22,8 @@
 #include "bgp/bgp_server.h"
 #include "bgp/bgp_update_queue.h"
 #include "bgp/routing-instance/routing_instance.h"
+#include "bgp/routing-instance/rtarget_group.h"
+#include "bgp/routing-instance/rtarget_group_mgr.h"
 
 using namespace std;
 
@@ -135,11 +137,12 @@ UpdateInfo *BgpTable::GetUpdateInfo(RibOut *ribout, BgpRoute *route,
     BgpAttrPtr attr_ptr;
     const BgpAttr *attr = path->GetAttr();
 
+    RibPeerSet new_peerset = peerset;
+
     // LocalPref, Med and AsPath manipulation is needed only if the RibOut
     // has BGP encoding. Similarly, well-known communities do not apply if
     // the encoding is not BGP.
     if (ribout->IsEncodingBgp()) {
-
         // Handle well-known communities.
         if (attr->community() != NULL &&
             attr->community()->communities().size()) {
@@ -153,6 +156,13 @@ UpdateInfo *BgpTable::GetUpdateInfo(RibOut *ribout, BgpRoute *route,
                     return NULL;
                 }
             }
+        }
+
+        if (attr->ext_community() != NULL) {
+            // Handle route-target filtering
+            rtinstance_->server()->rtarget_group_mgr()->GetRibOutInterestedPeers
+                (ribout, attr->ext_community(), peerset, new_peerset);
+            if (new_peerset.empty()) return NULL;
         }
 
         if (ribout->peer_type() == BgpProto::IBGP) {
@@ -216,7 +226,7 @@ UpdateInfo *BgpTable::GetUpdateInfo(RibOut *ribout, BgpRoute *route,
     }
 
     UpdateInfo *uinfo = new UpdateInfo;
-    uinfo->target = peerset;
+    uinfo->target = new_peerset;
     uinfo->roattr = RibOutAttr(route, attr, ribout->IsEncodingXmpp());
     return uinfo;
 }
@@ -307,15 +317,16 @@ void BgpTable::InputCommon(DBTablePartBase *root, BgpRoute *rt, BgpPath *path,
 
 void BgpTable::Input(DBTablePartition *root, DBClient *client,
                      DBRequest *req) {
-    BgpRoute *rt = TableFind(root, req->key.get());
     const IPeer *peer =
         (static_cast<RequestKey *>(req->key.get()))->GetPeer();
+    // Skip if this peer is down
+    if ((req->oper == DBRequest::DB_ENTRY_ADD_CHANGE) && 
+        peer && !peer->IsReady())
+        return;
+
+    BgpRoute *rt = TableFind(root, req->key.get());
     RequestData *data = static_cast<RequestData *>(req->data.get());
     BgpPath *path = NULL;
-
-    // Skip if this peer is down/deleted.
-    if (peer && !peer->IsReady())
-        return;
 
     // First mark all paths from this request source as deleted.
     // Apply all paths provided in this request data and add them. If path

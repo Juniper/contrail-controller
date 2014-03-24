@@ -8,6 +8,7 @@
 #include "base/util.h"
 #include "base/test/task_test_util.h"
 #include "bgp/bgp_attr.h"
+#include "bgp/bgp_factory.h"
 #include "bgp/bgp_log.h"
 #include "bgp/bgp_path.h"
 #include "bgp/bgp_peer.h"
@@ -15,6 +16,7 @@
 #include "bgp/scheduling_group.h"
 #include "bgp/inet/inet_table.h"
 #include "bgp/inet/inet_route.h"
+#include "bgp/routing-instance/rtarget_group_mgr.h"
 #include "bgp/test/bgp_server_test_util.h"
 #include "control-node/control_node.h"
 #include "db/db.h"
@@ -102,6 +104,19 @@ public:
     virtual u_int16_t Afi() const { return 0; }
     virtual u_int8_t Safi() const { return 0; }
 };
+
+
+class RTargetGroupMgrTest : public RTargetGroupMgr {
+public:
+    RTargetGroupMgrTest(BgpServer *server) : RTargetGroupMgr(server) {
+    }
+    virtual void GetRibOutInterestedPeers(RibOut *ribout, 
+             const ExtCommunity *ext_community, 
+             const RibPeerSet &peerset, RibPeerSet &new_peerset) {
+        new_peerset = peerset;
+    }
+};
+
 
 class BgpTableExportTest : public ::testing::Test {
 protected:
@@ -836,6 +851,9 @@ INSTANTIATE_TEST_CASE_P(Instance, BgpTableExportParamTest5,
 static void SetUp() {
     bgp_log_test::init();
     ControlNode::SetDefaultSchedulingPolicy();
+
+    BgpObjectFactory::Register<RTargetGroupMgr>(
+        boost::factory<RTargetGroupMgrTest *>());
 }
 
 static void TearDown() {

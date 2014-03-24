@@ -981,11 +981,11 @@ struct Established : sc::state<Established, StateMachine> {
     Established(my_context ctx) : my_base(ctx) {
         StateMachine *state_machine = &context<StateMachine>();
         BgpPeer *peer = state_machine->peer();
-        peer->RegisterAllTables();
         peer->server()->IncUpPeerCount();
         state_machine->connect_attempts_clear();
         state_machine->StartHoldTimer();
         state_machine->set_state(StateMachine::ESTABLISHED);
+        peer->RegisterAllTables();
     }
 
     ~Established() {

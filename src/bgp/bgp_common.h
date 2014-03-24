@@ -6,5 +6,6 @@
 #define ctrlplane_bgp_common_h
 
 typedef uint16_t as_t;
+typedef uint32_t as4_t;
 
 #endif
