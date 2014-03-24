@@ -85,7 +85,7 @@ if sys.platform != 'darwin':
                       test_pkt_parse,
                       test_rpf_flow,
                       test_sg_flow,
-                      test_sg_tcp_flow,
+                      test_sg_tcp_flow
                       ]
 
     test = env.TestSuite('agent-test', pkt_flow_suite)
