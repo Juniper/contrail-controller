@@ -266,6 +266,9 @@ TEST_F(RouteTest, SubnetRoute_1) {
     EXPECT_TRUE(rt1->GetActiveNextHop()->GetType() == NextHop::DISCARD);
     EXPECT_TRUE(rt2->GetActiveNextHop()->GetType() == NextHop::DISCARD);
     EXPECT_TRUE(rt3->GetActiveNextHop()->GetType() == NextHop::DISCARD);
+    EXPECT_TRUE(rt1->IsRPFInvalid());
+    EXPECT_TRUE(rt2->IsRPFInvalid());
+    EXPECT_TRUE(rt3->IsRPFInvalid());
 
     //Call for sandesh
     Inet4UcRouteReq *uc_list_req = new Inet4UcRouteReq();
@@ -320,6 +323,9 @@ TEST_F(RouteTest, SubnetRoute_2) {
     EXPECT_TRUE(rt1->GetActiveNextHop()->GetType() == NextHop::DISCARD);
     EXPECT_TRUE(rt2->GetActiveNextHop()->GetType() == NextHop::DISCARD);
     EXPECT_TRUE(rt3->GetActiveNextHop()->GetType() == NextHop::DISCARD);
+    EXPECT_TRUE(rt1->IsRPFInvalid());
+    EXPECT_TRUE(rt2->IsRPFInvalid());
+    EXPECT_TRUE(rt3->IsRPFInvalid());
 
     AddIPAM("vn1", ipam_info_2, 1);
     client->WaitForIdle();
@@ -331,6 +337,7 @@ TEST_F(RouteTest, SubnetRoute_2) {
     EXPECT_TRUE(rt2 != NULL);
     EXPECT_TRUE(rt3 == NULL);
     EXPECT_TRUE(rt2->GetActiveNextHop()->GetType() == NextHop::DISCARD);
+    EXPECT_TRUE(rt2->IsRPFInvalid());
 
     AddIPAM("vn1", ipam_info_3, 1);
     client->WaitForIdle();
