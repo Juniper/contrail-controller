@@ -65,102 +65,10 @@ class SyslogParserTestHelper : public SyslogParser
         std::string body_;
 };
 
-class SyslogMsgTCPGen;
-
-class SyslogMsgTCPGenSession : public TcpSession
+class SyslogMsgGen : public UDPServer
 {
   public:
-    SyslogMsgTCPGenSession(SyslogMsgTCPGen *server,
-        boost::asio::ip::tcp::socket *socket, std::string msg);
-    virtual ~SyslogMsgTCPGenSession() { }
-    virtual void OnRead(boost::asio::const_buffer b) { }
-  private:
-    void EventHandler(TcpSession *s, Event e);
-    SyslogMsgTCPGen *server_;
-    std::string msg_;
-};
-
-class SyslogMsgTCPGen : public TcpServer
-{
-  public:
-    explicit SyslogMsgTCPGen(EventManager *evm, int port) :
-            TcpServer(evm), to_(port), done_(false) {
-    }
-
-    ~SyslogMsgTCPGen() { }
-
-    virtual TcpSession *AllocSession(Socket *socket) {
-        return new SyslogMsgTCPGenSession(this, socket, m_);
-    }
-
-    void SessionReset(TcpSession *s) {
-        if (s) {
-            set_done(); // per session.. may be l8r
-            s->Close();
-            DeleteSession(s);
-        }
-    }
-
-    bool done() { return done_; }
-    void set_done() { done_ = true; }
-
-
-    void SetPort(int p) { to_ = p; }
-
-    void Send(std::string ip, int port, std::string msg, TcpSession *s) {
-        assert(s);
-        boost::system::error_code e;
-        boost::asio::ip::tcp::endpoint endpoint(
-                boost::asio::ip::address::from_string(ip, e), port);
-        if (!e.value()) {
-            TcpServer::Connect(s, endpoint);
-        }
-    }
-
-    void Send(std::string ip, int port, std::string msg) {
-        m_ = msg;
-        return Send(ip, port, msg, CreateSession());
-    }
-
-    void Send(int port, std::string msg) {
-        return Send("127.0.0.1", port, msg);
-    }
-
-    void Send(std::string msg) {
-        return Send(to_, msg);
-    }
-
-  private:
-    int    to_;
-    bool   done_;
-    std::string m_;
-};
-
-SyslogMsgTCPGenSession::SyslogMsgTCPGenSession(SyslogMsgTCPGen *server,
-        boost::asio::ip::tcp::socket *socket, std::string msg) :
-            TcpSession(server, socket), server_(server), msg_(msg)
-{
-    set_observer(boost::bind(&SyslogMsgTCPGenSession::EventHandler,
-            this, _1, _2));
-}
-
-void
-SyslogMsgTCPGenSession::EventHandler(TcpSession *s, Event e) {
-    switch (e) {
-        case CONNECT_COMPLETE:
-            SetSocketOptions(); //non-blocking
-            Send((const u_int8_t*)msg_.c_str(), msg_.length(), NULL);
-            server_->SessionReset(this);
-            break;
-        default:
-            break;
-    }
-}
-
-class SyslogMsgUDPGen : public UDPServer
-{
-  public:
-    explicit SyslogMsgUDPGen(boost::asio::io_service& io_service, int snd_port) :
+    explicit SyslogMsgGen(boost::asio::io_service& io_service, int snd_port) :
                 UDPServer(io_service) {
         boost::system::error_code ec;
         ep_ = udp::endpoint(boost::asio::ip::address::from_string("127.0.0.1",
@@ -172,7 +80,7 @@ class SyslogMsgUDPGen : public UDPServer
         mutable_buffer send = AllocateBuffer (snd.length());
         char *p = buffer_cast<char *>(send);
         std::copy(snd.begin(), snd.end(), p);
-        UDP_UT_LOG_DEBUG( "SyslogMsgUDPGen sending '" << snd << "' to " << to);
+        UDP_UT_LOG_DEBUG( "SyslogMsgGen sending '" << snd << "' to " << to);
         StartSend(to, snd.length(), send);
     }
     void Send (std::string snd, std::string ipaddress, short port)
@@ -189,7 +97,7 @@ class SyslogMsgUDPGen : public UDPServer
             udp::endpoint remote_endpoint, std::size_t bytes_transferred,
             const boost::system::error_code& error)
     {
-        UDP_UT_LOG_DEBUG("SyslogMsgUDPGen sent " << bytes_transferred << "(" <<
+        UDP_UT_LOG_DEBUG("SyslogMsgGen sent " << bytes_transferred << "(" <<
             error << ")\n");
         DeallocateBuffer(send_buffer);
     }
@@ -210,19 +118,14 @@ class SyslogCollectorTest : public ::testing::Test
         listener_ = new SyslogListeners(evm_.get(),
             boost::bind(&SyslogCollectorTest::myTestCb, this, _1, _2, _3),
             db_handler_.get(), 0);
+        gen_ = new SyslogMsgGen(*evm_.get()->io_service(),
+            listener_->GetUdpPort());
+        gen_->Initialize(0);
         listener_->Start();
         thread_.reset(new ServerThread(evm_.get()));
-        thread_->Start();
-
-        udp_gen_ = new SyslogMsgUDPGen(*evm_.get()->io_service(),
-            listener_->GetUdpPort());
-        udp_gen_->Initialize(0);
-
-        tcp_gen_ = new SyslogMsgTCPGen(evm_.get(), listener_->GetTcpPort());
-        tcp_gen_->Initialize(0);
-
         Sandesh::InitGenerator("SyslogTest", "127.0.0.1", "Test", "Test",
                 evm_.get(), 8080, NULL);
+        thread_->Start();
     }
 
     bool myTestCb(const VizMsg *v, bool b, DbHandler *d) {
@@ -230,31 +133,23 @@ class SyslogCollectorTest : public ::testing::Test
         return true;
     }
 
-    void SendUDPLog(std::string s) {
-        udp_gen_->Send(s);
-    }
-
-    void SendTCPLog(std::string s) {
-        tcp_gen_->Send(s);
-        task_util::WaitForIdle();
-        TASK_UTIL_ASSERT_TRUE(tcp_gen_->done());
+    void SendLog(std::string s) {
+        gen_->Send(s);
     }
 
     virtual void TearDown() {
-        evm_->Shutdown();
         task_util::WaitForIdle();
         listener_->Shutdown();
         task_util::WaitForIdle();
         TcpServerManager::DeleteServer(listener_);
-        TcpServerManager::DeleteServer(tcp_gen_);
+        evm_->Shutdown();
         task_util::WaitForIdle();
         if (thread_.get() != NULL) {
             thread_->Join();
         }
         Sandesh::Uninit();
     }
-    SyslogMsgUDPGen               *udp_gen_;
-    SyslogMsgTCPGen               *tcp_gen_;
+    SyslogMsgGen                  *gen_;
     SyslogListeners               *listener_;
     std::auto_ptr<DbHandlerMock>   db_handler_;
     std::auto_ptr<EventManager>    evm_;
@@ -310,8 +205,7 @@ TEST_F(SyslogCollectorTest, End2End)
 {
     EXPECT_CALL(*db_handler_.get(), MessageTableInsert(_))
             .WillRepeatedly(Invoke(this, &SyslogCollectorTest::AssertVizMsg));
-    SendUDPLog("<84>Feb 25 13:44:21 a3s45 sudo: pam_limits(sudo:session): invalid line 'cassandra - memlock unlimited' - skipped]");
-    SendTCPLog("<85>Feb 25 13:44:21 a3s45 sudo:     root : TTY=pts/1 ; PWD=/root/tghose/github ; USER=root ; COMMAND=/bin/echo ... :D ...");
+    SendLog("<84>Feb 25 13:44:21 a3s45 sudo: pam_limits(sudo:session): invalid line 'cassandra - memlock unlimited' - skipped]");
     sleep(1);
     task_util::WaitForIdle();
 }
