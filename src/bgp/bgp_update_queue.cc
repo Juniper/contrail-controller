@@ -79,7 +79,7 @@ RouteUpdate *UpdateQueue::NextUpdate(UpdateEntry *current_upentry) {
         UpdateEntry *upentry = iter.operator->();
         if (upentry->IsUpdate()) {
             return static_cast<RouteUpdate *>(upentry);
-        }        
+        }
     }
     return NULL;
 }
@@ -239,9 +239,7 @@ void UpdateQueue::MarkerMerge(UpdateMarker *dst_marker,
 UpdateMarker *UpdateQueue::GetMarker(int bit) {
     tbb::mutex::scoped_lock lock(mutex_);
     MarkerMap::iterator loc = markers_.find(bit);
-    if (loc == markers_.end()) {
-        return NULL;
-    }
+    assert(loc != markers_.end());
     return loc->second;
 }
 

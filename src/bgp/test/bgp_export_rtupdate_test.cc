@@ -14,12 +14,18 @@ using namespace std;
 //
 class BgpExportRouteUpdateCommonTest : public BgpExportTest {
 protected:
+
+    BgpExportRouteUpdateCommonTest() : rt_update_(NULL), count_(0) {
+    }
+
     void InitAdvertiseInfo(BgpAttrPtr attrX, int start_idx, int end_idx) {
         InitAdvertiseInfoCommon(attrX, start_idx, end_idx, adv_slist_);
+        count_ = end_idx - start_idx + 1;
     }
 
     void InitAdvertiseInfo(BgpAttrPtr attr_blk[], int start_idx, int end_idx) {
         InitAdvertiseInfoCommon(attr_blk, start_idx, end_idx, adv_slist_);
+        count_ = end_idx - start_idx + 1;
     }
 
     void InitUpdateInfo(BgpAttrPtr attrX, int start_idx, int end_idx,
@@ -49,6 +55,7 @@ protected:
     UpdateInfoSList uinfo_slist_;
     RouteUpdate *rt_update_;
     uint64_t tstamp_;
+    int count_;
 };
 
 //
@@ -57,12 +64,14 @@ protected:
 class BgpExportRouteUpdateTest1 : public BgpExportRouteUpdateCommonTest {
 protected:
     void Initialize() {
+        ASSERT_EQ(0, count_);
         ASSERT_TRUE(adv_slist_->empty());
         ASSERT_TRUE(!uinfo_slist_->empty());
         SchedulerStop();
         table_.SetExportResult(false);
         rt_update_ = BuildRouteUpdate(&rt_, qid_, uinfo_slist_);
         tstamp_ = rt_update_->tstamp();
+        VerifyAdvertiseCount(0);
         usleep(50);
     }
 };
@@ -1089,12 +1098,14 @@ TEST_F(BgpExportRouteUpdateTest1, LeaveDeleted4) {
 class BgpExportRouteUpdateTest2 : public BgpExportRouteUpdateCommonTest {
 protected:
     void Initialize() {
+        ASSERT_NE(0, count_);
         ASSERT_TRUE(!adv_slist_->empty());
         ASSERT_TRUE(!uinfo_slist_->empty());
         SchedulerStop();
         table_.SetExportResult(false);
         rt_update_ = BuildRouteUpdate(&rt_, qid_, uinfo_slist_, adv_slist_);
         tstamp_ = rt_update_->tstamp();
+        VerifyAdvertiseCount(count_);
         usleep(50);
     }
 };
@@ -2169,6 +2180,76 @@ TEST_F(BgpExportRouteUpdateTest2, NotDuplicate6) {
         VerifyHistory(rt_update, alt_attr_, 0, vSchedPeerCount-2);
 
         DrainAndDeleteRouteState(&rt_);
+    }
+}
+
+//
+// Description: Process a route that's already scheduled to be withdrawn from
+//              all but one of the current peers.  Export policy rejects the
+//              route for all peers so it should be withdrawn from all peers.
+//              We should not treat this as a duplicate.  Need to schedule a
+//              withdraw to the peer to which one isn't already scheduled.
+//              Same attribute for all current peers.
+//
+// Old DBState: RouteUpdate in QUPDATE.
+//              AdvertiseInfo peer x=[0,vSchedPeerCount-1], attr A.
+//              UpdateInfo peer x=[0,vSchedPeerCount-2], attr NULL.
+// Export Rslt: Reject peer x=[0,vSchedPeerCount-1].
+// New DBState: RouteUpdate in QUPDATE.
+//              AdvertiseInfo peer x=[0,vSchedPeerCount-1], attr A.
+//              UpdateInfo peer x=[0,vSchedPeerCount-1], attr NULL.
+//
+TEST_F(BgpExportRouteUpdateTest2, NotDuplicate7) {
+    for (int vSchedPeerCount = 2; vSchedPeerCount <= kPeerCount;
+            vSchedPeerCount++) {
+        InitAdvertiseInfo(attrA_, 0, vSchedPeerCount-1);
+        InitUpdateInfo(attr_null_, 0, vSchedPeerCount-2);
+        Initialize();
+
+        RunExport();
+        table_.VerifyExportResult(true);
+
+        RouteUpdate *rt_update = ExpectRouteUpdate(&rt_);
+        VerifyRouteUpdateDequeueEnqueue(rt_update);
+        VerifyUpdates(rt_update, roattr_null_, 0, vSchedPeerCount-1);
+        VerifyHistory(rt_update, roattrA_, 0, vSchedPeerCount-1);
+
+        DrainAndVerifyNoState(&rt_);
+    }
+}
+
+//
+// Description: Process a route that's already scheduled to be withdrawn from
+//              all but one of the current peers.  Export policy rejects the
+//              route for all peers so it should be withdrawn from all peers.
+//              We should not treat this as a duplicate.  Need to schedule a
+//              withdraw to the peer to which one isn't already scheduled.
+//              Different attribute for all current peers.
+//
+// Old DBState: RouteUpdate in QUPDATE.
+//              AdvertiseInfo peer x=[0,vSchedPeerCount-1], alt_attr x.
+//              UpdateInfo peer x=[0,vSchedPeerCount-2], attr NULL.
+// Export Rslt: Reject peer x=[0,vSchedPeerCount-1].
+// New DBState: RouteUpdate in QUPDATE.
+//              AdvertiseInfo peer x=[0,vSchedPeerCount-1], alt_attr x.
+//              UpdateInfo peer x=[0,vSchedPeerCount-1], attr NULL.
+//
+TEST_F(BgpExportRouteUpdateTest2, NotDuplicate8) {
+    for (int vSchedPeerCount = 2; vSchedPeerCount <= kPeerCount;
+            vSchedPeerCount++) {
+        InitAdvertiseInfo(alt_attr_, 0, vSchedPeerCount-1);
+        InitUpdateInfo(attr_null_, 0, vSchedPeerCount-2);
+        Initialize();
+
+        RunExport();
+        table_.VerifyExportResult(true);
+
+        RouteUpdate *rt_update = ExpectRouteUpdate(&rt_);
+        VerifyRouteUpdateDequeueEnqueue(rt_update);
+        VerifyUpdates(rt_update, roattr_null_, 0, vSchedPeerCount-1);
+        VerifyHistory(rt_update, alt_attr_, 0, vSchedPeerCount-1);
+
+        DrainAndVerifyNoState(&rt_);
     }
 }
 
