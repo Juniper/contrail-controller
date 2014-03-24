@@ -110,6 +110,7 @@ private:
     //    - ARP not resolved for gw_ip_
     bool unresolved_;
 
+    // subnet route with discard nexthop.
     bool is_subnet_discard_;
 
     // route for the gateway

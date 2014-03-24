@@ -732,12 +732,12 @@ bool PktFlowInfo::Process(const PktInfo *pkt, PktControlInfo *in,
         EgressProcess(pkt, in, out);
     }
 
-    if (in->rt_ == NULL || in->rt_->IsSubnetDiscard()) {
+    if (in->rt_ == NULL) {
         LogError(pkt, "Flow : No route for Src-IP");
         return false;
     }
 
-    if (out->rt_ == NULL || out->rt_->IsSubnetDiscard()) {
+    if (out->rt_ == NULL) {
         LogError(pkt, "Flow : No route for Dst-IP");
         return false;
     }
