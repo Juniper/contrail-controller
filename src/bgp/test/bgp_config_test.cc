@@ -13,6 +13,7 @@
 #include "bgp/bgp_config_parser.h"
 #include "bgp/bgp_log.h"
 #include "bgp/bgp_server.h"
+#include "bgp/state_machine.h"
 #include "bgp/inet/inet_table.h"
 #include "bgp/routing-instance/peer_manager.h"
 #include "bgp/routing-instance/routing_instance.h"
@@ -62,6 +63,10 @@ protected:
         db_util::Clear(&config_db_);
     }
 
+    const StateMachine *GetPeerStateMachine(BgpPeer *peer) {
+        return peer->state_machine();
+    }
+
     EventManager evm_;
     BgpServer server_;
     DB config_db_;
@@ -81,8 +86,123 @@ static void ResumeDelete(LifetimeActor *actor) {
     TaskScheduler::GetInstance()->Start();
 }
 
-// Server data structures.
-// Create/update/delete.
+TEST_F(BgpConfigTest, BgpRouterIdentifierChange) {
+    string content_a = FileRead("controller/src/bgp/testdata/config_test_25a.xml");
+    EXPECT_TRUE(parser_.Parse(content_a));
+    task_util::WaitForIdle();
+
+    // Identifier should be address since it's not specified explicitly.
+    TASK_UTIL_EXPECT_EQ("127.0.0.1",
+        Ip4Address(server_.bgp_identifier()).to_string());
+
+    // Identifier should change to 10.1.1.1.
+    string content_b = FileRead("controller/src/bgp/testdata/config_test_25b.xml");
+    EXPECT_TRUE(parser_.Parse(content_b));
+    TASK_UTIL_EXPECT_EQ("10.1.1.1",
+        Ip4Address(server_.bgp_identifier()).to_string());
+
+    // Identifier should change to 20.1.1.1.
+    string content_c = FileRead("controller/src/bgp/testdata/config_test_25c.xml");
+    EXPECT_TRUE(parser_.Parse(content_c));
+    TASK_UTIL_EXPECT_EQ("20.1.1.1",
+        Ip4Address(server_.bgp_identifier()).to_string());
+
+    // Identifier should go back to address since it's not specified explicitly.
+    content_a = FileRead("controller/src/bgp/testdata/config_test_25a.xml");
+    EXPECT_TRUE(parser_.Parse(content_a));
+    TASK_UTIL_EXPECT_EQ("127.0.0.1",
+        Ip4Address(server_.bgp_identifier()).to_string());
+
+    boost::replace_all(content_a, "<config>", "<delete>");
+    boost::replace_all(content_a, "</config>", "</delete>");
+    EXPECT_TRUE(parser_.Parse(content_a));
+    task_util::WaitForIdle();
+
+    TASK_UTIL_EXPECT_EQ(0, db_graph_.edge_count());
+    TASK_UTIL_EXPECT_EQ(0, db_graph_.vertex_count());
+}
+
+TEST_F(BgpConfigTest, BgpRouterAutonomousSystemChange) {
+    string content_a = FileRead("controller/src/bgp/testdata/config_test_24a.xml");
+    EXPECT_TRUE(parser_.Parse(content_a));
+    task_util::WaitForIdle();
+
+    // AS should be kDefaultAutonomousSystem as it's not specified.
+    TASK_UTIL_EXPECT_EQ(BgpConfigManager::kDefaultAutonomousSystem,
+        server_.autonomous_system());
+
+    // AS should change to 100.
+    string content_b = FileRead("controller/src/bgp/testdata/config_test_24b.xml");
+    EXPECT_TRUE(parser_.Parse(content_b));
+    TASK_UTIL_EXPECT_EQ(100, server_.autonomous_system());
+
+    // AS should change to 101.
+    string content_c = FileRead("controller/src/bgp/testdata/config_test_24c.xml");
+    EXPECT_TRUE(parser_.Parse(content_c));
+    TASK_UTIL_EXPECT_EQ(101, server_.autonomous_system());
+
+    // AS should go back to kDefaultAutonomousSystem since it's not specified.
+    content_a = FileRead("controller/src/bgp/testdata/config_test_24a.xml");
+    EXPECT_TRUE(parser_.Parse(content_a));
+    TASK_UTIL_EXPECT_EQ(BgpConfigManager::kDefaultAutonomousSystem,
+        server_.autonomous_system());
+
+    boost::replace_all(content_a, "<config>", "<delete>");
+    boost::replace_all(content_a, "</config>", "</delete>");
+    EXPECT_TRUE(parser_.Parse(content_a));
+    task_util::WaitForIdle();
+
+    TASK_UTIL_EXPECT_EQ(0, db_graph_.edge_count());
+    TASK_UTIL_EXPECT_EQ(0, db_graph_.vertex_count());
+}
+
+TEST_F(BgpConfigTest, BgpRouterHoldTimeChange) {
+    string content_a = FileRead("controller/src/bgp/testdata/config_test_23a.xml");
+    EXPECT_TRUE(parser_.Parse(content_a));
+    task_util::WaitForIdle();
+
+    RoutingInstance *rti = server_.routing_instance_mgr()->GetRoutingInstance(
+        BgpConfigManager::kMasterInstance);
+    TASK_UTIL_ASSERT_TRUE(rti != NULL);
+    TASK_UTIL_EXPECT_EQ(1, rti->peer_manager()->size());
+    string name = rti->name() + ":" + "remote";
+
+    BgpPeer *peer;
+    TASK_UTIL_EXPECT_TRUE(rti->peer_manager()->PeerLookup(name) != NULL);
+    peer = rti->peer_manager()->PeerLookup(name);
+    const StateMachine *state_machine = GetPeerStateMachine(peer);
+
+    // Hold time should be 90 since it's not specified explicitly.
+    TASK_UTIL_EXPECT_EQ(0, server_.hold_time());
+    TASK_UTIL_EXPECT_EQ(90, state_machine->GetConfiguredHoldTime());
+
+    // Hold time should change to 9.
+    string content_b = FileRead("controller/src/bgp/testdata/config_test_23b.xml");
+    EXPECT_TRUE(parser_.Parse(content_b));
+    TASK_UTIL_EXPECT_EQ(9, server_.hold_time());
+    TASK_UTIL_EXPECT_EQ(9, state_machine->GetConfiguredHoldTime());
+
+    // Hold time should change to 27.
+    string content_c = FileRead("controller/src/bgp/testdata/config_test_23c.xml");
+    EXPECT_TRUE(parser_.Parse(content_c));
+    TASK_UTIL_EXPECT_EQ(27, server_.hold_time());
+    TASK_UTIL_EXPECT_EQ(27, state_machine->GetConfiguredHoldTime());
+
+    // Hold time should go back to 90 since it's not specified explicitly.
+    content_a = FileRead("controller/src/bgp/testdata/config_test_23a.xml");
+    EXPECT_TRUE(parser_.Parse(content_a));
+    TASK_UTIL_EXPECT_EQ(0, server_.hold_time());
+    TASK_UTIL_EXPECT_EQ(90, state_machine->GetConfiguredHoldTime());
+
+    boost::replace_all(content_a, "<config>", "<delete>");
+    boost::replace_all(content_a, "</config>", "</delete>");
+    EXPECT_TRUE(parser_.Parse(content_a));
+    task_util::WaitForIdle();
+
+    TASK_UTIL_EXPECT_EQ(0, db_graph_.edge_count());
+    TASK_UTIL_EXPECT_EQ(0, db_graph_.vertex_count());
+}
+
 TEST_F(BgpConfigTest, MasterNeighbors) {
     string content = FileRead("controller/src/bgp/testdata/config_test_5.xml");
     EXPECT_TRUE(parser_.Parse(content));

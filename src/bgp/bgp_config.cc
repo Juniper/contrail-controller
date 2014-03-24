@@ -823,7 +823,9 @@ void BgpConfigManager::DefaultConfig() {
         SandeshLevel::SYS_DEBUG, BGP_LOG_FLAG_ALL,
         protocol->router_params().autonomous_system,
         protocol->router_params().identifier,
-        protocol->router_params().address, families);
+        protocol->router_params().address,
+        protocol->router_params().hold_time,
+        families);
 }
 
 //
@@ -999,13 +1001,17 @@ void BgpConfigManager::ProcessBgpProtocol(const BgpConfigDelta &delta) {
             SandeshLevel::SYS_DEBUG, BGP_LOG_FLAG_ALL,
             protocol->router_params().autonomous_system,
             protocol->router_params().identifier,
-            protocol->router_params().address, families);
+            protocol->router_params().address,
+            protocol->router_params().hold_time,
+            families);
     } else if (protocol->bgp_router()) {
         BGP_CONFIG_LOG_PROTOCOL(Update, server_, protocol,
             SandeshLevel::SYS_DEBUG, BGP_LOG_FLAG_ALL,
             protocol->router_params().autonomous_system,
             protocol->router_params().identifier,
-            protocol->router_params().address, families);
+            protocol->router_params().address,
+            protocol->router_params().hold_time,
+            families);
     }
 }
 

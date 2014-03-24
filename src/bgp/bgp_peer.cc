@@ -617,7 +617,7 @@ void BgpPeer::SendOpen(TcpSession *session) {
     BgpServer *server = session_mgr->server();
     BgpProto::OpenMessage openmsg;
     openmsg.as_num = server->autonomous_system();
-    openmsg.holdtime = state_machine_->hold_time();
+    openmsg.holdtime = state_machine_->GetConfiguredHoldTime();
     openmsg.identifier = local_bgp_id_;
     static const uint8_t cap_mp[4][4] = {
         { 0, BgpAf::IPv4,  0, BgpAf::Unicast },

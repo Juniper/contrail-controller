@@ -194,7 +194,9 @@ public:
     void RegisterToVpnTables(bool established);
 
 private:
+    friend class BgpConfigTest;
     friend class BgpPeerTest;
+    friend class BgpServerUnitTest;
     friend class StateMachineTest;
 
     class DeleteActor;

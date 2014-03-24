@@ -986,9 +986,9 @@ protected:
     virtual void SetUp() {
         id_ = tr1::get<0>(GetParam()) ? lower_id_ : higher_id_;
         if (tr1::get<1>(GetParam())) {
-            holdtime_ = StateMachine::GetDefaultHoldTime() - 1;
+            holdtime_ = StateMachine::kHoldTime - 1;
         } else {
-            holdtime_ = StateMachine::GetDefaultHoldTime() + 1;
+            holdtime_ = StateMachine::kHoldTime + 1;
         }
         StateMachineActiveTest::SetUp();
     }
@@ -1012,7 +1012,7 @@ TEST_P(StateMachineActiveParamTest2, BgpHoldtimeNegotiation) {
     TaskScheduler::GetInstance()->Start();
     VerifyState(StateMachine::OPENCONFIRM);
     VerifyDirection(BgpSessionMock::PASSIVE);
-    TASK_UTIL_EXPECT_EQ(min(holdtime_, StateMachine::GetDefaultHoldTime()),
+    TASK_UTIL_EXPECT_EQ(min(holdtime_, StateMachine::kHoldTime),
         sm_->hold_time());
 }
 
@@ -1362,9 +1362,9 @@ protected:
     virtual void SetUp() {
         id_ = tr1::get<0>(GetParam()) ? lower_id_ : higher_id_;
         if (tr1::get<1>(GetParam())) {
-            holdtime_ = StateMachine::GetDefaultHoldTime() - 1;
+            holdtime_ = StateMachine::kHoldTime - 1;
         } else {
-            holdtime_ = StateMachine::GetDefaultHoldTime() + 1;
+            holdtime_ = StateMachine::kHoldTime + 1;
         }
         StateMachineConnectTest::SetUp();
     }
@@ -1388,7 +1388,7 @@ TEST_P(StateMachineConnectParamTest2, BgpHoldtimeNegotiation) {
     TaskScheduler::GetInstance()->Start();
     VerifyState(StateMachine::OPENCONFIRM);
     VerifyDirection(BgpSessionMock::PASSIVE);
-    TASK_UTIL_EXPECT_EQ(min(holdtime_, StateMachine::GetDefaultHoldTime()),
+    TASK_UTIL_EXPECT_EQ(min(holdtime_, StateMachine::kHoldTime),
         sm_->hold_time());
 }
 
@@ -2212,9 +2212,9 @@ class StateMachineOpenSentParamTest2 :
 protected:
     virtual void SetUp() {
         if (GetParam()) {
-            holdtime_ = StateMachine::GetDefaultHoldTime() - 1;
+            holdtime_ = StateMachine::kHoldTime - 1;
         } else {
-            holdtime_ = StateMachine::GetDefaultHoldTime() + 1;
+            holdtime_ = StateMachine::kHoldTime + 1;
         }
         StateMachineOpenSentTest::SetUp();
     }
@@ -2234,7 +2234,7 @@ TEST_P(StateMachineOpenSentParamTest2, BgpHoldtimeNegotiation1) {
     EvOpenTimerExpiredPassive();
     EvBgpOpenCustom(session_mgr_->active_session(), lower_id_, holdtime_);
     VerifyState(StateMachine::OPENCONFIRM);
-    TASK_UTIL_EXPECT_EQ(min(holdtime_, StateMachine::GetDefaultHoldTime()),
+    TASK_UTIL_EXPECT_EQ(min(holdtime_, StateMachine::kHoldTime),
         sm_->hold_time());
 }
 
@@ -2246,7 +2246,7 @@ TEST_P(StateMachineOpenSentParamTest2, BgpHoldtimeNegotiation2) {
     EvOpenTimerExpiredPassive();
     EvBgpOpenCustom(session_mgr_->passive_session(), higher_id_, holdtime_);
     VerifyState(StateMachine::OPENCONFIRM);
-    TASK_UTIL_EXPECT_EQ(min(holdtime_, StateMachine::GetDefaultHoldTime()),
+    TASK_UTIL_EXPECT_EQ(min(holdtime_, StateMachine::kHoldTime),
         sm_->hold_time());
 }
 
@@ -2263,9 +2263,9 @@ protected:
     virtual void SetUp() {
         id_ = tr1::get<0>(GetParam()) ? lower_id_ : higher_id_;
         if (tr1::get<1>(GetParam())) {
-            holdtime_ = StateMachine::GetDefaultHoldTime() - 1;
+            holdtime_ = StateMachine::kHoldTime - 1;
         } else {
-            holdtime_ = StateMachine::GetDefaultHoldTime() + 1;
+            holdtime_ = StateMachine::kHoldTime + 1;
         }
         StateMachineOpenSentTest::SetUp();
     }
@@ -2286,7 +2286,7 @@ TEST_P(StateMachineOpenSentParamTest3, BgpHoldtimeNegotiation1) {
     EvBgpOpenCustom(session_mgr_->active_session(), id_, holdtime_);
     VerifyState(StateMachine::OPENCONFIRM);
     VerifyDirection(BgpSessionMock::ACTIVE);
-    TASK_UTIL_EXPECT_EQ(min(holdtime_, StateMachine::GetDefaultHoldTime()),
+    TASK_UTIL_EXPECT_EQ(min(holdtime_, StateMachine::kHoldTime),
         sm_->hold_time());
 }
 
@@ -2300,7 +2300,7 @@ TEST_P(StateMachineOpenSentParamTest3, BgpHoldtimeNegotiation2) {
     EvBgpOpenCustom(session_mgr_->passive_session(), id_, holdtime_);
     VerifyState(StateMachine::OPENCONFIRM);
     VerifyDirection(BgpSessionMock::PASSIVE);
-    TASK_UTIL_EXPECT_EQ(min(holdtime_, StateMachine::GetDefaultHoldTime()),
+    TASK_UTIL_EXPECT_EQ(min(holdtime_, StateMachine::kHoldTime),
         sm_->hold_time());
 }
 
