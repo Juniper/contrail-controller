@@ -620,7 +620,7 @@ const NextHop *AgentRoute::GetActiveNextHop() const {
     return path->nexthop(static_cast<AgentRouteTable *>(get_table())->agent());
 }
 
-bool AgentRoute::IsSubnetDiscard() const {
+bool AgentRoute::IsRPFInvalid() const {
     const AgentPath *path = GetActivePath();
     if (path == NULL) {
         return false;

@@ -221,7 +221,7 @@ public:
     const NextHop *GetActiveNextHop() const; 
     uint32_t GetMplsLabel() const; 
     const std::string &dest_vn_name() const;
-    bool IsSubnetDiscard() const;
+    bool IsRPFInvalid() const;
 
     void EnqueueRouteResync() const;
     void ResyncTunnelNextHop();

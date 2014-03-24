@@ -2244,8 +2244,12 @@ DBTableBase::ListenerId FlowTable::nh_listener_id() {
 
 Inet4UnicastRouteEntry * FlowTable::GetUcRoute(const VrfEntry *entry,
         const Ip4Address &addr) {
-        route_key_.set_addr(addr);
-        return entry->GetUcRoute(route_key_);
+    route_key_.set_addr(addr);
+    Inet4UnicastRouteEntry *rt = entry->GetUcRoute(route_key_);
+    if (rt != NULL && rt->IsRPFInvalid()) {
+        return NULL;
+    }
+    return rt;
 }
 
 void SetActionStr(const FlowAction &action_info, std::vector<ActionStr> &action_str_l)
