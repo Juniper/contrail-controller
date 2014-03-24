@@ -54,6 +54,10 @@ void init_vizd_tables() {
                        GenDb::DbDataType::Unsigned32Type)
                       (g_viz_constants.SANDESH_TYPE,
                        GenDb::DbDataType::Unsigned8Type)
+                      (g_viz_constants.IPADDRESS,
+                       GenDb::DbDataType::AsciiType)
+                      (g_viz_constants.PID,
+                       GenDb::DbDataType::Unsigned32Type)
                       (g_viz_constants.DATA,
                        GenDb::DbDataType::AsciiType)))
         (GenDb::NewCf(g_viz_constants.MESSAGE_TABLE_SOURCE,
