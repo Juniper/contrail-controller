@@ -38,7 +38,6 @@ struct TestFlowKey {
 #define linklocal_ip "169.254.1.10"
 #define linklocal_port 4000
 #define fabric_port 8000
-#define vn5_unused_ip "11.1.1.10"
 
 int fd_table[MAX_VNET];
 
