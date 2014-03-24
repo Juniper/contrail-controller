@@ -55,7 +55,7 @@ public:
         switch(proto_) {
         case IPPROTO_TCP:
             TxTcpPacket(ifindex_, sip_.c_str(), dip_.c_str(), sport_, dport_, 
-                        hash_, vrf_);
+                        false, hash_, vrf_);
             break;
 
         case IPPROTO_UDP:
@@ -83,7 +83,7 @@ public:
         case IPPROTO_TCP:
             TxTcpMplsPacket(eth_intf_id, outer_sip_.c_str(), 
                             self_server.c_str(), mpls_, sip_.c_str(),
-                            dip_.c_str(), sport_, dport_, hash_);
+                            dip_.c_str(), sport_, dport_, false, hash_);
             break;
 
         case IPPROTO_UDP:
