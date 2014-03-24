@@ -381,7 +381,7 @@ TEST_F(FlowTest, Mdata_FabricToServer_1) {
     client->WaitForIdle();
     EXPECT_TRUE(FlowGet(vnet[1]->vrf()->GetName(), "1.1.1.10",
                         "169.254.169.254", 1, 0, 0, false, "vn1",
-                        Agent::GetInstance()->GetLinkLocalVnName().c_str(), 1, true, false));
+                        "vn1", 1, true, false));
     EXPECT_TRUE(FlowDelete(vnet[1]->vrf()->GetName(), "1.1.1.10",
                            "169.254.169.254", 1, 0, 0));
 
@@ -394,7 +394,7 @@ TEST_F(FlowTest, Mdata_FabricToServer_1) {
     client->WaitForIdle();
     EXPECT_TRUE(FlowGet(vnet[1]->vrf()->GetName(), "1.1.1.10",
                         "169.254.169.254", IPPROTO_TCP, 1001, 80, false, 
-                        "vn1", Agent::GetInstance()->GetLinkLocalVnName().c_str(), 1, true, false));
+                        "vn1", "vn1", 1, true, false));
     EXPECT_TRUE(FlowDelete(vnet[1]->vrf()->GetName(), "1.1.1.10",
                            "169.254.169.254", IPPROTO_TCP, 1001, 80));
     client->WaitForIdle();
