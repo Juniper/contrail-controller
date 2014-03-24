@@ -83,6 +83,7 @@ if sys.platform != 'darwin':
                       test_pkt_flow,
                       test_pkt_flow_mock,
                       test_pkt_parse,
+                      test_rpf_flow,
                       test_sg_flow,
                       test_sg_tcp_flow,
                       ]
