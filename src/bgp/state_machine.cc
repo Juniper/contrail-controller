@@ -15,6 +15,7 @@
 #include <boost/statechart/state_machine.hpp>
 #include <boost/statechart/transition.hpp>
 #include <sandesh/sandesh.h>
+#include <tbb/atomic.h>
 
 #include "base/logging.h"
 #include "bgp/bgp_log.h"
@@ -1614,16 +1615,18 @@ const std::string StateMachine::last_notification_out_error() const {
 // Return the configured hold time in seconds.
 //
 int StateMachine::GetConfiguredHoldTime() const {
-    static bool env_checked = false;
-    static int env_hold_time = 0;
+    static tbb::atomic<bool> env_checked = tbb::atomic<bool>();
+    static tbb::atomic<int> env_hold_time = tbb::atomic<int>();
 
     // For testing only - configure through environment variable.
     if (!env_checked) {
-        env_checked = true;
         char *keepalive_time_str = getenv("BGP_KEEPALIVE_SECONDS");
         if (keepalive_time_str) {
             env_hold_time = strtoul(keepalive_time_str, NULL, 0) * 3;
+            env_checked = true;
             return env_hold_time;
+        } else {
+            env_checked = true;
         }
     } else if (env_hold_time) {
         return env_hold_time;
