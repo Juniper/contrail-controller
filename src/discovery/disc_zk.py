@@ -9,43 +9,27 @@ import kazoo.exceptions
 import kazoo.handlers.gevent
 import kazoo.recipe.election
 
-import logging
 import json
 import time
 import disc_consts
 
 from gevent.coros import BoundedSemaphore
+from cfgm_common.zkclient import ZookeeperClient
 
 
-class DiscoveryZkClient(object):
+class DiscoveryZkClient(ZookeeperClient):
 
-    def __init__(self, discServer, zk_srv_ip='127.0.0.1',
+    def __init__(self, module, zk_srv_ip='127.0.0.1',
                  zk_srv_port='2181', reset_config=False):
         self._reset_config = reset_config
-        self._service_id_to_type = {}
-        self._ds = discServer
-        self._zk_sem = BoundedSemaphore(1)
-        self._election = None
+        self._ds = None
 
         zk_endpts = []
         for ip in zk_srv_ip.split(','):
             zk_endpts.append('%s:%s' %(ip, zk_srv_port))
 
-        # logging
-        logger = logging.getLogger('discovery-service')
-        logger.setLevel(logging.INFO)
-        handler = logging.handlers.RotatingFileHandler('/var/log/contrail/discovery_zk.log', maxBytes=1024*1024, backupCount=10)
-        log_format = logging.Formatter('%(asctime)s [%(name)s]: %(message)s', datefmt='%m/%d/%Y %I:%M:%S %p')
-        handler.setFormatter(log_format)
-        logger.addHandler(handler)
-
-        self._zk = kazoo.client.KazooClient(
-            hosts=','.join(zk_endpts),
-            handler=kazoo.handlers.gevent.SequentialGeventHandler(),
-            logger=logger)
-
-        # connect
-        self.connect()
+        ZookeeperClient.__init__(self, module, ','.join(zk_endpts))
+        self._zk = self._zk_client
 
         if reset_config:
             self.delete_node("/services", recursive=True)
@@ -69,28 +53,6 @@ class DiscoveryZkClient(object):
         self._ds = discServer
     # end set_ds
 
-    # start or restart
-    def connect(self, restart = False):
-        while True:
-            try:
-                if restart:
-                    self._zk.stop() 
-                    self._zk.close() 
-                    self._zk.start() 
-                else:
-                    self._zk.start()
-                break
-            except gevent.event.Timeout as e:
-                self.syslog(
-                    'Failed to connect with Zookeeper -will retry in a second')
-                gevent.sleep(1)
-            # Zookeeper is also throwing exception due to delay in master election
-            except Exception as e:
-                self.syslog('%s -will retry in a second' % (str(e)))
-                gevent.sleep(1)
-        self.syslog('Connected to ZooKeeper!')
-    # end
-
     def start_background_tasks(self):
         # spawn loop to expire subscriptions
         gevent.Greenlet.spawn(self.inuse_loop)
@@ -99,32 +61,9 @@ class DiscoveryZkClient(object):
         gevent.Greenlet.spawn(self.service_oos_loop)
     # end
 
-    def syslog(self, log_msg):
-        if self._ds is None:
-            return
-        self._ds.syslog(log_msg)
-    # end
-
     def get_debug_stats(self):
         return self._debug
     # end
-
-    def _zk_listener(self, state):
-        if state == "CONNECTED":
-            self._election.cancel()
-    # end
-
-    def _zk_election_callback(self, func, *args, **kwargs):
-        self._zk.remove_listener(self._zk_listener)
-        func(*args, **kwargs)
-    # end
-
-    def master_election(self, path, identifier, func, *args, **kwargs):
-        self._zk.add_listener(self._zk_listener)
-        while True:
-            self._election = self._zk.Election(path, identifier)
-            self._election.run(self._zk_election_callback, func, *args, **kwargs)
-    # end master_election
 
     def create_node(self, path, value='', makepath=False, sequence=False):
         value = str(value)
@@ -139,17 +78,6 @@ class DiscoveryZkClient(object):
             return self.create_node(path, value, makepath, sequence)
     # end create_node
 
-    def get_children(self, path):
-        try:
-            return self._zk.get_children(path)
-        except (kazoo.exceptions.SessionExpiredError,
-                kazoo.exceptions.ConnectionLoss):
-            self.connect(restart = True)
-            return self.get_children(path)
-        except Exception:
-            return []
-    # end get_children
-
     def read_node(self, path):
         try:
             data, stat = self._zk.get(path)
@@ -162,17 +90,6 @@ class DiscoveryZkClient(object):
             self.syslog('exc read: node %s does not exist' % path)
             return (None, None)
     # end read_node
-
-    def delete_node(self, path, recursive=False):
-        try:
-            self._zk.delete(path, recursive=recursive)
-        except (kazoo.exceptions.SessionExpiredError,
-                kazoo.exceptions.ConnectionLoss):
-            self.connect(restart = True)
-            self.delete_node(path, recursive=recursive)
-        except kazoo.exceptions.NoNodeException:
-            self.syslog('exc delete: node %s does not exist' % path)
-    # end delete_node
 
     def exists_node(self, path):
         try:

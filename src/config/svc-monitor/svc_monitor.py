@@ -7,7 +7,7 @@ Service monitor to instantiate/scale/monitor services like firewall, LB, ...
 """
 
 import gevent
-from cfgm_common.discovery import DiscoveryService
+from cfgm_common.zkclient import ZookeeperClient
 from gevent import monkey
 monkey.patch_all()
 import sys
@@ -1255,7 +1255,7 @@ def main(args_str=None):
         args_str = ' '.join(sys.argv[1:])
     args = parse_args(args_str)
 
-    _disc_service = DiscoveryService("svc-monitor", args.zk_server_ip)
+    _disc_service = ZookeeperClient("svc-monitor", args.zk_server_ip)
     _disc_service.master_election("/svc-monitor", os.getpid(),
                                   run_svc_monitor, args)
 # end main
