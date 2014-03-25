@@ -24,7 +24,7 @@ def ifmap_server_handler(obj):
 	print '!!! In Callback handler !!!'
         print 'Service info = %s/%s' %(obj.get_ip_addr(), obj.get_port())
 
-discover = DiscoveryService('127.0.0.1', '5998')
+discover = ZookeeperClient('127.0.0.1', '5998')
 print 'Connected with discovery service'
 #result = discover.IfmapServer(f=handle_results)
 #print 'Subscribe result = ', result

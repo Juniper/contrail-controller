@@ -288,7 +288,7 @@ class DiscoveryServer():
         zk_ip = self._args.zk_server_ip
         zk_port = self._args.zk_server_port
 
-        self._db_conn = DiscoveryZkClient(self, zk_ip, zk_port, reset_config)
+        self._db_conn = DiscoveryZkClient("discovery", zk_ip, zk_port, reset_config)
     # end _db_connect
 
     def cleanup(self):
@@ -436,6 +436,7 @@ class DiscoveryServer():
                 'ts_created': int(time.time()),
                 'heartbeat': int(time.time()),
                 'prov_state': 'new',
+                'sequence': -1,
                 'remote': bottle.request.environ.get('REMOTE_ADDR'),
             }
 
@@ -1097,7 +1098,7 @@ def main(args_str=None):
     if not args_str:
         args_str = ' '.join(sys.argv[1:])
     args = parse_args(args_str)
-    zk = DiscoveryZkClient(None, args.zk_server_ip, args.zk_server_port, 
+    zk = DiscoveryZkClient("discovery", args.zk_server_ip, args.zk_server_port, 
         args.reset_config)
     args.zk = zk
     zk.master_election("/discovery-server", os.getpid(),
