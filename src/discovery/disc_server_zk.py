@@ -436,6 +436,7 @@ class DiscoveryServer():
                 'ts_created': int(time.time()),
                 'heartbeat': int(time.time()),
                 'prov_state': 'new',
+                'sequence': -1,
                 'remote': bottle.request.environ.get('REMOTE_ADDR'),
             }
 
