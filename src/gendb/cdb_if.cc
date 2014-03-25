@@ -127,10 +127,10 @@ CdbIf::CdbIf(boost::asio::io_service *ioservice, DbErrorHandler errhandler,
     client_(new CassandraClient(protocol_)),
     ioservice_(ioservice),
     errhandler_(errhandler),
-    db_init_done_(false),
     name_(name),
     cleanup_(NULL),
     cassandra_ttl_(ttl) {
+    db_init_done_ = false;
 }
 
 CdbIf::CdbIf()
@@ -800,7 +800,7 @@ bool CdbIf::Db_AsyncAddColumnLocked(CdbIfColList &cl) {
 }
 
 bool CdbIf::NewDb_AddColumn(std::auto_ptr<GenDb::ColList> cl) {
-    if (!cdbq_.get()) return false;
+    if (!Db_IsInitDone() || !cdbq_.get()) return false;
     CdbIfColList qentry;
     qentry.gendb_cl = cl.release();
     cdbq_->Enqueue(qentry);
