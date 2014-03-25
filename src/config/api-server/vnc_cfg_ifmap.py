@@ -562,24 +562,23 @@ class VncCassandraClient(VncCassandraClientGen):
             result['%s_refs' % (ref_type)] = []
 
         ref_data = json.loads(ref_data_json)
+        ref_info = {}
         try:
-            ref_info = {}
             ref_info['to'] = self.uuid_to_fq_name(ref_uuid)
-            if ref_data:
-                try:
-                    ref_info['attr'] = ref_data['attr']
-                except KeyError:
-                    # TODO remove backward compat old format had attr directly
-                    ref_info['attr'] = ref_data
-
-            ref_info['href'] = self._db_client_mgr.generate_url(
-                ref_type, ref_uuid)
-            ref_info['uuid'] = ref_uuid
-
-            result['%s_refs' % (ref_type)].append(ref_info)
         except NoIdError as e:
-            if not ref_data['is_weakref']:
-                raise e
+            ref_info['to'] = ['ERROR']
+        if ref_data:
+            try:
+                ref_info['attr'] = ref_data['attr']
+            except KeyError:
+                # TODO remove backward compat old format had attr directly
+                ref_info['attr'] = ref_data
+
+        ref_info['href'] = self._db_client_mgr.generate_url(
+            ref_type, ref_uuid)
+        ref_info['uuid'] = ref_uuid
+
+        result['%s_refs' % (ref_type)].append(ref_info)
     # end _read_ref
 
     def _read_back_ref(self, result, obj_uuid, back_ref_type,
@@ -646,6 +645,10 @@ class VncCassandraClient(VncCassandraClientGen):
     # end _update_ref
 
     def _delete_ref(self, bch, obj_type, obj_uuid, ref_type, ref_uuid):
+        send = False
+        if bch is None:
+            send = True
+            bch = self._cassandra_db._obj_uuid_cf.batch()
         bch.remove(obj_uuid, columns=['ref:%s:%s' % (ref_type, ref_uuid)])
         if obj_type == ref_type:
             bch.remove(ref_uuid, columns=[
@@ -653,6 +656,8 @@ class VncCassandraClient(VncCassandraClientGen):
         else:
             bch.remove(ref_uuid, columns=[
                        'backref:%s:%s' % (obj_type, obj_uuid)])
+        if send:
+            bch.send()
     # end _delete_ref
 
     def is_latest(self, id, tstamp):
@@ -1120,6 +1125,13 @@ class VncDbClient(object):
                                       obj_dict['fq_name'], obj_uuid)
             except ResourceExistsError:
                 pass
+
+            if (obj_type == 'virtual_network' and
+                'logical_router_refs' in obj_dict):
+                for router in obj_dict['logical_router_refs']:
+                    self._cassandra_db._delete_ref(None, obj_type, obj_uuid,
+                                                   'logical_router',
+                                                   router['uuid'])
 
         except Exception as e:
             self.config_object_error(
