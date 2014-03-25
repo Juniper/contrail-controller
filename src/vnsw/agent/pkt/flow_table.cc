@@ -594,9 +594,9 @@ void FlowTable::UpdateReverseFlow(FlowEntry *flow, FlowEntry *rflow) {
 
 void FlowEntry::FillFlowInfo(FlowInfo &info) {
     info.set_flow_index(flow_handle_);
-    info.set_source_ip(Ip4Address(key_.src.ipv4).to_string());
+    info.set_source_ip(key_.src.ipv4);
     info.set_source_port(key_.src_port);
-    info.set_destination_ip(Ip4Address(key_.dst.ipv4).to_string());
+    info.set_destination_ip(key_.dst.ipv4);
     info.set_destination_port(key_.dst_port);
     info.set_protocol(key_.protocol);
     info.set_vrf(key_.vrf);
@@ -628,13 +628,11 @@ void FlowEntry::FillFlowInfo(FlowInfo &info) {
         str << " NAT";
         if (nat_flow) {
             if (key_.src.ipv4 != nat_flow->key().dst.ipv4) {
-                info.set_nat_source_ip(Ip4Address(nat_flow->key().dst.ipv4).\
-                                       to_string());
+                info.set_nat_source_ip(nat_flow->key().dst.ipv4);
             }
 
             if (key_.dst.ipv4 != nat_flow->key().src.ipv4) {
-                info.set_nat_destination_ip(Ip4Address(nat_flow->key().src.ipv4).\
-                                             to_string());
+                info.set_nat_destination_ip(nat_flow->key().src.ipv4);
             }
 
             if (key_.src_port != nat_flow->key().dst_port)  {
@@ -669,14 +667,14 @@ void FlowEntry::FillFlowInfo(FlowInfo &info) {
     }
     info.set_mirror_vrf(data_.mirror_vrf);
     info.set_action(str.str());
-    info.set_implicit_deny(ImplicitDenyFlow() ? "yes" : "no");
-    info.set_short_flow(is_flags_set(FlowEntry::ShortFlow) ? "yes" : "no");
+    info.set_implicit_deny(ImplicitDenyFlow());
+    info.set_short_flow(is_flags_set(FlowEntry::ShortFlow));
     if (is_flags_set(FlowEntry::EcmpFlow) && 
             data_.component_nh_idx != CompositeNH::kInvalidComponentNHIdx) {
         info.set_ecmp_index(data_.component_nh_idx);
     }
     if (is_flags_set(FlowEntry::Trap)) {
-        info.set_trap("true");
+        info.set_trap(true);
     }
 }
 
