@@ -823,7 +823,8 @@ static bool PopulateFlowIndexTables(FlowValueArray &fvalues,
         PopulateFlowIndexTableColumns(fitt, fvalues, T1, colList->columns_,
             cvalues);
         if (!dbif->NewDb_AddColumn(colList)) {
-            VIZD_ASSERT(0);
+            LOG(ERROR, "Populating " << FlowIndexTable2String(fitt) <<
+                " FAILED");
         }
     }
     return true;
@@ -927,7 +928,7 @@ bool DbHandler::FlowTableInsert(const pugi::xml_node &parent,
     uint8_t partition_no = 0;
     // Populate Flow Record Table
     if (!PopulateFlowRecordTable(flow_entry_values, dbif_.get())) {
-        VIZD_ASSERT(0);
+        LOG(ERROR, "Populating FlowRecordTable FAILED");
     }
     // Populate Flow Index Tables only if FLOWREC_DIFF_BYTES and
     GenDb::DbDataValue &diff_bytes(
@@ -939,7 +940,7 @@ bool DbHandler::FlowTableInsert(const pugi::xml_node &parent,
         diff_packets.which() != GenDb::DB_VALUE_BLANK) {
        if (!PopulateFlowIndexTables(flow_entry_values, T2, T1, partition_no,
                 dbif_.get())) {
-           VIZD_ASSERT(0);
+           LOG(ERROR, "Populating FlowIndexTables FAILED");
        }
     }
     return true;
