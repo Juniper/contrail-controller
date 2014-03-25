@@ -224,7 +224,7 @@ class CdbIf : public GenDbIf {
         boost::asio::io_service *ioservice_;
         DbErrorHandler errhandler_;
 
-        bool db_init_done_;
+        tbb::atomic<bool> db_init_done_;
         std::string tablespace_;
 
         typedef WorkQueue<CdbIfColList> CdbIfQueue;
