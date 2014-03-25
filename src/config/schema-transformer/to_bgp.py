@@ -234,6 +234,8 @@ class VirtualNetworkST(DictST):
             props = vn.obj.get_virtual_network_properties()
             if props and props.network_id:
                 cls._vn_id_allocator.delete(props.network_id - 1)
+            for policy in NetworkPolicyST.values():
+                policy.analyzer_vn_set.discard(name)
             del cls._dict[name]
     # end delete
 
