@@ -28,15 +28,14 @@ public:
     }
 
     bool Run() {
-        //
         // Check if this run needs to be deferred
-        //
         if (!queue_->OnEntry()) {
             return false;
         }
-        bool done = RunQueue();
-        queue_->OnExit(done);
-        return done;
+        return RunQueue();
+        // No more client callbacks after updating
+        // queue running_ and current_runner_ in RunQueue to 
+        // avoid client callbacks running concurrently
     }
 
 private:
@@ -250,16 +249,12 @@ public:
     size_t on_entry_defer_count() const { return on_entry_defer_count_; }
 
     bool OnEntry() {
-        //
         // XXX For testing only, defer this task run
-        //
         if (disable_) {
             return false;
         }
         bool run = (on_entry_cb_.empty() || on_entry_cb_());
-        //
         // Track number of times this queue run is deferred
-        //
         if (!run) {
             on_entry_defer_count_++;
         }
@@ -328,17 +323,23 @@ private:
 
     bool RunnerDone() {
         tbb::mutex::scoped_lock lock(mutex_);
+        bool done = false;
         if (queue_.empty()) {
+            done = true; 
             current_runner_ = NULL;         
             running_ = false;
-            return true;
+            OnExit(done);
+            return done;
         } else if (!start_runner_.empty() && !start_runner_()) {
+            done = true;
             current_runner_ = NULL;
             running_ = false;
-            return true;
+            OnExit(done);
+            return done;
         }
         running_ = true;
-        return false;
+        OnExit(done);
+        return done;
     }
 
     Queue queue_;
