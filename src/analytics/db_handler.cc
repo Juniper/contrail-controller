@@ -495,7 +495,6 @@ void DbHandler::ObjectTableInsert(const std::string &table, const std::string &o
 	attribs.insert(make_pair(string("name"), pv));
 	string sattrname("fields.value");
 	pv = string(objectkey_str);
-	tmap.insert(make_pair(sattrname,make_pair(pv,amap)));
 	attribs.insert(make_pair(sattrname,pv));
         
         pv = string(col_name_);
