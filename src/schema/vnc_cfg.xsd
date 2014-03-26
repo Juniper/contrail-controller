@@ -1001,9 +1001,8 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
 <!--#IFMAP-SEMANTICS-IDL
      Link('logical-router-interface',
           'logical-router', 'virtual-machine-interface', ['ref']) -->
-
-<xsd:element name="logical-router-target"/>
+<xsd:element name="virtual-network-logical-router"/>
 <!--#IFMAP-SEMANTICS-IDL 
-     Link('logical-router-target',
-          'logical-router', 'route-target', ['ref']) -->
+     Link('virtual-network-logical-router',
+          'virtual-network', 'logical-router', ['ref']) -->
 </xsd:schema>
