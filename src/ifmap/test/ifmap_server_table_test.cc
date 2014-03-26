@@ -59,7 +59,7 @@ public:
             attr_set_ = false;
         }
     }
-    virtual boost::crc_32_type::value_type CalculateCrc() {
+    virtual boost::crc_32_type::value_type CalculateCrc() const {
         return 0;
     }
 
@@ -87,7 +87,7 @@ public:
     }
     virtual void ClearProperty(const string &attr_key) {
     }
-    virtual boost::crc_32_type::value_type CalculateCrc() {
+    virtual boost::crc_32_type::value_type CalculateCrc() const {
         return 0;
     }
 
@@ -109,7 +109,7 @@ public:
     }
     virtual void ClearProperty(const string &attr_key) {
     }
-    virtual boost::crc_32_type::value_type CalculateCrc() {
+    virtual boost::crc_32_type::value_type CalculateCrc() const {
         return 0;
     }
 
@@ -131,7 +131,7 @@ public:
     }
     virtual void ClearProperty(const string &attr_key) {
     }
-    virtual boost::crc_32_type::value_type CalculateCrc() {
+    virtual boost::crc_32_type::value_type CalculateCrc() const {
         return 0;
     }
 
@@ -160,7 +160,7 @@ public:
         }
         return false;
     }
-    virtual boost::crc_32_type::value_type CalculateCrc() {
+    virtual boost::crc_32_type::value_type CalculateCrc() const {
         return 0;
     }
 
