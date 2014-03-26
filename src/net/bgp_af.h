@@ -27,8 +27,8 @@ public:
         Enet = 242,
     };
 
-    static std::string ToString(uint8_t afi, uint16_t safi);
-    static Address::Family AfiSafiToFamily(uint8_t afi, uint8_t safi);
+    static std::string ToString(uint16_t afi, uint8_t safi);
+    static Address::Family AfiSafiToFamily(uint16_t afi, uint8_t safi);
     static void FamilyToAfiSafi(Address::Family fmly, uint16_t &afi, 
                                 uint8_t &safi);
 };
