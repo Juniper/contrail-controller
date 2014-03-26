@@ -8,7 +8,9 @@
 #include <string>
 #include <string.h>
 #include <map>
+#ifndef __APPLE__
 #include <endian.h>
+#endif
 
 static inline uint32_t get_short(const uint8_t *data) {
     uint32_t value = *data++;
@@ -55,14 +57,23 @@ static inline void put_value(uint8_t *data, int size, uint64_t value) {
 
 static inline double get_double(const uint8_t *data) {
     uint64_t *pp = (uint64_t *)data;
+#ifndef __APPLE__
     uint64_t re = be64toh(*pp);
+#else
+    uint64_t re = *pp
+#endif
     double *dp = (double *)&re;
     return *dp;
 }
 
 static inline void put_double(uint8_t *data, double value) {
     uint64_t *pp = (uint64_t *)data;
+#ifndef __APPLE__
     *pp = htobe64(*((uint64_t *)&value));
+#else
+    *pp = *((uint64_t *)&value);
+#endif
+
 }
 
 struct ParseErrorContext {
