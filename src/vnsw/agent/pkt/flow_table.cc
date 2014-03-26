@@ -615,17 +615,16 @@ void FlowEntry::FillFlowInfo(FlowInfo &info) {
     }
     info.set_dest_sg_id_l(v);
 
-    std::ostringstream str;
     uint32_t fe_action = data_.match_p.action_info.action;
     if (fe_action & (1 << TrafficAction::DENY)) {
-        str << "DENY";
+        info.set_deny(true);
     } else if (fe_action & (1 << TrafficAction::PASS)) {
-        str << "ALLOW, ";
+        info.set_allow(true);
     }
 
     if (is_flags_set(FlowEntry::NatFlow)) {
+        info.set_nat(true);
         FlowEntry *nat_flow = reverse_flow_entry_.get();
-        str << " NAT";
         if (nat_flow) {
             if (key_.src.ipv4 != nat_flow->key().dst.ipv4) {
                 info.set_nat_source_ip(nat_flow->key().dst.ipv4);
@@ -650,7 +649,7 @@ void FlowEntry::FillFlowInfo(FlowInfo &info) {
     }
 
     if (data_.match_p.action_info.action & (1 << TrafficAction::MIRROR)) {
-        str << " MIRROR";
+        info.set_mirror(true);
         std::vector<MirrorActionSpec>::iterator it;
         std::vector<MirrorInfo> mirror_l;
         for (it = data_.match_p.action_info.mirror_l.begin();
@@ -666,7 +665,6 @@ void FlowEntry::FillFlowInfo(FlowInfo &info) {
         info.set_mirror_l(mirror_l);
     }
     info.set_mirror_vrf(data_.mirror_vrf);
-    info.set_action(str.str());
     info.set_implicit_deny(ImplicitDenyFlow());
     info.set_short_flow(is_flags_set(FlowEntry::ShortFlow));
     if (is_flags_set(FlowEntry::EcmpFlow) && 
