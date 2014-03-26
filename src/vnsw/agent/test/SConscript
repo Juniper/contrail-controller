@@ -29,7 +29,13 @@ if '-fno-exceptions' in cflags:
 
 import sys
 if sys.platform != 'darwin':
-    test_lib_srcs = ['test_init.cc', 'test_util.cc']
+    test_lib_srcs = ['test_init.cc', 
+                     'test_util.cc',
+                     '../uve/test/agent_uve_test.cc',
+                     '../uve/test/agent_stats_collector_test.cc',
+                     '../uve/test/vm_uve_table_test.cc',
+                     '../uve/test/vn_uve_table_test.cc',
+                     '../uve/test/vrouter_uve_entry_test.cc']
     env.Library('agent_test', test_lib_srcs)
     env.Prepend(LIBS=['agent_test']);
     env.Library('agent_test_buildinfo', 'test_buildinfo.cc')

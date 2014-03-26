@@ -20,9 +20,9 @@
 #include <oper/interface_common.h>
 #include <oper/mirror_table.h>
 #include <uve/agent_uve.h>
-#include <uve/vn_uve_table_test.h>
-#include <uve/vm_uve_table_test.h>
-#include <uve/vrouter_uve_entry_test.h>
+#include <uve/test/vn_uve_table_test.h>
+#include <uve/test/vm_uve_table_test.h>
+#include <uve/test/vrouter_uve_entry_test.h>
 
 #include "testing/gunit.h"
 #include "test_cmn_util.h"

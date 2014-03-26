@@ -7,6 +7,9 @@
 #include "vgw/cfg_vgw.h"
 #include "vgw/vgw.h"
 #include "ksync/ksync_init.h"
+#include <uve/test/agent_uve_test.h>
+#include <boost/functional/factory.hpp>
+#include <cmn/agent_factory.h>
 
 static AgentTestInit *agent_init;
 namespace opt = boost::program_options;
@@ -56,6 +59,7 @@ TestClient *TestInit(const char *init_file, bool ksync_init, bool pkt_init,
                                Agent::GetInstance()->GetEventManager(),
                                sandesh_port, NULL);
 
+    AgentObjectFactory::Register<AgentUve>(boost::factory<AgentUveTest *>());
     init->Init(param, agent, var_map);
     init->set_ksync_enable(ksync_init);
     init->set_packet_enable(true);
@@ -120,6 +124,7 @@ TestClient *StatsTestInit() {
                                Agent::GetInstance()->GetEventManager(),
                                sandesh_port, NULL);
 
+    AgentObjectFactory::Register<AgentUve>(boost::factory<AgentUveTest *>());
     init->Init(param, agent, var_map);
     init->set_ksync_enable(true);
     init->set_packet_enable(true);
@@ -168,6 +173,7 @@ TestClient *VGwInit(const string &init_file, bool ksync_init) {
                                Agent::GetInstance()->GetEventManager(),
                                0, NULL);
 
+    AgentObjectFactory::Register<AgentUve>(boost::factory<AgentUveTest *>());
     init->Init(param, agent, var_map);
     init->set_ksync_enable(ksync_init);
     init->set_packet_enable(true);

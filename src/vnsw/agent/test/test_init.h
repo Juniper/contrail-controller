@@ -53,7 +53,7 @@
 #include <uve/agent_uve.h>
 #include <uve/flow_stats_collector.h>
 #include <uve/agent_stats_collector.h>
-#include <uve/agent_stats_collector_test.h>
+#include <uve/test/agent_stats_collector_test.h>
 #include "pkt_gen.h"
 #include "pkt/flow_table.h"
 #include "testing/gunit.h"

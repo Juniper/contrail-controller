@@ -5,7 +5,7 @@
 #include "test/test_cmn_util.h"
 #include "test/test_init.h"
 #include "oper/mirror_table.h"
-#include "uve/vn_uve_table_test.h"
+#include "uve/test/vn_uve_table_test.h"
 
 #define MAX_TESTNAME_LEN 80
 

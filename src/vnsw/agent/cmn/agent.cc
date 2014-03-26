@@ -35,9 +35,9 @@
 #include <pkt/proto_handler.h>
 #include <uve/flow_stats_collector.h>
 #include <uve/agent_uve.h>
-#include <uve/agent_uve_test.h>
 #include <vgw/vgw.h>
-
+#include <boost/functional/factory.hpp>
+#include <cmn/agent_factory.h>
 #include <diag/diag.h>
 
 const std::string Agent::null_str_ = "";
@@ -232,13 +232,11 @@ void Agent::CreateModules() {
     cfg_ = std::auto_ptr<AgentConfig>(new AgentConfig(this));
     stats_ = std::auto_ptr<AgentStats>(new AgentStats(this));
     oper_db_ = std::auto_ptr<OperDB>(new OperDB(this));
-    if (IsTestMode()) {
-        uve_ = std::auto_ptr<AgentUve>(new AgentUveTest(
-                    this, AgentUve::kBandwidthInterval));
-    } else {
-        uve_ = std::auto_ptr<AgentUve>(new AgentUve(
-                    this, AgentUve::kBandwidthInterval));
+    if (!IsTestMode()) {
+        AgentObjectFactory::Register<AgentUve>(boost::factory<AgentUve *>());
     }
+    uve_ = std::auto_ptr<AgentUve>(AgentObjectFactory::Create<AgentUve>(
+                    this, AgentUve::kBandwidthInterval));
     ksync_ = std::auto_ptr<KSync>(new KSync(this));
 
     if (init_->packet_enable()) {
