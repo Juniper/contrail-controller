@@ -214,7 +214,7 @@ struct VrouterCpuInfo {
 struct ComputeCpuState {
     1: string                         name (key="ObjectVRouter")
     2: optional bool                  deleted
-    3: optional list<VrouterCpuInfo>  cpu_info (tags="")
+    3: optional list<VrouterCpuInfo>  cpu_info (tags=".mem_virt,.cpu_share")
 }
 
 uve sandesh ComputeCpuStateTrace {

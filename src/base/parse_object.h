@@ -4,11 +4,11 @@
 
 #ifndef ctrlplane_parse_object_h
 #define ctrlplane_parse_object_h
-
 #include <stdint.h>
 #include <string>
 #include <string.h>
 #include <map>
+#include <endian.h>
 
 static inline uint32_t get_short(const uint8_t *data) {
     uint32_t value = *data++;
@@ -54,13 +54,15 @@ static inline void put_value(uint8_t *data, int size, uint64_t value) {
 }
 
 static inline double get_double(const uint8_t *data) {
-    double value;
-    memcpy(&value, data, sizeof(double));
-    return value;
+    uint64_t *pp = (uint64_t *)data;
+    uint64_t re = be64toh(*pp);
+    double *dp = (double *)&re;
+    return *dp;
 }
 
 static inline void put_double(uint8_t *data, double value) {
-    memcpy(data, &value, sizeof(double));
+    uint64_t *pp = (uint64_t *)data;
+    *pp = htobe64(*((uint64_t *)&value));
 }
 
 struct ParseErrorContext {

@@ -3,6 +3,7 @@
  */
 
 #include <cstdlib>
+#include <limits> 
 #include "rapidjson/document.h"
 #include "query.h"
 #include "json_parse.h"
@@ -421,7 +422,7 @@ WhereQuery::WhereQuery(const std::string& where_json_string, int direction,
             if (idx != -1)
             {
                 bool isStr = false;
-                GenDb::DbDataValue smpl;
+                GenDb::DbDataValue smpl,smpl2,endsmpl;
                 DbQueryUnit *db_query = new DbQueryUnit(and_node, main_query);
                 if ((name == g_viz_constants.STAT_OBJECTID_FIELD) || 
                     (name == g_viz_constants.STAT_SOURCE_FIELD)) {
@@ -444,13 +445,22 @@ WhereQuery::WhereQuery(const std::string& where_json_string, int direction,
                     if (g_viz_constants._STAT_TABLES[idx].attributes[at_idx].datatype == "string") { 
                         db_query->cfname = g_viz_constants.STATS_TABLE_BY_STR_STR_TAG;
                         smpl = value;
+                        endsmpl = std::string();
                         isStr = true;
                     } else if (g_viz_constants._STAT_TABLES[idx].attributes[at_idx].datatype == "int") {
                         db_query->cfname = g_viz_constants.STATS_TABLE_BY_U64_STR_TAG;
                         smpl = (uint64_t) strtoul(value.c_str(), NULL, 10);
+                        if (op == IN_RANGE) {
+                            smpl2 = (uint64_t) strtoul(value2.c_str(), NULL, 10);
+                        }
+                        endsmpl = (uint64_t)0xffffffffffffffff;
                     } else if (g_viz_constants._STAT_TABLES[idx].attributes[at_idx].datatype == "double") {
                         db_query->cfname = g_viz_constants.STATS_TABLE_BY_DBL_STR_TAG;
                         smpl = (double) strtod(value.c_str(), NULL);
+                        if (op == IN_RANGE) {
+                            smpl2 = (double) strtod(value2.c_str(), NULL);
+                        }
+                        endsmpl = (double)std::numeric_limits<double>::max();
                     } else
                         QE_ASSERT(0);
                 }
@@ -461,7 +471,7 @@ WhereQuery::WhereQuery(const std::string& where_json_string, int direction,
                 if (isStr) {
                     QE_INVALIDARG_ERROR((op == EQUAL) || (op == PREFIX));
                 } else {
-                    QE_INVALIDARG_ERROR(op == EQUAL);
+                    QE_INVALIDARG_ERROR((op == EQUAL) || (op == IN_RANGE));
                 }
 
                 // string encoding
@@ -473,6 +483,8 @@ WhereQuery::WhereQuery(const std::string& where_json_string, int direction,
                 if (op == PREFIX) {
                     std::string str_smpl2(value + "\x7f");
                     db_query->cr.finish_.push_back(str_smpl2);
+                } else if (op == IN_RANGE) {
+                    db_query->cr.finish_.push_back(smpl2);
                 } else {
                     db_query->cr.finish_.push_back(smpl);
                 }

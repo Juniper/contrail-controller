@@ -40,7 +40,7 @@ uve sandesh ModuleCpuStateTrace {
 struct ConfigCpuState {
     1: string                                 name (key="ObjectConfigNode")
     2: optional bool                          deleted
-    3: optional list<cpuinfo.ProcessCpuInfo>  cpu_info (tags=".module_id")
+    3: optional list<cpuinfo.ProcessCpuInfo>  cpu_info (tags=".module_id,.mem_virt,.cpu_share")
 }
 
 uve sandesh ConfigCpuStateTrace {
