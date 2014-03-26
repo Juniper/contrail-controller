@@ -89,7 +89,10 @@ public:
 
     virtual bool Run() {
         tbb::mutex::scoped_lock lock(cdbif_->cdbq_mutex_);
-
+        // Return if cleanup was cancelled
+        if (cdbif_->cleanup_ == NULL) {
+            return true;
+        }
         if (cdbif_->cdbq_.get() != NULL) {
             cdbif_->cdbq_->Shutdown();
             cdbif_->cdbq_.reset();
@@ -124,10 +127,10 @@ CdbIf::CdbIf(boost::asio::io_service *ioservice, DbErrorHandler errhandler,
     client_(new CassandraClient(protocol_)),
     ioservice_(ioservice),
     errhandler_(errhandler),
-    db_init_done_(false),
     name_(name),
     cleanup_(NULL),
     cassandra_ttl_(ttl) {
+    db_init_done_ = false;
 }
 
 CdbIf::CdbIf()
@@ -688,6 +691,11 @@ bool CdbIf::NewDb_AddColumnfamily(const GenDb::NewCf& cf) {
  * called by the WorkQueue mechanism
  */
 bool CdbIf::Db_AsyncAddColumn(CdbIfColList &cl) {
+    tbb::mutex::scoped_lock lock(cdbq_mutex_);
+    return Db_AsyncAddColumnLocked(cl);
+}
+
+bool CdbIf::Db_AsyncAddColumnLocked(CdbIfColList &cl) {
     bool ret_value = true;
     uint64_t ts(UTCTimestampUsec());
     GenDb::ColList *new_colp(cl.gendb_cl);
@@ -792,7 +800,7 @@ bool CdbIf::Db_AsyncAddColumn(CdbIfColList &cl) {
 }
 
 bool CdbIf::NewDb_AddColumn(std::auto_ptr<GenDb::ColList> cl) {
-    if (!cdbq_.get()) return false;
+    if (!Db_IsInitDone() || !cdbq_.get()) return false;
     CdbIfColList qentry;
     qentry.gendb_cl = cl.release();
     cdbq_->Enqueue(qentry);
@@ -802,7 +810,7 @@ bool CdbIf::NewDb_AddColumn(std::auto_ptr<GenDb::ColList> cl) {
 bool CdbIf::AddColumnSync(std::auto_ptr<GenDb::ColList> cl) {
     CdbIfColList qentry;
     qentry.gendb_cl = cl.release();
-    return (Db_AsyncAddColumn(qentry));
+    return (Db_AsyncAddColumnLocked(qentry));
 }
 
 bool CdbIf::ColListFromColumnOrSuper(GenDb::ColList& ret,
