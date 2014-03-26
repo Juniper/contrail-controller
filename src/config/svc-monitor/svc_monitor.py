@@ -1221,7 +1221,7 @@ def parse_args(args_str):
         args.cassandra_server_list = args.cassandra_server_list.split()
     if type(args.collectors) is str:
         args.collectors = args.collectors.split()
-    if args.region_name.lower()=='none':
+    if args.region_name and args.region_name.lower() == 'none':
         args.region_name = None
     return args
 # end parse_args
