@@ -111,9 +111,7 @@ void KSyncSandeshContext::FlowMsgHandler(vr_flow_req *r) {
                 entry->is_flags_set(FlowEntry::EcmpFlow)) {
                  FlowEntry *rev_flow = entry->reverse_flow_entry();
                  if (rev_flow) {
-                     FlowTableKSyncEntry *rev_ksync_entry =
-                         flow_ksync_->Find(rev_flow);
-                     rev_flow->UpdateKSync(rev_ksync_entry, false);
+                     rev_flow->UpdateKSync();
                  }
             }
         }
