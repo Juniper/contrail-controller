@@ -553,6 +553,48 @@ TEST_F(CfgTest, vn_forwarding_mode_changed_2) {
     client->WaitForIdle();
 }
 
+TEST_F(CfgTest, change_in_gateway) {
+    //Send control node message on subnet bcast after family has changed to L2
+    client->Reset();
+    struct PortInfo input[] = {
+        {"vnet1", 1, "11.1.1.2", "00:00:00:01:01:11", 1, 1},
+    };
+
+    IpamInfo ipam_info[] = {
+        {"11.1.1.0", 24, "11.1.1.200"},
+    };
+
+    IpamInfo ipam_info_2[] = {
+        {"11.1.1.0", 24, "11.1.1.100"},
+    };
+
+    EXPECT_FALSE(VrfFind("vrf1"));
+    VxLanNetworkIdentifierMode(false);
+    client->WaitForIdle();
+    CreateVmportEnv(input, 1, 0);
+    client->WaitForIdle();
+
+	WAIT_FOR(1000, 1000, (VmPortActive(input, 0) == true));
+
+    AddIPAM("vn1", ipam_info, 1);
+    client->WaitForIdle();
+    WAIT_FOR(1000, 1000, (RouteFind("vrf1", "11.1.1.200", 32)));
+
+    //Change IPAM
+    AddIPAM("vn1", ipam_info_2, 1);
+    client->WaitForIdle();
+    WAIT_FOR(1000, 1000, (RouteFind("vrf1", "11.1.1.100", 32)));
+
+    EXPECT_TRUE(!RouteFind("vrf1", "11.1.1.200", 32));
+    //Restore and cleanup
+    client->Reset();
+    DelIPAM("vn1");
+    client->WaitForIdle();
+    DeleteVmportEnv(input, 1, 1, 0);
+    client->WaitForIdle();
+    WAIT_FOR(1000, 1000, (VrfFind("vrf1") == false));
+}
+
 int main(int argc, char **argv) {
     GETUSERARGS();
 
