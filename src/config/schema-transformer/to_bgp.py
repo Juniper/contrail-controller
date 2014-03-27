@@ -234,7 +234,13 @@ class VirtualNetworkST(DictST):
             props = vn.obj.get_virtual_network_properties()
             if props and props.network_id:
                 cls._vn_id_allocator.delete(props.network_id - 1)
+            analyzer_vn_set = set()
+            for policy in NetworkPolicyST.values():
+                if name in policy.analyzer_vn_set:
+                    analyzer_vn_set |= policy.network_back_ref
+                    policy.analyzer_vn_set.discard(name)
             del cls._dict[name]
+            return analyzer_vn_set
     # end delete
 
     @classmethod
@@ -2272,7 +2278,7 @@ class SchemaTransformer(object):
 
     def delete_project_virtual_network(self, idents, meta):
         network_name = idents['virtual-network']
-        VirtualNetworkST.delete(network_name)
+        self.current_network_set |= VirtualNetworkST.delete(network_name)
         self.current_network_set.discard(network_name)
     # end delete_project_virtual_network
 
