@@ -754,7 +754,6 @@ void BgpPeer::SendNotification(BgpSession *session,
 }
 
 void BgpPeer::SetCapabilities(const BgpProto::OpenMessage *msg) {
-    std::vector<std::string> families;
     remote_bgp_id_ = msg->identifier;
     capabilities_.clear();
     std::vector<BgpProto::OpenMessage::OptParam *>::const_iterator it;
@@ -767,17 +766,35 @@ void BgpPeer::SetCapabilities(const BgpProto::OpenMessage *msg) {
     BgpPeerInfoData peer_info;
     peer_info.set_name(ToUVEKey());
     peer_info.set_peer_id(remote_bgp_id_);
+
+    std::vector<std::string> families;
     std::vector<BgpProto::OpenMessage::Capability *>::iterator cap_it;
     for (cap_it = capabilities_.begin(); cap_it < capabilities_.end(); cap_it++) {
         if ((*cap_it)->code != BgpProto::OpenMessage::Capability::MpExtension)
             continue;
         uint8_t *data = (*cap_it)->capability.data();
-        uint16_t af_value = get_value(data, 2);
-        uint8_t safi_value = get_value(data + 3, 1);
-        families.push_back(BgpAf::ToString(af_value, safi_value));
+        uint16_t afi = get_value(data, 2);
+        uint8_t safi = get_value(data + 3, 1);
+        Address::Family family = BgpAf::AfiSafiToFamily(afi, safi);
+        if (family == Address::UNSPEC) {
+            families.push_back(BgpAf::ToString(afi, safi));
+        } else {
+            families.push_back(Address::FamilyToString(family));
+        }
     }
-    if (!families.empty()) 
-        peer_info.set_families(families);
+    peer_info.set_families(families);
+
+    std::vector<std::string> negotiated_families;
+    BOOST_FOREACH(Address::Family family, family_) {
+        uint16_t afi;
+        uint8_t safi;
+        BgpAf::FamilyToAfiSafi(family, afi, safi);
+        if (!MpNlriAllowed(afi, safi))
+            continue;
+        negotiated_families.push_back(Address::FamilyToString(family));
+    }
+    peer_info.set_negotiated_families(negotiated_families);
+
     BGPPeerInfo::Send(peer_info);
 }
 
@@ -792,6 +809,8 @@ void BgpPeer::ResetCapabilities() {
     peer_info.set_name(ToUVEKey());
     std::vector<std::string> families = std::vector<std::string>();
     peer_info.set_families(families);
+    std::vector<std::string> negotiated_families = std::vector<std::string>();
+    peer_info.set_negotiated_families(negotiated_families);
     BGPPeerInfo::Send(peer_info);
 }
 

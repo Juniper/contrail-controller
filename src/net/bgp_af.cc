@@ -6,7 +6,7 @@
 
 #include <sstream>
 
-std::string BgpAf::ToString(uint8_t afi, uint16_t safi) {
+std::string BgpAf::ToString(uint16_t afi, uint8_t safi) {
     std::ostringstream out;
     switch (afi) {
         case IPv4:
@@ -19,7 +19,7 @@ std::string BgpAf::ToString(uint8_t afi, uint16_t safi) {
             out << "L2Vpn:";
             break;
         default:
-            out << "unknown:";
+            out << "Afi=" << afi << ":";
             break;
     }
     switch (safi) {
@@ -42,13 +42,13 @@ std::string BgpAf::ToString(uint8_t afi, uint16_t safi) {
             out << "RTarget";
             break;
         default:
-            out << "unknown";
+            out << "Safi=" << int(safi);
             break;
     }
     return out.str();
 }
 
-Address::Family BgpAf::AfiSafiToFamily(uint8_t afi, uint8_t safi) {
+Address::Family BgpAf::AfiSafiToFamily(uint16_t afi, uint8_t safi) {
     if (afi == BgpAf::IPv4 && safi == BgpAf::Unicast)
         return Address::INET;
     if (afi == BgpAf::IPv4 && safi == BgpAf::Vpn)

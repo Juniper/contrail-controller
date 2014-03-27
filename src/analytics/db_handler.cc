@@ -329,11 +329,7 @@ void DbHandler::MessageTableOnlyInsert(const VizMsg *vmsgp) {
     if (!header.get_NodeType().empty()) {
         columns.push_back(new GenDb::NewCol(g_viz_constants.NODE_TYPE,
                                             header.get_NodeType()));
-    }
-    if (header.__isset.IPAddress) {
-        columns.push_back(new GenDb::NewCol(g_viz_constants.IPADDRESS,
-                                            header.get_IPAddress()));
-    }
+    }    
     // Convert to network byte order
     temp_u64 = header.get_Timestamp();
     columns.push_back(new GenDb::NewCol(g_viz_constants.TIMESTAMP, temp_u64));
@@ -357,11 +353,6 @@ void DbHandler::MessageTableOnlyInsert(const VizMsg *vmsgp) {
     uint8_t temp_u8 = header.get_Type();
     columns.push_back(new GenDb::NewCol(g_viz_constants.SANDESH_TYPE,
         temp_u8));
-    if (header.__isset.Pid) {
-        temp_u32 = header.get_Pid();
-        columns.push_back(new GenDb::NewCol(g_viz_constants.PID,
-                                        temp_u32));
-    }
 
     columns.push_back(new GenDb::NewCol(g_viz_constants.DATA,
         vmsgp->msg->ExtractMessage()));
@@ -495,7 +486,6 @@ void DbHandler::ObjectTableInsert(const std::string &table, const std::string &o
 	attribs.insert(make_pair(string("name"), pv));
 	string sattrname("fields.value");
 	pv = string(objectkey_str);
-	tmap.insert(make_pair(sattrname,make_pair(pv,amap)));
 	attribs.insert(make_pair(sattrname,pv));
         
         pv = string(col_name_);

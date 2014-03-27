@@ -20,8 +20,6 @@ const string TIMESTAMP              = "MessageTS"
 const string SANDESH_TYPE           = "Type"
 const string CATEGORY               = "Category"
 const string LEVEL                  = "Level"
-const string IPADDRESS              = "IPAddress"
-const string PID                    = "Pid"
 const string MESSAGE_TYPE           = "Messagetype"
 const string DATA                   = "Xmlmessage"
 const string CONTEXT                = "Context"
@@ -320,8 +318,8 @@ const list<stat_table> _STAT_TABLES  = [
       'stat_attr' : 'cpu_info',
       'obj_table' : COLLECTOR_INFO_TABLE,
       'attributes': [
-          { 'name' : 'cpu_info.mem_virt',  'datatype' : 'int',    'index' : false},
-          { 'name' : 'cpu_info.cpu_share', 'datatype' : 'double', 'index' : false},
+          { 'name' : 'cpu_info.mem_virt',  'datatype' : 'int',    'index' : true},
+          { 'name' : 'cpu_info.cpu_share', 'datatype' : 'double', 'index' : true},
           { 'name' : 'cpu_info.inst_id',   'datatype' : 'string', 'index' : false},
           { 'name' : 'cpu_info.module_id', 'datatype' : 'string', 'index' : true},
         ]
@@ -332,8 +330,8 @@ const list<stat_table> _STAT_TABLES  = [
       'stat_attr' : 'cpu_info',
       'obj_table' : CONFIG_NODE_TABLE,
       'attributes': [
-          { 'name' : 'cpu_info.mem_virt',  'datatype' : 'int',    'index' : false},
-          { 'name' : 'cpu_info.cpu_share', 'datatype' : 'double', 'index' : false},
+          { 'name' : 'cpu_info.mem_virt',  'datatype' : 'int',    'index' : true},
+          { 'name' : 'cpu_info.cpu_share', 'datatype' : 'double', 'index' : true},
           { 'name' : 'cpu_info.inst_id',   'datatype' : 'string', 'index' : false},
           { 'name' : 'cpu_info.module_id', 'datatype' : 'string', 'index' : true},
         ]
@@ -344,8 +342,8 @@ const list<stat_table> _STAT_TABLES  = [
       'stat_attr' : 'cpu_info',
       'obj_table' : BGP_ROUTER_TABLE,
       'attributes': [
-          { 'name' : 'cpu_info.mem_virt',  'datatype' : 'int',    'index' : false},
-          { 'name' : 'cpu_info.cpu_share', 'datatype' : 'double', 'index' : false},
+          { 'name' : 'cpu_info.mem_virt',  'datatype' : 'int',    'index' : true},
+          { 'name' : 'cpu_info.cpu_share', 'datatype' : 'double', 'index' : true},
           { 'name' : 'cpu_info.inst_id',   'datatype' : 'string', 'index' : false},
           { 'name' : 'cpu_info.module_id', 'datatype' : 'string', 'index' : true},
         ]
@@ -356,8 +354,8 @@ const list<stat_table> _STAT_TABLES  = [
       'stat_attr' : 'cpu_info',
       'obj_table' : VROUTER_TABLE,
       'attributes': [
-          { 'name' : 'cpu_info.mem_virt',  'datatype' : 'int',    'index' : false},
-          { 'name' : 'cpu_info.cpu_share', 'datatype' : 'double', 'index' : false},
+          { 'name' : 'cpu_info.mem_virt',  'datatype' : 'int',    'index' : true},
+          { 'name' : 'cpu_info.cpu_share', 'datatype' : 'double', 'index' : true},
           { 'name' : 'cpu_info.used_sys_mem', 'datatype' : 'int',    'index' : false},
           { 'name' : 'cpu_info.one_min_cpuload', 'datatype' : 'double', 'index' : false},
         ]
