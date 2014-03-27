@@ -46,8 +46,12 @@ public:
         return static_route_map_;
     }
 private:
+    friend class StaticRouteTest;
     RoutingInstance *instance_;
     StaticRouteMap  static_route_map_;
+    void DisableQueue() { static_route_queue_->set_disable(true); }
+    void EnableQueue() { static_route_queue_->set_disable(false); }
+    bool IsQueueEmpty() { return static_route_queue_->IsQueueEmpty(); }
     WorkQueue<StaticRouteRequest *> *static_route_queue_;
     // Task trigger to resolve any pending static route config commit
     boost::scoped_ptr<TaskTrigger> resolve_trigger_;

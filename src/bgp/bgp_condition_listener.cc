@@ -246,6 +246,7 @@ void BgpConditionListener::SetMatchState(BgpTable *table, BgpRoute *route,
         assert(it == dbstate->list_.end());
     }
     dbstate->list_.insert(std::make_pair(obj, state));
+    obj->IncrementNumMatchstate();
 }
 
 //
@@ -266,6 +267,7 @@ void BgpConditionListener::RemoveMatchState(BgpTable *table, BgpRoute *route,
         dbstate->list_.find(ConditionMatchPtr(obj));
     assert(it != dbstate->list_.end());
     dbstate->list_.erase(it);
+    obj->DecrementNumMatchstate();
     if (dbstate->list_.empty()) {
         // Remove the DBState when last module removes the MatchState
         route->ClearState(table, ts->GetListenerId());

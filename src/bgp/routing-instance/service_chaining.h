@@ -153,32 +153,24 @@ public:
 
     void FillServiceChainInfo(ShowServicechainInfo &info) const; 
 
-    void connected_table_unregistered() {
+    void set_connected_table_unregistered() {
         connected_table_unregistered_ = true;
     }
 
-    void dest_table_unregistered() {
+    void set_dest_table_unregistered() {
         dest_table_unregistered_ = true;
+    }
+
+    bool dest_table_unregistered() const {
+        return dest_table_unregistered_;
+    }
+
+    bool connected_table_unregistered() const {
+        return connected_table_unregistered_;
     }
 
     bool unregistered() const {
         return connected_table_unregistered_ && dest_table_unregistered_;
-    }
-
-    void set_dest_stopped() {
-        dest_stopped_ = true;
-    }
-
-    bool dest_stopped() const {
-        return dest_stopped_;
-    }
-
-    void set_connected_stopped() {
-        connected_stopped_ = true;
-    }
-
-    bool connected_stopped() const {
-        return connected_stopped_;
     }
 
     const ExtConnectRouteList &ext_connecting_routes() const {
@@ -213,8 +205,6 @@ private:
     ExtConnectRouteList ext_connect_routes_;
     bool connected_table_unregistered_;
     bool dest_table_unregistered_;
-    bool connected_stopped_;
-    bool dest_stopped_;
     bool aggregate_; // Whether the host route needs to be aggregated
     LifetimeRef<ServiceChain> src_table_delete_ref_;
 
