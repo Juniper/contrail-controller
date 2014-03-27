@@ -464,7 +464,7 @@ TEST_F(SgTest, Flow_Allow_1) {
 // Deny in both forward and reverse directions
 TEST_F(SgTest, Flow_Deny_1) {
     TxTcpPacket(vnet[1]->id(), vnet_addr[1], vnet_addr[2],
-                10, 20);
+                10, 20, false);
     client->WaitForIdle();
 
     EXPECT_TRUE(ValidateAction(vnet[1]->vrf()->vrf_id(), vnet_addr[1],
@@ -492,7 +492,7 @@ TEST_F(SgTest, Fwd_Sg_Change_1) {
 // Delete SG from interface
 TEST_F(SgTest, Sg_Delete_1) {
     TxTcpPacket(vnet[1]->id(), vnet_addr[1], vnet_addr[2],
-                10, 20);
+                10, 20, false);
     client->WaitForIdle();
 
     EXPECT_TRUE(ValidateAction(vnet[1]->vrf()->vrf_id(), vnet_addr[1],

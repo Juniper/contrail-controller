@@ -98,6 +98,8 @@ struct SandeshFlowData {
     34: FlowAclInfo out_mirror;
     35: list<agent.ActionStr> action_str;
     36: list<agent.ActionStr> sg_action_summary;
+    37: FlowAclInfo reverse_sg;
+    38: FlowAclInfo reverse_out_sg;
 }
 
 request sandesh FetchFlowRecord {
