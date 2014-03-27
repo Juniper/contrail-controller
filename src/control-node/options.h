@@ -42,8 +42,8 @@ private:
     template <typename ValueType>
     void GetOptValue(const boost::program_options::variables_map &var_map,
                      ValueType &var, std::string val);
-    void Process(int argc, char *argv[],
-            boost::program_options::options_description &cmdline_options);
+    bool Process(int argc, char *argv[],
+                 boost::program_options::options_description &cmdline_options);
     void Initialize(EventManager &evm,
                     boost::program_options::options_description &options);
 
