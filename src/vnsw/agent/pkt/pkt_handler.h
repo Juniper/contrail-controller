@@ -110,6 +110,7 @@ struct PktInfo {
     uint32_t            sport;
     uint32_t            dport;
 
+    bool                tcp_ack;
     TunnelInfo          tunnel;
 
     // Pointer to different headers in user packet

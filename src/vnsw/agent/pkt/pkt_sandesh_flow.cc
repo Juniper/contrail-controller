@@ -111,6 +111,14 @@ static void SetAclInfo(SandeshFlowData &data, FlowEntry *fe) {
                   fe->match_p().m_out_sg_acl_l);
     data.set_out_sg(policy);
 
+    SetOneAclInfo(&policy, fe->match_p().reverse_sg_action,
+                  fe->match_p().m_reverse_sg_acl_l);
+    data.set_reverse_sg(policy);
+
+    SetOneAclInfo(&policy, fe->match_p().reverse_out_sg_action,
+                  fe->match_p().m_reverse_out_sg_acl_l);
+    data.set_reverse_out_sg(policy);
+
     FlowAction action_info;
     action_info.action = fe->match_p().sg_action_summary;
     std::vector<ActionStr> action_str_l;

@@ -186,6 +186,9 @@ struct MatchPolicy {
         m_acl_l(), policy_action(0), m_out_acl_l(), out_policy_action(0), 
         m_out_sg_acl_l(), out_sg_rule_present(false), out_sg_action(0), 
         m_sg_acl_l(), sg_rule_present(false), sg_action(0),
+        m_reverse_sg_acl_l(), reverse_sg_rule_present(false),
+        reverse_sg_action(0), m_reverse_out_sg_acl_l(),
+        reverse_out_sg_rule_present(false), reverse_out_sg_action(0),
         m_mirror_acl_l(), mirror_action(0), m_out_mirror_acl_l(),
         out_mirror_action(0), sg_action_summary(0), action_info() {
     }
@@ -205,6 +208,14 @@ struct MatchPolicy {
     MatchAclParamsList m_sg_acl_l;
     bool sg_rule_present;
     uint32_t sg_action;
+
+    MatchAclParamsList m_reverse_sg_acl_l;
+    bool reverse_sg_rule_present;
+    uint32_t reverse_sg_action;
+
+    MatchAclParamsList m_reverse_out_sg_acl_l;
+    bool reverse_out_sg_rule_present;
+    uint32_t reverse_out_sg_action;
 
     MatchAclParamsList m_mirror_acl_l;
     uint32_t mirror_action;
@@ -275,6 +286,7 @@ class FlowEntry {
         Multicast       = 1 << 8,
         // a local port bind is done (used as as src port for linklocal nat)
         LinkLocalBindLocalSrcPort = 1 << 9,
+        TcpAckFlow      = 1 << 10
     };
     FlowEntry(const FlowKey &k);
     virtual ~FlowEntry() {
@@ -317,8 +329,12 @@ class FlowEntry {
     void SetMirrorVrfFromAction();
 
     void GetPolicy(const VnEntry *vn);
+    void GetNonLocalFlowSgList(const VmInterface *vm_port);
+    void GetLocalFlowSgList(const VmInterface *vm_port,
+                            const VmInterface *reverse_vm_port);
     void GetSgList(const Interface *intf);
     void SetPacketHeader(PacketHeader *hdr);
+    void SetOutPacketHeader(PacketHeader *hdr);
     void ComputeReflexiveAction();
     bool DoPolicy();
     uint32_t MatchAcl(const PacketHeader &hdr,
