@@ -242,8 +242,10 @@ static inline bool ValidateServerEndpoints(std::vector<std::string> list,
 
         unsigned long port = strtoul(tokens[1].c_str(), NULL, 0);
         if (errno || port > 0xffFF) {
-            out << "Invalid port : " << tokens[1] << " ";
-            out << strerror(errno) << std::endl;
+            out << "Invalid port : " << tokens[1];
+            if (errno) {
+                out << " " << strerror(errno) << std::endl;
+            }
             error_msg = out.str();
             return false;
         }
