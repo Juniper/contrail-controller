@@ -326,19 +326,19 @@ private:
         bool done = false;
         if (queue_.empty()) {
             done = true; 
+            OnExit(done);
             current_runner_ = NULL;         
             running_ = false;
-            OnExit(done);
             return done;
         } else if (!start_runner_.empty() && !start_runner_()) {
             done = true;
+            OnExit(done);
             current_runner_ = NULL;
             running_ = false;
-            OnExit(done);
             return done;
         }
-        running_ = true;
         OnExit(done);
+        running_ = true;
         return done;
     }
 
