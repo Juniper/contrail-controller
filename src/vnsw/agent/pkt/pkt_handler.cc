@@ -245,6 +245,7 @@ uint8_t *PktHandler::ParseIpPacket(PktInfo *pkt_info,
 
         pkt_info->dport = ntohs(pkt_info->transp.tcp->dest);
         pkt_info->sport = ntohs(pkt_info->transp.tcp->source);
+        pkt_info->tcp_ack = pkt_info->transp.tcp->ack;
         pkt_type = PktType::TCP;
         break;
     }
@@ -462,14 +463,14 @@ void PktHandler::PktStats::PktQThresholdExceeded(PktModuleName mod) {
 PktInfo::PktInfo(uint8_t *msg, std::size_t msg_size) : 
     pkt(msg), len(msg_size), data(), ipc(), type(PktType::INVALID),
     agent_hdr(), ether_type(-1), ip_saddr(), ip_daddr(), ip_proto(),
-    sport(), dport(), tunnel(), eth(), arp(), ip() {
+    sport(), dport(), tcp_ack(false), tunnel(), eth(), arp(), ip() {
     transp.tcp = 0;
 }
 
 PktInfo::PktInfo(InterTaskMsg *msg) :
     pkt(), len(), data(), ipc(msg), type(PktType::MESSAGE), agent_hdr(),
     ether_type(-1), ip_saddr(), ip_daddr(), ip_proto(), sport(), dport(),
-    tunnel(), eth(), arp(), ip() {
+    tcp_ack(false), tunnel(), eth(), arp(), ip() {
     transp.tcp = 0;
 }
 
