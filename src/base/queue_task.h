@@ -329,16 +329,15 @@ private:
             OnExit(done);
             current_runner_ = NULL;         
             running_ = false;
-            return done;
         } else if (!start_runner_.empty() && !start_runner_()) {
             done = true;
             OnExit(done);
             current_runner_ = NULL;
             running_ = false;
-            return done;
+        } else {
+            OnExit(done);
+            running_ = true;
         }
-        OnExit(done);
-        running_ = true;
         return done;
     }
 
