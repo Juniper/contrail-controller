@@ -34,7 +34,6 @@
 #include "generator.h"
 #include "syslog_collector.h"
 
-//#define SYSLOG_DEBUG 0
 /*** test for burst (compile <string> with  -lboost_date_time -lboost_thread and
  * no -fno-exceptions
 #include <boost/date_time/posix_time/posix_time.hpp>
@@ -393,65 +392,18 @@ class SyslogParser
         std::string EscapeXmlTags (std::string text)
         {
             std::ostringstream s;
-#ifdef SYSLOG_DEBUG
-            std::ostringstream ff, bb, ft;
-            int i = 0;
-
-            ft << "|" << text << "|\n";
-#endif
 
             for (std::string::const_iterator it = text.begin();
                                              it != text.end(); ++it) {
                 switch(*it) {
                     case '&':  s << "&amp;";  continue;
-                    //case '"':  s << "&quot;"; continue;
+                    case '"':  s << "&quot;"; continue;
                     case '\'': s << "&apos;"; continue;
                     case '<':  s << "&lt;";   continue;
                     case '>':  s << "&gt;";   continue;
-                    default:   if (!(0x80 & *it))
-                                    s << *it;
-                               else
-                                    s << "&#" << (int)((uint8_t)*it) << ";";
+                    default:   s << *it;
                 }
-#ifdef SYSLOG_DEBUG
-                if (!(i % 16)) {
-                    ft << std::endl << ff.str() + "    " + bb.str();
-                    ff.str("");
-                    bb.str("");
-                    ff << std::setfill('0') << std::setw(4) << std::hex << i << "  ";
-                    ff << std::setfill('0') << std::setw(2) << std::hex << (int) ((uint8_t) *it) << " ";
-                    if (isprint(*it)) {
-                        bb << *it;
-                    } else {
-                        bb << '.';
-                    }
-                } else {
-                    ff << std::setfill('0') << std::setw(2) << std::hex << (int) ((uint8_t) *it) << " ";
-                    if (!((i+1) % 8)) {
-                        ff << " ";
-                    }
-                    if (isprint(*it)) {
-                        bb << *it;
-                    } else {
-                        bb << '.';
-                    }
-                }
-                i++;
-#endif
             }
-#ifdef SYSLOG_DEBUG
-            int j, r = i % 16;
-            ft << std::endl << ff.str();
-            for (j = r; j < 16; j++)
-                ft << "   ";
-            if (r < 7)
-                ft << " ";
-            if (r < 15)
-                ft << " ";
-            ft << "    " + bb.str() + "\n[" + s.str() + "]";
-            LOG(ERROR, __func__ << ft.str());
-#endif
-
             return s.str();
         }
 
@@ -482,12 +434,9 @@ class SyslogParser
             hdr.set_Level(GetMapVal(v, "severity"));
             hdr.set_Category(GetFacility(v));
             hdr.set_IPAddress(ip);
+            hdr.set_Pid(GetPID(v));
 
-            int pid = GetPID(v);
-            if (pid >= 0)
-                hdr.set_Pid(pid);
-
-            std::string xmsg("<Syslog>" + GetMsgBody(v) + "</Syslog>");
+            std::string xmsg("<Syslog>" + GetMsgBody (v) + "</Syslog>");
             SandeshMessage *xmessage = syslog_->GetBuilder()->Create(
                 reinterpret_cast<const uint8_t *>(xmsg.c_str()), xmsg.size());
             SandeshSyslogMessage *smessage =
@@ -496,12 +445,13 @@ class SyslogParser
             VizMsg vmsg(smessage, umn_gen_());
             GetGenerator (ip)->ReceiveSandeshMsg (&vmsg, false);
             vmsg.msg = NULL;
-            delete smessage;
+            delete smessage; 
         }
 
         bool ClientParse (SyslogQueueEntry *sqe) {
           std::string ip = sqe->ip;
           const uint8_t *p = buffer_cast<const uint8_t *>(sqe->data);
+//#define SYSLOG_DEBUG 0
 #ifdef SYSLOG_DEBUG
           LOG(DEBUG, "cnt parser " << sqe->length << " bytes from (" <<
               ip << ":" << sqe->port << ")[");
