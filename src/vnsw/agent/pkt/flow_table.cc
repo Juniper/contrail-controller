@@ -379,6 +379,14 @@ void FlowEntry::SetMirrorVrfFromAction() {
     }
 }
 
+// Ingress-ACL/Egress-ACL in interface with VM as reference point.
+//      Ingress : Packet to VM
+//      Egress  : Packet from VM
+// The direction stored in flow is defined with vrouter as reference point
+//      Ingress : Packet to Vrouter from VM
+//      Egress  : Packet from Vrouter to VM
+// 
+// Function takes care of copying right rules
 static bool CopySgEntries(const VmInterface *vm_port, bool ingress_acl,
                           std::list<MatchAclParams> &list) {
     bool ret = false;
@@ -388,8 +396,10 @@ static bool CopySgEntries(const VmInterface *vm_port, bool ingress_acl,
         if (it->sg_->IsAclSet()) {
             ret = true;
         }
-        // packet flow ingress is same as VM egress
         MatchAclParams acl;
+        // As per definition above, 
+        //      get EgressACL if flow direction is Ingress
+        //      get IngressACL if flow direction is Egress
         if (ingress_acl) {
             acl.acl = it->sg_->GetEgressAcl();
         } else {
