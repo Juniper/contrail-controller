@@ -71,6 +71,11 @@ if sys.platform != 'darwin':
                                       'test_pkt_util.cc'])
     env.Alias('src/vnsw/agent/pkt/test:test_sg_flow', test_sg_flow)
 
+    test_sg_tcp_flow = env.Program(target = 'test_sg_tcp_flow', 
+                            source = ['test_sg_tcp_flow.cc',
+                                      'test_pkt_util.cc'])
+    env.Alias('src/vnsw/agent/pkt/test:test_sg_tcp_flow', test_sg_tcp_flow)
+
     pkt_flow_suite = [test_ecmp,
                       test_flowtable,
                       test_pkt,

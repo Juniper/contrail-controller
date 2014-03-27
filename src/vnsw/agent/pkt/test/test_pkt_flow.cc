@@ -283,8 +283,6 @@ public:
             CreateTapInterfaces("flow", MAX_VNET, fd_table);
             client->WaitForIdle();
         }
-        client->SetFlowFlushExclusionPolicy();
-        client->SetFlowAgeExclusionPolicy();
     }
 
     void CheckSandeshResponse(Sandesh *sandesh, int flows) {
@@ -1612,7 +1610,7 @@ TEST_F(FlowTest, FlowOnDeletedInterface) {
     DeleteVmportEnv(input, 1, false);
     client->WaitForIdle();
 
-    TxTcpPacket(intf->id(), "11.1.1.3", vm1_ip, 30, 40, 1,
+    TxTcpPacket(intf->id(), "11.1.1.3", vm1_ip, 30, 40, false, 1,
                VrfGet("vrf5")->vrf_id());
     client->WaitForIdle();
 
@@ -1636,7 +1634,7 @@ TEST_F(FlowTest, FlowOnDeletedVrf) {
     DelVrf("vrf5");
     client->WaitForIdle();
 
-    TxTcpPacket(intf->id(), "11.1.1.3", vm1_ip, 30, 40, 1, vrf_id);
+    TxTcpPacket(intf->id(), "11.1.1.3", vm1_ip, 30, 40, false, 1, vrf_id);
     client->WaitForIdle();
 
     //Flow find should fail as interface is delete marked

@@ -298,9 +298,6 @@ public:
 
         vif3 = VmInterfaceGet(tap3[0].intf_id);
         assert(vif3);
-
-        client->SetFlowAgeExclusionPolicy();
-        client->SetFlowFlushExclusionPolicy();
     }
 
     static void TestTearDown() {

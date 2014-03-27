@@ -80,7 +80,6 @@ int main(int argc, char *argv[]) {
 
     GETUSERARGS();
     client = TestInit(init_file, ksync_init, true, true, true, 100*1000);
-    client->SetFlowFlushExclusionPolicy();
     ret = RUN_ALL_TESTS();
     TestShutdown();
     delete client;
