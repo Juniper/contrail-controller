@@ -215,7 +215,18 @@ void FlowEntry::SetOutPacketHeader(PacketHeader *hdr) {
     hdr->dst_sg_id_l = &(rflow->data().source_sg_id_l);
 }
 
-// Apply Policy and SG rules for a flow. Rules applied are based on flow type
+// Apply Policy and SG rules for a flow.
+//
+// Special case of local flows:
+//     For local-flows, both VM are on same compute and we need to apply SG from
+//     both the ports. m_sg_acl_l will contain ACL for port in forward flow and
+//     m_out_sg_acl_l will have ACL from other port
+//
+//     If forward flow goes thru NAT, the key for matching ACL in 
+//     m_out_sg_acl_l can potentially change. The routine SetOutPacketHeader
+//     takes care of forming header after NAT
+//
+// Rules applied are based on flow type
 // Non-Local Forward Flow
 //      Network Policy. 
 //      Out-Network Policy will be empty
@@ -278,6 +289,8 @@ bool FlowEntry::DoPolicy() {
 
         PacketHeader out_hdr;
         if (ShouldDrop(data_.match_p.sg_action) == false && rflow) {
+            // Key fields for lookup in out-acl can potentially change in case 
+            // of NAT. Form ACL lookup based on post-NAT fields
             SetOutPacketHeader(&out_hdr);
             data_.match_p.out_sg_action =
                 MatchAcl(out_hdr, data_.match_p.m_out_sg_acl_l, true,
@@ -293,6 +306,8 @@ bool FlowEntry::DoPolicy() {
                 MatchAcl(hdr, data_.match_p.m_reverse_sg_acl_l, true,
                          !data_.match_p.reverse_sg_rule_present);
             if (ShouldDrop(data_.match_p.reverse_sg_action) == false) {
+                // Key fields for lookup in out-acl can potentially change in
+                // case of NAT. Form ACL lookup based on post-NAT fields
                 rflow->SetOutPacketHeader(&out_hdr);
                 data_.match_p.reverse_out_sg_action =
                     MatchAcl(out_hdr, data_.match_p.m_reverse_out_sg_acl_l, true,
