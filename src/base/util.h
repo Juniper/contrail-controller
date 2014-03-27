@@ -11,6 +11,7 @@
 #include <boost/asio/ip/tcp.hpp>
 #include <boost/date_time/posix_time/posix_time.hpp>
 #include <boost/date_time/posix_time/posix_time_types.hpp>
+#include <boost/foreach.hpp>
 #include <boost/function.hpp>
 #include <boost/uuid/uuid.hpp>
 #include <boost/uuid/uuid_io.hpp>
@@ -201,6 +202,58 @@ static inline boost::asio::ip::address_v4 GetIp4SubnetBroadcastAddress(
     return subnet;
 }
 
+// Validate IPv4/IPv6 address string.
+static inline bool ValidateIPAddressString(std::string ip_address_str,
+                                           std::string &error_msg) {
+    boost::system::error_code error;
+    boost::asio::ip::address::from_string(ip_address_str, error);
+    if (error) {
+        std::ostringstream out;
+        out << "Invalid IP address: " << ip_address_str << std::endl;
+        error_msg = out.str();
+        return false;
+    }
+
+    return true;
+}
+
+// Validate a list of <ip-address>:<port> endpoints.
+static inline bool ValidateServerEndpoints(std::vector<std::string> list,
+                                           std::string &error_msg) {
+    std::ostringstream out;
+
+    BOOST_FOREACH(std::string endpoint, list) {
+        std::vector<std::string> tokens;
+        boost::split(tokens, endpoint, boost::is_any_of(":"));
+        if (tokens.size() != 2) {
+            out << "Invalid endpoint " << endpoint << std::endl;
+            error_msg = out.str();
+            return false;
+        }
+
+        boost::system::error_code error;
+        boost::asio::ip::address::from_string(tokens[0], error);
+
+        if (error) {
+            out << "Invalid IP address: " << tokens[0] << std::endl;
+            error_msg = out.str();
+            return false;
+        }
+
+        unsigned long port = strtoul(tokens[1].c_str(), NULL, 0);
+        if (errno || port > 0xffFF) {
+            out << "Invalid port : " << tokens[1];
+            if (errno) {
+                out << " " << strerror(errno) << std::endl;
+            }
+            error_msg = out.str();
+            return false;
+        }
+    }
+
+    return true;
+}
+
 static inline std::string GetHostIp(boost::asio::io_service *io_service,
                                     std::string hostname) {
     boost::asio::ip::tcp::resolver::iterator iter;
@@ -338,4 +391,5 @@ static inline std::string GetVNFromRoutingInstance(const std::string &vn) {
     if (tokens.size() < 3) return "";
     return tokens[0] + ":" + tokens[1] + ":" + tokens[2];
 }
+
 #endif /* UTIL_H_ */
