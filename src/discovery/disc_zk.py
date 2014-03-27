@@ -121,7 +121,7 @@ class DiscoveryZkClient(object):
             self._election.run(self._zk_election_callback, func, *args, **kwargs)
     # end master_election
 
-    def create_node(self, path, value='', makepath=False, sequence=False):
+    def create_node(self, path, value='', makepath=True, sequence=False):
         value = str(value)
         try:
             self._zk.set(path, value)
