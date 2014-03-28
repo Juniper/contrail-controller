@@ -69,16 +69,31 @@ class DiscoveryZkClient(object):
         self._ds = discServer
     # end set_ds
 
-    # start or restart
-    def connect(self, restart = False):
+    # restart
+    def restart(self):
+        self._zk_sem.acquire()
+        self.syslog("restart: acquired lock; state %s " % self._zk.state)
+        # initiate restart if our state is suspended or lost
+        if self._zk.state != "CONNECTED":
+            self.syslog("restart: starting ...")
+            try:
+                self._zk.stop() 
+                self._zk.close() 
+                self._zk.start() 
+                self.syslog("restart: done")
+            except gevent.event.Timeout as e:
+                self.syslog("restart: timeout!")
+            except Exception as e:
+                self.syslog('restart: exception %s' % str(e))
+            except Exception as str:
+                self.syslog('restart: str exception %s' % str)
+        self._zk_sem.release()
+
+    # start 
+    def connect(self):
         while True:
             try:
-                if restart:
-                    self._zk.stop() 
-                    self._zk.close() 
-                    self._zk.start() 
-                else:
-                    self._zk.start()
+                self._zk.start()
                 break
             except gevent.event.Timeout as e:
                 self.syslog(
@@ -135,7 +150,7 @@ class DiscoveryZkClient(object):
             return self._zk.create(path, value, makepath=makepath, sequence=sequence)
         except (kazoo.exceptions.SessionExpiredError,
                 kazoo.exceptions.ConnectionLoss):
-            self.connect(restart = True)
+            self.restart()
             return self.create_node(path, value, makepath, sequence)
     # end create_node
 
@@ -144,7 +159,7 @@ class DiscoveryZkClient(object):
             return self._zk.get_children(path)
         except (kazoo.exceptions.SessionExpiredError,
                 kazoo.exceptions.ConnectionLoss):
-            self.connect(restart = True)
+            self.restart()
             return self.get_children(path)
         except Exception:
             return []
@@ -156,7 +171,7 @@ class DiscoveryZkClient(object):
             return data,stat
         except (kazoo.exceptions.SessionExpiredError,
                 kazoo.exceptions.ConnectionLoss):
-            self.connect(restart = True)
+            self.restart()
             return self.read_node(path)
         except kazoo.exceptions.NoNodeException:
             self.syslog('exc read: node %s does not exist' % path)
@@ -168,7 +183,7 @@ class DiscoveryZkClient(object):
             self._zk.delete(path, recursive=recursive)
         except (kazoo.exceptions.SessionExpiredError,
                 kazoo.exceptions.ConnectionLoss):
-            self.connect(restart = True)
+            self.restart()
             self.delete_node(path, recursive=recursive)
         except kazoo.exceptions.NoNodeException:
             self.syslog('exc delete: node %s does not exist' % path)
@@ -179,7 +194,7 @@ class DiscoveryZkClient(object):
             return self._zk.exists(path)
         except (kazoo.exceptions.SessionExpiredError,
                 kazoo.exceptions.ConnectionLoss):
-            self.connect(restart = True)
+            self.restart()
             return self.exists_node(path)
     # end exists_node
 
