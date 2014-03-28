@@ -139,9 +139,9 @@ trace sandesh PktErr {
 
 struct FlowInfo {
     1: u32 flow_index;
-    2: u32 source_ip;
+    2: string source_ip;
     3: u16 source_port;
-    4: u32 destination_ip;
+    4: string destination_ip;
     5: u16 destination_port;
     6: u16 protocol;
     7: u32 vrf;
@@ -149,8 +149,8 @@ struct FlowInfo {
     9: optional bool allow;
    10: optional bool mirror;
    11: optional bool nat;
-   12: optional u32 nat_source_ip;
-   13: optional u32 nat_destination_ip;
+   12: optional string nat_source_ip;
+   13: optional string nat_destination_ip;
    14: optional u16 nat_source_port;
    15: optional u16 nat_destination_port;
    16: optional u16 nat_protocol;
