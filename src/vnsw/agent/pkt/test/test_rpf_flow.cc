@@ -73,8 +73,6 @@ public:
             CreateTapInterfaces("flow", MAX_VNET, fd_table);
             client->WaitForIdle();
         }
-        client->SetFlowFlushExclusionPolicy();
-        client->SetFlowAgeExclusionPolicy();
     }
 
 protected:

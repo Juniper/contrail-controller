@@ -74,7 +74,8 @@ KSyncEntry *KSyncObject::Create(const KSyncEntry *key) {
         entry = CreateImpl(key);
     } else {
         // If entry is already present, it should be in TEMP state
-        if (entry->GetState() != KSyncEntry::TEMP) {
+        // or deleted state.
+        if (entry->GetState() != KSyncEntry::TEMP && !entry->IsDeleted()) {
             assert(0);
         }
     }

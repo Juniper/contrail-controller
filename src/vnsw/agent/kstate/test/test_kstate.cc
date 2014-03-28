@@ -67,7 +67,6 @@ public:
         Agent::GetInstance()->uve()->
             flow_stats_collector()->UpdateFlowAgeTime(1000000 * 60 * 10);
 
-        client->SetFlowFlushExclusionPolicy();
         VxLanNetworkIdentifierMode(false);
         client->WaitForIdle();
     }

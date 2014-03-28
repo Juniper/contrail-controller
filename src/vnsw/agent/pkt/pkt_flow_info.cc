@@ -811,6 +811,7 @@ void PktFlowInfo::Add(const PktInfo *pkt, PktControlInfo *in,
         rflow = Agent::GetInstance()->pkt()->flow_table()->Allocate(rkey);
     }
 
+    tcp_ack = pkt->tcp_ack;
     flow->InitFwdFlow(this, pkt, in, out);
     rflow->InitRevFlow(this, out, in);
 

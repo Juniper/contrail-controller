@@ -65,7 +65,7 @@ class DiscoveryZkClient(ZookeeperClient):
         return self._debug
     # end
 
-    def create_node(self, path, value='', makepath=False, sequence=False):
+    def create_node(self, path, value='', makepath=True, sequence=False):
         value = str(value)
         try:
             self._zk.set(path, value)

@@ -741,7 +741,7 @@ TEST_F(EcmpTest, ServiceVlanTest_3) {
     for (uint32_t i = 0; i < 100; i++) {
         uint32_t hash_id = rand() % 65535;
         TxTcpPacket(VmPortGetId(10), "10.1.1.1", "11.1.1.252", sport, dport, 
-                    hash_id);
+                    false, hash_id);
         client->WaitForIdle();
 
         FlowEntry *entry = FlowGet(VrfGet("vrf10")->vrf_id(),
@@ -800,7 +800,7 @@ TEST_F(EcmpTest, ServiceVlanTest_3) {
         uint32_t hash_id = rand() % 65535;
         TxTcpMplsPacket(eth_intf_id_, "10.11.11.1", router_id, 
                         vlan_label, "10.1.1.3", "11.1.1.252", 
-                        sport, dport, hash_id);
+                        sport, dport, false, hash_id);
         client->WaitForIdle();
 
         FlowEntry *entry = FlowGet(VrfGet("service-vrf1")->vrf_id(),
@@ -881,7 +881,7 @@ TEST_F(EcmpTest, ServiceVlanTest_4) {
     for (uint32_t i = 0; i < 100; i++) {
         uint32_t hash_id = rand() % 65535;
         TxTcpPacket(VmPortGetId(10), "10.1.1.1", "11.1.1.252", sport, dport, 
-                    hash_id);
+                    false, hash_id);
         client->WaitForIdle();
 
         FlowEntry *entry = FlowGet(VrfGet("vrf10")->vrf_id(),
@@ -925,7 +925,7 @@ TEST_F(EcmpTest, ServiceVlanTest_4) {
         uint32_t hash_id = rand() % 65535;
         TxTcpMplsPacket(eth_intf_id_, "10.11.11.1", router_id, 
                         label, "10.1.1.3", "11.1.1.252", 
-                        sport, dport, hash_id);
+                        sport, dport, false, hash_id);
         client->WaitForIdle();
 
         FlowEntry *entry = FlowGet(VrfGet("service-vrf1")->vrf_id(),
@@ -1029,7 +1029,7 @@ TEST_F(EcmpTest, ServiceVlanTest_5) {
     for (uint32_t i = 0; i < 100; i++) {
         uint32_t hash_id = rand() % 65535;
         TxTcpPacket(VmPortGetId(13), "10.1.1.1", "11.1.1.1", sport, dport, 
-                    hash_id, service_vrf_id);
+                    false, hash_id, service_vrf_id);
         client->WaitForIdle();
 
         FlowEntry *entry = FlowGet(service_vrf_id,
@@ -1062,7 +1062,7 @@ TEST_F(EcmpTest, ServiceVlanTest_5) {
     for (uint32_t i = 0; i < 100; i++) {
         uint32_t hash_id = rand() % 65535;
         TxTcpPacket(VmPortGetId(14), "10.1.1.1", "11.1.1.1", sport, dport, 
-                    hash_id, service_vrf_id);
+                    false, hash_id, service_vrf_id);
         client->WaitForIdle();
 
         FlowEntry *entry = FlowGet(service_vrf_id,
@@ -1163,7 +1163,7 @@ TEST_F(EcmpTest, ServiceVlanTest_6) {
     for (uint32_t i = 0; i < 100; i++) {
         uint32_t hash_id = rand() % 65535;
         TxTcpPacket(VmPortGetId(13), "10.1.1.1", "11.1.1.1", sport, dport, 
-                    hash_id, service_vrf_id);
+                    false, hash_id, service_vrf_id);
         client->WaitForIdle();
 
         FlowEntry *entry = FlowGet(service_vrf_id,
@@ -1196,7 +1196,7 @@ TEST_F(EcmpTest, ServiceVlanTest_6) {
     for (uint32_t i = 0; i < 100; i++) {
         uint32_t hash_id = rand() % 65535;
         TxTcpPacket(VmPortGetId(14), "10.1.1.1", "11.1.1.1", sport, dport, 
-                    hash_id, service_vrf_id);
+                    false, hash_id, service_vrf_id);
         client->WaitForIdle();
 
         FlowEntry *entry = FlowGet(service_vrf_id,
@@ -1232,7 +1232,7 @@ TEST_F(EcmpTest, ServiceVlanTest_6) {
         uint32_t hash_id = rand() % 65535;
         TxTcpMplsPacket(eth_intf_id_, "10.10.10.10", router_id, 
                         mpls_label, "11.1.1.1", "10.1.1.1", 
-                        sport, dport, hash_id);
+                        sport, dport, false, hash_id);
         client->WaitForIdle();
 
         FlowEntry *entry = FlowGet(service_vrf_id,
@@ -1262,7 +1262,7 @@ TEST_F(EcmpTest, ServiceVlanTest_6) {
         uint32_t hash_id = rand() % 65535;
         TxTcpMplsPacket(eth_intf_id_, "10.10.10.10", router_id, 
                         mpls_label, "11.1.1.3", "10.1.1.1", 
-                        sport, dport, hash_id);
+                        sport, dport, false, hash_id);
         client->WaitForIdle();
 
         FlowEntry *entry = FlowGet(service_vrf_id,
@@ -1291,7 +1291,7 @@ TEST_F(EcmpTest, ServiceVlanTest_6) {
         uint32_t hash_id = rand() % 65535;
         TxTcpMplsPacket(eth_intf_id_, "10.10.10.11", router_id, 
                         mpls_label, "11.1.1.3", "10.1.1.1", 
-                        sport, dport, hash_id);
+                        sport, dport, false, hash_id);
         client->WaitForIdle();
         FlowEntry *entry = FlowGet(service_vrf_id,
                 "11.1.1.3", "10.1.1.1", IPPROTO_TCP, sport, dport);
@@ -1384,7 +1384,7 @@ TEST_F(EcmpTest, ServiceVlanTest_7) {
     for (uint32_t i = 0; i < 100; i++) {
         uint32_t hash_id = rand() % 65535;
         TxTcpPacket(VmPortGetId(13), "10.1.1.1", "11.1.1.1", sport, dport, 
-                    hash_id, service_vrf_id);
+                    false, hash_id, service_vrf_id);
         client->WaitForIdle();
 
         FlowEntry *entry = FlowGet(service_vrf_id,
@@ -1472,7 +1472,7 @@ TEST_F(EcmpTest,ServiceVlanTest_8) {
     for (uint32_t i = 0; i < 100; i++) {
         uint32_t hash_id = rand() % 65535;
         TxTcpPacket(VmPortGetId(13), "10.1.1.1", "11.1.1.1", sport, dport, 
-                    hash_id, service_vrf_id);
+                    false, hash_id, service_vrf_id);
         client->WaitForIdle();
 
         FlowEntry *entry = FlowGet(service_vrf_id,

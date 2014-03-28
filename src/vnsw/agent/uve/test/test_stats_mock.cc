@@ -102,7 +102,6 @@ public:
         //To disable flow aging set the flow age time to high value
         Agent::GetInstance()->uve()->flow_stats_collector()->UpdateFlowAgeTime(1000000 * 60 * 10);
 
-        client->SetFlowFlushExclusionPolicy();
     }
 };
 

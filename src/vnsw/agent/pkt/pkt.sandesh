@@ -98,6 +98,8 @@ struct SandeshFlowData {
     34: FlowAclInfo out_mirror;
     35: list<agent.ActionStr> action_str;
     36: list<agent.ActionStr> sg_action_summary;
+    37: FlowAclInfo reverse_sg;
+    38: FlowAclInfo reverse_out_sg;
 }
 
 request sandesh FetchFlowRecord {
@@ -124,6 +126,9 @@ request sandesh NextFlowRecordsSet {
 request sandesh FetchAllFlowRecords {
 }
 
+request sandesh DeleteAllFlowRecords {
+}
+
 response sandesh FlowRecordsResp {
     1: list<SandeshFlowData> flow_list;
     2: string flow_key (link="NextFlowRecordsSet");
@@ -139,32 +144,34 @@ trace sandesh PktErr {
 
 struct FlowInfo {
     1: u32 flow_index;
-    2: optional string source_ip;
-    3: optional u16    source_port;
-    4: optional string destination_ip;
-    5: optional u16    destination_port;
-    6: optional u16    protocol;
-    7: optional u32    vrf;
-    8: optional string action;
-    9: optional string intf;
-   10: optional string nat_source_ip;
-   11: optional string nat_destination_ip;
-   12: optional u16 nat_source_port;
-   13: optional u16 nat_destination_port;
-   14: optional u16 nat_protocol;
-   15: optional u32 nat_vrf;
-   16: optional u16 nat_mirror_vrf;
-   17: list<MirrorInfo> mirror_l;
-   18: optional u16 mirror_vrf;
-   19: optional u32 reverse_index; 
-   20: optional string implicit_deny;
-   21: optional string short_flow;
-   22: optional u16 ecmp_index;
-   23: optional string trap; 
-   24: optional string source_vn;
-   25: optional string dest_vn;
-   26: optional list<u32> source_sg_id_l;
-   27: optional list<u32> dest_sg_id_l;
+    2: string source_ip;
+    3: u16 source_port;
+    4: string destination_ip;
+    5: u16 destination_port;
+    6: u16 protocol;
+    7: u32 vrf;
+    8: optional bool deny;
+    9: optional bool allow;
+   10: optional bool mirror;
+   11: optional bool nat;
+   12: optional string nat_source_ip;
+   13: optional string nat_destination_ip;
+   14: optional u16 nat_source_port;
+   15: optional u16 nat_destination_port;
+   16: optional u16 nat_protocol;
+   17: optional u32 nat_vrf;
+   18: optional u16 nat_mirror_vrf;
+   19: list<MirrorInfo> mirror_l;
+   20: optional u16 mirror_vrf;
+   21: optional u32 reverse_index;
+   22: bool implicit_deny;
+   23: bool short_flow;
+   24: optional u16 ecmp_index;
+   25: optional bool trap;
+   26: optional string source_vn;
+   27: optional string dest_vn;
+   28: optional list<u32> source_sg_id_l;
+   29: optional list<u32> dest_sg_id_l;
 }
 
 traceobject sandesh FlowTrace {
