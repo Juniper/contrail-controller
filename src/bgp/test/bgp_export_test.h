@@ -571,10 +571,16 @@ protected:
         EXPECT_TRUE(ainfo->bitset == adv_peerset);
     }
 
-    void DrainAndDeleteRouteState(BgpRoute *route) {
+    void VerifyAdvertiseCount(int count) {
+        EXPECT_EQ(count, ribout_.RouteAdvertiseCount(&rt_));
+    }
+
+    void DrainAndDeleteRouteState(BgpRoute *route, int advertise_count = 0) {
         SchedulerStart();
         task_util::WaitForIdle();
         RouteState *rstate = ExpectRouteState(route);
+        if (advertise_count)
+            VerifyAdvertiseCount(advertise_count);
         route->ClearState(&table_, ribout_.listener_id());
         delete rstate;
     }
@@ -583,6 +589,7 @@ protected:
         SchedulerStart();
         task_util::WaitForIdle();
         ExpectNullDBState(route);
+        VerifyAdvertiseCount(0);
     }
 
     EventManager evm_;

@@ -111,6 +111,14 @@ static void SetAclInfo(SandeshFlowData &data, FlowEntry *fe) {
                   fe->match_p().m_out_sg_acl_l);
     data.set_out_sg(policy);
 
+    SetOneAclInfo(&policy, fe->match_p().reverse_sg_action,
+                  fe->match_p().m_reverse_sg_acl_l);
+    data.set_reverse_sg(policy);
+
+    SetOneAclInfo(&policy, fe->match_p().reverse_out_sg_action,
+                  fe->match_p().m_reverse_out_sg_acl_l);
+    data.set_reverse_out_sg(policy);
+
     FlowAction action_info;
     action_info.action = fe->match_p().sg_action_summary;
     std::vector<ActionStr> action_str_l;
@@ -132,7 +140,7 @@ PktSandeshFlow::PktSandeshFlow(FlowRecordsResp *obj, std::string resp_ctx,
                                std::string key) :
     Task((TaskScheduler::GetInstance()->GetTaskId("Agent::PktFlowResponder")),
           0), resp_obj_(obj), resp_data_(resp_ctx), 
-    flow_iteration_key_(), key_valid_(false) {
+    flow_iteration_key_(), key_valid_(false), delete_op_(false) {
     if (key != Agent::GetInstance()->NullString()) {
         if (SetFlowKey(key)) {
             key_valid_ = true;
@@ -208,6 +216,12 @@ bool PktSandeshFlow::Run() {
     bool flow_key_set = false;
     FlowTable *flow_obj = Agent::GetInstance()->pkt()->flow_table();
 
+    if (delete_op_) {
+        flow_obj->DeleteAll();
+        SendResponse(resp_obj_);
+        return true;
+    }
+
     if (key_valid_) {
         it = flow_obj->flow_entry_map_.upper_bound(flow_iteration_key_);
     } else {
@@ -250,6 +264,16 @@ void FetchAllFlowRecords::HandleRequest() const {
     
     PktSandeshFlow *task = new PktSandeshFlow(resp, context(), 
                                               PktSandeshFlow::start_key);
+    TaskScheduler *scheduler = TaskScheduler::GetInstance();
+    scheduler->Enqueue(task);
+}
+
+void DeleteAllFlowRecords::HandleRequest() const {
+    FlowRecordsResp *resp = new FlowRecordsResp();
+
+    PktSandeshFlow *task = new PktSandeshFlow(resp, context(),
+                                              PktSandeshFlow::start_key);
+    task->set_delete_op(true);
     TaskScheduler *scheduler = TaskScheduler::GetInstance();
     scheduler->Enqueue(task);
 }

@@ -329,7 +329,7 @@ TEST_F(PktParseTest, IP_On_Vnet_1) {
                                   1, 2));
 
     pkt->Reset();
-    MakeTcpPacket(pkt, vnet1->id(), "1.1.1.1", "1.1.1.2", 1, 2, 3, -1);
+    MakeTcpPacket(pkt, vnet1->id(), "1.1.1.1", "1.1.1.2", 1, 2, false, 3, -1);
     TestPkt(&pkt_info, pkt);
     client->WaitForIdle();
     EXPECT_TRUE(ValidateIpPktInfo(&pkt_info, "1.1.1.1", "1.1.1.2", IPPROTO_TCP, 
@@ -354,7 +354,7 @@ TEST_F(PktParseTest, IP_On_Eth_1) {
     EXPECT_EQ(pkt_info.type, PktType::INVALID);
 
     pkt->Reset();
-    MakeTcpPacket(pkt, eth->id(), "1.1.1.1", "1.1.1.2", 1, 2, 3, -1);
+    MakeTcpPacket(pkt, eth->id(), "1.1.1.1", "1.1.1.2", 1, 2, false, 3, -1);
     TestPkt(&pkt_info, pkt);
     client->WaitForIdle();
     EXPECT_EQ(pkt_info.type, PktType::INVALID);
@@ -415,7 +415,8 @@ TEST_F(PktParseTest, GRE_On_Enet_1) {
 
     pkt->Reset();
     MakeTcpMplsPacket(pkt, eth->id(), "1.1.1.1", "10.1.1.1",
-                      vnet1->label(), "10.10.10.10", "11.11.11.11", 1, 2, 1);
+                      vnet1->label(), "10.10.10.10", "11.11.11.11", 1, 2, 
+                      false, 1);
     TestPkt(&pkt_info, pkt);
     client->WaitForIdle();
     EXPECT_TRUE(ValidateIpPktInfo(&pkt_info, "10.10.10.10", "11.11.11.11",

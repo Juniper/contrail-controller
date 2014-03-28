@@ -7,7 +7,7 @@ Service monitor to instantiate/scale/monitor services like firewall, LB, ...
 """
 
 import gevent
-from cfgm_common.discovery import DiscoveryService
+from cfgm_common.zkclient import ZookeeperClient
 from gevent import monkey
 monkey.patch_all()
 import sys
@@ -854,7 +854,8 @@ class SvcMonitor(object):
 
         self._nova[proj_name] = nc.Client(
             '2', username=self._args.admin_user, project_id=proj_name,
-            api_key=self._args.admin_password, service_type='compute',
+            api_key=self._args.admin_password,
+            region_name=self._args.region_name, service_type='compute',
             auth_url='http://' + self._args.auth_host + ':5000/v2.0')
         return self._nova[proj_name]
     # end _novaclient_get
@@ -1096,6 +1097,7 @@ def parse_args(args_str):
                          --log_level SYS_DEBUG
                          --log_category test
                          --log_file <stdout>
+                         [--region_name <name>]
                          [--reset_config]
     '''
 
@@ -1125,6 +1127,7 @@ def parse_args(args_str):
         'log_level': SandeshLevel.SYS_DEBUG,
         'log_category': '',
         'log_file': Sandesh._DEFAULT_LOG_FILE,
+        'region_name': None,
         }
     secopts = {
         'use_certs': False,
@@ -1211,11 +1214,15 @@ def parse_args(args_str):
                         help="Password of keystone admin user")
     parser.add_argument("--admin_tenant_name",
                         help="Tenant name for keystone admin user")
+    parser.add_argument("--region_name",
+                        help="Region name for openstack API")
     args = parser.parse_args(remaining_argv)
     if type(args.cassandra_server_list) is str:
         args.cassandra_server_list = args.cassandra_server_list.split()
     if type(args.collectors) is str:
         args.collectors = args.collectors.split()
+    if args.region_name and args.region_name.lower() == 'none':
+        args.region_name = None
     return args
 # end parse_args
 
@@ -1250,7 +1257,7 @@ def main(args_str=None):
         args_str = ' '.join(sys.argv[1:])
     args = parse_args(args_str)
 
-    _disc_service = DiscoveryService("svc-monitor", args.zk_server_ip)
+    _disc_service = ZookeeperClient("svc-monitor", args.zk_server_ip)
     _disc_service.master_election("/svc-monitor", os.getpid(),
                                   run_svc_monitor, args)
 # end main

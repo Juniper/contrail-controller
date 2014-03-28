@@ -35,8 +35,6 @@ public:
     }
 
     static void TestSetup() {
-        client->SetFlowFlushExclusionPolicy();
-        client->SetFlowAgeExclusionPolicy();
     }
     void FlowSetUp() {
         unsigned int vn_count = 0;

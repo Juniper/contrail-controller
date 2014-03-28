@@ -75,6 +75,34 @@ string VrfEntry::ToString() const {
     return "VRF";
 }
 
+void VrfEntry::PostAdd() {
+    // get_table() would return NULL in Add(), so move dependent functions and 
+    // initialization to PostAdd
+    deleter_.reset(new DeleteActor(this));
+    // Create the route-tables and insert them into dbtree_
+    Agent::RouteTableType type = Agent::INET4_UNICAST;
+    DB *db = get_table()->database();
+    rt_table_db_[type] = static_cast<AgentRouteTable *>
+        (db->CreateTable(name_ + AgentRouteTable::GetSuffix(type)));
+    rt_table_db_[type]->SetVrf(this);
+    ((VrfTable *)get_table())->dbtree_[type].insert(VrfTable::VrfDbPair(name_, 
+                                                        rt_table_db_[type]));
+
+    type = Agent::INET4_MULTICAST;
+    rt_table_db_[type] = static_cast<AgentRouteTable *>
+        (db->CreateTable(name_ + AgentRouteTable::GetSuffix(type)));
+    rt_table_db_[type]->SetVrf(this);
+    ((VrfTable *)get_table())->dbtree_[type].insert(VrfTable::VrfDbPair(name_, 
+                                                        rt_table_db_[type]));
+
+    type = Agent::LAYER2;
+    rt_table_db_[type] = static_cast<AgentRouteTable *>
+        (db->CreateTable(name_ + AgentRouteTable::GetSuffix(type)));
+    rt_table_db_[type]->SetVrf(this);
+    ((VrfTable *)get_table())->dbtree_[type].insert(VrfTable::VrfDbPair(name_, 
+                                                        rt_table_db_[type]));
+}
+
 DBEntryBase::KeyPtr VrfEntry::GetDBRequestKey() const {
     VrfKey *key = new VrfKey(name_);
     return DBEntryBase::KeyPtr(key);
@@ -317,9 +345,6 @@ void VrfEntry::CancelDeleteTimer() {
     delete_timeout_timer_->Cancel();
 }
 
-void VrfEntry::Init() {
-    deleter_.reset(new DeleteActor(this));
-}
 
 std::auto_ptr<DBEntry> VrfTable::AllocEntry(const DBRequestKey *k) const {
     const VrfKey *key = static_cast<const VrfKey *>(k);
@@ -331,8 +356,6 @@ DBEntry *VrfTable::Add(const DBRequest *req) {
     VrfKey *key = static_cast<VrfKey *>(req->key.get());
     //VrfData *data = static_cast<VrfData *>(req->data.get());
     VrfEntry *vrf = new VrfEntry(key->name_);
-    vrf->set_table(this);
-    vrf->Init();
 
     // Add VRF into name based tree
     if (FindVrfFromName(key->name_)) {
@@ -343,27 +366,8 @@ DBEntry *VrfTable::Add(const DBRequest *req) {
     vrf->id_ = index_table_.Insert(vrf);
     name_tree_.insert( VrfNamePair(key->name_, vrf));
 
-    // Create the route-tables and insert them into dbtree_
-    Agent::RouteTableType type = Agent::INET4_UNICAST;
-    DB *db = database();
-    vrf->rt_table_db_[type] = static_cast<AgentRouteTable *>
-        (db->CreateTable(key->name_ + AgentRouteTable::GetSuffix(type)));
-    vrf->rt_table_db_[type]->SetVrf(vrf);
-    dbtree_[type].insert(VrfDbPair(key->name_, vrf->rt_table_db_[type]));
-
-    type = Agent::INET4_MULTICAST;
-    vrf->rt_table_db_[type] = static_cast<AgentRouteTable *>
-        (db->CreateTable(key->name_ + AgentRouteTable::GetSuffix(type)));
-    vrf->rt_table_db_[type]->SetVrf(vrf);
-    dbtree_[type].insert(VrfDbPair(key->name_, vrf->rt_table_db_[type]));
-
-    type = Agent::LAYER2;
-    vrf->rt_table_db_[type] = static_cast<AgentRouteTable *>
-        (db->CreateTable(key->name_ + AgentRouteTable::GetSuffix(type)));
-    vrf->rt_table_db_[type]->SetVrf(vrf);
-    dbtree_[type].insert(VrfDbPair(key->name_, vrf->rt_table_db_[type]));
-
     vrf->SendObjectLog(AgentLogEvent::ADD);
+
     return vrf;
 }
 

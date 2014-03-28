@@ -10,7 +10,7 @@ configuration model/schema to a representation needed by VNC Control Plane
 
 import gevent
 # Import kazoo.client before monkey patching
-from cfgm_common.discovery import DiscoveryService,IndexAllocator
+from cfgm_common.zkclient import ZookeeperClient,IndexAllocator
 from gevent import monkey
 monkey.patch_all()
 import sys
@@ -234,7 +234,13 @@ class VirtualNetworkST(DictST):
             props = vn.obj.get_virtual_network_properties()
             if props and props.network_id:
                 cls._vn_id_allocator.delete(props.network_id - 1)
+            analyzer_vn_set = set()
+            for policy in NetworkPolicyST.values():
+                if name in policy.analyzer_vn_set:
+                    analyzer_vn_set |= policy.network_back_ref
+                    policy.analyzer_vn_set.discard(name)
             del cls._dict[name]
+            return analyzer_vn_set
     # end delete
 
     @classmethod
@@ -1110,25 +1116,11 @@ class SecurityGroupST(DictST):
         ingress_acl_entries = AclEntriesType()
         egress_acl_entries = AclEntriesType()
 
-        # Create implicit rules
-        if self.obj.name == 'default':
-            local = [AddressType(security_group='local')]
-            sg = [AddressType(security_group=self.name)]
-            prules = [PolicyRuleType(direction='>', protocol='any',
-                                    src_addresses=sg,
-                                    src_ports=[PortType(0, 65535)],
-                                    dst_addresses=local,
-                                    dst_ports=[PortType(0, 65535)]),
-                      PolicyRuleType(direction='>', protocol='any',
-                                    src_addresses=local,
-                                    src_ports=[PortType(0, 65535)],
-                                    dst_addresses=sg,
-                                    dst_ports=[PortType(0, 65535)])]
+        if policy_rule_entries:
+            prules = policy_rule_entries.get_policy_rule() or []
         else:
             prules = []
 
-        if policy_rule_entries:
-            prules += policy_rule_entries.get_policy_rule() or []
         for prule in prules:
             (ingress_list, egress_list) = self.policy_to_acl_rule(prule)
             ingress_acl_entries.acl_rule.extend(ingress_list)
@@ -2101,7 +2093,10 @@ class VirtualMachineInterfaceST(DictST):
             except NoIdError:
                 _sandesh._logger.debug("NoIdError while updating interface " +
                                        self.name)
-                return
+
+        for lr in LogicalRouterST.values():
+            if self.name in lr.interfaces:
+                lr.add_interface(self.name)
     #end set_virtual_network
     
     def process_analyzer(self):
@@ -2183,20 +2178,68 @@ class LogicalRouterST(DictST):
 
     def __init__(self, name):
         self.name = name
+        self.interfaces = set()
         self.virtual_networks = set()
+        obj = _vnc_lib.logical_router_read(fq_name_str=name)
+        rt_ref = obj.get_route_target_refs()
+        if not rt_ref:
+            rtgt_num = VirtualNetworkST._rt_allocator.alloc(name)
+            rt_key = "target:%s:%d" % (VirtualNetworkST.get_autonomous_system(),
+                                       rtgt_num)
+            rtgt_obj = RouteTargetST.locate(rt_key)
+            obj.set_route_target(rtgt_obj)
+            _vnc_lib.logical_router_update(obj)
+        else:
+            rt_key = rt_ref[0]['to'][0]
+
+        self.route_target = rt_key
     # end __init__
 
     @classmethod
     def delete(cls, name):
         if name in cls._dict:
+            lr = cls._dict[name]
+            rtgt_num = int(lr.route_target.split(':')[-1])
+            VirtualNetworkST._rt_allocator.delete(rtgt_num)
+            _vnc_lib.route_target_delete(fq_name=[lr.route_target])
+            for interface in lr.interfaces:
+                lr.delete_interface(interface)
             del cls._dict[name]
     # end delete
 
-    def add_virtual_network(self, vn_name):
-        self.virtual_networks.add(vn_name)
+    def add_interface(self, intf_name):
+        self.interfaces.add(intf_name)
+        vmi_obj = VirtualMachineInterfaceST.get(intf_name)
+        if vmi_obj is not None:
+            vn_set = self.virtual_networks | {vmi_obj.virtual_network}
+            self.set_virtual_networks(vn_set)
+    # end add_interface
 
-    def delete_virtual_network(self, vn_name):
-        self.virtual_networks.discard(vn_name)
+    def delete_interface(self, intf_name):
+        self.interfaces.discard(intf_name)
+
+        vn_set = set()
+        for vmi in self.interfaces:
+            vmi_obj = VirtualMachineInterfaceST.get(vmi)
+            if vmi_obj is not None:
+                vn_set.add(vmi_obj.virtual_network)
+        self.set_virtual_networks(vn_set)
+    # end delete_interface
+
+    def set_virtual_networks(self, vn_set):
+        for vn in self.virtual_networks - vn_set:
+            vn_obj = VirtualNetworkST.get(vn)
+            if vn_obj is not None:
+                ri_obj = vn_obj.get_primary_routing_instance()
+                ri_obj.update_route_target_list(rt_add=set(),
+                                                rt_del=[self.route_target])
+        for vn in vn_set - self.virtual_networks:
+            vn_obj = VirtualNetworkST.get(vn)
+            if vn_obj is not None:
+                ri_obj = vn_obj.get_primary_routing_instance()
+                ri_obj.update_route_target_list(rt_add=[self.route_target])
+        self.virtual_networks = vn_set
+    # end set_virtual_networks
 # end LogicaliRouterST
 
 
@@ -2286,7 +2329,7 @@ class SchemaTransformer(object):
 
     def delete_project_virtual_network(self, idents, meta):
         network_name = idents['virtual-network']
-        VirtualNetworkST.delete(network_name)
+        self.current_network_set |= VirtualNetworkST.delete(network_name)
         self.current_network_set.discard(network_name)
     # end delete_project_virtual_network
 
@@ -2643,32 +2686,27 @@ class SchemaTransformer(object):
             self.current_network_set |= route_table.network_back_refs
     # end delete_routes
 
-    def add_virtual_network_logical_router(self, idents, meta):
-        vn_name = idents['virtual-network']
+    def add_logical_router_interface(self, idents, meta):
         lr_name = idents['logical-router']
+        vmi_name = idents['virtual-machine-interface']
 
         lr_obj = LogicalRouterST.locate(lr_name)
-        lr_obj.add_virtual_network(vn_name)
-        self.current_network_set |= lr_obj.virtual_networks
-    # end add_virtual_network_logical_router
+        lr_obj.add_interface(vmi_name)
+    # end add_logical_router_interface
 
-    def delete_virtual_network_logical_router(self, idents, meta):
-        vn_name = idents['virtual-network']
+    def delete_logical_router_interface(self, idents, meta):
         lr_name = idents['logical-router']
+        vmi_name = idents['virtual-machine-interface']
 
         lr_obj = LogicalRouterST.get(lr_name)
-        if lr_obj is None:
-            return
-        self.current_network_set |= lr_obj.virtual_networks
-        lr_obj.delete_virtual_network(vn_name)
-    # end add_virtual_network_logical_router
+        if lr_obj is not None:
+            lr_obj.delete_interface(vmi_name)
+
+        VirtualMachineInterfaceST.delete(vmi_name)
+    # end delete_logical_router_interface
 
     def delete_project_logical_router(self, idents, meta):
         lr_name = idents['logical-router']
-        lr_obj = LogicalRouterST.get(lr_name)
-        if lr_obj is None:
-            return
-        self.current_network_set |= lr_obj.virtual_networks
         LogicalRouterST.delete(lr_name)
     # end delete_project_logical_router
 
@@ -3196,7 +3234,7 @@ def main(args_str=None):
     if not args_str:
         args_str = ' '.join(sys.argv[1:])
     args = parse_args(args_str)
-    _disc_service = DiscoveryService("schema", args.zk_server_ip)
+    _disc_service = ZookeeperClient("schema", args.zk_server_ip)
     _disc_service.master_election("/schema-transformer", os.getpid(),
                                   run_schema_transformer, args)
 # end main

@@ -66,8 +66,6 @@ private:
 class UveVrouterUveTest : public ::testing::Test {
 public:
     static void TestSetup() {
-        client->SetFlowFlushExclusionPolicy();
-        client->SetFlowAgeExclusionPolicy();
     }
     void FlowSetUp() {
         EXPECT_EQ(0U, Agent::GetInstance()->pkt()->flow_table()->Size());

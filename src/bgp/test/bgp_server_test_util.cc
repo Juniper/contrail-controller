@@ -23,6 +23,7 @@
 #include "bgp/state_machine.h"
 #include "bgp/routing-instance/peer_manager.h"
 #include "bgp/routing-instance/routing_instance.h"
+#include "bgp/routing-instance/rtarget_group_mgr.h"
 #include "ifmap/ifmap_link_table.h"
 #include "ifmap/ifmap_table.h"
 #include "testing/gunit.h"
@@ -45,6 +46,7 @@ BgpServerTest::BgpServerTest(EventManager *evm, const string &localname,
     BgpServer(evm), config_db_(config_db), config_graph_(config_graph) {
     cleanup_config_ = false;
     config_mgr_->Initialize(config_db_.get(), config_graph_.get(), localname);
+    rtarget_group_mgr_->Initialize();
     GetIsPeerCloseGraceful_fnc_ =
         boost::bind(&BgpServerTest::BgpServerIsPeerCloseGraceful, this);
 }
@@ -59,6 +61,7 @@ BgpServerTest::BgpServerTest(EventManager *evm, const string &localname)
     vnc_cfg_Server_ModuleInit(config_db_.get(), config_graph_.get());
     bgp_schema_Server_ModuleInit(config_db_.get(), config_graph_.get());
     config_mgr_->Initialize(config_db_.get(), config_graph_.get(), localname);
+    rtarget_group_mgr_->Initialize();
     GetIsPeerCloseGraceful_fnc_ =
         boost::bind(&BgpServerTest::BgpServerIsPeerCloseGraceful, this);
 }

@@ -6,6 +6,7 @@
 
 #include "testing/gunit.h"
 #include <boost/bind.hpp>
+#include "base/logging.h"
 #include "base/queue_task.h"
 #include "base/test/task_test_util.h"
 
@@ -45,6 +46,8 @@ public:
                     boost::bind(&QueueTaskTest::Dequeue, this, _1)),
         dequeues_(0),
         wm_cb_count_(0) {
+        exit_callback_running_ = false;
+        exit_callback_counter_ = 0;
     }
 
     virtual void SetUp() {
@@ -87,11 +90,24 @@ public:
        }
        return true;
     }
+    void ExitCallbackSleep1Sec(bool done) {
+        exit_callback_counter_++;
+        EXPECT_FALSE(exit_callback_running_);
+        exit_callback_running_ = true;
+        int count = 0;
+        while (count++ < 10) {
+            usleep(100000);
+            EXPECT_TRUE(exit_callback_running_);
+        }
+        exit_callback_running_ = false;
+    }
 
     int wq_task_id_;
     WorkQueue<int> work_queue_;
     size_t dequeues_;
     size_t wm_cb_count_;
+    tbb::atomic<int> exit_callback_counter_;
+    tbb::atomic<bool> exit_callback_running_;
 };
 
 TEST_F(QueueTaskTest, StartRunnerBasic) {
@@ -270,6 +286,25 @@ TEST_F(QueueTaskTest, WaterMarkTest) {
     task_util::WaitForIdle(1);
     EXPECT_EQ(0, work_queue_.Length());
     EXPECT_EQ(2, wm_cb_count_);
+}
+
+TEST_F(QueueTaskTest, OnExitParallelTest) {
+    // Set exit callback 
+    work_queue_.SetExitCallback(
+        boost::bind(&QueueTaskTest::ExitCallbackSleep1Sec, this, _1));
+    // Set max iterations to 1 and then enqueue more than 1 entries to simulate
+    // multiple dequeue task potentially trying to run in parallel.
+    SetWorkQueueMaxIterations(1);
+    int enqueue_counter = 0;
+    work_queue_.Enqueue(enqueue_counter++);
+    // Ensure that exit callback is running
+    TASK_UTIL_EXPECT_EQ(exit_callback_counter_, 1);
+    TASK_UTIL_EXPECT_TRUE(exit_callback_running_);
+    // Now enqueue more entry
+    work_queue_.Enqueue(enqueue_counter++);
+    // Wait till the exit callback is finished
+    TASK_UTIL_EXPECT_EQ(exit_callback_counter_, 2);
+    TASK_UTIL_EXPECT_FALSE(exit_callback_running_);
 }
 
 int main(int argc, char *argv[]) {

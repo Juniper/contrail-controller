@@ -347,6 +347,98 @@ TEST_F(OptionsTest, CustomConfigFileAndOverrideFromCommandLine) {
     EXPECT_EQ(options_.test_mode(), true);
 }
 
+TEST_F(OptionsTest, CustomConfigFileWithInvalidHostIp) {
+    string config = ""
+        "[DEFAULT]\n"
+        "bgp_config_file=test.xml\n"
+        "hostip=1000.200.1.1\n" // Invalid ip address string
+        ;
+
+    ofstream config_file;
+    config_file.open("/tmp/options_test_config_file.conf");
+    config_file << config;
+    config_file.close();
+
+    int argc = 2;
+    char *argv[argc];
+    char argv_0[] = "options_test";
+    char argv_1[] = "--conf_file=/tmp/options_test_config_file.conf";
+    argv[0] = argv_0;
+    argv[1] = argv_1;
+
+    EXPECT_FALSE(options_.Parse(evm_, argc, argv));
+}
+
+TEST_F(OptionsTest, CustomConfigFileWithInvalidHostIpFromCommandLine) {
+    string config = ""
+        "[DEFAULT]\n"
+        "bgp_config_file=test.xml\n"
+        "hostip=1.200.1.1\n"
+        ;
+
+    ofstream config_file;
+    config_file.open("/tmp/options_test_config_file.conf");
+    config_file << config;
+    config_file.close();
+
+    int argc = 2;
+    char *argv[argc];
+    char argv_0[] = "options_test";
+    char argv_1[] = "--DEFAULT.hostip=--invalid-value";
+    argv[0] = argv_0;
+    argv[1] = argv_1;
+
+    EXPECT_FALSE(options_.Parse(evm_, argc, argv));
+}
+
+TEST_F(OptionsTest, CustomConfigFileWithInvalidCollectors) {
+    string config = ""
+        "[DEFAULT]\n"
+        "bgp_config_file=test.xml\n"
+        "collectors=foo:2000\n"
+        "collectors=300.10.10.1:100\n"
+        "collectors=30.30.30.3:300\n"
+        ;
+
+    ofstream config_file;
+    config_file.open("/tmp/options_test_config_file.conf");
+    config_file << config;
+    config_file.close();
+
+    int argc = 2;
+    char *argv[argc];
+    char argv_0[] = "options_test";
+    char argv_1[] = "--conf_file=/tmp/options_test_config_file.conf";
+    argv[0] = argv_0;
+    argv[1] = argv_1;
+
+    EXPECT_FALSE(options_.Parse(evm_, argc, argv));
+}
+
+TEST_F(OptionsTest, CustomConfigFileWithInvalidCollectorsFromCommandLine) {
+    string config = ""
+        "[DEFAULT]\n"
+        "bgp_config_file=test.xml\n"
+        "collectors=10.10.10.1:100\n"
+        "collectors=20.20.20.2:200\n"
+        "collectors=30.30.30.3:300\n"
+        ;
+
+    ofstream config_file;
+    config_file.open("/tmp/options_test_config_file.conf");
+    config_file << config;
+    config_file.close();
+
+    int argc = 2;
+    char *argv[argc];
+    char argv_0[] = "options_test";
+    char argv_1[] = "--DEFAULT.collectors=--invalid-value";
+    argv[0] = argv_0;
+    argv[1] = argv_1;
+
+    EXPECT_FALSE(options_.Parse(evm_, argc, argv));
+}
+
 int main(int argc, char **argv) {
     ::testing::InitGoogleTest(&argc, argv);
     int result = RUN_ALL_TESTS();

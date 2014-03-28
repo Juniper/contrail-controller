@@ -25,6 +25,7 @@ void ControlNode::SetDefaultSchedulingPolicy() {
     TaskPolicy exclude_all;
     const char *task_ids[] = {
         "bgp::Config",
+        "bgp::RTFilter",
         "bgp::SendTask",
         "bgp::ServiceChain",
         "bgp::StateMachine",
@@ -93,5 +94,15 @@ void ControlNode::SetDefaultSchedulingPolicy() {
         (TaskExclusion(scheduler->GetTaskId("bgp::SendTask")))
         (TaskExclusion(scheduler->GetTaskId("bgp::PeerMembership")));
     scheduler->SetPolicy(scheduler->GetTaskId("bgp::SendReadyTask"), exclude_send_ready);
+
+    TaskPolicy rtfilter_task_policy =
+        boost::assign::list_of
+        (TaskExclusion(scheduler->GetTaskId("db::DBTable")))
+        (TaskExclusion(scheduler->GetTaskId("bgp::StateMachine")))
+        (TaskExclusion(scheduler->GetTaskId("bgp::RTFilter")))
+        (TaskExclusion(scheduler->GetTaskId("bgp::Config")));
+
+    scheduler->SetPolicy(scheduler->GetTaskId("bgp::RTFilter"),
+                            rtfilter_task_policy);
 }
 

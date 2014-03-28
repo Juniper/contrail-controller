@@ -27,8 +27,7 @@ bool Options::Parse(EventManager &evm, int argc, char *argv[]) {
     Initialize(evm, cmdline_options);
 
     try {
-        Process(argc, argv, cmdline_options);
-        return true;
+        return Process(argc, argv, cmdline_options);
     } catch (boost::program_options::error &e) {
         cout << "Error " << e.what() << endl;
     } catch (...) {
@@ -145,7 +144,7 @@ void Options::GetOptValue(const boost::program_options::variables_map &var_map,
 
 // Process command line options. They can come from a conf file as well. Options
 // from command line always overrides those that come from the config file.
-void Options::Process(int argc, char *argv[],
+bool Options::Process(int argc, char *argv[],
         opt::options_description &cmdline_options) {
     // Process options off command line first.
     opt::variables_map var_map;
@@ -165,14 +164,14 @@ void Options::Process(int argc, char *argv[],
 
     if (var_map.count("help")) {
         cout << cmdline_options << endl;
-        exit(0);
+        return false;
     }
 
     if (var_map.count("version")) {
         string build_info;
         cout << MiscUtils::GetBuildInfo(MiscUtils::ControlNode, BuildInfo,
                                         build_info) << endl;
-        exit(0);
+        return false;
     }
 
     // Retrieve the options.
@@ -180,6 +179,12 @@ void Options::Process(int argc, char *argv[],
     GetOptValue<uint16_t>(var_map, bgp_port_, "DEFAULT.bgp_port");
     GetOptValue< vector<string> >(var_map, collector_server_list_,
                                   "DEFAULT.collectors");
+    string error_msg;
+    if (!ValidateServerEndpoints(collector_server_list_, error_msg)) {
+        cout << "Invalid endpoint : " << error_msg;
+        return false;
+    }
+
     collectors_configured_ = true;
     if (collector_server_list_.size() == 1 &&
         !collector_server_list_[0].compare(default_collector_server_list_[0])) {
@@ -187,6 +192,11 @@ void Options::Process(int argc, char *argv[],
     }
 
     GetOptValue<string>(var_map, host_ip_, "DEFAULT.hostip");
+    if (!ValidateIPAddressString(host_ip_, error_msg)) {
+        cout << "Invalid IP address: " << host_ip_ << error_msg;
+        return false;
+    }
+
     GetOptValue<string>(var_map, hostname_, "DEFAULT.hostname");
 
     GetOptValue<uint16_t>(var_map, http_server_port_,
@@ -207,4 +217,6 @@ void Options::Process(int argc, char *argv[],
     GetOptValue<string>(var_map, ifmap_server_url_, "IFMAP.server_url");
     GetOptValue<string>(var_map, ifmap_user_, "IFMAP.user");
     GetOptValue<string>(var_map, ifmap_certs_store_, "IFMAP.certs_store");
+
+    return true;
 }

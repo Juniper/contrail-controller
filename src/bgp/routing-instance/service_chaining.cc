@@ -642,13 +642,13 @@ ServiceChainMgr::ServiceChainMgr(BgpServer *server) : server_(server),
         new WorkQueue<ServiceChainRequest *>(service_chain_task_id_, 0, 
                      boost::bind(&ServiceChainMgr::RequestHandler, this, _1));
 
-    id_ = server->routing_instance_mgr()->RegisterCreateCallback(
-        boost::bind(&ServiceChainMgr::RoutingInstanceCreateCallback, this, _1));
+    id_ = server->routing_instance_mgr()->RegisterInstanceOpCallback(
+        boost::bind(&ServiceChainMgr::RoutingInstanceCallback, this, _1, _2));
 }
 
 ServiceChainMgr::~ServiceChainMgr() {
     delete process_queue_;
-    server()->routing_instance_mgr()->UnregisterCreateCallback(id_);
+    server()->routing_instance_mgr()->UnregisterInstanceOpCallback(id_);
 }
 
 void ServiceChainMgr::Enqueue(ServiceChainRequest *req) { 
@@ -758,8 +758,8 @@ bool ServiceChainMgr::ResolvePendingServiceChain() {
     return true;
 }
 
-void ServiceChainMgr::RoutingInstanceCreateCallback(std::string name) {
-    StartResolve();
+void ServiceChainMgr::RoutingInstanceCallback(std::string name, int op) {
+    if (op == RoutingInstanceMgr::INSTANCE_ADD) StartResolve();
 }
 
 void ServiceChainMgr::StartResolve() {

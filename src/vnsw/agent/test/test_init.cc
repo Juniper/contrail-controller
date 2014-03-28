@@ -79,6 +79,8 @@ TestClient *TestInit(const char *init_file, bool ksync_init, bool pkt_init,
 
     client->Init();
     client->WaitForIdle();
+    client->SetFlowFlushExclusionPolicy();
+    client->SetFlowAgeExclusionPolicy();
 
     if (asio) {
         AsioRun();

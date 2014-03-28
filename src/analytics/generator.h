@@ -129,8 +129,10 @@ private:
     void TimerErrorHandler(std::string name, std::string error);
 
     bool DbConnectTimerExpired();
+    void Create_Db_Connect_Timer();
     void Start_Db_Connect_Timer();
     void Stop_Db_Connect_Timer();
+    void Delete_Db_Connect_Timer();
     void Db_Connection_Uninit();
     bool Db_Connection_Init();
 

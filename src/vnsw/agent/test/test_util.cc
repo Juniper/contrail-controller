@@ -2378,7 +2378,7 @@ PktGen *TxTcpPacketUtil(int ifindex, const char *sip, const char *dip,
     pkt->AddAgentHdr(ifindex, AGENT_TRAP_FLOW_MISS, hash_idx);
     pkt->AddEthHdr("00:00:00:00:00:01", "00:00:00:00:00:02", 0x800);
     pkt->AddIpHdr(sip, dip, IPPROTO_TCP);
-    pkt->AddTcpHdr(sport, dport, 64);
+    pkt->AddTcpHdr(sport, dport, false, false, false, 64);
 
     uint8_t *ptr(new uint8_t[pkt->GetBuffLen()]);
     memcpy(ptr, pkt->GetBuff(), pkt->GetBuffLen());
@@ -2468,7 +2468,7 @@ PktGen *TxMplsTcpPacketUtil(int ifindex, const char *out_sip,
     pkt->AddGreHdr();
     pkt->AddMplsHdr(label, true);
     pkt->AddIpHdr(sip, dip, IPPROTO_TCP);
-    pkt->AddTcpHdr(sport, dport, 64);
+    pkt->AddTcpHdr(sport, dport, false, false, false, 64);
 
     uint8_t *ptr(new uint8_t[pkt->GetBuffLen()]);
     memcpy(ptr, pkt->GetBuff(), pkt->GetBuffLen());

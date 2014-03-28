@@ -30,6 +30,7 @@
 #include "bgp/l3vpn/inetvpn_table.h"
 #include "bgp/routing-instance/peer_manager.h"
 #include "bgp/routing-instance/routing_instance.h"
+#include "bgp/rtarget/rtarget_table.h"
 #include "io/event_manager.h"
 #include "net/address.h"
 #include "net/bgp_af.h"
@@ -235,17 +236,41 @@ class BgpPeer::DeleteActor : public LifetimeActor {
     BgpPeer *peer_;
 };
 
-void BgpPeer::MembershipRequestCallback(IPeer *ipeer, BgpTable *table) {
+void BgpPeer::SendEndOfRIB(Address::Family family) {
+    tbb::spin_mutex::scoped_lock lock(spin_mutex_);
+
+    // Bail if there's no session for the peer anymore.
+    if (!session_)
+        return;
+
+    BgpProto::Update update;
+    uint16_t afi;
+    uint8_t safi;
+    BgpAf::FamilyToAfiSafi(family, afi, safi);
+    BgpMpNlri *nlri = new BgpMpNlri(BgpAttribute::MPUnreachNlri, afi, safi);
+    update.path_attributes.push_back(nlri);
+    uint8_t data[256];
+    int result = BgpProto::Encode(&update, data, sizeof(data));
+    assert(result > BgpProto::kMinMessageSize);
+    session_->Send(data, result, NULL);
+}
+
+void BgpPeer::MembershipRequestCallback(IPeer *ipeer, BgpTable *table, 
+                                        bool established) {
     assert(membership_req_pending_);
     membership_req_pending_--;
     if (!membership_req_pending_ && defer_close_) {
         defer_close_ = false;
         trigger_.Set();
-    } else {
-        BgpPeerInfoData peer_info;
-        peer_info.set_name(ToUVEKey());
-        peer_info.set_send_state("in sync");
-        BGPPeerInfo::Send(peer_info);
+        return;
+    }
+    BgpPeerInfoData peer_info;
+    peer_info.set_name(ToUVEKey());
+    peer_info.set_send_state("in sync");
+    BGPPeerInfo::Send(peer_info);
+    if (established) {
+        // Generate End-Of-RIB message
+        SendEndOfRIB(table->family());
     }
 }
 
@@ -272,6 +297,10 @@ BgpPeer::BgpPeer(BgpServer *server, RoutingInstance *instance,
           session_(NULL),
           keepalive_timer_(TimerManager::CreateTimer(*server->ioservice(),
                      "BGP keepalive timer")),
+          end_of_rib_timer_(TimerManager::CreateTimer(*server->ioservice(),
+                   "BGP RTarget EndOfRib timer",
+                   TaskScheduler::GetInstance()->GetTaskId("bgp::StateMachine"),
+                   GetIndex())),
           send_ready_(true),
           control_node_(config_->vendor() == "contrail"),
           admin_down_(false),
@@ -427,6 +456,9 @@ bool BgpPeer::IsFamilyNegotiated(Address::Family family) {
     case Address::INETVPN:
         return MpNlriAllowed(BgpAf::IPv4, BgpAf::Vpn);
         break;
+    case Address::RTARGET:
+        return MpNlriAllowed(BgpAf::IPv4, BgpAf::RTarget);
+        break;
     case Address::EVPN:
         return MpNlriAllowed(BgpAf::L2Vpn, BgpAf::EVpn);
         break;
@@ -444,6 +476,7 @@ void BgpPeer::PostCloseRelease() {
         index_ = -1;
     }
     TimerManager::DeleteTimer(keepalive_timer_);
+    TimerManager::DeleteTimer(end_of_rib_timer_);
 }
 
 // IsReady
@@ -471,6 +504,7 @@ uint32_t BgpPeer::bgp_identifier() const {
 void BgpPeer::CustomClose() {
     ResetCapabilities();
     keepalive_timer_->Cancel();
+    end_of_rib_timer_->Cancel();
 }
 
 // Close
@@ -551,33 +585,26 @@ void BgpPeer::RegisterAllTables() {
                            table, "Register peer with the table");
         if (table) {
             membership_mgr->Register(this, table, policy_, -1,
-                boost::bind(&BgpPeer::MembershipRequestCallback, this, _1, _2));
+                boost::bind(&BgpPeer::MembershipRequestCallback, this, _1, _2, 
+                            true));
             membership_req_pending_++;
         }
     }
 
-    if (IsFamilyNegotiated(Address::INETVPN)) {
-        BgpTable *vtable = instance->GetTable(Address::INETVPN);
+    if (IsFamilyNegotiated(Address::RTARGET)) {
+        BgpTable *table = instance->GetTable(Address::RTARGET);
         BGP_LOG_PEER_TABLE(this, SandeshLevel::SYS_DEBUG, BGP_LOG_FLAG_TRACE,
-                           vtable, "Register peer with the table");
-        if (vtable) {
-            membership_mgr->Register(this, vtable, policy_, -1,
-                boost::bind(&BgpPeer::MembershipRequestCallback, this, _1, _2));
+                           table, "Register peer with the table");
+        if (table) {
+            membership_mgr->Register(this, table, policy_, -1,
+                boost::bind(&BgpPeer::MembershipRequestCallback, this, _1, _2,
+                            true));
             membership_req_pending_++;
         }
+        StartEndOfRibTimer();
+    } else {
+        RegisterToVpnTables(true);
     }
-
-    if (IsFamilyNegotiated(Address::EVPN)) {
-        BgpTable *vtable = instance->GetTable(Address::EVPN);
-        BGP_LOG_PEER_TABLE(this, SandeshLevel::SYS_DEBUG, BGP_LOG_FLAG_TRACE,
-                           vtable, "Register peer with the table");
-        if (vtable) {
-            membership_mgr->Register(this, vtable, policy_, -1,
-                boost::bind(&BgpPeer::MembershipRequestCallback, this, _1, _2));
-            membership_req_pending_++;
-        }
-    }
-
     BgpPeerInfoData peer_info;
     peer_info.set_name(ToUVEKey());
     peer_info.set_send_state("not advertising");
@@ -590,12 +617,13 @@ void BgpPeer::SendOpen(TcpSession *session) {
     BgpServer *server = session_mgr->server();
     BgpProto::OpenMessage openmsg;
     openmsg.as_num = server->autonomous_system();
-    openmsg.holdtime = state_machine_->hold_time();
+    openmsg.holdtime = state_machine_->GetConfiguredHoldTime();
     openmsg.identifier = local_bgp_id_;
-    static const uint8_t cap_mp[3][4] = {
+    static const uint8_t cap_mp[4][4] = {
         { 0, BgpAf::IPv4,  0, BgpAf::Unicast },
         { 0, BgpAf::IPv4,  0, BgpAf::Vpn },
         { 0, BgpAf::L2Vpn, 0, BgpAf::EVpn },
+        { 0, BgpAf::IPv4,  0, BgpAf::RTarget },
     };
 
     BgpProto::OpenMessage::OptParam *opt_param =
@@ -622,6 +650,21 @@ void BgpPeer::SendOpen(TcpSession *session) {
                         cap_mp[2], 4);
         opt_param->capabilities.push_back(cap);
     }
+    if (LookupFamily(Address::RTARGET)) {
+        BgpProto::OpenMessage::Capability *cap =
+                new BgpProto::OpenMessage::Capability(
+                        BgpProto::OpenMessage::Capability::MpExtension,
+                        cap_mp[3], 4);
+        opt_param->capabilities.push_back(cap);
+    }
+
+    // Add restart capability for generating End-Of-Rib
+    const uint8_t restart_cap[2] = { 0x0, 0x0 };
+    BgpProto::OpenMessage::Capability *cap =
+        new BgpProto::OpenMessage::Capability(
+                          BgpProto::OpenMessage::Capability::GracefulRestart, 
+                          restart_cap, 2);
+    opt_param->capabilities.push_back(cap);
 
     if (opt_param->capabilities.size()) {
         openmsg.opt_params.push_back(opt_param);
@@ -711,7 +754,6 @@ void BgpPeer::SendNotification(BgpSession *session,
 }
 
 void BgpPeer::SetCapabilities(const BgpProto::OpenMessage *msg) {
-    std::vector<std::string> families;
     remote_bgp_id_ = msg->identifier;
     capabilities_.clear();
     std::vector<BgpProto::OpenMessage::OptParam *>::const_iterator it;
@@ -724,17 +766,35 @@ void BgpPeer::SetCapabilities(const BgpProto::OpenMessage *msg) {
     BgpPeerInfoData peer_info;
     peer_info.set_name(ToUVEKey());
     peer_info.set_peer_id(remote_bgp_id_);
+
+    std::vector<std::string> families;
     std::vector<BgpProto::OpenMessage::Capability *>::iterator cap_it;
     for (cap_it = capabilities_.begin(); cap_it < capabilities_.end(); cap_it++) {
         if ((*cap_it)->code != BgpProto::OpenMessage::Capability::MpExtension)
             continue;
         uint8_t *data = (*cap_it)->capability.data();
-        uint16_t af_value = get_value(data, 2);
-        uint8_t safi_value = get_value(data + 3, 1);
-        families.push_back(BgpAf::ToString(af_value, safi_value));
+        uint16_t afi = get_value(data, 2);
+        uint8_t safi = get_value(data + 3, 1);
+        Address::Family family = BgpAf::AfiSafiToFamily(afi, safi);
+        if (family == Address::UNSPEC) {
+            families.push_back(BgpAf::ToString(afi, safi));
+        } else {
+            families.push_back(Address::FamilyToString(family));
+        }
     }
-    if (!families.empty()) 
-        peer_info.set_families(families);
+    peer_info.set_families(families);
+
+    std::vector<std::string> negotiated_families;
+    BOOST_FOREACH(Address::Family family, family_) {
+        uint16_t afi;
+        uint8_t safi;
+        BgpAf::FamilyToAfiSafi(family, afi, safi);
+        if (!MpNlriAllowed(afi, safi))
+            continue;
+        negotiated_families.push_back(Address::FamilyToString(family));
+    }
+    peer_info.set_negotiated_families(negotiated_families);
+
     BGPPeerInfo::Send(peer_info);
 }
 
@@ -745,6 +805,13 @@ void BgpPeer::SetCapabilities(const BgpProto::OpenMessage *msg) {
 //
 void BgpPeer::ResetCapabilities() {
     STLDeleteValues(&capabilities_);
+    BgpPeerInfoData peer_info;
+    peer_info.set_name(ToUVEKey());
+    std::vector<std::string> families = std::vector<std::string>();
+    peer_info.set_families(families);
+    std::vector<std::string> negotiated_families = std::vector<std::string>();
+    peer_info.set_negotiated_families(negotiated_families);
+    BGPPeerInfo::Send(peer_info);
 }
 
 bool BgpPeer::MpNlriAllowed(uint16_t afi, uint8_t safi) {
@@ -755,8 +822,9 @@ bool BgpPeer::MpNlriAllowed(uint16_t afi, uint8_t safi) {
         uint8_t *data = (*it)->capability.data();
         uint16_t af_value = get_value(data, 2);
         uint8_t safi_value = get_value(data + 3, 1);
-        if (afi == af_value && safi == safi_value)
+        if (afi == af_value && safi == safi_value) {
             return true;
+        }
     }
     return false;
 }
@@ -914,17 +982,85 @@ void BgpPeer::ProcessUpdate(const BgpProto::Update *msg) {
             break;
         }
 
+        case Address::RTARGET: {
+            RTargetTable *table =
+                static_cast<RTargetTable *>(instance->GetTable(Address::RTARGET));
+            assert(table);
+            if (oper == DBRequest::DB_ENTRY_DELETE && nlri->nlri.empty()) {
+                // End-Of-RIB message
+                end_of_rib_timer_->Cancel();
+                RegisterToVpnTables(true);
+                return;
+            }
+            vector<BgpProtoPrefix *>::const_iterator it;
+            for (it = nlri->nlri.begin(); it < nlri->nlri.end(); it++) {
+                DBRequest req;
+                req.oper = oper;
+                if (oper == DBRequest::DB_ENTRY_ADD_CHANGE)
+                    req.data.reset(new RTargetTable::RequestData(attr, flags, 0));
+                RTargetPrefix prefix = RTargetPrefix(**it);
+                req.key.reset(new RTargetTable::RequestKey(prefix, this));
+                table->Enqueue(&req);
+            }
+            break;
+        }
+
         default:
             continue;
         }
     }
 }
 
+void BgpPeer::EndOfRibTimerErrorHandler(string error_name,
+                                        string error_message) {
+    BGP_LOG_PEER(Timer, this, SandeshLevel::SYS_CRIT, BGP_LOG_FLAG_ALL,
+                 BGP_PEER_DIR_NA,
+                 "Timer error: " << error_name << " " << error_message);
+}
+
+void BgpPeer::RegisterToVpnTables(bool established) {
+    CHECK_CONCURRENCY("bgp::StateMachine", "bgp::RTFilter");
+    if (!IsReady()) return;
+
+    PeerRibMembershipManager *membership_mgr = server_->membership_mgr();
+    RoutingInstance *instance = GetRoutingInstance();
+    if (IsFamilyNegotiated(Address::INETVPN)) {
+        BgpTable *table = instance->GetTable(Address::INETVPN);
+        BGP_LOG_PEER_TABLE(this, SandeshLevel::SYS_DEBUG, BGP_LOG_FLAG_TRACE,
+                           table, "Register peer with the table");
+        if (table) {
+            membership_mgr->Register(this, table, policy_, -1,
+                boost::bind(&BgpPeer::MembershipRequestCallback, this, _1, _2, 
+                            established));
+            membership_req_pending_++;
+        }
+    }
+
+    if (IsFamilyNegotiated(Address::EVPN)) {
+        BgpTable *table = instance->GetTable(Address::EVPN);
+        BGP_LOG_PEER_TABLE(this, SandeshLevel::SYS_DEBUG, BGP_LOG_FLAG_TRACE,
+                           table, "Register peer with the table");
+        if (table) {
+            membership_mgr->Register(this, table, policy_, -1,
+                boost::bind(&BgpPeer::MembershipRequestCallback, this, _1, _2,
+                            established));
+            membership_req_pending_++;
+        }
+    }
+}
+
+
+
 void BgpPeer::KeepaliveTimerErrorHandler(string error_name,
                                          string error_message) {
     BGP_LOG_PEER(Timer, this, SandeshLevel::SYS_CRIT, BGP_LOG_FLAG_ALL,
                  BGP_PEER_DIR_NA,
                  "Timer error: " << error_name << " " << error_message);
+}
+
+bool BgpPeer::EndOfRibTimerExpired() {
+    RegisterToVpnTables(true);
+    return false;
 }
 
 bool BgpPeer::KeepaliveTimerExpired() {
@@ -934,6 +1070,17 @@ bool BgpPeer::KeepaliveTimerExpired() {
     // Start the timer again, by returning true
     //
     return true;
+}
+
+void BgpPeer::StartEndOfRibTimer() {
+    uint32_t timeout = 30 * 1000;
+    char *time_str = getenv("BGP_RTFILTER_EOR_TIMEOUT");
+    if (time_str) {
+        timeout = strtoul(time_str, NULL, 0);
+    }
+    end_of_rib_timer_->Start(timeout, 
+        boost::bind(&BgpPeer::EndOfRibTimerExpired, this),
+        boost::bind(&BgpPeer::EndOfRibTimerErrorHandler, this, _1, _2));
 }
 
 void BgpPeer::StartKeepaliveTimerUnlocked() {
@@ -1063,7 +1210,7 @@ BgpAttrPtr BgpPeer::GetMpNlriNexthop(BgpMpNlri *nlri, BgpAttrPtr attr) {
     Ip4Address::bytes_type bt = { { 0 } };
 
     if (nlri->afi == BgpAf::IPv4) {
-        if (nlri->safi == BgpAf::Unicast) {
+        if (nlri->safi == BgpAf::Unicast || nlri->safi == BgpAf::RTarget) {
             std::copy(nlri->nexthop.begin(), nlri->nexthop.end(),
                       bt.begin());
             update_nh = true;

@@ -194,23 +194,16 @@ class DiscoveryClient(object):
     def _publish_int(self, service, data):
         self.syslog('Publish service "%s", data "%s"' % (service, data))
         payload = {service: data}
-        try:
-            r = requests.post(
-                self.puburl, data=json.dumps(payload), headers=self._headers)
-            if r.status_code == 503:
-                self.syslog('Discovery Server returned error (code %d)' % (r.status_code))
-                gevent.sleep(2)
-                return self._publish_int(service, data)
-        except requests.exceptions.ConnectionError:
-            self.syslog('Got connection error')
+        while True:
+            try:
+                r = requests.post(
+                    self.puburl, data=json.dumps(payload), headers=self._headers)
+                if r.status_code == 200:
+                    break
+            except requests.exceptions.ConnectionError:
+                pass
+            self.syslog('connection error or failed to publish')
             gevent.sleep(2)
-            return self._publish_int(service, data)
-
-        # save cookie and published object in case we are forced to republish
-        if r.status_code != 200:
-            self.syslog('Discovery Server returned error (code %d)' % (r.status_code))
-            self.syslog('Failed to publish service "%s" !!!' % (service))
-            return None
 
         response = r.json()
         cookie = response['cookie']

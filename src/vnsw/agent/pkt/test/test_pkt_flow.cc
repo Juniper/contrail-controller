@@ -283,8 +283,6 @@ public:
             CreateTapInterfaces("flow", MAX_VNET, fd_table);
             client->WaitForIdle();
         }
-        client->SetFlowFlushExclusionPolicy();
-        client->SetFlowAgeExclusionPolicy();
     }
 
     void CheckSandeshResponse(Sandesh *sandesh, int flows) {
@@ -1612,7 +1610,7 @@ TEST_F(FlowTest, FlowOnDeletedInterface) {
     DeleteVmportEnv(input, 1, false);
     client->WaitForIdle();
 
-    TxTcpPacket(intf->id(), "11.1.1.3", vm1_ip, 30, 40, 1,
+    TxTcpPacket(intf->id(), "11.1.1.3", vm1_ip, 30, 40, false, 1,
                VrfGet("vrf5")->vrf_id());
     client->WaitForIdle();
 
@@ -1636,7 +1634,7 @@ TEST_F(FlowTest, FlowOnDeletedVrf) {
     DelVrf("vrf5");
     client->WaitForIdle();
 
-    TxTcpPacket(intf->id(), "11.1.1.3", vm1_ip, 30, 40, 1, vrf_id);
+    TxTcpPacket(intf->id(), "11.1.1.3", vm1_ip, 30, 40, false, 1, vrf_id);
     client->WaitForIdle();
 
     //Flow find should fail as interface is delete marked
@@ -2142,6 +2140,36 @@ TEST_F(FlowTest, LinkLocalFlow_Fail2) {
     EXPECT_TRUE(FlowTableWait(0));
 
     DelLinkLocalConfig();
+    client->WaitForIdle();
+}
+
+TEST_F(FlowTest, Flow_introspect_delete_all) {
+    EXPECT_EQ(0U, agent()->pkt()->flow_table()->Size());
+
+    CreateRemoteRoute("vrf5", remote_vm1_ip, remote_router_ip, 30, "vn5");
+    client->WaitForIdle();
+    TestFlow flow[] = {
+        {
+            TestFlowPkt(vm1_ip, remote_vm1_ip, 1, 0, 0, "vrf5",
+                    flow0->id()),
+            {}
+        }
+    };
+
+    CreateFlow(flow, 1);
+
+    uint32_t vrf_id = VrfGet("vrf5")->vrf_id();
+    FlowEntry *fe = FlowGet(vrf_id, vm1_ip, remote_vm1_ip, 1, 0, 0);
+    EXPECT_TRUE(fe != NULL);
+
+    DeleteAllFlowRecords *delete_all_sandesh = new DeleteAllFlowRecords();
+    Sandesh::set_response_callback(boost::bind(&FlowTest::CheckSandeshResponse,
+                                               this, _1, 0));
+    delete_all_sandesh->HandleRequest();
+    EXPECT_TRUE(FlowTableWait(0));
+    delete_all_sandesh->Release();
+
+    DeleteRemoteRoute("vrf5", remote_vm1_ip);
     client->WaitForIdle();
 }
 

@@ -144,18 +144,8 @@ private:
 // This class contains the Map of RouteTarget to RtGroup
 class RoutePathReplicator {
 public:
-    typedef boost::ptr_map<const RouteTarget, RtGroup> RtGroupMap;
     RoutePathReplicator(BgpServer *server, Address::Family family);
     virtual ~RoutePathReplicator();
-
-    // Search a Import RtGroup
-    RtGroup *GetRtGroup(const RouteTarget &rt);
-
-    RtGroup *LocateRtGroup(const RouteTarget &rt);
-
-    // Search a RtGroup
-    RtGroup *GetRtGroup(const ExtCommunity::ExtCommunityValue &comm);
-
     // Add a given BgpTable to RtGroup of given RouteTarget
     // It will create a new RtGroup if none exists
     // Register to DB for callback if not yet done
@@ -177,7 +167,6 @@ public:
 
     BgpServer *server() { return server_; }
     Address::Family family() { return family_; }
-    RtGroupMap &GetRtGroupMap() { return rt_group_map_; }
 
     const RtReplicated *GetReplicationState(BgpTable *table, 
                                             BgpRoute *rt) const;
@@ -189,11 +178,13 @@ public:
     bool UnregisterTables();
 
 private:
-    typedef std::map<BgpTable *, TableState *> RtGroupTableState;
+    typedef std::map<BgpTable *, TableState *> RouteReplicatorTableState;
     typedef std::map<BgpTable *, BulkSyncState *> BulkSyncOrders;
     typedef std::set<BgpTable *> UnregTableList;
 
     bool StartWalk();
+
+    void AddVpnTable(RtGroup *rtgroup);
 
     void DeleteSecondaryPath(BgpTable  *table, BgpRoute *rt,
                              const RtReplicated::SecondaryRouteInfo &rtinfo);
@@ -201,11 +192,10 @@ private:
                      RtReplicated *dbstate, 
                      RtReplicated::ReplicatedRtPathList &current);
 
-    RtGroupMap rt_group_map_;
     // Mutex to protect unreg_table_list_, table_state_ and bulk_sync_ 
     // from multiple DBTable task
     tbb::mutex mutex_;
-    RtGroupTableState table_state_;
+    RouteReplicatorTableState table_state_;
     BulkSyncOrders bulk_sync_;
     UnregTableList unreg_table_list_;
     BgpServer *server_;

@@ -329,7 +329,11 @@ void DbHandler::MessageTableOnlyInsert(const VizMsg *vmsgp) {
     if (!header.get_NodeType().empty()) {
         columns.push_back(new GenDb::NewCol(g_viz_constants.NODE_TYPE,
                                             header.get_NodeType()));
-    }    
+    }
+    if (header.__isset.IPAddress) {
+        columns.push_back(new GenDb::NewCol(g_viz_constants.IPADDRESS,
+                                            header.get_IPAddress()));
+    }
     // Convert to network byte order
     temp_u64 = header.get_Timestamp();
     columns.push_back(new GenDb::NewCol(g_viz_constants.TIMESTAMP, temp_u64));
@@ -353,6 +357,11 @@ void DbHandler::MessageTableOnlyInsert(const VizMsg *vmsgp) {
     uint8_t temp_u8 = header.get_Type();
     columns.push_back(new GenDb::NewCol(g_viz_constants.SANDESH_TYPE,
         temp_u8));
+    if (header.__isset.Pid) {
+        temp_u32 = header.get_Pid();
+        columns.push_back(new GenDb::NewCol(g_viz_constants.PID,
+                                        temp_u32));
+    }
 
     columns.push_back(new GenDb::NewCol(g_viz_constants.DATA,
         vmsgp->msg->ExtractMessage()));
@@ -813,7 +822,8 @@ static bool PopulateFlowIndexTables(FlowValueArray &fvalues,
         PopulateFlowIndexTableColumns(fitt, fvalues, T1, colList->columns_,
             cvalues);
         if (!dbif->NewDb_AddColumn(colList)) {
-            VIZD_ASSERT(0);
+            LOG(ERROR, "Populating " << FlowIndexTable2String(fitt) <<
+                " FAILED");
         }
     }
     return true;
@@ -917,7 +927,7 @@ bool DbHandler::FlowTableInsert(const pugi::xml_node &parent,
     uint8_t partition_no = 0;
     // Populate Flow Record Table
     if (!PopulateFlowRecordTable(flow_entry_values, dbif_.get())) {
-        VIZD_ASSERT(0);
+        LOG(ERROR, "Populating FlowRecordTable FAILED");
     }
     // Populate Flow Index Tables only if FLOWREC_DIFF_BYTES and
     GenDb::DbDataValue &diff_bytes(
@@ -929,7 +939,7 @@ bool DbHandler::FlowTableInsert(const pugi::xml_node &parent,
         diff_packets.which() != GenDb::DB_VALUE_BLANK) {
        if (!PopulateFlowIndexTables(flow_entry_values, T2, T1, partition_no,
                 dbif_.get())) {
-           VIZD_ASSERT(0);
+           LOG(ERROR, "Populating FlowIndexTables FAILED");
        }
     }
     return true;

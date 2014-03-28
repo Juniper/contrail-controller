@@ -90,14 +90,16 @@ void Agent::SetAgentTaskPolicy() {
         "sandesh::RecvQueue",
         "io::ReaderTask",
         "Agent::Uve",
-        "Agent::KSync"
+        "Agent::KSync",
+        "Agent::PktFlowResponder"
     };
     SetTaskPolicyOne("db::DBTable", db_exclude_list, 
                      sizeof(db_exclude_list) / sizeof(char *));
 
     const char *flow_exclude_list[] = {
         "Agent::StatsCollector",
-        "io::ReaderTask"
+        "io::ReaderTask",
+        "Agent::PktFlowResponder"
     };
     SetTaskPolicyOne("Agent::FlowHandler", flow_exclude_list, 
                      sizeof(flow_exclude_list) / sizeof(char *));
@@ -108,6 +110,7 @@ void Agent::SetAgentTaskPolicy() {
         "Agent::Services",
         "Agent::StatsCollector",
         "io::ReaderTask",
+        "Agent::PktFlowResponder"
     };
     SetTaskPolicyOne("sandesh::RecvQueue", sandesh_exclude_list, 
                      sizeof(sandesh_exclude_list) / sizeof(char *));
@@ -134,7 +137,8 @@ void Agent::SetAgentTaskPolicy() {
     const char *ksync_exclude_list[] = {
         "Agent::FlowHandler",
         "Agent::StatsCollector",
-        "db::DBTable"
+        "db::DBTable",
+        "Agent::PktFlowResponder"
     };
     SetTaskPolicyOne("Agent::KSync", ksync_exclude_list, 
                      sizeof(ksync_exclude_list) / sizeof(char *));

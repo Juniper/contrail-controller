@@ -323,6 +323,7 @@ struct BgpPeerInfoData {
    13: optional string send_state;       // in sync/not in sync
    21: optional list<string> configured_families;
    14: optional list<string> families;
+   22: optional list<string> negotiated_families;
    15: optional peer_info.PeerFlapInfo flap_info;
    16: optional peer_info.PeerStateInfo state_info;
    17: optional peer_info.PeerEventInfo event_info;

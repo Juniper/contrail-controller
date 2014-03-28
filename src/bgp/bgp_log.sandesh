@@ -173,6 +173,8 @@ trace sandesh BgpConfigProtocolCreateTrace {
     6: string identifier;
     7: "Address";
     8: string address;
+    11: "Hold Time";
+    12: i32 hold_time;
     9: "Address Families";
     10: list<string> families;
 }
@@ -186,6 +188,8 @@ systemlog sandesh BgpConfigProtocolCreateLog {
     6: string identifier;
     7: "Address";
     8: string address;
+    11: "Hold Time";
+    12: i32 hold_time;
     9: "Address Families";
     10: list<string> families;
 }
@@ -209,6 +213,8 @@ trace sandesh BgpConfigProtocolUpdateTrace {
     6: string identifier;
     7: "Address";
     8: string address;
+    11: "Hold Time";
+    12: i32 hold_time;
     9: "Address Families";
     10: list<string> families;
 }
@@ -222,6 +228,8 @@ systemlog sandesh BgpConfigProtocolUpdateLog {
     6: string identifier;
     7: "Address";
     8: string address;
+    11: "Hold Time";
+    12: i32 hold_time;
     9: "Address Families";
     10: list<string> families;
 }

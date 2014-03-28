@@ -17,7 +17,7 @@ for file in setup_sources:
 
 local_sources = [
                   '__init__.py',
-                  'discovery.py',
+                  'zkclient.py',
                   'exceptions.py',
                   'imid.py',
                   'svc_info.py',

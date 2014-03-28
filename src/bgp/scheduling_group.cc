@@ -47,7 +47,7 @@ struct SchedulingGroup::PeerRibState {
 //
 // A PeerState maintains the in_sync and send_ready state for the IPeer. An
 // IPeer/PeerState is considered to be send_ready when the underlying socket
-// is writeable. It is considered to be in_sync if it's send_ready and the
+// is writable. It is considered to be in_sync if it's send_ready and the
 // marker for the IPeer has merged with the tail marker for all QueueIds in
 // all RiBOuts that the IPeer is subscribed.
 //
@@ -185,6 +185,13 @@ public:
             ClearBit(loc->second.qactive, queue_id);
             qactive_cnt_[queue_id]--;
         }
+    }
+
+    bool IsQueueActive(int rib_index, int queue_id) {
+        CHECK_CONCURRENCY("bgp::SendTask");
+        Map::iterator loc = rib_set_.find(rib_index);
+        assert(loc != rib_set_.end());
+        return BitIsSet(loc->second.qactive, queue_id);
     }
 
     int QueueCount(int queue_id) { return qactive_cnt_[queue_id]; }
@@ -341,9 +348,6 @@ bool SchedulingGroup::RibState::QueueSync(int queue_id) {
 
 void SchedulingGroup::RibState::SetQueueSync(int queue_id) {
     CHECK_CONCURRENCY("bgp::SendTask");
-    if (in_sync_[queue_id])
-        return;
-
     in_sync_[queue_id] = true;
 }
 
@@ -945,6 +949,40 @@ void SchedulingGroup::SetQueueActive(const RibOut *ribout, RibState *rs,
 //
 // Concurrency: called from bgp send task.
 //
+// Mark the PeerRibState corresponding to the given IPeerUpdate and RibOut
+// as active.
+//
+// Used by unit test code.
+//
+void SchedulingGroup::SetQueueActive(RibOut *ribout, int queue_id,
+    IPeerUpdate *peer) {
+    CHECK_CONCURRENCY("bgp::SendTask");
+
+    PeerState *ps = peer_state_imap_.Find(peer);
+    RibState *rs = rib_state_imap_.Find(ribout);
+    ps->SetQueueActive(rs->index(), queue_id);
+}
+
+//
+// Concurrency: called from bgp send task.
+//
+// Check if the queue corresponding to IPeerUpdate, Ribout and queue id is
+// active.
+//
+// Used by unit test code.
+//
+bool SchedulingGroup::IsQueueActive(RibOut *ribout, int queue_id,
+    IPeerUpdate *peer) {
+    CHECK_CONCURRENCY("bgp::SendTask");
+
+    PeerState *ps = peer_state_imap_.Find(peer);
+    RibState *rs = rib_state_imap_.Find(ribout);
+    return ps->IsQueueActive(rs->index(), queue_id);
+}
+
+//
+// Concurrency: called from bgp send task.
+//
 // Mark all the RibStates for the given peer and queue id as being in sync
 // and trigger a tail dequeue.
 //
@@ -964,7 +1002,7 @@ void SchedulingGroup::SetQueueSync(PeerState *ps, int queue_id) {
 
 //
 // Drain the queue until there are no more updates or all the members become
-// blocked.    
+// blocked.
 //
 void SchedulingGroup::UpdateRibOut(RibOut *ribout, int queue_id) {
     CHECK_CONCURRENCY("bgp::SendTask");

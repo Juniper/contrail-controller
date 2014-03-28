@@ -68,6 +68,18 @@ void DBEntryBase::set_last_change_at(uint64_t time) {
     last_change_at_ = time;
 }
 
+void DBEntryBase::set_table_partition(DBTablePartBase *tpart) { 
+    tpart_ = tpart; 
+}
+
+DBTablePartBase *DBEntryBase::get_table_partition() const { 
+    return tpart_; 
+}
+
+DBTableBase *DBEntryBase::get_table() const { 
+    return (tpart_ ? tpart_->parent() : NULL);
+}
+
 const std::string DBEntryBase::last_change_at_str() const {
     return duration_usecs_to_string(UTCTimestampUsec() - last_change_at_);
 }
