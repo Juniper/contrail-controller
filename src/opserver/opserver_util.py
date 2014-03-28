@@ -317,6 +317,8 @@ class OpServerUtils(object):
     @staticmethod
     def messages_data_dict_to_str(messages_dict, message_type, sandesh_type):
         data_dict = messages_dict[message_type]
+        if sandesh_type == SandeshType.SYSLOG:
+            return data_dict.encode('utf8', 'replace')
         return OpServerUtils._data_dict_to_str(data_dict, sandesh_type)
     # end messages_data_dict_to_str
 
