@@ -492,14 +492,6 @@ public:
     }
     void GlobalVrouterConfig(IFMapNode *node);
 
-    bool IsTestMode() {
-        return test_mode_;
-    }
-
-    void SetTestMode() {
-        test_mode_ = true;
-    }
-
     void set_ksync_sync_mode(bool sync_mode) {
         ksync_sync_mode_ = sync_mode;
     }
@@ -641,7 +633,6 @@ private:
 
     uint16_t mirror_src_udp_port_;
     LifetimeManager *lifetime_manager_;
-    bool test_mode_;
     bool ksync_sync_mode_;
     std::string mgmt_ip_;
     static Agent *singleton_;

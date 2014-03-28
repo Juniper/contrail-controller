@@ -40,6 +40,8 @@
 #include <pkt/proto.h>
 #include <diag/diag.h>
 #include <vgw/vgw.h>
+#include <boost/functional/factory.hpp>
+#include <cmn/agent_factory.h>
 
 namespace opt = boost::program_options;
 
@@ -53,6 +55,11 @@ void RouterIdDepInit() {
 
 bool GetBuildInfo(std::string &build_info_str) {
     return MiscUtils::GetBuildInfo(MiscUtils::Agent, BuildInfo, build_info_str);
+}
+
+void FactoryInit() {
+    AgentObjectFactory::Register<AgentUve>(boost::factory<AgentUve *>());
+    AgentObjectFactory::Register<KSync>(boost::factory<KSync *>());
 }
 
 int main(int argc, char *argv[]) {
@@ -135,6 +142,8 @@ int main(int argc, char *argv[]) {
     // Initialize the agent-init control class
     AgentInit init;
     init.Init(&param, &agent, var_map);
+
+    FactoryInit();
 
     // Initialize agent and kick start initialization
     agent.Init(&param, &init);

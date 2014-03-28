@@ -36,7 +36,6 @@
 #include <uve/flow_stats_collector.h>
 #include <uve/agent_uve.h>
 #include <vgw/vgw.h>
-#include <boost/functional/factory.hpp>
 #include <cmn/agent_factory.h>
 #include <diag/diag.h>
 
@@ -236,10 +235,6 @@ void Agent::CreateModules() {
     cfg_ = std::auto_ptr<AgentConfig>(new AgentConfig(this));
     stats_ = std::auto_ptr<AgentStats>(new AgentStats(this));
     oper_db_ = std::auto_ptr<OperDB>(new OperDB(this));
-    if (!IsTestMode()) {
-        AgentObjectFactory::Register<AgentUve>(boost::factory<AgentUve *>());
-        AgentObjectFactory::Register<KSync>(boost::factory<KSync *>());
-    }
     uve_ = std::auto_ptr<AgentUve>(AgentObjectFactory::Create<AgentUve>(
                     this, AgentUve::kBandwidthInterval));
     ksync_ = std::auto_ptr<KSync>(AgentObjectFactory::Create<KSync>(this));
@@ -387,7 +382,7 @@ Agent::Agent() :
     dhcp_proto_(NULL), dns_proto_(NULL), icmp_proto_(NULL), flow_proto_(NULL),
     local_peer_(NULL), local_vm_peer_(NULL), linklocal_peer_(NULL),
     ifmap_parser_(NULL), router_id_configured_(false),
-    mirror_src_udp_port_(0), lifetime_manager_(NULL), test_mode_(false),
+    mirror_src_udp_port_(0), lifetime_manager_(NULL), 
     ksync_sync_mode_(true), mgmt_ip_(""),
     vxlan_network_identifier_mode_(AUTOMATIC) {
 
