@@ -122,11 +122,12 @@ class ZookeeperClient(object):
         logger.setLevel(logging.INFO)
         try:
             handler = logging.handlers.RotatingFileHandler('/var/log/contrail/' + module + '-zk.log', maxBytes=1024*1024, backupCount=10)
+        except IOError:
+            print "Cannot open log file in /var/log/contrail/"
+        else:
             log_format = logging.Formatter('%(asctime)s [%(name)s]: %(message)s', datefmt='%m/%d/%Y %I:%M:%S %p')
             handler.setFormatter(log_format)
             logger.addHandler(handler)
-        except Exception as e:
-            print "Cannot initialize logger handler: %s" % str(e)
 
         self._zk_client = \
             kazoo.client.KazooClient(
