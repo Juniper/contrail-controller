@@ -41,12 +41,17 @@ public:
     LifetimeActor *deleter();
 
     virtual TcpSession *CreateSession();
-    virtual void Initialize(short port);
+    virtual bool Initialize(short port);
     virtual void Initialize(short port, bool logUVE);
     virtual XmppConnection *FindConnection(const std::string &peer_addr);
+    virtual XmppConnection *FindConnectionbyHostName(const std::string hostname);
     virtual void RemoveConnection(XmppConnection *);
     virtual void InsertConnection(XmppConnection *);
                              
+    //Clear a connection
+    void ClearConnection(XmppConnection *);
+    void ClearAllConnections();
+
     const std::string &ServerAddr() const { return server_addr_; }
     size_t ConnectionsCount() { return connection_map_.size(); }
 protected:

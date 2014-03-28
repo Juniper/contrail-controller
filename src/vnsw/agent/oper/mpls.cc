@@ -47,7 +47,6 @@ std::auto_ptr<DBEntry> MplsTable::AllocEntry(const DBRequestKey *k) const {
 DBEntry *MplsTable::Add(const DBRequest *req) {
     MplsLabelKey *key = static_cast<MplsLabelKey *>(req->key.get());
     MplsLabel *mpls = new MplsLabel(key->type_, key->label_);
-    mpls->set_table(this);
 
     mpls->free_label_ = true;
     if (mpls->type_ != MplsLabel::MCAST_NH) {
@@ -279,7 +278,7 @@ void MplsLabel::SendObjectLog(AgentLogEvent::type event) const {
         break;
     }
     info.set_event(str);
-    const NextHop *nh = GetNextHop();
+    const NextHop *nh = nexthop();
     const Interface *intf = NULL;
     /* Mpls is not expected to have any other nexthop apart from Interface 
        or Vlan */

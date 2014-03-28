@@ -6,7 +6,18 @@
 #define __AGENT_FLOW_TABLE_H__
 
 #include <map>
+#if defined(__GNUC__)
+#include "base/compiler.h"
+#if __GNUC_PREREQ(4, 5)
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wunused-result"
+#endif
+#endif
 #include <boost/uuid/random_generator.hpp>
+#if defined(__GNUC__) && __GNUC_PREREQ(4, 6)
+#pragma GCC diagnostic pop
+#endif
+
 #include <boost/uuid/uuid_io.hpp>
 #include <boost/intrusive_ptr.hpp>
 #include <tbb/atomic.h>
@@ -167,6 +178,56 @@ struct FlowStats {
     bool exported;
 };
 
+typedef std::list<MatchAclParams> MatchAclParamsList;
+struct MatchPolicy {
+    MatchPolicy():
+        m_acl_l(), policy_action(0), m_out_acl_l(), out_policy_action(0), 
+        m_out_sg_acl_l(), out_sg_rule_present(false), out_sg_action(0), 
+        m_sg_acl_l(), sg_rule_present(false), sg_action(0),
+        m_reverse_sg_acl_l(), reverse_sg_rule_present(false),
+        reverse_sg_action(0), m_reverse_out_sg_acl_l(),
+        reverse_out_sg_rule_present(false), reverse_out_sg_action(0),
+        m_mirror_acl_l(), mirror_action(0), m_out_mirror_acl_l(),
+        out_mirror_action(0), sg_action_summary(0), action_info() {
+    }
+
+    ~MatchPolicy() {}
+
+    MatchAclParamsList m_acl_l;
+    uint32_t policy_action;
+
+    MatchAclParamsList m_out_acl_l;
+    uint32_t out_policy_action;
+
+    MatchAclParamsList m_out_sg_acl_l;
+    bool out_sg_rule_present;
+    uint32_t out_sg_action;
+
+    MatchAclParamsList m_sg_acl_l;
+    bool sg_rule_present;
+    uint32_t sg_action;
+
+    MatchAclParamsList m_reverse_sg_acl_l;
+    bool reverse_sg_rule_present;
+    uint32_t reverse_sg_action;
+
+    MatchAclParamsList m_reverse_out_sg_acl_l;
+    bool reverse_out_sg_rule_present;
+    uint32_t reverse_out_sg_action;
+
+    MatchAclParamsList m_mirror_acl_l;
+    uint32_t mirror_action;
+
+    MatchAclParamsList m_out_mirror_acl_l;
+    uint32_t out_mirror_action;
+
+    MatchAclParamsList m_vrf_assign_acl_l;
+    uint32_t vrf_assign_acl_action;
+    // Summary of SG actions
+    uint32_t sg_action_summary;
+    FlowAction action_info;
+};
+
 struct FlowData {
     FlowData() : 
         source_vn(""), dest_vn(""), source_sg_id_l(), dest_sg_id_l(),
@@ -204,6 +265,7 @@ class FlowEntry {
   public:
     static const uint32_t kInvalidFlowHandle=0xFFFFFFFF;
     static const uint8_t kMaxMirrorsPerFlow=0x2;
+
     // Don't go beyond PCAP_END, pcap type is one byte
     enum PcapType {
         PCAP_CAPTURE_HOST = 1,
@@ -220,10 +282,17 @@ class FlowEntry {
         ReverseFlow     = 1 << 4,
         EcmpFlow        = 1 << 5,
         IngressDir      = 1 << 6,
-        Trap            = 1 << 7
+        Trap            = 1 << 7,
+        Multicast       = 1 << 8,
+        // a local port bind is done (used as as src port for linklocal nat)
+        LinkLocalBindLocalSrcPort = 1 << 9,
+        TcpAckFlow      = 1 << 10
     };
     FlowEntry(const FlowKey &k);
     virtual ~FlowEntry() {
+        if (linklocal_src_port_fd_ != PktFlowInfo::kLinkLocalInvalidFd) {
+            close(linklocal_src_port_fd_);
+        }
         alloc_count_.fetch_and_decrement();
     };
 
@@ -234,6 +303,7 @@ class FlowEntry {
     void MakeShortFlow();
     const FlowStats &stats() const { return stats_;}
     const FlowKey &key() const { return key_;}
+    FlowData &data() { return data_;}
     const FlowData &data() const { return data_;}
     const uuid &flow_uuid() const { return flow_uuid_; }
     const uuid &egress_uuid() const { return egress_uuid_; }
@@ -255,21 +325,29 @@ class FlowEntry {
     void FillFlowInfo(FlowInfo &info);
     void GetPolicyInfo();
     void GetPolicyInfo(const VnEntry *vn);
+    void SetMirrorVrf(const uint32_t id) {data_.mirror_vrf = id;}
+    void SetMirrorVrfFromAction();
 
     void GetPolicy(const VnEntry *vn);
+    void GetNonLocalFlowSgList(const VmInterface *vm_port);
+    void GetLocalFlowSgList(const VmInterface *vm_port,
+                            const VmInterface *reverse_vm_port);
     void GetSgList(const Interface *intf);
     void GetVrfAssignAcl();
-    bool DoPolicy(const PacketHeader &hdr, bool ingress);
+    void SetPacketHeader(PacketHeader *hdr);
+    void SetOutPacketHeader(PacketHeader *hdr);
+    void ComputeReflexiveAction();
+    bool DoPolicy(bool create);
     uint32_t MatchAcl(const PacketHeader &hdr,
-                      std::list<MatchAclParams> &acl, bool add_implicit_deny);
+                      MatchAclParamsList &acl, bool add_implicit_deny,
+                      bool add_implicit_allow);
     void ResetPolicy();
+    void ResetStats();
     void set_deleted(bool deleted) { deleted_ = deleted; }
     bool deleted() { return deleted_; }
     bool FlowSrcMatch(const RouteFlowKey &rkey) const;
     bool FlowDestMatch(const RouteFlowKey &rkey) const;
     void SetAclAction(std::vector<AclAction> &acl_action_l) const;
-    uint32_t IngressReflexiveAction() const;
-    uint32_t EgressReflexiveAction() const;
     void UpdateReflexiveAction();
     const Interface *intf_entry() const { return data_.intf_entry.get();}
     const VnEntry *vn_entry() const { return data_.vn_entry.get();}
@@ -286,6 +364,8 @@ class FlowEntry {
     void set_dest_sg_id_l(SecurityGroupList &sg_l) { data_.dest_sg_id_l = sg_l; }
     const std::string& acl_assigned_vrf() const;
     uint32_t acl_assigned_vrf_index() const;
+    int linklocal_src_port() const { return linklocal_src_port_; }
+    int linklocal_src_port_fd() const { return linklocal_src_port_fd_; }
 private:
     friend class FlowTable;
     friend class FlowStatsCollector;
@@ -294,6 +374,7 @@ private:
     bool SetRpfNH(const Inet4UnicastRouteEntry *rt);
     bool InitFlowCmn(const PktFlowInfo *info, const PktControlInfo *ctrl,
                      const PktControlInfo *rev_ctrl);
+
     FlowKey key_;
     FlowData data_;
     FlowStats stats_;
@@ -305,6 +386,10 @@ private:
     static tbb::atomic<int> alloc_count_;
     bool deleted_;
     uint32_t flags_;
+    // linklocal port - used as nat src port, agent locally binds to this port
+    uint16_t linklocal_src_port_;
+    // fd of the socket used to locally bind in case of linklocal
+    int linklocal_src_port_fd_;
     // atomic refcount
     tbb::atomic<int> refcount_;
 };
@@ -371,10 +456,12 @@ public:
         SecurityGroupList sg_l_;
     };
 
-    FlowTable() : 
-        flow_entry_map_(), acl_flow_tree_(), acl_listener_id_(), intf_listener_id_(),
-        vn_listener_id_(), vm_listener_id_(), vrf_listener_id_(), 
-        nh_listener_(NULL), route_key_(NULL, Ip4Address()) {};
+    FlowTable(Agent *agent) : 
+        agent_(agent), flow_entry_map_(), acl_flow_tree_(),
+        linklocal_flow_count_(), acl_listener_id_(),
+        intf_listener_id_(), vn_listener_id_(), vm_listener_id_(),
+        vrf_listener_id_(), nh_listener_(NULL),
+        route_key_(NULL, Ip4Address(), 32, false) {}
     virtual ~FlowTable();
     
     void Init();
@@ -388,6 +475,9 @@ public:
     size_t Size() {return flow_entry_map_.size();};
     void VnFlowCounters(const VnEntry *vn, uint32_t *in_count, 
                         uint32_t *out_count);
+    uint32_t VmLinkLocalFlowCount(const VmEntry *vm);
+    uint32_t linklocal_flow_count() const { return linklocal_flow_count_; }
+    Agent *agent() const { return agent_; }
 
     // Test code only used method
     void DeleteFlow(const AclDBEntry *acl, const FlowKey &key, AclEntryIDList &id_list);
@@ -417,6 +507,7 @@ public:
     friend class NhState;
     friend void intrusive_ptr_release(FlowEntry *fe);
 private:
+    Agent *agent_;
     FlowEntryMap flow_entry_map_;
 
     AclFlowTree acl_flow_tree_;
@@ -424,6 +515,8 @@ private:
     IntfFlowTree intf_flow_tree_;
     VmFlowTree vm_flow_tree_;
     RouteFlowTree route_flow_tree_;
+
+    uint32_t linklocal_flow_count_;  // total linklocal flows in the agent
 
     DBTableBase::ListenerId acl_listener_id_;
     DBTableBase::ListenerId intf_listener_id_;
@@ -478,6 +571,20 @@ private:
     DISALLOW_COPY_AND_ASSIGN(FlowTable);
 };
 
+inline void intrusive_ptr_add_ref(FlowEntry *fe) {
+    fe->refcount_.fetch_and_increment();
+}
+inline void intrusive_ptr_release(FlowEntry *fe) {
+    int prev = fe->refcount_.fetch_and_decrement();
+    if (prev == 1) {
+        FlowTable *table = Agent::GetInstance()->pkt()->flow_table();
+        FlowTable::FlowEntryMap::iterator it = table->flow_entry_map_.find(fe->key());
+        assert(it != table->flow_entry_map_.end());
+        table->flow_entry_map_.erase(it);
+        delete fe;
+    }
+}
+
 class Inet4RouteUpdate {
 public:
     struct State : DBState {
@@ -506,7 +613,7 @@ class NhState : public DBState {
 public:
     NhState(NextHop *nh):refcount_(), nh_(nh){ };
     ~NhState() {};
-    const NextHop* nh() const { return nh_; }
+    NextHop* nh() const { return nh_; }
     uint32_t refcount() const { return refcount_; }
 private:
     friend void intrusive_ptr_add_ref(const NhState *nh);
@@ -582,6 +689,7 @@ struct VmFlowInfo {
 
     VmEntryConstRef vm_entry;
     FlowTable::FlowEntryTree fet;
+    uint32_t linklocal_flow_count;
 };
 
 struct RouteFlowInfo {
@@ -592,6 +700,7 @@ struct RouteFlowInfo {
 
 extern SandeshTraceBufferPtr FlowTraceBuf;
 extern void SetActionStr(const FlowAction &, std::vector<ActionStr> &);
+extern void GetFlowSandeshActionParams(const FlowAction &, std::string &);
 
 #define FLOW_TRACE(obj, ...)\
 do {\

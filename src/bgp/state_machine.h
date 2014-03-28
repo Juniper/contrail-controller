@@ -72,15 +72,13 @@ class StateMachine : public sc::state_machine<StateMachine, fsm::Idle> {
 public:
     typedef boost::function<void(void)> EventCB;
 
-    static const int kOpenTime = 15;                // seconds
-    static const int kConnectInterval = 30;         // seconds
-    static const int kHoldTime = 90;                // seconds
-    static const int kOpenSentHoldTime = 240;       // seconds
-    static const int kIdleHoldTime = 5000;          // milliseconds
-    static const int kMaxIdleHoldTime = 100 * 1000; // milliseconds
-    static const int kJitter = 10;                  // percentage
-
-    static const int GetDefaultHoldTime();
+    static const int kOpenTime;
+    static const int kConnectInterval;
+    static const int kHoldTime;
+    static const int kOpenSentHoldTime;
+    static const int kIdleHoldTime;
+    static const int kMaxIdleHoldTime;
+    static const int kJitter;
 
     enum State {
         IDLE        = 0,
@@ -112,6 +110,7 @@ public:
     void CancelOpenTimer();
     bool OpenTimerRunning();
 
+    int GetConfiguredHoldTime() const;
     virtual void StartHoldTimer();
     void CancelHoldTimer();
     bool HoldTimerRunning();
@@ -148,6 +147,7 @@ public:
     void connect_attempts_clear() { attempts_ = 0; }
 
     int hold_time() const { return hold_time_; }
+    virtual int hold_time_msecs() const { return hold_time() * 1000; }
     void reset_hold_time();
     void set_hold_time(int hold_time);
     int idle_hold_time() const { return idle_hold_time_; }

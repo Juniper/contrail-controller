@@ -12,6 +12,7 @@
 #include <iostream>
 #include <sys/types.h>
 #include <sys/stat.h>
+#include <sys/resource.h>
 #include <unistd.h>
 
 #include <sys/stat.h>
@@ -283,6 +284,48 @@ static void ParseMetadataProxy(const ptree &node, const string &config_file,
     }
 }
 
+static void ParseLinklocalFlows(const ptree &node,
+                                const string &config_file, 
+                                uint32_t *max_system_flows,
+                                uint32_t *max_vm_flows) {
+    try {
+        optional<unsigned int> opt_str;
+        if (opt_str = node.get_optional<unsigned int>
+                      ("config.agent.linklocal-flows.max-system-flows")) {
+            *max_system_flows = opt_str.get();
+        } else {
+            *max_system_flows = Agent::kDefaultMaxLinkLocalOpenFds;
+        }
+        opt_str = boost::none;
+        if (opt_str = node.get_optional<unsigned int>
+                      ("config.agent.linklocal-flows.max-vm-flows")) {
+            *max_vm_flows = opt_str.get();
+        } else {
+            *max_vm_flows = Agent::kDefaultMaxLinkLocalOpenFds;
+        }
+    } catch (exception &e) {
+        LOG(ERROR, "Error reading \"linklocal-flows\" node in config file <"
+            << config_file << ">. Error <" << e.what() << ">");
+    }
+}
+
+static void ParseFlowTimeout(const ptree &node,
+                             const string &config_file,
+                             uint32_t *flow_cache_timeout) {
+    try {
+        optional<unsigned int> opt_str;
+        if (opt_str = node.get_optional<unsigned int>
+                      ("config.agent.flow-cache.timeout")) {
+            *flow_cache_timeout = opt_str.get();
+        } else {
+            *flow_cache_timeout = Agent::kDefaultFlowCacheTimeout;
+        }
+    } catch (exception &e) {
+        LOG(ERROR, "Error reading \"flow-cache\" node in config file <"
+            << config_file << ">. Error <" << e.what() << ">");
+    }
+}
+
 // Initialize hypervisor mode based on system information
 // If "/proc/xen" exists it means we are running in Xen dom0
 void AgentParam::InitFromSystem() {
@@ -339,6 +382,9 @@ void AgentParam::InitFromConfig() {
                     &vmware_physical_port_);
     ParseTunnelType(tree, config_file_, &tunnel_type_);
     ParseMetadataProxy(tree, config_file_, &metadata_shared_secret_);
+    ParseLinklocalFlows(tree, config_file_, &linklocal_system_flows_,
+                        &linklocal_vm_flows_);
+    ParseFlowTimeout(tree, config_file_, &flow_cache_timeout_);
     LOG(DEBUG, "Config file <" << config_file_ << "> read successfully.");
     return;
 }
@@ -419,11 +465,82 @@ void AgentParam::InitFromArguments
     return;
 }
 
+// Update linklocal max flows if they are greater than the max allowed for the
+// process. Also, ensure that the process is allowed to open upto
+// linklocal_system_flows + kMaxOtherOpenFds files
+void AgentParam::ComputeLinkLocalFlowLimits() {
+    struct rlimit rl;
+    int result = getrlimit(RLIMIT_NOFILE, &rl);
+    if (result == 0) {
+        if (rl.rlim_max <= Agent::kMaxOtherOpenFds + 1) {
+            LOG(DEBUG, "Updating linklocal flows configuration to 0");
+            linklocal_system_flows_ = linklocal_vm_flows_ = 0;
+            return;
+        }
+        if (linklocal_system_flows_ > rl.rlim_max - Agent::kMaxOtherOpenFds - 1) {
+            linklocal_system_flows_ = rl.rlim_max - Agent::kMaxOtherOpenFds - 1;
+            LOG(DEBUG, "Updating linklocal-system-flows configuration to : " <<
+                linklocal_system_flows_);
+        }
+        if (rl.rlim_cur < linklocal_system_flows_ + Agent::kMaxOtherOpenFds + 1) {
+            struct rlimit new_rl;
+            new_rl.rlim_max = rl.rlim_max;
+            new_rl.rlim_cur = linklocal_system_flows_ + Agent::kMaxOtherOpenFds + 1;
+            result = setrlimit(RLIMIT_NOFILE, &new_rl);
+            if (result != 0) {
+                if (rl.rlim_cur <= Agent::kMaxOtherOpenFds + 1) {
+                    linklocal_system_flows_ = 0;
+                } else {
+                    linklocal_system_flows_ = rl.rlim_cur - Agent::kMaxOtherOpenFds - 1;
+                }
+                LOG(DEBUG, "Unable to set Max open files limit to : " <<
+                    new_rl.rlim_cur <<
+                    " Updating linklocal-system-flows configuration to : " <<
+                    linklocal_system_flows_);
+            }
+        }
+        if (linklocal_vm_flows_ > linklocal_system_flows_) {
+            linklocal_vm_flows_ = linklocal_system_flows_;
+            LOG(DEBUG, "Updating linklocal-vm-flows configuration to : " <<
+                linklocal_vm_flows_);
+        }
+    } else {
+        LOG(DEBUG, "Unable to validate linklocal flow configuration");
+    }
+}
+
+static bool ValidateInterface(bool test_mode, const std::string &ifname) {
+    if (test_mode) {
+        return true;
+    }
+    int fd = socket(AF_LOCAL, SOCK_STREAM, 0);
+    assert(fd >= 0);
+
+    struct ifreq ifr;
+    memset(&ifr, 0, sizeof(ifr));
+    strncpy(ifr.ifr_name, ifname.c_str(), IF_NAMESIZE);
+    int err = ioctl(fd, SIOCGIFHWADDR, (void *)&ifr);
+    close (fd);
+
+    if (err < 0) {
+        LOG(ERROR, "Error reading interface <" << ifname << ">. Error number "
+            << errno << " : " << strerror(errno));
+        return false;
+    }
+
+    return true;
+}
+
 void AgentParam::Validate() {
-    // Validate vhost_name
+    // Validate vhost interface name
     if (vhost_.name_ == "") {
         LOG(ERROR, "Configuration error. vhost interface name not specified");
         exit(EINVAL);
+    }
+
+    // Check if interface is already present
+    if (ValidateInterface(test_mode_, vhost_.name_) == false) {
+        exit(ENODEV);
     }
 
     // Validate ethernet port
@@ -432,6 +549,27 @@ void AgentParam::Validate() {
         exit(EINVAL);
     }
 
+    // Check if interface is already present
+    if (ValidateInterface(test_mode_, eth_port_) == false) {
+        exit(ENODEV);
+    }
+
+    // Validate physical port used in vmware
+    if (mode_ == MODE_VMWARE) {
+        if (vmware_physical_port_ == "") {
+            LOG(ERROR, "Configuration error. Physical port connecting to "
+                "virtual-machines not specified");
+            exit(EINVAL);
+        }
+
+        if (ValidateInterface(test_mode_, vmware_physical_port_) == false) {
+            exit(ENODEV);
+        }
+    }
+
+}
+
+void AgentParam::InitVhostAndXenLLPrefix() {
     // Set the prefix address for VHOST and XENLL interfaces
     uint32_t mask = vhost_.plen_ ? (0xFFFFFFFF << (32 - vhost_.plen_)) : 0;
     vhost_.prefix_ = Ip4Address(vhost_.addr_.to_ulong() & mask);
@@ -448,9 +586,10 @@ void AgentParam::Init(const string &config_file, const string &program_name,
     InitFromSystem();
     InitFromConfig();
     InitFromArguments(var_map);
-    Validate();
+    InitVhostAndXenLLPrefix();
+
     vgw_config_table_->Init(config_file.c_str());
-    LogConfig();
+    ComputeLinkLocalFlowLimits();
 }
 
 void AgentParam::LogConfig() const {
@@ -467,6 +606,9 @@ void AgentParam::LogConfig() const {
     LOG(DEBUG, "Controller Instances        : " << xmpp_instance_count_);
     LOG(DEBUG, "Tunnel-Type                 : " << tunnel_type_);
     LOG(DEBUG, "Metadata-Proxy Shared Secret: " << metadata_shared_secret_);
+    LOG(DEBUG, "Linklocal Max System Flows  : " << linklocal_system_flows_);
+    LOG(DEBUG, "Linklocal Max Vm Flows      : " << linklocal_vm_flows_);
+    LOG(DEBUG, "Flow cache timeout          : " << flow_cache_timeout_);
     if (mode_ == MODE_KVM) {
     LOG(DEBUG, "Hypervisor mode             : kvm");
         return;
@@ -485,17 +627,24 @@ void AgentParam::LogConfig() const {
     }
 }
 
+void AgentParam::set_test_mode(bool mode) {
+    test_mode_ = mode;
+}
+
 AgentParam::AgentParam() :
         vhost_(), eth_port_(), xmpp_instance_count_(), xmpp_server_1_(),
         xmpp_server_2_(), dns_server_1_(), dns_server_2_(), dss_server_(),
         mgmt_ip_(), mode_(MODE_KVM), xen_ll_(), tunnel_type_(),
-        metadata_shared_secret_(), config_file_(),
-        program_name_(), log_file_(), log_local_(false), log_level_(),
-        log_category_(), collector_(), collector_port_(), http_server_port_(),
-        host_name_(),
+        metadata_shared_secret_(), linklocal_system_flows_(),
+        linklocal_vm_flows_(), flow_cache_timeout_(), config_file_(), program_name_(),
+        log_file_(), log_local_(false), log_level_(), log_category_(),
+        collector_(), collector_port_(), http_server_port_(), host_name_(),
         agent_stats_interval_(AgentStatsCollector::AgentStatsInterval), 
         flow_stats_interval_(FlowStatsCollector::FlowStatsInterval),
-        vmware_physical_port_("") {
+        vmware_physical_port_(""), test_mode_(false) {
     vgw_config_table_ = std::auto_ptr<VirtualGatewayConfigTable>
         (new VirtualGatewayConfigTable());
+}
+AgentParam::~AgentParam()
+{
 }

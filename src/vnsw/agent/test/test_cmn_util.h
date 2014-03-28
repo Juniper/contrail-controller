@@ -9,6 +9,15 @@
 
 static const int kProjectUuid = 101;
 
+struct TestLinkLocalService {
+    std::string linklocal_name;
+    std::string linklocal_ip;
+    uint16_t    linklocal_port;
+    std::string fabric_dns_name;
+    std::vector<std::string> fabric_ip;
+    uint16_t    fabric_port;
+};
+
 uuid MakeUuid(int id);
 void DelXmlHdr(char *buff, int &len);
 void DelXmlTail(char *buff, int &len);
@@ -48,6 +57,7 @@ NextHop *InetInterfaceNHGet(NextHopTable *table, const char *ifname,
                             bool policy);
 NextHop *ReceiveNHGet(NextHopTable *table, const char *ifname, bool policy);
 bool VrfFind(const char *name);
+bool VrfFind(const char *name, bool ret_del);
 VrfEntry *VrfGet(const char *name);
 bool VnFind(int id);
 VnEntry *VnGet(int id);
@@ -149,6 +159,9 @@ void AddIPAM(const char *name, IpamInfo *ipam, int size, const char *ipam_attr =
 void DelIPAM(const char *name, const char *vdns_name = NULL);
 void AddVDNS(const char *vdns_name, const char *vdns_attr);
 void DelVDNS(const char *vdns_name);
+void AddLinkLocalConfig(const TestLinkLocalService *services, int count);
+void DelLinkLocalConfig();
+void DeleteGlobalVrouterConfig();
 TestClient *StatsTestInit();
 void send_icmp(int fd, uint8_t smac, uint8_t dmac, uint32_t sip, uint32_t dip);
 bool FlowStats(FlowIp *input, int id, uint32_t bytes, uint32_t pkts);
@@ -160,6 +173,8 @@ void CreateVmportEnvInternal(struct PortInfo *input, int count, int acl_id = 0,
                      const char *vn = NULL, const char *vrf = NULL, 
                      bool l2_vn = false);
 void CreateL2VmportEnv(struct PortInfo *input, int count, int acl_id = 0,
+                     const char *vn = NULL, const char *vrf = NULL);
+void CreateVmportEnvWithoutIp(struct PortInfo *input, int count, int acl_id = 0,
                      const char *vn = NULL, const char *vrf = NULL);
 void CreateVmportEnv(struct PortInfo *input, int count, int acl_id = 0,
                      const char *vn = NULL, const char *vrf = NULL);

@@ -8,6 +8,7 @@
 #include "testing/gunit.h"
 #include "test_cmn_util.h"
 #include "vr_types.h"
+#include "oper/vn.h"
 
 #include <boost/assign/list_of.hpp>
 
@@ -26,6 +27,25 @@ static void ValidateSandeshResponse(Sandesh *sandesh, vector<int> &result) {
     //Validate the response by the expectation
 }
 
+void DoMulticastSandesh(int vrf_id) {
+    Inet4McRouteReq *mc_list_req = new Inet4McRouteReq();
+    std::vector<int> result = list_of(1);
+    Sandesh::set_response_callback(boost::bind(ValidateSandeshResponse, _1, result));
+    mc_list_req->set_vrf_index(vrf_id);
+    mc_list_req->HandleRequest();
+    client->WaitForIdle();
+    mc_list_req->Release();
+    client->WaitForIdle();
+
+    NhListReq *nh_req = new NhListReq();
+    std::vector<int> nh_result = list_of(1);
+    Sandesh::set_response_callback(boost::bind(ValidateSandeshResponse, _1, nh_result));
+    nh_req->HandleRequest();
+    client->WaitForIdle();
+    nh_req->Release();
+    client->WaitForIdle();
+}
+
 void WaitForCompositeNHDelete(Ip4Address grp, std::string vrf_name)
 {
     CompositeNHKey key(vrf_name, grp,
@@ -37,6 +57,51 @@ void WaitForCompositeNHDelete(Ip4Address grp, std::string vrf_name)
         usleep(1000);
         client->WaitForIdle();
     } while ((nh != NULL) && (nh->IsDeleted() != true));
+}
+
+TEST_F(CfgTest, Mcast_basic) {
+    client->Reset();
+    struct PortInfo input[] = {
+        {"vnet1", 1, "11.1.1.1", "00:00:00:01:01:01", 1, 1},
+    };
+
+    //Sandesh request for unknown vrf
+    DoMulticastSandesh(2);
+    client->WaitForIdle();
+
+    client->Reset();
+    VxLanNetworkIdentifierMode(false);
+    client->WaitForIdle();
+    CreateVmportEnv(input, 1, 0);
+    client->WaitForIdle();
+	WAIT_FOR(1000, 1000, (VmPortActive(input, 0) == true));
+    WAIT_FOR(1000, 1000, (MCRouteFind("vrf1", "255.255.255.255") == true));
+    client->Reset();
+
+    //Sandesh request
+    DoMulticastSandesh(1);
+    //key manipulation
+    Inet4MulticastRouteEntry *mc_rt = 
+        MCRouteGet("vrf1", IpAddress::from_string("255.255.255.255").to_v4());
+    EXPECT_TRUE(mc_rt != NULL);
+    Inet4MulticastRouteKey key("vrf1",
+                               IpAddress::from_string("255.255.255.255").to_v4(),
+                               IpAddress::from_string("1.1.1.1").to_v4());
+    mc_rt->SetKey(&key);
+    EXPECT_TRUE(mc_rt->src_ip_addr() == IpAddress::from_string("1.1.1.1").to_v4());
+
+    //Restore old src ip
+    Inet4MulticastRouteKey old_key("vrf1",
+                               IpAddress::from_string("255.255.255.255").to_v4(),
+                               IpAddress::from_string("0.0.0.0").to_v4());
+    mc_rt->SetKey(&old_key);
+    EXPECT_TRUE(mc_rt->src_ip_addr() == IpAddress::from_string("0.0.0.0").to_v4());
+
+    client->Reset();
+    DeleteVmportEnv(input, 1, 1, 0);
+    client->WaitForIdle();
+    WAIT_FOR(1000, 1000, (MCRouteFind("vrf1", "255.255.255.255") != true));
+    WAIT_FOR(1000, 1000, (VrfFind("vrf1") == false));
 }
 
 TEST_F(CfgTest, McastSubnet_1) {
@@ -109,20 +174,13 @@ TEST_F(CfgTest, McastSubnet_1) {
     client->WaitForIdle();
 
     //Verify sandesh
-    Inet4McRouteReq *mc_list_req = new Inet4McRouteReq();
-    std::vector<int> result = list_of(1);
-    Sandesh::set_response_callback(boost::bind(ValidateSandeshResponse, _1, result));
-    mc_list_req->set_vrf_index(1);
-    mc_list_req->HandleRequest();
-    client->WaitForIdle();
-    mc_list_req->Release();
-    client->WaitForIdle();
+    DoMulticastSandesh(1);
 
     Ip4Address addr = Ip4Address::from_string("1.1.1.255");
     rt = RouteGet("vrf1", addr, 32);
     nh = const_cast<NextHop *>(rt->GetActiveNextHop());
     cnh = static_cast<CompositeNH *>(nh);
-    mcobj = MulticastHandler::GetInstance()->FindGroupObject(cnh->GetVrfName(),
+    mcobj = MulticastHandler::GetInstance()->FindGroupObject(cnh->vrf_name(),
                                               cnh->GetGrpAddr());
     ASSERT_TRUE(mcobj->GetSourceMPLSLabel() == 1111);
 	MplsLabel *mpls = 
@@ -171,6 +229,7 @@ TEST_F(CfgTest, McastSubnet_1) {
                                           IpAddress::from_string("0.0.0.0").to_v4(),
                                           2222, olist_map2);
     client->WaitForIdle();
+    DoMulticastSandesh(1);
 
     addr = Ip4Address::from_string("3.3.255.255");
     rt = RouteGet("vrf1", addr, 32);
@@ -285,7 +344,7 @@ TEST_F(CfgTest, L2Broadcast_1) {
         MCRouteGet("vrf1", "255.255.255.255");
     nh = const_cast<NextHop *>(rt->GetActiveNextHop());
     cnh = static_cast<CompositeNH *>(nh);
-    mcobj = MulticastHandler::GetInstance()->FindGroupObject(cnh->GetVrfName(),
+    mcobj = MulticastHandler::GetInstance()->FindGroupObject(cnh->vrf_name(),
                                               cnh->GetGrpAddr());
     ASSERT_TRUE(mcobj->GetSourceMPLSLabel() == 1111);
 	MplsLabel *mpls = NULL; 
@@ -300,6 +359,7 @@ TEST_F(CfgTest, L2Broadcast_1) {
     EXPECT_TRUE(cnh->ComponentNHCount() == 4);
     EXPECT_TRUE(cnh->IsMcastNH() == true);
     EXPECT_TRUE(cnh->CompositeType() == Composite::L3COMP);
+    DoMulticastSandesh(1);
 
     Layer2RouteEntry *l2_rt = L2RouteGet("vrf1", *ether_aton("FF:FF:FF:FF:FF:FF"));
     NextHop *l2_nh = const_cast<NextHop *>(l2_rt->GetActiveNextHop());
@@ -323,14 +383,17 @@ TEST_F(CfgTest, L2Broadcast_1) {
     const CompositeNH *fabric_cnh = static_cast<const CompositeNH *>(cnh->GetNH(0));
     EXPECT_TRUE(fabric_cnh->CompositeType() == Composite::FABRIC);
     EXPECT_TRUE(fabric_cnh->ComponentNHCount() == 1);
-    EXPECT_TRUE(fabric_cnh->GetComponentNHList()->Get(0)->GetLabel() == 2000);
+    EXPECT_TRUE(fabric_cnh->GetComponentNHList()->Get(0)->label() == 2000);
 
     const CompositeNH *mpls_cnh = 
-        static_cast<const CompositeNH *>(mpls->GetNextHop());
+        static_cast<const CompositeNH *>(mpls->nexthop());
     EXPECT_TRUE(mpls_cnh->CompositeType() == Composite::MULTIPROTO);
     EXPECT_TRUE(mpls_cnh->ComponentNHCount() == 2);
     EXPECT_TRUE(mpls_cnh->GetNH(0) == cnh);
     EXPECT_TRUE(mpls_cnh->GetNH(1) == l2_cnh);
+    DoMulticastSandesh(1);
+    DoMulticastSandesh(2);
+    DoMulticastSandesh(3);
 
     IntfCfgDel(input, 0);
     client->WaitForIdle();
@@ -407,7 +470,7 @@ TEST_F(CfgTest, McastSubnet_DeleteRouteOnVRFDeleteofVN) {
     rt = RouteGet("vrf1", addr, 32);
     nh = const_cast<NextHop *>(rt->GetActiveNextHop());
     cnh = static_cast<CompositeNH *>(nh);
-    mcobj = MulticastHandler::GetInstance()->FindGroupObject(cnh->GetVrfName(),
+    mcobj = MulticastHandler::GetInstance()->FindGroupObject(cnh->vrf_name(),
                                               cnh->GetGrpAddr());
     ASSERT_TRUE(mcobj->GetSourceMPLSLabel() == 1111);
 	MplsLabel *mpls = 
@@ -772,6 +835,243 @@ TEST_F(CfgTest, McastSubnet_VN2MultipleVRFtest_ignore_unknown_vrf) {
     EXPECT_FALSE(RouteFind("vrf1", "10.1.1.2", 32));
 
     client->WaitForIdle();
+}
+
+TEST_F(CfgTest, subnet_bcast_ipv4_vn_delete) {
+    //Send control node message on subnet bcast after family has changed to L2
+    client->Reset();
+    struct PortInfo input[] = {
+        {"vnet1", 1, "11.1.1.2", "00:00:00:01:01:11", 1, 1},
+    };
+
+    IpamInfo ipam_info[] = {
+        {"10.1.1.0", 24, "10.1.1.100"},
+        {"11.1.1.0", 24, "11.1.1.100"},
+    };
+
+    EXPECT_FALSE(VrfFind("vrf1"));
+    VxLanNetworkIdentifierMode(false);
+    client->WaitForIdle();
+    CreateVmportEnv(input, 1, 0);
+    client->WaitForIdle();
+
+	WAIT_FOR(1000, 1000, (VmPortActive(input, 0) == true));
+
+    AddIPAM("vn1", ipam_info, 2);
+    client->WaitForIdle();
+    WAIT_FOR(1000, 1000, (RouteFind("vrf1", "11.1.1.255", 32)));
+
+    //Change the vn forwarding mode to l2-only
+    MulticastGroupObject *mcobj = MulticastHandler::GetInstance()->
+        FindGroupObject("vrf1", IpAddress::from_string("11.1.1.255").to_v4());
+    EXPECT_TRUE(mcobj->Ipv4Forwarding() == true);
+    EXPECT_TRUE(mcobj->layer2_forwarding() == false);
+    //Del VN
+    VnDelReq(1);
+    client->WaitForIdle();
+    WAIT_FOR(1000, 1000, (!RouteFind("vrf1", "11.1.1.255", 32)));
+
+    cout << "DEBUG1 " << mcobj->IsDeleted() << mcobj->Ipv4Forwarding() << mcobj->layer2_forwarding() << endl;
+    TunnelOlist olist_map;
+    olist_map.push_back(OlistTunnelEntry(2000,
+                                         IpAddress::from_string("8.8.8.8").to_v4(),
+                                         TunnelType::MplsType()));
+    MulticastHandler::ModifyFabricMembers("vrf1",
+                                          IpAddress::from_string("11.1.1.255").to_v4(),
+                                          IpAddress::from_string("0.0.0.0").to_v4(),
+                                          1111, olist_map);
+    client->WaitForIdle();
+    EXPECT_TRUE(mcobj->GetSourceMPLSLabel() == 0);
+    EXPECT_TRUE(mcobj->GetTunnelOlist().size() == 0);
+
+    //Restore and cleanup
+    client->Reset();
+    DelIPAM("vn1");
+    client->WaitForIdle();
+    DeleteVmportEnv(input, 1, 1, 0);
+    client->WaitForIdle();
+    WAIT_FOR(1000, 1000, (VrfFind("vrf1") == false));
+}
+
+TEST_F(CfgTest, subnet_bcast_ipv4_vn_ipam_change) {
+    //Send control node message on subnet bcast after family has changed to L2
+    client->Reset();
+    struct PortInfo input[] = {
+        {"vnet1", 1, "11.1.1.2", "00:00:00:01:01:11", 1, 1},
+    };
+
+    IpamInfo ipam_info[] = {
+        {"10.1.1.0", 24, "10.1.1.100"},
+        {"11.1.1.0", 24, "11.1.1.100"},
+    };
+
+    IpamInfo ipam_info_2[] = {
+        {"10.1.1.0", 24, "10.1.1.100"},
+        {"12.1.1.0", 24, "12.1.1.100"},
+    };
+
+    EXPECT_FALSE(VrfFind("vrf1"));
+    VxLanNetworkIdentifierMode(false);
+    client->WaitForIdle();
+    CreateVmportEnv(input, 1, 0);
+    client->WaitForIdle();
+
+	WAIT_FOR(1000, 1000, (VmPortActive(input, 0) == true));
+
+    AddIPAM("vn1", ipam_info, 2);
+    client->WaitForIdle();
+    WAIT_FOR(1000, 1000, (RouteFind("vrf1", "11.1.1.255", 32)));
+
+    //Change the vn forwarding mode to l2-only
+    MulticastGroupObject *mcobj = MulticastHandler::GetInstance()->
+        FindGroupObject("vrf1", IpAddress::from_string("11.1.1.255").to_v4());
+    EXPECT_TRUE(mcobj->Ipv4Forwarding() == true);
+    EXPECT_TRUE(mcobj->layer2_forwarding() == false);
+    //Change IPAM
+    AddIPAM("vn1", ipam_info_2, 2);
+    client->WaitForIdle();
+    WAIT_FOR(1000, 1000, (!RouteFind("vrf1", "11.1.1.255", 32)));
+
+    cout << "DEBUG2 " << mcobj->IsDeleted() << mcobj->Ipv4Forwarding() << mcobj->layer2_forwarding() << endl;
+    TunnelOlist olist_map;
+    olist_map.push_back(OlistTunnelEntry(2000,
+                                         IpAddress::from_string("8.8.8.8").to_v4(),
+                                         TunnelType::MplsType()));
+    MulticastHandler::ModifyFabricMembers("vrf1",
+                                          IpAddress::from_string("11.1.1.255").to_v4(),
+                                          IpAddress::from_string("0.0.0.0").to_v4(),
+                                          1111, olist_map);
+    client->WaitForIdle();
+    EXPECT_TRUE(mcobj->GetSourceMPLSLabel() == 0);
+    EXPECT_TRUE(mcobj->GetTunnelOlist().size() == 0);
+
+    //Restore and cleanup
+    client->Reset();
+    DelIPAM("vn1");
+    client->WaitForIdle();
+    DeleteVmportEnv(input, 1, 1, 0);
+    client->WaitForIdle();
+    WAIT_FOR(1000, 1000, (VrfFind("vrf1") == false));
+}
+
+TEST_F(CfgTest, subnet_bcast_ipv4_vn_vrf_link_delete) {
+    //Send control node message on subnet bcast after family has changed to L2
+    client->Reset();
+    struct PortInfo input[] = {
+        {"vnet1", 1, "11.1.1.2", "00:00:00:01:01:11", 1, 1},
+    };
+
+    IpamInfo ipam_info[] = {
+        {"10.1.1.0", 24, "10.1.1.100"},
+        {"11.1.1.0", 24, "11.1.1.100"},
+    };
+
+    EXPECT_FALSE(VrfFind("vrf1"));
+    VxLanNetworkIdentifierMode(false);
+    client->WaitForIdle();
+    CreateVmportEnv(input, 1, 0);
+    client->WaitForIdle();
+
+	WAIT_FOR(1000, 1000, (VmPortActive(input, 0) == true));
+
+    AddIPAM("vn1", ipam_info, 2);
+    client->WaitForIdle();
+    WAIT_FOR(1000, 1000, (RouteFind("vrf1", "11.1.1.255", 32)));
+
+    //Change the vn forwarding mode to l2-only
+    MulticastGroupObject *mcobj = MulticastHandler::GetInstance()->
+        FindGroupObject("vrf1", IpAddress::from_string("11.1.1.255").to_v4());
+    EXPECT_TRUE(mcobj->Ipv4Forwarding() == true);
+    EXPECT_TRUE(mcobj->layer2_forwarding() == false);
+    //VRF delete for VN
+    DelLink("virtual-network", "vn1", "routing-instance", "vrf1");
+    client->WaitForIdle();
+    WAIT_FOR(1000, 1000, (!RouteFind("vrf1", "11.1.1.255", 32)));
+
+    cout << "DEBUG3 " << mcobj->IsDeleted() << mcobj->Ipv4Forwarding() << mcobj->layer2_forwarding() << endl;
+    TunnelOlist olist_map;
+    olist_map.push_back(OlistTunnelEntry(2000,
+                                         IpAddress::from_string("8.8.8.8").to_v4(),
+                                         TunnelType::MplsType()));
+    MulticastHandler::ModifyFabricMembers("vrf1",
+                                          IpAddress::from_string("11.1.1.255").to_v4(),
+                                          IpAddress::from_string("0.0.0.0").to_v4(),
+                                          1111, olist_map);
+    client->WaitForIdle();
+    EXPECT_TRUE(mcobj->GetSourceMPLSLabel() == 0);
+    EXPECT_TRUE(mcobj->GetTunnelOlist().size() == 0);
+
+    //Restore and cleanup
+    client->Reset();
+    DelIPAM("vn1");
+    client->WaitForIdle();
+    DeleteVmportEnv(input, 1, 1, 0);
+    client->WaitForIdle();
+    WAIT_FOR(1000, 1000, (VrfFind("vrf1") == false));
+}
+
+TEST_F(CfgTest, subnet_bcast_add_l2l3vn_and_l2vn) {
+    client->Reset();
+    struct PortInfo input[] = {
+        {"vnet1", 1, "11.1.1.2", "00:00:00:01:01:11", 1, 1},
+    };
+
+    struct PortInfo input_2[] = {
+        {"vnet2", 2, "11.1.1.3", "00:00:00:01:01:11", 1, 1},
+    };
+
+    IpamInfo ipam_info[] = {
+        {"10.1.1.0", 24, "10.1.1.100"},
+        {"11.1.1.0", 24, "11.1.1.100"},
+    };
+
+    EXPECT_FALSE(VrfFind("vrf1"));
+    AddEncapList("VXLAN", "MPLSoGRE", "MPLSoUDP");
+    VxLanNetworkIdentifierMode(false);
+    client->WaitForIdle();
+    CreateVmportEnv(input, 1, 0);
+    client->WaitForIdle();
+
+	WAIT_FOR(1000, 1000, (VmPortActive(input, 0) == true));
+
+    AddIPAM("vn1", ipam_info, 2);
+    client->WaitForIdle();
+    WAIT_FOR(1000, 1000, (RouteFind("vrf1", "11.1.1.255", 32)));
+
+    MulticastGroupObject *mcobj = MulticastHandler::GetInstance()->
+        FindGroupObject("vrf1", IpAddress::from_string("11.1.1.255").to_v4());
+    EXPECT_TRUE(mcobj->Ipv4Forwarding() == true);
+    EXPECT_TRUE(mcobj->layer2_forwarding() == false);
+    client->WaitForIdle();
+
+    AddL2Vn("vn2", 2);
+    client->WaitForIdle();
+    EXPECT_TRUE(RouteFind("vrf1", "11.1.1.255", 32));
+
+    AddVrf("vrf2");
+    AddLink("virtual-network", "vn2", "routing-instance", "vrf2");
+    client->WaitForIdle();
+    EXPECT_TRUE(RouteFind("vrf1", "11.1.1.255", 32));
+
+    TunnelOlist olist_map;
+    olist_map.push_back(OlistTunnelEntry(2000,
+                                         IpAddress::from_string("8.8.8.8").to_v4(),
+                                         TunnelType::MplsType()));
+    MulticastHandler::ModifyFabricMembers("vrf1",
+                                          IpAddress::from_string("11.1.1.255").to_v4(),
+                                          IpAddress::from_string("0.0.0.0").to_v4(),
+                                          1111, olist_map);
+    client->WaitForIdle();
+    EXPECT_TRUE(mcobj->GetSourceMPLSLabel() == 1111);
+    EXPECT_TRUE(mcobj->GetTunnelOlist().size() == 1);
+
+    //Restore and cleanup
+    client->Reset();
+    DelIPAM("vn1");
+    client->WaitForIdle();
+    DeleteVmportEnv(input, 1, 1, 0);
+    client->WaitForIdle();
+    WAIT_FOR(1000, 1000, (VrfFind("vrf1") == false));
 }
 
 TEST_F(CfgTest, McastSubnet_VN2MultipleVRFtest_negative) {

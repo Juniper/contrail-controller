@@ -132,6 +132,123 @@ TEST_F(BgpTableTest, RiboutBasic) {
     ASSERT_TRUE(ribout3 == NULL);
 }
 
+// Different encodings result in creation of different RibOuts.
+TEST_F(BgpTableTest, RiboutEncoding1) {
+    RibOut *ribout1 = NULL, *ribout2 = NULL, *ribout3 = NULL, *temp = NULL;
+    RibExportPolicy policy1(BgpProto::IBGP, RibExportPolicy::BGP, -1, 0);
+    RibExportPolicy policy2(BgpProto::EBGP, RibExportPolicy::BGP, -1, 0);
+    RibExportPolicy policy3(BgpProto::XMPP, RibExportPolicy::XMPP, -1, 0);
+
+    // Create 3 ribouts.
+    ribout1 = rt_table_->RibOutLocate(&mgr_, policy1);
+    ASSERT_TRUE(ribout1 != NULL);
+    ribout2 = rt_table_->RibOutLocate(&mgr_, policy2);
+    ASSERT_TRUE(ribout2 != NULL);
+    ribout3 = rt_table_->RibOutLocate(&mgr_, policy3);
+    ASSERT_TRUE(ribout3 != NULL);
+    ASSERT_EQ(rt_table_->ribout_map().size(), 3);
+
+    // Check if we can find them.
+    temp = rt_table_->RibOutFind(policy1);
+    ASSERT_EQ(temp, ribout1);
+    temp = rt_table_->RibOutFind(policy2);
+    ASSERT_EQ(temp, ribout2);
+    temp = rt_table_->RibOutFind(policy3);
+    ASSERT_EQ(temp, ribout3);
+
+    // Delete all of them.
+    rt_table_->RibOutDelete(policy1);
+    rt_table_->RibOutDelete(policy2);
+    rt_table_->RibOutDelete(policy3);
+    ASSERT_EQ(rt_table_->ribout_map().size(), 0);
+
+    // Make sure they are all gone.
+    ribout1 = rt_table_->RibOutFind(policy1);
+    ASSERT_TRUE(ribout1 == NULL);
+    ribout2 = rt_table_->RibOutFind(policy2);
+    ASSERT_TRUE(ribout2 == NULL);
+    ribout3 = rt_table_->RibOutFind(policy3);
+    ASSERT_TRUE(ribout3 == NULL);
+}
+
+// Different encodings result in creation of different RibOuts.
+TEST_F(BgpTableTest, RiboutEncoding2) {
+    RibOut *ribout1 = NULL, *ribout2 = NULL, *ribout3 = NULL, *temp = NULL;
+    RibExportPolicy policy1(BgpProto::IBGP, RibExportPolicy::BGP, -1, 0);
+    RibExportPolicy policy2(BgpProto::EBGP, RibExportPolicy::BGP, -1, 0);
+    RibExportPolicy policy3(BgpProto::XMPP, RibExportPolicy::XMPP, -1, 0);
+
+    // Create 3 ribouts.
+    ribout1 = rt_table_->RibOutLocate(&mgr_, policy1);
+    ASSERT_TRUE(ribout1 != NULL);
+    ribout3 = rt_table_->RibOutLocate(&mgr_, policy3);
+    ASSERT_TRUE(ribout3 != NULL);
+    ribout2 = rt_table_->RibOutLocate(&mgr_, policy2);
+    ASSERT_TRUE(ribout2 != NULL);
+    ASSERT_EQ(rt_table_->ribout_map().size(), 3);
+
+    // Check if we can find them.
+    temp = rt_table_->RibOutFind(policy1);
+    ASSERT_EQ(temp, ribout1);
+    temp = rt_table_->RibOutFind(policy2);
+    ASSERT_EQ(temp, ribout2);
+    temp = rt_table_->RibOutFind(policy3);
+    ASSERT_EQ(temp, ribout3);
+
+    // Delete all of them.
+    rt_table_->RibOutDelete(policy1);
+    rt_table_->RibOutDelete(policy2);
+    rt_table_->RibOutDelete(policy3);
+    ASSERT_EQ(rt_table_->ribout_map().size(), 0);
+
+    // Make sure they are all gone.
+    ribout1 = rt_table_->RibOutFind(policy1);
+    ASSERT_TRUE(ribout1 == NULL);
+    ribout2 = rt_table_->RibOutFind(policy2);
+    ASSERT_TRUE(ribout2 == NULL);
+    ribout3 = rt_table_->RibOutFind(policy3);
+    ASSERT_TRUE(ribout3 == NULL);
+}
+
+// Different cluster ids result in creation of different RibOuts.
+TEST_F(BgpTableTest, RiboutClusterId) {
+    RibOut *ribout1 = NULL, *ribout2 = NULL, *ribout3 = NULL, *temp = NULL;
+    RibExportPolicy policy1(BgpProto::EBGP, RibExportPolicy::BGP, -1, 1);
+    RibExportPolicy policy2(BgpProto::EBGP, RibExportPolicy::BGP, -1, 2);
+    RibExportPolicy policy3(BgpProto::EBGP, RibExportPolicy::BGP, -1, 3);
+
+    // Create 3 ribouts.
+    ribout2 = rt_table_->RibOutLocate(&mgr_, policy2);
+    ASSERT_TRUE(ribout2 != NULL);
+    ribout1 = rt_table_->RibOutLocate(&mgr_, policy1);
+    ASSERT_TRUE(ribout1 != NULL);
+    ribout3 = rt_table_->RibOutLocate(&mgr_, policy3);
+    ASSERT_TRUE(ribout3 != NULL);
+    ASSERT_EQ(rt_table_->ribout_map().size(), 3);
+
+    // Check if we can find them.
+    temp = rt_table_->RibOutFind(policy1);
+    ASSERT_EQ(temp, ribout1);
+    temp = rt_table_->RibOutFind(policy2);
+    ASSERT_EQ(temp, ribout2);
+    temp = rt_table_->RibOutFind(policy3);
+    ASSERT_EQ(temp, ribout3);
+
+    // Delete all of them.
+    rt_table_->RibOutDelete(policy1);
+    rt_table_->RibOutDelete(policy2);
+    rt_table_->RibOutDelete(policy3);
+    ASSERT_EQ(rt_table_->ribout_map().size(), 0);
+
+    // Make sure they are all gone.
+    ribout1 = rt_table_->RibOutFind(policy1);
+    ASSERT_TRUE(ribout1 == NULL);
+    ribout2 = rt_table_->RibOutFind(policy2);
+    ASSERT_TRUE(ribout2 == NULL);
+    ribout3 = rt_table_->RibOutFind(policy3);
+    ASSERT_TRUE(ribout3 == NULL);
+}
+
 // Different AS numbers result in creation of different RibOuts.
 TEST_F(BgpTableTest, RiboutAS) {
     RibOut *ribout1 = NULL, *ribout2 = NULL, *ribout3 = NULL, *temp = NULL;

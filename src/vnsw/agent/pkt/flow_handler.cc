@@ -4,6 +4,7 @@
 
 #include "pkt/proto.h"
 #include "pkt/proto_handler.h"
+#include "pkt/pkt_init.h"
 #include "pkt/pkt_handler.h"
 #include "pkt/flow_table.h"
 #include "pkt/flow_proto.h"
@@ -22,7 +23,7 @@ static const VmEntry *InterfaceToVm(const Interface *intf) {
 bool FlowHandler::Run() {
     PktControlInfo in;
     PktControlInfo out;
-    PktFlowInfo info(pkt_info_);
+    PktFlowInfo info(pkt_info_, agent_->pkt()->flow_table());
 
     SecurityGroupList empty_sg_id_l;
     info.source_sg_id_l = &empty_sg_id_l;
@@ -34,14 +35,14 @@ bool FlowHandler::Run() {
 
     if (in.rt_) {
         const AgentPath *path = in.rt_->GetActivePath();
-        info.source_sg_id_l = &(path->GetSecurityGroupList());
-        info.source_plen = in.rt_->GetPlen();
+        info.source_sg_id_l = &(path->sg_list());
+        info.source_plen = in.rt_->plen();
     }
 
     if (out.rt_) {
         const AgentPath *path = out.rt_->GetActivePath();
-        info.dest_sg_id_l = &(path->GetSecurityGroupList());
-        info.dest_plen = out.rt_->GetPlen();
+        info.dest_sg_id_l = &(path->sg_list());
+        info.dest_plen = out.rt_->plen();
     }
 
     if (info.source_vn == NULL)

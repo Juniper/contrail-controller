@@ -17,6 +17,7 @@
 #include "http/client/http_curl.h"
 #include <cmn/agent_cmn.h>
 #include <oper/operdb_init.h>
+#include <oper/interface_common.h>
 #include <pkt/pkt_init.h>
 #include <services/services_init.h>
 #include <test/test_cmn_util.h>
@@ -25,15 +26,33 @@
 
 #define MAX_WAIT_COUNT 500
 #define BUF_SIZE 8192
+#define vm1_ip "10.1.1.3"
 #define METADATA_CHECK(condition)                                              \
                     do {                                                       \
-                      usleep(1000);                                            \
                       client->WaitForIdle();                                   \
                       stats = Agent::GetInstance()->services()->               \
                               metadataproxy()->metadatastats();                \
                       if (++count == MAX_WAIT_COUNT)                           \
                           assert(0);                                           \
+                      usleep(1000);                                            \
                     } while (condition);                                       \
+
+class TestInterfaceTable : public InterfaceTable {
+public:
+    TestInterfaceTable() :
+        InterfaceTable(Agent::GetInstance()->GetDB(), "test") {}
+    ~TestInterfaceTable() {}
+
+    bool FindVmUuidFromMetadataIp(const Ip4Address &ip,
+                                  std::string *vm_ip,
+                                  std::string *vm_uuid,
+                                  std::string *vm_project_uuid) {
+        *vm_ip = vm1_ip;
+        *vm_uuid = "1234";
+        *vm_project_uuid = "5678";
+        return true;
+    }
+};
 
 class MetadataTest : public ::testing::Test {
 public:
@@ -132,6 +151,7 @@ public:
 
         std::string uri("openstack");
         std::string header_options;
+        header_options = "Connection: close";
         HttpConnection *conn = vm_http_client_->CreateConnection(http_ep);
         conn->RegisterEventCb(
               boost::bind(&MetadataTest::OnClientSessionEvent, this, _1, _2));
@@ -185,26 +205,29 @@ public:
         const HttpRequest::HeaderMap &req_header = request->Headers();
         for (HttpRequest::HeaderMap::const_iterator it = req_header.begin();
              it != req_header.end(); ++it) {
-            std::string option = boost::to_lower_copy(it->first);
+            std::string option = it->first;
             if (option == "X-Forwarded-For" || option == "X-Instance-ID" ||
-                option == "X-Instance-ID-Signature")
+                option == "X-Instance-ID-Signature" || option == "X-Tenant-ID")
                 found++;
         }
 
-        if (found != 3)
+        if (found != 4)
             assert(0);
 
-        const char response[] =
-"HTTP/1.1 200 OK\n"
-"Content-Type: text/html; charset=UTF-8\n"
-"Content-Length: 45\n"
-"\n"
-"<html>\n"
-"<title>Server Status</title>\n"
-"</html>\n"
-;
+        const char body[] = "<html>\n"
+                            "<head>\n"
+                            " <title>Server Status Success</title>\n"
+                            "</head>\n"
+                            "</html>\n";
+        char response[512];
+        snprintf(response, sizeof(response),
+                 "HTTP/1.1 200 OK\r\n"
+                 "Content-Type: text/html; charset=UTF-8\r\n"
+                 "Content-Length: %u\r\n"
+                 "\r\n%s", (unsigned int)strlen(body), body);
+
         session->Send(reinterpret_cast<const u_int8_t *>(response),
-                      sizeof(response), NULL);
+                      strlen(response), NULL);
         delete request;
     }
 
@@ -222,7 +245,7 @@ TEST_F(MetadataTest, MetadataReqTest) {
     int count = 0;
     MetadataProxy::MetadataStats stats;
     struct PortInfo input[] = {
-        {"vnet1", 1, "10.1.1.3", "00:00:00:01:01:01", 1, 1},
+        {"vnet1", 1, vm1_ip, "00:00:00:01:01:01", 1, 1},
     };
 
     StartNovaApiProxy();
@@ -252,14 +275,17 @@ TEST_F(MetadataTest, MetadataReqTest) {
     client->WaitForIdle();
     sand->Release();
 
-#if 0
-    // TODO: need a way for agent to identify the vm
+    // for agent to identify the vm, the remote end should have vm's ip;
+    // overload the FindVmUuidFromMetadataIp to return true
+    InterfaceTable *intf_table = Agent::GetInstance()->GetInterfaceTable();
+    TestInterfaceTable *interface_table = new TestInterfaceTable();
+    Agent::GetInstance()->SetInterfaceTable(static_cast<InterfaceTable *>(interface_table));
     SendHttpClientRequest();
-    METADATA_CHECK (stats.responses < 2);
+    METADATA_CHECK (stats.responses < 1);
+    Agent::GetInstance()->SetInterfaceTable(intf_table);
     EXPECT_EQ(2U, stats.requests);
-    EXPECT_EQ(2U, stats.proxy_sessions);
-    EXPECT_EQ(0U, stats.internal_errors);
-#endif
+    EXPECT_EQ(1U, stats.proxy_sessions);
+    EXPECT_EQ(1U, stats.internal_errors);
 
     client->Reset();
     StopHttpClient();
@@ -278,7 +304,7 @@ void RouterIdDepInit() {
 int main(int argc, char *argv[]) {
     GETUSERARGS();
 
-    client = TestInit(init_file, ksync_init, true, true);
+    client = TestInit(init_file, ksync_init, true, true, false);
     usleep(100000);
     client->WaitForIdle();
 

@@ -394,10 +394,10 @@ TEST_F(AgentXmppUnitTest, Connection) {
     EXPECT_TRUE(VmPortActive(input, 0));
     EXPECT_TRUE(RouteFind("vrf1", addr, 32));
     Inet4UnicastRouteEntry *rt = RouteGet("vrf1", addr, 32);
-    EXPECT_STREQ(rt->GetDestVnName().c_str(), "vn1");
+    EXPECT_STREQ(rt->dest_vn_name().c_str(), "vn1");
     //ensure active path is local-vm
-    EXPECT_TRUE(rt->GetActivePath()->GetPeer()->GetType() 
-                == Peer::LOCAL_VM_PEER);
+    EXPECT_TRUE(rt->GetActivePath()->peer()->GetType() 
+                == Peer::LOCAL_VM_PORT_PEER);
 
     n++; n++; n++; n++; n++;
     n_s++; n_s++; n_s++;
@@ -413,7 +413,7 @@ TEST_F(AgentXmppUnitTest, Connection) {
     // Route reflected to vrf1
     WAIT_FOR(100, 10000, (bgp_peer.get()->Count() == 1));
     //ensure active path is local-vm
-    EXPECT_TRUE(rt->GetActivePath()->GetPeer()->GetType() 
+    EXPECT_TRUE(rt->GetActivePath()->peer()->GetType() 
                 == Peer::BGP_PEER);
 
     // Send route, leak to vrf2
@@ -426,8 +426,8 @@ TEST_F(AgentXmppUnitTest, Connection) {
     WAIT_FOR(100, 10000, (RouteFind("vrf2", addr, 32) == true));
     Inet4UnicastRouteEntry *rt2 = RouteGet("vrf2", addr, 32);
     WAIT_FOR(100, 10000, rt2->GetActivePath() != NULL);
-    WAIT_FOR(100, 10000, rt2->GetDestVnName().size() > 0);
-    EXPECT_STREQ(rt2->GetDestVnName().c_str(), "vn1");
+    WAIT_FOR(100, 10000, rt2->dest_vn_name().size() > 0);
+    EXPECT_STREQ(rt2->dest_vn_name().c_str(), "vn1");
     //check paths
     ASSERT_TRUE(rt2->FindPath(bgp_peer->GetBgpPeer()) != NULL);
 
@@ -449,7 +449,7 @@ TEST_F(AgentXmppUnitTest, Connection) {
     ASSERT_TRUE(rt2->FindPath(bgp_peer_s->GetBgpPeer()) != NULL);
     
     //ensure active path is local-vm
-    EXPECT_TRUE(rt->GetActivePath()->GetPeer()->GetType() 
+    EXPECT_TRUE(rt->GetActivePath()->peer()->GetType() 
                 == Peer::BGP_PEER);
 
     //Delete vm-port and route entry in vrf1
@@ -475,7 +475,7 @@ TEST_F(AgentXmppUnitTest, Connection) {
     WAIT_FOR(100, 10000, (bgp_peer.get()->Count() == 4));
 
     Inet4UnicastRouteEntry *rt4 = RouteGet("vrf1", addr, 32);
-    EXPECT_STREQ(rt4->GetDestVnName().c_str(), "vn1");
+    EXPECT_STREQ(rt4->dest_vn_name().c_str(), "vn1");
     //check paths
     ASSERT_TRUE(rt4->FindPath(bgp_peer->GetBgpPeer()) == NULL);
 

@@ -70,7 +70,7 @@ env.Depends(bjam, stage0)
 
 boost_libs = [
     'system', 'thread', 'date_time', 'regex', 'python', 'program_options',
-    'filesystem'
+    'filesystem', 'chrono'
 ]
 
 jam_libs = ''
@@ -102,7 +102,7 @@ for lib in boost_libs:
     solib = '#/build/lib/libboost_' + lib + '.so' + '.' + version
     solink = '#/build/lib/libboost_' + lib + '.so'
     env.Depends(solink, solib)
-
+    env.Alias('install', env.Install(env['INSTALL_LIB'], solib))
 
 def Symlink(target, source):
     parent = os.path.dirname(target[0].abspath)
@@ -118,3 +118,4 @@ if not os.path.exists(libpath):
     sys.exit(1)
 
 Symlink([Dir('#/build/include/boost')], [Dir(vpath + '/boost')])
+

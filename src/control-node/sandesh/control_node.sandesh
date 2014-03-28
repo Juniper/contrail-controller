@@ -24,6 +24,7 @@ struct BgpRouterState {
    11: optional list<string> core_files_list; 
    18: optional list<cpuinfo.ProcessState> process_state_list (aggtype="union")
    19: optional ifmap_server_show.IFMapPeerServerInfoUI ifmap_info;
+   20: optional ifmap_server_show.IFMapServerInfoUI ifmap_server_info;
 }
 
 uve sandesh BGPRouterInfo {
@@ -37,7 +38,7 @@ request sandesh ShutdownControlNode {
 struct ControlCpuState {
     1: string                                 name (key="ObjectBgpRouter")
     2: optional bool                          deleted
-    3: optional list<cpuinfo.ProcessCpuInfo>  cpu_info (tags=".module_id")
+    3: optional list<cpuinfo.ProcessCpuInfo>  cpu_info (tags=".module_id,.mem_virt,.cpu_share")
 }
 
 uve sandesh ControlCpuStateTrace {

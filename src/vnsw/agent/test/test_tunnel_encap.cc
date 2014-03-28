@@ -63,6 +63,7 @@ public:
     ~TunnelEncapTest() { };
 
     virtual void SetUp() {
+        agent = Agent::GetInstance();
         IpamInfo ipam_info[] = {
             {"1.1.1.0", 24, "1.1.1.200"}
         };
@@ -121,13 +122,14 @@ public:
     void AddRemoteVmRoute(TunnelType::TypeBmap l3_bmap, 
                           TunnelType::TypeBmap l2_bmap) {
         Agent::GetInstance()->GetDefaultInet4UnicastRouteTable()->
-            AddRemoteVmRouteReq(Agent::GetInstance()->GetLocalPeer(), 
+            AddRemoteVmRouteReq(Agent::GetInstance()->local_peer(), 
                                 vrf_name_, remote_vm_ip_, 32, server1_ip_,
-                                l3_bmap, 1000, vrf_name_);
+                                l3_bmap, 1000, vrf_name_,
+                                SecurityGroupList());
         client->WaitForIdle();
 
         Layer2AgentRouteTable::AddRemoteVmRouteReq(
-            Agent::GetInstance()->GetLocalPeer(), vrf_name_,
+            Agent::GetInstance()->local_peer(), vrf_name_,
             l2_bmap, server1_ip_, 2000, *remote_vm_mac_, remote_vm_ip_, 32);
         client->WaitForIdle();
 
@@ -150,17 +152,17 @@ public:
 
     void DeleteRemoteVmRoute() {
         Agent::GetInstance()->GetDefaultInet4UnicastRouteTable()->
-            DeleteReq(Agent::GetInstance()->GetLocalPeer(), vrf_name_,
+            DeleteReq(Agent::GetInstance()->local_peer(), vrf_name_,
                       remote_vm_ip_, 32);
         client->WaitForIdle();
-        Layer2AgentRouteTable::DeleteReq(Agent::GetInstance()->GetLocalPeer(), 
+        Layer2AgentRouteTable::DeleteReq(Agent::GetInstance()->local_peer(), 
                                          vrf_name_,
                                          *remote_vm_mac_);
         client->WaitForIdle();
     }
 
     void VerifyLabel(AgentPath *path) {
-        const NextHop *nh = path->GetNextHop();
+        const NextHop *nh = path->nexthop(agent);
         const TunnelNH *tnh = static_cast<const TunnelNH *>(nh);
         TunnelType::Type type = tnh->GetTunnelType().GetType();
         switch (type) {
@@ -170,7 +172,7 @@ public:
         }    
         case TunnelType::MPLS_GRE: 
         case TunnelType::MPLS_UDP: {
-            ASSERT_TRUE(path->GetActiveLabel() == path->GetLabel());
+            ASSERT_TRUE(path->GetActiveLabel() == path->label());
             break;
         }    
         default: {
@@ -185,7 +187,7 @@ public:
             it != route->GetPathList().end(); it++) {
             const AgentPath *path =
                 static_cast<const AgentPath *>(it.operator->());
-            const NextHop *nh = path->GetNextHop();
+            const NextHop *nh = path->nexthop(agent);
             if (nh->GetType() == NextHop::TUNNEL) {
                 const TunnelNH *tnh = static_cast<const TunnelNH *>(nh);
                 ASSERT_TRUE(type == tnh->GetTunnelType().GetType());
@@ -197,7 +199,7 @@ public:
             it != route->GetPathList().end(); it++) {
             const AgentPath *path =
                 static_cast<const AgentPath *>(it.operator->());
-            const NextHop *nh = path->GetNextHop();
+            const NextHop *nh = path->nexthop(agent);
             if (nh->GetType() == NextHop::TUNNEL) {
                 const TunnelNH *tnh = static_cast<const TunnelNH *>(nh);
                 ASSERT_TRUE(type == tnh->GetTunnelType().GetType());
@@ -211,7 +213,7 @@ public:
             it != route->GetPathList().end(); it++) {
             const AgentPath *path =
                 static_cast<const AgentPath *>(it.operator->());
-            const NextHop *nh = path->GetNextHop();
+            const NextHop *nh = path->nexthop(agent);
             if (nh->GetType() == NextHop::TUNNEL) {
                 const TunnelNH *tnh = static_cast<const TunnelNH *>(nh);
                 ASSERT_TRUE(type == tnh->GetTunnelType().GetType());
@@ -223,7 +225,7 @@ public:
             it != route->GetPathList().end(); it++) {
             const AgentPath *path =
                 static_cast<const AgentPath *>(it.operator->());
-            const NextHop *nh = path->GetNextHop();
+            const NextHop *nh = path->nexthop(agent);
             if (nh->GetType() == NextHop::TUNNEL) {
                 const TunnelNH *tnh = static_cast<const TunnelNH *>(nh);
                 ASSERT_TRUE(type == tnh->GetTunnelType().GetType());
@@ -267,6 +269,7 @@ public:
         ASSERT_TRUE(tnh->GetTunnelType().GetType() == type);
     }
 
+    Agent *agent;
     TunnelType::Type default_tunnel_type_;
     std::string vrf_name_;
     Ip4Address  local_vm_ip_;

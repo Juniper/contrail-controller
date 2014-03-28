@@ -14,14 +14,13 @@
 class IpVpnAddress {
 public:
     IpVpnAddress();
-    
+
     static IpVpnAddress FromString(const std::string &str,
                                    boost::system::error_code *errorp = NULL);
-    
     std::string ToString() const;
-    
+
     RouteDistinguisher route_distinguisher() const { return rd_; }
-    
+
 private:
     RouteDistinguisher rd_;
     IpAddress addr_;
@@ -38,6 +37,7 @@ public:
                                     boost::system::error_code *errorp = NULL);
     std::string ToString() const;
     bool IsMoreSpecific(const InetVpnPrefix &rhs) const;
+    bool operator==(const InetVpnPrefix &rhs) const;
 
     RouteDistinguisher route_distinguisher() const { return rd_; }
     Ip4Address addr() const { return addr_; }
@@ -49,6 +49,5 @@ private:
     Ip4Address addr_;
     int prefixlen_;
 };
-
 
 #endif

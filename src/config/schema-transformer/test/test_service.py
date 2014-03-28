@@ -18,7 +18,7 @@ from lxml import etree
 #from mock import patch
 from flexmock import flexmock, Mock
 
-from cfgm_common.discovery import DiscoveryService
+from cfgm_common.zkclient import ZookeeperClient
 
 import pycassa
 
@@ -109,7 +109,7 @@ def launch_schema_transformer(api_server_ip, api_server_port):
 # end launch_schema_transformer
 
 
-class DiscoveryServiceMock(object):
+class ZookeeperClientMock(object):
 
     def __init__(self, *args, **kwargs):
         self._count = 0
@@ -138,7 +138,7 @@ class DiscoveryServiceMock(object):
         except Exception as err:
             raise pycassa.NotFoundException
     # end read
-# end Class DiscoveryServiceMock
+# end Class ZookeeperClientMock
 
 
 def setup_flexmock():
@@ -154,7 +154,7 @@ def setup_flexmock():
     flexmock(pycassa.ConnectionPool, __init__=stub)
     flexmock(pycassa.ColumnFamily, __new__=FakeCF)
 
-    flexmock(DiscoveryService, __new__=DiscoveryServiceMock)
+    flexmock(ZookeeperClient, __new__=ZookeeperClientMock)
 
 # end setup_flexmock
 

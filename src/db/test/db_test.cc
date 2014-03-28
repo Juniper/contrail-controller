@@ -133,6 +133,7 @@ public:
 
 void RegisterFactory() {
     DB::RegisterFactory("db.test.vlan.0", &VlanTable::CreateTable);
+    DB::RegisterFactory("db.test.vlan.1", &VlanTable::CreateTable);
 }
 
 int main(int argc, char **argv) {

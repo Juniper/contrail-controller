@@ -15,12 +15,16 @@
 AgentDnsXmppChannel::AgentDnsXmppChannel(XmppChannel *channel, 
       std::string xmpp_server, uint8_t xs_idx) 
     : channel_(channel), xmpp_server_(xmpp_server), xs_idx_(xs_idx) {
-    channel_->RegisterReceive(xmps::DNS, 
+    if (channel_) {
+        channel_->RegisterReceive(xmps::DNS, 
             boost::bind(&AgentDnsXmppChannel::ReceiveInternal, this, _1));
+    }
 }
 
 AgentDnsXmppChannel::~AgentDnsXmppChannel() {
-    channel_->UnRegisterReceive(xmps::DNS);
+    if (channel_) {
+        channel_->UnRegisterReceive(xmps::DNS);
+    }
 }
 
 bool AgentDnsXmppChannel::SendMsg(uint8_t *msg, std::size_t len) {

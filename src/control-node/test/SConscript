@@ -4,6 +4,7 @@
 
 # -*- mode: python; -*-
 Import('BuildEnv')
+import sys
 
 env = BuildEnv.Clone()
 env.Prepend(CPPPATH = [env['TOP'],
@@ -13,3 +14,23 @@ env.Prepend(CPPPATH = [env['TOP'],
 libcontrol_test = env.Library('control_test',
                               ['control_node_test.cc',
                                'network_agent_mock.cc'])
+
+env.Append(LIBPATH = env['TOP'] + '/base')
+env.Append(LIBPATH = env['TOP'] + '/io')
+
+env.Prepend(LIBS = ['gunit', 'io', 'sandesh', 'http',
+                    'sandeshvns', 'io', 'base', 'http_parser', 'curl',
+                    'boost_filesystem', 'boost_program_options', 'pugixml'])
+
+if sys.platform != 'darwin':
+    env.Append(LIBS = ['rt'])
+
+options_test = env.UnitTest('options_test', ['../buildinfo.cc', '../options.cc',
+                                             'options_test.cc'])
+env.Alias('src/control-node:options_test', options_test)
+
+test_suite = [ options_test ]
+
+test = env.TestSuite('control-node-test', test_suite)
+env.Alias('src/control-node:test', test)
+Return('test_suite')

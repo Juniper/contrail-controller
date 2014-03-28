@@ -14,21 +14,23 @@
 #include <boost/uuid/uuid.hpp>
 #include <boost/uuid/uuid_generators.hpp>
 #include <boost/variant.hpp>
-
+#include <boost/ptr_container/ptr_vector.hpp>
+#include <boost/scoped_ptr.hpp>
 #include "gendb_types.h"
 
 namespace GenDb {
 
 /* New stuff */
-typedef boost::variant<std::string, uint64_t, uint32_t, boost::uuids::uuid, uint8_t, uint16_t, double> DbDataValue;
+typedef boost::variant<boost::blank, std::string, uint64_t, uint32_t, boost::uuids::uuid, uint8_t, uint16_t, double> DbDataValue;
 enum DbDataValueType {
-    DB_VALUE_STRING = 0,
-    DB_VALUE_UINT64 = 1,
-    DB_VALUE_UINT32 = 2,
-    DB_VALUE_UUID = 3,
-    DB_VALUE_UINT8 = 4,
-    DB_VALUE_UINT16 = 5,
-    DB_VALUE_DOUBLE = 6,
+    DB_VALUE_BLANK = 0,
+    DB_VALUE_STRING = 1,
+    DB_VALUE_UINT64 = 2,
+    DB_VALUE_UINT32 = 3,
+    DB_VALUE_UUID = 4,
+    DB_VALUE_UINT8 = 5,
+    DB_VALUE_UINT16 = 6,
+    DB_VALUE_DOUBLE = 7,
 };    
 typedef std::vector<DbDataValue> DbDataValueVec;
 typedef std::vector<GenDb::DbDataType::type> DbDataTypeVec;
@@ -70,16 +72,29 @@ struct NewCf {
 };
 
 struct NewCol {
-    NewCol(const DbDataValueVec& n, const DbDataValueVec& v, int ttl=-1) :
+    NewCol(DbDataValueVec* n, DbDataValueVec* v, int ttl=-1) :
         cftype_(NewCf::COLUMN_FAMILY_NOSQL), name(n), value(v), ttl(ttl) {}
 
-    NewCol(const std::string& n, const DbDataValue& v, int ttl=-1);
+    NewCol(const std::string& n, const DbDataValue& v, int ttl=-1) :
+        cftype_(NewCf::COLUMN_FAMILY_SQL), name(new DbDataValueVec(1, n)),
+        value(new DbDataValueVec(1, v)), ttl(ttl) {}
+
+    NewCol(const NewCol &rhs) :
+        cftype_(rhs.cftype_), name(new DbDataValueVec(*rhs.name)), 
+        value(new DbDataValueVec(*rhs.value)), ttl(rhs.ttl) {}
+
+    bool operator==(const NewCol &rhs) const {
+        return (*rhs.name == *name &&
+                *rhs.value == *value);
+    }
 
     NewCf::ColumnFamilyType cftype_;
-    DbDataValueVec name;
-    DbDataValueVec value;
+    boost::scoped_ptr<DbDataValueVec> name;
+    boost::scoped_ptr<DbDataValueVec> value;
     int ttl;
 };
+
+typedef boost::ptr_vector<NewCol> NewColVec;
 
 struct ColList {
     ColList() {
@@ -90,8 +105,10 @@ struct ColList {
 
     std::string cfname_; /* column family name */
     DbDataValueVec rowkey_; /* rowkey-value */
-    std::vector<NewCol> columns_; // only one of these is expected to be filled
+    NewColVec columns_; // only one of these is expected to be filled
 };
+
+typedef boost::ptr_vector<ColList> ColListVec;
 
 struct ColumnNameRange {
     ColumnNameRange() : count(100) {
@@ -116,7 +133,7 @@ class GenDbIf {
 
         /* Init function */
         virtual bool Db_Init(std::string task_id, int task_instance) = 0;
-        virtual void Db_Uninit(bool shutdown) = 0;
+        virtual void Db_Uninit(std::string task_id, int task_instance) = 0;
         virtual void Db_SetInitDone(bool init_done) = 0;
         /* api to create a table space */
         virtual bool Db_AddTablespace(const std::string& tablespace,const std::string& replication_factor) = 0;
@@ -138,7 +155,7 @@ class GenDbIf {
 
         virtual bool Db_GetRow(ColList& ret, const std::string& cfname,
                 const DbDataValueVec& rowkey) = 0;
-        virtual bool Db_GetMultiRow(std::vector<ColList>& ret,
+        virtual bool Db_GetMultiRow(ColListVec& ret,
                 const std::string& cfname, const std::vector<DbDataValueVec>& key,
                 GenDb::ColumnNameRange *crange_ptr = NULL) = 0;
         /* api to get range of column data for a range of rows */

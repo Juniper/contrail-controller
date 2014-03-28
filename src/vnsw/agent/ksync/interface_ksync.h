@@ -81,8 +81,6 @@ private:
 
 class InterfaceKSyncObject : public KSyncDBObject {
 public:
-    static const int kInterfaceCount = 1000;        // Max interfaces
-
     InterfaceKSyncObject(KSync *parent);
     virtual ~InterfaceKSyncObject();
 

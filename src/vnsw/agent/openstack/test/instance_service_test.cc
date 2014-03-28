@@ -91,6 +91,16 @@ void DeletePortErrback(const InstanceService_DeletePort_result& result)
     std::cout << "Exception caught " << __FUNCTION__ << std::endl;
 }
 
+void ConnectCallback(bool ret) 
+{
+    std::cout << "Connect, " << "Return value " << ret << std::endl;
+}
+
+void KeepAliveCallback(bool ret) 
+{
+    std::cout << "Keepalive, " << "Return value " << ret << std::endl;
+}
+
 static inline const std::string integerToHexString(const int8_t &num)
 {
     std::stringstream ss;
@@ -152,6 +162,16 @@ void AddVmPort(boost::shared_ptr<InstanceServiceAsyncClient> inst_client, int8_t
     inst_client->AddPort(pl).setCallback(
         boost::bind(&AddPortCallback, 
                     port.port_id, port.tap_name, _1)).setErrback(AddPortErrback);
+}
+
+void ConnectToServer(boost::shared_ptr<InstanceServiceAsyncClient> inst_client) {
+    inst_client->Connect().setCallback(
+        boost::bind(&ConnectCallback, _1));
+}
+
+void SendKeepAlive(boost::shared_ptr<InstanceServiceAsyncClient> inst_client) {
+    inst_client->KeepAliveCheck().setCallback(
+        boost::bind(&KeepAliveCallback, _1));
 }
 
 void connected(boost::shared_ptr<InstanceServiceAsyncClient> inst_client) {
@@ -219,22 +239,51 @@ TEST_F(NovaInfoClientServerTest, ConnectionStart) {
     TASK_UTIL_EXPECT_EQ(true, connection_complete);
 }
 
+TEST_F(NovaInfoClientServerTest, ConnectTest) {
+    ConnectToServer(client_service);
+}
+
+TEST_F(NovaInfoClientServerTest, KeepAliveTest) {
+    SendKeepAlive(client_service);
+}
+
 TEST_F(NovaInfoClientServerTest, PortAdd) {
     // Add and delete port check the status of the cfg intf db
     AddVmPort(client_service, 1, 1, 1);
     CfgIntTable *cfgtable = Agent::GetInstance()->GetIntfCfgTable();
     CfgIntKey key(MakeUuid(1));
     TASK_UTIL_EXPECT_EQ(1, Agent::GetInstance()->GetIntfCfgTable()->Size());
+    CfgIntEntry *cfg_entry;
     TASK_UTIL_EXPECT_NE((CfgIntEntry *)NULL, 
-                       static_cast<CfgIntEntry *>(Agent::GetInstance()->GetIntfCfgTable()->Find(&key)));
+                        (cfg_entry = 
+                         static_cast<CfgIntEntry *>(Agent::GetInstance()->GetIntfCfgTable()->Find(&key))));
+    EXPECT_EQ(cfg_entry->GetVersion(), 1);
 }
 
 TEST_F(NovaInfoClientServerTest, PortDelete) {
     CfgIntTable *cfgtable = Agent::GetInstance()->GetIntfCfgTable();
     CfgIntKey key(MakeUuid(1));
     TASK_UTIL_EXPECT_EQ(1, Agent::GetInstance()->GetIntfCfgTable()->Size());
+    CfgIntEntry *cfg_entry;
     TASK_UTIL_EXPECT_NE((CfgIntEntry *)NULL, 
-                       static_cast<CfgIntEntry *>(Agent::GetInstance()->GetIntfCfgTable()->Find(&key)));
+                        (cfg_entry = 
+                         static_cast<CfgIntEntry *>(Agent::GetInstance()->GetIntfCfgTable()->Find(&key))));
+    EXPECT_EQ(cfg_entry->GetVersion(), 1);
+    DelVmPort(client_service, 1);
+    TASK_UTIL_EXPECT_EQ(0, Agent::GetInstance()->GetIntfCfgTable()->Size());
+}
+
+TEST_F(NovaInfoClientServerTest, ReconnectVersionCheck) {
+    AddVmPort(client_service, 1, 1, 1);
+    ConnectToServer(client_service);
+    CfgIntTable *cfgtable = Agent::GetInstance()->GetIntfCfgTable();
+    CfgIntKey key(MakeUuid(1));
+    TASK_UTIL_EXPECT_EQ(1, Agent::GetInstance()->GetIntfCfgTable()->Size());
+    CfgIntEntry *cfg_entry;
+    TASK_UTIL_EXPECT_NE((CfgIntEntry *)NULL, 
+                        (cfg_entry = 
+                         static_cast<CfgIntEntry *>(Agent::GetInstance()->GetIntfCfgTable()->Find(&key))));
+    EXPECT_EQ(cfg_entry->GetVersion(), 1);
     DelVmPort(client_service, 1);
     TASK_UTIL_EXPECT_EQ(0, Agent::GetInstance()->GetIntfCfgTable()->Size());
 }

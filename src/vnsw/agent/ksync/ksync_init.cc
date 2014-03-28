@@ -130,7 +130,7 @@ void KSync::ResetVRouter() {
         return;
     }
 
-    KSyncSock::Start();
+    KSyncSock::Start(true);
 }
 
 void KSync::VnswInterfaceListenerInit() {

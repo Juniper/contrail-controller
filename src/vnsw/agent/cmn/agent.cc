@@ -277,6 +277,12 @@ void Agent::CreateDBClients() {
 }
 
 void Agent::InitModules() {
+    // Create peer entries
+    local_peer_.reset(new Peer(Peer::LOCAL_PEER, LOCAL_PEER_NAME));
+    local_vm_peer_.reset(new Peer(Peer::LOCAL_VM_PEER, LOCAL_VM_PEER_NAME));
+    linklocal_peer_.reset(new Peer(Peer::LINKLOCAL_PEER, LINKLOCAL_PEER_NAME));
+    ecmp_peer_.reset(new Peer(Peer::ECMP_PEER, ECMP_PEER_NAME));
+
     if (!test_mode_) {
         ksync_.get()->NetlinkInit();
         ksync_.get()->VRouterInterfaceSnapshot();
@@ -288,7 +294,7 @@ void Agent::InitModules() {
         ksync_.get()->Init();
     } else {
         ksync_.get()->InitTest();
-        ksync_.get()->NetlinkInitTest();
+        ksync_.get()->NetlinkInitTest(ksync_sync_mode_);
     }
 
     if (pkt_.get()) {
@@ -312,6 +318,10 @@ void Agent::CreateVrf() {
     if (vgw_.get()) {
         vgw_.get()->CreateVrf();
     }
+}
+
+void Agent::CreateNextHops() {
+    init_->CreateDefaultNextHops();
 }
 
 void Agent::CreateInterfaces() {
@@ -391,7 +401,8 @@ Agent::Agent() :
     local_peer_(NULL), local_vm_peer_(NULL), linklocal_peer_(NULL),
     ifmap_parser_(NULL), router_id_configured_(false),
     mirror_src_udp_port_(0), lifetime_manager_(NULL), test_mode_(false),
-    mgmt_ip_(""), vxlan_network_identifier_mode_(AUTOMATIC) {
+    ksync_sync_mode_(true), mgmt_ip_(""),
+    vxlan_network_identifier_mode_(AUTOMATIC) {
 
     assert(singleton_ == NULL);
     singleton_ = this;

@@ -32,6 +32,11 @@ if sys.platform != 'darwin':
                                           'test_pkt_util.cc'])
     env.Alias('src/vnsw/agent/pkt/test:test_pkt_flow', test_pkt_flow)
 
+    test_rpf_flow = env.Program(target = 'test_rpf_flow',
+                                source = ['test_rpf_flow.cc',
+                                          'test_pkt_util.cc'])
+    env.Alias('src/vnsw/agent/pkt/test:test_rpf_flow', test_rpf_flow)
+
     test_pkt_parse = env.Program(target = 'test_pkt_parse',
                                  source = ['test_pkt_parse.cc',
                                            'test_pkt_util.cc'])
@@ -70,6 +75,11 @@ if sys.platform != 'darwin':
                                   source = ['test_vrf_assign_acl.cc',
                                             'test_pkt_util.cc'])
     env.Alias('src/vnsw/agent/pkt/test:test_vrf_assign_acl', test_vrf_assign_acl)
+    
+    test_sg_tcp_flow = env.Program(target = 'test_sg_tcp_flow', 
+                            source = ['test_sg_tcp_flow.cc',
+                                      'test_pkt_util.cc'])
+    env.Alias('src/vnsw/agent/pkt/test:test_sg_tcp_flow', test_sg_tcp_flow)
 
     pkt_flow_suite = [test_ecmp,
                       test_flowtable,
@@ -79,6 +89,7 @@ if sys.platform != 'darwin':
                       test_pkt_flow_mock,
                       test_pkt_parse,
                       test_sg_flow,
+                      test_rpf_flow
                       ]
 
     test = env.TestSuite('agent-test', pkt_flow_suite)

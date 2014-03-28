@@ -111,7 +111,7 @@ bool ArpHandler::HandlePacket() {
         static_cast<Inet4UnicastAgentRouteTable *>(vrf->
             GetInet4UnicastRouteTable())->FindLPM(arp_addr);
     if (route) {
-        if (route->IsMulticast()) {
+        if (route->is_multicast()) {
             arp_proto->StatsErrors();
             ARP_TRACE(Error, "ARP : ignoring broadcast address");
             return true;
@@ -119,7 +119,7 @@ bool ArpHandler::HandlePacket() {
 
         Inet4UnicastRouteEntry *uc_rt = 
             static_cast<Inet4UnicastRouteEntry *>(route);
-        uint8_t plen = uc_rt->GetPlen();
+        uint8_t plen = uc_rt->plen();
         uint32_t mask = (plen == 32) ? 0xFFFFFFFF : (0xFFFFFFFF >> plen);
         if (!(arp_tpa_ & mask) || !(arp_tpa_)) {
             arp_proto->StatsErrors();

@@ -24,10 +24,10 @@ class FloatingIpServer(FloatingIpServerGen):
         vn_fq_name = obj_dict['fq_name'][:-2]
         req_ip = obj_dict.get("floating_ip_address", None)
         try:
-            fip_addr = cls.addr_mgmt.ip_alloc(
+            fip_addr = cls.addr_mgmt.ip_alloc_req(
                 vn_fq_name, asked_ip_addr=req_ip)
         except Exception as e:
-            return (False, (503, str(e)))
+            return (False, (500, str(e)))
         obj_dict['floating_ip_address'] = fip_addr
         print 'AddrMgmt: alloc %s FIP for vn=%s, tenant=%s, askip=%s' \
             % (obj_dict['floating_ip_address'], vn_fq_name, tenant_name,
@@ -40,15 +40,22 @@ class FloatingIpServer(FloatingIpServerGen):
         vn_fq_name = obj_dict['fq_name'][:-2]
         fip_addr = obj_dict['floating_ip_address']
         print 'AddrMgmt: free FIP %s for vn=%s' % (fip_addr, vn_fq_name)
-        cls.addr_mgmt.ip_free(fip_addr, vn_fq_name)
+        cls.addr_mgmt.ip_free_req(fip_addr, vn_fq_name)
         return True, ""
     # end http_delete
+
+    @classmethod
+    def dbe_create_notification(cls, obj_ids, obj_dict):
+        fip_addr = obj_dict['floating_ip_address']
+        vn_fq_name = obj_dict['fq_name'][:-2]
+        cls.addr_mgmt.ip_alloc_notify(fip_addr, vn_fq_name)
+    # end dbe_create_notification
 
     @classmethod
     def dbe_delete_notification(cls, obj_ids, obj_dict):
         fip_addr = obj_dict['floating_ip_address']
         vn_fq_name = obj_dict['fq_name'][:-2]
-        cls.addr_mgmt.ip_free(fip_addr, vn_fq_name)
+        cls.addr_mgmt.ip_free_notify(fip_addr, vn_fq_name)
     # end dbe_delete_notification
 
 # end class FloatingIpServer
@@ -67,10 +74,10 @@ class InstanceIpServer(InstanceIpServerGen):
 
         req_ip = obj_dict.get("instance_ip_address", None)
         try:
-            ip_addr = cls.addr_mgmt.ip_alloc(
+            ip_addr = cls.addr_mgmt.ip_alloc_req(
                 vn_fq_name, asked_ip_addr=req_ip)
         except Exception as e:
-            return (False, (503, str(e)))
+            return (False, (500, str(e)))
         obj_dict['instance_ip_address'] = ip_addr
         print 'AddrMgmt: alloc %s for vn=%s, tenant=%s, askip=%s' \
             % (obj_dict['instance_ip_address'],
@@ -88,15 +95,22 @@ class InstanceIpServer(InstanceIpServerGen):
 
         ip_addr = obj_dict['instance_ip_address']
         print 'AddrMgmt: free IP %s, vn=%s' % (ip_addr, vn_fq_name)
-        cls.addr_mgmt.ip_free(ip_addr, vn_fq_name)
+        cls.addr_mgmt.ip_free_req(ip_addr, vn_fq_name)
         return True, ""
     # end http_delete
+
+    @classmethod
+    def dbe_create_notification(cls, obj_ids, obj_dict):
+        ip_addr = obj_dict['instance_ip_address']
+        vn_fq_name = obj_dict['virtual_network_refs'][0]['to']
+        cls.addr_mgmt.ip_alloc_notify(ip_addr, vn_fq_name)
+    # end dbe_create_notification
 
     @classmethod
     def dbe_delete_notification(cls, obj_ids, obj_dict):
         ip_addr = obj_dict['instance_ip_address']
         vn_fq_name = obj_dict['virtual_network_refs'][0]['to']
-        cls.addr_mgmt.ip_free(ip_addr, vn_fq_name)
+        cls.addr_mgmt.ip_free_notify(ip_addr, vn_fq_name)
     # end dbe_delete_notification
 
 # end class InstanceIpServer
@@ -125,7 +139,7 @@ class VirtualNetworkServer(VirtualNetworkServerGen):
 
     @classmethod
     def http_post_collection(cls, tenant_name, obj_dict, db_conn):
-        cls.addr_mgmt.net_create(obj_dict)
+        cls.addr_mgmt.net_create_req(obj_dict)
         return True, ""
     # end http_post_collection
 
@@ -136,10 +150,15 @@ class VirtualNetworkServer(VirtualNetworkServerGen):
             # Ignore ip-fabric subnet updates
             return True,  ""
 
+        ipam_refs = obj_dict.get('network_ipam_refs', None)
+        if ipam_refs == None:
+            # NOP for addr-mgmt module
+            return True,  ""
+
         vn_id = {'uuid': id}
         (read_ok, read_result) = db_conn.dbe_read('virtual-network', vn_id)
         if not read_ok:
-            return (False, (503, read_result))
+            return (False, (500, read_result))
         (ok, result) = cls.addr_mgmt.net_check_subnet_overlap(read_result,
                                                               obj_dict)
         if not ok:
@@ -148,20 +167,21 @@ class VirtualNetworkServer(VirtualNetworkServerGen):
                                                              obj_dict)
         if not ok:
             return (ok, (409, result))
-        cls.addr_mgmt.net_create(obj_dict, id)
+
+        cls.addr_mgmt.net_update_req(read_result, obj_dict, id)
 
         return True, ""
     # end http_put
 
     @classmethod
     def http_delete(cls, id, obj_dict, db_conn):
-        cls.addr_mgmt.net_delete(obj_dict)
+        cls.addr_mgmt.net_delete_req(obj_dict)
         return True, ""
     # end http_delete
 
     @classmethod
     def ip_alloc(cls, vn_fq_name, subnet_name, count):
-        ip_list = [cls.addr_mgmt.ip_alloc(vn_fq_name, subnet_name)
+        ip_list = [cls.addr_mgmt.ip_alloc_req(vn_fq_name, subnet_name)
                    for i in range(count)]
         print 'AddrMgmt: reserve %d IP for vn=%s, subnet=%s - %s' \
             % (count, vn_fq_name, subnet_name if subnet_name else '', ip_list)
@@ -173,7 +193,7 @@ class VirtualNetworkServer(VirtualNetworkServerGen):
         print 'AddrMgmt: release IP %s for vn=%s, subnet=%s' \
             % (ip_list, vn_fq_name, subnet_name if subnet_name else '')
         for ip_addr in ip_list:
-            cls.addr_mgmt.ip_free(ip_addr, vn_fq_name, subnet_name)
+            cls.addr_mgmt.ip_free_req(ip_addr, vn_fq_name, subnet_name)
     # end ip_free
 
     @classmethod
@@ -182,7 +202,22 @@ class VirtualNetworkServer(VirtualNetworkServerGen):
         for item in subnet_list:
             ip_count_list.append(cls.addr_mgmt.ip_count(obj_dict, item))
         return {'ip_count_list': ip_count_list}
-    # end ip_count
+    # end subnet_ip_count
+
+    @classmethod
+    def dbe_create_notification(cls, obj_ids, obj_dict):
+        cls.addr_mgmt.net_create_notify(obj_ids, obj_dict)
+    # end dbe_create_notification
+
+    @classmethod
+    def dbe_update_notification(cls, obj_ids):
+        cls.addr_mgmt.net_update_notify(obj_ids)
+    # end dbe_update_notification
+
+    @classmethod
+    def dbe_delete_notification(cls, obj_ids, obj_dict):
+        cls.addr_mgmt.net_delete_notify(obj_ids, obj_dict)
+    # end dbe_update_notification
 
 # end class VirtualNetworkServer
 
@@ -195,7 +230,7 @@ class NetworkIpamServer(NetworkIpamServerGen):
         ipam_id = {'uuid': ipam_uuid}
         (read_ok, read_result) = db_conn.dbe_read('network-ipam', ipam_id)
         if not read_ok:
-            return (False, (503, "Internal error : IPAM is not valid"))
+            return (False, (500, "Internal error : IPAM is not valid"))
         old_ipam_mgmt = read_result.get('network_ipam_mgmt')
         if not old_ipam_mgmt:
             return True, ""
@@ -205,7 +240,7 @@ class NetworkIpamServer(NetworkIpamServerGen):
         new_dns_method = new_ipam_mgmt['ipam_dns_method']
         if not cls.is_change_allowed(old_dns_method, new_dns_method, obj_dict,
                                      db_conn):
-            return (False, (503, "Cannot change DNS Method from " +
+            return (False, (409, "Cannot change DNS Method from " +
                     old_dns_method + " to " + new_dns_method +
                     " with active VMs referring to the IPAM"))
         return True, ""
@@ -268,7 +303,7 @@ class VirtualDnsServer(VirtualDnsServerGen):
             if not read_ok:
                 return (
                     False,
-                    (503, "Internal error : Virtual Dns is not in a domain"))
+                    (500, "Internal error : Virtual Dns is not in a domain"))
             virtual_DNSs = read_result.get('virtual_DNSs', None)
             for vdns in virtual_DNSs:
                 vdns_uuid = vdns['uuid']
@@ -278,7 +313,7 @@ class VirtualDnsServer(VirtualDnsServerGen):
                 if not read_ok:
                     return (
                         False,
-                        (503,
+                        (500,
                          "Internal error : Unable to read Virtual Dns data"))
                 vdns_data = read_result['virtual_DNS_data']
                 if 'next_virtual_DNS' in vdns_data:

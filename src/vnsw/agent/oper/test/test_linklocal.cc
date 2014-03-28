@@ -14,7 +14,6 @@
 
 #define MAX_SERVICES 5
 #define MAX_COUNT 100
-#define BUF_SIZE 8192
 #define VHOST_IP "10.1.2.1"
 
 std::string linklocal_name[] = 
@@ -35,21 +34,12 @@ std::string fabric_ip[] =
 
 uint16_t fabric_port[] = { 8775, 8080, 9000, 12345, 8000 };
 
-struct LinkLocalService {
-    std::string linklocal_name;
-    std::string linklocal_ip;
-    uint16_t    linklocal_port;
-    std::string fabric_dns_name;
-    std::vector<std::string> fabric_ip;
-    uint16_t    fabric_port;
-};
-
 class LinkLocalTest : public ::testing::Test {
 public:
     LinkLocalTest() : response_count_(0) {}
     ~LinkLocalTest() {}
 
-    void FillServices(LinkLocalService *services, int count) {
+    void FillServices(TestLinkLocalService *services, int count) {
         for (int i = 0; i < count; ++i) {
             services[i].linklocal_name = linklocal_name[i];
             services[i].linklocal_ip = linklocal_ip[i];
@@ -60,49 +50,6 @@ public:
             }
             services[i].fabric_port = fabric_port[i];
         }
-    }
-
-    void SetupLinkLocalConfig(const LinkLocalService *services, int count) {
-        std::stringstream global_config;
-        global_config << "<linklocal-services>\n";
-        for (int i = 0; i < count; ++i) {
-            global_config << "<linklocal-service-entry>\n";
-	        global_config << "<linklocal-service-name>";
-	        global_config << services[i].linklocal_name;
-	        global_config << "</linklocal-service-name>\n";
-	        global_config << "<linklocal-service-ip>";
-	        global_config << services[i].linklocal_ip;
-	        global_config << "</linklocal-service-ip>\n";
-	        global_config << "<linklocal-service-port>";
-	        global_config << services[i].linklocal_port;
-	        global_config << "</linklocal-service-port>\n";
-	        global_config << "<ip-fabric-DNS-service-name>";
-	        global_config << services[i].fabric_dns_name;
-	        global_config << "</ip-fabric-DNS-service-name>\n";
-            for (uint32_t j = 0; j < services[i].fabric_ip.size(); ++j) {
-	            global_config << "<ip-fabric-service-ip>";
-	            global_config << services[i].fabric_ip[j];
-	            global_config << "</ip-fabric-service-ip>\n";
-            }
-	        global_config << "<ip-fabric-service-port>";
-	        global_config << services[i].fabric_port;
-	        global_config << "</ip-fabric-service-port>\n";
-	        global_config << "</linklocal-service-entry>\n";
-        }
-	    global_config << "</linklocal-services>";
-        SendConfig(global_config.str());
-    }
-
-    void SendConfig(std::string str) {
-        char buf[BUF_SIZE];
-        int len = 0;
-        memset(buf, 0, BUF_SIZE);
-        AddXmlHdr(buf, len);
-        AddNodeString(buf, len, "global-vrouter-config",
-                      "default-global-system-config:default-global-vrouter-config",
-                      1024, str.c_str());
-        AddXmlTail(buf, len);
-        ApplyXmlString(buf);
     }
 
     void CheckSandeshResponse(Sandesh *sandesh) {
@@ -118,9 +65,9 @@ private:
 
 TEST_F(LinkLocalTest, LinkLocalReqTest) {
     Agent::GetInstance()->SetRouterId(Ip4Address::from_string(VHOST_IP));
-    LinkLocalService services[MAX_SERVICES];
+    TestLinkLocalService services[MAX_SERVICES];
     FillServices(services, MAX_SERVICES);
-    SetupLinkLocalConfig(services, MAX_SERVICES);
+    AddLinkLocalConfig(services, MAX_SERVICES);
 
     struct PortInfo input[] = { 
         {"vnet1", 1, "1.1.1.1", "00:00:00:01:01:01", 1, 1}, 
@@ -172,8 +119,7 @@ TEST_F(LinkLocalTest, LinkLocalReqTest) {
     EXPECT_TRUE(count < MAX_COUNT);
 
     // Delete linklocal config
-    std::string str;
-    SendConfig(str);
+    DelLinkLocalConfig();
     client->WaitForIdle();
 
     // check that all routes are deleted
@@ -201,9 +147,9 @@ TEST_F(LinkLocalTest, LinkLocalReqTest) {
 
 TEST_F(LinkLocalTest, LinkLocalChangeTest) {
     Agent::GetInstance()->SetRouterId(Ip4Address::from_string(VHOST_IP));
-    LinkLocalService services[MAX_SERVICES];
+    TestLinkLocalService services[MAX_SERVICES];
     FillServices(services, MAX_SERVICES);
-    SetupLinkLocalConfig(services, MAX_SERVICES);
+    AddLinkLocalConfig(services, MAX_SERVICES);
 
     struct PortInfo input[] = { 
         {"vnet1", 1, "1.1.1.1", "00:00:00:01:01:01", 1, 1}, 
@@ -215,7 +161,7 @@ TEST_F(LinkLocalTest, LinkLocalChangeTest) {
     // change linklocal request and send request for 3 services
     services[2].linklocal_ip = "169.254.100.100";
     services[2].fabric_ip.clear();
-    SetupLinkLocalConfig(services, 3);
+    AddLinkLocalConfig(services, 3);
     client->WaitForIdle();
     for (int i = 0; i < MAX_SERVICES; ++i) {
         Inet4UnicastRouteEntry *rt =
@@ -249,8 +195,7 @@ TEST_F(LinkLocalTest, LinkLocalChangeTest) {
     ClearSandeshResponseCount();
 
     // Delete linklocal config
-    std::string str;
-    SendConfig(str);
+    DelLinkLocalConfig();
     client->WaitForIdle();
 
     // check that all routes are deleted
@@ -263,6 +208,81 @@ TEST_F(LinkLocalTest, LinkLocalChangeTest) {
     EXPECT_TRUE(local_rt == NULL);
     client->Reset();
     DeleteVmportEnv(input, 1, 1, 0); 
+    client->WaitForIdle();
+}
+
+TEST_F(LinkLocalTest, GlobalVrouterDeleteTest) {
+    Agent::GetInstance()->SetRouterId(Ip4Address::from_string(VHOST_IP));
+    TestLinkLocalService services[MAX_SERVICES];
+    FillServices(services, MAX_SERVICES);
+    AddLinkLocalConfig(services, MAX_SERVICES);
+
+    struct PortInfo input[] = { 
+        {"vnet1", 1, "1.1.1.1", "00:00:00:01:01:01", 1, 1}, 
+    };  
+    CreateVmportEnv(input, 1, 0);
+    client->WaitForIdle();
+    client->Reset();
+
+    IpamInfo ipam_info[] = {
+        {"1.1.1.0", 24, "1.1.1.200"},
+        {"1.2.3.128", 27, "1.2.3.129"},
+        {"7.8.9.0", 24, "7.8.9.12"},
+    };
+    AddIPAM("ipam1", ipam_info, 3);
+    client->WaitForIdle();
+
+    struct PortInfo new_input[] = { 
+        {"vnet2", 2, "2.2.2.2", "00:00:00:02:02:02", 2, 2}, 
+    };  
+    CreateVmportEnv(new_input, 1, 0);
+    client->WaitForIdle();
+    client->Reset();
+
+    // check that all expected routes are added
+    for (int i = 0; i < MAX_SERVICES; ++i) {
+        Inet4UnicastRouteEntry *rt =
+            RouteGet("vrf1", Ip4Address::from_string(linklocal_ip[i]), 32);
+        EXPECT_TRUE(rt != NULL);
+        EXPECT_TRUE(rt->GetActiveNextHop()->GetType() == NextHop::RECEIVE);
+    }
+    for (int i = 0; i < MAX_SERVICES; ++i) {
+        Inet4UnicastRouteEntry *rt =
+            RouteGet("vrf2", Ip4Address::from_string(linklocal_ip[i]), 32);
+        EXPECT_TRUE(rt != NULL);
+        EXPECT_TRUE(rt->GetActiveNextHop()->GetType() == NextHop::RECEIVE);
+    }
+    for (int i = 0; i < MAX_SERVICES; ++i) {
+        Inet4UnicastRouteEntry *rt =
+            RouteGet(Agent::GetInstance()->GetDefaultVrf(),
+                     Ip4Address::from_string(fabric_ip[i]), 32);
+        EXPECT_TRUE(rt != NULL);
+        EXPECT_TRUE(rt->GetActiveNextHop()->GetType() == NextHop::ARP);
+    }
+
+    // Delete global vrouter config; this is different from the earlier case
+    // where we delete the link local entries
+    DeleteGlobalVrouterConfig();
+    client->WaitForIdle();
+
+    // check that all routes are deleted
+    for (int i = 0; i < MAX_SERVICES; ++i) {
+        Inet4UnicastRouteEntry *rt =
+            RouteGet("vrf1", Ip4Address::from_string(linklocal_ip[i]), 32);
+        EXPECT_TRUE(rt == NULL);
+    }
+    for (int i = 0; i < MAX_SERVICES; ++i) {
+        Inet4UnicastRouteEntry *rt =
+            RouteGet("vrf2", Ip4Address::from_string(linklocal_ip[i]), 32);
+        EXPECT_TRUE(rt == NULL);
+    }
+
+    client->Reset();
+    DelIPAM("ipam1");
+    client->WaitForIdle();
+    DeleteVmportEnv(input, 1, 1, 0); 
+    client->WaitForIdle();
+    DeleteVmportEnv(new_input, 1, 1, 0); 
     client->WaitForIdle();
 }
 

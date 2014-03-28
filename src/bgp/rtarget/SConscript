@@ -7,8 +7,15 @@
 Import('BuildEnv')
 
 env = BuildEnv.Clone()
+env.Append(CPPPATH = env['TOP'])
+env.Append(CPPPATH = [env['TOP'] + '/bgp'])
+env.Append(CPPPATH = [env['TOP'] + '/io'])
 
-librtarget = env.Library('rtarget', ['rtarget_address.cc'])
+librtarget = env.Library('rtarget', 
+                         [ 'rtarget_prefix.cc',
+                         'rtarget_address.cc',
+                         'rtarget_route.cc',
+                         'rtarget_table.cc'])
                      
 rtarget_test_cases = env.SConscript('test/SConscript', exports='BuildEnv',
                                     duplicate = 0)

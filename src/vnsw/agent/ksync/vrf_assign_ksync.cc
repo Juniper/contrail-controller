@@ -45,7 +45,7 @@ VrfAssignKSyncEntry::VrfAssignKSyncEntry(VrfAssignKSyncObject* obj,
     vlan_tag_ = vlan->GetVlanTag();
 
     if (vassign->GetVrf()) {
-        vrf_id_ = vassign->GetVrf()->GetVrfId();
+        vrf_id_ = vassign->GetVrf()->vrf_id();
     } else {
         vrf_id_ = VIF_VRF_INVALID;
     }
@@ -92,7 +92,7 @@ bool VrfAssignKSyncEntry::Sync(DBEntry *e) {
     uint16_t vrf_id = 0;
 
     if (vassign->GetVrf()) {
-        vrf_id = vassign->GetVrf()->GetVrfId();
+        vrf_id = vassign->GetVrf()->vrf_id();
     } else {
         vrf_id = VIF_VRF_INVALID;
     }
@@ -111,7 +111,7 @@ int VrfAssignKSyncEntry::Encode(sandesh_op::type op, char *buf, int buf_len) {
     InterfaceKSyncEntry *intf = interface();
 
     encoder.set_h_op(op);
-    encoder.set_var_vif_index(intf->GetIndex());
+    encoder.set_var_vif_index(intf->interface_id());
     encoder.set_var_vlan_id(vlan_tag_);
     encoder.set_var_vif_vrf(vrf_id_);
     encode_len = encoder.WriteBinary((uint8_t *)buf, buf_len, &error);

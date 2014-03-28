@@ -17,12 +17,18 @@ using namespace std;
 //
 class BgpExportRouteStateTest : public BgpExportTest {
 protected:
+
+    BgpExportRouteStateTest() : rstate_(NULL), count_(0) {
+    }
+
     void InitAdvertiseInfo(BgpAttrPtr attrX, int start_idx, int end_idx) {
         InitAdvertiseInfoCommon(attrX, start_idx, end_idx, adv_slist_);
+        count_ = end_idx - start_idx + 1;
     }
 
     void InitAdvertiseInfo(BgpAttrPtr attr_blk[], int start_idx, int end_idx) {
         InitAdvertiseInfoCommon(attr_blk, start_idx, end_idx, adv_slist_);
+        count_ = end_idx - start_idx + 1;
     }
 
     void Initialize() {
@@ -30,10 +36,12 @@ protected:
         SchedulerStop();
         table_.SetExportResult(false);
         rstate_ = BuildRouteState(&rt_, adv_slist_);
+        VerifyAdvertiseCount(count_);
     }
 
     AdvertiseSList adv_slist_;
     RouteState *rstate_;
+    int count_;
 };
 
 TEST_F(BgpExportRouteStateTest, Basic1) {

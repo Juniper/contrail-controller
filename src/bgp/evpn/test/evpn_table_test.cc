@@ -54,6 +54,7 @@ protected:
         evpn_->Unregister(tid_);
         server_.Shutdown();
         task_util::WaitForIdle();
+        TASK_UTIL_ASSERT_EQ(0, server_.routing_instance_mgr()->count());
     }
 
     void AddRoute(string prefix_str) {

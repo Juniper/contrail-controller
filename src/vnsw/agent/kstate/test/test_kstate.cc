@@ -67,7 +67,6 @@ public:
         Agent::GetInstance()->uve()->
             flow_stats_collector()->UpdateFlowAgeTime(1000000 * 60 * 10);
 
-        client->SetFlowFlushExclusionPolicy();
         VxLanNetworkIdentifierMode(false);
         client->WaitForIdle();
     }
@@ -90,54 +89,57 @@ public:
     void CreateVmPorts(struct PortInfo *input, int count) {
         CreateVmportEnv(input, count);
     }
-
-    void CreatePorts(int if_count, int nh_count, int rt_count) {
+    void CreatePorts(int if_count, int nh_count, int rt_count, int num_ports = MAX_TEST_FD) {
         int idx;
         client->Reset();
-        CreateVmPorts(input, MAX_TEST_FD);
+        CreateVmPorts(input, num_ports);
         client->WaitForIdle(10);
 
-        for (int i = 0; i < MAX_TEST_FD; i++) {
+        for (int i = 0; i < num_ports; i++) {
             idx = i;
             WAIT_FOR(1000, 1000, (VmPortActive(input, idx) == true));
         }
-        WAIT_FOR(1000, 1000, (MAX_TEST_FD == Agent::GetInstance()->GetVmTable()->Size()));
+        WAIT_FOR(1000, 1000, (num_ports == Agent::GetInstance()->GetVmTable()->Size()));
         WAIT_FOR(1000, 1000, (1 == Agent::GetInstance()->GetVnTable()->Size()));
         WaitForVrf(input, 0, true);
         if (if_count) {
-	    unsigned int oper_if_count = MAX_TEST_FD + if_count;
+	    unsigned int oper_if_count = num_ports + if_count;
             WAIT_FOR(1000, 1000, ((oper_if_count) == 
                                 Agent::GetInstance()->GetInterfaceTable()->Size()));
         }
-        WAIT_FOR(1000, 1000, (MAX_TEST_MPLS == 
+        WAIT_FOR(1000, 1000, ((num_ports * 2)== 
                             Agent::GetInstance()->GetMplsTable()->Size()));
         if (!ksync_init_) {
-            WAIT_FOR(1000, 1000, (MAX_TEST_MPLS == 
+            WAIT_FOR(1000, 1000, ((num_ports * 2)== 
                                  KSyncSockTypeMap::MplsCount()));
             if (if_count) {
-                WAIT_FOR(1000, 1000, ((MAX_TEST_FD + if_count) == 
+                WAIT_FOR(1000, 1000, ((num_ports + if_count) == 
                                     KSyncSockTypeMap::IfCount()));
             }
             if (nh_count) {
-                WAIT_FOR(1000, 1000, ((nh_count + (MAX_TEST_FD * 6) - 1) == 
+                //5 interface nexthops get created for each interface 
+                //(l2 with policy, l2 without policy, l3 with policy, l3 
+                // without policy and 1 multicast - mac as all f's)
+                //plus 4 Nexthops for each VRF (1 VRF NH and 3 Composite NHs)
+                WAIT_FOR(1000, 1000, ((nh_count + (num_ports * 5) + 4) == 
                                     KSyncSockTypeMap::NHCount()));
             }
             if (rt_count) {
-                WAIT_FOR(1000, 1000, ((rt_count + (MAX_TEST_FD * 2) + 1) == 
+                WAIT_FOR(1000, 1000, ((rt_count + (num_ports * 2) + 1) == 
                                     KSyncSockTypeMap::RouteCount()));
             }
         }
     }
 
-    void DeletePorts() {
-        DeleteVmportEnv(input, MAX_TEST_FD, true);
+    void DeletePorts(int num_ports = MAX_TEST_FD) {
+        DeleteVmportEnv(input, num_ports, true);
         client->WaitForIdle(10);
         WAIT_FOR(1000, 1000, (0 == Agent::GetInstance()->GetVmTable()->Size()));
         WAIT_FOR(1000, 1000, (0 == Agent::GetInstance()->GetVnTable()->Size()));
         WaitForVrf(input, 0, false);
         WAIT_FOR(1000, 1000, (0 == Agent::GetInstance()->GetMplsTable()->Size()));
     }
-    
+
     void CreatePortsWithPolicy() {
         int idx;
         client->Reset();
@@ -244,15 +246,18 @@ TEST_F(KStateTest, NHDumpTest) {
     client->KStateResponseWait(1);
     nh_count = TestKStateBase::fetched_count_;
     LOG(DEBUG, "nh count " << nh_count);
+    int max_ports = 2;
 
-    CreatePorts(0, nh_count, 0);
-    //Two interface nexthops get created for each interface (with and without policy)
-    //plus l2 without policy
-    TestNHKState::Init(-1, true, nh_count + (MAX_TEST_FD * 3) + 3);
+    CreatePorts(0, nh_count, 0, max_ports);
+    //5 interface nexthops get created for each interface 
+    //(l2 with policy, l2 without policy, l3 with policy, l3 without policy 
+    // and 1 multicast - mac as all f's )
+    //plus 4 Nexthops for each VRF (1 VRF NH and 3 Composite NHs)
+    TestNHKState::Init(-1, true, nh_count + (max_ports * 5) + 4);
     client->WaitForIdle();
     client->KStateResponseWait(1);
 
-    DeletePorts();
+    DeletePorts(max_ports);
 }
 
 TEST_F(KStateTest, NHGetTest) {
@@ -282,7 +287,7 @@ TEST_F(KStateTest, MplsDumpTest) {
     
     CreatePorts(0, 0, 0);
     TestMplsKState::Init(-1, true, mpls_count + MAX_TEST_MPLS);
-    client->WaitForIdle();
+    client->WaitForIdle(3);
     client->KStateResponseWait(1);
 
     DeletePorts();

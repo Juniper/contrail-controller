@@ -80,6 +80,14 @@ do {                                                                           \
     EXPECT_NE(expected, actual);                                               \
 } while (false)
 
+#define TASK_UTIL_EXPECT_VECTOR_EQ(actual, expected)             \
+    do {                                                         \
+        TASK_UTIL_EXPECT_EQ((expected).size(), (actual).size()); \
+        for (int i = 0; i < (expected).size(); i++) {            \
+            TASK_UTIL_EXPECT_EQ((expected)[i], (actual)[i]);     \
+        }                                                        \
+    } while (false)
+
 #define TASK_UTIL_DEFAULT_WAIT_TIME   1000 // us
 #define TASK_UTIL_DEFAULT_RETRY_COUNT 5000
 

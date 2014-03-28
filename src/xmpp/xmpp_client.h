@@ -35,7 +35,7 @@ public:
     size_t ConnectionEventCount() const;
 
     virtual TcpSession *CreateSession();
-    virtual void Initialize(short port) ;
+    virtual bool Initialize(short port) ;
     XmppConnection *FindConnection(const std::string &server_addr);
     XmppChannel *FindChannel(const std::string &server_addr);
     void RemoveConnection(XmppConnection *);

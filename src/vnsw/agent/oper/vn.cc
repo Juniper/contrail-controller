@@ -236,7 +236,6 @@ DBEntry *VnTable::Add(const DBRequest *req) {
     VnKey *key = static_cast<VnKey *>(req->key.get());
     VnData *data = static_cast<VnData *>(req->data.get());
     VnEntry *vn = new VnEntry(key->uuid_);
-    vn->set_table(this);
     vn->name_ = data->name_;
 
     ChangeHandler(vn, req);
@@ -666,7 +665,7 @@ void VnTable::DelHostRouteForGw(VnEntry *vn, VnIpam &ipam) {
     VrfEntry *vrf = vn->GetVrf();
     static_cast<Inet4UnicastAgentRouteTable *>
         (vrf->GetInet4UnicastRouteTable())->DeleteReq
-        (Agent::GetInstance()->GetLocalPeer(), vrf->GetName(),
+        (Agent::GetInstance()->local_peer(), vrf->GetName(),
          ipam.default_gw, 32);
 }
 
@@ -674,7 +673,8 @@ void VnTable::AddSubnetRoute(VnEntry *vn, VnIpam &ipam) {
     VrfEntry *vrf = vn->GetVrf();
     static_cast<Inet4UnicastAgentRouteTable *>(vrf->
         GetInet4UnicastRouteTable())->AddDropRoute
-        (vrf->GetName(), ipam.GetSubnetAddress(), ipam.plen);
+        (vrf->GetName(), ipam.GetSubnetAddress(), ipam.plen, vn->GetName(),
+         true);
 }
 
 // Del receive route for default gw
@@ -682,14 +682,14 @@ void VnTable::DelSubnetRoute(VnEntry *vn, VnIpam &ipam) {
     VrfEntry *vrf = vn->GetVrf();
     static_cast<Inet4UnicastAgentRouteTable *>(vrf->
         GetInet4UnicastRouteTable())->DeleteReq
-        (Agent::GetInstance()->GetLocalPeer(), vrf->GetName(),
+        (Agent::GetInstance()->local_peer(), vrf->GetName(),
          ipam.GetSubnetAddress(), ipam.plen);
 }
 
 bool VnEntry::DBEntrySandesh(Sandesh *sresp, std::string &name)  const {
     VnListResp *resp = static_cast<VnListResp *>(sresp);
 
-    if (GetName().find(name) != std::string::npos) {
+    if (name.empty() || GetName() == name) {
         VnSandeshData data;
         data.set_name(GetName());
         data.set_uuid(UuidToString(GetUuid()));

@@ -33,13 +33,20 @@ do {                                                                     \
     Pkt##obj::TraceMsg(PacketTraceBuf, __FILE__, __LINE__, _str.str());  \
 } while (false)                                                          \
 
-const std::size_t PktTrace::kPktTraceSize;
+const std::size_t PktTrace::kPktMaxTraceSize;
 
 ////////////////////////////////////////////////////////////////////////////////
 
 PktHandler::PktHandler(Agent *agent, const std::string &if_name,
                        boost::asio::io_service &io_serv, bool run_with_vrouter) 
                       : stats_(), agent_(agent) {
+    for (int i = 0; i < MAX_MODULES; ++i) {
+        if (i == PktHandler::DHCP || i == PktHandler::DNS)
+            pkt_trace_.at(i).set_pkt_trace_size(512);
+        else
+            pkt_trace_.at(i).set_pkt_trace_size(128);
+    }
+
     if (run_with_vrouter)
         tap_interface_.reset(new TapInterface(agent, if_name, io_serv, 
                              boost::bind(&PktHandler::HandleRcvPkt,
@@ -172,8 +179,7 @@ enqueue:
 
     if (mod != INVALID) {
         if (!(enqueue_cb_.at(mod))(pkt_info)) {
-            PKT_TRACE(Err, "Threshold exceeded while enqueuing to module <" <<
-                      mod << ">");
+            stats_.PktQThresholdExceeded(mod);
         }
         return;
     }
@@ -239,6 +245,7 @@ uint8_t *PktHandler::ParseIpPacket(PktInfo *pkt_info,
 
         pkt_info->dport = ntohs(pkt_info->transp.tcp->dest);
         pkt_info->sport = ntohs(pkt_info->transp.tcp->source);
+        pkt_info->tcp_ack = pkt_info->transp.tcp->ack;
         pkt_type = PktType::TCP;
         break;
     }
@@ -446,19 +453,24 @@ void PktHandler::PktStats::PktSent(PktModuleName mod) {
         sent[mod]++;
 }
 
+void PktHandler::PktStats::PktQThresholdExceeded(PktModuleName mod) {
+    if (mod < MAX_MODULES)
+        q_threshold_exceeded[mod]++;
+}
+
 ///////////////////////////////////////////////////////////////////////////////
 
 PktInfo::PktInfo(uint8_t *msg, std::size_t msg_size) : 
     pkt(msg), len(msg_size), data(), ipc(), type(PktType::INVALID),
     agent_hdr(), ether_type(-1), ip_saddr(), ip_daddr(), ip_proto(),
-    sport(), dport(), tunnel(), eth(), arp(), ip() {
+    sport(), dport(), tcp_ack(false), tunnel(), eth(), arp(), ip() {
     transp.tcp = 0;
 }
 
 PktInfo::PktInfo(InterTaskMsg *msg) :
     pkt(), len(), data(), ipc(msg), type(PktType::MESSAGE), agent_hdr(),
     ether_type(-1), ip_saddr(), ip_daddr(), ip_proto(), sport(), dport(),
-    tunnel(), eth(), arp(), ip() {
+    tcp_ack(false), tunnel(), eth(), arp(), ip() {
     transp.tcp = 0;
 }
 

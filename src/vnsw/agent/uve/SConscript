@@ -92,9 +92,44 @@ libagentuve = env.Library('agentuve',
                           'vrouter_stats_collector.cc',
                           'vrouter_uve_entry.cc',
                           'agent_uve_test.cc',
+                          'agent_stats_collector_test.cc',
                           'vm_uve_table_test.cc',
                           'vn_uve_table_test.cc',
                           'vrouter_uve_entry_test.cc',
                           ])
+
+Import('BuildEnv')
+mockEnv = BuildEnv.Clone()
+
+def MapBuildDir(list):
+    return map(lambda x: Dir('../../../' + x).abspath, list)
+
+mockEnv.Prepend(LIBS=[
+    'sandeshflow',
+    'sandeshvns',
+    'sandesh',
+    'http',
+    'http_parser',
+    'io',
+    'sandesh',
+    'base',
+    'boost_program_options',
+    'curl',
+    'pugixml',
+     'rt'
+    ])
+
+if sys.platform != 'darwin':
+    mockEnv.Append(LIBS = ['rt'])
+
+libpath = MapBuildDir(
+    [
+     'base',
+     'io',
+    ])
+mockEnv.Append(LIBPATH=libpath)
+mockgen = mockEnv.Program('mock_generator',
+                          ['mock_generator.cc'])
+mockEnv.Alias("vrouter:mock_gen", mockgen)
 
 env.SConscript('test/SConscript', exports='AgentEnv', duplicate=0)

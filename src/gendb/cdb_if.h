@@ -14,7 +14,7 @@
 #include <boost/asio/ip/tcp.hpp>
 #include <boost/function.hpp>
 #include <boost/scoped_ptr.hpp>
-#include <boost/ptr_container/ptr_map.hpp>
+#include <boost/ptr_container/ptr_unordered_map.hpp>
 
 #include <tbb/task.h>
 #include <tbb/mutex.h>
@@ -67,7 +67,7 @@ class CdbIf : public GenDbIf {
         ~CdbIf();
 
         virtual bool Db_Init(std::string task_id, int task_instance);
-        virtual void Db_Uninit(bool shutdown);
+        virtual void Db_Uninit(std::string task_id, int task_instance);
         virtual void Db_SetInitDone(bool);
         virtual bool Db_AddTablespace(const std::string& tablespace,const std::string& replication_factor);
         virtual bool Db_SetTablespace(const std::string& tablespace);
@@ -84,7 +84,7 @@ class CdbIf : public GenDbIf {
 
         virtual bool Db_GetRow(GenDb::ColList& ret, const std::string& cfname,
                 const GenDb::DbDataValueVec& rowkey);
-        virtual bool Db_GetMultiRow(std::vector<GenDb::ColList>& ret,
+        virtual bool Db_GetMultiRow(GenDb::ColListVec& ret,
                 const std::string& cfname, const std::vector<GenDb::DbDataValueVec>& key,
                 GenDb::ColumnNameRange *crange_ptr = NULL);
         /* api to get range of column data for a range of rows */
@@ -98,13 +98,14 @@ class CdbIf : public GenDbIf {
 
     private:
         friend class CdbIfTest;
+        class CleanupTask;
 
         /* api to get range of column data for a range of rows 
          * Number of columns returned is less than or equal to count field
          * in crange
          */
         bool Db_GetRangeSlices_Internal(GenDb::ColList& col_list,
-                const std::string& cfname,
+                const GenDb::NewCf *cf,
                 const GenDb::ColumnNameRange& crange,
                 const GenDb::DbDataValueVec& key);
 
@@ -135,7 +136,7 @@ class CdbIf : public GenDbIf {
             Db_encode_non_composite_fn encode_non_composite_fn_;
             Db_decode_non_composite_fn decode_non_composite_fn_;
         };
-        typedef std::map<GenDb::DbDataType::type, CdbIfTypeInfo> CdbIfTypeMapDef;
+        typedef boost::unordered_map<GenDb::DbDataType::type, CdbIfTypeInfo> CdbIfTypeMapDef;
         static CdbIfTypeMapDef CdbIfTypeMap;
 
         struct CdbIfCfInfo {
@@ -153,35 +154,31 @@ class CdbIf : public GenDbIf {
             std::auto_ptr<CfDef> cfdef_;
             std::auto_ptr<GenDb::NewCf> cf_;
         };
-        typedef boost::ptr_map<std::string, CdbIfCfInfo> CdbIfCfListType;
+        typedef boost::ptr_unordered_map<std::string, CdbIfCfInfo> CdbIfCfListType;
         CdbIfCfListType CdbIfCfList;
 
         /*
          * structure for passing between sync and async add_column
          */
         struct CdbIfColList {
-            CdbIfColList(std::auto_ptr<GenDb::ColList> cl) : new_cl(cl) { }
-
-            std::auto_ptr<GenDb::ColList> new_cl;
+            GenDb::ColList *gendb_cl;
         };
 
         bool DbDataTypeVecToCompositeType(std::string& res, const std::vector<GenDb::DbDataType::type>& db_type);
-        bool ConstructDbDataValue(std::string& res, const std::string& cfname,
-                const std::string& col_name, const GenDb::DbDataValue& value);
-        bool ConstructDbDataValueKey(std::string& res, const std::string& cfname,
-                const GenDb::DbDataValueVec& rowkey);
-        bool ConstructDbDataValueColumnName(std::string& res, const std::string& cfname, const GenDb::DbDataValueVec& name);
-        bool ConstructDbDataValueColumnValue(std::string& res, const std::string& cfname, const GenDb::DbDataValueVec& value);
         bool DbDataValueFromType(GenDb::DbDataValue& res, const GenDb::DbDataType::type& type, const std::string& input);
         bool DbDataValueFromType(GenDb::DbDataValue&, const string&, const string&);
         bool DbDataValueFromString(GenDb::DbDataValue&, const string&, const string&, const string&);
-        bool DbDataValueToString(std::string&, const GenDb::DbDataType::type&, const DbDataValue&);
-        bool DbDataValueToStringFromCf(std::string&, const string&, const string&, const DbDataValue&);
-        bool DbDataValueVecToString(std::string&, const DbDataTypeVec&, const DbDataValueVec&);
+        bool DbDataValueToStringNonComposite(std::string&, const DbDataValue&);
+        bool DbDataValueVecToString(std::string&, bool composite, const DbDataValueVec&);
+        bool ConstructDbDataValueKey(std::string&, const GenDb::NewCf *, const DbDataValueVec&);
+        bool ConstructDbDataValueColumnName(std::string&, const GenDb::NewCf *, const DbDataValueVec&);
+        bool ConstructDbDataValueColumnValue(std::string&, const GenDb::NewCf *, const DbDataValueVec&);
         bool DbDataValueVecFromString(GenDb::DbDataValueVec&, const DbDataTypeVec&, const string&);
         bool ColListFromColumnOrSuper(GenDb::ColList&, std::vector<org::apache::cassandra::ColumnOrSuperColumn>&, const string&);
 
-        bool Db_AsyncAddColumn(CdbIfColList *cl);
+        bool Db_AsyncAddColumn(CdbIfColList &cl);
+        bool Db_AsyncAddColumnLocked(CdbIfColList &cl);
+        void Db_BatchAddColumn(bool done);
         bool Db_Columnfamily_present(const std::string& cfname);
         bool Db_GetColumnfamily(CdbIfCfInfo **info, const std::string& cfname);
         bool Db_IsInitDone() const;
@@ -227,15 +224,34 @@ class CdbIf : public GenDbIf {
         boost::asio::io_service *ioservice_;
         DbErrorHandler errhandler_;
 
-        bool db_init_done_;
+        tbb::atomic<bool> db_init_done_;
         std::string tablespace_;
 
-        typedef WorkQueue<CdbIfColList *> CdbIfQueue;
+        typedef WorkQueue<CdbIfColList> CdbIfQueue;
         boost::scoped_ptr<CdbIfQueue> cdbq_;
         Timer *periodic_timer_;
         std::string name_;
+        mutable tbb::mutex cdbq_mutex_;
+        CleanupTask *cleanup_;
 
         int cassandra_ttl_;
+        typedef std::vector<Mutation> MutationList;
+        typedef std::map<std::string, MutationList> CFMutationMap;
+        typedef std::map<std::string, CFMutationMap> CassandraMutationMap;
+        CassandraMutationMap mutation_map_;
+};
+
+template<>
+struct WorkQueueDelete<CdbIf::CdbIfColList> {
+    template <typename QueueT>
+    void operator()(QueueT &q) {
+        for (typename QueueT::iterator iter = q.unsafe_begin();
+             iter != q.unsafe_end(); ++iter) {
+            CdbIf::CdbIfColList &colList(*iter);
+            delete colList.gendb_cl;
+            colList.gendb_cl = NULL;
+        }
+    }
 };
 
 #endif

@@ -327,6 +327,7 @@ public:
     void Activate();
     void DeActivate();
     void Delete();
+    void Add();
     bool OnResyncServiceVlan(VmInterfaceConfigData *data);
     void UpdateAllRoutes();
 
@@ -459,6 +460,8 @@ private:
     StaticRouteList static_route_list_;
     VrfAssignRuleList vrf_assign_rule_list_;
     AclDBEntryRef vrf_assign_acl_;
+    // Peer for interface routes
+    std::auto_ptr<LocalVmPortPeer> peer_;
     DISALLOW_COPY_AND_ASSIGN(VmInterface);
 };
 

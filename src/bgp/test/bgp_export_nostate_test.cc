@@ -157,7 +157,7 @@ TEST_F(BgpExportNoStateTest, Advertise1) {
         VerifyUpdates(rt_update, roattrA_, 0, vAcceptPeerCount-1);
         VerifyHistory(rt_update);
 
-        DrainAndDeleteRouteState(&rt_);
+        DrainAndDeleteRouteState(&rt_, vAcceptPeerCount);
     }
 }
 
@@ -184,7 +184,7 @@ TEST_F(BgpExportNoStateTest, Advertise2) {
         VerifyUpdates(rt_update, attr_, 0, vAcceptPeerCount-1);
         VerifyHistory(rt_update);
 
-        DrainAndDeleteRouteState(&rt_);
+        DrainAndDeleteRouteState(&rt_, vAcceptPeerCount);
     }
 }
 
@@ -216,7 +216,7 @@ TEST_F(BgpExportNoStateTest, Advertise3) {
         VerifyUpdates(rt_update, roattrA_, vInactivePeerCount, kPeerCount-1);
         VerifyHistory(rt_update);
 
-        DrainAndDeleteRouteState(&rt_);
+        DrainAndDeleteRouteState(&rt_, kPeerCount - vInactivePeerCount);
         ReactivatePeers(0, vInactivePeerCount-1);
     }
 }
@@ -249,7 +249,7 @@ TEST_F(BgpExportNoStateTest, Advertise4) {
         VerifyUpdates(rt_update, attr_, vInactivePeerCount, kPeerCount-1);
         VerifyHistory(rt_update);
 
-        DrainAndDeleteRouteState(&rt_);
+        DrainAndDeleteRouteState(&rt_, kPeerCount - vInactivePeerCount);
         ReactivatePeers(0, vInactivePeerCount-1);
     }
 }
@@ -328,7 +328,7 @@ TEST_F(BgpExportNoStateTest, JoinAdvertise1) {
         VerifyUpdates(rt_update, roattrA_, 0, vJoinPeerCount-1);
         VerifyHistory(rt_update);
 
-        DrainAndDeleteRouteState(&rt_);
+        DrainAndDeleteRouteState(&rt_, vJoinPeerCount);
     }
 }
 
@@ -357,7 +357,7 @@ TEST_F(BgpExportNoStateTest, JoinAdvertise2) {
         VerifyUpdates(rt_update, attr_, 0, vJoinPeerCount-1);
         VerifyHistory(rt_update);
 
-        DrainAndDeleteRouteState(&rt_);
+        DrainAndDeleteRouteState(&rt_, vJoinPeerCount);
     }
 }
 
@@ -387,7 +387,7 @@ TEST_F(BgpExportNoStateTest, JoinAdvertise3) {
         VerifyUpdates(rt_update, roattrA_, 0, vJoinPeerCount-1);
         VerifyHistory(rt_update);
 
-        DrainAndDeleteRouteState(&rt_);
+        DrainAndDeleteRouteState(&rt_, vJoinPeerCount);
     }
 }
 
@@ -417,7 +417,7 @@ TEST_F(BgpExportNoStateTest, JoinAdvertise4) {
         VerifyUpdates(rt_update, attr_, 0, vJoinPeerCount-1);
         VerifyHistory(rt_update);
 
-        DrainAndDeleteRouteState(&rt_);
+        DrainAndDeleteRouteState(&rt_, vJoinPeerCount);
     }
 }
 

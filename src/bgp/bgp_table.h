@@ -77,9 +77,10 @@ public:
 
     virtual bool Export(RibOut *ribout, Route *route,
                         const RibPeerSet &peerset,
-                        UpdateInfoSList &uinfo_slist);
+                        UpdateInfoSList &uinfo_slist) = 0;
 
     virtual Address::Family family() const = 0;
+    virtual bool IsVpnTable() const { return false; }
     virtual std::auto_ptr<DBEntry> AllocEntryStr(const std::string &key) const = 0;
 
     virtual BgpRoute *RouteReplicate(BgpServer *server, BgpTable *table, 

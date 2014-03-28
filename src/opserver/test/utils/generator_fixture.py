@@ -36,12 +36,13 @@ class GeneratorFixture(fixtures.Fixture):
     _VN_PREFIX = 'default-domain:vn'
 
     def __init__(self, name, collectors, logger,
-                 opserver_port, start_time=None):
+                 opserver_port, start_time=None, node_type="Test"):
         self._name = name
         self._logger = logger
         self._collectors = collectors
         self._opserver_port = opserver_port
         self._start_time = start_time
+        self._node_type = node_type
     # end __init__
 
     def setUp(self):
@@ -49,11 +50,16 @@ class GeneratorFixture(fixtures.Fixture):
         self._sandesh_instance = Sandesh()
         self._http_port = AnalyticsFixture.get_free_port()
         self._sandesh_instance.init_generator(
-            self._name, socket.gethostname(), "Test", "0", self._collectors,
+            self._name, socket.gethostname(), self._node_type, "0", self._collectors,
             '', self._http_port, sandesh_req_uve_pkg_list=['sandesh'])
         self._sandesh_instance.set_logging_params(enable_local_log=True,
                                                   level=SandeshLevel.UT_DEBUG)
     # end setUp
+
+    def cleanUp(self):
+        self._sandesh_instance._client._connection.set_admin_state(down=True)
+        super(GeneratorFixture, self).cleanUp()
+    # end tearDown
 
     @retry(delay=2, tries=5)
     def verify_on_setup(self):
@@ -96,10 +102,14 @@ class GeneratorFixture(fixtures.Fixture):
 
     def generate_flow_samples(self):
         self.flows = []
+        self.egress_flows = []
         self.flow_cnt = 5
         self.num_flow_samples = 0
+        self.egress_num_flow_samples = 0
         self.flow_start_time = None
         self.flow_end_time = None
+        self.egress_flow_start_time = None
+        self_egress_flow_end_time = None
         for i in range(self.flow_cnt):
             self.flows.append(FlowDataIpv4(flowuuid=str(uuid.uuid1()),
                                            direction_ing=1,
@@ -111,6 +121,19 @@ class GeneratorFixture(fixtures.Fixture):
                                            protocol=i / 2))
             self.flows[i].samples = []
             self._logger.info(str(self.flows[i]))
+        
+        for i in range(self.flow_cnt):
+            self.egress_flows.append(FlowDataIpv4(flowuuid=str(uuid.uuid1()),
+                                           direction_ing=0,
+                                           destvn='domain1:admin:vn1',
+                                           sourcevn='domain1:admin:vn2',
+                                           destip=0x0A0A0A01,
+                                           sourceip=0x0A0A0A02,
+                                           dport=i + 10, sport=i + 100,
+                                           protocol=i / 2))
+            self.egress_flows[i].samples = []
+            self._logger.info(str(self.egress_flows[i]))
+        
 
         # 'duration' - lifetime of the flow in seconds
         # 'tdiff'    - time difference between consecutive flow samples
@@ -156,7 +179,32 @@ class GeneratorFixture(fixtures.Fixture):
                 self.num_flow_samples += 1
                 self.send_flow_stat(self.flows[cnt], bytes, pkts, ts)
             cnt += 1
-    # end generate_flow_samples
+
+        # set the egress_flow_start_time to flow_end_time + (max duration 
+        # in flow template) 
+        # set the egress_flow_end_time to egress_flow_start_time + (max 
+        # duration in flow_template)
+        self.egress_flow_start_time = self.flow_end_time + \
+                (max_duration * self._KSECINMSEC)
+        self.egress_flow_end_time = self.egress_flow_start_time + \
+                (max_duration * self._KSECINMSEC)
+        assert(self.egress_flow_end_time <= UTCTimestampUsec())
+
+        # generate egress_flows based on the flow template defined above
+        cnt = 0
+        for fd in flow_template:
+            num_samples = (fd['duration'] / fd['tdiff']) +\
+                bool((fd['duration'] % fd['tdiff']))
+            for i in range(num_samples):
+                ts = self.egress_flow_start_time + \
+                    (i * fd['tdiff'] * self._KSECINMSEC) + \
+                    random.randint(1, 10000)
+                pkts = (i + 1) * fd['pdiff']
+                bytes = pkts * fd['psize']
+                self.egress_num_flow_samples += 1
+                self.send_flow_stat(self.egress_flows[cnt], bytes, pkts, ts)
+            cnt += 1
+   # end generate_flow_samples
 
     def send_vn_uve(self, vrouter, vn_id, num_vns):
         intervn_list = []
@@ -191,7 +239,7 @@ class GeneratorFixture(fixtures.Fixture):
         self.vn_all_rows['rows'] = 8
 
         self.vn_sum_rows = {}
-        self.vn_sum_rows['select'] = ['name','COUNT(vn_stats)']
+        self.vn_sum_rows['select'] = ['name','COUNT(vn_stats)','SUM(vn_stats.in_tpkts)']
         self.vn_sum_rows['whereclause'] = 'vn_stats.other_vn=' + self._VN_PREFIX + str(1) 
         self.vn_sum_rows['rows'] = 2
 

@@ -37,7 +37,7 @@ public:
     }
     IFMapOrigin origin() const { return origin_; }
     virtual bool ResolveStaleness() = 0; // return true if something was stale
-    virtual boost::crc_32_type::value_type CalculateCrc() = 0;
+    virtual boost::crc_32_type::value_type CalculateCrc() const = 0;
 
 private:
     friend class IFMapNode;

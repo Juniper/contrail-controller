@@ -31,9 +31,12 @@
 #include "vr_message.h"
 #include "vr_types.h"
 #include "vr_defs.h"
+#include "vr_interface.h"
+#include <vector>
 
 KSyncSockTypeMap *KSyncSockTypeMap::singleton_; 
 vr_flow_entry *KSyncSockTypeMap::flow_table_;
+int KSyncSockTypeMap::error_code_;
 using namespace boost::asio;
 
 //store ops data
@@ -65,10 +68,11 @@ void KSyncSockTypeMap::ProcessSandesh(const uint8_t *parse_buf, size_t buf_len,
 
 void KSyncSockTypeMap::FlowNatResponse(uint32_t seq_num, vr_flow_req *req) {
     KSyncSockTypeMap *sock = KSyncSockTypeMap::GetKSyncSockTypeMap();
+    int flow_error = sock->GetKSyncError(KSyncSockTypeMap::KSYNC_FLOW_ENTRY_TYPE);
     struct nl_client cl;
     int error = 0, ret;
     uint8_t *buf = NULL;
-    uint32_t buf_len = 0, encode_len;
+    uint32_t buf_len = 0, encode_len = 0;
     struct nlmsghdr *nlh;
 
     nl_init_generic_client_req(&cl, KSyncSock::GetNetlinkFamilyId());
@@ -81,8 +85,30 @@ void KSyncSockTypeMap::FlowNatResponse(uint32_t seq_num, vr_flow_req *req) {
     nlh = (struct nlmsghdr *)cl.cl_buf;
     nlh->nlmsg_seq = seq_num;
 
+    uint32_t fwd_flow_idx = req->get_fr_index();
+    bool add_error = false;
+    if (fwd_flow_idx == 0xFFFFFFFF) {
+        add_error = true;
+    } else {
+        if (flow_error != -ENOSPC && flow_error != 0) {
+            add_error = true;
+        }
+    }
+    if (add_error) {
+        vr_response encoder;
+        encoder.set_h_op(sandesh_op::RESPONSE);
+        encoder.set_resp_code(flow_error);
+        encode_len = encoder.WriteBinary(buf, buf_len, &error);
+        if (error != 0) {
+            SimulateResponse(seq_num, -ENOENT, 0); 
+            nl_free(&cl);
+            return;
+        }
+        buf += encode_len;
+        buf_len -= encode_len;
+    }
     req->set_fr_op(flow_op::FLOW_SET);
-    encode_len = req->WriteBinary(buf, buf_len, &error);
+    encode_len += req->WriteBinary(buf, buf_len, &error);
     if (error != 0) {
         SimulateResponse(seq_num, -ENOENT, 0); 
         nl_free(&cl);
@@ -92,9 +118,6 @@ void KSyncSockTypeMap::FlowNatResponse(uint32_t seq_num, vr_flow_req *req) {
     nl_update_header(&cl, encode_len);
     sock->sock_.send_to(buffer(cl.cl_buf, cl.cl_msg_len), sock->local_ep_);
     nl_free(&cl);
-
-    //Activate the reverse flow-entry in flow mmap
-    KSyncSockTypeMap::SetFlowEntry(req, true);
 }
 
 void KSyncSockTypeMap::SendNetlinkDoneMsg(int seq_num) {
@@ -135,6 +158,140 @@ void KSyncSockTypeMap::SimulateResponse(uint32_t seq_num, int code, int flags) {
     nl_free(&cl);
 }
 
+void KSyncSockTypeMap::SetDropStats(const vr_drop_stats_req &req) {
+    KSyncSockTypeMap *sock = KSyncSockTypeMap::GetKSyncSockTypeMap();
+    sock->drop_stats = req;
+}
+
+void KSyncSockTypeMap::InterfaceAdd(int id, int flags, int mac_size) {
+    KSyncSockTypeMap *sock = KSyncSockTypeMap::GetKSyncSockTypeMap();
+    KSyncSockTypeMap::ksync_map_if::const_iterator it;
+    static int os_index = 10;
+    char name[50];
+    sprintf(name, "intf%d", id);
+    vr_interface_req req;
+    req.set_vifr_idx(id);
+    req.set_vifr_type(VIF_TYPE_VIRTUAL);
+    req.set_vifr_rid(0);
+    req.set_vifr_os_idx(os_index);
+    req.set_vifr_name(name);
+    const std::vector<signed char> list(mac_size);
+    req.set_vifr_mac(list);
+    req.set_vifr_flags(flags);
+
+    it = sock->if_map.find(id);
+    if (it == sock->if_map.end()) {
+        sock->if_map[id] = req;
+        ++os_index;
+    }
+}
+
+void KSyncSockTypeMap::InterfaceDelete(int id) {
+    KSyncSockTypeMap *sock = KSyncSockTypeMap::GetKSyncSockTypeMap();
+    KSyncSockTypeMap::ksync_map_if::iterator it;
+    it = sock->if_map.find(id);
+    if (it != sock->if_map.end()) {
+        sock->if_map.erase(it);
+    }
+}
+
+void KSyncSockTypeMap::NHAdd(int id, int flags) {
+    KSyncSockTypeMap *sock = KSyncSockTypeMap::GetKSyncSockTypeMap();
+    KSyncSockTypeMap::ksync_map_nh::const_iterator it;
+    vr_nexthop_req req;
+    req.set_nhr_id(id);
+    req.set_nhr_flags(flags);
+    it = sock->nh_map.find(id);
+    if (it == sock->nh_map.end()) {
+        sock->nh_map[id] = req;
+    }
+}
+
+void KSyncSockTypeMap::NHDelete(int id) {
+    KSyncSockTypeMap *sock = KSyncSockTypeMap::GetKSyncSockTypeMap();
+    KSyncSockTypeMap::ksync_map_nh::iterator it;
+    it = sock->nh_map.find(id);
+    if (it != sock->nh_map.end()) {
+        sock->nh_map.erase(it);
+    }
+}
+
+void KSyncSockTypeMap::MplsAdd(int id) {
+    KSyncSockTypeMap *sock = KSyncSockTypeMap::GetKSyncSockTypeMap();
+    KSyncSockTypeMap::ksync_map_mpls::const_iterator it;
+    vr_mpls_req req;
+    req.set_mr_label(id);
+    it = sock->mpls_map.find(id);
+    if (it == sock->mpls_map.end()) {
+        sock->mpls_map[id] = req;
+    }
+}
+
+void KSyncSockTypeMap::MplsDelete(int id) {
+    KSyncSockTypeMap *sock = KSyncSockTypeMap::GetKSyncSockTypeMap();
+    KSyncSockTypeMap::ksync_map_mpls::iterator it;
+    it = sock->mpls_map.find(id);
+    if (it != sock->mpls_map.end()) {
+        sock->mpls_map.erase(it);
+    }
+}
+
+void KSyncSockTypeMap::MirrorAdd(int id) {
+    KSyncSockTypeMap *sock = KSyncSockTypeMap::GetKSyncSockTypeMap();
+    KSyncSockTypeMap::ksync_map_mirror::const_iterator it;
+    vr_mirror_req req;
+    req.set_mirr_index(id);
+    it = sock->mirror_map.find(id);
+    if (it == sock->mirror_map.end()) {
+        sock->mirror_map[id] = req;
+    }
+}
+
+void KSyncSockTypeMap::MirrorDelete(int id) {
+    KSyncSockTypeMap *sock = KSyncSockTypeMap::GetKSyncSockTypeMap();
+    KSyncSockTypeMap::ksync_map_mirror::iterator it;
+    it = sock->mirror_map.find(id);
+    if (it != sock->mirror_map.end()) {
+        sock->mirror_map.erase(it);
+    }
+}
+
+void KSyncSockTypeMap::RouteAdd(vr_route_req &req) {
+    KSyncSockTypeMap *sock = KSyncSockTypeMap::GetKSyncSockTypeMap();
+    KSyncSockTypeMap::ksync_rt_tree::const_iterator it;
+    it = sock->rt_tree.find(req);
+    if (it == sock->rt_tree.end()) {
+        sock->rt_tree.insert(req);
+    }
+}
+
+void KSyncSockTypeMap::RouteDelete(vr_route_req &req) {
+    KSyncSockTypeMap *sock = KSyncSockTypeMap::GetKSyncSockTypeMap();
+    KSyncSockTypeMap::ksync_rt_tree::iterator it;
+    it = sock->rt_tree.find(req);
+    if (it != sock->rt_tree.end()) {
+        sock->rt_tree.erase(it);
+    }
+}
+
+void KSyncSockTypeMap::VrfAssignAdd(vr_vrf_assign_req &req) {
+    KSyncSockTypeMap *sock = KSyncSockTypeMap::GetKSyncSockTypeMap();
+    KSyncSockTypeMap::ksync_vrf_assign_tree::const_iterator it;
+    it = sock->vrf_assign_tree.find(req);
+    if (it == sock->vrf_assign_tree.end()) {
+        sock->vrf_assign_tree.insert(req);
+    }
+}
+
+void KSyncSockTypeMap::VrfAssignDelete(vr_vrf_assign_req &req) {
+    KSyncSockTypeMap *sock = KSyncSockTypeMap::GetKSyncSockTypeMap();
+    KSyncSockTypeMap::ksync_vrf_assign_tree::iterator it;
+    it = sock->vrf_assign_tree.find(req);
+    if (it != sock->vrf_assign_tree.end()) {
+        sock->vrf_assign_tree.erase(it);
+    }
+}
+
 void KSyncSockTypeMap::VrfStatsAdd(int vrf_id) {
     KSyncSockTypeMap *sock = KSyncSockTypeMap::GetKSyncSockTypeMap();
     KSyncSockTypeMap::ksync_map_vrf_stats::const_iterator it;
@@ -163,6 +320,15 @@ void KSyncSockTypeMap::VrfStatsAdd(int vrf_id) {
     }
 }
 
+void KSyncSockTypeMap::VrfStatsDelete(int vrf_id) {
+    KSyncSockTypeMap *sock = KSyncSockTypeMap::GetKSyncSockTypeMap();
+    KSyncSockTypeMap::ksync_map_vrf_stats::iterator it;
+    it = sock->vrf_stats_map.find(vrf_id);
+    if (it != sock->vrf_stats_map.end()) {
+        sock->vrf_stats_map.erase(it);
+    }
+}
+
 void KSyncSockTypeMap::VrfStatsUpdate(int vrf_id, uint64_t discards, uint64_t resolves, 
                     uint64_t receives, uint64_t udp_tunnels, 
                     uint64_t udp_mpls_tunnels, 
@@ -188,6 +354,29 @@ void KSyncSockTypeMap::VrfStatsUpdate(int vrf_id, uint64_t discards, uint64_t re
     vrf_stats.set_vsr_multi_proto_composites(multi_proto_composites);
     vrf_stats.set_vsr_encaps(encaps);
     vrf_stats.set_vsr_l2_encaps(l2_encaps);
+}
+
+void KSyncSockTypeMap::VxlanAdd(int id) {
+    KSyncSockTypeMap *sock = KSyncSockTypeMap::GetKSyncSockTypeMap();
+    KSyncSockTypeMap::ksync_map_vxlan::const_iterator it;
+
+    it = sock->vxlan_map.find(id);
+    if (it == sock->vxlan_map.end()) {
+        vr_vxlan_req vxlan;
+        vxlan.set_vxlanr_vnid(id);
+        vxlan.set_vxlanr_rid(0);
+        sock->vxlan_map[id] = vxlan;
+    }
+}
+
+void KSyncSockTypeMap::VxlanDelete(int id) {
+    KSyncSockTypeMap *sock = KSyncSockTypeMap::GetKSyncSockTypeMap();
+    KSyncSockTypeMap::ksync_map_vxlan::iterator it;
+
+    it = sock->vxlan_map.find(id);
+    if (it != sock->vxlan_map.end()) {
+        sock->vxlan_map.erase(it);
+    }
 }
 
 void KSyncSockTypeMap::IfStatsUpdate(int idx, int ibytes, int ipkts, int ierrors, 
@@ -328,14 +517,14 @@ void KSyncSockTypeMap::AsyncSendTo(IoContext *ioc, mutable_buffers_1 buf,
 }
 
 //send or store in map
-size_t KSyncSockTypeMap::SendTo(const_buffers_1 buf) {
-    KSyncUserSockContext ctx(true, 0);
+size_t KSyncSockTypeMap::SendTo(const_buffers_1 buf, uint32_t seq_no) {
+    KSyncUserSockContext ctx(true, seq_no);
     //parse and store info in map [done in Process() callbacks]
     ProcessSandesh(buffer_cast<const uint8_t *>(buf), buffer_size(buf), &ctx);
 
     if (ctx.IsResponseReqd()) {
         //simulate ok response with the same seq
-        SimulateResponse(0, 0, 0); 
+        SimulateResponse(seq_no, 0, 0); 
     }
     return 0;
 }
@@ -487,6 +676,7 @@ void KSyncUserSockContext::IfMsgHandler(vr_interface_req *req) {
 void KSyncUserSockFlowContext::Process() {
     KSyncSockTypeMap *sock = KSyncSockTypeMap::GetKSyncSockTypeMap();
     uint16_t flags = 0;
+    int flow_error = sock->GetKSyncError(KSyncSockTypeMap::KSYNC_FLOW_ENTRY_TYPE);
 
     flags = req_->get_fr_flags();
     //delete from map if command is delete
@@ -498,16 +688,22 @@ void KSyncUserSockFlowContext::Process() {
         /* Send reverse-flow index as one more than fwd-flow index */
         uint32_t fwd_flow_idx = req_->get_fr_index();
         if (fwd_flow_idx == 0xFFFFFFFF) {
-            fwd_flow_idx = rand() % 50000;
-            req_->set_fr_index(fwd_flow_idx);
+            if (flow_error == 0) {
+                /* Allocate entry only of no error case */
+                fwd_flow_idx = rand() % 50000;
+                req_->set_fr_index(fwd_flow_idx);
+            }
         }          
-        //store info from binary sandesh message
-        vr_flow_req flow_info(*req_);
 
-        sock->flow_map[req_->get_fr_index()] = flow_info;
+        if (fwd_flow_idx != 0xFFFFFFFF) {
+            //store info from binary sandesh message
+            vr_flow_req flow_info(*req_);
 
-        //Activate the flow-entry in flow mmap
-        KSyncSockTypeMap::SetFlowEntry(req_, true);
+            sock->flow_map[req_->get_fr_index()] = flow_info;
+
+            //Activate the flow-entry in flow mmap
+            KSyncSockTypeMap::SetFlowEntry(req_, true);
+        }
 
         // For NAT flow, don't send vr_response, instead send
         // vr_flow_req with index of reverse_flow
@@ -515,7 +711,8 @@ void KSyncUserSockFlowContext::Process() {
         KSyncSockTypeMap::FlowNatResponse(GetSeqNum(), req_);
         return;
     }
-    KSyncSockTypeMap::SimulateResponse(GetSeqNum(), 0, 0); 
+    SetResponseReqd(false);
+    KSyncSockTypeMap::FlowNatResponse(GetSeqNum(), req_);
 }
 
 void KSyncUserSockContext::FlowMsgHandler(vr_flow_req *req) {
@@ -809,6 +1006,10 @@ void MockDumpHandlerBase::SendDumpResponse(uint32_t seq_num, Sandesh *from_req) 
     int count = 0;
     unsigned int resp_code = 0;
 
+    if (KSyncSockTypeMap::error_code()) {
+        KSyncSockTypeMap::SimulateResponse(seq_num, -KSyncSockTypeMap::error_code(), 0);
+        return;
+    } 
     Sandesh *req = GetFirst(from_req);
     if (req != NULL) {
         nl_init_generic_client_req(&cl, KSyncSock::GetNetlinkFamilyId());
@@ -876,6 +1077,13 @@ void MockDumpHandlerBase::SendGetResponse(uint32_t seq_num, int idx) {
     uint32_t buf_len = 0, encode_len = 0;
     struct nlmsghdr *nlh;
 
+    /* To simulate error code return the test code has to call 
+     * KSyncSockTypeMap::set_error_code() with required error code and 
+     * invoke get request */
+    if (KSyncSockTypeMap::error_code()) {
+        KSyncSockTypeMap::SimulateResponse(seq_num, -KSyncSockTypeMap::error_code(), 0); 
+        return;
+    }
     Sandesh *req = Get(idx);
     if (req == NULL) {
         KSyncSockTypeMap::SimulateResponse(seq_num, -ENOENT, 0); 

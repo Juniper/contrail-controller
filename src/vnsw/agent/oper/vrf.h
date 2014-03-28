@@ -39,9 +39,8 @@ struct VrfData : public AgentData {
 
 class VrfEntry : AgentRefCount<VrfEntry>, public AgentDBEntry {
 public:
-    class VrfNHMap;
     static const uint32_t kInvalidIndex = 0xFFFFFFFF;
-    static const uint32_t kDeleteTimeout = 300 * 1000;
+    static const uint32_t kDeleteTimeout = 900 * 1000;
     VrfEntry(const string &name);
     virtual ~VrfEntry();
 
@@ -50,7 +49,7 @@ public:
     virtual void SetKey(const DBRequestKey *key);
     virtual string ToString() const;
 
-    const uint32_t GetVrfId() const {return id_;};
+    const uint32_t vrf_id() const {return id_;};
     const string &GetName() const {return name_;};
 
     uint32_t GetRefCount() const {
@@ -75,10 +74,7 @@ public:
     void StartDeleteTimer();
     bool DeleteTimeout();
     void CancelDeleteTimer();
-    void Init();
-    VrfNHMap* GetNHMap() {
-        return nh_map_.get();
-    }
+    void PostAdd();
     void AddNH(Ip4Address ip, uint8_t plen, ComponentNHData *nh_data) ;
     void DeleteNH(Ip4Address ip, uint8_t plen, ComponentNHData *nh_data) ;
     uint32_t GetNHCount(Ip4Address ip, uint8_t plen) ;
@@ -102,7 +98,6 @@ private:
     uint32_t id_;
     DBTableWalker::WalkId walkid_;
     boost::scoped_ptr<DeleteActor> deleter_;
-    boost::scoped_ptr<VrfNHMap> nh_map_;
     AgentRouteTable *rt_table_db_[Agent::ROUTE_TABLE_MAX];
     Timer *delete_timeout_timer_;
     DISALLOW_COPY_AND_ASSIGN(VrfEntry);
@@ -168,6 +163,7 @@ public:
     }
 
 private:
+    friend class VrfEntry;
     void DelPeerDone(DBTableBase *base, Peer *,Peer::DelPeerDone cb);
     void VrfNotifyDone(DBTableBase *base, Peer *);
     void VrfNotifyMulticastDone(DBTableBase *base, Peer *);

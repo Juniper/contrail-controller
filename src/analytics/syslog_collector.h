@@ -10,19 +10,24 @@
 #include "io/io_log.h"
 #include "viz_message.h"
 #include "db_handler.h"
-#include "ruleeng.h"
 
-typedef boost::function<bool(const boost::shared_ptr<VizMsg>, bool,
+typedef boost::function<bool(const VizMsg*, bool,
     DbHandler *)> VizCallback;
 
 class SyslogQueueEntry
 {
   public:
-    size_t                  length;
-    const uint8_t          *data;
-    std::string             ip;
-    int                     port;
+    size_t                     length;
+    boost::asio::const_buffer  data;
+    std::string                ip;
+    int                        port;
     virtual void free ();
+    SyslogQueueEntry (boost::asio::const_buffer d, size_t l,
+        std::string ip_, int port_):
+        length(l), data(d), ip (ip_), port (port_)
+    {
+    }
+    virtual ~SyslogQueueEntry() {}
 };
 
 class SyslogTcpSession;
@@ -35,7 +40,7 @@ class SyslogTcpListener : public TcpServer
       virtual void Start (std::string ipaddress, int port);
       virtual void Shutdown ();
 
-      virtual void Parse (SyslogQueueEntry &sqe) = 0;
+      virtual void Parse (SyslogQueueEntry *sqe) = 0;
     private:
       SyslogTcpSession *session_;
 };
@@ -47,11 +52,11 @@ class SyslogUDPListener: public UDPServer
       virtual void Start (std::string ipaddress, int port);
       virtual void Shutdown ();
     protected:
-      virtual void Parse (SyslogQueueEntry &sqe) = 0;
+      virtual void Parse (SyslogQueueEntry *sqe) = 0;
     private:
 
-      void HandleReceive (mutable_buffer *recv_buffer,
-            udp::endpoint *remote_endpoint, std::size_t bytes_transferred,
+      void HandleReceive (boost::asio::const_buffer recv_buffer,
+            udp::endpoint remote_endpoint, std::size_t bytes_transferred,
             const boost::system::error_code& error);
 };
 
@@ -62,25 +67,29 @@ class SyslogListeners : public SyslogUDPListener,
 {
     public:
       static const int kDefaultSyslogPort = 514;
-      SyslogListeners (EventManager *evm, Ruleeng *ruleeng,
+      SyslogListeners (EventManager *evm, VizCallback cb,
         DbHandler *db_handler, std::string ipaddress,
         int port=kDefaultSyslogPort);
-      SyslogListeners (EventManager *evm, Ruleeng *ruleeng,
+      SyslogListeners (EventManager *evm, VizCallback cb,
         DbHandler *db_handler, int port=kDefaultSyslogPort);
       virtual void Start ();
       virtual void Shutdown ();
       bool IsRunning ();
       VizCallback ProcessSandeshMsgCb() const { return cb_; }
       DbHandler *GetDbHandler () { return db_handler_; }
+      SandeshMessageBuilder *GetBuilder () const { return builder_; }
+      int GetTcpPort();
+      int GetUdpPort();
     protected:
-      virtual void Parse (SyslogQueueEntry &sqe);
+      virtual void Parse (SyslogQueueEntry *sqe);
     private:
-      SyslogParser *parser_;
+      boost::scoped_ptr<SyslogParser> parser_;
       int           port_;
       std::string   ipaddress_;
       bool          inited_;
       VizCallback   cb_;
       DbHandler    *db_handler_;
+      SandeshMessageBuilder *builder_;
 };
 
 

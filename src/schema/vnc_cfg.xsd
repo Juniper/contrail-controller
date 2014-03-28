@@ -427,6 +427,9 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
 <xsd:element name="id-perms" type="IdPermsType"/>
 <!--#IFMAP-SEMANTICS-IDL Property('id-perms', 'all') -->
 
+<xsd:element name="display-name" type="xsd:string"/>
+<!--#IFMAP-SEMANTICS-IDL Property('display-name', 'all') -->
+
 <!--Identifier "config-root" is used start config tree traversal for
     Entire config of the VNC, 
     Its value will always be "contrail:config-root:root"
@@ -998,8 +1001,9 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
 <!--#IFMAP-SEMANTICS-IDL
      Link('logical-router-interface',
           'logical-router', 'virtual-machine-interface', ['ref']) -->
-<xsd:element name="virtual-network-logical-router"/>
+
+<xsd:element name="logical-router-target"/>
 <!--#IFMAP-SEMANTICS-IDL 
-     Link('virtual-network-logical-router',
-          'virtual-network', 'logical-router', ['ref']) -->
+     Link('logical-router-target',
+          'logical-router', 'route-target', ['ref']) -->
 </xsd:schema>

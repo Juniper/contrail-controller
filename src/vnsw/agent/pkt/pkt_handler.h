@@ -110,6 +110,7 @@ struct PktInfo {
     uint32_t            sport;
     uint32_t            dport;
 
+    bool                tcp_ack;
     TunnelInfo          tunnel;
 
     // Pointer to different headers in user packet
@@ -153,16 +154,18 @@ public:
     struct PktStats {
         uint32_t sent[MAX_MODULES];
         uint32_t received[MAX_MODULES];
+        uint32_t q_threshold_exceeded[MAX_MODULES];
         uint32_t dropped;
         void Reset() {
             for (int i = 0; i < MAX_MODULES; ++i) {
-                sent[i] = received[i] = 0;
+                sent[i] = received[i] = q_threshold_exceeded[i] = 0;
             }
             dropped = 0;
         }
         PktStats() { Reset(); }
         void PktRcvd(PktModuleName mod);
         void PktSent(PktModuleName mod);
+        void PktQThresholdExceeded(PktModuleName mod);
     };
 
     PktHandler(Agent *, const std::string &, boost::asio::io_service &, bool);
@@ -189,6 +192,15 @@ public:
     void ClearStats() { stats_.Reset(); }
     void PktTraceIterate(PktModuleName mod, PktTraceCallback cb);
     void PktTraceClear(PktModuleName mod) { pkt_trace_.at(mod).Clear(); }
+    void PktTraceBuffers(PktModuleName mod, uint32_t buffers) {
+        pkt_trace_.at(mod).set_num_buffers(buffers);
+    }
+    uint32_t PktTraceBuffers(PktModuleName mod) const {
+        return pkt_trace_.at(mod).num_buffers();
+    }
+    uint32_t PktTraceSize(PktModuleName mod) const {
+        return pkt_trace_.at(mod).pkt_trace_size();
+    }
 
 private:
     friend bool ::CallPktParse(PktInfo *pkt_info, uint8_t *ptr, int len);

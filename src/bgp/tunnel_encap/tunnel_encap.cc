@@ -9,10 +9,6 @@
 #include <stdio.h>
 using namespace std;
 
-TunnelEncap::TunnelEncap() {
-    data_.fill(0);
-}
-
 TunnelEncap::TunnelEncap(std::string encap) {
     TunnelEncapType::Encap id = TunnelEncapType::TunnelEncapFromString(encap);
     if (id == TunnelEncapType::UNSPEC) return;

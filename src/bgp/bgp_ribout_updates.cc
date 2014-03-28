@@ -244,15 +244,11 @@ bool RibOutUpdates::PeerDequeue(int queue_id, IPeerUpdate *peer,
     UpdateEntry *upentry;
     RouteUpdatePtr update =
         monitor_->GetNextEntry(queue_id, start_marker, &upentry);
-    if (upentry == NULL) {
-        assert(false);
-    }
+    assert(upentry);
 
-    // Bail if all the peers in the start marker are blocked. This can happen
-    // if all ready peers got merged during PeerDequeue processing for another
-    // peer(s) and then subsequently got blocked.
-    if (!start_marker->members.intersects(mready))
-        return false;
+    // At least one peer in the start marker i.e. the peer for which we are
+    // called must be send ready.
+    assert(start_marker->members.intersects(mready));
 
     // Split out any peers from the marker that are not send ready. Note that
     // this updates the RibPeerSet in the marker.

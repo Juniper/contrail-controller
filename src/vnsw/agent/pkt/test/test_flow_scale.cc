@@ -29,7 +29,8 @@ public:
         Inet4UnicastAgentRouteTable::AddRemoteVmRouteReq(bgp_peer_, "vrf1", 
                                         Ip4Address::from_string("5.0.0.0", ec),
                                         8, Ip4Address::from_string("1.1.1.2", ec),
-                                        TunnelType::AllType(), 16, "TestVn");
+                                        TunnelType::AllType(), 16, "TestVn",
+                                        SecurityGroupList());
         client->WaitForIdle();
         EXPECT_EQ(0U, Agent::GetInstance()->pkt()->flow_table()->Size());
     }
@@ -79,7 +80,6 @@ int main(int argc, char *argv[]) {
 
     GETUSERARGS();
     client = TestInit(init_file, ksync_init, true, true, true, 100*1000);
-    client->SetFlowFlushExclusionPolicy();
     ret = RUN_ALL_TESTS();
     TestShutdown();
     delete client;

@@ -29,7 +29,6 @@ struct L4PortBitmap {
         uint32_t bitmap_old_[kBmapCount];
 
         void AddPort(uint16_t port);
-        void DelPort(uint16_t port);
         bool Sync(std::vector<uint32_t> &bmap);
         void Encode(std::vector<uint32_t> &bmap);
     };
@@ -38,8 +37,6 @@ struct L4PortBitmap {
     ~L4PortBitmap();
 
     void AddPort(uint8_t proto, uint16_t sport, uint16_t dport);
-    void DelPort(uint8_t proto, uint16_t sport, uint16_t dport);
-    bool Sync(PortBucketBitmap &bmap);
     void Encode(PortBucketBitmap &bmap);
 
     PortBitmap tcp_sport_;

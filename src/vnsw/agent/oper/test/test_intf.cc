@@ -54,14 +54,31 @@ static void ValidateSandeshResponse(Sandesh *sandesh, vector<int> &result) {
     //Validate the response by the expectation
 }
 
+void DoInterfaceSandesh(std::string name) {
+    ItfReq *itf_req = new ItfReq();
+    std::vector<int> result = list_of(1);
+    Sandesh::set_response_callback(boost::bind(ValidateSandeshResponse, _1, result));
+    if (name != "") {
+        itf_req->set_name(name);
+    }
+    itf_req->HandleRequest();
+    client->WaitForIdle();
+    itf_req->Release();
+    client->WaitForIdle();
+}
+
 class IntfTest : public ::testing::Test {
 public:
     virtual void SetUp() {
         agent = Agent::GetInstance();
         intf_count = agent->GetInterfaceTable()->Size();
+        DoInterfaceSandesh("");
+        client->WaitForIdle();
     }
 
     virtual void TearDown() {
+        DoInterfaceSandesh("");
+        client->WaitForIdle();
         WAIT_FOR(100, 1000, (agent->GetInterfaceTable()->Size() == intf_count));
         WAIT_FOR(100, 1000, (agent->GetVrfTable()->Size() == 1U));
         WAIT_FOR(100, 1000, (agent->GetVmTable()->Size() == 0U));
@@ -211,13 +228,7 @@ TEST_F(IntfTest, basic_1) {
     EXPECT_TRUE(VmPortFind(8));
     client->Reset();
 
-    ItfReq *itf_list_req = new ItfReq();
-    std::vector<int> result = list_of(1);
-    Sandesh::set_response_callback(boost::bind(ValidateSandeshResponse, _1, result));
-    itf_list_req->HandleRequest();
-    client->WaitForIdle();
-    itf_list_req->Release();
-    client->WaitForIdle();
+    DoInterfaceSandesh("");
 
     DeleteVmportEnv(input1, 1, true);
     client->WaitForIdle();
@@ -249,18 +260,15 @@ TEST_F(IntfTest, index_reuse) {
 
     sock->SetBlockMsgProcessing(true);
     DeleteVmportEnv(input1, 1, true);
-    client->WaitForIdle();
-    EXPECT_FALSE(VmPortFind(8));
+    WAIT_FOR(1000, 1000, (VmPortFind(8) == false));
     client->Reset();
 
     CreateVmportEnv(input2, 1);
-    client->WaitForIdle();
-    EXPECT_TRUE(VmPortFind(9));
+    WAIT_FOR(1000, 1000, (VmPortFind(9) == true));
     EXPECT_NE(VmPortGetId(9), intf_idx);
     client->Reset();
     DeleteVmportEnv(input2, 1, true);
-    client->WaitForIdle();
-    EXPECT_FALSE(VmPortFind(9));
+    WAIT_FOR(1000, 1000, (VmPortFind(9) == false));
     sock->SetBlockMsgProcessing(false);
     client->WaitForIdle();
     usleep(2000);
@@ -294,13 +302,11 @@ TEST_F(IntfTest, entry_reuse) {
 
     sock->SetBlockMsgProcessing(true);
     DeleteVmportEnv(input1, 1, false);
-    client->WaitForIdle();
-    EXPECT_FALSE(VmPortFind(8));
+    WAIT_FOR(1000, 1000, (VmPortFind(8) == false));
     client->Reset();
 
     CreateVmportEnv(input1, 1);
-    client->WaitForIdle();
-    EXPECT_TRUE(VmPortFind(8));
+    WAIT_FOR(1000, 1000, (VmPortFind(8) == true));
     EXPECT_EQ(VmPortGetId(8), intf_idx);
     client->Reset();
     sock->SetBlockMsgProcessing(false);
@@ -840,6 +846,8 @@ TEST_F(IntfTest, VmPortFloatingIp_1) {
     EXPECT_TRUE(VmPortFloatingIpCount(1, 1));
     EXPECT_TRUE(VmPortPolicyEnable(1));
     EXPECT_TRUE(RouteFind("vrf2", "2.2.2.2", 32));
+    DoInterfaceSandesh("");
+    client->WaitForIdle();
 
     // Remove all floating IP and check floating-ip count is 0
     client->Reset();
@@ -893,6 +901,8 @@ TEST_F(IntfTest, VmPortFloatingIpPolicy_1) {
     EXPECT_TRUE(VmPortFloatingIpCount(1, 1));
     EXPECT_TRUE(VmPortPolicyEnable(1));
     EXPECT_TRUE(RouteFind("vrf2", "2.2.2.2", 32));
+    DoInterfaceSandesh("");
+    client->WaitForIdle();
 
     // Add ACL. Policy should be enabled
     client->Reset();
@@ -982,6 +992,7 @@ TEST_F(IntfTest, VmPortFloatingIpResync_1) {
     EXPECT_TRUE(RouteFind("vrf2", "2.2.2.2", 32));
     EXPECT_TRUE(RouteFind("vrf3", "3.3.3.3", 32));
     EXPECT_TRUE(RouteFind("vrf4", "4.4.4.4", 32));
+    DoInterfaceSandesh("");
 
     // Remove a floating-ip
     VmInterface::FloatingIpList list2;
@@ -993,6 +1004,7 @@ TEST_F(IntfTest, VmPortFloatingIpResync_1) {
     EXPECT_FALSE(RouteFind("vrf2", "2.2.2.2", 32));
     EXPECT_TRUE(RouteFind("vrf3", "3.3.3.3", 32));
     EXPECT_TRUE(RouteFind("vrf4", "4.4.4.4", 32));
+    DoInterfaceSandesh("");
 
     // Remove a floating-ip
     VmInterface::FloatingIpList list3;
@@ -1004,6 +1016,7 @@ TEST_F(IntfTest, VmPortFloatingIpResync_1) {
     EXPECT_TRUE(RouteFind("vrf2", "2.2.2.2", 32));
     EXPECT_TRUE(RouteFind("vrf3", "3.3.3.3", 32));
     EXPECT_FALSE(RouteFind("vrf4", "4.4.4.4", 32));
+    DoInterfaceSandesh("");
 
     // Remove a floating-ip
     VmInterface::FloatingIpList list4;
@@ -1014,6 +1027,7 @@ TEST_F(IntfTest, VmPortFloatingIpResync_1) {
     EXPECT_TRUE(RouteFind("vrf2", "2.2.2.2", 32));
     EXPECT_FALSE(RouteFind("vrf3", "3.3.3.3", 32));
     EXPECT_FALSE(RouteFind("vrf4", "4.4.4.4", 32));
+    DoInterfaceSandesh("");
 
     // Remove a floating-ip
     VmInterface::FloatingIpList list5;
@@ -1114,6 +1128,8 @@ TEST_F(IntfTest, VmPortServiceVlanDelete_1) {
     Ip4Address service_ip = Ip4Address::from_string("2.2.2.100");
     EXPECT_TRUE(RouteFind("vrf2", service_ip, 32));
     EXPECT_TRUE(VmPortServiceVlanCount(1, 1));
+    DoInterfaceSandesh("");
+    client->WaitForIdle();
 
     //Delete config for vnet1, forcing interface to deactivate
     //verify that route and service vlan map gets cleaned up
@@ -1121,6 +1137,8 @@ TEST_F(IntfTest, VmPortServiceVlanDelete_1) {
     client->WaitForIdle();
     EXPECT_FALSE(RouteFind("vrf2", service_ip, 32));
     EXPECT_TRUE(VmPortServiceVlanCount(1, 0));
+    DoInterfaceSandesh("");
+    client->WaitForIdle();
 
     DelLink("virtual-machine-interface-routing-instance", "vmvrf1",
             "routing-instance", "vrf2");
@@ -1270,6 +1288,8 @@ TEST_F(IntfTest, IntfStaticRoute) {
                          static_route[0].plen_));
    EXPECT_TRUE(RouteFind("vrf1", static_route[1].addr_,
                          static_route[1].plen_));
+   DoInterfaceSandesh("vnet1");
+   client->WaitForIdle();
 
    //Delete the link between interface and route table
    DelLink("virtual-machine-interface", "vnet1",
@@ -1279,6 +1299,8 @@ TEST_F(IntfTest, IntfStaticRoute) {
                           static_route[0].plen_));
    EXPECT_FALSE(RouteFind("vrf1", static_route[1].addr_,   
                           static_route[1].plen_));
+   DoInterfaceSandesh("vnet1");
+   client->WaitForIdle();
    
    DelLink("virtual-machine-interface", "vnet1",
            "interface-route-table", "static_route");
@@ -1364,6 +1386,8 @@ TEST_F(IntfTest, IntfStaticRoute_2) {
                          static_route[0].plen_));
    EXPECT_TRUE(RouteFind("vrf1", static_route[1].addr_,
                          static_route[1].plen_));
+   DoInterfaceSandesh("vnet1");
+   client->WaitForIdle();
 
    //Verify all 3 routes are present
    AddInterfaceRouteTable("static_route", 1, static_route, 3);
@@ -1374,6 +1398,8 @@ TEST_F(IntfTest, IntfStaticRoute_2) {
                          static_route[1].plen_));
    EXPECT_TRUE(RouteFind("vrf1", static_route[2].addr_,
                          static_route[2].plen_));
+   DoInterfaceSandesh("vnet1");
+   client->WaitForIdle();
 
    DelLink("virtual-machine-interface", "vnet1",
            "interface-route-table", "static_route");
@@ -1418,7 +1444,7 @@ TEST_F(IntfTest, IntfStaticRoute_3) {
    EXPECT_FALSE(nh->PolicyEnabled());
 
    //Add a acl to interface and verify NH policy changes
-   AddAcl("Acl", 1, "vn1", "vn1");
+   AddAcl("Acl", 1, "vn1", "vn1", "pass");
    AddLink("virtual-network", "vn1", "access-control-list", "Acl");
    client->WaitForIdle();
    nh = RouteGet("vrf1", static_route[0].addr_,
@@ -1468,6 +1494,8 @@ TEST_F(IntfTest, IntfStaticRoute_4) {
                          static_route[0].plen_));
    EXPECT_FALSE(RouteFind("vrf1", static_route[1].addr_,
                           static_route[1].plen_));
+   DoInterfaceSandesh("vnet1");
+   client->WaitForIdle();
 
    //Send nova interface add message
    NovaIntfAdd(1, "vnet1", "1.1.1.10", "00:00:00:01:01:01");
@@ -1479,12 +1507,136 @@ TEST_F(IntfTest, IntfStaticRoute_4) {
                          static_route[0].plen_));
    EXPECT_TRUE(RouteFind("vrf1", static_route[1].addr_,
                          static_route[1].plen_));
+   DoInterfaceSandesh("vnet1");
+   client->WaitForIdle();
 
    DelLink("virtual-machine-interface", "vnet1",
            "interface-route-table", "static_route");
    DeleteVmportEnv(input, 1, true);
    client->WaitForIdle();
    EXPECT_FALSE(VmPortFind(1));
+}
+
+TEST_F(IntfTest, vm_interface_change_req) {
+    struct PortInfo input1[] = {
+        {"vnet8", 8, "8.1.1.1", "00:00:00:01:01:01", 1, 1}
+    };
+
+    struct PortInfo input1_mac_changed[] = {
+        {"vnet8", 8, "8.1.1.1", "00:00:00:01:01:11", 1, 1}
+    };
+
+    client->Reset();
+    CreateVmportEnv(input1, 1);
+    client->WaitForIdle();
+    EXPECT_TRUE(VmPortActive(input1, 0));
+    EXPECT_TRUE(VmPortFind(8));
+    VmInterface *vm_interface = static_cast<VmInterface *>(VmPortGet(8));
+    EXPECT_TRUE(vm_interface->vm_mac() == "00:00:00:01:01:01");
+    client->Reset();
+
+    CreateVmportEnv(input1_mac_changed, 1);
+    client->WaitForIdle();
+    EXPECT_TRUE(VmPortActive(input1, 0));
+    EXPECT_TRUE(VmPortFind(8));
+    client->Reset();
+    //No change expected as vm interface change results in no modifications
+    EXPECT_TRUE(vm_interface->vm_mac() == "00:00:00:01:01:01");
+
+    DeleteVmportEnv(input1, 1, true);
+    client->WaitForIdle();
+    EXPECT_FALSE(VmPortFind(8));
+    VmInterfaceKey key(AgentKey::ADD_DEL_CHANGE, MakeUuid(8), "");
+    WAIT_FOR(100, 1000, (agent->GetInterfaceTable()->Find(&key, true)
+                == NULL));
+    client->Reset();
+}
+
+TEST_F(IntfTest, vm_interface_key_verification) {
+    struct PortInfo input1[] = {
+        {"vnet8", 8, "8.1.1.1", "00:00:00:01:01:01", 1, 1}
+    };
+
+    client->Reset();
+    CreateVmportEnv(input1, 1);
+    client->WaitForIdle();
+    EXPECT_TRUE(VmPortActive(input1, 0));
+    EXPECT_TRUE(VmPortFind(8));
+    client->Reset();
+
+    VmInterface *vm_interface = static_cast<VmInterface *>(VmPortGet(8));
+    VmInterfaceKey key(AgentKey::ADD_DEL_CHANGE, MakeUuid(8), "new_vnet8");
+    vm_interface->SetKey(&key);
+    EXPECT_TRUE(vm_interface->name() == "new_vnet8");
+
+    DeleteVmportEnv(input1, 1, true);
+    client->WaitForIdle();
+    EXPECT_FALSE(VmPortFind(8));
+    VmInterfaceKey key2(AgentKey::ADD_DEL_CHANGE, MakeUuid(8), "");
+    WAIT_FOR(100, 1000, (agent->GetInterfaceTable()->Find(&key2, true)
+                == NULL));
+    client->Reset();
+}
+
+TEST_F(IntfTest, packet_interface_get_key_verification) {
+    PacketInterfaceKey key(nil_uuid(), "pkt0");
+    Interface *intf = 
+        static_cast<Interface *>(agent->GetInterfaceTable()->FindActiveEntry(&key));
+    PacketInterfaceKey *entry_key = static_cast<PacketInterfaceKey *>(intf->GetDBRequestKey().release());
+    EXPECT_TRUE(entry_key != NULL);
+    client->Reset();
+
+    //Issue sandesh request
+    DoInterfaceSandesh("pkt0");
+    client->WaitForIdle();
+}
+
+TEST_F(IntfTest, sandesh_vm_interface_l2_only) {
+    struct PortInfo input1[] = {
+        {"vnet8", 8, "8.1.1.1", "00:00:00:01:01:01", 1, 1}
+    };
+
+    client->Reset();
+    AddL2Vn("vn1", 1);
+    AddVrf("vrf1");
+    AddLink("virtual-network", "vn1", "routing-instance", "vrf1"); 
+    client->WaitForIdle();
+    CreateL2VmportEnv(input1, 1);
+    client->WaitForIdle();
+    WAIT_FOR(100, 1000, (VmPortL2Active(input1, 0) == true));
+    EXPECT_TRUE(VmPortFind(8));
+    client->Reset();
+
+    //Issue sandesh request
+    DoInterfaceSandesh("vnet8");
+    client->WaitForIdle();
+
+    client->Reset();
+    DeleteVmportEnv(input1, 1, true); 
+    client->WaitForIdle();
+    EXPECT_FALSE(VmPortFind(8));
+}
+
+TEST_F(IntfTest, sandesh_vm_interface_without_ip) {
+    struct PortInfo input1[] = {
+        {"vnet8", 8, "8.1.1.1", "00:00:00:01:01:01", 1, 1}
+    };
+
+    client->Reset();
+    CreateVmportEnvWithoutIp(input1, 1);
+    client->WaitForIdle();
+    EXPECT_TRUE(VmPortFind(8));
+    EXPECT_TRUE(VmPortActive(input1, 0));
+    client->Reset();
+
+    //Issue sandesh request
+    DoInterfaceSandesh("vnet8");
+    client->WaitForIdle();
+
+    client->Reset();
+    DeleteVmportEnv(input1, 1, true); 
+    client->WaitForIdle();
+    EXPECT_FALSE(VmPortFind(8));
 }
 
 int main(int argc, char **argv) {

@@ -243,19 +243,37 @@ public:
     bool IsLess(const TunnelType &rhs) const {
         return type_ < rhs.type_;
     }
-    const char *ToString() const {
-        switch (type_) {
-        case MPLS_GRE:
-            return "MPLSoGRE";
-        case MPLS_UDP:
-            return "MPLSoUDP";
-        case VXLAN:
-            return "VXLAN";    
-        default:
-            break;
+
+   std::string ToString() const {
+       switch (type_) {
+       case MPLS_GRE:
+           return "MPLSoGRE";
+       case MPLS_UDP:
+           return "MPLSoUDP";
+       case VXLAN:
+           return "VXLAN";
+       default:
+           break;
+       }
+       return "UNKNOWN";
+   }
+
+    static std::string GetString(uint32_t type) {
+        std::ostringstream tunnel_type;
+        if (type & (1 << MPLS_GRE)) {
+            tunnel_type << "MPLSoGRE ";
         }
-        return "UNKNOWN";
+
+        if (type & (1 << MPLS_UDP)) {
+            tunnel_type << "MPLSoUDP ";
+        }
+
+        if (type & ( 1 << VXLAN)) {
+            tunnel_type << "VxLAN";
+        }
+        return tunnel_type.str();
     }
+
     Type GetType() const {return type_;}
     void SetType(TunnelType::Type type) {type_ = type;}
 
@@ -263,9 +281,12 @@ public:
     static Type ComputeType(TypeBmap bmap);
     static Type DefaultType() {return default_type_;}
     static TypeBmap DefaultTypeBmap() {return (1 << DefaultType());}
+    static TypeBmap VxlanType() {return (1 << VXLAN);};
     static TypeBmap MplsType() {return ((1 << MPLS_GRE) | (1 << MPLS_UDP));};
     static TypeBmap AllType() {return ((1 << MPLS_GRE) | (1 << MPLS_UDP) | 
                                        (1 << VXLAN));}
+    static TypeBmap GREType() {return (1 << MPLS_GRE);}
+    static TypeBmap UDPType() {return (1 << MPLS_UDP);}
     static bool EncapPrioritySync(const std::vector<std::string> &cfg_list);
     static void DeletePriorityList();
 
@@ -326,7 +347,7 @@ public:
         return AgentRefCount<NextHop>::GetRefCount();
     }
 
-    Type GetType() const {return type_;};
+    Type GetType() const {return type_;}
     bool IsValid() const {return valid_;};
     bool PolicyEnabled() const {return policy_;};
 
@@ -415,7 +436,7 @@ public:
         return DBEntryBase::KeyPtr(new DiscardNHKey());
     };
 
-    static void CreateReq();
+    static void Create();
 
 private:
     DISALLOW_COPY_AND_ASSIGN(DiscardNH);
@@ -527,7 +548,7 @@ public:
         return DBEntryBase::KeyPtr(new ResolveNHKey());
     };
 
-    static void CreateReq();
+    static void Create();
 private:
     DISALLOW_COPY_AND_ASSIGN(ResolveNH);
 };
@@ -589,7 +610,7 @@ public:
     const struct ether_addr *GetMac() const {return &mac_;};
     const Interface *GetInterface() const {return interface_.get();};
     const uuid &GetIfUuid() const;
-    const uint32_t GetVrfId() const;
+    const uint32_t vrf_id() const;
     const Ip4Address *GetIp() const {return &ip_;};
     const VrfEntry *GetVrf() const {return vrf_.get();};
     bool GetResolveState() const {return valid_;}
@@ -734,7 +755,7 @@ public:
 
     const Interface *GetInterface() const {return interface_.get();};
     const struct ether_addr &GetDMac() const {return dmac_;};
-    bool IsMulticastNH() const { return flags_ & InterfaceNHFlags::MULTICAST; };
+    bool is_multicastNH() const { return flags_ & InterfaceNHFlags::MULTICAST; };
     bool IsLayer2() const { return flags_ & InterfaceNHFlags::LAYER2; };
     uint8_t GetFlags() const {return flags_;};
     const uuid &GetIfUuid() const;
@@ -752,7 +773,8 @@ public:
     static void DeleteVmInterfaceNHReq(const uuid &intf_uuid);
     static void CreatePacketInterfaceNhReq(const string &ifname);
     static void DeleteHostPortReq(const string &ifname);
-    static void CreateInetInterfaceNextHop(const string &ifname);
+    static void CreateInetInterfaceNextHop(const string &ifname,
+                                           const string &vrf_name);
     static void DeleteInetInterfaceNextHop(const string &ifname);
 
 private:
@@ -961,8 +983,10 @@ private:
 };
 
 struct ComponentNH {
+    ComponentNH(): label_(0), nh_(NULL) { }
+
     ComponentNH(uint32_t label, NextHop *nh): label_(label), nh_(nh) {
-    };
+    }
 
     bool operator == (const ComponentNH &rhs) const {
         if (label_ == rhs.label_ && nh_.get() == rhs.nh_.get()) {
@@ -970,7 +994,7 @@ struct ComponentNH {
         }
 
         return false;
-    };
+    }
 
     std::string ToString() {
         return nh_->ToString();
@@ -984,7 +1008,7 @@ struct ComponentNH {
         return nh_.get();
     }
 
-    uint32_t GetLabel() const {
+    uint32_t label() const {
         return label_;
     }
 
@@ -1112,7 +1136,7 @@ public:
     const Ip4Address &GetGrpAddr() const { return grp_addr_; };
     const Ip4Address &GetSrcAddr() const { return src_addr_; };
     const VrfEntry *GetVrf() const {return vrf_.get();};
-    const std::string &GetVrfName() const {return GetVrf()->GetName();};
+    const std::string &vrf_name() const {return GetVrf()->GetName();};
     //const uint32_t GetSubNHListCount() const { return olist_->size(); };
     //const std::list<NextHopRef> *GetSubNHList() const { return olist_; };
     virtual void SendObjectLog(AgentLogEvent::type event) const;
@@ -1259,10 +1283,15 @@ public:
     static DBTableBase *CreateTable(DB *db, const std::string &name);
     static NextHopTable *GetInstance() {return nexthop_table_;};
 
+    void set_discard_nh(NextHop *nh) { discard_nh_ = nh; }
+    NextHop *discard_nh() const {return discard_nh_;}
+
 private:
-    static NextHopTable *nexthop_table_;
     NextHop *AllocWithKey(const DBRequestKey *k) const;
     virtual std::auto_ptr<DBEntry> GetEntry(const DBRequestKey *key) const;
+
+    NextHop *discard_nh_;
+    static NextHopTable *nexthop_table_;
     DISALLOW_COPY_AND_ASSIGN(NextHopTable);
 };
 #endif // vnsw_agent_nexthop_hpp

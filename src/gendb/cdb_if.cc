@@ -81,9 +81,42 @@ CdbIf::CdbIfTypeMapDef CdbIf::CdbIfTypeMap =
                                                      CdbIf::Db_decode_Double_non_composite))
         ;
 
+class CdbIf::CleanupTask : public Task {
+public:
+    CleanupTask(std::string task_id, int task_instance, CdbIf *cdbif)
+        : Task(TaskScheduler::GetInstance()->GetTaskId(task_id), task_instance), cdbif_(cdbif) {
+    }
+
+    virtual bool Run() {
+        tbb::mutex::scoped_lock lock(cdbif_->cdbq_mutex_);
+        // Return if cleanup was cancelled
+        if (cdbif_->cleanup_ == NULL) {
+            return true;
+        }
+        if (cdbif_->cdbq_.get() != NULL) {
+            cdbif_->cdbq_->Shutdown();
+            cdbif_->cdbq_.reset();
+        }
+        cdbif_->cleanup_ = NULL;
+
+        return true;
+    }
+
+private:
+    CdbIf *cdbif_;
+};
+
 CdbIf::~CdbIf() { 
+    tbb::mutex::scoped_lock lock(cdbq_mutex_);
+
     if (transport_)
         transport_->close();
+
+    if (cleanup_) {
+        TaskScheduler *scheduler = TaskScheduler::GetInstance();
+        scheduler->Cancel(cleanup_);
+        cleanup_ = NULL;
+    }
 }
 
 CdbIf::CdbIf(boost::asio::io_service *ioservice, DbErrorHandler errhandler,
@@ -94,9 +127,10 @@ CdbIf::CdbIf(boost::asio::io_service *ioservice, DbErrorHandler errhandler,
     client_(new CassandraClient(protocol_)),
     ioservice_(ioservice),
     errhandler_(errhandler),
-    db_init_done_(false),
     name_(name),
+    cleanup_(NULL),
     cassandra_ttl_(ttl) {
+    db_init_done_ = false;
 }
 
 CdbIf::CdbIf()
@@ -117,16 +151,25 @@ void CdbIf::Db_SetInitDone(bool init_done) {
 }
 
 bool CdbIf::Db_Init(std::string task_id, int task_instance) {
-    /*
-     * we can leave the queue contents as is so they can be replayed after the
-     * connection to db is established
-     */
-    if (!cdbq_.get()) {
+    {
+        tbb::mutex::scoped_lock lock(cdbq_mutex_);
+
+        if (cdbq_.get() != NULL) {
+            cdbq_->Shutdown();
+        }
         cdbq_.reset(new CdbIfQueue(
             TaskScheduler::GetInstance()->GetTaskId(task_id), task_instance,
             boost::bind(&CdbIf::Db_AsyncAddColumn, this, _1)));
         cdbq_->SetStartRunnerFunc(
             boost::bind(&CdbIf::Db_IsInitDone, this));
+        cdbq_->SetExitCallback(boost::bind(&CdbIf::Db_BatchAddColumn,
+            this, _1));
+
+        if (cleanup_) {
+            TaskScheduler *scheduler = TaskScheduler::GetInstance();
+            scheduler->Cancel(cleanup_);
+            cleanup_ = NULL;
+        }
     }
 
     try {
@@ -157,7 +200,7 @@ void CdbIf::Db_ResetQueueWaterMarks() {
     }
 }
 
-void CdbIf::Db_Uninit(bool shutdown) {
+void CdbIf::Db_Uninit(std::string task_id, int task_instance) {
     try {
         transport_->close();
     } catch (TTransportException &tx) {
@@ -165,9 +208,10 @@ void CdbIf::Db_Uninit(bool shutdown) {
     } catch (TException &tx) {
         CDBIF_HANDLE_EXCEPTION(__func__ << ": TException what: " << tx.what());
     }
-    if (shutdown) {
-        cdbq_->Shutdown();
-        cdbq_.reset();
+    if (!cleanup_) {
+        cleanup_ = new CleanupTask(task_id, task_instance, this);
+        TaskScheduler *scheduler = TaskScheduler::GetInstance();
+        scheduler->Enqueue(cleanup_);
     }
 }
 
@@ -368,62 +412,77 @@ bool CdbIf::DbDataValueFromString(GenDb::DbDataValue& res, const std::string& cf
     return true;
 }
 
-bool CdbIf::DbDataValueToString(std::string& res,
-        const GenDb::DbDataType::type& type,
+bool CdbIf::DbDataValueToStringNonComposite(std::string& res,
         const GenDb::DbDataValue& value) {
-    CdbIfTypeMapDef::iterator it = CdbIfTypeMap.find(type);
-    assert(it != CdbIfTypeMap.end());
-    res = it->second.encode_non_composite_fn_(value);
-
+    switch (value.which()) {
+    case DB_VALUE_STRING:
+        res = Db_encode_string_non_composite(value);
+        break;
+    case DB_VALUE_UINT64:
+        res = Db_encode_Unsigned64_non_composite(value);
+        break;
+    case DB_VALUE_UINT32:
+        res = Db_encode_Unsigned32_non_composite(value);
+        break;
+    case DB_VALUE_UUID:
+        res = Db_encode_UUID_non_composite(value);
+        break;
+    case DB_VALUE_UINT8:
+        res = Db_encode_Unsigned8_non_composite(value);
+        break;
+    case DB_VALUE_UINT16:
+        res = Db_encode_Unsigned16_non_composite(value);
+        break;
+    case DB_VALUE_DOUBLE:
+        res = Db_encode_Double_non_composite(value);
+        break;
+    case DB_VALUE_BLANK:
+    default:
+        assert(0);
+        break;
+    }
     return true;
-}
+};    
 
-bool CdbIf::DbDataValueToStringFromCf(std::string& res, const std::string& cfname,
-        const std::string& col_name, const GenDb::DbDataValue& value) {
-    CdbIfCfInfo *info;
-    GenDb::NewCf *cf;
-
-    if (!Db_GetColumnfamily(&info, cfname) ||
-            !((cf = info->cf_.get()))) {
-        return false;
-    }
-    NewCf::SqlColumnMap::iterator it;
-    if ((it = cf->cfcolumns_.find(col_name)) == cf->cfcolumns_.end()) {
-        return false;
-    }
-    GenDb::DbDataType::type type = it->second;
-
-    return(DbDataValueToString(res, type, value));
-}
-
-bool CdbIf::DbDataValueVecToString(std::string& res,
-        const GenDb::DbDataTypeVec& typevec,
+bool CdbIf::DbDataValueVecToString(std::string& res, bool composite,
         const GenDb::DbDataValueVec& input) {
-    CDBIF_CONDCHECK_LOG_RETF(typevec.size() != 0);
-    if (typevec.size() == 1) {
-        CDBIF_CONDCHECK_LOG_RETF(input.size() <= 1);
+    if (!composite) {
         if (input.size() == 1) {
-            CdbIfTypeMapDef::iterator it = CdbIfTypeMap.find(typevec[0]);
-            CDBIF_CONDCHECK_LOG_RETF(it != CdbIfTypeMap.end());
-            res = CdbIfTypeMap.find(typevec[0])->second.encode_non_composite_fn_(input[0]);
-        }
-    } else {
-        CdbIfTypeMapDef::iterator kt;
-        GenDb::DbDataTypeVec::const_iterator it = typevec.begin();
-        GenDb::DbDataValueVec::const_iterator jt = input.begin();
-        for (;
-                it != typevec.end() &&
-                jt != input.end(); it++, jt++) {
-            kt = CdbIfTypeMap.find(*it);
-            CDBIF_CONDCHECK_LOG_RETF(kt != CdbIfTypeMap.end());
-            res.append(kt->second.encode_composite_fn_(*jt));
-        }
-
-        if (it == typevec.end() && jt != input.end()) {
-            CDBIF_CONDCHECK_LOG_RETF(0);
+            return DbDataValueToStringNonComposite(res, input[0]);
         }
     }
-
+    // Composite encoding
+    for (GenDb::DbDataValueVec::const_iterator it = input.begin();
+         it != input.end(); it++) {
+        const GenDb::DbDataValue &value(*it);
+        switch (value.which()) {
+        case DB_VALUE_STRING:
+            res += Db_encode_string_composite(value);
+            break;
+        case DB_VALUE_UINT64:
+            res += Db_encode_Unsigned64_composite(value);
+            break;
+        case DB_VALUE_UINT32:
+            res += Db_encode_Unsigned32_composite(value);
+            break;
+        case DB_VALUE_UUID:
+            res += Db_encode_UUID_composite(value);
+            break;
+        case DB_VALUE_UINT8:
+            res += Db_encode_Unsigned8_composite(value);
+            break;
+        case DB_VALUE_UINT16:
+            res += Db_encode_Unsigned16_composite(value);
+            break;
+        case DB_VALUE_DOUBLE:
+            res += Db_encode_Double_composite(value);
+            break;
+        case DB_VALUE_BLANK:
+        default:
+            assert(0);
+            break;
+        }
+    }    
     return true;
 }
 
@@ -458,38 +517,22 @@ bool CdbIf::DbDataValueVecFromString(GenDb::DbDataValueVec& res,
     return true;
 }
 
-bool CdbIf::ConstructDbDataValueKey(std::string& res, const std::string& cfname, const GenDb::DbDataValueVec& rowkey) {
-    CdbIfCfInfo *info;
-    GenDb::NewCf *cf;
-    if (!Db_GetColumnfamily(&info, cfname) ||
-            !(cf = info->cf_.get())) {
-        LOG(ERROR,  __func__ << ": cf not found cf= " << cfname);
-        return false;
-    }
-
-    return (DbDataValueVecToString(res, cf->key_validation_class, rowkey));
+bool CdbIf::ConstructDbDataValueKey(std::string& res, const GenDb::NewCf *cf,
+    const GenDb::DbDataValueVec& rowkey) {
+    bool composite = cf->key_validation_class.size() == 1 ? false : true;
+    return DbDataValueVecToString(res, composite, rowkey);
 }
 
-bool CdbIf::ConstructDbDataValueColumnName(std::string& res, const std::string& cfname, const GenDb::DbDataValueVec& name) {
-    CdbIfCfInfo *info;
-    GenDb::NewCf *cf;
-    if (!Db_GetColumnfamily(&info, cfname) ||
-            !(cf = info->cf_.get())) {
-        LOG(ERROR,  __func__ << ": cf not found cf= " << cfname);
-        return false;
-    }
-    return (DbDataValueVecToString(res, cf->comparator_type, name));
+bool CdbIf::ConstructDbDataValueColumnName(std::string& res, const GenDb::NewCf *cf,
+    const GenDb::DbDataValueVec& name) {
+    bool composite = cf->comparator_type.size() == 1 ? false : true;
+    return DbDataValueVecToString(res, composite, name);
 }
 
-bool CdbIf::ConstructDbDataValueColumnValue(std::string& res, const std::string& cfname, const GenDb::DbDataValueVec& value) {
-    CdbIfCfInfo *info;
-    GenDb::NewCf *cf;
-    if (!Db_GetColumnfamily(&info, cfname) ||
-            !(cf = info->cf_.get())) {
-        LOG(ERROR,  __func__ << ": cf not found cf= " << cfname);
-        return false;
-    }
-    return (DbDataValueVecToString(res, cf->default_validation_class, value));
+bool CdbIf::ConstructDbDataValueColumnValue(std::string& res, const GenDb::NewCf *cf,
+    const GenDb::DbDataValueVec& value) {
+    bool composite = cf->default_validation_class.size() == 1 ? false : true;
+    return DbDataValueVecToString(res, composite, value);
 }
 
 bool CdbIf::NewDb_AddColumnfamily(const GenDb::NewCf& cf) {
@@ -645,116 +688,144 @@ bool CdbIf::NewDb_AddColumnfamily(const GenDb::NewCf& cf) {
 /*
  * called by the WorkQueue mechanism
  */
-bool CdbIf::Db_AsyncAddColumn(CdbIfColList *cl) {
-    bool ret_value = true;
-    uint64_t ts(UTCTimestampUsec());
-    GenDb::ColList *new_colp;
+bool CdbIf::Db_AsyncAddColumn(CdbIfColList &cl) {
+    tbb::mutex::scoped_lock lock(cdbq_mutex_);
+    return Db_AsyncAddColumnLocked(cl);
+}
 
-    if ((new_colp = cl->new_cl.get())) {
-        std::map<std::string, std::map<std::string, std::vector<cassandra::Mutation> > > mutation_map;
-        std::vector<cassandra::Mutation> mutations;
-        GenDb::NewCf::ColumnFamilyType cftype = GenDb::NewCf::COLUMN_FAMILY_INVALID;
-
-        for (std::vector<GenDb::NewCol>::iterator it = new_colp->columns_.begin();
-                    it != new_colp->columns_.end(); it++) {
-                cassandra::Mutation mutation;
-                cassandra::ColumnOrSuperColumn c_or_sc;
-                cassandra::Column c;
-
-                if (it->cftype_ == GenDb::NewCf::COLUMN_FAMILY_SQL) {
-                    CDBIF_CONDCHECK_LOG_RETF((it->name.size() == 1) && (it->value.size() == 1));
-                    CDBIF_CONDCHECK_LOG_RETF(cftype != GenDb::NewCf::COLUMN_FAMILY_NOSQL);
-                    cftype = GenDb::NewCf::COLUMN_FAMILY_SQL;
-
-                    std::string col_name;
-                    try {
-                        col_name = boost::get<std::string>(it->name.at(0));
-                    } catch (boost::bad_get& ex) {
-                        CDBIF_HANDLE_EXCEPTION(__func__ << "Exception for boost::get, what=" << ex.what());
-                    }
-                    c.__set_name(col_name);
-                    std::string col_value;
-                    DbDataValueToStringFromCf(col_value, new_colp->cfname_, col_name, it->value.at(0));
-                    c.__set_value(col_value);
-                    c.__set_timestamp(ts);
-                    if (it->ttl == -1) {
-                        if (cassandra_ttl_)
-                            c.__set_ttl(cassandra_ttl_);
-                    } else if (it->ttl) {
-                        c.__set_ttl(it->ttl);
-                    }
-
-                    c_or_sc.__set_column(c);
-                    mutation.__set_column_or_supercolumn(c_or_sc);
-                    mutations.push_back(mutation);
-                } else if (it->cftype_ == GenDb::NewCf::COLUMN_FAMILY_NOSQL) {
-                    CDBIF_CONDCHECK_LOG_RETF(cftype != GenDb::NewCf::COLUMN_FAMILY_SQL);
-                    cftype = GenDb::NewCf::COLUMN_FAMILY_NOSQL;
-
-                    std::string col_name;
-                    ConstructDbDataValueColumnName(col_name, new_colp->cfname_, it->name);
-                    c.__set_name(col_name);
-
-                    std::string col_value;
-                    ConstructDbDataValueColumnValue(col_value, new_colp->cfname_, it->value);
-                    c.__set_value(col_value);
-
-                    c.__set_timestamp(ts);
-                    if (it->ttl == -1) {
-                        if (cassandra_ttl_)
-                            c.__set_ttl(cassandra_ttl_);
-                    } else if (it->ttl) {
-                        c.__set_ttl(it->ttl);
-                    }
-
-                    c_or_sc.__set_column(c);
-                    mutation.__set_column_or_supercolumn(c_or_sc);
-                    mutations.push_back(mutation);
-                } else {
-                    CDBIF_CONDCHECK_LOG_RETF(0);
-                }
-        }
-        std::map<std::string, std::vector<cassandra::Mutation> > cf_map;
-        cf_map.insert(std::make_pair(new_colp->cfname_, mutations));
-        std::string key_value;
-        ConstructDbDataValueKey(key_value, new_colp->cfname_, new_colp->rowkey_);
-        mutation_map.insert(std::make_pair(key_value, cf_map));
-        try {
-            client_->batch_mutate(mutation_map, org::apache::cassandra::ConsistencyLevel::ONE);
-        } catch (InvalidRequestException& ire) {
-            CDBIF_HANDLE_EXCEPTION(__func__ << ": InvalidRequestException: " << ire.why << "for cf: " << new_colp->cfname_);
-        } catch (UnavailableException& ue) {
-            CDBIF_HANDLE_EXCEPTION(__func__ << "UnavailableException: " << ue.what() << "for cf: " << new_colp->cfname_);
-        } catch (TimedOutException& te) {
-            CDBIF_HANDLE_EXCEPTION(__func__ << "TimedOutException: " << te.what() << "for cf: " << new_colp->cfname_);
-        } catch (TTransportException& te) {
-            CDBIF_HANDLE_EXCEPTION(__func__ << ": TTransportException what: " << te.what());
-            errhandler_();
-            ret_value = false;
-        } catch (TException& tx) {
-            CDBIF_HANDLE_EXCEPTION(__func__ << ": TTransportException what: " << tx.what() << new_colp->cfname_);
-        }
-    } else {
+bool CdbIf::Db_AsyncAddColumnLocked(CdbIfColList &cl) {
+    GenDb::ColList *new_colp(cl.gendb_cl);
+    if (new_colp == NULL) {
         CDBIF_HANDLE_EXCEPTION(__func__ << ": No column info passed");
+        return true;
     }
+    uint64_t ts(UTCTimestampUsec());
+    std::string cfname(new_colp->cfname_);
+    // Does the row key exist in the Cassandra mutation map ?
+    std::string key_value;
+    DbDataValueVecToString(key_value, new_colp->rowkey_.size() != 1,
+                           new_colp->rowkey_);
+    CassandraMutationMap::iterator cmm_it = mutation_map_.find(key_value);
+    if (cmm_it == mutation_map_.end()) {
+        cmm_it = mutation_map_.insert(
+            std::pair<std::string, CFMutationMap>(key_value,
+                CFMutationMap())).first;
+    } 
+    CFMutationMap &cf_mutation_map(cmm_it->second);
+    // Does the column family exist in the column family mutation map ?
+    CFMutationMap::iterator cfmm_it = cf_mutation_map.find(cfname);
+    if (cfmm_it == cf_mutation_map.end()) {
+        cfmm_it = cf_mutation_map.insert(
+            std::pair<std::string, MutationList>(cfname, MutationList())).first;
+    }
+    MutationList &mutations(cfmm_it->second);
+    mutations.reserve(mutations.size() + new_colp->columns_.size());
 
-    /* allocated when enqueued, free it after processing */
-    delete cl;
-    return ret_value;
+    GenDb::NewCf::ColumnFamilyType cftype = GenDb::NewCf::COLUMN_FAMILY_INVALID;
+    for (GenDb::NewColVec::iterator it = new_colp->columns_.begin();
+         it != new_colp->columns_.end(); it++) {
+        cassandra::Mutation mutation;
+        cassandra::ColumnOrSuperColumn c_or_sc;
+        cassandra::Column c;
+
+        if (it->cftype_ == GenDb::NewCf::COLUMN_FAMILY_SQL) {
+            CDBIF_CONDCHECK_LOG_RETF((it->name->size() == 1) && 
+                                     (it->value->size() == 1));
+            CDBIF_CONDCHECK_LOG_RETF(cftype != GenDb::NewCf::COLUMN_FAMILY_NOSQL);
+            cftype = GenDb::NewCf::COLUMN_FAMILY_SQL;
+            // Column Name
+            std::string col_name;
+            try {
+                col_name = boost::get<std::string>(it->name->at(0));
+            } catch (boost::bad_get& ex) {
+                CDBIF_HANDLE_EXCEPTION(__func__ << "Exception for boost::get, what=" << ex.what());
+            }
+            c.__set_name(col_name);
+            // Column Value
+            std::string col_value;
+            DbDataValueToStringNonComposite(col_value, it->value->at(0));
+            c.__set_value(col_value);
+            // Timestamp and TTL
+            c.__set_timestamp(ts);
+            if (it->ttl == -1) {
+                if (cassandra_ttl_) {
+                    c.__set_ttl(cassandra_ttl_);
+                }
+            } else if (it->ttl) {
+                c.__set_ttl(it->ttl);
+            }
+            c_or_sc.__set_column(c);
+            mutation.__set_column_or_supercolumn(c_or_sc);
+            mutations.push_back(mutation);
+        } else if (it->cftype_ == GenDb::NewCf::COLUMN_FAMILY_NOSQL) {
+            CDBIF_CONDCHECK_LOG_RETF(cftype != GenDb::NewCf::COLUMN_FAMILY_SQL);
+            cftype = GenDb::NewCf::COLUMN_FAMILY_NOSQL;
+            // Column Name
+            std::string col_name;
+            DbDataValueVecToString(col_name, it->name->size() != 1, *it->name);
+            c.__set_name(col_name);
+            // Column Value
+            std::string col_value;
+            DbDataValueVecToString(col_value, it->value->size() != 1,
+                                   *it->value);
+            c.__set_value(col_value);
+            // Timestamp and TTL
+            c.__set_timestamp(ts);
+            if (it->ttl == -1) {
+                if (cassandra_ttl_) {
+                    c.__set_ttl(cassandra_ttl_);
+                }
+            } else if (it->ttl) {
+                c.__set_ttl(it->ttl);
+            }
+            c_or_sc.__set_column(c);
+            mutation.__set_column_or_supercolumn(c_or_sc);
+            mutations.push_back(mutation);
+        } else {
+            CDBIF_CONDCHECK_LOG_RETF(0);
+        }
+    }
+    // Allocated when enqueued, free it after processing
+    delete new_colp;
+    cl.gendb_cl = NULL;
+    return true;
+}
+
+void CdbIf::Db_BatchAddColumn(bool done) {
+    try {
+        client_->batch_mutate(mutation_map_, org::apache::cassandra::ConsistencyLevel::ONE);
+    } catch (InvalidRequestException& ire) {
+        CDBIF_HANDLE_EXCEPTION(__func__ << ": InvalidRequestException: " << ire.why);
+    } catch (UnavailableException& ue) {
+        CDBIF_HANDLE_EXCEPTION(__func__ << "UnavailableException: " << ue.what());
+    } catch (TimedOutException& te) {
+        CDBIF_HANDLE_EXCEPTION(__func__ << "TimedOutException: " << te.what());
+    } catch (TTransportException& te) {
+        CDBIF_HANDLE_EXCEPTION(__func__ << ": TTransportException what: " << te.what());
+        errhandler_();
+    } catch (TException& tx) {
+        CDBIF_HANDLE_EXCEPTION(__func__ << ": TException what: " << tx.what());
+    }
+    mutation_map_.clear();
 }
 
 bool CdbIf::NewDb_AddColumn(std::auto_ptr<GenDb::ColList> cl) {
-    if (!cdbq_.get()) return false;
-
-    CdbIfColList *qentry(new CdbIfColList(cl));
+    if (!Db_IsInitDone() || !cdbq_.get()) return false;
+    CdbIfColList qentry;
+    qentry.gendb_cl = cl.release();
     cdbq_->Enqueue(qentry);
     return true;
 }
 
 bool CdbIf::AddColumnSync(std::auto_ptr<GenDb::ColList> cl) {
-    CdbIfColList *qentry(new CdbIfColList(cl));
-
-    return (Db_AsyncAddColumn(qentry));
+    CdbIfColList qentry;
+    qentry.gendb_cl = cl.release();
+    bool success = Db_AsyncAddColumnLocked(qentry);
+    if (!success) {
+        return success;
+    }
+    Db_BatchAddColumn(true);
+    return true;
 }
 
 bool CdbIf::ColListFromColumnOrSuper(GenDb::ColList& ret,
@@ -768,7 +839,7 @@ bool CdbIf::ColListFromColumnOrSuper(GenDb::ColList& ret,
     }
 
     if (cf->cftype_ == NewCf::COLUMN_FAMILY_SQL) {
-        std::vector<NewCol>& columns = ret.columns_;
+        NewColVec& columns = ret.columns_;
         std::vector<cassandra::ColumnOrSuperColumn>::iterator citer;
         for (citer = result.begin(); citer != result.end(); citer++) {
             GenDb::DbDataValue res;
@@ -776,25 +847,25 @@ bool CdbIf::ColListFromColumnOrSuper(GenDb::ColList& ret,
                 CDBIF_CONDCHECK_LOG(0);
                 continue;
             }
-            GenDb::NewCol col(citer->column.name, res);
+            GenDb::NewCol *col(new GenDb::NewCol(citer->column.name, res));
             columns.push_back(col);
         }
     } else if (cf->cftype_ == NewCf::COLUMN_FAMILY_NOSQL) {
-        std::vector<NewCol>& columns = ret.columns_;
+        NewColVec& columns = ret.columns_;
         std::vector<cassandra::ColumnOrSuperColumn>::iterator citer;
         for (citer = result.begin(); citer != result.end(); citer++) {
-            GenDb::DbDataValueVec name;
-            if (!CdbIf::DbDataValueVecFromString(name, cf->comparator_type, citer->column.name)) {
+            GenDb::DbDataValueVec *name(new GenDb::DbDataValueVec);
+            if (!CdbIf::DbDataValueVecFromString(*name, cf->comparator_type, citer->column.name)) {
                 CDBIF_CONDCHECK_LOG(0);
                 continue;
             }
-            GenDb::DbDataValueVec value;
-            if (!CdbIf::DbDataValueVecFromString(value, cf->default_validation_class, citer->column.value)) {
+            GenDb::DbDataValueVec *value(new GenDb::DbDataValueVec);
+            if (!CdbIf::DbDataValueVecFromString(*value, cf->default_validation_class, citer->column.value)) {
                 CDBIF_CONDCHECK_LOG(0);
                 continue;
             }
 
-            GenDb::NewCol col(name, value);
+            GenDb::NewCol *col(new GenDb::NewCol(name, value));
             columns.push_back(col);
         }
     }
@@ -804,8 +875,15 @@ bool CdbIf::ColListFromColumnOrSuper(GenDb::ColList& ret,
 
 bool CdbIf::Db_GetRow(GenDb::ColList& ret, const std::string& cfname,
         const DbDataValueVec& rowkey) {
+    CdbIfCfInfo *info;
+    GenDb::NewCf *cf;
+    if (!Db_GetColumnfamily(&info, cfname) || !(cf = info->cf_.get())) {
+        LOG(ERROR,  __func__ << ": Column family " << cfname << " NOT FOUND");
+        return false;
+    }
+
     std::string key;
-    if (!ConstructDbDataValueKey(key, cfname, rowkey)) {
+    if (!ConstructDbDataValueKey(key, cf, rowkey)) {
         return false;
     }
 
@@ -838,9 +916,15 @@ bool CdbIf::Db_GetRow(GenDb::ColList& ret, const std::string& cfname,
     return (CdbIf::ColListFromColumnOrSuper(ret, result, cfname));
 }
 
-bool CdbIf::Db_GetMultiRow(std::vector<GenDb::ColList>& ret,
+bool CdbIf::Db_GetMultiRow(GenDb::ColListVec& ret,
         const std::string& cfname, const std::vector<DbDataValueVec>& rowkeys,
         GenDb::ColumnNameRange *crange_ptr) {
+    CdbIfCfInfo *info;
+    GenDb::NewCf *cf;
+    if (!Db_GetColumnfamily(&info, cfname) || !(cf = info->cf_.get())) {
+        LOG(ERROR,  __func__ << ": Column family " << cfname << " NOT FOUND");
+        return false;
+    }
 
     std::vector<DbDataValueVec>::const_iterator it = rowkeys.begin();
 
@@ -851,7 +935,7 @@ bool CdbIf::Db_GetMultiRow(std::vector<GenDb::ColList>& ret,
         for (int i = 0; (it != rowkeys.end()) && (i <= max_query_rows); 
                 it++, i++) {
             std::string key;
-            if (!ConstructDbDataValueKey(key, cfname, *it)) {
+            if (!ConstructDbDataValueKey(key, cf, *it)) {
                 CDBIF_CONDCHECK_LOG_RETF(0);
             }
             keys.push_back(key);
@@ -866,10 +950,10 @@ bool CdbIf::Db_GetMultiRow(std::vector<GenDb::ColList>& ret,
             // column range specified, set appropriate variables
             std::string start_string;
             std::string finish_string;
-            if (!ConstructDbDataValueColumnName(start_string, cfname, crange_ptr->start_)) {
+            if (!ConstructDbDataValueColumnName(start_string, cf, crange_ptr->start_)) {
                 CDBIF_CONDCHECK_LOG_RETF(0);
             }
-            if (!ConstructDbDataValueColumnName(finish_string, cfname, crange_ptr->finish_)) {
+            if (!ConstructDbDataValueColumnName(finish_string, cf, crange_ptr->finish_)) {
                 CDBIF_CONDCHECK_LOG_RETF(0);
             }
 
@@ -909,12 +993,12 @@ bool CdbIf::Db_GetMultiRow(std::vector<GenDb::ColList>& ret,
 
         for (std::map<std::string, std::vector<ColumnOrSuperColumn> >::iterator it = ret_c.begin();
                 it != ret_c.end(); it++) {
-            GenDb::ColList col_list;
-            if (!CdbIf::DbDataValueVecFromString(col_list.rowkey_, cf->key_validation_class, it->first)) {
+            std::auto_ptr<GenDb::ColList> col_list(new GenDb::ColList);
+            if (!CdbIf::DbDataValueVecFromString(col_list->rowkey_, cf->key_validation_class, it->first)) {
                 CDBIF_CONDCHECK_LOG(0);
                 continue;
             }
-            CdbIf::ColListFromColumnOrSuper(col_list, it->second, cfname);
+            CdbIf::ColListFromColumnOrSuper(*col_list, it->second, cfname);
             ret.push_back(col_list);
         }
 
@@ -926,8 +1010,14 @@ bool CdbIf::Db_GetMultiRow(std::vector<GenDb::ColList>& ret,
 bool CdbIf::Db_GetRangeSlices(GenDb::ColList& col_list,
                 const std::string& cfname, const GenDb::ColumnNameRange& crange,
                 const GenDb::DbDataValueVec& rowkey) {
+    CdbIfCfInfo *info;
+    GenDb::NewCf *cf;
+    if (!Db_GetColumnfamily(&info, cfname) || !(cf = info->cf_.get())) {
+        LOG(ERROR,  __func__ << ": Column family " << cfname << " NOT FOUND");
+        return false;
+    }
     bool result = 
-        Db_GetRangeSlices_Internal(col_list, cfname, crange, rowkey);
+        Db_GetRangeSlices_Internal(col_list, cf, crange, rowkey);
 
     bool col_limit_reached = (col_list.columns_.size() == crange.count);
 
@@ -935,7 +1025,7 @@ bool CdbIf::Db_GetRangeSlices(GenDb::ColList& col_list,
     if (col_limit_reached && (col_list.columns_.size()>0))
     {
         // copy last entry of result returned as column start for next qry
-        crange_new.start_ = (col_list.columns_.back()).name;
+        crange_new.start_ = *(col_list.columns_.back()).name;
     }
 
     // extract rest of the result
@@ -944,40 +1034,41 @@ bool CdbIf::Db_GetRangeSlices(GenDb::ColList& col_list,
         GenDb::ColList next_col_list;
 
         result = 
-    Db_GetRangeSlices_Internal(next_col_list, cfname, crange_new, rowkey);
+    Db_GetRangeSlices_Internal(next_col_list, cf, crange_new, rowkey);
         col_limit_reached = 
             (next_col_list.columns_.size() == crange.count);
 
         // copy last entry of result returned as column start for next qry
         if (col_limit_reached && (next_col_list.columns_.size()>0))
         {
-            crange_new.start_ = (next_col_list.columns_.back()).name;
+            crange_new.start_ = *(next_col_list.columns_.back()).name;
         }
 
         // copy result after the first entry
-        std::vector<NewCol>::iterator it = next_col_list.columns_.begin();
+        NewColVec::iterator it = next_col_list.columns_.begin();
         if (it != next_col_list.columns_.end()) it++;
-        col_list.columns_.insert(
-                col_list.columns_.end(), it, next_col_list.columns_.end());
+        col_list.columns_.transfer(col_list.columns_.end(), it,
+            next_col_list.columns_.end(), next_col_list.columns_);
     }
 
     return result;
 }
 
 bool CdbIf::Db_GetRangeSlices_Internal(GenDb::ColList& col_list,
-                const std::string& cfname, const GenDb::ColumnNameRange& crange,
+                const GenDb::NewCf *cf, const GenDb::ColumnNameRange& crange,
                 const GenDb::DbDataValueVec& rowkey) {
     std::vector<cassandra::KeySlice> result;
     cassandra::SlicePredicate slicep;
     cassandra::SliceRange slicer;
     cassandra::KeyRange krange;
+    const std::string &cfname(cf->cfname_);
 
     cassandra::ColumnParent cparent;
     cparent.column_family.assign(cfname);
     cparent.super_column.assign("");
 
     std::string key_string;
-    if (!ConstructDbDataValueKey(key_string, cfname, rowkey)) {
+    if (!ConstructDbDataValueKey(key_string, cf, rowkey)) {
         CDBIF_CONDCHECK_LOG_RETF(0);
     }
     krange.__set_start_key(key_string);
@@ -986,10 +1077,10 @@ bool CdbIf::Db_GetRangeSlices_Internal(GenDb::ColList& col_list,
 
     std::string start_string;
     std::string finish_string;
-    if (!ConstructDbDataValueColumnName(start_string, cfname, crange.start_)) {
+    if (!ConstructDbDataValueColumnName(start_string, cf, crange.start_)) {
         CDBIF_CONDCHECK_LOG_RETF(0);
     }
-    if (!ConstructDbDataValueColumnName(finish_string, cfname, crange.finish_)) {
+    if (!ConstructDbDataValueColumnName(finish_string, cf, crange.finish_)) {
         CDBIF_CONDCHECK_LOG_RETF(0);
     }
 
@@ -1023,11 +1114,13 @@ bool CdbIf::Db_GetRangeSlices_Internal(GenDb::ColList& col_list,
 }
 
 bool CdbIf::Db_GetQueueStats(uint64_t &queue_count, uint64_t &enqueues) const {
-    if (!Db_IsInitDone()) {
-        return false;
+    if (cdbq_.get() != NULL) {
+        queue_count = cdbq_->Length();
+        enqueues = cdbq_->NumEnqueues();
+    } else {
+        queue_count = 0;
+        enqueues = 0;
     }
-    queue_count = cdbq_->Length();
-    enqueues = cdbq_->NumEnqueues();
     return true;
 }
 
@@ -1469,7 +1562,7 @@ std::string CdbIf::Db_encode_Double_composite(const DbDataValue& value) {
 
 DbDataValue CdbIf::Db_decode_Double_composite(const char *input, int& used) {
     used = 0;
-    uint16_t len = get_value((const uint8_t *)input, 2);
+    // skip len
     used += 2;
 
     double output = get_double((const uint8_t *)&input[used]);

@@ -64,11 +64,12 @@ DBEntry *InterfaceTable::Add(const DBRequest *req) {
     if (intf == NULL)
         return NULL;
 
-    intf->set_table(this);
     intf->id_ = index_table_.Insert(intf);
 
     // Get the os-ifindex and mac of interface
     intf->GetOsParams();
+
+    intf->Add();
     intf->SendTrace(Interface::ADD);
     return intf;
 }
@@ -144,13 +145,6 @@ DBTableBase *InterfaceTable::CreateTable(DB *db, const std::string &name) {
     return interface_table_;
 };
 
-Interface *InterfaceTable::FindInterfaceFromMetadataIp(const Ip4Address &ip) {
-    uint32_t addr = ip.to_ulong();
-    if ((addr & 0xFFFF0000) != (METADATA_IP_ADDR & 0xFFFF0000))
-        return NULL;
-    return index_table_.At(addr & 0xFF);
-}
-
 Interface *InterfaceTable::FindInterface(size_t index) {
     Interface *intf = index_table_.At(index);
     if (intf && intf->IsDeleted() != true) {
@@ -176,10 +170,17 @@ bool InterfaceTable::FindVmUuidFromMetadataIp(const Ip4Address &ip,
     return false;
 }
 
-void InterfaceTable::VmPortToMetaDataIp(uint16_t ifindex, uint32_t vrfid,
+Interface *InterfaceTable::FindInterfaceFromMetadataIp(const Ip4Address &ip) {
+    uint32_t addr = ip.to_ulong();
+    if ((addr & 0xFFFF0000) != (METADATA_IP_ADDR & 0xFFFF0000))
+        return NULL;
+    return index_table_.At(addr & 0xFFFF);
+}
+
+void InterfaceTable::VmPortToMetaDataIp(uint16_t index, uint32_t vrfid,
                                         Ip4Address *addr) {
     uint32_t ip = METADATA_IP_ADDR & 0xFFFF0000;
-    ip += ((vrfid & 0xFF) << 8) + (ifindex & 0xFF);
+    ip += (index & 0xFFFF);
     *addr = Ip4Address(ip);
 }
 
@@ -270,12 +271,12 @@ void Interface::SetKey(const DBRequestKey *key) {
     name_ = k->name_;
 }
 
-uint32_t Interface::GetVrfId() const {
+uint32_t Interface::vrf_id() const {
     if (vrf_ == NULL) {
         return VrfEntry::kInvalidIndex;
     }
 
-    return vrf_->GetVrfId();
+    return vrf_->vrf_id();
 }
 
 /////////////////////////////////////////////////////////////////////////////
@@ -533,7 +534,7 @@ void Interface::SetItfSandeshData(ItfSandeshData &data) const {
 bool Interface::DBEntrySandesh(Sandesh *sresp, std::string &name) const {
     ItfResp *resp = static_cast<ItfResp *>(sresp);
 
-    if (name_.find(name) != std::string::npos) {
+    if (name.empty() || name_ == name) {
         ItfSandeshData data;
         SetItfSandeshData(data);
         std::vector<ItfSandeshData> &list =

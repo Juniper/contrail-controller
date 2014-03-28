@@ -27,11 +27,12 @@
 #include "bind/bind_resolver.h"
 #include <test/test_cmn_util.h>
 #include <services/services_sandesh.h>
+#include <controller/controller_dns.h>
 #include "vr_types.h"
 
 #define MAC_LEN 6
 #define DNS_CLIENT_PORT 9999
-#define MAX_WAIT_COUNT 500
+#define MAX_WAIT_COUNT 5000
 #define BUF_SIZE 8192
 char src_mac[MAC_LEN] = { 0x00, 0x01, 0x02, 0x03, 0x04, 0x05 };
 char dest_mac[MAC_LEN] = { 0x00, 0x11, 0x12, 0x13, 0x14, 0x15 };
@@ -41,6 +42,7 @@ short ifindex = 1;
 
 #define MAX_ITEMS 5
 uint16_t g_xid;
+dns_flags default_flags;
 DnsItem a_items[MAX_ITEMS];
 DnsItem ptr_items[MAX_ITEMS];
 DnsItem cname_items[MAX_ITEMS];
@@ -93,14 +95,14 @@ std::string auth_data[MAX_ITEMS] = {"8.8.8.254",
                     assert(0);                                           \
             } while (condition);                                         \
 
-class DnsTesting : public ::testing::Test {
+class DnsTest : public ::testing::Test {
 public:
-    DnsTesting() { 
+    DnsTest() { 
         Agent::GetInstance()->SetXmppServer("127.0.0.1", 0);
         Agent::GetInstance()->SetXmppCfgServer("127.0.0.1", 0);
         Agent::GetInstance()->SetXmppDnsCfgServer(0);
         rid_ = Agent::GetInstance()->GetInterfaceTable()->Register(
-                boost::bind(&DnsTesting::ItfUpdate, this, _2));
+                boost::bind(&DnsTest::ItfUpdate, this, _2));
         for (int i = 0; i < MAX_ITEMS; i++) {
             a_items[i].eclass   = ptr_items[i].eclass   = DNS_CLASS_IN;
             a_items[i].type     = DNS_A_RECORD;
@@ -136,7 +138,7 @@ public:
             add_items[i].soa.expiry = add_items[i].soa.ttl = 1000;
         }
     }
-    ~DnsTesting() { 
+    ~DnsTest() { 
         Agent::GetInstance()->GetInterfaceTable()->Unregister(rid_);
     }
 
@@ -186,17 +188,14 @@ public:
     void CheckSandeshResponse(Sandesh *sandesh) {
     }
 
-    int SendDnsQuery(dnshdr *dns, int numItems, DnsItem *items, bool error_req) {
+    int SendDnsQuery(dnshdr *dns, int numItems, DnsItem *items, dns_flags flags) {
         std::vector<DnsItem> questions;
         for (int i = 0; i < numItems; i++) {
             questions.push_back(items[i]);
         }
         int len = BindUtil::BuildDnsQuery((uint8_t *)dns, 0x0102,
                                           "default-vdns", questions);
-        if (error_req) {
-            dns->flags.op = 1;
-            dns->flags.cd = 1;
-        }
+        dns->flags = flags;
         return len;
     }
 
@@ -211,7 +210,8 @@ public:
     }
 
     void SendDnsReq(int type, short itf_index, int numItems,
-                    DnsItem *items, bool flag = false) {
+                    DnsItem *items, dns_flags flags = default_flags,
+                    bool update = false) {
         int len = 1024;
         uint8_t *buf  = new uint8_t[len];
         memset(buf, 0, len);
@@ -250,10 +250,10 @@ public:
 
         dnshdr *dns = (dnshdr *) (udp + 1);
         if (type == DNS_OPCODE_QUERY) {
-            len = SendDnsQuery(dns, numItems, items, flag);
+            len = SendDnsQuery(dns, numItems, items, flags);
         } else if (type == DNS_OPCODE_UPDATE) {
             BindUtil::Operation op = 
-                flag ? BindUtil::ADD_UPDATE : BindUtil::DELETE_UPDATE;
+                update ? BindUtil::ADD_UPDATE : BindUtil::DELETE_UPDATE;
             len = SendDnsUpdate(dns, op, "vdns1", "test.contrail.juniper.net",
                                 numItems, items);
         } else
@@ -302,6 +302,39 @@ public:
         Agent::GetInstance()->GetDnsProto()->SendDnsIpc(buf);
     }
 
+    void FillDnsUpdateData(DnsUpdateData &data, int count) {
+        data.virtual_dns = "vdns1";
+        data.zone = "juniper.net";
+        data.items.clear();
+        for (int i = 0; i < count; ++i) {
+            DnsItem item;
+            item.name = "test";
+            item.data = "1.2.3.4";
+            item.ttl = i + 1;
+            data.items.push_back(item);
+        }
+    }
+
+    void CheckSendXmppUpdate() {
+        // Call the SendXmppUpdate directly and check that all items are done
+        AgentDnsXmppChannel *tmp_xmpp_channel = new AgentDnsXmppChannel(NULL, "server", 0);
+        Agent *agent = Agent::GetInstance();
+        boost::shared_ptr<PktInfo> pkt_info(new PktInfo());;
+        DnsHandler *dns_handler = new DnsHandler(agent, pkt_info, *agent->GetEventManager()->io_service());
+        DnsUpdateData data;
+        FillDnsUpdateData(data, 10);
+        dns_handler->SendXmppUpdate(tmp_xmpp_channel, &data);
+        EXPECT_EQ(data.items.size(), 10);
+        FillDnsUpdateData(data, 20);
+        dns_handler->SendXmppUpdate(tmp_xmpp_channel, &data);
+        EXPECT_EQ(data.items.size(), 20);
+        FillDnsUpdateData(data, 30);
+        dns_handler->SendXmppUpdate(tmp_xmpp_channel, &data);
+        EXPECT_EQ(data.items.size(), 30);
+        delete dns_handler;
+        delete tmp_xmpp_channel;
+    }
+
 private:
     DBTableBase::ListenerId rid_;
     uint32_t itf_id_;
@@ -319,7 +352,7 @@ public:
     }
 };
 
-TEST_F(DnsTesting, VirtualDnsReqTest) {
+TEST_F(DnsTest, VirtualDnsReqTest) {
     struct PortInfo input[] = {
         {"vnet1", 1, "1.1.1.1", "00:00:00:01:01:01", 1, 1},
     };
@@ -341,13 +374,22 @@ TEST_F(DnsTesting, VirtualDnsReqTest) {
     CreateVmportEnv(input, 1, 0);
     client->WaitForIdle();
     client->Reset();
-    AddVDNS("vdns1", vdns_attr);
-    client->WaitForIdle();
+    IntfCfgAdd(input, 0);
+    WaitForItfUpdate(1);
+
     AddIPAM("vn1", ipam_info, 3, ipam_attr, "vdns1");
     client->WaitForIdle();
 
-    IntfCfgAdd(input, 0);
-    WaitForItfUpdate(1);
+    DnsProto::DnsStats stats;
+    int count = 0;
+    SendDnsReq(DNS_OPCODE_QUERY, GetItfId(0), 1, a_items);
+    client->WaitForIdle();
+    CHECK_CONDITION(stats.fail < 1);
+    CHECK_STATS(stats, 1, 0, 0, 0, 1, 0);
+    Agent::GetInstance()->GetDnsProto()->ClearStats();
+
+    AddVDNS("vdns1", vdns_attr);
+    client->WaitForIdle();
 
     SendDnsReq(DNS_OPCODE_QUERY, GetItfId(0), 1, a_items);
     usleep(1000);
@@ -361,8 +403,6 @@ TEST_F(DnsTesting, VirtualDnsReqTest) {
     usleep(1000);
     client->WaitForIdle();
     SendDnsResp(1, a_items, 1, auth_items, 1, add_items);
-    DnsProto::DnsStats stats;
-    int count = 0;
     CHECK_CONDITION(stats.resolved < 1);
     CHECK_STATS(stats, 3, 1, 2, 0, 0, 0);
 
@@ -391,7 +431,10 @@ TEST_F(DnsTesting, VirtualDnsReqTest) {
     CHECK_STATS(stats, 6, 4, 2, 0, 0, 0);
 
     // Unsupported case
-    SendDnsReq(DNS_OPCODE_QUERY, GetItfId(0), 1, a_items, true);
+    dns_flags flags = default_flags;
+    flags.op = 1;
+    flags.cd = 1;
+    SendDnsReq(DNS_OPCODE_QUERY, GetItfId(0), 1, a_items, flags);
     usleep(1000);
     client->WaitForIdle();
     CHECK_CONDITION(stats.unsupported < 1);
@@ -409,7 +452,7 @@ TEST_F(DnsTesting, VirtualDnsReqTest) {
     // Retrieve DNS entries via Introspect
     ShowDnsEntries *sand = new ShowDnsEntries();
     Sandesh::set_response_callback(
-        boost::bind(&DnsTesting::CheckSandeshResponse, this, _1));
+        boost::bind(&DnsTest::CheckSandeshResponse, this, _1));
     sand->HandleRequest();
     client->WaitForIdle();
     sand->Release();
@@ -425,11 +468,11 @@ TEST_F(DnsTesting, VirtualDnsReqTest) {
     Agent::GetInstance()->GetDnsProto()->set_timeout(2000);
     Agent::GetInstance()->GetDnsProto()->set_max_retries(2);
 
-    SendDnsReq(DNS_OPCODE_UPDATE, GetItfId(0), 1, a_items, true);
+    SendDnsReq(DNS_OPCODE_UPDATE, GetItfId(0), 1, a_items, default_flags, true);
     client->WaitForIdle();
     CHECK_CONDITION(stats.resolved < 5);
     CHECK_STATS(stats, 10, 5, 2, 1, 1, 1);
-    SendDnsReq(DNS_OPCODE_UPDATE, GetItfId(0), 1, a_items, false);
+    SendDnsReq(DNS_OPCODE_UPDATE, GetItfId(0), 1, a_items);
     client->WaitForIdle();
     CHECK_CONDITION(stats.resolved < 6);
     CHECK_STATS(stats, 11, 6, 2, 1, 1, 1);
@@ -449,7 +492,7 @@ TEST_F(DnsTesting, VirtualDnsReqTest) {
     Agent::GetInstance()->GetDnsProto()->ClearStats();
 }
 
-TEST_F(DnsTesting, DnsXmppTest) {
+TEST_F(DnsTest, DnsXmppTest) {
     struct PortInfo input[] = {
         {"vnet1", 1, "1.1.1.1", "00:00:00:01:01:01", 1, 1},
     };
@@ -478,7 +521,10 @@ TEST_F(DnsTesting, DnsXmppTest) {
 
     DnsProto::DnsStats stats;
     int count = 0;
-    SendDnsReq(DNS_OPCODE_UPDATE, GetItfId(0), 1, a_items, true);
+    dns_flags flags = default_flags;
+    flags.op = 1;
+    flags.cd = 1;
+    SendDnsReq(DNS_OPCODE_UPDATE, GetItfId(0), 1, a_items, flags);
     client->WaitForIdle();
     CHECK_CONDITION(stats.resolved < 1);
     CHECK_STATS(stats, 1, 1, 0, 0, 0, 0);
@@ -486,16 +532,18 @@ TEST_F(DnsTesting, DnsXmppTest) {
     //TODO : create an XMPP channel
     Agent::GetInstance()->GetDnsProto()->SendDnsUpdateIpc(NULL);
 
-    SendDnsReq(DNS_OPCODE_UPDATE, GetItfId(0), 1, a_items, false);
+    SendDnsReq(DNS_OPCODE_UPDATE, GetItfId(0), 1, a_items);
     client->WaitForIdle();
     CHECK_CONDITION(stats.resolved < 2);
     CHECK_STATS(stats, 2, 2, 0, 0, 0, 0);
 
     DnsInfo *sand = new DnsInfo();
-    Sandesh::set_response_callback(boost::bind(&DnsTesting::CheckSandeshResponse, this, _1));
+    Sandesh::set_response_callback(boost::bind(&DnsTest::CheckSandeshResponse, this, _1));
     sand->HandleRequest();
     client->WaitForIdle();
     sand->Release();
+
+    CheckSendXmppUpdate();
 
     client->Reset();
     DelIPAM("vn1", "vdns1"); 
@@ -510,7 +558,7 @@ TEST_F(DnsTesting, DnsXmppTest) {
     Agent::GetInstance()->GetDnsProto()->ClearStats();
 }
 
-TEST_F(DnsTesting, DefaultDnsReqTest) {
+TEST_F(DnsTest, DefaultDnsReqTest) {
     struct PortInfo input[] = {
         {"vnet1", 1, "1.1.1.1", "00:00:00:01:01:01", 1, 1},
     };
@@ -558,6 +606,7 @@ TEST_F(DnsTesting, DefaultDnsReqTest) {
     EXPECT_EQ(1U, stats.resolved);
     Agent::GetInstance()->GetDnsProto()->ClearStats();
 
+#if 0
     // Failure response
     query_items[0].name     = "test.non-existent.domain";
     query_items[1].name     = "onemore.non-existent.domain";
@@ -565,8 +614,13 @@ TEST_F(DnsTesting, DefaultDnsReqTest) {
     usleep(1000);
     client->WaitForIdle();
     CHECK_CONDITION(stats.fail < 1);
-    EXPECT_EQ(1U, stats.requests);
-    EXPECT_EQ(1U, stats.fail);
+    CHECK_STATS(stats, 1, 0, 0, 0, 1, 0);
+#endif
+
+    SendDnsReq(DNS_OPCODE_UPDATE, GetItfId(0), 2, query_items, default_flags, true);
+    client->WaitForIdle();
+    CHECK_CONDITION(stats.unsupported < 1);
+    CHECK_STATS(stats, 1, 0, 0, 1, 0, 0);
 
     client->Reset();
     DelIPAM("vn1", "vdns1"); 
@@ -581,23 +635,57 @@ TEST_F(DnsTesting, DefaultDnsReqTest) {
     Agent::GetInstance()->GetDnsProto()->ClearStats();
 }
 
-#if 0
-TEST_F(DnsTesting, DnsDropTest) {
-    SendDnsReq(ifindex, 1, DNS_A_RECORD);
+TEST_F(DnsTest, DnsDropTest) {
+    struct PortInfo input[] = {
+        {"vnet1", 1, "1.1.1.1", "00:00:00:01:01:01", 1, 1},
+    };
+    IpamInfo ipam_info[] = {
+        {"1.2.3.128", 27, "1.2.3.129"},
+        {"7.8.9.0", 24, "7.8.9.12"},
+        {"1.1.1.0", 24, "1.1.1.200"},
+    };
+    dns_flags flags = default_flags;
     DnsProto::DnsStats stats;
     int count = 0;
-    do {
-        usleep(1000);
-        client->WaitForIdle();
-        stats = DnsHandler::GetStats();
-        if (++count == MAX_WAIT_COUNT)
-            assert(0);
-    } while (stats.drop < 1);
-    EXPECT_EQ(1U, stats.requests);
-    EXPECT_EQ(1U, stats.drop);
+    DnsItem query_items[MAX_ITEMS] = a_items;
+    query_items[0].name     = "localhost";
+    query_items[1].name     = "localhost";
+
+    CreateVmportEnv(input, 1, 0);
+    client->WaitForIdle();
+    IntfCfgAdd(input, 0);
+    WaitForItfUpdate(1);
+
+    SendDnsReq(DNS_OPCODE_QUERY, GetItfId(0), 2, query_items);
+    client->WaitForIdle();
+    CHECK_CONDITION(stats.fail < 1);
+    CHECK_STATS(stats, 1, 0, 0, 0, 1, 0);
+
+    client->Reset();
+    char ipam_attr[] = "<network-ipam-mgmt>\n <ipam-dns-method>default-dns-server</ipam-dns-method>\n </network-ipam-mgmt>\n";
+    AddIPAM("vn1", ipam_info, 3, ipam_attr, "vdns1");
+    client->WaitForIdle();
+
+    flags = default_flags;
+    flags.req = 1;
+    SendDnsReq(DNS_OPCODE_QUERY, GetItfId(0), 2, query_items, flags);
+    client->WaitForIdle();
+    count = 0;
+    CHECK_CONDITION(stats.drop < 1);
+    CHECK_STATS(stats, 2, 0, 0, 0, 1, 1);
+
+    client->Reset();
+    DelIPAM("vn1", "vdns1"); 
+    client->WaitForIdle();
+
+    client->Reset();
+    DeleteVmportEnv(input, 1, 1, 0); 
+    client->WaitForIdle();
+
+    IntfCfgDel(input, 0);
+    WaitForItfUpdate(0);
     Agent::GetInstance()->GetDnsProto()->ClearStats();
 }
-#endif
 
 void RouterIdDepInit() {
 }
