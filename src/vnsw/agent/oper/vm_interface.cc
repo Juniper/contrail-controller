@@ -603,14 +603,25 @@ void VmInterface::Delete() {
     VmInterfaceConfigData data;
     Resync(&data);
     InterfaceNH::DeleteVmInterfaceNHReq(GetUuid());
+
+    InterfaceTable *table = static_cast<InterfaceTable *>(get_table());
+    table->DeleteDhcpSnoopEntry(name_);
 }
 
 bool VmInterface::CopyIpAddress(Ip4Address &addr) {
     bool ret = false;
+    InterfaceTable *table = static_cast<InterfaceTable *>(get_table());
 
-    dhcp_snoop_ip_ = false;
+    do_dhcp_relay_ = (fabric_port_ && addr.to_ulong() == 0 && vrf() &&
+                      vrf()->GetName() == table->agent()->GetDefaultVrf());
+
+    if (do_dhcp_relay_) {
+        addr = table->GetDhcpSnoopEntry(name_);
+    }
+
+    // Retain the old if new IP could not be got
     if (addr.to_ulong() == 0) {
-        dhcp_snoop_ip_ = IsDhcpSnoopIp(name_, &addr);
+        addr = ip_addr_;
     }
 
     if (ip_addr_ != addr) {
@@ -694,6 +705,7 @@ bool VmInterface::CopyConfig(VmInterfaceConfigData *data, bool *sg_changed) {
         ret = true;
     }
 
+    // CopyIpAddress uses fabric_port_. So, set it before CopyIpAddresss
     val = ipv4_forwarding_ ? data->fabric_port_ : false;
     if (fabric_port_ != val) {
         fabric_port_ = val;
@@ -701,7 +713,7 @@ bool VmInterface::CopyConfig(VmInterfaceConfigData *data, bool *sg_changed) {
     }
 
     Ip4Address ipaddr = ipv4_forwarding_ ? data->addr_ : Ip4Address(0);
-    if (ipaddr.to_ulong() && CopyIpAddress(ipaddr)) {
+    if (CopyIpAddress(ipaddr)) {
         ret = true;
     }
 
@@ -888,8 +900,8 @@ bool VmInterface::ResyncIpAddress(const VmInterfaceIpAddressData *data) {
     bool old_ipv4_active = ipv4_active_;
     Ip4Address old_addr = ip_addr_;
 
-    Ip4Address ipaddr = data->ip_addr_;
-    if (CopyIpAddress(ipaddr)) {
+    Ip4Address addr = Ip4Address(0);
+    if (CopyIpAddress(addr)) {
         ret = true;
     }
 
@@ -918,12 +930,8 @@ void VmInterface::GetOsParams() {
 // - By snooping dhcp packets
 // - To support agent restart, the snooped address are stored in InterfaceKScan
 //   table. Query the table to find DHCP Snooped address
-bool VmInterface::IsDhcpSnoopIp(std::string &name, Ip4Address *ip) const {
-    if (dhcp_snoop_ip_) {
-        *ip = ip_addr_;
-        return true;
-    }
-
+bool VmInterface::GetDhcpSnoopIp(const std::string &name, Ip4Address *ip)
+    const {
     uint32_t addr;
     InterfaceKScan *intf = Agent::GetInstance()->ksync()->interface_scanner();
     if (intf) {
@@ -974,6 +982,11 @@ bool VmInterface::IsL2Active() {
 
 // Compute if policy is to be enabled on the interface
 bool VmInterface::PolicyEnabled() {
+    // Policy not supported for fabric ports
+    if (fabric_port_) {
+        return false;
+    }
+
     if (vn_.get() && vn_->IsAclSet()) {
         return true;
     }
@@ -1105,14 +1118,15 @@ void VmInterface::UpdateL3InterfaceRoute(bool old_ipv4_active, bool force_update
     // If interface was already active earlier and there is no force_update or
     // policy_change, return
     if (old_ipv4_active == true && force_update == false
-        && policy_change == false) {
+        && policy_change == false && old_addr == ip_addr_) {
         return;
     }
 
     // We need to have valid IP and VRF to add route
     if (ip_addr_.to_ulong() != 0 && vrf_.get() != NULL) {
         // Add route if old was inactive or force_update is set
-        if (old_ipv4_active == false || force_update == true) {
+        if (old_ipv4_active == false || force_update == true ||
+            old_addr != ip_addr_) {
             AddRoute(vrf_->GetName(), ip_addr_, 32, policy_enabled_);
         } else if (policy_change == true) {
             // If old-l3-active and there is change in policy, invoke RESYNC of

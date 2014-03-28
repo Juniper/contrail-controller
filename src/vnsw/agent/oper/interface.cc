@@ -29,6 +29,7 @@
 #include <oper/agent_sandesh.h>
 #include <oper/sg.h>
 #include <ksync/interface_ksync.h>
+#include <ksync/ksync_init.h>
 #include "sandesh/sandesh_trace.h"
 #include "sandesh/common/vns_types.h"
 #include "sandesh/common/vns_constants.h"
@@ -328,6 +329,48 @@ void PhysicalInterface::DeleteReq(InterfaceTable *table, const string &ifname) {
     req.key.reset(new PhysicalInterfaceKey(ifname));
     req.data.reset(NULL);
     table->Enqueue(&req);
+}
+
+/////////////////////////////////////////////////////////////////////////////
+// DHCP Snoop routines
+/////////////////////////////////////////////////////////////////////////////
+
+// Get DHCP IP address. First try to find entry in DHCP Snoop table.
+// If no entry in DHCP Snoop table, query the InterfaceKScan table.
+//
+// InterfaceKScan table is populated on agent restart
+const Ip4Address InterfaceTable::GetDhcpSnoopEntry(const std::string &ifname) {
+    const DhcpSnoopIterator it = dhcp_snoop_map_.find(ifname);
+    if (it != dhcp_snoop_map_.end()) {
+        return it->second;
+    }
+
+    // No entry in DHCP Snoop table. 
+    // See if there is entry in InterfaceKscanData
+    InterfaceKScan *kscan = agent_->ksync()->interface_scanner();
+    if (kscan) {
+        uint32_t addr;
+        if (kscan->FindInterfaceKScanData(ifname, addr)) {
+            AddDhcpSnoopEntry(ifname, Ip4Address(addr));
+            return Ip4Address(addr);
+        }
+    }
+
+    return Ip4Address(0);
+}
+
+void InterfaceTable::DeleteDhcpSnoopEntry(const std::string &ifname) {
+    const DhcpSnoopIterator it = dhcp_snoop_map_.find(ifname);
+    if (it == dhcp_snoop_map_.end()) {
+        return;
+    }
+
+    return dhcp_snoop_map_.erase(it);
+}
+
+void InterfaceTable::AddDhcpSnoopEntry(const std::string &ifname,
+                                       const Ip4Address &addr) {
+    dhcp_snoop_map_[ifname] = addr;
 }
 
 /////////////////////////////////////////////////////////////////////////////
