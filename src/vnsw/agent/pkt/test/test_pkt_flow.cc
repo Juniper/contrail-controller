@@ -2163,6 +2163,8 @@ TEST_F(FlowTest, Flow_introspect_delete_all) {
     EXPECT_TRUE(fe != NULL);
 
     DeleteAllFlowRecords *delete_all_sandesh = new DeleteAllFlowRecords();
+    Sandesh::set_response_callback(boost::bind(&FlowTest::CheckSandeshResponse,
+                                               this, _1, 0));
     delete_all_sandesh->HandleRequest();
     EXPECT_TRUE(FlowTableWait(0));
     delete_all_sandesh->Release();
