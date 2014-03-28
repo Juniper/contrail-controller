@@ -95,6 +95,7 @@ public:
         tact_type = VRF_TRANSLATE_ACTION, action_ = VRF_TRANSLATE; };
     const std::string& vrf_name() const { return vrf_name_;}
     bool ignore_acl() const { return ignore_acl_;}
+    virtual void SetActionSandeshData(std::vector<ActionStr> &actions);
 private:
     std::string vrf_name_;
     bool ignore_acl_;

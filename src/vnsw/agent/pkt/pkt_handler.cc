@@ -416,7 +416,7 @@ bool PktHandler::IsDHCPPacket(PktInfo *pkt_info) {
 
 // Check if the packet is destined to the VM's default GW
 bool PktHandler::IsGwPacket(const Interface *intf, uint32_t dst_ip) {
-    if (intf->type() != Interface::VM_INTERFACE)
+    if (!intf || intf->type() != Interface::VM_INTERFACE)
         return false;
 
     const VmInterface *vm_intf = static_cast<const VmInterface *>(intf);

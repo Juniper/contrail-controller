@@ -603,12 +603,19 @@ void PktFlowInfo::FloatingIpSNat(const PktInfo *pkt, PktControlInfo *in,
 
 void PktFlowInfo::VrfTranslate(const PktInfo *pkt, PktControlInfo *in,
                                PktControlInfo *out) {
-    if (in->intf_->type() != Interface::VM_INTERFACE) {
+    const Interface *intf = NULL;
+    if (ingress) {
+        intf = in->intf_;
+    } else {
+        intf = out->intf_;
+    }
+
+    if (intf->type() != Interface::VM_INTERFACE) {
         return;
     }
 
-    const VmInterface *intf = static_cast<const VmInterface *>(in->intf_);
-    if (intf->vrf_assign_acl() == NULL) {
+    const VmInterface *vm_intf = static_cast<const VmInterface *>(intf);
+    if (vm_intf->vrf_assign_acl() == NULL) {
         return;
     }
 
@@ -637,7 +644,11 @@ void PktFlowInfo::VrfTranslate(const PktInfo *pkt, PktControlInfo *in,
     }
 
     MatchAclParams match_acl_param;
-    if (intf->vrf_assign_acl()->PacketMatch(hdr, match_acl_param)) {
+    if (!vm_intf->vrf_assign_acl()->PacketMatch(hdr, match_acl_param)) {
+        return;
+    }
+
+    if (match_acl_param.action_info.vrf_translate_action_.vrf_name() != "") {
         VrfKey key(match_acl_param.action_info.vrf_translate_action_.vrf_name());
         const VrfEntry *vrf = static_cast<const VrfEntry*>
             (Agent::GetInstance()->GetVrfTable()->FindActiveEntry(&key));
@@ -729,6 +740,7 @@ void PktFlowInfo::EgressProcess(const PktInfo *pkt, PktControlInfo *in,
     FlowTable *ftable = Agent::GetInstance()->pkt()->flow_table();
     out->rt_ = ftable->GetUcRoute(out->vrf_, Ip4Address(pkt->ip_daddr));
     in->rt_ = ftable->GetUcRoute(out->vrf_, Ip4Address(pkt->ip_saddr));
+    VrfTranslate(pkt, in, out);
     if (out->intf_) {
         out->vn_ = InterfaceToVn(out->intf_);
     }

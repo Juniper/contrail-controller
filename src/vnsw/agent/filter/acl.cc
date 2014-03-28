@@ -364,6 +364,16 @@ bool AclTable::IFNodeToReq(IFMapNode *node, DBRequest &req) {
             ace_spec.action_l.push_back(maction);
             AddMirrorTableEntry(ace_spec);
         }
+
+        if (!ir->action_list.assign_routing_instance.empty()) {
+            ActionSpec vrf_translate_spec;
+            vrf_translate_spec.ta_type = TrafficAction::VRF_TRANSLATE_ACTION;
+            vrf_translate_spec.simple_action = TrafficAction::VRF_TRANSLATE;
+            vrf_translate_spec.vrf_translate.set_vrf_name(
+                    ir->action_list.assign_routing_instance);
+            vrf_translate_spec.vrf_translate.set_ignore_acl(false);
+            ace_spec.action_l.push_back(vrf_translate_spec);
+        }
         // Add the Ace to the acl
         acl_spec.acl_entry_specs_.push_back(ace_spec);
 

@@ -170,7 +170,8 @@ public:
     struct VrfAssignRule : ListEntry {
         VrfAssignRule();
         VrfAssignRule(const VrfAssignRule &rhs);
-        VrfAssignRule(const std::string &vrf_name, bool ignore_policy);
+        VrfAssignRule(uint32_t id, const std::string &vrf_name,
+                      bool ignore_policy);
         ~VrfAssignRule();
         bool operator == (const VrfAssignRule &rhs) const;
         bool operator() (const VrfAssignRule &lhs,
@@ -178,6 +179,7 @@ public:
         bool IsLess(const VrfAssignRule *rhs) const;
         void Insert(const autogen::MatchConditionType &match_condition) const;
 
+        const uint32_t id_;
         const std::string vrf_name_;
         const VrfEntryRef vrf_;
         bool ignore_acl_;

@@ -316,22 +316,12 @@ static void ReadAnalyzerNameAndCreate(Agent *agent,
 
 static void BuildVrfAssignRule(VirtualMachineInterface *cfg,
                                VmInterfaceConfigData *data) {
+    uint32_t id = 1;
     for (std::vector<VrfAssignRuleType>::const_iterator iter =
          cfg->vrf_assign_table().begin(); iter != cfg->vrf_assign_table().end();
          ++iter) {
-        VmInterface::VrfAssignRule key(iter->routing_instance,
-                                       iter->ignore_acl);
-        VmInterface::VrfAssignRuleSet::const_iterator it =
-            data->vrf_assign_rule_list_.list_.find(key);
-
-        VmInterface::VrfAssignRule entry(iter->routing_instance,
+        VmInterface::VrfAssignRule entry(id++, iter->routing_instance,
                                          iter->ignore_acl);
-        if (it != data->vrf_assign_rule_list_.list_.end()) {
-            MatchConditionType mc(iter->match_condition);
-            it->Insert(iter->match_condition);
-            return;
-        }
-
         //Insert entry
         entry.Insert(iter->match_condition);
         data->vrf_assign_rule_list_.list_.insert(entry);
@@ -1280,6 +1270,7 @@ void VmInterface::DeleteStaticRoute() {
 }
 
 void VmInterface::UpdateVrfAssignRule() {
+    Agent *agent = static_cast<InterfaceTable *>(get_table())->agent();
     VrfAssignRuleSet::iterator it = vrf_assign_rule_list_.list_.begin();
     while (it != vrf_assign_rule_list_.list_.end()) {
         VrfAssignRuleSet::iterator prev = it++;
@@ -1295,7 +1286,13 @@ void VmInterface::UpdateVrfAssignRule() {
             req.oper = DBRequest::DB_ENTRY_DELETE;
             req.key.reset(key);
             req.data.reset(NULL);
-            Agent::GetInstance()->GetAclTable()->Process(req);
+            agent->GetAclTable()->Process(req);
+            vrf_assign_acl_ = NULL;
+        }
+        //Check if the VN has a ACL with vrf assign rule
+        if (vn_->GetAcl() != NULL) {
+            vrf_assign_acl_ = const_cast<AclDBEntry *>(vn_->GetAcl());
+        } else {
             vrf_assign_acl_ = NULL;
         }
         return;
@@ -1332,16 +1329,17 @@ void VmInterface::UpdateVrfAssignRule() {
     req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
     req.key.reset(key);
     req.data.reset(data);
-    Agent::GetInstance()->GetAclTable()->Process(req);
+    agent->GetAclTable()->Process(req);
 
     AclKey entry_key(uuid_);
     AclDBEntry *acl = static_cast<AclDBEntry *>(
-        Agent::GetInstance()->GetAclTable()->FindActiveEntry(&entry_key));
+        agent->GetAclTable()->FindActiveEntry(&entry_key));
     assert(acl);
     vrf_assign_acl_ = acl;
 }
 
 void VmInterface::DeleteVrfAssignRule() {
+    Agent *agent = static_cast<InterfaceTable *>(get_table())->agent();
     VrfAssignRuleSet::iterator it = vrf_assign_rule_list_.list_.begin();
     while (it != vrf_assign_rule_list_.list_.end()) {
         VrfAssignRuleSet::iterator prev = it++;
@@ -1354,7 +1352,7 @@ void VmInterface::DeleteVrfAssignRule() {
     req.oper = DBRequest::DB_ENTRY_DELETE;
     req.key.reset(key);
     req.data.reset(NULL);
-    Agent::GetInstance()->GetAclTable()->Process(req);
+    agent->GetAclTable()->Process(req);
 }
 
 void VmInterface::UpdateSecurityGroup() {
@@ -1848,18 +1846,19 @@ void VmInterface::ServiceVlanRouteDel(const ServiceVlan &entry) {
 // VRF assign rule routines
 ////////////////////////////////////////////////////////////////////////////
 VmInterface::VrfAssignRule::VrfAssignRule():
-    ListEntry(), vrf_name_(" "), vrf_(NULL), ignore_acl_(false) {
+    ListEntry(), id_(0), vrf_name_(" "), vrf_(NULL), ignore_acl_(false) {
 }
 
 VmInterface::VrfAssignRule::VrfAssignRule(const VrfAssignRule &rhs):
-    ListEntry(rhs.installed_, rhs.del_pending_), vrf_name_(rhs.vrf_name_),
-    vrf_(rhs.vrf_), ignore_acl_(rhs.ignore_acl_),
+    ListEntry(rhs.installed_, rhs.del_pending_), id_(rhs.id_),
+    vrf_name_(rhs.vrf_name_), vrf_(rhs.vrf_), ignore_acl_(rhs.ignore_acl_),
     match_condition_(rhs.match_condition_) {
 }
 
-VmInterface::VrfAssignRule::VrfAssignRule(const std::string &vrf_name,
+VmInterface::VrfAssignRule::VrfAssignRule(uint32_t id,
+                                          const std::string &vrf_name,
                                           bool ignore_acl):
-    ListEntry(), vrf_name_(vrf_name), ignore_acl_(ignore_acl) {
+    ListEntry(), id_(id), vrf_name_(vrf_name), ignore_acl_(ignore_acl) {
 }
 
 VmInterface::VrfAssignRule::~VrfAssignRule() {
@@ -1871,11 +1870,7 @@ bool VmInterface::VrfAssignRule::operator() (const VrfAssignRule &lhs,
 }
 
 bool VmInterface::VrfAssignRule::IsLess(const VrfAssignRule *rhs) const {
-    if (vrf_name_ != rhs->vrf_name_) {
-        return vrf_name_ < rhs->vrf_name_;
-    }
-
-    return ignore_acl_ < rhs->ignore_acl_;
+    return id_ < rhs->id_;
 }
 
 void VmInterface::VrfAssignRule::Insert(const MatchConditionType
