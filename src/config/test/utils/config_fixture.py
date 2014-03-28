@@ -137,6 +137,7 @@ class ApiServer(object):
                 '--ifmap_password', 'api-server',
                 '--log_file', self._log_file,
                 '--log_level', "SYS_DEBUG",
+                '--rabbit_vhost', "__NONE__",
                 '--listen_port', str(self.port),
                 "--ifmap_server_port", str(self._config_fixture.ifmap.port),
                 "--ifmap_server_ip", "127.0.0.1",

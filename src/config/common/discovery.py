@@ -120,10 +120,13 @@ class DiscoveryService(object):
         # logging
         logger = logging.getLogger(module)
         logger.setLevel(logging.INFO)
-        handler = logging.handlers.RotatingFileHandler('/var/log/contrail/' + module + '-zk.log', maxBytes=1024*1024, backupCount=10)
-        log_format = logging.Formatter('%(asctime)s [%(name)s]: %(message)s', datefmt='%m/%d/%Y %I:%M:%S %p')
-        handler.setFormatter(log_format)
-        logger.addHandler(handler)
+        try:
+            handler = logging.handlers.RotatingFileHandler('/var/log/contrail/' + module + '-zk.log', maxBytes=1024*1024, backupCount=10)
+            log_format = logging.Formatter('%(asctime)s [%(name)s]: %(message)s', datefmt='%m/%d/%Y %I:%M:%S %p')
+            handler.setFormatter(log_format)
+            logger.addHandler(handler)
+        except Exception as e:
+            print "Cannot initialize logger handler: %s" % str(e)
 
         self._zk_client = \
             kazoo.client.KazooClient(
