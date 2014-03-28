@@ -47,9 +47,7 @@ public:
 #if defined(__linux__)
       sa.nl_family = AF_NETLINK;
 #elif defined(__FreeBSD__)
-      //sa.nl_family = AF_VENDOR00;
-#else
-#error "Unsupported plaftorm"
+      sa.sa_family = AF_VENDOR00;
 #endif
   }
 
@@ -66,7 +64,7 @@ public:
 #if defined(__linux__)
       return sizeof(struct sockaddr_nl);
 #else
-      return 0;
+      return sizeof(sa);
 #endif
   }
 
@@ -82,6 +80,8 @@ private:
 //.de.byte.breaker
 #if defined(__linux__)
       struct sockaddr_nl sa;
+#elif defined(__FreeBSD__)
+      struct sockaddr sa;
 #endif
   };
 };
