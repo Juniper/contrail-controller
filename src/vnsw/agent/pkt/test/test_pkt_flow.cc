@@ -2143,6 +2143,34 @@ TEST_F(FlowTest, LinkLocalFlow_Fail2) {
     client->WaitForIdle();
 }
 
+TEST_F(FlowTest, Flow_introspect_delete_all) {
+    EXPECT_EQ(0U, agent()->pkt()->flow_table()->Size());
+
+    CreateRemoteRoute("vrf5", remote_vm1_ip, remote_router_ip, 30, "vn5");
+    client->WaitForIdle();
+    TestFlow flow[] = {
+        {
+            TestFlowPkt(vm1_ip, remote_vm1_ip, 1, 0, 0, "vrf5",
+                    flow0->id()),
+            {}
+        }
+    };
+
+    CreateFlow(flow, 1);
+
+    uint32_t vrf_id = VrfGet("vrf5")->vrf_id();
+    FlowEntry *fe = FlowGet(vrf_id, vm1_ip, remote_vm1_ip, 1, 0, 0);
+    EXPECT_TRUE(fe != NULL);
+
+    DeleteAllFlowRecords *delete_all_sandesh = new DeleteAllFlowRecords();
+    delete_all_sandesh->HandleRequest();
+    EXPECT_TRUE(FlowTableWait(0));
+    delete_all_sandesh->Release();
+
+    DeleteRemoteRoute("vrf5", remote_vm1_ip);
+    client->WaitForIdle();
+}
+
 int main(int argc, char *argv[]) {
     GETUSERARGS();
 

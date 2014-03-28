@@ -23,12 +23,14 @@ public:
     
     virtual bool Run();
     void SetSandeshFlowData(std::vector<SandeshFlowData> &list, FlowEntry *fe);
+    void set_delete_op(bool delete_op) {delete_op_ = delete_op;}
 
 protected:
     FlowRecordsResp *resp_obj_;
     std::string resp_data_;
     FlowKey flow_iteration_key_;
     bool key_valid_;
+    bool delete_op_;
 
 private:
     DISALLOW_COPY_AND_ASSIGN(PktSandeshFlow);

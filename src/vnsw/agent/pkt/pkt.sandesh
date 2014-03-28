@@ -126,6 +126,9 @@ request sandesh NextFlowRecordsSet {
 request sandesh FetchAllFlowRecords {
 }
 
+request sandesh DeleteAllFlowRecords {
+}
+
 response sandesh FlowRecordsResp {
     1: list<SandeshFlowData> flow_list;
     2: string flow_key (link="NextFlowRecordsSet");
