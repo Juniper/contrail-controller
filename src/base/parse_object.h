@@ -68,10 +68,15 @@ static inline double get_double(const uint8_t *data) {
 
 static inline void put_double(uint8_t *data, double value) {
     uint64_t *pp = (uint64_t *)data;
+    union {
+        uint64_t u64;
+        double d;
+    } x;
+    x.d = value;
 #ifndef __APPLE__
-    *pp = htobe64(*((uint64_t *)&value));
+    *pp = htobe64(x.u64);
 #else
-    *pp = *((uint64_t *)&value);
+    *pp = x.u64;
 #endif
 
 }
