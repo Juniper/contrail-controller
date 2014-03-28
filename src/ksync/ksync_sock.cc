@@ -8,6 +8,8 @@
 #include <linux/rtnetlink.h>
 #include <linux/genetlink.h>
 #include <linux/sockios.h>
+#elif defined(__FreeBSD__)
+#include "vr_os.h"
 
 #include <boost/bind.hpp>
 

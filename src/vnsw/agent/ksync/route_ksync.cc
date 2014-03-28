@@ -26,6 +26,7 @@
 #include "vr_types.h"
 #include "vr_defs.h"
 #include "vr_nexthop.h"
+#include "vr_os.h"
 
 RouteKSyncEntry::RouteKSyncEntry(RouteKSyncObject* obj, 
                                  const RouteKSyncEntry *entry, 

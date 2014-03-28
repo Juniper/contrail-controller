@@ -5,9 +5,11 @@
 #include <sys/socket.h>
 #include <linux/netlink.h>
 #include <linux/rtnetlink.h>
+#include <asm/types.h>
+#elif defined(__FreeBSD__)
+#include "vr_os.h"
 #include <fcntl.h>
 #include <sys/mman.h>
-#include <asm/types.h>
 
 #include <boost/asio.hpp>
 

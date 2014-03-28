@@ -13,6 +13,7 @@
 #elif defined(__FreeBSD__)
 #include <sys/socket.h>
 #include <sys/ioctl.h>
+#include "vr_os.h"
 
 #include <net/if.h>
 

@@ -3,6 +3,7 @@
  */
 
 #include <netinet/ether.h>
+#include "vr_os.h"
 #include <boost/asio.hpp>
 #include <boost/bind.hpp>
 
