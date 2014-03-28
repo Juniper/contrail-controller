@@ -87,7 +87,7 @@ public:
         ip_fabric_interface_index_ = ind;
     }
     void set_ip_fabric_interface_mac(char *mac) { 
-        memcpy(ip_fabric_interface_mac_, mac, ETH_ALEN);
+        memcpy(ip_fabric_interface_mac_, mac, ETHER_ADDR_LEN);
     }
 
     ArpEntry *gracious_arp_entry() const { return gracious_arp_entry_; }
@@ -124,7 +124,7 @@ private:
     ArpStats arp_stats_;
     bool run_with_vrouter_;
     uint16_t ip_fabric_interface_index_;
-    unsigned char ip_fabric_interface_mac_[ETH_ALEN];
+    unsigned char ip_fabric_interface_mac_[ETHER_ADDR_LEN];
     Interface *ip_fabric_interface_;
     ArpEntry *gracious_arp_entry_;
     DBTableBase::ListenerId vid_;

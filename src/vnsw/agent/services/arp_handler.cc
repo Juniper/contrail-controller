@@ -35,15 +35,28 @@ bool ArpHandler::HandlePacket() {
     ArpProto *arp_proto = agent()->GetArpProto();
     uint16_t arp_cmd;
     if (pkt_info_->ip) {
+#if defined(__linux__)
         arp_tpa_ = ntohl(pkt_info_->ip->daddr);
+#elif defined(__FreeBSD__)
+        arp_tpa_ = ntohl(pkt_info_->ip->ip_dst.s_addr);
+#else
+#error "Unsupported platform"
+#endif
         arp_cmd = ARPOP_REQUEST;
         arp_proto->StatsPktsDropped();
     } else if (pkt_info_->arp) {
         arp_ = pkt_info_->arp;
-        if ((ntohs(arp_->ea_hdr.ar_hrd) != ARPHRD_ETHER) || 
+        if ((ntohs(arp_->ea_hdr.ar_hrd) != ARPHRD_ETHER) ||
             (ntohs(arp_->ea_hdr.ar_pro) != 0x800) ||
-            (arp_->ea_hdr.ar_hln != ETH_ALEN) || 
+            (arp_->ea_hdr.ar_hln != ETHER_ADDR_LEN) || 
+#if defined(__linux__)
             (arp_->ea_hdr.ar_pln != IPv4_ALEN)) {
+#elif defined(__FreeBSD__)
+//.de.byte.breaker Need to find define for that
+            (arp_->ea_hdr.ar_pln != 4)) {
+#else 
+#error "Unsupported platform"
+#endif
             arp_proto->StatsErrors();
             ARP_TRACE(Error, "Received Invalid ARP packet");
             return true;
@@ -286,8 +299,16 @@ uint16_t ArpHandler::ArpHdr(const unsigned char *smac, in_addr_t sip,
          const unsigned char *tmac, in_addr_t tip, uint16_t op) {
     arp_->ea_hdr.ar_hrd = htons(ARPHRD_ETHER);
     arp_->ea_hdr.ar_pro = htons(0x800);
-    arp_->ea_hdr.ar_hln = ETH_ALEN;
+    arp_->ea_hdr.ar_hln = ETHER_ADDR_LEN;
+//.de.byte.breaker
+#if defined(__linux__)
     arp_->ea_hdr.ar_pln = IPv4_ALEN;
+#elif defined(__FreeBSD__)
+//.de.byte.breaker Need to find define for that
+    arp_->ea_hdr.ar_pln = 4; //IPv4_ALEN;
+#else
+#error "Unsupported platform"
+#endif
     arp_->ea_hdr.ar_op = htons(op);
     memcpy(arp_->arp_sha, smac, ETHER_ADDR_LEN);
     sip = htonl(sip);
@@ -304,7 +325,13 @@ void ArpHandler::SendArp(uint16_t op, const unsigned char *smac, in_addr_t sip,
     pkt_info_->pkt = new uint8_t[MIN_ETH_PKT_LEN + IPC_HDR_LEN];
     uint8_t *buf = pkt_info_->pkt;
     memset(buf, 0, MIN_ETH_PKT_LEN + IPC_HDR_LEN);
+#if defined(__linux__)
     pkt_info_->eth = (ethhdr *) (buf + sizeof(ethhdr) + sizeof(agent_hdr));
+#elif defined(__FreeBSD__)
+    pkt_info_->eth = (ether_header *) (buf + sizeof(ether_header) + sizeof(agent_hdr));
+#else
+#error "Unsupported platform"
+#endif
     arp_ = pkt_info_->arp = (ether_arp *) (pkt_info_->eth + 1);
     arp_tpa_ = tip;
 
@@ -312,5 +339,12 @@ void ArpHandler::SendArp(uint16_t op, const unsigned char *smac, in_addr_t sip,
     ArpHdr(smac, sip, tmac, tip, op);
     EthHdr(smac, bcast_mac, 0x806);
 
+#if defined(__linux__)
     Send(sizeof(ethhdr) + sizeof(ether_arp), itf, vrf, AGENT_CMD_SWITCH, PktHandler::ARP);
+#elif defined(__FreeBSD__)
+    Send(sizeof(ether_header) + sizeof(ether_arp), itf, vrf, AGENT_CMD_SWITCH, PktHandler::ARP);
+#else
+#error "Unsupported platform"
+#endif
 }
+

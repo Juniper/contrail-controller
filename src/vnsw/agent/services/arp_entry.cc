@@ -10,7 +10,7 @@ ArpEntry::ArpEntry(boost::asio::io_service &io, ArpHandler *handler,
                    in_addr_t ip, const VrfEntry *vrf, State state)
     : key_(ip, vrf), state_(state), retry_count_(0), handler_(handler),
       arp_timer_(NULL) {
-    memset(mac_address_, 0, ETH_ALEN);
+    memset(mac_address_, 0, ETHER_ADDR_LEN);
     arp_timer_ = TimerManager::CreateTimer(io, "Arp Entry timer");
 }
 
@@ -130,7 +130,13 @@ void ArpEntry::SendArpRequest() {
 void ArpEntry::UpdateNhDBEntry(DBRequest::DBOperation op, bool resolved) {
     Ip4Address ip(key_.ip);
     struct ether_addr mac;
+#if defined(__linux__)
     memcpy(mac.ether_addr_octet, mac_address_, ETH_ALEN);
+#elif defined(__FreeBSD__)
+    memcpy(mac.octet, mac_address_, ETHER_ADDR_LEN);
+#else
+#error "Unsupported platform"
+#endif
     ArpProto *arp_proto = handler_->agent()->GetArpProto();
     Interface *itf = arp_proto->ip_fabric_interface();
     if (key_.vrf->GetName() == handler_->agent()->GetLinkLocalVrfName()) {

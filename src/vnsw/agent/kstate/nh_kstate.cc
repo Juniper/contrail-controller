@@ -5,7 +5,12 @@
 #include "kstate.h"
 #include "nh_kstate.h"
 #include "vr_nexthop.h"
+//.de.byte.breaker
+#if defined(__linux__)
 #include <linux/if_ether.h>
+#elif defined(__FreeBSD__)
+#include <net/ethernet.h>
+#endif
 #include <iomanip>
 #include <sstream>
 
@@ -96,7 +101,12 @@ const string NHKState::FamilyToString(int nh_family) const {
 const string NHKState::EncapFamilyToString(int nh_family) const {
     unsigned family = nh_family;
     switch(family) {
+//.de.byte.breaker
+#if defined(__linux__)
         case ETH_P_ARP:
+#elif defined(__FreeBSD__)
+        case ETHERTYPE_ARP:
+#endif
             return "ETH_P_ARP";
         case 0:
             return "NO_ENCAP";

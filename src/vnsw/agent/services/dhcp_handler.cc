@@ -130,8 +130,16 @@ bool DhcpHandler::Run() {
 // read DHCP options in the incoming packet
 bool DhcpHandler::ReadOptions() {
     // take out eth, ip, udp and DHCP fixed length from the total length
+//.de.byte.breaker
+#if defined(__linux__)
     int16_t opt_rem_len = pkt_info_->len - IPC_HDR_LEN - sizeof(ethhdr) 
-                          - sizeof(iphdr) - sizeof(udphdr) - DHCP_FIXED_LEN;
+                          - sizeof(ip) - sizeof(udphdr) - DHCP_FIXED_LEN;
+#elif defined(__FreeBSD__)
+    int16_t opt_rem_len = pkt_info_->len - IPC_HDR_LEN - sizeof(ether_addr) 
+                          - sizeof(ip) - sizeof(udphdr) - DHCP_FIXED_LEN;
+#else
+#error "Unsupported platform"
+#endif
 
     // verify magic cookie
     if ((opt_rem_len < 4) || 
@@ -347,16 +355,32 @@ bool DhcpHandler::CreateRelayPacket(bool is_request) {
     pkt_info_->pkt = new uint8_t[DHCP_PKT_SIZE];
     memset(pkt_info_->pkt, 0, DHCP_PKT_SIZE);
     pkt_info_->vrf = in_pkt_info.vrf;
+//.de.byte.breaker
+#if defined(__linux__)
     pkt_info_->eth = (ethhdr *)(pkt_info_->pkt + sizeof(ethhdr) + sizeof(agent_hdr));
     pkt_info_->ip = (iphdr *)(pkt_info_->eth + 1);
+#elif defined(__FreeBSD__)
+    pkt_info_->eth = (ether_header *)(pkt_info_->pkt + sizeof(ether_header) + sizeof(agent_hdr));
+    pkt_info_->ip = (ip *)(pkt_info_->eth + 1);
+#else
+#error "Unsupported platform"
+#endif
     pkt_info_->transp.udp = (udphdr *)(pkt_info_->ip + 1);
     dhcphdr *dhcp = (dhcphdr *)(pkt_info_->transp.udp + 1);
 
     memcpy((uint8_t *)dhcp, (uint8_t *)dhcp_, DHCP_FIXED_LEN);
     memcpy(dhcp->options, DHCP_OPTIONS_COOKIE, 4);
 
+//.de.byte.breaker
+#if defined(__linux__)
     int16_t opt_rem_len = in_pkt_info.len - IPC_HDR_LEN - sizeof(ethhdr) 
                           - sizeof(iphdr) - sizeof(udphdr) - DHCP_FIXED_LEN - 4;
+#elif defined(__FreeBSD__)
+    int16_t opt_rem_len = in_pkt_info.len - IPC_HDR_LEN - sizeof(ether_header) 
+                          - sizeof(ip) - sizeof(udphdr) - DHCP_FIXED_LEN - 4;
+#else
+#error "Unsupported platform"
+#endif
     uint16_t opt_len = 4;
     DhcpOptions *read_opt = (DhcpOptions *)(dhcp_->options + 4);
     DhcpOptions *write_opt = (DhcpOptions *)(dhcp->options + 4);
@@ -423,6 +447,8 @@ bool DhcpHandler::CreateRelayPacket(bool is_request) {
     write_opt->WriteByte(DHCP_OPTION_END, opt_len);
     pkt_info_->len = DHCP_FIXED_LEN + opt_len + sizeof(udphdr);
 
+//.de.byte.breaker
+#if defined(__linux__)
     UdpHdr(pkt_info_->len, in_pkt_info.ip->saddr, pkt_info_->sport,
            in_pkt_info.ip->daddr, pkt_info_->dport);
     pkt_info_->len += sizeof(iphdr);
@@ -435,6 +461,22 @@ bool DhcpHandler::CreateRelayPacket(bool is_request) {
         EthHdr(in_pkt_info.eth->h_source, dhcp->chaddr, 0x800);
     }
     pkt_info_->len += sizeof(ethhdr);
+#elif defined(__FreeBSD__)
+    UdpHdr(pkt_info_->len, in_pkt_info.ip->ip_src.s_addr, pkt_info_->sport,
+           in_pkt_info.ip->ip_dst.s_addr, pkt_info_->dport);
+    pkt_info_->len += sizeof(ip);
+    IpHdr(pkt_info_->len, in_pkt_info.ip->ip_src.s_addr,
+          in_pkt_info.ip->ip_dst.s_addr, IPPROTO_UDP);
+    if (is_request) {
+        EthHdr(agent()->GetDhcpProto()->ip_fabric_interface_mac(),
+               in_pkt_info.eth->ether_dhost, 0x800);
+    } else {
+        EthHdr(in_pkt_info.eth->ether_shost, dhcp->chaddr, 0x800);
+    }
+    pkt_info_->len += sizeof(ether_header);
+#else
+#error "Unsupported platform"
+#endif
     return true;
 }
 
@@ -501,7 +543,14 @@ uint16_t DhcpHandler::DhcpHdr(in_addr_t yiaddr,
 
     dhcp_->op = BOOT_REPLY;
     dhcp_->htype = HW_TYPE_ETHERNET;
+//.de.byte.breaker
+#if defined(__linux__)
     dhcp_->hlen = ETH_ALEN;
+#elif defined(__FreeBSD__)
+    dhcp_->hlen = ETHER_ADDR_LEN;
+#else
+#error "Unsupported platform"
+#endif
     dhcp_->hops = 0;
     // dhcp_->xid = dhcp_->xid;
     dhcp_->secs = 0;
@@ -660,7 +709,15 @@ void DhcpHandler::SendDhcpResponse() {
     in_addr_t dest_ip = 0xFFFFFFFF;
     in_addr_t yiaddr = htonl(config_.ip_addr);
     in_addr_t siaddr = src_ip;
+//.de.byte.breaker
+#if defined(__linux__)
     unsigned char dest_mac[ETH_ALEN] = { 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF };
+#elif defined(__FreeBSD__)
+    unsigned char dest_mac[ETHER_ADDR_LEN] = { 0xFF, 0xFF, 0xFF, 0xFF, 
+                                               0xFF, 0xFF };
+#else
+#error "Unsupported platform"
+#endif
 
     // If requested IP address is not available, send NAK
     if ((msg_type_ == DHCP_REQUEST) && (req_ip_addr_) 
@@ -677,7 +734,14 @@ void DhcpHandler::SendDhcpResponse() {
         (!dhcp_->giaddr && (dhcp_->ciaddr || 
                             !(ntohs(dhcp_->flags) & DHCP_BCAST_FLAG)))) {
         dest_ip = yiaddr;
+//.de.byte.breaker
+#if defined(__linux__)
         memcpy(dest_mac, dhcp_->chaddr, ETH_ALEN);
+#elif defined(__FreeBSD__)
+        memcpy(dest_mac, dhcp_->chaddr, ETHER_ADDR_LEN);
+#else
+#error "Unsupported platform"
+#endif
         if (msg_type_ == DHCP_INFORM)
             yiaddr = 0;
     }
@@ -688,10 +752,24 @@ void DhcpHandler::SendDhcpResponse() {
     uint16_t len = DhcpHdr(yiaddr, siaddr, dhcp_->chaddr);
     len += sizeof(udphdr);
     UdpHdr(len, src_ip, DHCP_SERVER_PORT, dest_ip, DHCP_CLIENT_PORT);
+//.de.byte.breaker
+#if defined(__linux__)
     len += sizeof(iphdr);
+#elif defined(__FreeBSD__)
+    len += sizeof(ip);
+#else
+#error "Unsupported platform"
+#endif
     IpHdr(len, src_ip, dest_ip, IPPROTO_UDP);
     EthHdr(agent()->pkt()->pkt_handler()->mac_address(), dest_mac, 0x800);
+//.de.byte.breaker
+#if defined(__linux__)
     len += sizeof(ethhdr);
+#elif defined(__FreeBSD__)
+    len += sizeof(ether_header);
+#else
+#error "Unsupported platform"
+#endif
 
     Send(len, GetIntf(), pkt_info_->vrf, AGENT_CMD_SWITCH, PktHandler::DHCP);
 }

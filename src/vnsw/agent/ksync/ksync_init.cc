@@ -89,7 +89,6 @@ void KSync::NetlinkInit() {
     KSyncSockNetlink::Init(io, DB::PartitionCount(), NETLINK_GENERIC);
     KSyncSock::SetAgentSandeshContext(new KSyncSandeshContext(
                                             flowtable_ksync_obj_.get()));
-
     GenericNetlinkInit();
 }
 

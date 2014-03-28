@@ -38,7 +38,12 @@ public:
     InterfaceKSyncEntry(InterfaceKSyncObject *obj, const Interface *intf);
     virtual ~InterfaceKSyncEntry();
 
+//.de.byte.breaker
+#if defined(__linux__)
     const uint8_t *mac() const {return mac_.ether_addr_octet;}
+#else
+    const uint8_t *mac() const {return mac_.octet;}
+#endif
     uint32_t interface_id() const {return interface_id_;}
     const string &interface_name() const {return interface_name_;}
     bool has_service_vlan() const {return has_service_vlan_;}

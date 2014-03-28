@@ -47,7 +47,7 @@ private:
     void UpdateNhDBEntry(DBRequest::DBOperation op, bool resolved = false);
 
     ArpKey key_;
-    unsigned char mac_address_[ETH_ALEN];
+    unsigned char mac_address_[ETHER_ADDR_LEN];
     State state_;
     int retry_count_;
     boost::scoped_ptr<ArpHandler> handler_;

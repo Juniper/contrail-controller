@@ -77,6 +77,7 @@ void TapInterface::SetupTap() {
 
         struct ifreq ifr;
         memset(&ifr, 0, sizeof(ifr));
+
         ifr.ifr_flags = IFF_TAP | IFF_NO_PI;
         strncpy(ifr.ifr_name, name_.c_str(), IF_NAMESIZE);
         if (ioctl(tap_fd_, TUNSETIFF, (void *)&ifr) < 0) {

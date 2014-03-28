@@ -50,7 +50,13 @@ public:
         return ip_fabric_interface_mac_;
     }
     void set_ip_fabric_interface_mac(char *mac) {
+#if defined(__linux__)
         memcpy(ip_fabric_interface_mac_, mac, ETH_ALEN);
+#elif defined(__FreeBSD__)
+        memcpy(ip_fabric_interface_mac_, mac, ETHER_ADDR_LEN);
+#else
+#error "Unsupported platform"
+#endif
     }
 
     void IncrStatsDiscover() { stats_.discover++; }
@@ -73,7 +79,13 @@ private:
     bool run_with_vrouter_;
     Interface *ip_fabric_interface_;
     uint16_t ip_fabric_interface_index_;
+#if defined(__linux__)
     unsigned char ip_fabric_interface_mac_[ETH_ALEN];
+#elif defined(__FreeBSD__)
+    unsigned char ip_fabric_interface_mac_[ETHER_ADDR_LEN];
+#else
+#error "Unsupported platform"
+#endif
     DBTableBase::ListenerId iid_;
     DhcpStats stats_;
 

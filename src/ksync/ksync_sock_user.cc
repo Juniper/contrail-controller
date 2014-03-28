@@ -491,7 +491,6 @@ void KSyncSockTypeMap::Decoder(char *data, SandeshContext *ctxt) {
         LOG(ERROR, "Netlink unkown message type : " << nlh->nlmsg_type);
         assert(0);
     }
-    
 }
 
 bool KSyncSockTypeMap::Validate(char *data) {

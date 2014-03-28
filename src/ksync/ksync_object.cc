@@ -1,16 +1,6 @@
 /*
  * Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
  */
-
-#include <asm/types.h>
-#include <sys/socket.h>
-//.de.byte.breaker
-#if defined(__linux__)
-#include <linux/netlink.h>
-#include <linux/rtnetlink.h>
-#include <linux/sockios.h>
-#endif
-
 #include <boost/bind.hpp>
 
 #include <base/logging.h>

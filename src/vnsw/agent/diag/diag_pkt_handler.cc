@@ -20,7 +20,13 @@ void DiagPktHandler::SetReply() {
 }
 
 void DiagPktHandler::SetDiagChkSum() {
+#if defined(__linux__)
     pkt_info_->ip->check = 0xffff;
+#elif defined(__FreeBSD__)
+    pkt_info_->ip->ip_sum = 0xffff;
+#else
+#error "Unsupported platform"
+#endif
 }
 
 void DiagPktHandler::Reply() {

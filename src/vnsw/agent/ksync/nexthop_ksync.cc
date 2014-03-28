@@ -2,8 +2,14 @@
  * Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
  */
 
+//.de.byte.breaker
+#if defined(__linux__)
 #include <netinet/ether.h>
+#elif defined(__FreeBSD__)
 #include "vr_os.h"
+#include <net/if.h>
+#include "nl_util.h"
+#endif
 #include <boost/asio.hpp>
 #include <boost/bind.hpp>
 
@@ -24,6 +30,7 @@
 #include "ksync/nexthop_ksync.h"
 #include "ksync_init.h"
 #include "vr_types.h"
+
 
 static uint8_t nil_mac[6] = {0, 0, 0, 0, 0, 0};
 
@@ -473,7 +480,7 @@ int NHKSyncEntry::Encode(sandesh_op::type op, char *buf, int buf_len) {
                 intf_id = if_ksync->interface_id();
             }
             encoder.set_nhr_encap_oif_id(intf_id);
-            encoder.set_nhr_encap_family(ETH_P_ARP);
+            encoder.set_nhr_encap_family(ETHERTYPE_ARP);
 
             SetEncap(encap);
             encoder.set_nhr_encap(encap);
@@ -493,7 +500,7 @@ int NHKSyncEntry::Encode(sandesh_op::type op, char *buf, int buf_len) {
             encoder.set_nhr_type(NH_TUNNEL);
             encoder.set_nhr_tun_sip(htonl(sip_.s_addr));
             encoder.set_nhr_tun_dip(htonl(dip_.s_addr));
-            encoder.set_nhr_encap_family(ETH_P_ARP);
+            encoder.set_nhr_encap_family(ETHERTYPE_ARP);
 
             if (if_ksync) {
                 intf_id = if_ksync->interface_id();
@@ -517,7 +524,7 @@ int NHKSyncEntry::Encode(sandesh_op::type op, char *buf, int buf_len) {
             encoder.set_nhr_tun_dip(htonl(dip_.s_addr));
             encoder.set_nhr_tun_sport(htons(sport_));
             encoder.set_nhr_tun_dport(htons(dport_));
-            encoder.set_nhr_encap_family(ETH_P_ARP);
+            encoder.set_nhr_encap_family(ETHERTYPE_ARP);
 
             if (if_ksync) {
                 intf_id = if_ksync->interface_id();
@@ -556,7 +563,8 @@ int NHKSyncEntry::Encode(sandesh_op::type op, char *buf, int buf_len) {
             /* TODO encoding */
             encoder.set_nhr_tun_sip(htonl(sip_.s_addr));
             encoder.set_nhr_tun_dip(htonl(dip_.s_addr));
-            encoder.set_nhr_encap_family(ETH_P_ARP);
+            encoder.set_nhr_encap_family(ETHERTYPE_ARP);
+
             /* Proto encode in Network byte order */
             switch (comp_type_) {
             case Composite::FABRIC: {
@@ -817,11 +825,25 @@ void NHKSyncEntry::SetEncap(std::vector<int8_t> &encap) {
     const uint8_t *smac = nil_mac;
     /* DMAC encode */
     for (int i = 0 ; i < ETHER_ADDR_LEN; i++) {
+//.de.byte.breaker
+#if defined(__linux__)
         encap.push_back(dmac_.ether_addr_octet[i]);
+#elif defined(__FreeBSD__)
+        encap.push_back(dmac_.octet[i]);
+#else
+#error "Unsported platform"
+#endif
     }
     /* SMAC encode */
     if (type_ == NextHop::VLAN) {
+//.de.byte.breaker
+#if defined(__linux__)
         smac = smac_.ether_addr_octet;
+#elif defined(__FreeBSD__)
+        smac = smac_.octet;
+#else
+#error "Unsported platform"
+#endif
     } else {
         smac = (const uint8_t *)
             ksync_obj_->ksync()->interface_ksync_obj()

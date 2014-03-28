@@ -13,7 +13,13 @@ DhcpProto::DhcpProto(Agent *agent, boost::asio::io_service &io,
     Proto(agent, "Agent::Services", PktHandler::DHCP, io),
     run_with_vrouter_(run_with_vrouter), ip_fabric_interface_(NULL),
     ip_fabric_interface_index_(-1) {
+#if defined(__linux__)
     memset(ip_fabric_interface_mac_, 0, ETH_ALEN);
+#elif defined(__FreeBSD__)
+    memset(ip_fabric_interface_mac_, 0, ETHER_ADDR_LEN);
+#else
+#error "Unsupported platform"
+#endif
     iid_ = agent->GetInterfaceTable()->Register(
                   boost::bind(&DhcpProto::ItfNotify, this, _2));
 }
@@ -41,10 +47,20 @@ void DhcpProto::ItfNotify(DBEntryBase *entry) {
             set_ip_fabric_interface(itf);
             set_ip_fabric_interface_index(itf->id());
             if (run_with_vrouter_) {
+//.de.byte.breaker
+#if defined(__linux__)
                 set_ip_fabric_interface_mac((char *)itf->mac().ether_addr_octet);
             } else {
                 char mac[ETH_ALEN];
                 memset(mac, 0, ETH_ALEN);
+#elif defined(__FreeBSD__)
+                set_ip_fabric_interface_mac((char *)itf->mac().octet);
+            } else {
+                char mac[ETHER_ADDR_LEN];
+                memset(mac, 0, ETHER_ADDR_LEN);
+#else
+#error "Unsupported platform"
+#endif
                 set_ip_fabric_interface_mac(mac);
             }
         }

@@ -2,6 +2,10 @@
  * Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
  */
 
+//.de.byte.breaker
+#if defined(__FreeBSD__)
+#include <sys/types.h>
+#endif
 #include "vr_defs.h"
 #include "oper/interface_common.h"
 #include "services/dns_proto.h"
@@ -54,7 +58,14 @@ bool DnsHandler::HandleRequest() {
         DNS_BIND_TRACE(DnsBindError, "Received Invalid DNS request - dropping"
                        << "; itf = " << itf << "; flags.req = " 
                        << dns_->flags.req << "; src addr = " 
+//.de.byte.breaker
+#if defined(__linux__)
                        << pkt_info_->ip->saddr <<";");
+#elif defined(__FreeBSD__)
+                       << pkt_info_->ip->ip_src.s_addr <<";");
+#else
+#error "Unsupported platform"
+#endif
         return true;
     }
 
@@ -622,19 +633,42 @@ DnsHandler::Resolve(dns_flags flags, std::vector<DnsItem> &ques,
 }
 
 void DnsHandler::SendDnsResponse() {
+//.de.byte.breaker
+#if defined(__linux__)
     in_addr_t src_ip = pkt_info_->ip->daddr;
     in_addr_t dest_ip = pkt_info_->ip->saddr;
     unsigned char dest_mac[ETH_ALEN];
     memcpy(dest_mac, pkt_info_->eth->h_source, ETH_ALEN);
+#elif defined(__FreeBSD__)
+    in_addr_t src_ip = pkt_info_->ip->ip_dst.s_addr;
+    in_addr_t dest_ip = pkt_info_->ip->ip_src.s_addr;
+    unsigned char dest_mac[ETHER_ADDR_LEN];
+    memcpy(dest_mac, pkt_info_->eth->ether_shost, ETHER_ADDR_LEN);
+#else
+#error "Unsupported platform"
+#endif
+
 
     // fill in the response
     dns_resp_size_ += sizeof(udphdr);
+//.de.byte.breaker
+#if defined(__linux__)
     UdpHdr(dns_resp_size_, src_ip, DNS_SERVER_PORT, 
            dest_ip, ntohs(pkt_info_->transp.udp->source));
     dns_resp_size_ += sizeof(iphdr);
     IpHdr(dns_resp_size_, src_ip, dest_ip, IPPROTO_UDP);
     EthHdr(agent_vrrp_mac, dest_mac, 0x800);
     dns_resp_size_ += sizeof(ethhdr);
+#elif defined(__FreeBSD__)
+    UdpHdr(dns_resp_size_, src_ip, DNS_SERVER_PORT, 
+           dest_ip, ntohs(pkt_info_->transp.udp->uh_sport));
+    dns_resp_size_ += sizeof(ip);
+    IpHdr(dns_resp_size_, src_ip, dest_ip, IPPROTO_UDP);
+    EthHdr(agent_vrrp_mac, dest_mac, 0x800);
+    dns_resp_size_ += sizeof(ether_header);
+#else
+#error "Unsupported platform"
+#endif
 
     PacketInterfaceKey key(nil_uuid(), agent()->pkt_interface_name());
     Interface *pkt_itf = static_cast<Interface *>

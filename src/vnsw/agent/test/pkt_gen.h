@@ -8,8 +8,11 @@
 #include <netinet/ip.h>
 #include <netinet/tcp.h>
 #include <netinet/udp.h>
+//.de.byte.breaker
+#if defined(__linux__)
 #include <netinet/ether.h>
 #include <linux/if_ether.h>
+#endif
 #include <netinet/ip_icmp.h>
 
 #include <pkt/pkt_handler.h>
@@ -24,21 +27,43 @@
 #define ARPHRD_ETHER    1
 
 struct icmp_packet {
+#if defined(__linux__)
     struct ethhdr eth;
-    struct iphdr  ip; 
+    struct iphdr  ip;
     struct icmphdr icmp;
+#elif defined(__FreeBSD__)
+    struct ether_header eth;
+    struct ip  ip;
+    struct icmp icmp;
+#else
+#error "Unsupported platform"
+#endif
 } __attribute__((packed));
 
 struct tcp_packet {
+#if defined(__linux__)
     struct ethhdr eth;
-    struct iphdr  ip; 
+    struct iphdr  ip;
+#elif defined(__FreeBSD__)
+    struct ether_headr eth;
+    struct ip  ip;
+#else
+#error "Unsupported platform"
+#endif
     struct tcphdr tcp;
     char   payload[TCP_PAYLOAD_SIZE];
 }__attribute__((packed));
 
 struct udp_packet {
+#if defined(__linux__)
     struct ethhdr eth;
-    struct iphdr  ip; 
+    struct iphdr  ip;
+#elif defined(__FreeBSD__)
+    struct ether_header eth;
+    struct ip  ip;
+#else
+#error "Unsupported platform"
+#endif
     struct udphdr udp;
     uint8_t payload[];
 }__attribute__((packed));
@@ -78,6 +103,7 @@ public:
     }
 
     static void IpInit(struct iphdr *ip, uint8_t proto, uint16_t len, uint32_t sip, uint32_t dip) {
+#if defined(__linux__)
         ip->saddr = htonl(sip);
         ip->daddr = htonl(dip);
         ip->version = 4;
@@ -89,17 +115,45 @@ public:
         ip->ttl = 255;
         ip->protocol = proto;
         ip->check = htons(IPChecksum((uint16_t *)ip, sizeof(struct iphdr)));
+#elif defined(__FreeBSD__)
+        ip->ip_src = htonl(sip);
+        ip->ip_dst = htonl(dip);
+        ip->ip_v = 4;
+        ip->ip_hl = 5;
+        ip->ip_tos = 0;
+        ip->ip_id = htons(10); //taking a random value
+        ip->ip_len = htons(len);
+        ip->ip_off = 0;
+        ip->ip_ttl = 255;
+        ip->ip_p = proto;
+        ip->ip_sum = htons(IPChecksum((uint16_t *)ip, sizeof(struct ip)));
+#else
+#error "Unsupported platform"
+#endif
     }
 
     static void EthInit(ethhdr *eth, unsigned short proto) {
+#if defined(__linux__)
         eth->h_proto = proto;
-        eth->h_dest[5] = 5;   
+        eth->h_dest[5] = 5;
         eth->h_source[5] = 4;
+#elif defined(__FreeBSD__)
+        eth->ether_type = proto;
+        eth->ether_dhost[5] = 5;
+        eth->ether_shost[5] = 4;
+#else
+#error "Unsupported platform"
+#endif
     }
     static void EthInit(ethhdr *eth, uint8_t *smac, uint8_t *dmac, unsigned short proto) {
-        eth->h_proto = htons(proto);
-        memcpy(eth->h_dest, dmac, 6);
-        memcpy(eth->h_source, smac, 6);
+#if defined(__linux__)
+        eth->ether_type = htons(proto);
+        memcpy(eth->ether_dhost, dmac, 6);
+        memcpy(eth->ether_shost, smac, 6);
+#elif defined(__FreeBSD__)
+#else
+#error "Unsupported platform"
+#endif
     }
 };
 
@@ -185,11 +239,11 @@ public:
         len = sizeof(pkt.ip) + sizeof(pkt.icmp);
         IpUtils::IpInit(&(pkt.ip), IPPROTO_ICMP, len, sip, dip);
         IpUtils::EthInit(&(pkt.eth), smac, dmac, ETH_P_IP);
-        pkt.icmp.type = ICMP_ECHO; 
+        pkt.icmp.type = ICMP_ECHO;
         pkt.icmp.code = 0;
         pkt.icmp.checksum = IpUtils::IPChecksum((uint16_t *)&pkt.icmp, sizeof(icmp_packet));
         pkt.icmp.un.echo.id = 0;
-        pkt.icmp.un.echo.sequence = 0; 
+        pkt.icmp.un.echo.sequence = 0;
     }
     unsigned char *GetPacket() const { return (unsigned char *)&pkt; } 
 private:
@@ -211,6 +265,7 @@ public:
         len += sizeof(ethhdr);
     };
 
+#if defined(__linux__)
     void AddIpHdr(const char *sip, const char *dip, uint16_t proto) {
         struct iphdr *ip = (struct iphdr *)(buff + len);
 
@@ -222,6 +277,21 @@ public:
         ip->protocol = proto;
         len += sizeof(iphdr);
     };
+#elif defined(__FreeBSD__)
+    void AddIpHdr(const char *sip, const char *dip, uint16_t proto) {
+        struct ip *ip = (struct ip *)(buff + len);
+
+        ip->ip_hl = 5;
+        ip->ip_v = 4;
+        ip->ip_len = 100;
+        ip->ip_shost.s_addr = inet_addr(sip);
+        ip->ip_dhost.s_addr = inet_addr(dip);
+        ip->ip_p = proto;
+        len += sizeof(ip);
+    };
+#else
+#error "Unsupported platform"
+#endif
 
     void AddUdpHdr(uint16_t sport, uint16_t dport, int plen) {
         struct udphdr *udp = (struct udphdr *)(buff + len);

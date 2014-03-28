@@ -2,7 +2,10 @@
  * Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
  */
 
+//.de.byte.breaker
+#if defined(__linux__)
 #include <netinet/ether.h>
+#endif
 #include <boost/uuid/uuid_io.hpp>
 
 #include "base/logging.h"
@@ -906,7 +909,14 @@ void VmInterface::GetOsParams() {
     }
 
     os_index_ = Interface::kInvalidIndex;
+//.de.byte.breaker
+#if defined(__linux__)
     memcpy(mac_.ether_addr_octet, agent_vrrp_mac, ETHER_ADDR_LEN);
+#elif defined(__FreeBSD__)
+    memcpy(mac_.octet, agent_vrrp_mac, ETHER_ADDR_LEN);
+#else
+#error "Unsupported platform"
+#endif
 }
 
 // Get DHCP IP address. DHCP IP is used only if IP address not specified in 
