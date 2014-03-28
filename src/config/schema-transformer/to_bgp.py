@@ -2931,6 +2931,9 @@ class SchemaTransformer(object):
             # for remote_vn_name
 
             virtual_network.update_route_table()
+        # end for self.current_network_set
+        for network_name in self.current_network_set:
+            virtual_network = VirtualNetworkST.get(network_name)
             virtual_network.uve_send()
         # end for self.current_network_set
     # end process_poll_result
