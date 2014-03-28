@@ -295,8 +295,7 @@ class FlowEntry {
     };
 
     bool ActionRecompute();
-    void CompareAndModify(bool create);
-    void UpdateKSync(FlowTableKSyncEntry *entry, bool create);
+    void UpdateKSync();
     int GetRefCount() { return refcount_; }
     void MakeShortFlow();
     const FlowStats &stats() const { return stats_;}
@@ -378,6 +377,7 @@ private:
     uuid egress_uuid_;
     uint32_t flow_handle_;
     FlowEntryPtr reverse_flow_entry_;
+    FlowTableKSyncEntry *ksync_entry_;
     static tbb::atomic<int> alloc_count_;
     bool deleted_;
     uint32_t flags_;
@@ -533,7 +533,7 @@ private:
     void DecrVnFlowCounter(VnFlowInfo *vn_flow_info, const FlowEntry *fe);
     void ResyncVnFlows(const VnEntry *vn);
     void ResyncRouteFlows(RouteFlowKey &key, SecurityGroupList &sg_l);
-    void ResyncAFlow(FlowEntry *fe, bool create);
+    void ResyncAFlow(FlowEntry *fe);
     void ResyncVmPortFlows(const VmInterface *intf);
     void ResyncRpfNH(const RouteFlowKey &key, const Inet4UnicastRouteEntry *rt);
     void DeleteRouteFlows(const RouteFlowKey &key);
