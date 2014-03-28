@@ -28,8 +28,8 @@ public:
     enum Type {
         BGP_PEER,
         ECMP_PEER,
-        LOCAL_PEER,
         LOCAL_VM_PEER,
+        LOCAL_PEER,
         LOCAL_VM_PORT_PEER,
         LINKLOCAL_PEER,
         NOVA_PEER

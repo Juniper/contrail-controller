@@ -37,11 +37,14 @@ if sys.platform != 'darwin':
 
     test_inet_interface = env.Program(target = 'test_inet_interface', source = ['test_inet_interface.cc'])
     env.Alias('src/vnsw/agent/oper/test:test_inet_interface', test_inet_interface)
+    test_fabric_interface = env.Program(target = 'test_fabric_interface', source = ['test_fabric_interface.cc'])
+    env.Alias('src/vnsw/agent/oper/test:test_fabric_interface', test_fabric_interface)
     oper_test_suite = [
+                       test_fabric_interface,
                        test_inet_interface,
                        test_intf,
-                       test_vrf_assign,
                        test_linklocal,
+                       test_vrf_assign,
                        ]
 
     test = env.TestSuite('agent-test', oper_test_suite)

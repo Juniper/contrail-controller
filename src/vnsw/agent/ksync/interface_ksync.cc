@@ -71,7 +71,7 @@ InterfaceKSyncEntry::InterfaceKSyncEntry(InterfaceKSyncObject *obj,
     if (type_ == Interface::VM_INTERFACE) {
         const VmInterface *vmitf = 
             static_cast<const VmInterface *>(intf);
-        if (vmitf->dhcp_snoop_ip()) {
+        if (vmitf->do_dhcp_relay()) {
             ip_ = vmitf->ip_addr().to_ulong();
         }
         network_id_ = vmitf->vxlan_id();
@@ -125,7 +125,7 @@ bool InterfaceKSyncEntry::Sync(DBEntry *e) {
 
     if (intf->type() == Interface::VM_INTERFACE) {
         VmInterface *vm_port = static_cast<VmInterface *>(intf);
-        if (vm_port->dhcp_snoop_ip()) {
+        if (vm_port->do_dhcp_relay()) {
             if (ip_ != vm_port->ip_addr().to_ulong()) {
                 ip_ = vm_port->ip_addr().to_ulong();
                 ret = true;

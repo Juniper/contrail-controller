@@ -2,7 +2,7 @@
  * Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
  */
 
-#ifndef vnsw_agent_interface_scanner_f
+#ifndef vnsw_agent_interface_scanner_h
 #define vnsw_agent_interface_scanner_h
 
 #include <db/db_entry.h>
