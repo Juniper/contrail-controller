@@ -826,10 +826,14 @@ class VncKombuClient(object):
         self._update_queue_obj = kombu.Queue(q_name, obj_upd_exchange)
 
         self._dbe_oper_subscribe_greenlet = None
+        if self._rabbit_vhost == "__NONE__":
+            return
         self._init_server_conn(self._rabbit_ip, self._rabbit_user, self._rabbit_password, self._rabbit_vhost)
     # end __init__
 
     def _obj_update_q_put(self, *args, **kwargs):
+        if self._rabbit_vhost == "__NONE__":
+            return
         while True:
             try:
                 self._obj_update_q.put(*args, **kwargs)
@@ -840,6 +844,8 @@ class VncKombuClient(object):
     # end _obj_update_q_put
 
     def _dbe_oper_subscribe(self):
+        if self._rabbit_vhost == "__NONE__":
+            return
         self._db_client_mgr.wait_for_resync_done()
         obj_upd_exchange = kombu.Exchange('object-update-xchg', 'fanout',
                                           durable=False)
