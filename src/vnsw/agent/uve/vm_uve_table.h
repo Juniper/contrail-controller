@@ -55,6 +55,8 @@ public:
     bool Process(VmStatData *vm_stat_data);
 
 protected:
+    virtual void VmStatCollectionStart(VmUveVmState *state, const VmEntry *vm);
+    virtual void VmStatCollectionStop(VmUveVmState *state);
     UveVmMap uve_vm_map_;
     Agent *agent_;
 private:

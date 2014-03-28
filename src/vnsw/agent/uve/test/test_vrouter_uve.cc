@@ -28,7 +28,7 @@
 #include "pkt/test/test_flow_util.h"
 #include "vr_types.h"
 #include <uve/vrouter_stats_collector.h>
-#include <uve/vrouter_uve_entry_test.h>
+#include <uve/test/vrouter_uve_entry_test.h>
 #include "uve/test/test_uve_util.h"
 #include "ksync/ksync_sock_user.h"
 

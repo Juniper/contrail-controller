@@ -20,21 +20,11 @@ public:
     KSync(Agent *agent);
     virtual ~KSync();
 
-    void Init();
-    void InitTest();
-    void RegisterDBClients(DB *db);
-    void InitFlowMem();
-    void NetlinkInit();
-    void VRouterInterfaceSnapshot();
-    void ResetVRouter();
+    virtual void Init();
+    virtual void RegisterDBClients(DB *db);
     void VnswInterfaceListenerInit();
-    void CreateVhostIntf();
     void Shutdown();
-    int Encode(Sandesh &encoder, uint8_t *buf, int buf_len);
 
-    void RegisterDBClientsTest(DB *db);
-    void NetlinkInitTest(bool sync_mode);
-    void NetlinkShutdownTest();
     void UpdateVhostMac();
     Agent *agent() const  { return agent_; }
     MirrorKSyncObject *mirror_ksync_obj() const { 
@@ -58,7 +48,7 @@ public:
     VnswInterfaceListener *vnsw_interface_listner() const  {
         return vnsw_interface_listner_.get();
     }
-private:
+protected:
     Agent *agent_;
     boost::scoped_ptr<InterfaceKSyncObject> interface_ksync_obj_; 
     boost::scoped_ptr<FlowTableKSyncObject> flowtable_ksync_obj_; 
@@ -70,11 +60,17 @@ private:
     boost::scoped_ptr<VrfAssignKSyncObject> vrf_assign_ksync_obj_;
     boost::scoped_ptr<InterfaceKScan> interface_scanner_;
     boost::scoped_ptr<VnswInterfaceListener> vnsw_interface_listner_;
+private:
+    void InitFlowMem();
+    void NetlinkInit();
+    void VRouterInterfaceSnapshot();
+    void ResetVRouter();
+    void CreateVhostIntf();
+    int Encode(Sandesh &encoder, uint8_t *buf, int buf_len);
     DISALLOW_COPY_AND_ASSIGN(KSync);
 };
 
 int GenenericNetlinkFamily();
 void GenericNetlinkInit();
-void GenericNetlinkInitTest();
 
 #endif //vnsw_agent_ksync_init_h

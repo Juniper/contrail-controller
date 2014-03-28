@@ -25,8 +25,8 @@
 #include "testing/gunit.h"
 #include "test_cmn_util.h"
 #include "xmpp/test/xmpp_test_util.h"
-#include <uve/vn_uve_table_test.h>
-#include <uve/vm_uve_table_test.h>
+#include <uve/test/vn_uve_table_test.h>
+#include <uve/test/vm_uve_table_test.h>
 #include "ksync/ksync_sock_user.h"
 
 int vrf_array[] = {1, 2};

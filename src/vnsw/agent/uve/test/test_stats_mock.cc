@@ -7,9 +7,9 @@
 #include "pkt/flow_table.h"
 #include "test_cmn_util.h"
 #include <uve/agent_uve.h>
-#include <uve/vn_uve_table_test.h>
+#include <uve/test/vn_uve_table_test.h>
 #include "ksync/ksync_sock_user.h"
-#include <uve/agent_stats_collector_test.h>
+#include <uve/test/agent_stats_collector_test.h>
 
 using namespace std;
 

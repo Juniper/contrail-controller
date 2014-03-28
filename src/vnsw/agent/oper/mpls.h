@@ -7,6 +7,7 @@
 
 #include <cmn/agent_cmn.h>
 #include "ksync/ksync_index.h"
+#include <oper/nexthop.h>
 
 using namespace boost::uuids;
 using namespace std;

@@ -23,6 +23,7 @@
 #include <ksync/ksync_object.h>
 #include <ksync/ksync_sock.h>
 
+#include "init/agent_init.h"
 #include "ksync_init.h"
 #include "ksync/interface_ksync.h"
 #include "ksync/route_ksync.h"
@@ -66,6 +67,13 @@ void KSync::RegisterDBClients(DB *db) {
 }
 
 void KSync::Init() {
+    NetlinkInit();
+    VRouterInterfaceSnapshot();
+    InitFlowMem();
+    ResetVRouter();
+    if (agent()->init()->create_vhost()) {
+        CreateVhostIntf();
+    }
     interface_ksync_obj_.get()->Init();
 }
 

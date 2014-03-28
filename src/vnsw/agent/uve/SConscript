@@ -91,11 +91,6 @@ libagentuve = env.Library('agentuve',
                           'vrf_stats_io_context.cc',
                           'vrouter_stats_collector.cc',
                           'vrouter_uve_entry.cc',
-                          'agent_uve_test.cc',
-                          'agent_stats_collector_test.cc',
-                          'vm_uve_table_test.cc',
-                          'vn_uve_table_test.cc',
-                          'vrouter_uve_entry_test.cc',
                           ])
 
 Import('BuildEnv')

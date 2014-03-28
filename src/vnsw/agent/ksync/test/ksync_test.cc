@@ -24,7 +24,6 @@
 #include <ksync/ksync_sock.h>
 #include <ksync/ksync_sock_user.h>
 
-#include "ksync_init.h"
 #include "ksync/interface_ksync.h"
 #include "ksync/mpls_ksync.h"
 #include "ksync/route_ksync.h"
@@ -32,21 +31,24 @@
 #include "ksync/mirror_ksync.h"
 #include "ksync/vrf_assign_ksync.h"
 #include "ksync/vxlan_ksync.h"
-#include "vnswif_listener.h"
+#include "ksync/vnswif_listener.h"
 #include "ksync/sandesh_ksync.h"
+#include "ksync/test/ksync_test.h"
 
-void KSync::InitTest() {
+KSyncTest::KSyncTest(Agent *agent) 
+    : KSync(agent) {
+}
+
+KSyncTest::~KSyncTest() {
+}
+
+void KSyncTest::Init() {
     interface_ksync_obj_.get()->InitTest();
     flowtable_ksync_obj_.get()->InitTest();
+    NetlinkInitTest();
 }
 
-void GenericNetlinkInitTest() {
-    LOG(DEBUG, "Vrouter family is 24");
-    KSyncSock::SetNetlinkFamilyId(24);
-    return;
-}
-
-void KSync::RegisterDBClientsTest(DB *db) {
+void KSyncTest::RegisterDBClients(DB *db) {
     KSyncObjectManager::Init();
     interface_ksync_obj_.get()->RegisterDBClients();
     vrf_ksync_obj_.get()->RegisterDBClients();
@@ -58,7 +60,13 @@ void KSync::RegisterDBClientsTest(DB *db) {
     agent_->SetRouterIdConfigured(false);
 }
 
-void KSync::NetlinkInitTest(bool sync_mode) {
+void KSyncTest::GenericNetlinkInitTest() const {
+    LOG(DEBUG, "Vrouter family is 24");
+    KSyncSock::SetNetlinkFamilyId(24);
+    return;
+}
+
+void KSyncTest::NetlinkInitTest() const {
     EventManager *event_mgr;
 
     event_mgr = agent_->GetEventManager();
@@ -69,10 +77,10 @@ void KSync::NetlinkInitTest(bool sync_mode) {
                                                 (flowtable_ksync_obj_.get()));
 
     GenericNetlinkInitTest();
-    KSyncSock::Start(sync_mode);
+    KSyncSock::Start(agent_->ksync_sync_mode());
 }
 
-void KSync::NetlinkShutdownTest() {
+void KSyncTest::NetlinkShutdownTest() {
     KSyncSock::Shutdown();
     delete KSyncSock::GetAgentSandeshContext();
     KSyncSock::SetAgentSandeshContext(NULL);
