@@ -5,6 +5,8 @@
 #ifndef vnsw_agent_init_hpp
 #define vnsw_agent_init_hpp
 
+#include <boost/program_options.hpp>
+
 class Agent;
 class AgentParam;
 

@@ -41,7 +41,6 @@ libksync = env.Library('vnswksync',
                        sandesh_objs +
                        except_objs +
                        ['ksync_init.cc',
-                        'ksync_init_test.cc',
                         'interface_ksync.cc',
                         'interface_scan.cc',
                         'mirror_ksync.cc',

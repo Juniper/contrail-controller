@@ -234,10 +234,11 @@ void Agent::CreateModules() {
     oper_db_ = std::auto_ptr<OperDB>(new OperDB(this));
     if (!IsTestMode()) {
         AgentObjectFactory::Register<AgentUve>(boost::factory<AgentUve *>());
+        AgentObjectFactory::Register<KSync>(boost::factory<KSync *>());
     }
     uve_ = std::auto_ptr<AgentUve>(AgentObjectFactory::Create<AgentUve>(
                     this, AgentUve::kBandwidthInterval));
-    ksync_ = std::auto_ptr<KSync>(new KSync(this));
+    ksync_ = std::auto_ptr<KSync>(AgentObjectFactory::Create<KSync>(this));
 
     if (init_->packet_enable()) {
         pkt_ = std::auto_ptr<PktModule>(new PktModule(this));
@@ -262,11 +263,7 @@ void Agent::CreateDBClients() {
     cfg_.get()->RegisterDBClients(db_);
     oper_db_.get()->CreateDBClients();
     uve_.get()->RegisterDBClients();
-    if (!test_mode_) {
-        ksync_.get()->RegisterDBClients(db_);
-    } else {
-        ksync_.get()->RegisterDBClientsTest(db_);
-    }
+    ksync_.get()->RegisterDBClients(db_);
 
     if (vgw_.get()) {
         vgw_.get()->RegisterDBClients();
@@ -281,19 +278,7 @@ void Agent::InitModules() {
     linklocal_peer_.reset(new Peer(Peer::LINKLOCAL_PEER, LINKLOCAL_PEER_NAME));
     ecmp_peer_.reset(new Peer(Peer::ECMP_PEER, ECMP_PEER_NAME));
 
-    if (!test_mode_) {
-        ksync_.get()->NetlinkInit();
-        ksync_.get()->VRouterInterfaceSnapshot();
-        ksync_.get()->InitFlowMem();
-        ksync_.get()->ResetVRouter();
-        if (init_->create_vhost()) {
-            ksync_.get()->CreateVhostIntf();
-        }
-        ksync_.get()->Init();
-    } else {
-        ksync_.get()->InitTest();
-        ksync_.get()->NetlinkInitTest(ksync_sync_mode_);
-    }
+    ksync_.get()->Init();
 
     if (pkt_.get()) {
         pkt_.get()->Init(init_->ksync_enable());

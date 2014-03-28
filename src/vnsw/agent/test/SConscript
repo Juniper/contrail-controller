@@ -31,6 +31,7 @@ import sys
 if sys.platform != 'darwin':
     test_lib_srcs = ['test_init.cc', 
                      'test_util.cc',
+                     '../ksync/test/ksync_test.cc',
                      '../uve/test/agent_uve_test.cc',
                      '../uve/test/agent_stats_collector_test.cc',
                      '../uve/test/vm_uve_table_test.cc',

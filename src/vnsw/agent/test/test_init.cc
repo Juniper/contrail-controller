@@ -8,6 +8,7 @@
 #include "vgw/vgw.h"
 #include "ksync/ksync_init.h"
 #include <uve/test/agent_uve_test.h>
+#include <ksync/test/ksync_test.h>
 #include <boost/functional/factory.hpp>
 #include <cmn/agent_factory.h>
 
@@ -36,6 +37,11 @@ void AsioStop() {
     pthread_join(asio_thread, NULL);
 }
 
+static void InitTestFactory() {
+    AgentObjectFactory::Register<AgentUve>(boost::factory<AgentUveTest *>());
+    AgentObjectFactory::Register<KSync>(boost::factory<KSyncTest *>());
+}
+
 TestClient *TestInit(const char *init_file, bool ksync_init, bool pkt_init,
                      bool services_init, bool uve_init,
                      int agent_stats_interval, int flow_stats_interval,
@@ -59,7 +65,7 @@ TestClient *TestInit(const char *init_file, bool ksync_init, bool pkt_init,
                                Agent::GetInstance()->GetEventManager(),
                                sandesh_port, NULL);
 
-    AgentObjectFactory::Register<AgentUve>(boost::factory<AgentUveTest *>());
+    InitTestFactory();
     init->Init(param, agent, var_map);
     init->set_ksync_enable(ksync_init);
     init->set_packet_enable(true);
@@ -124,7 +130,7 @@ TestClient *StatsTestInit() {
                                Agent::GetInstance()->GetEventManager(),
                                sandesh_port, NULL);
 
-    AgentObjectFactory::Register<AgentUve>(boost::factory<AgentUveTest *>());
+    InitTestFactory();
     init->Init(param, agent, var_map);
     init->set_ksync_enable(true);
     init->set_packet_enable(true);
@@ -173,7 +179,7 @@ TestClient *VGwInit(const string &init_file, bool ksync_init) {
                                Agent::GetInstance()->GetEventManager(),
                                0, NULL);
 
-    AgentObjectFactory::Register<AgentUve>(boost::factory<AgentUveTest *>());
+    InitTestFactory();
     init->Init(param, agent, var_map);
     init->set_ksync_enable(ksync_init);
     init->set_packet_enable(true);
@@ -245,7 +251,8 @@ static bool WaitForDbFree(const string &name, int msec) {
 void TestClient::Shutdown() {
     Agent::GetInstance()->init()->Shutdown();
     Agent::GetInstance()->uve()->Shutdown();
-    Agent::GetInstance()->ksync()->NetlinkShutdownTest();
+    KSyncTest *ksync = static_cast<KSyncTest *>(Agent::GetInstance()->ksync());
+    ksync->NetlinkShutdownTest();
     Agent::GetInstance()->ksync()->Shutdown();
     Agent::GetInstance()->pkt()->Shutdown();  
     Agent::GetInstance()->services()->Shutdown();

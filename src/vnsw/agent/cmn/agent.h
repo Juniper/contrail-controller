@@ -504,6 +504,10 @@ public:
         ksync_sync_mode_ = sync_mode;
     }
 
+    bool ksync_sync_mode() const {
+        return ksync_sync_mode_;
+    }
+
     bool isXenMode();
 
     static Agent *GetInstance() {return singleton_;}
