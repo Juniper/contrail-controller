@@ -791,7 +791,10 @@ class VncKombuClient(object):
     def _init_server_conn(self, rabbit_ip, rabbit_user, rabbit_password, rabbit_vhost):
         while True:
             try:
-                self._conn = kombu.Connection('amqp://%s:%s@%s:5672//' % (rabbit_user, rabbit_password, rabbit_ip))
+                self._conn = kombu.Connection(hostname=rabbit_ip,
+                                              userid=rabbit_user,
+                                              password=rabbit_password,
+                                              virtual_host=rabbit_vhost)
                 self._obj_update_q = self._conn.SimpleQueue(self._update_queue_obj)
 
                 old_subscribe_greenlet = self._dbe_oper_subscribe_greenlet
@@ -1008,7 +1011,8 @@ class VncZkClient(object):
 
 class VncDbClient(object):
     def __init__(self, api_svr_mgr, ifmap_srv_ip, ifmap_srv_port, uname,
-                 passwd, cass_srv_list, rabbit_user, rabbit_password, rabbit_vhost, 
+                 passwd, cass_srv_list,
+                 rabbit_server, rabbit_user, rabbit_password, rabbit_vhost, 
                  reset_config=False, ifmap_srv_loc=None,
                  zk_server_ip=None):
 
@@ -1038,9 +1042,11 @@ class VncDbClient(object):
         self._cassandra_db = VncCassandraClient(
             self, cass_srv_list, reset_config)
 
-        self._msgbus = VncKombuClient(self, ifmap_srv_ip, self._ifmap_db, rabbit_user,
-        rabbit_password, rabbit_vhost)
-        self._zk_db = VncZkClient(api_svr_mgr._args.worker_id, zk_server_ip, reset_config)
+        self._msgbus = VncKombuClient(self, rabbit_server, self._ifmap_db,
+                                      rabbit_user, rabbit_password,
+                                      rabbit_vhost)
+        self._zk_db = VncZkClient(api_svr_mgr._args.worker_id, zk_server_ip,
+                                  reset_config)
     # end __init__
 
     def db_resync(self):
