@@ -39,16 +39,6 @@ private:
     int index_;
 };
 
-//
-// Custom SchedulingGroup to prevent creating of bgp::SendReady Task
-// when running tests.  This allows unit tests to exercise code that
-// merges and splits the SchedulingGroup work queues.
-//
-class SchedulingGroupCustom : public SchedulingGroup {
-public:
-    SchedulingGroupCustom() { running_ = true; }
-};
-
 class SchedulingGroupManagerTest : public ::testing::Test {
 protected:
     SchedulingGroupManagerTest() 
@@ -57,9 +47,11 @@ protected:
 
     virtual void SetUp() {
         gbl_index = 0;
+        TaskScheduler::GetInstance()->Stop();
     }
 
     virtual void TearDown() {
+        TaskScheduler::GetInstance()->Start();
     }
 
     void Join(RibOut *ribout, IPeerUpdate *peer) {
@@ -99,6 +91,7 @@ protected:
     }
 
     size_t GetWorkQueueSize(SchedulingGroup *sg) {
+        ConcurrencyScope scope("bgp::PeerMembership");
         return sg->work_queue_.size();
     }
 
@@ -876,8 +869,6 @@ static void TearDown() {
 int main(int argc, char **argv) {
     bgp_log_test::init();
     ControlNode::SetDefaultSchedulingPolicy();
-    BgpObjectFactory::Register<SchedulingGroup>(
-        boost::factory<SchedulingGroupCustom *>());
     ::testing::InitGoogleTest(&argc, argv);
     SetUp();
     int result = RUN_ALL_TESTS();
