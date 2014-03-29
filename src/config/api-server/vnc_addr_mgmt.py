@@ -2,7 +2,6 @@
 # Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
 #
 
-from bitarray import bitarray
 from netaddr import *
 import json
 import cfgm_common.exceptions
