@@ -25,6 +25,9 @@ public:
     as4_t as() const { return as_; }
     void BuildProtoPrefix(BgpProtoPrefix *prefix) const;
     int CompareTo(const RTargetPrefix &rhs) const;
+    bool operator==(const RTargetPrefix &rhs) const {
+        return (CompareTo(rhs) == 0);
+    }
 
 private:
     as4_t as_;

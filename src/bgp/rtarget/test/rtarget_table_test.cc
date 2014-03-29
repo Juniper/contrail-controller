@@ -212,6 +212,12 @@ TEST_F(RTargetTableTest, SinglePartition) {
     }
 }
 
+TEST_F(RTargetTableTest, AllocEntryStr) {
+    string prefix_str("64512:target:64512:1");
+    std::auto_ptr<DBEntry> route = rtable_->AllocEntryStr(prefix_str);
+    EXPECT_EQ(prefix_str, route->ToString());
+}
+
 static void SetUp() {
     bgp_log_test::init();
     ControlNode::SetDefaultSchedulingPolicy();
