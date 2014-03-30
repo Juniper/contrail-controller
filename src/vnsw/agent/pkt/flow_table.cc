@@ -639,12 +639,12 @@ void FlowEntry::GetVrfAssignAcl() {
 
     const VmInterface *intf =
         static_cast<const VmInterface *>(data_.intf_entry.get());
-    if (intf->vrf_assign_acl() == NULL) {
+    if (intf->GetVrfAssignAcl() == NULL) {
         return;
     }
 
     MatchAclParams acl;
-    acl.acl = intf->vrf_assign_acl();
+    acl.acl = intf->GetVrfAssignAcl();
     data_.match_p.m_vrf_assign_acl_l.push_back(acl);
 }
 

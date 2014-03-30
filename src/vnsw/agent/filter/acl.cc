@@ -302,7 +302,7 @@ bool AclTable::IFNodeToReq(IFMapNode *node, DBRequest &req) {
         AclKey *key = new AclKey(u);
         req.key.reset(key);
         req.data.reset(NULL);
-	Agent::GetInstance()->GetAclTable()->Enqueue(&req);
+	    Agent::GetInstance()->GetAclTable()->Enqueue(&req);
         acl_spec.acl_id = u;
         AclObjectTrace(AgentLogEvent::DELETE, acl_spec);
         return false;

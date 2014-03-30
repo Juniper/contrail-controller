@@ -170,20 +170,20 @@ public:
     struct VrfAssignRule : ListEntry {
         VrfAssignRule();
         VrfAssignRule(const VrfAssignRule &rhs);
-        VrfAssignRule(uint32_t id, const std::string &vrf_name,
-                      bool ignore_policy);
+        VrfAssignRule(uint32_t id, 
+                      const autogen::MatchConditionType &match_condition_,
+                      const std::string &vrf_name, bool ignore_acl);
         ~VrfAssignRule();
         bool operator == (const VrfAssignRule &rhs) const;
         bool operator() (const VrfAssignRule &lhs,
                          const VrfAssignRule &rhs) const;
         bool IsLess(const VrfAssignRule *rhs) const;
-        void Insert(const autogen::MatchConditionType &match_condition) const;
 
         const uint32_t id_;
         const std::string vrf_name_;
         const VrfEntryRef vrf_;
         bool ignore_acl_;
-        mutable std::vector<autogen::MatchConditionType> match_condition_;
+        autogen::MatchConditionType match_condition_;
     };
     typedef std::set<VrfAssignRule, VrfAssignRule> VrfAssignRuleSet;
 
@@ -357,6 +357,7 @@ public:
     void AddL2Route();
     void UpdateL2();
     const AclDBEntry* vrf_assign_acl() const { return vrf_assign_acl_.get();}
+    const AclDBEntry* GetVrfAssignAcl() const;
 private:
     bool IsActive();
     bool IsL3Active();

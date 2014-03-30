@@ -615,7 +615,7 @@ void PktFlowInfo::VrfTranslate(const PktInfo *pkt, PktControlInfo *in,
     }
 
     const VmInterface *vm_intf = static_cast<const VmInterface *>(intf);
-    if (vm_intf->vrf_assign_acl() == NULL) {
+    if (vm_intf->GetVrfAssignAcl() == NULL) {
         return;
     }
 
@@ -644,7 +644,7 @@ void PktFlowInfo::VrfTranslate(const PktInfo *pkt, PktControlInfo *in,
     }
 
     MatchAclParams match_acl_param;
-    if (!vm_intf->vrf_assign_acl()->PacketMatch(hdr, match_acl_param)) {
+    if (!vm_intf->GetVrfAssignAcl()->PacketMatch(hdr, match_acl_param)) {
         return;
     }
 
