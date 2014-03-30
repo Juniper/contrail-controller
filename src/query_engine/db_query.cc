@@ -52,15 +52,33 @@ query_status_t DbQueryUnit::process_query()
     }
 
     if (!m_query->dbif->Db_GetMultiRow(mget_res, cfname, keys, &cr)) {
-         QE_TRACE(DEBUG, "GetMultiRow failed:keys count:"<< keys.size() <<" :cr_s(size):"<<cr.start_.size()<<" :cr_f(size):"<<cr.finish_.size()<<" :cr_s(0):"<<cr.start_.at(0) <<" :cr_f(0):"<<cr.finish_.at(0)<<" :cr_f(1):"<<cr.finish_.at(1));
-        for (size_t i = 0; i < keys.size(); i++)
-            QE_TRACE(DEBUG, "GetMultiRow failed:keys:"<<i<<":"<<keys[i].at(0) << ":keys[1]:" << (keys[i].at(1)));
+        std::stringstream tempstr;
+        for (size_t i = 0; i < cr.start_.size(); i++)
+            tempstr << "cr_s(" << i << "): " << cr.start_.at(i) << ", ";
+        for (size_t i = 0; i < cr.finish_.size(); i++)
+            tempstr << "cr_f(" << i << "): " << cr.finish_.at(i) << ", ";
+        QE_TRACE(DEBUG, "GetMultiRow failed:keys count:"<< keys.size() <<" :cr_s(size):"<<cr.start_.size()<<" :cr_f(size):"<<cr.finish_.size() << tempstr.str());
+
+        for (size_t i = 0; i < keys.size(); i++) {
+            std::stringstream tempstr1;
+            for (size_t j = 0; j < keys[i].size(); j++)
+                tempstr1 << "keys[" << i << "][" << j << "]=" << keys[i].at(j) << ", ";
+            QE_TRACE(DEBUG, "GetMultiRow failed:keys:"<<i<<":"<<tempstr1.str());
+        }
    
         QE_IO_ERROR_RETURN(0, QUERY_FAILURE);
+
     } else {
         for (std::vector<GenDb::ColList>::iterator it = mget_res.begin();
                 it != mget_res.end(); it++) {
-            uint32_t t2 = boost::get<uint32_t>(it->rowkey_.at(0));
+            uint32_t t2;
+            assert(it->rowkey_.size()!=0);
+            try {
+                t2 = boost::get<uint32_t>(it->rowkey_.at(0));
+            } catch (boost::bad_get& ex) {
+                assert(0);
+            }
+
             GenDb::NewColVec::iterator i;
 
             QE_TRACE(DEBUG, "For T2:" << t2 <<
