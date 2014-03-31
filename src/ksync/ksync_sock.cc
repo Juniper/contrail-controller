@@ -105,11 +105,11 @@ void KSyncSockNetlink::Decoder(char *data, SandeshContext *ctxt) {
                     decode_buf_len -= decode_len;
                 }
             } else {
-                LOG(ERROR, "Unkown generic netlink TLV type : " << attr->nla_type);
+                LOG(ERROR, "Unknown generic netlink TLV type : " << attr->nla_type);
                 assert(0);
             }
         } else {
-            LOG(ERROR, "Unkown generic netlink cmd : " << genlh->cmd);
+            LOG(ERROR, "Unknown generic netlink cmd : " << genlh->cmd);
             assert(0);
         }
     } else if (nlh->nlmsg_type != NLMSG_DONE) {

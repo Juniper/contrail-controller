@@ -92,7 +92,7 @@ int main(int argc, char *argv[]) {
         ("xen-ll-prefix-len", opt::value<int>(),
          "Prefix for link local IP Address")
         ("vmware-physical-port", opt::value<string>(),
-         "Physical port used to connect to VMs in VMWare environement")
+         "Physical port used to connect to VMs in VMWare environment")
         ("version", "Display version information")
         ;
     opt::variables_map var_map;
