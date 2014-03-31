@@ -743,6 +743,18 @@ BgpPeeringConfig *BgpConfigData::FindPeering(const string &name) {
 }
 
 //
+// Find the BgpPeeringConfig by name.
+// Const version.
+//
+const BgpPeeringConfig *BgpConfigData::FindPeering(const string &name) const {
+    BgpPeeringMap::const_iterator loc = peerings_.find(name);
+    if (loc != peerings_.end()) {
+        return loc->second;
+    }
+    return NULL;
+}
+
+//
 // Constructor for BgpConfigManager.
 //
 BgpConfigManager::BgpConfigManager(BgpServer *server)

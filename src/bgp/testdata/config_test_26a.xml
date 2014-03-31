@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<config>
+    <virtual-network name="blue-vn">
+        <network-id>101</network-id>
+    </virtual-network>
+    <virtual-network name="red-vn">
+        <network-id>102</network-id>
+    </virtual-network>
+    <virtual-network name="green-vn">
+        <network-id>103</network-id>
+    </virtual-network>
+    <routing-instance name="blue">
+        <virtual-network>blue-vn</virtual-network>
+        <vrf-target>target:1:101</vrf-target>
+    </routing-instance>
+    <routing-instance name="red">
+        <virtual-network>red-vn</virtual-network>
+        <vrf-target>target:1:102</vrf-target>
+    </routing-instance>
+    <routing-instance name="green">
+        <virtual-network>green-vn</virtual-network>
+        <vrf-target>target:1:103</vrf-target>
+    </routing-instance>
+</config>

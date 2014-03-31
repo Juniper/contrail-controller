@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="utf-8"?>
+<config>
+    <routing-instance name='default-domain:default-project:ip-fabric:__default__'>
+      <bgp-router name='local'>
+          <address>127.0.0.1</address>
+          <autonomous-system>101</autonomous-system>
+      </bgp-router>
+      <bgp-router name='remote1'>
+          <vendor>vendor1</vendor>
+          <autonomous-system>101</autonomous-system>
+          <identifier>192.168.1.1</identifier>
+          <address>10.1.1.1</address>
+      </bgp-router>
+      <bgp-router name='remote2'>
+          <vendor>vendor2</vendor>
+          <autonomous-system>102</autonomous-system>
+          <identifier>192.168.1.2</identifier>
+          <address>10.1.1.2</address>
+      </bgp-router>
+      <bgp-router name='remote3'>
+          <vendor>vendor3</vendor>
+          <autonomous-system>103</autonomous-system>
+          <identifier>192.168.1.3</identifier>
+          <address>10.1.1.3</address>
+      </bgp-router>
+    </routing-instance>
+    <routing-instance name="blue">
+        <vrf-target>target:1:101</vrf-target>
+    </routing-instance>
+    <routing-instance name="red">
+        <vrf-target>target:1:102</vrf-target>
+    </routing-instance>
+    <routing-instance name="green">
+        <vrf-target>target:1:102</vrf-target>
+    </routing-instance>
+</config>

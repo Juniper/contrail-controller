@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="utf-8"?>
+<config>
+    <virtual-network name="blue-vn">
+        <network-id>101</network-id>
+    </virtual-network>
+    <routing-instance name="blue-to-nat">
+        <virtual-network>blue-vn</virtual-network>
+        <vrf-target>target:1:101</vrf-target>
+        <static-route-entries>
+            <route>
+                <prefix>192.168.1.0/24</prefix>
+                <next-hop>192.168.1.254</next-hop>
+                <route-target>target:64496:1</route-target>
+            </route>
+            <route>
+                <prefix>192.168.2.0/24</prefix>
+                <next-hop>192.168.1.254</next-hop>
+                <route-target>target:64496:1</route-target>
+            </route>
+            <route>
+                <prefix>192.168.3.0/24</prefix>
+                <next-hop>192.168.1.254</next-hop>
+                <route-target>target:64496:1</route-target>
+            </route>
+        </static-route-entries>
+    </routing-instance>
+</config>
