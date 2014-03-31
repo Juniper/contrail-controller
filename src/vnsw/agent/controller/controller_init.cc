@@ -260,7 +260,7 @@ void VNController::ApplyDiscoveryXmppServices(std::vector<DSResponse> resp) {
             if (chnl->GetXmppChannel() &&
                 chnl->GetXmppChannel()->GetPeerState() == xmps::READY) {
                 CONTROLLER_TRACE(DiscoveryConnection, "XMPP Server",
-                                 chnl->GetXmppServer(), "is UP and runnning, ignore");
+                                 chnl->GetXmppServer(), "is UP and running, ignore");
                 continue;
             } else { 
                 CONTROLLER_TRACE(DiscoveryConnection, "XMPP Server",
@@ -349,7 +349,7 @@ void VNController::ApplyDiscoveryDnsXmppServices(std::vector<DSResponse> resp) {
             if (chnl->GetXmppChannel() &&
                 chnl->GetXmppChannel()->GetPeerState() == xmps::READY) {
                 CONTROLLER_TRACE(DiscoveryConnection, "DNS Server",
-                                 chnl->GetXmppServer(), "is UP and runnning, ignore");
+                                 chnl->GetXmppServer(), "is UP and running, ignore");
                 continue;
             } else { 
                 CONTROLLER_TRACE(DiscoveryConnection, "DNS Server",
