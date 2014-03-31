@@ -85,8 +85,11 @@ protected:
                           "passwd", "")),
             success_ec_(0, boost::system::system_category()),
             failure_ec_(boost::system::errc::connection_refused,
-                        boost::system::system_category()) {
+                        boost::system::system_category()),
+            connect_failure_count_(0) {
         ifmap_manager_.SetChannel(mock_channel_);
+        ifmap_manager_.state_machine()->set_connect_wait_interval_ms(5);
+        ifmap_manager_.state_machine()->set_response_wait_interval_ms(30);
     }
 
     void Start(const std::string &host, const std::string &port) {
@@ -102,10 +105,10 @@ protected:
         *trigger = true;
     }
 
-    void EventWait(int timeout) {
+    void EventWaitMs(int ms_timeout) {
         bool is_expired = false;
         boost::asio::monotonic_deadline_timer timer(*(evm_.io_service()));
-        timer.expires_from_now(boost::posix_time::seconds(timeout));
+        timer.expires_from_now(boost::posix_time::milliseconds(ms_timeout));
         timer.async_wait(boost::bind(&IFMapStateMachineTest::on_timeout,
                          boost::asio::placeholders::error, &is_expired));
         while (!is_expired) {
@@ -145,16 +148,17 @@ private:
     IFMapChannelMock *mock_channel_;
     boost::system::error_code success_ec_; // use to return success
     boost::system::error_code failure_ec_; // use to return failure
+    int connect_failure_count_;
 };
 
 void IFMapStateMachineTest::ConnectFailuresCallback() {
     // n failures + 1 success
-    static int count = 0;
     state_machine()->ProcConnectResponse(
-        (count++ == 7) ? success_ec() : failure_ec());
+        (connect_failure_count_++ == 7) ? success_ec() : failure_ec());
     // Counter is incremented only on failure i.e. not incremented the first
     // time DoConnect() is called.
-    EXPECT_EQ(state_machine()->ssrc_connect_attempts_get(), (count - 1));
+    EXPECT_EQ(state_machine()->ssrc_connect_attempts_get(),
+              (connect_failure_count_ - 1));
 }
 
 // Every operation succeeds
@@ -230,7 +234,7 @@ TEST_F(IFMapStateMachineTest, ErrorlessRun) {
 
     Start("10.1.2.3", "8443");
     // Wait for the sequence of events to occur
-    EventWait(2);
+    EventWaitMs(100);
 }
 
 TEST_F(IFMapStateMachineTest, ReadPollRespError) {
@@ -311,11 +315,14 @@ TEST_F(IFMapStateMachineTest, ReadPollRespError) {
 
     Start("10.1.2.3", "8443");
     // Wait for the sequence of events to occur
-    EventWait(2);
+    EventWaitMs(100);
 }
 
 // seven consecutive connect failures to test exp-backoff
-TEST_F(IFMapStateMachineTest, SevenSsrcConnectFailures) {
+TEST_F(IFMapStateMachineTest, SevenSsrcConnectErrors) {
+
+    // Set the response time to a very high value so that we dont run into it.
+    state_machine()->set_response_wait_interval_ms(1000);
 
     // 1 regular, 7 connect failures
     EXPECT_CALL(*mock_channel(), DoResolve())
@@ -343,8 +350,8 @@ TEST_F(IFMapStateMachineTest, SevenSsrcConnectFailures) {
         .WillOnce(Return());
 
     Start("10.1.2.3", "8443");
-    // 7 timeouts, 1s, 2s, 4s, 8s, 16s, 30s, 30s
-    EventWait(95);
+    // 7 timeouts, plus some buffer
+    EventWaitMs(100);
 }
 
 // Each message read fails only once due to message-content not being ok
@@ -433,7 +440,9 @@ TEST_F(IFMapStateMachineTest, MessageContentError) {
         .WillOnce(Return(kOpSuccess));
 
     Start("10.1.2.3", "8443");
-    EventWait(12);
+    // Last event is send-poll-request. So, wait enough for all events to
+    // complete.
+    EventWaitMs(100);
 }
 
 // Each socket read operation fails only once
@@ -528,7 +537,9 @@ TEST_F(IFMapStateMachineTest, SocketReadError) {
         .WillOnce(Return(kOpSuccess));
 
     Start("10.1.2.3", "8443");
-    EventWait(12);
+    // Last event is send-poll-request. So, wait enough for all events to
+    // complete.
+    EventWaitMs(100);
 }
 
 // Each socket write operation fails only once
@@ -620,7 +631,9 @@ TEST_F(IFMapStateMachineTest, SocketWriteError) {
         .WillOnce(Return(kOpSuccess));
 
     Start("10.1.2.3", "8443");
-    EventWait(12);
+    // Last event is send-poll-request. So, wait enough for all events to
+    // complete.
+    EventWaitMs(100);
 }
 
 TEST_F(IFMapStateMachineTest, ResponseTimerExpiryTest) {
@@ -636,8 +649,8 @@ TEST_F(IFMapStateMachineTest, ResponseTimerExpiryTest) {
         .WillRepeatedly(Return());
 
     Start("10.1.2.3", "8443");
-    // 3 response-timer expiries (15s), 1, 2, and 4s connect-timer expiries
-    EventWait(24);
+    // 3 response-timer expiries, plus some buffer
+    EventWaitMs(120);
     EXPECT_EQ(state_machine()->response_timer_expired_count_get(), 3);
 }
 
@@ -824,8 +837,8 @@ TEST_P(IFMapStateMachineErrnoTest, Errors) {
         .WillRepeatedly(Return(kOpSuccess));
 
     Start("10.1.2.3", "8443");
-    // 12 seconds worth of timeouts - 1 second each
-    EventWait(15);
+    // 12 timeouts worth of wait, plus some buffer
+    EventWaitMs(200);
 }
 
 // --gtest_filter=Errno/IFMapStateMachineErrnoTest.Errors/*
@@ -839,7 +852,7 @@ class IFMapStateMachineConnResetTest1 :
 
 public:
     IFMapStateMachineConnResetTest1() : IFMapStateMachineTest(),
-                reset_connection(true) {
+                reset_connection_(true) {
     }
     void ConnectionResetCallback(Op current_op, Op test_op);
     int GetTimes(int my_state, int test_state) {
@@ -874,7 +887,7 @@ private:
     }
     std::string old_host_;
     std::string old_port_;
-    bool reset_connection;
+    bool reset_connection_;
 };
 
 void IFMapStateMachineConnResetTest1::ConnectionResetCallback(Op current_op,
@@ -882,88 +895,88 @@ void IFMapStateMachineConnResetTest1::ConnectionResetCallback(Op current_op,
 
     switch(current_op) {
     case RESOLVE:
-        if (reset_connection && (current_op == test_op)) {
-            reset_connection = false;
+        if (reset_connection_ && (current_op == test_op)) {
+            reset_connection_ = false;
             ResetConnection(current_op);
         } else {
             state_machine()->ProcResolveResponse(success_ec());
         }
         break;
     case SSRC_CONNECT:
-        if (reset_connection && (current_op == test_op)) {
-            reset_connection = false;
+        if (reset_connection_ && (current_op == test_op)) {
+            reset_connection_ = false;
             ResetConnection(current_op);
         } else {
             state_machine()->ProcConnectResponse(success_ec());
         }
         break;
     case SSRC_HANDSHAKE:
-        if (reset_connection && (current_op == test_op)) {
-            reset_connection = false;
+        if (reset_connection_ && (current_op == test_op)) {
+            reset_connection_ = false;
             ResetConnection(current_op);
         } else {
             state_machine()->ProcHandshakeResponse(success_ec());
         }
         break;
     case SEND_NEWSESSION:
-        if (reset_connection && (current_op == test_op)) {
-            reset_connection = false;
+        if (reset_connection_ && (current_op == test_op)) {
+            reset_connection_ = false;
             ResetConnection(current_op);
         } else {
             state_machine()->ProcNewSessionWrite(success_ec(), kReturnBytes);
         }
         break;
     case NEWSESSION_RESP_WAIT:
-        if (reset_connection && (current_op == test_op)) {
-            reset_connection = false;
+        if (reset_connection_ && (current_op == test_op)) {
+            reset_connection_ = false;
             ResetConnection(current_op);
         } else {
             state_machine()->ProcNewSessionResponse(success_ec(), kReturnBytes);
         }
         break;
     case SEND_SUBSCRIBE:
-        if (reset_connection && (current_op == test_op)) {
-            reset_connection = false;
+        if (reset_connection_ && (current_op == test_op)) {
+            reset_connection_ = false;
             ResetConnection(current_op);
         } else {
             state_machine()->ProcSubscribeWrite(success_ec(), kReturnBytes);
         }
         break;
     case SUBSCRIBE_RESP_WAIT:
-        if (reset_connection && (current_op == test_op)) {
-            reset_connection = false;
+        if (reset_connection_ && (current_op == test_op)) {
+            reset_connection_ = false;
             ResetConnection(current_op);
         } else {
             state_machine()->ProcSubscribeResponse(success_ec(), kReturnBytes);
         }
         break;
     case ARC_CONNECT:
-        if (reset_connection && (current_op == test_op)) {
-            reset_connection = false;
+        if (reset_connection_ && (current_op == test_op)) {
+            reset_connection_ = false;
             ResetConnection(current_op);
         } else {
             state_machine()->ProcConnectResponse(success_ec());
         }
         break;
     case ARC_HANDSHAKE:
-        if (reset_connection && (current_op == test_op)) {
-            reset_connection = false;
+        if (reset_connection_ && (current_op == test_op)) {
+            reset_connection_ = false;
             ResetConnection(current_op);
         } else {
             state_machine()->ProcHandshakeResponse(success_ec());
         }
         break;
     case SEND_POLL:
-        if (reset_connection && (current_op == test_op)) {
-            reset_connection = false;
+        if (reset_connection_ && (current_op == test_op)) {
+            reset_connection_ = false;
             ResetConnection(current_op);
         } else {
             state_machine()->ProcPollWrite(success_ec(), kReturnBytes);
         }
         break;
     case POLL_RESP_WAIT:
-        if (reset_connection && (current_op == test_op)) {
-            reset_connection = false;
+        if (reset_connection_ && (current_op == test_op)) {
+            reset_connection_ = false;
             ResetConnection(current_op);
         }
         break;
@@ -1050,7 +1063,7 @@ TEST_P(IFMapStateMachineConnResetTest1, AllStates) {
                 this, IFMapStateMachineTest::POLL_RESP_WAIT, test_op)));
 
     Start("10.1.2.3", "8443");
-    EventWait(4);
+    EventWaitMs(200);
     EXPECT_EQ(HostPortSame(), false);
 }
 
@@ -1200,7 +1213,7 @@ TEST_P(IFMapStateMachineConnResetTest2, HandleReconnect) {
         .WillRepeatedly(Return(kOpSuccess));
 
     Start("10.1.2.3", "8443");
-    EventWait(4);
+    EventWaitMs(50);
 }
 
 // --gtest_filter=ConnReset2/IFMapStateMachineConnResetTest2.HandleReconnect/*
