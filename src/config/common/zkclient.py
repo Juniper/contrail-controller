@@ -10,6 +10,7 @@ import kazoo.recipe.election
 from bitarray import bitarray
 from cfgm_common.exceptions import ResourceExhaustionError, ResourceExistsError
 
+import uuid
 
 
 class IndexAllocator(object):
@@ -52,7 +53,7 @@ class IndexAllocator(object):
             self._in_use[idx] = 1
     # end _set_in_use
 
-    def alloc(self, value):
+    def alloc(self, value=None):
         if self._in_use.all():
             idx = self._in_use.length()
             if idx > self._size:
@@ -72,7 +73,7 @@ class IndexAllocator(object):
             return self.alloc(value)
     # end alloc
 
-    def reserve(self, idx, value=''):
+    def reserve(self, idx, value=None):
         if idx > (self._start_idx + self._size):
             return None
         try:
@@ -189,15 +190,20 @@ class ZookeeperClient(object):
             self._election.run(self._zk_election_callback, func, *args, **kwargs)
     # end master_election
 
-    def create_node(self, path, value):
+    def create_node(self, path, value=None):
         try:
+            if value is None:
+                value = uuid.uuid4()
             self._zk_client.create(path, str(value), makepath=True)
         except (kazoo.exceptions.SessionExpiredError,
                 kazoo.exceptions.ConnectionLoss):
             self.reconnect()
             return self.create_node(path, value)
         except kazoo.exceptions.NodeExistsError:
-            raise ResourceExistsError(path, str(value))
+            current_value = self.read_node(path)
+            if current_value == value:
+                return True;
+            raise ResourceExistsError(path, str(current_value))
     # end create_node
 
     def delete_node(self, path, recursive=False):

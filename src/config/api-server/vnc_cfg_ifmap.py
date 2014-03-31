@@ -987,9 +987,9 @@ class VncZkClient(object):
                 if allocator.read(addr) is not None:
                     return addr
                 else:
-                    return allocator.reserve(addr, '')
+                    return allocator.reserve(addr)
             else:
-                return allocator.alloc('')
+                return allocator.alloc()
         except ResourceExhaustionError:
             return None
     # end subnet_alloc_req
