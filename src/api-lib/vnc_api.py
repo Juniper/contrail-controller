@@ -57,6 +57,7 @@ class VncApi(VncApiClientGen):
     _AUTHN_SUPPORTED_TYPES = ["keystone"]
     _DEFAULT_AUTHN_TYPE = "keystone"
     _DEFAULT_AUTHN_HEADERS = _DEFAULT_HEADERS
+    _DEFAULT_AUTHN_PROTOCOL = "http"
     _DEFAULT_AUTHN_SERVER = _DEFAULT_WEB_SERVER
     _DEFAULT_AUTHN_PORT = 35357
     _DEFAULT_AUTHN_URL = "/v2.0/tokens"
@@ -84,6 +85,8 @@ class VncApi(VncApiClientGen):
         self._authn_type = _read_cfg(cfg_parser, 'auth', 'AUTHN_TYPE',
                                      self._DEFAULT_AUTHN_TYPE)
         if self._authn_type == 'keystone':
+            self._authn_protocol = _read_cfg(cfg_parser, 'auth', 'AUTHN_PROTOCOL',
+                                           self._DEFAULT_AUTHN_PROTOCOL)
             self._authn_server = _read_cfg(cfg_parser, 'auth', 'AUTHN_SERVER',
                                            self._DEFAULT_AUTHN_SERVER)
             self._authn_port = _read_cfg(cfg_parser, 'auth', 'AUTHN_PORT',
@@ -188,10 +191,14 @@ class VncApi(VncApiClientGen):
     def _authenticate(self, response=None, headers=None):
         if self._authn_type is None:
             return headers
-        url = "http://%s:%s%s" % (self._authn_server, self._authn_port,
+        url = "%s://%s:%s%s" % (self._authn_protocol, self._authn_server, self._authn_port,
                                   self._authn_url)
-        response = requests.post(url, data=self._authn_body,
+        try:
+            response = requests.post(url, data=self._authn_body,
                                  headers=self._DEFAULT_AUTHN_HEADERS)
+        except Exception as e:
+            raise RuntimeError('Unable to connect to keystone for authentication. Verify keystone server details')
+
         if response.status_code == 200:
             # plan is to re-issue original request with new token
             new_headers = headers or {}
@@ -324,9 +331,8 @@ class VncApi(VncApiClientGen):
                 return content
      
             # Exception Response, see if it can be resolved
-            if ((status == 401) and (not self._retry_after_authn)):
+            if ((status == 401) and (not self._auth_token) and (not self._retry_after_authn)):
                 self._headers = self._authenticate(content, self._headers)
-     
                 # Recursive call after authentication (max 1 level)
                 self._retry_after_authn = True
                 content = self._request_server(op, url, data=data)
