@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="utf-8"?>
+<config>
+    <virtual-network name="blue-vn">
+        <network-id>101</network-id>
+    </virtual-network>
+    <virtual-network name="red-vn">
+        <network-id>102</network-id>
+    </virtual-network>
+    <routing-instance name="blue-to-red">
+        <virtual-network>blue-vn</virtual-network>
+        <vrf-target>target:1:101</vrf-target>
+        <service-chain-info>
+            <routing-instance>red</routing-instance>
+            <source-routing-instance>blue</source-routing-instance>
+            <prefix>192.168.1.0/24</prefix>
+            <service-chain-address>10.1.1.1</service-chain-address>
+        </service-chain-info>
+    </routing-instance>
+    <routing-instance name="red-to-blue">
+        <virtual-network>red-vn</virtual-network>
+        <vrf-target>target:1:102</vrf-target>
+        <service-chain-info>
+            <routing-instance>blue</routing-instance>
+            <source-routing-instance>red</source-routing-instance>
+            <prefix>192.168.2.0/24</prefix>
+            <service-chain-address>10.1.1.2</service-chain-address>
+        </service-chain-info>
+    </routing-instance>
+</config>

@@ -6,6 +6,7 @@
 
 #include <fstream>
 #include <boost/algorithm/string/replace.hpp>
+#include <boost/foreach.hpp>
 
 #include "base/logging.h"
 #include "base/test/task_test_util.h"
@@ -13,6 +14,8 @@
 #include "bgp/bgp_config_parser.h"
 #include "bgp/bgp_factory.h"
 #include "bgp/bgp_log.h"
+#include "bgp/bgp_peer_types.h"
+#include "bgp/bgp_sandesh.h"
 #include "bgp/bgp_server.h"
 #include "control-node/control_node.h"
 #include "db/db.h"
@@ -53,6 +56,15 @@ private:
 
 class BgpConfigManagerTest : public ::testing::Test {
 protected:
+    static bool validate_done_;
+
+    static void ValidateShowInstanceResponse(Sandesh *sandesh,
+        const vector<ShowBgpInstanceConfig> &instance_list);
+    static void ValidateShowNeighborResponse(Sandesh *sandesh,
+        const vector<ShowBgpNeighborConfig> &neighbor_list);
+    static void ValidateShowPeeringResponse(Sandesh *sandesh,
+        const vector<ShowBgpPeeringConfig> &peering_list);
+
     BgpConfigManagerTest()
         : server_(&evm_), parser_(&db_) {
         config_manager_ =
@@ -91,6 +103,14 @@ protected:
         return config_manager_->config().FindInstance(instance_name);
     }
 
+    size_t GetPeeringCount() {
+        return config_manager_->config().peerings().size();
+    }
+
+    const BgpPeeringConfig *FindPeeringConfig(const string peering_name) {
+        return config_manager_->config().FindPeering(peering_name);
+    }
+
     EventManager evm_;
     BgpServer server_;
     DB db_;
@@ -98,6 +118,127 @@ protected:
     BgpConfigManagerMock *config_manager_;
     BgpConfigParser parser_;
 };
+
+bool BgpConfigManagerTest::validate_done_;
+
+void BgpConfigManagerTest::ValidateShowInstanceResponse(Sandesh *sandesh,
+    const vector<ShowBgpInstanceConfig> &instance_list) {
+    ShowBgpInstanceConfigResp *resp =
+        dynamic_cast<ShowBgpInstanceConfigResp *>(sandesh);
+    EXPECT_TRUE(resp != NULL);
+    EXPECT_EQ(instance_list.size(), resp->get_instances().size() - 1);
+
+    LOG(DEBUG, "************************************************************");
+    BOOST_FOREACH(const ShowBgpInstanceConfig &resp_instance,
+        resp->get_instances()) {
+        if (resp_instance.get_name() == BgpConfigManager::kMasterInstance)
+            continue;
+        LOG(DEBUG, resp_instance.get_name());
+        LOG(DEBUG, "  VN Name:  " << resp_instance.get_virtual_network());
+        LOG(DEBUG, "  VN Index: " << resp_instance.get_virtual_network_index());
+    }
+    LOG(DEBUG, "************************************************************");
+
+    BOOST_FOREACH(const ShowBgpInstanceConfig &instance, instance_list) {
+        bool found = false;
+        BOOST_FOREACH(const ShowBgpInstanceConfig &resp_instance,
+            resp->get_instances()) {
+            if (instance.get_name() == resp_instance.get_name()) {
+                found = true;
+                EXPECT_EQ(instance.get_virtual_network(),
+                    resp_instance.get_virtual_network());
+                EXPECT_EQ(instance.get_virtual_network_index(),
+                    resp_instance.get_virtual_network_index());
+                continue;
+            }
+        }
+        EXPECT_TRUE(found);
+        LOG(DEBUG, "Verified " << instance.get_name());
+    }
+
+    validate_done_ = true;
+}
+
+void BgpConfigManagerTest::ValidateShowNeighborResponse(Sandesh *sandesh,
+    const vector<ShowBgpNeighborConfig> &neighbor_list) {
+    ShowBgpNeighborConfigResp *resp =
+        dynamic_cast<ShowBgpNeighborConfigResp *>(sandesh);
+    EXPECT_TRUE(resp != NULL);
+    EXPECT_EQ(neighbor_list.size(), resp->get_neighbors().size());
+
+    LOG(DEBUG, "************************************************************");
+    BOOST_FOREACH(const ShowBgpNeighborConfig &resp_neighbor,
+        resp->get_neighbors()) {
+        LOG(DEBUG, resp_neighbor.get_name());
+        LOG(DEBUG, "  Instance:   " << resp_neighbor.get_instance_name());
+        LOG(DEBUG, "  Vendor:     " << resp_neighbor.get_vendor());
+        LOG(DEBUG, "  AS:         " << resp_neighbor.get_autonomous_system());
+        LOG(DEBUG, "  Identifier: " << resp_neighbor.get_identifier());
+        LOG(DEBUG, "  Address:    " << resp_neighbor.get_address());
+    }
+    LOG(DEBUG, "************************************************************");
+
+    BOOST_FOREACH(const ShowBgpNeighborConfig &neighbor, neighbor_list) {
+        bool found = false;
+        BOOST_FOREACH(const ShowBgpNeighborConfig &resp_neighbor,
+            resp->get_neighbors()) {
+            if (neighbor.get_name() == resp_neighbor.get_name()) {
+                found = true;
+                EXPECT_EQ(neighbor.get_instance_name(),
+                    resp_neighbor.get_instance_name());
+                EXPECT_EQ(neighbor.get_vendor(),
+                    resp_neighbor.get_vendor());
+                EXPECT_EQ(neighbor.get_autonomous_system(),
+                    resp_neighbor.get_autonomous_system());
+                EXPECT_EQ(neighbor.get_identifier(),
+                    resp_neighbor.get_identifier());
+                EXPECT_EQ(neighbor.get_address(),
+                    resp_neighbor.get_address());
+                continue;
+            }
+        }
+        EXPECT_TRUE(found);
+        LOG(DEBUG, "Verified " << neighbor.get_name());
+    }
+
+    validate_done_ = true;
+}
+
+void BgpConfigManagerTest::ValidateShowPeeringResponse(Sandesh *sandesh,
+    const vector<ShowBgpPeeringConfig> &peering_list) {
+    ShowBgpPeeringConfigResp *resp =
+        dynamic_cast<ShowBgpPeeringConfigResp *>(sandesh);
+    EXPECT_TRUE(resp != NULL);
+    EXPECT_EQ(peering_list.size(), resp->get_peerings().size());
+
+    LOG(DEBUG, "************************************************************");
+    BOOST_FOREACH(const ShowBgpPeeringConfig &resp_peering,
+        resp->get_peerings()) {
+        LOG(DEBUG, resp_peering.get_name());
+        LOG(DEBUG, "  Instance:       " << resp_peering.get_instance_name());
+        LOG(DEBUG, "  Neighbor Count: " << resp_peering.get_neighbor_count());
+    }
+    LOG(DEBUG, "************************************************************");
+
+    BOOST_FOREACH(const ShowBgpPeeringConfig &peering, peering_list) {
+        bool found = false;
+        BOOST_FOREACH(const ShowBgpPeeringConfig &resp_peering,
+            resp->get_peerings()) {
+            if (peering.get_name() == resp_peering.get_name()) {
+                found = true;
+                EXPECT_EQ(peering.get_instance_name(),
+                    resp_peering.get_instance_name());
+                EXPECT_EQ(peering.get_neighbor_count(),
+                    resp_peering.get_neighbor_count());
+                continue;
+            }
+        }
+        EXPECT_TRUE(found);
+        LOG(DEBUG, "Verified " << peering.get_name());
+    }
+
+    validate_done_ = true;
+}
 
 TEST_F(BgpConfigManagerTest, BgpRouterIdentifierChange) {
     string content_a = FileRead("controller/src/bgp/testdata/config_test_25a.xml");
@@ -649,6 +790,217 @@ TEST_F(BgpConfigManagerTest, InstanceNeighbors) {
     EXPECT_TRUE(parser_.Parse(config_delete));
     task_util::WaitForIdle();
     TASK_UTIL_ASSERT_EQ(1, neighbors.size());
+
+    boost::replace_all(content, "<config>", "<delete>");
+    boost::replace_all(content, "</config>", "</delete>");
+    EXPECT_TRUE(parser_.Parse(content));
+    task_util::WaitForIdle();
+    TASK_UTIL_EXPECT_EQ(1, config_manager_->config().instances().size());
+    TASK_UTIL_EXPECT_EQ(0, db_graph_.vertex_count());
+}
+
+TEST_F(BgpConfigManagerTest, ShowInstances1) {
+    string content = FileRead("controller/src/bgp/testdata/config_test_26a.xml");
+    EXPECT_TRUE(parser_.Parse(content));
+    task_util::WaitForIdle();
+    TASK_UTIL_EXPECT_EQ(4, GetInstanceCount());
+
+    BgpSandeshContext sandesh_context;
+    sandesh_context.bgp_server = &server_;
+    Sandesh::set_client_context(&sandesh_context);
+
+    const char *instance_name_list[] = { "blue", "green", "red" };
+    vector<ShowBgpInstanceConfig> instance_list;
+    BOOST_FOREACH(const char *instance_name, instance_name_list) {
+        const BgpInstanceConfig *config = FindInstanceConfig(instance_name);
+        TASK_UTIL_EXPECT_TRUE(config != NULL);
+        ShowBgpInstanceConfig instance;
+        instance.set_name(config->name());
+        instance.set_virtual_network(config->virtual_network());
+        instance.set_virtual_network_index(config->virtual_network_index());
+        instance_list.push_back(instance);
+    }
+    Sandesh::set_response_callback(
+        boost::bind(ValidateShowInstanceResponse, _1, instance_list));
+
+    ShowBgpInstanceConfigReq *show_req = new ShowBgpInstanceConfigReq;
+    validate_done_ = false;
+    show_req->HandleRequest();
+    show_req->Release();
+    task_util::WaitForIdle();
+    TASK_UTIL_EXPECT_TRUE(validate_done_);
+
+    boost::replace_all(content, "<config>", "<delete>");
+    boost::replace_all(content, "</config>", "</delete>");
+    EXPECT_TRUE(parser_.Parse(content));
+    task_util::WaitForIdle();
+    TASK_UTIL_EXPECT_EQ(1, config_manager_->config().instances().size());
+    TASK_UTIL_EXPECT_EQ(0, db_graph_.vertex_count());
+}
+
+TEST_F(BgpConfigManagerTest, ShowInstances2) {
+    string content = FileRead("controller/src/bgp/testdata/config_test_26b.xml");
+    EXPECT_TRUE(parser_.Parse(content));
+    task_util::WaitForIdle();
+    TASK_UTIL_EXPECT_EQ(3, GetInstanceCount());
+
+    BgpSandeshContext sandesh_context;
+    sandesh_context.bgp_server = &server_;
+    Sandesh::set_client_context(&sandesh_context);
+
+    const char *instance_name_list[] = { "blue-to-red", "red-to-blue" };
+    vector<ShowBgpInstanceConfig> instance_list;
+    BOOST_FOREACH(const char *instance_name, instance_name_list) {
+        const BgpInstanceConfig *config = FindInstanceConfig(instance_name);
+        TASK_UTIL_EXPECT_TRUE(config != NULL);
+        ShowBgpInstanceConfig instance;
+        instance.set_name(config->name());
+        instance.set_virtual_network(config->virtual_network());
+        instance.set_virtual_network_index(config->virtual_network_index());
+        instance_list.push_back(instance);
+    }
+    Sandesh::set_response_callback(
+        boost::bind(ValidateShowInstanceResponse, _1, instance_list));
+
+    ShowBgpInstanceConfigReq *show_req = new ShowBgpInstanceConfigReq;
+    validate_done_ = false;
+    show_req->HandleRequest();
+    show_req->Release();
+    task_util::WaitForIdle();
+    TASK_UTIL_EXPECT_TRUE(validate_done_);
+
+    boost::replace_all(content, "<config>", "<delete>");
+    boost::replace_all(content, "</config>", "</delete>");
+    EXPECT_TRUE(parser_.Parse(content));
+    task_util::WaitForIdle();
+    TASK_UTIL_EXPECT_EQ(1, config_manager_->config().instances().size());
+    TASK_UTIL_EXPECT_EQ(0, db_graph_.vertex_count());
+}
+
+TEST_F(BgpConfigManagerTest, ShowInstances3) {
+    string content = FileRead("controller/src/bgp/testdata/config_test_26c.xml");
+    EXPECT_TRUE(parser_.Parse(content));
+    task_util::WaitForIdle();
+    TASK_UTIL_EXPECT_EQ(2, GetInstanceCount());
+
+    BgpSandeshContext sandesh_context;
+    sandesh_context.bgp_server = &server_;
+    Sandesh::set_client_context(&sandesh_context);
+
+    const char *instance_name_list[] = { "blue-to-nat" };
+    vector<ShowBgpInstanceConfig> instance_list;
+    BOOST_FOREACH(const char *instance_name, instance_name_list) {
+        const BgpInstanceConfig *config = FindInstanceConfig(instance_name);
+        TASK_UTIL_EXPECT_TRUE(config != NULL);
+        ShowBgpInstanceConfig instance;
+        instance.set_name(config->name());
+        instance.set_virtual_network(config->virtual_network());
+        instance.set_virtual_network_index(config->virtual_network_index());
+        instance_list.push_back(instance);
+    }
+    Sandesh::set_response_callback(
+        boost::bind(ValidateShowInstanceResponse, _1, instance_list));
+
+    ShowBgpInstanceConfigReq *show_req = new ShowBgpInstanceConfigReq;
+    validate_done_ = false;
+    show_req->HandleRequest();
+    show_req->Release();
+    task_util::WaitForIdle();
+    TASK_UTIL_EXPECT_TRUE(validate_done_);
+
+    boost::replace_all(content, "<config>", "<delete>");
+    boost::replace_all(content, "</config>", "</delete>");
+    EXPECT_TRUE(parser_.Parse(content));
+    task_util::WaitForIdle();
+    TASK_UTIL_EXPECT_EQ(1, config_manager_->config().instances().size());
+    TASK_UTIL_EXPECT_EQ(0, db_graph_.vertex_count());
+}
+
+TEST_F(BgpConfigManagerTest, ShowNeighbors) {
+    string content = FileRead("controller/src/bgp/testdata/config_test_27.xml");
+    EXPECT_TRUE(parser_.Parse(content));
+    task_util::WaitForIdle();
+    TASK_UTIL_EXPECT_EQ(4, GetInstanceCount());
+
+    BgpSandeshContext sandesh_context;
+    sandesh_context.bgp_server = &server_;
+    Sandesh::set_client_context(&sandesh_context);
+
+    const BgpInstanceConfig *instance =
+        FindInstanceConfig(BgpConfigManager::kMasterInstance);
+    TASK_UTIL_EXPECT_TRUE(instance != NULL);
+
+    const char *neighbor_name_list[] = { "remote1", "remote2", "remote3" };
+    vector<ShowBgpNeighborConfig> neighbor_list;
+    BOOST_FOREACH(const char *neighbor_name, neighbor_name_list) {
+        string full_name(BgpConfigManager::kMasterInstance);
+        full_name += ":";
+        full_name += neighbor_name;
+        const BgpNeighborConfig *config = instance->FindNeighbor(full_name);
+        TASK_UTIL_EXPECT_TRUE(config != NULL);
+        const autogen::BgpRouterParams &params = config->peer_config();
+        ShowBgpNeighborConfig neighbor;
+        neighbor.set_name(config->name());
+        neighbor.set_instance_name(BgpConfigManager::kMasterInstance);
+        neighbor.set_vendor(params.vendor);
+        neighbor.set_autonomous_system(params.autonomous_system);
+        neighbor.set_identifier(params.identifier);
+        neighbor.set_address(params.address);
+        neighbor_list.push_back(neighbor);
+    }
+    Sandesh::set_response_callback(
+        boost::bind(ValidateShowNeighborResponse, _1, neighbor_list));
+
+    ShowBgpNeighborConfigReq *show_req = new ShowBgpNeighborConfigReq;
+    validate_done_ = false;
+    show_req->HandleRequest();
+    show_req->Release();
+    task_util::WaitForIdle();
+    TASK_UTIL_EXPECT_TRUE(validate_done_);
+
+    boost::replace_all(content, "<config>", "<delete>");
+    boost::replace_all(content, "</config>", "</delete>");
+    EXPECT_TRUE(parser_.Parse(content));
+    task_util::WaitForIdle();
+    TASK_UTIL_EXPECT_EQ(1, config_manager_->config().instances().size());
+    TASK_UTIL_EXPECT_EQ(0, db_graph_.vertex_count());
+}
+
+TEST_F(BgpConfigManagerTest, ShowPeerings) {
+    string content = FileRead("controller/src/bgp/testdata/config_test_27.xml");
+    EXPECT_TRUE(parser_.Parse(content));
+    task_util::WaitForIdle();
+    TASK_UTIL_EXPECT_EQ(3, GetPeeringCount());
+
+    BgpSandeshContext sandesh_context;
+    sandesh_context.bgp_server = &server_;
+    Sandesh::set_client_context(&sandesh_context);
+
+    const char *peering_name_list[] = { "remote1", "remote2", "remote3" };
+    vector<ShowBgpPeeringConfig> peering_list;
+    BOOST_FOREACH(const char *peering_name, peering_name_list) {
+        char full_name[1024];
+        snprintf(full_name, sizeof(full_name), "attr(%s:%s,%s:%s)",
+            BgpConfigManager::kMasterInstance, "local",
+            BgpConfigManager::kMasterInstance, peering_name);
+        const BgpPeeringConfig *config = FindPeeringConfig(full_name);
+        TASK_UTIL_EXPECT_TRUE(config != NULL);
+        ShowBgpPeeringConfig peering;
+        peering.set_name(config->name());
+        peering.set_instance_name(BgpConfigManager::kMasterInstance);
+        peering.set_neighbor_count(config->size());
+        peering_list.push_back(peering);
+    }
+
+    Sandesh::set_response_callback(
+        boost::bind(ValidateShowPeeringResponse, _1, peering_list));
+
+    ShowBgpPeeringConfigReq *show_req = new ShowBgpPeeringConfigReq;
+    validate_done_ = false;
+    show_req->HandleRequest();
+    show_req->Release();
+    task_util::WaitForIdle();
+    TASK_UTIL_EXPECT_TRUE(validate_done_);
 
     boost::replace_all(content, "<config>", "<delete>");
     boost::replace_all(content, "</config>", "</delete>");

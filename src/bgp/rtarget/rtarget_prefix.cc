@@ -41,7 +41,7 @@ void RTargetPrefix::BuildProtoPrefix(BgpProtoPrefix *prefix) const {
 // as:rtarget
 RTargetPrefix RTargetPrefix::FromString(const string &str, error_code *errorp) {
     RTargetPrefix prefix;
-    
+
     size_t pos = str.find(':');
     if (pos == string::npos) {
         if (errorp != NULL)
@@ -49,15 +49,22 @@ RTargetPrefix RTargetPrefix::FromString(const string &str, error_code *errorp) {
         return prefix;
     }
 
+    as4_t as;
     string asstr = str.substr(0, pos);
-    stringToInteger(asstr, prefix.as_);
-    
+    stringToInteger(asstr, as);
+
     string rtargetstr(str, pos + 1);
     error_code rtarget_err;
-    prefix.rtarget_ = RouteTarget::FromString(rtargetstr, &rtarget_err);
+    RouteTarget rtarget;
+    rtarget = RouteTarget::FromString(rtargetstr, &rtarget_err);
     if (rtarget_err != 0) {
-        if (errorp != NULL) *errorp = rtarget_err;
+        if (errorp != NULL)
+            *errorp = rtarget_err;
+        return prefix;
     }
+
+    prefix.rtarget_ = rtarget;
+    prefix.as_ = as;
     return prefix;
 }
 

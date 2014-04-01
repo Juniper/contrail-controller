@@ -168,7 +168,7 @@ public:
 
     const IFMapNode *node() const { return node_proxy_.node(); }
     BgpInstanceConfig *instance() { return instance_; }
-    std::string name() { return name_; }
+    std::string name() const { return name_; }
     size_t size() const { return neighbors_.size(); }
     const autogen::BgpPeering *bgp_peering() const {
         return bgp_peering_.get();
@@ -300,6 +300,7 @@ public:
     }
 
 private:
+    friend class BgpConfigManagerTest;
     friend class BgpInstanceConfigTest;
 
     std::string name_;
@@ -344,6 +345,7 @@ public:
                                     IFMapNodeProxy *proxy);
     void DeletePeering(BgpPeeringConfig *peer);
     BgpPeeringConfig *FindPeering(const std::string &name);
+    const BgpPeeringConfig *FindPeering(const std::string &name) const;
     const BgpPeeringMap &peerings() const { return peerings_; }
 
 private:
