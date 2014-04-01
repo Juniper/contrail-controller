@@ -76,7 +76,8 @@ bool ArpHandler::HandlePacket() {
         return true;
     }
 
-    const Interface *itf = agent()->GetInterfaceTable()->FindInterface(GetIntf());
+    const Interface *itf =
+        agent()->GetInterfaceTable()->FindInterface(GetInterfaceIndex());
     if (!itf || itf->IsDeleted()) {
         arp_proto->IncrementStatsInvalidInterface();
         ARP_TRACE(Error, "Received ARP packet from invalid / deleted interface");

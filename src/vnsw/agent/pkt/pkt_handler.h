@@ -35,23 +35,23 @@ struct agent_hdr;
 class TapInterface;
 
 struct InterTaskMsg {
-    InterTaskMsg(uint16_t command): cmd(command) {};
-    ~InterTaskMsg() {};
+    InterTaskMsg(uint16_t command): cmd(command) {}
+    ~InterTaskMsg() {}
 
     uint16_t cmd;
 };
 
 struct GreHdr {
-    GreHdr() : flags(), protocol() {};
-    ~GreHdr() {};
+    GreHdr() : flags(), protocol() {}
+    ~GreHdr() {}
 
     uint16_t flags;
     uint16_t protocol;
 };
 
 struct MplsHdr {
-    MplsHdr() : hdr() {};
-    ~MplsHdr() {};
+    MplsHdr() : hdr() {}
+    ~MplsHdr() {}
 
     uint32_t hdr;
 };
@@ -70,8 +70,8 @@ struct PktType {
 };
 
 struct AgentHdr {
-    AgentHdr() : ifindex(-1), vrf(-1), cmd(-1), cmd_param(-1) {};
-    ~AgentHdr() {};
+    AgentHdr() : ifindex(-1), vrf(-1), cmd(-1), cmd_param(-1) {}
+    ~AgentHdr() {}
 
     // Fields from agent_hdr
     uint16_t            ifindex;
@@ -82,8 +82,8 @@ struct AgentHdr {
 
 struct TunnelInfo {
     TunnelInfo() : 
-        type(TunnelType::INVALID), label(-1), ip_saddr(), ip_daddr() {};
-    ~TunnelInfo() {};
+        type(TunnelType::INVALID), label(-1), ip_saddr(), ip_daddr() {}
+    ~TunnelInfo() {}
 
     TunnelType          type;
     uint32_t            label;

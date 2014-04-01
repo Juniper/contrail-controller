@@ -33,11 +33,12 @@ DhcpHandler::DhcpHandler(Agent *agent, boost::shared_ptr<PktInfo> info,
 
 bool DhcpHandler::Run() {
     DhcpProto *dhcp_proto = agent()->GetDhcpProto();
-    Interface *itf = agent()->GetInterfaceTable()->FindInterface(GetIntf());
+    Interface *itf =
+        agent()->GetInterfaceTable()->FindInterface(GetInterfaceIndex());
     if (itf == NULL) {
         dhcp_proto->IncrStatsOther();
         DHCP_TRACE(Error, "Received DHCP packet on invalid interface : "
-                   << GetIntf());
+                   << GetInterfaceIndex());
         return true;
     }
 
@@ -50,13 +51,13 @@ bool DhcpHandler::Run() {
     if (itf->type() != Interface::VM_INTERFACE) {
         dhcp_proto->IncrStatsErrors();
         DHCP_TRACE(Error, "Received DHCP packet on non VM port interface : "
-                   << GetIntf());
+                   << GetInterfaceIndex());
         return true;
     }
     vm_itf_ = static_cast<VmInterface *>(itf);
     if (!vm_itf_->ipv4_forwarding()) {
         DHCP_TRACE(Error, "DHCP request on VM port with disabled ipv4 service: "
-                   << GetIntf());
+                   << GetInterfaceIndex());
         return true;
     }
 
@@ -95,7 +96,7 @@ bool DhcpHandler::Run() {
         case DHCP_DECLINE:
             dhcp_proto->IncrStatsDecline();
             DHCP_TRACE(Error, "DHCP Client declined the offer : vrf = " << 
-                       pkt_info_->vrf << " ifindex = " << GetIntf());
+                       pkt_info_->vrf << " ifindex = " << GetInterfaceIndex());
             return true;
 
         case DHCP_ACK:
@@ -136,7 +137,7 @@ bool DhcpHandler::ReadOptions() {
         memcmp(dhcp_->options, DHCP_OPTIONS_COOKIE, 4)) {
         agent()->GetDhcpProto()->IncrStatsErrors();
         DHCP_TRACE(Error, "DHCP options cookie missing; vrf = " <<
-                   pkt_info_->vrf << " ifindex = " << GetIntf());
+                   pkt_info_->vrf << " ifindex = " << GetInterfaceIndex());
         return false;
     }
 
@@ -198,7 +199,7 @@ void DhcpHandler::FillDhcpInfo(uint32_t addr, int plen, uint32_t gw, uint32_t dn
 
 
 bool DhcpHandler::FindLeaseData() {
-    config_.ifindex = GetIntf();
+    config_.ifindex = GetInterfaceIndex();
     Ip4Address ip = vm_itf_->ip_addr();
     // Change client name to VM name; this is the name assigned to the VM
     client_name_ = vm_itf_->vm_name();
@@ -689,7 +690,8 @@ void DhcpHandler::SendDhcpResponse() {
     EthHdr(agent()->pkt()->pkt_handler()->mac_address(), dest_mac, 0x800);
     len += sizeof(ethhdr);
 
-    Send(len, GetIntf(), pkt_info_->vrf, AGENT_CMD_SWITCH, PktHandler::DHCP);
+    Send(len, GetInterfaceIndex(), pkt_info_->vrf,
+         AGENT_CMD_SWITCH, PktHandler::DHCP);
 }
 
 void DhcpHandler::UpdateStats() {

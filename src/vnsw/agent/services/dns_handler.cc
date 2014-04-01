@@ -49,7 +49,7 @@ bool DnsHandler::HandleRequest() {
 
     uint16_t ret = DNS_ERR_NO_ERROR;
     const Interface *itf =
-        agent()->GetInterfaceTable()->FindInterface(GetIntf());
+        agent()->GetInterfaceTable()->FindInterface(GetInterfaceIndex());
     if (!itf || (itf->type() != Interface::VM_INTERFACE) || 
         dns_->flags.req) {
         dns_proto->IncrStatsDrop();
