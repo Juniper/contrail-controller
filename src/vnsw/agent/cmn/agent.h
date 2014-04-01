@@ -269,6 +269,10 @@ public:
     const std::string &GetLinkLocalVnName() {return link_local_vn_name_;}
     const std::string &GetLinkLocalVrfName() {return link_local_vrf_name_;}
 
+    void set_fabric_vrf_name(const std::string &name) {
+        fabric_vrf_name_ = name;
+    }
+
     const std::string &vhost_interface_name() const;
     void set_vhost_interface_name(const std::string &name) {
         vhost_interface_name_ = name;
@@ -639,7 +643,7 @@ private:
     VxLanNetworkIdentifierMode vxlan_network_identifier_mode_;
 
     static const std::string null_str_;
-    static const std::string fabric_vrf_name_;
+    static std::string fabric_vrf_name_;
     static const std::string fabric_vn_name_;
     static const std::string link_local_vrf_name_;
     static const std::string link_local_vn_name_;

@@ -7,7 +7,6 @@
 #include "oper/nexthop.h"
 #include "oper/tunnel_nh.h"
 #include "oper/mirror_table.h"
-#include "oper/route_common.h"
 #include "ksync/ksync_index.h"
 #include "ksync/interface_ksync.h"
 #include "pkt/pkt_init.h"
@@ -22,25 +21,31 @@ ArpProto::ArpProto(Agent *agent, boost::asio::io_service &io,
                    bool run_with_vrouter) :
     Proto(agent, "Agent::Services", PktHandler::ARP, io),
     run_with_vrouter_(run_with_vrouter), ip_fabric_interface_index_(-1),
-    ip_fabric_interface_(NULL), gracious_arp_entry_(NULL),
+    ip_fabric_interface_(NULL), gratuitous_arp_entry_(NULL),
     max_retries_(kMaxRetries), retry_timeout_(kRetryTimeout),
     aging_timeout_(kAgingTimeout) {
 
     memset(ip_fabric_interface_mac_, 0, ETH_ALEN);
-    vid_ = agent->GetVrfTable()->Register(
-                  boost::bind(&ArpProto::VrfNotify, this, _1, _2));
-    iid_ = agent->GetInterfaceTable()->Register(
-                  boost::bind(&ArpProto::InterfaceNotify, this, _2));
-    nhid_ = agent->GetNextHopTable()->Register(
-                  boost::bind(&ArpProto::NextHopNotify, this, _2));
+    vrf_table_listener_id_ = agent->GetVrfTable()->Register(
+                             boost::bind(&ArpProto::VrfNotify, this, _1, _2));
+    interface_table_listener_id_ = agent->GetInterfaceTable()->Register(
+                                   boost::bind(&ArpProto::InterfaceNotify,
+                                               this, _2));
+    nexthop_table_listener_id_ = agent->GetNextHopTable()->Register(
+                                 boost::bind(&ArpProto::NextHopNotify, this, _2));
 }
 
 ArpProto::~ArpProto() {
-    agent_->GetVrfTable()->Unregister(vid_);
-    agent_->GetInterfaceTable()->Unregister(iid_);
-    agent_->GetNextHopTable()->Unregister(nhid_);
-    del_gracious_arp_entry();
-    assert(arp_cache_.size() == 0);
+    agent_->GetVrfTable()->Unregister(vrf_table_listener_id_);
+    agent_->GetInterfaceTable()->Unregister(interface_table_listener_id_);
+    agent_->GetNextHopTable()->Unregister(nexthop_table_listener_id_);
+    del_gratuitous_arp_entry();
+    // we may have arp entries in arp cache without ArpNH, empty them
+    for (ArpCache::iterator it = arp_cache_.begin(); it != arp_cache_.end();
+         ++it) {
+        delete it->second;
+    }
+    arp_cache_.clear();
 }
 
 ProtoHandler *ArpProto::AllocProtoHandler(boost::shared_ptr<PktInfo> info,
@@ -50,43 +55,50 @@ ProtoHandler *ArpProto::AllocProtoHandler(boost::shared_ptr<PktInfo> info,
 
 void ArpProto::VrfNotify(DBTablePartBase *part, DBEntryBase *entry) {
     VrfEntry *vrf = static_cast<VrfEntry *>(entry);
-    ArpVrfState *state;
+    DBState *state;
 
-    state = static_cast<ArpVrfState *>(entry->GetState(part->parent(), vid_)); 
+    state = static_cast<DBState *>(entry->GetState(part->parent(),
+                                                   vrf_table_listener_id_));
     if (entry->IsDeleted()) {
-        SendArpIpc(ArpHandler::VRF_DELETE, 0, vrf);
         if (state) {
+            for (ArpProto::ArpCache::iterator it = arp_cache_.begin();
+                 it != arp_cache_.end();) {
+                ArpEntry *arp_entry = it->second;
+                if (arp_entry->key().vrf == vrf && arp_entry->DeleteArpRoute()) {
+                    arp_cache_.erase(it++);
+                    delete arp_entry;
+                } else
+                    it++;
+            }
             vrf->GetInet4UnicastRouteTable()->
                 Unregister(fabric_route_table_listener_);
-            entry->ClearState(part->parent(), vid_);
+            // TODO: should clear state when arp_cache_ is emptied
+            entry->ClearState(part->parent(), vrf_table_listener_id_);
             delete state;
         }
         return;
     }
 
     if (!state && vrf->GetName() == agent_->GetDefaultVrf()) {
-        state = new ArpVrfState;
-        //Set state to seen
-        state->seen_ = true;
+        state = new DBState;
         fabric_route_table_listener_ = vrf->
             GetInet4UnicastRouteTable()->
             Register(boost::bind(&ArpProto::RouteUpdate, this,  _1, _2));
-        entry->SetState(part->parent(), vid_, state);
+        entry->SetState(part->parent(), vrf_table_listener_id_, state);
     }
 }
 
 void ArpProto::RouteUpdate(DBTablePartBase *part, DBEntryBase *entry) {
     Inet4UnicastRouteEntry *route = static_cast<Inet4UnicastRouteEntry *>(entry);
-    ArpRouteState *state;
-
-    state = static_cast<ArpRouteState *>
+    DBState *state =
+        static_cast<DBState *>
         (entry->GetState(part->parent(), fabric_route_table_listener_));
 
     if (entry->IsDeleted()) {
         if (state) {
-            if (gracious_arp_entry() && gracious_arp_entry()->key().ip ==
+            if (gratuitous_arp_entry() && gratuitous_arp_entry()->key().ip ==
                                         route->addr().to_ulong()) {
-                del_gracious_arp_entry();
+                del_gratuitous_arp_entry();
             }
             entry->ClearState(part->parent(), fabric_route_table_listener_);
             delete state;
@@ -95,12 +107,11 @@ void ArpProto::RouteUpdate(DBTablePartBase *part, DBEntryBase *entry) {
     }
 
     if (!state && route->GetActiveNextHop()->GetType() == NextHop::RECEIVE) {
-        state = new ArpRouteState;
-        state->seen_ = true;
+        state = new DBState;
         entry->SetState(part->parent(), fabric_route_table_listener_, state);
-        del_gracious_arp_entry();
+        del_gratuitous_arp_entry();
         //Send Grat ARP
-        SendArpIpc(ArpHandler::ARP_SEND_GRACIOUS, 
+        SendArpIpc(ArpProto::ARP_SEND_GRATUITOUS, 
                    route->addr().to_ulong(), route->vrf());
     }
 }
@@ -110,8 +121,15 @@ void ArpProto::InterfaceNotify(DBEntryBase *entry) {
     if (entry->IsDeleted()) {
         if (itf->type() == Interface::PHYSICAL && 
             itf->name() == agent_->GetIpFabricItfName()) {
-            SendArpIpc(ArpHandler::ITF_DELETE, 0, itf->vrf());
-            //assert(0);
+            for (ArpProto::ArpCache::iterator it = arp_cache_.begin();
+                 it != arp_cache_.end();) {
+                ArpEntry *arp_entry = it->second;
+                if (arp_entry->DeleteArpRoute()) {
+                    arp_cache_.erase(it++);
+                    delete arp_entry;
+                } else
+                    it++;
+            }
         }
     } else {
         if (itf->type() == Interface::PHYSICAL && 
@@ -136,10 +154,10 @@ void ArpProto::NextHopNotify(DBEntryBase *entry) {
     case NextHop::ARP: {
         ArpNH *arp_nh = (static_cast<ArpNH *>(nh));
         if (arp_nh->IsDeleted()) {
-            SendArpIpc(ArpHandler::ARP_DELETE, arp_nh->GetIp()->to_ulong(),
+            SendArpIpc(ArpProto::ARP_DELETE, arp_nh->GetIp()->to_ulong(),
                        arp_nh->GetVrf());
         } else if (arp_nh->IsValid() == false) { 
-            SendArpIpc(ArpHandler::ARP_RESOLVE, arp_nh->GetIp()->to_ulong(),
+            SendArpIpc(ArpProto::ARP_RESOLVE, arp_nh->GetIp()->to_ulong(),
                        arp_nh->GetVrf());
         }
         break;
@@ -150,63 +168,33 @@ void ArpProto::NextHopNotify(DBEntryBase *entry) {
     }
 }
 
-bool ArpProto::TimerExpiry(ArpKey &key, ArpHandler::ArpMsgType timer_type) {
-    SendArpIpc(timer_type, key);
+bool ArpProto::TimerExpiry(ArpKey &key, uint32_t timer_type) {
+    SendArpIpc((ArpProto::ArpMsgType)timer_type, key);
     return false;
 }
 
-void ArpProto::del_gracious_arp_entry() {
-    if (gracious_arp_entry_) {
-        delete gracious_arp_entry_;
-        gracious_arp_entry_ = NULL;
+ArpEntry *ArpProto::gratuitous_arp_entry() const {
+    return gratuitous_arp_entry_;
+}
+
+void ArpProto::set_gratuitous_arp_entry(ArpEntry *entry) {
+    gratuitous_arp_entry_ = entry;
+}
+
+void ArpProto::del_gratuitous_arp_entry() {
+    if (gratuitous_arp_entry_) {
+        delete gratuitous_arp_entry_;
+        gratuitous_arp_entry_ = NULL;
     }
 }
 
-void ArpProto::UpdateArp(Ip4Address &ip, struct ether_addr &mac,
-                         const string &vrf_name, const Interface &intf,
-                         DBRequest::DBOperation op, bool resolved) {
-    ArpNH      *arp_nh;
-    ArpNHKey   nh_key(vrf_name, ip);
-    arp_nh = static_cast<ArpNH *>(agent_->GetNextHopTable()->
-                                  FindActiveEntry(&nh_key));
-
-    std::string mac_str;
-    ServicesSandesh::MacToString(mac.ether_addr_octet, mac_str);
-
-    switch (op) {
-    case DBRequest::DB_ENTRY_ADD_CHANGE: {
-        if (arp_nh) {
-            if (arp_nh->GetResolveState() && 
-                memcmp(&mac, arp_nh->GetMac(), sizeof(mac)) == 0) {
-                // MAC address unchanged, ignore
-                return;
-            }
-        }
-
-        ARP_TRACE(Trace, "Add", ip.to_string(), vrf_name, mac_str);
-        break;
-    }
-    case DBRequest::DB_ENTRY_DELETE:
-        if (!arp_nh)
-            return;
-        ARP_TRACE(Trace, "Delete", ip.to_string(), vrf_name, mac_str);
-        break;
-
-    default:
-        assert(0);
-    }
-
-	agent_->GetDefaultInet4UnicastRouteTable()->ArpRoute(
-                              op, ip, mac, vrf_name, intf, resolved, 32);
-}
-
-void ArpProto::SendArpIpc(ArpHandler::ArpMsgType type, 
+void ArpProto::SendArpIpc(ArpProto::ArpMsgType type, 
                           in_addr_t ip, const VrfEntry *vrf) {
     ArpIpc *ipc = new ArpIpc(type, ip, vrf);
     agent_->pkt()->pkt_handler()->SendMessage(PktHandler::ARP, ipc);
 }
 
-void ArpProto::SendArpIpc(ArpHandler::ArpMsgType type, ArpKey &key) {
+void ArpProto::SendArpIpc(ArpProto::ArpMsgType type, ArpKey &key) {
     ArpIpc *ipc = new ArpIpc(type, key);
     agent_->pkt()->pkt_handler()->SendMessage(PktHandler::ARP, ipc);
 }

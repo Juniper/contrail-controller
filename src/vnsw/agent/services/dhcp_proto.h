@@ -13,6 +13,12 @@ class Interface;
 class DhcpProto : public Proto {
 public:
     struct DhcpStats {
+        DhcpStats() { Reset(); }
+        void Reset() {
+            discover = request = inform = decline = other = 
+            offers = acks = nacks = errors = relay_req = relay_resp = 0;
+        }
+
         uint32_t discover;
         uint32_t request;
         uint32_t inform;
@@ -24,12 +30,6 @@ public:
         uint32_t relay_req;
         uint32_t relay_resp;
         uint32_t errors;
-
-        void Reset() {
-            discover = request = inform = decline = other = 
-            offers = acks = nacks = errors = relay_req = relay_resp = 0;
-        }
-        DhcpStats() { Reset(); }
     };
 
     void Shutdown();
@@ -64,7 +64,7 @@ public:
     void IncrStatsRelayReqs() { stats_.relay_req++; }
     void IncrStatsRelayResps() { stats_.relay_resp++; }
     void IncrStatsErrors() { stats_.errors++; }
-    DhcpStats GetStats() { return stats_; }
+    const DhcpStats &GetStats() const { return stats_; }
     void ClearStats() { stats_.Reset(); }
 
 private:

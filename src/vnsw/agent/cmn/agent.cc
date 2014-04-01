@@ -42,7 +42,7 @@
 const std::string Agent::null_str_ = "";
 const std::string Agent::fabric_vn_name_ = 
     "default-domain:default-project:ip-fabric";
-const std::string Agent::fabric_vrf_name_ =
+std::string Agent::fabric_vrf_name_ =
     "default-domain:default-project:ip-fabric:__default__";
 const std::string Agent::link_local_vn_name_ = 
     "default-domain:default-project:__link_local__";

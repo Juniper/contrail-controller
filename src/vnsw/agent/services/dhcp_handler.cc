@@ -208,12 +208,10 @@ bool DhcpHandler::FindLeaseData() {
                 Inet4UnicastAgentRouteTable::FindResolveRoute(
                              vm_itf_->vrf()->GetName(), ip);
             if (rt) {
-                uint8_t plen = rt->plen();
                 uint32_t gw = agent()->GetGatewayId().to_ulong();
-                uint32_t mask = plen ? (0xFFFFFFFF << (32 - plen)) : 0;
                 boost::system::error_code ec;
-                if ((rt->addr().to_ulong() & mask) == 
-                    Ip4Address::from_string("169.254.0.0", ec).to_ulong())
+                if (IsIp4SubnetMember(rt->addr(),
+                    Ip4Address::from_string("169.254.0.0", ec), rt->plen()))
                     gw = 0;
                 FillDhcpInfo(ip.to_ulong(), rt->plen(), gw, gw);
                 return true;
@@ -227,9 +225,7 @@ bool DhcpHandler::FindLeaseData() {
         const std::vector<VnIpam> &ipam = vm_itf_->vn()->GetVnIpam();
         unsigned int i;
         for (i = 0; i < ipam.size(); ++i) {
-            uint32_t mask = ipam[i].plen ? (0xFFFFFFFF << (32 - ipam[i].plen)) : 0;
-            if ((ip.to_ulong() & mask) == 
-                (ipam[i].ip_prefix.to_ulong() & mask)) {
+            if (IsIp4SubnetMember(ip, ipam[i].ip_prefix, ipam[i].plen)) {
                 uint32_t default_gw = ipam[i].default_gw.to_ulong();
                 FillDhcpInfo(ip.to_ulong(), ipam[i].plen, default_gw, default_gw);
                 return true;

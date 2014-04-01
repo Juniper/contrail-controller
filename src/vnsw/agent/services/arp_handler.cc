@@ -37,14 +37,13 @@ bool ArpHandler::HandlePacket() {
     if (pkt_info_->ip) {
         arp_tpa_ = ntohl(pkt_info_->ip->daddr);
         arp_cmd = ARPOP_REQUEST;
-        arp_proto->StatsPktsDropped();
     } else if (pkt_info_->arp) {
         arp_ = pkt_info_->arp;
         if ((ntohs(arp_->ea_hdr.ar_hrd) != ARPHRD_ETHER) || 
             (ntohs(arp_->ea_hdr.ar_pro) != 0x800) ||
             (arp_->ea_hdr.ar_hln != ETH_ALEN) || 
             (arp_->ea_hdr.ar_pln != IPv4_ALEN)) {
-            arp_proto->StatsErrors();
+            arp_proto->IncrementStatsInvalidPackets();
             ARP_TRACE(Error, "Received Invalid ARP packet");
             return true;
         }
@@ -64,7 +63,7 @@ bool ArpHandler::HandlePacket() {
         
         // if it is our own, ignore
         if (arp_tpa_ == agent()->GetRouterId().to_ulong()) {
-            arp_proto->StatsGracious();
+            arp_proto->IncrementStatsGratuitous();
             return true;
         }
 
@@ -72,15 +71,15 @@ bool ArpHandler::HandlePacket() {
             arp_cmd = GRATUITOUS_ARP;
         }
     } else {
-        arp_proto->StatsPktsDropped();
+        arp_proto->IncrementStatsInvalidPackets();
         ARP_TRACE(Error, "ARP : Received Invalid packet");
         return true;
     }
 
     const Interface *itf = agent()->GetInterfaceTable()->FindInterface(GetIntf());
-    if (!itf) {
-        arp_proto->StatsErrors();
-        ARP_TRACE(Error, "Received ARP packet with invalid interface index");
+    if (!itf || itf->IsDeleted()) {
+        arp_proto->IncrementStatsInvalidInterface();
+        ARP_TRACE(Error, "Received ARP packet from invalid / deleted interface");
         return true;
     }
     if (itf->type() == Interface::VM_INTERFACE) {
@@ -92,38 +91,31 @@ bool ArpHandler::HandlePacket() {
     }
 
     const VrfEntry *vrf = itf->vrf();
-    if (!vrf) {
-        arp_proto->StatsErrors();
-        ARP_TRACE(Error, "ARP : Interface " + itf->name() + " has no VRF");
+    if (!vrf || vrf->IsDeleted()) {
+        arp_proto->IncrementStatsInvalidVrf();
+        ARP_TRACE(Error, "ARP : Interface " + itf->name() +
+                         " has no / deleted VRF");
         return true;
     }
 
     // if broadcast ip, return
-    if (arp_tpa_ == 0xFFFFFFFF) {
-        arp_proto->StatsErrors();
-        ARP_TRACE(Error, "ARP : ignoring broadcast address");
+    Ip4Address arp_addr(arp_tpa_);
+    if (arp_tpa_ == 0xFFFFFFFF || !arp_tpa_) {
+        arp_proto->IncrementStatsInvalidAddress();
+        ARP_TRACE(Error, "ARP : ignoring broadcast address" +
+                  arp_addr.to_string());
         return true;
     }
 
     //Look for subnet broadcast
-    Ip4Address arp_addr(arp_tpa_);
     AgentRoute *route = 
         static_cast<Inet4UnicastAgentRouteTable *>(vrf->
             GetInet4UnicastRouteTable())->FindLPM(arp_addr);
     if (route) {
         if (route->is_multicast()) {
-            arp_proto->StatsErrors();
-            ARP_TRACE(Error, "ARP : ignoring broadcast address");
-            return true;
-        }
-
-        Inet4UnicastRouteEntry *uc_rt = 
-            static_cast<Inet4UnicastRouteEntry *>(route);
-        uint8_t plen = uc_rt->plen();
-        uint32_t mask = (plen == 32) ? 0xFFFFFFFF : (0xFFFFFFFF >> plen);
-        if (!(arp_tpa_ & mask) || !(arp_tpa_)) {
-            arp_proto->StatsErrors();
-            ARP_TRACE(Error, "ARP : ignoring invalid address");
+            arp_proto->IncrementStatsInvalidAddress();
+            ARP_TRACE(Error, "ARP : ignoring multicast address" +
+                      arp_addr.to_string());
             return true;
         }
     }
@@ -133,12 +125,12 @@ bool ArpHandler::HandlePacket() {
 
     switch (arp_cmd) {
         case ARPOP_REQUEST: {
-            arp_proto->StatsArpReq();
+            arp_proto->IncrementStatsArpReq();
             if (entry) {
                 entry->HandleArpRequest();
                 return true;
             } else {
-                entry = new ArpEntry(io_, this, arp_tpa_, vrf);
+                entry = new ArpEntry(io_, this, key);
                 arp_proto->AddArpEntry(entry->key(), entry);
                 delete[] pkt_info_->pkt;
                 pkt_info_->pkt = NULL;
@@ -148,12 +140,12 @@ bool ArpHandler::HandlePacket() {
         }
 
         case ARPOP_REPLY:  {
-            arp_proto->StatsArpReplies();
+            arp_proto->IncrementStatsArpReplies();
             if (entry) {
                 entry->HandleArpReply(arp_->arp_sha);
                 return true;
             } else {
-                entry = new ArpEntry(io_, this, arp_tpa_, vrf);
+                entry = new ArpEntry(io_, this, key);
                 arp_proto->AddArpEntry(entry->key(), entry);
                 delete[] pkt_info_->pkt;
                 pkt_info_->pkt = NULL;
@@ -163,12 +155,12 @@ bool ArpHandler::HandlePacket() {
         }
 
         case GRATUITOUS_ARP: {
-            arp_proto->StatsGracious();
+            arp_proto->IncrementStatsGratuitous();
             if (entry) {
                 entry->HandleArpReply(arp_->arp_sha);
                 return true;
             } else {
-                entry = new ArpEntry(io_, this, arp_tpa_, vrf);
+                entry = new ArpEntry(io_, this, key);
                 entry->HandleArpReply(arp_->arp_sha);
                 arp_proto->AddArpEntry(entry->key(), entry);
                 delete[] pkt_info_->pkt;
@@ -178,9 +170,10 @@ bool ArpHandler::HandlePacket() {
         }
 
         default:
-             assert(0);
+            ARP_TRACE(Error, "Received Invalid ARP command : " +
+                      integerToString(arp_cmd));
+            return true;
     }
-    return true;
 }
 
 bool ArpHandler::HandleMessage() {
@@ -188,88 +181,64 @@ bool ArpHandler::HandleMessage() {
     ArpProto::ArpIpc *ipc = static_cast<ArpProto::ArpIpc *>(pkt_info_->ipc);
     ArpProto *arp_proto = agent()->GetArpProto();
     switch(pkt_info_->ipc->cmd) {
-        case VRF_DELETE: {
-            const ArpProto::ArpCache &cache = arp_proto->arp_cache();
-            for (ArpProto::ArpCache::const_iterator it = cache.begin();
-                 it != cache.end(); it++) {
-                OnVrfDelete(it->second, ipc->key.vrf);
-            }
-            for (std::vector<ArpEntry *>::iterator it = arp_del_list_.begin();
-                 it != arp_del_list_.end(); it++) {
-                (*it)->Delete();
-            }
-            arp_del_list_.clear();
-            break;
-        }
-
-        case ITF_DELETE: {
-            const ArpProto::ArpCache &cache = arp_proto->arp_cache();
-            for (ArpProto::ArpCache::const_iterator it = cache.begin();
-                 it != cache.end(); it++) {
-                it->second->Delete();
-            }
-            // arp_proto->set_ip_fabric_interface(NULL);
-            // arp_proto->set_ip_fabric_interface_index(-1);
-            break;
-        }
-
-        case ARP_RESOLVE: {
+        case ArpProto::ARP_RESOLVE: {
             ArpEntry *entry = arp_proto->FindArpEntry(ipc->key);
             if (!entry) {
-                entry = new ArpEntry(io_, this, ipc->key.ip, ipc->key.vrf);
+                entry = new ArpEntry(io_, this, ipc->key);
                 arp_proto->AddArpEntry(entry->key(), entry);
-                entry->HandleArpRequest();
-                arp_proto->StatsArpReq();
                 ret = false;
             }
+            arp_proto->IncrementStatsArpReq();
+            entry->HandleArpRequest();
             break;
         }
 
-        case RETRY_TIMER_EXPIRED: {
-            if (ArpEntry *entry = arp_proto->FindArpEntry(ipc->key))
-                entry->RetryExpiry();
-            break;
-        }
-
-        case AGING_TIMER_EXPIRED: {
-            if (ArpEntry *entry = arp_proto->FindArpEntry(ipc->key))
-                entry->AgingExpiry();
-            break;
-        }
-
-        case ARP_SEND_GRACIOUS: {
-            if (!arp_proto->gracious_arp_entry()) {
-                arp_proto->set_gracious_arp_entry(
-                           new ArpEntry(io_, this, ipc->key.ip,
-                                        ipc->key.vrf, ArpEntry::ACTIVE));
+        case ArpProto::ARP_SEND_GRATUITOUS: {
+            if (!arp_proto->gratuitous_arp_entry()) {
+                arp_proto->set_gratuitous_arp_entry(
+                           new ArpEntry(io_, this, ipc->key, ArpEntry::ACTIVE));
                 ret = false;
             }
-            arp_proto->gracious_arp_entry()->SendGraciousArp();
+            arp_proto->gratuitous_arp_entry()->SendGratuitousArp();
             break;
         }
 
-        case GRACIOUS_TIMER_EXPIRED: {
-            if (arp_proto->gracious_arp_entry())
-                arp_proto->gracious_arp_entry()->SendGraciousArp();
-            break;
-        }
-
-        case ARP_DELETE: {
+        case ArpProto::ARP_DELETE: {
             EntryDelete(ipc->key);
             break;
         }
 
+        case ArpProto::RETRY_TIMER_EXPIRED: {
+            ArpEntry *entry = arp_proto->FindArpEntry(ipc->key);
+            if (entry && !entry->RetryExpiry()) {
+                arp_proto->DeleteArpEntry(entry->key());
+                delete entry;
+            }
+            break;
+        }
+
+        case ArpProto::AGING_TIMER_EXPIRED: {
+            ArpEntry *entry = arp_proto->FindArpEntry(ipc->key);
+            if (entry && !entry->AgingExpiry()) {
+                arp_proto->DeleteArpEntry(entry->key());
+                delete entry;
+            }
+            break;
+        }
+
+        case ArpProto::GRATUITOUS_TIMER_EXPIRED: {
+           if (arp_proto->gratuitous_arp_entry())
+               arp_proto->gratuitous_arp_entry()->SendGratuitousArp();
+            break;
+        }
+
         default:
-            assert(0);
+            ARP_TRACE(Error, "Received Invalid internal ARP message : " +
+                      integerToString(pkt_info_->ipc->cmd));
+            break;
     }
     delete ipc;
     return ret;
-}
-
-bool ArpHandler::OnVrfDelete(ArpEntry *entry, const VrfEntry *vrf) {
-    if (entry->key().vrf == vrf)
-        arp_del_list_.push_back(entry);
-    return true;
 }
 
 void ArpHandler::EntryDelete(ArpKey &key) {

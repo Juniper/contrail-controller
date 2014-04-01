@@ -188,7 +188,7 @@ public:
 
     bool IsGwPacket(const Interface *intf, uint32_t dst_ip);
 
-    PktStats GetStats() { return stats_; }
+    const PktStats &GetStats() const { return stats_; }
     void ClearStats() { stats_.Reset(); }
     void PktTraceIterate(PktModuleName mod, PktTraceCallback cb);
     void PktTraceClear(PktModuleName mod) { pkt_trace_.at(mod).Clear(); }

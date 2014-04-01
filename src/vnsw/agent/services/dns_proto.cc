@@ -261,10 +261,7 @@ bool DnsProto::UpdateDnsEntry(const VmInterface *vmitf, const VnEntry *vn,
         const std::vector<VnIpam> &ipam = vn->GetVnIpam();
         unsigned int i;
         for (i = 0; i < ipam.size(); ++i) {
-            uint32_t mask =
-                ipam[i].plen ? (0xFFFFFFFF << (32 - ipam[i].plen)) : 0;
-            if ((ip.to_ulong() & mask) ==
-                (ipam[i].ip_prefix.to_ulong() & mask)) {
+            if (IsIp4SubnetMember(ip, ipam[i].ip_prefix, ipam[i].plen)) {
                 plen = ipam[i].plen;
                 break;
             }

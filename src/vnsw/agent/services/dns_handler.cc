@@ -16,7 +16,9 @@ DnsHandler::DnsHandler(Agent *agent, boost::shared_ptr<PktInfo> info,
       xid_(-1), retries_(0), action_(NONE), rkey_(NULL),
       query_name_update_(false), pend_req_(0) {
     dns_ = (dnshdr *) pkt_info_->data;
-    timer_ = TimerManager::CreateTimer(io, "DnsHandlerTimer");
+    timer_ = TimerManager::CreateTimer(io, "DnsHandlerTimer",
+             TaskScheduler::GetInstance()->GetTaskId("Agent::Services"),
+             PktHandler::DNS);
 }
 
 DnsHandler::~DnsHandler() {
@@ -385,7 +387,9 @@ bool DnsHandler::HandleMessage() {
             return UpdateAll();
 
         default:
-            assert(0);
+            DNS_BIND_TRACE(DnsBindError, "Invalid internal DNS message : " <<
+                           pkt_info_->ipc->cmd);
+            return true;
     }
 }
 

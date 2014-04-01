@@ -163,7 +163,7 @@ public:
         return NULL;
     }
 
-    void SendArpMessage(ArpHandler::ArpMsgType type, uint32_t addr) {
+    void SendArpMessage(ArpProto::ArpMsgType type, uint32_t addr) {
         ArpProto::ArpIpc *ipc = 
                 new ArpProto::ArpIpc(type, addr, 
                     Agent::GetInstance()->GetVrfTable()->
@@ -285,7 +285,7 @@ TEST_F(ArpTest, ArpReqTest) {
     WaitForCompletion(2);
     EXPECT_TRUE(FindArpNHEntry(target_ip, Agent::GetInstance()->GetDefaultVrf()));
     EXPECT_TRUE(FindArpRoute(target_ip, Agent::GetInstance()->GetDefaultVrf()));
-    SendArpMessage(ArpHandler::AGING_TIMER_EXPIRED, target_ip);
+    SendArpMessage(ArpProto::AGING_TIMER_EXPIRED, target_ip);
     usleep(175000); // wait for retry timer
     EXPECT_EQ(1U, Agent::GetInstance()->GetArpProto()->GetArpCacheSize());
     EXPECT_FALSE(FindArpRoute(target_ip, Agent::GetInstance()->GetDefaultVrf()));
@@ -313,7 +313,7 @@ TEST_F(ArpTest, ArpReqTest) {
     arp_cache_sandesh->Release();
 }
 
-TEST_F(ArpTest, ArpGraciousTest) {
+TEST_F(ArpTest, ArpGratuitousTest) {
     for (int i = 0; i < 2; i++) {
         SendArpReq(req_ifindex, 0, ntohl(inet_addr(GRAT_IP)), 
                              ntohl(inet_addr(GRAT_IP)));
@@ -321,7 +321,7 @@ TEST_F(ArpTest, ArpGraciousTest) {
         EXPECT_TRUE(FindArpNHEntry(ntohl(inet_addr(GRAT_IP)), Agent::GetInstance()->GetDefaultVrf()));
         EXPECT_TRUE(FindArpRoute(ntohl(inet_addr(GRAT_IP)), Agent::GetInstance()->GetDefaultVrf()));
     }
-    SendArpMessage(ArpHandler::AGING_TIMER_EXPIRED, ntohl(inet_addr(GRAT_IP)));
+    SendArpMessage(ArpProto::AGING_TIMER_EXPIRED, ntohl(inet_addr(GRAT_IP)));
     usleep(175000); // wait for retry timer to expire
     EXPECT_EQ(1U, Agent::GetInstance()->GetArpProto()->GetArpCacheSize());
     EXPECT_FALSE(FindArpNHEntry(ntohl(inet_addr(GRAT_IP)), Agent::GetInstance()->GetDefaultVrf()));
@@ -365,7 +365,7 @@ TEST_F(ArpTest, ArpTunnelTest) {
     EXPECT_TRUE(FindArpRoute(dest_ip, Agent::GetInstance()->GetDefaultVrf()));
     TunnelNH(DBRequest::DB_ENTRY_DELETE, src_ip, dest_ip);
     client->WaitForIdle();
-    SendArpMessage(ArpHandler::AGING_TIMER_EXPIRED, dest_ip);
+    SendArpMessage(ArpProto::AGING_TIMER_EXPIRED, dest_ip);
     usleep(175000);
     EXPECT_EQ(1U, Agent::GetInstance()->GetArpProto()->GetArpCacheSize());
     EXPECT_FALSE(FindArpNHEntry(dest_ip, Agent::GetInstance()->GetDefaultVrf()));
@@ -382,7 +382,7 @@ TEST_F(ArpTest, ArpTunnelNoRequestTest) {
     // WaitForCompletion(2);
     // TunnelNH(DBRequest::DB_ENTRY_DELETE, src_ip, dest_ip);
     client->WaitForIdle();
-    SendArpMessage(ArpHandler::AGING_TIMER_EXPIRED, dest_ip);
+    SendArpMessage(ArpProto::AGING_TIMER_EXPIRED, dest_ip);
     usleep(175000);
     EXPECT_EQ(1U, Agent::GetInstance()->GetArpProto()->GetArpCacheSize());
     EXPECT_FALSE(FindArpNHEntry(dest_ip, Agent::GetInstance()->GetDefaultVrf()));
@@ -417,12 +417,14 @@ TEST_F(ArpTest, ArpErrorTest) {
 }
 
 TEST_F(ArpTest, ArpVrfDeleteTest) {
+    Agent *agent = Agent::GetInstance();
+    agent->set_fabric_vrf_name("vrf1");
     struct PortInfo input[] = {
         {"vnet1", 1, "1.1.1.1", "00:00:00:00:00:01", 1, 1},
     };
     CreateVmportEnv(input, 1);
-    WAIT_FOR(500, 1000, (Agent::GetInstance()->GetVmTable()->Size() == 1));
-    WAIT_FOR(500, 1000, (Agent::GetInstance()->GetVnTable()->Size() == 1));
+    WAIT_FOR(500, 1000, (agent->GetVmTable()->Size() == 1));
+    WAIT_FOR(500, 1000, (agent->GetVnTable()->Size() == 1));
     WAIT_FOR(500, 1000, (VrfFind("vrf1") == true));
     usleep(1000);
     client->WaitForIdle();
@@ -438,14 +440,15 @@ TEST_F(ArpTest, ArpVrfDeleteTest) {
     EXPECT_TRUE(FindArpRoute(target_ip+5, "vrf1"));
     DeleteVmportEnv(input, 1, true);
     client->WaitForIdle();
-    WAIT_FOR(500, 1000, (Agent::GetInstance()->GetVmTable()->Size() == 0));
-    WAIT_FOR(500, 1000, (Agent::GetInstance()->GetVnTable()->Size() == 0));
+    WAIT_FOR(500, 1000, (agent->GetVmTable()->Size() == 0));
+    WAIT_FOR(500, 1000, (agent->GetVnTable()->Size() == 0));
     WAIT_FOR(500, 1000, (VrfFind("vrf1") == false));
 
     EXPECT_FALSE(FindArpNHEntry(target_ip, "vrf1"));
     EXPECT_FALSE(FindArpRoute(target_ip, "vrf1"));
     EXPECT_FALSE(FindArpNHEntry(target_ip+5, "vrf1"));
     EXPECT_FALSE(FindArpRoute(target_ip+5, "vrf1"));
+    agent->set_fabric_vrf_name("default-domain:default-project:ip-fabric:__default__");
 }
 
 TEST_F(ArpTest, GratArpSendTest) {
@@ -453,26 +456,26 @@ TEST_F(ArpTest, GratArpSendTest) {
     //Add a vhost rcv route and check that grat arp entry gets created
     TriggerAddVhostRcvRoute(ip1);
     client->WaitForIdle();
-    EXPECT_TRUE(Agent::GetInstance()->GetArpProto()->gracious_arp_entry()->key().ip == ip1.to_ulong());
+    EXPECT_TRUE(Agent::GetInstance()->GetArpProto()->gratuitous_arp_entry()->key().ip == ip1.to_ulong());
 
     Agent::GetInstance()->GetDefaultInet4UnicastRouteTable()->DeleteReq(
                                                     Agent::GetInstance()->local_peer(), 
                                                     Agent::GetInstance()->GetDefaultVrf(),
                                                     ip1, 32);
     client->WaitForIdle();
-    EXPECT_TRUE(Agent::GetInstance()->GetArpProto()->gracious_arp_entry() == NULL);
+    EXPECT_TRUE(Agent::GetInstance()->GetArpProto()->gratuitous_arp_entry() == NULL);
 
     Ip4Address ip2 = Ip4Address::from_string("1.1.1.10");
     //Add yet another vhost rcv route and check that grat arp entry get created
     TriggerAddVhostRcvRoute(ip2);
     client->WaitForIdle();
-    EXPECT_TRUE(Agent::GetInstance()->GetArpProto()->gracious_arp_entry()->key().ip == ip2.to_ulong());
+    EXPECT_TRUE(Agent::GetInstance()->GetArpProto()->gratuitous_arp_entry()->key().ip == ip2.to_ulong());
     Agent::GetInstance()->GetDefaultInet4UnicastRouteTable()->DeleteReq(
                                                     Agent::GetInstance()->local_peer(), 
                                                     Agent::GetInstance()->GetDefaultVrf(),
                                                     ip2, 32);
     client->WaitForIdle();
-    EXPECT_TRUE(Agent::GetInstance()->GetArpProto()->gracious_arp_entry() == NULL);
+    EXPECT_TRUE(Agent::GetInstance()->GetArpProto()->gratuitous_arp_entry() == NULL);
 }
 
 #if 0

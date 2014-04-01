@@ -5,13 +5,16 @@
 #include "services/arp_proto.h"
 #include "services/services_sandesh.h"
 #include "services/services_init.h"
+#include "oper/route_common.h"
 
 ArpEntry::ArpEntry(boost::asio::io_service &io, ArpHandler *handler,
-                   in_addr_t ip, const VrfEntry *vrf, State state)
-    : key_(ip, vrf), state_(state), retry_count_(0), handler_(handler),
+                   ArpKey &key, State state)
+    : key_(key), state_(state), retry_count_(0), handler_(handler),
       arp_timer_(NULL) {
     memset(mac_address_, 0, ETH_ALEN);
-    arp_timer_ = TimerManager::CreateTimer(io, "Arp Entry timer");
+    arp_timer_ = TimerManager::CreateTimer(io, "Arp Entry timer",
+                 TaskScheduler::GetInstance()->GetTaskId("Agent::Services"),
+                 PktHandler::ARP);
 }
 
 ArpEntry::~ArpEntry() {
@@ -21,11 +24,13 @@ ArpEntry::~ArpEntry() {
 
 bool ArpEntry::HandleArpRequest() {
     if (IsResolved())
-        UpdateNhDBEntry(DBRequest::DB_ENTRY_ADD_CHANGE, true);
-    else if (state_ & ArpEntry::INITING) {
-        state_ = ArpEntry::RESOLVING;
-        SendArpRequest();
-        UpdateNhDBEntry(DBRequest::DB_ENTRY_ADD_CHANGE, false);
+        AddArpRoute(true);
+    else {
+        AddArpRoute(false);
+        if (state_ & ArpEntry::INITING) {
+            state_ = ArpEntry::RESOLVING;
+            SendArpRequest();
+        }
     }
     return true;
 }
@@ -38,44 +43,53 @@ void ArpEntry::HandleArpReply(uint8_t *mac) {
         retry_count_ = 0;
         memcpy(mac_address_, mac, ETHER_ADDR_LEN);
         if (state_ == ArpEntry::RESOLVING)
-            arp_proto->StatsResolved();
+            arp_proto->IncrementStatsResolved();
         state_ = ArpEntry::ACTIVE;
-        StartTimer(arp_proto->aging_timeout(), ArpHandler::AGING_TIMER_EXPIRED);
-        UpdateNhDBEntry(DBRequest::DB_ENTRY_ADD_CHANGE, true);
+        StartTimer(arp_proto->aging_timeout(), ArpProto::AGING_TIMER_EXPIRED);
+        AddArpRoute(true);
     }
 }
 
-void ArpEntry::RetryExpiry() {
+bool ArpEntry::RetryExpiry() {
     if (state_ & ArpEntry::ACTIVE)
-        return;
+        return true;
     ArpProto *arp_proto = handler_->agent()->GetArpProto();
     if (retry_count_ < arp_proto->max_retries()) {
         retry_count_++;
         SendArpRequest();
     } else {
-        UpdateNhDBEntry(DBRequest::DB_ENTRY_DELETE);
+        Ip4Address ip(key_.ip);
+        ARP_TRACE(Trace, "Retry exceeded", ip.to_string(), 
+                  key_.vrf->GetName(), "");
+        arp_proto->IncrementStatsMaxRetries();
+
+        // if Arp NH is not present, let the entry be deleted
+        if (DeleteArpRoute())
+            return false;
 
         // keep retrying till Arp NH is deleted
         retry_count_ = 0;
         SendArpRequest();
-        arp_proto->StatsMaxRetries();
-
-        Ip4Address ip(key_.ip);
-        if (state_ == ArpEntry::RERESOLVING) {
-            ARP_TRACE(Trace, "Retry", ip.to_string(), key_.vrf->GetName(), "");
-        } else {
-            ARP_TRACE(Trace, "Retry exceeded", ip.to_string(), 
-                      key_.vrf->GetName(), "");
-        }
     }
+    return true;
 }
 
-void ArpEntry::AgingExpiry() {
+bool ArpEntry::AgingExpiry() {
+    Ip4Address ip(key_.ip);
+    const string& vrf_name = key_.vrf->GetName();
+    ArpNHKey nh_key(vrf_name, ip);
+    ArpNH *arp_nh = static_cast<ArpNH *>(handler_->agent()->GetNextHopTable()->
+                                         FindActiveEntry(&nh_key));
+    if (!arp_nh) {
+        // do not re-resolve if Arp NH doesnt exist
+        return false;
+    }
     state_ = ArpEntry::RERESOLVING;
     SendArpRequest();
+    return true;
 }
 
-void ArpEntry::SendGraciousArp() {
+void ArpEntry::SendGratuitousArp() {
     const unsigned char zero_mac[] = {0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
     Agent *agent = handler_->agent();
     ArpProto *arp_proto = agent->GetArpProto();
@@ -89,22 +103,19 @@ void ArpEntry::SendGraciousArp() {
 
     if (retry_count_ == ArpProto::kGratRetries) {
         // Retaining this entry till arp module is deleted
-        // arp_proto->DelGraciousArpEntry();
+        // arp_proto->DelGratuitousArpEntry();
         return;
     }
 
     retry_count_++;
-    StartTimer(ArpProto::kGratRetryTimeout, ArpHandler::GRACIOUS_TIMER_EXPIRED);
-}
-
-void ArpEntry::Delete() {
-    UpdateNhDBEntry(DBRequest::DB_ENTRY_DELETE);
+    StartTimer(ArpProto::kGratRetryTimeout, ArpProto::GRATUITOUS_TIMER_EXPIRED);
 }
 
 bool ArpEntry::IsResolved() {
     return (state_ & (ArpEntry::ACTIVE | ArpEntry::RERESOLVING));
 }
-void ArpEntry::StartTimer(uint32_t timeout, ArpHandler::ArpMsgType mtype) {
+
+void ArpEntry::StartTimer(uint32_t timeout, uint32_t mtype) {
     arp_timer_->Cancel();
     arp_timer_->Start(timeout, boost::bind(&ArpProto::TimerExpiry, 
                                            handler_->agent()->GetArpProto(),
@@ -124,20 +135,62 @@ void ArpEntry::SendArpRequest() {
                       agent->GetVrfTable()->FindVrfFromName(
                           agent->GetDefaultVrf())->vrf_id());
 
-    StartTimer(arp_proto->retry_timeout(), ArpHandler::RETRY_TIMER_EXPIRED);
+    StartTimer(arp_proto->retry_timeout(), ArpProto::RETRY_TIMER_EXPIRED);
 }
 
-void ArpEntry::UpdateNhDBEntry(DBRequest::DBOperation op, bool resolved) {
-    Ip4Address ip(key_.ip);
-    struct ether_addr mac;
-    memcpy(mac.ether_addr_octet, mac_address_, ETH_ALEN);
-    ArpProto *arp_proto = handler_->agent()->GetArpProto();
-    Interface *itf = arp_proto->ip_fabric_interface();
+void ArpEntry::AddArpRoute(bool resolved) {
     if (key_.vrf->GetName() == handler_->agent()->GetLinkLocalVrfName()) {
         // Do not squash existing route entry.
-        // UpdateArp should be smarter and not replace an existing route.
+        // should be smarter and not replace an existing route.
         return;
     }
-    arp_proto->UpdateArp(ip, mac, key_.vrf->GetName(),
-                         *itf, op, resolved);
+
+    Ip4Address ip(key_.ip);
+    const string& vrf_name = key_.vrf->GetName();
+    ArpNHKey nh_key(vrf_name, ip);
+    ArpNH *arp_nh = static_cast<ArpNH *>(handler_->agent()->GetNextHopTable()->
+                                         FindActiveEntry(&nh_key));
+
+    struct ether_addr mac;
+    memcpy(mac.ether_addr_octet, mac_address_, ETH_ALEN);
+    if (arp_nh && arp_nh->GetResolveState() && 
+        memcmp(&mac, arp_nh->GetMac(), sizeof(mac)) == 0) {
+        // MAC address unchanged, ignore
+        return;
+    }
+
+    stringstream mac_string;
+    mac_string << ether_ntoa((struct ether_addr *)&mac);
+    ARP_TRACE(Trace, "Add", ip.to_string(), vrf_name, mac_string.str());
+
+    Interface *itf = handler_->agent()->GetArpProto()->ip_fabric_interface();
+    handler_->agent()->GetDefaultInet4UnicastRouteTable()->ArpRoute(
+                       DBRequest::DB_ENTRY_ADD_CHANGE, ip, mac,
+                       vrf_name, *itf, resolved, 32);
+}
+
+bool ArpEntry::DeleteArpRoute() {
+    if (key_.vrf->GetName() == handler_->agent()->GetLinkLocalVrfName()) {
+        return true;
+    }
+
+    Ip4Address ip(key_.ip);
+    const string& vrf_name = key_.vrf->GetName();
+    ArpNHKey nh_key(vrf_name, ip);
+    ArpNH *arp_nh = static_cast<ArpNH *>(handler_->agent()->GetNextHopTable()->
+                                         FindActiveEntry(&nh_key));
+    if (!arp_nh)
+        return true;
+
+    struct ether_addr mac;
+    memcpy(mac.ether_addr_octet, mac_address_, ETH_ALEN);
+    stringstream mac_string;
+    mac_string << ether_ntoa((struct ether_addr *)&mac);
+    ARP_TRACE(Trace, "Delete", ip.to_string(), vrf_name, mac_string.str());
+
+    Interface *itf = handler_->agent()->GetArpProto()->ip_fabric_interface();
+    handler_->agent()->GetDefaultInet4UnicastRouteTable()->ArpRoute(
+                       DBRequest::DB_ENTRY_DELETE, ip, mac, vrf_name,
+                       *itf, false, 32);
+    return false;
 }

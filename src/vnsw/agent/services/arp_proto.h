@@ -14,14 +14,6 @@ do {                                                                        \
     Arp##obj::TraceMsg(ArpTraceBuf, __FILE__, __LINE__, ##__VA_ARGS__);     \
 } while (false)                                                             \
 
-struct ArpVrfState : public DBState {
-    bool seen_;
-};
-
-struct ArpRouteState : public DBState {
-    bool seen_;
-};
-
 class ArpProto : public Proto {
 public:
     static const uint16_t kGratRetries = 2;
@@ -34,28 +26,43 @@ public:
     typedef std::pair<ArpKey, ArpEntry *> ArpCachePair;
     typedef boost::function<bool(const ArpKey &, ArpEntry *)> Callback;
 
+    enum ArpMsgType {
+        ARP_RESOLVE,
+        ARP_DELETE,
+        ARP_SEND_GRATUITOUS,
+        RETRY_TIMER_EXPIRED,
+        AGING_TIMER_EXPIRED,
+        GRATUITOUS_TIMER_EXPIRED,
+    };
+
     struct ArpIpc : InterTaskMsg {
-        ArpKey key;
-        ArpIpc(ArpHandler::ArpMsgType msg, ArpKey &akey)
+        ArpIpc(ArpProto::ArpMsgType msg, ArpKey &akey)
             : InterTaskMsg(msg), key(akey) {}
-        ArpIpc(ArpHandler::ArpMsgType msg, in_addr_t ip, const VrfEntry *vrf) : 
+        ArpIpc(ArpProto::ArpMsgType msg, in_addr_t ip, const VrfEntry *vrf) : 
             InterTaskMsg(msg), key(ip, vrf) {}
+
+        ArpKey key;
     };
 
     struct ArpStats {
-        uint32_t pkts_dropped;
+        ArpStats() { Reset(); }
+        void Reset() {
+            arp_req = arp_replies = arp_gratuitous = 
+            resolved = max_retries_exceeded = errors = 0;
+            arp_invalid_packets = arp_invalid_interface = arp_invalid_vrf =
+                arp_invalid_address = 0;
+        }
+
         uint32_t arp_req;
         uint32_t arp_replies;
-        uint32_t arp_gracious;
+        uint32_t arp_gratuitous;
         uint32_t resolved;
         uint32_t max_retries_exceeded;
         uint32_t errors;
-
-        void Reset() {
-            pkts_dropped = arp_req = arp_replies = arp_gracious = 
-            resolved = max_retries_exceeded = errors = 0;
-        }
-        ArpStats() { Reset(); }
+        uint32_t arp_invalid_packets;
+        uint32_t arp_invalid_interface;
+        uint32_t arp_invalid_vrf;
+        uint32_t arp_invalid_address;
     };
 
     void Shutdown();
@@ -64,10 +71,7 @@ public:
 
     ProtoHandler *AllocProtoHandler(boost::shared_ptr<PktInfo> info,
                                     boost::asio::io_service &io);
-    bool TimerExpiry(ArpKey &key, ArpHandler::ArpMsgType timer_type);
-    void UpdateArp(Ip4Address &ip, struct ether_addr &mac, const string &vrf,
-                   const Interface &intf, DBRequest::DBOperation op, 
-                   bool resolved);
+    bool TimerExpiry(ArpKey &key, uint32_t timer_type);
 
     bool AddArpEntry(const ArpKey &key, ArpEntry *entry);
     bool DeleteArpEntry(const ArpKey &key);
@@ -90,18 +94,33 @@ public:
         memcpy(ip_fabric_interface_mac_, mac, ETH_ALEN);
     }
 
-    ArpEntry *gracious_arp_entry() const { return gracious_arp_entry_; }
-    void set_gracious_arp_entry(ArpEntry *entry) { gracious_arp_entry_ = entry; }
-    void del_gracious_arp_entry();
+    ArpEntry *gratuitous_arp_entry() const;
+    void set_gratuitous_arp_entry(ArpEntry *entry);
+    void del_gratuitous_arp_entry();
 
-    void StatsPktsDropped() { arp_stats_.pkts_dropped++; }
-    void StatsArpReq() { arp_stats_.arp_req++; }
-    void StatsArpReplies() { arp_stats_.arp_replies++; }
-    void StatsGracious() { arp_stats_.arp_gracious++; }
-    void StatsResolved() { arp_stats_.resolved++; }
-    void StatsMaxRetries() { arp_stats_.max_retries_exceeded++; }
-    void StatsErrors() { arp_stats_.errors++; }
-    ArpStats GetStats() { return arp_stats_; }
+    void IncrementStatsArpReq() { arp_stats_.arp_req++; }
+    void IncrementStatsArpReplies() { arp_stats_.arp_replies++; }
+    void IncrementStatsGratuitous() { arp_stats_.arp_gratuitous++; }
+    void IncrementStatsResolved() { arp_stats_.resolved++; }
+    void IncrementStatsMaxRetries() { arp_stats_.max_retries_exceeded++; }
+    void IncrementStatsErrors() { arp_stats_.errors++; }
+    void IncrementStatsInvalidPackets() {
+        IncrementStatsErrors();
+        arp_stats_.arp_invalid_packets++;
+    }
+    void IncrementStatsInvalidInterface() {
+        IncrementStatsErrors();
+        arp_stats_.arp_invalid_interface++;
+    }
+    void IncrementStatsInvalidVrf() {
+        IncrementStatsErrors();
+        arp_stats_.arp_invalid_vrf++;
+    }
+    void IncrementStatsInvalidAddress() {
+        IncrementStatsErrors();
+        arp_stats_.arp_invalid_address++;
+    }
+    const ArpStats &GetStats() const { return arp_stats_; }
     void ClearStats() { arp_stats_.Reset(); }
 
     uint16_t max_retries() const { return max_retries_; }
@@ -116,9 +135,9 @@ private:
     void InterfaceNotify(DBEntryBase *entry);
     void NextHopNotify(DBEntryBase *e);
     void RouteUpdate(DBTablePartBase *part, DBEntryBase *entry);
-    void SendArpIpc(ArpHandler::ArpMsgType type,
+    void SendArpIpc(ArpProto::ArpMsgType type,
                     in_addr_t ip, const VrfEntry *vrf);
-    void SendArpIpc(ArpHandler::ArpMsgType type, ArpKey &key);
+    void SendArpIpc(ArpProto::ArpMsgType type, ArpKey &key);
 
     ArpCache arp_cache_;
     ArpStats arp_stats_;
@@ -126,10 +145,10 @@ private:
     uint16_t ip_fabric_interface_index_;
     unsigned char ip_fabric_interface_mac_[ETH_ALEN];
     Interface *ip_fabric_interface_;
-    ArpEntry *gracious_arp_entry_;
-    DBTableBase::ListenerId vid_;
-    DBTableBase::ListenerId iid_;
-    DBTableBase::ListenerId nhid_;
+    ArpEntry *gratuitous_arp_entry_;
+    DBTableBase::ListenerId vrf_table_listener_id_;
+    DBTableBase::ListenerId interface_table_listener_id_;
+    DBTableBase::ListenerId nexthop_table_listener_id_;
     DBTableBase::ListenerId fabric_route_table_listener_;
 
     uint16_t max_retries_;

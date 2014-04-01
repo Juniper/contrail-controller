@@ -13,25 +13,25 @@ class HttpServer;
 class MetadataProxy {
 public:
     struct SessionData {
+        SessionData(HttpConnection *c, bool conn_close) 
+            : conn(c), content_len(0), data_sent(0),
+              close_req(conn_close), header_end(false) {}
+
         HttpConnection *conn;
         uint32_t content_len;
         uint32_t data_sent;
         bool close_req;
         bool header_end;
-
-        SessionData(HttpConnection *c, bool conn_close) 
-            : conn(c), content_len(0), data_sent(0),
-              close_req(conn_close), header_end(false) {}
     };
 
     struct MetadataStats {
+        MetadataStats() { Reset(); }
+        void Reset() { requests = responses = proxy_sessions = internal_errors = 0; }
+
         uint32_t requests;
         uint32_t responses;
         uint32_t proxy_sessions;
         uint32_t internal_errors;
-
-        MetadataStats() { Reset(); }
-        void Reset() { requests = responses = proxy_sessions = internal_errors = 0; }
     };
 
     typedef std::map<HttpSession *, SessionData> SessionMap;
