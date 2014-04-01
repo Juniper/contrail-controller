@@ -25,10 +25,11 @@ then
 fi
 
 # get all install packages
+/bin/rm -f /tmp/installed_pkgs 
 dpkg --list >> /tmp/installed_pkgs
 
-echo "Package                                Version                 Build-ID | Repo | Package Name"
-echo "-------------------------------------- ----------------------- ----------------------------------"
+echo "Package                                Version                       Build-ID | Repo | Package Name"
+echo "-------------------------------------- ----------------------------- ----------------------------------"
 for i in `cat $CONTRAILRPMS`; do
     version=$(grep "$i " /tmp/installed_pkgs | awk '/^.i/ { print $3 }')
     if [[ -n $version ]]; then
