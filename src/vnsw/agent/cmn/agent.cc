@@ -138,6 +138,12 @@ void Agent::SetAgentTaskPolicy() {
     };
     SetTaskPolicyOne("Agent::KSync", ksync_exclude_list, 
                      sizeof(ksync_exclude_list) / sizeof(char *));
+
+    const char *stats_collector_exclude_list[] = {
+        "Agent::PktFlowResponder"
+    };
+    SetTaskPolicyOne("Agent::StatsCollector", stats_collector_exclude_list,
+                     sizeof(stats_collector_exclude_list) / sizeof(char *));
 }
 
 void Agent::CreateLifetimeManager() {
