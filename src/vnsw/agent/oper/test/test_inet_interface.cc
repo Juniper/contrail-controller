@@ -60,7 +60,7 @@ public:
         intf_count_ = agent_->GetInterfaceTable()->Size();
         nh_count_ = agent_->GetNextHopTable()->Size();
         vrf_count_ = agent_->GetVrfTable()->Size();
-        peer_ = agent_->GetLocalPeer();
+        peer_ = agent_->local_peer();
 
         vrf_table_->CreateVrf(VRF_VHOST);
         vrf_table_->CreateVrf(VRF_LL);

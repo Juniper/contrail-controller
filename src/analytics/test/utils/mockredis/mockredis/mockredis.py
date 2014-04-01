@@ -41,7 +41,7 @@ def redis_version():
 '''
 
 
-def start_redis(port):
+def start_redis(port, exe=None):
     '''
     Client uses this function to start an instance of redis
     Arguments:
@@ -55,7 +55,7 @@ def start_redis(port):
 
     conftemplate = os.path.dirname(os.path.abspath(__file__)) + "/" +\
         redis_conf
-    redisbase = "/tmp/redis." + str(port) + "/"
+    redisbase = "/tmp/redis.%s.%d/" % (os.getenv('USER', 'None'), port)
     output, _ = call_command_("rm -rf " + redisbase)
     output, _ = call_command_("mkdir " + redisbase)
     output, _ = call_command_("mkdir " + redisbase + "cache")
@@ -68,7 +68,9 @@ def start_redis(port):
                      ("port 6379", "port " + str(port)),
                      ("/var/log/redis_6379.log", redisbase + "log"),
                      ("/var/lib/redis/6379", redisbase + "cache")])
-    command = "redis-server " + redisbase + redis_conf
+    if exe == None:
+        exe = "redis-server"
+    command = exe + " " + redisbase + redis_conf
     subprocess.Popen(command.split(' '),
                                stdout=subprocess.PIPE,
                                stderr=subprocess.PIPE)
@@ -95,12 +97,7 @@ def stop_redis(port):
     r = redis.StrictRedis(host='localhost', port=port, db=0)
     r.shutdown()
     del r
-    redisbase = "/tmp/redis." + str(port) + "/"
-    '''
-    pidfile  = redisbase + "pid"
-    pid = int(open(pidfile).read())
-    os.kill(pid, signal.SIGTERM)
-    '''
+    redisbase = "/tmp/redis.%s.%d/" % (os.getenv('USER', 'None'), port)
     output, _ = call_command_("rm -rf " + redisbase)
 
 def replace_string_(filePath, findreplace):

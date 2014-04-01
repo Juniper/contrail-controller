@@ -28,8 +28,8 @@
 
 using boost::system::error_code;
 
-const int IFMapStateMachine::kConnectInterval = 30;
-const int IFMapStateMachine::kResponseWaitInterval = 5;
+const int IFMapStateMachine::kConnectWaitIntervalMs = 30000;
+const int IFMapStateMachine::kResponseWaitIntervalMs = 5000;
 
 namespace sc = boost::statechart;
 namespace mpl = boost::mpl;
@@ -674,8 +674,9 @@ IFMapStateMachine::IFMapStateMachine(IFMapManager *manager)
       work_queue_(TaskScheduler::GetInstance()->GetTaskId(
                   "ifmap::StateMachine"),
                   0, boost::bind(&IFMapStateMachine::DequeueEvent, this, _1)),
-      channel_(NULL), state_(IDLE), last_state_(IDLE),
-      last_state_change_at_(0), last_event_at_(0) {
+      channel_(NULL), state_(IDLE), last_state_(IDLE), last_state_change_at_(0),
+      last_event_at_(0), connect_wait_interval_ms_(kConnectWaitIntervalMs),
+      response_wait_interval_ms_(kResponseWaitIntervalMs) {
 }
 
 void IFMapStateMachine::Initialize() {
@@ -683,23 +684,27 @@ void IFMapStateMachine::Initialize() {
     EnqueueEvent(ifsm::EvStart());
 }
 
+// Return the time (in milliseconds) to wait for connect to succeed
 int IFMapStateMachine::GetConnectTime(bool is_ssrc) const {
-    int backoff;
+    int backoff, backoff_ms;
     if (is_ssrc) {
         backoff = std::min(ssrc_connect_attempts_, 6);
-        return std::min(1 << backoff, kConnectInterval);
+        backoff_ms = (1 << backoff) * 1000;
+        return std::min(backoff_ms, connect_wait_interval_ms_);
     } else {
         backoff = std::min(arc_connect_attempts_, 6);
-        return std::min(1 << backoff, kConnectInterval);
+        backoff_ms = (1 << backoff) * 1000;
+        return std::min(backoff_ms, connect_wait_interval_ms_);
     }
 }
 
-void IFMapStateMachine::StartConnectTimer(int seconds) {
+void IFMapStateMachine::StartConnectTimer(int milliseconds) {
     // TODO assert if timer is still running. How?
-    IFMAP_SM_DEBUG(IFMapSmStartTimerMessage, seconds,
+    IFMAP_SM_DEBUG(IFMapSmStartTimerMessage, milliseconds/1000,
                    "second connect timer started.");
     error_code ec;
-    connect_timer_.expires_from_now(boost::posix_time::seconds(seconds), ec);
+    connect_timer_.expires_from_now(
+        boost::posix_time::milliseconds(milliseconds), ec);
     connect_timer_.async_wait(
         boost::bind(&IFMapStateMachine::ConnectTimerExpired, this,
                     boost::asio::placeholders::error));
@@ -723,11 +728,11 @@ void IFMapStateMachine::ConnectTimerExpired(
 }
 
 void IFMapStateMachine::StartResponseTimer() {
-    IFMAP_SM_DEBUG(IFMapSmStartTimerMessage, kResponseWaitInterval,
+    IFMAP_SM_DEBUG(IFMapSmStartTimerMessage, response_wait_interval_ms_/1000,
                    "second response timer started.");
     error_code ec;
     response_timer_.expires_from_now(
-        boost::posix_time::seconds(kResponseWaitInterval), ec);
+        boost::posix_time::milliseconds(response_wait_interval_ms_), ec);
     response_timer_.async_wait(
         boost::bind(&IFMapStateMachine::ResponseTimerExpired, this,
                     boost::asio::placeholders::error));

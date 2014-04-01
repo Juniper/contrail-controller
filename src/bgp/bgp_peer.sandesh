@@ -251,6 +251,7 @@ struct ShowBgpStaticRouteConfig {
 struct ShowBgpInstanceConfig {
     1: string name;
     2: string virtual_network;
+    7: i32 virtual_network_index;
     3: list<string> import_target;
     4: list<string> export_target;
     5: ShowBgpServiceChainConfig service_chain_info;
@@ -322,6 +323,7 @@ struct BgpPeerInfoData {
    13: optional string send_state;       // in sync/not in sync
    21: optional list<string> configured_families;
    14: optional list<string> families;
+   22: optional list<string> negotiated_families;
    15: optional peer_info.PeerFlapInfo flap_info;
    16: optional peer_info.PeerStateInfo state_info;
    17: optional peer_info.PeerEventInfo event_info;
@@ -347,4 +349,12 @@ request sandesh ShowXmppServerReq {
 response sandesh ShowXmppServerResp {
     1: io.TcpServerSocketStats rx_socket_stats;
     2: io.TcpServerSocketStats tx_socket_stats;
+}
+
+response sandesh ClearComputeNodeConnectionResp {
+    1: bool sucess;
+}
+
+request sandesh ClearComputeNodeConnection {
+    1: string hostname_or_all; // HostName of compute-node
 }

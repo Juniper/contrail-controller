@@ -29,6 +29,12 @@ struct PortInfo input2[] = {
     {"vnet4", 4, "1.1.1.4", "00:00:01:01:01:04", 1, 4},
 };
 
+typedef enum {
+    INGRESS = 0,
+    EGRESS = 1,
+    BIDIRECTION = 2
+} AclDirection;
+
 static string AddAclXmlString(const char *node_name, const char *name, int id,
                               int proto, const char *action) {
     char buff[10240];
@@ -189,10 +195,17 @@ static string AddSgIdAclXmlString(const char *node_name, const char *name, int i
     return s;
 }
 
-
 static void AddAclEntry(const char *name, int id, int proto,
-                        const char *action) {
-    std::string s = AddAclXmlString("access-control-list", name, id, proto,
+                        const char *action, AclDirection direction) {
+    char acl_name[1024];
+    uint16_t max_len = sizeof(acl_name) - 1;
+    strncpy(acl_name, name, max_len);
+    if (direction == EGRESS) {
+        strncat(acl_name, "egress-access-control-list", max_len);
+    } else {
+        strncat(acl_name, "ingress-access-control-list", max_len);
+    }
+    std::string s = AddAclXmlString("access-control-list", acl_name, id, proto,
                                     action);
     pugi::xml_document xdoc_;
     pugi::xml_parse_result result = xdoc_.load(s.c_str());
@@ -202,9 +215,18 @@ static void AddAclEntry(const char *name, int id, int proto,
 }
 
 static void AddSgIdAcl(const char *name, int id, int proto,
-                       int src_sg_id, int dest_sg_id, const char *action) {
-    std::string s = AddSgIdAclXmlString("access-control-list", name, id, proto,
-                                         src_sg_id, dest_sg_id, action);
+                       int src_sg_id, int dest_sg_id, const char *action, 
+                       AclDirection direction) {
+    char acl_name[1024];
+    uint16_t max_len = sizeof(acl_name) - 1;
+    strncpy(acl_name, name, max_len);
+    if (direction == EGRESS) {
+        strncat(acl_name, "egress-access-control-list", max_len);
+    } else {
+        strncat(acl_name, "ingress-access-control-list", max_len);
+    }
+    std::string s = AddSgIdAclXmlString("access-control-list", acl_name, id, proto,
+                                        src_sg_id, dest_sg_id, action);
     pugi::xml_document xdoc_;
     pugi::xml_parse_result result = xdoc_.load(s.c_str());
     EXPECT_TRUE(result);
@@ -212,21 +234,68 @@ static void AddSgIdAcl(const char *name, int id, int proto,
     client->WaitForIdle();
 }
 
-static void AddSgEntry(const char *sg_name, const char *acl_name, int id,
-                       int proto, const char *action) {
-    AddAclEntry(acl_name, id, proto, action);
+static void AddSgEntry(const char *sg_name, const char *name, int id,
+                       int proto, const char *action, AclDirection direction) {
+
     AddNode("security-group", sg_name, 1);
-    AddLink("security-group", sg_name, "access-control-list", acl_name);
+    char acl_name[1024];
+    uint16_t max_len = sizeof(acl_name) - 1;
+    strncpy(acl_name, name, max_len);
+    switch (direction) {
+        case INGRESS:
+            AddAclEntry(name, id, proto, action, direction);
+            strncat(acl_name, "ingress-access-control-list", max_len);
+            AddLink("security-group", sg_name, "access-control-list", acl_name);
+            break;
+        case EGRESS:
+            AddAclEntry(name, id, proto, action, direction);
+            strncat(acl_name, "egress-access-control-list", max_len);
+            AddLink("security-group", sg_name, "access-control-list", acl_name); 
+            break;
+        case BIDIRECTION:
+            AddAclEntry(name, id, proto, action, EGRESS);
+            strncat(acl_name, "egress-access-control-list", max_len);
+            AddLink("security-group", sg_name, "access-control-list", acl_name);
+
+            strncpy(acl_name, name, max_len);
+            strncat(acl_name, "ingress-access-control-list", max_len);
+            AddAclEntry(name, id, proto, action, INGRESS);
+            AddLink("security-group", sg_name, "access-control-list", acl_name);
+            break;
+    }
 }
 
-static void AddSgEntry(const char *sg_name, const char *acl_name, int id,
+static void AddSgEntry(const char *sg_name, const char *name, int id,
                        int proto, const char *action, uint32_t sg_id, 
-                       uint32_t dest_sg_id) {
+                       uint32_t dest_sg_id, AclDirection direction) {
     std::stringstream str;
     str << "<security-group-id>" << sg_id << "</security-group-id>" << endl;
-    AddSgIdAcl(acl_name, id, proto, sg_id, dest_sg_id, action);
     AddNode("security-group", sg_name, id, str.str().c_str());
-    AddLink("security-group", sg_name, "access-control-list", acl_name);
+    char acl_name[1024];
+    uint16_t max_len = sizeof(acl_name) - 1;
+    strncpy(acl_name, name, max_len);
+    switch (direction) {
+        case INGRESS:
+            AddSgIdAcl(name, id, proto, sg_id, dest_sg_id, action, direction);
+            strncat(acl_name, "ingress-access-control-list", max_len);
+            AddLink("security-group", sg_name, "access-control-list", acl_name);
+            break;
+        case EGRESS:
+            AddSgIdAcl(name, id, proto, sg_id, dest_sg_id, action, direction);
+            strncat(acl_name, "egress-access-control-list", max_len);
+            AddLink("security-group", sg_name, "access-control-list", acl_name);
+            break;
+        case BIDIRECTION:
+            AddSgIdAcl(name, id, proto, sg_id, dest_sg_id, action, EGRESS);
+            strncat(acl_name, "egress-access-control-list", max_len);
+            AddLink("security-group", sg_name, "access-control-list", acl_name);
+
+            strncpy(acl_name, name, max_len);
+            AddSgIdAcl(name, id, proto, sg_id, dest_sg_id, action, INGRESS);
+            strncat(acl_name, "ingress-access-control-list", max_len);
+            AddLink("security-group", sg_name, "access-control-list", acl_name);
+            break;
+    }
 }
 
 const VmInterface *GetVmPort(int id) {
@@ -300,7 +369,7 @@ class SgTest : public ::testing::Test {
 
         const VmInterface *port = GetVmPort(1);
         EXPECT_EQ(port->sg_list().list_.size(), 0U);
-        AddSgEntry("sg1", "sg_acl1", 10, 1, "pass");
+        AddSgEntry("sg1", "sg_acl1", 10, 1, "pass", BIDIRECTION);
         AddLink("virtual-machine-interface", "vnet1", "security-group", "sg1");
         client->WaitForIdle();
         EXPECT_EQ(port->sg_list().list_.size(), 1U);
@@ -309,11 +378,21 @@ class SgTest : public ::testing::Test {
     virtual void TearDown() {
         client->EnqueueFlowFlush();
         client->WaitForIdle();
+        char acl_name[1024];
+        uint16_t max_len = sizeof(acl_name) - 1;
+
 
         EXPECT_EQ(0U, Agent::GetInstance()->pkt()->flow_table()->Size());
         DelLink("virtual-machine-interface", "vnet1", "security-group", "sg1");
-        DelLink("security-group", "sg1", "access-control-list", "sg_acl1");
-        DelNode("access-control-list", "sg_acl1");
+        strncpy(acl_name, "sg_acl1", max_len);
+        strncat(acl_name, "egress-access-control-list", max_len);
+        DelLink("security-group", "sg1", "access-control-list", acl_name);
+        DelNode("access-control-list", acl_name);
+
+        strncpy(acl_name, "sg_acl1", max_len);
+        strncat(acl_name, "ingress-access-control-list", max_len);
+        DelLink("security-group", "sg1", "access-control-list", acl_name);
+        DelNode("access-control-list", acl_name);
         DelNode("security-group", "sg1");
         client->WaitForIdle();
 
@@ -385,7 +464,7 @@ TEST_F(SgTest, Flow_Allow_1) {
 // Deny in both forward and reverse directions
 TEST_F(SgTest, Flow_Deny_1) {
     TxTcpPacket(vnet[1]->id(), vnet_addr[1], vnet_addr[2],
-                10, 20);
+                10, 20, false);
     client->WaitForIdle();
 
     EXPECT_TRUE(ValidateAction(vnet[1]->vrf()->vrf_id(), vnet_addr[1],
@@ -402,7 +481,7 @@ TEST_F(SgTest, Fwd_Sg_Change_1) {
     EXPECT_TRUE(ValidateAction(vnet[1]->vrf()->vrf_id(), vnet_addr[1],
                                vnet_addr[2], 1, 0, 0, TrafficAction::PASS));
 
-    AddAclEntry("sg_acl1", 10, 1, "deny");
+    AddAclEntry("sg_acl1", 10, 1, "deny", EGRESS);
     EXPECT_TRUE(ValidateAction(vnet[1]->vrf()->vrf_id(), vnet_addr[1],
                                vnet_addr[2], 1, 0, 0, TrafficAction::DENY));
 
@@ -413,7 +492,7 @@ TEST_F(SgTest, Fwd_Sg_Change_1) {
 // Delete SG from interface
 TEST_F(SgTest, Sg_Delete_1) {
     TxTcpPacket(vnet[1]->id(), vnet_addr[1], vnet_addr[2],
-                10, 20);
+                10, 20, false);
     client->WaitForIdle();
 
     EXPECT_TRUE(ValidateAction(vnet[1]->vrf()->vrf_id(), vnet_addr[1],
@@ -435,7 +514,7 @@ TEST_F(SgTest, Sg_Introspec) {
 
     // Add a SG id acl to pass traffic between sg-id 1 and sg-id 2 
     // to vnet1
-    AddSgEntry("sg2", "ag2", 20, 1, "pass", 1, 2);
+    AddSgEntry("sg2", "ag2", 20, 1, "pass", 1, 2, BIDIRECTION);
     AddLink("virtual-machine-interface", "vnet1", "security-group", "sg2");
 
     // Introspec based on the uuid
@@ -485,7 +564,7 @@ TEST_F(SgTest, Sg_Policy_1) {
 
     //Add a SG id acl to pass traffic between sg-id 1 and sg-id 2 
     //to vnet1
-    AddSgEntry("sg2", "ag2", 20, 1, "pass", 1, 2);
+    AddSgEntry("sg2", "ag2", 20, 1, "pass", 1, 2, BIDIRECTION);
     AddLink("virtual-machine-interface", "vnet1", "security-group", "sg2");
 
     SecurityGroupList sg_id_list;
@@ -541,7 +620,7 @@ TEST_F(SgTest, Sg_Policy_2) {
     DelLink("virtual-machine-interface", "vnet1", "security-group", "sg1");
     //Add a SG id acl to pass traffic between sg-id 1 and sg-id 2
     //to vnet1
-    AddSgEntry("sg2", "ag2", 20, 1, "pass", 1, 2);
+    AddSgEntry("sg2", "ag2", 20, 1, "pass", 1, 2, EGRESS);
     AddLink("virtual-machine-interface", "vnet1", "security-group", "sg2");
 
     SecurityGroupList sg_id_list;

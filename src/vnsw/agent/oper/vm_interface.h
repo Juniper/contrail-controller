@@ -182,7 +182,7 @@ public:
         vn_(NULL), ip_addr_(0), mdata_addr_(0), subnet_bcast_addr_(0),
         vm_mac_(""), policy_enabled_(false), mirror_entry_(NULL),
         mirror_direction_(MIRROR_RX_TX), cfg_name_(""), fabric_port_(true),
-        need_linklocal_ip_(false), dhcp_snoop_ip_(false), vm_name_(),
+        need_linklocal_ip_(false), do_dhcp_relay_(false), vm_name_(),
         vm_project_uuid_(nil_uuid()), vxlan_id_(0), layer2_forwarding_(true),
         ipv4_forwarding_(true), mac_set_(false), vlan_id_(kInvalidVlanId),
         parent_(NULL), sg_list_(), floating_ip_list_(), service_vlan_list_(),
@@ -200,7 +200,7 @@ public:
         vn_(NULL), ip_addr_(addr), mdata_addr_(0), subnet_bcast_addr_(0),
         vm_mac_(mac), policy_enabled_(false), mirror_entry_(NULL),
         mirror_direction_(MIRROR_RX_TX), cfg_name_(""), fabric_port_(true),
-        need_linklocal_ip_(false), dhcp_snoop_ip_(false), vm_name_(vm_name),
+        need_linklocal_ip_(false), do_dhcp_relay_(false), vm_name_(vm_name),
         vm_project_uuid_(vm_project_uuid), vxlan_id_(0),
         layer2_forwarding_(true), ipv4_forwarding_(true), mac_set_(false),
         vlan_id_(vlan_id), parent_(parent), sg_list_(), floating_ip_list_(),
@@ -235,7 +235,7 @@ public:
     const std::string &vm_mac() const { return vm_mac_; }
     bool fabric_port() const { return fabric_port_; }
     bool need_linklocal_ip() const { return  need_linklocal_ip_; }
-    bool dhcp_snoop_ip() const { return dhcp_snoop_ip_; }
+    bool do_dhcp_relay() const { return do_dhcp_relay_; }
     int vxlan_id() const { return vxlan_id_; }
     bool layer2_forwarding() const { return layer2_forwarding_; }
     bool ipv4_forwarding() const { return ipv4_forwarding_; }
@@ -279,7 +279,7 @@ public:
     void CopySgIdList(SecurityGroupList *sg_id_list) const;
     bool NeedMplsLabel() const;
     bool IsVxlanMode() const;
-    bool IsDhcpSnoopIp(std::string &name, Ip4Address *ip) const;
+    bool GetDhcpSnoopIp(const std::string &name, Ip4Address *ip) const;
     bool SgExists(const boost::uuids::uuid &id, const SgList &sg_l);
     bool IsMirrorEnabled() const { return mirror_entry_.get() != NULL; }
     bool HasFloatingIp() const { return floating_ip_list_.list_.size() != 0; }
@@ -292,6 +292,7 @@ public:
     void Activate();
     void DeActivate();
     void Delete();
+    void Add();
     bool OnResyncServiceVlan(VmInterfaceConfigData *data);
     void UpdateAllRoutes();
 
@@ -400,8 +401,8 @@ private:
     std::string cfg_name_;
     bool fabric_port_;
     bool need_linklocal_ip_;
-    // true if IP is obtained from snooping DHCP from fabric, not from config
-    bool dhcp_snoop_ip_; 
+    // true if IP is to be obtained from DHCP Relay and not learnt from fabric
+    bool do_dhcp_relay_; 
     // VM-Name. Used by DNS
     std::string vm_name_;
     // project uuid of the vm to which the interface belongs
@@ -419,6 +420,9 @@ private:
     FloatingIpList floating_ip_list_;
     ServiceVlanList service_vlan_list_;
     StaticRouteList static_route_list_;
+
+    // Peer for interface routes
+    std::auto_ptr<LocalVmPortPeer> peer_;
     DISALLOW_COPY_AND_ASSIGN(VmInterface);
 };
 
@@ -493,11 +497,8 @@ struct VmInterfaceAddData : public VmInterfaceData {
 
 // Structure used when type=IP_ADDR. Used to update IP-Address of VM-Interface
 struct VmInterfaceIpAddressData : public VmInterfaceData {
-    VmInterfaceIpAddressData(const Ip4Address &ip_addr) :
-        VmInterfaceData(IP_ADDR), ip_addr_(ip_addr) { }
+    VmInterfaceIpAddressData() : VmInterfaceData(IP_ADDR) { }
     virtual ~VmInterfaceIpAddressData() { }
-
-    Ip4Address ip_addr_;
 };
 
 // Structure used when type=IP_ADDR. Used to update IP-Address of VM-Interface

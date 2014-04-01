@@ -121,6 +121,15 @@ public:
         }
     }
 
+    void CheckAllSandeshResponse(Sandesh *sandesh) {
+        if (memcmp(sandesh->Name(), "PktStats",
+                   strlen("PktStats")) == 0) {
+            PktStats *pkt_stats = (PktStats *)sandesh;
+            EXPECT_EQ(pkt_stats->get_total_rcvd(), 9);
+            EXPECT_EQ(pkt_stats->get_dhcp_rcvd(), 9);
+        }
+    }
+
     void ClearPktTrace() {
         // clear existing ptk trace entries
         ClearAllInfo *clear_info = new ClearAllInfo();
@@ -365,6 +374,13 @@ TEST_F(DhcpTest, DhcpReqTest) {
     sand->HandleRequest();
     client->WaitForIdle();
     sand->Release();
+
+    ShowAllInfo *all_sandesh = new ShowAllInfo();
+    Sandesh::set_response_callback(
+        boost::bind(&DhcpTest::CheckAllSandeshResponse, this, _1));
+    all_sandesh->HandleRequest();
+    client->WaitForIdle();
+    all_sandesh->Release();
 
     client->Reset();
     DelIPAM("vn1", "vdns1"); 

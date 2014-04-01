@@ -24,30 +24,30 @@ using namespace std;
 // Fire state machine timers faster and reduce possible delay in this test
 //
 class StateMachineTest : public StateMachine {
-    public:
-        explicit StateMachineTest(BgpPeer *peer) : StateMachine(peer) { }
-        ~StateMachineTest() { }
+public:
+    explicit StateMachineTest(BgpPeer *peer) : StateMachine(peer) { }
+    ~StateMachineTest() { }
 
-        void StartConnectTimer(int seconds) {
-            connect_timer_->Start(10,
-                boost::bind(&StateMachine::ConnectTimerExpired, this),
-                boost::bind(&StateMachine::TimerErrorHanlder, this, _1, _2));
-        }
+    void StartConnectTimer(int seconds) {
+        connect_timer_->Start(10,
+            boost::bind(&StateMachine::ConnectTimerExpired, this),
+            boost::bind(&StateMachine::TimerErrorHanlder, this, _1, _2));
+    }
 
-        void StartOpenTimer(int seconds) {
-            open_timer_->Start(10,
-                boost::bind(&StateMachine::OpenTimerExpired, this),
-                boost::bind(&StateMachine::TimerErrorHanlder, this, _1, _2));
-        }
+    void StartOpenTimer(int seconds) {
+        open_timer_->Start(10,
+            boost::bind(&StateMachine::OpenTimerExpired, this),
+            boost::bind(&StateMachine::TimerErrorHanlder, this, _1, _2));
+    }
 
-        void StartIdleHoldTimer() {
-            if (idle_hold_time_ <= 0)
-                return;
+    void StartIdleHoldTimer() {
+        if (idle_hold_time_ <= 0)
+            return;
 
-            idle_hold_timer_->Start(10,
-                boost::bind(&StateMachine::IdleHoldTimerExpired, this),
-                boost::bind(&StateMachine::TimerErrorHanlder, this, _1, _2));
-        }
+        idle_hold_timer_->Start(10,
+            boost::bind(&StateMachine::IdleHoldTimerExpired, this),
+            boost::bind(&StateMachine::TimerErrorHanlder, this, _1, _2));
+    }
 };
 
 class BgpXmppChannelMock : public BgpXmppChannel {
@@ -164,7 +164,7 @@ protected:
 
     EventManager evm_;
     ServerThread thread_;
-    auto_ptr<BgpServerTest> bs_x_;
+    BgpServerTestPtr bs_x_;
     XmppServer *xs_x_;
     boost::scoped_ptr<test::NetworkAgentMock> agent_a_;
     boost::scoped_ptr<test::NetworkAgentMock> agent_b_;
@@ -1186,6 +1186,7 @@ static const char *config_template_21 = "\
         <session to=\'Y\'>\
             <address-families>\
                 <family>e-vpn</family>\
+                <family>route-target</family>\
                 <family>inet-vpn</family>\
             </address-families>\
         </session>\
@@ -1197,6 +1198,7 @@ static const char *config_template_21 = "\
         <session to=\'X\'>\
             <address-families>\
                 <family>e-vpn</family>\
+                <family>route-target</family>\
                 <family>inet-vpn</family>\
             </address-families>\
         </session>\
@@ -1278,6 +1280,13 @@ protected:
         task_util::WaitForIdle();
     }
 
+    void Configure(BgpServerTestPtr server, const char *cfg_template) {
+        char config[4096];
+        snprintf(config, sizeof(config), cfg_template,
+                 server->session_manager()->GetPort());
+        server->Configure(config);
+    }
+
     void Configure(const char *cfg_template = config_template_21) {
         char config[4096];
         snprintf(config, sizeof(config), cfg_template,
@@ -1289,8 +1298,8 @@ protected:
 
     EventManager evm_;
     ServerThread thread_;
-    auto_ptr<BgpServerTest> bs_x_;
-    auto_ptr<BgpServerTest> bs_y_;
+    BgpServerTestPtr bs_x_;
+    BgpServerTestPtr bs_y_;
     XmppServer *xs_x_;
     XmppServer *xs_y_;
     boost::scoped_ptr<test::NetworkAgentMock> agent_a_;
@@ -2036,8 +2045,37 @@ TEST_F(BgpXmppEvpnTest2, XmppSessionDown) {
     agent_a_->SessionDown();
 }
 
-static const char *config_template_22 = "\
+static const char *config_template_22_x = "\
 <config>\
+    <bgp-router name=\'X\'>\
+        <identifier>192.168.0.1</identifier>\
+        <address>127.0.0.1</address>\
+        <port>%d</port>\
+    </bgp-router>\
+    <virtual-network name='blue'>\
+        <network-id>1</network-id>\
+    </virtual-network>\
+    <virtual-network name='pink'>\
+        <network-id>2</network-id>\
+    </virtual-network>\
+    <routing-instance name='blue'>\
+        <virtual-network>blue</virtual-network>\
+        <vrf-target>target:1:1</vrf-target>\
+    </routing-instance>\
+    <routing-instance name='pink'>\
+        <virtual-network>pink</virtual-network>\
+        <vrf-target>target:1:2</vrf-target>\
+    </routing-instance>\
+</config>\
+";
+
+static const char *config_template_22_y = "\
+<config>\
+    <bgp-router name=\'Y\'>\
+        <identifier>192.168.0.2</identifier>\
+        <address>127.0.0.2</address>\
+        <port>%d</port>\
+    </bgp-router>\
     <virtual-network name='blue'>\
         <network-id>1</network-id>\
     </virtual-network>\
@@ -2063,6 +2101,7 @@ static const char *config_template_23 = "\
         <port>%d</port>\
         <session to=\'Y\'>\
             <address-families>\
+                <family>route-target</family>\
                 <family>e-vpn</family>\
                 <family>inet-vpn</family>\
             </address-families>\
@@ -2074,6 +2113,7 @@ static const char *config_template_23 = "\
         <port>%d</port>\
         <session to=\'X\'>\
             <address-families>\
+                <family>route-target</family>\
                 <family>e-vpn</family>\
                 <family>inet-vpn</family>\
             </address-families>\
@@ -2088,9 +2128,9 @@ static const char *config_template_23 = "\
 // routes to the 2 XMPP servers.
 //
 TEST_F(BgpXmppEvpnTest2, BgpConnectLater) {
-    // Configure the routing instances.
-    bs_x_->Configure(config_template_22);
-    bs_y_->Configure(config_template_22);
+    // Configure individual bgp-routers and routing instances but no session.
+    Configure(bs_x_, config_template_22_x);
+    Configure(bs_y_, config_template_22_y);
     task_util::WaitForIdle();
 
     // Create XMPP Agent A connected to XMPP server X.
@@ -2201,8 +2241,8 @@ TEST_F(BgpXmppEvpnTest2, CreateInstanceLater) {
     TASK_UTIL_EXPECT_EQ(0, agent_b_->EnetRouteCount("blue"));
 
     // Configure the routing instances.
-    bs_x_->Configure(config_template_22);
-    bs_y_->Configure(config_template_22);
+    Configure(bs_x_, config_template_22_x);
+    Configure(bs_y_, config_template_22_y);
     task_util::WaitForIdle();
 
     // Verify that routes showed up on the agents.
@@ -2330,6 +2370,7 @@ static const char *config_template_25 = "\
         <session to=\'Y\'>\
             <address-families>\
                 <family>e-vpn</family>\
+                <family>route-target</family>\
                 <family>inet-vpn</family>\
             </address-families>\
         </session>\
@@ -2341,6 +2382,7 @@ static const char *config_template_25 = "\
         <session to=\'X\'>\
             <address-families>\
                 <family>e-vpn</family>\
+                <family>route-target</family>\
                 <family>inet-vpn</family>\
             </address-families>\
         </session>\

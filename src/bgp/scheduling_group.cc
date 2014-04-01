@@ -11,8 +11,8 @@
 #include "base/task.h"
 #include "base/task_annotations.h"
 #include "base/util.h"
-#include "bgp/bgp_log.h"       // debug
-#include "bgp/bgp_peer.h"       // debug
+#include "bgp/bgp_factory.h"
+#include "bgp/bgp_log.h"
 #include "bgp/bgp_ribout.h"
 #include "bgp/bgp_ribout_updates.h"
 #include "bgp/bgp_update.h"
@@ -47,7 +47,7 @@ struct SchedulingGroup::PeerRibState {
 //
 // A PeerState maintains the in_sync and send_ready state for the IPeer. An
 // IPeer/PeerState is considered to be send_ready when the underlying socket
-// is writeable. It is considered to be in_sync if it's send_ready and the
+// is writable. It is considered to be in_sync if it's send_ready and the
 // marker for the IPeer has merged with the tail marker for all QueueIds in
 // all RiBOuts that the IPeer is subscribed.
 //
@@ -185,6 +185,13 @@ public:
             ClearBit(loc->second.qactive, queue_id);
             qactive_cnt_[queue_id]--;
         }
+    }
+
+    bool IsQueueActive(int rib_index, int queue_id) {
+        CHECK_CONCURRENCY("bgp::SendTask");
+        Map::iterator loc = rib_set_.find(rib_index);
+        assert(loc != rib_set_.end());
+        return BitIsSet(loc->second.qactive, queue_id);
     }
 
     int QueueCount(int queue_id) { return qactive_cnt_[queue_id]; }
@@ -341,9 +348,6 @@ bool SchedulingGroup::RibState::QueueSync(int queue_id) {
 
 void SchedulingGroup::RibState::SetQueueSync(int queue_id) {
     CHECK_CONCURRENCY("bgp::SendTask");
-    if (in_sync_[queue_id])
-        return;
-
     in_sync_[queue_id] = true;
 }
 
@@ -771,8 +775,7 @@ void SchedulingGroup::GetPeerList(PeerList *plist) const {
 void SchedulingGroup::RibOutActive(RibOut *ribout, int queue_id) {
     CHECK_CONCURRENCY("db::DBTable", "bgp::SendTask");
 
-    WorkBase *wentry = new WorkRibOut(ribout, queue_id);
-    WorkEnqueue(wentry);
+    WorkRibOutEnqueue(ribout, queue_id);
 }
 
 //
@@ -794,8 +797,7 @@ void SchedulingGroup::SendReady(IPeerUpdate *peer) {
     // Create and enqueue new WorkPeer entry.
     BGP_LOG_SCHEDULING_GROUP(peer, ": send-ready");
     ps->set_send_ready(true);
-    WorkBase *wentry = new WorkPeer(peer);
-    WorkEnqueue(wentry);
+    WorkPeerEnqueue(peer);
 }
 
 //
@@ -842,6 +844,26 @@ void SchedulingGroup::WorkEnqueue(WorkBase *wentry) {
         scheduler->Enqueue(worker_task_);
         running_ = true;
     }
+}
+
+//
+// Enqueue a WorkPeer to the work queue.
+//
+void SchedulingGroup::WorkPeerEnqueue(IPeerUpdate *peer) {
+    CHECK_CONCURRENCY("bgp::SendReadyTask");
+
+    WorkBase *wentry = new WorkPeer(peer);
+    WorkEnqueue(wentry);
+}
+
+//
+// Enqueue a WorkRibOut to the work queue.
+//
+void SchedulingGroup::WorkRibOutEnqueue(RibOut *ribout, int queue_id) {
+    CHECK_CONCURRENCY("db::DBTable", "bgp::SendTask");
+
+    WorkBase *wentry = new WorkRibOut(ribout, queue_id);
+    WorkEnqueue(wentry);
 }
 
 //
@@ -927,6 +949,40 @@ void SchedulingGroup::SetQueueActive(const RibOut *ribout, RibState *rs,
 //
 // Concurrency: called from bgp send task.
 //
+// Mark the PeerRibState corresponding to the given IPeerUpdate and RibOut
+// as active.
+//
+// Used by unit test code.
+//
+void SchedulingGroup::SetQueueActive(RibOut *ribout, int queue_id,
+    IPeerUpdate *peer) {
+    CHECK_CONCURRENCY("bgp::SendTask");
+
+    PeerState *ps = peer_state_imap_.Find(peer);
+    RibState *rs = rib_state_imap_.Find(ribout);
+    ps->SetQueueActive(rs->index(), queue_id);
+}
+
+//
+// Concurrency: called from bgp send task.
+//
+// Check if the queue corresponding to IPeerUpdate, Ribout and queue id is
+// active.
+//
+// Used by unit test code.
+//
+bool SchedulingGroup::IsQueueActive(RibOut *ribout, int queue_id,
+    IPeerUpdate *peer) {
+    CHECK_CONCURRENCY("bgp::SendTask");
+
+    PeerState *ps = peer_state_imap_.Find(peer);
+    RibState *rs = rib_state_imap_.Find(ribout);
+    return ps->IsQueueActive(rs->index(), queue_id);
+}
+
+//
+// Concurrency: called from bgp send task.
+//
 // Mark all the RibStates for the given peer and queue id as being in sync
 // and trigger a tail dequeue.
 //
@@ -946,7 +1002,7 @@ void SchedulingGroup::SetQueueSync(PeerState *ps, int queue_id) {
 
 //
 // Drain the queue until there are no more updates or all the members become
-// blocked.    
+// blocked.
 //
 void SchedulingGroup::UpdateRibOut(RibOut *ribout, int queue_id) {
     CHECK_CONCURRENCY("bgp::SendTask");
@@ -1181,7 +1237,7 @@ void SchedulingGroupManager::Join(RibOut *ribout, IPeerUpdate *peer) {
     if (i1 == peer_map_.end()) {
         if (i2 == ribout_map_.end()) {
             // Create new empty group
-            sg = new SchedulingGroup();
+            sg = BgpObjectFactory::Create<SchedulingGroup>();
             groups_.push_back(sg);
             ribout_map_.insert(make_pair(ribout, sg));
         } else {
@@ -1329,7 +1385,7 @@ void SchedulingGroupManager::Split(
         SchedulingGroup *sg, const RibOutList &rg1, const RibOutList &rg2) {
     CHECK_CONCURRENCY("bgp::PeerMembership");
 
-    SchedulingGroup *sg2 = new SchedulingGroup();
+    SchedulingGroup *sg2 = BgpObjectFactory::Create<SchedulingGroup>();
     groups_.push_back(sg2);
 
     // Note that calling the Split method results in the creation of all

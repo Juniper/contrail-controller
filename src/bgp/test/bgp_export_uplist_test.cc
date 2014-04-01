@@ -13,12 +13,22 @@ using namespace std;
 //
 class BgpExportUpdateListTest : public BgpExportTest {
 protected:
+
+    BgpExportUpdateListTest() : uplist_(NULL), count_(0) {
+        for (int qid = RibOutUpdates::QFIRST; qid < RibOutUpdates::QCOUNT;
+                qid++) {
+            rt_update_[qid] = NULL;
+        }
+    }
+
     void InitAdvertiseInfo(BgpAttrPtr attrX, int start_idx, int end_idx) {
         InitAdvertiseInfoCommon(attrX, start_idx, end_idx, adv_slist_);
+        count_ = end_idx - start_idx + 1;
     }
 
     void InitAdvertiseInfo(BgpAttrPtr attr_blk[], int start_idx, int end_idx) {
         InitAdvertiseInfoCommon(attr_blk, start_idx, end_idx, adv_slist_);
+        count_ = end_idx - start_idx + 1;
     }
 
     void InitUpdateInfo(BgpAttrPtr attrX, int start_idx, int end_idx,
@@ -44,12 +54,14 @@ protected:
             }
         }
         uplist_ = BuildUpdateList(&rt_, rt_update_, adv_slist_);
+        VerifyAdvertiseCount(count_);
     }
 
     AdvertiseSList adv_slist_;
     UpdateInfoSList uinfo_slist_[RibOutUpdates::QCOUNT];
     RouteUpdate *rt_update_[RibOutUpdates::QCOUNT];
     UpdateList *uplist_;
+    int count_;
 };
 
 TEST_F(BgpExportUpdateListTest, Basic1) {

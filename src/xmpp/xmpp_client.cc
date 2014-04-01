@@ -50,8 +50,9 @@ void XmppClient::SessionShutdown() {
     TcpServer::Shutdown();
 }
 
-void XmppClient::Initialize(short port) {
+bool XmppClient::Initialize(short port) {
     TcpServer::Initialize(port);
+    return true;
 }
 
 LifetimeActor *XmppClient::deleter() {

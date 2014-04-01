@@ -80,6 +80,7 @@ if sys.platform != 'darwin':
                              '-lbgp_enet',
                              '-lbgp_evpn',
                              '-lbgp_l3vpn',
+                             '-lrtarget',
                              '-ltask_test',
                              '-Wl,--no-whole-archive'])
 else:
@@ -89,24 +90,31 @@ else:
     env.Prepend(LINKFLAGS = ['-Wl,-force_load,' + lib_evpn])
     lib_l3vpn = Dir('../../l3vpn').path + '/libbgp_l3vpn.a'
     env.Prepend(LINKFLAGS = ['-Wl,-force_load,' + lib_l3vpn])
+    lib_rtarget = Dir('../../rtarget').path + '/librtarget.a'
+    env.Prepend(LINKFLAGS = ['-Wl,-force_load,' + lib_rtarget])
 
 env.Append(LIBS = ['bgp_inet', 'bgp_inetmcast'])
-
-inetvpn_table_test = env.Program('inetvpn_table_test',
-                                 ['inetvpn_table_test.cc'])
-env.Alias('src/bgp/l3vpn:inetvpn_table_test', inetvpn_table_test)
-
-inetvpn_peer_test = env.UnitTest('inetvpn_peer_test',
-                                 ['inetvpn_peer_test.cc'])
-env.Alias('src/bgp/l3vpn:inetvpn_peer_test', inetvpn_peer_test)
 
 inetvpn_ext_peer_test = env.UnitTest('inetvpn_ext_peer_test',
                                  ['inetvpn_ext_peer_test.cc'])
 env.Alias('src/bgp/l3vpn:inetvpn_ext_peer_test', inetvpn_ext_peer_test)
 
+inetvpn_peer_test = env.UnitTest('inetvpn_peer_test',
+                                 ['inetvpn_peer_test.cc'])
+env.Alias('src/bgp/l3vpn:inetvpn_peer_test', inetvpn_peer_test)
+
+inetvpn_route_test = env.UnitTest('inetvpn_route_test',
+                                  ['inetvpn_route_test.cc'])
+env.Alias('src/bgp/l3vpn:inetvpn_route_test', inetvpn_route_test)
+
+inetvpn_table_test = env.Program('inetvpn_table_test',
+                                 ['inetvpn_table_test.cc'])
+env.Alias('src/bgp/l3vpn:inetvpn_table_test', inetvpn_table_test)
+
 test_suite = [
-    inetvpn_table_test,
-    inetvpn_peer_test
+    inetvpn_peer_test,
+    inetvpn_route_test,
+    inetvpn_table_test
 ]
 
 test = env.TestSuite('bgp-test', test_suite)

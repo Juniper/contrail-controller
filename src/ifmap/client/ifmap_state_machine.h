@@ -24,8 +24,8 @@ struct EvReadSuccess;
 class IFMapStateMachine :
         public sc::state_machine<IFMapStateMachine, ifsm::Idle> {
 public:
-    static const int kConnectInterval;
-    static const int kResponseWaitInterval;
+    static const int kConnectWaitIntervalMs; // in milliseconds
+    static const int kResponseWaitIntervalMs; // in milliseconds
 
     enum State {
         IDLE                   = 0,
@@ -51,7 +51,7 @@ public:
 
     int GetConnectTime(bool is_ssrc) const;
 
-    void StartConnectTimer(int seconds);
+    void StartConnectTimer(int milliseconds);
 
     void StopConnectTimer();
 
@@ -126,6 +126,12 @@ public:
     void set_last_event(const std::string &event);
     const std::string &last_event() const { return last_event_; }
     const std::string last_event_at() const;
+    void set_connect_wait_interval_ms(int ms) {
+        connect_wait_interval_ms_ = ms;
+    }
+    void set_response_wait_interval_ms(int ms) {
+        response_wait_interval_ms_ = ms;
+    }
 
 private:
     void EnqueueEvent(const sc::event_base &ev);
@@ -151,6 +157,8 @@ private:
     uint64_t last_state_change_at_;
     std::string last_event_;
     uint64_t last_event_at_;
+    int connect_wait_interval_ms_;
+    int response_wait_interval_ms_;
 };
 
 #endif /* __IFMAP_STATE_MACHINE_H__ */

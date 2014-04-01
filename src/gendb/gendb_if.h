@@ -14,7 +14,8 @@
 #include <boost/uuid/uuid.hpp>
 #include <boost/uuid/uuid_generators.hpp>
 #include <boost/variant.hpp>
-
+#include <boost/ptr_container/ptr_vector.hpp>
+#include <boost/scoped_ptr.hpp>
 #include "gendb_types.h"
 
 namespace GenDb {
@@ -71,26 +72,30 @@ struct NewCf {
 };
 
 struct NewCol {
-    NewCol(const DbDataValueVec& n, const DbDataValueVec& v, int ttl=-1) :
+    NewCol(DbDataValueVec* n, DbDataValueVec* v, int ttl=-1) :
         cftype_(NewCf::COLUMN_FAMILY_NOSQL), name(n), value(v), ttl(ttl) {}
 
-    NewCol(const std::string& n, const DbDataValue& v, int ttl=-1);
+    NewCol(const std::string& n, const DbDataValue& v, int ttl=-1) :
+        cftype_(NewCf::COLUMN_FAMILY_SQL), name(new DbDataValueVec(1, n)),
+        value(new DbDataValueVec(1, v)), ttl(ttl) {}
 
-    explicit NewCol(int ttl=-1) :
-        cftype_(NewCf::COLUMN_FAMILY_NOSQL), ttl(ttl) {} 
+    NewCol(const NewCol &rhs) :
+        cftype_(rhs.cftype_), name(new DbDataValueVec(*rhs.name)), 
+        value(new DbDataValueVec(*rhs.value)), ttl(rhs.ttl) {}
 
-    bool operator==(NewCol rhs) {
-        return (rhs.name == name &&
-                rhs.value == value);
+    bool operator==(const NewCol &rhs) const {
+        return (*rhs.name == *name &&
+                *rhs.value == *value);
     }
 
     NewCf::ColumnFamilyType cftype_;
-    DbDataValueVec name;
-    DbDataValueVec value;
+    boost::scoped_ptr<DbDataValueVec> name;
+    boost::scoped_ptr<DbDataValueVec> value;
     int ttl;
 };
 
-typedef std::vector<NewCol> NewColVec;
+typedef boost::ptr_vector<NewCol> NewColVec;
+
 struct ColList {
     ColList() {
     }
@@ -102,6 +107,8 @@ struct ColList {
     DbDataValueVec rowkey_; /* rowkey-value */
     NewColVec columns_; // only one of these is expected to be filled
 };
+
+typedef boost::ptr_vector<ColList> ColListVec;
 
 struct ColumnNameRange {
     ColumnNameRange() : count(100) {
@@ -148,7 +155,7 @@ class GenDbIf {
 
         virtual bool Db_GetRow(ColList& ret, const std::string& cfname,
                 const DbDataValueVec& rowkey) = 0;
-        virtual bool Db_GetMultiRow(std::vector<ColList>& ret,
+        virtual bool Db_GetMultiRow(ColListVec& ret,
                 const std::string& cfname, const std::vector<DbDataValueVec>& key,
                 GenDb::ColumnNameRange *crange_ptr = NULL) = 0;
         /* api to get range of column data for a range of rows */

@@ -6,11 +6,11 @@
 #include <cmn/agent_cmn.h>
 #include <oper/interface_common.h>
 #include <oper/interface.h>
-#include <uve/agent_uve_test.h>
-#include <uve/vn_uve_table_test.h>
-#include <uve/vm_uve_table_test.h>
-#include <uve/vrouter_uve_entry_test.h>
-#include <uve/agent_stats_collector_test.h>
+#include <uve/test/agent_uve_test.h>
+#include <uve/test/vn_uve_table_test.h>
+#include <uve/test/vm_uve_table_test.h>
+#include <uve/test/vrouter_uve_entry_test.h>
+#include <uve/test/agent_stats_collector_test.h>
 
 AgentUveTest::AgentUveTest(Agent *agent, uint64_t intvl) 
     : AgentUve(agent, intvl) {

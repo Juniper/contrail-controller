@@ -54,7 +54,6 @@ DBEntry *SgTable::Add(const DBRequest *req) {
     SgKey *key = static_cast<SgKey *>(req->key.get());
     SgData *data = static_cast<SgData *>(req->data.get());
     SgEntry *sg = new SgEntry(key->sg_uuid_);
-    sg->set_table(this);
     sg->sg_id_ = data->sg_id_;
     ChangeHandler(sg, req);
     sg->SendObjectLog(AgentLogEvent::ADD);
@@ -73,10 +72,16 @@ bool SgTable::ChangeHandler(DBEntry *entry, const DBRequest *req) {
     SgEntry *sg = static_cast<SgEntry *>(entry);
     SgData *data = static_cast<SgData *>(req->data.get());
     
-    AclKey key(data->acl_id_);
+    AclKey key(data->egress_acl_id_);
     AclDBEntry *acl = static_cast<AclDBEntry *>(Agent::GetInstance()->GetAclTable()->FindActiveEntry(&key));
-    if (sg->acl_ != acl) {
-        sg->acl_ = acl;
+    if (sg->egress_acl_ != acl) {
+        sg->egress_acl_ = acl;
+        ret = true;
+    }
+    key = AclKey(data->ingress_acl_id_);
+    acl = static_cast<AclDBEntry *>(Agent::GetInstance()->GetAclTable()->FindActiveEntry(&key));
+    if (sg->ingress_acl_ != acl) {
+        sg->ingress_acl_ = acl;
         ret = true;
     }
     return ret;
@@ -110,7 +115,8 @@ bool SgTable::IFNodeToReq(IFMapNode *node, DBRequest &req) {
         req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
         uint32_t sg_id;
         stringToInteger(cfg->id(), sg_id);
-        uuid acl_uuid = nil_uuid();
+        uuid egress_acl_uuid = nil_uuid();
+        uuid ingress_acl_uuid = nil_uuid();
         IFMapAgentTable *table = static_cast<IFMapAgentTable *>(node->table());
         for (DBGraphVertex::adjacency_iterator iter =
                 node->begin(table->GetGraph()); 
@@ -125,11 +131,17 @@ bool SgTable::IFNodeToReq(IFMapNode *node, DBRequest &req) {
                     (adj_node->GetObject());
                 assert(acl_cfg);
                 autogen::IdPermsType id_perms = acl_cfg->id_perms();
-                CfgUuidSet(id_perms.uuid.uuid_mslong, id_perms.uuid.uuid_lslong,
-                           acl_uuid);
+                if (adj_node->name().find("egress-access-control-list") != std::string::npos) {
+                    CfgUuidSet(id_perms.uuid.uuid_mslong, id_perms.uuid.uuid_lslong,
+                               egress_acl_uuid);
+                }
+                if (adj_node->name().find("ingress-access-control-list") != std::string::npos) {
+                    CfgUuidSet(id_perms.uuid.uuid_mslong, id_perms.uuid.uuid_lslong,
+                               ingress_acl_uuid);
+                }
             }
         }
-        data = new SgData(sg_id, acl_uuid);
+        data = new SgData(sg_id, egress_acl_uuid, ingress_acl_uuid);
     }
     req.key.reset(key);
     req.data.reset(data);
@@ -169,8 +181,11 @@ bool SgEntry::DBEntrySandesh(Sandesh *sresp, std::string &name)  const {
         data.set_ref_count(GetRefCount());
         data.set_sg_uuid(str_uuid);
         data.set_sg_id(GetSgId());
-        if (GetAcl()) {
-            data.set_acl_uuid(UuidToString(GetAcl()->GetUuid()));
+        if (GetEgressAcl()) {
+            data.set_egress_acl_uuid(UuidToString(GetEgressAcl()->GetUuid()));
+        }
+        if (GetIngressAcl()) {
+            data.set_ingress_acl_uuid(UuidToString(GetIngressAcl()->GetUuid()));
         }
         std::vector<SgSandeshData> &list =
                 const_cast<std::vector<SgSandeshData>&>(resp->get_sg_list());
@@ -203,8 +218,11 @@ void SgEntry::SendObjectLog(AgentLogEvent::type event) const {
     string sg_uuid = UuidToString(GetSgUuid());
     info.set_uuid(sg_uuid);
     info.set_id(GetSgId());
-    if (GetAcl()) {
-        info.set_acl_uuid(UuidToString(GetAcl()->GetUuid()));
+    if (GetEgressAcl()) {
+        info.set_egress_acl_uuid(UuidToString(GetEgressAcl()->GetUuid()));
+    }
+    if (GetIngressAcl()) {
+        info.set_ingress_acl_uuid(UuidToString(GetIngressAcl()->GetUuid()));
     }
     info.set_ref_count(GetRefCount());
     SG_OBJECT_LOG_LOG("AgentSg", SandeshLevel::SYS_INFO, info);

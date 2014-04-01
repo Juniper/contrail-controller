@@ -10,7 +10,8 @@ public:
     TestFlowPkt(std::string sip, std::string dip, uint16_t proto, uint32_t sport,
                 uint32_t dport, std::string vrf, uint32_t ifindex) : sip_(sip), 
                 dip_(dip), proto_(proto), sport_(sport), dport_(dport), 
-                ifindex_(ifindex), mpls_(0), hash_(0) {
+                ifindex_(ifindex), mpls_(0), hash_(0),
+                allow_wait_for_idle_(true) {
         vrf_ = 
           Agent::GetInstance()->GetVrfTable()->FindVrfFromName(vrf)->vrf_id();
     };
@@ -19,7 +20,8 @@ public:
     TestFlowPkt(std::string sip, std::string dip, uint16_t proto, uint32_t sport,
                 uint32_t dport, std::string vrf, uint32_t ifindex, uint32_t hash):
                 sip_(sip), dip_(dip), proto_(proto), sport_(sport), dport_(dport),
-                ifindex_(ifindex), mpls_(0), hash_(hash) {
+                ifindex_(ifindex), mpls_(0), hash_(hash),
+                allow_wait_for_idle_(true) {
          vrf_ = 
           Agent::GetInstance()->GetVrfTable()->FindVrfFromName(vrf)->vrf_id();
      };
@@ -29,7 +31,8 @@ public:
     TestFlowPkt(std::string sip, std::string dip, uint16_t proto, uint32_t sport,
                 uint32_t dport, std::string vrf, std::string osip, uint32_t mpls) :
                 sip_(sip), dip_(dip), proto_(proto), sport_(sport), dport_(dport),
-                ifindex_(0), mpls_(mpls), outer_sip_(osip), hash_(0) {
+                ifindex_(0), mpls_(mpls), outer_sip_(osip), hash_(0),
+                allow_wait_for_idle_(true) {
         vrf_ = 
          Agent::GetInstance()->GetVrfTable()->FindVrfFromName(vrf)->vrf_id();
     };
@@ -38,7 +41,8 @@ public:
     TestFlowPkt(std::string sip, std::string dip, uint16_t proto, uint32_t sport,
                 uint32_t dport, std::string vrf, std::string osip, uint32_t mpls,
                 uint32_t hash) : sip_(sip), dip_(dip), proto_(proto), sport_(sport),
-                dport_(dport), ifindex_(0), mpls_(mpls), hash_(hash) {
+                dport_(dport), ifindex_(0), mpls_(mpls), hash_(hash),
+                allow_wait_for_idle_(true) {
          vrf_ = 
           Agent::GetInstance()->GetVrfTable()->FindVrfFromName(vrf)->vrf_id();
      };
@@ -51,7 +55,7 @@ public:
         switch(proto_) {
         case IPPROTO_TCP:
             TxTcpPacket(ifindex_, sip_.c_str(), dip_.c_str(), sport_, dport_, 
-                        hash_, vrf_);
+                        false, hash_, vrf_);
             break;
 
         case IPPROTO_UDP:
@@ -79,7 +83,7 @@ public:
         case IPPROTO_TCP:
             TxTcpMplsPacket(eth_intf_id, outer_sip_.c_str(), 
                             self_server.c_str(), mpls_, sip_.c_str(),
-                            dip_.c_str(), sport_, dport_, hash_);
+                            dip_.c_str(), sport_, dport_, false, hash_);
             break;
 
         case IPPROTO_UDP:
@@ -104,7 +108,12 @@ public:
         } else {
             assert(0);
         }
-        client->WaitForIdle(3);
+        if (allow_wait_for_idle_) {
+            client->WaitForIdle(3);
+        } else {
+            WAIT_FOR(1000, 3000, FlowGet(vrf_, sip_, dip_, proto_,
+                        sport_, dport_) != NULL);
+        }
         //Get flow 
         FlowEntry *fe = FlowGet(vrf_, sip_, dip_, proto_, sport_, dport_);
         EXPECT_TRUE(fe != NULL);
@@ -125,13 +134,24 @@ public:
         }
 
         Agent::GetInstance()->pkt()->flow_table()->Delete(key, true);
-        client->WaitForIdle();
-        EXPECT_TRUE(Agent::GetInstance()->pkt()->flow_table()->Find(key) == NULL);
+        if (allow_wait_for_idle_) {
+            client->WaitForIdle();
+            EXPECT_TRUE(Agent::GetInstance()->pkt()->flow_table()->Find(key) == NULL);
+        } else {
+            FlowEntry *fe = FlowGet(vrf_, sip_, dip_, proto_, sport_, dport_);
+            if (fe == NULL)
+                return;
+            EXPECT_TRUE(fe->deleted() == true);
+        }
     };
 
     const FlowEntry *FlowFetch() {
         FlowEntry *fe = FlowGet(vrf_, sip_, dip_, proto_, sport_, dport_);
         return fe;
+    }
+
+    void set_allow_wait_for_idle(bool allow) {
+        allow_wait_for_idle_ = allow;
     }
 
 private:
@@ -145,6 +165,7 @@ private:
     uint32_t       mpls_;
     std::string    outer_sip_;
     uint32_t       hash_; 
+    bool           allow_wait_for_idle_;
 };
 
 class FlowVerify {

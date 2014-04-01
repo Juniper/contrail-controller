@@ -85,7 +85,7 @@ InetInterfaceData::InetInterfaceData(InetInterface::SubType sub_type,
 /////////////////////////////////////////////////////////////////////////////
 void InetInterface::ActivateSimpleGateway() {
     // Create InterfaceNH before MPLS is created
-    InterfaceNH::CreateInetInterfaceNextHop(name());
+    InterfaceNH::CreateInetInterfaceNextHop(name(), vrf()->GetName());
 
     InterfaceTable *table = static_cast<InterfaceTable *>(get_table());
     Agent *agent = table->agent();
@@ -110,10 +110,10 @@ void InetInterface::DeActivateSimpleGateway() {
 
     // Delete routes
     Ip4Address addr = GetIp4SubnetAddress(ip_addr_, plen_);
-    uc_rt_table->DeleteReq(agent->GetLocalVmPeer(), agent->GetDefaultVrf(),
+    uc_rt_table->DeleteReq(agent->local_vm_peer(), agent->GetDefaultVrf(),
                            addr, plen_);
 
-    uc_rt_table->DeleteReq(agent->GetLocalVmPeer(),
+    uc_rt_table->DeleteReq(agent->local_vm_peer(),
                            vrf()->GetName(), Ip4Address(0), 0);
 
     // Delete NH
@@ -138,7 +138,7 @@ static void AddDefaultRoute(Agent *agent, Inet4UnicastAgentRouteTable *table,
 
 static void DeleteDefaultRoute(Agent *agent, Inet4UnicastAgentRouteTable *table,
                                const VrfEntry *vrf, const Ip4Address &addr) {
-    table->Delete(agent->GetLocalPeer(), vrf->GetName(), Ip4Address(0), 0);
+    table->Delete(agent->local_peer(), vrf->GetName(), Ip4Address(0), 0);
 }
 
 // Following routes are added due o an inet interface
@@ -150,10 +150,10 @@ static void AddHostRoutes(Agent *agent, Inet4UnicastAgentRouteTable *table,
                           const Ip4Address &addr, int plen,
                           const string &vn_name) {
 
-    table->AddVHostRecvRoute(agent->GetLocalPeer(), vrf->GetName(), interface,
+    table->AddVHostRecvRoute(agent->local_peer(), vrf->GetName(), interface,
                              addr, 32, vn_name, false);
 
-    table->AddVHostSubnetRecvRoute(agent->GetLocalPeer(), vrf->GetName(),
+    table->AddVHostSubnetRecvRoute(agent->local_peer(), vrf->GetName(),
                                    interface,
                                    GetIp4SubnetBroadcastAddress(addr, plen),
                                    32, vn_name, false);
@@ -165,10 +165,10 @@ static void AddHostRoutes(Agent *agent, Inet4UnicastAgentRouteTable *table,
 static void DeleteHostRoutes(Agent *agent, Inet4UnicastAgentRouteTable *table,
                              const VrfEntry *vrf, const Ip4Address &addr,
                              int plen) {
-    table->Delete(agent->GetLocalPeer(), vrf->GetName(), addr, 32);
-    table->Delete(agent->GetLocalPeer(), vrf->GetName(),
+    table->Delete(agent->local_peer(), vrf->GetName(), addr, 32);
+    table->Delete(agent->local_peer(), vrf->GetName(),
                   GetIp4SubnetAddress(addr, plen), plen);
-    table->Delete(agent->GetLocalPeer(), vrf->GetName(),
+    table->Delete(agent->local_peer(), vrf->GetName(),
                   GetIp4SubnetBroadcastAddress(addr, plen), 32);
 }
 

@@ -41,7 +41,7 @@ public:
         nat_ip_daddr(0), nat_sport(0), nat_dport(0), nat_vrf(0),
         nat_dest_vrf(0), dest_vrf(0), acl(NULL), ingress(false),
         short_flow(false), local_flow(false), linklocal_flow(false),
-        linklocal_bind_local_port(false),
+        tcp_ack(false), linklocal_bind_local_port(false),
         linklocal_src_port_fd(kLinkLocalInvalidFd),
         ecmp(false), in_component_nh_idx(-1), out_component_nh_idx(-1),
         trap_rev_flow(false), source_plen(0), dest_plen(0) {
@@ -108,6 +108,7 @@ public:
     bool                short_flow;
     bool                local_flow;
     bool                linklocal_flow;
+    bool                tcp_ack;
     bool                linklocal_bind_local_port;
     int                 linklocal_src_port_fd;
 

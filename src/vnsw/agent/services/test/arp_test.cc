@@ -57,7 +57,7 @@ public:
 
     bool AddVhostRcvRoute() {
         Agent::GetInstance()->GetDefaultInet4UnicastRouteTable()->
-            AddVHostRecvRoute(Agent::GetInstance()->GetLocalPeer(),
+            AddVHostRecvRoute(Agent::GetInstance()->local_peer(),
                               Agent::GetInstance()->GetDefaultVrf(),
                               "vhost0", vhost_rcv_route_, 32, "", false);
         return true;
@@ -186,9 +186,9 @@ public:
     }
 
     bool FindArpRoute(uint32_t addr, const string &vrf_name) {
+        Agent *agent = Agent::GetInstance();
         Ip4Address ip(addr);
-        Inet4UnicastRouteKey rt_key(Peer::GetPeer(LOCAL_PEER_NAME), vrf_name,
-                             ip, 32);
+        Inet4UnicastRouteKey rt_key(agent->local_peer(), vrf_name, ip, 32);
         VrfEntry *vrf = Agent::GetInstance()->GetVrfTable()->FindVrfFromName(vrf_name);
         if (!vrf || !(vrf->GetInet4UnicastRouteTable()))
             return false;
@@ -456,7 +456,7 @@ TEST_F(ArpTest, GratArpSendTest) {
     EXPECT_TRUE(Agent::GetInstance()->GetArpProto()->gracious_arp_entry()->key().ip == ip1.to_ulong());
 
     Agent::GetInstance()->GetDefaultInet4UnicastRouteTable()->DeleteReq(
-                                                    Agent::GetInstance()->GetLocalPeer(), 
+                                                    Agent::GetInstance()->local_peer(), 
                                                     Agent::GetInstance()->GetDefaultVrf(),
                                                     ip1, 32);
     client->WaitForIdle();
@@ -468,7 +468,7 @@ TEST_F(ArpTest, GratArpSendTest) {
     client->WaitForIdle();
     EXPECT_TRUE(Agent::GetInstance()->GetArpProto()->gracious_arp_entry()->key().ip == ip2.to_ulong());
     Agent::GetInstance()->GetDefaultInet4UnicastRouteTable()->DeleteReq(
-                                                    Agent::GetInstance()->GetLocalPeer(), 
+                                                    Agent::GetInstance()->local_peer(), 
                                                     Agent::GetInstance()->GetDefaultVrf(),
                                                     ip2, 32);
     client->WaitForIdle();

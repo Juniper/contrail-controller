@@ -6,6 +6,7 @@
 # src directory
 
 import sys
+import platform
 
 subdirs = [
            'analytics',
@@ -23,8 +24,8 @@ subdirs = [
            'io',
            'ifmap',
            'net',
-           'opserver',
            'query_engine',
+           'opserver',
            'route',
            'sandesh',
            'schema',
@@ -52,8 +53,10 @@ common.Append(LIBPATH = libpath)
 common.Prepend(LIBS = libs)
 # TODO(md): Reenable -Werror flag
 common.Append(CCFLAGS = '-Wall -Wsign-compare')
-if not sys.platform.startswith('darwin') or not sys.plaform.startswith('freebsd'):
-    common.Append(CCFLAGS = ['-Wno-unused-local-typedefs'])
+if not sys.platform.startswith('darwin'):
+    if platform.system().startswith('Linux'):
+       if not platform.linux_distribution()[0].startswith('XenServer'):
+          common.Append(CCFLAGS = ['-Wno-unused-local-typedefs'])
 common.Append(CPPPATH = include)
 
 BuildEnv = common.Clone()

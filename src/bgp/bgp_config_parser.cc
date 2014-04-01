@@ -244,46 +244,6 @@ static bool ParseSession(const string &identifier, const xml_node &node,
     return true;
 }
 
-static bool ParseServiceChain(const string &instance, const xml_node &node,
-                              bool add_change, 
-                              BgpConfigParser::RequestList *requests) {
-    auto_ptr<autogen::ServiceChainInfo> property(
-        new autogen::ServiceChainInfo());
-    if (!property->XmlParse(node)) {
-        assert(0);
-    }
-
-    if (add_change) {
-        MapObjectSetProperty("routing-instance", instance,
-            "service-chain-information", property.release(), requests);
-    } else {
-        MapObjectClearProperty("routing-instance", instance,
-            "service-chain-information", requests);
-    }
-
-    return true;
-}
-
-static bool ParseStaticRoute(const string &instance, const xml_node &node,
-                              bool add_change, 
-                              BgpConfigParser::RequestList *requests) {
-    auto_ptr<autogen::StaticRouteEntriesType> property(
-        new autogen::StaticRouteEntriesType());
-    if (!property->XmlParse(node)) {
-        assert(0);
-    }
-
-    if (add_change) {
-        MapObjectSetProperty("routing-instance", instance,
-            "static-route-entries", property.release(), requests);
-    } else {
-        MapObjectClearProperty("routing-instance", instance,
-            "static-route-entries", requests);
-    }
-
-    return true;
-}
-
 static bool ParseBgpRouter(const string &instance, const xml_node &node,
                            bool add_change, string *nodename,
                            SessionMap *sessions,
@@ -296,6 +256,11 @@ static bool ParseBgpRouter(const string &instance, const xml_node &node,
         // TODO: log warning
         return false;
     }
+    if (property->autonomous_system == 0)
+        property->autonomous_system = BgpConfigManager::kDefaultAutonomousSystem;
+    if (property->identifier.empty())
+        property->identifier = property->address;
+
     if (name) {
         identifier = name.value();
     } else if (!property->address.empty()) {
@@ -447,10 +412,6 @@ bool BgpConfigParser::ParseRoutingInstance(const xml_node &parent,
             ParseInstanceTarget(instance, node, add_change, requests);
         } else if (strcmp(node.name(), "virtual-network") == 0) {
             ParseInstanceVirtualNetwork(instance, node, add_change, requests);
-        } else if (strcmp(node.name(), "service-chain-info") == 0) {
-            ParseServiceChain(instance, node, add_change, requests);
-        } else if (strcmp(node.name(), "static-route-entries") == 0) {
-            ParseStaticRoute(instance, node, add_change, requests);
         }
     }
 

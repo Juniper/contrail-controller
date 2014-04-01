@@ -2,6 +2,7 @@
 # Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
 #
 
+import resource
 import socket
 import fixtures
 import subprocess
@@ -67,18 +68,20 @@ class Collector(object):
     def start(self):
         assert(self._instance == None)
         self._log_file = '/tmp/vizd.messages.' + str(self.listen_port)
+        subprocess.call(['rm', '-rf', self._log_file])
         args = [self.analytics_fixture.builddir + '/analytics/vizd',
-            '--cassandra-server-list', '127.0.0.1:' +
+            '--DEFAULT.cassandra_server_list', '127.0.0.1:' +
             str(self.analytics_fixture.cassandra_port),
-            '--redis-uve-port', 
+            '--REDIS.port', 
             str(self._redis_uve.port),
-            '--listen-port', str(self.listen_port),
-            '--http-server-port', str(self.http_port),
-            '--log-file', self._log_file]
+            '--COLLECTOR.port', str(self.listen_port),
+            '--DEFAULT.http_server_port', str(self.http_port),
+            '--DEFAULT.log_file', self._log_file]
         if self._is_dup is True:
-            args.append('--dup')
+            args.append('--DEFAULT.dup')
         self._instance = subprocess.Popen(args, stdout=subprocess.PIPE,
-                                          stderr=subprocess.PIPE)
+                             stderr=subprocess.PIPE,
+                             preexec_fn = AnalyticsFixture.enable_core)
         self._logger.info('Setting up Vizd: %s' % (' '.join(args))) 
     # end start
 
@@ -128,6 +131,7 @@ class OpServer(object):
         openv['PYTHONPATH'] = self.analytics_fixture.builddir + \
             '/sandesh/library/python'
         self._log_file = '/tmp/opserver.messages.' + str(self.listen_port)
+        subprocess.call(['rm', '-rf', self._log_file])
         args = ['python', self.analytics_fixture.builddir + \
                 '/opserver/opserver/opserver.py',
                 '--redis_server_port', str(self._redis_port),
@@ -199,21 +203,24 @@ class QueryEngine(object):
     def start(self, analytics_start_time=None):
         assert(self._instance == None)
         self._log_file = '/tmp/qed.messages.' + str(self.listen_port)
+        subprocess.call(['rm', '-rf', self._log_file])
         args = [self.analytics_fixture.builddir + '/query_engine/qedt',
-                '--redis-port', str(self.analytics_fixture.redis_query.port),
-                '--cassandra-server-list', '127.0.0.1:' +
+                '--REDIS.port', str(self.analytics_fixture.redis_query.port),
+                '--DEFAULT.cassandra_server_list', '127.0.0.1:' +
                 str(self.analytics_fixture.cassandra_port),
-                '--http-server-port', str(self.listen_port),
-                '--log-local', '--log-level', 'SYS_DEBUG',
-                '--log-file', self._log_file,
-                '--collectors', self.primary_collector]
+                '--DEFAULT.http_server_port', str(self.listen_port),
+                '--DEFAULT.log_local', '--DEFAULT.log_level', 'SYS_DEBUG',
+                '--DEFAULT.log_file', self._log_file,
+                '--DEFAULT.collectors', self.primary_collector]
         if self.secondary_collector is not None:
+            args.append('--DEFAULT.collectors')
             args.append(self.secondary_collector)
         if analytics_start_time is not None:
-            args += ['--start-time', str(analytics_start_time)]
+            args += ['--DEFAULT.start_time', str(analytics_start_time)]
         self._instance = subprocess.Popen(args,
-                                          stdout=subprocess.PIPE,
-                                          stderr=subprocess.PIPE)
+                             stdout=subprocess.PIPE,
+                             stderr=subprocess.PIPE,
+                             preexec_fn = AnalyticsFixture.enable_core)
         self._logger.info('Setting up QueryEngine: %s' % ' '.join(args))
     # end start
 
@@ -236,7 +243,8 @@ class QueryEngine(object):
 # end class QueryEngine
 
 class Redis(object):
-    def __init__(self):
+    def __init__(self,builddir):
+        self.builddir = builddir
         self.port = AnalyticsFixture.get_free_port()
         self.running = False
     # end __init__
@@ -244,7 +252,7 @@ class Redis(object):
     def start(self):
         assert(self.running == False)
         self.running = True
-        mockredis.start_redis(self.port) 
+        mockredis.start_redis(self.port,self.builddir+'/testroot/bin/redis-server') 
     # end start
 
     def stop(self):
@@ -268,9 +276,9 @@ class AnalyticsFixture(fixtures.Fixture):
     def setUp(self):
         super(AnalyticsFixture, self).setUp()
 
-        self.redis_uves = [Redis()]
+        self.redis_uves = [Redis(self.builddir)]
         self.redis_uves[0].start()
-        self.redis_query = Redis()
+        self.redis_query = Redis(self.builddir)
         self.redis_query.start()
 
         self.collectors = [Collector(self, self.redis_uves[0], self.logger)] 
@@ -281,7 +289,7 @@ class AnalyticsFixture(fixtures.Fixture):
             primary_collector = self.collectors[0].get_addr()
             secondary_collector = None
             if self.collector_ha_test:
-                self.redis_uves.append(Redis())
+                self.redis_uves.append(Redis(self.builddir))
                 self.redis_uves[1].start()
                 self.collectors.append(Collector(self, self.redis_uves[1],
                                                  self.logger, True))
@@ -405,6 +413,23 @@ class AnalyticsFixture(fixtures.Fixture):
             return False
         return True
 
+    @retry(delay=1, tries=10)
+    def verify_generator_uve_list(self, exp_gen_list):
+        self.logger.info('verify_generator_uve_list')
+        vns = VerificationOpsSrv('127.0.0.1', self.opserver_port)
+        # get generator list
+        gen_list = vns.uve_query('generators?cfilt=ModuleClientState:client_info')
+        try:
+            actual_gen_list = [gen['name'] for gen in gen_list]
+            self.logger.info('generators: %s' % str(actual_gen_list))
+            for gen in exp_gen_list:
+                if gen not in actual_gen_list:
+                    return False
+        except Exception as e:
+            self.logger.error('Exception: %s' % e)
+        return True
+    # end verify_generator_uve_list
+
     @retry(delay=1, tries=6)
     def verify_message_table_messagetype(self):
         self.logger.info("verify_message_table_messagetype")
@@ -428,6 +453,29 @@ class AnalyticsFixture(fixtures.Fixture):
             return False
         return True
 
+    @retry(delay=1, tries=6)
+    def verify_message_table_select_uint_type(self):
+        self.logger.info("verify_message_table_select_uint_type")
+        vns = VerificationOpsSrv('127.0.0.1', self.opserver_port)
+        # query for CollectorInfo logs
+        res = vns.post_query('MessageTable',
+                             start_time='-10m', end_time='now',
+                             select_fields=["Level", "Type", "MessageTS", "SequenceNum"],
+                             where_clause='')
+	if (res == []):
+            return False
+	else:
+	    for x in res:
+	        assert('Level' in x)
+		assert('Type' in x)
+		assert('MessageTS' in x)
+		assert('SequenceNum' in x)
+	    	assert(type(x['Level']) is int)
+	    	assert(type(x['Type']) is int)
+	    	assert(type(x['MessageTS']) is int)
+	    	assert(type(x['SequenceNum']) is int)
+	    return True
+    
     @retry(delay=1, tries=6)
     def verify_message_table_moduleid(self):
         self.logger.info("verify_message_table_moduleid")
@@ -611,7 +659,7 @@ class AnalyticsFixture(fixtures.Fixture):
         res = vns.post_query('StatTable.UveVirtualNetworkAgent.vn_stats',
                              start_time='-10m',
                              end_time='now',
-                             select_fields=['T', 'name', 'vn_stats.other_vn', 'vn_stats.vrouter', 'vn_stats.in_tpkts'],
+                             select_fields=['T', 'name', 'UUID','vn_stats.other_vn', 'vn_stats.vrouter', 'vn_stats.in_tpkts'],
                              where_clause=gen_obj.vn_all_rows['whereclause'])
         self.logger.info(str(res))
         if len(res) == gen_obj.vn_all_rows['rows']:
@@ -639,12 +687,45 @@ class AnalyticsFixture(fixtures.Fixture):
         res = vns.post_query('FlowSeriesTable',
                              start_time=str(generator_obj.flow_start_time),
                              end_time=str(generator_obj.flow_end_time),
-                             select_fields=['T'], where_clause='')
+                             select_fields=['T'], dir=1, where_clause='')
         self.logger.info(str(res))
-        if len(res) == generator_obj.num_flow_samples:
-            return True
-        return False
+        if len(res) != generator_obj.num_flow_samples:
+            return False
+        
+        vns = VerificationOpsSrv('127.0.0.1', self.opserver_port)
+        result = vns.post_query('FlowSeriesTable',
+                             start_time=str(generator_obj.egress_flow_start_time),
+                             end_time=str(generator_obj.egress_flow_end_time),
+                             select_fields=['T'], dir=0, where_clause='')
+        self.logger.info(str(result))
+        if len(result) != generator_obj.egress_num_flow_samples:
+            return False
+        
+        return True
     # end verify_flow_samples
+ 
+    def verify_where_query_prefix(self,generator_obj):
+        self.logger.info('verify where query in FlowSeriesTable')
+        vns = VerificationOpsSrv('127.0.0.1', self.opserver_port)
+        a_query = Query(table="FlowSeriesTable",
+                start_time=(generator_obj.flow_start_time),
+                end_time=(generator_obj.flow_end_time),
+                select_fields=["sourcevn","sourceip","vrouter"],
+                where=[[{"name":"sourcevn","value":"domain1:admin","op":7},
+                        {"name":"destvn","value":"domain1:admin","op":7},
+                        {"name":"vrouter","value":"","op":1}]])
+        json_qstr = json.dumps(a_query.__dict__)
+        res = vns.post_query_json(json_qstr)
+        assert(len(res)>0)
+        a_query = Query(table="FlowSeriesTable",
+                start_time=(generator_obj.flow_start_time),
+                end_time=(generator_obj.flow_end_time),
+                select_fields=["sourcevn","sourceip","vrouter"],
+                where=[[{"name":"protocol","value":1,"op":1}]])
+        json_qstr = json.dumps(a_query.__dict__)
+        res = vns.post_query_json(json_qstr)
+        assert(len(res)>0)
+        return True 
 
     def verify_flow_table(self, generator_obj):
         # query flow records
@@ -1028,6 +1109,240 @@ class AnalyticsFixture(fixtures.Fixture):
                 assert(False)
             assert(r['sum(bytes)'] == stats['sum(bytes)'])
             assert(r['sum(packets)'] == stats['sum(packets)'])
+        
+        # 6. direction_ing + stats
+        self.logger.info('Flowseries: [direction_ing, sum(bytes), sum(packets), flow_count]')
+        res = vns.post_query(
+            'FlowSeriesTable',
+            start_time=str(generator_obj.flow_start_time),
+            end_time=str(generator_obj.flow_end_time),
+            select_fields=['direction_ing', 'sum(bytes)', 'sum(packets)', 'flow_count'],
+            where_clause='')
+        self.logger.info(str(res))
+        assert(len(res) == 1)
+        exp_sum_pkts = exp_sum_bytes = 0
+        for f in generator_obj.flows:
+            exp_sum_pkts += f.packets
+            exp_sum_bytes += f.bytes
+        direction_ing = generator_obj.flows[0].direction_ing
+        assert(res[0]['sum(packets)'] == exp_sum_pkts)
+        assert(res[0]['sum(bytes)'] == exp_sum_bytes)
+        assert(res[0]['flow_count'] == generator_obj.flow_cnt)
+        assert(res[0]['direction_ing'] == direction_ing)
+        
+        self.logger.info('Flowseries: [direction_ing, sum(bytes), sum(packets), flow_count]')
+        result = vns.post_query(
+            'FlowSeriesTable',
+            start_time=str(generator_obj.egress_flow_start_time),
+            end_time=str(generator_obj.egress_flow_end_time),
+            select_fields=['direction_ing', 'sum(bytes)', 'sum(packets)', 'flow_count'],
+            where_clause='', dir=0)
+        self.logger.info(str(result))
+        assert(len(result) == 1)
+        exp_sum_pkts = exp_sum_bytes = 0
+        for f in generator_obj.egress_flows:
+            exp_sum_pkts += f.packets
+            exp_sum_bytes += f.bytes
+        direction_ing = generator_obj.egress_flows[0].direction_ing
+        assert(result[0]['sum(packets)'] == exp_sum_pkts)
+        assert(result[0]['sum(bytes)'] == exp_sum_bytes)
+        assert(result[0]['flow_count'] == generator_obj.flow_cnt)
+        assert(result[0]['direction_ing'] == direction_ing)
+        
+        # 7. T=<granularity> + tuples
+        self.logger.info(
+            'Flowseries: [T=<x>, sourcevn, destvn, sport, dport, protocol]')
+        st = str(generator_obj.flow_start_time)
+        et = str(generator_obj.flow_start_time + (10 * 1000 * 1000))
+        granularity = 5
+        gms = 5 * 1000 * 1000
+        res = vns.post_query(
+            'FlowSeriesTable', start_time=st, end_time=et,
+            select_fields=['T=%s' % (granularity), 'protocol', 'sourcevn', 'destvn',
+                           'sport', 'dport'],
+            where_clause='sourcevn=domain1:admin:vn1' +
+            'AND destvn=domain1:admin:vn2')
+        diff_t = int(et) - int(st)
+        num_ts = (diff_t/gms) + bool(diff_t%gms)
+        ts = [generator_obj.flow_start_time + (x * gms) \
+              for x in range(num_ts)]
+        exp_result = {}
+        
+        exp_result_cnt=0
+        for i in generator_obj.flows:
+            exp_result[exp_result_cnt] = {'T':ts[0], 'sourcevn':i.sourcevn, 
+                                  'destvn':i.destvn, 'sport':i.sport,  
+                                  'dport':i.dport, 'protocol':i.protocol,}
+            exp_result_cnt +=1
+
+        records = generator_obj.flow_cnt-1
+        for i in range(0,records):
+            exp_result[exp_result_cnt] = {'T':ts[1], 'sourcevn':generator_obj.flows[i].sourcevn,
+                                  'destvn':generator_obj.flows[i].destvn,
+                                  'sport':generator_obj.flows[i].sport,
+                                  'dport':generator_obj.flows[i].dport,
+                                  'protocol':generator_obj.flows[i].protocol,}
+            exp_result_cnt +=1
+
+        assert(exp_result_cnt == len(res))
+        count = 0
+        for r in res:
+             assert(r['T'] == exp_result[count]['T'])
+             assert(r['sourcevn'] == exp_result[count]['sourcevn'])
+             assert(r['destvn'] == exp_result[count]['destvn'])
+             assert(r['sport'] == exp_result[count]['sport'])
+             assert(r['dport'] == exp_result[count]['dport'])
+             assert(r['protocol'] == exp_result[count]['protocol'])
+             count +=1
+
+        # 8. Timestamp + stats
+        self.logger.info('Flowseries: [T, bytes, packets]')
+        # testing for flows at index 1 in generator_obj.flows
+        flow = generator_obj.flows[1]
+        res = vns.post_query(
+            'FlowSeriesTable',
+            start_time=str(generator_obj.flow_start_time),
+            end_time=str(generator_obj.flow_end_time),
+            select_fields=['T', 'bytes', 'packets'],
+            where_clause='sourcevn=%s' %(flow.sourcevn) +
+            'AND destvn=%s AND sport= %d' %(flow.destvn, flow.sport) +
+            'AND dport=%d AND protocol=%d' %(flow.dport, flow.protocol))
+        self.logger.info(str(res))
+        
+        assert(len(res) == len(flow.samples))
+        for f in flow.samples:
+            found = 0
+            for r in res:
+                if r['T'] == f._timestamp:
+                      assert(r['packets'] == f.flowdata.diff_packets)
+                      assert(r['bytes'] == f.flowdata.diff_bytes)
+                      found = 1
+                      break
+            assert(found)
+
+        # 9. Raw bytes and packets
+        self.logger.info('Flowseries: [bytes, packets]')
+        res = vns.post_query(
+            'FlowSeriesTable',
+            start_time=str(generator_obj.flow_start_time),
+            end_time=str(generator_obj.flow_end_time),
+            select_fields=['bytes', 'packets'],
+            where_clause='')
+        self.logger.info(str(res))
+        assert(len(res) == generator_obj.num_flow_samples)
+        sorted_res = sorted(res, key=itemgetter('packets', 'bytes'))
+        flow = []
+        for f in generator_obj.flows:
+            for s in f.samples:
+                flow.append({'packets':s.flowdata.diff_packets,
+                            'bytes':s.flowdata.diff_bytes})
+        sorted_flow = sorted(flow, key=itemgetter('packets', 'bytes'))
+        assert(sorted_res == sorted_flow)
+
+        # 10. Timestamp
+        self.logger.info('Flowseries: [T]')
+        # testing for flows at index 1 in generator_obj.flows
+        flow = generator_obj.flows[1]
+        res = vns.post_query(
+            'FlowSeriesTable',
+            start_time=str(generator_obj.flow_start_time),
+            end_time=str(generator_obj.flow_end_time),
+            select_fields=['T'],
+            where_clause='sourcevn=%s' %(flow.sourcevn) +
+            'AND destvn=%s AND sport= %d' %(flow.destvn, flow.sport) +
+            'AND dport=%d AND protocol=%d' %(flow.dport, flow.protocol))
+        self.logger.info(str(res))
+        assert(len(res) == len(flow.samples))
+        sorted_res = sorted(res, key=itemgetter('T'))
+        
+        cnt = 0
+        for f in flow.samples:
+            assert(sorted_res[cnt]['T'] == f._timestamp)
+            cnt+= 1
+
+        # 11. T=<granularity>
+        self.logger.info('Flowseries: [T=<x>]')
+        st = str(generator_obj.flow_start_time)
+        et = str(generator_obj.flow_start_time + (10 * 1000 * 1000))
+        granularity = 5
+        gms = 5 * 1000 * 1000
+        res = vns.post_query(
+            'FlowSeriesTable', start_time=st, end_time=et,
+            select_fields=['T=%s' % (granularity)],
+            where_clause='sourcevn=domain1:admin:vn1' +
+            'AND destvn=domain1:admin:vn2')
+        diff_t = int(et) - int(st)
+        num_ts = (diff_t/gms) + bool(diff_t%gms)
+        ts = []
+        for x in range(num_ts):
+            ts.append({'T':generator_obj.flow_start_time + (x * gms)})
+        self.logger.info(str(res))
+        assert(res == ts)
+
+        # 12. Flow tuple
+        self.logger.info('Flowseries: [protocol, sport, dport]')
+        res = vns.post_query(
+            'FlowSeriesTable',
+            start_time=str(generator_obj.flow_start_time),
+            end_time=str(generator_obj.flow_end_time),
+            select_fields=['protocol', 'sport', 'dport'],
+            where_clause='')
+        self.logger.info(str(res))
+        assert(len(res) == generator_obj.num_flow_samples)
+        for flow in generator_obj.flows:
+            found = 0
+            for r in res:
+                if flow.sport == r['sport']:
+                    assert(r['dport'] == flow.dport)
+                    assert(r['protocol'] == flow.protocol)
+                    found = 1
+            assert(found)
+
+        # 13. T + flow tuple
+        self.logger.info('Flowseries: [T, protocol, sport, dport]')
+        res = vns.post_query(
+            'FlowSeriesTable',
+            start_time=str(generator_obj.flow_start_time),
+            end_time=str(generator_obj.flow_end_time),
+            select_fields=['T', 'protocol', 'sport', 'dport'],
+            where_clause='')
+        self.logger.info(str(res))
+        assert(len(res) == generator_obj.num_flow_samples)
+        for flow in generator_obj.flows:
+            sport = flow.sport
+            for sample in flow.samples:
+                found = 0
+                for r in res:
+                    if r['T'] == sample._timestamp and r['sport'] == sport:
+                        assert(r['protocol'] == flow.protocol)
+                        assert(r['dport'] == flow.dport)
+                        found = 1
+                        break
+                assert(found) 
+
+        # 14. T + flow tuple + stats
+        self.logger.info('Flowseries: [T, protocol, sport, dport, bytes, packets]')
+        res = vns.post_query(
+            'FlowSeriesTable',
+            start_time=str(generator_obj.flow_start_time),
+            end_time=str(generator_obj.flow_end_time),
+            select_fields=['T', 'protocol', 'sport', 'dport', 'bytes', 'packets'],
+            where_clause='')
+        self.logger.info(str(res))
+        assert(len(res) == generator_obj.num_flow_samples)
+        for flow in generator_obj.flows:
+            sport = flow.sport
+            for sample in flow.samples:
+                found = 0
+                for r in res:
+                    if r['T'] == sample._timestamp and r['sport'] == sport:
+                        assert(r['protocol'] == flow.protocol)
+                        assert(r['dport'] == flow.dport)
+                        assert(r['bytes'] == sample.flowdata.diff_bytes)
+                        assert(r['packets'] == sample.flowdata.diff_packets)
+                        found = 1
+                        break
+                assert(found)
 
         return True
     # end verify_flow_series_aggregation_binning
@@ -1056,21 +1371,34 @@ class AnalyticsFixture(fixtures.Fixture):
         json_qstr = json.dumps(query.__dict__)
         res = vns.post_query_json(json_qstr)
         self.logger.info(str(res))
-        assert(len(res) > 1)
+        assert(len(res) > 0)
         return True
 
     @retry(delay=2, tries=5)
-    def verify_collector_redis_uve_connection(self, collector): 
+    def verify_collector_redis_uve_connection(self, collector, connected=True):
+        self.logger.info('verify_collector_redis_uve_connection')
         vcl = VerificationCollector('127.0.0.1', collector.http_port)
         try:
             redis_uve = vcl.get_redis_uve_info()['RedisUveInfo']
-            if redis_uve['status'] != 'Connected':
-                return False
+            if redis_uve['status'] == 'Connected':
+                return connected
         except Exception as err:
             self.logger.error('Exception: %s' % err)
-            return False
-        return True
+        return not connected
     # end verify_collector_redis_uve_connection 
+
+    @retry(delay=2, tries=5)
+    def verify_opserver_redis_uve_connection(self, opserver, connected=True):
+        self.logger.info('verify_opserver_redis_uve_connection')
+        vops = VerificationOpsSrv('127.0.0.1', opserver.http_port)
+        try:
+            redis_uve = vops.get_redis_uve_info()['RedisUveInfo']
+            if redis_uve['status'] == 'Connected':
+                return connected
+        except Exception as err:
+            self.logger.error('Exception: %s' % err)
+        return not connected
+    # end verify_opserver_redis_uve_connection
 
     @retry(delay=2, tries=5)
     def verify_tracebuffer_in_analytics_db(self, src, mod, tracebuf):
@@ -1113,16 +1441,40 @@ class AnalyticsFixture(fixtures.Fixture):
             return True
     # end verify_table_source_module_list
 
-    def cleanUp(self):
-        super(AnalyticsFixture, self).cleanUp()
+    @retry(delay=1, tries=5)
+    def verify_where_query(self):
+        self.logger.info('Verify where query with int type works');
+        vns = VerificationOpsSrv('127.0.0.1', self.opserver_port);
+        query = Query(table="StatTable.QueryPerfInfo.query_stats",
+                            start_time="now-1h",
+                            end_time="now",
+                            select_fields=["query_stats.rows","query_stats.table","query_stats.time"],
+                            where=[[{"name":"query_stats.rows","value":0,"op":1}]])
+        json_qstr = json.dumps(query.__dict__)
+        res = vns.post_query_json(json_qstr)
+        assert(len(res)>0)
+        return True
+    # end verify_where_query
 
-        self.opserver.stop()
-        self.query_engine.stop()
+    def cleanUp(self):
+
+        try:
+            self.opserver.stop()
+        except:
+            pass
+        try: 
+            self.query_engine.stop()
+        except:
+            pass
         for collector in self.collectors:
-            collector.stop()
+            try:
+                collector.stop()
+            except:
+                pass
         for redis_uve in self.redis_uves:
             redis_uve.stop()
         self.redis_query.stop()
+        super(AnalyticsFixture, self).cleanUp()
 
     @staticmethod
     def get_free_port():
@@ -1131,3 +1483,10 @@ class AnalyticsFixture(fixtures.Fixture):
         cport = cs.getsockname()[1]
         cs.close()
         return cport
+
+    @staticmethod
+    def enable_core():
+        try:
+	    resource.setrlimit(resource.RLIMIT_CORE, (-1, -1))
+        except:
+            pass

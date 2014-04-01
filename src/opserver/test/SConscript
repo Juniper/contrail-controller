@@ -96,16 +96,14 @@ def clean_coverage(env, target, source):
  
     import os
     lcov_clean = 'lcov --base-directory ' + Dir('#').abspath +\
-        ' --directory ' + Dir(env['TOP']).abspath + '/analytics --directory ' +\
-        Dir(env['TOP']).abspath + '/query_engine ' +\
+        ' --directory ' + Dir(env['TOP']).abspath +\
         ' --zerocounters'
     os.system(lcov_clean)
  
 def run_coverage(env, target, source):
     import os
     lcov_run = 'lcov --ignore-errors gcov,source --base-directory ' + Dir('#').abspath +\
-        ' --directory ' + Dir(env['TOP']).abspath + '/analytics --directory ' +\
-        Dir(env['TOP']).abspath + '/query_engine ' +\
+        ' --directory ' + Dir(env['TOP']).abspath +\
         ' -c -o ' + Dir(env['TOP']).abspath + '/opserver/test/analytics_test.info'
     os.system(lcov_run)
  
@@ -134,5 +132,8 @@ else:
     env.AlwaysBuild(clean_coverage_cmd)
     run_coverage_cmd = env.Command('run_coverage', '', run_coverage)
     env.Depends(run_coverage_cmd, testcov[0].name)
+    env.Depends(run_coverage_cmd, 'analytics-test')
+    env.Depends(run_coverage_cmd, 'qe-test')
+    env.Depends(run_coverage_cmd, 'gendb_test_suite')
     env.AlwaysBuild(run_coverage_cmd)
     env.Alias('controller/src/opserver:test', run_coverage_cmd)

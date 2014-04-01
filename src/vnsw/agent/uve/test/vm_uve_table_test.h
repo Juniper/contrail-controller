@@ -19,6 +19,8 @@ public:
     L4PortBitmap* GetVmUvePortBitmap(const VmEntry *vm);
     L4PortBitmap* GetVmIntfPortBitmap(const VmEntry *vm, const Interface* intf);
     UveVirtualMachineAgent* VmUveObject(const VmEntry *vm);
+    virtual void VmStatCollectionStart(VmUveVmState *st, const VmEntry *vm) {}
+    virtual void VmStatCollectionStop(VmUveVmState *state) {}
 private:
     virtual VmUveEntryPtr Allocate(const VmEntry *vm);
     uint32_t send_count_;

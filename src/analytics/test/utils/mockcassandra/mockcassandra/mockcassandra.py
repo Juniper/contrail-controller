@@ -15,7 +15,7 @@ import os
 import subprocess
 import logging
 import socket
-
+import platform
 logging.basicConfig(level=logging.INFO,
                             format='%(asctime)s %(levelname)s %(message)s')
 
@@ -39,8 +39,9 @@ def start_cassandra(cport, sport_arg=None):
 
     basefile = 'apache-cassandra-'+cassandra_version
     tarfile = cassandra_url
-    cassbase = "/tmp/cassandra." + str(cport) + "/"
+    cassbase = "/tmp/cassandra.%s.%d/" % (os.getenv('USER', 'None'), cport)
     confdir = cassbase + basefile + "/conf/"
+    output,_ = call_command_("rm -rf " + cassbase)
     output,_ = call_command_("mkdir " + cassbase)
 
     logging.info('Installing cassandra in ' + cassbase)
@@ -86,13 +87,15 @@ def start_cassandra(cport, sport_arg=None):
 
     replace_string_(confdir + "cassandra-env.sh", \
         [('#MAX_HEAP_SIZE="4G"', 'MAX_HEAP_SIZE="256M"'), \
-        ('#HEAP_NEWSIZE="800M"', 'HEAP_NEWSIZE="100M"')])
+        ('#HEAP_NEWSIZE="800M"', 'HEAP_NEWSIZE="100M"'), \
+        ('-Xss180k','-Xss256k')])
 
     if not sport_arg:
         ss.close()
 
     js.close()
     cqls.close()
+
 
     output,_ = call_command_(cassbase + basefile + "/bin/cassandra -p " + cassbase + "pid")
 
@@ -106,7 +109,7 @@ def stop_cassandra(cport):
     Arguments:
         cport : The Client Port for the instance of cassandra to be stopped
     '''
-    cassbase = "/tmp/cassandra." + str(cport) + "/"
+    cassbase = "/tmp/cassandra.%s.%d/" % (os.getenv('USER', 'None'), cport)
     input = open(cassbase + "pid")
     s=input.read()
     logging.info('Killing Cassandra pid %d' % int(s))
@@ -129,7 +132,14 @@ def replace_string_(filePath, findreplace):
     os.rename(tempName,filePath)
 
 def call_command_(command):
-    process = subprocess.Popen(command.split(' '),
+
+    distribution = platform.dist()[0]
+    if distribution == "debian":
+        jenv = { "JAVA_HOME" : "/usr/local/java/jre1.6.0_43" }
+    else:
+        jenv = None
+
+    process = subprocess.Popen(command.split(' '), env = jenv,
                                stdout=subprocess.PIPE,
                                stderr=subprocess.PIPE)
     return process.communicate()

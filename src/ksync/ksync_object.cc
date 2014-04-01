@@ -67,7 +67,8 @@ KSyncEntry *KSyncObject::Create(const KSyncEntry *key) {
         entry = CreateImpl(key);
     } else {
         // If entry is already present, it should be in TEMP state
-        if (entry->GetState() != KSyncEntry::TEMP) {
+        // or deleted state.
+        if (entry->GetState() != KSyncEntry::TEMP && !entry->IsDeleted()) {
             assert(0);
         }
     }
@@ -112,21 +113,21 @@ void KSyncObject::SafeNotifyEvent(KSyncEntry *entry,
 ///////////////////////////////////////////////////////////////////////////////
 // KSyncDBObject routines
 ///////////////////////////////////////////////////////////////////////////////
-KSyncDBObject::KSyncDBObject() : KSyncObject() {
+KSyncDBObject::KSyncDBObject() : KSyncObject(), test_id_(-1) {
     table_ = NULL;
 }
 
-KSyncDBObject::KSyncDBObject(int max_index) : KSyncObject(max_index) {
+KSyncDBObject::KSyncDBObject(int max_index) : KSyncObject(max_index), test_id_(-1) {
     table_ = NULL;
 }
 
-KSyncDBObject::KSyncDBObject(DBTableBase *table) : KSyncObject() {
+KSyncDBObject::KSyncDBObject(DBTableBase *table) : KSyncObject(), test_id_(-1) {
     table_ = table;
     id_ = table->Register(boost::bind(&KSyncDBObject::Notify, this, _1, _2));
 }
 
 KSyncDBObject::KSyncDBObject(DBTableBase *table, int max_index) 
-    : KSyncObject(max_index) {
+    : KSyncObject(max_index), test_id_(-1) {
     table_ = table;
     id_ = table->Register(boost::bind(&KSyncDBObject::Notify, this, _1, _2));
 }
@@ -150,8 +151,15 @@ void KSyncDBObject::UnregisterDb(DBTableBase *table) {
     table_ = NULL;
 }
 
+void KSyncDBObject::set_test_id(DBTableBase::ListenerId id) {
+    test_id_ = id;
+}
+
 DBTableBase::ListenerId KSyncDBObject::GetListenerId(DBTableBase *table) {
     assert(table_ == table);
+    if (test_id_ != -1) {
+        return test_id_;
+    }
     return id_;
 }
 
@@ -173,8 +181,8 @@ void KSyncDBObject::Notify(DBTablePartBase *partition, DBEntryBase *e) {
     tbb::recursive_mutex::scoped_lock lock(lock_);
     DBEntry *entry = static_cast<DBEntry *>(e);
     DBTableBase *table = partition->parent();
-    DBTableBase::ListenerId listener_id = GetListenerId(table);
-    DBState *state = entry->GetState(table, listener_id);
+    assert(table_ == table);
+    DBState *state = entry->GetState(table, id_);
     KSyncDBEntry *ksync = static_cast<KSyncDBEntry *>(state);
 
     if (entry->IsDeleted()) {
@@ -200,7 +208,7 @@ void KSyncDBObject::Notify(DBTablePartBase *partition, DBEntryBase *e) {
                 ksync = static_cast<KSyncDBEntry *>(found);
             }
             delete key;
-            entry->SetState(table, listener_id, ksync);
+            entry->SetState(table, id_, ksync);
             assert(ksync->GetDBEntry() == NULL);
             ksync->SetDBEntry(entry);
             need_sync = true;
@@ -265,6 +273,10 @@ std::string KSyncEntry::StateString() const {
 
         case DEL_DEFER_REF:
             str << "Delete pending due to reference";
+            break;
+
+        case DEL_DEFER_DEL_ACK:
+            str << "Delete pending due to Delete ack wait";
             break;
 
         case DEL_ACK_WAIT:
@@ -469,6 +481,8 @@ bool KSyncNetlinkDBEntry::Delete() {
 //                be sent to kernel on getting ACK
 // DEL_DEFER_REF: Object deleted with pending references . Delete must be sent
 //                to kernel when all pending references goes away.
+// DEL_DEFER_DEL_ACK: Object delete with pending delete ack wait, Delete
+//                needs to be sent after receiving a del ACK.
 // DEL_ACK_WAIT : Delete sent to Kernel. Waiting for ACK from kernel.
 //                Can get renewed if there is request to ADD in this case
 // RENEW_WAIT   : Object being renewed. Waiting for ACK of delete to renew the
@@ -534,7 +548,7 @@ KSyncEntry::KSyncState KSyncSM_Delete(KSyncEntry *entry) {
     }
 
     assert(entry->GetRefCount() == 1);
-    if (!entry->Seen()) {
+    if (!entry->Seen() && entry->AllowDeleteStateComp()) {
         return KSyncEntry::FREE_WAIT;
     }
     if (entry->Delete()) {
@@ -641,7 +655,9 @@ KSyncEntry::KSyncState KSyncSM_AddDefer(KSyncObject *obj, KSyncEntry *entry,
     // state.
     case KSyncEntry::DEL_REQ:
         obj->BackRefDel(entry);
-        if (entry->GetRefCount() > 1) {
+        if (entry->AllowDeleteStateComp() == false) {
+            state = KSyncSM_Delete(entry);
+        } else if (entry->GetRefCount() > 1) {
             state = KSyncEntry::TEMP;
         } else {
             state = KSyncEntry::FREE_WAIT;
@@ -856,6 +872,37 @@ KSyncEntry::KSyncState KSyncSM_DelPending_Ref(KSyncObject *obj,
     return state;
 }
 
+// Object waiting for DELETE to be sent.
+// ADD_CHANGE_REQ will result in renew of object. Send only a Change
+// On DEL ACK, try sending delete
+KSyncEntry::KSyncState KSyncSM_DelPending_DelAck(KSyncObject *obj,
+                                                 KSyncEntry *entry,
+                                                 KSyncEntry::KSyncEvent event) {
+    KSyncEntry::KSyncState state = KSyncEntry::DEL_DEFER_DEL_ACK;
+
+    assert(entry->GetRefCount());
+    assert(entry->AllowDeleteStateComp() == false);
+
+    switch (event) {
+    case KSyncEntry::ADD_CHANGE_REQ:
+        state = KSyncEntry::RENEW_WAIT;
+        break;
+
+    case KSyncEntry::DEL_ACK:
+        state = KSyncSM_Delete(entry);
+        break;
+
+    case KSyncEntry::INT_PTR_REL:
+        break;
+
+    default:
+        assert(0);
+        break;
+    }
+
+    return state;
+}
+
 // Object waiting for ACK of DELETE sent earlier
 // ADD_CHANGE_REQ will result in renew of object. TODO: This is TBD
 KSyncEntry::KSyncState KSyncSM_DelAckWait(KSyncObject *obj, KSyncEntry *entry,
@@ -898,11 +945,15 @@ KSyncEntry::KSyncState KSyncSM_RenewWait(KSyncObject *obj, KSyncEntry *entry,
         break;
 
     case KSyncEntry::DEL_REQ:
-        state = KSyncEntry::DEL_ACK_WAIT;
+        if (entry->AllowDeleteStateComp()) {
+            state = KSyncEntry::DEL_ACK_WAIT;
+        } else {
+            state = KSyncEntry::DEL_DEFER_DEL_ACK;
+        }
         break;
 
     case KSyncEntry::DEL_ACK:
-        state = KSyncSM_Change(obj, entry);
+        state = KSyncSM_Add(obj, entry);
         break;
 
     case KSyncEntry::INT_PTR_REL:
@@ -921,7 +972,10 @@ void KSyncObject::NotifyEvent(KSyncEntry *entry, KSyncEntry::KSyncEvent event) {
     KSyncEntry::KSyncState state;
     bool dep_reval = false;
 
-    KSYNC_TRACE(Event, entry->ToString(), entry->StateString(), entry->EventString(event));
+    if (DoEventTrace()) {
+        KSYNC_TRACE(Event, entry->ToString(), entry->StateString(),
+                entry->EventString(event));
+    }
     switch (entry->GetState()) {
         case KSyncEntry::INIT:
             state = KSyncSM_Init(this, entry, event);
@@ -961,6 +1015,10 @@ void KSyncObject::NotifyEvent(KSyncEntry *entry, KSyncEntry::KSyncEvent event) {
         case KSyncEntry::DEL_DEFER_REF:
             dep_reval = true;
             state = KSyncSM_DelPending_Ref(this, entry, event);
+            break;
+
+        case KSyncEntry::DEL_DEFER_DEL_ACK:
+            state = KSyncSM_DelPending_DelAck(this, entry, event);
             break;
 
         case KSyncEntry::DEL_ACK_WAIT:

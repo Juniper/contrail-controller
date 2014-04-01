@@ -8,6 +8,7 @@
 #include <errno.h>
 #include <sys/types.h>
 #include <dirent.h>
+#include "base/logging.h"
 #include <base/contrail_ports.h>
 #include <bind/bind_util.h>
 #include <cfg/dns_config.h>
@@ -125,7 +126,10 @@ void NamedConfig::UpdateNamedConf(const VirtualDnsConfig *updated_vdns) {
     str << "/usr/bin/rndc -c /etc/contrail/dns/rndc.conf -p ";
     str << ContrailPorts::DnsRndc;
     str << " reconfig";
-    system(str.str().c_str());
+    int res = system(str.str().c_str());
+    if (res) {
+        LOG(WARN, "/usr/bin/rndc command failed");
+    }
 }
 
 void NamedConfig::CreateNamedConf(const VirtualDnsConfig *updated_vdns) {

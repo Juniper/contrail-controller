@@ -22,7 +22,7 @@ public:
     typedef DBTableBase::ListenerId ListenerId;
     typedef std::auto_ptr<DBRequestKey> KeyPtr;
 
-    DBEntryBase() : table_(NULL), flags(0), last_change_at_(UTCTimestampUsec()) {
+    DBEntryBase() : tpart_(NULL), flags(0), last_change_at_(UTCTimestampUsec()) {
     }
     virtual ~DBEntryBase() { }
     virtual std::string ToString() const = 0;
@@ -57,8 +57,9 @@ public:
     void set_last_change_at_to_now();
     const uint64_t last_change_at() const { return last_change_at_; }
     const std::string last_change_at_str() const;
-    DBTableBase *get_table() const { return table_; }
-    void set_table(DBTableBase *table) { table_ = table; }
+    DBTablePartBase *get_table_partition() const;
+    void set_table_partition(DBTablePartBase *tpart);
+    DBTableBase *get_table() const;
 
 private:
     enum DbEntryFlags {
@@ -67,7 +68,7 @@ private:
         OnRemoveQ    = 1 << 2,
     };
     typedef std::map<ListenerId, DBState *> StateMap;
-    DBTableBase *table_;
+    DBTablePartBase *tpart_;
     StateMap state_;
     uint8_t flags;
     uint64_t last_change_at_; // time at which entry was last 'changed'

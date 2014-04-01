@@ -122,11 +122,6 @@ void KSyncSockTypeMap::FlowNatResponse(uint32_t seq_num, vr_flow_req *req) {
     nl_update_header(&cl, encode_len);
     sock->sock_.send_to(buffer(cl.cl_buf, cl.cl_msg_len), sock->local_ep_);
     nl_free(&cl);
-
-    if (fwd_flow_idx != 0xFFFFFFFF) {
-        //Activate the reverse flow-entry in flow mmap
-        KSyncSockTypeMap::SetFlowEntry(req, true);
-    }
 }
 
 void KSyncSockTypeMap::SendNetlinkDoneMsg(int seq_num) {
@@ -480,11 +475,11 @@ void KSyncSockTypeMap::Decoder(char *data, SandeshContext *ctxt) {
                     decode_buf_len -= decode_len;
                 }
             } else {
-                LOG(ERROR, "Unkown generic netlink TLV type : " << attr->nla_type);
+                LOG(ERROR, "Unknown generic netlink TLV type : " << attr->nla_type);
                 assert(0);
             }
         } else {
-            LOG(ERROR, "Unkown generic netlink cmd : " << genlh->cmd);
+            LOG(ERROR, "Unknown generic netlink cmd : " << genlh->cmd);
             assert(0);
         }
     } else if (nlh->nlmsg_type != NLMSG_DONE) {
@@ -525,14 +520,14 @@ void KSyncSockTypeMap::AsyncSendTo(IoContext *ioc, mutable_buffers_1 buf,
 }
 
 //send or store in map
-size_t KSyncSockTypeMap::SendTo(const_buffers_1 buf) {
-    KSyncUserSockContext ctx(true, 0);
+size_t KSyncSockTypeMap::SendTo(const_buffers_1 buf, uint32_t seq_no) {
+    KSyncUserSockContext ctx(true, seq_no);
     //parse and store info in map [done in Process() callbacks]
     ProcessSandesh(buffer_cast<const uint8_t *>(buf), buffer_size(buf), &ctx);
 
     if (ctx.IsResponseReqd()) {
         //simulate ok response with the same seq
-        SimulateResponse(0, 0, 0); 
+        SimulateResponse(seq_no, 0, 0); 
     }
     return 0;
 }
@@ -719,7 +714,8 @@ void KSyncUserSockFlowContext::Process() {
         KSyncSockTypeMap::FlowNatResponse(GetSeqNum(), req_);
         return;
     }
-    KSyncSockTypeMap::SimulateResponse(GetSeqNum(), 0, 0); 
+    SetResponseReqd(false);
+    KSyncSockTypeMap::FlowNatResponse(GetSeqNum(), req_);
 }
 
 void KSyncUserSockContext::FlowMsgHandler(vr_flow_req *req) {

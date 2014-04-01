@@ -108,6 +108,11 @@ void ServicesSandesh::PktStatsSandesh(std::string ctxt, bool more) {
     resp->set_arp_sent(stats.sent[PktHandler::ARP]);
     resp->set_dns_sent(stats.sent[PktHandler::DNS]);
     resp->set_icmp_sent(stats.sent[PktHandler::ICMP]);
+    resp->set_dhcp_q_threshold_exceeded(stats.q_threshold_exceeded[PktHandler::DHCP]);
+    resp->set_arp_q_threshold_exceeded(stats.q_threshold_exceeded[PktHandler::ARP]);
+    resp->set_dns_q_threshold_exceeded(stats.q_threshold_exceeded[PktHandler::DNS]);
+    resp->set_icmp_q_threshold_exceeded(stats.q_threshold_exceeded[PktHandler::ICMP]);
+    resp->set_flow_q_threshold_exceeded(stats.q_threshold_exceeded[PktHandler::FLOW]);
     resp->set_context(ctxt);
     resp->set_more(more);
     resp->Response();
@@ -577,7 +582,9 @@ void ServicesSandesh::DhcpPktTrace(PktTrace::Pkt &pkt, DhcpPktSandesh *resp) {
     ptr += (data.ip_hdr.hdrlen * 4);
     FillUdpHdr((udphdr *)ptr, data.udp_hdr); 
     ptr += sizeof(udphdr);
-    int32_t remaining = std::min(pkt.len, PktTrace::kPktTraceSize) - 
+    PktHandler *pkt_handler = Agent::GetInstance()->pkt()->pkt_handler();
+    std::size_t trace_size = pkt_handler->PktTraceSize(PktHandler::DHCP);
+    int32_t remaining = std::min(pkt.len, trace_size) - 
                         (2 * sizeof(ethhdr) + sizeof(agent_hdr) + 
                          data.ip_hdr.hdrlen * 4 + sizeof(udphdr));
     FillDhcpv4Hdr((dhcphdr *)ptr, data.dhcp_hdr, remaining);
@@ -614,7 +621,9 @@ void ServicesSandesh::DnsPktTrace(PktTrace::Pkt &pkt, DnsPktSandesh *resp) {
     ptr += (data.ip_hdr.hdrlen * 4);
     FillUdpHdr((udphdr *)ptr, data.udp_hdr); 
     ptr += sizeof(udphdr);
-    int32_t remaining = std::min(pkt.len, PktTrace::kPktTraceSize) - 
+    PktHandler *pkt_handler = Agent::GetInstance()->pkt()->pkt_handler();
+    std::size_t trace_size = pkt_handler->PktTraceSize(PktHandler::DNS);
+    int32_t remaining = std::min(pkt.len, trace_size) - 
                         (2 * sizeof(ethhdr) + sizeof(agent_hdr) + 
                          data.ip_hdr.hdrlen * 4 + sizeof(udphdr));
 #elif defined(__FreeBSD__)
@@ -673,7 +682,9 @@ void ServicesSandesh::OtherPktTrace(PktTrace::Pkt &pkt, PktSandesh *resp) {
     uint8_t *ptr = pkt.pkt + sizeof(ethhdr) + sizeof(agent_hdr);
     FillMacHdr((ethhdr *)ptr, data.mac_hdr);
     ptr += sizeof(ethhdr);
-    int32_t remaining = std::min(pkt.len, PktTrace::kPktTraceSize) - 
+    PktHandler *pkt_handler = Agent::GetInstance()->pkt()->pkt_handler();
+    std::size_t trace_size = pkt_handler->PktTraceSize(PktHandler::FLOW);
+    int32_t remaining = std::min(pkt.len, trace_size) - 
                         (2 * sizeof(ethhdr) + sizeof(agent_hdr));
 #elif defined(__FreeBSD__)
     uint8_t *ptr = pkt.pkt + sizeof(ether_header) + sizeof(agent_hdr);
@@ -822,6 +833,30 @@ void ClearAllInfo::HandleRequest() const {
     agent->services()->metadataproxy()->ClearStats();
 
     PktErrorResp *resp = new PktErrorResp();
+    resp->set_context(context());
+    resp->Response();
+}
+
+void PktTraceInfo::HandleRequest() const {
+    uint32_t buffers = get_num_buffers();
+    uint32_t flow_buffers = get_flow_num_buffers();
+    PktTraceInfoResponse *resp = new PktTraceInfoResponse();
+    PktHandler *handler = Agent::GetInstance()->pkt()->pkt_handler();
+    if (buffers > PktTrace::kPktMaxNumBuffers ||
+        flow_buffers > PktTrace::kPktMaxNumBuffers) {
+        resp->set_resp("Invalid Input !!");
+        buffers = handler->PktTraceBuffers(PktHandler::INVALID);
+        flow_buffers = handler->PktTraceBuffers(PktHandler::FLOW);
+    } else {
+        handler->PktTraceBuffers(PktHandler::FLOW, flow_buffers);
+        for (uint32_t i = 0; i < PktHandler::MAX_MODULES; ++i) {
+            if (i == PktHandler::FLOW)
+                continue;
+            handler->PktTraceBuffers((PktHandler::PktModuleName)i, buffers);
+        }
+    }
+    resp->set_num_buffers(buffers);
+    resp->set_flow_num_buffers(flow_buffers);
     resp->set_context(context());
     resp->Response();
 }

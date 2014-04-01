@@ -39,6 +39,12 @@ char dest_mac[MAC_LEN] = { 0x00, 0x11, 0x12, 0x13, 0x14, 0x15 };
 
 class IcmpTest : public ::testing::Test {
 public:
+    enum IcmpError {
+        NO_ERROR,
+        TYPE_ERROR,
+        CHECKSUM_ERROR
+    };
+
     IcmpTest() : itf_count_(0), icmp_seq_(0) {
         rid_ = Agent::GetInstance()->GetInterfaceTable()->Register(
                 boost::bind(&IcmpTest::ItfUpdate, this, _2));
@@ -80,10 +86,19 @@ public:
         return itf_id_[index]; 
     }
 
-    void CheckSandeshResponse(Sandesh *sandesh) {
+    void CheckSandeshResponse(Sandesh *sandesh, int count) {
+        if (memcmp(sandesh->Name(), "IcmpStats", strlen("IcmpStats")) == 0) {
+            IcmpStats *icmp = (IcmpStats *)sandesh;
+            EXPECT_EQ(icmp->get_icmp_gw_ping(), count);
+        } else if (memcmp(sandesh->Name(), "IcmpPktSandesh",
+                          strlen("IcmpPktSandesh")) == 0) {
+            IcmpPktSandesh *icmp = (IcmpPktSandesh *)sandesh;
+            EXPECT_EQ(icmp->get_pkt_list().size(),
+                      std::min((int)PktTrace::kPktNumBuffers, 2 * count));
+        }
     }
 
-    void SendIcmp(short ifindex, uint32_t dest_ip) {
+    void SendIcmp(short ifindex, uint32_t dest_ip, IcmpError error = NO_ERROR) {
         int len = 512;
         boost::scoped_array<uint8_t> buf(new uint8_t[len]);
         memset(buf.get(), 0, len);
@@ -116,12 +131,18 @@ public:
         ip->daddr = htonl(dest_ip);
 
         icmphdr *icmp = (icmphdr *) (ip + 1);
-        icmp->type = ICMP_ECHO;
+        if (error == TYPE_ERROR)
+            icmp->type = ICMP_ECHOREPLY;
+        else
+            icmp->type = ICMP_ECHO;
         icmp->code = 0;
         icmp->checksum = 0;
         icmp->un.echo.id = 0x1234;
         icmp->un.echo.sequence = icmp_seq_++;
-        icmp->checksum = IpUtils::IPChecksum((uint16_t *)icmp, 64);
+        if (error == CHECKSUM_ERROR)
+            icmp->checksum = 0;
+        else
+            icmp->checksum = IpUtils::IPChecksum((uint16_t *)icmp, 64);
         len = 64;
 
         ip->tot_len = htons(len + sizeof(iphdr));
@@ -174,6 +195,11 @@ TEST_F(IcmpTest, IcmpPingTest) {
     AddIPAM("vn1", ipam_info, 3); 
     client->WaitForIdle();
 
+    ClearAllInfo *clear_req1 = new ClearAllInfo();
+    clear_req1->HandleRequest();
+    client->WaitForIdle();
+    clear_req1->Release();
+
     SendIcmp(GetItfId(0), ntohl(inet_addr(ipam_info[0].gw)));
     SendIcmp(GetItfId(0), ntohl(inet_addr(ipam_info[1].gw)));
     SendIcmp(GetItfId(0), ntohl(inet_addr(ipam_info[2].gw)));
@@ -192,6 +218,13 @@ TEST_F(IcmpTest, IcmpPingTest) {
     EXPECT_EQ(2U, stats.icmp_gw_ping);
     EXPECT_EQ(0U, stats.icmp_drop);
 
+    IcmpInfo *sand1 = new IcmpInfo();
+    Sandesh::set_response_callback(
+        boost::bind(&IcmpTest::CheckSandeshResponse, this, _1, 2));
+    sand1->HandleRequest();
+    client->WaitForIdle();
+    sand1->Release();
+
     SendIcmp(GetItfId(0), ntohl(inet_addr(ipam_updated_info[0].gw)));
     SendIcmp(GetItfId(0), ntohl(inet_addr(ipam_updated_info[1].gw)));
     SendIcmp(GetItfId(0), ntohl(inet_addr(ipam_updated_info[2].gw)));
@@ -209,7 +242,13 @@ TEST_F(IcmpTest, IcmpPingTest) {
     client->WaitForIdle();
     EXPECT_EQ(3U, stats.icmp_gw_ping);
     EXPECT_EQ(0U, stats.icmp_drop);
-    Agent::GetInstance()->GetIcmpProto()->ClearStats();
+
+    IcmpInfo *sand2 = new IcmpInfo();
+    Sandesh::set_response_callback(
+        boost::bind(&IcmpTest::CheckSandeshResponse, this, _1, 3));
+    sand2->HandleRequest();
+    client->WaitForIdle();
+    sand2->Release();
 
     // Send updated Ipam
     char buf[BUF_SIZE];
@@ -237,23 +276,19 @@ TEST_F(IcmpTest, IcmpPingTest) {
         stats = Agent::GetInstance()->GetIcmpProto()->GetStats();
         if (++count == MAX_WAIT_COUNT)
             assert(0);
-    } while (stats.icmp_gw_ping < 1);
+    } while (stats.icmp_gw_ping < 4);
     client->WaitForIdle();
-    EXPECT_EQ(1U, stats.icmp_gw_ping);
+    EXPECT_EQ(4U, stats.icmp_gw_ping);
     EXPECT_EQ(0U, stats.icmp_drop);
-
-    IcmpInfo *sand = new IcmpInfo();
-    Sandesh::set_response_callback(
-        boost::bind(&IcmpTest::CheckSandeshResponse, this, _1));
-    sand->HandleRequest();
-    client->WaitForIdle();
-    sand->Release();
 
     SendIcmp(GetItfId(0), ntohl(inet_addr(ipam_updated_info[0].gw)));
     SendIcmp(GetItfId(0), ntohl(inet_addr(ipam_updated_info[1].gw)));
     SendIcmp(GetItfId(0), ntohl(inet_addr(ipam_updated_info[2].gw)));
     SendIcmp(GetItfId(1), ntohl(inet_addr(ipam_updated_info[0].gw)));
     SendIcmp(GetItfId(1), ntohl(inet_addr(ipam_updated_info[1].gw)));
+    SendIcmp(GetItfId(1), ntohl(inet_addr(ipam_updated_info[2].gw)));
+    SendIcmp(GetItfId(1), ntohl(inet_addr(ipam_updated_info[2].gw)));
+    SendIcmp(GetItfId(1), ntohl(inet_addr(ipam_updated_info[2].gw)));
     SendIcmp(GetItfId(1), ntohl(inet_addr(ipam_updated_info[2].gw)));
     count = 0;
     do {
@@ -262,10 +297,30 @@ TEST_F(IcmpTest, IcmpPingTest) {
         stats = Agent::GetInstance()->GetIcmpProto()->GetStats();
         if (++count == MAX_WAIT_COUNT)
             assert(0);
-    } while (stats.icmp_gw_ping < 3);
+    } while (stats.icmp_gw_ping < 9);
     client->WaitForIdle();
-    EXPECT_EQ(3U, stats.icmp_gw_ping);
+    EXPECT_EQ(9U, stats.icmp_gw_ping);
     EXPECT_EQ(0U, stats.icmp_drop);
+
+    IcmpInfo *sand3 = new IcmpInfo();
+    Sandesh::set_response_callback(
+        boost::bind(&IcmpTest::CheckSandeshResponse, this, _1, 9));
+    sand3->HandleRequest();
+    client->WaitForIdle();
+    sand3->Release();
+
+    ClearAllInfo *clear_req2 = new ClearAllInfo();
+    clear_req2->HandleRequest();
+    client->WaitForIdle();
+    clear_req2->Release();
+
+    IcmpInfo *sand4 = new IcmpInfo();
+    Sandesh::set_response_callback(
+        boost::bind(&IcmpTest::CheckSandeshResponse, this, _1, 0));
+    sand4->HandleRequest();
+    client->WaitForIdle();
+    sand4->Release();
+
     Agent::GetInstance()->GetIcmpProto()->ClearStats();
 
     client->Reset();
@@ -274,6 +329,60 @@ TEST_F(IcmpTest, IcmpPingTest) {
 
     client->Reset();
     DeleteVmportEnv(input, 2, 1, 0);
+    client->WaitForIdle();
+}
+
+TEST_F(IcmpTest, IcmpErrorTest) {
+    struct PortInfo input[] = {
+        {"vnet1", 1, "1.1.1.1", "00:00:00:01:01:01", 1, 1},
+    };
+    IcmpProto::IcmpStats stats;
+
+    IpamInfo ipam_info[] = {
+        {"1.1.1.0", 24, "1.1.1.200"},
+    };
+
+    CreateVmportEnv(input, 1, 0); 
+    client->WaitForIdle();
+    client->Reset();
+    AddIPAM("vn1", ipam_info, 1); 
+    client->WaitForIdle();
+
+    SendIcmp(GetItfId(0), ntohl(inet_addr(ipam_info[0].gw)), TYPE_ERROR);
+    int count = 0;
+    do {
+        usleep(1000);
+        client->WaitForIdle();
+        stats = Agent::GetInstance()->GetIcmpProto()->GetStats();
+        if (++count == MAX_WAIT_COUNT)
+            assert(0);
+    } while (stats.icmp_drop < 1);
+    client->WaitForIdle();
+    EXPECT_EQ(0U, stats.icmp_gw_ping);
+    EXPECT_EQ(1U, stats.icmp_drop);
+    EXPECT_EQ(0U, stats.icmp_gw_ping_err);
+
+    SendIcmp(GetItfId(0), ntohl(inet_addr(ipam_info[0].gw)), CHECKSUM_ERROR);
+    count = 0;
+    do {
+        usleep(1000);
+        client->WaitForIdle();
+        stats = Agent::GetInstance()->GetIcmpProto()->GetStats();
+        if (++count == MAX_WAIT_COUNT)
+            assert(0);
+    } while (stats.icmp_gw_ping_err < 1);
+    client->WaitForIdle();
+    EXPECT_EQ(0U, stats.icmp_gw_ping);
+    EXPECT_EQ(1U, stats.icmp_drop);
+    EXPECT_EQ(1U, stats.icmp_gw_ping_err);
+    Agent::GetInstance()->GetIcmpProto()->ClearStats();
+
+    client->Reset();
+    DelIPAM("vn1");
+    client->WaitForIdle();
+
+    client->Reset();
+    DeleteVmportEnv(input, 1, 1, 0);
     client->WaitForIdle();
 }
 

@@ -55,7 +55,7 @@ TEST_F(VgwTest, conf_file_1) {
 
     EXPECT_STREQ(it->vrf().c_str(), "default-domain:admin:public1:public1");
     EXPECT_STREQ(it->interface().c_str(), "vgw1");
-    EXPECT_EQ(it->subnets().size(), 2);
+    EXPECT_EQ(it->subnets().size(), (unsigned int) 2);
     if (it->routes().size() == 2) {
         subnet = it->subnets()[0];
         EXPECT_STREQ(subnet.ip_.to_string().c_str(), "2.2.1.0");
@@ -66,7 +66,7 @@ TEST_F(VgwTest, conf_file_1) {
         EXPECT_EQ(subnet.plen_, 24);
     }
 
-    EXPECT_EQ(it->routes().size(), 2);
+    EXPECT_EQ(it->routes().size(), (unsigned int) 2);
     if (it->routes().size() == 2) {
         subnet = it->routes()[0];
         EXPECT_STREQ(subnet.ip_.to_string().c_str(), "10.10.10.1");
@@ -166,6 +166,8 @@ static void ValidateVgwInterface(Inet4UnicastRouteEntry *route,
     EXPECT_STREQ(intf->name().c_str(), name);
     EXPECT_TRUE(route->GetActivePath()->GetTunnelBmap() ==
                 TunnelType::GREType());
+    EXPECT_TRUE(static_cast<const InterfaceNH *>(nh)->GetVrf()->GetName() ==
+                inet_intf->vrf()->GetName());
 }
 
 // The route in public-vn vrf should point to interface-nh for vgw

@@ -38,7 +38,7 @@ request sandesh ShutdownControlNode {
 struct ControlCpuState {
     1: string                                 name (key="ObjectBgpRouter")
     2: optional bool                          deleted
-    3: optional list<cpuinfo.ProcessCpuInfo>  cpu_info (tags=".module_id")
+    3: optional list<cpuinfo.ProcessCpuInfo>  cpu_info (tags=".module_id,.mem_virt,.cpu_share")
 }
 
 uve sandesh ControlCpuStateTrace {

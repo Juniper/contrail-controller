@@ -19,7 +19,7 @@
 #include <uve/vn_uve_table.h>
 #include <uve/vm_uve_table.h>
 #include <init/agent_param.h>
-#include <uve/agent_stats_collector_test.h>
+#include <uve/test/agent_stats_collector_test.h>
 #include <uve/agent_uve.h>
 
 IoContext *AgentStatsCollectorTest::AllocateIoContext(char* buf, uint32_t buf_len,

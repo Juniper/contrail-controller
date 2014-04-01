@@ -174,7 +174,8 @@ void UDPServer::HandleReceiveInternal (boost::asio::const_buffer recv_buffer,
     std::size_t bytes_transferred, const boost::system::error_code& error)
 {
     HandleReceive (recv_buffer, remote_endpoint_, bytes_transferred, error);
-    StartReceive();
+    if (!error.value())
+        StartReceive();
 }
 
 void UDPServer::HandleReceive (boost::asio::const_buffer recv_buffer,
@@ -202,4 +203,25 @@ void UDPServer::HandleSend (boost::asio::const_buffer send_buffer,
     // DeallocateEndPoint (remote_endpoint);
 }
 
+udp::endpoint UDPServer::GetLocalEndpoint(boost::system::error_code &error)
+{
+    return socket_.local_endpoint(error);
+}
 
+std::string UDPServer::GetLocalEndpointAddress()
+{
+    boost::system::error_code error;
+    udp::endpoint ep = GetLocalEndpoint(error);
+    if (error.value())
+        return "";
+    return ep.address().to_string();
+}
+
+int UDPServer::GetLocalEndpointPort()
+{
+    boost::system::error_code error;
+    udp::endpoint ep = GetLocalEndpoint(error);
+    if (error.value())
+        return -1;
+    return ep.port();
+}

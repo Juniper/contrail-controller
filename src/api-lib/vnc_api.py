@@ -361,6 +361,7 @@ class VncApi(VncApiClientGen):
         except HttpError as he:
             if he.status_code == 404:
                 return None
+            raise he
 
         return json.loads(content)['uuid']
     #end fq_name_to_id

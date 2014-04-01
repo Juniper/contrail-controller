@@ -64,20 +64,21 @@ void TxUdpPacket(int ifindex, const char *sip, const char *dip,
 }
 
 void MakeTcpPacket(PktGen *pkt, int ifindex, const char *sip,
-		   const char *dip, uint16_t sport, uint16_t dport,
+		   const char *dip, uint16_t sport, uint16_t dport, bool ack,
 		   int hash_id, uint32_t vrf_id) {
     pkt->AddEthHdr("00:00:00:00:00:01", "00:00:00:00:00:02", 0x800);
     pkt->AddAgentHdr(ifindex, AGENT_TRAP_FLOW_MISS, hash_id, vrf_id);
     pkt->AddEthHdr("00:00:00:00:00:01", "00:00:00:00:00:02", 0x800);
     pkt->AddIpHdr(sip, dip, IPPROTO_TCP);
-    pkt->AddTcpHdr(sport, dport, 64);
+    pkt->AddTcpHdr(sport, dport, false, false, ack, 64);
 
 }
 
 void TxTcpPacket(int ifindex, const char *sip, const char *dip, 
-		    uint16_t sport, uint16_t dport, int hash_id, uint32_t vrf_id) {
+		    uint16_t sport, uint16_t dport, bool ack, int hash_id,
+            uint32_t vrf_id) {
     PktGen *pkt = new PktGen();
-    MakeTcpPacket(pkt, ifindex, sip, dip, sport, dport, hash_id, vrf_id);
+    MakeTcpPacket(pkt, ifindex, sip, dip, sport, dport, ack, hash_id, vrf_id);
     uint8_t *ptr(new uint8_t[pkt->GetBuffLen()]);
     memcpy(ptr, pkt->GetBuff(), pkt->GetBuffLen());
     Agent::GetInstance()->pkt()->pkt_handler()->HandleRcvPkt(ptr, pkt->GetBuffLen());
@@ -143,7 +144,7 @@ void TxUdpMplsPacket(int ifindex, const char *out_sip,
 void MakeTcpMplsPacket(PktGen *pkt, int ifindex, const char *out_sip,
                                const char *out_dip, uint32_t label,
                                const char *sip, const char *dip, uint16_t sport,
-                               uint16_t dport, int hash_id) {
+                               uint16_t dport, bool ack, int hash_id) {
     pkt->AddEthHdr("00:00:00:00:00:01", "00:00:00:00:00:02", 0x800);
     pkt->AddAgentHdr(ifindex, AGENT_TRAP_FLOW_MISS, hash_id, MplsToVrfId(label));
     pkt->AddEthHdr("00:00:00:00:00:01", "00:00:00:00:00:02", 0x800);
@@ -151,16 +152,16 @@ void MakeTcpMplsPacket(PktGen *pkt, int ifindex, const char *out_sip,
     pkt->AddGreHdr();
     pkt->AddMplsHdr(label, true);
     pkt->AddIpHdr(sip, dip, IPPROTO_TCP);
-    pkt->AddTcpHdr(sport, dport, 64);
+    pkt->AddTcpHdr(sport, dport, false, false, ack, 64);
 }
 
 void TxTcpMplsPacket(int ifindex, const char *out_sip,
                                const char *out_dip, uint32_t label,
                                const char *sip, const char *dip, uint16_t sport,
-                               uint16_t dport, int hash_id) {
+                               uint16_t dport, bool ack, int hash_id) {
     PktGen *pkt = new PktGen();
     MakeTcpMplsPacket(pkt, ifindex, out_sip, out_dip, label, sip, dip, sport,
-                      dport, hash_id);
+                      dport, ack, hash_id);
 
     uint8_t *ptr(new uint8_t[pkt->GetBuffLen()]);
     memcpy(ptr, pkt->GetBuff(), pkt->GetBuffLen());

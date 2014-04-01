@@ -2,8 +2,8 @@
  * Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
  */
 
-#include <uve/vm_uve_table_test.h>
-#include <uve/vm_uve_entry_test.h>
+#include <uve/test/vm_uve_table_test.h>
+#include <uve/test/vm_uve_entry_test.h>
 
 VmUveTableTest::VmUveTableTest(Agent *agent) 
     : VmUveTable(agent) {

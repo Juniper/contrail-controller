@@ -36,6 +36,7 @@ do {\
 } while (false);\
 
 class KSyncEntry;
+class KSyncIoContext;
 
 /* Base class to hold sandesh context information which is passed to 
  * Sandesh decode
@@ -59,8 +60,12 @@ public:
 
     void SetErrno(int err) {errno_ = err;};
     int GetErrno() const {return errno_;};
+
+    void set_ksync_io_ctx(const KSyncIoContext *ioc) {ksync_io_ctx_ = ioc;}
+    const KSyncIoContext *ksync_io_ctx() const {return ksync_io_ctx_;}
 private:
     int errno_;
+    const KSyncIoContext *ksync_io_ctx_;
 };
 
 
@@ -126,6 +131,7 @@ public:
     virtual void Handler();
     void ErrorHandler(int err);
     const KSyncEntry *GetKSyncEntry() const {return entry_;};
+    KSyncEntry::KSyncEvent event() const {return event_;}
 private:
     KSyncEntry *entry_;
     KSyncEntry::KSyncEvent event_;
@@ -146,7 +152,7 @@ public:
     virtual ~KSyncSock();
 
     // Start Ksync Asio operations
-    static void Start();
+    static void Start(bool run_sync_mode);
     static void Shutdown();
 
     // Partition to KSyncSock mapping
@@ -211,7 +217,7 @@ private:
     virtual void AsyncReceive(boost::asio::mutable_buffers_1, HandlerCb) = 0;
     virtual void AsyncSendTo(IoContext *, boost::asio::mutable_buffers_1,
                              HandlerCb) = 0;
-    virtual std::size_t SendTo(boost::asio::const_buffers_1) = 0;
+    virtual std::size_t SendTo(boost::asio::const_buffers_1, uint32_t) = 0;
     virtual void Receive(boost::asio::mutable_buffers_1) = 0;
 
     virtual uint32_t GetSeqno(char *data) = 0;
@@ -232,6 +238,7 @@ private:
     int tx_count_;
     int ack_count_;
     int err_count_;
+    bool run_sync_mode_;
 
     DISALLOW_COPY_AND_ASSIGN(KSyncSock);
 };
@@ -250,7 +257,7 @@ public:
     virtual void AsyncReceive(boost::asio::mutable_buffers_1, HandlerCb);
     virtual void AsyncSendTo(IoContext *, boost::asio::mutable_buffers_1,
                              HandlerCb);
-    virtual std::size_t SendTo(boost::asio::const_buffers_1);
+    virtual std::size_t SendTo(boost::asio::const_buffers_1, uint32_t);
     virtual void Receive(boost::asio::mutable_buffers_1);
 private:
     boost::asio::netlink::raw::socket sock_;
@@ -270,7 +277,7 @@ public:
     virtual void AsyncReceive(boost::asio::mutable_buffers_1, HandlerCb);
     virtual void AsyncSendTo(IoContext *, boost::asio::mutable_buffers_1,
                              HandlerCb);
-    virtual std::size_t SendTo(boost::asio::const_buffers_1);
+    virtual std::size_t SendTo(boost::asio::const_buffers_1, uint32_t);
     virtual void Receive(boost::asio::mutable_buffers_1);
 private:
     boost::asio::ip::udp::socket sock_;

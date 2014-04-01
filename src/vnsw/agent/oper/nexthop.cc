@@ -202,7 +202,6 @@ std::auto_ptr<DBEntry> NextHopTable::GetEntry(const DBRequestKey *key) const {
 DBEntry *NextHopTable::Add(const DBRequest *req) {
     const NextHopKey *key = static_cast<const NextHopKey *>(req->key.get());
     NextHop *nh = AllocWithKey(key);
-    nh->set_table(this);
 
     if (nh->CanAdd() == false) {
         delete nh;
@@ -517,7 +516,8 @@ void InterfaceNH::DeleteVmInterfaceNHReq(const uuid &intf_uuid) {
     DeleteNH(intf_uuid, false, InterfaceNHFlags::MULTICAST);
 }
 
-void InterfaceNH::CreateInetInterfaceNextHop(const string &ifname) {
+void InterfaceNH::CreateInetInterfaceNextHop(const string &ifname,
+                                             const string &vrf_name) {
     DBRequest req;
     req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
 
@@ -535,7 +535,7 @@ void InterfaceNH::CreateInetInterfaceNextHop(const string &ifname) {
 #else
 #error "Unsupported platform"
 #endif
-    InterfaceNHData *data = new InterfaceNHData(Agent::GetInstance()->GetDefaultVrf(), mac);
+    InterfaceNHData *data = new InterfaceNHData(vrf_name, mac);
     req.data.reset(data);
     NextHopTable::GetInstance()->Process(req);
 }

@@ -28,7 +28,7 @@
 #include "pkt/test/test_flow_util.h"
 #include "ksync/ksync_sock_user.h"
 #include "vr_types.h"
-#include <uve/vn_uve_table_test.h>
+#include <uve/test/vn_uve_table_test.h>
 #include "uve/test/test_uve_util.h"
 
 using namespace std;
@@ -55,16 +55,12 @@ public:
     }
 
     static void TestSetup() {
-        client->SetFlowFlushExclusionPolicy();
-        client->SetFlowAgeExclusionPolicy();
     }
     void FlowSetUp() {
-        unsigned int vn_count = 0;
         EXPECT_EQ(0U, Agent::GetInstance()->pkt()->flow_table()->Size());
         client->Reset();
         CreateVmportEnv(input, 2, 1);
         client->WaitForIdle(5);
-        vn_count++;
 
         EXPECT_TRUE(VmPortActive(input, 0));
         EXPECT_TRUE(VmPortActive(input, 1));
@@ -75,7 +71,7 @@ public:
         assert(flow0);
         flow1 = VmInterfaceGet(input[1].intf_id);
         assert(flow1);
-        peer_ = new BgpPeer("BGP Peer 1", NULL, -1);
+        peer_ = new BgpPeer(Ip4Address(1), "BGP Peer 1", NULL, -1);
     }
 
     void FlowTearDown() {
@@ -106,7 +102,8 @@ public:
         Ip4Address addr = Ip4Address::from_string(remote_vm, ec);
         Ip4Address gw = Ip4Address::from_string(serv, ec);
         Agent::GetInstance()->GetDefaultInet4UnicastRouteTable()->AddRemoteVmRouteReq
-            (peer_, vrf, addr, 32, gw, TunnelType::AllType(), label, vn);
+            (peer_, vrf, addr, 32, gw, TunnelType::AllType(), label, vn,
+             SecurityGroupList());
         client->WaitForIdle(2);
         WAIT_FOR(1000, 500, (RouteFind(vrf, addr, 32) == true));
     }
@@ -309,10 +306,10 @@ TEST_F(UveVnUveTest, VnUVE_2) {
     WAIT_FOR(500, 1000, (vnut->GetVnUveVmCount("vn2")) == 1U);
     WAIT_FOR(500, 1000, (vnut->GetVnUveInterfaceCount("vn2")) == 1U);
 
-    EXPECT_EQ(1U, vnut->GetVnUveVmCount("vn1"));
-    EXPECT_EQ(1U, vnut->GetVnUveInterfaceCount("vn1"));
-    EXPECT_EQ(1U, vnut->GetVnUveVmCount("vn2"));
-    EXPECT_EQ(1U, vnut->GetVnUveInterfaceCount("vn2"));
+    EXPECT_EQ(1, vnut->GetVnUveVmCount("vn1"));
+    EXPECT_EQ(1, vnut->GetVnUveInterfaceCount("vn1"));
+    EXPECT_EQ(1, vnut->GetVnUveVmCount("vn2"));
+    EXPECT_EQ(1, vnut->GetVnUveInterfaceCount("vn2"));
 
     struct PortInfo input1[] = {
         {"vnet3", 3, "1.1.1.3", "00:00:00:01:01:03", 1, 3},
@@ -325,25 +322,25 @@ TEST_F(UveVnUveTest, VnUVE_2) {
 
     CreateVmportEnv(input2, 1);
     client->WaitForIdle();
-    EXPECT_EQ(3U, vnut->GetVnUveVmCount("vn1"));
-    EXPECT_EQ(3U, vnut->GetVnUveInterfaceCount("vn1"));
+    EXPECT_EQ(3, vnut->GetVnUveVmCount("vn1"));
+    EXPECT_EQ(3, vnut->GetVnUveInterfaceCount("vn1"));
 
     client->Reset();
     DeleteVmportEnv(input1, 1, false);
     client->WaitForIdle();
-    EXPECT_EQ(2U, vnut->GetVnUveVmCount("vn1"));
-    EXPECT_EQ(2U, vnut->GetVnUveInterfaceCount("vn1"));
+    EXPECT_EQ(2, vnut->GetVnUveVmCount("vn1"));
+    EXPECT_EQ(2, vnut->GetVnUveInterfaceCount("vn1"));
     DeleteVmportEnv(input2, 1, false);
     client->WaitForIdle();
-    EXPECT_EQ(1U, vnut->GetVnUveVmCount("vn1"));
-    EXPECT_EQ(1U, vnut->GetVnUveInterfaceCount("vn1"));
+    EXPECT_EQ(1, vnut->GetVnUveVmCount("vn1"));
+    EXPECT_EQ(1, vnut->GetVnUveInterfaceCount("vn1"));
 
     DeleteVmportEnv(input, 2, true);
     client->WaitForIdle();
-    EXPECT_EQ(0U, vnut->GetVnUveVmCount("vn1"));
-    EXPECT_EQ(0U, vnut->GetVnUveInterfaceCount("vn1"));
-    EXPECT_EQ(0U, vnut->GetVnUveVmCount("vn2"));
-    EXPECT_EQ(0U, vnut->GetVnUveInterfaceCount("vn2"));
+    EXPECT_EQ(0, vnut->GetVnUveVmCount("vn1"));
+    EXPECT_EQ(0, vnut->GetVnUveInterfaceCount("vn1"));
+    EXPECT_EQ(0, vnut->GetVnUveVmCount("vn2"));
+    EXPECT_EQ(0, vnut->GetVnUveInterfaceCount("vn2"));
 }
 
 TEST_F(UveVnUveTest, VnUVE_3) {
@@ -365,10 +362,10 @@ TEST_F(UveVnUveTest, VnUVE_3) {
     WAIT_FOR(500, 1000, (vnut->GetVnUveVmCount("vn2")) == 1U);
     WAIT_FOR(500, 1000, (vnut->GetVnUveInterfaceCount("vn2")) == 1U);
 
-    EXPECT_EQ(1U, vnut->GetVnUveVmCount("vn1"));
-    EXPECT_EQ(1U, vnut->GetVnUveInterfaceCount("vn1"));
-    EXPECT_EQ(1U, vnut->GetVnUveVmCount("vn2"));
-    EXPECT_EQ(1U, vnut->GetVnUveInterfaceCount("vn2"));
+    EXPECT_EQ(1, vnut->GetVnUveVmCount("vn1"));
+    EXPECT_EQ(1, vnut->GetVnUveInterfaceCount("vn1"));
+    EXPECT_EQ(1, vnut->GetVnUveVmCount("vn2"));
+    EXPECT_EQ(1, vnut->GetVnUveInterfaceCount("vn2"));
 
     UveVirtualNetworkAgent *uve1 =  vnut->VnUveObject("vn1");
     EXPECT_EQ(1U, uve1->get_virtualmachine_list().size()); 
@@ -389,32 +386,32 @@ TEST_F(UveVnUveTest, VnUVE_3) {
 
     CreateVmportEnv(input2, 1);
     client->WaitForIdle();
-    EXPECT_EQ(3U, vnut->GetVnUveVmCount("vn1"));
-    EXPECT_EQ(3U, vnut->GetVnUveInterfaceCount("vn1"));
+    EXPECT_EQ(3, vnut->GetVnUveVmCount("vn1"));
+    EXPECT_EQ(3, vnut->GetVnUveInterfaceCount("vn1"));
     EXPECT_EQ(3U, uve1->get_virtualmachine_list().size()); 
     EXPECT_EQ(3U, uve1->get_interface_list().size()); 
 
     client->Reset();
     DeleteVmportEnv(input1, 1, false);
     client->WaitForIdle();
-    EXPECT_EQ(2U, vnut->GetVnUveVmCount("vn1"));
-    EXPECT_EQ(2U, vnut->GetVnUveInterfaceCount("vn1"));
+    EXPECT_EQ(2, vnut->GetVnUveVmCount("vn1"));
+    EXPECT_EQ(2, vnut->GetVnUveInterfaceCount("vn1"));
     EXPECT_EQ(2U, uve1->get_virtualmachine_list().size()); 
     EXPECT_EQ(2U, uve1->get_interface_list().size()); 
 
     DeleteVmportEnv(input2, 1, false);
     client->WaitForIdle();
-    EXPECT_EQ(1U, vnut->GetVnUveVmCount("vn1"));
-    EXPECT_EQ(1U, vnut->GetVnUveInterfaceCount("vn1"));
+    EXPECT_EQ(1, vnut->GetVnUveVmCount("vn1"));
+    EXPECT_EQ(1, vnut->GetVnUveInterfaceCount("vn1"));
     EXPECT_EQ(1U, uve1->get_virtualmachine_list().size()); 
     EXPECT_EQ(1U, uve1->get_interface_list().size()); 
 
     DeleteVmportEnv(input, 2, true);
     client->WaitForIdle();
-    EXPECT_EQ(0U, vnut->GetVnUveVmCount("vn1"));
-    EXPECT_EQ(0U, vnut->GetVnUveInterfaceCount("vn1"));
-    EXPECT_EQ(0U, vnut->GetVnUveVmCount("vn2"));
-    EXPECT_EQ(0U, vnut->GetVnUveInterfaceCount("vn2"));
+    EXPECT_EQ(0, vnut->GetVnUveVmCount("vn1"));
+    EXPECT_EQ(0, vnut->GetVnUveInterfaceCount("vn1"));
+    EXPECT_EQ(0, vnut->GetVnUveVmCount("vn2"));
+    EXPECT_EQ(0, vnut->GetVnUveInterfaceCount("vn2"));
 
     uve1 =  vnut->VnUveObject("vn1");
     uve2 =  vnut->VnUveObject("vn2");
@@ -634,7 +631,7 @@ TEST_F(UveVnUveTest, FipCount) {
     //Verify UVE 
     UveVirtualNetworkAgent *uve1 =  vnut->VnUveObject("vn1");
     EXPECT_TRUE(uve1 != NULL);
-    EXPECT_EQ(0U, uve1->get_associated_fip_count()); 
+    EXPECT_EQ(0, uve1->get_associated_fip_count()); 
 
     //Create a VN for floating-ip
     client->Reset();
@@ -663,7 +660,7 @@ TEST_F(UveVnUveTest, FipCount) {
     client->WaitForIdle();
 
     //Verify UVE 
-    EXPECT_EQ(1U, uve1->get_associated_fip_count());
+    EXPECT_EQ(1, uve1->get_associated_fip_count());
 
     //Add one more floating IP
     AddFloatingIp("fip2", 2, "71.1.1.101");
@@ -676,7 +673,7 @@ TEST_F(UveVnUveTest, FipCount) {
     client->WaitForIdle();
 
     //Verify UVE 
-    EXPECT_EQ(2U, uve1->get_associated_fip_count());
+    EXPECT_EQ(2, uve1->get_associated_fip_count());
 
     //Delete one of the floating-IP
     DelLink("floating-ip", "fip2", "floating-ip-pool", "fip-pool1");
@@ -688,7 +685,7 @@ TEST_F(UveVnUveTest, FipCount) {
     Agent::GetInstance()->uve()->vn_uve_table()->SendVnStats();
 
     //Verify UVE 
-    EXPECT_EQ(1U, uve1->get_associated_fip_count());
+    EXPECT_EQ(1, uve1->get_associated_fip_count());
 
     //Delete the other floating-IP
     DelLink("floating-ip", "fip1", "floating-ip-pool", "fip-pool1");
@@ -700,7 +697,7 @@ TEST_F(UveVnUveTest, FipCount) {
     Agent::GetInstance()->uve()->vn_uve_table()->SendVnStats();
 
     //Verify UVE 
-    EXPECT_EQ(0U, uve1->get_associated_fip_count());
+    EXPECT_EQ(0, uve1->get_associated_fip_count());
 
     //cleanup
     DelLink("floating-ip-pool", "fip-pool1", "virtual-network", "vn1");

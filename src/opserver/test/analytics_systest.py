@@ -13,6 +13,8 @@
 import sys
 builddir = sys.path[0] + '/../..'
 
+import signal
+import gevent
 from gevent import monkey
 monkey.patch_all()
 import os
@@ -128,6 +130,7 @@ class AnalyticsTest(testtools.TestCase, fixtures.TestWithFixtures):
         assert vizd_obj.verify_on_setup()
         assert vizd_obj.verify_collector_obj_count()
         assert vizd_obj.verify_message_table_moduleid()
+        assert vizd_obj.verify_message_table_select_uint_type()
         assert vizd_obj.verify_message_table_messagetype()
         assert vizd_obj.verify_message_table_where_or()
         assert vizd_obj.verify_message_table_where_and()
@@ -449,6 +452,76 @@ class AnalyticsTest(testtools.TestCase, fixtures.TestWithFixtures):
                                                         exp_mod_list)
     #end test_09_table_source_module_list 
 
+    #@unittest.skip('verify redis-uve restart')
+    def test_10_redis_uve_restart(self):
+        logging.info('*** test_10_redis_uve_restart ***')
+        if AnalyticsTest._check_skip_test() is True:
+            return True
+
+        vizd_obj = self.useFixture(
+            AnalyticsFixture(logging,
+                             builddir,
+                             self.__class__.cassandra_port))
+        assert vizd_obj.verify_on_setup()
+        assert vizd_obj.verify_collector_redis_uve_connection(
+                            vizd_obj.collectors[0])
+        assert vizd_obj.verify_opserver_redis_uve_connection(
+                            vizd_obj.opserver)
+        # verify redis-uve list
+        host = socket.gethostname()
+        gen_list = [host+':Analytics:Collector:0',
+                    host+':Analytics:QueryEngine:0',
+                    host+':Analytics:OpServer:0']
+        assert vizd_obj.verify_generator_uve_list(gen_list)
+        # stop redis-uve
+        vizd_obj.redis_uves[0].stop()
+        assert vizd_obj.verify_collector_redis_uve_connection(
+                            vizd_obj.collectors[0], False)
+        assert vizd_obj.verify_opserver_redis_uve_connection(
+                            vizd_obj.opserver, False)
+        # start redis-uve and verify that Collector and Opserver are 
+        # connected to the redis-uve
+        vizd_obj.redis_uves[0].start()
+        assert vizd_obj.verify_collector_redis_uve_connection(
+                            vizd_obj.collectors[0])
+        assert vizd_obj.verify_opserver_redis_uve_connection(
+                            vizd_obj.opserver)
+        # verify that UVEs are resynced with redis-uve
+        assert vizd_obj.verify_generator_uve_list(gen_list)
+    # end test_10_redis_uve_restart
+   
+    #@unittest.skip(' where queries with different conditions')
+    def test_11_where_clause_query(self):
+        '''
+        This test is used to check the working of integer 
+        fields in the where query 
+        '''
+        logging.info("*** test_11_where_clause_query ***")
+
+        if AnalyticsTest._check_skip_test() is True:
+            return True
+
+        start_time = UTCTimestampUsec() - 3600 * 1000 * 1000
+        self._update_analytics_start_time(start_time)
+        vizd_obj = self.useFixture(
+            AnalyticsFixture(logging,
+                             builddir,
+                             self.__class__.cassandra_port))
+        assert vizd_obj.verify_on_setup()
+        assert vizd_obj.verify_where_query()
+        #Query the flowseriestable with different where options
+        assert vizd_obj.verify_collector_obj_count()
+        collectors = [vizd_obj.get_collector()]
+        generator_obj = self.useFixture(
+            GeneratorFixture("VRouterAgent", collectors,
+                             logging, vizd_obj.get_opserver_port(),
+                             start_time))
+        assert generator_obj.verify_on_setup()
+        generator_obj.generate_flow_samples()
+	assert vizd_obj.verify_where_query_prefix(generator_obj)
+        return True;
+    #end test_11_where_clause_query
+
     @staticmethod
     def get_free_port():
         cs = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -464,5 +537,9 @@ class AnalyticsTest(testtools.TestCase, fixtures.TestWithFixtures):
             return True
         return False
 
+def _term_handler(*_):
+    raise IntSignal()
+
 if __name__ == '__main__':
-    unittest.main()
+    gevent.signal(signal.SIGINT,_term_handler)
+    unittest.main(catchbreak=True)

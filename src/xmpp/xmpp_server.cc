@@ -86,9 +86,11 @@ XmppServer::~XmppServer() {
     TcpServer::ClearSessions();
 }
 
-void XmppServer::Initialize(short port) {
+bool XmppServer::Initialize(short port) {
     TcpServer::Initialize(port);
     log_uve_ = false;
+
+    return true;
 }
 
 void XmppServer::Initialize(short port, bool logUVE) {
@@ -161,6 +163,37 @@ XmppConnection *XmppServer::FindConnection(const string &peer_addr) {
         return loc->second;
     }
     return NULL;
+}
+
+XmppConnection *XmppServer::FindConnectionbyHostName(const string hostname) {
+
+    for (XmppConnectionMap::iterator iter = connection_map_.begin(), next = iter;
+                                     iter != connection_map_.end(); 
+                                     iter = next) {
+        next++;
+        XmppConnection *conn = iter->second;
+        if (hostname.compare(conn->GetComputeHostName()) == 0) {
+            return conn;
+        }
+    }
+    return NULL;
+}
+
+void XmppServer::ClearAllConnections() {
+
+    for (XmppConnectionMap::iterator iter = connection_map_.begin(), next = iter;
+                                     iter != connection_map_.end(); 
+                                     iter = next) {
+        next++;
+        XmppConnection *conn = iter->second;
+        conn->Clear();
+    }
+}
+
+void XmppServer::ClearConnection(XmppConnection *conn) {
+    if (conn) {
+        conn->Clear();
+    }
 }
 
 void XmppServer::RegisterConnectionEvent(xmps::PeerId id, 

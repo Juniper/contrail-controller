@@ -58,8 +58,7 @@ bool AclDBEntry::DBEntrySandesh(Sandesh *sresp, std::string &uuid) const {
 
     // request uuid is null, then display upto size given by sandesh req
     // request uuid is not null, then disply the ACL that matches the uuid.
-    if ((uuid.empty()) ||
-        (str_uuid.find(uuid) != std::string::npos)) {
+    if ((uuid.empty()) || (str_uuid == uuid)) {
         AclSandeshData data;
         SetAclSandeshData(data);
         std::vector<AclSandeshData> &list =
@@ -95,7 +94,6 @@ DBEntry *AclTable::Add(const DBRequest *req) {
     AclKey *key = static_cast<AclKey *>(req->key.get());
     AclData *data = static_cast<AclData *>(req->data.get());
     AclDBEntry *acl = new AclDBEntry(key->uuid_);
-    acl->set_table(this);
     acl->SetName(data->cfg_name_);
     acl->SetDynamicAcl(data->acl_spec_.dynamic_acl);
     std::vector<AclEntrySpec>::iterator it;

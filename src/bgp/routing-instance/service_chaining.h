@@ -323,7 +323,7 @@ public:
         return pending_chain_;
     }
 
-    void RoutingInstanceCreateCallback(std::string name);
+    void RoutingInstanceCallback(std::string name, int op);
 
     void StartResolve();
     bool ResolvePendingServiceChain();

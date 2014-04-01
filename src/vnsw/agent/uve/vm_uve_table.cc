@@ -9,6 +9,9 @@ VmUveTable::VmUveTable(Agent *agent)
     : uve_vm_map_(), agent_(agent), 
       intf_listener_id_(DBTableBase::kInvalidId),
       vm_listener_id_(DBTableBase::kInvalidId) {
+    event_queue_.reset(new WorkQueue<VmStatData *>
+            (TaskScheduler::GetInstance()->GetTaskId("Agent::Uve"), 0,
+             boost::bind(&VmUveTable::Process, this, _1)));
 }
 
 VmUveTable::~VmUveTable() {
@@ -165,11 +168,9 @@ void VmUveTable::VmNotify(DBTablePartBase *partition, DBEntryBase *e) {
     if (e->IsDeleted()) {
         if (state) {
             Delete(vm);
+	
+            VmStatCollectionStop(state);
 
-            if (agent_->IsTestMode() == false) {
-                state->stat_->Stop();
-                state->stat_ = NULL;
-            }
             e->ClearState(partition->parent(), vm_listener_id_);
             delete state;
         }
@@ -182,14 +183,21 @@ void VmUveTable::VmNotify(DBTablePartBase *partition, DBEntryBase *e) {
 
         Add(vm, true);
 
-        //Create object to poll for VM stats
-        if (agent_->IsTestMode() == false) { 
-            VmStat *stat = new VmStat(agent_, vm->GetUuid());
-            stat->Start();
-            state->stat_ = stat;
-        }
+        VmStatCollectionStart(state, vm);
     }
     SendVmMsg(vm);
+}
+
+void VmUveTable::VmStatCollectionStart(VmUveVmState *state, const VmEntry *vm) {
+    //Create object to poll for VM stats
+    VmStat *stat = new VmStat(agent_, vm->GetUuid());
+    stat->Start();
+    state->stat_ = stat;
+}
+
+void VmUveTable::VmStatCollectionStop(VmUveVmState *state) {
+    state->stat_->Stop();
+    state->stat_ = NULL;
 }
 
 void VmUveTable::RegisterDBClients() {
@@ -222,5 +230,19 @@ void VmUveTable::UpdateBitmap(const VmEntry* vm, uint8_t proto, uint16_t sport,
         VmUveEntry *entry = it->second.get();
         entry->UpdatePortBitmap(proto, sport, dport);
     }
+}
+
+void VmUveTable::EnqueueVmStatData(VmStatData *data) {
+    event_queue_->Enqueue(data);
+}
+
+bool VmUveTable::Process(VmStatData* vm_stat_data) {
+    if (vm_stat_data->vm_stat()->marked_delete()) {
+        delete vm_stat_data->vm_stat();
+    } else {
+        vm_stat_data->vm_stat()->ProcessData();
+    }
+    delete vm_stat_data;
+    return true;
 }
 

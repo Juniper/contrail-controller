@@ -29,6 +29,9 @@ public:
     bool operator<(const RouteTarget &rhs) const {
         return data_ < rhs.data_;
     }
+    bool operator>(const RouteTarget &rhs) const {
+        return data_ > rhs.data_;
+    }
     bool operator==(const RouteTarget &rhs) const {
         return data_ == rhs.data_;
     }

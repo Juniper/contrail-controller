@@ -32,6 +32,7 @@ pip_pkgs = ['greenlet==0.4.1', 'gevent==0.13.8', 'eventlet==0.9.17', 'coverage',
         'lxml==2.3.3', 'geventhttpclient==1.0a', 'prettytable==0.7.2','ncclient==0.3.2',
         'kazoo==1.3.1','stevedore==0.12','netifaces==0.8', 'python_keystoneclient==0.6.0',
         'psutil==0.4.1', 'redis==2.7.1', 'xmltodict==0.2', 'thrift==0.8.0',
+        'librabbitmq==1.0.3', 'amqp==1.4.1', 'anyjson==0.3.3', 'kombu==3.0.9',
         Dir(env['TOP']).abspath + '/config/api-server/dist/vnc_cfg_api_server-0.1dev.tar.gz',
         Dir(env['TOP']).abspath + '/config/common/dist/cfgm_common-0.1dev.tar.gz',
         Dir(env['TOP']).abspath + '/config/schema-transformer/dist/schema_transformer-0.1dev.tar.gz',
@@ -75,19 +76,19 @@ def clean_coverage(env, target, source):
     shutil.rmtree('htmlcov', ignore_errors = True)
     cdir = Dir(env['TOP']).abspath + '/config'
     import os
-    lcov_clean = '(cd %s; coverage erase)' % cdir
+    lcov_clean = '(cd %s && coverage erase)' % cdir
     os.system(lcov_clean)
 
 def run_coverage(env, target, source):
     import os
     cdir = Dir(env['TOP']).abspath + '/config'
-    lcov_run = '(cd %s; coverage combine)' % cdir
+    lcov_run = '(cd %s && coverage combine)' % cdir
     os.system(lcov_run)
     
-    gen_cmd = '(cd %s; coverage report)' % cdir
+    gen_cmd = '(cd %s && coverage report)' % cdir
     os.system(gen_cmd)
 
-    genhtml_cmd = '(cd %s; coverage html)' % cdir
+    genhtml_cmd = '(cd %s && coverage html)' % cdir
     os.system(genhtml_cmd)
  
 env['env_venv'] = venv

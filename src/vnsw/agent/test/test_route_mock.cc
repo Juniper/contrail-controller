@@ -139,7 +139,7 @@ TEST_F(RouteTest, RouteTest_1) {
 
     //Get Local path
     const NextHop *local_nh = 
-        rt->FindPath(Agent::GetInstance()->GetLocalVmPeer())->nexthop(agent);
+        rt->FindPath(Agent::GetInstance()->local_vm_peer())->nexthop(agent);
     const NextHop *bgp_nh = rt->GetActiveNextHop();
     EXPECT_TRUE(local_nh == bgp_nh);
 
@@ -171,7 +171,7 @@ TEST_F(RouteTest, RouteTest_2) {
 
     //Local path and BGP path would point to same NH
     const NextHop *local_nh = 
-        rt->FindPath(Agent::GetInstance()->GetLocalVmPeer())->nexthop(agent);
+        rt->FindPath(Agent::GetInstance()->local_vm_peer())->nexthop(agent);
     const NextHop *bgp_nh = rt->GetActiveNextHop();
     EXPECT_TRUE(local_nh == bgp_nh);
 
@@ -180,7 +180,7 @@ TEST_F(RouteTest, RouteTest_2) {
     AddLink("virtual-network", "vn1", "access-control-list", "acl1");
     client->WaitForIdle();
     EXPECT_TRUE(VmPortPolicyEnabled(input, 0));
-    local_nh = rt->FindPath(Agent::GetInstance()->GetLocalVmPeer())->nexthop(agent);
+    local_nh = rt->FindPath(Agent::GetInstance()->local_vm_peer())->nexthop(agent);
     bgp_nh = rt->GetActiveNextHop();
     EXPECT_TRUE(local_nh->PolicyEnabled() == true);
     EXPECT_TRUE(bgp_nh->PolicyEnabled() == true);
@@ -191,7 +191,7 @@ TEST_F(RouteTest, RouteTest_2) {
     DelLink("virtual-network", "vn1", "access-control-list", "acl1");
     client->WaitForIdle();
     EXPECT_FALSE(VmPortPolicyEnabled(input, 0));
-    local_nh = rt->FindPath(Agent::GetInstance()->GetLocalVmPeer())->nexthop(agent);
+    local_nh = rt->FindPath(Agent::GetInstance()->local_vm_peer())->nexthop(agent);
     bgp_nh = rt->GetActiveNextHop();
     EXPECT_FALSE(local_nh->PolicyEnabled() == true);
     EXPECT_FALSE(bgp_nh->PolicyEnabled() == true);
@@ -429,7 +429,7 @@ TEST_F(RouteTest, EcmpRouteTest_1) {
     const CompositeNH *comp_nh = static_cast<const CompositeNH *>(bgp_nh);
     WAIT_FOR(100, 10000, comp_nh->ComponentNHCount() == 3);
 
-    const NextHop *local_nh = rt->FindPath(Agent::GetInstance()->GetLocalVmPeer())->nexthop(agent);
+    const NextHop *local_nh = rt->FindPath(Agent::GetInstance()->local_vm_peer())->nexthop(agent);
     EXPECT_TRUE(local_nh->GetType() == NextHop::COMPOSITE);
     comp_nh = static_cast<const CompositeNH *>(local_nh);
     EXPECT_TRUE(comp_nh->ComponentNHCount() == 3);
@@ -469,7 +469,7 @@ TEST_F(RouteTest, EcmpRouteTest_2) {
     const CompositeNH *comp_nh = static_cast<const CompositeNH *>(bgp_nh);
     WAIT_FOR(100, 10000, comp_nh->ComponentNHCount() == 4);
 
-    const NextHop *local_nh = rt->FindPath(Agent::GetInstance()->GetLocalVmPeer())->nexthop(agent);
+    const NextHop *local_nh = rt->FindPath(Agent::GetInstance()->local_vm_peer())->nexthop(agent);
     EXPECT_TRUE(local_nh->GetType() == NextHop::COMPOSITE);
     comp_nh = static_cast<const CompositeNH *>(local_nh);
     EXPECT_TRUE(comp_nh->ComponentNHCount() == 2);
@@ -526,7 +526,7 @@ TEST_F(RouteTest, EcmpRouteTest_3) {
     const CompositeNH *comp_nh = static_cast<const CompositeNH *>(bgp_nh);
     WAIT_FOR(100, 10000, comp_nh->ComponentNHCount() == 4);
 
-    const NextHop *local_nh = rt->FindPath(Agent::GetInstance()->GetLocalVmPeer())->nexthop(agent);
+    const NextHop *local_nh = rt->FindPath(Agent::GetInstance()->local_vm_peer())->nexthop(agent);
     EXPECT_TRUE(local_nh->GetType() == NextHop::COMPOSITE);
     EXPECT_TRUE(bgp_nh != local_nh);
 

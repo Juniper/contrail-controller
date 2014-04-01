@@ -42,13 +42,16 @@ targets = MapPrefix('#/' + Dir('.').path + '/' + tbb_build_prefix,
                     ['_debug/libtbb_debug' + env['SHLIBSUFFIX'],
                      '_release/libtbb' + env['SHLIBSUFFIX']])
 
+version = '2'
+
 if sys.platform != 'darwin' and not sys.platform.startswith('freebsd'):
     impl = []
     for tgt in targets:
-        dot2 = tgt + '.2'
+        dot2 = tgt + '.' + version
         impl.append(dot2)
         libname = tgt.rsplit('/', 1)[1]
-        env.Depends('#/build/lib/' + libname, '#/build/lib/' + libname + '.2')
+        env.Depends('#/build/lib/' + libname,
+                    '#/build/lib/' + libname + '.' + version)
     targets.extend(impl)
 
 libtask = env.Command(targets,
@@ -58,6 +61,8 @@ libtask = env.Command(targets,
 
 for tgt in targets:
     env.Install('#/build/lib', tgt)
+    if tgt.endswith(env['SHLIBSUFFIX'] + '.' + version):
+        env.Alias('install', env.Install(env['INSTALL_LIB'], tgt))
 
 def Symlink(target, source):
     parent = os.path.dirname(target[0].abspath)

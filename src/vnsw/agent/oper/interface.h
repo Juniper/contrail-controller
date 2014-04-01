@@ -61,7 +61,8 @@ public:
 
     // virtual functions for specific interface types
     virtual bool CmpInterface(const DBEntry &rhs) const = 0;
-    virtual void Delete() { };
+    virtual void Delete() { }
+    virtual void Add() { }
     virtual void SendTrace(Trace event) const;
     virtual void GetOsParams();
 
@@ -189,6 +190,10 @@ struct InterfaceData : public AgentData {
 /////////////////////////////////////////////////////////////////////////////
 class InterfaceTable : public AgentDBTable {
 public:
+    typedef std::map<const std::string, Ip4Address> DhcpSnoopMap;
+    typedef std::map<const std::string, Ip4Address>::iterator DhcpSnoopIterator;
+    typedef std::pair<const std::string, Ip4Address> DhcpSnoopPair;
+
     InterfaceTable(DB *db, const std::string &name) :
         AgentDBTable(db, name), operdb_(NULL), agent_(NULL),
         walkid_(DBTableWalker::kInvalidWalkerId), index_table_() { 
@@ -227,10 +232,16 @@ public:
     Interface *FindInterfaceFromMetadataIp(const Ip4Address &ip);
 
     // Metadata address management routines
-    bool FindVmUuidFromMetadataIp(const Ip4Address &ip, std::string *vm_ip,
-                                  std::string *vm_uuid,
-                                  std::string *vm_project_uuid);
+    virtual bool FindVmUuidFromMetadataIp(const Ip4Address &ip,
+                                          std::string *vm_ip,
+                                          std::string *vm_uuid,
+                                          std::string *vm_project_uuid);
     void VmPortToMetaDataIp(uint16_t ifindex, uint32_t vrfid, Ip4Address *addr);
+
+    // Dhcp Snoop Map entries
+    const Ip4Address GetDhcpSnoopEntry(const std::string &ifname);
+    void DeleteDhcpSnoopEntry(const std::string &ifname);
+    void AddDhcpSnoopEntry(const std::string &ifname, const Ip4Address &addr);
 
     // TODO : to remove this
     static InterfaceTable *GetInstance() { return interface_table_; }
@@ -246,6 +257,7 @@ private:
     Agent *agent_;          // Cached entry
     DBTableWalker::WalkId walkid_;
     IndexVector<Interface> index_table_;
+    DhcpSnoopMap dhcp_snoop_map_;
     DISALLOW_COPY_AND_ASSIGN(InterfaceTable);
 };
 

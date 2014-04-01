@@ -113,11 +113,11 @@ void KSyncSockNetlink::Decoder(char *data, SandeshContext *ctxt) {
                     decode_buf_len -= decode_len;
                 }
             } else {
-                LOG(ERROR, "Unkown generic netlink TLV type : " << attr->nla_type);
+                LOG(ERROR, "Unknown generic netlink TLV type : " << attr->nla_type);
                 assert(0);
             }
         } else {
-            LOG(ERROR, "Unkown generic netlink cmd : " << genlh->cmd);
+            LOG(ERROR, "Unknown generic netlink cmd : " << genlh->cmd);
             assert(0);
         }
     } else if (nlh->nlmsg_type != NLMSG_DONE) {
@@ -174,7 +174,7 @@ void KSyncSockNetlink::AsyncSendTo(IoContext *ioc, mutable_buffers_1 buf,
     free(cl.cl_buf);
 }
 
-size_t KSyncSockNetlink::SendTo(const_buffers_1 buf) {
+size_t KSyncSockNetlink::SendTo(const_buffers_1 buf, uint32_t seq_no) {
     struct nl_client cl;
     unsigned char *nl_buf;
     uint32_t nl_buf_len;
@@ -195,6 +195,7 @@ size_t KSyncSockNetlink::SendTo(const_buffers_1 buf) {
     nl_update_header(&cl, buffer_size(buf));
     struct nlmsghdr *nlh = (struct nlmsghdr *)cl.cl_buf;
     nlh->nlmsg_pid = KSyncSock::GetPid();
+    nlh->nlmsg_seq = seq_no;
 
     boost::asio::netlink::raw::endpoint ep;
     size_t ret_val = sock_.send_to(iovec, ep);
@@ -269,10 +270,10 @@ void KSyncSockUdp::AsyncSendTo(IoContext *ioc, mutable_buffers_1 buf,
     sock_.async_send_to(iovec, server_ep_, cb);
 }
 
-size_t KSyncSockUdp::SendTo(const_buffers_1 buf) {
+size_t KSyncSockUdp::SendTo(const_buffers_1 buf, uint32_t seq_no) {
     struct uvr_msg_hdr hdr;
     std::vector<const_buffers_1> iovec;
-    hdr.seq_no = 0;
+    hdr.seq_no = seq_no;
     hdr.flags = 0;
     hdr.msg_len = buffer_size(buf);
 
@@ -293,7 +294,7 @@ void KSyncSockUdp::Receive(mutable_buffers_1 buf) {
     sock_.receive_from(buf, ep);
 }
 
-KSyncSock::KSyncSock() : tx_count_(0), err_count_(0) {
+KSyncSock::KSyncSock() : tx_count_(0), err_count_(0), run_sync_mode_(true) {
     for(int i = 0; i < IoContext::MAX_WORK_QUEUES; i++) {
         receive_work_queue[i] = new WorkQueue<char *>(TaskScheduler::GetInstance()->
                              GetTaskId(IoContext::io_wq_names[i]), 0,
@@ -303,8 +304,6 @@ KSyncSock::KSyncSock() : tx_count_(0), err_count_(0) {
     async_send_queue_ = new WorkQueue<IoContext *>(TaskScheduler::GetInstance()->
                             GetTaskId("Ksync::AsyncSend"), 0,
                             boost::bind(&KSyncSock::SendAsyncImpl, this, _1));
-    async_send_queue_->SetStartRunnerFunc(
-                            boost::bind(&KSyncSock::SendAsyncStart, this));
     rx_buff_ = NULL;
     seqno_ = 0;
     uve_seqno_ = 0;
@@ -328,9 +327,15 @@ KSyncSock::~KSyncSock() {
     }
 }
 
-void KSyncSock::Start() {
+void KSyncSock::Start(bool run_sync_mode) {
     for (std::vector<KSyncSock *>::iterator it = sock_table_.begin();
          it != sock_table_.end(); ++it) {
+        (*it)->run_sync_mode_ = run_sync_mode;
+        if ((*it)->run_sync_mode_) {
+            continue;
+        }
+        (*it)->async_send_queue_->SetStartRunnerFunc(
+                boost::bind(&KSyncSock::SendAsyncStart, *it));
         (*it)->rx_buff_ = new char[kBufLen];
         (*it)->AsyncReceive(boost::asio::buffer((*it)->rx_buff_, kBufLen),
                             boost::bind(&KSyncSock::ReadHandler, *it,
@@ -423,7 +428,9 @@ bool KSyncSock::ProcessKernelData(char *data) {
 
     AgentSandeshContext *ctxt = context->GetSandeshContext();
     ctxt->SetErrno(0);
+    ctxt->set_ksync_io_ctx(static_cast<KSyncIoContext *>(context));
     Decoder(data, ctxt);
+    ctxt->set_ksync_io_ctx(NULL);
     if (ctxt->GetErrno() != 0) {
         context->ErrorHandler(ctxt->GetErrno());
     }
@@ -466,7 +473,7 @@ KSyncSock *KSyncSock::Get(int idx) {
 }
 
 size_t KSyncSock::BlockingSend(const char *msg, int msg_len) {
-    return SendTo(buffer(msg, msg_len));
+    return SendTo(buffer(msg, msg_len), 0);
 }
 
 bool KSyncSock::BlockingRecv() {
@@ -508,11 +515,22 @@ bool KSyncSock::SendAsyncImpl(IoContext *ioc) {
         tbb::mutex::scoped_lock lock(mutex_);
         wait_tree_.insert(*ioc);
     }
-
-    AsyncSendTo(ioc, boost::asio::buffer(ioc->GetMsg(), ioc->GetMsgLen()),
-                boost::bind(&KSyncSock::WriteHandler, this,
-                            placeholders::error,
-                            placeholders::bytes_transferred));
+    if (!run_sync_mode_) {
+        AsyncSendTo(ioc, boost::asio::buffer(ioc->GetMsg(), ioc->GetMsgLen()),
+                    boost::bind(&KSyncSock::WriteHandler, this,
+                                placeholders::error,
+                                placeholders::bytes_transferred));
+    } else {
+        SendTo(boost::asio::buffer((const char *)ioc->GetMsg(),
+                    ioc->GetMsgLen()), ioc->GetSeqno());
+        bool more_data = false;
+        do {
+            char *rxbuf = new char[kBufLen];
+            Receive(boost::asio::buffer(rxbuf, kBufLen));
+            more_data = IsMoreData(rxbuf);
+            ValidateAndEnqueue(rxbuf);
+        } while(more_data);
+    }
     return true;
 }
 

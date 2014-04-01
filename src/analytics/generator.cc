@@ -150,6 +150,7 @@ bool Generator::ReceiveSandeshMsg(const VizMsg *vmsg, bool rsc) {
     return ProcessRules(vmsg, rsc);
 }
 
+// SandeshGenerator
 SandeshGenerator::SandeshGenerator(Collector * const collector, VizSession *session,
         SandeshStateMachine *state_machine, const string &source,
         const string &module, const string &instance_id,
@@ -164,11 +165,7 @@ SandeshGenerator::SandeshGenerator(Collector * const collector, VizSession *sess
         module_(module),
         name_(source + ":" + node_type_ + ":" + module + ":" + instance_id_),
         instance_(session->GetSessionInstance()),
-        db_connect_timer_(TimerManager::CreateTimer(
-            *collector->event_manager()->io_service(),
-            "SandeshGenerator db connect timer" + source + module,
-            TaskScheduler::GetInstance()->GetTaskId(Collector::kDbTask),
-            session->GetSessionInstance())),
+        db_connect_timer_(NULL),
         db_handler_(new DbHandler(
             collector->event_manager(), boost::bind(
                 &SandeshGenerator::StartDbifReinit, this),
@@ -180,11 +177,11 @@ SandeshGenerator::SandeshGenerator(Collector * const collector, VizSession *sess
     gen_attr_.set_connect_time(UTCTimestampUsec());
     // Update state machine
     state_machine_->SetGeneratorKey(name_);
+    Create_Db_Connect_Timer();
 }
 
 SandeshGenerator::~SandeshGenerator() {
-    TimerManager::DeleteTimer(db_connect_timer_);
-    db_connect_timer_ = NULL;
+    Delete_Db_Connect_Timer();
     GetDbHandler()->UnInit(instance_);
 }
 
@@ -194,6 +191,9 @@ void SandeshGenerator::set_session(VizSession *session) {
 }
 
 void SandeshGenerator::StartDbifReinit() {
+    if (disconnected_) {
+        return;
+    }
     GetDbHandler()->UnInit(instance_);
     Start_Db_Connect_Timer();
 }
@@ -208,6 +208,15 @@ bool SandeshGenerator::DbConnectTimerExpired() {
     return false;
 }
 
+void SandeshGenerator::Create_Db_Connect_Timer() {
+    assert(db_connect_timer_ == NULL);
+    db_connect_timer_ = TimerManager::CreateTimer(
+        *collector_->event_manager()->io_service(),
+        "SandeshGenerator db connect timer: " + name_,
+        TaskScheduler::GetInstance()->GetTaskId(Collector::kDbTask),
+        instance_);
+}
+
 void SandeshGenerator::Start_Db_Connect_Timer() {
     db_connect_timer_->Start(kDbConnectTimerSec * 1000,
             boost::bind(&SandeshGenerator::DbConnectTimerExpired, this),
@@ -218,10 +227,15 @@ void SandeshGenerator::Stop_Db_Connect_Timer() {
     db_connect_timer_->Cancel();
 }
 
+void SandeshGenerator::Delete_Db_Connect_Timer() {
+    TimerManager::DeleteTimer(db_connect_timer_);
+    db_connect_timer_ = NULL;
+}
+
 void SandeshGenerator::Db_Connection_Uninit() {
     GetDbHandler()->ResetDbQueueWaterMarkInfo();
     GetDbHandler()->UnInit(instance_);
-    Stop_Db_Connect_Timer();
+    Delete_Db_Connect_Timer();
 }
 
 bool SandeshGenerator::Db_Connection_Init() {
@@ -229,7 +243,8 @@ bool SandeshGenerator::Db_Connection_Init() {
         GENERATOR_LOG(ERROR, ": Database setup FAILED");
         return false;
     }
-    std::vector<DbHandler::DbQueueWaterMarkInfo> wm_info;
+    // Setup DB watermarks
+    std::vector<Sandesh::QueueWaterMarkInfo> wm_info;
     collector_->GetDbQueueWaterMarkInfo(wm_info);
     for (size_t i = 0; i < wm_info.size(); i++) {
         GetDbHandler()->SetDbQueueWaterMarkInfo(wm_info[i]);
@@ -246,7 +261,13 @@ void SandeshGenerator::ReceiveSandeshCtrlMsg(uint32_t connects) {
     ModuleServerState ginfo;
     GetGeneratorInfo(ginfo);
     SandeshModuleServerTrace::Send(ginfo);
-
+    // Setup state machine watermarks
+    std::vector<Sandesh::QueueWaterMarkInfo> wm_info;
+    collector_->GetSmQueueWaterMarkInfo(wm_info);
+    for (size_t i = 0; i < wm_info.size(); i++) {
+        state_machine_->SetQueueWaterMarkInfo(wm_info[i]);
+    }
+    // Initialize DB connection
     if (!Db_Connection_Init()) {
         Start_Db_Connect_Timer();
     }
@@ -261,6 +282,7 @@ void SandeshGenerator::DisconnectSession(VizSession *vsession) {
         uint32_t tmp = gen_attr_.get_resets();
         gen_attr_.set_resets(tmp+1);
         gen_attr_.set_reset_time(UTCTimestampUsec());
+        state_machine_->ResetQueueWaterMarkInfo();
         viz_session_ = NULL;
         state_machine_ = NULL;
         collector_->GetOSP()->DeleteUVEs(source_, module_, 
@@ -279,11 +301,22 @@ bool SandeshGenerator::ProcessRules(const VizMsg *vmsg, bool rsc) {
     return collector_->ProcessSandeshMsgCb()(vmsg, rsc, GetDbHandler());
 }
 
-bool SandeshGenerator::GetSandeshStateMachineQueueCount(uint64_t &queue_count) const {
+bool SandeshGenerator::GetSandeshStateMachineQueueCount(
+    uint64_t &queue_count) const {
+    if (!state_machine_) {
+        // Return 0 so that last stale value is not displayed
+        queue_count = 0;
+        return true;
+    }
+    return state_machine_->GetQueueCount(queue_count);
+}
+
+bool SandeshGenerator::GetSandeshStateMachineDropLevel(
+    std::string &drop_level) const {
     if (!state_machine_) {
         return false;
     }
-    return state_machine_->GetQueueCount(queue_count);
+    return state_machine_->GetMessageDropLevel(drop_level);
 }
 
 bool SandeshGenerator::GetSandeshStateMachineStats(
@@ -349,16 +382,19 @@ const std::string SandeshGenerator::State() const {
     return "Disconnected";
 }
 
-void SandeshGenerator::ConnectSession(VizSession *session, SandeshStateMachine *state_machine) {
+void SandeshGenerator::ConnectSession(VizSession *session,
+    SandeshStateMachine *state_machine) {
     set_session(session);
     set_state_machine(state_machine);
     disconnected_ = false;
     uint32_t tmp = gen_attr_.get_connects();
     gen_attr_.set_connects(tmp+1);
     gen_attr_.set_connect_time(UTCTimestampUsec());
+    Create_Db_Connect_Timer();
 }
 
-void SandeshGenerator::SetDbQueueWaterMarkInfo(DbHandler::DbQueueWaterMarkInfo &wm) {
+void SandeshGenerator::SetDbQueueWaterMarkInfo(
+    Sandesh::QueueWaterMarkInfo &wm) {
     GetDbHandler()->SetDbQueueWaterMarkInfo(wm);
 }
 
@@ -366,6 +402,20 @@ void SandeshGenerator::ResetDbQueueWaterMarkInfo() {
     GetDbHandler()->ResetDbQueueWaterMarkInfo();
 }
 
+void SandeshGenerator::SetSmQueueWaterMarkInfo(
+    Sandesh::QueueWaterMarkInfo &wm) {
+    if (state_machine_) {
+        state_machine_->SetQueueWaterMarkInfo(wm);
+    }
+}
+
+void SandeshGenerator::ResetSmQueueWaterMarkInfo() {
+    if (state_machine_) {
+        state_machine_->ResetQueueWaterMarkInfo();
+    }
+}
+
+// SyslogGenerator
 SyslogGenerator::SyslogGenerator(SyslogListeners *const listeners,
         const string &source, const string &module) :
           Generator(),

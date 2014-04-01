@@ -17,7 +17,6 @@ public:
     static const int kSize = 8;
     typedef boost::array<uint8_t, kSize> bytes_type;
 
-    TunnelEncap();
     TunnelEncap(TunnelEncapType::Encap encap);
     TunnelEncap(std::string encap);
     explicit TunnelEncap(const bytes_type &data);

@@ -27,7 +27,7 @@
 #include "test/test_cmn_util.h"
 #include "ksync/ksync_sock_user.h"
 #include "vr_types.h"
-#include <uve/vm_uve_table_test.h>
+#include <uve/test/vm_uve_table_test.h>
 #include "uve/test/test_uve_util.h"
 
 using namespace std;

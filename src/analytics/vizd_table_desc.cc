@@ -54,6 +54,10 @@ void init_vizd_tables() {
                        GenDb::DbDataType::Unsigned32Type)
                       (g_viz_constants.SANDESH_TYPE,
                        GenDb::DbDataType::Unsigned8Type)
+                      (g_viz_constants.IPADDRESS,
+                       GenDb::DbDataType::AsciiType)
+                      (g_viz_constants.PID,
+                       GenDb::DbDataType::Unsigned32Type)
                       (g_viz_constants.DATA,
                        GenDb::DbDataType::AsciiType)))
         (GenDb::NewCf(g_viz_constants.MESSAGE_TABLE_SOURCE,
@@ -191,6 +195,8 @@ void init_vizd_tables() {
                       (g_viz_constants.FlowRecordNames[FlowRecordFields::FLOWREC_PACKETS],
                        GenDb::DbDataType::Unsigned64Type)
                       (g_viz_constants.FlowRecordNames[FlowRecordFields::FLOWREC_DATA_SAMPLE],
+                       GenDb::DbDataType::AsciiType)
+                      (g_viz_constants.FlowRecordNames[FlowRecordFields::FLOWREC_ACTION],
                        GenDb::DbDataType::AsciiType)
                      ))
 
@@ -495,4 +501,6 @@ void init_vizd_tables() {
          FlowTypeInfo(FlowRecordFields::FLOWREC_DIFF_PACKETS, GenDb::DbDataType::Unsigned64Type);
     flow_msg2type_map[g_viz_constants.FlowRecordNames[FlowRecordFields::FLOWREC_DATA_SAMPLE]] =
          FlowTypeInfo(FlowRecordFields::FLOWREC_DATA_SAMPLE, GenDb::DbDataType::AsciiType);
+    flow_msg2type_map[g_viz_constants.FlowRecordNames[FlowRecordFields::FLOWREC_ACTION]] =
+         FlowTypeInfo(FlowRecordFields::FLOWREC_ACTION, GenDb::DbDataType::AsciiType);
 }

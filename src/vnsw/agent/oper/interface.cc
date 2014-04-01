@@ -32,6 +32,7 @@
 #include <oper/agent_sandesh.h>
 #include <oper/sg.h>
 #include <ksync/interface_ksync.h>
+#include <ksync/ksync_init.h>
 #include "sandesh/sandesh_trace.h"
 #include "sandesh/common/vns_types.h"
 #include "sandesh/common/vns_constants.h"
@@ -67,11 +68,12 @@ DBEntry *InterfaceTable::Add(const DBRequest *req) {
     if (intf == NULL)
         return NULL;
 
-    intf->set_table(this);
     intf->id_ = index_table_.Insert(intf);
 
     // Get the os-ifindex and mac of interface
     intf->GetOsParams();
+
+    intf->Add();
     intf->SendTrace(Interface::ADD);
     return intf;
 }
@@ -147,13 +149,6 @@ DBTableBase *InterfaceTable::CreateTable(DB *db, const std::string &name) {
     return interface_table_;
 };
 
-Interface *InterfaceTable::FindInterfaceFromMetadataIp(const Ip4Address &ip) {
-    uint32_t addr = ip.to_ulong();
-    if ((addr & 0xFFFF0000) != (METADATA_IP_ADDR & 0xFFFF0000))
-        return NULL;
-    return index_table_.At(addr & 0xFF);
-}
-
 Interface *InterfaceTable::FindInterface(size_t index) {
     Interface *intf = index_table_.At(index);
     if (intf && intf->IsDeleted() != true) {
@@ -179,10 +174,17 @@ bool InterfaceTable::FindVmUuidFromMetadataIp(const Ip4Address &ip,
     return false;
 }
 
-void InterfaceTable::VmPortToMetaDataIp(uint16_t ifindex, uint32_t vrfid,
+Interface *InterfaceTable::FindInterfaceFromMetadataIp(const Ip4Address &ip) {
+    uint32_t addr = ip.to_ulong();
+    if ((addr & 0xFFFF0000) != (METADATA_IP_ADDR & 0xFFFF0000))
+        return NULL;
+    return index_table_.At(addr & 0xFFFF);
+}
+
+void InterfaceTable::VmPortToMetaDataIp(uint16_t index, uint32_t vrfid,
                                         Ip4Address *addr) {
     uint32_t ip = METADATA_IP_ADDR & 0xFFFF0000;
-    ip += ((vrfid & 0xFF) << 8) + (ifindex & 0xFF);
+    ip += (index & 0xFFFF);
     *addr = Ip4Address(ip);
 }
 
@@ -342,6 +344,48 @@ void PhysicalInterface::DeleteReq(InterfaceTable *table, const string &ifname) {
     req.key.reset(new PhysicalInterfaceKey(ifname));
     req.data.reset(NULL);
     table->Enqueue(&req);
+}
+
+/////////////////////////////////////////////////////////////////////////////
+// DHCP Snoop routines
+/////////////////////////////////////////////////////////////////////////////
+
+// Get DHCP IP address. First try to find entry in DHCP Snoop table.
+// If no entry in DHCP Snoop table, query the InterfaceKScan table.
+//
+// InterfaceKScan table is populated on agent restart
+const Ip4Address InterfaceTable::GetDhcpSnoopEntry(const std::string &ifname) {
+    const DhcpSnoopIterator it = dhcp_snoop_map_.find(ifname);
+    if (it != dhcp_snoop_map_.end()) {
+        return it->second;
+    }
+
+    // No entry in DHCP Snoop table. 
+    // See if there is entry in InterfaceKscanData
+    InterfaceKScan *kscan = agent_->ksync()->interface_scanner();
+    if (kscan) {
+        uint32_t addr;
+        if (kscan->FindInterfaceKScanData(ifname, addr)) {
+            AddDhcpSnoopEntry(ifname, Ip4Address(addr));
+            return Ip4Address(addr);
+        }
+    }
+
+    return Ip4Address(0);
+}
+
+void InterfaceTable::DeleteDhcpSnoopEntry(const std::string &ifname) {
+    const DhcpSnoopIterator it = dhcp_snoop_map_.find(ifname);
+    if (it == dhcp_snoop_map_.end()) {
+        return;
+    }
+
+    return dhcp_snoop_map_.erase(it);
+}
+
+void InterfaceTable::AddDhcpSnoopEntry(const std::string &ifname,
+                                       const Ip4Address &addr) {
+    dhcp_snoop_map_[ifname] = addr;
 }
 
 /////////////////////////////////////////////////////////////////////////////
@@ -548,7 +592,7 @@ void Interface::SetItfSandeshData(ItfSandeshData &data) const {
 bool Interface::DBEntrySandesh(Sandesh *sresp, std::string &name) const {
     ItfResp *resp = static_cast<ItfResp *>(sresp);
 
-    if (name_.find(name) != std::string::npos) {
+    if (name.empty() || name_ == name) {
         ItfSandeshData data;
         SetItfSandeshData(data);
         std::vector<ItfSandeshData> &list =

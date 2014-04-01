@@ -284,9 +284,9 @@ void VnswInterfaceListener::DeleteVhostRoutes(Ip4Address &host_ip,
 
     LOG(DEBUG, "Delete VHost IP " << host_ip.to_string() << " prefix len "
                 << (unsigned short)plen);
-    rt_table->DeleteReq(agent_->GetLocalPeer(), vrf_name, host_ip, 32);
+    rt_table->DeleteReq(agent_->local_peer(), vrf_name, host_ip, 32);
     rt_table->DelVHostSubnetRecvRoute(vrf_name, host_ip, plen);
-    rt_table->DeleteReq(agent_->GetLocalPeer(), vrf_name, host_ip, plen);
+    rt_table->DeleteReq(agent_->local_peer(), vrf_name, host_ip, plen);
     agent_->SetPrefixLen(0);
 }
 

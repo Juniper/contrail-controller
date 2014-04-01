@@ -711,7 +711,8 @@ TEST_F(CfgTest, EcmpNH_5) {
     //Add a remote VM route
     agent_->GetDefaultInet4UnicastRouteTable()->
         AddRemoteVmRouteReq(NULL, "vrf2", remote_vm_ip, 32, remote_server_ip1,
-                            TunnelType::DefaultType(), 30, "vn2");
+                            TunnelType::DefaultType(), 30, "vn2",
+                            SecurityGroupList());
     client->WaitForIdle();
     //Create component NH list
     //Transition remote VM route to ECMP route
@@ -783,7 +784,8 @@ TEST_F(CfgTest, EcmpNH_6) {
                                                   remote_vm_ip,
                                                   32, remote_server_ip1,
                                                   TunnelType::AllType(),
-                                                  30, "vn2");
+                                                  30, "vn2",
+                                                  SecurityGroupList());
     client->WaitForIdle();
     //Create component NH list
     //Transition remote VM route to ECMP route
@@ -1111,7 +1113,7 @@ TEST_F(CfgTest, Nexthop_keys) {
 
     struct ether_addr *remote_vm_mac = (struct ether_addr *)malloc(sizeof(struct ether_addr));
     memcpy (remote_vm_mac, ether_aton("00:00:01:01:01:11"), sizeof(struct ether_addr));
-    Layer2AgentRouteTable::AddRemoteVmRouteReq(agent_->GetLocalPeer(),
+    Layer2AgentRouteTable::AddRemoteVmRouteReq(agent_->local_peer(),
                                                "vrf10", TunnelType::MplsType(), 
                                                Ip4Address::from_string("10.1.1.100"),
                                                1000, *remote_vm_mac, 
@@ -1127,7 +1129,7 @@ TEST_F(CfgTest, Nexthop_keys) {
     EXPECT_TRUE(tnh->ToString() == "Tunnel to 10.1.1.100");
     tnh->SetKey(tnh->GetDBRequestKey().release());
     DoNextHopSandesh();
-    Layer2AgentRouteTable::DeleteReq(agent_->GetLocalPeer(),
+    Layer2AgentRouteTable::DeleteReq(agent_->local_peer(),
                                      "vrf10", *remote_vm_mac);
     client->WaitForIdle();
 
@@ -1237,7 +1239,7 @@ TEST_F(CfgTest, Nexthop_keys) {
     //Delete 
     agent_->
         GetDefaultInet4UnicastRouteTable()->
-        DeleteReq(agent_->GetLocalPeer(),
+        DeleteReq(agent_->local_peer(),
                   agent_->GetDefaultVrf(),
                   Ip4Address::from_string("10.1.1.100"), 32);
     client->WaitForIdle();

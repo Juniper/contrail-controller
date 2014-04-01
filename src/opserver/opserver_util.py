@@ -265,6 +265,34 @@ class OpServerUtils(object):
     # end convert_to_utc_timestamp_usec
 
     @staticmethod
+    def ip_protocol_to_str(protocol):
+        if protocol == 6:
+            return "TCP"
+        elif protocol == 17:
+            return "UDP"
+        elif protocol == 1:
+            return "ICMP"
+        elif protocol == 2:
+            return "IGMP"
+        else:
+            return str(protocol)
+    #end ip_protocol_to_str
+
+    @staticmethod
+    def str_to_ip_protocol(protocol):
+        if protocol.lower() == "tcp":
+            return 6
+        elif protocol.lower() == "udp":
+            return 17
+        elif protocol.lower() == "icmp":
+            return 1
+        elif protocol.lower() == "igmp":
+            return 2
+        else:
+            return -1
+    #end str_to_ip_protocol
+
+    @staticmethod
     def opserver_url(ip, port):
         return "http://" + ip + ":" + port
     # end opserver_url
@@ -289,6 +317,8 @@ class OpServerUtils(object):
     @staticmethod
     def messages_data_dict_to_str(messages_dict, message_type, sandesh_type):
         data_dict = messages_dict[message_type]
+        if sandesh_type == SandeshType.SYSLOG:
+            return data_dict.encode('utf8', 'replace')
         return OpServerUtils._data_dict_to_str(data_dict, sandesh_type)
     # end messages_data_dict_to_str
 
@@ -394,7 +424,7 @@ class OpServerUtils(object):
     def get_query_dict(table, start_time=None, end_time=None,
                        select_fields=None,
                        where_clause="",
-                       sort_fields=None, sort=None, limit=None, filter=None):
+                       sort_fields=None, sort=None, limit=None, filter=None, dir=None):
         """
         This function takes in the query parameters,
         format appropriately and calls
@@ -497,18 +527,21 @@ class OpServerUtils(object):
 
         if len(filter_terms) == 0:
             filter_terms = None
+        if table == "FlowSeriesTable" or table == "FlowRecordTable":
+            if dir is None:
+                 dir = 1
+        qe_query = OpServerUtils.Query(table,
+                        start_time=lstart_time,
+                        end_time=lend_time,
+                        select_fields=sf,
+                        where=where,
+                        sort_fields=sort_fields,
+                        sort=sort,
+                        limit=limit,
+                        filter=filter_terms,
+                        dir=dir)
 
-        flowtable_query = OpServerUtils.Query(table,
-                                              start_time=lstart_time,
-                                              end_time=lend_time,
-                                              select_fields=sf,
-                                              where=where,
-                                              sort_fields=sort_fields,
-                                              sort=sort,
-                                              limit=limit,
-                                              filter=filter_terms)
-
-        return flowtable_query.__dict__
+        return qe_query.__dict__
 
     class Query(object):
         table = None
@@ -520,14 +553,17 @@ class OpServerUtils(object):
         sort_fields = None
         limit = None
         filter = None
+        dir = None
 
         def __init__(self, table, start_time, end_time, select_fields,
                      where=None, sort_fields=None, sort=None, limit=None,
-                     filter=None):
+                     filter=None, dir=None):
             self.table = table
             self.start_time = start_time
             self.end_time = end_time
             self.select_fields = select_fields
+            if dir is not None:
+                self.dir = dir
             if where is not None:
                 self.where = where
             if sort_fields is not None:

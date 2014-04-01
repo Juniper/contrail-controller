@@ -5,61 +5,100 @@
 #ifndef ctrlplane_rtarget_group_h
 #define ctrlplane_rtarget_group_h
 
-#include <list>
+#include <set>
+#include <vector>
 
 #include "bgp/bgp_table.h"
 #include "bgp/rtarget/rtarget_address.h"
 
-// RouteTarget Group for a given RouteTarget
-// Contains two lists of tables 
-//       1. Tables that imports the route belonging to this RouteTarget
-//       2. Tables to which route needs to be exported
+class BgpRoute;
+class RTargetRoute;
+
+class RtGroupInterestedPeerSet : public BitSet {
+};
+
+//
+// This class keeps track of state per RouteTarget.  It maintains three main
+// pieces of information.
+//
+// 1. The RtGroupMembers map and the RtGroupMemberList set are used to keep
+//    per address family lists of import and export BgpTables. The lists are
+//    updated from the RoutePathReplicator.
+//
+// 2. The RTargetDepRouteList and the RouteList are used to maintain a per
+//    partition list of dependent BgpRoutes i.e. routes with the RouteTarget
+//    as one of their route targets.  Each entry in the RTargetDepRouteList
+//    vector corresponds to a DB partition.
+//
+//    The list of dependent BgpRoutes is updated from DB task when handling
+//    notifications for BgpRoutes in various VPN tables e.g. bgp.l3vpn.0 and
+//    bgp.evpn.0.  Since we could be processing multiple notifications (each
+//    from a different partition) in parallel, we keep a separate RouteList
+//    per partition id. The RouteLists are accessed from the RTFilter task
+//    to trigger re-evaluation of export policy for dependent BgpRoutes based
+//    on receiving advertisements/withdrawals for RTargetRoutes.
+//
+// 3. The InterestedPeerList map and RTargetRouteList set are used to keep a
+//    list of peers interested in this RouteTarget.  Since a peer could send
+//    multiple RTargetRoutes for a given RouteTarget, we maintain a set of
+//    RTargetRoutes per peer. A peer is added to the InterestedPeerList map
+//    when the first RTargetRoute is added and removed from the map when the
+//    last RTargetRoute is removed.
+//
+// Note that this class does not take any references on dependent BgpRoutes
+// or RTargetRoutes.  It is the RTargetGroupManager's job to do that.  Note
+// that each dependent BgpRoute may have multiple RouteTargets, so it doesn't
+// make sense to take a reference to the dependent route for each RouteTarget.
+//
 class RtGroup {
 public:
-    typedef std::list<BgpTable *> RtGroupMemberList;
+    typedef std::set<BgpTable *> RtGroupMemberList;
+    typedef std::map<Address::Family, RtGroupMemberList> RtGroupMembers;
+    typedef std::set<BgpRoute *> RouteList;
+    typedef std::vector<RouteList> RTargetDepRouteList;
+    typedef std::set<RTargetRoute *> RTargetRouteList;
+    typedef std::map<const BgpPeer *, RTargetRouteList> InterestedPeerList;
 
-    RtGroup(const RouteTarget &rt) : rt_(rt) {
+    RtGroup(const RouteTarget &rt);
+    const RouteTarget &rt();
+    bool empty(Address::Family family) const;
+
+    const RtGroupMembers &GetImportMembers() {
+        return import_;
+    }
+    const RtGroupMembers &GetExportMembers() {
+        return export_;
     }
 
-    RtGroupMemberList &GetImportTables() {
-        return import_list_;
-    }
+    const RtGroupMemberList GetImportTables(Address::Family family) const;
+    const RtGroupMemberList GetExportTables(Address::Family family) const;
 
-    RtGroupMemberList &GetExportTables() {
-        return export_list_;
-    }
+    bool AddImportTable(Address::Family family, BgpTable *tbl);
+    bool AddExportTable(Address::Family family, BgpTable *tbl);
+    bool RemoveImportTable(Address::Family family, BgpTable *tbl);
+    bool RemoveExportTable(Address::Family family, BgpTable *tbl);
 
-    void AddImportTable(BgpTable *tbl) {
-        import_list_.push_back(tbl);
-        import_list_.sort();
-        import_list_.unique();
-    }
+    void AddDepRoute(int part_id, BgpRoute *rt);
+    void RemoveDepRoute(int part_id, BgpRoute *rt);
+    bool RouteDepListEmpty();
+    const RTargetDepRouteList &DepRouteList() const;
 
-    void AddExportTable(BgpTable *tbl) {
-        export_list_.push_back(tbl);
-        export_list_.sort();
-        export_list_.unique();
-    }
+    const InterestedPeerList &PeerList() const;
+    void GetInterestedPeers(std::set<const BgpPeer *> &peer_set) const;
+    const RtGroupInterestedPeerSet& GetInterestedPeers() const;
+    void AddInterestedPeer(const BgpPeer *peer, RTargetRoute *rt);
+    void RemoveInterestedPeer(const BgpPeer *peer, RTargetRoute *rt);
+    bool IsPeerInterested(const BgpPeer *peer) const;
+    bool peer_list_empty() const;
 
-    void RemoveImportTable(BgpTable *tbl) {
-        import_list_.remove(tbl);
-    }
-
-    void RemoveExportTable(BgpTable *tbl) {
-        export_list_.remove(tbl);
-    }
-
-    bool empty() {
-        return import_list_.empty() && export_list_.empty();
-    }
-
-    const RouteTarget &rt() {
-        return rt_;
-    }
 private:
-    RtGroupMemberList import_list_;
-    RtGroupMemberList export_list_;
     RouteTarget rt_;
+    RtGroupMembers import_;
+    RtGroupMembers export_;
+    RTargetDepRouteList dep_;
+    InterestedPeerList peer_list_;
+    RtGroupInterestedPeerSet interested_peers_;
+
     DISALLOW_COPY_AND_ASSIGN(RtGroup);
 };
 

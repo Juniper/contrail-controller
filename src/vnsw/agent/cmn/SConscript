@@ -8,7 +8,7 @@ import sys
 Import('AgentEnv')
 env = AgentEnv.Clone()
 
-vnswcmn_sources = ['agent.cc', 'agent_db.cc', 'agent_stats.cc']
+vnswcmn_sources = ['agent.cc', 'agent_db.cc', 'agent_factory.cc', 'agent_stats.cc']
 
 vnswcmn = env.Library('vnswcmn', vnswcmn_sources)
 

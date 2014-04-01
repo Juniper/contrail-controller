@@ -41,7 +41,11 @@ AgentXmppChannel::AgentXmppChannel(XmppChannel *channel, std::string xmpp_server
     DBTableBase::ListenerId id = 
         Agent::GetInstance()->GetVrfTable()->Register(boost::bind(&VrfExport::Notify,
                                        this, _1, _2)); 
-    bgp_peer_id_ = new BgpPeer(Agent::GetInstance()->GetXmppServer(xs_idx_), this, id);
+    boost::system::error_code ec;
+    const string &addr = Agent::GetInstance()->GetXmppServer(xs_idx_);
+    Ip4Address ip = Ip4Address::from_string(addr.c_str(), ec);
+    assert(ec.value() == 0);
+    bgp_peer_id_ = new BgpPeer(ip, addr, this, id);
 }
 
 AgentXmppChannel::~AgentXmppChannel() {
@@ -406,7 +410,7 @@ void AgentXmppChannel::AddRemoteEvpnRoute(string vrf_name,
     if (encap == (1 << TunnelType::VXLAN)) {
         VrfEntry *vrf = 
             Agent::GetInstance()->GetVrfTable()->FindVrfFromName(vrf_name);
-        Layer2RouteKey key(Agent::GetInstance()->GetLocalVmPeer(), 
+        Layer2RouteKey key(Agent::GetInstance()->local_vm_peer(), 
                            vrf_name, mac);
         if (vrf != NULL) {
             Layer2RouteEntry *route = 
@@ -526,14 +530,11 @@ void AgentXmppChannel::AddRemoteRoute(string vrf_name, Ip4Address prefix_addr,
 
         case NextHop::VLAN: {
             const VlanNH *vlan_nh = static_cast<const VlanNH *>(nh);
-            const VmInterface *vm_port =
-                static_cast<const VmInterface *>(vlan_nh->GetInterface());
-            std::vector<int> sg_l;
-            vm_port->CopySgIdList(&sg_l);
             rt_table->AddVlanNHRouteReq(bgp_peer_id_, vrf_name, prefix_addr,
                                         prefix_len, vlan_nh->GetIfUuid(),
                                         vlan_nh->GetVlanTag(), label,
-                                        item->entry.virtual_network, sg_l);
+                                        item->entry.virtual_network,
+                                        item->entry.security_group_list.security_group);
             break;
             }
         case NextHop::COMPOSITE: {

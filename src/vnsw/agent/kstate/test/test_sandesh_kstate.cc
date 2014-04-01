@@ -35,8 +35,6 @@ public:
     }
 
     static void TestSetup() {
-        client->SetFlowFlushExclusionPolicy();
-        client->SetFlowAgeExclusionPolicy();
     }
     void FlowSetUp() {
         unsigned int vn_count = 0;
@@ -55,7 +53,7 @@ public:
         assert(flow0);
         flow1 = VmInterfaceGet(input[1].intf_id);
         assert(flow1);
-        peer_ = new BgpPeer("BGP Peer 1", NULL, -1);
+        peer_ = new BgpPeer(Ip4Address(1), "BGP Peer 1", NULL, -1);
     }
 
     void FlowTearDown() {
@@ -75,7 +73,8 @@ public:
         Ip4Address addr = Ip4Address::from_string(remote_vm, ec);
         Ip4Address gw = Ip4Address::from_string(serv, ec);
         Agent::GetInstance()->GetDefaultInet4UnicastRouteTable()->AddRemoteVmRouteReq
-            (peer_, vrf, addr, 32, gw, TunnelType::AllType(), label, vn);
+            (peer_, vrf, addr, 32, gw, TunnelType::AllType(), label, vn,
+             SecurityGroupList());
         client->WaitForIdle(5);
         WAIT_FOR(1000, 500, (RouteFind(vrf, addr, 32) == true));
     }
@@ -1010,10 +1009,10 @@ TEST_F(KStateSandeshTest, VrfStatsTest_MultiResponse) {
     ClearCount();
     VrfStatsGet(-1);
     client->WaitForIdle();
-    WAIT_FOR(1000, 1000, (response_count_ == 5));
+    WAIT_FOR(1000, 1000, (response_count_ == 6));
 
     //verify the response
-    EXPECT_EQ(5U, type_specific_response_count_);
+    EXPECT_EQ(6U, type_specific_response_count_);
     EXPECT_EQ(100U, num_entries_);
 
     //cleanup

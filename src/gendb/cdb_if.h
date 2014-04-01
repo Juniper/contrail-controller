@@ -84,7 +84,7 @@ class CdbIf : public GenDbIf {
 
         virtual bool Db_GetRow(GenDb::ColList& ret, const std::string& cfname,
                 const GenDb::DbDataValueVec& rowkey);
-        virtual bool Db_GetMultiRow(std::vector<GenDb::ColList>& ret,
+        virtual bool Db_GetMultiRow(GenDb::ColListVec& ret,
                 const std::string& cfname, const std::vector<GenDb::DbDataValueVec>& key,
                 GenDb::ColumnNameRange *crange_ptr = NULL);
         /* api to get range of column data for a range of rows */
@@ -177,6 +177,8 @@ class CdbIf : public GenDbIf {
         bool ColListFromColumnOrSuper(GenDb::ColList&, std::vector<org::apache::cassandra::ColumnOrSuperColumn>&, const string&);
 
         bool Db_AsyncAddColumn(CdbIfColList &cl);
+        bool Db_AsyncAddColumnLocked(CdbIfColList &cl);
+        void Db_BatchAddColumn(bool done);
         bool Db_Columnfamily_present(const std::string& cfname);
         bool Db_GetColumnfamily(CdbIfCfInfo **info, const std::string& cfname);
         bool Db_IsInitDone() const;
@@ -222,7 +224,7 @@ class CdbIf : public GenDbIf {
         boost::asio::io_service *ioservice_;
         DbErrorHandler errhandler_;
 
-        bool db_init_done_;
+        tbb::atomic<bool> db_init_done_;
         std::string tablespace_;
 
         typedef WorkQueue<CdbIfColList> CdbIfQueue;
@@ -233,6 +235,23 @@ class CdbIf : public GenDbIf {
         CleanupTask *cleanup_;
 
         int cassandra_ttl_;
+        typedef std::vector<Mutation> MutationList;
+        typedef std::map<std::string, MutationList> CFMutationMap;
+        typedef std::map<std::string, CFMutationMap> CassandraMutationMap;
+        CassandraMutationMap mutation_map_;
+};
+
+template<>
+struct WorkQueueDelete<CdbIf::CdbIfColList> {
+    template <typename QueueT>
+    void operator()(QueueT &q) {
+        for (typename QueueT::iterator iter = q.unsafe_begin();
+             iter != q.unsafe_end(); ++iter) {
+            CdbIf::CdbIfColList &colList(*iter);
+            delete colList.gendb_cl;
+            colList.gendb_cl = NULL;
+        }
+    }
 };
 
 #endif

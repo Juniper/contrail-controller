@@ -90,6 +90,7 @@ public:
     void ConnectSession(VizSession *vsession, SandeshStateMachine *state_machine);
 
     bool GetSandeshStateMachineQueueCount(uint64_t &queue_count) const;
+    bool GetSandeshStateMachineDropLevel(std::string &drop_level) const;
     bool GetSandeshStateMachineStats(SandeshStateMachineStats &sm_stats,
                                      SandeshGeneratorStats &sm_msg_stats) const;
     bool GetDbStats(uint64_t &queue_count, uint64_t &enqueues,
@@ -107,8 +108,10 @@ public:
     const std::string State() const;
 
     void GetGeneratorInfo(ModuleServerState &genlist) const;
-    void SetDbQueueWaterMarkInfo(DbHandler::DbQueueWaterMarkInfo &wm);
+    void SetDbQueueWaterMarkInfo(Sandesh::QueueWaterMarkInfo &wm);
     void ResetDbQueueWaterMarkInfo();
+    void SetSmQueueWaterMarkInfo(Sandesh::QueueWaterMarkInfo &wm);
+    void ResetSmQueueWaterMarkInfo();
     void StartDbifReinit();
     virtual DbHandler *GetDbHandler() { return db_handler_.get (); }
 
@@ -126,8 +129,10 @@ private:
     void TimerErrorHandler(std::string name, std::string error);
 
     bool DbConnectTimerExpired();
+    void Create_Db_Connect_Timer();
     void Start_Db_Connect_Timer();
     void Stop_Db_Connect_Timer();
+    void Delete_Db_Connect_Timer();
     void Db_Connection_Uninit();
     bool Db_Connection_Init();
 

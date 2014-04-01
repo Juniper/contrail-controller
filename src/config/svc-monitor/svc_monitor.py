@@ -7,7 +7,7 @@ Service monitor to instantiate/scale/monitor services like firewall, LB, ...
 """
 
 import gevent
-from cfgm_common.discovery import DiscoveryService
+from cfgm_common.zkclient import ZookeeperClient
 from gevent import monkey
 monkey.patch_all()
 import sys
@@ -394,7 +394,8 @@ class SvcMonitor(object):
             vmi_obj.set_interface_route_table(rt_obj)
 
         # remove security groups and update vmi
-        vmi_obj.set_security_group_list([])
+        if st_props.service_mode not in ['in-network', 'in-network-nat'] or st_props.service_type == 'analyzer':
+            vmi_obj.set_security_group_list([])
         self._vnc_lib.virtual_machine_interface_update(vmi_obj)
     # end _set_svc_vm_if_properties
 
@@ -853,7 +854,8 @@ class SvcMonitor(object):
 
         self._nova[proj_name] = nc.Client(
             '2', username=self._args.admin_user, project_id=proj_name,
-            api_key=self._args.admin_password, service_type='compute',
+            api_key=self._args.admin_password,
+            region_name=self._args.region_name, service_type='compute',
             auth_url='http://' + self._args.auth_host + ':5000/v2.0')
         return self._nova[proj_name]
     # end _novaclient_get
@@ -935,7 +937,17 @@ class SvcMonitor(object):
     # end _create_svc_vn
 
     def _cassandra_init(self):
-        sys_mgr = SystemManager(self._args.cassandra_server_list[0])
+        server_idx = 0
+        num_dbnodes = len(self._args.cassandra_server_list)
+        connected = False
+        while not connected:
+            try:
+                cass_server = self._args.cassandra_server_list[server_idx]
+                sys_mgr = SystemManager(cass_server)
+                connected = True
+            except Exception as e:
+                server_idx = (server_idx + 1) % num_dbnodes
+                time.sleep(3)
 
         if self._args.reset_config:
             try:
@@ -945,7 +957,7 @@ class SvcMonitor(object):
 
         try:
             sys_mgr.create_keyspace(SvcMonitor._KEYSPACE, SIMPLE_STRATEGY,
-                                    {'replication_factor': '1'})
+                                    {'replication_factor': str(num_dbnodes)})
         except pycassa.cassandra.ttypes.InvalidRequestException as e:
             print "Warning! " + str(e)
 
@@ -960,10 +972,19 @@ class SvcMonitor(object):
 
         conn_pool = pycassa.ConnectionPool(SvcMonitor._KEYSPACE,
                                            self._args.cassandra_server_list)
-        self._svc_vm_cf = pycassa.ColumnFamily(conn_pool, self._SVC_VM_CF)
-        self._svc_si_cf = pycassa.ColumnFamily(conn_pool, self._SVC_SI_CF)
+
+        rd_consistency = pycassa.cassandra.ttypes.ConsistencyLevel.QUORUM
+        wr_consistency = pycassa.cassandra.ttypes.ConsistencyLevel.QUORUM
+        self._svc_vm_cf = pycassa.ColumnFamily(conn_pool, self._SVC_VM_CF,
+                                  read_consistency_level=rd_consistency,
+                                  write_consistency_level=wr_consistency)
+        self._svc_si_cf = pycassa.ColumnFamily(conn_pool, self._SVC_SI_CF,
+                                  read_consistency_level=rd_consistency,
+                                  write_consistency_level=wr_consistency)
         self._cleanup_cf = pycassa.ColumnFamily(conn_pool,
-                                                self._SVC_CLEANUP_CF)
+                                  self._SVC_CLEANUP_CF,
+                                  read_consistency_level=rd_consistency,
+                                  write_consistency_level=wr_consistency)
     # end _cassandra_init
 
 # end class svc_monitor
@@ -1076,6 +1097,7 @@ def parse_args(args_str):
                          --log_level SYS_DEBUG
                          --log_category test
                          --log_file <stdout>
+                         [--region_name <name>]
                          [--reset_config]
     '''
 
@@ -1105,6 +1127,7 @@ def parse_args(args_str):
         'log_level': SandeshLevel.SYS_DEBUG,
         'log_category': '',
         'log_file': Sandesh._DEFAULT_LOG_FILE,
+        'region_name': None,
         }
     secopts = {
         'use_certs': False,
@@ -1191,11 +1214,15 @@ def parse_args(args_str):
                         help="Password of keystone admin user")
     parser.add_argument("--admin_tenant_name",
                         help="Tenant name for keystone admin user")
+    parser.add_argument("--region_name",
+                        help="Region name for openstack API")
     args = parser.parse_args(remaining_argv)
     if type(args.cassandra_server_list) is str:
         args.cassandra_server_list = args.cassandra_server_list.split()
     if type(args.collectors) is str:
         args.collectors = args.collectors.split()
+    if args.region_name and args.region_name.lower() == 'none':
+        args.region_name = None
     return args
 # end parse_args
 
@@ -1230,7 +1257,7 @@ def main(args_str=None):
         args_str = ' '.join(sys.argv[1:])
     args = parse_args(args_str)
 
-    _disc_service = DiscoveryService(args.zk_server_ip)
+    _disc_service = ZookeeperClient("svc-monitor", args.zk_server_ip)
     _disc_service.master_election("/svc-monitor", os.getpid(),
                                   run_svc_monitor, args)
 # end main

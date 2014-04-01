@@ -117,6 +117,8 @@ public:
     static const uint32_t kDefaultMaxLinkLocalOpenFds = 2048;
     // max open files in the agent, excluding the linklocal bind ports
     static const uint32_t kMaxOtherOpenFds = 64;
+    // default timeout zero means, this timeout is not used
+    static const uint32_t kDefaultFlowCacheTimeout = 0;
 
     enum VxLanNetworkIdentifierMode {
         AUTOMATIC,
@@ -318,9 +320,11 @@ public:
     IcmpProto *GetIcmpProto() { return icmp_proto_; }
     FlowProto *GetFlowProto() { return flow_proto_; }
 
-    const Peer *GetLocalPeer() {return local_peer_;};
-    const Peer *GetLocalVmPeer() {return local_vm_peer_;};
-    const Peer *GetLinkLocalPeer() {return linklocal_peer_;};
+    const Peer *local_peer() const {return local_peer_.get();}
+    const Peer *local_vm_peer() const {return local_vm_peer_.get();}
+    const Peer *link_local_peer() const {return linklocal_peer_.get();}
+    const Peer *ecmp_peer() const {return ecmp_peer_.get();}
+
     VxLanNetworkIdentifierMode vxlan_network_identifier_mode() const {
         return vxlan_network_identifier_mode_;
     }
@@ -469,18 +473,6 @@ public:
     void SetIcmpProto(IcmpProto *proto) { icmp_proto_ = proto; }
     void SetFlowProto(FlowProto *proto) { flow_proto_ = proto; }
 
-    void SetLocalPeer(Peer *peer) {
-        local_peer_ = peer;
-    };
-
-    void SetLocalVmPeer(Peer *peer) {
-        local_vm_peer_ = peer;
-    };
-
-    void SetLinkLocalPeer(Peer *peer) {
-        linklocal_peer_ = peer;
-    };
-
     void SetRouterIdConfigured(bool value) {
         router_id_configured_ = value;
     }
@@ -500,12 +492,12 @@ public:
     }
     void GlobalVrouterConfig(IFMapNode *node);
 
-    bool IsTestMode() {
-        return test_mode_;
+    void set_ksync_sync_mode(bool sync_mode) {
+        ksync_sync_mode_ = sync_mode;
     }
 
-    void SetTestMode() {
-        test_mode_ = true;
+    bool ksync_sync_mode() const {
+        return ksync_sync_mode_;
     }
 
     bool isXenMode();
@@ -631,15 +623,17 @@ private:
     IcmpProto *icmp_proto_;
     FlowProto *flow_proto_;
 
-    Peer *local_peer_;
-    Peer *local_vm_peer_;
-    Peer *linklocal_peer_;
+    std::auto_ptr<Peer> local_peer_;
+    std::auto_ptr<Peer> local_vm_peer_;
+    std::auto_ptr<Peer> linklocal_peer_;
+    std::auto_ptr<Peer> ecmp_peer_;
+
     IFMapAgentParser *ifmap_parser_;
     bool router_id_configured_;
 
     uint16_t mirror_src_udp_port_;
     LifetimeManager *lifetime_manager_;
-    bool test_mode_;
+    bool ksync_sync_mode_;
     std::string mgmt_ip_;
     static Agent *singleton_;
     VxLanNetworkIdentifierMode vxlan_network_identifier_mode_;

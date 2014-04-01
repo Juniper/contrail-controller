@@ -81,3 +81,11 @@ env.Depends(local_sources_rules, autogen_infra_sources)
 
 # install everything before building distribution
 env.Depends(sdist_gen, sdist_depends)
+
+if 'install' in BUILD_TARGETS:
+   install_cmd = env.Command(None, 'setup.py',
+                             'python setup.py install %s' %
+                             env['PYTHON_INSTALL_OPT'],
+                             chdir = 1)		 
+   env.Depends(install_cmd, sdist_depends)
+   env.Alias('install', install_cmd)

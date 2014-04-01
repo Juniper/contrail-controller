@@ -73,6 +73,7 @@ bool DnsHandler::HandleRequest() {
     if (!vmitf->ipv4_forwarding()) {
         DNS_BIND_TRACE(DnsBindError, "DNS request on VM port with disabled" 
                        "ipv4 service: " << itf);
+        dns_proto->IncrStatsDrop();
         return true;
     }
     // Handle requests (req == 0), queries (op code == 0), updates, non auth

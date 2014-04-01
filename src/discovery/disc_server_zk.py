@@ -191,7 +191,8 @@ class DiscoveryServer():
                                           size=1000)
 
         # DB interface initialization
-        self._db_connect(self._args.reset_config)
+        self._db_conn = self._args.zk
+        self._db_conn.set_ds(self)
 
         # update services database (old db didn't keep HB)
         for entry in self._db_conn.service_entries():
@@ -287,7 +288,7 @@ class DiscoveryServer():
         zk_ip = self._args.zk_server_ip
         zk_port = self._args.zk_server_port
 
-        self._db_conn = DiscoveryZkClient(self, zk_ip, zk_port, reset_config)
+        self._db_conn = DiscoveryZkClient("discovery", zk_ip, zk_port, reset_config)
     # end _db_connect
 
     def cleanup(self):
@@ -435,6 +436,7 @@ class DiscoveryServer():
                 'ts_created': int(time.time()),
                 'heartbeat': int(time.time()),
                 'prov_state': 'new',
+                'sequence': -1,
                 'remote': bottle.request.environ.get('REMOTE_ADDR'),
             }
 
@@ -1096,8 +1098,9 @@ def main(args_str=None):
     if not args_str:
         args_str = ' '.join(sys.argv[1:])
     args = parse_args(args_str)
-    zk = DiscoveryZkClient(None, args.zk_server_ip, args.zk_server_port, 
+    zk = DiscoveryZkClient("discovery", args.zk_server_ip, args.zk_server_port, 
         args.reset_config)
+    args.zk = zk
     zk.master_election("/discovery-server", os.getpid(),
                                   run_discovery_server, args)
 # end main

@@ -62,9 +62,7 @@ bool DhcpHandler::Run() {
 
     // For VM interfaces in default VRF, if the config doesnt have IP address,
     // send the request to fabric
-    if (vm_itf_->vrf() &&
-        vm_itf_->vrf()->GetName() == agent()->GetDefaultVrf() &&
-        (!vm_itf_->ip_addr().to_ulong() || vm_itf_->dhcp_snoop_ip())) {
+    if (vm_itf_->vrf() && vm_itf_->do_dhcp_relay()) {
         RelayRequestToFabric();
         return true;
     }
@@ -495,12 +493,14 @@ void DhcpHandler::RelayResponseFromFabric() {
     }
 
     if (msg_type_ == DHCP_ACK) {
-        // Update the interface with the IP address, to trigger a route add
+        // Populate the DHCP Snoop table
+        agent()->GetInterfaceTable()->AddDhcpSnoopEntry
+            (vm_itf_->name(), Ip4Address(ntohl(dhcp_->yiaddr)));
+        // Enqueue RESYNC to update the IP address
         DBRequest req(DBRequest::DB_ENTRY_ADD_CHANGE);
         req.key.reset(new VmInterfaceKey(AgentKey::RESYNC, vm_itf_->GetUuid(),
                                          vm_itf_->name()));
-        req.data.reset(new VmInterfaceIpAddressData
-                       (Ip4Address(ntohl(dhcp_->yiaddr))));
+        req.data.reset(new VmInterfaceIpAddressData());
         agent()->GetInterfaceTable()->Enqueue(&req);
     }
 

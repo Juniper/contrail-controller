@@ -12,7 +12,6 @@
 #include <boost/property_tree/ptree.hpp>
 #include <boost/property_tree/xml_parser.hpp>
 #include <boost/foreach.hpp>
-#include <boost/program_options.hpp>
 
 #include <db/db.h>
 #include <db/db_graph.h>
@@ -81,7 +80,7 @@ void AgentInit::DeleteRoutes() {
     Inet4UnicastAgentRouteTable *uc_rt_table =
         agent_->GetDefaultInet4UnicastRouteTable();
 
-    uc_rt_table->DeleteReq(agent_->GetLocalPeer(), agent_->GetDefaultVrf(),
+    uc_rt_table->DeleteReq(agent_->local_peer(), agent_->GetDefaultVrf(),
                            agent_->GetGatewayId(), 32);
 }
 
@@ -331,6 +330,8 @@ void AgentInit::Start() {
         LoggingInit(params_->log_file());
     }
 
+    params_->LogConfig();
+    params_->Validate();
     TriggerInit();
     return;
 }

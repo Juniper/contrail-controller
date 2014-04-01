@@ -28,7 +28,7 @@ class TcpServer {
     virtual ~TcpServer();
 
     // Bind a listening socket and register it with the event manager.
-    virtual void Initialize(short port);
+    virtual bool Initialize(short port);
 
     const std::string ToString() const { return name_; }
     void SetAcceptor();

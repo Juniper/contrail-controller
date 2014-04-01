@@ -148,6 +148,9 @@ protected:
     void EvStart() {
         sm_->Initialize();
     }
+    void EvStop() {
+        sm_->Clear();
+    }
     void EvConnectTimerExpired() {
         boost::system::error_code error;
         FireConnectTimer();
@@ -250,6 +253,26 @@ TEST_F(XmppStateMachineTest, Active_EvTcpConnectTimerExpired) {
     VerifyState(xmsm::CONNECT);
 }
 
+// OldState : Active
+// Event    : EvStop
+// NewState : Active 
+TEST_F(XmppStateMachineTest, Active_EvStop) {
+
+    sm_->connect_attempts_inc(); // set attempts as we do not
+                                 // want connection timer to expire
+    sm_->connect_attempts_inc(); // set attempts as we do not
+                                 // want connection timer to expire
+    VerifyState(xmsm::IDLE);
+
+    EvStart();
+    VerifyState(xmsm::ACTIVE);
+
+    EvStop();
+    VerifyState(xmsm::ACTIVE);
+}
+
+
+
 // OldState : Connect 
 // Event    : EvConnectTimerExpired
 // NewState : Active 
@@ -335,6 +358,28 @@ TEST_F(XmppStateMachineTest, Connect_EvTcpClose) {
     VerifyState(xmsm::ACTIVE);
 }
 
+// OldState : Connect 
+// Event    : EvStop
+// NewState : Active 
+TEST_F(XmppStateMachineTest, Connect_EvTcpStop) {
+
+    sm_->connect_attempts_inc(); // set attempts as we do not
+                                 // want connection timer to expire
+    sm_->connect_attempts_inc(); // set attempts as we do not
+                                 // want connection timer to expire
+    VerifyState(xmsm::IDLE);
+
+    EvStart();
+    VerifyState(xmsm::ACTIVE);
+
+    EvConnectTimerExpired();
+    VerifyState(xmsm::CONNECT);
+
+    EvStop();
+    VerifyState(xmsm::ACTIVE);
+}
+
+
 // OldState : OpenSent 
 // Event    : EvXmppOpen
 // NewState : Established 
@@ -407,6 +452,31 @@ TEST_F(XmppStateMachineTest, OpenSent_EvHoldTimerExpired) {
     EvHoldTimerExpired();
     VerifyState(xmsm::ACTIVE);
 }
+
+// OldState : OpenSent 
+// Event    : EvStop
+// NewState : Active 
+TEST_F(XmppStateMachineTest, OpenSent_EvStop) {
+
+    sm_->connect_attempts_inc(); // set attempts as we do not
+                                 // want connection timer to expire
+    sm_->connect_attempts_inc(); // set attempts as we do not
+                                 // want connection timer to expire
+    VerifyState(xmsm::IDLE);
+
+    EvStart();
+    VerifyState(xmsm::ACTIVE);
+
+    EvConnectTimerExpired();
+    VerifyState(xmsm::CONNECT);
+
+    EvTcpConnected();
+    VerifyState(xmsm::OPENSENT);
+
+    EvStop();
+    VerifyState(xmsm::ACTIVE);
+}
+
 
 // OldState : Established 
 // Event    : EvXmppKeepAlive

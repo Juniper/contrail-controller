@@ -25,6 +25,7 @@ public:
     virtual std::auto_ptr<DBEntry> AllocEntryStr(const std::string &key) const;
 
     virtual Address::Family family() const { return Address::EVPN; }
+    virtual bool IsVpnTable() const { return true; }
 
     virtual size_t Hash(const DBEntry *entry) const;
     virtual size_t Hash(const DBRequestKey *key) const;
