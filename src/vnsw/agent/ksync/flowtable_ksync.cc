@@ -3,7 +3,6 @@
  */
 
 #include <sys/socket.h>
-//.de.byte.breaker
 #if defined(__linux__)
 #include <linux/netlink.h>
 #include <linux/rtnetlink.h>

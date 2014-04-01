@@ -5,7 +5,6 @@
 #include <boost/asio.hpp>
 #include <boost/bind.hpp>
 
-//.de.byte.breaker
 #if defined(__linux__)
 #include <linux/netlink.h>
 #include <linux/rtnetlink.h>
@@ -152,7 +151,6 @@ void KSync::VnswInterfaceListenerInit() {
 }
 
 void KSync::CreateVhostIntf() {
-//.de.byte.breaker
 #if defined(__linux__)
     struct  nl_client *cl;
 
@@ -190,7 +188,6 @@ void KSync::CreateVhostIntf() {
 }
 
 void KSync::UpdateVhostMac() {
-//.de.byte.breaker
 #if defined(__linux__)
     struct  nl_client *cl;
 

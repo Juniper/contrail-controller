@@ -6,7 +6,6 @@
 #define ctrlplane_ksync_sock_h 
 
 #include <vector>
-//.de.byte.breaker
 #if defined(__linux__)
 #include <linux/rtnetlink.h>
 #endif

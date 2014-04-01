@@ -5,7 +5,6 @@
 #include <assert.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
-//.de.byte.breaker
 #if defined(__linux__)
 #include <linux/netlink.h>
 #include <linux/rtnetlink.h>
@@ -75,7 +74,6 @@ void VnswInterfaceListener::Init() {
 }
 
 int VnswInterfaceListener::AddAttr(int type, void *data, int alen) {
-//.de.byte.breaker
 #if defined(__linux__)
     struct nlmsghdr *n = (struct nlmsghdr *)tx_buf_;
     int len = RTA_LENGTH(alen);
@@ -122,7 +120,6 @@ void VnswInterfaceListener::IntfNotify(DBTablePartBase *part, DBEntryBase *e) {
 }
 
 void VnswInterfaceListener::InitFetchLinks() {
-//.de.byte.breaker
 #if defined(__linux__)
     struct nlmsghdr *nlh;
     uint32_t seq_no;
@@ -167,7 +164,6 @@ void VnswInterfaceListener::InitFetchLinks() {
 }
  
 void VnswInterfaceListener::InitFetchRoutes() {
-//.de.byte.breaker
 #if defined(__linux__)
     struct nlmsghdr *nlh;
 
@@ -194,7 +190,6 @@ void VnswInterfaceListener::InitFetchRoutes() {
  
 void VnswInterfaceListener::KUpdateLinkLocalRoute(const Ip4Address &addr, 
                                            bool del_rt) {
-//.de.byte.breaker
 #if defined(__linux__)
     struct nlmsghdr *nlh;
     struct rtmsg *rtm;
@@ -362,7 +357,6 @@ void VnswInterfaceListener::InitRouterId() {
 
 void VnswInterfaceListener::CreateSocket() {
 
-//.de.byte.breaker
 #if defined(__linux__)
     sock_fd_ = socket(PF_NETLINK, SOCK_DGRAM, NETLINK_ROUTE);
     if (sock_fd_ < 0) {
@@ -445,7 +439,6 @@ bool VnswInterfaceListener::RouteEventProcess(VnswRouteEvent *re) {
 }
 
 void VnswInterfaceListener::RouteHandler(struct nlmsghdr *nlh) {
-//.de.byte.breaker
 #if defined(__linux__)
     struct rtmsg *rtm;
     struct rtattr *rth;
@@ -501,7 +494,6 @@ void VnswInterfaceListener::RouteHandler(struct nlmsghdr *nlh) {
 /* XEN host specific interface event handler */
 void VnswInterfaceListener::InterfaceHandler(struct nlmsghdr *nlh)
 {
-//.de.byte.breaker
 #if defined(__linux__)
     struct ifinfomsg *rtm;
     struct rtattr *rth;
@@ -560,7 +552,6 @@ void VnswInterfaceListener::InterfaceHandler(struct nlmsghdr *nlh)
 }
 
 void VnswInterfaceListener::IfaddrHandler(struct nlmsghdr *nlh) {
-//.de.byte.breaker
 #if defined(__linux__)
     char name[IFNAMSIZ];
     uint32_t ipaddr;
@@ -618,7 +609,6 @@ void VnswInterfaceListener::IfaddrHandler(struct nlmsghdr *nlh) {
 
 int VnswInterfaceListener::NlMsgDecode(struct nlmsghdr *nl, std::size_t len, 
                                        uint32_t seq_no) {
-//.de.byte.breaker
 #if defined(__linux__)
     struct nlmsghdr *nlh = nl;
     for (; (NLMSG_OK(nlh, len)); nlh = NLMSG_NEXT(nlh, len)) {

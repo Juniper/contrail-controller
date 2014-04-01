@@ -43,7 +43,6 @@ public:
   /// Default constructor.
   basic_endpoint() {
       memset(&impl_, 0, sizeof(impl_));
-//.de.byte.breaker
 #if defined(__linux__)
       sa.nl_family = AF_NETLINK;
 #elif defined(__FreeBSD__)
@@ -60,7 +59,6 @@ public:
   }
 
   std::size_t size() const {
-//.de.byte.breaker
 #if defined(__linux__)
       return sizeof(struct sockaddr_nl);
 #else
@@ -77,7 +75,6 @@ private:
   // The underlying NETLINK domain endpoint.
   union {
       data_type impl_;
-//.de.byte.breaker
 #if defined(__linux__)
       struct sockaddr_nl sa;
 #elif defined(__FreeBSD__)

@@ -53,7 +53,6 @@ public:
   /// Obtain an identifier for the protocol family.
   int family() const
   {
-//.de.byte.breaker
 #if defined(__linux__)
     return AF_NETLINK;
 #elif defined(__FreeBSD__)
