@@ -8,8 +8,10 @@
 #include <string>
 #include <string.h>
 #include <map>
-#ifndef __APPLE__
+#if defined(__linux__)
 #include <endian.h>
+#elif defined(__FreeBSD__)
+#include <sys/endian.h>
 #endif
 
 static inline uint32_t get_short(const uint8_t *data) {

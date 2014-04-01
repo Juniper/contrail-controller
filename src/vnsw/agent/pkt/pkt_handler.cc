@@ -288,13 +288,14 @@ uint8_t *PktHandler::ParseIpPacket(PktInfo *pkt_info,
 #if defined(__linux__)
         pkt_info->dport = ntohs(pkt_info->transp.tcp->dest);
         pkt_info->sport = ntohs(pkt_info->transp.tcp->source);
+        pkt_info->tcp_ack = pkt_info->transp.tcp->ack;
 #elif defined(__FreeBSD__)
         pkt_info->dport = ntohs(pkt_info->transp.tcp->th_dport);
         pkt_info->sport = ntohs(pkt_info->transp.tcp->th_sport);
+        pkt_info->tcp_ack = ntohl(pkt_info->transp.tcp->th_ack);
 #else
 #error "Unsupported platform"
 #endif
-        pkt_info->tcp_ack = pkt_info->transp.tcp->ack;
         pkt_type = PktType::TCP;
         break;
     }

@@ -596,7 +596,9 @@ void ServicesSandesh::DhcpPktTrace(PktTrace::Pkt &pkt, DhcpPktSandesh *resp) {
     ptr += (data.ip_hdr.hdrlen * 4);
     FillUdpHdr((udphdr *)ptr, data.udp_hdr); 
     ptr += sizeof(udphdr);
-    int32_t remaining = std::min(pkt.len, PktTrace::kPktTraceSize) - 
+    PktHandler *pkt_handler = Agent::GetInstance()->pkt()->pkt_handler();
+    std::size_t trace_size = pkt_handler->PktTraceSize(PktHandler::DHCP);
+    int32_t remaining = std::min(pkt.len, trace_size) - 
                         (2 * sizeof(ether_header) + sizeof(agent_hdr) + 
                          data.ip_hdr.hdrlen * 4 + sizeof(udphdr));
     FillDhcpv4Hdr((dhcphdr *)ptr, data.dhcp_hdr, remaining);
@@ -634,7 +636,9 @@ void ServicesSandesh::DnsPktTrace(PktTrace::Pkt &pkt, DnsPktSandesh *resp) {
     ptr += (data.ip_hdr.hdrlen * 4);
     FillUdpHdr((udphdr *)ptr, data.udp_hdr); 
     ptr += sizeof(udphdr);
-    int32_t remaining = std::min(pkt.len, PktTrace::kPktTraceSize) - 
+    PktHandler *pkt_handler = Agent::GetInstance()->pkt()->pkt_handler();
+    std::size_t trace_size = pkt_handler->PktTraceSize(PktHandler::DNS);
+    int32_t remaining = std::min(pkt.len, trace_size) - 
                         (2 * sizeof(ether_header) + sizeof(agent_hdr) + 
                          data.ip_hdr.hdrlen * 4 + sizeof(udphdr));
 #else
@@ -690,7 +694,9 @@ void ServicesSandesh::OtherPktTrace(PktTrace::Pkt &pkt, PktSandesh *resp) {
     uint8_t *ptr = pkt.pkt + sizeof(ether_header) + sizeof(agent_hdr);
     FillMacHdr((ether_header *)ptr, data.mac_hdr);
     ptr += sizeof(ether_header);
-    int32_t remaining = std::min(pkt.len, PktTrace::kPktTraceSize) - 
+    PktHandler *pkt_handler = Agent::GetInstance()->pkt()->pkt_handler();
+    std::size_t trace_size = pkt_handler->PktTraceSize(PktHandler::FLOW);
+    int32_t remaining = std::min(pkt.len, trace_size) - 
                         (2 * sizeof(ether_header) + sizeof(agent_hdr));
 #else
 #error "Unsupported platform"
