@@ -171,14 +171,6 @@ public:
         return unregistered_;
     }
 
-    void set_stopped() {
-        stopped_ = true;
-    }
-
-    bool stopped() const {
-        return stopped_;
-    }
-
 private:
     RoutingInstance *routing_instance_;
 
@@ -190,7 +182,6 @@ private:
     RouteTargetList rtarget_list_;
 
     bool unregistered_;
-    bool stopped_;
 
     // Helper function to match 
     bool is_nexthop_route(BgpRoute *route) {
@@ -226,7 +217,7 @@ StaticRoute::StaticRoute(RoutingInstance *rtinst,
             Ip4Prefix &static_route, const std::vector<std::string> &rtargets, 
             IpAddress nexthop)
     : routing_instance_(rtinst), static_route_prefix_(static_route), 
-    nexthop_(nexthop), unregistered_(false), stopped_(false) {
+    nexthop_(nexthop), unregistered_(false) {
     for(std::vector<std::string>::const_iterator it = rtargets.begin();
         it != rtargets.end(); it++) {
         error_code ec;
@@ -267,7 +258,7 @@ StaticRoute::Match(BgpServer *server, BgpTable *table,
     CHECK_CONCURRENCY("db::DBTable");
     StaticRouteRequest::RequestType type;
 
-    if (!stopped() && is_nexthop_route(route)) {
+    if (is_nexthop_route(route) && !unregistered()) {
         if (deleted) 
             type = StaticRouteRequest::NEXTHOP_DELETE;
         else 
@@ -294,6 +285,12 @@ StaticRoute::Match(BgpServer *server, BgpTable *table,
             return false;
         }
     }
+
+    // The MatchState reference is taken to ensure that the route is not 
+    // deleted when request is still present in the queue
+    // This is to handle the case where MatchState already exists and 
+    // deleted entry gets reused or reused entry gets deleted.
+    state->IncrementRefCnt();
 
     // Post the Match result to StaticRoute processing task to take Action
     // Nexthop route found in NAT instance ==> Add Static Route
@@ -514,6 +511,7 @@ bool StaticRouteMgr::StaticRouteEventCallback(StaticRouteRequest *req) {
     switch (req->type_) {
         case StaticRouteRequest::NEXTHOP_ADD_CHG: {
             assert(state);
+            state->reset_deleted();
             if (route->IsDeleted() || !route->BestPath() || 
                 !route->BestPath()->IsFeasible())  {
                 break;
@@ -530,28 +528,46 @@ bool StaticRouteMgr::StaticRouteEventCallback(StaticRouteRequest *req) {
             break;
         }
         case StaticRouteRequest::NEXTHOP_DELETE: {
-            if (!state) break;
+            assert(state);
             info->RemoveStaticRoute();
             if (info->deleted() || route->IsDeleted()) {
-                listener->RemoveMatchState(table, route, info);
-                delete state;
+                state->set_deleted();
             }
             info->set_nexthop_route(NULL);
             break;
         }
         case StaticRouteRequest::DELETE_STATIC_ROUTE_DONE: {
             info->set_unregistered();
-            listener->UnregisterCondition(table, info);
-            static_route_map_.erase(info->static_route_prefix());
-            if (!routing_instance()->deleted() && 
-                routing_instance()->config() &&
-                routing_instance()->config()->instance_config())
-                resolve_trigger_->Set();
+            if (!info->num_matchstate()) {
+                listener->UnregisterCondition(table, info);
+                static_route_map_.erase(info->static_route_prefix());
+                if (!routing_instance()->deleted() && 
+                    routing_instance()->config() &&
+                    routing_instance()->config()->instance_config())
+                    resolve_trigger_->Set();
+            }
             break;
         }
         default: {
             assert(0);
             break;
+        }
+    }
+
+    if (state) {
+        state->DecrementRefCnt();
+        if (state->refcnt() == 0 && state->deleted()) {
+            listener->RemoveMatchState(table, route, info);
+            delete state;
+            if (!info->num_matchstate() && info->unregistered()) {
+                listener->UnregisterCondition(table, info);
+                static_route_map_.erase(info->static_route_prefix());
+                if (!routing_instance()->deleted() && 
+                    routing_instance()->config() &&
+                    routing_instance()->config()->instance_config())
+                    resolve_trigger_->Set();
+
+            }
         }
     }
 
@@ -627,10 +643,6 @@ void StaticRouteMgr::StopStaticRouteDone(BgpTable *table,
                            table, NULL, StaticRoutePtr(info));
 
     EnqueueStaticRouteReq(req);
-
-    // Don't process further match/delete route request.
-    StaticRoute *match = static_cast<StaticRoute *>(info);
-    match->set_stopped();
     return;
 }
 

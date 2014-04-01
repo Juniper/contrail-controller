@@ -3365,6 +3365,155 @@ TEST_P(ServiceChainParamTest, DeleteConnectedWithExtConnectRoute) {
     DeleteConnectedRoute(NULL, "1.1.2.3/32");
     task_util::WaitForIdle();
 }
+
+TEST_P(ServiceChainParamTest, DeleteEntryReuse) {
+    vector<string> instance_names = list_of("blue")("blue-i1")("red-i2")("red");
+    multimap<string, string> connections = 
+        map_list_of("blue", "blue-i1") ("red-i2", "red");
+    NetworkConfig(instance_names, connections);
+    task_util::WaitForIdle();
+
+    std::auto_ptr<autogen::ServiceChainInfo> params = 
+        GetChainConfig("controller/src/bgp/testdata/service_chain_1.xml");
+
+    // Service Chain Info
+    ifmap_test_util::IFMapMsgPropertyAdd(&config_db_, "routing-instance", 
+                                         "blue-i1", 
+                                         "service-chain-information", 
+                                         params.release(),
+                                         0);
+    task_util::WaitForIdle();
+
+    std::vector<string> routes_to_play = list_of("10.1.1.1/32")("10.1.1.2/32")("10.1.1.3/32");
+    // Add Ext connect route
+    for (std::vector<string>::iterator it = routes_to_play.begin();
+         it != routes_to_play.end(); it++)
+        AddInetRoute(NULL, "red", *it, 100);
+    task_util::WaitForIdle();
+
+    // Add Connected
+    AddConnectedRoute(NULL, "1.1.2.3/32", 100, "2.3.4.5");
+    task_util::WaitForIdle();
+
+    // Check for ExtConnect route
+    for (std::vector<string>::iterator it = routes_to_play.begin();
+         it != routes_to_play.end(); it++) {
+        TASK_UTIL_WAIT_NE_NO_MSG(InetRouteLookup("blue", *it),
+                                 NULL, 1000, 10000, 
+                                 "Wait for ExtConnect route in blue..");
+    }
+    DisableServiceChainQ();
+    for (std::vector<string>::iterator it = routes_to_play.begin();
+         it != routes_to_play.end(); it++)
+        DeleteInetRoute(NULL, "red", *it);
+    DeleteConnectedRoute(NULL, "1.1.2.3/32");
+
+    for (std::vector<string>::iterator it = routes_to_play.begin();
+         it != routes_to_play.end(); it++) {
+        BgpRoute *ext_rt = InetRouteLookup("red", *it);
+        TASK_UTIL_WAIT_EQ_NO_MSG(ext_rt->IsDeleted(),
+                                 true, 1000, 10000, 
+                                 "Wait for delete marking of ExtConnect route in red..");
+    }
+
+    for (std::vector<string>::iterator it = routes_to_play.begin();
+         it != routes_to_play.end(); it++)
+        AddInetRoute(NULL, "red", *it, 100);
+    AddConnectedRoute(NULL, "1.1.2.3/32", 100, "2.3.4.5");
+
+
+    for (std::vector<string>::iterator it = routes_to_play.begin();
+         it != routes_to_play.end(); it++)
+        DeleteInetRoute(NULL, "red", *it);
+    DeleteConnectedRoute(NULL, "1.1.2.3/32");
+
+    for (std::vector<string>::iterator it = routes_to_play.begin();
+         it != routes_to_play.end(); it++) {
+        BgpRoute *ext_rt = InetRouteLookup("red", *it);
+        TASK_UTIL_WAIT_EQ_NO_MSG(ext_rt->IsDeleted(),
+                                 true, 1000, 10000, 
+                                 "Wait for delete marking of ExtConnect route in red..");
+    }
+
+    EnableServiceChainQ();
+    TASK_UTIL_EXPECT_TRUE(bgp_server_->service_chain_mgr()->IsQueueEmpty());
+
+    task_util::WaitForIdle();
+}
+
+TEST_P(ServiceChainParamTest, EntryAfterStop) {
+    vector<string> instance_names = list_of("blue")("blue-i1")("red-i2")("red");
+    multimap<string, string> connections = 
+        map_list_of("blue", "blue-i1") ("red-i2", "red");
+    NetworkConfig(instance_names, connections);
+    task_util::WaitForIdle();
+
+    std::auto_ptr<autogen::ServiceChainInfo> params = 
+        GetChainConfig("controller/src/bgp/testdata/service_chain_1.xml");
+
+    // Service Chain Info
+    ifmap_test_util::IFMapMsgPropertyAdd(&config_db_, "routing-instance", 
+                                         "blue-i1", 
+                                         "service-chain-information", 
+                                         params.release(),
+                                         0);
+    task_util::WaitForIdle();
+
+    std::vector<string> routes_to_play;
+    // Add Ext connect route
+    for (int i = 0; i < 255; i++) {
+        stringstream route;
+        route << "10.1.1." << i << "/32";
+        routes_to_play.push_back(route.str());
+    }
+
+    for (std::vector<string>::iterator it = routes_to_play.begin();
+         it != routes_to_play.end(); it++)
+        AddInetRoute(NULL, "red", *it, 100);
+    task_util::WaitForIdle();
+
+    // Add Connected
+    AddConnectedRoute(NULL, "1.1.2.3/32", 100, "2.3.4.5");
+    task_util::WaitForIdle();
+
+    // Check for ExtConnect route
+    for (std::vector<string>::iterator it = routes_to_play.begin();
+         it != routes_to_play.end(); it++) {
+        TASK_UTIL_WAIT_NE_NO_MSG(InetRouteLookup("blue", *it),
+                                 NULL, 1000, 10000, 
+                                 "Wait for ExtConnect route in blue..");
+    }
+    DisableServiceChainQ();
+
+    ifmap_test_util::IFMapMsgPropertyDelete(&config_db_, "routing-instance", 
+                                            "blue-i1", 
+                                            "service-chain-information");
+    // Add more Ext connect route
+    for (int i = 0; i < 255; i++) {
+        stringstream route;
+        route << "10.2.1." << i << "/32";
+        routes_to_play.push_back(route.str());
+    }
+
+    for (std::vector<string>::iterator it = routes_to_play.begin();
+         it != routes_to_play.end(); it++)
+        AddInetRoute(NULL, "red", *it, 200);
+    AddConnectedRoute(NULL, "1.1.2.3/32", 100, "2.3.4.5");
+
+    EnableServiceChainQ();
+    TASK_UTIL_EXPECT_TRUE(bgp_server_->service_chain_mgr()->IsQueueEmpty());
+
+    for (std::vector<string>::iterator it = routes_to_play.begin();
+         it != routes_to_play.end(); it++)
+        DeleteInetRoute(NULL, "red", *it);
+    DeleteConnectedRoute(NULL, "1.1.2.3/32");
+
+    TASK_UTIL_WAIT_EQ_NO_MSG(RouteCount("red"),
+                             0, 1000, 10000, 
+                             "Wait for route in red to be deleted..");
+    task_util::WaitForIdle();
+}
+
 INSTANTIATE_TEST_CASE_P(Instance, ServiceChainParamTest,
         ::testing::Combine(::testing::Bool(), ::testing::Bool()));
 

@@ -35,7 +35,7 @@ ServiceChain::ServiceChain(RoutingInstance *src, RoutingInstance *dest,
                            IpAddress addr) 
     : src_(src), dest_(dest), connected_(connected), connected_route_(NULL),
     service_chain_addr_(addr), connected_table_unregistered_(false),
-    dest_table_unregistered_(false), connected_stopped_(false), dest_stopped_(false),
+    dest_table_unregistered_(false), 
     aggregate_(false), src_table_delete_ref_(this, src_table()->deleter()) {
     for(std::vector<std::string>::const_iterator it = subnets.begin();
         it != subnets.end(); it++) {
@@ -105,7 +105,7 @@ bool ServiceChain::Match(BgpServer *server, BgpTable *table,
     ServiceChainRequest::RequestType type;
     Ip4Prefix aggregate_match;
 
-    if (table == dest_table() && !dest_stopped()) {
+    if (table == dest_table() && !dest_table_unregistered()) {
         if (is_connected_route(route)) {
             return false;
         }
@@ -136,7 +136,8 @@ bool ServiceChain::Match(BgpServer *server, BgpTable *table,
             else
                 type = ServiceChainRequest::EXT_CONNECT_ROUTE_ADD_CHG;
         }
-    } else if ((table == connected_table()) && !connected_stopped() && 
+    } else if ((table == connected_table()) && 
+               !connected_table_unregistered() &&
                is_connected_route(route)) {
         if (!deleted) {
             if (route->BestPath() == NULL || !route->BestPath()->IsFeasible()) {
@@ -172,6 +173,12 @@ bool ServiceChain::Match(BgpServer *server, BgpTable *table,
             return false;
         }
     }
+
+    // The MatchState reference is taken to ensure that the route is not 
+    // deleted when request is still present in the queue
+    // This is to handle the case where MatchState already exists and 
+    // deleted entry gets reused or reused entry gets deleted.
+    state->IncrementRefCnt();
 
     // Post the Match result to ServiceChain task to take Action
     // More_Specific_Present + Connected_Route_exists ==> Add Aggregate Route
@@ -395,8 +402,10 @@ static void RemoveMatchState(BgpConditionListener *listener, ServiceChain *info,
                              BgpTable *table, BgpRoute *route, 
                              ServiceChainState *state) {
     if (info->deleted() || route->IsDeleted()) {
-        listener->RemoveMatchState(table, route, info);
-        delete state;
+        // At this point we are ready to release the MatchState on the DBEntry
+        // So mark it as deleted.. Actual removal of the state is done when 
+        // ref count is 0
+        state->set_deleted();
     }   
 }
 
@@ -458,15 +467,16 @@ bool ServiceChainMgr::RequestHandler(ServiceChainRequest *req) {
 
     ServiceChainState *state = NULL;
     if (route) {
-        state = 
-            static_cast<ServiceChainState *>(listener->GetMatchState(table, 
-                                                                     route, 
-                                                                     info));
+        state = static_cast<ServiceChainState *>
+            (listener->GetMatchState(table, route, info));
     }
 
     switch (req->type_) {
         case ServiceChainRequest::MORE_SPECIFIC_ADD_CHG: {
             assert(state);
+            if (state->deleted()) {
+                state->reset_deleted();
+            }
             if (info->add_more_specific(aggregate_match, route) && 
                 info->connected_route_valid()) {
                 // Add the aggregate route
@@ -476,7 +486,7 @@ bool ServiceChainMgr::RequestHandler(ServiceChainRequest *req) {
             break;
         }
         case ServiceChainRequest::MORE_SPECIFIC_DELETE: {
-            if (!state) break;
+            assert(state);
             if (info->delete_more_specific(aggregate_match, route)) {
                 // Delete the aggregate route
                 info->RemoveServiceChainRoute(aggregate_match, true);
@@ -491,6 +501,9 @@ bool ServiceChainMgr::RequestHandler(ServiceChainRequest *req) {
                 break;
             }
 
+            if (state->deleted()) {
+                state->reset_deleted();
+            }
             // Store the old path list
             ServiceChain::ConnectedPathIdList path_ids;
             path_ids.swap(*(info->ConnectedPathIds()));
@@ -520,7 +533,7 @@ bool ServiceChainMgr::RequestHandler(ServiceChainRequest *req) {
             break;
         }
         case ServiceChainRequest::CONNECTED_ROUTE_DELETE: {
-            if (!state) break;
+            assert(state);
             ServiceChain::PrefixToRouteListMap *vnprefix_list 
                 = info->prefix_to_route_list_map();
             for (ServiceChain::PrefixToRouteListMap::iterator it 
@@ -542,6 +555,9 @@ bool ServiceChainMgr::RequestHandler(ServiceChainRequest *req) {
         }
         case ServiceChainRequest::EXT_CONNECT_ROUTE_ADD_CHG: {
             assert(state);
+            if (state->deleted()) {
+                state->reset_deleted();
+            }
             info->ext_connecting_routes()->insert(route);
             if (info->connected_route_valid()) { 
                 InetRoute *ext_route = dynamic_cast<InetRoute *>(route);
@@ -551,7 +567,7 @@ bool ServiceChainMgr::RequestHandler(ServiceChainRequest *req) {
             break;
         }
         case ServiceChainRequest::EXT_CONNECT_ROUTE_DELETE: {
-            if (!state) break;
+            assert(state);
             if (info->ext_connecting_routes()->erase(route)) {
                 InetRoute *inet_route = dynamic_cast<InetRoute *>(route);
                 info->RemoveServiceChainRoute(inet_route->GetPrefix(), false);
@@ -561,12 +577,17 @@ bool ServiceChainMgr::RequestHandler(ServiceChainRequest *req) {
          }
         case ServiceChainRequest::STOP_CHAIN_DONE: {
             if (table == info->connected_table()) {
-                info->connected_table_unregistered();
+                info->set_connected_table_unregistered();
+                if (!info->num_matchstate()) {
+                    listener->UnregisterCondition(table, info);
+                }
             }
             if (table == info->dest_table()) {
-                info->dest_table_unregistered();
+                info->set_dest_table_unregistered();
+                if (!info->num_matchstate()) {
+                    listener->UnregisterCondition(table, info);
+                }
             }
-            listener->UnregisterCondition(table, info);
             if (info->unregistered()) {
                 chain_set_.erase(info->src_routing_instance());
                 StartResolve();
@@ -624,6 +645,25 @@ bool ServiceChainMgr::RequestHandler(ServiceChainRequest *req) {
         }
     }
 
+    if (state) {
+        state->DecrementRefCnt();
+        if (state->refcnt() == 0 && state->deleted()) {
+            listener->RemoveMatchState(table, route, info);
+            delete state;
+            if (!info->num_matchstate()) {
+                if (info->dest_table_unregistered()) {
+                    listener->UnregisterCondition(info->dest_table(), info);
+                }
+                if (info->connected_table_unregistered()) {
+                    listener->UnregisterCondition(info->connected_table(), info);
+                }
+                if (info->unregistered()) {
+                    chain_set_.erase(info->src_routing_instance());
+                    StartResolve();
+                }
+            }
+        }
+    }
     delete req;
     return true;
 }
@@ -776,12 +816,6 @@ void ServiceChainMgr::StopServiceChainDone(BgpTable *table,
                                 NULL, Ip4Prefix(), ServiceChainPtr(info));
 
     server()->service_chain_mgr()->Enqueue(req);
-
-    ServiceChain *chain = static_cast<ServiceChain *>(info);
-    if (table == chain->connected_table())
-        chain->set_connected_stopped();
-    if (table == chain->dest_table())
-        chain->set_dest_stopped();
     return;
 }
 

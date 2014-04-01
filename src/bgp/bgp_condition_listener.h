@@ -25,7 +25,7 @@
 //
 class ConditionMatch {
 public:
-    ConditionMatch() : deleted_(false) {
+    ConditionMatch() : deleted_(false), num_matchstate_(0) {
         refcount_ = 0;
     }
 
@@ -44,6 +44,20 @@ public:
         return deleted_;
     }
 
+    void IncrementNumMatchstate() {
+        tbb::mutex::scoped_lock lock(mutex_);
+        num_matchstate_++;
+    }
+
+    void DecrementNumMatchstate() {
+        assert(num_matchstate_);
+        num_matchstate_--;
+    }
+
+    uint32_t num_matchstate() const {
+        return num_matchstate_;
+    }
+
 private:
     friend class BgpConditionListener;
     friend void intrusive_ptr_add_ref(ConditionMatch *match);
@@ -52,6 +66,9 @@ private:
         deleted_ = true;
     }
     bool deleted_;
+
+    tbb::mutex mutex_;
+    uint32_t num_matchstate_;
 
     tbb::atomic<int> refcount_;
 };
@@ -78,8 +95,32 @@ typedef boost::intrusive_ptr<ConditionMatch> ConditionMatchPtr;
 //
 class ConditionMatchState {
 public:
+    ConditionMatchState() : refcount_(0), deleted_(false) {
+    }
     virtual ~ConditionMatchState() {
     }
+    uint32_t refcnt() const {
+        return refcount_;
+    }
+    void IncrementRefCnt() {
+        refcount_++;
+    }
+    void set_deleted() {
+        deleted_ = true;
+    }
+    void reset_deleted() {
+        deleted_ = false;
+    }
+    bool deleted() const {
+        return deleted_;
+    }
+    void DecrementRefCnt() {
+        assert(refcount_);
+        refcount_--;
+    }
+private:
+    uint32_t refcount_;
+    bool deleted_;
 };
 
 // 
