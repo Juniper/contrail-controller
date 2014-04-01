@@ -24,22 +24,17 @@ then
     source $VERSIONFILE
 fi
 
-echo "Package                                Version                       Build-ID | Repo | Package Name"
-echo "-------------------------------------- ----------------------------- ----------------------------------"
+# get all install packages
+dpkg --list >> /tmp/installed_pkgs
+
+echo "Package                                Version                 Build-ID | Repo | Package Name"
+echo "-------------------------------------- ----------------------- ----------------------------------"
 for i in `cat $CONTRAILRPMS`; do
-  ret_code=$?
-  if [ $ret_code == 0 ]; then
-      v="";
-      v=$(dpkg --list $i | awk '/^.i/ { print $3 }') 2> /dev/null 1> /dev/null
-      rr=$(apt-cache policy $i | grep $CONTRAIL_INSTALLS | awk '{print $2}') 2> /dev/null 1> /dev/null
-      # Override if @contrail_install_repo
-      if [[ -n $rr ]] && [[ -n $BUILDID ]]; then
-          rr=$BUILDID
-      fi
-  fi
-  # Only Installed packages are displayed
-  if [[ -n $rr ]]; then
-      printf "%-39s%-30s%-30s\n" $i $v $rr
-      unset rr
-  fi
+    version=$(grep "$i " /tmp/installed_pkgs | awk '/^.i/ { print $3 }')
+    if [[ -n $version ]]; then
+        buildid=$(echo $version | cut -d "-" -f2)
+        version=$(echo $version | cut -d "-" -f1-2)
+        printf "%-39s%-31s%-20s\n" $i $version $buildid
+    fi
+    unset version buildid
 done
