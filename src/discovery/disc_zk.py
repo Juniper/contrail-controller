@@ -74,7 +74,7 @@ class DiscoveryZkClient(ZookeeperClient):
             return self._zk.create(path, value, makepath=makepath, sequence=sequence)
         except (kazoo.exceptions.SessionExpiredError,
                 kazoo.exceptions.ConnectionLoss):
-            self.connect(restart = True)
+            self.reconnect()
             return self.create_node(path, value, makepath, sequence)
     # end create_node
 
@@ -84,7 +84,7 @@ class DiscoveryZkClient(ZookeeperClient):
             return data,stat
         except (kazoo.exceptions.SessionExpiredError,
                 kazoo.exceptions.ConnectionLoss):
-            self.connect(restart = True)
+            self.reconnect()
             return self.read_node(path)
         except kazoo.exceptions.NoNodeException:
             self.syslog('exc read: node %s does not exist' % path)
@@ -96,7 +96,7 @@ class DiscoveryZkClient(ZookeeperClient):
             return self._zk.exists(path)
         except (kazoo.exceptions.SessionExpiredError,
                 kazoo.exceptions.ConnectionLoss):
-            self.connect(restart = True)
+            self.reconnect()
             return self.exists_node(path)
     # end exists_node
 
