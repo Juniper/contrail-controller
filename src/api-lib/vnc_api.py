@@ -69,7 +69,7 @@ class VncApi(VncApiClientGen):
     _DEFAULT_BASE_URL = "/"
 
     def __init__(self, username=None, password=None, tenant_name=None,
-                 api_server_host='127.0.0.1', api_server_port='8082',
+                 api_server_host=None, api_server_port=None,
                  api_server_url=None, conf_file=None, user_info=None,
                  auth_token=None):
         # TODO allow for username/password to be present in creds file
