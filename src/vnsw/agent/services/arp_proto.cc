@@ -177,7 +177,6 @@ void ArpProto::UpdateArp(Ip4Address &ip, struct ether_addr &mac,
                                   FindActiveEntry(&nh_key));
 
     std::string mac_str;
-//.de.byte.breaker
 #if defined(__linux__)
     ServicesSandesh::MacToString(mac.ether_addr_octet, mac_str);
 #elif defined(__FreeBSD__)

@@ -47,7 +47,6 @@ void DhcpProto::ItfNotify(DBEntryBase *entry) {
             set_ip_fabric_interface(itf);
             set_ip_fabric_interface_index(itf->id());
             if (run_with_vrouter_) {
-//.de.byte.breaker
 #if defined(__linux__)
                 set_ip_fabric_interface_mac((char *)itf->mac().ether_addr_octet);
             } else {

@@ -201,7 +201,6 @@ void ServicesSandesh::FillVrouterHdr(PktTrace::Pkt &pkt, VrouterHdr &resp) {
                "trap-resolve", "trap-flow-miss", "trap-l3-protocol",
                "trap-diag", "trap-ecmp-resolve" } };
     uint8_t *ptr = pkt.pkt;
-//.de.byte.breaker
 #if defined(__linux__)
     ptr += sizeof(ethhdr);   // skip the outer ethernet header
 #elif defined(__FreeBSD__)
@@ -221,7 +220,6 @@ void ServicesSandesh::FillVrouterHdr(PktTrace::Pkt &pkt, VrouterHdr &resp) {
     resp.nh = ntohl(hdr->hdr_nh);
 }
 
-//.de.byte.breaker
 #if defined(__linux__)
 void ServicesSandesh::FillMacHdr(ethhdr *eth, MacHdr &resp) {
     MacToString(eth->h_dest, resp.dest_mac);
@@ -235,10 +233,11 @@ void ServicesSandesh::FillMacHdr(ether_header *eth, MacHdr &resp) {
     MacToString(eth->ether_dhost, resp.dest_mac);
     MacToString(eth->ether_shost, resp.src_mac);
     uint16_t type = ntohs(eth->ether_type);
-    resp.type = (type == 0x800) ? "ip" : 
-                 (type == 0x806) ? "arp" : IntToString(type);
+    resp.type = (type == ETHERTYPE_IP) ? "ip" : 
+                 (type == ETHERTYPE_ARP) ? "arp" : IntToString(type);
 }
 #else
+#error "Unsupported platform"
 #endif
 
 static uint32_t get_val(void *data) {
@@ -268,7 +267,6 @@ void ServicesSandesh::FillArpHdr(ether_arp *arp, ArpHdr &resp) {
     resp.target_ip = tpa.to_string();
 }
 
-//.de.byte.breaker
 #if defined(__linux__)
 void ServicesSandesh::FillIpv4Hdr(iphdr *ip, Ipv4Hdr &resp) {
     resp.vers = ip->version;
@@ -305,7 +303,6 @@ void ServicesSandesh::FillIpv4Hdr(ip *ip, Ipv4Hdr &resp) {
 #error "Unsupported platform"
 #endif
 
-//.de.byte.breaker
 #if defined(__linux__)
 void ServicesSandesh::FillIcmpv4Hdr(icmphdr *icmp, Icmpv4Hdr &resp) {
     resp.type = (icmp->type == ICMP_ECHO) ? "echo request":
@@ -327,7 +324,6 @@ void ServicesSandesh::FillIcmpv4Hdr(icmp *icmp, Icmpv4Hdr &resp) {
 #endif
 
 
-//.de.byte.breaker
 void ServicesSandesh::FillUdpHdr(udphdr *udp, UdpHdr &resp) {
 #if defined(__linux__)
     resp.src_port = ntohs(udp->source);
@@ -551,7 +547,6 @@ void ServicesSandesh::ArpPktTrace(PktTrace::Pkt &pkt, ArpPktSandesh *resp) {
     ArpPkt data;
     FillPktData(pkt, data.info);
     FillVrouterHdr(pkt, data.agent_hdr);
-//.de.byte.breaker
 #if defined(__linux__)
     uint8_t *ptr = pkt.pkt + sizeof(ethhdr) + sizeof(agent_hdr);
     FillMacHdr((ethhdr *)ptr, data.mac_hdr);
@@ -573,7 +568,6 @@ void ServicesSandesh::DhcpPktTrace(PktTrace::Pkt &pkt, DhcpPktSandesh *resp) {
     DhcpPkt data;
     FillPktData(pkt, data.info);
     FillVrouterHdr(pkt, data.agent_hdr);
-//.de.byte.breaker
 #if defined(__linux__)
     uint8_t *ptr = pkt.pkt + sizeof(ethhdr) + sizeof(agent_hdr);
     FillMacHdr((ethhdr *)ptr, data.mac_hdr);
@@ -614,7 +608,6 @@ void ServicesSandesh::DnsPktTrace(PktTrace::Pkt &pkt, DnsPktSandesh *resp) {
     DnsPkt data;
     FillPktData(pkt, data.info);
     FillVrouterHdr(pkt, data.agent_hdr);
-//.de.byte.breaker
 #if defined(__linux__)
     uint8_t *ptr = pkt.pkt + sizeof(ethhdr) + sizeof(agent_hdr);
     FillMacHdr((ethhdr *)ptr, data.mac_hdr);
@@ -654,7 +647,6 @@ void ServicesSandesh::IcmpPktTrace(PktTrace::Pkt &pkt, IcmpPktSandesh *resp) {
     IcmpPkt data;
     FillPktData(pkt, data.info);
     FillVrouterHdr(pkt, data.agent_hdr);
-//.de.byte.breaker
 #if defined(__linux__)
     uint8_t *ptr = pkt.pkt + sizeof(ethhdr) + sizeof(agent_hdr);
     FillMacHdr((ethhdr *)ptr, data.mac_hdr);
@@ -681,7 +673,6 @@ void ServicesSandesh::OtherPktTrace(PktTrace::Pkt &pkt, PktSandesh *resp) {
     PktDump data;
     FillPktData(pkt, data.info);
     FillVrouterHdr(pkt, data.agent_hdr);
-//.de.byte.breaker
 #if defined(__linux__)
     uint8_t *ptr = pkt.pkt + sizeof(ethhdr) + sizeof(agent_hdr);
     FillMacHdr((ethhdr *)ptr, data.mac_hdr);

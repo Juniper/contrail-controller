@@ -727,7 +727,6 @@ void VrouterUveEntry::SendVrouterUve() {
 string VrouterUveEntry::GetMacAddress(const ether_addr &mac) const {
     stringstream ss;
     ss << setbase(16) << setfill('0') << setw(2) 
-//.de.byte.breaker
 #if defined(__linux__)
       << static_cast<unsigned int>(mac.ether_addr_octet[0])
       << static_cast<unsigned int>(mac.ether_addr_octet[1])

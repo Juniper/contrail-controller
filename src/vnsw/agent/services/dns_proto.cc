@@ -2,7 +2,6 @@
  * Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
  */
 
-//.de.byte.breaker
 #if defined(__FreeBSD__)
 #include <sys/types.h>
 #endif

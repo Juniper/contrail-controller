@@ -57,13 +57,12 @@ Ping::CreateTcpPkt() {
     pkt_info->UpdateHeaderPtr();
     pkt_handler->TcpHdr(htonl(sip_.to_ulong()), sport_,  htonl(dip_.to_ulong()),
                         dport_, false, rand(), data_len_ + sizeof(tcphdr));
-//.de.byte.breaker
 #if defined(__linux__)
     pkt_handler->IpHdr(data_len_ + sizeof(tcphdr) + sizeof(iphdr),
 #elif defined(__FreeBSD__)
     pkt_handler->IpHdr(data_len_ + sizeof(tcphdr) + sizeof(ip),
 #else
-#error "Unsupporetd protocol"
+#error "Unsupporetd platform"
 #endif
                        ntohl(sip_.to_ulong()), ntohl(dip_.to_ulong()),
                        IPPROTO_TCP);
@@ -90,7 +89,6 @@ Ping::CreateUdpPkt() {
     pkt_info->UpdateHeaderPtr();
     pkt_handler->UdpHdr(data_len_+ sizeof(udphdr), sip_.to_ulong(), sport_,
                         dip_.to_ulong(), dport_);
-//.de.byte.breaker
 #if defined(__linux__)
     pkt_handler->IpHdr(data_len_ + sizeof(udphdr) + sizeof(iphdr),
 #elif defined(__FreeBSD__)

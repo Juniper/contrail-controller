@@ -38,7 +38,6 @@ public:
     InterfaceKSyncEntry(InterfaceKSyncObject *obj, const Interface *intf);
     virtual ~InterfaceKSyncEntry();
 
-//.de.byte.breaker
 #if defined(__linux__)
     const uint8_t *mac() const {return mac_.ether_addr_octet;}
 #else

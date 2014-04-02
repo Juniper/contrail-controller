@@ -11,7 +11,6 @@
 IcmpHandler::IcmpHandler(Agent *agent, boost::shared_ptr<PktInfo> info,
                          boost::asio::io_service &io) 
     : ProtoHandler(agent, info, io), icmp_(pkt_info_->transp.icmp) {
-//.de.byte.breaker
 #if defined(__linux__)
     icmp_len_ = ntohs(pkt_info_->ip->tot_len) - (pkt_info_->ip->ihl * 4);
 #elif defined(__FreeBSD__)
@@ -34,7 +33,6 @@ bool IcmpHandler::Run() {
     if (!vm_itf->ipv4_forwarding()) { 
         return true;
     } 
-//.de.byte.breaker
 #if defined(__linux__)
     switch (icmp_->type) {
 #elif defined(__FreeBSD__)
@@ -57,7 +55,6 @@ bool IcmpHandler::Run() {
 }
 
 bool IcmpHandler::CheckPacket() {
-//.de.byte.breaker
 #if defined(__linux__)
     if (pkt_info_->len < (IPC_HDR_LEN + sizeof(ethhdr) + 
                           ntohs(pkt_info_->ip->tot_len)))
@@ -83,7 +80,6 @@ bool IcmpHandler::CheckPacket() {
 }
 
 void IcmpHandler::SendResponse() {
-//.de.byte.breaker
 #if defined(__linux__)
     unsigned char src_mac[ETH_ALEN];
     unsigned char dest_mac[ETH_ALEN];

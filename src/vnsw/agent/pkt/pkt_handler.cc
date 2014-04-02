@@ -242,20 +242,17 @@ void PktHandler::SetOuterIp(PktInfo *pkt_info, uint8_t *pkt) {
 
 uint8_t *PktHandler::ParseIpPacket(PktInfo *pkt_info,
                                    PktType::Type &pkt_type, uint8_t *pkt) {
-//.de.byte.breaker
 #if defined(__linux__)
     pkt_info->ip = (iphdr *) pkt;
     pkt_info->ip_saddr = ntohl(pkt_info->ip->saddr);
     pkt_info->ip_daddr = ntohl(pkt_info->ip->daddr);
     pkt_info->ip_proto = pkt_info->ip->protocol;
     pkt += (pkt_info->ip->ihl << 2);
-//.de.byte.breaker Why<< 2??
 #elif defined(__FreeBSD__)
     pkt_info->ip = (ip *) pkt;
     pkt_info->ip_saddr = ntohl(pkt_info->ip->ip_src.s_addr);
     pkt_info->ip_daddr = ntohl(pkt_info->ip->ip_dst.s_addr);
     pkt_info->ip_proto = pkt_info->ip->ip_p;
-//.de.byte.breaker Why<< 2??
     pkt += (pkt_info->ip->ip_hl << 2);
 #else
 #error "Unsupported platform"
@@ -266,7 +263,6 @@ uint8_t *PktHandler::ParseIpPacket(PktInfo *pkt_info,
         pkt_info->transp.udp = (udphdr *) pkt;
         pkt += sizeof(udphdr);
         pkt_info->data = pkt;
-
 #if defined(__linux__)
         pkt_info->dport = ntohs(pkt_info->transp.udp->dest);
         pkt_info->sport = ntohs(pkt_info->transp.udp->source);

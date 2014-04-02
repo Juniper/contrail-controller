@@ -355,7 +355,6 @@ void ArpNH::SendObjectLog(AgentLogEvent::type event) const {
     const Ip4Address *ip = GetIp();
     info.set_dest_ip(ip->to_string());
 
-//.de.byte.breaker
 #if defined(__linux__)
     const unsigned char *m = GetMac()->ether_addr_octet;
 #elif defined(__FreeBSD__)
@@ -438,7 +437,6 @@ bool InterfaceNH::Change(const DBRequest *req) {
         ret = true;
     }
     if (is_multicastNH()) {
-//.de.byte.breaker
 #if defined(__linux__)
         dmac_.ether_addr_octet[0] = 0xFF;
         dmac_.ether_addr_octet[1] = 0xFF;
@@ -527,7 +525,6 @@ void InterfaceNH::CreateInetInterfaceNextHop(const string &ifname,
 
     struct ether_addr mac;
     memset(&mac, 0, sizeof(mac));
-//.de.byte.breaker
 #if defined(__linux__)
     mac.ether_addr_octet[ETHER_ADDR_LEN-1] = 1;
 #elif defined(__FreeBSD__)
@@ -563,7 +560,6 @@ void InterfaceNH::CreatePacketInterfaceNhReq(const string &ifname) {
 
     struct ether_addr mac;
     memset(&mac, 0, sizeof(mac));
-//.de.byte.breaker
 #if defined(__linux__)
     mac.ether_addr_octet[ETHER_ADDR_LEN-1] = 1;
 #elif defined(__FreeBSD__)
@@ -596,7 +592,6 @@ void InterfaceNH::SendObjectLog(AgentLogEvent::type event) const {
     const Interface *intf = GetInterface();
     FillObjectLogIntf(intf, info);
 
-//.de.byte.breaker
 #if defined(__linux__)
     const unsigned char *m = GetDMac().ether_addr_octet;
 #elif defined(__FreeBSD__)
@@ -1094,7 +1089,6 @@ void VlanNH::SendObjectLog(AgentLogEvent::type event) const {
     const Interface *intf = GetInterface();
     FillObjectLogIntf(intf, info);
 
-//.de.byte.breker
 #if defined(__linux__)
     const unsigned char *m = GetDMac().ether_addr_octet;
 #elif defined(__FreeBSD__)
@@ -1796,7 +1790,6 @@ void NextHop::SetNHSandeshData(NhSandeshData &data) const {
                 break;
             }
             data.set_itf(arp->GetInterface()->name());
-//.de.byte.breaker
 #if defined(__linux__)
             const unsigned char *m = arp->GetMac()->ether_addr_octet;
 #elif defined(__FreeBSD__)
@@ -1821,7 +1814,6 @@ void NextHop::SetNHSandeshData(NhSandeshData &data) const {
             data.set_type("interface");
             const InterfaceNH *itf = static_cast<const InterfaceNH *>(this);
             data.set_itf(itf->GetInterface()->name());
-//de.byte.breaker
 #if defined(__linux__)
             const unsigned char *m = itf->GetDMac().ether_addr_octet;
 #elif defined(__FreeBSD__)
@@ -1852,7 +1844,6 @@ void NextHop::SetNHSandeshData(NhSandeshData &data) const {
                                   (tun->GetRt()->GetActiveNextHop());
                 if (nh->GetType() == NextHop::ARP) {
                     const ArpNH *arp_nh = static_cast<const ArpNH *>(nh);
-//.de.byte.breaker
 #if defined(__linux__)
                     const unsigned char *m = arp_nh->GetMac()->ether_addr_octet;
 #elif defined(__FreeBSD__)
@@ -1883,7 +1874,6 @@ void NextHop::SetNHSandeshData(NhSandeshData &data) const {
                 if (nh->GetType() == NextHop::ARP) {
                     const ArpNH *arp_nh = static_cast<const ArpNH *>(nh);
                     (mir_nh->GetRt()->GetActiveNextHop());
-//.de.byte.breaker
 #if defined(__linux__)
                     const unsigned char *m = arp_nh->GetMac()->ether_addr_octet;
 #elif defined(__FreeBSD__)
@@ -1929,7 +1919,6 @@ void NextHop::SetNHSandeshData(NhSandeshData &data) const {
             const VlanNH *itf = static_cast<const VlanNH *>(this);
             data.set_itf(itf->GetInterface()->name());
             data.set_vlan_tag(itf->GetVlanTag());
-//.de.byte.breaker
 #if defined(__linux__)
             const unsigned char *m = itf->GetDMac().ether_addr_octet;
 #elif defined(__FreeBSD__)

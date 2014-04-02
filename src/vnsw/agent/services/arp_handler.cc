@@ -49,14 +49,7 @@ bool ArpHandler::HandlePacket() {
         if ((ntohs(arp_->ea_hdr.ar_hrd) != ARPHRD_ETHER) ||
             (ntohs(arp_->ea_hdr.ar_pro) != 0x800) ||
             (arp_->ea_hdr.ar_hln != ETHER_ADDR_LEN) || 
-#if defined(__linux__)
             (arp_->ea_hdr.ar_pln != IPv4_ALEN)) {
-#elif defined(__FreeBSD__)
-//.de.byte.breaker Need to find define for that
-            (arp_->ea_hdr.ar_pln != 4)) {
-#else 
-#error "Unsupported platform"
-#endif
             arp_proto->StatsErrors();
             ARP_TRACE(Error, "Received Invalid ARP packet");
             return true;
@@ -300,15 +293,7 @@ uint16_t ArpHandler::ArpHdr(const unsigned char *smac, in_addr_t sip,
     arp_->ea_hdr.ar_hrd = htons(ARPHRD_ETHER);
     arp_->ea_hdr.ar_pro = htons(0x800);
     arp_->ea_hdr.ar_hln = ETHER_ADDR_LEN;
-//.de.byte.breaker
-#if defined(__linux__)
     arp_->ea_hdr.ar_pln = IPv4_ALEN;
-#elif defined(__FreeBSD__)
-//.de.byte.breaker Need to find define for that
-    arp_->ea_hdr.ar_pln = 4; //IPv4_ALEN;
-#else
-#error "Unsupported platform"
-#endif
     arp_->ea_hdr.ar_op = htons(op);
     memcpy(arp_->arp_sha, smac, ETHER_ADDR_LEN);
     sip = htonl(sip);

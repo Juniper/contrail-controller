@@ -2,7 +2,6 @@
  * Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
  */
 
-//.de.byte.breaker
 #if defined(__linux__)
 #include <netinet/ether.h>
 #elif defined(__FreeBSD__)
@@ -825,24 +824,22 @@ void NHKSyncEntry::SetEncap(std::vector<int8_t> &encap) {
     const uint8_t *smac = nil_mac;
     /* DMAC encode */
     for (int i = 0 ; i < ETHER_ADDR_LEN; i++) {
-//.de.byte.breaker
 #if defined(__linux__)
         encap.push_back(dmac_.ether_addr_octet[i]);
 #elif defined(__FreeBSD__)
         encap.push_back(dmac_.octet[i]);
 #else
-#error "Unsported platform"
+#error "Unsupported platform"
 #endif
     }
     /* SMAC encode */
     if (type_ == NextHop::VLAN) {
-//.de.byte.breaker
 #if defined(__linux__)
         smac = smac_.ether_addr_octet;
 #elif defined(__FreeBSD__)
         smac = smac_.octet;
 #else
-#error "Unsported platform"
+#error "Unsupported platform"
 #endif
     } else {
         smac = (const uint8_t *)

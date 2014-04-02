@@ -21,18 +21,16 @@ void ProtoHandler::Send(uint16_t len, uint16_t itf, uint16_t vrf,
     // update the outer header
 #if defined(__linux__)
     struct ethhdr *eth = (ethhdr *)pkt_info_->pkt;
-//.de.byte.breaker ugly...
     std::string tmp_str((char *)eth->h_source, ETH_ALEN);
     memcpy(eth->h_source, eth->h_dest, ETH_ALEN);
     memcpy(eth->h_dest, tmp_str.data(), ETH_ALEN);
     eth->h_proto = htons(0x800);
 #elif defined(__FreeBSD__)
     struct ether_header *eth = (ether_header*)pkt_info_->pkt;
-//.de.byte.breaker ugly...
     std::string tmp_str((char *)eth->ether_shost, ETHER_ADDR_LEN);
     memcpy(eth->ether_shost, eth->ether_dhost, ETHER_ADDR_LEN);
     memcpy(eth->ether_dhost, tmp_str.data(), ETHER_ADDR_LEN);
-    eth->ether_type = htons(0x800);
+    eth->ether_type = htons(ETHERTYPE_IP);
 #else
 #error "Unsupported platform"
 #endif
@@ -137,7 +135,6 @@ void ProtoHandler::UdpHdr(uint16_t len, in_addr_t src, uint16_t src_port,
 void ProtoHandler::TcpHdr(in_addr_t src, uint16_t sport, in_addr_t dst, 
                           uint16_t dport, bool is_syn, uint32_t seq_no,
                           uint16_t len) {
-//.de.byte.breaker
 #if defined(__linux__)
     struct tcphdr *tcp = pkt_info_->transp.tcp;
     tcp->source = htons(sport);
@@ -225,7 +222,6 @@ uint16_t ProtoHandler::TcpCsum(in_addr_t src, in_addr_t dest, uint16_t len,
 void ProtoHandler::SwapL4() {
     if (pkt_info_->ip_proto == IPPROTO_TCP) {
         tcphdr *tcp = pkt_info_->transp.tcp;
-//.de.byte.breaker
 #if defined(__linux__)
         TcpHdr(htonl(pkt_info_->ip_daddr), ntohs(tcp->dest), 
                htonl(pkt_info_->ip_saddr), ntohs(tcp->source), 
@@ -242,7 +238,6 @@ void ProtoHandler::SwapL4() {
 
     } else if(pkt_info_->ip_proto == IPPROTO_UDP) {
         udphdr *udp = pkt_info_->transp.udp;
-//.de.byte.breaker
 #if defined(__linux__)
         UdpHdr(ntohs(udp->len), pkt_info_->ip_daddr, ntohs(udp->dest),
                pkt_info_->ip_saddr, ntohs(udp->source));
@@ -257,7 +252,6 @@ void ProtoHandler::SwapL4() {
 
 void ProtoHandler::SwapIpHdr() {
     //IpHdr expects IP address to be in network format
-//.de.byte.breaker
 #if defined(__linux__)
     iphdr *ip = pkt_info_->ip;
 
@@ -272,7 +266,6 @@ void ProtoHandler::SwapIpHdr() {
 }
 
 void ProtoHandler::SwapEthHdr() {
-//.de.byte.breaker
 #if defined(__linux__)
     ethhdr *eth = pkt_info_->eth;
     EthHdr(eth->h_dest, eth->h_source, ntohs(eth->h_proto));

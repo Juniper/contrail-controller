@@ -9,7 +9,6 @@
 #include <sys/socket.h>
 #include <net/ethernet.h>
 #include <net/address.h>
-//.de.byte.breaker
 #if defined(__linux__)
 #include <netinet/ether.h>
 #endif

@@ -10,20 +10,10 @@
 class DiagTable;
 class Ping: public DiagEntry {
 public:
-//.de.byte.breaker
-#if defined(__linux__)
-    static const uint32_t KPingUdpHdr = sizeof(ethhdr) +
-        sizeof(iphdr) + sizeof(udphdr) + IPC_HDR_LEN;
-    static const uint32_t KPingTcpHdr = sizeof(ethhdr) + 
-        sizeof(iphdr) + sizeof(tcphdr) + IPC_HDR_LEN;
-#elif defined(__FreeBSD__)
     static const uint32_t KPingUdpHdr = sizeof(ether_header) +
         sizeof(ip) + sizeof(udphdr) + IPC_HDR_LEN;
     static const uint32_t KPingTcpHdr = sizeof(ether_header) +
         sizeof(ip) + sizeof(tcphdr) + IPC_HDR_LEN;
-#else
-#error "Unsupported platform"
-#endif
     Ping(const PingReq *pr,DiagTable *diag_table);
     virtual ~Ping();
     virtual void SendRequest();

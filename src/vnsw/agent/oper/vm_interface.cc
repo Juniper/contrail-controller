@@ -2,7 +2,6 @@
  * Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
  */
 
-//.de.byte.breaker
 #if defined(__linux__)
 #include <netinet/ether.h>
 #endif
@@ -925,7 +924,6 @@ void VmInterface::GetOsParams() {
     }
 
     os_index_ = Interface::kInvalidIndex;
-//.de.byte.breaker
 #if defined(__linux__)
     memcpy(mac_.ether_addr_octet, agent_vrrp_mac, ETHER_ADDR_LEN);
 #elif defined(__FreeBSD__)

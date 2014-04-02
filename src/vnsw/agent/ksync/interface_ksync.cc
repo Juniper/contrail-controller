@@ -6,7 +6,6 @@
 #include <string.h>
 
 #include <net/if.h>
-//.de.byte.breaker
 #if defined(__linux__)
 #include <linux/if_tun.h>
 #endif
@@ -452,7 +451,6 @@ void GetPhyMac(const char *ifname, char *mac) {
 
     memset(&ifr, 0, sizeof(ifr));
     strncpy(ifr.ifr_name, ifname, sizeof(ifr.ifr_name) - 1);
-//.de.byte.breaker
 #if defined(__linux__)
     if (ioctl(fd, SIOCGIFHWADDR, (void *)&ifr) < 0) {
 #elif defined(__FreeBSD__)

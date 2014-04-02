@@ -9,7 +9,6 @@
 #include <boost/bind.hpp>
 #include <boost/function.hpp>
 #include <boost/asio.hpp>
-//.de.byte.breaker
 #include <net/ethernet.h>
 
 // Tap Interface handler to read or write to the "pkt0" interface.

@@ -254,7 +254,6 @@ int RouteKSyncEntry::Encode(sandesh_op::type op, uint8_t replace_plen,
     } else {
         encoder.set_rtr_family(AF_BRIDGE);
         //TODO add support for mac
-//.de.byte.breaker
 #if defined(__linux__)
         std::vector<int8_t> mac(mac_.ether_addr_octet, 
                                 &mac_.ether_addr_octet[ETHER_ADDR_LEN]);

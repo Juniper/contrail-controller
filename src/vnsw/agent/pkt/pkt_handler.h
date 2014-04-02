@@ -139,8 +139,6 @@ struct PktInfo {
     union {
         struct tcphdr   *tcp;
         struct udphdr   *udp;
-//.de.byte.breaker It does not seem to be header only, but rather
-// entire icmp packet...
         struct icmphdr  *icmp;
     } transp;
 

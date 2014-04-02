@@ -7,7 +7,6 @@
 
 #include <sys/socket.h>
 #include <net/if.h>
-//.de.byte.breaker
 #if defined(__linux__)
 #include <linux/netlink.h>
 #include <linux/if_tun.h>

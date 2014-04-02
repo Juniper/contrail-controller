@@ -2,7 +2,6 @@
  * Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
  */
 
-//.de.byte.breaker
 #if defined(__FreeBSD__)
 #include <sys/types.h>
 #endif
@@ -58,7 +57,6 @@ bool DnsHandler::HandleRequest() {
         DNS_BIND_TRACE(DnsBindError, "Received Invalid DNS request - dropping"
                        << "; itf = " << itf << "; flags.req = " 
                        << dns_->flags.req << "; src addr = " 
-//.de.byte.breaker
 #if defined(__linux__)
                        << pkt_info_->ip->saddr <<";");
 #elif defined(__FreeBSD__)
@@ -634,7 +632,6 @@ DnsHandler::Resolve(dns_flags flags, std::vector<DnsItem> &ques,
 }
 
 void DnsHandler::SendDnsResponse() {
-//.de.byte.breaker
 #if defined(__linux__)
     in_addr_t src_ip = pkt_info_->ip->daddr;
     in_addr_t dest_ip = pkt_info_->ip->saddr;
@@ -652,7 +649,6 @@ void DnsHandler::SendDnsResponse() {
 
     // fill in the response
     dns_resp_size_ += sizeof(udphdr);
-//.de.byte.breaker
 #if defined(__linux__)
     UdpHdr(dns_resp_size_, src_ip, DNS_SERVER_PORT, 
            dest_ip, ntohs(pkt_info_->transp.udp->source));
