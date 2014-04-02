@@ -29,6 +29,7 @@ public:
     MOCK_METHOD0(is_object_table_query, bool());
     MOCK_METHOD0(is_stat_table_query, bool());
     MOCK_METHOD0(is_flow_query, bool());
+    MOCK_METHOD0(is_query_parallelized, bool());
     MOCK_METHOD4(Init, void(GenDb::GenDbIf*, std::string, 
                  std::map<std::string, std::string>&, uint64_t));
 };

@@ -209,9 +209,6 @@ void SelectQuery::evaluate_fs_query_type() {
     }
     if (is_flow_tuple_specified()) {
         fs_query_type_ |= SelectQuery::FS_SELECT_FLOW_TUPLE;
-        if (!provide_timeseries && !agg_stats.size()) {
-            fs_query_type_ |= SelectQuery::FS_SELECT_T;
-        }
     }
     if (agg_stats.size()) {
         fs_query_type_ |= SelectQuery::FS_SELECT_STATS;
