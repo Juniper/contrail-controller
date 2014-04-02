@@ -69,8 +69,8 @@ for file in local_sources:
     local_sources_rules.append(
         env.Install("vnc_cfg_api_server", "#controller/src/config/api-server/" + file))
 
-bottle_sources_rules = []
-bottle_sources_rules.append(env.Install("vnc_cfg_api_server", '#/third_party/bottle-0.11.6/bottle.py'))
+#bottle_sources_rules = []
+#bottle_sources_rules.append(env.Install("vnc_cfg_api_server", '#/third_party/bottle-0.11.6/bottle.py'))
 
 generateds_rule = env.Install("vnc_cfg_api_server/gen", "../common/generatedssuper.py")
 cfixture_rule = env.Install("vnc_cfg_api_server/gen", "../common/cfixture.py")
@@ -80,7 +80,7 @@ doc_sources_rules = SConscript(dirs=['doc'], exports = 'CfgmEnv')
 sdist_depends = [generated_rule, generateds_rule, cfixture_rule]
 sdist_depends.extend(setup_sources_rules)
 sdist_depends.extend(local_sources_rules)
-sdist_depends.extend(bottle_sources_rules)
+#sdist_depends.extend(bottle_sources_rules)
 sdist_depends.extend(doc_sources_rules)
 
 # TODO: deprecate
@@ -104,3 +104,5 @@ if 'install' in BUILD_TARGETS:
     env.Depends(install_cmd, sdist_depends)
     env.Alias('install', install_cmd)
 
+env.Alias('install', env.Install(env['INSTALL_BIN'], 'contrail-api'))
+env.Alias('install', env.Install(env['INSTALL_CONF'], 'contrail-api.conf'))

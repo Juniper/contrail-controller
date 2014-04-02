@@ -54,3 +54,5 @@ if 'install' in BUILD_TARGETS:
     env.Depends(install_cmd, sdist_depends)
     env.Alias('install', install_cmd)
 
+env.Alias('install', env.Install(env['INSTALL_BIN'], 'contrail-schema'))
+env.Alias('install', env.Install(env['INSTALL_CONF'], 'contrail-schema.conf'))
