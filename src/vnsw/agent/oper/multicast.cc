@@ -247,11 +247,13 @@ void MulticastHandler::HandleIPAMChange(const VnEntry *vn,
 
     //Diff and delete or add
     while ((old_it != old_ipam.end()) && (new_it != ipam.end())) {
-        if (*old_it < *new_it) {
+        MulticastIpam mc_old_it(*old_it);
+        MulticastIpam mc_new_it(*new_it);
+        if (mc_old_it < mc_new_it) {
             DeleteSubnetRoute(vn->GetVrf()->GetName(), 
                               (*old_it).GetBroadcastAddress());
             old_it = old_ipam.erase(old_it);
-        } else if (*new_it < *old_it) {
+        } else if (mc_new_it < mc_old_it) {
             AddSubnetRoute(vn->GetVrf()->GetName(), 
                            (*new_it).GetBroadcastAddress(),
                            vn->GetName());

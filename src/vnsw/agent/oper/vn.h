@@ -45,6 +45,9 @@ struct VnIpam {
         if (ip_prefix != rhs.ip_prefix)
             return ip_prefix < rhs.ip_prefix;
 
+        if (default_gw != rhs.default_gw)
+            return default_gw < rhs.default_gw;
+
         return (plen < rhs.plen);
     }
     Ip4Address GetBroadcastAddress() const {

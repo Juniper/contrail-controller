@@ -41,6 +41,22 @@ struct OlistTunnelEntry {
 
 typedef std::vector<OlistTunnelEntry> TunnelOlist;
 
+struct MulticastIpam {
+    MulticastIpam(const VnIpam &ipam) : ipam_(ipam) { };
+
+    bool operator<(const MulticastIpam &rhs) const {
+        if (ipam_.ipam_name != rhs.ipam_.ipam_name)
+            return ipam_.ipam_name < rhs.ipam_.ipam_name;
+
+        if (ipam_.ip_prefix != rhs.ipam_.ip_prefix)
+            return ipam_.ip_prefix < rhs.ipam_.ip_prefix;
+
+        return (ipam_.plen < rhs.ipam_.plen);
+    }
+
+    const VnIpam ipam_;
+};
+
 class MulticastGroupObject {
 public:
     MulticastGroupObject(const std::string &vrf_name, 

@@ -687,7 +687,7 @@ TEST_F(AgentXmppUnitTest, ConnectionUpDown) {
 
     //ensure active path is local-vm
     EXPECT_TRUE(rt->GetActivePath()->peer()->GetType() == Peer::LOCAL_VM_PORT_PEER);
-    EXPECT_TRUE(l2_rt->GetActivePath()->peer()->GetType() == Peer::LOCAL_VM_PEER);
+    EXPECT_TRUE(l2_rt->GetActivePath()->peer()->GetType() == Peer::LOCAL_VM_PORT_PEER);
 
     // Send route, back to vrf1
     SendRouteMessage(mock_peer.get(), "vrf1", "1.1.1.2/32",
@@ -752,7 +752,7 @@ TEST_F(AgentXmppUnitTest, ConnectionUpDown) {
 
     //ensure active path is local-vm
     EXPECT_TRUE(rt2->GetActivePath()->peer()->GetType() == Peer::LOCAL_VM_PORT_PEER);
-    EXPECT_TRUE(l2_rt2->GetActivePath()->peer()->GetType() == Peer::LOCAL_VM_PEER);
+    EXPECT_TRUE(l2_rt2->GetActivePath()->peer()->GetType() == Peer::LOCAL_VM_PORT_PEER);
 
     xc->ConfigUpdate(new XmppConfigData());
     client->WaitForIdle(5);
@@ -1015,7 +1015,7 @@ TEST_F(AgentXmppUnitTest, vxlan_peer_l2route_add) {
 
     //ensure active path is local-vm
     EXPECT_TRUE(rt->GetActivePath()->peer()->GetType() == Peer::LOCAL_VM_PORT_PEER);
-    EXPECT_TRUE(l2_rt->GetActivePath()->peer()->GetType() == Peer::LOCAL_VM_PEER);
+    EXPECT_TRUE(l2_rt->GetActivePath()->peer()->GetType() == Peer::LOCAL_VM_PORT_PEER);
     uint32_t vxlan_id = l2_rt->GetActivePath()->vxlan_id();
     EXPECT_TRUE(vxlan_id != VxLanTable::kInvalidvxlan_id);
 
@@ -1104,7 +1104,7 @@ TEST_F(AgentXmppUnitTest, mpls_peer_l2route_add) {
 
     //ensure active path is local-vm
     EXPECT_TRUE(rt->GetActivePath()->peer()->GetType() == Peer::LOCAL_VM_PORT_PEER);
-    EXPECT_TRUE(l2_rt->GetActivePath()->peer()->GetType() == Peer::LOCAL_VM_PEER);
+    EXPECT_TRUE(l2_rt->GetActivePath()->peer()->GetType() == Peer::LOCAL_VM_PORT_PEER);
     uint32_t label= l2_rt->GetActivePath()->label();
     EXPECT_TRUE(label != MplsTable::kInvalidLabel);
 
