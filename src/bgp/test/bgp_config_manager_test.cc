@@ -111,6 +111,21 @@ protected:
         return config_manager_->config().FindPeering(peering_name);
     }
 
+    void VerifyBgpSessionExists(const BgpPeeringConfig *peering, string uuid) {
+        TASK_UTIL_EXPECT_TRUE(peering->bgp_peering() != NULL);
+        const autogen::BgpPeeringAttributes &attr =
+            peering->bgp_peering()->data();
+        bool found = false;
+        for (autogen::BgpPeeringAttributes::const_iterator iter = attr.begin();
+             iter != attr.end(); ++iter) {
+            if (iter->uuid == uuid) {
+                found = true;
+                break;
+            }
+        }
+        TASK_UTIL_EXPECT_TRUE(found);
+    }
+
     EventManager evm_;
     BgpServer server_;
     DB db_;
@@ -520,6 +535,98 @@ TEST_F(BgpConfigManagerTest, MasterNeighborsDelete) {
     task_util::WaitForIdle();
 
     TASK_UTIL_ASSERT_EQ(4, neighbors.size());
+
+    boost::replace_all(content_a, "<config>", "<delete>");
+    boost::replace_all(content_a, "</config>", "</delete>");
+    EXPECT_TRUE(parser_.Parse(content_a));
+    task_util::WaitForIdle();
+
+    TASK_UTIL_EXPECT_EQ(1, config_manager_->config().instances().size());
+
+    TASK_UTIL_EXPECT_EQ(0, db_graph_.edge_count());
+    TASK_UTIL_EXPECT_EQ(0, db_graph_.vertex_count());
+}
+
+TEST_F(BgpConfigManagerTest, MasterPeeringUpdate1) {
+    const BgpPeeringConfig *peering;
+    char full_name[1024];
+    snprintf(full_name, sizeof(full_name), "attr(%s:%s,%s:%s)",
+        BgpConfigManager::kMasterInstance, "local",
+        BgpConfigManager::kMasterInstance, "remote");
+
+    string content_a = FileRead("controller/src/bgp/testdata/config_test_28a.xml");
+    EXPECT_TRUE(parser_.Parse(content_a));
+    task_util::WaitForIdle();
+    TASK_UTIL_EXPECT_TRUE(FindPeeringConfig(full_name) != NULL);
+    peering = FindPeeringConfig(full_name);
+    TASK_UTIL_EXPECT_EQ(2, peering->size());
+    VerifyBgpSessionExists(peering, "1001");
+    VerifyBgpSessionExists(peering, "1004");
+
+    string content_b = FileRead("controller/src/bgp/testdata/config_test_28b.xml");
+    EXPECT_TRUE(parser_.Parse(content_b));
+    task_util::WaitForIdle();
+    TASK_UTIL_EXPECT_TRUE(FindPeeringConfig(full_name) != NULL);
+    peering = FindPeeringConfig(full_name);
+    TASK_UTIL_EXPECT_EQ(4, peering->size());
+    VerifyBgpSessionExists(peering, "1001");
+    VerifyBgpSessionExists(peering, "1002");
+    VerifyBgpSessionExists(peering, "1003");
+    VerifyBgpSessionExists(peering, "1004");
+
+    EXPECT_TRUE(parser_.Parse(content_a));
+    task_util::WaitForIdle();
+    TASK_UTIL_EXPECT_TRUE(FindPeeringConfig(full_name) != NULL);
+    peering = FindPeeringConfig(full_name);
+    TASK_UTIL_EXPECT_EQ(2, peering->size());
+    VerifyBgpSessionExists(peering, "1001");
+    VerifyBgpSessionExists(peering, "1004");
+
+    boost::replace_all(content_a, "<config>", "<delete>");
+    boost::replace_all(content_a, "</config>", "</delete>");
+    EXPECT_TRUE(parser_.Parse(content_a));
+    task_util::WaitForIdle();
+
+    TASK_UTIL_EXPECT_EQ(1, config_manager_->config().instances().size());
+
+    TASK_UTIL_EXPECT_EQ(0, db_graph_.edge_count());
+    TASK_UTIL_EXPECT_EQ(0, db_graph_.vertex_count());
+}
+
+TEST_F(BgpConfigManagerTest, MasterPeeringUpdate2) {
+    const BgpPeeringConfig *peering;
+    char full_name[1024];
+    snprintf(full_name, sizeof(full_name), "attr(%s:%s,%s:%s)",
+        BgpConfigManager::kMasterInstance, "local",
+        BgpConfigManager::kMasterInstance, "remote");
+
+    string content_a = FileRead("controller/src/bgp/testdata/config_test_29a.xml");
+    EXPECT_TRUE(parser_.Parse(content_a));
+    task_util::WaitForIdle();
+    TASK_UTIL_EXPECT_TRUE(FindPeeringConfig(full_name) != NULL);
+    peering = FindPeeringConfig(full_name);
+    TASK_UTIL_EXPECT_EQ(2, peering->size());
+    VerifyBgpSessionExists(peering, "1001");
+    VerifyBgpSessionExists(peering, "1002");
+
+    string content_b = FileRead("controller/src/bgp/testdata/config_test_29b.xml");
+    EXPECT_TRUE(parser_.Parse(content_b));
+    task_util::WaitForIdle();
+    TASK_UTIL_EXPECT_TRUE(FindPeeringConfig(full_name) != NULL);
+    peering = FindPeeringConfig(full_name);
+    TASK_UTIL_EXPECT_EQ(4, peering->size());
+    VerifyBgpSessionExists(peering, "1001");
+    VerifyBgpSessionExists(peering, "1002");
+    VerifyBgpSessionExists(peering, "1003");
+    VerifyBgpSessionExists(peering, "1004");
+
+    EXPECT_TRUE(parser_.Parse(content_a));
+    task_util::WaitForIdle();
+    TASK_UTIL_EXPECT_TRUE(FindPeeringConfig(full_name) != NULL);
+    peering = FindPeeringConfig(full_name);
+    TASK_UTIL_EXPECT_EQ(2, peering->size());
+    VerifyBgpSessionExists(peering, "1001");
+    VerifyBgpSessionExists(peering, "1002");
 
     boost::replace_all(content_a, "<config>", "<delete>");
     boost::replace_all(content_a, "</config>", "</delete>");
