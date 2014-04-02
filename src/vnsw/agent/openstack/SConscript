@@ -30,7 +30,7 @@ libnova_ins_thrift = env.Library('nova_ins_thrift', lib_srcs)
 libnova_ins = env.Library('nova_ins',
                            ['instance_service_server.cc',])
 
-#.de.byte.breaker disabling tests
+#.de.TOFIX disabling tests
 #subdirs = ['test']
 subdirs = []
 for dir in subdirs:

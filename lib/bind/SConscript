@@ -6,7 +6,7 @@ env = DefaultEnvironment()
 
 config_opts = '--prefix=' + str(Dir('#/build')) + ' --enable-threads' + ' --enable-fixed-rrset'
 
-#.de.byte.breaker Fix this on BSD, there is problem with linkage
+#.de.TOFIX Fix this on BSD, there is problem with linkage
 # of GSS KRB5, that is why I have turned GSS off
 if sys.platform.startswith('freebsd'):
     config_opts += ' --without-gssapi'
