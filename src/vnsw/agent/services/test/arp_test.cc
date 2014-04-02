@@ -444,9 +444,7 @@ TEST_F(ArpTest, ArpVrfDeleteTest) {
     WAIT_FOR(500, 1000, (agent->GetVnTable()->Size() == 0));
     WAIT_FOR(500, 1000, (VrfFind("vrf1") == false));
 
-    EXPECT_FALSE(FindArpNHEntry(target_ip, "vrf1"));
     EXPECT_FALSE(FindArpRoute(target_ip, "vrf1"));
-    EXPECT_FALSE(FindArpNHEntry(target_ip+5, "vrf1"));
     EXPECT_FALSE(FindArpRoute(target_ip+5, "vrf1"));
     agent->set_fabric_vrf_name("default-domain:default-project:ip-fabric:__default__");
 }
@@ -536,7 +534,8 @@ int main(int argc, char *argv[]) {
     bcast_ip = (src_ip & 0xFFFFFF00) | 0xFF;
     static_ip = src_ip + 10;
     Agent::GetInstance()->GetArpProto()->set_max_retries(1);
-    Agent::GetInstance()->GetArpProto()->set_retry_timeout(50);
+    Agent::GetInstance()->GetArpProto()->set_retry_timeout(30);
+    Agent::GetInstance()->GetArpProto()->set_aging_timeout(50);
 
     int ret = RUN_ALL_TESTS();
     TestShutdown();

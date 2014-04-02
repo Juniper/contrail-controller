@@ -139,9 +139,9 @@ public:
 
     void SendDnsIpc(uint8_t *pkt);
     void SendDnsIpc(InterTaskMessage cmd, uint16_t xid,
-                    uint8_t *msg = NULL, DnsHandler *handler = NULL);
+                    uint8_t *msg, DnsHandler *handler);
     void SendDnsUpdateIpc(DnsUpdateData *data, DnsAgentXmpp::XmppType type,
-                          const VmInterface *vm, bool floating = false);
+                          const VmInterface *vm, bool floating);
     void SendDnsUpdateIpc(const VmInterface *vm, const std::string &new_vdns,
                           const std::string &old_vdns,
                           const std::string &new_dom,

@@ -36,16 +36,14 @@ ArpProto::ArpProto(Agent *agent, boost::asio::io_service &io,
 }
 
 ArpProto::~ArpProto() {
+    del_gratuitous_arp_entry();
+    // we may have arp entries in arp cache without ArpNH, empty them
+    for (ArpIterator it = arp_cache_.begin(); it != arp_cache_.end(); ) {
+        it = DeleteArpEntry(it);
+    }
     agent_->GetVrfTable()->Unregister(vrf_table_listener_id_);
     agent_->GetInterfaceTable()->Unregister(interface_table_listener_id_);
     agent_->GetNextHopTable()->Unregister(nexthop_table_listener_id_);
-    del_gratuitous_arp_entry();
-    // we may have arp entries in arp cache without ArpNH, empty them
-    for (ArpCache::iterator it = arp_cache_.begin(); it != arp_cache_.end();
-         ++it) {
-        delete it->second;
-    }
-    arp_cache_.clear();
 }
 
 ProtoHandler *ArpProto::AllocProtoHandler(boost::shared_ptr<PktInfo> info,
@@ -61,20 +59,17 @@ void ArpProto::VrfNotify(DBTablePartBase *part, DBEntryBase *entry) {
                                                    vrf_table_listener_id_));
     if (entry->IsDeleted()) {
         if (state) {
-            for (ArpProto::ArpCache::iterator it = arp_cache_.begin();
+            for (ArpProto::ArpIterator it = arp_cache_.begin();
                  it != arp_cache_.end();) {
                 ArpEntry *arp_entry = it->second;
                 if (arp_entry->key().vrf == vrf && arp_entry->DeleteArpRoute()) {
-                    arp_cache_.erase(it++);
-                    delete arp_entry;
+                    it = DeleteArpEntry(it);
                 } else
                     it++;
             }
             vrf->GetInet4UnicastRouteTable()->
                 Unregister(fabric_route_table_listener_);
-            // TODO: should clear state when arp_cache_ is emptied
-            entry->ClearState(part->parent(), vrf_table_listener_id_);
-            delete state;
+            ValidateAndClearVrfState(vrf);
         }
         return;
     }
@@ -121,12 +116,11 @@ void ArpProto::InterfaceNotify(DBEntryBase *entry) {
     if (entry->IsDeleted()) {
         if (itf->type() == Interface::PHYSICAL && 
             itf->name() == agent_->GetIpFabricItfName()) {
-            for (ArpProto::ArpCache::iterator it = arp_cache_.begin();
+            for (ArpProto::ArpIterator it = arp_cache_.begin();
                  it != arp_cache_.end();) {
                 ArpEntry *arp_entry = it->second;
                 if (arp_entry->DeleteArpRoute()) {
-                    arp_cache_.erase(it++);
-                    delete arp_entry;
+                    it = DeleteArpEntry(it);
                 } else
                     it++;
             }
@@ -199,17 +193,52 @@ void ArpProto::SendArpIpc(ArpProto::ArpMsgType type, ArpKey &key) {
     agent_->pkt()->pkt_handler()->SendMessage(PktHandler::ARP, ipc);
 }
 
-bool ArpProto::AddArpEntry(const ArpKey &key, ArpEntry *entry) {
-    return arp_cache_.insert(ArpCachePair(key, entry)).second;
+bool ArpProto::AddArpEntry(ArpEntry *entry) {
+    return arp_cache_.insert(ArpCachePair(entry->key(), entry)).second;
 }
 
-bool ArpProto::DeleteArpEntry(const ArpKey &key) {
-    return (bool) arp_cache_.erase(key);
+bool ArpProto::DeleteArpEntry(ArpEntry *entry) {
+    if (!entry)
+        return false;
+
+    if (arp_cache_.erase(entry->key())) {
+        ValidateAndClearVrfState(const_cast<VrfEntry *>(entry->key().vrf));
+    }
+    delete entry;
+    return true;
+}
+
+ArpProto::ArpIterator
+ArpProto::DeleteArpEntry(ArpProto::ArpIterator iter) {
+    ArpEntry *entry = iter->second;
+    iter++;
+    DeleteArpEntry(entry);
+    return iter;
 }
 
 ArpEntry *ArpProto::FindArpEntry(const ArpKey &key) {
-    ArpCache::iterator it = arp_cache_.find(key);
+    ArpIterator it = arp_cache_.find(key);
     if (it == arp_cache_.end())
         return NULL;
     return it->second;
+}
+
+void ArpProto::ValidateAndClearVrfState(VrfEntry *vrf) {
+    if (!vrf->IsDeleted())
+        return;
+
+    for (ArpProto::ArpIterator it = arp_cache_.begin();
+         it != arp_cache_.end(); ++it) {
+        if (it->first.vrf == vrf)
+            return;
+    }
+
+    DBState *state = static_cast<DBState *>
+        (vrf->GetState(vrf->get_table_partition()->parent(),
+                       vrf_table_listener_id_));
+    if (state) {
+        vrf->ClearState(vrf->get_table_partition()->parent(),
+                        vrf_table_listener_id_);
+        delete state;
+    }
 }

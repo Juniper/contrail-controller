@@ -78,9 +78,9 @@ bool ArpHandler::HandlePacket() {
 
     const Interface *itf =
         agent()->GetInterfaceTable()->FindInterface(GetInterfaceIndex());
-    if (!itf || itf->IsDeleted()) {
+    if (!itf || !itf->IsActive()) {
         arp_proto->IncrementStatsInvalidInterface();
-        ARP_TRACE(Error, "Received ARP packet from invalid / deleted interface");
+        ARP_TRACE(Error, "Received ARP packet from invalid / inactive interface");
         return true;
     }
     if (itf->type() == Interface::VM_INTERFACE) {
@@ -92,10 +92,10 @@ bool ArpHandler::HandlePacket() {
     }
 
     const VrfEntry *vrf = itf->vrf();
-    if (!vrf || vrf->IsDeleted()) {
+    if (!vrf || !vrf->IsActive()) {
         arp_proto->IncrementStatsInvalidVrf();
         ARP_TRACE(Error, "ARP : Interface " + itf->name() +
-                         " has no / deleted VRF");
+                         " has no / inactive VRF");
         return true;
     }
 
@@ -131,8 +131,8 @@ bool ArpHandler::HandlePacket() {
                 entry->HandleArpRequest();
                 return true;
             } else {
-                entry = new ArpEntry(io_, this, key);
-                arp_proto->AddArpEntry(entry->key(), entry);
+                entry = new ArpEntry(io_, this, key, ArpEntry::INITING);
+                arp_proto->AddArpEntry(entry);
                 delete[] pkt_info_->pkt;
                 pkt_info_->pkt = NULL;
                 entry->HandleArpRequest();
@@ -146,8 +146,8 @@ bool ArpHandler::HandlePacket() {
                 entry->HandleArpReply(arp_->arp_sha);
                 return true;
             } else {
-                entry = new ArpEntry(io_, this, key);
-                arp_proto->AddArpEntry(entry->key(), entry);
+                entry = new ArpEntry(io_, this, key, ArpEntry::INITING);
+                arp_proto->AddArpEntry(entry);
                 delete[] pkt_info_->pkt;
                 pkt_info_->pkt = NULL;
                 entry->HandleArpReply(arp_->arp_sha);
@@ -161,9 +161,9 @@ bool ArpHandler::HandlePacket() {
                 entry->HandleArpReply(arp_->arp_sha);
                 return true;
             } else {
-                entry = new ArpEntry(io_, this, key);
+                entry = new ArpEntry(io_, this, key, ArpEntry::INITING);
                 entry->HandleArpReply(arp_->arp_sha);
-                arp_proto->AddArpEntry(entry->key(), entry);
+                arp_proto->AddArpEntry(entry);
                 delete[] pkt_info_->pkt;
                 pkt_info_->pkt = NULL;
                 return false;
@@ -185,8 +185,8 @@ bool ArpHandler::HandleMessage() {
         case ArpProto::ARP_RESOLVE: {
             ArpEntry *entry = arp_proto->FindArpEntry(ipc->key);
             if (!entry) {
-                entry = new ArpEntry(io_, this, ipc->key);
-                arp_proto->AddArpEntry(entry->key(), entry);
+                entry = new ArpEntry(io_, this, ipc->key, ArpEntry::INITING);
+                arp_proto->AddArpEntry(entry);
                 ret = false;
             }
             arp_proto->IncrementStatsArpReq();
@@ -212,8 +212,7 @@ bool ArpHandler::HandleMessage() {
         case ArpProto::RETRY_TIMER_EXPIRED: {
             ArpEntry *entry = arp_proto->FindArpEntry(ipc->key);
             if (entry && !entry->RetryExpiry()) {
-                arp_proto->DeleteArpEntry(entry->key());
-                delete entry;
+                arp_proto->DeleteArpEntry(entry);
             }
             break;
         }
@@ -221,8 +220,7 @@ bool ArpHandler::HandleMessage() {
         case ArpProto::AGING_TIMER_EXPIRED: {
             ArpEntry *entry = arp_proto->FindArpEntry(ipc->key);
             if (entry && !entry->AgingExpiry()) {
-                arp_proto->DeleteArpEntry(entry->key());
-                delete entry;
+                arp_proto->DeleteArpEntry(entry);
             }
             break;
         }
@@ -246,9 +244,8 @@ void ArpHandler::EntryDelete(ArpKey &key) {
     ArpProto *arp_proto = agent()->GetArpProto();
     ArpEntry *entry = arp_proto->FindArpEntry(key);
     if (entry) {
-        arp_proto->DeleteArpEntry(key);
+        arp_proto->DeleteArpEntry(entry);
         // this request comes when ARP NH is deleted; nothing more to do
-        delete entry;
     }
 }
 

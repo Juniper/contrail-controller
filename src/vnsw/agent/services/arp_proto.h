@@ -24,6 +24,7 @@ public:
 
     typedef std::map<ArpKey, ArpEntry *> ArpCache;
     typedef std::pair<ArpKey, ArpEntry *> ArpCachePair;
+    typedef std::map<ArpKey, ArpEntry *>::iterator ArpIterator;
     typedef boost::function<bool(const ArpKey &, ArpEntry *)> Callback;
 
     enum ArpMsgType {
@@ -73,8 +74,8 @@ public:
                                     boost::asio::io_service &io);
     bool TimerExpiry(ArpKey &key, uint32_t timer_type);
 
-    bool AddArpEntry(const ArpKey &key, ArpEntry *entry);
-    bool DeleteArpEntry(const ArpKey &key);
+    bool AddArpEntry(ArpEntry *entry);
+    bool DeleteArpEntry(ArpEntry *entry);
     ArpEntry *FindArpEntry(const ArpKey &key);
     std::size_t GetArpCacheSize() { return arp_cache_.size(); }
     const ArpCache& arp_cache() { return arp_cache_; }
@@ -138,6 +139,8 @@ private:
     void SendArpIpc(ArpProto::ArpMsgType type,
                     in_addr_t ip, const VrfEntry *vrf);
     void SendArpIpc(ArpProto::ArpMsgType type, ArpKey &key);
+    ArpProto::ArpIterator DeleteArpEntry(ArpProto::ArpIterator iter);
+    void ValidateAndClearVrfState(VrfEntry *vrf);
 
     ArpCache arp_cache_;
     ArpStats arp_stats_;

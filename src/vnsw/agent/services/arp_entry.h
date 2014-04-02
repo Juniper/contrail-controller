@@ -25,7 +25,7 @@ public:
     };
 
     ArpEntry(boost::asio::io_service &io, ArpHandler *handler,
-             ArpKey &key, State state = ArpEntry::INITING);
+             ArpKey &key, State state);
     virtual ~ArpEntry();
 
     const ArpKey &key() const { return key_; }

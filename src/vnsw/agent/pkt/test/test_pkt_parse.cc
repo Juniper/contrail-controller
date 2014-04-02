@@ -313,7 +313,7 @@ static bool ValidateIpPktInfo(PktInfo *pkt_info, const char *sip,
 TEST_F(PktParseTest, IP_On_Vnet_1) {
     VmInterface *vnet1 = VmInterfaceGet(1);
     PktGen *pkt = new PktGen();
-    PktInfo pkt_info;
+    PktInfo pkt_info(NULL, 0);
 
     pkt->Reset();
     MakeIpPacket(pkt, vnet1->id(), "1.1.1.1", "1.1.1.2", 1, 1, -1);
@@ -339,7 +339,7 @@ TEST_F(PktParseTest, IP_On_Vnet_1) {
 TEST_F(PktParseTest, IP_On_Eth_1) {
     PhysicalInterface *eth = EthInterfaceGet("vnet0");
     PktGen *pkt = new PktGen();
-    PktInfo pkt_info;
+    PktInfo pkt_info(NULL, 0);
 
     pkt->Reset();
     MakeIpPacket(pkt, eth->id(), "1.1.1.1", "1.1.1.2", 1, 1, -1);
@@ -363,7 +363,7 @@ TEST_F(PktParseTest, IP_On_Eth_1) {
 TEST_F(PktParseTest, GRE_On_Vnet_1) {
     VmInterface *vnet1 = VmInterfaceGet(1);
     PktGen *pkt = new PktGen();
-    PktInfo pkt_info;
+    PktInfo pkt_info(NULL, 0);
 
     pkt->Reset();
     MakeIpMplsPacket(pkt, vnet1->id(), "1.1.1.1", "1.1.1.2", 1,
@@ -394,7 +394,7 @@ TEST_F(PktParseTest, GRE_On_Enet_1) {
     PhysicalInterface *eth = EthInterfaceGet("vnet0");
     VmInterface *vnet1 = VmInterfaceGet(1);
     PktGen *pkt = new PktGen();
-    PktInfo pkt_info;
+    PktInfo pkt_info(NULL, 0);
 
     pkt->Reset();
     MakeIpMplsPacket(pkt, eth->id(), "1.1.1.1", "10.1.1.1",
@@ -428,7 +428,7 @@ TEST_F(PktParseTest, Invalid_GRE_On_Enet_1) {
     PhysicalInterface *eth = EthInterfaceGet("vnet0");
     VmInterface *vnet1 = VmInterfaceGet(1);
     PktGen *pkt = new PktGen();
-    PktInfo pkt_info;
+    PktInfo pkt_info(NULL, 0);
 
     // Invalid Label
     pkt->Reset();

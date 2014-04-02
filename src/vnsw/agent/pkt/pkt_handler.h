@@ -123,7 +123,7 @@ struct PktInfo {
         struct icmphdr  *icmp;
     } transp;
 
-    PktInfo(uint8_t *msg = NULL, std::size_t msg_size = 0);
+    PktInfo(uint8_t *msg, std::size_t msg_size);
     PktInfo(InterTaskMsg *msg);
     virtual ~PktInfo();
 

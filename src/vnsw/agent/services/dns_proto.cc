@@ -55,7 +55,7 @@ void DnsProto::InterfaceNotify(DBEntryBase *entry) {
 
     const VmInterface *vmitf = static_cast<VmInterface *>(entry);
     if (entry->IsDeleted()) {
-        SendDnsUpdateIpc(NULL, DnsAgentXmpp::Update, vmitf);
+        SendDnsUpdateIpc(NULL, DnsAgentXmpp::Update, vmitf, false);
         SendDnsUpdateIpc(NULL, DnsAgentXmpp::Update, vmitf, true);
         all_vms_.erase(vmitf);
     } else {

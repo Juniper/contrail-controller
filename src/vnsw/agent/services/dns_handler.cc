@@ -787,7 +787,8 @@ void DnsHandler::UpdateStats() {
 }
 
 bool DnsHandler::TimerExpiry(uint16_t xid) {
-    agent()->GetDnsProto()->SendDnsIpc(DnsProto::DNS_TIMER_EXPIRED, xid);
+    agent()->GetDnsProto()->SendDnsIpc(DnsProto::DNS_TIMER_EXPIRED, xid,
+                                       NULL, NULL);
     return false;
 }
 
