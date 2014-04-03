@@ -416,7 +416,7 @@ bool Ruleeng::handle_flow_object(const pugi::xml_node &parent,
 
 bool Ruleeng::rule_execute(const VizMsg *vmsgp, bool uveproc, DbHandler *db) {
     const SandeshHeader &header(vmsgp->msg->GetHeader());
-    if (db->DropMessage(header)) {
+    if (db->DropMessage(header, vmsgp)) {
         return true;
     }
     /*

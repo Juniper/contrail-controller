@@ -52,8 +52,9 @@ public:
             SandeshSession *session, const Sandesh *sandesh);
 
     void GetGeneratorSummaryInfo(std::vector<GeneratorSummaryInfo> &genlist);
-    void GetSandeshStats(std::vector<SandeshMessageStat> &smslist);
-    void GetGeneratorSandeshStatsInfo(std::vector<ModuleServerState> &genlist);
+    void GetGeneratorStats(std::vector<SandeshMessageStat> &smslist,
+        std::vector<GeneratorDbStats> &gdbslist);
+    void GetGeneratorUVEInfo(std::vector<ModuleServerState> &genlist);
     bool SendRemote(const std::string& destination,
             const std::string &dec_sandesh);
 

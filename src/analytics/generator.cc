@@ -48,105 +48,29 @@ using std::map;
         }                                                                      \
     } while (false)
 
-void Generator::UpdateMessageTypeStats(const VizMsg *vmsg) {
-    std::string messagetype(vmsg->msg->GetMessageType());
-    const SandeshHeader &header(vmsg->msg->GetHeader());
+void Generator::UpdateStatistics(const VizMsg *vmsg) {
     tbb::mutex::scoped_lock lock(smutex_);
-    MessageTypeStatsMap::iterator stats_it =
-            stats_map_.find(messagetype);
-    if (stats_it == stats_map_.end()) {
-        stats_it = (stats_map_.insert(messagetype,
-                new Stats)).first;
-    }
-    Stats *sandesh_stats = stats_it->second;
-    sandesh_stats->messages_++;
-    sandesh_stats->bytes_ += vmsg->msg->GetSize();
-    sandesh_stats->last_msg_timestamp_ = header.get_Timestamp();
+    statistics_.Update(vmsg);
 }
 
-void Generator::UpdateLogLevelStats(const VizMsg *vmsg) {
-    const SandeshHeader &header(vmsg->msg->GetHeader());
+void Generator::GetStatistics(vector<SandeshStats> &ssv) const {
     tbb::mutex::scoped_lock lock(smutex_);
-    // For system log, update the log level stats
-    if (header.get_Type() == SandeshType::SYSTEM) {
-        SandeshLevel::type level =
-                static_cast<SandeshLevel::type>(header.get_Level());
-        LogLevelStatsMap::iterator level_stats_it;
-        if (level < SandeshLevel::INVALID) {
-            std::string level_str(
-                    Sandesh::LevelToString(level));
-            level_stats_it = log_level_stats_map_.find(level_str);
-            if (level_stats_it == log_level_stats_map_.end()) {
-                level_stats_it = (log_level_stats_map_.insert(
-                        level_str, new LogLevelStats)).first;
-            }
-            LogLevelStats *level_stats = level_stats_it->second;
-            level_stats->messages_++;
-            level_stats->bytes_ += vmsg->msg->GetSize();
-            level_stats->last_msg_timestamp_ =
-                    header.get_Timestamp();
-        }
-    }
+    statistics_.Get(ssv);
 }
 
-void Generator::GetMessageTypeStats(vector<SandeshStats> &ssv) const {
+void Generator::GetStatistics(vector<SandeshLogLevelStats> &lsv) const {
     tbb::mutex::scoped_lock lock(smutex_);
-    for (MessageTypeStatsMap::const_iterator mt_it = stats_map_.begin();
-         mt_it != stats_map_.end();
-         mt_it++) {
-        SandeshStats sstats;
-        sstats.message_type = mt_it->first;
-        sstats.messages = (mt_it->second)->messages_;
-        sstats.bytes = (mt_it->second)->bytes_;
-        sstats.last_msg_timestamp = (mt_it->second)->last_msg_timestamp_;
-        ssv.push_back(sstats);
-    }
+    statistics_.Get(lsv);
 }
 
-void Generator::GetLogLevelStats(vector<SandeshLogLevelStats> &lsv) const {
+void Generator::GetStatistics(vector<SandeshMessageInfo> &smv) {
     tbb::mutex::scoped_lock lock(smutex_);
-    for (LogLevelStatsMap::const_iterator ls_it = log_level_stats_map_.begin();
-         ls_it != log_level_stats_map_.end(); ls_it++) {
-        SandeshLogLevelStats level_stats;
-        level_stats.level = ls_it->first;
-        level_stats.messages = (ls_it->second)->messages_;
-        level_stats.bytes = (ls_it->second)->bytes_;
-        level_stats.last_msg_timestamp =
-                (ls_it->second)->last_msg_timestamp_;
-        lsv.push_back(level_stats);
-    }
+    statistics_.Get(smv);
 }
-
-void Generator::UpdateMessageStats(const VizMsg *vmsg) {
-    const SandeshHeader &header(vmsg->msg->GetHeader());
-    //update the MessageStatsMap
-    //Get the loglevel string from the message
-    SandeshLevel::type level(static_cast<SandeshLevel::type>(
-        header.get_Level()));
-    LogLevelStatsMap::iterator level_stats_it;
-    if (level <= SandeshLevel::INVALID) {
-        std::string level_str(Sandesh::LevelToString(level));
-        std::string messagetype(vmsg->msg->GetMessageType());
-        //Lookup based on the pair(Messagetype,loglevel)
-        MessageStatsMap::iterator stats_it = sandesh_stats_map_.find(
-            make_pair(messagetype, level_str));
-        if (stats_it == sandesh_stats_map_.end()) {
-            //New messagetype,loglevel combination
-            std::pair<std::string,std::string> key(messagetype, level_str);
-            tbb::mutex::scoped_lock lock(smutex_);
-            stats_it = (sandesh_stats_map_.insert(key, new MessageStats)).first;
-        }
-        MessageStats *message_stats = stats_it->second;
-        message_stats->messages_++;
-        message_stats->bytes_ += vmsg->msg->GetSize();
-    } 
-} 
     
 bool Generator::ReceiveSandeshMsg(const VizMsg *vmsg, bool rsc) {
     GetDbHandler()->MessageTableInsert(vmsg);
-    UpdateMessageTypeStats(vmsg);
-    UpdateLogLevelStats(vmsg);
-    UpdateMessageStats(vmsg);
+    UpdateStatistics(vmsg);
     return ProcessRules(vmsg, rsc);
 }
 
@@ -329,39 +253,14 @@ bool SandeshGenerator::GetSandeshStateMachineStats(
 }
 
 bool SandeshGenerator::GetDbStats(uint64_t &queue_count, uint64_t &enqueues,
-    std::string &drop_level, uint64_t &msg_dropped) const {
+    std::string &drop_level, std::vector<SandeshStats> &vdropmstats) const {
     return db_handler_->GetStats(queue_count, enqueues, drop_level,
-               msg_dropped);
+               vdropmstats);
 }
 
-void Generator::GetSandeshStats(std::vector<SandeshMessageInfo> &smv) {
-    //Acquire lock b4 reading map, because an update to map happen in parallel
-    tbb::mutex::scoped_lock lock(smutex_);
-    for (MessageStatsMap::const_iterator ss_it = sandesh_stats_map_.begin();
-         ss_it != sandesh_stats_map_.end(); ss_it++) {
-         SandeshMessageInfo msg_stats;
-         //Lookup the old stats for the messagetype,loglevel and subtract it
-         //from the new message
-         msg_stats.type = (ss_it->first).first;
-         msg_stats.level = (ss_it->first).second;
-         std::pair <std::string,std::string> key = std::make_pair(msg_stats.type,msg_stats.level);
-         MessageStatsMap::iterator msg_stats_it;
-         msg_stats_it = sandesh_stats_map_old_.find(key);
-         //If entry does not exist in old map, insert it
-         if (msg_stats_it == sandesh_stats_map_old_.end()) {
-             msg_stats_it = (sandesh_stats_map_old_.insert(key,new MessageStats)).first;
-         }
-         //else subtract the old val from new val 
-         uint64_t current_messages = ss_it->second->messages_;
-         uint64_t current_bytes = ss_it->second->bytes_;
-         msg_stats.messages = current_messages - (msg_stats_it->second)->messages_;
-         msg_stats.bytes = current_bytes - (msg_stats_it->second)->bytes_;
-         //update the oldmap values
-         (msg_stats_it->second)->messages_ = current_messages;
-         (msg_stats_it->second)->bytes_ = current_bytes;
-         smv.push_back(msg_stats);
-    }
-
+bool SandeshGenerator::GetDbStats(std::vector<GenDb::DbTableInfo> &vdbti,
+    GenDb::DbErrors &dbe) {
+    return db_handler_->GetStats(vdbti, dbe);
 }
 
 void SandeshGenerator::GetGeneratorInfo(ModuleServerState &genlist) const {
