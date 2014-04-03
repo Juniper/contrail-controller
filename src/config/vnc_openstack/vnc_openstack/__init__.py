@@ -34,6 +34,7 @@ class OpenstackDriver(vnc_plugin_base.Resync):
         self._auth_host = conf_sections.get('KEYSTONE', 'auth_host')
         self._auth_user = conf_sections.get('KEYSTONE', 'admin_user')
         self._auth_passwd = conf_sections.get('KEYSTONE', 'admin_password')
+        self._admin_token = conf_sections.get('KEYSTONE', 'admin_token')
         self._auth_tenant = conf_sections.get('KEYSTONE', 'admin_tenant_name')
         auth_proto = conf_sections.get('KEYSTONE', 'auth_protocol')
         auth_url = "%s://%s:35357/v2.0" % (auth_proto, self._auth_host)
@@ -60,10 +61,14 @@ class OpenstackDriver(vnc_plugin_base.Resync):
 
     def _get_keystone_conn(self):
         if not self._kc:
-            self._kc = keystone.Client(username=self._auth_user,
-                                       password=self._auth_passwd,
-                                       tenant_name=self._auth_tenant,
-                                       auth_url=self._auth_url)
+            if self._admin_token:
+                self._kc = keystone.Client(token=self._admin_token,
+                                           endpoint=self._auth_url)
+            else:
+                self._kc = keystone.Client(username=self._auth_user,
+                                           password=self._auth_passwd,
+                                           tenant_name=self._auth_tenant,
+                                           auth_url=self._auth_url)
 
     def _resync_projects_forever(self):
         try:
@@ -154,6 +159,7 @@ class OpenstackDriver(vnc_plugin_base.Resync):
                               'w')).handle(sys.exc_info())
                 fhandle = open(self._tmp_file_name)
                 self._vnc_os_logger.error("%s" % fhandle.read())
+                gevent.sleep(2)
         #end while True
 
     #end _resync_projects_forever
