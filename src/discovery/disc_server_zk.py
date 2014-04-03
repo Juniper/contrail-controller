@@ -821,8 +821,7 @@ class DiscoveryServer():
         pubs = self._db_conn.get_all_services()
         for entry in pubs:
             if self.service_expired(entry):
-                self._db_conn.delete_service(entry['service_type'], entry['service_id'],
-                    recursive = True)
+                self._db_conn.delete_service(entry)
         return self.show_all_services()
     #end 
 
