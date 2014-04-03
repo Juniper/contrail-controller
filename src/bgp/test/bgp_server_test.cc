@@ -65,6 +65,10 @@ int StateMachineTest::hold_time_msec_ = 0;
 
 class BgpServerUnitTest : public ::testing::Test {
 protected:
+    static bool validate_done_;
+    static void ValidateClearBgpNeighborResponse(Sandesh *sandesh, bool success);
+    static void ValidateShowBgpServerResponse(Sandesh *sandesh);
+
     BgpServerUnitTest() {
         ControlNode::SetTestMode(true);
     }
@@ -129,16 +133,36 @@ protected:
                         vector<string> families1, vector<string> families2,
                         uint16_t hold_time1, uint16_t hold_time2,
                         bool delete_config);
-    static void HandleClearBgpNeighborResponse(Sandesh *sandesh, bool success);
 
     auto_ptr<EventManager> evm_;
     auto_ptr<ServerThread> thread_;
     auto_ptr<BgpServerTest> a_;
     auto_ptr<BgpServerTest> b_;
-    static bool validate_done_;
 };
 
 bool BgpServerUnitTest::validate_done_;
+
+void BgpServerUnitTest::ValidateClearBgpNeighborResponse(
+    Sandesh *sandesh, bool success) {
+    ClearBgpNeighborResp *resp = dynamic_cast<ClearBgpNeighborResp *>(sandesh);
+    EXPECT_TRUE(resp != NULL);
+    EXPECT_EQ(success, resp->get_success());
+    validate_done_ = true;
+}
+
+void BgpServerUnitTest::ValidateShowBgpServerResponse(Sandesh *sandesh) {
+    ShowBgpServerResp *resp = dynamic_cast<ShowBgpServerResp *>(sandesh);
+    EXPECT_TRUE(resp != NULL);
+    const TcpServerSocketStats &rx_stats = resp->get_rx_socket_stats();
+    EXPECT_NE(0, rx_stats.calls);
+    EXPECT_NE(0, rx_stats.bytes);
+    EXPECT_NE(0, rx_stats.average_bytes);
+    const TcpServerSocketStats &tx_stats = resp->get_tx_socket_stats();
+    EXPECT_NE(0, tx_stats.calls);
+    EXPECT_NE(0, tx_stats.bytes);
+    EXPECT_NE(0, tx_stats.average_bytes);
+    validate_done_ = true;
+}
 
 string BgpServerUnitTest::GetConfigStr(int peer_count,
         unsigned short port_a, unsigned short port_b,
@@ -279,13 +303,6 @@ void BgpServerUnitTest::VerifyPeers(int peer_count,
             TASK_UTIL_EXPECT_TRUE(peer_b->get_tr_keepalive() > verify_keepalives_count);
         }
     }
-}
-
-void BgpServerUnitTest::HandleClearBgpNeighborResponse(
-    Sandesh *sandesh, bool success) {
-    ClearBgpNeighborResp *resp = dynamic_cast<ClearBgpNeighborResp *>(sandesh);
-    TASK_UTIL_EXPECT_EQ(success, resp->get_success());
-    validate_done_ = true;
 }
 
 TEST_F(BgpServerUnitTest, Connection) {
@@ -1216,7 +1233,7 @@ TEST_F(BgpServerUnitTest, ClearNeighbor1) {
         sandesh_context.bgp_server = a_.get();
         Sandesh::set_client_context(&sandesh_context);
         Sandesh::set_response_callback(
-            boost::bind(HandleClearBgpNeighborResponse, _1, true));
+            boost::bind(ValidateClearBgpNeighborResponse, _1, true));
         ClearBgpNeighborReq *clear_req = new ClearBgpNeighborReq;
         validate_done_ = false;
         clear_req->set_name(peer_a->peer_name());
@@ -1287,7 +1304,7 @@ TEST_F(BgpServerUnitTest, ClearNeighbor2) {
         sandesh_context.bgp_server = a_.get();
         Sandesh::set_client_context(&sandesh_context);
         Sandesh::set_response_callback(
-            boost::bind(HandleClearBgpNeighborResponse, _1, true));
+            boost::bind(ValidateClearBgpNeighborResponse, _1, true));
         ClearBgpNeighborReq *clear_req = new ClearBgpNeighborReq;
         validate_done_ = false;
         clear_req->set_name(peer_a->peer_name());
@@ -1358,7 +1375,7 @@ TEST_F(BgpServerUnitTest, ClearNeighbor3) {
         sandesh_context.bgp_server = a_.get();
         Sandesh::set_client_context(&sandesh_context);
         Sandesh::set_response_callback(
-            boost::bind(HandleClearBgpNeighborResponse, _1, false));
+            boost::bind(ValidateClearBgpNeighborResponse, _1, false));
         ClearBgpNeighborReq *clear_req = new ClearBgpNeighborReq;
         validate_done_ = false;
         clear_req->set_name(peer_a->peer_name() + "extra");
@@ -1423,7 +1440,7 @@ TEST_F(BgpServerUnitTest, ClearNeighbor4) {
     sandesh_context.bgp_server = a_.get();
     Sandesh::set_client_context(&sandesh_context);
     Sandesh::set_response_callback(
-        boost::bind(HandleClearBgpNeighborResponse, _1, false));
+        boost::bind(ValidateClearBgpNeighborResponse, _1, false));
     ClearBgpNeighborReq *clear_req = new ClearBgpNeighborReq;
     validate_done_ = false;
     clear_req->set_name("");
@@ -1449,6 +1466,41 @@ TEST_F(BgpServerUnitTest, ClearNeighbor4) {
         TASK_UTIL_EXPECT_EQ(peer_a->flap_count(), flap_count_a[j]);
         TASK_UTIL_EXPECT_EQ(peer_b->flap_count(), flap_count_b[j]);
     }
+}
+
+TEST_F(BgpServerUnitTest, ShowBgpServer) {
+    int hold_time_orig = StateMachineTest::hold_time_msec_;
+    StateMachineTest::hold_time_msec_ = 30;
+    BgpPeerTest::verbose_name(true);
+    SetupPeers(3,a_->session_manager()->GetPort(),
+               b_->session_manager()->GetPort(), true);
+    VerifyPeers(3, 50);
+    StateMachineTest::hold_time_msec_ = hold_time_orig;
+
+    BgpSandeshContext sandesh_context;
+    ShowBgpServerReq *show_req;
+
+    sandesh_context.bgp_server = a_.get();
+    Sandesh::set_client_context(&sandesh_context);
+    Sandesh::set_response_callback(
+        boost::bind(ValidateShowBgpServerResponse, _1));
+    show_req = new ShowBgpServerReq;
+    validate_done_ = false;
+    show_req->HandleRequest();
+    show_req->Release();
+    task_util::WaitForIdle();
+    TASK_UTIL_EXPECT_TRUE(validate_done_);
+
+    sandesh_context.bgp_server = b_.get();
+    Sandesh::set_client_context(&sandesh_context);
+    Sandesh::set_response_callback(
+        boost::bind(ValidateShowBgpServerResponse, _1));
+    show_req = new ShowBgpServerReq;
+    validate_done_ = false;
+    show_req->HandleRequest();
+    show_req->Release();
+    task_util::WaitForIdle();
+    TASK_UTIL_EXPECT_TRUE(validate_done_);
 }
 
 TEST_F(BgpServerUnitTest, BasicAdvertiseWithdraw) {
