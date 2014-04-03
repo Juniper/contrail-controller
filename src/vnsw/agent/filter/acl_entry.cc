@@ -358,6 +358,11 @@ void PortMatch::SetPortRange(const uint16_t min_port, const uint16_t max_port)
 
 bool SrcPortMatch::Match(const PacketHeader *packet_header) const
 {
+    if (packet_header->protocol != IPPROTO_TCP &&
+            packet_header->protocol != IPPROTO_UDP) {
+        return true;
+    }
+
     for (RangeSList::const_iterator it = port_ranges_.begin(); 
          it != port_ranges_.end(); it++) {
         if(packet_header->src_port < (*it).min ||
@@ -384,6 +389,11 @@ void SrcPortMatch::SetAclEntryMatchSandeshData(AclEntrySandeshData &data)
 
 bool DstPortMatch::Match(const PacketHeader *packet_header) const
 {
+    if (packet_header->protocol != IPPROTO_TCP &&
+            packet_header->protocol != IPPROTO_UDP) {
+        return true;
+    }
+
     for (RangeSList::const_iterator it = port_ranges_.begin(); 
          it != port_ranges_.end(); it++) {
         if(packet_header->dst_port < (*it).min ||

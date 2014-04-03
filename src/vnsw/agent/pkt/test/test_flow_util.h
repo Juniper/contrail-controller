@@ -213,6 +213,19 @@ private:
 };
 
 
+class VerifyFlowAction : public FlowVerify {
+public:
+    VerifyFlowAction(TrafficAction::Action action):action_(action) {}
+    virtual ~VerifyFlowAction() {}
+    virtual void Verify(FlowEntry *fe) {
+        EXPECT_TRUE((fe->data().match_p.action_info.action & (1 << action_)) != 0);
+        FlowEntry *rev = fe->reverse_flow_entry();
+        EXPECT_TRUE((rev->data().match_p.action_info.action & (1 << action_)) != 0);
+    }
+private:
+    TrafficAction::Action action_;
+};
+
 class VerifyVrf : public FlowVerify {
 public:
     VerifyVrf(std::string src_vrf, std::string dest_vrf):
