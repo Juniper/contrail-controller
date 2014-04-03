@@ -88,6 +88,18 @@ bool TimerCbSleep() {
     return false;
 }
 
+bool TimerCbReschedule(Timer *timer, int *new_timeout) {
+    timer_count_.fetch_and_increment();
+
+    if(*new_timeout) {
+    	timer->Reschedule(*new_timeout);
+    	*new_timeout = 0;
+    	return true;
+    } else {
+    	return false;
+    }
+}
+
 void ValidateTimerCount(int count, int delay) {
     usleep(delay * 1000);
     TASK_UTIL_EXPECT_EQ(count, timer_count_);
@@ -279,6 +291,36 @@ TEST_F(TimerUT, cancel_fired_2) {
     task_util::WaitForIdle();
     EXPECT_TRUE(TimerManager::DeleteTimer(timer1));
     EXPECT_TRUE(TimerManager::DeleteTimer(sleepytimer));
+}
+
+TEST_F(TimerUT, reschedule_1) {
+    TimerTest *timer1 = new TimerTest(*evm_->io_service(), "Basic-1");
+    TimerTest *timer2 = new TimerTest(*evm_->io_service(), "Basic-2");
+    int new_timeout1 = 200, new_timeout2 = 200;
+    timer1->Start(100, boost::bind(&TimerCbReschedule, timer1, &new_timeout1));
+    timer2->Start(100, boost::bind(&TimerCbReschedule, timer2, &new_timeout2));
+    ValidateTimerCount(2, 100);
+    usleep(180*1000);
+    EXPECT_EQ(2, timer_count_);
+    ValidateTimerCount(4, 20);
+    task_util::WaitForIdle();
+    EXPECT_TRUE(TimerManager::DeleteTimer(timer1));
+    EXPECT_TRUE(TimerManager::DeleteTimer(timer2));
+}
+
+TEST_F(TimerUT, reschedule_2) {
+    TimerTest *timer1 = new TimerTest(*evm_->io_service(), "Basic-1");
+    TimerTest *timer2 = new TimerTest(*evm_->io_service(), "Basic-2");
+    int new_timeout1 = 100, new_timeout2 = 100;
+    timer1->Start(200, boost::bind(&TimerCbReschedule, timer1, &new_timeout1));
+    timer2->Start(200, boost::bind(&TimerCbReschedule, timer2, &new_timeout2));
+    ValidateTimerCount(2, 200);
+    usleep(80*1000);
+    EXPECT_EQ(2, timer_count_);
+    ValidateTimerCount(4, 20);
+    task_util::WaitForIdle();
+    EXPECT_TRUE(TimerManager::DeleteTimer(timer1));
+    EXPECT_TRUE(TimerManager::DeleteTimer(timer2));
 }
 
 int main(int argc, char *argv[]) {

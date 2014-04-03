@@ -115,6 +115,15 @@ bool Timer::Start(int time, Handler handler, ErrorHandler error_handler) {
     return true;
 }
 
+void Timer::Reschedule(int time)
+{
+	if (state_ != Fired)
+		return;
+	if (time < 0)
+		return;
+	time_ = time;
+}
+
 // Cancel a running timer
 bool Timer::Cancel() {
     tbb::mutex::scoped_lock lock(mutex_);
