@@ -156,12 +156,21 @@ class DiscoveryZkClient(ZookeeperClient):
     # end insert_service
 
     # forget service and subscribers
-    def delete_service(self, service_type, service_id, recursive = False):
+    def delete_service(self, entry):
+        service_type = entry['service_type']
+        service_id = entry['service_id']
+        sequence = entry['sequence']
+        self.syslog('Deleting service %s:%s, seq %s' %
+                (service_type, service_id, sequence))
         #if self.lookup_subscribers(service_type, service_id):
         #    return
 
+        if sequence != -1:
+            path = '/election/%s/node-%s' % (service_type, sequence)
+            self.delete_node(path)
+
         path = '/services/%s/%s' %(service_type, service_id)
-        self.delete_node(path, recursive = recursive)
+        self.delete_node(path, recursive = True)
 
         # delete service node if all services gone
         path = '/services/%s' %(service_type)

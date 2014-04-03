@@ -123,7 +123,7 @@ class ZookeeperClient(object):
         logger = logging.getLogger(module)
         logger.setLevel(logging.INFO)
         try:
-            handler = logging.handlers.RotatingFileHandler('/var/log/contrail/' + module + '-zk.log', maxBytes=1024*1024, backupCount=10)
+            handler = logging.handlers.RotatingFileHandler('/var/log/contrail/' + module + '-zk.log', maxBytes=10*1024*1024, backupCount=5)
         except IOError:
             print "Cannot open log file in /var/log/contrail/"
         else:
