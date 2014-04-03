@@ -1194,8 +1194,12 @@ def main(args_str=None):
 
 # end main
 
-if __name__ == "__main__":
+def server_main(args_str=None):
     import cgitb
     cgitb.enable(format='text')
 
     main()
+#server_main
+
+if __name__ == "__main__":
+    server_main()
