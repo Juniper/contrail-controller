@@ -258,11 +258,10 @@ class AddrMgmt(object):
         self._create_subnet_objs(vn_fq_name_str, vn_dict)
     # end net_create_notify
 
-    def net_update_req(self, db_vn_dict, req_vn_dict, obj_uuid=None):
+    def net_update_req(self, vn_fq_name, db_vn_dict, req_vn_dict, obj_uuid=None):
         # ideally 3 way sync/audit needed here. DB to what we is in subnet_objs
         # DB to what is in request. To simplify blow away subnet_objs and do
         # sync only from DB to request.
-        vn_fq_name = db_vn_dict['fq_name']
         vn_fq_name_str = ':'.join(vn_fq_name)
 
         try:
@@ -280,7 +279,7 @@ class AddrMgmt(object):
         add_subnet_names = req_subnet_names - db_subnet_names
 
         for subnet_name in del_subnet_names:
-            Subnet.delete_cls(subnet_name)
+            Subnet.delete_cls('%s:%s' % (vn_fq_name_str, subnet_name))
 
         self._create_subnet_objs(vn_fq_name_str, req_vn_dict)
     # end net_update_req
@@ -312,10 +311,11 @@ class AddrMgmt(object):
     # purge all subnets associated with a virtual network
     def net_delete_req(self, obj_dict):
         vn_fq_name = obj_dict['fq_name']
+        vn_fq_name_str = ':'.join(vn_fq_name)
         subnet_dicts = self._get_subnet_dicts(vn_fq_name)
 
         for subnet_name in subnet_dicts:
-            Subnet.delete_cls(subnet_name)
+            Subnet.delete_cls('%s:%s' % (vn_fq_name_str, subnet_name))
 
         try:
             vn_fq_name_str = ':'.join(vn_fq_name)

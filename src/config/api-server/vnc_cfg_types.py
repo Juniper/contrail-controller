@@ -36,6 +36,15 @@ class FloatingIpServer(FloatingIpServerGen):
     # end http_post_collection
 
     @classmethod
+    def http_post_collection_fail(cls, tenant_name, obj_dict, db_conn):
+        vn_fq_name = obj_dict['fq_name'][:-2]
+        fip_addr = obj_dict['floating_ip_address']
+        print 'AddrMgmt: free FIP %s for vn=%s tenant=%s, on post fail' % (fip_addr, vn_fq_name, tenant_name)
+        cls.addr_mgmt.ip_free_req(fip_addr, vn_fq_name)
+        return True, ""
+    # end http_post_collection_fail
+
+    @classmethod
     def http_delete(cls, id, obj_dict, db_conn):
         vn_fq_name = obj_dict['fq_name'][:-2]
         fip_addr = obj_dict['floating_ip_address']
@@ -43,6 +52,21 @@ class FloatingIpServer(FloatingIpServerGen):
         cls.addr_mgmt.ip_free_req(fip_addr, vn_fq_name)
         return True, ""
     # end http_delete
+
+    @classmethod
+    def http_delete_fail(cls, id, obj_dict, db_conn):
+        vn_fq_name = obj_dict['fq_name'][:-2]
+        req_ip = obj_dict.get("floating_ip_address", None)
+        if req_ip == None:
+            return True, ""
+        try:
+            cls.addr_mgmt.ip_alloc_req(vn_fq_name, asked_ip_addr=req_ip)
+        except Exception as e:
+            return (False, (500, str(e)))
+        print 'AddrMgmt: alloc %s FIP for vn=%s, tenant=%s to recover DELETE failure' \
+            % (obj_dict['floating_ip_address'], vn_fq_name, tenant_name)
+        return True, ""
+    # end http_delete_fail
 
     @classmethod
     def dbe_create_notification(cls, obj_ids, obj_dict):
@@ -86,6 +110,20 @@ class InstanceIpServer(InstanceIpServerGen):
     # end http_post_collection
 
     @classmethod
+    def http_post_collection_fail(cls, tenant_name, obj_dict, db_conn):
+        vn_fq_name = obj_dict['virtual_network_refs'][0]['to']
+        if ((vn_fq_name == cfgm_common.IP_FABRIC_VN_FQ_NAME) or
+                (vn_fq_name == cfgm_common.LINK_LOCAL_VN_FQ_NAME)):
+            # Ignore ip-fabric and link-local address allocations
+            return True,  ""
+
+        ip_addr = obj_dict['instance_ip_address']
+        print 'AddrMgmt: free IP %s, vn=%s tenant=%s on post fail' % (ip_addr, vn_fq_name, tenant_name)
+        cls.addr_mgmt.ip_free_req(ip_addr, vn_fq_name)
+        return True, ""
+    # end http_post_collection_fail
+
+    @classmethod
     def http_delete(cls, id, obj_dict, db_conn):
         vn_fq_name = obj_dict['virtual_network_refs'][0]['to']
         if ((vn_fq_name == cfgm_common.IP_FABRIC_VN_FQ_NAME) or
@@ -98,6 +136,26 @@ class InstanceIpServer(InstanceIpServerGen):
         cls.addr_mgmt.ip_free_req(ip_addr, vn_fq_name)
         return True, ""
     # end http_delete
+
+    @classmethod
+    def http_delete_fail(cls, id, obj_dict, db_conn):
+        vn_fq_name = obj_dict['virtual_network_refs'][0]['to']
+        if ((vn_fq_name == cfgm_common.IP_FABRIC_VN_FQ_NAME) or
+                (vn_fq_name == cfgm_common.LINK_LOCAL_VN_FQ_NAME)):
+            # Ignore ip-fabric and link-local address allocations
+            return True,  ""
+
+        req_ip = obj_dict.get("instance_ip_address", None)
+        if req_ip == None:
+            return True, ""
+        try:
+            cls.addr_mgmt.ip_alloc_req(vn_fq_name, asked_ip_addr=req_ip)
+        except Exception as e:
+            return (False, (500, str(e)))
+        print 'AddrMgmt: alloc %s for vn=%s, tenant=%s to recover DELETE failure' \
+            % (obj_dict['instance_ip_address'], vn_fq_name, tenant_name)
+        return True, ""
+    # end http_delete_fail
 
     @classmethod
     def dbe_create_notification(cls, obj_ids, obj_dict):
@@ -144,6 +202,12 @@ class VirtualNetworkServer(VirtualNetworkServerGen):
     # end http_post_collection
 
     @classmethod
+    def http_post_collection_fail(cls, tenant_name, obj_dict, db_conn):
+        cls.addr_mgmt.net_delete_req(obj_dict)
+        return True, ""
+    # end post_collection_fail
+
+    @classmethod
     def http_put(cls, id, fq_name, obj_dict, db_conn):
         if ((fq_name == cfgm_common.IP_FABRIC_VN_FQ_NAME) or
                 (fq_name == cfgm_common.LINK_LOCAL_VN_FQ_NAME)):
@@ -168,16 +232,41 @@ class VirtualNetworkServer(VirtualNetworkServerGen):
         if not ok:
             return (ok, (409, result))
 
-        cls.addr_mgmt.net_update_req(read_result, obj_dict, id)
+        cls.addr_mgmt.net_update_req(fq_name, read_result, obj_dict, id)
 
         return True, ""
     # end http_put
+
+    @classmethod
+    def http_put_fail(cls, id, fq_name, obj_dict, db_conn):
+        if ((fq_name == cfgm_common.IP_FABRIC_VN_FQ_NAME) or
+                (fq_name == cfgm_common.LINK_LOCAL_VN_FQ_NAME)):
+            # Ignore ip-fabric subnet updates
+            return True,  ""
+
+        ipam_refs = obj_dict.get('network_ipam_refs', None)
+        if ipam_refs == None:
+            # NOP for addr-mgmt module
+            return True,  ""
+
+        vn_id = {'uuid': id}
+        (read_ok, read_result) = db_conn.dbe_read('virtual-network', vn_id)
+        if not read_ok:
+            return (False, (500, read_result))
+        cls.addr_mgmt.net_update_req(fq_name, obj_dict, read_result, id)
+    # end http_put_fail
 
     @classmethod
     def http_delete(cls, id, obj_dict, db_conn):
         cls.addr_mgmt.net_delete_req(obj_dict)
         return True, ""
     # end http_delete
+
+    @classmethod
+    def http_delete_fail(cls, id, obj_dict, db_conn):
+        cls.addr_mgmt.net_create_req(obj_dict)
+        return True, ""
+    # end http_delete_fail
 
     @classmethod
     def ip_alloc(cls, vn_fq_name, subnet_name, count):
@@ -247,6 +336,12 @@ class NetworkIpamServer(NetworkIpamServerGen):
     # end http_put
 
     @classmethod
+    def http_put_fail(cls, id, fq_name, obj_dict, db_conn):
+        # undo any state change done by http_put function
+        return True, ""
+    # end http_put_fail
+
+    @classmethod
     def is_change_allowed(cls, old, new, obj_dict, db_conn):
         if (old == "default-dns-server" or old == "virtual-dns-server"):
             if ((new == "tenant-dns-server" or new == "none") and
@@ -294,6 +389,12 @@ class VirtualDnsServer(VirtualDnsServerGen):
     # end http_put
 
     @classmethod
+    def http_put_fail(cls, id, fq_name, obj_dict, db_conn):
+        # undo any state change done by http_put function
+        return True, ""
+    # end http_put_fail
+
+    @classmethod
     def http_delete(cls, id, obj_dict, db_conn):
         vdns_name = ":".join(obj_dict['fq_name'])
         if 'parent_uuid' in obj_dict:
@@ -325,6 +426,12 @@ class VirtualDnsServer(VirtualDnsServerGen):
                              " by other virtual DNS servers"))
         return True, ""
     # end http_delete
+
+    @classmethod
+    def http_delete_fail(cls, id, obj_dict, db_conn):
+        # undo any state change done by http_delete function
+        return True, ""
+    # end http_delete_fail
 
     @classmethod
     def is_valid_dns_name(cls, name):
@@ -432,9 +539,21 @@ class VirtualDnsRecordServer(VirtualDnsRecordServerGen):
     # end http_put
 
     @classmethod
+    def http_put_fail(cls, id, fq_name, obj_dict, db_conn):
+        # undo any state change done by http_put function
+        return True, ""
+    # end http_put_fail
+
+    @classmethod
     def http_delete(cls, id, obj_dict, db_conn):
         return True, ""
     # end http_delete
+
+    @classmethod
+    def http_delete_fail(cls, id, obj_dict, db_conn):
+        # undo any state change done by http_delete function
+        return True, ""
+    # end http_delete_fail
 
     @classmethod
     def validate_dns_record(cls, obj_dict, db_conn):

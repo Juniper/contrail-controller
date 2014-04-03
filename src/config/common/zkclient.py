@@ -212,7 +212,7 @@ class ZookeeperClient(object):
         except (kazoo.exceptions.SessionExpiredError,
                 kazoo.exceptions.ConnectionLoss):
             self.reconnect()
-            self.delete_node(path)
+            self.delete_node(path, recursive=recursive)
         except kazoo.exceptions.NoNodeError:
             pass
     # end delete_node
