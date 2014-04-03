@@ -1,0 +1,24 @@
+#
+# Copyright (c) 2014 CodiLime, Inc. All rights reserved.
+#
+
+# -*- mode: python; -*-
+
+Import('BuildEnv')
+import sys
+env = BuildEnv.Clone()
+
+env.Append(LIBPATH = env['TOP'] + '/base')
+env.Append(LIBPATH = env['TOP'] + '/io')
+
+env.Prepend(LIBS = ['io', 'base'])
+
+if sys.platform != 'darwin':
+    env.Append(LIBS = ['rt'])
+
+source = ['bfd_state_machine.cc', 'bfd_control_packet.cc', 'bfd_session.cc', 'bfd_server.cc', 'bfd_udp_connection.cc']
+
+libbfd = env.Library('bfd', source)
+
+env.SConscript('test/SConscript', exports='BuildEnv', duplicate = 0)
+
