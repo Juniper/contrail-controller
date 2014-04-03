@@ -532,7 +532,7 @@ class VncApiServer(VncApiServerGen):
 
         config = None
         if args.conf_file:
-            config = ConfigParser.SafeConfigParser()
+            config = ConfigParser.SafeConfigParser({'admin_token': None})
             config.read([args.conf_file])
             defaults.update(dict(config.items("DEFAULTS")))
             if 'multi_tenancy' in config.options('DEFAULTS'):
