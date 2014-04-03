@@ -236,4 +236,17 @@ class CdbIf : public GenDbIf {
         int cassandra_ttl_;
 };
 
+template<>
+struct WorkQueueDelete<CdbIf::CdbIfColList> {
+    template <typename QueueT>
+    void operator()(QueueT &q) {
+        for (typename QueueT::iterator iter = q.unsafe_begin();
+             iter != q.unsafe_end(); ++iter) {
+            CdbIf::CdbIfColList &colList(*iter);
+            delete colList.gendb_cl;
+            colList.gendb_cl = NULL;
+        }
+    }
+};
+
 #endif
