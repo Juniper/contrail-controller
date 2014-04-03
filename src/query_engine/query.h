@@ -442,7 +442,6 @@ struct final_result_t {
 enum agg_op_t {
     RAW = 1,
     SUM = 2,
-    AVG = 3,
 };
 
 enum stat_type_t {
@@ -608,42 +607,25 @@ private:
     void populate_fs_query_result_with_ts_tuple_fields();
 
     // 3. SELECT with flow tuple fields
-    typedef std::set<flow_tuple> fs_flow_tuple_list_t;
-    fs_flow_tuple_list_t fs_flow_tuple_list_;
     void process_fs_query_with_tuple_fields(const uint64_t&,
             const boost::uuids::uuid&, const flow_stats&, const flow_tuple&);
     void populate_fs_query_result_with_tuple_fields();
 
-    // 4. SELECT with T 
     void process_fs_query_with_time(const uint64_t&,
             const boost::uuids::uuid&, const flow_stats&, const flow_tuple&);
     void populate_fs_query_result_with_time();
     
-    // 5. SELECT with T=<granularity>
+    // 4. SELECT with T=<granularity>
     typedef std::set<uint64_t> fs_ts_t;
     fs_ts_t fs_ts_list_;
     void process_fs_query_with_ts(const uint64_t&,
             const boost::uuids::uuid&, const flow_stats&, const flow_tuple&);
     void populate_fs_query_result_with_ts();
 
+    // 5. SELECT with T 
     // 6. SELECT with T, flow tuple fields
-    typedef std::map<const uint64_t, std::set<flow_tuple> > fs_time_tuple_map_t;
-    fs_time_tuple_map_t fs_time_tuple_map_;
-    void process_fs_query_with_time_tuple_fields(const uint64_t&,
-            const boost::uuids::uuid&, const flow_stats&, const flow_tuple&);
-    void populate_fs_query_result_with_time_tuple_fields();
-
     // 7. SELECT with T, stats fields 
-    typedef std::map<const uint64_t, flow_stats> fs_time_stats_map_t;
-    fs_time_stats_map_t fs_time_stats_map_;
-    void process_fs_query_with_time_stats_fields(const uint64_t&,
-            const boost::uuids::uuid&, const flow_stats&, const flow_tuple&);
-    void populate_fs_query_result_with_time_stats_fields();
-
     // 8. SELECT with T, flow tuple, stats
-    typedef std::map<const flow_tuple, fs_time_stats_map_t> 
-        fs_time_tuple_stats_map_t;
-    fs_time_tuple_stats_map_t fs_time_tuple_stats_map_;
     void process_fs_query_with_time_tuple_stats_fields(const uint64_t&,
             const boost::uuids::uuid&, const flow_stats&, const flow_tuple&);
     void populate_fs_query_result_with_time_tuple_stats_fields();
@@ -835,7 +817,7 @@ const std::vector<boost::shared_ptr<QEOpServerProxy::BufferT> >& inputs,
     bool is_valid_sort_field(const std::string& sort_field);
     std::string get_column_field_datatype(const std::string& col_field);
     virtual bool is_flow_query(); // either flow-series or flow-records query
-    bool is_query_parallelized() { return parallelize_query_; }
+    virtual bool is_query_parallelized() { return parallelize_query_; }
     uint64_t parse_time(const std::string& relative_time);
 
     private:
