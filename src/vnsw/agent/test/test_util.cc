@@ -1281,7 +1281,7 @@ static string AddAclXmlString(const char *node_name, const char *name, int id,
             "                <acl-rule>\n"
             "                    <match-condition>\n"
             "                        <protocol>\n"
-            "                            tcp\n"
+            "                            any\n"
             "                        </protocol>\n"
             "                        <src-address>\n"
             "                            <virtual-network>\n"
