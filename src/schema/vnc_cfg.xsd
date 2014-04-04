@@ -578,6 +578,16 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
 <!--#IFMAP-SEMANTICS-IDL
      Property('route-target-list', 'virtual-network') -->
 
+<xsd:element name="router-external" type="xsd:boolean"/>
+<!--#IFMAP-SEMANTICS-IDL 
+     Exclude('router-external', ['backend']);
+     Property('router-external', 'virtual-network') -->
+
+<xsd:element name="is-shared" type="xsd:boolean"/>
+<!--#IFMAP-SEMANTICS-IDL 
+     Exclude('is-shared', ['backend']);
+     Property('is-shared', 'virtual-network') -->
+
 <xsd:element name="network-ipam" type="ifmap:IdentityType"/>
 <xsd:element name="network-ipam-mgmt" type="IpamType"/>
 <!--#IFMAP-SEMANTICS-IDL
