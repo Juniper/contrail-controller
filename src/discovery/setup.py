@@ -19,5 +19,11 @@ setup(
     install_requires=[
         'gevent',
         'pycassa',
-    ]
+    ],
+    entry_points = {
+        'console_scripts' : [
+            'discovery-server = discovery.disc_server_zk:server_main',
+        ],
+    },
+ 
 )
