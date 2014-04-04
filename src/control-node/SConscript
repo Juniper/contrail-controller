@@ -251,3 +251,4 @@ env.Alias('control-node', ctrlnode)
 env.SConscript('test/SConscript', exports='BuildEnv', duplicate = 0)
 
 env.Alias('install', env.Install(env['INSTALL_BIN'], ctrlnode))
+env.Alias('install', env.Install(env['INSTALL_CONF'], 'control-node.conf'))
