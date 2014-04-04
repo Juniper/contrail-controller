@@ -9,6 +9,7 @@ import kazoo.handlers.gevent
 import kazoo.recipe.election
 from bitarray import bitarray
 from cfgm_common.exceptions import ResourceExhaustionError, ResourceExistsError
+from gevent.coros import BoundedSemaphore
 
 import uuid
 
@@ -122,7 +123,7 @@ class ZookeeperClient(object):
         logger = logging.getLogger(module)
         logger.setLevel(logging.INFO)
         try:
-            handler = logging.handlers.RotatingFileHandler('/var/log/contrail/' + module + '-zk.log', maxBytes=1024*1024, backupCount=10)
+            handler = logging.handlers.RotatingFileHandler('/var/log/contrail/' + module + '-zk.log', maxBytes=10*1024*1024, backupCount=5)
         except IOError:
             print "Cannot open log file in /var/log/contrail/"
         else:
@@ -138,39 +139,51 @@ class ZookeeperClient(object):
 
         self._logger = logger
         self._election = None
+        self._zk_sem = BoundedSemaphore(1)
         self.connect()
     # end __init__
 
-    # start or restart
-    def connect(self, restart=False):
+    # reconnect
+    def reconnect(self):
+        self._zk_sem.acquire()
+        self.syslog("restart: acquired lock; state %s " % self._zk.state)
+        # initiate restart if our state is suspended or lost
+        if self._zk_client.state != "CONNECTED":
+            self.syslog("restart: starting ...")
+            try:
+                self._zk_client.stop() 
+                self._zk_client.close() 
+                self._zk_client.start() 
+                self.syslog("restart: done")
+            except gevent.event.Timeout as e:
+                self.syslog("restart: timeout!")
+            except Exception as e:
+                self.syslog('restart: exception %s' % str(e))
+            except Exception as str:
+                self.syslog('restart: str exception %s' % str)
+        self._zk_sem.release()
+
+    # start 
+    def connect(self):
         while True:
             try:
-                if restart:
-                    self._zk_client.stop()
-                    self._zk_client.close()
-                    self._zk_client.start()
-                else:
-                    self._zk_client.start()
+                self._zk_client.start()
                 break
             except gevent.event.Timeout as e:
                 self.syslog(
                     'Failed to connect with Zookeeper -will retry in a second')
                 gevent.sleep(1)
-            # Zookeeper is also throwing exception due to delay in master
-            # election
+            # Zookeeper is also throwing exception due to delay in master election
             except Exception as e:
                 self.syslog('%s -will retry in a second' % (str(e)))
                 gevent.sleep(1)
         self.syslog('Connected to ZooKeeper!')
-    # end connect
-
-    def reconnect(self):
-        self.connect(restart=True)
+    # end
 
     def syslog(self, msg):
         if not self._logger:
             return
-        self._logger.debug(msg)
+        self._logger.info(msg)
     # end syslog
 
     def _zk_listener(self, state):

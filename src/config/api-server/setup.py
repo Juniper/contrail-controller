@@ -21,5 +21,10 @@ setup(
         'netaddr>=0.7.5',
         'bitarray==0.8.0',
         'psutil==0.4.1',
-    ]
+    ],
+    entry_points = {
+        'console_scripts' : [
+            'contrail-api = vnc_cfg_api_server.vnc_cfg_api_server:server_main',
+        ],
+    },
 )

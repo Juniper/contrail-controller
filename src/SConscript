@@ -12,6 +12,7 @@ subdirs = [
            'analytics',
            'api-lib',
            'base',
+           'bfd',
            'bgp',
            'cdb',
            'config',

@@ -1,0 +1,77 @@
+#
+# Copyright (c) 2014 CodiLime, Inc. All rights reserved.
+#
+
+# -*- mode: python; -*-
+
+Import('BuildEnv')
+import os
+import sys
+
+env = BuildEnv.Clone()
+
+env.Append(CPPPATH = [env['TOP'],
+                      env['TOP'] + '/base',
+                      env['TOP'] + '/io',
+                      env['TOP'] + '/bfd',
+                     ])
+env.Append(LIBPATH = ['#/' + Dir('..').path,
+                      '../../base', 
+                      '../../io',
+                      '.'
+                     ])
+
+env.Prepend(LIBS = ['bfd', 'gunit', 'io', 'sandesh', 'io', 'sandeshvns', 'base', 'http',
+                    'http_parser', 'curl', 'pugixml', 'boost_program_options', 'boost_thread'])
+
+if sys.platform != 'darwin':
+    env.Append(LIBS=['rt'])
+
+except_env = env.Clone()
+cflags = except_env['CCFLAGS']
+if '-fno-exceptions' in cflags:
+    cflags.remove('-fno-exceptions')
+except_env.Replace(CCFLAGS = cflags)
+
+config_test_env = env.Clone()
+# config_test_env.Append(LIBPATH = ['../../ifmap/test'])
+# config_test_env.Prepend(LIBS = ['ifmap_test_util'])
+
+bfd_parser_test = env.UnitTest('bfd_parser_test',
+                            ['bfd_parser_test.cc'])
+env.Alias('src/bfd:bfd_parser_test', bfd_parser_test)
+
+bfd_udp_connection_test = env.UnitTest('bfd_udp_connection_test',
+                            ['bfd_udp_connection_test.cc'])
+env.Alias('src/bfd:bfd_udp_connection_test', bfd_udp_connection_test)
+
+bfd_state_machine_test = env.UnitTest('bfd_state_machine_test',
+                            ['bfd_state_machine_test.cc'])
+env.Alias('src/bfd:bfd_state_machine_test', bfd_state_machine_test)
+
+bfd_server_test = env.UnitTest('bfd_server_test',
+                            ['bfd_server_test.cc'])
+env.Alias('src/bfd:bfd_server_test', bfd_server_test)
+
+bfd_session_test = env.UnitTest('bfd_session_test',
+                            ['bfd_session_test.cc'])
+env.Alias('src/bfd:bfd_session_test', bfd_session_test)
+
+bfd_external_test = env.UnitTest('bfd_external_test',
+                            ['bfd_external_test.cc'])
+env.Alias('src/bfd:bfd_external_test', bfd_external_test)
+
+# All Tests
+test_suite = [
+    bfd_parser_test,
+    bfd_udp_connection_test,
+    bfd_state_machine_test,
+    bfd_server_test,
+    bfd_session_test,
+    #bfd_external_test,
+]
+
+test = env.TestSuite('bfd-test', test_suite)
+env.Alias('src/bfd:test', test)
+
+Return('test_suite')

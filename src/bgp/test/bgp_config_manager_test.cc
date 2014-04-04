@@ -4,6 +4,7 @@
 
 #include "bgp/bgp_config.h"
 
+#include <bitset>
 #include <fstream>
 #include <boost/algorithm/string/replace.hpp>
 #include <boost/foreach.hpp>
@@ -109,6 +110,31 @@ protected:
 
     const BgpPeeringConfig *FindPeeringConfig(const string peering_name) {
         return config_manager_->config().FindPeering(peering_name);
+    }
+
+    void VerifyBgpSessionExists(const BgpPeeringConfig *peering, string uuid) {
+        TASK_UTIL_EXPECT_TRUE(peering->bgp_peering() != NULL);
+        const autogen::BgpPeeringAttributes &attr =
+            peering->bgp_peering()->data();
+        bool found = false;
+        for (autogen::BgpPeeringAttributes::const_iterator iter = attr.begin();
+             iter != attr.end(); ++iter) {
+            if (iter->uuid == uuid) {
+                found = true;
+                break;
+            }
+        }
+        TASK_UTIL_EXPECT_TRUE(found);
+    }
+
+    void VerifyBgpSessions(const BgpPeeringConfig *peering,
+        const bitset<8> &session_mask) {
+        for (int idx = 0; idx < session_mask.size(); ++idx) {
+            if (!session_mask.test(idx))
+                continue;
+            string uuid = integerToString(idx);
+            VerifyBgpSessionExists(peering, uuid);
+        }
     }
 
     EventManager evm_;
@@ -530,6 +556,298 @@ TEST_F(BgpConfigManagerTest, MasterNeighborsDelete) {
 
     TASK_UTIL_EXPECT_EQ(0, db_graph_.edge_count());
     TASK_UTIL_EXPECT_EQ(0, db_graph_.vertex_count());
+}
+
+// Add and delete new sessions between existing ones.
+TEST_F(BgpConfigManagerTest, MasterPeeringUpdate1) {
+    const BgpPeeringConfig *peering;
+    char full_name[1024];
+    snprintf(full_name, sizeof(full_name), "attr(%s:%s,%s:%s)",
+        BgpConfigManager::kMasterInstance, "local",
+        BgpConfigManager::kMasterInstance, "remote");
+
+    string content_a = FileRead("controller/src/bgp/testdata/config_test_28a.xml");
+    EXPECT_TRUE(parser_.Parse(content_a));
+    task_util::WaitForIdle();
+    TASK_UTIL_EXPECT_TRUE(FindPeeringConfig(full_name) != NULL);
+    peering = FindPeeringConfig(full_name);
+    TASK_UTIL_EXPECT_EQ(2, peering->size());
+    VerifyBgpSessionExists(peering, "1001");
+    VerifyBgpSessionExists(peering, "1004");
+
+    string content_b = FileRead("controller/src/bgp/testdata/config_test_28b.xml");
+    EXPECT_TRUE(parser_.Parse(content_b));
+    task_util::WaitForIdle();
+    TASK_UTIL_EXPECT_TRUE(FindPeeringConfig(full_name) != NULL);
+    peering = FindPeeringConfig(full_name);
+    TASK_UTIL_EXPECT_EQ(4, peering->size());
+    VerifyBgpSessionExists(peering, "1001");
+    VerifyBgpSessionExists(peering, "1002");
+    VerifyBgpSessionExists(peering, "1003");
+    VerifyBgpSessionExists(peering, "1004");
+
+    EXPECT_TRUE(parser_.Parse(content_a));
+    task_util::WaitForIdle();
+    TASK_UTIL_EXPECT_TRUE(FindPeeringConfig(full_name) != NULL);
+    peering = FindPeeringConfig(full_name);
+    TASK_UTIL_EXPECT_EQ(2, peering->size());
+    VerifyBgpSessionExists(peering, "1001");
+    VerifyBgpSessionExists(peering, "1004");
+
+    boost::replace_all(content_a, "<config>", "<delete>");
+    boost::replace_all(content_a, "</config>", "</delete>");
+    EXPECT_TRUE(parser_.Parse(content_a));
+    task_util::WaitForIdle();
+
+    TASK_UTIL_EXPECT_EQ(1, config_manager_->config().instances().size());
+
+    TASK_UTIL_EXPECT_EQ(0, db_graph_.edge_count());
+    TASK_UTIL_EXPECT_EQ(0, db_graph_.vertex_count());
+}
+
+// Add and delete new sessions after existing ones.
+TEST_F(BgpConfigManagerTest, MasterPeeringUpdate2) {
+    const BgpPeeringConfig *peering;
+    char full_name[1024];
+    snprintf(full_name, sizeof(full_name), "attr(%s:%s,%s:%s)",
+        BgpConfigManager::kMasterInstance, "local",
+        BgpConfigManager::kMasterInstance, "remote");
+
+    string content_a = FileRead("controller/src/bgp/testdata/config_test_29a.xml");
+    EXPECT_TRUE(parser_.Parse(content_a));
+    task_util::WaitForIdle();
+    TASK_UTIL_EXPECT_TRUE(FindPeeringConfig(full_name) != NULL);
+    peering = FindPeeringConfig(full_name);
+    TASK_UTIL_EXPECT_EQ(2, peering->size());
+    VerifyBgpSessionExists(peering, "1001");
+    VerifyBgpSessionExists(peering, "1002");
+
+    string content_b = FileRead("controller/src/bgp/testdata/config_test_29b.xml");
+    EXPECT_TRUE(parser_.Parse(content_b));
+    task_util::WaitForIdle();
+    TASK_UTIL_EXPECT_TRUE(FindPeeringConfig(full_name) != NULL);
+    peering = FindPeeringConfig(full_name);
+    TASK_UTIL_EXPECT_EQ(4, peering->size());
+    VerifyBgpSessionExists(peering, "1001");
+    VerifyBgpSessionExists(peering, "1002");
+    VerifyBgpSessionExists(peering, "1003");
+    VerifyBgpSessionExists(peering, "1004");
+
+    EXPECT_TRUE(parser_.Parse(content_a));
+    task_util::WaitForIdle();
+    TASK_UTIL_EXPECT_TRUE(FindPeeringConfig(full_name) != NULL);
+    peering = FindPeeringConfig(full_name);
+    TASK_UTIL_EXPECT_EQ(2, peering->size());
+    VerifyBgpSessionExists(peering, "1001");
+    VerifyBgpSessionExists(peering, "1002");
+
+    boost::replace_all(content_a, "<config>", "<delete>");
+    boost::replace_all(content_a, "</config>", "</delete>");
+    EXPECT_TRUE(parser_.Parse(content_a));
+    task_util::WaitForIdle();
+
+    TASK_UTIL_EXPECT_EQ(1, config_manager_->config().instances().size());
+
+    TASK_UTIL_EXPECT_EQ(0, db_graph_.edge_count());
+    TASK_UTIL_EXPECT_EQ(0, db_graph_.vertex_count());
+}
+
+// Add and delete new sessions before existing ones.
+TEST_F(BgpConfigManagerTest, MasterPeeringUpdate3) {
+    const BgpPeeringConfig *peering;
+    char full_name[1024];
+    snprintf(full_name, sizeof(full_name), "attr(%s:%s,%s:%s)",
+        BgpConfigManager::kMasterInstance, "local",
+        BgpConfigManager::kMasterInstance, "remote");
+
+    string content_a = FileRead("controller/src/bgp/testdata/config_test_30a.xml");
+    EXPECT_TRUE(parser_.Parse(content_a));
+    task_util::WaitForIdle();
+    TASK_UTIL_EXPECT_TRUE(FindPeeringConfig(full_name) != NULL);
+    peering = FindPeeringConfig(full_name);
+    TASK_UTIL_EXPECT_EQ(2, peering->size());
+    VerifyBgpSessionExists(peering, "1003");
+    VerifyBgpSessionExists(peering, "1004");
+
+    string content_b = FileRead("controller/src/bgp/testdata/config_test_30b.xml");
+    EXPECT_TRUE(parser_.Parse(content_b));
+    task_util::WaitForIdle();
+    TASK_UTIL_EXPECT_TRUE(FindPeeringConfig(full_name) != NULL);
+    peering = FindPeeringConfig(full_name);
+    TASK_UTIL_EXPECT_EQ(4, peering->size());
+    VerifyBgpSessionExists(peering, "1001");
+    VerifyBgpSessionExists(peering, "1002");
+    VerifyBgpSessionExists(peering, "1003");
+    VerifyBgpSessionExists(peering, "1004");
+
+    EXPECT_TRUE(parser_.Parse(content_a));
+    task_util::WaitForIdle();
+    TASK_UTIL_EXPECT_TRUE(FindPeeringConfig(full_name) != NULL);
+    peering = FindPeeringConfig(full_name);
+    TASK_UTIL_EXPECT_EQ(2, peering->size());
+    VerifyBgpSessionExists(peering, "1003");
+    VerifyBgpSessionExists(peering, "1004");
+
+    boost::replace_all(content_a, "<config>", "<delete>");
+    boost::replace_all(content_a, "</config>", "</delete>");
+    EXPECT_TRUE(parser_.Parse(content_a));
+    task_util::WaitForIdle();
+
+    TASK_UTIL_EXPECT_EQ(1, config_manager_->config().instances().size());
+
+    TASK_UTIL_EXPECT_EQ(0, db_graph_.edge_count());
+    TASK_UTIL_EXPECT_EQ(0, db_graph_.vertex_count());
+}
+
+static string GeneratePeeringConfig(const bitset<8> &session_mask) {
+    ostringstream oss;
+
+    oss << "<config>";
+    oss << "<bgp-router name=\'local\'>";
+    oss << "    <address>127.0.0.1</address>";
+    oss << "    <autonomous-system>1</autonomous-system>";
+    oss << "    <address-families>";
+    oss << "        <family>inet-vpn</family>";
+    oss << "    </address-families>";
+
+    for (int idx = 0; idx < session_mask.size(); ++idx) {
+        if (!session_mask.test(idx))
+            continue;
+        oss << "<session to=\'remote:" << idx << "\'>";
+        oss << "    <address-families>";
+        oss << "        <family>inet-vpn</family>";
+        oss << "    </address-families>";
+        oss << "</session>";
+    }
+    oss << "</bgp-router>";
+
+    oss << "<bgp-router name=\'remote\'>";
+    oss << "    <address>127.0.0.2</address>";
+    oss << "    <autonomous-system>1</autonomous-system>";
+    oss << "    <address-families>";
+    oss << "        <family>inet-vpn</family>";
+    oss << "    </address-families>";
+
+    for (int idx = 0; idx < session_mask.size(); ++idx) {
+        if (!session_mask.test(idx))
+            continue;
+        oss << "<session to=\'local:" << idx << "\'>";
+        oss << "    <address-families>";
+        oss << "        <family>inet-vpn</family>";
+        oss << "    </address-families>";
+        oss << "</session>";
+    }
+    oss << "</bgp-router>";
+    oss << "</config>";
+
+    return oss.str();
+}
+
+//
+// Iterate through all non-zero 8-bit values.  Each value is treated as a
+// bitmask of sessions 0-7 and the corresponding config is generated and
+// applied. The config is then modified to have all sessions (value 255).
+// Next we go back to the original config based on the current value and
+// then finally delete the entire config.
+//
+TEST_F(BgpConfigManagerTest, MasterPeeringUpdate4) {
+    char full_name[1024];
+    snprintf(full_name, sizeof(full_name), "attr(%s:%s,%s:%s)",
+        BgpConfigManager::kMasterInstance, "local",
+        BgpConfigManager::kMasterInstance, "remote");
+
+    for (int idx = 1; idx <= 255; ++idx) {
+        const BgpPeeringConfig *peering;
+
+        bitset<8> session_mask_a(idx);
+        string content_a = GeneratePeeringConfig(session_mask_a);
+        EXPECT_TRUE(parser_.Parse(content_a));
+        task_util::WaitForIdle();
+        TASK_UTIL_EXPECT_TRUE(FindPeeringConfig(full_name) != NULL);
+        peering = FindPeeringConfig(full_name);
+        TASK_UTIL_EXPECT_EQ(session_mask_a.count(), peering->size());
+        VerifyBgpSessions(peering, session_mask_a);
+
+        bitset<8> session_mask_b(255);
+        string content_b = GeneratePeeringConfig(session_mask_b);
+        EXPECT_TRUE(parser_.Parse(content_b));
+        task_util::WaitForIdle();
+        TASK_UTIL_EXPECT_TRUE(FindPeeringConfig(full_name) != NULL);
+        peering = FindPeeringConfig(full_name);
+        TASK_UTIL_EXPECT_EQ(session_mask_b.count(), peering->size());
+        VerifyBgpSessions(peering, session_mask_b);
+
+        EXPECT_TRUE(parser_.Parse(content_a));
+        task_util::WaitForIdle();
+        TASK_UTIL_EXPECT_TRUE(FindPeeringConfig(full_name) != NULL);
+        peering = FindPeeringConfig(full_name);
+        TASK_UTIL_EXPECT_EQ(session_mask_a.count(), peering->size());
+        VerifyBgpSessions(peering, session_mask_a);
+
+        boost::replace_all(content_a, "<config>", "<delete>");
+        boost::replace_all(content_a, "</config>", "</delete>");
+        EXPECT_TRUE(parser_.Parse(content_a));
+        task_util::WaitForIdle();
+
+        TASK_UTIL_EXPECT_EQ(1, config_manager_->config().instances().size());
+
+        TASK_UTIL_EXPECT_EQ(0, db_graph_.edge_count());
+        TASK_UTIL_EXPECT_EQ(0, db_graph_.vertex_count());
+    }
+}
+
+//
+// Iterate through 8-bit values except 0/255. Each value is treated as a
+// bitmask of sessions 0-7 and the corresponding config is generated and
+// applied. The config is then modified to have sessions corresponding to
+// the inverse of the bitmask. Next we go back to original config and then
+// finally delete the entire config.
+//
+TEST_F(BgpConfigManagerTest, MasterPeeringUpdate5) {
+    char full_name[1024];
+    snprintf(full_name, sizeof(full_name), "attr(%s:%s,%s:%s)",
+        BgpConfigManager::kMasterInstance, "local",
+        BgpConfigManager::kMasterInstance, "remote");
+
+    for (int idx = 1; idx <= 254; ++idx) {
+        const BgpPeeringConfig *peering;
+
+        bitset<8> session_mask_a(idx);
+        string content_a = GeneratePeeringConfig(session_mask_a);
+        EXPECT_TRUE(parser_.Parse(content_a));
+        task_util::WaitForIdle();
+        TASK_UTIL_EXPECT_TRUE(FindPeeringConfig(full_name) != NULL);
+        peering = FindPeeringConfig(full_name);
+        TASK_UTIL_EXPECT_EQ(session_mask_a.count(), peering->size());
+        VerifyBgpSessions(peering, session_mask_a);
+
+        bitset<8> session_mask_b = session_mask_a.flip();
+        string content_b = GeneratePeeringConfig(session_mask_b);
+        EXPECT_TRUE(parser_.Parse(content_b));
+        task_util::WaitForIdle();
+        TASK_UTIL_EXPECT_TRUE(FindPeeringConfig(full_name) != NULL);
+        peering = FindPeeringConfig(full_name);
+        TASK_UTIL_EXPECT_EQ(session_mask_b.count(), peering->size());
+        VerifyBgpSessions(peering, session_mask_b);
+
+        session_mask_a.flip();
+        EXPECT_TRUE(parser_.Parse(content_a));
+        task_util::WaitForIdle();
+        TASK_UTIL_EXPECT_TRUE(FindPeeringConfig(full_name) != NULL);
+        peering = FindPeeringConfig(full_name);
+        TASK_UTIL_EXPECT_EQ(session_mask_a.count(), peering->size());
+        VerifyBgpSessions(peering, session_mask_a);
+
+        boost::replace_all(content_a, "<config>", "<delete>");
+        boost::replace_all(content_a, "</config>", "</delete>");
+        EXPECT_TRUE(parser_.Parse(content_a));
+        task_util::WaitForIdle();
+
+        TASK_UTIL_EXPECT_EQ(1, config_manager_->config().instances().size());
+
+        TASK_UTIL_EXPECT_EQ(0, db_graph_.edge_count());
+        TASK_UTIL_EXPECT_EQ(0, db_graph_.vertex_count());
+    }
 }
 
 TEST_F(BgpConfigManagerTest, InstanceTargetExport1) {
