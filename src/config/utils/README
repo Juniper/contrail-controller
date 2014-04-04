@@ -1,0 +1,8 @@
+Contrail utility scripts
+
+contrail_veth_port.py - create a veth interface to a Contrail virtual network
+
+provision_vrouter.py - set up vrouter interface
+
+provision_linklocal.py - set up metadata server
+

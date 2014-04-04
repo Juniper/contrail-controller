@@ -1,0 +1,72 @@
+# -*- mode: python; -*-
+
+#
+# Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
+#
+Import('CfgmEnv')
+env = CfgmEnv.Clone()
+
+setup_sources = [
+           'setup.py',
+           'README',
+          ]
+
+setup_sources_rules = []
+for file in setup_sources:
+    setup_sources_rules.append(env.Install(Dir('.'), File(file).srcnode()))
+
+local_sources = [
+	      '__init__.py',
+	      'add_route_target.py',
+	      'chmod.py',
+	      'contrail-config.py',
+	      'contrail_utils.py',
+	      'contrail_veth_port.py',
+	      'create_floating_pool.py',
+	      'del_route_target.py',
+	      'demo_cfg.py',
+	      'encap.py',
+	      'multi_tenancy.py',
+	      'net_policy_join.py',
+	      'provision_bgp.py',
+	      'provision_control.py',
+	      'provision_encap.py',
+	      'provision_forwarding_mode.py',
+	      'provision_linklocal.py',
+	      'provision_mx.py',
+	      'provision.py',
+	      'provision_static_route.py',
+	      'provision_vrouter.py',
+	      'service-instance.py',
+	      'service-policy.py',
+	      'service-template.py',
+	      'use_floating_pool.py',
+	      'vncop.py',
+	      ]
+
+
+local_sources_rules = []
+for file in local_sources:
+    local_sources_rules.append(env.Install("contrail_utils", File(file).srcnode()))
+
+rel_path = Dir('contrail_utils').path
+def BuildInfoAction(target, source, env):
+    env.GenerateBuildInfoPyCode(path=rel_path)
+    
+sdist_depends = []
+sdist_depends.extend(setup_sources_rules)
+sdist_depends.extend(local_sources_rules)
+
+# TODO: deprecate
+sdist_gen = env.Command('dist', 'setup.py', 'python setup.py sdist', chdir=1)
+
+env.Depends(sdist_gen, sdist_depends)
+env.Default(sdist_gen)
+
+if 'install' in BUILD_TARGETS:
+    install_cmd = env.Command(None, 'setup.py',
+                              'python setup.py install %s' %
+                              env['PYTHON_INSTALL_OPT'],
+                              chdir = 1)
+    env.Depends(install_cmd, sdist_depends)
+    env.Alias('install', install_cmd)
