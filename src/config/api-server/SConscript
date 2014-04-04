@@ -75,13 +75,13 @@ bottle_sources_rules.append(env.Install("vnc_cfg_api_server", '#/third_party/bot
 generateds_rule = env.Install("vnc_cfg_api_server/gen", "../common/generatedssuper.py")
 cfixture_rule = env.Install("vnc_cfg_api_server/gen", "../common/cfixture.py")
 
-doc_sources_rules = SConscript(dirs=['doc'], exports = 'CfgmEnv')
+#doc_sources_rules = SConscript(dirs=['doc'], exports = 'CfgmEnv')
 
 sdist_depends = [generated_rule, generateds_rule, cfixture_rule]
 sdist_depends.extend(setup_sources_rules)
 sdist_depends.extend(local_sources_rules)
 sdist_depends.extend(bottle_sources_rules)
-sdist_depends.extend(doc_sources_rules)
+#sdist_depends.extend(doc_sources_rules)
 
 # TODO: deprecate
 sdist_gen = env.Command('dist', 'setup.py', 'python setup.py sdist', chdir=1)
