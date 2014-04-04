@@ -21,6 +21,7 @@ import copy
 import argparse
 import ConfigParser
 from pprint import pformat
+#import GreenletProfiler
 
 import logging
 logger = logging.getLogger(__name__)
@@ -93,6 +94,10 @@ _ACTION_RESOURCES = [
      'method_name': 'db_check'},
     {'uri': '/fetch-records', 'link_name': 'fetch-records',
      'method_name': 'fetch_records'},
+    {'uri': '/start-profile', 'link_name': 'start-profile',
+     'method_name': 'start_profile'},
+    {'uri': '/stop-profile', 'link_name': 'stop-profile',
+     'method_name': 'stop_profile'},
 ]
 
 
@@ -155,6 +160,9 @@ class VncApiServer(VncApiServerGen):
                                            self._args.listen_port)
         super(VncApiServer, self).__init__()
         self._pipe_start_app = None
+
+        #GreenletProfiler.set_clock_type('wall')
+        self._profile_info = None
 
         # REST interface initialization
         self._get_common = self._http_get_common
@@ -302,10 +310,8 @@ class VncApiServer(VncApiServerGen):
             self._db_init_entries()
 
         # recreate subnet operating state from DB
-        (ok, vn_fq_names) = self._db_conn.dbe_list('virtual-network')
-        for vn_fq_name in vn_fq_names:
-            vn_uuid = self._db_conn.fq_name_to_uuid(
-                'virtual-network', vn_fq_name)
+        (ok, vn_fq_names_uuids) = self._db_conn.dbe_list('virtual-network')
+        for vn_fq_name, vn_uuid in vn_fq_names_uuids:
             try:
                 (ok, vn_dict) = self._db_conn.dbe_read(
                     'virtual-network', {'uuid': vn_uuid})
@@ -444,6 +450,24 @@ class VncApiServer(VncApiServerGen):
         result = self._db_conn.db_read()
         return {'results': result}
     # end fetch_records
+
+    def start_profile(self):
+        #GreenletProfiler.start()
+        pass
+    # end start_profile
+
+    def stop_profile(self):
+        pass
+        #GreenletProfiler.stop()
+        #stats = GreenletProfiler.get_func_stats()
+        #self._profile_info = stats.print_all()
+
+        #return self._profile_info
+    # end stop_profile
+
+    def get_profile_info(self):
+        return self._profile_info
+    # end get_profile_info
 
     def get_resource_class(self, resource_type):
         if resource_type in self._resource_classes:
@@ -860,7 +884,14 @@ class VncApiServer(VncApiServerGen):
     def _http_get_common(self, request, uuid=None):
         # TODO check api + resource perms etc.
         if self._args.multi_tenancy and uuid:
-            return self._permissions.check_perms_read(request, uuid)
+            if isinstance(uuid, list):
+                for u_id in uuid:
+                    ok, result = self._permissions.check_perms_read(request,
+                                                                    u_id)
+                    if not ok:
+                        return ok, result
+            else:
+                return self._permissions.check_perms_read(request, uuid)
 
         return (True, '')
     # end _http_get_common
