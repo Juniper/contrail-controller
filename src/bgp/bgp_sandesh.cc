@@ -1293,22 +1293,22 @@ public:
             if (!bic->neighbors().size())
                 continue;
 
-	        for (BgpInstanceConfig::NeighborMap::const_iterator loc2 =
+            for (BgpInstanceConfig::NeighborMap::const_iterator loc2 =
                  bic->neighbors().begin();
-	             loc2 != bic->neighbors().end(); ++loc2) {
-	            const autogen::BgpRouterParams &peer = loc2->second->peer_config();
+                 loc2 != bic->neighbors().end(); ++loc2) {
+                const autogen::BgpRouterParams &peer = loc2->second->peer_config();
 
-	            ShowBgpNeighborConfig nbr;
-	            nbr.set_instance_name(loc2->second->InstanceName());
-	            nbr.set_name(loc2->second->name());
-	            nbr.set_vendor(peer.vendor);
-	            nbr.set_autonomous_system(peer.autonomous_system);
-	            nbr.set_identifier(peer.identifier);
-	            nbr.set_address(peer.address);
-	            nbr.set_address_families(loc2->second->address_families());
+                ShowBgpNeighborConfig nbr;
+                nbr.set_instance_name(loc2->second->InstanceName());
+                nbr.set_name(loc2->second->name());
+                nbr.set_vendor(peer.vendor);
+                nbr.set_autonomous_system(peer.autonomous_system);
+                nbr.set_identifier(peer.identifier);
+                nbr.set_address(peer.address);
+                nbr.set_address_families(loc2->second->address_families());
 
-	            nbr_list.push_back(nbr);
-	        }
+                nbr_list.push_back(nbr);
+            }
         }
 
         ShowBgpNeighborConfigResp *resp = new ShowBgpNeighborConfigResp;
@@ -1414,44 +1414,44 @@ void ShowXmppServerReq::HandleRequest() const {
 class ClearComputeNodeHandler {
 public:
     static bool CallbackS1(const Sandesh *sr,
-            const RequestPipeline::PipeSpec ps, int stage, int instNum,
-            RequestPipeline::InstData *data) {
+        const RequestPipeline::PipeSpec ps, int stage, int instNum,
+        RequestPipeline::InstData *data) {
 
         const ClearComputeNodeConnection *req =
             static_cast<const ClearComputeNodeConnection *>(ps.snhRequest_.get());
-	BgpSandeshContext *bsc =
-	    static_cast<BgpSandeshContext *>(req->client_context());
-	XmppServer *server = bsc->xmpp_peer_manager->xmpp_server();
-     
-	ClearComputeNodeConnectionResp *resp = new ClearComputeNodeConnectionResp;
-	if (req->get_hostname_or_all().compare("all") != 0) {
-	    XmppConnection *connection = 
-		server->FindConnectionbyHostName(req->get_hostname_or_all());
-	    if (connection) {
-	       server->ClearConnection(connection);
-	       resp->set_sucess(true);
-	    } else {
-	       resp->set_sucess(false);
-	    }
-	} else {
-	    if (server->ConnectionsCount()) {
-		server->ClearAllConnections();
-		resp->set_sucess(true);
-	    } else {
-		resp->set_sucess(false);
-	    }
-	}
+        BgpSandeshContext *bsc =
+            static_cast<BgpSandeshContext *>(req->client_context());
+        XmppServer *server = bsc->xmpp_peer_manager->xmpp_server();
 
-	resp->set_context(req->context());
-	resp->Response();
-	return(true);
+        ClearComputeNodeConnectionResp *resp = new ClearComputeNodeConnectionResp;
+        if (req->get_hostname_or_all().compare("all") != 0) {
+            XmppConnection *connection =
+                server->FindConnectionbyHostName(req->get_hostname_or_all());
+            if (connection) {
+                server->ClearConnection(connection);
+                resp->set_sucess(true);
+            } else {
+                resp->set_sucess(false);
+            }
+        } else {
+            if (server->ConnectionsCount()) {
+                server->ClearAllConnections();
+                resp->set_sucess(true);
+            } else {
+                resp->set_sucess(false);
+            }
+        }
+
+        resp->set_context(req->context());
+        resp->Response();
+        return(true);
     }
 };
 
 void ClearComputeNodeConnection::HandleRequest() const {
 
     if (ControlNode::GetTestMode() == false) {
-	ClearComputeNodeConnectionResp *resp = new ClearComputeNodeConnectionResp;
+        ClearComputeNodeConnectionResp *resp = new ClearComputeNodeConnectionResp;
         resp->set_context(context());
         resp->set_more(false);
         resp->Response();

@@ -13,17 +13,17 @@ SelectQuery::populate_fs_result_cb_map_t SelectQuery::populate_fs_result_cb_map_
 SelectQuery::process_fs_query_cb_map_t SelectQuery::process_fs_query_cb_map_init() {
     process_fs_query_cb_map_t query_cb_map;
     query_cb_map[FS_SELECT_T] = 
-        &SelectQuery::process_fs_query_with_time;
+        &SelectQuery::process_fs_query_with_time_tuple_stats_fields;
     query_cb_map[FS_SELECT_TS] = 
         &SelectQuery::process_fs_query_with_ts;
     query_cb_map[FS_SELECT_FLOW_TUPLE] = 
-        &SelectQuery::process_fs_query_with_tuple_fields;
+        &SelectQuery::process_fs_query_with_time_tuple_stats_fields;
     query_cb_map[FS_SELECT_STATS] = 
         &SelectQuery::process_fs_query_with_stats_fields;
     query_cb_map[FS_SELECT_T_FLOW_TUPLE] = 
-        &SelectQuery::process_fs_query_with_time_tuple_fields;
+        &SelectQuery::process_fs_query_with_time_tuple_stats_fields;
     query_cb_map[FS_SELECT_T_STATS] = 
-        &SelectQuery::process_fs_query_with_time_stats_fields;
+        &SelectQuery::process_fs_query_with_time_tuple_stats_fields;
     query_cb_map[FS_SELECT_FLOW_TUPLE_STATS] = 
         &SelectQuery::process_fs_query_with_tuple_stats_fields;
     query_cb_map[FS_SELECT_TS_FLOW_TUPLE] = 
@@ -41,17 +41,17 @@ SelectQuery::process_fs_query_cb_map_t SelectQuery::process_fs_query_cb_map_init
 SelectQuery::populate_fs_result_cb_map_t SelectQuery::populate_fs_result_cb_map_init() {
     populate_fs_result_cb_map_t result_cb_map;
     result_cb_map[FS_SELECT_T] = 
-        &SelectQuery::populate_fs_query_result_with_time;
+        &SelectQuery::populate_fs_query_result_with_time_tuple_stats_fields;
     result_cb_map[FS_SELECT_TS] = 
         &SelectQuery::populate_fs_query_result_with_ts;
     result_cb_map[FS_SELECT_FLOW_TUPLE] = 
-        &SelectQuery::populate_fs_query_result_with_tuple_fields;
+        &SelectQuery::populate_fs_query_result_with_time_tuple_stats_fields;
     result_cb_map[FS_SELECT_STATS] = 
         &SelectQuery::populate_fs_query_result_with_stats_fields;
     result_cb_map[FS_SELECT_T_FLOW_TUPLE] = 
-        &SelectQuery::populate_fs_query_result_with_time_tuple_fields;
+        &SelectQuery::populate_fs_query_result_with_time_tuple_stats_fields;
     result_cb_map[FS_SELECT_T_STATS] = 
-        &SelectQuery::populate_fs_query_result_with_time_stats_fields;
+        &SelectQuery::populate_fs_query_result_with_time_tuple_stats_fields;
     result_cb_map[FS_SELECT_FLOW_TUPLE_STATS] = 
         &SelectQuery::populate_fs_query_result_with_tuple_stats_fields;
     result_cb_map[FS_SELECT_TS_FLOW_TUPLE] = 
@@ -197,14 +197,6 @@ void SelectQuery::fs_write_final_result_row(const uint64_t *t,
             } else {
                 cmap.insert(std::make_pair(SELECT_SUM_BYTES, 
                             integerToString(sum_stats->bytes)));
-            }
-        } else if (it->agg_op == AVG) {
-            if (it->stat_type == PKT_STATS) {
-                cmap.insert(std::make_pair(SELECT_AVG_PACKETS,
-                            integerToString(avg_stats->pkts)));
-            } else {
-                cmap.insert(std::make_pair(SELECT_AVG_BYTES,
-                            integerToString(avg_stats->bytes)));
             }
         }
     }
@@ -430,40 +422,6 @@ void SelectQuery::populate_fs_query_result_with_ts_tuple_fields() {
     }
 }
 
-void SelectQuery::process_fs_query_with_tuple_fields(
-        const uint64_t& t, const boost::uuids::uuid& uuid,
-        const flow_stats& stats, const flow_tuple& tuple) {
-    QE_TRACE(DEBUG, ""); 
-    // Extract the flow class
-    flow_tuple flowclass;
-    get_flow_class(tuple, flowclass);
-
-    fs_flow_tuple_list_t::iterator it;
-    it = fs_flow_tuple_list_.find(flowclass);
-    if (it == fs_flow_tuple_list_.end()) {
-        fs_flow_tuple_list_.insert(flowclass);
-    }
-}
-
-void SelectQuery::populate_fs_query_result_with_tuple_fields() {
-    QE_TRACE(DEBUG, ""); 
-    fs_flow_tuple_list_t::iterator it;
-    for (it = fs_flow_tuple_list_.begin(); 
-         it != fs_flow_tuple_list_.end(); ++it) {
-        fs_write_final_result_row(NULL, &(*it), NULL, NULL, NULL);
-    }
-}
-
-void SelectQuery::process_fs_query_with_time(const uint64_t& t,
-        const boost::uuids::uuid& uuid, const flow_stats& stats,
-        const flow_tuple& tuple) {
-    QE_TRACE(DEBUG, "");
-    fs_write_final_result_row(&t, NULL, NULL, NULL, NULL);
-}
-
-void SelectQuery::populate_fs_query_result_with_time() {
-}
-
 void SelectQuery::process_fs_query_with_ts(const uint64_t& t,
         const boost::uuids::uuid& uuid, const flow_stats& stats,
         const flow_tuple& tuple) {
@@ -479,94 +437,13 @@ void SelectQuery::populate_fs_query_result_with_ts() {
     }
 }
 
-void SelectQuery::process_fs_query_with_time_tuple_fields(
-        const uint64_t& t, const boost::uuids::uuid& uuid,
-        const flow_stats& stats, const flow_tuple& tuple) {
-    QE_TRACE(DEBUG, "");
-    // Extract the flow class
-    flow_tuple flowclass;
-    get_flow_class(tuple, flowclass);
-    fs_time_tuple_map_t::iterator map_it = fs_time_tuple_map_.find(t);
-    if (map_it == fs_time_tuple_map_.end()) {
-        map_it = (fs_time_tuple_map_.insert(
-                    std::make_pair(t, std::set<flow_tuple>()))).first;
-    } 
-    map_it->second.insert(flowclass);
-}
-
-void SelectQuery::populate_fs_query_result_with_time_tuple_fields() {
-    QE_TRACE(DEBUG, "");
-    fs_time_tuple_map_t::const_iterator map_it;
-    for (map_it = fs_time_tuple_map_.begin();
-         map_it != fs_time_tuple_map_.end(); ++map_it) {
-        std::set<flow_tuple>::const_iterator it;
-        for (it = map_it->second.begin(); it != map_it->second.end(); ++it) {
-            fs_write_final_result_row(&map_it->first, &(*it), NULL, NULL, NULL);
-        }
-    }
-}
-
-void SelectQuery::process_fs_query_with_time_stats_fields(
-        const uint64_t& t, const boost::uuids::uuid& uuid, 
-        const flow_stats& stats, const flow_tuple& tuple) {
-    QE_TRACE(DEBUG, "");
-    fs_time_stats_map_t::iterator map_it = fs_time_stats_map_.find(t);
-    if (map_it == fs_time_stats_map_.end()) {
-        map_it = 
-            (fs_time_stats_map_.insert(std::make_pair(t, flow_stats()))).first;
-    }
-    map_it->second.pkts = stats.pkts;
-    map_it->second.bytes = stats.bytes;
-}
-
-void SelectQuery::populate_fs_query_result_with_time_stats_fields() {
-    QE_TRACE(DEBUG, "");
-    fs_time_stats_map_t::const_iterator map_it;
-    for (map_it = fs_time_stats_map_.begin();
-         map_it != fs_time_stats_map_.end(); ++map_it) {
-        fs_write_final_result_row(&map_it->first, NULL, &map_it->second, 
-                                  NULL, NULL);
-    }
-}
-
 void SelectQuery::process_fs_query_with_time_tuple_stats_fields(
         const uint64_t& t, const boost::uuids::uuid& uuid,
         const flow_stats& stats, const flow_tuple& tuple) {
     QE_TRACE(DEBUG, "");
-    // Extract the flow class
-    flow_tuple flowclass;
-    get_flow_class(tuple, flowclass);
-    fs_time_tuple_stats_map_t::iterator omap_it;
-    fs_time_stats_map_t::iterator imap_it;
-    omap_it = fs_time_tuple_stats_map_.find(flowclass);
-    // Is there already an instance of this flow class in the map?
-    if (omap_it == fs_time_tuple_stats_map_.end()) {
-        omap_it = (fs_time_tuple_stats_map_.insert(std::make_pair(
-                        flowclass, fs_time_stats_map_t()))).first;
-        imap_it = (omap_it->second.insert(std::make_pair(
-                                        t, flow_stats()))).first;
-    } else {
-        // Is the timestamp already present in the map?
-        imap_it = omap_it->second.find(t);
-        if (imap_it == omap_it->second.end()) {
-            imap_it = (omap_it->second.insert(std::make_pair(
-                                t, flow_stats()))).first;
-        }
-    }
-    imap_it->second.pkts = stats.pkts;
-    imap_it->second.bytes = stats.bytes;
+    fs_write_final_result_row(&t, &tuple, &stats, NULL, NULL); 
 }
 
 void SelectQuery::populate_fs_query_result_with_time_tuple_stats_fields() {
     QE_TRACE(DEBUG, "");
-    fs_time_tuple_stats_map_t::const_iterator omap_it;
-    fs_time_stats_map_t::const_iterator imap_it;
-    for (omap_it = fs_time_tuple_stats_map_.begin();
-         omap_it != fs_time_tuple_stats_map_.end(); ++omap_it) {
-        for (imap_it = omap_it->second.begin(); 
-             imap_it != omap_it->second.end(); ++imap_it) {
-            fs_write_final_result_row(&imap_it->first, &omap_it->first, 
-                    &imap_it->second, NULL, NULL);
-        }
-    }
 }

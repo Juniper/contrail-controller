@@ -67,8 +67,6 @@ enum flow_dir_t {
 #define SELECT_BYTES "bytes"
 #define SELECT_SUM_PACKETS "sum(packets)"
 #define SELECT_SUM_BYTES "sum(bytes)"
-#define SELECT_AVG_PACKETS "avg(packets)"
-#define SELECT_AVG_BYTES "avg(bytes)"
 #define SELECT_FLOW_CLASS_ID "flow_class_id"
 #define SELECT_FLOW_COUNT "flow_count"
 

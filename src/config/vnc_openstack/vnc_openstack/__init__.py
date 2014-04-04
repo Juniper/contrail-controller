@@ -112,6 +112,7 @@ class OpenstackDriver(vnc_plugin_base.Resync):
                             for proj in self._kc.tenants.list()])
                 except Exception as e:
                     self._kc = None
+                    continue
 
                 if old_project_ids == new_project_ids:
                     # no change, go back to poll

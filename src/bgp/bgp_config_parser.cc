@@ -22,7 +22,9 @@
 using namespace std;
 using namespace pugi;
 
-typedef multimap<pair<string, string>, autogen::BgpSessionAttributes> SessionMap;
+typedef multimap<
+    pair<string, string>,
+    pair<autogen::BgpSessionAttributes, string> > SessionMap;
 
 namespace {
 
@@ -120,9 +122,14 @@ static void MapObjectLinkAttr(const string &ltype, const string &lname,
 
 static autogen::BgpSessionAttributes *GetPeeringSessionAttribute(
         const pair<string, string> &key, autogen::BgpPeeringAttributes *peer,
-        int session_id, const string &to) {
-    string uuid = BgpConfigParser::session_uuid(key.first, key.second,
-                                                session_id);
+        int session_id, const string config_uuid) {
+    string uuid;
+    if (!config_uuid.empty()) {
+        uuid = config_uuid;
+    } else {
+        uuid = BgpConfigParser::session_uuid(key.first, key.second, session_id);
+    }
+
     autogen::BgpSession *session = NULL;
     for (vector<autogen::BgpSession>::iterator iter =
             peer->session.begin();
@@ -166,12 +173,15 @@ static void BuildPeeringLinks(const string &instance,
         } else {
             key = make_pair(right, left);
         }
+
+        string config_uuid = iter->second.second;
         if ((sprev.first == left) && (sprev.second == right)) {
             session_id++;
         } else {
             session_id = 1;
             sprev = make_pair(left, right);
         }
+
         autogen::BgpPeeringAttributes *peer = NULL;
         PeeringMap::iterator loc = peerings.find(key);
         if (loc == peerings.end()) {
@@ -182,8 +192,8 @@ static void BuildPeeringLinks(const string &instance,
         }
         // add uni-directional attributes for this session.
         autogen::BgpSessionAttributes *attrp =
-                GetPeeringSessionAttribute(key, peer, session_id, right);
-        attrp->Copy(iter->second);
+            GetPeeringSessionAttribute(key, peer, session_id, config_uuid);
+        attrp->Copy(iter->second.first);
         attrp->bgp_router = left;
     }
 
@@ -240,7 +250,19 @@ static bool ParseSession(const string &identifier, const xml_node &node,
     if (!attr.XmlParse(node)) {
         return false;
     }
-    sessions->insert(make_pair(make_pair(identifier, to.value()), attr));
+
+    string to_value = to.value();
+    string to_name, uuid;
+    size_t pos = to_value.find(':');
+    if (pos == string::npos) {
+        to_name = to_value;
+    } else {
+        to_name = to_value.substr(0, pos);
+        uuid = string(to_value, pos + 1);
+    }
+
+    sessions->insert(
+        make_pair(make_pair(identifier, to_name), make_pair(attr, uuid)));
     return true;
 }
 

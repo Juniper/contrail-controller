@@ -1282,9 +1282,7 @@ bool AnalyticsQuery::is_valid_sort_field(const std::string& sort_field) {
         (sort_field == SELECT_PACKETS) ||
         (sort_field == SELECT_BYTES) ||
         (sort_field == SELECT_SUM_PACKETS) ||
-        (sort_field == SELECT_SUM_BYTES) ||
-        (sort_field == SELECT_AVG_PACKETS) ||
-        (sort_field == SELECT_AVG_BYTES)
+        (sort_field == SELECT_SUM_BYTES)
         )
         return true;
 

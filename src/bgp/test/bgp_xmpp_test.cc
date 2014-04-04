@@ -7,7 +7,7 @@
 #include <sstream>
 #include <boost/algorithm/string.hpp>
 #include <boost/assign/list_of.hpp>
-using namespace boost::assign;
+#include <boost/bind.hpp>
 
 #include <pugixml/pugixml.hpp>
 
@@ -45,9 +45,10 @@ using namespace boost::assign;
 
 #include "testing/gunit.h"
 
-using namespace boost::asio;
-using namespace std;
 using namespace autogen;
+using namespace boost::asio;
+using namespace boost::assign;
+using namespace std;
 
 #define SUB_ADDR "agent@vnsw.contrailsystems.com"
 #define PUB_ADDR "bgp@bgp-client.contrailsystems.com"
@@ -127,6 +128,7 @@ public:
 
 class BgpXmppUnitTest : public ::testing::Test {
 protected:
+    static bool validate_done_;
     static const char *config_tmpl;
 
     BgpXmppUnitTest() : thread_(&evm_) { }
@@ -244,7 +246,7 @@ protected:
             }
         }
         cout << "*******************************************************"<<endl;
-        validate_done_ = 1;
+        validate_done_ = true;
     }
 
     static void ValidateNeighborResponse(Sandesh *sandesh,
@@ -268,7 +270,7 @@ protected:
             }
         }
         cout << "*******************************************************"<<endl;
-        validate_done_ = 1;
+        validate_done_ = true;
     }
 
     static void ValidateShowRouteResponse(Sandesh *sandesh, vector<size_t> &result) {
@@ -288,7 +290,29 @@ protected:
             }
         }
         cout << "*******************************************************"<<endl;
-        validate_done_ = 1;
+        validate_done_ = true;
+    }
+
+    static void ValidateShowXmppServerResponse(Sandesh *sandesh) {
+        ShowXmppServerResp *resp = dynamic_cast<ShowXmppServerResp *>(sandesh);
+        EXPECT_TRUE(resp != NULL);
+        const TcpServerSocketStats &rx_stats = resp->get_rx_socket_stats();
+        const TcpServerSocketStats &tx_stats = resp->get_tx_socket_stats();
+
+        cout << "****************************************************" << endl;
+        cout << "RX: calls=" << rx_stats.calls << " bytes=" << rx_stats.bytes
+             << " average bytes=" << rx_stats.average_bytes << endl;
+        cout << "TX: calls=" << tx_stats.calls << " bytes=" << tx_stats.bytes
+             << " average bytes=" << tx_stats.average_bytes << endl;
+        cout << "****************************************************" << endl;
+
+        EXPECT_NE(0, rx_stats.calls);
+        EXPECT_NE(0, rx_stats.bytes);
+        EXPECT_NE(0, rx_stats.average_bytes);
+        EXPECT_NE(0, tx_stats.calls);
+        EXPECT_NE(0, tx_stats.bytes);
+        EXPECT_NE(0, tx_stats.average_bytes);
+        validate_done_ = true;
     }
 
     EventManager evm_;
@@ -299,11 +323,9 @@ protected:
     XmppClient *xc_a_;
     BgpXmppChannelManagerMock *bgp_channel_manager_;
     XmppVnswBgpMockChannel *xmpp_cchannel_;
-
-    static int validate_done_;
 };
 
-int BgpXmppUnitTest::validate_done_;
+bool BgpXmppUnitTest::validate_done_;
 
 const char *BgpXmppUnitTest::config_tmpl = "\
 <config>\
@@ -433,30 +455,30 @@ TEST_F(BgpXmppUnitTest, Connection) {
     Sandesh::set_response_callback(boost::bind(ValidateRoutingInstanceResponse,
                                    _1, result));
     ShowRoutingInstanceReq *req = new ShowRoutingInstanceReq;
-    validate_done_ = 0;
+    validate_done_ = false;
     req->HandleRequest();
     req->Release();
-    WAIT_EQ(1, validate_done_);
+    WAIT_EQ(true, validate_done_);
 
     result = list_of(2)(7); // inet, inetmcast, enet
     Sandesh::set_response_callback(boost::bind(ValidateNeighborResponse,
                                    _1, result));
     BgpNeighborReq *nbr_req = new BgpNeighborReq;
-    validate_done_ = 0;
+    validate_done_ = false;
     nbr_req->HandleRequest();
     nbr_req->Release();
-    WAIT_EQ(1, validate_done_);
+    WAIT_EQ(true, validate_done_);
 
     //show route
     result = list_of(1)(1)(1)(1);
     Sandesh::set_response_callback(boost::bind(ValidateShowRouteResponse, _1,
                                    result));
     ShowRouteReq *show_req = new ShowRouteReq;
-    validate_done_ = 0;
+    validate_done_ = false;
     show_req->HandleRequest();
     show_req->Release();
     task_util::WaitForIdle();
-    WAIT_EQ(1, validate_done_);
+    WAIT_EQ(true, validate_done_);
    
     //show route for a table
     result = list_of(1);
@@ -464,11 +486,11 @@ TEST_F(BgpXmppUnitTest, Connection) {
                                    result));
     show_req = new ShowRouteReq;
     show_req->set_routing_table("bgp.l3vpn.0");
-    validate_done_ = 0;
+    validate_done_ = false;
     show_req->HandleRequest();
     show_req->Release();
     task_util::WaitForIdle();
-    WAIT_EQ(1, validate_done_);
+    WAIT_EQ(true, validate_done_);
 
     //show route for a routing instance
     result = list_of(1)(1);
@@ -476,11 +498,11 @@ TEST_F(BgpXmppUnitTest, Connection) {
                                    result));
     show_req = new ShowRouteReq;
     show_req->set_routing_instance("default-domain:default-project:ip-fabric:__default__");
-    validate_done_ = 0;
+    validate_done_ = false;
     show_req->HandleRequest();
     show_req->Release();
     task_util::WaitForIdle();
-    WAIT_EQ(1, validate_done_);
+    WAIT_EQ(true, validate_done_);
 
     //send publish route dissociate to vrf=blue from agent to bgp
     data = FileRead("controller/src/bgp/testdata/pubsub_dis.xml");
@@ -527,11 +549,11 @@ TEST_F(BgpXmppUnitTest, Connection) {
     ShowRouteReq *show_req2 = new ShowRouteReq;
     Sandesh::set_response_callback(boost::bind(ValidateShowRouteResponse, _1,
                                                result));
-    validate_done_ = 0;
+    validate_done_ = false;
     show_req2->HandleRequest();
     show_req2->Release();
     task_util::WaitForIdle();
-    WAIT_EQ(1, validate_done_);
+    WAIT_EQ(true, validate_done_);
 
     // trigger EvTcpClose on server, which will result in xmpp channel
     // deletion on the server via Peer()->Close()
@@ -539,6 +561,71 @@ TEST_F(BgpXmppUnitTest, Connection) {
     task_util::WaitForIdle();
     usleep(2000);
 }
+
+TEST_F(BgpXmppUnitTest, ShowXmppServer) {
+    Configure();
+    task_util::WaitForIdle();
+
+    //create an XMPP server and client in server A
+    XmppConfigData *xmppc_cfg_a = new XmppConfigData;
+    BGP_DEBUG_UT("Create Xmpp client");
+    xmppc_cfg_a->AddXmppChannelConfig(CreateXmppChannelCfg("127.0.0.1",
+                                      xs_a_->GetPort(),
+                                      SUB_ADDR, XMPP_CONTROL_SERV, true));
+    xc_a_->ConfigUpdate(xmppc_cfg_a);
+
+    // Wait upto 1 sec
+    WAIT_EQ(1, bgp_channel_manager_->Count());
+    WAIT_NE(static_cast<BgpXmppChannelMock *>(NULL),
+            bgp_channel_manager_->channel_);
+
+    // client channel
+    WAIT_NE(static_cast<XmppChannel *>(NULL),
+            xc_a_->FindChannel(XMPP_CONTROL_SERV));
+    XmppChannel *cchannel = xc_a_->FindChannel(XMPP_CONTROL_SERV);
+    WAIT_EQ(xmps::READY, cchannel->GetPeerState());
+    xmpp_cchannel_ = new XmppVnswBgpMockChannel(cchannel, a_.get(),
+                                       bgp_channel_manager_);
+
+    //send subscribe message to vrf=red from agent to bgp
+    string data = FileRead("controller/src/bgp/testdata/pubsub_sub2.xml");
+    uint8_t buf[4096];
+    bzero(buf, sizeof(buf));
+    memcpy(buf, data.data(), data.size());
+    xmpp_cchannel_->Peer()->SendUpdate(buf, data.size());
+    BGP_DEBUG_UT("Sent bytes: " << data.size());
+    WAIT_EQ(1, bgp_channel_manager_->channel_->Count());
+    BGP_DEBUG_UT("Received subscribe message 1 at Server");
+
+    //send unsubscribe message to vrf=red from agent to bgp
+    data = FileRead("controller/src/bgp/testdata/pubsub_usub2.xml");
+    bzero(buf, sizeof(buf));
+    memcpy(buf, data.data(), data.size());
+    xmpp_cchannel_->Peer()->SendUpdate(buf, data.size());
+    BGP_DEBUG_UT("Sent bytes: " << data.size());
+    WAIT_EQ(1, bgp_channel_manager_->channel_->Count());
+    BGP_DEBUG_UT("Received unsubscribe message 1 at Server");
+
+    BgpSandeshContext sandesh_context;
+    sandesh_context.bgp_server = a_.get();
+    sandesh_context.xmpp_peer_manager = bgp_channel_manager_;
+    Sandesh::set_client_context(&sandesh_context);
+    Sandesh::set_response_callback(
+        boost::bind(ValidateShowXmppServerResponse, _1));
+    ShowXmppServerReq *show_req = new ShowXmppServerReq;
+    validate_done_ = false;
+    show_req->HandleRequest();
+    show_req->Release();
+    task_util::WaitForIdle();
+    TASK_UTIL_EXPECT_TRUE(validate_done_);
+
+    // Trigger EvTcpClose on server, which will result in xmpp channel
+    // deletion on the server via Peer()->Close().
+    xmpp_cchannel_->Peer()->Close();
+    task_util::WaitForIdle();
+    usleep(2000);
+}
+
 }
 
 class TestEnvironment : public ::testing::Environment {
