@@ -1104,8 +1104,12 @@ def main(args_str=None):
                                   run_discovery_server, args)
 # end main
 
-if __name__ == "__main__":
+def server_main():
     import cgitb
     cgitb.enable(format='text')
 
     main()
+# end server_main
+
+if __name__ == "__main__":
+    server_main()

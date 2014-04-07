@@ -414,7 +414,7 @@ class UVEServer(object):
                 self._logger.error('Failed to connect to redis-uve: %s:%d' \
                                    % (redis_uve[0], redis_uve[1]))
             except Exception as e:
-                self._logger.error('Exception: ' % e)
+                self._logger.error('Exception: %s' % e)
                 return set()
         return uve_list
     # end get_uve_list
