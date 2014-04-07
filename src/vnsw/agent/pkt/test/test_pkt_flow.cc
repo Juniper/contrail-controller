@@ -1598,6 +1598,30 @@ TEST_F(FlowTest, AclDelete) {
     EXPECT_TRUE(FlowTableWait(0));
 }
 
+//Src port and dest port should be ignored for non TCP and UDP flows
+TEST_F(FlowTest, ICMPPortIgnoreTest) {
+    AddAcl("acl1", 1, "vn5" , "vn5");
+    client->WaitForIdle();
+    for (uint32_t i = 0; i < 1; i++) {
+        TestFlow flow[] = {
+            {
+                TestFlowPkt(vm2_ip, vm1_ip, IPPROTO_ICMP, 0, 0, "vrf5",
+                            flow1->id(), 1),
+                {
+                    new VerifyVn("vn5", "vn5"),
+                    new VerifyFlowAction(TrafficAction::PASS)
+                }
+            }
+        };
+        CreateFlow(flow, 1);
+    }
+
+    //Delete the acl
+    DelOperDBAcl(1);
+    client->WaitForIdle();
+    EXPECT_TRUE(FlowTableWait(0));
+}
+
 TEST_F(FlowTest, FlowOnDeletedInterface) {
     struct PortInfo input[] = {
         {"flow5", 11, "11.1.1.3", "00:00:00:01:01:01", 5, 6},
