@@ -598,7 +598,6 @@ bool VmInterface::Resync(VmInterfaceData *data) {
 void VmInterface::Delete() {
     VmInterfaceConfigData data;
     Resync(&data);
-    InterfaceNH::DeleteVmInterfaceNHReq(GetUuid());
 }
 
 bool VmInterface::CopyIpAddress(Ip4Address &addr) {
@@ -777,6 +776,7 @@ void VmInterface::DeleteL3(bool old_ipv4_active, VrfEntry *old_vrf,
     DeleteStaticRoute();
     DeleteSecurityGroup();
     DeleteL3TunnelId();
+    DeleteL3NextHop(old_ipv4_active);
 }
 
 void VmInterface::UpdateL2(bool old_l2_active, VrfEntry *old_vrf, int old_vxlan_id,
@@ -793,6 +793,7 @@ void VmInterface::UpdateL2() {
 void VmInterface::DeleteL2(bool old_l2_active, VrfEntry *old_vrf) {
     DeleteL2TunnelId();
     DeleteL2InterfaceRoute(old_l2_active, old_vrf);
+    DeleteL2NextHop(old_l2_active);
 }
 
 // Apply the latest configuration
@@ -803,7 +804,11 @@ void VmInterface::ApplyConfig(bool old_ipv4_active, bool old_l2_active, bool old
     bool force_update = sg_changed;
     bool policy_change = (policy_enabled_ != old_policy);
 
-    UpdateMulticastNextHop(old_ipv4_active || old_l2_active);
+    if (ipv4_active_ == true || l2_active_ == true) {
+        UpdateMulticastNextHop(old_ipv4_active, old_l2_active);
+    } else {
+        DeleteMulticastNextHop();
+    }
 
     //Irrespective of interface state, if ipv4 forwarding mode is enabled
     //enable L3 services on this interface
@@ -836,7 +841,7 @@ void VmInterface::ApplyConfig(bool old_ipv4_active, bool old_l2_active, bool old
             SendTrace(DEACTIVATED_L2);
         }
     }
-    
+
     if (old_ipv4_active != ipv4_active_) {
         if (ipv4_active_) {
             SendTrace(ACTIVATED_IPV4);
@@ -1067,30 +1072,75 @@ void VmInterface::DeleteL3TunnelId() {
     DeleteL3MplsLabel();
 }
 
-void VmInterface::UpdateMulticastNextHop(bool interface_active) {
-    if (interface_active == true ||
-        ((l2_active_ == false) && (ipv4_active_ == false)))
-       return; 
+//Check if interface transitioned from inactive to active layer 2 forwarding
+bool VmInterface::L2Activated(bool old_l2_active) {
+    if (old_l2_active == false && l2_active_ == true) {
+        return true;
+    }
+    return false;
+}
 
-    struct ether_addr *addrp = ether_aton(vm_mac_.c_str());
-    InterfaceNH::CreateMulticastVmInterfaceNH(GetUuid(), *addrp, 
-                                              vrf_->GetName());
+//Check if interface transitioned from inactive to active IP forwarding
+bool VmInterface::L3Activated(bool old_ipv4_active) {
+    if (old_ipv4_active == false && ipv4_active_ == true) {
+        return true;
+    }
+    return false;
+}
+
+//Check if interface transitioned from active layer2 forwarding to inactive state
+bool VmInterface::L2Deactivated(bool old_l2_active) {
+    if (old_l2_active == true && l2_active_ == false) {
+        return true;
+    }
+    return false;
+}
+
+//Check if interface transitioned from active IP forwarding to inactive state
+bool VmInterface::L3Deactivated(bool old_ipv4_active) {
+    if (old_ipv4_active == true && ipv4_active_ == false) {
+        return true;
+    }
+    return false;
+}
+
+void VmInterface::UpdateMulticastNextHop(bool old_ipv4_active,
+                                         bool old_l2_active) {
+    if (L3Activated(old_ipv4_active) || L2Activated(old_l2_active)) {
+        struct ether_addr *addrp = ether_aton(vm_mac_.c_str());
+        InterfaceNH::CreateMulticastVmInterfaceNH(GetUuid(), *addrp,
+                                                  vrf_->GetName());
+    }
 }
 
 void VmInterface::UpdateL2NextHop(bool old_l2_active) {
-    if (l2_active_ == false || old_l2_active == true)
-        return;
-
-    struct ether_addr *addrp = ether_aton(vm_mac_.c_str());
-    InterfaceNH::CreateL2VmInterfaceNH(GetUuid(), *addrp, vrf_->GetName());
+    if (L2Activated(old_l2_active)) {
+        struct ether_addr *addrp = ether_aton(vm_mac_.c_str());
+        InterfaceNH::CreateL2VmInterfaceNH(GetUuid(), *addrp, vrf_->GetName());
+    }
 }
 
 void VmInterface::UpdateL3NextHop(bool old_ipv4_active) {
-    if (ipv4_active_ == false || old_ipv4_active == true)
-        return;
+    if (L3Activated(old_ipv4_active)) {
+        struct ether_addr *addrp = ether_aton(vm_mac_.c_str());
+        InterfaceNH::CreateL3VmInterfaceNH(GetUuid(), *addrp, vrf_->GetName());
+    }
+}
 
-    struct ether_addr *addrp = ether_aton(vm_mac_.c_str());
-    InterfaceNH::CreateL3VmInterfaceNH(GetUuid(), *addrp, vrf_->GetName());
+void VmInterface::DeleteL2NextHop(bool old_l2_active) {
+    if (L2Deactivated(old_l2_active)) {
+        InterfaceNH::DeleteL2InterfaceNH(GetUuid());
+    }
+}
+
+void VmInterface::DeleteL3NextHop(bool old_l3_active) {
+    if (L3Deactivated(old_l3_active)) {
+        InterfaceNH::DeleteL3InterfaceNH(GetUuid());
+    }
+}
+
+void VmInterface::DeleteMulticastNextHop() {
+    InterfaceNH::DeleteMulticastVmInterfaceNH(GetUuid());
 }
 
 // Add/Update route. Delete old route if VRF or address changed

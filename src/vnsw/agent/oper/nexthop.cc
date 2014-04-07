@@ -466,20 +466,34 @@ void InterfaceNH::CreateL3VmInterfaceNH(const uuid &intf_uuid,
     AddInterfaceNH(intf_uuid, dmac, InterfaceNHFlags::INET4, false, vrf_name);
 }
 
+void InterfaceNH::DeleteL3InterfaceNH(const uuid &intf_uuid) {
+    DeleteNH(intf_uuid, false, InterfaceNHFlags::INET4);
+    DeleteNH(intf_uuid, true, InterfaceNHFlags::INET4);
+}
+
 void InterfaceNH::CreateL2VmInterfaceNH(const uuid &intf_uuid,
-                                        const struct ether_addr &dmac, 
+                                        const struct ether_addr &dmac,
                                         const string &vrf_name) {
     AddInterfaceNH(intf_uuid, dmac, InterfaceNHFlags::LAYER2, false, vrf_name);
     AddInterfaceNH(intf_uuid, dmac, InterfaceNHFlags::LAYER2, true, vrf_name);
 }
 
+void InterfaceNH::DeleteL2InterfaceNH(const uuid &intf_uuid) {
+    DeleteNH(intf_uuid, false, InterfaceNHFlags::LAYER2);
+    DeleteNH(intf_uuid, true, InterfaceNHFlags::LAYER2);
+}
+
 void InterfaceNH::CreateMulticastVmInterfaceNH(const uuid &intf_uuid,
-                                               const struct ether_addr &dmac, 
+                                               const struct ether_addr &dmac,
                                                const string &vrf_name) {
     AddInterfaceNH(intf_uuid, dmac, InterfaceNHFlags::MULTICAST, false, vrf_name);
 }
 
-static void DeleteNH(const uuid &intf_uuid, bool policy, 
+void InterfaceNH::DeleteMulticastVmInterfaceNH(const uuid &intf_uuid) {
+    DeleteNH(intf_uuid, false, InterfaceNHFlags::MULTICAST);
+}
+
+void InterfaceNH::DeleteNH(const uuid &intf_uuid, bool policy,
                           uint8_t flags) {
     DBRequest req(DBRequest::DB_ENTRY_DELETE);
     req.key.reset(new InterfaceNHKey

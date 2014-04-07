@@ -360,9 +360,16 @@ private:
     void DeleteL3MplsLabel();
     void UpdateL3TunnelId(bool force_update, bool policy_change);
     void DeleteL3TunnelId();
-    void UpdateMulticastNextHop(bool interface_active);
-    void UpdateL2NextHop(bool old_ipv4_active);
-    void UpdateL3NextHop(bool old_l2_active);
+    void UpdateMulticastNextHop(bool old_ipv4_active, bool old_l2_active);
+    void DeleteMulticastNextHop();
+    void UpdateL2NextHop(bool old_l2_active);
+    void DeleteL2NextHop(bool old_l2_active);
+    void UpdateL3NextHop(bool old_ipv4_active);
+    void DeleteL3NextHop(bool old_ipv4_active);
+    bool L2Activated(bool old_l2_active);
+    bool L3Activated(bool old_ipv4_active);
+    bool L2Deactivated(bool old_l2_active);
+    bool L3Deactivated(bool old_ipv4_active);
     void UpdateL3InterfaceRoute(bool old_ipv4_active, bool force_update,
                              bool policy_change, VrfEntry * old_vrf,
                              const Ip4Address &old_addr);
