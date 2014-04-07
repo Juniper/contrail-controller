@@ -8,6 +8,7 @@
 
 include "io/io.sandesh"
 include "sandesh/library/common/sandesh_uve.sandesh"
+include "gendb/gendb.sandesh"
 
 struct SandeshStats {
     1: string                              message_type
@@ -42,6 +43,17 @@ struct GeneratorInfo {
     3: GeneratorInfoAttr                   gen_attr
 }
 
+struct GeneratorDbStats {
+    1: string                             name (key="ObjectGeneratorInfo")
+    2: optional bool                      deleted
+    3: optional list<gendb.DbTableInfo>   table_info (tags=".table_name")
+    4: optional list<gendb.DbErrors>      errors
+}
+
+uve sandesh GeneratorDbStatsUve {
+    1: GeneratorDbStats                   data
+}
+
 // This struct is part of the Generator UVE (key is <source>:<module>)
 //
 // - Vizd will update the msg_stats attribute periodically
@@ -62,7 +74,7 @@ struct ModuleServerState {
     11: optional io.TcpServerSocketStats   session_tx_socket_stats
     12: optional sandesh_uve.SandeshGeneratorStats  sm_msg_stats
     13: optional string                    db_drop_level
-    14: optional u64                       db_msg_dropped
+    14: optional list<SandeshStats>        db_dropped_msg_stats
     15: optional string                    sm_drop_level
 }
 

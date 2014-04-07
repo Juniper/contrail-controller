@@ -137,18 +137,20 @@ bool CollectorInfoLogger(VizSandeshContext &ctx) {
     CollectorSummaryLogger(analytics->GetCollector(), analytics->name(),
             analytics->GetOsp());
 
-    vector<ModuleServerState> sinfos;    
-    analytics->GetCollector()->GetGeneratorSandeshStatsInfo(sinfos);
-
-    for (uint i =0 ; i< sinfos.size(); i++) {
+    vector<ModuleServerState> sinfos;
+    analytics->GetCollector()->GetGeneratorUVEInfo(sinfos);
+    for (uint i = 0; i < sinfos.size(); i++) {
         SandeshModuleServerTrace::Send(sinfos[i]);
     }
 
     vector<SandeshMessageStat> sminfos;
-    analytics->GetCollector()->GetSandeshStats(sminfos);
-
-    for (uint i =0 ; i< sminfos.size(); i++) {
+    vector<GeneratorDbStats> gdbsinfos;
+    analytics->GetCollector()->GetGeneratorStats(sminfos, gdbsinfos);
+    for (uint i = 0; i < sminfos.size(); i++) {
         SandeshMessageTrace::Send(sminfos[i]);
+    }
+    for (uint i = 0; i < gdbsinfos.size(); i++) {
+        GeneratorDbStatsUve::Send(gdbsinfos[i]);
     }
 
     collector_info_log_timer->Cancel();

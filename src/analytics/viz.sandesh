@@ -375,6 +375,34 @@ const list<stat_table> _STAT_TABLES  = [
       ]
     },
     {
+      'display_name' : 'Generator Database Table Statistics',
+      'stat_type' : 'GeneratorDbStats',
+      'stat_attr' : 'table_info',
+      'obj_table' : GENERATOR_INFO_TABLE,
+      'attributes': [
+          { 'name' : 'table_info.table_name', 'datatype' : 'string', 'index' : true},
+          { 'name' : 'table_info.reads', 'datatype' : 'long', 'index' : false},
+          { 'name' : 'table_info.read_fails', 'datatype' : 'long', 'index' : false},
+          { 'name' : 'table_info.writes', 'datatype' : 'long', 'index' : false},
+          { 'name' : 'table_info.write_fails', 'datatype' : 'long', 'index' : false},
+      ]
+    },
+    {
+      'display_name' : 'Generator Database Errors',
+      'stat_type' : 'GeneratorDbStats',
+      'stat_attr' : 'errors',
+      'obj_table' : GENERATOR_INFO_TABLE,
+      'attributes': [
+          { 'name' : 'errors.write_tablespace_fails', 'datatype' : 'long', 'index' : false},
+          { 'name' : 'errors.read_tablespace_fails', 'datatype' : 'long', 'index' : false},
+          { 'name' : 'errors.write_table_fails', 'datatype' : 'long', 'index' : false},
+          { 'name' : 'errors.read_table_fails', 'datatype' : 'long', 'index' : false},
+          { 'name' : 'errors.write_column_fails', 'datatype' : 'long', 'index' : false},
+          { 'name' : 'errors.write_batch_column_fails', 'datatype' : 'long', 'index' : false},
+          { 'name' : 'errors.read_column_fails', 'datatype' : 'long', 'index' : false},
+      ]
+    },
+    {
       'display_name' : 'Values Table - string',
       'stat_type' : 'FieldNames'
       'stat_attr' : 'fields'
