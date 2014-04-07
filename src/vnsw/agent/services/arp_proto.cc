@@ -124,6 +124,8 @@ void ArpProto::InterfaceNotify(DBEntryBase *entry) {
                 } else
                     it++;
             }
+            set_ip_fabric_interface(NULL);
+            set_ip_fabric_interface_index(-1);
         }
     } else {
         if (itf->type() == Interface::PHYSICAL && 
@@ -163,7 +165,8 @@ void ArpProto::NextHopNotify(DBEntryBase *entry) {
 }
 
 bool ArpProto::TimerExpiry(ArpKey &key, uint32_t timer_type) {
-    SendArpIpc((ArpProto::ArpMsgType)timer_type, key);
+    if (arp_cache_.find(key) != arp_cache_.end())
+        SendArpIpc((ArpProto::ArpMsgType)timer_type, key);
     return false;
 }
 
@@ -227,10 +230,10 @@ void ArpProto::ValidateAndClearVrfState(VrfEntry *vrf) {
     if (!vrf->IsDeleted())
         return;
 
-    for (ArpProto::ArpIterator it = arp_cache_.begin();
-         it != arp_cache_.end(); ++it) {
-        if (it->first.vrf == vrf)
-            return;
+    ArpKey key(0, vrf);
+    ArpProto::ArpIterator it = arp_cache_.upper_bound(key);
+    if (it != arp_cache_.end() && it->first.vrf == vrf) {
+        return;
     }
 
     DBState *state = static_cast<DBState *>

@@ -1,0 +1,25 @@
+
+agent/pkt directory
+
+Handles the exception packets sent from vrouter. Packets are received on the
+pkt0 tap interface, parsed and sent to appropriate module. Following are the 
+packet handling modules:
+    - Flow
+    - Arp
+    - Dhcp
+    - Dns
+    - Icmp
+    - Diag
+
+PktHandler is the class which receives the packets from TapInterface and parses
+them. Respective modules register a work queue with the PktHandler, into which
+the packets are queued.
+
+The packet handling modules use the Proto and ProtoHandler objects. Proto or a
+derived object represents the module (single object instantiation). This holds
+the work queue for the module, which is handled in the corresponding packet
+handling task. For each packet, a ProtoHandler or a derived object is
+instantiated, in which the packet is handled.
+
+Messages to the packet handling module are also sent to the same work queue and
+are handled in the same manner.

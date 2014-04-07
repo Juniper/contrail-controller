@@ -8,7 +8,11 @@
 struct ArpKey {
     ArpKey(in_addr_t addr, const VrfEntry *ventry) : ip(addr), vrf(ventry) {};
     ArpKey(const ArpKey &key) : ip(key.ip), vrf(key.vrf) {};
-    bool operator <(const ArpKey &rhs) const { return (ip < rhs.ip); }
+    bool operator <(const ArpKey &rhs) const {
+        if (vrf != rhs.vrf)
+            return vrf < rhs.vrf;
+        return (ip < rhs.ip);
+    }
 
     in_addr_t ip;
     const VrfEntry *vrf;
