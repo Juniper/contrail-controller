@@ -345,7 +345,7 @@ bool InterfaceTable::IFNodeToReq(IFMapNode *node, DBRequest &req) {
     if (node->IsDeleted()) {
         req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
         req.key.reset(new VmInterfaceKey(AgentKey::RESYNC, u, ""));
-        req.data.reset(new VmInterfaceConfigData());
+        req.data.reset(new VmInterfaceConfigData(true));
         return true;
     }
 
@@ -354,7 +354,7 @@ bool InterfaceTable::IFNodeToReq(IFMapNode *node, DBRequest &req) {
     InterfaceKey *key = new VmInterfaceKey(AgentKey::RESYNC, u, "");
 
     VmInterfaceConfigData *data;
-    data = new VmInterfaceConfigData();
+    data = new VmInterfaceConfigData(false);
     ReadAnalyzerNameAndCreate(agent_, cfg, *data);
 
     //Fill config data items
@@ -592,6 +592,14 @@ bool VmInterface::Resync(VmInterfaceData *data) {
     ApplyConfig(old_ipv4_active, old_l2_active, old_policy, old_vrf.get(), 
                 old_addr, old_vxlan_id, old_need_linklocal_ip, sg_changed);
 
+    if (data->type_ == VmInterfaceData::CONFIG) {
+        VmInterfaceConfigData *cfg = static_cast<VmInterfaceConfigData *>
+            (data);
+        if (cfg->deleted_ == true) {
+            InterfaceNH::DeleteVmInterfaceNHReq(GetUuid());
+        }
+    }
+
     return ret;
 }
 
@@ -600,9 +608,8 @@ void VmInterface::Add() {
 }
 
 void VmInterface::Delete() {
-    VmInterfaceConfigData data;
+    VmInterfaceConfigData data(true);
     Resync(&data);
-    InterfaceNH::DeleteVmInterfaceNHReq(GetUuid());
 
     InterfaceTable *table = static_cast<InterfaceTable *>(get_table());
     table->DeleteDhcpSnoopEntry(name_);

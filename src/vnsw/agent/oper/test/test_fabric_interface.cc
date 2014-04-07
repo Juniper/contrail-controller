@@ -96,7 +96,7 @@ static void CfgIntfSync(FabricInterfaceTest *t, int id, const char *cfg_name,
     DBRequest req(DBRequest::DB_ENTRY_ADD_CHANGE);
     req.key.reset(new VmInterfaceKey(AgentKey::RESYNC, MakeUuid(id), cfg_name));
 
-    VmInterfaceConfigData *cfg_data = new VmInterfaceConfigData();
+    VmInterfaceConfigData *cfg_data = new VmInterfaceConfigData(false);
     req.data.reset(cfg_data);
     InterfaceData *data = static_cast<InterfaceData *>(cfg_data);
     data->VmPortInit();

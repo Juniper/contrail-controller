@@ -154,7 +154,7 @@ static void CfgIntfSync(int id, const char *cfg_str, int vn, int vm,
                                                      intf_uuid, "");
     req.key.reset(key);
 
-    VmInterfaceConfigData *cfg_data = new VmInterfaceConfigData();
+    VmInterfaceConfigData *cfg_data = new VmInterfaceConfigData(false);
     InterfaceData *data = static_cast<InterfaceData *>(cfg_data);
     data->VmPortInit();
 
@@ -195,7 +195,7 @@ static void CfgIntfSync(int id, const char *cfg_str, int vn, int vm,
     VmInterfaceKey *key = new VmInterfaceKey(AgentKey::RESYNC, intf_uuid, "");
     req.key.reset(key);
 
-    VmInterfaceConfigData *cfg_data = new VmInterfaceConfigData();
+    VmInterfaceConfigData *cfg_data = new VmInterfaceConfigData(false);
     InterfaceData *data = static_cast<InterfaceData *>(cfg_data);
     data->VmPortInit();
 
@@ -1102,6 +1102,66 @@ TEST_F(IntfTest, VmPortFloatingIpDelete_1) {
     EXPECT_FALSE(VrfFind("vrf1"));
     EXPECT_FALSE(VrfFind("vn2:vn2"));
 }
+
+//Delete the config node for interface, and verify interface NH are deleted
+//Add the config node and verify the interface NH are readded
+TEST_F(IntfTest, IntfActivateDeactivate) {
+    struct PortInfo input[] = {
+        {"vnet1", 1, "1.1.1.10", "00:00:00:01:01:01", 1, 1},
+    };
+
+    client->Reset();
+    CreateVmportEnv(input, 1);
+    client->WaitForIdle();
+    EXPECT_TRUE(VmPortActive(input, 0));
+
+    DelNode("virtual-machine-interface", input[0].name);
+    client->WaitForIdle();
+    //Make sure unicast route and nexthop are deleted, since
+    //config is deleted
+    EXPECT_FALSE(RouteFind("vrf1", "1.1.1.10", 32));
+
+    uuid intf_uuid = MakeUuid(1);
+    VmInterfaceKey *intf_key1 = new VmInterfaceKey(AgentKey::RESYNC, intf_uuid, "");
+    VmInterfaceKey *intf_key2 = new VmInterfaceKey(AgentKey::RESYNC, intf_uuid, "");
+    VmInterfaceKey *intf_key3 = new VmInterfaceKey(AgentKey::RESYNC, intf_uuid, "");
+    VmInterfaceKey *intf_key4 = new VmInterfaceKey(AgentKey::RESYNC, intf_uuid, "");
+    VmInterfaceKey *intf_key5 = new VmInterfaceKey(AgentKey::RESYNC, intf_uuid, "");
+
+    InterfaceNHKey unicast_nh_key(intf_key1, false, InterfaceNHFlags::INET4);
+    EXPECT_FALSE(FindNH(&unicast_nh_key));
+
+    InterfaceNHKey unicast_policy_nh_key(intf_key2, true, InterfaceNHFlags::INET4);
+    EXPECT_FALSE(FindNH(&unicast_policy_nh_key));
+
+    InterfaceNHKey multicast_nh_key(intf_key3, false, InterfaceNHFlags::MULTICAST);
+    EXPECT_FALSE(FindNH(&multicast_nh_key));
+
+    InterfaceNHKey layer2_nh_key(intf_key4, false, InterfaceNHFlags::LAYER2);
+    EXPECT_FALSE(FindNH(&layer2_nh_key));
+
+    InterfaceNHKey layer2_policy_nh_key(intf_key5, true, InterfaceNHFlags::LAYER2);
+    EXPECT_FALSE(FindNH(&layer2_policy_nh_key));
+
+    AddNode("virtual-machine-interface", input[0].name, 1);
+    client->WaitForIdle();
+    EXPECT_TRUE(FindNH(&unicast_nh_key));
+    EXPECT_TRUE(FindNH(&unicast_policy_nh_key));
+    EXPECT_TRUE(FindNH(&multicast_nh_key));
+    EXPECT_TRUE(FindNH(&layer2_nh_key));
+    EXPECT_TRUE(FindNH(&layer2_policy_nh_key));
+
+    //Clean up
+    DeleteVmportEnv(input, 1, true);
+    client->WaitForIdle();
+    EXPECT_FALSE(FindNH(&unicast_nh_key));
+    EXPECT_FALSE(FindNH(&unicast_policy_nh_key));
+    EXPECT_FALSE(FindNH(&multicast_nh_key));
+    EXPECT_FALSE(FindNH(&layer2_nh_key));
+    EXPECT_FALSE(FindNH(&layer2_policy_nh_key));
+    EXPECT_FALSE(VrfFind("vrf1", true));
+}
+
 
 TEST_F(IntfTest, VmPortServiceVlanDelete_1) {
     struct PortInfo input[] = {
