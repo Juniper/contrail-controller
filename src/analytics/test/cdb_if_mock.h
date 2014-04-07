@@ -11,11 +11,11 @@ public:
     }
     ~CdbIfMock() {}
 
-    bool NewDb_AddColumn(std::auto_ptr<GenDb::ColList> cl) {
-        return NewDb_AddColumnProxy(cl.get());
+    bool Db_AddColumn(std::auto_ptr<GenDb::ColList> cl) {
+        return Db_AddColumnProxy(cl.get());
     }
-    bool AddColumnSync(std::auto_ptr<GenDb::ColList> cl) {
-        return AddColumnSyncProxy(cl.get());
+    bool Db_AddColumnSync(std::auto_ptr<GenDb::ColList> cl) {
+        return Db_AddColumnSyncProxy(cl.get());
     }
 
     MOCK_METHOD0(Db_Init, bool());
@@ -25,7 +25,7 @@ public:
     MOCK_METHOD2(Db_AddSetTablespace, bool(const std::string&,const std::string&));
     MOCK_METHOD1(Db_FindTablespace, bool(const std::string&));
 
-    MOCK_METHOD1(NewDb_AddColumnfamily, bool(const GenDb::NewCf&));
-    MOCK_METHOD1(NewDb_AddColumnProxy, bool(GenDb::ColList *cl));
-    MOCK_METHOD1(AddColumnSyncProxy, bool(GenDb::ColList *cl));
+    MOCK_METHOD1(Db_AddColumnfamily, bool(const GenDb::NewCf&));
+    MOCK_METHOD1(Db_AddColumnProxy, bool(GenDb::ColList *cl));
+    MOCK_METHOD1(Db_AddColumnSyncProxy, bool(GenDb::ColList *cl));
 };

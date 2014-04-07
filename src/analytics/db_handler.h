@@ -54,7 +54,7 @@ public:
     DbHandler(GenDb::GenDbIf *dbif);
     virtual ~DbHandler();
 
-    bool DropMessage(const SandeshHeader &header);
+    bool DropMessage(const SandeshHeader &header, const VizMsg *vmsg);
     bool Init(bool initial, int instance);
     void UnInit(int instance);
 
@@ -79,7 +79,9 @@ public:
     bool FlowTableInsert(const pugi::xml_node& parent,
         const SandeshHeader &header);
     bool GetStats(uint64_t &queue_count, uint64_t &enqueues,
-        std::string &drop_level, uint64_t &msg_dropped) const;
+        std::string &drop_level, std::vector<SandeshStats> &vdropmstats) const;
+    bool GetStats(std::vector<GenDb::DbTableInfo> &vdbti,
+        GenDb::DbErrors &dbe);
 
     void SetDbQueueWaterMarkInfo(Sandesh::QueueWaterMarkInfo &wm);
     void ResetDbQueueWaterMarkInfo();
@@ -98,7 +100,8 @@ private:
     std::string name_;
     std::string col_name_;
     SandeshLevel::type drop_level_;
-    uint64_t msg_dropped_;
+    VizMsgStatistics dropped_msg_stats_;
+    mutable tbb::mutex smutex_;
 
     DISALLOW_COPY_AND_ASSIGN(DbHandler);
 };

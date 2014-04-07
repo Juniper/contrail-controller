@@ -30,6 +30,7 @@
 #include "viz_collector.h"
 #include "ruleeng.h"
 #include "viz_sandesh.h"
+#include "gendb_types.h"
 
 using std::string;
 using std::map;
@@ -280,8 +281,11 @@ void Collector::DisconnectSession(SandeshSession *session) {
     gen->DisconnectSession(vsession);
 }
 
-void Collector::GetSandeshStats(vector<SandeshMessageStat> &smslist) {
+void Collector::GetGeneratorStats(vector<SandeshMessageStat> &smslist,
+    vector<GeneratorDbStats> &gdbslist) {
     smslist.clear();
+    gdbslist.clear();
+    tbb::mutex::scoped_lock lock(gen_map_mutex_);
     for (GeneratorMap::iterator gm_it = gen_map_.begin();
             gm_it != gen_map_.end(); gm_it++) {
         SandeshGenerator *gen = gm_it->second;
@@ -290,16 +294,27 @@ void Collector::GetSandeshStats(vector<SandeshMessageStat> &smslist) {
         if (!session) {
             continue;
         }
+        // Sandesh message info
         vector<SandeshMessageInfo> smi;       
-        gen->GetSandeshStats(smi);
+        gen->GetStatistics(smi);
         SandeshMessageStat sms;
         sms.set_name(gen->ToString());
         sms.set_msg_info(smi);
         smslist.push_back(sms);
+        // DB stats
+        vector<GenDb::DbTableInfo> vdbti;
+        GenDb::DbErrors dbe;
+        gen->GetDbStats(vdbti, dbe);
+        vector<GenDb::DbErrors> vdbe;
+        vdbe.push_back(dbe);
+        GeneratorDbStats gdbstats;
+        gdbstats.set_name(gen->ToString());
+        gdbstats.set_table_info(vdbti);
+        gdbstats.set_errors(vdbe); 
     }
 }
 
-void Collector::GetGeneratorSandeshStatsInfo(vector<ModuleServerState> &genlist) {
+void Collector::GetGeneratorUVEInfo(vector<ModuleServerState> &genlist) {
     genlist.clear();
     tbb::mutex::scoped_lock lock(gen_map_mutex_);
     for (GeneratorMap::const_iterator gm_it = gen_map_.begin();
@@ -307,9 +322,9 @@ void Collector::GetGeneratorSandeshStatsInfo(vector<ModuleServerState> &genlist)
         const SandeshGenerator * const gen = gm_it->second;
 
         vector<SandeshStats> ssv;
-        gen->GetMessageTypeStats(ssv);
+        gen->GetStatistics(ssv);
         vector<SandeshLogLevelStats> lsv;
-        gen->GetLogLevelStats(lsv);
+        gen->GetStatistics(lsv);
         vector<SandeshStatsInfo> ssiv;
         SandeshStatsInfo ssi;
         ssi.set_hostname(Sandesh::source());
@@ -335,13 +350,13 @@ void Collector::GetGeneratorSandeshStatsInfo(vector<ModuleServerState> &genlist)
         uint64_t db_queue_count;
         uint64_t db_enqueues;
         std::string db_drop_level;
-        uint64_t db_msg_dropped;
+        vector<SandeshStats> vdropmstats;
         if (gen->GetDbStats(db_queue_count, db_enqueues,
-                db_drop_level, db_msg_dropped)) {
+                db_drop_level, vdropmstats)) {
             ginfo.set_db_queue_count(db_queue_count);
             ginfo.set_db_enqueues(db_enqueues);
             ginfo.set_db_drop_level(db_drop_level);
-            ginfo.set_db_msg_dropped(db_msg_dropped);
+            ginfo.set_db_dropped_msg_stats(vdropmstats);
         }
         // Only send if generator is connected
         VizSession *session = gen->session();
