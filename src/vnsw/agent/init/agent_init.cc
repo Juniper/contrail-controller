@@ -102,6 +102,7 @@ void AgentInit::DeleteVrfs() {
 void AgentInit::DeleteInterfaces() {
     PacketInterface::DeleteReq(agent_->GetInterfaceTable(),
                                agent_->GetHostInterfaceName());
+    agent_->set_vhost_interface(NULL);
     InetInterface::DeleteReq(agent_->GetInterfaceTable(),
                              agent_->vhost_interface_name());
     PhysicalInterface::DeleteReq(agent_->GetInterfaceTable(),
@@ -128,6 +129,7 @@ void AgentInit::OnInterfaceCreate(DBEntryBase *entry) {
         itf->name() != Agent::GetInstance()->GetIpFabricItfName())
         return;
 
+    agent_->set_vhost_interface(itf);
     agent_->SetRouterId(params_->vhost_addr());
     agent_->SetPrefixLen(params_->vhost_plen());
     agent_->SetGatewayId(params_->vhost_gw());

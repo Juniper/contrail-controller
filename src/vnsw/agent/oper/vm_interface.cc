@@ -250,7 +250,8 @@ static void BuildVrfAndServiceVlanInfo(Agent *agent,
             LOG(DEBUG, "Add Service VLAN entry <" << rule.vlan_tag << " : "
                 << rule.service_chain_address << " : " << vrf_node->name());
 
-            ether_addr smac = *ether_aton(Agent::VrrpMac().c_str());
+            ether_addr smac;
+            memcpy(smac.ether_addr_octet, agent->vrrp_mac(), ETHER_ADDR_LEN);
             ether_addr dmac = *ether_aton(Agent::BcastMac().c_str());
             if (rule.src_mac != Agent::NullString()) {
                 smac = *ether_aton(rule.src_mac.c_str());
@@ -922,7 +923,8 @@ void VmInterface::GetOsParams() {
     }
 
     os_index_ = Interface::kInvalidIndex;
-    memcpy(mac_.ether_addr_octet, agent_vrrp_mac, ETHER_ADDR_LEN);
+    InterfaceTable *table = static_cast<InterfaceTable *>(get_table());
+    memcpy(mac_.ether_addr_octet, table->agent()->vrrp_mac(), ETHER_ADDR_LEN);
 }
 
 // Get DHCP IP address. DHCP IP is used only if IP address not specified in 

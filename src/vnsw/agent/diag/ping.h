@@ -21,8 +21,8 @@ public:
     virtual void RequestTimedOut(uint32_t seq_no);
     virtual void SendSummary();
     void FillAgentHeader(AgentDiagPktData *pkt);
-    DiagPktHandler* CreateTcpPkt();
-    DiagPktHandler* CreateUdpPkt();
+    DiagPktHandler* CreateTcpPkt(Agent *agent);
+    DiagPktHandler* CreateUdpPkt(Agent *agent);
     static void PingInit();
     static void HandleRequest(DiagPktHandler *);
 private:
