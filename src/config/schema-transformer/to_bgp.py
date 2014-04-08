@@ -961,7 +961,7 @@ class VirtualNetworkST(DictST):
                                                         saddr_match, sp)
                             raction = copy.deepcopy(action)
                             if (service_list and dvn in [self.name, 'any']):
-                                    service_ri = self.get_service_name(svn,
+                                    service_ri = self.get_service_name(sc_name,
                                         service_list[-1])
                                     raction.assign_routing_instance = \
                                         self.name + ':' + service_ri
