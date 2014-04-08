@@ -237,7 +237,7 @@ TEST_F(VgwTest, RouteResync) {
 int main(int argc, char **argv) {
     GETUSERARGS();
 
-    client = VGwInit( "controller/src/vnsw/agent/vgw/test/cfg.xml",
+    client = VGwInit( "controller/src/vnsw/agent/vgw/test/cfg.ini",
                       ksync_init);
     int ret = RUN_ALL_TESTS();
     TestShutdown();
