@@ -5,6 +5,7 @@
 #ifndef vnsw_agent_param_hpp
 #define vnsw_agent_param_hpp
 
+#include <boost/property_tree/ptree.hpp>
 #include <boost/program_options.hpp>
 class VirtualGatewayConfigTable;
 
@@ -109,10 +110,29 @@ private:
     void InitFromConfig();
     void InitFromArguments
         (const boost::program_options::variables_map &var_map);
+    template <typename ValueType>
+    bool GetOptValue(const boost::program_options::variables_map &var_map, 
+                     ValueType &var, const std::string &val);
+    template <typename ValueType>
+    bool GetValueFromTree(ValueType &var, const std::string &val);
+    bool GetIpAddress(const std::string &str, Ip4Address *addr);
+    void ParseServer(const std::string &key, Ip4Address *server);
+    void ParseIpArgument(const boost::program_options::variables_map &var_map, 
+                         Ip4Address &server, const std::string &key);
+    void ParseCollector();
+    void ParseVirtualHostInteface();
+    void ParseXmppServer();
+    void ParseDnsServer();
+    void ParseDiscoveryServer();
+    void ParseNetworks();
+    void ParseHypervisor();
+    void ParseDefaultSection();
+    void ParseMetadataProxy();
+    void ParseLinklocalFlows();
 
     PortInfo vhost_;
     std::string eth_port_;
-    int xmpp_instance_count_;
+    uint16_t xmpp_instance_count_;
     Ip4Address xmpp_server_1_;
     Ip4Address xmpp_server_2_;
     Ip4Address dns_server_1_;
@@ -123,9 +143,9 @@ private:
     PortInfo xen_ll_;
     std::string tunnel_type_;
     std::string metadata_shared_secret_;
-    uint32_t linklocal_system_flows_;
-    uint32_t linklocal_vm_flows_;
-    uint32_t flow_cache_timeout_;
+    uint16_t linklocal_system_flows_;
+    uint16_t linklocal_vm_flows_;
+    uint16_t flow_cache_timeout_;
 
     // Parameters configured from command linke arguments only (for now)
     std::string config_file_;
@@ -142,6 +162,7 @@ private:
     int flow_stats_interval_;
     std::string vmware_physical_port_;
     bool test_mode_;
+    boost::property_tree::ptree tree_;
     std::auto_ptr<VirtualGatewayConfigTable> vgw_config_table_;
 
     DISALLOW_COPY_AND_ASSIGN(AgentParam);
