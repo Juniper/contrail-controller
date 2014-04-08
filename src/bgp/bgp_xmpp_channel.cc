@@ -612,7 +612,7 @@ void BgpXmppChannel::ProcessMcastItem(std::string vrf_name,
     BgpTable *table = NULL;
     //Build the key to the Multicast DBTable
     PeerRibMembershipManager *mgr = bgp_server_->membership_mgr();
-    if (rt_instance != NULL) {
+    if (rt_instance != NULL && !rt_instance->deleted()) {
         table = rt_instance->GetTable(Address::INETMCAST);
         if (table == NULL) {
             BGP_LOG_PEER_INSTANCE(Peer(), vrf_name,
@@ -829,7 +829,7 @@ void BgpXmppChannel::ProcessItem(string vrf_name,
     bool subscribe_pending = false;
     int instance_id = -1;
     BgpTable *table = NULL;
-    if (rt_instance != NULL) {
+    if (rt_instance != NULL && !rt_instance->deleted()) {
         table = rt_instance->GetTable(Address::INET);
         if (table == NULL) {
             BGP_LOG_PEER_INSTANCE(Peer(), vrf_name, SandeshLevel::SYS_WARN,
@@ -1071,7 +1071,7 @@ void BgpXmppChannel::ProcessEnetItem(string vrf_name,
     bool subscribe_pending = false;
     int instance_id = -1;
     BgpTable *table = NULL;
-    if (rt_instance != NULL) {
+    if (rt_instance != NULL && !rt_instance->deleted()) {
         table = rt_instance->GetTable(Address::ENET);
         if (table == NULL) {
             BGP_LOG_PEER_INSTANCE(Peer(), vrf_name, SandeshLevel::SYS_WARN,
@@ -1534,6 +1534,26 @@ void BgpXmppChannel::ProcessSubscriptionRequest(
         }
 
         return;
+    }
+
+    // If the instance is being deleted and agent is trying to unsubscribe
+    // we need to process the unsubscribe if the vrf is not in the request
+    // map.  This would be the normal case where we wait for the agent to
+    // unsubscribe in order to remove routes added by it.
+    if (rt_instance->deleted()) {
+        BGP_LOG_PEER(Membership, Peer(), SandeshLevel::SYS_DEBUG,
+                     BGP_LOG_FLAG_ALL, BGP_PEER_DIR_NA,
+                     " ReceiveUpdate: Routing Instance " <<
+                     vrf_name << " is being deleted");
+        if (add_change) {
+            vrf_membership_request_map_[vrf_name] = instance_id;
+            return;
+        } else {
+            if (vrf_membership_request_map_.erase(vrf_name)) {
+                FlushDeferQ(vrf_name);
+                return;
+            }
+        }
     }
 
     PublishRTargetRoute(rt_instance, add_change);
