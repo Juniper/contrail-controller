@@ -134,7 +134,6 @@ class DiscoveryService(object):
 
         self._logger = logger
         self._election = None
-        self._elected = False
         self.connect()
     # end __init__
 
@@ -177,8 +176,9 @@ class DiscoveryService(object):
 
     def _zk_election_callback(self, func, *args, **kwargs):
         self._zk_client.remove_listener(self._zk_listener)
-        self._elected = True
         func(*args, **kwargs)
+        # Exit if running master encounters error or exception
+        exit(1)
     # end
 
     def master_election(self, path, identifier, func, *args, **kwargs):
@@ -186,8 +186,6 @@ class DiscoveryService(object):
         while True:
             self._election = self._zk_client.Election(path, identifier)
             self._election.run(self._zk_election_callback, func, *args, **kwargs)
-            if self._elected:
-                exit(1)
     # end master_election
 
     def create_node(self, path, value=None):
