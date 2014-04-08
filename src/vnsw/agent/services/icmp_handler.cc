@@ -70,7 +70,8 @@ void IcmpHandler::SendResponse() {
     len += sizeof(iphdr);
     IpHdr(len, htonl(pkt_info_->ip_daddr), 
           htonl(pkt_info_->ip_saddr), IPPROTO_ICMP);
-    EthHdr(agent_vrrp_mac, pkt_info_->eth->h_source, 0x800);
+    EthHdr(agent()->vhost_interface()->mac().ether_addr_octet,
+           pkt_info_->eth->h_source, IP_PROTOCOL);
     len += sizeof(ethhdr);
 
     Send(len, GetIntf(), pkt_info_->vrf, AGENT_CMD_SWITCH, PktHandler::ICMP);

@@ -82,9 +82,7 @@ public:
     virtual void XmppHandleChannelEvent(XmppChannel *channel,
                                         xmps::PeerState state) {
          count++;
-         std::cout << "\n\n XmppHandleChannelEvent:" << state << "count:" << count;
-         std::cout << "\n\n";
-
+         LOG(DEBUG, "XmppHandleChannelEvent: " << state << " count: " << count);
          BgpXmppChannelManager::XmppHandleChannelEvent(channel, state);
     }
 
@@ -184,6 +182,20 @@ protected:
         a_->Configure(config);
     }
 
+    void UnconfigureRoutingInstances() {
+        const char *config = "\
+<delete>\
+    <routing-instance name='blue'>\
+        <vrf-target>target:1:1</vrf-target>\
+    </routing-instance>\
+    <routing-instance name='red'>\
+        <vrf-target>target:1:1</vrf-target>\
+    </routing-instance>\
+</delete>\
+";
+        a_->Configure(config);
+    }
+
     XmppChannelConfig *CreateXmppChannelCfg(const char *address, int port,
                                             const string &from, 
                                             const string &to,
@@ -196,6 +208,17 @@ protected:
         cfg->FromAddr = from;
         if (!isClient) cfg->NodeAddr = test::XmppDocumentMock::kControlNodeJID;
         return cfg;
+    }
+
+    RoutingInstance *VerifyRoutingInstance(const string &name) {
+        TASK_UTIL_EXPECT_TRUE(
+            a_->routing_instance_mgr()->GetRoutingInstance(name) != NULL);
+        return a_->routing_instance_mgr()->GetRoutingInstance(name);
+    }
+
+    void VerifyNoRoutingInstance(const string &name) {
+        TASK_UTIL_EXPECT_TRUE(
+            a_->routing_instance_mgr()->GetRoutingInstance(name) == NULL);
     }
 
     static void ValidateShowRouteResponse(Sandesh *sandesh, vector<int> &result) {
@@ -227,6 +250,18 @@ protected:
 
     static int validate_done_;
 };
+
+static void PauseDelete(LifetimeActor *actor) {
+    TaskScheduler::GetInstance()->Stop();
+    actor->PauseDelete();
+    TaskScheduler::GetInstance()->Start();
+}
+
+static void ResumeDelete(LifetimeActor *actor) {
+    TaskScheduler::GetInstance()->Stop();
+    actor->ResumeDelete();
+    TaskScheduler::GetInstance()->Start();
+}
 
 class BgpXmppSerializeMembershipReqTest : public BgpXmppUnitTest {
     virtual void SetUp() {
@@ -493,6 +528,231 @@ TEST_F(BgpXmppUnitTest, RegUnregWithoutRoutingInstance) {
     TASK_UTIL_EXPECT_EQ(0, agent_a_->RouteCount());
     ASSERT_TRUE(agent_a_->RouteCount() == 0);
 
+    agent_a_->SessionDown();
+    task_util::WaitForIdle();
+}
+
+TEST_F(BgpXmppUnitTest, RegisterWithDeletedRoutingInstance) {
+    Configure();
+    task_util::WaitForIdle();
+
+    // create an XMPP client in server A
+    agent_a_.reset(
+        new test::NetworkAgentMock(&evm_, SUB_ADDR, xs_a_->GetPort()));
+
+    TASK_UTIL_EXPECT_TRUE(bgp_channel_manager_->channel_ != NULL);
+    TASK_UTIL_EXPECT_TRUE(agent_a_->IsEstablished());
+
+    // Pause deletion for blue instance.
+    RoutingInstance *blue = VerifyRoutingInstance("blue");
+    PauseDelete(blue->deleter());
+
+    // Unconfigure all instances.
+    // The red instance should get destroyed while the blue instance should
+    // still exist in deleted state. All tables in the blue instance should
+    // get destroyed.
+    UnconfigureRoutingInstances();
+    task_util::WaitForIdle();
+    VerifyNoRoutingInstance("red");
+    blue = VerifyRoutingInstance("blue");
+    TASK_UTIL_EXPECT_TRUE(blue->deleted());
+    TASK_UTIL_EXPECT_EQ(0, blue->GetTables().size());
+
+    // Subscribe and add route to deleted blue instance. Make sure that the
+    // messages have been processed on the bgp server.
+    agent_a_->Subscribe("blue", 1);
+    agent_a_->AddRoute("blue","10.1.1.1/32");
+    TASK_UTIL_EXPECT_EQ(2, bgp_channel_manager_->channel_->Count());
+
+    // Route shouldn't have been added.
+    TASK_UTIL_EXPECT_EQ(0, agent_a_->RouteCount());
+
+    // Resume deletion of blue instance and make sure it's gone.
+    ResumeDelete(blue->deleter());
+    VerifyNoRoutingInstance("blue");
+
+    // Route shouldn't have been added.
+    TASK_UTIL_EXPECT_EQ(0, agent_a_->RouteCount());
+
+    // Configure instances and verify that the route has been added.
+    Configure();
+    VerifyRoutingInstance("red");
+    VerifyRoutingInstance("blue");
+    TASK_UTIL_EXPECT_EQ(1, agent_a_->RouteCount());
+    TASK_UTIL_EXPECT_TRUE(agent_a_->RouteLookup("blue", "10.1.1.1/32") != NULL);
+
+    // Clean up.
+    agent_a_->Unsubscribe("blue", -1, false);
+    agent_a_->SessionDown();
+    task_util::WaitForIdle();
+}
+
+TEST_F(BgpXmppUnitTest, UnregisterWithDeletedRoutingInstance) {
+    Configure();
+    task_util::WaitForIdle();
+
+    // create an XMPP client in server A
+    agent_a_.reset(
+        new test::NetworkAgentMock(&evm_, SUB_ADDR, xs_a_->GetPort()));
+
+    TASK_UTIL_EXPECT_TRUE(bgp_channel_manager_->channel_ != NULL);
+    TASK_UTIL_EXPECT_TRUE(agent_a_->IsEstablished());
+
+    // Subscribe and add route to deleted blue instance. Make sure that the
+    // messages have been processed on the bgp server.
+    agent_a_->Subscribe("blue", 1);
+    agent_a_->AddRoute("blue","10.1.1.1/32");
+    TASK_UTIL_EXPECT_EQ(2, bgp_channel_manager_->channel_->Count());
+
+    // Verify that the route has been added.
+    TASK_UTIL_EXPECT_EQ(1, agent_a_->RouteCount());
+    TASK_UTIL_EXPECT_TRUE(agent_a_->RouteLookup("blue", "10.1.1.1/32") != NULL);
+
+    // Pause deletion for blue instance.
+    RoutingInstance *blue = VerifyRoutingInstance("blue");
+    PauseDelete(blue->deleter());
+
+    // Unconfigure all instances.
+    // The red instance should get destroyed while the blue instance should
+    // still exist in deleted state. All tables in the blue instance should
+    // not get destroyed since the inet table has a route from the agent.
+    UnconfigureRoutingInstances();
+    task_util::WaitForIdle();
+    VerifyNoRoutingInstance("red");
+    blue = VerifyRoutingInstance("blue");
+    TASK_UTIL_EXPECT_TRUE(blue->deleted());
+    TASK_UTIL_EXPECT_NE(0, blue->GetTables().size());
+
+    // Unsubscribe from the blue instance and make sure that the unsubscribe
+    // message has been processed on the bgp server.
+    agent_a_->Unsubscribe("blue");
+    TASK_UTIL_EXPECT_EQ(3, bgp_channel_manager_->channel_->Count());
+
+    // Resume deletion of blue instance and make sure it's gone.
+    ResumeDelete(blue->deleter());
+    VerifyNoRoutingInstance("blue");
+
+    // Route shouldn't exist anymore.
+    TASK_UTIL_EXPECT_EQ(0, agent_a_->RouteCount());
+    TASK_UTIL_EXPECT_TRUE(agent_a_->RouteLookup("blue", "10.1.1.1/32") == NULL);
+
+    // Clean up.
+    agent_a_->SessionDown();
+    task_util::WaitForIdle();
+}
+
+TEST_F(BgpXmppUnitTest, RegisterUnregisterWithDeletedRoutingInstance) {
+    Configure();
+    task_util::WaitForIdle();
+
+    // create an XMPP client in server A
+    agent_a_.reset(
+        new test::NetworkAgentMock(&evm_, SUB_ADDR, xs_a_->GetPort()));
+
+    TASK_UTIL_EXPECT_TRUE(bgp_channel_manager_->channel_ != NULL);
+    TASK_UTIL_EXPECT_TRUE(agent_a_->IsEstablished());
+
+    // Pause deletion for blue instance.
+    RoutingInstance *blue = VerifyRoutingInstance("blue");
+    PauseDelete(blue->deleter());
+
+    // Unconfigure all instances.
+    // The red instance should get destroyed while the blue instance should
+    // still exist in deleted state. All tables in the blue instance should
+    // get destroyed.
+    UnconfigureRoutingInstances();
+    task_util::WaitForIdle();
+    VerifyNoRoutingInstance("red");
+    blue = VerifyRoutingInstance("blue");
+    TASK_UTIL_EXPECT_TRUE(blue->deleted());
+    TASK_UTIL_EXPECT_EQ(0, blue->GetTables().size());
+
+    // Subscribe and add route to deleted blue instance. Make sure that the
+    // messages have been processed on the bgp server.
+    agent_a_->Subscribe("blue", 1);
+    agent_a_->AddRoute("blue","10.1.1.1/32");
+    TASK_UTIL_EXPECT_EQ(2, bgp_channel_manager_->channel_->Count());
+
+    // Route shouldn't have been added.
+    TASK_UTIL_EXPECT_EQ(0, agent_a_->RouteCount());
+
+    // Unsubscribe from the blue instance and make sure that the unsubscribe
+    // message has been processed on the bgp server.
+    agent_a_->Unsubscribe("blue");
+    TASK_UTIL_EXPECT_EQ(3, bgp_channel_manager_->channel_->Count());
+
+    // Resume deletion of blue instance and make sure it's gone.
+    ResumeDelete(blue->deleter());
+    VerifyNoRoutingInstance("blue");
+
+    // Route shouldn't have been added.
+    TASK_UTIL_EXPECT_EQ(0, agent_a_->RouteCount());
+    TASK_UTIL_EXPECT_TRUE(agent_a_->RouteLookup("blue", "10.1.1.1/32") == NULL);
+
+    // Clean up.
+    agent_a_->SessionDown();
+    task_util::WaitForIdle();
+}
+
+TEST_F(BgpXmppUnitTest, RegisterAddDelAddRouteWithDeletedRoutingInstance) {
+    Configure();
+    task_util::WaitForIdle();
+
+    // create an XMPP client in server A
+    agent_a_.reset(
+        new test::NetworkAgentMock(&evm_, SUB_ADDR, xs_a_->GetPort()));
+
+    TASK_UTIL_EXPECT_TRUE(bgp_channel_manager_->channel_ != NULL);
+    TASK_UTIL_EXPECT_TRUE(agent_a_->IsEstablished());
+
+    // Pause deletion for blue instance.
+    RoutingInstance *blue = VerifyRoutingInstance("blue");
+    PauseDelete(blue->deleter());
+
+    // Unconfigure all instances.
+    // The red instance should get destroyed while the blue instance should
+    // still exist in deleted state. All tables in the blue instance should
+    // get destroyed.
+    UnconfigureRoutingInstances();
+    task_util::WaitForIdle();
+    VerifyNoRoutingInstance("red");
+    blue = VerifyRoutingInstance("blue");
+    TASK_UTIL_EXPECT_TRUE(blue->deleted());
+    TASK_UTIL_EXPECT_EQ(0, blue->GetTables().size());
+
+    // Subscribe and add route to deleted blue instance. Make sure that the
+    // messages have been processed on the bgp server.
+    agent_a_->Subscribe("blue", 1);
+    agent_a_->AddRoute("blue","10.1.1.1/32");
+    TASK_UTIL_EXPECT_EQ(2, bgp_channel_manager_->channel_->Count());
+
+    // Delete the route and make sure message is processed on bgp server.
+    agent_a_->DeleteRoute("blue", "10.1.1.1/32");
+    TASK_UTIL_EXPECT_EQ(3, bgp_channel_manager_->channel_->Count());
+
+    // Add the route again and make sure message is processed on bgp server.
+    agent_a_->AddRoute("blue", "10.1.1.1/32");
+    TASK_UTIL_EXPECT_EQ(4, bgp_channel_manager_->channel_->Count());
+
+    // Route shouldn't have been added.
+    TASK_UTIL_EXPECT_EQ(0, agent_a_->RouteCount());
+
+    // Resume deletion of blue instance and make sure it's gone.
+    ResumeDelete(blue->deleter());
+    VerifyNoRoutingInstance("blue");
+
+    // Route shouldn't have been added.
+    TASK_UTIL_EXPECT_EQ(0, agent_a_->RouteCount());
+
+    // Configure instances and verify that the route has been added.
+    Configure();
+    VerifyRoutingInstance("red");
+    VerifyRoutingInstance("blue");
+    TASK_UTIL_EXPECT_EQ(1, agent_a_->RouteCount());
+    TASK_UTIL_EXPECT_TRUE(agent_a_->RouteLookup("blue", "10.1.1.1/32") != NULL);
+
+    // Clean up.
+    agent_a_->Unsubscribe("blue", -1, false);
     agent_a_->SessionDown();
     task_util::WaitForIdle();
 }

@@ -60,7 +60,7 @@ InterfaceKSyncEntry::InterfaceKSyncEntry(InterfaceKSyncObject *obj,
     KSyncNetlinkDBEntry(kInvalidIndex), ksync_obj_(obj), 
     interface_name_(intf->name()),
     type_(intf->type()), interface_id_(intf->id()), vrf_id_(intf->vrf_id()),
-    fd_(-1), has_service_vlan_(false), mac_(intf->mac()), ip_(0),
+    fd_(-1), has_service_vlan_(false), mac_(), ip_(0),
     policy_enabled_(false), analyzer_name_(),
     mirror_direction_(Interface::UNKNOWN), ipv4_active_(false), l2_active_(false),
     os_index_(intf->os_index()), sub_type_(InetInterface::VHOST),
@@ -119,7 +119,6 @@ bool InterfaceKSyncEntry::Sync(DBEntry *e) {
 
     if (os_index_ != intf->os_index()) {
         os_index_ = intf->os_index();
-        mac_ = intf->mac();
         ret = true;
     }
 
@@ -206,6 +205,28 @@ bool InterfaceKSyncEntry::Sync(DBEntry *e) {
         ret = true;
     }
 
+    InterfaceTable *table = static_cast<InterfaceTable *>(intf->get_table());
+    uint8_t smac[ETHER_ADDR_LEN];
+
+    switch (intf->type()) {
+    case Interface::VM_INTERFACE:
+    case Interface::PACKET:
+        memcpy(smac, table->agent()->vrrp_mac(), ETHER_ADDR_LEN);
+        break;
+
+    case Interface::PHYSICAL:
+    case Interface::INET:
+        memcpy(smac, intf->mac().ether_addr_octet, ETHER_ADDR_LEN);
+        break;
+    default:
+        assert(0);
+    }
+
+    if (memcmp(smac, mac(), ETHER_ADDR_LEN)) {
+        memcpy(mac_.ether_addr_octet, smac, ETHER_ADDR_LEN);
+        ret = true;
+    }
+
     return ret;
 }
 
@@ -249,9 +270,6 @@ int InterfaceKSyncEntry::Encode(sandesh_op::type op, char *buf, int buf_len) {
     encoder.set_h_op(op);
     switch (type_) {
     case Interface::VM_INTERFACE: {
-        std::vector<int8_t> intf_mac(agent_vrrp_mac, 
-                                     agent_vrrp_mac + ETHER_ADDR_LEN);
-        encoder.set_vifr_mac(intf_mac);
         if (layer2_forwarding_) {
             flags |= VIF_FLAG_L2_ENABLED;
         }
@@ -269,8 +287,6 @@ int InterfaceKSyncEntry::Encode(sandesh_op::type op, char *buf, int buf_len) {
 
     case Interface::PHYSICAL: {
         encoder.set_vifr_type(VIF_TYPE_PHYSICAL); 
-        std::vector<int8_t> intf_mac(mac(), mac() + ETHER_ADDR_LEN);
-        encoder.set_vifr_mac(intf_mac);
         flags |= VIF_FLAG_L3_ENABLED;
         break;
     }
@@ -288,17 +304,12 @@ int InterfaceKSyncEntry::Encode(sandesh_op::type op, char *buf, int buf_len) {
             break;
 
         }
-        std::vector<int8_t> intf_mac(mac(), mac() + ETHER_ADDR_LEN);
-        encoder.set_vifr_mac(intf_mac);
         flags |= VIF_FLAG_L3_ENABLED;
         break;
     }
 
     case Interface::PACKET: {
         encoder.set_vifr_type(VIF_TYPE_AGENT); 
-        std::vector<int8_t> intf_mac(agent_vrrp_mac, 
-                                     agent_vrrp_mac + ETHER_ADDR_LEN);
-        encoder.set_vifr_mac(intf_mac);
         flags |= VIF_FLAG_L3_ENABLED;
         break;
     }
@@ -331,6 +342,8 @@ int InterfaceKSyncEntry::Encode(sandesh_op::type op, char *buf, int buf_len) {
             flags |= VIF_FLAG_SERVICE_IF;
         }
     }
+
+    encoder.set_vifr_mac(std::vector<int8_t>(mac(), mac() + ETHER_ADDR_LEN));
     encoder.set_vifr_flags(flags);
 
     encoder.set_vifr_vrf(vrf_id_);
