@@ -5,6 +5,8 @@
 #ifndef vnsw_agent_hpp
 #define vnsw_agent_hpp
 
+#include <netinet/ether.h>
+
 class AgentParam;
 class AgentInit;
 class AgentConfig;
@@ -137,7 +139,7 @@ public:
     const std::string &GetHostName();
     const std::string &GetProgramName() {return prog_name_;};
     static const std::string &NullString() {return null_str_;};
-    static const std::string &VrrpMac() {return vrrp_mac_;};
+    static const uint8_t *vrrp_mac() {return vrrp_mac_;}
     static const std::string &BcastMac() {return bcast_mac_;};
     InterfaceTable *GetInterfaceTable() {return intf_table_;};
     MirrorCfgTable *GetMirrorCfgTable() {return mirror_cfg_table_;};
@@ -283,6 +285,13 @@ public:
     }
 
     const std::string &GetHostInterfaceName();
+
+    const Interface *vhost_interface() const {
+        return vhost_interface_;
+    }
+    void set_vhost_interface(const Interface *interface) {
+        vhost_interface_ = interface;
+    }
 
     AgentXmppChannel *GetAgentXmppChannel(uint8_t idx) { 
         return agent_xmpp_channel_[idx];
@@ -637,13 +646,14 @@ private:
     std::string mgmt_ip_;
     static Agent *singleton_;
     VxLanNetworkIdentifierMode vxlan_network_identifier_mode_;
+    const Interface *vhost_interface_;
 
     static const std::string null_str_;
     static const std::string fabric_vrf_name_;
     static const std::string fabric_vn_name_;
     static const std::string link_local_vrf_name_;
     static const std::string link_local_vn_name_;
-    static const std::string vrrp_mac_;
+    static const uint8_t vrrp_mac_[ETHER_ADDR_LEN];
     static const std::string bcast_mac_;
 };
 
