@@ -3,30 +3,37 @@
  */
 
 #include <exception>
-#include <boost/lexical_cast.hpp>
 #include <boost/bind.hpp>
 #include <boost/assign/list_of.hpp>
 #include <boost/asio/ip/host_name.hpp>
-#include <boost/unordered_map.hpp>
-#include <boost/tuple/tuple.hpp>
 #include <boost/array.hpp>
 
-#include "base/logging.h"
-#include "base/task.h"
-#include "base/parse_object.h"
-#include "io/event_manager.h"
+#include <rapidjson/document.h>
+#include <rapidjson/stringbuffer.h>
+#include <rapidjson/writer.h>
 
-#include "sandesh/sandesh_types.h"
-#include "sandesh/sandesh.h"
-#include "sandesh/sandesh_session.h"
-#include "sandesh/sandesh_message_builder.h"
+#include <base/logging.h>
+#include <io/event_manager.h>
+#include <sandesh/sandesh_types.h>
+#include <sandesh/sandesh.h>
+#include <sandesh/sandesh_message_builder.h>
+
 #include "viz_constants.h"
 #include "vizd_table_desc.h"
 #include "collector.h"
-#include "rapidjson/document.h"
-#include "rapidjson/stringbuffer.h"
-#include "rapidjson/writer.h"
 #include "db_handler.h"
+
+#define DB_LOG(_Level, _Msg)                                                   \
+    do {                                                                       \
+        if (LoggingDisabled()) break;                                          \
+        log4cplus::Logger _Xlogger = log4cplus::Logger::getRoot();             \
+        if (_Xlogger.isEnabledFor(log4cplus::_Level##_LOG_LEVEL)) {            \
+            log4cplus::tostringstream _Xbuf;                                   \
+            _Xbuf << name_ << ": " << __func__ << ": " << _Msg;                \
+            _Xlogger.forcedLog(log4cplus::_Level##_LOG_LEVEL,                  \
+                               _Xbuf.str());                                   \
+        }                                                                      \
+    } while (false)
 
 using std::string;
 using boost::system::error_code;
@@ -34,12 +41,12 @@ using namespace pugi;
 
 DbHandler::DbHandler(EventManager *evm,
         GenDb::GenDbIf::DbErrorHandler err_handler,
-        std::string cassandra_ip, unsigned short cassandra_port, int analytics_ttl, std::string name) :
-    dbif_(GenDb::GenDbIf::GenDbIfImpl(evm->io_service(), err_handler,
+        std::string cassandra_ip, unsigned short cassandra_port,
+        int analytics_ttl, std::string name) :
+    dbif_(GenDb::GenDbIf::GenDbIfImpl(err_handler,
                 cassandra_ip, cassandra_port, analytics_ttl*3600, name)),
     name_(name),
-    drop_level_(SandeshLevel::INVALID),
-    msg_dropped_(0) {
+    drop_level_(SandeshLevel::INVALID) {
         error_code error;
         col_name_ = boost::asio::ip::host_name(error);
 }
@@ -51,17 +58,19 @@ DbHandler::DbHandler(GenDb::GenDbIf *dbif) :
 DbHandler::~DbHandler() {
 }
 
-bool DbHandler::DropMessage(const SandeshHeader &header) {
+bool DbHandler::DropMessage(const SandeshHeader &header,
+    const VizMsg *vmsg) {
     bool drop(DoDropSandeshMessage(header, drop_level_));
     if (drop) {
-        msg_dropped_++;
+        tbb::mutex::scoped_lock lock(smutex_);
+        dropped_msg_stats_.Update(vmsg);
     }
     return drop;
 }
  
 void DbHandler::SetDropLevel(size_t queue_count, SandeshLevel::type level) {
     if (drop_level_ != level) {
-        LOG(INFO, name_ << ": DB DROP LEVEL: [" << 
+        DB_LOG(INFO, "DB DROP LEVEL: [" << 
             Sandesh::LevelToString(drop_level_) << "] -> [" <<
             Sandesh::LevelToString(level) << "], DB QUEUE COUNT: " << 
             queue_count);
@@ -72,14 +81,14 @@ void DbHandler::SetDropLevel(size_t queue_count, SandeshLevel::type level) {
 bool DbHandler::CreateTables() {
     for (std::vector<GenDb::NewCf>::const_iterator it = vizd_tables.begin();
             it != vizd_tables.end(); it++) {
-        if (!dbif_->NewDb_AddColumnfamily(*it)) {
-            LOG(ERROR, __func__ << ": " << it->cfname_ << " FAILED");
+        if (!dbif_->Db_AddColumnfamily(*it)) {
+            DB_LOG(ERROR, it->cfname_ << " FAILED");
             return false;
         }
     }
 
     /* create ObjectTables */
-    if (!dbif_->NewDb_AddColumnfamily(
+    if (!dbif_->Db_AddColumnfamily(
                 (GenDb::NewCf(g_viz_constants.OBJECT_TABLE,
                               boost::assign::list_of
                               (GenDb::DbDataType::Unsigned32Type)
@@ -90,14 +99,14 @@ bool DbHandler::CreateTables() {
                               (GenDb::DbDataType::Unsigned32Type),
                               boost::assign::list_of
                               (GenDb::DbDataType::LexicalUUIDType))))) {
-        LOG(ERROR, __func__ << ": " << g_viz_constants.OBJECT_TABLE << " FAILED");
+        DB_LOG(ERROR, g_viz_constants.OBJECT_TABLE << " FAILED");
         return false;
     }
 
     for (std::vector<GenDb::NewCf>::const_iterator it = vizd_flow_tables.begin();
             it != vizd_flow_tables.end(); it++) {
-        if (!dbif_->NewDb_AddColumnfamily(*it)) {
-            LOG(ERROR, __func__ << ": " << it->cfname_ << " FAILED");
+        if (!dbif_->Db_AddColumnfamily(*it)) {
+            DB_LOG(ERROR, it->cfname_ << " FAILED");
             return false;
         }
     }
@@ -115,7 +124,7 @@ bool DbHandler::CreateTables() {
             try {
                 col_name = boost::get<std::string>(it->name->at(0));
             } catch (boost::bad_get& ex) {
-                LOG(ERROR, __func__ << ": Exception on col_name get");
+                DB_LOG(ERROR, cfname << ": Column Name Get FAILED");
             }
 
             if (col_name == g_viz_constants.SYSTEM_OBJECT_START_TIME) {
@@ -137,7 +146,7 @@ bool DbHandler::CreateTables() {
             g_viz_constants.SYSTEM_OBJECT_START_TIME, UTCTimestampUsec(), 0));
         columns.reserve(1);
         columns.push_back(col);
-        if (!dbif_->AddColumnSync(col_list)) {
+        if (!dbif_->Db_AddColumnSync(col_list)) {
             VIZD_ASSERT(0);
         }
     }
@@ -159,51 +168,50 @@ bool DbHandler::Init(bool initial, int instance) {
 }
 
 bool DbHandler::Initialize(int instance) {
-   
+    DB_LOG(DEBUG, "Initializing..");
+
     /* init of vizd table structures */
     init_vizd_tables();
 
-    LOG(DEBUG, "DbHandler::" << __func__ << " Begin");
     if (!dbif_->Db_Init("analytics::DbHandler", instance)) {
-        LOG(ERROR, __func__ << ": Connection to DB FAILED");
+        DB_LOG(ERROR, "Connection to DB FAILED");
         return false;
     }
 
     if (!dbif_->Db_AddSetTablespace(g_viz_constants.COLLECTOR_KEYSPACE,"2")) {
-        LOG(ERROR, __func__ << ": Create/Set KEYSPACE: " <<
+        DB_LOG(ERROR, "Create/Set KEYSPACE: " <<
             g_viz_constants.COLLECTOR_KEYSPACE << " FAILED");
         return false;
     }
 
     if (!CreateTables()) {
-        LOG(ERROR, __func__ << ": CreateTables failed");
+        DB_LOG(ERROR, "CreateTables FAILED");
         return false;
     }
 
     dbif_->Db_SetInitDone(true);
-    LOG(DEBUG, "DbHandler::" << __func__ << " Done");
+    DB_LOG(DEBUG, "Initializing Done");
 
     return true;
 }
 
 bool DbHandler::Setup(int instance) {
-
+    DB_LOG(DEBUG, "Setup..");
     if (!dbif_->Db_Init("analytics::DbHandler", 
                        instance)) {
-        LOG(ERROR, __func__ << ": Database initialization failed");
+        DB_LOG(ERROR, "Connection to DB FAILED");
         return false;
     }
-
     if (!dbif_->Db_SetTablespace(g_viz_constants.COLLECTOR_KEYSPACE)) {
-        LOG(ERROR, __func__ <<  ": Create/Set KEYSPACE: " <<
+        DB_LOG(ERROR, "Set KEYSPACE: " <<
                 g_viz_constants.COLLECTOR_KEYSPACE << " FAILED");
         return false;
     }   
     for (std::vector<GenDb::NewCf>::const_iterator it = vizd_tables.begin();
             it != vizd_tables.end(); it++) {
         if (!dbif_->Db_UseColumnfamily(*it)) {
-            LOG(ERROR, __func__ << 
-                ": Database initialization:Db_UseColumnfamily failed");
+            DB_LOG(ERROR, it->cfname_ << 
+                   ": Db_UseColumnfamily FAILED");
             return false;
         }
     }
@@ -219,17 +227,19 @@ bool DbHandler::Setup(int instance) {
                               (GenDb::DbDataType::Unsigned32Type),
                               boost::assign::list_of
                               (GenDb::DbDataType::LexicalUUIDType))))) {
-        LOG(ERROR, __func__ << ": Database initialization:Db_UseColumnfamily failed");
+        DB_LOG(ERROR, g_viz_constants.OBJECT_TABLE << 
+               ": Db_UseColumnfamily FAILED");
         return false;
     }
     for (std::vector<GenDb::NewCf>::const_iterator it = vizd_flow_tables.begin();
             it != vizd_flow_tables.end(); it++) {
         if (!dbif_->Db_UseColumnfamily(*it)) {
-            LOG(ERROR, __func__ << ": Database initialization:Db_UseColumnfamily failed");
+            DB_LOG(ERROR, it->cfname_ << ": Db_UseColumnfamily FAILED");
             return false;
         }
     }
     dbif_->Db_SetInitDone(true);
+    DB_LOG(DEBUG, "Setup Done");
     return true;
 }
 
@@ -244,10 +254,18 @@ void DbHandler::ResetDbQueueWaterMarkInfo() {
 }
 
 bool DbHandler::GetStats(uint64_t &queue_count, uint64_t &enqueues,
-    std::string &drop_level, uint64_t &msg_dropped) const {
+    std::string &drop_level, std::vector<SandeshStats> &vdropmstats) const {
     drop_level = Sandesh::LevelToString(drop_level_);
-    msg_dropped = msg_dropped_;
+    {
+        tbb::mutex::scoped_lock lock(smutex_);
+        dropped_msg_stats_.Get(vdropmstats);
+    } 
     return dbif_->Db_GetQueueStats(queue_count, enqueues);
+}
+
+bool DbHandler::GetStats(std::vector<GenDb::DbTableInfo> &vdbti,
+    GenDb::DbErrors &dbe) {
+    return dbif_->Db_GetStats(vdbti, dbe);
 }
 
 bool DbHandler::AllowMessageTableInsert(const SandeshHeader &header) {
@@ -275,7 +293,7 @@ bool DbHandler::MessageIndexTableInsert(const std::string& cfname,
         rowkey.push_back(message_type);
     } else if (cfname == g_viz_constants.MESSAGE_TABLE_TIMESTAMP) {
     } else {
-        LOG(ERROR, __func__ << ": Unknown table: " << cfname << ", message: "
+        DB_LOG(ERROR, "Unknown table: " << cfname << ", message: "
                 << message_type << ", message UUID: " << unm);
         return false;
     }
@@ -287,8 +305,8 @@ bool DbHandler::MessageIndexTableInsert(const std::string& cfname,
     GenDb::DbDataValueVec *col_value(new GenDb::DbDataValueVec(1, unm));
     GenDb::NewCol *col(new GenDb::NewCol(col_name, col_value));
     columns.push_back(col);
-    if (!dbif_->NewDb_AddColumn(col_list)) {
-        LOG(ERROR, __func__ << ": Addition of message: " << message_type <<
+    if (!dbif_->Db_AddColumn(col_list)) {
+        DB_LOG(ERROR, "Addition of message: " << message_type <<
                 ", message UUID: " << unm << " to table: " << cfname <<
                 " FAILED");
         return false;
@@ -366,8 +384,8 @@ void DbHandler::MessageTableOnlyInsert(const VizMsg *vmsgp) {
     columns.push_back(new GenDb::NewCol(g_viz_constants.DATA,
         vmsgp->msg->ExtractMessage()));
 
-    if (!dbif_->NewDb_AddColumn(col_list)) {
-        LOG(ERROR, __func__ << ": Addition of message: " << message_type <<
+    if (!dbif_->Db_AddColumn(col_list)) {
+        DB_LOG(ERROR, "Addition of message: " << message_type <<
                 ", message UUID: " << vmsgp->unm << " COLUMN FAILED");
         return;
     }
@@ -453,8 +471,8 @@ void DbHandler::ObjectTableInsert(const std::string &table, const std::string &o
         GenDb::NewColVec& columns = col_list->columns_;
         columns.reserve(1);
         columns.push_back(col);
-        if (!dbif_->NewDb_AddColumn(col_list)) {
-            LOG(ERROR, __func__ << ": Addition of " << objectkey_str <<
+        if (!dbif_->Db_AddColumn(col_list)) {
+            DB_LOG(ERROR, "Addition of " << objectkey_str <<
                     ", message UUID " << unm << " into table " << table <<
                     " FAILED");
             return;
@@ -474,8 +492,8 @@ void DbHandler::ObjectTableInsert(const std::string &table, const std::string &o
         GenDb::NewColVec& columns = col_list->columns_;
         columns.reserve(1);
         columns.push_back(col);
-        if (!dbif_->NewDb_AddColumn(col_list)) {
-            LOG(ERROR, __func__ << ": Addition of " << objectkey_str <<
+        if (!dbif_->Db_AddColumn(col_list)) {
+            DB_LOG(ERROR, "Addition of " << objectkey_str <<
                     ", message UUID " << unm << " " << table << " into table "
                     << g_viz_constants.OBJECT_VALUE_TABLE << " FAILED");
             return;
@@ -612,8 +630,8 @@ void DbHandler::StatTableInsert(uint64_t ts,
             GenDb::NewCol *col(new GenDb::NewCol(col_name, col_value));
             columns.push_back(col);
 
-            if (!dbif_->NewDb_AddColumn(col_list)) {
-                LOG(ERROR, __func__ << ": Addition of " << statName <<
+            if (!dbif_->Db_AddColumn(col_list)) {
+                DB_LOG(ERROR, "Addition of " << statName <<
                         ", " << statAttr << " attrib " << it->first << " into table "
                         << cfname << " FAILED");
             }
@@ -689,7 +707,7 @@ static bool PopulateFlowRecordTable(FlowValueArray &fvalues,
     PopulateFlowRecordTableRowKey(fvalues, colList->rowkey_);
     PopulateFlowRecordTableColumns(FlowRecordTableColumns, fvalues,
         colList->columns_);
-    return dbif->NewDb_AddColumn(colList);
+    return dbif->Db_AddColumn(colList);
 }
 
 static const std::vector<FlowRecordFields::type> FlowIndexTableColumnValues =
@@ -821,7 +839,7 @@ static bool PopulateFlowIndexTables(FlowValueArray &fvalues,
         colList->rowkey_ = rkey;
         PopulateFlowIndexTableColumns(fitt, fvalues, T1, colList->columns_,
             cvalues);
-        if (!dbif->NewDb_AddColumn(colList)) {
+        if (!dbif->Db_AddColumn(colList)) {
             LOG(ERROR, "Populating " << FlowIndexTable2String(fitt) <<
                 " FAILED");
         }
@@ -927,7 +945,7 @@ bool DbHandler::FlowTableInsert(const pugi::xml_node &parent,
     uint8_t partition_no = 0;
     // Populate Flow Record Table
     if (!PopulateFlowRecordTable(flow_entry_values, dbif_.get())) {
-        LOG(ERROR, "Populating FlowRecordTable FAILED");
+        DB_LOG(ERROR, "Populating FlowRecordTable FAILED");
     }
     // Populate Flow Index Tables only if FLOWREC_DIFF_BYTES and
     GenDb::DbDataValue &diff_bytes(
@@ -939,7 +957,7 @@ bool DbHandler::FlowTableInsert(const pugi::xml_node &parent,
         diff_packets.which() != GenDb::DB_VALUE_BLANK) {
        if (!PopulateFlowIndexTables(flow_entry_values, T2, T1, partition_no,
                 dbif_.get())) {
-           LOG(ERROR, "Populating FlowIndexTables FAILED");
+           DB_LOG(ERROR, "Populating FlowIndexTables FAILED");
        }
     }
     return true;

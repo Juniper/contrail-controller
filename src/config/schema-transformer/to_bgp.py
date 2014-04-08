@@ -1087,7 +1087,7 @@ class SecurityGroupST(DictST):
                 self.egress_acl = _vnc_lib.access_control_list_read(
                     id=acl['uuid'])
             elif acl['to'][-1] == 'ingress-access-control-list':
-                self.igress_acl = _vnc_lib.access_control_list_read(
+                self.ingress_acl = _vnc_lib.access_control_list_read(
                     id=acl['uuid'])
             else:
                 _vnc_lib.access_control_list_delete(id=acl['uuid'])
