@@ -53,9 +53,6 @@ for file in local_sources:
     local_sources_rules.append(
         env.Install("discovery", '#controller/src/discovery/' + file))
 
-bottle_sources_rules = []
-bottle_sources_rules.append(env.Install("discovery", '#/third_party/bottle-0.11.6/bottle.py'))
-
 sandesh_common_dirs = [ 'vns' ]
 
 sandesh_common_files = sandesh_common_dirs + ['__init__.py'] 
@@ -81,7 +78,6 @@ env.Depends(sandesh_gen_py_rules, sandesh_gen_py_gfiles)
 sdist_depends = [generated_rule]
 sdist_depends.extend(setup_sources_rules)
 sdist_depends.extend(local_sources_rules)
-sdist_depends.extend(bottle_sources_rules)
 sdist_depends.extend(sandesh_common_sources_rules)
 sdist_depends.extend(sandesh_gen_py_rules)
 
