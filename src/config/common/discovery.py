@@ -177,6 +177,8 @@ class DiscoveryService(object):
     def _zk_election_callback(self, func, *args, **kwargs):
         self._zk_client.remove_listener(self._zk_listener)
         func(*args, **kwargs)
+        # Exit if running master encounters error or exception
+        exit(1)
     # end
 
     def master_election(self, path, identifier, func, *args, **kwargs):
