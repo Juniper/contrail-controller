@@ -125,11 +125,20 @@ void AgentInit::OnInterfaceCreate(DBEntryBase *entry) {
 
     Interface *itf = static_cast<Interface *>(entry);
     Interface::Type type = itf->type();
+
+    if (type == Interface::INET) {
+        InetInterface *inet_interface = static_cast<InetInterface *>(entry);
+        // Set VHOST interface in agent
+        if (inet_interface->sub_type() == InetInterface::VHOST &&
+            inet_interface->name() == agent_->vhost_interface_name()) {
+            agent_->set_vhost_interface(itf);
+        }
+    }
+
     if (type != Interface::PHYSICAL ||
         itf->name() != Agent::GetInstance()->GetIpFabricItfName())
         return;
 
-    agent_->set_vhost_interface(itf);
     agent_->SetRouterId(params_->vhost_addr());
     agent_->SetPrefixLen(params_->vhost_plen());
     agent_->SetGatewayId(params_->vhost_gw());
