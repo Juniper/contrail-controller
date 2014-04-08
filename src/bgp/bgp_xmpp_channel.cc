@@ -1134,12 +1134,14 @@ void BgpXmppChannel::ProcessEnetItem(string vrf_name,
 
 void BgpXmppChannel::DequeueRequest(const string &table_name,
                                     DBRequest *request) {
+    auto_ptr<DBRequest> ptr(request);
+
     BgpTable *table = static_cast<BgpTable *>
         (bgp_server_->database()->FindTable(table_name));
-    if (table == NULL) {
+    if (table == NULL || table->IsDeleted()) {
         return;
     }
-    auto_ptr<DBRequest> ptr(request);
+
     PeerRibMembershipManager *mgr = bgp_server_->membership_mgr();
     if (mgr && !mgr->PeerRegistered(peer_.get(), table)) {
         BGP_LOG_PEER(Event, Peer(), SandeshLevel::SYS_WARN, BGP_LOG_FLAG_ALL,
@@ -1261,7 +1263,8 @@ bool BgpXmppChannel::MembershipResponseHandler(std::string table_name) {
         return true;
     } else if (state.pending_req == SUBSCRIBE) {
         IPeerRib *rib = mgr->IPeerRibFind(peer_.get(), table);
-        rib->set_instance_id(state.instance_id);
+        if (rib)
+            rib->set_instance_id(state.instance_id);
     }
 
     for(DeferQ::iterator it = defer_q_.find(vrf_n_table);
