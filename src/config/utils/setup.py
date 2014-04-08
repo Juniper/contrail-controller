@@ -12,4 +12,12 @@ setup(
     packages=['contrail_utils',
               ],
     long_description="Contrail Utility scripts",
-)
+    entry_points = {
+        'console_scripts': [
+            'contrail_provision_vrouter = contrail_utils.provision_vrouter:main',
+            'contrail_provision_linklocal = contrail_utils.provision_linklocal:main',
+            'contrail_create_floating_pool = contrail_utils.create_floating_pool:main',
+            'contrail_veth_port = contrail_utils.contrail_veth_port:main',
+            ],
+        },
+    )
