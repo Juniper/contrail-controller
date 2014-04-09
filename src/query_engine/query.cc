@@ -917,7 +917,7 @@ QueryEngine::QueryEngine(EventManager *evm,
             uint64_t start_time) :  
         dbif_(GenDb::GenDbIf::GenDbIfImpl( 
             boost::bind(&QueryEngine::db_err_handler, this),
-            cassandra_ip, cassandra_port, 0, "QueryEngine", false)),
+            cassandra_ip, cassandra_port, 0, "QueryEngine", true)),
         qosp_(new QEOpServerProxy(evm,
             this, redis_ip, redis_port, max_tasks)),
         evm_(evm),
