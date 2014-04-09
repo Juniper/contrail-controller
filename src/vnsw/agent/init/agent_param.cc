@@ -9,13 +9,16 @@
  * - Parameters
  */
 
-#include <iostream>
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <sys/resource.h>
 #include <unistd.h>
+#include <iostream>
 
-#include <sys/stat.h>
+#include <boost/property_tree/ini_parser.hpp>
+#include <boost/algorithm/string.hpp>
+#include <boost/foreach.hpp>
+#include <boost/program_options.hpp>
 
 #include <base/logging.h>
 #include <base/misc_utils.h>
@@ -26,12 +29,8 @@
 #include <cmn/agent_cmn.h>
 #include <init/agent_param.h>
 #include <vgw/cfg_vgw.h>
-
 #include <uve/agent_stats_collector.h>
 #include <uve/flow_stats_collector.h>
-#include <boost/property_tree/ini_parser.hpp>
-#include <boost/foreach.hpp>
-#include <boost/program_options.hpp>
 
 
 using namespace std;
@@ -73,18 +72,62 @@ bool AgentParam::GetIpAddress(const string &str, Ip4Address *addr) {
     return true;
 }
 
-void AgentParam::ParseServer(const string &key, Ip4Address *server) {
+bool AgentParam::ParseServer(const string &key, Ip4Address *server) {
     optional<string> opt_str;
     if (opt_str = tree_.get_optional<string>(key)) {
         Ip4Address addr;
         if (GetIpAddress(opt_str.get(), &addr) == false) {
             LOG(ERROR, "Error in config file <" << config_file_ 
-                    << ">. Error parsing control-node server1 address from <" 
+                    << ">. Error parsing IP address from <" 
                     << opt_str.get() << ">");
+            return false;
+
         } else {
             *server = addr;
         }
     }
+    return true;
+}
+
+bool AgentParam::ParseIp(const string &ip_str, Ip4Address *server) {
+    Ip4Address addr;
+    if (GetIpAddress(ip_str, &addr) == false) {
+        LOG(ERROR, "Error in config file <" << config_file_ 
+                << ">. Error parsing address from <" << ip_str << ">");
+        return false;
+    } else {
+        *server = addr;
+        return true;
+    }
+}
+
+bool AgentParam::ParseServers(const string &key, Ip4Address *server1,
+                              Ip4Address *server2) {
+    optional<string> opt_str;
+    Ip4Address addr;
+    vector<string> tokens;
+    if (opt_str = tree_.get_optional<string>(key)) {
+        boost::split(tokens, opt_str.get(), boost::is_any_of(" "));
+        if (tokens.size() > 2) {
+            LOG(ERROR, "Error in config file <" << config_file_ 
+                    << ">. Cannot have more than 2 servers <" 
+                    << opt_str.get() << ">");
+            return false;
+        }
+        vector<string>::iterator it = tokens.begin();
+        if (it != tokens.end()) {
+            if (!ParseIp(*it, server1)) {
+                return false;
+            }
+            ++it;
+            if (it != tokens.end()) {
+                if (!ParseIp(*it, server2)) {
+                    return false;
+                }
+            }
+        }
+    }
+    return true;
 }
 
 void AgentParam::ParseIpArgument
@@ -94,9 +137,37 @@ void AgentParam::ParseIpArgument
     if (var_map.count(key)) {
         Ip4Address addr;
         if (GetIpAddress(var_map[key].as<string>(), &addr)) {
-            collector_ = addr;
+            server = addr;
         }
     }
+}
+
+bool AgentParam::ParseIpArguments
+    (const boost::program_options::variables_map &var_map, Ip4Address &server1,
+     Ip4Address &server2, const string &key) {
+
+    if (var_map.count(key)) {
+        vector<string> value = var_map[key].as<vector<string> >();
+        if (value.size() > 2) {
+            LOG(ERROR, "Error in Arguments. Cannot have more than 2 servers "
+                    "for " << key );
+            return false;
+        }
+        vector<string>::iterator it = value.begin();
+        Ip4Address addr;
+        if (it !=  value.end()) {
+            if (GetIpAddress(*it, &addr)) {
+                server1 = addr;
+            }
+            ++it;
+            if (it != value.end()) {
+                if (GetIpAddress(*it, &addr)) {
+                    server2 = addr;
+                }
+            }
+        }
+    }
+    return true;
 }
 
 void AgentParam::ParseCollector() { 
@@ -130,16 +201,6 @@ void AgentParam::ParseVirtualHostInteface() {
 
     GetValueFromTree<string>(eth_port_, 
                              "VIRTUAL-HOST-INTERFACE.physical_interface");
-}
-
-void AgentParam::ParseXmppServer() {
-    ParseServer("CONTROL-NODE.server1", &xmpp_server_1_);
-    ParseServer("CONTROL-NODE.server2", &xmpp_server_2_);
-}
-
-void AgentParam::ParseDnsServer() {
-    ParseServer("DNS.server1", &dns_server_1_);
-    ParseServer("DNS.server2", &dns_server_2_);
 }
 
 void AgentParam::ParseDiscoveryServer() {
@@ -269,8 +330,8 @@ void AgentParam::InitFromConfig() {
 
     ParseCollector();
     ParseVirtualHostInteface();
-    ParseXmppServer();
-    ParseDnsServer();
+    ParseServers("CONTROL-NODE.server", &xmpp_server_1_, &xmpp_server_2_);
+    ParseServers("DNS.server", &dns_server_1_, &dns_server_2_);
     ParseDiscoveryServer();
     ParseNetworks();
     ParseHypervisor();
@@ -288,8 +349,8 @@ void AgentParam::InitFromArguments
     ParseIpArgument(var_map, collector_, "COLLECTOR.server");
     GetOptValue<uint16_t>(var_map, collector_port_, "COLLECTOR.port");
 
-    ParseIpArgument(var_map, xmpp_server_1_, "CONTROL-NODE.server1");
-    ParseIpArgument(var_map, xmpp_server_2_, "CONTROL-NODE.server2");
+    ParseIpArguments(var_map, xmpp_server_1_, xmpp_server_2_, 
+                     "CONTROL-NODE.server");
 
     GetOptValue<uint16_t>(var_map, flow_cache_timeout_, 
                           "DEFAULT.flow_cache_timeout");
@@ -306,10 +367,10 @@ void AgentParam::InitFromArguments
 
 
     ParseIpArgument(var_map, dss_server_, "DISCOVERY.server");
-    GetOptValue<uint16_t>(var_map, xmpp_instance_count_, "DISCOVERY.max_control_nodes");
+    GetOptValue<uint16_t>(var_map, xmpp_instance_count_, 
+                          "DISCOVERY.max_control_nodes");
 
-    ParseIpArgument(var_map, dns_server_1_, "DNS.server1");
-    ParseIpArgument(var_map, dns_server_2_, "DNS.server2");
+    ParseIpArguments(var_map, dns_server_1_, dns_server_2_, "DNS.server");
 
     if (var_map.count("HYPERVISOR.type")) {
         if (var_map["HYPERVISOR.type"].as<string>() == "xen") {

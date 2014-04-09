@@ -75,10 +75,8 @@ int main(int argc, char *argv[]) {
         ("COLLECTOR.server", opt::value<string>(), 
          "IP address of sandesh collector")
         ("COLLECTOR.port", opt::value<uint16_t>(), "Port of sandesh collector")
-        ("CONTROL-NODE.server1", opt::value<string>(), 
-         "IP address of first control node")
-        ("CONTROL-NODE.server2", opt::value<string>(), 
-         "IP address of second control node")
+        ("CONTROL-NODE.server", opt::value<std::vector<std::string> >()->multitoken(),
+         "IP addresses of control nodes. Max of 2 Ip addresses can be configured")
         ("DEFAULT.flow_cache_timeout", opt::value<uint16_t>(), 
          "Flow aging time in seconds")
         ("DEFAULT.hostname", opt::value<string>(), 
@@ -98,8 +96,8 @@ int main(int argc, char *argv[]) {
          "IP address of discovery server")
         ("DISCOVERY.max_control_nodes", opt::value<uint16_t>(), 
          "Maximum number of control node info to be provided by discovery service <1|2>")
-        ("DNS.server1", opt::value<string>(), "IP address of first dns node")
-        ("DNS.server2", opt::value<string>(), "IP address of second dns node")
+        ("DNS.server", opt::value<std::vector<std::string> >()->multitoken(),
+         "IP addresses of dns nodes. Max of 2 Ip addresses can be configured")
         ("host-name", opt::value<string>(), "Specific Host Name")
         ("HYPERVISOR.type", opt::value<string>(), 
          "Type of hypervisor <kvm|xen|vmware>")

@@ -116,13 +116,16 @@ private:
     template <typename ValueType>
     bool GetValueFromTree(ValueType &var, const std::string &val);
     bool GetIpAddress(const std::string &str, Ip4Address *addr);
-    void ParseServer(const std::string &key, Ip4Address *server);
+    bool ParseIp(const std::string &ip_str, Ip4Address *server);
+    bool ParseServer(const std::string &key, Ip4Address *server);
+    bool ParseServers(const std::string &key, Ip4Address *s1, Ip4Address *s2);
     void ParseIpArgument(const boost::program_options::variables_map &var_map, 
                          Ip4Address &server, const std::string &key);
+    bool ParseIpArguments
+    (const boost::program_options::variables_map &var_map, Ip4Address &server1,
+     Ip4Address &server2, const std::string &key);
     void ParseCollector();
     void ParseVirtualHostInteface();
-    void ParseXmppServer();
-    void ParseDnsServer();
     void ParseDiscoveryServer();
     void ParseNetworks();
     void ParseHypervisor();

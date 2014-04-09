@@ -64,10 +64,8 @@ public:
         ("COLLECTOR.server", opt::value<string>(), 
          "IP address of sandesh collector")
         ("COLLECTOR.port", opt::value<uint16_t>(), "Port of sandesh collector")
-        ("CONTROL-NODE.server1", opt::value<string>(), 
-         "IP address of first control node")
-        ("CONTROL-NODE.server2", opt::value<string>(), 
-         "IP address of second control node")
+        ("CONTROL-NODE.server", opt::value<std::vector<std::string> >()->multitoken(),
+         "IP addresses of control nodes. Max of 2 Ip addresses can be configured")
         ("DEFAULT.flow_cache_timeout", opt::value<uint16_t>(), 
          "Flow aging time in seconds")
         ("DEFAULT.hostname", opt::value<string>(), 
@@ -87,8 +85,8 @@ public:
          "IP address of discovery server")
         ("DISCOVERY.max_control_nodes", opt::value<uint16_t>(), 
          "Maximum number of control node info to be provided by discovery service <1|2>")
-        ("DNS.server1", opt::value<string>(), "IP address of first dns node")
-        ("DNS.server2", opt::value<string>(), "IP address of second dns node")
+        ("DNS.server", opt::value<std::vector<std::string> >()->multitoken(),
+         "IP addresses of dns nodes. Max of 2 Ip addresses can be configured")
         ("host-name", opt::value<string>(), "Specific Host Name")
         ("HYPERVISOR.type", opt::value<string>(), 
          "Type of hypervisor <kvm|xen|vmware>")
@@ -168,6 +166,14 @@ TEST_F(FlowTest, Agent_Conf_file_2) {
 
     EXPECT_EQ(param.linklocal_system_flows(), 2048);
     EXPECT_EQ(param.linklocal_vm_flows(), 2048);
+    EXPECT_EQ(param.xmpp_server_1().to_ulong(),
+              Ip4Address::from_string("11.1.1.1").to_ulong());
+    EXPECT_EQ(param.xmpp_server_2().to_ulong(),
+              Ip4Address::from_string("12.1.1.1").to_ulong());
+    EXPECT_EQ(param.dns_server_1().to_ulong(),
+              Ip4Address::from_string("13.1.1.1").to_ulong());
+    EXPECT_EQ(param.dns_server_2().to_ulong(),
+              Ip4Address::from_string("14.1.1.1").to_ulong());
 }
 
 // Check that linklocal flows are updated when the system limits are lowered
@@ -257,7 +263,7 @@ TEST_F(FlowTest, Agen_Arg_Override_Config_1) {
     int argc = 8;
     char *argv[] = {
         (char *) "--conf_file",
-                        (char *)"controller/src/vnsw/agent/init/test/cfg.xml",
+                        (char *)"controller/src/vnsw/agent/init/test/cfg.ini",
         (char *) "--HYPERVISOR.type",    (char *)"xen", 
         (char *) "--HYPERVISOR.xen_ll_interface",   (char *)"xenport",
         (char *) "--HYPERVISOR.xen_ll_ip", (char *)"1.1.1.2/16",
@@ -285,6 +291,35 @@ TEST_F(FlowTest, Agen_Arg_Override_Config_1) {
     EXPECT_EQ(param.xen_ll_prefix().to_ulong(),
               Ip4Address::from_string("1.1.1.0").to_ulong());
     EXPECT_EQ(param.xen_ll_plen(), 24);
+}
+
+TEST_F(FlowTest, Agen_Arg_Override_Config_2) {
+    int argc = 8;
+    char *argv[] = {
+        (char *) "--DNS.server",    (char *)"20.1.1.1 21.1.1.1", 
+        (char *) "--CONTROL-NODE.server",   (char *)"22.1.1.1 23.1.1.1",
+    };
+
+    try {
+        opt::store(opt::parse_command_line(argc, argv, desc), var_map);
+        opt::notify(var_map);
+    } catch (...) {
+        cout << "Invalid arguments. ";
+        cout << desc << endl;
+        exit(0);
+    }
+
+    AgentParam param;
+    param.Init("controller/src/vnsw/agent/init/test/cfg.ini", "test-param",
+               var_map);
+    EXPECT_EQ(param.xmpp_server_1().to_ulong(),
+              Ip4Address::from_string("22.1.1.1").to_ulong());
+    EXPECT_EQ(param.xmpp_server_2().to_ulong(),
+              Ip4Address::from_string("23.1.1.1").to_ulong());
+    EXPECT_EQ(param.dns_server_1().to_ulong(),
+              Ip4Address::from_string("20.1.1.1").to_ulong());
+    EXPECT_EQ(param.dns_server_2().to_ulong(),
+              Ip4Address::from_string("21.1.1.1").to_ulong());
 }
 
 int main(int argc, char **argv) {

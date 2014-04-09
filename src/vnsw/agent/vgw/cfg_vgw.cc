@@ -69,7 +69,7 @@ void VirtualGatewayConfigTable::BuildSubnetList
     results.clear();
     if (!subnets.empty()) {
         vector<string> tokens;
-        boost::split(tokens, subnets, boost::is_any_of(","));
+        boost::split(tokens, subnets, boost::is_any_of(" "));
         vector<string>::iterator it = tokens.begin();
         while (it != tokens.end()) {
             std::string str = *it;
