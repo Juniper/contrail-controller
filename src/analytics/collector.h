@@ -138,12 +138,15 @@ private:
 
 class VizSession : public SandeshSession {
 public:
-    SandeshGenerator *gen_;
     VizSession(TcpServer *client, Socket *socket, int task_instance,
             int writer_task_id, int reader_task_id) :
         SandeshSession(client, socket, task_instance, writer_task_id,
                        reader_task_id),
         gen_(NULL) { }
+    void set_generator(SandeshGenerator *gen) { gen_ = gen; }
+    SandeshGenerator* generator() { return gen_; }
+private:
+    SandeshGenerator *gen_;
 };
 
 #endif /* COLLECTOR_H_ */

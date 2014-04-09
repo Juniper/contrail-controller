@@ -34,9 +34,10 @@ using namespace pugi;
 
 DbHandler::DbHandler(EventManager *evm,
         GenDb::GenDbIf::DbErrorHandler err_handler,
-        std::string cassandra_ip, unsigned short cassandra_port, int analytics_ttl, std::string name) :
+        std::string cassandra_ip, unsigned short cassandra_port,
+        int analytics_ttl, std::string name) :
     dbif_(GenDb::GenDbIf::GenDbIfImpl(evm->io_service(), err_handler,
-                cassandra_ip, cassandra_port, analytics_ttl*3600, name)),
+          cassandra_ip, cassandra_port, analytics_ttl*3600, name, false)),
     name_(name),
     drop_level_(SandeshLevel::INVALID),
     msg_dropped_(0) {

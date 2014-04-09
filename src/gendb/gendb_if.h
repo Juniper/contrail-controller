@@ -161,7 +161,7 @@ class GenDbIf {
 
         static GenDbIf *GenDbIfImpl(boost::asio::io_service *ioservice, DbErrorHandler hdlr, 
                 std::string cassandra_ip, unsigned short cassandra_port, 
-                int analytics_ttl, std::string name);
+                int analytics_ttl, std::string name, bool only_sync);
 };
 
 } // namespace GenDb
