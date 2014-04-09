@@ -811,7 +811,7 @@ AnalyticsQuery::AnalyticsQuery(std::string qid, std::map<std::string,
         QueryUnit(NULL, this),
         dbif_(GenDb::GenDbIf::GenDbIfImpl(
             boost::bind(&AnalyticsQuery::db_err_handler, this),
-            cassandra_ip, cassandra_port, 0, "QueryEngine")),
+            cassandra_ip, cassandra_port, 0, "QueryEngine", true)),
         filter_qe_logs(true),
         json_api_data_(json_api_data),
         where_start_(0),
@@ -917,7 +917,7 @@ QueryEngine::QueryEngine(EventManager *evm,
             uint64_t start_time) :  
         dbif_(GenDb::GenDbIf::GenDbIfImpl( 
             boost::bind(&QueryEngine::db_err_handler, this),
-            cassandra_ip, cassandra_port, 0, "QueryEngine")),
+            cassandra_ip, cassandra_port, 0, "QueryEngine", false)),
         qosp_(new QEOpServerProxy(evm,
             this, redis_ip, redis_port, max_tasks)),
         evm_(evm),

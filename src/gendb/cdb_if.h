@@ -23,7 +23,7 @@
 class CdbIf : public GenDb::GenDbIf {
 public:
     CdbIf(DbErrorHandler, std::string, unsigned short, int ttl,
-        std::string name);
+        std::string name, bool only_sync);
     CdbIf();
     ~CdbIf();
     // Init/Uninit
@@ -65,6 +65,7 @@ public:
 
 private:
     friend class CdbIfTest;
+    class InitTask;
     class CleanupTask;
 
     typedef boost::function<std::string(const GenDb::DbDataValue&)>
@@ -244,6 +245,14 @@ private:
     void UpdateCfReadStats(const std::string &cf_name);
     void UpdateCfReadFailStats(const std::string &cf_name);
 
+    typedef WorkQueue<CdbIfColList> CdbIfQueue;
+    typedef boost::tuple<bool, size_t, DbQueueWaterMarkCb>
+        DbQueueWaterMarkInfo;
+    void Db_SetQueueWaterMarkInternal(CdbIfQueue *queue,
+        std::vector<DbQueueWaterMarkInfo> &vwmi);
+    void Db_SetQueueWaterMarkInternal(CdbIfQueue *queue,
+        DbQueueWaterMarkInfo &wmi);
+
     boost::shared_ptr<apache::thrift::transport::TTransport> socket_;
     boost::shared_ptr<apache::thrift::transport::TTransport> transport_;
     boost::shared_ptr<apache::thrift::protocol::TProtocol> protocol_;
@@ -251,18 +260,22 @@ private:
     DbErrorHandler errhandler_;
     tbb::atomic<bool> db_init_done_;
     std::string tablespace_;
-    typedef WorkQueue<CdbIfColList> CdbIfQueue;
     boost::scoped_ptr<CdbIfQueue> cdbq_;
     std::string name_;
     mutable tbb::mutex cdbq_mutex_;
-    CleanupTask *cleanup_;
+    InitTask *init_task_;
+    CleanupTask *cleanup_task_;
     int cassandra_ttl_;
+    bool only_sync_;
+    int task_instance_;
+    bool task_instance_initialized_;
     typedef std::vector<org::apache::cassandra::Mutation> MutationList;
     typedef std::map<std::string, MutationList> CFMutationMap;
     typedef std::map<std::string, CFMutationMap> CassandraMutationMap;
     CassandraMutationMap mutation_map_;
     mutable tbb::mutex smutex_;
     CdbIfStats stats_;
+    std::vector<DbQueueWaterMarkInfo> cdbq_wm_info_;
 };
 
 CdbIf::CdbIfStats::CfStats operator+(const CdbIf::CdbIfStats::CfStats &a,
@@ -278,9 +291,8 @@ template<>
 struct WorkQueueDelete<CdbIf::CdbIfColList> {
     template <typename QueueT>
     void operator()(QueueT &q) {
-        for (typename QueueT::iterator iter = q.unsafe_begin();
-             iter != q.unsafe_end(); ++iter) {
-            CdbIf::CdbIfColList &colList(*iter);
+        CdbIf::CdbIfColList colList;
+        while (q.try_pop(colList)) {    
             delete colList.gendb_cl;
             colList.gendb_cl = NULL;
         }
