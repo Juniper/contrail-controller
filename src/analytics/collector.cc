@@ -205,6 +205,17 @@ bool Collector::ReceiveSandeshCtrlMsg(SandeshStateMachine *state_machine,
                 sandesh->Name() << ": Session: " << vsession->ToString());
         return false;
     }
+    if (snh->get_instance_id_name().empty()) {
+        LOG(ERROR, "Received Ctrl Message with empty instance id from " <<
+            snh->get_source() << ":" << snh->get_module_name());
+        return false;
+    }
+    if (snh->get_node_type_name().empty()) {
+        LOG(ERROR, "Received Ctrl Message with empty node type from " <<
+            snh->get_source() << ":" << snh->get_module_name());
+        return false;
+    }
+
     SandeshGenerator::GeneratorId id(boost::make_tuple(snh->get_source(),
             snh->get_module_name(), snh->get_instance_id_name(),
             snh->get_node_type_name()));
