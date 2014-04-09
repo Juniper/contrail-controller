@@ -400,8 +400,7 @@ int InterfaceKSyncEntry::ChangeMsg(char *buf, int buf_len) {
 }
 
 InterfaceKSyncObject::InterfaceKSyncObject(KSync *ksync) :
-    KSyncDBObject(), ksync_(ksync), 
-    physical_interface_mac_(), test_mode(false) {
+    KSyncDBObject(), ksync_(ksync), test_mode(false) {
 }
 
 InterfaceKSyncObject::~InterfaceKSyncObject() {
@@ -442,8 +441,6 @@ void InterfaceKSyncObject::Init() {
     // Get MAC Address for vnsw interface
     test_mode = 0;
     Interface::set_test_mode(false);
-    GetPhyMac(ksync_->agent()->vhost_interface_name().c_str(), 
-              physical_interface_mac_);
 }
 
 void InterfaceKSyncObject::InitTest() {
@@ -452,26 +449,8 @@ void InterfaceKSyncObject::InitTest() {
 }
 
 //////////////////////////////////////////////////////////////////////////////
-// sub-interface related functions
+// sandesh routines
 //////////////////////////////////////////////////////////////////////////////
-void GetPhyMac(const char *ifname, char *mac) {
-    struct ifreq ifr;
-
-    int fd = socket(AF_LOCAL, SOCK_STREAM, 0);
-    assert(fd >= 0);
-
-    memset(&ifr, 0, sizeof(ifr));
-    strncpy(ifr.ifr_name, ifname, IF_NAMESIZE);
-    if (ioctl(fd, SIOCGIFHWADDR, (void *)&ifr) < 0) {
-        LOG(ERROR, "Error <" << errno << ": " << strerror(errno) << 
-            "> querying mac-address for interface <" << ifname << ">");
-        assert(0);
-    }
-    close(fd);
-
-    memcpy(mac, ifr.ifr_hwaddr.sa_data, ETHER_ADDR_LEN);
-}
-
 void vr_response::Process(SandeshContext *context) {
     AgentSandeshContext *ioc = static_cast<AgentSandeshContext *>(context);
     ioc->SetErrno(ioc->VrResponseMsgHandler(this));

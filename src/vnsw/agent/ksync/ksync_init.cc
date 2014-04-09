@@ -184,7 +184,11 @@ void KSync::UpdateVhostMac() {
     ifm.if_name[IFNAMSIZ - 1] = '\0';
     strcpy(ifm.if_kind, VHOST_KIND);
     ifm.if_flags = IFF_UP;
-    GetPhyMac(agent_->GetIpFabricItfName().c_str(), ifm.if_mac);
+
+    PhysicalInterfaceKey key(agent_->GetIpFabricItfName());
+    Interface *eth = static_cast<Interface *>
+        (agent_->GetInterfaceTable()->FindActiveEntry(&key));
+    memcpy(ifm.if_mac, eth->mac().ether_addr_octet, ETHER_ADDR_LEN);
     assert(nl_build_if_create_msg(cl, &ifm, 1) == 0);
     assert(nl_sendmsg(cl) > 0);
     assert(nl_recvmsg(cl) > 0);

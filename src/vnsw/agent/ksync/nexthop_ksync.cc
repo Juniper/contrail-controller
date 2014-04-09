@@ -371,8 +371,8 @@ bool NHKSyncEntry::Sync(DBEntry *e) {
             InterfaceKSyncEntry if_ksync(interface_object, 
                                          rcv_nh->GetInterface());
             interface_ = interface_object->GetReference(&if_ksync);
-            memcpy(&dmac_, interface_object->physical_interface_mac(), 
-                   sizeof(dmac_));
+            Agent *agent = ksync_obj_->ksync()->agent();
+            memcpy(&dmac_, &agent->vhost_interface()->mac(), sizeof(dmac_));
         } else if (active_nh->GetType() == NextHop::DISCARD) {
             valid_ = false;
             interface_ = NULL;
@@ -822,9 +822,8 @@ void NHKSyncEntry::SetEncap(std::vector<int8_t> &encap) {
     if (type_ == NextHop::VLAN) {
         smac = smac_.ether_addr_octet;
     } else {
-        smac = (const uint8_t *)
-            ksync_obj_->ksync()->interface_ksync_obj()
-            ->physical_interface_mac();
+        Agent *agent = ksync_obj_->ksync()->agent();
+        smac = agent->vhost_interface()->mac().ether_addr_octet;
     }
     for (int i = 0 ; i < ETHER_ADDR_LEN; i++) {
         encap.push_back(smac[i]);
