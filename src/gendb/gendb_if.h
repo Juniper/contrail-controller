@@ -170,7 +170,7 @@ public:
 
     static GenDbIf *GenDbIfImpl(DbErrorHandler hdlr, 
         std::string cassandra_ip, unsigned short cassandra_port, 
-        int analytics_ttl, std::string name);
+        int analytics_ttl, std::string name, bool only_sync);
 };
 
 } // namespace GenDb

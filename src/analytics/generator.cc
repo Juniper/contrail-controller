@@ -112,9 +112,11 @@ SandeshGenerator::~SandeshGenerator() {
 void SandeshGenerator::set_session(VizSession *session) {
     viz_session_ = session;
     instance_ = session->GetSessionInstance();
+    session->set_generator(this);
 }
 
 void SandeshGenerator::StartDbifReinit() {
+    tbb::mutex::scoped_lock lock(mutex_);
     if (disconnected_) {
         return;
     }
@@ -123,6 +125,7 @@ void SandeshGenerator::StartDbifReinit() {
 }
 
 bool SandeshGenerator::DbConnectTimerExpired() {
+    tbb::mutex::scoped_lock lock(mutex_);
     if (disconnected_) {
         return false;
     }
@@ -198,9 +201,10 @@ void SandeshGenerator::ReceiveSandeshCtrlMsg(uint32_t connects) {
 }
 
 void SandeshGenerator::DisconnectSession(VizSession *vsession) {
+    tbb::mutex::scoped_lock lock(mutex_);
     GENERATOR_LOG(INFO, "Session:" << vsession->ToString());
-    disconnected_ = true;
     if (vsession == viz_session_) {
+        disconnected_ = true;
         // This SandeshGenerator's session is now gone.
         // Delete all its UVEs
         uint32_t tmp = gen_attr_.get_resets();
@@ -209,16 +213,17 @@ void SandeshGenerator::DisconnectSession(VizSession *vsession) {
         state_machine_->ResetQueueWaterMarkInfo();
         viz_session_ = NULL;
         state_machine_ = NULL;
+        vsession->set_generator(NULL);
         collector_->GetOSP()->DeleteUVEs(source_, module_, 
                                          node_type_, instance_id_);
         ModuleServerState ginfo;
         GetGeneratorInfo(ginfo);
         SandeshModuleServerTrace::Send(ginfo);
+        Db_Connection_Uninit();
     } else {
         GENERATOR_LOG(ERROR, "Disconnect for session:" << vsession->ToString() <<
                 ", generator session:" << viz_session_->ToString());
     }
-    Db_Connection_Uninit();
 }
 
 bool SandeshGenerator::ProcessRules(const VizMsg *vmsg, bool rsc) {
@@ -283,6 +288,7 @@ const std::string SandeshGenerator::State() const {
 
 void SandeshGenerator::ConnectSession(VizSession *session,
     SandeshStateMachine *state_machine) {
+    tbb::mutex::scoped_lock lock(mutex_);
     set_session(session);
     set_state_machine(state_machine);
     disconnected_ = false;
