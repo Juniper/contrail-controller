@@ -213,9 +213,17 @@ class AnalyticsTest(testtools.TestCase, fixtures.TestWithFixtures):
                              start_time))
         assert generator_obj.verify_on_setup()
         generator_obj.generate_flow_samples()
-        assert vizd_obj.verify_flow_samples(generator_obj)
+        generator_obj1 = self.useFixture(
+            GeneratorFixture("VRouterAgent", collectors,
+                             logging, vizd_obj.get_opserver_port(),
+                             start_time, hostname=socket.gethostname() + "dup"))
+        assert generator_obj1.verify_on_setup()
+        generator_obj1.generate_flow_samples()
+        generator_object = [generator_obj, generator_obj1]
+        for obj in generator_object:
+            assert vizd_obj.verify_flow_samples(obj)
         assert vizd_obj.verify_flow_table(generator_obj)
-        assert vizd_obj.verify_flow_series_aggregation_binning(generator_obj)
+        assert vizd_obj.verify_flow_series_aggregation_binning(generator_object)
         return True
     # end test_04_flow_query 
 
