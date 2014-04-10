@@ -19,6 +19,7 @@ except ImportError:
     from ordereddict import OrderedDict
 import pycassa
 import Queue
+import kombu
 from copy import deepcopy
 from datetime import datetime
 from pycassa.util import *
@@ -463,6 +464,76 @@ class FakeIfmapClient(object):
 # end class FakeIfmapClient
 
 
+class FakeKombu(object):
+    _queues = {}
+
+    class Exchange(object):
+        def __init__(self, *args, **kwargs):
+            pass
+        # end __init__
+    # end Exchange
+
+    class Queue(object):
+        _msg_obj_list = []
+
+        class Message(object):
+            def __init__(self, msg_dict):
+                self.payload = msg_dict
+            # end __init__
+
+            def ack(self, *args, **kwargs):
+                pass
+            # end ack
+
+        # end class Message
+
+        def __init__(self, entity, q_name, q_exchange):
+            self._name = q_name
+            self._exchange = q_exchange
+            FakeKombu._queues[q_name] = self
+        # end __init__
+
+        def put(self, msg_dict, serializer):
+            msg_obj = self.Message(msg_dict)
+            self._msg_obj_list.append(msg_obj)
+        # end put
+
+        def dq_head(self):
+            return self._msg_obj_list.pop(0)
+        # end dq_head
+    # end class Queue
+
+    class Connection(object):
+        class SimpleQueue(object):
+            def __init__(self, q_obj):
+                self._q_obj = q_obj
+                self._q_add_event = gevent.event.Event()
+            # end __init__
+
+            def put(self, *args, **kwargs):
+                self._q_obj.put(*args, **kwargs)
+                self._q_add_event.set()
+            # end put
+
+            def get(self, *args, **kwargs):
+                self._q_add_event.wait()
+                return self._q_obj.dq_head()
+            # end get
+
+            def __enter__(self):
+                return self
+            # end __enter__
+
+            def __exit__(self, *args, **kwargs):
+                pass
+            # end __exit__
+        # end class SimpleQueue
+
+        def __init__(self, *args, **kwargs):
+            pass
+        # end __init__
+# end class FakeKombu
+
 class FakeRedis(object):
     class Pubsub(object):
         def __init__(self, *args, **kwargs):
@@ -620,8 +691,13 @@ class ZookeeperClientMock(object):
         self._values[path] = value
     # end create_node
 
-    def delete_node(self, path):
-        del self._values[path]
+    def delete_node(self, path, recursive=False):
+        if not recursive:
+            del self._values[path]
+        else:
+            for path_key in self._values.keys():
+                if path in path_key:
+                    del self._values[path_key]
     # end delete_node
 # end Class ZookeeperClientMock
 

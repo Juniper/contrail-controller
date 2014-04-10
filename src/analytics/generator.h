@@ -69,7 +69,10 @@ public:
 
     const std::string &instance_id() const { return instance_id_; }
     const std::string &node_type() const { return node_type_; }
-    VizSession * session() const { return viz_session_; }
+    VizSession * session() const {
+        tbb::mutex::scoped_lock lock(mutex_);
+        return viz_session_;
+    }
     const std::string &module() const { return module_; }
     const std::string &source() const { return source_; }
     virtual const std::string ToString() const { return name_; }
@@ -125,6 +128,7 @@ private:
     Timer *db_connect_timer_;
     tbb::atomic<bool> disconnected_;
     boost::scoped_ptr<DbHandler> db_handler_;
+    mutable tbb::mutex mutex_;
 };
 
 class SyslogGenerator : public Generator {

@@ -870,8 +870,6 @@ class SvcMonitor(object):
         for idx in range(0, len(si_if_list)):
             si_if = si_if_list[idx]
             static_routes = si_if.get_static_routes()
-            if not static_routes:
-                continue
 
             # update static routes
             try:

@@ -36,7 +36,8 @@ class GeneratorFixture(fixtures.Fixture):
     _VN_PREFIX = 'default-domain:vn'
 
     def __init__(self, name, collectors, logger,
-                 opserver_port, start_time=None, node_type="Test"):
+                 opserver_port, start_time=None, node_type="Test", hostname=socket.gethostname()):
+        self._hostname = hostname
         self._name = name
         self._logger = logger
         self._collectors = collectors
@@ -50,7 +51,7 @@ class GeneratorFixture(fixtures.Fixture):
         self._sandesh_instance = Sandesh()
         self._http_port = AnalyticsFixture.get_free_port()
         self._sandesh_instance.init_generator(
-            self._name, socket.gethostname(), self._node_type, "0", self._collectors,
+            self._name, self._hostname, self._node_type, "0", self._collectors,
             '', self._http_port, sandesh_req_uve_pkg_list=['sandesh'])
         self._sandesh_instance.set_logging_params(enable_local_log=True,
                                                   level=SandeshLevel.UT_DEBUG)
@@ -92,7 +93,7 @@ class GeneratorFixture(fixtures.Fixture):
             protocol=flow.protocol, bytes=flow.bytes,
             packets=flow.packets, diff_bytes=flow.diff_bytes,
             diff_packets=flow.diff_packets)
-        flow_object = FlowDataIpv4Object(flowdata=flow_data)
+        flow_object = FlowDataIpv4Object(flowdata=flow_data, sandesh=self._sandesh_instance)
         # overwrite the timestamp of the flow, if specified.
         if ts:
             flow_object._timestamp = ts
@@ -109,7 +110,7 @@ class GeneratorFixture(fixtures.Fixture):
         self.flow_start_time = None
         self.flow_end_time = None
         self.egress_flow_start_time = None
-        self_egress_flow_end_time = None
+        self.egress_flow_end_time = None
         for i in range(self.flow_cnt):
             self.flows.append(FlowDataIpv4(flowuuid=str(uuid.uuid1()),
                                            direction_ing=1,

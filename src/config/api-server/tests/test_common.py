@@ -43,5 +43,7 @@ def setup_flexmock():
     flexmock(disc_client.DiscoveryClient, publish_obj=stub)
     flexmock(ZookeeperClient, __new__=ZookeeperClientMock)
 
-    flexmock(redis.StrictRedis, __new__=FakeRedis)
+    flexmock(kombu.Connection, __new__=FakeKombu.Connection)
+    flexmock(kombu.Exchange, __new__=FakeKombu.Exchange)
+    flexmock(kombu.Queue, __new__=FakeKombu.Queue)
 #end setup_flexmock
