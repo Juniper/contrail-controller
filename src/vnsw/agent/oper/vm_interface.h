@@ -215,7 +215,7 @@ public:
         const VmInterface &intf=static_cast<const VmInterface &>(rhs);
         return uuid_ < intf.uuid_;
     }
-    virtual void GetOsParams();
+    virtual void GetOsParams(Agent *agent);
     void SendTrace(Trace ev);
 
     // DBEntry vectors
