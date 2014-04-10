@@ -11,7 +11,9 @@ ArpEntry::ArpEntry(boost::asio::io_service &io, ArpHandler *handler,
     : key_(ip, vrf), state_(state), retry_count_(0), handler_(handler),
       arp_timer_(NULL) {
     memset(mac_address_, 0, ETH_ALEN);
-    arp_timer_ = TimerManager::CreateTimer(io, "Arp Entry timer");
+    arp_timer_ = TimerManager::CreateTimer(io, "Arp Entry timer",
+                 TaskScheduler::GetInstance()->GetTaskId("Agent::Services"),
+                 PktHandler::ARP);
 }
 
 ArpEntry::~ArpEntry() {
