@@ -112,10 +112,10 @@ bool Collector::ReceiveResourceUpdate(SandeshSession *session,
         LOG(ERROR, __func__ << ": NO VizSession");
         return false;
     }
-    if (vsession->gen_) {
+    SandeshGenerator *gen = vsession->generator();
+    if (gen) {
         if (!rsc) return true;
 
-        SandeshGenerator *gen = vsession->gen_;
         std::vector<UVETypeInfo> vu;
         std::map<std::string, int32_t> seqReply;
         bool retc = osp_->GetSeq(gen->source(), gen->node_type(),
@@ -160,8 +160,9 @@ bool Collector::ReceiveSandeshMsg(SandeshSession *session,
         LOG(ERROR, __func__ << ": NO VizSession");
         return false;
     }
-    if (vsession->gen_) {
-        return vsession->gen_->ReceiveSandeshMsg(&vmsg, rsc);
+    SandeshGenerator *gen = vsession->generator();
+    if (gen) {
+        return gen->ReceiveSandeshMsg(&vmsg, rsc);
     } else {
         increment_no_generator_error();
         LOG(ERROR, __func__ << ": Sandesh message " << msg->GetMessageType() <<
@@ -236,11 +237,11 @@ bool Collector::ReceiveSandeshCtrlMsg(SandeshStateMachine *state_machine,
             return false;
         }
     }
-    lock.release();
     LOG(DEBUG, "Received Ctrl Message: " << gen->ToString()
             << " Session:" << vsession->ToString());
-    vsession->gen_ = gen;
-
+    vsession->set_generator(gen);
+    lock.release();
+    
     std::vector<UVETypeInfo> vu;
     std::map<std::string, int32_t> seqReply;
     bool retc = osp_->GetSeq(snh->get_source(), snh->get_node_type_name(),
@@ -277,7 +278,7 @@ void Collector::DisconnectSession(SandeshSession *session) {
         LOG(ERROR, __func__ << " NO VizSession");
         return;
     }
-    SandeshGenerator *gen = vsession->gen_;
+    SandeshGenerator *gen = vsession->generator();
     assert(gen);
     LOG(INFO, "Received Disconnect: " << gen->ToString() << " Session:"
             << vsession->ToString());

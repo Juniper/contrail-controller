@@ -11,7 +11,9 @@ GenDb::NewCol::NewCol(const std::string& n, const DbDataValue& v, int ttl) :
 
 GenDb::GenDbIf *GenDbIf::GenDbIfImpl(boost::asio::io_service *ioservice,
         DbErrorHandler hdlr, std::string cassandra_ip,
-        unsigned short cassandra_port, int analytics_ttl, std::string name) {
-    return (new CdbIf(ioservice, hdlr, cassandra_ip, cassandra_port, analytics_ttl, name));
+        unsigned short cassandra_port, int analytics_ttl, std::string name,
+        bool only_sync) {
+    return (new CdbIf(ioservice, hdlr, cassandra_ip, cassandra_port,
+        analytics_ttl, name, only_sync));
 }
 

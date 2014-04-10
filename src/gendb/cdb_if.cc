@@ -83,22 +83,23 @@ CdbIf::CdbIfTypeMapDef CdbIf::CdbIfTypeMap =
 
 class CdbIf::CleanupTask : public Task {
 public:
-    CleanupTask(std::string task_id, int task_instance, CdbIf *cdbif)
-        : Task(TaskScheduler::GetInstance()->GetTaskId(task_id), task_instance), cdbif_(cdbif) {
+    CleanupTask(std::string task_id, int task_instance, CdbIf *cdbif) :
+        Task(TaskScheduler::GetInstance()->GetTaskId(task_id),
+             task_instance),
+        cdbif_(cdbif) {
     }
 
     virtual bool Run() {
         tbb::mutex::scoped_lock lock(cdbif_->cdbq_mutex_);
         // Return if cleanup was cancelled
-        if (cdbif_->cleanup_ == NULL) {
+        if (cdbif_->cleanup_task_ == NULL) {
             return true;
         }
         if (cdbif_->cdbq_.get() != NULL) {
             cdbif_->cdbq_->Shutdown();
             cdbif_->cdbq_.reset();
         }
-        cdbif_->cleanup_ = NULL;
-
+        cdbif_->cleanup_task_ = NULL;
         return true;
     }
 
@@ -106,21 +107,46 @@ private:
     CdbIf *cdbif_;
 };
 
-CdbIf::~CdbIf() { 
-    tbb::mutex::scoped_lock lock(cdbq_mutex_);
-
-    if (transport_)
-        transport_->close();
-
-    if (cleanup_) {
-        TaskScheduler *scheduler = TaskScheduler::GetInstance();
-        scheduler->Cancel(cleanup_);
-        cleanup_ = NULL;
+class CdbIf::InitTask : public Task {
+public:
+    InitTask(std::string task_id, int task_instance, CdbIf *cdbif) :
+        Task(TaskScheduler::GetInstance()->GetTaskId(task_id),
+             task_instance),
+        task_id_(task_id),
+        task_instance_(task_instance),
+        cdbif_(cdbif) {
     }
-}
+
+    virtual bool Run() {
+        tbb::mutex::scoped_lock lock(cdbif_->cdbq_mutex_);
+        if (cdbif_->cdbq_.get() != NULL) {
+            cdbif_->cdbq_->Shutdown();
+        }
+        TaskScheduler *scheduler = TaskScheduler::GetInstance();
+        cdbif_->cdbq_.reset(new CdbIfQueue(
+            scheduler->GetTaskId(task_id_), task_instance_,
+            boost::bind(&CdbIf::Db_AsyncAddColumn, cdbif_, _1)));
+        cdbif_->cdbq_->SetStartRunnerFunc(
+            boost::bind(&CdbIf::Db_IsInitDone, cdbif_));
+        cdbif_->Db_SetQueueWaterMarkInternal(cdbif_->cdbq_.get(),
+            cdbif_->cdbq_wm_info_);
+        if (cdbif_->cleanup_task_) {
+            scheduler->Cancel(cdbif_->cleanup_task_);
+            cdbif_->cleanup_task_ = NULL;
+        }
+        cdbif_->init_task_ = NULL;
+        return true;
+    }
+
+private:
+    std::string task_id_;
+    int task_instance_;
+    CdbIf *cdbif_;
+};
 
 CdbIf::CdbIf(boost::asio::io_service *ioservice, DbErrorHandler errhandler,
-        std::string cassandra_ip, unsigned short cassandra_port, int ttl, std::string name) :
+        std::string cassandra_ip, unsigned short cassandra_port, int ttl,
+        std::string name, bool only_sync) :
     socket_(new TSocket(cassandra_ip, cassandra_port)),
     transport_(new TFramedTransport(socket_)),
     protocol_(new TBinaryProtocol(transport_)),
@@ -128,52 +154,43 @@ CdbIf::CdbIf(boost::asio::io_service *ioservice, DbErrorHandler errhandler,
     ioservice_(ioservice),
     errhandler_(errhandler),
     name_(name),
-    cleanup_(NULL),
-    cassandra_ttl_(ttl) {
+    init_task_(NULL),
+    cleanup_task_(NULL),
+    cassandra_ttl_(ttl),
+    only_sync_(only_sync),
+    task_instance_(-1),
+    task_instance_initialized_(false) {
     db_init_done_ = false;
 }
 
 CdbIf::CdbIf()
 { }
 
+CdbIf::~CdbIf() {
+    tbb::mutex::scoped_lock lock(cdbq_mutex_);
+    if (transport_) {
+        transport_->close();
+    }
+    TaskScheduler *scheduler = TaskScheduler::GetInstance();
+    if (init_task_) {
+        scheduler->Cancel(init_task_);
+        init_task_ = NULL;
+    }
+    if (cleanup_task_) {
+        scheduler->Cancel(cleanup_task_);
+        cleanup_task_ = NULL;
+    }
+}
+
 bool CdbIf::Db_IsInitDone() const {
     return db_init_done_;
 }
 
 void CdbIf::Db_SetInitDone(bool init_done) {
-    if (db_init_done_ != init_done) {
-        if (init_done) {
-            // Start cdbq dequeue if init is done
-            cdbq_->MayBeStartRunner();
-        }
-        db_init_done_ = init_done;
-    }
+    db_init_done_ = init_done;
 }
 
 bool CdbIf::Db_Init(std::string task_id, int task_instance) {
-    /*
-     * we can leave the queue contents as is so they can be replayed after the
-     * connection to db is established
-     */
-    {
-        tbb::mutex::scoped_lock lock(cdbq_mutex_);
-
-        if (cdbq_.get() != NULL) {
-            cdbq_->Shutdown();
-        }
-        cdbq_.reset(new CdbIfQueue(
-            TaskScheduler::GetInstance()->GetTaskId(task_id), task_instance,
-            boost::bind(&CdbIf::Db_AsyncAddColumn, this, _1)));
-        cdbq_->SetStartRunnerFunc(
-            boost::bind(&CdbIf::Db_IsInitDone, this));
-
-        if (cleanup_) {
-            TaskScheduler *scheduler = TaskScheduler::GetInstance();
-            scheduler->Cancel(cleanup_);
-            cleanup_ = NULL;
-        }
-    }
-
     try {
         transport_->open();
     } catch (TTransportException &tx) {
@@ -181,25 +198,25 @@ bool CdbIf::Db_Init(std::string task_id, int task_instance) {
     } catch (TException &tx) {
         CDBIF_HANDLE_EXCEPTION_RETF(__func__ << ": TException what: " << tx.what());
     }
-
+    if (only_sync_) {
+        return true;
+    }
+    tbb::mutex::scoped_lock lock(cdbq_mutex_);
+    // Initialize task instance
+    if (!task_instance_initialized_) {
+        task_instance_ = task_instance;
+        task_instance_initialized_ = true;
+    }
+    if (!init_task_) {
+        // Start init task with previous task instance to ensure
+        // task exclusion with dequeue and exit callback task
+        // when calling shutdown
+        init_task_ = new InitTask(task_id, task_instance_, this);
+        TaskScheduler *scheduler = TaskScheduler::GetInstance();
+        scheduler->Enqueue(init_task_);
+    }
+    task_instance_ = task_instance;
     return true;
-}
-
-void CdbIf::Db_SetQueueWaterMark(bool high, size_t queue_count,
-                                 DbQueueWaterMarkCb cb) {
-    CdbIfQueue::WaterMarkInfo wm(queue_count, cb);
-    if (high) {
-        cdbq_->SetHighWaterMark(wm);
-    } else {
-        cdbq_->SetLowWaterMark(wm);
-    }
-}
-
-void CdbIf::Db_ResetQueueWaterMarks() {
-    if (cdbq_.get() != NULL) {
-        cdbq_->ResetHighWaterMark();
-        cdbq_->ResetLowWaterMark();
-    }
 }
 
 void CdbIf::Db_Uninit(std::string task_id, int task_instance) {
@@ -210,10 +227,50 @@ void CdbIf::Db_Uninit(std::string task_id, int task_instance) {
     } catch (TException &tx) {
         CDBIF_HANDLE_EXCEPTION(__func__ << ": TException what: " << tx.what());
     }
-    if (!cleanup_) {
-        cleanup_ = new CleanupTask(task_id, task_instance, this);
+    if (only_sync_) {
+        return;
+    }
+    tbb::mutex::scoped_lock lock(cdbq_mutex_);
+    if (!cleanup_task_) {
+        cleanup_task_ = new CleanupTask(task_id, task_instance, this);
         TaskScheduler *scheduler = TaskScheduler::GetInstance();
-        scheduler->Enqueue(cleanup_);
+        scheduler->Enqueue(cleanup_task_);
+    }
+}
+
+void CdbIf::Db_SetQueueWaterMarkInternal(CdbIfQueue *queue,
+    DbQueueWaterMarkInfo &wmi) {
+    CdbIfQueue::WaterMarkInfo wm(wmi.get<1>(), wmi.get<2>());
+    if (wmi.get<0>()) {
+        queue->SetHighWaterMark(wm);
+    } else {
+        queue->SetLowWaterMark(wm);
+    }
+}
+
+void CdbIf::Db_SetQueueWaterMarkInternal(CdbIfQueue *queue,
+    std::vector<DbQueueWaterMarkInfo> &vwmi) {
+    for (std::vector<DbQueueWaterMarkInfo>::iterator it =
+         vwmi.begin(); it != vwmi.end(); it++) {
+        Db_SetQueueWaterMarkInternal(queue, *it);
+    }
+}
+
+void CdbIf::Db_SetQueueWaterMark(bool high, size_t queue_count,
+                                 DbQueueWaterMarkCb cb) {
+    DbQueueWaterMarkInfo wm(high, queue_count, cb);
+    cdbq_wm_info_.push_back(wm);
+    if (cdbq_.get() == NULL) {
+        return;
+    }
+    Db_SetQueueWaterMarkInternal(cdbq_.get(), wm);
+}
+
+void CdbIf::Db_ResetQueueWaterMarks() {
+    cdbq_wm_info_.clear();
+    if (cdbq_.get() != NULL) {
+        cdbq_->ResetHighWaterMark();
+        cdbq_->ResetLowWaterMark();
     }
 }
 
@@ -687,15 +744,7 @@ bool CdbIf::NewDb_AddColumnfamily(const GenDb::NewCf& cf) {
     return true;
 }
 
-/*
- * called by the WorkQueue mechanism
- */
 bool CdbIf::Db_AsyncAddColumn(CdbIfColList &cl) {
-    tbb::mutex::scoped_lock lock(cdbq_mutex_);
-    return Db_AsyncAddColumnLocked(cl);
-}
-
-bool CdbIf::Db_AsyncAddColumnLocked(CdbIfColList &cl) {
     bool ret_value = true;
     uint64_t ts(UTCTimestampUsec());
     GenDb::ColList *new_colp(cl.gendb_cl);
@@ -810,7 +859,7 @@ bool CdbIf::NewDb_AddColumn(std::auto_ptr<GenDb::ColList> cl) {
 bool CdbIf::AddColumnSync(std::auto_ptr<GenDb::ColList> cl) {
     CdbIfColList qentry;
     qentry.gendb_cl = cl.release();
-    return (Db_AsyncAddColumnLocked(qentry));
+    return (Db_AsyncAddColumn(qentry));
 }
 
 bool CdbIf::ColListFromColumnOrSuper(GenDb::ColList& ret,
