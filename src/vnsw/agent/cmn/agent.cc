@@ -205,6 +205,8 @@ void Agent::GetConfig() {
         TunnelType::SetDefaultType(TunnelType::VXLAN);
     else
         TunnelType::SetDefaultType(TunnelType::MPLS_GRE);
+
+    debug_ = params_->debug();
 }
 
 DiscoveryAgentClient *Agent::discovery_client() const {
@@ -390,7 +392,7 @@ Agent::Agent() :
     ifmap_parser_(NULL), router_id_configured_(false),
     mirror_src_udp_port_(0), lifetime_manager_(NULL), 
     ksync_sync_mode_(true), mgmt_ip_(""),
-    vxlan_network_identifier_mode_(AUTOMATIC) {
+    vxlan_network_identifier_mode_(AUTOMATIC), debug_(false) {
 
     assert(singleton_ == NULL);
     singleton_ = this;

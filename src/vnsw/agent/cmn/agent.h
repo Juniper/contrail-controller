@@ -334,6 +334,8 @@ public:
     const Peer *link_local_peer() const {return linklocal_peer_.get();}
     const Peer *ecmp_peer() const {return ecmp_peer_.get();}
 
+    bool debug() { return debug_; }
+    void set_debug(bool debug) { debug_ = debug; }
     VxLanNetworkIdentifierMode vxlan_network_identifier_mode() const {
         return vxlan_network_identifier_mode_;
     }
@@ -647,6 +649,7 @@ private:
     static Agent *singleton_;
     VxLanNetworkIdentifierMode vxlan_network_identifier_mode_;
     const Interface *vhost_interface_;
+    bool debug_;
 
     static const std::string null_str_;
     static const std::string fabric_vrf_name_;

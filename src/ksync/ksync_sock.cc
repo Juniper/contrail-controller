@@ -538,12 +538,5 @@ void KSyncIoContext::Handler() {
 }
 
 void KSyncIoContext::ErrorHandler(int err) {
-    KSYNC_ERROR(VRouterError, "VRouter operation failed. Error <", err, 
-                ":", strerror(err), ">. Object <", entry_->ToString(), 
-                ">. State <", entry_->StateString(), ">. Message number :", 
-                GetSeqno());
-    LOG(ERROR, "VRouter operation failed. Error <" << err << ":" <<
-                strerror(err) << ">. Object <" << entry_->ToString() <<
-                ">. State <" << entry_->StateString() << ">. Message number :"
-                << GetSeqno());
+    entry_->ErrorHandler(err, GetSeqno());
 }
