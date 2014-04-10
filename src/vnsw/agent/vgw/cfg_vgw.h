@@ -5,6 +5,7 @@
 #define vnsw_agent_vgw_cfg_h
 
 #include <net/address.h>
+#include <boost/property_tree/ptree.hpp>
 
 // Simple Virtual Gateway config class
 // Supports virtual-gateway for single virtual-network for now.
@@ -59,10 +60,12 @@ public:
     VirtualGatewayConfigTable() { }
     ~VirtualGatewayConfigTable() { }
 
-    void Init(const char *init_file);
+    void Init(const boost::property_tree::ptree pt);
     void Shutdown();
     const Table &table() const {return table_;}
 private:
+    void BuildSubnetList(const std::string &subnets, 
+                         VirtualGatewayConfig::SubnetList &results);
     Table table_;
     DISALLOW_COPY_AND_ASSIGN(VirtualGatewayConfigTable);
 };

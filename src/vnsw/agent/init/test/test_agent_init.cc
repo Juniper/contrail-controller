@@ -53,33 +53,66 @@ class FlowTest : public ::testing::Test {
 public:
     virtual void SetUp() {
         desc.add_options()
-            ("help", "help message")
-            ("config-file", opt::value<string>(), "Configuration file")
-            ("disable-vhost", "Create vhost interface")
-            ("disable-ksync", "Disable kernel synchronization")
-            ("disable-services", "Disable services")
-            ("disable-packet", "Disable packet services")
-            ("log-local", "Enable local logging of sandesh messages")
-            ("log-level", opt::value<string>()->default_value("SYS_DEBUG"),
-             "Severity level for local logging of sandesh messages")
-            ("log-category", opt::value<string>()->default_value(""),
-             "Category filter for local logging of sandesh messages")
-            ("collector", opt::value<string>(), "IP address of sandesh collector")
-            ("collector-port", opt::value<int>(), "Port of sandesh collector")
-            ("http-server-port",
-             opt::value<int>()->default_value(ContrailPorts::HttpPortAgent),
-             "Sandesh HTTP listener port")
-            ("host-name", opt::value<string>(), "Specific Host Name")
-            ("log-file", opt::value<string>(),
-             "Filename for the logs to be written to")
-            ("hypervisor", opt::value<string>(), "Type of hypervisor <kvm|xen>")
-            ("xen-ll-port", opt::value<string>(), 
-             "Port name on host for link-local network")
-            ("xen-ll-ip-address", opt::value<string>(),
-             "IP Address for the link local port")
-            ("xen-ll-prefix-len", opt::value<int>(),
-             "Prefix for link local IP Address")
-            ("version", "Display version information")
+
+        ("help", "help message")
+        ("conf_file", opt::value<string>()->default_value(Agent::DefaultConfigFile()), 
+         "Configuration file")
+        ("disable-vhost", "Create vhost interface")
+        ("disable-ksync", "Disable kernel synchronization")
+        ("disable-services", "Disable services")
+        ("disable-packet", "Disable packet services")
+        ("COLLECTOR.server", opt::value<string>(), 
+         "IP address of sandesh collector")
+        ("COLLECTOR.port", opt::value<uint16_t>(), "Port of sandesh collector")
+        ("CONTROL-NODE.server", opt::value<std::vector<std::string> >()->multitoken(),
+         "IP addresses of control nodes. Max of 2 Ip addresses can be configured")
+        ("DEFAULT.flow_cache_timeout", opt::value<uint16_t>(), 
+         "Flow aging time in seconds")
+        ("DEFAULT.hostname", opt::value<string>(), 
+         "Hostname of compute-node")
+        ("DEFAULT.http_server_port", opt::value<uint16_t>(), 
+         "Sandesh HTTP listener port")
+        ("DEFAULT.log_category", opt::value<string>(),
+         "Category filter for local logging of sandesh messages")
+        ("DEFAULT.log_file", opt::value<string>(),
+         "Filename for the logs to be written to")
+        ("DEFAULT.log_level", opt::value<string>(),
+         "Severity level for local logging of sandesh messages")
+        ("DEFAULT.log_local", "Enable local logging of sandesh messages")
+        ("DEFAULT.tunnel_type", opt::value<string>(),
+         "Tunnel Encapsulation type <MPLSoGRE|MPLSoUDP|VXLAN>")
+        ("DISCOVERY.server", opt::value<string>(), 
+         "IP address of discovery server")
+        ("DISCOVERY.max_control_nodes", opt::value<uint16_t>(), 
+         "Maximum number of control node info to be provided by discovery service <1|2>")
+        ("DNS.server", opt::value<std::vector<std::string> >()->multitoken(),
+         "IP addresses of dns nodes. Max of 2 Ip addresses can be configured")
+        ("host-name", opt::value<string>(), "Specific Host Name")
+        ("HYPERVISOR.type", opt::value<string>(), 
+         "Type of hypervisor <kvm|xen|vmware>")
+        ("HYPERVISOR.xen_ll_interface", opt::value<string>(), 
+         "Port name on host for link-local network")
+        ("HYPERVISOR.xen_ll_ip", opt::value<string>(),
+         "IP Address and prefix or the link local port in ip/prefix format")
+        ("HYPERVISOR.vmware_physical_port", opt::value<string>(),
+         "Physical port used to connect to VMs in VMWare environment")
+        ("LINK-LOCAL.max_system_flows", opt::value<uint16_t>(), 
+         "Maximum number of link-local flows allowed across all VMs")
+        ("LINK-LOCAL.max_vm_flows", opt::value<uint16_t>(), 
+         "Maximum number of link-local flows allowed per VM")
+        ("METADATA.metadata_proxy_secret", opt::value<string>(),
+         "Shared secret for metadata proxy service")
+        ("NETWORKS.control_network_ip", opt::value<string>(),
+         "control-channel IP address used by WEB-UI to connect to vnswad")
+        ("VIRTUAL-HOST-INTERFACE.name", opt::value<string>(),
+         "Name of virtual host interface")
+        ("VIRTUAL-HOST-INTERFACE.ip", opt::value<string>(), 
+         "IP address and prefix in ip/prefix_len format")
+        ("VIRTUAL-HOST-INTERFACE.gateway", opt::value<string>(), 
+         "Gateway IP address for virtual host")
+        ("VIRTUAL-HOST-INTERFACE.physical_interface", opt::value<string>(), 
+         "Physical interface name to which virtual host interface maps to")
+        ("version", "Display version information")
             ;
     }
 
@@ -95,7 +128,7 @@ void RouterIdDepInit() {
 
 TEST_F(FlowTest, Agent_Conf_file_1) {
     AgentParam param;
-    param.Init("controller/src/vnsw/agent/init/test/cfg.xml", "test-param",
+    param.Init("controller/src/vnsw/agent/init/test/cfg.ini", "test-param",
                var_map);
 
     EXPECT_STREQ(param.vhost_name().c_str(), "vhost0");
@@ -122,17 +155,25 @@ TEST_F(FlowTest, Agent_Conf_file_1) {
     EXPECT_EQ(param.linklocal_system_flows(), 1024);
     EXPECT_EQ(param.linklocal_vm_flows(), 512);
     EXPECT_STREQ(param.config_file().c_str(), 
-                 "controller/src/vnsw/agent/init/test/cfg.xml");
+                 "controller/src/vnsw/agent/init/test/cfg.ini");
     EXPECT_STREQ(param.program_name().c_str(), "test-param");
 }
 
 TEST_F(FlowTest, Agent_Conf_file_2) {
     AgentParam param;
-    param.Init("controller/src/vnsw/agent/init/test/cfg1.xml", "test-param",
+    param.Init("controller/src/vnsw/agent/init/test/cfg1.ini", "test-param",
                var_map);
 
     EXPECT_EQ(param.linklocal_system_flows(), 2048);
     EXPECT_EQ(param.linklocal_vm_flows(), 2048);
+    EXPECT_EQ(param.xmpp_server_1().to_ulong(),
+              Ip4Address::from_string("11.1.1.1").to_ulong());
+    EXPECT_EQ(param.xmpp_server_2().to_ulong(),
+              Ip4Address::from_string("12.1.1.1").to_ulong());
+    EXPECT_EQ(param.dns_server_1().to_ulong(),
+              Ip4Address::from_string("13.1.1.1").to_ulong());
+    EXPECT_EQ(param.dns_server_2().to_ulong(),
+              Ip4Address::from_string("14.1.1.1").to_ulong());
 }
 
 // Check that linklocal flows are updated when the system limits are lowered
@@ -143,7 +184,7 @@ TEST_F(FlowTest, Agent_Conf_file_3) {
     int result = setrlimit(RLIMIT_NOFILE, &rl);
     if (result == 0) {
         AgentParam param;
-        param.Init("controller/src/vnsw/agent/init/test/cfg.xml", "test-param",
+        param.Init("controller/src/vnsw/agent/init/test/cfg.ini", "test-param",
                    var_map);
 
         EXPECT_EQ(param.linklocal_system_flows(), 63);
@@ -158,7 +199,7 @@ TEST_F(FlowTest, Agent_Conf_file_4) {
     int result = setrlimit(RLIMIT_NOFILE, &rl);
     if (result == 0) {
         AgentParam param;
-        param.Init("controller/src/vnsw/agent/init/test/cfg.xml", "test-param",
+        param.Init("controller/src/vnsw/agent/init/test/cfg.ini", "test-param",
                    var_map);
 
         EXPECT_EQ(param.linklocal_system_flows(), 0);
@@ -168,7 +209,7 @@ TEST_F(FlowTest, Agent_Conf_file_4) {
 
 TEST_F(FlowTest, Agent_Conf_Xen_1) {
     AgentParam param;
-    param.Init("controller/src/vnsw/agent/init/test/cfg-xen.xml", "test-param",
+    param.Init("controller/src/vnsw/agent/init/test/cfg-xen.ini", "test-param",
                var_map);
 
     EXPECT_STREQ(param.xen_ll_name().c_str(), "xenapi");
@@ -183,15 +224,15 @@ TEST_F(FlowTest, Agent_Param_1) {
     int argc = 16;
     char *argv[] = {
         (char *) "",
-        (char *) "--config-file", 
-                        (char *)"controller/src/vnsw/agent/init/test/cfg.xml",
-        (char *) "--log-local",
-        (char *) "--log-level",     (char *)"SYS_DEBUG",
-        (char *) "--log-category",  (char *)"Test",
-        (char *) "--collector",     (char *)"1.1.1.1",
-        (char *) "--collector-port",(char *)"1000",
-        (char *) "--http-server-port", (char *)"8000",
-        (char *) "--host-name",     (char *)"vhost-1",
+        (char *) "--conf-file", 
+                        (char *)"controller/src/vnsw/agent/init/test/cfg.ini",
+        (char *) "--DEFAULT.log_local",
+        (char *) "--DEFAULT.log_level",     (char *)"SYS_DEBUG",
+        (char *) "--DEFAULT.log_category",  (char *)"Test",
+        (char *) "--COLLECTOR.server",     (char *)"1.1.1.1",
+        (char *) "--COLLECTOR.port",(char *)"1000",
+        (char *) "--DEFAULT.http_server_port", (char *)"8000",
+        (char *) "--DEFAULT.hostname",     (char *)"vhost-1",
     };
 
     try {
@@ -204,7 +245,7 @@ TEST_F(FlowTest, Agent_Param_1) {
     }
 
     AgentParam param;
-    param.Init("controller/src/vnsw/agent/init/test/cfg-xen.xml", "test-param",
+    param.Init("controller/src/vnsw/agent/init/test/cfg-xen.ini", "test-param",
                var_map);
 
     EXPECT_TRUE(param.log_local());
@@ -221,12 +262,11 @@ TEST_F(FlowTest, Agent_Param_1) {
 TEST_F(FlowTest, Agen_Arg_Override_Config_1) {
     int argc = 8;
     char *argv[] = {
-        (char *) "--config-file",
-                        (char *)"controller/src/vnsw/agent/init/test/cfg.xml",
-        (char *) "--hypervisor",    (char *)"xen", 
-        (char *) "--xen-ll-port",   (char *)"xenport",
-        (char *) "--xen-ll-ip-address", (char *)"1.1.1.2",
-        (char *) "--xen-ll-prefix-len", (char *)"16",
+        (char *) "--conf_file",
+                        (char *)"controller/src/vnsw/agent/init/test/cfg.ini",
+        (char *) "--HYPERVISOR.type",    (char *)"xen", 
+        (char *) "--HYPERVISOR.xen_ll_interface",   (char *)"xenport",
+        (char *) "--HYPERVISOR.xen_ll_ip", (char *)"1.1.1.2/16",
     };
 
     try {
@@ -239,11 +279,11 @@ TEST_F(FlowTest, Agen_Arg_Override_Config_1) {
     }
 
     AgentParam param;
-    param.Init("controller/src/vnsw/agent/init/test/cfg.xml", "test-param",
+    param.Init("controller/src/vnsw/agent/init/test/cfg.ini", "test-param",
                var_map);
 
     EXPECT_STREQ(param.config_file().c_str(), 
-                 "controller/src/vnsw/agent/init/test/cfg.xml");
+                 "controller/src/vnsw/agent/init/test/cfg.ini");
     EXPECT_EQ(param.mode(), AgentParam::MODE_XEN);
     EXPECT_STREQ(param.xen_ll_name().c_str(), "xenport");
     EXPECT_EQ(param.xen_ll_addr().to_ulong(),
@@ -251,6 +291,35 @@ TEST_F(FlowTest, Agen_Arg_Override_Config_1) {
     EXPECT_EQ(param.xen_ll_prefix().to_ulong(),
               Ip4Address::from_string("1.1.1.0").to_ulong());
     EXPECT_EQ(param.xen_ll_plen(), 24);
+}
+
+TEST_F(FlowTest, Agen_Arg_Override_Config_2) {
+    int argc = 8;
+    char *argv[] = {
+        (char *) "--DNS.server",    (char *)"20.1.1.1 21.1.1.1", 
+        (char *) "--CONTROL-NODE.server",   (char *)"22.1.1.1 23.1.1.1",
+    };
+
+    try {
+        opt::store(opt::parse_command_line(argc, argv, desc), var_map);
+        opt::notify(var_map);
+    } catch (...) {
+        cout << "Invalid arguments. ";
+        cout << desc << endl;
+        exit(0);
+    }
+
+    AgentParam param;
+    param.Init("controller/src/vnsw/agent/init/test/cfg.ini", "test-param",
+               var_map);
+    EXPECT_EQ(param.xmpp_server_1().to_ulong(),
+              Ip4Address::from_string("22.1.1.1").to_ulong());
+    EXPECT_EQ(param.xmpp_server_2().to_ulong(),
+              Ip4Address::from_string("23.1.1.1").to_ulong());
+    EXPECT_EQ(param.dns_server_1().to_ulong(),
+              Ip4Address::from_string("20.1.1.1").to_ulong());
+    EXPECT_EQ(param.dns_server_2().to_ulong(),
+              Ip4Address::from_string("21.1.1.1").to_ulong());
 }
 
 int main(int argc, char **argv) {
