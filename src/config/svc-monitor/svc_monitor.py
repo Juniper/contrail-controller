@@ -869,10 +869,10 @@ class SvcMonitor(object):
 
         for idx in range(0, len(si_if_list)):
             si_if = si_if_list[idx]
+            static_routes = si_if.get_static_routes()
 
             # update static routes
             try:
-                static_routes = si_if.get_static_routes()
                 domain_name, proj_name = si_obj.get_parent_fq_name()
                 rt_name = si_obj.uuid + ' ' + str(idx)
                 rt_fq_name = [domain_name, proj_name, rt_name]
