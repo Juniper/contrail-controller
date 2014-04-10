@@ -870,8 +870,6 @@ class SvcMonitor(object):
         for idx in range(0, len(si_if_list)):
             si_if = si_if_list[idx]
             static_routes = si_if.get_static_routes()
-            if not static_routes:
-                continue
 
             # update static routes
             try:
@@ -1262,6 +1260,10 @@ def main(args_str=None):
                                   run_svc_monitor, args)
 # end main
 
-if __name__ == '__main__':
+def server_main():
     cgitb.enable(format='text')
     main()
+# end server_main
+
+if __name__ == '__main__':
+    server_main()

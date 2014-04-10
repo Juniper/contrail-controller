@@ -2,7 +2,6 @@
  * Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
  */
 
-#include <boost/scoped_array.hpp>
 #include <cassert>
 #include <stdlib.h>
 #include <stdio.h>
@@ -18,6 +17,9 @@
 #include <errno.h>
 #include <limits.h>
 // Careful: must include globals first for extern definitions
+#include <boost/scoped_array.hpp>
+#include <boost/python.hpp>
+#include <boost/uuid/random_generator.hpp>
 #include "../ruleutil.h"
 #include "../t_ruleparser.h"
 #include "../ruleglob.h"
@@ -29,7 +31,6 @@
 #include <sandesh/sandesh_trace.h>
 #include <sandesh/sandesh_message_builder.h>
 #include "../../viz_message.h"
-#include <boost/python.hpp>
 
 SandeshTraceBufferPtr UVETraceBuf(SandeshTraceBufferCreate("UveTrace", 25000));
 /**

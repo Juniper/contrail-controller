@@ -32,45 +32,14 @@ public:
     virtual DbHandler *GetDbHandler() = 0; // db_handler_;
     
     bool ReceiveSandeshMsg(const VizMsg *vmsg, bool rsc);
-    void GetSandeshStats(std::vector<SandeshMessageInfo> &sms);
-    void GetMessageTypeStats(std::vector<SandeshStats> &ssv) const;
-    void GetLogLevelStats(std::vector<SandeshLogLevelStats> &lsv) const;
+    void GetStatistics(std::vector<SandeshMessageInfo> &sms);
+    void GetStatistics(std::vector<SandeshStats> &ssv) const;
+    void GetStatistics(std::vector<SandeshLogLevelStats> &lsv) const;
 
 private:
-    void UpdateMessageStats(const VizMsg *vmsg);
-    void UpdateMessageTypeStats(const VizMsg *vmsg);
-    void UpdateLogLevelStats(const VizMsg *vmsg);
+    void UpdateStatistics(const VizMsg *vmsg);
 
-    struct MessageStats {
-	/*Initializing atomics in initialization list does not work
-         * Please refer http://software.intel.com/en-us/forums/topic/287865
-         */
-        MessageStats() { messages_ = 0; bytes_ = 0; }
-        tbb::atomic<uint64_t> messages_;
-        tbb::atomic<uint64_t> bytes_;
-    };
-    typedef boost::ptr_map<std::pair<std::string,std::string> /*Messagetype and log level*/, MessageStats> MessageStatsMap;
-    MessageStatsMap sandesh_stats_map_;
-    MessageStatsMap sandesh_stats_map_old_;
-
-    struct Stats {
-        Stats() : messages_(0), bytes_(0), last_msg_timestamp_(0) {}
-        uint64_t messages_;
-        uint64_t bytes_;
-        uint64_t last_msg_timestamp_;
-    };
-    typedef boost::ptr_map<std::string /* MessageType */, Stats> MessageTypeStatsMap;
-    MessageTypeStatsMap stats_map_;
-
-    struct LogLevelStats {
-        LogLevelStats() : messages_(0), bytes_(0), last_msg_timestamp_(0) {}
-        uint64_t messages_;
-        uint64_t bytes_;
-        uint64_t last_msg_timestamp_;
-    };
-    typedef boost::ptr_map<std::string /* Log level */, LogLevelStats> LogLevelStatsMap;
-    LogLevelStatsMap log_level_stats_map_;
-
+    VizMsgStatistics statistics_;
     mutable tbb::mutex smutex_;
 };
 
@@ -94,11 +63,16 @@ public:
     bool GetSandeshStateMachineStats(SandeshStateMachineStats &sm_stats,
                                      SandeshGeneratorStats &sm_msg_stats) const;
     bool GetDbStats(uint64_t &queue_count, uint64_t &enqueues,
-        std::string  &drop_level, uint64_t &msg_dropped) const;
+        std::string &drop_level, std::vector<SandeshStats> &vdropmstats) const;
+    bool GetDbStats(std::vector<GenDb::DbTableInfo> &vdbti,
+        GenDb::DbErrors &dbe);
 
     const std::string &instance_id() const { return instance_id_; }
     const std::string &node_type() const { return node_type_; }
-    VizSession * session() const { return viz_session_; }
+    VizSession * session() const {
+        tbb::mutex::scoped_lock lock(mutex_);
+        return viz_session_;
+    }
     const std::string &module() const { return module_; }
     const std::string &source() const { return source_; }
     virtual const std::string ToString() const { return name_; }
@@ -154,6 +128,7 @@ private:
     Timer *db_connect_timer_;
     tbb::atomic<bool> disconnected_;
     boost::scoped_ptr<DbHandler> db_handler_;
+    mutable tbb::mutex mutex_;
 };
 
 class SyslogGenerator : public Generator {

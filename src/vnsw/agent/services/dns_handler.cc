@@ -634,7 +634,8 @@ void DnsHandler::SendDnsResponse() {
            dest_ip, ntohs(pkt_info_->transp.udp->source));
     dns_resp_size_ += sizeof(iphdr);
     IpHdr(dns_resp_size_, src_ip, dest_ip, IPPROTO_UDP);
-    EthHdr(agent_vrrp_mac, dest_mac, 0x800);
+    EthHdr(agent()->vhost_interface()->mac().ether_addr_octet, dest_mac,
+           IP_PROTOCOL);
     dns_resp_size_ += sizeof(ethhdr);
 
     PacketInterfaceKey key(nil_uuid(), agent()->pkt_interface_name());

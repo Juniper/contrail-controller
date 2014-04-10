@@ -40,7 +40,7 @@ Ping::FillAgentHeader(AgentDiagPktData *ad) {
 }
 
 DiagPktHandler*
-Ping::CreateTcpPkt() {
+Ping::CreateTcpPkt(Agent *agent) {
     //Allocate buffer to hold packet
     len_ = KPingTcpHdr + data_len_;
     uint8_t *msg = new uint8_t[len_];
@@ -60,13 +60,14 @@ Ping::CreateTcpPkt() {
     pkt_handler->IpHdr(data_len_ + sizeof(tcphdr) + sizeof(iphdr), 
                        ntohl(sip_.to_ulong()), ntohl(dip_.to_ulong()), 
                        IPPROTO_TCP);
-    pkt_handler->EthHdr(agent_vrrp_mac, agent_vrrp_mac, IP_PROTOCOL);
+    pkt_handler->EthHdr(agent->vhost_interface()->mac().ether_addr_octet,
+                        agent->vrrp_mac(), IP_PROTOCOL);
 
     return pkt_handler;
 }
 
 DiagPktHandler*
-Ping::CreateUdpPkt() {
+Ping::CreateUdpPkt(Agent *agent) {
     //Allocate buffer to hold packet
     len_ = KPingUdpHdr + data_len_;
     uint8_t *msg = new uint8_t[len_];
@@ -86,26 +87,27 @@ Ping::CreateUdpPkt() {
     pkt_handler->IpHdr(data_len_ + sizeof(udphdr) + sizeof(iphdr), 
                        ntohl(sip_.to_ulong()), ntohl(dip_.to_ulong()), 
                        IPPROTO_UDP);
-    pkt_handler->EthHdr(agent_vrrp_mac, agent_vrrp_mac, IP_PROTOCOL);
+    pkt_handler->EthHdr(agent->vhost_interface()->mac().ether_addr_octet,
+                        agent->vrrp_mac(), IP_PROTOCOL);
 
     return pkt_handler;
 }
 
 void Ping::SendRequest() {
+    Agent *agent = Agent::GetInstance();
     DiagPktHandler *pkt_handler = NULL;
     //Increment the attempt count
     seq_no_++; 
     switch(proto_) {
     case IPPROTO_TCP:
-        pkt_handler = CreateTcpPkt();
+        pkt_handler = CreateTcpPkt(agent);
         break;
 
     case IPPROTO_UDP:
-        pkt_handler = CreateUdpPkt();
+        pkt_handler = CreateUdpPkt(agent);
         break;
     }
 
-    Agent *agent = Agent::GetInstance();
     Inet4UnicastAgentRouteTable *table = NULL;
     table = static_cast<Inet4UnicastAgentRouteTable *>
         (agent->GetVrfTable()->GetInet4UnicastRouteTable(vrf_name_));

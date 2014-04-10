@@ -19,7 +19,6 @@
 
 using ::testing::Return;
 using ::testing::Field;
-using ::testing::Property;
 using ::testing::AnyOf;
 using ::testing::AnyNumber;
 using ::testing::_;
@@ -27,9 +26,8 @@ using ::testing::Eq;
 using ::testing::ElementsAre;
 using ::testing::Pointee;
 using ::testing::ElementsAreArray;
-using ::testing::Matcher;
-using ::testing::ByRef;
 using namespace pugi;
+using namespace GenDb;
 
 class DbHandlerTest : public ::testing::Test {
 public:
@@ -161,7 +159,7 @@ TEST_F(DbHandlerTest, MessageTableOnlyInsertTest) {
         (GenDb::NewCol(g_viz_constants.DATA, xmlmessage));
 
     EXPECT_CALL(*dbif_mock(),
-            NewDb_AddColumnProxy(
+            Db_AddColumnProxy(
                 Pointee(
                     AllOf(Field(&GenDb::ColList::cfname_, g_viz_constants.COLLECTOR_GLOBAL_TABLE),
                         Field(&GenDb::ColList::rowkey_, rowkey),
@@ -192,7 +190,7 @@ TEST_F(DbHandlerTest, MessageIndexTableInsertTest) {
     src_idx_rowkey.push_back((uint32_t)(hdr.get_Timestamp() >> g_viz_constants.RowTimeInBits));
     src_idx_rowkey.push_back(hdr.get_Source());
     EXPECT_CALL(*dbif_mock(),
-            NewDb_AddColumnProxy(
+            Db_AddColumnProxy(
                 Pointee(
                     AllOf(Field(&GenDb::ColList::cfname_, g_viz_constants.MESSAGE_TABLE_SOURCE),
                         Field(&GenDb::ColList::rowkey_, src_idx_rowkey),
@@ -248,7 +246,7 @@ TEST_F(DbHandlerTest, MessageTableInsertTest) {
         (GenDb::NewCol(g_viz_constants.DATA, xmlmessage));
 
     EXPECT_CALL(*dbif_mock(),
-            NewDb_AddColumnProxy(
+            Db_AddColumnProxy(
                 Pointee(
                     AllOf(Field(&GenDb::ColList::cfname_, g_viz_constants.COLLECTOR_GLOBAL_TABLE),
                         Field(&GenDb::ColList::rowkey_, rowkey),
@@ -268,7 +266,7 @@ TEST_F(DbHandlerTest, MessageTableInsertTest) {
     src_idx_rowkey.push_back((uint32_t)(hdr.get_Timestamp() >> g_viz_constants.RowTimeInBits));
     src_idx_rowkey.push_back(hdr.get_Source());
     EXPECT_CALL(*dbif_mock(),
-            NewDb_AddColumnProxy(
+            Db_AddColumnProxy(
                 Pointee(
                     AllOf(Field(&GenDb::ColList::cfname_, g_viz_constants.MESSAGE_TABLE_SOURCE),
                         Field(&GenDb::ColList::rowkey_, src_idx_rowkey),
@@ -281,7 +279,7 @@ TEST_F(DbHandlerTest, MessageTableInsertTest) {
     mod_idx_rowkey.push_back((uint32_t)(hdr.get_Timestamp() >> g_viz_constants.RowTimeInBits));
     mod_idx_rowkey.push_back(hdr.get_Module());
     EXPECT_CALL(*dbif_mock(),
-            NewDb_AddColumnProxy(
+            Db_AddColumnProxy(
                 Pointee(
                     AllOf(Field(&GenDb::ColList::cfname_, g_viz_constants.MESSAGE_TABLE_MODULE_ID),
                         Field(&GenDb::ColList::rowkey_, mod_idx_rowkey),
@@ -294,7 +292,7 @@ TEST_F(DbHandlerTest, MessageTableInsertTest) {
     cat_idx_rowkey.push_back((uint32_t)(hdr.get_Timestamp() >> g_viz_constants.RowTimeInBits));
     cat_idx_rowkey.push_back(hdr.get_Category());
     EXPECT_CALL(*dbif_mock(),
-            NewDb_AddColumnProxy(
+            Db_AddColumnProxy(
                 Pointee(
                     AllOf(Field(&GenDb::ColList::cfname_, g_viz_constants.MESSAGE_TABLE_CATEGORY),
                         Field(&GenDb::ColList::rowkey_, cat_idx_rowkey),
@@ -307,7 +305,7 @@ TEST_F(DbHandlerTest, MessageTableInsertTest) {
     msgtype_idx_rowkey.push_back((uint32_t)(hdr.get_Timestamp() >> g_viz_constants.RowTimeInBits));
     msgtype_idx_rowkey.push_back(messagetype);
     EXPECT_CALL(*dbif_mock(),
-            NewDb_AddColumnProxy(
+            Db_AddColumnProxy(
                 Pointee(
                     AllOf(Field(&GenDb::ColList::cfname_, g_viz_constants.MESSAGE_TABLE_MESSAGE_TYPE),
                         Field(&GenDb::ColList::rowkey_, msgtype_idx_rowkey),
@@ -319,7 +317,7 @@ TEST_F(DbHandlerTest, MessageTableInsertTest) {
     GenDb::DbDataValueVec ts_idx_rowkey;
     ts_idx_rowkey.push_back((uint32_t)(hdr.get_Timestamp() >> g_viz_constants.RowTimeInBits));
     EXPECT_CALL(*dbif_mock(),
-            NewDb_AddColumnProxy(
+            Db_AddColumnProxy(
                 Pointee(
                     AllOf(Field(&GenDb::ColList::cfname_, g_viz_constants.MESSAGE_TABLE_TIMESTAMP),
                         Field(&GenDb::ColList::rowkey_, ts_idx_rowkey),
@@ -329,7 +327,7 @@ TEST_F(DbHandlerTest, MessageTableInsertTest) {
         .WillOnce(Return(true));
 
     EXPECT_CALL(*dbif_mock(),
-            NewDb_AddColumnProxy(
+            Db_AddColumnProxy(
                 Pointee(
                     AllOf(Field(&GenDb::ColList::cfname_, g_viz_constants.STATS_TABLE_BY_STR_STR_TAG),
                         _,
@@ -367,7 +365,7 @@ TEST_F(DbHandlerTest, ObjectTableInsertTest) {
         rowkey.push_back((uint8_t)0);
         rowkey.push_back("ObjectTableInsertTest");
         EXPECT_CALL(*dbif_mock(),
-                NewDb_AddColumnProxy(
+                Db_AddColumnProxy(
                     Pointee(
                         AllOf(Field(&GenDb::ColList::cfname_, g_viz_constants.OBJECT_TABLE), 
                             Field(&GenDb::ColList::rowkey_, rowkey),
@@ -390,7 +388,7 @@ TEST_F(DbHandlerTest, ObjectTableInsertTest) {
         rowkey.push_back((uint32_t)(hdr.get_Timestamp() >> g_viz_constants.RowTimeInBits));
         rowkey.push_back("ObjectTableInsertTest");
         EXPECT_CALL(*dbif_mock(),
-                NewDb_AddColumnProxy(
+                Db_AddColumnProxy(
                     Pointee(
                         AllOf(Field(&GenDb::ColList::cfname_, g_viz_constants.OBJECT_VALUE_TABLE),
                             Field(&GenDb::ColList::rowkey_, rowkey),
@@ -420,7 +418,7 @@ TEST_F(DbHandlerTest, ObjectTableInsertTest) {
         rowkey.push_back("fields");
         rowkey.push_back("name");
         EXPECT_CALL(*dbif_mock(),
-                NewDb_AddColumnProxy(
+                Db_AddColumnProxy(
                     Pointee(
                         AllOf(Field(&GenDb::ColList::cfname_, g_viz_constants.STATS_TABLE_BY_STR_STR_TAG),
                             Field(&GenDb::ColList::rowkey_, rowkey),_))))
@@ -448,7 +446,7 @@ TEST_F(DbHandlerTest, ObjectTableInsertTest) {
         rowkey.push_back("fields");
         rowkey.push_back("Source");
         EXPECT_CALL(*dbif_mock(),
-                NewDb_AddColumnProxy(
+                Db_AddColumnProxy(
                     Pointee(
                         AllOf(Field(&GenDb::ColList::cfname_, g_viz_constants.STATS_TABLE_BY_STR_STR_TAG),
                             Field(&GenDb::ColList::rowkey_, rowkey),_))))
@@ -483,7 +481,7 @@ TEST_F(DbHandlerTest, FlowTableInsertTest) {
         rowkey.push_back(flowu);
 
         EXPECT_CALL(*dbif_mock(),
-                NewDb_AddColumnProxy(
+                Db_AddColumnProxy(
                     Pointee(
                         AllOf(Field(&GenDb::ColList::cfname_, g_viz_constants.FLOW_TABLE),
                             Field(&GenDb::ColList::rowkey_, rowkey)))))
@@ -525,7 +523,7 @@ TEST_F(DbHandlerTest, FlowTableInsertTest) {
         rowkey.push_back((uint8_t)0); //direction
 
         EXPECT_CALL(*dbif_mock(),
-                NewDb_AddColumnProxy(
+                Db_AddColumnProxy(
                     Pointee(
                         AllOf(Field(&GenDb::ColList::cfname_, g_viz_constants.FLOW_TABLE_SVN_SIP),
                             Field(&GenDb::ColList::rowkey_, rowkey),
@@ -553,7 +551,7 @@ TEST_F(DbHandlerTest, FlowTableInsertTest) {
         rowkey.push_back((uint8_t)0); //direction
 
         EXPECT_CALL(*dbif_mock(),
-                NewDb_AddColumnProxy(
+                Db_AddColumnProxy(
                     Pointee(
                         AllOf(Field(&GenDb::ColList::cfname_, g_viz_constants.FLOW_TABLE_DVN_DIP),
                             Field(&GenDb::ColList::rowkey_, rowkey),
@@ -581,7 +579,7 @@ TEST_F(DbHandlerTest, FlowTableInsertTest) {
         rowkey.push_back((uint8_t)0); //direction
 
         EXPECT_CALL(*dbif_mock(),
-                NewDb_AddColumnProxy(
+                Db_AddColumnProxy(
                     Pointee(
                         AllOf(Field(&GenDb::ColList::cfname_, g_viz_constants.FLOW_TABLE_PROT_SP),
                             Field(&GenDb::ColList::rowkey_, rowkey),
@@ -610,7 +608,7 @@ TEST_F(DbHandlerTest, FlowTableInsertTest) {
         rowkey.push_back((uint8_t)0); //direction
 
         EXPECT_CALL(*dbif_mock(),
-                NewDb_AddColumnProxy(
+                Db_AddColumnProxy(
                     Pointee(
                         AllOf(Field(&GenDb::ColList::cfname_, g_viz_constants.FLOW_TABLE_PROT_DP),
                             Field(&GenDb::ColList::rowkey_, rowkey),
@@ -638,7 +636,7 @@ TEST_F(DbHandlerTest, FlowTableInsertTest) {
         rowkey.push_back((uint8_t)0); //direction
 
         EXPECT_CALL(*dbif_mock(),
-                NewDb_AddColumnProxy(
+                Db_AddColumnProxy(
                     Pointee(
                         AllOf(Field(&GenDb::ColList::cfname_, g_viz_constants.FLOW_TABLE_VROUTER),
                             Field(&GenDb::ColList::rowkey_, rowkey),

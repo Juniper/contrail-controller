@@ -18,3 +18,20 @@ enum DbDataType {
     DoubleType        = 8, // double
 }
 
+struct DbTableInfo {
+    1: string                              table_name
+    2: u64                                 reads
+    3: u64                                 read_fails
+    4: u64                                 writes
+    5: u64                                 write_fails
+}
+
+struct DbErrors {
+    1: u64                                write_tablespace_fails
+    2: u64                                read_tablespace_fails
+    3: u64                                write_table_fails
+    4: u64                                read_table_fails
+    5: u64                                write_column_fails
+    6: u64                                write_batch_column_fails
+    7: u64                                read_column_fails
+}

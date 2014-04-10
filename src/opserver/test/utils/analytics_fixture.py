@@ -684,10 +684,11 @@ class AnalyticsFixture(fixtures.Fixture):
     def verify_flow_samples(self, generator_obj):
         self.logger.info("verify_flow_samples")
         vns = VerificationOpsSrv('127.0.0.1', self.opserver_port)
+        vrouter = generator_obj._hostname
         res = vns.post_query('FlowSeriesTable',
                              start_time=str(generator_obj.flow_start_time),
                              end_time=str(generator_obj.flow_end_time),
-                             select_fields=['T'], dir=1, where_clause='')
+                             select_fields=['T'], dir=1, where_clause='vrouter=%s'% vrouter)
         self.logger.info(str(res))
         if len(res) != generator_obj.num_flow_samples:
             return False
@@ -696,24 +697,26 @@ class AnalyticsFixture(fixtures.Fixture):
         result = vns.post_query('FlowSeriesTable',
                              start_time=str(generator_obj.egress_flow_start_time),
                              end_time=str(generator_obj.egress_flow_end_time),
-                             select_fields=['T'], dir=0, where_clause='')
+                             select_fields=['T'], dir=0, where_clause='vrouter=%s'% vrouter)
         self.logger.info(str(result))
         if len(result) != generator_obj.egress_num_flow_samples:
             return False
-        
+
         return True
     # end verify_flow_samples
  
     def verify_where_query_prefix(self,generator_obj):
+        
         self.logger.info('verify where query in FlowSeriesTable')
         vns = VerificationOpsSrv('127.0.0.1', self.opserver_port)
+        vrouter = generator_obj._hostname
         a_query = Query(table="FlowSeriesTable",
                 start_time=(generator_obj.flow_start_time),
                 end_time=(generator_obj.flow_end_time),
                 select_fields=["sourcevn","sourceip","vrouter"],
                 where=[[{"name":"sourcevn","value":"domain1:admin","op":7},
                         {"name":"destvn","value":"domain1:admin","op":7},
-                        {"name":"vrouter","value":"","op":1}]])
+                        {"name":"vrouter","value":"%s"%vrouter,"op":1}]])
         json_qstr = json.dumps(a_query.__dict__)
         res = vns.post_query_json(json_qstr)
         assert(len(res)>0)
@@ -725,9 +728,10 @@ class AnalyticsFixture(fixtures.Fixture):
         json_qstr = json.dumps(a_query.__dict__)
         res = vns.post_query_json(json_qstr)
         assert(len(res)>0)
-        return True 
+        return True
 
     def verify_flow_table(self, generator_obj):
+        vrouter = generator_obj._hostname
         # query flow records
         self.logger.info('verify_flow_table')
         vns = VerificationOpsSrv('127.0.0.1', self.opserver_port)
@@ -736,7 +740,7 @@ class AnalyticsFixture(fixtures.Fixture):
                              end_time=str(generator_obj.flow_end_time),
                              select_fields=[
                                  'UuidKey', 'agg-packets', 'agg-bytes'],
-                             where_clause='')
+                             where_clause='vrouter=%s'% vrouter)
         self.logger.info("FlowRecordTable result:%s" % str(res))
         assert(len(res) == generator_obj.flow_cnt)
 
@@ -748,7 +752,7 @@ class AnalyticsFixture(fixtures.Fixture):
             start_time=str(generator_obj.flow_start_time),
             end_time=str(generator_obj.flow_end_time),
             select_fields=['UuidKey', 'sourcevn', 'sourceip'],
-            where_clause='sourceip=10.10.10.1 AND sourcevn=domain1:admin:vn1')
+            where_clause='sourceip=10.10.10.1 AND sourcevn=domain1:admin:vn1 AND vrouter=%s'% vrouter)
         self.logger.info(str(res))
         assert(len(res) == generator_obj.flow_cnt)
         res = vns.post_query(
@@ -756,7 +760,7 @@ class AnalyticsFixture(fixtures.Fixture):
             start_time=str(generator_obj.flow_start_time),
             end_time=str(generator_obj.flow_end_time),
             select_fields=['sourcevn', 'sourceip'],
-            where_clause='sourceip=10.10.10.1 AND sourcevn=domain1:admin:vn1')
+            where_clause='sourceip=10.10.10.1 AND sourcevn=domain1:admin:vn1 AND vrouter=%s'% vrouter)
         self.logger.info(str(res))
         assert(len(res) == generator_obj.num_flow_samples)
         # give non-existent values in the where clause
@@ -764,7 +768,7 @@ class AnalyticsFixture(fixtures.Fixture):
                              start_time=str(generator_obj.flow_start_time),
                              end_time=str(generator_obj.flow_end_time),
                              select_fields=['UuidKey', 'sourcevn', 'sourceip'],
-                             where_clause='sourceip=20.1.1.10')
+                             where_clause='sourceip=20.1.1.10 AND vrouter=%s'% vrouter)
         self.logger.info(str(res))
         assert(len(res) == 0)
         res = vns.post_query(
@@ -772,7 +776,7 @@ class AnalyticsFixture(fixtures.Fixture):
             start_time=str(generator_obj.flow_start_time),
             end_time=str(generator_obj.flow_end_time),
             select_fields=['sourcevn', 'sourceip'],
-            where_clause='sourceip=20.1.1.10 AND sourcevn=domain1:admin:vn1')
+            where_clause='sourceip=20.1.1.10 AND sourcevn=domain1:admin:vn1 AND vrouter=%s'% vrouter)
         self.logger.info(str(res))
         assert(len(res) == 0)
 
@@ -782,7 +786,7 @@ class AnalyticsFixture(fixtures.Fixture):
             start_time=str(generator_obj.flow_start_time),
             end_time=str(generator_obj.flow_end_time),
             select_fields=['UuidKey', 'destvn', 'destip'],
-            where_clause='destip=10.10.10.2 AND destvn=domain1:admin:vn2')
+            where_clause='destip=10.10.10.2 AND destvn=domain1:admin:vn2 AND vrouter=%s'% vrouter)
         self.logger.info(str(res))
         assert(len(res) == generator_obj.flow_cnt)
         res = vns.post_query(
@@ -790,7 +794,7 @@ class AnalyticsFixture(fixtures.Fixture):
             start_time=str(generator_obj.flow_start_time),
             end_time=str(generator_obj.flow_end_time),
             select_fields=['destvn', 'destip'],
-            where_clause='destip=10.10.10.2 AND destvn=domain1:admin:vn2')
+            where_clause='destip=10.10.10.2 AND destvn=domain1:admin:vn2 AND vrouter=%s'% vrouter)
         self.logger.info(str(res))
         assert(len(res) == generator_obj.num_flow_samples)
         # give non-existent values in the where clause
@@ -800,7 +804,8 @@ class AnalyticsFixture(fixtures.Fixture):
             end_time=str(generator_obj.flow_end_time),
             select_fields=['UuidKey', 'destvn', 'destip'],
             where_clause='destip=10.10.10.2 AND ' +
-            'destvn=default-domain:default-project:default-virtual-network')
+            'destvn=default-domain:default-project:default-virtual-network AND' +
+            'vrouter=%s'% vrouter)
         self.logger.info(str(res))
         assert(len(res) == 0)
         res = vns.post_query(
@@ -808,7 +813,7 @@ class AnalyticsFixture(fixtures.Fixture):
             start_time=str(generator_obj.flow_start_time),
             end_time=str(generator_obj.flow_end_time),
             select_fields=['destvn', 'destip'],
-            where_clause='destip=20.1.1.10 AND destvn=domain1:admin:vn2')
+            where_clause='destip=20.1.1.10 AND destvn=domain1:admin:vn2 AND vrouter=%s'% vrouter)
         self.logger.info(str(res))
         assert(len(res) == 0)
 
@@ -817,14 +822,14 @@ class AnalyticsFixture(fixtures.Fixture):
                              start_time=str(generator_obj.flow_start_time),
                              end_time=str(generator_obj.flow_end_time),
                              select_fields=['UuidKey', 'sport', 'protocol'],
-                             where_clause='sport=13 AND protocol=1')
+                             where_clause='sport=13 AND protocol=1 AND vrouter=%s'% vrouter)
         self.logger.info(str(res))
         assert(len(res) == 1)
         res = vns.post_query('FlowSeriesTable',
                              start_time=str(generator_obj.flow_start_time),
                              end_time=str(generator_obj.flow_end_time),
                              select_fields=['sport', 'protocol'],
-                             where_clause='sport=13 AND protocol=1')
+                             where_clause='sport=13 AND protocol=1 AND vrouter=%s'% vrouter)
         self.logger.info(str(res))
         assert(len(res) == 5)
         # give no-existent values in the where clause
@@ -832,14 +837,14 @@ class AnalyticsFixture(fixtures.Fixture):
                              start_time=str(generator_obj.flow_start_time),
                              end_time=str(generator_obj.flow_end_time),
                              select_fields=['UuidKey', 'sport', 'protocol'],
-                             where_clause='sport=20 AND protocol=17')
+                             where_clause='sport=20 AND protocol=17 AND vrouter=%s'% vrouter)
         self.logger.info(str(res))
         assert(len(res) == 0)
         res = vns.post_query('FlowSeriesTable',
                              start_time=str(generator_obj.flow_start_time),
                              end_time=str(generator_obj.flow_end_time),
                              select_fields=['sport', 'protocol'],
-                             where_clause='sport=20 AND protocol=1')
+                             where_clause='sport=20 AND protocol=1 AND vrouter=%s'% vrouter)
         self.logger.info(str(res))
         assert(len(res) == 0)
 
@@ -848,14 +853,14 @@ class AnalyticsFixture(fixtures.Fixture):
                              start_time=str(generator_obj.flow_start_time),
                              end_time=str(generator_obj.flow_end_time),
                              select_fields=['UuidKey', 'dport', 'protocol'],
-                             where_clause='dport=104 AND protocol=2')
+                             where_clause='dport=104 AND protocol=2 AND vrouter=%s'% vrouter)
         self.logger.info(str(res))
         assert(len(res) == 1)
         res = vns.post_query('FlowSeriesTable',
                              start_time=str(generator_obj.flow_start_time),
                              end_time=str(generator_obj.flow_end_time),
                              select_fields=['dport', 'protocol'],
-                             where_clause='dport=104 AND protocol=2')
+                             where_clause='dport=104 AND protocol=2 AND vrouter=%s'% vrouter)
         self.logger.info(str(res))
         assert(len(res) == 5)
         # give no-existent values in the where clause
@@ -863,14 +868,14 @@ class AnalyticsFixture(fixtures.Fixture):
                              start_time=str(generator_obj.flow_start_time),
                              end_time=str(generator_obj.flow_end_time),
                              select_fields=['UuidKey', 'dport', 'protocol'],
-                             where_clause='dport=10 AND protocol=17')
+                             where_clause='dport=10 AND protocol=17 AND vrouter=%s'% vrouter)
         self.logger.info(str(res))
         assert(len(res) == 0)
         res = vns.post_query('FlowSeriesTable',
                              start_time=str(generator_obj.flow_start_time),
                              end_time=str(generator_obj.flow_end_time),
                              select_fields=['dport', 'protocol'],
-                             where_clause='dport=10 AND protocol=17')
+                             where_clause='dport=10 AND protocol=17 AND vrouter=%s'% vrouter)
         self.logger.info(str(res))
         assert(len(res) == 0)
 
@@ -879,7 +884,7 @@ class AnalyticsFixture(fixtures.Fixture):
             'FlowRecordTable',
             start_time=str(generator_obj.flow_start_time),
             end_time=str(generator_obj.flow_end_time),
-            select_fields=['UuidKey', 'protocol'], where_clause='',
+            select_fields=['UuidKey', 'protocol'], where_clause='vrouter=%s'% vrouter,
             sort_fields=['protocol'], sort=1)
         self.logger.info(str(res))
         assert(len(res) == generator_obj.flow_cnt)
@@ -888,7 +893,7 @@ class AnalyticsFixture(fixtures.Fixture):
         res = vns.post_query('FlowRecordTable',
                              start_time=str(generator_obj.flow_start_time),
                              end_time=str(generator_obj.flow_end_time),
-                             select_fields=['protocol'], where_clause='',
+                             select_fields=['protocol'], where_clause='vrouter=%s'% vrouter,
                              sort_fields=['protocol'], sort=2, limit=1)
         self.logger.info(str(res))
         assert(len(res) == 1)
@@ -897,7 +902,9 @@ class AnalyticsFixture(fixtures.Fixture):
         return True
     # end verify_flow_table
 
-    def verify_flow_series_aggregation_binning(self, generator_obj):
+    def verify_flow_series_aggregation_binning(self, generator_object):
+        generator_obj = generator_object[0]
+        vrouter = generator_obj._hostname
         self.logger.info('verify_flow_series_aggregation_binning')
         vns = VerificationOpsSrv('127.0.0.1', self.opserver_port)
 
@@ -928,7 +935,7 @@ class AnalyticsFixture(fixtures.Fixture):
             start_time=str(generator_obj.flow_start_time),
             end_time=str(generator_obj.flow_end_time),
             select_fields=['sum(bytes)', 'sum(packets)', 'flow_count'], 
-            where_clause='')
+            where_clause='vrouter=%s'% vrouter)
         self.logger.info(str(res))
         assert(len(res) == 1)
         exp_sum_pkts = exp_sum_bytes = 0
@@ -950,7 +957,7 @@ class AnalyticsFixture(fixtures.Fixture):
             end_time=str(generator_obj.flow_end_time),
             select_fields=['sport', 'dport', 'sum(bytes)', 
                            'sum(packets)', 'flow_count'],
-            where_clause='')
+            where_clause='vrouter=%s'% vrouter)
         self.logger.info(str(res))
         assert(len(res) == generator_obj.flow_cnt)
         for r in res:
@@ -972,7 +979,7 @@ class AnalyticsFixture(fixtures.Fixture):
             end_time=str(generator_obj.flow_end_time),
             select_fields=['sourcevn', 'destvn', 'sum(bytes)', 
                            'sum(packets)', 'flow_count'],
-            where_clause='')
+            where_clause='vrouter=%s'% vrouter)
         self.logger.info(str(res))
         assert(len(res) == 1)
         exp_sum_pkts = exp_sum_bytes = 0
@@ -988,7 +995,7 @@ class AnalyticsFixture(fixtures.Fixture):
                              start_time=str(generator_obj.flow_start_time),
                              end_time=str(generator_obj.flow_end_time),
                              select_fields=['sport', 'dport', 'sum(bytes)'],
-                             where_clause='',
+                             where_clause='vrouter=%s'% vrouter,
                              sort_fields=['sum(bytes)'], sort=2, limit=3)
         self.logger.info(str(res))
         assert(len(res) == 3)
@@ -1012,7 +1019,7 @@ class AnalyticsFixture(fixtures.Fixture):
             select_fields=['T=%s' % (granularity), 'sum(bytes)',
                            'sum(packets)'],
             where_clause='sourcevn=domain1:admin:vn1 ' +
-            'AND destvn=domain1:admin:vn2')
+            'AND destvn=domain1:admin:vn2 AND vrouter=%s'% vrouter)
         diff_t = int(et) - int(st)
         num_records = (diff_t/gms) + bool(diff_t%gms)
         assert(len(res) == num_records)
@@ -1050,7 +1057,7 @@ class AnalyticsFixture(fixtures.Fixture):
             select_fields=['T=%s' % (granularity), 'protocol', 'sum(bytes)',
                            'sum(packets)'],
             where_clause='sourcevn=domain1:admin:vn1 ' +
-            'AND destvn=domain1:admin:vn2')
+            'AND destvn=domain1:admin:vn2 AND vrouter=%s'% vrouter)
         diff_t = int(et) - int(st)
         num_ts = (diff_t/gms) + bool(diff_t%gms)
         ts = [generator_obj.flow_start_time + (x * gms) \
@@ -1094,7 +1101,7 @@ class AnalyticsFixture(fixtures.Fixture):
             'FlowSeriesTable', start_time=st, end_time=et,
             select_fields=['T=%s' % (granularity), 'sum(bytes)',
                            'sum(packets)'],
-            where_clause='')
+            where_clause='vrouter=%s'% vrouter)
         ts_stats = _aggregate_flows_stats(generator_obj.flows, 
                                           int(st), int(et))
         exp_result = {int(st):{'sum(bytes)':ts_stats['sum_bytes'],
@@ -1117,7 +1124,7 @@ class AnalyticsFixture(fixtures.Fixture):
             start_time=str(generator_obj.flow_start_time),
             end_time=str(generator_obj.flow_end_time),
             select_fields=['direction_ing', 'sum(bytes)', 'sum(packets)', 'flow_count'],
-            where_clause='')
+            where_clause='vrouter=%s'% vrouter)
         self.logger.info(str(res))
         assert(len(res) == 1)
         exp_sum_pkts = exp_sum_bytes = 0
@@ -1136,7 +1143,7 @@ class AnalyticsFixture(fixtures.Fixture):
             start_time=str(generator_obj.egress_flow_start_time),
             end_time=str(generator_obj.egress_flow_end_time),
             select_fields=['direction_ing', 'sum(bytes)', 'sum(packets)', 'flow_count'],
-            where_clause='', dir=0)
+            where_clause='vrouter=%s'% vrouter, dir=0)
         self.logger.info(str(result))
         assert(len(result) == 1)
         exp_sum_pkts = exp_sum_bytes = 0
@@ -1161,7 +1168,7 @@ class AnalyticsFixture(fixtures.Fixture):
             select_fields=['T=%s' % (granularity), 'protocol', 'sourcevn', 'destvn',
                            'sport', 'dport'],
             where_clause='sourcevn=domain1:admin:vn1' +
-            'AND destvn=domain1:admin:vn2')
+            'AND destvn=domain1:admin:vn2 AND vrouter=%s'% vrouter)
         diff_t = int(et) - int(st)
         num_ts = (diff_t/gms) + bool(diff_t%gms)
         ts = [generator_obj.flow_start_time + (x * gms) \
@@ -1206,7 +1213,8 @@ class AnalyticsFixture(fixtures.Fixture):
             select_fields=['T', 'bytes', 'packets'],
             where_clause='sourcevn=%s' %(flow.sourcevn) +
             'AND destvn=%s AND sport= %d' %(flow.destvn, flow.sport) +
-            'AND dport=%d AND protocol=%d' %(flow.dport, flow.protocol))
+            'AND dport=%d AND protocol=%d' %(flow.dport, flow.protocol) +
+            'AND vrouter=%s'% vrouter)
         self.logger.info(str(res))
         
         assert(len(res) == len(flow.samples))
@@ -1227,7 +1235,7 @@ class AnalyticsFixture(fixtures.Fixture):
             start_time=str(generator_obj.flow_start_time),
             end_time=str(generator_obj.flow_end_time),
             select_fields=['bytes', 'packets'],
-            where_clause='')
+            where_clause='vrouter=%s'% vrouter)
         self.logger.info(str(res))
         assert(len(res) == generator_obj.num_flow_samples)
         sorted_res = sorted(res, key=itemgetter('packets', 'bytes'))
@@ -1250,7 +1258,8 @@ class AnalyticsFixture(fixtures.Fixture):
             select_fields=['T'],
             where_clause='sourcevn=%s' %(flow.sourcevn) +
             'AND destvn=%s AND sport= %d' %(flow.destvn, flow.sport) +
-            'AND dport=%d AND protocol=%d' %(flow.dport, flow.protocol))
+            'AND dport=%d AND protocol=%d' %(flow.dport, flow.protocol) +
+            'AND vrouter=%s'% vrouter)
         self.logger.info(str(res))
         assert(len(res) == len(flow.samples))
         sorted_res = sorted(res, key=itemgetter('T'))
@@ -1270,7 +1279,7 @@ class AnalyticsFixture(fixtures.Fixture):
             'FlowSeriesTable', start_time=st, end_time=et,
             select_fields=['T=%s' % (granularity)],
             where_clause='sourcevn=domain1:admin:vn1' +
-            'AND destvn=domain1:admin:vn2')
+            'AND destvn=domain1:admin:vn2 AND vrouter=%s'% vrouter)
         diff_t = int(et) - int(st)
         num_ts = (diff_t/gms) + bool(diff_t%gms)
         ts = []
@@ -1286,7 +1295,7 @@ class AnalyticsFixture(fixtures.Fixture):
             start_time=str(generator_obj.flow_start_time),
             end_time=str(generator_obj.flow_end_time),
             select_fields=['protocol', 'sport', 'dport'],
-            where_clause='')
+            where_clause='vrouter=%s'% vrouter)
         self.logger.info(str(res))
         assert(len(res) == generator_obj.num_flow_samples)
         for flow in generator_obj.flows:
@@ -1305,7 +1314,7 @@ class AnalyticsFixture(fixtures.Fixture):
             start_time=str(generator_obj.flow_start_time),
             end_time=str(generator_obj.flow_end_time),
             select_fields=['T', 'protocol', 'sport', 'dport'],
-            where_clause='')
+            where_clause='vrouter=%s'% vrouter)
         self.logger.info(str(res))
         assert(len(res) == generator_obj.num_flow_samples)
         for flow in generator_obj.flows:
@@ -1327,7 +1336,7 @@ class AnalyticsFixture(fixtures.Fixture):
             start_time=str(generator_obj.flow_start_time),
             end_time=str(generator_obj.flow_end_time),
             select_fields=['T', 'protocol', 'sport', 'dport', 'bytes', 'packets'],
-            where_clause='')
+            where_clause='vrouter=%s'% vrouter)
         self.logger.info(str(res))
         assert(len(res) == generator_obj.num_flow_samples)
         for flow in generator_obj.flows:
@@ -1344,6 +1353,29 @@ class AnalyticsFixture(fixtures.Fixture):
                         break
                 assert(found)
 
+        # 15 vrouter
+        self.logger.info("Flowseries: [sourcevn, destvn, vrouter]")
+        vns = VerificationOpsSrv('127.0.0.1', self.opserver_port)
+        generator_obj1 = generator_object[1]
+        res = vns.post_query('FlowSeriesTable',
+                             start_time=str(generator_obj1.flow_start_time),
+                             end_time=str(generator_obj1.flow_end_time),
+                             select_fields=['sourcevn', 'destvn', 'vrouter'], dir=1, where_clause='')
+        self.logger.info(str(res))
+        assert(len(res) == (generator_obj1.num_flow_samples + generator_obj.num_flow_samples))
+
+        sorted_res = sorted(res, key=itemgetter('vrouter'))
+        exp_result = []
+        for flow in generator_obj1.flows:
+            for f in flow.samples:
+                dict = {'vrouter':f._source, 'destvn':f.flowdata.destvn, 'sourcevn':f.flowdata.sourcevn}
+                exp_result.append(dict)
+        for flow in generator_obj.flows:
+            for f in flow.samples:
+                dict = {'vrouter':f._source, 'destvn':f.flowdata.destvn, 'sourcevn':f.flowdata.sourcevn}
+                exp_result.append(dict)
+        sorted_exp_result = sorted(exp_result, key=itemgetter('vrouter'))
+        assert(sorted_res == sorted_exp_result)
         return True
     # end verify_flow_series_aggregation_binning
 

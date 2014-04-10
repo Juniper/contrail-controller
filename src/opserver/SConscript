@@ -34,9 +34,6 @@ local_sources_rules = []
 for file in local_sources:
     local_sources_rules.append(OpEnv.Install("opserver", file))
     
-bottle_sources_rules = []
-bottle_sources_rules.append(OpEnv.Install('opserver', '#/third_party/bottle-0.11.6/bottle.py'))    
-
 viz_sandesh_gen_files = OpEnv.SandeshGenPy('#controller/src/analytics/viz.sandesh')
 viz_sandesh_gen_files += OpEnv.SandeshGenPy('#controller/src/analytics/analytics_cpuinfo.sandesh') 
 viz_sandesh_gen_files += OpEnv.SandeshGenPy('#controller/src/analytics/redis.sandesh')
@@ -64,7 +61,7 @@ if sys.platform != 'darwin':
         OpEnv.Install('.', '#controller/src/docs/opserver'))
 
 sdist_depends = [setup_sources_rules, local_sources_rules, 
-                 bottle_sources_rules, viz_sandesh_gen_py_rules, doc_sources_rules]
+                 viz_sandesh_gen_py_rules, doc_sources_rules]
 
 sdist_gen = OpEnv.Command('dist', 'setup.py', 'python setup.py sdist', chdir=1)
 # install everything before building distribution

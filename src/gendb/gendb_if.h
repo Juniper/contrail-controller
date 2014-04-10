@@ -5,14 +5,14 @@
 #ifndef __GENDB_IF_H__
 #define __GENDB_IF_H__
 
-#include <stdint.h>
+//#include <stdint.h>
 #include <string>
 #include <vector>
 #include <map>
 #include <boost/function.hpp>
-#include <boost/asio/io_service.hpp>
+//#include <boost/asio/io_service.hpp>
 #include <boost/uuid/uuid.hpp>
-#include <boost/uuid/uuid_generators.hpp>
+//#include <boost/uuid/uuid_generators.hpp>
 #include <boost/variant.hpp>
 #include <boost/ptr_container/ptr_vector.hpp>
 #include <boost/scoped_ptr.hpp>
@@ -21,7 +21,8 @@
 namespace GenDb {
 
 /* New stuff */
-typedef boost::variant<boost::blank, std::string, uint64_t, uint32_t, boost::uuids::uuid, uint8_t, uint16_t, double> DbDataValue;
+typedef boost::variant<boost::blank, std::string, uint64_t, uint32_t, 
+    boost::uuids::uuid, uint8_t, uint16_t, double> DbDataValue;
 enum DbDataValueType {
     DB_VALUE_BLANK = 0,
     DB_VALUE_STRING = 1,
@@ -124,53 +125,54 @@ struct ColumnNameRange {
 };
 
 class GenDbIf {
-    public:
-        typedef boost::function<void(void)> DbErrorHandler;
-        typedef boost::function<void(size_t)> DbQueueWaterMarkCb;
+public:
+    typedef boost::function<void(void)> DbErrorHandler;
+    typedef boost::function<void(size_t)> DbQueueWaterMarkCb;
 
-        GenDbIf() {}
-        virtual ~GenDbIf() {}
+    GenDbIf() {}
+    virtual ~GenDbIf() {}
 
-        /* Init function */
-        virtual bool Db_Init(std::string task_id, int task_instance) = 0;
-        virtual void Db_Uninit(std::string task_id, int task_instance) = 0;
-        virtual void Db_SetInitDone(bool init_done) = 0;
-        /* api to create a table space */
-        virtual bool Db_AddTablespace(const std::string& tablespace,const std::string& replication_factor) = 0;
-        /* api to set the current table space */
-        virtual bool Db_SetTablespace(const std::string& tablespace) = 0;
-        /* api to set the current table space */
-        virtual bool Db_AddSetTablespace(const std::string& tablespace,const std::string& replication_factor="1") = 0;
-        /* api to add a column family in the current table space */
-        virtual bool Db_FindTablespace(const std::string& tablespace) = 0;
+    // Init/Uninit
+    virtual bool Db_Init(std::string task_id, int task_instance) = 0;
+    virtual void Db_Uninit(std::string task_id, int task_instance) = 0;
+    virtual void Db_SetInitDone(bool init_done) = 0;
+    // Tablespace 
+    virtual bool Db_AddTablespace(const std::string& tablespace,
+        const std::string& replication_factor) = 0;
+    virtual bool Db_SetTablespace(const std::string& tablespace) = 0;
+    virtual bool Db_AddSetTablespace(const std::string& tablespace,
+        const std::string& replication_factor="1") = 0;
+    virtual bool Db_FindTablespace(const std::string& tablespace) = 0;
+    // Column family
+    virtual bool Db_AddColumnfamily(const NewCf& cf) = 0;
+    virtual bool Db_UseColumnfamily(const NewCf& cf) = 0;
+    // Column
+    virtual bool Db_AddColumn(std::auto_ptr<ColList> cl) = 0;
+    virtual bool Db_AddColumnSync(std::auto_ptr<GenDb::ColList> cl) = 0;
+    // Read/Get
+    virtual bool Db_GetRow(ColList& ret, const std::string& cfname,
+        const DbDataValueVec& rowkey) = 0;
+    virtual bool Db_GetMultiRow(ColListVec& ret,
+        const std::string& cfname, const std::vector<DbDataValueVec>& key,
+        GenDb::ColumnNameRange *crange_ptr = NULL) = 0;
+    virtual bool Db_GetRangeSlices(ColList& col_list,
+        const std::string& cfname, const ColumnNameRange& crange,
+        const DbDataValueVec& key) = 0;
+    // Queue
+    virtual bool Db_GetQueueStats(uint64_t &queue_count,
+        uint64_t &enqueues) const = 0;
+    virtual void Db_SetQueueWaterMark(bool high, size_t queue_count,
+        DbQueueWaterMarkCb cb) = 0;
+    virtual void Db_ResetQueueWaterMarks() = 0;
+    // Stats
+    virtual bool Db_GetStats(std::vector<DbTableInfo> &vdbti,
+        DbErrors &dbe) = 0;
 
-        /* api to add a column family in the current table space */
-        virtual bool NewDb_AddColumnfamily(const NewCf& cf) = 0;
-
-        virtual bool Db_UseColumnfamily(const NewCf& cf) = 0;
-
-        /* api to add a column in the current table space */
-        virtual bool NewDb_AddColumn(std::auto_ptr<ColList> cl) = 0;
-        virtual bool AddColumnSync(std::auto_ptr<GenDb::ColList> cl) = 0;
-
-        virtual bool Db_GetRow(ColList& ret, const std::string& cfname,
-                const DbDataValueVec& rowkey) = 0;
-        virtual bool Db_GetMultiRow(ColListVec& ret,
-                const std::string& cfname, const std::vector<DbDataValueVec>& key,
-                GenDb::ColumnNameRange *crange_ptr = NULL) = 0;
-        /* api to get range of column data for a range of rows */
-        virtual bool Db_GetRangeSlices(ColList& col_list,
-                const std::string& cfname, const ColumnNameRange& crange,
-                const DbDataValueVec& key) = 0;
-        virtual bool Db_GetQueueStats(uint64_t &queue_count, uint64_t &enqueues) const = 0;
-        virtual void Db_SetQueueWaterMark(bool high, size_t queue_count, DbQueueWaterMarkCb cb) = 0;
-        virtual void Db_ResetQueueWaterMarks() = 0;
-
-        static GenDbIf *GenDbIfImpl(boost::asio::io_service *ioservice, DbErrorHandler hdlr, 
-                std::string cassandra_ip, unsigned short cassandra_port, 
-                int analytics_ttl, std::string name);
+    static GenDbIf *GenDbIfImpl(DbErrorHandler hdlr, 
+        std::string cassandra_ip, unsigned short cassandra_port, 
+        int analytics_ttl, std::string name, bool only_sync);
 };
 
 } // namespace GenDb
 
-#endif
+#endif // __GENDB_IF_H__

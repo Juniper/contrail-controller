@@ -612,7 +612,7 @@ void BgpXmppChannel::ProcessMcastItem(std::string vrf_name,
     BgpTable *table = NULL;
     //Build the key to the Multicast DBTable
     PeerRibMembershipManager *mgr = bgp_server_->membership_mgr();
-    if (rt_instance != NULL) {
+    if (rt_instance != NULL && !rt_instance->deleted()) {
         table = rt_instance->GetTable(Address::INETMCAST);
         if (table == NULL) {
             BGP_LOG_PEER_INSTANCE(Peer(), vrf_name,
@@ -829,7 +829,7 @@ void BgpXmppChannel::ProcessItem(string vrf_name,
     bool subscribe_pending = false;
     int instance_id = -1;
     BgpTable *table = NULL;
-    if (rt_instance != NULL) {
+    if (rt_instance != NULL && !rt_instance->deleted()) {
         table = rt_instance->GetTable(Address::INET);
         if (table == NULL) {
             BGP_LOG_PEER_INSTANCE(Peer(), vrf_name, SandeshLevel::SYS_WARN,
@@ -1071,7 +1071,7 @@ void BgpXmppChannel::ProcessEnetItem(string vrf_name,
     bool subscribe_pending = false;
     int instance_id = -1;
     BgpTable *table = NULL;
-    if (rt_instance != NULL) {
+    if (rt_instance != NULL && !rt_instance->deleted()) {
         table = rt_instance->GetTable(Address::ENET);
         if (table == NULL) {
             BGP_LOG_PEER_INSTANCE(Peer(), vrf_name, SandeshLevel::SYS_WARN,
@@ -1247,12 +1247,14 @@ void BgpXmppChannel::ProcessEnetItem(string vrf_name,
 
 void BgpXmppChannel::DequeueRequest(const string &table_name,
                                     DBRequest *request) {
+    auto_ptr<DBRequest> ptr(request);
+
     BgpTable *table = static_cast<BgpTable *>
         (bgp_server_->database()->FindTable(table_name));
-    if (table == NULL) {
+    if (table == NULL || table->IsDeleted()) {
         return;
     }
-    auto_ptr<DBRequest> ptr(request);
+
     PeerRibMembershipManager *mgr = bgp_server_->membership_mgr();
     if (mgr && !mgr->PeerRegistered(peer_.get(), table)) {
         BGP_LOG_PEER(Event, Peer(), SandeshLevel::SYS_WARN, BGP_LOG_FLAG_ALL,
@@ -1374,7 +1376,8 @@ bool BgpXmppChannel::MembershipResponseHandler(std::string table_name) {
         return true;
     } else if (state.pending_req == SUBSCRIBE) {
         IPeerRib *rib = mgr->IPeerRibFind(peer_.get(), table);
-        rib->set_instance_id(state.instance_id);
+        if (rib)
+            rib->set_instance_id(state.instance_id);
     }
 
     for(DeferQ::iterator it = defer_q_.find(vrf_n_table);
@@ -1534,6 +1537,26 @@ void BgpXmppChannel::ProcessSubscriptionRequest(
         }
 
         return;
+    }
+
+    // If the instance is being deleted and agent is trying to unsubscribe
+    // we need to process the unsubscribe if the vrf is not in the request
+    // map.  This would be the normal case where we wait for the agent to
+    // unsubscribe in order to remove routes added by it.
+    if (rt_instance->deleted()) {
+        BGP_LOG_PEER(Membership, Peer(), SandeshLevel::SYS_DEBUG,
+                     BGP_LOG_FLAG_ALL, BGP_PEER_DIR_NA,
+                     " ReceiveUpdate: Routing Instance " <<
+                     vrf_name << " is being deleted");
+        if (add_change) {
+            vrf_membership_request_map_[vrf_name] = instance_id;
+            return;
+        } else {
+            if (vrf_membership_request_map_.erase(vrf_name)) {
+                FlushDeferQ(vrf_name);
+                return;
+            }
+        }
     }
 
     PublishRTargetRoute(rt_instance, add_change);
