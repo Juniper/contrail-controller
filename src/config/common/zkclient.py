@@ -146,7 +146,7 @@ class ZookeeperClient(object):
     # reconnect
     def reconnect(self):
         self._zk_sem.acquire()
-        self.syslog("restart: acquired lock; state %s " % self._zk.state)
+        self.syslog("restart: acquired lock; state %s " % self._zk_client.state)
         # initiate restart if our state is suspended or lost
         if self._zk_client.state != "CONNECTED":
             self.syslog("restart: starting ...")
