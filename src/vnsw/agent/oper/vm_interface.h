@@ -361,9 +361,16 @@ private:
     void DeleteL3MplsLabel();
     void UpdateL3TunnelId(bool force_update, bool policy_change);
     void DeleteL3TunnelId();
-    void UpdateMulticastNextHop(bool interface_active);
-    void UpdateL2NextHop(bool old_ipv4_active);
-    void UpdateL3NextHop(bool old_l2_active);
+    void UpdateMulticastNextHop(bool old_ipv4_active, bool old_l2_active);
+    void DeleteMulticastNextHop();
+    void UpdateL2NextHop(bool old_l2_active);
+    void DeleteL2NextHop(bool old_l2_active);
+    void UpdateL3NextHop(bool old_ipv4_active);
+    void DeleteL3NextHop(bool old_ipv4_active);
+    bool L2Activated(bool old_l2_active);
+    bool L3Activated(bool old_ipv4_active);
+    bool L2Deactivated(bool old_l2_active);
+    bool L3Deactivated(bool old_ipv4_active);
     void UpdateL3InterfaceRoute(bool old_ipv4_active, bool force_update,
                              bool policy_change, VrfEntry * old_vrf,
                              const Ip4Address &old_addr);
@@ -514,14 +521,13 @@ struct VmInterfaceMirrorData : public VmInterfaceData {
 
 // Definition for structures when request queued from IFMap config.
 struct VmInterfaceConfigData : public VmInterfaceData {
-    VmInterfaceConfigData(bool deleted) :
+    VmInterfaceConfigData() :
         VmInterfaceData(CONFIG), addr_(0), vm_mac_(""), cfg_name_(""),
         vm_uuid_(), vm_name_(), vn_uuid_(), vrf_name_(""), fabric_port_(true),
         need_linklocal_ip_(false), layer2_forwarding_(true),
         ipv4_forwarding_(true), mirror_enable_(false), analyzer_name_(""),
         mirror_direction_(Interface::UNKNOWN), sg_list_(), 
-        floating_ip_list_(), service_vlan_list_(), static_route_list_(),
-        deleted_(deleted) {
+        floating_ip_list_(), service_vlan_list_(), static_route_list_() {
     }
 
     VmInterfaceConfigData(const Ip4Address &addr, const std::string &mac,
@@ -532,8 +538,7 @@ struct VmInterfaceConfigData : public VmInterfaceData {
         layer2_forwarding_(true), ipv4_forwarding_(true), 
         mirror_enable_(false), analyzer_name_(""),
         mirror_direction_(Interface::UNKNOWN), sg_list_(),
-        floating_ip_list_(), service_vlan_list_(), static_route_list_(),
-        deleted_(false) {
+        floating_ip_list_(), service_vlan_list_(), static_route_list_() {
     }
 
     virtual ~VmInterfaceConfigData() { }
@@ -559,7 +564,6 @@ struct VmInterfaceConfigData : public VmInterfaceData {
     VmInterface::FloatingIpList floating_ip_list_;
     VmInterface::ServiceVlanList service_vlan_list_;
     VmInterface::StaticRouteList static_route_list_;
-    bool deleted_;
 };
 
 #endif // vnsw_agent_vm_interface_hpp

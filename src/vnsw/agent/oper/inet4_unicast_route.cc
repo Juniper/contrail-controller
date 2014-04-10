@@ -327,6 +327,7 @@ bool Inet4UnicastRouteEntry::EcmpAddPath(AgentPath *path) {
 
     if (count == 1) {
         assert(ecmp == NULL);
+        return false;
     }
 
     if (count == 2 && ecmp == NULL) {
