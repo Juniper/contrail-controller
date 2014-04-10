@@ -924,7 +924,7 @@ bool VmInterface::ResyncIpAddress(const VmInterfaceIpAddressData *data) {
 
 void VmInterface::GetOsParams(Agent *agent) {
     if (vlan_id_ == VmInterface::kInvalidVlanId) {
-        Interface::GetOsParams(NULL);
+        Interface::GetOsParams(agent);
         return;
     }
 
