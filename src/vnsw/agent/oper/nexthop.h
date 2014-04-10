@@ -764,12 +764,16 @@ public:
     static void CreateMulticastVmInterfaceNH(const uuid &intf_uuid,
                                              const struct ether_addr &dmac, 
                                              const string &vrf_name);
+    static void DeleteMulticastVmInterfaceNH(const uuid &intf_uuid);
     static void CreateL2VmInterfaceNH(const uuid &intf_uuid,
                                       const struct ether_addr &dmac, 
                                       const string &vrf_name);
+    static void DeleteL2InterfaceNH(const uuid &intf_uuid);
     static void CreateL3VmInterfaceNH(const uuid &intf_uuid,
                                       const struct ether_addr &dmac, 
                                       const string &vrf_name);
+    static void DeleteL3InterfaceNH(const uuid &intf_uuid);
+    static void DeleteNH(const uuid &intf_uuid, bool policy, uint8_t flags);
     static void DeleteVmInterfaceNHReq(const uuid &intf_uuid);
     static void CreatePacketInterfaceNhReq(const string &ifname);
     static void DeleteHostPortReq(const string &ifname);

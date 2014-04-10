@@ -73,9 +73,10 @@ TEST_F(AclEntryTest, Basic) {
 
     packet1->src_ip = 0x01010101;
     packet1->protocol = 10;
+    //Destination port would be ignored, since protocol is neither TCP or UDP
     packet1->dst_port = 101;
     al = entry1->PacketMatch(*packet1);
-    EXPECT_EQ(0U, al.size());
+    EXPECT_EQ(1U, al.size());
     //EXPECT_FALSE(entry1->Match(packet1));
 
     packet1->src_ip = 0x01010101;
@@ -156,9 +157,10 @@ TEST_F(AclEntryTest, SubnetAddress) {
 
     packet1->src_ip = 0x01010102;
     packet1->protocol = 10;
+    //Destination port would be ignored, since protocol is neither TCP or UDP
     packet1->dst_port = 101;
     al = entry1->PacketMatch(*packet1);
-    EXPECT_EQ(0U, al.size());
+    EXPECT_EQ(1U, al.size());
     //EXPECT_FALSE(entry1->Match(packet1));
 
     packet1->src_ip = 0x01010103;
@@ -249,10 +251,11 @@ TEST_F(AclEntryTest, BasicAccept) {
 
     packet1->src_ip = 0x01010102;
     packet1->protocol = 10;
+    //Destination port would be ignored, since protocol is neither TCP or UDP
     packet1->dst_port = 101;
     al = entry1->PacketMatch(*packet1);
     ial = al.begin();
-    EXPECT_EQ(0U, al.size());
+    EXPECT_EQ(1U, al.size());
     //EXPECT_FALSE(entry1->Match(packet1));
 
     packet1->src_ip = 0x01010103;
@@ -348,10 +351,11 @@ TEST_F(AclEntryTest, BasicDeny) {
 
     packet1->src_ip = 0x01010102;
     packet1->protocol = 10;
+    //Port would be ignored since protocol is not TCP or UDP
     packet1->dst_port = 101;
     al = entry1->PacketMatch(*packet1);
     ial = al.begin();
-    EXPECT_EQ(0U, al.size());
+    EXPECT_EQ(1U, al.size());
     //EXPECT_FALSE(entry1->Match(packet1));
 
     packet1->src_ip = 0x01010103;
