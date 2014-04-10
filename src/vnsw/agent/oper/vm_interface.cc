@@ -670,7 +670,7 @@ bool VmInterface::CopyConfig(VmInterfaceConfigData *data, bool *sg_changed) {
 
     // Read ifindex for the interface
     if (os_index_ == kInvalidIndex) {
-        GetOsParams();
+        GetOsParams(table->agent());
         if (os_index_ != kInvalidIndex)
             ret = true;
     }
@@ -894,7 +894,8 @@ bool VmInterface::ResyncIpAddress(const VmInterfaceIpAddressData *data) {
     bool ret = false;
 
     if (os_index_ == kInvalidIndex) {
-        GetOsParams();
+        InterfaceTable *table = static_cast<InterfaceTable *>(get_table());
+        GetOsParams(table->agent());
         if (os_index_ != kInvalidIndex)
             ret = true;
     }
@@ -921,15 +922,14 @@ bool VmInterface::ResyncIpAddress(const VmInterfaceIpAddressData *data) {
 // VM Port Entry utility routines
 /////////////////////////////////////////////////////////////////////////////
 
-void VmInterface::GetOsParams() {
+void VmInterface::GetOsParams(Agent *agent) {
     if (vlan_id_ == VmInterface::kInvalidVlanId) {
-        Interface::GetOsParams();
+        Interface::GetOsParams(agent);
         return;
     }
 
     os_index_ = Interface::kInvalidIndex;
-    InterfaceTable *table = static_cast<InterfaceTable *>(get_table());
-    memcpy(mac_.ether_addr_octet, table->agent()->vrrp_mac(), ETHER_ADDR_LEN);
+    memcpy(mac_.ether_addr_octet, agent->vrrp_mac(), ETHER_ADDR_LEN);
 }
 
 // Get DHCP IP address. DHCP IP is used only if IP address not specified in 

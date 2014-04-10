@@ -449,6 +449,11 @@ int NHKSyncEntry::Encode(sandesh_op::type op, char *buf, int buf_len) {
 
     encoder.set_h_op(op);
     encoder.set_nhr_id(GetIndex());
+    if (op == sandesh_op::DELETE) {
+        /* For delete only NH-index is required by vrouter */
+        encode_len = encoder.WriteBinary((uint8_t *)buf, buf_len, &error);
+        return encode_len;
+    }
     encoder.set_nhr_rid(0);
     encoder.set_nhr_vrf(vrf_id_);
     encoder.set_nhr_family(AF_INET);

@@ -64,7 +64,7 @@ public:
     virtual void Delete() { }
     virtual void Add() { }
     virtual void SendTrace(Trace event) const;
-    virtual void GetOsParams();
+    virtual void GetOsParams(Agent *agent);
 
     // DBEntry comparator virtual function
     bool IsLess(const DBEntry &rhs) const {
