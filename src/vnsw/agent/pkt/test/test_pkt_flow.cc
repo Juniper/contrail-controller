@@ -1640,8 +1640,7 @@ TEST_F(FlowTest, FlowOnDeletedVrf) {
     //Flow find should fail as interface is delete marked
     FlowEntry *fe = FlowGet(vrf_id, "11.1.1.3", vm1_ip,
                             IPPROTO_TCP, 30, 40);
-    EXPECT_TRUE(fe != NULL);
-    EXPECT_TRUE(fe->is_flags_set(FlowEntry::ShortFlow) == true);
+    EXPECT_TRUE(fe != NULL && fe->is_flags_set(FlowEntry::ShortFlow) == true);
 
     DeleteVmportEnv(input, 1, false);
     client->WaitForIdle();

@@ -244,8 +244,14 @@ static void Setup() {
     AddFloatingIpPool("fip-pool1", 1);
     AddFloatingIp("fip1", 1, "2.1.1.100");
     AddLink("floating-ip", "fip1", "floating-ip-pool", "fip-pool1");
+    AddFloatingIp("fip_2", 2, "2.1.1.99");
+    AddLink("floating-ip", "fip_2", "floating-ip-pool", "fip-pool1");
     AddLink("floating-ip-pool", "fip-pool1", "virtual-network", "vn2");
     AddLink("virtual-machine-interface", "vnet1", "floating-ip", "fip1");
+    AddFloatingIpPool("fip-pool2", 2);
+    AddFloatingIp("fip_3", 3, "3.1.1.100");
+    AddLink("floating-ip", "fip_3", "floating-ip-pool", "fip-pool2");
+    AddLink("floating-ip-pool", "fip-pool2", "virtual-network", "vn3");
     client->WaitForIdle();
 
     EXPECT_TRUE(vnet[1]->HasFloatingIp());
@@ -287,6 +293,22 @@ static void Setup() {
                                       SecurityGroupList(), 0);
     client->WaitForIdle();
     EXPECT_TRUE(RouteFind("vn2:vn2", addr, 32));
+
+    /* Add Remote /24 route of vrf3 to vrf2 */
+    addr = Ip4Address::from_string("20.1.1.0");
+    vnet_table[2]->AddRemoteVmRouteReq(NULL, "vn2:vn2", addr, 24, gw,
+                                       TunnelType::AllType(), 8, "vn3",
+                                       SecurityGroupList());
+    client->WaitForIdle();
+    EXPECT_TRUE(RouteFind("vn2:vn2", addr, 24));
+
+    /* Add Remote /24 route of vrf3 to vrf2 */
+    addr = Ip4Address::from_string("20.1.1.0");
+    vnet_table[3]->AddRemoteVmRouteReq(NULL, "vrf3", addr, 24, gw,
+                                       TunnelType::AllType(), 8, "vn2",
+                                       SecurityGroupList());
+    client->WaitForIdle();
+    EXPECT_TRUE(RouteFind("vrf3", addr, 24));
 
     /* Add Remote VM route in vrf1 from vrf2 */
     addr = Ip4Address::from_string("2.1.1.11");
@@ -993,9 +1015,66 @@ TEST_F(FlowTest, Fip_preference_over_policy) {
     vnet_table[1]->DeleteReq(NULL, "vrf1", addr, 32);
     client->WaitForIdle();
 
-    // since floating IP should be prefferec deleteing the route should
+    // since floating IP should be preffered deleteing the route should
     // not remove flow entries.
     EXPECT_EQ(2U, Agent::GetInstance()->pkt()->flow_table()->Size());
+}
+
+TEST_F(FlowTest, Prefer_policy_over_fip_LPM_find) {
+    Ip4Address addr = Ip4Address::from_string("20.1.1.1");
+    Ip4Address gw = Ip4Address::from_string("10.1.1.2");
+    vnet_table[1]->AddRemoteVmRouteReq(NULL, "vrf1", addr, 32, gw,
+                                       TunnelType::AllType(), 8, "vn2",
+                                       SecurityGroupList());
+    client->WaitForIdle();
+    TxUdpPacket(vnet[1]->id(), vnet_addr[1], "20.1.1.1", 10, 20, 1, 1);
+    client->WaitForIdle();
+    EXPECT_EQ(2U, Agent::GetInstance()->pkt()->flow_table()->Size());
+
+    vnet_table[1]->DeleteReq(NULL, "vrf1", addr, 32);
+    client->WaitForIdle();
+
+    // since policy leaked route should be preffered deleteing the route should
+    // remove flow entries.
+    EXPECT_EQ(0U, Agent::GetInstance()->pkt()->flow_table()->Size());
+}
+
+TEST_F(FlowTest, Prefer_fip2_over_fip1_lower_addr) {
+    AddLink("virtual-machine-interface", "vnet1", "floating-ip", "fip_2");
+    client->WaitForIdle();
+    TxUdpPacket(vnet[1]->id(), vnet_addr[1], "20.1.1.1", 10, 20, 1, 1);
+    client->WaitForIdle();
+    EXPECT_EQ(2U, Agent::GetInstance()->pkt()->flow_table()->Size());
+
+    DelLink("virtual-machine-interface", "vnet1", "floating-ip", "fip_2");
+    client->WaitForIdle();
+
+    // since fip2 route should be preffered removing association of fip2 should
+    // remove flow entries.
+    EXPECT_EQ(0U, Agent::GetInstance()->pkt()->flow_table()->Size());
+}
+
+TEST_F(FlowTest, Prefer_fip2_over_fip3_lower_addr) {
+    AddLink("virtual-machine-interface", "vnet1", "floating-ip", "fip_2");
+    AddLink("virtual-machine-interface", "vnet1", "floating-ip", "fip_3");
+    client->WaitForIdle();
+    TxUdpPacket(vnet[1]->id(), vnet_addr[1], "20.1.1.1", 10, 20, 1, 1);
+    client->WaitForIdle();
+    EXPECT_EQ(2U, Agent::GetInstance()->pkt()->flow_table()->Size());
+
+    DelLink("virtual-machine-interface", "vnet1", "floating-ip", "fip_3");
+    client->WaitForIdle();
+
+    // since fip2 route should be preffered removing association of fip3 should
+    // not remove flow entries.
+    EXPECT_EQ(2U, Agent::GetInstance()->pkt()->flow_table()->Size());
+
+    DelLink("virtual-machine-interface", "vnet1", "floating-ip", "fip_2");
+    client->WaitForIdle();
+
+    // since fip2 route should be preffered removing association of fip2 should
+    // remove flow entries.
+    EXPECT_EQ(0U, Agent::GetInstance()->pkt()->flow_table()->Size());
 }
 
 int main(int argc, char *argv[]) {

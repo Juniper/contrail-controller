@@ -533,8 +533,10 @@ void PktFlowInfo::FloatingIpSNat(const PktInfo *pkt, PktControlInfo *in,
         static_cast<const VmInterface *>(in->intf_);
     const VmInterface::FloatingIpSet &fip_list = intf->floating_ip_list().list_;
     VmInterface::FloatingIpSet::const_iterator it = fip_list.begin();
+    VmInterface::FloatingIpSet::const_iterator it_h = fip_list.end();
     FlowTable *ftable = Agent::GetInstance()->pkt()->flow_table();
     const Inet4UnicastRouteEntry *rt = out->rt_;
+    bool change = false;
     // Find Floating-IP matching destination-ip
     for ( ; it != fip_list.end(); ++it) {
         if (it->vrf_.get() == NULL) {
@@ -544,8 +546,32 @@ void PktFlowInfo::FloatingIpSNat(const PktInfo *pkt, PktControlInfo *in,
         const Inet4UnicastRouteEntry *rt_match = ftable->GetUcRoute(it->vrf_.get(),
                 Ip4Address(pkt->ip_daddr));
         if (rt_match != NULL) {
-            out->rt_ = rt_match;
-            break;
+            // found the route match
+            if (out->rt_ == NULL || rt_match->plen() > out->rt_->plen()) {
+                // previous route was not there or current route match
+                // is better than the previously found route.
+                change = true;
+            } else if (rt_match->plen() == out->rt_->plen()) {
+                // prefix length is same
+                if (it_h == fip_list.end()) {
+                    // prefer fip over policy leaked route
+                    change = true;
+                } else if (rt_match->vrf()->GetName() < out->rt_->vrf()->GetName()) {
+                    // choose the route with lower vrf name
+                    change = true;
+                } else if (rt_match->vrf()->GetName() == out->rt_->vrf()->GetName() &&
+                        it->floating_ip_ < it_h->floating_ip_) {
+                    // if more than one floating ip is allocated from
+                    // the same vrf, take the one with lower IP addr.
+                    change = true;
+                }
+            }
+
+            if (change) {
+                out->rt_ = rt_match;
+                it_h = it;
+                change = false;
+            }
         }
     }
 
@@ -561,20 +587,20 @@ void PktFlowInfo::FloatingIpSNat(const PktInfo *pkt, PktControlInfo *in,
 
     // Floating-ip found. We will change src-ip to floating-ip. Recompute route
     // for new source-ip. All policy decisions will be based on this new route
-    in->rt_ = ftable->GetUcRoute(it->vrf_.get(), it->floating_ip_);
+    in->rt_ = ftable->GetUcRoute(it_h->vrf_.get(), it_h->floating_ip_);
     if (in->rt_ == NULL) {
         return;
     }
 
-    dest_vrf = it->vrf_.get()->vrf_id();
-    in->vn_ = it->vn_.get();
+    dest_vrf = it_h->vrf_.get()->vrf_id();
+    in->vn_ = it_h->vn_.get();
     // Source-VN for policy processing is based on floating-ip VN
     // Dest-VN will be based on out->rt_ and computed below
-    source_vn = &(it->vn_.get()->GetName());
+    source_vn = &(it_h->vn_.get()->GetName());
 
     // Setup reverse flow to translate sip.
     nat_done = true;
-    nat_ip_saddr = it->floating_ip_.to_ulong();
+    nat_ip_saddr = it_h->floating_ip_.to_ulong();
     nat_ip_daddr = pkt->ip_daddr;
     nat_sport = pkt->sport;
     nat_dport = pkt->dport;
