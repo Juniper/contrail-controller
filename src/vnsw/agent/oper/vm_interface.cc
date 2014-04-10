@@ -821,7 +821,11 @@ void VmInterface::ApplyConfig(bool old_ipv4_active, bool old_l2_active, bool old
     bool force_update = sg_changed;
     bool policy_change = (policy_enabled_ != old_policy);
 
-    UpdateMulticastNextHop(old_ipv4_active, old_l2_active);
+    if (ipv4_active_ == true || l2_active_ == true) {
+        UpdateMulticastNextHop(old_ipv4_active, old_l2_active);
+    } else {
+        DeleteMulticastNextHop();
+    }
 
     //Irrespective of interface state, if ipv4 forwarding mode is enabled
     //enable L3 services on this interface
@@ -853,10 +857,6 @@ void VmInterface::ApplyConfig(bool old_ipv4_active, bool old_l2_active, bool old
         } else {
             SendTrace(DEACTIVATED_L2);
         }
-    }
-
-    if (ipv4_active_ == false && l2_active_ == false) {
-        DeleteMulticastNextHop();
     }
 
     if (old_ipv4_active != ipv4_active_) {
@@ -1091,6 +1091,7 @@ void VmInterface::DeleteL3TunnelId() {
     DeleteL3MplsLabel();
 }
 
+//Check if interface transitioned from inactive to active layer 2 forwarding
 bool VmInterface::L2Activated(bool old_l2_active) {
     if (old_l2_active == false && l2_active_ == true) {
         return true;
@@ -1098,6 +1099,7 @@ bool VmInterface::L2Activated(bool old_l2_active) {
     return false;
 }
 
+//Check if interface transitioned from inactive to active IP forwarding
 bool VmInterface::L3Activated(bool old_ipv4_active) {
     if (old_ipv4_active == false && ipv4_active_ == true) {
         return true;
@@ -1105,6 +1107,7 @@ bool VmInterface::L3Activated(bool old_ipv4_active) {
     return false;
 }
 
+//Check if interface transitioned from active layer2 forwarding to inactive state
 bool VmInterface::L2Deactivated(bool old_l2_active) {
     if (old_l2_active == true && l2_active_ == false) {
         return true;
@@ -1112,6 +1115,7 @@ bool VmInterface::L2Deactivated(bool old_l2_active) {
     return false;
 }
 
+//Check if interface transitioned from active IP forwarding to inactive state
 bool VmInterface::L3Deactivated(bool old_ipv4_active) {
     if (old_ipv4_active == true && ipv4_active_ == false) {
         return true;
@@ -1155,9 +1159,7 @@ void VmInterface::DeleteL3NextHop(bool old_l3_active) {
 }
 
 void VmInterface::DeleteMulticastNextHop() {
-    if (ipv4_active_ == false && l2_active_ == false) {
-        InterfaceNH::DeleteMulticastVmInterfaceNH(GetUuid());
-    }
+    InterfaceNH::DeleteMulticastVmInterfaceNH(GetUuid());
 }
 
 // Add/Update route. Delete old route if VRF or address changed

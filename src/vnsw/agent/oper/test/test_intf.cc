@@ -1105,7 +1105,7 @@ TEST_F(IntfTest, VmPortFloatingIpDelete_1) {
 
 //Delete the config node for interface, and verify interface NH are deleted
 //Add the config node and verify the interface NH are readded
-TEST_F(IntfTest, IntfActivateDeactivate) {
+TEST_F(IntfTest, IntfActivateDeactivate_1) {
     struct PortInfo input[] = {
         {"vnet1", 1, "1.1.1.10", "00:00:00:01:01:01", 1, 1},
     };
@@ -1162,6 +1162,256 @@ TEST_F(IntfTest, IntfActivateDeactivate) {
     EXPECT_FALSE(VrfFind("vrf1", true));
 }
 
+//1> Deactivate the interface by deleting the link to vrf,
+//   verify nexthop get deleted.
+//2> Reactivate the interface by adding the link to vrf,
+//   verify nexthop get added
+TEST_F(IntfTest, IntfActivateDeactivate_2) {
+    struct PortInfo input[] = {
+        {"vnet1", 1, "1.1.1.10", "00:00:00:01:01:01", 1, 1},
+    };
+
+    client->Reset();
+    CreateVmportEnv(input, 1);
+    client->WaitForIdle();
+    EXPECT_TRUE(VmPortActive(input, 0));
+
+    uuid intf_uuid = MakeUuid(1);
+    VmInterfaceKey *intf_key1 = new VmInterfaceKey(AgentKey::RESYNC, intf_uuid, "");
+    VmInterfaceKey *intf_key2 = new VmInterfaceKey(AgentKey::RESYNC, intf_uuid, "");
+    VmInterfaceKey *intf_key3 = new VmInterfaceKey(AgentKey::RESYNC, intf_uuid, "");
+    VmInterfaceKey *intf_key4 = new VmInterfaceKey(AgentKey::RESYNC, intf_uuid, "");
+    VmInterfaceKey *intf_key5 = new VmInterfaceKey(AgentKey::RESYNC, intf_uuid, "");
+
+    InterfaceNHKey unicast_nh_key(intf_key1, false, InterfaceNHFlags::INET4);
+    InterfaceNHKey unicast_policy_nh_key(intf_key2, true, InterfaceNHFlags::INET4);
+    InterfaceNHKey multicast_nh_key(intf_key3, false, InterfaceNHFlags::MULTICAST);
+    InterfaceNHKey layer2_nh_key(intf_key4, false, InterfaceNHFlags::LAYER2);
+    InterfaceNHKey layer2_policy_nh_key(intf_key5, true, InterfaceNHFlags::LAYER2);
+
+    client->WaitForIdle();
+    EXPECT_TRUE(FindNH(&unicast_nh_key));
+    EXPECT_TRUE(FindNH(&unicast_policy_nh_key));
+    EXPECT_TRUE(FindNH(&multicast_nh_key));
+    EXPECT_TRUE(FindNH(&layer2_nh_key));
+    EXPECT_TRUE(FindNH(&layer2_policy_nh_key));
+
+    //Deactivate the interface
+    DelLink("virtual-machine-interface-routing-instance", input[0].name,
+            "routing-instance", "vrf1");
+    client->WaitForIdle();
+    EXPECT_FALSE(FindNH(&unicast_nh_key));
+    EXPECT_FALSE(FindNH(&unicast_policy_nh_key));
+    EXPECT_FALSE(FindNH(&multicast_nh_key));
+    EXPECT_FALSE(FindNH(&layer2_nh_key));
+    EXPECT_FALSE(FindNH(&layer2_policy_nh_key));
+
+    //Activate the interface
+    AddLink("virtual-machine-interface-routing-instance", input[0].name,
+            "routing-instance", "vrf1");
+    client->WaitForIdle();
+    EXPECT_TRUE(FindNH(&unicast_nh_key));
+    EXPECT_TRUE(FindNH(&unicast_policy_nh_key));
+    EXPECT_TRUE(FindNH(&multicast_nh_key));
+    EXPECT_TRUE(FindNH(&layer2_nh_key));
+    EXPECT_TRUE(FindNH(&layer2_policy_nh_key));
+
+    DeleteVmportEnv(input, 1, true);
+    client->WaitForIdle();
+    EXPECT_FALSE(FindNH(&unicast_nh_key));
+    EXPECT_FALSE(FindNH(&unicast_policy_nh_key));
+    EXPECT_FALSE(FindNH(&multicast_nh_key));
+    EXPECT_FALSE(FindNH(&layer2_nh_key));
+    EXPECT_FALSE(FindNH(&layer2_policy_nh_key));
+    EXPECT_FALSE(VrfFind("vrf1", true));
+}
+
+//1> Add interface with layer2 forwarding disabled(no VN present)
+//   and verify layer2 nexthops are absent
+//2> Activate layer2 forwarding of interface by changing forward mode in VN
+//   verify layer 2 nexthop are added
+//3> Activate both layer 2 and layer 3 forwarding, and verify both layer2 and 
+//   layer3 nexthop are present
+//4> Delete the interface , and verify all nexthop are deleted
+TEST_F(IntfTest, IntfActivateDeactivate_3) {
+    struct PortInfo input[] = {
+        {"vnet1", 1, "1.1.1.10", "00:00:00:01:01:01", 1, 1},
+    };
+
+    client->Reset();
+    CreateL2VmportEnv(input, 1);
+    client->WaitForIdle();
+
+    uuid intf_uuid = MakeUuid(1);
+    VmInterfaceKey *intf_key1 = new VmInterfaceKey(AgentKey::RESYNC, intf_uuid, "");
+    VmInterfaceKey *intf_key2 = new VmInterfaceKey(AgentKey::RESYNC, intf_uuid, "");
+    VmInterfaceKey *intf_key3 = new VmInterfaceKey(AgentKey::RESYNC, intf_uuid, "");
+    VmInterfaceKey *intf_key4 = new VmInterfaceKey(AgentKey::RESYNC, intf_uuid, "");
+    VmInterfaceKey *intf_key5 = new VmInterfaceKey(AgentKey::RESYNC, intf_uuid, "");
+
+    InterfaceNHKey unicast_nh_key(intf_key1, false, InterfaceNHFlags::INET4);
+    InterfaceNHKey unicast_policy_nh_key(intf_key2, true, InterfaceNHFlags::INET4);
+    InterfaceNHKey multicast_nh_key(intf_key3, false, InterfaceNHFlags::MULTICAST);
+    InterfaceNHKey layer2_nh_key(intf_key4, false, InterfaceNHFlags::LAYER2);
+    InterfaceNHKey layer2_policy_nh_key(intf_key5, true, InterfaceNHFlags::LAYER2);
+
+    client->WaitForIdle();
+    EXPECT_FALSE(FindNH(&unicast_nh_key));
+    EXPECT_FALSE(FindNH(&unicast_policy_nh_key));
+    EXPECT_FALSE(FindNH(&multicast_nh_key));
+    EXPECT_FALSE(FindNH(&layer2_nh_key));
+    EXPECT_FALSE(FindNH(&layer2_policy_nh_key));
+
+    //Add L2 VN
+    client->Reset();
+    AddL2Vn("vn1", 1);
+    AddVrf("vrf1");
+    AddLink("virtual-network", "vn1", "routing-instance", "vrf1");
+    client->WaitForIdle();
+    EXPECT_FALSE(FindNH(&unicast_nh_key));
+    EXPECT_FALSE(FindNH(&unicast_policy_nh_key));
+    EXPECT_TRUE(FindNH(&multicast_nh_key));
+    EXPECT_TRUE(FindNH(&layer2_nh_key));
+    EXPECT_TRUE(FindNH(&layer2_policy_nh_key));
+
+    //Activate ip forwarding of interface
+    AddVn("vn1", 1);
+    client->WaitForIdle();
+    EXPECT_TRUE(FindNH(&unicast_nh_key));
+    EXPECT_TRUE(FindNH(&unicast_policy_nh_key));
+    EXPECT_TRUE(FindNH(&multicast_nh_key));
+    EXPECT_TRUE(FindNH(&layer2_nh_key));
+    EXPECT_TRUE(FindNH(&layer2_policy_nh_key));
+
+    DeleteVmportEnv(input, 1, true);
+    client->WaitForIdle();
+    EXPECT_FALSE(FindNH(&unicast_nh_key));
+    EXPECT_FALSE(FindNH(&unicast_policy_nh_key));
+    EXPECT_FALSE(FindNH(&multicast_nh_key));
+    EXPECT_FALSE(FindNH(&layer2_nh_key));
+    EXPECT_FALSE(FindNH(&layer2_policy_nh_key));
+    EXPECT_FALSE(VrfFind("vrf1", true));
+}
+
+//1> Deactivate layer3 forwarding of interface by changing forward mode in VN
+//   verify layer 3 nexthop are deleted
+//2> Activate both layer 2 and layer 3 forwarding, and verify both layer2 and 
+//   layer3 nexthop are present
+//3> Delete the interface , and verify all nexthop are deleted
+TEST_F(IntfTest, IntfActivateDeactivate_4) {
+    struct PortInfo input[] = {
+        {"vnet1", 1, "1.1.1.10", "00:00:00:01:01:01", 1, 1},
+    };
+
+    client->Reset();
+    CreateVmportEnv(input, 1);
+    client->WaitForIdle();
+
+    uuid intf_uuid = MakeUuid(1);
+    VmInterfaceKey *intf_key1 = new VmInterfaceKey(AgentKey::RESYNC, intf_uuid, "");
+    VmInterfaceKey *intf_key2 = new VmInterfaceKey(AgentKey::RESYNC, intf_uuid, "");
+    VmInterfaceKey *intf_key3 = new VmInterfaceKey(AgentKey::RESYNC, intf_uuid, "");
+    VmInterfaceKey *intf_key4 = new VmInterfaceKey(AgentKey::RESYNC, intf_uuid, "");
+    VmInterfaceKey *intf_key5 = new VmInterfaceKey(AgentKey::RESYNC, intf_uuid, "");
+
+    InterfaceNHKey unicast_nh_key(intf_key1, false, InterfaceNHFlags::INET4);
+    InterfaceNHKey unicast_policy_nh_key(intf_key2, true, InterfaceNHFlags::INET4);
+    InterfaceNHKey multicast_nh_key(intf_key3, false, InterfaceNHFlags::MULTICAST);
+    InterfaceNHKey layer2_nh_key(intf_key4, false, InterfaceNHFlags::LAYER2);
+    InterfaceNHKey layer2_policy_nh_key(intf_key5, true, InterfaceNHFlags::LAYER2);
+
+    client->WaitForIdle();
+    EXPECT_TRUE(FindNH(&unicast_nh_key));
+    EXPECT_TRUE(FindNH(&unicast_policy_nh_key));
+    EXPECT_TRUE(FindNH(&multicast_nh_key));
+    EXPECT_TRUE(FindNH(&layer2_nh_key));
+    EXPECT_TRUE(FindNH(&layer2_policy_nh_key));
+
+    //Add L2 VN
+    client->Reset();
+    AddL2Vn("vn1", 1);
+    AddVrf("vrf1");
+    AddLink("virtual-network", "vn1", "routing-instance", "vrf1");
+    client->WaitForIdle();
+    EXPECT_FALSE(FindNH(&unicast_nh_key));
+    EXPECT_FALSE(FindNH(&unicast_policy_nh_key));
+    EXPECT_TRUE(FindNH(&multicast_nh_key));
+    EXPECT_TRUE(FindNH(&layer2_nh_key));
+    EXPECT_TRUE(FindNH(&layer2_policy_nh_key));
+
+    //Activate ip forwarding of interface
+    AddVn("vn1", 1);
+    client->WaitForIdle();
+    EXPECT_TRUE(FindNH(&unicast_nh_key));
+    EXPECT_TRUE(FindNH(&unicast_policy_nh_key));
+    EXPECT_TRUE(FindNH(&multicast_nh_key));
+    EXPECT_TRUE(FindNH(&layer2_nh_key));
+    EXPECT_TRUE(FindNH(&layer2_policy_nh_key));
+
+    DeleteVmportEnv(input, 1, true);
+    client->WaitForIdle();
+    EXPECT_FALSE(FindNH(&unicast_nh_key));
+    EXPECT_FALSE(FindNH(&unicast_policy_nh_key));
+    EXPECT_FALSE(FindNH(&multicast_nh_key));
+    EXPECT_FALSE(FindNH(&layer2_nh_key));
+    EXPECT_FALSE(FindNH(&layer2_policy_nh_key));
+    EXPECT_FALSE(VrfFind("vrf1", true));
+}
+
+//1> Create interface without IP, make layer2 nexthop are present and
+//   layer3 nexthop are absent
+//2> Add instance IP and make sure layer3 nexthop are added
+//3> Delete instance ip and layer3 nexthop are deleted
+TEST_F(IntfTest, IntfActivateDeactivate_5) {
+    struct PortInfo input[] = {
+        {"vnet1", 1, "0.0.0.0", "00:00:00:01:01:01", 1, 1},
+    };
+
+    client->Reset();
+    CreateVmportEnvWithoutIp(input, 1);
+    client->WaitForIdle();
+
+    uuid intf_uuid = MakeUuid(1);
+    VmInterfaceKey *intf_key1 = new VmInterfaceKey(AgentKey::RESYNC, intf_uuid, "");
+    VmInterfaceKey *intf_key2 = new VmInterfaceKey(AgentKey::RESYNC, intf_uuid, "");
+    VmInterfaceKey *intf_key3 = new VmInterfaceKey(AgentKey::RESYNC, intf_uuid, "");
+    VmInterfaceKey *intf_key4 = new VmInterfaceKey(AgentKey::RESYNC, intf_uuid, "");
+    VmInterfaceKey *intf_key5 = new VmInterfaceKey(AgentKey::RESYNC, intf_uuid, "");
+
+    InterfaceNHKey unicast_nh_key(intf_key1, false, InterfaceNHFlags::INET4);
+    InterfaceNHKey unicast_policy_nh_key(intf_key2, true, InterfaceNHFlags::INET4);
+    InterfaceNHKey multicast_nh_key(intf_key3, false, InterfaceNHFlags::MULTICAST);
+    InterfaceNHKey layer2_nh_key(intf_key4, false, InterfaceNHFlags::LAYER2);
+    InterfaceNHKey layer2_policy_nh_key(intf_key5, true, InterfaceNHFlags::LAYER2);
+
+    client->WaitForIdle();
+    EXPECT_FALSE(FindNH(&unicast_nh_key));
+    EXPECT_FALSE(FindNH(&unicast_policy_nh_key));
+    EXPECT_TRUE(FindNH(&multicast_nh_key));
+    EXPECT_TRUE(FindNH(&layer2_nh_key));
+    EXPECT_TRUE(FindNH(&layer2_policy_nh_key));
+
+    //Add instance ip
+    AddInstanceIp("instance1", input[0].vm_id, "1.1.1.10");
+    AddLink("virtual-machine-interface", input[0].name,
+            "instance-ip", "instance1");
+    client->Reset();
+    client->WaitForIdle();
+    EXPECT_TRUE(FindNH(&unicast_nh_key));
+    EXPECT_TRUE(FindNH(&unicast_policy_nh_key));
+    EXPECT_TRUE(FindNH(&multicast_nh_key));
+    EXPECT_TRUE(FindNH(&layer2_nh_key));
+    EXPECT_TRUE(FindNH(&layer2_policy_nh_key));
+
+    DeleteVmportEnv(input, 1, true);
+    client->WaitForIdle();
+    EXPECT_FALSE(FindNH(&unicast_nh_key));
+    EXPECT_FALSE(FindNH(&unicast_policy_nh_key));
+    EXPECT_FALSE(FindNH(&multicast_nh_key));
+    EXPECT_FALSE(FindNH(&layer2_nh_key));
+    EXPECT_FALSE(FindNH(&layer2_policy_nh_key));
+    EXPECT_FALSE(VrfFind("vrf1", true));
+}
 
 TEST_F(IntfTest, VmPortServiceVlanDelete_1) {
     struct PortInfo input[] = {
