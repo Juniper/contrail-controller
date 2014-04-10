@@ -50,6 +50,8 @@ const std::string Agent::link_local_vrf_name_ =
     "default-domain:default-project:__link_local__:__link_local__";
 const uint8_t Agent::vrrp_mac_[] = {0x00, 0x00, 0x5E, 0x00, 0x01, 0x00};
 const std::string Agent::bcast_mac_ = "FF:FF:FF:FF:FF:FF";
+const std::string Agent::config_file_ = "/etc/contrail/vnswad.conf";
+const std::string Agent::log_file_ = "/var/log/contrail/vrouter.log";
 
 Agent *Agent::singleton_;
 

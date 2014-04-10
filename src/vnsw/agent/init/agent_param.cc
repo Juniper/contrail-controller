@@ -9,16 +9,14 @@
  * - Parameters
  */
 
-#include <iostream>
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <sys/resource.h>
 #include <unistd.h>
+#include <iostream>
 
-#include <sys/stat.h>
-
-#include <boost/property_tree/ptree.hpp>
-#include <boost/property_tree/xml_parser.hpp>
+#include <boost/property_tree/ini_parser.hpp>
+#include <boost/algorithm/string.hpp>
 #include <boost/foreach.hpp>
 #include <boost/program_options.hpp>
 
@@ -31,16 +29,40 @@
 #include <cmn/agent_cmn.h>
 #include <init/agent_param.h>
 #include <vgw/cfg_vgw.h>
-
 #include <uve/agent_stats_collector.h>
 #include <uve/flow_stats_collector.h>
+
 
 using namespace std;
 using namespace boost::property_tree;
 using boost::optional;
 namespace opt = boost::program_options;
 
-static bool GetIpAddress(const string &str, Ip4Address *addr) {
+template <typename ValueType>
+bool AgentParam::GetOptValue
+    (const boost::program_options::variables_map &var_map, ValueType &var, 
+     const std::string &val) {
+    // Check if the value is present.
+    if (var_map.count(val)) {
+        var = var_map[val].as<ValueType>();
+        return true;
+    }
+    return false;
+}
+
+template <typename ValueType>
+bool AgentParam::GetValueFromTree(ValueType &var, const std::string &val) {
+
+    optional<ValueType> opt;
+
+    if (opt = tree_.get_optional<ValueType>(val)) {
+        var = opt.get();
+        return true;
+    } 
+    return false;
+}
+
+bool AgentParam::GetIpAddress(const string &str, Ip4Address *addr) {
     boost::system::error_code ec;
     Ip4Address tmp = Ip4Address::from_string(str, ec);
     if (ec.value() != 0) {
@@ -50,279 +72,231 @@ static bool GetIpAddress(const string &str, Ip4Address *addr) {
     return true;
 }
 
-static void ParseVHost(const ptree &tree, const string &config_file,
-                       AgentParam::PortInfo *port) {
-    try {
-        boost::system::error_code ec;
-        optional<string> opt_str;
+bool AgentParam::ParseServer(const string &key, Ip4Address *server) {
+    optional<string> opt_str;
+    if (opt_str = tree_.get_optional<string>(key)) {
+        Ip4Address addr;
+        if (GetIpAddress(opt_str.get(), &addr) == false) {
+            LOG(ERROR, "Error in config file <" << config_file_ 
+                    << ">. Error parsing IP address from <" 
+                    << opt_str.get() << ">");
+            return false;
 
-        if (opt_str = tree.get_optional<string>("config.agent.vhost.name")) {
-            port->name_ = opt_str.get();
-        } 
+        } else {
+            *server = addr;
+        }
+    }
+    return true;
+}
 
-        if (opt_str = tree.get_optional<string>("config.agent.vhost.ip-address")) {
-            ec = Ip4PrefixParse(opt_str.get(), &port->addr_, &port->plen_);
-            if (ec != 0 || port->plen_ >= 32) {
-                LOG(ERROR, "Error in config file <" << config_file 
+bool AgentParam::ParseIp(const string &ip_str, Ip4Address *server) {
+    Ip4Address addr;
+    if (GetIpAddress(ip_str, &addr) == false) {
+        LOG(ERROR, "Error in config file <" << config_file_ 
+                << ">. Error parsing address from <" << ip_str << ">");
+        return false;
+    } else {
+        *server = addr;
+        return true;
+    }
+}
+
+bool AgentParam::ParseServers(const string &key, Ip4Address *server1,
+                              Ip4Address *server2) {
+    optional<string> opt_str;
+    Ip4Address addr;
+    vector<string> tokens;
+    if (opt_str = tree_.get_optional<string>(key)) {
+        boost::split(tokens, opt_str.get(), boost::is_any_of(" "));
+        if (tokens.size() > 2) {
+            LOG(ERROR, "Error in config file <" << config_file_ 
+                    << ">. Cannot have more than 2 servers <" 
+                    << opt_str.get() << ">");
+            return false;
+        }
+        vector<string>::iterator it = tokens.begin();
+        if (it != tokens.end()) {
+            if (!ParseIp(*it, server1)) {
+                return false;
+            }
+            ++it;
+            if (it != tokens.end()) {
+                if (!ParseIp(*it, server2)) {
+                    return false;
+                }
+            }
+        }
+    }
+    return true;
+}
+
+void AgentParam::ParseIpArgument
+    (const boost::program_options::variables_map &var_map, Ip4Address &server,
+     const string &key) {
+
+    if (var_map.count(key)) {
+        Ip4Address addr;
+        if (GetIpAddress(var_map[key].as<string>(), &addr)) {
+            server = addr;
+        }
+    }
+}
+
+bool AgentParam::ParseIpArguments
+    (const boost::program_options::variables_map &var_map, Ip4Address &server1,
+     Ip4Address &server2, const string &key) {
+
+    if (var_map.count(key)) {
+        vector<string> value = var_map[key].as<vector<string> >();
+        if (value.size() > 2) {
+            LOG(ERROR, "Error in Arguments. Cannot have more than 2 servers "
+                    "for " << key );
+            return false;
+        }
+        vector<string>::iterator it = value.begin();
+        Ip4Address addr;
+        if (it !=  value.end()) {
+            if (GetIpAddress(*it, &addr)) {
+                server1 = addr;
+            }
+            ++it;
+            if (it != value.end()) {
+                if (GetIpAddress(*it, &addr)) {
+                    server2 = addr;
+                }
+            }
+        }
+    }
+    return true;
+}
+
+void AgentParam::ParseCollector() { 
+    ParseServer("COLLECTOR.server", &collector_);
+    GetValueFromTree<uint16_t>(collector_port_, "COLLECTOR.port");
+}
+
+void AgentParam::ParseVirtualHostInteface() { 
+    boost::system::error_code ec;
+    optional<string> opt_str;
+
+    GetValueFromTree<string>(vhost_.name_, "VIRTUAL-HOST-INTERFACE.name");
+
+    if (opt_str = tree_.get_optional<string>("VIRTUAL-HOST-INTERFACE.ip")) {
+        ec = Ip4PrefixParse(opt_str.get(), &vhost_.addr_, &vhost_.plen_);
+        if (ec != 0 || vhost_.plen_ >= 32) {
+            LOG(ERROR, "Error in config file <" << config_file_ 
                     << ">. Error parsing vhost ip-address from <" 
                     << opt_str.get() << ">");
-                return;
-            }
+            return;
         }
+    }
 
-        if (opt_str = tree.get_optional<string>("config.agent.vhost.gateway")) {
-            if (GetIpAddress(opt_str.get(), &port->gw_) == false) {
-                LOG(ERROR, "Error in config file <" << config_file 
+    if (opt_str = tree_.get_optional<string>("VIRTUAL-HOST-INTERFACE.gateway")) {
+        if (GetIpAddress(opt_str.get(), &vhost_.gw_) == false) {
+            LOG(ERROR, "Error in config file <" << config_file_ 
                     << ">. Error parsing vhost gateway address from <" 
                     << opt_str.get() << ">");
-            }
         }
-    } catch (exception &e) {
-        LOG(ERROR, "Error reading \"vhost\" node in config file <" 
-            << config_file << ">. Error <" << e.what() << ">");
-        return;
     }
+
+    GetValueFromTree<string>(eth_port_, 
+                             "VIRTUAL-HOST-INTERFACE.physical_interface");
 }
 
-static void ParseEthPort(const ptree &tree, const string &config_file,
-                         string *port) {
+void AgentParam::ParseDiscoveryServer() {
+    ParseServer("DISCOVERY.server", &dss_server_);
+    GetValueFromTree<uint16_t>(xmpp_instance_count_, 
+                               "DISCOVERY.max_control_nodes");
+}
+
+void AgentParam::ParseNetworks() {
+    ParseServer("NETWORKS.control_network_ip", &mgmt_ip_);
+}
+
+void AgentParam::ParseHypervisor() {
     optional<string> opt_str;
-    try {
-        if (opt_str = tree.get_optional<string>("config.agent.eth-port.name")) {
-            *port = opt_str.get();
-        }
-    } catch (exception &e) {
-        LOG(ERROR, "Error reading \"eth-port\" node in config file <"
-            << config_file << ">. Error <" << e.what() << ">");
-    }
-    return;
-}
+    if (opt_str = tree_.get_optional<string>("HYPERVISOR.type")) {
+        // Initialize mode to KVM. Will be overwritten for XEN later
+        mode_ = AgentParam::MODE_KVM;
 
-static void ParseXmppServer(ptree &tree, const string &config_file,
-                            Ip4Address *server1, Ip4Address *server2) {
-    BOOST_FOREACH(ptree::value_type &v,
-                  tree.get_child("config.agent")) {
-        optional<string> opt_str;
-        try {
-            if (v.first != "xmpp-server") {
-                continue;
-            }
+        if (opt_str.get() == "xen") {
+            mode_ = AgentParam::MODE_XEN;
+            GetValueFromTree<string>(xen_ll_.name_, 
+                                     "HYPERVISOR.xen_ll_interface");
 
-            if (opt_str = v.second.get<string>("ip-address")) {
-                Ip4Address addr;
-                if (GetIpAddress(opt_str.get(), &addr) == false) {
-                    LOG(ERROR, "Error in config file <" << config_file 
-                        << ">. Error parsing xmpp server address from <" 
-                        << opt_str.get() << ">");
-                    continue;
-                }
-                if (server1->to_ulong() == 0) {
-                    *server1 = addr;
-                } else if (server2->to_ulong() == 0) {
-                    *server2 = addr;
-                }
-            }
-        } catch (exception &e) {
-            LOG(ERROR, "Error reading \"xmpp-server\" node in config "
-                "file <" << config_file << ">. Error <" << e.what() << ">");
-            continue;
-        }
-
-    }
-}
-
-static void ParseDnsServer(ptree &tree, const string &config_file,
-                           Ip4Address *server1, Ip4Address *server2) {
-    BOOST_FOREACH(ptree::value_type &v,
-                  tree.get_child("config.agent")) {
-        optional<string> opt_str;
-        try {
-            if (v.first != "dns-server") {
-                continue;
-            }
-
-            if (opt_str = v.second.get<string>("ip-address")) {
-                Ip4Address addr;
-                if (GetIpAddress(opt_str.get(), &addr) == false) {
-                    LOG(ERROR, "Error in config file <" << config_file 
-                        << ">. Error parsing xmpp server address from <" 
-                        << opt_str.get() << ">");
-                    continue;
-                }
-                if (server1->to_ulong() == 0) {
-                    *server1 = addr;
-                } else if (server2->to_ulong() == 0) {
-                    *server2 = addr;
-                }
-            }
-        } catch (exception &e) {
-            LOG(ERROR, "Error reading \"dns-server\" node in config "
-                "file <" << config_file << ">. Error <" << e.what() << ">");
-            continue;
-        }
-
-    }
-}
-
-static void ParseDiscoveryServer(const ptree &node, const string &config_file,
-                                 Ip4Address *server, int *instances) {
-    try {
-        optional<string> opt_str;
-        if (opt_str = node.get_optional<string>
-            ("config.agent.discovery-server.ip-address")) {
-            if (GetIpAddress(opt_str.get(), server) == false) {
-                LOG(ERROR, "Error in config file <" << config_file 
-                    << ">. Error parsing discovery server address from <" 
-                    << opt_str.get() << ">");
-            }
-        }
-
-        optional<int> opt_int;
-        if (opt_int = node.get_optional<int>
-            ("config.agent.discovery-server.control-instances")) {
-            *instances = opt_int.get();
-        }
-    } catch (exception &e) {
-        LOG(ERROR, "Error reading \"discovery-server\" node in config "
-            "file <" << config_file << ">. Error <" << e.what() << ">");
-        return;
-    }
-}
-
-static void ParseControl(const ptree &node, const string &config_file,
-                         Ip4Address *server) {
-    try {
-        optional<string> opt_str;
-        if (opt_str = node.get_optional<string>
-            ("config.agent.control.ip-address")) {
-            if (GetIpAddress(opt_str.get(), server) == false) {
-                LOG(ERROR, "Error in config file <" << config_file 
-                    << ">. Error parsing vhost gateway address from <" 
-                    << opt_str.get() << ">");
-            }
-        }
-    } catch (exception &e) {
-        LOG(ERROR, "Error reading \"control stanza\" in config "
-            "file <" << config_file << ">. Error <" << e.what() << ">");
-        return;
-    }
-}
-
-static void ParseHypervisor(const ptree &node, const string &config_file, 
-                            AgentParam::Mode *mode,
-                            AgentParam::PortInfo *port,
-                            string *vmware_physical_port) {
-    try {
-        optional<string> opt_str;
-        if (opt_str = node.get_optional<string>
-            ("config.agent.hypervisor.<xmlattr>.mode")) {
-            // Initialize mode to KVM. Will be overwritten for XEN later
-            *mode = AgentParam::MODE_KVM;
-
-            if (opt_str.get() == "xen") {
-                *mode = AgentParam::MODE_XEN;
-                if (opt_str = node.get_optional<string>
-                    ("config.agent.hypervisor.xen-ll-port")) {
-                    port->name_ = opt_str.get();
-                }
-
-                boost::system::error_code ec;
-                if (opt_str = node.get_optional<string>
-                    ("config.agent.hypervisor.xen-ll-ip-address")) {
-                    ec = Ip4PrefixParse(opt_str.get(), &port->addr_,
-                                        &port->plen_);
-                    if (ec != 0 || port->plen_ >= 32) {
-                        LOG(ERROR, "Error in config file <" << config_file 
-                            << ">. Error parsing vhost ip-address from <" 
+            boost::system::error_code ec;
+            if (opt_str = tree_.get_optional<string>
+                    ("HYPERVISOR.xen_ll_ip")) {
+                ec = Ip4PrefixParse(opt_str.get(), &xen_ll_.addr_,
+                                    &xen_ll_.plen_);
+                if (ec != 0 || xen_ll_.plen_ >= 32) {
+                    LOG(ERROR, "Error in config file <" << config_file_ 
+                            << ">. Error parsing Xen Link-local ip-address from <" 
                             << opt_str.get() << ">");
-                        return;
-                    }
+                    return;
                 }
-            } else if (opt_str.get() == "vmware") {
-                *mode = AgentParam::MODE_VMWARE;
-                if (opt_str = node.get_optional<string>
-                    ("config.agent.hypervisor.port")) {
-                    *vmware_physical_port = opt_str.get();
-                }
-            } else {
-                *mode = AgentParam::MODE_KVM;
             }
-        }
-    } catch (exception &e) {
-        LOG(ERROR, "Error reading \"hypervisor\" node in config file <"
-            << config_file << ">. Error <" << e.what() << ">");
-    }
-}
-
-static void ParseTunnelType(const ptree &node, const string &config_file, 
-                            string *str) {
-    try {
-        optional<string> opt_str;
-        if (opt_str = node.get_optional<string> ("config.agent.tunnel-type")) {
-            *str = opt_str.get();
-        }
-    } catch (exception &e) {
-        LOG(ERROR, "Error reading \"tunnel-type\" node in config file <"
-            << config_file << ">. Error <" << e.what() << ">");
-    }
-
-    if ((*str != "MPLSoUDP") && (*str != "VXLAN"))
-        *str = "MPLSoGRE";
-}
-
-static void ParseMetadataProxy(const ptree &node, const string &config_file, 
-                               string *secret) {
-    try {
-        optional<string> opt_str;
-        if (opt_str = node.get_optional<string>
-                      ("config.agent.metadata-proxy.shared-secret")) {
-            *secret = opt_str.get();
-        }
-    } catch (exception &e) {
-        LOG(ERROR, "Error reading \"metadata-proxy\" node in config file <"
-            << config_file << ">. Error <" << e.what() << ">");
-    }
-}
-
-static void ParseLinklocalFlows(const ptree &node,
-                                const string &config_file, 
-                                uint32_t *max_system_flows,
-                                uint32_t *max_vm_flows) {
-    try {
-        optional<unsigned int> opt_str;
-        if (opt_str = node.get_optional<unsigned int>
-                      ("config.agent.linklocal-flows.max-system-flows")) {
-            *max_system_flows = opt_str.get();
+        } else if (opt_str.get() == "vmware") {
+            mode_ = AgentParam::MODE_VMWARE;
+            GetValueFromTree<string>(vmware_physical_port_, 
+                                     "HYPERVISOR.vmware_physical_interface");
         } else {
-            *max_system_flows = Agent::kDefaultMaxLinkLocalOpenFds;
+            mode_ = AgentParam::MODE_KVM;
         }
-        opt_str = boost::none;
-        if (opt_str = node.get_optional<unsigned int>
-                      ("config.agent.linklocal-flows.max-vm-flows")) {
-            *max_vm_flows = opt_str.get();
-        } else {
-            *max_vm_flows = Agent::kDefaultMaxLinkLocalOpenFds;
-        }
-    } catch (exception &e) {
-        LOG(ERROR, "Error reading \"linklocal-flows\" node in config file <"
-            << config_file << ">. Error <" << e.what() << ">");
     }
 }
 
-static void ParseFlowTimeout(const ptree &node,
-                             const string &config_file,
-                             uint32_t *flow_cache_timeout) {
-    try {
-        optional<unsigned int> opt_str;
-        if (opt_str = node.get_optional<unsigned int>
-                      ("config.agent.flow-cache.timeout")) {
-            *flow_cache_timeout = opt_str.get();
-        } else {
-            *flow_cache_timeout = Agent::kDefaultFlowCacheTimeout;
-        }
-    } catch (exception &e) {
-        LOG(ERROR, "Error reading \"flow-cache\" node in config file <"
-            << config_file << ">. Error <" << e.what() << ">");
+void AgentParam::ParseDefaultSection() { 
+    optional<string> opt_str;
+    optional<unsigned int> opt_uint;
+
+    if (!GetValueFromTree<uint16_t>(http_server_port_, 
+                                    "DEFAULT.http_server_port")) {
+        http_server_port_ = ContrailPorts::HttpPortAgent;
+    }
+
+    GetValueFromTree<string>(tunnel_type_, "DEFAULT.tunnel_type");
+    if ((tunnel_type_ != "MPLSoUDP") && (tunnel_type_ != "VXLAN"))
+        tunnel_type_ = "MPLSoGRE";
+
+    if (!GetValueFromTree<uint16_t>(flow_cache_timeout_, 
+                                    "DEFAULT.flow_cache_timeout")) {
+        flow_cache_timeout_ = Agent::kDefaultFlowCacheTimeout;
+    }
+    
+    GetValueFromTree<string>(host_name_, "DEFAULT.hostname");
+
+    if (!GetValueFromTree<string>(log_level_, "DEFAULT.log_level")) {
+        log_level_ = "SYS_DEBUG";
+    }
+    if (!GetValueFromTree<string>(log_file_, "DEFAULT.log_file")) {
+        log_file_ = Agent::DefaultLogFile();
+    }
+    GetValueFromTree<string>(log_category_, "DEFAULT.log_category");
+    unsigned int log_local = 0;
+    if (opt_uint = tree_.get_optional<unsigned int>("DEFAULT.log_local")) {
+        log_local = opt_uint.get();
+    }
+    if (log_local) {
+        log_local_ = true;
+    } else {
+        log_local_ = false;
+    }
+}
+
+void AgentParam::ParseMetadataProxy() { 
+    GetValueFromTree<string>(metadata_shared_secret_, 
+                             "METADATA.metadata_proxy_secret");
+}
+
+void AgentParam::ParseLinklocalFlows() {
+    if (!GetValueFromTree<uint16_t>(linklocal_system_flows_, 
+        "LINK-LOCAL.max_system_flows")) {
+        linklocal_system_flows_ = Agent::kDefaultMaxLinkLocalOpenFds;
+    }
+    if (!GetValueFromTree<uint16_t>(linklocal_vm_flows_, 
+        "LINK-LOCAL.max_vm_flows")) {
+        linklocal_vm_flows_ = Agent::kDefaultMaxLinkLocalOpenFds;
     }
 }
 
@@ -345,123 +319,106 @@ void AgentParam::InitFromSystem() {
 
 // Update agent parameters from config file
 void AgentParam::InitFromConfig() {
-    // Read the file
-    ifstream ifs(config_file_.c_str());
-    string str((istreambuf_iterator<char>(ifs) ),
-               (istreambuf_iterator<char>() ));
-    istringstream sstream(str);
-
-    // Read and parse XML
-    ptree tree;
+    // Read and parse INI
     try {
-        read_xml(sstream, tree, xml_parser::trim_whitespace);
+        read_ini(config_file_, tree_);
     } catch (exception &e) {
         LOG(ERROR, "Error reading config file <" << config_file_ 
-            << ">. XML format error??? <" << e.what() << ">");
+            << ">. INI format error??? <" << e.what() << ">");
         return;
     } 
 
-    // Look for config.agent node
-    ptree agent;
-    try {
-        agent = tree.get_child("config.agent");
-    } catch (exception &e) {
-        LOG(ERROR, config_file_ << " : Error reading \"agent\" node in config "
-            "file. Error <" << e.what() << ">");
-        return;
-    }
-
-    ParseVHost(tree, config_file_, &vhost_);
-    ParseEthPort(tree, config_file_, &eth_port_);
-    ParseXmppServer(tree, config_file_, &xmpp_server_1_, &xmpp_server_2_);
-    ParseDnsServer(tree, config_file_, &dns_server_1_, &dns_server_2_);
-    ParseDiscoveryServer(tree, config_file_, &dss_server_,
-                         &xmpp_instance_count_);
-    ParseControl(tree, config_file_, &mgmt_ip_);
-    ParseHypervisor(tree, config_file_, &mode_, &xen_ll_,
-                    &vmware_physical_port_);
-    ParseTunnelType(tree, config_file_, &tunnel_type_);
-    ParseMetadataProxy(tree, config_file_, &metadata_shared_secret_);
-    ParseLinklocalFlows(tree, config_file_, &linklocal_system_flows_,
-                        &linklocal_vm_flows_);
-    ParseFlowTimeout(tree, config_file_, &flow_cache_timeout_);
+    ParseCollector();
+    ParseVirtualHostInteface();
+    ParseServers("CONTROL-NODE.server", &xmpp_server_1_, &xmpp_server_2_);
+    ParseServers("DNS.server", &dns_server_1_, &dns_server_2_);
+    ParseDiscoveryServer();
+    ParseNetworks();
+    ParseHypervisor();
+    ParseDefaultSection();
+    ParseMetadataProxy();
+    ParseLinklocalFlows();
     LOG(DEBUG, "Config file <" << config_file_ << "> read successfully.");
     return;
 }
 
 void AgentParam::InitFromArguments
     (const boost::program_options::variables_map &var_map) {
+    boost::system::error_code ec;
 
-    if (var_map.count("log-local")) {
+    ParseIpArgument(var_map, collector_, "COLLECTOR.server");
+    GetOptValue<uint16_t>(var_map, collector_port_, "COLLECTOR.port");
+
+    ParseIpArguments(var_map, xmpp_server_1_, xmpp_server_2_, 
+                     "CONTROL-NODE.server");
+
+    GetOptValue<uint16_t>(var_map, flow_cache_timeout_, 
+                          "DEFAULT.flow_cache_timeout");
+    GetOptValue<string>(var_map, host_name_, "DEFAULT.hostname");
+    GetOptValue<uint16_t>(var_map, http_server_port_, 
+                          "DEFAULT.http_server_port");
+    GetOptValue<string>(var_map, log_category_, "DEFAULT.log-category");
+    GetOptValue<string>(var_map, log_file_, "DEFAULT.log_file");
+    GetOptValue<string>(var_map, log_level_, "DEFAULT.log_level");
+    if (var_map.count("DEFAULT.log_local")) {
         log_local_ = true;
     }
+    GetOptValue<string>(var_map, tunnel_type_, "DEFAULT.tunnel_type");
 
-    if (var_map.count("log-level")) {
-        log_level_ = var_map["log-level"].as<string>();
-    }
 
-    if (var_map.count("log-category")) {
-        log_category_ = var_map["log-category"].as<string>();
-    }
+    ParseIpArgument(var_map, dss_server_, "DISCOVERY.server");
+    GetOptValue<uint16_t>(var_map, xmpp_instance_count_, 
+                          "DISCOVERY.max_control_nodes");
 
-    if (var_map.count("collector")) {
-        Ip4Address addr;
-        if (GetIpAddress(var_map["collector"].as<string>(), &addr)) {
-            collector_ = addr;
-        }
-    }
+    ParseIpArguments(var_map, dns_server_1_, dns_server_2_, "DNS.server");
 
-    if (var_map.count("collector-port")) {
-        collector_port_ = var_map["collector-port"].as<int>();
-    }
-
-    if (var_map.count("http-server-port")) {
-        http_server_port_ = var_map["http-server-port"].as<int>();
-    }
-
-    if (var_map.count("host-name")) {
-        host_name_ = var_map["host-name"].as<string>().c_str();
-    }
-
-    if (var_map.count("log-file")) {
-        log_file_ = var_map["log-file"].as<string>();
-    }
-
-    if (var_map.count("hypervisor")) {
-        if (var_map["hypervisor"].as<string>() == "xen") {
+    if (var_map.count("HYPERVISOR.type")) {
+        if (var_map["HYPERVISOR.type"].as<string>() == "xen") {
             mode_ = AgentParam::MODE_XEN;
-        } else if (var_map["hypervisor"].as<string>() == "vmware") {
+            GetOptValue<string>(var_map, xen_ll_.name_, 
+                                "HYPERVISOR.xen_ll_interface");
+
+            if (var_map.count("HYPERVISOR.xen_ll_ip")) {
+                string ip = var_map["HYPERVISOR.xen_ll_ip"].as<string>();
+                ec = Ip4PrefixParse(ip, &xen_ll_.addr_, &xen_ll_.plen_);
+                if (ec != 0 || xen_ll_.plen_ >= 32) {
+                    LOG(ERROR, "Error in argument <" << config_file_ 
+                            << ">. Error parsing Xen Link-local ip-address from <" 
+                            << ip << ">");
+                    exit(EINVAL);
+                }
+            }
+        } else if (var_map["HYPERVISOR.type"].as<string>() == "vmware") {
             mode_ = AgentParam::MODE_VMWARE;
+            GetOptValue<string>(var_map, vmware_physical_port_, 
+                                "HYPERVISOR.vmware_physical_interface");
         } else {
             mode_ = AgentParam::MODE_KVM;
         }
     }
 
-    if (var_map.count("xen-ll-port")) {
-        xen_ll_.name_ = var_map["xen-ll-port"].as<string>();
-    }
+    GetOptValue<uint16_t>(var_map, linklocal_system_flows_, 
+                          "LINK-LOCAL.max_system_flows");
+    GetOptValue<uint16_t>(var_map, linklocal_vm_flows_, 
+                          "LINK-LOCAL.max_vm_flows");
 
-    if (var_map.count("xen-ll-ip-address")) {
-        Ip4Address addr;
-        if (!GetIpAddress(var_map["xen-ll-ip-address"].as<string>(), &addr)) {
-            LOG(ERROR, "Error parsing xen-ll-ip-address");
+    GetOptValue<string>(var_map, metadata_shared_secret_,
+                        "METADATA.metadata_proxy_secret");
+    ParseIpArgument(var_map, mgmt_ip_, "NETWORKS.control_network_ip");
+
+    GetOptValue<string>(var_map, vhost_.name_, "VIRTUAL-HOST-INTERFACE.name");
+    string ip;
+    if (GetOptValue<string>(var_map, ip, "VIRTUAL-HOST-INTERFACE.ip")) {
+        ec = Ip4PrefixParse(ip, &vhost_.addr_, &vhost_.plen_);
+        if (ec != 0 || vhost_.plen_ >= 32) {
+            LOG(ERROR, "Error parsing vhost ip argument from <" << ip << ">");
             exit(EINVAL);
         }
-        xen_ll_.addr_ = addr;
     }
+    ParseIpArgument(var_map, vhost_.gw_, "VIRTUAL-HOST-INTERFACE.gateway");
 
-    if (var_map.count("xen-ll-prefix-len")) {
-        xen_ll_.plen_ = var_map["xen-ll-prefix-len"].as<int>();
-        if (xen_ll_.plen_ <= 0 || xen_ll_.plen_ >= 32) {
-            LOG(ERROR, "Error parsing argument for xen-ll-prefix-len");
-            exit(EINVAL);
-        }
-    }
-
-    if (var_map.count("vmware-physical-port")) {
-        vmware_physical_port_ = var_map["vmware-physical-port"].as<string>();
-    }
-
+    GetOptValue<string>(var_map, eth_port_,
+                        "VIRTUAL-HOST-INTERFACE.physical_interface");
     return;
 }
 
@@ -588,7 +545,7 @@ void AgentParam::Init(const string &config_file, const string &program_name,
     InitFromArguments(var_map);
     InitVhostAndXenLLPrefix();
 
-    vgw_config_table_->Init(config_file.c_str());
+    vgw_config_table_->Init(tree_);
     ComputeLinkLocalFlowLimits();
 }
 
@@ -641,7 +598,7 @@ AgentParam::AgentParam() :
         collector_(), collector_port_(), http_server_port_(), host_name_(),
         agent_stats_interval_(AgentStatsCollector::AgentStatsInterval), 
         flow_stats_interval_(FlowStatsCollector::FlowStatsInterval),
-        vmware_physical_port_(""), test_mode_(false) {
+        vmware_physical_port_(""), test_mode_(false), tree_() {
     vgw_config_table_ = std::auto_ptr<VirtualGatewayConfigTable>
         (new VirtualGatewayConfigTable());
 }
