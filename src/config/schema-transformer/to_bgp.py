@@ -1475,6 +1475,8 @@ class ServiceChain(DictST):
 
     def process_transparent_service(self, vm_obj, sc_ip_address, service_ri1,
                                     service_ri2):
+        left_found = False
+        right_found = False
         vlan = VirtualNetworkST.allocate_service_chain_vlan(
             vm_obj.uuid, self.name)
         for interface in vm_obj.get_virtual_machine_interfaces() or []:
@@ -1488,6 +1490,7 @@ class ServiceChain(DictST):
                 return False
             ri_refs = if_obj.get_routing_instance_refs()
             if interface_type == 'left':
+                left_found = True
                 pbf = PolicyBasedForwardingRuleType()
                 pbf.set_direction('both')
                 pbf.set_vlan_tag(vlan)
@@ -1499,6 +1502,7 @@ class ServiceChain(DictST):
                     if_obj.add_routing_instance(service_ri1.obj, pbf)
                     _vnc_lib.virtual_machine_interface_update(if_obj)
             if interface_type == 'right' and self.direction == '<>':
+                right_found = True
                 pbf = PolicyBasedForwardingRuleType()
                 pbf.set_direction('both')
                 pbf.set_src_mac('02:00:00:00:00:02')
@@ -1509,11 +1513,13 @@ class ServiceChain(DictST):
                         [ref['to'] for ref in (ri_refs or [])]):
                     if_obj.add_routing_instance(service_ri2.obj, pbf)
                     _vnc_lib.virtual_machine_interface_update(if_obj)
-        return True
+        return left_found and (self.direction != '<>' or right_found)
     # end process_transparent_service
 
     def process_in_network_service(self, vm_obj, service, vn1_obj, vn2_obj,
                                    service_ri1, service_ri2):
+        left_found = False
+        right_found = False
         for interface in vm_obj.get_virtual_machine_interfaces() or []:
             if_obj = _vnc_lib.virtual_machine_interface_read(
                 id=interface['uuid'])
@@ -1536,6 +1542,7 @@ class ServiceChain(DictST):
 
             if interface_type == 'left':
                 if ip_obj:
+                    left_found = True
                     ip_addr = ip_obj.get_instance_ip_address()
                     service_ri1.add_service_info(vn2_obj, service, ip_addr,
                          vn1_obj.get_primary_routing_instance(
@@ -1547,6 +1554,7 @@ class ServiceChain(DictST):
             if (interface_type == 'right' and self.direction == '<>' and
                     not self.nat_service):
                 if ip_obj:
+                    right_found = True
                     ip_addr = ip_obj.get_instance_ip_address()
                     service_ri2.add_service_info(vn1_obj, service, ip_addr,
                          vn2_obj.get_primary_routing_instance(
@@ -1555,7 +1563,8 @@ class ServiceChain(DictST):
                     _sandesh._logger.debug(
                         "No ip address found for interface " + if_obj.name)
                     return False
-        return True
+        return left_found and (self.nat_service or self.direction != '<>' or
+                               right_found)
     # end process_in_network_service
 
     def destroy(self):
