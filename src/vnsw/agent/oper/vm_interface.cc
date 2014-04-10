@@ -894,7 +894,8 @@ bool VmInterface::ResyncIpAddress(const VmInterfaceIpAddressData *data) {
     bool ret = false;
 
     if (os_index_ == kInvalidIndex) {
-        GetOsParams(NULL);
+        InterfaceTable *table = static_cast<InterfaceTable *>(get_table());
+        GetOsParams(table->agent());
         if (os_index_ != kInvalidIndex)
             ret = true;
     }
@@ -928,10 +929,6 @@ void VmInterface::GetOsParams(Agent *agent) {
     }
 
     os_index_ = Interface::kInvalidIndex;
-    if (agent == NULL) {
-        InterfaceTable *table = static_cast<InterfaceTable *>(get_table());
-        agent = table->agent();
-    }
     memcpy(mac_.ether_addr_octet, agent->vrrp_mac(), ETHER_ADDR_LEN);
 }
 

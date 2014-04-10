@@ -449,164 +449,165 @@ int NHKSyncEntry::Encode(sandesh_op::type op, char *buf, int buf_len) {
 
     encoder.set_h_op(op);
     encoder.set_nhr_id(GetIndex());
-    /* For delete only NH-index is required */
-    if (op != sandesh_op::DELETE) {
-        encoder.set_nhr_rid(0);
-        encoder.set_nhr_vrf(vrf_id_);
-        encoder.set_nhr_family(AF_INET);
-        encoder.set_nhr_label(MplsTable::kInvalidLabel);
-        uint16_t flags = 0;
-        if (valid_) {
-            flags |= NH_FLAG_VALID;
-        }
-
-        if (policy_) {
-            flags |= NH_FLAG_POLICY_ENABLED;
-        }
-        if_ksync = interface();
-
-        switch (type_) {
-            case NextHop::VLAN:
-            case NextHop::ARP: 
-            case NextHop::INTERFACE : 
-                encoder.set_nhr_type(NH_ENCAP);
-                if (if_ksync) {
-                    intf_id = if_ksync->interface_id();
-                }
-                encoder.set_nhr_encap_oif_id(intf_id);
-                encoder.set_nhr_encap_family(ETH_P_ARP);
-
-                SetEncap(encap);
-                encoder.set_nhr_encap(encap);
-                encoder.set_nhr_tun_sip(0);
-                encoder.set_nhr_tun_dip(0);
-                if (is_layer2_) {
-                    flags |= 0x0004;
-                    encoder.set_nhr_family(AF_BRIDGE);
-                }
-                if (is_mcast_nh_) {
-                    flags |= 0x0020;
-                    encoder.set_nhr_flags(flags);
-                } 
-                break;
-
-            case NextHop::TUNNEL :
-                encoder.set_nhr_type(NH_TUNNEL);
-                encoder.set_nhr_tun_sip(htonl(sip_.s_addr));
-                encoder.set_nhr_tun_dip(htonl(dip_.s_addr));
-                encoder.set_nhr_encap_family(ETH_P_ARP);
-
-                if (if_ksync) {
-                    intf_id = if_ksync->interface_id();
-                }
-                encoder.set_nhr_encap_oif_id(intf_id);
-
-                SetEncap(encap);
-                encoder.set_nhr_encap(encap);
-                if (tunnel_type_.GetType() == TunnelType::MPLS_UDP) {
-                    flags |= NH_FLAG_TUNNEL_UDP_MPLS;
-                } else if (tunnel_type_.GetType() == TunnelType::MPLS_GRE) {
-                    flags |= NH_FLAG_TUNNEL_GRE;
-                } else {
-                    flags |= NH_FLAG_TUNNEL_VXLAN;
-                }
-                break;
-
-            case NextHop::MIRROR :
-                encoder.set_nhr_type(NH_TUNNEL);
-                encoder.set_nhr_tun_sip(htonl(sip_.s_addr));
-                encoder.set_nhr_tun_dip(htonl(dip_.s_addr));
-                encoder.set_nhr_tun_sport(htons(sport_));
-                encoder.set_nhr_tun_dport(htons(dport_));
-                encoder.set_nhr_encap_family(ETH_P_ARP);
-
-                if (if_ksync) {
-                    intf_id = if_ksync->interface_id();
-                }
-                encoder.set_nhr_encap_oif_id(intf_id);
-                SetEncap(encap);
-                encoder.set_nhr_encap(encap);
-                flags |= NH_FLAG_TUNNEL_UDP;
-                break;
-
-            case NextHop::DISCARD:
-                encoder.set_nhr_type(NH_DISCARD);
-                break;
-
-            case NextHop::RECEIVE:
-                if (!policy_) {
-                    flags |= NH_FLAG_RELAXED_POLICY;
-                }
-                intf_id = if_ksync->interface_id();
-                encoder.set_nhr_encap_oif_id(intf_id);
-                encoder.set_nhr_type(NH_RCV);
-                break;
-
-            case NextHop::RESOLVE:
-                encoder.set_nhr_type(NH_RESOLVE);
-                break;
-
-            case NextHop::VRF:
-                encoder.set_nhr_type(NH_VXLAN_VRF);
-                break;
-
-            case NextHop::COMPOSITE: 
-                {
-                    std::vector<int> sub_nh_id;
-                    std::vector<int> sub_label_list;
-                    encoder.set_nhr_type(NH_COMPOSITE);
-                    /* TODO encoding */
-                    encoder.set_nhr_tun_sip(htonl(sip_.s_addr));
-                    encoder.set_nhr_tun_dip(htonl(dip_.s_addr));
-                    encoder.set_nhr_encap_family(ETH_P_ARP);
-                    /* Proto encode in Network byte order */
-                    switch (comp_type_) {
-                        case Composite::FABRIC: 
-                            flags |= NH_FLAG_COMPOSITE_FABRIC;
-                            break;
-                                                
-                        case Composite::L2COMP: 
-                            encoder.set_nhr_family(AF_BRIDGE);
-                            flags |= NH_FLAG_MCAST;
-                            flags |= NH_FLAG_COMPOSITE_L2;
-                            break;
-                                                
-                        case Composite::L3COMP: 
-                            flags |= NH_FLAG_MCAST;
-                            flags |= NH_FLAG_COMPOSITE_L3;
-                            break;
-                                                
-                        case Composite::MULTIPROTO: 
-                            encoder.set_nhr_family(AF_UNSPEC);
-                            flags |= NH_FLAG_COMPOSITE_MULTI_PROTO;
-                            break;
-                                                    
-                        case Composite::ECMP: 
-                            flags |= NH_FLAG_COMPOSITE_ECMP;
-                            break;
-                                              
-                    }
-                    encoder.set_nhr_flags(flags);
-                    for (KSyncComponentNHList::iterator it = component_nh_list_.begin();
-                            it != component_nh_list_.end(); it++) {
-                        KSyncComponentNH component_nh = *it;
-                        if (component_nh.nh()) {
-                            sub_nh_id.push_back(component_nh.nh()->GetIndex());
-                            sub_label_list.push_back(component_nh.label());
-                        } else {
-                            sub_nh_id.push_back(CompositeNH::kInvalidComponentNHIdx);
-                            sub_label_list.push_back(MplsTable::kInvalidLabel);
-                        }
-                    }
-                    encoder.set_nhr_nh_list(sub_nh_id);
-                    encoder.set_nhr_label_list(sub_label_list);
-                    break;
-                }
-            default:
-                assert(0);
-        }
-        encoder.set_nhr_flags(flags);
+    if (op == sandesh_op::DELETE) {
+        /* For delete only NH-index is required by vrouter */
+        encode_len = encoder.WriteBinary((uint8_t *)buf, buf_len, &error);
+        return encode_len;
     }
+    encoder.set_nhr_rid(0);
+    encoder.set_nhr_vrf(vrf_id_);
+    encoder.set_nhr_family(AF_INET);
+    encoder.set_nhr_label(MplsTable::kInvalidLabel);
+    uint16_t flags = 0;
+    if (valid_) {
+        flags |= NH_FLAG_VALID;
+    }
+
+    if (policy_) {
+        flags |= NH_FLAG_POLICY_ENABLED;
+    }
+    if_ksync = interface();
+
+    switch (type_) {
+        case NextHop::VLAN:
+        case NextHop::ARP: 
+        case NextHop::INTERFACE : 
+            encoder.set_nhr_type(NH_ENCAP);
+            if (if_ksync) {
+                intf_id = if_ksync->interface_id();
+            }
+            encoder.set_nhr_encap_oif_id(intf_id);
+            encoder.set_nhr_encap_family(ETH_P_ARP);
+
+            SetEncap(encap);
+            encoder.set_nhr_encap(encap);
+            encoder.set_nhr_tun_sip(0);
+            encoder.set_nhr_tun_dip(0);
+            if (is_layer2_) {
+                flags |= 0x0004;
+                encoder.set_nhr_family(AF_BRIDGE);
+            }
+            if (is_mcast_nh_) {
+                flags |= 0x0020;
+                encoder.set_nhr_flags(flags);
+            } 
+            break;
+
+        case NextHop::TUNNEL :
+            encoder.set_nhr_type(NH_TUNNEL);
+            encoder.set_nhr_tun_sip(htonl(sip_.s_addr));
+            encoder.set_nhr_tun_dip(htonl(dip_.s_addr));
+            encoder.set_nhr_encap_family(ETH_P_ARP);
+
+            if (if_ksync) {
+                intf_id = if_ksync->interface_id();
+            }
+            encoder.set_nhr_encap_oif_id(intf_id);
+
+            SetEncap(encap);
+            encoder.set_nhr_encap(encap);
+            if (tunnel_type_.GetType() == TunnelType::MPLS_UDP) {
+                flags |= NH_FLAG_TUNNEL_UDP_MPLS;
+            } else if (tunnel_type_.GetType() == TunnelType::MPLS_GRE) {
+                flags |= NH_FLAG_TUNNEL_GRE;
+            } else {
+                flags |= NH_FLAG_TUNNEL_VXLAN;
+            }
+            break;
+
+        case NextHop::MIRROR :
+            encoder.set_nhr_type(NH_TUNNEL);
+            encoder.set_nhr_tun_sip(htonl(sip_.s_addr));
+            encoder.set_nhr_tun_dip(htonl(dip_.s_addr));
+            encoder.set_nhr_tun_sport(htons(sport_));
+            encoder.set_nhr_tun_dport(htons(dport_));
+            encoder.set_nhr_encap_family(ETH_P_ARP);
+
+            if (if_ksync) {
+                intf_id = if_ksync->interface_id();
+            }
+            encoder.set_nhr_encap_oif_id(intf_id);
+            SetEncap(encap);
+            encoder.set_nhr_encap(encap);
+            flags |= NH_FLAG_TUNNEL_UDP;
+            break;
+
+        case NextHop::DISCARD:
+            encoder.set_nhr_type(NH_DISCARD);
+            break;
+
+        case NextHop::RECEIVE:
+            if (!policy_) {
+                flags |= NH_FLAG_RELAXED_POLICY;
+            }
+            intf_id = if_ksync->interface_id();
+            encoder.set_nhr_encap_oif_id(intf_id);
+            encoder.set_nhr_type(NH_RCV);
+            break;
+
+        case NextHop::RESOLVE:
+            encoder.set_nhr_type(NH_RESOLVE);
+            break;
+
+        case NextHop::VRF:
+            encoder.set_nhr_type(NH_VXLAN_VRF);
+            break;
+
+        case NextHop::COMPOSITE: {
+            std::vector<int> sub_nh_id;
+            std::vector<int> sub_label_list;
+            encoder.set_nhr_type(NH_COMPOSITE);
+            /* TODO encoding */
+            encoder.set_nhr_tun_sip(htonl(sip_.s_addr));
+            encoder.set_nhr_tun_dip(htonl(dip_.s_addr));
+            encoder.set_nhr_encap_family(ETH_P_ARP);
+            /* Proto encode in Network byte order */
+            switch (comp_type_) {
+            case Composite::FABRIC: {
+                flags |= NH_FLAG_COMPOSITE_FABRIC;
+                break;
+            }
+            case Composite::L2COMP: {
+                encoder.set_nhr_family(AF_BRIDGE);
+                flags |= NH_FLAG_MCAST;
+                flags |= NH_FLAG_COMPOSITE_L2;
+                break;
+            }
+            case Composite::L3COMP: {
+                flags |= NH_FLAG_MCAST;
+                flags |= NH_FLAG_COMPOSITE_L3;
+                break;
+            }
+            case Composite::MULTIPROTO: {
+                encoder.set_nhr_family(AF_UNSPEC);
+                flags |= NH_FLAG_COMPOSITE_MULTI_PROTO;
+                break;
+            }
+            case Composite::ECMP: {
+                flags |= NH_FLAG_COMPOSITE_ECMP;
+                break;
+            }
+            }
+            encoder.set_nhr_flags(flags);
+            for (KSyncComponentNHList::iterator it = component_nh_list_.begin();
+                 it != component_nh_list_.end(); it++) {
+                KSyncComponentNH component_nh = *it;
+                if (component_nh.nh()) {
+                    sub_nh_id.push_back(component_nh.nh()->GetIndex());
+                    sub_label_list.push_back(component_nh.label());
+                } else {
+                    sub_nh_id.push_back(CompositeNH::kInvalidComponentNHIdx);
+                    sub_label_list.push_back(MplsTable::kInvalidLabel);
+                }
+            }
+            encoder.set_nhr_nh_list(sub_nh_id);
+            encoder.set_nhr_label_list(sub_label_list);
+            break;
+        }
+        default:
+            assert(0);
+    }
+    encoder.set_nhr_flags(flags);
     encode_len = encoder.WriteBinary((uint8_t *)buf, buf_len, &error);
     return encode_len;
 }
