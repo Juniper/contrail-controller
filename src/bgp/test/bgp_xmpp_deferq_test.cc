@@ -1042,6 +1042,204 @@ TEST_F(BgpXmppUnitTest, UnregisterWithDeletedBgpTable2) {
     task_util::WaitForIdle();
 }
 
+TEST_F(BgpXmppUnitTest, RegisterUnregisterWithDeletedBgpTable1) {
+    Configure();
+    task_util::WaitForIdle();
+
+    // create an XMPP client in server A
+    agent_a_.reset(
+        new test::NetworkAgentMock(&evm_, SUB_ADDR, xs_a_->GetPort()));
+
+    TASK_UTIL_EXPECT_TRUE(bgp_channel_manager_->channel_ != NULL);
+    TASK_UTIL_EXPECT_TRUE(agent_a_->IsEstablished());
+
+    // Pause deletion for blue instance and the inet table.
+    RoutingInstance *blue = VerifyRoutingInstance("blue");
+    PauseDelete(blue->deleter());
+    BgpTable *blue_table = VerifyBgpTable("blue", Address::INET);
+    PauseDelete(blue_table->deleter());
+
+    // Pause the peer membership manager.
+    PausePeerRibMembershipManager();
+
+    // Subscribe to the blue instance. Make sure that the message has been
+    // processed on the bgp server. The subscription request will get
+    // enqueued in the membership manager, but won't be processed.
+    agent_a_->Subscribe("blue", 1);
+    TASK_UTIL_EXPECT_EQ(1, bgp_channel_manager_->channel_->Count());
+    TASK_UTIL_EXPECT_TRUE(
+        PeerHasPendingMembershipRequests(bgp_channel_manager_->channel_));
+    TASK_UTIL_EXPECT_TRUE(
+        PeerNotRegistered(bgp_channel_manager_->channel_, "blue"));
+
+    // Unconfigure all instances.
+    // The blue instance should still exist in deleted state.
+    // The INET tables in blue instance should still exist in deleted state.
+    UnconfigureRoutingInstances();
+    blue = VerifyRoutingInstance("blue");
+    TASK_UTIL_EXPECT_TRUE(blue->deleted());
+    blue_table = VerifyBgpTable("blue", Address::INET);
+    TASK_UTIL_EXPECT_TRUE(blue_table->IsDeleted());
+
+    // Resume the peer membership manager.
+    ResumePeerRibMembershipManager();
+
+    // The subscribe request should have been processed by the membership
+    // manager and a response returned.  The membership manager will have
+    // no subscription state since the table was marked deleted when the
+    // subscribe was processed by it.
+    TASK_UTIL_EXPECT_FALSE(
+        PeerHasPendingMembershipRequests(bgp_channel_manager_->channel_));
+    TASK_UTIL_EXPECT_TRUE(
+        PeerNotRegistered(bgp_channel_manager_->channel_, "blue"));
+
+    // Unsubscribe for the blue instance.
+    agent_a_->Unsubscribe("blue", -1, false);
+    TASK_UTIL_EXPECT_EQ(2, bgp_channel_manager_->channel_->Count());
+    TASK_UTIL_EXPECT_FALSE(
+        PeerHasPendingMembershipRequests(bgp_channel_manager_->channel_));
+
+    // Resume deletion of blue inet table and blue instance.
+    ResumeDelete(blue_table->deleter());
+    ResumeDelete(blue->deleter());
+    task_util::WaitForIdle();
+}
+
+TEST_F(BgpXmppUnitTest, RegisterUnregisterWithDeletedBgpTable2) {
+    Configure();
+    task_util::WaitForIdle();
+
+    // create an XMPP client in server A
+    agent_a_.reset(
+        new test::NetworkAgentMock(&evm_, SUB_ADDR, xs_a_->GetPort()));
+
+    TASK_UTIL_EXPECT_TRUE(bgp_channel_manager_->channel_ != NULL);
+    TASK_UTIL_EXPECT_TRUE(agent_a_->IsEstablished());
+
+    // Pause deletion for blue instance and the inet table.
+    RoutingInstance *blue = VerifyRoutingInstance("blue");
+    PauseDelete(blue->deleter());
+    BgpTable *blue_table = VerifyBgpTable("blue", Address::INET);
+    PauseDelete(blue_table->deleter());
+
+    // Pause the peer membership manager.
+    PausePeerRibMembershipManager();
+
+    // Subscribe to the blue instance and add a route. Make sure that messages
+    // have been processed on the bgp server. The subscription request will get
+    // enqueued in the membership manager, but won't be processed.
+    agent_a_->Subscribe("blue", 1);
+    TASK_UTIL_EXPECT_EQ(1, bgp_channel_manager_->channel_->Count());
+    TASK_UTIL_EXPECT_TRUE(
+        PeerHasPendingMembershipRequests(bgp_channel_manager_->channel_));
+    TASK_UTIL_EXPECT_TRUE(
+        PeerNotRegistered(bgp_channel_manager_->channel_, "blue"));
+
+    // Unconfigure all instances.
+    // The blue instance should still exist in deleted state.
+    // The INET tables in blue instance should still exist in deleted state.
+    UnconfigureRoutingInstances();
+    blue = VerifyRoutingInstance("blue");
+    TASK_UTIL_EXPECT_TRUE(blue->deleted());
+    blue_table = VerifyBgpTable("blue", Address::INET);
+    TASK_UTIL_EXPECT_TRUE(blue_table->IsDeleted());
+
+    // Resume the peer membership manager.
+    ResumePeerRibMembershipManager();
+
+    // The subscribe request should have been processed by the membership
+    // manager and a response returned.  The membership manager will have
+    // no subscription state since the table was marked deleted when the
+    // subscribe was processed by it.
+    TASK_UTIL_EXPECT_FALSE(
+        PeerHasPendingMembershipRequests(bgp_channel_manager_->channel_));
+    TASK_UTIL_EXPECT_TRUE(
+        PeerNotRegistered(bgp_channel_manager_->channel_, "blue"));
+
+    // Pause the peer membership manager.
+    PausePeerRibMembershipManager();
+
+    // Unsubscribe for the blue instance. The request will be queued to
+    // the membership manager but won't be processed yet.
+    agent_a_->Unsubscribe("blue", -1, false);
+    TASK_UTIL_EXPECT_EQ(2, bgp_channel_manager_->channel_->Count());
+    TASK_UTIL_EXPECT_FALSE(
+        PeerHasPendingMembershipRequests(bgp_channel_manager_->channel_));
+
+    // Resume deletion of blue inet table and blue instance.
+    ResumeDelete(blue_table->deleter());
+    ResumeDelete(blue->deleter());
+    VerifyNoRoutingInstance("blue");
+
+    // Resume the peer membership manager.
+    ResumePeerRibMembershipManager();
+    TASK_UTIL_EXPECT_FALSE(
+        PeerHasPendingMembershipRequests(bgp_channel_manager_->channel_));
+}
+
+TEST_F(BgpXmppUnitTest, RegisterUnregisterWithDeletedBgpTable3) {
+    Configure();
+    task_util::WaitForIdle();
+
+    // create an XMPP client in server A
+    agent_a_.reset(
+        new test::NetworkAgentMock(&evm_, SUB_ADDR, xs_a_->GetPort()));
+
+    TASK_UTIL_EXPECT_TRUE(bgp_channel_manager_->channel_ != NULL);
+    TASK_UTIL_EXPECT_TRUE(agent_a_->IsEstablished());
+
+    // Pause deletion for blue instance and the inet table.
+    RoutingInstance *blue = VerifyRoutingInstance("blue");
+    PauseDelete(blue->deleter());
+    BgpTable *blue_table = VerifyBgpTable("blue", Address::INET);
+    PauseDelete(blue_table->deleter());
+
+    // Pause the peer membership manager.
+    PausePeerRibMembershipManager();
+
+    // Subscribe to the blue instance. Make sure that the message has been
+    // processed on the bgp server. The subscription request will get
+    // enqueued in the membership manager, but won't be processed.
+    agent_a_->Subscribe("blue", 1);
+    TASK_UTIL_EXPECT_EQ(1, bgp_channel_manager_->channel_->Count());
+    TASK_UTIL_EXPECT_TRUE(
+        PeerHasPendingMembershipRequests(bgp_channel_manager_->channel_));
+    TASK_UTIL_EXPECT_TRUE(
+        PeerNotRegistered(bgp_channel_manager_->channel_, "blue"));
+
+    // Unconfigure all instances.
+    // The blue instance should still exist in deleted state.
+    // The INET tables in blue instance should still exist in deleted state.
+    UnconfigureRoutingInstances();
+    blue = VerifyRoutingInstance("blue");
+    TASK_UTIL_EXPECT_TRUE(blue->deleted());
+    blue_table = VerifyBgpTable("blue", Address::INET);
+    TASK_UTIL_EXPECT_TRUE(blue_table->IsDeleted());
+
+    // Resume the peer membership manager.
+    ResumePeerRibMembershipManager();
+
+    // The subscribe request should have been processed by the membership
+    // manager and a response returned.  The membership manager will have
+    // no subscription state since the table was marked deleted when the
+    // subscribe was processed by it.
+    TASK_UTIL_EXPECT_FALSE(
+        PeerHasPendingMembershipRequests(bgp_channel_manager_->channel_));
+    TASK_UTIL_EXPECT_TRUE(
+        PeerNotRegistered(bgp_channel_manager_->channel_, "blue"));
+
+    // Resume deletion of blue inet table and blue instance.
+    ResumeDelete(blue_table->deleter());
+    ResumeDelete(blue->deleter());
+    VerifyNoRoutingInstance("blue");
+
+    // Unsubscribe for the old incarnation.
+    agent_a_->Unsubscribe("blue", -1, false);
+    TASK_UTIL_EXPECT_EQ(2, bgp_channel_manager_->channel_->Count());
+    TASK_UTIL_EXPECT_FALSE(
+        PeerHasPendingMembershipRequests(bgp_channel_manager_->channel_));
+}
+
 TEST_F(BgpXmppUnitTest, RegisterAddDelAddRouteWithDeletedBgpTable) {
     Configure();
     task_util::WaitForIdle();
@@ -1112,6 +1310,110 @@ TEST_F(BgpXmppUnitTest, RegisterAddDelAddRouteWithDeletedBgpTable) {
     ResumeDelete(blue_table->deleter());
     ResumeDelete(blue->deleter());
     VerifyNoRoutingInstance("blue");
+
+    // Clean up.
+    agent_a_->Unsubscribe("blue", -1, false);
+    agent_a_->SessionDown();
+    task_util::WaitForIdle();
+}
+
+TEST_F(BgpXmppUnitTest, RegisterUnregisterWithDeletedBgpTableThenRegisterAgain) {
+    Configure();
+    task_util::WaitForIdle();
+
+    // create an XMPP client in server A
+    agent_a_.reset(
+        new test::NetworkAgentMock(&evm_, SUB_ADDR, xs_a_->GetPort()));
+
+    TASK_UTIL_EXPECT_TRUE(bgp_channel_manager_->channel_ != NULL);
+    TASK_UTIL_EXPECT_TRUE(agent_a_->IsEstablished());
+
+    // Pause deletion for blue instance and the inet table.
+    RoutingInstance *blue = VerifyRoutingInstance("blue");
+    PauseDelete(blue->deleter());
+    BgpTable *blue_table = VerifyBgpTable("blue", Address::INET);
+    PauseDelete(blue_table->deleter());
+
+    // Pause the peer membership manager.
+    PausePeerRibMembershipManager();
+
+    // Subscribe to the blue instance and add a route. Make sure that messages
+    // have been processed on the bgp server. The subscription request will get
+    // enqueued in the membership manager, but won't be processed.
+    agent_a_->Subscribe("blue", 1);
+    agent_a_->AddRoute("blue", "10.1.1.1/32");
+    TASK_UTIL_EXPECT_EQ(2, bgp_channel_manager_->channel_->Count());
+    TASK_UTIL_EXPECT_TRUE(
+        PeerHasPendingMembershipRequests(bgp_channel_manager_->channel_));
+    TASK_UTIL_EXPECT_TRUE(
+        PeerNotRegistered(bgp_channel_manager_->channel_, "blue"));
+
+    // Unconfigure all instances.
+    // The blue instance should still exist in deleted state.
+    // The INET tables in blue instance should still exist in deleted state.
+    UnconfigureRoutingInstances();
+    blue = VerifyRoutingInstance("blue");
+    TASK_UTIL_EXPECT_TRUE(blue->deleted());
+    blue_table = VerifyBgpTable("blue", Address::INET);
+    TASK_UTIL_EXPECT_TRUE(blue_table->IsDeleted());
+
+    // Resume the peer membership manager.
+    ResumePeerRibMembershipManager();
+
+    // The subscribe request should have been processed by the membership
+    // manager and a response returned.  The membership manager will have
+    // no subscription state since the table was marked deleted when the
+    // subscribe was processed by it.
+    TASK_UTIL_EXPECT_FALSE(
+        PeerHasPendingMembershipRequests(bgp_channel_manager_->channel_));
+    TASK_UTIL_EXPECT_TRUE(
+        PeerNotRegistered(bgp_channel_manager_->channel_, "blue"));
+
+    // Unsubscribe for the old incarnation.
+    agent_a_->Unsubscribe("blue", -1, false);
+    TASK_UTIL_EXPECT_EQ(3, bgp_channel_manager_->channel_->Count());
+    TASK_UTIL_EXPECT_FALSE(
+        PeerHasPendingMembershipRequests(bgp_channel_manager_->channel_));
+
+    // Subscribe for the new incarnation and add a route.  The subscribe
+    // should get deferred till the routing instance is created again.
+    // The route add should also get deferred.
+    agent_a_->Subscribe("blue", 1);
+    agent_a_->AddRoute("blue", "10.1.1.2/32");
+    TASK_UTIL_EXPECT_EQ(5, bgp_channel_manager_->channel_->Count());
+    TASK_UTIL_EXPECT_FALSE(
+        PeerHasPendingMembershipRequests(bgp_channel_manager_->channel_));
+
+    // Configure the routing instances again.  The peer should be not be
+    // registered to the blue instance since the old instance and table
+    // have not yet been deleted.
+    Configure();
+    TASK_UTIL_EXPECT_FALSE(
+        PeerHasPendingMembershipRequests(bgp_channel_manager_->channel_));
+    TASK_UTIL_EXPECT_TRUE(
+        PeerNotRegistered(bgp_channel_manager_->channel_, "blue"));
+
+    // Resume deletion of blue inet table and blue instance.
+    ResumeDelete(blue_table->deleter());
+    ResumeDelete(blue->deleter());
+    task_util::WaitForIdle();
+
+    // Make sure that the instance and table got created again - they should
+    // not be marked deleted.
+    blue = VerifyRoutingInstance("blue");
+    TASK_UTIL_EXPECT_FALSE(blue->deleted());
+    blue_table = VerifyBgpTable("blue", Address::INET);
+    TASK_UTIL_EXPECT_FALSE(blue_table->IsDeleted());
+
+    // Peer should have been registered to the blue instance and the agent
+    // should have the route to 10.1.1.2/32, but not to 10.1.1.1/32.
+    TASK_UTIL_EXPECT_FALSE(
+        PeerHasPendingMembershipRequests(bgp_channel_manager_->channel_));
+    TASK_UTIL_EXPECT_TRUE(
+        PeerRegistered(bgp_channel_manager_->channel_, "blue", 1));
+    TASK_UTIL_EXPECT_EQ(1, agent_a_->RouteCount());
+    TASK_UTIL_EXPECT_TRUE(agent_a_->RouteLookup("blue", "10.1.1.1/32") == NULL);
+    TASK_UTIL_EXPECT_TRUE(agent_a_->RouteLookup("blue", "10.1.1.2/32") != NULL);
 
     // Clean up.
     agent_a_->Unsubscribe("blue", -1, false);
