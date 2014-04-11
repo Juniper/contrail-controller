@@ -13,6 +13,9 @@
 #include "query.h"
 #include "analytics_query_mock.h"
 
+using boost::get;
+using boost::make_tuple;
+
 using ::testing::Return;
 using ::testing::AnyNumber;
 
