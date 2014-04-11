@@ -12,6 +12,7 @@
 #include <net/address.h>
 
 #include <base/logging.h>
+#include <base/util.h>
 #include <cmn/agent_cmn.h>
 #include <init/agent_param.h>
 #include <init/agent_init.h>
@@ -25,8 +26,10 @@
 extern void RouterIdDepInit();
 
 VnswInterfaceListener::VnswInterfaceListener(Agent *agent) : 
-    agent_(agent), sock_(*(agent_->GetEventManager())->io_service()),
-    seqno_(0), vhost_intf_up_(false) {
+    agent_(agent), read_buf_(NULL), sock_fd_(0), 
+    sock_(*(agent->GetEventManager())->io_service()), ifaddr_listen_(false),
+    intf_listener_id_(DBTableBase::kInvalidId), seqno_(0),
+    vhost_intf_up_(false), ll_addr_table_(), revent_queue_(NULL) { 
 }
 
 VnswInterfaceListener::~VnswInterfaceListener() {
@@ -39,13 +42,14 @@ VnswInterfaceListener::~VnswInterfaceListener() {
 
 void VnswInterfaceListener::Init() {
 
+    // If vhost is not configured, look for interface to be created
     ifaddr_listen_ = !(agent_->params()->IsVHostConfigured());
 
     intf_listener_id_ = agent_->GetInterfaceTable()->Register
-        (boost::bind(&VnswInterfaceListener::IntfNotify, this, _1, _2));
+        (boost::bind(&VnswInterfaceListener::InterfaceNotify, this, _1, _2));
 
     /* Allocate Route Event Workqueue */
-    revent_queue_ = new WorkQueue<VnswRouteEvent *>
+    revent_queue_ = new WorkQueue<Event *>
                     (TaskScheduler::GetInstance()->GetTaskId("db::DBTable"), 0,
                      boost::bind(&VnswInterfaceListener::RouteEventProcess, 
                                  this, _1));
@@ -71,12 +75,17 @@ void VnswInterfaceListener::Init() {
     RegisterAsyncHandler();
 }
 
+void VnswInterfaceListener::Shutdown() { 
+    boost::system::error_code ec;
+    sock_.close(ec);
+}
+
 int VnswInterfaceListener::AddAttr(int type, void *data, int alen) {
     struct nlmsghdr *n = (struct nlmsghdr *)tx_buf_;
     int len = RTA_LENGTH(alen);
     struct rtattr *rta;
 
-    if (NLMSG_ALIGN(n->nlmsg_len) + len > max_buf_size)
+    if (NLMSG_ALIGN(n->nlmsg_len) + len > kMaxBufferSize)
         return -1;
     rta = (struct rtattr*)(((char*)n) + NLMSG_ALIGN(n->nlmsg_len));
     rta->rta_type = type;
@@ -86,20 +95,21 @@ int VnswInterfaceListener::AddAttr(int type, void *data, int alen) {
     return 0;
 }
 
-void VnswInterfaceListener::IntfNotify(DBTablePartBase *part, DBEntryBase *e) {
+void VnswInterfaceListener::InterfaceNotify(DBTablePartBase *part,
+                                            DBEntryBase *e) {
     const VmInterface *vmport = dynamic_cast<VmInterface *>(e);
     if (vmport == NULL) {
         return;
     }
 
     DBState *s = e->GetState(part->parent(), intf_listener_id_);
-    VnswIntfState *state = static_cast<VnswIntfState *>(s);
-    VnswRouteEvent *re;
+    State *state = static_cast<State *>(s);
+    Event *re;
 
     if (vmport->IsDeleted() || !vmport->ipv4_active() ||
         !vmport->need_linklocal_ip()) {
         if (state) {
-            re = new VnswRouteEvent(state->addr(), VnswRouteEvent::DEL_REQ);
+            re = new Event(state->addr_, Event::DEL_REQ);
             revent_queue_->Enqueue(re);
             e->ClearState(part->parent(), intf_listener_id_);
             delete state;
@@ -108,9 +118,9 @@ void VnswInterfaceListener::IntfNotify(DBTablePartBase *part, DBEntryBase *e) {
     }
 
     if (!state && vmport->need_linklocal_ip()) {
-        state = new VnswIntfState(vmport->mdata_ip_addr());
+        state = new State(vmport->mdata_ip_addr());
         e->SetState(part->parent(), intf_listener_id_, state);
-        re = new VnswRouteEvent(state->addr(), VnswRouteEvent::ADD_REQ);
+        re = new Event(state->addr_, Event::ADD_REQ);
         revent_queue_->Enqueue(re);
     }
 }
@@ -119,7 +129,7 @@ void VnswInterfaceListener::InitFetchLinks() {
     struct nlmsghdr *nlh;
     uint32_t seq_no;
 
-    memset(tx_buf_, 0, max_buf_size);
+    memset(tx_buf_, 0, kMaxBufferSize);
     nlh = (struct nlmsghdr *)tx_buf_;
 
     /* Fill in the nlmsg header */
@@ -141,16 +151,16 @@ void VnswInterfaceListener::InitFetchLinks() {
     boost::system::error_code ec;
     sock_.send(boost::asio::buffer(nlh,nlh->nlmsg_len), 0, ec);
     assert(ec.value() == 0);
-    uint8_t read_buf[max_buf_size];
+    uint8_t read_buf[kMaxBufferSize];
 
     /* Wait/Read the response for dump request, linux kernel doesn't handle 
      * dump request if response for previous dump request is not complete. 
      */
     int end = 0;
     while (end == 0) {
-        memset(read_buf, 0, max_buf_size);
+        memset(read_buf, 0, kMaxBufferSize);
         std::size_t len = sock_.receive(boost::asio::buffer
-                                      (read_buf, max_buf_size), 0, ec);
+                                      (read_buf, kMaxBufferSize), 0, ec);
         assert(ec.value() == 0);
         struct nlmsghdr *nl = (struct nlmsghdr *)read_buf;
         end = NlMsgDecode(nl, len, seq_no);
@@ -160,7 +170,7 @@ void VnswInterfaceListener::InitFetchLinks() {
 void VnswInterfaceListener::InitFetchRoutes() {
     struct nlmsghdr *nlh;
 
-    memset(tx_buf_, 0, max_buf_size);
+    memset(tx_buf_, 0, kMaxBufferSize);
     nlh = (struct nlmsghdr *)tx_buf_;
 
     /* Fill in the nlmsg header */
@@ -186,7 +196,7 @@ void VnswInterfaceListener::KUpdateLinkLocalRoute(const Ip4Address &addr,
     struct rtmsg *rtm;
     uint32_t ipaddr;
 
-    memset(tx_buf_, 0, max_buf_size);
+    memset(tx_buf_, 0, kMaxBufferSize);
 
     nlh = (struct nlmsghdr *) tx_buf_;
     rtm = (struct rtmsg *) NLMSG_DATA (nlh);
@@ -273,16 +283,6 @@ void VnswInterfaceListener::DeleteVhostRoutes(Ip4Address &host_ip,
     rt_table->DelVHostSubnetRecvRoute(vrf_name, host_ip, plen);
     rt_table->DeleteReq(agent_->local_peer(), vrf_name, host_ip, plen);
     agent_->SetPrefixLen(0);
-}
-
-uint32_t VnswInterfaceListener::NetmaskToPrefix(uint32_t netmask) {
-    uint32_t count = 0;
-
-    while (netmask) {
-        count++;
-        netmask = (netmask - 1) & netmask;
-    }
-    return count;
 }
 
 uint32_t VnswInterfaceListener::FetchVhostAddress(bool netmask) {
@@ -374,35 +374,35 @@ void VnswInterfaceListener::CreateSocket() {
 }
 
 void VnswInterfaceListener::RegisterAsyncHandler() {
-    read_buf_ = new uint8_t[max_buf_size];
-    sock_.async_receive(boost::asio::buffer(read_buf_, max_buf_size), 
+    read_buf_ = new uint8_t[kMaxBufferSize];
+    sock_.async_receive(boost::asio::buffer(read_buf_, kMaxBufferSize), 
                         boost::bind(&VnswInterfaceListener::ReadHandler, this,
                                  boost::asio::placeholders::error,
                                  boost::asio::placeholders::bytes_transferred));
 }
 
-bool VnswInterfaceListener::RouteEventProcess(VnswRouteEvent *re) {
+bool VnswInterfaceListener::RouteEventProcess(Event *re) {
     bool route_found = (ll_addr_table_.find(re->addr_) != ll_addr_table_.end());
     switch (re->event_) {
-    case VnswRouteEvent::ADD_REQ:
+    case Event::ADD_REQ:
         ll_addr_table_.insert(re->addr_);
         KUpdateLinkLocalRoute(re->addr_, false);
         break;
-    case VnswRouteEvent::DEL_REQ:
+    case Event::DEL_REQ:
         ll_addr_table_.erase(re->addr_);
         KUpdateLinkLocalRoute(re->addr_, true);
         break;
-    case VnswRouteEvent::ADD_RESP:
+    case Event::ADD_RESP:
         if (!route_found) {
             KUpdateLinkLocalRoute(re->addr_, true);
         }
         break;
-    case VnswRouteEvent::DEL_RESP:
+    case Event::DEL_RESP:
         if (route_found) {
             KUpdateLinkLocalRoute(re->addr_, false);
         }
         break;
-    case VnswRouteEvent::INTF_UP:
+    case Event::INTF_UP:
         if (vhost_intf_up_) {
             break;
         }
@@ -410,12 +410,12 @@ bool VnswInterfaceListener::RouteEventProcess(VnswRouteEvent *re) {
          * on interface flap.
          */
         vhost_intf_up_ = true;
-        for (Ip4HostTableType::iterator it = ll_addr_table_.begin();
+        for (LinkLocalAddressTable::iterator it = ll_addr_table_.begin();
              it != ll_addr_table_.end(); ++it) {
             KUpdateLinkLocalRoute(*it, false);
         }
         break;
-    case VnswRouteEvent::INTF_DOWN:
+    case Event::INTF_DOWN:
         vhost_intf_up_ = false;
         break;
     default:
@@ -461,13 +461,13 @@ void VnswInterfaceListener::RouteHandler(struct nlmsghdr *nlh) {
     }
 
     Ip4Address dst_addr((unsigned long)ntohl(dst_ip));
-    VnswRouteEvent *re = NULL;
+    Event *re = NULL;
     switch (nlh->nlmsg_type) {
     case RTM_NEWROUTE:
-        re = new VnswRouteEvent(dst_addr, VnswRouteEvent::ADD_RESP);
+        re = new Event(dst_addr, Event::ADD_RESP);
         break;
     case RTM_DELROUTE:
-        re = new VnswRouteEvent(dst_addr, VnswRouteEvent::DEL_RESP);
+        re = new Event(dst_addr, Event::DEL_RESP);
         break;
     default:
         break;
@@ -510,13 +510,11 @@ void VnswInterfaceListener::InterfaceHandler(struct nlmsghdr *nlh)
     if (is_vhost_intf && nlh->nlmsg_type == RTM_NEWLINK) {
         if ((rtm->ifi_flags & IFF_UP) != 0) {
             Ip4Address dst_addr((unsigned long)0);
-            VnswRouteEvent *re = new VnswRouteEvent(dst_addr, 
-                                                    VnswRouteEvent::INTF_UP);
+            Event *re = new Event(dst_addr, Event::INTF_UP);
             revent_queue_->Enqueue(re);
         } else {
             Ip4Address dst_addr((unsigned long)0);
-            VnswRouteEvent *re = new VnswRouteEvent(dst_addr, 
-                                                    VnswRouteEvent::INTF_DOWN);
+            Event *re = new Event(dst_addr, Event::INTF_DOWN);
             revent_queue_->Enqueue(re);
         }
     }
@@ -626,14 +624,13 @@ void VnswInterfaceListener::ReadHandler(const boost::system::error_code &error,
     struct nlmsghdr *nlh;
 
     /* TODO: Handle multiple primary IP address case */
-    if (!error) {
+    if (error == 0) {
         LOG(DEBUG, "Read handler: Received " << len << " bytes");
         nlh = (struct nlmsghdr *)read_buf_;
         NlMsgDecode(nlh, len, -1);
     } else {
         LOG(ERROR, "Error < : " << error.message() << 
                    "> reading packet on netlink sock");
-        return;
     }
 
     if (read_buf_) {
@@ -641,9 +638,4 @@ void VnswInterfaceListener::ReadHandler(const boost::system::error_code &error,
         read_buf_ = NULL;
     }
     RegisterAsyncHandler();
-}
-
-void VnswInterfaceListener::Shutdown() { 
-    boost::system::error_code ec;
-    sock_.close(ec);
 }
