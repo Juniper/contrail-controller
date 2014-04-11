@@ -335,8 +335,12 @@ if args.upgrade:
     if (args.upgrade != None):
         old_ver = args.upgrade
         print "Old version %s" % old_ver
-    start_index = version_list.index(old_ver)
-    end_index = version_list.index(current_ver)
+    try:
+        start_index = version_list.index(old_ver)
+        end_index = version_list.index(current_ver)
+    except:
+        print "Specified index not found in version list"
+        quit()
     for index in version_list[start_index:end_index]:
         #Call the upgrade function
         ver_function[index]()
