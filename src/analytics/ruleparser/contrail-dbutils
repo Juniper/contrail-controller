@@ -26,6 +26,7 @@ from pycassa import *
 import argparse
 import subprocess
 from subprocess import Popen, PIPE
+from collections import OrderedDict
 
 parser = argparse.ArgumentParser()
 group = parser.add_mutually_exclusive_group()
@@ -57,7 +58,83 @@ group.add_argument("--dbusage", "-d", help = "Contrail database usage as percent
                     action="store_true")
 group.add_argument("--interactive", "-i", help = "Launch the interactive mode",
                     action="store_true")
+group.add_argument("--upgrade", metavar = "OLD_VERSION", help = "Upgrades the version")
 args = parser.parse_args()
+
+#class for bounded python dictionary. Itemsremoved in FIFO
+class LimitedSizeDict(OrderedDict):
+  def __init__(self, *args, **kwds):
+    self.size_limit = kwds.pop("size_limit", None)
+    OrderedDict.__init__(self, *args, **kwds)
+    self._check_size_limit()
+
+  def __setitem__(self, key, value):
+    OrderedDict.__setitem__(self, key, value)
+    self._check_size_limit()
+
+  def _check_size_limit(self):
+    if self.size_limit is not None:
+      while len(self) > self.size_limit:
+        self.popitem(last=False)
+
+def upgrade_from_1_0_3():
+    print "About to upgrade.."
+    uuid_flow_dict = LimitedSizeDict(size_limit=100000)
+    try:
+        cf_index = pycassa.ColumnFamily(pool,'FlowTableSvnSip')
+        svnsip_ver2 = pycassa.ColumnFamily(pool, 'FlowTableSvnSipVer2')
+        rows = cf_index.get_range()
+        for row in rows:
+            row_key = row[0]
+            #Look up the old index table based on row_key and insert into the
+            #new index table
+            #Upgrade the remaining the flow index table row by row
+            upgrade_cf('FlowTableSvnSip', 'FlowTableSvnSipVer2', uuid_flow_dict,
+                   row_key)
+            upgrade_cf('FlowTableDvnDip', 'FlowTableDvnDipVer2', uuid_flow_dict,
+                   row_key)
+            upgrade_cf('FlowTableProtDp','FlowTableProtDpVer2', uuid_flow_dict,
+                   row_key)
+            upgrade_cf('FlowTableProtSp','FlowTableProtSpVer2', uuid_flow_dict,
+                   row_key)
+            upgrade_cf('FlowTableVRouter', 'FlowTableVRouterVer2', uuid_flow_dict,
+                   row_key)
+    except:
+        print "Unexpected error:", sys.exc_info()[0]
+    #Truncate all the old Cf
+    truncate_cf('FlowTableSvnSip')
+    truncate_cf('FlowTableDvnDip')
+    truncate_cf('FlowTableProtDp')
+    truncate_cf('FlowTableProtSp')
+    truncate_cf('FlowTableVRouter')
+    truncate_cf('FlowTableAllFields')
+
+def truncate_cf(cf_name):
+    cf = pycassa.ColumnFamily(pool,cf_name)
+    cf.truncate()
+
+def upgrade_cf(old_index, new_index, uuid_flow_dict, row_key):
+    old_index_cf = pycassa.ColumnFamily(pool, old_index)
+    new_index_cf = pycassa.ColumnFamily(pool, new_index)
+    flow_index = pycassa.ColumnFamily(pool, 'FlowRecordTable')
+    column_vals = OrderedDict()
+    row = old_index_cf.get(key=(row_key), include_ttl = True, include_timestamp = True)
+    for columns in row.iteritems():
+        uuid_val = columns[1][0][3]
+        flow_val = uuid_flow_dict.get(uuid_val)
+        if (flow_val == None):
+           #Get value from the Flow index table
+           flow_entry = flow_index.get(uuid_val)
+           flow_val = flow_entry['vrouter'],flow_entry['sourcevn'],flow_entry['destvn'],flow_entry['sourceip'],flow_entry['destip'],flow_entry['protocol'],flow_entry['sport'],flow_entry['dport'],""
+           uuid_flow_dict[uuid_val]=flow_val
+        col_name = columns[0]+(uuid_val,)
+        col_value = columns[1][0]+flow_val
+        column_vals[col_name]=col_value
+        ttl_val = columns[1][2]
+        time_stamp = columns[1][1]/1000000
+    row_key = row_key+(0,)
+    new_ttl = ttl_val - (time.time()-time_stamp)
+    new_index_cf.insert(row_key, column_vals, ttl = new_ttl)
 
 def UTCTimestampUsec():
     epoch = datetime.datetime.utcfromtimestamp(0)
@@ -97,6 +174,13 @@ if args.utc != None:
 server_and_port = args.cassandra_server_ip+':'+str(args.cassandra_server_port)
 pool = pycassa.ConnectionPool('ContrailAnalytics', server_list=[server_and_port])
 sysm = pycassa.system_manager.SystemManager(server_and_port)
+#List containing increasing versions
+version_list = ["1.03","1.04","1.05","1.1"]
+#dictionary mapping old_version to upgrade_function
+ver_function = {"1.03":upgrade_from_1_0_3}
+                #"1.04":upgrade_from_1_0_4,
+                #"1.05":upgrade_from_1_0_5,
+              # }
 
 def list_cf(keyspace = 'ContrailAnalytics'):
     dict = sysm.get_keyspace_column_families(keyspace)
@@ -241,6 +325,25 @@ if (args.purge_db_threshold != None):
         purge_old_data(purge_time)
         current_db_usage = database_usage()
 
+    quit()
+
+if args.upgrade:
+    #Iterate from the old ver to current version and call
+    # all the upgrade functions in order
+    command = "contrail-version | grep 'contrail-analytics-venv '|"
+    current_ver = (os.popen(command + " awk '{print $2}'").read()).split("-",1)[0]
+    if (args.upgrade != None):
+        old_ver = args.upgrade
+        print "Old version %s" % old_ver
+    try:
+        start_index = version_list.index(old_ver)
+        end_index = version_list.index(current_ver)
+    except:
+        print "Specified index not found in version list"
+        quit()
+    for index in version_list[start_index:end_index]:
+        #Call the upgrade function
+        ver_function[index]()
     quit()
 
 if not(args.interactive): #done processing all the other options
