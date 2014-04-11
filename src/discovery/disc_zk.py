@@ -213,10 +213,9 @@ class DiscoveryZkClient(object):
         for service_type in service_types:
             subscribers = self.get_children('/clients/%s' % (service_type))
             for client_id in subscribers:
-                data, stat = self.read_node(
-                    '/clients/%s/%s' % (service_type, client_id))
-                cl_entry = json.loads(data)
-                yield((client_id, service_type))
+                cl_entry = self.lookup_client(service_type, client_id)
+                if cl_entry:
+                    yield((client_id, service_type))
     # end
 
     def update_service(self, service_type, service_id, data):
