@@ -78,7 +78,7 @@ class LimitedSizeDict(OrderedDict):
         self.popitem(last=False)
 
 def upgrade_from_1_0_3():
-    print "Abt to upgrade.."
+    print "About to upgrade.."
     uuid_flow_dict = LimitedSizeDict(size_limit=100000)
     try:
         cf_index = pycassa.ColumnFamily(pool,'FlowTableSvnSip')
@@ -330,7 +330,7 @@ if (args.purge_db_threshold != None):
 if args.upgrade:
     #Iterate from the old ver to current version and call
     # all the upgrade functions in order
-    command = "contrail-version | grep 'contrail-config '|"
+    command = "contrail-version | grep 'contrail-analytics-venv '|"
     current_ver = (os.popen(command + " awk '{print $2}'").read()).split("-",1)[0]
     if (args.upgrade != None):
         old_ver = args.upgrade
