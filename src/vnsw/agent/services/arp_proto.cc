@@ -204,18 +204,21 @@ bool ArpProto::DeleteArpEntry(ArpEntry *entry) {
     if (!entry)
         return false;
 
-    if (arp_cache_.erase(entry->key())) {
-        ValidateAndClearVrfState(const_cast<VrfEntry *>(entry->key().vrf));
+    ArpProto::ArpIterator iter = arp_cache_.find(entry->key());
+    if (iter == arp_cache_.end()) {
+        return false;
     }
-    delete entry;
+
+    DeleteArpEntry(iter);
     return true;
 }
 
 ArpProto::ArpIterator
 ArpProto::DeleteArpEntry(ArpProto::ArpIterator iter) {
     ArpEntry *entry = iter->second;
-    iter++;
-    DeleteArpEntry(entry);
+    arp_cache_.erase(iter++);
+    ValidateAndClearVrfState(const_cast<VrfEntry *>(entry->key().vrf));
+    delete entry;
     return iter;
 }
 
