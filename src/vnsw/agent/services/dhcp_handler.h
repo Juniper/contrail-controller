@@ -87,6 +87,11 @@ struct dhcphdr {
 };
 
 struct ConfigRecord {
+    ConfigRecord() : ip_addr(0), subnet_mask(0), bcast_addr(0), gw_addr(0), 
+                     dns_addr(0), ifindex(0), plen(0), lease_time(-1) {
+        memset(mac_addr, 0, ETH_ALEN);
+    }
+
     uint32_t ip_addr;
     uint32_t subnet_mask;
     uint32_t bcast_addr;
@@ -96,18 +101,9 @@ struct ConfigRecord {
     uint16_t ifindex;  // maps to VNid, VMid, itf
     uint32_t plen;
     uint32_t lease_time;
-
-    ConfigRecord() : ip_addr(0), subnet_mask(0), bcast_addr(0), gw_addr(0), 
-                     dns_addr(0), ifindex(0), plen(0), lease_time(-1) {
-        memset(mac_addr, 0, ETH_ALEN);
-    }
 };
 
 struct DhcpOptions {
-    uint8_t code;
-    uint8_t len;
-    uint8_t data[0];
-
     void WriteData(uint8_t c, uint8_t l, const void *d, uint16_t &optlen) {
         code = c;
         len = l; 
@@ -129,6 +125,10 @@ struct DhcpOptions {
         else
             return reinterpret_cast<DhcpOptions *>(next + len + 2);
     }
+
+    uint8_t code;
+    uint8_t len;
+    uint8_t data[0];
 };
 
 // DHCP protocol handler

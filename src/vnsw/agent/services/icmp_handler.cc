@@ -19,7 +19,8 @@ IcmpHandler::~IcmpHandler() {
 
 bool IcmpHandler::Run() {
     IcmpProto *icmp_proto = agent()->GetIcmpProto();
-    Interface *itf = agent()->GetInterfaceTable()->FindInterface(GetIntf());
+    Interface *itf =
+        agent()->GetInterfaceTable()->FindInterface(GetInterfaceIndex());
     if (itf == NULL) {
         return true;
     }
@@ -74,5 +75,6 @@ void IcmpHandler::SendResponse() {
            pkt_info_->eth->h_source, IP_PROTOCOL);
     len += sizeof(ethhdr);
 
-    Send(len, GetIntf(), pkt_info_->vrf, AGENT_CMD_SWITCH, PktHandler::ICMP);
+    Send(len, GetInterfaceIndex(), pkt_info_->vrf,
+         AGENT_CMD_SWITCH, PktHandler::ICMP);
 }

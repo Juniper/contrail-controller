@@ -10,9 +10,9 @@
 
 Proto::Proto(Agent *agent, const char *task_name, PktHandler::PktModuleName mod,
              boost::asio::io_service &io) 
-    : agent_(agent),
+    : agent_(agent), io_(io),
       work_queue_(TaskScheduler::GetInstance()->GetTaskId(task_name), mod,
-                  boost::bind(&Proto::ProcessProto, this, _1)), io_(io) {
+                  boost::bind(&Proto::ProcessProto, this, _1)) {
     agent->pkt()->pkt_handler()->Register(mod,
            boost::bind(&Proto::ValidateAndEnqueueMessage, this, _1) );
 }

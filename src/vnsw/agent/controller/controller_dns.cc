@@ -47,7 +47,7 @@ void AgentDnsXmppChannel::ReceiveMsg(const XmppStanza::XmppMessage *msg) {
         if (DnsAgentXmpp::DnsAgentXmppDecode(node, xmpp_type, xid, 
                                              code, xmpp_data.get())) {
             Agent::GetInstance()->GetDnsProto()->SendDnsUpdateIpc(
-                                  xmpp_data.release(), xmpp_type, NULL);
+                                  xmpp_data.release(), xmpp_type, NULL, false);
         }
     }
 }

@@ -27,9 +27,10 @@ void DiagPktHandler::Reply() {
     SetReply();
     Swap();
     SetDiagChkSum();
-    Send(GetLen() - (2 * IPC_HDR_LEN), GetIntf(), GetVrf(),
+    Send(GetLength() - (2 * IPC_HDR_LEN), GetInterfaceIndex(), GetVrfIndex(),
          AGENT_CMD_ROUTE, PktHandler::DIAG);
 }
+
 bool DiagPktHandler::Run() {
     AgentDiagPktData *ad = (AgentDiagPktData *)pkt_info_->data;
 
@@ -65,4 +66,69 @@ bool DiagPktHandler::Run() {
     }
 
     return true;
+}
+
+void DiagPktHandler::TcpHdr(in_addr_t src, uint16_t sport, in_addr_t dst, 
+                            uint16_t dport, bool is_syn, uint32_t seq_no,
+                            uint16_t len) {
+    struct tcphdr *tcp = pkt_info_->transp.tcp;
+    tcp->source = htons(sport);
+    tcp->dest = htons(dport);
+
+    if (is_syn) {
+        tcp->syn = 1;
+        tcp->ack = 0;
+    } else {
+        //If not sync, by default we are sending an ack
+        tcp->ack = 1;
+        tcp->syn = 0;
+    }
+
+    tcp->seq = htons(seq_no);
+    tcp->ack_seq = htons(seq_no + 1);
+    //Just a random number;
+    tcp->window = htons(1000);
+    tcp->doff = 5;
+    tcp->check = 0;
+    tcp->check = TcpCsum(src, dst, len, tcp);
+}
+
+uint16_t DiagPktHandler::TcpCsum(in_addr_t src, in_addr_t dest, uint16_t len, 
+                                 tcphdr *tcp) {
+    uint32_t sum = 0;
+    PseudoTcpHdr phdr(src, dest, htons(len));
+    sum = Sum((uint16_t *)&phdr, sizeof(PseudoTcpHdr), sum);
+    return Csum((uint16_t *)tcp, len, sum);
+}
+
+void DiagPktHandler::SwapL4() {
+    if (pkt_info_->ip_proto == IPPROTO_TCP) {
+        tcphdr *tcp = pkt_info_->transp.tcp;
+        TcpHdr(htonl(pkt_info_->ip_daddr), ntohs(tcp->dest), 
+               htonl(pkt_info_->ip_saddr), ntohs(tcp->source), 
+               false, ntohs(tcp->ack_seq), 
+               ntohs(pkt_info_->ip->tot_len) - sizeof(iphdr));
+
+    } else if(pkt_info_->ip_proto == IPPROTO_UDP) {
+        udphdr *udp = pkt_info_->transp.udp;
+        UdpHdr(ntohs(udp->len), pkt_info_->ip_daddr, ntohs(udp->dest),
+               pkt_info_->ip_saddr, ntohs(udp->source));
+    }
+}
+
+void DiagPktHandler::SwapIpHdr() {
+    //IpHdr expects IP address to be in network format
+    iphdr *ip = pkt_info_->ip;
+    IpHdr(ntohs(ip->tot_len), ip->daddr, ip->saddr, ip->protocol);
+}
+
+void DiagPktHandler::SwapEthHdr() {
+    ethhdr *eth = pkt_info_->eth;
+    EthHdr(eth->h_dest, eth->h_source, ntohs(eth->h_proto));
+}
+
+void DiagPktHandler::Swap() {
+    SwapL4();
+    SwapIpHdr();
+    SwapEthHdr();
 }

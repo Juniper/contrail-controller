@@ -82,31 +82,6 @@ void ProtoHandler::UdpHdr(uint16_t len, in_addr_t src, uint16_t src_port,
 #endif
 }
 
-void ProtoHandler::TcpHdr(in_addr_t src, uint16_t sport, in_addr_t dst, 
-                          uint16_t dport, bool is_syn, uint32_t seq_no,
-                          uint16_t len) {
-    struct tcphdr *tcp = pkt_info_->transp.tcp;
-    tcp->source = htons(sport);
-    tcp->dest = htons(dport);
-
-    if (is_syn) {
-        tcp->syn = 1;
-        tcp->ack = 0;
-    } else {
-        //If not sync, by default we are sending an ack
-        tcp->ack = 1;
-        tcp->syn = 0;
-    }
-
-    tcp->seq = htons(seq_no);
-    tcp->ack_seq = htons(seq_no + 1);
-    //Just a random number;
-    tcp->window = htons(1000);
-    tcp->doff = 5;
-    tcp->check = 0;
-    tcp->check = TcpCsum(src, dst, len, tcp);
-}
-
 uint32_t ProtoHandler::Sum(uint16_t *ptr, std::size_t len, uint32_t sum) {
     while (len > 1) {
         sum += *ptr++;
@@ -136,46 +111,6 @@ uint16_t ProtoHandler::UdpCsum(in_addr_t src, in_addr_t dest,
     PseudoUdpHdr phdr(src, dest, 0x11, htons(len));
     sum = Sum((uint16_t *)&phdr, sizeof(PseudoUdpHdr), sum);
     return Csum((uint16_t *)udp, len, sum);
-}
-
-uint16_t ProtoHandler::TcpCsum(in_addr_t src, in_addr_t dest, uint16_t len, 
-                               tcphdr *tcp) {
-    uint32_t sum = 0;
-    PseudoTcpHdr phdr(src, dest, htons(len));
-    sum = Sum((uint16_t *)&phdr, sizeof(PseudoTcpHdr), sum);
-    return Csum((uint16_t *)tcp, len, sum);
-}
-
-void ProtoHandler::SwapL4() {
-    if (pkt_info_->ip_proto == IPPROTO_TCP) {
-        tcphdr *tcp = pkt_info_->transp.tcp;
-        TcpHdr(htonl(pkt_info_->ip_daddr), ntohs(tcp->dest), 
-               htonl(pkt_info_->ip_saddr), ntohs(tcp->source), 
-               false, ntohs(tcp->ack_seq), 
-               ntohs(pkt_info_->ip->tot_len) - sizeof(iphdr));
-
-    } else if(pkt_info_->ip_proto == IPPROTO_UDP) {
-        udphdr *udp = pkt_info_->transp.udp;
-        UdpHdr(ntohs(udp->len), pkt_info_->ip_daddr, ntohs(udp->dest),
-               pkt_info_->ip_saddr, ntohs(udp->source));
-    }
-}
-
-void ProtoHandler::SwapIpHdr() {
-    //IpHdr expects IP address to be in network format
-    iphdr *ip = pkt_info_->ip;
-    IpHdr(ntohs(ip->tot_len), ip->daddr, ip->saddr, ip->protocol);
-}
-
-void ProtoHandler::SwapEthHdr() {
-    ethhdr *eth = pkt_info_->eth;
-    EthHdr(eth->h_dest, eth->h_source, ntohs(eth->h_proto));
-}
-
-void ProtoHandler::Swap() {
-    ProtoHandler::SwapL4();
-    ProtoHandler::SwapIpHdr();
-    ProtoHandler::SwapEthHdr();
 }
 
 ///////////////////////////////////////////////////////////////////////////////

@@ -34,8 +34,10 @@ public:
 
 protected:
     Agent *agent_;
-    WorkQueue<boost::shared_ptr<PktInfo> > work_queue_;
     boost::asio::io_service &io_;
+
+private:
+    WorkQueue<boost::shared_ptr<PktInfo> > work_queue_;
     DISALLOW_COPY_AND_ASSIGN(Proto);
 };
 
