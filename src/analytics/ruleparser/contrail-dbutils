@@ -82,7 +82,6 @@ def upgrade_from_1_0_3():
     uuid_flow_dict = LimitedSizeDict(size_limit=100000)
     try:
         cf_index = pycassa.ColumnFamily(pool,'FlowTableSvnSip')
-        flow_index = pycassa.ColumnFamily(pool, 'FlowRecordTable')
         svnsip_ver2 = pycassa.ColumnFamily(pool, 'FlowTableSvnSipVer2')
         rows = cf_index.get_range()
         for row in rows:
