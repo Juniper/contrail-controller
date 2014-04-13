@@ -858,10 +858,11 @@ void PeerRibMembershipManager::NotifyCompletion(BgpTable *table,
 void PeerRibMembershipManager::ProcessRegisterRibEvent(BgpTable *table,
                                    MembershipRequestList *request_list) {
 
-    // Ignore if the table is already marked for deletion
+    // Notify completion right away if the table is marked for deletion
     if (table->IsDeleted()) {
-        register_request_map_.erase(table);
+        NotifyCompletion(table, request_list);
         delete request_list;
+        register_request_map_.erase(table);
         return;
     }
 
