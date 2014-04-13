@@ -589,7 +589,8 @@ AgentPath *AgentRoute::FindLocalVmPortPath() const {
         it != GetPathList().end(); it++) {
         const AgentPath *path = static_cast<const AgentPath *>(it.operator->());
         if (path->peer()->GetType() == Peer::ECMP_PEER ||
-            path->peer()->GetType() == Peer::LOCAL_VM_PORT_PEER) {
+            path->peer()->GetType() == Peer::LOCAL_VM_PORT_PEER ||
+            path->peer()->GetType() == Peer::GATEWAY_PEER) {
             return const_cast<AgentPath *>(path);
         }
     }

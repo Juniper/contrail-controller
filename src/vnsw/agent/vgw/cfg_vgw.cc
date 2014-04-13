@@ -18,6 +18,7 @@
 #include <cmn/agent_cmn.h>
 #include <cfg/cfg_init.h>
 #include <vgw/cfg_vgw.h>
+#include <vgw/vgw.h>
 
 using namespace std;
 using namespace boost::property_tree;
@@ -134,10 +135,104 @@ void VirtualGatewayConfigTable::Init(const char *init_file) {
             return;
         }
 
+        std::sort(subnets.begin(), subnets.end());
+        std::sort(routes.begin(), routes.end());
         table_.insert(VirtualGatewayConfig(interface, vrf, subnets, routes));
     }
     return;
 }
 
 void VirtualGatewayConfigTable::Shutdown() {
+}
+
+// Add / modify a virtual gateway
+void VirtualGatewayConfigTable::AddVgw(
+                               const std::string &interface,
+                               const std::string &vrf,
+                               VirtualGatewayConfig::SubnetList &subnets,
+                               VirtualGatewayConfig::SubnetList &routes) {
+    std::sort(subnets.begin(), subnets.end());
+    std::sort(routes.begin(), routes.end());
+    Table::iterator it = table_.find(interface);
+    if (it == table_.end()) {
+        // Add new gateway
+        table_.insert(VirtualGatewayConfig(interface, vrf, subnets, routes));
+        agent_->vgw()->CreateVrf(vrf);
+        agent_->vgw()->CreateInterface(interface, vrf);
+    } else {
+        // modify existing gateway
+        if (vrf != it->vrf()) {
+            LOG(DEBUG, "Gateway : change of vrf is not allowed; " <<
+                "Interface : " << interface << " Old VRF : " << it->vrf() <<
+                " New VRF : " << vrf);
+            return;
+        }
+        VirtualGatewayConfig::SubnetList add_list, del_list;
+        if (FindChange(it->subnets(), subnets, add_list, del_list)) {
+            agent_->vgw()->SubnetUpdate(*it, add_list, del_list);
+            it->set_subnets(subnets);
+        }
+
+        add_list.clear();
+        del_list.clear();
+        if (FindChange(it->routes(), routes, add_list, del_list)) {
+            agent_->vgw()->RouteUpdate(*it, routes, add_list, del_list, true);
+            it->set_routes(routes);
+        }
+    }
+}
+
+// Delete a virtual gateway
+void VirtualGatewayConfigTable::DeleteVgw(const std::string &interface) {
+    Table::iterator it = table_.find(interface);
+    if (it != table_.end()) {
+        VirtualGatewayConfig::SubnetList empty_list;
+        agent_->vgw()->SubnetUpdate(*it, empty_list, it->subnets());
+        agent_->vgw()->RouteUpdate(*it, empty_list, empty_list,
+                                   it->routes(), false);
+        agent_->vgw()->DeleteInterface(interface);
+        agent_->vgw()->DeleteVrf(it->vrf());
+        table_.erase(it);
+    }
+}
+
+bool VirtualGatewayConfigTable::FindChange(
+                                const VirtualGatewayConfig::SubnetList &old_subnets,
+                                const VirtualGatewayConfig::SubnetList &new_subnets,
+                                VirtualGatewayConfig::SubnetList &add_list,
+                                VirtualGatewayConfig::SubnetList &del_list) {
+    bool change = false;
+    VirtualGatewayConfig::SubnetList::const_iterator it_old = old_subnets.begin();
+    VirtualGatewayConfig::SubnetList::const_iterator it_new = new_subnets.begin();
+    while (it_old != old_subnets.end() && it_new != new_subnets.end()) {
+        if (*it_old < *it_new) {
+            // old entry is deleted
+            del_list.push_back(*it_old);
+            change = true;
+            it_old++;
+        } else if (*it_new < *it_old) {
+            // new entry
+            add_list.push_back(*it_new);
+            change = true;
+            it_new++;
+        } else {
+            // no change in entry
+            it_old++;
+            it_new++;
+        }   
+    }   
+
+    // delete remaining old entries
+    for (; it_old != old_subnets.end(); ++it_old) {
+        del_list.push_back(*it_old);
+        change = true;
+    }
+
+    // add remaining new entries
+    for (; it_new != new_subnets.end(); ++it_new) {
+        add_list.push_back(*it_new);
+        change = true;
+    }
+
+    return change;
 }

@@ -11,6 +11,7 @@
 #include <db/db_table_walker.h>
 #include <net/address.h>
 
+#define GATEWAY_PEER_NAME "Gateway"
 #define LOCAL_PEER_NAME "Local"
 #define LOCAL_VM_PEER_NAME "Local_Vm"
 #define LOCAL_VM_PORT_PEER_NAME "LocalVmPort"
@@ -28,6 +29,7 @@ public:
     enum Type {
         BGP_PEER,
         ECMP_PEER,
+        GATEWAY_PEER,
         LOCAL_VM_PEER,
         LOCAL_PEER,
         LOCAL_VM_PORT_PEER,

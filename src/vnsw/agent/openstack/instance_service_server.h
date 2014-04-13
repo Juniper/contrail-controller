@@ -50,8 +50,9 @@ public:
     static const int kUuidSize = 16;
     typedef boost::uuids::uuid uuid;
 
-    InstanceServiceAsyncHandler(boost::asio::io_service& io_service) : io_service_(io_service), 
-                                                                       version_(0) {
+    InstanceServiceAsyncHandler(Agent *agent)
+        : io_service_(*(agent->GetEventManager()->io_service())),
+          agent_(agent), version_(0) {
         novaPeer_ = new Peer(Peer::NOVA_PEER, NOVA_PEER_NAME); 
     }
     ~InstanceServiceAsyncHandler() {
@@ -64,6 +65,10 @@ public:
 
     virtual DeletePort_shared_future_t DeletePort(const tuuid& port_id);
 
+    virtual AddGateway_shared_future_t AddGateway(
+                             const GatewayList& gateway_list);
+    virtual DeleteGateway_shared_future_t DeleteGateway(
+                             const std::vector<std::string>& gateway_list);
     virtual TunnelNHEntryAdd_shared_future_t TunnelNHEntryAdd(
 						     const std::string& src_ip, 
 						     const std::string& dst_ip, 
@@ -99,7 +104,6 @@ public:
 
     virtual CreateVrf_shared_future_t CreateVrf(const std::string& vrf_name);
 
-    void SetDb(DB *db);
     void SetCfgIntfStaleCleaner(CfgIntfStaleCleaner *intf_stale_cleaner);
 
 protected:
@@ -108,12 +112,13 @@ protected:
 private:
     uuid ConvertToUuid(const tuuid &tid);
     uuid MakeUuid(int id);
+
+    Agent *agent_;
     Peer *novaPeer_;
-    DB *db_;
     int version_;
     CfgIntfStaleCleaner *intf_stale_cleaner_;
 };
 
-void InstanceInfoServiceServerInit(EventManager &evm, DB *db);
+void InstanceInfoServiceServerInit(Agent *agent);
 
 #endif /* __AGENT_INSTANCE_SERVICE_SERVER_H_ */

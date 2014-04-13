@@ -19,11 +19,29 @@ struct Port {
 
 typedef list<Port> PortList
 
+struct Subnet {
+    1: required string prefix;
+    2: required i16 plen;
+}
+typedef list<Subnet> SubnetList
+
+struct Gateway {
+    1: required string interface_name;
+    2: required string routing_instance;
+    3: required SubnetList subnets;
+    4: optional SubnetList routes;
+}
+
+typedef list<Gateway> GatewayList
+
 service InstanceService {
     bool AddPort(PortList port_list),
     bool KeepAliveCheck(),
     bool Connect(),
     bool DeletePort(tuuid port_id),
+
+    bool AddGateway(GatewayList gateway_list),
+    bool DeleteGateway(1:required list<string> gateway_list),
 
     bool TunnelNHEntryAdd(1:required string src_ip, 2:required string dst_ip, 3:string vrf_name),
     bool TunnelNHEntryDelete(1:required string src_ip, 2:required string dst_ip, 3:string vrf_name),

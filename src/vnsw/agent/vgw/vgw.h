@@ -15,8 +15,22 @@ public:
     void Init();
     void Shutdown();
     void CreateVrf();
+    void CreateVrf(const std::string &vrf_name);
+    void DeleteVrf(const std::string &vrf_name);
     void CreateInterfaces();
+    void CreateInterface(const std::string &interface_name,
+                         const std::string &vrf_name);
+    void DeleteInterface(const std::string &interface_name);
+    void SubnetUpdate(const VirtualGatewayConfig &vgw,
+                      const VirtualGatewayConfig::SubnetList &add_list,
+                      const VirtualGatewayConfig::SubnetList &del_list);
+    void RouteUpdate(const VirtualGatewayConfig &vgw,
+                     const VirtualGatewayConfig::SubnetList &new_list,
+                     const VirtualGatewayConfig::SubnetList &add_list,
+                     const VirtualGatewayConfig::SubnetList &del_list,
+                     bool add_default_route);
     void RegisterDBClients();
+
 private:
     // Cached entries
     Agent *agent_;

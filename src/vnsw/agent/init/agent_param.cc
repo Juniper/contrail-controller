@@ -631,7 +631,7 @@ void AgentParam::set_test_mode(bool mode) {
     test_mode_ = mode;
 }
 
-AgentParam::AgentParam() :
+AgentParam::AgentParam(Agent *agent) :
         vhost_(), eth_port_(), xmpp_instance_count_(), xmpp_server_1_(),
         xmpp_server_2_(), dns_server_1_(), dns_server_2_(), dss_server_(),
         mgmt_ip_(), mode_(MODE_KVM), xen_ll_(), tunnel_type_(),
@@ -643,7 +643,7 @@ AgentParam::AgentParam() :
         flow_stats_interval_(FlowStatsCollector::FlowStatsInterval),
         vmware_physical_port_(""), test_mode_(false) {
     vgw_config_table_ = std::auto_ptr<VirtualGatewayConfigTable>
-        (new VirtualGatewayConfigTable());
+        (new VirtualGatewayConfigTable(agent));
 }
 AgentParam::~AgentParam()
 {

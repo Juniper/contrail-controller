@@ -100,7 +100,7 @@ class Peer;
 class LifetimeManager;
 class DiagTable;
 
-extern void RouterIdDepInit();
+extern void RouterIdDepInit(Agent *agent);
 
 #define MULTICAST_LABEL_RANGE_START 1024
 #define MULTICAST_LABEL_BLOCK_SIZE 2048        
@@ -328,6 +328,7 @@ public:
     const Peer *local_vm_peer() const {return local_vm_peer_.get();}
     const Peer *link_local_peer() const {return linklocal_peer_.get();}
     const Peer *ecmp_peer() const {return ecmp_peer_.get();}
+    const Peer *gateway_peer() const {return gateway_peer_.get();}
 
     VxLanNetworkIdentifierMode vxlan_network_identifier_mode() const {
         return vxlan_network_identifier_mode_;
@@ -538,8 +539,8 @@ public:
     PktModule *pkt() const { return pkt_.get(); }
     ServicesModule *services() const { return services_.get(); }
     DiscoveryAgentClient *discovery_client() const;
-    VirtualGateway *vgw() const {return vgw_.get(); }
-    OperDB *oper_db() const {return oper_db_.get(); }
+    VirtualGateway *vgw() const { return vgw_.get(); }
+    OperDB *oper_db() const { return oper_db_.get(); }
 
 private:
     void GetConfig();
@@ -631,6 +632,7 @@ private:
     std::auto_ptr<Peer> local_vm_peer_;
     std::auto_ptr<Peer> linklocal_peer_;
     std::auto_ptr<Peer> ecmp_peer_;
+    std::auto_ptr<Peer> gateway_peer_;
 
     IFMapAgentParser *ifmap_parser_;
     bool router_id_configured_;

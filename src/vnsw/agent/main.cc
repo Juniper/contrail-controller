@@ -39,14 +39,15 @@
 #include <kstate/kstate.h>
 #include <pkt/proto.h>
 #include <diag/diag.h>
+#include <vgw/cfg_vgw.h>
 #include <vgw/vgw.h>
 #include <boost/functional/factory.hpp>
 #include <cmn/agent_factory.h>
 
 namespace opt = boost::program_options;
 
-void RouterIdDepInit() {
-    InstanceInfoServiceServerInit(*(Agent::GetInstance()->GetEventManager()), Agent::GetInstance()->GetDB());
+void RouterIdDepInit(Agent *agent) {
+    InstanceInfoServiceServerInit(agent);
 
     // Parse config and then connect
     VNController::Connect();
@@ -136,7 +137,7 @@ int main(int argc, char *argv[]) {
     Agent agent;
 
     // Read agent parameters from config file and arguments
-    AgentParam param;
+    AgentParam param(&agent);
     param.Init(init_file, argv[0], var_map);
 
     // Initialize the agent-init control class

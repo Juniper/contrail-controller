@@ -33,15 +33,23 @@ struct VrfKey : public AgentKey {
 };
 
 struct VrfData : public AgentData {
-    VrfData() : AgentData() { };
-    virtual ~VrfData() { }
+    enum VrfEntryFlags {
+        ConfigVrf = 1 << 0,     // vrf is received from config
+        GwVrf     = 1 << 1,     // GW configured for this VRF
+    };
+
+    VrfData(uint32_t flags) : AgentData(), flags_(flags) {}
+    virtual ~VrfData() {}
+
+    uint32_t flags_;
 };
 
 class VrfEntry : AgentRefCount<VrfEntry>, public AgentDBEntry {
 public:
     static const uint32_t kInvalidIndex = 0xFFFFFFFF;
     static const uint32_t kDeleteTimeout = 900 * 1000;
-    VrfEntry(const string &name);
+
+    VrfEntry(const string &name, uint32_t flags);
     virtual ~VrfEntry();
 
     virtual bool IsLess(const DBEntry &rhs) const;
@@ -54,6 +62,12 @@ public:
 
     uint32_t GetRefCount() const {
         return AgentRefCount<VrfEntry>::GetRefCount();
+    }
+
+    uint32_t flags() const { return flags_; }
+    void set_flags(uint32_t flags) { flags_ = flags; }
+    bool are_flags_set(const VrfData::VrfEntryFlags &flags) const {
+        return (flags_ & flags);
     }
 
     bool DBEntrySandesh(Sandesh *sresp, std::string &name) const;
@@ -96,6 +110,7 @@ private:
                             Peer *peer);
     string name_;
     uint32_t id_;
+    uint32_t flags_;
     DBTableWalker::WalkId walkid_;
     boost::scoped_ptr<DeleteActor> deleter_;
     AgentRouteTable *rt_table_db_[Agent::ROUTE_TABLE_MAX];
@@ -130,8 +145,8 @@ public:
     virtual void OnZeroRefcount(AgentDBEntry *e);
 
     // Create a VRF entry with given name
-    void CreateVrf(const string &name);
-    void DeleteVrf(const string &name);
+    void CreateVrf(const string &name, uint32_t flags = VrfData::ConfigVrf);
+    void DeleteVrf(const string &name, uint32_t flags = VrfData::ConfigVrf);
     //Add and delete routine for VRF not deleted on VRF config delete
     void CreateStaticVrf(const string &name);
     void DeleteStaticVrf(const string &name);
@@ -167,6 +182,8 @@ private:
     void DelPeerDone(DBTableBase *base, Peer *,Peer::DelPeerDone cb);
     void VrfNotifyDone(DBTableBase *base, Peer *);
     void VrfNotifyMulticastDone(DBTableBase *base, Peer *);
+    uint32_t GetVrfFlags(const std::string &vrf_name);
+
     DB *db_;
     static VrfTable *vrf_table_;
     IndexVector<VrfEntry> index_table_;
