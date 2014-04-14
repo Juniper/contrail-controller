@@ -39,7 +39,7 @@ FlowTableKSyncEntry::FlowTableKSyncEntry(FlowTableKSyncObject *obj,
     : flow_entry_(fe), hash_id_(hash_id), 
     old_reverse_flow_id_(FlowEntry::kInvalidFlowHandle), old_action_(0), 
     old_component_nh_idx_(0xFFFF), old_first_mirror_index_(0xFFFF), 
-    old_second_mirror_index_(0xFFFF), trap_flow_(false), nh_(NULL), 
+    old_second_mirror_index_(0xFFFF), trap_flow_(false), ecmp_(false), nh_(NULL),
     ksync_obj_(obj) {
 }
 
@@ -289,6 +289,12 @@ bool FlowTableKSyncEntry::Sync() {
         trap_flow_ = flow_entry_->is_flags_set(FlowEntry::Trap);
         changed = true;
     }
+
+    if (ecmp_ != flow_entry_->is_flags_set(FlowEntry::EcmpFlow)) {
+        ecmp_ = flow_entry_->is_flags_set(FlowEntry::EcmpFlow);
+        changed = true;
+    }
+
 
     if (flow_entry_->data().nh_state_.get() && 
         flow_entry_->data().nh_state_->nh()) {
