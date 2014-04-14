@@ -98,8 +98,12 @@ bool InterfaceKSyncEntry::IsLess(const KSyncEntry &rhs) const {
 
 std::string InterfaceKSyncEntry::ToString() const {
     std::stringstream s;
-    s << "Interface : " << interface_name_ << " Index : " << interface_id_ 
-        << " Vrf : " << vrf_id_;
+    s << "Interface : " << interface_name_ << " Index : " << interface_id_;
+    const VrfEntry* vrf =
+        ksync_obj_->ksync()->agent()->GetVrfTable()->FindVrfFromId(vrf_id_);
+    if (vrf) {
+        s << " Vrf : " << vrf->GetName();
+    }
     return s.str();
 }
 

@@ -39,11 +39,11 @@ std::string MplsKSyncEntry::ToString() const {
     std::stringstream s;
     NHKSyncEntry *next_hop = nh();
 
+    s << "Mpls : " << label_ << " Index : " << GetIndex();
     if (next_hop) {
-        s << "Mpls : " << label_ << " Index : " << GetIndex() << " NH : " 
-        << next_hop->GetIndex();
+        s << next_hop->ToString();
     } else {
-        s << "Mpls : " << label_ << " Index : " << GetIndex() << " NH : <null>";
+        s << "NextHop :  NULL";
     }
     return s.str();
 }

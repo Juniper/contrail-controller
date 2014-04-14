@@ -16,6 +16,7 @@
 #include <ksync/ksync_entry.h>
 #include <ksync/ksync_object.h>
 #include <ksync/ksync_sock.h>
+#include <ksync/ksync_types.h>
 #include <ksync/agent_ksync_types.h>
 #include <ksync/interface_ksync.h>
 #include <ksync/nexthop_ksync.h>
@@ -371,7 +372,13 @@ int FlowTableKSyncEntry::DeleteMsg(char *buf, int buf_len) {
 
 std::string FlowTableKSyncEntry::ToString() const {
     std::ostringstream str;
-    str << flow_entry_;
+    const FlowKey *fe_key = &flow_entry_->key();
+    Ip4Address sip(fe_key->src.ipv4);
+    Ip4Address dip(fe_key->dst.ipv4);
+    str << "Flow : " << hash_id_ << " with Source IP: " << sip.to_string()
+        << " Source port: " << fe_key->src_port << " Destination IP: "
+        << dip.to_string() << " Destination port: " << fe_key->dst_port
+        << " Protocol "<< fe_key->protocol;
     return str.str();
 }
 
@@ -379,6 +386,17 @@ bool FlowTableKSyncEntry::IsLess(const KSyncEntry &rhs) const {
     const FlowTableKSyncEntry &entry = static_cast
         <const FlowTableKSyncEntry &>(rhs);
     return flow_entry_ < entry.flow_entry_;
+}
+
+void FlowTableKSyncEntry::ErrorHandler(int err, uint32_t seq_no) const {
+    if (err == ENOSPC || err == EBADF) {
+        KSYNC_ERROR(VRouterError, "VRouter operation failed. Error <", err,
+                    ":", strerror(err), ">. Object <", ToString(),
+                    ">. Operation <", OperationString(), ">. Message number :",
+                    seq_no);
+        return;
+    }
+    KSyncEntry::ErrorHandler(err, seq_no);
 }
 
 FlowTableKSyncObject::FlowTableKSyncObject(KSync *ksync) : 

@@ -82,7 +82,13 @@ std::string VrfAssignKSyncEntry::ToString() const {
         s << "Interface : <NULL> ";
     }
 
-    s << " Tag : " << vlan_tag() << " Vrf : " << vrf_id_;
+    s << " Tag : " << vlan_tag();
+    const VrfEntry* vrf =
+        ksync_obj_->ksync()->agent()->GetVrfTable()->FindVrfFromId(vrf_id_);
+    if (vrf) {
+        s << " Vrf : " << vrf->GetName();
+    }
+
     return s.str();
 }
 

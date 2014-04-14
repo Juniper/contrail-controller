@@ -51,14 +51,12 @@ bool MirrorKSyncEntry::IsLess(const KSyncEntry &rhs) const {
 
 std::string MirrorKSyncEntry::ToString() const {
     std::stringstream s;
-    NHKSyncEntry *nh_entry = nh();
 
-    if (nh_entry) {
-        s << "Mirror Index : " << GetIndex() << " NH : " << nh_entry->GetIndex()
-            << " Vrf : " << vrf_id_;
-    } else {
-        s << "Mirror Index : " << GetIndex() << " NH : <null>" 
-            << " Vrf : " << vrf_id_;
+    s << "Mirror Entry : " << dip_.to_string() << ":" << dport_;
+    const VrfEntry* vrf =
+        ksync_obj_->ksync()->agent()->GetVrfTable()->FindVrfFromId(vrf_id_);
+    if (vrf) {
+        s << " Vrf : " << vrf->GetName();
     }
     return s.str();
 }

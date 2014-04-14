@@ -149,16 +149,21 @@ std::string RouteKSyncEntry::ToString() const {
     NHKSyncEntry *nexthop;
     nexthop = nh();
 
-    s << "Route : " << vrf_id_ << " : " << address_string_ << " / " 
-        << prefix_len_ << " Type:" << rt_type_;
+    const VrfEntry* vrf =
+        ksync_obj_->ksync()->agent()->GetVrfTable()->FindVrfFromId(vrf_id_);
+    if (vrf) {
+        s << " Vrf : " << vrf->GetName() << " ";
+    }
+    s << address_string_ << "/" << prefix_len_ << " Type:" << rt_type_;
+
 
     s << " Label : " << label_;
     s << " Tunnel Type: " << tunnel_type_;
 
     if (nexthop) {
-        s << " NH : " << nexthop->GetIndex();
+        s << " NextHop : " << nexthop->ToString();
     } else {
-        s << " NH : <NULL>";
+        s << " NextHop : <NULL>";
     }
 
     return s.str();
