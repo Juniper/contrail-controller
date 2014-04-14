@@ -58,22 +58,27 @@ public:
             static_cast<DBTablePartition *>(table->GetTablePartition(inst_id_));
         BgpRoute *route;
 
-        // As of now, this code walks through all the prefixes even if we are
-        // searching for a specific one. We can improve it by doing a lookup
-        if (table->name() == req_->get_start_routing_table()) {
+        bool exact_lookup = false;
+        if (!req_->get_prefix().empty() && !req_->get_longer_match()) {
+            exact_lookup = true;
+            auto_ptr<DBEntry> key = table->AllocEntryStr(req_->get_prefix());
+            route = static_cast<BgpRoute *>(partition->Find(key.get()));
+        } else if (table->name() == req_->get_start_routing_table()) {
             auto_ptr<DBEntry> key = table->AllocEntryStr(req_->get_start_prefix());
             route = static_cast<BgpRoute *>(partition->lower_bound(key.get()));
         } else {
             route = static_cast<BgpRoute *>(partition->GetFirst());
         }
         for (int i = 0; route && (!count || i < count);
-                route = static_cast<BgpRoute *>(partition->GetNext(route)), i++) {
+             route = static_cast<BgpRoute *>(partition->GetNext(route)), i++) {
             if (!MatchPrefix(req_->get_prefix(), route,
                              req_->get_longer_match()))
                 continue;
             ShowRoute show_route;
             route->FillRouteInfo(table, &show_route);
             route_list.push_back(show_route);
+            if (exact_lookup)
+                break;
         }
     }
 
@@ -120,12 +125,28 @@ bool ShowRouteHandler::CallbackS1(const Sandesh *sr,
     ShowRouteHandler handler(req, inst_id);
     BgpSandeshContext *bsc = static_cast<BgpSandeshContext *>(req->client_context());
     RoutingInstanceMgr *rim = bsc->bgp_server->routing_instance_mgr();
+
+    string exact_routing_table = req->get_routing_table();
+    string exact_routing_instance;
+    string start_routing_instance;
+    if (exact_routing_table.empty()) {
+        exact_routing_instance = req->get_routing_instance();
+    } else {
+        exact_routing_instance =
+            RoutingInstance::GetVrfFromTableName(exact_routing_table);
+    }
+    if (exact_routing_instance.empty()) {
+        start_routing_instance = req->get_start_routing_instance();
+    } else {
+        start_routing_instance = exact_routing_instance;
+    }
+
     RoutingInstanceMgr::NameIterator i =
-            rim->name_lower_bound(req->get_start_routing_instance());
+        rim->name_lower_bound(start_routing_instance);
     uint32_t count = 0;
-    for (;i != rim->name_end(); i++) {
-        if (!handler.match(req->get_routing_instance(), i->first))
-            continue;
+    while (i != rim->name_end()) {
+        if (!handler.match(exact_routing_instance, i->first))
+            break;
         RoutingInstance::RouteTableList::const_iterator j;
         if (req->get_start_routing_instance() == i->first)
             j = i->second->GetTables().lower_bound(req->get_start_routing_table());
@@ -148,7 +169,7 @@ bool ShowRouteHandler::CallbackS1(const Sandesh *sr,
 
             vector<ShowRoute> route_list;
             handler.BuildShowRouteTable(table, route_list,
-                                req->get_count()?req->get_count() - count : 0);
+                req->get_count() ? req->get_count() - count : 0);
             if (route_list.size()) {
                 srt.set_routes(route_list);
                 mydata->route_table_list.push_back(srt);
@@ -157,6 +178,8 @@ bool ShowRouteHandler::CallbackS1(const Sandesh *sr,
             if (req->get_count() && count >= req->get_count()) break;
         }
         if (req->get_count() && count >= req->get_count()) break;
+
+        i++;
     }
     return true;
 }
