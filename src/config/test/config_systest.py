@@ -51,10 +51,10 @@ class ConfigTest(testtools.TestCase, fixtures.TestWithFixtures):
         '''
         logging.info("*** test_00_nocassandra ***")
 
-        vizd_obj = self.useFixture(
+        config_obj = self.useFixture(
             ConfigFixture(logging,
                              builddir, self.cassandra_port))
-        assert(vizd_obj.verify_default_project())
+        assert(config_obj.verify_default_project())
         return True
     # end test_00_nocassandra
 

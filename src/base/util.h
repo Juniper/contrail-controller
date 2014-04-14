@@ -217,6 +217,16 @@ static inline bool ValidateIPAddressString(std::string ip_address_str,
     return true;
 }
 
+static inline uint32_t NetmaskToPrefix(uint32_t netmask) {
+    uint32_t count = 0;
+
+    while (netmask) {
+        count++;
+        netmask = (netmask - 1) & netmask;
+    }
+    return count;
+}
+
 // Validate a list of <ip-address>:<port> endpoints.
 static inline bool ValidateServerEndpoints(std::vector<std::string> list,
                                            std::string &error_msg) {

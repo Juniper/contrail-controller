@@ -17,7 +17,6 @@ import copy
 import os
 import json
 from operator import itemgetter
-from utils.vnc_introspect_utils import VNCApiInspect
 import sys, os
 pyver = "%s.%s" % (sys.version_info[0], sys.version_info[1])
 sys.path.insert(
@@ -30,6 +29,7 @@ import svc_monitor
 from schema_transformer import to_bgp
 from cfgm_common.test_utils import *
 from flexmock import flexmock, Mock
+from vnc_api import vnc_api
 
 class SvcMonitor(object):
     def __init__(self, config_fixture, logger):
@@ -239,19 +239,20 @@ class ConfigFixture(fixtures.Fixture):
         self.apiserver.start()
         self.schema = Schema(self,self.logger)
         self.schema.start()
+        block_till_port_listened('127.0.0.1', self.apiserver.port)
 
     @retry(delay=4, tries=5)  
     def verify_default_project(self):
         result = True
+        vnc_lib = vnc_api.VncApi(api_server_port=str(self.apiserver.port))
         try:
-            vai = VNCApiInspect('127.0.0.1',self.apiserver.port)
-            prj = vai.get_cs_project('default-domain','default-project')
-            if len(prj['project']['virtual_networks']) != 3:
-                result &= False
-            self.logger.info("Verifying default-project: %s" % prj['project']['virtual_networks'])
+            project = vnc_lib.project_read(fq_name=['default-domain', 'default-project'])
+            if len(project.get_virtual_networks()) != 3:
+                result = False
+            self.logger.info("Verifying default-project: %s" % project.virtual_networks)
         except:
             self.logger.error("Exception Verifying default-project")
-            result &= False
+            result = False
 
         return result
 

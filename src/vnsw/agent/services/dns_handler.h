@@ -25,15 +25,15 @@ public:
     static const uint32_t max_items_per_xmpp_msg = 20;
 
     struct QueryKey {
-        const Interface *itf;
-        uint16_t xid;
-
         QueryKey(const Interface *i, uint16_t x) : itf(i), xid(x) {}
         bool operator<(const QueryKey &rhs) const {
             if (itf != rhs.itf)
                 return itf < rhs.itf;
             return xid < rhs.xid;
         }
+
+        const Interface *itf;
+        uint16_t xid;
     };
 
     enum Action {

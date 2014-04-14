@@ -33,23 +33,23 @@ struct agent_hdr;
 class TapInterface;
 
 struct InterTaskMsg {
-    InterTaskMsg(uint16_t command): cmd(command) {};
-    ~InterTaskMsg() {};
+    InterTaskMsg(uint16_t command): cmd(command) {}
+    ~InterTaskMsg() {}
 
     uint16_t cmd;
 };
 
 struct GreHdr {
-    GreHdr() : flags(), protocol() {};
-    ~GreHdr() {};
+    GreHdr() : flags(), protocol() {}
+    ~GreHdr() {}
 
     uint16_t flags;
     uint16_t protocol;
 };
 
 struct MplsHdr {
-    MplsHdr() : hdr() {};
-    ~MplsHdr() {};
+    MplsHdr() : hdr() {}
+    ~MplsHdr() {}
 
     uint32_t hdr;
 };
@@ -68,8 +68,8 @@ struct PktType {
 };
 
 struct AgentHdr {
-    AgentHdr() : ifindex(-1), vrf(-1), cmd(-1), cmd_param(-1) {};
-    ~AgentHdr() {};
+    AgentHdr() : ifindex(-1), vrf(-1), cmd(-1), cmd_param(-1) {}
+    ~AgentHdr() {}
 
     // Fields from agent_hdr
     uint16_t            ifindex;
@@ -80,8 +80,8 @@ struct AgentHdr {
 
 struct TunnelInfo {
     TunnelInfo() : 
-        type(TunnelType::INVALID), label(-1), ip_saddr(), ip_daddr() {};
-    ~TunnelInfo() {};
+        type(TunnelType::INVALID), label(-1), ip_saddr(), ip_daddr() {}
+    ~TunnelInfo() {}
 
     TunnelType          type;
     uint32_t            label;
@@ -121,7 +121,7 @@ struct PktInfo {
         struct icmphdr  *icmp;
     } transp;
 
-    PktInfo(uint8_t *msg = NULL, std::size_t msg_size = 0);
+    PktInfo(uint8_t *msg, std::size_t msg_size);
     PktInfo(InterTaskMsg *msg);
     virtual ~PktInfo();
 
@@ -186,7 +186,7 @@ public:
 
     bool IsGwPacket(const Interface *intf, uint32_t dst_ip);
 
-    PktStats GetStats() { return stats_; }
+    const PktStats &GetStats() const { return stats_; }
     void ClearStats() { stats_.Reset(); }
     void PktTraceIterate(PktModuleName mod, PktTraceCallback cb);
     void PktTraceClear(PktModuleName mod) { pkt_trace_.at(mod).Clear(); }

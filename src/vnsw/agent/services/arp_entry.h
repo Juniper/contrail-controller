@@ -6,12 +6,16 @@
 #define vnsw_agent_arp_entry_hpp
 
 struct ArpKey {
-    in_addr_t ip;
-    const VrfEntry  *vrf;
-
     ArpKey(in_addr_t addr, const VrfEntry *ventry) : ip(addr), vrf(ventry) {};
     ArpKey(const ArpKey &key) : ip(key.ip), vrf(key.vrf) {};
-    bool operator <(const ArpKey &rhs) const { return (ip < rhs.ip); }
+    bool operator <(const ArpKey &rhs) const {
+        if (vrf != rhs.vrf)
+            return vrf < rhs.vrf;
+        return (ip < rhs.ip);
+    }
+
+    in_addr_t ip;
+    const VrfEntry *vrf;
 };
 
 // Represents each Arp entry maintained by the ARP module
@@ -25,8 +29,7 @@ public:
     };
 
     ArpEntry(boost::asio::io_service &io, ArpHandler *handler,
-             in_addr_t ip, const VrfEntry *vrf,
-             State state = ArpEntry::INITING);
+             ArpKey &key, State state);
     virtual ~ArpEntry();
 
     const ArpKey &key() const { return key_; }
@@ -35,16 +38,16 @@ public:
 
     bool HandleArpRequest();
     void HandleArpReply(uint8_t *mac);
-    void RetryExpiry();
-    void AgingExpiry();
-    void SendGraciousArp();
-    void Delete();
+    bool RetryExpiry();
+    bool AgingExpiry();
+    void SendGratuitousArp();
+    bool DeleteArpRoute();
     bool IsResolved();
 
 private:
-    void StartTimer(uint32_t timeout, ArpHandler::ArpMsgType mtype);
+    void StartTimer(uint32_t timeout, uint32_t mtype);
     void SendArpRequest();
-    void UpdateNhDBEntry(DBRequest::DBOperation op, bool resolved = false);
+    void AddArpRoute(bool resolved);
 
     ArpKey key_;
     unsigned char mac_address_[ETH_ALEN];

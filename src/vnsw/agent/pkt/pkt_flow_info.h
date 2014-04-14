@@ -18,8 +18,8 @@ struct MatchPolicy;
 struct PktControlInfo {
     PktControlInfo() : 
         vrf_(NULL), intf_(NULL), rt_(NULL), vn_(NULL), vm_(NULL), 
-        vlan_nh_(false), vlan_tag_(0) { };
-    virtual ~PktControlInfo() { };
+        vlan_nh_(false), vlan_tag_(0) { }
+    virtual ~PktControlInfo() { }
 
     const VrfEntry *vrf_;
     const Interface *intf_;

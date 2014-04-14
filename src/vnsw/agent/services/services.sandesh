@@ -73,11 +73,14 @@ response sandesh ArpStats {
     1: i32 arp_entries;
     2: i32 arp_requests;           // received
     3: i32 arp_replies;            // received
-    4: i32 arp_gracious;           // received
+    4: i32 arp_gratuitous;         // received
     5: i32 arp_resolved;
     6: i32 arp_max_retries_exceeded;
     7: i32 arp_errors;
-    8: i32 pkts_dropped;
+    9: i32 arp_invalid_packets;
+   10: i32 arp_invalid_interface;
+   11: i32 arp_invalid_vrf;
+   12: i32 arp_invalid_address;
 }
 
 response sandesh DnsStats {

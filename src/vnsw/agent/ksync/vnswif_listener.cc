@@ -12,6 +12,7 @@
 #include <net/address.h>
 
 #include <base/logging.h>
+#include <base/util.h>
 #include <cmn/agent_cmn.h>
 #include <init/agent_param.h>
 #include <init/agent_init.h>
@@ -25,8 +26,10 @@
 extern void RouterIdDepInit();
 
 VnswInterfaceListener::VnswInterfaceListener(Agent *agent) : 
-    agent_(agent), sock_(*(agent_->GetEventManager())->io_service()),
-    seqno_(0), vhost_intf_up_(false) {
+    agent_(agent), read_buf_(NULL), sock_fd_(0), 
+    sock_(*(agent->GetEventManager())->io_service()), ifaddr_listen_(false),
+    intf_listener_id_(DBTableBase::kInvalidId), seqno_(0),
+    vhost_intf_up_(false), ll_addr_table_(), revent_queue_(NULL) { 
 }
 
 VnswInterfaceListener::~VnswInterfaceListener() {
@@ -37,15 +40,23 @@ VnswInterfaceListener::~VnswInterfaceListener() {
     delete revent_queue_;
 }
 
+/****************************************************************************
+ * Initialization and shutdown code
+ *   1. Opens netlink socket
+ *   2. Starts scan of interface from host-os
+ *   3. Starts scan of routes from host-os
+ *   4. Registers for netlink messages with ASIO
+ ****************************************************************************/
 void VnswInterfaceListener::Init() {
 
+    // If vhost is not configured, look for interface to be created
     ifaddr_listen_ = !(agent_->params()->IsVHostConfigured());
 
     intf_listener_id_ = agent_->GetInterfaceTable()->Register
-        (boost::bind(&VnswInterfaceListener::IntfNotify, this, _1, _2));
+        (boost::bind(&VnswInterfaceListener::InterfaceNotify, this, _1, _2));
 
     /* Allocate Route Event Workqueue */
-    revent_queue_ = new WorkQueue<VnswRouteEvent *>
+    revent_queue_ = new WorkQueue<Event *>
                     (TaskScheduler::GetInstance()->GetTaskId("db::DBTable"), 0,
                      boost::bind(&VnswInterfaceListener::RouteEventProcess, 
                                  this, _1));
@@ -63,43 +74,139 @@ void VnswInterfaceListener::Init() {
     /* Fetch Links from kernel syncronously, to allow dump request for routes
      * to go through fine
      */
-    InitFetchLinks();
+    InitNetlinkScan(RTM_GETLINK, ++seqno_);
 
     /* Fetch routes from kernel asyncronously and update the gateway-id */
-    InitFetchRoutes();
+    InitNetlinkScan(RTM_GETROUTE, ++seqno_);
 
     RegisterAsyncHandler();
 }
 
-int VnswInterfaceListener::AddAttr(int type, void *data, int alen) {
-    struct nlmsghdr *n = (struct nlmsghdr *)tx_buf_;
-    int len = RTA_LENGTH(alen);
-    struct rtattr *rta;
-
-    if (NLMSG_ALIGN(n->nlmsg_len) + len > max_buf_size)
-        return -1;
-    rta = (struct rtattr*)(((char*)n) + NLMSG_ALIGN(n->nlmsg_len));
-    rta->rta_type = type;
-    rta->rta_len = len;
-    memcpy(RTA_DATA(rta), data, alen);
-    n->nlmsg_len = NLMSG_ALIGN(n->nlmsg_len) + len;
-    return 0;
+void VnswInterfaceListener::Shutdown() { 
+    boost::system::error_code ec;
+    sock_.close(ec);
 }
 
-void VnswInterfaceListener::IntfNotify(DBTablePartBase *part, DBEntryBase *e) {
+// Create netlink socket
+void VnswInterfaceListener::CreateSocket() {
+
+    sock_fd_ = socket(PF_NETLINK, SOCK_DGRAM, NETLINK_ROUTE);
+    if (sock_fd_ < 0) {
+        LOG(ERROR, "Error <" << errno << ": " << strerror(errno) << 
+                "> creating socket");
+        assert(0);
+    }
+
+    /* Bind to netlink socket */
+    struct sockaddr_nl addr;
+    memset (&addr,0,sizeof(addr));
+    addr.nl_family = AF_NETLINK;
+    addr.nl_groups = (RTMGRP_IPV4_ROUTE | RTMGRP_LINK);
+    if (ifaddr_listen_) {
+        addr.nl_groups |= RTMGRP_IPV4_IFADDR;
+    }
+    if (bind(sock_fd_, (struct sockaddr *)&addr, sizeof(addr)) == -1) {
+        LOG(ERROR, "Error <" << errno << ": " << strerror(errno) << 
+                       "> binding to netlink address family");
+        assert(0);
+    }
+
+    /* Assign native socket to boost asio */
+    boost::asio::local::datagram_protocol protocol;
+    sock_.assign(protocol, sock_fd_);
+}
+
+// Initiate netlink scan based on type and flags
+void VnswInterfaceListener::InitNetlinkScan(uint32_t type, uint32_t seqno) {
+    struct nlmsghdr *nlh;
+    const uint32_t buf_size = VnswInterfaceListener::kMaxBufferSize;
+
+    memset(tx_buf_, 0, buf_size);
+    nlh = (struct nlmsghdr *)tx_buf_;
+
+    /* Fill in the nlmsg header */
+
+    // Length of message.
+    nlh->nlmsg_len = NLMSG_LENGTH(sizeof(struct rtgenmsg));
+
+    // Get links from kernel.
+    nlh->nlmsg_type = type;
+
+    // The message is a request for dump.
+    nlh->nlmsg_flags = (NLM_F_DUMP | NLM_F_REQUEST);
+
+    // Sequence of the message packet.
+    nlh->nlmsg_seq = seqno;
+
+    struct rtgenmsg *rt_gen = (struct rtgenmsg *) NLMSG_DATA (nlh);
+    rt_gen->rtgen_family = AF_PACKET;
+
+    boost::system::error_code ec;
+    sock_.send(boost::asio::buffer(nlh,nlh->nlmsg_len), 0, ec);
+    assert(ec.value() == 0);
+
+    uint8_t read_buf[buf_size];
+
+    /* Wait/Read the response for dump request, linux kernel doesn't handle 
+     * dump request if response for previous dump request is not complete. 
+     */
+    int end = 0;
+    while (end == 0) {
+        memset(read_buf, 0, buf_size);
+        std::size_t len = sock_.receive(boost::asio::buffer(read_buf,
+                                                            buf_size), 0, ec);
+        assert(ec.value() == 0);
+        struct nlmsghdr *nl = (struct nlmsghdr *)read_buf;
+        end = NlMsgDecode(nl, len, seqno);
+    }
+}
+
+void VnswInterfaceListener::RegisterAsyncHandler() {
+    read_buf_ = new uint8_t[kMaxBufferSize];
+    sock_.async_receive(boost::asio::buffer(read_buf_, kMaxBufferSize), 
+                        boost::bind(&VnswInterfaceListener::ReadHandler, this,
+                                 boost::asio::placeholders::error,
+                                 boost::asio::placeholders::bytes_transferred));
+}
+
+void VnswInterfaceListener::ReadHandler(const boost::system::error_code &error,
+                                 std::size_t len) {
+    struct nlmsghdr *nlh;
+
+    /* TODO: Handle multiple primary IP address case */
+    if (error == 0) {
+        nlh = (struct nlmsghdr *)read_buf_;
+        NlMsgDecode(nlh, len, -1);
+    } else {
+        LOG(ERROR, "Error < : " << error.message() << 
+                   "> reading packet on netlink sock");
+    }
+
+    if (read_buf_) {
+        delete [] read_buf_;
+        read_buf_ = NULL;
+    }
+    RegisterAsyncHandler();
+}
+
+/****************************************************************************
+ * Interface notification handler. Triggers add/delete of link-local route
+ ****************************************************************************/
+void VnswInterfaceListener::InterfaceNotify(DBTablePartBase *part,
+                                            DBEntryBase *e) {
     const VmInterface *vmport = dynamic_cast<VmInterface *>(e);
     if (vmport == NULL) {
         return;
     }
 
     DBState *s = e->GetState(part->parent(), intf_listener_id_);
-    VnswIntfState *state = static_cast<VnswIntfState *>(s);
-    VnswRouteEvent *re;
+    State *state = static_cast<State *>(s);
+    Event *re;
 
     if (vmport->IsDeleted() || !vmport->ipv4_active() ||
         !vmport->need_linklocal_ip()) {
         if (state) {
-            re = new VnswRouteEvent(state->addr(), VnswRouteEvent::DEL_REQ);
+            re = new Event(state->addr_, Event::DEL_REQ);
             revent_queue_->Enqueue(re);
             e->ClearState(part->parent(), intf_listener_id_);
             delete state;
@@ -108,116 +215,39 @@ void VnswInterfaceListener::IntfNotify(DBTablePartBase *part, DBEntryBase *e) {
     }
 
     if (!state && vmport->need_linklocal_ip()) {
-        state = new VnswIntfState(vmport->mdata_ip_addr());
+        state = new State(vmport->mdata_ip_addr());
         e->SetState(part->parent(), intf_listener_id_, state);
-        re = new VnswRouteEvent(state->addr(), VnswRouteEvent::ADD_REQ);
+        re = new Event(state->addr_, Event::ADD_REQ);
         revent_queue_->Enqueue(re);
     }
 }
 
-void VnswInterfaceListener::InitFetchLinks() {
-    struct nlmsghdr *nlh;
-    uint32_t seq_no;
+/****************************************************************************
+ * Routine to get IP address for vhost 
+ ****************************************************************************/
+void VnswInterfaceListener::InitRouterId() {
 
-    memset(tx_buf_, 0, max_buf_size);
-    nlh = (struct nlmsghdr *)tx_buf_;
+    uint32_t ipaddr, netmask, prefix;
 
-    /* Fill in the nlmsg header */
-
-    // Length of message.
-    nlh->nlmsg_len = NLMSG_LENGTH(sizeof(struct rtgenmsg));
-    // Get links from kernel.
-    nlh->nlmsg_type = RTM_GETLINK;
-
-    // The message is a request for dump.
-    nlh->nlmsg_flags = NLM_F_DUMP | NLM_F_REQUEST;
-    // Sequence of the message packet.
-    nlh->nlmsg_seq = ++seqno_;
-
-    struct rtgenmsg *rt_gen = (struct rtgenmsg *) NLMSG_DATA (nlh);
-    rt_gen->rtgen_family = AF_PACKET;
-
-    seq_no = nlh->nlmsg_seq;
-    boost::system::error_code ec;
-    sock_.send(boost::asio::buffer(nlh,nlh->nlmsg_len), 0, ec);
-    assert(ec.value() == 0);
-    uint8_t read_buf[max_buf_size];
-
-    /* Wait/Read the response for dump request, linux kernel doesn't handle 
-     * dump request if response for previous dump request is not complete. 
-     */
-    int end = 0;
-    while (end == 0) {
-        memset(read_buf, 0, max_buf_size);
-        std::size_t len = sock_.receive(boost::asio::buffer
-                                      (read_buf, max_buf_size), 0, ec);
-        assert(ec.value() == 0);
-        struct nlmsghdr *nl = (struct nlmsghdr *)read_buf;
-        end = NlMsgDecode(nl, len, seq_no);
+    /* Fetch IP */
+    ipaddr = FetchVhostAddress(false);
+    if (!ipaddr) {
+        return;
     }
-}
- 
-void VnswInterfaceListener::InitFetchRoutes() {
-    struct nlmsghdr *nlh;
+    Ip4Address addr(ipaddr);
 
-    memset(tx_buf_, 0, max_buf_size);
-    nlh = (struct nlmsghdr *)tx_buf_;
-
-    /* Fill in the nlmsg header */
-
-    // Length of message.
-    nlh->nlmsg_len = NLMSG_LENGTH(sizeof(struct rtmsg));
-    // Get the routes from kernel routing table
-    nlh->nlmsg_type = RTM_GETROUTE;
-
-    // The message is a request for dump.
-    nlh->nlmsg_flags = NLM_F_DUMP | NLM_F_REQUEST;
-    // Sequence of the message packet.
-    nlh->nlmsg_seq = ++seqno_;
-
-    boost::system::error_code ec;
-    sock_.send(boost::asio::buffer(nlh,nlh->nlmsg_len), 0, ec);
-    assert(ec.value() == 0);
-}
- 
-void VnswInterfaceListener::KUpdateLinkLocalRoute(const Ip4Address &addr, 
-                                           bool del_rt) {
-    struct nlmsghdr *nlh;
-    struct rtmsg *rtm;
-    uint32_t ipaddr;
-
-    memset(tx_buf_, 0, max_buf_size);
-
-    nlh = (struct nlmsghdr *) tx_buf_;
-    rtm = (struct rtmsg *) NLMSG_DATA (nlh);
-
-    /* Fill in the nlmsg header*/
-    nlh->nlmsg_len = NLMSG_LENGTH(sizeof(struct rtmsg));
-    if (del_rt) {
-        nlh->nlmsg_type = RTM_DELROUTE;
-        nlh->nlmsg_flags = NLM_F_REQUEST;
-    } else {
-        nlh->nlmsg_type = RTM_NEWROUTE;
-        nlh->nlmsg_flags = NLM_F_REQUEST | NLM_F_CREATE;
+    /* Fetch Netmask */
+    netmask = FetchVhostAddress(true);
+    if (!netmask) {
+        return;
     }
-    nlh->nlmsg_seq = ++seqno_;
-    rtm = (struct rtmsg *) NLMSG_DATA (nlh);
-    rtm->rtm_table = RT_TABLE_MAIN;
-    rtm->rtm_family = AF_INET;
-    rtm->rtm_type = RTN_UNICAST;
-    rtm->rtm_protocol = kVnswRtmProto;
-    rtm->rtm_scope = RT_SCOPE_LINK;
-    rtm->rtm_dst_len = 32;
-    ipaddr = RT_TABLE_MAIN;
-    AddAttr(RTA_TABLE, (void *) &ipaddr, 4);
-    ipaddr = htonl(addr.to_ulong());
-    AddAttr(RTA_DST, (void *) &ipaddr, 4);
-    int if_index = if_nametoindex(agent_->vhost_interface_name().c_str());
-    AddAttr(RTA_OIF, (void *) &if_index, 4);
+    prefix = NetmaskToPrefix(netmask);
 
-    boost::system::error_code ec;
-    sock_.send(boost::asio::buffer(nlh,nlh->nlmsg_len), 0, ec);
-    assert(ec.value() == 0);
+    /* Create Vhost0 routes */
+    CreateVhostRoutes(addr, prefix);
+    LOG(DEBUG, "IP Address of vhost if is " << addr.to_string() << 
+               " prefix " << prefix);
+    LOG(DEBUG, "Netmask " << std::hex << netmask); 
 }
 
 void VnswInterfaceListener::CreateVhostRoutes(Ip4Address &host_ip, 
@@ -275,16 +305,6 @@ void VnswInterfaceListener::DeleteVhostRoutes(Ip4Address &host_ip,
     agent_->SetPrefixLen(0);
 }
 
-uint32_t VnswInterfaceListener::NetmaskToPrefix(uint32_t netmask) {
-    uint32_t count = 0;
-
-    while (netmask) {
-        count++;
-        netmask = (netmask - 1) & netmask;
-    }
-    return count;
-}
-
 uint32_t VnswInterfaceListener::FetchVhostAddress(bool netmask) {
     int fd;
     struct ifreq ifr;
@@ -320,89 +340,86 @@ uint32_t VnswInterfaceListener::FetchVhostAddress(bool netmask) {
     return ntohl(addr);
 }
 
-void VnswInterfaceListener::InitRouterId() {
+/****************************************************************************
+ * Handlers for events in revent_queue_
+ ****************************************************************************/
+int VnswInterfaceListener::AddAttr(int type, void *data, int alen) {
+    struct nlmsghdr *n = (struct nlmsghdr *)tx_buf_;
+    int len = RTA_LENGTH(alen);
+    struct rtattr *rta;
 
-    uint32_t ipaddr, netmask, prefix;
-
-    /* Fetch IP */
-    ipaddr = FetchVhostAddress(false);
-    if (!ipaddr) {
-        return;
-    }
-    Ip4Address addr(ipaddr);
-
-    /* Fetch Netmask */
-    netmask = FetchVhostAddress(true);
-    if (!netmask) {
-        return;
-    }
-    prefix = NetmaskToPrefix(netmask);
-
-    /* Create Vhost0 routes */
-    CreateVhostRoutes(addr, prefix);
-    LOG(DEBUG, "IP Address of vhost if is " << addr.to_string() << 
-               " prefix " << prefix);
-    LOG(DEBUG, "Netmask " << std::hex << netmask); 
+    if (NLMSG_ALIGN(n->nlmsg_len) + len > kMaxBufferSize)
+        return -1;
+    rta = (struct rtattr*)(((char*)n) + NLMSG_ALIGN(n->nlmsg_len));
+    rta->rta_type = type;
+    rta->rta_len = len;
+    memcpy(RTA_DATA(rta), data, alen);
+    n->nlmsg_len = NLMSG_ALIGN(n->nlmsg_len) + len;
+    return 0;
 }
 
-void VnswInterfaceListener::CreateSocket() {
+void VnswInterfaceListener::KUpdateLinkLocalRoute(const Ip4Address &addr, 
+                                           bool del_rt) {
+    struct nlmsghdr *nlh;
+    struct rtmsg *rtm;
+    uint32_t ipaddr;
 
-    sock_fd_ = socket(PF_NETLINK, SOCK_DGRAM, NETLINK_ROUTE);
-    if (sock_fd_ < 0) {
-        LOG(ERROR, "Error <" << errno << ": " << strerror(errno) << 
-                "> creating socket");
-        assert(0);
-    }
+    memset(tx_buf_, 0, kMaxBufferSize);
 
-    /* Bind to netlink socket */
-    struct sockaddr_nl addr;
-    memset (&addr,0,sizeof(addr));
-    addr.nl_family = AF_NETLINK;
-    addr.nl_groups = (RTMGRP_IPV4_ROUTE | RTMGRP_LINK);
-    if (ifaddr_listen_) {
-        addr.nl_groups |= RTMGRP_IPV4_IFADDR;
-    }
-    if (bind(sock_fd_, (struct sockaddr *)&addr, sizeof(addr)) == -1) {
-        LOG(ERROR, "Error <" << errno << ": " << strerror(errno) << 
-                       "> binding to netlink address family");
-        assert(0);
-    }
+    nlh = (struct nlmsghdr *) tx_buf_;
+    rtm = (struct rtmsg *) NLMSG_DATA (nlh);
 
-    /* Assign native socket to boost asio */
-    boost::asio::local::datagram_protocol protocol;
-    sock_.assign(protocol, sock_fd_);
+    /* Fill in the nlmsg header*/
+    nlh->nlmsg_len = NLMSG_LENGTH(sizeof(struct rtmsg));
+    if (del_rt) {
+        nlh->nlmsg_type = RTM_DELROUTE;
+        nlh->nlmsg_flags = NLM_F_REQUEST;
+    } else {
+        nlh->nlmsg_type = RTM_NEWROUTE;
+        nlh->nlmsg_flags = NLM_F_REQUEST | NLM_F_CREATE;
+    }
+    nlh->nlmsg_seq = ++seqno_;
+    rtm = (struct rtmsg *) NLMSG_DATA (nlh);
+    rtm->rtm_table = RT_TABLE_MAIN;
+    rtm->rtm_family = AF_INET;
+    rtm->rtm_type = RTN_UNICAST;
+    rtm->rtm_protocol = kVnswRtmProto;
+    rtm->rtm_scope = RT_SCOPE_LINK;
+    rtm->rtm_dst_len = 32;
+    ipaddr = RT_TABLE_MAIN;
+    AddAttr(RTA_TABLE, (void *) &ipaddr, 4);
+    ipaddr = htonl(addr.to_ulong());
+    AddAttr(RTA_DST, (void *) &ipaddr, 4);
+    int if_index = if_nametoindex(agent_->vhost_interface_name().c_str());
+    AddAttr(RTA_OIF, (void *) &if_index, 4);
+
+    boost::system::error_code ec;
+    sock_.send(boost::asio::buffer(nlh,nlh->nlmsg_len), 0, ec);
+    assert(ec.value() == 0);
 }
 
-void VnswInterfaceListener::RegisterAsyncHandler() {
-    read_buf_ = new uint8_t[max_buf_size];
-    sock_.async_receive(boost::asio::buffer(read_buf_, max_buf_size), 
-                        boost::bind(&VnswInterfaceListener::ReadHandler, this,
-                                 boost::asio::placeholders::error,
-                                 boost::asio::placeholders::bytes_transferred));
-}
-
-bool VnswInterfaceListener::RouteEventProcess(VnswRouteEvent *re) {
+bool VnswInterfaceListener::RouteEventProcess(Event *re) {
     bool route_found = (ll_addr_table_.find(re->addr_) != ll_addr_table_.end());
     switch (re->event_) {
-    case VnswRouteEvent::ADD_REQ:
+    case Event::ADD_REQ:
         ll_addr_table_.insert(re->addr_);
         KUpdateLinkLocalRoute(re->addr_, false);
         break;
-    case VnswRouteEvent::DEL_REQ:
+    case Event::DEL_REQ:
         ll_addr_table_.erase(re->addr_);
         KUpdateLinkLocalRoute(re->addr_, true);
         break;
-    case VnswRouteEvent::ADD_RESP:
+    case Event::ADD_RESP:
         if (!route_found) {
             KUpdateLinkLocalRoute(re->addr_, true);
         }
         break;
-    case VnswRouteEvent::DEL_RESP:
+    case Event::DEL_RESP:
         if (route_found) {
             KUpdateLinkLocalRoute(re->addr_, false);
         }
         break;
-    case VnswRouteEvent::INTF_UP:
+    case Event::INTF_UP:
         if (vhost_intf_up_) {
             break;
         }
@@ -410,12 +427,12 @@ bool VnswInterfaceListener::RouteEventProcess(VnswRouteEvent *re) {
          * on interface flap.
          */
         vhost_intf_up_ = true;
-        for (Ip4HostTableType::iterator it = ll_addr_table_.begin();
+        for (LinkLocalAddressTable::iterator it = ll_addr_table_.begin();
              it != ll_addr_table_.end(); ++it) {
             KUpdateLinkLocalRoute(*it, false);
         }
         break;
-    case VnswRouteEvent::INTF_DOWN:
+    case Event::INTF_DOWN:
         vhost_intf_up_ = false;
         break;
     default:
@@ -426,6 +443,35 @@ bool VnswInterfaceListener::RouteEventProcess(VnswRouteEvent *re) {
     return true;
 }
 
+/****************************************************************************
+ * Netlink message handlers
+ * Decodes netlink messages and enqueues events to revent_queue_
+ ****************************************************************************/
+static string TypeToString(uint32_t type) {
+    switch (type) {
+    case NLMSG_DONE:
+        return "NLMSG_DONE";
+    case RTM_NEWADDR:
+        return "RTM_NEWADDR";
+    case RTM_DELADDR:
+        return "RTM_DELADDR";
+    case RTM_NEWROUTE:
+        return "RTM_NEWROUTE";
+    case RTM_DELROUTE:
+        return "RTM_DELROUTE";
+    case RTM_NEWLINK:
+        return "RTM_NEWLINK";
+    case RTM_DELLINK:
+        return "RTM_DELLINK";
+    default:
+        break;
+    }
+
+    std::stringstream str;
+    str << "UNHANDLED <" << type << ">";
+    return str.str();
+}
+
 void VnswInterfaceListener::RouteHandler(struct nlmsghdr *nlh) {
     struct rtmsg *rtm;
     struct rtattr *rth;
@@ -434,16 +480,20 @@ void VnswInterfaceListener::RouteHandler(struct nlmsghdr *nlh) {
 
     rtm = (struct rtmsg *) NLMSG_DATA (nlh);
     if (rtm->rtm_family != AF_INET) {
+        LOG(DEBUG, "Ignoring Netlink route for non AF_INET family");
         return;
     }
     if (rtm->rtm_table != RT_TABLE_MAIN) {
+        LOG(DEBUG, "Ignoring Netlink route for non RT_TABLE_MAIN table");
         return;
     }
     if (rtm->rtm_type != RTN_UNICAST) {
+        LOG(DEBUG, "Ignoring Netlink route of type non RTN_UNICAST");
         return;
     }
     if (rtm->rtm_dst_len != 32 || rtm->rtm_scope != RT_SCOPE_LINK ||
         rtm->rtm_protocol != kVnswRtmProto) {
+        LOG(DEBUG, "Ignoring Netlink route message of not interest");
         return;
     }
 
@@ -461,13 +511,15 @@ void VnswInterfaceListener::RouteHandler(struct nlmsghdr *nlh) {
     }
 
     Ip4Address dst_addr((unsigned long)ntohl(dst_ip));
-    VnswRouteEvent *re = NULL;
+    LOG(DEBUG, "Handle netlink route message " << TypeToString(nlh->nlmsg_type)
+        << " : " << dst_addr.to_string() << "/32");
+    Event *re = NULL;
     switch (nlh->nlmsg_type) {
     case RTM_NEWROUTE:
-        re = new VnswRouteEvent(dst_addr, VnswRouteEvent::ADD_RESP);
+        re = new Event(dst_addr, Event::ADD_RESP);
         break;
     case RTM_DELROUTE:
-        re = new VnswRouteEvent(dst_addr, VnswRouteEvent::DEL_RESP);
+        re = new Event(dst_addr, Event::DEL_RESP);
         break;
     default:
         break;
@@ -495,7 +547,6 @@ void VnswInterfaceListener::InterfaceHandler(struct nlmsghdr *nlh)
         /* Get the interface name */
         if (rth->rta_type == IFLA_IFNAME) {
             port_name = (char *) RTA_DATA(rth);
-            LOG(INFO, "port_name " << port_name);
             is_vhost_intf = (0 == 
                     agent_->vhost_interface_name().compare(port_name));
             /* required only for Xen Mode */
@@ -507,16 +558,17 @@ void VnswInterfaceListener::InterfaceHandler(struct nlmsghdr *nlh)
         }
     }
 
+    LOG(DEBUG, "Handle netlink interface message " 
+        << TypeToString(nlh->nlmsg_type) << " for interface " << port_name);
+
     if (is_vhost_intf && nlh->nlmsg_type == RTM_NEWLINK) {
         if ((rtm->ifi_flags & IFF_UP) != 0) {
             Ip4Address dst_addr((unsigned long)0);
-            VnswRouteEvent *re = new VnswRouteEvent(dst_addr, 
-                                                    VnswRouteEvent::INTF_UP);
+            Event *re = new Event(dst_addr, Event::INTF_UP);
             revent_queue_->Enqueue(re);
         } else {
             Ip4Address dst_addr((unsigned long)0);
-            VnswRouteEvent *re = new VnswRouteEvent(dst_addr, 
-                                                    VnswRouteEvent::INTF_DOWN);
+            Event *re = new Event(dst_addr, Event::INTF_DOWN);
             revent_queue_->Enqueue(re);
         }
     }
@@ -548,7 +600,9 @@ void VnswInterfaceListener::IfaddrHandler(struct nlmsghdr *nlh) {
     /* Ignore IP notification on non vnswif interfaces */
     if_indextoname(ifa->ifa_index, name);
 
-    LOG(DEBUG, "Received change notification for " << name);
+    LOG(DEBUG, "Handle netlink address message " 
+        << TypeToString(nlh->nlmsg_type) << " for interface " << name);
+
     if (agent_->vhost_interface_name().compare(name) != 0) {
         LOG(DEBUG, "Ignoring IP change notification received for "
                 << name);
@@ -614,36 +668,11 @@ int VnswInterfaceListener::NlMsgDecode(struct nlmsghdr *nl, std::size_t len,
             InterfaceHandler(nlh);
             break;
         default:
+            LOG(DEBUG, "VnswInterfaceListener got message : " 
+                << TypeToString(nlh->nlmsg_type));
             break;
         }
     }
 
     return 0;
-}
-
-void VnswInterfaceListener::ReadHandler(const boost::system::error_code &error,
-                                 std::size_t len) {
-    struct nlmsghdr *nlh;
-
-    /* TODO: Handle multiple primary IP address case */
-    if (!error) {
-        LOG(DEBUG, "Read handler: Received " << len << " bytes");
-        nlh = (struct nlmsghdr *)read_buf_;
-        NlMsgDecode(nlh, len, -1);
-    } else {
-        LOG(ERROR, "Error < : " << error.message() << 
-                   "> reading packet on netlink sock");
-        return;
-    }
-
-    if (read_buf_) {
-        delete [] read_buf_;
-        read_buf_ = NULL;
-    }
-    RegisterAsyncHandler();
-}
-
-void VnswInterfaceListener::Shutdown() { 
-    boost::system::error_code ec;
-    sock_.close(ec);
 }

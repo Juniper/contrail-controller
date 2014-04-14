@@ -30,10 +30,6 @@ public:
     };
 
     struct DnsIpc : InterTaskMsg {
-        uint8_t *resp;
-        uint16_t xid;
-        DnsHandler *handler;
-
         DnsIpc(uint8_t *msg, uint16_t id, DnsHandler *h, InterTaskMessage cmd)
             : InterTaskMsg(cmd), resp(msg), xid(id), handler(h) {}
 
@@ -43,17 +39,13 @@ public:
             if (handler)
                 delete handler;
         }
+
+        uint8_t *resp;
+        uint16_t xid;
+        DnsHandler *handler;
     };
 
     struct DnsUpdateIpc : InterTaskMsg {
-        DnsUpdateData *xmpp_data;
-        const VmInterface *itf;
-        bool floatingIp;
-        uint32_t ttl;
-        std::string new_vdns;
-        std::string old_vdns;
-        std::string new_domain;
-
         DnsUpdateIpc(const VmInterface *vm, const std::string &nvdns,
                      const std::string &ovdns, const std::string &dom,
                      uint32_t ttl_value, bool is_floating)
@@ -75,6 +67,14 @@ public:
             if (xmpp_data)
                 delete xmpp_data;
         }
+
+        DnsUpdateData *xmpp_data;
+        const VmInterface *itf;
+        bool floatingIp;
+        uint32_t ttl;
+        std::string new_vdns;
+        std::string old_vdns;
+        std::string new_domain;
     };
 
     struct UpdateCompare {
@@ -91,24 +91,24 @@ public:
     };
 
     struct DnsUpdateAllIpc : InterTaskMsg {
-        AgentDnsXmppChannel *channel;
-
         DnsUpdateAllIpc(AgentDnsXmppChannel *ch) 
             : InterTaskMsg(DNS_XMPP_SEND_UPDATE_ALL), channel(ch) {}
+
+        AgentDnsXmppChannel *channel;
     };
 
     struct DnsStats {
+        DnsStats() { Reset(); }
+        void Reset() {
+            requests = resolved = retransmit_reqs = unsupported = fail = drop = 0;
+        }
+
         uint32_t requests;
         uint32_t resolved;
         uint32_t retransmit_reqs;
         uint32_t unsupported;
         uint32_t fail;
         uint32_t drop;
-
-        void Reset() {
-            requests = resolved = retransmit_reqs = unsupported = fail = drop = 0;
-        }
-        DnsStats() { Reset(); }
     };
 
     typedef std::map<uint32_t, DnsHandler *> DnsBindQueryMap;
@@ -139,9 +139,9 @@ public:
 
     void SendDnsIpc(uint8_t *pkt);
     void SendDnsIpc(InterTaskMessage cmd, uint16_t xid,
-                    uint8_t *msg = NULL, DnsHandler *handler = NULL);
+                    uint8_t *msg, DnsHandler *handler);
     void SendDnsUpdateIpc(DnsUpdateData *data, DnsAgentXmpp::XmppType type,
-                          const VmInterface *vm, bool floating = false);
+                          const VmInterface *vm, bool floating);
     void SendDnsUpdateIpc(const VmInterface *vm, const std::string &new_vdns,
                           const std::string &old_vdns,
                           const std::string &new_dom,
@@ -178,7 +178,7 @@ public:
     void IncrStatsUnsupp() { stats_.unsupported++; }
     void IncrStatsFail() { stats_.fail++; }
     void IncrStatsDrop() { stats_.drop++; }
-    DnsStats GetStats() { return stats_; }
+    const DnsStats &GetStats() const { return stats_; }
     void ClearStats() { stats_.Reset(); }
 
 private:

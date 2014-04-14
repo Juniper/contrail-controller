@@ -1214,9 +1214,10 @@ class VncDbClient(object):
             method = getattr(self._cassandra_db,
                              "_cassandra_%s_read" % (obj_type))
             (ok, obj_dict) = method([obj_uuid])
-            obj_dict['type'] = obj_type
-            obj_dict['uuid'] = obj_uuid
-            return obj_dict
+            result_dict = obj_dict[0]
+            result_dict['type'] = obj_type
+            result_dict['uuid'] = obj_uuid
+            return result_dict
         except Exception as e:
             return {'uuid': obj_uuid, 'type': obj_type, 'error': str(e)}
     # end _dbe_read

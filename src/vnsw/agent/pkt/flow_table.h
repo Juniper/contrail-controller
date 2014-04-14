@@ -58,18 +58,18 @@ class NhState;
 typedef boost::intrusive_ptr<FlowEntry> FlowEntryPtr;
 typedef boost::intrusive_ptr<const NhState> NhStatePtr;
 struct RouteFlowKey {
-    RouteFlowKey() : vrf(0), plen(0) { ip.ipv4 = 0;};
+    RouteFlowKey() : vrf(0), plen(0) { ip.ipv4 = 0; }
     RouteFlowKey(uint32_t v, uint32_t ipv4, uint8_t prefix) : 
         vrf(v), plen(prefix) { 
         ip.ipv4 = GetPrefix(ipv4, prefix);
-    };
-    ~RouteFlowKey() {};
+    }
+    ~RouteFlowKey() {}
     static int32_t GetPrefix(uint32_t ip, uint8_t plen) {
         //Mask prefix
         uint8_t host = 32;
         uint32_t mask = (0xFFFFFFFF << (host - plen));
         return (ip & mask);
-    };
+    }
 
     uint32_t vrf;
     union {
@@ -95,7 +95,7 @@ struct FlowKey {
         vrf(0), src_port(0), dst_port(0), protocol(0) {
         src.ipv4 = 0;
         dst.ipv4 = 0;
-    };
+    }
 
     FlowKey(uint32_t vrf_p, uint32_t sip_p, uint32_t dip_p, uint8_t proto_p,
             uint16_t sport_p, uint16_t dport_p) 
@@ -109,7 +109,7 @@ struct FlowKey {
         protocol(key.protocol) {
         src.ipv4 = key.src.ipv4;
         dst.ipv4 = key.dst.ipv4;
-    };
+    }
 
     uint32_t vrf;
     union {
@@ -167,7 +167,7 @@ struct FlowKeyCmp {
 
 struct FlowStats {
     FlowStats() : setup_time(0), teardown_time(0), last_modified_time(0),
-        bytes(0), packets(0), intf_in(0), exported(false) {};
+        bytes(0), packets(0), intf_in(0), exported(false) {}
 
     uint64_t setup_time;
     uint64_t teardown_time;
@@ -234,7 +234,7 @@ struct FlowData {
         intf_entry(NULL), vm_entry(NULL), mirror_vrf(VrfEntry::kInvalidIndex),
         dest_vrf(),
         component_nh_idx((uint32_t)CompositeNH::kInvalidComponentNHIdx),
-        nh_state_(NULL), source_plen(0), dest_plen(0) {};
+        nh_state_(NULL), source_plen(0), dest_plen(0) {}
 
     std::string source_vn;
     std::string dest_vn;
@@ -428,12 +428,12 @@ public:
         VnFlowHandlerState(const AclDBEntry *acl, 
                            const AclDBEntry *macl,
                            const AclDBEntry *mcacl) :
-           acl_(acl), macl_(macl), mcacl_(mcacl) { };
-        virtual ~VnFlowHandlerState() { };
+           acl_(acl), macl_(macl), mcacl_(mcacl) { }
+        virtual ~VnFlowHandlerState() { }
     };
     struct VmIntfFlowHandlerState : public DBState {
-        VmIntfFlowHandlerState(const VnEntry *vn) : vn_(vn) { };
-        virtual ~VmIntfFlowHandlerState() { };
+        VmIntfFlowHandlerState(const VnEntry *vn) : vn_(vn) { }
+        virtual ~VmIntfFlowHandlerState() { }
 
         VnEntryConstRef vn_;
         bool policy_;
@@ -441,13 +441,13 @@ public:
     };
 
     struct VrfFlowHandlerState : public DBState {
-        VrfFlowHandlerState() {};
-        virtual ~VrfFlowHandlerState() {};
+        VrfFlowHandlerState() {}
+        virtual ~VrfFlowHandlerState() {}
         Inet4RouteUpdate *inet4_unicast_update_;
     };
     struct RouteFlowHandlerState : public DBState {
-        RouteFlowHandlerState(SecurityGroupList &sg_l) : sg_l_(sg_l) { };
-        virtual ~RouteFlowHandlerState() { };
+        RouteFlowHandlerState(SecurityGroupList &sg_l) : sg_l_(sg_l) { }
+        virtual ~RouteFlowHandlerState() { }
         SecurityGroupList sg_l_;
     };
 
@@ -467,7 +467,7 @@ public:
     FlowEntry *Find(const FlowKey &key);
     bool Delete(const FlowKey &key, bool del_reverse_flow);
 
-    size_t Size() {return flow_entry_map_.size();};
+    size_t Size() { return flow_entry_map_.size(); }
     void VnFlowCounters(const VnEntry *vn, uint32_t *in_count, 
                         uint32_t *out_count);
     uint32_t VmLinkLocalFlowCount(const VmEntry *vm);
@@ -606,8 +606,8 @@ private:
 
 class NhState : public DBState {
 public:
-    NhState(NextHop *nh):refcount_(), nh_(nh){ };
-    ~NhState() {};
+    NhState(NextHop *nh):refcount_(), nh_(nh){ }
+    ~NhState() {}
     NextHop* nh() const { return nh_; }
     uint32_t refcount() const { return refcount_; }
 private:
@@ -649,8 +649,8 @@ private:
 };
 
 struct AclFlowInfo {
-    AclFlowInfo() : flow_count(0), flow_miss(0) { };
-    ~AclFlowInfo() { };
+    AclFlowInfo() : flow_count(0), flow_miss(0) { }
+    ~AclFlowInfo() { }
     FlowTable::FlowEntryTree fet;
     FlowTable::AceIdFlowCntMap aceid_cnt_map;
     void AddAclEntryIDFlowCnt(AclEntryIDList &idlist);
@@ -661,8 +661,8 @@ struct AclFlowInfo {
 };
 
 struct VnFlowInfo {
-    VnFlowInfo() : ingress_flow_count(0), egress_flow_count(0) {};
-    ~VnFlowInfo() {};
+    VnFlowInfo() : ingress_flow_count(0), egress_flow_count(0) {}
+    ~VnFlowInfo() {}
 
     VnEntryConstRef vn_entry;
     FlowTable::FlowEntryTree fet;
@@ -671,16 +671,16 @@ struct VnFlowInfo {
 };
 
 struct IntfFlowInfo {
-    IntfFlowInfo() {};
-    ~IntfFlowInfo() {};
+    IntfFlowInfo() {}
+    ~IntfFlowInfo() {}
 
     InterfaceConstRef intf_entry;
     FlowTable::FlowEntryTree fet;
 };
 
 struct VmFlowInfo {
-    VmFlowInfo() {};
-    ~VmFlowInfo() {};
+    VmFlowInfo() {}
+    ~VmFlowInfo() {}
 
     VmEntryConstRef vm_entry;
     FlowTable::FlowEntryTree fet;
@@ -688,8 +688,8 @@ struct VmFlowInfo {
 };
 
 struct RouteFlowInfo {
-    RouteFlowInfo() {};
-    ~RouteFlowInfo() {};
+    RouteFlowInfo() {}
+    ~RouteFlowInfo() {}
     FlowTable::FlowEntryTree fet;
 };
 

@@ -87,7 +87,7 @@ std::string &ServicesSandesh::DhcpMsgType(uint32_t msg_type) {
 
 void ServicesSandesh::PktStatsSandesh(std::string ctxt, bool more) {
     PktStats *resp = new PktStats();
-    PktHandler::PktStats stats = Agent::GetInstance()->pkt()->pkt_handler()->GetStats();
+    const PktHandler::PktStats &stats = Agent::GetInstance()->pkt()->pkt_handler()->GetStats();
     uint32_t total_rcvd = 0;
     uint32_t total_sent = 0;
     for (int i = 0; i < PktHandler::MAX_MODULES; ++i) {
@@ -118,7 +118,7 @@ void ServicesSandesh::PktStatsSandesh(std::string ctxt, bool more) {
 
 void ServicesSandesh::DhcpStatsSandesh(std::string ctxt, bool more) {
     DhcpStats *dhcp = new DhcpStats();
-    DhcpProto::DhcpStats dstats = 
+    const DhcpProto::DhcpStats &dstats = 
                 Agent::GetInstance()->GetDhcpProto()->GetStats();
     dhcp->set_dhcp_discover(dstats.discover);
     dhcp->set_dhcp_request(dstats.request);
@@ -139,15 +139,18 @@ void ServicesSandesh::DhcpStatsSandesh(std::string ctxt, bool more) {
 void ServicesSandesh::ArpStatsSandesh(std::string ctxt, bool more) {
     ArpProto *arp_proto = Agent::GetInstance()->GetArpProto();
     ArpStats *arp = new ArpStats();
-    ArpProto::ArpStats astats = arp_proto->GetStats();
+    const ArpProto::ArpStats &astats = arp_proto->GetStats();
     arp->set_arp_entries(arp_proto->GetArpCacheSize());
     arp->set_arp_requests(astats.arp_req);
     arp->set_arp_replies(astats.arp_replies);
-    arp->set_arp_gracious(astats.arp_gracious);
+    arp->set_arp_gratuitous(astats.arp_gratuitous);
     arp->set_arp_resolved(astats.resolved);
     arp->set_arp_max_retries_exceeded(astats.max_retries_exceeded);
     arp->set_arp_errors(astats.errors);
-    arp->set_pkts_dropped(astats.pkts_dropped);
+    arp->set_arp_invalid_packets(astats.arp_invalid_packets);
+    arp->set_arp_invalid_interface(astats.arp_invalid_interface);
+    arp->set_arp_invalid_vrf(astats.arp_invalid_vrf);
+    arp->set_arp_invalid_address(astats.arp_invalid_address);
     arp->set_context(ctxt);
     arp->set_more(more);
     arp->Response();
@@ -155,7 +158,7 @@ void ServicesSandesh::ArpStatsSandesh(std::string ctxt, bool more) {
 
 void ServicesSandesh::DnsStatsSandesh(std::string ctxt, bool more) {
     DnsStats *dns = new DnsStats();
-    DnsProto::DnsStats nstats = Agent::GetInstance()->GetDnsProto()->GetStats();
+    const DnsProto::DnsStats &nstats = Agent::GetInstance()->GetDnsProto()->GetStats();
     dns->set_dns_requests(nstats.requests);
     dns->set_dns_resolved(nstats.resolved);
     dns->set_dns_retransmit_reqs(nstats.retransmit_reqs);
@@ -169,7 +172,7 @@ void ServicesSandesh::DnsStatsSandesh(std::string ctxt, bool more) {
 
 void ServicesSandesh::IcmpStatsSandesh(std::string ctxt, bool more) {
     IcmpStats *icmp = new IcmpStats();
-    IcmpProto::IcmpStats istats = Agent::GetInstance()->GetIcmpProto()->GetStats();
+    const IcmpProto::IcmpStats &istats = Agent::GetInstance()->GetIcmpProto()->GetStats();
     icmp->set_icmp_gw_ping(istats.icmp_gw_ping);
     icmp->set_icmp_gw_ping_err(istats.icmp_gw_ping_err);
     icmp->set_icmp_drop(istats.icmp_drop);
