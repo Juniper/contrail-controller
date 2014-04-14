@@ -10,6 +10,14 @@
 #include <boost/function.hpp>
 #include <boost/asio.hpp>
 
+/****************************************************************************
+ * Module responsible to keep host-os and agent in-sync
+ * - Adds route to host-os for link-local addresses allocated for a vm-interface
+ * - If VHOST interface is not configured with IP address, will read IP address
+ *   from host-os and update agent
+ * - Notifies creation of xapi* interface
+ ****************************************************************************/
+
 #define XAPI_INTF_PREFIX "xapi"
 
 namespace local = boost::asio::local;
@@ -58,8 +66,6 @@ private:
     void RegisterAsyncHandler();
     void CreateSocket();
     uint32_t FetchVhostAddress(bool netmask);
-    void InitFetchLinks();
-    void InitFetchRoutes();
     void KUpdateLinkLocalRoute(const Ip4Address &addr, bool del_rt);
     bool RouteEventProcess(Event *re);
     void RouteHandler(struct nlmsghdr *nlh);
@@ -67,6 +73,7 @@ private:
     void IfaddrHandler(struct nlmsghdr *nlh);
     int AddAttr(int type, void *data, int alen);
     int NlMsgDecode(struct nlmsghdr *nl, std::size_t len, uint32_t seq_no);
+    void InitNetlinkScan(uint32_t type, uint32_t seqno);
 
     Agent *agent_;
     uint8_t *read_buf_;
