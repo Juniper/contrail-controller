@@ -25,7 +25,7 @@
 
 using namespace std;
 
-void RouterIdDepInit() {
+void RouterIdDepInit(Agent *agent) {
 }
 
 class FipCfg : public ::testing::Test {

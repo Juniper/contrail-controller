@@ -32,7 +32,7 @@
 
 using namespace std;
 
-void RouterIdDepInit() {
+void RouterIdDepInit(Agent *agent) {
 }
 
 class UveVmUveTest : public ::testing::Test {

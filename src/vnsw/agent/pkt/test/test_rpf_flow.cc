@@ -10,7 +10,7 @@
 
 #define MAX_VNET 4
 
-void RouterIdDepInit() {
+void RouterIdDepInit(Agent *agent) {
 }
 
 #define vm1_ip "11.1.1.1"

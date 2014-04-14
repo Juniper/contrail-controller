@@ -35,7 +35,7 @@
 #include "test/pkt_gen.h"
 #include <controller/controller_vrf_export.h>
 
-void RouterIdDepInit() {
+void RouterIdDepInit(Agent *agent) {
 }
 
 class PktTest : public ::testing::Test {

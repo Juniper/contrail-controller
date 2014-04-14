@@ -44,7 +44,7 @@
 #define VRF_LL "vrf-ll"
 #define VRF_GW "vrf-gw"
 
-void RouterIdDepInit() {
+void RouterIdDepInit(Agent *agent) {
 }
 
 class InetInterfaceTest : public ::testing::Test {

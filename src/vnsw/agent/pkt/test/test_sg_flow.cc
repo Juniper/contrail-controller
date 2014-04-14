@@ -16,7 +16,7 @@ char vnet_addr[16][32];
 PhysicalInterface *eth;
 int hash_id;
 
-void RouterIdDepInit() {
+void RouterIdDepInit(Agent *agent) {
 }
 
 struct PortInfo input1[] = {

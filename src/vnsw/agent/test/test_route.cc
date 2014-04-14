@@ -36,7 +36,7 @@
 using namespace boost::assign;
 
 std::string eth_itf;
-void RouterIdDepInit() {
+void RouterIdDepInit(Agent *agent) {
 }
 
 static void ValidateSandeshResponse(Sandesh *sandesh, vector<int> &result) {

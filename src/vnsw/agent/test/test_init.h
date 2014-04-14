@@ -582,7 +582,7 @@ public:
     };
 #endif
 
-    AgentTestInit(TestClient *client) : client_(client) { }
+    AgentTestInit(TestClient *client) : param_(Agent::GetInstance()), client_(client) { }
     ~AgentTestInit() {
         for (std::vector<TaskTrigger *>::iterator it = list_.begin();
              it != list_.end(); ++it) {

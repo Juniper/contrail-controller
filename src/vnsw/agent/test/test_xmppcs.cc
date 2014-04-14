@@ -45,7 +45,7 @@
 
 using namespace pugi;
 
-void RouterIdDepInit() {
+void RouterIdDepInit(Agent *agent) {
 }
 
 class AgentBgpXmppPeerTest : public AgentXmppChannel {

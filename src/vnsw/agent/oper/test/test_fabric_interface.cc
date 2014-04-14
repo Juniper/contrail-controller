@@ -40,7 +40,7 @@
 #include <controller/controller_export.h> 
 #include <ksync/ksync_sock_user.h> 
 
-void RouterIdDepInit() {
+void RouterIdDepInit(Agent *agent) {
 }
 
 class FabricInterfaceTest : public ::testing::Test {

@@ -26,7 +26,8 @@
 #include "testing/gunit.h"
 #include "vr_types.h"
 
-void RouterIdDepInit() {
+class Agent;
+void RouterIdDepInit(Agent *agent) {
 }
 
 using namespace std;

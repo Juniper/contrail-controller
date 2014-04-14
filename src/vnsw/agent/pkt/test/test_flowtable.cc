@@ -7,7 +7,7 @@
 
 #define MAX_VNET 4
 
-void RouterIdDepInit() {
+void RouterIdDepInit(Agent *agent) {
 }
 
 const std::string svn_name("svn");

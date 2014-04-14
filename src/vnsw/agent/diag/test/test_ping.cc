@@ -225,7 +225,7 @@ TEST_F(DiagTest, DiagReqTest) {
     client->WaitForIdle();
 }
 
-void RouterIdDepInit() {
+void RouterIdDepInit(Agent *agent) {
 }
 
 int main(int argc, char *argv[]) {

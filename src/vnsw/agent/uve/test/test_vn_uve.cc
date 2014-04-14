@@ -46,7 +46,7 @@ struct PortInfo input[] = {
 VmInterface *flow0;
 VmInterface *flow1;
 
-void RouterIdDepInit() {
+void RouterIdDepInit(Agent *agent) {
 }
 
 class UveVnUveTest : public ::testing::Test {

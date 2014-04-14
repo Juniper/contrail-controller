@@ -15,7 +15,7 @@ char vnet_addr[16][32];
 
 PhysicalInterface *eth;
 
-void RouterIdDepInit() {
+void RouterIdDepInit(Agent *agent) {
 }
 
 typedef enum {

@@ -4,7 +4,7 @@
 
 #include "test_cmn_util.h"
 
-void RouterIdDepInit() {
+void RouterIdDepInit(Agent *agent) {
 }
 
 class IpChangeTest : public ::testing::Test {

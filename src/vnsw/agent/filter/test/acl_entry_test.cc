@@ -13,7 +13,7 @@
 
 #include "net/address.h"
 
-void RouterIdDepInit() {
+void RouterIdDepInit(Agent *agent) {
 }
 
 namespace {

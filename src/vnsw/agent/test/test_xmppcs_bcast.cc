@@ -47,7 +47,7 @@
 
 using namespace pugi;
 
-void RouterIdDepInit() {
+void RouterIdDepInit(Agent *agent) {
 }
 
 // Create vm-port and vn

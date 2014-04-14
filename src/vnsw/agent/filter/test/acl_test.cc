@@ -29,7 +29,7 @@
 
 using namespace std;
 
-void RouterIdDepInit() {
+void RouterIdDepInit(Agent *agent) {
 }
 
 namespace {

@@ -28,7 +28,7 @@
 using namespace std;
 using namespace boost::assign;
 
-void RouterIdDepInit() {
+void RouterIdDepInit(Agent *agent) {
 }
 
 static void ValidateSandeshResponse(Sandesh *sandesh, vector<int> &result) {

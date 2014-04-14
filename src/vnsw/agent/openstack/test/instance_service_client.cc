@@ -21,7 +21,8 @@
 char macs[10][64];
 using namespace apache::thrift;
 
-void RouterIdDepInit() {
+class Agent;
+void RouterIdDepInit(Agent *agent) {
 }
 
 void AddPortCallback(tuuid port_id, std::string tap_name, bool ret) 

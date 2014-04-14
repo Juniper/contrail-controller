@@ -44,6 +44,7 @@
 #include <pkt/proto.h>
 #include <pkt/proto_handler.h>
 #include <diag/diag.h>
+#include <vgw/cfg_vgw.h>
 #include <vgw/vgw.h>
 #include <uve/agent_uve.h>
 
@@ -90,11 +91,11 @@ public:
     opt::variables_map var_map;
 };
 
-void RouterIdDepInit() {
+void RouterIdDepInit(Agent *agent) {
 }
 
 TEST_F(FlowTest, Agent_Conf_file_1) {
-    AgentParam param;
+    AgentParam param(Agent::GetInstance());
     param.Init("controller/src/vnsw/agent/init/test/cfg.xml", "test-param",
                var_map);
 
@@ -127,7 +128,7 @@ TEST_F(FlowTest, Agent_Conf_file_1) {
 }
 
 TEST_F(FlowTest, Agent_Conf_file_2) {
-    AgentParam param;
+    AgentParam param(Agent::GetInstance());
     param.Init("controller/src/vnsw/agent/init/test/cfg1.xml", "test-param",
                var_map);
 
@@ -142,7 +143,7 @@ TEST_F(FlowTest, Agent_Conf_file_3) {
     rl.rlim_cur = 64;
     int result = setrlimit(RLIMIT_NOFILE, &rl);
     if (result == 0) {
-        AgentParam param;
+        AgentParam param(Agent::GetInstance());
         param.Init("controller/src/vnsw/agent/init/test/cfg.xml", "test-param",
                    var_map);
 
@@ -157,7 +158,7 @@ TEST_F(FlowTest, Agent_Conf_file_4) {
     rl.rlim_cur = 32;
     int result = setrlimit(RLIMIT_NOFILE, &rl);
     if (result == 0) {
-        AgentParam param;
+        AgentParam param(Agent::GetInstance());
         param.Init("controller/src/vnsw/agent/init/test/cfg.xml", "test-param",
                    var_map);
 
@@ -167,7 +168,7 @@ TEST_F(FlowTest, Agent_Conf_file_4) {
 }
 
 TEST_F(FlowTest, Agent_Conf_Xen_1) {
-    AgentParam param;
+    AgentParam param(Agent::GetInstance());
     param.Init("controller/src/vnsw/agent/init/test/cfg-xen.xml", "test-param",
                var_map);
 
@@ -203,7 +204,7 @@ TEST_F(FlowTest, Agent_Param_1) {
         exit(0);
     }
 
-    AgentParam param;
+    AgentParam param(Agent::GetInstance());
     param.Init("controller/src/vnsw/agent/init/test/cfg-xen.xml", "test-param",
                var_map);
 
@@ -238,7 +239,7 @@ TEST_F(FlowTest, Agen_Arg_Override_Config_1) {
         exit(0);
     }
 
-    AgentParam param;
+    AgentParam param(Agent::GetInstance());
     param.Init("controller/src/vnsw/agent/init/test/cfg.xml", "test-param",
                var_map);
 

@@ -46,7 +46,7 @@ struct PortInfo input[] = {
 
 std::string analyzer = "TestAnalyzer";
 
-void RouterIdDepInit() {
+void RouterIdDepInit(Agent *agent) {
 }
 
 class KStateTest : public ::testing::Test {

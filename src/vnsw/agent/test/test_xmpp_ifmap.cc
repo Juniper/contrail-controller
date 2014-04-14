@@ -43,7 +43,7 @@
 
 using namespace pugi;
 
-void RouterIdDepInit() {
+void RouterIdDepInit(Agent *agent) {
 
     // Parse config and then connect
     VNController::Connect();
@@ -87,7 +87,7 @@ protected:
     virtual void SetUp() {
         Agent::GetInstance()->SetEventManager(&evm_);
         thread_ = new ServerThread(Agent::GetInstance()->GetEventManager());
-        RouterIdDepInit();
+        RouterIdDepInit(Agent::GetInstance());
         xs.reset(new XmppServer(Agent::GetInstance()->GetEventManager(), XmppInit::kControlNodeJID));
 
         xs->Initialize(XMPP_SERVER_PORT, false);

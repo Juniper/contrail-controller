@@ -13,7 +13,7 @@
 
 namespace opt = boost::program_options;
 
-void RouterIdDepInit() {
+void RouterIdDepInit(Agent *agent) {
 }
 
 class VgwTest : public ::testing::Test {
@@ -29,7 +29,7 @@ public:
 };
 
 TEST_F(VgwTest, conf_file_1) {
-    AgentParam param;
+    AgentParam param(Agent::GetInstance());
 
     VirtualGatewayConfigTable *table = 
         Agent::GetInstance()->params()->vgw_config_table();
@@ -69,12 +69,12 @@ TEST_F(VgwTest, conf_file_1) {
     EXPECT_EQ(it->routes().size(), (unsigned int) 2);
     if (it->routes().size() == 2) {
         subnet = it->routes()[0];
-        EXPECT_STREQ(subnet.ip_.to_string().c_str(), "10.10.10.1");
-        EXPECT_EQ(subnet.plen_, 24);
-
-        subnet = it->routes()[1];
         EXPECT_STREQ(subnet.ip_.to_string().c_str(), "0.0.0.0");
         EXPECT_EQ(subnet.plen_, 0);
+
+        subnet = it->routes()[1];
+        EXPECT_STREQ(subnet.ip_.to_string().c_str(), "10.10.10.1");
+        EXPECT_EQ(subnet.plen_, 24);
     }
 }
 

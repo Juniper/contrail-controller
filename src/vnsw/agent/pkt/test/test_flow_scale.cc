@@ -11,7 +11,7 @@ struct PortInfo input[] = {
 };
 
 
-void RouterIdDepInit() {
+void RouterIdDepInit(Agent *agent) {
 }
 
 extern Peer *bgp_peer_;
