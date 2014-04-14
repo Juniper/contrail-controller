@@ -26,6 +26,7 @@ from pycassa import *
 import argparse
 import subprocess
 from subprocess import Popen, PIPE
+import platform
 
 parser = argparse.ArgumentParser()
 group = parser.add_mutually_exclusive_group()
@@ -95,7 +96,7 @@ if args.utc != None:
     quit()
 
 server_and_port = args.cassandra_server_ip+':'+str(args.cassandra_server_port)
-pool = pycassa.ConnectionPool('ContrailAnalytics', server_list=[server_and_port])
+pool = pycassa.ConnectionPool('ContrailAnalytics', server_list=[server_and_port], timeout=None)
 sysm = pycassa.system_manager.SystemManager(server_and_port)
 
 def list_cf(keyspace = 'ContrailAnalytics'):
@@ -120,7 +121,11 @@ def parse_time(s):
 
 # returns disk usage of the database as percentage
 def database_usage():
-    (database_usage, error_value) = Popen("set `df -P  --direct \`grep -A 1 'data_file_directories:'  /etc/cassandra/conf/cassandra.yaml | grep '-' | cut -d'-' -f2 \` | grep %` && echo $4  | cut -d'%' -f1", shell=True, stdout=PIPE).communicate()
+    (os, x, y) = platform.dist()
+    if (os == 'Ubuntu'):
+        (database_usage, error_value) = Popen("set `df -P \`grep -A 1 'data_file_directories:'  /etc/cassandra/cassandra.yaml | grep '-' | cut -d'-' -f2 \` | grep %` && echo $5  | cut -d'%' -f1", shell=True, stdout=PIPE).communicate()
+    else:
+        (database_usage, error_value) = Popen("set `df -P  --direct \`grep -A 1 'data_file_directories:'  /etc/cassandra/conf/cassandra.yaml | grep '-' | cut -d'-' -f2 \` | grep %` && echo $4  | cut -d'%' -f1", shell=True, stdout=PIPE).communicate()
     #sys.stderr.write("Database usage:"+ database_usage)
     database_usage = database_usage.strip()
     return int(database_usage)
