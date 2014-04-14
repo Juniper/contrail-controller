@@ -39,6 +39,7 @@ public:
     };
 
     std::string StateString() const;
+    std::string OperationString() const;
     std::string EventString(KSyncEvent event);
     // All referring KSyncEntries must use KSyncEntryPtr. The ref-count
     // maintained is optionally used to defer DELETE till refcount is 0
@@ -94,6 +95,9 @@ public:
 
     // Allow State Compression for delete.
     virtual bool AllowDeleteStateComp() {return true;}
+
+    // User defined error handler
+    virtual void ErrorHandler(int err, uint32_t seqno) const;
 
     size_t GetIndex() const {return index_;};
     KSyncState GetState() const {return state_;};

@@ -94,6 +94,7 @@ int main(int argc, char *argv[]) {
         ("vmware-physical-port", opt::value<string>(),
          "Physical port used to connect to VMs in VMWare environment")
         ("version", "Display version information")
+        ("debug", "Enable debug logging")
         ;
     opt::variables_map var_map;
     try {

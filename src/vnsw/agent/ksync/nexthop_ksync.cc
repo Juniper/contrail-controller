@@ -268,7 +268,76 @@ bool NHKSyncEntry::IsLess(const KSyncEntry &rhs) const {
 
 std::string NHKSyncEntry::ToString() const {
     std::stringstream s;
-    s << "NH : " << GetIndex() << " Type :" << type_;
+    s << "NextHop Index: " << GetIndex() << " Type: ";
+    switch(type_) {
+    case NextHop::DISCARD: {
+        s << "Discard";
+        break;
+    }
+    case NextHop::RECEIVE: {
+        s << "Receive ";
+        break;
+    }
+    case NextHop::RESOLVE: {
+        s << "Resolve ";
+        break;
+    }
+    case NextHop::ARP: {
+        s << "ARP ";
+        break;
+    }
+    case NextHop::VRF: {
+        s << "VRF assign to ";
+        const VrfEntry* vrf =
+            ksync_obj_->ksync()->agent()->GetVrfTable()->
+            FindVrfFromId(vrf_id_);
+        if (vrf) {
+            s << vrf->GetName() << " ";
+        } else {
+            s << "Invalid ";
+        }
+        break;
+    }
+    case NextHop::INTERFACE: {
+        s << "Interface ";
+        break;
+    }
+    case NextHop::TUNNEL: {
+        s << "Tunnel to ";
+        s << inet_ntoa(dip_);
+        break;
+    }
+    case NextHop::MIRROR: {
+        s << "Mirror to ";
+        s << inet_ntoa(dip_) << ": " << dport_;
+        break;
+    }
+    case NextHop::VLAN: {
+        s << "VLAN interface ";
+        break;
+    }
+    case NextHop::COMPOSITE: {
+        s << "Composite Child members: ";
+        if (component_nh_list_.size() == 0) {
+            s << "Empty ";
+        }
+        for (KSyncComponentNHList::const_iterator it = component_nh_list_.begin();
+             it != component_nh_list_.end(); it++) {
+            KSyncComponentNH component_nh = *it;
+            if (component_nh.nh()) {
+                s << component_nh.nh()->ToString();
+            }
+        }
+        break;
+    }
+    case NextHop::INVALID: {
+        s << "Invalid ";
+    }
+    }
+
+    if (interface_) {
+        s << "<" << interface_->ToString() << ">";
+    }
     return s.str();
 }
 

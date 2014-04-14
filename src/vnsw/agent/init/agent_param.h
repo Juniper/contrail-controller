@@ -89,6 +89,7 @@ public:
     const std::string &vmware_physical_port() const {
         return vmware_physical_port_;
     }
+    bool debug() const { return debug_; }
 
     Mode mode() const { return mode_; }
     bool isXenMode() const { return mode_ == MODE_XEN; }
@@ -143,6 +144,7 @@ private:
     std::string vmware_physical_port_;
     bool test_mode_;
     std::auto_ptr<VirtualGatewayConfigTable> vgw_config_table_;
+    bool debug_;
 
     DISALLOW_COPY_AND_ASSIGN(AgentParam);
 };

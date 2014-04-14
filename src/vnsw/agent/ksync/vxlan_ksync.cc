@@ -57,12 +57,11 @@ std::string VxLanIdKSyncEntry::ToString() const {
     NHKSyncEntry *nexthop = nh();
 
     if (nexthop) {
-        s << "VXLAN Label: " << label_ << " Index : " 
-            << GetIndex() << " NH : " 
-        << nexthop->GetIndex();
+        s << "VXLAN Label: " << label_ << " Index : "
+            << GetIndex() << nexthop->ToString();
     } else {
-        s << "VXLAN Label: " << label_ << " Index : " 
-            << GetIndex() << " NH : <null>";
+        s << "VXLAN Label: " << label_ << " Index : "
+            << GetIndex() << " NextHop : <null>";
     }
     return s.str();
 }

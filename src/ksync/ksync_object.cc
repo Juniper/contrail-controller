@@ -29,6 +29,7 @@
 KSyncObject::FwdRefTree  KSyncObject::fwd_ref_tree_;
 KSyncObject::BackRefTree  KSyncObject::back_ref_tree_;
 KSyncObjectManager *KSyncObjectManager::singleton_;
+bool KSyncDebug::debug_;
 
 KSyncObject::KSyncObject() : need_index_(false), index_table_() {
 }
@@ -240,6 +241,39 @@ bool KSyncEntry::IsResolved() {
     if (obj->IsIndexValid() && index_ == kInvalidIndex)
         return false;
     return ((state_ >= IN_SYNC) && (state_ < DEL_DEFER_SYNC));
+}
+
+void KSyncEntry::ErrorHandler(int err, uint32_t seq_no) const {
+    if (err == 0) {
+        return;
+    }
+    KSYNC_ERROR(VRouterError, "VRouter operation failed. Error <", err,
+                ":", strerror(err), ">. Object <", ToString(),
+                ">. Operation <", OperationString(), ">. Message number :",
+                seq_no);
+    LOG(ERROR, "VRouter operation failed. Error <" << err << ":" <<
+            strerror(err) << ">. Object <" << ToString() <<
+            ">. Operation <" << OperationString() << ">. Message number :"
+            << seq_no);
+    KSYNC_ASSERT(err == 0);
+}
+
+std::string KSyncEntry::OperationString() const {
+    switch(state_) {
+    case INIT:
+    case TEMP:
+    case ADD_DEFER:
+        return "Addition";
+
+    case CHANGE_DEFER:
+    case IN_SYNC:
+    case SYNC_WAIT:
+    case NEED_SYNC:
+        return "Change";
+
+    default:
+        return "Deletion";
+    }
 }
 
 std::string KSyncEntry::StateString() const {
