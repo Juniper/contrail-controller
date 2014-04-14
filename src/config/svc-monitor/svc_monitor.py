@@ -376,6 +376,9 @@ class SvcMonitor(object):
         # set static routes
         if st_if.get_static_route_enable():
             static_routes = si_if.get_static_routes()
+            if not static_routes:
+                static_routes = {'route':[]}
+
             try:
                 domain_name, proj_name = si_obj.get_parent_fq_name()
                 rt_name = si_obj.uuid + ' ' + str(idx)
@@ -832,8 +835,6 @@ class SvcMonitor(object):
                     funcname = "_delmsg_" + meta_name.replace('-', '_')
                 elif result_type in ['searchResult', 'updateResult']:
                     funcname = "_addmsg_" + meta_name.replace('-', '_')
-                    self._svc_syslog("%s with %s/%s" %
-                                     (funcname, meta_name, idents))
                 # end if result_type
                 try:
                     func = getattr(self, funcname)
@@ -870,6 +871,8 @@ class SvcMonitor(object):
         for idx in range(0, len(si_if_list)):
             si_if = si_if_list[idx]
             static_routes = si_if.get_static_routes()
+            if not static_routes:
+                static_routes = {'route':[]}
 
             # update static routes
             try:
