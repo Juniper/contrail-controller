@@ -533,7 +533,7 @@ void PktFlowInfo::FloatingIpSNat(const PktInfo *pkt, PktControlInfo *in,
         static_cast<const VmInterface *>(in->intf_);
     const VmInterface::FloatingIpSet &fip_list = intf->floating_ip_list().list_;
     VmInterface::FloatingIpSet::const_iterator it = fip_list.begin();
-    VmInterface::FloatingIpSet::const_iterator it_h = fip_list.end();
+    VmInterface::FloatingIpSet::const_iterator fip_it = fip_list.end();
     FlowTable *ftable = Agent::GetInstance()->pkt()->flow_table();
     const Inet4UnicastRouteEntry *rt = out->rt_;
     bool change = false;
@@ -545,33 +545,31 @@ void PktFlowInfo::FloatingIpSNat(const PktInfo *pkt, PktControlInfo *in,
 
         const Inet4UnicastRouteEntry *rt_match = ftable->GetUcRoute(it->vrf_.get(),
                 Ip4Address(pkt->ip_daddr));
-        if (rt_match != NULL) {
-            // found the route match
-            if (out->rt_ == NULL || rt_match->plen() > out->rt_->plen()) {
-                // previous route was not there or current route match
-                // is better than the previously found route.
+        if (rt_match == NULL) {
+            continue;
+        }
+        // found the route match
+        // prefer the route with longest prefix match
+        // if prefix length is same prefer route from floating IP
+        // if routes are from fip of difference VRF, prefer the one with lower name.
+        // if both the selected and current FIP is from same vrf prefer the one with lower ip addr.
+        if (out->rt_ == NULL || rt_match->plen() > out->rt_->plen()) {
+            change = true;
+        } else if (rt_match->plen() == out->rt_->plen()) {
+            if (fip_it == fip_list.end()) {
                 change = true;
-            } else if (rt_match->plen() == out->rt_->plen()) {
-                // prefix length is same
-                if (it_h == fip_list.end()) {
-                    // prefer fip over policy leaked route
-                    change = true;
-                } else if (rt_match->vrf()->GetName() < out->rt_->vrf()->GetName()) {
-                    // choose the route with lower vrf name
-                    change = true;
-                } else if (rt_match->vrf()->GetName() == out->rt_->vrf()->GetName() &&
-                        it->floating_ip_ < it_h->floating_ip_) {
-                    // if more than one floating ip is allocated from
-                    // the same vrf, take the one with lower IP addr.
-                    change = true;
-                }
+            } else if (rt_match->vrf()->GetName() < out->rt_->vrf()->GetName()) {
+                change = true;
+            } else if (rt_match->vrf()->GetName() == out->rt_->vrf()->GetName() &&
+                    it->floating_ip_ < fip_it->floating_ip_) {
+                change = true;
             }
+        }
 
-            if (change) {
-                out->rt_ = rt_match;
-                it_h = it;
-                change = false;
-            }
+        if (change) {
+            out->rt_ = rt_match;
+            fip_it = it;
+            change = false;
         }
     }
 
@@ -587,20 +585,20 @@ void PktFlowInfo::FloatingIpSNat(const PktInfo *pkt, PktControlInfo *in,
 
     // Floating-ip found. We will change src-ip to floating-ip. Recompute route
     // for new source-ip. All policy decisions will be based on this new route
-    in->rt_ = ftable->GetUcRoute(it_h->vrf_.get(), it_h->floating_ip_);
+    in->rt_ = ftable->GetUcRoute(fip_it->vrf_.get(), fip_it->floating_ip_);
     if (in->rt_ == NULL) {
         return;
     }
 
-    dest_vrf = it_h->vrf_.get()->vrf_id();
-    in->vn_ = it_h->vn_.get();
+    dest_vrf = fip_it->vrf_.get()->vrf_id();
+    in->vn_ = fip_it->vn_.get();
     // Source-VN for policy processing is based on floating-ip VN
     // Dest-VN will be based on out->rt_ and computed below
-    source_vn = &(it_h->vn_.get()->GetName());
+    source_vn = &(fip_it->vn_.get()->GetName());
 
     // Setup reverse flow to translate sip.
     nat_done = true;
-    nat_ip_saddr = it_h->floating_ip_.to_ulong();
+    nat_ip_saddr = fip_it->floating_ip_.to_ulong();
     nat_ip_daddr = pkt->ip_daddr;
     nat_sport = pkt->sport;
     nat_dport = pkt->dport;
