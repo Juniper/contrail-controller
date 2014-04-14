@@ -30,6 +30,11 @@ public:
     static const short DnsRndc = 8094;
     static const short ApiServerOpen = 8095;
     static const short AnalyzerUdpPort = 8099;
+    static const short HttpPortConfigNodemgr = 8100;
+    static const short HttpPortControlNodemgr = 8101;
+    static const short HttpPortVrouterNodemgr = 8102;
+    static const short HttpPortDatabaseNodemgr = 8103;
+    static const short HttpPortAnalyticsNodemgr = 8104;
 
     // following ports are reserved for supervisord usage
     static const short supervisord_analytics = 9002;
