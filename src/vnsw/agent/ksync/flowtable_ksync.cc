@@ -10,8 +10,8 @@
 #elif defined(__FreeBSD__)
 #include "vr_os.h"
 #include <fcntl.h>
-#include <sys/mman.h>
 #endif
+#include <sys/mman.h>
 
 #include <boost/asio.hpp>
 
