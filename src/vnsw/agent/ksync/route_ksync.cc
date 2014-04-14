@@ -152,7 +152,7 @@ std::string RouteKSyncEntry::ToString() const {
     const VrfEntry* vrf =
         ksync_obj_->ksync()->agent()->GetVrfTable()->FindVrfFromId(vrf_id_);
     if (vrf) {
-        s << " Vrf : " << vrf->GetName() << " ";
+        s << "Route Vrf : " << vrf->GetName() << " ";
     }
     s << address_string_ << "/" << prefix_len_ << " Type:" << rt_type_;
 
@@ -161,7 +161,7 @@ std::string RouteKSyncEntry::ToString() const {
     s << " Tunnel Type: " << tunnel_type_;
 
     if (nexthop) {
-        s << " NextHop : " << nexthop->ToString();
+        s << nexthop->ToString();
     } else {
         s << " NextHop : <NULL>";
     }

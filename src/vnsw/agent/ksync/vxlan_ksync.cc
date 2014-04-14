@@ -58,7 +58,7 @@ std::string VxLanIdKSyncEntry::ToString() const {
 
     if (nexthop) {
         s << "VXLAN Label: " << label_ << " Index : "
-            << GetIndex() << " NextHop : " << nexthop->ToString();
+            << GetIndex() << nexthop->ToString();
     } else {
         s << "VXLAN Label: " << label_ << " Index : "
             << GetIndex() << " NextHop : <null>";

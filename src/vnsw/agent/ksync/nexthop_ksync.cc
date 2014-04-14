@@ -268,7 +268,7 @@ bool NHKSyncEntry::IsLess(const KSyncEntry &rhs) const {
 
 std::string NHKSyncEntry::ToString() const {
     std::stringstream s;
-    s << "NextHop Index: " << GetIndex() << "Type: ";
+    s << "NextHop Index: " << GetIndex() << " Type: ";
     switch(type_) {
     case NextHop::DISCARD: {
         s << "Discard";
@@ -336,7 +336,7 @@ std::string NHKSyncEntry::ToString() const {
     }
 
     if (interface_) {
-        s << "," << interface_->ToString();
+        s << "<" << interface_->ToString() << ">";
     }
     return s.str();
 }
