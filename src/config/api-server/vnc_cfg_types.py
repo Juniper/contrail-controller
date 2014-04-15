@@ -215,7 +215,7 @@ class VirtualNetworkServer(VirtualNetworkServerGen):
             return True,  ""
 
         ipam_refs = obj_dict.get('network_ipam_refs', None)
-        if ipam_refs == None:
+        if not ipam_refs:
             # NOP for addr-mgmt module
             return True,  ""
 
@@ -245,7 +245,7 @@ class VirtualNetworkServer(VirtualNetworkServerGen):
             return True,  ""
 
         ipam_refs = obj_dict.get('network_ipam_refs', None)
-        if ipam_refs == None:
+        if not ipam_refs:
             # NOP for addr-mgmt module
             return True,  ""
 
