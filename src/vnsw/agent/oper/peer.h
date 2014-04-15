@@ -11,13 +11,13 @@
 #include <db/db_table_walker.h>
 #include <net/address.h>
 
-#define GATEWAY_PEER_NAME "Gateway"
 #define LOCAL_PEER_NAME "Local"
 #define LOCAL_VM_PEER_NAME "Local_Vm"
 #define LOCAL_VM_PORT_PEER_NAME "LocalVmPort"
 #define NOVA_PEER_NAME "Nova"
 #define LINKLOCAL_PEER_NAME "LinkLocal"
 #define ECMP_PEER_NAME "Ecmp"
+#define VGW_PEER_NAME "Vgw"
 
 class AgentXmppChannel;
 
@@ -29,12 +29,12 @@ public:
     enum Type {
         BGP_PEER,
         ECMP_PEER,
-        GATEWAY_PEER,
         LOCAL_VM_PEER,
         LOCAL_PEER,
         LOCAL_VM_PORT_PEER,
         LINKLOCAL_PEER,
-        NOVA_PEER
+        NOVA_PEER,
+        VGW_PEER
     };
 
     Peer(Type type, const std::string &name) : type_(type), name_(name),

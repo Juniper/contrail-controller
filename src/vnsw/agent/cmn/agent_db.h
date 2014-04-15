@@ -112,6 +112,7 @@ public:
     void ClearRefState() const;
     bool IsActive() const;
 
+    virtual bool CanDelete(DBRequest *req);
     virtual void PostAdd();
     virtual bool DBEntrySandesh(Sandesh *resp, std::string &name) const = 0;
 private:

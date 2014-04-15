@@ -33,8 +33,7 @@ struct VirtualGatewayState : DBState {
     bool active_;
 };
 
-void VirtualGateway::InterfaceNotify(DBTablePartBase *partition,
-                                     DBEntryBase *entry) {
+void VirtualGateway::InterfaceNotify(DBTablePartBase *partition, DBEntryBase *entry) {
     if ((static_cast<Interface *>(entry))->type() != Interface::INET)
         return;
 
@@ -60,68 +59,34 @@ void VirtualGateway::InterfaceNotify(DBTablePartBase *partition,
     if (state == NULL) {
         state = new VirtualGatewayState();
         entry->SetState(partition->parent(), listener_id_, state);
-        it->set_inet_interface(intf);
+        it->set_interface(intf);
     }
 
     Inet4UnicastAgentRouteTable *rt_table = 
         static_cast<Inet4UnicastAgentRouteTable *>
-        (agent_->vrf_table()->GetInet4UnicastRouteTable(it->vrf()));
+        (agent_->vrf_table()->GetInet4UnicastRouteTable(it->vrf_name()));
 
     state->active_ = active;
 
     // Add gateway routes in virtual-network. 
     // BGP will export the route to other compute nodes
-    uint32_t idx = 0;
+    VirtualGatewayConfig::SubnetList empty_list;
     if (active) {
-        // Add routes configured. Add default route if none configured
-        if (it->routes().size() == 0) {
-            rt_table->AddInetInterfaceRoute(agent_->gateway_peer(), it->vrf(),
-                                            Ip4Address(0), 0, it->interface(),
-                                            intf->label(), it->vrf());
-        } else {
-            for (idx = 0; idx < it->routes().size(); idx++) {
-                Ip4Address addr = GetIp4SubnetAddress(it->routes()[idx].ip_,
-                                                      it->routes()[idx].plen_);
-                rt_table->AddInetInterfaceRoute(agent_->gateway_peer(),
-                                                it->vrf(), addr,
-                                                it->routes()[idx].plen_,
-                                                it->interface(), intf->label(),
-                                                it->vrf());
-            }
-        }
+        RouteUpdate(*it, it->routes().size(), rt_table,
+                    it->routes(), empty_list, true, false);
     } else {
-        // Delete the routes added in virtual-network
-        if (it->routes().size() == 0) {
-            rt_table->DeleteReq(agent_->gateway_peer(), it->vrf(),
-                                Ip4Address(0), 0);
-        } else {
-            for (idx = 0; idx < it->routes().size(); idx++) {
-                Ip4Address addr = GetIp4SubnetAddress(it->routes()[idx].ip_,
-                                                      it->routes()[idx].plen_);
-                rt_table->DeleteReq(agent_->gateway_peer(), it->vrf(),
-                                    addr, it->routes()[idx].plen_);
-            }
-        }
+        RouteUpdate(*it, it->routes().size(), rt_table,
+                    empty_list, it->routes(), false, true);
     }
 
-    for (idx = 0; idx < it->subnets().size(); idx++) {
-        Ip4Address addr = GetIp4SubnetAddress(it->subnets()[idx].ip_,
-                                              it->subnets()[idx].plen_);
-        if (active) {
-            // Packets received on fabric vrf and destined to IP address in
-            // "public" network must reach kernel. Add a route in "fabric" VRF 
-            // inside vrouter to trap packets destined to "public" network
-            rt_table->AddVHostRecvRoute(agent_->gateway_peer(),
-                                        agent_->GetDefaultVrf(),
-                                        agent_->vhost_interface_name(),
-                                        addr, it->subnets()[idx].plen_,
-                                        it->vrf(), false);
-        } else {
-            // Delete the trap route added above
-            rt_table->DeleteReq(agent_->gateway_peer(),
-                                agent_->GetDefaultVrf(),
-                                addr, it->subnets()[idx].plen_);
-        }
+    if (active) {
+        // Packets received on fabric vrf and destined to IP address in
+        // "public" network must reach kernel. Add a route in "fabric" VRF 
+        // inside vrouter to trap packets destined to "public" network
+        SubnetUpdate(it->vrf_name(), rt_table, it->subnets(), empty_list);
+    } else {
+        // Delete the trap route added above
+        SubnetUpdate(it->vrf_name(), rt_table, empty_list, it->subnets());
     }
 }
 
@@ -138,7 +103,7 @@ void VirtualGateway::CreateVrf() {
     VirtualGatewayConfigTable::Table::iterator it;
     const VirtualGatewayConfigTable::Table &table = vgw_config_table_->table();
     for (it = table.begin(); it != table.end(); it++) {
-        CreateVrf(it->vrf());
+        CreateVrf(it->vrf_name());
     }
 }
 
@@ -159,7 +124,7 @@ void VirtualGateway::CreateInterfaces() {
     VirtualGatewayConfigTable::Table::iterator it;
     const VirtualGatewayConfigTable::Table &table = vgw_config_table_->table();
     for (it = table.begin(); it != table.end(); it++) {
-        CreateInterface(it->interface(), it->vrf());
+        CreateInterface(it->interface_name(), it->vrf_name());
     }
 }
 
@@ -178,28 +143,36 @@ void
 VirtualGateway::SubnetUpdate(const VirtualGatewayConfig &vgw,
                              const VirtualGatewayConfig::SubnetList &add_list,
                              const VirtualGatewayConfig::SubnetList &del_list) {
-    if (vgw.inet_interface() && !vgw.inet_interface()->ipv4_active())
+    if (vgw.interface() && !vgw.interface()->ipv4_active())
         return;
 
     Inet4UnicastAgentRouteTable *rt_table = 
         static_cast<Inet4UnicastAgentRouteTable *>
-        (agent_->vrf_table()->GetInet4UnicastRouteTable(vgw.vrf()));
+        (agent_->vrf_table()->GetInet4UnicastRouteTable(vgw.vrf_name()));
     if (!rt_table)
         return;
 
+    SubnetUpdate(vgw.vrf_name(), rt_table, add_list, del_list);
+}
+
+void
+VirtualGateway::SubnetUpdate(const std::string &vrf,
+                             Inet4UnicastAgentRouteTable *rt_table,
+                             const VirtualGatewayConfig::SubnetList &add_list,
+                             const VirtualGatewayConfig::SubnetList &del_list) {
     for (uint32_t idx = 0; idx < add_list.size(); idx++) {
         Ip4Address addr = GetIp4SubnetAddress(add_list[idx].ip_,
                                               add_list[idx].plen_);
-        rt_table->AddVHostRecvRouteReq(agent_->gateway_peer(),
+        rt_table->AddVHostRecvRouteReq(agent_->vgw_peer(),
                                        agent_->GetDefaultVrf(),
                                        agent_->vhost_interface_name(),
                                        addr, add_list[idx].plen_,
-                                       vgw.vrf(), false);
+                                       vrf, false);
     }
     for (uint32_t idx = 0; idx < del_list.size(); idx++) {
         Ip4Address addr = GetIp4SubnetAddress(del_list[idx].ip_,
                                               del_list[idx].plen_);
-        rt_table->DeleteReq(agent_->gateway_peer(), agent_->GetDefaultVrf(),
+        rt_table->DeleteReq(agent_->vgw_peer(), agent_->GetDefaultVrf(),
                             addr, del_list[idx].plen_);
     }
 }
@@ -210,39 +183,50 @@ VirtualGateway::RouteUpdate(const VirtualGatewayConfig &vgw,
                             const VirtualGatewayConfig::SubnetList &add_list,
                             const VirtualGatewayConfig::SubnetList &del_list,
                             bool add_default_route) {
-    if (vgw.inet_interface() && !vgw.inet_interface()->ipv4_active())
+    if (vgw.interface() && !vgw.interface()->ipv4_active())
         return;
 
     Inet4UnicastAgentRouteTable *rt_table = 
         static_cast<Inet4UnicastAgentRouteTable *>
-        (agent_->vrf_table()->GetInet4UnicastRouteTable(vgw.vrf()));
+        (agent_->vrf_table()->GetInet4UnicastRouteTable(vgw.vrf_name()));
 
-    if (vgw.routes().size() == 0) {
+    RouteUpdate(vgw, new_list.size(), rt_table, add_list, del_list,
+                add_default_route, true);
+}
+
+void
+VirtualGateway::RouteUpdate(const VirtualGatewayConfig &vgw,
+                            uint32_t new_list_size,
+                            Inet4UnicastAgentRouteTable *rt_table,
+                            const VirtualGatewayConfig::SubnetList &add_list,
+                            const VirtualGatewayConfig::SubnetList &del_list,
+                            bool add_default_route, bool del_default_route) {
+    if (vgw.routes().size() == 0 && del_default_route) {
         // no routes earlier, remove default route
-        rt_table->DeleteReq(agent_->gateway_peer(), vgw.vrf(),
+        rt_table->DeleteReq(agent_->vgw_peer(), vgw.vrf_name(),
                             Ip4Address(0), 0);
-    } else if (new_list.size() == 0 && add_default_route) {
+    } else if (new_list_size == 0 && add_default_route) {
         // no routes now, add a default route
-        rt_table->AddInetInterfaceRoute(agent_->gateway_peer(), vgw.vrf(),
-                                        Ip4Address(0), 0, vgw.interface(),
-                                        vgw.inet_interface()->label(),
-                                        vgw.vrf());
+        rt_table->AddInetInterfaceRoute(agent_->vgw_peer(), vgw.vrf_name(),
+                                        Ip4Address(0), 0, vgw.interface_name(),
+                                        vgw.interface()->label(),
+                                        vgw.vrf_name());
     }
     // remove old routes, add new routes
     for (uint32_t idx = 0; idx < del_list.size(); idx++) {
         Ip4Address addr = GetIp4SubnetAddress(del_list[idx].ip_,
                                               del_list[idx].plen_);
-        rt_table->DeleteReq(agent_->gateway_peer(), vgw.vrf(),
+        rt_table->DeleteReq(agent_->vgw_peer(), vgw.vrf_name(),
                             addr, del_list[idx].plen_);
     }
     for (uint32_t idx = 0; idx < add_list.size(); idx++) {
         Ip4Address addr = GetIp4SubnetAddress(add_list[idx].ip_,
                                               add_list[idx].plen_);
-        rt_table->AddInetInterfaceRoute(agent_->gateway_peer(),
-                                        vgw.vrf(), addr, add_list[idx].plen_,
-                                        vgw.interface(),
-                                        vgw.inet_interface()->label(),
-                                        vgw.vrf());
+        rt_table->AddInetInterfaceRoute(agent_->vgw_peer(),
+                                        vgw.vrf_name(), addr, add_list[idx].plen_,
+                                        vgw.interface_name(),
+                                        vgw.interface()->label(),
+                                        vgw.vrf_name());
     }
 }
 
@@ -258,9 +242,9 @@ void VirtualGateway::Shutdown() {
     for (it = table.begin(); it != table.end(); it++) {
         // Delete Interface
         InetInterface::DeleteReq(agent_->GetInterfaceTable(),
-                                 it->interface());
+                                 it->interface_name());
 
         // Delete VRF for "public" virtual-network
-        agent_->GetVrfTable()->DeleteStaticVrf(it->vrf());
+        agent_->GetVrfTable()->DeleteStaticVrf(it->vrf_name());
     }
 }

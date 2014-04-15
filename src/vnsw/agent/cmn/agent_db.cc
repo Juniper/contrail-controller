@@ -27,6 +27,10 @@ bool AgentDBEntry::IsActive() const {
     return !IsDeleted();
 }
 
+bool AgentDBEntry::CanDelete(DBRequest *req) {
+    return true;
+}
+
 void AgentDBEntry::PostAdd() {
 }
 
@@ -89,6 +93,12 @@ void AgentDBTable::Input(DBTablePartition *partition, DBClient *client,
     AgentKey *key = static_cast<AgentKey *>(req->key.get());
 
     if (key->sub_op_ == AgentKey::ADD_DEL_CHANGE) {
+        if (req->oper == DBRequest::DB_ENTRY_DELETE) {
+            AgentDBEntry *entry =
+                static_cast<AgentDBEntry *>(partition->Find(key));
+            if (entry && !entry->CanDelete(req))
+                return;
+        }
         DBTable::Input(partition, client, req);
         return;
     }

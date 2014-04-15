@@ -32,6 +32,21 @@
 #include <base/contrail_ports.h>
 #include <vgw/cfg_vgw.h>
 
+InstanceServiceAsyncHandler::InstanceServiceAsyncHandler(Agent *agent)
+    : io_service_(*(agent->GetEventManager()->io_service())),
+      agent_(agent), version_(0), vgw_version_(0),
+      novaPeer_(new Peer(Peer::NOVA_PEER, NOVA_PEER_NAME)),
+      interface_stale_cleaner_(new InterfaceConfigStaleCleaner(agent)),
+      vgw_stale_cleaner_(new ConfigStaleCleaner(agent, boost::bind(
+        &InstanceServiceAsyncHandler::OnVirtualGatewayStaleTimeout, this, _1))) {
+    interface_stale_cleaner_->set_callback(
+      boost::bind(&InterfaceConfigStaleCleaner::OnInterfaceConfigStaleTimeout,
+                  interface_stale_cleaner_.get(), _1));
+}
+
+InstanceServiceAsyncHandler::~InstanceServiceAsyncHandler() {
+}
+
 InstanceServiceAsyncIf::AddPort_shared_future_t 
 InstanceServiceAsyncHandler::AddPort(const PortList& port_list) {
     PortList::const_iterator it;
@@ -92,7 +107,7 @@ InstanceServiceAsyncHandler::KeepAliveCheck() {
 InstanceServiceAsyncIf::Connect_shared_future_t 
 InstanceServiceAsyncHandler::Connect() {
     ++version_;
-    intf_stale_cleaner_->StartStaleCleanTimer(version_);
+    interface_stale_cleaner_->StartStaleCleanTimer(version_);
     CFG_TRACE(OpenstackConnect, "Connect", version_);
     return true;
 }
@@ -113,52 +128,112 @@ InstanceServiceAsyncHandler::DeletePort(const tuuid& t_port_id) {
     return true;
 }
 
-InstanceServiceAsyncIf::AddGateway_shared_future_t 
-InstanceServiceAsyncHandler::AddGateway(const GatewayList& gateway_list) {
+InstanceServiceAsyncIf::AddVirtualGateway_shared_future_t 
+InstanceServiceAsyncHandler::AddVirtualGateway(
+                             const VirtualGatewayRequestList& vgw_list) {
     bool ret = true;
-    for (GatewayList::const_iterator it = gateway_list.begin();
-         it != gateway_list.end(); ++it) {
-        const Gateway &gw = *it;
+    std::vector<VirtualGatewayInfo> vgw_info_list;
+    for (VirtualGatewayRequestList::const_iterator it = vgw_list.begin();
+         it != vgw_list.end(); ++it) {
+        const VirtualGatewayRequest &gw = *it;
         if (!gw.interface_name.size() || !gw.routing_instance.size() ||
             !gw.subnets.size()) {
-            LOG(DEBUG, "Add Gateway : Ignoring invalid gateway configurtion; "
+            LOG(DEBUG, "Add Virtual Gateway : Ignoring invalid gateway configurtion; "
                 << "Interface : " << gw.interface_name << " Routing instance : "
                 << gw.routing_instance);
             ret = false;
             continue;
         }
+
+        boost::system::error_code ec;
         VirtualGatewayConfig::SubnetList subnets;
-        for (uint32_t i = 0; i < gw.subnets.size(); i++) {
+        uint32_t i, j;
+        for (i = 0; i < gw.subnets.size(); i++) {
             VirtualGatewayConfig::Subnet subnet(Ip4Address::from_string(
-                                                gw.subnets[i].prefix),
+                                                gw.subnets[i].prefix, ec),
                                                 gw.subnets[i].plen);
+            if (ec || gw.subnets[i].plen <= 0 || gw.subnets[i].plen > 32) {
+                LOG(DEBUG, "Add Virtual Gateway : Ignoring invalid gateway configurtion; "
+                    << "Interface : " << gw.interface_name << " Subnet : "
+                    << gw.subnets[i].prefix << "/" << gw.subnets[i].plen);
+                break;
+            }
             subnets.push_back(subnet);
         }
+
         VirtualGatewayConfig::SubnetList routes;
-        for (uint32_t i = 0; i < gw.routes.size(); i++) {
+        for (j = 0; j < gw.routes.size(); j++) {
             VirtualGatewayConfig::Subnet route(Ip4Address::from_string(
-                                               gw.routes[i].prefix),
-                                               gw.routes[i].plen);
+                                               gw.routes[j].prefix, ec),
+                                               gw.routes[j].plen);
+            if (ec || gw.routes[j].plen < 0 || gw.routes[j].plen > 32) {
+                LOG(DEBUG, "Add Virtual Gateway: Ignoring invalid configuration; "
+                    << "Interface : " << gw.interface_name << " Subnet : "
+                    << gw.routes[j].prefix << "/" << gw.routes[j].plen);
+                break;
+            }
             routes.push_back(route);
         }
-        agent_->params()->vgw_config_table()->AddVgw(gw.interface_name,
-                                                     gw.routing_instance,
-                                                     subnets,
-                                                     routes);
+
+        if (i < gw.subnets.size() || j < gw.routes.size()) {
+            ret = false;
+            continue;
+        }
+
+        vgw_info_list.push_back(VirtualGatewayInfo(gw.interface_name,
+                                                   gw.routing_instance,
+                                                   subnets, routes));
+    }
+    if (!vgw_info_list.empty()) {
+        boost::shared_ptr<VirtualGatewayData>
+            vgw_data(new VirtualGatewayData(VirtualGatewayData::Add,
+                                            vgw_info_list, vgw_version_));
+        agent_->params()->vgw_config_table()->Enqueue(vgw_data);
     }
     return ret;
 }
 
-InstanceServiceAsyncIf::DeleteGateway_shared_future_t 
-InstanceServiceAsyncHandler::DeleteGateway(
-                             const std::vector<std::string>& gateway_list) {
-    for (uint32_t i = 0; i < gateway_list.size(); ++i) {
-        if (!gateway_list[i].size()) {
+InstanceServiceAsyncIf::DeleteVirtualGateway_shared_future_t 
+InstanceServiceAsyncHandler::DeleteVirtualGateway(
+                             const std::vector<std::string>& vgw_list) {
+    bool ret = true;
+    std::vector<VirtualGatewayInfo> vgw_info_list;
+    for (uint32_t i = 0; i < vgw_list.size(); ++i) {
+        if (!vgw_list[i].size()) {
+            LOG(DEBUG, "Delete Virtual Gateway : Ignoring empty interface name;");
+            ret = false;
             continue;
         }
-        agent_->params()->vgw_config_table()->DeleteVgw(gateway_list[i]);
+        vgw_info_list.push_back(VirtualGatewayInfo(vgw_list[i]));
     }
+    if (!vgw_info_list.empty()) {
+        boost::shared_ptr<VirtualGatewayData>
+            vgw_data(new VirtualGatewayData(VirtualGatewayData::Delete,
+                                            vgw_info_list, vgw_version_));
+        agent_->params()->vgw_config_table()->Enqueue(vgw_data);
+    }
+    return ret;
+}
+
+InstanceServiceAsyncIf::ConnectForVirtualGateway_shared_future_t
+InstanceServiceAsyncHandler::ConnectForVirtualGateway() {
+    ++vgw_version_;
+    vgw_stale_cleaner_->StartStaleCleanTimer(vgw_version_);
     return true;
+}
+
+InstanceServiceAsyncIf::AuditTimerForVirtualGateway_shared_future_t
+InstanceServiceAsyncHandler::AuditTimerForVirtualGateway(int32_t timeout) {
+    vgw_stale_cleaner_->set_timeout(timeout);
+    return true;
+}
+
+void InstanceServiceAsyncHandler::OnVirtualGatewayStaleTimeout(
+                                  uint32_t version) {
+    // delete older entries (less than "version")
+    boost::shared_ptr<VirtualGatewayData>
+        vgw_data(new VirtualGatewayData(VirtualGatewayData::Audit, version));
+    agent_->params()->vgw_config_table()->Enqueue(vgw_data);
 }
 
 InstanceServiceAsyncIf::TunnelNHEntryAdd_shared_future_t 
@@ -293,7 +368,7 @@ InstanceServiceAsyncHandler::AddLocalVmRoute(const std::string& ip_address,
     }
 
     agent_->GetDefaultInet4UnicastRouteTable()->
-        AddLocalVmRouteReq(novaPeer_, vrf, ip.to_v4(), 32, intf_uuid, 
+        AddLocalVmRouteReq(novaPeer_.get(), vrf, ip.to_v4(), 32, intf_uuid, 
                            "instance-service", mpls_label, SecurityGroupList(),
                            false);
     return true;
@@ -327,7 +402,7 @@ InstanceServiceAsyncHandler::AddRemoteVmRoute(const std::string& ip_address,
     }
 
     agent_->GetDefaultInet4UnicastRouteTable()->
-        AddRemoteVmRouteReq(novaPeer_, vrf, ip.to_v4(), 32,
+        AddRemoteVmRouteReq(novaPeer_.get(), vrf, ip.to_v4(), 32,
                             gw.to_v4(), TunnelType::AllType(), mpls_label, "",
                             SecurityGroupList());
     return true;
@@ -365,19 +440,10 @@ InstanceServiceAsyncHandler::MakeUuid(int id) {
     return u1;
 }
 
-void InstanceServiceAsyncHandler::SetCfgIntfStaleCleaner(
-        CfgIntfStaleCleaner *intf_stale_cleaner) {
-    intf_stale_cleaner_ = intf_stale_cleaner;
-}
-
 void InstanceInfoServiceServerInit(Agent *agent) {
     boost::shared_ptr<protocol::TProtocolFactory>
         protocolFactory(new protocol::TBinaryProtocolFactory());
     InstanceServiceAsyncHandler *isa = new InstanceServiceAsyncHandler(agent);
-    CfgIntfStaleCleaner *intf_stale_cleaner =
-        new CfgIntfStaleCleaner(agent->GetDB(),
-                                *(agent->GetEventManager())->io_service());
-    isa->SetCfgIntfStaleCleaner(intf_stale_cleaner); 
     boost::shared_ptr<InstanceServiceAsyncHandler> handler(isa);
     boost::shared_ptr<TProcessor> processor(new InstanceServiceAsyncProcessor(handler));
 
@@ -495,22 +561,74 @@ void DeletePortReq::HandleRequest() const {
     return;
 }
 
-CfgIntfStaleCleaner::~CfgIntfStaleCleaner() {
-    TimerManager::DeleteTimer(timer_);
+////////////////////////////////////////////////////////////////////////////////
+
+ConfigStaleCleaner::ConfigStaleCleaner(Agent *agent, TimerCallback callback) :
+    agent_(agent),
+    timeout_(kConfigStaleTimeout), audit_callback_(callback) {
 }
 
-CfgIntfStaleCleaner::CfgIntfStaleCleaner(DB *db, boost::asio::io_service &io_service) :
-        // Create the timer under db table context with instance id 0
-        db_(db), timer_(TimerManager::CreateTimer(io_service,
-                         "Interface Stale cleanup timer",
-                         TaskScheduler::GetInstance()->GetTaskId("db::DBTable"),
-                                                  0)),
-        walkid_(DBTableWalker::kInvalidWalkerId) {
-            
+ConfigStaleCleaner::~ConfigStaleCleaner() {
+    // clean up the running timers
+    for (std::set<Timer *>::iterator it = running_timer_list_.begin();
+         it != running_timer_list_.end(); ++it) {
+        (*it)->Cancel();
+    }
 }
 
-bool CfgIntfStaleCleaner::CfgIntfWalk(DBTablePartBase *partition,
-                                          DBEntryBase *entry, int32_t version) {
+void ConfigStaleCleaner::StartStaleCleanTimer(int32_t version) {
+    // create timer, to be deleted on completion
+    Timer *timer =
+        TimerManager::CreateTimer(
+            *(agent_->GetEventManager())->io_service(), "Stale cleanup timer",
+            TaskScheduler::GetInstance()->GetTaskId("db::DBTable"), 0, true);
+    running_timer_list_.insert(timer);
+    timer->Start(timeout_,
+                 boost::bind(&ConfigStaleCleaner::StaleEntryTimeout, this,
+                             version, timer));
+}
+
+bool ConfigStaleCleaner::StaleEntryTimeout(int32_t version, Timer *timer) {
+    if (audit_callback_) {
+        audit_callback_(version);
+    }
+    running_timer_list_.erase(timer);
+    return false;
+}
+
+////////////////////////////////////////////////////////////////////////////////
+
+InterfaceConfigStaleCleaner::InterfaceConfigStaleCleaner(Agent *agent) :
+    ConfigStaleCleaner(agent, NULL), walkid_(DBTableWalker::kInvalidWalkerId) {
+}
+
+InterfaceConfigStaleCleaner::~InterfaceConfigStaleCleaner() {
+    if (walkid_ != DBTableWalker::kInvalidWalkerId) {
+        CFG_TRACE(IntfInfo, "InterfaceConfigStaleCleaner Walk cancelled.");
+        agent_->GetDB()->GetWalker()->WalkCancel(walkid_);
+    }
+}
+
+bool
+InterfaceConfigStaleCleaner::OnInterfaceConfigStaleTimeout(int32_t version) {
+    DBTableWalker *walker = agent_->GetDB()->GetWalker();
+    if (walkid_ != DBTableWalker::kInvalidWalkerId) {
+        CFG_TRACE(IntfInfo, "InterfaceConfigStaleCleaner Walk cancelled.");
+        walker->WalkCancel(walkid_);
+    }
+
+    walkid_ = walker->WalkTable(agent_->GetIntfCfgTable(), NULL,
+              boost::bind(&InterfaceConfigStaleCleaner::CfgIntfWalk, this,
+                          _1, _2, version),
+              boost::bind(&InterfaceConfigStaleCleaner::CfgIntfWalkDone, this,
+                          version));
+    CFG_TRACE(IntfInfo, "InterfaceConfigStaleCleaner Walk invoked.");
+    return false;
+}
+
+bool InterfaceConfigStaleCleaner::CfgIntfWalk(DBTablePartBase *partition,
+                                              DBEntryBase *entry,
+                                              int32_t version) {
     const CfgIntEntry *cfg_intf = static_cast<const CfgIntEntry *>(entry);
     if (cfg_intf->GetVersion() < version) {
         CfgIntTable *ctable = Agent::GetInstance()->GetIntfCfgTable();
@@ -522,32 +640,7 @@ bool CfgIntfStaleCleaner::CfgIntfWalk(DBTablePartBase *partition,
     return true;
 }
 
-void CfgIntfStaleCleaner::CfgIntfWalkDone(int32_t version) {
+void InterfaceConfigStaleCleaner::CfgIntfWalkDone(int32_t version) {
     walkid_ = DBTableWalker::kInvalidWalkerId;
     CFG_TRACE(IntfWalkDone, version);
 }
-
-bool CfgIntfStaleCleaner::StaleEntryTimeout(int32_t version) {
-    DBTableWalker *walker = Agent::GetInstance()->GetDB()->GetWalker();
-    if (walkid_ != DBTableWalker::kInvalidWalkerId) {
-        CFG_TRACE(IntfInfo, "Walk canceled.")
-        walker->WalkCancel(walkid_);
-    }
-
-    walkid_ = walker->WalkTable(Agent::GetInstance()->GetIntfCfgTable(), NULL,
-                      boost::bind(&CfgIntfStaleCleaner::CfgIntfWalk, this, _1, _2, version),
-                      boost::bind(&CfgIntfStaleCleaner::CfgIntfWalkDone, this, version));
-    CFG_TRACE(IntfInfo, "Walk invoked.");
-    return false;
-}
-
-void CfgIntfStaleCleaner::StartStaleCleanTimer(int32_t version) {
-    if (timer_->running()) {
-        timer_->Cancel();
-    }
-    CFG_TRACE(IntfWalkStart, kCfgIntfStaleTimeout/1000, version);
-    timer_->Start(kCfgIntfStaleTimeout,
-                  boost::bind(&CfgIntfStaleCleaner::StaleEntryTimeout,
-                              this, version));
-}
-

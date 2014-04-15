@@ -28,8 +28,8 @@ def main(args_str = None):
     route_list_1 = [ ]
     subnet_list_2 = [ subnet3 ]
     route_list_2 = [ ttypes.Subnet("0.0.0.0", 0), ttypes.Subnet("8.8.8.0", 24), ttypes.Subnet("7.7.7.0", 24) ]
-    gw1 = ttypes.Gateway("gw_test1",  "default-domain:admin:test1:test1", subnet_list_1, route_list_1)
-    gw2 = ttypes.Gateway("gw_test2",  "default-domain:admin:test2:test2", subnet_list_2, route_list_2)
+    gw1 = ttypes.VirtualGatewayRequest("gw_test1",  "default-domain:admin:test1:test1", subnet_list_1, route_list_1)
+    gw2 = ttypes.VirtualGatewayRequest("gw_test2",  "default-domain:admin:test2:test2", subnet_list_2, route_list_2)
     gw_list = [ gw1, gw2 ] 
     gw_interface_list = [ "gw_test1", "gw_test2" ]
 
@@ -40,9 +40,9 @@ def main(args_str = None):
             print "Usage : " + sys.argv[0] + " add / del"
             sys.exit()
         if sys.argv[1] != "del":
-            service.AddGateway(gw_list)
+            service.AddVirtualGateway(gw_list)
         else:
-            service.DeleteGateway(gw_interface_list)
+            service.DeleteVirtualGateway(gw_interface_list)
     finally:
         transport.close()
 #end main

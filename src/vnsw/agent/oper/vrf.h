@@ -65,7 +65,7 @@ public:
     }
 
     uint32_t flags() const { return flags_; }
-    void set_flags(uint32_t flags) { flags_ = flags; }
+    void set_flags(uint32_t flags) { flags_ |= flags; }
     bool are_flags_set(const VrfData::VrfEntryFlags &flags) const {
         return (flags_ & flags);
     }
@@ -89,6 +89,7 @@ public:
     bool DeleteTimeout();
     void CancelDeleteTimer();
     void PostAdd();
+    bool CanDelete(DBRequest *req);
     void AddNH(Ip4Address ip, uint8_t plen, ComponentNHData *nh_data) ;
     void DeleteNH(Ip4Address ip, uint8_t plen, ComponentNHData *nh_data) ;
     uint32_t GetNHCount(Ip4Address ip, uint8_t plen) ;
@@ -182,7 +183,6 @@ private:
     void DelPeerDone(DBTableBase *base, Peer *,Peer::DelPeerDone cb);
     void VrfNotifyDone(DBTableBase *base, Peer *);
     void VrfNotifyMulticastDone(DBTableBase *base, Peer *);
-    uint32_t GetVrfFlags(const std::string &vrf_name);
 
     DB *db_;
     static VrfTable *vrf_table_;

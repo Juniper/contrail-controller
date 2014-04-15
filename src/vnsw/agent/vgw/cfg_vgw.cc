@@ -137,62 +137,113 @@ void VirtualGatewayConfigTable::Init(const char *init_file) {
 
         std::sort(subnets.begin(), subnets.end());
         std::sort(routes.begin(), routes.end());
-        table_.insert(VirtualGatewayConfig(interface, vrf, subnets, routes));
+        table_.insert(VirtualGatewayConfig(interface, vrf,
+                                           subnets, routes, (uint32_t) -1));
     }
     return;
 }
 
 void VirtualGatewayConfigTable::Shutdown() {
+    work_queue_.Shutdown();
+}
+
+void VirtualGatewayConfigTable::Enqueue(
+                                boost::shared_ptr<VirtualGatewayData> request) {
+    work_queue_.Enqueue(request);
+}
+
+bool VirtualGatewayConfigTable::ProcessRequest(
+                                boost::shared_ptr<VirtualGatewayData> request) {
+    switch(request->message_type_) {
+        case VirtualGatewayData::Add:
+            BOOST_FOREACH(VirtualGatewayInfo &vgw, request->vgw_list_) {
+                AddVgw(vgw, request->version_);
+            }
+            break;
+
+        case VirtualGatewayData::Delete:
+            BOOST_FOREACH(VirtualGatewayInfo &vgw, request->vgw_list_) {
+                DeleteVgw(vgw.interface_name_);
+            }
+            break;
+
+        case VirtualGatewayData::Audit:
+            DeleteAllOldVersionVgw(request->version_);
+            break;
+
+        default:
+            assert(0);
+    }
+    return true;
 }
 
 // Add / modify a virtual gateway
-void VirtualGatewayConfigTable::AddVgw(
-                               const std::string &interface,
-                               const std::string &vrf,
-                               VirtualGatewayConfig::SubnetList &subnets,
-                               VirtualGatewayConfig::SubnetList &routes) {
-    std::sort(subnets.begin(), subnets.end());
-    std::sort(routes.begin(), routes.end());
-    Table::iterator it = table_.find(interface);
+bool VirtualGatewayConfigTable::AddVgw(VirtualGatewayInfo &vgw, uint32_t version) {
+    std::sort(vgw.subnets_.begin(), vgw.subnets_.end());
+    std::sort(vgw.routes_.begin(), vgw.routes_.end());
+    Table::iterator it = table_.find(vgw.interface_name_);
     if (it == table_.end()) {
         // Add new gateway
-        table_.insert(VirtualGatewayConfig(interface, vrf, subnets, routes));
-        agent_->vgw()->CreateVrf(vrf);
-        agent_->vgw()->CreateInterface(interface, vrf);
+        table_.insert(VirtualGatewayConfig(vgw.interface_name_, vgw.vrf_name_,
+                                           vgw.subnets_, vgw.routes_, version));
+        agent_->vgw()->CreateVrf(vgw.vrf_name_);
+        agent_->vgw()->CreateInterface(vgw.interface_name_, vgw.vrf_name_);
     } else {
         // modify existing gateway
-        if (vrf != it->vrf()) {
-            LOG(DEBUG, "Gateway : change of vrf is not allowed; " <<
-                "Interface : " << interface << " Old VRF : " << it->vrf() <<
-                " New VRF : " << vrf);
-            return;
+        if (vgw.vrf_name_ != it->vrf_name()) {
+            LOG(DEBUG, "Virtual Gateway : change of vrf is not allowed; " <<
+                "Interface : " << vgw.interface_name_ << " Old VRF : " <<
+                it->vrf_name() << " New VRF : " << vgw.vrf_name_);
+            return false;
         }
         VirtualGatewayConfig::SubnetList add_list, del_list;
-        if (FindChange(it->subnets(), subnets, add_list, del_list)) {
+        if (FindChange(it->subnets(), vgw.subnets_, add_list, del_list)) {
             agent_->vgw()->SubnetUpdate(*it, add_list, del_list);
-            it->set_subnets(subnets);
+            it->set_subnets(vgw.subnets_);
         }
 
         add_list.clear();
         del_list.clear();
-        if (FindChange(it->routes(), routes, add_list, del_list)) {
-            agent_->vgw()->RouteUpdate(*it, routes, add_list, del_list, true);
-            it->set_routes(routes);
+        if (FindChange(it->routes(), vgw.routes_, add_list, del_list)) {
+            agent_->vgw()->RouteUpdate(*it, vgw.routes_, add_list, del_list, true);
+            it->set_routes(vgw.routes_);
         }
+        it->set_version(version);
     }
+    return true;
 }
 
 // Delete a virtual gateway
-void VirtualGatewayConfigTable::DeleteVgw(const std::string &interface) {
-    Table::iterator it = table_.find(interface);
+bool VirtualGatewayConfigTable::DeleteVgw(const std::string &interface_name) {
+    Table::iterator it = table_.find(interface_name);
     if (it != table_.end()) {
-        VirtualGatewayConfig::SubnetList empty_list;
-        agent_->vgw()->SubnetUpdate(*it, empty_list, it->subnets());
-        agent_->vgw()->RouteUpdate(*it, empty_list, empty_list,
-                                   it->routes(), false);
-        agent_->vgw()->DeleteInterface(interface);
-        agent_->vgw()->DeleteVrf(it->vrf());
-        table_.erase(it);
+        DeleteVgw(it);
+        return true;
+    }
+
+    LOG(DEBUG, "Virtual Gateway delete : interface not present; " <<
+        "Interface : " << interface_name);
+    return false;
+}
+
+void VirtualGatewayConfigTable::DeleteVgw(Table::iterator it) {
+    VirtualGatewayConfig::SubnetList empty_list;
+    agent_->vgw()->SubnetUpdate(*it, empty_list, it->subnets());
+    agent_->vgw()->RouteUpdate(*it, empty_list, empty_list,
+                               it->routes(), false);
+    agent_->vgw()->DeleteInterface(it->interface_name());
+    agent_->vgw()->DeleteVrf(it->vrf_name());
+    table_.erase(it);
+}
+
+// delete all entries from previous version
+void VirtualGatewayConfigTable::DeleteAllOldVersionVgw(uint32_t version) {
+    for (Table::iterator it = table_.begin(); it != table_.end();) {
+        if (it->version() < version) {
+            DeleteVgw(it++);
+        } else {
+            it++;
+        }
     }
 }
 

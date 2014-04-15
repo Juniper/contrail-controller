@@ -46,6 +46,9 @@ public:
         if (restart) {
             timer_->Start(timer_->time_, timer_->handler_,
                           timer_->error_handler_);
+        } else if (timer_->auto_delete_) {
+            timer_->auto_delete_ = false;
+            TimerManager::DeleteTimer(timer_.get());
         }
         return true;
     }
@@ -72,10 +75,12 @@ private:
 };
 
 Timer::Timer(boost::asio::io_service &service, const std::string &name,
-          int task_id, int task_instance)
+          int task_id, int task_instance, bool delete_on_completion)
     : boost::asio::monotonic_deadline_timer(service), name_(name), handler_(NULL),
     error_handler_(NULL), state_(Init), timer_task_(NULL), time_(0),
-    task_id_(task_id), task_instance_(task_instance), seq_no_(0) {
+    task_id_(task_id), task_instance_(task_instance), seq_no_(0),
+    delete_on_completion_(delete_on_completion),
+    auto_delete_(delete_on_completion) {
     refcount_ = 0;
 }
 
@@ -134,6 +139,10 @@ bool Timer::Cancel() {
     }
 
     SetState(Cancelled);
+    if (auto_delete_) {
+        auto_delete_ = false;
+        TimerManager::DeleteTimer(this);
+    }
     return true;
 }
 
@@ -171,8 +180,9 @@ tbb::mutex TimerManager::mutex_;
 
 Timer *TimerManager::CreateTimer(
             boost::asio::io_service &service, const std::string &name,
-            int task_id, int task_instance) {
-    Timer *timer = new Timer(service, name, task_id, task_instance);
+            int task_id, int task_instance, bool delete_on_completion) {
+    Timer *timer = new Timer(service, name, task_id, task_instance,
+                             delete_on_completion);
     AddTimer(timer);
     return timer;
 }

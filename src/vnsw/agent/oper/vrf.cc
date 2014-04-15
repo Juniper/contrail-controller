@@ -103,6 +103,14 @@ void VrfEntry::PostAdd() {
                                                         rt_table_db_[type]));
 }
 
+bool VrfEntry::CanDelete(DBRequest *req) {
+    VrfData *data = static_cast<VrfData *>(req->data.get());
+    // Update flags
+    flags_ &= ~data->flags_;
+    // Do not delete the VRF if config VRF or gateway VRF flag is still set
+    return flags_ ? false : true;
+}
+
 DBEntryBase::KeyPtr VrfEntry::GetDBRequestKey() const {
     VrfKey *key = new VrfKey(name_);
     return DBEntryBase::KeyPtr(key);
@@ -354,7 +362,7 @@ void VrfEntry::CancelDeleteTimer() {
 
 std::auto_ptr<DBEntry> VrfTable::AllocEntry(const DBRequestKey *k) const {
     const VrfKey *key = static_cast<const VrfKey *>(k);
-    VrfEntry *vrf = new VrfEntry(key->name_, VrfData::ConfigVrf);
+    VrfEntry *vrf = new VrfEntry(key->name_, 0);
     return std::auto_ptr<DBEntry>(static_cast<DBEntry *>(vrf));
 }
 
@@ -380,9 +388,7 @@ DBEntry *VrfTable::Add(const DBRequest *req) {
 bool VrfTable::OnChange(DBEntry *entry, const DBRequest *req) {
     VrfEntry *vrf = static_cast<VrfEntry *>(entry);
     VrfData *data = static_cast<VrfData *>(req->data.get());
-    if (data->flags_ != vrf->flags()) {
-        vrf->set_flags(data->flags_);
-    }
+    vrf->set_flags(data->flags_);
 
     return false;
 }
@@ -473,7 +479,6 @@ AgentRouteTable *VrfTable::GetRouteTable(const string &vrf_name,
 }
 
 void VrfTable::CreateVrf(const string &name, uint32_t flags) {
-    flags |= GetVrfFlags(name);
     VrfKey *key = new VrfKey(name);
     VrfData *data = new VrfData(flags);
     DBRequest req;
@@ -484,15 +489,8 @@ void VrfTable::CreateVrf(const string &name, uint32_t flags) {
 }
 
 void VrfTable::DeleteVrf(const string &name, uint32_t flags) {
-    flags = GetVrfFlags(name) & ~flags;
     DBRequest req;
-    if (flags) {
-        // If other VRF flag is still set, do not delete VRF
-        req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
-    } else {
-        req.oper = DBRequest::DB_ENTRY_DELETE;
-    }
-
+    req.oper = DBRequest::DB_ENTRY_DELETE;
     VrfKey *key = new VrfKey(name);
     VrfData *data = new VrfData(flags);
     req.key.reset(key);
@@ -654,15 +652,10 @@ bool VrfTable::CanNotify(IFMapNode *node) {
 
 bool VrfTable::IFNodeToReq(IFMapNode *node, DBRequest &req) {
     VrfKey *key = new VrfKey(node->name());
-    uint32_t flags = 0;
 
     //Trigger add or delete only for non fabric VRF
     if (node->IsDeleted()) {
-        flags = GetVrfFlags(node->name()) & ~VrfData::ConfigVrf;
-        if (flags & VrfData::GwVrf) {
-            // If it is a GW VRF, do not delete VRF till GW is deleted
-            req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
-        } else if (IsStaticVrf(node->name())) {
+        if (IsStaticVrf(node->name())) {
             //Fabric and link-local VRF will not be deleted,
             //upon config delete
             req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
@@ -671,7 +664,6 @@ bool VrfTable::IFNodeToReq(IFMapNode *node, DBRequest &req) {
         }
     } else {
         req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
-        flags = GetVrfFlags(node->name()) | VrfData::ConfigVrf;
         IFMapAgentTable *table =
             static_cast<IFMapAgentTable *>(node->table());
         for (DBGraphVertex::adjacency_iterator iter =
@@ -696,7 +688,7 @@ bool VrfTable::IFNodeToReq(IFMapNode *node, DBRequest &req) {
 
     //When VRF config delete comes, first enqueue VRF delete
     //so that when link evaluation happens, all point to deleted VRF
-    VrfData *data = new VrfData(flags);
+    VrfData *data = new VrfData(VrfData::ConfigVrf);
     req.key.reset(key);
     req.data.reset(data);
     Enqueue(&req);
@@ -726,16 +718,6 @@ bool VrfTable::IFNodeToReq(IFMapNode *node, DBRequest &req) {
     // Resync dependent Floating-IP
     VmInterface::FloatingIpVrfSync(agent()->GetInterfaceTable(), node);
     return false;
-}
-
-uint32_t VrfTable::GetVrfFlags(const std::string &vrf_name) {
-    VrfNameTree::const_iterator vrf_it = name_tree_.find(vrf_name);
-    if (vrf_it != name_tree_.end()) {
-        VrfEntry *vrf = vrf_it->second;
-        if (vrf)
-            return vrf->flags();
-    }
-    return 0;
 }
 
 void VrfListReq::HandleRequest() const {

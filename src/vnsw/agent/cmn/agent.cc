@@ -277,7 +277,7 @@ void Agent::InitModules() {
     local_vm_peer_.reset(new Peer(Peer::LOCAL_VM_PEER, LOCAL_VM_PEER_NAME));
     linklocal_peer_.reset(new Peer(Peer::LINKLOCAL_PEER, LINKLOCAL_PEER_NAME));
     ecmp_peer_.reset(new Peer(Peer::ECMP_PEER, ECMP_PEER_NAME));
-    gateway_peer_.reset(new Peer(Peer::GATEWAY_PEER, GATEWAY_PEER_NAME));
+    vgw_peer_.reset(new Peer(Peer::VGW_PEER, VGW_PEER_NAME));
 
     ksync_.get()->Init();
 
@@ -383,7 +383,7 @@ Agent::Agent() :
     pkt_interface_name_("pkt0"), cfg_listener_(NULL), arp_proto_(NULL),
     dhcp_proto_(NULL), dns_proto_(NULL), icmp_proto_(NULL), flow_proto_(NULL),
     local_peer_(NULL), local_vm_peer_(NULL), linklocal_peer_(NULL),
-    gateway_peer_(NULL), ifmap_parser_(NULL), router_id_configured_(false),
+    vgw_peer_(NULL), ifmap_parser_(NULL), router_id_configured_(false),
     mirror_src_udp_port_(0), lifetime_manager_(NULL), 
     ksync_sync_mode_(true), mgmt_ip_(""),
     vxlan_network_identifier_mode_(AUTOMATIC) {

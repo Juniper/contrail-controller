@@ -40,8 +40,8 @@ TEST_F(VgwTest, conf_file_1) {
     if (it == table->table().end())
         return;
 
-    EXPECT_STREQ(it->vrf().c_str(), "default-domain:admin:public:public");
-    EXPECT_STREQ(it->interface().c_str(), "vgw");
+    EXPECT_STREQ(it->vrf_name().c_str(), "default-domain:admin:public:public");
+    EXPECT_STREQ(it->interface_name().c_str(), "vgw");
 
     VirtualGatewayConfig::Subnet subnet = it->subnets()[0];
     EXPECT_STREQ(subnet.ip_.to_string().c_str(), "1.1.1.1");
@@ -53,8 +53,8 @@ TEST_F(VgwTest, conf_file_1) {
     if (it == table->table().end())
         return;
 
-    EXPECT_STREQ(it->vrf().c_str(), "default-domain:admin:public1:public1");
-    EXPECT_STREQ(it->interface().c_str(), "vgw1");
+    EXPECT_STREQ(it->vrf_name().c_str(), "default-domain:admin:public1:public1");
+    EXPECT_STREQ(it->interface_name().c_str(), "vgw1");
     EXPECT_EQ(it->subnets().size(), (unsigned int) 2);
     if (it->routes().size() == 2) {
         subnet = it->subnets()[0];
@@ -240,6 +240,14 @@ int main(int argc, char **argv) {
     client = VGwInit( "controller/src/vnsw/agent/vgw/test/cfg.xml",
                       ksync_init);
     int ret = RUN_ALL_TESTS();
+    std::vector<VirtualGatewayInfo> vgw_info_list;
+    vgw_info_list.push_back(VirtualGatewayInfo("vgw"));
+    vgw_info_list.push_back(VirtualGatewayInfo("vgw1"));
+    boost::shared_ptr<VirtualGatewayData> 
+        vgw_data(new VirtualGatewayData(VirtualGatewayData::Delete,
+                                        vgw_info_list, 0));
+    Agent::GetInstance()->params()->vgw_config_table()->Enqueue(vgw_data);
+    client->WaitForIdle();
     TestShutdown();
     delete client;
     return ret;
