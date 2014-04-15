@@ -896,7 +896,11 @@ class VncKombuClient(object):
                 except Exception as e:
                     print "Exception in _dbe_oper_subscribe: " + str(e)
                 finally:
-                    message.ack()
+                    try:
+                        message.ack()
+                    except socket.error as e:
+                        self._init_server_conn(self._rabbit_ip, self._rabbit_user, self._rabbit_password, self._rabbit_vhost)
+                        # never reached
 
     #end _dbe_oper_subscribe
 
