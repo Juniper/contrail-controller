@@ -406,6 +406,8 @@ void TaskScheduler::Enqueue(Task *t) {
 }
 
 void TaskScheduler::EnqueueUnLocked(Task *t) {
+    // Ensure that task is enqueued only once.
+    assert(t->GetSeqno() == 0);
     t->SetSeqNo(++seqno_);
     TaskGroup *group = GetTaskGroup(t->GetTaskId());
 
@@ -515,7 +517,10 @@ void TaskScheduler::OnTaskExit(Task *t) {
         return;
     }
 
+    // Task is being recycled, reset the state, seq_no and TBB task handle
     t->task_impl_ = NULL;
+    t->SetSeqNo(0);
+    t->state_ = Task::INIT;
     EnqueueUnLocked(t);
 }
 
