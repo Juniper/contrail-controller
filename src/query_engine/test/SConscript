@@ -49,7 +49,7 @@ Analytics_obj = env.Object('vizd_table_desc.o', '../../analytics/vizd_table_desc
 #                              ]
 #                              )
 
-options_test = env.UnitTest('options_test', ['../buildinfo.cc', '../options.cc',
+options_test = env.UnitTest('options_test', ['../buildinfo.o', '../options.o',
                                              'options_test.cc'])
 env.Alias('src/query_engine:options_test', options_test)
 
