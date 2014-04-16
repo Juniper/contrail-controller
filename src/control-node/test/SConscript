@@ -25,7 +25,7 @@ env.Prepend(LIBS = ['gunit', 'io', 'sandesh', 'http',
 if sys.platform != 'darwin':
     env.Append(LIBS = ['rt'])
 
-options_test = env.UnitTest('options_test', ['../buildinfo.cc', '../options.cc',
+options_test = env.UnitTest('options_test', ['../buildinfo.o', '../options.o',
                                              'options_test.cc'])
 env.Alias('src/control-node:options_test', options_test)
 
