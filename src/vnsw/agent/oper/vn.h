@@ -39,9 +39,6 @@ struct VnIpam {
         default_gw = Ip4Address::from_string(gw, ec);
     }
     bool operator<(const VnIpam &rhs) const {
-        if (ipam_name != rhs.ipam_name)
-            return ipam_name < rhs.ipam_name;
-
         if (ip_prefix != rhs.ip_prefix)
             return ip_prefix < rhs.ip_prefix;
 
@@ -54,11 +51,6 @@ struct VnIpam {
     }
     Ip4Address GetSubnetAddress() const {
         return GetIp4SubnetAddress(ip_prefix, plen);
-        /*
-        Ip4Address subnet(ip_prefix.to_ulong() & 
-                             (0xFFFFFFFF << (32 - plen)));
-        return subnet;
-        */
     }
     bool IsSubnetMember(const Ip4Address &ip) const {
         return ((ip_prefix.to_ulong() | ~(0xFFFFFFFF << (32 - plen))) == 
@@ -240,13 +232,15 @@ private:
     static VnTable *vn_table_;
     bool IpamChangeNotify(std::vector<VnIpam> &old_ipam, 
                           std::vector<VnIpam> &new_ipam, VnEntry *vn);
+    void UpdateSubnetGateway(const VnIpam &old_ipam, const VnIpam &new_ipam, 
+                             VnEntry *vn);
     void AddIPAMRoutes(VnEntry *vn, VnIpam &ipam);
     void DelIPAMRoutes(VnEntry *vn, VnIpam &ipam);
     void DeleteAllIpamRoutes(VnEntry *vn);
     void AddSubnetRoute(VnEntry *vn, VnIpam &ipam);
     void DelSubnetRoute(VnEntry *vn, VnIpam &ipam);
-    void AddHostRouteForGw(VnEntry *vn, VnIpam &ipam);
-    void DelHostRouteForGw(VnEntry *vn, VnIpam &ipam);
+    void AddHostRouteForGw(VnEntry *vn, const VnIpam &ipam);
+    void DelHostRouteForGw(VnEntry *vn, const VnIpam &ipam);
     bool ChangeHandler(DBEntry *entry, const DBRequest *req);
     IFMapNode *FindTarget(IFMapAgentTable *table, IFMapNode *node, 
                           std::string node_type);
