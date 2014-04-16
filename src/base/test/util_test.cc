@@ -44,24 +44,21 @@ TEST_F(UtilTest, Correctness) {
     }
 }
 
-TEST_F(UtilTest, PerfUTCclock_gettime) {
-    uint64_t t;
+TEST_F(UtilTest, DISABLED_PerfUTCclock_gettime) {
     for (int i = 0; i < 1000000; i++) {
-        t = UTCTimestampUsec();
+       uint64_t t = UTCTimestampUsec();
     }
 }
 
-TEST_F(UtilTest, PerfUTCgettimeofday) {
-    uint64_t t;
+TEST_F(UtilTest, DISABLED_PerfUTCgettimeofday) {
     for (int i = 0; i < 1000000; i++) {
-        t = UTCgettimeofday();
+        uint64_t t = UTCgettimeofday();
     }
 }
 
-TEST_F(UtilTest, PerfUTCboost) {
-    uint64_t t;
+TEST_F(UtilTest, DISABLED_PerfUTCboost) {
     for (int i = 0; i < 1000000; i++) {
-        t = UTCboost();
+        uint64_t t = UTCboost();
     }
 }
 
