@@ -192,6 +192,10 @@ do {                                                                           \
     BGP_CONFIG_LOG_INTERNAL(Neighbor##type, server, level, flags,              \
                             (neighbor)->name(), ##__VA_ARGS__);
 
+#define BGP_CONFIG_LOG_PEERING(type, server, peering, level, flags, ...)       \
+    BGP_CONFIG_LOG_INTERNAL(Peering##type, server, level, flags,               \
+                            (peering)->name(), ##__VA_ARGS__);
+
 #define BGP_CONFIG_LOG_PROTOCOL(type, server, protocol, level, flags, ...)     \
     BGP_CONFIG_LOG_INTERNAL(Protocol##type, server, level, flags,              \
                             (protocol)->instance()->name(), ##__VA_ARGS__);

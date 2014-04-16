@@ -172,6 +172,36 @@ systemlog sandesh BgpConfigNeighborUpdateLog {
     6: list<string> families;
 }
 
+trace sandesh BgpConfigPeeringCreateTrace {
+    1: "Peering";
+    2: string name;
+}
+
+systemlog sandesh BgpConfigPeeringCreateLog {
+    1: "Peering";
+    2: string name;
+}
+
+trace sandesh BgpConfigPeeringDeleteTrace {
+    1: "Peering";
+    2: string name;
+}
+
+systemlog sandesh BgpConfigPeeringDeleteLog {
+    1: "Peering";
+    2: string name;
+}
+
+trace sandesh BgpConfigPeeringUpdateTrace {
+    1: "Peering";
+    2: string name;
+}
+
+systemlog sandesh BgpConfigPeeringUpdateLog {
+    1: "Peering";
+    2: string name;
+}
+
 trace sandesh BgpConfigProtocolCreateTrace {
     1: "Routing Instance";
     2: string name;
