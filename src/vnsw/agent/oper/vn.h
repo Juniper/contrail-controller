@@ -232,9 +232,8 @@ private:
     static VnTable *vn_table_;
     bool IpamChangeNotify(std::vector<VnIpam> &old_ipam, 
                           std::vector<VnIpam> &new_ipam, VnEntry *vn);
-    bool EvaluateSubnetGatewayChange(const VnIpam &old_ipam,
-                                     const VnIpam &new_ipam,
-                                     VnEntry *vn);
+    void UpdateSubnetGateway(const VnIpam &old_ipam, const VnIpam &new_ipam, 
+                             VnEntry *vn);
     void AddIPAMRoutes(VnEntry *vn, VnIpam &ipam);
     void DelIPAMRoutes(VnEntry *vn, VnIpam &ipam);
     void DeleteAllIpamRoutes(VnEntry *vn);

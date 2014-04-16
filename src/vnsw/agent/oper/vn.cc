@@ -573,21 +573,16 @@ void VnTable::IpamVnSync(IFMapNode *node) {
     return;
 }
 
-bool VnTable::EvaluateSubnetGatewayChange(const VnIpam &old_ipam,
-                                          const VnIpam &new_ipam,
-                                          VnEntry *vn) {
-    if (old_ipam.default_gw != new_ipam.default_gw) {
-        VrfEntry *vrf = vn->GetVrf();
+void VnTable::UpdateSubnetGateway(const VnIpam &old_ipam, 
+                                  const VnIpam &new_ipam,
+                                  VnEntry *vn) {
+    VrfEntry *vrf = vn->GetVrf();
 
-        if (vrf && (vrf->GetName() != Agent::GetInstance()->
-                    GetLinkLocalVrfName())) {
-
-            AddHostRouteForGw(vn, new_ipam);
-            DelHostRouteForGw(vn, old_ipam);
-        }
-        return true;
+    if (vrf && (vrf->GetName() != Agent::GetInstance()->
+                GetLinkLocalVrfName())) {
+        AddHostRouteForGw(vn, new_ipam);
+        DelHostRouteForGw(vn, old_ipam);
     }
-    return false;
 }
 
 // Check the old and new Ipam data and update receive routes for GW addresses
@@ -613,16 +608,22 @@ bool VnTable::IpamChangeNotify(std::vector<VnIpam> &old_ipam,
         } else {
             //Evaluate non key members of IPAM for changes.
             // no change in entry
-            if ((*it_old).installed)
+            bool gateway_changed = ((*it_old).default_gw != 
+                                    (*it_new).default_gw);
+
+            if ((*it_old).installed) {
                 (*it_new).installed = true;
-            else {
+                // VNIPAM comparator does not check for gateway.
+                // If gateway is changed then take appropriate actions.
+                if (gateway_changed) {
+                    UpdateSubnetGateway((*it_old), (*it_new), vn);
+                }
+            } else {
                 AddIPAMRoutes(vn, *it_new);
                 (*it_old).installed = (*it_new).installed;
             }
-            // VNIPAM comparator does not check for gateway.
-            // If gateway is changed then take appropriate actions.
-            if (EvaluateSubnetGatewayChange(*it_old, *it_new, vn)) {
-                //Update the changed gateway
+
+            if (gateway_changed) { 
                 (*it_old).default_gw = (*it_new).default_gw;
             }
 
