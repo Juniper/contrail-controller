@@ -77,6 +77,9 @@ factory_test = BuildTest(env, 'factory_test',
 trace_test = BuildTest(env, 'trace_test',
           ['trace_test.cc'], [])
 
+util_test = BuildTest(env, 'util_test',
+          ['util_test.cc'], [])
+
 test_suite = [
     bitset_test,
     dependency_test,
@@ -90,6 +93,7 @@ test_suite = [
     task_annotations_test,
     factory_test,
     trace_test,
+    util_test,
     ]
 
 test = env.TestSuite('base-test', test_suite)
