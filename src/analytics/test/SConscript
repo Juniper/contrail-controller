@@ -89,10 +89,6 @@ db_handler_test = env.UnitTest('db_handler_test',
                               )
 env.Alias('src/analytics:db_handler_test', db_handler_test)
 
-gendb_if_test_obj = env_noWerror_excep.Object('gendb_if_test.o', 'gendb_if_test.cc')
-gendb_if_test = env.UnitTest('gendb_if_test', gendb_if_test_obj)
-env.Alias('src/analytics:gendb_if_test', gendb_if_test)
-
 options_test = env.UnitTest('options_test', ['../buildinfo.cc', '../options.cc',
                                              'options_test.cc'])
 env.Alias('src/analytics:options_test', options_test)
