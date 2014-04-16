@@ -25,8 +25,11 @@ env.Append(LIBPATH = [MapBuildDir(libpaths)])
 
 cdb_if_test = env.UnitTest('cdb_if_test',
         ['cdb_if_test.cc'])
+gendb_if_test = env.UnitTest('gendb_if_test',
+        ['gendb_if_test.cc'])
 
 test_suite = [ cdb_if_test,
+               gendb_if_test,
              ]
 test = env.TestSuite('gendb_test_suite', test_suite)
 
