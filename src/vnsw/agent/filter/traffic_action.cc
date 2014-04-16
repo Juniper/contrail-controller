@@ -30,6 +30,8 @@ std::string TrafficAction::ActionToString(enum Action at)
             return("trap");
         case IMPLICIT_DENY:
             return("implicit deny");
+        case VRF_TRANSLATE:
+            return("VRF assign");
         default:
             return("unknown");
     }
@@ -50,6 +52,20 @@ void MirrorAction::SetActionSandeshData(std::vector<ActionStr> &actions) {
     actions.push_back(astr);
     std::stringstream ss;
     ss << port_;
+    astr.action = ss.str();
+    actions.push_back(astr);
+    return;
+}
+
+void VrfTranslateAction::SetActionSandeshData(std::vector<ActionStr> &actions) {
+    ActionStr astr;
+    astr.action = ActionToString(action_);
+    actions.push_back(astr);
+    std::stringstream ss;
+    ss << vrf_name_;
+    if (ignore_acl_) {
+        ss << " ignore acl";
+    }
     astr.action = ss.str();
     actions.push_back(astr);
     return;

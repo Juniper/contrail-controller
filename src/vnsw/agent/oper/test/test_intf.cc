@@ -1754,7 +1754,7 @@ TEST_F(IntfTest, IntfStaticRoute_3) {
    EXPECT_FALSE(nh->PolicyEnabled());
 
    //Add a acl to interface and verify NH policy changes
-   AddAcl("Acl", 1, "vn1", "vn1");
+   AddAcl("Acl", 1, "vn1", "vn1", "pass");
    AddLink("virtual-network", "vn1", "access-control-list", "Acl");
    client->WaitForIdle();
    nh = RouteGet("vrf1", static_route[0].addr_,

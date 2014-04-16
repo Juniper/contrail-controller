@@ -122,6 +122,20 @@ uint32_t FlowEntry::MatchAcl(const PacketHeader &hdr,
                      it->action_info.mirror_l.begin(),
                      it->action_info.mirror_l.end());
             }
+
+            //If vrf translate action, update action info
+            if (it->action_info.action & (1 << TrafficAction::VRF_TRANSLATE)) {
+                std::string vrf =
+                    it->action_info.vrf_translate_action_.vrf_name();
+                data_.match_p.action_info.vrf_translate_action_.set_vrf_name(vrf);
+                //Check if VRF assign acl says, network ACL and SG action
+                //to be ignored
+                bool ignore_acl =
+                    it->action_info.vrf_translate_action_.ignore_acl();
+                data_.match_p.action_info.vrf_translate_action_.
+                    set_ignore_acl(ignore_acl);
+            }
+
             if (it->terminal_rule) {
                 break;
             }
@@ -148,7 +162,14 @@ bool FlowEntry::ActionRecompute() {
 
     action = data_.match_p.policy_action | data_.match_p.out_policy_action |
         data_.match_p.sg_action_summary |
-        data_.match_p.mirror_action | data_.match_p.out_mirror_action;
+        data_.match_p.mirror_action | data_.match_p.out_mirror_action |
+        data_.match_p.vrf_assign_acl_action;;
+
+    if (action & (1 << TrafficAction::VRF_TRANSLATE) && 
+        data_.match_p.action_info.vrf_translate_action_.ignore_acl() == true) {
+        action = (1 << TrafficAction::VRF_TRANSLATE) |
+                 (1 << TrafficAction::PASS);
+    }
 
     // Force short flows to DROP
     if (is_flags_set(FlowEntry::ShortFlow)) {
@@ -260,6 +281,15 @@ bool FlowEntry::DoPolicy() {
     FlowEntry *rflow = reverse_flow_entry();
     PacketHeader hdr;
     SetPacketHeader(&hdr);
+
+    //Calculate VRF assign entry, and ignore acl is set
+    //skip network and SG acl action is set
+    data_.match_p.vrf_assign_acl_action =
+        MatchAcl(hdr, data_.match_p.m_vrf_assign_acl_l, false, true);
+    if (data_.match_p.vrf_assign_acl_action & 
+        (1 << TrafficAction::VRF_TRANSLATE) && acl_assigned_vrf_index() == 0) {
+         MakeShortFlow();
+    }
 
     // Mirror is valid even if packet is to be dropped. So, apply it first
     data_.match_p.mirror_action = MatchAcl(hdr, data_.match_p.m_mirror_acl_l,
@@ -589,6 +619,40 @@ void FlowEntry::GetPolicy(const VnEntry *vn) {
     }
 }
 
+void FlowEntry::GetVrfAssignAcl() {
+    if (data_.intf_entry == NULL) {
+        return;
+    }
+
+    if  (data_.intf_entry->type() != Interface::VM_INTERFACE) {
+        return;
+    }
+
+    const VmInterface *intf =
+        static_cast<const VmInterface *>(data_.intf_entry.get());
+    if (intf->GetVrfAssignAcl() == NULL) {
+        return;
+    }
+
+    MatchAclParams acl;
+    acl.acl = intf->GetVrfAssignAcl();
+    data_.match_p.m_vrf_assign_acl_l.push_back(acl);
+}
+
+const std::string& FlowEntry::acl_assigned_vrf() const {
+    return data_.match_p.action_info.vrf_translate_action_.vrf_name();
+}
+
+uint32_t FlowEntry::acl_assigned_vrf_index() const {
+    VrfKey vrf_key(data_.match_p.action_info.vrf_translate_action_.vrf_name());
+    const VrfEntry *vrf = static_cast<const VrfEntry *>(
+            Agent::GetInstance()->GetVrfTable()->FindActiveEntry(&vrf_key));
+    if (vrf) {
+        return vrf->vrf_id();
+    }
+    return 0;
+}
+
 void FlowEntry::UpdateKSync() {
     FlowInfo flow_info;
     FillFlowInfo(flow_info);
@@ -643,6 +707,9 @@ void FlowEntry::GetPolicyInfo(const VnEntry *vn) {
 
     // Get Sg list
     GetSgList(data_.intf_entry.get());
+
+    //Get VRF translate ACL
+    GetVrfAssignAcl();
 }
 
 void FlowEntry::GetPolicyInfo() {
@@ -1813,7 +1880,11 @@ void FlowTable::DeleteFlowInfo(FlowEntry *fe)
          ++acl_it) {
         DeleteAclFlowInfo((*acl_it).acl.get(), fe, (*acl_it).ace_id_list);
     }
-
+    for (acl_it = fe->match_p().m_vrf_assign_acl_l.begin();
+         acl_it != fe->match_p().m_vrf_assign_acl_l.end();
+         ++acl_it) {
+        DeleteAclFlowInfo((*acl_it).acl.get(), fe, (*acl_it).ace_id_list);
+    }
 
     // Remove from IntfFlowTree
     DeleteIntfFlowInfo(fe);    
@@ -1991,6 +2062,11 @@ void FlowTable::AddAclFlowInfo (FlowEntry *fe)
     for (it = fe->match_p().m_out_mirror_acl_l.begin();
          it != fe->match_p().m_out_mirror_acl_l.end();
          ++it) {
+        UpdateAclFlow(it->acl.get(), fe, it->ace_id_list);
+    }
+    for (it = fe->match_p().m_vrf_assign_acl_l.begin();
+            it != fe->match_p().m_vrf_assign_acl_l.end();
+            ++it) {
         UpdateAclFlow(it->acl.get(), fe, it->ace_id_list);
     }
 }

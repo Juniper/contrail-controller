@@ -34,8 +34,8 @@
 #include "sandesh/common/vns_types.h"
 #include "sandesh/common/vns_constants.h"
 #include <ksync/ksync_init.h>
-
 #include <services/dns_proto.h>
+#include <filter/acl.h>
 
 using namespace std;
 using namespace boost::uuids;
@@ -315,6 +315,18 @@ static void ReadAnalyzerNameAndCreate(Agent *agent,
     }
 }
 
+static void BuildVrfAssignRule(VirtualMachineInterface *cfg,
+                               VmInterfaceConfigData *data) {
+    uint32_t id = 1;
+    for (std::vector<VrfAssignRuleType>::const_iterator iter =
+         cfg->vrf_assign_table().begin(); iter != cfg->vrf_assign_table().end();
+         ++iter) {
+        VmInterface::VrfAssignRule entry(id++, iter->match_condition,
+                                         iter->routing_instance,
+                                         iter->ignore_acl);
+        data->vrf_assign_rule_list_.list_.insert(entry);
+    }
+}
 
 // Virtual Machine Interface is added or deleted into oper DB from Nova 
 // messages. The Config notify is used only to change interface.
@@ -361,6 +373,7 @@ bool InterfaceTable::IFNodeToReq(IFMapNode *node, DBRequest &req) {
     //Fill config data items
     data->cfg_name_= node->name();
 
+    BuildVrfAssignRule(cfg, data);
     SgUuidList sg_list(0);
     // Walk Interface Graph to get VM, VN and FloatingIPList
     IFMapAgentTable *table = static_cast<IFMapAgentTable *>(node->table());
@@ -436,6 +449,7 @@ bool InterfaceTable::IFNodeToReq(IFMapNode *node, DBRequest &req) {
         if (adj_node->table() == agent_->cfg()->cfg_route_table()) {
             BuildStaticRouteList(data, adj_node);
         }
+
     }
 
     data->fabric_port_ = false;
@@ -766,6 +780,14 @@ bool VmInterface::CopyConfig(VmInterfaceConfigData *data, bool *sg_changed) {
         ret = true;
     }
 
+    VrfAssignRuleSet &old_vrf_assign_list = vrf_assign_rule_list_.list_;
+    VrfAssignRuleSet &new_vrf_assign_list = data->vrf_assign_rule_list_.list_;
+    if (AuditList<VrfAssignRuleList, VrfAssignRuleSet::iterator>
+        (vrf_assign_rule_list_, old_vrf_assign_list.begin(),
+         old_vrf_assign_list.end(), new_vrf_assign_list.begin(),
+         new_vrf_assign_list.end())) {
+        ret = true;
+     }
     return ret;
 }
 
@@ -781,6 +803,7 @@ void VmInterface::UpdateL3(bool old_ipv4_active, VrfEntry *old_vrf,
     UpdateFloatingIp(force_update, policy_change);
     UpdateServiceVlan(force_update, policy_change);
     UpdateStaticRoute(force_update, policy_change);
+    UpdateVrfAssignRule();
 }
 
 void VmInterface::DeleteL3(bool old_ipv4_active, VrfEntry *old_vrf,
@@ -793,6 +816,7 @@ void VmInterface::DeleteL3(bool old_ipv4_active, VrfEntry *old_vrf,
     DeleteStaticRoute();
     DeleteSecurityGroup();
     DeleteL3TunnelId();
+    DeleteVrfAssignRule();
     DeleteL3NextHop(old_ipv4_active);
 }
 
@@ -1016,6 +1040,13 @@ bool VmInterface::PolicyEnabled() {
         sg_it++;
     }
 
+    VrfAssignRuleSet::iterator vrf_it = vrf_assign_rule_list_.list_.begin();
+    while (vrf_it != vrf_assign_rule_list_.list_.end()) {
+        if (vrf_it->del_pending_ == false) {
+            return true;
+        }
+        vrf_it++;
+    }
     return false;
 }
 
@@ -1303,6 +1334,148 @@ void VmInterface::DeleteStaticRoute() {
             static_route_list_.list_.erase(prev);
         }
     }
+}
+
+static bool CompareAddressType(const AddressType &lhs,
+                               const AddressType &rhs) {
+    if (lhs.subnet.ip_prefix != rhs.subnet.ip_prefix) {
+        return false;
+    }
+
+    if (lhs.subnet.ip_prefix_len != rhs.subnet.ip_prefix_len) {
+        return false;
+    }
+
+    if (lhs.virtual_network != rhs.virtual_network) {
+        return false;
+    }
+
+    if (lhs.security_group != rhs.security_group) {
+        return false;
+    }
+    return true;
+}
+
+static bool ComparePortType(const PortType &lhs,
+                            const PortType &rhs) {
+    if (lhs.start_port != rhs.start_port) {
+        return false;
+    }
+
+    if (lhs.end_port != rhs.end_port) {
+        return false;
+    }
+    return true;
+}
+
+static bool CompareMatchConditionType(const MatchConditionType &lhs,
+                                      const MatchConditionType &rhs) {
+    if (lhs.protocol != rhs.protocol) {
+        return lhs.protocol < rhs.protocol;
+    }
+
+    if (!CompareAddressType(lhs.src_address, rhs.src_address)) {
+        return false;
+    }
+
+    if (!ComparePortType(lhs.src_port, rhs.src_port)) {
+        return false;
+    }
+
+    if (!CompareAddressType(lhs.dst_address, rhs.dst_address)) {
+        return false;
+    }
+
+    if (!ComparePortType(lhs.dst_port, rhs.dst_port)) {
+        return false;
+    }
+
+    return true;
+}
+
+const AclDBEntry* VmInterface::GetVrfAssignAcl() const {
+    if (vrf_assign_acl_.get()) {
+        return vrf_assign_acl_.get();
+    }
+
+    if (vn_ && vn_->GetAcl()) {
+        return vn_->GetAcl();
+    }
+    return NULL;
+}
+
+void VmInterface::UpdateVrfAssignRule() {
+    Agent *agent = static_cast<InterfaceTable *>(get_table())->agent();
+    //Erase all delete marked entry
+    VrfAssignRuleSet::iterator it = vrf_assign_rule_list_.list_.begin();
+    while (it != vrf_assign_rule_list_.list_.end()) {
+        VrfAssignRuleSet::iterator prev = it++;
+        if (prev->del_pending_) {
+            vrf_assign_rule_list_.list_.erase(prev);
+        }
+    }
+
+    if (vrf_assign_rule_list_.list_.size() == 0 && 
+        vrf_assign_acl_.get() != NULL) {
+        DeleteVrfAssignRule();
+        return;
+    }
+
+    if (vrf_assign_rule_list_.list_.size() == 0) {
+        return;
+    }
+
+    AclSpec acl_spec;
+    acl_spec.acl_id = uuid_;
+    //Create the ACL
+    it = vrf_assign_rule_list_.list_.begin();
+    uint32_t id = 0;
+    for (;it != vrf_assign_rule_list_.list_.end();it++) {
+        //Go thru all match condition and create ACL entry
+        AclEntrySpec ace_spec;
+        ace_spec.id = id++;
+        if (ace_spec.Populate(&(it->match_condition_)) == false) {
+            continue;
+        }
+        ActionSpec vrf_translate_spec;
+        vrf_translate_spec.ta_type = TrafficAction::VRF_TRANSLATE_ACTION;
+        vrf_translate_spec.simple_action = TrafficAction::VRF_TRANSLATE;
+        vrf_translate_spec.vrf_translate.set_vrf_name(it->vrf_name_);
+        vrf_translate_spec.vrf_translate.set_ignore_acl(it->ignore_acl_);
+        ace_spec.action_l.push_back(vrf_translate_spec);
+        acl_spec.acl_entry_specs_.push_back(ace_spec);
+    }
+
+    DBRequest req;
+    AclKey *key = new AclKey(acl_spec.acl_id);
+    AclData *data = new AclData(acl_spec);
+    req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
+    req.key.reset(key);
+    req.data.reset(data);
+    agent->GetAclTable()->Process(req);
+
+    AclKey entry_key(uuid_);
+    AclDBEntry *acl = static_cast<AclDBEntry *>(
+        agent->GetAclTable()->FindActiveEntry(&entry_key));
+    assert(acl);
+    vrf_assign_acl_ = acl;
+}
+
+void VmInterface::DeleteVrfAssignRule() {
+    Agent *agent = static_cast<InterfaceTable *>(get_table())->agent();
+    VrfAssignRuleSet::iterator it = vrf_assign_rule_list_.list_.begin();
+    while (it != vrf_assign_rule_list_.list_.end()) {
+        VrfAssignRuleSet::iterator prev = it++;
+        vrf_assign_rule_list_.list_.erase(prev);
+    }
+
+    vrf_assign_acl_ = NULL;
+    DBRequest req;
+    AclKey *key = new AclKey(uuid_);
+    req.oper = DBRequest::DB_ENTRY_DELETE;
+    req.key.reset(key);
+    req.data.reset(NULL);
+    agent->GetAclTable()->Process(req);
 }
 
 void VmInterface::UpdateSecurityGroup() {
@@ -1790,6 +1963,61 @@ void VmInterface::ServiceVlanRouteDel(const ServiceVlan &entry) {
 
     entry.installed_ = false;
     return;
+}
+
+////////////////////////////////////////////////////////////////////////////
+// VRF assign rule routines
+////////////////////////////////////////////////////////////////////////////
+VmInterface::VrfAssignRule::VrfAssignRule():
+    ListEntry(), id_(0), vrf_name_(" "), vrf_(NULL), ignore_acl_(false) {
+}
+
+VmInterface::VrfAssignRule::VrfAssignRule(const VrfAssignRule &rhs):
+    ListEntry(rhs.installed_, rhs.del_pending_), id_(rhs.id_),
+    vrf_name_(rhs.vrf_name_), vrf_(rhs.vrf_), ignore_acl_(rhs.ignore_acl_),
+    match_condition_(rhs.match_condition_) {
+}
+
+VmInterface::VrfAssignRule::VrfAssignRule(uint32_t id,
+    const autogen::MatchConditionType &match_condition, 
+    const std::string &vrf_name,
+    bool ignore_acl):
+    ListEntry(), id_(id), vrf_name_(vrf_name), ignore_acl_(ignore_acl), 
+    match_condition_(match_condition) {
+}
+
+VmInterface::VrfAssignRule::~VrfAssignRule() {
+}
+
+bool VmInterface::VrfAssignRule::operator() (const VrfAssignRule &lhs,
+                                             const VrfAssignRule &rhs) const {
+    return lhs.IsLess(&rhs);
+}
+
+bool VmInterface::VrfAssignRule::IsLess(const VrfAssignRule *rhs) const {
+    if (id_ != rhs->id_) {
+        return id_ < rhs->id_;
+    }
+    if (vrf_name_ != rhs->vrf_name_) {
+        return vrf_name_ < rhs->vrf_name_;
+    }
+    if (ignore_acl_ != rhs->ignore_acl_) {
+        return ignore_acl_ < rhs->ignore_acl_;
+    }
+
+    return CompareMatchConditionType(match_condition_, rhs->match_condition_);
+}
+
+void VmInterface::VrfAssignRuleList::Insert(const VrfAssignRule *rhs) {
+    list_.insert(*rhs);
+}
+
+void VmInterface::VrfAssignRuleList::Update(const VrfAssignRule *lhs,
+                                            const VrfAssignRule *rhs) {
+}
+
+void VmInterface::VrfAssignRuleList::Remove(VrfAssignRuleSet::iterator &it) {
+    it->set_del_pending(true);
 }
 
 /////////////////////////////////////////////////////////////////////////////

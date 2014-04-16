@@ -5,11 +5,11 @@
 #include "base/logging.h"
 #include "testing/gunit.h"
 
-#include "vnsw/agent/filter/acl_entry.h"
-#include "vnsw/agent/filter/acl_entry_spec.h"
-#include "vnsw/agent/filter/packet_header.h"
-#include "vnsw/agent/filter/traffic_action.h"
-#include "vnsw/agent/oper/mirror_table.h"
+#include "filter/acl_entry.h"
+#include "filter/acl_entry_spec.h"
+#include "filter/packet_header.h"
+#include "filter/traffic_action.h"
+#include "oper/mirror_table.h"
 
 #include "net/address.h"
 

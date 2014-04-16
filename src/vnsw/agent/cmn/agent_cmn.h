@@ -21,6 +21,7 @@
 
 #include <io/event_manager.h>
 #include <base/logging.h>
+#include <base/task_annotations.h>
 #include <net/address.h>
 #include <db/db.h>
 #include <db/db_entry.h>

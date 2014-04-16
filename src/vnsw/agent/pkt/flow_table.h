@@ -188,7 +188,8 @@ struct MatchPolicy {
         reverse_sg_action(0), m_reverse_out_sg_acl_l(),
         reverse_out_sg_rule_present(false), reverse_out_sg_action(0),
         m_mirror_acl_l(), mirror_action(0), m_out_mirror_acl_l(),
-        out_mirror_action(0), sg_action_summary(0), action_info() {
+        out_mirror_action(0), m_vrf_assign_acl_l(), vrf_assign_acl_action(0),
+        sg_action_summary(0), action_info() {
     }
 
     ~MatchPolicy() {}
@@ -220,6 +221,9 @@ struct MatchPolicy {
 
     MatchAclParamsList m_out_mirror_acl_l;
     uint32_t out_mirror_action;
+
+    MatchAclParamsList m_vrf_assign_acl_l;
+    uint32_t vrf_assign_acl_action;
 
     // Summary of SG actions
     uint32_t sg_action_summary;
@@ -334,6 +338,7 @@ class FlowEntry {
     void SetOutPacketHeader(PacketHeader *hdr);
     void ComputeReflexiveAction();
     bool DoPolicy();
+    void GetVrfAssignAcl();
     uint32_t MatchAcl(const PacketHeader &hdr,
                       MatchAclParamsList &acl, bool add_implicit_deny,
                       bool add_implicit_allow);
@@ -360,6 +365,8 @@ class FlowEntry {
     void set_dest_sg_id_l(SecurityGroupList &sg_l) { data_.dest_sg_id_l = sg_l; }
     int linklocal_src_port() const { return linklocal_src_port_; }
     int linklocal_src_port_fd() const { return linklocal_src_port_fd_; }
+    const std::string& acl_assigned_vrf() const;
+    uint32_t acl_assigned_vrf_index() const;
 private:
     friend class FlowTable;
     friend class FlowStatsCollector;
