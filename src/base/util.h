@@ -144,13 +144,25 @@ private:
     T *ptr_;
 };
 
-static boost::posix_time::ptime epoch_ptime(boost::gregorian::date(1970,1,1));
-
 /* timestamp - returns usec since epoch */
 static inline uint64_t UTCTimestampUsec() {
-    boost::posix_time::ptime t2(boost::posix_time::microsec_clock::universal_time());
-    boost::posix_time::time_duration diff = t2 - epoch_ptime; 
-    return diff.total_microseconds();
+    struct timespec ts;
+    if (clock_gettime(CLOCK_REALTIME, &ts) != 0) {
+        assert(0);
+    }
+
+    return ts.tv_sec * 1000000 + ts.tv_nsec/1000;
+}
+
+// Monotonically increasing timer starting from an arbitrary value
+// 10x more efficient than UTCTimestampUsec
+static inline uint64_t ClockMonotonicUsec() {
+    struct timespec ts;
+    if (clock_gettime(CLOCK_MONOTONIC, &ts) != 0) {
+        assert(0);
+    }
+
+    return ts.tv_sec * 1000000 + ts.tv_nsec/1000;
 }
 
 static inline boost::posix_time::ptime UTCUsecToPTime(uint64_t tusec) {
