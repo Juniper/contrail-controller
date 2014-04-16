@@ -5,6 +5,7 @@
 #include "bgp/routing-instance/routing_instance.h"
 
 #include <boost/foreach.hpp>
+#include <boost/assign/list_of.hpp>
 
 #include "base/lifetime.h"
 #include "base/task_annotations.h"
@@ -23,6 +24,7 @@
 
 using namespace std;
 using namespace boost::asio;
+using boost::assign::list_of;
 using boost::system::error_code;
 
 SandeshTraceBufferPtr RoutingInstanceTraceBuf(
@@ -920,6 +922,25 @@ BgpTable *RoutingInstance::GetTable(Address::Family fmly) {
     return NULL;
 }
 
+string RoutingInstance::GetVrfFromTableName(const string table) {
+    static set<string> master_tables = list_of("inet.0");
+    static set<string> vpn_tables =
+        list_of("bgp.l3vpn.0")("bgp.evpn.0")("bgp.rtarget.0");
+
+    if (master_tables.find(table) != master_tables.end())
+        return BgpConfigManager::kMasterInstance;
+    if (vpn_tables.find(table) != vpn_tables.end())
+        return BgpConfigManager::kMasterInstance;
+
+    size_t pos1 = table.rfind('.');
+    if (pos1 == string::npos)
+        return "__unknown__";
+    size_t pos2 = table.rfind('.', pos1 - 1);
+    if (pos2 == string::npos)
+        return "__unknown__";
+
+    return table.substr(0, pos2);
+}
 
 void RoutingInstance::set_index(BgpServer *server, int index) {
     index_ = index;
