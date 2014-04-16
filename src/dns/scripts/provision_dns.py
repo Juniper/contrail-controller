@@ -128,10 +128,6 @@ class DnsProvisioner(object):
         except NoIdError:
             print 'Network Ipam ' + ipam_fqname_str + ' not found!'
             return
-        ipam_mgmt_obj = ipam_obj.get_network_ipam_mgmt()
-        if not ipam_mgmt_obj:
-            ipam_mgmt_obj = IpamType()
-            ipam_obj.set_network_ipam_mgmt(ipam_mgmt_obj)
 
         if ipam_dns_method == "virtual-dns-server":
             vdns_fqname_str = dns_srv_obj.get_virtual_dns_server_name()
@@ -147,9 +143,13 @@ class DnsProvisioner(object):
                 return
             ipam_obj.add_virtual_DNS(vdns_obj)
         
+        ipam_mgmt_obj = ipam_obj.get_network_ipam_mgmt()
+        if not ipam_mgmt_obj:
+            ipam_mgmt_obj = IpamType()
         ipam_mgmt_obj.set_ipam_dns_method(ipam_dns_method)
         if dns_srv_obj:
             ipam_mgmt_obj.set_ipam_dns_server(dns_srv_obj)
+        ipam_obj.set_network_ipam_mgmt(ipam_mgmt_obj)
         vnc_lib.network_ipam_update(ipam_obj)
     #end associate_vdns_with_ipam
 
@@ -161,7 +161,6 @@ class DnsProvisioner(object):
         except NoIdError:
             print 'Network Ipam ' + ipam_fqname_str + ' not found!'
             return
-        ipam_mgmt_obj = ipam_obj.get_network_ipam_mgmt()
         if vdns_fqname_str:
             vdns_fqname = vdns_fqname_str.split(':')
             try:
@@ -181,8 +180,10 @@ class DnsProvisioner(object):
                 print 'The specified VDNS is not associated to specified Ipam'
                 return
             ipam_obj.del_virtual_DNS(vdns_obj)
-        ipam_mgmt_obj.set_ipam_dns_method("")
+        ipam_mgmt_obj = ipam_obj.get_network_ipam_mgmt()
+        ipam_mgmt_obj.set_ipam_dns_method("default-dns-server")
         ipam_mgmt_obj.set_ipam_dns_server(None)
+        ipam_obj.set_network_ipam_mgmt(ipam_mgmt_obj)
         vnc_lib.network_ipam_update(ipam_obj)
     #end disassociate_vdns_with_ipam
 # end class DnsProvisioner
