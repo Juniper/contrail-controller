@@ -60,6 +60,7 @@ pip_pkgs = ['greenlet==0.4.1', 'gevent==0.13.8', 'eventlet==0.9.17',
         'testtools==0.9.21', 'fixtures==0.3.12', 'requests==1.1.0',
         'lxml==2.3.3', 'geventhttpclient==1.0a', 'prettytable==0.7.2',
         'psutil==0.4.1', 'redis==2.7.1', 'xmltodict==0.2', 'thrift==0.8.0',
+        'bottle==0.11.6',
         Dir(env['TOP']).abspath + '/opserver/dist/opserver-0.1dev.tar.gz',
         Dir(env['TOP']).abspath + '/sandesh/common/dist/sandesh-common-0.1dev.tar.gz']
 
@@ -75,13 +76,6 @@ env.Requires (env['analytics_test'], env['TOP']+'/sandesh/common/dist/sandesh-co
 env.Requires (env['analytics_test'], env['TOP']+'/tools/sandesh/library/python/dist')
 for local_sources_rule in local_sources_rules:
     env.Depends (env['analytics_test'], local_sources_rule)
-
-#pip_commands = []
-#pip_commands.append(
-#    env.venv_add_pip_pkg(venv, pip_pkgs))
-#pip_commands.append(
-#    env.venv_add_pip_pkg(venv, ['pycassa==1.7.1']))
-#env.Depends(pip_commands[1], pip_commands[0])
 
 _deps = []
 _deps += env.venv_add_pip_pkg(venv, pip_pkgs)
