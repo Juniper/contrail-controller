@@ -10,7 +10,6 @@ import sys
 
 Import('BuildEnv')
 AnalyticsEnv = BuildEnv.Clone()
-AnalyticsEnv.AppendUnique(CCFLAGS='-O0')
 if sys.platform != 'darwin':
     AnalyticsEnv.AppendUnique(CCFLAGS='-fno-exceptions')
 
@@ -31,6 +30,7 @@ def MapBuildDir(list):
 
 AnalyticsEnv.Prepend(LIBS=['cpuinfo',
         'ds',
+        'io',
         'sandesh',
         'httpc',
         'http',
@@ -112,15 +112,14 @@ def RedisLuaBuild(env, scr_name):
                scr_name, Dir('.').path, scr_name))
   env.Depends('redis_processor_vizd.cc','%s_lua.cpp' % scr_name)
 
-AnalyticsEnv.AppendUnique(CCFLAGS='-DBOOST_NO_UNREACHABLE_RETURN_DETECTION')
-if AnalyticsEnv['OPT'] == 'coverage':
-    AnalyticsEnv.AppendUnique(CCFLAGS='-g')
-    AnalyticsEnv.AppendUnique(CCFLAGS='-O0')
-    AnalyticsEnv.AppendUnique(CCFLAGS='--coverage')
+AnalyticsEnv_boost_no_unreach = AnalyticsEnv.Clone()
+AnalyticsEnv_boost_no_unreach.AppendUnique(CCFLAGS='-DBOOST_NO_UNREACHABLE_RETURN_DETECTION')
+syslog_collector_obj = AnalyticsEnv_boost_no_unreach.Object('syslog_collector.o', 'syslog_collector.cc')
+
 vizd_sources = ['viz_collector.cc', 'ruleeng.cc', 'collector.cc',
                 'vizd_table_desc.cc', 'viz_message.cc','generator.cc',
                 'redis_connection.cc', 'redis_processor_vizd.cc',
-                'syslog_collector.cc', 'options.cc']
+                'options.cc']
 
 RedisLuaBuild(AnalyticsEnv, 'seqnum')
 RedisLuaBuild(AnalyticsEnv, 'delrequest')
@@ -143,6 +142,7 @@ vizd = AnalyticsEnv.Program(target = 'vizd',
         'buildinfo.cc',
         db_handler_obj,
         OpServerProxy_obj,
+        syslog_collector_obj,
         ])
 AnalyticsEnv.Alias('src/analytics:vizd', vizd)
 AnalyticsEnv.Alias('install',
