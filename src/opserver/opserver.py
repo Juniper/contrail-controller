@@ -16,6 +16,8 @@ except ImportError:
     # python 2.6 or earlier, use backport
     from ordereddict import OrderedDict
 from uveserver import UVEServer
+import sys
+import ConfigParser
 import bottle
 import json
 import uuid
@@ -571,7 +573,7 @@ class OpServer(object):
                 '/analytics/uves/' + uve, 'POST', self.uve_http_post)
     # end __init__
 
-    def _parse_args(self):
+    def _parse_args(self, args_str=' '.join(sys.argv[1:])):
         '''
         Eg. python opserver.py --host_ip 127.0.0.1
                                --redis_server_port 6381
@@ -587,9 +589,59 @@ class OpServer(object):
                                --worker_id 0
                                --redis_uve_list 127.0.0.1:6381
         '''
+        # Source any specified config/ini file
+        # Turn off help, so we print all options in response to -h
+        conf_parser = argparse.ArgumentParser(add_help=False)
+
+        conf_parser.add_argument("-c", "--conf_file",
+                                 help="Specify config file", metavar="FILE")
+        args, remaining_argv = conf_parser.parse_known_args(args_str.split())
+
+        defaults = {
+            'host_ip'            : "127.0.0.1",
+            'collectors'         : ['127.0.0.1:8086'],
+            'http_server_port'   : 8090,
+            'rest_api_port'      : 8081,
+            'rest_api_ip'        : '0.0.0.0',
+            'log_local'          : False,
+            'log_level'          : 'SYS_DEBUG',
+            'log_category'       : '',
+            'log_file'           : Sandesh._DEFAULT_LOG_FILE,
+            'dup'                : False,
+            'redis_uve_list'     : ['127.0.0.1:6381'],
+        }
+        redis_opts = {
+            'redis_server_port'  : 6381,
+            'redis_query_port'   : 6380,
+        }
+        disc_opts = {
+            'disc_server_ip'     : None,
+            'disc_server_port'   : 5998,
+        }
+
+        config = None
+        if args.conf_file:
+            config = ConfigParser.SafeConfigParser()
+            config.read([args.conf_file])
+            defaults.update(dict(config.items("DEFAULTS")))
+            if 'REDIS' in config.sections():
+                disc_opts.update(dict(config.items('REDIS')))
+            if 'DISCOVERY' in config.sections():
+                disc_opts.update(dict(config.items('DISCOVERY')))
+
+        # Override with CLI options
+        # Don't surpress add_help here so it will handle -h
 
         parser = argparse.ArgumentParser(
+            # Inherit options from config_parser
+            parents=[conf_parser],
+            # print script description with -h/--help
+            description=__doc__,
             formatter_class=argparse.ArgumentDefaultsHelpFormatter)
+        defaults.update(redis_opts)
+        defaults.update(disc_opts)
+        parser.set_defaults(**defaults)
+
         parser.add_argument("--host_ip",
             default="127.0.0.1",
             help="Host IP address")
@@ -620,7 +672,7 @@ class OpServer(object):
             default=False,
             help="Enable local logging of sandesh messages")
         parser.add_argument(
-            "--log_level", default='SYS_DEBUG',
+            "--log_level",  default='SYS_DEBUG',
             help="Severity level for local logging of sandesh messages")
         parser.add_argument(
             "--log_category", default='',
@@ -636,19 +688,19 @@ class OpServer(object):
             default=5998,
             help="Discovery Server port")
         parser.add_argument("--dup", action="store_true",
-            default=False,
             help="Internal use")
         parser.add_argument("--redis_uve_list",
-            default="127.0.0.1:6381",
             help="List of redis-uve in ip:port format. For internal use only",
             nargs="+")
         parser.add_argument(
             "--worker_id",
             help="Worker Id")
 
-        self._args = parser.parse_args()
+        self._args = parser.parse_args(remaining_argv)
         if type(self._args.collectors) is str:
             self._args.collectors = self._args.collectors.split()
+        if type(self._args.redis_uve_list) is str:
+            self._args.redis_uve_list = self._args.redis_uve_list.split()
     # end _parse_args
 
     def get_args(self):
