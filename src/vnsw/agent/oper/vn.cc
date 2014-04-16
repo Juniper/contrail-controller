@@ -573,6 +573,18 @@ void VnTable::IpamVnSync(IFMapNode *node) {
     return;
 }
 
+void VnTable::UpdateSubnetGateway(const VnIpam &old_ipam, 
+                                  const VnIpam &new_ipam,
+                                  VnEntry *vn) {
+    VrfEntry *vrf = vn->GetVrf();
+
+    if (vrf && (vrf->GetName() != Agent::GetInstance()->
+                GetLinkLocalVrfName())) {
+        AddHostRouteForGw(vn, new_ipam);
+        DelHostRouteForGw(vn, old_ipam);
+    }
+}
+
 // Check the old and new Ipam data and update receive routes for GW addresses
 bool VnTable::IpamChangeNotify(std::vector<VnIpam> &old_ipam, 
                                std::vector<VnIpam> &new_ipam,
@@ -594,13 +606,27 @@ bool VnTable::IpamChangeNotify(std::vector<VnIpam> &old_ipam,
             change = true;
             it_new++;
         } else {
+            //Evaluate non key members of IPAM for changes.
             // no change in entry
-            if ((*it_old).installed)
+            bool gateway_changed = ((*it_old).default_gw != 
+                                    (*it_new).default_gw);
+
+            if ((*it_old).installed) {
                 (*it_new).installed = true;
-            else {
+                // VNIPAM comparator does not check for gateway.
+                // If gateway is changed then take appropriate actions.
+                if (gateway_changed) {
+                    UpdateSubnetGateway((*it_old), (*it_new), vn);
+                }
+            } else {
                 AddIPAMRoutes(vn, *it_new);
                 (*it_old).installed = (*it_new).installed;
             }
+
+            if (gateway_changed) { 
+                (*it_old).default_gw = (*it_new).default_gw;
+            }
+
             it_old++;
             it_new++;
         }
@@ -652,7 +678,7 @@ void VnTable::DelIPAMRoutes(VnEntry *vn, VnIpam &ipam) {
 }
 
 // Add receive route for default gw
-void VnTable::AddHostRouteForGw(VnEntry *vn, VnIpam &ipam) {
+void VnTable::AddHostRouteForGw(VnEntry *vn, const VnIpam &ipam) {
     VrfEntry *vrf = vn->GetVrf();
     static_cast<Inet4UnicastAgentRouteTable *>(vrf->
         GetInet4UnicastRouteTable())->AddHostRoute(vrf->GetName(),
@@ -661,7 +687,7 @@ void VnTable::AddHostRouteForGw(VnEntry *vn, VnIpam &ipam) {
 }
 
 // Del receive route for default gw
-void VnTable::DelHostRouteForGw(VnEntry *vn, VnIpam &ipam) {
+void VnTable::DelHostRouteForGw(VnEntry *vn, const VnIpam &ipam) {
     VrfEntry *vrf = vn->GetVrf();
     static_cast<Inet4UnicastAgentRouteTable *>
         (vrf->GetInet4UnicastRouteTable())->DeleteReq
