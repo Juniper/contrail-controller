@@ -96,9 +96,8 @@ public:
 
     const std::string &name() const { return name_; }
     const std::string &uuid() const { return uuid_; }
-    as_t peer_as() const {
-        return (as_t) peer_config_.autonomous_system;
-    }
+    as_t peer_as() const { return (as_t) peer_config_.autonomous_system; }
+    std::string peer_address() const { return peer_config_.address; }
     const std::string &vendor() const { return peer_config_.vendor; }
     const autogen::BgpRouterParams &peer_config() const { return peer_config_; }
     const autogen::BgpSessionAttributes &session_attributes() const {

@@ -595,8 +595,8 @@ void BgpInstanceConfig::AddNeighbor(BgpConfigManager *manager,
         neighbor->session_attributes().address_families.begin(),
         neighbor->session_attributes().address_families.end());
     BGP_CONFIG_LOG_NEIGHBOR(Create, manager->server(), neighbor,
-        SandeshLevel::SYS_DEBUG, BGP_LOG_FLAG_ALL, neighbor->peer_as(),
-        families);
+        SandeshLevel::SYS_DEBUG, BGP_LOG_FLAG_ALL,
+        neighbor->peer_address(), neighbor->peer_as(), families);
     neighbors_.insert(make_pair(neighbor->name(), neighbor));
     manager->Notify(neighbor, BgpConfigManager::CFG_ADD);
 }
@@ -610,8 +610,8 @@ void BgpInstanceConfig::ChangeNeighbor(BgpConfigManager *manager,
         neighbor->session_attributes().address_families.begin(),
         neighbor->session_attributes().address_families.end());
     BGP_CONFIG_LOG_NEIGHBOR(Update, manager->server(), neighbor,
-        SandeshLevel::SYS_DEBUG, BGP_LOG_FLAG_ALL, neighbor->peer_as(),
-        families);
+        SandeshLevel::SYS_DEBUG, BGP_LOG_FLAG_ALL,
+        neighbor->peer_address(), neighbor->peer_as(), families);
     manager->Notify(neighbor, BgpConfigManager::CFG_CHANGE);
 }
 
