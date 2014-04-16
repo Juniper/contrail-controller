@@ -577,9 +577,14 @@ bool VnTable::EvaluateSubnetGatewayChange(const VnIpam &old_ipam,
                                           const VnIpam &new_ipam,
                                           VnEntry *vn) {
     if (old_ipam.default_gw != new_ipam.default_gw) {
-        AddHostRouteForGw(vn, new_ipam);
-        DelHostRouteForGw(vn, old_ipam);
+        VrfEntry *vrf = vn->GetVrf();
 
+        if (vrf && (vrf->GetName() != Agent::GetInstance()->
+                    GetLinkLocalVrfName())) {
+
+            AddHostRouteForGw(vn, new_ipam);
+            DelHostRouteForGw(vn, old_ipam);
+        }
         return true;
     }
     return false;
@@ -619,12 +624,6 @@ bool VnTable::IpamChangeNotify(std::vector<VnIpam> &old_ipam,
             if (EvaluateSubnetGatewayChange(*it_old, *it_new, vn)) {
                 //Update the changed gateway
                 (*it_old).default_gw = (*it_new).default_gw;
-            }
-
-            // Ignore action on ipam name change. Ideally in system same subnet can not 
-            // exist for two different IPAM name under a Virtual Network.
-            if ((*it_old).ipam_name != (*it_new).ipam_name) {
-                (*it_old).ipam_name = (*it_new).ipam_name;
             }
 
             it_old++;
