@@ -121,6 +121,8 @@ systemlog sandesh BgpConfigInstanceUpdateLog {
 trace sandesh BgpConfigNeighborCreateTrace {
     1: "Neighbor";
     2: string name;
+    7: "Peer Address";
+    8: string address;
     3: "Peer AS";
     4: i32 as_number;
     5: "Address Families";
@@ -130,6 +132,8 @@ trace sandesh BgpConfigNeighborCreateTrace {
 systemlog sandesh BgpConfigNeighborCreateLog {
     1: "Neighbor";
     2: string name;
+    7: "Peer Address";
+    8: string address;
     3: "Peer AS";
     4: i32 as_number;
     5: "Address Families";
@@ -149,6 +153,8 @@ systemlog sandesh BgpConfigNeighborDeleteLog {
 trace sandesh BgpConfigNeighborUpdateTrace {
     1: "Neighbor";
     2: string name;
+    7: "Peer Address";
+    8: string address;
     3: "Peer AS";
     4: i32 as_number;
     5: "Address Families";
@@ -158,10 +164,42 @@ trace sandesh BgpConfigNeighborUpdateTrace {
 systemlog sandesh BgpConfigNeighborUpdateLog {
     1: "Neighbor";
     2: string name;
+    7: "Peer Address";
+    8: string address;
     3: "Peer AS";
     4: i32 as_number;
     5: "Address Families";
     6: list<string> families;
+}
+
+trace sandesh BgpConfigPeeringCreateTrace {
+    1: "Peering";
+    2: string name;
+}
+
+systemlog sandesh BgpConfigPeeringCreateLog {
+    1: "Peering";
+    2: string name;
+}
+
+trace sandesh BgpConfigPeeringDeleteTrace {
+    1: "Peering";
+    2: string name;
+}
+
+systemlog sandesh BgpConfigPeeringDeleteLog {
+    1: "Peering";
+    2: string name;
+}
+
+trace sandesh BgpConfigPeeringUpdateTrace {
+    1: "Peering";
+    2: string name;
+}
+
+systemlog sandesh BgpConfigPeeringUpdateLog {
+    1: "Peering";
+    2: string name;
 }
 
 trace sandesh BgpConfigProtocolCreateTrace {

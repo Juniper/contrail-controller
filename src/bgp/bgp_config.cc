@@ -595,8 +595,8 @@ void BgpInstanceConfig::AddNeighbor(BgpConfigManager *manager,
         neighbor->session_attributes().address_families.begin(),
         neighbor->session_attributes().address_families.end());
     BGP_CONFIG_LOG_NEIGHBOR(Create, manager->server(), neighbor,
-        SandeshLevel::SYS_DEBUG, BGP_LOG_FLAG_ALL, neighbor->peer_as(),
-        families);
+        SandeshLevel::SYS_DEBUG, BGP_LOG_FLAG_ALL,
+        neighbor->peer_address(), neighbor->peer_as(), families);
     neighbors_.insert(make_pair(neighbor->name(), neighbor));
     manager->Notify(neighbor, BgpConfigManager::CFG_ADD);
 }
@@ -610,8 +610,8 @@ void BgpInstanceConfig::ChangeNeighbor(BgpConfigManager *manager,
         neighbor->session_attributes().address_families.begin(),
         neighbor->session_attributes().address_families.end());
     BGP_CONFIG_LOG_NEIGHBOR(Update, manager->server(), neighbor,
-        SandeshLevel::SYS_DEBUG, BGP_LOG_FLAG_ALL, neighbor->peer_as(),
-        families);
+        SandeshLevel::SYS_DEBUG, BGP_LOG_FLAG_ALL,
+        neighbor->peer_address(), neighbor->peer_as(), families);
     manager->Notify(neighbor, BgpConfigManager::CFG_CHANGE);
 }
 
@@ -1092,10 +1092,14 @@ void BgpConfigManager::ProcessBgpPeering(const BgpConfigDelta &delta) {
         BgpInstanceConfig *rti = config_->FindInstance(instance_name);
         assert(rti != NULL);
         peering = config_->CreatePeering(rti, proxy);
+        BGP_CONFIG_LOG_PEERING(Create, server_, peering,
+            SandeshLevel::SYS_DEBUG, BGP_LOG_FLAG_ALL);
     } else {
         const IFMapNode *node = peering->node();
         assert(node != NULL);
         if (node->IsDeleted() || !node->HasAdjacencies(db_graph_)) {
+            BGP_CONFIG_LOG_PEERING(Delete, server_, peering,
+                SandeshLevel::SYS_DEBUG, BGP_LOG_FLAG_ALL);
             BgpInstanceConfig *rti = peering->instance();
             peering->Delete(this);
             config_->DeletePeering(peering);
@@ -1106,6 +1110,8 @@ void BgpConfigManager::ProcessBgpPeering(const BgpConfigDelta &delta) {
         }
     }
 
+    BGP_CONFIG_LOG_PEERING(Update, server_, peering,
+        SandeshLevel::SYS_DEBUG, BGP_LOG_FLAG_ALL);
     autogen::BgpPeering *peering_config =
             static_cast<autogen::BgpPeering *>(delta.obj.get());
     peering->Update(this, peering_config);
