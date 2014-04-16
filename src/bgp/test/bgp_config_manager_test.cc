@@ -25,6 +25,7 @@
 #include "ifmap/ifmap_link_table.h"
 #include "ifmap/ifmap_node.h"
 #include "ifmap/ifmap_server_parser.h"
+#include "ifmap/test/ifmap_test_util.h"
 #include "io/event_manager.h"
 #include "schema/vnc_cfg_types.h"
 #include "testing/gunit.h"
@@ -399,6 +400,98 @@ TEST_F(BgpConfigManagerTest, BgpRouterHoldTimeChange) {
     EXPECT_TRUE(parser_.Parse(content_a));
     TASK_UTIL_EXPECT_TRUE(protocol_cfg->bgp_router() != NULL);
     TASK_UTIL_EXPECT_EQ(0, protocol_cfg->router_params().hold_time);
+
+    boost::replace_all(content_a, "<config>", "<delete>");
+    boost::replace_all(content_a, "</config>", "</delete>");
+    EXPECT_TRUE(parser_.Parse(content_a));
+    task_util::WaitForIdle();
+
+    TASK_UTIL_EXPECT_EQ(1, config_manager_->config().instances().size());
+    TASK_UTIL_EXPECT_EQ(0, db_graph_.vertex_count());
+}
+
+TEST_F(BgpConfigManagerTest, PropagateBgpRouterIdentifierChangeToNeighbor) {
+    string content_a = FileRead("controller/src/bgp/testdata/config_test_31.xml");
+    EXPECT_TRUE(parser_.Parse(content_a));
+    task_util::WaitForIdle();
+
+    const BgpConfigData::BgpInstanceMap &instances =
+        config_manager_->config().instances();
+    TASK_UTIL_ASSERT_TRUE(instances.end() !=
+                          instances.find(BgpConfigManager::kMasterInstance));
+    BgpConfigData::BgpInstanceMap::const_iterator loc =
+        instances.find(BgpConfigManager::kMasterInstance);
+    const BgpInstanceConfig *instance_cfg = loc->second;
+    TASK_UTIL_ASSERT_TRUE(instance_cfg != NULL);
+    const BgpProtocolConfig *protocol_cfg = instance_cfg->protocol_config();
+    TASK_UTIL_ASSERT_TRUE(protocol_cfg != NULL);
+    TASK_UTIL_ASSERT_TRUE(protocol_cfg->bgp_router() != NULL);
+    const BgpInstanceConfig::NeighborMap &neighbors = instance_cfg->neighbors();
+    TASK_UTIL_EXPECT_EQ(3, neighbors.size());
+
+    for (BgpInstanceConfig::NeighborMap::const_iterator it = neighbors.begin();
+         it != neighbors.end(); ++it) {
+        TASK_UTIL_EXPECT_EQ("10.1.1.100", it->second->local_identifier());
+    }
+
+    autogen::BgpRouterParams *params = new autogen::BgpRouterParams;
+    params->Copy(protocol_cfg->router_params());
+    params->identifier = "10.1.1.200";
+    string id = string(BgpConfigManager::kMasterInstance) + ":local";
+    ifmap_test_util::IFMapMsgPropertyAdd(&db_, "bgp-router", id,
+        "bgp-router-parameters", params);
+    task_util::WaitForIdle();
+
+    for (BgpInstanceConfig::NeighborMap::const_iterator it = neighbors.begin();
+         it != neighbors.end(); ++it) {
+        TASK_UTIL_EXPECT_EQ("10.1.1.200", it->second->local_identifier());
+    }
+
+    boost::replace_all(content_a, "<config>", "<delete>");
+    boost::replace_all(content_a, "</config>", "</delete>");
+    EXPECT_TRUE(parser_.Parse(content_a));
+    task_util::WaitForIdle();
+
+    TASK_UTIL_EXPECT_EQ(1, config_manager_->config().instances().size());
+    TASK_UTIL_EXPECT_EQ(0, db_graph_.vertex_count());
+}
+
+TEST_F(BgpConfigManagerTest, PropagateBgpRouterAutonomousSystemChangeToNeighbor) {
+    string content_a = FileRead("controller/src/bgp/testdata/config_test_31.xml");
+    EXPECT_TRUE(parser_.Parse(content_a));
+    task_util::WaitForIdle();
+
+    const BgpConfigData::BgpInstanceMap &instances =
+        config_manager_->config().instances();
+    TASK_UTIL_ASSERT_TRUE(instances.end() !=
+                          instances.find(BgpConfigManager::kMasterInstance));
+    BgpConfigData::BgpInstanceMap::const_iterator loc =
+        instances.find(BgpConfigManager::kMasterInstance);
+    const BgpInstanceConfig *instance_cfg = loc->second;
+    TASK_UTIL_ASSERT_TRUE(instance_cfg != NULL);
+    const BgpProtocolConfig *protocol_cfg = instance_cfg->protocol_config();
+    TASK_UTIL_ASSERT_TRUE(protocol_cfg != NULL);
+    TASK_UTIL_ASSERT_TRUE(protocol_cfg->bgp_router() != NULL);
+    const BgpInstanceConfig::NeighborMap &neighbors = instance_cfg->neighbors();
+    TASK_UTIL_EXPECT_EQ(3, neighbors.size());
+
+    for (BgpInstanceConfig::NeighborMap::const_iterator it = neighbors.begin();
+         it != neighbors.end(); ++it) {
+        TASK_UTIL_EXPECT_EQ(100, it->second->local_as());
+    }
+
+    autogen::BgpRouterParams *params = new autogen::BgpRouterParams;
+    params->Copy(protocol_cfg->router_params());
+    params->autonomous_system = 200;
+    string id = string(BgpConfigManager::kMasterInstance) + ":local";
+    ifmap_test_util::IFMapMsgPropertyAdd(&db_, "bgp-router", id,
+        "bgp-router-parameters", params);
+    task_util::WaitForIdle();
+
+    for (BgpInstanceConfig::NeighborMap::const_iterator it = neighbors.begin();
+         it != neighbors.end(); ++it) {
+        TASK_UTIL_EXPECT_EQ(200, it->second->local_as());
+    }
 
     boost::replace_all(content_a, "<config>", "<delete>");
     boost::replace_all(content_a, "</config>", "</delete>");

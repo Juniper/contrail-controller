@@ -286,6 +286,14 @@ BgpNeighborConfig::BgpNeighborConfig(const BgpInstanceConfig *instance,
     if (session != NULL) {
         SetSessionAttributes(local_name, session);
     }
+
+    // Get the local identifier and local as from the protocol config.
+    const BgpProtocolConfig *protocol = instance->protocol_config();
+    if (protocol && protocol->bgp_router()) {
+        const autogen::BgpRouterParams &params = protocol->router_params();
+        local_identifier_ = params.identifier;
+        local_as_ = params.autonomous_system;
+    }
 }
 
 //
@@ -356,12 +364,13 @@ bool BgpNeighborConfig::operator!=(const BgpNeighborConfig &rhs) const {
 }
 
 //
-// Update BgpNeighborConfig with the new values of autogen::BgoRouterParams
-// and autogen::BgpSessionAttributes.
+// Update BgpNeighborConfig from the supplied value.
 //
 void BgpNeighborConfig::Update(const BgpNeighborConfig *rhs) {
     peer_config_ = rhs->peer_config_;
     attributes_ = rhs->attributes_;
+    local_as_ = rhs->local_as_;
+    local_identifier_ = rhs->local_identifier_;
 }
 
 string BgpNeighborConfig::InstanceName() const {
@@ -596,6 +605,7 @@ void BgpInstanceConfig::AddNeighbor(BgpConfigManager *manager,
         neighbor->session_attributes().address_families.end());
     BGP_CONFIG_LOG_NEIGHBOR(Create, manager->server(), neighbor,
         SandeshLevel::SYS_DEBUG, BGP_LOG_FLAG_ALL,
+        neighbor->local_identifier(), neighbor->local_as(),
         neighbor->peer_address(), neighbor->peer_as(), families);
     neighbors_.insert(make_pair(neighbor->name(), neighbor));
     manager->Notify(neighbor, BgpConfigManager::CFG_ADD);
@@ -611,6 +621,7 @@ void BgpInstanceConfig::ChangeNeighbor(BgpConfigManager *manager,
         neighbor->session_attributes().address_families.end());
     BGP_CONFIG_LOG_NEIGHBOR(Update, manager->server(), neighbor,
         SandeshLevel::SYS_DEBUG, BGP_LOG_FLAG_ALL,
+        neighbor->local_identifier(), neighbor->local_as(),
         neighbor->peer_address(), neighbor->peer_as(), families);
     manager->Notify(neighbor, BgpConfigManager::CFG_CHANGE);
 }

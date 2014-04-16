@@ -96,6 +96,8 @@ public:
 
     const std::string &name() const { return name_; }
     const std::string &uuid() const { return uuid_; }
+    as_t local_as() const { return (as_t) local_as_; }
+    const std::string local_identifier() const { return local_identifier_; }
     as_t peer_as() const { return (as_t) peer_config_.autonomous_system; }
     std::string peer_address() const { return peer_config_.address; }
     const std::string &vendor() const { return peer_config_.vendor; }
@@ -114,6 +116,8 @@ private:
     static AddressFamilyList default_addr_family_list_;
     std::string name_;
     std::string uuid_;
+    int local_as_;
+    std::string local_identifier_;
 
     DISALLOW_COPY_AND_ASSIGN(BgpNeighborConfig);
 };
