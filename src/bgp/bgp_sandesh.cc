@@ -1324,6 +1324,8 @@ public:
                 ShowBgpNeighborConfig nbr;
                 nbr.set_instance_name(loc2->second->InstanceName());
                 nbr.set_name(loc2->second->name());
+                nbr.set_local_identifier(loc2->second->local_identifier());
+                nbr.set_local_as(loc2->second->local_as());
                 nbr.set_vendor(peer.vendor);
                 nbr.set_autonomous_system(peer.autonomous_system);
                 nbr.set_identifier(peer.identifier);
