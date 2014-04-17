@@ -11,6 +11,7 @@
 #include "bgp/bgp_config_parser.h"
 #include "bgp/bgp_factory.h"
 #include "bgp/bgp_peer.h"
+#include "bgp/bgp_peer_membership.h"
 #include "bgp/bgp_sandesh.h"
 #include "bgp/bgp_session_manager.h"
 #include "bgp/state_machine.h"
@@ -100,6 +101,16 @@ protected:
         BgpPeerTest::verbose_name(false);
     }
 
+    void PausePeerRibMembershipManager(BgpServer *server) {
+        task_util::WaitForIdle();
+        server->membership_mgr()->event_queue_->set_disable(true);
+    }
+
+    void ResumePeerRibMembershipManager(BgpServer *server) {
+        server->membership_mgr()->event_queue_->set_disable(false);
+        task_util::WaitForIdle();
+    }
+
     const StateMachine *GetPeerStateMachine(BgpPeer *peer) {
         return peer->state_machine();
     }
@@ -121,7 +132,8 @@ protected:
                     bool verify_keepalives, as_t as_num1, as_t as_num2,
                     string peer_address1, string peer_address2,
                     string bgp_identifier1, string bgp_identifier2,
-                    vector<string> families1, vector<string> families2);
+                    vector<string> families1, vector<string> families2,
+                    bool delete_config = false);
     void VerifyPeers(int peer_count, int verify_keepalives_count = 0,
                      uint16_t as_num1 = BgpConfigManager::kDefaultAutonomousSystem,
                      uint16_t as_num2 = BgpConfigManager::kDefaultAutonomousSystem);
@@ -237,14 +249,15 @@ void BgpServerUnitTest::SetupPeers(BgpServerTest *server, int peer_count,
         bool verify_keepalives, as_t as_num1, as_t as_num2,
         string peer_address1, string peer_address2,
         string bgp_identifier1, string bgp_identifier2,
-        vector<string> families1, vector<string> families2) {
+        vector<string> families1, vector<string> families2,
+        bool delete_config) {
     string config = GetConfigStr(peer_count, port_a, port_b, as_num1, as_num2,
                                  peer_address1, peer_address2,
                                  bgp_identifier1, bgp_identifier2,
                                  families1, families2,
                                  StateMachine::kHoldTime,
                                  StateMachine::kHoldTime,
-                                 false);
+                                 delete_config);
     server->Configure(config);
     task_util::WaitForIdle();
 }
@@ -303,6 +316,18 @@ void BgpServerUnitTest::VerifyPeers(int peer_count,
             TASK_UTIL_EXPECT_TRUE(peer_b->get_tr_keepalive() > verify_keepalives_count);
         }
     }
+}
+
+static void PauseDelete(LifetimeActor *actor) {
+    TaskScheduler::GetInstance()->Stop();
+    actor->PauseDelete();
+    TaskScheduler::GetInstance()->Start();
+}
+
+static void ResumeDelete(LifetimeActor *actor) {
+    TaskScheduler::GetInstance()->Stop();
+    actor->ResumeDelete();
+    TaskScheduler::GetInstance()->Start();
 }
 
 TEST_F(BgpServerUnitTest, Connection) {
@@ -716,6 +741,16 @@ TEST_F(BgpServerUnitTest, AdminDown) {
                                              uuid);
         TASK_UTIL_EXPECT_TRUE(peer_a->flap_count() > flap_count_a[j]);
         TASK_UTIL_EXPECT_TRUE(peer_b->flap_count() > flap_count_b[j]);
+    }
+
+    //
+    // Wait for B's attempts to bring up the peers fail a few times
+    //
+    for (int j = 0; j < peer_count; j++) {
+        string uuid = BgpConfigParser::session_uuid("A", "B", j + 1);
+        BgpPeer *peer_b = b_->FindPeerByUuid(BgpConfigManager::kMasterInstance,
+                                             uuid);
+        TASK_UTIL_EXPECT_TRUE(peer_b->get_rx_notification() >= 5);
     }
 
     //
@@ -1191,6 +1226,124 @@ TEST_F(BgpServerUnitTest, MissingPeerConfig) {
         TASK_UTIL_EXPECT_TRUE(peer_a->get_rx_notification() > 50);
         TASK_UTIL_EXPECT_NE(peer_a->GetState(), StateMachine::ESTABLISHED);
     }
+}
+
+TEST_F(BgpServerUnitTest, DeleteInProgress) {
+    int peer_count = 3;
+
+    vector<string> families_a;
+    vector<string> families_b;
+    families_a.push_back("inet-vpn");
+    families_b.push_back("inet-vpn");
+
+    BgpPeerTest::verbose_name(true);
+    SetupPeers(peer_count, a_->session_manager()->GetPort(),
+               b_->session_manager()->GetPort(), false,
+               BgpConfigManager::kDefaultAutonomousSystem,
+               BgpConfigManager::kDefaultAutonomousSystem,
+               "127.0.0.1", "127.0.0.1",
+               "192.168.0.10", "192.168.0.11",
+               families_a, families_b);
+    VerifyPeers(peer_count);
+
+    //
+    // Build list of peers on A
+    //
+    vector<BgpPeer *> peer_a_list;
+    for (int j = 0; j < peer_count; j++) {
+        string uuid = BgpConfigParser::session_uuid("A", "B", j + 1);
+        BgpPeer *peer_a = a_->FindPeerByUuid(BgpConfigManager::kMasterInstance,
+                                             uuid);
+        peer_a_list.push_back(peer_a);
+    }
+
+    //
+    // Pause deletion of peers on A
+    //
+    for (int j = 0; j < peer_count; j++) {
+        PauseDelete(peer_a_list[j]->deleter());
+    }
+
+    //
+    // Trigger deletion of peer configuration on A
+    // Peers will be marked deleted but won't get destroyed since deletion
+    // has been paused
+    //
+    SetupPeers(a_.get(), peer_count, a_->session_manager()->GetPort(),
+               b_->session_manager()->GetPort(), false,
+               BgpConfigManager::kDefaultAutonomousSystem,
+               BgpConfigManager::kDefaultAutonomousSystem,
+               "127.0.0.1", "127.0.0.1",
+               "192.168.0.10", "192.168.0.11",
+               families_a, families_b, true);
+
+    //
+    // Wait for B's attempts to bring up the peers fail a few times
+    //
+    for (int j = 0; j < peer_count; j++) {
+        string uuid = BgpConfigParser::session_uuid("A", "B", j + 1);
+        BgpPeer *peer_b = b_->FindPeerByUuid(BgpConfigManager::kMasterInstance,
+                                             uuid);
+        TASK_UTIL_EXPECT_TRUE(peer_b->get_rx_notification() >= 5);
+    }
+
+    //
+    // Resume deletion of peers on A
+    //
+    for (int j = 0; j < peer_count; j++) {
+        ResumeDelete(peer_a_list[j]->deleter());
+    }
+}
+
+TEST_F(BgpServerUnitTest, CloseInProgress) {
+    int peer_count = 3;
+
+    vector<string> families_a;
+    vector<string> families_b;
+    families_a.push_back("inet-vpn");
+    families_b.push_back("inet-vpn");
+
+    BgpPeerTest::verbose_name(true);
+    SetupPeers(peer_count, a_->session_manager()->GetPort(),
+               b_->session_manager()->GetPort(), false,
+               BgpConfigManager::kDefaultAutonomousSystem,
+               BgpConfigManager::kDefaultAutonomousSystem,
+               "127.0.0.1", "127.0.0.1",
+               "192.168.0.10", "192.168.0.11",
+               families_a, families_b);
+    VerifyPeers(peer_count);
+
+    //
+    // Pause peer membership manager on A
+    //
+    PausePeerRibMembershipManager(a_.get());
+
+    //
+    // Trigger close of peers on A
+    // Peer close will be started but not completed since peer membership
+    // manager has been paused
+    //
+    for (int j = 0; j < peer_count; j++) {
+        string uuid = BgpConfigParser::session_uuid("A", "B", j + 1);
+        BgpPeer *peer_a = a_->FindPeerByUuid(BgpConfigManager::kMasterInstance,
+                                             uuid);
+        peer_a->Clear(BgpProto::Notification::AdminReset);
+    }
+
+    //
+    // Wait for B's attempts to bring up the peers fail a few times
+    //
+    for (int j = 0; j < peer_count; j++) {
+        string uuid = BgpConfigParser::session_uuid("A", "B", j + 1);
+        BgpPeer *peer_b = b_->FindPeerByUuid(BgpConfigManager::kMasterInstance,
+                                             uuid);
+        TASK_UTIL_EXPECT_TRUE(peer_b->get_rx_notification() >= 5);
+    }
+
+    //
+    // Resume peer membership manager on A
+    //
+    ResumePeerRibMembershipManager(a_.get());
 }
 
 TEST_F(BgpServerUnitTest, ClearNeighbor1) {
