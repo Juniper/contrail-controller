@@ -227,6 +227,7 @@ public:
     void FillRegisteredTable(IPeer *peer, std::vector<std::string> &list);
 
 private:
+    friend class BgpServerUnitTest;
     friend class BgpXmppUnitTest;
     friend class PeerMembershipMgrTest;
     friend class PeerRibMembershipManagerTest;
