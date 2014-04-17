@@ -121,6 +121,10 @@ systemlog sandesh BgpConfigInstanceUpdateLog {
 trace sandesh BgpConfigNeighborCreateTrace {
     1: "Neighbor";
     2: string name;
+    9: "Local Identifier";
+    10: string local_identifier;
+    11: "Local AS";
+    12: i32 local_as;
     7: "Peer Address";
     8: string address;
     3: "Peer AS";
@@ -132,6 +136,10 @@ trace sandesh BgpConfigNeighborCreateTrace {
 systemlog sandesh BgpConfigNeighborCreateLog {
     1: "Neighbor";
     2: string name;
+    9: "Local Identifier";
+    10: string local_identifier;
+    11: "Local AS";
+    12: i32 local_as;
     7: "Peer Address";
     8: string address;
     3: "Peer AS";
@@ -153,6 +161,10 @@ systemlog sandesh BgpConfigNeighborDeleteLog {
 trace sandesh BgpConfigNeighborUpdateTrace {
     1: "Neighbor";
     2: string name;
+    9: "Local Identifier";
+    10: string local_identifier;
+    11: "Local AS";
+    12: i32 local_as;
     7: "Peer Address";
     8: string address;
     3: "Peer AS";
@@ -164,6 +176,10 @@ trace sandesh BgpConfigNeighborUpdateTrace {
 systemlog sandesh BgpConfigNeighborUpdateLog {
     1: "Neighbor";
     2: string name;
+    9: "Local Identifier";
+    10: string local_identifier;
+    11: "Local AS";
+    12: i32 local_as;
     7: "Peer Address";
     8: string address;
     3: "Peer AS";

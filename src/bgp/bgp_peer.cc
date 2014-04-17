@@ -307,10 +307,9 @@ BgpPeer::BgpPeer(BgpServer *server, RoutingInstance *instance,
           state_machine_(BgpObjectFactory::Create<StateMachine>(this)),
           membership_req_pending_(0),
           defer_close_(false),
-          local_as_(server_->autonomous_system()),
+          local_as_(config->local_as()),
           peer_as_(config_->peer_as()),
           remote_bgp_id_(0),
-          local_bgp_id_(server_->bgp_identifier()),
           peer_type_((peer_as_ == local_as_) ? BgpProto::IBGP : BgpProto::EBGP),
           policy_(peer_type_, RibExportPolicy::BGP, peer_as_, -1, 0),
           peer_close_(new PeerClose(this)),
@@ -319,6 +318,10 @@ BgpPeer::BgpPeer(BgpServer *server, RoutingInstance *instance,
           instance_delete_ref_(this, instance->deleter()),
           flap_count_(0),
           last_flap_(0) {
+
+    boost::system::error_code ec;
+    Ip4Address id = Ip4Address::from_string(config->local_identifier(), ec);
+    local_bgp_id_ = id.to_ulong();
 
     refcount_ = 0;
     BOOST_FOREACH(string family, config->address_families()) {
@@ -394,8 +397,8 @@ void BgpPeer::ConfigUpdate(const BgpNeighborConfig *config) {
     }
 
     BgpProto::BgpPeerType old_type = PeerType();
-    if (local_as_ != server_->autonomous_system()) {
-        local_as_ = server_->autonomous_system();
+    if (local_as_ != config->local_as()) {
+        local_as_ = config->local_as();
         peer_info.set_local_asn(local_as_);
         clear_session = true;
     }
@@ -406,8 +409,11 @@ void BgpPeer::ConfigUpdate(const BgpNeighborConfig *config) {
         clear_session = true;
     }
 
-    if (local_bgp_id_ != server_->bgp_identifier()) {
-        local_bgp_id_ = server_->bgp_identifier();
+    boost::system::error_code ec;
+    Ip4Address id = Ip4Address::from_string(config->local_identifier(), ec);
+    uint32_t local_bgp_id = id.to_ulong();
+    if (local_bgp_id_ != local_bgp_id) {
+        local_bgp_id_ = local_bgp_id;
         peer_info.set_local_id(local_bgp_id_);
         clear_session = true;
     }
