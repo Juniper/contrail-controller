@@ -41,7 +41,13 @@ public:
   /// Obtain an identifier for the type of the protocol.
   int type() const
   {
+#if defined(__linux__)
     return SOCK_RAW;
+#elif defined(__FreeBSD__)
+    return SOCK_DGRAM;
+#else
+#error "Unsupported platform"
+#endif
   }
 
   /// Obtain an identifier for the protocol.
@@ -63,7 +69,13 @@ public:
   }
 
   /// The NETLINK domain socket type.
+#if defined(__linux__)
   typedef basic_raw_socket<raw> socket;
+#elif defined(__FreeBSD__)
+  typedef basic_datagram_socket<raw> socket;
+#else
+#error "Unsupported platform"
+#endif
   typedef basic_endpoint<raw> endpoint;
 
   int proto;
