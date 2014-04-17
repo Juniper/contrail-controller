@@ -404,7 +404,7 @@ int InterfaceKSyncEntry::ChangeMsg(char *buf, int buf_len) {
 }
 
 InterfaceKSyncObject::InterfaceKSyncObject(KSync *ksync) :
-    KSyncDBObject(), ksync_(ksync), test_mode(false) {
+    KSyncDBObject(), ksync_(ksync) {
 }
 
 InterfaceKSyncObject::~InterfaceKSyncObject() {
@@ -442,14 +442,11 @@ KSyncEntry *InterfaceKSyncObject::DBToKSyncEntry(const DBEntry *e) {
 }
 
 void InterfaceKSyncObject::Init() {
-    // Get MAC Address for vnsw interface
-    test_mode = 0;
-    Interface::set_test_mode(false);
+    ksync_->agent()->set_test_mode(false);
 }
 
 void InterfaceKSyncObject::InitTest() {
-    test_mode = 1;
-    Interface::set_test_mode(true);
+    ksync_->agent()->set_test_mode(true);
 }
 
 //////////////////////////////////////////////////////////////////////////////

@@ -39,7 +39,6 @@
 using namespace std;
 using namespace boost::uuids;
 
-bool Interface::test_mode_;
 InterfaceTable *InterfaceTable::interface_table_;
 
 /////////////////////////////////////////////////////////////////////////////
@@ -238,7 +237,7 @@ Interface::~Interface() {
 }
 
 void Interface::GetOsParams(Agent *agent) {
-    if (test_mode_) {
+    if (agent->test_mode()) {
         static int dummy_ifindex = 0;
         os_index_ = ++dummy_ifindex;
         bzero(&mac_, sizeof(mac_));
