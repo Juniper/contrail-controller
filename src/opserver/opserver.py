@@ -688,8 +688,10 @@ class OpServer(object):
             default=5998,
             help="Discovery Server port")
         parser.add_argument("--dup", action="store_true",
+            default=False,
             help="Internal use")
         parser.add_argument("--redis_uve_list",
+            default="127.0.0.1:6381",
             help="List of redis-uve in ip:port format. For internal use only",
             nargs="+")
         parser.add_argument(
