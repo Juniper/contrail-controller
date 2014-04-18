@@ -21,12 +21,13 @@
 #include <sandesh/sandesh_uve_types.h>
 #include <sandesh/sandesh_message_builder.h>
 
-#include "viz_types.h"
-#include "generator.h"
-#include "collector.h"
-#include "viz_sandesh.h"
 #include "OpServerProxy.h"
+#include "db_handler.h"
+#include "collector.h"
+#include "generator.h"
 #include "viz_collector.h"
+#include "viz_sandesh.h"
+#include "viz_types.h"
 #include "vizd_table_desc.h"
 
 extern SandeshTraceBufferPtr UVETraceBuf;

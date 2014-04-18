@@ -9,19 +9,17 @@
 #include <boost/asio/ip/tcp.hpp>
 #include <boost/ptr_container/ptr_map.hpp>
 #include <boost/uuid/uuid.hpp>
-#include <boost/uuid/uuid_generators.hpp>
-#include <boost/uuid/uuid_io.hpp>
 
 #include "base/parse_object.h"
 #include "base/contrail_ports.h"
 
 #include "collector.h"
-#include "db_handler.h"
 #include "Thrift.h"
 #include "OpServerProxy.h"
 #include "viz_constants.h"
 #include "syslog_collector.h"
 
+class DbHandler;
 class Ruleeng;
 
 class VizCollector {

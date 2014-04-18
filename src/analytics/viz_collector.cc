@@ -3,7 +3,6 @@
  */
 
 #include "viz_collector.h"
-#include "ruleeng.h" 
 #include <boost/asio/ip/host_name.hpp>
 #include <boost/lexical_cast.hpp>
 #include <boost/bind.hpp>
@@ -16,6 +15,9 @@
 #include "sandesh/sandesh_types.h"
 #include "sandesh/sandesh.h"
 #include "sandesh/sandesh_session.h"
+
+#include "db_handler.h"
+#include "ruleeng.h" 
 
 using std::string;
 using boost::system::error_code;

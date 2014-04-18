@@ -15,9 +15,9 @@
 #include <sandesh/sandesh_uve_types.h>
 #include <sandesh/sandesh_state_machine.h>
 #include "collector_uve_types.h"
-#include "db_handler.h"
 #include "syslog_collector.h"
 
+class DbHandler;
 class Sandesh;
 class VizSession;
 class Collector;

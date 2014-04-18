@@ -9,8 +9,16 @@
 #include <boost/asio/ip/tcp.hpp>
 #include <boost/ptr_container/ptr_map.hpp>
 #include <boost/uuid/uuid.hpp>
+
+#if __GNUC_PREREQ(4, 6)
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wunused-result"
+#endif
 #include <boost/uuid/uuid_generators.hpp>
-#include <boost/uuid/uuid_io.hpp>
+#if __GNUC_PREREQ(4, 6)
+#pragma GCC diagnostic pop
+#endif
+
 #include <boost/tuple/tuple.hpp>
 
 #include "Thrift.h"
