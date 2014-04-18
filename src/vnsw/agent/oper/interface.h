@@ -101,8 +101,6 @@ public:
     uint32_t os_index() const {return os_index_;}
     const ether_addr &mac() const {return mac_;}
 
-    static bool test_mode() {return test_mode_;}
-    static void set_test_mode(bool mode) {test_mode_ = mode;}
 protected:
     void SetItfSandeshData(ItfSandeshData &data) const;
 
@@ -119,7 +117,6 @@ protected:
     bool dns_enabled_;
     struct ether_addr mac_;
     size_t os_index_;
-    static bool test_mode_;
 
 private:
     friend class InterfaceTable;

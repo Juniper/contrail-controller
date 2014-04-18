@@ -515,6 +515,9 @@ public:
         return ksync_sync_mode_;
     }
 
+    bool test_mode() const { return test_mode_; }
+    void set_test_mode(bool test_mode) { test_mode_ = test_mode; }
+
     bool isXenMode();
 
     static Agent *GetInstance() {return singleton_;}
@@ -654,6 +657,7 @@ private:
     VxLanNetworkIdentifierMode vxlan_network_identifier_mode_;
     const Interface *vhost_interface_;
     bool debug_;
+    bool test_mode_;
 
     static const std::string null_str_;
     static std::string fabric_vrf_name_;

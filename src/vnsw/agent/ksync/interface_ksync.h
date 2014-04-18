@@ -94,7 +94,6 @@ public:
 
 private:
     KSync *ksync_;
-    int test_mode;
     DISALLOW_COPY_AND_ASSIGN(InterfaceKSyncObject);
 };
 

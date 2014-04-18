@@ -104,6 +104,7 @@ public:
     void LogConfig() const;
     void InitVhostAndXenLLPrefix();
     void set_test_mode(bool mode);
+    bool test_mode() const { return test_mode_; }
 private:
     void ComputeLinkLocalFlowLimits();
     void InitFromSystem();
