@@ -13,6 +13,7 @@ env.Prepend(LIBS=['gunit'])
 cflags = env['CCFLAGS']
 if '-fno-exceptions' in cflags:
     cflags.remove('-fno-exceptions')
+    cflags.append('-Wno-return-type')
     env.Replace(CCFLAGS = cflags)
 
 import sys
