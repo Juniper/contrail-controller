@@ -46,8 +46,7 @@ public:
         if (restart) {
             timer_->Start(timer_->time_, timer_->handler_,
                           timer_->error_handler_);
-        } else if (timer_->auto_delete_) {
-            timer_->auto_delete_ = false;
+        } else if (timer_->delete_on_completion_) {
             TimerManager::DeleteTimer(timer_.get());
         }
         return true;
@@ -79,8 +78,7 @@ Timer::Timer(boost::asio::io_service &service, const std::string &name,
     : boost::asio::monotonic_deadline_timer(service), name_(name), handler_(NULL),
     error_handler_(NULL), state_(Init), timer_task_(NULL), time_(0),
     task_id_(task_id), task_instance_(task_instance), seq_no_(0),
-    delete_on_completion_(delete_on_completion),
-    auto_delete_(delete_on_completion) {
+    delete_on_completion_(delete_on_completion) {
     refcount_ = 0;
 }
 
@@ -129,6 +127,11 @@ bool Timer::Cancel() {
         return false;
     }
 
+    // One shot timer cannot be cancelled
+    if (delete_on_completion_) {
+        return false;
+    }
+
     // Cancel Task. If Task cancel succeeds, there will be no callback.
     // Reset TaskRef if call succeeds.
     if (timer_task_) {
@@ -139,10 +142,6 @@ bool Timer::Cancel() {
     }
 
     SetState(Cancelled);
-    if (auto_delete_) {
-        auto_delete_ = false;
-        TimerManager::DeleteTimer(this);
-    }
     return true;
 }
 
