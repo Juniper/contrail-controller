@@ -18,8 +18,14 @@
 #include <boost/spirit/include/phoenix_stl.hpp>
 #include <boost/spirit/home/phoenix/object/construct.hpp>
 #include <boost/uuid/uuid.hpp>
+#if __GNUC_PREREQ(4, 6)
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wunused-result"
+#endif
 #include <boost/uuid/uuid_generators.hpp>
-#include <boost/uuid/uuid_io.hpp>
+#if __GNUC_PREREQ(4, 6)
+#pragma GCC diagnostic pop
+#endif
 #include <boost/assign/list_of.hpp>
 #include <boost/fusion/adapted/std_pair.hpp>
 #include <boost/ptr_container/ptr_map.hpp>

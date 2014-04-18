@@ -9,7 +9,8 @@
 #include "io/udp_server.h"
 #include "io/io_log.h"
 #include "viz_message.h"
-#include "db_handler.h"
+
+class DbHandler;
 
 typedef boost::function<bool(const VizMsg*, bool,
     DbHandler *)> VizCallback;
