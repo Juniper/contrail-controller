@@ -684,6 +684,13 @@ class VncCassandraClient(VncCassandraClientGen):
             pass
     # end cache_uuid_to_fq_name_del
 
+    def update_last_modified(self, bch, obj_uuid, id_perms=None):
+        if id_perms is None:
+            id_perms = json.loads(self._obj_uuid_cf.get(obj_uuid, ['prop:id_perms'])['prop:id_perms'])
+        id_perms['last_modified'] = datetime.datetime.utcnow().isoformat()
+        self._update_prop(bch, obj_uuid, 'id_perms', {'id_perms': id_perms})
+    # end update_last_modified
+
     def uuid_to_fq_name(self, id):
         try:
             #TODO remove from cache on delete_notify
@@ -1417,6 +1424,21 @@ class VncDbClient(object):
     def uuid_to_obj_perms(self, obj_uuid):
         return self._cassandra_db.uuid_to_obj_perms(obj_uuid)
     # end uuid_to_obj_perms
+
+    def ref_update(self, obj_type, obj_uuid, ref_type, ref_uuid, ref_data, operation):
+        obj_uuid_cf = self._cassandra_db._obj_uuid_cf
+        bch = obj_uuid_cf.batch()
+        if operation == 'ADD':
+            self._cassandra_db._create_ref(bch, obj_type, obj_uuid, ref_type, ref_uuid, ref_data)
+        elif operation == 'DELETE':
+            self._cassandra_db._delete_ref(bch, obj_type, obj_uuid, ref_type, ref_uuid)
+        else:
+            pass
+        self._cassandra_db.update_last_modified(bch, obj_uuid)
+        bch.send()
+        self._msgbus.dbe_update_publish(obj_type.replace('_', '-'), {'uuid':obj_uuid})
+        return obj_uuid
+    # ref_update
 
     def get_resource_class(self, resource_type):
         return self._api_svr_mgr.get_resource_class(resource_type)

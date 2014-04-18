@@ -81,6 +81,8 @@ _WEB_HOST = '0.0.0.0'
 _WEB_PORT = 8082
 
 _ACTION_RESOURCES = [
+    {'uri': '/ref-update', 'link_name': 'ref-update',
+     'method_name': 'ref_update_http_post'},
     {'uri': '/fqname-to-id', 'link_name': 'name-to-id',
      'method_name': 'fq_name_to_id_http_post'},
     {'uri': '/id-to-fqname', 'link_name': 'id-to-name',
@@ -386,6 +388,23 @@ class VncApiServer(VncApiServerGen):
             filename,
             root='/usr/share/doc/python-vnc_cfg_api_server/build/html')
     # end documentation_http_get
+
+    def ref_update_http_post(self):
+        self._post_common(bottle.request, None, None)
+        obj_type = bottle.request.json['type'].replace('-', '_')
+        obj_uuid = bottle.request.json['uuid']
+        ref_type = bottle.request.json['ref-type'].replace('-', '_')
+        operation = bottle.request.json['operation']
+        ref_uuid = bottle.request.json['ref-uuid']
+        attr = {'attr': bottle.request.json.get('attr'), 'is_weakref': False}
+
+        try:
+            id = self._db_conn.ref_update(obj_type, obj_uuid, ref_type, ref_uuid, attr, operation)
+        except NoIdError:
+            bottle.abort(404, 'uuid ' + obj_uuid + ' not found')
+
+        return {'uuid': id}
+    # end ref_update_id_http_post
 
     def fq_name_to_id_http_post(self):
         self._post_common(bottle.request, None, None)
