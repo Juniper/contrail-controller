@@ -391,18 +391,41 @@ class VncApiServer(VncApiServerGen):
 
     def ref_update_http_post(self):
         self._post_common(bottle.request, None, None)
-        obj_type = bottle.request.json['type'].replace('-', '_')
+        obj_type = bottle.request.json['type']
         obj_uuid = bottle.request.json['uuid']
         ref_type = bottle.request.json['ref-type'].replace('-', '_')
         operation = bottle.request.json['operation']
-        ref_uuid = bottle.request.json['ref-uuid']
-        attr = {'attr': bottle.request.json.get('attr'), 'is_weakref': False}
+        ref_uuid = bottle.request.json.get('ref-uuid')
+        ref_fq_name = bottle.request.json.get('ref-fq-name')
+        attr = bottle.request.json.get('attr')
 
+        if not ref_uuid and not ref_fq_name:
+            bottle.abort(404, 'Either ref-uuid or ref-fq-name must be specified')
+
+        if not ref_uuid:
+            try:
+                ref_uuid = self._db_conn.fq_name_to_uuid(ref_type, ref_fq_name)
+            except NoIdError:
+                bottle.abort(404, 'Name ' + pformat(fq_name) + ' not found')
+
+        # type-specific hook
+        r_class = self._resource_classes.get(obj_type)
+        if r_class:
+            try:
+                fq_name = self._db_conn.uuid_to_fq_name(obj_uuid)
+            except NoIdError:
+                bottle.abort(404, 'UUID ' + obj_uuid + ' not found')
+            obj_dict = {ref_type+'_refs': [{'to':ref_fq_name, 'uuid': ref_uuid, 'attr':attr}]}
+            (ok, put_result) = r_class.http_put(obj_uuid, fq_name, obj_dict, self._db_conn)
+            if not ok:
+                (code, msg) = put_result
+                self.config_object_error(id, None, obj_type, 'ref_update', msg)
+                abort(code, msg)
+        obj_type = obj_type.replace('-', '_')
         try:
-            id = self._db_conn.ref_update(obj_type, obj_uuid, ref_type, ref_uuid, attr, operation)
+            id = self._db_conn.ref_update(obj_type, obj_uuid, ref_type, ref_uuid, {'attr': attr}, operation)
         except NoIdError:
             bottle.abort(404, 'uuid ' + obj_uuid + ' not found')
-
         return {'uuid': id}
     # end ref_update_id_http_post
 
