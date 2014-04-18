@@ -1346,6 +1346,77 @@ TEST_F(BgpServerUnitTest, CloseInProgress) {
     ResumePeerRibMembershipManager(a_.get());
 }
 
+TEST_F(BgpServerUnitTest, CloseDeferred) {
+    int peer_count = 3;
+
+    vector<string> families_a;
+    vector<string> families_b;
+    families_a.push_back("inet-vpn");
+    families_b.push_back("inet-vpn");
+    BgpPeerTest::verbose_name(true);
+
+    //
+    // Configure peers on A
+    //
+    SetupPeers(a_.get(), peer_count, a_->session_manager()->GetPort(),
+               b_->session_manager()->GetPort(), false,
+               BgpConfigManager::kDefaultAutonomousSystem,
+               BgpConfigManager::kDefaultAutonomousSystem,
+               "127.0.0.1", "127.0.0.1",
+               "192.168.0.10", "192.168.0.11",
+               families_a, families_b);
+    task_util::WaitForIdle();
+
+    //
+    // Pause peer membership manager on A
+    //
+    PausePeerRibMembershipManager(a_.get());
+
+    //
+    // Configure peers on B and make sure they are up
+    //
+    SetupPeers(b_.get(), peer_count, a_->session_manager()->GetPort(),
+               b_->session_manager()->GetPort(), false,
+               BgpConfigManager::kDefaultAutonomousSystem,
+               BgpConfigManager::kDefaultAutonomousSystem,
+               "127.0.0.1", "127.0.0.1",
+               "192.168.0.10", "192.168.0.11",
+               families_a, families_b);
+    VerifyPeers(peer_count);
+
+    //
+    // Trigger close of peers on A
+    // Peer close will be deferred since peer membership manager was paused
+    // before the peers got established
+    //
+    for (int j = 0; j < peer_count; j++) {
+        string uuid = BgpConfigParser::session_uuid("A", "B", j + 1);
+        BgpPeer *peer_a = a_->FindPeerByUuid(BgpConfigManager::kMasterInstance,
+                                             uuid);
+        peer_a->Clear(BgpProto::Notification::AdminReset);
+    }
+
+    //
+    // Wait for B's attempts to bring up the peers fail a few times
+    //
+    for (int j = 0; j < peer_count; j++) {
+        string uuid = BgpConfigParser::session_uuid("A", "B", j + 1);
+        BgpPeer *peer_b = b_->FindPeerByUuid(BgpConfigManager::kMasterInstance,
+                                             uuid);
+        TASK_UTIL_EXPECT_TRUE(peer_b->get_rx_notification() >= 5);
+    }
+
+    //
+    // Resume peer membership manager on A
+    //
+    ResumePeerRibMembershipManager(a_.get());
+
+    //
+    // Make sure that the sessions come up
+    //
+    VerifyPeers(peer_count);
+}
+
 TEST_F(BgpServerUnitTest, ClearNeighbor1) {
     int peer_count = 3;
 
