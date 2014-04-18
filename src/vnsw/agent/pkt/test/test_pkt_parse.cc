@@ -7,7 +7,7 @@
 #include "test_pkt_util.h"
 #include "cmn/agent_cmn.h"
 
-void RouterIdDepInit() {
+void RouterIdDepInit(Agent *agent) {
 }
 
 class PktParseTest : public ::testing::Test {

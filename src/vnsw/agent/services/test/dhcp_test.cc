@@ -849,7 +849,7 @@ TEST_F(DhcpTest, DhcpHostRoutesTest) {
     Agent::GetInstance()->GetDhcpProto()->ClearStats();
 }
 
-void RouterIdDepInit() {
+void RouterIdDepInit(Agent *agent) {
 }
 
 int main(int argc, char *argv[]) {

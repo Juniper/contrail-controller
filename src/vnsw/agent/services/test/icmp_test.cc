@@ -386,7 +386,7 @@ TEST_F(IcmpTest, IcmpErrorTest) {
     client->WaitForIdle();
 }
 
-void RouterIdDepInit() {
+void RouterIdDepInit(Agent *agent) {
 }
 
 int main(int argc, char *argv[]) {

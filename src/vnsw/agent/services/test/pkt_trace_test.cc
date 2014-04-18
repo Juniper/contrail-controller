@@ -314,7 +314,7 @@ TEST_F(PktTraceTest, TraceTest) {
     client->WaitForIdle();
 }
 
-void RouterIdDepInit() {
+void RouterIdDepInit(Agent *agent) {
 }
 
 int main(int argc, char *argv[]) {

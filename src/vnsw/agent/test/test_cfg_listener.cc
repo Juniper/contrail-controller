@@ -9,7 +9,7 @@
 #include "test/test_cmn_util.h"
 #include "vnc_cfg_types.h"
 
-void RouterIdDepInit() {
+void RouterIdDepInit(Agent *agent) {
 }
 
 class CfgTest : public ::testing::Test {

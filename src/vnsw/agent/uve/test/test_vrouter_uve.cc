@@ -42,7 +42,7 @@ struct PortInfo input[] = {
         {"flow1", 7, vm2_ip, "00:00:00:01:01:02", 5, 2},
 };
 
-void RouterIdDepInit() {
+void RouterIdDepInit(Agent *agent) {
 }
 
 int hash_id;

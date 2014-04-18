@@ -33,7 +33,7 @@ std::string analyzer = "TestAnalyzer";
 
 //TestClient *client;
 
-void RouterIdDepInit() {
+void RouterIdDepInit(Agent *agent) {
 }
 
 class CfgTest : public ::testing::Test {

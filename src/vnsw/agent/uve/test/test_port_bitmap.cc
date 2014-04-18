@@ -32,7 +32,7 @@
 using namespace std;
 
 const std::string dest_vn_name("VN2");
-void RouterIdDepInit() {
+void RouterIdDepInit(Agent *agent) {
 }
 
 class UvePortBitmapTest : public ::testing::Test {

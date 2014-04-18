@@ -142,7 +142,7 @@ public:
 
 typedef Patricia::Tree<NodeEntry, &NodeEntry::node_, NodeEntry::Key> NodeTree;
 
-void RouterIdDepInit() {
+void RouterIdDepInit(Agent *agent) {
 }
 
 static int seed = 1;

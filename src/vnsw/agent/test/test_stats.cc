@@ -12,7 +12,7 @@
 
 int fd_table[MAX_VNET];
 
-void RouterIdDepInit() {
+void RouterIdDepInit(Agent *agent) {
 }
 
 class StatsTest : public ::testing::Test {

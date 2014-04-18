@@ -33,7 +33,7 @@ int vrf_array[] = {1, 2};
 
 using namespace std;
 
-void RouterIdDepInit() {
+void RouterIdDepInit(Agent *agent) {
 }
 
 class AgentStatsCollectorTask : public Task {

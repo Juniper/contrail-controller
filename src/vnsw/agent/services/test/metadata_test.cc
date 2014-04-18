@@ -298,7 +298,7 @@ TEST_F(MetadataTest, MetadataReqTest) {
     Agent::GetInstance()->services()->metadataproxy()->ClearStats();
 }
 
-void RouterIdDepInit() {
+void RouterIdDepInit(Agent *agent) {
 }
 
 int main(int argc, char *argv[]) {

@@ -19,11 +19,37 @@ struct Port {
 
 typedef list<Port> PortList
 
+struct Subnet {
+    1: required string prefix;
+    2: required i16 plen;
+}
+typedef list<Subnet> SubnetList
+
+struct VirtualGatewayRequest {
+    1: required string interface_name;
+    2: required string routing_instance;
+    3: required SubnetList subnets;
+    4: optional SubnetList routes;
+}
+
+typedef list<VirtualGatewayRequest> VirtualGatewayRequestList
+
 service InstanceService {
     bool AddPort(PortList port_list),
     bool KeepAliveCheck(),
     bool Connect(),
     bool DeletePort(tuuid port_id),
+
+    bool AddVirtualGateway(VirtualGatewayRequestList vgw_list),
+    bool DeleteVirtualGateway(1:required list<string> vgw_list),
+    // ConnectForVirtualGateway can be used by stateful clients. It audits the
+    // virtual gateway configuration. Upon a new ConnectForVirtualGateway
+    // request, one minute is given for the configuration to be redone. 
+    // Any older virtual gateway configuration remaining after this time is 
+    // deleted.
+    bool ConnectForVirtualGateway(),
+    // Audit timeout of one minute can be modified using this, timeout in msec
+    bool AuditTimerForVirtualGateway(1:required i32 timeout),
 
     bool TunnelNHEntryAdd(1:required string src_ip, 2:required string dst_ip, 3:string vrf_name),
     bool TunnelNHEntryDelete(1:required string src_ip, 2:required string dst_ip, 3:string vrf_name),

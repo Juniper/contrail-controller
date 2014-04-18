@@ -199,6 +199,7 @@ struct VrfSandeshData {
     2: i32 ucindex  (link="Inet4UcRouteReq"); // VRF Index INET4 UC Table
     3: i32 mcindex  (link="Inet4McRouteReq"); // VRF Index INET4 MC Table
     4: i32 l2index  (link="Layer2RouteReq"); // VRF Index L2 Table
+    5: string source;                        // config or gateway
 }
 
 struct MplsSandeshData {

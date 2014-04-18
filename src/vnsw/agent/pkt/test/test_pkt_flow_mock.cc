@@ -14,7 +14,7 @@ namespace opt = boost::program_options;
 char setup_file[1024];
 char config_file[1024];
 
-void RouterIdDepInit() {
+void RouterIdDepInit(Agent *agent) {
 }
 
 namespace {

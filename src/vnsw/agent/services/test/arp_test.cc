@@ -512,7 +512,7 @@ TEST_F(ArpTest, ArpItfDeleteTest) {
 }
 #endif
 
-void RouterIdDepInit() {
+void RouterIdDepInit(Agent *agent) {
 }
 
 int main(int argc, char *argv[]) {

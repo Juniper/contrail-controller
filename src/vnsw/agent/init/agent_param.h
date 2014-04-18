@@ -33,7 +33,7 @@ public:
         Ip4Address gw_;
     };
 
-    AgentParam();
+    AgentParam(Agent *agent);
     virtual ~AgentParam();
 
     bool IsVHostConfigured() {

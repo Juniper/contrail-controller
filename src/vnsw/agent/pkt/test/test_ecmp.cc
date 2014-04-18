@@ -8,7 +8,7 @@
 
 #define AGE_TIME 10*1000
 
-void RouterIdDepInit() {
+void RouterIdDepInit(Agent *agent) {
 }
 
 struct PortInfo input1[] = {

@@ -19,7 +19,7 @@ static TableC *table_c_;
 //DBTable *TableC::table_c_;
 DB *db_;
 
-void RouterIdDepInit() {
+void RouterIdDepInit(Agent *agent) {
 }
 
 DBEntryBase::KeyPtr EntryA::GetDBRequestKey() const {

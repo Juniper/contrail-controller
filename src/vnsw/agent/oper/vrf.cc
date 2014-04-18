@@ -52,8 +52,8 @@ class VrfEntry::DeleteActor : public LifetimeActor {
     VrfEntryRef table_;
 };
 
-VrfEntry::VrfEntry(const string &name) : 
-        name_(name), id_(kInvalidIndex), 
+VrfEntry::VrfEntry(const string &name, uint32_t flags) : 
+        name_(name), id_(kInvalidIndex), flags_(flags),
         walkid_(DBTableWalker::kInvalidWalkerId), deleter_(NULL),
         rt_table_db_(), delete_timeout_timer_(NULL) { 
 }
@@ -101,6 +101,14 @@ void VrfEntry::PostAdd() {
     rt_table_db_[type]->SetVrf(this);
     ((VrfTable *)get_table())->dbtree_[type].insert(VrfTable::VrfDbPair(name_, 
                                                         rt_table_db_[type]));
+}
+
+bool VrfEntry::CanDelete(DBRequest *req) {
+    VrfData *data = static_cast<VrfData *>(req->data.get());
+    // Update flags
+    flags_ &= ~data->flags_;
+    // Do not delete the VRF if config VRF or gateway VRF flag is still set
+    return flags_ ? false : true;
 }
 
 DBEntryBase::KeyPtr VrfEntry::GetDBRequestKey() const {
@@ -284,6 +292,12 @@ bool VrfEntry::DBEntrySandesh(Sandesh *sresp, std::string &name) const {
         data.set_ucindex(vrf_id());
         data.set_mcindex(vrf_id());
         data.set_l2index(vrf_id());
+        std::string vrf_flags;
+        if (flags() & VrfData::ConfigVrf)
+            vrf_flags += "Config; ";
+        if (flags() & VrfData::GwVrf)
+            vrf_flags += "Gateway; ";
+        data.set_source(vrf_flags);
 
         std::vector<VrfSandeshData> &list = 
                 const_cast<std::vector<VrfSandeshData>&>(resp->get_vrf_list());
@@ -348,14 +362,14 @@ void VrfEntry::CancelDeleteTimer() {
 
 std::auto_ptr<DBEntry> VrfTable::AllocEntry(const DBRequestKey *k) const {
     const VrfKey *key = static_cast<const VrfKey *>(k);
-    VrfEntry *vrf = new VrfEntry(key->name_);
+    VrfEntry *vrf = new VrfEntry(key->name_, 0);
     return std::auto_ptr<DBEntry>(static_cast<DBEntry *>(vrf));
 }
 
 DBEntry *VrfTable::Add(const DBRequest *req) {
     VrfKey *key = static_cast<VrfKey *>(req->key.get());
-    //VrfData *data = static_cast<VrfData *>(req->data.get());
-    VrfEntry *vrf = new VrfEntry(key->name_);
+    VrfData *data = static_cast<VrfData *>(req->data.get());
+    VrfEntry *vrf = new VrfEntry(key->name_, data->flags_);
 
     // Add VRF into name based tree
     if (FindVrfFromName(key->name_)) {
@@ -371,8 +385,11 @@ DBEntry *VrfTable::Add(const DBRequest *req) {
     return vrf;
 }
 
-// No Change expected for VRF
 bool VrfTable::OnChange(DBEntry *entry, const DBRequest *req) {
+    VrfEntry *vrf = static_cast<VrfEntry *>(entry);
+    VrfData *data = static_cast<VrfData *>(req->data.get());
+    vrf->set_flags(data->flags_);
+
     return false;
 }
 
@@ -461,9 +478,9 @@ AgentRouteTable *VrfTable::GetRouteTable(const string &vrf_name,
     return static_cast<AgentRouteTable *>(it->second);
 }
 
-void VrfTable::CreateVrf(const string &name) {
+void VrfTable::CreateVrf(const string &name, uint32_t flags) {
     VrfKey *key = new VrfKey(name);
-    VrfData *data = new VrfData();
+    VrfData *data = new VrfData(flags);
     DBRequest req;
     req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
     req.key.reset(key);
@@ -471,12 +488,13 @@ void VrfTable::CreateVrf(const string &name) {
     Enqueue(&req);
 }
 
-void VrfTable::DeleteVrf(const string &name) {
-    VrfKey *key = new VrfKey(name);
+void VrfTable::DeleteVrf(const string &name, uint32_t flags) {
     DBRequest req;
-            req.oper = DBRequest::DB_ENTRY_DELETE;
+    req.oper = DBRequest::DB_ENTRY_DELETE;
+    VrfKey *key = new VrfKey(name);
+    VrfData *data = new VrfData(flags);
     req.key.reset(key);
-    req.data.reset(NULL);
+    req.data.reset(data);
     Enqueue(&req);
 }
 
@@ -638,7 +656,7 @@ bool VrfTable::IFNodeToReq(IFMapNode *node, DBRequest &req) {
     //Trigger add or delete only for non fabric VRF
     if (node->IsDeleted()) {
         if (IsStaticVrf(node->name())) {
-            //Fabric, link-local and VGW VRF will not be deleted,
+            //Fabric and link-local VRF will not be deleted,
             //upon config delete
             req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
         } else {
@@ -670,7 +688,7 @@ bool VrfTable::IFNodeToReq(IFMapNode *node, DBRequest &req) {
 
     //When VRF config delete comes, first enqueue VRF delete
     //so that when link evaluation happens, all point to deleted VRF
-    VrfData *data = new VrfData();
+    VrfData *data = new VrfData(VrfData::ConfigVrf);
     req.key.reset(key);
     req.data.reset(data);
     Enqueue(&req);

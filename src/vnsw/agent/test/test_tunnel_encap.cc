@@ -34,7 +34,7 @@
 
 using namespace std;
 
-void RouterIdDepInit() {
+void RouterIdDepInit(Agent *agent) {
 }
 
 static void ValidateSandeshResponse(Sandesh *sandesh, vector<int> &result) {

@@ -18,7 +18,7 @@
 #include <pkt/test_tap_interface.h>
 #include <services/services_init.h>
 #include <ksync/ksync_init.h>
-#include <openstack/instance_service_server.h>
+// #include <openstack/instance_service_server.h>
 #include <oper/vrf.h>
 #include <pugixml/pugixml.hpp>
 #include <services/dns_proto.h>
@@ -687,7 +687,7 @@ TEST_F(DnsTest, DnsDropTest) {
     Agent::GetInstance()->GetDnsProto()->ClearStats();
 }
 
-void RouterIdDepInit() {
+void RouterIdDepInit(Agent *agent) {
 }
 
 int main(int argc, char *argv[]) {

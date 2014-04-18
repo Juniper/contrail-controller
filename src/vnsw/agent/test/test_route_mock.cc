@@ -50,7 +50,7 @@ EventManager evm2;
 ServerThread *thread2;
 test::ControlNodeMock *bgp_peer2;
 
-void RouterIdDepInit() {
+void RouterIdDepInit(Agent *agent) {
     VNController::Connect();
 }
 
@@ -697,7 +697,7 @@ int main(int argc, char *argv[]) {
     client = TestInit(init_file, ksync_init, true, false);
 
     StartControlNodeMock();
-    RouterIdDepInit();
+    RouterIdDepInit(Agent::GetInstance());
     int ret = RUN_ALL_TESTS();
     StopControlNodeMock();
 

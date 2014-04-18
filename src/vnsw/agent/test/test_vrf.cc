@@ -45,7 +45,7 @@ using namespace boost::assign;
 
 
 using namespace pugi;
-void RouterIdDepInit() {
+void RouterIdDepInit(Agent *agent) {
     VNController::Connect();
 }
 
@@ -67,7 +67,7 @@ protected:
         Agent::GetInstance()->SetXmppPort(bgp_peer1->GetServerPort(), 0);
         Agent::GetInstance()->SetDnsXmppServer("", 0);
         Agent::GetInstance()->SetDnsXmppPort(bgp_peer1->GetServerPort(), 0);
-        RouterIdDepInit();
+        RouterIdDepInit(Agent::GetInstance());
         thread_->Start();
         WAIT_FOR(100, 10000, (bgp_peer1->IsEstablished() == true));
     }

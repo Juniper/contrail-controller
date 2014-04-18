@@ -50,7 +50,7 @@
 // </config>
 //
 
-void RouterIdDepInit() {
+void RouterIdDepInit(Agent *agent) {
 }
 
 class VmPortTest : public ::testing::Test {

@@ -25,7 +25,7 @@
 
 VrfEntry *vrf1, *vrf2;
 
-void RouterIdDepInit() {
+void RouterIdDepInit(Agent *agent) {
 }
 
 class AgentPeerDelete : public ::testing::Test {

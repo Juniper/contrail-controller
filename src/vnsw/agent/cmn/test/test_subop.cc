@@ -16,7 +16,7 @@ TaskScheduler       *scheduler;
 static TableC *table_c_;
 DB *db_;
 
-void RouterIdDepInit() {
+void RouterIdDepInit(Agent *agent) {
 }
 
 DBEntryBase::KeyPtr EntryC::GetDBRequestKey() const {

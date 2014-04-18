@@ -10,7 +10,7 @@
 
 #define MAX_VNET 4
 
-void RouterIdDepInit() {
+void RouterIdDepInit(Agent *agent) {
 }
 
 struct TestFlowKey {

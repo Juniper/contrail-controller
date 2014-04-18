@@ -49,8 +49,6 @@
 #include <vgw/cfg_vgw.h>
 #include <vgw/vgw.h>
 
-extern void RouterIdDepInit();
-
 static bool interface_exist(string &name) {
 	struct if_nameindex *ifs = NULL;
 	struct if_nameindex *head = NULL;

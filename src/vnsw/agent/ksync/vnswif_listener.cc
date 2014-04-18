@@ -23,7 +23,7 @@
 #include <ksync/interface_ksync.h>
 #include <ksync/vnswif_listener.h>
 
-extern void RouterIdDepInit();
+extern void RouterIdDepInit(Agent *agent);
 
 VnswInterfaceListener::VnswInterfaceListener(Agent *agent) : 
     agent_(agent), read_buf_(NULL), sock_fd_(0), 
@@ -636,7 +636,7 @@ void VnswInterfaceListener::IfaddrHandler(struct nlmsghdr *nlh) {
             CreateVhostRoutes(addr, ifa->ifa_prefixlen);
             /* Initialize things that are dependent on router-id */
             if (dep_init_reqd) {
-                RouterIdDepInit();
+                RouterIdDepInit(agent_);
                 dep_init_reqd = false;
             }
         }

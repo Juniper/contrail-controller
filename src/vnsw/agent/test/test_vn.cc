@@ -55,7 +55,7 @@ bool CheckVnDel(int vn_id, int timeout) {
     return false;
 }
 
-void RouterIdDepInit() {
+void RouterIdDepInit(Agent *agent) {
 }
 
 static void ValidateSandeshResponse(Sandesh *sandesh, vector<int> &result) {

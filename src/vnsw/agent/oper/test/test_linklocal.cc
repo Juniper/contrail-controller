@@ -286,7 +286,7 @@ TEST_F(LinkLocalTest, GlobalVrouterDeleteTest) {
     client->WaitForIdle();
 }
 
-void RouterIdDepInit() {
+void RouterIdDepInit(Agent *agent) {
 }
 
 int main(int argc, char *argv[]) {

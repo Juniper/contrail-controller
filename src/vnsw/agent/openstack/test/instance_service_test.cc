@@ -43,9 +43,9 @@ using namespace boost::assign;
 using namespace apache::thrift;
 using boost::shared_ptr;
 
-extern void InstanceInfoServiceServerInit(EventManager &evm, DB *db);
+extern void InstanceInfoServiceServerInit(Agent *agent);
 
-void RouterIdDepInit() {
+void RouterIdDepInit(Agent *agent) {
 }
 
 //namespace {
@@ -417,8 +417,7 @@ int main (int argc, char **argv) {
     GETUSERARGS();
     client = TestInit(init_file, ksync_init);
     EventManager *evm = Agent::GetInstance()->GetEventManager();
-    DB *db = Agent::GetInstance()->GetDB();
-    InstanceInfoServiceServerInit(*evm, db);
+    InstanceInfoServiceServerInit(Agent::GetInstance());
     int ret = RUN_ALL_TESTS();
     client->WaitForIdle();
     TestShutdown();

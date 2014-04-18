@@ -48,6 +48,8 @@ public:
     static const uint16_t supervisord_dnsd = 9006;
     static const uint16_t supervisord_contrail_database = 9007;
     static const uint16_t supervisord_webui = 9008;
+
+    static const uint16_t NovaVifVrouterAgentPort = 9090;
 private:
     ContrailPorts() {}
 };

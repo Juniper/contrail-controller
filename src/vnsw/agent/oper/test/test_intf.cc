@@ -46,7 +46,7 @@ using namespace boost::assign;
 #define NULL_VRF ""
 #define ZERO_IP "0.0.0.0"
 
-void RouterIdDepInit() {
+void RouterIdDepInit(Agent *agent) {
 }
 
 static void ValidateSandeshResponse(Sandesh *sandesh, vector<int> &result) {

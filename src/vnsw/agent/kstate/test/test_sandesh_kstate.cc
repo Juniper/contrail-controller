@@ -24,7 +24,7 @@ struct PortInfo input[] = {
 VmInterface *flow0;
 VmInterface *flow1;
 
-void RouterIdDepInit() {
+void RouterIdDepInit(Agent *agent) {
 }
 
 class KStateSandeshTest : public ::testing::Test {

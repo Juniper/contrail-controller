@@ -29,20 +29,44 @@
 
 using namespace apache::thrift;
 
-class CfgIntfStaleCleaner {
+// Stale cleaner to audit & delete old configuration, on a new client connect.
+// Waits for timeout, before cleaning the old configuration.
+class ConfigStaleCleaner {
 public:
-    static const uint32_t kCfgIntfStaleTimeout = 60 * 1000;
-    CfgIntfStaleCleaner(DB *db, boost::asio::io_service &io_service);
-    ~CfgIntfStaleCleaner();
-    void StartStaleCleanTimer(int32_t version);
+    static const uint32_t kConfigStaleTimeout = 60 * 1000;
+    typedef boost::function<void(uint32_t)> TimerCallback;
+
+    ConfigStaleCleaner(Agent *agent, TimerCallback callback);
+    virtual ~ConfigStaleCleaner();
+    virtual void StartStaleCleanTimer(int32_t version);
+    virtual bool StaleEntryTimeout(int32_t version, Timer *timer);
+    void set_callback(TimerCallback callback) { audit_callback_ = callback; }
+    void set_timeout(uint32_t timeout) { timeout_ = timeout; }
+    uint32_t timeout() const { return timeout_; }
+
+protected:
+    Agent *agent_;
+
 private:
-    bool StaleEntryTimeout(int32_t version);
+    uint32_t timeout_;
+    // list of running audit timers (one per connect)
+    std::set<Timer *> running_timer_list_;
+    TimerCallback audit_callback_;
+    DISALLOW_COPY_AND_ASSIGN(ConfigStaleCleaner);
+};
+
+class InterfaceConfigStaleCleaner : public ConfigStaleCleaner {
+public:
+    InterfaceConfigStaleCleaner(Agent *agent);
+    virtual ~InterfaceConfigStaleCleaner();
+    virtual bool OnInterfaceConfigStaleTimeout(int32_t version);
+
+private:
     void CfgIntfWalkDone(int32_t version);
     bool CfgIntfWalk(DBTablePartBase *partition, DBEntryBase *entry, int32_t version);
 
-    DB *db_;
-    Timer *timer_;
     DBTableWalker::WalkId walkid_;
+    DISALLOW_COPY_AND_ASSIGN(InterfaceConfigStaleCleaner);
 };
 
 class InstanceServiceAsyncHandler: virtual public InstanceServiceAsyncIf {
@@ -50,19 +74,22 @@ public:
     static const int kUuidSize = 16;
     typedef boost::uuids::uuid uuid;
 
-    InstanceServiceAsyncHandler(boost::asio::io_service& io_service) : io_service_(io_service), 
-                                                                       version_(0) {
-        novaPeer_ = new Peer(Peer::NOVA_PEER, NOVA_PEER_NAME); 
-    }
-    ~InstanceServiceAsyncHandler() {
-        delete novaPeer_;
-        delete intf_stale_cleaner_;
-    }
+    InstanceServiceAsyncHandler(Agent *agent);
+    ~InstanceServiceAsyncHandler();
+
     virtual AddPort_shared_future_t AddPort(const PortList& port_list);
     virtual KeepAliveCheck_shared_future_t KeepAliveCheck();
     virtual Connect_shared_future_t Connect();
-
     virtual DeletePort_shared_future_t DeletePort(const tuuid& port_id);
+
+    virtual AddVirtualGateway_shared_future_t AddVirtualGateway(
+                             const VirtualGatewayRequestList& vgw_list);
+    virtual DeleteVirtualGateway_shared_future_t DeleteVirtualGateway(
+                             const std::vector<std::string>& vgw_list);
+    virtual ConnectForVirtualGateway_shared_future_t ConnectForVirtualGateway();
+    virtual AuditTimerForVirtualGateway_shared_future_t
+                AuditTimerForVirtualGateway(int32_t timeout);
+    void OnVirtualGatewayStaleTimeout(uint32_t version);
 
     virtual TunnelNHEntryAdd_shared_future_t TunnelNHEntryAdd(
 						     const std::string& src_ip, 
@@ -99,21 +126,21 @@ public:
 
     virtual CreateVrf_shared_future_t CreateVrf(const std::string& vrf_name);
 
-    void SetDb(DB *db);
-    void SetCfgIntfStaleCleaner(CfgIntfStaleCleaner *intf_stale_cleaner);
-
 protected:
     boost::asio::io_service& io_service_;
     
 private:
     uuid ConvertToUuid(const tuuid &tid);
     uuid MakeUuid(int id);
-    Peer *novaPeer_;
-    DB *db_;
+
+    Agent *agent_;
     int version_;
-    CfgIntfStaleCleaner *intf_stale_cleaner_;
+    int vgw_version_;
+    boost::scoped_ptr<Peer> novaPeer_;
+    boost::scoped_ptr<InterfaceConfigStaleCleaner> interface_stale_cleaner_;
+    boost::scoped_ptr<ConfigStaleCleaner> vgw_stale_cleaner_;
 };
 
-void InstanceInfoServiceServerInit(EventManager &evm, DB *db);
+void InstanceInfoServiceServerInit(Agent *agent);
 
 #endif /* __AGENT_INSTANCE_SERVICE_SERVER_H_ */

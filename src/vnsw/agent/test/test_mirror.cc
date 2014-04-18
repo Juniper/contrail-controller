@@ -24,7 +24,7 @@ int entry_count;
 
 std::string analyzer = "TestAnalyzer";
 
-void RouterIdDepInit() {
+void RouterIdDepInit(Agent *agent) {
 }
 
 static void ValidateSandeshResponse(Sandesh *sandesh, vector<int> &result) {

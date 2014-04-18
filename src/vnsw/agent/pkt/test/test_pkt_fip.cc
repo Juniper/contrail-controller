@@ -9,7 +9,7 @@
 #define AGE_TIME 10*1000
 #define MEDATA_NAT_DPORT 8775
 
-void RouterIdDepInit() {
+void RouterIdDepInit(Agent *agent) {
 }
 
 class FlowTest : public ::testing::Test {

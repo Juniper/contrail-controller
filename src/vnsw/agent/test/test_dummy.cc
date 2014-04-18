@@ -8,7 +8,7 @@
 #include "testing/gunit.h"
 #include "test/test_cmn_util.h"
 
-void RouterIdDepInit() {
+void RouterIdDepInit(Agent *agent) {
 }
 
 int main(int argc, char **argv) {

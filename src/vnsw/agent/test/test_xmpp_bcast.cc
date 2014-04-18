@@ -47,7 +47,7 @@ void WaitForIdle2(int wait_seconds = 30) {
 }
 
 
-void RouterIdDepInit() {
+void RouterIdDepInit(Agent *agent) {
 }
 
 

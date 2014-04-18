@@ -60,7 +60,7 @@ public:
         ErrorHandler;
 
     Timer(boost::asio::io_service &service, const std::string &name,
-          int task_id, int task_instance);
+          int task_id, int task_instance, bool delete_on_completion);
     virtual ~Timer();
 
     // Start a timer
@@ -149,6 +149,8 @@ private:
     int task_id_;
     int task_instance_;
     uint32_t seq_no_;
+    bool delete_on_completion_;
+    bool auto_delete_;
     tbb::atomic<int> refcount_;
 };
 
@@ -180,7 +182,8 @@ public:
     static Timer *CreateTimer(boost::asio::io_service &service,
                               const std::string &name,
                               int task_id = Timer::GetTimerTaskId(),
-                              int task_instance = Timer::GetTimerInstanceId());
+                              int task_instance = Timer::GetTimerInstanceId(),
+                              bool delete_on_completion = false);
     static bool DeleteTimer(Timer *Timer);
 
 private:
