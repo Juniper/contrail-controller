@@ -150,7 +150,8 @@ public:
 
     // thread-safe
     bool IsDeleted() const;
-    bool IsAdminDown() { return admin_down_; }
+    bool IsAdminDown() const { return admin_down_; }
+    bool IsCloseInProgress() const;
     virtual bool IsReady() const;
     virtual bool IsXmppPeer() const;
 

@@ -549,6 +549,10 @@ bool BgpPeer::IsDeleted() const {
     return deleter_->IsDeleted();
 }
 
+bool BgpPeer::IsCloseInProgress() const {
+    return (defer_close_ || peer_close_->close_manager()->IsCloseInProgress());
+}
+
 StateMachine::State BgpPeer::GetState() const {
     return state_machine_->get_state();
 }
