@@ -80,8 +80,17 @@ void BgpSession::SendNotification(int code, int subcode,
     uint8_t buf[256];
     int result = BgpProto::Encode(&msg, buf, sizeof(buf));
     assert(result > BgpProto::kMinMessageSize);
-    BGP_LOG(BgpPeerNotification, SandeshLevel::SYS_NOTICE, BGP_LOG_FLAG_ALL,
-            peer_ ? peer_->ToUVEKey() : "Unknown", BGP_PEER_DIR_OUT, code,
-            subcode, msg.ToString());
+
+    // Use SYS_DEBUG for connection collision, SYS_NOTICE for the rest.
+    SandeshLevel::type log_level;
+    if (code == BgpProto::Notification::Cease &&
+        subcode == BgpProto::Notification::ConnectionCollision) {
+        log_level = SandeshLevel::SYS_DEBUG;
+    } else {
+        log_level = SandeshLevel::SYS_NOTICE;
+    }
+    BGP_LOG(BgpPeerNotification, log_level, BGP_LOG_FLAG_ALL,
+            peer_ ? peer_->ToUVEKey() : ToString(),
+            BGP_PEER_DIR_OUT, code, subcode, msg.ToString());
     Send(buf, result, NULL);
 }

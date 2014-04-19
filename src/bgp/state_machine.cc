@@ -276,8 +276,18 @@ struct EvBgpKeepalive : sc::event<EvBgpKeepalive> {
 struct EvBgpNotification : sc::event<EvBgpNotification> {
     EvBgpNotification(BgpSession *session, const BgpProto::Notification *msg)
         : session(session), msg(msg) {
-        BGP_LOG(BgpPeerNotification, SandeshLevel::SYS_NOTICE, BGP_LOG_FLAG_ALL,
-                session->Peer() ? session->Peer()->ToUVEKey() : "Unknown",
+
+        // Use SYS_DEBUG for connection collision, SYS_NOTICE for the rest.
+        SandeshLevel::type log_level;
+        if (msg->error == BgpProto::Notification::Cease &&
+            msg->subcode == BgpProto::Notification::ConnectionCollision) {
+            log_level = SandeshLevel::SYS_DEBUG;
+        } else {
+            log_level = SandeshLevel::SYS_NOTICE;
+        }
+        string peer_key =
+            session->Peer() ? session->Peer()->ToUVEKey() : session->ToString();
+        BGP_LOG(BgpPeerNotification, log_level, BGP_LOG_FLAG_ALL, peer_key,
                 BGP_PEER_DIR_IN, msg->error, msg->subcode, msg->ToString());
     }
     static const char *Name() {

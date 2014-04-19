@@ -87,7 +87,7 @@ bool BgpSessionManager::AcceptSession(TcpSession *tcp_session) {
     }
 
     // Ignore if this peer is being closed.
-    if (peer->peer_close()->close_manager()->IsCloseInProgress()) {
+    if (peer->IsCloseInProgress()) {
         session->SendNotification(BgpProto::Notification::Cease,
                                   BgpProto::Notification::ConnectionRejected);
         return false;
