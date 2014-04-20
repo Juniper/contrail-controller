@@ -51,7 +51,8 @@ public:
 
         CreateVmportEnv(input, 2, 1);
         client->WaitForIdle();
-        EXPECT_TRUE(VmPortActive(input, 0));
+        EXPECT_TRUE(VmPortActive(1));
+        EXPECT_TRUE(VmPortActive(2));
         vnet1_ = static_cast<VmInterface *>(VmPortGet(1));
         vnet2_ = static_cast<VmInterface *>(VmPortGet(2));
     }
@@ -206,6 +207,37 @@ TEST_F(TestVnswIf, vhost_addr_1) {
 
     // Ensure there is no change vhost-ip
     EXPECT_STREQ(vhost->ip_addr().to_string().c_str(), vhost_ip.c_str());
+}
+
+// vhost-ip address update
+TEST_F(TestVnswIf, oper_state_1) {
+    VnswInterfaceListener::HostInterfaceEntry *entry =
+        vnswif_->GetHostInterfaceEntry("vnet1");
+    EXPECT_TRUE(entry != NULL);
+    if (entry == NULL)
+        return;
+
+    InterfaceEvent(true, "vnet1", (IFF_UP|IFF_RUNNING));
+    EXPECT_TRUE(entry->link_up_);
+    EXPECT_TRUE(entry->host_seen_);
+    EXPECT_TRUE(entry->oper_seen_);
+
+    InterfaceEvent(true, "vnet1", 0);
+    EXPECT_FALSE(entry->link_up_);
+    EXPECT_FALSE(vnet1_->ipv4_active());
+    EXPECT_FALSE(vnet1_->l2_active());
+    client->WaitForIdle();
+    EXPECT_TRUE(RouteGet(vnet1_->vrf()->GetName(), vnet1_->ip_addr(), 32) 
+                == NULL);
+
+    InterfaceEvent(true, "vnet1", (IFF_UP|IFF_RUNNING));
+    client->WaitForIdle();
+    EXPECT_TRUE(entry->link_up_);
+    EXPECT_TRUE(vnet1_->ipv4_active());
+    EXPECT_TRUE(vnet1_->l2_active());
+
+    EXPECT_TRUE(RouteGet(vnet1_->vrf()->GetName(), vnet1_->ip_addr(), 32) 
+                != NULL);
 }
 
 int main(int argc, char *argv[]) {

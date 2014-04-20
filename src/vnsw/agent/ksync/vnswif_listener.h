@@ -65,7 +65,6 @@ public:
               uint8_t protocol, uint32_t flags) :
             event_(event), interface_(interface), addr_(addr), plen_(plen),
             flags_(flags), protocol_(protocol) {
-
         }
 
         Type event_;
@@ -80,7 +79,7 @@ public:
     struct HostInterfaceEntry {
         HostInterfaceEntry() : 
             addr_(0), plen_(0), link_up_(false), oper_seen_(false),
-            host_seen_(false) {
+            host_seen_(false), oper_id_(Interface::kInvalidIndex) {
         }
 
         ~HostInterfaceEntry() { }
@@ -89,6 +88,7 @@ public:
         bool link_up_;
         bool oper_seen_;
         bool host_seen_;
+        uint32_t oper_id_;
     };
 
 private:
@@ -131,8 +131,8 @@ private:
 
     void SetSeen(const std::string &name, bool oper);
     void ResetSeen(const std::string &name, bool oper);
-    void Activate(const std::string &name);
-    void DeActivate(const std::string &name);
+    void Activate(const std::string &name, uint32_t os_id);
+    void DeActivate(const std::string &name, uint32_t os_id);
     void SetLinkState(const std::string &name, bool link_up);
     bool IsInterfaceActive(const HostInterfaceEntry *entry);
     void HandleInterfaceEvent(const Event *event);
