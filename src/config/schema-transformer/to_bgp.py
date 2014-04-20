@@ -3056,6 +3056,10 @@ class SchemaTransformer(object):
 def launch_arc(transformer, ssrc_mapc):
     arc_mapc = arc_initialize(transformer._args, ssrc_mapc)
     while True:
+        # If not connected to zookeeper Pause the operations 
+        if not _disc_service.is_connected():
+            time.sleep(1)
+            continue
         pollreq = PollRequest(arc_mapc.get_session_id())
         result = arc_mapc.call('poll', pollreq)
         try:

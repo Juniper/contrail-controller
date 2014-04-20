@@ -1045,6 +1045,10 @@ class VncZkClient(object):
         self._zk_client.delete_node(zk_path)
     # end delete_fq_name_to_uuid_mapping
 
+    def is_connected(self):
+        return self._zk_client.is_connected()
+    # end is_connected
+
 # end VncZkClient
 
 

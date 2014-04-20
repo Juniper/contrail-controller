@@ -899,6 +899,11 @@ class VncApiServer(VncApiServerGen):
 
     def _http_put_common(self, request, obj_type, obj_uuid, obj_fq_name,
                          obj_dict):
+        # If not connected to zookeeper do not allow operations that
+        # causes the state change
+        if not self._db_conn._zk_db.is_connected():
+            return (False,
+                    (503, "Not connected to zookeeper. Not able to perform requested action"))
         if obj_dict:
             fq_name_str = ":".join(obj_fq_name)
 
@@ -959,6 +964,11 @@ class VncApiServer(VncApiServerGen):
     # parent_type needed for perms check. None for derived objects (eg.
     # routing-instance)
     def _http_delete_common(self, request, obj_type, uuid, parent_type):
+        # If not connected to zookeeper do not allow operations that
+        # causes the state change
+        if not self._db_conn._zk_db.is_connected():
+            return (False,
+                    (503, "Not connected to zookeeper. Not able to perform requested action"))
         fq_name_str = ":".join(self._db_conn.uuid_to_fq_name(uuid))
         apiConfig = VncApiCommon(identifier_name=fq_name_str)
         apiConfig.operation = 'delete'
@@ -1007,6 +1017,11 @@ class VncApiServer(VncApiServerGen):
     # end _http_delete_common
 
     def _http_post_common(self, request, obj_type, obj_dict):
+        # If not connected to zookeeper do not allow operations that
+        # causes the state change
+        if not self._db_conn._zk_db.is_connected():
+            return (False,
+                    (503, "Not connected to zookeeper. Not able to perform requested action"))
         if not obj_dict:
             # TODO check api + resource perms etc.
             return (True, None)
