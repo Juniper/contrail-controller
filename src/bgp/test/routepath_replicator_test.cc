@@ -1535,7 +1535,7 @@ TEST_F(ReplicationTest, UpdateInstanceRouteTargets6) {
 
 TEST_F(ReplicationTest, UpdateInstanceRouteTargets7) {
     vector<string> instance_names = list_of("blue")("red");
-    multimap<string, string> connections = map_list_of("blue", "red");
+    multimap<string, string> connections;
     NetworkConfig(instance_names, connections);
     task_util::WaitForIdle();
 
@@ -1583,10 +1583,8 @@ TEST_F(ReplicationTest, UpdateInstanceRouteTargets7) {
     // Make sure the route is in the blue table but not the red table.
     VERIFY_EQ(1, RouteCount("blue"));
     TASK_UTIL_EXPECT_TRUE(InetRouteLookup("blue", "10.0.1.1/32") != NULL);
-#if 0
     VERIFY_EQ(0, RouteCount("red"));
     TASK_UTIL_EXPECT_TRUE(InetRouteLookup("red", "10.0.1.1/32") == NULL);
-#endif
 
     // Update the route in VPN table.
     AddVPNRoute(peers_[0], "192.168.0.1:1:10.0.1.1/32", 100, instance_names);
@@ -1620,7 +1618,7 @@ TEST_F(ReplicationTest, UpdateInstanceRouteTargets7) {
 
 TEST_F(ReplicationTest, UpdateInstanceRouteTargets8) {
     vector<string> instance_names = list_of("blue")("red");
-    multimap<string, string> connections = map_list_of("blue", "red");
+    multimap<string, string> connections;
     NetworkConfig(instance_names, connections);
     task_util::WaitForIdle();
 
@@ -1653,10 +1651,8 @@ TEST_F(ReplicationTest, UpdateInstanceRouteTargets8) {
     // Make sure the route is in the blue table but not the red table.
     VERIFY_EQ(1, RouteCount("blue"));
     TASK_UTIL_EXPECT_TRUE(InetRouteLookup("blue", "10.0.1.1/32") != NULL);
-#if 0
     VERIFY_EQ(0, RouteCount("red"));
     TASK_UTIL_EXPECT_TRUE(InetRouteLookup("red", "10.0.1.1/32") == NULL);
-#endif
 
     // Add a new target to red instance and verify targets.
     AddInstanceRouteTarget("red", "target:64496:202");
@@ -1667,10 +1663,8 @@ TEST_F(ReplicationTest, UpdateInstanceRouteTargets8) {
     // Make sure the route is in the blue table but not the red table.
     VERIFY_EQ(1, RouteCount("blue"));
     TASK_UTIL_EXPECT_TRUE(InetRouteLookup("blue", "10.0.1.1/32") != NULL);
-#if 0
     VERIFY_EQ(0, RouteCount("red"));
     TASK_UTIL_EXPECT_TRUE(InetRouteLookup("red", "10.0.1.1/32") == NULL);
-#endif
 
     // Update the route in VPN table.
     AddVPNRoute(peers_[0], "192.168.0.1:1:10.0.1.1/32", 100, instance_names);
