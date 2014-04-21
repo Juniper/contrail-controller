@@ -355,6 +355,25 @@ class VncApi(VncApiClientGen):
 
     #end _request_server
 
+    def ref_update(self, obj_type, obj_uuid, ref_type, ref_uuid, ref_fq_name, operation, attr=None):
+        if ref_type.endswith('_refs'):
+            ref_type = ref_type[:-5].replace('_', '-')
+        json_body = json.dumps({'type': obj_type, 'uuid': obj_uuid,
+                                'ref-type': ref_type, 'ref-uuid': ref_uuid,
+                                'ref-fq-name': ref_fq_name,
+                                'operation': operation, 'attr': attr},
+                               default=self._obj_serializer_diff)
+        uri = self._action_uri['ref-update']
+        try:
+            content = self._request_server(rest.OP_POST, uri, data=json_body)
+        except HttpError as he:
+            if he.status_code == 404:
+                return None
+            raise he
+
+        return json.loads(content)['uuid']
+    #end ref_update
+
     def obj_to_id(self, obj):
         return self.fq_name_to_id(obj.get_type(), obj.get_fq_name())
     #end obj_to_id
