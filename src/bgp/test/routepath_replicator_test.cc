@@ -1208,7 +1208,6 @@ TEST_F(ReplicationTest, UpdateInstanceRouteTargets2) {
     // Remove original target from blue instance and verify targets.
     RemoveInstanceRouteTarget("blue", "target:64496:1");
     TASK_UTIL_EXPECT_EQ(0, GetInstanceRouteTargetList("blue").size());
-    instance_targets = GetInstanceRouteTargetList("blue");
 
     // Make sure the route is in the blue table but not in the red table.
     VERIFY_EQ(1, RouteCount("blue"));
@@ -1238,6 +1237,453 @@ TEST_F(ReplicationTest, UpdateInstanceRouteTargets2) {
 
     // Delete route from blue table.
     DeleteInetRoute(peers_[0], "blue", "10.0.1.1/32");
+    task_util::WaitForIdle();
+
+    // Make sure the route is gone from the blue red tables and VPN table.
+    VERIFY_EQ(0, RouteCount("blue"));
+    TASK_UTIL_EXPECT_TRUE(InetRouteLookup("blue", "10.0.1.1/32") == NULL);
+    VERIFY_EQ(0, RouteCount("red"));
+    TASK_UTIL_EXPECT_TRUE(InetRouteLookup("red", "10.0.1.1/32") == NULL);
+    TASK_UTIL_EXPECT_TRUE(VPNRouteLookup("192.168.0.1:1:10.0.1.1/32") == NULL);
+}
+
+TEST_F(ReplicationTest, UpdateInstanceRouteTargets3) {
+    vector<string> instance_names = list_of("blue")("red");
+    multimap<string, string> connections = map_list_of("blue", "red");
+    NetworkConfig(instance_names, connections);
+    task_util::WaitForIdle();
+
+    boost::system::error_code ec;
+    peers_.push_back(
+        new BgpPeerMock(Ip4Address::from_string("192.168.0.1", ec)));
+
+    // Verify targets for red instance.
+    vector<string> instance_targets = GetInstanceRouteTargetList("red");
+    TASK_UTIL_EXPECT_EQ(1, instance_targets.size());
+    TASK_UTIL_EXPECT_EQ("target:64496:2", instance_targets[0]);
+
+    // Add route to blue table.
+    AddInetRoute(peers_[0], "blue", "10.0.1.1/32", 100, "192.168.0.1:1");
+    task_util::WaitForIdle();
+
+    // Make sure the route is in the blue and red tables.
+    VERIFY_EQ(1, RouteCount("blue"));
+    TASK_UTIL_EXPECT_TRUE(InetRouteLookup("blue", "10.0.1.1/32") != NULL);
+    VERIFY_EQ(1, RouteCount("red"));
+    TASK_UTIL_EXPECT_TRUE(InetRouteLookup("red", "10.0.1.1/32") != NULL);
+
+    // Verify the VPN route.
+    TASK_UTIL_EXPECT_TRUE(VPNRouteLookup("192.168.0.1:1:10.0.1.1/32") != NULL);
+    BgpRoute *rt = VPNRouteLookup("192.168.0.1:1:10.0.1.1/32");
+    instance_targets = GetInstanceRouteTargetList("blue");
+    VerifyVPNPathRouteTargets(rt->BestPath(), instance_targets);
+
+    // Add another target to red instance and verify targets.
+    AddInstanceRouteTarget("red", "target:64496:202");
+    TASK_UTIL_EXPECT_EQ(2, GetInstanceRouteTargetList("red").size());
+    instance_targets = GetInstanceRouteTargetList("red");
+    TASK_UTIL_EXPECT_EQ("target:64496:2", instance_targets[0]);
+    TASK_UTIL_EXPECT_EQ("target:64496:202", instance_targets[1]);
+
+    // Make sure the route is in the blue and red tables.
+    VERIFY_EQ(1, RouteCount("blue"));
+    TASK_UTIL_EXPECT_TRUE(InetRouteLookup("blue", "10.0.1.1/32") != NULL);
+    VERIFY_EQ(1, RouteCount("red"));
+    TASK_UTIL_EXPECT_TRUE(InetRouteLookup("red", "10.0.1.1/32") != NULL);
+
+    // Verify the VPN route.
+    TASK_UTIL_EXPECT_TRUE(VPNRouteLookup("192.168.0.1:1:10.0.1.1/32") != NULL);
+    rt = VPNRouteLookup("192.168.0.1:1:10.0.1.1/32");
+    instance_targets = GetInstanceRouteTargetList("blue");
+    VerifyVPNPathRouteTargets(rt->BestPath(), instance_targets);
+
+    // Remove original target from red instance and verify targets.
+    RemoveInstanceRouteTarget("red", "target:64496:2");
+    TASK_UTIL_EXPECT_EQ(1, GetInstanceRouteTargetList("red").size());
+    instance_targets = GetInstanceRouteTargetList("red");
+    TASK_UTIL_EXPECT_EQ("target:64496:202", instance_targets[0]);
+
+    // Make sure the route is in the blue and red tables.
+    VERIFY_EQ(1, RouteCount("blue"));
+    TASK_UTIL_EXPECT_TRUE(InetRouteLookup("blue", "10.0.1.1/32") != NULL);
+    VERIFY_EQ(1, RouteCount("red"));
+    TASK_UTIL_EXPECT_TRUE(InetRouteLookup("red", "10.0.1.1/32") != NULL);
+
+    // Verify the VPN route.
+    TASK_UTIL_EXPECT_TRUE(VPNRouteLookup("192.168.0.1:1:10.0.1.1/32") != NULL);
+    rt = VPNRouteLookup("192.168.0.1:1:10.0.1.1/32");
+    instance_targets = GetInstanceRouteTargetList("blue");
+    VerifyVPNPathRouteTargets(rt->BestPath(), instance_targets);
+
+    // Delete route from blue table.
+    DeleteInetRoute(peers_[0], "blue", "10.0.1.1/32");
+    task_util::WaitForIdle();
+
+    // Make sure the route is gone from the blue red tables and VPN table.
+    VERIFY_EQ(0, RouteCount("blue"));
+    TASK_UTIL_EXPECT_TRUE(InetRouteLookup("blue", "10.0.1.1/32") == NULL);
+    VERIFY_EQ(0, RouteCount("red"));
+    TASK_UTIL_EXPECT_TRUE(InetRouteLookup("red", "10.0.1.1/32") == NULL);
+    TASK_UTIL_EXPECT_TRUE(VPNRouteLookup("192.168.0.1:1:10.0.1.1/32") == NULL);
+}
+
+TEST_F(ReplicationTest, UpdateInstanceRouteTargets4) {
+    vector<string> instance_names = list_of("blue")("red");
+    multimap<string, string> connections = map_list_of("blue", "red");
+    NetworkConfig(instance_names, connections);
+    task_util::WaitForIdle();
+
+    boost::system::error_code ec;
+    peers_.push_back(
+        new BgpPeerMock(Ip4Address::from_string("192.168.0.1", ec)));
+
+    // Verify targets for red instance.
+    vector<string> instance_targets = GetInstanceRouteTargetList("red");
+    TASK_UTIL_EXPECT_EQ(1, instance_targets.size());
+    TASK_UTIL_EXPECT_EQ("target:64496:2", instance_targets[0]);
+
+    // Add route to blue table.
+    AddInetRoute(peers_[0], "blue", "10.0.1.1/32", 100, "192.168.0.1:1");
+    task_util::WaitForIdle();
+
+    // Make sure the route is in the blue and red tables.
+    VERIFY_EQ(1, RouteCount("blue"));
+    TASK_UTIL_EXPECT_TRUE(InetRouteLookup("blue", "10.0.1.1/32") != NULL);
+    VERIFY_EQ(1, RouteCount("red"));
+    TASK_UTIL_EXPECT_TRUE(InetRouteLookup("red", "10.0.1.1/32") != NULL);
+
+    // Verify the VPN route.
+    TASK_UTIL_EXPECT_TRUE(VPNRouteLookup("192.168.0.1:1:10.0.1.1/32") != NULL);
+    BgpRoute *rt = VPNRouteLookup("192.168.0.1:1:10.0.1.1/32");
+    instance_targets = GetInstanceRouteTargetList("blue");
+    VerifyVPNPathRouteTargets(rt->BestPath(), instance_targets);
+
+    // Remove original target from red instance and verify targets.
+    RemoveInstanceRouteTarget("red", "target:64496:2");
+    TASK_UTIL_EXPECT_EQ(0, GetInstanceRouteTargetList("red").size());
+
+    // Make sure the route is in the blue and red tables.
+    // Even though red has no export targets, it's still importing blue.
+    VERIFY_EQ(1, RouteCount("blue"));
+    TASK_UTIL_EXPECT_TRUE(InetRouteLookup("blue", "10.0.1.1/32") != NULL);
+    VERIFY_EQ(1, RouteCount("red"));
+    TASK_UTIL_EXPECT_TRUE(InetRouteLookup("red", "10.0.1.1/32") != NULL);
+
+    // Verify the VPN route.
+    TASK_UTIL_EXPECT_TRUE(VPNRouteLookup("192.168.0.1:1:10.0.1.1/32") != NULL);
+    rt = VPNRouteLookup("192.168.0.1:1:10.0.1.1/32");
+    instance_targets = GetInstanceRouteTargetList("blue");
+    VerifyVPNPathRouteTargets(rt->BestPath(), instance_targets);
+
+    // Add a new target to red instance and verify targets.
+    AddInstanceRouteTarget("red", "target:64496:202");
+    TASK_UTIL_EXPECT_EQ(1, GetInstanceRouteTargetList("red").size());
+    instance_targets = GetInstanceRouteTargetList("red");
+    TASK_UTIL_EXPECT_EQ("target:64496:202", instance_targets[0]);
+
+    // Make sure the route is in the blue and red tables.
+    VERIFY_EQ(1, RouteCount("blue"));
+    TASK_UTIL_EXPECT_TRUE(InetRouteLookup("blue", "10.0.1.1/32") != NULL);
+    VERIFY_EQ(1, RouteCount("red"));
+    TASK_UTIL_EXPECT_TRUE(InetRouteLookup("red", "10.0.1.1/32") != NULL);
+
+    // Verify the VPN route.
+    TASK_UTIL_EXPECT_TRUE(VPNRouteLookup("192.168.0.1:1:10.0.1.1/32") != NULL);
+    rt = VPNRouteLookup("192.168.0.1:1:10.0.1.1/32");
+    instance_targets = GetInstanceRouteTargetList("blue");
+    VerifyVPNPathRouteTargets(rt->BestPath(), instance_targets);
+
+    // Delete route from blue table.
+    DeleteInetRoute(peers_[0], "blue", "10.0.1.1/32");
+    task_util::WaitForIdle();
+
+    // Make sure the route is gone from the blue red tables and VPN table.
+    VERIFY_EQ(0, RouteCount("blue"));
+    TASK_UTIL_EXPECT_TRUE(InetRouteLookup("blue", "10.0.1.1/32") == NULL);
+    VERIFY_EQ(0, RouteCount("red"));
+    TASK_UTIL_EXPECT_TRUE(InetRouteLookup("red", "10.0.1.1/32") == NULL);
+    TASK_UTIL_EXPECT_TRUE(VPNRouteLookup("192.168.0.1:1:10.0.1.1/32") == NULL);
+}
+
+TEST_F(ReplicationTest, UpdateInstanceRouteTargets5) {
+    vector<string> instance_names = list_of("blue")("red");
+    multimap<string, string> connections = map_list_of("blue", "red");
+    NetworkConfig(instance_names, connections);
+    task_util::WaitForIdle();
+
+    boost::system::error_code ec;
+    peers_.push_back(
+        new BgpPeerMock(Ip4Address::from_string("192.168.0.1", ec)));
+
+    // Add route to VPN table with target for blue table.
+    AddVPNRouteWithTarget(peers_[0], "192.168.0.1:1:10.0.1.1/32", 100,
+        "target:64496:1");
+    task_util::WaitForIdle();
+
+    // Verify the VPN route.
+    TASK_UTIL_EXPECT_TRUE(VPNRouteLookup("192.168.0.1:1:10.0.1.1/32") != NULL);
+    BgpRoute *rt = VPNRouteLookup("192.168.0.1:1:10.0.1.1/32");
+    vector<string> instance_targets = GetInstanceRouteTargetList("blue");
+    VerifyVPNPathRouteTargets(rt->BestPath(), instance_targets);
+
+    // Make sure the route is in the blue and red tables.
+    VERIFY_EQ(1, RouteCount("blue"));
+    TASK_UTIL_EXPECT_TRUE(InetRouteLookup("blue", "10.0.1.1/32") != NULL);
+    VERIFY_EQ(1, RouteCount("red"));
+    TASK_UTIL_EXPECT_TRUE(InetRouteLookup("red", "10.0.1.1/32") != NULL);
+
+    // Add another target to red instance and verify targets.
+    AddInstanceRouteTarget("red", "target:64496:202");
+    TASK_UTIL_EXPECT_EQ(2, GetInstanceRouteTargetList("red").size());
+    instance_targets = GetInstanceRouteTargetList("red");
+    TASK_UTIL_EXPECT_EQ("target:64496:2", instance_targets[0]);
+    TASK_UTIL_EXPECT_EQ("target:64496:202", instance_targets[1]);
+
+    // Make sure the route is in the blue and red tables.
+    VERIFY_EQ(1, RouteCount("blue"));
+    TASK_UTIL_EXPECT_TRUE(InetRouteLookup("blue", "10.0.1.1/32") != NULL);
+    VERIFY_EQ(1, RouteCount("red"));
+    TASK_UTIL_EXPECT_TRUE(InetRouteLookup("red", "10.0.1.1/32") != NULL);
+
+    // Remove original target from red instance and verify targets.
+    RemoveInstanceRouteTarget("red", "target:64496:2");
+    TASK_UTIL_EXPECT_EQ(1, GetInstanceRouteTargetList("red").size());
+    instance_targets = GetInstanceRouteTargetList("red");
+    TASK_UTIL_EXPECT_EQ("target:64496:202", instance_targets[0]);
+
+    // Make sure the route is in the blue and red tables.
+    VERIFY_EQ(1, RouteCount("blue"));
+    TASK_UTIL_EXPECT_TRUE(InetRouteLookup("blue", "10.0.1.1/32") != NULL);
+    VERIFY_EQ(1, RouteCount("red"));
+    TASK_UTIL_EXPECT_TRUE(InetRouteLookup("red", "10.0.1.1/32") != NULL);
+
+    // Delete route from VPN table.
+    DeleteVPNRoute(peers_[0], "192.168.0.1:1:10.0.1.1/32");
+    task_util::WaitForIdle();
+
+    // Make sure the route is gone from the blue red tables and VPN table.
+    VERIFY_EQ(0, RouteCount("blue"));
+    TASK_UTIL_EXPECT_TRUE(InetRouteLookup("blue", "10.0.1.1/32") == NULL);
+    VERIFY_EQ(0, RouteCount("red"));
+    TASK_UTIL_EXPECT_TRUE(InetRouteLookup("red", "10.0.1.1/32") == NULL);
+    TASK_UTIL_EXPECT_TRUE(VPNRouteLookup("192.168.0.1:1:10.0.1.1/32") == NULL);
+}
+
+TEST_F(ReplicationTest, UpdateInstanceRouteTargets6) {
+    vector<string> instance_names = list_of("blue")("red");
+    multimap<string, string> connections = map_list_of("blue", "red");
+    NetworkConfig(instance_names, connections);
+    task_util::WaitForIdle();
+
+    boost::system::error_code ec;
+    peers_.push_back(
+        new BgpPeerMock(Ip4Address::from_string("192.168.0.1", ec)));
+
+    // Add route to VPN table with target for blue table.
+    AddVPNRouteWithTarget(peers_[0], "192.168.0.1:1:10.0.1.1/32", 100,
+        "target:64496:1");
+    task_util::WaitForIdle();
+
+    // Verify the VPN route.
+    TASK_UTIL_EXPECT_TRUE(VPNRouteLookup("192.168.0.1:1:10.0.1.1/32") != NULL);
+    BgpRoute *rt = VPNRouteLookup("192.168.0.1:1:10.0.1.1/32");
+    vector<string> instance_targets = GetInstanceRouteTargetList("blue");
+    VerifyVPNPathRouteTargets(rt->BestPath(), instance_targets);
+
+    // Make sure the route is in the blue and red tables.
+    VERIFY_EQ(1, RouteCount("blue"));
+    TASK_UTIL_EXPECT_TRUE(InetRouteLookup("blue", "10.0.1.1/32") != NULL);
+    VERIFY_EQ(1, RouteCount("red"));
+    TASK_UTIL_EXPECT_TRUE(InetRouteLookup("red", "10.0.1.1/32") != NULL);
+
+    // Remove original target from red instance and verify targets.
+    RemoveInstanceRouteTarget("red", "target:64496:2");
+    TASK_UTIL_EXPECT_EQ(0, GetInstanceRouteTargetList("red").size());
+
+    // Make sure the route is in the blue and red tables.
+    // Even though red has no export targets, it's still importing blue.
+    VERIFY_EQ(1, RouteCount("blue"));
+    TASK_UTIL_EXPECT_TRUE(InetRouteLookup("blue", "10.0.1.1/32") != NULL);
+    VERIFY_EQ(1, RouteCount("red"));
+    TASK_UTIL_EXPECT_TRUE(InetRouteLookup("red", "10.0.1.1/32") != NULL);
+
+    // Add a new target to red instance and verify targets.
+    AddInstanceRouteTarget("red", "target:64496:202");
+    TASK_UTIL_EXPECT_EQ(1, GetInstanceRouteTargetList("red").size());
+    instance_targets = GetInstanceRouteTargetList("red");
+    TASK_UTIL_EXPECT_EQ("target:64496:202", instance_targets[0]);
+
+    // Make sure the route is in the blue and red tables.
+    VERIFY_EQ(1, RouteCount("blue"));
+    TASK_UTIL_EXPECT_TRUE(InetRouteLookup("blue", "10.0.1.1/32") != NULL);
+    VERIFY_EQ(1, RouteCount("red"));
+    TASK_UTIL_EXPECT_TRUE(InetRouteLookup("red", "10.0.1.1/32") != NULL);
+
+    // Delete route from VPN table.
+    DeleteVPNRoute(peers_[0], "192.168.0.1:1:10.0.1.1/32");
+    task_util::WaitForIdle();
+
+    // Make sure the route is gone from the blue red tables and VPN table.
+    VERIFY_EQ(0, RouteCount("blue"));
+    TASK_UTIL_EXPECT_TRUE(InetRouteLookup("blue", "10.0.1.1/32") == NULL);
+    VERIFY_EQ(0, RouteCount("red"));
+    TASK_UTIL_EXPECT_TRUE(InetRouteLookup("red", "10.0.1.1/32") == NULL);
+    TASK_UTIL_EXPECT_TRUE(VPNRouteLookup("192.168.0.1:1:10.0.1.1/32") == NULL);
+}
+
+TEST_F(ReplicationTest, UpdateInstanceRouteTargets7) {
+    vector<string> instance_names = list_of("blue")("red");
+    multimap<string, string> connections;
+    NetworkConfig(instance_names, connections);
+    task_util::WaitForIdle();
+
+    boost::system::error_code ec;
+    peers_.push_back(
+        new BgpPeerMock(Ip4Address::from_string("192.168.0.1", ec)));
+
+    // Add route to VPN table.
+    AddVPNRoute(peers_[0], "192.168.0.1:1:10.0.1.1/32", 100, instance_names);
+    task_util::WaitForIdle();
+
+    // Verify the VPN route.
+    TASK_UTIL_EXPECT_TRUE(VPNRouteLookup("192.168.0.1:1:10.0.1.1/32") != NULL);
+    BgpRoute *rt = VPNRouteLookup("192.168.0.1:1:10.0.1.1/32");
+    vector<string> instance_targets;
+    instance_targets.push_back("target:64496:1");
+    instance_targets.push_back("target:64496:2");
+    VerifyVPNPathRouteTargets(rt->BestPath(), instance_targets);
+
+    // Make sure the route is in the blue and red tables.
+    VERIFY_EQ(1, RouteCount("blue"));
+    TASK_UTIL_EXPECT_TRUE(InetRouteLookup("blue", "10.0.1.1/32") != NULL);
+    VERIFY_EQ(1, RouteCount("red"));
+    TASK_UTIL_EXPECT_TRUE(InetRouteLookup("red", "10.0.1.1/32") != NULL);
+
+    // Add another target to red instance and verify targets.
+    AddInstanceRouteTarget("red", "target:64496:202");
+    TASK_UTIL_EXPECT_EQ(2, GetInstanceRouteTargetList("red").size());
+    instance_targets = GetInstanceRouteTargetList("red");
+    TASK_UTIL_EXPECT_EQ("target:64496:2", instance_targets[0]);
+    TASK_UTIL_EXPECT_EQ("target:64496:202", instance_targets[1]);
+
+    // Make sure the route is in the blue and red tables.
+    VERIFY_EQ(1, RouteCount("blue"));
+    TASK_UTIL_EXPECT_TRUE(InetRouteLookup("blue", "10.0.1.1/32") != NULL);
+    VERIFY_EQ(1, RouteCount("red"));
+    TASK_UTIL_EXPECT_TRUE(InetRouteLookup("red", "10.0.1.1/32") != NULL);
+
+    // Remove original target from red instance and verify targets.
+    RemoveInstanceRouteTarget("red", "target:64496:2");
+    TASK_UTIL_EXPECT_EQ(1, GetInstanceRouteTargetList("red").size());
+    instance_targets = GetInstanceRouteTargetList("red");
+    TASK_UTIL_EXPECT_EQ("target:64496:202", instance_targets[0]);
+
+    // Make sure the route is in the blue table but not the red table.
+    VERIFY_EQ(1, RouteCount("blue"));
+    TASK_UTIL_EXPECT_TRUE(InetRouteLookup("blue", "10.0.1.1/32") != NULL);
+    VERIFY_EQ(0, RouteCount("red"));
+    TASK_UTIL_EXPECT_TRUE(InetRouteLookup("red", "10.0.1.1/32") == NULL);
+
+    // Update the route in VPN table.
+    AddVPNRoute(peers_[0], "192.168.0.1:1:10.0.1.1/32", 100, instance_names);
+    task_util::WaitForIdle();
+
+    // Verify the VPN route.
+    TASK_UTIL_EXPECT_TRUE(VPNRouteLookup("192.168.0.1:1:10.0.1.1/32") != NULL);
+    rt = VPNRouteLookup("192.168.0.1:1:10.0.1.1/32");
+    instance_targets.clear();
+    instance_targets.push_back("target:64496:1");
+    instance_targets.push_back("target:64496:202");
+    VerifyVPNPathRouteTargets(rt->BestPath(), instance_targets);
+
+    // Make sure the route is in the blue and red tables.
+    VERIFY_EQ(1, RouteCount("blue"));
+    TASK_UTIL_EXPECT_TRUE(InetRouteLookup("blue", "10.0.1.1/32") != NULL);
+    VERIFY_EQ(1, RouteCount("red"));
+    TASK_UTIL_EXPECT_TRUE(InetRouteLookup("red", "10.0.1.1/32") != NULL);
+
+    // Delete route from VPN table.
+    DeleteVPNRoute(peers_[0], "192.168.0.1:1:10.0.1.1/32");
+    task_util::WaitForIdle();
+
+    // Make sure the route is gone from the blue red tables and VPN table.
+    VERIFY_EQ(0, RouteCount("blue"));
+    TASK_UTIL_EXPECT_TRUE(InetRouteLookup("blue", "10.0.1.1/32") == NULL);
+    VERIFY_EQ(0, RouteCount("red"));
+    TASK_UTIL_EXPECT_TRUE(InetRouteLookup("red", "10.0.1.1/32") == NULL);
+    TASK_UTIL_EXPECT_TRUE(VPNRouteLookup("192.168.0.1:1:10.0.1.1/32") == NULL);
+}
+
+TEST_F(ReplicationTest, UpdateInstanceRouteTargets8) {
+    vector<string> instance_names = list_of("blue")("red");
+    multimap<string, string> connections;
+    NetworkConfig(instance_names, connections);
+    task_util::WaitForIdle();
+
+    boost::system::error_code ec;
+    peers_.push_back(
+        new BgpPeerMock(Ip4Address::from_string("192.168.0.1", ec)));
+
+    // Add route to VPN table.
+    AddVPNRoute(peers_[0], "192.168.0.1:1:10.0.1.1/32", 100, instance_names);
+    task_util::WaitForIdle();
+
+    // Verify the VPN route.
+    TASK_UTIL_EXPECT_TRUE(VPNRouteLookup("192.168.0.1:1:10.0.1.1/32") != NULL);
+    BgpRoute *rt = VPNRouteLookup("192.168.0.1:1:10.0.1.1/32");
+    vector<string> instance_targets;
+    instance_targets.push_back("target:64496:1");
+    instance_targets.push_back("target:64496:2");
+    VerifyVPNPathRouteTargets(rt->BestPath(), instance_targets);
+
+    // Make sure the route is in the blue and red tables.
+    VERIFY_EQ(1, RouteCount("blue"));
+    TASK_UTIL_EXPECT_TRUE(InetRouteLookup("blue", "10.0.1.1/32") != NULL);
+    VERIFY_EQ(1, RouteCount("red"));
+    TASK_UTIL_EXPECT_TRUE(InetRouteLookup("red", "10.0.1.1/32") != NULL);
+
+    // Remove original target from red instance and verify targets.
+    RemoveInstanceRouteTarget("red", "target:64496:2");
+    TASK_UTIL_EXPECT_EQ(0, GetInstanceRouteTargetList("red").size());
+
+    // Make sure the route is in the blue table but not the red table.
+    VERIFY_EQ(1, RouteCount("blue"));
+    TASK_UTIL_EXPECT_TRUE(InetRouteLookup("blue", "10.0.1.1/32") != NULL);
+    VERIFY_EQ(0, RouteCount("red"));
+    TASK_UTIL_EXPECT_TRUE(InetRouteLookup("red", "10.0.1.1/32") == NULL);
+
+    // Add a new target to red instance and verify targets.
+    AddInstanceRouteTarget("red", "target:64496:202");
+    TASK_UTIL_EXPECT_EQ(1, GetInstanceRouteTargetList("red").size());
+    instance_targets = GetInstanceRouteTargetList("red");
+    TASK_UTIL_EXPECT_EQ("target:64496:202", instance_targets[0]);
+
+    // Make sure the route is in the blue table but not the red table.
+    VERIFY_EQ(1, RouteCount("blue"));
+    TASK_UTIL_EXPECT_TRUE(InetRouteLookup("blue", "10.0.1.1/32") != NULL);
+    VERIFY_EQ(0, RouteCount("red"));
+    TASK_UTIL_EXPECT_TRUE(InetRouteLookup("red", "10.0.1.1/32") == NULL);
+
+    // Update the route in VPN table.
+    AddVPNRoute(peers_[0], "192.168.0.1:1:10.0.1.1/32", 100, instance_names);
+    task_util::WaitForIdle();
+
+    // Verify the VPN route.
+    TASK_UTIL_EXPECT_TRUE(VPNRouteLookup("192.168.0.1:1:10.0.1.1/32") != NULL);
+    rt = VPNRouteLookup("192.168.0.1:1:10.0.1.1/32");
+    instance_targets.clear();
+    instance_targets.push_back("target:64496:1");
+    instance_targets.push_back("target:64496:202");
+    VerifyVPNPathRouteTargets(rt->BestPath(), instance_targets);
+
+    // Make sure the route is in the blue and red tables.
+    VERIFY_EQ(1, RouteCount("blue"));
+    TASK_UTIL_EXPECT_TRUE(InetRouteLookup("blue", "10.0.1.1/32") != NULL);
+    VERIFY_EQ(1, RouteCount("red"));
+    TASK_UTIL_EXPECT_TRUE(InetRouteLookup("red", "10.0.1.1/32") != NULL);
+
+    // Delete route from VPN table.
+    DeleteVPNRoute(peers_[0], "192.168.0.1:1:10.0.1.1/32");
     task_util::WaitForIdle();
 
     // Make sure the route is gone from the blue red tables and VPN table.
