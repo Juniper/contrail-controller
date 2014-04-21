@@ -1362,13 +1362,12 @@ TEST_F(ReplicationTest, UpdateInstanceRouteTargets4) {
     RemoveInstanceRouteTarget("red", "target:64496:2");
     TASK_UTIL_EXPECT_EQ(0, GetInstanceRouteTargetList("red").size());
 
-    // Make sure the route is in the blue table but not in the red table.
+    // Make sure the route is in the blue and red tables.
+    // Even though red has no export targets, it's still importing blue.
     VERIFY_EQ(1, RouteCount("blue"));
     TASK_UTIL_EXPECT_TRUE(InetRouteLookup("blue", "10.0.1.1/32") != NULL);
-#if 0
-    VERIFY_EQ(0, RouteCount("red"));
-    TASK_UTIL_EXPECT_TRUE(InetRouteLookup("red", "10.0.1.1/32") == NULL);
-#endif
+    VERIFY_EQ(1, RouteCount("red"));
+    TASK_UTIL_EXPECT_TRUE(InetRouteLookup("red", "10.0.1.1/32") != NULL);
 
     // Verify the VPN route.
     TASK_UTIL_EXPECT_TRUE(VPNRouteLookup("192.168.0.1:1:10.0.1.1/32") != NULL);
@@ -1501,13 +1500,12 @@ TEST_F(ReplicationTest, UpdateInstanceRouteTargets6) {
     RemoveInstanceRouteTarget("red", "target:64496:2");
     TASK_UTIL_EXPECT_EQ(0, GetInstanceRouteTargetList("red").size());
 
-    // Make sure the route is in the blue table but not in the red table.
+    // Make sure the route is in the blue and red tables.
+    // Even though red has no export targets, it's still importing blue.
     VERIFY_EQ(1, RouteCount("blue"));
     TASK_UTIL_EXPECT_TRUE(InetRouteLookup("blue", "10.0.1.1/32") != NULL);
-#if 0
-    VERIFY_EQ(0, RouteCount("red"));
-    TASK_UTIL_EXPECT_TRUE(InetRouteLookup("red", "10.0.1.1/32") == NULL);
-#endif
+    VERIFY_EQ(1, RouteCount("red"));
+    TASK_UTIL_EXPECT_TRUE(InetRouteLookup("red", "10.0.1.1/32") != NULL);
 
     // Add a new target to red instance and verify targets.
     AddInstanceRouteTarget("red", "target:64496:202");
