@@ -193,6 +193,7 @@ const char *XmppEcmpTest::config_tmpl = "\
         <identifier>192.168.0.1</identifier>\
         <address>127.0.0.1</address>\
         <port>%d</port>\
+        <autonomous-system>64512</autonomous-system>\
         <session to=\'B\'>\
             <address-families>\
                 <family>e-vpn</family>\
@@ -205,6 +206,7 @@ const char *XmppEcmpTest::config_tmpl = "\
         <identifier>192.168.0.2</identifier>\
         <address>127.0.0.1</address>\
         <port>%d</port>\
+        <autonomous-system>64512</autonomous-system>\
         <session to=\'A\'>\
             <address-families>\
                 <family>e-vpn</family>\
@@ -213,7 +215,14 @@ const char *XmppEcmpTest::config_tmpl = "\
             </address-families>\
         </session>\
     </bgp-router>\
+    <virtual-network name='red-vn'>\
+        <network-id>101</network-id>\
+    </virtual-network>\
+    <virtual-network name='blue-vn'>\
+        <network-id>102</network-id>\
+    </virtual-network>\
     <routing-instance name='red'>\
+        <virtual-network>red-vn</virtual-network>\
         <vrf-target>target:1:1</vrf-target>\
         <vrf-target>\
             target:1:2\
@@ -221,6 +230,7 @@ const char *XmppEcmpTest::config_tmpl = "\
         </vrf-target>\
     </routing-instance>\
     <routing-instance name='blue'>\
+        <virtual-network>blue-vn</virtual-network>\
         <vrf-target>target:1:2</vrf-target>\
         <vrf-target>\
             target:1:1\
@@ -230,14 +240,9 @@ const char *XmppEcmpTest::config_tmpl = "\
 </config>\
 ";
 
+
 // Initialize mock agents and from xmpp sessions with the control-node.
 void XmppEcmpTest::Initialize() {
-    node_a_->bgp_server()->Configure(config_tmpl);
-    task_util::WaitForIdle();
-
-    node_b_->bgp_server()->Configure(config_tmpl);
-    task_util::WaitForIdle();
-
     const char *ri_1 = "red";
     const char *ri_2 = "blue";
 

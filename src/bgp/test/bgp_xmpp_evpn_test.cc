@@ -1085,7 +1085,6 @@ static const char *config_template_12 = "\
     <bgp-router name=\'X\'>\
         <identifier>192.168.0.1</identifier>\
         <address>127.0.0.1</address>\
-        <port>%d</port>\
     </bgp-router>\
     <virtual-network name='blue'>\
         <network-id>1</network-id>\
