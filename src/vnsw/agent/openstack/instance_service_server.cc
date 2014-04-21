@@ -572,7 +572,7 @@ ConfigStaleCleaner::~ConfigStaleCleaner() {
     // clean up the running timers
     for (std::set<Timer *>::iterator it = running_timer_list_.begin();
          it != running_timer_list_.end(); ++it) {
-        (*it)->Cancel();
+        TimerManager::DeleteTimer(*it);
     }
 }
 

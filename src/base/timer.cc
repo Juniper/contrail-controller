@@ -136,11 +136,6 @@ bool Timer::Cancel() {
         return false;
     }
 
-    // One shot timer cannot be cancelled
-    if (delete_on_completion_) {
-        return false;
-    }
-
     // Cancel Task. If Task cancel succeeds, there will be no callback.
     // Reset TaskRef if call succeeds.
     if (timer_task_) {
@@ -210,7 +205,9 @@ void TimerManager::AddTimer(Timer *timer) {
 bool TimerManager::DeleteTimer(Timer *timer) {
     if (!timer || timer->fired()) return false;
 
-    timer->Cancel();
+    if (!timer->Cancel() && timer->IsDeleteOnCompletion())
+        return false;
+
     tbb::mutex::scoped_lock lock(mutex_);
     timer_ref_.erase(TimerPtr(timer));
 
