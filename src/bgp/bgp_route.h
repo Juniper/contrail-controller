@@ -27,8 +27,6 @@ public:
 
     BgpPath *FindPath(BgpPath::PathSource src, const IPeer *peer,
                       uint32_t path_id);
-    const BgpPath *FindPath(BgpPath::PathSource src, const IPeer *peer,
-                            uint32_t path_id) const;
     bool RemovePath(BgpPath::PathSource src, const IPeer *peer,
                     uint32_t path_id);
     bool RemovePath(const IPeer *peer);

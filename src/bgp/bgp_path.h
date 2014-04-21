@@ -36,14 +36,12 @@ public:
     static std::string PathIdString(uint32_t path_id);
     static std::string PathSourceString(PathSource source);
 
-    BgpPath();
     BgpPath(const IPeer *peer, uint32_t path_id, PathSource src, 
             const BgpAttrPtr ptr, uint32_t flags, uint32_t label);
     BgpPath(const IPeer *peer, PathSource src, const BgpAttrPtr attr,
             uint32_t flags, uint32_t label);
     BgpPath(uint32_t path_id, PathSource src, const BgpAttrPtr attr,
             uint32_t flags, uint32_t label);
-    BgpPath(const BgpPath &rhs);
 
     const IPeer *GetPeer() const {
         return peer_;
@@ -120,8 +118,6 @@ class BgpSecondaryPath : public BgpPath {
 public:
     BgpSecondaryPath(const IPeer *peer, uint32_t path_id, PathSource src, 
                      const BgpAttrPtr attr, uint32_t flags, uint32_t label);
-    BgpSecondaryPath(uint32_t path_id, PathSource src, const BgpAttrPtr attr,
-                     uint32_t flags, uint32_t label);
 
     virtual bool IsReplicated() const {
         return true;

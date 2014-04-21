@@ -17,12 +17,6 @@ BgpPeerKey::BgpPeerKey() {
     uuid = nil();
 }
 
-BgpPeerKey::BgpPeerKey(const tcp::endpoint &ep)
-    : endpoint(ep) {
-    boost::uuids::nil_generator nil;
-    uuid = nil();
-}
-
 BgpPeerKey::BgpPeerKey(const BgpNeighborConfig *config) {
     const autogen::BgpRouterParams &peer = config->peer_config();
     error_code ec;

@@ -8,10 +8,6 @@
 #include <stdio.h>
 using namespace std;
 
-SecurityGroup::SecurityGroup() {
-    data_.fill(0);
-}
-
 SecurityGroup::SecurityGroup(int asn, uint32_t sgid) {
     data_[0] = 0x80;
     data_[1] = 0x04;

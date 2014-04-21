@@ -15,7 +15,6 @@ public:
     static const int kSize = 8;
     typedef boost::array<uint8_t, kSize> bytes_type;
 
-    SecurityGroup();
     SecurityGroup(int asn, uint32_t id);
     explicit SecurityGroup(const bytes_type &data);
 

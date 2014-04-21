@@ -36,7 +36,6 @@ public:
     virtual void DestroyIPeer(IPeer *ipeer);
 
     virtual BgpPeer *NextPeer(BgpPeerKey &key);
-    void ClearAllPeers();
 
     void FillBgpNeighborInfo(std::vector<BgpNeighborResp> &nbr_list,
                              std::string peer);
