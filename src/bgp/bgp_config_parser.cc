@@ -151,7 +151,6 @@ static autogen::BgpSessionAttributes *GetPeeringSessionAttribute(
 
 static void MaybeMergeBidirectionalSessionParams(
         autogen::BgpPeeringAttributes *peer) {
-    // TODO:
 }
 
 static void BuildPeeringLinks(const string &instance,
@@ -244,12 +243,8 @@ static bool ParseSession(const string &identifier, const xml_node &node,
                          SessionMap *sessions) {
     autogen::BgpSessionAttributes attr;
     xml_attribute to = node.attribute("to");
-    if (!to) {
-        return false;
-    }
-    if (!attr.XmlParse(node)) {
-        return false;
-    }
+    assert(to);
+    assert(attr.XmlParse(node));
 
     string to_value = to.value();
     string to_name, uuid;
@@ -271,9 +266,7 @@ static bool ParseServiceChain(const string &instance, const xml_node &node,
                               BgpConfigParser::RequestList *requests) {
     auto_ptr<autogen::ServiceChainInfo> property(
         new autogen::ServiceChainInfo());
-    if (!property->XmlParse(node)) {
-        assert(0);
-    }
+    assert(property->XmlParse(node));
 
     if (add_change) {
         MapObjectSetProperty("routing-instance", instance,
@@ -291,9 +284,7 @@ static bool ParseStaticRoute(const string &instance, const xml_node &node,
                               BgpConfigParser::RequestList *requests) {
     auto_ptr<autogen::StaticRouteEntriesType> property(
         new autogen::StaticRouteEntriesType());
-    if (!property->XmlParse(node)) {
-        assert(0);
-    }
+    assert(property->XmlParse(node));
 
     if (add_change) {
         MapObjectSetProperty("routing-instance", instance,
@@ -312,30 +303,15 @@ static bool ParseBgpRouter(const string &instance, const xml_node &node,
                            BgpConfigParser::RequestList *requests) {
     auto_ptr<autogen::BgpRouterParams> property(
         new autogen::BgpRouterParams());
-    string identifier;
     xml_attribute name = node.attribute("name");
-    if (!property->XmlParse(node)) {
-        // TODO: log warning
-        return false;
-    }
+    assert(name);
+    string identifier = name.value();
+    assert(property->XmlParse(node));
+
     if (property->autonomous_system == 0)
         property->autonomous_system = BgpConfigManager::kDefaultAutonomousSystem;
     if (property->identifier.empty())
         property->identifier = property->address;
-
-    if (name) {
-        identifier = name.value();
-    } else if (!property->address.empty()) {
-        identifier.append(property->address);
-        if (property->port != 0) {
-            ostringstream oss;
-            oss << "_" << property->port;
-            identifier = oss.str();
-        }
-    } else {
-        // TODO: log warning
-        return true;
-    }
 
     bool has_sessions = false;
     for (xml_node xsession = node.child("session"); xsession;
@@ -401,18 +377,11 @@ static bool ParseInstanceTarget(const string &instance, const xml_node &node,
     boost::trim(rtarget);
     boost::system::error_code parse_err;
     RouteTarget::FromString(rtarget, &parse_err);
-    if (parse_err) {
-        BGP_LOG_STR(BgpMessage, SandeshLevel::SYS_WARN,
-                BGP_LOG_FLAG_SYSLOG,
-                "Invalid route-target: " << rtarget);
-        return false;
-    }
+    assert(!parse_err);
 
     auto_ptr<autogen::InstanceTargetType> params(
         new autogen::InstanceTargetType());
-    if (!params->XmlParse(node)) {
-        assert(0);
-    }
+    assert(params->XmlParse(node));
 
     if (add_change) {
         MapObjectLinkAttr("routing-instance", instance, "route-target", rtarget,
@@ -451,12 +420,8 @@ BgpConfigParser::BgpConfigParser(DB *db)
 bool BgpConfigParser::ParseRoutingInstance(const xml_node &parent,
                                            bool add_change,
                                            RequestList *requests) const {
-    // instance name
     string instance(parent.attribute("name").value());
-
-    if (instance.empty()) {
-        return false;
-    }
+    assert(!instance.empty());
 
     SessionMap sessions;
     list<string> routers;
@@ -498,14 +463,11 @@ bool BgpConfigParser::ParseVirtualNetwork(const xml_node &node,
                                           RequestList *requests) const {
     // vn name
     string vn_name(node.attribute("name").value());
-    if (vn_name.empty())
-        return false;
+    assert(!vn_name.empty());
 
     auto_ptr<autogen::VirtualNetworkType> property(
         new autogen::VirtualNetworkType());
-    if (!property->XmlParse(node)) {
-        assert(false);
-    }
+    assert(property->XmlParse(node));
 
     if (add_change) {
         MapObjectSetProperty("virtual-network", vn_name,
@@ -559,27 +521,14 @@ bool BgpConfigParser::Parse(const std::string &content)  {
     istringstream sstream(content);
     xml_document xdoc;
     xml_parse_result result = xdoc.load(sstream);
-    if (!result) {
-        BGP_LOG_STR(BgpMessage, SandeshLevel::SYS_WARN, BGP_LOG_FLAG_SYSLOG,
-                    "Unable to load XML document. (status="
-                     << result.status << ", offset=" << result.offset << ")");
-        return false;
-    }
+    assert(result);
 
     RequestList requests;
     for (xml_node node = xdoc.first_child(); node; node = node.next_sibling()) {
-        bool add_change;
-        if (strcmp(node.name(), "config") == 0) {
-            add_change = true;
-        } else if (strcmp(node.name(), "delete") == 0) {
-            add_change = false;
-        } else {
-            continue;
-        }
-        if (!ParseConfig(node, add_change, &requests)) {
-            STLDeleteValues(&requests);
-            return false;
-        }
+        const char *oper = node.name();
+        assert((strcmp(oper, "config") == 0) || (strcmp(oper, "delete") == 0));
+        bool add_change = (strcmp(oper, "config") == 0);
+        assert(ParseConfig(node, add_change, &requests));
     }
 
     while (!requests.empty()) {
@@ -590,9 +539,7 @@ bool BgpConfigParser::Parse(const std::string &content)  {
                 static_cast<IFMapTable::RequestKey *>(req->key.get());
 
         IFMapTable *table = IFMapTable::FindTable(db_, key->id_type);
-        if (table == NULL) {
-            continue;
-        }
+        assert(table);
         table->Enqueue(req.get());
     }
 
