@@ -90,30 +90,6 @@ BgpPath *BgpRoute::FindPath(BgpPath::PathSource src, const IPeer *peer,
 }
 
 //
-// Find path added by peer with given path id and source.
-// Skips secondary paths.
-// Const version.
-//
-const BgpPath *BgpRoute::FindPath(BgpPath::PathSource src, const IPeer *peer,
-                                  uint32_t path_id) const {
-    for (Route::PathList::const_iterator it = GetPathList().begin();
-         it != GetPathList().end(); ++it) {
-
-        // Skip secondary paths.
-        if (dynamic_cast<const BgpSecondaryPath *>(it.operator->())) {
-            continue;
-        }
-
-        const BgpPath *path = static_cast<const BgpPath *>(it.operator->());
-        if (path->GetPeer() == peer && path->GetPathId() == path_id &&
-            path->GetSource() == src) {
-            return path;
-        }
-    }
-    return NULL;
-}
-
-//
 // Remove path added by peer with given path id and source.
 // Skips secondary paths.
 // Return true if the path is found and removed, false otherwise.

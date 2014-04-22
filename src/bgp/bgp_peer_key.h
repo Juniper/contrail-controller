@@ -12,9 +12,8 @@ class BgpNeighborConfig;
 
 struct BgpPeerKey {
     BgpPeerKey();
-    explicit BgpPeerKey(const boost::asio::ip::tcp::endpoint &ep);
     explicit BgpPeerKey(const BgpNeighborConfig *config);
-    
+
     bool operator<(const BgpPeerKey &rhs) const;
     bool operator>(const BgpPeerKey &rhs) const;
     bool operator==(const BgpPeerKey &rhs) const;

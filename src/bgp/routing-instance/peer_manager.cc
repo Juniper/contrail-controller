@@ -223,17 +223,6 @@ BgpPeer *PeerManager::NextPeer(BgpPeerKey &peer_key) {
     return NULL;
 }
 
-void PeerManager::ClearAllPeers() {
-    for (BgpPeerKeyMap::iterator loc = peers_by_key_.begin(), next = loc;
-         loc != peers_by_key_.end(); loc = next) {
-        BgpPeer *peer = loc->second;
-        ++next;
-        RTINSTANCE_LOG_PEER(Clear, instance_, peer,
-            SandeshLevel::SYS_INFO, RTINSTANCE_LOG_FLAG_ALL);
-        peer->Clear(BgpProto::Notification::OtherConfigChange);
-    }
-}
-
 void PeerManager::FillBgpNeighborInfo(vector<BgpNeighborResp> &nbr_list,
     string ip_address) {
     if (!ip_address.empty()) {
