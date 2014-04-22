@@ -40,6 +40,11 @@ public:
 
 private:
     bool RunQueue() {
+        // Running is done if queue_ is disabled
+        if (queue_->IsDisabled()) {
+            return queue_->RunnerDone();
+        }
+
         QueueEntryT entry = QueueEntryT();
         size_t count = 0;
         while (queue_->Dequeue(&entry)) {
@@ -51,6 +56,7 @@ private:
                 return queue_->RunnerDone();
             }
         }
+
         // Running is done if queue_ is empty
         // While notification is being run, its possible that more entries
         // are added into queue_
@@ -101,15 +107,15 @@ public:
     WorkQueue(int taskId, int taskInstance, Callback callback,
               size_t size = kMaxSize,
               size_t max_iterations = kMaxIterations) :
-    	running_(false),
-    	taskId_(taskId),
-    	taskInstance_(taskInstance),
-    	callback_(callback),
+        running_(false),
+        taskId_(taskId),
+        taskInstance_(taskInstance),
+        callback_(callback),
         on_entry_cb_(0),
         on_exit_cb_(0),
         current_runner_(NULL),
         on_entry_defer_count_(0),
-        disable_(false),
+        disabled_(false),
         deleted_(false),
         enqueues_(0),
         dequeues_(0),
@@ -154,7 +160,7 @@ public:
         bounded_ = bounded;
     }
 
-    void GetBounded() const {
+    bool GetBounded() const {
         return bounded_;
     }
 
@@ -210,31 +216,31 @@ public:
     }
 
     int GetTaskId() const {
-    	return taskId_;
+        return taskId_;
     }
 
     int GetTaskInstance() const {
-    	return taskInstance_;
+        return taskInstance_;
     }
 
     void MayBeStartRunner() {
-    	tbb::mutex::scoped_lock lock(mutex_);
-    	if (running_ || queue_.empty() || deleted_) {
-    		return;
-    	}
-    	if (!start_runner_.empty() && !start_runner_()) {
-    	    return;
-    	}
-    	running_ = true;
+        tbb::mutex::scoped_lock lock(mutex_);
+        if (running_ || queue_.empty() || disabled_ || deleted_) {
+            return;
+        }
+        if (!start_runner_.empty() && !start_runner_()) {
+            return;
+        }
+        running_ = true;
         assert(current_runner_ == NULL);
-    	current_runner_ = new QueueTaskRunner<
-    		                  QueueEntryT, WorkQueue<QueueEntryT> >(this);
-    	TaskScheduler *scheduler = TaskScheduler::GetInstance();
-    	scheduler->Enqueue(current_runner_);
+        current_runner_ =
+            new QueueTaskRunner<QueueEntryT, WorkQueue<QueueEntryT> >(this);
+        TaskScheduler *scheduler = TaskScheduler::GetInstance();
+        scheduler->Enqueue(current_runner_);
     }
 
     Callback GetCallback() const {
-    	return callback_;
+        return callback_;
     }
 
     void SetEntryCallback(TaskEntryCallback on_entry) {
@@ -245,15 +251,23 @@ public:
         on_exit_cb_ = on_exit;
     }
 
-    void set_disable(bool disable) { disable_ = disable; }
-    size_t on_entry_defer_count() const { return on_entry_defer_count_; }
+    // For testing only.
+    void set_disable(bool disabled) {
+        disabled_ = disabled;
+        MayBeStartRunner();
+    }
+
+    bool IsDisabled() const {
+        return disabled_;
+    }
+
+    size_t on_entry_defer_count() const {
+        return on_entry_defer_count_;
+    }
 
     bool OnEntry() {
-        // XXX For testing only, defer this task run
-        if (disable_) {
-            return false;
-        }
         bool run = (on_entry_cb_.empty() || on_entry_cb_());
+
         // Track number of times this queue run is deferred
         if (!run) {
             on_entry_defer_count_++;
@@ -324,12 +338,8 @@ private:
     bool RunnerDone() {
         tbb::mutex::scoped_lock lock(mutex_);
         bool done = false;
-        if (queue_.empty()) {
-            done = true; 
-            OnExit(done);
-            current_runner_ = NULL;         
-            running_ = false;
-        } else if (!start_runner_.empty() && !start_runner_()) {
+        if (disabled_ || queue_.empty() ||
+            (!start_runner_.empty() && !start_runner_())) {
             done = true;
             OnExit(done);
             current_runner_ = NULL;
@@ -353,7 +363,7 @@ private:
     StartRunnerFunc start_runner_;
     QueueTaskRunner<QueueEntryT, WorkQueue<QueueEntryT> > *current_runner_;
     size_t on_entry_defer_count_;
-    bool disable_;
+    bool disabled_;
     bool deleted_;
     size_t enqueues_;
     size_t dequeues_;

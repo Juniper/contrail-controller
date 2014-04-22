@@ -307,6 +307,72 @@ TEST_F(QueueTaskTest, OnExitParallelTest) {
     TASK_UTIL_EXPECT_FALSE(exit_callback_running_);
 }
 
+TEST_F(QueueTaskTest, DisableEnableTest1) {
+    // Disable the queue
+    work_queue_.set_disable(true);
+
+    // Create a task to enqueue a few entries
+    TaskScheduler *scheduler = TaskScheduler::GetInstance();
+    EnqueueTask *etask = new EnqueueTask(&work_queue_,
+        scheduler->GetTaskId("::test::QueueTaskTest::EnableDisableTest"), 100);
+    scheduler->Enqueue(etask);
+    task_util::WaitForIdle(1);
+
+    // Verify that the entries are still enqueued
+    EXPECT_FALSE(IsWorkQueueRunning());
+    EXPECT_EQ(100, work_queue_.Length());
+    EXPECT_EQ(100, work_queue_.NumEnqueues());
+    EXPECT_EQ(0, work_queue_.NumDequeues());
+    EXPECT_EQ(0, dequeues_);
+
+    // Enable the queue
+    work_queue_.set_disable(false);
+    task_util::WaitForIdle(1);
+
+    // Verify that the entries have been dequeued
+    EXPECT_FALSE(IsWorkQueueRunning());
+    EXPECT_EQ(0, work_queue_.Length());
+    EXPECT_EQ(100, work_queue_.NumEnqueues());
+    EXPECT_EQ(100, work_queue_.NumDequeues());
+    EXPECT_EQ(100, dequeues_);
+}
+
+TEST_F(QueueTaskTest, DisableEnableTest2) {
+    // Stop the scheduler
+    TaskScheduler *scheduler = TaskScheduler::GetInstance();
+    scheduler->Stop();
+
+    // Enqueue a few entries
+    for (int idx = 0; idx < 100; ++idx) {
+        work_queue_.Enqueue(idx);
+    }
+
+    // Disable the queue
+    work_queue_.set_disable(true);
+
+    // Start the scheduler
+    scheduler->Start();
+    task_util::WaitForIdle(1);
+
+    // Verify that the entries are still enqueued
+    EXPECT_FALSE(IsWorkQueueRunning());
+    EXPECT_EQ(100, work_queue_.Length());
+    EXPECT_EQ(100, work_queue_.NumEnqueues());
+    EXPECT_EQ(0, work_queue_.NumDequeues());
+    EXPECT_EQ(0, dequeues_);
+
+    // Enable the queue
+    work_queue_.set_disable(false);
+    task_util::WaitForIdle(1);
+
+    // Verify that the entries have been dequeued
+    EXPECT_FALSE(IsWorkQueueRunning());
+    EXPECT_EQ(0, work_queue_.Length());
+    EXPECT_EQ(100, work_queue_.NumEnqueues());
+    EXPECT_EQ(100, work_queue_.NumDequeues());
+    EXPECT_EQ(100, dequeues_);
+}
+
 int main(int argc, char *argv[]) {
     ::testing::InitGoogleTest(&argc, argv);
     return RUN_ALL_TESTS();
