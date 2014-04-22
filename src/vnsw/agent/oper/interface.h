@@ -100,6 +100,9 @@ public:
     bool IsL2LabelValid(uint32_t label) const { return (label_ == label);}
     uint32_t os_index() const {return os_index_;}
     const ether_addr &mac() const {return mac_;}
+    bool os_oper_state() const { return os_oper_state_; }
+    // Used only for test code
+    void set_test_oper_state(bool val) { test_oper_state_ = val; }
 
 protected:
     void SetItfSandeshData(ItfSandeshData &data) const;
@@ -117,6 +120,9 @@ protected:
     bool dns_enabled_;
     struct ether_addr mac_;
     size_t os_index_;
+    bool os_oper_state_;
+    // Used only for test code
+    bool test_oper_state_;
 
 private:
     friend class InterfaceTable;

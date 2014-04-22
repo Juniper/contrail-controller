@@ -53,3 +53,4 @@ libksync = env.Library('vnswksync',
                         'vrf_assign_ksync.cc'
                        ])
 
+env.SConscript('test/SConscript', exports='AgentEnv', duplicate = 0)

@@ -13,6 +13,7 @@ typedef vector<SgEntryRef> SgList;
 struct VmInterfaceData;
 struct VmInterfaceConfigData;
 struct VmInterfaceIpAddressData;
+struct VmInterfaceOsOperStateData;
 struct VmInterfaceMirrorData;
 
 /////////////////////////////////////////////////////////////////////////////
@@ -340,6 +341,7 @@ private:
     bool OnResyncStaticRoute(VmInterfaceConfigData *data, bool new_ipv4_active);
     bool ResyncMirror(VmInterfaceMirrorData *data);
     bool ResyncIpAddress(const VmInterfaceIpAddressData *data);
+    bool ResyncOsOperState(const VmInterfaceOsOperStateData *data);
     bool ResyncConfig(VmInterfaceConfigData *data);
     bool CopyIpAddress(Ip4Address &addr);
     bool CopyConfig(VmInterfaceConfigData *data, bool *sg_changed);
@@ -469,7 +471,8 @@ struct VmInterfaceData : public InterfaceData {
         ADD_DEL_CHANGE,
         CONFIG,
         MIRROR,
-        IP_ADDR
+        IP_ADDR,
+        OS_OPER_STATE
     };
 
     VmInterfaceData(Type type) : InterfaceData(), type_(type) {
@@ -508,7 +511,13 @@ struct VmInterfaceIpAddressData : public VmInterfaceData {
     virtual ~VmInterfaceIpAddressData() { }
 };
 
-// Structure used when type=IP_ADDR. Used to update IP-Address of VM-Interface
+// Structure used when type=OS_OPER_STATE Used to update interface os oper-state
+struct VmInterfaceOsOperStateData : public VmInterfaceData {
+    VmInterfaceOsOperStateData() : VmInterfaceData(OS_OPER_STATE) { }
+    virtual ~VmInterfaceOsOperStateData() { }
+};
+
+// Structure used when type=MIRROR. Used to update IP-Address of VM-Interface
 struct VmInterfaceMirrorData : public VmInterfaceData {
     VmInterfaceMirrorData(bool mirror_enable, const std::string &analyzer_name):
         VmInterfaceData(MIRROR), mirror_enable_(mirror_enable),
