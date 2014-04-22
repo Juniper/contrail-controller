@@ -24,6 +24,24 @@
 using namespace boost::asio;
 using namespace std;
 
+class BgpSessionManagerCustom : public BgpSessionManager {
+public:
+    BgpSessionManagerCustom(EventManager *evm, BgpServer *server)
+        : BgpSessionManager(evm, server), create_session_fail_(false) {
+    }
+
+    virtual TcpSession *CreateSession() {
+        if (create_session_fail_)
+            return NULL;
+        return BgpSessionManager::CreateSession();
+    }
+
+    void set_create_session_fail(bool flag) { create_session_fail_ = flag; }
+
+private:
+    bool create_session_fail_;
+};
+
 //
 // Fire state machine timers faster and reduce possible delay in this test
 //
@@ -80,12 +98,17 @@ protected:
         b_.reset(new BgpServerTest(evm_.get(), "B"));
         thread_.reset(new ServerThread(evm_.get()));
 
-        a_->session_manager()->Initialize(0);
+        a_session_manager_ =
+            static_cast<BgpSessionManagerCustom *>(a_->session_manager());
+        a_session_manager_->Initialize(0);
         BGP_DEBUG_UT("Created server at port: " <<
-            a_->session_manager()->GetPort());
-        b_->session_manager()->Initialize(0);
+            a_session_manager_->GetPort());
+
+        b_session_manager_ =
+            static_cast<BgpSessionManagerCustom *>(b_->session_manager());
+        b_session_manager_->Initialize(0);
         BGP_DEBUG_UT("Created server at port: " <<
-            b_->session_manager()->GetPort());
+            b_session_manager_->GetPort());
         thread_->Start();
     }
 
@@ -113,6 +136,10 @@ protected:
 
     const StateMachine *GetPeerStateMachine(BgpPeer *peer) {
         return peer->state_machine();
+    }
+
+    void SetSocketOpenFailure(BgpSessionManager *session_manager, bool flag) {
+        session_manager->set_socket_open_failure(flag);
     }
 
     void SetupPeers(int peer_count, unsigned short port_a,
@@ -150,6 +177,8 @@ protected:
     auto_ptr<ServerThread> thread_;
     auto_ptr<BgpServerTest> a_;
     auto_ptr<BgpServerTest> b_;
+    BgpSessionManagerCustom *a_session_manager_;
+    BgpSessionManagerCustom *b_session_manager_;
 };
 
 bool BgpServerUnitTest::validate_done_;
@@ -1417,6 +1446,94 @@ TEST_F(BgpServerUnitTest, CloseDeferred) {
     VerifyPeers(peer_count);
 }
 
+TEST_F(BgpServerUnitTest, CreateSessionFail) {
+    int peer_count = 3;
+
+    //
+    // Force session creation on both servers to fail.
+    //
+    a_session_manager_->set_create_session_fail(true);
+    b_session_manager_->set_create_session_fail(true);
+
+    BgpPeerTest::verbose_name(true);
+    SetupPeers(peer_count, a_->session_manager()->GetPort(),
+               b_->session_manager()->GetPort(), false,
+               BgpConfigManager::kDefaultAutonomousSystem,
+               BgpConfigManager::kDefaultAutonomousSystem,
+               "127.0.0.1", "127.0.0.1",
+               "192.168.0.10", "192.168.0.11");
+
+    //
+    // Wait for A's and B's attempts to bring up the peers fail a few times
+    //
+    for (int j = 0; j < peer_count; j++) {
+        string uuid = BgpConfigParser::session_uuid("A", "B", j + 1);
+        BgpPeer *peer_a = a_->FindPeerByUuid(BgpConfigManager::kMasterInstance,
+                                             uuid);
+        const StateMachine *sm_a = GetPeerStateMachine(peer_a);
+        TASK_UTIL_EXPECT_TRUE(sm_a->connect_attempts() >= 5);
+        BgpPeer *peer_b = b_->FindPeerByUuid(BgpConfigManager::kMasterInstance,
+                                             uuid);
+        const StateMachine *sm_b = GetPeerStateMachine(peer_b);
+        TASK_UTIL_EXPECT_TRUE(sm_b->connect_attempts() >= 5);
+    }
+
+    //
+    // Allow session creation on both servers to succeed.
+    //
+    a_session_manager_->set_create_session_fail(false);
+    b_session_manager_->set_create_session_fail(false);
+
+    //
+    // Make sure that the sessions come up
+    //
+    VerifyPeers(peer_count);
+}
+
+TEST_F(BgpServerUnitTest, SocketOpenFail) {
+    int peer_count = 3;
+
+    //
+    // Force socket open on both servers to fail.
+    //
+    SetSocketOpenFailure(a_session_manager_, true);
+    SetSocketOpenFailure(b_session_manager_, true);
+
+    BgpPeerTest::verbose_name(true);
+    SetupPeers(peer_count, a_->session_manager()->GetPort(),
+               b_->session_manager()->GetPort(), false,
+               BgpConfigManager::kDefaultAutonomousSystem,
+               BgpConfigManager::kDefaultAutonomousSystem,
+               "127.0.0.1", "127.0.0.1",
+               "192.168.0.10", "192.168.0.11");
+
+    //
+    // Wait for A's and B's attempts to bring up the peers fail a few times
+    //
+    for (int j = 0; j < peer_count; j++) {
+        string uuid = BgpConfigParser::session_uuid("A", "B", j + 1);
+        BgpPeer *peer_a = a_->FindPeerByUuid(BgpConfigManager::kMasterInstance,
+                                             uuid);
+        const StateMachine *sm_a = GetPeerStateMachine(peer_a);
+        TASK_UTIL_EXPECT_TRUE(sm_a->connect_attempts() >= 5);
+        BgpPeer *peer_b = b_->FindPeerByUuid(BgpConfigManager::kMasterInstance,
+                                             uuid);
+        const StateMachine *sm_b = GetPeerStateMachine(peer_b);
+        TASK_UTIL_EXPECT_TRUE(sm_b->connect_attempts() >= 5);
+    }
+
+    //
+    // Allow socket open on both servers to succeed.
+    //
+    SetSocketOpenFailure(a_session_manager_, false);
+    SetSocketOpenFailure(b_session_manager_, false);
+
+    //
+    // Make sure that the sessions come up
+    //
+    VerifyPeers(peer_count);
+}
+
 TEST_F(BgpServerUnitTest, ClearNeighbor1) {
     int peer_count = 3;
 
@@ -1855,6 +1972,8 @@ class TestEnvironment : public ::testing::Environment {
 static void SetUp() {
     ControlNode::SetDefaultSchedulingPolicy();
     BgpServerTest::GlobalSetUp();
+    BgpObjectFactory::Register<BgpSessionManager>(
+        boost::factory<BgpSessionManagerCustom *>());
     BgpObjectFactory::Register<StateMachine>(
         boost::factory<StateMachineTest *>());
 }

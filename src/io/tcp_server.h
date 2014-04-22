@@ -20,7 +20,7 @@ class TcpSession;
 class TcpServerSocketStats;
 
 class TcpServer {
-  public:
+public:
     typedef boost::asio::ip::tcp::endpoint Endpoint;
     typedef boost::asio::ip::tcp::socket Socket;
 
@@ -98,10 +98,10 @@ class TcpServer {
     void GetRxSocketStats(TcpServerSocketStats &socket_stats) const;
     void GetTxSocketStats(TcpServerSocketStats &socket_stats) const;
 
-  protected:
+protected:
     // Create a session object.
     virtual TcpSession *AllocSession(Socket *socket) = 0;
-    
+
     //
     // Passively accepted a new session. Returns true if the session is
     // accepted, false otherwise.
@@ -111,13 +111,19 @@ class TcpServer {
     //
     virtual bool AcceptSession(TcpSession *session);
 
+    // For testing - will typically be used by derived class.
+    void set_socket_open_failure(bool flag) { socket_open_failure_ = flag; }
+    bool socket_open_failure() const { return socket_open_failure_; }
+
     Endpoint LocalEndpoint() const;
 
-  private:
+private:
     friend class TcpSession;
     friend class TcpMessageWriter;
+    friend class BgpServerUnitTest;
     friend void intrusive_ptr_add_ref(TcpServer *server);
     friend void intrusive_ptr_release(TcpServer *server);
+
     typedef boost::intrusive_ptr<TcpServer> TcpServerPtr;
     typedef boost::intrusive_ptr<TcpSession> TcpSessionPtr;
     struct TcpSessionPtrCmp {
@@ -153,7 +159,8 @@ class TcpServer {
     boost::scoped_ptr<boost::asio::ip::tcp::acceptor> acceptor_;
     tbb::atomic<int> refcount_;
     std::string name_;
-    
+    bool socket_open_failure_;
+
     DISALLOW_COPY_AND_ASSIGN(TcpServer);
 };
 
