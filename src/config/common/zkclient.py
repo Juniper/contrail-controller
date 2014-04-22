@@ -19,14 +19,14 @@ import uuid
 
 class IndexAllocator(object):
 
-    def __init__(self, disc_service, path, size, start_idx=0, reverse=False):
-        self._disc_service = disc_service
+    def __init__(self, zookeeper_client, path, size, start_idx=0, reverse=False):
+        self._zookeeper_client = zookeeper_client
         self._path = path
         self._start_idx = start_idx
         self._size = size
         self._in_use = bitarray('0')
         self._reverse = reverse
-        for idx in self._disc_service.get_children(path):
+        for idx in self._zookeeper_client.get_children(path):
             idx_int = self._get_bit_from_zk_index(int(idx))
             self._set_in_use(idx_int)
         # end for idx
@@ -71,7 +71,7 @@ class IndexAllocator(object):
         try:
             # Create a node at path and return its integer value
             id_str = "%(#)010d" % {'#': idx}
-            self._disc_service.create_node(self._path + id_str, value)
+            self._zookeeper_client.create_node(self._path + id_str, value)
             return idx
         except ResourceExistsError:
             return self.alloc(value)
@@ -83,7 +83,7 @@ class IndexAllocator(object):
         try:
             # Create a node at path and return its integer value
             id_str = "%(#)010d" % {'#': idx}
-            self._disc_service.create_node(self._path + id_str, value)
+            self._zookeeper_client.create_node(self._path + id_str, value)
             self._set_in_use(self._get_bit_from_zk_index(idx))
             return idx
         except ResourceExistsError:
@@ -93,7 +93,7 @@ class IndexAllocator(object):
 
     def delete(self, idx):
         id_str = "%(#)010d" % {'#': idx}
-        self._disc_service.delete_node(self._path + id_str)
+        self._zookeeper_client.delete_node(self._path + id_str)
         bit_idx = self._get_bit_from_zk_index(idx)
         if bit_idx < self._in_use.length():
             self._in_use[bit_idx] = 0
@@ -101,7 +101,7 @@ class IndexAllocator(object):
 
     def read(self, idx):
         id_str = "%(#)010d" % {'#': idx}
-        id_val = self._disc_service.read_node(self._path+id_str)
+        id_val = self._zookeeper_client.read_node(self._path+id_str)
         if id_val is not None:
             self._set_in_use(self._get_bit_from_zk_index(idx))
         return id_val
@@ -112,8 +112,8 @@ class IndexAllocator(object):
     # end empty
 
     @classmethod
-    def delete_all(cls, disc_service, path):
-        disc_service.delete_node(path, recursive=True)
+    def delete_all(cls, zookeeper_client, path):
+        zookeeper_client.delete_node(path, recursive=True)
     # end delete_all
 
 #end class IndexAllocator
@@ -209,8 +209,6 @@ class ZookeeperClient(object):
             if current_value == value:
                 return True;
             raise ResourceExistsError(path, str(current_value))
-        except Exception as e:
-            raise e
     # end create_node
 
     def delete_node(self, path, recursive=False):
