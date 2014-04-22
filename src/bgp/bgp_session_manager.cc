@@ -33,13 +33,10 @@ TcpSession *BgpSessionManager::CreateSession() {
 
     boost::system::error_code ec;
     socket->open(ip::tcp::v4(), ec);
-    if (ec) {
+    if (ec || (ec = session->SetSocketOptions()) || socket_open_failure()) {
         BGP_LOG_STR(BgpMessage, SandeshLevel::SYS_WARN, BGP_LOG_FLAG_ALL,
-                    "open failed: " << ec.message());
-        return NULL;
-    }
-    ec = session->SetSocketOptions();
-    if (ec) {
+            "Failed to open bgp socket, error: " << ec.message());
+        DeleteSession(session);
         return NULL;
     }
     return session;

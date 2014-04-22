@@ -17,7 +17,7 @@ using namespace boost::asio::ip;
 using namespace std;
 
 TcpServer::TcpServer(EventManager *evm)
-    : evm_(evm) {
+    : evm_(evm), socket_open_failure_(false) {
     refcount_ = 0;
     TcpServerManager::AddServer(this);
 }
