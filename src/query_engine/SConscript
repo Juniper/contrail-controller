@@ -172,3 +172,8 @@ QueryEnv = env.Clone()
 env.Default(qed)
 
 test_suite = env.SConscript('test/SConscript', exports='QueryEnv', duplicate = 0)
+
+env.Alias('install',
+        env.InstallAs(env['INSTALL_BIN'] + '/contrail-query-engine', qed))
+env.Alias('install', env.Install(env['INSTALL_CONF'],
+            'contrail-query-engine.conf'))
