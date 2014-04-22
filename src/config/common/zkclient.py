@@ -137,6 +137,7 @@ class ZookeeperClient(object):
         self._zk_client = \
             kazoo.client.KazooClient(
                 server_list,
+                timeout=20,
                 handler=kazoo.handlers.gevent.SequentialGeventHandler(),
                 logger=logger)
 
