@@ -30,7 +30,7 @@ VnswInterfaceListener::VnswInterfaceListener(Agent *agent) :
     sock_(*(agent->GetEventManager())->io_service()),
     intf_listener_id_(DBTableBase::kInvalidId), seqno_(0),
     vhost_intf_up_(false), ll_addr_table_(), revent_queue_(NULL),
-    netlink_msg_tx_count_(0), vhost_update_count_(0) { 
+    netlink_ll_add_count_(0), netlink_ll_del_count_(0), vhost_update_count_(0) { 
 }
 
 VnswInterfaceListener::~VnswInterfaceListener() {
@@ -461,7 +461,10 @@ void VnswInterfaceListener::UpdateLinkLocalRoute(const Ip4Address &addr,
     struct rtmsg *rtm;
     uint32_t ipaddr;
 
-    netlink_msg_tx_count_++;
+    if (del_rt)
+        netlink_ll_del_count_++;
+    else
+        netlink_ll_add_count_++;
     if (agent_->test_mode())
         return;
 
@@ -515,8 +518,16 @@ void VnswInterfaceListener::LinkLocalRouteFromRouteEvent(Event *event) {
     if (event->protocol_ != kVnswRtmProto)
         return;
 
-    if (ll_addr_table_.find(event->addr_) == ll_addr_table_.end())
+    if (ll_addr_table_.find(event->addr_) == ll_addr_table_.end()) {
+        // link-local route is in kernel, but not in agent. This can happen
+        // when agent has restarted and the link-local route is not valid
+        // after agent restart.
+        // Delete the route
+        if (event->event_ == Event::ADD_ROUTE) {
+            UpdateLinkLocalRoute(event->addr_, true);
+        }
         return;
+    }
 
     if ((event->event_ == Event::DEL_ROUTE) ||
         (event->event_ == Event::ADD_ROUTE 

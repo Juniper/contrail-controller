@@ -91,6 +91,22 @@ public:
         client->WaitForIdle();
     }
 
+    void RouteEvent(bool add, const string &ifname, Ip4Address addr,
+                    uint8_t plen, uint32_t protocol) {
+                    
+        VnswInterfaceListener::Event::Type type;
+        if (add) {
+            type = VnswInterfaceListener::Event::ADD_ROUTE;
+        } else {
+            type = VnswInterfaceListener::Event::DEL_ROUTE;
+        }
+
+        vnswif_->Enqueue(new VnswInterfaceListener::Event(type, addr, plen,
+                                                          ifname, Ip4Address(0),
+                                                          protocol, 0));
+        client->WaitForIdle();
+    }
+
     Agent *agent_;
     VnswInterfaceListener *vnswif_;
     VmInterface *vnet1_;
@@ -121,7 +137,7 @@ TEST_F(TestVnswIf, intf_delete) {
 
 // Validate that link-local address is added back if route deleted from kernel
 TEST_F(TestVnswIf, host_route_del) {
-    uint32_t count = vnswif_->netlink_msg_tx_count();
+    uint32_t count = vnswif_->netlink_ll_add_count();
     VnswInterfaceListener::Event *event = 
         new VnswInterfaceListener::Event(VnswInterfaceListener::Event::DEL_ROUTE,
                                          vnet1_->mdata_ip_addr(), 32, "",
@@ -130,7 +146,7 @@ TEST_F(TestVnswIf, host_route_del) {
                                          0);
     vnswif_->Enqueue(event);
     client->WaitForIdle();
-    WAIT_FOR(1000, 100, (vnswif_->netlink_msg_tx_count() > count));
+    WAIT_FOR(1000, 100, (vnswif_->netlink_ll_add_count() > count));
 }
 
 // On link flap of vhost, all link-local must be written again
@@ -142,14 +158,14 @@ TEST_F(TestVnswIf, vhost_link_flap) {
     InterfaceEvent(true, agent_->vhost_interface_name(), 0);
 
     // bring up link of vhost0
-    uint32_t count = vnswif_->netlink_msg_tx_count();
+    uint32_t count = vnswif_->netlink_ll_add_count();
 
     // Set link-state up
     InterfaceEvent(true, agent_->vhost_interface_name(),
                    (IFF_UP|IFF_RUNNING));
 
     // Ensure routes are synced to host
-    WAIT_FOR(1000, 100, (vnswif_->netlink_msg_tx_count() >= (count + 2)));
+    WAIT_FOR(1000, 100, (vnswif_->netlink_ll_add_count() >= (count + 2)));
 }
 
 // Interface inactive when seen by oper only
@@ -309,6 +325,32 @@ TEST_F(TestVnswIf, EcmpActivateDeactivate_1) {
     //Clean up
     DeleteVmportEnv(input, 3, true);
     client->WaitForIdle();
+}
+
+// Agent adds a link-local route if its deleted in kernel
+TEST_F(TestVnswIf, linklocal_1) {
+    EXPECT_TRUE(vnswif_->IsValidLinkLocalAddress(vnet1_->mdata_ip_addr()));
+    EXPECT_TRUE(vnswif_->IsValidLinkLocalAddress(vnet2_->mdata_ip_addr()));
+
+    uint32_t count = vnswif_->netlink_ll_add_count();
+    // Delete mdata-ip. agent should add it again
+    RouteEvent(false, "vnet1", vnet1_->mdata_ip_addr(), 32, 
+               VnswInterfaceListener::kVnswRtmProto);
+    client->WaitForIdle();
+    WAIT_FOR(1000, 100, (vnswif_->netlink_ll_add_count() >= (count + 1)));
+}
+
+// Agent deletes a link-local route from kernel if its not valid address
+TEST_F(TestVnswIf, linklocal_2) {
+    EXPECT_TRUE(vnswif_->IsValidLinkLocalAddress(vnet1_->mdata_ip_addr()));
+    EXPECT_TRUE(vnswif_->IsValidLinkLocalAddress(vnet2_->mdata_ip_addr()));
+
+    uint32_t count = vnswif_->netlink_ll_del_count();
+    // Add a dummy route with kVnswRtmProto as protocol. Agent should delete it
+    RouteEvent(true, "vnet1", Ip4Address::from_string("169.254.1.1"), 32, 
+               VnswInterfaceListener::kVnswRtmProto);
+    client->WaitForIdle();
+    WAIT_FOR(1000, 100, (vnswif_->netlink_ll_del_count() >= (count + 1)));
 }
 
 int main(int argc, char *argv[]) {

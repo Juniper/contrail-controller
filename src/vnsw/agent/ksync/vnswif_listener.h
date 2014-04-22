@@ -110,7 +110,8 @@ public:
     bool IsValidLinkLocalAddress(const Ip4Address &addr) const;
     void Enqueue(Event *event);
     HostInterfaceEntry *GetHostInterfaceEntry(const std::string &name);
-    uint32_t netlink_msg_tx_count() const { return netlink_msg_tx_count_; }
+    uint32_t netlink_ll_add_count() const { return netlink_ll_add_count_; }
+    uint32_t netlink_ll_del_count() const { return netlink_ll_del_count_; }
     uint32_t vhost_update_count() const { return vhost_update_count_; }
 private:
     friend class TestVnswIf;
@@ -147,7 +148,6 @@ private:
 
     int sock_fd_;
     local::datagram_protocol::socket sock_;
-    bool ifaddr_listen_;
     DBTableBase::ListenerId intf_listener_id_;
     int seqno_;
     bool vhost_intf_up_;
@@ -155,7 +155,8 @@ private:
     LinkLocalAddressTable ll_addr_table_;
     HostInterfaceTable host_interface_table_;
     WorkQueue<Event *> *revent_queue_;
-    uint32_t netlink_msg_tx_count_;
+    uint32_t netlink_ll_add_count_;
+    uint32_t netlink_ll_del_count_;
     uint32_t vhost_update_count_;
 
     DISALLOW_COPY_AND_ASSIGN(VnswInterfaceListener);
