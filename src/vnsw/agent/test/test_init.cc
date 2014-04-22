@@ -123,7 +123,7 @@ TestClient *StatsTestInit() {
 
     // Read agent parameters from config file and arguments
     opt::variables_map var_map;
-    param->Init("controller/src/vnsw/agent/test/vnswa_cfg.xml", "test", var_map);
+    param->Init("controller/src/vnsw/agent/test/vnswa_cfg.ini", "test", var_map);
 
     // Initialize the agent-init control class
     int sandesh_port = 0;

@@ -5,8 +5,17 @@
 #ifndef vnsw_agent_param_hpp
 #define vnsw_agent_param_hpp
 
+#include <boost/property_tree/ptree.hpp>
 #include <boost/program_options.hpp>
+#include <init/init_types.h>
+
 class VirtualGatewayConfigTable;
+
+#define AGENT_CONFIG_PARSE_LOG(msg1, filename, msg2, exception)\
+do {\
+    ConfigParseLog::Send("Agent", SandeshLevel::SYS_INFO, __FILE__, __LINE__,\
+                         msg1, filename, msg2, exception);\
+} while(false);
 
 // Class handling agent configuration parameters from config file and 
 // arguments
@@ -111,10 +120,48 @@ private:
     void InitFromConfig();
     void InitFromArguments
         (const boost::program_options::variables_map &var_map);
+    template <typename ValueType>
+    bool GetOptValue(const boost::program_options::variables_map &var_map, 
+                     ValueType &var, const std::string &val);
+    template <typename ValueType>
+    bool GetValueFromTree(ValueType &var, const std::string &val);
+    bool GetIpAddress(const std::string &str, Ip4Address *addr);
+    bool ParseIp(const std::string &key, Ip4Address *server);
+    bool ParseServerList(const std::string &key, Ip4Address *s1, Ip4Address *s2);
+    void ParseIpArgument(const boost::program_options::variables_map &var_map, 
+                         Ip4Address &server, const std::string &key);
+    bool ParseServerListArguments
+    (const boost::program_options::variables_map &var_map, Ip4Address &server1,
+     Ip4Address &server2, const std::string &key);
+    void ParseCollector();
+    void ParseVirtualHost();
+    void ParseDiscovery();
+    void ParseNetworks();
+    void ParseHypervisor();
+    void ParseDefaultSection();
+    void ParseMetadataProxy();
+    void ParseLinklocal();
+
+    void ParseCollectorArguments
+        (const boost::program_options::variables_map &v);
+    void ParseVirtualHostArguments
+        (const boost::program_options::variables_map &v);
+    void ParseDiscoveryArguments
+        (const boost::program_options::variables_map &v);
+    void ParseNetworksArguments
+        (const boost::program_options::variables_map &v);
+    void ParseHypervisorArguments
+        (const boost::program_options::variables_map &v);
+    void ParseDefaultSectionArguments
+        (const boost::program_options::variables_map &v);
+    void ParseMetadataProxyArguments
+        (const boost::program_options::variables_map &v);
+    void ParseLinklocalArguments
+        (const boost::program_options::variables_map &v);
 
     PortInfo vhost_;
     std::string eth_port_;
-    int xmpp_instance_count_;
+    uint16_t xmpp_instance_count_;
     Ip4Address xmpp_server_1_;
     Ip4Address xmpp_server_2_;
     Ip4Address dns_server_1_;
@@ -125,9 +172,9 @@ private:
     PortInfo xen_ll_;
     std::string tunnel_type_;
     std::string metadata_shared_secret_;
-    uint32_t linklocal_system_flows_;
-    uint32_t linklocal_vm_flows_;
-    uint32_t flow_cache_timeout_;
+    uint16_t linklocal_system_flows_;
+    uint16_t linklocal_vm_flows_;
+    uint16_t flow_cache_timeout_;
 
     // Parameters configured from command linke arguments only (for now)
     std::string config_file_;
@@ -144,8 +191,9 @@ private:
     int flow_stats_interval_;
     std::string vmware_physical_port_;
     bool test_mode_;
-    std::auto_ptr<VirtualGatewayConfigTable> vgw_config_table_;
     bool debug_;
+    boost::property_tree::ptree tree_;
+    std::auto_ptr<VirtualGatewayConfigTable> vgw_config_table_;
 
     DISALLOW_COPY_AND_ASSIGN(AgentParam);
 };
