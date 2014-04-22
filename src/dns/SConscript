@@ -49,6 +49,7 @@ env.Alias('src/dns:dnsd', dnsd)
 env.Default(dnsd)
 
 env.Alias('install', env.Install(env['INSTALL_BIN'], dnsd))
+env.Alias('install', env.Install(env['INSTALL_CONF'], 'dns.conf'))
 
 DnsEnv = env.Clone()
 DnsEnv.AppendUnique(CCFLAGS='-fno-exceptions')
