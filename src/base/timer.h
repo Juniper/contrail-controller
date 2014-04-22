@@ -96,6 +96,10 @@ public:
         return (state_ == Cancelled); 
     }
 
+    bool IsDeleteOnCompletion() const {
+        return delete_on_completion_;
+    }
+
     // Only for state machine test
     // XXX: Don't use in production code
     void Fire() { 
