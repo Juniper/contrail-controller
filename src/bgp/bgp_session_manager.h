@@ -28,7 +28,7 @@ public:
     BgpServer *server() {
         return server_;
     }
-    
+
 protected:
     virtual TcpSession *AllocSession(Socket *socket);
     virtual bool AcceptSession(TcpSession *session);

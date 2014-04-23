@@ -104,7 +104,8 @@ bool InterfaceTable::OnChange(DBEntry *entry, const DBRequest *req) {
 // RESYNC supported only for VM_INTERFACE
 bool InterfaceTable::Resync(DBEntry *entry, DBRequest *req) {
     InterfaceKey *key = static_cast<InterfaceKey *>(req->key.get());
-    assert(key->type_ == Interface::VM_INTERFACE);
+    if (key->type_ != Interface::VM_INTERFACE)
+        return false;
 
     VmInterfaceData *vm_data = static_cast<VmInterfaceData *>(req->data.get());
     VmInterface *intf = static_cast<VmInterface *>(entry);
@@ -227,7 +228,7 @@ Interface::Interface(Type type, const uuid &uuid, const string &name,
     vrf_(vrf), label_(MplsTable::kInvalidLabel), 
     l2_label_(MplsTable::kInvalidLabel), ipv4_active_(true), l2_active_(true),
     id_(kInvalidIndex), dhcp_enabled_(true), dns_enabled_(true), mac_(),
-    os_index_(kInvalidIndex) { 
+    os_index_(kInvalidIndex), test_oper_state_(true) { 
 }
 
 Interface::~Interface() { 
@@ -239,9 +240,12 @@ Interface::~Interface() {
 void Interface::GetOsParams(Agent *agent) {
     if (agent->test_mode()) {
         static int dummy_ifindex = 0;
-        os_index_ = ++dummy_ifindex;
-        bzero(&mac_, sizeof(mac_));
-        mac_.ether_addr_octet[5] = os_index_;
+        if (os_index_ == kInvalidIndex) {
+            os_index_ = ++dummy_ifindex;
+            bzero(&mac_, sizeof(mac_));
+            mac_.ether_addr_octet[5] = os_index_;
+        }
+        os_oper_state_ = test_oper_state_;
         return;
     }
 
@@ -257,6 +261,22 @@ void Interface::GetOsParams(Agent *agent) {
         bzero(&mac_, sizeof(mac_));
         close(fd);
         return;
+    }
+
+
+    if (ioctl(fd, SIOCGIFFLAGS, (void *)&ifr) < 0) {
+        LOG(ERROR, "Error <" << errno << ": " << strerror(errno) << 
+            "> querying mac-address for interface <" << name_ << ">");
+        os_index_ = Interface::kInvalidIndex;
+        bzero(&mac_, sizeof(mac_));
+        os_oper_state_ = false;
+        close(fd);
+        return;
+    }
+
+    os_oper_state_ = false;
+    if ((ifr.ifr_flags & (IFF_UP | IFF_RUNNING)) == (IFF_UP | IFF_RUNNING)) {
+        os_oper_state_ = true;
     }
     close(fd);
 
@@ -450,6 +470,10 @@ void Interface::SetItfSandeshData(ItfSandeshData &data) const {
 
             if (vintf->os_index() == Interface::kInvalidIndex) {
                 common_reason += "no-dev ";
+            }
+
+            if (vintf->os_oper_state() == false) {
+                common_reason += "os-state-down ";
             }
 
             if (!ipv4_active_) {

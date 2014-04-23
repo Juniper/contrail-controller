@@ -68,8 +68,8 @@ _sandesh = None
 
 # connection to api-server
 _vnc_lib = None
-# discovery service connection
-_disc_service = None
+# zookeeper client connection
+_zookeeper_client = None
 
 
 def _ports_eq(lhs, rhs):
@@ -419,7 +419,7 @@ class VirtualNetworkST(DictST):
         alloc_new = False
         if service_vm not in cls._sc_vlan_allocator_dict:
             cls._sc_vlan_allocator_dict[service_vm] = IndexAllocator(
-                _disc_service, _SERVICE_CHAIN_VLAN_ALLOC_PATH + service_vm,
+                _zookeeper_client, _SERVICE_CHAIN_VLAN_ALLOC_PATH + service_vm,
                 _SERVICE_CHAIN_MAX_VLAN)
 
         vlan_ia = cls._sc_vlan_allocator_dict[service_vm]
@@ -2272,14 +2272,14 @@ class SchemaTransformer(object):
 
         # reset zookeeper config
         if self._args.reset_config:
-            _disc_service.delete_node("/id", True);
+            _zookeeper_client.delete_node("/id", True);
 
-        VirtualNetworkST._vn_id_allocator = IndexAllocator(_disc_service,
+        VirtualNetworkST._vn_id_allocator = IndexAllocator(_zookeeper_client,
                                                     _VN_ID_ALLOC_PATH,
                                                     _VN_MAX_ID)
-        SecurityGroupST._sg_id_allocator = IndexAllocator(_disc_service,
+        SecurityGroupST._sg_id_allocator = IndexAllocator(_zookeeper_client,
             _SECURITY_GROUP_ID_ALLOC_PATH, _SECURITY_GROUP_MAX_ID)
-        VirtualNetworkST._rt_allocator = IndexAllocator(_disc_service,
+        VirtualNetworkST._rt_allocator = IndexAllocator(_zookeeper_client,
             _BGP_RTGT_ALLOC_PATH, _BGP_RTGT_MAX_ID)
 
         # Initialize discovery client
@@ -3056,6 +3056,10 @@ class SchemaTransformer(object):
 def launch_arc(transformer, ssrc_mapc):
     arc_mapc = arc_initialize(transformer._args, ssrc_mapc)
     while True:
+        # If not connected to zookeeper Pause the operations 
+        if not _zookeeper_client.is_connected():
+            time.sleep(1)
+            continue
         pollreq = PollRequest(arc_mapc.get_session_id())
         result = arc_mapc.call('poll', pollreq)
         try:
@@ -3242,12 +3246,12 @@ def run_schema_transformer(args):
 # end run_schema_transformer
     
 def main(args_str=None):
-    global _disc_service
+    global _zookeeper_client
     if not args_str:
         args_str = ' '.join(sys.argv[1:])
     args = parse_args(args_str)
-    _disc_service = ZookeeperClient("schema", args.zk_server_ip)
-    _disc_service.master_election("/schema-transformer", os.getpid(),
+    _zookeeper_client = ZookeeperClient("schema", args.zk_server_ip)
+    _zookeeper_client.master_election("/schema-transformer", os.getpid(),
                                   run_schema_transformer, args)
 # end main
 

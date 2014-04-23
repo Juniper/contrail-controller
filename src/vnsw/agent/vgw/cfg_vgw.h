@@ -5,6 +5,7 @@
 #define vnsw_agent_vgw_cfg_h
 
 #include <net/address.h>
+#include <boost/property_tree/ptree.hpp>
 
 class InetInterface;
 
@@ -125,7 +126,7 @@ public:
                                 this, _1)) { }
     ~VirtualGatewayConfigTable() { }
 
-    void Init(const char *init_file);
+    void Init(const boost::property_tree::ptree pt);
     void Shutdown();
     const Table &table() const {return table_;}
 
@@ -133,6 +134,8 @@ public:
     bool ProcessRequest(boost::shared_ptr<VirtualGatewayData> request);
 
 private:
+    void BuildSubnetList(const std::string &subnets, 
+                         VirtualGatewayConfig::SubnetList &results);
     bool AddVgw(VirtualGatewayInfo &vgw, uint32_t version);
     bool DeleteVgw(const std::string &interface_name);
     void DeleteVgw(Table::iterator it);

@@ -37,6 +37,7 @@ public:
     // The interfaces are keyed by name. No UUID is allocated for them
     virtual bool CmpInterface(const DBEntry &rhs) const;
     SubType sub_type() const { return sub_type_; }
+    const Ip4Address &ip_addr() const { return ip_addr_; }
 
     void PostAdd();
     bool OnChange(InetInterfaceData *data);

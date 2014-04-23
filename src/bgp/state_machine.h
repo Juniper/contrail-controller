@@ -143,6 +143,7 @@ public:
     BgpSession *passive_session();
     void set_passive_session(BgpSession *session);
 
+    int connect_attempts() const { return attempts_; }
     void connect_attempts_inc() { attempts_++; }
     void connect_attempts_clear() { attempts_ = 0; }
 

@@ -194,3 +194,7 @@ if AnalyticsEnv.get('OPT') == 'coverage':
     for test in test_suite:
         AnalyticsEnv.Depends(test_coverage, test)
 
+AnalyticsEnv.Alias('install', AnalyticsEnv.InstallAs(
+            AnalyticsEnv['INSTALL_BIN'] + '/contrail-collector', vizd))
+AnalyticsEnv.Alias('install', AnalyticsEnv.Install(
+            AnalyticsEnv['INSTALL_CONF'], 'contrail-collector.conf'))

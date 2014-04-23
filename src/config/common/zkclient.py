@@ -7,6 +7,9 @@ import kazoo.client
 import kazoo.exceptions
 import kazoo.handlers.gevent
 import kazoo.recipe.election
+from kazoo.client import KazooState
+from kazoo.retry import KazooRetry
+
 from bitarray import bitarray
 from cfgm_common.exceptions import ResourceExhaustionError, ResourceExistsError
 from gevent.coros import BoundedSemaphore
@@ -16,14 +19,14 @@ import uuid
 
 class IndexAllocator(object):
 
-    def __init__(self, disc_service, path, size, start_idx=0, reverse=False):
-        self._disc_service = disc_service
+    def __init__(self, zookeeper_client, path, size, start_idx=0, reverse=False):
+        self._zookeeper_client = zookeeper_client
         self._path = path
         self._start_idx = start_idx
         self._size = size
         self._in_use = bitarray('0')
         self._reverse = reverse
-        for idx in self._disc_service.get_children(path):
+        for idx in self._zookeeper_client.get_children(path):
             idx_int = self._get_bit_from_zk_index(int(idx))
             self._set_in_use(idx_int)
         # end for idx
@@ -68,7 +71,7 @@ class IndexAllocator(object):
         try:
             # Create a node at path and return its integer value
             id_str = "%(#)010d" % {'#': idx}
-            self._disc_service.create_node(self._path + id_str, value)
+            self._zookeeper_client.create_node(self._path + id_str, value)
             return idx
         except ResourceExistsError:
             return self.alloc(value)
@@ -80,7 +83,7 @@ class IndexAllocator(object):
         try:
             # Create a node at path and return its integer value
             id_str = "%(#)010d" % {'#': idx}
-            self._disc_service.create_node(self._path + id_str, value)
+            self._zookeeper_client.create_node(self._path + id_str, value)
             self._set_in_use(self._get_bit_from_zk_index(idx))
             return idx
         except ResourceExistsError:
@@ -90,7 +93,7 @@ class IndexAllocator(object):
 
     def delete(self, idx):
         id_str = "%(#)010d" % {'#': idx}
-        self._disc_service.delete_node(self._path + id_str)
+        self._zookeeper_client.delete_node(self._path + id_str)
         bit_idx = self._get_bit_from_zk_index(idx)
         if bit_idx < self._in_use.length():
             self._in_use[bit_idx] = 0
@@ -98,7 +101,7 @@ class IndexAllocator(object):
 
     def read(self, idx):
         id_str = "%(#)010d" % {'#': idx}
-        id_val = self._disc_service.read_node(self._path+id_str)
+        id_val = self._zookeeper_client.read_node(self._path+id_str)
         if id_val is not None:
             self._set_in_use(self._get_bit_from_zk_index(idx))
         return id_val
@@ -109,8 +112,8 @@ class IndexAllocator(object):
     # end empty
 
     @classmethod
-    def delete_all(cls, disc_service, path):
-        disc_service.delete_node(path, recursive=True)
+    def delete_all(cls, zookeeper_client, path):
+        zookeeper_client.delete_node(path, recursive=True)
     # end delete_all
 
 #end class IndexAllocator
@@ -134,34 +137,17 @@ class ZookeeperClient(object):
         self._zk_client = \
             kazoo.client.KazooClient(
                 server_list,
+                timeout=20,
                 handler=kazoo.handlers.gevent.SequentialGeventHandler(),
                 logger=logger)
 
+        self._zk_client.add_listener(self._zk_listener)
         self._logger = logger
         self._election = None
-        self._zk_sem = BoundedSemaphore(1)
+        # KazooRetry to retry keeper CRUD operations
+        self._retry = KazooRetry(max_tries=None)
         self.connect()
     # end __init__
-
-    # reconnect
-    def reconnect(self):
-        self._zk_sem.acquire()
-        self.syslog("restart: acquired lock; state %s " % self._zk_client.state)
-        # initiate restart if our state is suspended or lost
-        if self._zk_client.state != "CONNECTED":
-            self.syslog("restart: starting ...")
-            try:
-                self._zk_client.stop() 
-                self._zk_client.close() 
-                self._zk_client.start() 
-                self.syslog("restart: done")
-            except gevent.event.Timeout as e:
-                self.syslog("restart: timeout!")
-            except Exception as e:
-                self.syslog('restart: exception %s' % str(e))
-            except Exception as str:
-                self.syslog('restart: str exception %s' % str)
-        self._zk_sem.release()
 
     # start 
     def connect(self):
@@ -180,6 +166,10 @@ class ZookeeperClient(object):
         self.syslog('Connected to ZooKeeper!')
     # end
 
+    def is_connected(self):
+        return self._zk_client.state == KazooState.CONNECTED
+    # end is_connected
+
     def syslog(self, msg):
         if not self._logger:
             return
@@ -187,19 +177,23 @@ class ZookeeperClient(object):
     # end syslog
 
     def _zk_listener(self, state):
-        if state == "CONNECTED":
-            self._election.cancel()
+        if state == KazooState.CONNECTED:
+            if self._election:
+                self._election.cancel()
+        elif state == KazooState.LOST:
+            # Lost the session with ZooKeeper Server
+            # Best of option we have is to exit the process and restart all 
+            # over again
+            exit(2)
     # end
 
     def _zk_election_callback(self, func, *args, **kwargs):
-        self._zk_client.remove_listener(self._zk_listener)
         func(*args, **kwargs)
         # Exit if running master encounters error or exception
         exit(1)
     # end
 
     def master_election(self, path, identifier, func, *args, **kwargs):
-        self._zk_client.add_listener(self._zk_listener)
         while True:
             self._election = self._zk_client.Election(path, identifier)
             self._election.run(self._zk_election_callback, func, *args, **kwargs)
@@ -209,11 +203,8 @@ class ZookeeperClient(object):
         try:
             if value is None:
                 value = uuid.uuid4()
-            self._zk_client.create(path, str(value), makepath=True)
-        except (kazoo.exceptions.SessionExpiredError,
-                kazoo.exceptions.ConnectionLoss):
-            self.reconnect()
-            return self.create_node(path, value)
+            retry = self._retry.copy()
+            retry(self._zk_client.create, path, str(value), makepath=True)
         except kazoo.exceptions.NodeExistsError:
             current_value = self.read_node(path)
             if current_value == value:
@@ -223,34 +214,27 @@ class ZookeeperClient(object):
 
     def delete_node(self, path, recursive=False):
         try:
-            self._zk_client.delete(path, recursive=recursive)
-        except (kazoo.exceptions.SessionExpiredError,
-                kazoo.exceptions.ConnectionLoss):
-            self.reconnect()
-            self.delete_node(path, recursive=recursive)
+            retry = self._retry.copy()
+            retry(self._zk_client.delete, path, recursive=recursive)
         except kazoo.exceptions.NoNodeError:
             pass
+        except Exeception as e:
+            raise e
     # end delete_node
 
     def read_node(self, path):
         try:
-            value = self._zk_client.get(path)
+            retry = self._retry.copy()
+            value = retry(self._zk_client.get, path)
             return value[0]
-        except (kazoo.exceptions.SessionExpiredError,
-                kazoo.exceptions.ConnectionLoss):
-            self.reconnect()
-            return self.read_node(path)
         except Exception:
             return None
     # end read_node
 
     def get_children(self, path):
         try:
-            return self._zk_client.get_children(path)
-        except (kazoo.exceptions.SessionExpiredError,
-                kazoo.exceptions.ConnectionLoss):
-            self.reconnect()
-            return self.get_children(path)
+            retry = self._retry.copy()
+            return retry(self._zk_client.get_children, path)
         except Exception:
             return []
     # end read_node

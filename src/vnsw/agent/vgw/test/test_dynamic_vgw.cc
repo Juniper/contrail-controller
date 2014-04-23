@@ -542,7 +542,7 @@ int main(int argc, char **argv) {
     GETUSERARGS();
 
     // client = TestInit(init_file, ksync_init, true, true);
-    client = VGwInit("controller/src/vnsw/agent/test/vnswa_cfg.xml",
+    client = VGwInit("controller/src/vnsw/agent/test/vnswa_cfg.ini",
                      ksync_init);
     InstanceInfoServiceServerInit(Agent::GetInstance());
     usleep(100000);

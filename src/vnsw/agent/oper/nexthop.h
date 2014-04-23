@@ -160,7 +160,7 @@ public:
         free_index_ = 0;
     }
 
-    size_t GetActiveMemberCount() const {
+    size_t HashTableSize() const {
         return hash_table_.size();
     }
 
@@ -209,6 +209,16 @@ public:
             hash++;
         }
         return 0;
+    }
+
+    uint32_t count() const {
+        int cnt = 0;
+        for (uint32_t i = 0; i < mbr_list_.size(); i++) {
+            if (mbr_list_[i] != NULL)
+                cnt++;
+        }
+
+        return cnt;
     }
 
 private:
@@ -1181,7 +1191,10 @@ public:
     }
 
     size_t ComponentNHCount() const {
-        return component_nh_list_.GetActiveMemberCount();
+        return component_nh_list_.HashTableSize();
+    }
+    uint32_t ActiveComponentNHCount() const {
+        return component_nh_list_.count();
     }
 
     const ComponentNHList* GetComponentNHList() const {

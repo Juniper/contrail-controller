@@ -1,0 +1,36 @@
+#
+# Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
+#
+
+# -*- mode: python; -*-
+
+import re
+
+Import('AgentEnv')
+env = AgentEnv.Clone()
+
+env.Prepend(CPPPATH = env['TOP'] + '/vnsw/dp/sandesh')
+env.Prepend(LIBS=['gunit'])
+env.Prepend(CCFLAGS = ['-Wno-return-type', '-Wno-unused-function'])
+
+cflags = env['CCFLAGS']
+if '-fno-exceptions' in cflags:
+    cflags.remove('-fno-exceptions')
+    env.Replace(CCFLAGS = cflags)
+
+import sys
+if sys.platform != 'darwin':
+    env.Append(LIBPATH=['../../test'])
+    env.Prepend(LIBS=['agent_test'])
+    env.Append(LIBS=['agent_test_buildinfo'])
+
+    test_vnswif = env.Program(target = 'test_vnswif', source = ['test_vnswif.cc'])
+    env.Alias('src/vnsw/agent/ksync/test:test_vnswif', test_vnswif)
+
+    ksync_suite = [test_vnswif,
+                  ]
+
+    test = env.TestSuite('agent-test', ksync_suite)
+    env.Alias('src/vnsw/agent:test', test)
+    Return('ksync_suite')
+

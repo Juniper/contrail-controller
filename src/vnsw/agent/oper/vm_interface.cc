@@ -569,6 +569,10 @@ bool VmInterface::Resync(VmInterfaceData *data) {
             VmInterfaceMirrorData *mirror = static_cast<VmInterfaceMirrorData *>
                 (data);
             ret = ResyncMirror(mirror);
+        } else if (data->type_ == VmInterfaceData::OS_OPER_STATE) {
+            VmInterfaceOsOperStateData *oper_state =
+                static_cast<VmInterfaceOsOperStateData *> (data);
+            ret = ResyncOsOperState(oper_state);
         } else {
             assert(0);
         }
@@ -918,6 +922,28 @@ bool VmInterface::ResyncIpAddress(const VmInterfaceIpAddressData *data) {
     return ret;
 }
 
+// Resync oper-state for the interface
+bool VmInterface::ResyncOsOperState(const VmInterfaceOsOperStateData *data) {
+    bool ret = false;
+
+    InterfaceTable *table = static_cast<InterfaceTable *>(get_table());
+
+    uint32_t old_os_index = os_index_;
+    bool old_ipv4_active = ipv4_active_;
+
+    GetOsParams(table->agent());
+    if (os_index_ != old_os_index)
+        ret = true;
+
+    ipv4_active_ = IsL3Active();
+    if (ipv4_active_ != old_ipv4_active)
+        ret = true;
+
+    ApplyConfig(old_ipv4_active, l2_active_, policy_enabled_, vrf_.get(),
+                ip_addr_, vxlan_id_, need_linklocal_ip_, false);
+    return ret;
+}
+
 /////////////////////////////////////////////////////////////////////////////
 // VM Port Entry utility routines
 /////////////////////////////////////////////////////////////////////////////
@@ -930,6 +956,7 @@ void VmInterface::GetOsParams(Agent *agent) {
 
     os_index_ = Interface::kInvalidIndex;
     memcpy(mac_.ether_addr_octet, agent->vrrp_mac(), ETHER_ADDR_LEN);
+    os_oper_state_ = true;
 }
 
 // Get DHCP IP address. DHCP IP is used only if IP address not specified in 
@@ -976,6 +1003,10 @@ bool VmInterface::IsL3Active() {
     if (!ipv4_forwarding() || (ip_addr_.to_ulong() == 0)) {
         return false;
     }
+
+    if (os_oper_state_ == false)
+        return false;
+
     return IsActive();
 }
 
@@ -983,6 +1014,10 @@ bool VmInterface::IsL2Active() {
     if (!layer2_forwarding()) {
         return false;
     }
+
+    if (os_oper_state_ == false)
+        return false;
+
     return IsActive();
 }
 

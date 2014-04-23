@@ -59,6 +59,8 @@ _SVC_VNS = {_MGMT_STR:  [_SVC_VN_MGMT,  '250.250.1.0/24'],
 _CHECK_SVC_VM_HEALTH_INTERVAL = 30
 _CHECK_CLEANUP_INTERVAL = 5
 
+# zookeeper client connection
+_zookeeper_client = None
 
 class SvcMonitor(object):
 
@@ -994,6 +996,10 @@ class SvcMonitor(object):
 def launch_arc(monitor, ssrc_mapc):
     arc_mapc = arc_initialize(monitor._args, ssrc_mapc)
     while True:
+        # If not connected to zookeeper Pause the operations 
+        if not _zookeeper_client.is_connected():
+            time.sleep(1)
+            continue
         try:
             pollreq = PollRequest(arc_mapc.get_session_id())
             result = arc_mapc.call('poll', pollreq)
@@ -1254,12 +1260,13 @@ def run_svc_monitor(args=None):
 
 
 def main(args_str=None):
+    global _zookeeper_client
     if not args_str:
         args_str = ' '.join(sys.argv[1:])
     args = parse_args(args_str)
 
-    _disc_service = ZookeeperClient("svc-monitor", args.zk_server_ip)
-    _disc_service.master_election("/svc-monitor", os.getpid(),
+    _zookeeper_client = ZookeeperClient("svc-monitor", args.zk_server_ip)
+    _zookeeper_client.master_election("/svc-monitor", os.getpid(),
                                   run_svc_monitor, args)
 # end main
 
