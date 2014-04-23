@@ -526,28 +526,6 @@ TEST_F(DbPerfTest, DISABLED_StructEncode) {
     }
 }
 
-static inline bool ParseInteger(const std::string &input, int *valuep) {
-    char *endp;
-    *valuep = strtoul(input.c_str(), &endp, 10);
-    return endp[0] == '\0';
-}
-
-TEST_F(DbPerfTest, DISABLED_StringToIntegerStream) {
-    std::string s_integer("123456789");
-    int integer;
-    for (int i = 0; i < 1000000; i++) {
-       stringToInteger(s_integer, integer);
-    }
-}
-
-TEST_F(DbPerfTest, DISABLED_StringToIntegerStrtoul) {
-    std::string s_integer("123456789");
-    int integer;
-    for (int i = 0; i < 1000000; i++) {
-        ParseInteger(s_integer, &integer);
-    }
-}
-
 int main(int argc, char **argv) {
     LoggingInit();
     ::testing::InitGoogleTest(&argc, argv);

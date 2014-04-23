@@ -27,7 +27,7 @@ UDPConnectionManager::UDPRecvServer::UDPRecvServer(EventManager *evm, int recvPo
                 const boost::system::error_code& error) {
             LOG(DEBUG, __func__);
 
-            if (bytes_transferred != kMinimalPacketLength) {
+            if (bytes_transferred != (std::size_t)kMinimalPacketLength) {
                 LOG(ERROR, __func__ <<  "Wrong packet size: " << bytes_transferred);
                 return;
             }
