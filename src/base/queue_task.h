@@ -40,8 +40,8 @@ public:
 
 private:
     bool RunQueue() {
-        // Running is done if queue_ is disabled
-        if (queue_->IsDisabled()) {
+        // Check if we need to abort
+        if (queue_->RunnerAbort()) {
             return queue_->RunnerDone();
         }
 
@@ -113,6 +113,7 @@ public:
         callback_(callback),
         on_entry_cb_(0),
         on_exit_cb_(0),
+        start_runner_(0),
         current_runner_(NULL),
         on_entry_defer_count_(0),
         disabled_(false),
@@ -333,6 +334,10 @@ private:
         }
         drops_++;
         return false;
+    }
+
+    bool RunnerAbort() {
+        return (disabled_ || (!start_runner_.empty() && !start_runner_()));
     }
 
     bool RunnerDone() {

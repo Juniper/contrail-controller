@@ -262,7 +262,7 @@ TEST_F(QueueTaskTest, WaterMarkTest) {
     work_queue_.SetStartRunnerFunc(
         boost::bind(&QueueTaskTest::StartRunnerAlways, this));
     SetWorkQueueMaxIterations(6);
-    work_queue_.SetEntryCallback(
+    work_queue_.SetExitCallback(
         boost::bind(&QueueTaskTest::DequeueTaskReady, this, false));
     work_queue_.MayBeStartRunner();
     task_util::WaitForIdle(1);
@@ -272,7 +272,7 @@ TEST_F(QueueTaskTest, WaterMarkTest) {
     work_queue_.SetStartRunnerFunc(
         boost::bind(&QueueTaskTest::StartRunnerAlways, this));
     SetWorkQueueMaxIterations(1);
-    work_queue_.SetEntryCallback(
+    work_queue_.SetExitCallback(
         boost::bind(&QueueTaskTest::DequeueTaskReady, this, false));
     work_queue_.MayBeStartRunner();
     task_util::WaitForIdle(1);
