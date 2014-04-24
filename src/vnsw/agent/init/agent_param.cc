@@ -43,7 +43,7 @@ bool AgentParam::GetOptValue
     (const boost::program_options::variables_map &var_map, ValueType &var, 
      const std::string &val) {
     // Check if the value is present.
-    if (var_map.count(val)) {
+    if (var_map.count(val) && !var_map[val].defaulted()) {
         var = var_map[val].as<ValueType>();
         return true;
     }
@@ -172,18 +172,17 @@ void AgentParam::ParseVirtualHost() {
     if (opt_str = tree_.get_optional<string>("VIRTUAL-HOST-INTERFACE.ip")) {
         ec = Ip4PrefixParse(opt_str.get(), &vhost_.addr_, &vhost_.plen_);
         if (ec != 0 || vhost_.plen_ >= 32) {
-            LOG(ERROR, "Error in config file <" << config_file_ 
+            cout << "Error in config file <" << config_file_ 
                     << ">. Error parsing vhost ip-address from <" 
-                    << opt_str.get() << ">");
-            return;
+                    << opt_str.get() << ">\n";
         }
     }
 
     if (opt_str = tree_.get_optional<string>("VIRTUAL-HOST-INTERFACE.gateway")) {
         if (GetIpAddress(opt_str.get(), &vhost_.gw_) == false) {
-            LOG(ERROR, "Error in config file <" << config_file_ 
+            cout << "Error in config file <" << config_file_ 
                     << ">. Error parsing vhost gateway address from <" 
-                    << opt_str.get() << ">");
+                    << opt_str.get() << ">\n";
         }
     }
 
@@ -218,9 +217,9 @@ void AgentParam::ParseHypervisor() {
                 ec = Ip4PrefixParse(opt_str.get(), &xen_ll_.addr_,
                                     &xen_ll_.plen_);
                 if (ec != 0 || xen_ll_.plen_ >= 32) {
-                    LOG(ERROR, "Error in config file <" << config_file_ 
+                    cout << "Error in config file <" << config_file_ 
                             << ">. Error parsing Xen Link-local ip-address from <" 
-                            << opt_str.get() << ">");
+                            << opt_str.get() << ">\n";
                     return;
                 }
             }
@@ -311,8 +310,7 @@ void AgentParam::ParseVirtualHostArguments
     if (GetOptValue<string>(var_map, ip, "VIRTUAL-HOST-INTERFACE.ip")) {
         ec = Ip4PrefixParse(ip, &vhost_.addr_, &vhost_.plen_);
         if (ec != 0 || vhost_.plen_ >= 32) {
-            LOG(ERROR, "Error parsing vhost ip argument from <" << ip << ">");
-            exit(EINVAL);
+            cout << "Error parsing vhost ip argument from <" << ip << ">\n";
         }
     }
     ParseIpArgument(var_map, vhost_.gw_, "VIRTUAL-HOST-INTERFACE.gateway");
@@ -335,7 +333,8 @@ void AgentParam::ParseNetworksArguments
 void AgentParam::ParseHypervisorArguments
     (const boost::program_options::variables_map &var_map) {
     boost::system::error_code ec;
-    if (var_map.count("HYPERVISOR.type")) {
+    if (var_map.count("HYPERVISOR.type") && 
+        !var_map["HYPERVISOR.type"].defaulted()) {
         if (var_map["HYPERVISOR.type"].as<string>() == "xen") {
             mode_ = AgentParam::MODE_XEN;
             GetOptValue<string>(var_map, xen_ll_.name_, 
@@ -345,9 +344,9 @@ void AgentParam::ParseHypervisorArguments
                 string ip = var_map["HYPERVISOR.xen_ll_ip"].as<string>();
                 ec = Ip4PrefixParse(ip, &xen_ll_.addr_, &xen_ll_.plen_);
                 if (ec != 0 || xen_ll_.plen_ >= 32) {
-                    LOG(ERROR, "Error in argument <" << config_file_ 
+                    cout << "Error in argument <" << config_file_ 
                             << ">. Error parsing Xen Link-local ip-address from <" 
-                            << ip << ">");
+                            << ip << ">\n";
                     exit(EINVAL);
                 }
             }
@@ -402,7 +401,7 @@ void AgentParam::InitFromSystem() {
     struct stat fstat;
     if (stat("/proc/xen", &fstat) == 0) {
         mode_ = MODE_XEN;
-        LOG(INFO, "Found file /proc/xen. Initializing mode to XEN");
+        cout << "Found file /proc/xen. Initializing mode to XEN\n";
     }
     xen_ll_.addr_ = Ip4Address::from_string("169.254.0.1");
     xen_ll_.plen_ = 16;
@@ -416,10 +415,8 @@ void AgentParam::InitFromConfig() {
     try {
         read_ini(config_file_, tree_);
     } catch (exception &e) {
-        LOG(ERROR, "Error reading config file <" << config_file_ 
-            << ">. INI format error??? <" << e.what() << ">");
-        AGENT_CONFIG_PARSE_LOG("Error reading config file ", config_file_, 
-                               " INI format error? ", e.what());
+        cout <<  "Error reading config file <" << config_file_ 
+            << ">. INI format error??? <" << e.what() << ">\n";
         return;
     } 
 
@@ -433,7 +430,7 @@ void AgentParam::InitFromConfig() {
     ParseDefaultSection();
     ParseMetadataProxy();
     ParseLinklocal();
-    LOG(DEBUG, "Config file <" << config_file_ << "> read successfully.");
+    cout << "Config file <" << config_file_ << "> parsing completed.\n";
     return;
 }
 
@@ -462,14 +459,14 @@ void AgentParam::ComputeLinkLocalFlowLimits() {
     int result = getrlimit(RLIMIT_NOFILE, &rl);
     if (result == 0) {
         if (rl.rlim_max <= Agent::kMaxOtherOpenFds + 1) {
-            LOG(DEBUG, "Updating linklocal flows configuration to 0");
+            cout << "Updating linklocal flows configuration to 0\n";
             linklocal_system_flows_ = linklocal_vm_flows_ = 0;
             return;
         }
         if (linklocal_system_flows_ > rl.rlim_max - Agent::kMaxOtherOpenFds - 1) {
             linklocal_system_flows_ = rl.rlim_max - Agent::kMaxOtherOpenFds - 1;
-            LOG(DEBUG, "Updating linklocal-system-flows configuration to : " <<
-                linklocal_system_flows_);
+            cout << "Updating linklocal-system-flows configuration to : " <<
+                linklocal_system_flows_ << "\n";
         }
         if (rl.rlim_cur < linklocal_system_flows_ + Agent::kMaxOtherOpenFds + 1) {
             struct rlimit new_rl;
@@ -482,19 +479,19 @@ void AgentParam::ComputeLinkLocalFlowLimits() {
                 } else {
                     linklocal_system_flows_ = rl.rlim_cur - Agent::kMaxOtherOpenFds - 1;
                 }
-                LOG(DEBUG, "Unable to set Max open files limit to : " <<
+                cout << "Unable to set Max open files limit to : " <<
                     new_rl.rlim_cur <<
                     " Updating linklocal-system-flows configuration to : " <<
-                    linklocal_system_flows_);
+                    linklocal_system_flows_ << "\n";
             }
         }
         if (linklocal_vm_flows_ > linklocal_system_flows_) {
             linklocal_vm_flows_ = linklocal_system_flows_;
-            LOG(DEBUG, "Updating linklocal-vm-flows configuration to : " <<
-                linklocal_vm_flows_);
+            cout << "Updating linklocal-vm-flows configuration to : " <<
+                linklocal_vm_flows_ << "\n";
         }
     } else {
-        LOG(DEBUG, "Unable to validate linklocal flow configuration");
+        cout << "Unable to validate linklocal flow configuration\n";
     }
 }
 
