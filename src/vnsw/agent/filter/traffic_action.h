@@ -18,6 +18,7 @@ public:
     enum TrafficActionType {
       SIMPLE_ACTION = 1,
       MIRROR_ACTION = 2,
+      VRF_TRANSLATE_ACTION = 3,
     };
     // Don't go beyond 31
     enum Action {
@@ -28,6 +29,7 @@ public:
         PASS = 5,
         REJECT = 6,
         MIRROR = 7,
+        VRF_TRANSLATE = 8,
         TRAP = 28,
         IMPLICIT_DENY = 29,
         RESERVED = 30,
@@ -86,4 +88,16 @@ private:
     DISALLOW_COPY_AND_ASSIGN(MirrorAction);
 };
 
+class VrfTranslateAction : public TrafficAction {
+public:
+    VrfTranslateAction(const std::string &vrf_name, bool ignore_acl):
+        vrf_name_(vrf_name), ignore_acl_(ignore_acl) {
+        tact_type = VRF_TRANSLATE_ACTION, action_ = VRF_TRANSLATE; };
+    const std::string& vrf_name() const { return vrf_name_;}
+    bool ignore_acl() const { return ignore_acl_;}
+    virtual void SetActionSandeshData(std::vector<ActionStr> &actions);
+private:
+    std::string vrf_name_;
+    bool ignore_acl_;
+};
 #endif

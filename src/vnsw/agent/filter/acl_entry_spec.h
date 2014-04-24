@@ -8,6 +8,7 @@
 #include <vector>
 #include <boost/uuid/uuid.hpp>
 #include "net/address.h"
+#include <vnc_cfg_types.h>
 
 struct RangeSpec {
     uint16_t min;
@@ -25,10 +26,27 @@ struct MirrorActionSpec {
     }
 };
 
+struct VrfTranslateActionSpec {
+    VrfTranslateActionSpec() : vrf_name_(""), ignore_acl_(false) { }
+    VrfTranslateActionSpec(std::string vrf_name, bool ignore_acl):
+        vrf_name_(vrf_name), ignore_acl_(ignore_acl) { }
+    const std::string& vrf_name() const { return vrf_name_;}
+    bool ignore_acl() const { return ignore_acl_;}
+    void set_vrf_name(const std::string &vrf_name) {
+        vrf_name_ = vrf_name;
+    }
+    void set_ignore_acl(bool ignore_acl) {
+        ignore_acl_ = ignore_acl;
+    }
+    std::string vrf_name_;
+    bool ignore_acl_;
+};
+
 struct ActionSpec {
     TrafficAction::Action simple_action;
     TrafficAction::TrafficActionType ta_type;
     MirrorActionSpec ma;
+    VrfTranslateActionSpec vrf_translate;
 };
 
 typedef enum AclTypeSpec {
@@ -36,7 +54,8 @@ typedef enum AclTypeSpec {
     NON_TERM = 2,
 } AclTypeSpecT;
 
-struct AclEntrySpec {
+class AclEntrySpec {
+public:
   AclEntrySpec(): src_addr_type(AddressMatch::UNKNOWN_TYPE), src_ip_plen(0), 
         dst_addr_type(AddressMatch::UNKNOWN_TYPE), dst_ip_plen(0),
         terminal(true) { };
@@ -75,6 +94,10 @@ struct AclEntrySpec {
 
     // Action
     std::vector<ActionSpec> action_l;
+    bool Populate(const autogen::MatchConditionType *match_condition);
+    void PopulateAction(const AclTable *acl_table,
+                        const autogen::ActionListType &action_list);
+    void AddMirrorEntry() const;
 };
 
 struct AclSpec {

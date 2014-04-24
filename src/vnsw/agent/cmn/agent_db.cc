@@ -120,3 +120,10 @@ void AgentDBTable::Input(DBTablePartition *partition, DBClient *client,
     }
     return;
 }
+
+void AgentDBTable::Process(DBRequest &req) {
+    CHECK_CONCURRENCY("db::DBTable");
+    DBTablePartition *tpart =
+        static_cast<DBTablePartition *>(GetTablePartition(req.key.get()));
+    tpart->Process(NULL, &req);
+}
