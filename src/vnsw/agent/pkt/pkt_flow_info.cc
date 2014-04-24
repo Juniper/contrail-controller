@@ -10,6 +10,7 @@
 #include "route/route.h"
 
 #include "cmn/agent_cmn.h"
+#include "cmn/agent_stats.h"
 #include "init/agent_param.h"
 #include "oper/interface_common.h"
 #include "oper/nexthop.h"
@@ -797,10 +798,22 @@ void PktFlowInfo::Add(const PktInfo *pkt, PktControlInfo *in,
                 pkt->ip_proto, pkt->sport, pkt->dport);
     FlowEntryPtr flow(Agent::GetInstance()->pkt()->flow_table()->Allocate(key));
 
-    if (linklocal_bind_local_port &&
+    // Do not allow more than max flows
+    if ((flow_table->flow_count() >=
+         flow_table->agent()->params()->max_system_flows()) ||
+        (in->vm_ && flow_table->VmFlowCount(in->vm_) >=
+         flow_table->agent()->params()->max_vm_flows()) ||
+        (out->vm_ && flow_table->VmFlowCount(out->vm_) >=
+         flow_table->agent()->params()->max_vm_flows())) {
+        flow_table->agent()->stats()->incr_flow_drop_due_to_max_limit();
+        short_flow = true;
+    }
+
+    if (!short_flow && linklocal_bind_local_port &&
         flow->linklocal_src_port_fd() == PktFlowInfo::kLinkLocalInvalidFd) {
         nat_sport = LinkLocalBindPort(in->vm_, pkt->ip_proto);
         if (!nat_sport) {
+            flow_table->agent()->stats()->incr_flow_drop_due_to_max_limit();
             short_flow = true;
         }
     }

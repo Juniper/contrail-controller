@@ -1010,7 +1010,8 @@ bool FlowEntry::InitFlowCmn(const PktFlowInfo *info, const PktControlInfo *ctrl,
 
     data_.intf_entry = ctrl->intf_ ? ctrl->intf_ : rev_ctrl->intf_;
     data_.vn_entry = ctrl->vn_ ? ctrl->vn_ : rev_ctrl->vn_;
-    data_.vm_entry = ctrl->vm_ ? ctrl->vm_ : rev_ctrl->vm_;
+    data_.in_vm_entry = ctrl->vm_ ? ctrl->vm_ : NULL;
+    data_.out_vm_entry = rev_ctrl->vm_ ? rev_ctrl->vm_ : NULL;
 
     return true;
 }
@@ -1882,19 +1883,26 @@ void FlowTable::DeleteIntfFlowInfo(FlowEntry *fe)
     }
 }
 
-void FlowTable::DeleteVmFlowInfo(FlowEntry *fe)
-{
-    VmFlowTree::iterator vm_it;
-    if (fe->vm_entry()) {
-        if (!fe->linklocal_src_port()) {
-            return;
-        }
-        vm_it = vm_flow_tree_.find(fe->vm_entry());
-        if (vm_it != vm_flow_tree_.end()) {
-            VmFlowInfo *vm_flow_info = vm_it->second;
-            vm_flow_info->linklocal_flow_count--;
-            linklocal_flow_count_--;
-            vm_flow_info->fet.erase(fe);
+void FlowTable::DeleteVmFlowInfo(FlowEntry *fe) {
+    if (fe->in_vm_entry()) {
+        DeleteVmFlowInfo(fe, fe->in_vm_entry());
+    }
+    if (fe->out_vm_entry()) {
+        DeleteVmFlowInfo(fe, fe->out_vm_entry());
+    }
+}
+
+void FlowTable::DeleteVmFlowInfo(FlowEntry *fe, const VmEntry *vm) {
+    VmFlowTree::iterator vm_it = vm_flow_tree_.find(vm);
+    if (vm_it != vm_flow_tree_.end()) {
+        VmFlowInfo *vm_flow_info = vm_it->second;
+        if (vm_flow_info->fet.erase(fe)) {
+            vm_flow_info->flow_count--;
+            flow_count_--;
+            if (fe->linklocal_src_port()) {
+                vm_flow_info->linklocal_flow_count--;
+                linklocal_flow_count_--;
+            }
             if (vm_flow_info->fet.empty()) {
                 delete vm_flow_info;
                 vm_flow_tree_.erase(vm_it);
@@ -2045,29 +2053,37 @@ void FlowTable::AddIntfFlowInfo(FlowEntry *fe)
     }
 }
 
-void FlowTable::AddVmFlowInfo(FlowEntry *fe)
-{
-    if (!fe->vm_entry()) {
-        return;
+void FlowTable::AddVmFlowInfo(FlowEntry *fe) {
+    if (fe->in_vm_entry()) {
+        AddVmFlowInfo(fe, fe->in_vm_entry());
     }
-    // Currently adding VmFlowInfo for linklocal flows only
-    if (!fe->linklocal_src_port()) {
-        return;
+    if (fe->out_vm_entry()) {
+        AddVmFlowInfo(fe, fe->out_vm_entry());
     }
+}
+
+void FlowTable::AddVmFlowInfo(FlowEntry *fe, const VmEntry *vm) {
+    bool update = false;
     VmFlowTree::iterator it;
-    it = vm_flow_tree_.find(fe->vm_entry());
+    it = vm_flow_tree_.find(vm);
     VmFlowInfo *vm_flow_info;
     if (it == vm_flow_tree_.end()) {
         vm_flow_info = new VmFlowInfo();
-        vm_flow_info->vm_entry = fe->vm_entry();
-        vm_flow_info->linklocal_flow_count = 1;
-        linklocal_flow_count_++;
+        vm_flow_info->vm_entry = vm;
         vm_flow_info->fet.insert(fe);
-        vm_flow_tree_.insert(VmFlowPair(fe->vm_entry(), vm_flow_info));
+        vm_flow_tree_.insert(VmFlowPair(vm, vm_flow_info));
+        update = true;
     } else {
         vm_flow_info = it->second;
         /* fe can already exist. In that case it won't be inserted */
         if (vm_flow_info->fet.insert(fe).second) {
+            update = true;
+        }
+    }
+    if (update) {
+        vm_flow_info->flow_count++;
+        flow_count_++;
+        if (fe->linklocal_src_port()) {
             vm_flow_info->linklocal_flow_count++;
             linklocal_flow_count_++;
         }
@@ -2139,6 +2155,16 @@ void FlowTable::VnFlowCounters(const VnEntry *vn, uint32_t *in_count,
     VnFlowInfo *vn_flow_info = it->second;
     *in_count = vn_flow_info->ingress_flow_count;
     *out_count = vn_flow_info->egress_flow_count;
+}
+
+uint32_t FlowTable::VmFlowCount(const VmEntry *vm) {
+    VmFlowTree::iterator it = vm_flow_tree_.find(vm);
+    if (it != vm_flow_tree_.end()) {
+        VmFlowInfo *vm_flow_info = it->second;
+        return vm_flow_info->flow_count;
+    }
+
+    return 0;
 }
 
 uint32_t FlowTable::VmLinkLocalFlowCount(const VmEntry *vm) {

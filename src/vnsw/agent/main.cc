@@ -103,9 +103,13 @@ int main(int argc, char *argv[]) {
          "IP Address and prefix or the link local port in ip/prefix format")
         ("HYPERVISOR.vmware_physical_port", opt::value<string>(),
          "Physical port used to connect to VMs in VMWare environment")
-        ("LINK-LOCAL.max_system_flows", opt::value<uint16_t>(), 
+        ("FLOWS.max_system_flows", opt::value<uint16_t>(), 
+         "Maximum number of flows allowed in the vrouter, across all VMs")
+        ("FLOWS.max_vm_flows", opt::value<uint16_t>(), 
+         "Maximum number of flows allowed per VM")
+        ("FLOWS.max_system_linklocal_flows", opt::value<uint16_t>(), 
          "Maximum number of link-local flows allowed across all VMs")
-        ("LINK-LOCAL.max_vm_flows", opt::value<uint16_t>(), 
+        ("FLOWS.max_vm_linklocal_flows", opt::value<uint16_t>(), 
          "Maximum number of link-local flows allowed per VM")
         ("METADATA.metadata_proxy_secret", opt::value<string>(),
          "Shared secret for metadata proxy service")
