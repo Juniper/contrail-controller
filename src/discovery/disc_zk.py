@@ -33,7 +33,7 @@ class DiscoveryZkClient(object):
 
         # logging
         logger = logging.getLogger('discovery-service')
-        logger.setLevel(logging.INFO)
+        logger.setLevel(logging.WARNING)
         handler = logging.handlers.RotatingFileHandler('/var/log/contrail/discovery_zk.log', maxBytes=1024*1024, backupCount=10)
         log_format = logging.Formatter('%(asctime)s [%(name)s]: %(message)s', datefmt='%m/%d/%Y %I:%M:%S %p')
         handler.setFormatter(log_format)

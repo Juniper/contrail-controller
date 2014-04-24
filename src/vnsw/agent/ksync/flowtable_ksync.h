@@ -52,6 +52,7 @@ private:
     uint32_t old_first_mirror_index_;
     uint32_t old_second_mirror_index_;
     uint32_t trap_flow_;
+    bool ecmp_;
     KSyncEntryPtr nh_;
     FlowTableKSyncObject *ksync_obj_;
     DISALLOW_COPY_AND_ASSIGN(FlowTableKSyncEntry);

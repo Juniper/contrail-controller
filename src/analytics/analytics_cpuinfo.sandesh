@@ -31,6 +31,7 @@ struct  ModuleCpuState {
     9: optional u32                        collector_mem_virt (aggtype="stats", hbin="100000")
     10: optional u32                       queryengine_mem_virt (aggtype="stats", hbin="100000")
     11: optional u32                       opserver_mem_virt (aggtype="stats", hbin="100000")
+    12: optional list<string>              error_strings (aggtype="union")
 }
 
 uve sandesh ModuleCpuStateTrace {
