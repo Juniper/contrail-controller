@@ -18,15 +18,15 @@
 class PacketHeader;
 class AclEntryMatch {
 public:
-    virtual ~AclEntryMatch() { };
+    virtual ~AclEntryMatch() {}
     virtual bool Match(const PacketHeader *packet_header) const = 0;
     virtual void SetAclEntryMatchSandeshData(AclEntrySandeshData &data) = 0;
 };
 
 struct Range {
     Range(const uint16_t minimum, const uint16_t maximum) :
-    min(minimum), max(maximum) { };
-    Range() : min(0), max(0) {};
+    min(minimum), max(maximum) {}
+    Range() : min(0), max(0) {}
     boost::intrusive::slist_member_hook<> node;
     uint16_t min;
     uint16_t max;
@@ -48,8 +48,8 @@ struct delete_disposer {
 
 class PortMatch : public AclEntryMatch {
 public:
-    PortMatch() {};
-    ~PortMatch() {port_ranges_.clear_and_dispose(delete_disposer());};
+    PortMatch() {}
+    ~PortMatch() {port_ranges_.clear_and_dispose(delete_disposer());}
     void SetPortRange(const uint16_t min_port, const uint16_t max_port);
     void SetAclEntryMatchSandeshData(AclEntrySandeshData &data) = 0;
     virtual bool Match(const PacketHeader *packet_header) const = 0;
@@ -70,8 +70,8 @@ public:
 
 class ProtocolMatch : public AclEntryMatch {
 public:
-    ProtocolMatch() {};
-    ~ProtocolMatch() {protocol_ranges_.clear_and_dispose(delete_disposer());};
+    ProtocolMatch() {}
+    ~ProtocolMatch() {protocol_ranges_.clear_and_dispose(delete_disposer());}
     void SetProtocolRange(const uint16_t min, const uint16_t max);
     bool Match(const PacketHeader *packet_header) const;
     void SetAclEntryMatchSandeshData(AclEntrySandeshData &data);
@@ -91,8 +91,8 @@ public:
        UNKNOWN_TYPE = 4,
     };
 
-    AddressMatch() { };
-    ~AddressMatch() { };
+    AddressMatch() {}
+    ~AddressMatch() {}
 
     // Set source
     void SetSource(bool src);

@@ -163,7 +163,7 @@ bool FlowEntry::ActionRecompute() {
     action = data_.match_p.policy_action | data_.match_p.out_policy_action |
         data_.match_p.sg_action_summary |
         data_.match_p.mirror_action | data_.match_p.out_mirror_action |
-        data_.match_p.vrf_assign_acl_action;;
+        data_.match_p.vrf_assign_acl_action;
 
     if (action & (1 << TrafficAction::VRF_TRANSLATE) && 
         data_.match_p.action_info.vrf_translate_action_.ignore_acl() == true) {
@@ -628,15 +628,27 @@ void FlowEntry::GetVrfAssignAcl() {
         return;
     }
 
-    const VmInterface *intf =
-        static_cast<const VmInterface *>(data_.intf_entry.get());
-    if (intf->GetVrfAssignAcl() == NULL) {
+    if (is_flags_set(FlowEntry::LinkLocalFlow) ||
+        is_flags_set(FlowEntry::Multicast)) {
         return;
     }
 
-    MatchAclParams acl;
-    acl.acl = intf->GetVrfAssignAcl();
-    data_.match_p.m_vrf_assign_acl_l.push_back(acl);
+    const VmInterface *intf =
+        static_cast<const VmInterface *>(data_.intf_entry.get());
+    //If interface has a VRF assign rule, choose the acl and match the
+    //packet, else get the acl attached to VN and try matching the packet to
+    //network acl
+    const AclDBEntry* acl = intf->vrf_assign_acl();
+    if (acl == NULL && intf->vn()) {
+        acl = intf->vn()->GetAcl();
+    }
+    if (!acl) {
+        return;
+    }
+
+    MatchAclParams m_acl;
+    m_acl.acl = acl;
+    data_.match_p.m_vrf_assign_acl_l.push_back(m_acl);
 }
 
 const std::string& FlowEntry::acl_assigned_vrf() const {

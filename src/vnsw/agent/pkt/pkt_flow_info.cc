@@ -628,18 +628,26 @@ void PktFlowInfo::FloatingIpSNat(const PktInfo *pkt, PktControlInfo *in,
 void PktFlowInfo::VrfTranslate(const PktInfo *pkt, PktControlInfo *in,
                                PktControlInfo *out) {
     const Interface *intf = NULL;
-    if (ingress) {
-        intf = in->intf_;
-    } else {
-        intf = out->intf_;
+    if (!ingress) {
+        return;
     }
 
-    if (intf->type() != Interface::VM_INTERFACE) {
+    intf = in->intf_;
+    if (!intf || intf->type() != Interface::VM_INTERFACE) {
         return;
     }
 
     const VmInterface *vm_intf = static_cast<const VmInterface *>(intf);
-    if (vm_intf->GetVrfAssignAcl() == NULL) {
+    //If interface has a VRF assign rule, choose the acl and match the
+    //packet, else get the acl attached to VN and try matching the packet to
+    //network acl
+    const AclDBEntry *acl = vm_intf->vrf_assign_acl();
+    if (acl == NULL && vm_intf->vn()) {
+        //Check if the network ACL is present
+        acl = vm_intf->vn()->GetAcl();
+    }
+
+    if (!acl) {
         return;
     }
 
@@ -668,7 +676,7 @@ void PktFlowInfo::VrfTranslate(const PktInfo *pkt, PktControlInfo *in,
     }
 
     MatchAclParams match_acl_param;
-    if (!vm_intf->GetVrfAssignAcl()->PacketMatch(hdr, match_acl_param)) {
+    if (!acl->PacketMatch(hdr, match_acl_param)) {
         return;
     }
 
@@ -701,8 +709,13 @@ void PktFlowInfo::IngressProcess(const PktInfo *pkt, PktControlInfo *in,
     // Compute Out-VRF and Route for dest-ip
     out->vrf_ = in->vrf_;
     out->rt_ = ftable->GetUcRoute(out->vrf_, Ip4Address(pkt->ip_daddr));
-    //Overwrite VRF translate
-    VrfTranslate(pkt, in, out);
+    //Native VRF of the interface and acl assigned vrf would have
+    //exact same route with different nexthop, hence if both ingress
+    //route and egress route are present in native vrf, acl match condition
+    //can be applied
+    if (in->rt_ && out->rt_) {
+        VrfTranslate(pkt, in, out);
+    }
 
     if (out->rt_) {
         // Compute out-intf and ECMP info from out-route
@@ -764,7 +777,6 @@ void PktFlowInfo::EgressProcess(const PktInfo *pkt, PktControlInfo *in,
     FlowTable *ftable = Agent::GetInstance()->pkt()->flow_table();
     out->rt_ = ftable->GetUcRoute(out->vrf_, Ip4Address(pkt->ip_daddr));
     in->rt_ = ftable->GetUcRoute(out->vrf_, Ip4Address(pkt->ip_saddr));
-    VrfTranslate(pkt, in, out);
     if (out->intf_) {
         out->vn_ = InterfaceToVn(out->intf_);
     }

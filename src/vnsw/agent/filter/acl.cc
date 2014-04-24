@@ -152,8 +152,9 @@ void AclTable::ActionInit() {
     ta_map_["mirror"] = TrafficAction::MIRROR;
 }
 
-TrafficAction::Action AclTable::ConvertActionString(std::string action_str) {
-    TrafficActionMap::iterator it;
+TrafficAction::Action
+AclTable::ConvertActionString(std::string action_str) const {
+    TrafficActionMap::const_iterator it;
     it = ta_map_.find(action_str);
     if (it != ta_map_.end()) {
         return it->second;
@@ -333,47 +334,8 @@ bool AclTable::IFNodeToReq(IFMapNode *node, DBRequest &req) {
         } else {
             ace_spec.terminal = true;
         }
-        
-        // action list
-        if (!ir->action_list.simple_action.empty()) {
-            ActionSpec saction;
-            saction.ta_type = TrafficAction::SIMPLE_ACTION;
-            saction.simple_action = ConvertActionString(ir->action_list.simple_action);
-            ace_spec.action_l.push_back(saction);
-        }
 
-        if (!ir->action_list.mirror_to.analyzer_name.empty()) {
-            ActionSpec maction;
-            maction.ta_type = TrafficAction::MIRROR_ACTION;
-            maction.simple_action = TrafficAction::MIRROR;
-            boost::system::error_code ec;
-            maction.ma.vrf_name = std::string();
-            maction.ma.analyzer_name = ir->action_list.mirror_to.analyzer_name;
-            maction.ma.ip = IpAddress::from_string(ir->action_list.mirror_to.analyzer_ip_address,
-                                                     ec);
-            if (ec.value() != 0) {
-                ACL_TRACE(Err, "Invalid analyzer ip address " + ir->action_list.mirror_to.analyzer_ip_address); 
-                continue;
-            }
-            if (ir->action_list.mirror_to.udp_port) {
-                maction.ma.port = ir->action_list.mirror_to.udp_port;
-            } else {
-                // Adding default port
-                maction.ma.port = ContrailPorts::AnalyzerUdpPort;
-            }
-            ace_spec.action_l.push_back(maction);
-            AddMirrorTableEntry(ace_spec);
-        }
-
-        if (!ir->action_list.assign_routing_instance.empty()) {
-            ActionSpec vrf_translate_spec;
-            vrf_translate_spec.ta_type = TrafficAction::VRF_TRANSLATE_ACTION;
-            vrf_translate_spec.simple_action = TrafficAction::VRF_TRANSLATE;
-            vrf_translate_spec.vrf_translate.set_vrf_name(
-                    ir->action_list.assign_routing_instance);
-            vrf_translate_spec.vrf_translate.set_ignore_acl(false);
-            ace_spec.action_l.push_back(vrf_translate_spec);
-        }
+        ace_spec.PopulateAction(this, ir->action_list);
         // Add the Ace to the acl
         acl_spec.acl_entry_specs_.push_back(ace_spec);
 
@@ -418,30 +380,6 @@ bool AclTable::IFNodeToReq(IFMapNode *node, DBRequest &req) {
     }
     AclObjectTrace(AgentLogEvent::ADD, acl_spec);
     return false;
-}
-
-
-void AclTable::AddMirrorTableEntry (AclEntrySpec &ace_spec)
-{
-    std::vector<ActionSpec>::iterator it;
-    for (it = ace_spec.action_l.begin(); it != ace_spec.action_l.end(); ++it) {
-        ActionSpec action = *it;
-        if (action.ta_type != TrafficAction::MIRROR_ACTION) {
-            continue;
-        }
-        
-        Ip4Address sip;
-        if (Agent::GetInstance()->GetRouterId() == action.ma.ip) {
-            sip = Ip4Address(METADATA_IP_ADDR);
-        } else {
-            sip = Agent::GetInstance()->GetRouterId();
-        }
-        Agent::GetInstance()->GetMirrorTable()->AddMirrorEntry(action.ma.analyzer_name,
-                                                action.ma.vrf_name,
-                                                sip, Agent::GetInstance()->GetMirrorPort(),
-                                                action.ma.ip.to_v4(), action.ma.port);
-    }
-    return;
 }
 
 // ACL methods
@@ -770,4 +708,70 @@ bool AclEntrySpec::Populate(const MatchConditionType *match_condition) {
         dst_addr_type = AddressMatch::SG;
     }
     return true;
+}
+
+void AclEntrySpec::AddMirrorEntry() const {
+    std::vector<ActionSpec>::const_iterator it;
+    for (it = action_l.begin(); it != action_l.end(); ++it) {
+        ActionSpec action = *it;
+        if (action.ta_type != TrafficAction::MIRROR_ACTION) {
+            continue;
+        }
+
+        Ip4Address sip;
+        if (Agent::GetInstance()->GetRouterId() == action.ma.ip) {
+            sip = Ip4Address(METADATA_IP_ADDR);
+        } else {
+            sip = Agent::GetInstance()->GetRouterId();
+        }
+        Agent::GetInstance()->GetMirrorTable()->AddMirrorEntry(
+                action.ma.analyzer_name, action.ma.vrf_name, sip,
+                Agent::GetInstance()->GetMirrorPort(),
+                action.ma.ip.to_v4(), action.ma.port);
+    }
+}
+
+void AclEntrySpec::PopulateAction(const AclTable *acl_table,
+                                  const ActionListType &action_list) {
+    if (!action_list.simple_action.empty()) {
+        ActionSpec saction;
+        saction.ta_type = TrafficAction::SIMPLE_ACTION;
+        saction.simple_action =
+            acl_table->ConvertActionString(action_list.simple_action);
+        action_l.push_back(saction);
+    }
+
+    if (!action_list.mirror_to.analyzer_name.empty()) {
+        ActionSpec maction;
+        maction.ta_type = TrafficAction::MIRROR_ACTION;
+        maction.simple_action = TrafficAction::MIRROR;
+        boost::system::error_code ec;
+        maction.ma.vrf_name = std::string();
+        maction.ma.analyzer_name = action_list.mirror_to.analyzer_name;
+        maction.ma.ip =
+            IpAddress::from_string(action_list.mirror_to.analyzer_ip_address, ec);
+        if (ec.value() == 0) {
+            if (action_list.mirror_to.udp_port) {
+                maction.ma.port = action_list.mirror_to.udp_port;
+            } else {
+                // Adding default port
+                maction.ma.port = ContrailPorts::AnalyzerUdpPort;
+            }
+            action_l.push_back(maction);
+            AddMirrorEntry();
+        } else {
+            ACL_TRACE(Err, "Invalid analyzer ip address " +
+                      action_list.mirror_to.analyzer_ip_address);
+        }
+    }
+
+    if (!action_list.assign_routing_instance.empty()) {
+        ActionSpec vrf_translate_spec;
+        vrf_translate_spec.ta_type = TrafficAction::VRF_TRANSLATE_ACTION;
+        vrf_translate_spec.simple_action = TrafficAction::VRF_TRANSLATE;
+        vrf_translate_spec.vrf_translate.set_vrf_name(
+            action_list.assign_routing_instance);
+        vrf_translate_spec.vrf_translate.set_ignore_acl(false);
+        action_l.push_back(vrf_translate_spec);
+    }
 }

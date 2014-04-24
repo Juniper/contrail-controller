@@ -95,6 +95,9 @@ public:
     // Action
     std::vector<ActionSpec> action_l;
     bool Populate(const autogen::MatchConditionType *match_condition);
+    void PopulateAction(const AclTable *acl_table,
+                        const autogen::ActionListType &action_list);
+    void AddMirrorEntry() const;
 };
 
 struct AclSpec {

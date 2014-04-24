@@ -357,7 +357,6 @@ public:
     void AddL2Route();
     void UpdateL2();
     const AclDBEntry* vrf_assign_acl() const { return vrf_assign_acl_.get();}
-    const AclDBEntry* GetVrfAssignAcl() const;
 private:
     bool IsActive();
     bool IsL3Active();

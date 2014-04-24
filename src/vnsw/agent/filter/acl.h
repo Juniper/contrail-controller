@@ -131,7 +131,7 @@ public:
     virtual bool IFNodeToReq(IFMapNode *node, DBRequest &req);
 
     static DBTableBase *CreateTable(DB *db, const std::string &name);
-    TrafficAction::Action ConvertActionString(std::string action);
+    TrafficAction::Action ConvertActionString(std::string action) const;
     static void AclFlowResponse(const std::string acl_uuid_str, 
                                 const std::string ctx, const int last_count);
     static void AclFlowCountResponse(const std::string acl_uuid_str, 
@@ -141,7 +141,6 @@ private:
                                            const std::string ctx,
                                            SandeshResponse *resp);
     void ActionInit();
-    void AddMirrorTableEntry (AclEntrySpec &ace_spec);
     TrafficActionMap ta_map_;
     DISALLOW_COPY_AND_ASSIGN(AclTable);
 };

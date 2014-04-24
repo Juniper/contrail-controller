@@ -1393,17 +1393,6 @@ static bool CompareMatchConditionType(const MatchConditionType &lhs,
     return true;
 }
 
-const AclDBEntry* VmInterface::GetVrfAssignAcl() const {
-    if (vrf_assign_acl_.get()) {
-        return vrf_assign_acl_.get();
-    }
-
-    if (vn_ && vn_->GetAcl()) {
-        return vn_->GetAcl();
-    }
-    return NULL;
-}
-
 void VmInterface::UpdateVrfAssignRule() {
     Agent *agent = static_cast<InterfaceTable *>(get_table())->agent();
     //Erase all delete marked entry
