@@ -608,7 +608,6 @@ class OpServer(object):
             'log_category'       : '',
             'log_file'           : Sandesh._DEFAULT_LOG_FILE,
             'dup'                : False,
-            'redis_uve_list'     : ['127.0.0.1:6381'],
         }
         redis_opts = {
             'redis_server_port'  : 6381,
