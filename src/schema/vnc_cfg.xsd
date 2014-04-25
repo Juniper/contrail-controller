@@ -707,13 +707,22 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
      Property('virtual-machine-interface-properties',
              'virtual-machine-interface') -->
 
-
 <xsd:element name="virtual-machine-virtual-machine-interface"/>
+<xsd:element name="project-virtual-machine-interface"/>
 <!--#IFMAP-SEMANTICS-IDL 
      Link('virtual-machine-virtual-machine-interface',
-          'virtual-machine', 'virtual-machine-interface', ['has']) -->
+          'virtual-machine', 'virtual-machine-interface', ['has']);
+     Link('project-virtual-machine-interface',
+          'project', 'virtual-machine-interface', ['has'])
+ -->
+
+<xsd:element name="virtual-machine-interface-virtual-machine"/>
+<!--#IFMAP-SEMANTICS-IDL
+     Link('virtual-machine-interface-virtual-machine',
+          'virtual-machine-interface', 'virtual-machine', ['ref']) -->
+
 <xsd:element name="virtual-machine-interface-virtual-network"/>
-<!--#IFMAP-SEMANTICS-IDL 
+<!--#IFMAP-SEMANTICS-IDL
      Link('virtual-machine-interface-virtual-network',
           'virtual-machine-interface', 'virtual-network', ['ref']) -->
 
