@@ -97,7 +97,7 @@ class ProvisionVgwInterface(object):
                 vif_command = '/usr/bin/vif --delete ' + interface_index
                 self.execute_command(vif_command)
 
-            del_cmd = 'ip link del ' + interface_index
+            del_cmd = 'ip link del ' + self._args.interface
             self.execute_command(del_cmd)
             print "Done deleting virtual-gateway..."
 
