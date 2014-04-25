@@ -316,31 +316,34 @@ inline const std::string integerToString<>(const uint8_t &num) {
 
 // Converts string into a number
 template <typename NumberType>
-static inline void stringToInteger(const std::string& str, NumberType &num) {
-    std::stringstream ss(str);
-    ss >> num;
+inline bool stringToInteger(const std::string& str, NumberType &num) {
+    char *endptr;
+    num = strtoul(str.c_str(), &endptr, 10);
+    return endptr[0] == '\0';
 }
 
-// int8_t must be handled properly because stringstream sees int8_t
-// as a text type instead of an integer type
-template <>
-inline void stringToInteger<>(const std::string& str, int8_t &num) {
-    int16_t tmp;
-    std::stringstream ss(str);
-    ss >> tmp;
-    assert(tmp > -128 && tmp < 128);
-    num = (int8_t)tmp;
+template <typename NumberType>
+inline bool stringToLongLong(const std::string& str, NumberType &num) {
+    char *endptr;
+    num = strtoull(str.c_str(), &endptr, 10);
+    return endptr[0] == '\0';
 }
 
-// uint8_t must be handled properly because stringstream sees uint8_t
-// as a text type instead of an integer type
 template <>
-inline void stringToInteger<>(const std::string& str, uint8_t &num) {
-    uint16_t tmp;
-    std::stringstream ss(str);
-    ss >> tmp;
-    assert(tmp < 256);
-    num = (uint8_t)tmp;
+inline bool stringToInteger<>(const std::string& str, int64_t &num) {
+    return stringToLongLong(str, num);
+}
+
+template <>
+inline bool stringToInteger<>(const std::string& str, uint64_t &num) {
+    return stringToLongLong(str, num);
+}
+
+template <>
+inline bool stringToInteger<>(const std::string& str, double &num) {
+    char *endptr;
+    num = strtod(str.c_str(), &endptr);
+    return endptr[0] == '\0';
 }
 
 //
