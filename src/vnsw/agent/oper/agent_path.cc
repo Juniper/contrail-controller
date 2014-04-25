@@ -309,6 +309,12 @@ bool InetInterfaceRoute::AddChangePath(Agent *agent, AgentPath *path) {
     }
 
     path->set_tunnel_bmap(tunnel_bmap_);
+    TunnelType::Type tunnel_type = TunnelType::ComputeType(tunnel_bmap_);
+    if (tunnel_type != path->tunnel_type()) {
+        path->set_tunnel_type(tunnel_type);
+        ret = true;
+    }
+
     path->set_unresolved(false);
     if (path->ChangeNH(agent, nh) == true)
         ret = true;
