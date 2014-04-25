@@ -179,10 +179,11 @@ class ProvisionVgwInterface(object):
             parser.error('Missing argument interface')
         if not self._args.subnets:
             parser.error('Missing argument subnets')
-        if not self._args.routes:
-            parser.error('Missing argument routes')
-        if not self._args.vrf:
-            parser.error('Missing argument vrf')
+        if self._args.oper == "create":
+            if not self._args.routes:
+                parser.error('Missing argument routes')
+            if not self._args.vrf:
+                parser.error('Missing argument vrf')
     # end _parse_args
 
 # end class ProvisionVgwInterface
