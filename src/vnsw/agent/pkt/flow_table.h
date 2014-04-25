@@ -460,12 +460,7 @@ public:
         SecurityGroupList sg_l_;
     };
 
-    FlowTable(Agent *agent) : 
-        agent_(agent), flow_entry_map_(), acl_flow_tree_(),
-        flow_count_(), linklocal_flow_count_(), acl_listener_id_(),
-        intf_listener_id_(), vn_listener_id_(), vm_listener_id_(),
-        vrf_listener_id_(), nh_listener_(NULL),
-        route_key_(NULL, Ip4Address(), 32, false) {}
+    FlowTable(Agent *agent);
     virtual ~FlowTable();
     
     void Init();
@@ -481,7 +476,8 @@ public:
                         uint32_t *out_count);
     uint32_t VmFlowCount(const VmEntry *vm);
     uint32_t VmLinkLocalFlowCount(const VmEntry *vm);
-    uint32_t flow_count() const { return flow_count_; }
+    uint32_t max_vm_flows() const { return max_vm_flows_; }
+    void set_max_vm_flows(uint32_t num_flows) { max_vm_flows_ = num_flows; }
     uint32_t linklocal_flow_count() const { return linklocal_flow_count_; }
     Agent *agent() const { return agent_; }
 
@@ -522,7 +518,7 @@ private:
     VmFlowTree vm_flow_tree_;
     RouteFlowTree route_flow_tree_;
 
-    uint32_t flow_count_;            // total flows in the agent
+    uint32_t max_vm_flows_;     // maximum flow count allowed per vm
     uint32_t linklocal_flow_count_;  // total linklocal flows in the agent
 
     DBTableBase::ListenerId acl_listener_id_;
@@ -693,12 +689,11 @@ struct IntfFlowInfo {
 };
 
 struct VmFlowInfo {
-    VmFlowInfo() : flow_count(), linklocal_flow_count() {}
+    VmFlowInfo() : linklocal_flow_count() {}
     ~VmFlowInfo() {}
 
     VmEntryConstRef vm_entry;
     FlowTable::FlowEntryTree fet;
-    uint32_t flow_count;
     uint32_t linklocal_flow_count;
 };
 

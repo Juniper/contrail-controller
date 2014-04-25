@@ -29,6 +29,7 @@
 #include <netinet/udp.h>
 
 #include "route/route.h"
+#include "init/agent_param.h"
 #include "cmn/agent_cmn.h"
 #include "cmn/agent_stats.h"
 #include "oper/interface_common.h"
@@ -1980,8 +1981,6 @@ void FlowTable::DeleteVmFlowInfo(FlowEntry *fe, const VmEntry *vm) {
     if (vm_it != vm_flow_tree_.end()) {
         VmFlowInfo *vm_flow_info = vm_it->second;
         if (vm_flow_info->fet.erase(fe)) {
-            vm_flow_info->flow_count--;
-            flow_count_--;
             if (fe->linklocal_src_port()) {
                 vm_flow_info->linklocal_flow_count--;
                 linklocal_flow_count_--;
@@ -2169,8 +2168,6 @@ void FlowTable::AddVmFlowInfo(FlowEntry *fe, const VmEntry *vm) {
         }
     }
     if (update) {
-        vm_flow_info->flow_count++;
-        flow_count_++;
         if (fe->linklocal_src_port()) {
             vm_flow_info->linklocal_flow_count++;
             linklocal_flow_count_++;
@@ -2249,7 +2246,7 @@ uint32_t FlowTable::VmFlowCount(const VmEntry *vm) {
     VmFlowTree::iterator it = vm_flow_tree_.find(vm);
     if (it != vm_flow_tree_.end()) {
         VmFlowInfo *vm_flow_info = it->second;
-        return vm_flow_info->flow_count;
+        return vm_flow_info->fet.size();
     }
 
     return 0;
@@ -2562,6 +2559,17 @@ void FlowTable::SetAclFlowSandeshData(const AclDBEntry *acl, AclFlowResp &data,
     if (!key_set) {
         data.set_iteration_key(GetAclFlowSandeshDataKey(acl, 0));
     }
+}
+
+FlowTable::FlowTable(Agent *agent) : 
+    agent_(agent), flow_entry_map_(), acl_flow_tree_(),
+    linklocal_flow_count_(), acl_listener_id_(),
+    intf_listener_id_(), vn_listener_id_(), vm_listener_id_(),
+    vrf_listener_id_(), nh_listener_(NULL),
+    route_key_(NULL, Ip4Address(), 32, false) {
+    max_vm_flows_ =
+        agent->ksync()->flowtable_ksync_obj()->flow_table_entries_count() *
+        agent->params()->max_vm_flows() / 100;
 }
 
 FlowTable::~FlowTable() {

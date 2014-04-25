@@ -16,8 +16,9 @@ public:
         pkt_invalid_agent_hdr_(0U), pkt_invalid_interface_(0U), 
         pkt_no_handler_(0U), pkt_dropped_(0U), flow_created_(0U),
         flow_aged_(0U), flow_active_(0U), flow_drop_due_to_max_limit_(0),
-        ipc_in_msgs_(0U), ipc_out_msgs_(0U), 
-        in_tpkts_(0U), in_bytes_(0U), out_tpkts_(0U), out_bytes_(0U) {
+        flow_drop_due_to_linklocal_limit_(0), ipc_in_msgs_(0U),
+        ipc_out_msgs_(0U), in_tpkts_(0U), in_bytes_(0U), out_tpkts_(0U),
+        out_bytes_(0U) {
         assert(singleton_ == NULL);
         singleton_ = this;
     }
@@ -59,6 +60,12 @@ public:
     void incr_flow_drop_due_to_max_limit() {flow_drop_due_to_max_limit_++;}
     uint64_t flow_drop_due_to_max_limit() const {
         return flow_drop_due_to_max_limit_;
+    }
+    void incr_flow_drop_due_to_linklocal_limit() {
+        flow_drop_due_to_linklocal_limit_++;
+    }
+    uint64_t flow_drop_due_to_linklocal_limit() const {
+        return flow_drop_due_to_linklocal_limit_;
     }
 
     void incr_pkt_exceptions() {pkt_exceptions_++;}
@@ -119,6 +126,7 @@ private:
     uint64_t flow_aged_;
     uint64_t flow_active_;
     uint64_t flow_drop_due_to_max_limit_;
+    uint64_t flow_drop_due_to_linklocal_limit_;
 
     // Kernel IPC
     uint64_t ipc_in_msgs_;
