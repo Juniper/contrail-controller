@@ -29,6 +29,14 @@ class ResourceApi(ResourceApiGen):
         pass
     #end __init__
 
+
+class NeutronApi(object):
+    @abc.abstractmethod
+    def __init__(self):
+        pass
+    #end __init__
+
+
 class AuthBase(object):
     __metaclass__ = abc.ABCMeta
 
