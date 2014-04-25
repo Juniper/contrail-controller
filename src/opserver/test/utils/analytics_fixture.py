@@ -1388,6 +1388,45 @@ class AnalyticsFixture(fixtures.Fixture):
             return True
     # end verify_table_source_module_list
 
+    @retry(delay=1, tries=5)
+    def verify_object_table_query(self):
+        self.logger.info('verify_object_table_query')
+        vns = VerificationOpsSrv('127.0.0.1', self.opserver_port)
+
+        #ObjectTable query with only ObjectId
+        self.logger.info('ObjectTable query with only ObjectId')
+        object_id = object_id = self.collectors[0].hostname
+        res = vns.post_query('ObjectCollectorInfo',
+                             start_time='-10m', end_time='now',
+                             select_fields=['ObjectId'],
+                             where_clause='ObjectId = %s' % object_id)
+        if not res:
+            return False
+        else:
+            self.logger.info(res)
+            for r in res:
+                assert('ObjectId' in r)
+
+        # ObjectTable query with ModuleId specified in where clause
+        self.logger.info('ObjectTable query with ModuleId in where clause')
+        object_id = object_id = self.collectors[0].hostname 
+        module = 'Collector'
+        where_obj_id = 'ObjectId = %s' % object_id
+        where_mod = 'ModuleId = %s' % module
+        res = vns.post_query('ObjectCollectorInfo',
+                             start_time='-10m', end_time='now',
+                             select_fields=['ObjectId'],
+                             where_clause=where_obj_id + 'AND' + where_mod)
+        if not res:
+            return False
+        else:
+            self.logger.info(res)
+            for r in res:
+                assert('ObjectId' in r)
+
+        return True
+    # end verify_object_table_query
+
     def cleanUp(self):
         super(AnalyticsFixture, self).cleanUp()
 
