@@ -225,8 +225,21 @@ TEST_F(VgwTest, RouteResync) {
 
     AddEncapList("MPLSoUDP", "MPLSoGRE", "VXLAN");
     client->WaitForIdle();
+    route = RouteGet("default-domain:admin:public:public",
+                     Ip4Address::from_string("0.0.0.0"), 0);
+    EXPECT_EQ(route->GetActivePath()->tunnel_type(), TunnelType::MPLS_GRE);
+
     AddEncapList("MPLSoGRE", "MPLSoUDP", "VXLAN");
     client->WaitForIdle();
+    route = RouteGet("default-domain:admin:public:public",
+                     Ip4Address::from_string("0.0.0.0"), 0);
+    EXPECT_EQ(route->GetActivePath()->tunnel_type(), TunnelType::MPLS_GRE);
+
+    AddEncapList("VXLAN", "MPLSoGRE", "MPLSoUDP");
+    client->WaitForIdle();
+    route = RouteGet("default-domain:admin:public:public",
+                     Ip4Address::from_string("0.0.0.0"), 0);
+    EXPECT_EQ(route->GetActivePath()->tunnel_type(), TunnelType::MPLS_GRE);
 
     route = RouteGet("default-domain:admin:public:public",
                      Ip4Address::from_string("0.0.0.0"), 0);
