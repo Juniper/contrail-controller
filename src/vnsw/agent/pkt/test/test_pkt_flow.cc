@@ -2169,7 +2169,8 @@ TEST_F(FlowTest, LinkLocalFlow_Fail2) {
 // Check that flow limit per VM works
 TEST_F(FlowTest, FlowLimit_1) {
     Agent::GetInstance()->SetRouterId(Ip4Address::from_string(vhost_ip_addr));
-    Agent::GetInstance()->params()->set_max_vm_flows(3);
+    uint32_t vm_flows = Agent::GetInstance()->pkt()->flow_table()->max_vm_flows();
+    Agent::GetInstance()->pkt()->flow_table()->set_max_vm_flows(3);
 
     /* Add Local VM route of vrf3 to vrf5 */
     CreateLocalRoute("vrf5", vm4_ip, flow3, 19);
@@ -2221,7 +2222,7 @@ TEST_F(FlowTest, FlowLimit_1) {
     DeleteRoute("vrf3", vm1_ip);
     client->WaitForIdle();
     client->WaitForIdle();
-    Agent::GetInstance()->params()->set_max_vm_flows(1024);
+    Agent::GetInstance()->pkt()->flow_table()->set_max_vm_flows(vm_flows);
 }
 
 TEST_F(FlowTest, Flow_introspect_delete_all) {

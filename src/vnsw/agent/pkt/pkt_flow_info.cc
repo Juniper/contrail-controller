@@ -799,12 +799,10 @@ void PktFlowInfo::Add(const PktInfo *pkt, PktControlInfo *in,
     FlowEntryPtr flow(Agent::GetInstance()->pkt()->flow_table()->Allocate(key));
 
     // Do not allow more than max flows
-    if ((flow_table->flow_count() >=
-         flow_table->agent()->params()->max_system_flows()) ||
-        (in->vm_ && flow_table->VmFlowCount(in->vm_) >=
-         flow_table->agent()->params()->max_vm_flows()) ||
-        (out->vm_ && flow_table->VmFlowCount(out->vm_) >=
-         flow_table->agent()->params()->max_vm_flows())) {
+    if ((in->vm_ &&
+         (flow_table->VmFlowCount(in->vm_) + 2) > flow_table->max_vm_flows()) ||
+        (out->vm_ &&
+         (flow_table->VmFlowCount(out->vm_) + 2) > flow_table->max_vm_flows())) {
         flow_table->agent()->stats()->incr_flow_drop_due_to_max_limit();
         short_flow = true;
     }

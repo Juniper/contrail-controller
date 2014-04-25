@@ -97,10 +97,8 @@ public:
          "IP Address and prefix or the link local port in ip/prefix format")
         ("HYPERVISOR.vmware_physical_port", opt::value<string>(),
          "Physical port used to connect to VMs in VMWare environment")
-        ("FLOWS.max_system_flows", opt::value<uint16_t>(), 
-         "Maximum number of flows allowed in the vrouter across all VMs")
         ("FLOWS.max_vm_flows", opt::value<uint16_t>(), 
-         "Maximum number of flows allowed per VM")
+         "Maximum flows allowed per VM - given as \% of maximum system flows")
         ("FLOWS.max_system_linklocal_flows", opt::value<uint16_t>(), 
          "Maximum number of link-local flows allowed across all VMs")
         ("FLOWS.max_vm_linklocal_flows", opt::value<uint16_t>(), 
@@ -157,8 +155,7 @@ TEST_F(FlowTest, Agent_Conf_file_1) {
     EXPECT_EQ(param.xmpp_instance_count(), 2);
     EXPECT_STREQ(param.tunnel_type().c_str(), "MPLSoGRE");
     EXPECT_STREQ(param.metadata_shared_secret().c_str(), "contrail");
-    EXPECT_EQ(param.max_system_flows(), 10240);
-    EXPECT_EQ(param.max_vm_flows(), 1024);
+    EXPECT_EQ(param.max_vm_flows(), 50);
     EXPECT_EQ(param.linklocal_system_flows(), 1024);
     EXPECT_EQ(param.linklocal_vm_flows(), 512);
     EXPECT_STREQ(param.config_file().c_str(), 
@@ -171,8 +168,7 @@ TEST_F(FlowTest, Agent_Conf_file_2) {
     param.Init("controller/src/vnsw/agent/init/test/cfg1.ini", "test-param",
                var_map);
 
-    EXPECT_EQ(param.max_system_flows(), 10240);
-    EXPECT_EQ(param.max_vm_flows(), 10240);
+    EXPECT_EQ(param.max_vm_flows(), 100);
     EXPECT_EQ(param.linklocal_system_flows(), 2048);
     EXPECT_EQ(param.linklocal_vm_flows(), 2048);
     EXPECT_EQ(param.xmpp_server_1().to_ulong(),
