@@ -200,9 +200,11 @@ cflags = env['CCFLAGS']
 cflags.append('-Wno-return-type')
 vnswad = env.Program(target = 'vnswad', source = ['buildinfo.cc', 'main.cc'])
 env.Alias('src/vnsw/agent:vnswad', vnswad)
+env.Alias('compute-node-install', vnswad)
 env.Default(vnswad)
 env.Alias('install', env.Install(env['INSTALL_BIN'], vnswad))
 env.Alias('install', env.Install(env['INSTALL_CONF'], 'contrail-vrouter-agent.conf'))
+env.Alias('compute-node-install', env.Install(env['INSTALL_BIN'], vnswad))
 
 AgentEnv = env.Clone()
 AgentEnv.AppendUnique(CCFLAGS='-fno-exceptions')
