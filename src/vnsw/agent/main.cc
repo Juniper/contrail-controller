@@ -48,7 +48,7 @@ void RouterIdDepInit(Agent *agent) {
     InstanceInfoServiceServerInit(agent);
 
     // Parse config and then connect
-    VNController::Connect();
+    Agent::GetInstance()->controller()->Connect();
     LOG(DEBUG, "Router ID Dependent modules (Nova and BGP) INITIALIZED");
 }
 

@@ -45,7 +45,7 @@ class EcmpTest : public ::testing::Test {
             EXPECT_TRUE(VmPortActive(i));
         }
 
-        bgp_peer = new BgpPeer(Ip4Address(1), "BGP peer 1", NULL, -1);
+        bgp_peer = CreateBgpPeer(Ip4Address(1), "BGP peer 1");
         //Add floating IP for vrf2 interface to talk to
         //vrf3
         AddFloatingIpPool("fip-pool1", 1);

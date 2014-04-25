@@ -655,6 +655,7 @@ void AgentRoute::FillTrace(RouteInfo &rt_info, Trace event,
 
     case ADD_PATH:
     case DELETE_PATH:
+    case STALE_PATH:
     case CHANGE_PATH: {
         if (event == ADD_PATH) {
             rt_info.set_op("PATH ADD");
@@ -662,6 +663,8 @@ void AgentRoute::FillTrace(RouteInfo &rt_info, Trace event,
             rt_info.set_op("PATH CHANGE");
         } else if (event == DELETE_PATH) {
             rt_info.set_op("PATH DELETE");
+        } else if (event == STALE_PATH) {
+            rt_info.set_op("PATH STALE");
         }
 
         if (path == NULL) {
@@ -761,4 +764,5 @@ void AgentPath::SetSandeshData(PathSandeshData &pdata) const {
             TunnelType(tunnel_type()).ToString());
     pdata.set_supported_tunnel_type(
             TunnelType::GetString(tunnel_bmap()));
+    pdata.set_stale(is_stale());
 }

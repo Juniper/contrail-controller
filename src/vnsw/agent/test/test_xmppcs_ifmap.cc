@@ -103,7 +103,7 @@ protected:
             xs[0]->Shutdown();
         if (server_shutdown[1] == 0)
             xs[1]->Shutdown();
-        VNController::DisConnect();
+        Agent::GetInstance()->controller()->DisConnect();
         client->WaitForIdle();
         Agent::GetInstance()->GetEventManager()->Shutdown();
         thread_->Join();
@@ -115,7 +115,7 @@ protected:
         Agent::GetInstance()->SetXmppPort(xs[1]->GetPort(), 1);
 
         //Ask agent to connect to us
-        VNController::Connect();
+        Agent::GetInstance()->controller()->Connect();
 
 
         for(int id = 0; id < 2; id++) {

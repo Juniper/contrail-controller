@@ -38,6 +38,8 @@
 #include <vgw/cfg_vgw.h>
 #include <vgw/vgw.h>
 #include <cmn/agent_factory.h>
+#include <controller/controller_init.h>
+
 #include <diag/diag.h>
 
 const std::string Agent::null_str_ = "";
@@ -221,6 +223,10 @@ CfgListener *Agent::cfg_listener() const {
     return cfg_.get()->cfg_listener();
 }
 
+void Agent::SetControlNodeMulticastBuilder(AgentXmppChannel *peer) {
+    cn_mcast_builder_ =  peer;
+}
+
 void Agent::CreateModules() {
     Sandesh::SetLoggingParams(params_->log_local(),
                               params_->log_category(),
@@ -263,6 +269,7 @@ void Agent::CreateModules() {
     if (init_->vgw_enable()) {
         vgw_ = std::auto_ptr<VirtualGateway>(new VirtualGateway(this));
     }
+    controller_ = std::auto_ptr<VNController>(new VNController(this));
 }
 
 void Agent::CreateDBTables() {
@@ -397,7 +404,7 @@ Agent::Agent() :
     vgw_peer_(NULL), ifmap_parser_(NULL), router_id_configured_(false),
     mirror_src_udp_port_(0), lifetime_manager_(NULL), 
     ksync_sync_mode_(true), mgmt_ip_(""),
-    vxlan_network_identifier_mode_(AUTOMATIC), debug_(false),
+    vxlan_network_identifier_mode_(AUTOMATIC), headless_agent_mode_(true), debug_(false),
     test_mode_(false) {
 
     assert(singleton_ == NULL);

@@ -76,8 +76,12 @@ TEST_F(AgentPeerDelete, peer_test_1) {
     ip6 = IpAddress::from_string("67.25.2.1");
 
     BgpPeer *peer1, *peer2; 
-    peer1 = new BgpPeer(Ip4Address(1), "BGP Peer 1", NULL, -1);
-    peer2 = new BgpPeer(Ip4Address(2), "BGP Peer 2", NULL, -1);
+    AgentXmppChannel *channel;
+    XmppChannelMock xmpp_channel;
+    channel = new AgentXmppChannel(Agent::GetInstance(), &xmpp_channel, 
+                                   "XMPP Server", "", 0);
+    peer1 = new BgpPeer(Ip4Address(1), "BGP Peer 1", channel, -1);
+    peer2 = new BgpPeer(Ip4Address(2), "BGP Peer 2", channel, -1);
 
     //Vrf-Table Listeners
     int id_peer1 = Agent::GetInstance()->GetVrfTable()->Register(boost::bind(&AgentPeerDelete::VrfCreated, 
@@ -133,9 +137,11 @@ TEST_F(AgentPeerDelete, peer_test_1) {
 
     delete static_cast<Peer *>(peer1);
     delete static_cast<Peer *>(peer2);
+    delete channel;
 
     peer1 = NULL;
     peer2 = NULL;
+    channel = NULL;
 
     client->WaitForIdle();
 }
@@ -152,9 +158,13 @@ TEST_F(AgentPeerDelete, DeletePeerOnDeletedVrf) {
     AddVrf("test_vrf3");
     client->WaitForIdle();
 
+    XmppChannelMock xmpp_channel;
+    AgentXmppChannel *channel;
+    channel = new AgentXmppChannel(Agent::GetInstance(), &xmpp_channel, 
+                                   "XMPP Server", "", 0);
     BgpPeer *peer1, *peer2; 
-    peer1 = new BgpPeer(Ip4Address(1), "BGP Peer 1", NULL, -1);
-    peer2 = new BgpPeer(Ip4Address(2), "BGP Peer 2", NULL, -1);
+    peer1 = new BgpPeer(Ip4Address(1), "BGP Peer 1", channel, -1);
+    peer2 = new BgpPeer(Ip4Address(2), "BGP Peer 2", channel, -1);
 
     //Vrf-Table Listeners
     int id_peer1 = Agent::GetInstance()->GetVrfTable()->Register(boost::bind(&AgentPeerDelete::VrfCreated, 
@@ -192,9 +202,12 @@ TEST_F(AgentPeerDelete, DeletePeerOnDeletedVrf) {
     client->WaitForIdle();
     delete static_cast<Peer *>(peer2);
     client->WaitForIdle();
+    delete channel;
+    client->WaitForIdle();
 
     peer1 = NULL;
     peer2 = NULL;
+    channel = NULL;
 }
 
 int main(int argc, char *argv[]) {

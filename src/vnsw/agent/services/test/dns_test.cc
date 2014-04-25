@@ -317,7 +317,8 @@ public:
 
     void CheckSendXmppUpdate() {
         // Call the SendXmppUpdate directly and check that all items are done
-        AgentDnsXmppChannel *tmp_xmpp_channel = new AgentDnsXmppChannel(NULL, "server", 0);
+        AgentDnsXmppChannel *tmp_xmpp_channel = 
+            new AgentDnsXmppChannel(Agent::GetInstance(), NULL, "server", 0);
         Agent *agent = Agent::GetInstance();
         boost::shared_ptr<PktInfo> pkt_info(new PktInfo(NULL, 0));;
         DnsHandler *dns_handler = new DnsHandler(agent, pkt_info, *agent->GetEventManager()->io_service());

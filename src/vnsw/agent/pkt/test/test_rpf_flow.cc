@@ -104,7 +104,7 @@ protected:
         assert(flow2);
 
         client->WaitForIdle();
-        peer_ = new BgpPeer(Ip4Address(1), "BGP Peer 1", NULL, -1);
+        peer_ = CreateBgpPeer(Ip4Address(1), "BGP Peer 1");
         Ip4Address gw_ip = Ip4Address::from_string("11.1.1.254");
         //Add a gateway route pointing to pkt0
         VrfEntry *vrf = VrfGet("vrf5");
@@ -133,7 +133,7 @@ protected:
         EXPECT_EQ(0U, agent()->GetVmTable()->Size());
         EXPECT_EQ(0U, agent()->GetVnTable()->Size());
         EXPECT_EQ(0U, agent()->GetAclTable()->Size());
-        delete static_cast<Peer *>(peer_);
+        DeleteBgpPeer(peer_);
     }
 
     Agent *agent() {return agent_;}

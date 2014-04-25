@@ -2602,3 +2602,24 @@ bool VmPortServiceVlanCount(int id, unsigned int count) {
     }
     return true;
 }
+
+BgpPeer *CreateBgpPeer(const Ip4Address &addr, std::string name) {
+    XmppChannelMock *xmpp_channel = new XmppChannelMock();
+    AgentXmppChannel *channel;
+    channel = new AgentXmppChannel(Agent::GetInstance(), xmpp_channel, 
+                                   "XMPP Server", "", 0);
+    return (new BgpPeer(addr, name, channel, -1));
+}
+
+void DeleteBgpPeer(Peer *peer) {
+    BgpPeer *bgp_peer = static_cast<BgpPeer *>(peer);
+    if (!bgp_peer)
+        return;
+
+    if (bgp_peer->GetBgpXmppPeer()) {
+        if (bgp_peer->GetBgpXmppPeer()->GetXmppChannel())
+            delete bgp_peer->GetBgpXmppPeer()->GetXmppChannel();
+
+    }
+    delete bgp_peer;
+}
