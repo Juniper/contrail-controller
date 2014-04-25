@@ -625,6 +625,72 @@ void PktFlowInfo::FloatingIpSNat(const PktInfo *pkt, PktControlInfo *in,
     return;
 }
 
+void PktFlowInfo::VrfTranslate(const PktInfo *pkt, PktControlInfo *in,
+                               PktControlInfo *out) {
+    const Interface *intf = NULL;
+    if (!ingress) {
+        return;
+    }
+
+    intf = in->intf_;
+    if (!intf || intf->type() != Interface::VM_INTERFACE) {
+        return;
+    }
+
+    const VmInterface *vm_intf = static_cast<const VmInterface *>(intf);
+    //If interface has a VRF assign rule, choose the acl and match the
+    //packet, else get the acl attached to VN and try matching the packet to
+    //network acl
+    const AclDBEntry *acl = vm_intf->vrf_assign_acl();
+    if (acl == NULL && vm_intf->vn()) {
+        //Check if the network ACL is present
+        acl = vm_intf->vn()->GetAcl();
+    }
+
+    if (!acl) {
+        return;
+    }
+
+    PacketHeader hdr;
+    hdr.vrf = pkt->vrf;
+    hdr.src_ip = pkt->ip_saddr;
+    hdr.dst_ip = pkt->ip_daddr;
+    hdr.protocol = pkt->ip_proto;
+    if (hdr.protocol == IPPROTO_UDP || hdr.protocol == IPPROTO_TCP) {
+        hdr.src_port = pkt->sport;
+        hdr.dst_port = pkt->dport;
+    } else {
+        hdr.src_port = 0;
+        hdr.dst_port = 0;
+    }
+    hdr.src_policy_id = RouteToVn(in->rt_);
+    hdr.dst_policy_id = RouteToVn(out->rt_);
+
+    if (in->rt_) {
+        const AgentPath *path = in->rt_->GetActivePath();
+        hdr.src_sg_id_l = &(path->sg_list());
+    }
+    if (out->rt_) {
+        const AgentPath *path = out->rt_->GetActivePath();
+        hdr.dst_sg_id_l = &(path->sg_list());
+    }
+
+    MatchAclParams match_acl_param;
+    if (!acl->PacketMatch(hdr, match_acl_param)) {
+        return;
+    }
+
+    if (match_acl_param.action_info.vrf_translate_action_.vrf_name() != "") {
+        VrfKey key(match_acl_param.action_info.vrf_translate_action_.vrf_name());
+        const VrfEntry *vrf = static_cast<const VrfEntry*>
+            (Agent::GetInstance()->GetVrfTable()->FindActiveEntry(&key));
+        out->vrf_ = vrf;
+        if (vrf) {
+            out->rt_ = vrf->GetUcRoute(Ip4Address(pkt->ip_daddr));
+        }
+    }
+}
+
 void PktFlowInfo::IngressProcess(const PktInfo *pkt, PktControlInfo *in,
                                  PktControlInfo *out) {
     // Flow packets are expected only on VMPort interfaces
@@ -643,6 +709,14 @@ void PktFlowInfo::IngressProcess(const PktInfo *pkt, PktControlInfo *in,
     // Compute Out-VRF and Route for dest-ip
     out->vrf_ = in->vrf_;
     out->rt_ = ftable->GetUcRoute(out->vrf_, Ip4Address(pkt->ip_daddr));
+    //Native VRF of the interface and acl assigned vrf would have
+    //exact same route with different nexthop, hence if both ingress
+    //route and egress route are present in native vrf, acl match condition
+    //can be applied
+    if (in->rt_ && out->rt_) {
+        VrfTranslate(pkt, in, out);
+    }
+
     if (out->rt_) {
         // Compute out-intf and ECMP info from out-route
         if (RouteToOutInfo(out->rt_, pkt, this, out)) {

@@ -7,15 +7,8 @@
 
 #include <boost/property_tree/ptree.hpp>
 #include <boost/program_options.hpp>
-#include <init/init_types.h>
 
 class VirtualGatewayConfigTable;
-
-#define AGENT_CONFIG_PARSE_LOG(msg1, filename, msg2, exception)\
-do {\
-    ConfigParseLog::Send("Agent", SandeshLevel::SYS_INFO, __FILE__, __LINE__,\
-                         msg1, filename, msg2, exception);\
-} while(false);
 
 // Class handling agent configuration parameters from config file and 
 // arguments

@@ -1575,7 +1575,7 @@ TEST_F(FlowTest, FlowAudit) {
 
 //Test flow deletion on ACL deletion
 TEST_F(FlowTest, AclDelete) {
-    AddAcl("acl1", 1, "vn5" , "vn5");
+    AddAcl("acl1", 1, "vn5" , "vn5", "pass");
     client->WaitForIdle();
     uint32_t sport = 30;
     for (uint32_t i = 0; i < 1; i++) {
@@ -1600,7 +1600,7 @@ TEST_F(FlowTest, AclDelete) {
 
 //Src port and dest port should be ignored for non TCP and UDP flows
 TEST_F(FlowTest, ICMPPortIgnoreTest) {
-    AddAcl("acl1", 1, "vn5" , "vn5");
+    AddAcl("acl1", 1, "vn5" , "vn5", "pass");
     client->WaitForIdle();
     for (uint32_t i = 0; i < 1; i++) {
         TestFlow flow[] = {

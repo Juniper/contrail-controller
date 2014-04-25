@@ -62,40 +62,49 @@ void FactoryInit() {
 }
 
 int main(int argc, char *argv[]) {
+    uint16_t http_server_port = ContrailPorts::HttpPortAgent;
+
     opt::options_description desc("Command line options");
     desc.add_options()
         ("help", "help message")
-        ("conf_file", opt::value<string>()->default_value(Agent::DefaultConfigFile()), 
+        ("config_file", 
+         opt::value<string>()->default_value(Agent::DefaultConfigFile()), 
          "Configuration file")
         ("version", "Display version information")
         ("COLLECTOR.server", opt::value<string>(), 
          "IP address of sandesh collector")
         ("COLLECTOR.port", opt::value<uint16_t>(), "Port of sandesh collector")
-        ("CONTROL-NODE.server", opt::value<std::vector<std::string> >()->multitoken(),
-         "IP addresses of control nodes. Max of 2 Ip addresses can be configured")
+        ("CONTROL-NODE.server", 
+         opt::value<std::vector<std::string> >()->multitoken(),
+         "IP addresses of control nodes."
+         " Max of 2 Ip addresses can be configured")
         ("DEFAULT.debug", "Enable debug logging")
-        ("DEFAULT.flow_cache_timeout", opt::value<uint16_t>(), 
+        ("DEFAULT.flow_cache_timeout", 
+         opt::value<uint16_t>()->default_value(Agent::kDefaultFlowCacheTimeout),
          "Flow aging time in seconds")
         ("DEFAULT.hostname", opt::value<string>(), 
          "Hostname of compute-node")
-        ("DEFAULT.http_server_port", opt::value<uint16_t>(), 
+        ("DEFAULT.http_server_port", 
+         opt::value<uint16_t>()->default_value(http_server_port), 
          "Sandesh HTTP listener port")
-        ("DEFAULT.log_category", opt::value<string>(),
+        ("DEFAULT.log_category", opt::value<string>()->default_value("*"),
          "Category filter for local logging of sandesh messages")
-        ("DEFAULT.log_file", opt::value<string>(),
+        ("DEFAULT.log_file", 
+         opt::value<string>()->default_value(Agent::DefaultLogFile()),
          "Filename for the logs to be written to")
-        ("DEFAULT.log_level", opt::value<string>(),
+        ("DEFAULT.log_level", opt::value<string>()->default_value("SYS_DEBUG"),
          "Severity level for local logging of sandesh messages")
         ("DEFAULT.log_local", "Enable local logging of sandesh messages")
-        ("DEFAULT.tunnel_type", opt::value<string>(),
+        ("DEFAULT.tunnel_type", opt::value<string>()->default_value("MPLSoGRE"),
          "Tunnel Encapsulation type <MPLSoGRE|MPLSoUDP|VXLAN>")
         ("DISCOVERY.server", opt::value<string>(), 
          "IP address of discovery server")
         ("DISCOVERY.max_control_nodes", opt::value<uint16_t>(), 
-         "Maximum number of control node info to be provided by discovery service <1|2>")
+         "Maximum number of control node info to be provided by discovery "
+         "service <1|2>")
         ("DNS.server", opt::value<std::vector<std::string> >()->multitoken(),
          "IP addresses of dns nodes. Max of 2 Ip addresses can be configured")
-        ("HYPERVISOR.type", opt::value<string>(), 
+        ("HYPERVISOR.type", opt::value<string>()->default_value("kvm"), 
          "Type of hypervisor <kvm|xen|vmware>")
         ("HYPERVISOR.xen_ll_interface", opt::value<string>(), 
          "Port name on host for link-local network")
@@ -143,8 +152,8 @@ int main(int argc, char *argv[]) {
     }
 
     string init_file = "";
-    if (var_map.count("conf_file")) {
-        init_file = var_map["conf_file"].as<string>();
+    if (var_map.count("config_file")) {
+        init_file = var_map["config_file"].as<string>();
         struct stat s;
         if (stat(init_file.c_str(), &s) != 0) {
             LOG(ERROR, "Error opening config file <" << init_file 
