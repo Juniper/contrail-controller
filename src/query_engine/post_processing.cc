@@ -212,11 +212,27 @@ bool PostProcessingQuery::merge_processing(
         QEOpServerProxy::BufferT *merged_result = &output;
         const QEOpServerProxy::BufferT *raw_result1 = &(input);
 
-        if (result_.get() == NULL)
-        {
-            merged_result->reserve(raw_result1->size());
+        if (result_.get() == NULL) {
+            size_t merged_result_size = merged_result->size();
+            merged_result->reserve(merged_result_size + raw_result1->size());
             copy(raw_result1->begin(), raw_result1->end(), 
-                std::back_inserter(*merged_result));
+                 std::back_inserter(*merged_result));
+            if (merged_result_size) { 
+                if (sorting_type == ASCENDING) {
+                    std::inplace_merge(merged_result->begin(), 
+                        merged_result->begin() + merged_result_size,
+                        merged_result->end(),
+                        boost::bind(&PostProcessingQuery::sort_field_comparator, 
+                                    this, _1, _2));
+                } else {
+                    std::inplace_merge(merged_result->rbegin(),
+                        merged_result->rbegin() + raw_result1->size(),
+                        merged_result->rend(),
+                        boost::bind(&PostProcessingQuery::sort_field_comparator,
+                                    this, _1, _2));
+                }
+            }
+
             goto sort_done;
         }
 
