@@ -67,6 +67,7 @@ public:
     const int xmpp_instance_count() const { return xmpp_instance_count_; }
     const std::string &tunnel_type() const { return tunnel_type_; }
     const std::string &metadata_shared_secret() const { return metadata_shared_secret_; }
+    float max_vm_flows() const { return max_vm_flows_; }
     uint32_t linklocal_system_flows() const { return linklocal_system_flows_; }
     uint32_t linklocal_vm_flows() const { return linklocal_vm_flows_; }
     uint32_t flow_cache_timeout() const {return flow_cache_timeout_;}
@@ -108,7 +109,7 @@ public:
     void set_test_mode(bool mode);
     bool test_mode() const { return test_mode_; }
 private:
-    void ComputeLinkLocalFlowLimits();
+    void ComputeFlowLimits();
     void InitFromSystem();
     void InitFromConfig();
     void InitFromArguments
@@ -133,7 +134,7 @@ private:
     void ParseHypervisor();
     void ParseDefaultSection();
     void ParseMetadataProxy();
-    void ParseLinklocal();
+    void ParseFlows();
 
     void ParseCollectorArguments
         (const boost::program_options::variables_map &v);
@@ -149,7 +150,7 @@ private:
         (const boost::program_options::variables_map &v);
     void ParseMetadataProxyArguments
         (const boost::program_options::variables_map &v);
-    void ParseLinklocalArguments
+    void ParseFlowArguments
         (const boost::program_options::variables_map &v);
 
     PortInfo vhost_;
@@ -165,6 +166,7 @@ private:
     PortInfo xen_ll_;
     std::string tunnel_type_;
     std::string metadata_shared_secret_;
+    float max_vm_flows_;
     uint16_t linklocal_system_flows_;
     uint16_t linklocal_vm_flows_;
     uint16_t flow_cache_timeout_;

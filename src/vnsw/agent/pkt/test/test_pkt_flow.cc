@@ -2166,6 +2166,65 @@ TEST_F(FlowTest, LinkLocalFlow_Fail2) {
     client->WaitForIdle();
 }
 
+// Check that flow limit per VM works
+TEST_F(FlowTest, FlowLimit_1) {
+    Agent::GetInstance()->SetRouterId(Ip4Address::from_string(vhost_ip_addr));
+    uint32_t vm_flows = Agent::GetInstance()->pkt()->flow_table()->max_vm_flows();
+    Agent::GetInstance()->pkt()->flow_table()->set_max_vm_flows(3);
+
+    /* Add Local VM route of vrf3 to vrf5 */
+    CreateLocalRoute("vrf5", vm4_ip, flow3, 19);
+    /* Add Local VM route of vrf5 to vrf3 */
+    CreateLocalRoute("vrf3", vm1_ip, flow0, 16);
+
+    TestFlow flow[] = {
+        //Send a ICMP request from local VM in vn5 to local VM in vn3
+        {
+            TestFlowPkt(vm1_ip, vm4_ip, 1, 0, 0, "vrf5", 
+                    flow0->id()),
+            {
+                new VerifyVn("vn5", "vn3"),
+            }
+        },
+        //Send an ICMP reply from local VM in vn3 to local VM in vn5
+        {
+            TestFlowPkt(vm4_ip, vm1_ip, 1, 0, 0, "vrf3", 
+                    flow3->id()),
+            {
+                new VerifyVn("vn3", "vn5"),
+            }
+        },
+        //Send a TCP packet from local VM in vn5 to local VM in vn3
+        {
+            TestFlowPkt(vm1_ip, vm4_ip, IPPROTO_TCP, 200, 300, "vrf5", 
+                    flow0->id()),
+            {
+                new VerifyVn("vn5", "vn3"),
+            }
+        },
+        //Send an TCP packet from local VM in vn3 to local VM in vn5
+        {
+            TestFlowPkt(vm4_ip, vm1_ip, IPPROTO_TCP, 300, 200, "vrf3", 
+                    flow3->id()),
+            {
+                new VerifyVn("vn3", "vn5"),
+            }
+        }
+    };
+
+    CreateFlow(flow, 4);
+    client->WaitForIdle();
+    EXPECT_EQ(4U, Agent::GetInstance()->pkt()->flow_table()->Size());
+    EXPECT_TRUE(agent()->stats()->flow_drop_due_to_max_limit() > 0);
+
+    //1. Remove remote VM routes
+    DeleteRoute("vrf5", vm4_ip);
+    DeleteRoute("vrf3", vm1_ip);
+    client->WaitForIdle();
+    client->WaitForIdle();
+    Agent::GetInstance()->pkt()->flow_table()->set_max_vm_flows(vm_flows);
+}
+
 TEST_F(FlowTest, Flow_introspect_delete_all) {
     EXPECT_EQ(0U, agent()->pkt()->flow_table()->Size());
 

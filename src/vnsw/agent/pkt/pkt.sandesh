@@ -24,6 +24,10 @@ response sandesh FlowStatsResp {
     1: u64 flow_active;
     2: u64 flow_created;
     3: u64 flow_aged;
+    4: u64 flow_drop_due_to_max_limit;
+    5: u64 flow_drop_due_to_linklocal_limit;
+    6: u32 flow_max_system_flows;
+    7: u32 flow_max_vm_flows;
 }
 
 struct XmppStatsInfo {

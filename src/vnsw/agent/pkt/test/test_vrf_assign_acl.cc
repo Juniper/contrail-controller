@@ -5,7 +5,7 @@
 #include "test/test_cmn_util.h"
 #include "test_flow_util.h"
 
-void RouterIdDepInit() {
+void RouterIdDepInit(Agent *agent) {
 }
 
 struct PortInfo input[] = {

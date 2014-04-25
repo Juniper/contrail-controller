@@ -284,13 +284,16 @@ void AgentParam::ParseMetadataProxy() {
                              "METADATA.metadata_proxy_secret");
 }
 
-void AgentParam::ParseLinklocal() {
+void AgentParam::ParseFlows() {
+    if (!GetValueFromTree<float>(max_vm_flows_, "FLOWS.max_vm_flows")) {
+        max_vm_flows_ = (float) 100;
+    }
     if (!GetValueFromTree<uint16_t>(linklocal_system_flows_, 
-        "LINK-LOCAL.max_system_flows")) {
+        "FLOWS.max_system_linklocal_flows")) {
         linklocal_system_flows_ = Agent::kDefaultMaxLinkLocalOpenFds;
     }
     if (!GetValueFromTree<uint16_t>(linklocal_vm_flows_, 
-        "LINK-LOCAL.max_vm_flows")) {
+        "FLOWS.max_vm_linklocal_flows")) {
         linklocal_vm_flows_ = Agent::kDefaultMaxLinkLocalOpenFds;
     }
 }
@@ -384,12 +387,13 @@ void AgentParam::ParseMetadataProxyArguments
                         "METADATA.metadata_proxy_secret");
 }
 
-void AgentParam::ParseLinklocalArguments
+void AgentParam::ParseFlowArguments
     (const boost::program_options::variables_map &var_map) {
+    GetOptValue<float>(var_map, max_vm_flows_, "FLOWS.max_vm_flows");
     GetOptValue<uint16_t>(var_map, linklocal_system_flows_, 
-                          "LINK-LOCAL.max_system_flows");
-    GetOptValue<uint16_t>(var_map, linklocal_vm_flows_, 
-                          "LINK-LOCAL.max_vm_flows");
+                          "FLOWS.max_system_linklocal_flows");
+    GetOptValue<uint16_t>(var_map, linklocal_vm_flows_,
+                          "FLOWS.max_vm_linklocal_flows");
 }
 
 // Initialize hypervisor mode based on system information
@@ -429,7 +433,7 @@ void AgentParam::InitFromConfig() {
     ParseHypervisor();
     ParseDefaultSection();
     ParseMetadataProxy();
-    ParseLinklocal();
+    ParseFlows();
     cout << "Config file <" << config_file_ << "> parsing completed.\n";
     return;
 }
@@ -447,14 +451,24 @@ void AgentParam::InitFromArguments
     ParseHypervisorArguments(var_map);
     ParseDefaultSectionArguments(var_map);
     ParseMetadataProxyArguments(var_map);
-    ParseLinklocalArguments(var_map);
+    ParseFlowArguments(var_map);
     return;
 }
 
+// Update max_vm_flows_ if it is greater than 100.
 // Update linklocal max flows if they are greater than the max allowed for the
 // process. Also, ensure that the process is allowed to open upto
 // linklocal_system_flows + kMaxOtherOpenFds files
-void AgentParam::ComputeLinkLocalFlowLimits() {
+void AgentParam::ComputeFlowLimits() {
+    if (max_vm_flows_ > 100) {
+        LOG(DEBUG, "Updating flows configuration max-vm-flows to : 100%");
+        max_vm_flows_ = 100;
+    }
+    if (max_vm_flows_ < 0) {
+        LOG(DEBUG, "Updating flows configuration max-vm-flows to : 0%");
+        max_vm_flows_ = 0;
+    }
+
     struct rlimit rl;
     int result = getrlimit(RLIMIT_NOFILE, &rl);
     if (result == 0) {
@@ -575,7 +589,7 @@ void AgentParam::Init(const string &config_file, const string &program_name,
     InitVhostAndXenLLPrefix();
 
     vgw_config_table_->Init(tree_);
-    ComputeLinkLocalFlowLimits();
+    ComputeFlowLimits();
 }
 
 void AgentParam::LogConfig() const {
@@ -592,6 +606,7 @@ void AgentParam::LogConfig() const {
     LOG(DEBUG, "Controller Instances        : " << xmpp_instance_count_);
     LOG(DEBUG, "Tunnel-Type                 : " << tunnel_type_);
     LOG(DEBUG, "Metadata-Proxy Shared Secret: " << metadata_shared_secret_);
+    LOG(DEBUG, "Max Vm Flows                : " << max_vm_flows_);
     LOG(DEBUG, "Linklocal Max System Flows  : " << linklocal_system_flows_);
     LOG(DEBUG, "Linklocal Max Vm Flows      : " << linklocal_vm_flows_);
     LOG(DEBUG, "Flow cache timeout          : " << flow_cache_timeout_);
@@ -621,8 +636,9 @@ AgentParam::AgentParam(Agent *agent) :
         vhost_(), eth_port_(), xmpp_instance_count_(), xmpp_server_1_(),
         xmpp_server_2_(), dns_server_1_(), dns_server_2_(), dss_server_(),
         mgmt_ip_(), mode_(MODE_KVM), xen_ll_(), tunnel_type_(),
-        metadata_shared_secret_(), linklocal_system_flows_(),
-        linklocal_vm_flows_(), flow_cache_timeout_(), config_file_(), program_name_(),
+        metadata_shared_secret_(), max_vm_flows_(),
+        linklocal_system_flows_(), linklocal_vm_flows_(),
+        flow_cache_timeout_(), config_file_(), program_name_(),
         log_file_(), log_local_(false), log_level_(), log_category_(),
         collector_(), collector_port_(), http_server_port_(), host_name_(),
         agent_stats_interval_(AgentStatsCollector::AgentStatsInterval), 
@@ -631,6 +647,6 @@ AgentParam::AgentParam(Agent *agent) :
     vgw_config_table_ = std::auto_ptr<VirtualGatewayConfigTable>
         (new VirtualGatewayConfigTable(agent));
 }
-AgentParam::~AgentParam()
-{
+
+AgentParam::~AgentParam() {
 }
