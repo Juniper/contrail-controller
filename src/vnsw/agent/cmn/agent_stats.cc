@@ -9,6 +9,10 @@
 #include <vnc_cfg_types.h>
 #include <cmn/agent_cmn.h>
 #include <cmn/agent_stats.h>
+#include <ksync/ksync_init.h>
+#include <ksync/flowtable_ksync.h>
+#include <pkt/pkt_init.h>
+#include <pkt/flow_table.h>
 #include <uve/agent_uve.h>
 
 AgentStats *AgentStats::singleton_;
@@ -39,6 +43,11 @@ void AgentStatsReq::HandleRequest() const {
     flow->set_flow_created(stats->flow_created());
     flow->set_flow_aged(stats->flow_aged());
     flow->set_flow_drop_due_to_max_limit(stats->flow_drop_due_to_max_limit());
+    flow->set_flow_drop_due_to_linklocal_limit(
+            stats->flow_drop_due_to_linklocal_limit());
+    flow->set_flow_max_system_flows(
+            agent->ksync()->flowtable_ksync_obj()->flow_table_entries_count());
+    flow->set_flow_max_vm_flows(agent->pkt()->flow_table()->max_vm_flows());
     flow->set_context(context());
     flow->set_more(true);
     flow->Response();
