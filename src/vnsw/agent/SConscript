@@ -202,6 +202,7 @@ vnswad = env.Program(target = 'vnswad', source = ['buildinfo.cc', 'main.cc'])
 env.Alias('src/vnsw/agent:vnswad', vnswad)
 env.Default(vnswad)
 env.Alias('install', env.Install(env['INSTALL_BIN'], vnswad))
+env.Alias('install', env.Install(env['INSTALL_CONF'], 'vnswad.conf'))
 
 AgentEnv = env.Clone()
 AgentEnv.AppendUnique(CCFLAGS='-fno-exceptions')
