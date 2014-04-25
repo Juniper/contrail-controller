@@ -568,7 +568,7 @@ void VrouterUveEntry::SendVrouterUve() {
             if (xc == NULL) {
                 continue;
             }
-            if (xc->GetPeerState() == xmps::READY) {
+            if (ch->bgp_peer_id() && xc->GetPeerState() == xmps::READY) {
                 peer.set_status(true);
             } else {
                 peer.set_status(false);

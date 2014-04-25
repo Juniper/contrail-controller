@@ -71,7 +71,7 @@ public:
         assert(flow0);
         flow1 = VmInterfaceGet(input[1].intf_id);
         assert(flow1);
-        peer_ = new BgpPeer(Ip4Address(1), "BGP Peer 1", NULL, -1);
+        peer_ = CreateBgpPeer(Ip4Address(1), "BGP Peer 1");
     }
 
     void FlowTearDown() {
@@ -82,7 +82,7 @@ public:
         client->PortDelNotifyWait(2);
         EXPECT_FALSE(VmPortFind(input, 0));
         EXPECT_FALSE(VmPortFind(input, 1));
-        delete static_cast<Peer *>(peer_);
+        DeleteBgpPeer(peer_);
     }
 
     void AclAdd(int id) {

@@ -41,7 +41,7 @@ public:
     virtual std::string ToString() const;
     virtual KeyPtr GetDBRequestKey() const;
     virtual void SetKey(const DBRequestKey *key);
-    virtual bool DBEntrySandesh(Sandesh *sresp) const;
+    virtual bool DBEntrySandesh(Sandesh *sresp, bool stale) const;
     virtual const std::string GetAddressString() const {
         return addr_.to_string();
     }
@@ -76,7 +76,7 @@ public:
               return static_cast<char>(addr_bytes[i]);
           }
     };
-    bool DBEntrySandesh(Sandesh *sresp, Ip4Address addr, uint8_t plen) const;
+    bool DBEntrySandesh(Sandesh *sresp, Ip4Address addr, uint8_t plen, bool stale) const;
 
 private:
     friend class Inet4UnicastAgentRouteTable;

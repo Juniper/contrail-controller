@@ -76,7 +76,7 @@ public:
     bool Start(int time, Handler handler, ErrorHandler error_handler = NULL);
 
     //Can be called only from callback
-    void Reschedule(int time);
+    bool Reschedule(int time);
 
     // Cancel a running timer
     bool Cancel();

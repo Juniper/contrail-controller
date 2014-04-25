@@ -1547,6 +1547,8 @@ void VmInterface::UpdateL2InterfaceRoute(bool old_l2_active, bool force_update) 
     struct ether_addr *addrp = ether_aton(vm_mac().c_str());
     const string &vrf_name = vrf_.get()->GetName();
 
+
+    assert(peer_.get());
     Layer2AgentRouteTable::AddLocalVmRoute(peer_.get(), GetUuid(),
                                            vn_->GetName(), vrf_name, l2_label_,
                                            vxlan_id_, *addrp, ip_addr(), 32);

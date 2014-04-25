@@ -46,7 +46,7 @@ using namespace pugi;
 void RouterIdDepInit(Agent *agent) {
 
     // Parse config and then connect
-    VNController::Connect();
+    Agent::GetInstance()->controller()->Connect();
 }
 
 
@@ -98,7 +98,7 @@ protected:
     virtual void TearDown() {
         xs->Shutdown();
         client->WaitForIdle();
-        VNController::DisConnect();
+        Agent::GetInstance()->controller()->DisConnect();
         client->WaitForIdle();
         Agent::GetInstance()->GetEventManager()->Shutdown();
         client->WaitForIdle();
@@ -355,6 +355,8 @@ int main(int argc, char **argv) {
     GETUSERARGS();
     client = TestInit(init_file, ksync_init);
     Agent::GetInstance()->SetXmppServer("127.0.0.1", 0);
+    Agent::GetInstance()->set_headless_agent_mode(HEADLESS_MODE);
+
     return RUN_ALL_TESTS();
 }
 

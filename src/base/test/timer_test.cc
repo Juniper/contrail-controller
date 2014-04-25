@@ -92,11 +92,11 @@ bool TimerCbReschedule(Timer *timer, int *new_timeout) {
     timer_count_.fetch_and_increment();
 
     if(*new_timeout) {
-    	timer->Reschedule(*new_timeout);
-    	*new_timeout = 0;
-    	return true;
+        timer->Reschedule(*new_timeout);
+        *new_timeout = 0;
+        return true;
     } else {
-    	return false;
+        return false;
     }
 }
 
@@ -321,6 +321,29 @@ TEST_F(TimerUT, reschedule_2) {
     task_util::WaitForIdle();
     EXPECT_TRUE(TimerManager::DeleteTimer(timer1));
     EXPECT_TRUE(TimerManager::DeleteTimer(timer2));
+}
+
+TEST_F(TimerUT, reschedule_failed_1) {
+    // Start a timer and try rescheduling with timer value 0, result should be
+    // a failure.
+    TimerTest *timer = new TimerTest(*evm_->io_service(), "reschedule-fail-1");
+    int new_timeout = 0;
+    timer->Start(200, boost::bind(&TimerCbReschedule, timer, &new_timeout));
+    ValidateTimerCount(1, 200);
+    task_util::WaitForIdle();
+    EXPECT_TRUE(TimerManager::DeleteTimer(timer));
+}
+
+TEST_F(TimerUT, reschedule_failed_2) {
+    // Start a timer and try rescheduling before it gets expired i.e. it is
+    // still in running state. Expectation should be a failure
+    TimerTest *timer = new TimerTest(*evm_->io_service(), "reschedule-fail-2");
+
+    timer->Start(200, boost::bind(&TimerCb));
+    EXPECT_TRUE(timer->Reschedule(200) == false);
+    ValidateTimerCount(1, 200);
+    task_util::WaitForIdle();
+    EXPECT_TRUE(TimerManager::DeleteTimer(timer));
 }
 
 int main(int argc, char *argv[]) {

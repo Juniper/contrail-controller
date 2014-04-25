@@ -258,5 +258,67 @@ void DelEncapList();
 void VxLanNetworkIdentifierMode(bool config);
 int MplsToVrfId(int label);
 void AddInterfaceRouteTable(const char *name, int id, TestIp4Prefix *addr, 
-                            int count);
+                           int count);
+
+class XmppChannelMock : public XmppChannel {
+public:
+    XmppChannelMock() { }
+    virtual ~XmppChannelMock() { }
+    bool Send(const uint8_t *, size_t, xmps::PeerId, SendReadyCb) {
+        return true;
+    }
+    MOCK_METHOD2(RegisterReceive, void(xmps::PeerId, ReceiveCb));
+    MOCK_METHOD1(UnRegisterReceive, void(xmps::PeerId));
+    std::string ToString() const { return string("fake"); }
+    std::string StateName() const { return string("Established"); }
+
+    xmps::PeerState GetPeerState() const { return xmps::READY; }
+    std::string FromString() const  { return string("fake-from"); }
+    const XmppConnection *connection() const { return NULL; }
+    MOCK_METHOD0(XmppChannelCleanup,void());
+
+    virtual std::string LastStateName() const {
+        return "";
+    }
+    virtual std::string LastStateChangeAt() const {
+        return "";
+    }
+    virtual std::string LastEvent() const {
+        return "";
+    }
+    virtual uint32_t rx_open() const {
+        return 0;
+    }
+    virtual uint32_t rx_close() const {
+        return 0;
+    }
+    virtual uint32_t rx_update() const {
+        return 0;
+    }
+    virtual uint32_t rx_keepalive() const {
+        return 0;
+    }
+    virtual uint32_t tx_open() const {
+        return 0;
+    }
+    virtual uint32_t tx_close() const {
+        return 0;
+    }
+    virtual uint32_t tx_update() const {
+        return 0;
+    }
+    virtual uint32_t tx_keepalive() const {
+        return 0;
+    }
+    virtual uint32_t FlapCount() const {
+        return 0;
+    }
+    virtual std::string LastFlap() const {
+        return "";
+    }
+};
+
+BgpPeer *CreateBgpPeer(const Ip4Address &addr, std::string name);
+void DeleteBgpPeer(Peer *peer);
+
 #endif // vnsw_agent_test_cmn_util_h

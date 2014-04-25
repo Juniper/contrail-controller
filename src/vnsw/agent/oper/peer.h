@@ -20,10 +20,11 @@
 #define VGW_PEER_NAME "Vgw"
 
 class AgentXmppChannel;
+class ControllerRouteWalker;
+class VrfTable;
 
 class Peer {
 public:
-    typedef boost::function<void()> DelPeerDone;
     typedef std::map<std::string, Peer *> PeerMap;
     typedef std::pair<std::string, Peer *> PeerPair;
     enum Type {
@@ -37,16 +38,9 @@ public:
         VGW_PEER
     };
 
-    Peer(Type type, const std::string &name) : type_(type), name_(name),
-        vrf_uc_walkid_(DBTableWalker::kInvalidWalkerId),
-        vrf_mc_walkid_(DBTableWalker::kInvalidWalkerId) {
-        num_walks_ = -1;
-    }
-    virtual ~Peer() {
-    }
-    void DelPeerRoutes(DelPeerDone cb);
-    void PeerNotifyRoutes();
-    void PeerNotifyMulticastRoutes(bool associate);
+    Peer(Type type, const std::string &name);
+    virtual ~Peer();
+
     bool IsLess(const Peer *rhs) const {
         if  (type_ != rhs->type_) {
             return type_ < rhs->type_;
@@ -59,71 +53,61 @@ public:
     const std::string &GetName() const { return name_; }
     const Type GetType() const { return type_; }
 
-    DBTableWalker::WalkId GetPeerVrfUCWalkId() { return vrf_uc_walkid_; }
-    DBTableWalker::WalkId GetPeerVrfMCWalkId() { 
-        return vrf_mc_walkid_; 
-    }
-    void SetPeerVrfUCWalkId(DBTableWalker::WalkId id) {
-        vrf_uc_walkid_ = id;
-    }
-    void SetPeerVrfMCWalkId(DBTableWalker::WalkId id) {
-        vrf_mc_walkid_ = id;
-    }
-    void ResetPeerVrfUCWalkId() {
-        vrf_uc_walkid_ = DBTableWalker::kInvalidWalkerId;
-    }
-    void ResetPeerVrfMCWalkId() {
-        vrf_mc_walkid_ = DBTableWalker::kInvalidWalkerId;
-    }
-    
-    void SetNoOfWalks(int walks) {
-        num_walks_ = walks;
-    }
-
-    void DecrementWalks() { 
-        if (num_walks_ > 0) {
-            num_walks_--; 
-        }
-    }
-
-    tbb::atomic<int> NoOfWalks() { return num_walks_; }
-
-    void ResetWalks() { 
-        num_walks_ = 0; 
-    }
-
 private:
     Type type_;
     std::string name_;
-    DBTableWalker::WalkId vrf_uc_walkid_;
-    DBTableWalker::WalkId vrf_mc_walkid_;
-    tbb::atomic<int> num_walks_;
     DISALLOW_COPY_AND_ASSIGN(Peer);
 };
 
 // Peer used for BGP paths
 class BgpPeer : public Peer {
 public:
+    typedef boost::function<void()> DelPeerDone;
     BgpPeer(const Ip4Address &server_ip, const std::string &name,
-            AgentXmppChannel *bgp_xmpp_peer, DBTableBase::ListenerId id) : 
-        Peer(Peer::BGP_PEER, name), server_ip_(server_ip), id_(id),
-        bgp_xmpp_peer_(bgp_xmpp_peer) {
-    }
-
-    virtual ~BgpPeer() { }
+            AgentXmppChannel *bgp_xmpp_peer, DBTableBase::ListenerId id); 
+    virtual ~BgpPeer();
 
     bool Compare(const Peer *rhs) const {
         const BgpPeer *bgp = static_cast<const BgpPeer *>(rhs);
         return server_ip_ < bgp->server_ip_;
     }
 
+    // For testing
     void SetVrfListenerId(DBTableBase::ListenerId id) { id_ = id; }
     DBTableBase::ListenerId GetVrfExportListenerId() { return id_; } 
     AgentXmppChannel *GetBgpXmppPeer() { return bgp_xmpp_peer_; }    
+
+    // Table Walkers
+    void DelPeerRoutes(DelPeerDone walk_done_cb);
+    void PeerNotifyRoutes();
+    void PeerNotifyMulticastRoutes(bool associate);
+    void StalePeerRoutes();
+
+    bool is_disconnect_walk() const {return is_disconnect_walk_;}
+    void set_is_disconnect_walk(bool is_disconnect_walk) {
+        is_disconnect_walk_ = is_disconnect_walk;
+    }
+    ControllerRouteWalker *route_walker() const {
+        return route_walker_.get(); 
+    }
+
+    //Helper routines to get export state for vrf and route
+    DBState *GetVrfExportState(DBTablePartBase *partition,
+                               DBEntryBase *e);
+    DBState *GetRouteExportState(DBTablePartBase *partition,
+                                 DBEntryBase *e);
+    void DeleteVrfState(DBTablePartBase *partition, DBEntryBase *entry);
+
+    uint32_t setup_time() const {return setup_time_;}
+    Agent *agent() const;
+
 private: 
     Ip4Address server_ip_;
     DBTableBase::ListenerId id_;
+    uint32_t setup_time_;
     AgentXmppChannel *bgp_xmpp_peer_;
+    tbb::atomic<bool> is_disconnect_walk_;
+    boost::scoped_ptr<ControllerRouteWalker> route_walker_;
     DISALLOW_COPY_AND_ASSIGN(BgpPeer);
 };
 

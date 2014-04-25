@@ -73,6 +73,18 @@ trace sandesh AgentXmppDiscoveryConnection {
     3: string message;
 }
 
+trace sandesh AgentXmppWalker {
+    1: string message;
+    2: string node_name;
+    3: string peer;
+}
+
+trace sandesh AgentXmppTimer {
+    1: string operation;
+    2: string timer_name;
+    3: string channel;
+}
+
 request sandesh AgentXmppConnectionStatusReq {
 }
 

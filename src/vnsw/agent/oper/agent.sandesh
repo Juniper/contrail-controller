@@ -173,6 +173,7 @@ struct PathSandeshData {
    10: optional list<i32> sg_list;
    11: string supported_tunnel_type;
    12: string active_tunnel_type;
+   13: bool stale;
 }
 
 struct RouteUcSandeshData {
@@ -283,6 +284,7 @@ request sandesh Inet4UcRouteReq {
     1: i32 vrf_index = 0;             // send route entries for the VRF index
     2: string src_ip;
     3: u16 prefix_len;
+    4: bool stale = 0;                // Display stale entries only if set
 }
 
 response sandesh Inet4UcRouteResp {
@@ -291,6 +293,7 @@ response sandesh Inet4UcRouteResp {
 
 request sandesh Inet4McRouteReq {
     1: i32 vrf_index = 0;             // send route entries for the VRF index
+    2: bool stale = 0;                // Display stale entries only if set
 }
 
 response sandesh Inet4McRouteResp {
@@ -300,6 +303,7 @@ response sandesh Inet4McRouteResp {
 request sandesh Layer2RouteReq {
     1: i32 vrf_index = 0;
     2: string mac;
+    3: bool stale = 0;                // Display stale entries only if set
 }
 
 response sandesh Layer2RouteResp {
@@ -876,11 +880,13 @@ systemlog sandesh FlowLog {
 }
 
 systemlog sandesh AgentRouteWalkerLog {
-    1: u32 walk_id;
-    2: u32 walk_type;
-    3: string message;
-    4: string vrf_name;
-    5: u32 route_table_type;
+    1: "walkid:";
+    2: u32 walk_id;
+    3: "walktype:";
+    4: u32 walk_type;
+    5: string message;
+    6: string vrf_name;
+    7: u32 route_table_type;
 }
 
 systemlog sandesh GlobalVrouterLog {

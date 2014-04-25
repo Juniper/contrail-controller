@@ -441,7 +441,7 @@ bool Inet4UnicastEcmpRoute::AddChangePath(Agent *agent, AgentPath *path) {
 // Sandesh functions
 /////////////////////////////////////////////////////////////////////////////
 
-bool Inet4UnicastRouteEntry::DBEntrySandesh(Sandesh *sresp) const {
+bool Inet4UnicastRouteEntry::DBEntrySandesh(Sandesh *sresp, bool stale) const {
     Inet4UcRouteResp *resp = static_cast<Inet4UcRouteResp *>(sresp);
 
     RouteUcSandeshData data;
@@ -452,6 +452,8 @@ bool Inet4UnicastRouteEntry::DBEntrySandesh(Sandesh *sresp) const {
          it != GetPathList().end(); it++) {
         const AgentPath *path = static_cast<const AgentPath *>(it.operator->());
         if (path) {
+            if (stale && !path->is_stale()) 
+                continue;
             PathSandeshData pdata;
             path->SetSandeshData(pdata);
             data.path_list.push_back(pdata);
@@ -465,9 +467,9 @@ bool Inet4UnicastRouteEntry::DBEntrySandesh(Sandesh *sresp) const {
 }
 
 bool Inet4UnicastRouteEntry::DBEntrySandesh(Sandesh *sresp, Ip4Address addr,
-                                            uint8_t plen) const {
+                                            uint8_t plen, bool stale) const {
     if (addr_ == addr && plen_ == plen) {
-        return DBEntrySandesh(sresp);
+        return DBEntrySandesh(sresp, stale);
     }
 
     return false;
@@ -493,7 +495,7 @@ void UnresolvedRoute::HandleRequest() const {
     for (;it != rt_table->unresolved_route_end(); it++) {
         count++;
         const AgentRoute *rt = *it;
-        rt->DBEntrySandesh(resp);
+        rt->DBEntrySandesh(resp, false);
         if (count == 1) {
             resp->set_context(context()+"$");
             resp->Response();
@@ -519,13 +521,13 @@ void Inet4UcRouteReq::HandleRequest() const {
 
     AgentInet4UcRtSandesh *sand;
     if (get_src_ip().empty()) {
-        sand = new AgentInet4UcRtSandesh(vrf, context());
+        sand = new AgentInet4UcRtSandesh(vrf, context(), get_stale());
     } else {
         boost::system::error_code ec;
         Ip4Address src_ip = Ip4Address::from_string(get_src_ip(), ec);
         sand = 
             new AgentInet4UcRtSandesh(vrf, context(), src_ip, 
-                                      (uint8_t)get_prefix_len());
+                                      (uint8_t)get_prefix_len(), get_stale());
     }
     sand->DoSandesh();
 }

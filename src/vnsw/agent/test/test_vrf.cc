@@ -46,7 +46,7 @@ using namespace boost::assign;
 
 using namespace pugi;
 void RouterIdDepInit(Agent *agent) {
-    VNController::Connect();
+    Agent::GetInstance()->controller()->Connect();
 }
 
 static void ValidateSandeshResponse(Sandesh *sandesh, vector<int> &result) {
@@ -73,8 +73,15 @@ protected:
     }
 
     virtual void TearDown() {
-        VNController::DisConnect();
+        Agent::GetInstance()->controller()->DisConnect();
         client->WaitForIdle();
+        if (Agent::GetInstance()->headless_agent_mode()) {
+            Agent::GetInstance()->controller()->unicast_cleanup_timer().cleanup_timer_->Fire();
+            Agent::GetInstance()->controller()->multicast_cleanup_timer().cleanup_timer_->Fire();
+            client->WaitForIdle();
+            Agent::GetInstance()->controller()->Cleanup();
+            client->WaitForIdle();
+        }
 
         bgp_peer1->Shutdown();
         client->WaitForIdle();

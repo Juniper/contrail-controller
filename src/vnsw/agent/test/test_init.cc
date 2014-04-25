@@ -264,7 +264,7 @@ void TestClient::Shutdown() {
 void TestShutdown() {
     client->WaitForIdle();
 
-    VNController::DisConnect();
+    Agent::GetInstance()->controller()->DisConnect();
     client->WaitForIdle();
 
     if (Agent::GetInstance()->vgw()) {
