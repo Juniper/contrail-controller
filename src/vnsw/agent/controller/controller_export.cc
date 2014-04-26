@@ -87,13 +87,11 @@ void RouteExport::Notify(AgentXmppChannel *bgp_xmpp_peer,
         // During this interval ignore notification for decommisioned bgp peer
         // listener id  
         VrfEntry *vrf = route->vrf();
-        DBTablePartBase *vrf_partition =
-            bgp_xmpp_peer->agent()->GetVrfTable()->GetTablePartition(vrf);
         BgpPeer *bgp_peer = static_cast<BgpPeer *>(bgp_xmpp_peer->
                                                    bgp_peer_id());
         DBTableBase::ListenerId vrf_id = bgp_peer->GetVrfExportListenerId();
         VrfExport::State *vs = static_cast<VrfExport::State *>
-            (vrf->GetState(vrf_partition->parent(), vrf_id));
+            (vrf->GetState(bgp_xmpp_peer->agent()->GetVrfTable(), vrf_id));
         if (vs) {
             DBTableBase::ListenerId id = vs->rt_export_[route->GetTableType()]->
                 GetListenerId();

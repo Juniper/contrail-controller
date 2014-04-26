@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
+ * Copyright (c) 2014 Juniper Networks, Inc. All rights reserved.
  */
 
 #ifndef __VNSW_CONTROLLER_CLEANUP_TIMER_HPP__
@@ -9,6 +9,21 @@
 #include <boost/scoped_ptr.hpp>
 #include <boost/shared_ptr.hpp>
 
+/*
+ * Cleanup Timer 
+ * Used to manage timers required for removing stale entries for config and
+ * routes received from control nodes.
+ * Functionalities provided are - start, cancel, reschedule
+ * Also derived structs need to implement the extension intervals for
+ * rescheduling. 
+ * Rescheduling is not done via cancel and start, but rather timer is restarted 
+ * when it expires for the remaining timer interval.
+ * Timer expired callback is done on expiration(as expected) and when
+ * extension_interval is zero.
+ *
+ * Current derivatives of cleanup_timer are - unicast, multicast and config.
+ *
+ */
 struct CleanupTimer {
     CleanupTimer(Agent *agent, const std::string &timer_name, 
                  uint32_t default_stale_timer_interval);

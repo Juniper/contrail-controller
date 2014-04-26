@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
+ * Copyright (c) 2014 Juniper Networks, Inc. All rights reserved.
  */
 
 #include "testing/gunit.h"
@@ -766,8 +766,8 @@ protected:
     }
 
     void XmppConnectionSetUp() {
-        Agent::GetInstance()->controller()->increment_multicast_peer_identifier();
-        Agent::GetInstance()->SetControlNodeMulticastBuilder(NULL);
+        Agent::GetInstance()->controller()->increment_multicast_sequence_number();
+        Agent::GetInstance()->set_cn_mcast_builder(NULL);
         BuildControlPeers();
     }
 

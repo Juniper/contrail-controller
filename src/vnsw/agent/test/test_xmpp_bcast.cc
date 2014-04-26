@@ -432,8 +432,8 @@ protected:
 
     void XmppConnectionSetUp(bool l2_l3_forwarding_mode) {
 
-        Agent::GetInstance()->controller()->increment_multicast_peer_identifier();
-        Agent::GetInstance()->SetControlNodeMulticastBuilder(NULL);
+        Agent::GetInstance()->controller()->increment_multicast_sequence_number();
+        Agent::GetInstance()->set_cn_mcast_builder(NULL);
 
         //Create control-node bgp mock peer 
         mock_peer.reset(new ControlNodeMockBgpXmppPeer());
@@ -1186,7 +1186,7 @@ TEST_F(AgentXmppUnitTest, Test_mcast_peer_identifier) {
     EXPECT_TRUE(obj != NULL);
     EXPECT_TRUE(obj->peer_identifier() == peer_identifier_1);
     EXPECT_TRUE(obj->peer_identifier() != Agent::GetInstance()->controller()->
-                multicast_peer_identifier());
+                multicast_sequence_number());
 
     //bring-up the channel
     ch = static_cast<AgentXmppChannel *>(bgp_peer.get());
@@ -1218,7 +1218,7 @@ TEST_F(AgentXmppUnitTest, Test_mcast_peer_identifier) {
     WAIT_FOR(1000, 1000, obj->GetSourceMPLSLabel() == 9000);
     EXPECT_TRUE(obj->peer_identifier() == (peer_identifier_1 + 2));
     EXPECT_TRUE(obj->peer_identifier() == Agent::GetInstance()->controller()->
-                multicast_peer_identifier());
+                multicast_sequence_number());
 
     XmppSubnetTearDown();
 

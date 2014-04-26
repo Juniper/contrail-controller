@@ -38,8 +38,8 @@ public:
     void ApplyDiscoveryDnsXmppServices(std::vector<DSResponse> resp); 
 
     //Multicast peer identifier
-    void increment_multicast_peer_identifier() {multicast_peer_identifier_++;}
-    uint64_t multicast_peer_identifier() {return multicast_peer_identifier_;}
+    void increment_multicast_sequence_number() {multicast_sequence_number_++;}
+    uint64_t multicast_sequence_number() {return multicast_sequence_number_;}
 
     //Peer maintenace routines 
     uint8_t ActiveXmppConnectionCount();
@@ -75,7 +75,7 @@ private:
     AgentDnsXmppChannel *FindAgentDnsXmppChannel(const std::string &server_ip);
 
     Agent *agent_;
-    uint64_t multicast_peer_identifier_;
+    uint64_t multicast_sequence_number_;
     std::list<boost::shared_ptr<BgpPeer> > decommissioned_peer_list_;
     boost::scoped_ptr<AgentIfMapVmExport> agent_ifmap_vm_export_;
     UnicastCleanupTimer unicast_cleanup_timer_;

@@ -223,7 +223,7 @@ CfgListener *Agent::cfg_listener() const {
     return cfg_.get()->cfg_listener();
 }
 
-void Agent::SetControlNodeMulticastBuilder(AgentXmppChannel *peer) {
+void Agent::set_cn_mcast_builder(AgentXmppChannel *peer) {
     cn_mcast_builder_ =  peer;
 }
 
