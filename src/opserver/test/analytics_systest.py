@@ -530,6 +530,25 @@ class AnalyticsTest(testtools.TestCase, fixtures.TestWithFixtures):
         return True;
     #end test_11_where_clause_query
 
+    #@unittest.skip('verify ObjectTable query')
+    def test_12_verify_object_table_query(self):
+        '''
+        This test verifies the ObjectTable query.
+        '''
+        logging.info('*** test_12_verify_object_table_query ***')
+        
+        if AnalyticsTest._check_skip_test() is True:
+            return True
+
+        vizd_obj = self.useFixture(
+            AnalyticsFixture(logging,
+                             builddir,
+                             self.__class__.cassandra_port))
+        assert vizd_obj.verify_on_setup()
+        assert vizd_obj.verify_collector_obj_count()
+        assert vizd_obj.verify_object_table_query()
+    # end test_12_verify_object_table_query
+
     @staticmethod
     def get_free_port():
         cs = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
