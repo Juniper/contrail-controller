@@ -134,7 +134,7 @@ inline bool ParseIntegerStream<>(const std::string& str, int8_t &num) {
     return true;
 }
 
-TEST_F(UtilTest, StoiPerfStream) {
+TEST_F(UtilTest, DISABLED_StoiPerfStream) {
     std::string s_integer("123456789");
     int integer;
     for (int i = 0; i < 1000000; i++) {
@@ -142,7 +142,7 @@ TEST_F(UtilTest, StoiPerfStream) {
     }
 }
 
-TEST_F(UtilTest, StoiPerfStrtoulSafe) {
+TEST_F(UtilTest, DISABLED_StoiPerfStrtoulSafe) {
     std::string s_integer("123456789");
     int integer;
     for (int i = 0; i < 1000000; i++) {
@@ -150,7 +150,7 @@ TEST_F(UtilTest, StoiPerfStrtoulSafe) {
     }
 }
 
-TEST_F(UtilTest, StoiPerfStrtoul) {
+TEST_F(UtilTest, DISABLED_StoiPerfStrtoul) {
     std::string s_integer("123456789");
     int integer;
     for (int i = 0; i < 1000000; i++) {

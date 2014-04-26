@@ -994,7 +994,7 @@ bool CdbIf::DbDataValueVecFromString(GenDb::DbDataValueVec& res,
         const std::string& input) {
     if (typevec.size() == 1) {
         GenDb::DbDataValue res1;
-        if (!CdbIf::DbDataValueFromType(res1, typevec[0], input)) {
+        if (!DbDataValueFromType(res1, typevec[0], input)) {
             CDBIF_LOG_ERR_RETURN_FALSE("Extract type " << typevec[0] 
                 << " from " << input << " FAILED");
         }
