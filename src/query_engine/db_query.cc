@@ -36,7 +36,9 @@ query_status_t DbQueryUnit::process_query()
         GenDb::DbDataValueVec rowkey;
 
         rowkey.push_back(t2);
-        if (m_query->is_flow_query() || m_query->is_object_table_query()) {
+        if (m_query->is_flow_query() || 
+            (m_query->is_object_table_query() && 
+             cfname == g_viz_constants.OBJECT_TABLE)) {
             uint8_t partition_no = 0;
             rowkey.push_back(partition_no);
         }
@@ -81,7 +83,7 @@ query_status_t DbQueryUnit::process_query()
 
             GenDb::NewColVec::iterator i;
 
-            QE_TRACE(DEBUG, "For T2:" << t2 <<
+            QE_TRACE(DEBUG, "For " << cfname << " T2:" << t2 <<
                 " Database returned " << it->columns_.size() << " cols");
 
             for (i = it->columns_.begin(); i != it->columns_.end(); i++)
@@ -110,7 +112,6 @@ query_status_t DbQueryUnit::process_query()
                     } else {
                         int ts_at = i->name->size() - 1;
                         assert(ts_at >= 0);
-                        
                         try {
                             t1 = boost::get<uint32_t>(i->name->at(ts_at));
                         } catch (boost::bad_get& ex) {
@@ -169,6 +170,21 @@ query_status_t DbQueryUnit::process_query()
 
     QE_TRACE(DEBUG,  " Database query completed with "
             << query_result.size() << " rows");
+    if (IS_TRACE_ENABLED(WHERE_RESULT_TRACE)) {
+        std::stringstream ss;
+        for (std::vector<query_result_unit_t>::const_iterator it = 
+             query_result.begin(); it != query_result.end(); it++) {
+            const query_result_unit_t &result_unit(*it);
+            ss << "T: " << result_unit.timestamp << ": ";
+            for (GenDb::DbDataValueVec::const_iterator rt = 
+                 result_unit.info.begin(); rt != result_unit.info.end(); 
+                 rt++) {
+                ss << " " << *rt;
+            }
+            ss << std::endl;
+        }
+        QE_TRACE(DEBUG, "Result: " << cfname << ": " << ss.str());
+    }
 
     status_details = 0;
     parent_query->subquery_processed(this);
