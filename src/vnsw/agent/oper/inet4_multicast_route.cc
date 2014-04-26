@@ -176,7 +176,7 @@ bool Inet4MulticastRouteEntry::DBEntrySandesh(Sandesh *sresp, bool stale) const 
         FindGroupObject(vrf()->GetName(), dest_ip_addr());
     Agent *agent = (static_cast<AgentRouteTable *>(get_table()))->agent();
     if (!stale || (mc_obj->peer_identifier() != agent->controller()->
-                   multicast_peer_identifier())) {
+                   multicast_sequence_number())) {
         GetActiveNextHop()->SetNHSandeshData(data.nh);
     }
 

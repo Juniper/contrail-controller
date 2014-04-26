@@ -328,7 +328,7 @@ void AgentXmppChannel::ReceiveMulticastUpdate(XmlPugi *pugi) {
 
         MulticastHandler::ModifyFabricMembers(vrf, g_addr.to_v4(),
                 s_addr.to_v4(), item->entry.nlri.source_label,
-                olist, agent_->controller()->multicast_peer_identifier());
+                olist, agent_->controller()->multicast_sequence_number());
     }
 }
 
@@ -773,6 +773,10 @@ void AgentXmppChannel::UnicastPeerDown(AgentXmppChannel *peer,
             CONTROLLER_TRACE(Trace, peer->GetBgpPeerName(), "None",
              "Active xmpp count is one, evaluate reschedule of cleanup timer");
         }
+
+        // Ideally two xmpp channels are supported so assert if we reach here
+        // with active_xmpp_count is greater than 1.
+        assert(active_xmpp_count <= 1);
     }
     // Dont bother, delete, we are safe
     // These cases result in delete
@@ -856,8 +860,8 @@ bool AgentXmppChannel::SetConfigPeer(AgentXmppChannel *peer) {
  */
 void AgentXmppChannel::SetMulticastPeer(AgentXmppChannel *old_peer,
                                         AgentXmppChannel *new_peer) {
-    old_peer->agent()->controller()->increment_multicast_peer_identifier();
-    old_peer->agent()->SetControlNodeMulticastBuilder(new_peer);
+    old_peer->agent()->controller()->increment_multicast_sequence_number();
+    old_peer->agent()->set_cn_mcast_builder(new_peer);
 }
 
 /*

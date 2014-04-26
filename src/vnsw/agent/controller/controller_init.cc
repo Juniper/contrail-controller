@@ -30,7 +30,7 @@ SandeshTraceBufferPtr ControllerTraceBuf(SandeshTraceBufferCreate(
     "Controller", 1000));
 
 VNController::VNController(Agent *agent) 
-    : agent_(agent), multicast_peer_identifier_(0),
+    : agent_(agent), multicast_sequence_number_(0),
     unicast_cleanup_timer_(agent), multicast_cleanup_timer_(agent), 
     config_cleanup_timer_(agent) {
         decommissioned_peer_list_.clear();
@@ -163,8 +163,8 @@ void VNController::Connect() {
     DnsXmppServerConnect();
 
     /* Inits */
-    agent_->controller()->increment_multicast_peer_identifier();
-    agent_->SetControlNodeMulticastBuilder(NULL);
+    agent_->controller()->increment_multicast_sequence_number();
+    agent_->set_cn_mcast_builder(NULL);
     agent_ifmap_vm_export_.reset(new AgentIfMapVmExport(agent_));
 }
 
@@ -246,8 +246,8 @@ void VNController::Cleanup() {
         count++;
     }
 
-    agent_->controller()->increment_multicast_peer_identifier();
-    agent_->SetControlNodeMulticastBuilder(NULL);
+    agent_->controller()->increment_multicast_sequence_number();
+    agent_->set_cn_mcast_builder(NULL);
     decommissioned_peer_list_.clear();
     agent_ifmap_vm_export_.reset();
 }
@@ -477,11 +477,13 @@ void VNController::ControllerPeerHeadlessAgentDelDone(BgpPeer *bgp_peer) {
         BgpPeer *peer = static_cast<BgpPeer *>((*it).get());
         if (peer == bgp_peer) {
             decommissioned_peer_list_.remove(*it);
-            return;
+            break;
         }
     }
     // Delete walk for peer was issued via shutdown of agentxmppchannel
-    if (bgp_peer->is_disconnect_walk()) {
+    // If all bgp peers are gone(i.e. walk for delpeer for all decommissioned
+    // peer is over), go ahead with cleanup.
+    if (decommissioned_peer_list_.empty() && bgp_peer->is_disconnect_walk()) {
         agent()->controller()->Cleanup();
     }
 }
@@ -526,7 +528,7 @@ void VNController::StartMulticastCleanupTimer(
                                  AgentXmppChannel *agent_xmpp_channel) {
     // In non-headless mode trigger cleanup 
     if (!(agent_->headless_agent_mode())) {
-        MulticastCleanupTimerExpired(multicast_peer_identifier_);
+        MulticastCleanupTimerExpired(multicast_sequence_number_);
         return;
     }
 
@@ -534,7 +536,7 @@ void VNController::StartMulticastCleanupTimer(
     // if new peer sends new info sequence number wud have incremented in
     // multicast.
     multicast_cleanup_timer_.peer_sequence_ = agent_->controller()->
-        multicast_peer_identifier();
+        multicast_sequence_number();
     multicast_cleanup_timer_.Start(agent_xmpp_channel);
 }
 

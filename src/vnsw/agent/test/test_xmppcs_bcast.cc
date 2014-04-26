@@ -364,8 +364,8 @@ protected:
 
     void XmppConnectionSetUp() {
 
-        Agent::GetInstance()->controller()->increment_multicast_peer_identifier();
-        Agent::GetInstance()->SetControlNodeMulticastBuilder(NULL);
+        Agent::GetInstance()->controller()->increment_multicast_sequence_number();
+        Agent::GetInstance()->set_cn_mcast_builder(NULL);
 
         //Create control-node bgp mock peer 
 	mock_peer.reset(new ControlNodeMockBgpXmppPeer());
