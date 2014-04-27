@@ -102,6 +102,8 @@ protected:
                                 eth_name_, Agent::GetInstance()->GetDefaultVrf());
         AddResolveRoute(server1_ip_, 24);
         client->WaitForIdle();
+
+        agent_ = Agent::GetInstance();
     }
 
     virtual void TearDown() {
@@ -221,6 +223,7 @@ protected:
     Ip4Address  lpm4_ip_;
     Ip4Address  lpm5_ip_;
     bool is_gateway_configured;
+    Agent *agent_;
     static TunnelType::Type type_;
 };
 TunnelType::Type RouteTest::type_;
@@ -707,6 +710,34 @@ TEST_F(RouteTest, GatewayRoute_2) {
     DeleteRoute(Agent::GetInstance()->local_peer(),
                 Agent::GetInstance()->GetDefaultVrf(), c, 32);
     EXPECT_FALSE(RouteFind(Agent::GetInstance()->GetDefaultVrf(), c, 32));
+}
+
+// Delete unresolved gateway route
+TEST_F(RouteTest, GatewayRoute_3) {
+    Ip4Address a = Ip4Address::from_string("4.4.4.4");
+    Ip4Address gw = Ip4Address::from_string("5.5.5.254");
+
+    // Add gateway route. Gateway
+    AddGatewayRoute(agent_->GetDefaultVrf(), a, 32, gw);
+    client->WaitForIdle();
+
+    Inet4UnicastRouteEntry* rt = RouteGet(agent_->GetDefaultVrf(), a, 32);
+    EXPECT_TRUE(rt != NULL);
+
+    DeleteRoute(agent_->local_peer(), agent_->GetDefaultVrf(), a, 32);
+    client->WaitForIdle();
+    EXPECT_FALSE(RouteFind(agent_->GetDefaultVrf(), a ,32));
+
+    gw = Ip4Address::from_string("10.1.1.253");
+    AddGatewayRoute(agent_->GetDefaultVrf(), a, 32, gw);
+    client->WaitForIdle();
+
+    rt = RouteGet(agent_->GetDefaultVrf(), a, 32);
+    EXPECT_TRUE(rt != NULL);
+
+    DeleteRoute(agent_->local_peer(), agent_->GetDefaultVrf(), a, 32);
+    client->WaitForIdle();
+    EXPECT_FALSE(RouteFind(agent_->GetDefaultVrf(), a ,32));
 }
 
 TEST_F(RouteTest, ResyncUnresolvedRoute_1) {

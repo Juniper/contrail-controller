@@ -74,6 +74,9 @@ static bool interface_exist(string &name) {
 	return ret;
 }
 
+/****************************************************************************
+ * Cleanup routines on shugdown
+****************************************************************************/
 void AgentInit::DeleteRoutes() {
     Inet4UnicastAgentRouteTable *uc_rt_table =
         agent_->GetDefaultInet4UnicastRouteTable();
@@ -117,36 +120,9 @@ void AgentInit::Shutdown() {
     agent_->diag_table()->Shutdown();
 }
 
-void AgentInit::OnInterfaceCreate(DBEntryBase *entry) {
-    if (entry->IsDeleted())
-        return;
-
-    Interface *itf = static_cast<Interface *>(entry);
-    Interface::Type type = itf->type();
-
-    if (type == Interface::INET) {
-        InetInterface *inet_interface = static_cast<InetInterface *>(entry);
-        // Set VHOST interface in agent
-        if (inet_interface->sub_type() == InetInterface::VHOST &&
-            inet_interface->name() == agent_->vhost_interface_name()) {
-            agent_->set_vhost_interface(itf);
-        }
-    }
-
-    if (type != Interface::PHYSICAL ||
-        itf->name() != Agent::GetInstance()->GetIpFabricItfName())
-        return;
-
-    agent_->SetRouterId(params_->vhost_addr());
-    agent_->SetPrefixLen(params_->vhost_plen());
-    agent_->SetGatewayId(params_->vhost_gw());
-
-    // Trigger initialization to continue
-    TriggerInit();
-    intf_trigger_ = SafeDBUnregister(agent_->GetInterfaceTable(),
-                                     intf_client_id_);
-}
-
+/****************************************************************************
+ * Initialization routines
+****************************************************************************/
 void AgentInit::InitXenLinkLocalIntf() {
     if (!params_->isXenMode() || params_->xen_ll_name() == "")
         return;
@@ -158,12 +134,12 @@ void AgentInit::InitXenLinkLocalIntf() {
     }
     params_->set_xen_ll_name(dev_name);
 
-    InetInterface::CreateReq(agent_->GetInterfaceTable(),
-                             params_->xen_ll_name(), InetInterface::LINK_LOCAL,
-                             agent_->GetLinkLocalVrfName(),
-                             params_->xen_ll_addr(), params_->xen_ll_plen(),
-                             params_->xen_ll_gw(),
-                             agent_->GetLinkLocalVrfName());
+    InetInterface::Create(agent_->GetInterfaceTable(),
+                          params_->xen_ll_name(), InetInterface::LINK_LOCAL,
+                          agent_->GetLinkLocalVrfName(),
+                          params_->xen_ll_addr(), params_->xen_ll_plen(),
+                          params_->xen_ll_gw(),
+                          agent_->GetLinkLocalVrfName());
 }
 
 // Initialization for VMWare specific interfaces
@@ -171,51 +147,56 @@ void AgentInit::InitVmwareInterface() {
     if (!params_->isVmwareMode())
         return;
 
-    PhysicalInterface::CreateReq(agent_->GetInterfaceTable(),
-                                 params_->vmware_physical_port(),
-                                 agent_->GetDefaultVrf());
+    PhysicalInterface::Create(agent_->GetInterfaceTable(),
+                              params_->vmware_physical_port(),
+                              agent_->GetDefaultVrf());
 }
     
+void AgentInit::CreateInterfaces(DB *db) {
+    InterfaceTable *table = agent_->GetInterfaceTable();
 
-// Used only during initialization.
-// Trigger continuation of initialization after fabric vrf is created
-void AgentInit::OnVrfCreate(DBEntryBase *entry) {
-    if (entry->IsDeleted())
-        return;
+    InetInterface::Create(table, params_->vhost_name(), InetInterface::VHOST,
+                          agent_->GetDefaultVrf(), params_->vhost_addr(),
+                          params_->vhost_plen(), params_->vhost_gw(),
+                          agent_->GetDefaultVrf());
+    PhysicalInterface::Create(table, params_->eth_port(),
+                              agent_->GetDefaultVrf());
+    InitXenLinkLocalIntf();
+    InitVmwareInterface();
 
-    VrfEntry *vrf = static_cast<VrfEntry *>(entry);
-    if (vrf->GetName() == agent_->GetDefaultVrf() && vrf_trigger_ == NULL) {
-        // Default VRF created; create nexthops
-        agent_->SetDefaultInet4UnicastRouteTable
-            (vrf->GetInet4UnicastRouteTable());
-        agent_->SetDefaultInet4MulticastRouteTable
-            (vrf->GetInet4MulticastRouteTable());
-        agent_->SetDefaultLayer2RouteTable(vrf->GetLayer2RouteTable());
+    // Set VHOST interface
+    InetInterfaceKey key(agent_->vhost_interface_name());
+    agent_->set_vhost_interface
+        (static_cast<Interface *>(table->FindActiveEntry(&key)));
+    assert(agent_->vhost_interface());
 
-        // The notification is not needed after fabric vrf is created.
-        // Unregister client to VRF table (in DB Task contex)
-        vrf_trigger_ = SafeDBUnregister(agent_->GetVrfTable(), vrf_client_id_);
+    // Validate physical interface
+    PhysicalInterfaceKey physical_key(agent_->GetIpFabricItfName());
+    assert(table->FindActiveEntry(&physical_key));
 
-        // Trigger initialization to continue
-        TriggerInit();
-    }
+    agent_->SetRouterId(params_->vhost_addr());
+    agent_->SetPrefixLen(params_->vhost_plen());
+    agent_->SetGatewayId(params_->vhost_gw());
 }
-
 
 // Create VRF for fabric-vrf 
 // In case of XEN, create link local VRF also
-// We must continue agent initialization after VRF are created.
-// Register for VRF table to wait till default-vrf is created
 void AgentInit::CreateDefaultVrf() {
-    // Register for VRF entry before the entries are created
     VrfTable *vrf_table = agent_->GetVrfTable();
-    vrf_client_id_ =
-        vrf_table->Register(boost::bind(&AgentInit::OnVrfCreate, this, _2));
 
     if (agent_->isXenMode()) {
         vrf_table->CreateStaticVrf(agent_->GetLinkLocalVrfName());
     }
     vrf_table->CreateStaticVrf(agent_->GetDefaultVrf());
+
+    VrfEntry *vrf = vrf_table->FindVrfFromName(agent_->GetDefaultVrf());
+    assert(vrf);
+
+    // Default VRF created; create nexthops
+    agent_->SetDefaultInet4UnicastRouteTable(vrf->GetInet4UnicastRouteTable());
+    agent_->SetDefaultInet4MulticastRouteTable
+        (vrf->GetInet4MulticastRouteTable());
+    agent_->SetDefaultLayer2RouteTable(vrf->GetLayer2RouteTable());
 }
 
 void AgentInit::CreateDefaultNextHops() {
@@ -228,85 +209,18 @@ void AgentInit::CreateDefaultNextHops() {
     agent_->nexthop_table()->set_discard_nh(nh);
 }
 
-void AgentInit::CreateInterfaces(DB *db) {
-    // Register for interface entry before the entries are created
-    intf_client_id_ = agent_->GetInterfaceTable()->Register
-        (boost::bind(&AgentInit::OnInterfaceCreate, this, _2));
-
-    InetInterface::CreateReq(agent_->GetInterfaceTable(),
-                             params_->vhost_name(), InetInterface::VHOST,
-                             agent_->GetDefaultVrf(),
-                             params_->vhost_addr(), params_->vhost_plen(), 
-                             params_->vhost_gw(), agent_->GetDefaultVrf());
-    PhysicalInterface::CreateReq(agent_->GetInterfaceTable(),
-                                 params_->eth_port(), agent_->GetDefaultVrf());
-    InitXenLinkLocalIntf();
-    InitVmwareInterface();
-}
-/*
- * Initialization sequence
- * CREATE_MODULES      : Create modules
- * CREATE_DB_TABLES    : Create DB Tables
- * CREATE_DB_CLIENTS   : Create DB Clients
- * INIT_MODULES        : Call module Inits
- * CREATE_VRF          : Create default VRFs
- * CREATE_INTERFACE    : Create default interfaces and routes
- * INIT_DONE           : Finalize the init sequence
- */
+// Start init sequence
 bool AgentInit::Run() {
-    switch(state_) {
-    case CREATE_MODULES:
-        agent_->CreateModules();
-        state_ = CREATE_DB_TABLES;
-        // FALLTHRU
-
-    case CREATE_DB_TABLES:
-        agent_->CreateDBTables();
-        state_ = CREATE_DB_CLIENTS;
-        // FALLTHRU
-
-    case CREATE_DB_CLIENTS:
-        agent_->CreateDBClients();
-        state_ = INIT_MODULES;
-        // FALLTHRU
-
-    case INIT_MODULES:
-        agent_->InitModules();
-        state_ = CREATE_VRF;
-        // FALLTHRU;
-
-    case CREATE_VRF :
-        agent_->CreateVrf();
-        state_ = CREATE_NEXTHOP;
-        // FALLTHRU;
-
-    case CREATE_NEXTHOP :
-        agent_->CreateNextHops();
-        state_ = CREATE_INTERFACE;
-        break;
-
-    case CREATE_INTERFACE:
-        agent_->CreateInterfaces();
-        state_ = INIT_DONE;
-        break;
-
-    case INIT_DONE:
-        agent_->InitDone();
-        break;
-
-    default:
-        assert(0);
-        break;
-    }
+    agent_->CreateModules();
+    agent_->CreateDBTables();
+    agent_->CreateDBClients();
+    agent_->InitModules();
+    agent_->CreateVrf();
+    agent_->CreateNextHops();
+    agent_->CreateInterfaces();
+    agent_->InitDone();
+    init_done_ = true;
     return true;
-}
-
-void AgentInit::TriggerInit() {
-    int task_id = TaskScheduler::GetInstance()->GetTaskId("db::DBTable");
-    TaskTrigger *t = new TaskTrigger(boost::bind(&AgentInit::Run, this),
-                                     task_id, 0);
-    t->Set();
-    trigger_list_.push_back(t);
 }
 
 void AgentInit::Init(AgentParam *param, Agent *agent,
@@ -331,7 +245,7 @@ void AgentInit::Init(AgentParam *param, Agent *agent,
     agent_ = agent;
 }
 
-// TODO: Move the following code to state based initialization
+// Trigger inititlization in context of DBTable
 void AgentInit::Start() {
     if (params_->log_file() == "") {
         LoggingInit();
@@ -341,6 +255,10 @@ void AgentInit::Start() {
 
     params_->LogConfig();
     params_->Validate();
-    TriggerInit();
+
+    int task_id = TaskScheduler::GetInstance()->GetTaskId("db::DBTable");
+    trigger_.reset(new TaskTrigger(boost::bind(&AgentInit::Run, this), 
+                                   task_id, 0));
+    trigger_->Set();
     return;
 }

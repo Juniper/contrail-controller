@@ -20,7 +20,6 @@
 #include <ksync/ksync_sock.h>
 #include "ksync/agent_ksync_types.h"
 #include "vr_types.h"
-#include "vr_utils.h"
 #include "base/logging.h"
 #include "oper/interface_common.h"
 #include "oper/mirror_table.h"

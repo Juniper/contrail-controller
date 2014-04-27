@@ -28,7 +28,10 @@ public:
     // Helper functions
     static void CreateReq(InterfaceTable *table, const std::string &ifname,
                           const std::string &vrf_name);
+    static void Create(InterfaceTable *table, const std::string &ifname,
+                       const std::string &vrf_name);
     static void DeleteReq(InterfaceTable *table, const std::string &ifname);
+    static void Delete(InterfaceTable *table, const std::string &ifname);
 private:
     DISALLOW_COPY_AND_ASSIGN(PhysicalInterface);
 };

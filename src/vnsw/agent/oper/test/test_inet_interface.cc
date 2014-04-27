@@ -59,9 +59,9 @@ public:
         vrf_count_ = agent_->GetVrfTable()->Size();
         peer_ = agent_->local_peer();
 
-        vrf_table_->CreateVrf(VRF_VHOST);
-        vrf_table_->CreateVrf(VRF_LL);
-        vrf_table_->CreateVrf(VRF_GW);
+        vrf_table_->CreateVrfReq(VRF_VHOST);
+        vrf_table_->CreateVrfReq(VRF_LL);
+        vrf_table_->CreateVrfReq(VRF_GW);
         client->WaitForIdle();
 
         vhost_rt_table_ = static_cast<Inet4UnicastAgentRouteTable *> 
@@ -73,9 +73,9 @@ public:
     }
 
     virtual void TearDown() {
-        vrf_table_->DeleteVrf(VRF_VHOST);
-        vrf_table_->DeleteVrf(VRF_LL);
-        vrf_table_->DeleteVrf(VRF_GW);
+        vrf_table_->DeleteVrfReq(VRF_VHOST);
+        vrf_table_->DeleteVrfReq(VRF_LL);
+        vrf_table_->DeleteVrfReq(VRF_GW);
         client->WaitForIdle();
 
         WAIT_FOR(100, 1000, (interface_table_->Size() == intf_count_));

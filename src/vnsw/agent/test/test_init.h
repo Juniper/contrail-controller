@@ -141,6 +141,7 @@ struct TestIp4Prefix {
     int plen_;
 };
 
+class AgentTestInit;
 class TestClient {
 public:
     TestClient() { 
@@ -546,6 +547,8 @@ public:
         Agent::GetInstance()->GetMplsTable()->Register(boost::bind(&TestClient::MplsNotify, 
                                                    this, _1, _2));
     };
+    void set_init(AgentTestInit *init) { init_ = init; }
+    AgentTestInit *init() const { return init_; }
 
     void Shutdown();
 
@@ -565,23 +568,11 @@ public:
     int nh_notify_;
     int mpls_notify_;
     std::vector<const NextHop *> comp_nh_list_;
+    AgentTestInit *init_;
 };
 
 class AgentTestInit {
 public:
-#if 0
-    enum State {
-        MOD_INIT,
-        STATIC_OBJ_OPERDB,
-        STATIC_OBJ_PKT,
-        CONFIG_INIT,
-        CONFIG_RUN,
-        INIT_DONE,
-        SHUTDOWN,
-        SHUTDOWN_DONE,
-    };
-#endif
-
     AgentTestInit(TestClient *client) : param_(Agent::GetInstance()), client_(client) { }
     ~AgentTestInit() {
         for (std::vector<TaskTrigger *>::iterator it = list_.begin();
@@ -611,7 +602,6 @@ public:
         return true;
     }
 
-    //State GetState() {return state_;};
     Agent *agent() {return &agent_;}
     AgentParam *param() {return &param_;}
     AgentInit *init() {return &init_;}

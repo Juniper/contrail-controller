@@ -77,7 +77,7 @@ const unsigned char *PktHandler::mac_address() {
 }
 
 void PktHandler::CreateInterfaces(const std::string &if_name) {
-    PacketInterface::CreateReq(agent_->GetInterfaceTable(), if_name);
+    PacketInterface::Create(agent_->GetInterfaceTable(), if_name);
     InterfaceNH::CreatePacketInterfaceNhReq(if_name);
 }
 

@@ -130,13 +130,13 @@ void VirtualGateway::CreateInterfaces() {
 
 void VirtualGateway::CreateInterface(const std::string &interface_name,
                                      const std::string &vrf_name) {
-    InetInterface::CreateReq(agent_->GetInterfaceTable(), interface_name,
-                             InetInterface::SIMPLE_GATEWAY, vrf_name,
-                             Ip4Address(0), 0, Ip4Address(0), "");
+    InetInterface::Create(agent_->GetInterfaceTable(), interface_name,
+                          InetInterface::SIMPLE_GATEWAY, vrf_name,
+                          Ip4Address(0), 0, Ip4Address(0), "");
 }
 
 void VirtualGateway::DeleteInterface(const std::string &interface_name) {
-    InetInterface::DeleteReq(agent_->GetInterfaceTable(), interface_name);
+    InetInterface::Delete(agent_->GetInterfaceTable(), interface_name);
 }
 
 void
@@ -241,7 +241,7 @@ void VirtualGateway::Shutdown() {
     const VirtualGatewayConfigTable::Table &table = vgw_config_table_->table();
     for (it = table.begin(); it != table.end(); it++) {
         // Delete Interface
-        InetInterface::DeleteReq(agent_->GetInterfaceTable(),
+        InetInterface::Delete(agent_->GetInterfaceTable(),
                                  it->interface_name());
 
         // Delete VRF for "public" virtual-network

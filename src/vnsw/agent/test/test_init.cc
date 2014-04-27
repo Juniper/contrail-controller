@@ -48,6 +48,7 @@ TestClient *TestInit(const char *init_file, bool ksync_init, bool pkt_init,
                      bool asio, bool ksync_sync_mode) {
     TestClient *client = new TestClient();
     agent_init = new AgentTestInit(client);
+    client->set_init(agent_init);
 
     // Read agent parameters from config file and arguments
     Agent *agent = agent_init->agent();
@@ -82,10 +83,7 @@ TestClient *TestInit(const char *init_file, bool ksync_init, bool pkt_init,
     // Initialize agent and kick start initialization
     agent->Init(param, init);
 
-    while (init->state() != AgentInit::INIT_DONE) {
-        usleep(1000);
-    }
-
+    WAIT_FOR(1000, 100, init->init_done());
     client->Init();
     client->WaitForIdle();
     client->SetFlowFlushExclusionPolicy();
@@ -117,6 +115,7 @@ TestClient *TestInit(const char *init_file, bool ksync_init, bool pkt_init,
 TestClient *StatsTestInit() {
     TestClient *client = new TestClient();
     agent_init = new AgentTestInit(client);
+    client->set_init(agent_init);
     Agent *agent = agent_init->agent();
     AgentParam *param = agent_init->param();
     AgentInit *init = agent_init->init();
@@ -166,6 +165,7 @@ TestClient *StatsTestInit() {
 TestClient *VGwInit(const string &init_file, bool ksync_init) {
     TestClient *client = new TestClient();
     agent_init = new AgentTestInit(client);
+    client->set_init(agent_init);
     Agent *agent = agent_init->agent();
     AgentParam *param = agent_init->param();
     AgentInit *init = agent_init->init();
@@ -195,10 +195,7 @@ TestClient *VGwInit(const string &init_file, bool ksync_init) {
     // Initialize agent and kick start initialization
     agent->Init(param, init);
 
-    while (init->state() != AgentInit::INIT_DONE) {
-        usleep(1000);
-    }
-
+    WAIT_FOR(1000, 100, init->init_done());
     client->Init();
     client->WaitForIdle();
 
