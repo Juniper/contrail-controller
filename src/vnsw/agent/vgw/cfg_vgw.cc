@@ -56,7 +56,7 @@ void VirtualGatewayConfigTable::Init(const boost::property_tree::ptree pt) {
         if (vrf == "" || interface == "" || subnets.size() == 0) {
             LOG(ERROR, "Error in config file. Invalid/incomplete gateway "
                 "section" << section.first);
-            return;
+            continue;
         }
 
         std::sort(subnets.begin(), subnets.end());

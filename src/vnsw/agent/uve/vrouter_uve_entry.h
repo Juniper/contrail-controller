@@ -17,6 +17,7 @@
 #include <pkt/flow_proto.h>
 #include <uve/agent_stats_collector.h>
 #include <cmn/agent_cmn.h>
+#include <vgw/cfg_vgw.h>
 
 //The class that defines data-structures to store VRouter information 
 //required for sending VRouter UVE.
@@ -86,6 +87,9 @@ private:
     void BuildXmppStatsList(std::vector<AgentXmppStats> &list) const;
     void SendVrouterUve();
     void BuildAndSendComputeCpuStateMsg(const CpuLoadInfo &info);
+    void SubnetToStringList(VirtualGatewayConfig::SubnetList &l1, 
+                            std::vector<std::string> &l2);
+    void BuildAgentConfig(VrouterAgent &vrouter_agent);
     
     Agent *agent_;
     PhysicalInterfaceSet phy_intf_set_;

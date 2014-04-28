@@ -11,6 +11,9 @@ class VrouterUveEntryTest : public VrouterUveEntry {
 public:
     VrouterUveEntryTest(Agent *agent);
     virtual ~VrouterUveEntryTest();
+    bool first_uve_dispatched() const {
+        return first_uve_dispatched_;
+    }
     uint32_t vrouter_msg_count() const {
         return vrouter_msg_count_;
     }
@@ -25,6 +28,9 @@ public:
     const VrouterAgent &last_sent_vrouter() const {
         return last_sent_vrouter_;
     }
+    const VrouterAgent &first_vrouter_uve() const {
+        return first_vrouter_uve_;
+    }
     VrouterStatsAgent &prev_stats() {
         return prev_stats_;
     }
@@ -34,11 +40,13 @@ public:
     void DispatchVrouterStatsMsg(const VrouterStatsAgent &uve);
     void DispatchComputeCpuStateMsg(const ComputeCpuState &ccs);
 private:
+    bool first_uve_dispatched_;
     uint32_t vrouter_msg_count_;
     uint32_t vrouter_stats_msg_count_;
     uint32_t compute_state_send_count_;
     VrouterStatsAgent last_sent_vrouter_stats_;
     VrouterAgent last_sent_vrouter_;
+    VrouterAgent first_vrouter_uve_;
     DISALLOW_COPY_AND_ASSIGN(VrouterUveEntryTest);
 };
 

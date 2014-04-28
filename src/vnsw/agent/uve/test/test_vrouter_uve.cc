@@ -272,7 +272,6 @@ public:
     TestUveUtil util_;
 };
 
-
 TEST_F(UveVrouterUveTest, VmAddDel) {
     VrouterUveEntryTest *vr = static_cast<VrouterUveEntryTest *>
         (Agent::GetInstance()->uve()->vrouter_uve_entry());
@@ -757,9 +756,42 @@ TEST_F(UveVrouterUveTest, Bitmap_1) {
     FlowTearDown();
 }
 
+/* Verifies agent configuration sent via vrouter UVE. */
+TEST_F(UveVrouterUveTest, config_1) {
+    VrouterUveEntryTest *vr = static_cast<VrouterUveEntryTest *>
+        (Agent::GetInstance()->uve()->vrouter_uve_entry());
+    vr->clear_count();
+    if (!vr->first_uve_dispatched()) {
+        EnqueueVRouterStatsCollectorTask(1);
+        client->WaitForIdle();
+    }
+    EXPECT_TRUE(vr->first_uve_dispatched());
+    const VrouterAgent &uve = vr->first_vrouter_uve();
+    
+    EXPECT_STREQ(uve.get_eth_name().c_str(), "vnet0");
+    EXPECT_STREQ(uve.get_vhost_cfg().get_name().c_str(), "vhost0");
+    EXPECT_STREQ(uve.get_vhost_cfg().get_ip().c_str(), "10.1.1.1");
+    EXPECT_STREQ(uve.get_vhost_cfg().get_gateway().c_str(), "10.1.1.254");
+    EXPECT_EQ(uve.get_vhost_cfg().get_ip_prefix_len(), 24);
+
+    EXPECT_STREQ(uve.get_tunnel_type().c_str(), "MPLSoGRE");
+    EXPECT_EQ(uve.get_flow_cache_timeout_cfg(), 0);
+
+    EXPECT_STREQ(uve.get_hypervisor().c_str(), "kvm");
+    EXPECT_STREQ(uve.get_ds_addr().c_str(), "0.0.0.0");
+    EXPECT_EQ(uve.get_ds_xs_instances(), 0);
+    EXPECT_STREQ(uve.get_control_ip().c_str(), "0.0.0.0");
+    EXPECT_EQ(uve.get_ll_max_system_flows_cfg(), 3);
+    EXPECT_EQ(uve.get_ll_max_vm_flows_cfg(), 2);
+    EXPECT_EQ(uve.get_max_vm_flows_cfg(), 100);
+    EXPECT_EQ(uve.get_dns_server_list_cfg().size(), 2);
+    EXPECT_EQ(uve.get_control_node_list_cfg().size(), 2);
+    EXPECT_EQ(uve.get_gateway_cfg_list().size(), 2);
+}
+
 int main(int argc, char **argv) {
     GETUSERARGS();
-    client = TestInit(init_file, ksync_init);
+    client = TestInit("controller/src/vnsw/agent/uve/test/vnswa_cfg.ini", ksync_init);
 
     usleep(10000);
     int ret = RUN_ALL_TESTS();
