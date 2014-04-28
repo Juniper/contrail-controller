@@ -896,12 +896,12 @@ void VnDelReq(int id) {
 }
 
 void VrfAddReq(const char *name) {
-    Agent::GetInstance()->GetVrfTable()->CreateVrf(name);
+    Agent::GetInstance()->GetVrfTable()->CreateVrfReq(name);
     usleep(1000);
 }
 
 void VrfDelReq(const char *name) {
-    Agent::GetInstance()->GetVrfTable()->DeleteVrf(name);
+    Agent::GetInstance()->GetVrfTable()->DeleteVrfReq(name);
     usleep(1000);
 }
 

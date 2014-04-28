@@ -210,6 +210,11 @@ void AgentSandesh::SandeshDone() {
 void AgentInitStateReq::HandleRequest() const {
     AgentInitState *resp = new AgentInitState();
     resp->set_context(context());
-    resp->set_state(Agent::GetInstance()->init()->StateToString());
+    Agent *agent = Agent::GetInstance();
+    if (agent->init()->init_done()) {
+        resp->set_state("InitDone");
+    } else {
+        resp->set_state("InProgress");
+    }
     resp->Response();
 }

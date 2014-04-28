@@ -371,10 +371,30 @@ void InetInterface::CreateReq(InterfaceTable *table, const std::string &ifname,
     table->Enqueue(&req);
 }
 
+// Helper to Inet Interface
+void InetInterface::Create(InterfaceTable *table, const std::string &ifname,
+                           SubType sub_type, const std::string &vrf_name,
+                           const Ip4Address &addr, int plen,
+                           const Ip4Address &gw,
+                           const std::string &vn_name) {
+    DBRequest req(DBRequest::DB_ENTRY_ADD_CHANGE);
+    req.key.reset(new InetInterfaceKey(ifname));
+    req.data.reset(new InetInterfaceData(sub_type, vrf_name, Ip4Address(addr),
+                                         plen, Ip4Address(gw), vn_name));
+    table->Process(req);
+}
+
 // Helper to delete Inet Interface
 void InetInterface::DeleteReq(InterfaceTable *table, const string &ifname) {
     DBRequest req(DBRequest::DB_ENTRY_DELETE);
     req.key.reset(new InetInterfaceKey(ifname));
     req.data.reset(NULL);
     table->Enqueue(&req);
+}
+
+void InetInterface::Delete(InterfaceTable *table, const string &ifname) {
+    DBRequest req(DBRequest::DB_ENTRY_DELETE);
+    req.key.reset(new InetInterfaceKey(ifname));
+    req.data.reset(NULL);
+    table->Process(req);
 }

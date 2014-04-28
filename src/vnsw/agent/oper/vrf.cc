@@ -478,24 +478,32 @@ AgentRouteTable *VrfTable::GetRouteTable(const string &vrf_name,
     return static_cast<AgentRouteTable *>(it->second);
 }
 
+void VrfTable::CreateVrfReq(const string &name, uint32_t flags) {
+    DBRequest req(DBRequest::DB_ENTRY_ADD_CHANGE);
+    req.key.reset(new VrfKey(name));
+    req.data.reset(new VrfData(flags));
+    Enqueue(&req);
+}
+
 void VrfTable::CreateVrf(const string &name, uint32_t flags) {
-    VrfKey *key = new VrfKey(name);
-    VrfData *data = new VrfData(flags);
-    DBRequest req;
-    req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
-    req.key.reset(key);
-    req.data.reset(data);
+    DBRequest req(DBRequest::DB_ENTRY_ADD_CHANGE);
+    req.key.reset(new VrfKey(name));
+    req.data.reset(new VrfData(flags));
+    Process(req);
+}
+
+void VrfTable::DeleteVrfReq(const string &name, uint32_t flags) {
+    DBRequest req(DBRequest::DB_ENTRY_DELETE);
+    req.key.reset(new VrfKey(name));
+    req.data.reset(new VrfData(flags));
     Enqueue(&req);
 }
 
 void VrfTable::DeleteVrf(const string &name, uint32_t flags) {
-    DBRequest req;
-    req.oper = DBRequest::DB_ENTRY_DELETE;
-    VrfKey *key = new VrfKey(name);
-    VrfData *data = new VrfData(flags);
-    req.key.reset(key);
-    req.data.reset(data);
-    Enqueue(&req);
+    DBRequest req(DBRequest::DB_ENTRY_DELETE);
+    req.key.reset(new VrfKey(name));
+    req.data.reset(new VrfData(flags));
+    Process(req);
 }
 
 void VrfTable::CreateStaticVrf(const string &name) {
@@ -505,7 +513,7 @@ void VrfTable::CreateStaticVrf(const string &name) {
 
 void VrfTable::DeleteStaticVrf(const string &name) {
     static_vrf_set_.erase(name);
-    DeleteVrf(name);
+    DeleteVrfReq(name);
 }
 
 

@@ -316,6 +316,13 @@ void PacketInterface::CreateReq(InterfaceTable *table,
     table->Enqueue(&req);
 }
 
+void PacketInterface::Create(InterfaceTable *table, const std::string &ifname) {
+    DBRequest req(DBRequest::DB_ENTRY_ADD_CHANGE);
+    req.key.reset(new PacketInterfaceKey(nil_uuid(), ifname));
+    req.data.reset(new PacketInterfaceData());
+    table->Process(req);
+}
+
 // Enqueue DBRequest to delete a Pkt Interface
 void PacketInterface::DeleteReq(InterfaceTable *table,
                                 const std::string &ifname) {
@@ -325,6 +332,12 @@ void PacketInterface::DeleteReq(InterfaceTable *table,
     table->Enqueue(&req);
 }
 
+void PacketInterface::Delete(InterfaceTable *table, const std::string &ifname) {
+    DBRequest req(DBRequest::DB_ENTRY_DELETE);
+    req.key.reset(new PacketInterfaceKey(nil_uuid(), ifname));
+    req.data.reset(NULL);
+    table->Process(req);
+}
 /////////////////////////////////////////////////////////////////////////////
 // Ethernet Interface routines
 /////////////////////////////////////////////////////////////////////////////
@@ -342,12 +355,27 @@ void PhysicalInterface::CreateReq(InterfaceTable *table, const string &ifname,
     table->Enqueue(&req);
 }
 
+void PhysicalInterface::Create(InterfaceTable *table, const string &ifname,
+                               const string &vrf_name) {
+    DBRequest req(DBRequest::DB_ENTRY_ADD_CHANGE);
+    req.key.reset(new PhysicalInterfaceKey(ifname));
+    req.data.reset(new PhysicalInterfaceData(vrf_name));
+    table->Process(req);
+}
+
 // Enqueue DBRequest to delete a Host Interface
 void PhysicalInterface::DeleteReq(InterfaceTable *table, const string &ifname) {
     DBRequest req(DBRequest::DB_ENTRY_DELETE);
     req.key.reset(new PhysicalInterfaceKey(ifname));
     req.data.reset(NULL);
     table->Enqueue(&req);
+}
+
+void PhysicalInterface::Delete(InterfaceTable *table, const string &ifname) {
+    DBRequest req(DBRequest::DB_ENTRY_DELETE);
+    req.key.reset(new PhysicalInterfaceKey(ifname));
+    req.data.reset(NULL);
+    table->Process(req);
 }
 
 /////////////////////////////////////////////////////////////////////////////

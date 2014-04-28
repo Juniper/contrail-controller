@@ -11,77 +11,34 @@ class Agent;
 class AgentParam;
 
 // The class to drive agent initialization. 
-// Defines different agent initialization states
 // Defines control parameters used to enable/disable agent features
 class AgentInit {
 public:
-    enum State {
-        CREATE_MODULES,
-        CREATE_DB_TABLES,
-        CREATE_DB_CLIENTS,
-        INIT_MODULES,
-        CREATE_VRF,
-        CREATE_NEXTHOP,
-        CREATE_INTERFACE,
-        INIT_DONE
-    };
-
     AgentInit() :
         agent_(NULL), params_(NULL), create_vhost_(true), ksync_enable_(true),
         services_enable_(true), packet_enable_(true), uve_enable_(true),
-        vgw_enable_(true), router_id_dep_enable_(true), state_(CREATE_MODULES),
-        trigger_list_(), vrf_trigger_(NULL), intf_trigger_(NULL),
-        vrf_client_id_(-1), intf_client_id_(-1) { }
+        vgw_enable_(true), router_id_dep_enable_(true), init_done_(false),
+        trigger_() { }
 
     ~AgentInit() {
-        for (std::vector<TaskTrigger *>::iterator it = trigger_list_.begin();
-             it != trigger_list_.end(); ++it) {
-            (*it)->Reset();
-            delete *it;
-        }
-
-        if (vrf_trigger_) {
-            vrf_trigger_->Reset();
-            delete vrf_trigger_;
-        }
-
-        if (intf_trigger_) {
-            intf_trigger_->Reset();
-            delete intf_trigger_;
-        }
-    }
-
-    State state() { return state_; }
-    const std::string &StateToString() { 
-        static const std::string StateString[] = {
-            "create_modules",
-            "create_db_table",
-            "create_db_clients",
-            "init_modules",
-            "create_vrf",
-            "create_nexthop",
-            "create_interface",
-            "init_done"
-        };
-        return StateString[state_];
+        trigger_->Reset();
     }
 
     bool Run();
-    void TriggerInit();
+    void Start();
+    void Shutdown();
+
     void CreateDefaultVrf();
     void CreateDefaultNextHops();
     void CreateInterfaces(DB *db);
     void Init(AgentParam *param, Agent *agent,
               const boost::program_options::variables_map &var_map);
-    void Start();
     void InitXenLinkLocalIntf();
     void InitVmwareInterface();
     void DeleteRoutes();
     void DeleteNextHops();
     void DeleteVrfs();
     void DeleteInterfaces();
-
-    void Shutdown();
 
     bool ksync_enable() const { return ksync_enable_; }
     bool services_enable() const { return services_enable_; }
@@ -90,6 +47,7 @@ public:
     bool uve_enable() const { return uve_enable_; }
     bool vgw_enable() const { return vgw_enable_; }
     bool router_id_dep_enable() const { return router_id_dep_enable_; }
+    bool init_done() const { return init_done_; }
 
     void set_ksync_enable(bool flag) { ksync_enable_ = flag; }
     void set_services_enable(bool flag) { services_enable_ = flag; }
@@ -100,8 +58,6 @@ public:
     void set_router_id_dep_enable(bool flag) { router_id_dep_enable_ = flag; }
 private:
     void InitModules();
-    void OnInterfaceCreate(DBEntryBase *entry);
-    void OnVrfCreate(DBEntryBase *entry);
 
     Agent *agent_;
     AgentParam *params_;
@@ -113,14 +69,9 @@ private:
     bool uve_enable_;
     bool vgw_enable_;
     bool router_id_dep_enable_;
-    State state_;
+    bool init_done_;
 
-    std::vector<TaskTrigger *> trigger_list_;
-    TaskTrigger *vrf_trigger_;
-    TaskTrigger *intf_trigger_;
-
-    DBTableBase::ListenerId vrf_client_id_;
-    DBTableBase::ListenerId intf_client_id_;
+    std::auto_ptr<TaskTrigger> trigger_;
     DISALLOW_COPY_AND_ASSIGN(AgentInit);
 };
 

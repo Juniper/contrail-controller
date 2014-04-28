@@ -164,6 +164,8 @@ int main(int argc, char *argv[]) {
         }
     }
 
+    FactoryInit();
+
     string build_info;
     GetBuildInfo(build_info);
     MiscUtils::LogVersionInfo(build_info, Category::VROUTER);
@@ -178,8 +180,6 @@ int main(int argc, char *argv[]) {
     // Initialize the agent-init control class
     AgentInit init;
     init.Init(&param, &agent, var_map);
-
-    FactoryInit();
 
     // Initialize agent and kick start initialization
     agent.Init(&param, &init);

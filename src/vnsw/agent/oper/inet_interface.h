@@ -51,10 +51,15 @@ public:
     void DeActivateHostInterface();
 
     // Helper functions
+    static void Create(InterfaceTable *table, const std::string &ifname,
+                       SubType sub_type, const std::string &vrf_name,
+                       const Ip4Address &addr, int plen,
+                       const Ip4Address &gw, const std::string &vn_name);
     static void CreateReq(InterfaceTable *table, const std::string &ifname,
                           SubType sub_type, const std::string &vrf_name,
                           const Ip4Address &addr, int plen,
                           const Ip4Address &gw, const std::string &vn_name);
+    static void Delete(InterfaceTable *table, const std::string &ifname);
     static void DeleteReq(InterfaceTable *table, const std::string &ifname);
 private:
     SubType sub_type_;
