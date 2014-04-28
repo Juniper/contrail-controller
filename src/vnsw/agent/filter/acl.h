@@ -104,6 +104,8 @@ public:
     // Packet Match
     bool PacketMatch(const PacketHeader &packet_header, 
 		     MatchAclParams &m_acl) const;
+    bool Changed(const AclEntries &new_acl_entries) const;
+    uint32_t ace_count() const { return acl_entries_.size();}
 private:
     friend class AclTable;
     uuid uuid_;

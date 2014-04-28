@@ -250,6 +250,7 @@ public:
     void Reset() {vrf_notify_ = acl_notify_ = port_notify_ = vn_notify_ = 
         vm_notify_ = cfg_notify_ = port_del_notify_ =  
         vm_del_notify_ = vn_del_notify_ = vrf_del_notify_ = 0;};
+    uint32_t acl_notify() { return acl_notify_;}
 
     void NotifyCfgWait(int cfg_count) {
         int i = 0;
