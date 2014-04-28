@@ -17,6 +17,7 @@
 #include <tbb/atomic.h>
 #include <tbb/concurrent_queue.h>
 #include <tbb/mutex.h>
+#include <tbb/spin_rw_mutex.h>
 
 #include <base/task.h>
 
@@ -166,34 +167,42 @@ public:
     }
 
     void SetHighWaterMark(std::vector<WaterMarkInfo> &high_water) {
+        tbb::spin_rw_mutex::scoped_lock write_lock(hwater_mutex_, true);
         high_water_ = high_water;
     }
 
     void SetHighWaterMark(WaterMarkInfo hwm_info) {
+        tbb::spin_rw_mutex::scoped_lock write_lock(hwater_mutex_, true);
         high_water_.push_back(hwm_info);
     }
 
     void ResetHighWaterMark() {
+        tbb::spin_rw_mutex::scoped_lock write_lock(hwater_mutex_, true);
         high_water_.clear();
     }
 
-    std::vector<WaterMarkInfo>& GetHighWaterMark() const {
+    std::vector<WaterMarkInfo> GetHighWaterMark() const {
+        tbb::spin_rw_mutex::scoped_lock read_lock(hwater_mutex_, false);
         return high_water_;
     }
 
     void SetLowWaterMark(std::vector<WaterMarkInfo> &low_water) {
+        tbb::spin_rw_mutex::scoped_lock write_lock(lwater_mutex_, true);
         low_water_ = low_water;
     }
 
     void SetLowWaterMark(WaterMarkInfo lwm_info) {
+        tbb::spin_rw_mutex::scoped_lock write_lock(lwater_mutex_, true);
         low_water_.push_back(lwm_info);
     }
 
     void ResetLowWaterMark() {
+        tbb::spin_rw_mutex::scoped_lock write_lock(lwater_mutex_, true);
         low_water_.clear();
     }
 
-    std::vector<WaterMarkInfo>& GetLowWaterMark() const {
+    std::vector<WaterMarkInfo> GetLowWaterMark() const {
+        tbb::spin_rw_mutex::scoped_lock read_lock(lwater_mutex_, false);
         return low_water_;
     }
 
@@ -211,7 +220,7 @@ public:
         if (success) {
             dequeues_++;
             size_t ocount = count_.fetch_and_decrement();
-            ProcessWaterMarks(low_water_, ocount);
+            ProcessLowWaterMarks(ocount);
         }
         return success;
     }
@@ -314,12 +323,22 @@ private:
         }
     }
 
+    void ProcessHighWaterMarks(size_t count) {
+        tbb::spin_rw_mutex::scoped_lock read_lock(hwater_mutex_, false);
+        ProcessWaterMarks(high_water_, count);
+    }
+
+    void ProcessLowWaterMarks(size_t count) {
+        tbb::spin_rw_mutex::scoped_lock read_lock(lwater_mutex_, false);
+        ProcessWaterMarks(low_water_, count);
+    }
+
     bool EnqueueInternal(QueueEntryT entry) {
         queue_.push(entry);
         enqueues_++;
         MayBeStartRunner();
         size_t ocount = count_.fetch_and_increment();
-        ProcessWaterMarks(high_water_, ocount);
+        ProcessHighWaterMarks(ocount);
         return ocount < (size_ - 1);
     }
 
@@ -329,7 +348,7 @@ private:
             queue_.push(entry);
             MayBeStartRunner();
             size_t ocount = count_.fetch_and_increment();
-            ProcessWaterMarks(high_water_, ocount);
+            ProcessHighWaterMarks(ocount);
             return true;
         }
         drops_++;
@@ -378,6 +397,8 @@ private:
     bool bounded_;
     std::vector<WaterMarkInfo> high_water_; // When queue count goes above
     std::vector<WaterMarkInfo> low_water_; // When queue count goes below 
+    tbb::spin_rw_mutex hwater_mutex_;
+    tbb::spin_rw_mutex lwater_mutex_;
 
     friend class QueueTaskTest;
     friend class QueueTaskRunner<QueueEntryT, WorkQueue<QueueEntryT> >;
