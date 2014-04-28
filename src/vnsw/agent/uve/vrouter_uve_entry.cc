@@ -15,6 +15,7 @@
 #include <controller/controller_peer.h>
 #include <uve/agent_uve.h>
 #include <base/cpuinfo.h>
+#include <base/util.h>
 #include <cmn/agent_stats.h>
 #include <cmn/agent_cmn.h>
 
@@ -505,14 +506,115 @@ bool VrouterUveEntry::SendVrouterMsg() {
     return true;
 }
 
+void VrouterUveEntry::SubnetToStringList
+    (VirtualGatewayConfig::SubnetList &source_list, vector<string> &target_list) {
+    VirtualGatewayConfig::SubnetList::iterator subnet_it = 
+        source_list.begin();
+    while (subnet_it != source_list.end()) {
+        string subnet_str = subnet_it->ip_.to_string() + "/" + 
+            integerToString(subnet_it->plen_);
+        target_list.push_back(subnet_str);
+        ++subnet_it;
+    }
+}
+
+void VrouterUveEntry::BuildAgentConfig(VrouterAgent &vrouter_agent) {
+    AgentVhostConfig vhost_cfg;
+    AgentXenConfig xen_cfg;
+    AgentVmwareConfig vmware_cfg;
+    string hypervisor;
+    int collector_port;
+    vector<string> dns_list;
+    vector<string> control_node_list;
+    vector<AgentVgwConfig> gw_cfg_list;
+
+    AgentParam *param = agent_->params();
+
+    vrouter_agent.set_collector(param->collector().to_string());
+    collector_port = param->collector_port();
+    vrouter_agent.set_collector_port(collector_port);
+    vrouter_agent.set_log_file(param->log_file());
+    vrouter_agent.set_config_file(param->config_file());
+    vrouter_agent.set_log_local(param->log_local());
+    vrouter_agent.set_log_category(param->log_category());
+    vrouter_agent.set_log_level(param->log_level());
+    vrouter_agent.set_sandesh_http_port(param->http_server_port());
+    vrouter_agent.set_tunnel_type(param->tunnel_type());
+    vrouter_agent.set_hostname_cfg(param->host_name());
+    vrouter_agent.set_flow_cache_timeout_cfg(param->flow_cache_timeout());
+
+    dns_list.push_back(param->xmpp_server_1().to_string());
+    dns_list.push_back(param->xmpp_server_2().to_string());
+    vrouter_agent.set_dns_server_list_cfg(dns_list);
+
+    control_node_list.push_back(param->dns_server_1().to_string());
+    control_node_list.push_back(param->dns_server_2().to_string());
+    vrouter_agent.set_control_node_list_cfg(control_node_list);
+
+    vrouter_agent.set_ll_max_system_flows_cfg(param->linklocal_system_flows());
+    vrouter_agent.set_ll_max_vm_flows_cfg(param->linklocal_vm_flows());
+    vrouter_agent.set_max_vm_flows_cfg((uint32_t)param->max_vm_flows());
+    vrouter_agent.set_control_ip(param->mgmt_ip().to_string());
+
+    vhost_cfg.set_name(param->vhost_name());
+    vhost_cfg.set_ip(param->vhost_addr().to_string());
+    vhost_cfg.set_ip_prefix_len(param->vhost_plen());
+    vhost_cfg.set_gateway(param->vhost_gw().to_string());
+    vrouter_agent.set_vhost_cfg(vhost_cfg);
+
+    vrouter_agent.set_eth_name(param->eth_port());
+
+    if (param->isKvmMode()) {
+        hypervisor = "kvm";
+    } else if (param->isXenMode()) {
+        hypervisor = "xen";
+        xen_cfg.set_xen_ll_port(param->xen_ll_name());
+        xen_cfg.set_xen_ll_ip(param->xen_ll_addr().to_string());
+        xen_cfg.set_xen_ll_prefix_len(param->xen_ll_plen());
+        vrouter_agent.set_xen_cfg(xen_cfg);
+    } else if (param->isVmwareMode()) {
+        hypervisor = "vmware";
+        vmware_cfg.set_vmware_port(param->vmware_physical_port());
+        vrouter_agent.set_vmware_cfg(vmware_cfg);
+    }
+    vrouter_agent.set_hypervisor(hypervisor);
+
+    vrouter_agent.set_ds_addr(param->discovery_server().to_string());
+    vrouter_agent.set_ds_xs_instances(param->xmpp_instance_count());
+
+    VirtualGatewayConfigTable *table = param->vgw_config_table();
+    VirtualGatewayConfigTable::Table::iterator it = table->table().begin();
+    while (it != table->table().end()) {
+        AgentVgwConfig  gw_cfg;
+        VirtualGatewayConfig::SubnetList subnet_list = it->subnets();
+        VirtualGatewayConfig::SubnetList route_list = it->routes();
+        vector<string> ip_blocks_list;
+        vector<string> route_str_list;
+
+        SubnetToStringList(subnet_list, ip_blocks_list);
+        SubnetToStringList(route_list, route_str_list);
+
+        gw_cfg.set_interface_name(it->interface_name());
+        gw_cfg.set_vrf_name(it->vrf_name());
+        gw_cfg.set_ip_blocks_list(ip_blocks_list);
+        gw_cfg.set_route_list(route_str_list);
+
+        gw_cfg_list.push_back(gw_cfg);
+        ++it;
+    }
+    vrouter_agent.set_gateway_cfg_list(gw_cfg_list);
+}
+
+
 void VrouterUveEntry::SendVrouterUve() {
     VrouterAgent vrouter_agent;
     bool changed = false;
     static bool first = true, build_info = false;
     vrouter_agent.set_name(agent_->GetHostName());
     Ip4Address rid = agent_->GetRouterId();
+    vector<string> ip_list;
+    vector<string> dns_list;
 
-    AgentParam *param = agent_->params();
     if (first) {
         //Physical interface list
         vector<AgentInterface> phy_if_list;
@@ -539,7 +641,11 @@ void VrouterUveEntry::SendVrouterUve() {
             vitf.set_mac_address(GetMacAddress(vhost->mac()));
             vrouter_agent.set_vhost_if(vitf);
         }
-        vrouter_agent.set_control_ip(param->mgmt_ip().to_string());
+
+        //Configuration. Needs to be sent only once because whenever config
+        //changes agent will be restarted
+        BuildAgentConfig(vrouter_agent);
+
         first = false;
         changed = true;
     }
@@ -589,7 +695,6 @@ void VrouterUveEntry::SendVrouterUve() {
         prev_vrouter_.set_xmpp_peer_list(xmpp_list);
         changed = true;
     }
-    vector<string> ip_list;
     ip_list.push_back(rid.to_string());
     if (!prev_vrouter_.__isset.self_ip_list ||
         prev_vrouter_.get_self_ip_list() != ip_list) {
@@ -599,112 +704,7 @@ void VrouterUveEntry::SendVrouterUve() {
         changed = true;
     }
 
-    AgentVhostConfig vhost_cfg;
-    AgentXenConfig xen_cfg;
-    vector<string> dns_list;
 
-    if (!prev_vrouter_.__isset.log_file ||
-        prev_vrouter_.get_log_file() != param->log_file()) {
-        vrouter_agent.set_log_file(param->log_file());
-        prev_vrouter_.set_log_file(param->log_file());
-        changed = true;
-    }
-
-    if (!prev_vrouter_.__isset.config_file ||
-        prev_vrouter_.get_config_file() != param->config_file()) {
-        vrouter_agent.set_config_file(param->config_file());
-        prev_vrouter_.set_config_file(param->config_file());
-        changed = true;
-    }
-
-    if (!prev_vrouter_.__isset.log_local ||
-        prev_vrouter_.get_log_local() != param->log_local()) {
-        vrouter_agent.set_log_local(param->log_local());
-        prev_vrouter_.set_log_local(param->log_local());
-        changed = true;
-    }
-
-    if (!prev_vrouter_.__isset.log_category ||
-        prev_vrouter_.get_log_category() != param->log_category()) {
-        vrouter_agent.set_log_category(param->log_category());
-        prev_vrouter_.set_log_category(param->log_category());
-        changed = true;
-    }
-
-    if (!prev_vrouter_.__isset.log_level ||
-        prev_vrouter_.get_log_level() != param->log_level()) {
-        vrouter_agent.set_log_level(param->log_level());
-        prev_vrouter_.set_log_level(param->log_level());
-        changed = true;
-    }
-    if (!prev_vrouter_.__isset.sandesh_http_port ||
-        prev_vrouter_.get_sandesh_http_port() != param->http_server_port()) {
-        vrouter_agent.set_sandesh_http_port(param->http_server_port());
-        prev_vrouter_.set_sandesh_http_port(param->http_server_port());
-        changed = true;
-    }
-
-    vhost_cfg.set_name(param->vhost_name());
-    vhost_cfg.set_ip(rid.to_string());
-    vhost_cfg.set_ip_prefix_len(param->vhost_plen());
-    vhost_cfg.set_gateway(param->vhost_gw().to_string());
-    if (!prev_vrouter_.__isset.vhost_cfg ||
-        prev_vrouter_.get_vhost_cfg() != vhost_cfg) {
-        vrouter_agent.set_vhost_cfg(vhost_cfg);
-        prev_vrouter_.set_vhost_cfg(vhost_cfg);
-        changed = true;
-    }
-
-    if (!prev_vrouter_.__isset.eth_name ||
-        prev_vrouter_.get_eth_name() != param->eth_port()) {
-        vrouter_agent.set_eth_name(param->eth_port());
-        prev_vrouter_.set_eth_name(param->eth_port());
-        changed = true;
-    }
-
-    if (!prev_vrouter_.__isset.tunnel_type ||
-        prev_vrouter_.get_tunnel_type() != param->tunnel_type()) {
-        vrouter_agent.set_tunnel_type(param->tunnel_type());
-        prev_vrouter_.set_tunnel_type(param->tunnel_type());
-        changed = true;
-    }
-
-    string hypervisor;
-    if (param->isKvmMode()) {
-        hypervisor = "kvm";
-    } else if (param->isXenMode()) {
-        hypervisor = "xen";
-        xen_cfg.set_xen_ll_port(param->xen_ll_name());
-        xen_cfg.set_xen_ll_ip(param->xen_ll_addr().to_string());
-        xen_cfg.set_xen_ll_prefix_len(param->xen_ll_plen());
-        if (!prev_vrouter_.__isset.xen_cfg ||
-            prev_vrouter_.get_xen_cfg() != xen_cfg) {
-            vrouter_agent.set_xen_cfg(xen_cfg);
-            prev_vrouter_.set_xen_cfg(xen_cfg);
-            changed = true;
-        }
-    }
-
-    if (!prev_vrouter_.__isset.hypervisor ||
-        prev_vrouter_.get_hypervisor() != hypervisor) {
-        vrouter_agent.set_hypervisor(hypervisor);
-        prev_vrouter_.set_hypervisor(hypervisor);
-        changed = true;
-    }
-
-    if (!prev_vrouter_.__isset.ds_addr ||
-        prev_vrouter_.get_ds_addr() != param->discovery_server().to_string()) {
-        vrouter_agent.set_ds_addr(param->discovery_server().to_string());
-        prev_vrouter_.set_ds_addr(param->discovery_server().to_string());
-        changed = true;
-    }
-
-    if (!prev_vrouter_.__isset.ds_xs_instances ||
-        prev_vrouter_.get_ds_xs_instances() != param->xmpp_instance_count()) {
-        vrouter_agent.set_ds_xs_instances(param->xmpp_instance_count());
-        prev_vrouter_.set_ds_xs_instances(param->xmpp_instance_count());
-        changed = true;
-    }
 
     for (int idx = 0; idx < MAX_XMPP_SERVERS; idx++) {
         if (!agent_->GetDnsXmppServer(idx).empty()) {

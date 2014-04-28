@@ -10,6 +10,17 @@ struct AgentXenConfig {
     3: i32               xen_ll_prefix_len;
 }
 
+struct AgentVmwareConfig {
+    1: string            vmware_port;
+}
+
+struct AgentVgwConfig {
+    1: string            interface_name;
+    2: string            vrf_name;
+    3: list<string>      ip_blocks_list; 
+    4: optional list<string> route_list; 
+}
+
 struct AgentVhostConfig {
     1: string    name;
     2: string    ip;
@@ -62,6 +73,15 @@ struct VrouterAgent {  // Agent info
    30: optional list<string> no_config_intf_list;
    31: optional u16 total_interface_count;
    32: optional u16 down_interface_count;
+   33: optional AgentVmwareConfig vmware_cfg;
+   34: optional list<string> dns_server_list_cfg;
+   35: optional list<string> control_node_list_cfg;
+   36: optional string hostname_cfg; 
+   37: optional u16 flow_cache_timeout_cfg;
+   38: optional u32 ll_max_system_flows_cfg;
+   39: optional u32 ll_max_vm_flows_cfg;
+   40: optional u32 max_vm_flows_cfg;
+   41: optional list<AgentVgwConfig> gateway_cfg_list;
 }
 
 uve sandesh UveVrouterAgent {
