@@ -785,7 +785,7 @@ public:
     static void DeleteL3InterfaceNH(const uuid &intf_uuid);
     static void DeleteNH(const uuid &intf_uuid, bool policy, uint8_t flags);
     static void DeleteVmInterfaceNHReq(const uuid &intf_uuid);
-    static void CreatePacketInterfaceNhReq(const string &ifname);
+    static void CreatePacketInterfaceNh(const string &ifname);
     static void DeleteHostPortReq(const string &ifname);
     static void CreateInetInterfaceNextHop(const string &ifname,
                                            const string &vrf_name);

@@ -541,20 +541,16 @@ void InterfaceNH::DeleteInetInterfaceNextHop(const string &ifname) {
     NextHopTable::GetInstance()->Process(req);
 }
 
-void InterfaceNH::CreatePacketInterfaceNhReq(const string &ifname) {
-    DBRequest req;
-    req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
-
-    NextHopKey *key = new InterfaceNHKey(new PacketInterfaceKey(nil_uuid(), ifname),
-                                         false, InterfaceNHFlags::INET4);
-    req.key.reset(key);
-
+void InterfaceNH::CreatePacketInterfaceNh(const string &ifname) {
+    DBRequest req(DBRequest::DB_ENTRY_ADD_CHANGE);
     struct ether_addr mac;
     memset(&mac, 0, sizeof(mac));
     mac.ether_addr_octet[ETHER_ADDR_LEN-1] = 1;
-    InterfaceNHData *data = new InterfaceNHData(Agent::GetInstance()->GetDefaultVrf(), mac);
-    req.data.reset(data);
-    NextHopTable::GetInstance()->Enqueue(&req);
+    req.key.reset(new InterfaceNHKey(new PacketInterfaceKey(nil_uuid(), ifname),
+                                     false, InterfaceNHFlags::INET4));
+    req.data.reset(new InterfaceNHData(Agent::GetInstance()->GetDefaultVrf(),
+                                       mac));
+    NextHopTable::GetInstance()->Process(req);
 }
 
 void InterfaceNH::DeleteHostPortReq(const string &ifname) {

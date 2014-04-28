@@ -78,9 +78,8 @@ const unsigned char *PktHandler::mac_address() {
 
 void PktHandler::CreateInterfaces(const std::string &if_name) {
     PacketInterface::Create(agent_->GetInterfaceTable(), if_name);
-    InterfaceNH::CreatePacketInterfaceNhReq(if_name);
+    InterfaceNH::CreatePacketInterfaceNh(if_name);
 }
-
 
 // Send packet to tap interface
 void PktHandler::Send(uint8_t *msg, std::size_t len, PktModuleName mod) {
