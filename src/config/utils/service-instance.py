@@ -190,7 +190,6 @@ class ServiceInstanceCmd(object):
                 self._args.instance_name, parent_obj=project)
             si_uuid = self._vnc_lib.service_instance_create(si_obj)
 
-        if
         si_prop = ServiceInstanceType(
             left_virtual_network=self._left_vn_fq_name,
             management_virtual_network=self._mgmt_vn_fq_name,
