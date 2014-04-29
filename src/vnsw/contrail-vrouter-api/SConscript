@@ -1,0 +1,30 @@
+# -*- mode: python; -*-
+
+Import('BuildEnv')
+env = BuildEnv.Clone()
+
+sources = [
+    'setup.py',
+    'test-requirements.txt',
+    'requirements.txt',
+    'contrail_vrouter_api/__init__.py',
+    'contrail_vrouter_api/vrouter_api.py',
+    'contrail_vrouter_api/tests/__init__.py',
+    'contrail_vrouter_api/tests/test_vrouter_api.py'
+    ]
+
+sources += env.ThriftGenPy(
+    '#controller/src/vnsw/agent/openstack/instance_service.thrift',
+    'contrail_vrouter_api')
+
+env.Alias('contrail-vrouter-api:test',
+          env.Command(None, sources,
+                      'python setup.py test',
+                      chdir=1))
+
+if 'install' in BUILD_TARGETS:
+    env.Alias('install',
+              env.Command(None, sources,
+                          'python setup.py install %s' %
+                          env['PYTHON_INSTALL_OPT'],
+                          chdir=1))

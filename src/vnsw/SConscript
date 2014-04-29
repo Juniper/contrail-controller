@@ -1,3 +1,4 @@
+# -*- mode: python; -*-
 #
 # Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
 #
@@ -8,9 +9,15 @@ import sys
 
 env = BuildEnv.Clone()
 
-subdirs = [
-            'agent'
-          ]
+BuildEnv.SConscript(dirs=['contrail-vrouter-api'],
+                    exports='BuildEnv',
+                    variant_dir='#build/noarch/contrail-vrouter-api',
+                    duplicate=1)
+
+subdirs = ['agent',
+]
 
 for dir in subdirs:
-    env.SConscript(dir + '/SConscript', exports='BuildEnv', duplicate=0)
+    env.SConscript(dir + '/SConscript', exports='BuildEnv',
+                   variant_dir=BuildEnv['TOP'] + '/vnsw/' + dir,
+                   duplicate=0)
