@@ -1,5 +1,6 @@
 # Copyright (c) 2014 Juniper Networks, Inc
 
+import logging
 import uuid
 from thrift.protocol import TBinaryProtocol
 from thrift.transport import TTransport
@@ -29,7 +30,6 @@ class ContrailVRouterApi(object):
             return None
         protocol = TBinaryProtocol.TBinaryProtocol(transport)
         client = InstanceService.Client(protocol)
-        client.open()
         return client
 
     def _resynchronize(self):
@@ -41,13 +41,20 @@ class ContrailVRouterApi(object):
                 return
 
     def _uuid_from_string(self, idstr):
-        """ Convert an uuid into an array of integers """
+        """ Convert an uuid string into an uuid object """
         if not idstr:
             return None
-        hexstr = uuid.UUID(idstr).hex
+        return uuid.UUID(idstr)
+
+    def _uuid_to_hex(self, id):
+        """ Convert an uuid into an array of integers """
+        hexstr = id.hex
         return [int(hexstr[i:i + 2], 16) for i in range(32) if i % 2 == 0]
 
-    def add_port(self, vm_uuid, vif_uuid, interface_name, mac_address,
+    def _uuid_string_to_hex(self, idstr):
+        return self._uuid_to_hex(self._uuid_from_string(idstr))
+
+    def add_port(self, vm_uuid_str, vif_uuid_str, interface_name, mac_address,
                  **kwargs):
         """
         Add a port to the agent. The information is stored in the _ports
@@ -55,6 +62,7 @@ class ContrailVRouterApi(object):
         moment or the RPC may fail.
         """
 
+        vif_uuid = self._uuid_from_string(vif_uuid_str)
         # ip_address and network_uuid are optional to this API but must
         # be present in the message. For instance, when running in
         # CloudStack/XenServer/XAPI these arguments are not known.
@@ -64,14 +72,14 @@ class ContrailVRouterApi(object):
             ip_address = '0.0.0.0'
 
         if 'network_uuid' in kwargs:
-            network_uuid = kwargs['network_uuid']
+            network_uuid = self._uuid_string_to_hex(kwargs['network_uuid'])
         else:
             network_uuid = [0] * 16,
 
         # create port with mandatory arguments
         data = ttypes.Port(
-            self._uuid_from_string(vif_uuid),
-            self._uuid_from_string(vm_uuid),
+            self._uuid_to_hex(vif_uuid),
+            self._uuid_string_to_hex(vm_uuid_str),
             interface_name,
             ip_address,
             network_uuid,
@@ -82,7 +90,8 @@ class ContrailVRouterApi(object):
         if 'hostname' in kwargs:
             data.hostname = kwargs['hostname']
         if 'vm_project_uuid' in kwargs:
-            data.vm_project_uuid = kwargs['vm_project_uuid']
+            data.vm_project_uuid = self._uuid_string_to_hex(
+                kwargs['vm_project_uuid'])
 
         data.validate()
 
@@ -100,11 +109,12 @@ class ContrailVRouterApi(object):
         except:
             self._client = None
 
-    def delete_port(self, vif_uuid):
+    def delete_port(self, vif_uuid_str):
         """
         Delete a port form the agent. The port is first removed from the
         internal _ports dictionary.
         """
+        vif_uuid = self._uuid_from_string(vif_uuid_str)
         del self._ports[vif_uuid]
 
         try:
@@ -115,7 +125,7 @@ class ContrailVRouterApi(object):
             return
 
         try:
-            self._client.DeletePort(self._uuid_from_string(vif_uuid))
+            self._client.DeletePort(self._uuid_to_hex(vif_uuid))
         except:
             self._client = None
 
