@@ -16,7 +16,7 @@ setup(
     install_requires=[
         'lxml>=2.3.2',
         'gevent==0.13.6',
-        'geventhttpclient==1.0a',
+        'geventhttpclient>=1.0a',
         'pycassa>=1.7.2',
         'netaddr>=0.7.5',
         'bitarray==0.8.0',
