@@ -568,7 +568,7 @@ void DnsHandler::SendXmppUpdate(AgentDnsXmppChannel *channel,
                 channel->SendMsg(data, len);
             }
             else 
-                delete data;
+                delete [] data;
 
             done.splice(done.end(), xmpp_data->items, xmpp_data->items.begin(),
                         xmpp_data->items.end());

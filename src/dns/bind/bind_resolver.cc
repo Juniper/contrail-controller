@@ -54,6 +54,7 @@ BindResolver::~BindResolver() {
     for (unsigned int i = 0; i < dns_ep_.size(); ++i)
         delete dns_ep_[i];
     resolver_ = NULL;
+    if (pkt_buf_) delete [] pkt_buf_;
 }
 
 void BindResolver::SetupResolver(const std::string &server, uint8_t idx) {
@@ -112,16 +113,21 @@ void BindResolver::AsyncRead() {
 
 void BindResolver::DnsRcvHandler(const boost::system::error_code &error,
                                 std::size_t length) {
+    bool del = false;
     if (!error) {
         if (cb_)
             cb_(pkt_buf_);
+        else
+            del = true;
     } else {
         DNS_BIND_TRACE(DnsBindError, "Error receiving DNS response : " <<
                        boost::system::system_error(error).what() << ";");
-        delete [] pkt_buf_;
         if (error.value() == boost::asio::error::operation_aborted) {
             return;
         }
+        del = true;
     }
+    if (del) delete [] pkt_buf_;
+    pkt_buf_ = NULL;
     AsyncRead();
 }
