@@ -114,8 +114,6 @@ class NeutronPluginInterface(object):
         Network create request
         """
 
-        context, network = self._get_requests_data()
-
         try:
             cfgdb = self._get_user_cfgdb(context)
             net_info = cfgdb.network_create(network['network'])
@@ -128,8 +126,6 @@ class NeutronPluginInterface(object):
         """
         Network update request
         """
-
-        context, network = self._get_requests_data()
 
         try:
             cfgdb = self._get_user_cfgdb(context)
@@ -145,8 +141,6 @@ class NeutronPluginInterface(object):
         Network delete request
         """
 
-        context, network = self._get_requests_data()
-
         try:
             cfgdb = self._get_user_cfgdb(context)
             cfgdb.network_delete(network['net_id'])
@@ -155,27 +149,11 @@ class NeutronPluginInterface(object):
             cgitb.Hook(format="text").handle(sys.exc_info())
             raise e
 
-    def plugin_http_post_network(self):
-        """
-        Bottle callback for Network POST
-        """
-        context, network = self._get_requests_data()
-
-        if context['operation'] == 'GET':
-            return self.plugin_get_network(context, network)
-        elif context['operation'] == 'POST':
-            return self.plugin_create_network(context, network)
-        elif context['operation'] == 'PUT':
-            return self.plugin_update_network(context, network)
-        elif context['operation'] == 'DELETE':
-            return self.plugin_delete_network(context, network)
-
-    def plugin_http_get_networks(self):
+    def plugin_http_get_networks(self, context, network):
         """
         Networks get request
         """
 
-        context, network = self._get_requests_data()
         filters = network['filters']
         fields = network['fields']
 
@@ -187,12 +165,11 @@ class NeutronPluginInterface(object):
             cgitb.Hook(format="text").handle(sys.exc_info())
             raise e
 
-    def plugin_http_get_networks_count(self):
+    def plugin_http_get_networks_count(self, context, network):
         """
         Networks count request
         """
 
-        context, network = self._get_requests_data()
         filters = network['filters']
 
         try:
@@ -204,4 +181,23 @@ class NeutronPluginInterface(object):
         except Exception as e:
             cgitb.Hook(format="text").handle(sys.exc_info())
             raise e
+
+    def plugin_http_post_network(self):
+        """
+        Bottle callback for Network POST
+        """
+        context, network = self._get_requests_data()
+
+        if context['operation'] == 'READ':
+            return self.plugin_get_network(context, network)
+        elif context['operation'] == 'CREATE':
+            return self.plugin_create_network(context, network)
+        elif context['operation'] == 'UPDATE':
+            return self.plugin_update_network(context, network)
+        elif context['operation'] == 'DELETE':
+            return self.plugin_delete_network(context, network)
+        elif context['operation'] == 'READALL':
+            return self.plugin_http_get_networks(context, network)
+        elif context['operation'] == 'READCOUNT':
+            return self.plugin_http_get_networks_count(context, network)
 
