@@ -5,8 +5,9 @@ from thrift.protocol import TBinaryProtocol
 from thrift.transport import TTransport
 from gen_py.instance_service import InstanceService, ttypes
 
+
 class ContrailVRouterApi(object):
-    
+
     def __init__(self):
         """
         local variables:
@@ -38,13 +39,13 @@ class ContrailVRouterApi(object):
                 self._client.AddPort(port)
             except:
                 return
-            
+
     def _uuid_from_string(self, idstr):
         """ Convert an uuid into an array of integers """
         if not idstr:
             return None
         hexstr = uuid.UUID(idstr).hex
-        return [int(hexstr[i:i+2], 16) for i in range(32) if i % 2 == 0]
+        return [int(hexstr[i:i + 2], 16) for i in range(32) if i % 2 == 0]
 
     def add_port(self, vm_uuid, vif_uuid, interface_name, mac_address,
                  **kwargs):
@@ -75,7 +76,6 @@ class ContrailVRouterApi(object):
             ip_address,
             network_uuid,
             mac_address)
-
 
         if 'display_name' in kwargs:
             data.display_name = kwargs['display_name']
@@ -119,7 +119,6 @@ class ContrailVRouterApi(object):
         except:
             self._client = None
 
-
     def periodic_connection_check(self):
         """
         Periodicly check if the connection to the agent is valid.
@@ -138,4 +137,3 @@ class ContrailVRouterApi(object):
                 self._client.KeepAliveCheck()
         except:
             self._client = None
-

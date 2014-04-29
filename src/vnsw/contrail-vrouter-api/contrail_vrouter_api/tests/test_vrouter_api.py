@@ -1,9 +1,13 @@
+# Copyright (c) 2014 Juniper Networks, Inc
+
 import mock
 import unittest
 import uuid
 
 from contrail_vrouter_api.vrouter_api import ContrailVRouterApi
-from contrail_vrouter_api.gen_py.instance_service import InstanceService, ttypes
+from contrail_vrouter_api.gen_py.instance_service import InstanceService
+from contrail_vrouter_api.gen_py.instance_service import ttypes
+
 
 class VRouterApiTest(unittest.TestCase):
     def setUp(self):
@@ -33,7 +37,6 @@ class VRouterApiTest(unittest.TestCase):
         self._api.delete_port(vif_uuid)
         self.assertTrue(mock_client.DeletePort.called)
 
-
     def test_resynchronize(self):
         self._api._rpc_client_instance = mock.MagicMock(
             name='rpc_client_instance')
@@ -47,4 +50,3 @@ class VRouterApiTest(unittest.TestCase):
         self._api._rpc_client_instance.return_value = mock_client
         self._api.periodic_connection_check()
         self.assertTrue(mock_client.AddPort.called)
-        
