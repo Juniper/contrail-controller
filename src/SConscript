@@ -30,7 +30,6 @@ subdirs = [
            'route',
            'sandesh',
            'schema',
-           'vnsw',
            'xml',
            'xmpp'
            ]
@@ -68,6 +67,8 @@ if sys.platform.startswith('linux'):
     BuildEnv.Append(CCFLAGS = ['-DLINUX'])
 elif sys.platform.startswith('darwin'):
     BuildEnv.Append(CCFLAGS = ['-DDARWIN'])
+
+BuildEnv.SConscript(dirs=['vnsw'], exports='BuildEnv')
 
 for dir in subdirs:
     BuildEnv.SConscript(dir + '/SConscript',
