@@ -156,6 +156,8 @@ private:
         (const boost::program_options::variables_map &v);
     void ParseHeadlessModeArguments
         (const boost::program_options::variables_map &v);
+    void ParseHeadlessModeArguments
+        (const boost::program_options::variables_map &v);
 
     PortInfo vhost_;
     std::string eth_port_;
