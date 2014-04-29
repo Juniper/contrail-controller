@@ -165,7 +165,9 @@ protected:
         xc->Shutdown();
         client->WaitForIdle();
 
+        TaskScheduler::GetInstance()->Stop();
         Agent::GetInstance()->controller()->unicast_cleanup_timer().cleanup_timer_->Fire();
+        TaskScheduler::GetInstance()->Start();
         client->WaitForIdle();
         Agent::GetInstance()->controller()->Cleanup();
         client->WaitForIdle();
@@ -700,10 +702,10 @@ protected:
         client->Reset();
         DeleteVmportEnv(input, 2, 1, 0);
 
+        TaskScheduler::GetInstance()->Stop();
         Agent::GetInstance()->controller()->multicast_cleanup_timer().cleanup_timer_->Fire();
-        client->WaitForIdle();
-
         Agent::GetInstance()->controller()->unicast_cleanup_timer().cleanup_timer_->Fire();
+        TaskScheduler::GetInstance()->Start();
         client->WaitForIdle();
 
         WAIT_FOR(100, 1000, (client->CompositeNHDelWait(cnh_del_cnt) == true));
@@ -1200,7 +1202,9 @@ TEST_F(AgentXmppUnitTest, Test_mcast_peer_identifier) {
     EXPECT_TRUE(obj != NULL);
 
     WAIT_FOR(1000, 1000, obj->GetSourceMPLSLabel() == 9000);
+    TaskScheduler::GetInstance()->Stop();
     Agent::GetInstance()->controller()->multicast_cleanup_timer().cleanup_timer_->Fire();
+    TaskScheduler::GetInstance()->Start();
     client->WaitForIdle();
 
     obj = MulticastHandler::GetInstance()->FindGroupObject("vrf1", addr);
@@ -1330,7 +1334,7 @@ TEST_F(AgentXmppUnitTest, Test_Update_Olist_Src_Label) {
     mpls = Agent::GetInstance()->GetMplsTable()->FindMplsLabel(alloc_label+2);
     ASSERT_TRUE(mpls == NULL);
     // Detect mpls label leaks
-    ASSERT_TRUE(Agent::GetInstance()->GetMplsTable()->Size() == 6);
+    WAIT_FOR(1000, 1000, (Agent::GetInstance()->GetMplsTable()->Size() == 6));
 
     // Verify presence of all broadcast route in mcast table
     addr = Ip4Address::from_string("255.255.255.255");
@@ -1347,7 +1351,7 @@ TEST_F(AgentXmppUnitTest, Test_Update_Olist_Src_Label) {
     //Verify mpls table
     mpls = Agent::GetInstance()->GetMplsTable()->FindMplsLabel(alloc_label+1);
     ASSERT_TRUE(mpls == NULL);
-    ASSERT_TRUE(Agent::GetInstance()->GetMplsTable()->Size() == 6);
+    WAIT_FOR(1000, 1000, (Agent::GetInstance()->GetMplsTable()->Size() == 6));
     
     //Send All bcast route
     SendBcastRouteMessage(mock_peer.get(), "vrf1",
@@ -1367,7 +1371,10 @@ TEST_F(AgentXmppUnitTest, Test_Update_Olist_Src_Label) {
     //Verify mpls table
     mpls = Agent::GetInstance()->GetMplsTable()->FindMplsLabel(alloc_label+3);
     ASSERT_TRUE(mpls == NULL);
-    ASSERT_TRUE(Agent::GetInstance()->GetMplsTable()->Size() == 6);
+    cout << "MSDEBUG mplstable size " << Agent::GetInstance()->GetMplsTable()->Size() << endl;
+
+    WAIT_FOR(1000, 1000, 
+             (Agent::GetInstance()->GetMplsTable()->Size() == 6));
 
     XmppSubnetTearDown();
 
@@ -1407,7 +1414,7 @@ TEST_F(AgentXmppUnitTest, Test_Olist_change) {
     MplsLabel *mpls = 
 	Agent::GetInstance()->GetMplsTable()->FindMplsLabel(alloc_label);
     ASSERT_TRUE(mpls == NULL);
-    ASSERT_TRUE(Agent::GetInstance()->GetMplsTable()->Size() == 6);
+    WAIT_FOR(100, 10000, (Agent::GetInstance()->GetMplsTable()->Size() == 6));
 
     //Send Updated olist label, src-nh label
     SendBcastRouteMessage(mock_peer.get(), "vrf1",
@@ -1429,7 +1436,7 @@ TEST_F(AgentXmppUnitTest, Test_Olist_change) {
     mpls = Agent::GetInstance()->GetMplsTable()->FindMplsLabel(alloc_label);
     ASSERT_TRUE(mpls == NULL);
     // Detect mpls label leaks
-    ASSERT_TRUE(Agent::GetInstance()->GetMplsTable()->Size() == 6);
+    WAIT_FOR(100, 10000, (Agent::GetInstance()->GetMplsTable()->Size() == 6));
 
     //Send Updated olist label, src-nh label
     SendBcastRouteMessage(mock_peer.get(), "vrf1",
@@ -1449,7 +1456,7 @@ TEST_F(AgentXmppUnitTest, Test_Olist_change) {
     mpls = Agent::GetInstance()->GetMplsTable()->FindMplsLabel(alloc_label);
     ASSERT_TRUE(mpls == NULL);
     // Detect mpls label leaks
-    ASSERT_TRUE(Agent::GetInstance()->GetMplsTable()->Size() == 6);
+    WAIT_FOR(100, 10000, (Agent::GetInstance()->GetMplsTable()->Size() == 6));
 
 
     //Verify all-broadcast
@@ -1468,7 +1475,7 @@ TEST_F(AgentXmppUnitTest, Test_Olist_change) {
     //Verify mpls table
     mpls = Agent::GetInstance()->GetMplsTable()->FindMplsLabel(alloc_label+1);
     ASSERT_TRUE(mpls == NULL);
-    ASSERT_TRUE(Agent::GetInstance()->GetMplsTable()->Size() == 6);
+    WAIT_FOR(100, 10000, (Agent::GetInstance()->GetMplsTable()->Size() == 6));
 
     //Send Updated olist label, src-nh label
     SendBcastRouteMessage(mock_peer.get(), "vrf1",
@@ -1490,7 +1497,7 @@ TEST_F(AgentXmppUnitTest, Test_Olist_change) {
     mpls = Agent::GetInstance()->GetMplsTable()->FindMplsLabel(alloc_label+1);
     ASSERT_TRUE(mpls == NULL);
     // Detect mpls label leaks
-    ASSERT_TRUE(Agent::GetInstance()->GetMplsTable()->Size() == 6);
+    WAIT_FOR(100, 10000, (Agent::GetInstance()->GetMplsTable()->Size() == 6));
 
     //Send Updated olist label, src-nh label
     SendBcastRouteMessage(mock_peer.get(), "vrf1",
@@ -1510,7 +1517,7 @@ TEST_F(AgentXmppUnitTest, Test_Olist_change) {
     mpls = Agent::GetInstance()->GetMplsTable()->FindMplsLabel(alloc_label+1);
     ASSERT_TRUE(mpls == NULL);
     // Detect mpls label leaks
-    ASSERT_TRUE(Agent::GetInstance()->GetMplsTable()->Size() == 6);
+    WAIT_FOR(100, 10000, (Agent::GetInstance()->GetMplsTable()->Size() == 6));
      
 
     XmppSubnetTearDown();

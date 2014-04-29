@@ -182,7 +182,9 @@ protected:
         xc->Shutdown();
         client->WaitForIdle();
 
+        TaskScheduler::GetInstance()->Stop();
         Agent::GetInstance()->controller()->unicast_cleanup_timer().cleanup_timer_->Fire();
+        TaskScheduler::GetInstance()->Start();
         client->WaitForIdle();
         Agent::GetInstance()->controller()->Cleanup();
         client->WaitForIdle();
@@ -590,7 +592,9 @@ TEST_F(AgentXmppUnitTest, Connection) {
     client->WaitForIdle();
     EXPECT_EQ(0U, Agent::GetInstance()->GetVnTable()->Size());
 
+    TaskScheduler::GetInstance()->Stop();
     Agent::GetInstance()->controller()->unicast_cleanup_timer().cleanup_timer_->Fire();
+    TaskScheduler::GetInstance()->Start();
     client->WaitForIdle();
 
     EXPECT_FALSE(DBTableFind("vrf1.l2.route.0"));
@@ -788,7 +792,9 @@ TEST_F(AgentXmppUnitTest, ConnectionUpDown) {
 
     EXPECT_EQ(0U, Agent::GetInstance()->GetVnTable()->Size());
 
+    TaskScheduler::GetInstance()->Stop();
     Agent::GetInstance()->controller()->unicast_cleanup_timer().cleanup_timer_->Fire();
+    TaskScheduler::GetInstance()->Start();
     client->WaitForIdle();
 
     WAIT_FOR(1000, 10000, (Agent::GetInstance()->GetVrfTable()->Size() == 1));
@@ -950,7 +956,9 @@ TEST_F(AgentXmppUnitTest, SgList) {
     client->WaitForIdle();
     EXPECT_EQ(0U, Agent::GetInstance()->GetVnTable()->Size());
 
+    TaskScheduler::GetInstance()->Stop();
     Agent::GetInstance()->controller()->unicast_cleanup_timer().cleanup_timer_->Fire();
+    TaskScheduler::GetInstance()->Start();
     client->WaitForIdle();
 
     EXPECT_FALSE(DBTableFind("vrf1.uc.route.0"));
@@ -1130,7 +1138,9 @@ TEST_F(AgentXmppUnitTest, vxlan_peer_l2route_add) {
     //Confirm Vmport is deleted
     EXPECT_FALSE(VmPortFind(input, 0)); 
 
+    TaskScheduler::GetInstance()->Stop();
     Agent::GetInstance()->controller()->unicast_cleanup_timer().cleanup_timer_->Fire();
+    TaskScheduler::GetInstance()->Start();
     client->WaitForIdle();
 
     WAIT_FOR(1000, 1000, (agent_->GetVnTable()->Size() == 0));
@@ -1222,7 +1232,9 @@ TEST_F(AgentXmppUnitTest, mpls_peer_l2route_add) {
 
     WAIT_FOR(1000, 1000, (agent_->GetVnTable()->Size() == 0));
 
+    TaskScheduler::GetInstance()->Stop();
     Agent::GetInstance()->controller()->unicast_cleanup_timer().cleanup_timer_->Fire();
+    TaskScheduler::GetInstance()->Start();
     client->WaitForIdle();
 
     EXPECT_FALSE(DBTableFind("vrf1.uc.route.0"));
