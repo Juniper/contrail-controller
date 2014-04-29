@@ -13,9 +13,15 @@ env.Append(CPPPATH = [env['TOP']])
 SandeshGenFiles = env.SandeshGenCpp('io.sandesh')
 SandeshGenSrcs = env.ExtractCpp(SandeshGenFiles)
 
+except_env = BuildEnv.Clone()
+except_env.Append(CPPPATH = env['TOP_INCLUDE'] + '/thrift')
+except_env.Append(CPPPATH = [env['TOP']])
+EventManagerSrc = except_env.Object('event_manager.o', 'event_manager.cc')
+
 libio = env.Library('io',
             SandeshGenSrcs +
-            ['event_manager.cc',
+            EventManagerSrc +
+            [
              'tcp_message_write.cc',
              'tcp_server.cc',
              'tcp_session.cc',
