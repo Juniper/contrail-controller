@@ -149,7 +149,6 @@ private:
     bool ipv4_forwarding_;
     int vxlan_id_;
     uint64_t peer_identifier_;
-    tbb::mutex mutex_;
 
     friend class MulticastHandler;
     DISALLOW_COPY_AND_ASSIGN(MulticastGroupObject);
@@ -322,7 +321,6 @@ private:
     std::map<uuid, string> vn_vrf_mapping_;
     //VM uuid <-> VN uuid
     std::map<uuid, uuid> vm_vn_mapping_;
-    tbb::mutex mutex_;
     DISALLOW_COPY_AND_ASSIGN(MulticastHandler);
 };
 

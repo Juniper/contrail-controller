@@ -542,8 +542,10 @@ protected:
     }
 
     virtual void TearDown() {
+        TaskScheduler::GetInstance()->Stop();
         Agent::GetInstance()->controller()->
             unicast_cleanup_timer().cleanup_timer_->Fire();
+        TaskScheduler::GetInstance()->Start();
         client->WaitForIdle();
 
         for (int i = 0; i < num_ctrl_peers; i++) {
@@ -557,9 +559,10 @@ protected:
             client->WaitForIdle();
         }
 
+        TaskScheduler::GetInstance()->Stop();
         Agent::GetInstance()->controller()->unicast_cleanup_timer().cleanup_timer_->Fire();
-        client->WaitForIdle();
         Agent::GetInstance()->controller()->multicast_cleanup_timer().cleanup_timer_->Fire();
+        TaskScheduler::GetInstance()->Start();
         client->WaitForIdle();
         Agent::GetInstance()->controller()->Cleanup();
         client->WaitForIdle();
@@ -712,8 +715,11 @@ protected:
         WAIT_FOR(10000, 10000, (agent_->GetInterfaceTable()->Size() == 3));
         VerifyRoutes(true);
         VerifyVmPortActive(false);
+        TaskScheduler::GetInstance()->Stop();
         agent_->controller()->unicast_cleanup_timer().cleanup_timer_->Fire();
         agent_->controller()->multicast_cleanup_timer().cleanup_timer_->Fire();
+        TaskScheduler::GetInstance()->Start();
+        client->WaitForIdle();
         WAIT_FOR(10000, 10000, (Agent::GetInstance()->GetVrfTable()->Size() == 1));
         WAIT_FOR(1000, 1000, (Agent::GetInstance()->GetVnTable()->Size() == 0));
     }

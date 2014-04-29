@@ -245,7 +245,10 @@ TEST_F(AgentBasicScaleTest, multicast_one_channel_down_up_skip_route_from_peer) 
     EXPECT_TRUE(Agent::GetInstance()->controller()->multicast_cleanup_timer().cleanup_timer_->running());
 
     //Fire the timer
+    TaskScheduler::GetInstance()->Stop();
     Agent::GetInstance()->controller()->multicast_cleanup_timer().cleanup_timer_->Fire();
+    TaskScheduler::GetInstance()->Start();
+    client->WaitForIdle();
     mc_addr = Ip4Address::from_string("1.1.1.255");
     mcobj = MulticastHandler::GetInstance()->FindGroupObject("vrf1", mc_addr);
     EXPECT_TRUE(mcobj != NULL);
@@ -311,7 +314,9 @@ TEST_F(AgentBasicScaleTest, v4_unicast_one_channel_down_up) {
     EXPECT_TRUE(path->is_stale());
 
     //Fire timer and verify stale path is gone
+    TaskScheduler::GetInstance()->Stop();
     Agent::GetInstance()->controller()->unicast_cleanup_timer().cleanup_timer_->Fire();
+    TaskScheduler::GetInstance()->Start();
     WAIT_FOR(1000, 1000, (rt->FindPath(peer) == NULL));
     if (num_ctrl_peers == 2) {
         EXPECT_TRUE(rt->GetPathList().size() == 3);
@@ -514,7 +519,9 @@ TEST_F(AgentBasicScaleTest, unicast_one_channel_down_up_skip_route_from_peer) {
     EXPECT_TRUE(Agent::GetInstance()->controller()->multicast_cleanup_timer().cleanup_timer_->running());
 
     //Fire the timer
+    TaskScheduler::GetInstance()->Stop();
     Agent::GetInstance()->controller()->multicast_cleanup_timer().cleanup_timer_->Fire();
+    TaskScheduler::GetInstance()->Start();
     mc_addr = Ip4Address::from_string("1.1.1.255");
     mcobj = MulticastHandler::GetInstance()->FindGroupObject("vrf1", mc_addr);
     EXPECT_TRUE(mcobj != NULL);

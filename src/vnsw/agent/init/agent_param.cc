@@ -295,6 +295,12 @@ void AgentParam::ParseLinklocal() {
     }
 }
 
+void AgentParam::ParseHeadlessMode() {
+    if (!GetValueFromTree<bool>(headless_mode_, "DEFAULT.headless")) {
+        headless_mode_ = false;
+    }
+}
+
 void AgentParam::ParseCollectorArguments
     (const boost::program_options::variables_map &var_map) {
     ParseIpArgument(var_map, collector_, "COLLECTOR.server");
@@ -392,6 +398,10 @@ void AgentParam::ParseLinklocalArguments
                           "LINK-LOCAL.max_vm_flows");
 }
 
+void AgentParam::ParseHeadlessModeArguments
+    (const boost::program_options::variables_map &var_map) {
+    GetOptValue<bool>(var_map, headless_mode_, "DEFAULT.headless_mode");
+}
 // Initialize hypervisor mode based on system information
 // If "/proc/xen" exists it means we are running in Xen dom0
 void AgentParam::InitFromSystem() {
@@ -430,6 +440,7 @@ void AgentParam::InitFromConfig() {
     ParseDefaultSection();
     ParseMetadataProxy();
     ParseLinklocal();
+    ParseHeadlessMode();
     cout << "Config file <" << config_file_ << "> parsing completed.\n";
     return;
 }
@@ -448,6 +459,7 @@ void AgentParam::InitFromArguments
     ParseDefaultSectionArguments(var_map);
     ParseMetadataProxyArguments(var_map);
     ParseLinklocalArguments(var_map);
+    ParseHeadlessModeArguments(var_map);
     return;
 }
 
@@ -595,6 +607,7 @@ void AgentParam::LogConfig() const {
     LOG(DEBUG, "Linklocal Max System Flows  : " << linklocal_system_flows_);
     LOG(DEBUG, "Linklocal Max Vm Flows      : " << linklocal_vm_flows_);
     LOG(DEBUG, "Flow cache timeout          : " << flow_cache_timeout_);
+    LOG(DEBUG, "Headless Mode               : " << headless_mode_);
     if (mode_ == MODE_KVM) {
     LOG(DEBUG, "Hypervisor mode             : kvm");
         return;
@@ -627,7 +640,8 @@ AgentParam::AgentParam(Agent *agent) :
         collector_(), collector_port_(), http_server_port_(), host_name_(),
         agent_stats_interval_(AgentStatsCollector::AgentStatsInterval), 
         flow_stats_interval_(FlowStatsCollector::FlowStatsInterval),
-        vmware_physical_port_(""), test_mode_(false), debug_(false), tree_() {
+        vmware_physical_port_(""), test_mode_(false), debug_(false), tree_(),
+        headless_mode_(false) {
     vgw_config_table_ = std::auto_ptr<VirtualGatewayConfigTable>
         (new VirtualGatewayConfigTable(agent));
 }

@@ -161,7 +161,9 @@ protected:
         xc_s->Shutdown();
         client->WaitForIdle();
 
+        TaskScheduler::GetInstance()->Stop();
         Agent::GetInstance()->controller()->unicast_cleanup_timer().cleanup_timer_->Fire();
+        TaskScheduler::GetInstance()->Start();
         client->WaitForIdle();
         Agent::GetInstance()->controller()->Cleanup();
         client->WaitForIdle();
@@ -512,7 +514,7 @@ protected:
 	ASSERT_TRUE(nh->GetType() == NextHop::COMPOSITE);
 	obj = MulticastHandler::GetInstance()->FindGroupObject(cnh->vrf_name(),
 			cnh->GetGrpAddr());
-	ASSERT_TRUE(obj->GetSourceMPLSLabel() > 0);
+	WAIT_FOR(1000, 1000, (obj->GetSourceMPLSLabel() != 0));
     WAIT_FOR(100, 10000, (cnh->ComponentNHCount() == 3));
 
 	//Verify mpls table
@@ -540,13 +542,13 @@ protected:
 	cnh = static_cast<CompositeNH *>(nh);
 	obj = MulticastHandler::GetInstance()->FindGroupObject(cnh->vrf_name(),
 			cnh->GetGrpAddr());
-	ASSERT_TRUE(obj->GetSourceMPLSLabel() > 0);
-        ASSERT_TRUE(cnh->ComponentNHCount() == 3);
-	
+	WAIT_FOR(1000, 1000, (obj->GetSourceMPLSLabel() != 0));
+    ASSERT_TRUE(cnh->ComponentNHCount() == 3);
+
 	//Verify mpls table
-	mpls = Agent::GetInstance()->GetMplsTable()->FindMplsLabel(alloc_label+ 1);
-	ASSERT_TRUE(mpls == NULL);
-	ASSERT_TRUE(Agent::GetInstance()->GetMplsTable()->Size() == 6);
+	WAIT_FOR(1000, 1000, (Agent::GetInstance()->GetMplsTable()->
+                          FindMplsLabel(alloc_label+ 1) == NULL));
+	WAIT_FOR(1000, 1000, (Agent::GetInstance()->GetMplsTable()->Size() == 6));
     }
 
     void XmppSubnetTearDown() {
