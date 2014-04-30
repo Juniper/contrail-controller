@@ -670,10 +670,12 @@ class VirtualNetworkST(DictST):
             _sandesh._logger.debug("%s: route table next hop must be service "
                                    "instance with auto policy", self.name)
             return (None, None)
-        left_vn_str = svc_info.get_left_vn(si.get_parent_fq_name_str(),
+        left_vn_fq = svc_info.get_left_vn(si.get_parent_fq_name_str(),
             si_props.left_virtual_network)
-        right_vn_str = svc_info.get_right_vn(si.get_parent_fq_name_str(),
+        left_vn_str = ':'.join(left_vn_fq)
+        right_vn_fq = svc_info.get_right_vn(si.get_parent_fq_name_str(),
             si_props.right_virtual_network)
+        right_vn_str = ':'.join(right_vn_fq)
         if (not left_vn_str or not right_vn_str):
             _sandesh._logger.debug("%s: route table next hop service instance "
                                    "must have left and right virtual networks",
@@ -685,7 +687,7 @@ class VirtualNetworkST(DictST):
                                    left_vn_str)
             return (None, None)
         left_ri_name = left_vn.get_service_name(
-            si_props.right_virtual_network, next_hop)
+            ':'.join(si_props.right_virtual_network, next_hop))
         return (left_vn.get_primary_routing_instance(),
                 left_vn.rinst.get(left_ri_name))
     # end _get_routing_instances_from_route
@@ -2585,10 +2587,12 @@ class SchemaTransformer(object):
             return
         si = _vnc_lib.service_instance_read(fq_name_str=si_name)
         si_props = si.get_service_instance_properties()
-        left_vn_str = svc_info.get_left_vn(si.get_parent_fq_name_str(),
+        left_vn_fq = svc_info.get_left_vn(si.get_parent_fq_name_str(),
             si_props.left_virtual_network)
-        right_vn_str = svc_info.get_right_vn(si.get_parent_fq_name_str(),
+        left_vn_str = ':'.join(left_vn_fq)
+        right_vn_fq = svc_info.get_right_vn(si.get_parent_fq_name_str(),
             si_props.right_virtual_network)
+        right_vn_str = ':'.join(right_vn_fq)
         if (not left_vn_str or not right_vn_str):
             _sandesh._logger.debug(
                 "%s: route table next hop service instance must "
