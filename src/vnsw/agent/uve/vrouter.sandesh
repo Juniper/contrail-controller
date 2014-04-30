@@ -82,7 +82,7 @@ struct VrouterAgent {  // Agent info
    39: optional u32 ll_max_vm_flows_cfg;
    40: optional u32 max_vm_flows_cfg;
    41: optional list<AgentVgwConfig> gateway_cfg_list;
-   42: optional bool headless_mode;
+   42: optional bool headless_mode_cfg;
 }
 
 uve sandesh UveVrouterAgent {
