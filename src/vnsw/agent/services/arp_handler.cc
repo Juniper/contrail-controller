@@ -148,9 +148,10 @@ bool ArpHandler::HandlePacket() {
             } else {
                 entry = new ArpEntry(io_, this, key, ArpEntry::INITING);
                 arp_proto->AddArpEntry(entry);
+                entry->HandleArpReply(arp_->arp_sha);
                 delete[] pkt_info_->pkt;
                 pkt_info_->pkt = NULL;
-                entry->HandleArpReply(arp_->arp_sha);
+                arp_ = NULL;
                 return false;
             }
         }
@@ -166,6 +167,7 @@ bool ArpHandler::HandlePacket() {
                 arp_proto->AddArpEntry(entry);
                 delete[] pkt_info_->pkt;
                 pkt_info_->pkt = NULL;
+                arp_ = NULL;
                 return false;
             }
         }

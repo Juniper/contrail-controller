@@ -130,10 +130,12 @@ void ArpEntry::SendArpRequest() {
     const unsigned char *smac = arp_proto->ip_fabric_interface_mac();
     Ip4Address ip = agent->GetRouterId();
 
-    handler_->SendArp(ARPOP_REQUEST, smac, ip.to_ulong(), 
-                      zero_mac, key_.ip, itf_index, 
-                      agent->GetVrfTable()->FindVrfFromName(
-                          agent->GetDefaultVrf())->vrf_id());
+    VrfEntry *vrf =
+        agent->GetVrfTable()->FindVrfFromName(agent->GetDefaultVrf());
+    if (vrf) {
+        handler_->SendArp(ARPOP_REQUEST, smac, ip.to_ulong(), 
+                          zero_mac, key_.ip, itf_index, vrf->vrf_id());
+    }
 
     StartTimer(arp_proto->retry_timeout(), ArpProto::RETRY_TIMER_EXPIRED);
 }

@@ -186,7 +186,7 @@ int main(int argc, char *argv[]) {
     // Initialize agent and kick start initialization
     agent.Init(&param, &init);
 
-    Agent::GetInstance()->GetEventManager()->Run();
+    Agent::GetInstance()->GetEventManager()->RunWithExceptionHandling();
 
     return 0;
 }

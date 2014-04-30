@@ -35,12 +35,12 @@ struct VirtualGatewayRequest {
 typedef list<VirtualGatewayRequest> VirtualGatewayRequestList
 
 service InstanceService {
-    bool AddPort(PortList port_list),
+    bool AddPort(1:required PortList port_list),
     bool KeepAliveCheck(),
     bool Connect(),
-    bool DeletePort(tuuid port_id),
+    bool DeletePort(1:required tuuid port_id),
 
-    bool AddVirtualGateway(VirtualGatewayRequestList vgw_list),
+    bool AddVirtualGateway(1:required VirtualGatewayRequestList vgw_list),
     bool DeleteVirtualGateway(1:required list<string> vgw_list),
     // ConnectForVirtualGateway can be used by stateful clients. It audits the
     // virtual gateway configuration. Upon a new ConnectForVirtualGateway
@@ -55,14 +55,14 @@ service InstanceService {
     bool TunnelNHEntryDelete(1:required string src_ip, 2:required string dst_ip, 3:string vrf_name),
 
     bool RouteEntryAdd(1:required string ip_address, 2:required string gw_ip, 
-    	               3:string vrf_name, 4:string label),
+                       3:string vrf_name, 4:string label),
     bool RouteEntryDelete(1:required string ip_address, 2:required string vrf_name),
 
-    bool AddHostRoute(1:required string ip_address, 2:optional string vrf_name),
+    bool AddHostRoute(1:required string ip_address, 2:string vrf_name),
     bool AddLocalVmRoute(1:required string ip_address, 2:required string intf_uuid,
-    	                 3:optional string vrf_name, 4:optional string label),
+                         3:string vrf_name, 4:string label),
     bool AddRemoteVmRoute(1:required string ip_address, 2:required string gw_ip,
-    	  	          3:optional string vrf_name, 4:optional string label),
+                          3:string vrf_name, 4:string label),
 
     bool CreateVrf(1:required string vrf_name),
 }
