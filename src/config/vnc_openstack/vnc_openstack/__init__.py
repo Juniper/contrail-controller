@@ -265,10 +265,6 @@ class NeutronApiDriver(vnc_plugin_base.NeutronApi):
         # Bottle callbacks for network operations
         bottle.route('/neutron/network',
                      'POST', self._npi.plugin_http_post_network)
-        bottle.route('/neutron/networks',
-                     'POST', self._npi.plugin_http_get_networks)
-        bottle.route('/neutron/networks-count',
-                     'POST', self._npi.plugin_http_get_networks_count)
 
     def __call__(self):
         pass
