@@ -61,7 +61,7 @@ void EventManager::RunWithExceptionHandling() {
         } catch(...) {
             EVENT_MANAGER_LOG_ERROR("Exception caught in io_service run : "
                                     "bailing out");
-            break;
+            exit(-1);
         }
     } while(true);
     mutex_.unlock();
