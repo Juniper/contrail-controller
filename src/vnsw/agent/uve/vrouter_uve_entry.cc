@@ -603,6 +603,7 @@ void VrouterUveEntry::BuildAgentConfig(VrouterAgent &vrouter_agent) {
         ++it;
     }
     vrouter_agent.set_gateway_cfg_list(gw_cfg_list);
+    vrouter_agent.set_headless_mode_cfg(param->headless_mode());
 }
 
 
