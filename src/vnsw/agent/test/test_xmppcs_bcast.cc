@@ -60,8 +60,8 @@ class AgentBgpXmppPeerTest : public AgentXmppChannel {
 public:
     AgentBgpXmppPeerTest(XmppChannel *channel, std::string xs, 
                          std::string lr, uint8_t xs_idx) :
-        AgentXmppChannel(channel, xs, lr, xs_idx), rx_count_(0),
-        rx_channel_event_queue_ (
+        AgentXmppChannel(Agent::GetInstance(), channel, xs, lr, xs_idx), 
+        rx_count_(0), rx_channel_event_queue_ (
             TaskScheduler::GetInstance()->GetTaskId("xmpp::StateMachine"), 0,
             boost::bind(&AgentBgpXmppPeerTest::ProcessChannelEvent, this, _1)) {
     }
@@ -72,8 +72,7 @@ public:
     }
 
     bool ProcessChannelEvent(xmps::PeerState state) { 
-        AgentXmppChannel::HandleXmppClientChannelEvent(
-            static_cast<AgentXmppChannel *>(this), state);
+        AgentXmppChannel::HandleAgentXmppClientChannelEvent(static_cast<AgentXmppChannel *>(this), state);
         return true;
     }
 
@@ -137,7 +136,6 @@ protected:
     AgentXmppUnitTest() : thread_(&evm_) {}
  
     virtual void SetUp() {
-        AgentIfMapVmExport::Init();
         xs_p = new XmppServer(&evm_, XmppInit::kControlNodeJID);
         xs_s = new XmppServer(&evm_, XmppInit::kControlNodeJID);
         xc_p = new XmppClient(&evm_);
@@ -163,10 +161,16 @@ protected:
         xc_s->Shutdown();
         client->WaitForIdle();
 
+        TaskScheduler::GetInstance()->Stop();
+        Agent::GetInstance()->controller()->unicast_cleanup_timer().cleanup_timer_->Fire();
+        TaskScheduler::GetInstance()->Start();
+        client->WaitForIdle();
+        Agent::GetInstance()->controller()->Cleanup();
+        client->WaitForIdle();
+ 
         mock_peer.reset();
         mock_peer_s.reset();
 
-        AgentIfMapVmExport::Shutdown();
 
         TcpServerManager::DeleteServer(xs_p);
         TcpServerManager::DeleteServer(xs_s);
@@ -362,7 +366,8 @@ protected:
 
     void XmppConnectionSetUp() {
 
-        Agent::GetInstance()->SetControlNodeMulticastBuilder(NULL);
+        Agent::GetInstance()->controller()->increment_multicast_sequence_number();
+        Agent::GetInstance()->set_cn_mcast_builder(NULL);
 
         //Create control-node bgp mock peer 
 	mock_peer.reset(new ControlNodeMockBgpXmppPeer());
@@ -509,7 +514,7 @@ protected:
 	ASSERT_TRUE(nh->GetType() == NextHop::COMPOSITE);
 	obj = MulticastHandler::GetInstance()->FindGroupObject(cnh->vrf_name(),
 			cnh->GetGrpAddr());
-	ASSERT_TRUE(obj->GetSourceMPLSLabel() > 0);
+	WAIT_FOR(1000, 1000, (obj->GetSourceMPLSLabel() != 0));
     WAIT_FOR(100, 10000, (cnh->ComponentNHCount() == 3));
 
 	//Verify mpls table
@@ -537,13 +542,13 @@ protected:
 	cnh = static_cast<CompositeNH *>(nh);
 	obj = MulticastHandler::GetInstance()->FindGroupObject(cnh->vrf_name(),
 			cnh->GetGrpAddr());
-	ASSERT_TRUE(obj->GetSourceMPLSLabel() > 0);
-        ASSERT_TRUE(cnh->ComponentNHCount() == 3);
-	
+	WAIT_FOR(1000, 1000, (obj->GetSourceMPLSLabel() != 0));
+    ASSERT_TRUE(cnh->ComponentNHCount() == 3);
+
 	//Verify mpls table
-	mpls = Agent::GetInstance()->GetMplsTable()->FindMplsLabel(alloc_label+ 1);
-	ASSERT_TRUE(mpls == NULL);
-	ASSERT_TRUE(Agent::GetInstance()->GetMplsTable()->Size() == 6);
+	WAIT_FOR(1000, 1000, (Agent::GetInstance()->GetMplsTable()->
+                          FindMplsLabel(alloc_label+ 1) == NULL));
+	WAIT_FOR(1000, 1000, (Agent::GetInstance()->GetMplsTable()->Size() == 6));
     }
 
     void XmppSubnetTearDown() {
@@ -619,7 +624,13 @@ TEST_F(AgentXmppUnitTest, SubnetBcast_Test_FailOver) {
     ASSERT_TRUE(cnh->ComponentNHCount() == 3);
 
     //Verify label deallocated from Mpls Table
-    EXPECT_TRUE(Agent::GetInstance()->GetMplsTable()->Size() == 4);
+    if (Agent::GetInstance()->headless_agent_mode()) {
+        EXPECT_TRUE(Agent::GetInstance()->GetMplsTable()->Size() == 6);
+    } else {
+        EXPECT_TRUE(Agent::GetInstance()->GetMplsTable()->Size() == 4);
+    }
+    // headless
+    //EXPECT_TRUE(Agent::GetInstance()->GetMplsTable()->Size() == 4);
 
     //expect subnet and all braodcast routes to newly elected
     //multicast builder
@@ -712,16 +723,3 @@ TEST_F(AgentXmppUnitTest, SubnetBcast_DBWalk_Cancel) {
 
 }
 
-int main(int argc, char **argv) {
-    GETUSERARGS();
-    client = TestInit(init_file, ksync_init);
-    Agent::GetInstance()->SetXmppServer("127.0.0.2", 0);
-    Agent::GetInstance()->SetXmppServer("127.0.0.1", 1);
-    Agent::GetInstance()->SetAgentMcastLabelRange(0);
-    Agent::GetInstance()->SetAgentMcastLabelRange(1);
-    
-    int ret = RUN_ALL_TESTS();
-    Agent::GetInstance()->GetEventManager()->Shutdown();
-    AsioStop();
-    return ret;
-}

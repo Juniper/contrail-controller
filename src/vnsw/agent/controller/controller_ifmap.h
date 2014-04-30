@@ -18,7 +18,8 @@ class XmppChannel;
 
 class AgentIfMapXmppChannel {
 public:
-    explicit AgentIfMapXmppChannel(XmppChannel *channel, uint8_t count);
+    explicit AgentIfMapXmppChannel(Agent *agent, XmppChannel *channel,
+                                   uint8_t count);
     virtual ~AgentIfMapXmppChannel();
 
     virtual const std::string &identifier() const {
@@ -40,6 +41,7 @@ private:
     std::string identifier_;
     uint8_t xs_idx_;
     static uint64_t seq_number_;
+    Agent *agent_;
 };
 
 class AgentIfMapVmExport {
@@ -49,16 +51,16 @@ public:
         uint64_t seq_number_;
     };
 
-    AgentIfMapVmExport();
+    AgentIfMapVmExport(Agent *agent);
     ~AgentIfMapVmExport();
-    static void Init();
-    static void Shutdown(); 
     void Notify(DBTablePartBase *partition, DBEntryBase *e);
-    static void NotifyAll(AgentXmppChannel *peer);
+    void NotifyAll(AgentXmppChannel *peer);
     typedef std::map<boost::uuids::uuid, struct VmExportInfo *> VmMap; 
+    Agent *agent() const {return agent_;}
+
 private:
-    static AgentIfMapVmExport *singleton_;
     DBTableBase::ListenerId vmi_list_id_;
     VmMap vm_map_;
+    Agent *agent_;
 };
 #endif // __IFMAP_XMPP_H__

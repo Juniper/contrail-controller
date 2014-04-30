@@ -14,7 +14,7 @@ public:
         sync_(false), proxy_arp_(false), force_policy_(false), sg_list_(),
         server_ip_(0), tunnel_bmap_(TunnelType::AllType()),
         tunnel_type_(TunnelType::ComputeType(TunnelType::AllType())),
-        vrf_name_(""), gw_ip_(0), unresolved_(true),
+        vrf_name_(""), gw_ip_(0), unresolved_(true), is_stale_(false), 
         is_subnet_discard_(false), dependant_rt_(rt) {
     }
     virtual ~AgentPath() { 
@@ -71,6 +71,8 @@ public:
                                         const NextHop *nh);
     virtual std::string ToString() const { return "AgentPath"; }
     void SetSandeshData(PathSandeshData &data) const;
+    bool is_stale() const {return is_stale_;}
+    void set_is_stale(bool is_stale) {is_stale_ = is_stale;}
 
 private:
     const Peer *peer_;
@@ -109,10 +111,10 @@ private:
     //    - no route present for gw_ip_
     //    - ARP not resolved for gw_ip_
     bool unresolved_;
-
+    // Stale peer info; peer is dead
+    bool is_stale_;
     // subnet route with discard nexthop.
     bool is_subnet_discard_;
-
     // route for the gateway
     DependencyRef<AgentRoute, AgentRoute> dependant_rt_;
     DISALLOW_COPY_AND_ASSIGN(AgentPath);

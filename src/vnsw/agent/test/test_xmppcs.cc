@@ -51,8 +51,8 @@ void RouterIdDepInit(Agent *agent) {
 class AgentBgpXmppPeerTest : public AgentXmppChannel {
 public:
     AgentBgpXmppPeerTest(XmppChannel *channel, std::string xs, uint8_t xs_idx) :
-        AgentXmppChannel(channel, xs, "0", xs_idx), rx_count_(0),
-        rx_channel_event_queue_(
+        AgentXmppChannel(Agent::GetInstance(), channel, xs, "0", xs_idx), 
+        rx_count_(0), rx_channel_event_queue_(
             TaskScheduler::GetInstance()->GetTaskId("xmpp::StateMachine"), 0,
             boost::bind(&AgentBgpXmppPeerTest::ProcessChannelEvent, this, _1)) {
     }
@@ -63,8 +63,7 @@ public:
     }
 
     bool ProcessChannelEvent(xmps::PeerState state) {
-        AgentXmppChannel::HandleXmppClientChannelEvent(
-            static_cast<AgentXmppChannel *>(this), state);
+        AgentXmppChannel::HandleAgentXmppClientChannelEvent(static_cast<AgentXmppChannel *>(this), state);
         return true;
     }
 
@@ -128,7 +127,6 @@ protected:
     AgentXmppUnitTest() : thread_(&evm_) {}
  
     virtual void SetUp() {
-        AgentIfMapVmExport::Init();
         xs_p = new XmppServer(&evm_, XmppInit::kControlNodeJID);
         xs_s = new XmppServer(&evm_, XmppInit::kControlNodeJID);
         xc_p = new XmppClient(&evm_);
@@ -155,11 +153,18 @@ protected:
         client->WaitForIdle();
         xs_s->Shutdown();
         client->WaitForIdle();
+
+        TaskScheduler::GetInstance()->Stop();
+        Agent::GetInstance()->controller()->unicast_cleanup_timer().cleanup_timer_->Fire();
+        TaskScheduler::GetInstance()->Start();
+        client->WaitForIdle();
+        Agent::GetInstance()->controller()->Cleanup();
+        client->WaitForIdle();
+
         TcpServerManager::DeleteServer(xs_p);
         TcpServerManager::DeleteServer(xs_s);
         TcpServerManager::DeleteServer(xc_p);
         TcpServerManager::DeleteServer(xc_s);
-        AgentIfMapVmExport::Shutdown();
         evm_.Shutdown();
         thread_.Join();
     }
@@ -261,7 +266,8 @@ protected:
 
     void XmppConnectionSetUp() {
 
-        Agent::GetInstance()->SetControlNodeMulticastBuilder(NULL);
+        Agent::GetInstance()->controller()->increment_multicast_sequence_number();
+        Agent::GetInstance()->set_cn_mcast_builder(NULL);
 	//Create an xmpp client
 	XmppConfigData *xmppc_p_cfg = new XmppConfigData;
 	LOG(DEBUG, "Create an xmpp client connect to Server port " << xs_p->GetPort());
@@ -429,7 +435,7 @@ TEST_F(AgentXmppUnitTest, Connection) {
     WAIT_FOR(100, 10000, rt2->dest_vn_name().size() > 0);
     EXPECT_STREQ(rt2->dest_vn_name().c_str(), "vn1");
     //check paths
-    ASSERT_TRUE(rt2->FindPath(bgp_peer->GetBgpPeer()) != NULL);
+    ASSERT_TRUE(rt2->FindPath(bgp_peer->bgp_peer_id()) != NULL);
 
 
     // Send route-reflect, back to vrf1 from secondary control-node
@@ -446,7 +452,7 @@ TEST_F(AgentXmppUnitTest, Connection) {
 
     client->WaitForIdle();
     // Route leaked to vrf2, check entry in route-table, check paths
-    ASSERT_TRUE(rt2->FindPath(bgp_peer_s->GetBgpPeer()) != NULL);
+    ASSERT_TRUE(rt2->FindPath(bgp_peer_s->bgp_peer_id()) != NULL);
     
     //ensure active path is local-vm
     EXPECT_TRUE(rt->GetActivePath()->peer()->GetType() 
@@ -477,7 +483,7 @@ TEST_F(AgentXmppUnitTest, Connection) {
     Inet4UnicastRouteEntry *rt4 = RouteGet("vrf1", addr, 32);
     EXPECT_STREQ(rt4->dest_vn_name().c_str(), "vn1");
     //check paths
-    ASSERT_TRUE(rt4->FindPath(bgp_peer->GetBgpPeer()) == NULL);
+    ASSERT_TRUE(rt4->FindPath(bgp_peer->bgp_peer_id()) == NULL);
 
     //Send route-reflect delete from seconday control-node
     SendRouteDeleteMessage(mock_peer_s.get(), "vrf1");
@@ -574,14 +580,3 @@ TEST_F(AgentXmppUnitTest, CfgServerSelection) {
 }
 }
 
-int main(int argc, char **argv) {
-    GETUSERARGS();
-    client = TestInit(init_file, ksync_init);
-    Agent::GetInstance()->SetXmppServer("127.0.0.1", 0);
-    Agent::GetInstance()->SetXmppServer("127.0.0.2", 1);
-    
-    int ret = RUN_ALL_TESTS();
-    Agent::GetInstance()->GetEventManager()->Shutdown();
-    AsioStop();
-    return ret;
-}

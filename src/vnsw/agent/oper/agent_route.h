@@ -100,20 +100,6 @@ public:
     virtual void ProcessDelete(AgentRoute *rt) { }
     virtual void ProcessAdd(AgentRoute *rt) { }
 
-    void RouteTableWalkerNotify(VrfEntry *vrf, AgentXmppChannel *, DBState *,
-                                bool associate, bool unicast_walk,
-                                bool multicast_walk);
-    //TODO Evaluate pushing walks to controller
-    bool NotifyRouteEntryWalk(AgentXmppChannel *, 
-                              DBState *state, 
-                              bool associate,
-                              bool unicast_walk,
-                              bool multicast_walk,
-                              DBTablePartBase *part,
-                              DBEntryBase *entry);
-    void UnicastRouteNotifyDone(DBTableBase *base, DBState *, Peer *);
-    void MulticastRouteNotifyDone(DBTableBase *base, DBState *, Peer *);
-
     // Unresolved route tree accessors
     UnresolvedRouteTree::const_iterator unresolved_route_begin() const {
         return unresolved_rt_tree_.begin();
@@ -136,7 +122,8 @@ public:
 
     Agent *agent() const { return agent_; }
     const std::string &vrf_name() const { return vrf_entry_->GetName();};
-    uint32_t vrf_id() const {return vrf_entry_->vrf_id();}
+    uint32_t vrf_id() const {return vrf_id_;}
+    VrfEntry *vrf_entry() const {return vrf_entry_.get();}
     AgentRoute *FindActiveEntry(const AgentRouteKey *key);
 
     // Set VRF for the route-table
@@ -145,7 +132,6 @@ public:
     // Helper functions to delete routes
     bool DeleteAllBgpPath(DBTablePartBase *part, DBEntryBase *entry);
     bool DelExplicitRouteWalkerCb(DBTablePartBase *part, DBEntryBase *entry);
-    bool DelPeerRoutes(DBTablePartBase *part, DBEntryBase *entry, Peer *peer);
 
     // Lifetime actor routines
     LifetimeActor *deleter();
@@ -158,6 +144,12 @@ public:
     // Path comparator
     static bool PathSelection(const Path &path1, const Path &path2);
     static const std::string &GetSuffix(Agent::RouteTableType type);
+    void DeletePathFromPeer(DBTablePartBase *part, AgentRoute *rt,
+                            const Peer *peer);
+    //Stale path handling
+    void StalePathFromPeer(DBTablePartBase *part, AgentRoute *rt,
+                           const Peer *peer);
+
 private:
     class DeleteActor;
     void AddUnresolvedRoute(const AgentRoute *rt);
@@ -166,13 +158,14 @@ private:
     void DeleteRouteDone(DBTableBase *base, RouteTableWalkerState *state);
 
     void Input(DBTablePartition *part, DBClient *client, DBRequest *req);
-    void DeletePathFromPeer(DBTablePartBase *part, AgentRoute *rt,
-                            const Peer *peer);
 
     Agent *agent_;
     UnresolvedRouteTree unresolved_rt_tree_;
     UnresolvedNHTree unresolved_nh_tree_;
     VrfEntryRef vrf_entry_;
+    // VRF is stored to identify which VRF this table belonged to
+    // in case lifetimeactor has reset the vrf_. 
+    uint32_t vrf_id_;
     boost::scoped_ptr<DeleteActor> deleter_;
     LifetimeRef<AgentRouteTable> vrf_delete_ref_;
     DISALLOW_COPY_AND_ASSIGN(AgentRouteTable);
@@ -187,6 +180,7 @@ public:
         ADD_PATH,
         DELETE_PATH,
         CHANGE_PATH,
+        STALE_PATH,
     };
 
     typedef DependencyList<AgentRoute, AgentRoute> RouteDependencyList;
@@ -204,7 +198,7 @@ public:
     // Virtual functions defined by AgentRoute
     virtual int CompareTo(const Route &rhs) const = 0;
     virtual Agent::RouteTableType GetTableType() const = 0;
-    virtual bool DBEntrySandesh(Sandesh *sresp) const = 0;
+    virtual bool DBEntrySandesh(Sandesh *sresp, bool stale) const = 0;
     virtual std::string ToString() const = 0;
     virtual const std::string GetAddressString() const = 0;
     virtual bool EcmpAddPath(AgentPath *path) {return false;}
@@ -228,6 +222,7 @@ public:
     bool HasUnresolvedPath();
     bool CanDissociate() const;
     bool Sync(void);
+    void SquashStalePaths(const AgentPath *path);
 
     //TODO Move dependantroutes and nh  to inet4
     void UpdateDependantRoutes();// analogous to updategatewayroutes
@@ -237,6 +232,7 @@ public:
     void FillTrace(RouteInfo &route, Trace event, const AgentPath *path);
 protected:
     void SetVrf(VrfEntryRef vrf) { vrf_ = vrf; }
+    void RemovePathInternal(AgentPath *path);
     void RemovePath(AgentPath *path);
     void InsertPath(const AgentPath *path);
 

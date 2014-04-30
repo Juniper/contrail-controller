@@ -38,6 +38,8 @@
 #include <vgw/cfg_vgw.h>
 #include <vgw/vgw.h>
 #include <cmn/agent_factory.h>
+#include <controller/controller_init.h>
+
 #include <diag/diag.h>
 
 const std::string Agent::null_str_ = "";
@@ -209,6 +211,7 @@ void Agent::GetConfig() {
     else
         TunnelType::SetDefaultType(TunnelType::MPLS_GRE);
 
+    headless_agent_mode_ = params_->headless_mode();
     debug_ = params_->debug();
     test_mode_ = params_->test_mode();
 }
@@ -219,6 +222,10 @@ DiscoveryAgentClient *Agent::discovery_client() const {
 
 CfgListener *Agent::cfg_listener() const { 
     return cfg_.get()->cfg_listener();
+}
+
+void Agent::set_cn_mcast_builder(AgentXmppChannel *peer) {
+    cn_mcast_builder_ =  peer;
 }
 
 void Agent::CreateModules() {
@@ -263,6 +270,7 @@ void Agent::CreateModules() {
     if (init_->vgw_enable()) {
         vgw_ = std::auto_ptr<VirtualGateway>(new VirtualGateway(this));
     }
+    controller_ = std::auto_ptr<VNController>(new VNController(this));
 }
 
 void Agent::CreateDBTables() {
@@ -397,8 +405,8 @@ Agent::Agent() :
     vgw_peer_(NULL), ifmap_parser_(NULL), router_id_configured_(false),
     mirror_src_udp_port_(0), lifetime_manager_(NULL), 
     ksync_sync_mode_(true), mgmt_ip_(""),
-    vxlan_network_identifier_mode_(AUTOMATIC), debug_(false),
-    test_mode_(false) {
+    vxlan_network_identifier_mode_(AUTOMATIC), headless_agent_mode_(false), 
+    debug_(false), test_mode_(false) {
 
     assert(singleton_ == NULL);
     singleton_ = this;

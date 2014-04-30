@@ -49,7 +49,8 @@ public:
                          bool multi_proto_support) :
         vrf_name_(vrf_name), grp_address_(grp_addr), 
         vn_name_(vn_name), multi_proto_support_(multi_proto_support),
-        layer2_forwarding_(true), ipv4_forwarding_(false), vxlan_id_(0) {
+        layer2_forwarding_(true), ipv4_forwarding_(false), vxlan_id_(0), 
+        peer_identifier_(0) {
         boost::system::error_code ec;
         src_address_ =  IpAddress::from_string("0.0.0.0", ec).to_v4();
         src_mpls_label_ = 0;
@@ -62,7 +63,8 @@ public:
                          bool multi_proto_support) : 
         vrf_name_(vrf_name), grp_address_(grp_addr), 
         src_address_(src_addr), multi_proto_support_(multi_proto_support),
-        layer2_forwarding_(true), ipv4_forwarding_(false), vxlan_id_(0) {
+        layer2_forwarding_(true), ipv4_forwarding_(false), vxlan_id_(0),
+        peer_identifier_(0) {
         src_mpls_label_ = 0;
         local_olist_.clear();
         deleted_ = false;
@@ -107,11 +109,11 @@ public:
     };
 
     //Labels for server + server list + ingress source label
-    bool ModifyFabricMembers(const TunnelOlist &fabric_olist);
-    void FlushAllFabricOlist();
+    bool ModifyFabricMembers(const TunnelOlist &fabric_olist, 
+                             uint64_t peer_identifier, bool delete_op,
+                             uint32_t label);
+    void FlushAllPeerInfo(uint64_t peer_identifier);
 
-    /* Ctrl node went down, flush source label and tunnel sent by it */
-    void HandlePeerDown();
     //Gets
     const std::string &vrf_name() { return vrf_name_; };
     const Ip4Address &GetGroupAddress() { return grp_address_; };
@@ -131,6 +133,7 @@ public:
                                   (!layer2_forwarding_ && !ipv4_forwarding_));}
     void set_vxlan_id(int vxlan_id) {vxlan_id_ = vxlan_id;}
     int vxlan_id() const {return vxlan_id_;}
+    uint64_t peer_identifier() {return peer_identifier_;}
 
 private:
     std::string vrf_name_;
@@ -145,6 +148,7 @@ private:
     bool layer2_forwarding_;
     bool ipv4_forwarding_;
     int vxlan_id_;
+    uint64_t peer_identifier_;
 
     friend class MulticastHandler;
     DISALLOW_COPY_AND_ASSIGN(MulticastGroupObject);
@@ -153,7 +157,8 @@ private:
 /* Static class for handling multicast objects common functionalities */
 class MulticastHandler {
 public:
-    MulticastHandler(Agent *agent) : agent_(agent) { obj_ = this; }
+    static const uint32_t kMulticastTimeout = 5 * 60 * 1000;
+    MulticastHandler(Agent *agent);
     virtual ~MulticastHandler() { }
 
     /* Called by XMPP to add ctrl node sent olist and label */
@@ -161,9 +166,8 @@ public:
                                     const Ip4Address &group,
                                     const Ip4Address &source, 
                                     uint32_t source_label,
-                                    const TunnelOlist &olist);
-    /* Ctrl node went down, flush all source label and tunnel sent by it */
-    static void HandlePeerDown();
+                                    const TunnelOlist &olist,
+                                    uint64_t peer_identifier = 0);
     //Registered for VN notification
     static void ModifyVN(DBTablePartBase *partition, DBEntryBase *e);
     //Registered for VM notification
@@ -187,6 +191,8 @@ public:
     MulticastGroupObject *FindFloodGroupObject(const std::string &vrf_name);
     MulticastGroupObject *FindGroupObject(const std::string &vrf_name,
                                           const Ip4Address &dip);
+    bool FlushPeerInfo(uint64_t peer_sequence);
+
 private:
     //operations on list of all objectas per group/source/vrf
     void AddToMulticastObjList(MulticastGroupObject *obj) {

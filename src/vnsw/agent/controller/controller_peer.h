@@ -10,20 +10,24 @@
 
 #include <boost/function.hpp>
 #include <boost/system/error_code.hpp>
+#include <boost/scoped_ptr.hpp>
+#include <boost/shared_ptr.hpp>
 #include "xmpp/xmpp_channel.h"
 #include "xmpp_enet_types.h"
 #include "xmpp_unicast_types.h"
 
 class AgentRoute;
 class Peer;
+class BgpPeer;
 class VrfEntry;
 class XmlPugi;
 
 class AgentXmppChannel {
 public:
     explicit AgentXmppChannel(XmppChannel *channel);
-    AgentXmppChannel(XmppChannel *channel, std::string xmpp_server, 
-                     std::string label_range, uint8_t xs_idx);
+    AgentXmppChannel(Agent *agent, XmppChannel *channel, 
+                     const std::string &xmpp_server, 
+                     const std::string &label_range, uint8_t xs_idx);
     virtual ~AgentXmppChannel();
 
     virtual std::string ToString() const;
@@ -32,8 +36,20 @@ public:
     virtual void ReceiveEvpnUpdate(XmlPugi *pugi);
     virtual void ReceiveMulticastUpdate(XmlPugi *pugi);
     XmppChannel *GetXmppChannel() { return channel_; }
-    static void HandleXmppClientChannelEvent(AgentXmppChannel *peer, 
-                                             xmps::PeerState state);
+
+    //Helper to identify if specified peer has active BGP peer attached
+    static bool IsBgpPeerActive(AgentXmppChannel *peer);
+    static bool SetConfigPeer(AgentXmppChannel *peer);
+    static void SetMulticastPeer(AgentXmppChannel *old_peer, 
+                                 AgentXmppChannel *new_peer);
+    static void CleanConfigStale(AgentXmppChannel *agent_xmpp_channel);
+    static void CleanUnicastStale(AgentXmppChannel *agent_xmpp_channel);
+    static void CleanMulticastStale(AgentXmppChannel *agent_xmpp_channel);
+    static void UnicastPeerDown(AgentXmppChannel *peer, BgpPeer *peer_id);
+    static void MulticastPeerDown(AgentXmppChannel *old_channel, 
+                                  AgentXmppChannel *new_channel);
+    static void HandleAgentXmppClientChannelEvent(AgentXmppChannel *peer,
+                                                  xmps::PeerState state);
     static bool ControllerSendCfgSubscribe(AgentXmppChannel *peer);
     static bool ControllerSendVmCfgSubscribe(AgentXmppChannel *peer, 
             const boost::uuids::uuid &vm_id, bool subscribe);
@@ -62,17 +78,32 @@ public:
                                         uint32_t mpls_label, 
                                         uint32_t tunnel_bmap, 
                                         bool add_route);
-    Peer *GetBgpPeer() { return bgp_peer_id_; }
+
+    // Routines for BGP peer manipulations, lifecycle of bgp peer in xmpp
+    // channel is as follows:
+    // 1) Created whenever channel is xmps::READY
+    // 2) When channel moves out of READY state, bgp peer moves to decommisioned
+    // list. Once moved there it can never go back to active peer and can only
+    // get deleted later.
+    // 3) On arrival of some other active peer(i.e. channel is READY) cleanup
+    // timers are started, expiration of which triggers removal of
+    // decommissioned peer and eventually gets destroyed.
+    void CreateBgpPeer();
+    void DeCommissionBgpPeer();
+
     std::string GetXmppServer() { return xmpp_server_; }
     uint8_t GetXmppServerIdx() { return xs_idx_; }
     std::string GetMcastLabelRange() { return label_range_; }
 
+    Agent *agent() const {return agent_;}
+    BgpPeer *bgp_peer_id() const {return bgp_peer_id_.get();}
+    std::string GetBgpPeerName() const;
+   
 protected:
     virtual void WriteReadyCb(const boost::system::error_code &ec);
 
 private:
     void ReceiveInternal(const XmppStanza::XmppMessage *msg);
-    void BgpPeerDelDone();
     void AddEvpnRoute(std::string vrf_name, struct ether_addr &mac, 
                   autogen::EnetItemType *item);
     void AddRoute(std::string vrf_name, Ip4Address ip, uint32_t plen, 
@@ -87,7 +118,8 @@ private:
     std::string xmpp_server_;
     std::string label_range_;
     uint8_t xs_idx_;
-    Peer *bgp_peer_id_;
+    boost::shared_ptr<BgpPeer> bgp_peer_id_;
+    Agent *agent_;
 };
 
 #endif // __CONTROLLER_PEER_H__

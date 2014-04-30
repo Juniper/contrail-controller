@@ -117,7 +117,7 @@ int main(int argc, char *argv[]) {
     client = TestInit(init_file, ksync_init);
     Agent::GetInstance()->SetXmppServer("127.0.0.1", 0);
 
-    VNController::Connect();
+    Agent::GetInstance()->controller()->Connect();
 
 
     return RUN_ALL_TESTS();

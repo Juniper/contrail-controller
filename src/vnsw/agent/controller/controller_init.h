@@ -7,28 +7,80 @@
 
 #include <sandesh/sandesh_trace.h>
 #include <discovery_client.h>
+#include <boost/scoped_ptr.hpp>
+#include <boost/shared_ptr.hpp>
+#include "controller/controller_cleanup_timer.h"
 
 class AgentXmppChannel;
 class AgentDnsXmppChannel;
+class AgentIfMapVmExport;
+class BgpPeer;
 
 class VNController {
-    public:
-        static void Connect();
-        static void DisConnect();
+public:
+    typedef boost::shared_ptr<BgpPeer> BgpPeerPtr; 
+    typedef std::list<boost::shared_ptr<BgpPeer> >::iterator BgpPeerIterator;
+    static const uint64_t kInvalidPeerIdentifier = 0xFFFFFFFFFFFFFFFF;
+    VNController(Agent *agent);
+    virtual ~VNController();
+    void Connect();
+    void DisConnect();
 
-        static void Cleanup();
+    void Cleanup();
 
-        static void XmppServerConnect();
-        static void DnsXmppServerConnect();
+    void XmppServerConnect();
+    void DnsXmppServerConnect();
 
-        static void XmppServerDisConnect();
-        static void DnsXmppServerDisConnect();
+    void XmppServerDisConnect();
+    void DnsXmppServerDisConnect();
 
-        static AgentXmppChannel *FindAgentXmppChannel(std::string server_ip);
-        static void ApplyDiscoveryXmppServices(std::vector<DSResponse> resp); 
+    void ApplyDiscoveryXmppServices(std::vector<DSResponse> resp); 
+    void ApplyDiscoveryDnsXmppServices(std::vector<DSResponse> resp); 
 
-        static AgentDnsXmppChannel *FindAgentDnsXmppChannel(std::string server_ip);
-        static void ApplyDiscoveryDnsXmppServices(std::vector<DSResponse> resp); 
+    //Multicast peer identifier
+    void increment_multicast_sequence_number() {multicast_sequence_number_++;}
+    uint64_t multicast_sequence_number() {return multicast_sequence_number_;}
+
+    //Peer maintenace routines 
+    uint8_t ActiveXmppConnectionCount();
+    AgentXmppChannel *GetActiveXmppChannel();
+    uint32_t DecommissionedPeerListSize() const {
+        return decommissioned_peer_list_.size();
+    }
+    void AddToDecommissionedPeerList(boost::shared_ptr<BgpPeer> peer);
+
+    //Unicast timer related routines
+    void StartUnicastCleanupTimer(AgentXmppChannel *agent_xmpp_channel);
+    bool UnicastCleanupTimerExpired();
+    CleanupTimer &unicast_cleanup_timer() {return unicast_cleanup_timer_;}
+    void ControllerPeerHeadlessAgentDelDone(BgpPeer *peer);
+
+    //Multicast timer
+    void StartMulticastCleanupTimer(AgentXmppChannel *agent_xmpp_channel);
+    bool MulticastCleanupTimerExpired(uint64_t peer_sequence);
+    CleanupTimer &multicast_cleanup_timer() {return multicast_cleanup_timer_;}
+
+    AgentIfMapVmExport *agent_ifmap_vm_export() const {
+        return agent_ifmap_vm_export_.get();}
+    void StartConfigCleanupTimer(AgentXmppChannel *agent_xmpp_channel);
+    CleanupTimer &config_cleanup_timer() {return config_cleanup_timer_;}
+
+    // Clear of decommissioned peer listener id for vrf specified
+    void DeleteVrfStateOfDecommisionedPeers(DBTablePartBase *partition, 
+                                            DBEntryBase *e);
+    Agent *agent() {return agent_;}
+
+private:
+    AgentXmppChannel *FindAgentXmppChannel(const std::string &server_ip);
+    AgentDnsXmppChannel *FindAgentDnsXmppChannel(const std::string &server_ip);
+
+    Agent *agent_;
+    uint64_t multicast_sequence_number_;
+    std::list<boost::shared_ptr<BgpPeer> > decommissioned_peer_list_;
+    boost::scoped_ptr<AgentIfMapVmExport> agent_ifmap_vm_export_;
+    UnicastCleanupTimer unicast_cleanup_timer_;
+    MulticastCleanupTimer multicast_cleanup_timer_;
+    ConfigCleanupTimer config_cleanup_timer_;
 };
 
 extern SandeshTraceBufferPtr ControllerTraceBuf;

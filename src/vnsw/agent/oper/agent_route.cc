@@ -87,6 +87,7 @@ const string &AgentRouteTable::GetSuffix(Agent::RouteTableType type) {
 void AgentRouteTable::SetVrf(VrfEntry *vrf) {
     agent_ = (static_cast<VrfTable *>(vrf->get_table()))->agent();
     vrf_entry_ = vrf;
+    vrf_id_ = vrf->vrf_id();
     vrf_delete_ref_.Reset(vrf->deleter());
     deleter_.reset(new DeleteActor(this));
 }
@@ -100,16 +101,6 @@ auto_ptr<DBEntry> AgentRouteTable::AllocEntry(const DBRequestKey *k) const {
     AgentRoute *route = 
         static_cast<AgentRoute *>(key->AllocRouteEntry(vrf, false));
     return auto_ptr<DBEntry>(static_cast<DBEntry *>(route));
-}
-
-// Delete path from a peer. Deletes route if no path left
-bool AgentRouteTable::DelPeerRoutes(DBTablePartBase *part, 
-                                    DBEntryBase *entry, Peer *peer) {
-    AgentRoute *route = static_cast<AgentRoute *>(entry);
-    if (route) {
-        DeletePathFromPeer(part, route, peer);
-    }
-    return true;
 }
 
 // Delete all paths from BGP Peer. Delete route if no path left
@@ -147,6 +138,11 @@ bool AgentRouteTable::DelExplicitRouteWalkerCb(DBTablePartBase *part,
 bool AgentRouteTable::PathSelection(const Path &path1, const Path &path2) {
     const AgentPath &l_path = dynamic_cast<const AgentPath &> (path1);
     const AgentPath &r_path = dynamic_cast<const AgentPath &> (path2);
+
+    // Stale path should take last precedence
+    if (l_path.is_stale() != r_path.is_stale()) {
+        return (l_path.is_stale() < r_path.is_stale());
+    }
     return l_path.peer()->IsLess(r_path.peer());
 }
 
@@ -224,6 +220,12 @@ void AgentRouteTable::DeletePathFromPeer(DBTablePartBase *part,
 
     // Remove path from the route
     rt->RemovePath(path);
+    // Local path(non BGP type) is going away and so will route.
+    // For active peers reflector will remove the route but for 
+    // non active peers explicitly squash the paths.
+    if (peer && (peer->GetType() != Peer::BGP_PEER)) {
+        rt->SquashStalePaths(NULL);
+    }
 
     // Delete route if no more paths 
     if (rt->GetActivePath() == NULL) {
@@ -290,23 +292,18 @@ void AgentRouteTable::Input(DBTablePartition *part, DBClient *client,
     AgentRoute *rt = static_cast<AgentRoute *>(part->Find(key));
 
     if (req->oper == DBRequest::DB_ENTRY_ADD_CHANGE) {
-        if (key->sub_op_ == AgentKey::RESYNC) {
-            // Ignore RESYNC if received on deleted VRF
-            if(vrf->IsDeleted()) {
-                return;
-            }
+        // Ignore ADD_CHANGE if received on deleted VRF
+        if(vrf->IsDeleted()) {
+            return;
+        }
 
+        if (key->sub_op_ == AgentKey::RESYNC) {
             // Ignore RESYNC if received on non-existing or deleted route entry
             if (rt && (rt->IsDeleted() == false)) {
                 rt->Sync();
                 notify = true;
             }
         } else if (key->sub_op_ == AgentKey::ADD_DEL_CHANGE) {
-            // Ignore ADD_CHANGE if received on deleted VRF
-            if(vrf->IsDeleted()) {
-                return;
-            }
-
             // Renew the route if its in deleted state
             if (rt && rt->IsDeleted()) {
                 rt->ClearDelete();
@@ -350,6 +347,7 @@ void AgentRouteTable::Input(DBTablePartition *part, DBClient *client,
                 OPER_TRACE(Route, rt_info);
             } else {
                 // Let path know of route change and update itself
+                path->set_is_stale(false);
                 notify = data->AddChangePath(agent_, path);
                 RouteInfo rt_info;
 
@@ -434,117 +432,6 @@ AgentRoute *AgentRouteTable::FindActiveEntry(const AgentRouteKey *key) {
     return entry;
 }
 
-bool AgentRouteTable::NotifyRouteEntryWalk(AgentXmppChannel *bgp_xmpp_peer,
-                                  DBState *vrf_entry_state, bool associate,
-                                  bool unicast_walk, bool multicast_walk,
-                                  DBTablePartBase *part, DBEntryBase *entry) {
-    AgentRoute *route = static_cast<AgentRoute *>(entry);
-    VrfExport::State *vs = static_cast<VrfExport::State *>(vrf_entry_state);
-
-    if (!(unicast_walk && multicast_walk)) {
-        if ((unicast_walk && route->is_multicast()) ||
-            (multicast_walk && !route->is_multicast())) {
-            return true;
-        }
-    }
-
-    RouteExport::State *state =
-        static_cast<RouteExport::State *>(route->GetState(part->parent(),
-                      vs->rt_export_[GetTableType()]->GetListenerId()));
-    if (state) {
-        state->force_chg_ = true;
-    }
-
-    vs->rt_export_[GetTableType()]->
-        Notify(bgp_xmpp_peer, associate, GetTableType(), part, entry);
-    return true;
-}
-
-void AgentRouteTable::MulticastRouteNotifyDone(DBTableBase *base,
-                                      DBState *state, Peer *peer) {
-    VrfExport::State *vrf_state = static_cast<VrfExport::State *>(state);
-
-    AGENT_DBWALK_TRACE(AgentDBWalkLog, "Done walk ", GetTableName(),
-                    vrf_state->mcwalkid_[GetTableType()], 
-                    peer->GetName(),
-                    "Add/Del Route", peer->NoOfWalks());
-
-    vrf_state->mcwalkid_[GetTableType()] = 
-        DBTableWalker::kInvalidWalkerId;
-}
-
-void AgentRouteTable::UnicastRouteNotifyDone(DBTableBase *base,
-                                             DBState *state, Peer *peer) {
-    VrfExport::State *vrf_state = static_cast<VrfExport::State *>(state);
-
-    AGENT_DBWALK_TRACE(AgentDBWalkLog, "Done walk ", GetTableName(),
-                    vrf_state->ucwalkid_[GetTableType()], 
-                    peer->GetName(),
-                    "Add/Del Route", peer->NoOfWalks());
-
-    vrf_state->ucwalkid_[GetTableType()] = 
-        DBTableWalker::kInvalidWalkerId;
-}
-
-void AgentRouteTable::RouteTableWalkerNotify(VrfEntry *vrf,
-                                            AgentXmppChannel *bgp_xmpp_peer,
-                                            DBState *state,
-                                            bool associate, bool unicast_walk,
-                                            bool multicast_walk) {
-    boost::system::error_code ec;
-    DBTableWalker *walker = agent_->GetDB()->GetWalker();
-    VrfExport::State *vrf_state = static_cast<VrfExport::State *>(state);
-
-    if (multicast_walk) {
-        if (vrf_state->mcwalkid_[GetTableType()] != 
-                DBTableWalker::kInvalidWalkerId) {
-            AGENT_DBWALK_TRACE(AgentDBWalkLog, "Cancel multicast/bcast walk ", 
-                  GetTableName(), vrf_state->mcwalkid_[GetTableType()], 
-                  bgp_xmpp_peer->GetBgpPeer()->GetName(), 
-                  "Add/Withdraw Route",
-                  bgp_xmpp_peer->GetBgpPeer()->NoOfWalks()); 
-            walker->WalkCancel(vrf_state->mcwalkid_[GetTableType()]);
-        }
-        vrf_state->mcwalkid_[GetTableType()] = 
-            walker->WalkTable(this, NULL,
-             boost::bind(&AgentRouteTable::NotifyRouteEntryWalk, this,
-             bgp_xmpp_peer, state, associate, false, true, _1, _2),
-             boost::bind(&AgentRouteTable::MulticastRouteNotifyDone, 
-                        this, _1, state, bgp_xmpp_peer->GetBgpPeer()));
-
-        AGENT_DBWALK_TRACE(AgentDBWalkLog, "Start multicast/bcast walk ", 
-                  GetTableName(), vrf_state->mcwalkid_[GetTableType()], 
-                  bgp_xmpp_peer->GetBgpPeer()->GetName(), 
-                  (associate)? "Add route": "Withdraw Route",
-                  bgp_xmpp_peer->GetBgpPeer()->NoOfWalks());
-    } 
-    
-    if (unicast_walk) {
-        if (vrf_state->ucwalkid_[GetTableType()] != 
-                DBTableWalker::kInvalidWalkerId) {
-            AGENT_DBWALK_TRACE(AgentDBWalkLog, "Cancel ucast walk ", 
-                  GetTableName(),
-                  vrf_state->ucwalkid_[GetTableType()], 
-                  bgp_xmpp_peer->GetBgpPeer()->GetName(), 
-                  "Add/Withdraw Route",
-                  bgp_xmpp_peer->GetBgpPeer()->NoOfWalks());
-            walker->WalkCancel(vrf_state->ucwalkid_[GetTableType()]);
-        }
-        vrf_state->ucwalkid_[GetTableType()] = 
-            walker->WalkTable(this, NULL,
-             boost::bind(&AgentRouteTable::NotifyRouteEntryWalk, this,
-             bgp_xmpp_peer, state, associate, true, false, _1, _2),
-             boost::bind(&AgentRouteTable::UnicastRouteNotifyDone, 
-                        this, _1, state, bgp_xmpp_peer->GetBgpPeer()));
-
-        AGENT_DBWALK_TRACE(AgentDBWalkLog, "Start ucast walk ", 
-                  GetTableName(), vrf_state->ucwalkid_[GetTableType()], 
-                  bgp_xmpp_peer->GetBgpPeer()->GetName(), 
-                  (associate)? "Add route": "Withdraw Route",
-                  bgp_xmpp_peer->GetBgpPeer()->NoOfWalks());
-    }
-}
-
 uint32_t AgentRoute::GetMplsLabel() const { 
     return GetActivePath()->label();
 };
@@ -572,13 +459,17 @@ void AgentRoute::InsertPath(const AgentPath *path) {
     Sort(&AgentRouteTable::PathSelection, prev_front);
 }
 
-void AgentRoute::RemovePath(AgentPath *path) {
-    const Path *prev_front = front();
+void AgentRoute::RemovePathInternal(AgentPath *path) {
     remove(path);
     path->clear_sg_list();
     // ECMP path are managed by route module. Update ECMP path with this path
     // delete
     EcmpDeletePath(path);
+}
+
+void AgentRoute::RemovePath(AgentPath *path) {
+    const Path *prev_front = front();
+    RemovePathInternal(path);
     Sort(&AgentRouteTable::PathSelection, prev_front);
     delete path;
     return;
@@ -606,6 +497,22 @@ AgentPath *AgentRoute::FindPath(const Peer *peer) const {
         }
     }
     return NULL;
+}
+
+void AgentRoute::SquashStalePaths(const AgentPath *exception_path) {
+    Route::PathList::iterator it = GetPathList().begin();
+
+    while (it != GetPathList().end()) {
+        // Delete all stale path except for the path sent(exception_path)
+        AgentPath *path = static_cast<AgentPath *>(it.operator->());
+        if (path->is_stale() && (path != exception_path)) {
+            // Since we squash stales, at any point of time there should be only
+            // one stale other than exception_path in list
+            RemovePath(path);
+            return;
+        }
+        it++;
+    }
 }
 
 // First path in list is always treated as active path.
@@ -727,4 +634,31 @@ bool AgentRoute::Sync(void) {
         }
     }
     return ret;
+}
+
+void AgentRouteTable::StalePathFromPeer(DBTablePartBase *part, AgentRoute *rt,
+                                        const Peer *peer) {
+    if (rt == NULL) {
+        return;
+    }
+
+    // Find path for the peer
+    AgentPath *path = rt->FindPath(peer);
+
+    RouteInfo rt_info;
+    rt->FillTrace(rt_info, AgentRoute::STALE_PATH, path);
+    OPER_TRACE(Route, rt_info);
+
+    if (path == NULL) {
+        return;
+    }
+
+    if (rt && (rt->IsDeleted() == false)) {
+        path->set_is_stale(true);
+        // Remove all stale path except the path received
+        rt->SquashStalePaths(path);
+        rt->GetPathList().sort(&AgentRouteTable::PathSelection);
+        rt->Sync();
+        part->Notify(rt);
+    }
 }

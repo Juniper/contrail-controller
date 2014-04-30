@@ -62,6 +62,7 @@ void Layer2AgentRouteTable::AddLocalVmRouteReq(const Peer *peer,
                                                struct ether_addr &mac,
                                                const Ip4Address &vm_ip,
                                                uint32_t plen) { 
+    assert(peer);
     DBRequest req;
     req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
 
@@ -88,6 +89,7 @@ void Layer2AgentRouteTable::AddLocalVmRoute(const Peer *peer,
                                             struct ether_addr &mac,
                                             const Ip4Address &vm_ip,
                                             uint32_t plen) { 
+    assert(peer);
     DBRequest req;
     req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
 
@@ -132,6 +134,7 @@ void Layer2AgentRouteTable::AddRemoteVmRouteReq(const Peer *peer,
                                                 struct ether_addr &mac,
                                                 const Ip4Address &vm_ip,
                                                 uint32_t plen) { 
+    assert(peer);
     DBRequest nh_req;
     nh_req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
 
@@ -225,7 +228,7 @@ void Layer2RouteEntry::SetKey(const DBRequestKey *key) {
     memcpy(&mac_, &(k->GetMac()), sizeof(struct ether_addr));
 }
 
-bool Layer2RouteEntry::DBEntrySandesh(Sandesh *sresp) const {
+bool Layer2RouteEntry::DBEntrySandesh(Sandesh *sresp, bool stale) const {
     Layer2RouteResp *resp = static_cast<Layer2RouteResp *>(sresp);
     RouteL2SandeshData data;
     data.set_mac(ToString());
@@ -234,6 +237,8 @@ bool Layer2RouteEntry::DBEntrySandesh(Sandesh *sresp) const {
          it != GetPathList().end(); it++) {
         const AgentPath *path = static_cast<const AgentPath *>(it.operator->());
         if (path) {
+            if (stale && !path->is_stale())
+                continue;
             PathSandeshData pdata;
             path->SetSandeshData(pdata);
             if (is_multicast()) {
@@ -259,6 +264,6 @@ void Layer2RouteReq::HandleRequest() const {
     }
 
     AgentLayer2RtSandesh *sand = new AgentLayer2RtSandesh(vrf, 
-                                                          context(), "");
+                                                          context(), "", get_stale());
     sand->DoSandesh();
 }

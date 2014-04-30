@@ -51,7 +51,7 @@ ServerThread *thread2;
 test::ControlNodeMock *bgp_peer2;
 
 void RouterIdDepInit(Agent *agent) {
-    VNController::Connect();
+    Agent::GetInstance()->controller()->Connect();
 }
 
 void StartControlNodeMock() {
@@ -75,7 +75,7 @@ void StartControlNodeMock() {
 }
 
 void StopControlNodeMock() {
-    VNController::DisConnect();
+    Agent::GetInstance()->controller()->DisConnect();
     client->WaitForIdle();
     TcpServerManager::DeleteServer(Agent::GetInstance()->GetAgentXmppClient(0));
     TcpServerManager::DeleteServer(Agent::GetInstance()->GetAgentXmppClient(1));

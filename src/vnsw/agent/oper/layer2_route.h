@@ -91,7 +91,7 @@ public:
     virtual Agent::RouteTableType GetTableType() const {
         return Agent::LAYER2;
     }
-    virtual bool DBEntrySandesh(Sandesh *sresp) const;
+    virtual bool DBEntrySandesh(Sandesh *sresp, bool stale) const;
 
     const struct ether_addr &GetAddress() const {return mac_;}
     const Ip4Address &GetVmIpAddress() const {return vm_ip_;}

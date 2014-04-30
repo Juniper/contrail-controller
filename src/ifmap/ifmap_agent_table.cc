@@ -608,13 +608,11 @@ private:
 };
 
 IFMapAgentStaleCleaner::~IFMapAgentStaleCleaner() {
-    TimerManager::DeleteTimer(timer_);
 }
 
 IFMapAgentStaleCleaner::IFMapAgentStaleCleaner(DB *db, DBGraph *graph, 
         boost::asio::io_service &io_service) : 
-        db_(db), graph_(graph), timer_(TimerManager::CreateTimer(io_service,
-                                                     "Agent Stale cleanup timer")) {
+        db_(db), graph_(graph) {
 
 }
 
@@ -623,18 +621,6 @@ bool IFMapAgentStaleCleaner::StaleTimeout() {
     TaskScheduler *sch = TaskScheduler::GetInstance();
     sch->Enqueue(cleaner);
     return false;
-}
-
-void IFMapAgentStaleCleaner::StaleCleanup(uint64_t seq) {
-
-    //If already running, cancel and start again
-    if (timer_->running()) {
-        timer_->Cancel();
-    }
-
-    seq_ = seq;
-    //Start to fire after the given timeout
-    timer_->Start(timeout_, boost::bind(&IFMapAgentStaleCleaner::StaleTimeout, this), NULL);
 }
 
 void IFMapAgentStaleCleaner::Clear() {

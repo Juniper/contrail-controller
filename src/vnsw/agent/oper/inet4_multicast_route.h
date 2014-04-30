@@ -58,7 +58,7 @@ public:
     virtual const string GetAddressString() const {
         return dst_addr_.to_string();
     }
-    virtual bool DBEntrySandesh(Sandesh *sresp) const;
+    virtual bool DBEntrySandesh(Sandesh *sresp, bool stale) const;
     virtual Agent::RouteTableType GetTableType() const {
         return Agent::INET4_MULTICAST;
     }

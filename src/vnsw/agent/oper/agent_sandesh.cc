@@ -88,9 +88,9 @@ void AgentInet4UcRtSandesh::Alloc() {
 bool AgentInet4UcRtSandesh::UpdateResp(DBEntryBase *entry) {
     Inet4UnicastRouteEntry *rt = static_cast<Inet4UnicastRouteEntry *>(entry);
     if (dump_table_) {
-        return rt->DBEntrySandesh(resp_);
+        return rt->DBEntrySandesh(resp_, stale_);
     }
-    return rt->DBEntrySandesh(resp_, addr_, plen_);
+    return rt->DBEntrySandesh(resp_, addr_, plen_, stale_);
 }
 
 DBTable *AgentInet4McRtSandesh::AgentGetTable() {
@@ -103,7 +103,7 @@ void AgentInet4McRtSandesh::Alloc() {
 
 bool AgentInet4McRtSandesh::UpdateResp(DBEntryBase *entry) {
     AgentRoute *rt = static_cast<AgentRoute *>(entry);
-    return rt->DBEntrySandesh(resp_);
+    return rt->DBEntrySandesh(resp_, stale_);
 }
 
 DBTable *AgentLayer2RtSandesh::AgentGetTable() {
@@ -116,7 +116,7 @@ void AgentLayer2RtSandesh::Alloc() {
 
 bool AgentLayer2RtSandesh::UpdateResp(DBEntryBase *entry) {
     AgentRoute *rt = static_cast<AgentRoute *>(entry);
-    return rt->DBEntrySandesh(resp_);
+    return rt->DBEntrySandesh(resp_, stale_);
 }
 
 DBTable *AgentAclSandesh::AgentGetTable() {

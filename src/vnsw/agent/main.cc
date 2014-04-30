@@ -48,7 +48,7 @@ void RouterIdDepInit(Agent *agent) {
     InstanceInfoServiceServerInit(agent);
 
     // Parse config and then connect
-    VNController::Connect();
+    Agent::GetInstance()->controller()->Connect();
     LOG(DEBUG, "Router ID Dependent modules (Nova and BGP) INITIALIZED");
 }
 
@@ -84,6 +84,8 @@ int main(int argc, char *argv[]) {
          "Flow aging time in seconds")
         ("DEFAULT.hostname", opt::value<string>(), 
          "Hostname of compute-node")
+        ("DEFAULT.headless", opt::value<bool>(),
+         "Run compute-node in headless mode")
         ("DEFAULT.http_server_port", 
          opt::value<uint16_t>()->default_value(http_server_port), 
          "Sandesh HTTP listener port")

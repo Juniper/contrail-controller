@@ -101,6 +101,7 @@ class FlowProto;
 class Peer;
 class LifetimeManager;
 class DiagTable;
+class VNController;
 
 extern void RouterIdDepInit(Agent *agent);
 
@@ -264,9 +265,7 @@ public:
     AgentXmppChannel* GetControlNodeMulticastBuilder() {
         return cn_mcast_builder_;
     };
-    void SetControlNodeMulticastBuilder(AgentXmppChannel *peer) { 
-        cn_mcast_builder_ =  peer;
-    };
+    void set_cn_mcast_builder(AgentXmppChannel *peer);
 
     const std::string &GetFabricVnName() {return fabric_vn_name_;};
     const std::string &GetDefaultVrf() {return fabric_vrf_name_;};
@@ -346,6 +345,8 @@ public:
     VxLanNetworkIdentifierMode vxlan_network_identifier_mode() const {
         return vxlan_network_identifier_mode_;
     }
+    bool headless_agent_mode() const {return headless_agent_mode_;}
+
     void SetInterfaceTable(InterfaceTable *table) {
          intf_table_ = table;
     };
@@ -503,6 +504,7 @@ public:
         vxlan_network_identifier_mode_ = mode;
     }
 
+    void set_headless_agent_mode(bool mode) {headless_agent_mode_ = mode;}
     std::string GetUuidStr(boost::uuids::uuid uuid_val) {
         std::ostringstream str;
         str << uuid_val;
@@ -557,6 +559,7 @@ public:
     DiscoveryAgentClient *discovery_client() const;
     VirtualGateway *vgw() const { return vgw_.get(); }
     OperDB *oper_db() const { return oper_db_.get(); }
+    VNController *controller() const {return controller_.get();}
 
 private:
     void GetConfig();
@@ -572,6 +575,7 @@ private:
     std::auto_ptr<VirtualGateway> vgw_;
     std::auto_ptr<OperDB> oper_db_;
     std::auto_ptr<DiagTable> diag_table_;
+    std::auto_ptr<VNController> controller_;
 
     EventManager *event_mgr_;
     AgentXmppChannel *agent_xmpp_channel_[MAX_XMPP_SERVERS];
@@ -659,6 +663,7 @@ private:
     std::string mgmt_ip_;
     static Agent *singleton_;
     VxLanNetworkIdentifierMode vxlan_network_identifier_mode_;
+    bool headless_agent_mode_;
     const Interface *vhost_interface_;
     bool debug_;
     bool test_mode_;

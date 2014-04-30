@@ -67,17 +67,45 @@ void RouteExport::ManagedDelete() {
     marked_delete_ = true;
 }
 
+// Route entry add/change/del notification handler
 void RouteExport::Notify(AgentXmppChannel *bgp_xmpp_peer, 
                          bool associate, Agent::RouteTableType type, 
                          DBTablePartBase *partition, DBEntryBase *e) {
     AgentRoute *route = static_cast<AgentRoute *>(e);
 
-    //If multicast or subnetbroadcast digress to multicast
-    if (route->is_multicast()) {
-    	return MulticastNotify(bgp_xmpp_peer, associate, partition, e);
-    }
-    return UnicastNotify(bgp_xmpp_peer, partition, e, type);
+    // Primitive checks for non-delete notification
+    if (!route->IsDeleted()) {
+        // If there is no active BGP peer attached to channel, ignore 
+        // non-delete notification for this channel
+        if (!AgentXmppChannel::IsBgpPeerActive(bgp_xmpp_peer))
+            return;
 
+        // Extract the listener ID of active BGP peer for route table to which
+        // this route entry belongs to. Listeners of route table can be active
+        // bgp peers as well as decommisioned BGP peers(if they exist). Active
+        // and decommisoned BGP peer can co-exist till cleanup timer is fired.
+        // During this interval ignore notification for decommisioned bgp peer
+        // listener id  
+        VrfEntry *vrf = route->vrf();
+        BgpPeer *bgp_peer = static_cast<BgpPeer *>(bgp_xmpp_peer->
+                                                   bgp_peer_id());
+        DBTableBase::ListenerId vrf_id = bgp_peer->GetVrfExportListenerId();
+        VrfExport::State *vs = 
+            static_cast<VrfExport::State *>(vrf->GetState(vrf->get_table(),
+                                                          vrf_id));
+        if (vs) {
+            DBTableBase::ListenerId id = vs->rt_export_[route->GetTableType()]->
+                GetListenerId();
+            if (id != id_)
+                return;
+        }
+    }
+
+    if (route->is_multicast()) {
+        MulticastNotify(bgp_xmpp_peer, associate, partition, e);
+    } else {
+        UnicastNotify(bgp_xmpp_peer, partition, e, type);
+    }
 }
 
 void RouteExport::UnicastNotify(AgentXmppChannel *bgp_xmpp_peer, 
@@ -106,7 +134,7 @@ void RouteExport::UnicastNotify(AgentXmppChannel *bgp_xmpp_peer,
         if (state->Changed(path)) {
             state->Update(path);
             CONTROLLER_TRACE(RouteExport,
-                             bgp_xmpp_peer->GetBgpPeer()->GetName(),
+                             bgp_xmpp_peer->GetBgpPeerName(),
                              route->vrf()->GetName(),
                              route->ToString(),
                              false, path->GetActiveLabel());
@@ -119,7 +147,7 @@ void RouteExport::UnicastNotify(AgentXmppChannel *bgp_xmpp_peer,
     } else {
         if (state->exported_ == true) {
             CONTROLLER_TRACE(RouteExport, 
-                    bgp_xmpp_peer->GetBgpPeer()->GetName(), 
+                    bgp_xmpp_peer->GetBgpPeerName(), 
                     route->vrf()->GetName(), 
                     route->ToString(), 
                     true, 0);
@@ -148,7 +176,7 @@ void RouteExport::MulticastNotify(AgentXmppChannel *bgp_xmpp_peer,
     bool route_can_be_dissociated = route->CanDissociate();
 
     if (route_can_be_dissociated && (state != NULL) && (state->exported_ == true)) {
-        CONTROLLER_TRACE(RouteExport, bgp_xmpp_peer->GetBgpPeer()->GetName(),
+        CONTROLLER_TRACE(RouteExport, bgp_xmpp_peer->GetBgpPeerName(),
                 route->vrf()->GetName(), 
                 route->ToString(), true, 0);
 
@@ -182,7 +210,7 @@ void RouteExport::MulticastNotify(AgentXmppChannel *bgp_xmpp_peer,
     if (!route_can_be_dissociated && ((state->exported_ == false) || 
                                   (state->force_chg_ == true))) {
 
-        CONTROLLER_TRACE(RouteExport, bgp_xmpp_peer->GetBgpPeer()->GetName(),
+        CONTROLLER_TRACE(RouteExport, bgp_xmpp_peer->GetBgpPeerName(),
                 route->vrf()->GetName(), 
                 route->ToString(), associate, 0);
 

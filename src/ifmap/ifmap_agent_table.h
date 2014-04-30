@@ -106,15 +106,13 @@ class IFMapAgentStaleCleaner {
 public:
     IFMapAgentStaleCleaner(DB *db, DBGraph *graph, boost::asio::io_service &io_service);
     ~IFMapAgentStaleCleaner();
-    void StaleCleanup(uint64_t seq);
     class IFMapAgentStaleCleanerWorker;
     void Clear();
-private:
     bool StaleTimeout();
-    static const int timeout_ = (15 * 60 * 1000); // In milli seconds
+
+private:
     DB *db_;
     DBGraph *graph_;
-    Timer *timer_;
     uint64_t seq_;
 };
 

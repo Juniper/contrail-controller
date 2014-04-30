@@ -80,12 +80,12 @@ void DiscoveryAgentClient::DiscoverDNS() {
 
 
 void DiscoveryAgentClient::DiscoverySubscribeDNSHandler(std::vector<DSResponse> resp) {
-    VNController::ApplyDiscoveryDnsXmppServices(resp);
+    agent_cfg_->agent()->controller()->ApplyDiscoveryDnsXmppServices(resp);
 }
 
 
 void DiscoveryAgentClient::DiscoverySubscribeXmppHandler(std::vector<DSResponse> resp) {
-    VNController::ApplyDiscoveryXmppServices(resp);
+    agent_cfg_->agent()->controller()->ApplyDiscoveryXmppServices(resp);
 }
 
 void DiscoveryAgentClient::DiscoverServices() {

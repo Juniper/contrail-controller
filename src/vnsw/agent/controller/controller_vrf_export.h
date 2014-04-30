@@ -18,8 +18,6 @@ public:
         ~State();
         bool exported_;
         bool force_chg_;
-        DBTableWalker::WalkId ucwalkid_[Agent::ROUTE_TABLE_MAX];
-        DBTableWalker::WalkId mcwalkid_[Agent::ROUTE_TABLE_MAX];
         RouteExport *rt_export_[Agent::ROUTE_TABLE_MAX];
     };
 

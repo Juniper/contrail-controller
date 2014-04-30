@@ -12,8 +12,10 @@
 #include <oper/tunnel_nh.h>
 #include <oper/mpls.h>
 #include <oper/mirror_table.h>
+#include <oper/multicast.h>
 #include <controller/controller_export.h>
 #include <controller/controller_peer.h>
+#include <controller/controller_init.h>
 #include <oper/agent_sandesh.h>
 
 using namespace std;
@@ -164,13 +166,19 @@ void Inet4MulticastRouteEntry::SetKey(const DBRequestKey *key) {
     set_src_ip_addr(src);
 }
 
-bool Inet4MulticastRouteEntry::DBEntrySandesh(Sandesh *sresp) const {
+bool Inet4MulticastRouteEntry::DBEntrySandesh(Sandesh *sresp, bool stale) const {
     Inet4McRouteResp *resp = static_cast<Inet4McRouteResp *>(sresp);
 
     RouteMcSandeshData data;
     data.set_src(src_ip_addr().to_string());
     data.set_grp(dest_ip_addr().to_string());
-    GetActiveNextHop()->SetNHSandeshData(data.nh);
+    MulticastGroupObject *mc_obj = MulticastHandler::GetInstance()->
+        FindGroupObject(vrf()->GetName(), dest_ip_addr());
+    Agent *agent = (static_cast<AgentRouteTable *>(get_table()))->agent();
+    if (!stale || (mc_obj->peer_identifier() != agent->controller()->
+                   multicast_sequence_number())) {
+        GetActiveNextHop()->SetNHSandeshData(data.nh);
+    }
 
     std::vector<RouteMcSandeshData> &list = 
         const_cast<std::vector<RouteMcSandeshData>&>(resp->get_route_list());
@@ -189,6 +197,6 @@ void Inet4McRouteReq::HandleRequest() const {
     }
 
     AgentInet4McRtSandesh *sand = new AgentInet4McRtSandesh(vrf, 
-                                                            context(), "");
+                                                            context(), "", get_stale());
     sand->DoSandesh();
 }
