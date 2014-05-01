@@ -261,7 +261,6 @@ XmppConnection *XmppServer::CreateConnection(XmppSession *session) {
 // over this tcp session, it can still be correctly handled, even though
 // the allocated xmpp data structures are not fully processed yet.
 bool XmppServer::AcceptSession(TcpSession *tcp_session) {
-
     XmppSession *session = dynamic_cast<XmppSession *>(tcp_session);
     XmppConnection *connection = CreateConnection(session);
 
