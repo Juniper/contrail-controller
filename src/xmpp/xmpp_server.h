@@ -47,6 +47,7 @@ public:
     virtual XmppConnection *FindConnectionbyHostName(const std::string hostname);
     virtual void RemoveConnection(XmppConnection *);
     virtual void InsertConnection(XmppConnection *);
+    virtual XmppConnection *CreateConnection(XmppSession *session);
                              
     //Clear a connection
     void ClearConnection(XmppConnection *);
@@ -71,7 +72,6 @@ private:
                    boost::asio::ip::basic_endpoint<boost::asio::ip::tcp>, 
                    XmppConnection *const> XmppConnectionPair;
     bool Compare(const std::string &peer_addr, const XmppConnectionPair &) const;
-    XmppConnection *CreateConnection(XmppSession *session);
 
     XmppConnectionMap connection_map_;
     void *bgp_server_;

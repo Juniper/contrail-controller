@@ -36,6 +36,9 @@
 // Whitespace characters allowed as fillers between xmpp messages.
 #define sXMPP_VALIDWS                " \n\r\tȀ" 
 #define sXMPP_CHAT_MSG             "<message from='fake-from' to='fake-to' type='chat'> <body> msg </body> <subject> log </subject> </message>"
+#define sXMPP_STREAM_START         "<?xml version=\"1.0\"?><stream:stream"
+#define sXMPP_STREAM_START_S       "<stream:stream"
+
                                      
 
 #define sXML_STREAM_C               "/stream:stream"
@@ -51,6 +54,6 @@
 // Regexp
 //#define rXMPP_MESSAGE              "<.*[\\s\\n\\t\\r]"
 #define rXMPP_MESSAGE              "<(iq|message)"
-#define rXMPP_STREAM_START         "<?.*?>[\\s\\n\\t\\r]*<stream:stream"
+#define rXMPP_STREAM_START         "<?.*?>*[\\s\\n\\t\\r]*<stream:stream"
 #define rXMPP_STREAM_END           "http://etherx.jabber.org/streams[\"'][\\s\\t\\r\\n]*>"
 #endif // __XMPP_STR_H__
