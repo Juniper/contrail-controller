@@ -176,7 +176,6 @@ protected:
         cconnection_->ManagedDelete();
         task_util::WaitForIdle();
 
-        //delete cconnection_;
         cconnection_ = NULL;
         sconnection_ = NULL;
     }
