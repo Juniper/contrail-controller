@@ -4,7 +4,6 @@
 
 #include "xmpp/xmpp_proto.h"
 #include <iostream>
-#include <algorithm>
 #include <string>
 #include <boost/algorithm/string/replace.hpp>
 #include <boost/algorithm/string/predicate.hpp>
