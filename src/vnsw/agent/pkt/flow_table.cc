@@ -2568,8 +2568,8 @@ FlowTable::FlowTable(Agent *agent) :
     vrf_listener_id_(), nh_listener_(NULL),
     route_key_(NULL, Ip4Address(), 32, false) {
     max_vm_flows_ =
-        agent->ksync()->flowtable_ksync_obj()->flow_table_entries_count() *
-        agent->params()->max_vm_flows() / 100;
+        (agent->ksync()->flowtable_ksync_obj()->flow_table_entries_count() *
+        (uint32_t) agent->params()->max_vm_flows()) / 100;
 }
 
 FlowTable::~FlowTable() {
