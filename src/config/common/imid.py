@@ -116,6 +116,13 @@ def get_fq_name_from_ifmap_id(ifmap_id):
     return ifmap_id.split(':')[2:]
 # end get_fq_name_from_ifmap_id
 
+def get_vm_id_from_interface(vmi_obj):
+    if vmi_obj.parent_type=='virtual-machine':
+        return vmi_obj.parent_uuid
+    else:
+        vm_refs = vmi_obj.get_virtual_machine_refs()
+        return vm_refs[0]['uuid'] if vm_refs else None
+# end get_vmi_id_from_interface
 
 def subscribe_root(ssrc_mapc):
     #self._ident_type_subscribe(_CLOUD_IMID, "ct:member-of")
