@@ -256,6 +256,8 @@ void IFMapGraphWalker::AddLinksToWhitelist() {
     traversal_white_list_->include_edge.insert(
         "source=virtual-machine,target=virtual-machine-interface");
     traversal_white_list_->include_edge.insert(
+        "source=virtual-machine-interface,target=virtual-machine");
+    traversal_white_list_->include_edge.insert(
         "source=bgp-router,target=physical-router");
     traversal_white_list_->include_edge.insert(
         "source=service-instance,target=service-template");

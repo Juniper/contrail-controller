@@ -823,7 +823,8 @@ class VirtualNetworkST(DictST):
                 id=vm_analyzer[0]['uuid'])
             if vm_analyzer_obj is None:
                 return (None, None)
-            vmi_refs = vm_analyzer_obj.get_virtual_machine_interfaces()
+            vmi_refs = (vm_analyzer_obj.get_virtual_machine_interfaces() or
+                        vm_analyzer_obj.get_virtual_machine_interface_back_refs())
             if vmi_refs is None:
                 return (None, None)
             for vmi_ref in vmi_refs:
@@ -1479,7 +1480,9 @@ class ServiceChain(DictST):
         right_found = False
         vlan = VirtualNetworkST.allocate_service_chain_vlan(
             vm_obj.uuid, self.name)
-        for interface in vm_obj.get_virtual_machine_interfaces() or []:
+        for interface in (vm_obj.get_virtual_machine_interfaces() or
+                          vm_obj.get_virtual_machine_interface_back_refs()
+                          or []):
             if_obj = _vnc_lib.virtual_machine_interface_read(
                 id=interface['uuid'])
             props = if_obj.get_virtual_machine_interface_properties()
@@ -1520,7 +1523,9 @@ class ServiceChain(DictST):
                                    service_ri1, service_ri2):
         left_found = False
         right_found = False
-        for interface in vm_obj.get_virtual_machine_interfaces() or []:
+        for interface in (vm_obj.get_virtual_machine_interfaces() or
+                          vm_obj.get_virtual_machine_interface_back_refs()
+                          or []):
             if_obj = _vnc_lib.virtual_machine_interface_read(
                 id=interface['uuid'])
             props = if_obj.get_virtual_machine_interface_properties()
@@ -2151,8 +2156,11 @@ class VirtualMachineInterfaceST(DictST):
         # return all networks that refer to those policies
         if self.service_interface_type not in ['left', 'right']:
             return network_set
-        vm_name = self.name.split(':')[0]
-        vm_obj = _vnc_lib.virtual_machine_read(fq_name=[vm_name])
+        vmi_obj = _vnc_lib.virtual_machine_interface_read(fq_name_str=self.name)
+        vm_id = get_vm_id_from_interface(vmi_obj)
+        if vm_id is None:
+            return network_set
+        vm_obj = _vnc_lib.virtual_machine_read(id=vm_id)
         vm_si_refs = vm_obj.get_service_instance_refs()
         if not vm_si_refs:
             return network_set
