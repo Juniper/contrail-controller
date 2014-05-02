@@ -796,7 +796,6 @@ protected:
 };
 
 #define GETSCALEARGS()                          \
-    bool headless_init = false;                 \
     bool ksync_init = false;                    \
     char init_file[1024];                       \
     memset(init_file, '\0', sizeof(init_file)); \
@@ -812,7 +811,6 @@ protected:
         ("vm", opt::value<int>(), "Number of VM per VN")            \
         ("control", opt::value<int>(), "Number of control peer")     \
         ("remote", opt::value<int>(), "Number of remote routes")     \
-        ("headless", "Run headless vrouter")                     \
         ("wait_usecs", opt::value<int>(), "Walker Wait in msecs") \
         ("yield", opt::value<int>(), "Walker yield (default 1)");\
     opt::store(opt::parse_command_line(argc, argv, desc), vm); \
@@ -835,9 +833,6 @@ protected:
     }                                           \
     if (vm.count("remote")) {                   \
         num_remote = vm["remote"].as<int>();    \
-    }                                           \
-    if (vm.count("headless")) {                 \
-        headless_init = true;                   \
     }                                           \
     if (vm.count("wait_usecs")) {                      \
         walker_wait_usecs = vm["wait_usecs"].as<int>();   \
