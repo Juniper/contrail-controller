@@ -20,7 +20,7 @@ class VNController {
 public:
     typedef boost::shared_ptr<BgpPeer> BgpPeerPtr; 
     typedef std::list<boost::shared_ptr<BgpPeer> >::iterator BgpPeerIterator;
-    static const uint64_t kInvalidPeerIdentifier = 0xFFFFFFFFFFFFFFFF;
+    static const uint64_t kInvalidPeerIdentifier = 0xFFFFFFFFFFFFFFFFLL;
     VNController(Agent *agent);
     virtual ~VNController();
     void Connect();
