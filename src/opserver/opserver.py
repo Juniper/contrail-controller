@@ -417,7 +417,7 @@ class OpServer(object):
                                       self._node_type_name, self._instance_id,
                                       self._args.collectors, 'opserver_context',
                                       int(self._args.http_server_port),
-                                      ['sandesh'])
+                                      ['opserver.sandesh'])
         sandesh_global.set_logging_params(
             enable_local_log=self._args.log_local,
             category=self._args.log_category,
@@ -608,6 +608,7 @@ class OpServer(object):
             'log_category'       : '',
             'log_file'           : Sandesh._DEFAULT_LOG_FILE,
             'dup'                : False,
+            'redis_uve_list'     : ['127.0.0.1:6381']
         }
         redis_opts = {
             'redis_server_port'  : 6381,
@@ -624,7 +625,7 @@ class OpServer(object):
             config.read([args.conf_file])
             defaults.update(dict(config.items("DEFAULTS")))
             if 'REDIS' in config.sections():
-                disc_opts.update(dict(config.items('REDIS')))
+                redis_opts.update(dict(config.items('REDIS')))
             if 'DISCOVERY' in config.sections():
                 disc_opts.update(dict(config.items('DISCOVERY')))
 
@@ -642,55 +643,42 @@ class OpServer(object):
         parser.set_defaults(**defaults)
 
         parser.add_argument("--host_ip",
-            default="127.0.0.1",
             help="Host IP address")
         parser.add_argument("--redis_server_port",
             type=int,
-            default=6381,
             help="Redis server port")
         parser.add_argument("--redis_query_port",
             type=int,
-            default=6380,
             help="Redis query port")
         parser.add_argument("--collectors",
-            default='127.0.0.1:8086',
             help="List of Collector IP addresses in ip:port format",
             nargs="+")
         parser.add_argument("--http_server_port",
             type=int,
-            default=8090,
             help="HTTP server port")
         parser.add_argument("--rest_api_port",
             type=int,
-            default=8081,
             help="REST API port")
         parser.add_argument("--rest_api_ip",
-            default='0.0.0.0',
             help="REST API IP address")
         parser.add_argument("--log_local", action="store_true",
-            default=False,
             help="Enable local logging of sandesh messages")
         parser.add_argument(
-            "--log_level",  default='SYS_DEBUG',
+            "--log_level",  
             help="Severity level for local logging of sandesh messages")
         parser.add_argument(
-            "--log_category", default='',
+            "--log_category", 
             help="Category filter for local logging of sandesh messages")
         parser.add_argument("--log_file",
-            default=Sandesh._DEFAULT_LOG_FILE,
             help="Filename for the logs to be written to")
         parser.add_argument("--disc_server_ip",
-            default=None,
             help="Discovery Server IP address")
         parser.add_argument("--disc_server_port",
             type=int,
-            default=5998,
             help="Discovery Server port")
         parser.add_argument("--dup", action="store_true",
-            default=False,
             help="Internal use")
         parser.add_argument("--redis_uve_list",
-            default="127.0.0.1:6381",
             help="List of redis-uve in ip:port format. For internal use only",
             nargs="+")
         parser.add_argument(
