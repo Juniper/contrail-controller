@@ -325,8 +325,10 @@ class SvcMonitor(object):
 
     def _set_svc_vm_if_properties(self, vmi_obj, vn_obj):
         # confirm service vm by checking reference to service instance
-        vm_obj = self._vnc_lib.virtual_machine_read(
-            fq_name_str=vmi_obj.parent_name)
+        vm_id = get_vm_id_from_interface(vmi_obj)
+        if vm_id is None:
+            return
+        vm_obj = self._vnc_lib.virtual_machine_read(id=vm_id)
         si_list = vm_obj.get_service_instance_refs()
         if not si_list:
             return
@@ -737,8 +739,10 @@ class SvcMonitor(object):
             return
 
         # check if this is a service vm
-        vm_obj = self._vnc_lib.virtual_machine_read(
-            fq_name_str=vmi_obj.parent_name)
+        vm_id = get_vm_id_from_interface(vmi_obj)
+        if vm_id is None:
+            return
+        vm_obj = self._vnc_lib.virtual_machine_read(id=vm_id)
         si_list = vm_obj.get_service_instance_refs()
         if si_list:
             fq_name = si_list[0]['to']
