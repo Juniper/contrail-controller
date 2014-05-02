@@ -127,13 +127,10 @@ class OpServer(object):
 
     def start(self):
         assert(self._instance == None)
-        openv = copy.deepcopy(os.environ)
-        openv['PYTHONPATH'] = self.analytics_fixture.builddir + \
-            '/sandesh/library/python'
         self._log_file = '/tmp/opserver.messages.' + str(self.listen_port)
         subprocess.call(['rm', '-rf', self._log_file])
         args = ['python', self.analytics_fixture.builddir + \
-                '/opserver/opserver/opserver.py',
+                '/analytics_test/bin/contrail-analytics-api',
                 '--redis_server_port', str(self._redis_port),
                 '--redis_query_port', 
                 str(self.analytics_fixture.redis_query.port),
@@ -150,7 +147,7 @@ class OpServer(object):
         if self._is_dup:
             args.append('--dup')
 
-        self._instance = subprocess.Popen(args, env=openv,
+        self._instance = subprocess.Popen(args,
                                           stdout=subprocess.PIPE,
                                           stderr=subprocess.PIPE)
         self._logger.info('Setting up OpServer: %s' % ' '.join(args))
