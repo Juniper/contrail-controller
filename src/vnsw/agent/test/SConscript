@@ -115,11 +115,11 @@ if sys.platform != 'darwin':
     test_multicast = env.Program(target = 'test_multicast', source = ['test_multicast.cc'])
     env.Alias('agent:test_multicast', test_multicast)
 
-    #test_xmpp_bcast_hv = env.Program(target = 'test_xmpp_bcast_hv', source = ['test_xmpp_bcast_hv.cc'])
-    #env.Alias('agent:test_xmpp_bcast_hv', test_xmpp_bcast_hv)
+    test_xmpp_bcast_hv = env.Program(target = 'test_xmpp_bcast_hv', source = ['test_xmpp_bcast_hv.cc'])
+    env.Alias('agent:test_xmpp_bcast_hv', test_xmpp_bcast_hv)
     
-    #test_xmpp_bcast_non_hv = env.Program(target = 'test_xmpp_bcast_non_hv', source = ['test_xmpp_bcast_non_hv.cc'])
-    #env.Alias('agent:test_xmpp_bcast_non_hv', test_xmpp_bcast_non_hv)
+    test_xmpp_bcast_non_hv = env.Program(target = 'test_xmpp_bcast_non_hv', source = ['test_xmpp_bcast_non_hv.cc'])
+    env.Alias('agent:test_xmpp_bcast_non_hv', test_xmpp_bcast_non_hv)
     
     test_xmppcs_bcast_hv = env.Program(target = 'test_xmppcs_bcast_hv', source = ['test_xmppcs_bcast_hv.cc'])
     env.Alias('agent:test_xmppcs_bcast_hv', test_xmppcs_bcast_hv)
@@ -148,11 +148,8 @@ if sys.platform != 'darwin':
     test_agent_route_walker = env.Program(target = 'test_agent_route_walker', source = ['test_agent_route_walker.cc'])
     env.Alias('agent:test_agent_route_walker', test_agent_route_walker)
 
-    #test_multicast_headless = env.Program(target = 'test_multicast_headless', source = ['test_multicast_headless.cc'])
-    #env.Alias('src/vnsw/agent/test:test_multicast_headless', test_multicast_headless)
-
-    #test_xmpp_hv = env.Program(target = 'test_xmpp_hv', source = ['test_xmpp_hv.cc'])
-    #env.Alias('agent:test_xmpp_hv', test_xmpp_hv)
+    test_xmpp_hv = env.Program(target = 'test_xmpp_hv', source = ['test_xmpp_hv.cc'])
+    env.Alias('agent:test_xmpp_hv', test_xmpp_hv)
 
     test_scale_walk = env.Program(target = 'test_scale_walk', source = ['test_scale_walk.cc'])
     env.Alias('agent:test_scale_walk', test_scale_walk)
@@ -160,38 +157,6 @@ if sys.platform != 'darwin':
 #    test_sg = env.Program(target = 'test_sg', source = ['test_sg.cc'])
 #    env.Alias('agent:test_sg', test_sg)
 
-
-#test_suite = [test_dummy,
-#              test_vn,
-#              test_vm,
-#              test_peer_del,
-#              test_vmport_cfg,
-#              test_fip_cfg,
-#              test_acl,
-#              test_acl_entry,
-#              test_route,
-#              test_l2route,
-#              test_cfg,
-#              test_xmpp_hv,
-#              test_xmpp_hv2,
-#              test_xmppcs_hv,
-#              test_xmpp_non_hv,
-#              test_xmppcs_non_hv,
-#              test_vrf,
-#              test_mirror,
-#              test_nh,
-#              test_vhost_ip_change,
-#              test_multicast,
-#              test_xmpp_bcast_hv,
-#              test_xmppcs_bcast_hv,
-#              test_xmpp_bcast_non_hv,
-#              test_xmppcs_bcast_non_hv,
-#              test_cfg_listener,
-#              test_global_vrouter_config,
-#              test_tunnel_encap,
-#              test_agent_route_walker,
-#              test_sg
-#                 ]
 
 test_suite = [test_dummy,
               test_vn,
@@ -204,11 +169,20 @@ test_suite = [test_dummy,
               test_route,
               test_l2route,
               test_cfg,
+              test_xmpp_hv,
+              test_xmpp_hv2,
+              test_xmppcs_hv,
+              test_xmpp_non_hv,
+              test_xmppcs_non_hv,
               test_vrf,
               test_mirror,
               test_nh,
               test_vhost_ip_change,
               test_multicast,
+              test_xmpp_bcast_hv,
+              test_xmppcs_bcast_hv,
+              test_xmpp_bcast_non_hv,
+              test_xmppcs_bcast_non_hv,
               test_cfg_listener,
               test_global_vrouter_config,
               test_tunnel_encap,
