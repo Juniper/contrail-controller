@@ -103,7 +103,7 @@ class NeutronPluginInterface(object):
 
         try:
             cfgdb = self._get_user_cfgdb(context)
-            net_info = cfgdb.network_read(network['net_id'], fields)
+            net_info = cfgdb.network_read(network['id'], fields)
             return net_info
         except Exception as e:
             cgitb.Hook(format="text").handle(sys.exc_info())
@@ -116,7 +116,7 @@ class NeutronPluginInterface(object):
 
         try:
             cfgdb = self._get_user_cfgdb(context)
-            net_info = cfgdb.network_create(network['network'])
+            net_info = cfgdb.network_create(network['resource'])
             return net_info
         except Exception as e:
             cgitb.Hook(format="text").handle(sys.exc_info())
@@ -129,8 +129,8 @@ class NeutronPluginInterface(object):
 
         try:
             cfgdb = self._get_user_cfgdb(context)
-            net_info = cfgdb.network_update(network['net_id'],
-                                            network['network'])
+            net_info = cfgdb.network_update(network['id'],
+                                            network['resource'])
             return net_info
         except Exception as e:
             cgitb.Hook(format="text").handle(sys.exc_info())
@@ -143,13 +143,13 @@ class NeutronPluginInterface(object):
 
         try:
             cfgdb = self._get_user_cfgdb(context)
-            cfgdb.network_delete(network['net_id'])
-            LOG.debug("plugin_delete_network(): " + pformat(net_id))
+            cfgdb.network_delete(network['id'])
+            LOG.debug("plugin_delete_network(): " + pformat(network['id']))
         except Exception as e:
             cgitb.Hook(format="text").handle(sys.exc_info())
             raise e
 
-    def plugin_http_get_networks(self, context, network):
+    def plugin_get_networks(self, context, network):
         """
         Networks get request
         """
@@ -165,7 +165,7 @@ class NeutronPluginInterface(object):
             cgitb.Hook(format="text").handle(sys.exc_info())
             raise e
 
-    def plugin_http_get_networks_count(self, context, network):
+    def plugin_get_networks_count(self, context, network):
         """
         Networks count request
         """
@@ -175,7 +175,7 @@ class NeutronPluginInterface(object):
         try:
             cfgdb = self._get_user_cfgdb(context)
             nets_count = cfgdb.network_count(filters)
-            LOG.debug("plugin_http_get_networks_count(): filters: "
+            LOG.debug("plugin_get_networks_count(): filters: "
                       + pformat(filters) + " data: " + str(nets_count))
             return {'count': nets_count}
         except Exception as e:
@@ -197,7 +197,114 @@ class NeutronPluginInterface(object):
         elif context['operation'] == 'DELETE':
             return self.plugin_delete_network(context, network)
         elif context['operation'] == 'READALL':
-            return self.plugin_http_get_networks(context, network)
+            return self.plugin_get_networks(context, network)
         elif context['operation'] == 'READCOUNT':
-            return self.plugin_http_get_networks_count(context, network)
+            return self.plugin_get_networks_count(context, network)
+
+    def plugin_get_subnet(self, context, subnet):
+        """
+        Subnet get request
+        """
+
+        fields = subnet['fields']
+
+        try:
+            cfgdb = self._get_user_cfgdb(context)
+            subnet_info = cfgdb.subnet_read(subnet['id'], fields)
+            return subnet_info
+        except Exception as e:
+            cgitb.Hook(format="text").handle(sys.exc_info())
+            raise e
+
+    def plugin_create_subnet(self, context, subnet):
+        """
+        Subnet create request
+        """
+
+        try:
+            cfgdb = self._get_user_cfgdb(context)
+            net_info = cfgdb.subnet_create(subnet['resource'])
+            return net_info
+        except Exception as e:
+            cgitb.Hook(format="text").handle(sys.exc_info())
+            raise e
+
+    def plugin_update_subnet(self, context, subnet):
+        """
+        Subnet update request
+        """
+
+        try:
+            cfgdb = self._get_user_cfgdb(context)
+            net_info = cfgdb.subnet_update(subnet['id'],
+                                           subnet['resource'])
+            return net_info
+        except Exception as e:
+            cgitb.Hook(format="text").handle(sys.exc_info())
+            raise e
+
+    def plugin_delete_subnet(self, context, subnet):
+        """
+        Subnet delete request
+        """
+
+        try:
+            cfgdb = self._get_user_cfgdb(context)
+            cfgdb.subnet_delete(subnet['id'])
+            LOG.debug("plugin_delete_subnet(): " + pformat(subnet['id']))
+        except Exception as e:
+            cgitb.Hook(format="text").handle(sys.exc_info())
+            raise e
+
+    def plugin_get_subnets(self, context, subnet):
+        """
+        Subnets get request
+        """
+
+        filters = subnet['filters']
+        fields = subnet['fields']
+
+        try:
+            cfgdb = self._get_user_cfgdb(context)
+            subnets_info = cfgdb.subnets_list(context, filters)
+            return json.dumps(subnets_info)
+        except Exception as e:
+            cgitb.Hook(format="text").handle(sys.exc_info())
+            raise e
+
+    def plugin_get_subnets_count(self, context, subnet):
+        """
+        Subnets count request
+        """
+
+        filters = subnet['filters']
+
+        try:
+            cfgdb = self._get_user_cfgdb(context)
+            nets_count = cfgdb.subnets_count(context, filters)
+            LOG.debug("plugin_get_subnets_count(): filters: "
+                      + pformat(filters) + " data: " + str(nets_count))
+            return {'count': nets_count}
+        except Exception as e:
+            cgitb.Hook(format="text").handle(sys.exc_info())
+            raise e
+
+    def plugin_http_post_subnet(self):
+        """
+        Bottle callback for Subnet POST
+        """
+        context, subnet = self._get_requests_data()
+
+        if context['operation'] == 'READ':
+            return self.plugin_get_subnet(context, subnet)
+        elif context['operation'] == 'CREATE':
+            return self.plugin_create_subnet(context, subnet)
+        elif context['operation'] == 'UPDATE':
+            return self.plugin_update_subnet(context, subnet)
+        elif context['operation'] == 'DELETE':
+            return self.plugin_delete_subnet(context, subnet)
+        elif context['operation'] == 'READALL':
+            return self.plugin_get_subnets(context, subnet)
+        elif context['operation'] == 'READCOUNT':
+            return self.plugin_get_subnets_count(context, subnet)
 

@@ -2102,7 +2102,7 @@ class DBInterface(object):
             all_net_objs.extend(self._virtual_network_list(obj_uuids=net_ids,
                                                            detail=True))
         else:
-            if not context.is_admin:
+            if not context['is_admin']:
                 proj_id = context.tenant
             else:
                 proj_id = None
