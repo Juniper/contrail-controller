@@ -193,9 +193,17 @@ struct InterfaceData : public AgentData {
 /////////////////////////////////////////////////////////////////////////////
 class InterfaceTable : public AgentDBTable {
 public:
-    typedef std::map<const std::string, Ip4Address> DhcpSnoopMap;
-    typedef std::map<const std::string, Ip4Address>::iterator DhcpSnoopIterator;
-    typedef std::pair<const std::string, Ip4Address> DhcpSnoopPair;
+    struct DhcpSnoopEntry {
+        DhcpSnoopEntry() : addr_(0), config_entry_(false) { }
+        DhcpSnoopEntry(const Ip4Address &addr, bool config_entry) :
+            addr_(addr), config_entry_(config_entry) { }
+        ~DhcpSnoopEntry() { }
+        Ip4Address addr_;
+        bool config_entry_;
+    };
+
+    typedef std::map<const std::string, DhcpSnoopEntry> DhcpSnoopMap;
+    typedef std::map<const std::string, DhcpSnoopEntry>::iterator DhcpSnoopIterator;
 
     InterfaceTable(DB *db, const std::string &name) :
         AgentDBTable(db, name), operdb_(NULL), agent_(NULL),
@@ -244,7 +252,9 @@ public:
     // Dhcp Snoop Map entries
     const Ip4Address GetDhcpSnoopEntry(const std::string &ifname);
     void DeleteDhcpSnoopEntry(const std::string &ifname);
-    void AddDhcpSnoopEntry(const std::string &ifname, const Ip4Address &addr);
+    void AddDhcpSnoopEntry(const std::string &ifname, const Ip4Address &addr,
+                           bool config_entry);
+    void AuditDhcpSnoopTable();
 
     // TODO : to remove this
     static InterfaceTable *GetInstance() { return interface_table_; }
@@ -260,6 +270,9 @@ private:
     Agent *agent_;          // Cached entry
     DBTableWalker::WalkId walkid_;
     IndexVector<Interface> index_table_;
+    // On restart, DHCP Snoop entries are read from kernel and updated in the
+    // ASIO context. Lock used to synchronize
+    tbb::mutex dhcp_snoop_mutex_;
     DhcpSnoopMap dhcp_snoop_map_;
     DISALLOW_COPY_AND_ASSIGN(InterfaceTable);
 };

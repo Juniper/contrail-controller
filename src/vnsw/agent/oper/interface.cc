@@ -4,6 +4,7 @@
 
 #include <netinet/ether.h>
 #include <boost/uuid/uuid_io.hpp>
+#include <tbb/mutex.h>
 
 #include "base/logging.h"
 #include "db/db.h"
@@ -28,11 +29,9 @@
 #include <vnc_cfg_types.h>
 #include <oper/agent_sandesh.h>
 #include <oper/sg.h>
-#include <ksync/interface_ksync.h>
-#include <ksync/ksync_init.h>
-#include "sandesh/sandesh_trace.h"
-#include "sandesh/common/vns_types.h"
-#include "sandesh/common/vns_constants.h"
+#include <sandesh/sandesh_trace.h>
+#include <sandesh/common/vns_types.h>
+#include <sandesh/common/vns_constants.h>
 
 #include <services/dns_proto.h>
 
@@ -387,26 +386,17 @@ void PhysicalInterface::Delete(InterfaceTable *table, const string &ifname) {
 //
 // InterfaceKScan table is populated on agent restart
 const Ip4Address InterfaceTable::GetDhcpSnoopEntry(const std::string &ifname) {
+    tbb::mutex::scoped_lock lock(dhcp_snoop_mutex_);
     const DhcpSnoopIterator it = dhcp_snoop_map_.find(ifname);
     if (it != dhcp_snoop_map_.end()) {
-        return it->second;
-    }
-
-    // No entry in DHCP Snoop table. 
-    // See if there is entry in InterfaceKscanData
-    InterfaceKScan *kscan = agent_->ksync()->interface_scanner();
-    if (kscan) {
-        uint32_t addr;
-        if (kscan->FindInterfaceKScanData(ifname, addr)) {
-            AddDhcpSnoopEntry(ifname, Ip4Address(addr));
-            return Ip4Address(addr);
-        }
+        return it->second.addr_;
     }
 
     return Ip4Address(0);
 }
 
 void InterfaceTable::DeleteDhcpSnoopEntry(const std::string &ifname) {
+    tbb::mutex::scoped_lock lock(dhcp_snoop_mutex_);
     const DhcpSnoopIterator it = dhcp_snoop_map_.find(ifname);
     if (it == dhcp_snoop_map_.end()) {
         return;
@@ -416,10 +406,36 @@ void InterfaceTable::DeleteDhcpSnoopEntry(const std::string &ifname) {
 }
 
 void InterfaceTable::AddDhcpSnoopEntry(const std::string &ifname,
-                                       const Ip4Address &addr) {
-    dhcp_snoop_map_[ifname] = addr;
+                                       const Ip4Address &addr,
+                                       bool config_entry) {
+    tbb::mutex::scoped_lock lock(dhcp_snoop_mutex_);
+    DhcpSnoopEntry entry(addr, config_entry);
+    const DhcpSnoopIterator it = dhcp_snoop_map_.find(ifname);
+
+    if (it != dhcp_snoop_map_.end()) {
+        if (it->second.config_entry_) {
+            entry.config_entry_ = true;
+        }
+
+        if (addr.to_ulong() == 0) {
+            entry.addr_ = it->second.addr_;
+        }
+    }
+
+    dhcp_snoop_map_[ifname] = entry;
 }
 
+// Audit DHCP Snoop table. Delete the entries which are not seen from config
+void InterfaceTable::AuditDhcpSnoopTable() {
+    tbb::mutex::scoped_lock lock(dhcp_snoop_mutex_);
+    DhcpSnoopIterator it = dhcp_snoop_map_.begin();
+    while (it != dhcp_snoop_map_.end()){
+        DhcpSnoopIterator del_it = it++;
+        if (del_it->second.config_entry_) {
+            dhcp_snoop_map_.erase(del_it);
+        }
+    }
+}
 /////////////////////////////////////////////////////////////////////////////
 // Sandesh routines
 /////////////////////////////////////////////////////////////////////////////

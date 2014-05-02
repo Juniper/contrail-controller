@@ -253,7 +253,8 @@ TEST_F(FabricInterfaceTest, dhcp_snoop_1) {
     EXPECT_TRUE(intf->do_dhcp_relay());
 
     interface_table_->AddDhcpSnoopEntry("fabric1",
-                                        Ip4Address::from_string("1.1.1.1"));
+                                        Ip4Address::from_string("1.1.1.1"),
+                                        true);
     DhcpInterfaceSync(this, 1, "fabric1");
     client->WaitForIdle();
 
@@ -264,7 +265,8 @@ TEST_F(FabricInterfaceTest, dhcp_snoop_1) {
     EXPECT_TRUE(rt != NULL);
 
     interface_table_->AddDhcpSnoopEntry("fabric1",
-                                        Ip4Address::from_string("2.2.2.2"));
+                                        Ip4Address::from_string("2.2.2.2"),
+                                        true);
     DhcpInterfaceSync(this, 1, "fabric1");
     client->WaitForIdle();
     rt = RouteGet(fabric_vrf_name_, Ip4Address::from_string("2.2.2.2"), 32);

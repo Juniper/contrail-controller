@@ -5,7 +5,6 @@
 #include "vr_defs.h"
 #include "cmn/agent_cmn.h"
 #include "oper/route_common.h"
-#include "ksync/interface_ksync.h"
 #include "pkt/pkt_init.h"
 #include "services/dhcp_proto.h"
 #include "services/services_types.h"
@@ -450,7 +449,7 @@ void DhcpHandler::RelayResponseFromFabric() {
     if (msg_type_ == DHCP_ACK) {
         // Populate the DHCP Snoop table
         agent()->GetInterfaceTable()->AddDhcpSnoopEntry
-            (vm_itf_->name(), Ip4Address(ntohl(dhcp_->yiaddr)));
+            (vm_itf_->name(), Ip4Address(ntohl(dhcp_->yiaddr)), true);
         // Enqueue RESYNC to update the IP address
         DBRequest req(DBRequest::DB_ENTRY_ADD_CHANGE);
         req.key.reset(new VmInterfaceKey(AgentKey::RESYNC, vm_itf_->GetUuid(),

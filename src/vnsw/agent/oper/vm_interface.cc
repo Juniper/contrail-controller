@@ -29,11 +29,9 @@
 #include <vnc_cfg_types.h>
 #include <oper/agent_sandesh.h>
 #include <oper/sg.h>
-#include <ksync/interface_ksync.h>
 #include "sandesh/sandesh_trace.h"
 #include "sandesh/common/vns_types.h"
 #include "sandesh/common/vns_constants.h"
-#include <ksync/ksync_init.h>
 #include <services/dns_proto.h>
 #include <filter/acl.h>
 
@@ -981,25 +979,6 @@ void VmInterface::GetOsParams(Agent *agent) {
     os_index_ = Interface::kInvalidIndex;
     memcpy(mac_.ether_addr_octet, agent->vrrp_mac(), ETHER_ADDR_LEN);
     os_oper_state_ = true;
-}
-
-// Get DHCP IP address. DHCP IP is used only if IP address not specified in 
-// config. We can get DHCP IP in two ways,
-// - By snooping dhcp packets
-// - To support agent restart, the snooped address are stored in InterfaceKScan
-//   table. Query the table to find DHCP Snooped address
-bool VmInterface::GetDhcpSnoopIp(const std::string &name, Ip4Address *ip)
-    const {
-    uint32_t addr;
-    InterfaceKScan *intf = Agent::GetInstance()->ksync()->interface_scanner();
-    if (intf) {
-        if (intf->FindInterfaceKScanData(name, addr)) {
-            *ip = Ip4Address(addr);
-            return true;
-        }
-    }
-
-    return false;
 }
 
 // A VM Interface is L3 active under following conditions,

@@ -523,6 +523,9 @@ public:
     bool test_mode() const { return test_mode_; }
     void set_test_mode(bool test_mode) { test_mode_ = test_mode; }
 
+    uint32_t flow_table_size() const { return flow_table_size_; }
+    void set_flow_table_size(uint32_t count) { flow_table_size_ = count; }
+
     bool isXenMode();
 
     static Agent *GetInstance() {return singleton_;}
@@ -668,6 +671,10 @@ private:
     bool debug_;
     bool test_mode_;
 
+    // Flow information
+    uint32_t flow_table_size_;
+
+    // Constants
     static const std::string config_file_;
     static const std::string log_file_;
     static const std::string null_str_;
