@@ -118,8 +118,8 @@ if sys.platform != 'darwin':
     #test_xmpp_bcast_hv = env.Program(target = 'test_xmpp_bcast_hv', source = ['test_xmpp_bcast_hv.cc'])
     #env.Alias('agent:test_xmpp_bcast_hv', test_xmpp_bcast_hv)
     
-    test_xmpp_bcast_non_hv = env.Program(target = 'test_xmpp_bcast_non_hv', source = ['test_xmpp_bcast_non_hv.cc'])
-    env.Alias('agent:test_xmpp_bcast_non_hv', test_xmpp_bcast_non_hv)
+    #test_xmpp_bcast_non_hv = env.Program(target = 'test_xmpp_bcast_non_hv', source = ['test_xmpp_bcast_non_hv.cc'])
+    #env.Alias('agent:test_xmpp_bcast_non_hv', test_xmpp_bcast_non_hv)
     
     test_xmppcs_bcast_hv = env.Program(target = 'test_xmppcs_bcast_hv', source = ['test_xmppcs_bcast_hv.cc'])
     env.Alias('agent:test_xmppcs_bcast_hv', test_xmppcs_bcast_hv)
@@ -148,7 +148,7 @@ if sys.platform != 'darwin':
     test_agent_route_walker = env.Program(target = 'test_agent_route_walker', source = ['test_agent_route_walker.cc'])
     env.Alias('agent:test_agent_route_walker', test_agent_route_walker)
 
-    #test_multicast_headless = env.Program(target = 'test_multicast_headless', source = ['
+    #test_multicast_headless = env.Program(target = 'test_multicast_headless', source = ['test_multicast_headless.cc'])
     #env.Alias('src/vnsw/agent/test:test_multicast_headless', test_multicast_headless)
 
     #test_xmpp_hv = env.Program(target = 'test_xmpp_hv', source = ['test_xmpp_hv.cc'])

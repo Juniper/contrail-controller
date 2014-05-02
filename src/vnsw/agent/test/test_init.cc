@@ -83,7 +83,7 @@ TestClient *TestInit(const char *init_file, bool ksync_init, bool pkt_init,
     // Initialize agent and kick start initialization
     agent->Init(param, init);
 
-    WAIT_FOR(1000, 100, init->init_done());
+    WAIT_FOR(1000, 10000, init->init_done());
     client->Init();
     client->WaitForIdle();
     client->SetFlowFlushExclusionPolicy();
@@ -195,7 +195,7 @@ TestClient *VGwInit(const string &init_file, bool ksync_init) {
     // Initialize agent and kick start initialization
     agent->Init(param, init);
 
-    WAIT_FOR(1000, 100, init->init_done());
+    WAIT_FOR(1000, 10000, init->init_done());
     client->Init();
     client->WaitForIdle();
 
