@@ -805,7 +805,6 @@ protected:
     opt::variables_map vm;                      \
     desc.add_options()                          \
         ("help", "Print help message")          \
-        ("headless", "Run headless vrouter")                     \
         ("config", opt::value<string>(), "Specify Init config file")  \
         ("kernel", "Run with vrouter")         \
         ("vn", opt::value<int>(), "Number of VN")                   \
