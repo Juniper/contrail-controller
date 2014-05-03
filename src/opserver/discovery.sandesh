@@ -1,0 +1,12 @@
+/*
+ * Copyright (c) 2014 Juniper Networks, Inc. All rights reserved.
+ */
+
+//
+//  discovery.sandesh
+//
+
+trace sandesh CollectorTrace {
+    1: "Collector list from Discovery:"
+    2: list<string>     collectors
+}
