@@ -3121,8 +3121,8 @@ def parse_args(args_str):
     defaults = {
         'ifmap_server_ip': '127.0.0.1',
         'ifmap_server_port': '8443',
-        'ifmap_username': 'test2',
-        'ifmap_password': 'test2',
+        'ifmap_username': 'schema-transformer',
+        'ifmap_password': 'schema-transformer',
         'cassandra_server_list': '127.0.0.1:9160',
         'api_server_ip': '127.0.0.1',
         'api_server_port': '8082',
