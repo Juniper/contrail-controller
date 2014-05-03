@@ -45,6 +45,7 @@ from sandesh.viz.constants import _TABLES, _OBJECT_TABLES,\
 from sandesh.viz.constants import *
 from sandesh.analytics_cpuinfo.ttypes import *
 from sandesh.analytics_cpuinfo.cpuinfo.ttypes import ProcessCpuInfo
+from sandesh.discovery.ttypes import CollectorTrace
 from opserver_util import OpServerUtils
 from cpuinfo import CpuInfoData
 from sandesh_req_impl import OpserverSandeshReqImpl
@@ -423,6 +424,14 @@ class OpServer(object):
             category=self._args.log_category,
             level=self._args.log_level,
             file=self._args.log_file)
+        
+        # Trace buffer list
+        self.trace_buf = [
+            {'name':'DiscoveryMsg', 'size':1000}
+        ]
+        # Create trace buffers 
+        for buf in self.trace_buf:
+            sandesh_global.trace_buffer_create(name=buf['name'], size=buf['size'])
 
         self._logger = sandesh_global._logger
         self._get_common = self._http_get_common
@@ -1489,11 +1498,13 @@ class OpServer(object):
                                        'discovery server')
                 else:
                     if collectors:
-                        self._logger.debug('Collector-list from discovery: %s' \
-                                           % str(collectors))
+                        disc_trace = CollectorTrace()
+                        disc_trace.collectors = []
                         for collector in collectors:
                             self.redis_uve_list.append((collector['ip-address'], 
                                                        6381))
+                            disc_trace.collectors.append(collector['ip-address'])
+                        disc_trace.trace_msg(name='DiscoveryMsg')
                         self._uve_server.update_redis_uve_list(self.redis_uve_list)
                         self._state_server.update_redis_list(self.redis_uve_list)
                 if self.redis_uve_list:
