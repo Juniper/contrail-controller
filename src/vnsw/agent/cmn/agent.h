@@ -533,39 +533,62 @@ public:
     void Shutdown() {
     }
 
-    DiagTable *diag_table() const {
-        return diag_table_.get();
-    }
+    DiagTable *diag_table() const { return diag_table_.get(); }
+    void set_diag_table(DiagTable *table) { diag_table_.reset(table); }
+
     void CreateLifetimeManager();
     void ShutdownLifetimeManager();
     void SetAgentTaskPolicy();
 
-    void CreateModules();
+    void InitCollector();
+    void CreateBasicModules();
     void CreateDBTables();
     void CreateDBClients();
     void CreateVrf();
     void CreateNextHops();
     void CreateInterfaces();
+    void InitPeers();
     void InitModules();
     void InitDone();
 
     void Init(AgentParam *param, AgentInit *init);
     AgentParam *params() const { return params_; }
     AgentInit *init() const { return init_; }
-    AgentConfig *cfg() const { return cfg_.get(); }
-    CfgListener *cfg_listener() const;
-    AgentStats *stats() const { return stats_.get(); }
-    KSync *ksync() const { return ksync_.get(); }
-    AgentUve *uve() const { return uve_.get(); }
-    PktModule *pkt() const { return pkt_.get(); }
-    ServicesModule *services() const { return services_.get(); }
-    DiscoveryAgentClient *discovery_client() const;
-    VirtualGateway *vgw() const { return vgw_.get(); }
-    OperDB *oper_db() const { return oper_db_.get(); }
-    VNController *controller() const {return controller_.get();}
 
+    AgentConfig *cfg() const { return cfg_.get(); }
+    void set_cfg(AgentConfig *cfg) { cfg_.reset(cfg); }
+
+    CfgListener *cfg_listener() const;
+
+    AgentStats *stats() const { return stats_.get(); }
+    void set_stats(AgentStats *stats) { stats_.reset(stats); }
+
+    KSync *ksync() const { return ksync_.get(); }
+    void set_ksync(KSync *ksync) { return ksync_.reset(ksync); }
+
+    AgentUve *uve() const { return uve_.get(); }
+    void set_uve(AgentUve *uve) { uve_.reset(uve); }
+
+    PktModule *pkt() const { return pkt_.get(); }
+    void set_pkt(PktModule *pkt) { pkt_.reset(pkt); }
+
+    ServicesModule *services() const { return services_.get(); }
+    void set_services(ServicesModule *services) { services_.reset(services); }
+
+    DiscoveryAgentClient *discovery_client() const;
+    void set_discovery_client(DiscoveryAgentClient *client);
+
+    VirtualGateway *vgw() const { return vgw_.get(); }
+    void set_vgw(VirtualGateway *vgw) { vgw_.reset(vgw); }
+
+    OperDB *oper_db() const { return oper_db_.get(); }
+    void set_oper_db(OperDB *oper_db) { oper_db_.reset(oper_db); }
+
+    VNController *controller() const {return controller_.get();}
+    void set_controller(VNController *val) {controller_.reset(val);}
+
+    void CopyConfig(AgentParam *params, AgentInit *init);
 private:
-    void GetConfig();
 
     AgentParam *params_;
     AgentInit *init_;
