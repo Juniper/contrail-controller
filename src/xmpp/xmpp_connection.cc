@@ -376,6 +376,7 @@ void XmppConnection::ReceiveMsg(XmppSession *session, const string &msg) {
 XmppStanza::XmppMessage *XmppConnection::XmppDecode(const string &msg) {
     auto_ptr<XmppStanza::XmppMessage> minfo(XmppProto::Decode(msg));
     if (minfo.get() == NULL) {
+        Clear();
         return NULL;
     }
 

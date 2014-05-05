@@ -52,6 +52,7 @@ protected:
 private:
     class DeleteActor;
     friend class XmppSessionTest; 
+    friend class XmppStreamMessageTest; 
     friend class DeleteActor; 
     typedef boost::ptr_map<boost::asio::ip::tcp::endpoint, 
                            XmppConnection> XmppConnectionMap;

@@ -60,7 +60,7 @@ int XmppProto::EncodeStream(const XmppStanza::XmppMessage &str, uint8_t *buf,
 }
 
 int XmppProto::EncodeMessage(XmlBase *dom, uint8_t *buf, size_t size) {
-    int len = dom->WriteRawDoc(buf);
+    int len = dom->WriteDoc(buf);
 
     return len;
 }
@@ -123,11 +123,15 @@ int XmppProto::EncodeOpenResp(uint8_t *buf, string &to, string &from) {
 
     auto_ptr<XmlBase> resp_doc(XmppStanza::AllocXmppXmlImpl(sXMPP_STREAM_RESP));
 
+    if (resp_doc.get() == NULL) {
+        return 0;
+    }
+
     SetTo(to, resp_doc.get()); 
     SetFrom(from, resp_doc.get()); 
 
     //Returns byte encoded in the doc
-    int len = resp_doc->WriteDoc(buf);
+    int len = resp_doc->WriteRawDoc(buf);
     if (len > 0) {
         string doc(buf, buf+len);
 
@@ -140,11 +144,15 @@ int XmppProto::EncodeOpenResp(uint8_t *buf, string &to, string &from) {
 
 int XmppProto::EncodeOpen(uint8_t *buf, string &to, string &from) {
 
+    if (open_doc_.get() ==  NULL) {
+        return 0;
+    }
+
     SetTo(to, open_doc_.get()); 
     SetFrom(from, open_doc_.get()); 
 
     //Returns byte encoded in the doc
-    int len = open_doc_->WriteDoc(buf);
+    int len = open_doc_->WriteRawDoc(buf);
     if (len > 0) {
         string doc(buf, buf+len);
 
@@ -160,8 +168,11 @@ XmppStanza::XmppMessage *XmppProto::Decode(const string &ts) {
     if (impl == NULL) {
         return NULL;
     }
+
     XmppStanza::XmppMessage *msg = DecodeInternal(ts, impl);
-    if (!msg) return NULL;
+    if (!msg) {
+        return NULL;
+    }
 
     // keep the dom
     msg->dom.reset(impl);
@@ -220,6 +231,7 @@ XmppStanza::XmppMessage *XmppProto::DecodeInternal(const string &ts,
         goto done;
 
     } else if (ts.find(sXMPP_MESSAGE) != string::npos) {
+
         if (impl->LoadDoc(ts) == -1) {
             XMPP_WARNING(XmppChatMessageParseFail);
             goto done;
@@ -236,17 +248,28 @@ XmppStanza::XmppMessage *XmppProto::DecodeInternal(const string &ts,
         goto done;
 
     } else if (ts.find(sXMPP_STREAM_O) != string::npos) {
+
+        // ensusre stream open is at the beginning of the message
+        string ts_tmp = ts;
+        ts_tmp.erase(std::remove(ts_tmp.begin(), ts_tmp.end(), '\n'), ts_tmp.end());
+
+        if ((ts_tmp.compare(0, strlen(sXMPP_STREAM_START), 
+             sXMPP_STREAM_START) != 0) && 
+            (ts_tmp.compare(0, strlen(sXMPP_STREAM_START_S), 
+             sXMPP_STREAM_START_S) != 0)) {
+            XMPP_WARNING(XmppBadMessage, "Open message not at the beginning.");
+            goto done;
+        }
+
         // check if the buf is xmpp open or response message
         // As end tag will be missing we need to modify the 
         // string for stream open, else dom decoder will fail 
-        string ts_tmp = ts;
         boost::algorithm::replace_last(ts_tmp, ">", "/>");
-
         if (impl->LoadDoc(ts_tmp) == -1) {
             XMPP_WARNING(XmppBadMessage, "Open message parse failed.");
-            assert(false);
             goto done;
         }
+
         XmppStanza::XmppStreamMessage *strm = 
             new XmppStanza::XmppStreamMessage();
         strm->strmtype = XmppStanza::XmppStreamMessage::INIT_STREAM_HEADER;
@@ -259,12 +282,14 @@ XmppStanza::XmppMessage *XmppProto::DecodeInternal(const string &ts,
         XMPP_UTDEBUG(XmppRxOpenMessage, strm->from, strm->to);
 
     } else if (ts.find_first_of(sXMPP_VALIDWS) != string::npos) {
+
         XmppStanza::XmppMessage *msg = 
             new XmppStanza::XmppMessage(WHITESPACE_MESSAGE_STANZA);
         return msg;
     }
 
 done:
+
     return ret;
 }
 

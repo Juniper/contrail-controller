@@ -55,8 +55,8 @@ public:
     bool Send(const uint8_t *data, size_t size);
 
     // Xmpp connection messages
-    void SendOpen(TcpSession *session);
-    void SendOpenConfirm(TcpSession *session);
+    virtual void SendOpen(TcpSession *session);
+    virtual void SendOpenConfirm(TcpSession *session);
     void SendKeepAlive();
     void SendClose(TcpSession *session);
 
@@ -118,6 +118,8 @@ public:
     bool MayDelete() const;
 
     std::string &GetComputeHostName() { return to_; }
+    std::string &GetControllerHostName() { return from_; }
+
 
     void increment_flap_count();
     void set_close_reason(const std::string &reason);
@@ -195,7 +197,7 @@ private:
     XmppSession *session_;
     std::auto_ptr<XmppStateMachine> state_machine_;
     Timer *keepalive_timer_;
-    
+
     bool log_uve_;
 
     bool admin_down_;
