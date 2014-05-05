@@ -30,7 +30,7 @@ if sys.platform != 'darwin':
 
     nova_info_server_test = env.Program(target = 'nova_info_server_test',
                                         source = ['instance_service_test.cc'])
-    env.Alias('src/vnsw/agent/nova:nova_info_server_test', nova_info_server_test)
+    env.Alias('agent:nova_info_server_test', nova_info_server_test)
 
     nova_inc = env.Program(target = 'nova_inc',
                            source = ['instance_service_client.cc'])

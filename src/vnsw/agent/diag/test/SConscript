@@ -27,7 +27,7 @@ if sys.platform != 'darwin':
     env.Append(LIBS=['agent_test_buildinfo'])
 
     test_ping = env.Program(target = 'test_ping', source = ['test_ping.cc'])
-    env.Alias('src/vnsw/agent/diag/test:test_ping', test_ping)
+    env.Alias('agent:test_ping', test_ping)
 
     diag_test_suite = [
                         test_ping,

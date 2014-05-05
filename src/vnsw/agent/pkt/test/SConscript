@@ -25,61 +25,61 @@ if sys.platform != 'darwin':
     env.Append(LIBS=['agent_test_buildinfo'])
 
     test_pkt = env.Program(target = 'test_pkt', source = ['test_pkt.cc'])
-    env.Alias('src/vnsw/agent/pkt/test:test_pkt', test_pkt)
+    env.Alias('agent:test_pkt', test_pkt)
 
     test_pkt_flow = env.Program(target = 'test_pkt_flow', 
                                 source = ['test_pkt_flow.cc', 
                                           'test_pkt_util.cc'])
-    env.Alias('src/vnsw/agent/pkt/test:test_pkt_flow', test_pkt_flow)
+    env.Alias('agent:test_pkt_flow', test_pkt_flow)
 
     test_rpf_flow = env.Program(target = 'test_rpf_flow',
                                 source = ['test_rpf_flow.cc',
                                           'test_pkt_util.cc'])
-    env.Alias('src/vnsw/agent/pkt/test:test_rpf_flow', test_rpf_flow)
+    env.Alias('agent:test_rpf_flow', test_rpf_flow)
 
     test_pkt_parse = env.Program(target = 'test_pkt_parse',
                                  source = ['test_pkt_parse.cc',
                                            'test_pkt_util.cc'])
-    env.Alias('src/vnsw/agent/pkt/test:test_pkt_parse', test_pkt_parse)
+    env.Alias('agent:test_pkt_parse', test_pkt_parse)
 
     test_flowtable =  env.Program(target = 'test_flowtable',
                                   source = ['test_flowtable.cc',
                                             'test_pkt_util.cc'])
-    env.Alias('src/vnsw/agent/pkt/test:test_flowtable', test_flowtable)
+    env.Alias('agent:test_flowtable', test_flowtable)
 
     test_pkt_fip =  env.Program(target = 'test_pkt_fip',
                                 source = ['test_pkt_fip.cc',
                                           'test_pkt_util.cc'])
-    env.Alias('src/vnsw/agent/pkt/test:test_pkt_fip', test_pkt_fip)
+    env.Alias('agent:test_pkt_fip', test_pkt_fip)
 
     test_pkt_flow_mock = env.Program(target = 'test_pkt_flow_mock', 
                                      source = ['test_pkt_flow_mock.cc'])
-    env.Alias('src/vnsw/agent/pkt/test:test_pkt_flow_mock', test_pkt_flow_mock)
+    env.Alias('agent:test_pkt_flow_mock', test_pkt_flow_mock)
 
     test_ecmp = env.Program(target = 'test_ecmp', 
                             source = ['test_ecmp.cc',
                                       'test_pkt_util.cc'])
-    env.Alias('src/vnsw/agent/pkt/test:test_ecmp', test_ecmp)
+    env.Alias('agent:test_ecmp', test_ecmp)
 
     test_flow_scale = env.Program(target = 'test_flow_scale', 
                             source = ['test_flow_scale.cc',
                                       'test_pkt_util.cc'])
-    env.Alias('src/vnsw/agent/pkt/test:test_flow_scale', test_flow_scale)
+    env.Alias('agent:test_flow_scale', test_flow_scale)
 
     test_sg_flow = env.Program(target = 'test_sg_flow', 
                             source = ['test_sg_flow.cc',
                                       'test_pkt_util.cc'])
-    env.Alias('src/vnsw/agent/pkt/test:test_sg_flow', test_sg_flow)
+    env.Alias('agent:test_sg_flow', test_sg_flow)
 
     test_sg_tcp_flow = env.Program(target = 'test_sg_tcp_flow', 
                             source = ['test_sg_tcp_flow.cc',
                                       'test_pkt_util.cc'])
-    env.Alias('src/vnsw/agent/pkt/test:test_sg_tcp_flow', test_sg_tcp_flow)
+    env.Alias('agent:test_sg_tcp_flow', test_sg_tcp_flow)
 
     test_vrf_assign_acl = env.Program(target = 'test_vrf_assign_acl',
                                   source = ['test_vrf_assign_acl.cc',
                                             'test_pkt_util.cc'])
-    env.Alias('src/vnsw/agent/pkt/test:test_vrf_assign_acl', test_vrf_assign_acl)
+    env.Alias('agent:test_vrf_assign_acl', test_vrf_assign_acl)
 
     pkt_flow_suite = [test_ecmp,
                       test_flowtable,

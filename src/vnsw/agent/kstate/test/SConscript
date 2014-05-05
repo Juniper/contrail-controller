@@ -20,10 +20,10 @@ if sys.platform != 'darwin':
     env.Append(LIBS=['agent_test_buildinfo'])
 
     test_kstate = env.Program(target = 'test_kstate', source = ['test_kstate.cc'])
-    env.Alias('src/vnsw/agent/kstate/test:test_kstate', test_kstate)
+    env.Alias('agent:test_kstate', test_kstate)
 
     test_sandesh_kstate = env.Program(target = 'test_sandesh_kstate', source = ['test_sandesh_kstate.cc', '../../pkt/test/test_pkt_util.o'])
-    env.Alias('src/vnsw/agent/kstate/test:test_sandesh_kstate', test_sandesh_kstate)
+    env.Alias('agent:test_sandesh_kstate', test_sandesh_kstate)
 
     kstate_test_suite = [
                       test_kstate,

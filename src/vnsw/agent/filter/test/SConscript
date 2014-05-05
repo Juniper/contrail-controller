@@ -13,14 +13,14 @@ env.Prepend(LIBS=['gunit'])
 #acl_entry_test = env.Program('acl_entry_test',
 #                             ['acl_entry_test.cc'])
 #
-#env.Alias('src/vnsw/agent/filter:acl_entry_test', acl_entry_test)
+#env.Alias('agent:acl_entry_test', acl_entry_test)
 
 #acl_test = env.Program('acl_test',
 #                       ['acl_test.cc'])
-#env.Alias('src/vnsw/agent/filter:acl_test', acl_test)
+#env.Alias('agent:acl_test', acl_test)
 #policy_test = env.Program('policy_test',
 #                             ['policy_test.cc'])
-#env.Alias('src/vnsw/agent/filter:policy_test', policy_test)
+#env.Alias('agent:policy_test', policy_test)
 
 #test = env.TestSuite('agent-test', test_suite)
 #env.Alias('src/vnsw/agent:test', test)
