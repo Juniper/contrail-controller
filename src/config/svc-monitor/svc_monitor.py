@@ -444,7 +444,7 @@ class SvcMonitor(object):
             # set vn id
             if si_if_list and st_props.get_ordered_interfaces():
                 si_if = si_if_list[idx]
-                vn_fq_name_str = si_if.get_virtual_network()
+                vn_fq_name = si_if.get_virtual_network()
             else:
                 funcname = "get_" + itf_type + "_virtual_network"
                 func = getattr(si_props, funcname)
