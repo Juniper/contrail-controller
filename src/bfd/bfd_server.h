@@ -27,13 +27,14 @@ class BFDServer {
     BFDSession *GetSession(const ControlPacket *packet);
 
  public:
-    BFDServer(EventManager *_evm, Connection *communicator) :
-        evm_(_evm), communicator_(communicator), sessionManager_(_evm) {}
+    BFDServer(EventManager *evm, Connection *communicator) :
+        evm_(evm), communicator_(communicator), sessionManager_(evm) {}
 
-    ResultCode processControlPacket(const ControlPacket *packet);
-    void createSession(const boost::asio::ip::address &remoteHost,
-            const BFDSessionConfig *config, Discriminator *assignedDiscriminator);
-    BFDSession *sessionByAddress(const boost::asio::ip::address &address);
+    ResultCode ProcessControlPacket(const ControlPacket *packet);
+    ResultCode CreateSession(const boost::asio::ip::address &remoteHost,
+            const BFDSessionConfig &config, Discriminator *assignedDiscriminator);
+    ResultCode RemoveSession(const boost::asio::ip::address &remoteHost);
+    BFDSession *SessionByAddress(const boost::asio::ip::address &address);
 
  private:
     class SessionManager : boost::noncopyable {
@@ -48,9 +49,9 @@ class BFDServer {
 
         BFDSession *SessionByDiscriminator(Discriminator discriminator);
         BFDSession *SessionByAddress(const boost::asio::ip::address &address);
-        ResultCode RemoveSession(Discriminator discriminator);
+        ResultCode RemoveSession(const boost::asio::ip::address &remoteHost);
         ResultCode CreateOrUpdateSession(const boost::asio::ip::address &remoteHost,
-                const BFDSessionConfig *config,
+                const BFDSessionConfig &config,
                 Connection *communicator,
                 Discriminator *assignedDiscriminator);
         Discriminator GenerateUniqDiscriminator();

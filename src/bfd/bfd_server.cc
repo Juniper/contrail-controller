@@ -22,12 +22,12 @@ BFDSession* BFDServer::GetSession(const ControlPacket *packet) {
         return sessionManager_.SessionByAddress(packet->sender_host);
 }
 
-BFDSession *BFDServer::sessionByAddress(const boost::asio::ip::address &address) {
+BFDSession *BFDServer::SessionByAddress(const boost::asio::ip::address &address) {
     tbb::mutex::scoped_lock lock(mutex_);
     return sessionManager_.SessionByAddress(address);
 }
 
-ResultCode BFDServer::processControlPacket(const ControlPacket *packet) {
+ResultCode BFDServer::ProcessControlPacket(const ControlPacket *packet) {
     LOG(DEBUG, __func__ <<  " new packet: " << packet->toString() << " " << static_cast<void*>(this));
     tbb::mutex::scoped_lock lock(mutex_);
 
@@ -54,11 +54,17 @@ ResultCode BFDServer::processControlPacket(const ControlPacket *packet) {
     return kResultCode_Ok;
 }
 
-void BFDServer::createSession(const boost::asio::ip::address &remoteHost, const BFDSessionConfig *config,
+ResultCode BFDServer::CreateSession(const boost::asio::ip::address &remoteHost, const BFDSessionConfig &config,
         Discriminator *assignedDiscriminator) {
     tbb::mutex::scoped_lock lock(mutex_);
 
-    sessionManager_.CreateOrUpdateSession(remoteHost, config, communicator_,  assignedDiscriminator);
+    return sessionManager_.CreateOrUpdateSession(remoteHost, config, communicator_,  assignedDiscriminator);
+}
+
+ResultCode BFDServer::RemoveSession(const boost::asio::ip::address &remoteHost) {
+    tbb::mutex::scoped_lock lock(mutex_);
+
+    return sessionManager_.RemoveSession(remoteHost);
 }
 
 BFDSession* BFDServer::SessionManager::SessionByDiscriminator(Discriminator discriminator) {
@@ -76,28 +82,34 @@ BFDSession* BFDServer::SessionManager::SessionByAddress(const boost::asio::ip::a
         return it->second;
 }
 
-ResultCode BFDServer::SessionManager::RemoveSession(Discriminator discriminator) {
-    DiscriminatorSessionMap::const_iterator it = by_discriminator_.find(discriminator);
-    if (it == by_discriminator_.end())
+ResultCode BFDServer::SessionManager::RemoveSession(const boost::asio::ip::address &remoteHost) {
+    BFDSession *session = SessionByAddress(remoteHost);
+    if (session == NULL)
         return kResultCode_UnknownSession;
-    BFDSession *session = it->second;
-    by_discriminator_.erase(discriminator);
-    by_address_.erase(session->RemoteHost());
-    delete session;
+
+    if (session->decrement_ref() == 1) {
+        by_discriminator_.erase(session->LocalDiscriminator());
+        by_address_.erase(session->RemoteHost());
+        session->Stop();
+        delete session;
+    }
 
     return kResultCode_Ok;
 }
 
 ResultCode BFDServer::SessionManager::CreateOrUpdateSession(const boost::asio::ip::address &remoteHost,
-        const BFDSessionConfig *config,
+        const BFDSessionConfig &config,
         Connection *communicator,
         Discriminator *assignedDiscriminator) {
-    if (SessionByAddress(remoteHost))
-        // TODO update
+    BFDSession *session = SessionByAddress(remoteHost);
+    if (session) {
+        session->UpdateConfig(config);
+        session->increment_ref();
         return kResultCode_Ok;
+    }
 
     *assignedDiscriminator = GenerateUniqDiscriminator();
-    BFDSession *session = new BFDSession(*assignedDiscriminator, remoteHost, evm_, config, communicator);
+    session = new BFDSession(*assignedDiscriminator, remoteHost, evm_, config, communicator);
     by_discriminator_[*assignedDiscriminator] = session;
     by_address_[remoteHost] = session;
 
@@ -123,8 +135,10 @@ Discriminator BFDServer::SessionManager::GenerateUniqDiscriminator() {
 }
 
 BFDServer::SessionManager::~SessionManager() {
-    for (DiscriminatorSessionMap::iterator it = by_discriminator_.begin(); it != by_discriminator_.end(); ++it)
+    for (DiscriminatorSessionMap::iterator it = by_discriminator_.begin(); it != by_discriminator_.end(); ++it) {
+        it->second->Stop();
         delete it->second;
+    }
     by_discriminator_.clear();
     by_address_.clear();
 }

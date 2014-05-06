@@ -21,4 +21,5 @@ source = ['bfd_state_machine.cc', 'bfd_control_packet.cc', 'bfd_session.cc', 'bf
 libbfd = env.Library('bfd', source)
 
 env.SConscript('test/SConscript', exports='BuildEnv', duplicate = 0)
+env.SConscript('http_server/SConscript', exports='BuildEnv', duplicate = 0)
 

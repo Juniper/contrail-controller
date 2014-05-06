@@ -36,9 +36,9 @@ TEST_F(ServerTest, Test2) {
     config1.requiredMinRxInterval = boost::posix_time::milliseconds(500);
     config1.detectionTimeMultiplier = 5;
     Discriminator disc1;
-    server1.createSession(addr2, &config1, &disc1);
+    server1.CreateSession(addr2, config1, &disc1);
 
-    boost::function<ResultCode(const ControlPacket *)> c1 = boost::bind(&BFDServer::processControlPacket, &server1, _1);
+    boost::function<ResultCode(const ControlPacket *)> c1 = boost::bind(&BFDServer::ProcessControlPacket, &server1, _1);
     communicationManager.registerServer(addr1, boost::bind(&processPacketAndVerifyResult, c1, _1));
 
     boost::scoped_ptr<Connection> communicator2(new TestCommunicator(&communicationManager, addr2));
@@ -48,12 +48,12 @@ TEST_F(ServerTest, Test2) {
     config2.requiredMinRxInterval = boost::posix_time::milliseconds(800);
     config2.detectionTimeMultiplier = 2;
     Discriminator disc2;
-    server2.createSession(addr1, &config2, &disc2);
-    boost::function<ResultCode(const ControlPacket *)> c2 = boost::bind(&BFDServer::processControlPacket, &server2, _1);
+    server2.CreateSession(addr1, config2, &disc2);
+    boost::function<ResultCode(const ControlPacket *)> c2 = boost::bind(&BFDServer::ProcessControlPacket, &server2, _1);
     communicationManager.registerServer(addr2, boost::bind(&processPacketAndVerifyResult, c2, _1));
 
-    BFDSession *s1 = server1.sessionByAddress(addr2);
-    BFDSession *s2 = server2.sessionByAddress(addr1);
+    BFDSession *s1 = server1.SessionByAddress(addr2);
+    BFDSession *s2 = server2.SessionByAddress(addr1);
 
     ASSERT_NE(s1, static_cast<BFDSession *>(NULL));
     ASSERT_NE(s2, static_cast<BFDSession *>(NULL));
@@ -81,7 +81,7 @@ TEST_F(ServerTest, Test2) {
     TASK_UTIL_EXPECT_EQ(kDown, s2->LocalState());
     boost::posix_time::ptime down2 = boost::posix_time::microsec_clock::local_time();
 
-    ASSERT_LT(abs((s1->DetectionTime() - (down1 - start)).total_milliseconds()), 100);
+    ASSERT_LT((down1 - start), s1->DetectionTime());
     ASSERT_LT(abs((s2->DetectionTime() - (down2 - start)).total_milliseconds()), 100);
 
     communicationManager.registerServer(addr1, boost::bind(&processPacketAndVerifyResult, c1, _1));
@@ -108,6 +108,102 @@ TEST_F(ServerTest, Test2) {
 
     em.Shutdown();
 }
+
+TEST_F(ServerTest, InitTimeout) {
+    EventManager em;
+    TestCommunicatorManager communicationManager(em.io_service());
+
+    const boost::asio::ip::address addr1 = boost::asio::ip::address::from_string("1.1.1.1");
+    const boost::asio::ip::address addr2 = boost::asio::ip::address::from_string("2.2.2.2");
+
+    boost::scoped_ptr<Connection> communicator1(new TestCommunicator(&communicationManager, addr1));
+    BFDServer server1(&em, communicator1.get());
+    BFDSessionConfig config1;
+    config1.desiredMinTxInterval = boost::posix_time::milliseconds(300);
+    config1.requiredMinRxInterval = boost::posix_time::milliseconds(500);
+    config1.detectionTimeMultiplier = 5;
+    Discriminator disc1;
+    server1.CreateSession(addr2, config1, &disc1);
+
+    BFDSession *s1 = server1.SessionByAddress(addr2);
+    ASSERT_NE(s1, static_cast<BFDSession *>(NULL));
+
+    EventManagerThread t(&em);
+
+    TASK_UTIL_EXPECT_EQ(kDown, s1->LocalState());
+
+    em.Shutdown();
+}
+
+
+TEST_F(ServerTest, RefCount) {
+    EventManager em;
+    TestCommunicatorManager communicationManager(em.io_service());
+
+    const boost::asio::ip::address addr1 = boost::asio::ip::address::from_string("1.1.1.1");
+    const boost::asio::ip::address addr2 = boost::asio::ip::address::from_string("2.2.2.2");
+
+    boost::scoped_ptr<Connection> communicator1(new TestCommunicator(&communicationManager, addr1));
+    BFDServer server1(&em, communicator1.get());
+    BFDSessionConfig config1;
+    config1.desiredMinTxInterval = boost::posix_time::milliseconds(300);
+    config1.requiredMinRxInterval = boost::posix_time::milliseconds(500);
+    config1.detectionTimeMultiplier = 5;
+    Discriminator disc1;
+    server1.CreateSession(addr2, config1, &disc1);
+
+    boost::function<ResultCode(const ControlPacket *)> c1 = boost::bind(&BFDServer::ProcessControlPacket, &server1, _1);
+    communicationManager.registerServer(addr1, boost::bind(&processPacketAndVerifyResult, c1, _1));
+
+    boost::scoped_ptr<Connection> communicator2(new TestCommunicator(&communicationManager, addr2));
+    BFDServer server2(&em, communicator2.get());
+    BFDSessionConfig config2;
+    config2.desiredMinTxInterval = boost::posix_time::milliseconds(300);
+    config2.requiredMinRxInterval = boost::posix_time::milliseconds(800);
+    config2.detectionTimeMultiplier = 2;
+    Discriminator disc2;
+    server2.CreateSession(addr1, config2, &disc2);
+    boost::function<ResultCode(const ControlPacket *)> c2 = boost::bind(&BFDServer::ProcessControlPacket, &server2, _1);
+    communicationManager.registerServer(addr2, boost::bind(&processPacketAndVerifyResult, c2, _1));
+
+    BFDSession *s1 = server1.SessionByAddress(addr2);
+    BFDSession *s2 = server2.SessionByAddress(addr1);
+
+    ASSERT_NE(s1, static_cast<BFDSession *>(NULL));
+    ASSERT_NE(s2, static_cast<BFDSession *>(NULL));
+
+    EventManagerThread t(&em);
+
+    TASK_UTIL_EXPECT_EQ(kUp, s1->LocalState());
+    TASK_UTIL_EXPECT_EQ(kUp, s2->LocalState());
+
+    server1.CreateSession(addr2, config1, &disc1);
+
+    TASK_UTIL_EXPECT_EQ(kUp, s1->LocalState());
+    TASK_UTIL_EXPECT_EQ(kUp, s2->LocalState());
+
+    server1.RemoveSession(addr2);
+    s1 = server1.SessionByAddress(addr2);
+    ASSERT_NE(s1, static_cast<BFDSession *>(NULL));
+
+    boost::this_thread::sleep(boost::posix_time::seconds(5));
+
+    TASK_UTIL_EXPECT_EQ(kUp, s1->LocalState());
+    TASK_UTIL_EXPECT_EQ(kUp, s2->LocalState());
+
+    server1.RemoveSession(addr2);
+    s1 = server1.SessionByAddress(addr2);
+    ASSERT_EQ(s1, static_cast<BFDSession *>(NULL));
+
+    boost::this_thread::sleep(boost::posix_time::seconds(5));
+
+    TASK_UTIL_EXPECT_EQ(kDown, s2->LocalState());
+
+    em.Shutdown();
+}
+
+
+
 
 int main(int argc, char **argv) {
     LoggingInit();

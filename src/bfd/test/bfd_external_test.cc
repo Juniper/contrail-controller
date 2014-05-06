@@ -34,9 +34,9 @@ TEST_F(BFDExternalTest, Test1) {
         config1.requiredMinRxInterval = boost::posix_time::milliseconds(1000);
         config1.detectionTimeMultiplier = 3;
         Discriminator disc1;
-        server.createSession(addr, &config1, &disc1);
+        server.CreateSession(addr, config1, &disc1);
 
-        cm.RegisterCallback(boost::bind(&BFDServer::processControlPacket, &server, _1));
+        cm.RegisterCallback(boost::bind(&BFDServer::ProcessControlPacket, &server, _1));
 
 
         EventManagerThread emt(&evm);

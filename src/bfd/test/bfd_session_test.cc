@@ -57,7 +57,7 @@ class SessionTest : public ::testing::Test {
 
 TEST_F(SessionTest, UpTest) {
     TestConnection tc;
-    BFDSession session(localDiscriminator, addr, &evm, &config, &tc);
+    BFDSession session(localDiscriminator, addr, &evm, config, &tc);
 
     EXPECT_EQ(kInit, session.LocalState());
     packet.state = kInit;
@@ -67,7 +67,7 @@ TEST_F(SessionTest, UpTest) {
 
 TEST_F(SessionTest, PollRecvTest) {
     TestConnection tc;
-    BFDSession session(localDiscriminator, addr, &evm, &config, &tc);
+    BFDSession session(localDiscriminator, addr, &evm, config, &tc);
 
     packet.poll = true;
     session.ProcessControlPacket(&packet);
@@ -84,7 +84,7 @@ TEST_F(SessionTest, PollRecvTest) {
 
 TEST_F(SessionTest, PollSendTest) {
     TestConnection tc;
-    BFDSession session(localDiscriminator, addr, &evm, &config, &tc);
+    BFDSession session(localDiscriminator, addr, &evm, config, &tc);
 
     session.ProcessControlPacket(&packet);
     session.InitPollSequence();

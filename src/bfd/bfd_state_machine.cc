@@ -4,12 +4,16 @@
 #include "bfd/bfd_state_machine.h"
 #include "bfd/bfd_common.h"
 
+#include <boost/optional.hpp>
+#include <boost/bind.hpp>
 #include <boost/statechart/event.hpp>
 #include <boost/statechart/transition.hpp>
 #include <boost/statechart/state_machine.hpp>
 #include <boost/statechart/simple_state.hpp>
 #include <boost/statechart/custom_reaction.hpp>
 #include <boost/mpl/list.hpp>
+
+#include "base/logging.h"
 
 namespace mpl = boost::mpl;
 namespace sc = boost::statechart;
@@ -32,11 +36,21 @@ struct InitState;
 struct DownState;
 struct UpState;
 class StateMachineImpl : public StateMachine, public sc::state_machine< StateMachineImpl, InitState > {
+    boost::optional<ChangeCb> cb_;
+    EventManager *evm_;
+
  public:
-    StateMachineImpl() {
+    explicit StateMachineImpl(EventManager *evm) : evm_(evm) {
         initiate();
     }
+    void Notify(BFDState state) {
+        LOG(DEBUG, "StateMachine state: " << state);
+        if (cb_.is_initialized())
+            evm_->io_service()->post(boost::bind(cb_.get(), GetState()));
+    }
+
     void ProcessRemoteState(BFDState state) {
+        BFDState old_state = GetState();
         switch (state) {
         case kAdminDown:
             process_event(EvRecvAdminDown());
@@ -51,14 +65,23 @@ class StateMachineImpl : public StateMachine, public sc::state_machine< StateMac
             process_event(EvRecvUp());
             break;
         }
+        if (old_state != GetState())
+            Notify(GetState());
     }
 
     void ProcessTimeout() {
+        BFDState old_state = GetState();
         process_event(EvTimeout());
+        if (old_state != GetState())
+            Notify(GetState());
     }
 
     BFDState GetState() {
         return state_cast<const BFDStateAware &>().getState();
+    }
+
+    void SetCallback(boost::optional<ChangeCb> cb) {
+        cb_ = cb;
     }
 };
 
@@ -98,8 +121,8 @@ struct DownState : sc::simple_state< DownState, StateMachineImpl >, BFDStateAwar
     virtual ~DownState() {}
 };
 
-StateMachine *CreateStateMachine() {
-    return new StateMachineImpl();
+StateMachine *CreateStateMachine(EventManager *evm) {
+    return new StateMachineImpl(evm);
 }
 
 }  // namespace BFD

@@ -94,6 +94,7 @@ class TestCommunicator : public Connection {
 
     virtual ~TestCommunicator() {}
 };
+
 }  // namespace BFD
 
 #endif /* BFD_TEST_UTILS_H_ */

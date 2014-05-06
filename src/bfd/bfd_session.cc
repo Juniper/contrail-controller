@@ -45,8 +45,8 @@ std::string BFDSession::toString() const {
     out << "RemoteHost: " << remoteHost_ << "\n";
     out << "LocalDiscriminator: 0x" << std::hex << localDiscriminator_ << "\n";
     out << "RemoteDiscriminator: 0x" << std::hex << remoteSession_.discriminator << "\n";
-    out << "DesiredMinTxInterval: " << currentConfig_->desiredMinTxInterval << "\n";
-    out << "RequiredMinRxInterval: " << currentConfig_->requiredMinRxInterval << "\n";
+    out << "DesiredMinTxInterval: " << currentConfig_.desiredMinTxInterval << "\n";
+    out << "RequiredMinRxInterval: " << currentConfig_.requiredMinRxInterval << "\n";
     out << "RemoteMinRxInterval: " << remoteSession_.minRxInterval << "\n";
 
     return out.str();
@@ -69,8 +69,14 @@ void BFDSession::ScheduleRecvDeadlineTimer() {
                              boost::bind(&BFDSession::RecvTimerExpired, this));
 }
 
-BFDState BFDSession::LocalState() {
+BFDState BFDSession::LocalStateNoLock() {
     return sm_->GetState();
+}
+
+BFDState BFDSession::LocalState() {
+    tbb::mutex::scoped_lock lock(mutex_);
+
+    return LocalStateNoLock();
 }
 
 //       If periodic BFD Control packets are already being sent (the remote
@@ -78,29 +84,31 @@ BFDState BFDSession::LocalState() {
 //       setting the Poll (P) bit on those scheduled periodic transmissions;
 //       additional packets MUST NOT be sent.
 void BFDSession::InitPollSequence() {
+    tbb::mutex::scoped_lock lock(mutex_);
+
     pollSequence_ = true;
-    if (LocalState() != kUp && LocalState() != kAdminDown) {
+    if (LocalStateNoLock() != kUp && LocalStateNoLock() != kAdminDown) {
         ControlPacket packet;
         PreparePacket(nextConfig_, &packet);
         SendPacket(&packet);
     }
 }
 
-void BFDSession::PreparePacket(const BFDSessionConfig *config, ControlPacket *packet) {
+void BFDSession::PreparePacket(const BFDSessionConfig &config, ControlPacket *packet) {
     // move to ControlPacket constructor
     packet->diagnostic = kNoDiagnostic;
-    packet->state = LocalState();
+    packet->state = LocalStateNoLock();
     packet->poll = pollSequence_;
     packet->final = false;
     packet->control_plane_independent = false;
     packet->authentication_present = false;
     packet->demand = false;
     packet->multipoint = false;
-    packet->detection_time_multiplier = config->detectionTimeMultiplier;
+    packet->detection_time_multiplier = config.detectionTimeMultiplier;
     packet->sender_discriminator = localDiscriminator_;
     packet->receiver_discriminator = remoteSession_.discriminator;
-    packet->desired_min_tx_interval = config->desiredMinTxInterval;
-    packet->required_min_rx_interval = config->requiredMinRxInterval;
+    packet->desired_min_tx_interval = config.desiredMinTxInterval;
+    packet->required_min_rx_interval = config.requiredMinRxInterval;
     packet->required_min_echo_rx_interval = boost::posix_time::microseconds(0);
 
     packet->length = kMinimalPacketLength;
@@ -117,6 +125,7 @@ ResultCode BFDSession::ProcessControlPacket(const ControlPacket *packet) {
     }
     remoteSession_.minTxInterval = packet->desired_min_tx_interval;
     remoteSession_.detectionTimeMultiplier = packet->detection_time_multiplier;
+    remoteSession_.state = packet->state;
 
     sm_->ProcessRemoteState(packet->state);
 
@@ -133,7 +142,7 @@ ResultCode BFDSession::ProcessControlPacket(const ControlPacket *packet) {
         currentConfig_ = nextConfig_;
     }
 
-    if (LocalState() == kUp) {
+    if (LocalStateNoLock() == kUp) {
         ScheduleRecvDeadlineTimer();
     }
 
@@ -145,16 +154,16 @@ void BFDSession::SendPacket(const ControlPacket *packet) {
 }
 
 TimeInterval BFDSession::DetectionTime() {
-    return std::max(currentConfig_->requiredMinRxInterval,
+    return std::max(currentConfig_.requiredMinRxInterval,
             remoteSession_.minTxInterval) * remoteSession_.detectionTimeMultiplier;
 }
 
 TimeInterval BFDSession::TxInterval() {
     TimeInterval minInterval, maxInterval;
-    if (LocalState() == kUp) {
-        TimeInterval negotiatedInterval = std::max(currentConfig_->desiredMinTxInterval, remoteSession_.minRxInterval);
+    if (LocalStateNoLock() == kUp) {
+        TimeInterval negotiatedInterval = std::max(currentConfig_.desiredMinTxInterval, remoteSession_.minRxInterval);
         minInterval = negotiatedInterval * 3/4;
-        if (currentConfig_->detectionTimeMultiplier == 1)
+        if (currentConfig_.detectionTimeMultiplier == 1)
             maxInterval = negotiatedInterval * 9/10;
         else
             maxInterval = negotiatedInterval;
@@ -178,7 +187,54 @@ void BFDSession::Stop() {
         TimerManager::DeleteTimer(sendTimer_);
         TimerManager::DeleteTimer(recvTimer_);
         stopped_ = true;
+        sm_->SetCallback(boost::optional<StateMachine::ChangeCb>());
     }
+}
+
+BFDSessionConfig BFDSession::Config() {
+    tbb::mutex::scoped_lock lock(mutex_);
+    return nextConfig_;
+}
+
+BFDRemoteSessionState BFDSession::RemoteState() {
+    tbb::mutex::scoped_lock lock(mutex_);
+    return remoteSession_;
+}
+
+Discriminator BFDSession::LocalDiscriminator() {
+    tbb::mutex::scoped_lock lock(mutex_);
+    return localDiscriminator_;
+}
+
+void BFDSession::StateChangeCallback(const BFD::BFDState &new_state) {
+    for (Callbacks::const_iterator it = callbacks_.begin(); it != callbacks_.end(); ++it) {
+        it->second(new_state);
+    }
+}
+
+void BFDSession::RegisterChangeCallback(ClientId client_id, StateMachine::ChangeCb cb) {
+    tbb::mutex::scoped_lock lock(mutex_);
+    callbacks_[client_id] = cb;
+}
+
+void BFDSession::UnregisterChangeCallback(ClientId client_id) {
+    tbb::mutex::scoped_lock lock(mutex_);
+    callbacks_.erase(client_id);
+}
+
+void BFDSession::UpdateConfig(const BFDSessionConfig& config) {
+    //TODO
+    LOG(WARN, "BFDSession::UpdateConfig not implemented");
+}
+
+void BFDSession::increment_ref() {
+    LOG(DEBUG, "Session: " << RemoteHost() << " refcount: " << static_cast<int>(refcount_) << " +1");
+    refcount_.fetch_and_increment();
+}
+
+int BFDSession::decrement_ref() {
+    LOG(DEBUG, "Session: " << RemoteHost() << " refcount: " << static_cast<int>(refcount_) << " -1");
+    return refcount_.fetch_and_decrement();
 }
 
 }  // namespace BFD
