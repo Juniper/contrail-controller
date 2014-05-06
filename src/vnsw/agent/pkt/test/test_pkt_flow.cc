@@ -1552,7 +1552,19 @@ TEST_F(FlowTest, FlowAudit) {
     WAIT_FOR(1000, 1000, (agent()->pkt()->flow_table()->Size() == 0U));
     KFlowPurgeHold();
 
-    FlowAdd(1, 1, "1.1.1.1", "2.2.2.2", 1, 0, 0, "3.3.3.3", "2.2.2.2", 1);
+    string vrf_name =
+        Agent::GetInstance()->GetVrfTable()->FindVrfFromId(1)->GetName();
+    TestFlow flow[] = {
+        {
+            TestFlowPkt("1.1.1.1", "2.2.2.2", 1, 0, 0, vrf_name,
+                    flow0->id(), 1),
+            {
+            }
+        }
+    };
+
+    CreateFlow(flow, 1);
+
     EXPECT_TRUE(FlowTableWait(2));
     EXPECT_TRUE(KFlowHoldAdd(10, 1, "1.1.1.1", "2.2.2.2", 1, 0, 0));
     RunFlowAudit();
