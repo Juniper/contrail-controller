@@ -34,6 +34,7 @@ ConnInfo *new_conn(HttpConnection *connection, GlobalInfo *g,
                    bool header, bool timeout);
 void del_conn(HttpConnection *connection, GlobalInfo *g);
 void set_header_options(ConnInfo *conn, const char *options);
+void set_custom_request(ConnInfo *conn, const char *request_type);
 void set_put_string(ConnInfo *conn, const char *post); 
 int http_put(ConnInfo *conn, GlobalInfo *g); 
 void timer_cb(GlobalInfo *g);

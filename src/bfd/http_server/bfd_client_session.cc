@@ -76,7 +76,7 @@ ResultCode ClientSession::AddBFDConnection(const boost::asio::ip::address& remot
 
 ResultCode ClientSession::DeleteBFDConnection(const boost::asio::ip::address& remoteHost) {
     if (bfd_sessions_.find(remoteHost) == bfd_sessions_.end()) {
-        return kResultCode_UnkownSession;
+        return kResultCode_UnknownSession;
     }
     ResultCode result = server_->RemoveSession(remoteHost);
     bfd_sessions_.erase(remoteHost);

@@ -25,7 +25,7 @@ libhttp = env.Library('http',
                        'http_log_types.cpp',
                        ])
 
-env.Prepend(LIBS=['http', 'http_parser', 'curl', 'sandesh', 'io', 'sandeshvns', 'base', 'pugixml'])
+env.Prepend(LIBS=['http', 'http_parser', 'curl', 'sandesh', 'io', 'sandeshvns', 'base', 'pugixml', 'boost_regex'])
 
 if sys.platform != 'darwin':
     env.Append(LIBS = ['rt'])

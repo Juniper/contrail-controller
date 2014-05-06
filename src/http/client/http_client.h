@@ -64,8 +64,9 @@ public:
 
     typedef boost::function<void(std::string &, boost::system::error_code &)> HttpCb;
     int HttpPut(std::string &put_string, std::string &path, HttpCb);
+    int HttpDelete(std::string &path, HttpCb);
     int HttpPut(std::string &put_string, std::string &path,
-                bool header, bool timeout, std::string &hdr_options, HttpCb cb);
+                bool header, bool timeout, std::string &hdr_options, const std::string &method, HttpCb cb);
     int HttpGet(std::string &path, HttpCb);
     int HttpGet(std::string &path, bool header, bool timeout,
                 std::string &hdr_options, HttpCb cb);
@@ -86,11 +87,13 @@ public:
     size_t GetOffset();
     HttpCb HttpClientCb() { return cb_; }
     void RegisterEventCb(HttpClientSession::SessionEventCb cb) { event_cb_ = cb; }
+    bool Stopped() { return stopped_; }
+    void Stop() { stopped_ = true; }
 
 private:
     std::string make_url(std::string &path);
     void HttpPutInternal(std::string put_string, std::string path,
-                         bool header, bool timeout, std::string hdr_option, HttpCb);
+                         bool header, bool timeout, std::string hdr_option, std::string method, HttpCb);
     void HttpGetInternal(std::string path, bool header, bool timeout,
                          std::string hdr_option, HttpCb);
 
@@ -105,6 +108,7 @@ private:
     HttpClient *client_;
     mutable tbb::mutex mutex_;
     HttpClientSession::SessionEventCb event_cb_;
+    bool stopped_;
 
     DISALLOW_COPY_AND_ASSIGN(HttpConnection);
 };

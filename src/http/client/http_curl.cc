@@ -77,6 +77,18 @@ static void mcode_or_die(const char *where, CURLMcode code)
   }
 }
 
+class _CurlErrorCategory : public boost::system::error_category
+{
+ public:
+    virtual const char *name() const { return "http_curl"; }
+    virtual std::string message( int ev ) const { return curl_easy_strerror((CURLcode)ev); }
+};
+
+static _CurlErrorCategory curl_error_category;
+boost::system::error_category &CurlErrorCategory() {
+    return curl_error_category;
+}
+
 /* Check for completed transfers, and remove their easy handles */
 static void check_multi_info(GlobalInfo *g)
 {
@@ -96,9 +108,10 @@ static void check_multi_info(GlobalInfo *g)
       curl_easy_getinfo(easy, CURLINFO_PRIVATE, &conn);
       curl_easy_getinfo(easy, CURLINFO_EFFECTIVE_URL, &eff_url);
 
-      boost::system::error_code error(res, boost::system::system_category());
+      boost::system::error_code error(res, CurlErrorCategory());
       std::string empty_str("");
-      conn->connection->HttpClientCb()(empty_str, error);
+      if(!conn->connection->Stopped())
+          conn->connection->HttpClientCb()(empty_str, error);
     }
   }
 }
@@ -386,6 +399,11 @@ void set_header_options(ConnInfo *conn, const char *options) {
     curl_easy_setopt(conn->easy, CURLOPT_HTTPHEADER, conn->headers);
 }
 
+void set_custom_request(ConnInfo *conn, const char *request_type) {
+    curl_easy_setopt(conn->easy, CURLOPT_CUSTOMREQUEST, request_type);
+}
+
+
 void set_put_string(ConnInfo *conn, const char *post) { 
     conn->headers = curl_slist_append(conn->headers, "Content-Type: application/xml");
     curl_easy_setopt(conn->easy, CURLOPT_HTTPHEADER, conn->headers);
@@ -403,6 +421,7 @@ int http_put(ConnInfo *conn, GlobalInfo *g) {
     CURLMcode rc = curl_multi_add_handle(g->multi, conn->easy);
     return (int)rc;
 }
+
 
 int curl_init(HttpClient *client)
 {

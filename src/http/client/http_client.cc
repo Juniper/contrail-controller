@@ -54,7 +54,7 @@ void HttpClientSession::RegisterEventCb(SessionEventCb cb) {
 HttpConnection::HttpConnection(boost::asio::ip::tcp::endpoint ep, size_t id, 
                                HttpClient *client) :
     endpoint_(ep), id_(id), cb_(NULL), offset_(0), curl_handle_(NULL),
-    session_(NULL), client_(client) {
+    session_(NULL), client_(client), stopped_(false) {
 }
 
 HttpConnection::~HttpConnection() {
@@ -133,7 +133,7 @@ int HttpConnection::HttpGet(std::string &path, bool header, bool timeout,
 
 void HttpConnection::HttpPutInternal(std::string put_string, std::string path, 
                                      bool header, bool timeout,
-                                     std::string hdr_options, HttpCb cb) {
+                                     std::string hdr_options, std::string method, HttpCb cb) {
 
     if (client()->AddConnection(this) == false) {
         // connection already exists
@@ -153,6 +153,7 @@ void HttpConnection::HttpPutInternal(std::string put_string, std::string path,
     if (hdr_options.length())
         set_header_options(curl_handle_, hdr_options.c_str());
     set_put_string(curl_handle_, put_string.c_str());
+    set_custom_request(curl_handle_, method.c_str());
 
     http_put(curl_handle_, gi);
 }
@@ -160,14 +161,22 @@ void HttpConnection::HttpPutInternal(std::string put_string, std::string path,
 int HttpConnection::HttpPut(std::string &put_string, 
                             std::string &path,  HttpCb cb) {
     std::string hdr_options;
-    return HttpPut(put_string, path, false, true, hdr_options, cb);
+    return HttpPut(put_string, path, false, true, hdr_options, "POST", cb);
 }
+
+int HttpConnection::HttpDelete(std::string &path,  HttpCb cb) {
+    std::string hdr_options;
+    std::string empty;
+    return HttpPut(empty, path, false, true, hdr_options, "DELETE", cb);
+}
+
 
 int HttpConnection::HttpPut(std::string &put_string, 
                             std::string &path, bool header, bool timeout,
-                            std::string &hdr_options, HttpCb cb) {
+                            std::string &hdr_options,
+                            const std::string &method, HttpCb cb) {
     client()->ProcessEvent(boost::bind(&HttpConnection::HttpPutInternal,
-                           this, put_string, path, header, timeout, hdr_options, cb));
+                           this, put_string, path, header, timeout, hdr_options, method, cb));
     return 0;
                             
 }
@@ -178,7 +187,8 @@ void HttpConnection::AssignData(const char *ptr, size_t size) {
 
     // callback to client
     boost::system::error_code error;
-    cb_(buf_, error);
+    if (!stopped_)
+        cb_(buf_, error);
 }
 
 const std::string &HttpConnection::GetData() {
@@ -273,6 +283,7 @@ bool HttpClient::AddConnection(HttpConnection *conn) {
 }
 
 void HttpClient::RemoveConnection(HttpConnection *connection) {
+    connection->Stop();
     work_queue_.Enqueue(boost::bind(&HttpClient::RemoveConnectionInternal, 
                                      this, connection));
 }
