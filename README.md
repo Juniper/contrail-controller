@@ -28,7 +28,6 @@ The control-node daemon code is located under (src/{bgp,control-node,ifmap,xmpp}
 The compute-node agent (src/vnsw) is a deamon than runs on every
 compute node and programs the data-plane in the host operating system.
 
-
 Data gathered from all these components is collected into a logically centralized database (src/{analytics,opserver}).
 
 ### Contributing code
