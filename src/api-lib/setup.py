@@ -12,6 +12,6 @@ setup(
              ],
     long_description="VNC API Library Package",
     install_requires=[
-        'requests==1.1.0'
+        'requests>=1.1.0'
     ]
 )
