@@ -24,8 +24,6 @@ from vnc_api.gen.resource_xsd import *
 from vnc_api.gen.resource_xsd import *
 from vnc_api.gen.resource_common import *
 
-import neutron_plugin_interface as npi
-
 
 class OpenstackDriver(vnc_plugin_base.Resync):
     def __init__(self, api_server_ip, api_server_port, conf_sections):
@@ -254,20 +252,4 @@ class ResourceApiDriver(vnc_plugin_base.ResourceApi):
             if group['to'][2] == 'default':
                 self._vnc_lib.security_group_delete(id=group['uuid'])
     # end pre_project_delete
-
-
-class NeutronApiDriver(vnc_plugin_base.NeutronApi):
-    def __init__(self, api_server_ip, api_server_port, conf_sections):
-        self._npi = npi.NeutronPluginInterface(api_server_ip, api_server_port,
-                                               conf_sections)
-
-        # Bottle callbacks for network operations
-        bottle.route('/neutron/network',
-                     'POST', self._npi.plugin_http_post_network)
-        # Bottle callbacks for subnet operations
-        bottle.route('/neutron/subnet',
-                     'POST', self._npi.plugin_http_post_subnet)
-
-    def __call__(self):
-        pass
 
