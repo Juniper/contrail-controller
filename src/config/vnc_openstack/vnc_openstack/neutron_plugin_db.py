@@ -1383,18 +1383,15 @@ class DBInterface(object):
             for ipam_ref in ipam_refs:
                 subnets = ipam_ref['attr'].get_ipam_subnets()
                 for subnet in subnets:
-                    sn_info = self._subnet_vnc_to_neutron(subnet, net_obj,
+                    sn_dict = self._subnet_vnc_to_neutron(subnet, net_obj,
                                                           ipam_ref['to'])
-                    sn_dict = sn_info['q_api_data']
-                    sn_dict.update(sn_info['q_extra_data'])
                     net_q_dict['subnets'].append(sn_dict)
                     sn_ipam = {}
                     sn_ipam['subnet_cidr'] = sn_dict['cidr']
                     sn_ipam['ipam_fq_name'] = ipam_ref['to']
                     extra_dict['contrail:subnet_ipam'].append(sn_ipam)
 
-        return {'q_api_data': net_q_dict,
-                'q_extra_data': extra_dict}
+        return net_q_dict
     #end _network_vnc_to_neutron
 
     def _subnet_neutron_to_vnc(self, subnet_q):
@@ -1458,8 +1455,7 @@ class DBInterface(object):
         extra_dict['contrail:instance_count'] = 0
         extra_dict['contrail:ipam_fq_name'] = ipam_fq_name
 
-        return {'q_api_data': sn_q_dict,
-                'q_extra_data': extra_dict}
+        return sn_q_dict
     #end _subnet_vnc_to_neutron
 
     def _ipam_neutron_to_vnc(self, ipam_q, oper):
@@ -1677,7 +1673,7 @@ class DBInterface(object):
         port_q_dict = {}
         port_q_dict['name'] = port_obj.uuid
         port_q_dict['id'] = port_obj.uuid
-        port_q_dict[portbindings.VIF_TYPE] = portbindings.VIF_TYPE_VROUTER
+        #port_q_dict[portbindings.VIF_TYPE] = portbindings.VIF_TYPE_VROUTER
 
         net_refs = port_obj.get_virtual_network_refs()
         if net_refs:
@@ -1766,8 +1762,7 @@ class DBInterface(object):
             port_q_dict['device_id'] = port_obj.parent_name
             port_q_dict['device_owner'] = 'TODO-device-owner'
 
-        return {'q_api_data': port_q_dict,
-                'q_extra_data': sg_dict}
+        return port_q_dict
     #end _port_vnc_to_neutron
 
     # public methods
@@ -1790,7 +1785,7 @@ class DBInterface(object):
         # see if we can return fast...
         if fields and (len(fields) == 1) and fields[0] == 'tenant_id':
             tenant_id = self._get_obj_tenant_id('network', net_uuid)
-            return {'q_api_data': {'id': net_uuid, 'tenant_id': tenant_id}}
+            return {'id': net_uuid, 'tenant_id': tenant_id}
 
         try:
             # return self._db_cache['q_networks']['net_uuid']
@@ -2118,9 +2113,9 @@ class DBInterface(object):
                         sn_info = self._subnet_vnc_to_neutron(subnet_vnc,
                                                               net_obj,
                                                               ipam_ref['to'])
-                        sn_id = sn_info['q_api_data']['id']
-                        sn_proj_id = sn_info['q_api_data']['tenant_id']
-                        sn_net_id = sn_info['q_api_data']['network_id']
+                        sn_id = sn_info['id']
+                        sn_proj_id = sn_info['tenant_id']
+                        sn_net_id = sn_info['network_id']
 
                         if (filters and 'shared' in filters and
                                         filters['shared'][0] == True):
@@ -2435,13 +2430,13 @@ class DBInterface(object):
             # different subnets.
             new_ipnet = netaddr.IPNetwork(subnet_cidr)
             for p in rports:
-                for ip in p['q_api_data']['fixed_ips']:
+                for ip in p['fixed_ips']:
                     if ip['subnet_id'] == subnet_id:
                         msg = (_("Router already has a port on subnet %s")
                                % subnet_id)
                         raise exceptions.BadRequest(resource='router', msg=msg)
                     sub_id = ip['subnet_id']
-                    subnet = self.subnet_read(sub_id)['q_api_data']
+                    subnet = self.subnet_read(sub_id)
                     cidr = subnet['cidr']
                     ipnet = netaddr.IPNetwork(cidr)
                     match1 = netaddr.all_matching_cidrs(new_ipnet, [cidr])
@@ -2462,7 +2457,7 @@ class DBInterface(object):
     def add_router_interface(self, router_id, port_id=None, subnet_id=None):
         router_obj = self._logical_router_read(router_id)
         if port_id:
-            port = self.port_read(port_id)['q_api_data']
+            port = self.port_read(port_id)
             if (port['device_owner'] == constants.DEVICE_OWNER_ROUTER_INTF and
                     port['device_id']):
                 raise exceptions.PortInUse(net_id=port['network_id'],
@@ -2473,14 +2468,14 @@ class DBInterface(object):
                 msg = _('Router port must have exactly one fixed IP')
                 raise exceptions.BadRequest(resource='router', msg=msg)
             subnet_id = fixed_ips[0]['subnet_id']
-            subnet = self.subnet_read(subnet_id)['q_api_data']
+            subnet = self.subnet_read(subnet_id)
             self._check_for_dup_router_subnet(router_id,
                                               port['network_id'],
                                               subnet['id'],
                                               subnet['cidr'])
             
         elif subnet_id:
-            subnet = self.subnet_read(subnet_id)['q_api_data']
+            subnet = self.subnet_read(subnet_id)
             if not subnet['gateway_ip']:
                 msg = _('Subnet for router interface must have a gateway IP')
                 raise exceptions.BadRequest(resource='router', msg=msg)
@@ -2500,7 +2495,7 @@ class DBInterface(object):
                  'device_owner': constants.DEVICE_OWNER_ROUTER_INTF,
                  'name': ''})
 
-            port_id = port['q_api_data']['id']
+            port_id = port['id']
             
         vmi_obj = self._vnc_lib.virtual_machine_interface_read(id=port_id)
         router_obj.add_virtual_machine_interface(vmi_obj)
@@ -2516,7 +2511,7 @@ class DBInterface(object):
         router_obj = self._logical_router_read(router_id)
         subnet = None
         if port_id:
-            port_db = self.port_read(port_id)['q_api_data']
+            port_db = self.port_read(port_id)
             if not (port_db['device_owner'] == constants.DEVICE_OWNER_ROUTER_INTF and
                     port_db['device_id'] == router_id):
                 raise l3.RouterInterfaceNotFound(router_id=router_id,
@@ -2526,15 +2521,15 @@ class DBInterface(object):
                 raise exceptions.SubnetMismatchForPort(port_id=port_id,
                                                        subnet_id=subnet_id)
             subnet_id = port_subnet_id
-            subnet = self.subnet_read(subnet_id)['q_api_data']
+            subnet = self.subnet_read(subnet_id)
             network_id = subnet['network_id']
         elif subnet_id:
-            subnet = self.subnet_read(subnet_id)['q_api_data']
+            subnet = self.subnet_read(subnet_id)
             network_id = subnet['network_id']
             
             for intf in router_obj.get_virtual_machine_interface_refs() or []:
                 port_id = intf['uuid']
-                port_db = self.port_read(port_id)['q_api_data']
+                port_db = self.port_read(port_id)
                 if subnet_id == port_db['fixed_ips'][0]['subnet_id']:
                     break
             else:
@@ -2780,7 +2775,7 @@ class DBInterface(object):
             if not filters:
                 # TODO once vmi is linked to project in schema, use project_id
                 # to limit scope of list
-                if not context.is_admin:
+                if not context['is_admin']:
                     project_id = str(uuid.UUID(context.tenant))
                 else:
                     project_id = None

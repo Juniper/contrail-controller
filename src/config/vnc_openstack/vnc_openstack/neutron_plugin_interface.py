@@ -281,10 +281,10 @@ class NeutronPluginInterface(object):
 
         try:
             cfgdb = self._get_user_cfgdb(context)
-            nets_count = cfgdb.subnets_count(context, filters)
+            subnets_count = cfgdb.subnets_count(context, filters)
             LOG.debug("plugin_get_subnets_count(): filters: "
-                      + pformat(filters) + " data: " + str(nets_count))
-            return {'count': nets_count}
+                      + pformat(filters) + " data: " + str(subnets_count))
+            return {'count': subnets_count}
         except Exception as e:
             cgitb.Hook(format="text").handle(sys.exc_info())
             raise e
@@ -307,4 +307,111 @@ class NeutronPluginInterface(object):
             return self.plugin_get_subnets(context, subnet)
         elif context['operation'] == 'READCOUNT':
             return self.plugin_get_subnets_count(context, subnet)
+
+    def plugin_get_port(self, context, port):
+        """
+        Port get request
+        """
+
+        fields = port['fields']
+
+        try:
+            cfgdb = self._get_user_cfgdb(context)
+            port_info = cfgdb.port_read(port['id'], fields)
+            return port_info
+        except Exception as e:
+            cgitb.Hook(format="text").handle(sys.exc_info())
+            raise e
+
+    def plugin_create_port(self, context, port):
+        """
+        Port create request
+        """
+
+        try:
+            cfgdb = self._get_user_cfgdb(context)
+            net_info = cfgdb.port_create(port['resource'])
+            return net_info
+        except Exception as e:
+            cgitb.Hook(format="text").handle(sys.exc_info())
+            raise e
+
+    def plugin_update_port(self, context, port):
+        """
+        Port update request
+        """
+
+        try:
+            cfgdb = self._get_user_cfgdb(context)
+            net_info = cfgdb.port_update(port['id'],
+                                         port['resource'])
+            return net_info
+        except Exception as e:
+            cgitb.Hook(format="text").handle(sys.exc_info())
+            raise e
+
+    def plugin_delete_port(self, context, port):
+        """
+        Port delete request
+        """
+
+        try:
+            cfgdb = self._get_user_cfgdb(context)
+            cfgdb.port_delete(port['id'])
+            LOG.debug("plugin_delete_port(): " + pformat(port['id']))
+        except Exception as e:
+            cgitb.Hook(format="text").handle(sys.exc_info())
+            raise e
+
+    def plugin_get_ports(self, context, port):
+        """
+        Ports get request
+        """
+
+        filters = port['filters']
+        fields = port['fields']
+
+        try:
+            cfgdb = self._get_user_cfgdb(context)
+            ports_info = cfgdb.port_list(context, filters)
+            return json.dumps(ports_info)
+        except Exception as e:
+            cgitb.Hook(format="text").handle(sys.exc_info())
+            raise e
+
+    def plugin_get_ports_count(self, context, port):
+        """
+        Ports count request
+        """
+
+        filters = port['filters']
+
+        try:
+            cfgdb = self._get_user_cfgdb(context)
+            ports_count = cfgdb.port_count(filters)
+            LOG.debug("plugin_get_ports_count(): filters: "
+                      + pformat(filters) + " data: " + str(ports_count))
+            return {'count': ports_count}
+        except Exception as e:
+            cgitb.Hook(format="text").handle(sys.exc_info())
+            raise e
+
+    def plugin_http_post_port(self):
+        """
+        Bottle callback for Port POST
+        """
+        context, port = self._get_requests_data()
+
+        if context['operation'] == 'READ':
+            return self.plugin_get_port(context, port)
+        elif context['operation'] == 'CREATE':
+            return self.plugin_create_port(context, port)
+        elif context['operation'] == 'UPDATE':
+            return self.plugin_update_port(context, port)
+        elif context['operation'] == 'DELETE':
+            return self.plugin_delete_port(context, port)
+        elif context['operation'] == 'READALL':
+            return self.plugin_get_ports(context, port)
+        elif context['operation'] == 'READCOUNT':
+            return self.plugin_get_ports_count(context, port)
 
