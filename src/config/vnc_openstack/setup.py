@@ -18,9 +18,6 @@ setup(
         'vnc_cfg_api.resourceApi': [
             'xxx = vnc_openstack:ResourceApiDriver',
         ],
-        'vnc_cfg_api.neutronApi': [
-            'xxx = vnc_openstack:NeutronApiDriver',
-        ],
     },
     install_requires=[
     ]
