@@ -72,6 +72,9 @@ public:
     uint32_t linklocal_vm_flows() const { return linklocal_vm_flows_; }
     uint32_t flow_cache_timeout() const {return flow_cache_timeout_;}
     bool headless_mode() const {return headless_mode_;}
+    bool vhost_gateway_configured() const { 
+        return vhost_.gw_.to_ulong() != 0? true : false; 
+    }
 
     const std::string &config_file() const { return config_file_; }
     const std::string &program_name() const { return program_name_;}
