@@ -166,7 +166,7 @@ protected:
                          const Ip4Address &ip, int plen,
                          const Ip4Address &server) {
         Agent::GetInstance()->GetDefaultInet4UnicastRouteTable()->AddGatewayRouteReq
-            (vrf_name, ip, plen, server, "");
+            (Agent::GetInstance()->local_peer(), vrf_name, ip, plen, server, "");
 
         client->WaitForIdle();
     }

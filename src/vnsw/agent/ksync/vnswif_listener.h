@@ -9,6 +9,7 @@
 #include <boost/bind.hpp>
 #include <boost/function.hpp>
 #include <boost/asio.hpp>
+#include <boost/shared_ptr.hpp>
 
 /****************************************************************************
  * Module responsible to keep host-os and agent in-sync
@@ -64,7 +65,7 @@ public:
               const std::string &interface, const Ip4Address &gw,
               uint8_t protocol, uint32_t flags) :
             event_(event), interface_(interface), addr_(addr), plen_(plen),
-            flags_(flags), protocol_(protocol) {
+            gw_(gw), flags_(flags), protocol_(protocol) {
         }
 
         Type event_;
@@ -90,6 +91,29 @@ public:
         bool host_seen_;
         uint32_t oper_id_;
     };
+
+    struct VnswInterface {
+        string name_;
+        Ip4Address address_;
+        uint8_t prefix_len_;
+        Ip4Address gw_address_;
+        VnswInterface(const std::string &name) : name_(name) {
+        }
+        VnswInterface(const std::string &name, const Ip4Address &ip, 
+                      uint8_t plen) : name_(name), address_(ip), 
+                                      prefix_len_(plen), gw_address_(0) {
+        }
+    };
+    typedef boost::shared_ptr<VnswInterface> VnswInterfacePtr;
+
+    class VnswInterfaceCmp {
+        public:
+            bool operator()(const VnswInterfacePtr &lhs, 
+                            const VnswInterfacePtr &rhs) const {
+                return lhs.get()->name_.compare(rhs.get()->name_);
+            }
+    };
+    typedef std::set<VnswInterfacePtr, VnswInterfaceCmp> InterfaceSet;
 
 private:
     struct State : public DBState {
@@ -141,6 +165,8 @@ private:
     void SetAddress(const Event *event);
     void ResetAddress(const Event *event);
     void HandleAddressEvent(const Event *event);
+    void VhostRouteFromRouteEvent(const Event *event);
+    VnswInterface* GetVnswInterface(const std::string& name);
 
     Agent *agent_;
     uint8_t *read_buf_;
@@ -158,6 +184,7 @@ private:
     uint32_t netlink_ll_add_count_;
     uint32_t netlink_ll_del_count_;
     uint32_t vhost_update_count_;
+    InterfaceSet interface_table_;
 
     DISALLOW_COPY_AND_ASSIGN(VnswInterfaceListener);
 };

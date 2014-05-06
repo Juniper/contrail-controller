@@ -18,6 +18,7 @@
 #define LINKLOCAL_PEER_NAME "LinkLocal"
 #define ECMP_PEER_NAME "Ecmp"
 #define VGW_PEER_NAME "Vgw"
+#define HOST_OS_PEER_NAME "Host_Os"
 
 class AgentXmppChannel;
 class ControllerRouteWalker;
@@ -35,7 +36,8 @@ public:
         LOCAL_VM_PORT_PEER,
         LINKLOCAL_PEER,
         NOVA_PEER,
-        VGW_PEER
+        VGW_PEER,
+        HOST_OS_PEER
     };
 
     Peer(Type type, const std::string &name);

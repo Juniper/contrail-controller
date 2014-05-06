@@ -204,7 +204,7 @@ public:
                                 const Ip4Address &dst_addr,uint8_t plen,
                                 const Ip4Address &gw_ip,
                                 const std::string &vn_name);
-    static void AddGatewayRouteReq(const string &vrf_name,
+    static void AddGatewayRouteReq(const Peer *peer, const string &vrf_name,
                                    const Ip4Address &dst_addr,uint8_t plen,
                                    const Ip4Address &gw_ip,
                                    const std::string &vn_name);

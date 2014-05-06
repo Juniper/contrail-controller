@@ -297,6 +297,7 @@ void Agent::InitModules() {
     linklocal_peer_.reset(new Peer(Peer::LINKLOCAL_PEER, LINKLOCAL_PEER_NAME));
     ecmp_peer_.reset(new Peer(Peer::ECMP_PEER, ECMP_PEER_NAME));
     vgw_peer_.reset(new Peer(Peer::VGW_PEER, VGW_PEER_NAME));
+    host_os_peer_.reset(new Peer(Peer::HOST_OS_PEER, HOST_OS_PEER_NAME));
 
     ksync_.get()->Init();
 

@@ -30,7 +30,8 @@ VnswInterfaceListener::VnswInterfaceListener(Agent *agent) :
     sock_(*(agent->GetEventManager())->io_service()),
     intf_listener_id_(DBTableBase::kInvalidId), seqno_(0),
     vhost_intf_up_(false), ll_addr_table_(), revent_queue_(NULL),
-    netlink_ll_add_count_(0), netlink_ll_del_count_(0), vhost_update_count_(0) { 
+    netlink_ll_add_count_(0), netlink_ll_del_count_(0), vhost_update_count_(0),
+    interface_table_() { 
 }
 
 VnswInterfaceListener::~VnswInterfaceListener() {
@@ -433,6 +434,9 @@ void VnswInterfaceListener::HandleAddressEvent(const Event *event) {
                              InetInterface::VHOST, agent_->GetDefaultVrf(),
                              event->addr_, event->plen_, agent_->GetGatewayId(),
                              agent_->GetDefaultVrf());
+    VnswInterfacePtr itf(new VnswInterface(event->interface_, event->addr_, event->plen_));
+    interface_table_.insert(itf);
+
     if (dep_init_reqd)
         RouterIdDepInit(agent_);
 }
@@ -536,6 +540,76 @@ void VnswInterfaceListener::LinkLocalRouteFromRouteEvent(Event *event) {
     }
 }
 
+void VnswInterfaceListener::VhostRouteFromRouteEvent(const Event *event) {
+    bool default_gw_route = false, gw_route = false;
+
+    /* All routes added via command line using route command will have proto as
+     * RTPROT_BOOT */
+    if (event->protocol_ != RTPROT_BOOT) {
+        LOG(DEBUG, "Ignoring route with proto " << event->protocol_ 
+            << " (!RTPROT_BOOT)");
+        return;
+    }
+
+    /* Ignore routes on Non-vhostx interfaces */
+    if (event->interface_ != agent_->vhost_interface_name()) {
+        LOG(DEBUG, "Ignoring route interface " << event->interface_);
+        return;
+    }
+    
+    /* Ignore routes on vhost interface if vhost is configured via agent
+     * config file
+     */
+    if (agent_->params()->IsVHostConfigured()) {
+        return;
+    }
+
+    if (event->gw_.to_ulong() != 0) {
+        if (event->addr_.to_ulong() == 0) 
+            default_gw_route = true;
+        else
+            gw_route = true;
+    }
+
+    /* Add/Delete route for default gateway, only if default gateway is NOT
+     * configured via agent config file */
+    if (default_gw_route && !agent_->params()->vhost_gateway_configured()) {
+        VnswInterface *vif = GetVnswInterface(event->interface_);
+        if (vif == NULL || (vif->prefix_len_ == 0)) {
+            return;
+        }
+        Ip4Address gw_addr = event->gw_;
+        //Reset the gateway address to 0.0.0.0 if it is DEL_ROUTE request
+        if (event->event_ == Event::DEL_ROUTE) {
+            Ip4Address zero_addr(0);
+            gw_addr = zero_addr;
+        }
+        if (vif->gw_address_.to_ulong() == gw_addr.to_ulong()) {
+            return;
+        }
+        agent_->SetGatewayId(event->gw_);
+        vif->gw_address_ = gw_addr;
+        InetInterface::CreateReq(agent_->GetInterfaceTable(), event->interface_,
+                InetInterface::VHOST, agent_->GetDefaultVrf(),
+                vif->address_, vif->prefix_len_, 
+                gw_addr, agent_->GetDefaultVrf());
+        return;
+    }
+
+    if (gw_route) {
+        if (event->event_ == Event::ADD_ROUTE) {
+            agent_->GetDefaultInet4UnicastRouteTable()->AddGatewayRouteReq(
+                    agent_->host_os_peer(), agent_->GetDefaultVrf(), 
+                    event->addr_, event->plen_, event->gw_, agent_->GetFabricVnName());
+        } else {
+            agent_->GetDefaultInet4UnicastRouteTable()->DeleteReq(
+                    agent_->host_os_peer(), agent_->GetDefaultVrf(), 
+                    event->addr_, event->plen_);
+        }
+    }
+    return;
+}
+
 void VnswInterfaceListener::AddLinkLocalRoutes() {
     for (LinkLocalAddressTable::iterator it = ll_addr_table_.begin();
          it != ll_addr_table_.end(); ++it) {
@@ -590,6 +664,7 @@ bool VnswInterfaceListener::ProcessEvent(Event *event) {
     case Event::ADD_ROUTE:
     case Event::DEL_ROUTE:
         LinkLocalRouteFromRouteEvent(event);
+        VhostRouteFromRouteEvent(event);
         break;
 
     case Event::ADD_LL_ROUTE:
@@ -639,14 +714,17 @@ static VnswInterfaceListener::Event *HandleNetlinkRouteMsg(struct nlmsghdr *nlh)
     struct rtmsg *rtm = (struct rtmsg *) NLMSG_DATA (nlh);
 
     if (rtm->rtm_family != AF_INET || rtm->rtm_table != RT_TABLE_MAIN 
-        || rtm->rtm_type != RTN_UNICAST || rtm->rtm_scope != RT_SCOPE_LINK) {
+        || rtm->rtm_type != RTN_UNICAST) {
         LOG(DEBUG, "Ignoring Netlink route with family "
             << (uint32_t)rtm->rtm_family
             << " table " << (uint32_t)rtm->rtm_table
-            << " type " << (uint32_t)rtm->rtm_type
-            << " scope " << (uint32_t)rtm->rtm_family);
+            << " type " << (uint32_t)rtm->rtm_type);
         return NULL;
     }
+    /* Gateway route notifications will have rtm->rtm_scope value as 
+     * RT_SCOPE_UNIVERSE. Link local routes will have rtm->rtm_scope as 
+     * RT_SCOPE_LINK
+     */
 
     int oif = -1;
     uint32_t dst_ip = 0;
@@ -796,3 +874,14 @@ int VnswInterfaceListener::NlMsgDecode(struct nlmsghdr *nl, std::size_t len,
 
     return 0;
 }
+
+VnswInterfaceListener::VnswInterface* VnswInterfaceListener::GetVnswInterface
+    (const string& name) {
+    VnswInterfacePtr itf(new VnswInterface(name));
+    InterfaceSet::iterator it = interface_table_.find(itf);
+    if (it != interface_table_.end()) {
+        return (*it).get();
+    }
+    return NULL;
+}
+
