@@ -23,5 +23,5 @@ env.Prepend(LIBS=['gunit'])
 #env.Alias('agent:policy_test', policy_test)
 
 #test = env.TestSuite('agent-test', test_suite)
-#env.Alias('src/vnsw/agent:test', test)
+#env.Alias('controller/src/vnsw/agent/filter:test', test)
 #Return('test_suite')

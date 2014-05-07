@@ -23,6 +23,6 @@ test_suite = [
 ]
 
 test = env.TestSuite('net-test', test_suite)
-env.Alias('src/net:test', test)
+env.Alias('controller/src/net:test', test)
 
 Return('test_suite')

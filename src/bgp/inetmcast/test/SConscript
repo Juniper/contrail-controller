@@ -110,6 +110,6 @@ test_suite = [
 ]
 
 test = env.TestSuite('bgp-test', test_suite)
-env.Alias('src/bgp/inetmcast:test', test)
+env.Alias('controller/src/bgp/inetmcast:test', test)
 
 Return('test_suite')
