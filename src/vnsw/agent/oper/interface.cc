@@ -379,6 +379,14 @@ void PhysicalInterface::Delete(InterfaceTable *table, const string &ifname) {
 
 /////////////////////////////////////////////////////////////////////////////
 // DHCP Snoop routines
+// DHCP Snoop entry can be added from 3 different places,
+// - Interface added from config
+// - Address learnt from DHCP Snoop on fabric interface
+// - Address learnt from vrouter when agent restarts
+//
+// DHCP Snoop entry is deleted from 2 places
+// - Interface deleted from config
+// - Audit of entries read from vrouter on restart and config table
 /////////////////////////////////////////////////////////////////////////////
 
 // Get DHCP IP address. First try to find entry in DHCP Snoop table.
@@ -405,18 +413,32 @@ void InterfaceTable::DeleteDhcpSnoopEntry(const std::string &ifname) {
     return dhcp_snoop_map_.erase(it);
 }
 
-void InterfaceTable::AddDhcpSnoopEntry(const std::string &ifname,
-                                       const Ip4Address &addr,
-                                       bool config_entry) {
+// Set config_seen_ flag in DHCP Snoop entry.
+// Create the DHCP Snoop entry, if not already present
+void InterfaceTable::DhcpSnoopSetConfigSeen(const std::string &ifname) {
     tbb::mutex::scoped_lock lock(dhcp_snoop_mutex_);
-    DhcpSnoopEntry entry(addr, config_entry);
+    const DhcpSnoopIterator it = dhcp_snoop_map_.find(ifname);
+    Ip4Address addr(0);
+
+    if (it != dhcp_snoop_map_.end()) {
+        addr = it->second.addr_;
+    }
+    dhcp_snoop_map_[ifname] = DhcpSnoopEntry(addr, true);
+}
+
+void InterfaceTable::AddDhcpSnoopEntry(const std::string &ifname,
+                                       const Ip4Address &addr) {
+    tbb::mutex::scoped_lock lock(dhcp_snoop_mutex_);
+    DhcpSnoopEntry entry(addr, false);
     const DhcpSnoopIterator it = dhcp_snoop_map_.find(ifname);
 
     if (it != dhcp_snoop_map_.end()) {
+        // Retain config_entry_ flag from old entry
         if (it->second.config_entry_) {
             entry.config_entry_ = true;
         }
 
+        // If IP address is not specified, retain old IP address
         if (addr.to_ulong() == 0) {
             entry.addr_ = it->second.addr_;
         }
@@ -431,7 +453,7 @@ void InterfaceTable::AuditDhcpSnoopTable() {
     DhcpSnoopIterator it = dhcp_snoop_map_.begin();
     while (it != dhcp_snoop_map_.end()){
         DhcpSnoopIterator del_it = it++;
-        if (del_it->second.config_entry_) {
+        if (del_it->second.config_entry_ == false) {
             dhcp_snoop_map_.erase(del_it);
         }
     }

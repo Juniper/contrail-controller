@@ -449,7 +449,7 @@ void DhcpHandler::RelayResponseFromFabric() {
     if (msg_type_ == DHCP_ACK) {
         // Populate the DHCP Snoop table
         agent()->GetInterfaceTable()->AddDhcpSnoopEntry
-            (vm_itf_->name(), Ip4Address(ntohl(dhcp_->yiaddr)), true);
+            (vm_itf_->name(), Ip4Address(ntohl(dhcp_->yiaddr)));
         // Enqueue RESYNC to update the IP address
         DBRequest req(DBRequest::DB_ENTRY_ADD_CHANGE);
         req.key.reset(new VmInterfaceKey(AgentKey::RESYNC, vm_itf_->GetUuid(),

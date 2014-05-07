@@ -541,7 +541,6 @@ public:
     void SetAgentTaskPolicy();
 
     void InitCollector();
-    void CreateBasicModules();
     void CreateDBTables();
     void CreateDBClients();
     void CreateVrf();

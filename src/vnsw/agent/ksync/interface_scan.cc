@@ -29,8 +29,7 @@ void InterfaceKScan::KernelInterfaceData(vr_interface_req *r) {
         uint32_t ipaddr = r->get_vifr_ip();
         if (ipaddr && if_indextoname(r->get_vifr_os_idx(), name)) {
             agent_->GetInterfaceTable()->AddDhcpSnoopEntry(name,
-                                                           Ip4Address(ipaddr),
-                                                           false);
+                                                           Ip4Address(ipaddr));
         }
     }
 }

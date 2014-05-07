@@ -252,9 +252,9 @@ public:
     // Dhcp Snoop Map entries
     const Ip4Address GetDhcpSnoopEntry(const std::string &ifname);
     void DeleteDhcpSnoopEntry(const std::string &ifname);
-    void AddDhcpSnoopEntry(const std::string &ifname, const Ip4Address &addr,
-                           bool config_entry);
+    void AddDhcpSnoopEntry(const std::string &ifname, const Ip4Address &addr);
     void AuditDhcpSnoopTable();
+    void DhcpSnoopSetConfigSeen(const std::string &ifname);
 
     // TODO : to remove this
     static InterfaceTable *GetInstance() { return interface_table_; }

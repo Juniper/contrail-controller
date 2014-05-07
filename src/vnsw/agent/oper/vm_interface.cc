@@ -628,10 +628,15 @@ bool VmInterface::CopyIpAddress(Ip4Address &addr) {
     bool ret = false;
     InterfaceTable *table = static_cast<InterfaceTable *>(get_table());
 
+    // Support DHCP relay for fabric-ports if IP address is not configured
     do_dhcp_relay_ = (fabric_port_ && addr.to_ulong() == 0 && vrf() &&
                       vrf()->GetName() == table->agent()->GetDefaultVrf());
 
     if (do_dhcp_relay_) {
+        // Set config_seen flag on DHCP SNoop entry
+        table->DhcpSnoopSetConfigSeen(name_);
+        // IP Address not know. Get DHCP Snoop entry.
+        // Also sets the config_seen_ flag for DHCP Snoop entry
         addr = table->GetDhcpSnoopEntry(name_);
     }
 
