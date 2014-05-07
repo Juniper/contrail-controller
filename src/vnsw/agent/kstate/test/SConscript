@@ -30,5 +30,5 @@ if sys.platform != 'darwin':
                       test_sandesh_kstate
                       ]
     test = env.TestSuite('agent-test', kstate_test_suite)
-    env.Alias('src/vnsw/agent:test', test)
+    env.Alias('controller/src/vnsw/agent/kstate:test', test)
     Return('kstate_test_suite')

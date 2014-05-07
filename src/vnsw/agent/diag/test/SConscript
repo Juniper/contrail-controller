@@ -33,6 +33,6 @@ if sys.platform != 'darwin':
                         test_ping,
                       ]
     test = env.TestSuite('agent-test', diag_test_suite)
-    env.Alias('src/vnsw/agent:test', test)
+    env.Alias('controller/src/vnsw/agent/diag:test', test)
     Return('diag_test_suite')
 

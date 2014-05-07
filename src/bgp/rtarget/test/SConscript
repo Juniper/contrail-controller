@@ -95,6 +95,6 @@ test_suite = [
 ]
 
 test = env.TestSuite('bgp-test', test_suite)
-env.Alias('src/bgp/rtarget:test', test)
+env.Alias('controller/src/bgp/rtarget:test', test)
 
 Return('test_suite')
