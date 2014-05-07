@@ -46,5 +46,5 @@ if sys.platform != 'darwin':
                       test_uve
                       ]
     test = env.TestSuite('agent-test', uve_test_suite)
-    env.Alias('src/vnsw/agent:test', test)
+    env.Alias('controller/src/vnsw/agent/uve:test', test)
     Return('uve_test_suite')

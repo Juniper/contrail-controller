@@ -78,6 +78,6 @@ test_suite = [
              ]
 
 test = env.TestSuite('qe-test', test_suite)
-env.Alias('src/query_engine:test', test)
+env.Alias('controller/src/query_engine:test', test)
 
 Return('test_suite')
