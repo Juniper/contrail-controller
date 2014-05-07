@@ -69,7 +69,7 @@ public:
 
     void CreateDBTables(DB *db);
     void RegisterDBClients(DB *db);
-    void CreateInterfaces();
+    void InitDiscovery();
     void Init();
     void InitDone();
     void Shutdown();

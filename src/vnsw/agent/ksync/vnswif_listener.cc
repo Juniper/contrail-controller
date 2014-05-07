@@ -390,13 +390,13 @@ void VnswInterfaceListener::ResetAddress(const Event *event) {
         return;
     }
 
-    entry->addr_ = event->addr_;
-    entry->plen_ = event->plen_;
+    entry->addr_ = Ip4Address(0);
+    entry->plen_ = 0;
 }
 
 void VnswInterfaceListener::HandleAddressEvent(const Event *event) {
     // Update address in interface table
-    if (event->event_ == Event::DEL_ADDR) {
+    if (event->event_ == Event::ADD_ADDR) {
         SetAddress(event);
     } else {
         ResetAddress(event);

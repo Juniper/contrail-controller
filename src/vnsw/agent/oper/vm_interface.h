@@ -317,7 +317,6 @@ public:
     void CopySgIdList(SecurityGroupList *sg_id_list) const;
     bool NeedMplsLabel() const;
     bool IsVxlanMode() const;
-    bool GetDhcpSnoopIp(const std::string &name, Ip4Address *ip) const;
     bool SgExists(const boost::uuids::uuid &id, const SgList &sg_l);
     bool IsMirrorEnabled() const { return mirror_entry_.get() != NULL; }
     bool HasFloatingIp() const { return floating_ip_list_.list_.size() != 0; }

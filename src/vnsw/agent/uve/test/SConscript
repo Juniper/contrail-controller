@@ -20,22 +20,22 @@ if sys.platform != 'darwin':
     env.Append(LIBS=['agent_test_buildinfo'])
 
     test_vn_uve = env.Program(target = 'test_vn_uve', source = ['test_vn_uve.cc', '../../pkt/test/test_pkt_util.o'])
-    env.Alias('src/vnsw/agent/uve/test:test_vn_uve', test_vn_uve)
+    env.Alias('agent:test_vn_uve', test_vn_uve)
 
     test_vm_uve = env.Program(target = 'test_vm_uve', source = ['test_vm_uve.cc'])
-    env.Alias('src/vnsw/agent/uve/test:test_vm_uve', test_vm_uve)
+    env.Alias('agent:test_vm_uve', test_vm_uve)
 
     test_vrouter_uve = env.Program(target = 'test_vrouter_uve', source = ['test_vrouter_uve.cc', '../../pkt/test/test_pkt_util.o'])
-    env.Alias('src/vnsw/agent/uve/test:test_vrouter_uve', test_vrouter_uve)
+    env.Alias('agent:test_vrouter_uve', test_vrouter_uve)
 
     test_port_bitmap = env.Program(target = 'test_port_bitmap', source = ['test_port_bitmap.cc'])
-    env.Alias('src/vnsw/agent/uve/test:test_port_bitmap', test_port_bitmap)
+    env.Alias('agent:test_port_bitmap', test_port_bitmap)
 
     test_stats_mock =  env.Program(target = 'test_stats_mock', source = ['test_stats_mock.cc'])
-    env.Alias('src/vnsw/agent/uve/test:test_stats_mock', test_stats_mock)
+    env.Alias('agent:test_stats_mock', test_stats_mock)
 
     test_uve = env.Program(target = 'test_uve', source = ['test_uve.cc'])
-    env.Alias('src/vnsw/agent/uve/test:test_uve', test_uve)
+    env.Alias('agent:test_uve', test_uve)
 
     uve_test_suite = [
                       test_vn_uve,

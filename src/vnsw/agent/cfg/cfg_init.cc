@@ -215,7 +215,7 @@ void AgentConfig::Init() {
     cfg_intf_mirror_table_.get()->Init();
 }
 
-void AgentConfig::CreateInterfaces() {
+void AgentConfig::InitDiscovery() {
     agent_->discovery_client()->Init(agent_->params());
 }
 

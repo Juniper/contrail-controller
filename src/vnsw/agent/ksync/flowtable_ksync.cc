@@ -490,6 +490,7 @@ void FlowTableKSyncObject::MapFlowMemTest() {
     flow_table_entries_count_ = kTestFlowTableSize / sizeof(vr_flow_entry);
     audit_yield_ = flow_table_entries_count_;
     audit_timeout_ = 0; // timout immediately.
+    ksync_->agent()->set_flow_table_size(flow_table_entries_count_);
 }
 
 void FlowTableKSyncObject::UnmapFlowMemTest() {
@@ -626,6 +627,7 @@ void FlowTableKSyncObject::MapFlowMem() {
     }
 
     flow_table_entries_count_ = flow_table_size_ / sizeof(vr_flow_entry);
+    ksync_->agent()->set_flow_table_size(flow_table_entries_count_);
     audit_yield_ = AuditYield;
     audit_timeout_ = AuditTimeout;
     audit_timer_->Start(AuditTimeout,

@@ -25,6 +25,8 @@
 #include <sandesh/sandesh_trace.h>
 
 #include <cmn/agent_cmn.h>
+#include <cmn/agent_factory.h>
+#include <cmn/agent_stats.h>
 #include <cfg/cfg_init.h>
 #include <cfg/cfg_mirror.h>
 #include <cfg/discovery_agent.h>
@@ -75,7 +77,7 @@ static bool interface_exist(string &name) {
 }
 
 /****************************************************************************
- * Cleanup routines on shugdown
+ * Cleanup routines on shutdown
 ****************************************************************************/
 void AgentInit::DeleteRoutes() {
     Inet4UnicastAgentRouteTable *uc_rt_table =
@@ -152,7 +154,116 @@ void AgentInit::InitVmwareInterface() {
                               agent_->GetDefaultVrf());
 }
     
-void AgentInit::CreateInterfaces(DB *db) {
+void AgentInit::InitLogging() {
+    Sandesh::SetLoggingParams(params_->log_local(),
+                              params_->log_category(),
+                              params_->log_level());
+}
+
+// Connect to collector specified in config, if discovery server is not set
+void AgentInit::InitCollector() {
+    agent_->InitCollector();
+}
+
+// Create the basic modules for agent operation.
+// Optional modules or modules that have different implementation are created
+// by init module
+void AgentInit::CreateModules() {
+    agent_->set_cfg(new AgentConfig(agent_));
+    agent_->set_stats(new AgentStats(agent_));
+    agent_->set_oper_db(new OperDB(agent_));
+    agent_->set_uve(AgentObjectFactory::Create<AgentUve>(
+                    agent_, AgentUve::kBandwidthInterval));
+    agent_->set_ksync(AgentObjectFactory::Create<KSync>(agent_));
+    agent_->set_pkt(new PktModule(agent_));
+
+    agent_->set_services(new ServicesModule(agent_,
+                                            params_->metadata_shared_secret()));
+    if (vgw_enable_) {
+        agent_->set_vgw(new VirtualGateway(agent_));
+    }
+
+    agent_->set_controller(new VNController(agent_));
+}
+
+void AgentInit::CreateDBTables() {
+    agent_->CreateDBTables();
+}
+
+void AgentInit::CreateDBClients() {
+    agent_->CreateDBClients();
+    if (agent_->uve()) {
+        agent_->uve()->RegisterDBClients();
+    }
+
+    if (agent_->ksync()) {
+        agent_->ksync()->RegisterDBClients(agent_->GetDB());
+    }
+
+    if (agent_->vgw()) {
+        agent_->vgw()->RegisterDBClients();
+    }
+}
+
+void AgentInit::InitPeers() {
+    agent_->InitPeers();
+}
+
+void AgentInit::InitModules() {
+    agent_->InitModules();
+
+    if (agent_->ksync()) {
+        agent_->ksync()->Init();
+    }
+
+    if (agent_->pkt()) {
+        agent_->pkt()->Init(ksync_enable());
+    }
+
+    if (agent_->services()) {
+        agent_->services()->Init(ksync_enable());
+    }
+
+    if (agent_->uve()) {
+        agent_->uve()->Init();
+    }
+}
+
+void AgentInit::CreateVrf() {
+    // Create the default VRF
+    VrfTable *vrf_table = agent_->GetVrfTable();
+
+    if (agent_->isXenMode()) {
+        vrf_table->CreateStaticVrf(agent_->GetLinkLocalVrfName());
+    }
+    vrf_table->CreateStaticVrf(agent_->GetDefaultVrf());
+
+    VrfEntry *vrf = vrf_table->FindVrfFromName(agent_->GetDefaultVrf());
+    assert(vrf);
+
+    // Default VRF created; create nexthops
+    agent_->SetDefaultInet4UnicastRouteTable(vrf->GetInet4UnicastRouteTable());
+    agent_->SetDefaultInet4MulticastRouteTable
+        (vrf->GetInet4MulticastRouteTable());
+    agent_->SetDefaultLayer2RouteTable(vrf->GetLayer2RouteTable());
+
+    // Create VRF for VGw
+    if (agent_->vgw()) {
+        agent_->vgw()->CreateVrf();
+    }
+}
+
+void AgentInit::CreateNextHops() {
+    DiscardNH::Create();
+    ResolveNH::Create();
+
+    DiscardNHKey key;
+    NextHop *nh = static_cast<NextHop *>
+                (agent_->nexthop_table()->FindActiveEntry(&key));
+    agent_->nexthop_table()->set_discard_nh(nh);
+}
+
+void AgentInit::CreateInterfaces() {
     InterfaceTable *table = agent_->GetInterfaceTable();
 
     InetInterface::Create(table, params_->vhost_name(), InetInterface::VHOST,
@@ -177,48 +288,72 @@ void AgentInit::CreateInterfaces(DB *db) {
     agent_->SetRouterId(params_->vhost_addr());
     agent_->SetPrefixLen(params_->vhost_plen());
     agent_->SetGatewayId(params_->vhost_gw());
-}
 
-// Create VRF for fabric-vrf 
-// In case of XEN, create link local VRF also
-void AgentInit::CreateDefaultVrf() {
-    VrfTable *vrf_table = agent_->GetVrfTable();
-
-    if (agent_->isXenMode()) {
-        vrf_table->CreateStaticVrf(agent_->GetLinkLocalVrfName());
+    if (agent_->pkt()) {
+        agent_->pkt()->CreateInterfaces();
     }
-    vrf_table->CreateStaticVrf(agent_->GetDefaultVrf());
 
-    VrfEntry *vrf = vrf_table->FindVrfFromName(agent_->GetDefaultVrf());
-    assert(vrf);
-
-    // Default VRF created; create nexthops
-    agent_->SetDefaultInet4UnicastRouteTable(vrf->GetInet4UnicastRouteTable());
-    agent_->SetDefaultInet4MulticastRouteTable
-        (vrf->GetInet4MulticastRouteTable());
-    agent_->SetDefaultLayer2RouteTable(vrf->GetLayer2RouteTable());
+    if (agent_->vgw()) {
+        agent_->vgw()->CreateInterfaces();
+    }
 }
 
-void AgentInit::CreateDefaultNextHops() {
-    DiscardNH::Create();
-    ResolveNH::Create();
+void AgentInit::InitDiscovery() {
+    if (agent_->cfg()) {
+        agent_->cfg()->InitDiscovery();
+    }
+}
 
-    DiscardNHKey key;
-    NextHop *nh = static_cast<NextHop *>
-                (agent_->nexthop_table()->FindActiveEntry(&key));
-    agent_->nexthop_table()->set_discard_nh(nh);
+void AgentInit::InitDone() {
+    //Open up mirror socket
+    agent_->GetMirrorTable()->MirrorSockInit();
+
+    if (agent_->services()) {
+        agent_->services()->ConfigInit();
+    }
+
+    // Diag module needs PktModule
+    if (agent_->pkt()) {
+        agent_->set_diag_table(new DiagTable(agent_));
+    }
+
+    if (create_vhost_) {
+        //Update mac address of vhost interface with
+        //that of ethernet interface
+        agent_->ksync()->UpdateVhostMac();
+    }
+
+    if (ksync_enable_) {
+        agent_->ksync()->VnswInterfaceListenerInit();
+    }
+
+    if (router_id_dep_enable() && agent_->GetRouterIdConfigured()) {
+        RouterIdDepInit(agent_);
+    } else {
+        LOG(DEBUG, 
+            "Router ID Dependent modules (Nova & BGP) not initialized");
+    }
+
+    if (agent_->cfg()) {
+        agent_->cfg()->InitDone();
+    }
 }
 
 // Start init sequence
 bool AgentInit::Run() {
-    agent_->CreateModules();
-    agent_->CreateDBTables();
-    agent_->CreateDBClients();
-    agent_->InitModules();
-    agent_->CreateVrf();
-    agent_->CreateNextHops();
-    agent_->CreateInterfaces();
-    agent_->InitDone();
+    InitLogging();
+    InitCollector();
+    InitPeers();
+    CreateModules();
+    CreateDBTables();
+    CreateDBClients();
+    InitModules();
+    CreateVrf();
+    CreateNextHops();
+    InitDiscovery();
+    CreateInterfaces();
+    InitDone();
+
     init_done_ = true;
     return true;
 }
