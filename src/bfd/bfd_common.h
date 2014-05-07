@@ -27,7 +27,7 @@ enum AuthType {
 
 enum ResultCode {
     kResultCode_Ok,
-    kResultCode_UnkownSession,
+    kResultCode_UnknownSession,
     kResultCode_Error,
     kResultCode_InvalidPacket,
     kResultCode_NotImplemented,

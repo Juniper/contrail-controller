@@ -40,8 +40,8 @@ ResultCode BFDServer::processControlPacket(const ControlPacket *packet) {
     BFDSession *session = NULL;
     session = GetSession(packet);
     if (session == NULL) {
-        LOG(ERROR, "Unkown session");
-        return kResultCode_UnkownSession;
+        LOG(ERROR, "Unknown session");
+        return kResultCode_UnknownSession;
     }
     LOG(DEBUG, "Found session: " << session->toString());
     result = session->ProcessControlPacket(packet);
@@ -79,7 +79,7 @@ BFDSession* BFDServer::SessionManager::SessionByAddress(const boost::asio::ip::a
 ResultCode BFDServer::SessionManager::RemoveSession(Discriminator discriminator) {
     DiscriminatorSessionMap::const_iterator it = by_discriminator_.find(discriminator);
     if (it == by_discriminator_.end())
-        return kResultCode_UnkownSession;
+        return kResultCode_UnknownSession;
     BFDSession *session = it->second;
     by_discriminator_.erase(discriminator);
     by_address_.erase(session->RemoteHost());
