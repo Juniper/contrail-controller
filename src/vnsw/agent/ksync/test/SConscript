@@ -31,6 +31,6 @@ if sys.platform != 'darwin':
                   ]
 
     test = env.TestSuite('agent-test', ksync_suite)
-    env.Alias('src/vnsw/agent:test', test)
+    env.Alias('controller/src/vnsw/agent/ksync:test', test)
     Return('ksync_suite')
 
