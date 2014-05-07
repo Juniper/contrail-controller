@@ -13,10 +13,9 @@ import sys
 if sys.platform == 'darwin':
     Return()
 
-def MapBuildDir(list):
-    return map(lambda x: Dir('../../' + x).abspath, list)
-
+# Common include search path
 env.Prepend(CPPPATH = '#/vrouter/include')
+env.Prepend(CPPPATH = env['TOP'])
 env.Prepend(CPPPATH = env['TOP'] + '/base/sandesh')
 env.Prepend(CPPPATH = env['TOP'] + '/discovery/client')
 env.Prepend(CPPPATH = env['TOP'] + '/dns')
@@ -26,121 +25,130 @@ env.Prepend(CPPPATH = env['TOP'] + '/schema')
 env.Prepend(CPPPATH = env['TOP'] + '/sandesh')
 env.Prepend(CPPPATH = env['TOP'] + '/vnsw/agent')
 env.Prepend(CPPPATH = env['TOP'] + '/vnsw/agent/cmn')
-env.Prepend(CPPPATH = env['TOP'] + '/vnsw/agent/init')
-env.Prepend(CPPPATH = env['TOP'] + '/vnsw/agent/openstack')
 env.Prepend(CPPPATH = env['TOP'] + '/vnsw/agent/oper')
+env.Prepend(CPPPATH = env['TOP'] + '/vnsw/agent/init')
+
+env.Prepend(CPPPATH = env['TOP'] + '/vnsw/agent/openstack')
 env.Prepend(CPPPATH = env['TOP'] + '/vnsw/agent/uve')
 env.Prepend(CPPPATH = env['TOP'] + '/vrouter/sandesh')
-env.Prepend(CPPPATH = env['TOP'])
 env.Prepend(CPPPATH = env['TOP_INCLUDE'] + '/thrift')
 
-env.Prepend(
-    LIBS=[
-        'nova_ins',
-        'nova_ins_thrift',
-        'xmpp',
-        'peer_sandesh',
-        'xmpp_multicast',
-        'xmpp_enet',
-        'xmpp_unicast',
-        'isc',
-        'xml2',
-        'ds',
-        'xml',
-        'pugixml',
-        'curl',
-        'bind_interface',
-        'bgp_schema',
-        'ifmap_vnc',
-        'ifmap_agent',
-        'ifmap_common', 
-        'kstate',
-        'net',
-        'sandeshflow',
-        'sandeshvns',
-        'filter',
-        'vgw',
-        'httpc',
-        'route',
-        'db',
-        'cpuinfo',
-        'io',
-        'sandesh',
-        'http',
-        'http_parser',
-        'base',
-        'thriftasio',
-        'thrift',
-        'boost_filesystem',
-        'boost_program_options',
-        'boost_regex',
+# Non-Agent common libraries
+env.Prepend(LIBS=[
+    'xmpp',
+    'peer_sandesh',
+    'xmpp_multicast',
+    'xmpp_enet',
+    'xmpp_unicast',
+    'isc',
+    'xml2',
+    'ds',
+    'xml',
+    'pugixml',
+    'curl',
+    'bind_interface',
+    'bgp_schema',
+    'ifmap_vnc',
+    'ifmap_agent',
+    'ifmap_common', 
+    'net',
+    'sandeshflow',
+    'sandeshvns',
+    'filter',
+    'httpc',
+    'route',
+    'db',
+    'cpuinfo',
+    'io',
+    'sandesh',
+    'http',
+    'http_parser',
+    'base',
+    'thriftasio',
+    'thrift',
+    'boost_filesystem',
+    'boost_program_options',
+    'boost_regex',
+    'rt',
 ])
 
-if sys.platform != 'darwin':
-    env.Prepend(LIBS=[
-        'agent_services',
-        'diag',
-        'vnswksync',
-        'ksync',
-        'vrutil',
-        'agentuve',
-        ])
+# agent libraries that need single pass linking
+env.Prepend(LIBS=[
+    'vnswinit',
+    'vnswctrl',
+    'cfg',
+    'filter',
+    'agent_services',
+    'diag',
+    'pkt',
+    'agentuve',
+    'vnswksync',
+    'kstate',
+    'ksync',
+    'vrutil',
+    'nova_ins',
+    'nova_ins_thrift',
+    'vgw',
+    ])
 
-env.Prepend(LIBS=['vnswoperdb', 'vnswctrl', 'vnswcmn', 'vnswinit', 'cfg', 'filter'])
+# Libraries to be linked with multi-pass.
+env.Prepend(LIBS=[
+    'cpuinfo',
+    'vnswoperdb',
+    'vnswcmn',
+    ])
 
-if sys.platform == 'darwin':
-    kstate_lib =  Dir('./kstate').path + '/libkstate.a'
-    env.Prepend(LINKFLAGS =
-                ['-Wl,-force_load,' + kstate_lib])
-else:
-    env.Prepend(LINKFLAGS =
-                ['-Wl,--whole-archive',
-                 '-rdynamic',
-                 '-lkstate',
-                 '-lcpuinfo',
-                 '-lvnswoperdb',
-                 '-Wl,--no-whole-archive'])
+# Libraries that need multi-pass linking
+env.Prepend(LINKFLAGS =[
+    '-Wl,--whole-archive',
+    '-rdynamic',
+    '-lcpuinfo',
+    '-lvnswoperdb',
+    '-lvnswcmn',
+    '-Wl,--no-whole-archive'])
 
-if sys.platform != 'darwin':
-    env.Append(LIBS=['pkt', 'rt'])
+# Library search path
+def MapBuildDir(list):
+    return map(lambda x: Dir('../../' + x).abspath, list)
 
-libpath = MapBuildDir(
-    [
-     'base',
-     'bgp',
-     'db',
-     'discovery/client',
-     'dns/bind',
-     'http/client',
-     'ifmap',
-     'io',
-     'ksync',
-     'net',
-     'route',
-     'schema',
-     'vnsw/agent',
-     'vnsw/agent/cfg',
-     'vnsw/agent/cmn',
-     'vnsw/agent/controller',
-     'vnsw/agent/diag',
-     'vnsw/agent/filter',
-     'vnsw/agent/init',
-     'vnsw/agent/kstate', 
-     'vnsw/agent/ksync',
-     'vnsw/agent/openstack',
-     'vnsw/agent/oper',
-     'vnsw/agent/pkt',
-     'vnsw/agent/services',
-     'vnsw/agent/uve',
-     'vnsw/agent/vgw',
-     'vrouter/utils',
-     'xml',
-     'xmpp',
-     'third_party/bind-9.9.2-P1/lib/isc',
+libpath = MapBuildDir([
+    'base',
+    'bgp',
+    'db',
+    'discovery/client',
+    'dns/bind',
+    'http/client',
+    'ifmap',
+    'io',
+    'ksync',
+    'net',
+    'route',
+    'schema',
+    'vnsw/agent',
+    'vnsw/agent/cfg',
+    'vnsw/agent/cmn',
+    'vnsw/agent/controller',
+    'vnsw/agent/diag',
+    'vnsw/agent/filter',
+    'vnsw/agent/init',
+    'vnsw/agent/kstate', 
+    'vnsw/agent/ksync',
+    'vnsw/agent/openstack',
+    'vnsw/agent/oper',
+    'vnsw/agent/pkt',
+    'vnsw/agent/services',
+    'vnsw/agent/uve',
+    'vnsw/agent/vgw',
+    'vrouter/utils',
+    'xml',
+    'xmpp',
+    'third_party/bind-9.9.2-P1/lib/isc',
 ])
-
 env.Append(LIBPATH=libpath)
 
+# Dependencies for generating buildinfo.cc
+#
+# Dependencies on external libraries first
 buildinfo_dep_libs = [
     '#build/lib/libthrift.a',
     '#build/lib/libthriftasio.a',
@@ -152,26 +160,38 @@ buildinfo_dep_libs = [
     '#build/lib/libhttp_parser.a', 
     '#build/lib/liblog4cplus.a',
     '#build/lib/libpugixml.a',
-    '../../../lib/libsandesh.a',
-    '../../../lib/libsandeshflow.a', 
-    '../../../lib/libsandeshvns.a',
-    '../../base/libbase.a',
-    '../../base/libcpuinfo.a',
-    '../../db/libdb.a',
-    '../../dns/bind/libbind_interface.a',
-    '../../ifmap/libifmap_agent.a',
-    '../../ifmap/libifmap_common.a', 
-    '../../io/libio.a', 
-    '../../ksync/libksync.a',
-    '../../net/libnet.a',
-    '../../route/libroute.a', 
-    '../../schema/libbgp_schema.a',
-    '../../schema/libifmap_vnc.a',
-    '../../schema/libxmpp_unicast.a',
-    '../../schema/libxmpp_multicast.a',
-    '../../vrouter/utils/libvrutil.a',
-    '../../xml/libxml.a',
-    '../../xmpp/libxmpp.a', 
+    '#build/lib/libsandesh.a',
+    '#build/lib/libsandeshflow.a', 
+    '#build/lib/libsandeshvns.a',
+    '#build/lib/libtbb_debug.so.2'
+]
+
+def MapBuildFile(list):
+    return map(lambda x: File('../../' + x).abspath, list)
+
+# Common contrail libraries
+buildinfo_dep_libs += MapBuildFile([
+    'base/libbase.a',
+    'base/libcpuinfo.a',
+    'db/libdb.a',
+    'dns/bind/libbind_interface.a',
+    'ifmap/libifmap_agent.a',
+    'ifmap/libifmap_common.a', 
+    'io/libio.a', 
+    'ksync/libksync.a',
+    'net/libnet.a',
+    'route/libroute.a', 
+    'schema/libbgp_schema.a',
+    'schema/libifmap_vnc.a',
+    'schema/libxmpp_unicast.a',
+    'schema/libxmpp_multicast.a',
+    'vrouter/utils/libvrutil.a',
+    'xml/libxml.a',
+    'xmpp/libxmpp.a'
+     ])
+
+# agent libraries
+buildinfo_dep_libs += [
     'cfg/libcfg.a',
     'cmn/libvnswcmn.a',
     'controller/libvnswctrl.a',
@@ -183,14 +203,11 @@ buildinfo_dep_libs = [
     'oper/libvnswoperdb.a',
     'pkt/libpkt.a', 'diag/libdiag.a', 
     'services/libagent_services.a',
-    'uve/libagentuve.a',
-    ]
-
-if sys.platform != 'darwin':
-    buildinfo_dep_libs += [ '../../../lib/libtbb_debug.so.2' ]
+    'uve/libagentuve.a'
+]
 
 env.GenerateBuildInfoCode(
-    target='buildinfo.cc',
+    target = ['buildinfo.h', 'buildinfo.cc'],
     source = buildinfo_dep_libs + ['main.cc'],
     path=str(Dir('.').abspath))
 
@@ -199,7 +216,7 @@ env.GenerateBuildInfoCode(
 cflags = env['CCFLAGS']
 cflags.append('-Wno-return-type')
 vnswad = env.Program(target = 'vnswad', source = ['buildinfo.cc', 'main.cc'])
-env.Alias('src/vnsw/agent:vnswad', vnswad)
+env.Alias('agent:vnswad', vnswad)
 env.Default(vnswad)
 env.Alias('install', env.Install(env['INSTALL_BIN'], vnswad))
 env.Alias('install', env.Install(env['INSTALL_CONF'], 'contrail-vrouter-agent.conf'))
@@ -211,22 +228,23 @@ cflags.remove('-Wno-return-type')
 AgentEnv.Replace(CCFLAGS = cflags)
 Export('AgentEnv')
 
-subdirs = ['cmn',
-           'cfg',
-           'controller',
-           'diag',
-           'filter',
-           'init',
-           'kstate',
-           'ksync',
-           'openstack',
-           'oper',
-           'pkt',
-           'services',
-           'test',
-           'uve',
-           'vgw'
-           ]
+subdirs = [
+    'cmn',
+    'cfg',
+    'controller',
+    'diag',
+    'filter',
+    'init',
+    'kstate',
+    'ksync',
+    'openstack',
+    'oper',
+    'pkt',
+    'services',
+    'test',
+    'uve',
+    'vgw'
+    ]
 
 for dir in subdirs:
     env.SConscript(dir + '/SConscript', exports=['AgentEnv', 'BuildEnv'], duplicate=0)
@@ -259,7 +277,7 @@ def valgrind_run(target, source, env):
             print cmd + '\033[91m' + " FAIL" + '\033[0m'
 
 #test_valgrind = env.Command(Dir('test_valgrind'), '', valgrind_run)
-#env.Alias('src/vnsw/agent:test_valgrind', test_valgrind)
+#env.Alias('agent:test_valgrind', test_valgrind)
 
 def code_coverage(target, source, env):
     # rm -rf vnsw/agent/test_coverage
@@ -296,7 +314,7 @@ if env['OPT'] == 'coverage':
     #import pdb; pdb.set_trace()
     test_coverage = env.Command(Dir('test_coverage'), '', code_coverage)
     env.AlwaysBuild(test_coverage)
-    env.Alias('src/vnsw/agent:test_coverage', test_coverage)
+    env.Alias('agent:test_coverage', test_coverage)
 
 def run_ut(target, source, env):
     # execute tests
@@ -339,7 +357,7 @@ def run_ut(target, source, env):
 
 #run_ut = env.Command(Dir('run_ut'), '', run_ut)
 #env.AlwaysBuild(run_ut)
-#env.Alias('src/vnsw/agent:run_ut', run_ut)
+#env.Alias('agent:run_ut', run_ut)
 env.Depends('main.o', 'buildinfo.cc')
 
 # Local Variables:

@@ -279,6 +279,47 @@ TEST_F(FabricInterfaceTest, dhcp_snoop_1) {
     EXPECT_FALSE(VmPortFind(1));
 }
 
+// Ensure DHCP Snoop entries for interface not seen from config are deleted
+TEST_F(FabricInterfaceTest, dhcp_snoop_audit_1) {
+    interface_table_->AddDhcpSnoopEntry("fabric1",
+                                        Ip4Address::from_string("1.1.1.1"));
+    interface_table_->AddDhcpSnoopEntry("fabric2",
+                                        Ip4Address::from_string("1.1.1.2"));
+
+    // Add fabric1 interface
+    VnAddReq(1, "vn1", 0, fabric_vrf_name_);
+    NovaIntfAdd(this, 1, "fabric1", "0.0.0.0", "00:00:00:00:00:01");
+    CfgIntfSync(this, 1, "fabric1", 1, 1, fabric_vrf_name_, "0.0.0.0", true);
+    client->WaitForIdle();
+
+    // Lookup for DHCP Snoop entry for fabric1 and fabric2
+    Ip4Address addr1 = interface_table_->GetDhcpSnoopEntry("fabric1");
+    EXPECT_STREQ(addr1.to_string().c_str(), "1.1.1.1");
+
+    Ip4Address addr2 = interface_table_->GetDhcpSnoopEntry("fabric2");
+    EXPECT_STREQ(addr2.to_string().c_str(), "1.1.1.2");
+
+    // Run audit of DHCP Snoop entries
+    interface_table_->AuditDhcpSnoopTable();
+
+    addr1 = interface_table_->GetDhcpSnoopEntry("fabric1");
+    EXPECT_STREQ(addr1.to_string().c_str(), "1.1.1.1");
+
+    addr2 = interface_table_->GetDhcpSnoopEntry("fabric2");
+    EXPECT_STREQ(addr2.to_string().c_str(), "0.0.0.0");
+
+    NovaDel(this, 1);
+    CfgIntfSync(this, 1, "fabric1", 0, 0, "", "0.0.0.0", true);
+    VnDelReq(1);
+    client->WaitForIdle();
+    EXPECT_FALSE(VmPortFind(1));
+
+    // DHCP Snoop entry should be deleted after port is deleted
+    addr1 = interface_table_->GetDhcpSnoopEntry("fabric1");
+    EXPECT_STREQ(addr1.to_string().c_str(), "0.0.0.0");
+
+}
+
 int main(int argc, char **argv) {
     GETUSERARGS();
 

@@ -5,7 +5,6 @@
 #include "vr_defs.h"
 #include "cmn/agent_cmn.h"
 #include "oper/route_common.h"
-#include "ksync/interface_ksync.h"
 #include "pkt/pkt_init.h"
 #include "services/dhcp_proto.h"
 #include "services/services_types.h"

@@ -183,8 +183,11 @@ int main(int argc, char *argv[]) {
     AgentInit init;
     init.Init(&param, &agent, var_map);
 
-    // Initialize agent and kick start initialization
-    agent.Init(&param, &init);
+    // Copy config into agent
+    agent.CopyConfig(&param, &init);
+
+    // kick start initialization
+    init.Start();
 
     Agent::GetInstance()->GetEventManager()->RunWithExceptionHandling();
 

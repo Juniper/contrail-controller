@@ -28,9 +28,19 @@ public:
     void Start();
     void Shutdown();
 
-    void CreateDefaultVrf();
-    void CreateDefaultNextHops();
-    void CreateInterfaces(DB *db);
+    void InitLogging();
+    void InitCollector();
+    void CreateModules();
+    void CreateDBTables();
+    void CreateDBClients();
+    void InitModules();
+    void InitPeers();
+    void CreateVrf();
+    void CreateNextHops();
+    void CreateInterfaces();
+    void InitDiscovery();
+    void InitDone();
+
     void Init(AgentParam *param, Agent *agent,
               const boost::program_options::variables_map &var_map);
     void InitXenLinkLocalIntf();
@@ -57,8 +67,6 @@ public:
     void set_vgw_enable(bool flag) { vgw_enable_ = flag; }
     void set_router_id_dep_enable(bool flag) { router_id_dep_enable_ = flag; }
 private:
-    void InitModules();
-
     Agent *agent_;
     AgentParam *params_;
 

@@ -14,25 +14,18 @@
 #include "vr_interface.h"
 #include <cmn/agent_cmn.h>
 
-// Store kernel interface snapshot
+// Scan DHCP Snoop entries from kernel interface snapshot
 class InterfaceKScan {
 public:
-    typedef std::map<std::string, uint32_t> InterfaceKScanMap;
-    typedef std::map<std::string, uint32_t>::iterator InterfaceKScanIter;
-    typedef std::pair<std::string, uint32_t> InterfaceKScanPair;
-
     InterfaceKScan(Agent *agent);
     virtual ~InterfaceKScan();
 
     void Init();
-    void KernelInterfaceData(vr_interface_req *r);
-    bool FindInterfaceKScanData(const std::string &name, uint32_t &ip);
     bool Reset();
+    void KernelInterfaceData(vr_interface_req *r);
 private:
     Agent *agent_;
     Timer *timer_;
-    tbb::mutex mutex_;
-    InterfaceKScanMap data_map_;
     static const uint32_t timeout_ = 180000; // 3 minutes
     DISALLOW_COPY_AND_ASSIGN(InterfaceKScan);
 };

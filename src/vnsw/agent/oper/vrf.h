@@ -11,7 +11,6 @@
 #include <sandesh/sandesh.h>
 #include <cmn/agent_cmn.h>
 #include <cmn/index_vector.h>
-#include <ksync/ksync_index.h>
 #include <oper/peer.h>
 #include <oper/agent_types.h>
 

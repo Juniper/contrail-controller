@@ -3,6 +3,8 @@
  */
 
 #include <ksync/interface_scan.h>
+#include <oper/interface_common.h>
+#include <oper/mirror_table.h>
 
 InterfaceKScan::InterfaceKScan(Agent *agent) 
     : agent_(agent), timer_(NULL) {
@@ -23,30 +25,17 @@ void InterfaceKScan::Init() {
 
 void InterfaceKScan::KernelInterfaceData(vr_interface_req *r) {
     char name[IF_NAMESIZE + 1];
-    tbb::mutex::scoped_lock lock(mutex_);
     if (r->get_vifr_os_idx() >= 0 && r->get_vifr_type() == VIF_TYPE_VIRTUAL) {
         uint32_t ipaddr = r->get_vifr_ip();
         if (ipaddr && if_indextoname(r->get_vifr_os_idx(), name)) {
-            std::string itf_name(name);
-            data_map_.insert(InterfaceKScanPair(itf_name, ipaddr));
+            agent_->GetInterfaceTable()->AddDhcpSnoopEntry(name,
+                                                           Ip4Address(ipaddr));
         }
     }
 }
 
-bool InterfaceKScan::FindInterfaceKScanData(const std::string &name, 
-                                            uint32_t &ip) {
-    tbb::mutex::scoped_lock lock(mutex_);
-    InterfaceKScanIter it = data_map_.find(name);
-    if (it != data_map_.end()) {
-        ip = it->second;
-        return true;
-    }
-    return false;
-}
-
 bool InterfaceKScan::Reset() { 
-    tbb::mutex::scoped_lock lock(mutex_);
-    data_map_.clear();
+    agent_->GetInterfaceTable()->AuditDhcpSnoopTable();
     return false;
 }
 
