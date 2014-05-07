@@ -58,4 +58,4 @@ env.Alias('src/schema:display_name_test',
 
 test = env.TestSuite('schema-test', test_list)
 
-env.Alias('src/schema:test', test)
+env.Alias('controller/src/schema:test', test)

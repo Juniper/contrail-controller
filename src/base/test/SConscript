@@ -97,5 +97,5 @@ test_suite = [
     ]
 
 test = env.TestSuite('base-test', test_suite)
-env.Alias('src/base:test', test)
+env.Alias('controller/src/base:test', test)
 Return('test_suite')

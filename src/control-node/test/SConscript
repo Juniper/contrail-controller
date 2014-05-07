@@ -32,5 +32,5 @@ env.Alias('src/control-node:options_test', options_test)
 test_suite = [ options_test ]
 
 test = env.TestSuite('control-node-test', test_suite)
-env.Alias('src/control-node:test', test)
+env.Alias('controller/src/control-node:test', test)
 Return('test_suite')

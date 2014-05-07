@@ -62,6 +62,6 @@ test_suite = [
              ]
 
 test = env.TestSuite('dns-test', test_suite)
-env.Alias('src/dns:test', test)
+env.Alias('controller/src/dns:test', test)
 Return('test_suite')
 
