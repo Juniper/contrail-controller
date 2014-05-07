@@ -6,7 +6,6 @@
 #define vnsw_agent_mpls_hpp
 
 #include <cmn/agent_cmn.h>
-#include "ksync/ksync_index.h"
 #include <oper/nexthop.h>
 
 using namespace boost::uuids;

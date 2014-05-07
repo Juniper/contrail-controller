@@ -223,6 +223,17 @@ TEST_F(TestVnswIf, vhost_addr_1) {
 
     // Ensure there is no change vhost-ip
     EXPECT_STREQ(vhost->ip_addr().to_string().c_str(), vhost_ip.c_str());
+
+    InterfaceAddressEvent(false, agent_->vhost_interface_name(), "1.1.1.1");
+
+    // Validate address in local entry
+    EXPECT_STREQ(entry->addr_.to_string().c_str(), "0.0.0.0");
+
+    // Message not sent to kernel since vhost already has IP
+    EXPECT_EQ(vnswif_->vhost_update_count(), 0);
+
+    // Ensure there is no change vhost-ip
+    EXPECT_STREQ(vhost->ip_addr().to_string().c_str(), vhost_ip.c_str());
 }
 
 // vhost-ip address update

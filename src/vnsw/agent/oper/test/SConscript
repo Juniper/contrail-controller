@@ -27,18 +27,18 @@ if sys.platform != 'darwin':
     env.Append(LIBS=['agent_test_buildinfo']);
 
     test_intf = env.Program(target = 'test_intf', source = ['test_intf.cc'])
-    env.Alias('src/vnsw/agent/oper/test:test_intf', test_intf)
+    env.Alias('agent:test_intf', test_intf)
 
     test_vrf_assign = env.Program(target = 'test_vrf_assign', source = ['test_vrf_assign.cc'])
-    env.Alias('src/vnsw/agent/oper/test:test_vrf_assign', test_vrf_assign)
+    env.Alias('agent:test_vrf_assign', test_vrf_assign)
 
     test_linklocal = env.Program(target = 'test_linklocal', source = ['test_linklocal.cc'])
-    env.Alias('src/vnsw/agent/oper/test:test_linklocal', test_linklocal)
+    env.Alias('agent:test_linklocal', test_linklocal)
 
     test_inet_interface = env.Program(target = 'test_inet_interface', source = ['test_inet_interface.cc'])
-    env.Alias('src/vnsw/agent/oper/test:test_inet_interface', test_inet_interface)
+    env.Alias('agent:test_inet_interface', test_inet_interface)
     test_fabric_interface = env.Program(target = 'test_fabric_interface', source = ['test_fabric_interface.cc'])
-    env.Alias('src/vnsw/agent/oper/test:test_fabric_interface', test_fabric_interface)
+    env.Alias('agent:test_fabric_interface', test_fabric_interface)
     oper_test_suite = [
                        test_fabric_interface,
                        test_inet_interface,

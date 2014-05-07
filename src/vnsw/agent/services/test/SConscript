@@ -23,22 +23,22 @@ if sys.platform != 'darwin':
     env.Append(LIBS=['agent_test_buildinfo'])
 
     dhcp_test = env.Program(target = 'dhcp_test', source = ['dhcp_test.cc'])
-    env.Alias('src/vnsw/agent/services/test:dhcp_test', dhcp_test)
+    env.Alias('agent:dhcp_test', dhcp_test)
 
     dns_test = env.Program(target = 'dns_test', source = ['dns_test.cc'])
-    env.Alias('src/vnsw/agent/services/test:dns_test', dns_test)
+    env.Alias('agent:dns_test', dns_test)
 
     arp_test = env.Program(target = 'arp_test', source = ['arp_test.cc'])
-    env.Alias('src/vnsw/agent/services/test:arp_test', arp_test)
+    env.Alias('agent:arp_test', arp_test)
 
     icmp_test = env.Program(target = 'icmp_test', source = ['icmp_test.cc'])
-    env.Alias('src/vnsw/agent/services/test:icmp_test', icmp_test)
+    env.Alias('agent:icmp_test', icmp_test)
 
     metadata_test = env.Program(target = 'metadata_test', source = ['metadata_test.cc'])
-    env.Alias('src/vnsw/agent/services/test:metadata_test', metadata_test)
+    env.Alias('agent:metadata_test', metadata_test)
 
     pkt_trace_test = env.Program(target = 'pkt_trace_test', source = ['pkt_trace_test.cc'])
-    env.Alias('src/vnsw/agent/services/test:pkt_trace_test', pkt_trace_test)
+    env.Alias('agent:pkt_trace_test', pkt_trace_test)
 
     srv_test_suite = [
                   dhcp_test,

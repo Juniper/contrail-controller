@@ -81,7 +81,8 @@ TestClient *TestInit(const char *init_file, bool ksync_init, bool pkt_init,
     agent->set_ksync_sync_mode(ksync_sync_mode);
 
     // Initialize agent and kick start initialization
-    agent->Init(param, init);
+    agent->CopyConfig(param, init);
+    init->Start();
 
     WAIT_FOR(1000, 10000, init->init_done());
     client->Init();
@@ -142,7 +143,8 @@ TestClient *StatsTestInit() {
     param->set_test_mode(true);
 
     // Initialize agent and kick start initialization
-    agent->Init(param, init);
+    agent->CopyConfig(param, init);
+    init->Start();
 
     AsioRun();
 
@@ -193,7 +195,8 @@ TestClient *VGwInit(const string &init_file, bool ksync_init) {
     }
 
     // Initialize agent and kick start initialization
-    agent->Init(param, init);
+    agent->CopyConfig(param, init);
+    init->Start();
 
     WAIT_FOR(1000, 10000, init->init_done());
     client->Init();
