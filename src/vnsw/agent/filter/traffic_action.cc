@@ -57,6 +57,32 @@ void MirrorAction::SetActionSandeshData(std::vector<ActionStr> &actions) {
     return;
 }
 
+bool MirrorAction::Compare(const TrafficAction &rhs) const {
+    const MirrorAction &rhs_mirror_action =
+        static_cast<const MirrorAction &>(rhs);
+    if (analyzer_name_ != rhs_mirror_action.analyzer_name_) {
+        return false;
+    }
+
+    if (vrf_name_ != rhs_mirror_action.vrf_name_) {
+        return false;
+    }
+
+    if (m_ip_ != rhs_mirror_action.m_ip_) {
+        return false;
+    }
+
+    if (port_ != rhs_mirror_action.port_) {
+        return false;
+    }
+
+    if (encap_ != rhs_mirror_action.encap_) {
+        return false;
+    }
+    return true;
+}
+
+
 void VrfTranslateAction::SetActionSandeshData(std::vector<ActionStr> &actions) {
     ActionStr astr;
     astr.action = ActionToString(action_);
@@ -69,6 +95,18 @@ void VrfTranslateAction::SetActionSandeshData(std::vector<ActionStr> &actions) {
     astr.action = ss.str();
     actions.push_back(astr);
     return;
+}
+
+bool VrfTranslateAction::Compare(const TrafficAction &rhs) const {
+    const VrfTranslateAction &rhs_vrf_action =
+        static_cast<const VrfTranslateAction &>(rhs);
+    if (vrf_name_ != rhs_vrf_action.vrf_name_) {
+        return false;
+    }
+    if (ignore_acl_ != rhs_vrf_action.ignore_acl_) {
+        return false;
+    }
+    return true;
 }
 
 MirrorAction::~MirrorAction() {

@@ -67,6 +67,10 @@ if sys.platform != 'darwin':
                                  source = ['../filter/test/acl_entry_test.cc'])
     env.Alias('agent:test_acl_entry', test_acl_entry)
 
+    test_acl_change = env.Program(target = 'test_acl_change',
+                                 source = ['../filter/test/acl_change_test.cc'])
+    env.Alias('src/vnsw/agent:test_acl_change', test_acl_change)
+
     test_route = env.Program(target = 'test_route', source = ['test_route.cc'])
     env.Alias('agent:test_route', test_route)
 
@@ -167,6 +171,7 @@ test_suite = [
               test_fip_cfg,
               test_acl,
               test_acl_entry,
+              test_acl_change,
               test_route,
               test_l2route,
               test_cfg,

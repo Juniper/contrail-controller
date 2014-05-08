@@ -55,6 +55,7 @@ public:
 
     boost::intrusive::list_member_hook<> acl_list_node;
 
+    bool operator==(const AclEntry &rhs) const;
 private:
     uint32_t id_;
     AclType type_;

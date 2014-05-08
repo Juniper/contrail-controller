@@ -145,6 +145,7 @@ void DelVn(const char *name);
 void AddPort(const char *name, int id);
 void DelPort(const char *name);
 void AddAcl(const char *name, int id);
+void DelAcl(const char *name);
 void AddAcl(const char *name, int id, const char *src_vn, const char *dest_vn,
             const char *action);
 void AddSg(const char *name, int id);

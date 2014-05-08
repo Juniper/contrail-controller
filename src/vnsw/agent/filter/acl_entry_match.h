@@ -18,9 +18,25 @@
 class PacketHeader;
 class AclEntryMatch {
 public:
+    enum Type {
+        SOURCE_PORT_MATCH,
+        DESTINATION_PORT_MATCH,
+        PROTOCOL_MATCH,
+       ADDRESS_MATCH
+    };
+    AclEntryMatch(Type type):type_(type) { }
     virtual ~AclEntryMatch() {}
     virtual bool Match(const PacketHeader *packet_header) const = 0;
     virtual void SetAclEntryMatchSandeshData(AclEntrySandeshData &data) = 0;
+    virtual bool Compare(const AclEntryMatch &rhs) const = 0;
+    bool operator ==(const AclEntryMatch &rhs) const {
+        if (type_ != rhs.type_) {
+            return false;
+        }
+        return Compare(rhs);
+    }
+private:
+    Type type_;
 };
 
 struct Range {
@@ -30,6 +46,12 @@ struct Range {
     boost::intrusive::slist_member_hook<> node;
     uint16_t min;
     uint16_t max;
+    bool operator==(const Range &rhs) const {
+        if (min == rhs.min && max == rhs.max) {
+            return true;
+        }
+        return false;
+    }
 };
 
 typedef boost::intrusive::member_hook<Range, 
@@ -48,33 +70,38 @@ struct delete_disposer {
 
 class PortMatch : public AclEntryMatch {
 public:
-    PortMatch() {}
+    PortMatch(Type type): AclEntryMatch(type) {}
     ~PortMatch() {port_ranges_.clear_and_dispose(delete_disposer());}
     void SetPortRange(const uint16_t min_port, const uint16_t max_port);
     void SetAclEntryMatchSandeshData(AclEntrySandeshData &data) = 0;
     virtual bool Match(const PacketHeader *packet_header) const = 0;
+    virtual bool Compare(const AclEntryMatch &rhs) const;
 protected:
     RangeSList port_ranges_;
 };
 
 class SrcPortMatch : public PortMatch {
 public:
+    SrcPortMatch(): PortMatch(SOURCE_PORT_MATCH) {}
     bool Match(const PacketHeader *packet_header) const;
     void SetAclEntryMatchSandeshData(AclEntrySandeshData &data);
 };
 class DstPortMatch : public PortMatch {
 public:
+    DstPortMatch(): PortMatch(DESTINATION_PORT_MATCH) {}
     bool Match(const PacketHeader *packet_header) const;
     void SetAclEntryMatchSandeshData(AclEntrySandeshData &data);
 };
 
 class ProtocolMatch : public AclEntryMatch {
 public:
-    ProtocolMatch() {}
+    ProtocolMatch(): AclEntryMatch(PROTOCOL_MATCH) {}
     ~ProtocolMatch() {protocol_ranges_.clear_and_dispose(delete_disposer());}
     void SetProtocolRange(const uint16_t min, const uint16_t max);
     bool Match(const PacketHeader *packet_header) const;
     void SetAclEntryMatchSandeshData(AclEntrySandeshData &data);
+    virtual bool Compare(const AclEntryMatch &rhs) const;
+
 private:
     RangeSList protocol_ranges_;
 };
@@ -91,7 +118,7 @@ public:
        UNKNOWN_TYPE = 4,
     };
 
-    AddressMatch() {}
+    AddressMatch():AclEntryMatch(ADDRESS_MATCH) {}
     ~AddressMatch() {}
 
     // Set source
@@ -106,6 +133,7 @@ public:
     // Match packet header for address
     bool Match(const PacketHeader *packet_header) const;
     void SetAclEntryMatchSandeshData(AclEntrySandeshData &data);
+    virtual bool Compare(const AclEntryMatch &rhs) const;
 private:
     AddressType addr_type_;
     bool src_;
