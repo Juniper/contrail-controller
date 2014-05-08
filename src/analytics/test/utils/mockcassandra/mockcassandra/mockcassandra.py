@@ -86,7 +86,8 @@ def start_cassandra(cport, sport_arg=None):
 
     replace_string_(confdir + "cassandra-env.sh", \
         [('#MAX_HEAP_SIZE="4G"', 'MAX_HEAP_SIZE="256M"'), \
-        ('#HEAP_NEWSIZE="800M"', 'HEAP_NEWSIZE="100M"')])
+        ('#HEAP_NEWSIZE="800M"', 'HEAP_NEWSIZE="100M"'), \
+        ('-Xss180k','-Xss256k')])
 
     if not sport_arg:
         ss.close()

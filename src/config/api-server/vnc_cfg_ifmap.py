@@ -853,7 +853,8 @@ class VncKombuClient(object):
             try:
                 self._obj_update_q.put(*args, **kwargs)
                 break
-            except socket.error as e:
+            except Exception as e:
+                logger.info("Disconnected from rabbitmq. Reinitializing connection: %s" % str(e))
                 time.sleep(1)
                 self._init_server_conn(self._rabbit_ip, self._rabbit_user, self._rabbit_password, self._rabbit_vhost)
     # end _obj_update_q_put
@@ -867,7 +868,8 @@ class VncKombuClient(object):
             while True:
                 try:
                     message = queue.get()
-                except socket.error as e:
+                except Exception as e:
+                    logger.info("Disconnected from rabbitmq. Reinitializing connection: %s" % str(e))
                     self._init_server_conn(self._rabbit_ip, self._rabbit_user, self._rabbit_password, self._rabbit_vhost)
                     # never reached
                     continue
@@ -887,7 +889,8 @@ class VncKombuClient(object):
                 finally:
                     try:
                         message.ack()
-                    except socket.error as e:
+                    except Exception as e:
+                        logger.info("Disconnected from rabbitmq. Reinitializing connection: %s" % str(e))
                         self._init_server_conn(self._rabbit_ip, self._rabbit_user, self._rabbit_password, self._rabbit_vhost)
                         # never reached
 

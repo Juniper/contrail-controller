@@ -88,22 +88,6 @@ bool DbHandler::CreateTables() {
         }
     }
 
-    /* create ObjectTables */
-    if (!dbif_->NewDb_AddColumnfamily(
-                (GenDb::NewCf(g_viz_constants.OBJECT_TABLE,
-                              boost::assign::list_of
-                              (GenDb::DbDataType::Unsigned32Type)
-                              (GenDb::DbDataType::Unsigned8Type)
-                              (GenDb::DbDataType::AsciiType),
-                              boost::assign::list_of
-                              (GenDb::DbDataType::AsciiType)
-                              (GenDb::DbDataType::Unsigned32Type),
-                              boost::assign::list_of
-                              (GenDb::DbDataType::LexicalUUIDType))))) {
-        LOG(ERROR, __func__ << ": " << g_viz_constants.OBJECT_TABLE << " FAILED");
-        return false;
-    }
-
     for (std::vector<GenDb::NewCf>::const_iterator it = vizd_flow_tables.begin();
             it != vizd_flow_tables.end(); it++) {
         if (!dbif_->NewDb_AddColumnfamily(*it)) {
