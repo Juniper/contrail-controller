@@ -43,7 +43,7 @@ if sys.platform != 'darwin':
                       test_vrouter_uve,
                       test_port_bitmap,
                       test_stats_mock,
-                      test_uve
+#                     test_uve
                       ]
     test = env.TestSuite('agent-test', uve_test_suite)
     env.Alias('controller/src/vnsw/agent/uve:test', test)
