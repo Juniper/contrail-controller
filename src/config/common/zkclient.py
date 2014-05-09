@@ -1,6 +1,7 @@
 #
 # Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
 #
+import os
 import gevent
 import logging
 import kazoo.client
@@ -227,7 +228,7 @@ class ZookeeperClient(object):
             # Lost the session with ZooKeeper Server
             # Best of option we have is to exit the process and restart all 
             # over again
-            exit(2)
+            os._exit(2)
     # end
 
     def _zk_election_callback(self, func, *args, **kwargs):
