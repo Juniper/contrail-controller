@@ -40,7 +40,7 @@ test_suite = [
 ]
 
 test = env.TestSuite('all-test', test_suite)
-env.Alias('src/db:test', test)
+env.Alias('controller/src/db:test', test)
 #import pdb; pdb.set_trace()
 Return('test_suite')
 

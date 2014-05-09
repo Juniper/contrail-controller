@@ -6,7 +6,6 @@ SConscript(dirs=['lib', 'src'])
 
 env = DefaultEnvironment()
 env.Alias('controller/test', [
-    'control-node',
     'controller/src/agent:test',
     'controller/src/analytics:test',
     'controller/src/base:test',
