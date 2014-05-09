@@ -297,18 +297,19 @@ class SvcMonitor(object):
         return si_fq_str.split(':')[1]
     # enf _get_si_fq_str_to_proj_name
 
-    def _get_vn_id(self, proj_obj, vn_fq_name,
+    def _get_vn_id(self, proj_obj, vn_fq_name_str,
                    shared_vn_name=None,
                    shared_vn_subnet=None):
         vn_id = None
 
-        if vn_fq_name:
+        if vn_fq_name_str:
+            vn_fq_name = vn_fq_name_str.split(':')
             # search for provided VN
             try:
                 vn_id = self._vnc_lib.fq_name_to_id(
                     'virtual-network', vn_fq_name)
             except NoIdError:
-                self._svc_syslog("Error: vn_name %s not found" % (vn_name))
+                self._svc_syslog("Error: vn_fq_name %s not found" % (vn_fq_name_str))
         else:
             # search or create shared VN
             domain_name, proj_name = proj_obj.get_fq_name()
@@ -444,18 +445,18 @@ class SvcMonitor(object):
             # set vn id
             if si_if_list and st_props.get_ordered_interfaces():
                 si_if = si_if_list[idx]
-                vn_fq_name = si_if.get_virtual_network()
+                vn_fq_name_str = si_if.get_virtual_network()
             else:
                 funcname = "get_" + itf_type + "_virtual_network"
                 func = getattr(si_props, funcname)
-                vn_fq_name = func()
+                vn_fq_name_str = func()
 
             if itf_type in _SVC_VNS:
-                vn_id = self._get_vn_id(proj_obj, vn_fq_name,
+                vn_id = self._get_vn_id(proj_obj, vn_fq_name_str,
                                         _SVC_VNS[itf_type][0],
                                         _SVC_VNS[itf_type][1])
             else:
-                vn_id = self._get_vn_id(proj_obj, vn_fq_name)
+                vn_id = self._get_vn_id(proj_obj, vn_fq_name_str)
             if vn_id is None:
                 continue
             nic['net-id'] = vn_id
