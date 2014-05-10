@@ -363,6 +363,7 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
     <xsd:all>
         <xsd:element name="subnet" type="SubnetType"/>
         <xsd:element name="default-gateway" type="IpAddressType"/>
+        <xsd:element name="subnet-uuid" type="xsd:string"/>
     </xsd:all>
 </xsd:complexType>
 
