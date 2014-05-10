@@ -248,7 +248,7 @@ void Agent::InitCollector() {
                            params_->http_server_port());
 
     if (params_->collector_port() != 0 && 
-        !params_->collector().to_ulong() != 0) {
+        params_->collector().to_ulong() != 0) {
         Sandesh::ConnectToCollector(params_->collector().to_string(),
                                     params_->collector_port());
     }
