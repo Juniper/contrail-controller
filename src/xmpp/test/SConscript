@@ -17,73 +17,56 @@ env.Append(LIBPATH = ['#/' + Dir('..').path,
                       '../../ifmap',
                       '../../io',
                       '../../xml',
-                      '../../schema'
+                      '../../schema',
+                      '.'
 		      ])
+
+libxmpptest = env.Library('xmpptest',
+                         ['xmpp_sample_peer.cc'])
 
 env.Prepend(LIBS = ['task_test', 'gunit', 'xmpp', 'xml', 'pugixml', 'sandesh', 
                     'http', 'http_parser', 'curl', 'io', 'sandeshvns', 'base', 'peer_sandesh',
-                    'boost_regex', 'control_node'])
+                    'boost_regex', 'xmpptest', 'control_node'])
 
 if sys.platform != 'darwin':
     env.Append(LIBS = ['rt'])
 
-xmpp_server_test = env.UnitTest('xmpp_server_test',
-                              ['xmpp_sample_peer.cc', 'xmpp_server_test.cc'],
-                              )
+xmpp_server_test = env.UnitTest('xmpp_server_test', ['xmpp_server_test.cc'])
 env.Alias('controller/xmpp:xmpp_server_test', xmpp_server_test)
 
-xmpp_regex_test = env.UnitTest('xmpp_regex_test',
-                              ['xmpp_regex_test.cc'],
-                              )
+xmpp_regex_test = env.UnitTest('xmpp_regex_test', ['xmpp_regex_test.cc'])
 env.Alias('controller/xmpp:xmpp_regex_test', xmpp_regex_test)
 
-xmpp_pubsub_test = env.UnitTest('xmpp_pubsub_test',
-                              ['xmpp_sample_peer.cc', 'xmpp_pubsub_test.cc'],
-                              )
+xmpp_pubsub_test = env.UnitTest('xmpp_pubsub_test', ['xmpp_pubsub_test.cc'])
 env.Alias('controller/xmpp:xmpp_pubsub_test', xmpp_pubsub_test)
 
-xmpp_pubsub_client = env.UnitTest('xmpp_pubsub_client',
-                               ['xmpp_sample_peer.cc', 'xmpp_pubsub_client.cc'],
-                               )
+xmpp_pubsub_client = env.UnitTest('xmpp_pubsub_client', ['xmpp_pubsub_client.cc'])
 env.Alias('controller/xmpp:xmpp_pubsub_client', xmpp_pubsub_client)
 
-xmpp_session_test = env.UnitTest('xmpp_session_test',
-                              ['xmpp_sample_peer.cc', 'xmpp_session_test.cc'],
-                              )
+xmpp_session_test = env.UnitTest('xmpp_session_test', ['xmpp_session_test.cc'])
 env.Alias('controller/xmpp:xmpp_session_test', xmpp_session_test)
 
-
 xmpp_client_standalone_test = env.UnitTest('xmpp_client_standalone_test',
-                              ['xmpp_sample_peer.cc', 'xmpp_client_standalone.cc'],
-                              )
+                                           ['xmpp_client_standalone.cc'])
 env.Alias('controller/xmpp:xmpp_client_standalone_test', xmpp_client_standalone_test)
 
 xmpp_server_standalone_test = env.UnitTest('xmpp_server_standalone_test',
-                              ['xmpp_sample_peer.cc', 'xmpp_server_standalone.cc'],
-                              )
+                                           ['xmpp_server_standalone.cc'])
 env.Alias('controller/xmpp:xmpp_server_standalone_test', xmpp_server_standalone_test)
 
-xmpp_server_sm_test = env.UnitTest('xmpp_server_sm_test',
-                              ['xmpp_server_sm_test.cc'],
-                              )
+xmpp_server_sm_test = env.UnitTest('xmpp_server_sm_test',['xmpp_server_sm_test.cc'])
 env.Alias('controller/xmpp:xmpp_server_sm_test', xmpp_server_sm_test)
 
-
-xmpp_client_sm_test = env.UnitTest('xmpp_client_sm_test',
-                              ['xmpp_client_sm_test.cc'],
-                              )
+xmpp_client_sm_test = env.UnitTest('xmpp_client_sm_test', ['xmpp_client_sm_test.cc'])
 env.Alias('controller/xmpp:xmpp_client_sm_test', xmpp_client_sm_test)
 
 xmpp_stream_message_client_test = env.UnitTest('xmpp_stream_message_client_test',
-                              ['xmpp_stream_message_client.cc'],
-                              )
+                                               ['xmpp_stream_message_client.cc'])
 env.Alias('controller/xmpp:xmpp_stream_message_client_test', xmpp_stream_message_client_test)
 
 xmpp_stream_message_server_test = env.UnitTest('xmpp_stream_message_server_test',
-                              ['xmpp_stream_message_server.cc'],
-                              )
+                                               ['xmpp_stream_message_server.cc'])
 env.Alias('controller/xmpp:xmpp_stream_message_server_test', xmpp_stream_message_server_test)
-
 
 
 xmpp_test_suite = [
