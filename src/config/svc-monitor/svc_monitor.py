@@ -451,6 +451,12 @@ class SvcMonitor(object):
                 func = getattr(si_props, funcname)
                 vn_fq_name_str = func()
 
+            vn_fq_name = None
+            if vn_fq_name_str:
+                domain, proj, vn_name = vn_fq_name_str.split(':')
+                vn_fq_name = [domain, proj, vn_name]
+>>>>>>> parent of 26f390a... Merge pull request #689 from Doude/bug/1313544
+
             if itf_type in _SVC_VNS:
                 vn_id = self._get_vn_id(proj_obj, vn_fq_name_str,
                                         _SVC_VNS[itf_type][0],
@@ -570,7 +576,7 @@ class SvcMonitor(object):
             else:
                 funcname = "get_" + itf_type + "_virtual_network"
                 func = getattr(si_props, funcname)
-                si_vn_str = ':'.join(func())
+                si_vn_str = func()
             if not si_vn_str:
                 continue
 
