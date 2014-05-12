@@ -782,8 +782,10 @@ void PktFlowInfo::EgressProcess(const PktInfo *pkt, PktControlInfo *in,
         out->vn_ = InterfaceToVn(out->intf_);
     }
 
-    // If no route for DA and floating-ip configured try floating-ip DNAT
-    if (out->rt_ == NULL) {
+    // If no route for DA or the route found donot belongs to interface vn
+    // and floating-ip configured try floating-ip DNAT
+    if (out->rt_ == NULL || out->vn_ == NULL ||
+        *RouteToVn(out->rt_) != out->vn_->GetName()) {
         if (IntfHasFloatingIp(out->intf_)) {
             FloatingIpDNat(pkt, in, out);
         }
