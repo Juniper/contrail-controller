@@ -1173,7 +1173,7 @@ class SecurityGroupST(DictST):
                     daddr_match = copy.deepcopy(daddr)
                     self._convert_security_group_name_to_id(daddr_match)
                     if daddr.security_group == 'local':
-                        daddr.security_group = None
+                        daddr_match.security_group = None
                         acl_rule_list = ingress_acl_rule_list
                     for dp in prule.dst_ports:
                         action = ActionListType(simple_action='pass')
