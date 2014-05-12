@@ -24,6 +24,10 @@
 using namespace std;
 using namespace autogen;
 
+CfgListener::CfgListener(AgentConfig *cfg) : agent_cfg_(cfg) 
+{ 
+}
+
 //  Config listener module. 
 //
 //  For a IFMapNode notification, there are 2 kinds of listeners

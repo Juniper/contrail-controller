@@ -4,6 +4,7 @@
 
 #include "agent_cmn.h"
 #include "agent_db.h"
+#include <cfg/cfg_init.h>
 
 void AgentDBEntry::SetRefState() const {
     AgentDBTable *table = static_cast<AgentDBTable *>(get_table());

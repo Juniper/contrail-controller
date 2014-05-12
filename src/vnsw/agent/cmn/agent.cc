@@ -40,6 +40,7 @@
 #include <controller/controller_init.h>
 
 #include <diag/diag.h>
+#include <ksync/ksync_init.h>
 
 const std::string Agent::null_str_ = "";
 const std::string Agent::fabric_vn_name_ = 
@@ -338,4 +339,84 @@ Agent::~Agent() {
 
     delete db_;
     db_ = NULL;
+}
+
+AgentConfig *Agent::cfg() const {
+    return cfg_.get();
+}
+
+void Agent::set_cfg(AgentConfig *cfg) {
+    cfg_.reset(cfg);
+}
+
+DiagTable *Agent::diag_table() const {
+    return diag_table_.get();
+}
+
+void Agent::set_diag_table(DiagTable *table) {
+    diag_table_.reset(table);
+}
+
+AgentStats *Agent::stats() const {
+    return stats_.get();
+}
+
+void Agent::set_stats(AgentStats *stats) {
+    stats_.reset(stats);
+}
+
+KSync *Agent::ksync() const {
+    return ksync_.get();
+}
+
+void Agent::set_ksync(KSync *ksync) {
+    return ksync_.reset(ksync);
+}
+
+AgentUve *Agent::uve() const {
+    return uve_.get();
+}
+
+void Agent::set_uve(AgentUve *uve) {
+    uve_.reset(uve);
+}
+
+PktModule *Agent::pkt() const {
+    return pkt_.get();
+}
+
+void Agent::set_pkt(PktModule *pkt) {
+    pkt_.reset(pkt);
+}
+
+ServicesModule *Agent::services() const {
+    return services_.get();
+}
+
+void Agent::set_services(ServicesModule *services) {
+    services_.reset(services);
+}
+
+VNController *Agent::controller() const {
+    return controller_.get();
+}
+
+void Agent::set_controller(VNController *val) {
+    controller_.reset(val);
+}
+
+VirtualGateway *Agent::vgw() const {
+    return vgw_.get();
+}
+
+void Agent::set_vgw(VirtualGateway *vgw) {
+    vgw_.reset(vgw);
+}
+
+OperDB *Agent::oper_db() const {
+    return oper_db_.get();
+}
+
+void Agent::set_oper_db(OperDB *oper_db) {
+    oper_db_.reset(oper_db);
 }
