@@ -626,7 +626,14 @@ CdbIf::CdbIf(DbErrorHandler errhandler,
     db_init_done_ = false;
 }
 
-CdbIf::CdbIf() {
+CdbIf::CdbIf() : 
+    init_task_(NULL), 
+    cleanup_task_(NULL),
+    cassandra_ttl_(-1), 
+    only_sync_(false), 
+    task_instance_(-1),
+    task_instance_initialized_(false) {
+    db_init_done_ = false;
 }
 
 CdbIf::~CdbIf() {
