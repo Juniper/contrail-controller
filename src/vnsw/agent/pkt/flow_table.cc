@@ -30,7 +30,7 @@
 #include <netinet/udp.h>
 
 #include "route/route.h"
-#include "init/agent_param.h"
+#include "cmn/agent_param.h"
 #include "cmn/agent_cmn.h"
 #include "cmn/agent_stats.h"
 #include "oper/interface_common.h"

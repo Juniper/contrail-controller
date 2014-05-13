@@ -31,8 +31,7 @@
 #include <cfg/cfg_mirror.h>
 #include <cfg/discovery_agent.h>
 
-#include <init/agent_init.h>
-#include <init/agent_param.h>
+#include <cmn/agent_param.h>
 
 #include <oper/operdb_init.h>
 #include <oper/vrf.h>
@@ -51,35 +50,11 @@
 #include <vgw/cfg_vgw.h>
 #include <vgw/vgw.h>
 
-static bool interface_exist(string &name) {
-	struct if_nameindex *ifs = NULL;
-	struct if_nameindex *head = NULL;
-	bool ret = false;
-	string tname = "";
-
-	ifs = if_nameindex();
-	if (ifs == NULL) {
-		LOG(INFO, "No interface exists!");
-		return ret;
-	}
-	head = ifs;
-	while (ifs->if_name && ifs->if_index) {
-		tname = ifs->if_name;
-		if (string::npos != tname.find(name)) {
-			ret = true;
-			name = tname;
-			break;
-		}
-		ifs++;
-	}
-	if_freenameindex(head);
-	return ret;
-}
-
+#include "test_agent_init.h"
 /****************************************************************************
  * Cleanup routines on shutdown
 ****************************************************************************/
-void AgentInit::DeleteRoutes() {
+void TestAgentInit::DeleteRoutes() {
     Inet4UnicastAgentRouteTable *uc_rt_table =
         agent_->GetDefaultInet4UnicastRouteTable();
 
@@ -87,7 +62,7 @@ void AgentInit::DeleteRoutes() {
                            agent_->GetGatewayId(), 32);
 }
 
-void AgentInit::DeleteNextHops() {
+void TestAgentInit::DeleteNextHops() {
     agent_->nexthop_table()->Delete(new DiscardNHKey());
     agent_->nexthop_table()->Delete(new ResolveNHKey());
     agent_->nexthop_table()->set_discard_nh(NULL);
@@ -98,11 +73,11 @@ void AgentInit::DeleteNextHops() {
     agent_->GetNextHopTable()->Delete(key);
 }
 
-void AgentInit::DeleteVrfs() {
+void TestAgentInit::DeleteVrfs() {
     agent_->GetVrfTable()->DeleteStaticVrf(agent_->GetDefaultVrf());
 }
 
-void AgentInit::DeleteInterfaces() {
+void TestAgentInit::DeleteInterfaces() {
     PacketInterface::DeleteReq(agent_->GetInterfaceTable(),
                                agent_->GetHostInterfaceName());
     agent_->set_vhost_interface(NULL);
@@ -117,7 +92,7 @@ void AgentInit::DeleteInterfaces() {
                                  params_->vmware_physical_port());
 }
 
-void AgentInit::Shutdown() {
+void TestAgentInit::Shutdown() {
     agent_->cfg()->Shutdown();
     agent_->diag_table()->Shutdown();
 }
@@ -125,27 +100,8 @@ void AgentInit::Shutdown() {
 /****************************************************************************
  * Initialization routines
 ****************************************************************************/
-void AgentInit::InitXenLinkLocalIntf() {
-    if (!params_->isXenMode() || params_->xen_ll_name() == "")
-        return;
-
-    string dev_name = params_->xen_ll_name();
-    if(!interface_exist(dev_name)) {
-        LOG(INFO, "Interface " << dev_name << " not found");
-        return;
-    }
-    params_->set_xen_ll_name(dev_name);
-
-    InetInterface::Create(agent_->GetInterfaceTable(),
-                          params_->xen_ll_name(), InetInterface::LINK_LOCAL,
-                          agent_->GetLinkLocalVrfName(),
-                          params_->xen_ll_addr(), params_->xen_ll_plen(),
-                          params_->xen_ll_gw(),
-                          agent_->GetLinkLocalVrfName());
-}
-
 // Initialization for VMWare specific interfaces
-void AgentInit::InitVmwareInterface() {
+void TestAgentInit::InitVmwareInterface() {
     if (!params_->isVmwareMode())
         return;
 
@@ -153,22 +109,22 @@ void AgentInit::InitVmwareInterface() {
                               params_->vmware_physical_port(),
                               agent_->GetDefaultVrf());
 }
-    
-void AgentInit::InitLogging() {
+
+void TestAgentInit::InitLogging() {
     Sandesh::SetLoggingParams(params_->log_local(),
                               params_->log_category(),
                               params_->log_level());
 }
 
 // Connect to collector specified in config, if discovery server is not set
-void AgentInit::InitCollector() {
+void TestAgentInit::InitCollector() {
     agent_->InitCollector();
 }
 
 // Create the basic modules for agent operation.
 // Optional modules or modules that have different implementation are created
 // by init module
-void AgentInit::CreateModules() {
+void TestAgentInit::CreateModules() {
     agent_->set_cfg(new AgentConfig(agent_));
     agent_->set_stats(new AgentStats(agent_));
     agent_->set_oper_db(new OperDB(agent_));
@@ -186,11 +142,11 @@ void AgentInit::CreateModules() {
     agent_->set_controller(new VNController(agent_));
 }
 
-void AgentInit::CreateDBTables() {
+void TestAgentInit::CreateDBTables() {
     agent_->CreateDBTables();
 }
 
-void AgentInit::CreateDBClients() {
+void TestAgentInit::CreateDBClients() {
     agent_->CreateDBClients();
     if (agent_->uve()) {
         agent_->uve()->RegisterDBClients();
@@ -205,15 +161,15 @@ void AgentInit::CreateDBClients() {
     }
 }
 
-void AgentInit::InitPeers() {
+void TestAgentInit::InitPeers() {
     agent_->InitPeers();
 }
 
-void AgentInit::InitModules() {
+void TestAgentInit::InitModules() {
     agent_->InitModules();
 
     if (agent_->ksync()) {
-        agent_->ksync()->Init();
+        agent_->ksync()->Init(create_vhost_);
     }
 
     if (agent_->pkt()) {
@@ -229,7 +185,7 @@ void AgentInit::InitModules() {
     }
 }
 
-void AgentInit::CreateVrf() {
+void TestAgentInit::CreateVrf() {
     // Create the default VRF
     VrfTable *vrf_table = agent_->GetVrfTable();
 
@@ -253,7 +209,7 @@ void AgentInit::CreateVrf() {
     }
 }
 
-void AgentInit::CreateNextHops() {
+void TestAgentInit::CreateNextHops() {
     DiscardNH::Create();
     ResolveNH::Create();
 
@@ -263,7 +219,7 @@ void AgentInit::CreateNextHops() {
     agent_->nexthop_table()->set_discard_nh(nh);
 }
 
-void AgentInit::CreateInterfaces() {
+void TestAgentInit::CreateInterfaces() {
     InterfaceTable *table = agent_->GetInterfaceTable();
 
     InetInterface::Create(table, params_->vhost_name(), InetInterface::VHOST,
@@ -272,7 +228,7 @@ void AgentInit::CreateInterfaces() {
                           agent_->GetDefaultVrf());
     PhysicalInterface::Create(table, params_->eth_port(),
                               agent_->GetDefaultVrf());
-    InitXenLinkLocalIntf();
+    agent_->InitXenLinkLocalIntf();
     InitVmwareInterface();
 
     // Set VHOST interface
@@ -298,13 +254,13 @@ void AgentInit::CreateInterfaces() {
     }
 }
 
-void AgentInit::InitDiscovery() {
+void TestAgentInit::InitDiscovery() {
     if (agent_->cfg()) {
         agent_->cfg()->InitDiscovery();
     }
 }
 
-void AgentInit::InitDone() {
+void TestAgentInit::InitDone() {
     //Open up mirror socket
     agent_->GetMirrorTable()->MirrorSockInit();
 
@@ -340,7 +296,7 @@ void AgentInit::InitDone() {
 }
 
 // Start init sequence
-bool AgentInit::Run() {
+bool TestAgentInit::Run() {
     InitLogging();
     InitCollector();
     InitPeers();
@@ -354,11 +310,11 @@ bool AgentInit::Run() {
     CreateInterfaces();
     InitDone();
 
-    init_done_ = true;
+    agent_->set_init_done(true);
     return true;
 }
 
-void AgentInit::Init(AgentParam *param, Agent *agent,
+void TestAgentInit::Init(AgentParam *param, Agent *agent,
                      const boost::program_options::variables_map &var_map) {
 
     if (var_map.count("disable-vhost")) {
@@ -381,7 +337,7 @@ void AgentInit::Init(AgentParam *param, Agent *agent,
 }
 
 // Trigger inititlization in context of DBTable
-void AgentInit::Start() {
+void TestAgentInit::Start() {
     if (params_->log_file() == "") {
         LoggingInit();
     } else {
@@ -392,7 +348,7 @@ void AgentInit::Start() {
     params_->Validate();
 
     int task_id = TaskScheduler::GetInstance()->GetTaskId("db::DBTable");
-    trigger_.reset(new TaskTrigger(boost::bind(&AgentInit::Run, this), 
+    trigger_.reset(new TaskTrigger(boost::bind(&TestAgentInit::Run, this), 
                                    task_id, 0));
     trigger_->Set();
     return;

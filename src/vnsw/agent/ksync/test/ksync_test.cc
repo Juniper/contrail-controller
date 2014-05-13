@@ -42,7 +42,7 @@ KSyncTest::KSyncTest(Agent *agent)
 KSyncTest::~KSyncTest() {
 }
 
-void KSyncTest::Init() {
+void KSyncTest::Init(bool create_vhost) {
     interface_ksync_obj_.get()->InitTest();
     flowtable_ksync_obj_.get()->InitTest();
     NetlinkInitTest();

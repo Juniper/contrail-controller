@@ -18,7 +18,7 @@
 #include <uve/agent_stats_collector.h>
 #include <uve/vn_uve_table.h>
 #include <uve/vm_uve_table.h>
-#include <init/agent_param.h>
+#include <cmn/agent_param.h>
 #include <uve/test/agent_stats_collector_test.h>
 #include <uve/agent_uve.h>
 

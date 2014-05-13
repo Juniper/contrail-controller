@@ -29,7 +29,8 @@ if '-fno-exceptions' in cflags:
 
 import sys
 if sys.platform != 'darwin':
-    test_lib_srcs = ['test_init.cc', 
+    test_lib_srcs = ['test_agent_init.cc',
+                     'test_init.cc', 
                      'test_util.cc',
                      '../ksync/test/ksync_test.cc',
                      '../uve/test/agent_uve_test.cc',

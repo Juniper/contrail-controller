@@ -40,8 +40,7 @@
 #include <ksync/vnswif_listener.h>
 #include <ifmap_agent_parser.h>
 #include <ifmap_agent_table.h>
-#include <init/agent_param.h>
-#include <init/agent_init.h>
+#include <cmn/agent_param.h>
 #include <oper/vn.h>
 #include <oper/multicast.h>
 #include <oper/vm.h>
@@ -63,6 +62,7 @@
 #include "sandesh/sandesh_http.h"
 #include "xmpp/test/xmpp_test_util.h"
 
+#include "test_agent_init.h"
 using namespace std;
 
 #define TUN_INTF_CLONE_DEV "/dev/net/tun"
@@ -553,6 +553,9 @@ public:
     void set_init(AgentTestInit *init) { init_ = init; }
     AgentTestInit *init() const { return init_; }
 
+    TestAgentInit *agent_init() { return agent_init_; }
+    void set_agent_init(TestAgentInit *init) {agent_init_ = init;}
+
     void Shutdown();
 
     bool shutdown_done_;
@@ -571,6 +574,7 @@ public:
     int nh_notify_;
     int mpls_notify_;
     std::vector<const NextHop *> comp_nh_list_;
+    TestAgentInit *agent_init_;
     AgentTestInit *init_;
 };
 
@@ -607,11 +611,11 @@ public:
 
     Agent *agent() {return &agent_;}
     AgentParam *param() {return &param_;}
-    AgentInit *init() {return &init_;}
+    TestAgentInit *init() {return &init_;}
 
 private:
     Agent agent_;
-    AgentInit init_;
+    TestAgentInit init_;
     AgentParam param_;
     TestClient *client_;
     bool shutdown_done_;

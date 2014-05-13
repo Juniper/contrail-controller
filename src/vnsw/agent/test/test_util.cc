@@ -1779,7 +1779,7 @@ void DeleteVmportEnv(struct PortInfo *input, int count, int del_vn, int acl_id,
         DelNode("access-control-list", acl_name);
     }
 
-    if (Agent::GetInstance()->init()->ksync_enable()) {
+    if (client->agent_init()->ksync_enable()) {
         DeleteTapIntf(test_tap_fd, count);
     }
 }
@@ -1844,7 +1844,7 @@ void CreateVmportEnvInternal(struct PortInfo *input, int count, int acl_id,
     char acl_name[MAX_TESTNAME_LEN];
     char instance_ip[MAX_TESTNAME_LEN];
 
-    if (Agent::GetInstance()->init()->ksync_enable()) {
+    if (client->agent_init()->ksync_enable()) {
         CreateTapInterfaces("vnet", count, test_tap_fd);
     }
 

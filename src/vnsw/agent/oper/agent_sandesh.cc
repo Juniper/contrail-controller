@@ -4,8 +4,7 @@
 
 #include <cmn/agent_cmn.h>
 #include <cmn/agent_db.h>
-#include <init/agent_param.h>
-#include <init/agent_init.h>
+#include <cmn/agent_param.h>
 #include <oper/agent_sandesh.h>
 #include <oper/agent_types.h>
 #include <oper/route_common.h>
@@ -211,7 +210,7 @@ void AgentInitStateReq::HandleRequest() const {
     AgentInitState *resp = new AgentInitState();
     resp->set_context(context());
     Agent *agent = Agent::GetInstance();
-    if (agent->init()->init_done()) {
+    if (agent->init_done()) {
         resp->set_state("InitDone");
     } else {
         resp->set_state("InProgress");

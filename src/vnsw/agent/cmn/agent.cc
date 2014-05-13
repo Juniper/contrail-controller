@@ -14,8 +14,7 @@
 #include <cmn/agent_cmn.h>
 #include <cmn/agent_stats.h>
 
-#include <init/agent_param.h>
-#include <init/agent_init.h>
+#include <cmn/agent_param.h>
 #include <cfg/cfg_init.h>
 #include <cfg/cfg_mirror.h>
 #include <cfg/discovery_agent.h>
@@ -165,9 +164,8 @@ void Agent::ShutdownLifetimeManager() {
 }
 
 // Get configuration from AgentParam into Agent
-void Agent::CopyConfig(AgentParam *params, AgentInit *init) {
+void Agent::CopyConfig(AgentParam *params) {
     params_ = params;
-    init_ = init;
 
     int count = 0;
     int dns_count = 0;
@@ -255,6 +253,48 @@ void Agent::InitCollector() {
     }
 }
 
+static bool interface_exist(string &name) {
+	struct if_nameindex *ifs = NULL;
+	struct if_nameindex *head = NULL;
+	bool ret = false;
+	string tname = "";
+
+	ifs = if_nameindex();
+	if (ifs == NULL) {
+		LOG(INFO, "No interface exists!");
+		return ret;
+	}
+	head = ifs;
+	while (ifs->if_name && ifs->if_index) {
+		tname = ifs->if_name;
+		if (string::npos != tname.find(name)) {
+			ret = true;
+			name = tname;
+			break;
+		}
+		ifs++;
+	}
+	if_freenameindex(head);
+	return ret;
+}
+
+void Agent::InitXenLinkLocalIntf() {
+    if (!params_->isXenMode() || params_->xen_ll_name() == "")
+        return;
+
+    string dev_name = params_->xen_ll_name();
+    if(!interface_exist(dev_name)) {
+        LOG(INFO, "Interface " << dev_name << " not found");
+        return;
+    }
+    params_->set_xen_ll_name(dev_name);
+
+    InetInterface::Create(intf_table_, params_->xen_ll_name(),
+                          InetInterface::LINK_LOCAL, link_local_vrf_name_,
+                          params_->xen_ll_addr(), params_->xen_ll_plen(),
+                          params_->xen_ll_gw(), link_local_vrf_name_);
+}
+
 void Agent::CreateDBTables() {
     if (cfg_.get()) {
         cfg_.get()->CreateDBTables(db_);
@@ -295,7 +335,7 @@ void Agent::InitModules() {
 }
 
 Agent::Agent() :
-    params_(NULL), init_(NULL), event_mgr_(NULL), agent_xmpp_channel_(),
+    params_(NULL), event_mgr_(NULL), agent_xmpp_channel_(),
     ifmap_channel_(), xmpp_client_(), xmpp_init_(), dns_xmpp_channel_(),
     dns_xmpp_client_(), dns_xmpp_init_(), agent_stale_cleaner_(NULL),
     cn_mcast_builder_(NULL), ds_client_(NULL), host_name_(""),
@@ -317,7 +357,7 @@ Agent::Agent() :
     mirror_src_udp_port_(0), lifetime_manager_(NULL), 
     ksync_sync_mode_(true), mgmt_ip_(""),
     vxlan_network_identifier_mode_(AUTOMATIC), headless_agent_mode_(false), 
-    debug_(false), test_mode_(false) {
+    debug_(false), test_mode_(false), init_done_(false) {
 
     assert(singleton_ == NULL);
     singleton_ = this;

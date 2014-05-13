@@ -12,7 +12,7 @@ public:
     KSyncTest(Agent *agent);
     virtual ~KSyncTest();
 
-    virtual void Init();
+    virtual void Init(bool create_vhost);
     virtual void RegisterDBClients(DB *db);
     void NetlinkShutdownTest();
 private:

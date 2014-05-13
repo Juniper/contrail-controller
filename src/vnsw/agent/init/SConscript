@@ -17,7 +17,7 @@ if '-fno-exceptions' in cflags:
 
 import sys
 
-except_files = [ 'agent_init.cc', 'agent_param.cc' ]
+except_files = [ 'agent_param.cc' ]
 except_objs = []
 for except_src in except_files:
     objname = except_src.replace('.cc', '.o')

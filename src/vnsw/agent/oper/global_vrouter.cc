@@ -6,7 +6,7 @@
 
 #include <boost/foreach.hpp>
 #include <cmn/agent_cmn.h>
-#include <init/agent_param.h>
+#include <cmn/agent_param.h>
 #include <vnc_cfg_types.h>
 #include <ifmap/ifmap_link.h>
 #include <oper/mirror_table.h>

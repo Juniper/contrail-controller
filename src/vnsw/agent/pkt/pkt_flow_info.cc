@@ -11,7 +11,7 @@
 
 #include "cmn/agent_cmn.h"
 #include "cmn/agent_stats.h"
-#include "init/agent_param.h"
+#include "cmn/agent_param.h"
 #include "oper/interface_common.h"
 #include "oper/nexthop.h"
 #include "oper/route_common.h"

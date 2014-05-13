@@ -15,7 +15,7 @@
 #include <uve/stats_collector.h>
 #include <uve/agent_uve.h>
 #include <uve/stats_interval_types.h>
-#include <init/agent_param.h>
+#include <cmn/agent_param.h>
 #include <oper/mirror_table.h>
 #include <uve/vrouter_stats_collector.h>
 

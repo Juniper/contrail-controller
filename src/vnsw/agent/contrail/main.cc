@@ -22,8 +22,7 @@
 #include <cfg/cfg_mirror.h>
 #include <cfg/discovery_agent.h>
 
-#include <init/agent_param.h>
-#include <init/agent_init.h>
+#include <cmn/agent_param.h>
 
 #include <oper/operdb_init.h>
 #include <oper/vrf.h>
@@ -42,6 +41,7 @@
 #include <boost/functional/factory.hpp>
 #include <cmn/agent_factory.h>
 
+#include "contrail_agent_init.h"
 namespace opt = boost::program_options;
 
 void RouterIdDepInit(Agent *agent) {
@@ -180,11 +180,11 @@ int main(int argc, char *argv[]) {
     param.Init(init_file, argv[0], var_map);
 
     // Initialize the agent-init control class
-    AgentInit init;
+    ContrailAgentInit init;
     init.Init(&param, &agent, var_map);
 
     // Copy config into agent
-    agent.CopyConfig(&param, &init);
+    agent.CopyConfig(&param);
 
     // kick start initialization
     init.Start();

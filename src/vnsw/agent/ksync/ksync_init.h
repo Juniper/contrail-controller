@@ -20,7 +20,7 @@ public:
     KSync(Agent *agent);
     virtual ~KSync();
 
-    virtual void Init();
+    virtual void Init(bool create_vhost);
     virtual void RegisterDBClients(DB *db);
     void VnswInterfaceListenerInit();
     void Shutdown();

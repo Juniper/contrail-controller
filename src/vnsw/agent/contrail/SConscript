@@ -1,0 +1,96 @@
+#
+# Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
+#
+
+import re
+import time
+import subprocess
+
+Import('AgentEnv')
+env = AgentEnv.Clone()
+
+cflags = env['CCFLAGS']
+cflags.append('-Wno-return-type')
+cflags.append('-fexceptions')
+
+# Dependencies for generating buildinfo.cc
+#
+# Dependencies on external libraries first
+buildinfo_dep_libs = [
+    '#build/lib/libthrift.a',
+    '#build/lib/libthriftasio.a',
+    '#build/lib/libboost_program_options.a',
+    '#build/lib/libboost_regex.a',
+    '#build/lib/libboost_system.a', 
+    '#build/lib/libcurl.a',
+    '#build/lib/libhttp.a',
+    '#build/lib/libhttp_parser.a', 
+    '#build/lib/liblog4cplus.a',
+    '#build/lib/libpugixml.a',
+    '#build/lib/libsandesh.a',
+    '#build/lib/libsandeshflow.a', 
+    '#build/lib/libsandeshvns.a',
+    '#build/lib/libtbb_debug.so.2'
+]
+
+def MapBuildCmnLib(list):
+    return map(lambda x: File('../../../' + x).abspath, list)
+
+# Common contrail libraries
+buildinfo_dep_libs += MapBuildCmnLib([
+    'base/libbase.a',
+    'base/libcpuinfo.a',
+    'db/libdb.a',
+    'dns/bind/libbind_interface.a',
+    'ifmap/libifmap_agent.a',
+    'ifmap/libifmap_common.a', 
+    'io/libio.a', 
+    'ksync/libksync.a',
+    'net/libnet.a',
+    'route/libroute.a', 
+    'schema/libbgp_schema.a',
+    'schema/libifmap_vnc.a',
+    'schema/libxmpp_unicast.a',
+    'schema/libxmpp_multicast.a',
+    'vrouter/utils/libvrutil.a',
+    'xml/libxml.a',
+    'xmpp/libxmpp.a'
+     ])
+
+def MapBuildAgentLib(list):
+    return map(lambda x: File('../' + x).abspath, list)
+
+# agent libraries
+buildinfo_dep_libs += MapBuildAgentLib([
+    'cfg/libcfg.a',
+    'cmn/libvnswcmn.a',
+    'controller/libvnswctrl.a',
+    'filter/libfilter.a',
+    'kstate/libkstate.a',
+    'ksync/libvnswksync.a',
+    'openstack/libnova_ins.a',
+    'openstack/libnova_ins_thrift.a', 
+    'oper/libvnswoperdb.a',
+    'pkt/libpkt.a', 'diag/libdiag.a', 
+    'services/libagent_services.a',
+    'uve/libagentuve.a'
+])
+
+env.GenerateBuildInfoCode(
+    target = ['buildinfo.h', 'buildinfo.cc'],
+    source = buildinfo_dep_libs + ['main.cc'],
+    path=str(Dir('.').abspath))
+
+#Add -Wno-return-type to ignore errors from thrift generated code in 
+#InstanceService.h
+cflags = env['CCFLAGS']
+cflags.append('-Wno-return-type')
+vnswad = env.Program(target = 'vnswad',
+                     source = ['buildinfo.cc',
+                               'contrail_agent_init.cc',
+                               'main.cc'])
+env.Alias('agent:vnswad', vnswad)
+env.Default(vnswad)
+env.Alias('install', env.Install(env['INSTALL_BIN'], vnswad))
+env.Alias('install', env.Install(env['INSTALL_CONF'], 'contrail-vrouter-agent.conf'))
+env.Depends('main.o', 'buildinfo.cc')

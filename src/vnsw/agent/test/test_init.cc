@@ -42,6 +42,15 @@ static void InitTestFactory() {
     AgentObjectFactory::Register<KSync>(boost::factory<KSyncTest *>());
 }
 
+void WaitForInitDone(Agent *agent) {
+    WAIT_FOR(100000, 1000, agent->init_done());
+    bool done = agent->init_done();
+    EXPECT_TRUE(done);
+    if (done == false) {
+        exit(-1);
+    }
+}
+
 TestClient *TestInit(const char *init_file, bool ksync_init, bool pkt_init,
                      bool services_init, bool uve_init,
                      int agent_stats_interval, int flow_stats_interval,
@@ -53,7 +62,8 @@ TestClient *TestInit(const char *init_file, bool ksync_init, bool pkt_init,
     // Read agent parameters from config file and arguments
     Agent *agent = agent_init->agent();
     AgentParam *param = agent_init->param();
-    AgentInit *init = agent_init->init();
+    TestAgentInit *init = agent_init->init();
+    client->set_agent_init(init);
 
     opt::variables_map var_map;
     param->Init(init_file, "test", var_map);
@@ -81,10 +91,11 @@ TestClient *TestInit(const char *init_file, bool ksync_init, bool pkt_init,
     agent->set_ksync_sync_mode(ksync_sync_mode);
 
     // Initialize agent and kick start initialization
-    agent->CopyConfig(param, init);
+    agent->CopyConfig(param);
     init->Start();
 
-    WAIT_FOR(1000, 10000, init->init_done());
+    WaitForInitDone(agent);
+
     client->Init();
     client->WaitForIdle();
     client->SetFlowFlushExclusionPolicy();
@@ -119,7 +130,8 @@ TestClient *StatsTestInit() {
     client->set_init(agent_init);
     Agent *agent = agent_init->agent();
     AgentParam *param = agent_init->param();
-    AgentInit *init = agent_init->init();
+    TestAgentInit *init = agent_init->init();
+    client->set_agent_init(init);
 
     // Read agent parameters from config file and arguments
     opt::variables_map var_map;
@@ -143,8 +155,10 @@ TestClient *StatsTestInit() {
     param->set_test_mode(true);
 
     // Initialize agent and kick start initialization
-    agent->CopyConfig(param, init);
+    agent->CopyConfig(param);
     init->Start();
+
+    WaitForInitDone(agent);
 
     AsioRun();
 
@@ -170,7 +184,8 @@ TestClient *VGwInit(const string &init_file, bool ksync_init) {
     client->set_init(agent_init);
     Agent *agent = agent_init->agent();
     AgentParam *param = agent_init->param();
-    AgentInit *init = agent_init->init();
+    TestAgentInit *init = agent_init->init();
+    client->set_agent_init(init);
 
     // Read agent parameters from config file and arguments
     opt::variables_map var_map;
@@ -195,10 +210,11 @@ TestClient *VGwInit(const string &init_file, bool ksync_init) {
     }
 
     // Initialize agent and kick start initialization
-    agent->CopyConfig(param, init);
+    agent->CopyConfig(param);
     init->Start();
 
-    WAIT_FOR(1000, 10000, init->init_done());
+    WaitForInitDone(agent);
+
     client->Init();
     client->WaitForIdle();
 
@@ -248,7 +264,7 @@ static bool WaitForDbFree(const string &name, int msec) {
 }
 
 void TestClient::Shutdown() {
-    Agent::GetInstance()->init()->Shutdown();
+    agent_init_->Shutdown();
     Agent::GetInstance()->uve()->Shutdown();
     KSyncTest *ksync = static_cast<KSyncTest *>(Agent::GetInstance()->ksync());
     ksync->NetlinkShutdownTest();
@@ -271,16 +287,16 @@ void TestShutdown() {
         Agent::GetInstance()->vgw()->Shutdown();
     }
 
-    Agent::GetInstance()->init()->DeleteRoutes();
+    client->agent_init()->DeleteRoutes();
     client->WaitForIdle();
 
-    Agent::GetInstance()->init()->DeleteInterfaces();
+    client->agent_init()->DeleteInterfaces();
     client->WaitForIdle();
 
-    Agent::GetInstance()->init()->DeleteVrfs();
+    client->agent_init()->DeleteVrfs();
     client->WaitForIdle();
 
-    Agent::GetInstance()->init()->DeleteNextHops();
+    client->agent_init()->DeleteNextHops();
     client->WaitForIdle();
 
     WaitForDbCount(Agent::GetInstance()->GetInterfaceTable(), 0, 100);

@@ -391,8 +391,13 @@ TEST_F(ArpTest, ArpTunnelNoRequestTest) {
 
 TEST_F(ArpTest, ArpErrorTest) {
     Agent::GetInstance()->GetArpProto()->ClearStats();
+    PacketInterfaceKey key(nil_uuid(), "pkt0");
+    Interface *pkt_intf = static_cast<Interface *>
+        (Agent::GetInstance()->GetInterfaceTable()->FindActiveEntry(&key));
+    if (!pkt_intf)
+        assert(0);
     SendArpReq(7, 0, src_ip, target_ip);
-    SendArpReq(0, 0, src_ip, target_ip);
+    SendArpReq(pkt_intf->id(), 0, src_ip, target_ip);
     ArpProto::ArpStats stats;
     int count = 0;
     do {

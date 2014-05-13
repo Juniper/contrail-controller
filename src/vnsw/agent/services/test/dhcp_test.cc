@@ -28,7 +28,6 @@
 #include <services/services_sandesh.h>
 #include "vr_types.h"
 
-#define FABRIC_ITF 2
 #define MAC_LEN 6
 #define CLIENT_REQ_IP "1.2.3.4"
 #define CLIENT_REQ_PREFIX "1.2.3.0"
@@ -99,6 +98,16 @@ public:
     std::size_t GetItfId(int index) { 
         tbb::mutex::scoped_lock lock(mutex_);
         return itf_id_[index]; 
+    }
+
+    std::size_t fabric_interface_id() { 
+        PhysicalInterfaceKey key(Agent::GetInstance()->params()->eth_port().c_str());
+        Interface *intf = static_cast<Interface *>
+            (Agent::GetInstance()->GetInterfaceTable()->FindActiveEntry(&key));
+        if (intf)
+            return intf->id();
+        else
+            assert(0);
     }
 
     void CheckSandeshResponse(Sandesh *sandesh, bool check_host_routes,
@@ -741,9 +750,9 @@ TEST_F(DhcpTest, DhcpZeroIpTest) {
 
     Ip4Address vmaddr(Agent::GetInstance()->GetRouterId().to_ulong() + 1);
     SendDhcp(GetItfId(0), 0x8000, DHCP_DISCOVER, req_options, 3);
-    SendDhcp(FABRIC_ITF, 0x8000, DHCP_OFFER, resp_options, 4, false, true, vmaddr.to_ulong(), GetItfId(0));
+    SendDhcp(fabric_interface_id(), 0x8000, DHCP_OFFER, resp_options, 4, false, true, vmaddr.to_ulong(), GetItfId(0));
     SendDhcp(GetItfId(0), 0x8000, DHCP_REQUEST, req_options, 3);
-    SendDhcp(FABRIC_ITF, 0x8000, DHCP_ACK, resp_options, 4, false, true, vmaddr.to_ulong(), GetItfId(0));
+    SendDhcp(fabric_interface_id(), 0x8000, DHCP_ACK, resp_options, 4, false, true, vmaddr.to_ulong(), GetItfId(0));
     client->WaitForIdle();
     int count = 0;
     DHCP_CHECK (stats.relay_resp < 2);

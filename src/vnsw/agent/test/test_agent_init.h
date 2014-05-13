@@ -2,8 +2,8 @@
  * Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
  */
 
-#ifndef vnsw_agent_init_hpp
-#define vnsw_agent_init_hpp
+#ifndef vnsw_test_agent_init_hpp
+#define vnsw_test_agent_init_hpp
 
 #include <boost/program_options.hpp>
 
@@ -12,15 +12,14 @@ class AgentParam;
 
 // The class to drive agent initialization. 
 // Defines control parameters used to enable/disable agent features
-class AgentInit {
+class TestAgentInit {
 public:
-    AgentInit() :
+    TestAgentInit() :
         agent_(NULL), params_(NULL), create_vhost_(true), ksync_enable_(true),
         services_enable_(true), packet_enable_(true), uve_enable_(true),
-        vgw_enable_(true), router_id_dep_enable_(true), init_done_(false),
-        trigger_() { }
+        vgw_enable_(true), router_id_dep_enable_(true), trigger_() { }
 
-    ~AgentInit() {
+    ~TestAgentInit() {
         trigger_->Reset();
     }
 
@@ -43,7 +42,6 @@ public:
 
     void Init(AgentParam *param, Agent *agent,
               const boost::program_options::variables_map &var_map);
-    void InitXenLinkLocalIntf();
     void InitVmwareInterface();
     void DeleteRoutes();
     void DeleteNextHops();
@@ -57,7 +55,6 @@ public:
     bool uve_enable() const { return uve_enable_; }
     bool vgw_enable() const { return vgw_enable_; }
     bool router_id_dep_enable() const { return router_id_dep_enable_; }
-    bool init_done() const { return init_done_; }
 
     void set_ksync_enable(bool flag) { ksync_enable_ = flag; }
     void set_services_enable(bool flag) { services_enable_ = flag; }
@@ -77,10 +74,9 @@ private:
     bool uve_enable_;
     bool vgw_enable_;
     bool router_id_dep_enable_;
-    bool init_done_;
 
     std::auto_ptr<TaskTrigger> trigger_;
-    DISALLOW_COPY_AND_ASSIGN(AgentInit);
+    DISALLOW_COPY_AND_ASSIGN(TestAgentInit);
 };
 
-#endif // vnsw_agent_init_hpp
+#endif // vnsw_test_agent_init_hpp

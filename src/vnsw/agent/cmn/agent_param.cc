@@ -27,7 +27,7 @@
 #include <sandesh/sandesh_trace.h>
 
 #include <cmn/agent_cmn.h>
-#include <init/agent_param.h>
+#include <cmn/agent_param.h>
 #include <vgw/cfg_vgw.h>
 #include <uve/agent_stats_collector.h>
 #include <uve/flow_stats_collector.h>

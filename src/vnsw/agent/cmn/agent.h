@@ -8,7 +8,6 @@
 #include <netinet/ether.h>
 
 class AgentParam;
-class AgentInit;
 class AgentConfig;
 class AgentStats;
 class KSync;
@@ -526,6 +525,9 @@ public:
     uint32_t flow_table_size() const { return flow_table_size_; }
     void set_flow_table_size(uint32_t count) { flow_table_size_ = count; }
 
+    bool init_done() const { return init_done_; }
+    void set_init_done(bool done) { init_done_ = done; }
+
     bool isXenMode();
 
     static Agent *GetInstance() {return singleton_;}
@@ -540,6 +542,7 @@ public:
     void ShutdownLifetimeManager();
     void SetAgentTaskPolicy();
 
+    void InitXenLinkLocalIntf();
     void InitCollector();
     void CreateDBTables();
     void CreateDBClients();
@@ -550,9 +553,8 @@ public:
     void InitModules();
     void InitDone();
 
-    void Init(AgentParam *param, AgentInit *init);
+    void Init(AgentParam *param);
     AgentParam *params() const { return params_; }
-    AgentInit *init() const { return init_; }
 
     AgentConfig *cfg() const; 
     void set_cfg(AgentConfig *cfg);
@@ -586,11 +588,10 @@ public:
     VNController *controller() const;
     void set_controller(VNController *val);
 
-    void CopyConfig(AgentParam *params, AgentInit *init);
+    void CopyConfig(AgentParam *params);
 private:
 
     AgentParam *params_;
-    AgentInit *init_;
     std::auto_ptr<AgentConfig> cfg_;
     std::auto_ptr<AgentStats> stats_;
     std::auto_ptr<KSync> ksync_;
@@ -692,6 +693,7 @@ private:
     const Interface *vhost_interface_;
     bool debug_;
     bool test_mode_;
+    bool init_done_;
 
     // Flow information
     uint32_t flow_table_size_;
