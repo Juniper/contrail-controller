@@ -339,8 +339,12 @@ void ShowIFMapLinkTable::CopyNode(IFMapLinkShowInfo *dest, DBEntryBase *src,
     IFMapLinkState *state = server->exporter()->LinkStateLookup(src_link);
 
     dest->metadata = src_link->metadata();
-    dest->left = src_link->left()->ToString();
-    dest->right = src_link->right()->ToString();
+    if (src_link->left()) {
+        dest->left = src_link->left()->ToString();
+    }
+    if (src_link->right()) {
+        dest->right = src_link->right()->ToString();
+    }
 
     // Get the interests and advertised from state
     dest->interests = state->interest().ToNumberedString();
