@@ -19,11 +19,34 @@ import uuid
 
 class IndexAllocator(object):
 
-    def __init__(self, zookeeper_client, path, size, start_idx=0, reverse=False):
+    def __init__(self, zookeeper_client, path, size=0, start_idx=0, reverse=False,
+                 alloc_list=None):
+        if alloc_list is None:
+            self._alloc_list = [{'start':start_idx, 'end':start_idx+size}]
+        else:
+            sorted_alloc_list = sorted(alloc_list, key=lambda k: k['start'])
+            self._alloc_list = sorted_alloc_list
+
+        alloc_count = len(self._alloc_list)
+        total_size = 0
+        start_idx = self._alloc_list[0]['start']
+        size = 0
+
+        #check for overlap in alloc_list --TODO
+        for alloc_idx in range (0, alloc_count -1):
+            idx_start_addr = self._alloc_list[alloc_idx]['start']
+            idx_end_addr = self._alloc_list[alloc_idx]['end']
+            next_start_addr = self._alloc_list[alloc_idx+1]['start']
+            if next_start_addr <= idx_end_addr:
+                raise Exception()
+            size += idx_end_addr - idx_start_addr + 1
+        size += self._alloc_list[alloc_count-1]['end'] - self._alloc_list[alloc_count-1]['start'] + 1
+
+        self._size = size
+        self._start_idx = start_idx
+
         self._zookeeper_client = zookeeper_client
         self._path = path
-        self._start_idx = start_idx
-        self._size = size
         self._in_use = bitarray('0')
         self._reverse = reverse
         for idx in self._zookeeper_client.get_children(path):
@@ -33,17 +56,35 @@ class IndexAllocator(object):
     # end __init__
 
     def _get_zk_index_from_bit(self, idx):
+        size = idx
         if self._reverse:
-            return self._start_idx + self._size - idx
+            for alloc in reversed(self._alloc_list):
+                size -= alloc['end'] - alloc['start'] + 1
+                if size < 0:
+                   return alloc['start']-size - 1
         else:
-            return self._start_idx + idx
+            for alloc in self._alloc_list:
+                size -= alloc['end'] - alloc['start'] + 1
+                if size < 0:
+                   return alloc['end']+size + 1
+
+        raise Exception()
     # end _get_zk_index
 
     def _get_bit_from_zk_index(self, idx):
+        size = 0
         if self._reverse:
-            return self._size - idx + self._start_idx
+            for alloc in reversed(self._alloc_list):
+                if alloc['start'] <= idx <= alloc['end']:
+                    return alloc['end'] - idx + size
+                size += alloc['end'] - alloc['start'] + 1
+            pass
         else:
-            return idx - self._start_idx
+            for alloc in self._alloc_list:
+                if alloc['start'] <= idx <= alloc['end']:
+                    return idx - alloc['start'] + size
+                size += alloc['end'] - alloc['start'] + 1
+        raise Exception()
     # end _get_bit_from_zk_index
 
     def _set_in_use(self, idx):
@@ -78,16 +119,18 @@ class IndexAllocator(object):
     # end alloc
 
     def reserve(self, idx, value=None):
-        if idx > (self._start_idx + self._size):
-            return None
+        try:
+            bit_idx = self._get_bit_from_zk_index(idx)
+        except Exception:
+            return None  
         try:
             # Create a node at path and return its integer value
             id_str = "%(#)010d" % {'#': idx}
             self._zookeeper_client.create_node(self._path + id_str, value)
-            self._set_in_use(self._get_bit_from_zk_index(idx))
+            self._set_in_use(bit_idx)
             return idx
         except ResourceExistsError:
-            self._set_in_use(self._get_bit_from_zk_index(idx))
+            self._set_in_use(bit_idx) 
             return None
     # end reserve
 
