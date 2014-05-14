@@ -2,12 +2,26 @@ package net.juniper.contrail.vcenter;
 
 import static com.vmware.vim.cf.NullObject.NULL;
 
+import java.io.IOException;
 import java.net.URL;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.HashMap;
+import java.util.Iterator;
+import java.util.List;
+import java.util.ListIterator;
 import java.util.Map;
+
+import org.apache.http.util.NetUtils;
+import org.apache.log4j.BasicConfigurator;
+
+import net.juniper.contrail.api.ApiConnector;
+import net.juniper.contrail.api.ApiConnectorFactory;
+import net.juniper.contrail.api.types.NetworkIpam;
+import net.juniper.contrail.api.types.SubnetType;
+import net.juniper.contrail.api.types.VirtualNetwork;
+import net.juniper.contrail.api.types.VnSubnetsType;
 
 import com.vmware.vim.cf.CacheInstance;
 import com.vmware.vim25.ArrayOfManagedObjectReference;
@@ -32,6 +46,9 @@ import com.vmware.vim25.mo.ServiceInstance;
 import com.vmware.vim25.mo.VirtualMachine;
 import com.vmware.vim25.mo.VmwareDistributedVirtualSwitch;
 
+import org.apache.commons.net.util.SubnetUtils;
+import org.apache.commons.net.util.SubnetUtils.SubnetInfo;
+
 class UserVNInfo {
 	public int vlanId;
 	public String[] vms;
@@ -40,10 +57,57 @@ class UserVNInfo {
 
 public class VCenterToVncApi
 {
+  /**
+   * Check VN returned from VncApi.
+   * Delete if it is not in vCenter.
+   *
+   * @return whether the VncApi VN needs a deeper comparison with vCenter
+   */  
+  static boolean ProcessVncVN(Map<String, UserVNInfo> items, ApiConnector apic, VirtualNetwork lvn) throws IOException {
+  	// TODO: Check for domain and project
+  	String nm = lvn.getQualifiedName().get(2);
+  	
+  	List<String> matched_vn;
+  	
+  	if (nm.equals("__link_local__") || nm.equals("default-virtual-network") || nm.equals("ip-fabric")) {
+  		System.out.println("ignore " + nm);
+		return false;
+	}
+	if (items.containsKey(nm)) {
+		System.out.println("vnc_api matched " + nm);
+		return true;
+	} else {
+		System.out.println("vnc_api not matched " + nm);
+		apic.delete(VirtualNetwork.class, lvn.getUuid());
+		return false;
+	}	  
+  }
+  
+  static void CreateVncVN(ApiConnector apic, String name, UserVNInfo uvi) throws IOException {
+	VirtualNetwork vn = new VirtualNetwork();
+	vn.setName(name);
+	
+	String ipam_id = apic.findByName(NetworkIpam.class, null, "default-network-ipam");
+	NetworkIpam ipam = (NetworkIpam)apic.findById(NetworkIpam.class, ipam_id);
+	
+	SubnetUtils sus = new SubnetUtils(uvi.ipp.ipv4Config.getSubnetAddress(), uvi.ipp.ipv4Config.getNetmask());	
+	String cidr = sus.getInfo().getCidrSignature();
+	
+	VnSubnetsType subnet = new VnSubnetsType();
+	String[] addr_pair = cidr.split("\\/");
+	subnet.addIpamSubnets(new SubnetType(addr_pair[0], Integer.parseInt(addr_pair[1])), uvi.ipp.ipv4Config.getGateway());
+	
+	vn.setNetworkIpam(ipam, subnet);
+	apic.create(vn); 
+	
+	// TODO: Create VMI/VM
+  }
+  
   public static void main(String[] args) throws Exception
   {
 	final String kDvSwitch = "dvSwitch";
 	final String kDataCenter = "Datacenter";
+	final String kVncIp = "10.84.13.40";
 	
 	ServiceInstance si = new ServiceInstance(new URL("https://10.84.24.111/sdk"), "admin", "Contrail123!", true);
     Folder rootFolder = si.getRootFolder();
@@ -100,6 +164,31 @@ public class VCenterToVncApi
             items.put(dvpgs[jj].getName(), uvi);
     	}
     }
+    BasicConfigurator.configure();
     
+    ApiConnector apic = ApiConnectorFactory.build(kVncIp,8082);
+    List<VirtualNetwork> lvn = (List<VirtualNetwork>) apic.list(VirtualNetwork.class, null);
+    System.out.println("vnc_api VNs: " + lvn.size());
+    
+    Map<String, VirtualNetwork> vitems = new HashMap<String,VirtualNetwork>();
+    for (ListIterator<VirtualNetwork> iter = lvn.listIterator(lvn.size()); iter.hasPrevious();) {
+    	VirtualNetwork ivn = iter.previous();
+        if (ProcessVncVN(items, apic, ivn)) {
+        	vitems.put(ivn.getQualifiedName().get(2), ivn);
+        }
+    }
+    
+    Iterator it = items.entrySet().iterator();
+    while (it.hasNext()) {
+        Map.Entry pairs = (Map.Entry)it.next();
+        String name = (String) pairs.getKey();
+        UserVNInfo uvi = (UserVNInfo) pairs.getValue();
+        if (vitems.containsKey(name)) {
+        	// TODO: the VN matched
+        	// We need to compare vCenter VN with VncApi and update VncApi
+        } else {
+        	CreateVncVN(apic, name, uvi);
+        }
+    }
   }
 }
