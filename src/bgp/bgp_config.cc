@@ -1162,5 +1162,5 @@ bool BgpConfigManager::ConfigHandler() {
 //
 void BgpConfigManager::Terminate() {
     listener_->Terminate(db_);
-    config_.reset();
+    config_.reset()
 }

@@ -339,5 +339,5 @@ void TestShutdown() {
 
     AgentStats::GetInstance()->Shutdown();
     Agent::GetInstance()->Shutdown();
-    delete agent_init;
+    delete agent_init
 }
