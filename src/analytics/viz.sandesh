@@ -69,16 +69,15 @@ const string CONFIG_OBJECT_TABLE    = "ConfigObjectTable"
 const string VN_DISPLAY_NAME        = "Virtual Network"
 const string VM_DISPLAY_NAME        = "Virtual Machine"
 const string SI_DISPLAY_NAME        = "Service Instance"
-const string VROUTER_DISPLAY_NAME   = "VRouter"
+const string VROUTER_DISPLAY_NAME   = "vRouter"
 const string BGP_PEER_DISPLAY_NAME  = "BGP Peer"
 const string ROUTING_INSTANCE_DISPLAY_NAME = "Routing Instance"
-const string BGP_ROUTER_DISPLAY_NAME       = "BGP Router"
-const string XMPP_PEER_INFO_DISPLAY_NAME   = "XMPP Peer Info"
+const string BGP_ROUTER_DISPLAY_NAME       = "Control Node"
+const string XMPP_PEER_INFO_DISPLAY_NAME   = "XMPP Peer"
 const string XMPP_CONNECTION_DISPLAY_NAME  = "XMPP Connection"
-const string COLLECTOR_INFO_DISPLAY_NAME   = "Collector Info"
-const string DATABASE_INFO_DISPLAY_NAME   = "Database Info"
-const string GENERATOR_INFO_DISPLAY_NAME   = "Generator Info"
-const string MODULE_INFO_DISPLAY_NAME      = "Module Info"
+const string COLLECTOR_INFO_DISPLAY_NAME   = "Analytics Node"
+const string DATABASE_INFO_DISPLAY_NAME   = "Database Node"
+const string GENERATOR_INFO_DISPLAY_NAME   = "Generator"
 const string CONFIG_NODE_DISPLAY_NAME      = "Config Node"
 const string SERVICE_CHAIN_DISPLAY_NAME = "Service Chain"
 const string DNS_DISPLAY_NAME              = "DNS Node"
@@ -201,10 +200,10 @@ const map<string, string> UVE_MAP = {
     "virtual-machine" : VM_TABLE,
     "service-instance" : SI_TABLE,
     "vrouter" : VROUTER_TABLE,
-    "bgp-router" : BGP_ROUTER_TABLE,
+    "control-node" : BGP_ROUTER_TABLE,
     "bgp-peer" : BGP_PEER_TABLE,
     "xmpp-peer" : XMPP_PEER_INFO_TABLE,
-    "collector" : COLLECTOR_INFO_TABLE,
+    "analytics-node" : COLLECTOR_INFO_TABLE,
     "database" : DATABASE_INFO_TABLE,
     "generator" : GENERATOR_INFO_TABLE
     "config-node" : CONFIG_NODE_TABLE,
