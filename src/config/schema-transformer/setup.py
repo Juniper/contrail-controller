@@ -18,4 +18,7 @@ setup(
              'contrail-schema = schema_transformer.to_bgp:server_main',
          ],
     },
+    install_requires=[
+        'jsonpickle'
+    ]
 )
