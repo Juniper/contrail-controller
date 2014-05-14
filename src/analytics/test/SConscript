@@ -92,9 +92,13 @@ env.Alias('src/analytics:db_handler_test', db_handler_test)
 test_suite = [ 
                viz_message_test,
                db_handler_test,
+#              syslog_test, # TODO This test fails!
              ]
 test = env.TestSuite('analytics-test', test_suite)
 
-env.Alias('src/analytics:test', test)
+env.Alias('controller/src/analytics:test', [
+    test,
+    'controller/src/analytics/ruleparser:test',
+])
 
 Return('test_suite')

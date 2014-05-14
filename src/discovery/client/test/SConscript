@@ -36,6 +36,6 @@ discovery_client_test_suite = [
     ]
 
 test = env.TestSuite('discovery-client-test', discovery_client_test_suite)
-env.Alias('src/discovery:test', test)
+env.Alias('controller/src/discovery:test', test)
 
 Return('discovery_client_test_suite')

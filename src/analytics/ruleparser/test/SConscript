@@ -29,4 +29,4 @@ env.Alias('src/analytics/ruleeng:ruleparser_test', ruleparser_test)
 test = env.TestSuite('ruleparser-test',
         [ruleparser_test,])
 
-env.Alias('src/analytics/ruleparser:test', test)
+env.Alias('controller/src/analytics/ruleparser:test', test)
