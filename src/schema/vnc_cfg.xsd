@@ -51,6 +51,13 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
     </xsd:all>
 </xsd:complexType>
 
+<xsd:complexType name="AllocationPoolType">
+    <xsd:all>
+        <xsd:element name="start" type="xsd:string"/>
+        <xsd:element name="end" type="xsd:string"/>
+    </xsd:all>
+</xsd:complexType>
+
 <xsd:complexType name="SubnetType">
     <xsd:all>
         <xsd:element name="ip-prefix" type="xsd:string"/>
@@ -363,6 +370,9 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
     <xsd:all>
         <xsd:element name="subnet" type="SubnetType"/>
         <xsd:element name="default-gateway" type="IpAddressType"/>
+        <xsd:element name="enable-dhcp" type="xsd:boolean"/>
+        <xsd:element name="dns-nameservers" type="xsd:string" maxOccurs="unbounded"/>
+        <xsd:element name="allocation-pools" type="AllocationPoolType" maxOccurs="unbounded"/>
     </xsd:all>
 </xsd:complexType>
 

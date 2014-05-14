@@ -197,7 +197,11 @@ class VirtualNetworkServer(VirtualNetworkServerGen):
 
     @classmethod
     def http_post_collection(cls, tenant_name, obj_dict, db_conn):
-        cls.addr_mgmt.net_create_req(obj_dict)
+        try:
+            cls.addr_mgmt.net_create_req(obj_dict)
+        except Exception as e:
+            return (False, (500, str(e)))
+
         return True, ""
     # end http_post_collection
 
@@ -232,7 +236,10 @@ class VirtualNetworkServer(VirtualNetworkServerGen):
         if not ok:
             return (ok, (409, result))
 
-        cls.addr_mgmt.net_update_req(fq_name, read_result, obj_dict, id)
+        try:
+            cls.addr_mgmt.net_update_req(fq_name, read_result, obj_dict, id)
+        except Exception as e:
+            return (False, (500, str(e)))
 
         return True, ""
     # end http_put
