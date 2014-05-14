@@ -97,9 +97,14 @@ env.Prepend(LIBS=[
     ])
 
 # Libraries that need multi-pass linking
+# Whole-arhive flag causes the library to be included in the resulting output 
+# even though there may not be any calls requiring its presence. We need this 
+# for kstate library so that the HTML file for kstate  is listed in agent 
+# introspect page
 env.Prepend(LINKFLAGS =[
     '-Wl,--whole-archive',
     '-rdynamic',
+    '-lkstate',
     '-lcpuinfo',
     '-lvnswoperdb',
     '-lvnswcmn',
