@@ -24,8 +24,8 @@ then
     source $VERSIONFILE
 fi
 
-echo "Package                                Version                 Build-ID | Repo | Package Name"
-echo "-------------------------------------- ----------------------- ----------------------------------"
+echo "Package                                Version                        Build-ID | Repo | Package Name"
+echo "-------------------------------------- ------------------------------ ----------------------------------"
 for i in `cat $CONTRAILRPMS`; do
   dpkg -s $i 2> /dev/null 1> /dev/null
   ret_code=$?
@@ -40,7 +40,7 @@ for i in `cat $CONTRAILRPMS`; do
   fi
   # Only Installed packages are displayed
   if [[ -n $rr ]]; then
-      printf "%-39s%-24s%-20s\n" $i $v $rr
+      printf "%-39s%-31s%-20s\n" $i $v $rr
       unset rr
   fi
 done
