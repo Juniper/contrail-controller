@@ -92,26 +92,26 @@ struct RouteFlowKeyCmp {
 
 struct FlowKey {
     FlowKey() :
-        vrf(0), src_port(0), dst_port(0), protocol(0) {
+        nh(0), src_port(0), dst_port(0), protocol(0) {
         src.ipv4 = 0;
         dst.ipv4 = 0;
     }
 
-    FlowKey(uint32_t vrf_p, uint32_t sip_p, uint32_t dip_p, uint8_t proto_p,
+    FlowKey(uint32_t nh_p, uint32_t sip_p, uint32_t dip_p, uint8_t proto_p,
             uint16_t sport_p, uint16_t dport_p) 
-        : vrf(vrf_p), src_port(sport_p), dst_port(dport_p), protocol(proto_p) {
+        : nh(nh_p), src_port(sport_p), dst_port(dport_p), protocol(proto_p) {
         src.ipv4 = sip_p;
         dst.ipv4 = dip_p;
     }
 
     FlowKey(const FlowKey &key) : 
-        vrf(key.vrf), src_port(key.src_port), dst_port(key.dst_port),
+        nh(key.nh), src_port(key.src_port), dst_port(key.dst_port),
         protocol(key.protocol) {
         src.ipv4 = key.src.ipv4;
         dst.ipv4 = key.dst.ipv4;
     }
 
-    uint32_t vrf;
+    uint32_t nh;
     union {
         uint32_t ipv4;
     } src;
@@ -122,7 +122,7 @@ struct FlowKey {
     uint16_t dst_port;
     uint8_t protocol;
     bool CompareKey(const FlowKey &key) {
-        return (key.vrf == vrf &&
+        return (key.nh == nh &&
                 key.src.ipv4 == src.ipv4 &&
                 key.dst.ipv4 == dst.ipv4 &&
                 key.src_port == src_port &&
@@ -130,7 +130,7 @@ struct FlowKey {
                 key.protocol == protocol);
     }
     void Reset() {
-        vrf = -1;
+        nh = -1;
         src.ipv4 = -1;
         dst.ipv4 = -1;
         src_port = -1;
@@ -142,8 +142,8 @@ struct FlowKey {
 struct FlowKeyCmp {
     bool operator()(const FlowKey &lhs, const FlowKey &rhs) {
 
-        if (lhs.vrf != rhs.vrf) {
-            return lhs.vrf < rhs.vrf;
+        if (lhs.nh != rhs.nh) {
+            return lhs.nh < rhs.nh;
         }
 
         if (lhs.src.ipv4 != rhs.src.ipv4) {
@@ -236,6 +236,7 @@ struct FlowData {
         flow_source_vrf(VrfEntry::kInvalidIndex),
         flow_dest_vrf(VrfEntry::kInvalidIndex), match_p(), vn_entry(NULL),
         intf_entry(NULL), in_vm_entry(NULL), out_vm_entry(NULL),
+        vrf(VrfEntry::kInvalidIndex),
         mirror_vrf(VrfEntry::kInvalidIndex), dest_vrf(),
         component_nh_idx((uint32_t)CompositeNH::kInvalidComponentNHIdx),
         nh_state_(NULL), source_plen(0), dest_plen(0) {}
@@ -252,6 +253,7 @@ struct FlowData {
     InterfaceConstRef intf_entry;
     VmEntryConstRef in_vm_entry;
     VmEntryConstRef out_vm_entry;
+    uint32_t vrf;
     uint32_t mirror_vrf;
 
     uint16_t dest_vrf;

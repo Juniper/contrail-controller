@@ -197,7 +197,7 @@ bool FlowEntry::ActionRecompute() {
 }
 
 void FlowEntry::SetPacketHeader(PacketHeader *hdr) {
-    hdr->vrf = key_.vrf;
+    hdr->vrf = data_.vrf;
     hdr->src_ip = key_.src.ipv4;
     hdr->dst_ip = key_.dst.ipv4;
     hdr->protocol = key_.protocol;
@@ -221,7 +221,7 @@ void FlowEntry::SetOutPacketHeader(PacketHeader *hdr) {
     if (rflow == NULL)
         return;
 
-    hdr->vrf = rflow->key().vrf;
+    hdr->vrf = rflow->data().vrf;
     hdr->src_ip = rflow->key().dst.ipv4;
     hdr->dst_ip = rflow->key().src.ipv4;
     hdr->protocol = rflow->key().protocol;
@@ -816,7 +816,8 @@ void FlowEntry::FillFlowInfo(FlowInfo &info) {
     info.set_destination_ip(key_.dst.ipv4);
     info.set_destination_port(key_.dst_port);
     info.set_protocol(key_.protocol);
-    info.set_vrf(key_.vrf);
+    info.set_nh_id(key_.nh);
+    info.set_vrf(data_.vrf);
     info.set_source_vn(data_.source_vn);
     info.set_dest_vn(data_.dest_vn);
     std::vector<uint32_t> v;
@@ -936,7 +937,7 @@ void FlowEntry::UpdateReflexiveAction() {
 
 void FlowEntry::SetAclFlowSandeshData(const AclDBEntry *acl,
         FlowSandeshData &fe_sandesh_data) const {
-    fe_sandesh_data.set_vrf(integerToString(key_.vrf));
+    fe_sandesh_data.set_vrf(integerToString(data_.vrf));
     fe_sandesh_data.set_src(Ip4Address(key_.src.ipv4).to_string());
     fe_sandesh_data.set_dst(Ip4Address(key_.dst.ipv4).to_string());
     fe_sandesh_data.set_src_port(key_.src_port);
@@ -1134,6 +1135,7 @@ void FlowEntry::InitFwdFlow(const PktFlowInfo *info, const PktInfo *pkt,
     data_.flow_source_vrf = info->flow_source_vrf;
     data_.flow_dest_vrf = info->flow_dest_vrf;
     data_.dest_vrf = info->dest_vrf;
+    data_.vrf = pkt->vrf;
 
     if (info->ecmp) {
         set_flags(FlowEntry::EcmpFlow);
@@ -1184,6 +1186,7 @@ void FlowEntry::InitRevFlow(const PktFlowInfo *info,
     data_.flow_source_vrf = info->flow_dest_vrf;
     data_.flow_dest_vrf = info->flow_source_vrf;
     data_.dest_vrf = info->nat_dest_vrf;
+    data_.vrf = info->dest_vrf;
     if (info->ecmp) {
         set_flags(FlowEntry::EcmpFlow);
     } else {

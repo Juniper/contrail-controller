@@ -51,7 +51,7 @@ InterfaceKSyncEntry::InterfaceKSyncEntry(InterfaceKSyncObject *obj,
     os_index_(Interface::kInvalidIndex), network_id_(entry->network_id_),
     sub_type_(entry->sub_type_), ipv4_forwarding_(entry->ipv4_forwarding_),
     layer2_forwarding_(entry->layer2_forwarding_), vlan_id_(entry->vlan_id_),
-    parent_(entry->parent_) {
+    parent_(entry->parent_), flow_key_nh_id_(entry->flow_key_nh_id_) {
 }
 
 InterfaceKSyncEntry::InterfaceKSyncEntry(InterfaceKSyncObject *obj, 
@@ -65,7 +65,10 @@ InterfaceKSyncEntry::InterfaceKSyncEntry(InterfaceKSyncObject *obj,
     os_index_(intf->os_index()), sub_type_(InetInterface::VHOST),
     ipv4_forwarding_(true), layer2_forwarding_(true),
     vlan_id_(VmInterface::kInvalidVlanId), parent_(NULL) {
-       
+
+    if (intf->flow_key_nh()) {
+        flow_key_nh_id_ = intf->flow_key_nh()->id();
+    }
     network_id_ = 0;
     if (type_ == Interface::VM_INTERFACE) {
         const VmInterface *vmitf = 
@@ -230,6 +233,15 @@ bool InterfaceKSyncEntry::Sync(DBEntry *e) {
         ret = true;
     }
 
+    uint32_t nh_id = 0;
+    if (intf->flow_key_nh()) {
+        nh_id = intf->flow_key_nh()->id();
+    }
+    if (nh_id != flow_key_nh_id_) {
+        flow_key_nh_id_ = nh_id;
+        ret = true;
+    }
+
     return ret;
 }
 
@@ -356,6 +368,7 @@ int InterfaceKSyncEntry::Encode(sandesh_op::type op, char *buf, int buf_len) {
     encoder.set_vifr_mtu(0);
     encoder.set_vifr_name(interface_name_);
     encoder.set_vifr_ip(ip_);
+    encoder.set_vifr_nh_id(flow_key_nh_id_);
 
     encode_len = encoder.WriteBinary((uint8_t *)buf, buf_len, &error);
     return encode_len;

@@ -30,12 +30,12 @@ VrfAssign *VrfAssignTable::AllocWithKey(const DBRequestKey *k) const {
 
     VmInterfaceKey intf_key(AgentKey::ADD_DEL_CHANGE, key->intf_uuid_, "");
     Interface *interface = static_cast<Interface *>
-        (Agent::GetInstance()->GetInterfaceTable()->Find(&intf_key, true));
+        (agent()->GetInterfaceTable()->Find(&intf_key, true));
 
     switch (key->type_) {
     case VrfAssign::VLAN: {
         VlanVrfAssign *vlan_assign = 
-            new VlanVrfAssign(interface, key->vlan_tag_);
+            new VlanVrfAssign(interface, key->vlan_tag_, NULL);
         assign = static_cast<VrfAssign *>(vlan_assign);
     }
     break;
@@ -153,6 +153,23 @@ bool VrfAssign::Change(const DBRequest *req) {
         ret = true;
     }
 
+    return ret;
+}
+
+bool VlanVrfAssign::Change(const DBRequest *req) {
+    bool ret = VrfAssign::Change(req);
+
+    const VrfAssign::VrfAssignKey *key =
+        static_cast<const VrfAssign::VrfAssignKey *>(req->key.get());
+    VlanNHKey nh_key(key->intf_uuid_, key->vlan_tag_);
+    Agent *agent = Agent::GetInstance();
+    const NextHop *nh =  static_cast<NextHop *>
+        (agent->nexthop_table()->FindActiveEntry(&nh_key));
+    assert(nh);
+    if (nh_ != nh) {
+        nh_ = nh;
+        ret = true;
+    }
     return ret;
 }
 

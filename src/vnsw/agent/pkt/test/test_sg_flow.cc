@@ -402,9 +402,9 @@ class SgTest : public ::testing::Test {
 };
 
 bool ValidateAction(uint32_t vrfid, char *sip, char *dip, int proto, int sport,
-                    int dport, int action) {
+                    int dport, int action, uint32_t nh_id) {
     bool ret = true;
-    FlowEntry *fe = FlowGet(vrfid, sip, dip, proto, sport, dport);
+    FlowEntry *fe = FlowGet(vrfid, sip, dip, proto, sport, dport, nh_id);
     FlowEntry *rfe = fe->reverse_flow_entry();
 
     EXPECT_TRUE((fe->match_p().sg_action & (1 << action)) != 0);
@@ -455,9 +455,10 @@ TEST_F(SgTest, Flow_Allow_1) {
     client->WaitForIdle();
 
     EXPECT_TRUE(ValidateAction(vnet[1]->vrf()->vrf_id(), vnet_addr[1],
-                               vnet_addr[2], 1, 0, 0, TrafficAction::PASS));
-    EXPECT_TRUE(FlowDelete(vnet[1]->vrf()->GetName(), vnet_addr[1],
-                           vnet_addr[2], 1, 0, 0));
+                               vnet_addr[2], 1, 0, 0, TrafficAction::PASS,
+                               vnet[1]->flow_key_nh()->id()));
+    EXPECT_TRUE(FlowDelete(vnet[1]->vrf()->GetName(), vnet_addr[1], vnet_addr[2],
+                           1, 0, 0, vnet[1]->flow_key_nh()->id()));
     client->WaitForIdle();
 }
 
@@ -468,9 +469,10 @@ TEST_F(SgTest, Flow_Deny_1) {
     client->WaitForIdle();
 
     EXPECT_TRUE(ValidateAction(vnet[1]->vrf()->vrf_id(), vnet_addr[1],
-                               vnet_addr[2], 6, 10, 20, TrafficAction::DENY));
-    EXPECT_TRUE(FlowDelete(vnet[1]->vrf()->GetName(), vnet_addr[1],
-                           vnet_addr[2], 6, 10, 20));
+                               vnet_addr[2], 6, 10, 20, TrafficAction::DENY,
+                               vnet[1]->flow_key_nh()->id()));
+    EXPECT_TRUE(FlowDelete(vnet[1]->vrf()->GetName(), vnet_addr[1], vnet_addr[2],
+                           6, 10, 20, vnet[1]->flow_key_nh()->id()));
 }
 
 // Change ACL for forward flow 
@@ -479,14 +481,17 @@ TEST_F(SgTest, Fwd_Sg_Change_1) {
     client->WaitForIdle();
 
     EXPECT_TRUE(ValidateAction(vnet[1]->vrf()->vrf_id(), vnet_addr[1],
-                               vnet_addr[2], 1, 0, 0, TrafficAction::PASS));
+                               vnet_addr[2], 1, 0, 0, TrafficAction::PASS,
+                               vnet[1]->flow_key_nh()->id()));
 
     AddAclEntry("sg_acl1", 10, 1, "deny", EGRESS);
     EXPECT_TRUE(ValidateAction(vnet[1]->vrf()->vrf_id(), vnet_addr[1],
-                               vnet_addr[2], 1, 0, 0, TrafficAction::DENY));
+                               vnet_addr[2], 1, 0, 0, TrafficAction::DENY,
+                               vnet[1]->flow_key_nh()->id()));
 
     EXPECT_TRUE(FlowDelete(vnet[1]->vrf()->GetName(), vnet_addr[1],
-                           vnet_addr[2], 1, 0, 0));
+                           vnet_addr[2], 1, 0, 0,
+                           vnet[1]->flow_key_nh()->id()));
 }
 
 // Delete SG from interface
@@ -496,16 +501,19 @@ TEST_F(SgTest, Sg_Delete_1) {
     client->WaitForIdle();
 
     EXPECT_TRUE(ValidateAction(vnet[1]->vrf()->vrf_id(), vnet_addr[1],
-                               vnet_addr[2], 6, 10, 20, TrafficAction::DENY));
+                               vnet_addr[2], 6, 10, 20, TrafficAction::DENY,
+                               vnet[1]->flow_key_nh()->id()));
 
     DelLink("virtual-machine-interface", "vnet1", "security-group", "sg1");
     client->WaitForIdle();
 
     EXPECT_TRUE(ValidateAction(vnet[1]->vrf()->vrf_id(), vnet_addr[1],
-                               vnet_addr[2], 6, 10, 20, TrafficAction::PASS));
+                               vnet_addr[2], 6, 10, 20, TrafficAction::PASS,
+                               vnet[1]->flow_key_nh()->id()));
 
     EXPECT_TRUE(FlowDelete(vnet[1]->vrf()->GetName(), vnet_addr[1],
-                           vnet_addr[2], 6, 10, 20));
+                           vnet_addr[2], 6, 10, 20,
+                           vnet[1]->flow_key_nh()->id()));
 }
 
 TEST_F(SgTest, Sg_Introspec) {
@@ -584,7 +592,8 @@ TEST_F(SgTest, Sg_Policy_1) {
     client->WaitForIdle();
 
     EXPECT_TRUE(ValidateAction(vnet[1]->vrf()->vrf_id(), vnet_addr[1],
-                               remote_ip, 1, 0, 0, TrafficAction::PASS));
+                               remote_ip, 1, 0, 0, TrafficAction::PASS,
+                               vnet[1]->flow_key_nh()->id()));
     client->WaitForIdle();
 
     //Change the route sg id to 3
@@ -599,12 +608,13 @@ TEST_F(SgTest, Sg_Policy_1) {
 
     EXPECT_TRUE(ValidateAction(vnet[1]->vrf()->vrf_id(), vnet_addr[1],
                                remote_ip, 1, 0, 0,
-                               TrafficAction::DROP));
+                               TrafficAction::DROP,
+                               vnet[1]->flow_key_nh()->id()));
 
     client->WaitForIdle();
 
     EXPECT_TRUE(FlowDelete(vnet[1]->vrf()->GetName(), vnet_addr[1],
-                           remote_ip, 1, 0, 0));
+                           remote_ip, 1, 0, 0, vnet[1]->flow_key_nh()->id()));
     DelLink("virtual-machine-interface", "vnet1", "security-group", "sg2");
     DelNode("security-group", "sg2");
     DelNode("access-control-list", "ag2");
@@ -641,7 +651,8 @@ TEST_F(SgTest, Sg_Policy_2) {
     client->WaitForIdle();
 
     EXPECT_TRUE(ValidateAction(vnet[1]->vrf()->vrf_id(), remote_ip,
-                               vnet_addr[1], 1, 0, 0, TrafficAction::PASS));
+                               vnet_addr[1], 1, 0, 0, TrafficAction::PASS,
+                               vnet[1]->flow_key_nh()->id()));
     client->WaitForIdle();
 
     //Change the route sg id to 3
@@ -656,12 +667,13 @@ TEST_F(SgTest, Sg_Policy_2) {
 
     EXPECT_TRUE(ValidateAction(vnet[1]->vrf()->vrf_id(), remote_ip,
                                vnet_addr[1], 1, 0, 0,
-                               TrafficAction::DROP));
+                               TrafficAction::DROP,
+                               vnet[1]->flow_key_nh()->id()));
 
     client->WaitForIdle();
 
     EXPECT_TRUE(FlowDelete(vnet[1]->vrf()->GetName(), vnet_addr[1],
-                           remote_ip, 1, 0, 0));
+                           remote_ip, 1, 0, 0, vnet[1]->flow_key_nh()->id()));
 
     DelLink("virtual-machine-interface", "vnet1", "security-group", "sg2");
     DelNode("security-group", "sg2");

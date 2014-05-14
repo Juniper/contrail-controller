@@ -228,7 +228,7 @@ void RouteKSyncEntry::FillObjectLog(sandesh_op::type type,
     }
 
     if (nh()) {
-        info.set_nh_idx(nh()->GetIndex());
+        info.set_nh_idx(nh()->nh_id());
         if (nh()->type() == NextHop::TUNNEL) {
             info.set_label(label_);
         }
@@ -284,7 +284,7 @@ int RouteKSyncEntry::Encode(sandesh_op::type op, uint8_t replace_plen,
     encoder.set_rtr_label(label);
 
     if (nexthop != NULL) {
-        encoder.set_rtr_nh_id(nexthop->GetIndex());
+        encoder.set_rtr_nh_id(nexthop->nh_id());
     } else {
         encoder.set_rtr_nh_id(NH_DISCARD_ID);
     }

@@ -11,7 +11,7 @@
 using boost::system::error_code;
 
 #define SET_SANDESH_FLOW_DATA(data, fe)                                     \
-    data.set_vrf(fe->key().vrf);                                            \
+    data.set_vrf(fe->data().vrf);                                           \
     Ip4Address sip(fe->key().src.ipv4);                                     \
     data.set_sip(sip.to_string());                                          \
     Ip4Address dip(fe->key().dst.ipv4);                                     \
@@ -68,6 +68,7 @@ using boost::system::error_code;
     }                                                                       \
     data.set_reverse_flow(fe->is_flags_set(FlowEntry::ReverseFlow) ? "yes" : "no"); \
     SetAclInfo(data, fe);                                                   \
+    data.set_nh(fe->key().nh);                                              \
 
 const std::string PktSandeshFlow::start_key = "0:0:0:0:0.0.0.0:0.0.0.0";
 
@@ -166,7 +167,7 @@ void PktSandeshFlow::SendResponse(SandeshResponse *resp) {
 
 string PktSandeshFlow::GetFlowKey(const FlowKey &key) {
     stringstream ss;
-    ss << key.vrf << ":";
+    ss << key.nh << ":";
     ss << key.src_port << ":";
     ss << key.dst_port << ":";
     ss << (uint16_t)key.protocol << ":";
@@ -184,7 +185,7 @@ bool PktSandeshFlow::SetFlowKey(string key) {
     string item, sip, dip;
     uint32_t proto;
     if (getline(ss, item, ':')) {
-        istringstream(item) >> flow_iteration_key_.vrf;
+        istringstream(item) >> flow_iteration_key_.nh;
     }
     if (getline(ss, item, ':')) {
         istringstream(item) >> flow_iteration_key_.src_port;
@@ -280,7 +281,7 @@ void DeleteAllFlowRecords::HandleRequest() const {
 
 void FetchFlowRecord::HandleRequest() const {
     FlowKey key;
-    key.vrf = get_vrf();
+    key.nh = get_nh();
     error_code ec;
     key.src.ipv4 = Ip4Address::from_string(get_sip(), ec).to_ulong();
     key.dst.ipv4 = Ip4Address::from_string(get_dip(), ec).to_ulong();

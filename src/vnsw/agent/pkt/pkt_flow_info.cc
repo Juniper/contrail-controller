@@ -75,32 +75,46 @@ static uint32_t NhToVrf(const NextHop *nh) {
     return vrf->vrf_id();
 }
 
+static const NextHop* GetPolicyEnabledNH(const NextHop *nh) {
+    DBEntryBase::KeyPtr key = nh->GetDBRequestKey();
+    NextHopKey *nh_key = static_cast<NextHopKey *>(key.get());
+    nh_key->SetPolicy(true);
+    return static_cast<const NextHop *>(
+            Agent::GetInstance()->nexthop_table()->FindActiveEntry(key.get()));
+}
+
 // Get interface from a NH. Also, decode ECMP information from NH
 static bool NhDecode(const NextHop *nh, const PktInfo *pkt, PktFlowInfo *info,
-                     PktControlInfo *out, bool force_vmport) {
+                     PktControlInfo *in, PktControlInfo *out,
+                     bool force_vmport) {
     bool ret = true;
 
     if (!nh->IsActive())
         return false;
 
     // If its composite NH, find interface information from the component NH
+    const CompositeNH *comp_nh = NULL;
     if (nh->GetType() == NextHop::COMPOSITE) {
-        info->ecmp = true;
-        const CompositeNH *comp_nh = static_cast<const CompositeNH *>(nh);
-        if (info->out_component_nh_idx == CompositeNH::kInvalidComponentNHIdx ||
-           (comp_nh->GetNH(info->out_component_nh_idx) == NULL)) {
-            if (info->out_component_nh_idx != CompositeNH::kInvalidComponentNHIdx) {
-                //Dont trap reverse flow, upon flow establishment
-                //To be removed once trapped packets are retransmitted
-                info->trap_rev_flow = true;
-            } 
-
-            info->out_component_nh_idx = 
-                comp_nh->GetComponentNHList()->hash(pkt->hash());
-        }
-        nh = comp_nh->GetNH(info->out_component_nh_idx);
-        if (nh->IsActive() == false) {
-            return false;
+        comp_nh = static_cast<const CompositeNH *>(nh);
+        if (comp_nh->IsEcmpNH() == true) {
+            info->ecmp = true;
+            const CompositeNH *comp_nh = static_cast<const CompositeNH *>(nh);
+            if (info->out_component_nh_idx ==
+                CompositeNH::kInvalidComponentNHIdx ||
+                (comp_nh->GetNH(info->out_component_nh_idx) == NULL)) {
+                if (info->out_component_nh_idx !=
+                        CompositeNH::kInvalidComponentNHIdx) {
+                    //Dont trap reverse flow, upon flow establishment
+                    //To be removed once trapped packets are retransmitted
+                    info->trap_rev_flow = true;
+                }
+                info->out_component_nh_idx =
+                    comp_nh->GetComponentNHList()->hash(pkt->hash());
+             }
+             nh = comp_nh->GetNH(info->out_component_nh_idx);
+             if (nh->IsActive() == false) {
+                return false;
+             }
         }
     } else {
         info->out_component_nh_idx = CompositeNH::kInvalidComponentNHIdx;
@@ -112,11 +126,24 @@ static bool NhDecode(const NextHop *nh, const PktInfo *pkt, PktFlowInfo *info,
         if (out->intf_->type() != Interface::PACKET) {
             out->vrf_ = static_cast<const InterfaceNH*>(nh)->GetVrf();
         }
+        if (out->intf_->type() == Interface::VM_INTERFACE) {
+            //Local flow, pick destination interface
+            //nexthop as reverse flow key
+            out->nh_ = GetPolicyEnabledNH(nh)->id();
+        } else if (out->intf_->type() == Interface::PACKET) {
+            //Packet destined to pkt interface, packet originating
+            //from pkt0 interface will use destination interface as key
+            out->nh_ = in->nh_;
+        } else {
+            //Remote flow, use source interface as nexthop key
+            out->nh_ = nh->id();
+        }
         break;
 
     case NextHop::RECEIVE:
         out->intf_ = static_cast<const ReceiveNH *>(nh)->GetInterface();
         out->vrf_ = out->intf_->vrf();
+        out->nh_ = GetPolicyEnabledNH(nh)->id();
         break;
 
     case NextHop::VLAN: {
@@ -125,6 +152,23 @@ static bool NhDecode(const NextHop *nh, const PktInfo *pkt, PktFlowInfo *info,
         out->vlan_nh_ = true;
         out->vlan_tag_ = vlan_nh->GetVlanTag();
         out->vrf_ = vlan_nh->GetVrf();
+        out->nh_ = nh->id();
+        break;
+    }
+
+    case NextHop::TUNNEL: {
+         if (comp_nh && comp_nh->IsLocal() == true) {
+             out->nh_ = comp_nh->id();
+         } else {
+             out->nh_ = in->nh_;
+         }
+         out->intf_ = NULL;
+         break;
+    }
+
+    case NextHop::COMPOSITE: {
+        out->nh_ = nh->id();
+        out->intf_ = NULL;
         break;
     }
 
@@ -155,7 +199,8 @@ static bool NhDecode(const NextHop *nh, const PktInfo *pkt, PktFlowInfo *info,
 
 // Decode route and get Interface / ECMP information
 static bool RouteToOutInfo(const Inet4UnicastRouteEntry *rt, const PktInfo *pkt,
-                           PktFlowInfo *info, PktControlInfo *out) {
+                           PktFlowInfo *info, PktControlInfo *in,
+                           PktControlInfo *out) {
     Agent *agent = static_cast<AgentRouteTable *>(rt->get_table())->agent();
     const AgentPath *path = rt->GetActivePath();
     if (path == NULL)
@@ -169,7 +214,7 @@ static bool RouteToOutInfo(const Inet4UnicastRouteEntry *rt, const PktInfo *pkt,
         return false;
     }
 
-    return NhDecode(nh, pkt, info, out, false);
+    return NhDecode(nh, pkt, info, in, out, false);
 }
 
 static const VnEntry *InterfaceToVn(const Interface *intf) {
@@ -417,7 +462,7 @@ void PktFlowInfo::LinkLocalServiceFromVm(const PktInfo *pkt, PktControlInfo *in,
 
 void PktFlowInfo::LinkLocalServiceFromHost(const PktInfo *pkt, PktControlInfo *in,
                                            PktControlInfo *out) {
-    if (RouteToOutInfo(out->rt_, pkt, this, out) == false) {
+    if (RouteToOutInfo(out->rt_, pkt, this, in, out) == false) {
         return;
     }
 
@@ -580,7 +625,7 @@ void PktFlowInfo::FloatingIpSNat(const PktInfo *pkt, PktControlInfo *in,
     }
 
     // Compute out-intf and ECMP info from out-route
-    if (RouteToOutInfo(out->rt_, pkt, this, out) == false) {
+    if (RouteToOutInfo(out->rt_, pkt, this, in, out) == false) {
         return;
     }
 
@@ -688,6 +733,9 @@ void PktFlowInfo::VrfTranslate(const PktInfo *pkt, PktControlInfo *in,
         out->vrf_ = vrf;
         if (vrf) {
             out->rt_ = vrf->GetUcRoute(Ip4Address(pkt->ip_daddr));
+            if (vm_intf->vrf_assign_acl()) {
+                in->rt_ = vrf->GetUcRoute(Ip4Address(pkt->ip_saddr));
+            }
         }
     }
 }
@@ -720,7 +768,7 @@ void PktFlowInfo::IngressProcess(const PktInfo *pkt, PktControlInfo *in,
 
     if (out->rt_) {
         // Compute out-intf and ECMP info from out-route
-        if (RouteToOutInfo(out->rt_, pkt, this, out)) {
+        if (RouteToOutInfo(out->rt_, pkt, this, in, out)) {
             if (out->intf_) {
                 out->vn_ = InterfaceToVn(out->intf_);
                 if (out->vrf_) {
@@ -741,7 +789,7 @@ void PktFlowInfo::IngressProcess(const PktInfo *pkt, PktControlInfo *in,
     
     if (out->rt_ != NULL) {
         // Route is present. If IP-DA is a floating-ip, we need DNAT
-        if (RouteToOutInfo(out->rt_, pkt, this, out)) {
+        if (RouteToOutInfo(out->rt_, pkt, this, in, out)) {
             if (out->intf_ && IntfHasFloatingIp(out->intf_)) {
                 FloatingIpDNat(pkt, in, out);
             }
@@ -756,7 +804,7 @@ void PktFlowInfo::IngressProcess(const PktInfo *pkt, PktControlInfo *in,
 
     // If out-interface was not found, get it based on out-route
     if (out->intf_ == NULL && out->rt_) {
-        RouteToOutInfo(out->rt_, pkt, this, out);
+        RouteToOutInfo(out->rt_, pkt, this, in, out);
     }
 
     return;
@@ -771,7 +819,7 @@ void PktFlowInfo::EgressProcess(const PktInfo *pkt, PktControlInfo *in,
     }
 
     // Get VMPort Interface from NH
-    if (NhDecode(mpls->nexthop(), pkt, this, out, true) == false) {
+    if (NhDecode(mpls->nexthop(), pkt, this, in, out, true) == false) {
         return;
     }
 
@@ -799,6 +847,7 @@ bool PktFlowInfo::Process(const PktInfo *pkt, PktControlInfo *in,
     }
 
     in->intf_ = InterfaceTable::GetInstance()->FindInterface(pkt->agent_hdr.ifindex);
+    out->nh_ = in->nh_ = pkt->agent_hdr.nh;
     if (in->intf_ == NULL || in->intf_->ipv4_active() == false) {
         in->intf_ = NULL;
         LogError(pkt, "Invalid or Inactive ifindex");
@@ -868,7 +917,7 @@ bool PktFlowInfo::Process(const PktInfo *pkt, PktControlInfo *in,
 
 void PktFlowInfo::Add(const PktInfo *pkt, PktControlInfo *in,
                       PktControlInfo *out) {
-    FlowKey key(pkt->vrf, pkt->ip_saddr, pkt->ip_daddr,
+    FlowKey key(in->nh_, pkt->ip_saddr, pkt->ip_daddr,
                 pkt->ip_proto, pkt->sport, pkt->dport);
     FlowEntryPtr flow(Agent::GetInstance()->pkt()->flow_table()->Allocate(key));
 
@@ -911,11 +960,11 @@ void PktFlowInfo::Add(const PktInfo *pkt, PktControlInfo *in,
     }
 
     if (nat_done) {
-        FlowKey rkey(nat_vrf, nat_ip_daddr, nat_ip_saddr,
+        FlowKey rkey(out->nh_, nat_ip_daddr, nat_ip_saddr,
                      pkt->ip_proto, r_sport, r_dport);
         rflow = Agent::GetInstance()->pkt()->flow_table()->Allocate(rkey);
     } else {
-        FlowKey rkey(dest_vrf, pkt->ip_daddr, pkt->ip_saddr,
+        FlowKey rkey(out->nh_, pkt->ip_daddr, pkt->ip_saddr,
                      pkt->ip_proto, r_sport, r_dport);
         rflow = Agent::GetInstance()->pkt()->flow_table()->Allocate(rkey);
     }
@@ -954,13 +1003,12 @@ void PktFlowInfo::RewritePktInfo(uint32_t flow_index) {
         return;
     }
 
-    pkt->vrf = key.vrf;
     pkt->ip_saddr = key.src.ipv4;
     pkt->ip_daddr = key.dst.ipv4;
     pkt->ip_proto = key.protocol;
     pkt->sport = key.src_port;
     pkt->dport = key.dst_port;
-    pkt->agent_hdr.vrf = key.vrf;
+    pkt->agent_hdr.vrf = flow->data().vrf;
     //Flow transition from Non ECMP to ECMP, use index 0
     if (flow->data().component_nh_idx == CompositeNH::kInvalidComponentNHIdx) {
         out_component_nh_idx = 0;

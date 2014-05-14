@@ -103,6 +103,8 @@ public:
     bool os_oper_state() const { return os_oper_state_; }
     // Used only for test code
     void set_test_oper_state(bool val) { test_oper_state_ = val; }
+    void set_flow_key_nh(const NextHop *nh) { flow_key_nh_ = nh;}
+    const NextHop* flow_key_nh() const {return flow_key_nh_.get();}
 
 protected:
     void SetItfSandeshData(ItfSandeshData &data) const;
@@ -123,6 +125,7 @@ protected:
     bool os_oper_state_;
     // Used only for test code
     bool test_oper_state_;
+    NextHopConstRef flow_key_nh_;
 
 private:
     friend class InterfaceTable;

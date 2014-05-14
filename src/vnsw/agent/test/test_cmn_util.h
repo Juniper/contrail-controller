@@ -182,36 +182,39 @@ void CreateVmportFIpEnv(struct PortInfo *input, int count, int acl_id = 0,
                      const char *vn = NULL, const char *vrf = NULL);
 void FlushFlowTable();
 bool FlowDelete(const string &vrf_name, const char *sip,
-                const char *dip, uint8_t proto, uint16_t sport, uint16_t dport);
+                const char *dip, uint8_t proto, uint16_t sport, uint16_t dport,
+                int nh_id);
 bool FlowFail(const string &vrf_name, const char *sip, const char *dip,
-              uint8_t proto, uint16_t sport, uint16_t dport);
+              uint8_t proto, uint16_t sport, uint16_t dport, int nh_id);
 bool FlowFail(int vrf_id, const char *sip, const char *dip,
-              uint8_t proto, uint16_t sport, uint16_t dport);
+              uint8_t proto, uint16_t sport, uint16_t dport, int nh_id);
 bool FlowGetNat(const string &vrf_name, const char *sip, const char *dip,
                 uint8_t proto, uint16_t sport, uint16_t dport,
                 std::string svn, std::string dvn, uint32_t hash_id,
                 const char *nat_vrf, const char *nat_sip,
-                const char *nat_dip, uint16_t nat_sport, int16_t nat_dport);
+                const char *nat_dip, uint16_t nat_sport, int16_t nat_dport,
+                int nh_id, int nat_nh_id);
 bool FlowGet(const string &vrf_name, const char *sip, const char *dip,
              uint8_t proto, uint16_t sport, uint16_t dport, bool rflow,
              std::string svn, std::string dvn, uint32_t hash_id, 
-             int rflow_vrf = -1);
+             int nh_id, int rev_nh_id = -1);
 bool FlowGet(const string &vrf_name, const char *sip, const char *dip,
              uint8_t proto, uint16_t sport, uint16_t dport, bool rflow,
              std::string svn, std::string dvn, uint32_t hash_id, bool fwd, 
-             bool nat, int rflow_vrf = -1);
+             bool nat, int nh_id, int rev_nh_id = -1);
 bool FlowGet(int vrf_id, const char *sip, const char *dip, uint8_t proto, 
              uint16_t sport, uint16_t dport, bool short_flow, int hash_id,
-             int reverse_hash_id);
+             int reverse_hash_id, int nh_id, int rev_nh_id = -1);
 FlowEntry* FlowGet(int vrf_id, std::string sip, std::string dip, uint8_t proto,
-                   uint16_t sport, uint16_t dport);
+                   uint16_t sport, uint16_t dport, int nh_id);
 bool FlowStatsMatch(const string &vrf_name, const char *sip, const char *dip,
                     uint8_t proto, uint16_t sport, uint16_t dport,
-                    uint64_t pkts, uint64_t bytes);
+                    uint64_t pkts, uint64_t bytes, int nh_id);
 bool FindFlow(const string &vrf_name, const char *sip, const char *dip,
               uint8_t proto, uint16_t sport, uint16_t dport, bool nat,
               const string &nat_vrf_name, const char *nat_sip,
-              const char *nat_dip, uint16_t nat_sport, uint16_t nat_dport);
+              const char *nat_dip, uint16_t nat_sport, uint16_t nat_dport,
+              int fwd_nh_id, int rev_nh_id);
 PktGen *TxTcpPacketUtil(int ifindex, const char *sip, const char *dip,
                         int sport, int dport, uint32_t hash_idx);
 PktGen *TxIpPacketUtil(int ifindex, const char *sip, const char *dip, int proto,
@@ -250,6 +253,8 @@ void DelInstanceIp(const char *name);
 extern Peer *bgp_peer_;
 bool FindMplsLabel(MplsLabel::Type type, uint32_t label);
 MplsLabel *GetMplsLabel(MplsLabel::Type type, uint32_t label);
+uint32_t GetFlowKeyNH(int id);
+uint32_t GetFlowKeyNH(char *name);
 bool FindNH(NextHopKey *key);
 NextHop *GetNH(NextHopKey *key);
 bool VmPortServiceVlanCount(int id, unsigned int count);

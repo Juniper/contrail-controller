@@ -49,7 +49,7 @@ void KSyncSandeshContext::FlowMsgHandler(vr_flow_req *r) {
     } else if (r->get_fr_op() == flow_op::FLOW_SET) {
         const KSyncIoContext *ioc = ksync_io_ctx();
         FlowKey key;
-        key.vrf = r->get_fr_flow_vrf();
+        key.nh = r->get_fr_flow_nh_id();
         key.src.ipv4 = ntohl(r->get_fr_flow_sip());
         key.dst.ipv4 = ntohl(r->get_fr_flow_dip());
         key.src_port = ntohs(r->get_fr_flow_sport());
@@ -73,7 +73,7 @@ void KSyncSandeshContext::FlowMsgHandler(vr_flow_req *r) {
             }
 
             LOG(ERROR, "Error Flow entry op = " << op
-                       << " vrf = " << (int) key.vrf
+                       << " nh = " << (int) key.nh
                        << " src = " << src_str << ":" << key.src_port
                        << " dst = " << dst_str << ":" << key.dst_port
                        << " proto = " << (int)key.protocol

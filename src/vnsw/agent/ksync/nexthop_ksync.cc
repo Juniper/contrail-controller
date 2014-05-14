@@ -38,7 +38,8 @@ NHKSyncEntry::NHKSyncEntry(NHKSyncObject *obj, const NHKSyncEntry *entry,
     nh_(entry->nh_), vlan_tag_(entry->vlan_tag_), 
     is_local_ecmp_nh_(entry->is_local_ecmp_nh_),
     is_layer2_(entry->is_layer2_), comp_type_(entry->comp_type_), 
-    tunnel_type_(entry->tunnel_type_), prefix_len_(entry->prefix_len_) {
+    tunnel_type_(entry->tunnel_type_), prefix_len_(entry->prefix_len_),
+    nh_id_(entry->nh_id()) {
 }
 
 NHKSyncEntry::NHKSyncEntry(NHKSyncObject *obj, const NextHop *nh) :
@@ -46,7 +47,7 @@ NHKSyncEntry::NHKSyncEntry(NHKSyncObject *obj, const NextHop *nh) :
     vrf_id_(0), interface_(NULL), valid_(nh->IsValid()), 
     policy_(nh->PolicyEnabled()), is_mcast_nh_(false), nh_(nh), 
     vlan_tag_(VmInterface::kInvalidVlanId), is_layer2_(false), 
-    tunnel_type_(TunnelType::INVALID), prefix_len_(32) {
+    tunnel_type_(TunnelType::INVALID), prefix_len_(32), nh_id_(nh->id()) {
 
     sip_.s_addr = 0;
     memset(&dmac_, 0, sizeof(dmac_));
@@ -268,7 +269,7 @@ bool NHKSyncEntry::IsLess(const KSyncEntry &rhs) const {
 
 std::string NHKSyncEntry::ToString() const {
     std::stringstream s;
-    s << "NextHop Index: " << GetIndex() << " Type: ";
+    s << "NextHop Index: " << nh_id() << " Type: ";
     switch(type_) {
     case NextHop::DISCARD: {
         s << "Discard";
@@ -517,7 +518,7 @@ int NHKSyncEntry::Encode(sandesh_op::type op, char *buf, int buf_len) {
     InterfaceKSyncEntry *if_ksync = NULL;
 
     encoder.set_h_op(op);
-    encoder.set_nhr_id(GetIndex());
+    encoder.set_nhr_id(nh_id());
     if (op == sandesh_op::DELETE) {
         /* For delete only NH-index is required by vrouter */
         encode_len = encoder.WriteBinary((uint8_t *)buf, buf_len, &error);
@@ -659,10 +660,10 @@ int NHKSyncEntry::Encode(sandesh_op::type op, char *buf, int buf_len) {
             }
             encoder.set_nhr_flags(flags);
             for (KSyncComponentNHList::iterator it = component_nh_list_.begin();
-                 it != component_nh_list_.end(); it++) {
+                    it != component_nh_list_.end(); it++) {
                 KSyncComponentNH component_nh = *it;
                 if (component_nh.nh()) {
-                    sub_nh_id.push_back(component_nh.nh()->GetIndex());
+                    sub_nh_id.push_back(component_nh.nh()->nh_id());
                     sub_label_list.push_back(component_nh.label());
                 } else {
                     sub_nh_id.push_back(CompositeNH::kInvalidComponentNHIdx);
@@ -683,7 +684,7 @@ int NHKSyncEntry::Encode(sandesh_op::type op, char *buf, int buf_len) {
 
 void NHKSyncEntry::FillObjectLog(sandesh_op::type op, KSyncNhInfo &info) 
     const {
-    info.set_index(GetIndex());
+    info.set_index(nh_id());
     
     if (op == sandesh_op::ADD) {
         info.set_operation("ADD/CHANGE");
@@ -758,7 +759,7 @@ void NHKSyncEntry::FillObjectLog(sandesh_op::type op, KSyncNhInfo &info)
             KSyncComponentNH component_nh = *it;
             if (component_nh.nh()) {
                 KSyncComponentNHLog sub_nh;
-                sub_nh.set_nh_idx(component_nh.nh()->GetIndex());
+                sub_nh.set_nh_idx(component_nh.nh()->nh_id());
                 sub_nh.set_label(component_nh.label());
                 sub_nh_list.push_back(sub_nh);
             }
@@ -920,7 +921,7 @@ void NHKSyncEntry::SetEncap(std::vector<int8_t> &encap) {
 }
 
 NHKSyncObject::NHKSyncObject(KSync *ksync) : 
-    KSyncDBObject(kNHIndexCount), ksync_(ksync) {
+    KSyncDBObject(), ksync_(ksync) {
 }
 
 NHKSyncObject::~NHKSyncObject() {

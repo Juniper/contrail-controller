@@ -206,9 +206,9 @@ void Shutdown() {
 }
 
 bool ValidateAction(uint32_t vrfid, const char *sip, const char *dip, int proto,
-                    int sport, int dport, int action) {
+                    int sport, int dport, int action, uint32_t nh_id) {
     bool ret = true;
-    FlowEntry *fe = FlowGet(vrfid, sip, dip, proto, sport, dport);
+    FlowEntry *fe = FlowGet(vrfid, sip, dip, proto, sport, dport, nh_id);
     FlowEntry *rfe = fe->reverse_flow_entry();
 
     EXPECT_TRUE((fe->match_p().sg_action_summary & (1 << action)) != 0);
@@ -400,28 +400,32 @@ TEST_F(SgTcpAckTest, icmp_acl_1) {
                    "1.1.1.10", intf1_addr, 1);
     client->WaitForIdle();
     EXPECT_TRUE(ValidateAction(intf1->vrf()->vrf_id(), "1.1.1.10",
-                               intf1_addr, 1, 0, 0, TrafficAction::PASS));
+                               intf1_addr, 1, 0, 0, TrafficAction::PASS,
+                               intf1->flow_key_nh()->id()));
 
     // Drop flow Non-ICMP flow
     TxIpMplsPacket(eth->id(), "10.1.1.10", vhost_addr, intf1->label(),
                    "1.1.1.10", intf1_addr, 10);
     client->WaitForIdle();
     EXPECT_TRUE(ValidateAction(intf1->vrf()->vrf_id(), "1.1.1.10",
-                               intf1_addr, 10, 0, 0, TrafficAction::DROP));
+                               intf1_addr, 10, 0, 0, TrafficAction::DROP,
+                               intf1->flow_key_nh()->id()));
 
     // Drop TCP flow since ACL allows only ICMP
     TxTcpMplsPacket(eth->id(), "10.1.1.10", vhost_addr, intf1->label(),
                    "1.1.1.10", intf1_addr, 1, 1, false, 20);
     client->WaitForIdle();
     EXPECT_TRUE(ValidateAction(intf1->vrf()->vrf_id(), "1.1.1.10",
-                               intf1_addr, 6, 1, 1, TrafficAction::DROP));
+                               intf1_addr, 6, 1, 1, TrafficAction::DROP,
+                               intf1->flow_key_nh()->id()));
 
     // Drop TCP-ACK flow since ACL allows only ICMP
     TxTcpMplsPacket(eth->id(), "10.1.1.10", vhost_addr, intf1->label(),
                    "1.1.1.10", intf1_addr, 2, 2, true, 30);
     client->WaitForIdle();
     EXPECT_TRUE(ValidateAction(intf1->vrf()->vrf_id(), "1.1.1.10",
-                               intf1_addr, 6, 2, 2, TrafficAction::DROP));
+                               intf1_addr, 6, 2, 2, TrafficAction::DROP,
+                               intf1->flow_key_nh()->id()));
 }
 
 // Packets from VM to fabric with ICMP ACL
@@ -430,25 +434,29 @@ TEST_F(SgTcpAckTest, icmp_acl_2) {
     TxIpPacket(intf1->id(), intf1_addr, "1.1.1.10", 1);
     client->WaitForIdle();
     EXPECT_TRUE(ValidateAction(intf1->vrf()->vrf_id(), intf1_addr,
-                               "1.1.1.10", 1, 0, 0, TrafficAction::DROP));
+                               "1.1.1.10", 1, 0, 0, TrafficAction::DROP,
+                               intf1->flow_key_nh()->id()));
 
     // Non-ICMP packet drop
     TxIpPacket(intf1->id(), intf1_addr, "1.1.1.10", 10);
     client->WaitForIdle();
     EXPECT_TRUE(ValidateAction(intf1->vrf()->vrf_id(), intf1_addr,
-                               "1.1.1.10", 10, 0, 0, TrafficAction::DROP));
+                               "1.1.1.10", 10, 0, 0, TrafficAction::DROP,
+                               intf1->flow_key_nh()->id()));
 
     // TCP packet drop
     TxTcpPacket(intf1->id(), intf1_addr, "1.1.1.10", 1, 1, false, 20);
     client->WaitForIdle();
     EXPECT_TRUE(ValidateAction(intf1->vrf()->vrf_id(), intf1_addr,
-                               "1.1.1.10", 6, 1, 1, TrafficAction::DROP));
+                               "1.1.1.10", 6, 1, 1, TrafficAction::DROP,
+                               intf1->flow_key_nh()->id()));
 
     // TCP-ACK drop since only ICMP allowed
     TxTcpPacket(intf1->id(), intf1_addr, "1.1.1.10", 2, 2, false, 30);
     client->WaitForIdle();
     EXPECT_TRUE(ValidateAction(intf1->vrf()->vrf_id(), intf1_addr,
-                               "1.1.1.10", 6, 2, 2, TrafficAction::DROP));
+                               "1.1.1.10", 6, 2, 2, TrafficAction::DROP,
+                               intf1->flow_key_nh()->id()));
 }
 
 // Packet from fabric to VM. ACL : Ingress allow TCP 
@@ -458,32 +466,38 @@ TEST_F(SgTcpAckTest, ingress_tcp_acl_1) {
                    "1.1.1.10", intf2_addr, 1, 1, false, 10);
     client->WaitForIdle();
     EXPECT_TRUE(ValidateAction(intf2->vrf()->vrf_id(), "1.1.1.10",
-                               intf2_addr, 6, 1, 1, TrafficAction::PASS));
+                               intf2_addr, 6, 1, 1, TrafficAction::PASS,
+                               intf2->flow_key_nh()->id()));
 
     // TCP Non-ACK to Floating-IP from network to VM - PASS
     TxTcpMplsPacket(eth->id(), "10.1.1.10", vhost_addr, intf2->label(),
                    "3.3.3.2", intf2_fip_addr, 2, 3, false, 20);
     client->WaitForIdle();
     EXPECT_TRUE(ValidateAction(intf2->vrf()->vrf_id(), "3.3.3.2",
-                               intf2_fip_addr, 6, 2, 3, TrafficAction::PASS));
+                               intf2_fip_addr, 6, 2, 3, TrafficAction::PASS,
+                               intf2->flow_key_nh()->id()));
     EXPECT_TRUE(ValidateAction(intf2->vrf()->vrf_id(), intf2_addr,
-                               "3.3.3.2", 6, 3, 2, TrafficAction::PASS));
+                               "3.3.3.2", 6, 3, 2, TrafficAction::PASS,
+                               intf2->flow_key_nh()->id()));
 
     // TCP ACK from network to VM - PASS
     TxTcpMplsPacket(eth->id(), "10.1.1.10", vhost_addr, intf2->label(),
                    "1.1.1.10", intf2_addr, 3, 3, true, 30);
     client->WaitForIdle();
     EXPECT_TRUE(ValidateAction(intf2->vrf()->vrf_id(), "1.1.1.10",
-                               intf2_addr, 6, 3, 3, TrafficAction::PASS));
+                               intf2_addr, 6, 3, 3, TrafficAction::PASS,
+                               intf2->flow_key_nh()->id()));
 
     // TCP ACK to Floating-IP from network to VM - PASS
     TxTcpMplsPacket(eth->id(), "10.1.1.10", vhost_addr, intf2->label(),
                    "3.3.3.2", intf2_fip_addr, 4, 5, true, 40);
     client->WaitForIdle();
     EXPECT_TRUE(ValidateAction(intf2->vrf()->vrf_id(), "3.3.3.2",
-                               intf2_fip_addr, 6, 4, 5, TrafficAction::PASS));
+                               intf2_fip_addr, 6, 4, 5, TrafficAction::PASS,
+                               intf2->flow_key_nh()->id()));
     EXPECT_TRUE(ValidateAction(intf2->vrf()->vrf_id(), intf2_addr,
-                               "3.3.3.2", 6, 5, 4, TrafficAction::PASS));
+                               "3.3.3.2", 6, 5, 4, TrafficAction::PASS,
+                               intf2->flow_key_nh()->id()));
 }
 
 // Packet from VM to fabric. ACL : Ingress allow TCP
@@ -492,29 +506,35 @@ TEST_F(SgTcpAckTest, ingress_tcp_acl_2) {
     TxTcpPacket(intf2->id(), intf2_addr, "1.1.1.10", 1, 1, false, 10);
     client->WaitForIdle();
     EXPECT_TRUE(ValidateAction(intf2->vrf()->vrf_id(), intf2_addr,
-                               "1.1.1.10", 6, 1, 1, TrafficAction::DROP));
+                               "1.1.1.10", 6, 1, 1, TrafficAction::DROP,
+                               intf2->flow_key_nh()->id()));
 
     // TCP Non-ACK to Floating-IP from VM to network - DROP
     TxTcpPacket(intf2->id(), intf2_addr, "3.3.3.2", 2, 3, false, 20);
     client->WaitForIdle();
     EXPECT_TRUE(ValidateAction(intf2->vrf()->vrf_id(), intf2_addr,
-                               "3.3.3.2", 6, 2, 3, TrafficAction::DROP));
+                               "3.3.3.2", 6, 2, 3, TrafficAction::DROP,
+                               intf2->flow_key_nh()->id()));
     EXPECT_TRUE(ValidateAction(intf2->vrf()->vrf_id(), "3.3.3.2",
-                               intf2_fip_addr, 6, 3, 2, TrafficAction::DROP));
+                               intf2_fip_addr, 6, 3, 2, TrafficAction::DROP,
+                               intf2->flow_key_nh()->id()));
 
     // TCP ACK from VM to network - PASS
     TxTcpPacket(intf2->id(), intf2_addr, "1.1.1.10", 4, 4, true, 30);
     client->WaitForIdle();
     EXPECT_TRUE(ValidateAction(intf2->vrf()->vrf_id(), intf2_addr,
-                               "1.1.1.10", 6, 4, 4, TrafficAction::PASS));
+                               "1.1.1.10", 6, 4, 4, TrafficAction::PASS,
+                               intf2->flow_key_nh()->id()));
 
     // TCP ACK to Floating-IP from VM to network - PASS
     TxTcpPacket(intf2->id(), intf2_addr, "3.3.3.2", 5, 6, true, 40);
     client->WaitForIdle();
     EXPECT_TRUE(ValidateAction(intf2->vrf()->vrf_id(), intf2_addr,
-                               "3.3.3.2", 6, 5, 6, TrafficAction::PASS));
+                               "3.3.3.2", 6, 5, 6, TrafficAction::PASS,
+                               intf2->flow_key_nh()->id()));
     EXPECT_TRUE(ValidateAction(intf2->vrf()->vrf_id(), "3.3.3.2", 
-                               intf2_fip_addr, 6, 6, 5, TrafficAction::PASS));
+                               intf2_fip_addr, 6, 6, 5, TrafficAction::PASS,
+                               intf2->flow_key_nh()->id()));
 
 }
 
@@ -532,32 +552,38 @@ TEST_F(SgTcpAckTest, egress_tcp_acl_1) {
                    "1.1.1.10", intf2_addr, 1, 1, false, 10);
     client->WaitForIdle();
     EXPECT_TRUE(ValidateAction(intf2->vrf()->vrf_id(), "1.1.1.10",
-                               intf2_addr, 6, 1, 1, TrafficAction::DROP));
+                               intf2_addr, 6, 1, 1, TrafficAction::DROP,
+                               intf2->flow_key_nh()->id()));
 
     // TCP Non-ACK to Floating-IP from network to VM - DROP
     TxTcpMplsPacket(eth->id(), "10.1.1.10", vhost_addr, intf2->label(),
                    "3.3.3.2", intf2_fip_addr, 2, 3, false, 20);
     client->WaitForIdle();
     EXPECT_TRUE(ValidateAction(intf2->vrf()->vrf_id(), "3.3.3.2",
-                               intf2_fip_addr, 6, 2, 3, TrafficAction::DROP));
+                               intf2_fip_addr, 6, 2, 3, TrafficAction::DROP,
+                               intf2->flow_key_nh()->id()));
     EXPECT_TRUE(ValidateAction(intf2->vrf()->vrf_id(), intf2_addr,
-                               "3.3.3.2", 6, 3, 2, TrafficAction::DROP));
+                               "3.3.3.2", 6, 3, 2, TrafficAction::DROP,
+                               intf2->flow_key_nh()->id()));
 
     // TCP ACK from network to VM - PASS
     TxTcpMplsPacket(eth->id(), "10.1.1.10", vhost_addr, intf2->label(),
                    "1.1.1.10", intf2_addr, 4, 4, true, 30);
     client->WaitForIdle();
     EXPECT_TRUE(ValidateAction(intf2->vrf()->vrf_id(), "1.1.1.10",
-                               intf2_addr, 6, 4, 4, TrafficAction::PASS));
+                               intf2_addr, 6, 4, 4, TrafficAction::PASS,
+                               intf2->flow_key_nh()->id()));
 
     // TCP ACK from to Floating-IP network to VM - PASS
     TxTcpMplsPacket(eth->id(), "10.1.1.10", vhost_addr, intf2->label(),
                    "3.3.3.2",  intf2_fip_addr, 5, 6, true, 40);
     client->WaitForIdle();
     EXPECT_TRUE(ValidateAction(intf2->vrf()->vrf_id(), "3.3.3.2",
-                               intf2_fip_addr, 6, 5, 6, TrafficAction::PASS));
+                               intf2_fip_addr, 6, 5, 6, TrafficAction::PASS,
+                               intf2->flow_key_nh()->id()));
     EXPECT_TRUE(ValidateAction(intf2->vrf()->vrf_id(), intf2_addr,
-                               "3.3.3.2", 6, 6, 5, TrafficAction::PASS));
+                               "3.3.3.2", 6, 6, 5, TrafficAction::PASS,
+                               intf2->flow_key_nh()->id()));
 }
 
 // Packet from VM to fabric. ACL : Egress allow TCP 
@@ -573,29 +599,35 @@ TEST_F(SgTcpAckTest, egress_tcp_acl_2) {
     TxTcpPacket(intf2->id(), intf2_addr, "1.1.1.10", 1, 1, false, 10);
     client->WaitForIdle();
     EXPECT_TRUE(ValidateAction(intf2->vrf()->vrf_id(), intf2_addr,
-                               "1.1.1.10", 6, 1, 1, TrafficAction::PASS));
+                               "1.1.1.10", 6, 1, 1, TrafficAction::PASS,
+                               intf2->flow_key_nh()->id()));
 
     // TCP Non-ACK from Floating-IP from VM to network - PASS
     TxTcpPacket(intf2->id(), intf2_addr, "3.3.3.2", 2, 3, false, 20);
     client->WaitForIdle();
     EXPECT_TRUE(ValidateAction(intf2->vrf()->vrf_id(), intf2_addr,
-                               "3.3.3.2", 6, 2, 3, TrafficAction::PASS));
+                               "3.3.3.2", 6, 2, 3, TrafficAction::PASS,
+                               intf2->flow_key_nh()->id()));
     EXPECT_TRUE(ValidateAction(intf2->vrf()->vrf_id(), "3.3.3.2", 
-                               intf2_fip_addr, 6, 3, 2, TrafficAction::PASS));
+                               intf2_fip_addr, 6, 3, 2, TrafficAction::PASS,
+                               intf2->flow_key_nh()->id()));
 
     // TCP ACK from VM to network - PASS
     TxTcpPacket(intf2->id(), intf2_addr, "1.1.1.10", 4, 4, true, 30);
     client->WaitForIdle();
     EXPECT_TRUE(ValidateAction(intf2->vrf()->vrf_id(), intf2_addr,
-                               "1.1.1.10", 6, 4, 4, TrafficAction::PASS));
+                               "1.1.1.10", 6, 4, 4, TrafficAction::PASS,
+                               intf2->flow_key_nh()->id()));
 
     // TCP Non-ACK from Floating-IP from VM to network - PASS
     TxTcpPacket(intf2->id(), intf2_addr, "3.3.3.2", 5, 6, true, 40);
     client->WaitForIdle();
     EXPECT_TRUE(ValidateAction(intf2->vrf()->vrf_id(), intf2_addr,
-                               "3.3.3.2", 6, 5, 6, TrafficAction::PASS));
+                               "3.3.3.2", 6, 5, 6, TrafficAction::PASS,
+                               intf2->flow_key_nh()->id()));
     EXPECT_TRUE(ValidateAction(intf2->vrf()->vrf_id(), "3.3.3.2", 
-                               intf2_fip_addr, 6, 6, 5, TrafficAction::PASS));
+                               intf2_fip_addr, 6, 6, 5, TrafficAction::PASS,
+                               intf2->flow_key_nh()->id()));
 }
 
 // Local-VM TCP-ACK and Non-TCP-ACK Packet between VM1 and VM2.
@@ -617,25 +649,29 @@ TEST_F(SgTcpAckTest, local_vm_ingress_tcp_acl_1) {
     TxTcpPacket(intf1->id(), intf1_addr, intf2_addr, 1, 1, false, 1);
     client->WaitForIdle();
     EXPECT_TRUE(ValidateAction(intf1->vrf()->vrf_id(), intf1_addr,
-                               intf2_addr, 6, 1, 1, TrafficAction::DROP));
+                               intf2_addr, 6, 1, 1, TrafficAction::DROP,
+                               intf1->flow_key_nh()->id()));
 
     // TCP ACK from VM1 to VM2 - DROP
     TxTcpPacket(intf1->id(), intf1_addr, intf2_addr, 2, 2, true, 10);
     client->WaitForIdle();
     EXPECT_TRUE(ValidateAction(intf1->vrf()->vrf_id(), intf1_addr,
-                               intf2_addr, 6, 2, 2, TrafficAction::DROP));
+                               intf2_addr, 6, 2, 2, TrafficAction::DROP,
+                               intf1->flow_key_nh()->id()));
 
     // TCP Non-ACK from VM2 to VM1 - DROP
     TxTcpPacket(intf1->id(), intf2_addr, intf1_addr, 3, 3, false, 20);
     client->WaitForIdle();
     EXPECT_TRUE(ValidateAction(intf2->vrf()->vrf_id(), intf2_addr,
-                               intf1_addr, 6, 3, 3, TrafficAction::DROP));
+                               intf1_addr, 6, 3, 3, TrafficAction::DROP,
+                               intf2->flow_key_nh()->id()));
 
     // TCP Non-ACK from VM2 to VM1 - DROP
     TxTcpPacket(intf1->id(), intf2_addr, intf1_addr, 4, 4, true, 30);
     client->WaitForIdle();
     EXPECT_TRUE(ValidateAction(intf2->vrf()->vrf_id(), intf2_addr,
-                               intf1_addr, 6, 4, 4, TrafficAction::DROP));
+                               intf1_addr, 6, 4, 4, TrafficAction::DROP,
+                               intf2->flow_key_nh()->id()));
 }
 
 // Local-VM TCP-ACK and Non-TCP-ACK Packet between VM1 and VM2.
@@ -655,33 +691,41 @@ TEST_F(SgTcpAckTest, fip_local_vm_ingress_tcp_acl_1) {
     TxTcpPacket(intf3->id(), intf3_addr, intf2_fip_addr, 1, 2, false, 10);
     client->WaitForIdle();
     EXPECT_TRUE(ValidateAction(intf3->vrf()->vrf_id(), intf3_addr,
-                               intf2_fip_addr, 6, 1, 2, TrafficAction::DROP));
+                               intf2_fip_addr, 6, 1, 2, TrafficAction::DROP,
+                               intf3->flow_key_nh()->id()));
     EXPECT_TRUE(ValidateAction(intf2->vrf()->vrf_id(), intf2_addr,
-                               intf3_addr, 6, 2, 1, TrafficAction::DROP));
+                               intf3_addr, 6, 2, 1, TrafficAction::DROP,
+                               intf2->flow_key_nh()->id()));
 
     // TCP ACK from VM3 to VM2 Floating-IP - DROP
     TxTcpPacket(intf3->id(), intf3_addr, intf2_fip_addr, 3, 4, true, 20);
     client->WaitForIdle();
     EXPECT_TRUE(ValidateAction(intf3->vrf()->vrf_id(), intf3_addr,
-                               intf2_fip_addr, 6, 3, 4, TrafficAction::DROP));
+                               intf2_fip_addr, 6, 3, 4, TrafficAction::DROP,
+                               intf3->flow_key_nh()->id()));
     EXPECT_TRUE(ValidateAction(intf2->vrf()->vrf_id(), intf2_addr,
-                               intf3_addr, 6, 4, 3, TrafficAction::DROP));
+                               intf3_addr, 6, 4, 3, TrafficAction::DROP,
+                               intf2->flow_key_nh()->id()));
 
     // TCP Non-ACK from VM2 Floating-IP to VM3 - DROP
     TxTcpPacket(intf2->id(), intf2_addr, intf3_addr, 5, 6, false, 30);
     client->WaitForIdle();
     EXPECT_TRUE(ValidateAction(intf2->vrf()->vrf_id(), intf2_addr,
-                               intf3_addr, 6, 5, 6, TrafficAction::DROP));
+                               intf3_addr, 6, 5, 6, TrafficAction::DROP,
+                               intf2->flow_key_nh()->id()));
     EXPECT_TRUE(ValidateAction(intf3->vrf()->vrf_id(), intf3_addr,
-                               intf2_fip_addr, 6, 6, 5, TrafficAction::DROP));
+                               intf2_fip_addr, 6, 6, 5, TrafficAction::DROP,
+                               intf3->flow_key_nh()->id()));
 
     // TCP Non-ACK from VM2 to Floating-IP to VM3 - DROP
     TxTcpPacket(intf2->id(), intf2_addr, intf3_addr, 7, 8, true, 40);
     client->WaitForIdle();
     EXPECT_TRUE(ValidateAction(intf2->vrf()->vrf_id(), intf2_addr,
-                               intf3_addr, 6, 7, 8, TrafficAction::DROP));
+                               intf3_addr, 6, 7, 8, TrafficAction::DROP,
+                               intf2->flow_key_nh()->id()));
     EXPECT_TRUE(ValidateAction(intf3->vrf()->vrf_id(), intf3_addr,
-                               intf2_fip_addr, 6, 8, 7, TrafficAction::DROP));
+                               intf2_fip_addr, 6, 8, 7, TrafficAction::DROP,
+                               intf3->flow_key_nh()->id()));
 }
 
 // Local-VM TCP-ACK and Non-TCP-ACK Packet between VM1 and VM2.
@@ -703,25 +747,29 @@ TEST_F(SgTcpAckTest, local_vm_egress_tcp_acl_1) {
     TxTcpPacket(intf1->id(), intf1_addr, intf2_addr, 1, 1, false, 1);
     client->WaitForIdle();
     EXPECT_TRUE(ValidateAction(intf1->vrf()->vrf_id(), intf1_addr,
-                               intf2_addr, 6, 1, 1, TrafficAction::DROP));
+                               intf2_addr, 6, 1, 1, TrafficAction::DROP,
+                               intf1->flow_key_nh()->id()));
 
     // TCP ACK from to VM1 to VM2 - DROP
     TxTcpPacket(intf1->id(), intf1_addr, intf2_addr, 2, 2, true, 10);
     client->WaitForIdle();
     EXPECT_TRUE(ValidateAction(intf1->vrf()->vrf_id(), intf1_addr,
-                               intf2_addr, 6, 2, 2, TrafficAction::DROP));
+                               intf2_addr, 6, 2, 2, TrafficAction::DROP,
+                               intf1->flow_key_nh()->id()));
 
     // TCP Non-ACK from to VM2 to VM1 - DROP
     TxTcpPacket(intf2->id(), intf2_addr, intf1_addr, 3, 3, false, 20);
     client->WaitForIdle();
     EXPECT_TRUE(ValidateAction(intf2->vrf()->vrf_id(), intf2_addr,
-                               intf1_addr, 6, 3, 3, TrafficAction::DROP));
+                               intf1_addr, 6, 3, 3, TrafficAction::DROP,
+                               intf2->flow_key_nh()->id()));
 
     // TCP Non-ACK from to VM2 to VM1 - DROP
     TxTcpPacket(intf2->id(), intf2_addr, intf1_addr, 4, 4, true, 30);
     client->WaitForIdle();
     EXPECT_TRUE(ValidateAction(intf2->vrf()->vrf_id(), intf2_addr,
-                               intf1_addr, 6, 4, 4, TrafficAction::DROP));
+                               intf1_addr, 6, 4, 4, TrafficAction::DROP,
+                               intf2->flow_key_nh()->id()));
 }
 
 // Local-VM TCP-ACK and Non-TCP-ACK Packet between VM1 and VM2.
@@ -741,33 +789,41 @@ TEST_F(SgTcpAckTest, fip_local_vm_egress_tcp_acl_1) {
     TxTcpPacket(intf3->id(), intf3_addr, intf2_fip_addr, 1, 2, false, 10);
     client->WaitForIdle();
     EXPECT_TRUE(ValidateAction(intf3->vrf()->vrf_id(), intf3_addr,
-                               intf2_fip_addr, 6, 1, 2, TrafficAction::DROP));
+                               intf2_fip_addr, 6, 1, 2, TrafficAction::DROP,
+                               intf3->flow_key_nh()->id()));
     EXPECT_TRUE(ValidateAction(intf2->vrf()->vrf_id(), intf2_addr,
-                               intf3_addr, 6, 2, 1, TrafficAction::DROP));
+                               intf3_addr, 6, 2, 1, TrafficAction::DROP,
+                               intf2->flow_key_nh()->id()));
 
     // TCP ACK from to VM1 to VM2 Floating-IP - DROP
     TxTcpPacket(intf3->id(), intf3_addr, intf2_fip_addr, 3, 4, true, 20);
     client->WaitForIdle();
     EXPECT_TRUE(ValidateAction(intf3->vrf()->vrf_id(), intf3_addr,
-                               intf2_fip_addr, 6, 3, 4, TrafficAction::DROP));
+                               intf2_fip_addr, 6, 3, 4, TrafficAction::DROP,
+                               intf3->flow_key_nh()->id()));
     EXPECT_TRUE(ValidateAction(intf2->vrf()->vrf_id(), intf2_addr,
-                               intf3_addr, 6, 4, 3, TrafficAction::DROP));
+                               intf3_addr, 6, 4, 3, TrafficAction::DROP,
+                               intf2->flow_key_nh()->id()));
 
     // TCP Non-ACK from to VM2 Floating-IP to VM3 - DROP
     TxTcpPacket(intf2->id(), intf2_addr, intf3_addr, 5, 6, false, 30);
     client->WaitForIdle();
     EXPECT_TRUE(ValidateAction(intf2->vrf()->vrf_id(), intf2_addr,
-                               intf3_addr, 6, 5, 6, TrafficAction::DROP));
+                               intf3_addr, 6, 5, 6, TrafficAction::DROP,
+                               intf2->flow_key_nh()->id()));
     EXPECT_TRUE(ValidateAction(intf3->vrf()->vrf_id(), intf3_addr,
-                               intf2_fip_addr, 6, 6, 5, TrafficAction::DROP));
+                               intf2_fip_addr, 6, 6, 5, TrafficAction::DROP,
+                               intf3->flow_key_nh()->id()));
 
     // TCP Non-ACK from to VM2 Floating-IP to VM3 - DROP
     TxTcpPacket(intf2->id(), intf2_addr, intf3_addr, 7, 8, true, 40);
     client->WaitForIdle();
     EXPECT_TRUE(ValidateAction(intf2->vrf()->vrf_id(), intf2_addr,
-                               intf3_addr, 6, 7, 8, TrafficAction::DROP));
+                               intf3_addr, 6, 7, 8, TrafficAction::DROP,
+                               intf2->flow_key_nh()->id()));
     EXPECT_TRUE(ValidateAction(intf3->vrf()->vrf_id(), intf3_addr,
-                               intf2_fip_addr, 6, 8, 7, TrafficAction::DROP));
+                               intf2_fip_addr, 6, 8, 7, TrafficAction::DROP,
+                               intf3->flow_key_nh()->id()));
 }
 
 // Local-VM Non-TCP-ACK Packet between VM1 and VM2.
@@ -790,13 +846,15 @@ TEST_F(SgTcpAckTest, local_vm_ingress_egress_acl_1) {
     TxTcpPacket(intf1->id(), intf1_addr, intf2_addr, 1, 1, false, 1);
     client->WaitForIdle();
     EXPECT_TRUE(ValidateAction(intf1->vrf()->vrf_id(), intf1_addr,
-                               intf2_addr, 6, 1, 1, TrafficAction::DROP));
+                               intf2_addr, 6, 1, 1, TrafficAction::DROP,
+                               intf1->flow_key_nh()->id()));
 
     // TCP Non-ACK from VM2 to VM1 - PASS
     TxTcpPacket(intf2->id(), intf2_addr, intf1_addr, 2, 2, false, 10);
     client->WaitForIdle();
     EXPECT_TRUE(ValidateAction(intf2->vrf()->vrf_id(), intf2_addr,
-                               intf1_addr, 6, 2, 2, TrafficAction::PASS));
+                               intf1_addr, 6, 2, 2, TrafficAction::PASS,
+                               intf2->flow_key_nh()->id()));
 }
 
 // Local-VM Non-TCP-ACK Packet between VM1 and VM2.
@@ -817,17 +875,21 @@ TEST_F(SgTcpAckTest, fip_local_vm_ingress_egress_acl_1) {
     TxTcpPacket(intf3->id(), intf3_addr, intf2_fip_addr, 1, 2, false, 10);
     client->WaitForIdle();
     EXPECT_TRUE(ValidateAction(intf3->vrf()->vrf_id(), intf3_addr,
-                               intf2_fip_addr, 6, 1, 2, TrafficAction::DROP));
+                               intf2_fip_addr, 6, 1, 2, TrafficAction::DROP,
+                               intf3->flow_key_nh()->id()));
     EXPECT_TRUE(ValidateAction(intf2->vrf()->vrf_id(), intf2_addr,
-                               intf3_addr, 6, 2, 1, TrafficAction::DROP));
+                               intf3_addr, 6, 2, 1, TrafficAction::DROP,
+                               intf2->flow_key_nh()->id()));
 
     // TCP Non-ACK from VM2 Floating-IP to VM3 - PASS
     TxTcpPacket(intf2->id(), intf2_addr, intf3_addr, 3, 4, false, 20);
     client->WaitForIdle();
     EXPECT_TRUE(ValidateAction(intf2->vrf()->vrf_id(), intf2_addr,
-                               intf3_addr, 6, 3, 4, TrafficAction::PASS));
+                               intf3_addr, 6, 3, 4, TrafficAction::PASS,
+                               intf2->flow_key_nh()->id()));
     EXPECT_TRUE(ValidateAction(intf3->vrf()->vrf_id(), intf3_addr,
-                               intf2_fip_addr, 6, 4, 3, TrafficAction::PASS));
+                               intf2_fip_addr, 6, 4, 3, TrafficAction::PASS,
+                               intf3->flow_key_nh()->id()));
 }
 
 // Local-VM TCP-ACK Packet between VM1 and VM2.
@@ -850,13 +912,15 @@ TEST_F(SgTcpAckTest, local_vm_ingress_egress_acl_2) {
     TxTcpPacket(intf1->id(), intf1_addr, intf2_addr, 1, 1, true, 1);
     client->WaitForIdle();
     EXPECT_TRUE(ValidateAction(intf1->vrf()->vrf_id(), intf1_addr,
-                               intf2_addr, 6, 1, 1, TrafficAction::PASS));
+                               intf2_addr, 6, 1, 1, TrafficAction::PASS,
+                               intf1->flow_key_nh()->id()));
 
     // TCP ACK from VM2 to VM1 - PASS
     TxTcpPacket(intf2->id(), intf2_addr, intf1_addr, 2, 2, true, 10);
     client->WaitForIdle();
     EXPECT_TRUE(ValidateAction(intf2->vrf()->vrf_id(), intf2_addr,
-                               intf1_addr, 6, 2, 2, TrafficAction::PASS));
+                               intf1_addr, 6, 2, 2, TrafficAction::PASS,
+                               intf2->flow_key_nh()->id()));
 }
 
 // Local-VM TCP-ACK Packet between VM1 and VM2.
@@ -877,17 +941,21 @@ TEST_F(SgTcpAckTest, fip_local_vm_ingress_egress_acl_2) {
     TxTcpPacket(intf3->id(), intf3_addr, intf2_fip_addr, 1, 2, true, 10);
     client->WaitForIdle();
     EXPECT_TRUE(ValidateAction(intf3->vrf()->vrf_id(), intf3_addr,
-                               intf2_fip_addr, 6, 1, 2, TrafficAction::PASS));
+                               intf2_fip_addr, 6, 1, 2, TrafficAction::PASS,
+                               intf3->flow_key_nh()->id()));
     EXPECT_TRUE(ValidateAction(intf2->vrf()->vrf_id(), intf2_addr,
-                               intf3_addr, 6, 2, 1, TrafficAction::PASS));
+                               intf3_addr, 6, 2, 1, TrafficAction::PASS,
+                               intf2->flow_key_nh()->id()));
 
     // TCP ACK from VM2 Floating-IP to VM3 - PASS
     TxTcpPacket(intf2->id(), intf2_addr, intf3_addr, 3, 4, true, 20);
     client->WaitForIdle();
     EXPECT_TRUE(ValidateAction(intf2->vrf()->vrf_id(), intf2_addr,
-                               intf3_addr, 6, 3, 4, TrafficAction::PASS));
+                               intf3_addr, 6, 3, 4, TrafficAction::PASS,
+                               intf2->flow_key_nh()->id()));
     EXPECT_TRUE(ValidateAction(intf3->vrf()->vrf_id(), intf3_addr,
-                               intf2_fip_addr, 6, 4, 3, TrafficAction::PASS));
+                               intf2_fip_addr, 6, 4, 3, TrafficAction::PASS,
+                               intf3->flow_key_nh()->id()));
 }
 
 int main(int argc, char *argv[]) {
