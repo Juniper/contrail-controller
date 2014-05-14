@@ -26,8 +26,8 @@ fi
 /bin/rm -f $TMPFILE
 /usr/bin/yum list installed > $TMPFILE
 
-echo "Package                                Version                 Build-ID | Repo | RPM Name"
-echo "-------------------------------------- ----------------------- ----------------------------------"
+echo "Package                                Version                        Build-ID | Repo | RPM Name"
+echo "-------------------------------------- ------------------------------ ----------------------------------"
 for i in `cat $CONTRAILRPMS`; do
   #j=$i; v="N/A"; r="N/A"
   j=""; v="", r=""
@@ -42,7 +42,7 @@ for i in `cat $CONTRAILRPMS`; do
 
   # Only Installed packages are displayed
   if [[ -n $rr ]]; then
-      printf "%-39s%-24s%-20s\n" $i $v $rr
+      printf "%-39s%-31s%-20s\n" $i $v $rr
   fi
 done
 
