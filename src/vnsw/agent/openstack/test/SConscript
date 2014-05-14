@@ -37,5 +37,5 @@ if sys.platform != 'darwin':
 
 nova_cfg_test_suite = [nova_info_server_test]
 test = env.TestSuite('agent-test', nova_cfg_test_suite)
-env.Alias('src/vnsw/agent:test', test)
+env.Alias('controller/src/vnsw/agent/openstack:test', test)
 Return('nova_cfg_test_suite')

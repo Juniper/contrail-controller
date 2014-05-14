@@ -93,5 +93,5 @@ BuildTest(env, 'ifmap_xmpp_test', ['ifmap_xmpp_test.cc'],
           ['schema/ifmap_vnc', 'schema/bgp_schema', 'xml/xml'], [])
 
 test = env.TestSuite('ifmap-test', test_suite)
-env.Alias('src/ifmap:test', test)
+env.Alias('controller/src/ifmap:test', test)
 Return('test_suite')

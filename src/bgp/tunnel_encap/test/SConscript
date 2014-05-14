@@ -20,6 +20,6 @@ test_suite = [
 ]
 
 test = env.TestSuite('bgp-test', test_suite)
-env.Alias('src/bgp/tunnel_encap:test', test)
+env.Alias('controller/src/bgp/tunnel_encap:test', test)
 
 Return('test_suite')
