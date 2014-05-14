@@ -1,11 +1,11 @@
 <project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
   xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/maven-v4_0_0.xsd">
   <modelVersion>4.0.0</modelVersion>
-  <groupId>net.juniper.contrail</groupId>
-  <artifactId>juniper-contrail-api</artifactId>
+  <groupId>net.juniper.contrail.vcenter</groupId>
+  <artifactId>juniper-contrail-vcenter</artifactId>
   <packaging>jar</packaging>
-  <version>1.0-SNAPSHOT</version>
-  <name>juniper-contrail-api</name>
+  <version>1.0</version>
+  <name>juniper-contrail-vcenter</name>
   <url>http://maven.apache.org</url>
   <distributionManagement>
     <repository>
@@ -59,11 +59,21 @@
     	<artifactId>log4j</artifactId>
     	<version>1.2.16</version>
     </dependency>
+    <dependency>
+    	<groupId>net.juniper.contrail</groupId>
+    	<artifactId>juniper-contrail-api</artifactId>
+    	<version>1.0-SNAPSHOT</version>
+    </dependency>
+    <dependency>
+    	<groupId>net.juniper.contrail.vijava</groupId>
+    	<artifactId>juniper-contrail-vijava</artifactId>
+    	<version>1.0</version>
+    </dependency>
   </dependencies>
 
   <build>
     <defaultGoal>package</defaultGoal>
-    <directory>${basedir}/../../../../build/debug/api-lib/java/target</directory>
+    <directory>${basedir}/../../../../../build/debug/config/vcenter-monitor/java/target</directory>
     <sourceDirectory>${basedir}/src</sourceDirectory>
     <testSourceDirectory>${basedir}/test</testSourceDirectory>
     <testResources>
@@ -80,58 +90,65 @@
       </resource>
     </resources>
     <plugins>
-    	<plugin>
-    	<groupId>org.apache.maven.plugins</groupId>
-    	<artifactId>maven-compiler-plugin</artifactId>
-    	<configuration>
-    	<source>1.6</source>
-    	<target>1.6</target>
-    	</configuration>
-    	</plugin>
+      <!--<plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-install-plugin</artifactId>
+        <version>2.5.1</version>
+        <executions>
+          <execution>
+            <id>install-library-api</id>
+            <phase>install</phase>
+            <goals>
+              <goal>install-file</goal>
+            </goals>
+            <configuration>
+              <file>${basedir}/../../../../../build/debug/api-lib/java/target/juniper-contrail-api-1.0-SNAPSHOT.jar</file>
+              <groupId>net.juniper.contrail</groupId>
+              <artifactId>juniper-contrail-api</artifactId>
+              <version>1.0-SNAPSHOT</version>
+              <packaging>jar</packaging>
+              <generatePom>false</generatePom>
+            </configuration>
+          </execution>
+          <execution>
+            <id>install-library-vijava</id>
+            <phase>install</phase>
+            <goals>
+              <goal>install-file</goal>
+            </goals>
+            <configuration>
+              <file>${basedir}/../../../../../build/third_party/vijava/target/juniper-contrail-vijava-1.0.jar</file>
+              <groupId>net.juniper.contrail.vijava</groupId>
+              <artifactId>juniper-contrail-vijava</artifactId>
+              <version>1.0</version>
+              <packaging>jar</packaging>
+              <generatePom>false</generatePom>
+            </configuration>
+          </execution>
+        </executions>
+      </plugin>-->
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-compiler-plugin</artifactId>
+        <configuration>
+          <source>1.6</source>
+          <target>1.6</target>
+        </configuration>
+      </plugin>
       <plugin>
 	<groupId>org.codehaus.mojo</groupId>
 	<artifactId>exec-maven-plugin</artifactId>
-	<executions>
-	  <execution>
-	    <phase>generate-sources</phase>
-	    <goals>
-	      <goal>exec</goal>
-	    </goals>
-	    <configuration>
-	      <workingDirectory>${basedir}/../../../..</workingDirectory>
-	      <executable>${basedir}/generate-source.sh</executable>
-	    </configuration>
-	  </execution>
-	  </executions>
 	</plugin>
       <plugin>
 	<groupId>org.codehaus.mojo</groupId>
 	<artifactId>build-helper-maven-plugin</artifactId>
 	<version>1.4</version>
-	<executions>
-	  <execution>
-	    <id>add-wsdl-source</id>
-	    <phase>generate-sources</phase>
-	    <goals>
-	      <goal>add-source</goal>
-	    </goals>
-	    <configuration>
-	      <sources>
-		<source>${basedir}/../../../../build/debug/api-lib/java/src</source>
-	      </sources>
-	    </configuration>
-	  </execution>
-	</executions>
       </plugin>
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-surefire-plugin</artifactId>
         <configuration>
           <argLine>-Xmx1024m</argLine>
-          <excludes>
-	    <exclude>**/ContrailApiTest.java</exclude>
-	    <exclude>**/ContrailApiMockTest.java</exclude>
-	  </excludes>
         </configuration>
       </plugin>
     </plugins>

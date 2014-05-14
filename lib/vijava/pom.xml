@@ -4,7 +4,7 @@
   <groupId>net.juniper.contrail.vijava</groupId>
   <artifactId>juniper-contrail-vijava</artifactId>
   <packaging>jar</packaging>
-  <version>1.0-SNAPSHOT</version>
+  <version>1.0</version>
   <name>juniper-contrail-vijava</name>
   <url>http://maven.apache.org</url>
   <distributionManagement>
