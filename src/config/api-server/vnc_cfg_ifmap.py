@@ -225,6 +225,8 @@ class VncIfmapClient(VncIfmapClientGen):
     # end _delete_id_self_meta
 
     def _publish_id_pair_meta(self, id1, id2, metadata):
+        if 'ERROR' in [id1, id2]:
+            return
         mapclient = self._mapclient
 
         pubreq = PublishRequest(mapclient.get_session_id(),
