@@ -5,7 +5,6 @@
 from netaddr import *
 import json
 import cfgm_common.exceptions
-import bottle
 
 class AddrMgmtError(Exception):
     pass
@@ -137,8 +136,6 @@ class Subnet(object):
         """
 
         network = IPNetwork('%s/%s' % (prefix, prefix_len))
-        subnet_first_ip = network.first + 1
-        subnet_last_ip = network.last + 1
 
         # check allocation-pool
         if alloc_pool_list is not None:
