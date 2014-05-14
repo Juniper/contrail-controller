@@ -30,5 +30,5 @@ test_suite = [ cdb_if_test,
              ]
 test = env.TestSuite('gendb_test_suite', test_suite)
 
-env.Alias('src/gendb:test', test)
+env.Alias('controller/src/gendb:test', test)
 
