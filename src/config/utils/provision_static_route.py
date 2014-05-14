@@ -28,9 +28,7 @@ class StaticRouteProvisioner(object):
             self._args.api_server_port, '/')
         
         prefix = self._args.prefix
-        vm_id = self._args.virtual_machine_id
-        vm_ip = self._args.virtual_machine_interface_ip
-        vmi_id_got =None
+        vmi_id_got = self._args.virtual_machine_interface_id
         route_table_name = self._args.route_table_name
         
         project_fq_name_str = 'default-domain:'+ self._args.tenant_name
@@ -61,29 +59,6 @@ class StaticRouteProvisioner(object):
         elif self._args.oper == 'del':
             intf_route_table_obj = self.del_route(intf_route_table_obj, prefix)
         self._vnc_lib.interface_route_table_update(intf_route_table_obj)
-        
-        #Figure out VMI from VM IP
-        vmi_list = self._vnc_lib.virtual_machine_interfaces_list( 
-                        parent_id = vm_id)['virtual-machine-interfaces']
-        vmi_id_list = [vmi['uuid'] for vmi in vmi_list]
-        found = False
-        for vmi_id in vmi_id_list:
-            vmi_obj = self._vnc_lib.virtual_machine_interface_read(
-                                id = vmi_id)
-            ip_back_refs = vmi_obj.get_instance_ip_back_refs()
-            for ip_back_ref in ip_back_refs:
-                ip_obj = self._vnc_lib.instance_ip_read(
-                                id = ip_back_ref['uuid'])
-                if ip_obj.instance_ip_address == vm_ip:
-                    found = True 
-                    vmi_id_got = vmi_id
-                    break
-            if found:
-                break
-        #end for vmi_id
-        if not found:
-            print "No Virtual Machine interface found for IP %s" %(vm_ip)
-            sys.exit(1)
         
         #Update the VMI Object now
         vmi_obj = self._vnc_lib.virtual_machine_interface_read(id = vmi_id_got)
@@ -139,8 +114,7 @@ class StaticRouteProvisioner(object):
                                         --api_server_ip 127.0.0.1
                                         --api_server_port 8082
                                         --prefix 2.2.2.0/24
-                                        --virtual_machine_id 57c8687a-2d63-4a5f-ac48-d49e834f2e89
-                                        --virtual_machine_interface_ip 1.1.1.10  
+                                        --virtual_machine_interface_id 242717c9-8e78-4c67-94a8-5fbef1f2f096 
                                         --route_table_name "MyRouteTable" 
                                         --tenant_name "admin"
                                         --oper <add | del>
@@ -190,15 +164,13 @@ class StaticRouteProvisioner(object):
         parser.add_argument(
             "--prefix", help="IP Destination prefix to be updated in the Route")
         parser.add_argument(
-            "--virtual_machine_id", help="UUID of the VM")
-        parser.add_argument(
             "--api_server_ip", help="IP address of api server")
         parser.add_argument("--api_server_port", help="Port of api server")
         parser.add_argument(
             "--oper", default='add',
             help="Provision operation to be done(add or del)")
         parser.add_argument(
-            "--virtual_machine_interface_ip", help="VMI IP")
+            "--virtual_machine_interface_id", help="Next hop which is the UUID of the VMI(aka port-id)")
         parser.add_argument(
             "--tenant_name", help="Tenamt name for keystone admin user")
         parser.add_argument(
