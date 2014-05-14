@@ -45,6 +45,6 @@ if sys.platform != 'darwin':
                        ]
 
     test = env.TestSuite('agent-test', oper_test_suite)
-    env.Alias('src/vnsw/agent:test', test)
+    env.Alias('controller/src/vnsw/agent/oper:test', test)
     Return('oper_test_suite')
 

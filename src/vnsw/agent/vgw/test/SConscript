@@ -27,6 +27,6 @@ if sys.platform != 'darwin':
     vgw_suite = [test_vgw]
 
 test = env.TestSuite('agent-test', vgw_suite)
-env.Alias('src/vnsw/agent:test', test)
+env.Alias('controller/src/vnsw/agent/vgw:test', test)
 Return('vgw_suite')
 

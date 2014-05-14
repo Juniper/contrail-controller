@@ -16,7 +16,7 @@ env.Append(LIBS=['agent_test_buildinfo'])
 
 import sys
 test = env.Program(target = 'test', source = ['test.cc'])
-env.Alias('src/vnsw/agent/cmn/test:test', test)
+env.Alias('controller/src/vnsw/agent/cmn:test', test)
 
 test_subop = env.Program(target = 'test_subop', source = ['test_subop.cc'])
 env.Alias('src/vnsw/agent/cmn/test:test_subop', test_subop)
