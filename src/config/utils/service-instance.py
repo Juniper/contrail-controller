@@ -156,12 +156,13 @@ class ServiceInstanceCmd(object):
                 % (self._args.template_name)
             return
 
-        # check if image exists
-        try:
-            self._nova.images.find(name=st_prop.get_image_name())
-        except nc_exc.NotFound:
-            print "Error: Image %s not found" % (st_prop.get_image_name())
-            return
+        if st_prop.get_image_name():
+            # check if image exists
+            try:
+                self._nova.images.find(name=st_prop.get_image_name())
+            except nc_exc.NotFound:
+                print "Error: Image %s not found" % (st_prop.get_image_name())
+                return
 
         # check if passed VNs exist
         if self._args.left_vn:

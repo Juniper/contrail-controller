@@ -923,6 +923,7 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
     <xsd:restriction base='xsd:string'>
         <xsd:enumeration value='firewall'/>
         <xsd:enumeration value='analyzer'/>
+        <xsd:enumeration value='source-nat'/>
     </xsd:restriction>
 </xsd:simpleType>
 
@@ -941,6 +942,13 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
     </xsd:restriction>
 </xsd:simpleType>
 
+<xsd:simpleType name="ServiceVirtualizationType" default="virtual-machine">
+    <xsd:restriction base="xsd:string">
+        <xsd:enumeration value="virtual-machine"/>
+        <xsd:enumeration value="network-namespace"/>
+    </xsd:restriction>
+</xsd:simpleType>
+
 <xsd:complexType name='ServiceTemplateType'> 
     <xsd:sequence>
         <xsd:element name='service-mode' type='ServiceModeType'/>
@@ -950,6 +958,7 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
         <xsd:element name='interface-type' type='ServiceTemplateInterfaceType' maxOccurs='unbounded'/>
         <xsd:element name='flavor' type='xsd:string'/>
         <xsd:element name='ordered-interfaces' type='xsd:boolean' default='false'/>
+        <xsd:element name='service-virtualisation-type' type='ServiceVirtualizationType'/>
     </xsd:sequence>
 </xsd:complexType>
 
