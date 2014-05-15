@@ -18,6 +18,7 @@ import logging
 import logging.handlers
 import argparse
 import socket
+import random
 import time
 import datetime
 
@@ -72,6 +73,8 @@ class SvcMonitor(object):
     _SVC_VM_CF = 'svc_vm_table'
     _SVC_SI_CF = 'svc_si_table'
     _SVC_CLEANUP_CF = 'svc_cleanup_table'
+    _SERVICE_VIRTUALIZATION_TYPE = {'virtual-machine': '_create_svc_instance_vm',
+                                    'network-namespace': '_create_svc_instance_netns'}
 
     def __init__(self, vnc_lib, args=None):
         self._args = args
@@ -109,11 +112,19 @@ class SvcMonitor(object):
                                          level=self._args.log_level,
                                          file=self._args.log_file)
 
-        #create default analyzer template
+        # create default analyzer template
         self._create_default_template('analyzer-template', 'analyzer',
-                                      'analyzer')
-        self._create_default_template('nat-template', 'nat-service',
-                                      'firewall', 'in-network-nat')
+                                      flavor='m1.medium',
+                                      image_name='analyzer')
+        # create default NAT template
+        self._create_default_template('nat-template', 'firewall',
+                                      svc_mode='in-network-nat',
+                                      image_name='analyzer',
+                                      flavor='m1.medium')
+        # create default netns SNAT template
+        self._create_default_template('netns-snat-template', 'firewall',
+                                      svc_mode='in-network-nat',
+                                      hypervisor_type='network-namespace')
 
         #create cpu_info object to send periodic updates
         sysinfo_req = False
@@ -132,13 +143,14 @@ class SvcMonitor(object):
     # end __init__
 
     # create service template
-    def _create_default_template(self, st_name, image_name,
-                                 svc_type, svc_mode=None):
+    def _create_default_template(self, st_name, svc_type, svc_mode=None,
+                                 hypervisor_type='virtual-machine',
+                                 image_name=None, flavor=None, scaling=False):
         domain_name = 'default-domain'
         domain_fq_name = [domain_name]
         st_fq_name = [domain_name, st_name]
-        self._svc_syslog("Creating %s %s image %s" %
-                         (domain_name, st_name, image_name))
+        self._svc_syslog("Creating %s %s hypervisor %s" %
+                         (domain_name, st_name, hypervisor_type))
 
         try:
             st_obj = self._vnc_lib.service_template_read(fq_name=st_fq_name)
@@ -151,18 +163,22 @@ class SvcMonitor(object):
             st_uuid = self._vnc_lib.service_template_create(st_obj)
 
         svc_properties = ServiceTemplateType()
-        svc_properties.set_image_name(image_name)
         svc_properties.set_service_type(svc_type)
-        svc_properties.set_flavor("m1.medium")
+        svc_properties.set_service_mode(svc_mode)
+        svc_properties.set_service_virtualisation_type(hypervisor_type)
+        svc_properties.set_image_name(image_name)
+        svc_properties.set_flavor(flavor)
         svc_properties.set_ordered_interfaces(True)
+        svc_properties.set_service_scaling(False)
 
         # set interface list
         if svc_type == 'analyzer':
             if_list = [['left', False]]
+        elif hypervisor_type == 'network-namespace':
+            if_list = [['left', False], ['right', False]]
         else:
             if_list = [
                 ['management', False], ['left', False], ['right', False]]
-            svc_properties.set_service_mode(svc_mode)
 
         for itf in if_list:
             if_type = ServiceTemplateInterfaceType(shared_ip=itf[1])
@@ -407,6 +423,124 @@ class SvcMonitor(object):
         self._vnc_lib.virtual_machine_interface_update(vmi_obj)
     # end _set_svc_vm_if_properties
 
+    def _create_svc_instance(self, st_obj, si_obj):
+        st_props = st_obj.get_service_template_properties()
+        if st_props is None:
+            return
+        virt_type = st_props.get_service_virtualisation_type()
+        method_str = self._SERVICE_VIRTUALIZATION_TYPE.get(virt_type, None)
+        method = getattr(self, method_str)
+        if hasattr(method, '__call__'):
+            method(st_obj, si_obj)
+
+    def _create_svc_instance_netns(self, st_obj, si_obj):
+        si_props = si_obj.get_service_instance_properties()
+        si_if_list = si_props.get_interface_list()
+        st_props = st_obj.get_service_template_properties()
+        if st_props is None:
+            self._svc_syslog("Cannot find service template associated to "
+                             "service instance %s" % si_obj.get_fq_name_str())
+            return
+        st_if_list = st_props.get_interface_type()
+        if si_if_list and (len(si_if_list) != len(st_if_list)):
+            self._svc_syslog("Error: IF mismatch template %s instance %s" %
+                             (len(st_if_list), len(si_if_list)))
+            return
+
+        # check and create service virtual networks
+        net_ids = []
+        proj_fq_name = si_obj.get_parent_fq_name()
+        proj_obj = self._vnc_lib.project_read(fq_name=proj_fq_name)
+        for idx in range(0, len(st_if_list)):
+            net = {}
+            st_if = st_if_list[idx]
+            itf_type = st_if.service_interface_type
+
+            # set vn id
+            if si_if_list and st_props.get_ordered_interfaces():
+                si_if = si_if_list[idx]
+                vn_fq_name_str = si_if.get_virtual_network()
+            else:
+                funcname = "get_" + itf_type + "_virtual_network"
+                func = getattr(si_props, funcname)
+                vn_fq_name_str = func()
+
+            if itf_type in _SVC_VNS:
+                vn_id = self._get_vn_id(proj_obj, vn_fq_name_str,
+                                        _SVC_VNS[itf_type][0],
+                                        _SVC_VNS[itf_type][1])
+            else:
+                vn_id = self._get_vn_id(proj_obj, vn_fq_name_str)
+            if vn_id is None:
+                continue
+            net['uuid'] = vn_id
+            net['itf_type'] = itf_type
+            net_ids.append(net)
+
+        # Create virtual machine and associate it to the service instance
+        vm_obj = self._create_virtual_machine(si_obj.get_fq_name())
+        vm_obj.add_service_instance(si_obj)
+        self._vnc_lib.virtual_machine_update(vm_obj)
+
+        # Create virtual machine interfaces
+        for net in net_ids:
+            vmi_fq_name = proj_fq_name + [("%s_%s") % (vm_obj.uuid, net['itf_type'])]
+            vmi_obj = self._create_virtual_machine_interface(vmi_fq_name, net['uuid'])
+            vmi_obj.set_virtual_machine(vm_obj)
+            self._vnc_lib.virtual_machine_interface_update(vmi_obj)
+
+        # Select randomly a virtual router
+        vrs = [vr['fq_name'] for vr in self._vnc_lib.virtual_routers_list()['virtual-routers']]
+        vr_obj_selected = self._vnc_lib.virtual_router_read(fq_name=random.choice(vrs))
+        vr_obj_selected.set_virtual_machine(vm_obj)
+        self._vnc_lib.virtual_router_update(vr_obj_selected)
+
+        # uve trace
+        self._uve_svc_instance(si_obj.get_fq_name_str(),
+                               status='CREATE', vm_uuid=vm_obj.uuid,
+                               st_name=st_obj.get_fq_name_str())
+
+    def _create_virtual_machine(self, vm_fq_name):
+        try:
+            vm = self._vnc_lib.virtual_machine_read(fq_name = vm_fq_name)
+        except NoIdError:
+            vm = VirtualMachine(':'.join(vm_fq_name), fq_name=vm_fq_name)
+            self._vnc_lib.virtual_machine_create(vm)
+            vm = self._vnc_lib.virtual_machine_read(fq_name = vm_fq_name)
+        return vm
+
+    def _create_virtual_machine_interface(self, vmi_fq_name, net_id):
+        vmi_created = False
+        try:
+            vmi_obj = self._vnc_lib.virtual_machine_interface_read(
+                fq_name = vmi_fq_name)
+        except NoIdError:
+            vmi_obj = VirtualMachineInterface(
+                parent_type = 'virtual-machine',
+                fq_name = vmi_fq_name)
+            vmi_created = True
+
+        try:
+            vm_fq_name = self._vnc_lib.id_to_fq_name(net_id)
+            vnet_obj = self._vnc_lib.virtual_network_read(fq_name=vm_fq_name)
+        except NoIdError:
+            return
+        vmi_obj.set_virtual_network(vnet_obj)
+
+        if vmi_created:
+            self._vnc_lib.virtual_machine_interface_create(vmi_obj)
+        else:
+            self._vnc_lib.virtual_machine_interface_update(vmi_obj)
+
+        ips = vmi_obj.get_instance_ip_back_refs()
+        if not ips:
+            ip_obj = InstanceIp(vmi_obj.name)
+            ip_obj.set_virtual_machine_interface(vmi_obj)
+            ip_obj.set_virtual_network(vnet_obj)
+            self._vnc_lib.instance_ip_create(ip_obj)
+
+        return vmi_obj
+
     def _create_svc_instance_vm(self, st_obj, si_obj):
         #check if all config received before launch
         if not self._check_store_si_info(st_obj, si_obj):
@@ -543,7 +677,7 @@ class SvcMonitor(object):
         if st_list is not None:
             fq_name = st_list[0]['to']
             st_obj = self._vnc_lib.service_template_read(fq_name=fq_name)
-            self._create_svc_instance_vm(st_obj, si_obj)
+            self._create_svc_instance(st_obj, si_obj)
     # end _restart_svc_vm
 
     def _check_store_si_info(self, st_obj, si_obj):
@@ -790,7 +924,7 @@ class SvcMonitor(object):
             return
 
         #launch VMs
-        self._create_svc_instance_vm(st_obj, si_obj)
+        self._create_svc_instance(st_obj, si_obj)
     # end _addmsg_service_instance_service_template
 
     def _addmsg_service_instance_properties(self, idents):
@@ -826,7 +960,7 @@ class SvcMonitor(object):
                 st_obj = self._vnc_lib.service_template_read(fq_name=fq_name)
 
                 #launch VMs
-                self._create_svc_instance_vm(st_obj, si_obj)
+                self._create_svc_instance(st_obj, si_obj)
             except Exception:
                 continue
     #end _addmsg_project_virtual_network
