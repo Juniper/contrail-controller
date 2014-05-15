@@ -30,6 +30,7 @@ from pycassa.system_manager import *
 from cfgm_common.imid import *
 from cfgm_common import vnc_cpu_info
 
+from contrail_vrouter_api.vrouter_api import ContrailVRouterApi
 from vnc_api.vnc_api import *
 
 from pysandesh.sandesh_base import Sandesh
@@ -72,6 +73,8 @@ class SvcMonitor(object):
     _SVC_VM_CF = 'svc_vm_table'
     _SVC_SI_CF = 'svc_si_table'
     _SVC_CLEANUP_CF = 'svc_cleanup_table'
+    _SERVICE_VIRTUALIZATION_TYPE = {'virtual-machine': '_create_svc_instance_netns',
+                                    'network-namespace': '_create_svc_instance_vm'}
 
     def __init__(self, vnc_lib, args=None):
         self._args = args
@@ -406,6 +409,63 @@ class SvcMonitor(object):
             vmi_obj.set_security_group_list([])
         self._vnc_lib.virtual_machine_interface_update(vmi_obj)
     # end _set_svc_vm_if_properties
+
+    def _create_svc_instance(self, st_obj, si_obj):
+        st_props = st_obj.get_service_template_properties()
+        if st_props is None:
+            return
+        virt_type = st_props.get_service_virtualisation_type()
+        method = self._SERVICE_VIRTUALIZATION_TYPE.get(virt_type, None)
+        method()
+
+    def _create_svc_instance_netns(self, st_obj, si_obj):
+                si_props = si_obj.get_service_instance_properties()
+        si_if_list = si_props.get_interface_list()
+        if si_if_list and (len(si_if_list) != len(st_if_list)):
+            self._svc_syslog("Error: IF mismatch template %s instance %s" %
+                             (len(st_if_list), len(si_if_list)))
+            return
+
+        # check and create service virtual networks
+        nics = []
+        proj_fq_name = si_obj.get_parent_fq_name()
+        proj_obj = self._vnc_lib.project_read(fq_name=proj_fq_name)
+        for idx in range(0, len(st_if_list)):
+            nic = {}
+            st_if = st_if_list[idx]
+            itf_type = st_if.service_interface_type
+
+            # set vn id
+            if si_if_list and st_props.get_ordered_interfaces():
+                si_if = si_if_list[idx]
+                vn_fq_name_str = si_if.get_virtual_network()
+            else:
+                funcname = "get_" + itf_type + "_virtual_network"
+                func = getattr(si_props, funcname)
+                vn_fq_name_str = func()
+
+            if itf_type in _SVC_VNS:
+                vn_id = self._get_vn_id(proj_obj, vn_fq_name_str,
+                                        _SVC_VNS[itf_type][0],
+                                        _SVC_VNS[itf_type][1])
+            else:
+                vn_id = self._get_vn_id(proj_obj, vn_fq_name_str)
+            if vn_id is None:
+                continue
+            nic['net-id'] = vn_id
+            nic['v4-fixed-ip'] = None
+
+            # add to nic list
+            nics.append(nic)
+
+        vm_refs = si_obj.get_virtual_machine_back_refs()
+
+        ### Select d'un vrouter
+        ### SSH ou via un mechanism d'agent pour créé le netns et les TAP
+        # uve trace
+        self._uve_svc_instance(si_obj.get_fq_name_str(),
+                               status='CREATE', vm_uuid=vm.id,
+                               st_name=st_obj.get_fq_name_str())
 
     def _create_svc_instance_vm(self, st_obj, si_obj):
         #check if all config received before launch
@@ -785,7 +845,7 @@ class SvcMonitor(object):
             return
 
         #launch VMs
-        self._create_svc_instance_vm(st_obj, si_obj)
+        self._create_svc_instance(st_obj, si_obj)
     # end _addmsg_service_instance_service_template
 
     def _addmsg_service_instance_properties(self, idents):
@@ -821,7 +881,7 @@ class SvcMonitor(object):
                 st_obj = self._vnc_lib.service_template_read(fq_name=fq_name)
 
                 #launch VMs
-                self._create_svc_instance_vm(st_obj, si_obj)
+                self._create_svc_instance(st_obj, si_obj)
             except Exception:
                 continue
     #end _addmsg_project_virtual_network
@@ -862,6 +922,19 @@ class SvcMonitor(object):
             auth_url='http://' + self._args.auth_host + ':5000/v2.0')
         return self._nova[proj_name]
     # end _novaclient_get
+
+    def _neutronclient_get(self, proj_name):
+        client = self._neutron.get(proj_name)
+        if client is not None:
+            return client
+
+        self._neutron[proj_name] = nc.Client(
+            '2', username=self._args.admin_user, project_id=proj_name,
+            api_key=self._args.admin_password,
+            region_name=self._args.region_name, service_type='compute',
+            auth_url='http://' + self._args.auth_host + ':5000/v2.0')
+        return self._neutron[proj_name]
+    # end _eutronient_get
 
     def _update_static_routes(self, si_obj):
         # get service instance interface list
@@ -919,6 +992,38 @@ class SvcMonitor(object):
         self._svc_syslog('Created VM : ' + str(nova_vm))
         return nova_vm
     # end create_svc_vm
+
+    def _add_port_to_vrouter_agent(self, port_id, net_id, iface_name, mac_address):
+        port_obj = self._client.virtual_machine_interface_read(id=port_id)
+        if port_obj is None:
+            LOG.debug(_("Invalid port_id : %s"), port_id)
+            return
+
+        ips = port_obj.get_instance_ip_back_refs()
+        ip_addr = '0.0.0.0'
+        # get the ip address of the port if associated
+        if ips and len(ips):
+            ip_uuid = ips[0]['uuid']
+            ip = self._client.instance_ip_read(id=ip_uuid)
+            ip_addr = ip.get_instance_ip_address()
+
+        net_obj = self._client.virtual_network_read(id=net_id)
+        if net_obj is None:
+            LOG.debug(_("Invalid net_id : %s"), net_id)
+            return
+
+        # get the instance object the port is attached to
+        instance_obj = self._instance_lookup(port_obj.parent_name)
+
+        if instance_obj is None:
+            return
+
+        kwargs = {}
+        kwargs['ip_address'] = ip_addr
+        kwargs['network_uuid'] = net_id
+        kwargs['vm_project_uuid'] = net_obj.parent_uuid
+        self._vrouter_client.add_port(instance_obj.uuid, port_id, iface_name,
+                                      mac_address, **kwargs)
 
     def _create_svc_vn(self, vn_name, vn_subnet, proj_obj):
         self._svc_syslog(

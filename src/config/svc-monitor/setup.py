@@ -17,6 +17,8 @@ setup(
     long_description="VNC Service Monitor",
     install_requires=[
         'zope.interface',
+        'python-novaclient',
+        'python-neutronclient'
     ],
     entry_points = {
         'console_scripts' : [
