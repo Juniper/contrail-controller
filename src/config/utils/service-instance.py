@@ -36,14 +36,6 @@ class ServiceInstanceCmd(object):
                             self._args.instance_name]
         self._st_fq_name = [self._args.domain_name, self._args.template_name]
         self._domain_fq_name = [self._args.domain_name]
-
-        self._mgmt_vn_fq_name = None
-        self._left_vn_fq_name = None
-        self._right_vn_fq_name = None
-        if self._args.mgmt_vn:
-            self._mgmt_vn_fq_name = [self._args.domain_name,
-                                     self._args.proj_name,
-                                     self._args.mgmt_vn]
         if self._args.left_vn:
             self._left_vn_fq_name = [self._args.domain_name,
                                      self._args.proj_name,
@@ -191,9 +183,9 @@ class ServiceInstanceCmd(object):
             si_uuid = self._vnc_lib.service_instance_create(si_obj)
 
         si_prop = ServiceInstanceType(
-            left_virtual_network=self._left_vn_fq_name,
-            management_virtual_network=self._mgmt_vn_fq_name,
-            right_virtual_network=self._right_vn_fq_name)
+            left_virtual_network=self._args.left_vn,
+            management_virtual_network=self._args.mgmt_vn,
+            right_virtual_network=self._args.right_vn)
 
         # set scale out
         scale_out = ServiceScaleOutType(
