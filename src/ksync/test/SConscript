@@ -35,8 +35,8 @@ if sys.platform != 'darwin':
 
 env.Prepend(LIBS=['vnswoperdb', 'cfg', 'vnswctrl', 'vnswcmn', 'filter',])
 if sys.platform != 'darwin':
-    env.Append(LIBS=['pkt'])
-    env.Prepend(LIBS=['rt', 'ksync', 'vnswksync', 'vrutil','agentuve',])
+    env.Append(LIBS=['pkt', 'rt'])
+    env.Prepend(LIBS=['ksync', 'vnswksync', 'vrutil','agentuve',])
 
 libs = MapBuildDir(['db', 'bgp', 'xmpp', 'xml', 'pugixml', 'io', 'ksync',
                     'base', 'base/test', 'boost_regex', 'route', 'schema',
