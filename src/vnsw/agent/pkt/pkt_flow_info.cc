@@ -294,6 +294,14 @@ static void SetInEcmpIndex(const PktInfo *pkt, PktFlowInfo *flow_info,
     }
 }
 
+static bool RouteAllowNatLookup(const Inet4UnicastRouteEntry *rt) {
+    if (rt != NULL && IsLinkLocalRoute(rt)) {
+        // skip NAT lookup if found route has a link local peer.
+        return false;
+    }
+    return true;
+}
+
 void PktFlowInfo::SetEcmpFlowInfo(const PktInfo *pkt, const PktControlInfo *in,
                                   const PktControlInfo *out) {
     nat_ip_daddr = pkt->ip_daddr;
@@ -678,8 +686,9 @@ void PktFlowInfo::EgressProcess(const PktInfo *pkt, PktControlInfo *in,
         out->vn_ = InterfaceToVn(out->intf_);
     }
 
-    // If no route for DA and floating-ip configured try floating-ip DNAT
-    if (out->rt_ == NULL) {
+    if (RouteAllowNatLookup(out->rt_)) {
+        // if interface has floating IP, check if destination is one of the
+        // configured floating IP.
         if (IntfHasFloatingIp(out->intf_)) {
             FloatingIpDNat(pkt, in, out);
         }
