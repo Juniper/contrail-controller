@@ -93,7 +93,8 @@ void VnUveEntry::ClearInterVnStats() {
 bool VnUveEntry::BuildInterfaceVmList(UveVirtualNetworkAgent &s_vn) {
     bool changed = false;
 
-    s_vn.set_name(vn_->GetName());
+    if (vn_)
+    	s_vn.set_name(vn_->GetName());
     vector<string> vm_list;
 
     VmSet::iterator vm_it = vm_tree_.begin();
