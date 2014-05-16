@@ -18,9 +18,6 @@ libhttpc = env.Library('httpc',
 
 env.Prepend(LIBS=['sandesh', 'curl', 'io'])
 
-if sys.platform != 'darwin':
-    env.Append(LIBS=['rt'])
-
 libs = MapBuildDir(['io'])
 env.Append(LIBPATH=libs)
 
@@ -35,6 +32,9 @@ env.Append(LIBPATH = ['#/' + Dir('..').path,
                      ])
 
 env.Append(LIBS = ['task_test', 'gunit', 'base', 'httpc', 'sandesh', 'http', 'http_parser', 'curl', 'io', 'sandeshvns', 'base', 'pugixml'])
+
+if sys.platform != 'darwin':
+    env.Append(LIBS=['rt'])
 
 httpcd = env.Program(target = 'httpcd',
                    source = ['main.cc'])
