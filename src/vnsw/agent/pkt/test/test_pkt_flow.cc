@@ -105,9 +105,8 @@ public:
                            const char *serv, int label, const char *vn) {
         Ip4Address addr = Ip4Address::from_string(remote_vm);
         Ip4Address gw = Ip4Address::from_string(serv);
-        agent()->GetDefaultInet4UnicastRouteTable()->AddRemoteVmRouteReq
-            (peer_, vrf, addr, 32, gw, TunnelType::MplsType(), label, vn,
-             SecurityGroupList());
+        Inet4TunnelRouteAdd(peer_, vrf, addr, 32, gw, TunnelType::MplsType(), label, vn,
+                            SecurityGroupList());
         client->WaitForIdle(2);
         WAIT_FOR(1000, 500, (RouteFind(vrf, addr, 32) == true));
     }
@@ -115,7 +114,7 @@ public:
     void DeleteRoute(const char *vrf, const char *ip) {
         Ip4Address addr = Ip4Address::from_string(ip);
         agent()->GetDefaultInet4UnicastRouteTable()->DeleteReq(NULL, 
-                                                vrf, addr, 32);
+                                                vrf, addr, 32, NULL);
         client->WaitForIdle();
         WAIT_FOR(1000, 1, (RouteFind(vrf, addr, 32) == false));
     }
@@ -123,7 +122,7 @@ public:
     void DeleteRemoteRoute(const char *vrf, const char *ip) {
         Ip4Address addr = Ip4Address::from_string(ip);
         agent()->GetDefaultInet4UnicastRouteTable()->DeleteReq(peer_, 
-                vrf, addr, 32);
+                vrf, addr, 32, NULL);
         client->WaitForIdle();
         WAIT_FOR(1000, 1, (RouteFind(vrf, addr, 32) == false));
     }
@@ -366,7 +365,9 @@ protected:
         AddLink("floating-ip-pool", "fip-pool1", "virtual-network", "vn4");
         AddLink("virtual-machine-interface", "flow0", "floating-ip", "fip1");
         client->WaitForIdle();
-        peer_ = CreateBgpPeer(Ip4Address(1), "BGP Peer 1");
+        // TODO currently make peer as NULL, later add it via channel
+        //peer_ = CreateBgpPeer(Ip4Address(1), "BGP Peer 1");
+        peer_ = NULL;
         Ip4Address gw_ip = Ip4Address::from_string("11.1.1.254");
         //Add a gateway route pointing to pkt0
         VrfEntry *vrf = VrfGet("vrf5");
@@ -382,7 +383,7 @@ protected:
         VrfEntry *vrf = VrfGet("vrf5");
         Ip4Address gw_ip = Ip4Address::from_string("11.1.1.254");
         Agent::GetInstance()->GetDefaultInet4UnicastRouteTable()->DeleteReq(
-            Agent::GetInstance()->local_peer(), "vrf5", gw_ip, 32);
+            Agent::GetInstance()->local_peer(), "vrf5", gw_ip, 32, NULL);
         client->WaitForIdle();
         DeleteVmportEnv(input, 3, true, 1);
         client->WaitForIdle(3);
@@ -412,7 +413,8 @@ protected:
         EXPECT_EQ(0U, agent()->GetVmTable()->Size());
         EXPECT_EQ(0U, agent()->GetVnTable()->Size());
         EXPECT_EQ(0U, agent()->GetAclTable()->Size());
-        DeleteBgpPeer(peer_);
+        //TODO when peer is extracted via channel enable delete
+        //DeleteBgpPeer(peer_);
     }
 
     Agent *agent() {return agent_;}

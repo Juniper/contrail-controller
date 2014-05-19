@@ -14,6 +14,9 @@
 #include <oper/tunnel_nh.h>
 #include <oper/mpls.h>
 #include <oper/mirror_table.h>
+#include <oper/peer.h>
+#include <controller/controller_peer.h>
+#include <controller/controller_init.h>
 #include <controller/controller_export.h>
 #include <oper/agent_sandesh.h>
 
@@ -463,69 +466,6 @@ bool VlanNhRoute::AddChangePath(Agent *agent, AgentPath *path) {
     path->set_unresolved(false);
     if (path->ChangeNH(agent, nh) == true)
         ret = true;
-
-    return ret;
-}
-
-bool RemoteVmRoute::AddChangePath(Agent *agent, AgentPath *path) {
-    bool ret = false;
-    NextHop *nh = NULL;
-    SecurityGroupList path_sg_list;
-
-    if (path->tunnel_bmap() != tunnel_bmap_) {
-        path->set_tunnel_bmap(tunnel_bmap_);
-        ret = true;
-    }
-
-    TunnelType::Type new_tunnel_type = TunnelType::ComputeType(tunnel_bmap_);
-    if ((tunnel_bmap_ == (1 << TunnelType::VXLAN) && 
-         (new_tunnel_type != TunnelType::VXLAN)) ||
-        (tunnel_bmap_ != (1 << TunnelType::VXLAN) &&
-         (new_tunnel_type == TunnelType::VXLAN))) {
-        new_tunnel_type = TunnelType::INVALID;
-        nh_req_.key.reset(new TunnelNHKey(agent->GetDefaultVrf(),
-                                          agent->GetRouterId(), server_ip_,
-                                          false, new_tunnel_type));
-    }
-    agent->nexthop_table()->Process(nh_req_);
-    TunnelNHKey key(agent->GetDefaultVrf(), agent->GetRouterId(), server_ip_,
-                    false, new_tunnel_type);
-    nh = static_cast<NextHop *>(agent->nexthop_table()->FindActiveEntry(&key));
-    path->set_server_ip(server_ip_);
-
-    if (path->tunnel_type() != new_tunnel_type) {
-        path->set_tunnel_type(new_tunnel_type);
-        ret = true;
-    }
-
-    if (new_tunnel_type == TunnelType::VXLAN) {
-        if (path->vxlan_id() != label_) {
-            path->set_vxlan_id(label_);
-            path->set_label(MplsTable::kInvalidLabel);
-            ret = true;
-        }
-    } else {
-        if (path->label() != label_) {
-            path->set_label(label_);
-            path->set_vxlan_id(VxLanTable::kInvalidvxlan_id);
-            ret = true;
-        }
-    }
-
-    if (path->dest_vn_name() != dest_vn_name_) {
-        path->set_dest_vn_name(dest_vn_name_);
-        ret = true;
-    }
-
-    path->set_unresolved(false);
-    if (path->ChangeNH(agent, nh) == true)
-        ret = true;
-
-    path_sg_list = path->sg_list();
-    if (path_sg_list != sg_list_) {
-        path->set_sg_list(sg_list_);
-        ret = true;
-    }
 
     return ret;
 }
