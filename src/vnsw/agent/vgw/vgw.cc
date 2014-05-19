@@ -173,7 +173,7 @@ VirtualGateway::SubnetUpdate(const std::string &vrf,
         Ip4Address addr = GetIp4SubnetAddress(del_list[idx].ip_,
                                               del_list[idx].plen_);
         rt_table->DeleteReq(agent_->vgw_peer(), agent_->GetDefaultVrf(),
-                            addr, del_list[idx].plen_);
+                            addr, del_list[idx].plen_, NULL);
     }
 }
 
@@ -204,7 +204,7 @@ VirtualGateway::RouteUpdate(const VirtualGatewayConfig &vgw,
     if (vgw.routes().size() == 0 && del_default_route) {
         // no routes earlier, remove default route
         rt_table->DeleteReq(agent_->vgw_peer(), vgw.vrf_name(),
-                            Ip4Address(0), 0);
+                            Ip4Address(0), 0, NULL);
     } else if (new_list_size == 0 && add_default_route) {
         // no routes now, add a default route
         rt_table->AddInetInterfaceRoute(agent_->vgw_peer(), vgw.vrf_name(),
@@ -217,7 +217,7 @@ VirtualGateway::RouteUpdate(const VirtualGatewayConfig &vgw,
         Ip4Address addr = GetIp4SubnetAddress(del_list[idx].ip_,
                                               del_list[idx].plen_);
         rt_table->DeleteReq(agent_->vgw_peer(), vgw.vrf_name(),
-                            addr, del_list[idx].plen_);
+                            addr, del_list[idx].plen_, NULL);
     }
     for (uint32_t idx = 0; idx < add_list.size(); idx++) {
         Ip4Address addr = GetIp4SubnetAddress(add_list[idx].ip_,

@@ -1140,13 +1140,84 @@ bool VlanNhFind(int id, uint16_t tag) {
     return (nh != NULL);
 }
 
+bool Layer2TunnelRouteAdd(const Peer *peer, const string &vm_vrf, 
+                          TunnelType::TypeBmap bmap, const Ip4Address &server_ip,
+                          uint32_t label, struct ether_addr &remote_vm_mac,
+                          const Ip4Address &vm_addr, uint8_t plen) {
+    ControllerVmRoute *data =
+        ControllerVmRoute::MakeControllerVmRoute(peer,
+                              Agent::GetInstance()->GetDefaultVrf(),
+                              Agent::GetInstance()->GetRouterId(),
+                              vm_vrf, server_ip,
+                              bmap, label, "", SecurityGroupList());
+    Layer2AgentRouteTable::AddRemoteVmRouteReq(peer, vm_vrf, remote_vm_mac,
+                                        vm_addr, plen, data);
+    return true;
+}
+
+bool Layer2TunnelRouteAdd(const Peer *peer, const string &vm_vrf, 
+                          TunnelType::TypeBmap bmap, const char *server_ip,
+                          uint32_t label, struct ether_addr &remote_vm_mac,
+                          const char *vm_addr, uint8_t plen) {
+    boost::system::error_code ec;
+    Layer2TunnelRouteAdd(peer, vm_vrf, bmap,
+                        Ip4Address::from_string(server_ip, ec), label, remote_vm_mac,
+                         Ip4Address::from_string(vm_addr, ec), plen);
+}
+
+bool EcmpTunnelRouteAdd(const Peer *peer, const string &vrf_name, const Ip4Address &vm_ip,
+                       uint8_t plen, std::vector<ComponentNHData> &comp_nh_list,
+                       bool local_ecmp, const string &vn_name, const SecurityGroupList &sg) {
+    DBRequest nh_req(DBRequest::DB_ENTRY_ADD_CHANGE);
+    nh_req.key.reset(new CompositeNHKey(vrf_name, vm_ip, plen,
+                                        false));
+
+    CompositeNH::CreateCompositeNH(vrf_name, vm_ip, false, comp_nh_list);
+    nh_req.data.reset(new CompositeNHData(comp_nh_list,
+                                          CompositeNHData::REPLACE));
+    ControllerEcmpRoute *data =
+        new ControllerEcmpRoute(peer, vm_ip, plen, vn_name, -1, false, vrf_name, sg, nh_req);
+    Inet4UnicastAgentRouteTable::AddRemoteVmRouteReq(peer, vrf_name, vm_ip, plen, data);
+}
+
+bool Inet4TunnelRouteAdd(const Peer *peer, const string &vm_vrf, const Ip4Address &vm_addr,
+                         uint8_t plen, const Ip4Address &server_ip, TunnelType::TypeBmap bmap,
+                         uint32_t label, const string &dest_vn_name,
+                         const SecurityGroupList &sg) {
+    ControllerVmRoute *data =
+        ControllerVmRoute::MakeControllerVmRoute(peer,
+                              Agent::GetInstance()->GetDefaultVrf(),
+                              Agent::GetInstance()->GetRouterId(),
+                              vm_vrf, server_ip,
+                              bmap, label, dest_vn_name, sg);
+    Inet4UnicastAgentRouteTable::AddRemoteVmRouteReq(peer, vm_vrf,
+                                        vm_addr, plen, data);
+    return true;
+}
+
+bool Inet4TunnelRouteAdd(const Peer *peer, const string &vm_vrf, char *vm_addr,
+                         uint8_t plen, char *server_ip, TunnelType::TypeBmap bmap,
+                         uint32_t label, const string &dest_vn_name,
+                         const SecurityGroupList &sg) {
+    boost::system::error_code ec;
+    Inet4TunnelRouteAdd(peer, vm_vrf, Ip4Address::from_string(vm_addr, ec), plen,
+                        Ip4Address::from_string(server_ip, ec), bmap, label,
+                        dest_vn_name, sg);
+}
+
 bool TunnelRouteAdd(const char *server, const char *vmip, const char *vm_vrf,
                     int label, const char *vn, TunnelType::TypeBmap bmap) {
     boost::system::error_code ec;
+    ControllerVmRoute *data =
+        ControllerVmRoute::MakeControllerVmRoute(bgp_peer_,
+                              Agent::GetInstance()->GetDefaultVrf(),
+                              Agent::GetInstance()->GetRouterId(),
+                              vm_vrf, Ip4Address::from_string(server, ec),
+                              TunnelType::AllType(), label, "",
+                              SecurityGroupList());
     Inet4UnicastAgentRouteTable::AddRemoteVmRouteReq(bgp_peer_, vm_vrf,
                                         Ip4Address::from_string(vmip, ec),
-                                        32, Ip4Address::from_string(server, ec),
-                                        bmap, label, vn, SecurityGroupList());
+                                        32, data);
     return true;
 }
 
@@ -2606,9 +2677,12 @@ bool VmPortServiceVlanCount(int id, unsigned int count) {
 BgpPeer *CreateBgpPeer(const Ip4Address &addr, std::string name) {
     XmppChannelMock *xmpp_channel = new XmppChannelMock();
     AgentXmppChannel *channel;
+    Agent::GetInstance()->SetXmppServer(addr.to_string(), 0);
     channel = new AgentXmppChannel(Agent::GetInstance(), xmpp_channel, 
                                    "XMPP Server", "", 0);
-    return (new BgpPeer(addr, name, channel, -1));
+    AgentXmppChannel::HandleAgentXmppClientChannelEvent(channel, xmps::READY);
+    client->WaitForIdle();
+    return channel->bgp_peer_id();
 }
 
 void DeleteBgpPeer(Peer *peer) {
@@ -2616,10 +2690,19 @@ void DeleteBgpPeer(Peer *peer) {
     if (!bgp_peer)
         return;
 
-    if (bgp_peer->GetBgpXmppPeer()) {
-        if (bgp_peer->GetBgpXmppPeer()->GetXmppChannel())
-            delete bgp_peer->GetBgpXmppPeer()->GetXmppChannel();
-
-    }
-    delete bgp_peer;
+    AgentXmppChannel *channel = bgp_peer->GetBgpXmppPeer();
+    AgentXmppChannel::HandleAgentXmppClientChannelEvent(channel, xmps::NOT_READY);
+    client->WaitForIdle();
+    TaskScheduler::GetInstance()->Stop();
+    Agent::GetInstance()->controller()->unicast_cleanup_timer().cleanup_timer_->
+        Fire();
+    Agent::GetInstance()->controller()->multicast_cleanup_timer().cleanup_timer_->
+        Fire();
+    Agent::GetInstance()->controller()->config_cleanup_timer().cleanup_timer_->
+        Fire();
+    TaskScheduler::GetInstance()->Start();
+    client->WaitForIdle();
+    Agent::GetInstance()->controller()->Cleanup();
+    client->WaitForIdle();
+    delete channel;
 }

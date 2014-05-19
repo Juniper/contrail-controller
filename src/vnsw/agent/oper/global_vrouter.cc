@@ -277,7 +277,7 @@ bool GlobalVrouter::LinkLocalRouteManager::VnUpdateWalk(
         }
     } else {
         rt_table->DeleteReq(agent->link_local_peer(), vrf_entry->GetName(),
-                            key.linklocal_service_ip, 32);
+                            key.linklocal_service_ip, 32, NULL);
     }
     return true;
 }
@@ -305,7 +305,7 @@ bool GlobalVrouter::LinkLocalRouteManager::VnNotify(DBTablePartBase *partition,
              services.begin(); it != services.end(); ++it) {
             rt_table->DeleteReq(agent->link_local_peer(),
                                 state->vrf_->GetName(),
-                                it->first.linklocal_service_ip, 32);
+                                it->first.linklocal_service_ip, 32, NULL);
         }
         vn_entry->ClearState(partition->parent(), vn_id_);
         delete state;
