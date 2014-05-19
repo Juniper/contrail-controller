@@ -101,9 +101,8 @@ public:
         boost::system::error_code ec;
         Ip4Address addr = Ip4Address::from_string(remote_vm, ec);
         Ip4Address gw = Ip4Address::from_string(serv, ec);
-        Agent::GetInstance()->GetDefaultInet4UnicastRouteTable()->AddRemoteVmRouteReq
-            (peer_, vrf, addr, 32, gw, TunnelType::AllType(), label, vn,
-             SecurityGroupList());
+        Inet4TunnelRouteAdd(peer_, vrf, addr, 32, gw, TunnelType::AllType(), label, vn,
+                            SecurityGroupList());
         client->WaitForIdle(2);
         WAIT_FOR(1000, 500, (RouteFind(vrf, addr, 32) == true));
     }
@@ -113,7 +112,7 @@ public:
         Ip4Address addr = Ip4Address::from_string(ip, ec);
         Agent::Agent::GetInstance()->
             GetDefaultInet4UnicastRouteTable()->DeleteReq(peer_, 
-                vrf, addr, 32);
+                vrf, addr, 32, NULL);
         client->WaitForIdle();
         WAIT_FOR(1000, 1, (RouteFind(vrf, addr, 32) == false));
     }

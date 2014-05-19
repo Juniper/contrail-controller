@@ -111,9 +111,8 @@ protected:
                           uint32_t label, TunnelType::TypeBmap bmap) {
         //Use any toher peer than localvmpeer
 
-        Layer2AgentRouteTable::AddRemoteVmRouteReq(
-            agent_->local_peer(), vrf_name_,
-            bmap, server_ip, label, *remote_vm_mac, local_vm_ip_, 32);
+        Layer2TunnelRouteAdd(agent_->local_peer(), vrf_name_,
+                             bmap, server_ip, label, *remote_vm_mac, local_vm_ip_, 32);
         client->WaitForIdle();
     }
 
@@ -126,7 +125,7 @@ protected:
     void DeleteRoute(const Peer *peer, const std::string &vrf_name, 
                      struct ether_addr *remote_vm_mac) {
         Layer2AgentRouteTable::DeleteReq(peer, vrf_name_,
-            *remote_vm_mac);
+            *remote_vm_mac, NULL);
         client->WaitForIdle();
         while (L2RouteFind(vrf_name, *remote_vm_mac) == true) {
             client->WaitForIdle();
