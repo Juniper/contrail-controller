@@ -16,6 +16,7 @@ setup(
     entry_points = {
          'console_scripts' : [
              'contrail-schema = schema_transformer.to_bgp:server_main',
+             'ifmap-view = schema_transformer.ifmap_view:main',
          ],
     },
     install_requires=[
