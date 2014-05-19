@@ -205,9 +205,9 @@ TEST_F(CfgTest, FloatingIp_1) {
 
     // Delete routes
     Inet4UnicastAgentRouteTable::DeleteReq(bgp_peer_, "vn1:vn1", 
-                               Ip4Address::from_string("1.1.1.3"), 32);
+                               Ip4Address::from_string("1.1.1.3"), 32, NULL);
     Inet4UnicastAgentRouteTable::DeleteReq(bgp_peer_, "vn2:vn2", 
-                               Ip4Address::from_string("2.2.2.3"), 32);
+                               Ip4Address::from_string("2.2.2.3"), 32, NULL);
     client->WaitForIdle();
     DelArp("10.1.1.2", "00:00:00:00:00:02", "enet1");
 

@@ -278,9 +278,9 @@ static void Setup() {
     /* Add remote VN route to VN1 */
     Ip4Address addr = Ip4Address::from_string("1.1.1.10");
     Ip4Address gw = Ip4Address::from_string("10.1.1.2");
-    vnet_table[1]->AddRemoteVmRouteReq(NULL, "vrf1", addr, 32, gw, 
-                                       TunnelType::AllType(), 8, "vn1",
-                                       SecurityGroupList());
+    Inet4TunnelRouteAdd(NULL, "vrf1", addr, 32, gw, 
+                        TunnelType::AllType(), 8, "vn1",
+                        SecurityGroupList());
     client->WaitForIdle();
     EXPECT_TRUE(RouteFind("vrf1", addr, 32));
 
@@ -296,26 +296,26 @@ static void Setup() {
 
     /* Add Remote /24 route of vrf3 to vrf2 */
     addr = Ip4Address::from_string("20.1.1.0");
-    vnet_table[2]->AddRemoteVmRouteReq(NULL, "vn2:vn2", addr, 24, gw,
-                                       TunnelType::AllType(), 8, "vn3",
-                                       SecurityGroupList());
+    Inet4TunnelRouteAdd(NULL, "vn2:vn2", addr, 24, gw,
+                        TunnelType::AllType(), 8, "vn3",
+                        SecurityGroupList());
     client->WaitForIdle();
     EXPECT_TRUE(RouteFind("vn2:vn2", addr, 24));
 
     /* Add Remote /24 route of vrf3 to vrf2 */
     addr = Ip4Address::from_string("20.1.1.0");
-    vnet_table[3]->AddRemoteVmRouteReq(NULL, "vrf3", addr, 24, gw,
-                                       TunnelType::AllType(), 8, "vn2",
-                                       SecurityGroupList());
+    Inet4TunnelRouteAdd(NULL, "vrf3", addr, 24, gw,
+                        TunnelType::AllType(), 8, "vn2",
+                        SecurityGroupList());
     client->WaitForIdle();
     EXPECT_TRUE(RouteFind("vrf3", addr, 24));
 
     /* Add Remote VM route in vrf1 from vrf2 */
     addr = Ip4Address::from_string("2.1.1.11");
     gw = Ip4Address::from_string("10.1.1.2");
-    vnet_table[1]->AddRemoteVmRouteReq(NULL, "vrf1", addr, 32, gw, 
-                                       TunnelType::AllType(), 8, "vn2",
-                                       SecurityGroupList());
+    Inet4TunnelRouteAdd(NULL, "vrf1", addr, 32, gw, 
+                        TunnelType::AllType(), 8, "vn2",
+                        SecurityGroupList());
     client->WaitForIdle();
     EXPECT_TRUE(RouteFind("vrf1", addr, 32));
 
@@ -995,16 +995,16 @@ TEST_F(FlowTest, FIP_traffic_to_leaked_routes) {
                                 80, 1, vnet[5]->vrf()->GetName().c_str(), 
                                 "2.1.1.100", vnet_addr[5],
                                 10000, 80, "vn2", "vn3"));
-    vnet_table[2]->DeleteReq(NULL, "vn2:vn2", vnet[5]->ip_addr(), 32);
+    vnet_table[2]->DeleteReq(NULL, "vn2:vn2", vnet[5]->ip_addr(), 32, NULL);
     client->WaitForIdle();
 }
 
 TEST_F(FlowTest, Fip_preference_over_policy) {
     Ip4Address addr = Ip4Address::from_string("2.1.1.1");
     Ip4Address gw = Ip4Address::from_string("10.1.1.2");
-    vnet_table[1]->AddRemoteVmRouteReq(NULL, "vrf1", addr, 32, gw, 
-                                       TunnelType::AllType(), 8, "vn2", 
-                                       SecurityGroupList());
+    Inet4TunnelRouteAdd(NULL, "vrf1", addr, 32, gw, 
+                        TunnelType::AllType(), 8, "vn2", 
+                        SecurityGroupList());
     client->WaitForIdle();
     TxUdpPacket(vnet[1]->id(), vnet_addr[1], "2.1.1.1", 10, 20, 1, 1);
     client->WaitForIdle();
@@ -1012,7 +1012,7 @@ TEST_F(FlowTest, Fip_preference_over_policy) {
 
     //client->EnqueueFlowFlush();
     //client->WaitForIdle();
-    vnet_table[1]->DeleteReq(NULL, "vrf1", addr, 32);
+    vnet_table[1]->DeleteReq(NULL, "vrf1", addr, 32, NULL);
     client->WaitForIdle();
 
     // since floating IP should be preffered deleteing the route should
@@ -1023,69 +1023,69 @@ TEST_F(FlowTest, Fip_preference_over_policy) {
 TEST_F(FlowTest, DNAT_Fip_preference_over_policy_1) {
     Ip4Address addr = Ip4Address::from_string("2.1.1.1");
     Ip4Address gw = Ip4Address::from_string("10.1.1.2");
-    vnet_table[1]->AddRemoteVmRouteReq(NULL, "vrf1", addr, 32, gw,
-                                       TunnelType::AllType(), 8, "vn1",
-                                       SecurityGroupList());
+    Inet4TunnelRouteAdd(NULL, "vrf1", addr, 32, gw,
+                        TunnelType::AllType(), 8, "vn1",
+                        SecurityGroupList());
     Ip4Address addr1 = Ip4Address::from_string("2.1.1.100");
-    vnet_table[1]->AddRemoteVmRouteReq(NULL, "vrf1", addr1, 32, gw,
-                                       TunnelType::AllType(), 8, "vn1",
-                                       SecurityGroupList());
+    Inet4TunnelRouteAdd(NULL, "vrf1", addr1, 32, gw,
+                        TunnelType::AllType(), 8, "vn1",
+                        SecurityGroupList());
     client->WaitForIdle();
     TxIpMplsPacket(eth->id(), "10.1.1.2", vhost_addr,
                    vnet[1]->label(), "2.1.1.1", "2.1.1.100", 1, 1);
     client->WaitForIdle();
     EXPECT_EQ(2U, Agent::GetInstance()->pkt()->flow_table()->Size());
 
-    vnet_table[1]->DeleteReq(NULL, "vrf1", addr1, 32);
+    vnet_table[1]->DeleteReq(NULL, "vrf1", addr1, 32, NULL);
     client->WaitForIdle();
 
     // since floating IP should be preffered deleteing the route should
     // not remove flow entries.
     EXPECT_EQ(2U, Agent::GetInstance()->pkt()->flow_table()->Size());
 
-    vnet_table[1]->DeleteReq(NULL, "vrf1", addr, 32);
+    vnet_table[1]->DeleteReq(NULL, "vrf1", addr, 32, NULL);
     client->WaitForIdle();
 }
 
 TEST_F(FlowTest, DNAT_Fip_preference_over_policy_2) {
     Ip4Address addr = Ip4Address::from_string("2.1.1.1");
     Ip4Address gw = Ip4Address::from_string("10.1.1.2");
-    vnet_table[1]->AddRemoteVmRouteReq(NULL, "vrf1", addr, 32, gw,
-                                       TunnelType::AllType(), 8, "vn2",
-                                       SecurityGroupList());
+    Inet4TunnelRouteAdd(NULL, "vrf1", addr, 32, gw,
+                        TunnelType::AllType(), 8, "vn2",
+                        SecurityGroupList());
     Ip4Address addr1 = Ip4Address::from_string("2.1.1.100");
-    vnet_table[1]->AddRemoteVmRouteReq(NULL, "vrf1", addr1, 32, gw,
-                                       TunnelType::AllType(), 8, "vn2",
-                                       SecurityGroupList());
+    Inet4TunnelRouteAdd(NULL, "vrf1", addr1, 32, gw,
+                        TunnelType::AllType(), 8, "vn2",
+                        SecurityGroupList());
     client->WaitForIdle();
     TxIpMplsPacket(eth->id(), "10.1.1.2", vhost_addr,
                    vnet[1]->label(), "2.1.1.1", "2.1.1.100", 1, 1);
     client->WaitForIdle();
     EXPECT_EQ(2U, Agent::GetInstance()->pkt()->flow_table()->Size());
 
-    vnet_table[1]->DeleteReq(NULL, "vrf1", addr1, 32);
+    vnet_table[1]->DeleteReq(NULL, "vrf1", addr1, 32, NULL);
     client->WaitForIdle();
 
     // since floating IP should be preffered deleteing the route should
     // not remove flow entries.
     EXPECT_EQ(2U, Agent::GetInstance()->pkt()->flow_table()->Size());
 
-    vnet_table[1]->DeleteReq(NULL, "vrf1", addr, 32);
+    vnet_table[1]->DeleteReq(NULL, "vrf1", addr, 32, NULL);
     client->WaitForIdle();
 }
 
 TEST_F(FlowTest, Prefer_policy_over_fip_LPM_find) {
     Ip4Address addr = Ip4Address::from_string("20.1.1.1");
     Ip4Address gw = Ip4Address::from_string("10.1.1.2");
-    vnet_table[1]->AddRemoteVmRouteReq(NULL, "vrf1", addr, 32, gw,
-                                       TunnelType::AllType(), 8, "vn2",
-                                       SecurityGroupList());
+    Inet4TunnelRouteAdd(NULL, "vrf1", addr, 32, gw,
+                        TunnelType::AllType(), 8, "vn2",
+                        SecurityGroupList());
     client->WaitForIdle();
     TxUdpPacket(vnet[1]->id(), vnet_addr[1], "20.1.1.1", 10, 20, 1, 1);
     client->WaitForIdle();
     EXPECT_EQ(2U, Agent::GetInstance()->pkt()->flow_table()->Size());
 
-    vnet_table[1]->DeleteReq(NULL, "vrf1", addr, 32);
+    vnet_table[1]->DeleteReq(NULL, "vrf1", addr, 32, NULL);
     client->WaitForIdle();
 
     // since policy leaked route should be preffered deleteing the route should

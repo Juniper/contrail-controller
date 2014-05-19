@@ -551,7 +551,7 @@ TEST_F(SgTest, Sg_Introspec) {
     DelNode("access-control-list", "ag2");
     boost::system::error_code ec;
     Inet4UnicastAgentRouteTable::DeleteReq(NULL, "vrf1",
-        Ip4Address::from_string("10.10.10.0", ec), 24);
+        Ip4Address::from_string("10.10.10.0", ec), 24, NULL);
     client->WaitForIdle();
 
 }
@@ -571,12 +571,12 @@ TEST_F(SgTest, Sg_Policy_1) {
     sg_id_list.push_back(2);
     //Add a remote route pointing to SG id 2
     boost::system::error_code ec;
-    Inet4UnicastAgentRouteTable::AddRemoteVmRouteReq(NULL, "vrf1",
-                                    Ip4Address::from_string("10.10.10.0", ec),
-                                    24,
-                                    Ip4Address::from_string("10.10.10.10", ec),
-                                    TunnelType::AllType(), 
-                                    17, "vn1", sg_id_list);
+    Inet4TunnelRouteAdd(NULL, "vrf1",
+                        Ip4Address::from_string("10.10.10.0", ec),
+                        24,
+                        Ip4Address::from_string("10.10.10.10", ec),
+                        TunnelType::AllType(), 
+                        17, "vn1", sg_id_list);
     client->WaitForIdle();
 
     char remote_ip[] = "10.10.10.1";
@@ -589,12 +589,9 @@ TEST_F(SgTest, Sg_Policy_1) {
 
     //Change the route sg id to 3
     sg_id_list[0] = 3;
-    Inet4UnicastAgentRouteTable::AddRemoteVmRouteReq(NULL, "vrf1",
-                                    Ip4Address::from_string("10.10.10.0", ec),
-                                    24,
-                                    Ip4Address::from_string("10.10.10.10", ec),
-                                    TunnelType::AllType(),
-                                    17, "vn1", sg_id_list);
+    Inet4TunnelRouteAdd(NULL, "vrf1", Ip4Address::from_string("10.10.10.0", ec),
+                        24, Ip4Address::from_string("10.10.10.10", ec),
+                        TunnelType::AllType(), 17, "vn1", sg_id_list);
     client->WaitForIdle();
 
     EXPECT_TRUE(ValidateAction(vnet[1]->vrf()->vrf_id(), vnet_addr[1],
@@ -609,7 +606,7 @@ TEST_F(SgTest, Sg_Policy_1) {
     DelNode("security-group", "sg2");
     DelNode("access-control-list", "ag2");
     Inet4UnicastAgentRouteTable::DeleteReq(NULL, "vrf1",
-        Ip4Address::from_string("10.10.10.0", ec), 24);
+        Ip4Address::from_string("10.10.10.0", ec), 24, NULL);
     client->WaitForIdle();
 }
 
@@ -627,12 +624,9 @@ TEST_F(SgTest, Sg_Policy_2) {
     sg_id_list.push_back(2);
     //Add a remote route pointing to SG id 2
     boost::system::error_code ec;
-    Inet4UnicastAgentRouteTable::AddRemoteVmRouteReq(NULL, "vrf1",
-                                    Ip4Address::from_string("10.10.10.0", ec),
-                                    24,
-                                    Ip4Address::from_string("10.10.10.10", ec),
-                                    TunnelType::AllType(),
-                                    17, "vn1", sg_id_list);
+    Inet4TunnelRouteAdd(NULL, "vrf1", Ip4Address::from_string("10.10.10.0", ec),
+                        24, Ip4Address::from_string("10.10.10.10", ec),
+                        TunnelType::AllType(), 17, "vn1", sg_id_list);
     client->WaitForIdle();
 
     char remote_ip[] = "10.10.10.1";
@@ -646,12 +640,9 @@ TEST_F(SgTest, Sg_Policy_2) {
 
     //Change the route sg id to 3
     sg_id_list[0] = 3;
-    Inet4UnicastAgentRouteTable::AddRemoteVmRouteReq(NULL, "vrf1",
-                                    Ip4Address::from_string("10.10.10.0", ec),
-                                    24,
-                                    Ip4Address::from_string("10.10.10.10", ec),
-                                    TunnelType::AllType(),
-                                    17, "vn1", sg_id_list);
+    Inet4TunnelRouteAdd(NULL, "vrf1", Ip4Address::from_string("10.10.10.0", ec),
+                        24, Ip4Address::from_string("10.10.10.10", ec),
+                        TunnelType::AllType(), 17, "vn1", sg_id_list);
     client->WaitForIdle();
 
     EXPECT_TRUE(ValidateAction(vnet[1]->vrf()->vrf_id(), remote_ip,
@@ -667,7 +658,7 @@ TEST_F(SgTest, Sg_Policy_2) {
     DelNode("security-group", "sg2");
     DelNode("access-control-list", "ag2");
     Inet4UnicastAgentRouteTable::DeleteReq(NULL, "vrf1",
-            Ip4Address::from_string("10.10.10.0", ec), 24);
+            Ip4Address::from_string("10.10.10.0", ec), 24, NULL);
     client->WaitForIdle();
 }
 
