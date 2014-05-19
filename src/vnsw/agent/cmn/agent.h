@@ -218,18 +218,18 @@ public:
  
     const int8_t &GetXmppDnsCfgServerIdx() {return xs_dns_idx_; };
     void SetXmppDnsCfgServer(uint8_t xs_idx) { xs_dns_idx_ = xs_idx; };
-    const std::string &GetDnsXmppServer(uint8_t idx) {
-        return xs_dns_addr_[idx]; 
+    const std::string &GetDnsServer(uint8_t idx) {
+        return dns_addr_[idx]; 
     }
-    void SetDnsXmppServer(const std::string &addr, uint8_t idx) {
-        xs_dns_addr_[idx] = addr;
+    void SetDnsServer(const std::string &addr, uint8_t idx) {
+        dns_addr_[idx] = addr;
     }
 
-    const uint32_t GetDnsXmppPort(uint8_t idx) {
-        return xs_dns_port_[idx]; 
+    const uint32_t GetDnsServerPort(uint8_t idx) {
+        return dns_port_[idx]; 
     }
-    void SetDnsXmppPort(uint32_t port, uint8_t idx) {
-        xs_dns_port_[idx] = port;
+    void SetDnsServerPort(uint32_t port, uint8_t idx) {
+        dns_port_[idx] = port;
     }
 
     /* Discovery Server, port, service-instances */
@@ -657,8 +657,8 @@ private:
     uint32_t xs_port_[MAX_XMPP_SERVERS];
     uint64_t xs_stime_[MAX_XMPP_SERVERS];
     int8_t xs_dns_idx_;
-    std::string xs_dns_addr_[MAX_XMPP_SERVERS];
-    uint32_t xs_dns_port_[MAX_XMPP_SERVERS];
+    std::string dns_addr_[MAX_XMPP_SERVERS];
+    uint32_t dns_port_[MAX_XMPP_SERVERS];
     std::string dss_addr_;
     uint32_t dss_port_;
     int dss_xs_instances_;

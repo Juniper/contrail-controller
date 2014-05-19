@@ -708,8 +708,8 @@ void VrouterUveEntry::SendVrouterUve() {
 
 
     for (int idx = 0; idx < MAX_XMPP_SERVERS; idx++) {
-        if (!agent_->GetDnsXmppServer(idx).empty()) {
-            dns_list.push_back(agent_->GetDnsXmppServer(idx));
+        if (!agent_->GetDnsServer(idx).empty()) {
+            dns_list.push_back(agent_->GetDnsServer(idx));
         }
     }
 

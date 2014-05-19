@@ -694,8 +694,8 @@ void DnsHandler::UpdateOffsets(DnsItem &item, bool name_update_required) {
 void DnsHandler::UpdateGWAddress(DnsItem &item) {
     boost::system::error_code ec;
     if (item.type == DNS_A_RECORD && 
-        (item.data == agent()->GetDnsXmppServer(0) ||
-         item.data == agent()->GetDnsXmppServer(1))) {
+        (item.data == agent()->GetDnsServer(0) ||
+         item.data == agent()->GetDnsServer(1))) {
         boost::asio::ip::address_v4 addr(pkt_info_->ip_daddr);
         item.data = addr.to_string(ec);
     }

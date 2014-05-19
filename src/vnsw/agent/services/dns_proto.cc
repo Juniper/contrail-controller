@@ -15,11 +15,12 @@ void DnsProto::Shutdown() {
 }
 
 void DnsProto::ConfigInit() {
-    std::vector<std::string> dns_servers;
+    std::vector<BindResolver::DnsServer> dns_servers;
     for (int i = 0; i < MAX_XMPP_SERVERS; i++) {
-        std::string server = agent()->GetDnsXmppServer(i);    
+        std::string server = agent()->GetDnsServer(i);    
         if (server != "")
-            dns_servers.push_back(server);
+            dns_servers.push_back(BindResolver::DnsServer(
+                                  server, agent()->GetDnsServerPort(i)));
     }
     BindResolver::Init(*agent()->GetEventManager()->io_service(), dns_servers,
                        boost::bind(&DnsProto::SendDnsIpc, this, _1));

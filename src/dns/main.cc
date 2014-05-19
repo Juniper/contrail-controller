@@ -118,6 +118,7 @@ int main(int argc, char *argv[]) {
         Dns::SetCollector(options.collector_server_list()[0]);
     }
     Dns::SetHttpPort(options.http_server_port());
+    Dns::SetDnsPort(options.dns_server_port());
 
     BgpSandeshContext sandesh_context;
     boost::system::error_code ec;
@@ -189,7 +190,7 @@ int main(int argc, char *argv[]) {
         if (!options.host_ip().empty()) {
             stringstream pub_ss;
             pub_ss << "<dns-server><ip-address>" << options.host_ip() <<
-                      "</ip-address><port>" << ContrailPorts::DnsXmpp <<
+                      "</ip-address><port>" << options.dns_server_port() <<
                       "</port></dns-server>";
             std::string pub_msg;
             pub_msg = pub_ss.str();

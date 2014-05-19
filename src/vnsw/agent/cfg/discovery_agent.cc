@@ -126,7 +126,7 @@ void DiscoveryAgentClient::DiscoverServices() {
             } 
 
             //subscribe to DNServer 
-            if (agent_cfg_->agent()->GetDnsXmppServer(0).empty()) {
+            if (agent_cfg_->agent()->GetDnsServer(0).empty()) {
                 DiscoveryAgentClient::DiscoverDNS(); 
             } 
         }

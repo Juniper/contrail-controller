@@ -151,6 +151,7 @@ void NamedConfig::WriteOptionsConfig() {
     file_ << "    managed-keys-directory \"" << zone_file_dir_ << "\";" << endl;
     file_ << "    empty-zones-enable no;" << endl;
     file_ << "    pid-file \"" << GetPidFilePath() << "\";" << endl;
+    file_ << "    listen-on port " << Dns::GetDnsPort() << ";" << endl;
     file_ << "    allow-query { any; };" << endl;
     file_ << "    allow-recursion { any; };" << endl;
     file_ << "    allow-query-cache { any; };" << endl;

@@ -21,6 +21,7 @@ public:
     const std::string hostname() const { return hostname_; }
     const std::string host_ip() const { return host_ip_; }
     const uint16_t http_server_port() const { return http_server_port_; }
+    const uint16_t dns_server_port() const { return dns_server_port_; }
     const std::string log_category() const { return log_category_; }
     const bool log_disable() const { return log_disable_; }
     const std::string log_file() const { return log_file_; }
@@ -53,6 +54,7 @@ private:
     std::string hostname_;
     std::string host_ip_;
     uint16_t http_server_port_;
+    uint16_t dns_server_port_;
     std::string log_category_;
     bool log_disable_;
     std::string log_file_;
