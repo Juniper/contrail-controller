@@ -123,7 +123,7 @@ class AuthServiceKeystone(object):
         headers = {'X-Auth-Token': self._auth_token}
         response, data = self._auth_middleware._json_request(
             method, path, additional_headers=headers)
-        return data if response.status == 200 else {}
+        return data if response.status_code == 200 else {}
     # end json_request
 
     def get_projects(self):
