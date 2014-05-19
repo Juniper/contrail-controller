@@ -84,7 +84,7 @@ protected:
             Agent::GetInstance()->GetDefaultInet4UnicastRouteTable()->DeleteReq(
                                                          Agent::GetInstance()->local_peer(),
                                                          Agent::GetInstance()->GetDefaultVrf(),
-                                                         dip_[i], 32);
+                                                         dip_[i], 32, NULL);
         }
         client->WaitForIdle();
     }

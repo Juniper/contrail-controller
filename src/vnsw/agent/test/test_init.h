@@ -62,6 +62,8 @@
 #include "kstate/test/test_kstate.h"
 #include "sandesh/sandesh_http.h"
 #include "xmpp/test/xmpp_test_util.h"
+#include <oper/agent_path.h>
+#include <controller/controller_route_path.h>
 
 using namespace std;
 
