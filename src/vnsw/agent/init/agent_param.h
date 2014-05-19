@@ -79,7 +79,7 @@ public:
     bool log_local() const { return log_local_; }
     const std::string &log_level() const { return log_level_; }
     const std::string &log_category() const { return log_category_; }
-    const std::vector<std::string> collector_server_list() const { 
+    const std::vector<std::string> &collector_server_list() const { 
         return collector_server_list_;
     }
     uint16_t http_server_port() const { return http_server_port_; }
