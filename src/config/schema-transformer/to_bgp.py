@@ -2206,7 +2206,7 @@ class VirtualMachineInterfaceST(DictST):
             _sandesh._logger.debug("NoIdError while updating interface " +
                                    self.name)
     # end process_analyzer
-    
+
     def rebake(self):
         network_set = set()
         if self.virtual_network in VirtualNetworkST:
@@ -2216,7 +2216,13 @@ class VirtualMachineInterfaceST(DictST):
         # return all networks that refer to those policies
         if self.service_interface_type not in ['left', 'right']:
             return network_set
-        vmi_obj = _vnc_lib.virtual_machine_interface_read(fq_name_str=self.name)
+        try:
+            vmi_obj = _vnc_lib.virtual_machine_interface_read(
+                fq_name_str=self.name)
+        except NoIdError:
+            _sandesh._logger.debug("NoIdError while reading interface %s",
+                                   self.name)
+            return
         vm_id = get_vm_id_from_interface(vmi_obj)
         if vm_id is None:
             return network_set
@@ -2228,8 +2234,8 @@ class VirtualMachineInterfaceST(DictST):
         try:
             si_obj = _vnc_lib.service_instance_read(id=service_instance['uuid'])
         except NoIdError:
-            _sandesh._logger.debug("NoIdError while reading service instance " +
-                                   service_instance['uuid'])
+            _sandesh._logger.debug("NoIdError while reading service instance "
+                                   + service_instance['uuid'])
             return network_set
         si_name = si_obj.get_fq_name_str()
         for policy in NetworkPolicyST.values():
@@ -2262,8 +2268,8 @@ class VirtualMachineInterfaceST(DictST):
                 ip_obj = _vnc_lib.instance_ip_read(fq_name_str=ip)
             except NoIdError as e:
                 _sandesh._logger.debug(
-                    "NoIdError while reading ip address for interface "
-                    "%s: %s", if_obj.get_fq_name_str(), str(e))
+                    "NoIdError while reading ip address for interface %s: %s",
+                    self.name, str(e))
                 continue
 
             address = AddressType(subnet=SubnetType(
@@ -2276,8 +2282,23 @@ class VirtualMachineInterfaceST(DictST):
                                          ignore_acl=False)
             vrf_table.add_vrf_assign_rule(vrf_rule)
 
-        vm_name = self.name.split(':')[0]
-        vm_obj = _vnc_lib.virtual_machine_read(fq_name=[vm_name])
+        try:
+            vmi_obj = _vnc_lib.virtual_machine_interface_read(
+                fq_name_str=self.name)
+        except NoIdError as e:
+            _sandesh._logger.debug(
+                "NoIdError while reading virtual machine interface %s: %s",
+                self.name, str(e))
+            return
+
+        vm_id = get_vm_id_from_interface(vmi_obj)
+        try:
+            vm_obj = _vnc_lib.virtual_machine_read(id=vm_id)
+        except NoIdError as e:
+            _sandesh._logger.debug(
+                "NoIdError while reading virtual machine %s: %s",
+                vm_id, str(e))
+            return
         vm_si_refs = vm_obj.get_service_instance_refs()
         if not vm_si_refs:
             return
