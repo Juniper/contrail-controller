@@ -203,7 +203,7 @@ AgentPath *Inet4UnicastRouteEntry::AllocateEcmpPath(Agent *agent,
     nh_req.data.reset(new CompositeNHData(component_nh_list,
                                           CompositeNHData::REPLACE));
 
-    Inet4UnicastEcmpRoute data(addr_, plen_, path2->dest_vn_name(),
+    Inet4UnicastEcmpRoute data(NULL, addr_, plen_, path2->dest_vn_name(),
                                label, true, vrf()->GetName(), path2->sg_list(),
                                nh_req);
 
@@ -398,6 +398,10 @@ bool Inet4UnicastGatewayRoute::AddChangePath(Agent *agent, AgentPath *path) {
     return true;
 }
 
+bool Inet4UnicastEcmpRoute::IsPeerValid() const {
+    return CheckPeerValidity();
+}
+
 bool Inet4UnicastEcmpRoute::AddChangePath(Agent *agent, AgentPath *path) {
     bool ret = false;
     NextHop *nh = NULL;
@@ -542,7 +546,12 @@ Inet4UnicastAgentRouteTable::DeleteReq(const Peer *peer, const string &vrf_name,
                                        const Ip4Address &addr, uint8_t plen) {
     DBRequest req(DBRequest::DB_ENTRY_DELETE);
     req.key.reset(new Inet4UnicastRouteKey(peer, vrf_name, addr, plen));
-    req.data.reset(NULL);
+    if (peer && peer->GetType() == Peer::BGP_PEER) {
+        RemoteVmRoute *data = new RemoteVmRoute(peer);
+        req.data.reset(data);
+    } else {
+        req.data.reset(NULL);
+    }
     UnicastTableEnqueue(Agent::GetInstance(), vrf_name, &req);
 }
 
@@ -694,7 +703,7 @@ static void MakeRemoteVmRouteReq(Agent *agent, DBRequest &rt_req,
     rt_req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
     rt_req.key.reset(new Inet4UnicastRouteKey(peer, vm_vrf, vm_addr, plen));
     RemoteVmRoute *rt_data = 
-        new RemoteVmRoute(agent->GetDefaultVrf(), server_ip, label,
+        new RemoteVmRoute(peer, agent->GetDefaultVrf(), server_ip, label,
                           dest_vn_name, bmap, sg_list, nh_req);
     rt_req.data.reset(rt_data);
 }
@@ -736,7 +745,7 @@ Inet4UnicastAgentRouteTable::AddRemoteVmRouteReq(const Peer *peer,
 
     DBRequest req(DBRequest::DB_ENTRY_ADD_CHANGE);
     req.key.reset(new Inet4UnicastRouteKey(peer, vm_vrf, vm_addr, plen));
-    req.data.reset(new Inet4UnicastEcmpRoute(vm_addr, plen, dest_vn_name,
+    req.data.reset(new Inet4UnicastEcmpRoute(peer, vm_addr, plen, dest_vn_name,
                                              label, false, vm_vrf, sg, nh_req));
     UnicastTableEnqueue(Agent::GetInstance(), vm_vrf, &req);
 }
