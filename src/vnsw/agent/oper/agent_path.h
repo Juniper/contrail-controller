@@ -5,6 +5,10 @@
 #ifndef vnsw_agent_path_hpp
 #define vnsw_agent_path_hpp
 
+//Forward declaration
+class AgentXmppChannel;
+class Peer;
+
 // A common class for all different type of paths
 class AgentPath : public Path {
 public:
@@ -161,19 +165,41 @@ private:
     DISALLOW_COPY_AND_ASSIGN(LocalVmRoute);
 };
 
-class RemoteVmRoute : public AgentRouteData {
+class BgpPeerData {
 public:
-    RemoteVmRoute(const string &vrf_name, const Ip4Address &addr,
-                  uint32_t label, const string &dest_vn_name,
-                  int bmap, const SecurityGroupList &sg_list,
-                  DBRequest &req):
-        AgentRouteData(false), server_vrf_(vrf_name), server_ip_(addr),
-        tunnel_bmap_(bmap), label_(label), dest_vn_name_(dest_vn_name),
-        sg_list_(sg_list) { nh_req_.Swap(&req);
+    BgpPeerData(const Peer *peer);
+    ~BgpPeerData() { }
+
+    bool CheckPeerValidity() const;
+    // Only to be used for tests
+    void set_sequence_number(uint64_t sequence_number) {
+        sequence_number_ = sequence_number;
     }
+
+private:
+    const Peer *peer_;
+    const AgentXmppChannel *channel_;
+    uint64_t sequence_number_;
+};
+
+class RemoteVmRoute : public AgentRouteData, public BgpPeerData {
+public:
+    RemoteVmRoute(const Peer *peer, const string &vrf_name,
+                  const Ip4Address &addr, uint32_t label,
+                  const string &dest_vn_name, int bmap,
+                  const SecurityGroupList &sg_list, DBRequest &req):
+        AgentRouteData(false), BgpPeerData(peer),
+        server_vrf_(vrf_name), server_ip_(addr),
+        tunnel_bmap_(bmap), label_(label), dest_vn_name_(dest_vn_name),
+        sg_list_(sg_list) {nh_req_.Swap(&req);}
+    // Data passed in case of delete from BGP peer, to validate 
+    // the request at time of processing.
+    RemoteVmRoute(const Peer *peer) : AgentRouteData(false),
+        BgpPeerData(peer) { }
     virtual ~RemoteVmRoute() { }
     virtual bool AddChangePath(Agent *agent, AgentPath *path);
     virtual string ToString() const {return "remote VM";}
+    virtual bool IsPeerValid() const;
     const SecurityGroupList &sg_list() const {return sg_list_;}
 
 private:
@@ -183,6 +209,8 @@ private:
     uint32_t label_;
     string dest_vn_name_;
     SecurityGroupList sg_list_;
+    const AgentXmppChannel *channel_;
+    uint64_t sequence_number_;
     DBRequest nh_req_;
     DISALLOW_COPY_AND_ASSIGN(RemoteVmRoute);
 };
@@ -294,21 +322,21 @@ private:
     DISALLOW_COPY_AND_ASSIGN(ReceiveRoute);
 };
 
-class Inet4UnicastEcmpRoute : public AgentRouteData {
+class Inet4UnicastEcmpRoute : public AgentRouteData, public BgpPeerData {
 public:
-    Inet4UnicastEcmpRoute(const Ip4Address &dest_addr, uint8_t plen,
-                          const string &vn_name, 
-                          uint32_t label, bool local_ecmp_nh, 
-                          const string &vrf_name, SecurityGroupList sg_list,
-                          DBRequest &nh_req) :
-        AgentRouteData(false), dest_addr_(dest_addr), plen_(plen),
+    Inet4UnicastEcmpRoute(const Peer *peer, const Ip4Address &dest_addr,
+                          uint8_t plen, const string &vn_name, uint32_t label,
+                          bool local_ecmp_nh, const string &vrf_name,
+                          SecurityGroupList sg_list, DBRequest &nh_req) :
+        AgentRouteData(false), BgpPeerData(peer),
+        dest_addr_(dest_addr), plen_(plen),
         vn_name_(vn_name), label_(label), local_ecmp_nh_(local_ecmp_nh),
-        vrf_name_(vrf_name), sg_list_(sg_list) {
-            nh_req_.Swap(&nh_req);
-    }
+        vrf_name_(vrf_name), sg_list_(sg_list) {nh_req_.Swap(&nh_req);}
+
     virtual ~Inet4UnicastEcmpRoute() { }
     virtual bool AddChangePath(Agent *agent, AgentPath *path);
     virtual string ToString() const {return "inet4 ecmp";}
+    virtual bool IsPeerValid() const;
 
 private:
     Ip4Address dest_addr_;

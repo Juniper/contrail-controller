@@ -14,6 +14,9 @@
 #include <oper/tunnel_nh.h>
 #include <oper/mpls.h>
 #include <oper/mirror_table.h>
+#include <oper/peer.h>
+#include <controller/controller_peer.h>
+#include <controller/controller_init.h>
 #include <controller/controller_export.h>
 #include <oper/agent_sandesh.h>
 
@@ -467,6 +470,10 @@ bool VlanNhRoute::AddChangePath(Agent *agent, AgentPath *path) {
     return ret;
 }
 
+bool RemoteVmRoute::IsPeerValid() const {
+    return CheckPeerValidity();
+}
+
 bool RemoteVmRoute::AddChangePath(Agent *agent, AgentPath *path) {
     bool ret = false;
     NextHop *nh = NULL;
@@ -765,4 +772,29 @@ void AgentPath::SetSandeshData(PathSandeshData &pdata) const {
     pdata.set_supported_tunnel_type(
             TunnelType::GetString(tunnel_bmap()));
     pdata.set_stale(is_stale());
+}
+
+BgpPeerData::BgpPeerData(const Peer *peer) : peer_(peer) {
+    //TODO Test cases send NULL peer, fix them, for non bgp peer ignore.
+    if ((peer == NULL) || (peer->GetType() != Peer::BGP_PEER)) {
+        channel_ = NULL;
+        sequence_number_ = VNController::kInvalidPeerIdentifier;
+    } else {
+        const BgpPeer *bgp_peer = static_cast<const BgpPeer *>(peer);
+        channel_ = bgp_peer->GetBgpXmppPeerConst();
+        sequence_number_ = bgp_peer->GetBgpXmppPeerConst()->
+            unicast_sequence_number();
+    }
+}
+
+bool BgpPeerData::CheckPeerValidity() const {
+    //TODO reaching here as test case route add called with NULL peer
+    if (sequence_number_ == VNController::kInvalidPeerIdentifier)
+        return true;
+
+    assert(channel_);
+    if (sequence_number_ == channel_->unicast_sequence_number())
+        return true;
+
+    return false;
 }

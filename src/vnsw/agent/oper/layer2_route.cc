@@ -160,7 +160,7 @@ void Layer2AgentRouteTable::AddRemoteVmRouteReq(const Peer *peer,
 
     SecurityGroupList sg_list;
     RemoteVmRoute *data = 
-        new RemoteVmRoute(Agent::GetInstance()->GetDefaultVrf(),
+        new RemoteVmRoute(peer, Agent::GetInstance()->GetDefaultVrf(),
                           server_ip, label, "", bmap, 
                           sg_list, nh_req);
     req.data.reset(data);
@@ -177,7 +177,12 @@ void Layer2AgentRouteTable::DeleteReq(const Peer *peer, const string &vrf_name,
 
     Layer2RouteKey *key = new Layer2RouteKey(peer, vrf_name, mac);
     req.key.reset(key);
-    req.data.reset(NULL);
+    if (peer && peer->GetType() == Peer::BGP_PEER) {
+        RemoteVmRoute *data = new RemoteVmRoute(peer);
+        req.data.reset(data);
+    } else {
+        req.data.reset(NULL);
+    }
     Layer2TableEnqueue(Agent::GetInstance(), vrf_name, &req);
 }
 

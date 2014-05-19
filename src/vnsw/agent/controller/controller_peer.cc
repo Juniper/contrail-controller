@@ -36,7 +36,7 @@ AgentXmppChannel::AgentXmppChannel(Agent *agent, XmppChannel *channel,
                                    const std::string &label_range, 
                                    uint8_t xs_idx) 
     : channel_(channel), xmpp_server_(xmpp_server), label_range_(label_range),
-      xs_idx_(xs_idx), agent_(agent) {
+      xs_idx_(xs_idx), agent_(agent), unicast_sequence_number_(0) {
     bgp_peer_id_.reset();
     channel_->RegisterReceive(xmps::BGP, 
                               boost::bind(&AgentXmppChannel::ReceiveInternal, 
@@ -744,6 +744,13 @@ void AgentXmppChannel::UnicastPeerDown(AgentXmppChannel *peer,
     uint32_t active_xmpp_count = agent->controller()->
         ActiveXmppConnectionCount();
     VNController *vn_controller = agent->controller();
+
+    // There may be some DB request queued from this peer.
+    // Ignore those as this peer is dead.
+    // DB request from the peer is consumed only if peer was alive
+    // at the time of request handling.
+    peer->increment_unicast_sequence_number();
+
     // Cancel timer - when second peer comes up at say 4.5 mts and
     // immediately first peer does down then there is a interval of few seconds
     // for second peer to clean up whereas he shud have had 5 mts.

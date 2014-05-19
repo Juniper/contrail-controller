@@ -98,6 +98,11 @@ public:
     Agent *agent() const {return agent_;}
     BgpPeer *bgp_peer_id() const {return bgp_peer_id_.get();}
     std::string GetBgpPeerName() const;
+
+    //Unicast peer identifier
+    void increment_unicast_sequence_number() {unicast_sequence_number_++;}
+    uint64_t unicast_sequence_number() const {return unicast_sequence_number_;}
+
    
 protected:
     virtual void WriteReadyCb(const boost::system::error_code &ec);
@@ -120,6 +125,7 @@ private:
     uint8_t xs_idx_;
     boost::shared_ptr<BgpPeer> bgp_peer_id_;
     Agent *agent_;
+    uint64_t unicast_sequence_number_;
 };
 
 #endif // __CONTROLLER_PEER_H__
