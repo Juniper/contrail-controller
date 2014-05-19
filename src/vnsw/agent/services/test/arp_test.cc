@@ -459,7 +459,7 @@ TEST_F(ArpTest, GratArpSendTest) {
     Agent::GetInstance()->GetDefaultInet4UnicastRouteTable()->DeleteReq(
                                                     Agent::GetInstance()->local_peer(), 
                                                     Agent::GetInstance()->GetDefaultVrf(),
-                                                    ip1, 32);
+                                                    ip1, 32, NULL);
     client->WaitForIdle();
     EXPECT_TRUE(Agent::GetInstance()->GetArpProto()->gratuitous_arp_entry() == NULL);
 
@@ -471,7 +471,7 @@ TEST_F(ArpTest, GratArpSendTest) {
     Agent::GetInstance()->GetDefaultInet4UnicastRouteTable()->DeleteReq(
                                                     Agent::GetInstance()->local_peer(), 
                                                     Agent::GetInstance()->GetDefaultVrf(),
-                                                    ip2, 32);
+                                                    ip2, 32, NULL);
     client->WaitForIdle();
     EXPECT_TRUE(Agent::GetInstance()->GetArpProto()->gratuitous_arp_entry() == NULL);
 }

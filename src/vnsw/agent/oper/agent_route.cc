@@ -291,6 +291,12 @@ void AgentRouteTable::Input(DBTablePartition *part, DBClient *client,
     AgentPath *path = NULL;
     AgentRoute *rt = static_cast<AgentRoute *>(part->Find(key));
 
+    if (data && data->IsPeerValid() == false) {
+        AGENT_ROUTE_LOG("Invalid/Inactive Peer ", key->ToString(), vrf_name(),
+                        key->peer());
+        return;
+    }
+
     if (req->oper == DBRequest::DB_ENTRY_ADD_CHANGE) {
         // Ignore ADD_CHANGE if received on deleted VRF
         if(vrf->IsDeleted()) {

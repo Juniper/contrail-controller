@@ -77,7 +77,7 @@ class AgentBgpXmppPeerTest : public AgentXmppChannel {
 public:
     AgentBgpXmppPeerTest(XmppChannel *channel, std::string xs, uint8_t xs_idx) :
         AgentXmppChannel(Agent::GetInstance(), channel, xs, "0", xs_idx), 
-        rx_count_(0), rx_channel_event_queue_(
+        rx_count_(0), stop_scheduler_(false), rx_channel_event_queue_(
             TaskScheduler::GetInstance()->GetTaskId("xmpp::StateMachine"), 0,
             boost::bind(&AgentBgpXmppPeerTest::ProcessChannelEvent, this, _1)) {
     }
@@ -105,9 +105,11 @@ public:
 
     size_t Count() const { return rx_count_; }
     virtual ~AgentBgpXmppPeerTest() { }
+    void stop_scheduler(bool stop) {stop_scheduler_ = stop;}
 
 private:
     size_t rx_count_;
+    bool stop_scheduler_;
     WorkQueue<xmps::PeerState> rx_channel_event_queue_;
 };
 
@@ -164,7 +166,7 @@ private:
 
 class AgentXmppUnitTest : public ::testing::Test { 
 protected:
-    AgentXmppUnitTest() : thread_(&evm_), agent_(Agent::GetInstance())  {}
+    AgentXmppUnitTest() : thread_(&evm_), agent_(Agent::GetInstance()) {}
  
     virtual void SetUp() {
         xs = new XmppServer(&evm_, XmppInit::kControlNodeJID);
@@ -608,6 +610,71 @@ TEST_F(AgentXmppUnitTest, Connection) {
     xc->ConfigUpdate(new XmppConfigData());
     client->WaitForIdle(5);
 
+}
+
+TEST_F(AgentXmppUnitTest, Add_db_req_by_deleted_peer_non_hv) {
+
+    client->Reset();
+    client->WaitForIdle();
+    if (agent_->headless_agent_mode())
+        return;
+
+
+    XmppConnectionSetUp();
+    //wait for connection establishment
+    WAIT_FOR(1000, 10000, (sconnection->GetStateMcState() == xmsm::ESTABLISHED));
+    WAIT_FOR(1000, 10000, (cchannel->GetPeerState() == xmps::READY));
+
+    bgp_peer.get()->stop_scheduler(true);
+    // Create vm-port and vn
+    struct PortInfo input[] = {
+        {"vnet10", 10, "1.1.1.10", "00:00:00:01:01:10", 10, 10},
+    };
+
+    //expect subscribe for __default__ at the mock server
+    WAIT_FOR(1000, 10000, (mock_peer.get()->Count() == 1));
+
+    VxLanNetworkIdentifierMode(false);
+    client->WaitForIdle();
+    //Create vn,vrf,vm,vm-port and route entry in vrf1
+    CreateVmportEnv(input, 1);
+
+    Ip4Address addr = Ip4Address::from_string("1.1.1.10");
+    WAIT_FOR(1000, 10000, (VmPortActive(input, 0)));
+    WAIT_FOR(1000, 10000, (RouteFind("vrf10", addr, 32)));
+    Inet4UnicastRouteEntry *rt = RouteGet("vrf10", addr, 32);
+    const BgpPeer *old_bgp_peer = Agent::GetInstance()->GetAgentXmppChannel(0)->
+        bgp_peer_id();
+    AgentXmppChannel::HandleAgentXmppClientChannelEvent(bgp_peer.get(),
+                                                        xmps::NOT_READY);
+    client->WaitForIdle();
+
+    Agent *agent = Agent::GetInstance();
+    DBRequest nh_req(DBRequest::DB_ENTRY_ADD_CHANGE);
+    nh_req.key.reset(new TunnelNHKey(agent->GetDefaultVrf(),
+                                     agent->GetRouterId(),
+                                     Ip4Address::from_string("8.8.8.8"), false,
+                                     TunnelType::ComputeType(TunnelType::MplsType())));
+    nh_req.data.reset(new TunnelNHData());
+
+    Inet4TunnelRouteAdd(old_bgp_peer, "vrf10", addr, 32,
+                        Ip4Address::from_string("8.8.8.8"),
+                        TunnelType::ComputeType(TunnelType::MplsType()),
+                        100, "vn10", SecurityGroupList());
+    client->WaitForIdle();
+    EXPECT_TRUE(rt->GetPathList().size() == 1);
+
+    DeleteVmportEnv(input, 1, true);
+    //Confirm Vmport is deleted
+    WAIT_FOR(1000, 10000, (VmPortActive(input, 0) == false));
+    WAIT_FOR(1000, 10000, (RouteFind("vrf10", addr, 32) == false));
+
+    WAIT_FOR(1000, 10000, (DBTableFind("vrf10.uc.route.0") == false));
+    WAIT_FOR(1000, 10000, (VrfFind("vrf10") == false));
+
+    bgp_peer.get()->stop_scheduler(false);
+    xc->ConfigUpdate(new XmppConfigData());
+    client->WaitForIdle(5);
 }
 
 TEST_F(AgentXmppUnitTest, CfgServerSelection) {
