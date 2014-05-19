@@ -79,8 +79,9 @@ public:
     bool log_local() const { return log_local_; }
     const std::string &log_level() const { return log_level_; }
     const std::string &log_category() const { return log_category_; }
-    const Ip4Address &collector() const { return collector_; }
-    uint16_t collector_port() const {return collector_port_; }
+    const std::vector<std::string> collector_server_list() const { 
+        return collector_server_list_;
+    }
     uint16_t http_server_port() const { return http_server_port_; }
     const std::string &host_name() const { return host_name_; }
     int agent_stats_interval() const { return agent_stats_interval_; }
@@ -182,8 +183,7 @@ private:
     bool log_local_;
     std::string log_level_;
     std::string log_category_;
-    Ip4Address collector_;
-    uint16_t collector_port_;
+    std::vector<std::string> collector_server_list_;
     uint16_t http_server_port_;
     std::string host_name_;
     int agent_stats_interval_;

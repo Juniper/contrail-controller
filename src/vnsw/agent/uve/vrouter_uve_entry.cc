@@ -523,16 +523,12 @@ void VrouterUveEntry::BuildAgentConfig(VrouterAgent &vrouter_agent) {
     AgentXenConfig xen_cfg;
     AgentVmwareConfig vmware_cfg;
     string hypervisor;
-    int collector_port;
     vector<string> dns_list;
     vector<string> control_node_list;
     vector<AgentVgwConfig> gw_cfg_list;
 
     AgentParam *param = agent_->params();
 
-    vrouter_agent.set_collector(param->collector().to_string());
-    collector_port = param->collector_port();
-    vrouter_agent.set_collector_port(collector_port);
     vrouter_agent.set_log_file(param->log_file());
     vrouter_agent.set_config_file(param->config_file());
     vrouter_agent.set_log_local(param->log_local());
@@ -604,6 +600,7 @@ void VrouterUveEntry::BuildAgentConfig(VrouterAgent &vrouter_agent) {
     }
     vrouter_agent.set_gateway_cfg_list(gw_cfg_list);
     vrouter_agent.set_headless_mode_cfg(param->headless_mode());
+    vrouter_agent.set_collector_server_list_cfg(param->collector_server_list());
 }
 
 

@@ -240,15 +240,11 @@ void Agent::CreateModules() {
             g_vns_constants.ModuleNames.find(module)->second,
             params_->host_name(),
             g_vns_constants.NodeTypeNames.find(node_type)->second,
-            g_vns_constants.INSTANCE_ID_DEFAULT,
+            g_vns_constants.INSTANCE_ID_DEFAULT, 
             GetEventManager(),
-            params_->http_server_port());
-
-        if (params_->collector_port() != 0 && 
-            !params_->collector().to_ulong() != 0) {
-            Sandesh::ConnectToCollector(params_->collector().to_string(),
-                                        params_->collector_port());
-        }
+            params_->http_server_port(), 0, 
+            params_->collector_server_list(),
+            NULL);
     }
 
     cfg_ = std::auto_ptr<AgentConfig>(new AgentConfig(this));

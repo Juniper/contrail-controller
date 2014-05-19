@@ -95,7 +95,7 @@ void DiscoveryAgentClient::DiscoverServices() {
         if (ds_client) {
 
             //subscribe to collector service
-            if (param_->collector().to_ulong() == 0) {
+            if (param_->collector_server_list().size() == 0) {
                 Module::type module = Module::VROUTER_AGENT;
                 NodeType::type node_type = 
                     g_vns_constants.Module2NodeType.find(module)->second;

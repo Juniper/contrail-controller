@@ -61,13 +61,13 @@ public:
          opt::value<string>()->default_value(Agent::DefaultConfigFile()), 
          "Configuration file")
         ("version", "Display version information")
-        ("COLLECTOR.server", opt::value<string>(), 
-         "IP address of sandesh collector")
-        ("COLLECTOR.port", opt::value<uint16_t>(), "Port of sandesh collector")
         ("CONTROL-NODE.server", 
          opt::value<std::vector<std::string> >()->multitoken(),
          "IP addresses of control nodes."
          " Max of 2 Ip addresses can be configured")
+        ("DEFAULT.collectors",
+         opt::value<std::vector<std::string> >()->multitoken(),
+         "Collector server list")
         ("DEFAULT.debug", "Enable debug logging")
         ("DEFAULT.flow_cache_timeout", 
          opt::value<uint16_t>()->default_value(Agent::kDefaultFlowCacheTimeout),
@@ -231,7 +231,7 @@ TEST_F(FlowTest, Agent_Conf_Xen_1) {
 }
 
 TEST_F(FlowTest, Agent_Param_1) {
-    int argc = 16;
+    int argc = 14;
     char *argv[] = {
         (char *) "",
         (char *) "--config-file", 
@@ -239,8 +239,7 @@ TEST_F(FlowTest, Agent_Param_1) {
         (char *) "--DEFAULT.log_local",
         (char *) "--DEFAULT.log_level",     (char *)"SYS_DEBUG",
         (char *) "--DEFAULT.log_category",  (char *)"Test",
-        (char *) "--COLLECTOR.server",     (char *)"1.1.1.1",
-        (char *) "--COLLECTOR.port",(char *)"1000",
+        (char *) "--DEFAULT.collectors",     (char *)"1.1.1.1:1000",
         (char *) "--DEFAULT.http_server_port", (char *)"8000",
         (char *) "--DEFAULT.hostname",     (char *)"vhost-1",
     };
@@ -261,9 +260,10 @@ TEST_F(FlowTest, Agent_Param_1) {
     EXPECT_TRUE(param.log_local());
     EXPECT_STREQ(param.log_level().c_str(), "SYS_DEBUG");
     EXPECT_STREQ(param.log_category().c_str(), "Test");
-    EXPECT_EQ(param.collector().to_ulong(),
-              Ip4Address::from_string("1.1.1.1").to_ulong());
-    EXPECT_EQ(param.collector_port(), 1000);
+    EXPECT_EQ(param.collector_server_list().size(), 1);
+    vector<string> collector_list = param.collector_server_list();
+    string first_collector = collector_list.at(0);
+    EXPECT_STREQ(first_collector.c_str(), "1.1.1.1:1000");
     EXPECT_EQ(param.http_server_port(), 8000);
     EXPECT_STREQ(param.host_name().c_str(), "vhost-1");
 
