@@ -21,7 +21,6 @@ except ImportError:
 from vnc_api import vnc_api
 from vnc_api.gen.resource_xsd import *
 
-from provision_defaults import Provision
 from vnc_api.gen.resource_xsd import *
 from vnc_api.gen.resource_common import *
 
