@@ -1,0 +1,46 @@
+# -*- mode: python; -*-
+
+#
+# Copyright (c) 2014 Juniper Networks, Inc. All rights reserved.
+#
+
+Import('CfgmEnv')
+env = CfgmEnv.Clone()
+
+utils_scripts = [
+  'add_route_target.py',
+  'contrail_utils.py',
+  'del_route_target.py',
+  'provision_bgp.py',
+  'provision.py',
+  'service-policy.py',
+  'chmod.py',
+  'contrail-version',
+  'demo_cfg.py',
+  'provision_control.py',
+  'provision_static_route.py',
+  'service-template.py',
+  'contrail-config.py',
+  'contrail-version-deb',
+  'demo_cmds.sh',
+  'provision_encap.py',
+  'provision_vgw_interface.py',
+  'use_floating_pool.py',
+  'contrail-status',
+  'contrail_veth_port.py',
+  'encap.py',
+  'provision_forwarding_mode.py',
+  'provision_vrouter.py',
+  'vncop.py',
+  'contrail-status-deb',
+  'create_floating_pool.py',
+  'multi_tenancy.py',
+  'provision_linklocal.py',
+  'contrail-status-sup',
+  'del_projects.py',
+  'net_policy_join.py',
+  'provision_mx.py',
+  'service-instance.py']
+
+for utils in utils_scripts:
+  env.Alias('install',env.Install(env['INSTALL_EXAMPLE'], utils))
