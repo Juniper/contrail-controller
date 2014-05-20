@@ -135,8 +135,10 @@ VnUveEntry* VnUveTable::Add(const VnEntry *vn) {
     pair<UveVnMap::iterator, bool> ret;
     ret = uve_vn_map_.insert(UveVnPair(vn->GetName(), uve));
     UveVnMap::iterator it = ret.first;
+    VnUveEntry* entry = it->second.get();
+    entry->set_vn(vn);
 
-    return it->second.get();
+    return entry;
 }
 
 void VnUveTable::Add(const string &vn) {
