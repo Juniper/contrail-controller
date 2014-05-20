@@ -13,12 +13,32 @@ VmUveEntry::VmUveEntry(Agent *agent)
 VmUveEntry::~VmUveEntry() {
 }
 
-void VmUveEntry::InterfaceAdd(const Interface *intf) {
+void VmUveEntry::InterfaceAdd(const Interface *intf, 
+                              VmInterface::FloatingIpSet &old_list) {
+    UveInterfaceEntry *ientry;
     UveInterfaceEntryPtr entry(new UveInterfaceEntry(intf));
     InterfaceSet::iterator it = interface_tree_.find(entry);
     if (it == interface_tree_.end()) {
-        UveInterfaceEntryPtr entry(new UveInterfaceEntry(intf));
         interface_tree_.insert(entry);
+        ientry = entry.get();
+    } else {
+        ientry = (*it).get();
+    }
+    /* We need to handle only floating-ip deletion. The add of floating-ip is 
+     * taken care when stats are available for them during flow stats 
+     * collection */
+    const VmInterface *vm_itf = static_cast<const VmInterface *>(intf);
+    const VmInterface::FloatingIpSet &new_list = vm_itf->floating_ip_list().list_;
+    /* We need to look for entries which are present in old_list and not
+     * in new_list */
+    VmInterface::FloatingIpSet::iterator old_it = old_list.begin();
+    while (old_it != old_list.end()) {
+        VmInterface::FloatingIp fip = *old_it;
+        VmInterface::FloatingIpSet::const_iterator new_it = new_list.find(fip);
+        if (new_it == new_list.end()) {
+            ientry->RemoveFloatingIp(fip);
+        }
+        ++old_it;
     }
 }
 
@@ -26,6 +46,7 @@ void VmUveEntry::InterfaceDelete(const Interface *intf) {
     UveInterfaceEntryPtr entry(new UveInterfaceEntry(intf));
     InterfaceSet::iterator intf_it = interface_tree_.find(entry);
     if (intf_it != interface_tree_.end()) {
+        ((*intf_it).get())->fip_tree_.clear();
         interface_tree_.erase(intf_it);
     }
 }
@@ -187,18 +208,25 @@ bool VmUveEntry::FrameVmStatsMsg(const VmEntry* vm,
 }
 
 bool VmUveEntry::FrameInterfaceStatsMsg(const VmInterface *vm_intf, 
-                                   VmInterfaceAgentStats *s_intf) const {
+                                        VmInterfaceAgentStats *s_intf) const {
     uint64_t in_band, out_band;
+    bool changed = false;
     if (vm_intf->cfg_name() == agent_->NullString()) {
         return false;
     }
     s_intf->set_name(vm_intf->cfg_name());
 
+    UveInterfaceEntryPtr entry(new UveInterfaceEntry(vm_intf));
+    InterfaceSet::iterator intf_it = interface_tree_.find(entry);
+
+    if (intf_it != interface_tree_.end()) {
+        changed = (*intf_it).get()->FillFloatingIpStats(s_intf);
+    }
     const Interface *intf = static_cast<const Interface *>(vm_intf);
     AgentStatsCollector::InterfaceStats *s = 
         agent_->uve()->agent_stats_collector()->GetInterfaceStats(intf);
     if (s == NULL) {
-        return false;
+        return changed;
     }
 
     s_intf->set_in_pkts(s->in_pkts);
@@ -297,3 +325,95 @@ bool VmUveEntry::UveVmInterfaceStatsListChanged
     return false;
 }
 
+void VmUveEntry::UpdateFloatingIpStats(const FipInfo &fip_info) {
+    Interface *intf = InterfaceTable::GetInstance()->FindInterface
+                                                     (fip_info.interface_id_);
+    UveInterfaceEntryPtr entry(new UveInterfaceEntry(intf));
+    InterfaceSet::iterator intf_it = interface_tree_.find(entry);
+
+    assert (intf_it != interface_tree_.end());
+    (*intf_it).get()->UpdateFloatingIpStats(fip_info);
+}
+
+void VmUveEntry::UveInterfaceEntry::UpdateFloatingIpStats
+                                    (const FipInfo &fip_info) {
+    FloatingIpPtr key(new FloatingIp(fip_info.fip_, fip_info.vn_));
+    FloatingIpSet::iterator fip_it =  fip_tree_.find(key);
+    if (fip_it == fip_tree_.end()) {
+        key.get()->UpdateFloatingIpStats(fip_info);
+        fip_tree_.insert(key);
+    } else {
+        (*fip_it).get()->UpdateFloatingIpStats(fip_info);
+    }
+}
+
+void VmUveEntry::FloatingIp::UpdateFloatingIpStats(const FipInfo &fip_info) {
+    if (fip_info.flow_->is_flags_set(FlowEntry::LocalFlow)) {
+        if (fip_info.flow_->is_flags_set(FlowEntry::ReverseFlow)) {
+            out_bytes_ += fip_info.bytes_;
+            out_packets_ += fip_info.packets_;
+        } else {
+            in_bytes_ += fip_info.bytes_;
+            in_packets_ += fip_info.packets_;
+        }
+    } else {
+        if (fip_info.flow_->is_flags_set(FlowEntry::IngressDir)) {
+            in_bytes_ += fip_info.bytes_;
+            in_packets_ += fip_info.packets_;
+        } else {
+            out_bytes_ += fip_info.bytes_;
+            out_packets_ += fip_info.packets_;
+        }
+    }
+}
+
+bool VmUveEntry::UveInterfaceEntry::FillFloatingIpStats
+    (VmInterfaceAgentStats *s_intf) const {
+    const VmInterface *vm_intf = static_cast<const VmInterface *>(intf_);
+    if (vm_intf->HasFloatingIp()) {
+        vector<VmFloatingIPStats> uve_fip_list;
+        const VmInterface::FloatingIpList fip_list = 
+            vm_intf->floating_ip_list();
+        VmInterface::FloatingIpSet::const_iterator it = 
+            fip_list.list_.begin();
+        while(it != fip_list.list_.end()) {
+            const VmInterface::FloatingIp &ip = *it;
+            VmFloatingIPStats uve_fip;
+            uve_fip.set_ip_address(ip.floating_ip_.to_string());
+            uve_fip.set_virtual_network(ip.vn_.get()->GetName());
+
+            FloatingIpPtr key(new FloatingIp(ip.floating_ip_, ip.vn_.get()->GetName()));
+            FloatingIpSet::iterator fip_it =  fip_tree_.find(key);
+            if (fip_it == fip_tree_.end()) {
+                SetStats(uve_fip, 0, 0, 0, 0);
+            } else {
+                FloatingIp *fip = (*fip_it).get();
+                SetStats(uve_fip, fip->in_bytes_, fip->in_packets_, 
+                         fip->out_bytes_, fip->out_packets_);
+            }
+            uve_fip_list.push_back(uve_fip);
+            it++;
+        }
+        s_intf->set_floating_ip_stats(uve_fip_list);
+        return true;
+    }
+    return false;
+}
+
+void VmUveEntry::UveInterfaceEntry::SetStats
+    (VmFloatingIPStats &fip, uint64_t in_bytes, uint64_t in_pkts, 
+     uint64_t out_bytes, uint64_t out_pkts) const {
+    fip.set_in_bytes(in_bytes);
+    fip.set_in_pkts(in_pkts);
+    fip.set_out_bytes(out_bytes);
+    fip.set_out_pkts(out_pkts);
+}
+
+void VmUveEntry::UveInterfaceEntry::RemoveFloatingIp
+    (const VmInterface::FloatingIp &fip) {
+    FloatingIpPtr key(new FloatingIp(fip.floating_ip_, fip.vn_.get()->GetName()));
+    FloatingIpSet::iterator it = fip_tree_.find(key);
+    if (it != fip_tree_.end()) {
+        fip_tree_.erase(it);
+    }
+}

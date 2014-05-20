@@ -97,10 +97,11 @@ void VmUveTable::SendVmStatsMsg(const VmEntry *vm) {
     }
 }
 
-void VmUveTable::InterfaceAddHandler(const VmEntry* vm, const Interface* itf) {
+void VmUveTable::InterfaceAddHandler(const VmEntry* vm, const Interface* itf, 
+                                     VmInterface::FloatingIpSet &old_list) {
     VmUveEntry *vm_uve_entry = Add(vm, false);
 
-    vm_uve_entry->InterfaceAdd(itf);
+    vm_uve_entry->InterfaceAdd(itf, old_list);
     SendVmMsg(vm);
 }
 
@@ -142,6 +143,7 @@ void VmUveTable::InterfaceNotify(DBTablePartBase *partition, DBEntryBase *e) {
         }
     } else {
         const VmEntry *vm = vm_port->vm();
+        VmInterface::FloatingIpSet old_list;
 
         if (!state) {
             state = new VmUveInterfaceState(vm, vm_port->ipv4_active(), 
@@ -150,12 +152,13 @@ void VmUveTable::InterfaceNotify(DBTablePartBase *partition, DBEntryBase *e) {
         } else {
             state->ipv4_active_ = vm_port->ipv4_active();
             state->l2_active_ = vm_port->l2_active();
+            old_list = state->fip_list_;
         }
         /* Change of VM in a given VM interface is not supported now */
         if (vm != state->vm_) {
             assert(0);
         }
-        InterfaceAddHandler(vm, vm_port);
+        InterfaceAddHandler(vm, vm_port, old_list);
     }
 }
 
@@ -244,5 +247,61 @@ bool VmUveTable::Process(VmStatData* vm_stat_data) {
     }
     delete vm_stat_data;
     return true;
+}
+
+void VmUveTable::UpdateFloatingIpStats(const FlowEntry *flow, uint64_t bytes, 
+                                       uint64_t pkts) {
+    const FlowEntry *rev_flow = flow->reverse_flow_entry();
+    const FlowStats &stats = flow->stats();
+    VmUveEntry::FipInfo fip_info;
+
+    /* Ignore Non-NAT flow */
+    if (!flow->is_flags_set(FlowEntry::NatFlow) || !rev_flow) {
+        return;
+    }
+
+    bool fip_flow = false;
+    const FlowKey *nat_key = &rev_flow->key();
+    if (flow->key().src.ipv4 != nat_key->dst.ipv4) {
+        fip_flow = true;
+        fip_info.interface_id_ = stats.intf_in;
+        fip_info.fip_ = Ip4Address(nat_key->dst.ipv4);
+    }
+
+    if (flow->key().dst.ipv4 != nat_key->src.ipv4) {
+        fip_flow = true;
+        fip_info.interface_id_ = rev_flow->stats().intf_in;
+        fip_info.fip_ = Ip4Address(flow->key().dst.ipv4);
+    }
+    /* Ignore flows which don't have floating IP */
+    if (!fip_flow) {
+        return;
+    }
+
+    /* Ignore flows whose interface does not point to VM interface */
+    if (fip_info.interface_id_ == Interface::kInvalidIndex) {
+        return;
+    }
+    Interface *intf = InterfaceTable::GetInstance()->FindInterface
+                                                     (fip_info.interface_id_);
+    if (intf && intf->type() != Interface::VM_INTERFACE) {
+        return;
+    }
+    VmInterface *vm_intf = static_cast<VmInterface *>(intf);
+    /* Ignore if Vm interface does not have a VM */
+    if (vm_intf->vm() == NULL) {
+        return;
+    }
+
+    fip_info.vn_ = flow->data().source_vn;
+    fip_info.bytes_ = bytes;
+    fip_info.packets_ = pkts;
+    fip_info.flow_ = flow;
+
+    UveVmMap::iterator it = uve_vm_map_.find(vm_intf->vm());
+    assert(it != uve_vm_map_.end());
+
+    VmUveEntry *entry = it->second.get();
+    entry->UpdateFloatingIpStats(fip_info);
 }
 

@@ -9,6 +9,8 @@
 #include <vector>
 #include <set>
 #include <map>
+#include <boost/scoped_ptr.hpp>
+#include <boost/shared_ptr.hpp>
 #include <sandesh/sandesh_types.h>
 #include <sandesh/sandesh_constants.h>
 #include <sandesh/sandesh.h>
@@ -17,9 +19,14 @@
 #include <uve/vm_stat.h>
 #include <uve/vm_stat_data.h>
 #include <oper/vm.h>
+#include <oper/peer.h>
+#include <cmn/index_vector.h>
+#include <oper/interface.h>
+#include <oper/vm_interface.h>
 #include <uve/vm_uve_entry.h>
-#include <boost/scoped_ptr.hpp>
 #include "base/queue_task.h"
+#include "pkt/flow_proto.h"
+#include "pkt/flow_table.h"
 
 //The container class for objects representing VirtualMachine UVEs
 //Defines routines for storing and managing (add, delete, change and send)
@@ -28,10 +35,12 @@ class VmUveTable {
 public:
     struct VmUveInterfaceState :public DBState {
         VmUveInterfaceState(const VmEntry *vm, bool ipv4_active, bool l2_active)
-            : vm_(vm), ipv4_active_(ipv4_active), l2_active_(l2_active) {}
+            : vm_(vm), ipv4_active_(ipv4_active), l2_active_(l2_active), 
+              fip_list_() {}
         const VmEntry* vm_;
         bool ipv4_active_;
         bool l2_active_;
+        VmInterface::FloatingIpSet fip_list_;
     };
 
     class VmUveVmState: public DBState {
@@ -53,6 +62,8 @@ public:
     virtual void DispatchVmMsg(const UveVirtualMachineAgent &uve);
     void EnqueueVmStatData(VmStatData *data);
     bool Process(VmStatData *vm_stat_data);
+    void UpdateFloatingIpStats(const FlowEntry *flow, uint64_t bytes, 
+                               uint64_t pkts);
 
 protected:
     virtual void VmStatCollectionStart(VmUveVmState *state, const VmEntry *vm);
@@ -64,7 +75,8 @@ private:
     VmUveEntry* UveEntryFromVm(const VmEntry *vm);
     void InterfaceNotify(DBTablePartBase *partition, DBEntryBase *e);
     void VmNotify(DBTablePartBase *partition, DBEntryBase *e);
-    void InterfaceAddHandler(const VmEntry* vm, const Interface* intf);
+    void InterfaceAddHandler(const VmEntry* vm, const Interface* intf, 
+                             VmInterface::FloatingIpSet &old_list);
     void InterfaceDeleteHandler(const VmEntry* vm, const Interface* intf);
     void SendVmMsg(const VmEntry *vm);
     void SendVmStatsMsg(const VmEntry *vm);
