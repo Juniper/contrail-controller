@@ -20,6 +20,7 @@ for file in setup_sources:
 local_sources = [
            '__init__.py',
            'to_bgp.py',
+           'ifmap_view.py',
           ]
 
 local_sources_rules = []
