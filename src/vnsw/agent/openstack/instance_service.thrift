@@ -1,6 +1,9 @@
 /*
  * Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
  */
+
+namespace java net.juniper.contrail.contrail_vrouter_api
+
 typedef list<i16> tuuid
 
 struct Port {

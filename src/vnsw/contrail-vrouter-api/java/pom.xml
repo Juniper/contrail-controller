@@ -70,12 +70,6 @@
         <configuration>
           <source>1.6</source>
           <target>1.6</target>
-          <excludes>
-            <exclude>com/vmware/vim/rest/sample/*.java</exclude>
-            <exclude>com/vmware/vim25/mo/samples/*.java</exclude>
-            <exclude>com/vmware/vim25/mo/samples/cluster/*.java</exclude>
-            <exclude>com/vmware/vim25/mo/samples/ext/*.java</exclude>
-          </excludes>
         </configuration>
       </plugin>
       <plugin>
@@ -120,6 +114,5 @@
       </plugins>
     </pluginManagement>
   </build>
-
 
 </project>

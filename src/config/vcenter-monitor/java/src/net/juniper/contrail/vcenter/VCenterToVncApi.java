@@ -12,8 +12,8 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.ListIterator;
 import java.util.Map;
+import java.util.UUID;
 
-import org.apache.http.util.NetUtils;
 import org.apache.log4j.BasicConfigurator;
 
 import net.juniper.contrail.api.ApiConnector;
@@ -95,7 +95,8 @@ public class VCenterToVncApi
 	
 	VnSubnetsType subnet = new VnSubnetsType();
 	String[] addr_pair = cidr.split("\\/");
-	subnet.addIpamSubnets(new SubnetType(addr_pair[0], Integer.parseInt(addr_pair[1])), uvi.ipp.ipv4Config.getGateway());
+	subnet.addIpamSubnets(new SubnetType(addr_pair[0], Integer.parseInt(addr_pair[1])), uvi.ipp.ipv4Config.getGateway(),
+            UUID.randomUUID().toString());
 	
 	vn.setNetworkIpam(ipam, subnet);
 	apic.create(vn); 

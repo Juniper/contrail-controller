@@ -19,55 +19,29 @@
   </distributionManagement>
   <dependencies>
     <dependency>
-      <groupId>junit</groupId>
-      <artifactId>junit</artifactId>
-      <version>4.10</version>
-      <scope>test</scope>
+      <groupId>commons-net</groupId>
+      <artifactId>commons-net</artifactId>
+      <version>3.3</version>
     </dependency>
     <dependency>
-      <groupId>com.google.guava</groupId>
-      <artifactId>guava</artifactId>
-      <version>14.0</version>
+      <groupId>log4j</groupId>
+      <artifactId>log4j</artifactId>
+      <version>1.2.16</version>
     </dependency>
     <dependency>
-      <groupId>com.google.code.gson</groupId>
-      <artifactId>gson</artifactId>
-      <version>1.7.1</version>
+      <groupId>net.juniper.contrail</groupId>
+      <artifactId>juniper-contrail-api</artifactId>
+      <version>1.0-SNAPSHOT</version>
     </dependency>
     <dependency>
-    	<groupId>org.apache.httpcomponents</groupId>
-    	<artifactId>httpcore</artifactId>
-    	<version>4.2.1</version>
+      <groupId>net.juniper.contrail</groupId>
+      <artifactId>juniper-contrail-vrouter-api</artifactId>
+      <version>1.0</version>
     </dependency>
     <dependency>
-    	<groupId>org.apache.httpcomponents</groupId>
-    	<artifactId>httpclient</artifactId>
-    	<version>4.2.1</version>
-    </dependency>
-    <dependency>
-    	<groupId>commons-lang</groupId>
-    	<artifactId>commons-lang</artifactId>
-    	<version>2.6</version>
-    </dependency>
-    <dependency>
-    	<groupId>org.apache.commons</groupId>
-    	<artifactId>commons-exec</artifactId>
-    	<version>1.1</version>
-    </dependency>
-    <dependency>
-    	<groupId>log4j</groupId>
-    	<artifactId>log4j</artifactId>
-    	<version>1.2.16</version>
-    </dependency>
-    <dependency>
-    	<groupId>net.juniper.contrail</groupId>
-    	<artifactId>juniper-contrail-api</artifactId>
-    	<version>1.0-SNAPSHOT</version>
-    </dependency>
-    <dependency>
-    	<groupId>net.juniper.contrail.vijava</groupId>
-    	<artifactId>juniper-contrail-vijava</artifactId>
-    	<version>1.0</version>
+      <groupId>net.juniper.contrail.vijava</groupId>
+      <artifactId>juniper-contrail-vijava</artifactId>
+      <version>1.0</version>
     </dependency>
   </dependencies>
 
@@ -85,48 +59,11 @@
       <resource>
         <directory>${basedir}/test/resources</directory>
         <includes>
-           <include>default_config</include>
+          <include>default_config</include>
         </includes>
       </resource>
     </resources>
     <plugins>
-      <!--<plugin>
-        <groupId>org.apache.maven.plugins</groupId>
-        <artifactId>maven-install-plugin</artifactId>
-        <version>2.5.1</version>
-        <executions>
-          <execution>
-            <id>install-library-api</id>
-            <phase>install</phase>
-            <goals>
-              <goal>install-file</goal>
-            </goals>
-            <configuration>
-              <file>${basedir}/../../../../../build/debug/api-lib/java/target/juniper-contrail-api-1.0-SNAPSHOT.jar</file>
-              <groupId>net.juniper.contrail</groupId>
-              <artifactId>juniper-contrail-api</artifactId>
-              <version>1.0-SNAPSHOT</version>
-              <packaging>jar</packaging>
-              <generatePom>false</generatePom>
-            </configuration>
-          </execution>
-          <execution>
-            <id>install-library-vijava</id>
-            <phase>install</phase>
-            <goals>
-              <goal>install-file</goal>
-            </goals>
-            <configuration>
-              <file>${basedir}/../../../../../build/third_party/vijava/target/juniper-contrail-vijava-1.0.jar</file>
-              <groupId>net.juniper.contrail.vijava</groupId>
-              <artifactId>juniper-contrail-vijava</artifactId>
-              <version>1.0</version>
-              <packaging>jar</packaging>
-              <generatePom>false</generatePom>
-            </configuration>
-          </execution>
-        </executions>
-      </plugin>-->
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-compiler-plugin</artifactId>
@@ -136,13 +73,13 @@
         </configuration>
       </plugin>
       <plugin>
-	<groupId>org.codehaus.mojo</groupId>
-	<artifactId>exec-maven-plugin</artifactId>
-	</plugin>
+        <groupId>org.codehaus.mojo</groupId>
+        <artifactId>exec-maven-plugin</artifactId>
+      </plugin>
       <plugin>
-	<groupId>org.codehaus.mojo</groupId>
-	<artifactId>build-helper-maven-plugin</artifactId>
-	<version>1.4</version>
+        <groupId>org.codehaus.mojo</groupId>
+        <artifactId>build-helper-maven-plugin</artifactId>
+        <version>1.4</version>
       </plugin>
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>
@@ -153,39 +90,38 @@
       </plugin>
     </plugins>
     <pluginManagement>
-    	<plugins>
-    		<!--This plugin's configuration is used to store Eclipse m2e settings only. It has no influence on the Maven build itself.-->
-    		<plugin>
-    			<groupId>org.eclipse.m2e</groupId>
-    			<artifactId>lifecycle-mapping</artifactId>
-    			<version>1.0.0</version>
-    			<configuration>
-    				<lifecycleMappingMetadata>
-    					<pluginExecutions>
-    						<pluginExecution>
-    							<pluginExecutionFilter>
-    								<groupId>org.codehaus.mojo</groupId>
-    								<artifactId>
-    									exec-maven-plugin
-    								</artifactId>
-    								<versionRange>
-    									[1.2.1,)
-    								</versionRange>
-    								<goals>
-    									<goal>exec</goal>
-    								</goals>
-    							</pluginExecutionFilter>
-    							<action>
-    								<ignore></ignore>
-    							</action>
-    						</pluginExecution>
-    					</pluginExecutions>
-    				</lifecycleMappingMetadata>
-    			</configuration>
-    		</plugin>
-    	</plugins>
+      <plugins>
+        <!--This plugin's configuration is used to store Eclipse m2e settings only. It has no influence on the Maven build itself.-->
+        <plugin>
+          <groupId>org.eclipse.m2e</groupId>
+          <artifactId>lifecycle-mapping</artifactId>
+          <version>1.0.0</version>
+          <configuration>
+            <lifecycleMappingMetadata>
+              <pluginExecutions>
+                <pluginExecution>
+                  <pluginExecutionFilter>
+                    <groupId>org.codehaus.mojo</groupId>
+                    <artifactId>
+                      exec-maven-plugin
+                    </artifactId>
+                    <versionRange>
+                      [1.2.1,)
+                    </versionRange>
+                    <goals>
+                      <goal>exec</goal>
+                    </goals>
+                  </pluginExecutionFilter>
+                  <action>
+                    <ignore></ignore>
+                  </action>
+                </pluginExecution>
+              </pluginExecutions>
+            </lifecycleMappingMetadata>
+          </configuration>
+        </plugin>
+      </plugins>
     </pluginManagement>
   </build>
-
 
 </project>
