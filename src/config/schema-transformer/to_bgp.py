@@ -950,10 +950,10 @@ class VirtualNetworkST(DictST):
                             if (service_list and dvn in [self.name, 'any']):
                                     service_ri = self.get_service_name(sc_name,
                                         service_list[-1])
-                                    raction.assign_routing_instance = \
+                                    action.assign_routing_instance = \
                                         self.name +':' + service_ri
                             else:
-                                raction.assign_routing_instance = None
+                                action.assign_routing_instance = None
 
 
                         match = MatchConditionType(arule_proto,
