@@ -13,8 +13,10 @@ cflags = env['CCFLAGS']
 cflags.append('-Wno-return-type')
 cflags.append('-fexceptions')
 
-# Dependencies for generating buildinfo.cc
-#
+##########################################################################
+# Rules to generate buildinfo.cc
+##########################################################################
+
 # Dependencies on external libraries first
 buildinfo_dep_libs = [
     '#build/lib/libthrift.a',
@@ -80,17 +82,20 @@ env.GenerateBuildInfoCode(
     target = ['buildinfo.h', 'buildinfo.cc'],
     source = buildinfo_dep_libs + ['main.cc'],
     path=str(Dir('.').abspath))
+env.Depends('main.o', 'buildinfo.cc')
+
+# Add contrail-vrouter-agent specific libraries
+env.Prepend(LIBS = AgentEnv['CONTRAIL_LIBS'])
 
 #Add -Wno-return-type to ignore errors from thrift generated code in 
 #InstanceService.h
-cflags = env['CCFLAGS']
-cflags.append('-Wno-return-type')
 vnswad = env.Program(target = 'vnswad',
                      source = ['buildinfo.cc',
                                'contrail_agent_init.cc',
                                'main.cc'])
 env.Alias('agent:vnswad', vnswad)
 env.Default(vnswad)
+
 env.Alias('install', env.Install(env['INSTALL_BIN'], vnswad))
-env.Alias('install', env.Install(env['INSTALL_CONF'], 'contrail-vrouter-agent.conf'))
-env.Depends('main.o', 'buildinfo.cc')
+env.Alias('install', env.Install(env['INSTALL_CONF'], 
+          '../contrail-vrouter-agent.conf'))

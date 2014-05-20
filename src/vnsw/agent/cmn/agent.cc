@@ -372,6 +372,8 @@ Agent::Agent() :
 }
 
 Agent::~Agent() {
+    uve_.reset(NULL);
+
     delete event_mgr_;
     event_mgr_ = NULL;
 

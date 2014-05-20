@@ -19,8 +19,10 @@ ArpHandler::~ArpHandler() {
 
 bool ArpHandler::Run() {
     // Process ARP only when the IP Fabric interface is configured
-    if (agent()->GetArpProto()->ip_fabric_interface() == NULL)
+    if (agent()->GetArpProto()->ip_fabric_interface() == NULL) {
+        delete pkt_info_->ipc;
         return true;
+    }
 
     switch(pkt_info_->type) {
         case PktType::MESSAGE:

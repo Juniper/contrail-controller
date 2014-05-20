@@ -2,6 +2,10 @@
 # Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
 #
 
+import sys
+if sys.platform == 'darwin':
+    Return()
+
 import re
 import time
 import subprocess
@@ -9,31 +13,83 @@ import subprocess
 Import('BuildEnv')
 env = BuildEnv.Clone()
 
-import sys
-if sys.platform == 'darwin':
-    Return()
+##########################################################################
+# Build CCFLAGS
+##########################################################################
+env.AppendUnique(CCFLAGS='-fno-exceptions')
 
-# Common include search path
+##########################################################################
+# Build CPPPATH
+##########################################################################
 env.Prepend(CPPPATH = '#/vrouter/include')
-env.Prepend(CPPPATH = env['TOP'])
-env.Prepend(CPPPATH = env['TOP'] + '/base/sandesh')
-env.Prepend(CPPPATH = env['TOP'] + '/discovery/client')
-env.Prepend(CPPPATH = env['TOP'] + '/dns')
-env.Prepend(CPPPATH = env['TOP'] + '/http/client')
-env.Prepend(CPPPATH = env['TOP'] + '/ifmap')
-env.Prepend(CPPPATH = env['TOP'] + '/schema')
-env.Prepend(CPPPATH = env['TOP'] + '/sandesh')
-env.Prepend(CPPPATH = env['TOP'] + '/vnsw/agent')
-env.Prepend(CPPPATH = env['TOP'] + '/vnsw/agent/cmn')
-env.Prepend(CPPPATH = env['TOP'] + '/vnsw/agent/oper')
-
-env.Prepend(CPPPATH = env['TOP'] + '/vnsw/agent/openstack')
-env.Prepend(CPPPATH = env['TOP'] + '/vnsw/agent/uve')
-env.Prepend(CPPPATH = env['TOP'] + '/vrouter/sandesh')
 env.Prepend(CPPPATH = env['TOP_INCLUDE'] + '/thrift')
 
-# Non-Agent common libraries
-env.Prepend(LIBS=[
+# Function to append TOP level directory
+def AddTopDir(list):
+    return map(lambda x: Dir(env['TOP'] + '/' + x).abspath, list)
+
+env.Prepend(CPPPATH = AddTopDir([
+    '',
+    'base/sandesh',
+    'discovery/client',
+    'dns',
+    'http/client',
+    'ifmap',
+    'schema',
+    'sandesh',
+    'vnsw/agent',
+    'vnsw/agent/oper',
+    'vnsw/agent/cmn',
+    'vnsw/agent/uve',
+    'vnsw/agent/openstack',
+    'vrouter/sandesh'
+]))
+
+##########################################################################
+# Build LIBPATH
+##########################################################################
+def MapBuildDir(list):
+    return map(lambda x: Dir('../../' + x).abspath, list)
+
+env.Append(LIBPATH = MapBuildDir([
+    'base',
+    'bgp',
+    'db',
+    'discovery/client',
+    'dns/bind',
+    'http/client',
+    'ifmap',
+    'io',
+    'ksync',
+    'net',
+    'route',
+    'schema',
+    'vnsw/agent',
+    'vnsw/agent/cfg',
+    'vnsw/agent/cmn',
+    'vnsw/agent/controller',
+    'vnsw/agent/diag',
+    'vnsw/agent/filter',
+    'vnsw/agent/kstate', 
+    'vnsw/agent/ksync',
+    'vnsw/agent/openstack',
+    'vnsw/agent/oper',
+    'vnsw/agent/pkt',
+    'vnsw/agent/services',
+    'vnsw/agent/uve',
+    'vnsw/agent/vgw',
+    'vrouter/utils',
+    'xml',
+    'xmpp',
+    'third_party/bind-9.9.2-P1/lib/isc',
+]))
+
+##########################################################################
+# Build LIBS - Libraries to be linked
+##########################################################################
+
+# Common non-agent libraries
+env.Prepend(LIBS = [
     'xmpp',
     'peer_sandesh',
     'xmpp_multicast',
@@ -71,87 +127,147 @@ env.Prepend(LIBS=[
     'rt',
 ])
 
-# agent libraries that need single pass linking
-env.Prepend(LIBS=[
+# Common agent libraries
+env.Prepend(LIBS = [
     'vnswctrl',
     'cfg',
     'filter',
+    'ksync',
+    'nova_ins',
+    'nova_ins_thrift',
+    'vgw',
+])
+
+##########################################################################
+# Build LINKFLAGS - libraries needing multi-pass linking
+##########################################################################
+AGENT_MULTIPATH_LIBS = [
+    'cpuinfo',
+    'vnswoperdb',
+    'vnswcmn'
+]
+
+# Whole-arhive flag causes the library to be included in the resulting output 
+# even though there may not be any calls requiring its presence. We need this 
+# for kstate library so that the HTML file for kstate  is listed in agent 
+# introspect page
+AGENT_MULTIPATH_LIBS += ['kstate']
+
+# Set LIBS environment to ensure libraries are built
+env.Prepend(LIBS = AGENT_MULTIPATH_LIBS)
+
+def MakeLinkCmd(list):
+    return map(lambda x: '-l' + x, list)
+
+env.Prepend(LINKFLAGS = [ '-Wl,--whole-archive', '-rdynamic'] + 
+                          MakeLinkCmd(AGENT_MULTIPATH_LIBS) +
+                        ['-Wl,--no-whole-archive'])
+
+##########################################################################
+# Build AgentEnv variables used by sub-directores
+##########################################################################
+AgentEnv = env.Clone()
+
+# Contrail agent libraries
+AgentEnv.AppendUnique(CONTRAIL_LIBS = [
     'agent_services',
     'diag',
     'pkt',
     'agentuve',
     'vnswksync',
     'kstate',
-    'ksync',
     'vrutil',
-    'nova_ins',
-    'nova_ins_thrift',
-    'vgw',
-    ])
-
-# Libraries to be linked with multi-pass.
-env.Prepend(LIBS=[
-    'cpuinfo',
-    'vnswoperdb',
-    'vnswcmn',
-    ])
-
-# Libraries that need multi-pass linking
-# Whole-arhive flag causes the library to be included in the resulting output 
-# even though there may not be any calls requiring its presence. We need this 
-# for kstate library so that the HTML file for kstate  is listed in agent 
-# introspect page
-env.Prepend(LINKFLAGS =[
-    '-Wl,--whole-archive',
-    '-rdynamic',
-    '-lkstate',
-    '-lcpuinfo',
-    '-lvnswoperdb',
-    '-lvnswcmn',
-    '-Wl,--no-whole-archive'])
-
-# Library search path
-def MapBuildDir(list):
-    return map(lambda x: Dir('../../' + x).abspath, list)
-
-libpath = MapBuildDir([
-    'base',
-    'bgp',
-    'db',
-    'discovery/client',
-    'dns/bind',
-    'http/client',
-    'ifmap',
-    'io',
-    'ksync',
-    'net',
-    'route',
-    'schema',
-    'vnsw/agent',
-    'vnsw/agent/cfg',
-    'vnsw/agent/cmn',
-    'vnsw/agent/controller',
-    'vnsw/agent/diag',
-    'vnsw/agent/filter',
-    'vnsw/agent/kstate', 
-    'vnsw/agent/ksync',
-    'vnsw/agent/openstack',
-    'vnsw/agent/oper',
-    'vnsw/agent/pkt',
-    'vnsw/agent/services',
-    'vnsw/agent/uve',
-    'vnsw/agent/vgw',
-    'vrouter/utils',
-    'xml',
-    'xmpp',
-    'third_party/bind-9.9.2-P1/lib/isc',
 ])
-env.Append(LIBPATH=libpath)
 
-AgentEnv = env.Clone()
-AgentEnv.AppendUnique(CCFLAGS='-fno-exceptions')
+# Common libraries for agent test code
+AgentEnv.AppendUnique(TEST_CMN_LIBS_PRE = [
+    'agent_test',
+    'ifmap_test',
+    'control_node_mock',
+    'gunit',
+])
+
+AgentEnv.AppendUnique(TEST_CMN_LIBS_POST = [ 'agent_test_buildinfo' ])
+AgentEnv.AppendUnique(TEST_CMN_CPPPATH = [env['TOP'] + '/vnsw/agent/test'])
+AgentEnv.AppendUnique(TEST_CMN_LIBPATH = [env['TOP'] + '/vnsw/agent/test'])
+AgentEnv.AppendUnique(TEST_CMN_CCFLAGS = [
+    '-Wno-return-type',
+    '-Wno-unused-function'
+])
+
+##########################################################################
+# Utility functions
+##########################################################################
+def RemoveExceptionFlagFn(self, env):
+    except_env = env.Clone()
+    cflags = except_env['CCFLAGS']
+    if '-fno-exceptions' in cflags:
+        cflags.remove('-fno-exceptions')
+        except_env.Replace(CCFLAGS = cflags)
+    return except_env
+
+def BuildExceptionCppObjFn(self, env, file_list):
+    except_env = env.Clone()
+    cflags = except_env['CCFLAGS']
+    if '-fno-exceptions' in cflags:
+        cflags.remove('-fno-exceptions')
+        except_env.Replace(CCFLAGS = cflags)
+    obj_list = []
+    for src in file_list:
+        objname = src.replace('.cpp', '.o')
+        obj = except_env.Object(objname, src)
+        obj_list.append(obj)
+    return obj_list
+
+def BuildExceptionCcObjFn(self, env, file_list):
+    except_env = env.Clone()
+    cflags = except_env['CCFLAGS']
+    if '-fno-exceptions' in cflags:
+        cflags.remove('-fno-exceptions')
+        except_env.Replace(CCFLAGS = cflags)
+    obj_list = []
+    for src in file_list:
+        objname = src.replace('.cc', '.o')
+        obj = except_env.Object(objname, src)
+        obj_list.append(obj)
+    return obj_list
+
+def MakeTestEnvFn(self, env):
+    env.Append(CPPPATH = AgentEnv['TEST_CMN_CPPPATH'])
+    env.Append(LIBPATH = AgentEnv['TEST_CMN_LIBPATH'])
+    env.Append(CCFLAGS = AgentEnv['TEST_CMN_CCFLAGS'])
+    env.Prepend(LIBS = AgentEnv['CONTRAIL_LIBS'])
+    env.Prepend(LIBS = AgentEnv['TEST_CMN_LIBS_PRE'])
+    env.Append(LIBS = AgentEnv['TEST_CMN_LIBS_POST'])
+    cflags = env['CCFLAGS']
+    if '-fno-exceptions' in cflags:
+        cflags.remove('-fno-exceptions')
+        env.Replace(CCFLAGS = cflags)
+
+def MakeTestCmdWithSrcFn(self, env, test_name, src, test_list):
+    tgt = env.Program(target = test_name, source = src)
+    env.Alias('agent:'+ test_name, tgt)
+    test_list.append(tgt)
+    return tgt
+
+def MakeTestCmdFn(self, env, test_name, test_list):
+    tgt = env.Program(target = test_name, source = [test_name + '.cc'])
+    env.Alias('agent:'+ test_name, tgt)
+    test_list.append(tgt)
+    return tgt
+
+AgentEnv.AddMethod(MakeTestEnvFn, 'MakeTestEnv')
+AgentEnv.AddMethod(MakeTestCmdFn, 'MakeTestCmd')
+AgentEnv.AddMethod(MakeTestCmdWithSrcFn, 'MakeTestCmdSrc')
+AgentEnv.AddMethod(BuildExceptionCppObjFn, 'BuildExceptionCppObj')
+AgentEnv.AddMethod(BuildExceptionCcObjFn, 'BuildExceptionCcObj')
+AgentEnv.AddMethod(RemoveExceptionFlagFn, 'RemoveExceptionFlag')
+
 Export('AgentEnv')
 
+##########################################################################
+# Sub-directories to build
+##########################################################################
 subdirs = [
     'cmn',
     'cfg',
@@ -167,17 +283,21 @@ subdirs = [
     'test',
     'uve',
     'vgw',
-    ]
+]
 
 for dir in subdirs:
-    env.SConscript(dir + '/SConscript', exports=['AgentEnv', 'BuildEnv'], duplicate=0)
+    env.SConscript(dir + '/SConscript', exports=['AgentEnv', 'BuildEnv'],
+                   duplicate=0)
 
 env.SConscript('contrail/SConscript', exports=['AgentEnv', 'BuildEnv'],
                duplicate=0)
 
-#env.SConscript('linux_vxlan/SConscript', exports=['AgentEnv', 'BuildEnv'],
+#env.SConscript('vxlan_agent/SConscript', exports=['AgentEnv', 'BuildEnv'],
 #               duplicate=0)
 
+##########################################################################
+# Utility functions
+##########################################################################
 #cflags = AgentEnv['CCFLAGS']
 #cflags.remove('-Wno-return-type')
 #AgentEnv.Replace(CCFLAGS = cflags)
