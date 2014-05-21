@@ -120,7 +120,7 @@ bool InterfaceKSyncEntry::Sync(DBEntry *e) {
         ret = true;
     }
 
-    if (os_index_ != intf->os_index()) {
+    if (os_index_ != intf->os_index() && os_index_ == Interface::kInvalidIndex) {
         os_index_ = intf->os_index();
         ret = true;
     }
