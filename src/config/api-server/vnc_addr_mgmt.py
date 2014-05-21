@@ -313,11 +313,11 @@ class AddrMgmt(object):
             ipam_subnets = vnsn_data['ipam_subnets']
             for ipam_subnet in ipam_subnets:
                 subnet_dict = ipam_subnet['subnet']
-                subnet_dict['gw'] = ipam_subnet['default_gateway']
+                subnet_dict['gw'] = ipam_subnet.get('default_gateway', None)
                 subnet_dict['allocation_pools'] = \
-                    ipam_subnet['allocation_pools']
-                subnet_dict['enable_dhcp'] = ipam_subnet['enable_dhcp']
-                subnet_dict['dns_nameservers'] = ipam_subnet['dns_nameservers']
+                    ipam_subnet.get('allocation_pools', None)
+                subnet_dict['enable_dhcp'] = ipam_subnet.get('enable_dhcp', None)
+                subnet_dict['dns_nameservers'] = ipam_subnet.get('dns_nameservers', None)
                 subnet_name = subnet_dict['ip_prefix'] + '/' + str(
                               subnet_dict['ip_prefix_len'])
                 subnet_dicts[subnet_name] = subnet_dict
