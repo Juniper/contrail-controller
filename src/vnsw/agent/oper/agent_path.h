@@ -182,39 +182,6 @@ private:
     uint64_t sequence_number_;
 };
 
-class RemoteVmRoute : public AgentRouteData, public BgpPeerData {
-public:
-    RemoteVmRoute(const Peer *peer, const string &vrf_name,
-                  const Ip4Address &addr, uint32_t label,
-                  const string &dest_vn_name, int bmap,
-                  const SecurityGroupList &sg_list, DBRequest &req):
-        AgentRouteData(false), BgpPeerData(peer),
-        server_vrf_(vrf_name), server_ip_(addr),
-        tunnel_bmap_(bmap), label_(label), dest_vn_name_(dest_vn_name),
-        sg_list_(sg_list) {nh_req_.Swap(&req);}
-    // Data passed in case of delete from BGP peer, to validate 
-    // the request at time of processing.
-    RemoteVmRoute(const Peer *peer) : AgentRouteData(false),
-        BgpPeerData(peer) { }
-    virtual ~RemoteVmRoute() { }
-    virtual bool AddChangePath(Agent *agent, AgentPath *path);
-    virtual string ToString() const {return "remote VM";}
-    virtual bool IsPeerValid() const;
-    const SecurityGroupList &sg_list() const {return sg_list_;}
-
-private:
-    string server_vrf_;
-    Ip4Address server_ip_;
-    TunnelType::TypeBmap tunnel_bmap_;
-    uint32_t label_;
-    string dest_vn_name_;
-    SecurityGroupList sg_list_;
-    const AgentXmppChannel *channel_;
-    uint64_t sequence_number_;
-    DBRequest nh_req_;
-    DISALLOW_COPY_AND_ASSIGN(RemoteVmRoute);
-};
-
 class InetInterfaceRoute : public AgentRouteData {
 public:
     InetInterfaceRoute(const InetInterfaceKey &intf, uint32_t label,
@@ -321,35 +288,6 @@ private:
     SecurityGroupList sg_list_;
     DISALLOW_COPY_AND_ASSIGN(ReceiveRoute);
 };
-
-class Inet4UnicastEcmpRoute : public AgentRouteData, public BgpPeerData {
-public:
-    Inet4UnicastEcmpRoute(const Peer *peer, const Ip4Address &dest_addr,
-                          uint8_t plen, const string &vn_name, uint32_t label,
-                          bool local_ecmp_nh, const string &vrf_name,
-                          SecurityGroupList sg_list, DBRequest &nh_req) :
-        AgentRouteData(false), BgpPeerData(peer),
-        dest_addr_(dest_addr), plen_(plen),
-        vn_name_(vn_name), label_(label), local_ecmp_nh_(local_ecmp_nh),
-        vrf_name_(vrf_name), sg_list_(sg_list) {nh_req_.Swap(&nh_req);}
-
-    virtual ~Inet4UnicastEcmpRoute() { }
-    virtual bool AddChangePath(Agent *agent, AgentPath *path);
-    virtual string ToString() const {return "inet4 ecmp";}
-    virtual bool IsPeerValid() const;
-
-private:
-    Ip4Address dest_addr_;
-    uint8_t plen_;
-    string vn_name_;
-    uint32_t label_;
-    bool local_ecmp_nh_;
-    string vrf_name_;
-    SecurityGroupList sg_list_;
-    DBRequest nh_req_;
-    DISALLOW_COPY_AND_ASSIGN(Inet4UnicastEcmpRoute);
-};
-
 
 class Inet4UnicastArpRoute : public AgentRouteData {
 public:

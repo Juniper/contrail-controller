@@ -27,6 +27,7 @@
 #include "controller/controller_types.h"
 #include "net/tunnel_encap_type.h"
 #include <assert.h>
+#include <controller/controller_route_path.h>
 
 using namespace boost::asio;
 using namespace autogen;
@@ -112,7 +113,8 @@ void AgentXmppChannel::ReceiveEvpnUpdate(XmlPugi *pugi) {
                     strtok_r(const_cast<char *>(id.c_str()), "-", &saveptr);
                 //char *mac_str = strtok_r(NULL, ",", &saveptr);
                 struct ether_addr mac = *ether_aton(mac_str);;
-                rt_table->DeleteReq(bgp_peer_id(), vrf_name, mac);
+                rt_table->DeleteReq(bgp_peer_id(), vrf_name, mac,
+                                    new ControllerVmRoute(bgp_peer_id()));
             }
         }
         return;
@@ -372,11 +374,25 @@ void AgentXmppChannel::AddEcmpRoute(string vrf_name, Ip4Address prefix_addr,
             comp_nh_list.push_back(nh_data);
         }
     }
+
+    // Build the NH request and then create route data to be passed
+    DBRequest nh_req(DBRequest::DB_ENTRY_ADD_CHANGE);
+    nh_req.key.reset(new CompositeNHKey(vrf_name, prefix_addr, prefix_len,
+                                        false));
+
+    CompositeNH::CreateCompositeNH(vrf_name, prefix_addr, false, comp_nh_list);
+    nh_req.data.reset(new CompositeNHData(comp_nh_list,
+                                          CompositeNHData::REPLACE));
+    ControllerEcmpRoute *data =
+        new ControllerEcmpRoute(bgp_peer_id(), prefix_addr, prefix_len,
+                                item->entry.virtual_network, -1,
+                                false, vrf_name,
+                                item->entry.security_group_list.security_group,
+                                nh_req);
+
     //ECMP create component NH
     rt_table->AddRemoteVmRouteReq(bgp_peer_id(), vrf_name,
-                                  prefix_addr, prefix_len, comp_nh_list, -1,
-                                  item->entry.virtual_network, 
-                                  item->entry.security_group_list.security_group);
+                                  prefix_addr, prefix_len, data);
 }
 
 void AgentXmppChannel::AddRemoteEvpnRoute(string vrf_name, 
@@ -415,9 +431,18 @@ void AgentXmppChannel::AddRemoteEvpnRoute(string vrf_name,
     if (agent_->GetRouterId() != addr.to_v4()) {
         CONTROLLER_TRACE(Trace, GetBgpPeerName(), nexthop_addr,
                          "add remote evpn route");
-        rt_table->AddRemoteVmRouteReq(bgp_peer_id(), vrf_name, encap,
-                                      addr.to_v4(), label, mac,
-                                      prefix_addr, prefix_len);
+        // Currently SG not supported for l2 route.
+        SecurityGroupList sg;
+        ControllerVmRoute *data =
+            ControllerVmRoute::MakeControllerVmRoute(bgp_peer_id(),
+                                                    agent_->GetDefaultVrf(),
+                                                    agent_->GetRouterId(),
+                                                    vrf_name, addr.to_v4(),
+                                                    encap, label,
+                                                    item->entry.virtual_network,
+                                                    sg);
+        rt_table->AddRemoteVmRouteReq(bgp_peer_id(), vrf_name, mac, prefix_addr,
+                                      prefix_len, data);
         return;
     }
 
@@ -503,10 +528,14 @@ void AgentXmppChannel::AddRemoteRoute(string vrf_name, Ip4Address prefix_addr,
                      item->entry.virtual_network);
 
     if (agent_->GetRouterId() != addr.to_v4()) {
-        rt_table->AddRemoteVmRouteReq(bgp_peer_id(), vrf_name,
-                                      prefix_addr, prefix_len, addr.to_v4(),
-                                      encap, label, item->entry.virtual_network,
-                                      item->entry.security_group_list.security_group);
+        ControllerVmRoute *data =
+            ControllerVmRoute::MakeControllerVmRoute(bgp_peer_id(),
+                               agent_->GetDefaultVrf(), agent_->GetRouterId(),
+                               vrf_name, addr.to_v4(), encap, label,
+                               item->entry.virtual_network ,
+                               item->entry.security_group_list.security_group);
+        rt_table->AddRemoteVmRouteReq(bgp_peer_id(), vrf_name, prefix_addr,
+                                      prefix_len, data);
         return;
     }
 
@@ -656,7 +685,8 @@ void AgentXmppChannel::ReceiveUpdate(const XmppStanza::XmppMessage *msg) {
                             return;
                         }
                         rt_table->DeleteReq(bgp_peer_id(), vrf_name,
-                                prefix_addr, prefix_len);
+                                        prefix_addr, prefix_len,
+                                        new ControllerVmRoute(bgp_peer_id()));
                     }
                 }
                 return;

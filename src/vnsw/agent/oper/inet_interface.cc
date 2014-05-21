@@ -113,10 +113,10 @@ void InetInterface::DeActivateSimpleGateway() {
     // Delete routes
     Ip4Address addr = GetIp4SubnetAddress(ip_addr_, plen_);
     uc_rt_table->DeleteReq(agent->local_vm_peer(), agent->GetDefaultVrf(),
-                           addr, plen_);
+                           addr, plen_, NULL);
 
     uc_rt_table->DeleteReq(agent->local_vm_peer(),
-                           vrf()->GetName(), Ip4Address(0), 0);
+                           vrf()->GetName(), Ip4Address(0), 0, NULL);
 
     // Delete NH
     InterfaceNH::DeleteInetInterfaceNextHop(name());
