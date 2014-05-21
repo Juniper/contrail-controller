@@ -179,8 +179,17 @@ class VirtualMachineInterfaceServer(VirtualMachineInterfaceServerGen):
 
     @classmethod
     def http_post_collection(cls, tenant_name, obj_dict, db_conn):
-        mac_addr = cls.addr_mgmt.mac_alloc(obj_dict)
-        mac_addrs_obj = MacAddressesType([mac_addr])
+        inmac = None
+        if 'virtual_machine_interface_mac_addresses' in obj_dict:
+            mc = obj_dict['virtual_machine_interface_mac_addresses']
+            if 'mac_address' in mc:
+                if len(mc['mac_address'])==1:
+                    inmac = mc['mac_address']
+        if inmac!=None:
+            mac_addrs_obj = MacAddressesType(inmac)
+        else:
+            mac_addr = cls.addr_mgmt.mac_alloc(obj_dict)
+            mac_addrs_obj = MacAddressesType([mac_addr])
         mac_addrs_json = json.dumps(
             mac_addrs_obj,
             default=lambda o: dict((k, v)
