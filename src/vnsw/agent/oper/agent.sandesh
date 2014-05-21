@@ -60,6 +60,7 @@ struct ItfSandeshData {
    27: list<StaticRouteSandesh> static_route_list; //Static route list
    28: string l2_active;
    30: string vm_project_uuid; // project uuid of the vm to which the interface belongs
+   31: string admin_state;
 }
 
 struct VnIpamData {

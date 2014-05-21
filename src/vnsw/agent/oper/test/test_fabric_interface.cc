@@ -107,6 +107,7 @@ static void CfgIntfSync(FabricInterfaceTest *t, int id, const char *cfg_name,
     cfg_data->vrf_name_ = vrf_name;
     cfg_data->addr_ = Ip4Address::from_string(ip);
     cfg_data->fabric_port_ = fab_port;
+    cfg_data->admin_state_ = true;
     t->interface_table_->Enqueue(&req);
 }
 

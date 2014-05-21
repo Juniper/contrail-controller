@@ -121,6 +121,7 @@ protected:
     struct ether_addr mac_;
     size_t os_index_;
     bool os_oper_state_;
+    bool admin_state_;
     // Used only for test code
     bool test_oper_state_;
 

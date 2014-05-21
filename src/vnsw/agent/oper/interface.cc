@@ -227,7 +227,7 @@ Interface::Interface(Type type, const uuid &uuid, const string &name,
     vrf_(vrf), label_(MplsTable::kInvalidLabel), 
     l2_label_(MplsTable::kInvalidLabel), ipv4_active_(true), l2_active_(true),
     id_(kInvalidIndex), dhcp_enabled_(true), dns_enabled_(true), mac_(),
-    os_index_(kInvalidIndex), test_oper_state_(true) { 
+    os_index_(kInvalidIndex), admin_state_(true), test_oper_state_(true) { 
 }
 
 Interface::~Interface() { 
@@ -661,6 +661,11 @@ void Interface::SetItfSandeshData(ItfSandeshData &data) const {
         break;
     }
     data.set_os_ifindex(os_index_);
+    if (admin_state_) {
+        data.set_admin_state("Enabled");
+    } else {
+        data.set_admin_state("Disabled");
+    }
 }
 
 bool Interface::DBEntrySandesh(Sandesh *sresp, std::string &name) const {
