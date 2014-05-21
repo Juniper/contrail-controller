@@ -93,6 +93,13 @@ class BgpProvisioner(object):
             cur_obj.add_bgp_router(other_obj, bgp_peering_attrs)
 
         vnc_lib.bgp_router_update(cur_obj)
+        
+        # Update global system config also with this ASN
+        gsc_obj = vnc_lib.global_system_config_read(
+                  fq_name=['default-global-system-config'])
+        gsc_obj.set_autonomous_system(router_asn)
+        vnc_lib.global_system_config_update(gsc_obj)
+        
     # end add_bgp_router
 
     def del_bgp_router(self, router_name):
