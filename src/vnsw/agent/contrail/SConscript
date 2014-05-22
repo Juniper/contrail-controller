@@ -87,6 +87,13 @@ env.Depends('main.o', 'buildinfo.cc')
 # Add contrail-vrouter-agent specific libraries
 env.Prepend(LIBS = AgentEnv['CONTRAIL_LIBS'])
 
+# Whole-arhive flag causes the library to be included in the resulting output 
+# even though there may not be any calls requiring its presence. We need this 
+# for kstate library so that the HTML file for kstate  is listed in agent 
+# introspect page
+env.Prepend(LINKFLAGS = ['-Wl,--whole-archive', '-rdynamic', '-lkstate',
+                         '-Wl,--no-whole-archive'])
+
 #Add -Wno-return-type to ignore errors from thrift generated code in 
 #InstanceService.h
 vnswad = env.Program(target = 'vnswad',

@@ -10,9 +10,8 @@
 #include <io/event_manager.h>
 #include <ifmap/ifmap_link.h>
 
-#include <vnc_cfg_types.h>
 #include <cmn/agent_cmn.h>
-#include <cmn/agent_stats.h>
+#include <vnc_cfg_types.h>
 
 #include <cmn/agent_param.h>
 #include <cfg/cfg_init.h>
@@ -28,9 +27,9 @@
 #include <services/services_init.h>
 #include <pkt/pkt_init.h>
 #include <pkt/flow_table.h>
-#include <pkt/pkt_types.h>
 #include <pkt/proto.h>
 #include <pkt/proto_handler.h>
+#include <pkt/agent_stats.h>
 #include <uve/flow_stats_collector.h>
 #include <uve/agent_uve.h>
 #include <vgw/cfg_vgw.h>
@@ -392,11 +391,11 @@ void Agent::set_cfg(AgentConfig *cfg) {
 }
 
 DiagTable *Agent::diag_table() const {
-    return diag_table_.get();
+    return diag_table_;
 }
 
 void Agent::set_diag_table(DiagTable *table) {
-    diag_table_.reset(table);
+    diag_table_ = table;
 }
 
 AgentStats *Agent::stats() const {
@@ -424,19 +423,19 @@ void Agent::set_uve(AgentUve *uve) {
 }
 
 PktModule *Agent::pkt() const {
-    return pkt_.get();
+    return pkt_;
 }
 
 void Agent::set_pkt(PktModule *pkt) {
-    pkt_.reset(pkt);
+    pkt_ = pkt;
 }
 
 ServicesModule *Agent::services() const {
-    return services_.get();
+    return services_;
 }
 
 void Agent::set_services(ServicesModule *services) {
-    services_.reset(services);
+    services_ = services;
 }
 
 VNController *Agent::controller() const {

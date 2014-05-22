@@ -116,6 +116,14 @@ private:
 class AclTable : public AgentDBTable {
 public:
     typedef std::map<std::string, TrafficAction::Action> TrafficActionMap;
+    // Packet module is optional. Callback function to update the flow stats
+    // for ACL. The callback is defined to avoid linking error
+    // when flow is not enabled
+    typedef boost::function<void(const AclDBEntry *acl, AclFlowCountResp &data,
+                                 int ace_id)> FlowAceSandeshDataFn;
+    typedef boost::function<void(const AclDBEntry *acl, AclFlowResp &data,
+                                 const int last_count)> FlowAclSandeshDataFn;
+
     AclTable(DB *db, const std::string &name) : AgentDBTable(db, name) { }
     virtual ~AclTable() { }
     void GetTables(DB *db) { };
@@ -136,12 +144,16 @@ public:
                                 const std::string ctx, const int last_count);
     static void AclFlowCountResponse(const std::string acl_uuid_str, 
                                      const std::string ctx, int ace_id);
+    void set_ace_flow_sandesh_data_cb(FlowAceSandeshDataFn fn);
+    void set_acl_flow_sandesh_data_cb(FlowAclSandeshDataFn fn);
 private:
     static const AclDBEntry* GetAclDBEntry(const std::string uuid_str, 
                                            const std::string ctx,
                                            SandeshResponse *resp);
     void ActionInit();
     TrafficActionMap ta_map_;
+    FlowAceSandeshDataFn flow_ace_sandesh_data_cb_;
+    FlowAclSandeshDataFn flow_acl_sandesh_data_cb_;
     DISALLOW_COPY_AND_ASSIGN(AclTable);
 };
 

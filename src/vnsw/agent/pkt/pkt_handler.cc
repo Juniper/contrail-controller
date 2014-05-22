@@ -9,7 +9,6 @@
 #include <netinet/ip_icmp.h>
 
 #include "cmn/agent_cmn.h"
-#include "cmn/agent_stats.h"
 #include "oper/interface_common.h"
 #include "oper/nexthop.h"
 #include "oper/route_common.h"
@@ -21,6 +20,7 @@
 #include "pkt/flow_table.h"
 #include "pkt/pkt_types.h"
 #include "pkt/pkt_init.h"
+#include "pkt/agent_stats.h"
 
 #include "vr_types.h"
 #include "vr_defs.h"

@@ -133,6 +133,7 @@ env.Prepend(LIBS = [
     'cfg',
     'filter',
     'ksync',
+    'ksyncnl',
     'nova_ins',
     'nova_ins_thrift',
     'vgw',
@@ -146,12 +147,6 @@ AGENT_MULTIPATH_LIBS = [
     'vnswoperdb',
     'vnswcmn'
 ]
-
-# Whole-arhive flag causes the library to be included in the resulting output 
-# even though there may not be any calls requiring its presence. We need this 
-# for kstate library so that the HTML file for kstate  is listed in agent 
-# introspect page
-AGENT_MULTIPATH_LIBS += ['kstate']
 
 # Set LIBS environment to ensure libraries are built
 env.Prepend(LIBS = AGENT_MULTIPATH_LIBS)

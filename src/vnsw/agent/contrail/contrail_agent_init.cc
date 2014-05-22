@@ -17,7 +17,6 @@
 
 #include <cmn/agent_cmn.h>
 #include <cmn/agent_factory.h>
-#include <cmn/agent_stats.h>
 #include <cmn/agent_param.h>
 
 #include <cfg/cfg_init.h>
@@ -31,6 +30,7 @@
 #include <uve/agent_uve.h>
 #include <kstate/kstate.h>
 #include <pkt/proto_handler.h>
+#include <pkt/agent_stats.h>
 #include <diag/diag.h>
 #include <vgw/cfg_vgw.h>
 #include <vgw/vgw.h>
@@ -71,10 +71,14 @@ void ContrailAgentInit::CreateModules() {
     agent_->set_uve(AgentObjectFactory::Create<AgentUve>(
                     agent_, AgentUve::kBandwidthInterval));
     agent_->set_ksync(AgentObjectFactory::Create<KSync>(agent_));
-    agent_->set_pkt(new PktModule(agent_));
 
-    agent_->set_services(new ServicesModule(agent_,
-                                            params_->metadata_shared_secret()));
+    pkt_.reset(new PktModule(agent_));
+    agent_->set_pkt(pkt_.get());
+
+    services_.reset(new ServicesModule(agent_,
+                                       params_->metadata_shared_secret()));
+    agent_->set_services(services_.get());
+
     agent_->set_vgw(new VirtualGateway(agent_));
 
     agent_->set_controller(new VNController(agent_));
