@@ -24,7 +24,6 @@ class XmlPugi;
 
 class AgentXmppChannel {
 public:
-    explicit AgentXmppChannel(XmppChannel *channel);
     AgentXmppChannel(Agent *agent, XmppChannel *channel, 
                      const std::string &xmpp_server, 
                      const std::string &label_range, uint8_t xs_idx);

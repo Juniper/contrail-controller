@@ -292,7 +292,7 @@ void AgentRouteTable::Input(DBTablePartition *part, DBClient *client,
     AgentRoute *rt = static_cast<AgentRoute *>(part->Find(key));
 
     if (data && data->IsPeerValid() == false) {
-        AGENT_ROUTE_LOG("Sequence number mismatch ", rt->ToString(), vrf_name(),
+        AGENT_ROUTE_LOG("Invalid/Inactive Peer ", rt->ToString(), vrf_name(),
                         key->peer());
         return;
     }
