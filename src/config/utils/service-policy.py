@@ -61,11 +61,16 @@ class ServicePolicyCmd(object):
             'api_server_port': '8082',
         }
 
-        args.conf_file = '/etc/contrail/svc-monitor.conf'
-        if args.conf_file:
-            config = ConfigParser.SafeConfigParser()
-            config.read([args.conf_file])
-            global_defaults.update(dict(config.items("DEFAULTS")))
+	if not args.conf_file:
+            args.conf_file = '/etc/contrail/svc-monitor.conf'
+
+        config = ConfigParser.SafeConfigParser()
+        ret = config.read([args.conf_file])
+        if args.conf_file not in ret:
+            print "Error: Unable to read the config file %s" % args.conf_file
+            sys.exit(-1)
+
+        global_defaults.update(dict(config.items("DEFAULTS")))
 
         # Override with CLI options
         # Don't surpress add_help here so it will handle -h
