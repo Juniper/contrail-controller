@@ -657,18 +657,10 @@ TEST_F(AgentXmppUnitTest, Add_db_req_by_deleted_peer_non_hv) {
                                      TunnelType::ComputeType(TunnelType::MplsType())));
     nh_req.data.reset(new TunnelNHData());
 
-    DBRequest rt_req;
-    rt_req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
-    rt_req.key.reset(new Inet4UnicastRouteKey(old_bgp_peer, "vrf10", addr, 32));
-    RemoteVmRoute *rt_data =
-        new RemoteVmRoute(old_bgp_peer, agent->GetDefaultVrf(),
-                          Ip4Address::from_string("8.8.8.8"), 100,
-                          "vn10", TunnelType::ComputeType(TunnelType::MplsType()),
-                          SecurityGroupList(), nh_req);
-    rt_data->set_sequence_number(0); //Set to old sequence number
-    rt_req.data.reset(rt_data);
-    Agent::GetInstance()->vrf_table()->GetInet4UnicastRouteTable("vrf10")->
-        Enqueue(&rt_req);;
+    Inet4TunnelRouteAdd(old_bgp_peer, "vrf10", addr, 32,
+                        Ip4Address::from_string("8.8.8.8"),
+                        TunnelType::ComputeType(TunnelType::MplsType()),
+                        100, "vn10", SecurityGroupList());
     client->WaitForIdle();
     EXPECT_TRUE(rt->GetPathList().size() == 1);
 

@@ -46,7 +46,7 @@ public:
         client->WaitForIdle(a);
         boost::system::error_code ec;
         Inet4UnicastAgentRouteTable::DeleteReq(bgp_peer_, "vrf1",
-                                     Ip4Address::from_string("5.0.0.0", ec), 8);
+                                     Ip4Address::from_string("5.0.0.0", ec), 8, NULL);
         DeleteVmportEnv(input, 1, 1);
         client->WaitForIdle();
     }
