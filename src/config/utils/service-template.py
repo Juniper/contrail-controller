@@ -5,6 +5,7 @@
 import os
 import sys
 import errno
+import pprint
 import subprocess
 import time
 import argparse
@@ -105,6 +106,9 @@ class ServiceTemplateCmd(object):
             "template_name", help="service template name")
         delete_parser.set_defaults(func=self.delete_st)
 
+        list_parser = subparsers.add_parser('list')
+        list_parser.set_defaults(func=self.list_st)
+
         self._args = parser.parse_args(remaining_argv)
     # end _parse_args
 
@@ -147,6 +151,12 @@ class ServiceTemplateCmd(object):
                 % (self._args.template_name)
             return
     #_delete_st
+
+    def list_st(self):
+        print "Listing service templates"
+        templates = self._vnc_lib.service_templates_list()
+        pprint.pprint(templates)
+    #_list_st
 
 # end class ServiceTemplateCmd
 
