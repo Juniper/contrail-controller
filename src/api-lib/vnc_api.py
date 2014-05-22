@@ -137,8 +137,11 @@ class VncApi(VncApiClientGen):
         self._headers = self._DEFAULT_HEADERS.copy()
         self._headers[rest.hdr_client_tenant()] = self._tenant_name
 
-        self._auth_token = auth_token
-        if self._auth_token:
+        self._auth_token_input = False
+
+        if auth_token:
+            self._auth_token = auth_token
+            self._auth_token_input = True
             self._headers['X-AUTH-TOKEN'] = self._auth_token
 
         # user information for quantum
@@ -331,7 +334,7 @@ class VncApi(VncApiClientGen):
                 return content
      
             # Exception Response, see if it can be resolved
-            if ((status == 401) and (not self._auth_token) and (not self._retry_after_authn)):
+            if ((status == 401) and (not self._auth_token_input) and (not self._retry_after_authn)):
                 self._headers = self._authenticate(content, self._headers)
                 # Recursive call after authentication (max 1 level)
                 self._retry_after_authn = True
