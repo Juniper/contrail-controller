@@ -2,7 +2,7 @@
  * Copyright (c) 2014 Juniper Networks, Inc. All rights reserved.
  */
 
-package net.juniper.contrail.vcenter;
+package net.juniper.contrail.contrail_vrouter_api;
 
 import java.util.Arrays;
 import java.util.ArrayList;
@@ -22,10 +22,9 @@ import org.apache.thrift.transport.TSocket;
 import org.apache.thrift.transport.TFramedTransport;
 import org.apache.thrift.transport.TTransportException;
 
-import net.juniper.contrail.vcenter.ReconnectingThriftClient;
-import net.juniper.contrail.api.ApiConnectorFactory;
 import net.juniper.contrail.contrail_vrouter_api.InstanceService;
 import net.juniper.contrail.contrail_vrouter_api.Port;
+import net.juniper.contrail.contrail_vrouter_api.ReconnectingThriftClient;
 
 public class ContrailVRouterApi {
     private static final Logger s_logger =
@@ -65,7 +64,7 @@ public class ContrailVRouterApi {
         return sb.toString();
     }
 
-    private InstanceService.Client CreateRpcClient() {
+    InstanceService.Client CreateRpcClient() {
         TSocket socket = new TSocket(rpc_address.getHostAddress(), rpc_port);
         TTransport transport = new TFramedTransport(socket);
         try {
@@ -115,18 +114,26 @@ public class ContrailVRouterApi {
     }
 
     /**
+     * Get current list of ports
+     * @return Port Map
+     */
+    public Map<UUID, Port> getPorts() {
+        return ports;
+    }
+
+    /**
      * Add a port to the agent. The information is stored in the ports
      * map since the vrouter agent may not be running at the
      * moment or the RPC may fail.
      * 
-     * @param vm_uuid          UUID of the instance
      * @param vif_uuid         UUID of the VIF/Port
+     * @param vm_uuid          UUID of the instance
      * @param interface_name   Name of the VIF/Port
      * @param interface_ip     IP address associated with the VIF
      * @param mac_address      MAC address of the VIF
      * @param network_uuid     UUID of the associated virtual network
      */
-    public void AddPort(UUID vm_uuid, UUID vif_uuid, String interface_name,
+    public void AddPort(UUID vif_uuid, UUID vm_uuid, String interface_name,
             InetAddress interface_ip, byte[] mac_address, UUID network_uuid) {
         Port aport = new Port(UUIDToArray(vif_uuid), UUIDToArray(vm_uuid),
                 interface_name, interface_ip.getHostAddress(),

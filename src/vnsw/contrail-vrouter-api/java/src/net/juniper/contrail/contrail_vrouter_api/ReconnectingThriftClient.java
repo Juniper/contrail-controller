@@ -4,7 +4,7 @@
  * Code copied from http://blog.liveramp.com/2014/04/10/reconnecting-thrift-client/
  */
 
-package net.juniper.contrail.vcenter;
+package net.juniper.contrail.contrail_vrouter_api;
 
 import java.lang.reflect.InvocationHandler;
 import java.lang.reflect.InvocationTargetException;
