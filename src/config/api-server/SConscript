@@ -61,6 +61,7 @@ local_sources = [
            'vnc_auth_keystone.py',
            'vnc_perms.py',
            'vnc_addr_mgmt.py',
+           'vnc_quota.py',
            'provision_defaults.py'
           ]
 
