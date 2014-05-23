@@ -61,7 +61,7 @@ TEST_F(AgentBasicScaleTest, Basic) {
     XmppConnectionSetUp();
     BuildVmPortEnvironment();
 	IpamInfo ipam_info[] = {
-	    {"1.1.1.0", 24, "1.1.1.200"}
+	    {"1.1.1.0", 24, "1.1.1.200", true}
 	};
     AddIPAM("vn1", ipam_info, 1);
     WAIT_FOR(1000, 10000, RouteFind("vrf1", Ip4Address::from_string("1.1.1.255"), 32));
@@ -93,7 +93,7 @@ TEST_F(AgentBasicScaleTest, multicast_one_channel_down_up) {
     XmppConnectionSetUp();
     BuildVmPortEnvironment();
 	IpamInfo ipam_info[] = {
-	    {"1.1.1.0", 24, "1.1.1.200"}
+	    {"1.1.1.0", 24, "1.1.1.200", true}
 	};
     AddIPAM("vn1", ipam_info, 1);
     WAIT_FOR(1000, 10000, RouteFind("vrf1", Ip4Address::from_string("1.1.1.255"), 32));
@@ -177,7 +177,7 @@ TEST_F(AgentBasicScaleTest, multicast_one_channel_down_up_skip_route_from_peer) 
     XmppConnectionSetUp();
     BuildVmPortEnvironment();
 	IpamInfo ipam_info[] = {
-	    {"1.1.1.0", 24, "1.1.1.200"}
+	    {"1.1.1.0", 24, "1.1.1.200", true}
 	};
     AddIPAM("vn1", ipam_info, 1);
     WAIT_FOR(1000, 10000, RouteFind("vrf1", Ip4Address::from_string("1.1.1.255"), 32));
@@ -450,7 +450,7 @@ TEST_F(AgentBasicScaleTest, unicast_one_channel_down_up_skip_route_from_peer) {
     XmppConnectionSetUp();
     BuildVmPortEnvironment();
 	IpamInfo ipam_info[] = {
-	    {"1.1.1.0", 24, "1.1.1.200"}
+	    {"1.1.1.0", 24, "1.1.1.200", true}
 	};
     AddIPAM("vn1", ipam_info, 1);
     WAIT_FOR(1000, 10000, RouteFind("vrf1", Ip4Address::from_string("1.1.1.255"), 32));

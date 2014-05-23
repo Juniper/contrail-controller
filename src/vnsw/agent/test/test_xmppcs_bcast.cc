@@ -440,7 +440,7 @@ protected:
 
 	//IpamInfo for subnet address belonging to vn
 	IpamInfo ipam_info[] = {
-	    {"1.1.1.0", 24, "1.1.1.200"}
+	    {"1.1.1.0", 24, "1.1.1.200", true}
 	};
 	
 	client->Reset();
