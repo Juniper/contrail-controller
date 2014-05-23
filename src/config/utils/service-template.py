@@ -96,6 +96,8 @@ class ServiceTemplateCmd(object):
         create_parser.add_argument(
             "--image_name", help="glance image name [default: vsrx]")
         create_parser.add_argument(
+            "--flavor", help="Instance flavor")
+        create_parser.add_argument(
             "--svc_scaling", action="store_true", default=False,
             help="enable service scaling [default: False]")
         create_parser.set_defaults(func=self.create_st)
@@ -123,6 +125,8 @@ class ServiceTemplateCmd(object):
 
         svc_properties = ServiceTemplateType()
         svc_properties.set_image_name(self._args.image_name)
+        if self._args.flavor:
+            svc_properties.set_flavor(self._args.flavor)
         svc_properties.set_service_scaling(True)
         svc_properties.set_service_type(self._args.svc_type)
 
