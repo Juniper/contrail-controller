@@ -120,7 +120,7 @@ protected:
         VrfEntry *vrf = VrfGet("vrf5");
         Ip4Address gw_ip = Ip4Address::from_string("11.1.1.254");
         Agent::GetInstance()->GetDefaultInet4UnicastRouteTable()->DeleteReq(
-            Agent::GetInstance()->local_peer(), "vrf5", gw_ip, 32);
+            Agent::GetInstance()->local_peer(), "vrf5", gw_ip, 32, NULL);
         client->WaitForIdle();
         DeleteVmportEnv(input, 3, true, 1);
         client->WaitForIdle(3);

@@ -53,6 +53,7 @@ struct AgentRouteData : public AgentData {
 
     virtual std::string ToString() const = 0;
     virtual bool AddChangePath(Agent *agent, AgentPath *path) = 0;
+    virtual bool IsPeerValid() const {return true;}
 
     bool is_multicast() const {return is_multicast_;}
 
