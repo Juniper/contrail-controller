@@ -283,6 +283,97 @@ public:
 
         return len;
     }
+
+    void DhcpEnableTest(bool order) {
+        struct PortInfo input[] = {
+            {"vnet1", 1, "1.1.1.1", "00:00:00:01:01:01", 1, 1},
+            {"vnet2", 2, "1.1.1.2", "00:00:00:02:02:02", 1, 2},
+        };
+        uint8_t options[] = {
+            DHCP_OPTION_MSG_TYPE,
+            DHCP_OPTION_HOST_NAME,
+            DHCP_OPTION_DOMAIN_NAME,
+            DHCP_OPTION_END
+        };
+        DhcpProto::DhcpStats stats;
+
+        IpamInfo ipam_info[] = {
+            {"1.1.1.0", 24, "1.1.1.200", true},
+            {"1.2.3.128", 27, "1.2.3.129", true},
+            {"7.8.9.0", 24, "7.8.9.12", false},
+        };
+        char vdns_attr[] = "<virtual-DNS-data>\n <domain-name>test.contrail.juniper.net</domain-name>\n <dynamic-records-from-client>true</dynamic-records-from-client>\n <record-order>fixed</record-order>\n <default-ttl-seconds>120</default-ttl-seconds>\n </virtual-DNS-data>\n";
+        char ipam_attr[] = "<network-ipam-mgmt>\n <ipam-dns-method>virtual-dns-server</ipam-dns-method>\n <ipam-dns-server><virtual-dns-server-name>vdns1</virtual-dns-server-name></ipam-dns-server>\n </network-ipam-mgmt>\n";
+
+        if (order) {
+            CreateVmportEnv(input, 2, 0);
+            client->WaitForIdle();
+            client->Reset();
+            AddVDNS("vdns1", vdns_attr);
+            client->WaitForIdle();
+            AddIPAM("vn1", ipam_info, 3, ipam_attr, "vdns1");
+            client->WaitForIdle();
+        } else {
+            client->Reset();
+            AddVDNS("vdns1", vdns_attr);
+            client->WaitForIdle();
+            AddIPAM("vn1", ipam_info, 3, ipam_attr, "vdns1");
+            client->WaitForIdle();
+            CreateVmportEnv(input, 2, 0);
+            client->WaitForIdle();
+        }
+
+        // Check the dhcp_enable flag
+        VnEntry *vn = VnGet(1);
+        std::vector<VnIpam> vn_ipam = vn->GetVnIpam();
+        for (int i = 0; i < sizeof(ipam_info) / sizeof(IpamInfo); ++i) {
+            EXPECT_TRUE(vn_ipam[i].dhcp_enable == ipam_info[i].dhcp_enable);
+        }
+
+        SendDhcp(GetItfId(0), 0x8000, DHCP_DISCOVER, options, 4);
+        SendDhcp(GetItfId(0), 0x8000, DHCP_REQUEST, options, 4);
+        int count = 0;
+        DHCP_CHECK (stats.acks < 1);
+        EXPECT_EQ(1U, stats.discover);
+        EXPECT_EQ(1U, stats.request);
+        EXPECT_EQ(1U, stats.offers);
+        EXPECT_EQ(1U, stats.acks);
+
+        // modify IPAM dhcp_enable
+        for (int i = 0; i < sizeof(ipam_info) / sizeof(IpamInfo); ++i) {
+            ipam_info[i].dhcp_enable = !ipam_info[i].dhcp_enable;
+        }
+        AddIPAM("vn1", ipam_info, 3, ipam_attr, "vdns1");
+        client->WaitForIdle();
+        vn_ipam = vn->GetVnIpam();
+        for (int i = 0; i < sizeof(ipam_info) / sizeof(IpamInfo); ++i) {
+            EXPECT_TRUE(vn_ipam[i].dhcp_enable == ipam_info[i].dhcp_enable);
+        }
+
+        // now DHCP should be disabled for 1.1.1.0 subnet
+        SendDhcp(GetItfId(0), 0x8000, DHCP_DISCOVER, options, 4);
+        SendDhcp(GetItfId(0), 0x8000, DHCP_REQUEST, options, 4);
+        client->WaitForIdle();
+        count = 0;
+        DHCP_CHECK (stats.acks < 1);
+        EXPECT_EQ(1U, stats.discover);
+        EXPECT_EQ(1U, stats.request);
+        EXPECT_EQ(1U, stats.offers);
+        EXPECT_EQ(1U, stats.acks);
+
+        client->Reset();
+        DelIPAM("vn1", "vdns1"); 
+        client->WaitForIdle();
+        DelVDNS("vdns1"); 
+        client->WaitForIdle();
+
+        client->Reset();
+        DeleteVmportEnv(input, 2, 1, 0); 
+        client->WaitForIdle();
+
+        Agent::GetInstance()->GetDhcpProto()->ClearStats();
+    }
+
 private:
     DBTableBase::ListenerId rid_;
     uint32_t itf_count_;
@@ -313,10 +404,11 @@ TEST_F(DhcpTest, DhcpReqTest) {
     };
     DhcpProto::DhcpStats stats;
 
+    ClearPktTrace();
     IpamInfo ipam_info[] = {
-        {"1.2.3.128", 27, "1.2.3.129"},
-        {"7.8.9.0", 24, "7.8.9.12"},
-        {"1.1.1.0", 24, "1.1.1.200"},
+        {"1.2.3.128", 27, "1.2.3.129", true},
+        {"7.8.9.0", 24, "7.8.9.12", true},
+        {"1.1.1.0", 24, "1.1.1.200", true},
     };
     char vdns_attr[] = "<virtual-DNS-data>\n <domain-name>test.contrail.juniper.net</domain-name>\n <dynamic-records-from-client>true</dynamic-records-from-client>\n <record-order>fixed</record-order>\n <default-ttl-seconds>120</default-ttl-seconds>\n </virtual-DNS-data>\n";
     char ipam_attr[] = "<network-ipam-mgmt>\n <ipam-dns-method>virtual-dns-server</ipam-dns-method>\n <ipam-dns-server><virtual-dns-server-name>vdns1</virtual-dns-server-name></ipam-dns-server>\n </network-ipam-mgmt>\n";
@@ -441,7 +533,7 @@ TEST_F(DhcpTest, DhcpOptionTest) {
     DhcpProto::DhcpStats stats;
 
     IpamInfo ipam_info[] = {
-        {CLIENT_REQ_PREFIX, 24, CLIENT_REQ_GW},
+        {CLIENT_REQ_PREFIX, 24, CLIENT_REQ_GW, true},
     };
     char vdns_attr[] = "<virtual-DNS-data>\n <domain-name>test.domain</domain-name>\n <dynamic-records-from-client>true</dynamic-records-from-client>\n <record-order>fixed</record-order>\n <default-ttl-seconds>120</default-ttl-seconds>\n </virtual-DNS-data>\n";
     char ipam_attr[] = 
@@ -520,7 +612,7 @@ TEST_F(DhcpTest, DhcpNakTest) {
     DhcpProto::DhcpStats stats;
 
     IpamInfo ipam_info[] = {
-        {"5.6.7.0", 24, "5.6.7.1"},
+        {"5.6.7.0", 24, "5.6.7.1", true},
     };
     CreateVmportEnv(input, 1, 0);
     client->WaitForIdle();
@@ -586,7 +678,7 @@ TEST_F(DhcpTest, DhcpShortLeaseTest) {
     EXPECT_EQ(2U, stats.acks);
 
     IpamInfo ipam_info[] = {
-        {"9.6.7.0", 24, "9.6.7.254"},
+        {"9.6.7.0", 24, "9.6.7.254", true},
     };
     CreateVmportEnv(input, 1, 0);
     client->WaitForIdle();
@@ -630,7 +722,7 @@ TEST_F(DhcpTest, DhcpTenantDnsTest) {
     DhcpProto::DhcpStats stats;
 
     IpamInfo ipam_info[] = {
-        {"3.2.5.0", 24, "3.2.5.254"},
+        {"3.2.5.0", 24, "3.2.5.254", true},
     };
     char ipam_attr[] = 
     "<network-ipam-mgmt>\
@@ -773,9 +865,9 @@ TEST_F(DhcpTest, DhcpHostRoutesTest) {
     DhcpProto::DhcpStats stats;
 
     IpamInfo ipam_info[] = {
-        {"1.2.3.128", 27, "1.2.3.129"},
-        {"7.8.9.0", 24, "7.8.9.12"},
-        {"1.1.1.0", 24, "1.1.1.200"},
+        {"1.2.3.128", 27, "1.2.3.129", true},
+        {"7.8.9.0", 24, "7.8.9.12", true},
+        {"1.1.1.0", 24, "1.1.1.200", true},
     };
     char vdns_attr[] = "<virtual-DNS-data>\n <domain-name>test.contrail.juniper.net</domain-name>\n <dynamic-records-from-client>true</dynamic-records-from-client>\n <record-order>fixed</record-order>\n <default-ttl-seconds>120</default-ttl-seconds>\n </virtual-DNS-data>\n";
     char ipam_attr[] = "<network-ipam-mgmt>\n <ipam-dns-method>virtual-dns-server</ipam-dns-method>\n <ipam-dns-server><virtual-dns-server-name>vdns1</virtual-dns-server-name></ipam-dns-server>\n </network-ipam-mgmt>\n";
@@ -847,6 +939,14 @@ TEST_F(DhcpTest, DhcpHostRoutesTest) {
     client->WaitForIdle();
 
     Agent::GetInstance()->GetDhcpProto()->ClearStats();
+}
+
+TEST_F(DhcpTest, DhcpEnableTestForward) {
+    DhcpEnableTest(true);
+}
+
+TEST_F(DhcpTest, DhcpEnableTestReverse) {
+    DhcpEnableTest(false);
 }
 
 void RouterIdDepInit(Agent *agent) {

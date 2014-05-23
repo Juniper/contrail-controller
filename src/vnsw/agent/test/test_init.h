@@ -137,6 +137,7 @@ struct IpamInfo {
     char ip_prefix[32];
     int plen;
     char gw[32];
+    bool dhcp_enable;
 };
 
 struct TestIp4Prefix {
