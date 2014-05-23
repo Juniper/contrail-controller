@@ -44,6 +44,10 @@ class ServiceInstanceCmd(object):
             self._right_vn_fq_name = [self._args.domain_name,
                                       self._args.proj_name,
                                       self._args.right_vn]
+        if self._args.mgmt_vn:
+            self._mgmt_vn_fq_name = [self._args.domain_name,
+                                     self._args.proj_name,
+                                     self._args.mgmt_vn]
 
         self._novaclient_init()
         self._vnc_lib = VncApi('u', 'p',
@@ -174,6 +178,16 @@ class ServiceInstanceCmd(object):
             except NoIdError:
                 print "Error: Right VN %s not found" % (self._right_vn_fq_name)
                 return
+        if self._args.mgmt_vn:
+            try:
+                self._vnc_lib.virtual_network_read(
+                    fq_name=self._mgmt_vn_fq_name)
+            except NoIdError:
+                print "Error: Management VN %s not found" % (self._mgmt_vn_fq_name)
+                return
+        else:
+            self._mgmt_vn_fq_name = []
+            
 
         # create si
         print "Creating service instance %s" % (self._args.instance_name)
@@ -188,9 +202,9 @@ class ServiceInstanceCmd(object):
             si_uuid = self._vnc_lib.service_instance_create(si_obj)
 
         si_prop = ServiceInstanceType(
-            left_virtual_network=self._args.left_vn,
-            management_virtual_network=self._args.mgmt_vn,
-            right_virtual_network=self._args.right_vn)
+            left_virtual_network=':'.join(self._left_vn_fq_name),
+            management_virtual_network=':'.join(self._mgmt_vn_fq_name),
+            right_virtual_network=':'.join(self._right_vn_fq_name))
 
         # set scale out
         scale_out = ServiceScaleOutType(
