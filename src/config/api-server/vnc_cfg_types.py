@@ -330,12 +330,11 @@ class NetworkIpamServer(NetworkIpamServerGen):
         if not read_ok:
             return (False, (500, "Internal error : IPAM is not valid"))
         old_ipam_mgmt = read_result.get('network_ipam_mgmt')
-        if not old_ipam_mgmt:
+        new_ipam_mgmt = obj_dict.get('network_ipam_mgmt')
+        if not old_ipam_mgmt or not new_ipam_mgmt:
             return True, ""
-
-        old_dns_method = old_ipam_mgmt['ipam_dns_method']
-        new_ipam_mgmt = obj_dict['network_ipam_mgmt']
-        new_dns_method = new_ipam_mgmt['ipam_dns_method']
+        old_dns_method = old_ipam_mgmt.get('ipam_dns_method')
+        new_dns_method = new_ipam_mgmt.get('ipam_dns_method')
         if not cls.is_change_allowed(old_dns_method, new_dns_method, obj_dict,
                                      db_conn):
             return (False, (409, "Cannot change DNS Method from " +
