@@ -15,6 +15,7 @@ struct VmInterfaceData;
 struct VmInterfaceConfigData;
 struct VmInterfaceIpAddressData;
 struct VmInterfaceOsOperStateData;
+struct VmInterfaceDhcpEnableData;
 struct VmInterfaceMirrorData;
 
 /////////////////////////////////////////////////////////////////////////////
@@ -214,7 +215,8 @@ public:
         vn_(NULL), ip_addr_(0), mdata_addr_(0), subnet_bcast_addr_(0),
         vm_mac_(""), policy_enabled_(false), mirror_entry_(NULL),
         mirror_direction_(MIRROR_RX_TX), cfg_name_(""), fabric_port_(true),
-        need_linklocal_ip_(false), do_dhcp_relay_(false), vm_name_(),
+        need_linklocal_ip_(false), dhcp_enable_config_(true),
+        do_dhcp_relay_(false), vm_name_(),
         vm_project_uuid_(nil_uuid()), vxlan_id_(0), layer2_forwarding_(true),
         ipv4_forwarding_(true), mac_set_(false), vlan_id_(kInvalidVlanId),
         parent_(NULL), sg_list_(), floating_ip_list_(), service_vlan_list_(),
@@ -232,7 +234,8 @@ public:
         vn_(NULL), ip_addr_(addr), mdata_addr_(0), subnet_bcast_addr_(0),
         vm_mac_(mac), policy_enabled_(false), mirror_entry_(NULL),
         mirror_direction_(MIRROR_RX_TX), cfg_name_(""), fabric_port_(true),
-        need_linklocal_ip_(false), do_dhcp_relay_(false), vm_name_(vm_name),
+        need_linklocal_ip_(false), dhcp_enable_config_(true),
+        do_dhcp_relay_(false), vm_name_(vm_name),
         vm_project_uuid_(vm_project_uuid), vxlan_id_(0),
         layer2_forwarding_(true), ipv4_forwarding_(true), mac_set_(false),
         vlan_id_(vlan_id), parent_(parent), sg_list_(), floating_ip_list_(),
@@ -268,6 +271,10 @@ public:
     const std::string &vm_mac() const { return vm_mac_; }
     bool fabric_port() const { return fabric_port_; }
     bool need_linklocal_ip() const { return  need_linklocal_ip_; }
+    bool dhcp_enable_config() const { return dhcp_enable_config_; }
+    void set_dhcp_enable_config(bool dhcp_enable) {
+        dhcp_enable_config_ = dhcp_enable;
+    }
     bool do_dhcp_relay() const { return do_dhcp_relay_; }
     int vxlan_id() const { return vxlan_id_; }
     bool layer2_forwarding() const { return layer2_forwarding_; }
@@ -363,7 +370,7 @@ private:
     bool IsL3Active();
     bool IsL2Active();
     bool PolicyEnabled();
-    void UpdateL3Services(bool val);
+    void UpdateL3Services(bool dhcp, bool dns);
     void AddRoute(const std::string &vrf_name, const Ip4Address &ip,
                   uint32_t plen, bool policy);
     void DeleteRoute(const std::string &vrf_name, const Ip4Address &ip,
@@ -380,6 +387,7 @@ private:
     bool ResyncMirror(VmInterfaceMirrorData *data);
     bool ResyncIpAddress(const VmInterfaceIpAddressData *data);
     bool ResyncOsOperState(const VmInterfaceOsOperStateData *data);
+    bool ResyncDhcpEnable(const VmInterfaceDhcpEnableData *data);
     bool ResyncConfig(VmInterfaceConfigData *data);
     bool CopyIpAddress(Ip4Address &addr);
     bool CopyConfig(VmInterfaceConfigData *data, bool *sg_changed);
@@ -450,6 +458,8 @@ private:
     std::string cfg_name_;
     bool fabric_port_;
     bool need_linklocal_ip_;
+    // DHCP flag coming from config (subnet option)
+    bool dhcp_enable_config_;
     // true if IP is to be obtained from DHCP Relay and not learnt from fabric
     bool do_dhcp_relay_; 
     // VM-Name. Used by DNS
@@ -514,7 +524,8 @@ struct VmInterfaceData : public InterfaceData {
         CONFIG,
         MIRROR,
         IP_ADDR,
-        OS_OPER_STATE
+        OS_OPER_STATE,
+        DHCP_ENABLE
     };
 
     VmInterfaceData(Type type) : InterfaceData(), type_(type) {
@@ -570,14 +581,24 @@ struct VmInterfaceMirrorData : public VmInterfaceData {
     std::string analyzer_name_;
 };
 
+// Structure used when type=DHCP_ENABLE. Used to update dhcp_enable_ flag
+// When dhcp_enable_ is false, vrouter floods DHCP requests from VM in the VN
+struct VmInterfaceDhcpEnableData : public VmInterfaceData {
+    VmInterfaceDhcpEnableData(bool dhcp_enable) :
+        VmInterfaceData(DHCP_ENABLE), dhcp_enable_(dhcp_enable) {
+    }
+
+    bool dhcp_enable_;
+};
+
 // Definition for structures when request queued from IFMap config.
 struct VmInterfaceConfigData : public VmInterfaceData {
     VmInterfaceConfigData() :
         VmInterfaceData(CONFIG), addr_(0), vm_mac_(""), cfg_name_(""),
         vm_uuid_(), vm_name_(), vn_uuid_(), vrf_name_(""), fabric_port_(true),
         need_linklocal_ip_(false), layer2_forwarding_(true),
-        ipv4_forwarding_(true), mirror_enable_(false), analyzer_name_(""),
-        mirror_direction_(Interface::UNKNOWN), sg_list_(), 
+        ipv4_forwarding_(true), mirror_enable_(false), dhcp_enable_(true),
+        analyzer_name_(""), mirror_direction_(Interface::UNKNOWN), sg_list_(),
         floating_ip_list_(), service_vlan_list_(), static_route_list_() {
     }
 
@@ -587,7 +608,7 @@ struct VmInterfaceConfigData : public VmInterfaceData {
         vm_uuid_(), vm_name_(vm_name), vn_uuid_(), vrf_name_(""),
         fabric_port_(true), need_linklocal_ip_(false), 
         layer2_forwarding_(true), ipv4_forwarding_(true), 
-        mirror_enable_(false), analyzer_name_(""),
+        mirror_enable_(false), dhcp_enable_(true), analyzer_name_(""),
         mirror_direction_(Interface::UNKNOWN), sg_list_(),
         floating_ip_list_(), service_vlan_list_(), static_route_list_() {
     }
@@ -609,6 +630,7 @@ struct VmInterfaceConfigData : public VmInterfaceData {
     bool layer2_forwarding_;
     bool ipv4_forwarding_;
     bool mirror_enable_;
+    bool dhcp_enable_; // is DHCP enabled for the interface (from subnet config)
     std::string analyzer_name_;
     Interface::MirrorDirection mirror_direction_;
     VmInterface::SecurityGroupEntryList sg_list_;

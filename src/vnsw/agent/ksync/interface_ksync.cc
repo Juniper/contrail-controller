@@ -50,7 +50,8 @@ InterfaceKSyncEntry::InterfaceKSyncEntry(InterfaceKSyncObject *obj,
     ipv4_active_(false), l2_active_(false),
     os_index_(Interface::kInvalidIndex), network_id_(entry->network_id_),
     sub_type_(entry->sub_type_), ipv4_forwarding_(entry->ipv4_forwarding_),
-    layer2_forwarding_(entry->layer2_forwarding_), vlan_id_(entry->vlan_id_),
+    layer2_forwarding_(entry->layer2_forwarding_),
+    dhcp_enable_(entry->dhcp_enable_), vlan_id_(entry->vlan_id_),
     parent_(entry->parent_) {
 }
 
@@ -63,7 +64,7 @@ InterfaceKSyncEntry::InterfaceKSyncEntry(InterfaceKSyncObject *obj,
     policy_enabled_(false), analyzer_name_(),
     mirror_direction_(Interface::UNKNOWN), ipv4_active_(false), l2_active_(false),
     os_index_(intf->os_index()), sub_type_(InetInterface::VHOST),
-    ipv4_forwarding_(true), layer2_forwarding_(true),
+    ipv4_forwarding_(true), layer2_forwarding_(true), dhcp_enable_(true),
     vlan_id_(VmInterface::kInvalidVlanId), parent_(NULL) {
        
     network_id_ = 0;
@@ -127,6 +128,10 @@ bool InterfaceKSyncEntry::Sync(DBEntry *e) {
 
     if (intf->type() == Interface::VM_INTERFACE) {
         VmInterface *vm_port = static_cast<VmInterface *>(intf);
+        if (dhcp_enable_ != vm_port->dhcp_enable_config()) {
+            dhcp_enable_ = vm_port->dhcp_enable_config();
+            ret = true;
+        }
         if (vm_port->do_dhcp_relay()) {
             if (ip_ != vm_port->ip_addr().to_ulong()) {
                 ip_ = vm_port->ip_addr().to_ulong();
@@ -273,6 +278,9 @@ int InterfaceKSyncEntry::Encode(sandesh_op::type op, char *buf, int buf_len) {
     encoder.set_h_op(op);
     switch (type_) {
     case Interface::VM_INTERFACE: {
+        if (dhcp_enable_) {
+            flags |= VIF_FLAG_DHCP_ENABLED;
+        }
         if (layer2_forwarding_) {
             flags |= VIF_FLAG_L2_ENABLED;
         }

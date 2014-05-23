@@ -246,6 +246,14 @@ public:
     void DeleteDhcpSnoopEntry(const std::string &ifname);
     void AddDhcpSnoopEntry(const std::string &ifname, const Ip4Address &addr);
 
+    // Walk routines to update Dhcp enable flag
+    bool InterfaceDhcpWalk(DBTablePartBase *partition, DBEntryBase *entry,
+                           VnEntry *vn, Ip4Address prefix, uint16_t plen,
+                           bool dhcp_enable);
+    void InterfaceDhcpWalkDone(DBTableBase *partition);
+    void UpdateDhcpEnable(VnEntry *vn, Ip4Address prefix,
+                          uint16_t plen, bool dhcp_enable);
+
     // TODO : to remove this
     static InterfaceTable *GetInstance() { return interface_table_; }
     Agent *agent() const { return agent_; }

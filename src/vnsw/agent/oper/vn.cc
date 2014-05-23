@@ -458,7 +458,8 @@ bool VnTable::IFNodeToReq(IFMapNode *node, DBRequest &req) {
                         vn_ipam.push_back(
                            VnIpam(subnets.ipam_subnets[i].subnet.ip_prefix,
                                   subnets.ipam_subnets[i].subnet.ip_prefix_len,
-                                  subnets.ipam_subnets[i].default_gateway, ipam_name));
+                                  subnets.ipam_subnets[i].default_gateway,
+                                  subnets.ipam_subnets[i].enable_dhcp, ipam_name));
                     }
                     VnIpamLinkData ipam_data;
                     for (unsigned int i = 0;
@@ -627,6 +628,14 @@ bool VnTable::IpamChangeNotify(std::vector<VnIpam> &old_ipam,
                 (*it_old).default_gw = (*it_new).default_gw;
             }
 
+            // check if dhcp enable flag changed
+            if ((*it_old).dhcp_enable != (*it_new).dhcp_enable) {
+                agent()->GetInterfaceTable()->
+                    UpdateDhcpEnable(vn, (*it_new).ip_prefix, (*it_new).plen,
+                                     (*it_new).dhcp_enable);
+                (*it_old).dhcp_enable = (*it_new).dhcp_enable;
+            }
+
             it_old++;
             it_new++;
         }
@@ -751,6 +760,7 @@ bool VnEntry::DBEntrySandesh(Sandesh *sresp, std::string &name)  const {
             entry.set_prefix_len(vn_ipam[i].plen);
             entry.set_gateway(vn_ipam[i].default_gw.to_string());
             entry.set_ipam_name(vn_ipam[i].ipam_name);
+            entry.set_dhcp_enable(vn_ipam[i].dhcp_enable ? "true" : "false");
             vn_subnet_sandesh_list.push_back(entry);
         } 
         data.set_ipam_data(vn_subnet_sandesh_list);

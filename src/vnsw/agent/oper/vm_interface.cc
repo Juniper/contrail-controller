@@ -328,6 +328,44 @@ static void BuildVrfAssignRule(VirtualMachineInterface *cfg,
     }
 }
 
+static IFMapNode *FindTarget(IFMapAgentTable *table, IFMapNode *node,
+                             std::string node_type) {
+    for (DBGraphVertex::adjacency_iterator it = node->begin(table->GetGraph());
+         it != node->end(table->GetGraph()); ++it) {
+        IFMapNode *adj_node = static_cast<IFMapNode *>(it.operator->());
+        if (adj_node->table()->Typename() == node_type)
+            return adj_node;
+    }
+    return NULL;
+}
+
+static void ReadDhcpEnable(Agent *agent, VmInterfaceConfigData *data,
+                           IFMapNode *node) {
+    IFMapAgentTable *table = static_cast<IFMapAgentTable *>(node->table());
+    for (DBGraphVertex::adjacency_iterator it = node->begin(table->GetGraph());
+         it != node->end(table->GetGraph()); ++it) {
+        IFMapNode *adj_node = static_cast<IFMapNode *>(it.operator->());
+        IFMapNode *ipam_node = NULL;
+        if (adj_node->table() == agent->cfg()->cfg_vn_network_ipam_table() &&
+            (ipam_node = FindTarget(table, adj_node, "network-ipam"))) {
+            VirtualNetworkNetworkIpam *ipam =
+                static_cast<VirtualNetworkNetworkIpam *>(adj_node->GetObject());
+            assert(ipam);
+            const VnSubnetsType &subnets = ipam->data();
+            boost::system::error_code ec;
+            for (unsigned int i = 0; i < subnets.ipam_subnets.size(); ++i) {
+                if (IsIp4SubnetMember(data->addr_,
+                        Ip4Address::from_string(
+                            subnets.ipam_subnets[i].subnet.ip_prefix, ec),
+                        subnets.ipam_subnets[i].subnet.ip_prefix_len)) {
+                    data->dhcp_enable_ = subnets.ipam_subnets[i].enable_dhcp;
+                    return;
+                }
+            }
+        }
+    }
+}
+
 // Virtual Machine Interface is added or deleted into oper DB from Nova 
 // messages. The Config notify is used only to change interface.
 bool InterfaceTable::IFNodeToReq(IFMapNode *node, DBRequest &req) {
@@ -375,6 +413,7 @@ bool InterfaceTable::IFNodeToReq(IFMapNode *node, DBRequest &req) {
 
     BuildVrfAssignRule(cfg, data);
     SgUuidList sg_list(0);
+    IFMapNode *vn_node = NULL;
     // Walk Interface Graph to get VM, VN and FloatingIPList
     IFMapAgentTable *table = static_cast<IFMapAgentTable *>(node->table());
     for (DBGraphVertex::adjacency_iterator iter =
@@ -399,6 +438,7 @@ bool InterfaceTable::IFNodeToReq(IFMapNode *node, DBRequest &req) {
         }
 
         if (adj_node->table() == agent_->cfg()->cfg_vn_table()) {
+            vn_node = adj_node;
             VirtualNetwork *vn = static_cast<VirtualNetwork *>
                 (adj_node->GetObject());
             assert(vn);
@@ -452,6 +492,11 @@ bool InterfaceTable::IFNodeToReq(IFMapNode *node, DBRequest &req) {
 
     }
 
+    // Get DHCP enable flag from subnet
+    if (vn_node && data->addr_.to_ulong()) {
+        ReadDhcpEnable(agent_, data, vn_node);
+    }
+
     data->fabric_port_ = false;
     data->need_linklocal_ip_ = true;
     if (data->vrf_name_ == agent_->GetDefaultVrf() ||
@@ -494,6 +539,41 @@ void InterfaceTable::VmInterfaceVrfSync(IFMapNode *node) {
             }
         }
     }
+}
+
+bool InterfaceTable::InterfaceDhcpWalk(DBTablePartBase *partition,
+                                       DBEntryBase *entry,
+                                       VnEntry *vn,
+                                       Ip4Address prefix,
+                                       uint16_t plen,
+                                       bool dhcp_enable) {
+    Interface *interface = static_cast<Interface *>(entry);
+    if (interface->type() == Interface::VM_INTERFACE) {
+        VmInterface *vm_interface = static_cast<VmInterface *>(entry);
+        if (vm_interface->vn() == vn &&
+            IsIp4SubnetMember(vm_interface->ip_addr(), prefix, plen)) {
+            DBRequest req;
+            req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
+            req.key.reset(new VmInterfaceKey(AgentKey::RESYNC,
+                                             vm_interface->GetUuid(),
+                                             vm_interface->name()));
+            req.data.reset(new VmInterfaceDhcpEnableData(dhcp_enable));
+            agent()->GetInterfaceTable()->Enqueue(&req); 
+        }
+    }
+    return true;
+}
+
+void InterfaceTable::InterfaceDhcpWalkDone(DBTableBase *partition) {
+}
+
+void InterfaceTable::UpdateDhcpEnable(VnEntry *vn, Ip4Address prefix,
+                                      uint16_t plen, bool dhcp_enable) {
+    DBTableWalker *walker = agent_->GetDB()->GetWalker();
+    walker->WalkTable(this, NULL,
+            boost::bind(&InterfaceTable::InterfaceDhcpWalk, this,
+                        _1, _2, vn, prefix, plen, dhcp_enable),
+            boost::bind(&InterfaceTable::InterfaceDhcpWalkDone, this, _1));
 }
 
 /////////////////////////////////////////////////////////////////////////////
@@ -587,6 +667,10 @@ bool VmInterface::Resync(VmInterfaceData *data) {
             VmInterfaceOsOperStateData *oper_state =
                 static_cast<VmInterfaceOsOperStateData *> (data);
             ret = ResyncOsOperState(oper_state);
+        } else if (data->type_ == VmInterfaceData::DHCP_ENABLE) {
+            VmInterfaceDhcpEnableData *dhcp_enable =
+                static_cast<VmInterfaceDhcpEnableData *> (data);
+            ret = ResyncDhcpEnable(dhcp_enable);
         } else {
             assert(0);
         }
@@ -735,6 +819,11 @@ bool VmInterface::CopyConfig(VmInterfaceConfigData *data, bool *sg_changed) {
         ret = true;
     }
 
+    if (dhcp_enable_config_ != data->dhcp_enable_) {
+        dhcp_enable_config_ = data->dhcp_enable_;
+        ret = true;
+    }
+
     bool mac_set = true;
     struct ether_addr *addrp = ether_aton(vm_mac_.c_str());
     if (addrp == NULL) {
@@ -858,9 +947,9 @@ void VmInterface::ApplyConfig(bool old_ipv4_active, bool old_l2_active, bool old
     //Irrespective of interface state, if ipv4 forwarding mode is enabled
     //enable L3 services on this interface
     if (ipv4_forwarding_) {
-        UpdateL3Services(true);
+        UpdateL3Services(dhcp_enable_config_, true);
     } else {
-        UpdateL3Services(false);
+        UpdateL3Services(false, false);
     }
 
     // Add/Del/Update L3 
@@ -965,6 +1054,21 @@ bool VmInterface::ResyncOsOperState(const VmInterfaceOsOperStateData *data) {
 
     ApplyConfig(old_ipv4_active, l2_active_, policy_enabled_, vrf_.get(),
                 ip_addr_, vxlan_id_, need_linklocal_ip_, false);
+    return ret;
+}
+
+// Resync dhcp-enable for the interface
+bool VmInterface::ResyncDhcpEnable(const VmInterfaceDhcpEnableData *data) {
+    bool ret = false;
+
+    if (data->dhcp_enable_ != dhcp_enable_config_) {
+        dhcp_enable_config_ = data->dhcp_enable_;
+        if (ipv4_forwarding_) {
+            UpdateL3Services(dhcp_enable_config_, dns_enabled_);
+        }
+        ret = true;
+    }
+
     return ret;
 }
 
@@ -1600,9 +1704,9 @@ void VmInterface::DeleteRoute(const std::string &vrf_name,
     return;
 }
 
-void VmInterface::UpdateL3Services(bool val) {
-    dhcp_enabled_ = val;
-    dns_enabled_ = val;
+void VmInterface::UpdateL3Services(bool dhcp, bool dns) {
+    dhcp_enabled_ = dhcp;
+    dns_enabled_ = dns;
 }
 
 /////////////////////////////////////////////////////////////////////////////

@@ -29,11 +29,12 @@ struct VnIpam {
     uint32_t   plen;
     Ip4Address default_gw;
     bool       installed;    // is the route to send pkts to host installed
+    bool       dhcp_enable;
     std::string ipam_name;
 
     VnIpam(const std::string& ip, uint32_t len, const std::string& gw,
-           std::string &name)
-        : plen(len), installed(false), ipam_name(name) {
+           bool dhcp, std::string &name)
+        : plen(len), installed(false), dhcp_enable(dhcp), ipam_name(name) {
         boost::system::error_code ec;
         ip_prefix = Ip4Address::from_string(ip, ec);
         default_gw = Ip4Address::from_string(gw, ec);
