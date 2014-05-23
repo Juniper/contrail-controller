@@ -428,6 +428,25 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
 <xsd:element name="id-perms" type="IdPermsType"/>
 <!--#IFMAP-SEMANTICS-IDL Property('id-perms', 'all') -->
 
+<xsd:complexType name="QuotaType">
+    <xsd:all>
+        <xsd:element name="floating-ip" type="xsd:integer"/>
+        <xsd:element name="instance-ip" type="xsd:integer"/>
+        <xsd:element name="virtual-machine-interface" type="xsd:integer"/>
+        <xsd:element name="virtual-network" type="xsd:integer"/>
+        <xsd:element name="virtual-router" type="xsd:integer"/>
+        <xsd:element name="virtual-DNS" type="xsd:integer"/>
+        <xsd:element name="virtual-DNS-record" type="xsd:integer"/>
+        <xsd:element name="bgp-router" type="xsd:integer"/>
+        <xsd:element name="network-ipam" type="xsd:integer"/>
+        <xsd:element name="access-control-list" type="xsd:integer"/>
+        <xsd:element name="floating-ip-pool" type="xsd:integer"/>
+        <xsd:element name="service-template" type="xsd:integer"/>
+        <xsd:element name="service-instance" type="xsd:integer"/>
+        <xsd:element name="global-vrouter-config" type="xsd:integer"/>
+    </xsd:all>
+</xsd:complexType>
+
 <xsd:element name="display-name" type="xsd:string"/>
 <!--#IFMAP-SEMANTICS-IDL Property('display-name', 'all') -->
 
@@ -611,6 +630,10 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
 <!--#IFMAP-SEMANTICS-IDL 
      Link('virtual-network-network-policy',
           'virtual-network', 'network-policy', ['ref']) -->
+
+<xsd:element name="quota" type="QuotaType"/>
+<!--#IFMAP-SEMANTICS-IDL
+     Property('quota', 'project') -->
 
 <xsd:element name="network-policy-entries" type="PolicyEntriesType"/>
 <!--#IFMAP-SEMANTICS-IDL 
