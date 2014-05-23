@@ -8,6 +8,7 @@ import argparse
 import ConfigParser
 
 from provision_bgp import BgpProvisioner
+from vnc_api.vnc_api import *
 
 
 class ControlProvisioner(object):
@@ -17,6 +18,18 @@ class ControlProvisioner(object):
         if not args_str:
             args_str = ' '.join(sys.argv[1:])
         self._parse_args(args_str)
+
+        if self._args.router_asn and not self._args.oper:
+            self._vnc_lib = VncApi(
+            self._args.admin_user, self._args.admin_password, self._args.admin_tenant_name,
+            self._args.api_server_ip,
+            self._args.api_server_port, '/')
+            # Update global system config also with this ASN
+            gsc_obj = self._vnc_lib.global_system_config_read(
+                  fq_name=['default-global-system-config'])
+            gsc_obj.set_autonomous_system(self._args.router_asn)
+            self._vnc_lib.global_system_config_update(gsc_obj)
+            return 
 
         bp_obj = BgpProvisioner(
             self._args.admin_user, self._args.admin_password,
@@ -56,7 +69,7 @@ class ControlProvisioner(object):
             'router_asn': '64512',
             'api_server_ip': '127.0.0.1',
             'api_server_port': '8082',
-            'oper': 'add',
+            'oper': None,
             'admin_user': None,
             'admin_password': None,
             'admin_tenant_name': None
@@ -88,7 +101,7 @@ class ControlProvisioner(object):
             "--api_server_ip", help="IP address of api server")
         parser.add_argument("--api_server_port", help="Port of api server")
         parser.add_argument(
-            "--oper", default='add',
+            "--oper", 
             help="Provision operation to be done(add or del)")
         parser.add_argument(
             "--admin_user", help="Name of keystone admin user")
