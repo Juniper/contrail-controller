@@ -131,9 +131,16 @@ void VmUveTable::InterfaceNotify(DBTablePartBase *partition, DBEntryBase *e) {
         if (state) {
             if (e->IsDeleted() || ((state->ipv4_active_ == true) ||
                                     (state->l2_active_ == true))) {
-                InterfaceDeleteHandler(state->vm_, vm_port);
-                state->ipv4_active_ = false;
-                state->l2_active_ = false;
+                VmKey key(state->vm_uuid_);
+                const VmEntry *vm = static_cast<VmEntry *>(agent_->GetVmTable()
+                     ->FindActiveEntry(&key));
+                /* If vm is marked for delete or if vm is deleted, required
+                 * UVEs will be sent as part of Vm Delete Notification */
+                if (vm != NULL) {
+                    InterfaceDeleteHandler(vm, vm_port);
+                    state->ipv4_active_ = false;
+                    state->l2_active_ = false;
+                }
             }
             if (e->IsDeleted()) {
                 e->ClearState(partition->parent(), intf_listener_id_);
@@ -144,7 +151,8 @@ void VmUveTable::InterfaceNotify(DBTablePartBase *partition, DBEntryBase *e) {
         const VmEntry *vm = vm_port->vm();
 
         if (!state) {
-            state = new VmUveInterfaceState(vm, vm_port->ipv4_active(), 
+            state = new VmUveInterfaceState(vm->GetUuid(), 
+                                            vm_port->ipv4_active(),
                                             vm_port->l2_active());
             e->SetState(partition->parent(), intf_listener_id_, state);
         } else {
@@ -152,7 +160,7 @@ void VmUveTable::InterfaceNotify(DBTablePartBase *partition, DBEntryBase *e) {
             state->l2_active_ = vm_port->l2_active();
         }
         /* Change of VM in a given VM interface is not supported now */
-        if (vm != state->vm_) {
+        if (vm->GetUuid() != state->vm_uuid_) {
             assert(0);
         }
         InterfaceAddHandler(vm, vm_port);
