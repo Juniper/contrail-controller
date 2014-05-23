@@ -143,6 +143,7 @@ void AddL2Vn(const char *name, int id);
 void AddVn(const char *name, int id);
 void DelVn(const char *name);
 void AddPort(const char *name, int id);
+void AddPortByStatus(const char *name, int id, bool admin_status);
 void DelPort(const char *name);
 void AddAcl(const char *name, int id);
 void AddAcl(const char *name, int id, const char *src_vn, const char *dest_vn,
