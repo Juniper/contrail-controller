@@ -74,6 +74,8 @@ public:
     VnUveEntry(Agent *agent);
     virtual ~VnUveEntry();
 
+    void set_vn(const VnEntry *vn) { vn_ = vn; }
+
     void InterfaceAdd(const Interface *intf);
     void InterfaceDelete(const Interface *intf);
     void VmAdd(const std::string &vm);
