@@ -61,6 +61,8 @@ public:
     static void SetCollector(std::string name) { collector_ = name; };
     static const uint32_t GetHttpPort() { return http_port_; }
     static void SetHttpPort(uint32_t port) { http_port_ = port; };
+    static const uint32_t GetDnsPort() { return dns_port_; }
+    static void SetDnsPort(uint32_t port) { dns_port_ = port; };
     static std::string GetSelfIp() { return self_ip_; }
     static void SetSelfIp(std::string ip) { self_ip_ = ip; }
 
@@ -97,6 +99,7 @@ private:
     static std::string self_ip_;
     static std::string collector_;
     static uint32_t http_port_;
+    static uint32_t dns_port_;
     static DnsAgentXmppChannelManager *agent_xmpp_channel_mgr_;
     static DiscoveryServiceClient *ds_client_;
 };

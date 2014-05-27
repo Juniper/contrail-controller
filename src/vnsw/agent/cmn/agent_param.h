@@ -62,6 +62,8 @@ public:
     const Ip4Address &xmpp_server_2() const { return xmpp_server_2_; }
     const Ip4Address &dns_server_1() const { return dns_server_1_; }
     const Ip4Address &dns_server_2() const { return dns_server_2_; }
+    const uint16_t dns_port_1() const { return dns_port_1_; }
+    const uint16_t dns_port_2() const { return dns_port_2_; }
     const Ip4Address &discovery_server() const { return dss_server_; }
     const Ip4Address &mgmt_ip() const { return mgmt_ip_; }
     const int xmpp_instance_count() const { return xmpp_instance_count_; }
@@ -123,11 +125,19 @@ private:
     bool GetIpAddress(const std::string &str, Ip4Address *addr);
     bool ParseIp(const std::string &key, Ip4Address *server);
     bool ParseServerList(const std::string &key, Ip4Address *s1, Ip4Address *s2);
+    bool ParseAddress(const std::string &addr_string,
+                      Ip4Address *server, uint16_t *port);
+    bool ParseServerList(const std::string &key, Ip4Address *server1,
+                         uint16_t *port1, Ip4Address *server2, uint16_t *port2);
     void ParseIpArgument(const boost::program_options::variables_map &var_map, 
                          Ip4Address &server, const std::string &key);
     bool ParseServerListArguments
     (const boost::program_options::variables_map &var_map, Ip4Address &server1,
      Ip4Address &server2, const std::string &key);
+    bool ParseServerListArguments
+    (const boost::program_options::variables_map &var_map, Ip4Address *server1,
+     uint16_t *port1, Ip4Address *server2, uint16_t *port2,
+     const std::string &key);
     void ParseCollector();
     void ParseVirtualHost();
     void ParseDiscovery();
@@ -164,6 +174,8 @@ private:
     Ip4Address xmpp_server_2_;
     Ip4Address dns_server_1_;
     Ip4Address dns_server_2_;
+    uint16_t dns_port_1_;
+    uint16_t dns_port_2_;
     Ip4Address dss_server_;
     Ip4Address mgmt_ip_;
     Mode mode_;

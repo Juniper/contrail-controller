@@ -49,6 +49,7 @@ void Options::Initialize(EventManager &evm,
         ("version", "Display version information")
     ;
 
+    uint16_t default_dns_server_port = ContrailPorts::DnsServerPort;
     uint16_t default_http_server_port = ContrailPorts::HttpPortDns;
     uint16_t default_discovery_port = ContrailPorts::DiscoveryServerPort;
 
@@ -72,6 +73,9 @@ void Options::Initialize(EventManager &evm,
         ("DEFAULT.http_server_port",
              opt::value<uint16_t>()->default_value(default_http_server_port),
              "Sandesh HTTP listener port")
+        ("DEFAULT.dns_server_port",
+             opt::value<uint16_t>()->default_value(default_dns_server_port),
+             "DNS server port")
 
         ("DEFAULT.log_category",
              opt::value<string>()->default_value(log_category_),
@@ -172,6 +176,8 @@ void Options::Process(int argc, char *argv[],
 
     GetOptValue<uint16_t>(var_map, http_server_port_,
                           "DEFAULT.http_server_port");
+
+    GetOptValue<uint16_t>(var_map, dns_server_port_, "DEFAULT.dns_server_port");
 
     GetOptValue<string>(var_map, log_category_, "DEFAULT.log_category");
     GetOptValue<string>(var_map, log_file_, "DEFAULT.log_file");

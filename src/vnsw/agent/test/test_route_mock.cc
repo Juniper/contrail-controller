@@ -60,16 +60,16 @@ void StartControlNodeMock() {
     
     Agent::GetInstance()->SetXmppServer("127.0.0.1", 0);
     Agent::GetInstance()->SetXmppPort(bgp_peer1->GetServerPort(), 0);
-    Agent::GetInstance()->SetDnsXmppServer("", 0);
-    Agent::GetInstance()->SetDnsXmppPort(bgp_peer1->GetServerPort(), 0);
+    Agent::GetInstance()->SetDnsServer("", 0);
+    Agent::GetInstance()->SetDnsServerPort(bgp_peer1->GetServerPort(), 0);
 
     thread2 = new ServerThread(&evm2);
     bgp_peer2 = new test::ControlNodeMock(&evm2, "127.0.0.1");
     
     Agent::GetInstance()->SetXmppServer("127.0.0.1", 1);
     Agent::GetInstance()->SetXmppPort(bgp_peer2->GetServerPort(), 1);
-    Agent::GetInstance()->SetDnsXmppServer("", 1);
-    Agent::GetInstance()->SetDnsXmppPort(bgp_peer2->GetServerPort(), 1);
+    Agent::GetInstance()->SetDnsServer("", 1);
+    Agent::GetInstance()->SetDnsServerPort(bgp_peer2->GetServerPort(), 1);
     thread1->Start();
     thread2->Start();
 }
