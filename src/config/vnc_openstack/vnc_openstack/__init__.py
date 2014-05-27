@@ -71,6 +71,15 @@ class OpenstackDriver(vnc_plugin_base.Resync):
                                            tenant_name=self._auth_tenant,
                                            auth_url=self._auth_url)
 
+    def _log_exception(self):
+        cgitb.Hook(
+            format="text",
+            file=open(self._tmp_file_name,
+                      'w')).handle(sys.exc_info())
+        fhandle = open(self._tmp_file_name)
+        self._vnc_os_logger.error("%s" % fhandle.read())
+    #end _log_exception
+
     def _resync_projects_forever(self):
         try:
             # get connection to api-server REST interface
@@ -89,12 +98,7 @@ class OpenstackDriver(vnc_plugin_base.Resync):
             old_projects = self._vnc_lib.projects_list()['projects']
             old_project_ids = set([proj['uuid'] for proj in old_projects])
         except Exception as e:
-            cgitb.Hook(
-                format="text",
-                file=open(self._tmp_file_name,
-                          'w')).handle(sys.exc_info())
-            fhandle = open(self._tmp_file_name)
-            self._vnc_os_logger.error("%s" % fhandle.read())
+            self._log_exception()
 
         del_proj_list = set()
         while True:
@@ -125,12 +129,7 @@ class OpenstackDriver(vnc_plugin_base.Resync):
                     try:
                         self._vnc_lib.project_delete(id=old_proj_id)
                     except Exception as e:
-                        cgitb.Hook(
-                            format="text",
-                            file=open(self._tmp_file_name,
-                                      'w')).handle(sys.exc_info())
-                        fhandle = open(self._tmp_file_name)
-                        self._vnc_os_logger.error("%s" % fhandle.read())
+                        self._log_exception()
                         del_proj_list.add(old_proj_id)
                         pass
 
@@ -155,12 +154,7 @@ class OpenstackDriver(vnc_plugin_base.Resync):
 
             except Exception as e:
                 self._kc = None
-                cgitb.Hook(
-                    format="text",
-                    file=open(self._tmp_file_name,
-                              'w')).handle(sys.exc_info())
-                fhandle = open(self._tmp_file_name)
-                self._vnc_os_logger.error("%s" % fhandle.read())
+                self._log_exception()
                 gevent.sleep(2)
         #end while True
 
