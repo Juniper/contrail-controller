@@ -12,10 +12,10 @@ class Resync(object):
     #end __init__
 
     @abc.abstractmethod
-    def resync_projects(self):
+    def resync_domains_projects(self):
         """
         Method that implements auditing of projects between orchestration
-        system and Juniper Contrail VNS
+        system and OpenContrail VNC
         """
         pass
     #end resync_projects

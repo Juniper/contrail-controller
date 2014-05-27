@@ -820,14 +820,14 @@ class VncApiServer(VncApiServerGen):
 
         self._db_conn.db_resync()
         try:
-            self._extension_mgrs['resync'].map(self._resync_projects)
+            self._extension_mgrs['resync'].map(self._resync_domains_projects)
         except Exception as e:
             pass
     # end _db_init_entries
 
-    def _resync_projects(self, ext):
-        ext.obj.resync_projects()
-    # end _resync_projects
+    def _resync_domains_projects(self, ext):
+        ext.obj.resync_domains_projects()
+    # end _resync_domains_projects
 
     def _create_singleton_entry(self, singleton_obj):
         s_obj = singleton_obj

@@ -12,6 +12,7 @@ import copy
 import bottle
 import logging
 import logging.handlers
+import ConfigParser
 from keystoneclient.v2_0 import client as keystone
 import cfgm_common
 try:
@@ -25,23 +26,62 @@ from vnc_api.gen.resource_xsd import *
 from vnc_api.gen.resource_common import *
 
 
+def get_keystone_opts(conf_sections):
+    auth_user = conf_sections.get('KEYSTONE', 'admin_user')
+    auth_passwd = conf_sections.get('KEYSTONE', 'admin_password')
+    admin_token = conf_sections.get('KEYSTONE', 'admin_token')
+    admin_tenant = conf_sections.get('KEYSTONE', 'admin_tenant_name')
+    try:
+        auth_url = conf_sections.get('KEYSTONE', 'auth_url')
+    except ConfigParser.NoOptionError:
+        # deprecated knobs - for backward compat
+        auth_proto = conf_sections.get('KEYSTONE', 'auth_protocol')
+        auth_host = conf_sections.get('KEYSTONE', 'auth_host')
+        auth_port = conf_sections.get('KEYSTONE', 'auth_port')
+        auth_url = "%s://%s:%s/v2.0" % (auth_proto, auth_host, auth_port)
+
+    return auth_user, auth_passwd, admin_token, admin_tenant, auth_url
+
 class OpenstackDriver(vnc_plugin_base.Resync):
     def __init__(self, api_server_ip, api_server_port, conf_sections):
         self._vnc_api_ip = api_server_ip
         self._vnc_api_port = api_server_port
 
         self._config_sections = conf_sections
-        self._auth_host = conf_sections.get('KEYSTONE', 'auth_host')
-        self._auth_port = conf_sections.get('KEYSTONE', 'auth_port')
-        self._auth_user = conf_sections.get('KEYSTONE', 'admin_user')
-        self._auth_passwd = conf_sections.get('KEYSTONE', 'admin_password')
-        self._admin_token = conf_sections.get('KEYSTONE', 'admin_token')
-        self._auth_tenant = conf_sections.get('KEYSTONE', 'admin_tenant_name')
-        auth_proto = conf_sections.get('KEYSTONE', 'auth_protocol')
-        auth_url = "%s://%s:%s/v2.0" % (auth_proto, self._auth_host, self._auth_port)
-        self._auth_url = auth_url
+        (self._auth_user,
+         self._auth_passwd,
+         self._admin_token,
+         self._admin_tenant,
+         self._auth_url) = get_keystone_opts(conf_sections)
+
+        if 'v3' in self._auth_url.split('/')[-1]:
+            self._get_keystone_conn = self._ksv3_get_conn
+            self._ks_domains_list = self._ksv3_domains_list
+            self._ks_domain_get = self._ksv3_domain_get
+            self._ks_projects_list = self._ksv3_projects_list
+            self._ks_project_get = self._ksv3_project_get
+            self._add_project_to_vnc = self._ksv3_add_project_to_vnc
+            self._del_project_from_vnc = self._ksv3_del_project_from_vnc
+            self._vnc_default_domain_id = None
+        else:
+            self._get_keystone_conn = self._ksv2_get_conn
+            self._ks_domains_list = None
+            self._ks_domain_get = None
+            self._ks_projects_list = self._ksv2_projects_list
+            self._ks_project_get = self._ksv2_project_get
+            self._add_project_to_vnc = self._ksv2_add_project_to_vnc
+            self._del_project_from_vnc = self._ksv2_del_project_from_vnc
+        
         self._resync_interval_secs = 2
-        self._kc = None
+        self._ks = None
+
+        # resync failures, don't retry forever
+        self._failed_domain_dels = set()
+        self._failed_project_dels = set()
+
+        # active domains/projects in contrail/vnc api server
+        self._vnc_domain_ids = set()
+        self._vnc_project_ids = set()
 
         # logging
         self._log_file_name = '/var/log/contrail/vnc_openstack.err'
@@ -60,18 +100,243 @@ class OpenstackDriver(vnc_plugin_base.Resync):
         pass
     #end __call__
 
-    def _get_keystone_conn(self):
-        if not self._kc:
+    def _ksv2_get_conn(self):
+        if not self._ks:
             if self._admin_token:
-                self._kc = keystone.Client(token=self._admin_token,
+                self._ks = keystone.Client(token=self._admin_token,
                                            endpoint=self._auth_url)
             else:
-                self._kc = keystone.Client(username=self._auth_user,
+                self._ks = keystone.Client(username=self._auth_user,
                                            password=self._auth_passwd,
-                                           tenant_name=self._auth_tenant,
+                                           tenant_name=self._admin_tenant,
                                            auth_url=self._auth_url)
+    # end _ksv2_get_conn
 
-    def _resync_projects_forever(self):
+    def _ksv2_projects_list(self):
+        return [{'id': tenant.id} for tenant in self._ks.tenants.list()]
+    # end _ksv2_projects_list
+
+    def _ksv2_project_get(self, id):
+        return {'name': self._ks.tenants.get(id).name}
+    # end _ksv2_project_get
+
+    def _ksv2_add_project_to_vnc(self, project_id):
+        try:
+            self._vnc_lib.project_read(id=project_id)
+            # project exists, no-op for now,
+            # sync any attr changes in future
+        except vnc_api.NoIdError:
+            ks_project = \
+                self._ks_project_get(project_id.replace('-', ''))
+            proj_obj = vnc_api.Project(ks_project['name'])
+            proj_obj.uuid = project_id
+            self._vnc_lib.project_create(proj_obj)
+    # _ksv2_add_project_to_vnc
+
+    def _ksv2_del_project_from_vnc(self, project_id):
+        if project_id in self._failed_project_dels:
+            return
+
+        try:
+            self._vnc_lib.project_delete(id=project_id)
+        except vnc_api.NoIdError:
+            pass
+        except Exception as e:
+            cgitb.Hook(
+                format="text",
+                file=open(self._tmp_file_name,
+                          'w')).handle(sys.exc_info())
+            fhandle = open(self._tmp_file_name)
+            self._vnc_os_logger.error("%s" % fhandle.read())
+            self._failed_project_dels.add(project_id)
+    # _ksv2_del_project_from_vnc
+
+    def _ksv3_get_conn(self):
+        if self._ks:
+            return
+
+        self._ks = requests.Session()
+        adapter = requests.adapters.HTTPAdapter()
+        self._ks.mount("http://", adapter)
+        self._ks.mount("https://", adapter)
+    # end _ksv3_get_conn
+
+    def _ksv3_domains_list(self):
+        resp = self._ks.get('%s/domains' %(self._auth_url),
+                            headers={'X-AUTH-TOKEN':self._admin_token})
+        if resp.status_code != 200:
+            raise Exception(resp.text)
+
+        domains_json = resp.text
+        return json.loads(domains_json)['domains']
+    # end _ksv3_domains_list
+
+    def _ksv3_domain_get(self, id=None):
+        resp = self._ks.get('%s/domains/%s' %(self._auth_url, id),
+                            headers={'X-AUTH-TOKEN':self._admin_token})
+        if resp.status_code != 200:
+            raise Exception(resp.text)
+
+        domain_json = resp.text
+        return json.loads(domain_json)['domain']
+    # end _ksv3_domain_get
+
+    def _ksv3_projects_list(self):
+        resp = self._ks.get('%s/projects' %(self._auth_url),
+                            headers={'X-AUTH-TOKEN':self._admin_token})
+        if resp.status_code != 200:
+            raise Exception(resp.text)
+
+        projects_json = resp.text
+        return json.loads(projects_json)['projects']
+    # end _ksv3_projects_list
+
+    def _ksv3_project_get(self, id=None):
+        resp = self._ks.get('%s/projects/%s' %(self._auth_url, id),
+                            headers={'X-AUTH-TOKEN':self._admin_token})
+        if resp.status_code != 200:
+            raise Exception(resp.text)
+
+        project_json = resp.text
+        return json.loads(project_json)['project']
+    # end _ksv3_project_get
+
+    def _ksv3_add_project_to_vnc(self, project_id):
+        try:
+            self._vnc_lib.project_read(id=project_id)
+            # project exists, no-op for now,
+            # sync any attr changes in future
+        except vnc_api.NoIdError:
+            ks_project = \
+                self._ks_project_get(project_id.replace('-', ''))
+            domain_uuid = str(uuid.UUID(ks_project['domain_id']))
+            dom_obj = self._vnc_lib.domain_read(id=domain_uuid)
+            proj_obj = vnc_api.Project(ks_project['name'], parent_obj=dom_obj)
+            proj_obj.uuid = project_id
+            self._vnc_lib.project_create(proj_obj)
+    # _ksv3_add_project_to_vnc
+
+    def _ksv3_del_project_from_vnc(self, project_id):
+        if project_id in self._failed_project_dels:
+            return
+
+        try:
+            self._vnc_lib.project_delete(id=project_id)
+        except vnc_api.NoIdError:
+            pass
+        except Exception as e:
+            cgitb.Hook(
+                format="text",
+                file=open(self._tmp_file_name,
+                          'w')).handle(sys.exc_info())
+            fhandle = open(self._tmp_file_name)
+            self._vnc_os_logger.error("%s" % fhandle.read())
+            self._failed_project_dels.add(project_id)
+    # _ksv3_del_project_from_vnc
+
+
+    def _add_domain_to_vnc(self, domain_id):
+        try:
+            self._vnc_lib.domain_read(id=domain_id)
+            # domain exists, no-op for now,
+            # sync any attr changes in future
+        except vnc_api.NoIdError:
+            ks_domain = \
+                self._ks_domain_get(domain_id.replace('-', ''))
+            dom_obj = vnc_api.Domain(ks_domain['name'])
+            dom_obj.uuid = domain_id
+            self._vnc_lib.domain_create(dom_obj)
+
+    # _add_domain_to_vnc
+
+    def _del_domain_from_vnc(self, domain_id):
+        if domain_id in self._failed_domain_dels:
+            return
+
+        try:
+            self._vnc_lib.domain_delete(id=domain_id)
+        except vnc_api.NoIdError:
+            pass
+        except Exception as e:
+            cgitb.Hook(
+                format="text",
+                file=open(self._tmp_file_name,
+                          'w')).handle(sys.exc_info())
+            fhandle = open(self._tmp_file_name)
+            self._vnc_os_logger.error("%s" % fhandle.read())
+            self._failed_domain_dels.add(domain_id)
+    # _del_domain_from_vnc
+
+    def _resync_all_domains(self):
+        if not self._ks_domains_list:
+            # < keystonev3, no domains
+            return False
+
+        self._get_keystone_conn()
+        # compare new and old set,
+        # optimize for common case where nothing has changed,
+        # so track the project-ids in a set add '-',
+        # keystone gives uuid without...
+        try:
+            # The Default domain in ks(for v2 support) has id of 'default'
+            # replace with uuid of default-domain in vnc
+            ks_domain_ids = set(
+                [str(uuid.UUID(dom['id']))
+                    for dom in self._ks_domains_list() if dom['id'] != 'default'])
+            ks_domain_ids.add(self._vnc_default_domain_id)
+        except Exception as e:
+            self._ks = None
+            return True # retry
+
+        vnc_domain_ids = self._vnc_domain_ids
+        if vnc_domain_ids == ks_domain_ids:
+            # no change, go back to poll
+            return False
+
+        for vnc_domain_id in vnc_domain_ids - ks_domain_ids:
+            self._del_domain_from_vnc(self, vnc_domain_id)
+
+        for ks_domain_id in ks_domain_ids - vnc_domain_ids:
+            self._add_domain_to_vnc(ks_domain_id)
+
+        # we are in sync
+        self._vnc_domain_ids = ks_domain_ids
+
+        return False
+    # end _resync_all_domains
+
+    def _resync_all_projects(self):
+        self._get_keystone_conn()
+        # compare new and old set,
+        # optimize for common case where nothing has changed,
+        # so track the project-ids in a set add '-',
+        # keystone gives uuid without...
+        try:
+            ks_project_ids = set(
+                [str(uuid.UUID(proj['id']))
+                    for proj in self._ks_projects_list()])
+        except Exception as e:
+            self._ks = None
+            return True # retry
+
+        vnc_project_ids = self._vnc_project_ids
+        if vnc_project_ids == ks_project_ids:
+            # no change, go back to poll
+            return False
+
+        for vnc_project_id in vnc_project_ids - ks_project_ids:
+            self._del_project_from_vnc(vnc_project_id)
+
+        for ks_project_id in ks_project_ids - vnc_project_ids:
+            self._add_project_to_vnc(ks_project_id)
+
+        # we are in sync
+        self._vnc_project_ids = ks_project_ids
+
+        return False
+    # end _resync_all_projects
+
+    def _resync_domains_projects_forever(self):
         try:
             # get connection to api-server REST interface
             while True:
@@ -81,13 +346,19 @@ class OpenstackDriver(vnc_plugin_base.Resync):
                         api_server_port=self._vnc_api_port,
                         username=self._auth_user,
                         password=self._auth_passwd,
-                        tenant_name=self._auth_tenant)
+                        tenant_name=self._admin_tenant)
                     break
                 except requests.ConnectionError:
                     gevent.sleep(1)
 
-            old_projects = self._vnc_lib.projects_list()['projects']
-            old_project_ids = set([proj['uuid'] for proj in old_projects])
+            vnc_domains = self._vnc_lib.domains_list()['domains']
+            for dom in vnc_domains:
+                self._vnc_domain_ids.add(dom['uuid'])
+                if dom['fq_name'] == ['default-domain']:
+                    self._vnc_default_domain_id = dom['uuid']
+
+            vnc_projects = self._vnc_lib.projects_list()['projects']
+            self._vnc_project_ids = set([proj['uuid'] for proj in vnc_projects])
         except Exception as e:
             cgitb.Hook(
                 format="text",
@@ -96,65 +367,14 @@ class OpenstackDriver(vnc_plugin_base.Resync):
             fhandle = open(self._tmp_file_name)
             self._vnc_os_logger.error("%s" % fhandle.read())
 
-        del_proj_list = set()
         while True:
+            # Get domains/projects from Keystone and audit with api-server
             try:
-                # Get tenants/projects from Keystone and audit with api-server
-                self._get_keystone_conn()
-
-                # compare new and old set,
-                # optimize for common case where nothing has changed,
-                # so track the project-ids in a set add '-',
-                # keystone gives uuid without...
-                try:
-                    new_project_ids = set(
-                        [str(uuid.UUID(proj.id))
-                            for proj in self._kc.tenants.list()])
-                except Exception as e:
-                    self._kc = None
+                retry = self._resync_all_domains()
+                if retry:
                     continue
-
-                if old_project_ids == new_project_ids:
-                    # no change, go back to poll
-                    gevent.sleep(self._resync_interval_secs)
-                    continue
-
-                for old_proj_id in old_project_ids - new_project_ids:
-                    if old_proj_id in del_proj_list:
-                        pass
-                    try:
-                        self._vnc_lib.project_delete(id=old_proj_id)
-                    except Exception as e:
-                        cgitb.Hook(
-                            format="text",
-                            file=open(self._tmp_file_name,
-                                      'w')).handle(sys.exc_info())
-                        fhandle = open(self._tmp_file_name)
-                        self._vnc_os_logger.error("%s" % fhandle.read())
-                        del_proj_list.add(old_proj_id)
-                        pass
-
-                for new_proj_id in new_project_ids - old_project_ids:
-                    try:
-                        self._vnc_lib.project_read(id=new_proj_id)
-                        # project exists, no-op for now,
-                        # sync any attr changes in future
-                    except vnc_api.NoIdError:
-                        new_proj = \
-                            self._kc.tenants.get(new_proj_id.replace('-', ''))
-                        p_obj = vnc_api.Project(new_proj.name)
-                        p_obj.uuid = new_proj_id
-                        self._vnc_lib.project_create(p_obj)
-
-                    # yield, project list might be large...
-                    gevent.sleep(0)
-                #end for all new projects
-
-                # we are in sync
-                old_project_ids = new_project_ids
-
             except Exception as e:
-                self._kc = None
+                self._ks = None
                 cgitb.Hook(
                     format="text",
                     file=open(self._tmp_file_name,
@@ -162,14 +382,31 @@ class OpenstackDriver(vnc_plugin_base.Resync):
                 fhandle = open(self._tmp_file_name)
                 self._vnc_os_logger.error("%s" % fhandle.read())
                 gevent.sleep(2)
+
+            try:
+                retry = self._resync_all_projects()
+                if retry:
+                    continue
+            except Exception as e:
+                self._ks = None
+                cgitb.Hook(
+                    format="text",
+                    file=open(self._tmp_file_name,
+                              'w')).handle(sys.exc_info())
+                fhandle = open(self._tmp_file_name)
+                self._vnc_os_logger.error("%s" % fhandle.read())
+                gevent.sleep(2)
+
+            gevent.sleep(self._resync_interval_secs)
+
         #end while True
 
-    #end _resync_projects_forever
+    #end _resync_domains_projects_forever
 
-    def resync_projects(self):
+    def resync_domains_projects(self):
         # add asynchronously
-        gevent.spawn(self._resync_projects_forever)
-    #end resync_projects
+        gevent.spawn(self._resync_domains_projects_forever)
+    #end resync_domains_projects
 
 #end class OpenstackResync
 
@@ -179,10 +416,12 @@ class ResourceApiDriver(vnc_plugin_base.ResourceApi):
         self._vnc_api_ip = api_server_ip
         self._vnc_api_port = api_server_port
         self._config_sections = conf_sections
-        self._auth_host = conf_sections.get('KEYSTONE', 'auth_host')
-        self._auth_user = conf_sections.get('KEYSTONE', 'admin_user')
-        self._auth_passwd = conf_sections.get('KEYSTONE', 'admin_password')
-        self._auth_tenant = conf_sections.get('KEYSTONE', 'admin_tenant_name')
+        (self._auth_user,
+         self._auth_passwd,
+         self._admin_token,
+         self._admin_tenant,
+         self._auth_url) = get_keystone_opts(conf_sections)
+
         self._vnc_lib = None
 
     def _get_api_connection(self):
@@ -197,7 +436,7 @@ class ResourceApiDriver(vnc_plugin_base.ResourceApi):
                     api_server_port=self._vnc_api_port,
                     username=self._auth_user,
                     password=self._auth_passwd,
-                    tenant_name=self._auth_tenant)
+                    tenant_name=self._admin_tenant)
                 break
             except requests.ConnectionError:
                 gevent.sleep(1)
