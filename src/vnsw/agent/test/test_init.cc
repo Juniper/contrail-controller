@@ -12,7 +12,6 @@
 #include <boost/functional/factory.hpp>
 #include <cmn/agent_factory.h>
 
-static AgentTestInit *agent_init;
 namespace opt = boost::program_options;
 
 pthread_t asio_thread;
@@ -49,21 +48,22 @@ void WaitForInitDone(Agent *agent) {
     if (done == false) {
         exit(-1);
     }
+    client->WaitForIdle(75);
 }
 
 TestClient *TestInit(const char *init_file, bool ksync_init, bool pkt_init,
                      bool services_init, bool uve_init,
                      int agent_stats_interval, int flow_stats_interval,
                      bool asio, bool ksync_sync_mode) {
-    TestClient *client = new TestClient();
-    agent_init = new AgentTestInit(client);
-    client->set_init(agent_init);
+    if (TaskScheduler::GetInstance() == NULL) {
+        TaskScheduler::Initialize();
+    }
+    Agent *agent = new Agent();
+    TestClient *client = new TestClient(agent);
 
     // Read agent parameters from config file and arguments
-    Agent *agent = agent_init->agent();
-    AgentParam *param = agent_init->param();
-    TestAgentInit *init = agent_init->init();
-    client->set_agent_init(init);
+    AgentParam *param = client->param();
+    TestAgentInit *init = client->agent_init();
 
     opt::variables_map var_map;
     param->Init(init_file, "test", var_map);
@@ -125,13 +125,13 @@ TestClient *TestInit(const char *init_file, bool ksync_init, bool pkt_init,
 }
 
 TestClient *StatsTestInit() {
-    TestClient *client = new TestClient();
-    agent_init = new AgentTestInit(client);
-    client->set_init(agent_init);
-    Agent *agent = agent_init->agent();
-    AgentParam *param = agent_init->param();
-    TestAgentInit *init = agent_init->init();
-    client->set_agent_init(init);
+    if (TaskScheduler::GetInstance() == NULL) {
+        TaskScheduler::Initialize();
+    }
+    Agent *agent = new Agent();
+    TestClient *client = new TestClient(agent);
+    AgentParam *param = client->param();
+    TestAgentInit *init = client->agent_init();
 
     // Read agent parameters from config file and arguments
     opt::variables_map var_map;
@@ -179,13 +179,13 @@ TestClient *StatsTestInit() {
 }
 
 TestClient *VGwInit(const string &init_file, bool ksync_init) {
-    TestClient *client = new TestClient();
-    agent_init = new AgentTestInit(client);
-    client->set_init(agent_init);
-    Agent *agent = agent_init->agent();
-    AgentParam *param = agent_init->param();
-    TestAgentInit *init = agent_init->init();
-    client->set_agent_init(init);
+    if (TaskScheduler::GetInstance() == NULL) {
+        TaskScheduler::Initialize();
+    }
+    Agent *agent = new Agent();
+    TestClient *client = new TestClient(agent);
+    AgentParam *param = client->param();
+    TestAgentInit *init = client->agent_init();
 
     // Read agent parameters from config file and arguments
     opt::variables_map var_map;
@@ -264,7 +264,7 @@ static bool WaitForDbFree(const string &name, int msec) {
 }
 
 void TestClient::Shutdown() {
-    agent_init_->Shutdown();
+    agent_init_.Shutdown();
     Agent::GetInstance()->uve()->Shutdown();
     KSyncTest *ksync = static_cast<KSyncTest *>(Agent::GetInstance()->ksync());
     ksync->NetlinkShutdownTest();
@@ -327,7 +327,7 @@ void TestShutdown() {
     EXPECT_EQ(0U, Agent::GetInstance()->GetAclTable()->Size());
     client->WaitForIdle();
 
-    agent_init->Shutdown();
+    client->Shutdown();
     client->WaitForIdle();
 
     Sandesh::Uninit();
@@ -335,9 +335,11 @@ void TestShutdown() {
 
     Agent::GetInstance()->GetEventManager()->Shutdown();
     AsioStop();
-    TaskScheduler::GetInstance()->Terminate();
 
     AgentStats::GetInstance()->Shutdown();
     Agent::GetInstance()->Shutdown();
-    delete agent_init;
+
+    client->delete_agent();
+
+    TaskScheduler::GetInstance()->Terminate();
 }

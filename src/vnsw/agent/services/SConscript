@@ -5,27 +5,20 @@
 # -*- mode: python; -*-
 # services directory
 
+import sys
+if sys.platform == 'darwin':
+    Return()
+
 Import('AgentEnv')
 env = AgentEnv.Clone()
 
-import sys
-if sys.platform != 'darwin':
-    SandeshGenFiles = env.SandeshGenCpp('services.sandesh')
-    SandeshGenSrcs = env.ExtractCpp(SandeshGenFiles)
+env.Depends('metadata_proxy.o', '#build/include/isc')
 
-    except_env = AgentEnv.Clone()
-    cflags = except_env['CCFLAGS']
-    if '-fno-exceptions' in cflags:
-        cflags.remove('-fno-exceptions')
-        except_env.Replace(CCFLAGS = cflags)
+SandeshGenFiles = env.SandeshGenCpp('services.sandesh')
+SandeshGenSrcs = env.ExtractCpp(SandeshGenFiles)
+sandesh_objs = AgentEnv.BuildExceptionCppObj(env, SandeshGenSrcs)
 
-    sandesh_objs = []
-    for src in SandeshGenSrcs:                    
-        objname = src.replace('.cpp', '.o')
-        obj = except_env.Object(objname, src)
-        sandesh_objs.append(obj)
-
-    libservices = env.Library('agent_services',
+libservices = env.Library('agent_services',
                      sandesh_objs +
                      [
                       'arp_entry.cc',
@@ -41,7 +34,5 @@ if sys.platform != 'darwin':
                       'services_init.cc',
                       'services_sandesh.cc',
                       ])
-    env.Requires('metadata_proxy.o', '#build/include/isc')
-
 
 env.SConscript('test/SConscript', exports='AgentEnv', duplicate = 0)

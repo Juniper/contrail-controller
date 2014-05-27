@@ -15,6 +15,7 @@
 #include <db/db_table_partition.h>
 #include <ksync/ksync_entry.h>
 #include <ksync/ksync_object.h>
+#include <ksync/ksync_netlink.h>
 #include "oper/interface_common.h"
 #include "ksync/agent_ksync_types.h"
 #include "vr_types.h"

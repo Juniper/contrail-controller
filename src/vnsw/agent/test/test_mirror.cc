@@ -289,5 +289,9 @@ int main(int argc, char *argv[]) {
         eth_itf = "eth0";
     }
 
-    return RUN_ALL_TESTS();
+    int ret = RUN_ALL_TESTS();
+    client->WaitForIdle();
+    TestShutdown();
+    delete client;
+    return ret;
 }

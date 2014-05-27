@@ -794,5 +794,9 @@ int main(int argc, char **argv) {
     UveVnUveTest::TestSetup();
 
     usleep(10000);
-    return RUN_ALL_TESTS();
+    int ret = RUN_ALL_TESTS();
+    client->WaitForIdle();
+    TestShutdown();
+    delete client;
+    return ret;
 }

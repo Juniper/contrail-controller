@@ -8,7 +8,7 @@
 
 #include <vnc_cfg_types.h>
 #include <cmn/agent_cmn.h>
-#include <cmn/agent_stats.h>
+#include <pkt/agent_stats.h>
 #include <pkt/pkt_init.h>
 #include <pkt/flow_table.h>
 #include <uve/agent_uve.h>

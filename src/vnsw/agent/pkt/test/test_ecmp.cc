@@ -1513,10 +1513,11 @@ TEST_F(EcmpTest,ServiceVlanTest_8) {
 }
 
 int main(int argc, char *argv[]) {
-    int ret = 0;
-
     GETUSERARGS();
     client = TestInit(init_file, ksync_init, true, true, true, 100*1000);
-    ret = RUN_ALL_TESTS();
+    int ret = RUN_ALL_TESTS();
+    client->WaitForIdle();
+    TestShutdown();
+    delete client;
     return ret;
 }

@@ -259,7 +259,11 @@ void AgentParam::ParseDefaultSection() {
     if (!GetValueFromTree<string>(log_file_, "DEFAULT.log_file")) {
         log_file_ = Agent::DefaultLogFile();
     }
-    GetValueFromTree<string>(log_category_, "DEFAULT.log_category");
+
+    if (!GetValueFromTree<string>(log_category_, "DEFAULT.log_category")) {
+        log_category_ = "*";
+    }
+
     unsigned int log_local = 0, debug_logging = 0;
     if (opt_uint = tree_.get_optional<unsigned int>("DEFAULT.log_local")) {
         log_local = opt_uint.get();
@@ -376,7 +380,7 @@ void AgentParam::ParseDefaultSectionArguments
     GetOptValue<string>(var_map, host_name_, "DEFAULT.hostname");
     GetOptValue<uint16_t>(var_map, http_server_port_, 
                           "DEFAULT.http_server_port");
-    GetOptValue<string>(var_map, log_category_, "DEFAULT.log-category");
+    GetOptValue<string>(var_map, log_category_, "DEFAULT.log_category");
     GetOptValue<string>(var_map, log_file_, "DEFAULT.log_file");
     GetOptValue<string>(var_map, log_level_, "DEFAULT.log_level");
     if (var_map.count("DEFAULT.log_local")) {

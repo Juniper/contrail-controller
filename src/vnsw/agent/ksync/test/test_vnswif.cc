@@ -58,6 +58,10 @@ public:
     }
 
     virtual void TearDown() {
+        InterfaceEvent(true, "vnet1", 0);
+        InterfaceEvent(true, "vnet1", 0);
+        InterfaceEvent(false, "vnet1", 0);
+        InterfaceEvent(false, "vnet2", 0);
         DeleteVmportEnv(input, 2, true, 1);
         client->WaitForIdle();
     }

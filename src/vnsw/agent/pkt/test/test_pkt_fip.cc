@@ -1078,12 +1078,13 @@ TEST_F(FlowTest, Prefer_fip2_over_fip3_lower_addr) {
 }
 
 int main(int argc, char *argv[]) {
-    int ret = 0;
-
     GETUSERARGS();
-    client = TestInit(init_file, ksync_init, true, true, true, 100*1000);
+    //client = TestInit(init_file, ksync_init, true, true, true, 100*1000);
+    client = TestInit(init_file, ksync_init);
     Setup();
-    ret = RUN_ALL_TESTS();
-    usleep(100000);
+    int ret = RUN_ALL_TESTS();
+    client->WaitForIdle();
+    TestShutdown();
+    delete client;
     return ret;
 }

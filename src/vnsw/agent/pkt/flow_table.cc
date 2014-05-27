@@ -32,7 +32,6 @@
 #include "route/route.h"
 #include "cmn/agent_param.h"
 #include "cmn/agent_cmn.h"
-#include "cmn/agent_stats.h"
 #include "oper/interface_common.h"
 #include "oper/nexthop.h"
 #include "oper/route_common.h"
@@ -48,8 +47,9 @@
 #include "pkt/pkt_handler.h"
 #include "pkt/flow_proto.h"
 #include "pkt/pkt_types.h"
-#include "uve/agent_uve.h"
 #include "pkt/pkt_sandesh_flow.h"
+#include "pkt/agent_stats.h"
+#include "uve/agent_uve.h"
 
 boost::uuids::random_generator FlowTable::rand_gen_ = boost::uuids::random_generator();
 tbb::atomic<int> FlowEntry::alloc_count_;
@@ -1403,6 +1403,13 @@ void FlowTable::Init() {
             (boost::bind(&FlowTable::VrfNotify, this, _1, _2));
 
     nh_listener_ = new NhListener();
+
+    agent_->GetAclTable()->set_ace_flow_sandesh_data_cb
+        (boost::bind(&FlowTable::SetAceSandeshData, this, _1, _2, _3));
+
+    agent_->GetAclTable()->set_acl_flow_sandesh_data_cb
+        (boost::bind(&FlowTable::SetAclFlowSandeshData, this, _1, _2, _3));
+
     return;
 }
 

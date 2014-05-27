@@ -1545,8 +1545,13 @@ TEST_F(CfgTest, LinkSeqTest) {
 
 int main(int argc, char **argv) {
     LoggingInit();
+    if (TaskScheduler::GetInstance() == NULL) {
+        TaskScheduler::Initialize();
+    }
     ::testing::InitGoogleTest(&argc, argv);
 
-    return RUN_ALL_TESTS();
+    int ret = RUN_ALL_TESTS();
+    TaskScheduler::GetInstance()->Terminate();
+    return ret;
 }
 

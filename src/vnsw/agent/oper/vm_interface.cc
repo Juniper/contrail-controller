@@ -32,7 +32,6 @@
 #include "sandesh/sandesh_trace.h"
 #include "sandesh/common/vns_types.h"
 #include "sandesh/common/vns_constants.h"
-#include <services/dns_proto.h>
 #include <filter/acl.h>
 
 using namespace std;
@@ -1648,11 +1647,8 @@ void VmInterface::FloatingIp::Activate(VmInterface *interface,
     }
 
     interface->AddRoute(vrf_.get()->GetName(), floating_ip_, 32, true);
-    Agent *agent = static_cast<InterfaceTable *>
-        (interface->get_table())->agent();
-    DnsProto *dns = agent->GetDnsProto();
-    if (dns) {
-        dns->UpdateDnsEntry(interface, vn_.get(), floating_ip_, false);
+    if (table->update_floatingip_cb().empty() == false) {
+        table->update_floatingip_cb()(interface, vn_.get(), floating_ip_, false);
     }
 
     installed_ = true;
@@ -1663,11 +1659,10 @@ void VmInterface::FloatingIp::DeActivate(VmInterface *interface) const {
         return;
 
     interface->DeleteRoute(vrf_.get()->GetName(), floating_ip_, 32);
-    Agent *agent = static_cast<InterfaceTable *>
-        (interface->get_table())->agent();
-    DnsProto *dns = agent->GetDnsProto();
-    if (dns) {
-        dns->UpdateDnsEntry(interface, vn_.get(), floating_ip_, true);
+    InterfaceTable *table =
+        static_cast<InterfaceTable *>(interface->get_table());
+    if (table->update_floatingip_cb().empty() == false) {
+        table->update_floatingip_cb()(interface, vn_.get(), floating_ip_, true);
     }
     installed_ = false;
 }
