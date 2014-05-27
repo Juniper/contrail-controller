@@ -10,9 +10,8 @@
 #include <io/event_manager.h>
 #include <ifmap/ifmap_link.h>
 
-#include <vnc_cfg_types.h>
 #include <cmn/agent_cmn.h>
-#include <cmn/agent_stats.h>
+#include <vnc_cfg_types.h>
 
 #include <cmn/agent_param.h>
 #include <cfg/cfg_init.h>
@@ -28,9 +27,9 @@
 #include <services/services_init.h>
 #include <pkt/pkt_init.h>
 #include <pkt/flow_table.h>
-#include <pkt/pkt_types.h>
 #include <pkt/proto.h>
 #include <pkt/proto_handler.h>
+#include <pkt/agent_stats.h>
 #include <uve/flow_stats_collector.h>
 #include <uve/agent_uve.h>
 #include <vgw/cfg_vgw.h>
@@ -295,26 +294,6 @@ void Agent::InitXenLinkLocalIntf() {
                           params_->xen_ll_gw(), link_local_vrf_name_);
 }
 
-void Agent::CreateDBTables() {
-    if (cfg_.get()) {
-        cfg_.get()->CreateDBTables(db_);
-    }
-
-    if (oper_db_.get()) {
-        oper_db_.get()->CreateDBTables(db_);
-    }
-}
-
-void Agent::CreateDBClients() {
-    if (cfg_.get()) {
-        cfg_.get()->RegisterDBClients(db_);
-    }
-
-    if (oper_db_.get()) {
-        oper_db_.get()->CreateDBClients();
-    }
-}
-
 void Agent::InitPeers() {
     // Create peer entries
     local_peer_.reset(new Peer(Peer::LOCAL_PEER, LOCAL_PEER_NAME));
@@ -322,16 +301,6 @@ void Agent::InitPeers() {
     linklocal_peer_.reset(new Peer(Peer::LINKLOCAL_PEER, LINKLOCAL_PEER_NAME));
     ecmp_peer_.reset(new Peer(Peer::ECMP_PEER, ECMP_PEER_NAME));
     vgw_peer_.reset(new Peer(Peer::VGW_PEER, VGW_PEER_NAME));
-}
-
-void Agent::InitModules() {
-    if (cfg_.get()) {
-        cfg_.get()->Init();
-    }
-
-    if (oper_db_.get()) {
-        oper_db_.get()->Init();
-    }
 }
 
 Agent::Agent() :
@@ -372,6 +341,8 @@ Agent::Agent() :
 }
 
 Agent::~Agent() {
+    uve_.reset(NULL);
+
     delete event_mgr_;
     event_mgr_ = NULL;
 
@@ -390,11 +361,11 @@ void Agent::set_cfg(AgentConfig *cfg) {
 }
 
 DiagTable *Agent::diag_table() const {
-    return diag_table_.get();
+    return diag_table_;
 }
 
 void Agent::set_diag_table(DiagTable *table) {
-    diag_table_.reset(table);
+    diag_table_ = table;
 }
 
 AgentStats *Agent::stats() const {
@@ -422,19 +393,19 @@ void Agent::set_uve(AgentUve *uve) {
 }
 
 PktModule *Agent::pkt() const {
-    return pkt_.get();
+    return pkt_;
 }
 
 void Agent::set_pkt(PktModule *pkt) {
-    pkt_.reset(pkt);
+    pkt_ = pkt;
 }
 
 ServicesModule *Agent::services() const {
-    return services_.get();
+    return services_;
 }
 
 void Agent::set_services(ServicesModule *services) {
-    services_.reset(services);
+    services_ = services;
 }
 
 VNController *Agent::controller() const {

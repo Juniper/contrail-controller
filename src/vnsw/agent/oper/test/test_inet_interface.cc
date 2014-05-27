@@ -293,10 +293,8 @@ int main(int argc, char **argv) {
     client = TestInit(init_file, ksync_init, false, false, false);
 
     int ret = RUN_ALL_TESTS();
-
-    usleep(10000);
     client->WaitForIdle();
-    usleep(10000);
-
+    TestShutdown();
+    delete client;
     return ret;
 }

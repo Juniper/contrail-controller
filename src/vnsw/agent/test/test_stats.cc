@@ -160,6 +160,10 @@ int main(int argc, char *argv[]) {
 
     ::testing::InitGoogleTest(&argc, argv);
     usleep(1000);
-    return RUN_ALL_TESTS();
+    int ret = RUN_ALL_TESTS();
+    client->WaitForIdle();
+    TestShutdown();
+    delete client;
+    return ret;
 }
 

@@ -198,5 +198,9 @@ TEST_F(TestVrfAssignAclFlow, VrfAssignAcl4) {
 int main(int argc, char *argv[]) {
     GETUSERARGS();
     client = TestInit(init_file, ksync_init);
-    return RUN_ALL_TESTS();
+    int ret = RUN_ALL_TESTS();
+    client->WaitForIdle();
+    TestShutdown();
+    delete client;
+    return ret;
 }

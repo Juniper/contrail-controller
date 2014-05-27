@@ -4,194 +4,88 @@
 
 # -*- mode: python; -*-
 
+import sys
+if sys.platform == 'darwin':
+    Return()
+
 import re
 Import('AgentEnv')
 env = AgentEnv.Clone()
-import sys
+
+# test specific modifications
+AgentEnv.MakeTestEnv(env)
 
 targets = env.IFMapAutogen('test_cfg.xsd')
 lib_srcs = filter(lambda x: re.match(r'(.*)\.cc$', x.abspath), targets)
-lib = env.Library('ifmap_test', lib_srcs)
+env.Library('ifmap_test', lib_srcs)
+env.Library('control_node_mock', 'control_node_mock.cc');
+env.Library('agent_test_buildinfo', 'test_buildinfo.cc')
 
-lib = env.Library('control_node_mock', 'control_node_mock.cc');
+test_lib_srcs = ['test_agent_init.cc',
+                 'test_init.cc', 
+                 'test_util.cc',
+                 '../ksync/test/ksync_test.cc',
+                 '../uve/test/agent_uve_test.cc',
+                 '../uve/test/agent_stats_collector_test.cc',
+                 '../uve/test/vm_uve_table_test.cc',
+                 '../uve/test/vn_uve_table_test.cc',
+                 '../uve/test/vrouter_uve_entry_test.cc']
+env.Library('agent_test', test_lib_srcs)
 
-# test specific modifications
-env.Append(LIBPATH = env['TOP'] + '/vnsw/agent/test')
-env.Prepend(CPPPATH = env['TOP'] + '/vnsw/agent/test')
-env.Prepend(LIBS=['gunit', 'ifmap_test', 'control_node_mock'])
+agent_suite = []
+test_vn = AgentEnv.MakeTestCmd(env, 'test_vn', agent_suite)
+test_vm = AgentEnv.MakeTestCmd(env, 'test_vm', agent_suite)
+test_peer_del = AgentEnv.MakeTestCmd(env, 'test_peer_del', agent_suite)
+test_vmport_cfg = AgentEnv.MakeTestCmd(env, 'test_vmport_cfg', agent_suite)
+test_fip_cfg = AgentEnv.MakeTestCmd(env, 'test_fip_cfg', agent_suite)
+#test_stats = AgentEnv.MakeTestCmd(env, 'test_stats', agent_suite)
+#test_route = AgentEnv.MakeTestCmd(env, 'test_route', agent_suite)
+test_l2route = AgentEnv.MakeTestCmd(env, 'test_l2route', agent_suite)
+test_cfg = AgentEnv.MakeTestCmd(env, 'test_cfg', agent_suite)
+test_xmpp_hv2 = AgentEnv.MakeTestCmd(env, 'test_xmpp_hv2', agent_suite)
+test_xmpp_non_hv = AgentEnv.MakeTestCmd(env, 'test_xmpp_non_hv', agent_suite)
+test_xmppcs_hv = AgentEnv.MakeTestCmd(env, 'test_xmppcs_hv', agent_suite)
+test_xmppcs_non_hv = AgentEnv.MakeTestCmd(env, 'test_xmppcs_non_hv',
+                                           agent_suite)
+#test_xmpp_ifmap = AgentEnv.MakeTestCmd(env, 'test_xmpp_ifmap', agent_suite)
+#test_xmppcs_ifmap = AgentEnv.MakeTestCmd(env, 'test_xmppcs_ifmap', agent_suite)
+#test_bgp = AgentEnv.MakeTestCmd(env, 'test_bgp', agent_suite)
+#test_vrf = AgentEnv.MakeTestCmd(env, 'test_vrf', agent_suite)
+test_vhost_ip_change = AgentEnv.MakeTestCmd(env, 'test_vhost_ip_change',
+                                        agent_suite)
+#test_mirror = AgentEnv.MakeTestCmd(env, 'test_mirror', agent_suite)
+#test_nh = AgentEnv.MakeTestCmd(env, 'test_nh', agent_suite)
+test_dummy = AgentEnv.MakeTestCmd(env, 'test_dummy', agent_suite)
+#test_multicast = AgentEnv.MakeTestCmd(env, 'test_multicast', agent_suite)
+test_xmpp_bcast_hv = AgentEnv.MakeTestCmd(env, 'test_xmpp_bcast_hv',
+                                          agent_suite)
+test_xmpp_bcast_non_hv = AgentEnv.MakeTestCmd(env, 'test_xmpp_bcast_non_hv',
+                                              agent_suite)
+test_xmppcs_bcast_hv = AgentEnv.MakeTestCmd(env, 'test_xmppcs_bcast_hv',
+                                            agent_suite)
+test_xmppcs_bcast_non_hv = AgentEnv.MakeTestCmd(env,'test_xmppcs_bcast_non_hv',
+                                                agent_suite)
+#test_integration = AgentEnv.MakeTestCmd(env, 'test_integration', agent_suite)
+test_service_chain_cfg = AgentEnv.MakeTestCmd(env, 'test_service_chain_cfg',
+                                              agent_suite)
+test_cfg_listener = AgentEnv.MakeTestCmd(env, 'test_cfg_listener', agent_suite)
+#test_route_mock = AgentEnv.MakeTestCmd(env, 'test_route_mock', agent_suite)
+test_global_vrouter_config = AgentEnv.MakeTestCmd(env,
+                                                 'test_global_vrouter_config',
+                                                  agent_suite)
+#test_tunnel_encap = AgentEnv.MakeTestCmd(env, 'test_tunnel_encap', agent_suite)
+test_agent_route_walker = AgentEnv.MakeTestCmd(env, 'test_agent_route_walker',
+                                               agent_suite)
+#test_xmpp_hv = AgentEnv.MakeTestCmd(env, 'test_xmpp_hv', agent_suite)
+test_scale_walk = AgentEnv.MakeTestCmd(env, 'test_scale_walk', agent_suite)
+#test_sg = AgentEnv.MakeTestCmd(env, 'test_sg', agent_suite)
+test_acl = AgentEnv.MakeTestCmdSrc(env, 'test_acl',
+                                   ['../filter/test/acl_test.cc'],
+                                   agent_suite)
+test_acl_entry = AgentEnv.MakeTestCmdSrc(env, 'test_acl_entry',
+                                         ['../filter/test/acl_entry_test.cc'],
+                                         agent_suite)
 
-cflags = env['CCFLAGS']
-cflags.append(['-Wno-return-type', '-Wno-unused-function'])
-
-if '-fno-exceptions' in cflags:
-    cflags.remove('-fno-exceptions')
-    env.Replace(CCFLAGS = cflags)
-
-import sys
-if sys.platform != 'darwin':
-    test_lib_srcs = ['test_agent_init.cc',
-                     'test_init.cc', 
-                     'test_util.cc',
-                     '../ksync/test/ksync_test.cc',
-                     '../uve/test/agent_uve_test.cc',
-                     '../uve/test/agent_stats_collector_test.cc',
-                     '../uve/test/vm_uve_table_test.cc',
-                     '../uve/test/vn_uve_table_test.cc',
-                     '../uve/test/vrouter_uve_entry_test.cc']
-    env.Library('agent_test', test_lib_srcs)
-    env.Prepend(LIBS=['agent_test']);
-    env.Library('agent_test_buildinfo', 'test_buildinfo.cc')
-    env.Append(LIBS=['agent_test_buildinfo'])
-
-    test_vn = env.Program(target = 'test_vn', source = ['test_vn.cc'])
-    env.Alias('agent:test_vn', test_vn)
-
-    test_vm = env.Program(target = 'test_vm', source = ['test_vm.cc'])
-    env.Alias('agent:test_vm', test_vm)
-
-    test_peer_del = env.Program(target = 'test_peer_del', source = ['test_peer_del.cc'])
-    env.Alias('agent:test_peer_del', test_peer_del)
-
-    test_vmport_cfg = env.Program(target = 'test_vmport_cfg', source = ['test_vmport_cfg.cc'])
-    env.Alias('agent:test_vmport_cfg', test_vmport_cfg)
-    
-    test_fip_cfg = env.Program(target = 'test_fip_cfg', source = ['test_fip_cfg.cc'])
-    env.Alias('agent:test_fip_cfg', test_fip_cfg)
-    
-    test_stats =  env.Program(target = 'test_stats', source = ['test_stats.cc'])
-    env.Alias('agent:test_stats', test_stats)
-
-    test_acl = env.Program(target = 'test_acl', source = ['../filter/test/acl_test.cc'])
-    env.Alias('agent:test_acl', test_acl)
-
-    test_acl_entry = env.Program(target = 'test_acl_entry', 
-                                 source = ['../filter/test/acl_entry_test.cc'])
-    env.Alias('agent:test_acl_entry', test_acl_entry)
-
-    test_route = env.Program(target = 'test_route', source = ['test_route.cc'])
-    env.Alias('agent:test_route', test_route)
-
-    test_l2route = env.Program(target = 'test_l2route', source = ['test_l2route.cc'])
-    env.Alias('agent:test_l2route', test_l2route)
-
-    test_cfg = env.Program(target = 'test_cfg', source = ['test_cfg.cc'])
-    env.Alias('agent:test_cfg', test_cfg)
-
-    test_xmpp_hv2 = env.Program(target = 'test_xmpp_hv2', source = ['test_xmpp_hv2.cc'])
-    env.Alias('agent:test_xmpp_hv2', test_xmpp_hv2)
-
-    test_xmpp_non_hv = env.Program(target = 'test_xmpp_non_hv', source = ['test_xmpp_non_hv.cc'])
-    env.Alias('agent:test_xmpp_non_hv', test_xmpp_non_hv)
-
-    test_xmppcs_hv = env.Program(target = 'test_xmppcs_hv', source = ['test_xmppcs_hv.cc'])
-    env.Alias('agent:test_xmppcs_hv', test_xmppcs_hv)
-
-    test_xmppcs_non_hv = env.Program(target = 'test_xmppcs_non_hv', source = ['test_xmppcs_non_hv.cc'])
-    env.Alias('agent:test_xmppcs_non_hv', test_xmppcs_non_hv)
-
-    test_xmpp_ifmap = env.Program(target = 'test_xmpp_ifmap', source = ['test_xmpp_ifmap.cc'])
-    env.Alias('agent:test_xmpp_ifmap', test_xmpp_ifmap)
-
-    test_xmppcs_ifmap = env.Program(target = 'test_xmppcs_ifmap', source = ['test_xmppcs_ifmap.cc'])
-    env.Alias('agent:test_xmppcs_ifmap', test_xmppcs_ifmap)
-
-    test_bgp = env.Program(target = 'test_bgp', source = ['test_bgp.cc'])
-    env.Alias('agent:test_bgp', test_bgp)
-
-    test_vrf = env.Program(target = 'test_vrf', source = ['test_vrf.cc'])
-    env.Alias('agent:test_vrf', test_vrf)
-
-    test_vhost_ip_change = env.Program(target = 'test_vhost_ip_change', source = ['test_vhost_ip_change.cc'])
-    env.Alias('agent:test_vhost_ip_change', test_vhost_ip_change)
-
-    test_mirror = env.Program(target = 'test_mirror', source = ['test_mirror.cc'])
-    env.Alias('agent:test_mirror', test_mirror)
-
-    test_nh = env.Program(target = 'test_nh', source = ['test_nh.cc'])
-    env.Alias('agent:test_nh', test_nh)
-
-    test_dummy = env.UnitTest(target = 'test_dummy', source = ['test_dummy.cc'])
-    env.Alias('agent:test_dummy', test_dummy)
-
-    test_multicast = env.Program(target = 'test_multicast', source = ['test_multicast.cc'])
-    env.Alias('agent:test_multicast', test_multicast)
-
-    test_xmpp_bcast_hv = env.Program(target = 'test_xmpp_bcast_hv', source = ['test_xmpp_bcast_hv.cc'])
-    env.Alias('agent:test_xmpp_bcast_hv', test_xmpp_bcast_hv)
-    
-    test_xmpp_bcast_non_hv = env.Program(target = 'test_xmpp_bcast_non_hv', source = ['test_xmpp_bcast_non_hv.cc'])
-    env.Alias('agent:test_xmpp_bcast_non_hv', test_xmpp_bcast_non_hv)
-    
-    test_xmppcs_bcast_hv = env.Program(target = 'test_xmppcs_bcast_hv', source = ['test_xmppcs_bcast_hv.cc'])
-    env.Alias('agent:test_xmppcs_bcast_hv', test_xmppcs_bcast_hv)
-
-    test_xmppcs_bcast_non_hv = env.Program(target = 'test_xmppcs_bcast_non_hv', source = ['test_xmppcs_bcast_non_hv.cc'])
-    env.Alias('agent:test_xmppcs_bcast_non_hv', test_xmppcs_bcast_non_hv)
-
-    test_integration = env.Program(target = 'test_integration', source = ['test_integration.cc'])
-    env.Alias('agent:test_integration', test_integration)
-
-    test_service_chain_cfg = env.Program(target = 'test_service_chain_cfg', source = ['test_service_chain_cfg.cc'])
-    env.Alias('agent:test_service_chain_cfg', test_service_chain_cfg)
-
-    test_cfg_listener = env.Program(target = 'test_cfg_listener', source = ['test_cfg_listener.cc'])
-    env.Alias('agent:test_cfg_listener', test_cfg_listener)
-
-    test_route_mock = env.Program(target = 'test_route_mock', source = ['test_route_mock.cc'])
-    env.Alias('agent:test_route_mock', test_route_mock)
-
-    test_global_vrouter_config = env.Program(target = 'test_global_vrouter_config', source = ['test_global_vrouter_config.cc'])
-    env.Alias('agent:test_global_vrouter_config', test_global_vrouter_config)
-
-    test_tunnel_encap = env.Program(target = 'test_tunnel_encap', source = ['test_tunnel_encap.cc'])
-    env.Alias('agent:test_tunnel_encap', test_tunnel_encap)
-
-    test_agent_route_walker = env.Program(target = 'test_agent_route_walker', source = ['test_agent_route_walker.cc'])
-    env.Alias('agent:test_agent_route_walker', test_agent_route_walker)
-
-    test_xmpp_hv = env.Program(target = 'test_xmpp_hv', source = ['test_xmpp_hv.cc'])
-    env.Alias('agent:test_xmpp_hv', test_xmpp_hv)
-
-    test_scale_walk = env.Program(target = 'test_scale_walk', source = ['test_scale_walk.cc'])
-    env.Alias('agent:test_scale_walk', test_scale_walk)
-
-#    test_sg = env.Program(target = 'test_sg', source = ['test_sg.cc'])
-#    env.Alias('agent:test_sg', test_sg)
-
-
-test_suite = [
-#             test_dummy, # TODO This test fails
-              test_vn,
-              test_vm,
-              test_peer_del,
-              test_vmport_cfg,
-              test_fip_cfg,
-              test_acl,
-              test_acl_entry,
-              test_route,
-              test_l2route,
-              test_cfg,
-              test_xmpp_hv,
-              test_xmpp_hv2,
-              test_xmppcs_hv,
-              test_xmpp_non_hv,
-              test_xmppcs_non_hv,
-              test_vrf,
-              test_mirror,
-              test_nh,
-              test_vhost_ip_change,
-              test_multicast,
-              test_xmpp_bcast_hv,
-              test_xmppcs_bcast_hv,
-              test_xmpp_bcast_non_hv,
-              test_xmppcs_bcast_non_hv,
-              test_cfg_listener,
-              test_global_vrouter_config,
-              test_tunnel_encap,
-              test_agent_route_walker,
-#              test_sg
-                 ]
-
-test = env.TestSuite('agent-test', test_suite)
-env.Alias('controller/src/vnsw/agent:test', test)
-Return('test_suite')
+test = env.TestSuite('agent-test', agent_suite)
+env.Alias('agent:agent_test', test)
+Return('agent_suite')

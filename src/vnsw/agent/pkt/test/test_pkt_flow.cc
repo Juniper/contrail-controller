@@ -2286,5 +2286,6 @@ int main(int argc, char *argv[]) {
     usleep(1000);
     Agent::GetInstance()->GetEventManager()->Shutdown();
     AsioStop();
+    TaskScheduler::GetInstance()->Terminate();
     return ret;
 }

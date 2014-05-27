@@ -19,7 +19,7 @@ public:
     virtual ~OperDB();
 
     void CreateDBTables(DB *);
-    void CreateDBClients();
+    void RegisterDBClients();
     void Init();
     void CreateDefaultVrf();
     void Shutdown();

@@ -25,13 +25,6 @@
 #define KSYNC_ACK_WAIT_THRESHOLD  200
 #define KSYNC_SOCK_RECV_BUFF_SIZE (256 * 1024)
 
-#define KSYNC_ERROR(obj, ...)\
-do {\
-    if (LoggingDisabled()) break;\
-    obj::Send(g_vns_constants.CategoryNames.find(Category::VROUTER)->second,\
-              SandeshLevel::SYS_ERR, __FILE__, __LINE__, ##__VA_ARGS__);\
-} while (false);\
-
 class KSyncEntry;
 class KSyncIoContext;
 

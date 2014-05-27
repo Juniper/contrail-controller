@@ -733,5 +733,6 @@ int main(int argc, char **argv) {
 
     Agent::GetInstance()->GetEventManager()->Shutdown();
     AsioStop();
+    TaskScheduler::GetInstance()->Terminate();
     return ret;
 }

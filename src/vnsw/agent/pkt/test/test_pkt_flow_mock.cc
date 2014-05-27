@@ -147,7 +147,6 @@ TEST_F(AclFlowTest, Setup) {
 } //namespace
 
 int main (int argc, char **argv) {
-    int ret;
     setup_file[0] = '\0';
     config_file[0] = '\0';
     opt::options_description desc("Command line options");
@@ -180,8 +179,9 @@ int main (int argc, char **argv) {
 	Agent::GetInstance()->SetRouterId(Ip4Address::from_string("10.1.1.1"));
 
     ::testing::InitGoogleTest(&argc, argv);
-    usleep(1000);
-    ret = RUN_ALL_TESTS();
-    usleep(100000);
+    int ret = RUN_ALL_TESTS();
+    client->WaitForIdle();
+    TestShutdown();
+    delete client;
     return ret;
 }

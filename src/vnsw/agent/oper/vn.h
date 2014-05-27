@@ -167,6 +167,7 @@ public:
                          bool vxlan_network_identifier_mode_changed);
 
     const VxLanId *vxlan_id_ref() const {return vxlan_id_ref_.get();}
+    const VxLanId *vxlan_id() const {return vxlan_id_ref_.get();}
     bool layer2_forwarding() const {return layer2_forwarding_;};
     bool Ipv4Forwarding() const {return ipv4_forwarding_;};
 

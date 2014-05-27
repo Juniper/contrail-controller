@@ -22,10 +22,12 @@ if '-fno-exceptions' in cflags:
 SandeshGenFiles = env.SandeshGenCpp('ksync.sandesh')
 SandeshGenSrcs = env.ExtractCpp(SandeshGenFiles)
 
-libksync = env.Library('ksync',
+# Basic KSync library
+libksync = env.Library('ksync', ['ksync_object.cc'])
+
+# KSync Netlink library
+libksyncnl = env.Library('ksyncnl',
                     SandeshGenSrcs + 
-                    ['ksync_object.cc',
-                     'ksync_sock.cc',
-                     'ksync_sock_user.cc'])
+                    ['ksync_netlink.cc', 'ksync_sock.cc', 'ksync_sock_user.cc'])
 
 env.SConscript('test/SConscript', exports='BuildEnv', duplicate = 0)

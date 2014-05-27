@@ -26,7 +26,7 @@ public:
     void InitCollector();
     void CreateModules();
     void CreateDBTables();
-    void CreateDBClients();
+    void RegisterDBClients();
     void InitModules();
     void InitPeers();
     void CreateVrf();
@@ -43,6 +43,9 @@ private:
     Agent *agent_;
     AgentParam *params_;
     std::auto_ptr<TaskTrigger> trigger_;
+    std::auto_ptr<DiagTable> diag_table_;
+    std::auto_ptr<ServicesModule> services_;
+    std::auto_ptr<PktModule> pkt_;
     DISALLOW_COPY_AND_ASSIGN(ContrailAgentInit);
 };
 

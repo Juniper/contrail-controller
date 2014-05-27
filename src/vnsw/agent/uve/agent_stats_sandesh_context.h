@@ -10,6 +10,7 @@
 #include <ksync/ksync_index.h>
 #include <ksync/ksync_entry.h>
 #include <ksync/ksync_object.h>
+#include <ksync/ksync_netlink.h>
 #include <ksync/ksync_sock.h>
 
 #include "vr_message.h"

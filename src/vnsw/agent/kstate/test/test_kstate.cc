@@ -447,5 +447,6 @@ int main(int argc, char *argv[]) {
     KStateTest::TestTearDown();
     Agent::GetInstance()->GetEventManager()->Shutdown();
     AsioStop();
+    TaskScheduler::GetInstance()->Terminate();
     return ret;
 }

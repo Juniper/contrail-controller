@@ -684,6 +684,7 @@ void TaskScheduler::Terminate() {
     assert(IsEmpty());
     singleton_->task_scheduler_.terminate();
     WaitForTerminateCompletion();
+    singleton_.reset(NULL);
 }
 
 // XXX This function should not be called in production code.
