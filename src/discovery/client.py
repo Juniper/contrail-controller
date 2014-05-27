@@ -144,10 +144,11 @@ class Subscribe(object):
 
 class DiscoveryClient(object):
 
-    def __init__(self, server_ip, server_port, client_type):
+    def __init__(self, server_ip, server_port, client_type, pub_id = None):
         self._server_ip = server_ip
         self._server_port = server_port
         self._myid = socket.gethostname() + ':' + client_type
+        self._pub_id = pub_id or socket.gethostname()
         self._client_type = client_type
         self._headers = {
             'Content-type': 'application/json',
@@ -164,7 +165,7 @@ class DiscoveryClient(object):
 
         # publish URL
         self.puburl = "http://%s:%s/publish/%s" % (
-            self._server_ip, self._server_port, socket.gethostname())
+            self._server_ip, self._server_port, self._pub_id)
         self.hburl = "http://%s:%s/heartbeat" % (
             self._server_ip, self._server_port)
 
