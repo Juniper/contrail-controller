@@ -741,11 +741,6 @@ class VncApiServer(VncApiServerGen):
                 api_server_ip=self._args.listen_ip_addr,
                 api_server_port=self._args.listen_port,
                 conf_sections=conf_sections)
-            self._extension_mgrs['neutronApi'] = ExtensionManager(
-                'vnc_cfg_api.neutronApi',
-                api_server_ip=self._args.listen_ip_addr,
-                api_server_port=self._args.listen_port,
-                conf_sections=conf_sections)
         except Exception as e:
             pass
     # end _load_extensions
