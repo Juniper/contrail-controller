@@ -42,10 +42,13 @@ for file in setup_sources:
 local_sources = [
            '__init__.py',
            'disc_server_zk.py',
+           'disc_server.py',
            'disc_utils.py',
            'disc_consts.py',
+           'disc_exceptions.py',
            'client.py',
            'disc_zk.py',
+           'disc_cassdb.py',
            'output.py',
           ]
 local_sources_rules = []
