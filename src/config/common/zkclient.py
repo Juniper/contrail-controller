@@ -261,7 +261,7 @@ class ZookeeperClient(object):
             retry(self._zk_client.delete, path, recursive=recursive)
         except kazoo.exceptions.NoNodeError:
             pass
-        except Exeception as e:
+        except Exception as e:
             raise e
     # end delete_node
 
