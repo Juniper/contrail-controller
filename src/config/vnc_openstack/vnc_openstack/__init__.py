@@ -12,6 +12,7 @@ import copy
 import bottle
 import logging
 import logging.handlers
+import Queue
 from keystoneclient.v2_0 import client as keystone
 import cfgm_common
 try:
@@ -23,6 +24,10 @@ from vnc_api.gen.resource_xsd import *
 
 from vnc_api.gen.resource_xsd import *
 from vnc_api.gen.resource_common import *
+
+Q_CREATE = 'create'
+Q_DELETE = 'delete'
+Q_MAX_ITEMS = 100
 
 
 class OpenstackDriver(vnc_plugin_base.Resync):
@@ -41,6 +46,7 @@ class OpenstackDriver(vnc_plugin_base.Resync):
         auth_url = "%s://%s:%s/v2.0" % (auth_proto, self._auth_host, self._auth_port)
         self._auth_url = auth_url
         self._resync_interval_secs = 2
+        self._resync_number_workers = 10 #TODO(sahid) needs to be configured by conf.
         self._kc = None
 
         # logging
@@ -54,6 +60,7 @@ class OpenstackDriver(vnc_plugin_base.Resync):
                                                        backupCount=5)
 
         self._vnc_os_logger.addHandler(handler)
+        self.q = Queue.Queue(maxsize=Q_MAX_ITEMS)
     #end __init__
 
     def __call__(self):
@@ -100,7 +107,6 @@ class OpenstackDriver(vnc_plugin_base.Resync):
         except Exception as e:
             self._log_exception()
 
-        del_proj_list = set()
         while True:
             try:
                 # Get tenants/projects from Keystone and audit with api-server
@@ -124,30 +130,12 @@ class OpenstackDriver(vnc_plugin_base.Resync):
                     continue
 
                 for old_proj_id in old_project_ids - new_project_ids:
-                    if old_proj_id in del_proj_list:
-                        pass
-                    try:
-                        self._vnc_lib.project_delete(id=old_proj_id)
-                    except Exception as e:
-                        self._log_exception()
-                        del_proj_list.add(old_proj_id)
-                        pass
-
+                    self.q.put((Q_DELETE, old_proj_id))
                 for new_proj_id in new_project_ids - old_project_ids:
-                    try:
-                        self._vnc_lib.project_read(id=new_proj_id)
-                        # project exists, no-op for now,
-                        # sync any attr changes in future
-                    except vnc_api.NoIdError:
-                        new_proj = \
-                            self._kc.tenants.get(new_proj_id.replace('-', ''))
-                        p_obj = vnc_api.Project(new_proj.name)
-                        p_obj.uuid = new_proj_id
-                        self._vnc_lib.project_create(p_obj)
+                    self.q.put((Q_CREATE, new_proj_id))
 
-                    # yield, project list might be large...
-                    gevent.sleep(0)
-                #end for all new projects
+                self.q.join()
+                gevent.sleep(0)
 
                 # we are in sync
                 old_project_ids = new_project_ids
@@ -163,7 +151,46 @@ class OpenstackDriver(vnc_plugin_base.Resync):
     def resync_projects(self):
         # add asynchronously
         gevent.spawn(self._resync_projects_forever)
+        for x in range(self._resync_number_workers):
+            gevent.spawn(self._resync_worker())
     #end resync_projects
+
+    def _resync_worker(self):
+        while True:
+            # THINKING(sahid): Add a timeout to kill thread if not used.
+            kind, proj_id = self.q.get()
+            try:
+                if kind == Q_DELETE:
+                    self._delete_project(proj_id)
+                elif kind == Q_CREATE:
+                    self._create_project(proj_id)
+                else:
+                    raise KeyError("An invalid kind was specified: %s", kind)
+            except (ValueError, KeyError):
+                # For an unpack error or and invalid kind.
+                self.log_exception()
+
+    def _delete_project(self, old_proj_id):
+        try:
+            self._vnc_lib.project_delete(id=old_proj_id)
+        except Exception as e:
+            self._log_exception()
+
+    def _create_project(self, new_proj_id):
+        try:
+            try:
+                self._vnc_lib.project_read(id=new_proj_id)
+                # project exists, no-op for now,
+                # sync any attr changes in future
+            except vnc_api.NoIdError:
+                new_proj = \
+                           self._kc.tenants.get(new_proj_id.replace('-', ''))
+                p_obj = vnc_api.Project(new_proj.name)
+                p_obj.uuid = new_proj_id
+                self._vnc_lib.project_create(p_obj)
+        except Exception:
+            self.log_exception()
+
 
 #end class OpenstackResync
 
