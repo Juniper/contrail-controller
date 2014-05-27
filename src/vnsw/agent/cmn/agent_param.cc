@@ -472,11 +472,11 @@ void AgentParam::InitFromArguments
 // linklocal_system_flows + kMaxOtherOpenFds files
 void AgentParam::ComputeFlowLimits() {
     if (max_vm_flows_ > 100) {
-        LOG(DEBUG, "Updating flows configuration max-vm-flows to : 100%");
+        cout << "Updating flows configuration max-vm-flows to : 100%\n";
         max_vm_flows_ = 100;
     }
     if (max_vm_flows_ < 0) {
-        LOG(DEBUG, "Updating flows configuration max-vm-flows to : 0%");
+        cout << "Updating flows configuration max-vm-flows to : 0%\n";
         max_vm_flows_ = 0;
     }
 
