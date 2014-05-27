@@ -100,6 +100,7 @@ public:
                 parent_->RTargetRouteOp(rtarget_table, rtarget, NULL, false);
             }
         }
+        parent_->routing_instances_.clear();
     }
 
     virtual bool CloseComplete(bool from_timer, bool gr_cancelled) {
@@ -263,7 +264,6 @@ public:
     }
 
     virtual std::string ToUVEKey() const {
-        std::ostringstream out;
         if (!parent_->channel_->connection()) return "";
         return parent_->channel_->connection()->ToUVEKey();
     }
@@ -1448,6 +1448,7 @@ void BgpXmppChannel::PublishRTargetRoute(RoutingInstance *rt_instance,
 
     SubscribedRoutingInstanceList::iterator it; 
     BgpAttrPtr attr = NULL;
+
     if (add_change) {
         BgpAttrSpec attrs;
         BgpAttrNextHop nexthop(bgp_server_->bgp_identifier());
@@ -1459,21 +1460,19 @@ void BgpXmppChannel::PublishRTargetRoute(RoutingInstance *rt_instance,
             routing_instances_.insert(
                   std::pair<RoutingInstance*, RoutingInstance::RouteTargetList>
                   (rt_instance, rt_instance->GetImportList()));
+        if (!ret.second) return;
         it = ret.first;
-        if (!ret.second) {
-            ret.first->second = rt_instance->GetImportList();
-        }
     } else {
         it = routing_instances_.find(rt_instance);
+        if (it == routing_instances_.end()) return;
     }
-
 
     BOOST_FOREACH(RouteTarget rtarget, it->second) {
         RTargetRouteOp(rtarget_table, rtarget, attr, add_change);
     }
 
     if (!add_change)  {
-        routing_instances_.erase(rt_instance);
+        routing_instances_.erase(it);
     }
 }
 
