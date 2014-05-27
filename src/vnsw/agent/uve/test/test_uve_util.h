@@ -30,6 +30,24 @@ public:
         EXPECT_FALSE(VnFind(id));
     }
 
+    void VnAddByName(const char *vn_name, int id) {
+        uint32_t vn_count = Agent::GetInstance()->GetVnTable()->Size();
+        client->Reset();
+        AddVn(vn_name, id);
+        EXPECT_TRUE(client->VnNotifyWait(1));
+        EXPECT_TRUE(VnFind(id));
+        EXPECT_EQ((vn_count + 1), Agent::GetInstance()->GetVnTable()->Size());
+    }
+
+    void VnDeleteByName(const char *vn_name, int id) {
+        uint32_t vn_count = Agent::GetInstance()->GetVnTable()->Size();
+        client->Reset();
+        DelNode("virtual-network", vn_name);
+        EXPECT_TRUE(client->VnNotifyWait(1));
+        EXPECT_EQ((vn_count - 1), Agent::GetInstance()->GetVnTable()->Size());
+        EXPECT_FALSE(VnFind(id));
+    }
+
     void VmAdd(int id) {
         char vm_name[80];
 
