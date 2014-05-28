@@ -25,6 +25,7 @@
 
 #include "testing/gunit.h"
 #include "test/test_cmn_util.h"
+#include "pkt/test/test_flow_util.h"
 #include "ksync/ksync_sock_user.h"
 #include "vr_types.h"
 #include <uve/test/vm_uve_table_test.h>
@@ -32,12 +33,90 @@
 
 using namespace std;
 
+#define vm1_ip "11.1.1.1"
+#define vm2_ip "11.1.1.2"
+#define vm4_ip "14.1.1.1"
+#define vm1_fip "14.1.1.100"
+#define vm1_fip2 "14.1.1.101"
+
+#define remote_vm4_ip "13.1.1.2"
+#define remote_router_ip "10.1.1.2"
+
+struct PortInfo input[] = {
+    {"flow0", 6, vm1_ip, "00:00:00:01:01:01", 5, 1},
+    {"flow1", 7, vm2_ip, "00:00:00:01:01:02", 5, 2},
+};
+
+struct PortInfo input2[] = {
+    {"flow2", 8, vm4_ip, "00:00:00:01:01:06", 4, 3},
+};
+
+VmInterface *flow0;
+VmInterface *flow1;
+VmInterface *flow2;
+
 void RouterIdDepInit(Agent *agent) {
 }
 
 class UveVmUveTest : public ::testing::Test {
 public:
     UveVmUveTest() : util_() {
+    }
+    void FlowSetUp() {
+        EXPECT_EQ(0U, Agent::GetInstance()->pkt()->flow_table()->Size());
+        client->Reset();
+        CreateVmportEnv(input, 2, 1);
+        client->WaitForIdle(5);
+        CreateVmportFIpEnv(input2, 1, 0);
+        client->WaitForIdle(5);
+
+        EXPECT_TRUE(VmPortActive(input, 0));
+        EXPECT_TRUE(VmPortActive(input, 1));
+        EXPECT_TRUE(VmPortPolicyEnable(input, 0));
+        EXPECT_TRUE(VmPortPolicyEnable(input, 1));
+        EXPECT_TRUE(VmPortActive(input2, 0));
+
+        flow0 = VmInterfaceGet(input[0].intf_id);
+        assert(flow0);
+        flow1 = VmInterfaceGet(input[1].intf_id);
+        assert(flow1);
+        flow2 = VmInterfaceGet(input2[0].intf_id);
+        assert(flow2);
+
+        // Configure Floating-IP
+        AddFloatingIpPool("fip-pool1", 1);
+        AddFloatingIp("fip1", 1, vm1_fip);
+        AddLink("floating-ip", "fip1", "floating-ip-pool", "fip-pool1");
+        AddLink("floating-ip-pool", "fip-pool1", "virtual-network", "vn4");
+        AddLink("virtual-machine-interface", "flow0", "floating-ip", "fip1");
+        client->WaitForIdle();
+        EXPECT_TRUE(flow0->HasFloatingIp());
+    }
+
+    void FlowTearDown() {
+        FlushFlowTable();
+        client->Reset();
+
+        DeleteVmportEnv(input, 2, true, 1);
+        client->WaitForIdle(3);
+        client->PortDelNotifyWait(2);
+        EXPECT_FALSE(VmPortFind(input, 0));
+        EXPECT_FALSE(VmPortFind(input, 1));
+
+        client->Reset();
+        DeleteVmportFIpEnv(input2, 1, true);
+        client->WaitForIdle(3);
+        client->PortDelNotifyWait(1);
+        EXPECT_FALSE(VmPortFind(input2, 0));
+    }
+
+    void RemoveFipConfig() {
+        DelLink("virtual-machine-interface", "flow0", "floating-ip", "fip1");
+        DelLink("floating-ip-pool", "fip-pool1", "virtual-network", "vn4");
+        DelLink("floating-ip", "fip1", "floating-ip-pool", "fip-pool1");
+        DelFloatingIp("fip1");
+        DelFloatingIpPool("fip-pool1");
+        client->WaitForIdle(3);
     }
 
     TestUveUtil util_;
@@ -351,6 +430,104 @@ TEST_F(UveVmUveTest, VmIntfAddDel_2) {
     client->Reset();
     vmut->ClearCount();
 }
+
+TEST_F(UveVmUveTest, FipStats_1) {
+    FlowSetUp();
+    TestFlow flow[] = {
+        {
+            TestFlowPkt(vm1_ip, vm4_ip, 1, 0, 0, "vrf5",
+                    flow0->id(), 1),
+            {
+                new VerifyNat(vm4_ip, vm1_fip, 1, 0, 0)
+            }
+        }
+    };
+
+    CreateFlow(flow, 1);
+    EXPECT_EQ(2U, Agent::GetInstance()->pkt()->flow_table()->Size());
+
+    //Verify Floating IP flows are created.
+    EXPECT_TRUE(FlowGet(VrfGet("vrf5")->vrf_id(), vm1_ip, vm4_ip, 1, 0, 0,
+                        false, -1, -1));
+    EXPECT_TRUE(FlowGet(VrfGet("vn4:vn4")->vrf_id(), vm4_ip, vm1_fip, 1, 0, 0,
+                        false, -1, -1));
+
+    const FlowEntry *f1 = flow[0].pkt_.FlowFetch();
+    const FlowEntry *rev = f1->reverse_flow_entry();
+    VmUveTableTest *vmut = static_cast<VmUveTableTest *>
+        (Agent::GetInstance()->uve()->vm_uve_table());
+
+    //Verify that stats FIP entry is absent until flow stats are updated
+    EXPECT_EQ(0U, vmut->GetVmIntfFipCount(flow0->vm(), flow0));
+
+    //Update FIP stats which resuts in creation of stats FIP entry
+    vmut->UpdateFloatingIpStats(f1, 300, 3);
+    vmut->UpdateFloatingIpStats(rev, 300, 3);
+
+    //Verify that stats FIP entry is created
+    EXPECT_EQ(1U, vmut->GetVmIntfFipCount(flow0->vm(), flow0));
+
+    //Fetch stats FIP entry and verify its statistics
+    const VmUveEntry::FloatingIp *fip = vmut->GetVmIntfFip(flow0->vm(), flow0,
+                                                           vm1_fip, "vn4");
+    EXPECT_EQ(3U, fip->in_packets_);
+    EXPECT_EQ(3U, fip->out_packets_);
+    EXPECT_EQ(300U, fip->in_bytes_);
+    EXPECT_EQ(300U, fip->out_bytes_);
+
+    //cleanup
+    FlowTearDown();
+    RemoveFipConfig();
+}
+
+// Delete FIP config and verify stats entry for that FIP is removed from 
+// our data-structures
+TEST_F(UveVmUveTest, FipStats_2) {
+    FlowSetUp();
+    TestFlow flow[] = {
+        {
+            TestFlowPkt(vm1_ip, vm4_ip, 1, 0, 0, "vrf5",
+                    flow0->id(), 1),
+            {
+                new VerifyNat(vm4_ip, vm1_fip, 1, 0, 0)
+            }
+        }
+    };
+
+    CreateFlow(flow, 1);
+    EXPECT_EQ(2U, Agent::GetInstance()->pkt()->flow_table()->Size());
+
+    //Verify Floating IP flows are created.
+    EXPECT_TRUE(FlowGet(VrfGet("vrf5")->vrf_id(), vm1_ip, vm4_ip, 1, 0, 0,
+                        false, -1, -1));
+    EXPECT_TRUE(FlowGet(VrfGet("vn4:vn4")->vrf_id(), vm4_ip, vm1_fip, 1, 0, 0,
+                        false, -1, -1));
+
+    const FlowEntry *f1 = flow[0].pkt_.FlowFetch();
+    const FlowEntry *rev = f1->reverse_flow_entry();
+    VmUveTableTest *vmut = static_cast<VmUveTableTest *>
+        (Agent::GetInstance()->uve()->vm_uve_table());
+
+    //Verify that stats FIP entry is absent until flow stats are updated
+    EXPECT_EQ(0U, vmut->GetVmIntfFipCount(flow0->vm(), flow0));
+
+    //Update FIP stats which resuts in creation of stats FIP entry
+    vmut->UpdateFloatingIpStats(f1, 300, 3);
+    vmut->UpdateFloatingIpStats(rev, 300, 3);
+
+    //Verify that stats FIP entry is created
+    EXPECT_EQ(1U, vmut->GetVmIntfFipCount(flow0->vm(), flow0));
+
+    //Remove floating-IP configuration
+    RemoveFipConfig();
+
+    //Verify that stats FIP entry is created
+    EXPECT_EQ(0U, vmut->GetVmIntfFipCount(flow0->vm(), flow0));
+
+    //cleanup
+    FlowTearDown();
+}
+
 
 int main(int argc, char **argv) {
     GETUSERARGS();

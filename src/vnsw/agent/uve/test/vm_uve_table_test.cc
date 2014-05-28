@@ -71,3 +71,25 @@ UveVirtualMachineAgent* VmUveTableTest::VmUveObject(const VmEntry *vm) {
     return uve->uve_info();
 }
 
+uint32_t VmUveTableTest::GetVmIntfFipCount(const VmEntry *vm,
+                                           const Interface* intf) {
+    UveVmMap::iterator it = uve_vm_map_.find(vm);
+    if (it != uve_vm_map_.end()) {
+        VmUveEntryTest *entry = static_cast<VmUveEntryTest *>(
+                it->second.get());
+        return entry->FloatingIpCount(intf);
+    }
+    return 0;
+}
+
+const VmUveEntry::FloatingIp *VmUveTableTest::GetVmIntfFip
+    (const VmEntry *vm, const Interface* intf, const string &fip,
+     const string &vn) {
+    UveVmMap::iterator it = uve_vm_map_.find(vm);
+    if (it != uve_vm_map_.end()) {
+        VmUveEntryTest *entry = static_cast<VmUveEntryTest *>(
+                it->second.get());
+        return entry->IntfFloatingIp(intf, fip, vn);
+    }
+    return NULL;
+}

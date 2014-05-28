@@ -25,12 +25,58 @@
 //required for sending VirtualMachine UVE.
 class VmUveEntry {
 public:
+    struct FipInfo {
+        Ip4Address fip_;
+        std::string vn_;
+        uint64_t bytes_;
+        uint64_t packets_;
+        uint32_t interface_id_;
+        const FlowEntry *flow_;
+    };
+    struct FloatingIp {
+        FloatingIp(const Ip4Address &ip, const std::string &vn)
+            : fip_(ip), vn_(vn) {
+            in_bytes_ = 0;
+            in_packets_ = 0;
+            out_bytes_ = 0;
+            out_packets_ = 0;
+        }
+        void UpdateFloatingIpStats(const FipInfo &fip_info);
+
+        Ip4Address fip_;
+        std::string vn_;
+        uint64_t in_bytes_;
+        uint64_t in_packets_;
+        uint64_t out_bytes_;
+        uint64_t out_packets_;
+    };
+    typedef boost::shared_ptr<FloatingIp> FloatingIpPtr;
+
+    class FloatingIpCmp {
+        public:
+            bool operator()(const FloatingIpPtr &lhs,
+                            const FloatingIpPtr &rhs) const {
+                if (lhs.get()->fip_ != rhs.get()->fip_) {
+                    return lhs.get()->fip_ < rhs.get()->fip_;
+                }
+                return (lhs.get()->vn_ < rhs.get()->vn_);
+            }
+    };
+    typedef std::set<FloatingIpPtr, FloatingIpCmp> FloatingIpSet;
+
     struct UveInterfaceEntry {
         const Interface *intf_;
         L4PortBitmap port_bitmap_;
+        FloatingIpSet fip_tree_;
 
-        UveInterfaceEntry(const Interface *i) : intf_(i), port_bitmap_() { }
+        UveInterfaceEntry(const Interface *i) : intf_(i), port_bitmap_(),
+            fip_tree_() { }
         virtual ~UveInterfaceEntry() {}
+        void UpdateFloatingIpStats(const FipInfo &fip_info);
+        bool FillFloatingIpStats(vector<VmFloatingIPStats> &result) const;
+        void SetStats(VmFloatingIPStats &fip, uint64_t in_bytes,
+            uint64_t in_pkts, uint64_t out_bytes, uint64_t out_pkts) const;
+        void RemoveFloatingIp(const VmInterface::FloatingIp &fip);
     };
     typedef boost::shared_ptr<UveInterfaceEntry> UveInterfaceEntryPtr;
 
@@ -50,11 +96,12 @@ public:
     bool add_by_vm_notify() const { return add_by_vm_notify_; }
     void set_add_by_vm_notify(bool value) { add_by_vm_notify_ = value; }
 
-    void InterfaceAdd(const Interface *intf);
+    void InterfaceAdd(const Interface *intf, VmInterface::FloatingIpSet &olist);
     void InterfaceDelete(const Interface *intf);
     void UpdatePortBitmap(uint8_t proto, uint16_t sport, uint16_t dport);
     bool FrameVmMsg(const VmEntry* vm, UveVirtualMachineAgent &uve);
     bool FrameVmStatsMsg(const VmEntry* vm, UveVirtualMachineAgent &uve);
+    void UpdateFloatingIpStats(const FipInfo &fip_info);
 protected:
     Agent *agent_;
     InterfaceSet interface_tree_;
@@ -64,10 +111,13 @@ private:
     bool UveVmInterfaceListChanged
         (const std::vector<VmInterfaceAgent> &new_l) const;
     bool UveVmVRouterChanged(const std::string &new_value) const;
+    bool UveVmFipStatsListChanged(const vector<VmFloatingIPStats> &new_l) const;
     bool FrameInterfaceMsg(const VmInterface *intf, VmInterfaceAgent *itf) 
                            const;
     bool FrameInterfaceStatsMsg(const VmInterface *vm_intf, 
-                           VmInterfaceAgentStats *s_intf) const;
+                                VmInterfaceAgentStats *s_intf) const;
+    bool FrameFipStatsMsg(const VmInterface *vm_intf,
+                          std::vector<VmFloatingIPStats> &fip_list) const;
     bool GetVmInterfaceGateway(const VmInterface *intf, std::string &gw) const;
     bool UveVmInterfaceStatsListChanged
          (const std::vector<VmInterfaceAgentStats> &l) const;
