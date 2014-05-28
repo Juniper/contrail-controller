@@ -28,6 +28,7 @@ int BgpAttrOrigin::CompareTo(const BgpAttribute &rhs_attr) const {
     KEY_COMPARE(origin, static_cast<const BgpAttrOrigin &>(rhs_attr).origin);
     return 0;
 }
+
 void BgpAttrOrigin::ToCanonical(BgpAttr *attr) {
     attr->set_origin(static_cast<BgpAttrOrigin::OriginType>(origin));
 }
@@ -141,7 +142,197 @@ int BgpMpNlri::CompareTo(const BgpAttribute &rhs_attr) const {
     }
     return 0;
 }
+
 void BgpMpNlri::ToCanonical(BgpAttr *attr) {
+}
+
+EdgeDiscoverySpec::EdgeDiscoverySpec()
+    : BgpAttribute(McastEdgeDiscovery, kFlags) {
+}
+
+EdgeDiscoverySpec::EdgeDiscoverySpec(const BgpAttribute &rhs)
+    : BgpAttribute(rhs) {
+}
+
+EdgeDiscoverySpec::EdgeDiscoverySpec(const EdgeDiscoverySpec &rhs)
+    : BgpAttribute(BgpAttribute::McastEdgeDiscovery, kFlags) {
+    for (size_t i = 0; i < rhs.edge_list.size(); i++) {
+        Edge *edge = new Edge;
+        *edge = *rhs.edge_list[i];
+        edge_list.push_back(edge);
+    }
+}
+
+EdgeDiscoverySpec::~EdgeDiscoverySpec() {
+    STLDeleteValues(&edge_list);
+}
+
+Ip4Address EdgeDiscoverySpec::Edge::GetIp4Address() const {
+    return Ip4Address(get_value(&address[0], 4));
+}
+
+void EdgeDiscoverySpec::Edge::SetIp4Address(Ip4Address addr) {
+    address.resize(4, 0);
+    const Ip4Address::bytes_type &addr_bytes = addr.to_bytes();
+    std::copy(addr_bytes.begin(), addr_bytes.begin() + 4, address.begin());
+}
+
+void EdgeDiscoverySpec::Edge::GetLabels(
+    uint32_t *first_label, uint32_t *last_label) const {
+    *first_label = labels[0];
+    *last_label = labels[1];
+}
+
+void EdgeDiscoverySpec::Edge::SetLabels(
+    uint32_t first_label, uint32_t last_label) {
+    labels.push_back(first_label);
+    labels.push_back(last_label);
+}
+
+int EdgeDiscoverySpec::CompareTo(const BgpAttribute &rhs_attr) const {
+    int ret = BgpAttribute::CompareTo(rhs_attr);
+    if (ret != 0) return ret;
+    const EdgeDiscoverySpec &rhs =
+        static_cast<const EdgeDiscoverySpec &>(rhs_attr);
+    KEY_COMPARE(this, &rhs);
+    return 0;
+}
+
+void EdgeDiscoverySpec::ToCanonical(BgpAttr *attr) {
+    attr->set_edge_discovery(this);
+}
+
+std::string EdgeDiscoverySpec::ToString() const {
+    std::ostringstream oss;
+    oss << "EdgeDiscovery <code: " << int(code);
+    oss << ", flags: 0x" << std::hex << int(flags) << std::dec << ">";
+    int idx = 0;
+    for (EdgeList::const_iterator it = edge_list.begin();
+         it != edge_list.end(); ++it, ++idx) {
+        const Edge *edge = *it;
+        uint32_t first_label, last_label;
+        edge->GetLabels(&first_label, &last_label);
+        oss << " Edge[" << idx << "] = (" << edge->GetIp4Address() << ", ";
+        oss << first_label << "-" << last_label << ")";
+    }
+
+    return oss.str();
+}
+
+EdgeDiscovery::Edge::Edge(const EdgeDiscoverySpec::Edge *spec_edge) {
+    address = spec_edge->GetIp4Address();
+    uint32_t first_label, last_label;
+    spec_edge->GetLabels(&first_label, &last_label);
+    label_block = new LabelBlock(first_label, last_label);
+}
+
+EdgeDiscovery::EdgeDiscovery(const EdgeDiscoverySpec &edspec)
+    : edspec_(edspec) {
+    refcount_ = 0;
+    for (EdgeDiscoverySpec::EdgeList::const_iterator it =
+         edspec_.edge_list.begin(); it != edspec_.edge_list.end(); ++it) {
+        Edge *edge = new Edge(*it);
+        edge_list.push_back(edge);
+    }
+}
+
+EdgeDiscovery::~EdgeDiscovery() {
+    STLDeleteValues(&edge_list);
+}
+
+EdgeForwardingSpec::EdgeForwardingSpec()
+    : BgpAttribute(McastEdgeForwarding, kFlags) {
+}
+
+EdgeForwardingSpec::EdgeForwardingSpec(const BgpAttribute &rhs)
+    : BgpAttribute(rhs) {
+}
+
+EdgeForwardingSpec::EdgeForwardingSpec(const EdgeForwardingSpec &rhs)
+    : BgpAttribute(BgpAttribute::McastEdgeForwarding, kFlags) {
+    for (size_t i = 0; i < rhs.edge_list.size(); i++) {
+        Edge *edge = new Edge;
+        *edge = *rhs.edge_list[i];
+        edge_list.push_back(edge);
+    }
+}
+
+EdgeForwardingSpec:: ~EdgeForwardingSpec() {
+    STLDeleteValues(&edge_list);
+}
+
+Ip4Address EdgeForwardingSpec::Edge::GetInboundIp4Address() const {
+    return Ip4Address(get_value(&inbound_address[0], 4));
+}
+
+Ip4Address EdgeForwardingSpec::Edge::GetOutboundIp4Address() const {
+    return Ip4Address(get_value(&outbound_address[0], 4));
+}
+
+void EdgeForwardingSpec::Edge::SetInboundIp4Address(Ip4Address addr) {
+    inbound_address.resize(4, 0);
+    const Ip4Address::bytes_type &addr_bytes = addr.to_bytes();
+    std::copy(addr_bytes.begin(), addr_bytes.begin() + 4,
+        inbound_address.begin());
+}
+
+void EdgeForwardingSpec::Edge::SetOutboundIp4Address(Ip4Address addr) {
+    outbound_address.resize(4, 0);
+    const Ip4Address::bytes_type &addr_bytes = addr.to_bytes();
+    std::copy(addr_bytes.begin(), addr_bytes.begin() + 4,
+        outbound_address.begin());
+}
+
+int EdgeForwardingSpec::CompareTo(const BgpAttribute &rhs_attr) const {
+    int ret = BgpAttribute::CompareTo(rhs_attr);
+    if (ret != 0) return ret;
+    const EdgeForwardingSpec &rhs =
+        static_cast<const EdgeForwardingSpec &>(rhs_attr);
+    KEY_COMPARE(this, &rhs);
+    return 0;
+}
+
+void EdgeForwardingSpec::ToCanonical(BgpAttr *attr) {
+    attr->set_edge_forwarding(this);
+}
+
+std::string EdgeForwardingSpec::ToString() const {
+    std::ostringstream oss;
+    oss << "EdgeForwarding <code: " << int(code);
+    oss << ", flags: 0x" << std::hex << int(flags) << std::dec << ">";
+    int idx = 0;
+    for (EdgeList::const_iterator it = edge_list.begin();
+         it != edge_list.end(); ++it, ++idx) {
+        const Edge *edge = *it;
+        oss << " Edge[" << idx << "] = (";
+        oss << "InAddress=" << edge->GetInboundIp4Address() << ", ";
+        oss << "InLabel=" << edge->inbound_label << ", ";
+        oss << "OutAddress=" << edge->GetOutboundIp4Address() << ", ";
+        oss << "OutLabel=" << edge->outbound_label << ")";
+    }
+
+    return oss.str();
+}
+
+EdgeForwarding::Edge::Edge(const EdgeForwardingSpec::Edge *spec_edge) {
+    inbound_address = spec_edge->GetInboundIp4Address();
+    outbound_address = spec_edge->GetOutboundIp4Address();
+    inbound_label = spec_edge->inbound_label;
+    outbound_label = spec_edge->outbound_label;
+}
+
+EdgeForwarding::EdgeForwarding(const EdgeForwardingSpec &efspec)
+    : efspec_(efspec) {
+    refcount_ = 0;
+    for (EdgeForwardingSpec::EdgeList::const_iterator it =
+         efspec_.edge_list.begin(); it != efspec_.edge_list.end(); ++it) {
+        Edge *edge = new Edge(*it);
+        edge_list.push_back(edge);
+    }
+}
+
+EdgeForwarding::~EdgeForwarding() {
+    STLDeleteValues(&edge_list);
 }
 
 int BgpAttrOList::CompareTo(const BgpAttribute &rhs_attr) const {
@@ -232,8 +423,11 @@ BgpAttr::BgpAttr(const BgpAttr &rhs)
       aggregator_as_num_(rhs.aggregator_as_num_),
       aggregator_address_(rhs.aggregator_address_),
       source_rd_(rhs.source_rd_),
-      as_path_(rhs.as_path_), community_(rhs.community_),
+      as_path_(rhs.as_path_),
+      community_(rhs.community_),
       ext_community_(rhs.ext_community_),
+      edge_discovery_(rhs.edge_discovery_),
+      edge_forwarding_(rhs.edge_forwarding_),
       label_block_(rhs.label_block_), olist_(rhs.olist_) {
     refcount_ = 0; 
 }
@@ -266,6 +460,18 @@ void BgpAttr::set_ext_community(const ExtCommunitySpec *extcomm) {
     }
 }
 
+void BgpAttr::set_edge_discovery(const EdgeDiscoverySpec *edspec) {
+    if (edspec) {
+        edge_discovery_.reset(new EdgeDiscovery(*edspec));
+    }
+}
+
+void BgpAttr::set_edge_forwarding(const EdgeForwardingSpec *efspec) {
+    if (efspec) {
+        edge_forwarding_.reset(new EdgeForwarding(*efspec));
+    }
+}
+
 void BgpAttr::set_label_block(LabelBlockPtr label_block) {
     label_block_ = label_block;
 }
@@ -291,6 +497,8 @@ int BgpAttr::CompareTo(const BgpAttr &rhs) const {
     KEY_COMPARE(atomic_aggregate_, rhs.atomic_aggregate_);
     KEY_COMPARE(aggregator_as_num_, rhs.aggregator_as_num_);
     KEY_COMPARE(aggregator_address_, rhs.aggregator_address_);
+    KEY_COMPARE(edge_discovery_.get(), rhs.edge_discovery_.get());
+    KEY_COMPARE(edge_forwarding_.get(), rhs.edge_forwarding_.get());
     KEY_COMPARE(source_rd_, rhs.source_rd_);
     KEY_COMPARE(label_block_.get(), rhs.label_block_.get());
     KEY_COMPARE(olist_.get(), rhs.olist_.get());

@@ -23,9 +23,9 @@
 #include "bgp/bgp_session_manager.h"
 #include "bgp/bgp_table.h"
 #include "bgp/bgp_xmpp_channel.h"
+#include "bgp/ermvpn/ermvpn_table.h"
 #include "bgp/inet/inet_route.h"
 #include "bgp/inet/inet_table.h"
-#include "bgp/inetmcast/inetmcast_table.h"
 #include "bgp/routing-instance/peer_manager.h"
 #include "bgp/routing-instance/routing_instance.h"
 #include "bgp/origin-vn/origin_vn.h"
@@ -795,7 +795,7 @@ public:
     }
 
     static void FillMulticastManagerStats(MulticastManagerData *data,
-            InetMcastTable *table, int inst_id) {
+            ErmVpnTable *table, int inst_id) {
         MulticastManagerDataKey key;
         key.routing_table = table->name();
         McastTreeManager *tm = table->GetTreeManager();
@@ -819,8 +819,8 @@ public:
         for (RoutingInstanceMgr::NameIterator it = rim->name_begin();
              it != rim->name_end(); it++) {
             RoutingInstance *ri = it->second;
-            InetMcastTable *table =
-                static_cast<InetMcastTable *>(ri->GetTable(Address::INETMCAST));
+            ErmVpnTable *table =
+                static_cast<ErmVpnTable *>(ri->GetTable(Address::ERMVPN));
             if (table)
                 FillMulticastManagerStats(mydata, table, inst_id);
         }
@@ -829,7 +829,7 @@ public:
     }
 
     static void FillMulticastManagerInfo(const RequestPipeline::StageData *sd,
-            vector<ShowMulticastManager> &mgr_list, InetMcastTable *table) {
+            vector<ShowMulticastManager> &mgr_list, ErmVpnTable *table) {
         ShowMulticastManager mgr;
         MulticastManagerDataKey key;
         key.routing_table = table->name();
@@ -861,8 +861,8 @@ public:
         for (RoutingInstanceMgr::NameIterator it = rim->name_begin();
              it != rim->name_end(); it++) {
             RoutingInstance *ri = it->second;
-            InetMcastTable *table =
-                static_cast<InetMcastTable *>(ri->GetTable(Address::INETMCAST));
+            ErmVpnTable *table =
+                static_cast<ErmVpnTable *>(ri->GetTable(Address::ERMVPN));
             if (table)
                 FillMulticastManagerInfo(sd, mgr_list, table);
         }
@@ -938,15 +938,15 @@ public:
         tree.set_group(sg->group().to_string());
         tree.set_source(sg->source().to_string());
         for (McastSGEntry::ForwarderSet::const_iterator it =
-             sg->forwarders_.begin();
-             it != sg->forwarders_.end(); it++) {
+             sg->forwarder_sets_[0]->begin();
+             it != sg->forwarder_sets_[0]->end(); it++) {
             FillMulticastForwarderInfo(&tree, *it);
         }
         data->tree_list.push_back(tree);
     }
 
     static void FillMulticastPartitionInfo(MulticastManagerDetailData *data,
-            InetMcastTable *table, int inst_id) {
+            ErmVpnTable *table, int inst_id) {
         McastTreeManager *tm = table->GetTreeManager();
         McastManagerPartition *partition = tm->GetPartition(inst_id);
         for (McastManagerPartition::SGList::const_iterator it =
@@ -969,7 +969,7 @@ public:
         BgpSandeshContext *bsc =
             static_cast<BgpSandeshContext *>(req->client_context());
         DBTableBase *table = bsc->bgp_server->database()->FindTable(req->get_name());
-        InetMcastTable *mcast_table = dynamic_cast<InetMcastTable *>(table);
+        ErmVpnTable *mcast_table = dynamic_cast<ErmVpnTable *>(table);
         if (mcast_table)
             FillMulticastPartitionInfo(mydata, mcast_table, inst_id);
 

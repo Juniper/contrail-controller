@@ -1031,8 +1031,9 @@ TEST_F(BgpConfigTest, AddressFamilies2) {
     BgpPeer *peer = rti->peer_manager()->PeerFind("10.1.1.1");
     TASK_UTIL_ASSERT_TRUE(peer != NULL);
 
-    TASK_UTIL_EXPECT_EQ(2, peer->families().size());
+    TASK_UTIL_EXPECT_EQ(3, peer->families().size());
     TASK_UTIL_EXPECT_TRUE(peer->LookupFamily(Address::INETVPN));
+    TASK_UTIL_EXPECT_TRUE(peer->LookupFamily(Address::ERMVPN));
     TASK_UTIL_EXPECT_TRUE(peer->LookupFamily(Address::EVPN));
 
     boost::replace_all(content, "<config>", "<delete>");

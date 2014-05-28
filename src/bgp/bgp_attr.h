@@ -143,6 +143,130 @@ struct BgpMpNlri : public BgpAttribute {
     std::vector<BgpProtoPrefix *> nlri;
 };
 
+struct EdgeDiscoverySpec : public BgpAttribute {
+    static const int kSize = -1;
+    static const uint8_t kFlags = Optional | Transitive;
+    EdgeDiscoverySpec();
+    explicit EdgeDiscoverySpec(const BgpAttribute &rhs);
+    explicit EdgeDiscoverySpec(const EdgeDiscoverySpec &rhs);
+    ~EdgeDiscoverySpec();
+
+    virtual int CompareTo(const BgpAttribute &rhs_attr) const;
+    virtual void ToCanonical(BgpAttr *attr);
+    virtual std::string ToString() const;
+
+    struct Edge : public ParseObject {
+        Ip4Address GetIp4Address() const;
+        void SetIp4Address(Ip4Address addr);
+        void GetLabels(uint32_t *first_label, uint32_t *last_label) const;
+        void SetLabels(uint32_t first_label, uint32_t last_label);
+
+        std::vector<uint8_t> address;
+        std::vector<uint32_t> labels;
+    };
+    typedef std::vector<Edge *> EdgeList;
+    EdgeList edge_list;
+};
+
+class EdgeDiscovery {
+public:
+    explicit EdgeDiscovery(const EdgeDiscoverySpec &edspec);
+    ~EdgeDiscovery();
+    const EdgeDiscoverySpec &edge_discovery() const { return edspec_; }
+
+    struct Edge {
+        Edge(const EdgeDiscoverySpec::Edge *edge_spec);
+        Ip4Address address;
+        LabelBlockPtr label_block;
+    };
+    typedef std::vector<Edge *> EdgeList;
+
+    EdgeList edge_list;
+
+private:
+    friend void intrusive_ptr_add_ref(EdgeDiscovery *ediscovery);
+    friend void intrusive_ptr_release(EdgeDiscovery *ediscovery);
+
+    tbb::atomic<int> refcount_;
+    EdgeDiscoverySpec edspec_;
+};
+
+inline void intrusive_ptr_add_ref(EdgeDiscovery *ediscovery) {
+    ediscovery->refcount_.fetch_and_increment();
+}
+
+inline void intrusive_ptr_release(EdgeDiscovery *ediscovery) {
+    int prev = ediscovery->refcount_.fetch_and_decrement();
+    if (prev == 1) {
+        delete ediscovery;
+    }
+}
+
+typedef boost::intrusive_ptr<EdgeDiscovery> EdgeDiscoveryPtr;
+
+struct EdgeForwardingSpec : public BgpAttribute {
+    static const int kSize = -1;
+    static const uint8_t kFlags = Optional | Transitive;
+    EdgeForwardingSpec();
+    explicit EdgeForwardingSpec(const BgpAttribute &rhs);
+    explicit EdgeForwardingSpec(const EdgeForwardingSpec &rhs);
+    ~EdgeForwardingSpec();
+
+    virtual int CompareTo(const BgpAttribute &rhs_attr) const;
+    virtual void ToCanonical(BgpAttr *attr);
+    virtual std::string ToString() const;
+
+    struct Edge : public ParseObject {
+        Ip4Address GetInboundIp4Address() const;
+        Ip4Address GetOutboundIp4Address() const;
+        void SetInboundIp4Address(Ip4Address addr);
+        void SetOutboundIp4Address(Ip4Address addr);
+
+        int address_len;
+        std::vector<uint8_t> inbound_address, outbound_address;
+        uint32_t inbound_label, outbound_label;
+    };
+    typedef std::vector<Edge *> EdgeList;
+
+    EdgeList edge_list;
+};
+
+class EdgeForwarding {
+public:
+    explicit EdgeForwarding(const EdgeForwardingSpec &efspec);
+    ~EdgeForwarding();
+    const EdgeForwardingSpec &edge_forwarding() const { return efspec_; }
+
+    struct Edge {
+        Edge(const EdgeForwardingSpec::Edge *edge_spec);
+        Ip4Address inbound_address, outbound_address;
+        uint32_t inbound_label, outbound_label;
+    };
+    typedef std::vector<Edge *> EdgeList;
+
+    EdgeList edge_list;
+
+private:
+    friend void intrusive_ptr_add_ref(EdgeForwarding *eforwarding);
+    friend void intrusive_ptr_release(EdgeForwarding *eforwarding);
+
+    tbb::atomic<int> refcount_;
+    EdgeForwardingSpec efspec_;
+};
+
+inline void intrusive_ptr_add_ref(EdgeForwarding *eforwarding) {
+    eforwarding->refcount_.fetch_and_increment();
+}
+
+inline void intrusive_ptr_release(EdgeForwarding *eforwarding) {
+    int prev = eforwarding->refcount_.fetch_and_decrement();
+    if (prev == 1) {
+        delete eforwarding;
+    }
+}
+
+typedef boost::intrusive_ptr<EdgeForwarding> EdgeForwardingPtr;
+
 struct BgpAttrLabelBlock : public BgpAttribute {
     static const int kSize = 0;
     BgpAttrLabelBlock() : BgpAttribute(0, BgpAttribute::LabelBlock, 0) {}
@@ -159,7 +283,7 @@ struct BgpAttrLabelBlock : public BgpAttribute {
 class BgpOListElem {
 public:
     BgpOListElem(Ip4Address address, uint32_t label,
-        std::vector<std::string> encap)
+        std::vector<std::string> encap = std::vector<std::string>())
         : address(address), label(label), encap(encap) {
     }
 
@@ -206,6 +330,8 @@ struct BgpAttrOList : public BgpAttribute {
     BgpAttrOList() : BgpAttribute(0, BgpAttribute::OList, 0) {}
     BgpAttrOList(const BgpAttribute &rhs) : BgpAttribute(rhs) {}
     BgpAttrOList(BgpOList *olist) :
+        BgpAttribute(0, BgpAttribute::OList, 0), olist(olist) {}
+    BgpAttrOList(BgpOListPtr olist) :
         BgpAttribute(0, BgpAttribute::OList, 0), olist(olist) {}
     BgpOListPtr olist;
     virtual int CompareTo(const BgpAttribute &rhs_attr) const;
@@ -258,6 +384,8 @@ public:
     void set_community(const CommunitySpec *comm);
     void set_ext_community(ExtCommunityPtr comm);
     void set_ext_community(const ExtCommunitySpec *extcomm);
+    void set_edge_discovery(const EdgeDiscoverySpec *edspec);
+    void set_edge_forwarding(const EdgeForwardingSpec *efspec);
     void set_label_block(LabelBlockPtr label_block);
     void set_olist(BgpOListPtr olist);
     friend std::size_t hash_value(BgpAttr const &attr);
@@ -275,6 +403,8 @@ public:
     int as_path_count() const { return as_path_ ? as_path_->AsCount() : 0; }
     const Community *community() const { return community_.get(); }
     const ExtCommunity *ext_community() const { return ext_community_.get(); }
+    const EdgeDiscovery *edge_discovery() const { return edge_discovery_.get(); }
+    const EdgeForwarding *edge_forwarding() const { return edge_forwarding_.get(); }
     LabelBlockPtr label_block() const { return label_block_; }
     BgpOListPtr olist() const { return olist_; }
     BgpAttrDB *attr_db() const { return attr_db_; }
@@ -298,6 +428,8 @@ private:
     AsPathPtr as_path_;
     CommunityPtr community_;
     ExtCommunityPtr ext_community_;
+    EdgeDiscoveryPtr edge_discovery_;
+    EdgeForwardingPtr edge_forwarding_;
     LabelBlockPtr label_block_;
     BgpOListPtr olist_;
 };
@@ -338,6 +470,10 @@ public:
                                                uint32_t local_pref);
     BgpAttrPtr ReplaceSourceRdAndLocate(const BgpAttr *attr,
                                         RouteDistinguisher source_rd);
+    BgpAttrPtr ReplaceMulticastEdgeDiscoveryAndLocate(const BgpAttr *attr,
+                                        BgpAttrPtr edge_discovery_attribute) {
+        return attr;
+    }
     BgpAttrPtr UpdateNexthopAndLocate(const BgpAttr *attr, uint16_t afi, 
                                       uint8_t safi, IpAddress &addr);
     BgpServer *server() { return server_; }

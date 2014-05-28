@@ -156,7 +156,6 @@ public:
                 const BgpNeighborConfig *config);
     ~BgpPeerTest();
 
-    virtual void StartKeepaliveTimerUnlocked();
     void BindLocalEndpoint(BgpSession *session);
 
     static void verbose_name(bool verbose) { verbose_name_ = verbose; }

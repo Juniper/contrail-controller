@@ -13,8 +13,8 @@
 #include "bgp/bgp_route.h"
 #include "bgp/routing-instance/routing_instance.h"
 #include "bgp/bgp_table.h"
-#include "bgp/inetmcast/inetmcast_route.h"
 #include "bgp/enet/enet_route.h"
+#include "bgp/ermvpn/ermvpn_route.h"
 #include "bgp/origin-vn/origin_vn.h"
 #include "bgp/security_group/security_group.h"
 #include "net/bgp_af.h"
@@ -103,12 +103,12 @@ void BgpXmppMessage::Start(const RibOutAttr *roattr, const BgpRoute *route) {
         const BgpAttr *attr = roattr->attr();
         ProcessExtCommunity(attr->ext_community());
     }
-    
+
     stringstream ss;
-    ss << route->Afi() << "/" << int(route->Safi()) << "/" <<
+    ss << route->Afi() << "/" << int(route->XmppSafi()) << "/" <<
           table_->routing_instance()->name();
     std::string node(ss.str());
-    if (table_->family() == Address::INETMCAST) {
+    if (table_->family() == Address::ERMVPN) {
         xitems_.append_attribute("node") = node.c_str();
         AddMcastRoute(route, roattr);
     } else if (table_->family() == Address::ENET) {
@@ -121,7 +121,7 @@ void BgpXmppMessage::Start(const RibOutAttr *roattr, const BgpRoute *route) {
 }
 
 bool BgpXmppMessage::AddRoute(const BgpRoute *route, const RibOutAttr *roattr) {
-    if (table_->family() == Address::INETMCAST) {
+    if (table_->family() == Address::ERMVPN) {
         return AddMcastRoute(route, roattr);
     } else if (table_->family() == Address::ENET) {
         return AddEnetRoute(route, roattr);
@@ -153,7 +153,7 @@ void BgpXmppMessage::AddInetReach(const BgpRoute *route, const RibOutAttr *roatt
     autogen::ItemType item;
 
     item.entry.nlri.af = route->Afi();
-    item.entry.nlri.safi = route->Safi();
+    item.entry.nlri.safi = route->XmppSafi();
     item.entry.nlri.address = route->ToString();
     item.entry.version = 1;
     item.entry.virtual_network = virtual_network_;
@@ -215,7 +215,7 @@ void BgpXmppMessage::AddEnetReach(const BgpRoute *route, const RibOutAttr *roatt
 
     autogen::EnetItemType item;
     item.entry.nlri.af = route->Afi();
-    item.entry.nlri.safi = route->Safi();
+    item.entry.nlri.safi = route->XmppSafi();
 
     EnetRoute *enet_route =
         static_cast<EnetRoute *>(const_cast<BgpRoute *>(route));
@@ -253,12 +253,12 @@ void BgpXmppMessage::AddMcastReach(const BgpRoute *route, const RibOutAttr *roat
 
     autogen::McastItemType item;
     item.entry.nlri.af = route->Afi();
-    item.entry.nlri.safi = route->Safi();
+    item.entry.nlri.safi = route->XmppSafi();
 
-    InetMcastRoute *mcast_route =
-        static_cast<InetMcastRoute *>(const_cast<BgpRoute *>(route));
-    item.entry.nlri.group = mcast_route->GetPrefix().group().to_string();
-    item.entry.nlri.source =  mcast_route->GetPrefix().source().to_string();
+    ErmVpnRoute *ermvpn_route =
+        static_cast<ErmVpnRoute *>(const_cast<BgpRoute *>(route));
+    item.entry.nlri.group = ermvpn_route->GetPrefix().group().to_string();
+    item.entry.nlri.source =  ermvpn_route->GetPrefix().source().to_string();
     item.entry.nlri.source_label = roattr->label();
 
     BgpOList *olist = roattr->attr()->olist().get();

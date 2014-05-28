@@ -172,7 +172,7 @@ public:
 
     virtual int PartitionCount() const;
 
-    // Calcuate the size across all partitions.
+    // Calculate the size across all partitions.
     virtual size_t Size() const;
 
 private:

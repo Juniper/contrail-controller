@@ -6,6 +6,7 @@
 #define __ctrlplane__network_agent_mock__
 
 #include <boost/scoped_ptr.hpp>
+#include <boost/shared_ptr.hpp>
 #include <map>
 #include <pugixml/pugixml.hpp>
 #include <tbb/compat/condition_variable>
@@ -339,6 +340,8 @@ private:
 
     tbb::interface5::condition_variable cond_var_;
 };
+
+typedef boost::shared_ptr<NetworkAgentMock> NetworkAgentMockPtr;
 
 }  // namespace test
 

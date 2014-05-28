@@ -29,6 +29,7 @@ public:
         INET6MCAST = 9,
         ENET = 10,
         EVPN = 11,
+        ERMVPN = 12,
     };
 
     Address();
@@ -36,9 +37,10 @@ public:
     static Family FamilyFromString(std::string family);
     static std::string FamilyToString(Family fmly);
     static Family FamilyFromRoutingTableName(std::string name);
+    static std::string FamilyToTableString(Family family);
 
 private:
-    IpAddress addr_;    
+    IpAddress addr_;
 };
 
 boost::system::error_code Ip4PrefixParse(const std::string &str,

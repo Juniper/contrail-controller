@@ -153,8 +153,8 @@ if sys.platform != 'darwin':
 libs = MapBuildDir(['base',
                     'bgp',
                     'bgp/inet',
-                    'bgp/inetmcast',
                     'bgp/enet',
+                    'bgp/ermvpn',
                     'bgp/evpn',
                     'bgp/l3vpn',
                     'bgp/origin-vn',
@@ -182,8 +182,8 @@ env.Append(CPPPATH = env['TOP'] + '/io')
 
 lib_l3vpn = File('../bgp/l3vpn/libbgp_l3vpn.a')
 lib_inet = File('../bgp/inet/libbgp_inet.a')
-lib_inetmcast = File('../bgp/inetmcast/libbgp_inetmcast.a')
 lib_enet = File('../bgp/enet/libbgp_enet.a')
+lib_ermvpn = File('../bgp/ermvpn/libbgp_ermvpn.a')
 lib_evpn = File('../bgp/evpn/libbgp_evpn.a')
 lib_rtarget = File('../bgp/rtarget/librtarget.a')
 lib_ifmap_server = File('../ifmap/libifmap_server.a')
@@ -193,15 +193,15 @@ lib_cpuinfo = File('../base/libcpuinfo.a')
 if sys.platform != 'darwin':
     env.Prepend(LINKFLAGS =
                      ['-Wl,--whole-archive',
-                      '-lbgp_l3vpn', '-lbgp_inet', '-lbgp_inetmcast',
-                      '-lbgp_enet', '-lbgp_evpn', '-lrtarget',
+                      '-lbgp_l3vpn', '-lbgp_inet',
+                      '-lbgp_enet', '-lbgp_ermvpn', '-lbgp_evpn', '-lrtarget',
                       '-lifmap_server', '-lcpuinfo',
                       '-Wl,--no-whole-archive'])
 else:
     env.Prepend(LINKFLAGS = ['-Wl,-force_load,' + lib_l3vpn.path])
     env.Prepend(LINKFLAGS = ['-Wl,-force_load,' + lib_inet.path])
-    env.Prepend(LINKFLAGS = ['-Wl,-force_load,' + lib_inetmcast.path])
     env.Prepend(LINKFLAGS = ['-Wl,-force_load,' + lib_enet.path])
+    env.Prepend(LINKFLAGS = ['-Wl,-force_load,' + lib_ermvpn.path])
     env.Prepend(LINKFLAGS = ['-Wl,-force_load,' + lib_evpn.path])
     env.Prepend(LINKFLAGS = ['-Wl,-force_load,' + lib_rtarget.path])
     env.Prepend(LINKFLAGS = ['-Wl,-force_load,' + lib_ifmap_server.path])
@@ -240,8 +240,8 @@ env.Default(ctrlnode)
 
 env.Depends(ctrlnode, lib_l3vpn)
 env.Depends(ctrlnode, lib_inet)
-env.Depends(ctrlnode, lib_inetmcast)
 env.Depends(ctrlnode, lib_enet)
+env.Depends(ctrlnode, lib_ermvpn)
 env.Depends(ctrlnode, lib_evpn)
 env.Depends(ctrlnode, lib_rtarget)
 env.Depends(ctrlnode, lib_ifmap_server)

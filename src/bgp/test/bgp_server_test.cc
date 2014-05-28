@@ -360,18 +360,15 @@ static void ResumeDelete(LifetimeActor *actor) {
 }
 
 TEST_F(BgpServerUnitTest, Connection) {
-
-    // Enable BgpPeerTest::ToString() to include uuid also in the name of the
-    // peer to maintain unique-ness among multiple peering sessions between
-    // two BgpServers
+    int hold_time_orig = StateMachineTest::hold_time_msec_;
+    StateMachineTest::hold_time_msec_ = 30;
     BgpPeerTest::verbose_name(true);
     SetupPeers(3, a_->session_manager()->GetPort(),
                b_->session_manager()->GetPort(), true);
     VerifyPeers(3, 2);
+    StateMachineTest::hold_time_msec_ = hold_time_orig;
 }
 
-// Run this test with a small (30ms) hold time so that a keepalive sent very
-// frequently, once every 10ms or so.
 TEST_F(BgpServerUnitTest, LotsOfKeepAlives) {
     int hold_time_orig = StateMachineTest::hold_time_msec_;
     StateMachineTest::hold_time_msec_ = 30;
@@ -379,8 +376,6 @@ TEST_F(BgpServerUnitTest, LotsOfKeepAlives) {
     SetupPeers(3, a_->session_manager()->GetPort(),
                b_->session_manager()->GetPort(), true);
     VerifyPeers(3, 500);
-
-    // Revert the hold time to its original default value.
     StateMachineTest::hold_time_msec_ = hold_time_orig;
 }
 
@@ -909,6 +904,8 @@ TEST_F(BgpServerUnitTest, AddressFamilyNegotiation1) {
         TASK_UTIL_EXPECT_FALSE(peer_b->IsFamilyNegotiated(Address::INET));
         TASK_UTIL_EXPECT_TRUE(peer_a->IsFamilyNegotiated(Address::INETVPN));
         TASK_UTIL_EXPECT_TRUE(peer_b->IsFamilyNegotiated(Address::INETVPN));
+        TASK_UTIL_EXPECT_FALSE(peer_a->IsFamilyNegotiated(Address::ERMVPN));
+        TASK_UTIL_EXPECT_FALSE(peer_b->IsFamilyNegotiated(Address::ERMVPN));
         TASK_UTIL_EXPECT_FALSE(peer_a->IsFamilyNegotiated(Address::EVPN));
         TASK_UTIL_EXPECT_FALSE(peer_b->IsFamilyNegotiated(Address::EVPN));
     }
@@ -944,6 +941,8 @@ TEST_F(BgpServerUnitTest, AddressFamilyNegotiation2) {
         TASK_UTIL_EXPECT_FALSE(peer_b->IsFamilyNegotiated(Address::INET));
         TASK_UTIL_EXPECT_TRUE(peer_a->IsFamilyNegotiated(Address::INETVPN));
         TASK_UTIL_EXPECT_TRUE(peer_b->IsFamilyNegotiated(Address::INETVPN));
+        TASK_UTIL_EXPECT_FALSE(peer_a->IsFamilyNegotiated(Address::ERMVPN));
+        TASK_UTIL_EXPECT_FALSE(peer_b->IsFamilyNegotiated(Address::ERMVPN));
         TASK_UTIL_EXPECT_FALSE(peer_a->IsFamilyNegotiated(Address::EVPN));
         TASK_UTIL_EXPECT_FALSE(peer_b->IsFamilyNegotiated(Address::EVPN));
     }
@@ -958,6 +957,7 @@ TEST_F(BgpServerUnitTest, AddressFamilyNegotiation3) {
     families_a.push_back("inet-vpn");
     families_b.push_back("inet-vpn");
     families_b.push_back("e-vpn");
+    families_b.push_back("erm-vpn");
 
     BgpPeerTest::verbose_name(true);
     SetupPeers(peer_count, a_->session_manager()->GetPort(),
@@ -979,6 +979,8 @@ TEST_F(BgpServerUnitTest, AddressFamilyNegotiation3) {
         TASK_UTIL_EXPECT_FALSE(peer_b->IsFamilyNegotiated(Address::INET));
         TASK_UTIL_EXPECT_TRUE(peer_a->IsFamilyNegotiated(Address::INETVPN));
         TASK_UTIL_EXPECT_TRUE(peer_b->IsFamilyNegotiated(Address::INETVPN));
+        TASK_UTIL_EXPECT_FALSE(peer_a->IsFamilyNegotiated(Address::ERMVPN));
+        TASK_UTIL_EXPECT_FALSE(peer_b->IsFamilyNegotiated(Address::ERMVPN));
         TASK_UTIL_EXPECT_FALSE(peer_a->IsFamilyNegotiated(Address::EVPN));
         TASK_UTIL_EXPECT_FALSE(peer_b->IsFamilyNegotiated(Address::EVPN));
     }
@@ -991,8 +993,10 @@ TEST_F(BgpServerUnitTest, AddressFamilyNegotiation4) {
     vector<string> families_b;
     families_a.push_back("inet-vpn");
     families_a.push_back("e-vpn");
+    families_a.push_back("erm-vpn");
     families_b.push_back("inet-vpn");
     families_b.push_back("e-vpn");
+    families_b.push_back("erm-vpn");
 
     BgpPeerTest::verbose_name(true);
     SetupPeers(peer_count, a_->session_manager()->GetPort(),
@@ -1014,6 +1018,8 @@ TEST_F(BgpServerUnitTest, AddressFamilyNegotiation4) {
         TASK_UTIL_EXPECT_FALSE(peer_b->IsFamilyNegotiated(Address::INET));
         TASK_UTIL_EXPECT_TRUE(peer_a->IsFamilyNegotiated(Address::INETVPN));
         TASK_UTIL_EXPECT_TRUE(peer_b->IsFamilyNegotiated(Address::INETVPN));
+        TASK_UTIL_EXPECT_TRUE(peer_a->IsFamilyNegotiated(Address::ERMVPN));
+        TASK_UTIL_EXPECT_TRUE(peer_b->IsFamilyNegotiated(Address::ERMVPN));
         TASK_UTIL_EXPECT_TRUE(peer_a->IsFamilyNegotiated(Address::EVPN));
         TASK_UTIL_EXPECT_TRUE(peer_b->IsFamilyNegotiated(Address::EVPN));
     }
@@ -1027,8 +1033,10 @@ TEST_F(BgpServerUnitTest, AddressFamilyNegotiation5) {
     families_a.push_back("inet");
     families_a.push_back("inet-vpn");
     families_a.push_back("e-vpn");
+    families_a.push_back("erm-vpn");
     families_b.push_back("inet-vpn");
     families_b.push_back("e-vpn");
+    families_b.push_back("erm-vpn");
 
     BgpPeerTest::verbose_name(true);
     SetupPeers(peer_count, a_->session_manager()->GetPort(),
@@ -1050,6 +1058,8 @@ TEST_F(BgpServerUnitTest, AddressFamilyNegotiation5) {
         TASK_UTIL_EXPECT_FALSE(peer_b->IsFamilyNegotiated(Address::INET));
         TASK_UTIL_EXPECT_TRUE(peer_a->IsFamilyNegotiated(Address::INETVPN));
         TASK_UTIL_EXPECT_TRUE(peer_b->IsFamilyNegotiated(Address::INETVPN));
+        TASK_UTIL_EXPECT_TRUE(peer_a->IsFamilyNegotiated(Address::ERMVPN));
+        TASK_UTIL_EXPECT_TRUE(peer_b->IsFamilyNegotiated(Address::ERMVPN));
         TASK_UTIL_EXPECT_TRUE(peer_a->IsFamilyNegotiated(Address::EVPN));
         TASK_UTIL_EXPECT_TRUE(peer_b->IsFamilyNegotiated(Address::EVPN));
     }
@@ -1063,9 +1073,11 @@ TEST_F(BgpServerUnitTest, AddressFamilyNegotiation6) {
     families_a.push_back("inet");
     families_a.push_back("inet-vpn");
     families_a.push_back("e-vpn");
+    families_a.push_back("erm-vpn");
     families_b.push_back("inet");
     families_b.push_back("inet-vpn");
     families_b.push_back("e-vpn");
+    families_b.push_back("erm-vpn");
 
     BgpPeerTest::verbose_name(true);
     SetupPeers(peer_count, a_->session_manager()->GetPort(),
@@ -1087,6 +1099,8 @@ TEST_F(BgpServerUnitTest, AddressFamilyNegotiation6) {
         TASK_UTIL_EXPECT_TRUE(peer_b->IsFamilyNegotiated(Address::INET));
         TASK_UTIL_EXPECT_TRUE(peer_a->IsFamilyNegotiated(Address::INETVPN));
         TASK_UTIL_EXPECT_TRUE(peer_b->IsFamilyNegotiated(Address::INETVPN));
+        TASK_UTIL_EXPECT_TRUE(peer_a->IsFamilyNegotiated(Address::ERMVPN));
+        TASK_UTIL_EXPECT_TRUE(peer_b->IsFamilyNegotiated(Address::ERMVPN));
         TASK_UTIL_EXPECT_TRUE(peer_a->IsFamilyNegotiated(Address::EVPN));
         TASK_UTIL_EXPECT_TRUE(peer_b->IsFamilyNegotiated(Address::EVPN));
     }
@@ -1130,6 +1144,7 @@ TEST_F(BgpServerUnitTest, AddressFamilyNegotiation8) {
     families_a.push_back("inet");
     families_b.push_back("inet-vpn");
     families_b.push_back("e-vpn");
+    families_b.push_back("erm-vpn");
 
     BgpPeerTest::verbose_name(true);
     SetupPeers(peer_count, a_->session_manager()->GetPort(),

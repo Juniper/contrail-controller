@@ -19,8 +19,8 @@ env.Append(CPPPATH = [env['TOP'],
 env.Append(LIBPATH = ['#/' + Dir('..').path,
                       '../../base',
                       '../../bgp/inet',
-                      '../../bgp/inetmcast',
                       '../../bgp/enet',
+                      '../../bgp/ermvpn',
                       '../../bgp/evpn',
                       '../../bgp/l3vpn',
                       '../../control-node',
@@ -65,15 +65,15 @@ env.Prepend(LIBS = ['control_test', 'bgptest', 'bgp', 'peer_sandesh',
 
 if sys.platform == 'darwin':
     bgp_inet = Dir('../inet').path + '/libbgp_inet.a'
-    bgp_inetmcast = Dir('../inetmcast').path + '/libbgp_inetmcast.a'
     bgp_enet = Dir('../enet').path + '/libbgp_enet.a'
+    bgp_ermvpn = Dir('../ermvpn').path + '/libbgp_ermvpn.a'
     bgp_evpn = Dir('../evpn').path + '/libbgp_evpn.a'
     bgp_l3vpn = Dir('../l3vpn').path + '/libbgp_l3vpn.a'
     bgp_rtarget = Dir('../rtarget').path + '/librtarget.a'
     env.Prepend(LINKFLAGS =
                 ['-Wl,-force_load,' + bgp_inet,
-                 '-Wl,-force_load,' + bgp_inetmcast,
                  '-Wl,-force_load,' + bgp_enet,
+                 '-Wl,-force_load,' + bgp_ermvpn,
                  '-Wl,-force_load,' + bgp_evpn,
                  '-Wl,-force_load,' + bgp_l3vpn,
                  '-Wl,-force_load,' + bgp_rtarget])
@@ -82,15 +82,15 @@ else:
                 ['-Wl,--whole-archive',
                  '-rdynamic',
                  '-lbgp_inet',
-                 '-lbgp_inetmcast',
                  '-lbgp_enet',
+                 '-lbgp_ermvpn',
                  '-lbgp_evpn',
                  '-lbgp_l3vpn',
                  '-lrtarget',
                  '-Wl,--no-whole-archive'])
 
-env.Append(LIBS = ['bgp_enet', 'bgp_evpn'])
-env.Append(LIBS = ['bgp_inet', 'bgp_inetmcast', 'bgp_l3vpn'])
+env.Append(LIBS = ['bgp_enet', 'bgp_ermvpn', 'bgp_evpn'])
+env.Append(LIBS = ['bgp_inet', 'bgp_l3vpn'])
 env.Append(LIBS = ['route', 'net', 'routing_instance', 'rtarget'])
 env.Append(LIBS = ['origin_vn', 'security_group', 'tunnel_encap'])
 env.Append(LIBS = ['xmpp', 'xmpp_unicast', 
@@ -348,8 +348,8 @@ test = env.TestSuite('bgp-test', test_suite)
 env.Alias('controller/src/bgp:test', [
     test,
     'controller/src/bgp/enet:test',
+    'controller/src/bgp/ermvpn:test',
     'controller/src/bgp/evpn:test',
-    'controller/src/bgp/inetmcast:test',
     'controller/src/bgp/l3vpn:test',
     'controller/src/bgp/origin-vn:test',
     'controller/src/bgp/rtarget:test',

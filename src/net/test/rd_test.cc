@@ -12,6 +12,14 @@ using namespace std;
 class RouteDistinguisherTest : public ::testing::Test {
 };
 
+TEST_F(RouteDistinguisherTest, ByteArrayType0_0) {
+    uint8_t data[] = { 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 };
+    RouteDistinguisher rd(data);
+    EXPECT_TRUE(rd.IsNull());
+    EXPECT_EQ(0, rd.Type());
+    EXPECT_EQ("0:0", rd.ToString());
+}
+
 TEST_F(RouteDistinguisherTest, ByteArrayType0_1) {
     uint8_t data[] = { 0x00, 0x00, 0xff, 0x84, 0x01, 0x02, 0x03, 0x04 };
     RouteDistinguisher rd(data);
@@ -74,6 +82,16 @@ TEST_F(RouteDistinguisherTest, ByteArrayType1_4) {
     EXPECT_FALSE(rd.IsNull());
     EXPECT_EQ(1, rd.Type());
     EXPECT_EQ("10.1.1.1:65535", rd.ToString());
+}
+
+TEST_F(RouteDistinguisherTest, FromStringType0_0) {
+    boost::system::error_code ec;
+    RouteDistinguisher rd =
+        RouteDistinguisher::FromString("0:0", &ec);
+    EXPECT_EQ(0, ec.value());
+    EXPECT_TRUE(rd.IsNull());
+    EXPECT_EQ(0, rd.Type());
+    EXPECT_EQ("0:0", rd.ToString());
 }
 
 TEST_F(RouteDistinguisherTest, FromStringType0_1) {

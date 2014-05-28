@@ -101,6 +101,7 @@
         <xsd:enumeration value="inet"/>
         <xsd:enumeration value="inet-vpn"/>
         <xsd:enumeration value="e-vpn"/>
+        <xsd:enumeration value="erm-vpn"/>
         <xsd:enumeration value="route-target"/>
     </xsd:restriction>
 </xsd:simpleType>

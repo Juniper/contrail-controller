@@ -123,8 +123,11 @@ class RtUnicastTest : public ::testing::Test {
                 }
                 oss << "<session to=\'"
                     << control_nodes_[j]->localname() << "\'>"
-                    << "<address-families><family>inet-vpn</family>"
-                    << "<family>route-target</family></address-families>"
+                    << "<address-families>"
+                    << "<family>inet-vpn</family>"
+                    << "<family>erm-vpn</family>"
+                    << "<family>route-target</family>"
+                    << "</address-families>"
                     << "</session>";                
             }
             oss << "</bgp-router>";
