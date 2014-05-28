@@ -530,15 +530,13 @@ class DiscoveryServer():
             len(pubs), len(pubs_active), len(subs)))
 
         if subs:
+            plist = {entry['service_id']:entry for entry in pubs_active}
             for service_id, result in subs:
-                entry = self._db_conn.lookup_service(
-                    service_type, service_id=service_id)
                 # previously published service is gone
+                entry = plist.get(service_id, None)
                 if entry is None:
                     continue
-                # or just not reachable
-                if self.service_expired(entry):
-                    continue
+                result = entry['info']
                 self._db_conn.insert_client(
                     service_type, service_id, client_id, result, ttl)
                 r.append(result)
