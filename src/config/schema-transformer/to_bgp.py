@@ -2222,7 +2222,7 @@ class VirtualMachineInterfaceST(DictST):
         except NoIdError:
             _sandesh._logger.debug("NoIdError while reading interface %s",
                                    self.name)
-            return
+            return network_set
         vm_id = get_vm_id_from_interface(vmi_obj)
         if vm_id is None:
             return network_set
