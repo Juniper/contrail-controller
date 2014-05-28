@@ -826,6 +826,51 @@ TEST_F(RTargetPeerTest, HTTPIntro) {
 
 }
 
+TEST_F(RTargetPeerTest, BulkAddRt) {
+    AddInetRoute(mx_.get(), NULL, "blue", "1.1.2.3/32", 100);
+    AddRouteTarget(mx_.get(), "blue", "target:64496:1");
+    agent_a_1_->Subscribe("blue", 2); 
+    agent_b_1_->Subscribe("blue", 2); 
+    agent_a_2_->Subscribe("blue", 2); 
+    agent_b_2_->Subscribe("blue", 2); 
+
+    TASK_UTIL_WAIT_NE_NO_MSG(InetRouteLookup(mx_.get(), "blue", "1.1.2.3/32"),
+                             NULL, 1000, 10000, 
+                             "Wait for route in blue..");
+    TASK_UTIL_WAIT_NE_NO_MSG(InetRouteLookup(cn1_.get(), "blue", "1.1.2.3/32"),
+                             NULL, 1000, 10000, 
+                             "Wait for route in blue..");
+    TASK_UTIL_WAIT_NE_NO_MSG(InetRouteLookup(cn2_.get(), "blue", "1.1.2.3/32"),
+                             NULL, 1000, 10000, 
+                             "Wait for route in blue..");
+
+    std::vector<BgpServerTest *> to_play = list_of(cn1_.get())(cn2_.get())(mx_.get());
+    for (std::vector<BgpServerTest *>::iterator sit = to_play.begin(); sit != to_play.end(); sit++) {
+        std::vector<string> to_add = list_of("target:1:400")("target:64496:100")
+            ("target:64496:200")("target:64496:300")("target:64496:400")("target:64496:500");
+        for (std::vector<string>::iterator it = to_add.begin(); it != to_add.end(); it++) {
+            AddRouteTarget(*sit, "blue", *it);
+        }
+
+        for (std::vector<string>::iterator it = to_add.begin(); it != to_add.end(); it++) {
+            RemoveRouteTarget(*sit, "blue", *it);
+        }
+    }
+
+    agent_a_1_->Unsubscribe("blue", -1, false); 
+    agent_b_1_->Unsubscribe("blue", -1, false); 
+    agent_a_2_->Unsubscribe("blue", -1, false); 
+    agent_b_2_->Unsubscribe("blue", -1, false); 
+
+    DeleteInetRoute(mx_.get(), NULL, "blue", "1.1.2.3/32");
+}
+
+TEST_F(RTargetPeerTest, DuplicateUnsubscribe) {
+    agent_a_1_->Subscribe("blue", 2); 
+    agent_a_1_->Unsubscribe("blue", -1, false); 
+    agent_a_1_->Unsubscribe("blue", -1, false); 
+}
+
 int main(int argc, char **argv) {
     bgp_log_test::init();
     ::testing::InitGoogleTest(&argc, argv);
