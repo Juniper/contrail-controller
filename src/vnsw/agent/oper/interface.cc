@@ -256,8 +256,7 @@ void Interface::GetOsParams(Agent *agent) {
     if (ioctl(fd, SIOCGIFHWADDR, (void *)&ifr) < 0) {
         LOG(ERROR, "Error <" << errno << ": " << strerror(errno) << 
             "> querying mac-address for interface <" << name_ << ">");
-        os_index_ = Interface::kInvalidIndex;
-        bzero(&mac_, sizeof(mac_));
+        os_oper_state_ = false;
         close(fd);
         return;
     }
@@ -266,8 +265,6 @@ void Interface::GetOsParams(Agent *agent) {
     if (ioctl(fd, SIOCGIFFLAGS, (void *)&ifr) < 0) {
         LOG(ERROR, "Error <" << errno << ": " << strerror(errno) << 
             "> querying mac-address for interface <" << name_ << ">");
-        os_index_ = Interface::kInvalidIndex;
-        bzero(&mac_, sizeof(mac_));
         os_oper_state_ = false;
         close(fd);
         return;
@@ -280,7 +277,11 @@ void Interface::GetOsParams(Agent *agent) {
     close(fd);
 
     memcpy(mac_.ether_addr_octet, ifr.ifr_hwaddr.sa_data, ETHER_ADDR_LEN);
-    os_index_ = if_nametoindex(name_.c_str());
+    if (os_index_ == kInvalidIndex) {
+        int idx = if_nametoindex(name_.c_str());
+        if (idx)
+            os_index_ = idx;
+    }
 }
 
 void Interface::SetKey(const DBRequestKey *key) { 
