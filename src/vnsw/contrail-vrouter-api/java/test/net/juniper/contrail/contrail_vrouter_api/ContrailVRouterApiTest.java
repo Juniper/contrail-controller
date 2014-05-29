@@ -38,7 +38,7 @@ public class ContrailVRouterApiTest {
         s_logger.debug("Setting up ContrailVRouterApiTest");
         int port = -1;
         apiTest = spy(new ContrailVRouterApi(InetAddress.getLocalHost(),
-            port));
+            port, false));
         doReturn(mockClient).when(apiTest).CreateRpcClient();
     }
 
