@@ -498,7 +498,8 @@ class DiscoveryServer():
         r = []
         ttl = randint(self._args.ttl_min, self._args.ttl_max)
 
-        cl_entry = self._db_conn.lookup_client(service_type, client_id)
+        # check client entry and any existing subscriptions
+        cl_entry, subs = self._db_conn.lookup_client(service_type, client_id)
         if not cl_entry:
             cl_entry = {
                 'instances': count,
@@ -520,9 +521,6 @@ class DiscoveryServer():
             if ttl_short:
                 ttl = self.get_ttl_short( client_id, service_type, ttl_short)
                 self._debug['ttl_short'] += 1
-
-        # check existing subscriptions
-        subs = self._db_conn.lookup_subscription(service_type, client_id) or []
 
         self.syslog(
             'subscribe: service type=%s, client=%s:%s, ttl=%d, asked=%d pubs=%d/%d, subs=%d'
@@ -799,7 +797,7 @@ class DiscoveryServer():
 
         for client in clients:
             (service_type, client_id, service_id, mtime, ttl) = client
-            cl_entry = self._db_conn.lookup_client(service_type, client_id)
+            cl_entry, subs = self._db_conn.lookup_client(service_type, client_id)
             if cl_entry is None:
                 continue
             sdata = self.get_sub_data(client_id, service_type)
@@ -837,7 +835,7 @@ class DiscoveryServer():
 
         for client in clients:
             (service_type, client_id, service_id, mtime, ttl) = client
-            cl_entry = self._db_conn.lookup_client(service_type, client_id)
+            cl_entry, subs = self._db_conn.lookup_client(service_type, client_id)
             sdata = self.get_sub_data(client_id, service_type)
             if sdata is None:
                 self.syslog('Missing sdata for client %s, service %s' %
