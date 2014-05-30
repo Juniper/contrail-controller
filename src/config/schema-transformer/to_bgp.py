@@ -2370,7 +2370,7 @@ class VirtualMachineInterfaceST(DictST):
             vmi_obj = _vnc_lib.virtual_machine_interface_read(
                 fq_name_str=self.name)
             if (jsonpickle.encode(vrf_table) !=
-                jsonpickle.encode(vmi_obj.get_vrf_assign_table()):
+                jsonpickle.encode(vmi_obj.get_vrf_assign_table())):
                     vmi_obj.set_vrf_assign_table(vrf_table)
                     _vnc_lib.virtual_machine_interface_update(vmi_obj)
     # end recreate_vrf_assign_table
