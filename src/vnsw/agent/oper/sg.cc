@@ -52,9 +52,7 @@ std::auto_ptr<DBEntry> SgTable::AllocEntry(const DBRequestKey *k) const {
 
 DBEntry *SgTable::Add(const DBRequest *req) {
     SgKey *key = static_cast<SgKey *>(req->key.get());
-    SgData *data = static_cast<SgData *>(req->data.get());
     SgEntry *sg = new SgEntry(key->sg_uuid_);
-    sg->sg_id_ = data->sg_id_;
     ChangeHandler(sg, req);
     sg->SendObjectLog(AgentLogEvent::ADD);
     return sg;
@@ -72,6 +70,11 @@ bool SgTable::ChangeHandler(DBEntry *entry, const DBRequest *req) {
     SgEntry *sg = static_cast<SgEntry *>(entry);
     SgData *data = static_cast<SgData *>(req->data.get());
     
+    if (sg->sg_id_ != data->sg_id_) {
+        sg->sg_id_ = data->sg_id_;
+        ret = true;
+    }
+
     AclKey key(data->egress_acl_id_);
     AclDBEntry *acl = static_cast<AclDBEntry *>(Agent::GetInstance()->GetAclTable()->FindActiveEntry(&key));
     if (sg->egress_acl_ != acl) {

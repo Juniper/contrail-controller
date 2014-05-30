@@ -1441,6 +1441,56 @@ TEST_F(CfgTest, SecurityGroup_1) {
     EXPECT_FALSE(VmPortFind(1));
 }
 
+TEST_F(CfgTest, SecurityGroup_change_sgid) {
+    struct PortInfo input[] = {
+        {"vnet1", 1, "1.1.1.1", "00:00:00:01:01:01", 1, 1}
+    };
+
+    CreateVmportEnv(input, 1);
+    client->WaitForIdle();
+    EXPECT_TRUE(VmPortActive(input, 0));
+
+    AddSg("sg1", 1);
+    AddAcl("acl1", 1);
+    AddLink("security-group", "sg1", "access-control-list", "acl1");
+    client->WaitForIdle();
+
+    AddLink("virtual-machine-interface", "vnet1", "security-group", "sg1");
+    client->WaitForIdle();
+
+    //Query for SG
+    SgKey *key = new SgKey(MakeUuid(1));
+    const SgEntry *sg_entry =
+        static_cast<const SgEntry *>(Agent::GetInstance()->GetSgTable()->
+        FindActiveEntry(key));
+    EXPECT_TRUE(sg_entry != NULL);
+    EXPECT_TRUE(sg_entry->GetSgId() == 0);
+
+    //Modify SGID
+    DBRequest req;
+    req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
+    SgKey *new_key = new SgKey(MakeUuid(1));
+    SgData *data = new SgData(2, MakeUuid(2), MakeUuid(2));
+    req.key.reset(new_key);
+    req.data.reset(data);
+    Agent::GetInstance()->GetSgTable()->Enqueue(&req);
+    client->WaitForIdle();
+
+    EXPECT_TRUE(sg_entry->GetSgId() == 2);
+
+    DelLink("virtual-network", "vn1", "access-control-list", "acl1");
+    DelLink("virtual-machine-interface", "vnet1", "access-control-list", "acl1");
+    DelLink("virtual-machine-interface", "vnet1", "security-group", "acl1");
+    client->WaitForIdle();
+    DelNode("access-control-list", "acl1");
+    client->WaitForIdle();
+
+    DeleteVmportEnv(input, 1, true);
+    DelNode("security-group", "sg1");
+    client->WaitForIdle();
+    EXPECT_FALSE(VmPortFind(1));
+}
+
 int main(int argc, char **argv) {
     GETUSERARGS();
 
