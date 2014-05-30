@@ -4,6 +4,16 @@
 
 include "vnsw/agent/uve/port_bmap.sandesh"
 
+struct VmFloatingIPStats {
+    1: string virtual_network (aggtype="listkey")
+    2: string ip_address;
+    3: string iface_name;
+    4: u64 in_pkts;
+    5: u64 in_bytes;
+    6: u64 out_pkts;
+    7: u64 out_bytes;
+}
+
 struct VmFloatingIPAgent {
     1: string virtual_network;
     2: string ip_address;
@@ -59,6 +69,7 @@ struct UveVirtualMachineAgent {
     10: optional list<u32>  udp_dport_bitmap;
     11: optional list<u32>  tcp_sport_bitmap;
     12: optional list<u32>  tcp_dport_bitmap;
+    13: optional list<VmFloatingIPStats> fip_stats_list;
 }
 
 uve sandesh UveVirtualMachineAgentTrace {

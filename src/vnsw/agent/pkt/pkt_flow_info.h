@@ -44,7 +44,9 @@ public:
         tcp_ack(false), linklocal_bind_local_port(false),
         linklocal_src_port_fd(kLinkLocalInvalidFd),
         ecmp(false), in_component_nh_idx(-1), out_component_nh_idx(-1),
-        trap_rev_flow(false), source_plen(0), dest_plen(0) {
+        trap_rev_flow(false), source_plen(0), dest_plen(0), fip(0), rev_fip(0), 
+        vm_port_id(Interface::kInvalidIndex), 
+        rev_vm_port_id(Interface::kInvalidIndex) {
     }
 
     static bool ComputeDirection(const Interface *intf);
@@ -120,6 +122,11 @@ public:
     bool                trap_rev_flow;
     uint8_t             source_plen;
     uint8_t             dest_plen;
+    // Following fields are required for FIP stats accounting
+    uint32_t            fip;
+    uint32_t            rev_fip;
+    uint32_t            vm_port_id;
+    uint32_t            rev_vm_port_id;
 };
 
 #endif // __agent_pkt_flow_info_h_

@@ -533,6 +533,14 @@ void PktFlowInfo::FloatingIpDNat(const PktInfo *pkt, PktControlInfo *in,
     }
     flow_dest_vrf = it->vrf_.get()->vrf_id();
 
+    // Update fields required for floating-IP stats accounting
+    rev_fip = pkt->ip_daddr;
+    rev_vm_port_id = vm_port->id();
+    if (fip == 0) {
+        fip = rev_fip;
+        vm_port_id = rev_vm_port_id;
+    }
+
     return;
 }
 
@@ -631,6 +639,9 @@ void PktFlowInfo::FloatingIpSNat(const PktInfo *pkt, PktControlInfo *in,
     } else {
         flow_dest_vrf = VrfEntry::kInvalidIndex;
     }
+    // Update fields required for floating-IP stats accounting
+    fip = rev_fip = nat_ip_saddr;
+    vm_port_id = rev_vm_port_id = intf->id();
     return;
 }
 
@@ -933,7 +944,7 @@ void PktFlowInfo::Add(const PktInfo *pkt, PktControlInfo *in,
     flow->InitFwdFlow(this, pkt, in, out);
     rflow->InitRevFlow(this, out, in);
 
-    Agent::GetInstance()->pkt()->flow_table()->Add(flow.get(), rflow.get());
+    Agent::GetInstance()->pkt()->flow_table()->Add(flow.get(), rflow.get(), this);
 }
 
 //If a packet is trapped for ecmp resolve, dp might have already

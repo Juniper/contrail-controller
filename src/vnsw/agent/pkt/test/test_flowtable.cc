@@ -255,7 +255,7 @@ public:
     }
 
     static void FlowAdd(FlowEntry *fwd, FlowEntry *rev) {
-        Agent::GetInstance()->pkt()->flow_table()->Add(fwd, rev);
+        Agent::GetInstance()->pkt()->flow_table()->Add(fwd, rev, NULL);
         client->WaitForIdle();
     }
 

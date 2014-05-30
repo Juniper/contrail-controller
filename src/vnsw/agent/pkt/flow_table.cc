@@ -729,9 +729,12 @@ void FlowEntry::GetPolicyInfo() {
     GetPolicyInfo(data_.vn_entry.get());
 }
 
-void FlowTable::Add(FlowEntry *flow, FlowEntry *rflow) {
+void FlowTable::Add(FlowEntry *flow, FlowEntry *rflow, const PktFlowInfo *p) {
     UpdateReverseFlow(flow, rflow);
 
+    if (p) {
+        UpdateFipStatsInfo(p, flow, rflow);
+    }
     flow->GetPolicyInfo();
     // Add the forward flow after adding the reverse flow first to avoid 
     // following sequence
@@ -804,6 +807,35 @@ void FlowTable::UpdateReverseFlow(FlowEntry *flow, FlowEntry *rflow) {
         }
         if (flow->is_flags_set(FlowEntry::Multicast)) {
             rflow->set_flags(FlowEntry::Multicast);
+        }
+    }
+}
+
+void FlowTable::UpdateFipStatsInfo(const PktFlowInfo *info, FlowEntry *flow, 
+                                   FlowEntry *rflow) {
+    flow->UpdateFipStatsInfo(info);
+    if (rflow) {
+        rflow->UpdateFipStatsInfo(info);
+    }
+}
+
+void FlowEntry::UpdateFipStatsInfo(const PktFlowInfo *info) {
+    if (info->fip) { 
+        if (is_flags_set(FlowEntry::LocalFlow)) {
+            const FlowKey *nat_key = &(reverse_flow_entry()->key());
+            if (key_.src.ipv4 != nat_key->dst.ipv4) {
+                //SNAT case
+                stats_.fip = info->rev_fip;
+                stats_.fip_vm_port_id = info->rev_vm_port_id;
+            } else if (key_.dst.ipv4 != nat_key->src.ipv4) {
+                //DNAT case
+                stats_.fip = info->fip;
+                stats_.fip_vm_port_id = info->vm_port_id;
+            }
+        } else {
+            assert(info->fip == info->rev_fip);
+            stats_.fip = info->fip;
+            stats_.fip_vm_port_id = info->vm_port_id;
         }
     }
 }
@@ -2464,6 +2496,22 @@ void FlowEntry::SetAclAction(std::vector<AclAction> &acl_action_l) const
     const std::list<MatchAclParams> &r_out_sg_l = data_.match_p.m_reverse_out_sg_acl_l;
     acl_type = "r o sg";
     SetAclListAclAction(r_out_sg_l, acl_action_l, acl_type);
+}
+
+uint32_t FlowEntry::reverse_flow_fip() const {
+    FlowEntry *rflow = reverse_flow_entry_.get();
+    if (rflow) {
+        return rflow->stats().fip;
+    }
+    return 0;
+}
+
+uint32_t FlowEntry::reverse_flow_vmport_id() const {
+    FlowEntry *rflow = reverse_flow_entry_.get();
+    if (rflow) {
+        return rflow->stats().fip_vm_port_id;
+    }
+    return Interface::kInvalidIndex;
 }
 
 string FlowTable::GetAceSandeshDataKey(const AclDBEntry *acl, int ace_id) {
