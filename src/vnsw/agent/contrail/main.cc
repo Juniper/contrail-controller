@@ -132,7 +132,9 @@ int main(int argc, char *argv[]) {
          "Gateway IP address for virtual host")
         ("VIRTUAL-HOST-INTERFACE.physical_interface", opt::value<string>(), 
          "Physical interface name to which virtual host interface maps to")
-        ;
+        ("SERVICE-INSTANCE.network_namespace", opt::value<string>(), 
+         "Script path used when a service instance is spawned with network namespace")
+         ;
     opt::variables_map var_map;
     try {
         opt::store(opt::parse_command_line(argc, argv, desc), var_map);

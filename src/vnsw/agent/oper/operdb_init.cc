@@ -17,6 +17,7 @@
 #include <oper/mpls.h>
 #include <oper/vm.h>
 #include <oper/vn.h>
+#include "oper/service_instance.h"
 #include <oper/sg.h>
 #include <oper/mirror_table.h>
 #include <oper/vrf_assign.h>
@@ -46,6 +47,8 @@ void OperDB::CreateDBTables(DB *db) {
     DB::RegisterFactory("db.mirror_table.0", &MirrorTable::CreateTable);
     DB::RegisterFactory("db.vrf_assign.0", &VrfAssignTable::CreateTable);
     DB::RegisterFactory("db.vxlan.0", &VxLanTable::CreateTable);
+    DB::RegisterFactory("db.service-instance.0",
+                        &ServiceInstanceTable::CreateTable);
 
     InterfaceTable *intf_table;
     intf_table = static_cast<InterfaceTable *>(db->CreateTable("db.interface.0"));
@@ -118,6 +121,12 @@ void OperDB::CreateDBTables(DB *db) {
     agent_->SetVxLanTable(vxlan_table);
     vxlan_table->set_agent(agent_);
 
+    ServiceInstanceTable *si_table =
+            static_cast<ServiceInstanceTable *>(
+                db->CreateTable("db.service-instance.0"));
+    agent_->SetServiceInstanceTable(si_table);
+    si_table->set_agent(agent_);
+
     multicast_ = std::auto_ptr<MulticastHandler>(new MulticastHandler(agent_));
     global_vrouter_ = std::auto_ptr<GlobalVrouter> (new GlobalVrouter(this));
 }
@@ -180,6 +189,9 @@ void OperDB::Shutdown() {
     agent_->GetDB()->RemoveTable(agent_->GetVxLanTable());
     delete agent_->GetVxLanTable();
     agent_->SetVxLanTable(NULL);
+
+    agent_->GetDB()->RemoveTable(agent_->service_instance_table());
+    agent_->SetServiceInstanceTable(NULL);
 
     delete agent_->GetDomainConfigTable();
     agent_->SetDomainConfigTable(NULL);

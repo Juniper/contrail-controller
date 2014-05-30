@@ -42,5 +42,5 @@ utils_scripts = [
   'provision_mx.py',
   'service-instance.py']
 
-for utils in utils_scripts:
-  env.Alias('install',env.Install(env['INSTALL_EXAMPLE'], utils))
+#for utils in utils_scripts:
+#  env.Alias('install',env.Install(env['INSTALL_EXAMPLE'], utils))
