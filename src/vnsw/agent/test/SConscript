@@ -16,9 +16,10 @@ lib = env.Library('ifmap_test', lib_srcs)
 lib = env.Library('control_node_mock', 'control_node_mock.cc');
 
 # test specific modifications
-env.Append(LIBPATH = env['TOP'] + '/vnsw/agent/test')
+env.Append(LIBPATH = [env['TOP'] + '/vnsw/agent/test',
+                      env['TOP'] + '/base/test'])
 env.Prepend(CPPPATH = env['TOP'] + '/vnsw/agent/test')
-env.Prepend(LIBS=['gunit', 'ifmap_test', 'control_node_mock'])
+env.Prepend(LIBS=['gunit', 'ifmap_test', 'control_node_mock', 'task_test'])
 
 cflags = env['CCFLAGS']
 cflags.append(['-Wno-return-type', '-Wno-unused-function'])
@@ -151,6 +152,10 @@ if sys.platform != 'darwin':
 
     test_xmpp_hv = env.Program(target = 'test_xmpp_hv', source = ['test_xmpp_hv.cc'])
     env.Alias('agent:test_xmpp_hv', test_xmpp_hv)
+
+    test_service_instance = env.UnitTest('test_service_instance',
+                                         ['test_service_instance.cc'])
+    env.Alias('agent:test_service_instance', test_service_instance)
 
     test_scale_walk = env.Program(target = 'test_scale_walk', source = ['test_scale_walk.cc'])
     env.Alias('agent:test_scale_walk', test_scale_walk)

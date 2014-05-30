@@ -41,6 +41,7 @@
 #include <oper/route_common.h>
 #include <oper/operdb_init.h>
 #include <oper/global_vrouter.h>
+#include "oper/service_instance.h"
 
 #include <vgw/cfg_vgw.h>
 #include <vgw/vgw.h>
@@ -122,6 +123,9 @@ void AgentConfig::RegisterDBClients(DB *db) {
     cfg_listener_.get()->Register("access-control-list", agent_->GetAclTable(),
                             AccessControlList::ID_PERMS);
     cfg_listener_.get()->Register("routing-instance", agent_->GetVrfTable(), -1);
+    cfg_listener_.get()->Register("service-instance",
+                            agent_->GetServiceInstanceTable(),
+                            ::autogen::ServiceInstance::ID_PERMS);
     cfg_listener_.get()->Register("virtual-network-network-ipam", 
                             boost::bind(&VnTable::IpamVnSync, _1), -1);
     cfg_listener_.get()->Register("network-ipam", boost::bind(&DomainConfig::IpamSync,
@@ -204,6 +208,11 @@ void AgentConfig::RegisterDBClients(DB *db) {
          (IFMapTable::FindTable(agent_->GetDB(), 
                                "interface-route-table")));
     assert(cfg_route_table_);
+
+    cfg_service_template_table_ = (static_cast<IFMapAgentTable *>
+         (IFMapTable::FindTable(agent_->GetDB(),
+                               "service-template")));
+    assert(cfg_service_template_table_);
 
     cfg_interface_client_.get()->Init();
 }

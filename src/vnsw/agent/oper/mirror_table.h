@@ -72,11 +72,7 @@ public:
     const static unsigned bufLen = 512;
     MirrorTable(DB *db, const std::string &name) : AgentDBTable(db, name) {
     }
-    virtual ~MirrorTable() { 
-        boost::system::error_code err;
-        udp_sock_->close(err);
-        delete udp_sock_;
-    }
+    virtual ~MirrorTable();
     virtual std::auto_ptr<DBEntry> AllocEntry(const DBRequestKey *k) const;
     virtual size_t Hash(const DBEntry *entry) const {return 0;};
     virtual size_t Hash(const DBRequestKey *key) const {return 0;};
@@ -99,7 +95,7 @@ public:
     void ReadHandler(const boost::system::error_code& error, size_t bytes);
 
 private:
-    boost::asio::ip::udp::socket *udp_sock_;
+    std::auto_ptr<boost::asio::ip::udp::socket> udp_sock_;
     static MirrorTable *mirror_table_;
     char rx_buff_[bufLen];
 };

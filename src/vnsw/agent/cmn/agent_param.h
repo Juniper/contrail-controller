@@ -72,6 +72,7 @@ public:
     uint32_t linklocal_vm_flows() const { return linklocal_vm_flows_; }
     uint32_t flow_cache_timeout() const {return flow_cache_timeout_;}
     bool headless_mode() const {return headless_mode_;}
+    std::string si_network_namespace() const {return si_network_namespace_;}
 
     const std::string &config_file() const { return config_file_; }
     const std::string &program_name() const { return program_name_;}
@@ -137,6 +138,7 @@ private:
     void ParseMetadataProxy();
     void ParseFlows();
     void ParseHeadlessMode();
+    void ParseServiceInstance();
 
     void ParseCollectorArguments
         (const boost::program_options::variables_map &v);
@@ -155,6 +157,8 @@ private:
     void ParseFlowArguments
         (const boost::program_options::variables_map &v);
     void ParseHeadlessModeArguments
+        (const boost::program_options::variables_map &v);
+    void ParseServiceInstanceArguments
         (const boost::program_options::variables_map &v);
 
     PortInfo vhost_;
@@ -194,6 +198,7 @@ private:
     boost::property_tree::ptree tree_;
     std::auto_ptr<VirtualGatewayConfigTable> vgw_config_table_;
     bool headless_mode_;
+    std::string si_network_namespace_;
 
     DISALLOW_COPY_AND_ASSIGN(AgentParam);
 };

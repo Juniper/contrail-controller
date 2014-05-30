@@ -78,7 +78,7 @@ class VrfAssignTable;
 class DomainConfig;
 class VxLanTable;
 class MulticastGroupObject;
-
+class ServiceInstanceTable;
 class MirrorCfgTable;
 class IntfMirrorCfgTable;
 
@@ -101,8 +101,6 @@ class Peer;
 class LifetimeManager;
 class DiagTable;
 class VNController;
-
-extern void RouterIdDepInit(Agent *agent);
 
 #define MULTICAST_LABEL_RANGE_START 1024
 #define MULTICAST_LABEL_BLOCK_SIZE 2048        
@@ -168,6 +166,9 @@ public:
     DomainConfig *GetDomainConfigTable() {return domain_config_table_;};
     VrfAssignTable *GetVrfAssignTable() {return vrf_assign_table_;};
     VxLanTable *GetVxLanTable() { return vxlan_table_;};
+    ServiceInstanceTable *GetServiceInstanceTable() {
+        return service_instance_table_.get();
+    };
     int GetSandeshPort() { return sandesh_port_;};
 
     EventManager *GetEventManager() {return event_mgr_;};
@@ -435,7 +436,11 @@ public:
     void SetVxLanTable(VxLanTable *table) { 
         vxlan_table_ = table;
     };
-    
+
+    void SetServiceInstanceTable(ServiceInstanceTable *table) {
+        service_instance_table_.reset(table);
+    }
+
     void SetMirrorPort(uint16_t mirr_port) {
         mirror_src_udp_port_ = mirr_port;
     }
@@ -636,6 +641,7 @@ private:
     MirrorTable *mirror_table_;
     VrfAssignTable *vrf_assign_table_;
     VxLanTable *vxlan_table_;
+    std::auto_ptr<ServiceInstanceTable> service_instance_table_;
 
     // Mirror config table
     MirrorCfgTable *mirror_cfg_table_;
@@ -709,5 +715,7 @@ private:
     static const uint8_t vrrp_mac_[ETHER_ADDR_LEN];
     static const std::string bcast_mac_;
 };
+
+extern void RouterIdDepInit(Agent *agent);
 
 #endif // vnsw_agent_hpp
