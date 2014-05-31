@@ -82,7 +82,9 @@ class StaticRouteProvisioner(object):
                 sys.exit(0) 
         if not found:
    	    rt1 = RouteType(prefix = prefix)
-            routes.append(rt1)
+        routes.append(rt1)
+        routes_dict = {'route':routes}
+        intf_route_table_obj.set_interface_route_table_routes(routes_dict)
         return intf_route_table_obj
     #end add_route 
      
