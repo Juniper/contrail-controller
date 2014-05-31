@@ -149,7 +149,7 @@ class Subnet(object):
                  gw=None, enable_dhcp=True,
                  dns_nameservers=None,
                  alloc_pool_list=None,
-                 ip_addr_start=False):
+                 addr_from_start=False):
         self._version = 0
 
         """
@@ -167,7 +167,7 @@ class Subnet(object):
             exclude.append(gw_ip)
         else:
             # reserve a gateway ip in subnet
-            if ip_addr_start:
+            if addr_from_start:
                 gw_ip = IPAddress(network.first + 1)
             else: 
                 gw_ip = IPAddress(network.last - 1)
@@ -205,7 +205,7 @@ class Subnet(object):
                 exclude.append(gw_ip)
                 break
         self._db_conn.subnet_create_allocator(name, alloc_int_list,
-                                              ip_addr_start)
+                                              addr_from_start)
 
         # reserve excluded addresses
         for addr in exclude:
@@ -357,7 +357,7 @@ class AddrMgmt(object):
                         gw=gateway_ip, enable_dhcp=dhcp_config,
                         dns_nameservers=nameservers,
                         alloc_pool_list=allocation_pools,
-                        ip_addr_start=addr_start)
+                        addr_from_start=addr_start)
                     self._subnet_objs[vn_fq_name_str][subnet_name] = \
                          subnet_obj
                     ipam_subnet['default_gateway'] = str(subnet_obj.gw_ip)
@@ -422,7 +422,8 @@ class AddrMgmt(object):
                 db_subnet = db_subnet_dicts[key] 
                 if ((req_subnet['enable_dhcp'] != db_subnet['enable_dhcp']) or
                     (req_subnet['gw'] != db_subnet['gw']) or
-                    (set(req_subnet['dns_nameservers']) != set(db_subnet['dns_nameservers']))):
+                    (set(req_subnet.get('dns_nameservers', [])) !=
+                     set(db_subnet.get('dns_nameservers', [])))):
                     raise AddrMgmtSubnetInvalid(vn_fq_name_str, key)
 
                 req_alloc_list = req_subnet['allocation_pools'] 
