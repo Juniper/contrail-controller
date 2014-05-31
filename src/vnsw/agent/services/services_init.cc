@@ -53,6 +53,11 @@ void ServicesModule::ConfigInit() {
     dns_proto_->ConfigInit();
 }
 
+void ServicesModule::IoShutdown() {
+    dns_proto_->IoShutdown();
+    metadata_proxy_->CloseSessions();
+}
+
 void ServicesModule::Shutdown() {
     dhcp_proto_->Shutdown();
     dhcp_proto_.reset(NULL);

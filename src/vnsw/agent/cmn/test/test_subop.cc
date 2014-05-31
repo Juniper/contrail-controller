@@ -163,12 +163,14 @@ void ResyncEnqueue(int id, int data) {
 
 void WaitForIdle() {
     static const int kTimeout = 15;
-    for (int i = 0; i < (kTimeout * 1000); i++) {
+    int i;
+    for (i = 0; i < (kTimeout * 1000); i++) {
         if (scheduler->IsEmpty()) {
             break;
         }
         usleep(1000);
     }
+    EXPECT_TRUE(i < (kTimeout * 1000));
     EXPECT_TRUE(scheduler->IsEmpty());
 }
 

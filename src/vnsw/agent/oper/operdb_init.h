@@ -22,6 +22,7 @@ public:
     void RegisterDBClients();
     void Init();
     void CreateDefaultVrf();
+    void DeleteRoutes();
     void Shutdown();
 
     Agent *agent() const { return agent_; }

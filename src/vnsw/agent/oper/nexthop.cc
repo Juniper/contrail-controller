@@ -873,6 +873,12 @@ bool ReceiveNH::CanAdd() const {
 NextHop *ReceiveNHKey::AllocEntry() const {
     Interface *intf = static_cast<Interface *>
         (Agent::GetInstance()->GetInterfaceTable()->Find(intf_key_.get(), true));
+    if (intf && intf->IsDeleted() && intf->GetRefCount() == 0) {
+        // Ignore interface which are  deleted, and there are no reference to it
+        // taking reference on deleted interface with refcount 0, would result 
+        // in DB state set on deleted interface entry
+        intf = NULL;
+    }
     return new ReceiveNH(intf, policy_);
 }
 

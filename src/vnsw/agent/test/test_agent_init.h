@@ -26,6 +26,9 @@ public:
     bool Run();
     void Start();
     void Shutdown();
+    void IoShutdown();
+    void FlushFlows();
+    void ServicesShutdown();
 
     void InitLogging();
     void InitCollector();
@@ -44,9 +47,13 @@ public:
               const boost::program_options::variables_map &var_map);
     void InitVmwareInterface();
     void DeleteRoutes();
-    void DeleteNextHops();
-    void DeleteVrfs();
-    void DeleteInterfaces();
+    DBTableWalker *DeleteInterfaces();
+    DBTableWalker *DeleteVms();
+    DBTableWalker *DeleteVns();
+    DBTableWalker *DeleteVrfs();
+    DBTableWalker *DeleteNextHops();
+    DBTableWalker *DeleteSecurityGroups();
+    DBTableWalker *DeleteAcls();
 
     bool ksync_enable() const { return ksync_enable_; }
     bool services_enable() const { return services_enable_; }

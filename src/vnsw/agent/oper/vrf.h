@@ -18,6 +18,7 @@ using namespace std;
 class LifetimeActor;
 class LifetimeManager;
 class ComponentNHData;
+class AgentRouteWalker;
 
 struct VrfKey : public AgentKey {
     VrfKey(const string &name) : AgentKey(), name_(name) { };
@@ -118,7 +119,7 @@ public:
 
     VrfTable(DB *db, const std::string &name) :
         AgentDBTable(db, name), db_(db),
-        walkid_(DBTableWalker::kInvalidWalkerId) { };
+        walkid_(DBTableWalker::kInvalidWalkerId), shutdown_walk_(NULL) { };
     virtual ~VrfTable() { };
 
     virtual std::auto_ptr<DBEntry> AllocEntry(const DBRequestKey *k) const;
@@ -164,6 +165,8 @@ public:
         return false;
     }
 
+    void DeleteRoutes();
+    void Shutdown();
 private:
     friend class VrfEntry;
 
@@ -174,6 +177,7 @@ private:
     VrfDbTree dbtree_[Agent::ROUTE_TABLE_MAX];
     DBTableWalker::WalkId walkid_;
     std::set<std::string> static_vrf_set_;
+    AgentRouteWalker *shutdown_walk_;
     DISALLOW_COPY_AND_ASSIGN(VrfTable);
 };
 

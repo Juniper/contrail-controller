@@ -122,6 +122,7 @@ public:
 
     void ConfigInit();
     void Shutdown();
+    void IoShutdown();
     DnsProto(Agent *agent, boost::asio::io_service &io);
     virtual ~DnsProto();
     ProtoHandler *AllocProtoHandler(boost::shared_ptr<PktInfo> info,

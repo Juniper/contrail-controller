@@ -52,52 +52,6 @@
 
 #include "test_agent_init.h"
 /****************************************************************************
- * Cleanup routines on shutdown
-****************************************************************************/
-void TestAgentInit::DeleteRoutes() {
-    Inet4UnicastAgentRouteTable *uc_rt_table =
-        agent_->GetDefaultInet4UnicastRouteTable();
-
-    uc_rt_table->DeleteReq(agent_->local_peer(), agent_->GetDefaultVrf(),
-                           agent_->GetGatewayId(), 32);
-}
-
-void TestAgentInit::DeleteNextHops() {
-    agent_->nexthop_table()->Delete(new DiscardNHKey());
-    agent_->nexthop_table()->Delete(new ResolveNHKey());
-    agent_->nexthop_table()->set_discard_nh(NULL);
-
-    NextHopKey *key = new InterfaceNHKey
-        (new PacketInterfaceKey(nil_uuid(), agent_->GetHostInterfaceName()),
-         false, InterfaceNHFlags::INET4);
-    agent_->GetNextHopTable()->Delete(key);
-}
-
-void TestAgentInit::DeleteVrfs() {
-    agent_->GetVrfTable()->DeleteStaticVrf(agent_->GetDefaultVrf());
-}
-
-void TestAgentInit::DeleteInterfaces() {
-    PacketInterface::DeleteReq(agent_->GetInterfaceTable(),
-                               agent_->GetHostInterfaceName());
-    agent_->set_vhost_interface(NULL);
-    InetInterface::DeleteReq(agent_->GetInterfaceTable(),
-                             agent_->vhost_interface_name());
-    PhysicalInterface::DeleteReq(agent_->GetInterfaceTable(),
-                                 agent_->GetIpFabricItfName());
-
-    if (!params_->isVmwareMode())
-        return;
-    PhysicalInterface::DeleteReq(agent_->GetInterfaceTable(),
-                                 params_->vmware_physical_port());
-}
-
-void TestAgentInit::Shutdown() {
-    agent_->cfg()->Shutdown();
-    agent_->diag_table()->Shutdown();
-}
-
-/****************************************************************************
  * Initialization routines
 ****************************************************************************/
 // Initialization for VMWare specific interfaces
@@ -375,3 +329,87 @@ void TestAgentInit::Start() {
     trigger_->Set();
     return;
 }
+
+/****************************************************************************
+ * Cleanup routines on shutdown
+****************************************************************************/
+DBTableWalker *TestAgentInit::DeleteNextHops() {
+    agent_->nexthop_table()->Delete(new DiscardNHKey());
+    agent_->nexthop_table()->Delete(new ResolveNHKey());
+    agent_->nexthop_table()->set_discard_nh(NULL);
+
+    NextHopKey *key = new InterfaceNHKey
+        (new PacketInterfaceKey(nil_uuid(), agent_->GetHostInterfaceName()),
+         false, InterfaceNHFlags::INET4);
+    agent_->GetNextHopTable()->Delete(key);
+    return agent_->GetNextHopTable()->Flush();
+}
+
+DBTableWalker *TestAgentInit::DeleteInterfaces() {
+    PacketInterface::DeleteReq(agent_->GetInterfaceTable(),
+                               agent_->GetHostInterfaceName());
+    agent_->set_vhost_interface(NULL);
+    InetInterface::DeleteReq(agent_->GetInterfaceTable(),
+                             agent_->vhost_interface_name());
+    PhysicalInterface::DeleteReq(agent_->GetInterfaceTable(),
+                                 agent_->GetIpFabricItfName());
+
+    if (!params_->isVmwareMode()) {
+        PhysicalInterface::DeleteReq(agent_->GetInterfaceTable(),
+                                     params_->vmware_physical_port());
+    }
+    return agent_->GetInterfaceTable()->Flush();
+}
+
+DBTableWalker *TestAgentInit::DeleteVms() {
+    return agent_->GetVmTable()->Flush();
+}
+
+DBTableWalker *TestAgentInit::DeleteVns() {
+    return agent_->GetVnTable()->Flush();
+}
+
+DBTableWalker *TestAgentInit::DeleteVrfs() {
+    agent_->GetVrfTable()->DeleteStaticVrf(agent_->GetDefaultVrf());
+    return agent_->GetVrfTable()->Flush();
+}
+
+DBTableWalker *TestAgentInit::DeleteSecurityGroups() {
+    return agent_->GetSgTable()->Flush();
+}
+
+DBTableWalker *TestAgentInit::DeleteAcls() {
+    return agent_->GetAclTable()->Flush();
+}
+
+void TestAgentInit::Shutdown() {
+    agent_->cfg()->Shutdown();
+    agent_->diag_table()->Shutdown();
+}
+
+// Shutdown IO channel to controller+DNS and Packet interface
+void TestAgentInit::IoShutdown() {
+    agent_->controller()->DisConnect();
+
+    if (agent_->pkt())
+        agent_->pkt()->IoShutdown();
+
+    if (agent_->services())
+        agent_->services()->IoShutdown();
+}
+
+void TestAgentInit::FlushFlows() {
+    if (agent_->pkt())
+        agent_->pkt()->FlushFlows();
+}
+
+void TestAgentInit::ServicesShutdown() {
+    if (agent_->services())
+        agent_->services()->Shutdown();
+}
+
+void TestAgentInit::DeleteRoutes() {
+    if (agent_->oper_db())
+        agent_->oper_db()->DeleteRoutes();
+}
+

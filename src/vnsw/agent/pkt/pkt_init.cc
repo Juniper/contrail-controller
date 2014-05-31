@@ -47,6 +47,14 @@ void PktModule::Shutdown() {
     flow_table_.reset(NULL);
 }
 
+void PktModule::IoShutdown() {
+    pkt_handler_->IoShutdown();
+}
+
+void PktModule::FlushFlows() {
+    flow_table_->DeleteAll();
+}
+
 void PktModule::CreateInterfaces() {
     std::string ifname(agent_->pkt_interface_name());
     pkt_handler_->CreateInterfaces(ifname);

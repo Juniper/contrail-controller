@@ -53,11 +53,12 @@ void TapInterface::Init() {
     AsyncRead();
 }
 
-void TapInterface::Shutdown() { 
+void TapInterface::IoShutdown() { 
     if (read_buf_) {
         delete [] read_buf_;
     }
     close(tap_fd_);
+    tap_fd_ = -1;
 }
 
 void TapInterface::SetupTap() {

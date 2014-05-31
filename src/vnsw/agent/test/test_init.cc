@@ -270,7 +270,6 @@ void TestClient::Shutdown() {
     ksync->NetlinkShutdownTest();
     Agent::GetInstance()->ksync()->Shutdown();
     Agent::GetInstance()->pkt()->Shutdown();  
-    Agent::GetInstance()->services()->Shutdown();
     MulticastHandler::Shutdown();
     Agent::GetInstance()->oper_db()->Shutdown();
     Agent::GetInstance()->GetDB()->Clear();
@@ -278,52 +277,80 @@ void TestClient::Shutdown() {
 }
 
 void TestShutdown() {
+    Agent *agent = Agent::GetInstance();
+    TestAgentInit *init = client->agent_init();
     client->WaitForIdle();
 
-    Agent::GetInstance()->controller()->DisConnect();
+    init->IoShutdown();
+    client->WaitForIdle();
+
+    init->FlushFlows();
+    client->WaitForIdle();
+
+    init->DeleteRoutes();
     client->WaitForIdle();
 
     if (Agent::GetInstance()->vgw()) {
         Agent::GetInstance()->vgw()->Shutdown();
     }
 
-    client->agent_init()->DeleteRoutes();
+    DBTableWalker *walker;
+    walker = init->DeleteInterfaces();
+    client->WaitForIdle();
+    delete walker;
+
+    walker = init->DeleteVms();
+    client->WaitForIdle();
+    delete walker;
+
+    walker = init->DeleteVns();
+    client->WaitForIdle();
+    delete walker;
+
+    walker = init->DeleteVrfs();
+    client->WaitForIdle();
+    delete walker;
+
+    walker = init->DeleteNextHops();
+    client->WaitForIdle();
+    delete walker;
+
+    walker = init->DeleteSecurityGroups();
+    client->WaitForIdle();
+    delete walker;
+
+    walker = init->DeleteAcls();
+    client->WaitForIdle();
+    delete walker;
+
+    init->ServicesShutdown();
     client->WaitForIdle();
 
-    client->agent_init()->DeleteInterfaces();
-    client->WaitForIdle();
-
-    client->agent_init()->DeleteVrfs();
-    client->WaitForIdle();
-
-    client->agent_init()->DeleteNextHops();
-    client->WaitForIdle();
-
-    WaitForDbCount(Agent::GetInstance()->GetInterfaceTable(), 0, 100);
+    WaitForDbCount(Agent::GetInstance()->GetInterfaceTable(), 0, 10000);
     EXPECT_EQ(0U, Agent::GetInstance()->GetInterfaceTable()->Size());
 
-    WaitForDbCount(Agent::GetInstance()->GetVrfTable(), 0, 100);
+    WaitForDbCount(Agent::GetInstance()->GetVrfTable(), 0, 10000);
     EXPECT_EQ(0U, Agent::GetInstance()->GetVrfTable()->Size());
 
-    WaitForDbCount(Agent::GetInstance()->GetNextHopTable(), 0, 100);
+    WaitForDbCount(Agent::GetInstance()->GetNextHopTable(), 0, 10000);
     EXPECT_EQ(0U, Agent::GetInstance()->GetNextHopTable()->Size());
 
-    WaitForDbFree(Agent::GetInstance()->GetDefaultVrf(), 100);
+    WaitForDbFree(Agent::GetInstance()->GetDefaultVrf(), 10000);
     assert(Agent::GetInstance()->GetDB()->FindTable(Agent::GetInstance()->GetDefaultVrf()) == NULL);
 
-    WaitForDbCount(Agent::GetInstance()->GetVmTable(), 0, 100);
+    WaitForDbCount(Agent::GetInstance()->GetVmTable(), 0, 10000);
     EXPECT_EQ(0U, Agent::GetInstance()->GetVmTable()->Size());
 
-    WaitForDbCount(Agent::GetInstance()->GetVnTable(), 0, 100);
+    WaitForDbCount(Agent::GetInstance()->GetVnTable(), 0, 10000);
     EXPECT_EQ(0U, Agent::GetInstance()->GetVnTable()->Size());
 
-    WaitForDbCount(Agent::GetInstance()->GetMplsTable(), 0, 100);
+    WaitForDbCount(Agent::GetInstance()->GetMplsTable(), 0, 10000);
     EXPECT_EQ(0U, Agent::GetInstance()->GetMplsTable()->Size());
 
-    WaitForDbCount(Agent::GetInstance()->GetIntfCfgTable(), 0, 100);
+    WaitForDbCount(Agent::GetInstance()->GetIntfCfgTable(), 0, 10000);
     EXPECT_EQ(0U, Agent::GetInstance()->GetIntfCfgTable()->Size());
 
-    WaitForDbCount(Agent::GetInstance()->GetAclTable(), 0, 100);
+    WaitForDbCount(Agent::GetInstance()->GetAclTable(), 0, 10000);
     EXPECT_EQ(0U, Agent::GetInstance()->GetAclTable()->Size());
     client->WaitForIdle();
 

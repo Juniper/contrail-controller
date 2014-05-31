@@ -184,3 +184,7 @@ void OperDB::Shutdown() {
     delete agent_->GetDomainConfigTable();
     agent_->SetDomainConfigTable(NULL);
 }
+
+void OperDB::DeleteRoutes() {
+    agent_->GetVrfTable()->DeleteRoutes();
+}

@@ -56,12 +56,13 @@ protected:
 
 DB *db;
 
+uint32_t base_port_count = 3;
 int8_t port_id []     = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
 int8_t instance_id [] = {0, 2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
 int8_t vn_id []       = {0, 3, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
 string mac("00:00:00:00:00:");
 string ip_address("10.10.10.");
-string tap_name("tap");
+string tap_name("vmport");
 string display_name("vm");
 string host_name("vm");
 string host("vm");
@@ -271,6 +272,7 @@ TEST_F(NovaInfoClientServerTest, PortDelete) {
     EXPECT_EQ(cfg_entry->GetVersion(), 1);
     DelVmPort(client_service, 1);
     TASK_UTIL_EXPECT_EQ(0, Agent::GetInstance()->GetIntfCfgTable()->Size());
+    TASK_UTIL_EXPECT_EQ(base_port_count, Agent::GetInstance()->GetInterfaceTable()->Size());
 }
 
 TEST_F(NovaInfoClientServerTest, ReconnectVersionCheck) {
@@ -286,6 +288,7 @@ TEST_F(NovaInfoClientServerTest, ReconnectVersionCheck) {
     EXPECT_EQ(cfg_entry->GetVersion(), 1);
     DelVmPort(client_service, 1);
     TASK_UTIL_EXPECT_EQ(0, Agent::GetInstance()->GetIntfCfgTable()->Size());
+    TASK_UTIL_EXPECT_EQ(base_port_count, Agent::GetInstance()->GetInterfaceTable()->Size());
 }
 
 TEST_F(NovaInfoClientServerTest, MultiPortAddDelete) {
@@ -319,6 +322,7 @@ TEST_F(NovaInfoClientServerTest, MultiPortAddDelete) {
     DelVmPort(client_service, 4);
     DelVmPort(client_service, 5);
     TASK_UTIL_EXPECT_EQ(0, Agent::GetInstance()->GetIntfCfgTable()->Size());
+    TASK_UTIL_EXPECT_EQ(base_port_count, Agent::GetInstance()->GetInterfaceTable()->Size());
 }
 
 TEST_F(NovaInfoClientServerTest, AddPortWrongIP) {
@@ -333,6 +337,7 @@ TEST_F(NovaInfoClientServerTest, AddPortWrongIP) {
         boost::bind(&AddPortCallback,
                     port.port_id, port.tap_name, _1)).setErrback(AddPortErrback);
     TASK_UTIL_EXPECT_EQ(0, Agent::GetInstance()->GetIntfCfgTable()->Size());
+    TASK_UTIL_EXPECT_EQ(base_port_count, Agent::GetInstance()->GetInterfaceTable()->Size());
 }
 
 TEST_F(NovaInfoClientServerTest, NullUUIDTest) {
@@ -357,6 +362,7 @@ TEST_F(NovaInfoClientServerTest, NullUUIDTest) {
     client_service->DeletePort(null_tuuid).setCallback(
         boost::bind(&DeletePortCallback, null_tuuid, _1)).setErrback(DeletePortErrback);
     TASK_UTIL_EXPECT_EQ(0, Agent::GetInstance()->GetIntfCfgTable()->Size());
+    TASK_UTIL_EXPECT_EQ(base_port_count, Agent::GetInstance()->GetInterfaceTable()->Size());
 }
 
 TEST_F(NovaInfoClientServerTest, WrongUUIDTest1) {
@@ -378,6 +384,7 @@ TEST_F(NovaInfoClientServerTest, WrongUUIDTest1) {
         boost::bind(&AddPortCallback,
                     port.port_id, port.tap_name, _1)).setErrback(AddPortErrback);
     TASK_UTIL_EXPECT_EQ(0, Agent::GetInstance()->GetIntfCfgTable()->Size());
+    TASK_UTIL_EXPECT_EQ(base_port_count, Agent::GetInstance()->GetInterfaceTable()->Size());
 }
 
 TEST_F(NovaInfoClientServerTest, WrongUUIDTest2) {
@@ -404,6 +411,7 @@ TEST_F(NovaInfoClientServerTest, WrongUUIDTest2) {
         boost::bind(&AddPortCallback,
                     port.port_id, port.tap_name, _1)).setErrback(AddPortErrback);
     TASK_UTIL_EXPECT_EQ(0, Agent::GetInstance()->GetIntfCfgTable()->Size());
+    TASK_UTIL_EXPECT_EQ(base_port_count, Agent::GetInstance()->GetInterfaceTable()->Size());
 }
 
 TEST_F(NovaInfoClientServerTest, ConnectionDelete) {
