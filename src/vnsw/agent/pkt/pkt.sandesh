@@ -104,6 +104,8 @@ struct SandeshFlowData {
     36: list<agent.ActionStr> sg_action_summary;
     37: FlowAclInfo reverse_sg;
     38: FlowAclInfo reverse_out_sg;
+    39: string fip;
+    40: u32 fip_vm_interface_idx;
 }
 
 request sandesh FetchFlowRecord {

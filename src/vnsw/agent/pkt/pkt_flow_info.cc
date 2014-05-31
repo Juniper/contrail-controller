@@ -533,6 +533,9 @@ void PktFlowInfo::FloatingIpDNat(const PktInfo *pkt, PktControlInfo *in,
     }
     flow_dest_vrf = it->vrf_.get()->vrf_id();
 
+    // Update fields required for floating-IP stats accounting
+    fip_dnat = true;
+
     return;
 }
 
@@ -631,6 +634,9 @@ void PktFlowInfo::FloatingIpSNat(const PktInfo *pkt, PktControlInfo *in,
     } else {
         flow_dest_vrf = VrfEntry::kInvalidIndex;
     }
+    // Update fields required for floating-IP stats accounting
+    snat_fip = nat_ip_saddr;
+    fip_snat = true;
     return;
 }
 
@@ -933,8 +939,50 @@ void PktFlowInfo::Add(const PktInfo *pkt, PktControlInfo *in,
     flow->InitFwdFlow(this, pkt, in, out);
     rflow->InitRevFlow(this, out, in);
 
+    UpdateFipStatsInfo(flow.get(), rflow.get(), pkt, in, out);
     Agent::GetInstance()->pkt()->flow_table()->Add(flow.get(), rflow.get());
 }
+
+void PktFlowInfo::UpdateFipStatsInfo
+    (FlowEntry *flow, FlowEntry *rflow, const PktInfo *pkt, 
+     const PktControlInfo *in, const PktControlInfo *out) {
+    uint32_t intf_id, r_intf_id;
+    uint32_t fip, r_fip;
+    if (fip_snat && fip_dnat) {
+        const FlowKey *nat_key = &(rflow->key());
+        if (flow->key().src.ipv4 != nat_key->dst.ipv4) {
+            //SNAT case
+            fip = snat_fip;
+            intf_id = in->intf_->id();
+        } else if (flow->key().dst.ipv4 != nat_key->src.ipv4) {
+            //DNAT case
+            fip = flow->key().dst.ipv4;
+            intf_id = out->intf_->id();
+        }
+        nat_key = &(flow->key());
+        if (rflow->key().src.ipv4 != nat_key->dst.ipv4) {
+            //SNAT case
+            r_fip = snat_fip;
+            r_intf_id = in->intf_->id();
+        } else if (rflow->key().dst.ipv4 != nat_key->src.ipv4) {
+            //DNAT case
+            r_fip = rflow->key().dst.ipv4;
+            r_intf_id = out->intf_->id();
+        }
+    } else if (fip_snat) {
+        fip = r_fip = nat_ip_saddr;
+        intf_id = r_intf_id = in->intf_->id();
+    } else if (fip_dnat) {
+        fip = r_fip = pkt->ip_daddr;
+        intf_id = r_intf_id = out->intf_->id();
+    }
+
+    if (fip_snat || fip_dnat) {
+        flow->UpdateFipStatsInfo(fip, intf_id);
+        rflow->UpdateFipStatsInfo(r_fip, r_intf_id);
+    }
+}
+
 
 //If a packet is trapped for ecmp resolve, dp might have already
 //overwritten original packet(NAT case), hence get actual packet by
