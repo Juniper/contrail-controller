@@ -311,18 +311,6 @@ class VncApiServer(VncApiServerGen):
             self._db_connect(self._args.reset_config)
             self._db_init_entries()
 
-        # recreate subnet operating state from DB
-        (ok, vn_fq_names_uuids) = self._db_conn.dbe_list('virtual-network')
-        for vn_fq_name, vn_uuid in vn_fq_names_uuids:
-            try:
-                (ok, vn_dict) = self._db_conn.dbe_read(
-                    'virtual-network', {'uuid': vn_uuid})
-                if ok:
-                    self._addr_mgmt.net_create(vn_dict)
-            except Exception as e:
-                # TODO log
-                pass
-
         # Cpuinfo interface
         sysinfo_req = True
         config_node_ip = self.get_server_ip()

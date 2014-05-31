@@ -1178,13 +1178,7 @@ class VncDbClient(object):
             (ok, obj_dicts) = method([obj_uuid])
             obj_dict = obj_dicts[0]
 
-            # TODO remove backward compat create mapping in zk
-            try:
-                self._zk_db.create_fq_name_to_uuid_mapping(obj_type,
-                                      obj_dict['fq_name'], obj_uuid)
-            except ResourceExistsError:
-                pass
-
+            # TODO remove backward compat (use RT instead of VN->LR ref)
             if (obj_type == 'virtual_network' and
                 'logical_router_refs' in obj_dict):
                 for router in obj_dict['logical_router_refs']:
