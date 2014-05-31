@@ -21,6 +21,9 @@ public:
     UveVirtualMachineAgent* VmUveObject(const VmEntry *vm);
     virtual void VmStatCollectionStart(VmUveVmState *st, const VmEntry *vm) {}
     virtual void VmStatCollectionStop(VmUveVmState *state) {}
+    uint32_t GetVmIntfFipCount(const VmEntry *vm, const Interface* intf);
+    const VmUveEntry::FloatingIp *GetVmIntfFip(const VmEntry *vm,
+        const Interface* intf, const string &fip, const string &vn);
 private:
     virtual VmUveEntryPtr Allocate(const VmEntry *vm);
     uint32_t send_count_;

@@ -167,7 +167,8 @@ struct FlowKeyCmp {
 
 struct FlowStats {
     FlowStats() : setup_time(0), teardown_time(0), last_modified_time(0),
-        bytes(0), packets(0), intf_in(0), exported(false) {}
+        bytes(0), packets(0), intf_in(0), exported(false), fip(0), 
+        fip_vm_port_id(Interface::kInvalidIndex) {}
 
     uint64_t setup_time;
     uint64_t teardown_time;
@@ -176,6 +177,9 @@ struct FlowStats {
     uint64_t packets;
     uint32_t intf_in;
     bool exported;
+    // Following fields are required for FIP stats accounting
+    uint32_t fip;
+    uint32_t fip_vm_port_id;
 };
 
 typedef std::list<MatchAclParams> MatchAclParamsList;
@@ -369,6 +373,9 @@ class FlowEntry {
     int linklocal_src_port_fd() const { return linklocal_src_port_fd_; }
     const std::string& acl_assigned_vrf() const;
     uint32_t acl_assigned_vrf_index() const;
+    uint32_t reverse_flow_fip() const;
+    uint32_t reverse_flow_vmport_id() const;
+    void UpdateFipStatsInfo(uint32_t fip, uint32_t id);
 private:
     friend class FlowTable;
     friend class FlowStatsCollector;
