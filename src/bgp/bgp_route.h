@@ -27,9 +27,11 @@ public:
 
     BgpPath *FindPath(BgpPath::PathSource src, const IPeer *peer,
                       uint32_t path_id);
-    bool RemovePath(BgpPath::PathSource src, const IPeer *peer,
-                    uint32_t path_id);
+    bool RemovePath(BgpPath::PathSource src, const IPeer *peer = NULL,
+                    uint32_t path_id = 0);
     bool RemovePath(const IPeer *peer);
+
+    virtual bool IsValid() const;
 
     // Check if there's a better path with the same forwarding information.
     bool DuplicateForwardingPath(const BgpPath *in_path) const;
@@ -42,6 +44,7 @@ public:
     // Get AFI and SAFI.
     virtual u_int16_t Afi() const = 0;
     virtual u_int8_t Safi() const = 0;
+    virtual u_int8_t XmppSafi() const { return Safi(); }
     virtual std::string ToXmppIdString() const { return ToString(); }
 
     virtual void BuildProtoPrefix(BgpProtoPrefix *prefix,

@@ -215,6 +215,7 @@ BgpServer::BgpServer(EventManager *evm)
       membership_mgr_(BgpObjectFactory::Create<PeerRibMembershipManager>(this)),
       condition_listener_(new BgpConditionListener(this)),
       inetvpn_replicator_(new RoutePathReplicator(this, Address::INETVPN)),
+      ermvpn_replicator_(new RoutePathReplicator(this, Address::ERMVPN)),
       evpn_replicator_(new RoutePathReplicator(this, Address::EVPN)),
       service_chain_mgr_(new ServiceChainMgr(this)),
       config_mgr_(BgpObjectFactory::Create<BgpConfigManager>(this)),

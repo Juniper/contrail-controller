@@ -189,16 +189,6 @@ string BgpPeerTest::ToString() const {
     return out.str();
 }
 
-void BgpPeerTest::StartKeepaliveTimerUnlocked() {
-    int holdtime = state_machine_->hold_time();
-    if (holdtime <= 0)
-        return;
-
-    keepalive_timer_->Start(10,
-        boost::bind(&BgpPeer::KeepaliveTimerExpired, this),
-        boost::bind(&BgpPeer::KeepaliveTimerErrorHandler, this, _1, _2));
-}
-
 //
 // Bind to a random available port for the bgp client side of the connection.
 // Resulting local end point is used as a key to update the global peer map

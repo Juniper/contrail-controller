@@ -53,6 +53,18 @@ void BgpMessage::StartReach(const RibOutAttr *roattr, const BgpRoute *route) {
         update.path_attributes.push_back(path);
     }
 
+    if (attr->edge_discovery()) {
+        EdgeDiscoverySpec *edspec =
+            new EdgeDiscoverySpec(attr->edge_discovery()->edge_discovery());
+        update.path_attributes.push_back(edspec);
+    }
+
+    if (attr->edge_forwarding()) {
+        EdgeForwardingSpec *efspec =
+            new EdgeForwardingSpec(attr->edge_forwarding()->edge_forwarding());
+        update.path_attributes.push_back(efspec);
+    }
+
     if (attr->community() && attr->community()->communities().size()) {
         CommunitySpec *comm = new CommunitySpec;
         comm->communities = attr->community()->communities();

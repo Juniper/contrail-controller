@@ -100,6 +100,7 @@ public:
     RoutingInstance *routing_instance() { return rtinstance_; }
     const RoutingInstance *routing_instance() const { return rtinstance_; }
     virtual void set_routing_instance(RoutingInstance *rtinstance);
+    BgpServer *server();
 
     virtual void Input(DBTablePartition *root, DBClient *client,
                        DBRequest *req);

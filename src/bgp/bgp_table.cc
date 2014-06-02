@@ -81,6 +81,10 @@ void BgpTable::set_routing_instance(RoutingInstance *rtinstance) {
     instance_delete_ref_.Reset(rtinstance->deleter());
 }
 
+BgpServer *BgpTable::server() {
+    return rtinstance_->server();
+}
+
 //
 // Find the RibOut for the given RibExportPolicy.
 //

@@ -6,6 +6,7 @@
           <autonomous-system>1</autonomous-system>
           <address-families>
               <family>inet-vpn</family>
+              <family>erm-vpn</family>
               <family>e-vpn</family>
           </address-families>
       </bgp-router>
