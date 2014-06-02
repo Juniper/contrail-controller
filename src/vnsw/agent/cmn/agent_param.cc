@@ -95,7 +95,7 @@ bool AgentParam::ParseServerList(const string &key, Ip4Address *server1,
     Ip4Address addr;
     vector<string> tokens;
     if (opt_str = tree_.get_optional<string>(key)) {
-        boost::split(tokens, opt_str.get(), boost::is_any_of(" "));
+        boost::split(tokens, opt_str.get(), boost::is_any_of(" \t"));
         if (tokens.size() > 2) {
             LOG(ERROR, "Error in config file <" << config_file_ 
                     << ">. Cannot have more than 2 servers <" 
@@ -112,6 +112,57 @@ bool AgentParam::ParseServerList(const string &key, Ip4Address *server1,
                 if (!GetIpAddress(*it, server2)) {
                     return false;
                 }
+            }
+        }
+    }
+    return true;
+}
+
+// Parse address string in the form <ip>:<port>
+bool AgentParam::ParseAddress(const std::string &addr_string,
+                              Ip4Address *server, uint16_t *port) {
+    vector<string> tokens;
+    boost::split(tokens, addr_string, boost::is_any_of(":"));
+    if (tokens.size() > 2) {
+        cout << "Error in config file <" << config_file_
+             << ">. Improper server address <" << addr_string << ">\n";
+        return false;
+    }
+    vector<string>::iterator it = tokens.begin();
+    if (!GetIpAddress(*it, server)) {
+        cout << "Error in config file <" << config_file_
+             << ">. Improper server address <" << addr_string << ">\n";
+        return false;
+    }
+    ++it;
+    if (it != tokens.end()) {
+        stringToInteger(*it, *port);
+    }
+
+    return true;
+}
+
+// Parse list of servers in the <ip1>:<port1> <ip2>:<port2> format
+bool AgentParam::ParseServerList(const std::string &key,
+                                 Ip4Address *server1, uint16_t *port1,
+                                 Ip4Address *server2, uint16_t *port2) {
+    optional<string> opt_str;
+    if (opt_str = tree_.get_optional<string>(key)) {
+        vector<string> tokens;
+        boost::split(tokens, opt_str.get(), boost::is_any_of(" \t"));
+        if (tokens.size() > 2) {
+            cout << "Error in config file <" << config_file_
+                 << ">. Cannot have more than 2 DNS servers <"
+                 << opt_str.get() << ">\n";
+            return false;
+        }
+        vector<string>::iterator it = tokens.begin();
+        if (it != tokens.end()) {
+            if (!ParseAddress(*it, server1, port1))
+                return false;
+            ++it;
+            if (it != tokens.end()) {
+                return ParseAddress(*it, server2, port2);
             }
         }
     }
@@ -137,8 +188,8 @@ bool AgentParam::ParseServerListArguments
     if (var_map.count(key)) {
         vector<string> value = var_map[key].as<vector<string> >();
         if (value.size() > 2) {
-            LOG(ERROR, "Error in Arguments. Cannot have more than 2 servers "
-                    "for " << key );
+            cout << "Error in Arguments. Cannot have more than 2 servers for "
+                 << key << "\n";
             return false;
         }
         vector<string>::iterator it = value.begin();
@@ -152,6 +203,31 @@ bool AgentParam::ParseServerListArguments
                 if (GetIpAddress(*it, &addr)) {
                     server2 = addr;
                 }
+            }
+        }
+    }
+    return true;
+}
+
+bool AgentParam::ParseServerListArguments
+    (const boost::program_options::variables_map &var_map, Ip4Address *server1,
+     uint16_t *port1, Ip4Address *server2, uint16_t *port2,
+     const std::string &key) {
+
+    if (var_map.count(key)) {
+        vector<string> value = var_map[key].as<vector<string> >();
+        if (value.size() > 2) {
+            LOG(ERROR, "Error in Arguments. Cannot have more than 2 servers "
+                    "for " << key );
+            return false;
+        }
+        vector<string>::iterator it = value.begin();
+        if (it != value.end()) {
+            if (!ParseAddress(*it, server1, port1))
+                return false;
+            ++it;
+            if (it != value.end()) {
+                return ParseAddress(*it, server2, port2);
             }
         }
     }
@@ -437,7 +513,8 @@ void AgentParam::InitFromConfig() {
     ParseCollector();
     ParseVirtualHost();
     ParseServerList("CONTROL-NODE.server", &xmpp_server_1_, &xmpp_server_2_);
-    ParseServerList("DNS.server", &dns_server_1_, &dns_server_2_);
+    ParseServerList("DNS.server", &dns_server_1_, &dns_port_1_,
+                    &dns_server_2_, &dns_port_2_);
     ParseDiscovery();
     ParseNetworks();
     ParseHypervisor();
@@ -455,8 +532,8 @@ void AgentParam::InitFromArguments
     ParseVirtualHostArguments(var_map);
     ParseServerListArguments(var_map, xmpp_server_1_, xmpp_server_2_, 
                              "CONTROL-NODE.server");
-    ParseServerListArguments(var_map, dns_server_1_, dns_server_2_, 
-                             "DNS.server");
+    ParseServerListArguments(var_map, &dns_server_1_, &dns_port_1_,
+                             &dns_server_2_, &dns_port_2_, "DNS.server");
     ParseDiscoveryArguments(var_map);
     ParseNetworksArguments(var_map);
     ParseHypervisorArguments(var_map);
@@ -612,7 +689,9 @@ void AgentParam::LogConfig() const {
     LOG(DEBUG, "XMPP Server-1               : " << xmpp_server_1_);
     LOG(DEBUG, "XMPP Server-2               : " << xmpp_server_2_);
     LOG(DEBUG, "DNS Server-1                : " << dns_server_1_);
+    LOG(DEBUG, "DNS Port-1                  : " << dns_port_1_);
     LOG(DEBUG, "DNS Server-2                : " << dns_server_2_);
+    LOG(DEBUG, "DNS Port-2                  : " << dns_port_2_);
     LOG(DEBUG, "Discovery Server            : " << dss_server_);
     LOG(DEBUG, "Controller Instances        : " << xmpp_instance_count_);
     LOG(DEBUG, "Tunnel-Type                 : " << tunnel_type_);
@@ -646,9 +725,9 @@ void AgentParam::set_test_mode(bool mode) {
 
 AgentParam::AgentParam(Agent *agent) :
         vhost_(), eth_port_(), xmpp_instance_count_(), xmpp_server_1_(),
-        xmpp_server_2_(), dns_server_1_(), dns_server_2_(), dss_server_(),
-        mgmt_ip_(), mode_(MODE_KVM), xen_ll_(), tunnel_type_(),
-        metadata_shared_secret_(), max_vm_flows_(),
+        xmpp_server_2_(), dns_server_1_(), dns_server_2_(), dns_port_1_(),
+        dns_port_2_(), dss_server_(), mgmt_ip_(), mode_(MODE_KVM), xen_ll_(),
+        tunnel_type_(), metadata_shared_secret_(), max_vm_flows_(),
         linklocal_system_flows_(), linklocal_vm_flows_(),
         flow_cache_timeout_(), config_file_(), program_name_(),
         log_file_(), log_local_(false), log_level_(), log_category_(),

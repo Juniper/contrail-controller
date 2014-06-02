@@ -14,8 +14,9 @@ uint16_t DnsManager::g_trans_id_;
 
 DnsManager::DnsManager() 
     : bind_status_(boost::bind(&DnsManager::BindEventHandler, this, _1)) {
-    std::vector<std::string> bind_servers;
-    bind_servers.push_back("127.0.0.1");
+    std::vector<BindResolver::DnsServer> bind_servers;
+    bind_servers.push_back(BindResolver::DnsServer("127.0.0.1",
+                                                   Dns::GetDnsPort()));
     BindResolver::Init(*Dns::GetEventManager()->io_service(), bind_servers,
                        boost::bind(&DnsManager::HandleUpdateResponse, 
                                    this, _1));

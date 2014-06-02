@@ -181,11 +181,13 @@ void Agent::CopyConfig(AgentParam *params) {
     }
 
     if (params_->dns_server_1().to_ulong()) {
-        xs_dns_addr_[dns_count++] = params_->dns_server_1().to_string();
+        dns_port_[dns_count] = params_->dns_port_1();
+        dns_addr_[dns_count++] = params_->dns_server_1().to_string();
     }
 
     if (params_->dns_server_2().to_ulong()) {
-        xs_dns_addr_[dns_count++] = params_->dns_server_2().to_string();
+        dns_port_[dns_count] = params_->dns_port_2();
+        dns_addr_[dns_count++] = params_->dns_server_2().to_string();
     }
 
     if (params_->discovery_server().to_ulong()) {
@@ -347,7 +349,7 @@ Agent::Agent() :
     intf_mirror_cfg_table_(NULL), intf_cfg_table_(NULL), 
     domain_config_table_(NULL), router_id_(0), prefix_len_(0), 
     gateway_id_(0), xs_cfg_addr_(""), xs_idx_(0), xs_addr_(), xs_port_(),
-    xs_stime_(), xs_dns_idx_(0), xs_dns_addr_(), xs_dns_port_(),
+    xs_stime_(), xs_dns_idx_(0), dns_addr_(), dns_port_(),
     dss_addr_(""), dss_port_(0), dss_xs_instances_(0), label_range_(),
     ip_fabric_intf_name_(""), vhost_interface_name_(""),
     pkt_interface_name_("pkt0"), cfg_listener_(NULL), arp_proto_(NULL),

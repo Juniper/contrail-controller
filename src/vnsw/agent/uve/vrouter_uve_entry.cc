@@ -543,12 +543,12 @@ void VrouterUveEntry::BuildAgentConfig(VrouterAgent &vrouter_agent) {
     vrouter_agent.set_hostname_cfg(param->host_name());
     vrouter_agent.set_flow_cache_timeout_cfg(param->flow_cache_timeout());
 
-    dns_list.push_back(param->xmpp_server_1().to_string());
-    dns_list.push_back(param->xmpp_server_2().to_string());
+    dns_list.push_back(param->dns_server_1().to_string());
+    dns_list.push_back(param->dns_server_2().to_string());
     vrouter_agent.set_dns_server_list_cfg(dns_list);
 
-    control_node_list.push_back(param->dns_server_1().to_string());
-    control_node_list.push_back(param->dns_server_2().to_string());
+    control_node_list.push_back(param->xmpp_server_1().to_string());
+    control_node_list.push_back(param->xmpp_server_2().to_string());
     vrouter_agent.set_control_node_list_cfg(control_node_list);
 
     vrouter_agent.set_ll_max_system_flows_cfg(param->linklocal_system_flows());
@@ -708,8 +708,8 @@ void VrouterUveEntry::SendVrouterUve() {
 
 
     for (int idx = 0; idx < MAX_XMPP_SERVERS; idx++) {
-        if (!agent_->GetDnsXmppServer(idx).empty()) {
-            dns_list.push_back(agent_->GetDnsXmppServer(idx));
+        if (!agent_->GetDnsServer(idx).empty()) {
+            dns_list.push_back(agent_->GetDnsServer(idx));
         }
     }
 

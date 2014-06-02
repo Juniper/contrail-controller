@@ -65,8 +65,8 @@ protected:
         bgp_peer1 = new test::ControlNodeMock(&evm_, "127.0.0.1");
         Agent::GetInstance()->SetXmppServer("127.0.0.1", 0);
         Agent::GetInstance()->SetXmppPort(bgp_peer1->GetServerPort(), 0);
-        Agent::GetInstance()->SetDnsXmppServer("", 0);
-        Agent::GetInstance()->SetDnsXmppPort(bgp_peer1->GetServerPort(), 0);
+        Agent::GetInstance()->SetDnsServer("", 0);
+        Agent::GetInstance()->SetDnsServerPort(bgp_peer1->GetServerPort(), 0);
         RouterIdDepInit(Agent::GetInstance());
         thread_->Start();
         WAIT_FOR(100, 10000, (bgp_peer1->IsEstablished() == true));

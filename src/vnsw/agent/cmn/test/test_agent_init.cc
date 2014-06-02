@@ -152,7 +152,9 @@ TEST_F(FlowTest, Agent_Conf_file_1) {
     EXPECT_EQ(param.xmpp_server_2().to_ulong(), 0);
     EXPECT_EQ(param.dns_server_1().to_ulong(),
               Ip4Address::from_string("127.0.0.1").to_ulong());
+    EXPECT_EQ(param.dns_port_1(), 53);
     EXPECT_EQ(param.dns_server_2().to_ulong(), 0);
+    EXPECT_EQ(param.dns_port_2(), 0);
     EXPECT_EQ(param.discovery_server().to_ulong(),
               Ip4Address::from_string("10.3.1.1").to_ulong());
     EXPECT_EQ(param.mgmt_ip().to_ulong(), 0);
@@ -182,8 +184,10 @@ TEST_F(FlowTest, Agent_Conf_file_2) {
               Ip4Address::from_string("12.1.1.1").to_ulong());
     EXPECT_EQ(param.dns_server_1().to_ulong(),
               Ip4Address::from_string("13.1.1.1").to_ulong());
+    EXPECT_EQ(param.dns_port_1(), 9001);
     EXPECT_EQ(param.dns_server_2().to_ulong(),
               Ip4Address::from_string("14.1.1.1").to_ulong());
+    EXPECT_EQ(param.dns_port_2(), 12999);
 }
 
 // Check that linklocal flows are updated when the system limits are lowered
@@ -306,7 +310,7 @@ TEST_F(FlowTest, Agen_Arg_Override_Config_1) {
 TEST_F(FlowTest, Agen_Arg_Override_Config_2) {
     int argc = 6;
     char *argv[] = {
-        (char *) "--DNS.server",    (char *)"20.1.1.1 21.1.1.1", 
+        (char *) "--DNS.server",    (char *)"20.1.1.1:500 21.1.1.1:15001", 
         (char *) "--CONTROL-NODE.server",   (char *)"22.1.1.1 23.1.1.1",
         (char *) "--DEFAULT.debug",   (char *)"0",
     };
@@ -329,8 +333,10 @@ TEST_F(FlowTest, Agen_Arg_Override_Config_2) {
               Ip4Address::from_string("23.1.1.1").to_ulong());
     EXPECT_EQ(param.dns_server_1().to_ulong(),
               Ip4Address::from_string("20.1.1.1").to_ulong());
+    EXPECT_EQ(param.dns_port_1(), 500);
     EXPECT_EQ(param.dns_server_2().to_ulong(),
               Ip4Address::from_string("21.1.1.1").to_ulong());
+    EXPECT_EQ(param.dns_port_2(), 15001);
 }
 
 /* Some command line args have default values. If user has not passed these

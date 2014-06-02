@@ -3,6 +3,7 @@ options {
     managed-keys-directory "./";
     empty-zones-enable no;
     pid-file "./named.pid";
+    listen-on port 53 { any; };
     allow-query { any; };
     allow-recursion { any; };
     allow-query-cache { any; };
