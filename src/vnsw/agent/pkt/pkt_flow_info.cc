@@ -946,11 +946,15 @@ void PktFlowInfo::Add(const PktInfo *pkt, PktControlInfo *in,
     Agent::GetInstance()->pkt()->flow_table()->Add(flow.get(), rflow.get());
 }
 
-void PktFlowInfo::UpdateFipStatsInfo
-    (FlowEntry *flow, FlowEntry *rflow, const PktInfo *pkt, 
-     const PktControlInfo *in, const PktControlInfo *out) {
+void PktFlowInfo::UpdateFipStatsInfo(
+	FlowEntry *flow, FlowEntry *rflow, const PktInfo *pkt, 
+	const PktControlInfo *in, const PktControlInfo *out) {
     uint32_t intf_id, r_intf_id;
     uint32_t fip, r_fip;
+    intf_id = 0;
+    r_intf_id = 0;
+    fip = 0;
+    r_fip = 0;
     if (fip_snat && fip_dnat) {
         /* This is the case where Source and Destination VMs (part of
          * same compute node) have floating-IP assigned to each of them from
