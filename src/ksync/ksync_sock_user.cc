@@ -573,7 +573,7 @@ void KSyncSockTypeMap::SetFlowEntry(vr_flow_req *req, bool set) {
     f->fe_key.key_dest_ip = req->get_fr_flow_dip();
     f->fe_key.key_src_port = req->get_fr_flow_sport();
     f->fe_key.key_dst_port = req->get_fr_flow_dport();
-    f->fe_key.key_vrf_id = req->get_fr_flow_vrf();
+    f->fe_key.key_nh_id = req->get_fr_flow_nh_id();
     f->fe_key.key_proto = req->get_fr_flow_proto();
 }
 

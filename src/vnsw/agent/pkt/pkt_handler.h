@@ -68,7 +68,7 @@ struct PktType {
 };
 
 struct AgentHdr {
-    AgentHdr() : ifindex(-1), vrf(-1), cmd(-1), cmd_param(-1) {}
+    AgentHdr() : ifindex(-1), vrf(-1), cmd(-1), cmd_param(-1), nh(-1) {}
     ~AgentHdr() {}
 
     // Fields from agent_hdr
@@ -76,6 +76,7 @@ struct AgentHdr {
     uint32_t            vrf;
     uint16_t            cmd;
     uint32_t            cmd_param;
+    uint16_t            nh;
 };
 
 struct TunnelInfo {

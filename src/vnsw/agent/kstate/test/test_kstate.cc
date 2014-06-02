@@ -398,27 +398,33 @@ TEST_F(KStateTest, FlowDumpTest) {
     TxIpPacketUtil(test0->id(), vm1_ip, vm2_ip, 0, hash_id);
     client->WaitForIdle(2);
     EXPECT_TRUE(FlowGet("vrf3", vm1_ip, vm2_ip, 0, 0, 0, false, 
-                        "vn3", "vn3", hash_id++));
+                        "vn3", "vn3", hash_id++,
+                        test0->flow_key_nh()->id()));
 
     //Create flow in reverse direction
     TxIpPacketUtil(test1->id(), vm2_ip, vm1_ip, 0, hash_id);
     client->WaitForIdle(2);
     EXPECT_TRUE(FlowGet("vrf3", vm2_ip, vm1_ip, 0, 0, 0, true, 
-                        "vn3", "vn3", hash_id++));
+                        "vn3", "vn3", hash_id++,
+                        test1->flow_key_nh()->id(),
+                        test0->flow_key_nh()->id()));
 
     //Flow creation using TCP packet
     TxTcpPacketUtil(test0->id(), vm1_ip, vm2_ip, 1000, 200, 
                     hash_id);
     client->WaitForIdle(2);
     EXPECT_TRUE(FlowGet("vrf3", vm1_ip, vm2_ip, 6, 1000, 200, false,
-                        "vn3", "vn3", hash_id++));
+                        "vn3", "vn3", hash_id++,
+                        test0->flow_key_nh()->id()));
 
     //Create flow in reverse direction and make sure it is linked to previous flow
     TxTcpPacketUtil(test1->id(), vm2_ip, vm1_ip, 200, 1000, 
                     hash_id);
     client->WaitForIdle(2);
     EXPECT_TRUE(FlowGet("vrf3", vm2_ip, vm1_ip, 6, 200, 1000, true, 
-                        "vn3", "vn3", hash_id++));
+                        "vn3", "vn3", hash_id++,
+                        test1->flow_key_nh()->id(),
+                        test0->flow_key_nh()->id()));
     EXPECT_EQ(4U, Agent::GetInstance()->pkt()->flow_table()->Size());
 
     TestFlowKState::Init(true, -1, 6);

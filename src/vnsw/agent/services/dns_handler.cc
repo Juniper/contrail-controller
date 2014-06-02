@@ -647,8 +647,8 @@ void DnsHandler::SendDnsResponse() {
                          (agent()->GetInterfaceTable()->FindActiveEntry(&key));
     if (pkt_itf) {
         UpdateStats();
-        Send(dns_resp_size_, pkt_itf->id(), pkt_info_->vrf,
-             AGENT_CMD_ROUTE, PktHandler::DNS);
+        Send(dns_resp_size_, pkt_info_->GetAgentHdr().ifindex, pkt_info_->vrf,
+             AGENT_CMD_SWITCH, PktHandler::DNS);
     } else {
         agent()->GetDnsProto()->IncrStatsDrop();
     }

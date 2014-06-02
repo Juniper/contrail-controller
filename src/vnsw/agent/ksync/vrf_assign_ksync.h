@@ -25,9 +25,8 @@ public:
     virtual ~VrfAssignKSyncEntry();
 
     uint16_t vlan_tag() const {return vlan_tag_;};
-    InterfaceKSyncEntry *interface() const {
-        return static_cast<InterfaceKSyncEntry *>(interface_.get());
-    }
+    InterfaceKSyncEntry *interface() const;
+    NHKSyncEntry *nh() const;
     KSyncDBObject *GetObject();
 
     virtual bool IsLess(const KSyncEntry &rhs) const;
@@ -43,6 +42,7 @@ private:
     KSyncEntryPtr interface_;
     uint16_t vlan_tag_;
     uint16_t vrf_id_;
+    KSyncEntryPtr nh_;
     DISALLOW_COPY_AND_ASSIGN(VrfAssignKSyncEntry);
 };
 

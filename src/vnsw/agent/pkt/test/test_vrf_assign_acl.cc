@@ -87,6 +87,7 @@ public:
 
 protected:
     virtual void SetUp() {
+        Agent *agent = Agent::GetInstance();
         EXPECT_EQ(0U, Agent::GetInstance()->pkt()->flow_table()->Size());
         CreateVmportEnv(input, 2);
         CreateVmportEnv(input1, 2);
@@ -98,9 +99,38 @@ protected:
         EXPECT_TRUE(VmPortActive(4));
         EXPECT_TRUE(VmPortActive(5));
         EXPECT_TRUE(VmPortActive(6));
+        //Leak route for 2.1.1.0 to vrf1
+        Ip4Address ip1 = Ip4Address::from_string("2.1.1.0");
+        agent->GetDefaultInet4UnicastRouteTable()->
+            AddLocalVmRouteReq(agent->local_peer(),
+                               "vrf1", ip1, 24, MakeUuid(3),
+                               "vn1", 16, SecurityGroupList(), false);
+
+        //Leak route for 1.1.1.0 to vrf2 and vrf3
+        Ip4Address ip2 = Ip4Address::from_string("1.1.1.0");
+        agent->GetDefaultInet4UnicastRouteTable()->
+            AddLocalVmRouteReq(agent->local_peer(),
+                               "vrf2", ip2, 24, MakeUuid(1),
+                               "vn1", 16, SecurityGroupList(), false);
+
+        agent->GetDefaultInet4UnicastRouteTable()->
+            AddLocalVmRouteReq(agent->local_peer(),
+                               "vrf3", ip2, 24, MakeUuid(1),
+                               "vn1", 16, SecurityGroupList(), false);
+        client->WaitForIdle();
     }
 
     virtual void TearDown() {
+        Agent *agent = Agent::GetInstance();
+        Ip4Address ip1 = Ip4Address::from_string("2.1.1.0");
+        agent->GetDefaultInet4UnicastRouteTable()->DeleteReq(
+                agent->local_peer(), "vrf1", ip1, 24);
+        Ip4Address ip2 = Ip4Address::from_string("1.1.1.0");
+        agent->GetDefaultInet4UnicastRouteTable()->DeleteReq(
+                agent->local_peer(), "vrf2", ip2, 24);
+        agent->GetDefaultInet4UnicastRouteTable()->DeleteReq(
+                agent->local_peer(), "vrf3", ip2, 24);
+        client->WaitForIdle();
         DeleteVmportEnv(input, 2, true);
         DeleteVmportEnv(input1, 2, true);
         DeleteVmportEnv(input2, 2, true);
@@ -125,7 +155,6 @@ TEST_F(TestVrfAssignAclFlow, VrfAssignAcl1) {
                 VmPortGet(1)->id()),
         {
             new VerifyVn("vn1", "vn2"),
-            new VerifyVrf("vrf1", "vrf2"),
             new VerifyAction((1 << TrafficAction::PASS) |
                              (1 << TrafficAction::VRF_TRANSLATE),
                              (1 << TrafficAction::PASS))
@@ -144,7 +173,6 @@ TEST_F(TestVrfAssignAclFlow, VrfAssignAcl2) {
                 VmPortGet(1)->id()),
         {
             new VerifyVn("vn1", "vn3"),
-            new VerifyVrf("vrf1", "vrf3"),
             new VerifyAction((1 << TrafficAction::PASS) |
                              (1 << TrafficAction::VRF_TRANSLATE),
                              (1 << TrafficAction::PASS))
@@ -183,7 +211,6 @@ TEST_F(TestVrfAssignAclFlow, VrfAssignAcl4) {
                 VmPortGet(1)->id()),
         {
             new VerifyVn("vn1", "vn2"),
-            new VerifyVrf("vrf1", "vrf2"),
             new VerifyAction((1 << TrafficAction::DROP) | 
                              (1 << TrafficAction::IMPLICIT_DENY) | 
                              (1 << TrafficAction::VRF_TRANSLATE),

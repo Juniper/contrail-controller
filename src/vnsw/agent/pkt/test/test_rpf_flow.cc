@@ -161,7 +161,8 @@ TEST_F(FlowRpfTest, Flow_rpf_failure_missing_route) {
     client->WaitForIdle();
 
     uint32_t vrf_id = VrfGet("vrf5")->vrf_id();
-    FlowEntry *fe = FlowGet(vrf_id, remote_vm1_ip, vm2_ip, 1, 0, 0);
+    FlowEntry *fe = FlowGet(vrf_id, remote_vm1_ip, vm2_ip, 1, 0, 0,
+                            flow0->flow_key_nh()->id());
 
     EXPECT_TRUE(fe != NULL);
     if (fe != NULL) {
@@ -198,7 +199,8 @@ TEST_F(FlowRpfTest, Flow_rpf_failure_subnet_discard_route) {
     client->WaitForIdle();
 
     uint32_t vrf_id = VrfGet("vrf5")->vrf_id();
-    FlowEntry *fe = FlowGet(vrf_id, vn5_unused_ip, vm2_ip, 1, 0, 0);
+    FlowEntry *fe = FlowGet(vrf_id, vn5_unused_ip, vm2_ip, 1, 0, 0,
+                           flow0->flow_key_nh()->id());
 
     EXPECT_TRUE(fe != NULL);
     if (fe != NULL) {
@@ -235,7 +237,8 @@ TEST_F(FlowRpfTest, Flow_rpf_failure_invalid_source) {
     client->WaitForIdle();
 
     uint32_t vrf_id = VrfGet("vrf5")->vrf_id();
-    FlowEntry *fe = FlowGet(vrf_id, vm3_ip, vm2_ip, 1, 0, 0);
+    FlowEntry *fe = FlowGet(vrf_id, vm3_ip, vm2_ip, 1, 0, 0,
+                            flow0->flow_key_nh()->id());
 
     EXPECT_TRUE(fe != NULL);
     if (fe != NULL) {

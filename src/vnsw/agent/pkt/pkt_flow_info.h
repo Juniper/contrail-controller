@@ -28,6 +28,7 @@ struct PktControlInfo {
     const VmEntry *vm_;
     bool  vlan_nh_;
     uint16_t vlan_tag_;
+    uint16_t nh_;
 };
 
 class PktFlowInfo {
