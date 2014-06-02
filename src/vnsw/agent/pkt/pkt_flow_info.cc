@@ -939,6 +939,9 @@ void PktFlowInfo::Add(const PktInfo *pkt, PktControlInfo *in,
     flow->InitFwdFlow(this, pkt, in, out);
     rflow->InitRevFlow(this, out, in);
 
+    /* Fip stats info in not updated in InitFwdFlow and InitRevFlow because
+     * both forward and reverse flows are not not linked to each other yet.
+     * We need both forward and reverse flows to update Fip stats info */
     UpdateFipStatsInfo(flow.get(), rflow.get(), pkt, in, out);
     Agent::GetInstance()->pkt()->flow_table()->Add(flow.get(), rflow.get());
 }
@@ -949,6 +952,13 @@ void PktFlowInfo::UpdateFipStatsInfo
     uint32_t intf_id, r_intf_id;
     uint32_t fip, r_fip;
     if (fip_snat && fip_dnat) {
+        /* This is the case where Source and Destination VMs (part of
+         * same compute node) have floating-IP assigned to each of them from
+         * a common VN and then each of these VMs send traffic to other VM by
+         * addressing the other VM's Floating IP. In this case both SNAT and
+         * DNAT flags will be set. We identify SNAT and DNAT flows by
+         * inspecting IP of forward and reverse flows and update Fip stats
+         * info based on that. */
         const FlowKey *nat_key = &(rflow->key());
         if (flow->key().src.ipv4 != nat_key->dst.ipv4) {
             //SNAT case
