@@ -6,7 +6,6 @@ package net.juniper.contrail.vcenter;
 
 import java.io.IOException;
 import java.net.InetAddress;
-import java.util.ArrayList;
 import java.util.Map;
 import java.util.TreeMap;
 import java.util.List;
@@ -153,7 +152,9 @@ public class VncDB {
         vm.setName(vmName);
         vm.setUuid(vmUuid);
         // Encode VRouter IP address in display name
-        vm.setDisplayName(vrouterIpAddress);
+        if (vrouterIpAddress != null) {
+            vm.setDisplayName(vrouterIpAddress);
+        }
         apiConnector.create(vm);
         s_logger.info("Create virtual machine: " + vmName);
         // Virtual machine interface

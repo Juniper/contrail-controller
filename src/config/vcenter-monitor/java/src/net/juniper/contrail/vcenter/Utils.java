@@ -2,7 +2,6 @@ package net.juniper.contrail.vcenter;
 
 import java.math.BigInteger;
 import java.util.Collections;
-import java.util.List;
 
 public class Utils {
     public static byte[] parseMacAddress(String macAddress) {
