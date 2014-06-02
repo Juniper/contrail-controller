@@ -1201,8 +1201,17 @@ void VmInterface::UpdateL2NextHop(bool old_l2_active) {
 
 void VmInterface::UpdateL3NextHop(bool old_ipv4_active) {
     if (L3Activated(old_ipv4_active)) {
+        InterfaceTable *table = static_cast<InterfaceTable *>(get_table());
+        Agent *agent = table->agent();
+
         struct ether_addr *addrp = ether_aton(vm_mac_.c_str());
         InterfaceNH::CreateL3VmInterfaceNH(GetUuid(), *addrp, vrf_->GetName());
+        InterfaceNHKey key(new VmInterfaceKey(AgentKey::ADD_DEL_CHANGE,
+                                              GetUuid(), ""), true,
+                                              InterfaceNHFlags::INET4);
+        flow_key_nh_ = static_cast<const NextHop *>(
+                agent->nexthop_table()->FindActiveEntry(&key));
+        assert(flow_key_nh_);
     }
 }
 
@@ -1215,6 +1224,7 @@ void VmInterface::DeleteL2NextHop(bool old_l2_active) {
 void VmInterface::DeleteL3NextHop(bool old_l3_active) {
     if (L3Deactivated(old_l3_active)) {
         InterfaceNH::DeleteL3InterfaceNH(GetUuid());
+        flow_key_nh_ = NULL;
     }
 }
 
@@ -1932,7 +1942,7 @@ uint32_t VmInterface::GetServiceVlanLabel(const VrfEntry *vrf) const {
         }
         it++;
     }
-    return label_;
+    return 0;
 }
 
 uint32_t VmInterface::GetServiceVlanTag(const VrfEntry *vrf) const {

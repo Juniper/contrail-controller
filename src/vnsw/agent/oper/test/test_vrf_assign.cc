@@ -71,9 +71,15 @@ public:
         CreateVmportEnv(input1, 1);
         client->WaitForIdle();
         EXPECT_TRUE(VmPortActive(1));
+        VmInterface *interface = static_cast<VmInterface *>(VmPortGet(1));
+        ether_addr mac;
+        VlanNH::CreateReq(interface->GetUuid(), 1, "vrf1", mac, mac);
+        client->WaitForIdle();
     }
 
     virtual void TearDown() {
+        VmInterface *interface = static_cast<VmInterface *>(VmPortGet(1));
+        VlanNH::DeleteReq(interface->GetUuid(), 1);
         DeleteVmportEnv(input1, 1, true);
         client->WaitForIdle();
         EXPECT_FALSE(VmPortActive(1));

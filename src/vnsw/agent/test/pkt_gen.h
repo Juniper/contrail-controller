@@ -271,12 +271,44 @@ public:
         len += sizeof(MplsHdr);
     };
 
-    void AddAgentHdr(int if_id, int cmd, int param = 0, int vrf = -1) {
+    void AddAgentHdr(int if_id, int cmd, int param = 0, int vrf = -1,
+                     int label = -1) {
         agent_hdr *hdr= (agent_hdr *)(buff + len);
+        Interface *intf = InterfaceTable::GetInstance()->FindInterface(if_id);
         if (vrf == -1) {
-            Interface *intf = InterfaceTable::GetInstance()->FindInterface(if_id);
             if (intf && intf->vrf()) {
                 vrf = intf->vrf()->vrf_id();
+            }
+        }
+        uint16_t nh = 0;
+        //Get NH
+        if (label > 0) {
+            MplsLabel *mpls_label =
+                Agent::GetInstance()->GetMplsTable()->FindMplsLabel(label);
+            if (mpls_label) {
+                nh = mpls_label->nexthop()->id();
+            }
+        } else {
+            if (intf && intf->type() == Interface::VM_INTERFACE) {
+                VmInterface *vm_intf =
+                    static_cast<VmInterface *>(intf);
+                if (intf->vrf() && intf->vrf()->vrf_id() == (uint32_t)vrf) {
+                    if (intf->flow_key_nh()) {
+                        nh = intf->flow_key_nh()->id();
+                    }
+                } else {
+                    const VrfEntry *vrf_p =
+                        Agent::GetInstance()->GetVrfTable()->
+                        FindVrfFromId(vrf);
+                    //Consider vlan assigned VRF case
+                    uint32_t label = vm_intf->GetServiceVlanLabel(vrf_p);
+                    if (label) {
+                        nh = Agent::GetInstance()->GetMplsTable()->
+                            FindMplsLabel(label)->nexthop()->id();
+                    }
+                }
+            } else if (intf && intf->flow_key_nh()) {
+                nh = intf->flow_key_nh()->id();
             }
         }
 
@@ -284,6 +316,7 @@ public:
         hdr->hdr_cmd = htons(cmd);
         hdr->hdr_cmd_param = htonl(param);
         hdr->hdr_vrf = htons(vrf);
+        hdr->hdr_nh = htonl(nh);
         len += sizeof(*hdr);
     };
 

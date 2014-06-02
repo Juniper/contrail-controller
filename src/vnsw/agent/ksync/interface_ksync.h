@@ -76,6 +76,7 @@ private:
     bool layer2_forwarding_;
     uint16_t vlan_id_;
     KSyncEntryPtr parent_;
+    uint32_t flow_key_nh_id_;
     DISALLOW_COPY_AND_ASSIGN(InterfaceKSyncEntry);
 };
 

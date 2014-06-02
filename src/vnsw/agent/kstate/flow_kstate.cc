@@ -75,7 +75,7 @@ void FlowKState::SetFlowData(vector<KFlowInfo> &list,
     data.set_sip(sip.to_string());
     Ip4Address dip(ntohl(k_flow->fe_key.key_dest_ip));
     data.set_dip(dip.to_string());
-    data.set_vrf_id(k_flow->fe_key.key_vrf_id);
+    data.set_vrf_id(k_flow->fe_vrf);
     data.set_proto(k_flow->fe_key.key_proto);
     switch (k_flow->fe_action) {
         case VR_FLOW_ACTION_FORWARD:

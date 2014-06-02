@@ -14,6 +14,13 @@ public:
                 allow_wait_for_idle_(true) {
         vrf_ = 
           Agent::GetInstance()->GetVrfTable()->FindVrfFromName(vrf)->vrf_id();
+        if (ifindex_) {
+            nh_id_ =
+                InterfaceTable::GetInstance()->
+                FindInterface(ifindex_)->flow_key_nh()->id();
+        } else {
+            nh_id_ = GetMplsLabel(MplsLabel::VPORT_NH, mpls_)->nexthop()->id();
+        }
     };
 
     //Ingress flow
@@ -24,8 +31,14 @@ public:
                 allow_wait_for_idle_(true) {
          vrf_ = 
           Agent::GetInstance()->GetVrfTable()->FindVrfFromName(vrf)->vrf_id();
-     };
-
+         if (ifindex_) {
+             nh_id_ =
+                 InterfaceTable::GetInstance()->
+                 FindInterface(ifindex_)->flow_key_nh()->id();
+         } else {
+             nh_id_ = GetMplsLabel(MplsLabel::VPORT_NH, mpls_)->nexthop()->id();
+         }
+    };
 
     //Egress flow
     TestFlowPkt(std::string sip, std::string dip, uint16_t proto, uint32_t sport,
@@ -35,6 +48,13 @@ public:
                 allow_wait_for_idle_(true) {
         vrf_ = 
          Agent::GetInstance()->GetVrfTable()->FindVrfFromName(vrf)->vrf_id();
+        if (ifindex_) {
+            nh_id_ =
+                InterfaceTable::GetInstance()->
+                FindInterface(ifindex_)->flow_key_nh()->id();
+        } else {
+            nh_id_ = GetMplsLabel(MplsLabel::VPORT_NH, mpls_)->nexthop()->id();
+        }
     };
 
     //Egress flow
@@ -45,6 +65,13 @@ public:
                 allow_wait_for_idle_(true) {
          vrf_ = 
           Agent::GetInstance()->GetVrfTable()->FindVrfFromName(vrf)->vrf_id();
+         if (ifindex_) {
+             nh_id_ =
+                 InterfaceTable::GetInstance()->
+                 FindInterface(ifindex_)->flow_key_nh()->id();
+         } else {
+             nh_id_ = GetMplsLabel(MplsLabel::VPORT_NH, mpls_)->nexthop()->id();
+         }
      };
 
     void SendIngressFlow() {
@@ -112,17 +139,18 @@ public:
             client->WaitForIdle(3);
         } else {
             WAIT_FOR(1000, 3000, FlowGet(vrf_, sip_, dip_, proto_,
-                        sport_, dport_) != NULL);
+                        sport_, dport_, nh_id_) != NULL);
         }
         //Get flow 
-        FlowEntry *fe = FlowGet(vrf_, sip_, dip_, proto_, sport_, dport_);
+        FlowEntry *fe = FlowGet(vrf_, sip_, dip_, proto_, sport_, dport_,
+                                nh_id_);
         EXPECT_TRUE(fe != NULL);
         return fe;
     };
 
     void Delete() {
         FlowKey key;
-        key.vrf = vrf_;
+        key.nh = nh_id_;
         key.src.ipv4 = ntohl(inet_addr(sip_.c_str()));
         key.dst.ipv4 = ntohl(inet_addr(dip_.c_str()));
         key.src_port = sport_;
@@ -138,7 +166,7 @@ public:
             client->WaitForIdle();
             EXPECT_TRUE(Agent::GetInstance()->pkt()->flow_table()->Find(key) == NULL);
         } else {
-            FlowEntry *fe = FlowGet(vrf_, sip_, dip_, proto_, sport_, dport_);
+            FlowEntry *fe = FlowGet(vrf_, sip_, dip_, proto_, sport_, dport_, nh_id_);
             if (fe == NULL)
                 return;
             EXPECT_TRUE(fe->deleted() == true);
@@ -146,7 +174,7 @@ public:
     };
 
     const FlowEntry *FlowFetch() {
-        FlowEntry *fe = FlowGet(vrf_, sip_, dip_, proto_, sport_, dport_);
+        FlowEntry *fe = FlowGet(vrf_, sip_, dip_, proto_, sport_, dport_, nh_id_);
         return fe;
     }
 
@@ -166,6 +194,7 @@ private:
     std::string    outer_sip_;
     uint32_t       hash_; 
     bool           allow_wait_for_idle_;
+    uint32_t       nh_id_;
 };
 
 class FlowVerify {
@@ -241,13 +270,13 @@ public:
             Agent::GetInstance()->GetVrfTable()->FindVrfFromName(dest_vrf_);
         EXPECT_TRUE(dest_vrf != NULL);
 
-        EXPECT_TRUE(fe->key().vrf == src_vrf->vrf_id());
+        EXPECT_TRUE(fe->data().vrf == src_vrf->vrf_id());
         EXPECT_TRUE(fe->data().flow_dest_vrf == dest_vrf->vrf_id());
 
         if (true) {
             FlowEntry *rev = fe->reverse_flow_entry();
             EXPECT_TRUE(rev != NULL);
-            EXPECT_TRUE(rev->key().vrf == dest_vrf->vrf_id());
+            EXPECT_TRUE(rev->data().vrf == dest_vrf->vrf_id());
             EXPECT_TRUE(rev->data().flow_dest_vrf == src_vrf->vrf_id());
         }
     };

@@ -43,6 +43,7 @@ public:
     virtual int DeleteMsg(char *buf, int buf_len);
     void FillObjectLog(sandesh_op::type op, KSyncNhInfo &info) const;
     void SetEncap(std::vector<int8_t> &encap);
+    uint32_t nh_id() const { return nh_id_;}
 private:
     class KSyncComponentNH {
     public:
@@ -50,8 +51,8 @@ private:
             label_(label), nh_(entry) {
         }
 
-        KSyncEntry *nh() const {
-            return nh_.get();
+        NHKSyncEntry *nh() const {
+            return static_cast<NHKSyncEntry *>(nh_.get());
         }
 
         uint32_t label() const {
@@ -88,6 +89,7 @@ private:
     COMPOSITETYPE comp_type_;
     TunnelType tunnel_type_;
     uint8_t prefix_len_;
+    uint32_t nh_id_;
     DISALLOW_COPY_AND_ASSIGN(NHKSyncEntry);
 };
 
