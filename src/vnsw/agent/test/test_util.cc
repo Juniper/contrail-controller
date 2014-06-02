@@ -101,6 +101,7 @@ void AddNodeString(char *buff, int &len, const char *node_name,
             "                   <uuid-mslong>0</uuid-mslong>\n"
             "                   <uuid-lslong>%d</uuid-lslong>\n"
             "               </uuid>\n"
+            "               <enable>true</enable>\n"
             "           </id-perms>\n"
             "           %s\n"
             "       </node>\n", node_name, name, id, attr);
@@ -124,8 +125,39 @@ void AddNodeString(char *buff, int &len, const char *node_name,
             "                   <uuid-mslong>0</uuid-mslong>\n"
             "                   <uuid-lslong>%d</uuid-lslong>\n"
             "               </uuid>\n"
+            "               <enable>true</enable>\n"
             "           </id-perms>\n"
             "       </node>\n", node_name, name, id);
+    len = strlen(buff);
+}
+
+void AddNodeString(char *buff, int &len, const char *node_name,
+                   const char *name, int id, bool enable) {
+    char status_str[10];
+    if (enable) {
+        strcpy(status_str, "true");
+    } else {
+        strcpy(status_str, "false");
+    }
+
+    sprintf(buff + len, 
+            "       <node type=\"%s\">\n"
+            "           <name>%s</name>\n"
+            "           <id-perms>\n"
+            "               <permissions>\n"
+            "                   <owner></owner>\n"
+            "                   <owner_access>0</owner_access>\n"
+            "                   <group></group>\n"
+            "                   <group_access>0</group_access>\n"
+            "                   <other_access>0</other_access>\n"
+            "               </permissions>\n"
+            "               <uuid>\n"
+            "                   <uuid-mslong>0</uuid-mslong>\n"
+            "                   <uuid-lslong>%d</uuid-lslong>\n"
+            "               </uuid>\n"
+            "               <enable>%s</enable>\n"
+            "           </id-perms>\n"
+            "       </node>\n", node_name, name, id, status_str);
     len = strlen(buff);
 }
 
@@ -239,6 +271,20 @@ void AddNode(const char *node_name, const char *name, int id) {
 
     AddXmlHdr(buff, len);
     AddNodeString(buff, len, node_name, name, id);
+    AddXmlTail(buff, len);
+    pugi::xml_document xdoc_;
+    pugi::xml_parse_result result = xdoc_.load(buff);
+    EXPECT_TRUE(result);
+    Agent::GetInstance()->GetIfMapAgentParser()->ConfigParse(xdoc_.first_child(), 0);
+    return;
+}
+
+void AddNodeByStatus(const char *node_name, const char *name, int id, bool status) {
+    char buff[10240];
+    int len = 0;
+
+    AddXmlHdr(buff, len);
+    AddNodeString(buff, len, node_name, name, id, status);
     AddXmlTail(buff, len);
     pugi::xml_document xdoc_;
     pugi::xml_parse_result result = xdoc_.load(buff);
@@ -1237,6 +1283,10 @@ void DelVn(const char *name) {
 
 void AddPort(const char *name, int id) {
     AddNode("virtual-machine-interface", name, id);
+}
+
+void AddPortByStatus(const char *name, int id, bool admin_status) {
+    AddNodeByStatus("virtual-machine-interface", name, id, admin_status);
 }
 
 void DelPort(const char *name) {

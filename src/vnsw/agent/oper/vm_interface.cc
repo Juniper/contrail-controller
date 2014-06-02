@@ -370,6 +370,7 @@ bool InterfaceTable::IFNodeToReq(IFMapNode *node, DBRequest &req) {
 
     //Fill config data items
     data->cfg_name_= node->name();
+    data->admin_state_ = id_perms.enable;
 
     BuildVrfAssignRule(cfg, data);
     SgUuidList sg_list(0);
@@ -748,6 +749,11 @@ bool VmInterface::CopyConfig(VmInterfaceConfigData *data, bool *sg_changed) {
         ret = true;
     }
 
+    if (admin_state_ != data->admin_state_) {
+        admin_state_ = data->admin_state_;
+        ret = true;
+    }
+
     // Audit operational and config floating-ip list
     FloatingIpSet &old_fip_list = floating_ip_list_.list_;
     FloatingIpSet &new_fip_list = data->floating_ip_list_.list_;
@@ -994,6 +1000,10 @@ void VmInterface::GetOsParams(Agent *agent) {
 // - MAC address set for the interface
 bool VmInterface::IsActive() {
     if (IsDeleted()) {
+        return false;
+    }
+
+    if (!admin_state_) {
         return false;
     }
 

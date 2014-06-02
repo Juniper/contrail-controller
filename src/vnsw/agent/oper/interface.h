@@ -101,6 +101,7 @@ public:
     uint32_t os_index() const {return os_index_;}
     const ether_addr &mac() const {return mac_;}
     bool os_oper_state() const { return os_oper_state_; }
+    bool admin_state() const { return admin_state_; }
     // Used only for test code
     void set_test_oper_state(bool val) { test_oper_state_ = val; }
 
@@ -121,6 +122,7 @@ protected:
     struct ether_addr mac_;
     size_t os_index_;
     bool os_oper_state_;
+    bool admin_state_;
     // Used only for test code
     bool test_oper_state_;
 
