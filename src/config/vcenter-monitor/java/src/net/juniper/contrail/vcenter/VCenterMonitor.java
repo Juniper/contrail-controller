@@ -204,8 +204,11 @@ public class VCenterMonitor {
     private void syncVirtualMachines(String vnUuid, 
             VmwareVirtualNetworkInfo vmwareNetworkInfo,
             VncVirtualNetworkInfo vncNetworkInfo) throws IOException {
+        String vncVnName = vncNetworkInfo.getName();
+        String vmwareVnName = vmwareNetworkInfo.getName();
         s_logger.info("Syncing virtual machines in network: " + vnUuid + 
-                " across Vnc and VCenter DBs");
+                " across Vnc(" + vncVnName + ") and VCenter(" +
+                vmwareVnName + ") DBs");
         SortedMap<String, VmwareVirtualMachineInfo> vmwareVmInfos =
                 vmwareNetworkInfo.getVmInfo();
         SortedMap<String, VncVirtualMachineInfo> vncVmInfos =
@@ -226,6 +229,8 @@ public class VCenterMonitor {
             // Do Vmware and Vnc virtual machines match?
             String vmwareVmUuid = vmwareItem.getKey();
             String vncVmUuid = vncItem.getKey();
+            s_logger.info("Comparing Vnc virtual machine: " + vncVmUuid +
+                    " and VCenter virtual machine: " + vmwareVmUuid);
             if (!vmwareVmUuid.equals(vncVmUuid)) {
                 // Delete Vnc virtual machine
                 vncDB.DeleteVirtualMachine(vncItem.getValue());
