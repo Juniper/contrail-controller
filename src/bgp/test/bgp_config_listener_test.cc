@@ -16,6 +16,7 @@
 #include "db/db.h"
 #include "db/db_graph.h"
 #include "db/test/db_test_util.h"
+#include "ifmap/ifmap_dependency_tracker.h"
 #include "ifmap/ifmap_link_table.h"
 #include "ifmap/ifmap_node.h"
 #include "ifmap/test/ifmap_test_util.h"
@@ -95,8 +96,8 @@ class BgpConfigListenerTest : public ::testing::Test {
 protected:
 
     typedef BgpConfigListener::ChangeList ChangeList;
-    typedef BgpConfigListener::DependencyTracker::NodeList NodeList;
-    typedef BgpConfigListener::DependencyTracker::EdgeDescriptorList EdgeList;
+    typedef IFMapDependencyTracker::NodeList NodeList;
+    typedef IFMapDependencyTracker::EdgeDescriptorList EdgeList;
 
     BgpConfigListenerTest() : server_(&evm_), parser_(&db_) {
         config_manager_ = server_.config_manager();
@@ -127,7 +128,7 @@ protected:
     void PerformChangeListPropagation() {
         task_util::WaitForIdle();
         ConcurrencyScope scope("bgp::Config");
-        BgpConfigListener::ChangeList change_list;
+        ChangeList change_list;
         listener_->BgpConfigListener::GetChangeList(&change_list);
         change_list.swap(*change_list_);
         TASK_UTIL_EXPECT_EQ(0, GetNodeListCount());
@@ -157,13 +158,13 @@ protected:
     }
 
     size_t GetNodeListCount() {
-        return listener_->tracker_->node_list_.size();
+        return listener_->tracker_->node_list().size();
     }
 
     size_t GetNodeListCount(const string &id_type) {
         size_t count = 0;
-        for (NodeList::const_iterator it = tracker_->node_list_.begin();
-             it != tracker_->node_list_.end(); ++it) {
+        for (NodeList::const_iterator it = tracker_->node_list().begin();
+             it != tracker_->node_list().end(); ++it) {
             if (it->first == id_type)
                 count++;
         }
@@ -171,13 +172,13 @@ protected:
     }
 
     size_t GetEdgeListCount() {
-        return listener_->tracker_->edge_list_.size();
+        return listener_->tracker_->edge_list().size();
     }
 
     size_t GetEdgeListCount(const string &id_type) {
         size_t count = 0;
-        for (EdgeList::const_iterator it = tracker_->edge_list_.begin();
-             it != tracker_->edge_list_.end(); ++it) {
+        for (EdgeList::const_iterator it = tracker_->edge_list().begin();
+             it != tracker_->edge_list().end(); ++it) {
             if (it->id_type == id_type)
                 count++;
         }
@@ -189,8 +190,8 @@ protected:
     DB db_;
     DBGraph graph_;
     BgpConfigListenerMock *listener_;
-    BgpConfigListener::DependencyTracker *tracker_;
-    BgpConfigListener::ChangeList *change_list_;
+    IFMapDependencyTracker *tracker_;
+    ChangeList *change_list_;
     BgpConfigManager *config_manager_;
     BgpConfigParser parser_;
 };
