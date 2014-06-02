@@ -25,18 +25,19 @@ struct TestFlowKey {
     uint16_t        ifindex_;
     uint16_t        vn_;
     uint16_t        vm_;
+    uint32_t        nh_;
 
     TestFlowKey(uint16_t vrf, const char *sip, const char *dip, uint8_t proto,
                 uint16_t sport, uint16_t dport, const std::string &svn,
-                const std::string &dvn, uint16_t ifindex, uint16_t vn, uint16_t vm) :
-    
+                const std::string &dvn, uint16_t ifindex, uint16_t vn,
+                uint16_t vm, uint32_t nh) :
         vrfid_(vrf), sip_(sip), dip_(dip), proto_(proto), sport_(sport),
         dport_(dport), svn_(&svn), dvn_(&dvn), ifindex_(ifindex), vn_(vn),
-        vm_(vm) {
+        vm_(vm), nh_(nh) {
     }
 
     void InitFlowKey(FlowKey *key) const {
-        key->vrf = vrfid_;
+        key->nh = nh_;
         key->src.ipv4 = ntohl(inet_addr(sip_));
         key->dst.ipv4 = ntohl(inet_addr(dip_));
         key->protocol = proto_;
@@ -347,23 +348,23 @@ protected:
         client->WaitForIdle();
 
         key1 = new TestFlowKey(1, "1.1.1.1", "1.1.1.2", 1, 0, 0, svn_name,
-                               dvn_name, 1, 1, 1);
+                               dvn_name, 1, 1, 1, GetFlowKeyNH(1));
         flow1 = FlowInit(key1);
         flow1->set_flags(FlowEntry::LocalFlow);
 
         key1_r = new TestFlowKey(1, "1.1.1.2", "1.1.1.1", 1, 0, 0, dvn_name,
-                                 svn_name, 2, 1, 2);
+                                 svn_name, 2, 1, 2, GetFlowKeyNH(2));
         flow1_r = FlowInit(key1_r);
         flow1_r->set_flags(FlowEntry::LocalFlow);
         FlowAdd(flow1, flow1_r);
 
         key2 = new TestFlowKey(1, "1.1.1.1", "1.1.1.3", 1, 0, 0, svn_name,
-                               dvn_name, 1, 1, 1);
+                               dvn_name, 1, 1, 1, GetFlowKeyNH(1));
         flow2 = FlowInit(key2);
         flow2->reset_flags(FlowEntry::LocalFlow);
 
         key2_r = new TestFlowKey(1, "1.1.1.3", "1.1.1.1", 1, 0, 0, dvn_name,
-                                 svn_name, 2, 1, 2);
+                                 svn_name, 2, 1, 2, GetFlowKeyNH(2));
         flow2_r = FlowInit(key2_r);
         flow2_r->reset_flags(FlowEntry::LocalFlow);
         FlowAdd(flow2, flow2_r);

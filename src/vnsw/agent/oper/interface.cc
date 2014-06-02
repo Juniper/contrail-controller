@@ -316,6 +316,14 @@ DBEntryBase::KeyPtr PacketInterface::GetDBRequestKey() const {
     return DBEntryBase::KeyPtr(key);
 }
 
+void PacketInterface::PostAdd() {
+    InterfaceNH::CreatePacketInterfaceNh(name_);
+}
+
+void PacketInterface::Delete() {
+    flow_key_nh_= NULL;
+}
+
 // Enqueue DBRequest to create a Pkt Interface
 void PacketInterface::CreateReq(InterfaceTable *table,
                                 const std::string &ifname) {
@@ -506,6 +514,9 @@ void Interface::SetItfSandeshData(ItfSandeshData &data) const {
     }
     data.set_label(label_);
     data.set_l2_label(l2_label_);
+    if (flow_key_nh()) {
+        data.set_flow_key_idx(flow_key_nh()->id());
+    }
 
     switch (type_) {
     case Interface::PHYSICAL:

@@ -104,6 +104,8 @@ public:
     bool admin_state() const { return admin_state_; }
     // Used only for test code
     void set_test_oper_state(bool val) { test_oper_state_ = val; }
+    void set_flow_key_nh(const NextHop *nh) { flow_key_nh_ = nh;}
+    const NextHop* flow_key_nh() const {return flow_key_nh_.get();}
 
 protected:
     void SetItfSandeshData(ItfSandeshData &data) const;
@@ -125,6 +127,11 @@ protected:
     bool admin_state_;
     // Used only for test code
     bool test_oper_state_;
+    //Reference to nexthop, whose index gets used as key in
+    //flow lookup for traffic ingressing from this interface
+    //packet interface and layer2 interface will not have this
+    //reference set.
+    NextHopConstRef flow_key_nh_;
 
 private:
     friend class InterfaceTable;

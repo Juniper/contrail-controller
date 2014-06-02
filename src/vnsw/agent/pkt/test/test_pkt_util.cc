@@ -90,7 +90,8 @@ void MakeIpMplsPacket(PktGen *pkt, int ifindex, const char *out_sip,
 		      const char *sip, const char *dip, uint8_t proto,
 		      int hash_id) {
     pkt->AddEthHdr("00:00:00:00:00:01", "00:00:00:00:00:02", 0x800);
-    pkt->AddAgentHdr(ifindex, AGENT_TRAP_FLOW_MISS, hash_id, MplsToVrfId(label));
+    pkt->AddAgentHdr(ifindex, AGENT_TRAP_FLOW_MISS, hash_id, MplsToVrfId(label),
+                     label);
     pkt->AddEthHdr("00:00:00:00:00:01", "00:00:00:00:00:02", 0x800);
     pkt->AddIpHdr(out_sip, out_dip, IPPROTO_GRE);
     pkt->AddGreHdr();
@@ -119,7 +120,8 @@ void MakeUdpMplsPacket(PktGen *pkt, int ifindex, const char *out_sip,
                                const char *sip, const char *dip, uint16_t sport,
                                uint16_t dport, int hash_id) {
     pkt->AddEthHdr("00:00:00:00:00:01", "00:00:00:00:00:02", 0x800);
-    pkt->AddAgentHdr(ifindex, AGENT_TRAP_FLOW_MISS, hash_id, MplsToVrfId(label));
+    pkt->AddAgentHdr(ifindex, AGENT_TRAP_FLOW_MISS, hash_id, MplsToVrfId(label),
+                     label);
     pkt->AddEthHdr("00:00:00:00:00:01", "00:00:00:00:00:02", 0x800);
     pkt->AddIpHdr(out_sip, out_dip, IPPROTO_GRE);
     pkt->AddGreHdr();
@@ -146,7 +148,8 @@ void MakeTcpMplsPacket(PktGen *pkt, int ifindex, const char *out_sip,
                                const char *sip, const char *dip, uint16_t sport,
                                uint16_t dport, bool ack, int hash_id) {
     pkt->AddEthHdr("00:00:00:00:00:01", "00:00:00:00:00:02", 0x800);
-    pkt->AddAgentHdr(ifindex, AGENT_TRAP_FLOW_MISS, hash_id, MplsToVrfId(label));
+    pkt->AddAgentHdr(ifindex, AGENT_TRAP_FLOW_MISS, hash_id, MplsToVrfId(label),
+                     label);
     pkt->AddEthHdr("00:00:00:00:00:01", "00:00:00:00:00:02", 0x800);
     pkt->AddIpHdr(out_sip, out_dip, IPPROTO_GRE);
     pkt->AddGreHdr();

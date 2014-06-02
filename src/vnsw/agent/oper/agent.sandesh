@@ -61,6 +61,7 @@ struct ItfSandeshData {
    28: string l2_active;
    30: string vm_project_uuid; // project uuid of the vm to which the interface belongs
    31: string admin_state;
+   32: i32 flow_key_idx;
 }
 
 struct VnIpamData {
@@ -159,6 +160,7 @@ struct NhSandeshData {
    18: optional FabricCompositeData fabric_comp;  //Multicast sub nh list
    19: optional L2CompositeData l2_comp;  //Multicast sub nh list
    20: optional L3CompositeData l3_comp;  //Multicast sub nh list
+   21: i32 nh_index;
 }
 
 struct PathSandeshData {
