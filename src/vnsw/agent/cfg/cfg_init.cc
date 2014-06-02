@@ -110,42 +110,42 @@ void AgentConfig::CreateDBTables(DB *db) {
 }
 
 void AgentConfig::RegisterDBClients(DB *db) {
-    cfg_listener_.get()->Register("virtual-network", agent_->GetVnTable(),
+    cfg_listener_->Register("virtual-network", agent_->GetVnTable(),
                             VirtualNetwork::ID_PERMS);
-    cfg_listener_.get()->Register("security-group", agent_->GetSgTable(),
+    cfg_listener_->Register("security-group", agent_->GetSgTable(),
                             SecurityGroup::ID_PERMS);
-    cfg_listener_.get()->Register("virtual-machine", agent_->GetVmTable(),
+    cfg_listener_->Register("virtual-machine", agent_->GetVmTable(),
                             VirtualMachine::ID_PERMS);
-    cfg_listener_.get()->Register("virtual-machine-interface",
+    cfg_listener_->Register("virtual-machine-interface",
                             agent_->GetInterfaceTable(),
                             VirtualMachineInterface::ID_PERMS);
-    cfg_listener_.get()->Register("access-control-list", agent_->GetAclTable(),
+    cfg_listener_->Register("access-control-list", agent_->GetAclTable(),
                             AccessControlList::ID_PERMS);
-    cfg_listener_.get()->Register("routing-instance", agent_->GetVrfTable(), -1);
-    cfg_listener_.get()->Register("virtual-network-network-ipam", 
+    cfg_listener_->Register("routing-instance", agent_->GetVrfTable(), -1);
+    cfg_listener_->Register("virtual-network-network-ipam", 
                             boost::bind(&VnTable::IpamVnSync, _1), -1);
-    cfg_listener_.get()->Register("network-ipam", boost::bind(&DomainConfig::IpamSync,
+    cfg_listener_->Register("network-ipam", boost::bind(&DomainConfig::IpamSync,
                             agent_->GetDomainConfigTable(), _1), -1);
-    cfg_listener_.get()->Register("virtual-DNS", boost::bind(&DomainConfig::VDnsSync, 
+    cfg_listener_->Register("virtual-DNS", boost::bind(&DomainConfig::VDnsSync, 
                             agent_->GetDomainConfigTable(), _1), -1);
-    cfg_listener_.get()->Register
+    cfg_listener_->Register
         ("virtual-machine-interface-routing-instance", 
          boost::bind(&InterfaceTable::VmInterfaceVrfSync,
                      agent_->GetInterfaceTable(), _1), -1);
 
-    cfg_listener_.get()->Register
+    cfg_listener_->Register
         ("instance-ip", boost::bind(&VmInterface::InstanceIpSync,
                                     agent_->GetInterfaceTable(), _1), -1);
 
-    cfg_listener_.get()->Register
+    cfg_listener_->Register
         ("floating-ip", boost::bind(&VmInterface::FloatingIpVnSync,
                                     agent_->GetInterfaceTable(), _1), -1);
 
-    cfg_listener_.get()->Register
+    cfg_listener_->Register
         ("floating-ip-pool", boost::bind(&VmInterface::FloatingIpPoolSync,
                                          agent_->GetInterfaceTable(), _1), -1);
 
-    cfg_listener_.get()->Register
+    cfg_listener_->Register
         ("global-vrouter-config",
          boost::bind(&GlobalVrouter::GlobalVrouterConfig,
                      agent_->oper_db()->global_vrouter(), _1), -1);
@@ -205,14 +205,14 @@ void AgentConfig::RegisterDBClients(DB *db) {
                                "interface-route-table")));
     assert(cfg_route_table_);
 
-    cfg_interface_client_.get()->Init();
+    cfg_interface_client_->Init();
 }
 
 void AgentConfig::Init() {
-    cfg_filter_.get()->Init();
-    cfg_listener_.get()->Init();
-    cfg_mirror_table_.get()->Init();
-    cfg_intf_mirror_table_.get()->Init();
+    cfg_filter_->Init();
+    cfg_listener_->Init();
+    cfg_mirror_table_->Init();
+    cfg_intf_mirror_table_->Init();
 }
 
 void AgentConfig::InitDiscovery() {
@@ -220,18 +220,18 @@ void AgentConfig::InitDiscovery() {
 }
 
 void AgentConfig::InitDone() {
-    discovery_client_.get()->DiscoverServices();
+    discovery_client_->DiscoverServices();
 }
 
 void AgentConfig::Shutdown() {
-    cfg_listener_.get()->Shutdown();
-    cfg_filter_.get()->Shutdown();
+    cfg_listener_->Shutdown();
+    cfg_filter_->Shutdown();
 
-    cfg_interface_client_.get()->Shutdown();
-    discovery_client_.get()->Shutdown();
+    cfg_interface_client_->Shutdown();
+    discovery_client_->Shutdown();
 
-    cfg_mirror_table_.get()->Shutdown();
-    cfg_intf_mirror_table_.get()->Shutdown();
+    cfg_mirror_table_->Shutdown();
+    cfg_intf_mirror_table_->Shutdown();
 
     agent_->GetDB()->RemoveTable(agent_->GetIntfCfgTable());
     delete agent_->GetIntfCfgTable();
