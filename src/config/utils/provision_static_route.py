@@ -82,7 +82,8 @@ class StaticRouteProvisioner(object):
                 sys.exit(0) 
         if not found:
    	    rt1 = RouteType(prefix = prefix)
-            routes.append(rt1)
+        routes.append(rt1)
+        intf_route_table_obj.set_interface_route_table_routes(rt_routes)
         return intf_route_table_obj
     #end add_route 
      
@@ -98,6 +99,7 @@ class StaticRouteProvisioner(object):
         if not found : 
             print "Prefix %s not found in Route table %s!" %( prefix, intf_route_table_obj.name)
             sys.exit(1)
+        intf_route_table_obj.set_interface_route_table_routes(rt_routes)
         return intf_route_table_obj
     
     def is_route_table_empty(self, intf_route_table_obj):
