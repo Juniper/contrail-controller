@@ -10,6 +10,7 @@ from gevent import ssl, monkey
 monkey.patch_all()
 import gevent
 import gevent.event
+import gevent.pool
 import sys
 import time
 from pprint import pformat
@@ -810,10 +811,19 @@ class VncCassandraClient(VncCassandraClientGen):
 
     def walk(self, fn):
         walk_results = []
-        for obj_uuid, obj_cols in self._obj_uuid_cf.get_range():
-            result = fn(obj_uuid, dict(obj_cols))
+
+        # Note(sahid): We are using a local variable means if
+        # several calls of walk are done in a same times
+        # the number of "greenthread" will increase...
+        pool = gevent.pool.Pool(size=10) #TODO(sahid) needs to be conf?
+        iterator = self._obj_uuid_cf.get_range()
+
+        def worker(args):
+            result = fn(*args)
             if result:
+                # [].append is thread-safe.
                 walk_results.append(result)
+        pool.map(worker, iterator)
 
         return walk_results
     # end walk
