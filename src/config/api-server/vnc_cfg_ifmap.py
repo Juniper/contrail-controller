@@ -808,10 +808,8 @@ class VncCassandraClient(VncCassandraClientGen):
 
     def walk(self, fn):
         walk_results = []
-        for obj_uuid, _ in self._obj_uuid_cf.get_range():
-            obj_cols_iter = self._obj_uuid_cf.xget(obj_uuid)
-            obj_cols = dict((k, v) for k, v in obj_cols_iter)
-            result = fn(obj_uuid, obj_cols)
+        for obj_uuid, obj_cols in self._obj_uuid_cf.get_range():
+            result = fn(obj_uuid, dict(obj_cols))
             if result:
                 walk_results.append(result)
 
