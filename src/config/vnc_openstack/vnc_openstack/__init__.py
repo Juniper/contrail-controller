@@ -180,6 +180,13 @@ class OpenstackDriver(vnc_plugin_base.Resync):
         return json.loads(domains_json)['domains']
     # end _ksv3_domains_list
 
+    def _ksv3_domain_id_to_uuid(self, domain_id):
+        if domain_id == 'default':
+            return self._vnc_default_domain_id
+
+        return str(uuid.UUID(domain_id))
+    # _ksv3_domain_id_to_uuid
+
     def _ksv3_domain_get(self, id=None):
         resp = self._ks.get('%s/domains/%s' %(self._auth_url, id),
                             headers={'X-AUTH-TOKEN':self._admin_token})
@@ -218,7 +225,7 @@ class OpenstackDriver(vnc_plugin_base.Resync):
         except vnc_api.NoIdError:
             ks_project = \
                 self._ks_project_get(project_id.replace('-', ''))
-            domain_uuid = str(uuid.UUID(ks_project['domain_id']))
+            domain_uuid = self._ksv3_domain_id_to_uuid(ks_project['domain_id'])
             dom_obj = self._vnc_lib.domain_read(id=domain_uuid)
             proj_obj = vnc_api.Project(ks_project['name'], parent_obj=dom_obj)
             proj_obj.uuid = project_id
