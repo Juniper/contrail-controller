@@ -13,6 +13,7 @@
 #include <ksync/ksync_index.h>
 #include <ksync/ksync_entry.h>
 #include <ksync/ksync_object.h>
+#include <ksync/ksync_netlink.h>
 #include <ksync/ksync_sock.h>
 #include <uve/agent_uve.h>
 #include <uve/flow_stats_collector.h>

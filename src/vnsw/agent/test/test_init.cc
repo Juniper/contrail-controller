@@ -49,6 +49,7 @@ void WaitForInitDone(Agent *agent) {
     if (done == false) {
         exit(-1);
     }
+    client->WaitForIdle(5);
 }
 
 TestClient *TestInit(const char *init_file, bool ksync_init, bool pkt_init,
@@ -335,9 +336,10 @@ void TestShutdown() {
 
     Agent::GetInstance()->GetEventManager()->Shutdown();
     AsioStop();
-    TaskScheduler::GetInstance()->Terminate();
 
     AgentStats::GetInstance()->Shutdown();
     Agent::GetInstance()->Shutdown();
     delete agent_init;
+
+    TaskScheduler::GetInstance()->Terminate();
 }

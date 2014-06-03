@@ -2,6 +2,7 @@
  * Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
  */
 
+#include <stdint.h>
 #include "net/mac_address.h"
 
 #include <cstring>

@@ -103,6 +103,10 @@ void VNController::XmppServerConnect() {
 
 void VNController::DnsXmppServerConnect() {
 
+    if (agent_->GetDnsProto() == NULL) {
+        return;
+    }
+
     uint8_t count = 0;
     while (count < MAX_XMPP_SERVERS) {
         if (!agent_->GetDnsServer(count).empty()) {

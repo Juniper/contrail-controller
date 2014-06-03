@@ -3,51 +3,22 @@
 #
 
 # -*- mode: python; -*-
+import re
 Import('AgentEnv')
 env = AgentEnv.Clone()
 
-def MapBuildDir(list):
-    return map(lambda x: '#/' + Dir('..').path + '/../../' + x, list)
-
 # test specific modifications
-env.Append(LIBPATH = MapBuildDir(['agent/test']))
-env.Prepend(CPPPATH = env['TOP'] + '/vnsw/agent/test')
-env.Prepend(LIBS=['gunit'])
+AgentEnv.MakeTestEnv(env)
 
-cflags = env['CCFLAGS']
-cflags.append(['-Wno-return-type', '-Wno-unused-function'])
-if '-fno-exceptions' in cflags:
-    cflags.remove('-fno-exceptions')
-    env.Replace(CCFLAGS = cflags)
+oper_test_suite = []
+test_intf = AgentEnv.MakeTestCmd(env, 'test_intf', oper_test_suite)
+test_vrf_assign = AgentEnv.MakeTestCmd(env, 'test_vrf_assign', oper_test_suite)
+test_linklocal = AgentEnv.MakeTestCmd(env, 'test_linklocal', oper_test_suite)
+test_inet_interface = AgentEnv.MakeTestCmd(env, 'test_inet_interface',
+                                           oper_test_suite)
+test_fabric_interface = AgentEnv.MakeTestCmd(env, 'test_fabric_interface',
+                                             oper_test_suite)
 
-
-import sys
-if sys.platform != 'darwin':
-    env.Prepend(LIBS=['agent_test'])
-    env.Append(LIBS=['agent_test_buildinfo']);
-
-    test_intf = env.Program(target = 'test_intf', source = ['test_intf.cc'])
-    env.Alias('agent:test_intf', test_intf)
-
-    test_vrf_assign = env.Program(target = 'test_vrf_assign', source = ['test_vrf_assign.cc'])
-    env.Alias('agent:test_vrf_assign', test_vrf_assign)
-
-    test_linklocal = env.Program(target = 'test_linklocal', source = ['test_linklocal.cc'])
-    env.Alias('agent:test_linklocal', test_linklocal)
-
-    test_inet_interface = env.Program(target = 'test_inet_interface', source = ['test_inet_interface.cc'])
-    env.Alias('agent:test_inet_interface', test_inet_interface)
-    test_fabric_interface = env.Program(target = 'test_fabric_interface', source = ['test_fabric_interface.cc'])
-    env.Alias('agent:test_fabric_interface', test_fabric_interface)
-    oper_test_suite = [
-                       test_fabric_interface,
-                       test_inet_interface,
-                       test_intf,
-                       test_linklocal,
-                       test_vrf_assign,
-                       ]
-
-    test = env.TestSuite('agent-test', oper_test_suite)
-    env.Alias('controller/src/vnsw/agent/oper:test', test)
-    Return('oper_test_suite')
-
+test = env.TestSuite('agent-test', oper_test_suite)
+env.Alias('agent:oper', test)
+Return('oper_test_suite')

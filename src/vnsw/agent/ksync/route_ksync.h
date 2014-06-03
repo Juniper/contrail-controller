@@ -14,6 +14,7 @@
 #include <base/lifetime.h>
 #include <ksync/ksync_entry.h>
 #include <ksync/ksync_object.h>
+#include <ksync/ksync_netlink.h>
 #include "oper/nexthop.h"
 #include "oper/route_common.h"
 #include "ksync/agent_ksync_types.h"

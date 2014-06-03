@@ -5,24 +5,13 @@
 # -*- mode: python; -*-
 
 import os
+import sys
 
 Import('AgentEnv')
 env = AgentEnv.Clone()
 
-except_env = env.Clone()
-cflags = except_env['CCFLAGS']
-if '-fno-exceptions' in cflags:
-    cflags.remove('-fno-exceptions')
-    except_env.Replace(CCFLAGS = cflags)
-
-import sys
-
 except_files = [ 'agent_param.cc' ]
-except_objs = []
-for except_src in except_files:
-    objname = except_src.replace('.cc', '.o')
-    obj = except_env.Object(objname, except_src)
-    except_objs.append(obj)
+except_objs = AgentEnv.BuildExceptionCcObj(env, except_files)
 
 libvnswinit = env.Library('vnswinit', except_objs)
 

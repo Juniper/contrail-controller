@@ -4,6 +4,8 @@
 
 #include <stdio.h>
 #include <stdlib.h>
+#include <sys/time.h>
+#include <sys/resource.h>
 
 #include <boost/uuid/string_generator.hpp>
 #include <boost/program_options.hpp>
@@ -124,6 +126,7 @@ public:
     }
 
     virtual void TearDown() {
+        var_map.clear();
     }
 
     opt::options_description desc;
@@ -238,7 +241,7 @@ TEST_F(FlowTest, Agent_Param_1) {
     int argc = 16;
     char *argv[] = {
         (char *) "",
-        (char *) "--config-file", 
+        (char *) "--config_file", 
                         (char *)"controller/src/vnsw/agent/cmn/test/cfg.ini",
         (char *) "--DEFAULT.log_local",
         (char *) "--DEFAULT.log_level",     (char *)"SYS_DEBUG",
@@ -273,9 +276,10 @@ TEST_F(FlowTest, Agent_Param_1) {
 
 }
 
-TEST_F(FlowTest, Agen_Arg_Override_Config_1) {
-    int argc = 8;
+TEST_F(FlowTest, Agent_Arg_Override_Config_1) {
+    int argc = 9;
     char *argv[] = {
+        (char *) "",
         (char *) "--config_file",
                         (char *)"controller/src/vnsw/agent/cmn/test/cfg.ini",
         (char *) "--HYPERVISOR.type",    (char *)"xen", 
@@ -303,13 +307,14 @@ TEST_F(FlowTest, Agen_Arg_Override_Config_1) {
     EXPECT_EQ(param.xen_ll_addr().to_ulong(),
               Ip4Address::from_string("1.1.1.2").to_ulong());
     EXPECT_EQ(param.xen_ll_prefix().to_ulong(),
-              Ip4Address::from_string("1.1.1.0").to_ulong());
-    EXPECT_EQ(param.xen_ll_plen(), 24);
+              Ip4Address::from_string("1.1.0.0").to_ulong());
+    EXPECT_EQ(param.xen_ll_plen(), 16);
 }
 
-TEST_F(FlowTest, Agen_Arg_Override_Config_2) {
-    int argc = 6;
+TEST_F(FlowTest, Agent_Arg_Override_Config_2) {
+    int argc = 9;
     char *argv[] = {
+        (char *) "",
         (char *) "--DNS.server",    (char *)"20.1.1.1:500 21.1.1.1:15001", 
         (char *) "--CONTROL-NODE.server",   (char *)"22.1.1.1 23.1.1.1",
         (char *) "--DEFAULT.debug",   (char *)"0",
@@ -343,8 +348,9 @@ TEST_F(FlowTest, Agen_Arg_Override_Config_2) {
  * command line args, but has specified values in config file, then values
  * specified config file should be taken */
 TEST_F(FlowTest, Default_Cmdline_arg1) {
-    int argc = 2;
+    int argc = 3;
     char *argv[] = {
+        (char *) "",
         (char *) "--config_file",
                         (char *)"controller/src/vnsw/agent/cmn/test/cfg-default1.ini",
     };
@@ -390,8 +396,9 @@ TEST_F(FlowTest, Default_Cmdline_arg2) {
  * values for these command line args and has also specified values in config 
  * file, then values specified on command line should be taken */
 TEST_F(FlowTest, Default_Cmdline_arg3) {
-    int argc = 8;
+    int argc = 9;
     char *argv[] = {
+        (char *) "",
         (char *) "--DEFAULT.flow_cache_timeout", (char *)"100",
         (char *) "--DEFAULT.http_server_port", (char *)"20001",
         (char *) "--DEFAULT.log_file", (char *)"3.log",
