@@ -43,7 +43,7 @@ public:
     };
     static std::map<BuildModule, std::string> MapInit() {
         std::map<BuildModule, std::string> m;
-         m[Agent] = "contrail-vrouter ";
+         m[Agent] = "contrail-vrouter-agent ";
          m[Analytics] = "contrail-analytics ";
          m[ControlNode] = "contrail-control ";
          m[Dns] = "contrail-dns ";
