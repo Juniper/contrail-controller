@@ -831,6 +831,14 @@ bool PktFlowInfo::Process(const PktInfo *pkt, PktControlInfo *in,
         EgressProcess(pkt, in, out);
     }
 
+    if ((source_vn == NULL) && (in->rt_ != NULL)) {
+        source_vn = RouteToVn(in->rt_);
+    }
+
+    if ((dest_vn == NULL) && (out->rt_ != NULL)) {
+        dest_vn = RouteToVn(out->rt_);
+    }
+
     if (in->rt_ == NULL) {
         LogError(pkt, "Flow : No route for Src-IP");
         return false;
@@ -839,14 +847,6 @@ bool PktFlowInfo::Process(const PktInfo *pkt, PktControlInfo *in,
     if (out->rt_ == NULL) {
         LogError(pkt, "Flow : No route for Dst-IP");
         return false;
-    }
-
-    if (source_vn == NULL) {
-        source_vn = RouteToVn(in->rt_);
-    }
-
-    if (dest_vn == NULL) {
-        dest_vn = RouteToVn(out->rt_);
     }
 
     flow_source_vrf = static_cast<const AgentRoute *>(in->rt_)->vrf_id();
