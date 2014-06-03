@@ -22,7 +22,6 @@
 #include <oper/agent_sandesh.h>
 #include <oper/nexthop.h>
 #include <oper/mirror_table.h>
-#include <pkt/flow_table.h>
 
 static AclTable *acl_table_;
 
@@ -538,9 +537,10 @@ void AclTable::AclFlowResponse(const string acl_uuid_str, const string ctx,
     const AclDBEntry *acl_entry = AclTable::GetAclDBEntry(acl_uuid_str, ctx, resp);
 
     if (acl_entry) {
-        Agent::GetInstance()->pkt()->flow_table()->SetAclFlowSandeshData(
-                                                   acl_entry, *resp, last_count);
+        AclTable *table = Agent::GetInstance()->GetAclTable();
+        table->flow_acl_sandesh_data_cb_(acl_entry, *resp, last_count);
     }
+
     resp->set_context(ctx);
     resp->Response();
 }
@@ -551,8 +551,8 @@ void AclTable::AclFlowCountResponse(const string acl_uuid_str,
     const AclDBEntry *acl_entry = AclTable::GetAclDBEntry(acl_uuid_str, ctx, resp);
 
     if (acl_entry) {
-        Agent::GetInstance()->pkt()->flow_table()->SetAceSandeshData(
-                                                   acl_entry, *resp, ace_id);
+        AclTable *table = Agent::GetInstance()->GetAclTable();
+        table->flow_ace_sandesh_data_cb_(acl_entry, *resp, ace_id);
     }
     resp->set_context(ctx);
     resp->Response();
@@ -774,4 +774,12 @@ void AclEntrySpec::PopulateAction(const AclTable *acl_table,
         vrf_translate_spec.vrf_translate.set_ignore_acl(false);
         action_l.push_back(vrf_translate_spec);
     }
+}
+
+void AclTable::set_ace_flow_sandesh_data_cb(FlowAceSandeshDataFn fn) {
+    flow_ace_sandesh_data_cb_ = fn;
+}
+
+void AclTable::set_acl_flow_sandesh_data_cb(FlowAclSandeshDataFn fn) {
+    flow_acl_sandesh_data_cb_ = fn;
 }

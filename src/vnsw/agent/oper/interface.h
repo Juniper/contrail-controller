@@ -206,6 +206,11 @@ public:
 
     typedef std::map<const std::string, DhcpSnoopEntry> DhcpSnoopMap;
     typedef std::map<const std::string, DhcpSnoopEntry>::iterator DhcpSnoopIterator;
+    // DNS module is optional. Callback function to keep DNS entry for
+    // floating ip in-sync. This callback is defined to avoid linking error
+    // when DNS is not enabled
+    typedef boost::function<void(VmInterface *, const VnEntry *,
+                                 const Ip4Address &, bool)> UpdateFloatingIpFn;
 
     InterfaceTable(DB *db, const std::string &name) :
         AgentDBTable(db, name), operdb_(NULL), agent_(NULL),
@@ -258,6 +263,9 @@ public:
     void AuditDhcpSnoopTable();
     void DhcpSnoopSetConfigSeen(const std::string &ifname);
 
+    void set_update_floatingip_cb(UpdateFloatingIpFn fn);
+    const UpdateFloatingIpFn &update_floatingip_cb() const;
+
     // TODO : to remove this
     static InterfaceTable *GetInstance() { return interface_table_; }
     Agent *agent() const { return agent_; }
@@ -276,6 +284,7 @@ private:
     // ASIO context. Lock used to synchronize
     tbb::mutex dhcp_snoop_mutex_;
     DhcpSnoopMap dhcp_snoop_map_;
+    UpdateFloatingIpFn update_floatingip_cb_;
     DISALLOW_COPY_AND_ASSIGN(InterfaceTable);
 };
 

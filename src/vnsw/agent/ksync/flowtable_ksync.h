@@ -14,6 +14,7 @@
 #include <ksync/ksync_index.h>
 #include <ksync/ksync_entry.h>
 #include <ksync/ksync_object.h>
+#include <ksync/ksync_netlink.h>
 #include <ksync/agent_ksync_types.h>
 #include <pkt/flow_table.h>
 #include <vr_types.h>

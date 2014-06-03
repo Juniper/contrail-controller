@@ -76,6 +76,9 @@ private:
     bool router_id_dep_enable_;
 
     std::auto_ptr<TaskTrigger> trigger_;
+    std::auto_ptr<DiagTable> diag_table_;
+    std::auto_ptr<ServicesModule> services_;
+    std::auto_ptr<PktModule> pkt_;
     DISALLOW_COPY_AND_ASSIGN(TestAgentInit);
 };
 

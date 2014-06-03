@@ -135,6 +135,8 @@ public:
                         const Ip4Address &ip, bool is_deleted);
     void IpamNotify(IFMapNode *node);
     void VdnsNotify(IFMapNode *node);
+    void UpdateFloatingIp(VmInterface *interface, const VnEntry *vn,
+                          const Ip4Address &ip, bool op_del);
     uint16_t GetTransId();
 
     void SendDnsIpc(uint8_t *pkt);

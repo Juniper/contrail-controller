@@ -8,21 +8,11 @@ import sys
 Import('AgentEnv')
 env = AgentEnv.Clone()
 
-except_env = AgentEnv.Clone()
-cflags = except_env['CCFLAGS']
-if '-fno-exceptions' in cflags:
-    cflags.remove('-fno-exceptions')
-    except_env.Replace(CCFLAGS = cflags)
-
 except_files = [ 'cfg_vgw.cc' ]
-except_objs = []
-for except_src in except_files:
-    objname = except_src.replace('.cc', '.o')
-    obj = except_env.Object(objname, except_src)
-    except_objs.append(obj)
+except_objs = AgentEnv.BuildExceptionCcObj(env, except_files)
 
 libvgw = env.Library('libvgw',
                       except_objs +
-                         [ 'vgw.cc'])
+                      [ 'vgw.cc' ])
 
 env.SConscript('test/SConscript', exports='AgentEnv', duplicate = 0)
