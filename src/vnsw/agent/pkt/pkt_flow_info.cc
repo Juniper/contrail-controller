@@ -951,8 +951,8 @@ void PktFlowInfo::UpdateFipStatsInfo(
 	const PktControlInfo *in, const PktControlInfo *out) {
     uint32_t intf_id, r_intf_id;
     uint32_t fip, r_fip;
-    intf_id = 0;
-    r_intf_id = 0;
+    intf_id = Interface::kInvalidIndex;
+    r_intf_id = Interface::kInvalidIndex;
     fip = 0;
     r_fip = 0;
     if (fip_snat && fip_dnat) {
