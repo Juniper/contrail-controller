@@ -9,6 +9,10 @@ import java.util.Map;
 import java.util.Map.Entry;
 import java.util.SortedMap;
 import java.util.Iterator;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
 
 import org.apache.log4j.BasicConfigurator;
 import org.apache.log4j.Logger;
@@ -185,12 +189,12 @@ class VncVirtualNetworkInfo {
     }
 }
 
-public class VCenterMonitor {
-    private static Logger s_logger = Logger.getLogger(VCenterMonitor.class);
+class VCenterMonitorTask implements Runnable {
+    private static Logger s_logger = Logger.getLogger(VCenterMonitorTask.class);
     private VCenterDB vcenterDB;
     private VncDB vncDB;
     
-    public VCenterMonitor(String vcenterURL, String vcenterUsername,
+    public VCenterMonitorTask(String vcenterURL, String vcenterUsername,
             String vcenterPassword, String apiServerIpAddress, 
             int apiServerPort) throws Exception {
         vcenterDB = new VCenterDB(vcenterURL, vcenterUsername,
@@ -315,6 +319,51 @@ public class VCenterMonitor {
         }
     }
     
+    @Override
+    public void run() {
+        try {
+            syncVirtualNetworks();
+        } catch (Exception e) {
+            // TODO Auto-generated catch block
+            e.printStackTrace();
+        }
+    }
+}
+
+class ExecutorServiceShutdownThread extends Thread {
+    private static final long timeoutValue = 60;
+    private static final TimeUnit timeoutUnit = TimeUnit.SECONDS;
+    private static Logger s_logger = Logger.getLogger(ExecutorServiceShutdownThread.class);
+    private ExecutorService es;
+        
+    public ExecutorServiceShutdownThread(ExecutorService es) {
+        this.es = es;
+    }
+    
+    @Override
+    public void run() {
+        es.shutdown();
+        try {
+            if (!es.awaitTermination(timeoutValue, timeoutUnit)) {
+                es.shutdownNow();
+                if (!es.awaitTermination(timeoutValue, timeoutUnit)) {
+                    s_logger.error("ExecutorSevice: " + es + 
+                            " did NOT terminate");
+                }
+            }
+        } catch (InterruptedException e) {
+            s_logger.info("ExecutorServiceShutdownThread: " + 
+                Thread.currentThread() + " ExecutorService: " + e + 
+                " interrupted : " + e);
+        }
+        
+    }
+}
+
+public class VCenterMonitor {
+    private static ScheduledExecutorService scheduledTaskExecutor = 
+            Executors.newScheduledThreadPool(1);
+    
     public static void main(String[] args) throws Exception {
         BasicConfigurator.configure();
         final String vcenterURL = "https://10.84.24.111/sdk";
@@ -322,9 +371,13 @@ public class VCenterMonitor {
         final String vcenterPassword = "Contrail123!";
         final String apiServerAddress = "10.84.13.23";
         final int apiServerPort = 8082;
-        VCenterMonitor monitor = new VCenterMonitor(vcenterURL, 
+        // Launch the periodic VCenterMonitorTask
+        VCenterMonitorTask monitorTask = new VCenterMonitorTask(vcenterURL, 
                 vcenterUsername, vcenterPassword, apiServerAddress,
                 apiServerPort);
-        monitor.syncVirtualNetworks();
+        scheduledTaskExecutor.scheduleWithFixedDelay(monitorTask, 0, 30,
+                TimeUnit.SECONDS);
+        Runtime.getRuntime().addShutdownHook(
+                new ExecutorServiceShutdownThread(scheduledTaskExecutor));
     }
 }
