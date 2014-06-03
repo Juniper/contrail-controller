@@ -10,18 +10,7 @@ env = AgentEnv.Clone()
 
 SandeshGenFiles = env.SandeshGenCpp('kstate.sandesh')
 SandeshGenSrcs = env.ExtractCpp(SandeshGenFiles)
-
-except_env = AgentEnv.Clone()
-cflags = except_env['CCFLAGS']
-if '-fno-exceptions' in cflags:
-    cflags.remove('-fno-exceptions')
-    except_env.Replace(CCFLAGS = cflags)
-
-sandesh_objs = []
-for src in SandeshGenSrcs:                    
-    objname = src.replace('.cpp', '.o')
-    obj = except_env.Object(objname, src)
-    sandesh_objs.append(obj)
+sandesh_objs = AgentEnv.BuildExceptionCppObj(env, SandeshGenSrcs)
 
 libkstate = env.Library('kstate',
                         sandesh_objs +

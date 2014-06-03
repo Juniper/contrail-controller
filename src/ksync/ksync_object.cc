@@ -23,7 +23,6 @@
 #include "ksync_index.h"
 #include "ksync_entry.h"
 #include "ksync_object.h"
-#include "ksync_sock.h"
 #include "ksync_types.h"
 
 KSyncObject::FwdRefTree  KSyncObject::fwd_ref_tree_;
@@ -394,102 +393,6 @@ void intrusive_ptr_release(KSyncEntry *p) {
                 break;
         }
     }
-}
-
-///////////////////////////////////////////////////////////////////////////////
-// KSyncNetlinkEntry routines
-///////////////////////////////////////////////////////////////////////////////
-bool KSyncNetlinkEntry::Add() {
-    char        *msg = (char *)malloc(KSYNC_DEFAULT_MSG_SIZE);
-    int         msg_len;
-
-    Sync();
-    msg_len = AddMsg(msg, KSYNC_DEFAULT_MSG_SIZE);
-    if (msg_len == 0) {
-        free(msg);
-        return true;
-    }
-    KSyncSock   *sock = KSyncSock::Get(0);
-    sock->SendAsync(this, msg_len, msg, KSyncEntry::ADD_ACK);
-    return false;
-}
-
-bool KSyncNetlinkEntry::Change() {
-    char        *msg = (char *)malloc(KSYNC_DEFAULT_MSG_SIZE);
-    int         msg_len;
-
-    if (Sync() == false) {
-        free(msg);
-        return true;
-    }
-
-    msg_len = ChangeMsg(msg, KSYNC_DEFAULT_MSG_SIZE);
-    if (msg_len == 0) {
-        free(msg);
-        return true;
-    }
-    KSyncSock   *sock = KSyncSock::Get(0);
-    sock->SendAsync(this, msg_len, msg, KSyncEntry::CHANGE_ACK);
-    return false;
-}
-
-bool KSyncNetlinkEntry::Delete() {
-    char        *msg = (char *)malloc(KSYNC_DEFAULT_MSG_SIZE);
-    int         msg_len;
-
-    msg_len = DeleteMsg(msg, KSYNC_DEFAULT_MSG_SIZE);
-    if (msg_len == 0) {
-        free(msg);
-        return true;
-    }
-    KSyncSock   *sock = KSyncSock::Get(0);
-    sock->SendAsync(this, msg_len, msg, KSyncEntry::DEL_ACK);
-    return false;
-}
-
-///////////////////////////////////////////////////////////////////////////////
-// KSyncNetlinkDBEntry routines
-///////////////////////////////////////////////////////////////////////////////
-bool KSyncNetlinkDBEntry::Add() {
-    char        *msg = (char *)malloc(KSYNC_DEFAULT_MSG_SIZE);
-    int         msg_len;
-
-    msg_len = AddMsg(msg, KSYNC_DEFAULT_MSG_SIZE); 
-    if (msg_len == 0) {
-        free(msg);
-        return true;
-    }
-    KSyncSock   *sock = KSyncSock::Get(0);
-    sock->SendAsync(this, msg_len, msg, KSyncEntry::ADD_ACK);
-    return false;
-}
-
-bool KSyncNetlinkDBEntry::Change() {
-    char        *msg = (char *)malloc(KSYNC_DEFAULT_MSG_SIZE);
-    int         msg_len;
-
-    msg_len = ChangeMsg(msg, KSYNC_DEFAULT_MSG_SIZE);
-    if (msg_len == 0) {
-        free(msg);
-        return true;
-    }
-    KSyncSock   *sock = KSyncSock::Get(0);
-    sock->SendAsync(this, msg_len, msg, KSyncEntry::CHANGE_ACK);
-    return false;
-}
-
-bool KSyncNetlinkDBEntry::Delete() {
-    char        *msg = (char *)malloc(KSYNC_DEFAULT_MSG_SIZE);
-    int         msg_len;
-
-    msg_len = DeleteMsg(msg, KSYNC_DEFAULT_MSG_SIZE);
-    if (msg_len == 0) {
-        free(msg);
-        return true;
-    }
-    KSyncSock   *sock = KSyncSock::Get(0);
-    sock->SendAsync(this, msg_len, msg, KSyncEntry::DEL_ACK);
-    return false;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
