@@ -1834,7 +1834,7 @@ TEST_F(FlowTest, Flow_return_error) {
 //Test for subnet broadcast flow
 TEST_F(FlowTest, Subnet_broadcast_Flow) {
     IpamInfo ipam_info[] = {
-        {"11.1.1.0", 24, "11.1.1.200"},
+        {"11.1.1.0", 24, "11.1.1.200", true},
     };
     AddIPAM("vn5", ipam_info, 1);
     client->WaitForIdle();

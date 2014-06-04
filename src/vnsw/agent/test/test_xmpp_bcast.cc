@@ -485,7 +485,7 @@ protected:
 
 	//IpamInfo for subnet address belonging to vn
 	IpamInfo ipam_info[] = {
-	    {"1.1.1.0", 24, "1.1.1.200"}
+	    {"1.1.1.0", 24, "1.1.1.200", true}
 	};
 	
 	client->Reset();
@@ -1128,7 +1128,7 @@ TEST_F(AgentXmppUnitTest, Test_mcast_peer_identifier) {
                  GetXmppServer().c_str(), "127.0.0.1");
 
 	IpamInfo ipam_info[] = {
-	    {"1.1.1.0", 24, "1.1.1.200"}
+	    {"1.1.1.0", 24, "1.1.1.200", true}
 	};
 	
     AddIPAM("vn1", ipam_info, 1);
@@ -1746,7 +1746,7 @@ TEST_F(AgentXmppUnitTest, SubnetBcast_Test_sessiondown_after_ipam_del) {
                  GetXmppServer().c_str(), "127.0.0.1");
 
 	IpamInfo ipam_info[] = {
-	    {"1.1.1.0", 24, "1.1.1.200"}
+	    {"1.1.1.0", 24, "1.1.1.200", true}
 	};
 	
     AddIPAM("vn1", ipam_info, 1);
@@ -1804,7 +1804,7 @@ TEST_F(AgentXmppUnitTest, SubnetBcast_Test_sessiondown_after_vn_vrf_link_del) {
                  GetXmppServer().c_str(), "127.0.0.1");
 
 	IpamInfo ipam_info[] = {
-	    {"1.1.1.0", 24, "1.1.1.200"}
+	    {"1.1.1.0", 24, "1.1.1.200", true}
 	};
 	
     AddIPAM("vn1", ipam_info, 1);
