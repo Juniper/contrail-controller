@@ -133,7 +133,10 @@ class DiscoveryCassendraClient():
         data = self._disco_cf.get_range(column_start = col_name, column_finish = col_name)
         for service_type, clients in data:
             for col_name in clients:
-                (foo, client_id, bar) = col_name
+                (foo, client_id, service_id) = col_name
+                # skip pure client entry
+                if service_id == disc_consts.CLIENT_TAG:
+                    continue
                 yield((client_id, service_type))
     # end
 
@@ -153,7 +156,7 @@ class DiscoveryCassendraClient():
             data = [(service_type, dict(clients))]
             entry_format_subscriber = True
         elif service_type:
-            col_name = ('subscription', )
+            col_name = ('client', )
             try:
                 clients = self._disco_cf.get(service_type, column_start = col_name,
                     column_finish = col_name)
@@ -161,7 +164,7 @@ class DiscoveryCassendraClient():
                 return None
             data = [(service_type, dict(clients))]
         else:
-            col_name = ('subscription', )
+            col_name = ('client', )
             try:
                 data = self._disco_cf.get_range(column_start=col_name, column_finish=col_name)
             except pycassa.NotFoundException:
@@ -174,6 +177,9 @@ class DiscoveryCassendraClient():
                     (foo, service_id, client_id) = col_name
                 else:
                     (foo, client_id, service_id) = col_name
+                    # skip pure client entry
+                    if service_id == disc_consts.CLIENT_TAG:
+                        continue
                 entry_str = clients[col_name]
                 entry = json.loads(entry_str)
                 rr.append((service_type, client_id, service_id,
@@ -237,7 +243,7 @@ class DiscoveryCassendraClient():
     # this is actually client create :-(
     @cass_error_handler
     def insert_client_data(self, service_type, client_id, blob):
-        col_name = ('client', client_id, 'client-entry')
+        col_name = ('client', client_id, disc_consts.CLIENT_TAG)
         self._disco_cf.insert(service_type, {col_name : json.dumps(blob)})
     # end insert_client_data
 
@@ -248,34 +254,45 @@ class DiscoveryCassendraClient():
         col_name = ('subscriber', service_id, client_id)
         self._disco_cf.insert(service_type, {col_name : col_val}, 
             ttl = ttl + disc_consts.TTL_EXPIRY_DELTA)
-        col_name = ('subscription', client_id, service_id)
+        col_name = ('client', client_id, service_id)
         self._disco_cf.insert(service_type, {col_name : col_val}, 
             ttl = ttl + disc_consts.TTL_EXPIRY_DELTA)
     # end insert_client
 
     # return client (subscriber) entry
     @cass_error_handler
-    def lookup_client(self, service_type, client_id):
-        # should be only one column for a client 
+    def lookup_client(self, service_type, client_id, subs = False):
+        r = []
+        col_name = ('client', client_id, )
         try:
-            clients = self._disco_cf.get(service_type, 
-                columns = [('client', client_id, 'client-entry')])
-            data = [json.loads(val) for col, val in clients.items()]
-            return data[0]
+            subs = self._disco_cf.get(service_type, column_start = col_name,
+                column_finish = col_name)
+            # col_name = client, cliend_id, service_id
+            for col_name, col_val in subs.items():
+                foo, client_id, service_id = col_name
+                if service_id == disc_consts.CLIENT_TAG:
+                    data = json.loads(col_val)
+                    continue
+                entry = json.loads(col_val)
+                r.append((col_name[2], entry['blob']))
+            return (data, r)
         except pycassa.NotFoundException:
-            return None
+            return (None, [])
     # end lookup_client
 
     # return all subscriptions for a given client
     @cass_error_handler
     def lookup_subscription(self, service_type, client_id):
         r = []
-        col_name = ('subscription', client_id, )
+        col_name = ('client', client_id, )
         try:
             subs = self._disco_cf.get(service_type, column_start = col_name,
                 column_finish = col_name)
             # col_name = subscription, cliend_id, service_id
             for col_name, col_val in subs.items():
+                foo, client_id, bar = col_name
+                if bar == disc_consts.CLIENT_TAG:
+                    continue
                 entry = json.loads(col_val)
                 r.append((col_name[2], entry['blob']))
             return r
@@ -287,7 +304,7 @@ class DiscoveryCassendraClient():
     @cass_error_handler
     def delete_subscription(self, service_type, client_id, service_id):
         self._disco_cf.remove(service_type, 
-            columns = [('subscription', client_id, service_id)])
+            columns = [('client', client_id, service_id)])
         self._disco_cfg.remove(service_type,
             columns = [('subscriber', service_id, client_id)])
     # end
