@@ -1502,7 +1502,7 @@ class OpServer(object):
                         disc_trace.collectors = []
                         for collector in collectors:
                             self.redis_uve_list.append((collector['ip-address'], 
-                                                       6381))
+                                                       self._args.redis_server_port))
                             disc_trace.collectors.append(collector['ip-address'])
                         disc_trace.trace_msg(name='DiscoveryMsg')
                         self._uve_server.update_redis_uve_list(self.redis_uve_list)
