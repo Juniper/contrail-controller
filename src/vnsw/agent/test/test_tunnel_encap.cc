@@ -121,16 +121,14 @@ public:
 
     void AddRemoteVmRoute(TunnelType::TypeBmap l3_bmap, 
                           TunnelType::TypeBmap l2_bmap) {
-        Agent::GetInstance()->GetDefaultInet4UnicastRouteTable()->
-            AddRemoteVmRouteReq(Agent::GetInstance()->local_peer(), 
-                                vrf_name_, remote_vm_ip_, 32, server1_ip_,
-                                l3_bmap, 1000, vrf_name_,
-                                SecurityGroupList());
+        Inet4TunnelRouteAdd(Agent::GetInstance()->local_peer(), 
+                            vrf_name_, remote_vm_ip_, 32, server1_ip_,
+                            l3_bmap, 1000, vrf_name_,
+                            SecurityGroupList());
         client->WaitForIdle();
 
-        Layer2AgentRouteTable::AddRemoteVmRouteReq(
-            Agent::GetInstance()->local_peer(), vrf_name_,
-            l2_bmap, server1_ip_, 2000, *remote_vm_mac_, remote_vm_ip_, 32);
+        Layer2TunnelRouteAdd(Agent::GetInstance()->local_peer(), vrf_name_,
+                             l2_bmap, server1_ip_, 2000, *remote_vm_mac_, remote_vm_ip_, 32);
         client->WaitForIdle();
 
         TunnelOlist olist_map;
@@ -153,11 +151,11 @@ public:
     void DeleteRemoteVmRoute() {
         Agent::GetInstance()->GetDefaultInet4UnicastRouteTable()->
             DeleteReq(Agent::GetInstance()->local_peer(), vrf_name_,
-                      remote_vm_ip_, 32);
+                      remote_vm_ip_, 32, NULL);
         client->WaitForIdle();
         Layer2AgentRouteTable::DeleteReq(Agent::GetInstance()->local_peer(), 
                                          vrf_name_,
-                                         *remote_vm_mac_);
+                                         *remote_vm_mac_, NULL);
         client->WaitForIdle();
     }
 

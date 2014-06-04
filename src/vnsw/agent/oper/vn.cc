@@ -692,7 +692,7 @@ void VnTable::DelHostRouteForGw(VnEntry *vn, const VnIpam &ipam) {
     static_cast<Inet4UnicastAgentRouteTable *>
         (vrf->GetInet4UnicastRouteTable())->DeleteReq
         (Agent::GetInstance()->local_peer(), vrf->GetName(),
-         ipam.default_gw, 32);
+         ipam.default_gw, 32, NULL);
 }
 
 void VnTable::AddSubnetRoute(VnEntry *vn, VnIpam &ipam) {
@@ -709,7 +709,7 @@ void VnTable::DelSubnetRoute(VnEntry *vn, VnIpam &ipam) {
     static_cast<Inet4UnicastAgentRouteTable *>(vrf->
         GetInet4UnicastRouteTable())->DeleteReq
         (Agent::GetInstance()->local_peer(), vrf->GetName(),
-         ipam.GetSubnetAddress(), ipam.plen);
+         ipam.GetSubnetAddress(), ipam.plen, NULL);
 }
 
 bool VnEntry::DBEntrySandesh(Sandesh *sresp, std::string &name)  const {
