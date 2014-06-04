@@ -65,6 +65,8 @@ class StatQuerier(object):
         parser.add_argument(
             "--table", help="StatTable to query", choices=STAT_TABLE_LIST)
         parser.add_argument(
+            "--dtable", help="Dynamic StatTable to query")
+        parser.add_argument(
             "--select", help="List of Select Terms", nargs='+')
         parser.add_argument(
             "--where", help="List of Where Terms to be ANDed", nargs='+')
@@ -72,7 +74,7 @@ class StatQuerier(object):
             "--sort", help="List of Sort Terms", nargs='+')
         self._args = parser.parse_args()
 
-        if self._args.table is None:
+        if self._args.table is None and self._args.dtable is None:
             return -1
 
         if self._args.last is not None:
@@ -101,13 +103,18 @@ class StatQuerier(object):
     # end parse_args
 
     # Public functions
-    def query(self,schema):
+    def query(self):
         query_url = OpServerUtils.opserver_query_url(
             self._args.opserver_ip,
             self._args.opserver_port)
-        
+
+        if self._args.dtable is not None:
+            rtable = self._args.dtable
+        else:
+            rtable = self._args.table
+ 
         query_dict = OpServerUtils.get_query_dict(
-                "StatTable." + self._args.table, str(self._start_time), str(self._end_time),
+                "StatTable." + rtable, str(self._start_time), str(self._end_time),
                 select_fields = self._args.select,
                 where_clause = "AND".join(self._args.where),
                 sort_fields = self._args.sort)
@@ -139,20 +146,23 @@ def main():
     if querier.parse_args() != 0:
         return
 
-    tab_url = "http://" + querier._args.opserver_ip + ":" + querier._args.opserver_port +\
-        "/analytics/table/StatTable." + querier._args.table
-    schematxt = OpServerUtils.get_url_http(tab_url + "/schema")
-    schema = json.loads(schematxt.text)['columns']
-    if len(querier._args.select)==0: 
+
+    if len(querier._args.select)==0 and querier._args.dtable is None: 
+        tab_url = "http://" + querier._args.opserver_ip + ":" +\
+            querier._args.opserver_port +\
+            "/analytics/table/StatTable." + querier._args.table
+        schematxt = OpServerUtils.get_url_http(tab_url + "/schema")
+        schema = json.loads(schematxt.text)['columns']
         for pp in schema:
             if pp['index']:
                 valuetxt = OpServerUtils.get_url_http(tab_url + "/column-values/" + pp['name'])
                 print "%s : %s %s" % (pp['name'],pp['datatype'], valuetxt.text)
             else:
                 print "%s : %s" % (pp['name'],pp['datatype'])
-    else:
-        result = querier.query(schema)
-        querier.display(result)
+        return
+
+    result = querier.query()
+    querier.display(result)
 # end main
 
 if __name__ == "__main__":

@@ -100,12 +100,12 @@ const string FLOW_TABLE_VROUTER     = "FlowTableVRouterVer2"
 const string FLOW_SERIES_TABLE      = "FlowSeriesTable"
 const string FLOW_TABLE_INVALID     = "Invalid Flow Table"
 
-const string STATS_TABLE_BY_STR_STR_TAG     = "StatsTableByStrStrTag"
-const string STATS_TABLE_BY_STR_U64_TAG     = "StatsTableByStrU64Tag"
-const string STATS_TABLE_BY_STR_DBL_TAG     = "StatsTableByStrDblTag"
-const string STATS_TABLE_BY_U64_STR_TAG     = "StatsTableByU64StrTag"
-const string STATS_TABLE_BY_U64_U64_TAG     = "StatsTableByU64U64Tag"
-const string STATS_TABLE_BY_DBL_STR_TAG     = "StatsTableByDblStrTag"
+const string STATS_TABLE_BY_STR_STR_TAG     = "StatsTableByStrStrTagV2"
+const string STATS_TABLE_BY_STR_U64_TAG     = "StatsTableByStrU64TagV2"
+const string STATS_TABLE_BY_STR_DBL_TAG     = "StatsTableByStrDblTagV2"
+const string STATS_TABLE_BY_U64_STR_TAG     = "StatsTableByU64StrTagV2"
+const string STATS_TABLE_BY_U64_U64_TAG     = "StatsTableByU64U64TagV2"
+const string STATS_TABLE_BY_DBL_STR_TAG     = "StatsTableByDblStrTagV2"
 
 // Please keep FlowRecordFields and FlowRecordNames in sync
 enum FlowRecordFields {

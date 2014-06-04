@@ -35,6 +35,7 @@
         }                                                                      \
     } while (false)
 
+using std::pair;
 using std::string;
 using boost::system::error_code;
 using namespace pugi;
@@ -534,25 +535,35 @@ void DbHandler::StatTableInsert(uint64_t ts,
     rapidjson::Document dd;
     dd.SetObject();
 
+    AttribMap attribs_buf;
     for (AttribMap::const_iterator it = attribs.begin();
             it != attribs.end(); it++) {
         switch (it->second.type) {
             case STRING: {
                     rapidjson::Value val(rapidjson::kStringType);
+                    std::string nm = it->first + std::string("|s");
+                    pair<AttribMap::iterator,bool> rt = 
+                        attribs_buf.insert(make_pair(nm, it->second));
                     val.SetString(it->second.str.c_str());
-                    dd.AddMember(it->first.c_str(), val, dd.GetAllocator());
+                    dd.AddMember(rt.first->first.c_str(), val, dd.GetAllocator());
                 }
                 break;
             case UINT64: {
                     rapidjson::Value val(rapidjson::kNumberType);
+                    std::string nm = it->first + std::string("|n");
+                    pair<AttribMap::iterator,bool> rt = 
+                        attribs_buf.insert(make_pair(nm, it->second));
                     val.SetUint64(it->second.num);
-                    dd.AddMember(it->first.c_str(), val, dd.GetAllocator());
+                    dd.AddMember(rt.first->first.c_str(), val, dd.GetAllocator());
                 }
                 break;
             case DOUBLE: {
                     rapidjson::Value val(rapidjson::kNumberType);
+                    std::string nm = it->first + std::string("|d");
+                    pair<AttribMap::iterator,bool> rt = 
+                        attribs_buf.insert(make_pair(nm, it->second));
                     val.SetDouble(it->second.dbl);
-                    dd.AddMember(it->first.c_str(), val, dd.GetAllocator());                    
+                    dd.AddMember(rt.first->first.c_str(), val, dd.GetAllocator());
                 }
                 break;                
             default:
