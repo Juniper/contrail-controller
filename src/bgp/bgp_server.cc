@@ -199,7 +199,7 @@ bool BgpServer::IsReadyForDeletion() {
 }
 
 BgpServer::BgpServer(EventManager *evm)
-    : autonomous_system_(0), bgp_identifier_(0),
+    : autonomous_system_(0), bgp_identifier_(0), hold_time_(0),
       lifetime_manager_(new LifetimeManager(
           TaskScheduler::GetInstance()->GetTaskId("bgp::Config"),
           boost::bind(&BgpServer::IsReadyForDeletion, this))),
