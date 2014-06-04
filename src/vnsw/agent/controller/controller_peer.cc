@@ -8,7 +8,6 @@
 #include <sandesh/sandesh.h>
 #include <sandesh/sandesh_types.h>
 #include "cmn/agent_cmn.h"
-#include "cmn/agent_stats.h"
 #include "controller/controller_peer.h"
 #include "controller/controller_ifmap.h"
 #include "controller/controller_vrf_export.h"
@@ -19,6 +18,7 @@
 #include "oper/multicast.h"
 #include "oper/peer.h"
 #include "oper/vxlan.h"
+#include "pkt/agent_stats.h"
 #include <pugixml/pugixml.hpp>
 #include "xml/xml_pugi.h"
 #include "xmpp/xmpp_init.h"
@@ -82,7 +82,9 @@ void AgentXmppChannel::DeCommissionBgpPeer() {
 
 bool AgentXmppChannel::SendUpdate(uint8_t *msg, size_t size) {
 
-    agent_->stats()->incr_xmpp_out_msgs(xs_idx_);
+    if (agent_->stats())
+        agent_->stats()->incr_xmpp_out_msgs(xs_idx_);
+
     return channel_->Send(msg, size, xmps::BGP,
                           boost::bind(&AgentXmppChannel::WriteReadyCb, this, _1));
 }
@@ -586,7 +588,8 @@ void AgentXmppChannel::AddRoute(string vrf_name, Ip4Address prefix_addr,
 
 void AgentXmppChannel::ReceiveUpdate(const XmppStanza::XmppMessage *msg) {
     
-    agent_->stats()->incr_xmpp_in_msgs(xs_idx_);
+    if (agent_->stats())
+        agent_->stats()->incr_xmpp_in_msgs(xs_idx_);
     if (msg && msg->type == XmppStanza::MESSAGE_STANZA) {
       
         XmlBase *impl = msg->dom.get();
@@ -1000,7 +1003,8 @@ void AgentXmppChannel::HandleAgentXmppClientChannelEvent(AgentXmppChannel *peer,
         // channels were down for config and unicast so nothing to do. Multicast
         // handling remains same as of headless.
 
-        agent->stats()->incr_xmpp_reconnects(peer->GetXmppServerIdx());
+        if (agent->stats())
+            agent->stats()->incr_xmpp_reconnects(peer->GetXmppServerIdx());
     } else {
         //Ignore duplicate not-ready messages
         if (peer->bgp_peer_id() == NULL)

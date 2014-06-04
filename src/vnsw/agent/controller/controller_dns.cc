@@ -9,8 +9,10 @@
 #include "cmn/agent_cmn.h"
 #include "pugixml/pugixml.hpp"
 #include "xml/xml_pugi.h"
-#include "services/dns_proto.h"
 #include "bind/xmpp_dns_agent.h"
+
+AgentDnsXmppChannel::DnsMessageHandler AgentDnsXmppChannel::dns_message_handler_cb_;
+AgentDnsXmppChannel::DnsXmppEventHandler AgentDnsXmppChannel::dns_xmpp_event_handler_cb_;
 
 AgentDnsXmppChannel::AgentDnsXmppChannel(Agent *agent, XmppChannel *channel, 
       std::string xmpp_server, uint8_t xs_idx) 
@@ -47,8 +49,8 @@ void AgentDnsXmppChannel::ReceiveMsg(const XmppStanza::XmppMessage *msg) {
         std::auto_ptr<DnsUpdateData> xmpp_data(new DnsUpdateData);
         if (DnsAgentXmpp::DnsAgentXmppDecode(node, xmpp_type, xid, 
                                              code, xmpp_data.get())) {
-            agent_->GetDnsProto()->SendDnsUpdateIpc(
-                                  xmpp_data.release(), xmpp_type, NULL, false);
+            dns_message_handler_cb_(xmpp_data.release(), xmpp_type, NULL,
+                                    false);
         }
     }
 }
@@ -72,7 +74,7 @@ void AgentDnsXmppChannel::HandleXmppClientChannelEvent(AgentDnsXmppChannel *peer
     if (state == xmps::READY) {
         if (agent->GetXmppDnsCfgServerIdx() == -1)
             agent->SetXmppDnsCfgServer(peer->xs_idx_);
-        agent->GetDnsProto()->SendDnsUpdateIpc(peer);
+        peer->dns_xmpp_event_handler_cb_(peer);
     } else {
         if (agent->GetXmppDnsCfgServerIdx() == peer->xs_idx_) {
             agent->SetXmppDnsCfgServer(-1);
@@ -83,4 +85,12 @@ void AgentDnsXmppChannel::HandleXmppClientChannelEvent(AgentDnsXmppChannel *peer
                 agent->SetXmppDnsCfgServer(o_idx);
         }
     }
+}
+
+void AgentDnsXmppChannel::set_dns_message_handler_cb(DnsMessageHandler cb) {
+    dns_message_handler_cb_ = cb;
+}
+
+void AgentDnsXmppChannel::set_dns_xmpp_event_handler_cb(DnsXmppEventHandler cb){
+    dns_xmpp_event_handler_cb_ = cb;
 }

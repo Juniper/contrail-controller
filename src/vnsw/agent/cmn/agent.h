@@ -596,11 +596,11 @@ private:
     std::auto_ptr<AgentStats> stats_;
     std::auto_ptr<KSync> ksync_;
     std::auto_ptr<AgentUve> uve_;
-    std::auto_ptr<PktModule> pkt_;
-    std::auto_ptr<ServicesModule> services_;
+    PktModule *pkt_;
+    ServicesModule *services_;
     std::auto_ptr<VirtualGateway> vgw_;
     std::auto_ptr<OperDB> oper_db_;
-    std::auto_ptr<DiagTable> diag_table_;
+    DiagTable *diag_table_;
     std::auto_ptr<VNController> controller_;
 
     EventManager *event_mgr_;

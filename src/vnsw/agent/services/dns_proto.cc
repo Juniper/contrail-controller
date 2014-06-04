@@ -9,6 +9,7 @@
 #include "ifmap/ifmap_link.h"
 #include "ifmap/ifmap_table.h"
 #include "pkt/pkt_init.h"
+#include "controller/controller_dns.h"
 
 void DnsProto::Shutdown() {
     BindResolver::Shutdown();
@@ -37,6 +38,13 @@ DnsProto::DnsProto(Agent *agent, boost::asio::io_service &io) :
                   boost::bind(&DnsProto::IpamNotify, this, _1));
     agent->GetDomainConfigTable()->RegisterVdnsCb(
                   boost::bind(&DnsProto::VdnsNotify, this, _1));
+    agent->GetInterfaceTable()->set_update_floatingip_cb
+        (boost::bind(&DnsProto::UpdateFloatingIp, this, _1, _2, _3, _4));
+
+    AgentDnsXmppChannel::set_dns_message_handler_cb
+        (boost::bind(&DnsProto::SendDnsUpdateIpc, this, _1, _2, _3, _4));
+    AgentDnsXmppChannel::set_dns_xmpp_event_handler_cb
+        (boost::bind(&DnsProto::SendDnsUpdateIpc, this, _1));
 }
 
 DnsProto::~DnsProto() {
@@ -148,6 +156,11 @@ void DnsProto::ProcessNotify(std::string name, bool is_deleted, bool is_ipam) {
                            fip->floating_ip_, vdns_name, domain, ttl, true);
         }
     }
+}
+
+void DnsProto::UpdateFloatingIp(VmInterface *interface, const VnEntry *vn,
+                                const Ip4Address &ip, bool op_del) {
+    UpdateDnsEntry(interface, vn, ip, op_del);
 }
 
 void DnsProto::CheckForUpdate(IpVdnsMap &ipvdns, const VmInterface *vmitf,

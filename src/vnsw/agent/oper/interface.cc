@@ -299,6 +299,15 @@ uint32_t Interface::vrf_id() const {
     return vrf_->vrf_id();
 }
 
+void InterfaceTable::set_update_floatingip_cb(UpdateFloatingIpFn fn) {
+    update_floatingip_cb_ = fn;
+}
+
+const InterfaceTable::UpdateFloatingIpFn &InterfaceTable::update_floatingip_cb()
+    const { 
+    return update_floatingip_cb_;
+}
+
 /////////////////////////////////////////////////////////////////////////////
 // Pkt Interface routines
 /////////////////////////////////////////////////////////////////////////////

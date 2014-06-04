@@ -26,7 +26,6 @@
 
 #include <cmn/agent_cmn.h>
 #include <cmn/agent_factory.h>
-#include <cmn/agent_stats.h>
 #include <cfg/cfg_init.h>
 #include <cfg/cfg_mirror.h>
 #include <cfg/discovery_agent.h>
@@ -46,6 +45,7 @@
 #include <kstate/kstate.h>
 #include <pkt/proto.h>
 #include <pkt/proto_handler.h>
+#include <pkt/agent_stats.h>
 #include <diag/diag.h>
 #include <vgw/cfg_vgw.h>
 #include <vgw/vgw.h>
@@ -131,10 +131,12 @@ void TestAgentInit::CreateModules() {
     agent_->set_uve(AgentObjectFactory::Create<AgentUve>(
                     agent_, AgentUve::kBandwidthInterval));
     agent_->set_ksync(AgentObjectFactory::Create<KSync>(agent_));
-    agent_->set_pkt(new PktModule(agent_));
+    pkt_.reset(new PktModule(agent_));
+    agent_->set_pkt(pkt_.get());
 
-    agent_->set_services(new ServicesModule(agent_,
-                                            params_->metadata_shared_secret()));
+    services_.reset(new ServicesModule(agent_,
+                                       params_->metadata_shared_secret()));
+    agent_->set_services(services_.get());
     if (vgw_enable_) {
         agent_->set_vgw(new VirtualGateway(agent_));
     }
@@ -270,7 +272,8 @@ void TestAgentInit::InitDone() {
 
     // Diag module needs PktModule
     if (agent_->pkt()) {
-        agent_->set_diag_table(new DiagTable(agent_));
+        diag_table_.reset(new DiagTable(agent_));
+        agent_->set_diag_table(diag_table_.get());
     }
 
     if (create_vhost_) {
