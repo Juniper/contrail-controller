@@ -162,6 +162,7 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
     <xsd:all>
         <xsd:element name="match-condition" type="MatchConditionType"/>
         <xsd:element name="action-list" type="ActionListType"/>
+        <xsd:element name="rule-uuid" type="xsd:string"/>
     </xsd:all>
 </xsd:complexType>
 
