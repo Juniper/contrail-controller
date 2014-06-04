@@ -167,7 +167,7 @@ void DelPort(const char *name);
 void AddAcl(const char *name, int id);
 void AddAcl(const char *name, int id, const char *src_vn, const char *dest_vn,
             const char *action);
-void AddSg(const char *name, int id);
+void AddSg(const char *name, int id, int sg_id = 1);
 void DelOperDBAcl(int id);
 void AddFloatingIp(const char *name, int id, const char *addr);
 void DelFloatingIp(const char *name);
