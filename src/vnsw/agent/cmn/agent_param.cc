@@ -375,7 +375,7 @@ void AgentParam::ParseFlows() {
 }
 
 void AgentParam::ParseHeadlessMode() {
-    if (!GetValueFromTree<bool>(headless_mode_, "DEFAULT.headless")) {
+    if (!GetValueFromTree<bool>(headless_mode_, "DEFAULT.headless_mode")) {
         headless_mode_ = false;
     }
 }
