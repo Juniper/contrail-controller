@@ -98,7 +98,7 @@ public:
     virtual Agent::RouteTableType GetRouteTableType() {
        return Agent::INET4_MULTICAST;
     }
-    virtual string ToString() const { return ("Inet4MulticastRouteKey"); }
+    virtual string ToString() const;
 
     const Ip4Address &dest_ip_addr() const {return dip_;}
     const Ip4Address &src_ip_addr() const {return sip_;}

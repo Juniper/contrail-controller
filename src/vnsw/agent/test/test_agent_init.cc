@@ -59,7 +59,7 @@ void TestAgentInit::DeleteRoutes() {
         agent_->GetDefaultInet4UnicastRouteTable();
 
     uc_rt_table->DeleteReq(agent_->local_peer(), agent_->GetDefaultVrf(),
-                           agent_->GetGatewayId(), 32);
+                           agent_->GetGatewayId(), 32, NULL);
 }
 
 void TestAgentInit::DeleteNextHops() {
