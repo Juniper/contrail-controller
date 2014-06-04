@@ -42,6 +42,7 @@ public:
 
     MetadataProxy(ServicesModule *module, const std::string &secret);
     virtual ~MetadataProxy();
+    void CloseSessions();
     void Shutdown();
 
     void HandleMetadataRequest(HttpSession *session, const HttpRequest *request);

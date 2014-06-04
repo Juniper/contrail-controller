@@ -77,6 +77,19 @@ MetadataProxy::MetadataProxy(ServicesModule *module,
 MetadataProxy::~MetadataProxy() {
 }
 
+void MetadataProxy::CloseSessions() {
+    for (SessionMap::iterator it = metadata_sessions_.begin();
+         it != metadata_sessions_.end(); ) {
+        SessionMap::iterator next = ++it;
+        CloseClientSession(it->second.conn);
+        CloseServerSession(it->first);
+        it = next;
+    }
+
+    assert(metadata_sessions_.empty());
+    assert(metadata_proxy_sessions_.empty());
+}
+
 void
 MetadataProxy::Shutdown() {
     http_server_->Shutdown();

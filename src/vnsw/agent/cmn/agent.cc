@@ -296,26 +296,6 @@ void Agent::InitXenLinkLocalIntf() {
                           params_->xen_ll_gw(), link_local_vrf_name_);
 }
 
-void Agent::CreateDBTables() {
-    if (cfg_.get()) {
-        cfg_.get()->CreateDBTables(db_);
-    }
-
-    if (oper_db_.get()) {
-        oper_db_.get()->CreateDBTables(db_);
-    }
-}
-
-void Agent::CreateDBClients() {
-    if (cfg_.get()) {
-        cfg_.get()->RegisterDBClients(db_);
-    }
-
-    if (oper_db_.get()) {
-        oper_db_.get()->CreateDBClients();
-    }
-}
-
 void Agent::InitPeers() {
     // Create peer entries
     local_peer_.reset(new Peer(Peer::LOCAL_PEER, LOCAL_PEER_NAME));
@@ -323,16 +303,6 @@ void Agent::InitPeers() {
     linklocal_peer_.reset(new Peer(Peer::LINKLOCAL_PEER, LINKLOCAL_PEER_NAME));
     ecmp_peer_.reset(new Peer(Peer::ECMP_PEER, ECMP_PEER_NAME));
     vgw_peer_.reset(new Peer(Peer::VGW_PEER, VGW_PEER_NAME));
-}
-
-void Agent::InitModules() {
-    if (cfg_.get()) {
-        cfg_.get()->Init();
-    }
-
-    if (oper_db_.get()) {
-        oper_db_.get()->Init();
-    }
 }
 
 Agent::Agent() :

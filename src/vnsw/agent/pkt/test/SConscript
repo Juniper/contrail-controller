@@ -12,15 +12,15 @@ AgentEnv.MakeTestEnv(env)
 pkt_test_suite = []
 
 test_pkt = AgentEnv.MakeTestCmd(env, 'test_pkt', pkt_test_suite)
-test_pkt_flow_mock = AgentEnv.MakeTestCmd(env, 'test_pkt_flow_mock',
-                                          pkt_test_suite)
-
-test_pkt_flow = AgentEnv.MakeTestCmdSrc(env, 'test_pkt_flow', 
-                                        [
-                                         'test_pkt_flow.cc',
-                                         'test_pkt_util.cc'
-                                        ],
-                                        pkt_test_suite)
+#test_pkt_flow_mock = AgentEnv.MakeTestCmd(env, 'test_pkt_flow_mock',
+#                                          pkt_test_suite)
+#
+#test_pkt_flow = AgentEnv.MakeTestCmdSrc(env, 'test_pkt_flow', 
+#                                        [
+#                                         'test_pkt_flow.cc',
+#                                         'test_pkt_util.cc'
+#                                        ],
+#                                        pkt_test_suite)
 
 test_rpf_flow = AgentEnv.MakeTestCmdSrc(env, 'test_rpf_flow',
                                         [
@@ -29,12 +29,12 @@ test_rpf_flow = AgentEnv.MakeTestCmdSrc(env, 'test_rpf_flow',
                                         ],
                                         pkt_test_suite)
 
-test_pkt_parse = AgentEnv.MakeTestCmdSrc(env, 'test_pkt_parse',
-                                         [
-                                          'test_pkt_parse.cc',
-                                          'test_pkt_util.cc'
-                                         ],
-                                         pkt_test_suite)
+#test_pkt_parse = AgentEnv.MakeTestCmdSrc(env, 'test_pkt_parse',
+#                                         [
+#                                          'test_pkt_parse.cc',
+#                                          'test_pkt_util.cc'
+#                                         ],
+#                                         pkt_test_suite)
 
 test_flowtable = AgentEnv.MakeTestCmdSrc(env, 'test_flowtable',
                                          [
@@ -43,14 +43,14 @@ test_flowtable = AgentEnv.MakeTestCmdSrc(env, 'test_flowtable',
                                          ],
                                          pkt_test_suite)
 
-test_pkt_fip = AgentEnv.MakeTestCmdSrc(env, 'test_pkt_fip',
-                                       ['test_pkt_fip.cc', 'test_pkt_util.cc'],
-                                       pkt_test_suite)
+#test_pkt_fip = AgentEnv.MakeTestCmdSrc(env, 'test_pkt_fip',
+#                                       ['test_pkt_fip.cc', 'test_pkt_util.cc'],
+#                                       pkt_test_suite)
 
-test_ecmp = AgentEnv.MakeTestCmdSrc(env, 'test_ecmp',
-                                    ['test_ecmp.cc', 'test_pkt_util.cc'],
-                                    pkt_test_suite)
-
+#test_ecmp = AgentEnv.MakeTestCmdSrc(env, 'test_ecmp',
+#                                    ['test_ecmp.cc', 'test_pkt_util.cc'],
+#                                    pkt_test_suite)
+#
 test_flow_scale = AgentEnv.MakeTestCmdSrc(env, 'test_flow_scale', 
                                           [
                                            'test_flow_scale.cc',

@@ -85,11 +85,13 @@ void ContrailAgentInit::CreateModules() {
 }
 
 void ContrailAgentInit::CreateDBTables() {
-    agent_->CreateDBTables();
+    agent_->cfg()->CreateDBTables(agent_->GetDB());
+    agent_->oper_db()->CreateDBTables(agent_->GetDB());
 }
 
-void ContrailAgentInit::CreateDBClients() {
-    agent_->CreateDBClients();
+void ContrailAgentInit::RegisterDBClients() {
+    agent_->cfg()->RegisterDBClients(agent_->GetDB());
+    agent_->oper_db()->RegisterDBClients();
     agent_->uve()->RegisterDBClients();
     agent_->ksync()->RegisterDBClients(agent_->GetDB());
     agent_->vgw()->RegisterDBClients();
@@ -100,7 +102,8 @@ void ContrailAgentInit::InitPeers() {
 }
 
 void ContrailAgentInit::InitModules() {
-    agent_->InitModules();
+    agent_->cfg()->Init();
+    agent_->oper_db()->Init();
     agent_->ksync()->Init(true);
     agent_->pkt()->Init(true);
     agent_->services()->Init(true);
@@ -201,7 +204,7 @@ bool ContrailAgentInit::Run() {
     InitPeers();
     CreateModules();
     CreateDBTables();
-    CreateDBClients();
+    RegisterDBClients();
     InitModules();
     CreateVrf();
     CreateNextHops();

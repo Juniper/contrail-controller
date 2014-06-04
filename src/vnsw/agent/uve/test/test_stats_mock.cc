@@ -719,6 +719,7 @@ int main(int argc, char *argv[]) {
     Agent::GetInstance()->GetEventManager()->Shutdown();
     AsioStop();
     cout << "Return test result:" << ret << endl;
+    TaskScheduler::GetInstance()->Terminate();
     return ret;
 }
 

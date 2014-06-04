@@ -59,10 +59,13 @@ PktHandler::PktHandler(Agent *agent, const std::string &if_name,
 }
 
 PktHandler::~PktHandler() {
-    tap_interface_->Shutdown();
 }
 
 void PktHandler::Init() {
+}
+
+void PktHandler::IoShutdown() {
+    tap_interface_->IoShutdown();
 }
 
 void PktHandler::Shutdown() {

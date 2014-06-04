@@ -26,7 +26,7 @@ public:
     void InitCollector();
     void CreateModules();
     void CreateDBTables();
-    void CreateDBClients();
+    void RegisterDBClients();
     void InitModules();
     void InitPeers();
     void CreateVrf();

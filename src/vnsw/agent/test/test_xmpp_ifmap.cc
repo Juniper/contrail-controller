@@ -357,7 +357,11 @@ int main(int argc, char **argv) {
     Agent::GetInstance()->SetXmppServer("127.0.0.1", 0);
     Agent::GetInstance()->set_headless_agent_mode(HEADLESS_MODE);
 
-    return RUN_ALL_TESTS();
+    int ret = RUN_ALL_TESTS();
+    client->WaitForIdle();
+    TestShutdown();
+    delete client;
+    return ret;
 }
 
 

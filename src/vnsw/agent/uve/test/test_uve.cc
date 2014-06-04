@@ -461,7 +461,6 @@ TEST_F(UveTest, SandeshTest) {
 }
 
 int main(int argc, char **argv) {
-    int ret;
     GETUSERARGS();
     client = TestInit(init_file, ksync_init, true, false);
     UveTest::TestSetup(vrf_array, 2);
@@ -470,6 +469,6 @@ int main(int argc, char **argv) {
     UveTest::TestTearDown();
     Agent::GetInstance()->GetEventManager()->Shutdown();
     AsioStop();
-
+    TaskScheduler::GetInstance()->Terminate();
     return ret;
 }

@@ -19,9 +19,10 @@ public:
     virtual ~OperDB();
 
     void CreateDBTables(DB *);
-    void CreateDBClients();
+    void RegisterDBClients();
     void Init();
     void CreateDefaultVrf();
+    void DeleteRoutes();
     void Shutdown();
 
     Agent *agent() const { return agent_; }

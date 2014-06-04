@@ -1219,5 +1219,9 @@ int main(int argc, char *argv[]) {
     RouteTest::SetTunnelType(TunnelType::MPLS_GRE);
     int ret = RUN_ALL_TESTS();
     RouteTest::SetTunnelType(TunnelType::MPLS_UDP);
-    return ret + RUN_ALL_TESTS();
+    ret += RUN_ALL_TESTS();
+    client->WaitForIdle();
+    TestShutdown();
+    delete client;
+    return ret;
 }

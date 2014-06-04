@@ -171,6 +171,7 @@ public:
 
     void Init();
     void Shutdown();
+    void IoShutdown();
     void CreateInterfaces(const std::string &if_name);
 
     void Register(PktModuleName type, RcvQueueFunc cb);

@@ -19,6 +19,7 @@
 #include <oper/vrf.h>
 #include <oper/peer.h>
 #include <oper/mirror_table.h>
+#include <oper/agent_route_walker.h>
 #include <controller/controller_init.h>
 #include <controller/controller_vrf_export.h>
 #include <oper/agent_sandesh.h>
@@ -496,3 +497,76 @@ void VrfListReq::HandleRequest() const {
     sand->DoSandesh();
 }
 
+class RouteDeleteWalker : public AgentRouteWalker {
+public:
+    RouteDeleteWalker(Agent *agent) : 
+        AgentRouteWalker(agent, AgentRouteWalker::ALL) {
+    }
+
+    ~RouteDeleteWalker() { }
+
+    //Override route notification
+    bool RouteWalkNotify(DBTablePartBase *partition, DBEntryBase *e) {
+        AgentRoute *rt = static_cast<AgentRoute *>(e); 
+        for(Route::PathList::const_iterator it = rt->GetPathList().begin();
+            it != rt->GetPathList().end(); ) {
+            Route::PathList::const_iterator next = ++it;
+            const AgentPath *path =
+                static_cast<const AgentPath *>(it.operator->());
+
+            DBRequest req(DBRequest::DB_ENTRY_DELETE);
+            req.key = e->GetDBRequestKey();
+            AgentRouteKey *key = static_cast<AgentRouteKey *>(req.key.get());
+            key->peer_ = path->peer();
+            (static_cast<AgentRouteTable *>(e->get_table()))->Process(req);
+            it = next;
+        }
+
+        return true;
+    }
+
+    void WalkDone() { }
+};
+
+void VrfTable::DeleteRoutes() {
+    assert(shutdown_walk_ == NULL);
+    RouteDeleteWalker *walker = new RouteDeleteWalker(agent());
+    shutdown_walk_ = walker;
+    walker->WalkDoneCallback
+        (boost::bind(&RouteDeleteWalker::WalkDone, walker));
+    walker->StartVrfWalk();
+}
+
+class VrfDeleteWalker : public AgentRouteWalker {
+public:
+    VrfDeleteWalker(Agent *agent) : 
+        AgentRouteWalker(agent, AgentRouteWalker::ALL) {
+    }
+
+    ~VrfDeleteWalker() { }
+
+    //Override vrf notification
+    bool VrfWalkNotify(DBTablePartBase *partition, DBEntryBase *e) {
+        DBRequest req(DBRequest::DB_ENTRY_DELETE);
+        req.key = e->GetDBRequestKey();
+        (static_cast<VrfTable *>(e->get_table()))->Process(req);
+        return true;
+    }
+
+    //Override route notification
+    bool RouteWalkNotify(DBTablePartBase *partition, DBEntryBase *e) {
+        assert(0);
+    }
+
+    void WalkDone() { }
+
+private:
+};
+
+void VrfTable::Shutdown() {
+    delete shutdown_walk_;
+    VrfDeleteWalker *walker = new VrfDeleteWalker(agent());
+    shutdown_walk_ = walker;
+    walker->WalkDoneCallback (boost::bind(&VrfDeleteWalker::WalkDone, walker));
+    walker->StartVrfWalk();
+}

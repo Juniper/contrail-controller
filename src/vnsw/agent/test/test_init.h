@@ -144,10 +144,9 @@ struct TestIp4Prefix {
     int plen_;
 };
 
-class AgentTestInit;
 class TestClient {
 public:
-    TestClient() { 
+    TestClient(Agent *agent) : agent_(agent), param_(agent) {
         vn_notify_ = 0;
         vm_notify_ = 0;
         port_notify_ = 0;
@@ -550,11 +549,14 @@ public:
         Agent::GetInstance()->GetMplsTable()->Register(boost::bind(&TestClient::MplsNotify, 
                                                    this, _1, _2));
     };
-    void set_init(AgentTestInit *init) { init_ = init; }
-    AgentTestInit *init() const { return init_; }
-
-    TestAgentInit *agent_init() { return agent_init_; }
-    void set_agent_init(TestAgentInit *init) {agent_init_ = init;}
+    TestAgentInit *agent_init() { return &agent_init_; }
+    AgentParam *param() { return &param_; }
+    Agent *agent() { return agent_; }
+    void set_agent(Agent *agent) { agent_ = agent; }
+    void delete_agent() {
+        delete agent_;
+        agent_ = NULL;
+    }
 
     void Shutdown();
 
@@ -574,54 +576,9 @@ public:
     int nh_notify_;
     int mpls_notify_;
     std::vector<const NextHop *> comp_nh_list_;
-    TestAgentInit *agent_init_;
-    AgentTestInit *init_;
-};
-
-class AgentTestInit {
-public:
-    AgentTestInit(TestClient *client) : param_(Agent::GetInstance()), client_(client) { }
-    ~AgentTestInit() {
-        for (std::vector<TaskTrigger *>::iterator it = list_.begin();
-             it != list_.end(); ++it) {
-            (*it)->Reset();
-            delete *it;
-        }
-    }
-
-    bool Run();
-    void TriggerShutdown() {
-        shutdown_done_ = false;
-        trigger_ = new TaskTrigger
-            (boost::bind(&AgentTestInit::Shutdown, this), 
-             TaskScheduler::GetInstance()->GetTaskId("db::DBTable"), 0);
-        list_.push_back(trigger_);
-        trigger_->Set();
-        while (shutdown_done_ != true) {
-            usleep(1000);
-        }
-        usleep(1000);
-    }
-
-    bool Shutdown() {
-        client_->Shutdown();
-        shutdown_done_ = true;
-        return true;
-    }
-
-    Agent *agent() {return &agent_;}
-    AgentParam *param() {return &param_;}
-    TestAgentInit *init() {return &init_;}
-
-private:
-    Agent agent_;
-    TestAgentInit init_;
+    Agent *agent_;
+    TestAgentInit agent_init_;
     AgentParam param_;
-    TestClient *client_;
-    bool shutdown_done_;
-
-    TaskTrigger *trigger_;
-    std::vector<TaskTrigger *> list_;
 };
 
 TestClient *TestInit(const char *init_file = NULL, bool ksync_init = false, 

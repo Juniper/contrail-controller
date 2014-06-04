@@ -125,7 +125,7 @@ void OperDB::CreateDBTables(DB *db) {
 void OperDB::Init() {
 }
 
-void OperDB::CreateDBClients() {
+void OperDB::RegisterDBClients() {
     multicast_.get()->Register();
     global_vrouter_.get()->CreateDBClients();
 }
@@ -183,4 +183,8 @@ void OperDB::Shutdown() {
 
     delete agent_->GetDomainConfigTable();
     agent_->SetDomainConfigTable(NULL);
+}
+
+void OperDB::DeleteRoutes() {
+    agent_->GetVrfTable()->DeleteRoutes();
 }

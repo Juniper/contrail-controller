@@ -17,12 +17,12 @@ test_port_bitmap = AgentEnv.MakeTestCmd(env, 'test_port_bitmap', uve_test_suite)
 test_stats_mock =  AgentEnv.MakeTestCmd(env, 'test_stats_mock', uve_test_suite)
 #test_uve = AgentEnv.MakeTestCmd(env, 'test_uve', uve_test_suite)
 
-test_vn_uve = AgentEnv.MakeTestCmdSrc(env, 'test_vn_uve', 
-                                      [
-                                       'test_vn_uve.cc', 
-                                       '../../pkt/test/test_pkt_util.o'
-                                       ],
-                                       uve_test_suite)
+#test_vn_uve = AgentEnv.MakeTestCmdSrc(env, 'test_vn_uve', 
+#                                      [
+#                                       'test_vn_uve.cc', 
+#                                       '../../pkt/test/test_pkt_util.o'
+#                                       ],
+#                                       uve_test_suite)
 #test_vrouter_uve = AgentEnv.MakeTestCmdSrc(env, 'test_vrouter_uve', 
 #                                           [
 #                                            'test_vrouter_uve.cc',

@@ -162,13 +162,15 @@ void ResyncEnqueue(int id, int data) {
 }
 
 void WaitForIdle() {
-    static const int kTimeout = 1;
-    for (int i = 0; i < (kTimeout * 1000); i++) {
+    static const int kTimeout = 15;
+    int i;
+    for (i = 0; i < (kTimeout * 1000); i++) {
         if (scheduler->IsEmpty()) {
             break;
         }
         usleep(1000);
     }
+    EXPECT_TRUE(i < (kTimeout * 1000));
     EXPECT_TRUE(scheduler->IsEmpty());
 }
 
@@ -295,5 +297,7 @@ int main(int argc, char *argv[]) {
     create_db_tables(db_);
     init_db_clients(db_);
 
-    return RUN_ALL_TESTS();
+    int ret = RUN_ALL_TESTS();
+    scheduler->Terminate();
+    return ret;
 }

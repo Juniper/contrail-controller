@@ -12,7 +12,22 @@
 #include "controller/controller_dns.h"
 
 void DnsProto::Shutdown() {
+}
+
+void DnsProto::IoShutdown() {
     BindResolver::Shutdown();
+
+    for (DnsBindQueryMap::iterator it = dns_query_map_.begin();
+         it != dns_query_map_.end(); ) {
+        DnsBindQueryMap::iterator next = it++;
+        delete it->second;
+        it = next;
+    }
+
+    curr_vm_requests_.clear();
+    // Following tables should be deleted when all VMs are gone
+    assert(update_set_.empty());
+    assert(all_vms_.empty());
 }
 
 void DnsProto::ConfigInit() {
