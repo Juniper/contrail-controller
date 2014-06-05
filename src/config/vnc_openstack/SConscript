@@ -10,7 +10,9 @@ Import('CfgmEnv')
 env = CfgmEnv.Clone()
 
 source_files = ['setup.py',
-                'vnc_openstack/__init__.py']
+                'vnc_openstack/__init__.py',
+                'vnc_openstack/neutron_plugin_db.py',
+                'vnc_openstack/neutron_plugin_interface.py']
 source_rules = []
 for file in source_files:
     if len(file.split('/')) > 1:

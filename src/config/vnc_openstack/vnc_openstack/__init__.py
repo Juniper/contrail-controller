@@ -24,6 +24,8 @@ from vnc_api.gen.resource_xsd import *
 from vnc_api.gen.resource_xsd import *
 from vnc_api.gen.resource_common import *
 
+import neutron_plugin_interface as npi
+
 
 class OpenstackDriver(vnc_plugin_base.Resync):
     def __init__(self, api_server_ip, api_server_port, conf_sections):
@@ -71,15 +73,6 @@ class OpenstackDriver(vnc_plugin_base.Resync):
                                            tenant_name=self._auth_tenant,
                                            auth_url=self._auth_url)
 
-    def _log_exception(self):
-        cgitb.Hook(
-            format="text",
-            file=open(self._tmp_file_name,
-                      'w')).handle(sys.exc_info())
-        fhandle = open(self._tmp_file_name)
-        self._vnc_os_logger.error("%s" % fhandle.read())
-    #end _log_exception
-
     def _resync_projects_forever(self):
         try:
             # get connection to api-server REST interface
@@ -98,7 +91,12 @@ class OpenstackDriver(vnc_plugin_base.Resync):
             old_projects = self._vnc_lib.projects_list()['projects']
             old_project_ids = set([proj['uuid'] for proj in old_projects])
         except Exception as e:
-            self._log_exception()
+            cgitb.Hook(
+                format="text",
+                file=open(self._tmp_file_name,
+                          'w')).handle(sys.exc_info())
+            fhandle = open(self._tmp_file_name)
+            self._vnc_os_logger.error("%s" % fhandle.read())
 
         del_proj_list = set()
         while True:
@@ -129,7 +127,12 @@ class OpenstackDriver(vnc_plugin_base.Resync):
                     try:
                         self._vnc_lib.project_delete(id=old_proj_id)
                     except Exception as e:
-                        self._log_exception()
+                        cgitb.Hook(
+                            format="text",
+                            file=open(self._tmp_file_name,
+                                      'w')).handle(sys.exc_info())
+                        fhandle = open(self._tmp_file_name)
+                        self._vnc_os_logger.error("%s" % fhandle.read())
                         del_proj_list.add(old_proj_id)
                         pass
 
@@ -154,7 +157,12 @@ class OpenstackDriver(vnc_plugin_base.Resync):
 
             except Exception as e:
                 self._kc = None
-                self._log_exception()
+                cgitb.Hook(
+                    format="text",
+                    file=open(self._tmp_file_name,
+                              'w')).handle(sys.exc_info())
+                fhandle = open(self._tmp_file_name)
+                self._vnc_os_logger.error("%s" % fhandle.read())
                 gevent.sleep(2)
         #end while True
 
@@ -242,8 +250,61 @@ class ResourceApiDriver(vnc_plugin_base.ResourceApi):
         self._get_api_connection()
         proj_obj = self._vnc_lib.project_read(id=proj_uuid)
         sec_groups = proj_obj.get_security_groups()
-        for group in sec_groups:
+        for group in sec_groups or []:
             if group['to'][2] == 'default':
                 self._vnc_lib.security_group_delete(id=group['uuid'])
     # end pre_project_delete
+
+
+class NeutronApiDriver(vnc_plugin_base.NeutronApi):
+    def __init__(self, api_server_ip, api_server_port, conf_sections):
+        self._npi = npi.NeutronPluginInterface(api_server_ip, api_server_port,
+                                               conf_sections)
+
+        # Bottle callbacks for network operations
+        bottle.route('/neutron/network',
+                     'POST', self._npi.plugin_http_post_network)
+
+        # Bottle callbacks for subnet operations
+        bottle.route('/neutron/subnet',
+                     'POST', self._npi.plugin_http_post_subnet)
+
+        # Bottle callbacks for port operations
+        bottle.route('/neutron/port',
+                     'POST', self._npi.plugin_http_post_port)
+
+        # Bottle callbacks for floating IP operations
+        bottle.route('/neutron/floatingip',
+                     'POST', self._npi.plugin_http_post_floatingip)
+
+        # Bottle callbacks for security group operations
+        bottle.route('/neutron/security_group',
+                     'POST', self._npi.plugin_http_post_securitygroup)
+
+        # Bottle callbacks for security group rule operations
+        bottle.route('/neutron/security_group_rule',
+                     'POST', self._npi.plugin_http_post_securitygrouprule)
+
+        # Bottle callbacks for router operations
+        bottle.route('/neutron/router',
+                     'POST', self._npi.plugin_http_post_router)
+
+        # Bottle callbacks for ipam operations
+        bottle.route('/neutron/ipam',
+                     'POST', self._npi.plugin_http_post_ipam)
+
+        # Bottle callbacks for Policy operations
+        bottle.route('/neutron/policy',
+                     'POST', self._npi.plugin_http_post_policy)
+
+        # Bottle callbacks for route-table operations
+        bottle.route('/neutron/route_table',
+                     'POST', self._npi.plugin_http_post_route_table)
+
+        # Bottle callbacks for svc-instance operations
+        bottle.route('/neutron/nat_instance',
+                     'POST', self._npi.plugin_http_post_svc_instance)
+
+    def __call__(self):
+        pass
 
