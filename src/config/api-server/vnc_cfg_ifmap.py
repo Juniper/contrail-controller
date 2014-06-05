@@ -1260,9 +1260,8 @@ class VncDbClient(object):
                 ok = self.set_uuid(obj_type, obj_dict, uuid.UUID(uuid_requested), False)
             else:
                 (ok, obj_uuid) = self._alloc_set_uuid(obj_type, obj_dict)
-        except ResourceExistsError:
-            return (409, '' + pformat(obj_dict['fq_name']) +
-                ' already exists with uuid: ' + obj_dict['uuid'])
+        except ResourceExistsError as e:
+            return (409, str(e))
 
         parent_type = obj_dict.get('parent_type', None)
         method_name = obj_type.replace('-', '_')
