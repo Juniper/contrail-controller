@@ -72,6 +72,7 @@ private:
 
 class SgTable : public AgentDBTable {
 public:
+    static const uint32_t kInvalidSgId = 0;
     SgTable(DB *db, const std::string &name) : AgentDBTable(db, name) { }
     virtual ~SgTable() { }
 
