@@ -127,6 +127,25 @@ Inet4MulticastRouteEntry *MCRouteGet(const string &vrf_name, const string &grp_a
 Layer2RouteEntry *L2RouteGet(const string &vrf_name, const struct ether_addr &mac);
 bool TunnelNHFind(const Ip4Address &server_ip);
 bool TunnelNHFind(const Ip4Address &server_ip, bool policy, TunnelType::Type type);
+bool EcmpTunnelRouteAdd(const Peer *peer, const string &vrf_name, const Ip4Address &vm_ip,
+                       uint8_t plen, std::vector<ComponentNHData> &comp_nh_list,
+                       bool local_ecmp, const string &vn_name, const SecurityGroupList &sg);
+bool Layer2TunnelRouteAdd(const Peer *peer, const string &vm_vrf, 
+                          TunnelType::TypeBmap bmap, const Ip4Address &server_ip,
+                          uint32_t label, struct ether_addr &remote_vm_mac,
+                          const Ip4Address &vm_addr, uint8_t plen);
+bool Inet4TunnelRouteAdd(const Peer *peer, const string &vm_vrf, const Ip4Address &vm_addr,
+                         uint8_t plen, const Ip4Address &server_ip, TunnelType::TypeBmap bmap,
+                         uint32_t label, const string &dest_vn_name,
+                         const SecurityGroupList &sg);
+bool Layer2TunnelRouteAdd(const Peer *peer, const string &vm_vrf, 
+                          TunnelType::TypeBmap bmap, const char *server_ip,
+                          uint32_t label, struct ether_addr &remote_vm_mac,
+                          const char *vm_addr, uint8_t plen);
+bool Inet4TunnelRouteAdd(const Peer *peer, const string &vm_vrf, char *vm_addr,
+                         uint8_t plen, char *server_ip, TunnelType::TypeBmap bmap,
+                         uint32_t label, const string &dest_vn_name,
+                         const SecurityGroupList &sg);
 bool TunnelRouteAdd(const char *server, const char *vmip, const char *vm_vrf,
                     int label, const char *vn);
 bool AddArp(const char *ip, const char *mac_str, const char *ifname);
@@ -148,7 +167,7 @@ void DelPort(const char *name);
 void AddAcl(const char *name, int id);
 void AddAcl(const char *name, int id, const char *src_vn, const char *dest_vn,
             const char *action);
-void AddSg(const char *name, int id);
+void AddSg(const char *name, int id, int sg_id = 1);
 void DelOperDBAcl(int id);
 void AddFloatingIp(const char *name, int id, const char *addr);
 void DelFloatingIp(const char *name);

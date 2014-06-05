@@ -111,9 +111,8 @@ protected:
                           uint32_t label, TunnelType::TypeBmap bmap) {
         //Use any toher peer than localvmpeer
 
-        Layer2AgentRouteTable::AddRemoteVmRouteReq(
-            agent_->local_peer(), vrf_name_,
-            bmap, server_ip, label, *remote_vm_mac, local_vm_ip_, 32);
+        Layer2TunnelRouteAdd(agent_->local_peer(), vrf_name_,
+                             bmap, server_ip, label, *remote_vm_mac, local_vm_ip_, 32);
         client->WaitForIdle();
     }
 
@@ -126,7 +125,7 @@ protected:
     void DeleteRoute(const Peer *peer, const std::string &vrf_name, 
                      struct ether_addr *remote_vm_mac) {
         Layer2AgentRouteTable::DeleteReq(peer, vrf_name_,
-            *remote_vm_mac);
+            *remote_vm_mac, NULL);
         client->WaitForIdle();
         while (L2RouteFind(vrf_name, *remote_vm_mac) == true) {
             client->WaitForIdle();
@@ -462,12 +461,12 @@ TEST_F(RouteTest, Layer2_route_key) {
     Layer2RouteKey new_key(agent_->local_vm_peer(), "vrf2", *local_vm_mac_);
     vnet1_rt->SetKey(&new_key);
     EXPECT_TRUE(vnet1_rt->vrf()->GetName() == "vrf2");
-    EXPECT_TRUE(new_key.ToString() == "Layer2RouteKey");
+    EXPECT_TRUE(new_key.ToString() == "0:0:1:1:1:10");
     Layer2RouteKey restore_key(agent_->local_vm_peer(), "vrf1", 
                                *local_vm_mac_);
     vnet1_rt->SetKey(&restore_key);
     EXPECT_TRUE(vnet1_rt->vrf()->GetName() == "vrf1");
-    EXPECT_TRUE(restore_key.ToString() == "Layer2RouteKey");
+    EXPECT_TRUE(restore_key.ToString() == "0:0:1:1:1:10");
 
     DelVrf("vrf2");
     DeleteVmportEnv(input, 1, true);

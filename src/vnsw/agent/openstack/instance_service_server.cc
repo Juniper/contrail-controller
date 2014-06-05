@@ -31,6 +31,7 @@
 #include <openstack/instance_service_server.h>
 #include <base/contrail_ports.h>
 #include <vgw/cfg_vgw.h>
+#include <controller/controller_route_path.h>
 
 InstanceServiceAsyncHandler::InstanceServiceAsyncHandler(Agent *agent)
     : io_service_(*(agent->GetEventManager()->io_service())),
@@ -300,11 +301,16 @@ InstanceServiceAsyncHandler::RouteEntryAdd(const std::string& ip_address,
     uint32_t mpls_label;
     const std::string vn = " ";
     sscanf(label.c_str(), "%u", &mpls_label);
-    Inet4UnicastAgentRouteTable::AddRemoteVmRouteReq(
-                                     agent_->local_peer(),
-                                     vrf, ipv4, 32, gwv4,
-                                     TunnelType::AllType(),
-                                     mpls_label, vn, SecurityGroupList());
+    ControllerVmRoute *data =
+        ControllerVmRoute::MakeControllerVmRoute(agent_->local_peer(),
+                                                 agent_->GetDefaultVrf(),
+                                                 agent_->GetRouterId(),
+                                                 vrf, gwv4,
+                                                 TunnelType::AllType(),
+                                                 mpls_label,
+                                                 vn, SecurityGroupList());
+    Inet4UnicastAgentRouteTable::AddRemoteVmRouteReq(agent_->local_peer(),
+                                     vrf, ipv4, 32, data);
     return true;
 }
 
@@ -401,10 +407,15 @@ InstanceServiceAsyncHandler::AddRemoteVmRoute(const std::string& ip_address,
         sscanf(label.c_str(), "%u", &mpls_label);
     }
 
+    ControllerVmRoute *data =
+        ControllerVmRoute::MakeControllerVmRoute(novaPeer_.get(),
+                              agent_->GetDefaultVrf(),
+                              agent_->GetRouterId(), vrf, gw.to_v4(),
+                              TunnelType::AllType(), mpls_label, "",
+                              SecurityGroupList());
     agent_->GetDefaultInet4UnicastRouteTable()->
-        AddRemoteVmRouteReq(novaPeer_.get(), vrf, ip.to_v4(), 32,
-                            gw.to_v4(), TunnelType::AllType(), mpls_label, "",
-                            SecurityGroupList());
+        AddRemoteVmRouteReq(novaPeer_.get(),
+                            vrf, ip.to_v4(), 32, data);
     return true;
 }
 
