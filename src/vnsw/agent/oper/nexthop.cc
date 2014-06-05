@@ -75,6 +75,12 @@ void NextHop::SendObjectLog(AgentLogEvent::type event) const {
     OPER_TRACE(NextHop, info);
 }
 
+NextHop::~NextHop() {
+    if (id_ != kInvalidIndex) {
+        static_cast<NextHopTable *>(get_table())->FreeInterfaceId(id_);
+    }
+}
+
 void NextHop::FillObjectLog(AgentLogEvent::type event, 
                             NextHopObjectLogInfo &info) const {
     string type_str, policy_str("Disabled"), valid_str("Invalid"), str;
@@ -207,6 +213,7 @@ DBEntry *NextHopTable::Add(const DBRequest *req) {
         delete nh;
         return NULL;
     }
+    nh->set_id(index_table_.Insert(nh));
     nh->Change(req);
     nh->SendObjectLog(AgentLogEvent::ADD);
     return static_cast<DBEntry *>(nh);
@@ -1057,6 +1064,28 @@ void VlanNH::Delete(const uuid &intf_uuid, uint16_t vlan_tag) {
     NextHopTable::GetInstance()->Process(req);
 }
 
+// Create VlanNH for a VPort
+void VlanNH::CreateReq(const uuid &intf_uuid, uint16_t vlan_tag,
+                    const string &vrf_name, const ether_addr &smac,
+                    const ether_addr &dmac) {
+    DBRequest req(DBRequest::DB_ENTRY_ADD_CHANGE);
+    req.key.reset(new VlanNHKey(intf_uuid, vlan_tag));
+    req.data.reset(new VlanNHData(vrf_name, smac, dmac));
+    NextHopTable::GetInstance()->Enqueue(&req);
+}
+
+void VlanNH::DeleteReq(const uuid &intf_uuid, uint16_t vlan_tag) {
+    DBRequest req;
+    req.oper = DBRequest::DB_ENTRY_DELETE;
+
+    NextHopKey *key = new VlanNHKey(intf_uuid, vlan_tag);
+    req.key.reset(key);
+
+    req.data.reset(NULL);
+    NextHopTable::GetInstance()->Enqueue(&req);
+}
+
+
 VlanNH *VlanNH::Find(const uuid &intf_uuid, uint16_t vlan_tag) {
     VlanNHKey key(intf_uuid, vlan_tag);
     return static_cast<VlanNH *>(NextHopTable::GetInstance()->FindActiveEntry(&key));
@@ -1738,6 +1767,7 @@ static void ExpandCompositeNextHop(const CompositeNH *comp_nh,
 }
 
 void NextHop::SetNHSandeshData(NhSandeshData &data) const {
+    data.set_nh_index(id());
     switch (type_) {
         case DISCARD:
             data.set_type("discard");

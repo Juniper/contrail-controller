@@ -74,20 +74,23 @@ private:
 /////////////////////////////////////////////////////////////////////////////
 class VlanVrfAssign : public VrfAssign {
 public:
-    VlanVrfAssign(Interface *interface, uint16_t vlan_tag) :
-        VrfAssign(VLAN, interface), vlan_tag_(vlan_tag) { };
-    virtual ~VlanVrfAssign() { };
+    VlanVrfAssign(Interface *interface, uint16_t vlan_tag):
+        VrfAssign(VLAN, interface), vlan_tag_(vlan_tag), nh_(NULL) {}
+    virtual ~VlanVrfAssign() {}
     bool VrfAssignIsLess(const VrfAssign &rhs) const;
 
     virtual string ToString() const {return "VlanVrfAssign";};
 
     const uint32_t GetVlanTag() const {return vlan_tag_;};
+    const NextHop *nh() const {return nh_.get();}
     bool DBEntrySandesh(Sandesh *sresp, std::string &name) const;
     KeyPtr GetDBRequestKey() const;
     void SetKey(const DBRequestKey *key);
+    virtual bool VrfAssignChange(const DBRequest *req);
 
 private:
     uint16_t vlan_tag_;
+    NextHopConstRef nh_;
     DISALLOW_COPY_AND_ASSIGN(VlanVrfAssign);
 };
 

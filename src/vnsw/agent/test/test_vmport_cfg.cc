@@ -540,7 +540,7 @@ TEST_F(CfgTest, VmPortPolicy_1) {
     client->Reset();
     DelLink("virtual-network", "vn1", "access-control-list", "acl1");
     client->WaitForIdle();
-    EXPECT_TRUE(client->AclNotifyWait(1));
+    EXPECT_TRUE(client->AclNotifyWait(0));
     EXPECT_TRUE(client->VnNotifyWait(1));
     EXPECT_TRUE(VmPortPolicyDisable(input, 0));
     EXPECT_TRUE(VmPortPolicyDisable(input, 1));
@@ -707,7 +707,7 @@ TEST_F(CfgTest, VmPortPolicy_2) {
     client->Reset();
     DelLink("virtual-network", "vn1", "access-control-list", "acl1");
     client->WaitForIdle();
-    EXPECT_TRUE(client->AclNotifyWait(1));
+    EXPECT_TRUE(client->AclNotifyWait(0));
     EXPECT_TRUE(client->VnNotifyWait(1));
     EXPECT_TRUE(VmPortPolicyDisable(input, 0));
     EXPECT_TRUE(VmPortPolicyDisable(input, 1));

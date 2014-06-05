@@ -1117,7 +1117,7 @@ TEST_F(KStateSandeshTest, FlowTest_2) {
             },
             {
                 TestFlowPkt(dip.to_string(), vm1_ip, 1, 0, 0, "vrf5",
-                        flow1->id(), i + 100),
+                        flow0->id(), i + 100),
                 { }
             }
         };

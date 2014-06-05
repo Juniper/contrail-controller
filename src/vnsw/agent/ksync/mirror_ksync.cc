@@ -89,10 +89,10 @@ int MirrorKSyncEntry::Encode(sandesh_op::type op, char *buf, int buf_len) {
     encoder.set_h_op(op);
     encoder.set_mirr_index(GetIndex());
     encoder.set_mirr_rid(0);
-    encoder.set_mirr_nhid(nh_entry->GetIndex());
+    encoder.set_mirr_nhid(nh_entry->nh_id());
     encode_len = encoder.WriteBinary((uint8_t *)buf, buf_len, &error);
     LOG(DEBUG, "Mirror index " << GetIndex() << " nhid " 
-            << nh_entry->GetIndex());
+            << nh_entry->nh_id());
     return encode_len;
 }
 

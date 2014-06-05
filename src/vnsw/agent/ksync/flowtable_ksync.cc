@@ -111,7 +111,8 @@ int FlowTableKSyncEntry::Encode(sandesh_op::type op, char *buf, int buf_len) {
     req.set_fr_flow_proto(fe_key->protocol);
     req.set_fr_flow_sport(htons(fe_key->src_port));
     req.set_fr_flow_dport(htons(fe_key->dst_port));
-    req.set_fr_flow_vrf(fe_key->vrf);
+    req.set_fr_flow_nh_id(fe_key->nh);
+    req.set_fr_flow_vrf(flow_entry_->data().vrf);
     uint16_t flags = 0;
 
     if (op == sandesh_op::DELETE) {
@@ -231,7 +232,9 @@ int FlowTableKSyncEntry::Encode(sandesh_op::type op, char *buf, int buf_len) {
         }
 
         if (nh_) {
-            req.set_fr_src_nh_index(nh_->GetIndex());
+            const NHKSyncEntry *ksync_nh =
+                static_cast<const NHKSyncEntry *>(nh_.get());
+            req.set_fr_src_nh_index(ksync_nh->nh_id());
         } else {
             //Set to discard
             req.set_fr_src_nh_index(0);
@@ -472,7 +475,7 @@ bool FlowTableKSyncObject::GetFlowKey(uint32_t index, FlowKey &key) {
     if (!kflow) {
         return false;
     }
-    key.vrf = kflow->fe_key.key_vrf_id;
+    key.nh = kflow->fe_key.key_nh_id;
     key.src.ipv4 = ntohl(kflow->fe_key.key_src_ip);
     key.dst.ipv4 = ntohl(kflow->fe_key.key_dest_ip);
     key.src_port = ntohs(kflow->fe_key.key_src_port);
@@ -514,7 +517,7 @@ bool FlowTableKSyncObject::AuditProcess() {
 
         vflow_entry = GetKernelFlowEntry(flow_idx, false);
         if (vflow_entry && vflow_entry->fe_action == VR_FLOW_ACTION_HOLD) {
-            FlowKey key(vflow_entry->fe_key.key_vrf_id, 
+            FlowKey key(vflow_entry->fe_key.key_nh_id,
                         ntohl(vflow_entry->fe_key.key_src_ip), 
                         ntohl(vflow_entry->fe_key.key_dest_ip),
                         vflow_entry->fe_key.key_proto,

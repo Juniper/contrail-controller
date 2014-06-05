@@ -99,6 +99,14 @@ void InetInterface::ActivateSimpleGateway() {
                                             InterfaceNHFlags::INET4);
 
     }
+
+    //There is no policy enabled nexthop created for VGW interface,
+    //hence use interface nexthop without policy as flow key index
+    InterfaceNHKey key(new InetInterfaceKey(name()),
+                       false, InterfaceNHFlags::INET4);
+    flow_key_nh_ = static_cast<const NextHop *>(
+            agent->nexthop_table()->FindActiveEntry(&key));
+    assert(flow_key_nh_);
 }
 
 void InetInterface::DeActivateSimpleGateway() {
@@ -123,6 +131,7 @@ void InetInterface::DeActivateSimpleGateway() {
     // Delete MPLS Label
     MplsLabel::DeleteReq(label_);
     label_ = MplsTable::kInvalidLabel;
+    flow_key_nh_ = NULL;
 }
 
 /////////////////////////////////////////////////////////////////////////////
@@ -204,6 +213,9 @@ void InetInterface::ActivateHostInterface() {
         (VrfTable::GetInstance()->GetInet4MulticastRouteTable(vrf()->GetName()));
     mc_rt_table->AddVHostRecvRoute(vrf()->GetName(), name_,
                                    Ip4Address(0xFFFFFFFF), false);
+    ReceiveNHKey nh_key(new InetInterfaceKey(name_), false);
+    flow_key_nh_ = static_cast<const NextHop *>(
+            agent->nexthop_table()->FindActiveEntry(&nh_key));
 }
 
 void InetInterface::DeActivateHostInterface() {
@@ -231,6 +243,7 @@ void InetInterface::DeActivateHostInterface() {
 
     // Delete receive nexthops
     ReceiveNH::Delete(agent->GetNextHopTable(), name_);
+    flow_key_nh_ = NULL;
 }
 
 /////////////////////////////////////////////////////////////////////////////
