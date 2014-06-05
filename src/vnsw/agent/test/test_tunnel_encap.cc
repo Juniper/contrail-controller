@@ -157,6 +157,9 @@ public:
                                          vrf_name_,
                                          *remote_vm_mac_, NULL);
         client->WaitForIdle();
+        DelArp("8.8.8.8", "00:00:08:08:08:08", 
+               Agent::GetInstance()->GetIpFabricItfName().c_str());
+        client->WaitForIdle();
     }
 
     void VerifyLabel(AgentPath *path) {

@@ -53,10 +53,10 @@ test_xmppcs_non_hv = AgentEnv.MakeTestCmd(env, 'test_xmppcs_non_hv',
 #test_vrf = AgentEnv.MakeTestCmd(env, 'test_vrf', agent_suite)
 test_vhost_ip_change = AgentEnv.MakeTestCmd(env, 'test_vhost_ip_change',
                                         agent_suite)
-#test_mirror = AgentEnv.MakeTestCmd(env, 'test_mirror', agent_suite)
-#test_nh = AgentEnv.MakeTestCmd(env, 'test_nh', agent_suite)
+test_mirror = AgentEnv.MakeTestCmd(env, 'test_mirror', agent_suite)
+test_nh = AgentEnv.MakeTestCmd(env, 'test_nh', agent_suite)
 test_dummy = AgentEnv.MakeTestCmd(env, 'test_dummy', agent_suite)
-#test_multicast = AgentEnv.MakeTestCmd(env, 'test_multicast', agent_suite)
+test_multicast = AgentEnv.MakeTestCmd(env, 'test_multicast', agent_suite)
 test_xmpp_bcast_hv = AgentEnv.MakeTestCmd(env, 'test_xmpp_bcast_hv',
                                           agent_suite)
 test_xmpp_bcast_non_hv = AgentEnv.MakeTestCmd(env, 'test_xmpp_bcast_non_hv',
@@ -73,7 +73,7 @@ test_cfg_listener = AgentEnv.MakeTestCmd(env, 'test_cfg_listener', agent_suite)
 test_global_vrouter_config = AgentEnv.MakeTestCmd(env,
                                                  'test_global_vrouter_config',
                                                   agent_suite)
-#test_tunnel_encap = AgentEnv.MakeTestCmd(env, 'test_tunnel_encap', agent_suite)
+test_tunnel_encap = AgentEnv.MakeTestCmd(env, 'test_tunnel_encap', agent_suite)
 test_agent_route_walker = AgentEnv.MakeTestCmd(env, 'test_agent_route_walker',
                                                agent_suite)
 #test_xmpp_hv = AgentEnv.MakeTestCmd(env, 'test_xmpp_hv', agent_suite)
