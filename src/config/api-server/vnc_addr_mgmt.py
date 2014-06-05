@@ -435,14 +435,16 @@ class AddrMgmt(object):
         for key in req_subnet_dicts.keys():
             req_subnet = req_subnet_dicts[key]
             if key in db_subnet_dicts.keys():
-                db_subnet = db_subnet_dicts[key] 
+                db_subnet = db_subnet_dicts[key]
+                if req_subnet['enable_dhcp'] is None:
+                    req_subnet['enable_dhcp'] = True
                 if ((req_subnet['enable_dhcp'] != db_subnet['enable_dhcp']) or
                     (req_subnet['gw'] != db_subnet['gw']) or
-                    (set(req_subnet.get('dns_nameservers', [])) !=
-                     set(db_subnet.get('dns_nameservers', [])))):
+                    (set(req_subnet.get('dns_nameservers') or []) !=
+                     set(db_subnet.get('dns_nameservers') or []))):
                     raise AddrMgmtSubnetInvalid(vn_fq_name_str, key)
 
-                req_alloc_list = req_subnet['allocation_pools'] 
+                req_alloc_list = req_subnet['allocation_pools'] or []
                 db_alloc_list = db_subnet['allocation_pools'] 
                 if (len(req_alloc_list) != len(db_alloc_list)):
                     raise AddrMgmtSubnetInvalid(vn_fq_name_str, key)
