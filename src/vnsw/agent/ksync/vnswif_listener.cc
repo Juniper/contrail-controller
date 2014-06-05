@@ -431,7 +431,7 @@ void VnswInterfaceListener::HandleAddressEvent(const Event *event) {
                              agent_->vhost_interface_name(),
                              InetInterface::VHOST, agent_->GetDefaultVrf(),
                              event->addr_, event->plen_, agent_->GetGatewayId(),
-                             agent_->GetDefaultVrf());
+                             Agent::NullString(), agent_->GetDefaultVrf());
     if (dep_init_reqd)
         RouterIdDepInit(agent_);
 }

@@ -8,10 +8,33 @@
 #include "pkt/proto.h"
 #include "services/dhcp_handler.h"
 
+#define DHCP_TRACE(obj, arg)                                                 \
+do {                                                                         \
+    std::ostringstream _str;                                                 \
+    _str << arg;                                                             \
+    Dhcp##obj::TraceMsg(DhcpTraceBuf, __FILE__, __LINE__, _str.str());       \
+} while (false)                                                              \
+
 class Interface;
+typedef boost::asio::ip::udp boost_udp;
 
 class DhcpProto : public Proto {
 public:
+    static const uint32_t kDhcpMaxPacketSize = 1024;
+
+    enum DhcpMsgType {
+        DHCP_VHOST_MSG,
+    };
+
+    struct DhcpVhostMsg : InterTaskMsg {
+        uint8_t *pkt;
+        uint32_t len;
+
+        DhcpVhostMsg(uint8_t *dhcp, uint32_t length)
+            : InterTaskMsg(DHCP_VHOST_MSG), pkt(dhcp), len(length) {}
+        virtual ~DhcpVhostMsg() { if (pkt) delete [] pkt; }
+    };
+
     struct DhcpStats {
         DhcpStats() { Reset(); }
         void Reset() {
@@ -37,6 +60,7 @@ public:
     virtual ~DhcpProto();
     ProtoHandler *AllocProtoHandler(boost::shared_ptr<PktInfo> info,
                                     boost::asio::io_service &io);
+    void SendDhcpIpc(uint8_t *dhcp, std::size_t len);
 
     Interface *ip_fabric_interface() const { return ip_fabric_interface_; }
     void set_ip_fabric_interface(Interface *itf) { ip_fabric_interface_ = itf; }
@@ -69,6 +93,8 @@ public:
 
 private:
     void ItfNotify(DBEntryBase *entry);
+    void AsyncRead();
+    void ReadHandler(const boost::system::error_code &error, std::size_t len);
 
     bool run_with_vrouter_;
     Interface *ip_fabric_interface_;
@@ -76,6 +102,10 @@ private:
     unsigned char ip_fabric_interface_mac_[ETH_ALEN];
     DBTableBase::ListenerId iid_;
     DhcpStats stats_;
+
+    boost::asio::ip::udp::socket dhcp_server_socket_;
+    boost::asio::ip::udp::endpoint remote_endpoint_;
+    uint8_t *dhcp_server_read_buf_;
 
     DISALLOW_COPY_AND_ASSIGN(DhcpProto);
 };

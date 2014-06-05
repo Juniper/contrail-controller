@@ -60,10 +60,18 @@ Interface *InetInterfaceKey::AllocEntry(const InterfaceTable *table,
         (table->agent()->GetVrfTable()->FindActiveEntry(&key));
     assert(vrf);
 
+	Interface *xconnect = NULL;
+    if (vhost_data->sub_type_ == InetInterface::VHOST) {
+        PhysicalInterfaceKey key(vhost_data->xconnect_);
+        xconnect = static_cast<Interface *>
+            (table->agent()->GetInterfaceTable()->FindActiveEntry(&key));
+        assert(xconnect != NULL);
+    }
+
     InetInterface *intf = new InetInterface(name_, vhost_data->sub_type_, vrf,
                                             vhost_data->ip_addr_,
                                             vhost_data->plen_, vhost_data->gw_,
-                                            vhost_data->vn_name_);
+                                            xconnect, vhost_data->vn_name_);
     return intf;
 }
 
@@ -75,9 +83,10 @@ InetInterfaceData::InetInterfaceData(InetInterface::SubType sub_type,
                                      const std::string &vrf_name,
                                      const Ip4Address &addr, int plen,
                                      const Ip4Address &gw,
+                                     const std::string &xconnect,
                                      const std::string vn_name) :
     InterfaceData(), sub_type_(sub_type), ip_addr_(addr), plen_(plen), gw_(gw),
-    vn_name_(vn_name) {
+    xconnect_(xconnect), vn_name_(vn_name) {
     InetInit(vrf_name);
 }
 
@@ -257,9 +266,10 @@ InetInterface::InetInterface(const std::string &name) :
 
 InetInterface::InetInterface(const std::string &name, SubType sub_type,
                              VrfEntry *vrf, const Ip4Address &ip_addr, int plen,
-                             const Ip4Address &gw, const std::string &vn_name) :
+                             const Ip4Address &gw, Interface *xconnect,
+                             const std::string &vn_name) :
     Interface(Interface::INET, nil_uuid(), name, vrf), sub_type_(sub_type),
-    ip_addr_(ip_addr), plen_(plen), gw_(gw), vn_name_(vn_name) {
+    ip_addr_(ip_addr), plen_(plen), gw_(gw), xconnect_(xconnect), vn_name_(vn_name) {
     ipv4_active_ = false;
     l2_active_ = false;
 }
@@ -375,11 +385,12 @@ void InetInterface::CreateReq(InterfaceTable *table, const std::string &ifname,
                               SubType sub_type, const std::string &vrf_name,
                               const Ip4Address &addr, int plen,
                               const Ip4Address &gw,
+                              const std::string &xconnect,
                               const std::string &vn_name) {
     DBRequest req(DBRequest::DB_ENTRY_ADD_CHANGE);
     req.key.reset(new InetInterfaceKey(ifname));
     req.data.reset(new InetInterfaceData(sub_type, vrf_name, Ip4Address(addr),
-                                         plen, Ip4Address(gw), vn_name));
+                                         plen, Ip4Address(gw), xconnect, vn_name));
     table->Enqueue(&req);
 }
 
@@ -388,11 +399,13 @@ void InetInterface::Create(InterfaceTable *table, const std::string &ifname,
                            SubType sub_type, const std::string &vrf_name,
                            const Ip4Address &addr, int plen,
                            const Ip4Address &gw,
+                           const std::string &xconnect,
                            const std::string &vn_name) {
     DBRequest req(DBRequest::DB_ENTRY_ADD_CHANGE);
     req.key.reset(new InetInterfaceKey(ifname));
     req.data.reset(new InetInterfaceData(sub_type, vrf_name, Ip4Address(addr),
-                                         plen, Ip4Address(gw), vn_name));
+                                         plen, Ip4Address(gw), xconnect,
+                                         vn_name));
     table->Process(req);
 }
 

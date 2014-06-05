@@ -293,7 +293,7 @@ void Agent::InitXenLinkLocalIntf() {
     InetInterface::Create(intf_table_, params_->xen_ll_name(),
                           InetInterface::LINK_LOCAL, link_local_vrf_name_,
                           params_->xen_ll_addr(), params_->xen_ll_plen(),
-                          params_->xen_ll_gw(), link_local_vrf_name_);
+                          params_->xen_ll_gw(), NullString(), link_local_vrf_name_);
 }
 
 void Agent::InitPeers() {
