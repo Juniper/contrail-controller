@@ -8,7 +8,6 @@ from pprint import pformat
 import json
 import cfgm_common.exceptions
 
-
 class AddrMgmtError(Exception):
     pass
 # end class AddrMgmtError
@@ -97,8 +96,6 @@ class AddrMgmtInvalidAllocPool(AddrMgmtError):
 # end AddrMgmtInvalidAllocPool
 
 
-# Class to manage a single subnet
-#  maintain free list of IP addresses, exclude list and CIDR info
 class AddrMgmtInvalidGatewayIp(AddrMgmtError):
 
     def __init__(self, subnet_val, gateway_ip):
@@ -126,9 +123,9 @@ class AddrMgmtInvalidDnsNameServer(AddrMgmtError):
     # end __str__
 # end AddrMgmtInvalidGatewayIp
 
+
 # Class to manage a single subnet
 #  maintain free list of IP addresses, exclude list and CIDR info
-
 class Subnet(object):
 
     """Create a subnet with prefix and len
@@ -159,12 +156,24 @@ class Subnet(object):
 
         network = IPNetwork('%s/%s' % (prefix, prefix_len))
 
-        # Exclude host, broadcast and gateway addresses
-        exclude = [IPAddress(network.first), IPAddress(
-            network.last), network.broadcast]
+        # check allocation-pool
+        if alloc_pool_list is not None:
+            for ip_pool in alloc_pool_list:
+                try:
+                    start_ip = IPAddress(ip_pool['start'])
+                    end_ip = IPAddress(ip_pool['end'])
+                except AddrFormatError:
+                    raise AddrMgmtInvalidIpAddr(name, ip_pool)
+                if (start_ip not in network or end_ip not in network):
+                    raise AddrMgmtOutofBoundAllocPool(name, ip_pool)
+                if (end_ip < start_ip):
+                    raise AddrMgmtInvalidAllocPool(name, ip_pool)
+        # check gw
         if gw:
-            gw_ip = IPAddress(gw)
-            exclude.append(gw_ip)
+            try:
+                gw_ip = IPAddress(gw)
+            except AddrFormatError:
+                raise AddrMgmtInvalidGatewayIp(name, gw_ip)
         else:
             # reserve a gateway ip in subnet
             if addr_from_start:
@@ -215,6 +224,9 @@ class Subnet(object):
         self._network = network
         self._exclude = exclude
         self.gw_ip = gw_ip
+        self._alloc_pool_list = alloc_pool_list
+        self.enable_dhcp = enable_dhcp
+        self.dns_nameservers = dns_nameservers 
     # end __init__
 
     @classmethod
@@ -324,7 +336,11 @@ class AddrMgmt(object):
             ipam_subnets = vnsn_data['ipam_subnets']
             for ipam_subnet in ipam_subnets:
                 subnet_dict = ipam_subnet['subnet']
-                subnet_dict['gw'] = ipam_subnet['default_gateway']
+                subnet_dict['gw'] = ipam_subnet.get('default_gateway', None)
+                subnet_dict['allocation_pools'] = \
+                    ipam_subnet.get('allocation_pools', None)
+                subnet_dict['enable_dhcp'] = ipam_subnet.get('enable_dhcp', None)
+                subnet_dict['dns_nameservers'] = ipam_subnet.get('dns_nameservers', None)
                 subnet_name = subnet_dict['ip_prefix'] + '/' + str(
                               subnet_dict['ip_prefix_len'])
                 subnet_dicts[subnet_name] = subnet_dict
@@ -631,7 +647,10 @@ class AddrMgmt(object):
         if not subnet_dicts:
             raise AddrMgmtSubnetUndefined(vn_fq_name_str)
 
+        current_count = 0
+        subnet_count = len(subnet_dicts)     
         for subnet_name in subnet_dicts:
+            current_count += 1
             if sub and sub != subnet_name:
                 continue
 
@@ -648,13 +667,23 @@ class AddrMgmt(object):
                                                subnet_name),
                                     subnet_dict['ip_prefix'],
                                     subnet_dict['ip_prefix_len'],
-                                    gw=subnet_dict['gw'])
+                                    gw=subnet_dict['gw'],
+                                    enable_dhcp=subnet_dict['enable_dhcp'],
+                                    dns_nameservers=subnet_dict['dns_nameservers'],
+                                    alloc_pool_list=subnet_dict['allocation_pools'])
                 self._subnet_objs[vn_fq_name_str][subnet_name] = subnet_obj
 
             if asked_ip_addr and not subnet_obj.ip_belongs(asked_ip_addr):
                 continue
+            try:
+                ip_addr = subnet_obj.ip_alloc(ipaddr=asked_ip_addr)
+            except Exception as e:
+                # ignore exception if it not a last subnet
+                if current_count < subnet_count:
+                    continue
+                else:
+                    raise AddrMgmtSubnetExhausted(vn_fq_name, 'all')
 
-            ip_addr = subnet_obj.ip_alloc(ipaddr=asked_ip_addr)
             if ip_addr is not None or sub:
                 return ip_addr
 
@@ -678,7 +707,10 @@ class AddrMgmt(object):
                                                subnet_name),
                                     subnet_dict['ip_prefix'],
                                     subnet_dict['ip_prefix_len'],
-                                    gw=subnet_dict['gw'])
+                                    gw=subnet_dict['gw'],
+                                    enable_dhcp=subnet_dict['enable_dhcp'],
+                                    dns_nameservers=subnet_dict['dns_nameservers'],
+                                    alloc_pool_list=subnet_dict['allocation_pools'])
                 self._subnet_objs[vn_fq_name_str][subnet_name] = subnet_obj
 
             if not subnet_obj.ip_belongs(ip_addr):
@@ -709,7 +741,10 @@ class AddrMgmt(object):
                                                subnet_name),
                                     subnet_dict['ip_prefix'],
                                     subnet_dict['ip_prefix_len'],
-                                    gw=subnet_dict['gw'])
+                                    gw=subnet_dict['gw'],
+                                    enable_dhcp=subnet_dict['enable_dhcp'],
+                                    dns_nameservers=subnet_dict['dns_nameservers'],
+                                    alloc_pool_list=subnet_dict['allocation_pools'])
                 self._subnet_objs[vn_fq_name_str][subnet_name] = subnet_obj
 
             if Subnet.ip_belongs_to(IPNetwork(subnet_name),
@@ -733,7 +768,10 @@ class AddrMgmt(object):
                                                subnet_name),
                                     subnet_dict['ip_prefix'],
                                     subnet_dict['ip_prefix_len'],
-                                    gw=subnet_dict['gw'])
+                                    gw=subnet_dict['gw'],
+                                    enable_dhcp=subnet_dict['enable_dhcp'],
+                                    dns_nameservers=subnet_dict['dns_nameservers'],
+                                    alloc_pool_list=subnet_dict['allocation_pools'])
                 self._subnet_objs[vn_fq_name_str][subnet_name] = subnet_obj
 
             if Subnet.ip_belongs_to(IPNetwork(subnet_name),

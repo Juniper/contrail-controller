@@ -51,6 +51,13 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
     </xsd:all>
 </xsd:complexType>
 
+<xsd:complexType name="AllocationPoolType">
+    <xsd:all>
+        <xsd:element name="start" type="xsd:string"/>
+        <xsd:element name="end" type="xsd:string"/>
+    </xsd:all>
+</xsd:complexType>
+
 <xsd:complexType name="SubnetType">
     <xsd:all>
         <xsd:element name="ip-prefix" type="xsd:string"/>
