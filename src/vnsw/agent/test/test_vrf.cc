@@ -84,6 +84,7 @@ protected:
             Agent::GetInstance()->controller()->Cleanup();
             client->WaitForIdle();
         }
+        Agent::GetInstance()->controller()->config_cleanup_timer().cleanup_timer_->Cancel();
 
         bgp_peer1->Shutdown();
         client->WaitForIdle();

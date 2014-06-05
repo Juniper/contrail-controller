@@ -122,6 +122,7 @@ protected:
         VrfDelReq(vrf_name_.c_str());
         client->WaitForIdle();
         WAIT_FOR(100, 100, (VrfFind(vrf_name_.c_str()) != true));
+        WAIT_FOR(1000, 1000, agent_->GetVrfTable()->Size() == 1);
     }
 
     void AddHostRoute(Ip4Address addr) {
@@ -451,6 +452,8 @@ TEST_F(RouteTest, RemoteVmRoute_2) {
     DeleteRoute(Agent::GetInstance()->local_peer(), Agent::GetInstance()->GetDefaultVrf(), 
                 server1_ip_, 32);
     EXPECT_FALSE(RouteFind(Agent::GetInstance()->GetDefaultVrf(), server1_ip_, 32));
+    DelArp(server1_ip_.to_string().c_str(), "0a:0b:0c:0d:0e:0f", eth_name_.c_str());
+    client->WaitForIdle();
 }
 
 TEST_F(RouteTest, RemoteVmRoute_3) {
@@ -506,6 +509,8 @@ TEST_F(RouteTest, RemoteVmRoute_4) {
     DeleteRoute(Agent::GetInstance()->local_peer(), Agent::GetInstance()->GetDefaultVrf(), 
                 server1_ip_, 24);
     EXPECT_FALSE(RouteFind(Agent::GetInstance()->GetDefaultVrf(), server1_ip_, 24));
+    DelArp(server1_ip_.to_string().c_str(), "0a:0b:0c:0d:0e:0f", eth_name_.c_str());
+    client->WaitForIdle();
 }
 
 TEST_F(RouteTest, RemoteVmRoute_5) {
@@ -812,6 +817,10 @@ TEST_F(RouteTest, FindLPM) {
     client->WaitForIdle();
     DeleteRoute(Agent::GetInstance()->local_peer(), Agent::GetInstance()->GetDefaultVrf(), lpm5_ip_, 32);
     client->WaitForIdle();
+    DelArp(lpm4_ip_.to_string().c_str(), "0d:0b:0c:0d:0e:0f", eth_name_.c_str());
+    client->WaitForIdle();
+    DelArp(lpm5_ip_.to_string().c_str(), "0d:0b:0c:0d:0e:0a", eth_name_.c_str());
+    client->WaitForIdle();
 }
 
 TEST_F(RouteTest, VlanNHRoute_1) {
@@ -1093,6 +1102,8 @@ TEST_F(RouteTest, RtEntryReuse) {
     DeleteRoute(Agent::GetInstance()->local_peer(), Agent::GetInstance()->GetDefaultVrf(), lpm3_ip_, 24);
     client->WaitForIdle();
 
+    DelArp(lpm4_ip_.to_string().c_str(), "0d:0b:0c:0d:0e:0f", eth_name_.c_str());
+    client->WaitForIdle();
     Agent::GetInstance()->GetDefaultInet4UnicastRouteTable()->Unregister(id);
 }
 

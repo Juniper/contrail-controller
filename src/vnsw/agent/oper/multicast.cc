@@ -206,11 +206,6 @@ void MulticastHandler::DeleteVnIPAM(const VnEntry *vn)
         DeleteSubnetRoute(GetAssociatedVrfForVn(vn->GetUuid()),
                           broadcast_addr);
 
-        /*
-        Inet4UcRouteTable::DeleteReq(Agent::GetInstance()->local_vm_peer(), 
-                                     GetAssociatedVrfForVn(vn->GetUuid()), 
-                                     broadcast_addr, 32);
-                                     */
         //Erase will give the next object 
         it = ipam_list.erase(it);
     }
