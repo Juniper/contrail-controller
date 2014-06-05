@@ -14,14 +14,8 @@ class AgentParam;
 // Defines control parameters used to enable/disable agent features
 class TestAgentInit {
 public:
-    TestAgentInit() :
-        agent_(NULL), params_(NULL), create_vhost_(true), ksync_enable_(true),
-        services_enable_(true), packet_enable_(true), uve_enable_(true),
-        vgw_enable_(true), router_id_dep_enable_(true), trigger_() { }
-
-    ~TestAgentInit() {
-        trigger_->Reset();
-    }
+    TestAgentInit();
+    ~TestAgentInit();
 
     bool Run();
     void Start();

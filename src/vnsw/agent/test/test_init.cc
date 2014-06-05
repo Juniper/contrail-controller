@@ -277,7 +277,6 @@ void TestClient::Shutdown() {
 }
 
 void TestShutdown() {
-    Agent *agent = Agent::GetInstance();
     TestAgentInit *init = client->agent_init();
     client->WaitForIdle();
 

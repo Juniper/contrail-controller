@@ -51,6 +51,14 @@
 #include <vgw/vgw.h>
 
 #include "test_agent_init.h"
+TestAgentInit::TestAgentInit() :
+        agent_(NULL), params_(NULL), create_vhost_(true), ksync_enable_(true),
+        services_enable_(true), packet_enable_(true), uve_enable_(true),
+        vgw_enable_(true), router_id_dep_enable_(true), trigger_() { }
+
+TestAgentInit::~TestAgentInit() {
+        trigger_->Reset();
+    }
 /****************************************************************************
  * Initialization routines
 ****************************************************************************/
