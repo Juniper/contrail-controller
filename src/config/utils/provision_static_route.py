@@ -86,8 +86,12 @@ class StaticRouteProvisioner(object):
             sys.exit(1)
         
         #Update the VMI Object now
-        vmi_obj = self._vnc_lib.virtual_machine_interface_read(id = vmi_id_got) 
-        vmi_obj.set_interface_route_table(intf_route_table_obj)
+        vmi_obj = self._vnc_lib.virtual_machine_interface_read(id = vmi_id_got)
+        if self._args.oper == 'add':
+            vmi_obj.set_interface_route_table(intf_route_table_obj)
+        elif self._args.oper == 'del':
+            if self.is_route_table_empty(intf_route_table_obj):
+                vmi_obj.del_interface_route_table(intf_route_table_obj)
         self._vnc_lib.virtual_machine_interface_update(vmi_obj)
 
     # end __init__
@@ -120,6 +124,14 @@ class StaticRouteProvisioner(object):
             print "Prefix %s not found in Route table %s!" %( prefix, intf_route_table_obj.name)
             sys.exit(1)
         return intf_route_table_obj
+    
+    def is_route_table_empty(self, intf_route_table_obj):
+        rt_routes = intf_route_table_obj.get_interface_route_table_routes()
+        if len(rt_routes.get_route()) == 0 :
+            return True
+        else:
+            return False
+    #end is_route_table_empty
 
     def _parse_args(self, args_str):
         '''
