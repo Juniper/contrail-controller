@@ -115,6 +115,10 @@ bool SgTable::IFNodeToReq(IFMapNode *node, DBRequest &req) {
         req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
         uint32_t sg_id;
         stringToInteger(cfg->id(), sg_id);
+        if (sg_id == SgTable::kInvalidSgId) {
+            OPER_TRACE(Sg, "Ignore SG id 0", UuidToString(u));
+            return false;
+        }
         uuid egress_acl_uuid = nil_uuid();
         uuid ingress_acl_uuid = nil_uuid();
         IFMapAgentTable *table = static_cast<IFMapAgentTable *>(node->table());

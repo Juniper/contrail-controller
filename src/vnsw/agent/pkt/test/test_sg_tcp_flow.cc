@@ -293,15 +293,13 @@ public:
 
         //Add a remote route pointing to SG id 2
         boost::system::error_code ec;
-        Inet4UnicastAgentRouteTable::AddRemoteVmRouteReq
-            (NULL, "vn1:vn1", Ip4Address::from_string("1.1.1.0", ec), 24,
+        Inet4TunnelRouteAdd(NULL, "vn1:vn1", Ip4Address::from_string("1.1.1.0", ec), 24,
              Ip4Address::from_string("10.10.10.10", ec), TunnelType::AllType(),
              17, "vn1", sg_id_list);
         client->WaitForIdle();
 
         //Add a remote route for floating-ip VN pointing to SG id 2
-        Inet4UnicastAgentRouteTable::AddRemoteVmRouteReq
-            (NULL, "vn3:vn3", Ip4Address::from_string("3.3.3.2", ec), 24,
+        Inet4TunnelRouteAdd(NULL, "vn3:vn3", Ip4Address::from_string("3.3.3.2", ec), 24,
              Ip4Address::from_string("10.10.10.10", ec), TunnelType::AllType(),
              18, "vn3", sg_id_list);
         client->WaitForIdle();
@@ -316,11 +314,11 @@ public:
 
         boost::system::error_code ec;
         Inet4UnicastAgentRouteTable::DeleteReq
-            (NULL, "vn1:vn1", Ip4Address::from_string("1.1.1.0", ec), 24);
+            (NULL, "vn1:vn1", Ip4Address::from_string("1.1.1.0", ec), 24, NULL);
         client->WaitForIdle();
 
         Inet4UnicastAgentRouteTable::DeleteReq
-            (NULL, "vn3:vn3", Ip4Address::from_string("3.3.3.2", ec), 24);
+            (NULL, "vn3:vn3", Ip4Address::from_string("3.3.3.2", ec), 24, NULL);
 
         client->WaitForIdle();
         DelLink("virtual-machine-interface", "vnet1", "floating-ip", "fip1");

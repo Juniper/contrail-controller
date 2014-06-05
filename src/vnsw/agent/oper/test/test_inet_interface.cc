@@ -117,17 +117,17 @@ static void DelInterface(InetInterfaceTest *t, const char *ifname,
 
     if (strcmp(vrf, VRF_VHOST) == 0){
         t->vhost_rt_table_->DeleteReq(t->peer_, vrf,
-                                      Ip4Address::from_string(gw), 32);
+                                      Ip4Address::from_string(gw), 32, NULL);
     }
 
     if (strcmp(vrf, VRF_LL) == 0){
         t->ll_rt_table_->DeleteReq(t->peer_, vrf, Ip4Address::from_string(gw),
-                                   32);
+                                   32, NULL);
     }
 
     if (strcmp(vrf, VRF_GW) == 0){
         t->gw_rt_table_->DeleteReq(t->peer_, vrf, Ip4Address::from_string(gw),
-                                   32);
+                                   32, NULL);
     }
 
 }

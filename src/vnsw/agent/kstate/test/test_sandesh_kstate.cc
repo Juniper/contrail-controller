@@ -53,7 +53,9 @@ public:
         assert(flow0);
         flow1 = VmInterfaceGet(input[1].intf_id);
         assert(flow1);
-        peer_ = CreateBgpPeer(Ip4Address(1), "BGP Peer 1");
+        boost::system::error_code ec;
+        peer_ = CreateBgpPeer(Ip4Address::from_string("0.0.0.1", ec),
+                              "xmpp channel");
     }
 
     void FlowTearDown() {
@@ -72,8 +74,7 @@ public:
         boost::system::error_code ec;
         Ip4Address addr = Ip4Address::from_string(remote_vm, ec);
         Ip4Address gw = Ip4Address::from_string(serv, ec);
-        Agent::GetInstance()->GetDefaultInet4UnicastRouteTable()->AddRemoteVmRouteReq
-            (peer_, vrf, addr, 32, gw, TunnelType::AllType(), label, vn,
+        Inet4TunnelRouteAdd(peer_, vrf, addr, 32, gw, TunnelType::AllType(), label, vn,
              SecurityGroupList());
         client->WaitForIdle(5);
         WAIT_FOR(1000, 500, (RouteFind(vrf, addr, 32) == true));

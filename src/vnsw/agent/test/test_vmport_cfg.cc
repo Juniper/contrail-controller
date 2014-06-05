@@ -18,6 +18,7 @@
 #include <base/util.h>
 #include <oper/vn.h>
 #include <oper/vm.h>
+#include <oper/vm_interface.h>
 #include <oper/agent_sandesh.h>
 #include <oper/interface_common.h>
 #include <oper/vxlan.h>
@@ -1427,6 +1428,114 @@ TEST_F(CfgTest, SecurityGroup_1) {
     EXPECT_TRUE(path->vxlan_id() == VxLanTable::kInvalidvxlan_id);
     EXPECT_TRUE(path->tunnel_bmap() == TunnelType::MplsType());
     DoInterfaceSandesh("vnet1");
+
+    DelLink("virtual-network", "vn1", "access-control-list", "acl1");
+    DelLink("virtual-machine-interface", "vnet1", "access-control-list", "acl1");
+    DelLink("virtual-machine-interface", "vnet1", "security-group", "acl1");
+    client->WaitForIdle();
+    DelNode("access-control-list", "acl1");
+    client->WaitForIdle();
+
+    DeleteVmportEnv(input, 1, true);
+    DelNode("security-group", "sg1");
+    client->WaitForIdle();
+    EXPECT_FALSE(VmPortFind(1));
+}
+
+TEST_F(CfgTest, SecurityGroup_ignore_invalid_sgid_1) {
+    struct PortInfo input[] = {
+        {"vnet1", 1, "1.1.1.1", "00:00:00:01:01:01", 1, 1}
+    };
+
+    CreateVmportEnv(input, 1);
+    client->WaitForIdle();
+    EXPECT_TRUE(VmPortActive(input, 0));
+
+    AddSg("sg1", 1, 0);
+    AddAcl("acl1", 1);
+    AddLink("security-group", "sg1", "access-control-list", "acl1");
+    client->WaitForIdle();
+
+    AddLink("virtual-machine-interface", "vnet1", "security-group", "sg1");
+    client->WaitForIdle();
+
+    //Query for SG
+    SgKey *key = new SgKey(MakeUuid(1));
+    const SgEntry *sg_entry =
+        static_cast<const SgEntry *>(Agent::GetInstance()->GetSgTable()->
+        FindActiveEntry(key));
+    EXPECT_TRUE(sg_entry == NULL);
+
+    //Modify SGID
+    AddSg("sg1", 1, 2);
+    client->WaitForIdle();
+    key = new SgKey(MakeUuid(1));
+    sg_entry = static_cast<const SgEntry *>(Agent::GetInstance()->GetSgTable()->
+                                            FindActiveEntry(key));
+
+    EXPECT_TRUE(sg_entry != NULL);
+    EXPECT_TRUE(sg_entry->GetSgId() == 2);
+
+    // Try modifying with another sg id for same uuid and it should not happen
+    // in oper. Old sgid i.e. 2 shud be retained.
+    AddSg("sg1", 1, 3);
+    client->WaitForIdle();
+    key = new SgKey(MakeUuid(1));
+    sg_entry = static_cast<const SgEntry *>(Agent::GetInstance()->GetSgTable()->
+                                            FindActiveEntry(key));
+
+    EXPECT_TRUE(sg_entry != NULL);
+    EXPECT_TRUE(sg_entry->GetSgId() == 2);
+
+    DelLink("virtual-network", "vn1", "access-control-list", "acl1");
+    DelLink("virtual-machine-interface", "vnet1", "access-control-list", "acl1");
+    DelLink("virtual-machine-interface", "vnet1", "security-group", "acl1");
+    client->WaitForIdle();
+    DelNode("access-control-list", "acl1");
+    client->WaitForIdle();
+
+    DeleteVmportEnv(input, 1, true);
+    DelNode("security-group", "sg1");
+    client->WaitForIdle();
+    EXPECT_FALSE(VmPortFind(1));
+}
+
+// Test invalid sgid with interface update
+TEST_F(CfgTest, SecurityGroup_ignore_invalid_sgid_2) {
+    struct PortInfo input[] = {
+        {"vnet1", 1, "1.1.1.1", "00:00:00:01:01:01", 1, 1}
+    };
+
+    CreateVmportEnv(input, 1);
+    client->WaitForIdle();
+    EXPECT_TRUE(VmPortActive(input, 0));
+
+    AddSg("sg1", 1, 0);
+    AddAcl("acl1", 1);
+    AddLink("security-group", "sg1", "access-control-list", "acl1");
+    client->WaitForIdle();
+
+    AddLink("virtual-machine-interface", "vnet1", "security-group", "sg1");
+    client->WaitForIdle();
+
+    VmInterfaceKey key(AgentKey::ADD_DEL_CHANGE, MakeUuid(1), "");
+    VmInterface *intf = static_cast<VmInterface *>
+        (Agent::GetInstance()->GetInterfaceTable()->FindActiveEntry(&key));
+    EXPECT_TRUE(intf != NULL);
+    if (intf == NULL) {
+        return;
+    }
+    EXPECT_TRUE(intf->sg_list().list_.size() == 1);
+    VmInterface::SecurityGroupEntrySet::const_iterator it = intf->sg_list().list_.begin();
+    EXPECT_TRUE(it->sg_.get() == NULL);
+
+    // Add with proper sg id
+    AddSg("sg1", 1, 1);
+    client->WaitForIdle();
+    EXPECT_TRUE(intf->sg_list().list_.size() == 1);
+    it = intf->sg_list().list_.begin();
+    EXPECT_TRUE(it->sg_.get() != NULL);
+    EXPECT_TRUE(it->sg_->GetSgId() == 1);
 
     DelLink("virtual-network", "vn1", "access-control-list", "acl1");
     DelLink("virtual-machine-interface", "vnet1", "access-control-list", "acl1");
