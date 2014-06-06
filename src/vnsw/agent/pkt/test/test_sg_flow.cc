@@ -237,7 +237,7 @@ static void AddSgIdAcl(const char *name, int id, int proto,
 static void AddSgEntry(const char *sg_name, const char *name, int id,
                        int proto, const char *action, AclDirection direction) {
 
-    AddNode("security-group", sg_name, 1);
+    AddSg(sg_name, 1);
     char acl_name[1024];
     uint16_t max_len = sizeof(acl_name) - 1;
     strncpy(acl_name, name, max_len);
@@ -548,7 +548,7 @@ TEST_F(SgTest, Sg_Introspec) {
     req = new SgListReq();
     req->set_name("1");
     sg_introspec_test = false;
-    Sandesh::set_response_callback(boost::bind(SgListResponse, _1, 20, 1, 1));
+    Sandesh::set_response_callback(boost::bind(SgListResponse, _1, 20, 1, 2));
     req->HandleRequest();
     TASK_UTIL_EXPECT_EQ(true, sg_introspec_test);
     req->Release();
