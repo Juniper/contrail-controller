@@ -658,14 +658,14 @@ TEST_F(SgTcpAckTest, local_vm_ingress_tcp_acl_1) {
                                intf1->flow_key_nh()->id()));
 
     // TCP Non-ACK from VM2 to VM1 - DROP
-    TxTcpPacket(intf1->id(), intf2_addr, intf1_addr, 3, 3, false, 20);
+    TxTcpPacket(intf2->id(), intf2_addr, intf1_addr, 3, 3, false, 20);
     client->WaitForIdle();
     EXPECT_TRUE(ValidateAction(intf2->vrf()->vrf_id(), intf2_addr,
                                intf1_addr, 6, 3, 3, TrafficAction::DROP,
                                intf2->flow_key_nh()->id()));
 
     // TCP Non-ACK from VM2 to VM1 - DROP
-    TxTcpPacket(intf1->id(), intf2_addr, intf1_addr, 4, 4, true, 30);
+    TxTcpPacket(intf2->id(), intf2_addr, intf1_addr, 4, 4, true, 30);
     client->WaitForIdle();
     EXPECT_TRUE(ValidateAction(intf2->vrf()->vrf_id(), intf2_addr,
                                intf1_addr, 6, 4, 4, TrafficAction::DROP,
