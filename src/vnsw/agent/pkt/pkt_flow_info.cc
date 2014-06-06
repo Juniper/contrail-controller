@@ -572,12 +572,13 @@ void PktFlowInfo::FloatingIpDNat(const PktInfo *pkt, PktControlInfo *in,
     dest_vrf = out->intf_->vrf()->vrf_id();
 
     // Translate the Dest-IP
-    nat_done = true;
-    nat_ip_saddr = pkt->ip_saddr;
+    if (nat_done == false)
+        nat_ip_saddr = pkt->ip_saddr;
     nat_ip_daddr = vm_port->ip_addr().to_ulong();
     nat_sport = pkt->sport;
     nat_dport = pkt->dport;
     nat_vrf = dest_vrf;
+    nat_done = true;
 
     if (in->rt_) {
         flow_source_vrf = static_cast<const AgentRoute *>(in->rt_)->vrf_id();
