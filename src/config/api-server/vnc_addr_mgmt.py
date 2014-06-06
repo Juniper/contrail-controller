@@ -5,6 +5,7 @@
 from netaddr import *
 from vnc_quota import *
 from pprint import pformat
+from copy import deepcopy
 import json
 import cfgm_common.exceptions
 
@@ -335,7 +336,7 @@ class AddrMgmt(object):
             vnsn_data = ipam_ref['attr']
             ipam_subnets = vnsn_data['ipam_subnets']
             for ipam_subnet in ipam_subnets:
-                subnet_dict = ipam_subnet['subnet']
+                subnet_dict = copy.deepcopy(ipam_subnet['subnet'])
                 subnet_dict['gw'] = ipam_subnet.get('default_gateway', None)
                 subnet_dict['allocation_pools'] = \
                     ipam_subnet.get('allocation_pools', None)
