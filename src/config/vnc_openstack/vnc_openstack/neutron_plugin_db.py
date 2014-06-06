@@ -1402,8 +1402,9 @@ class DBInterface(object):
         if subnet_q['gateway_ip'] != attr.ATTR_NOT_SPECIFIED:
             default_gw = subnet_q['gateway_ip']
         else:
-            # Assigned by address manager
-            default_gw = None
+            # Assigned first+1 from cidr 
+            network = IPNetwork('%s/%s' % (pfx, pfx_len))
+            default_gw = str(IPAddress(network.first + 1))
 
         if subnet_q['allocation_pools'] != attr.ATTR_NOT_SPECIFIED:
             alloc_pools = subnet_q['allocation_pools']
@@ -1420,7 +1421,8 @@ class DBInterface(object):
                                     default_gateway=default_gw,
                                     enable_dhcp=dhcp_config,
                                     dns_nameservers=dns_server,
-                                    allocation_pools=alloc_pools)
+                                    allocation_pools=alloc_pools,
+                                    addr_from_start=True)
 
         return subnet_vnc
     #end _subnet_neutron_to_vnc
@@ -1464,11 +1466,20 @@ class DBInterface(object):
             allocation_pools.append(cidr_pool)
         sn_q_dict['allocation_pools'] = allocation_pools
 
-        # TODO get from ipam_obj
-        sn_q_dict['enable_dhcp'] = False
-        sn_q_dict['dns_nameservers'] = [{'address': '169.254.169.254',
-                                        'subnet_id': sn_id}]
+        sn_q_dict['enable_dhcp'] = subnet_vnc.get_enable_dhcp()
+        nameservers = subnet_vnc.get_dns_nameservers()
+        if nameservers is None or not nameservers:
+            sn_q_dict['dns_nameservers'] = [{'address': '169.254.169.254',
+                                             'subnet_id': sn_id}]
+        else:
+            nameserver_dict_list = list()
+            for nameserver in nameservers:
+                nameserver_entry = {'address': nameserver,
+                                    'subnet_id': sn_id}
+                nameserver_dict_list.append(nameserver_entry) 
+            sn_q_dict['dns_nameservers'] = nameserver_dict_list
 
+        # TODO get from ipam_obj
         sn_q_dict['routes'] = [{'destination': 'TODO-destination',
                                'nexthop': 'TODO-nexthop',
                                'subnet_id': sn_id}]
