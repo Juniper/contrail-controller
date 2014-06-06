@@ -44,7 +44,7 @@ if [ "$?" != "0" ]; then
     rpm -q contrail-vrouter > /dev/null && agent='agent'
     rpm -q contrail-config > /dev/null && capi='capi'
     rpm -q openstack-quantum-contrail > /dev/null && cquantum='cquantum'
-    rpm -q contrail-webui > /dev/null && cwebui='cwebui'
+    rpm -q contrail-web-core > /dev/null && cwebui='cwebui'
     rpm -q contrail-database > /dev/null && database='database'
 fi
 
@@ -175,7 +175,7 @@ if [[ "$rpm_info" -eq 1 || "detailed" -eq 1 ]]; then
   rpm_info contrail-analytics
   rpm_info contrail-config
   rpm_info openstack-quantum-contrail
-  rpm_info contrail-webui
+  rpm_info contrail-web-core
   rpm_info redis
   rpm_info contrail-database
 fi
