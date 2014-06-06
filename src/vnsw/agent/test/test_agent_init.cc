@@ -197,12 +197,12 @@ void TestAgentInit::CreateNextHops() {
 void TestAgentInit::CreateInterfaces() {
     InterfaceTable *table = agent_->GetInterfaceTable();
 
+    PhysicalInterface::Create(table, params_->eth_port(),
+                              agent_->GetDefaultVrf());
     InetInterface::Create(table, params_->vhost_name(), InetInterface::VHOST,
                           agent_->GetDefaultVrf(), params_->vhost_addr(),
                           params_->vhost_plen(), params_->vhost_gw(),
-                          agent_->GetDefaultVrf());
-    PhysicalInterface::Create(table, params_->eth_port(),
-                              agent_->GetDefaultVrf());
+                          params_->eth_port(), agent_->GetDefaultVrf());
     agent_->InitXenLinkLocalIntf();
     InitVmwareInterface();
 

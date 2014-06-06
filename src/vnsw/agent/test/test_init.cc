@@ -110,7 +110,7 @@ TestClient *TestInit(const char *init_file, bool ksync_init, bool pkt_init,
         InetInterface::CreateReq(Agent::GetInstance()->GetInterfaceTable(),
                                  "vhost0", InetInterface::VHOST,
                                  Agent::GetInstance()->GetDefaultVrf(),
-                                 Ip4Address(0), 0, Ip4Address(0), "", "");
+                                 Ip4Address(0), 0, Ip4Address(0), param->eth_port(), "");
         boost::system::error_code ec;
         Agent::GetInstance()->SetRouterId
             (Ip4Address::from_string("10.1.1.1", ec));
@@ -167,7 +167,7 @@ TestClient *StatsTestInit() {
     InetInterface::CreateReq(Agent::GetInstance()->GetInterfaceTable(),
                              "vhost0", InetInterface::VHOST,
                              Agent::GetInstance()->GetDefaultVrf(),
-                             Ip4Address(0), 0, Ip4Address(0), "", "");
+                             Ip4Address(0), 0, Ip4Address(0), param->eth_port(), "");
 
     boost::system::error_code ec;
     Agent::GetInstance()->SetRouterId(Ip4Address::from_string("10.1.1.1", ec));
@@ -225,7 +225,7 @@ TestClient *VGwInit(const string &init_file, bool ksync_init) {
     InetInterface::CreateReq(Agent::GetInstance()->GetInterfaceTable(),
                              "vhost0", InetInterface::VHOST,
                              Agent::GetInstance()->GetDefaultVrf(),
-                             Ip4Address(0), 0, Ip4Address(0), "");
+                             Ip4Address(0), 0, Ip4Address(0), param->eth_port(), "");
     boost::system::error_code ec;
     Agent::GetInstance()->SetRouterId(Ip4Address::from_string("10.1.1.1", ec));
 
