@@ -147,6 +147,33 @@ public:
         clear_info->Release();
     }
 
+    void SendRelayResponse(uint8_t msg_type, uint8_t *options, int num_options,
+                           uint32_t yiaddr, uint32_t vmifindex = 0) {
+        int len = 512;
+        uint8_t *buf = new uint8_t[len];
+        memset(buf, 0, len);
+
+        dhcphdr *dhcp = (dhcphdr *) buf;
+        dhcp->op = BOOT_REPLY;
+        dhcp->htype = HW_TYPE_ETHERNET;
+        dhcp->hlen = ETH_ALEN;
+        dhcp->hops = 0;
+        dhcp->xid = 0x01020304;
+        dhcp->secs = 0;
+        dhcp->flags = 0;
+        dhcp->ciaddr = 0;
+        dhcp->yiaddr = htonl(yiaddr);
+        dhcp->siaddr = 0;
+        dhcp->giaddr = 0;
+        memcpy(dhcp->chaddr, src_mac, ETH_ALEN);
+        memset(dhcp->sname, 0, DHCP_NAME_LEN);
+        memset(dhcp->file, 0, DHCP_FILE_LEN);
+        len = DHCP_FIXED_LEN;
+        len += AddOptions(dhcp->options, msg_type, vmifindex, options, num_options);
+
+        Agent::GetInstance()->GetDhcpProto()->SendDhcpIpc(buf, len);
+    }
+
     void SendDhcp(short ifindex, uint16_t flags, uint8_t msg_type,
                   uint8_t *options, int num_options, bool error = false,
                   bool response = false, uint32_t yiaddr = 0,
@@ -750,9 +777,11 @@ TEST_F(DhcpTest, DhcpZeroIpTest) {
 
     Ip4Address vmaddr(Agent::GetInstance()->GetRouterId().to_ulong() + 1);
     SendDhcp(GetItfId(0), 0x8000, DHCP_DISCOVER, req_options, 3);
-    SendDhcp(fabric_interface_id(), 0x8000, DHCP_OFFER, resp_options, 4, false, true, vmaddr.to_ulong(), GetItfId(0));
+    // SendDhcp(fabric_interface_id(), 0x8000, DHCP_OFFER, resp_options, 4, false, true, vmaddr.to_ulong(), GetItfId(0));
+    SendRelayResponse(DHCP_OFFER, resp_options, 4, vmaddr.to_ulong(), GetItfId(0));
     SendDhcp(GetItfId(0), 0x8000, DHCP_REQUEST, req_options, 3);
-    SendDhcp(fabric_interface_id(), 0x8000, DHCP_ACK, resp_options, 4, false, true, vmaddr.to_ulong(), GetItfId(0));
+    // SendDhcp(fabric_interface_id(), 0x8000, DHCP_ACK, resp_options, 4, false, true, vmaddr.to_ulong(), GetItfId(0));
+    SendRelayResponse(DHCP_ACK, resp_options, 4, vmaddr.to_ulong(), GetItfId(0));
     client->WaitForIdle();
     int count = 0;
     DHCP_CHECK (stats.relay_resp < 2);

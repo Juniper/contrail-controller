@@ -107,7 +107,7 @@ static void AddInterface(InetInterfaceTest *t, const char *ifname,
                          const char *ip, int plen, const char *gw) {
     InetInterface::CreateReq(t->interface_table_, ifname, sub_type, vrf,
                              Ip4Address::from_string(ip), plen,
-                             Ip4Address::from_string(gw), "TEST");
+                             Ip4Address::from_string(gw), "", "TEST");
 
 }
 

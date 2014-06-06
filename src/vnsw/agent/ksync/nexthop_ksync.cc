@@ -550,7 +550,7 @@ int NHKSyncEntry::Encode(sandesh_op::type op, char *buf, int buf_len) {
             encoder.set_nhr_encap_oif_id(intf_id);
             encoder.set_nhr_encap_family(ETH_P_ARP);
 
-            SetEncap(encap);
+            SetEncap(if_ksync, encap);
             encoder.set_nhr_encap(encap);
             encoder.set_nhr_tun_sip(0);
             encoder.set_nhr_tun_dip(0);
@@ -575,7 +575,7 @@ int NHKSyncEntry::Encode(sandesh_op::type op, char *buf, int buf_len) {
             }
             encoder.set_nhr_encap_oif_id(intf_id);
 
-            SetEncap(encap);
+            SetEncap(NULL,encap);
             encoder.set_nhr_encap(encap);
             if (tunnel_type_.GetType() == TunnelType::MPLS_UDP) {
                 flags |= NH_FLAG_TUNNEL_UDP_MPLS;
@@ -598,7 +598,7 @@ int NHKSyncEntry::Encode(sandesh_op::type op, char *buf, int buf_len) {
                 intf_id = if_ksync->interface_id();
             }
             encoder.set_nhr_encap_oif_id(intf_id);
-            SetEncap(encap);
+            SetEncap(NULL,encap);
             encoder.set_nhr_encap(encap);
             flags |= NH_FLAG_TUNNEL_UDP;
             break;
@@ -884,7 +884,9 @@ KSyncEntry *NHKSyncEntry::UnresolvedReference() {
     return entry;
 }
 
-void NHKSyncEntry::SetEncap(std::vector<int8_t> &encap) {
+void NHKSyncEntry::SetEncap(InterfaceKSyncEntry *if_ksync,
+                            std::vector<int8_t> &encap) {
+
     if (is_layer2_ == true) {
         return;
     }
@@ -897,6 +899,10 @@ void NHKSyncEntry::SetEncap(std::vector<int8_t> &encap) {
     /* SMAC encode */
     if (type_ == NextHop::VLAN) {
         smac = smac_.ether_addr_octet;
+    } else if ((type_ == NextHop::INTERFACE || type_ == NextHop::ARP) 
+					&& if_ksync) {
+	smac = (const uint8_t *)if_ksync->mac();
+
     } else {
         Agent *agent = ksync_obj_->ksync()->agent();
         smac = agent->vhost_interface()->mac().ether_addr_octet;

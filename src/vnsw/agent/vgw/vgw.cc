@@ -132,7 +132,8 @@ void VirtualGateway::CreateInterface(const std::string &interface_name,
                                      const std::string &vrf_name) {
     InetInterface::Create(agent_->GetInterfaceTable(), interface_name,
                           InetInterface::SIMPLE_GATEWAY, vrf_name,
-                          Ip4Address(0), 0, Ip4Address(0), "");
+                          Ip4Address(0), 0, Ip4Address(0), Agent::NullString(),
+                          "");
 }
 
 void VirtualGateway::DeleteInterface(const std::string &interface_name) {
