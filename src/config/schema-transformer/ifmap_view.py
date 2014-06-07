@@ -25,6 +25,9 @@ from vnc_api.gen.vnc_api_client_gen import *
 import pycassa
 from pycassa.system_manager import *
 
+# Global variables
+vnc = None
+outfile = None
 """
     Input is list of tuple dictionary <type, name, value, prop, refs>
     type  := project, domain ...
@@ -334,6 +337,8 @@ def main():
     vnc_viewer.db_connect()
 
     #vnc = VncApi('admin', 'contrail123', 'admin', '127.0.0.1', '8082')
+    global vnc
+    global outfile
     vnc = VncApiClientGen(obj_serializer=None)
     outfile = file("debug.txt", "w")
 
