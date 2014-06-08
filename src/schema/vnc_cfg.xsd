@@ -831,6 +831,9 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
 <!--#IFMAP-SEMANTICS-IDL 
      Exclude('floating-ip-is-virtual-ip', ['backend']);
      Property('floating-ip-is-virtual-ip', 'floating-ip') -->
+<xsd:element name="floating-ip-is-virtual-ip" type="xsd:boolean"/>
+<!--#IFMAP-SEMANTICS-IDL 
+     Property('floating-ip-fixed-ip-address', 'floating-ip') -->
 <xsd:element name="floating-ip-project"/>
 <!--#IFMAP-SEMANTICS-IDL 
      Link('floating-ip-project',
