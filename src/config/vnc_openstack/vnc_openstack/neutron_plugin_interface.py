@@ -789,12 +789,13 @@ class NeutronPluginInterface(object):
         Add interface to a router
         """
         try:
-            cfgdb = NeutronPluginContrailCoreV2._get_user_cfgdb(context)
-            if 'port_id' in interface_info:
-                port_id = interface_info['port_id']
+            cfgdb = self._get_user_cfgdb(context)
+            router_id = interface_info['id']
+            if 'port_id' in interface_info['resource']:
+                port_id = interface_info['resource']['port_id']
                 return cfgdb.add_router_interface(router_id, port_id=port_id)
-            elif 'subnet_id' in interface_info:
-                subnet_id = interface_info['subnet_id']
+            elif 'subnet_id' in interface_info['resource']:
+                subnet_id = interface_info['resource']['subnet_id']
                 return cfgdb.add_router_interface(router_id,
                                                   subnet_id=subnet_id)
         except Exception as e:
@@ -806,13 +807,14 @@ class NeutronPluginInterface(object):
         Delete interface from a router
         """
         try:
-            cfgdb = NeutronPluginContrailCoreV2._get_user_cfgdb(context)
-            if 'port_id' in interface_info:
-                port_id = interface_info['port_id']
+            cfgdb = self._get_user_cfgdb(context)
+            router_id = interface_info['id']
+            if 'port_id' in interface_info['resource']:
+                port_id = interface_info['resource']['port_id']
                 return cfgdb.remove_router_interface(router_id,
                                                      port_id=port_id)
-            elif 'subnet_id' in interface_info:
-                subnet_id = interface_info['subnet_id']
+            elif 'subnet_id' in interface_info['resource']:
+                subnet_id = interface_info['resource']['subnet_id']
                 return cfgdb.remove_router_interface(router_id,
                                                      subnet_id=subnet_id)
         except Exception as e:
