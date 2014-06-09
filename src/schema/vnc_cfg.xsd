@@ -278,6 +278,7 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
         <xsd:element name="ipam-dns-server"  type="IpamDnsAddressType"/>
         <xsd:element name="dhcp-option-list" type="DhcpOptionsListType"/>
         <xsd:element name="cidr-block"       type="SubnetType"/>
+        <xsd:element name="host-routes"      type="RouteTableType"/>
     </xsd:all>
 </xsd:complexType>
 
@@ -376,6 +377,7 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
         <xsd:element name="dns-nameservers" type="xsd:string" maxOccurs="unbounded"/>
         <xsd:element name="allocation-pools" type="AllocationPoolType" maxOccurs="unbounded"/>
         <xsd:element name="addr_from_start" type="xsd:boolean"/>
+        <xsd:element name="dhcp-option-list" type="DhcpOptionsListType"/>
     </xsd:all>
 </xsd:complexType>
 
@@ -685,6 +687,16 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
 <!--#IFMAP-SEMANTICS-IDL 
      Property('virtual-machine-interface-mac-addresses',
              'virtual-machine-interface') -->
+<xsd:element name="virtual-machine-interface-dhcp-option-list"
+                                                type="DhcpOptionsListType"/>
+<!--#IFMAP-SEMANTICS-IDL
+     Property('virtual-machine-interface-dhcp-option-list',
+              'virtual-machine-interface') -->
+<xsd:element name="virtual-machine-interface-host-routes"
+                                                type="RouteTableType"/>
+<!--#IFMAP-SEMANTICS-IDL
+     Property('virtual-machine-interface-host-routes',
+              'virtual-machine-interface') -->
 
 <xsd:complexType name="VrfAssignRuleType">
     <xsd:all>

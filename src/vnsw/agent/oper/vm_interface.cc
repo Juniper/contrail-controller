@@ -25,6 +25,7 @@
 #include <oper/interface_common.h>
 #include <oper/vrf_assign.h>
 #include <oper/vxlan.h>
+#include <oper/config_dhcp_options.h>
 
 #include <vnc_cfg_types.h>
 #include <oper/agent_sandesh.h>
@@ -275,6 +276,13 @@ static void ReadInstanceIp(VmInterfaceConfigData *data, IFMapNode *node) {
 }
 
 
+// Get DHCP configuration
+static void ReadDhcpOptions(VirtualMachineInterface *cfg,
+                            VmInterfaceConfigData &data) {
+    data.config_dhcp_options_.set_options(cfg->dhcp_option_list());
+    data.config_dhcp_options_.set_host_routes(cfg->host_routes());
+}
+
 // Get interface mirror configuration.
 static void ReadAnalyzerNameAndCreate(Agent *agent,
                                       VirtualMachineInterface *cfg,
@@ -366,6 +374,9 @@ bool InterfaceTable::IFNodeToReq(IFMapNode *node, DBRequest &req) {
     VmInterfaceConfigData *data;
     data = new VmInterfaceConfigData();
     ReadAnalyzerNameAndCreate(agent_, cfg, *data);
+
+    // Fill DHCP option data
+    ReadDhcpOptions(cfg, *data);
 
     //Fill config data items
     data->cfg_name_= node->name();
@@ -756,6 +767,9 @@ bool VmInterface::CopyConfig(VmInterfaceConfigData *data, bool *sg_changed) {
         admin_state_ = data->admin_state_;
         ret = true;
     }
+
+    // Copy DHCP options; ret is not modified as there is no dependent action
+    config_dhcp_options_ = data->config_dhcp_options_;
 
     // Audit operational and config floating-ip list
     FloatingIpSet &old_fip_list = floating_ip_list_.list_;
