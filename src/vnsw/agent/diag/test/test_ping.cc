@@ -32,11 +32,11 @@ public:
                Agent::GetInstance()->pkt()->pkt_handler()->tap_interface());
         tap_->GetTestPktHandler()->RegisterCallback(
               boost::bind(&DiagTest::DiagCallback, this, _1, _2));
-        rid_ = Agent::GetInstance()->GetInterfaceTable()->Register(
+        rid_ = Agent::GetInstance()->interface_table()->Register(
                       boost::bind(&DiagTest::ItfUpdate, this, _2));
     }
     ~DiagTest() {
-        Agent::GetInstance()->GetInterfaceTable()->Unregister(rid_);
+        Agent::GetInstance()->interface_table()->Unregister(rid_);
     }
 
     void ItfUpdate(DBEntryBase *entry) {
@@ -184,7 +184,7 @@ public:
     AsioRunEvent() : Task(75) { };
     virtual  ~AsioRunEvent() { };
     bool Run() {
-        Agent::GetInstance()->GetEventManager()->Run();
+        Agent::GetInstance()->event_manager()->Run();
         return true;
     }
 };

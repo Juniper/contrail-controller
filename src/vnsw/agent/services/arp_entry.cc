@@ -78,7 +78,7 @@ bool ArpEntry::AgingExpiry() {
     Ip4Address ip(key_.ip);
     const string& vrf_name = key_.vrf->GetName();
     ArpNHKey nh_key(vrf_name, ip);
-    ArpNH *arp_nh = static_cast<ArpNH *>(handler_->agent()->GetNextHopTable()->
+    ArpNH *arp_nh = static_cast<ArpNH *>(handler_->agent()->nexthop_table()->
                                          FindActiveEntry(&nh_key));
     if (!arp_nh) {
         // do not re-resolve if Arp NH doesnt exist
@@ -93,10 +93,10 @@ void ArpEntry::SendGratuitousArp() {
     const unsigned char zero_mac[] = {0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
     Agent *agent = handler_->agent();
     ArpProto *arp_proto = agent->GetArpProto();
-    if (agent->GetRouterIdConfigured()) {
+    if (agent->router_id_configured()) {
         handler_->SendArp(ARPOP_REQUEST, arp_proto->ip_fabric_interface_mac(),
-                          agent->GetRouterId().to_ulong(), zero_mac,
-                          agent->GetRouterId().to_ulong(),
+                          agent->router_id().to_ulong(), zero_mac,
+                          agent->router_id().to_ulong(),
                           arp_proto->ip_fabric_interface_index(), 
                           key_.vrf->vrf_id());
     }
@@ -128,10 +128,10 @@ void ArpEntry::SendArpRequest() {
     ArpProto *arp_proto = agent->GetArpProto();
     uint16_t itf_index = arp_proto->ip_fabric_interface_index();
     const unsigned char *smac = arp_proto->ip_fabric_interface_mac();
-    Ip4Address ip = agent->GetRouterId();
+    Ip4Address ip = agent->router_id();
 
     VrfEntry *vrf =
-        agent->GetVrfTable()->FindVrfFromName(agent->GetDefaultVrf());
+        agent->vrf_table()->FindVrfFromName(agent->fabric_vrf_name());
     if (vrf) {
         handler_->SendArp(ARPOP_REQUEST, smac, ip.to_ulong(), 
                           zero_mac, key_.ip, itf_index, vrf->vrf_id());
@@ -141,7 +141,7 @@ void ArpEntry::SendArpRequest() {
 }
 
 void ArpEntry::AddArpRoute(bool resolved) {
-    if (key_.vrf->GetName() == handler_->agent()->GetLinkLocalVrfName()) {
+    if (key_.vrf->GetName() == handler_->agent()->linklocal_vrf_name()) {
         // Do not squash existing route entry.
         // should be smarter and not replace an existing route.
         return;
@@ -150,7 +150,7 @@ void ArpEntry::AddArpRoute(bool resolved) {
     Ip4Address ip(key_.ip);
     const string& vrf_name = key_.vrf->GetName();
     ArpNHKey nh_key(vrf_name, ip);
-    ArpNH *arp_nh = static_cast<ArpNH *>(handler_->agent()->GetNextHopTable()->
+    ArpNH *arp_nh = static_cast<ArpNH *>(handler_->agent()->nexthop_table()->
                                          FindActiveEntry(&nh_key));
 
     struct ether_addr mac;
@@ -166,20 +166,20 @@ void ArpEntry::AddArpRoute(bool resolved) {
     ARP_TRACE(Trace, "Add", ip.to_string(), vrf_name, mac_string.str());
 
     Interface *itf = handler_->agent()->GetArpProto()->ip_fabric_interface();
-    handler_->agent()->GetDefaultInet4UnicastRouteTable()->ArpRoute(
+    handler_->agent()->fabric_inet4_unicast_table()->ArpRoute(
                        DBRequest::DB_ENTRY_ADD_CHANGE, ip, mac,
                        vrf_name, *itf, resolved, 32);
 }
 
 bool ArpEntry::DeleteArpRoute() {
-    if (key_.vrf->GetName() == handler_->agent()->GetLinkLocalVrfName()) {
+    if (key_.vrf->GetName() == handler_->agent()->linklocal_vrf_name()) {
         return true;
     }
 
     Ip4Address ip(key_.ip);
     const string& vrf_name = key_.vrf->GetName();
     ArpNHKey nh_key(vrf_name, ip);
-    ArpNH *arp_nh = static_cast<ArpNH *>(handler_->agent()->GetNextHopTable()->
+    ArpNH *arp_nh = static_cast<ArpNH *>(handler_->agent()->nexthop_table()->
                                          FindActiveEntry(&nh_key));
     if (!arp_nh)
         return true;
@@ -191,7 +191,7 @@ bool ArpEntry::DeleteArpRoute() {
     ARP_TRACE(Trace, "Delete", ip.to_string(), vrf_name, mac_string.str());
 
     Interface *itf = handler_->agent()->GetArpProto()->ip_fabric_interface();
-    handler_->agent()->GetDefaultInet4UnicastRouteTable()->ArpRoute(
+    handler_->agent()->fabric_inet4_unicast_table()->ArpRoute(
                        DBRequest::DB_ENTRY_DELETE, ip, mac, vrf_name,
                        *itf, false, 32);
     return false;

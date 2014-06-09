@@ -51,12 +51,12 @@ char dest_mac[MAC_LEN] = { 0x00, 0x11, 0x12, 0x13, 0x14, 0x15 };
 class DhcpTest : public ::testing::Test {
 public:
     DhcpTest() : itf_count_(0) {
-        rid_ = Agent::GetInstance()->GetInterfaceTable()->Register(
+        rid_ = Agent::GetInstance()->interface_table()->Register(
                 boost::bind(&DhcpTest::ItfUpdate, this, _2));
     }
 
     ~DhcpTest() {
-        Agent::GetInstance()->GetInterfaceTable()->Unregister(rid_);
+        Agent::GetInstance()->interface_table()->Unregister(rid_);
     }
 
     void ItfUpdate(DBEntryBase *entry) {
@@ -103,7 +103,7 @@ public:
     std::size_t fabric_interface_id() { 
         PhysicalInterfaceKey key(Agent::GetInstance()->params()->eth_port().c_str());
         Interface *intf = static_cast<Interface *>
-            (Agent::GetInstance()->GetInterfaceTable()->FindActiveEntry(&key));
+            (Agent::GetInstance()->interface_table()->FindActiveEntry(&key));
         if (intf)
             return intf->id();
         else
@@ -331,7 +331,7 @@ public:
     AsioRunEvent() : Task(75) { };
     virtual  ~AsioRunEvent() { };
     bool Run() {
-        Agent::GetInstance()->GetEventManager()->Run();
+        Agent::GetInstance()->event_manager()->Run();
         return true;
     }
 };
@@ -724,7 +724,7 @@ TEST_F(DhcpTest, DhcpFabricPortTest) {
     struct PortInfo input[] = {
         {"vnet7", 7, "1.1.1.1", "00:00:00:07:07:07", 1, 7},
     };
-    Ip4Address vmaddr(Agent::GetInstance()->GetRouterId().to_ulong() + 1);
+    Ip4Address vmaddr(Agent::GetInstance()->router_id().to_ulong() + 1);
     strncpy(input[0].addr, vmaddr.to_string().c_str(), 32);
     uint8_t options[] = {
         DHCP_OPTION_MSG_TYPE,
@@ -734,7 +734,7 @@ TEST_F(DhcpTest, DhcpFabricPortTest) {
     DhcpProto::DhcpStats stats;
 
     CreateVmportEnv(input, 1, 0, NULL,
-                    Agent::GetInstance()->GetDefaultVrf().c_str());
+                    Agent::GetInstance()->fabric_vrf_name().c_str());
     client->WaitForIdle();
 
     SendDhcp(GetItfId(0), 0x8000, DHCP_DISCOVER, options, 3);
@@ -748,7 +748,7 @@ TEST_F(DhcpTest, DhcpFabricPortTest) {
 
     client->Reset();
     DeleteVmportEnv(input, 1, 1, 0, NULL,
-                    Agent::GetInstance()->GetDefaultVrf().c_str()); 
+                    Agent::GetInstance()->fabric_vrf_name().c_str()); 
     client->WaitForIdle();
 
     Agent::GetInstance()->GetDhcpProto()->ClearStats();
@@ -772,10 +772,10 @@ TEST_F(DhcpTest, DhcpZeroIpTest) {
     DhcpProto::DhcpStats stats;
 
     CreateVmportEnv(input, 1, 0, NULL,
-                    Agent::GetInstance()->GetDefaultVrf().c_str());
+                    Agent::GetInstance()->fabric_vrf_name().c_str());
     client->WaitForIdle();
 
-    Ip4Address vmaddr(Agent::GetInstance()->GetRouterId().to_ulong() + 1);
+    Ip4Address vmaddr(Agent::GetInstance()->router_id().to_ulong() + 1);
     SendDhcp(GetItfId(0), 0x8000, DHCP_DISCOVER, req_options, 3);
     // SendDhcp(fabric_interface_id(), 0x8000, DHCP_OFFER, resp_options, 4, false, true, vmaddr.to_ulong(), GetItfId(0));
     SendRelayResponse(DHCP_OFFER, resp_options, 4, vmaddr.to_ulong(), GetItfId(0));
@@ -787,11 +787,11 @@ TEST_F(DhcpTest, DhcpZeroIpTest) {
     DHCP_CHECK (stats.relay_resp < 2);
     EXPECT_EQ(2U, stats.relay_req);
     EXPECT_EQ(2U, stats.relay_resp);
-    EXPECT_TRUE(RouteFind(Agent::GetInstance()->GetDefaultVrf(), vmaddr, 32));
+    EXPECT_TRUE(RouteFind(Agent::GetInstance()->fabric_vrf_name(), vmaddr, 32));
 
     client->Reset();
     DeleteVmportEnv(input, 1, 1, 0, NULL,
-                    Agent::GetInstance()->GetDefaultVrf().c_str()); 
+                    Agent::GetInstance()->fabric_vrf_name().c_str()); 
     client->WaitForIdle();
 
     Agent::GetInstance()->GetDhcpProto()->ClearStats();

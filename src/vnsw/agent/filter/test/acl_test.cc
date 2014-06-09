@@ -134,7 +134,7 @@ void AddAcl(const char *name, int id) {
 
     pugi::xml_parse_result result = xdoc_.load(s.c_str());
     EXPECT_TRUE(result);
-    Agent::GetInstance()->GetIfMapAgentParser()->ConfigParse(xdoc_.first_child(), 0);
+    Agent::GetInstance()->ifmap_parser()->ConfigParse(xdoc_.first_child(), 0);
 }
 
 void AddAclFromFile() {
@@ -142,7 +142,7 @@ void AddAclFromFile() {
     pugi::xml_parse_result result =
             xdoc_.load_file("controller/src/vnsw/agent/filter/test/acl_cfg_test.xml");
     EXPECT_TRUE(result);
-    Agent::GetInstance()->GetIfMapAgentParser()->ConfigParse(xdoc_.first_child(), 0);    
+    Agent::GetInstance()->ifmap_parser()->ConfigParse(xdoc_.first_child(), 0);    
 }
 
 // Create and delete ACEs
@@ -150,7 +150,7 @@ TEST_F(AclTest, Basic) {
 
     boost::uuids::string_generator gen;
 
-    AclTable *table = Agent::GetInstance()->GetAclTable();
+    AclTable *table = Agent::GetInstance()->acl_table();
     assert(table);
     LOG(DEBUG, "db.acl.0:0x" << table);
 
@@ -210,7 +210,7 @@ TEST_F(AclTest, Basic) {
 
 TEST_F(AclTest, Basic1) {
     boost::uuids::string_generator gen;
-    AclTable *table = Agent::GetInstance()->GetAclTable();
+    AclTable *table = Agent::GetInstance()->acl_table();
     assert(table);
 
     AclSpec acl_spec;
@@ -258,7 +258,7 @@ TEST_F(AclTest, Basic1) {
 TEST_F(AclTest, PacketMatching) {
 
     boost::uuids::string_generator gen;
-    AclTable *table = Agent::GetInstance()->GetAclTable();
+    AclTable *table = Agent::GetInstance()->acl_table();
     assert(table);
 
     AclSpec acl_spec;
@@ -312,10 +312,10 @@ TEST_F(AclTest, PacketMatching) {
 TEST_F(AclTest, Config) {
     pugi::xml_document xdoc_;
     xdoc_.load_file("controller/src/vnsw/agent/filter/test/acl_cfg_test.xml");
-    Agent::GetInstance()->GetIfMapAgentParser()->ConfigParse(xdoc_.first_child(), 0);    
+    Agent::GetInstance()->ifmap_parser()->ConfigParse(xdoc_.first_child(), 0);    
     client->WaitForIdle();
 
-    AclTable *table = Agent::GetInstance()->GetAclTable();
+    AclTable *table = Agent::GetInstance()->acl_table();
     boost::uuids::string_generator gen;
     uuid acl_id = gen("65babf07-3bcb-4d38-b920-be3355f11126");
     AclKey key_1 = AclKey(acl_id);

@@ -16,11 +16,11 @@ VnUveTable::~VnUveTable() {
 }
 
 void VnUveTable::RegisterDBClients() {
-    VnTable *vn_table = agent_->GetVnTable();
+    VnTable *vn_table = agent_->vn_table();
     vn_listener_id_ = vn_table->Register
                   (boost::bind(&VnUveTable::VnNotify, this, _1, _2));
 
-    InterfaceTable *intf_table = agent_->GetInterfaceTable();
+    InterfaceTable *intf_table = agent_->interface_table();
     intf_listener_id_ = intf_table->Register
                   (boost::bind(&VnUveTable::InterfaceNotify, this, _1, _2));
     Add(*FlowHandler::UnknownVn());
@@ -28,8 +28,8 @@ void VnUveTable::RegisterDBClients() {
 }
 
 void VnUveTable::Shutdown(void) {
-    agent_->GetVnTable()->Unregister(vn_listener_id_);
-    agent_->GetInterfaceTable()->Unregister(intf_listener_id_);
+    agent_->vn_table()->Unregister(vn_listener_id_);
+    agent_->interface_table()->Unregister(intf_listener_id_);
 }
 
 void VnUveTable::DispatchVnMsg(const UveVirtualNetworkAgent &uve) {

@@ -17,7 +17,7 @@ namespace opt = boost::program_options;
 pthread_t asio_thread;
 
 void *asio_poll(void *arg){
-    Agent::GetInstance()->GetEventManager()->Run();
+    Agent::GetInstance()->event_manager()->Run();
     return NULL;
 }
 
@@ -73,7 +73,7 @@ TestClient *TestInit(const char *init_file, bool ksync_init, bool pkt_init,
     // Initialize the agent-init control class
     int sandesh_port = 0;
     Sandesh::InitGeneratorTest("VNSWAgent", "Agent", "Test", "Test",
-                               Agent::GetInstance()->GetEventManager(),
+                               Agent::GetInstance()->event_manager(),
                                sandesh_port, NULL);
 
     InitTestFactory();
@@ -107,18 +107,18 @@ TestClient *TestInit(const char *init_file, bool ksync_init, bool pkt_init,
 
     if (init_file == NULL) {
         agent->set_vhost_interface_name("vhost0");
-        InetInterface::CreateReq(Agent::GetInstance()->GetInterfaceTable(),
+        InetInterface::CreateReq(Agent::GetInstance()->interface_table(),
                                  "vhost0", InetInterface::VHOST,
-                                 Agent::GetInstance()->GetDefaultVrf(),
+                                 Agent::GetInstance()->fabric_vrf_name(),
                                  Ip4Address(0), 0, Ip4Address(0), param->eth_port(), "");
         boost::system::error_code ec;
-        Agent::GetInstance()->SetRouterId
+        Agent::GetInstance()->set_router_id
             (Ip4Address::from_string("10.1.1.1", ec));
         //Add a receive router
-        agent->GetDefaultInet4UnicastRouteTable()->AddVHostRecvRoute
+        agent->fabric_inet4_unicast_table()->AddVHostRecvRoute
             (Agent::GetInstance()->local_peer(),
-             Agent::GetInstance()->GetDefaultVrf(), "vhost0",
-             Agent::GetInstance()->GetRouterId(), 32, "", false);
+             Agent::GetInstance()->fabric_vrf_name(), "vhost0",
+             Agent::GetInstance()->router_id(), 32, "", false);
     }
 
     return client;
@@ -140,7 +140,7 @@ TestClient *StatsTestInit() {
     // Initialize the agent-init control class
     int sandesh_port = 0;
     Sandesh::InitGeneratorTest("VNSWAgent", "Agent", "Test", "Test",
-                               Agent::GetInstance()->GetEventManager(),
+                               Agent::GetInstance()->event_manager(),
                                sandesh_port, NULL);
 
     InitTestFactory();
@@ -164,13 +164,13 @@ TestClient *StatsTestInit() {
 
     sleep(1);
     Agent::GetInstance()->set_vhost_interface_name("vhost0");
-    InetInterface::CreateReq(Agent::GetInstance()->GetInterfaceTable(),
+    InetInterface::CreateReq(Agent::GetInstance()->interface_table(),
                              "vhost0", InetInterface::VHOST,
-                             Agent::GetInstance()->GetDefaultVrf(),
+                             Agent::GetInstance()->fabric_vrf_name(),
                              Ip4Address(0), 0, Ip4Address(0), param->eth_port(), "");
 
     boost::system::error_code ec;
-    Agent::GetInstance()->SetRouterId(Ip4Address::from_string("10.1.1.1", ec));
+    Agent::GetInstance()->set_router_id(Ip4Address::from_string("10.1.1.1", ec));
 
     // Wait for host and vhost interface creation
     client->WaitForIdle();
@@ -193,7 +193,7 @@ TestClient *VGwInit(const string &init_file, bool ksync_init) {
 
     // Initialize the agent-init control class
     Sandesh::InitGeneratorTest("VNSWAgent", "Agent", "Test", "Test",
-                               Agent::GetInstance()->GetEventManager(),
+                               Agent::GetInstance()->event_manager(),
                                0, NULL);
 
     InitTestFactory();
@@ -222,12 +222,12 @@ TestClient *VGwInit(const string &init_file, bool ksync_init) {
 
     usleep(100);
     Agent::GetInstance()->set_vhost_interface_name("vhost0");
-    InetInterface::CreateReq(Agent::GetInstance()->GetInterfaceTable(),
+    InetInterface::CreateReq(Agent::GetInstance()->interface_table(),
                              "vhost0", InetInterface::VHOST,
-                             Agent::GetInstance()->GetDefaultVrf(),
+                             Agent::GetInstance()->fabric_vrf_name(),
                              Ip4Address(0), 0, Ip4Address(0), param->eth_port(), "");
     boost::system::error_code ec;
-    Agent::GetInstance()->SetRouterId(Ip4Address::from_string("10.1.1.1", ec));
+    Agent::GetInstance()->set_router_id(Ip4Address::from_string("10.1.1.1", ec));
 
     // Wait for host and vhost interface creation
     client->WaitForIdle();
@@ -252,7 +252,7 @@ static bool WaitForDbFree(const string &name, int msec) {
 
     msec = msec * 1000;
     while (i < msec) {
-        if (Agent::GetInstance()->GetDB()->FindTable(name) == NULL) {
+        if (Agent::GetInstance()->db()->FindTable(name) == NULL) {
             break;
         }
 
@@ -260,7 +260,7 @@ static bool WaitForDbFree(const string &name, int msec) {
         i += 1000;
     }
 
-    return (Agent::GetInstance()->GetDB()->FindTable(name) == NULL);
+    return (Agent::GetInstance()->db()->FindTable(name) == NULL);
 }
 
 void TestClient::Shutdown() {
@@ -272,8 +272,8 @@ void TestClient::Shutdown() {
     Agent::GetInstance()->pkt()->Shutdown();  
     MulticastHandler::Shutdown();
     Agent::GetInstance()->oper_db()->Shutdown();
-    Agent::GetInstance()->GetDB()->Clear();
-    Agent::GetInstance()->GetDB()->ClearFactoryRegistry();
+    Agent::GetInstance()->db()->Clear();
+    Agent::GetInstance()->db()->ClearFactoryRegistry();
 }
 
 void TestShutdown() {
@@ -326,32 +326,32 @@ void TestShutdown() {
     init->ServicesShutdown();
     client->WaitForIdle();
 
-    WaitForDbCount(Agent::GetInstance()->GetInterfaceTable(), 0, 10000);
-    EXPECT_EQ(0U, Agent::GetInstance()->GetInterfaceTable()->Size());
+    WaitForDbCount(Agent::GetInstance()->interface_table(), 0, 10000);
+    EXPECT_EQ(0U, Agent::GetInstance()->interface_table()->Size());
 
-    WaitForDbCount(Agent::GetInstance()->GetVrfTable(), 0, 10000);
-    EXPECT_EQ(0U, Agent::GetInstance()->GetVrfTable()->Size());
+    WaitForDbCount(Agent::GetInstance()->vrf_table(), 0, 10000);
+    EXPECT_EQ(0U, Agent::GetInstance()->vrf_table()->Size());
 
-    WaitForDbCount(Agent::GetInstance()->GetNextHopTable(), 0, 10000);
-    EXPECT_EQ(0U, Agent::GetInstance()->GetNextHopTable()->Size());
+    WaitForDbCount(Agent::GetInstance()->nexthop_table(), 0, 10000);
+    EXPECT_EQ(0U, Agent::GetInstance()->nexthop_table()->Size());
 
-    WaitForDbFree(Agent::GetInstance()->GetDefaultVrf(), 10000);
-    assert(Agent::GetInstance()->GetDB()->FindTable(Agent::GetInstance()->GetDefaultVrf()) == NULL);
+    WaitForDbFree(Agent::GetInstance()->fabric_vrf_name(), 10000);
+    assert(Agent::GetInstance()->db()->FindTable(Agent::GetInstance()->fabric_vrf_name()) == NULL);
 
-    WaitForDbCount(Agent::GetInstance()->GetVmTable(), 0, 10000);
-    EXPECT_EQ(0U, Agent::GetInstance()->GetVmTable()->Size());
+    WaitForDbCount(Agent::GetInstance()->vm_table(), 0, 10000);
+    EXPECT_EQ(0U, Agent::GetInstance()->vm_table()->Size());
 
-    WaitForDbCount(Agent::GetInstance()->GetVnTable(), 0, 10000);
-    EXPECT_EQ(0U, Agent::GetInstance()->GetVnTable()->Size());
+    WaitForDbCount(Agent::GetInstance()->vn_table(), 0, 10000);
+    EXPECT_EQ(0U, Agent::GetInstance()->vn_table()->Size());
 
-    WaitForDbCount(Agent::GetInstance()->GetMplsTable(), 0, 10000);
-    EXPECT_EQ(0U, Agent::GetInstance()->GetMplsTable()->Size());
+    WaitForDbCount(Agent::GetInstance()->mpls_table(), 0, 10000);
+    EXPECT_EQ(0U, Agent::GetInstance()->mpls_table()->Size());
 
-    WaitForDbCount(Agent::GetInstance()->GetIntfCfgTable(), 0, 10000);
-    EXPECT_EQ(0U, Agent::GetInstance()->GetIntfCfgTable()->Size());
+    WaitForDbCount(Agent::GetInstance()->interface_config_table(), 0, 10000);
+    EXPECT_EQ(0U, Agent::GetInstance()->interface_config_table()->Size());
 
-    WaitForDbCount(Agent::GetInstance()->GetAclTable(), 0, 10000);
-    EXPECT_EQ(0U, Agent::GetInstance()->GetAclTable()->Size());
+    WaitForDbCount(Agent::GetInstance()->acl_table(), 0, 10000);
+    EXPECT_EQ(0U, Agent::GetInstance()->acl_table()->Size());
     client->WaitForIdle();
 
     client->Shutdown();
@@ -360,7 +360,7 @@ void TestShutdown() {
     Sandesh::Uninit();
     client->WaitForIdle();
 
-    Agent::GetInstance()->GetEventManager()->Shutdown();
+    Agent::GetInstance()->event_manager()->Shutdown();
     AsioStop();
 
     AgentStats::GetInstance()->Shutdown();

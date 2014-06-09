@@ -85,13 +85,13 @@ protected:
 
     virtual void SetUp() {
         server_shutdown[0] = server_shutdown[1] = 0;
-        Agent::GetInstance()->SetEventManager(&evm_);
-        thread_ = new ServerThread(Agent::GetInstance()->GetEventManager());
+        Agent::GetInstance()->set_event_manager(&evm_);
+        thread_ = new ServerThread(Agent::GetInstance()->event_manager());
 
-        xs[0].reset(new XmppServer(Agent::GetInstance()->GetEventManager(), XmppInit::kControlNodeJID));
+        xs[0].reset(new XmppServer(Agent::GetInstance()->event_manager(), XmppInit::kControlNodeJID));
         xs[0]->Initialize(0, false);
 
-        xs[1].reset(new XmppServer(Agent::GetInstance()->GetEventManager(), XmppInit::kControlNodeJID));
+        xs[1].reset(new XmppServer(Agent::GetInstance()->event_manager(), XmppInit::kControlNodeJID));
         xs[1]->Initialize(0, false);
 
         thread_->Start();
@@ -105,14 +105,14 @@ protected:
             xs[1]->Shutdown();
         Agent::GetInstance()->controller()->DisConnect();
         client->WaitForIdle();
-        Agent::GetInstance()->GetEventManager()->Shutdown();
+        Agent::GetInstance()->event_manager()->Shutdown();
         thread_->Join();
     }
 
     void XmppConnectionSetUp() {
 
-        Agent::GetInstance()->SetXmppPort(xs[0]->GetPort(), 0);
-        Agent::GetInstance()->SetXmppPort(xs[1]->GetPort(), 1);
+        Agent::GetInstance()->set_controller_ifmap_xmpp_port(xs[0]->GetPort(), 0);
+        Agent::GetInstance()->set_controller_ifmap_xmpp_port(xs[1]->GetPort(), 1);
 
         //Ask agent to connect to us
         Agent::GetInstance()->controller()->Connect();
@@ -174,22 +174,22 @@ TEST_F(AgentIFMapXmppUnitTest, LinkTest) {
 
     req_key->id_type = "virtual-machine";
     req_key->id_name = "vm4";
-    WAIT_FOR(100, 10000, ((node = IFMapAgentTable::TableEntryLookup(Agent::GetInstance()->GetDB(), req_key)) != NULL));
+    WAIT_FOR(100, 10000, ((node = IFMapAgentTable::TableEntryLookup(Agent::GetInstance()->db(), req_key)) != NULL));
     EXPECT_EQ(node->name(), "vm4");
 
     req_key->id_type = "virtual-network";
     req_key->id_name = "vn4";
-    WAIT_FOR(100, 10000, ((node = IFMapAgentTable::TableEntryLookup(Agent::GetInstance()->GetDB(), req_key)) != NULL));
+    WAIT_FOR(100, 10000, ((node = IFMapAgentTable::TableEntryLookup(Agent::GetInstance()->db(), req_key)) != NULL));
     EXPECT_EQ(node->name(), "vn4");
 
     req_key->id_type = "routing-instance";
     req_key->id_name = "vrf4";
-    WAIT_FOR(100, 10000, ((node = IFMapAgentTable::TableEntryLookup(Agent::GetInstance()->GetDB(), req_key)) != NULL));
+    WAIT_FOR(100, 10000, ((node = IFMapAgentTable::TableEntryLookup(Agent::GetInstance()->db(), req_key)) != NULL));
     EXPECT_EQ(node->name(), "vrf4");
 
     req_key->id_type = "virtual-machine-interface";
     req_key->id_name = "vnet4";
-    WAIT_FOR(100, 10000, ((node = IFMapAgentTable::TableEntryLookup(Agent::GetInstance()->GetDB(), req_key)) != NULL));
+    WAIT_FOR(100, 10000, ((node = IFMapAgentTable::TableEntryLookup(Agent::GetInstance()->db(), req_key)) != NULL));
     EXPECT_EQ(node->name(), "vnet4");
 
     client->WaitForIdle();
@@ -209,7 +209,7 @@ TEST_F(AgentIFMapXmppUnitTest, LinkTest) {
     client->WaitForIdle();
 
     //Bring down the primary
-    id = Agent::GetInstance()->GetXmppCfgServerIdx();
+    id = Agent::GetInstance()->ifmap_active_xmpp_server_index();
 
     server_shutdown[id] = 1;
     xs[id]->Shutdown();
@@ -225,22 +225,22 @@ TEST_F(AgentIFMapXmppUnitTest, LinkTest) {
 
     req_key->id_type = "virtual-machine";
     req_key->id_name = "vm4";
-    node = IFMapAgentTable::TableEntryLookup(Agent::GetInstance()->GetDB(), req_key);
+    node = IFMapAgentTable::TableEntryLookup(Agent::GetInstance()->db(), req_key);
     EXPECT_TRUE(node == NULL);
 
     req_key->id_type = "virtual-network";
     req_key->id_name = "vn4";
-    node = IFMapAgentTable::TableEntryLookup(Agent::GetInstance()->GetDB(), req_key);
+    node = IFMapAgentTable::TableEntryLookup(Agent::GetInstance()->db(), req_key);
     EXPECT_TRUE(node == NULL);
 
     req_key->id_type = "routing-instance";
     req_key->id_name = "vrf4";
-    node = IFMapAgentTable::TableEntryLookup(Agent::GetInstance()->GetDB(), req_key);
+    node = IFMapAgentTable::TableEntryLookup(Agent::GetInstance()->db(), req_key);
     EXPECT_TRUE(node == NULL);
 
     req_key->id_type = "virtual-machine-interface";
     req_key->id_name = "vnet4";
-    node = IFMapAgentTable::TableEntryLookup(Agent::GetInstance()->GetDB(), req_key);
+    node = IFMapAgentTable::TableEntryLookup(Agent::GetInstance()->db(), req_key);
     EXPECT_TRUE(node == NULL);
 }
 }
@@ -249,8 +249,8 @@ int main(int argc, char **argv) {
     int ret;
     GETUSERARGS();
     client = TestInit(init_file, ksync_init);
-    Agent::GetInstance()->SetXmppServer("127.0.0.1", 0);
-    Agent::GetInstance()->SetXmppServer("127.0.0.2", 1);
+    Agent::GetInstance()->set_controller_ifmap_xmpp_server("127.0.0.1", 0);
+    Agent::GetInstance()->set_controller_ifmap_xmpp_server("127.0.0.2", 1);
     ret = RUN_ALL_TESTS();
     return ret;
 }

@@ -198,13 +198,13 @@ bool AgentPath::UpdateTunnelType(Agent *agent, const AgentRoute *sync_route) {
     if (nh_.get() && nh_->GetType() == NextHop::TUNNEL) {
         DBRequest nh_req(DBRequest::DB_ENTRY_ADD_CHANGE);
         TunnelNHKey *tnh_key =
-            new TunnelNHKey(agent->GetDefaultVrf(), agent->GetRouterId(),
+            new TunnelNHKey(agent->fabric_vrf_name(), agent->router_id(),
                             server_ip_, false, tunnel_type_);
         nh_req.key.reset(tnh_key);
         nh_req.data.reset(new TunnelNHData());
         agent->nexthop_table()->Process(nh_req);
 
-        TunnelNHKey nh_key(agent->GetDefaultVrf(), agent->GetRouterId(),
+        TunnelNHKey nh_key(agent->fabric_vrf_name(), agent->router_id(),
                            server_ip_, false, tunnel_type_);
         NextHop *nh = static_cast<NextHop *>
             (agent->nexthop_table()->FindActiveEntry(&nh_key));
@@ -242,7 +242,7 @@ bool AgentPath::Sync(AgentRoute *sync_route) {
     Inet4UnicastAgentRouteTable *table = NULL;
     Inet4UnicastRouteEntry *rt = NULL;
     table = static_cast<Inet4UnicastAgentRouteTable *>
-        (agent->GetVrfTable()->GetInet4UnicastRouteTable(vrf_name_));
+        (agent->vrf_table()->GetInet4UnicastRouteTable(vrf_name_));
     if (table)
         rt = table->FindRoute(gw_ip_);
 
@@ -352,7 +352,7 @@ bool LocalVmRoute::AddChangePath(Agent *agent, AgentPath *path) {
     //TODO Based on key table type pick up interface
     VmInterfaceKey intf_key(AgentKey::ADD_DEL_CHANGE, intf_.uuid_, "");
     VmInterface *vm_port = static_cast<VmInterface *>
-        (agent->GetInterfaceTable()->FindActiveEntry(&intf_key));
+        (agent->interface_table()->FindActiveEntry(&intf_key));
 
     bool policy = false;
     // Use policy based NH if policy enabled on interface
@@ -474,8 +474,8 @@ bool ResolveRoute::AddChangePath(Agent *agent, AgentPath *path) {
 
     nh = static_cast<NextHop *>(agent->nexthop_table()->FindActiveEntry(&key));
     path->set_unresolved(false);
-    if (path->dest_vn_name() != agent->GetFabricVnName()) {
-        path->set_dest_vn_name(agent->GetFabricVnName());
+    if (path->dest_vn_name() != agent->fabric_vn_name()) {
+        path->set_dest_vn_name(agent->fabric_vn_name());
         ret = true;
     }
     if (path->ChangeNH(agent, nh) == true)
@@ -538,7 +538,7 @@ bool MulticastRoute::AddChangePath(Agent *agent, AgentPath *path) {
 //TODO make it generic 
 void UnresolvedNH::HandleRequest() const {
 
-    VrfEntry *vrf = Agent::GetInstance()->GetVrfTable()->FindVrfFromId(0);
+    VrfEntry *vrf = Agent::GetInstance()->vrf_table()->FindVrfFromId(0);
     if (!vrf) {
         ErrorResp *resp = new ErrorResp();
         resp->set_context(context());

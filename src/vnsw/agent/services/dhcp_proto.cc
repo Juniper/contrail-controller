@@ -29,7 +29,7 @@ DhcpProto::DhcpProto(Agent *agent, boost::asio::io_service &io,
     }
         
     memset(ip_fabric_interface_mac_, 0, ETH_ALEN);
-    iid_ = agent->GetInterfaceTable()->Register(
+    iid_ = agent->interface_table()->Register(
                   boost::bind(&DhcpProto::ItfNotify, this, _2));
 
     // For DHCP requests coming from VMs in default VRF, when the IP received
@@ -51,7 +51,7 @@ DhcpProto::~DhcpProto() {
     if (ec) {
         DHCP_TRACE(Error, "Error closing DHCP socket : " << ec);
     }  
-    agent_->GetInterfaceTable()->Unregister(iid_);
+    agent_->interface_table()->Unregister(iid_);
     if (dhcp_server_read_buf_) delete [] dhcp_server_read_buf_;
 }
 
@@ -95,13 +95,13 @@ void DhcpProto::ItfNotify(DBEntryBase *entry) {
     Interface *itf = static_cast<Interface *>(entry);
     if (entry->IsDeleted()) {
         if (itf->type() == Interface::PHYSICAL && 
-            itf->name() == agent_->GetIpFabricItfName()) {
+            itf->name() == agent_->fabric_interface_name()) {
             set_ip_fabric_interface(NULL);
             set_ip_fabric_interface_index(-1);
         }
     } else {
         if (itf->type() == Interface::PHYSICAL && 
-            itf->name() == agent_->GetIpFabricItfName()) {
+            itf->name() == agent_->fabric_interface_name()) {
             set_ip_fabric_interface(itf);
             set_ip_fabric_interface_index(itf->id());
             if (run_with_vrouter_) {

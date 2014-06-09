@@ -56,9 +56,9 @@ public:
     }
 
     bool AddVhostRcvRoute() {
-        Agent::GetInstance()->GetDefaultInet4UnicastRouteTable()->
+        Agent::GetInstance()->fabric_inet4_unicast_table()->
             AddVHostRecvRoute(Agent::GetInstance()->local_peer(),
-                              Agent::GetInstance()->GetDefaultVrf(),
+                              Agent::GetInstance()->fabric_vrf_name(),
                               "vhost0", vhost_rcv_route_, 32, "", false);
         return true;
     }
@@ -166,8 +166,8 @@ public:
     void SendArpMessage(ArpProto::ArpMsgType type, uint32_t addr) {
         ArpProto::ArpIpc *ipc = 
                 new ArpProto::ArpIpc(type, addr, 
-                    Agent::GetInstance()->GetVrfTable()->
-                    FindVrfFromName(Agent::GetInstance()->GetDefaultVrf()));
+                    Agent::GetInstance()->vrf_table()->
+                    FindVrfFromName(Agent::GetInstance()->fabric_vrf_name()));
         Agent::GetInstance()->pkt()->pkt_handler()->SendMessage(PktHandler::ARP, ipc);
     }
 
@@ -175,7 +175,7 @@ public:
         Ip4Address ip(addr);
         ArpNHKey key(vrf_name, ip);
         ArpNH *arp_nh = static_cast<ArpNH *>(Agent::GetInstance()->
-                                             GetNextHopTable()->
+                                             nexthop_table()->
                                              FindActiveEntry(&key));
         if (arp_nh) {
             if (validate)
@@ -189,7 +189,7 @@ public:
         Agent *agent = Agent::GetInstance();
         Ip4Address ip(addr);
         Inet4UnicastRouteKey rt_key(agent->local_peer(), vrf_name, ip, 32);
-        VrfEntry *vrf = Agent::GetInstance()->GetVrfTable()->FindVrfFromName(vrf_name);
+        VrfEntry *vrf = Agent::GetInstance()->vrf_table()->FindVrfFromName(vrf_name);
         if (!vrf || !(vrf->GetInet4UnicastRouteTable()))
             return false;
         Inet4UnicastRouteEntry *rt = static_cast<Inet4UnicastRouteEntry *>
@@ -205,7 +205,7 @@ public:
         Ip4Address ip(addr);
         ether_addr mac;
         Inet4UnicastAgentRouteTable::ArpRoute(op, ip, mac, 
-                          Agent::GetInstance()->GetDefaultVrf(), 
+                          Agent::GetInstance()->fabric_vrf_name(), 
                           *Agent::GetInstance()->GetArpProto()->ip_fabric_interface(),
                           false, 32);
     }
@@ -214,7 +214,7 @@ public:
         Ip4Address sip(saddr);
         Ip4Address dip(daddr);
 
-        NextHopKey *key = new TunnelNHKey(Agent::GetInstance()->GetDefaultVrf(), sip, dip,
+        NextHopKey *key = new TunnelNHKey(Agent::GetInstance()->fabric_vrf_name(), sip, dip,
                                           false, TunnelType::DefaultType());
         TunnelNHData *data = new TunnelNHData();
 
@@ -222,14 +222,14 @@ public:
         req.oper = op;
         req.key.reset(key);
         req.data.reset(data);
-        Agent::GetInstance()->GetNextHopTable()->Enqueue(&req);
+        Agent::GetInstance()->nexthop_table()->Enqueue(&req);
     }
 
     void CfgIntfSync(int id, const char *cfg_name, int vn, int vm) {
     }
 
     void ItfDelete(const string &itf_name) {
-        PhysicalInterface::DeleteReq(Agent::GetInstance()->GetInterfaceTable(),
+        PhysicalInterface::DeleteReq(Agent::GetInstance()->interface_table(),
                                 itf_name);
     }
 
@@ -257,23 +257,23 @@ public:
     AsioRunEvent() : Task(75) { };
     virtual  ~AsioRunEvent() { };
     bool Run() {
-        Agent::GetInstance()->GetEventManager()->Run();
+        Agent::GetInstance()->event_manager()->Run();
         return true;
     }
 };
 
 TEST_F(ArpTest, ArpReqTest) {
     EXPECT_EQ(1U, Agent::GetInstance()->GetArpProto()->GetArpCacheSize()); // For GW
-    EXPECT_TRUE(FindArpNHEntry(gw_ip, Agent::GetInstance()->GetDefaultVrf()));
-    EXPECT_TRUE(FindArpRoute(gw_ip, Agent::GetInstance()->GetDefaultVrf()));
+    EXPECT_TRUE(FindArpNHEntry(gw_ip, Agent::GetInstance()->fabric_vrf_name()));
+    EXPECT_TRUE(FindArpRoute(gw_ip, Agent::GetInstance()->fabric_vrf_name()));
     SendArpReq(req_ifindex, 0, src_ip, target_ip);
     WaitForCompletion(2);
-    EXPECT_TRUE(FindArpNHEntry(target_ip, Agent::GetInstance()->GetDefaultVrf()));
-    EXPECT_TRUE(FindArpRoute(target_ip, Agent::GetInstance()->GetDefaultVrf()));
+    EXPECT_TRUE(FindArpNHEntry(target_ip, Agent::GetInstance()->fabric_vrf_name()));
+    EXPECT_TRUE(FindArpRoute(target_ip, Agent::GetInstance()->fabric_vrf_name()));
     usleep(175000); // wait for retry timer to expire
     EXPECT_EQ(1U, Agent::GetInstance()->GetArpProto()->GetArpCacheSize());
-    EXPECT_FALSE(FindArpNHEntry(target_ip, Agent::GetInstance()->GetDefaultVrf()));
-    EXPECT_FALSE(FindArpRoute(target_ip, Agent::GetInstance()->GetDefaultVrf()));
+    EXPECT_FALSE(FindArpNHEntry(target_ip, Agent::GetInstance()->fabric_vrf_name()));
+    EXPECT_FALSE(FindArpRoute(target_ip, Agent::GetInstance()->fabric_vrf_name()));
     SendArpReq(req_ifindex, 0, src_ip, src_ip);
     SendArpReply(reply_ifindex, 0, src_ip, src_ip);
     client->WaitForIdle();
@@ -283,21 +283,21 @@ TEST_F(ArpTest, ArpReqTest) {
     SendArpReply(reply_ifindex, 0, src_ip, target_ip);
     SendArpReq(req_ifindex, 0, src_ip, target_ip);
     WaitForCompletion(2);
-    EXPECT_TRUE(FindArpNHEntry(target_ip, Agent::GetInstance()->GetDefaultVrf()));
-    EXPECT_TRUE(FindArpRoute(target_ip, Agent::GetInstance()->GetDefaultVrf()));
+    EXPECT_TRUE(FindArpNHEntry(target_ip, Agent::GetInstance()->fabric_vrf_name()));
+    EXPECT_TRUE(FindArpRoute(target_ip, Agent::GetInstance()->fabric_vrf_name()));
     SendArpMessage(ArpProto::AGING_TIMER_EXPIRED, target_ip);
     usleep(175000); // wait for retry timer
     EXPECT_EQ(1U, Agent::GetInstance()->GetArpProto()->GetArpCacheSize());
-    EXPECT_FALSE(FindArpRoute(target_ip, Agent::GetInstance()->GetDefaultVrf()));
-    EXPECT_FALSE(FindArpNHEntry(target_ip, Agent::GetInstance()->GetDefaultVrf()));
+    EXPECT_FALSE(FindArpRoute(target_ip, Agent::GetInstance()->fabric_vrf_name()));
+    EXPECT_FALSE(FindArpNHEntry(target_ip, Agent::GetInstance()->fabric_vrf_name()));
     SendIpPacket(req_ifindex, "1.1.1.1", "1.1.1.2", 1);
     WaitForCompletion(2);
-    EXPECT_TRUE(FindArpNHEntry(ntohl(inet_addr("1.1.1.2")), Agent::GetInstance()->GetDefaultVrf()));
-    EXPECT_TRUE(FindArpRoute(ntohl(inet_addr("1.1.1.2")), Agent::GetInstance()->GetDefaultVrf()));
+    EXPECT_TRUE(FindArpNHEntry(ntohl(inet_addr("1.1.1.2")), Agent::GetInstance()->fabric_vrf_name()));
+    EXPECT_TRUE(FindArpRoute(ntohl(inet_addr("1.1.1.2")), Agent::GetInstance()->fabric_vrf_name()));
     usleep(175000); // wait for retry timer to expire
     EXPECT_EQ(1U, Agent::GetInstance()->GetArpProto()->GetArpCacheSize());
-    EXPECT_FALSE(FindArpNHEntry(ntohl(inet_addr("1.1.1.2")), Agent::GetInstance()->GetDefaultVrf()));
-    EXPECT_FALSE(FindArpRoute(ntohl(inet_addr("1.1.1.2")), Agent::GetInstance()->GetDefaultVrf()));
+    EXPECT_FALSE(FindArpNHEntry(ntohl(inet_addr("1.1.1.2")), Agent::GetInstance()->fabric_vrf_name()));
+    EXPECT_FALSE(FindArpRoute(ntohl(inet_addr("1.1.1.2")), Agent::GetInstance()->fabric_vrf_name()));
     ArpInfo *sand = new ArpInfo();
     Sandesh::set_response_callback(boost::bind(
         &ArpTest::CheckSandeshResponse, this, _1));
@@ -318,14 +318,14 @@ TEST_F(ArpTest, ArpGratuitousTest) {
         SendArpReq(req_ifindex, 0, ntohl(inet_addr(GRAT_IP)), 
                              ntohl(inet_addr(GRAT_IP)));
         WaitForCompletion(2);
-        EXPECT_TRUE(FindArpNHEntry(ntohl(inet_addr(GRAT_IP)), Agent::GetInstance()->GetDefaultVrf()));
-        EXPECT_TRUE(FindArpRoute(ntohl(inet_addr(GRAT_IP)), Agent::GetInstance()->GetDefaultVrf()));
+        EXPECT_TRUE(FindArpNHEntry(ntohl(inet_addr(GRAT_IP)), Agent::GetInstance()->fabric_vrf_name()));
+        EXPECT_TRUE(FindArpRoute(ntohl(inet_addr(GRAT_IP)), Agent::GetInstance()->fabric_vrf_name()));
     }
     SendArpMessage(ArpProto::AGING_TIMER_EXPIRED, ntohl(inet_addr(GRAT_IP)));
     usleep(175000); // wait for retry timer to expire
     EXPECT_EQ(1U, Agent::GetInstance()->GetArpProto()->GetArpCacheSize());
-    EXPECT_FALSE(FindArpNHEntry(ntohl(inet_addr(GRAT_IP)), Agent::GetInstance()->GetDefaultVrf()));
-    EXPECT_FALSE(FindArpRoute(ntohl(inet_addr(GRAT_IP)), Agent::GetInstance()->GetDefaultVrf()));
+    EXPECT_FALSE(FindArpNHEntry(ntohl(inet_addr(GRAT_IP)), Agent::GetInstance()->fabric_vrf_name()));
+    EXPECT_FALSE(FindArpRoute(ntohl(inet_addr(GRAT_IP)), Agent::GetInstance()->fabric_vrf_name()));
 }
 
 TEST_F(ArpTest, ArpTunnelGwTest) {
@@ -335,8 +335,8 @@ TEST_F(ArpTest, ArpTunnelGwTest) {
     WaitForCompletion(1);
     SendArpReply(reply_ifindex, 0, src_ip, gw_ip);
     WaitForCompletion(1);
-    EXPECT_TRUE(FindArpNHEntry(gw_ip, Agent::GetInstance()->GetDefaultVrf()));
-    EXPECT_TRUE(FindArpRoute(gw_ip, Agent::GetInstance()->GetDefaultVrf()));
+    EXPECT_TRUE(FindArpNHEntry(gw_ip, Agent::GetInstance()->fabric_vrf_name()));
+    EXPECT_TRUE(FindArpRoute(gw_ip, Agent::GetInstance()->fabric_vrf_name()));
     TunnelNH(DBRequest::DB_ENTRY_DELETE, src_ip, ntohl(inet_addr(DIFF_NET_IP)));
     WaitForCompletion(1);
 }
@@ -345,14 +345,14 @@ TEST_F(ArpTest, ArpDelTest) {
     SendArpReq(req_ifindex, 0, ntohl(inet_addr(GRAT_IP)), 
                          ntohl(inet_addr(GRAT_IP)));
     WaitForCompletion(2);
-    EXPECT_TRUE(FindArpNHEntry(ntohl(inet_addr(GRAT_IP)), Agent::GetInstance()->GetDefaultVrf()));
-    EXPECT_TRUE(FindArpRoute(ntohl(inet_addr(GRAT_IP)), Agent::GetInstance()->GetDefaultVrf()));
+    EXPECT_TRUE(FindArpNHEntry(ntohl(inet_addr(GRAT_IP)), Agent::GetInstance()->fabric_vrf_name()));
+    EXPECT_TRUE(FindArpRoute(ntohl(inet_addr(GRAT_IP)), Agent::GetInstance()->fabric_vrf_name()));
     ArpNHUpdate(DBRequest::DB_ENTRY_DELETE, ntohl(inet_addr(GRAT_IP)));
     client->WaitForIdle();
     usleep(175000);
     EXPECT_EQ(1U, Agent::GetInstance()->GetArpProto()->GetArpCacheSize());
-    EXPECT_FALSE(FindArpNHEntry(ntohl(inet_addr(GRAT_IP)), Agent::GetInstance()->GetDefaultVrf()));
-    EXPECT_FALSE(FindArpRoute(ntohl(inet_addr(GRAT_IP)), Agent::GetInstance()->GetDefaultVrf()));
+    EXPECT_FALSE(FindArpNHEntry(ntohl(inet_addr(GRAT_IP)), Agent::GetInstance()->fabric_vrf_name()));
+    EXPECT_FALSE(FindArpRoute(ntohl(inet_addr(GRAT_IP)), Agent::GetInstance()->fabric_vrf_name()));
 }
 
 TEST_F(ArpTest, ArpTunnelTest) {
@@ -361,23 +361,23 @@ TEST_F(ArpTest, ArpTunnelTest) {
     WaitForCompletion(2);
     SendArpReply(reply_ifindex, 0, src_ip, dest_ip);
     WaitForCompletion(2);
-    EXPECT_TRUE(FindArpNHEntry(dest_ip, Agent::GetInstance()->GetDefaultVrf()));
-    EXPECT_TRUE(FindArpRoute(dest_ip, Agent::GetInstance()->GetDefaultVrf()));
+    EXPECT_TRUE(FindArpNHEntry(dest_ip, Agent::GetInstance()->fabric_vrf_name()));
+    EXPECT_TRUE(FindArpRoute(dest_ip, Agent::GetInstance()->fabric_vrf_name()));
     TunnelNH(DBRequest::DB_ENTRY_DELETE, src_ip, dest_ip);
     client->WaitForIdle();
     SendArpMessage(ArpProto::AGING_TIMER_EXPIRED, dest_ip);
     usleep(175000);
     EXPECT_EQ(1U, Agent::GetInstance()->GetArpProto()->GetArpCacheSize());
-    EXPECT_FALSE(FindArpNHEntry(dest_ip, Agent::GetInstance()->GetDefaultVrf()));
-    EXPECT_FALSE(FindArpRoute(dest_ip, Agent::GetInstance()->GetDefaultVrf()));
+    EXPECT_FALSE(FindArpNHEntry(dest_ip, Agent::GetInstance()->fabric_vrf_name()));
+    EXPECT_FALSE(FindArpRoute(dest_ip, Agent::GetInstance()->fabric_vrf_name()));
 }
 
 TEST_F(ArpTest, ArpTunnelNoRequestTest) {
     // Send Arp reply first to check that entry is created
     SendArpReply(reply_ifindex, 0, src_ip, dest_ip);
     WaitForCompletion(2);
-    EXPECT_TRUE(FindArpNHEntry(dest_ip, Agent::GetInstance()->GetDefaultVrf(), true));
-    EXPECT_TRUE(FindArpRoute(dest_ip, Agent::GetInstance()->GetDefaultVrf()));
+    EXPECT_TRUE(FindArpNHEntry(dest_ip, Agent::GetInstance()->fabric_vrf_name(), true));
+    EXPECT_TRUE(FindArpRoute(dest_ip, Agent::GetInstance()->fabric_vrf_name()));
     // TunnelNH(DBRequest::DB_ENTRY_ADD_CHANGE, src_ip, dest_ip);
     // WaitForCompletion(2);
     // TunnelNH(DBRequest::DB_ENTRY_DELETE, src_ip, dest_ip);
@@ -385,15 +385,15 @@ TEST_F(ArpTest, ArpTunnelNoRequestTest) {
     SendArpMessage(ArpProto::AGING_TIMER_EXPIRED, dest_ip);
     usleep(175000);
     EXPECT_EQ(1U, Agent::GetInstance()->GetArpProto()->GetArpCacheSize());
-    EXPECT_FALSE(FindArpNHEntry(dest_ip, Agent::GetInstance()->GetDefaultVrf()));
-    EXPECT_FALSE(FindArpRoute(dest_ip, Agent::GetInstance()->GetDefaultVrf()));
+    EXPECT_FALSE(FindArpNHEntry(dest_ip, Agent::GetInstance()->fabric_vrf_name()));
+    EXPECT_FALSE(FindArpRoute(dest_ip, Agent::GetInstance()->fabric_vrf_name()));
 }
 
 TEST_F(ArpTest, ArpErrorTest) {
     Agent::GetInstance()->GetArpProto()->ClearStats();
     PacketInterfaceKey key(nil_uuid(), "pkt0");
     Interface *pkt_intf = static_cast<Interface *>
-        (Agent::GetInstance()->GetInterfaceTable()->FindActiveEntry(&key));
+        (Agent::GetInstance()->interface_table()->FindActiveEntry(&key));
     if (!pkt_intf)
         assert(0);
     SendArpReq(7, 0, src_ip, target_ip);
@@ -428,8 +428,8 @@ TEST_F(ArpTest, ArpVrfDeleteTest) {
         {"vnet1", 1, "1.1.1.1", "00:00:00:00:00:01", 1, 1},
     };
     CreateVmportEnv(input, 1);
-    WAIT_FOR(500, 1000, (agent->GetVmTable()->Size() == 1));
-    WAIT_FOR(500, 1000, (agent->GetVnTable()->Size() == 1));
+    WAIT_FOR(500, 1000, (agent->vm_table()->Size() == 1));
+    WAIT_FOR(500, 1000, (agent->vn_table()->Size() == 1));
     WAIT_FOR(500, 1000, (VrfFind("vrf1") == true));
     usleep(1000);
     client->WaitForIdle();
@@ -445,8 +445,8 @@ TEST_F(ArpTest, ArpVrfDeleteTest) {
     EXPECT_TRUE(FindArpRoute(target_ip+5, "vrf1"));
     DeleteVmportEnv(input, 1, true);
     client->WaitForIdle();
-    WAIT_FOR(500, 1000, (agent->GetVmTable()->Size() == 0));
-    WAIT_FOR(500, 1000, (agent->GetVnTable()->Size() == 0));
+    WAIT_FOR(500, 1000, (agent->vm_table()->Size() == 0));
+    WAIT_FOR(500, 1000, (agent->vn_table()->Size() == 0));
     WAIT_FOR(500, 1000, (VrfFind("vrf1") == false));
 
     EXPECT_FALSE(FindArpRoute(target_ip, "vrf1"));
@@ -461,9 +461,9 @@ TEST_F(ArpTest, GratArpSendTest) {
     client->WaitForIdle();
     EXPECT_TRUE(Agent::GetInstance()->GetArpProto()->gratuitous_arp_entry()->key().ip == ip1.to_ulong());
 
-    Agent::GetInstance()->GetDefaultInet4UnicastRouteTable()->DeleteReq(
+    Agent::GetInstance()->fabric_inet4_unicast_table()->DeleteReq(
                                                     Agent::GetInstance()->local_peer(), 
-                                                    Agent::GetInstance()->GetDefaultVrf(),
+                                                    Agent::GetInstance()->fabric_vrf_name(),
                                                     ip1, 32, NULL);
     client->WaitForIdle();
     EXPECT_TRUE(Agent::GetInstance()->GetArpProto()->gratuitous_arp_entry() == NULL);
@@ -473,9 +473,9 @@ TEST_F(ArpTest, GratArpSendTest) {
     TriggerAddVhostRcvRoute(ip2);
     client->WaitForIdle();
     EXPECT_TRUE(Agent::GetInstance()->GetArpProto()->gratuitous_arp_entry()->key().ip == ip2.to_ulong());
-    Agent::GetInstance()->GetDefaultInet4UnicastRouteTable()->DeleteReq(
+    Agent::GetInstance()->fabric_inet4_unicast_table()->DeleteReq(
                                                     Agent::GetInstance()->local_peer(), 
-                                                    Agent::GetInstance()->GetDefaultVrf(),
+                                                    Agent::GetInstance()->fabric_vrf_name(),
                                                     ip2, 32, NULL);
     client->WaitForIdle();
     EXPECT_TRUE(Agent::GetInstance()->GetArpProto()->gratuitous_arp_entry() == NULL);
@@ -487,8 +487,8 @@ TEST_F(ArpTest, ArpItfDeleteTest) {
         {"vnet2", 2, "2.2.2.2", "00:00:00:00:00:02", 2, 2},
     };
     CreateVmportEnv(input, 1);
-    WAIT_FOR(500, 1000, (Agent::GetInstance()->GetVmTable()->Size() == 1));
-    WAIT_FOR(500, 1000, (Agent::GetInstance()->GetVnTable()->Size() == 1));
+    WAIT_FOR(500, 1000, (Agent::GetInstance()->vm_table()->Size() == 1));
+    WAIT_FOR(500, 1000, (Agent::GetInstance()->vn_table()->Size() == 1));
     WAIT_FOR(500, 1000, (VrfFind("vrf2") == true));
     usleep(1000);
     client->WaitForIdle();
@@ -499,20 +499,20 @@ TEST_F(ArpTest, ArpItfDeleteTest) {
     WaitForCompletion(3);
     EXPECT_TRUE(FindArpNHEntry(target_ip+8, "vrf2"));
     EXPECT_TRUE(FindArpRoute(target_ip+8, "vrf2"));
-    EXPECT_TRUE(FindArpNHEntry(target_ip+9, Agent::GetInstance()->GetDefaultVrf()));
-    EXPECT_TRUE(FindArpRoute(target_ip+9, Agent::GetInstance()->GetDefaultVrf()));
-    ItfDelete(Agent::GetInstance()->GetIpFabricItfName());
+    EXPECT_TRUE(FindArpNHEntry(target_ip+9, Agent::GetInstance()->fabric_vrf_name()));
+    EXPECT_TRUE(FindArpRoute(target_ip+9, Agent::GetInstance()->fabric_vrf_name()));
+    ItfDelete(Agent::GetInstance()->fabric_interface_name());
     usleep(1000);
     client->WaitForIdle();
     usleep(175000);
     EXPECT_FALSE(FindArpNHEntry(target_ip+8, "vrf2"));
     EXPECT_FALSE(FindArpRoute(target_ip+8, "vrf2"));
-    EXPECT_FALSE(FindArpNHEntry(target_ip+9, Agent::GetInstance()->GetDefaultVrf()));
-    EXPECT_FALSE(FindArpRoute(target_ip+9, Agent::GetInstance()->GetDefaultVrf()));
+    EXPECT_FALSE(FindArpNHEntry(target_ip+9, Agent::GetInstance()->fabric_vrf_name()));
+    EXPECT_FALSE(FindArpRoute(target_ip+9, Agent::GetInstance()->fabric_vrf_name()));
     // EXPECT_EQ(1, ArpProto::GetInstance()->GetArpCacheSize());
     DeleteVmportEnv(input, 1, true);
-    WAIT_FOR(500, 1000, (Agent::GetInstance()->GetVmTable()->Size() == 0));
-    WAIT_FOR(500, 1000, (Agent::GetInstance()->GetVnTable()->Size() == 0));
+    WAIT_FOR(500, 1000, (Agent::GetInstance()->vm_table()->Size() == 0));
+    WAIT_FOR(500, 1000, (Agent::GetInstance()->vn_table()->Size() == 0));
     WAIT_FOR(500, 1000, (VrfFind("vrf2") == false));
 }
 #endif
@@ -527,9 +527,9 @@ int main(int argc, char *argv[]) {
     usleep(100000);
     client->WaitForIdle();
 
-    if (Agent::GetInstance()->GetRouterIdConfigured()) {
-        src_ip = Agent::GetInstance()->GetRouterId().to_ulong();
-        gw_ip = Agent::GetInstance()->GetGatewayId().to_ulong();
+    if (Agent::GetInstance()->router_id_configured()) {
+        src_ip = Agent::GetInstance()->router_id().to_ulong();
+        gw_ip = Agent::GetInstance()->vhost_default_gateway().to_ulong();
     } else {
         LOG(DEBUG, "Router id not configured in config file");
         exit(0);

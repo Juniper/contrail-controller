@@ -81,7 +81,7 @@ Inet4MulticastAgentRouteTable::AddVHostRecvRoute(const string &vm_vrf,
     ReceiveRoute *data = 
         new ReceiveRoute(intf_key, MplsTable::kInvalidLabel,
                          TunnelType::AllType(), policy,
-                         Agent::GetInstance()->GetFabricVnName());
+                         Agent::GetInstance()->fabric_vn_name());
     //data->SetMulticast(true);
     req.data.reset(data);
     MulticastTableEnqueue(Agent::GetInstance(), vm_vrf, &req);

@@ -114,8 +114,8 @@ public:
 
     void AddResolveRoute(const Ip4Address &server_ip, uint32_t plen) {
         Agent::GetInstance()->
-            GetDefaultInet4UnicastRouteTable()->AddResolveRoute(
-                Agent::GetInstance()->GetDefaultVrf(), server_ip, plen);
+            fabric_inet4_unicast_table()->AddResolveRoute(
+                Agent::GetInstance()->fabric_vrf_name(), server_ip, plen);
         client->WaitForIdle();
     }
 
@@ -144,12 +144,12 @@ public:
                             IpAddress::from_string("0.0.0.0").to_v4(),
                             1112, olist_map);
         AddArp("8.8.8.8", "00:00:08:08:08:08", 
-               Agent::GetInstance()->GetIpFabricItfName().c_str());
+               Agent::GetInstance()->fabric_interface_name().c_str());
         client->WaitForIdle();
     }
 
     void DeleteRemoteVmRoute() {
-        Agent::GetInstance()->GetDefaultInet4UnicastRouteTable()->
+        Agent::GetInstance()->fabric_inet4_unicast_table()->
             DeleteReq(Agent::GetInstance()->local_peer(), vrf_name_,
                       remote_vm_ip_, 32, NULL);
         client->WaitForIdle();
@@ -158,7 +158,7 @@ public:
                                          *remote_vm_mac_, NULL);
         client->WaitForIdle();
         DelArp("8.8.8.8", "00:00:08:08:08:08", 
-               Agent::GetInstance()->GetIpFabricItfName().c_str());
+               Agent::GetInstance()->fabric_interface_name().c_str());
         client->WaitForIdle();
     }
 
@@ -242,7 +242,7 @@ public:
                            IpAddress::from_string("0.0.0.0").to_v4(), false,
                            Composite::FABRIC);
         const CompositeNH *flood_fabric_cnh = 
-            static_cast<CompositeNH *>(Agent::GetInstance()->GetNextHopTable()->
+            static_cast<CompositeNH *>(Agent::GetInstance()->nexthop_table()->
                                        FindActiveEntry(&flood_fabric_key));
         ASSERT_TRUE(flood_fabric_cnh != NULL);
         const ComponentNH *component_nh = 
@@ -259,7 +259,7 @@ public:
                            Composite::FABRIC);
         const CompositeNH *subnet_fabric_cnh = 
             static_cast<const CompositeNH *>(Agent::GetInstance()->
-                                             GetNextHopTable()->
+                                             nexthop_table()->
                                        FindActiveEntry(&subnet_fabric_key));
         ASSERT_TRUE(subnet_fabric_cnh != NULL);
         ASSERT_TRUE(subnet_fabric_cnh->ComponentNHCount() == 1);

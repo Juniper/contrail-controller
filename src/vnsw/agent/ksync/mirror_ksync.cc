@@ -54,7 +54,7 @@ std::string MirrorKSyncEntry::ToString() const {
 
     s << "Mirror Entry : " << dip_.to_string() << ":" << dport_;
     const VrfEntry* vrf =
-        ksync_obj_->ksync()->agent()->GetVrfTable()->FindVrfFromId(vrf_id_);
+        ksync_obj_->ksync()->agent()->vrf_table()->FindVrfFromId(vrf_id_);
     if (vrf) {
         s << " Vrf : " << vrf->GetName();
     }
@@ -126,7 +126,7 @@ MirrorKSyncObject::~MirrorKSyncObject() {
 }
 
 void MirrorKSyncObject::RegisterDBClients() {
-    RegisterDb(ksync_->agent()->GetMirrorTable());
+    RegisterDb(ksync_->agent()->mirror_table());
 }
 
 KSyncEntry *MirrorKSyncObject::Alloc(const KSyncEntry *entry, uint32_t index) {

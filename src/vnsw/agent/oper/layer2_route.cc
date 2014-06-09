@@ -232,7 +232,7 @@ bool Layer2RouteEntry::DBEntrySandesh(Sandesh *sresp, bool stale) const {
 
 void Layer2RouteReq::HandleRequest() const {
     VrfEntry *vrf = 
-        Agent::GetInstance()->GetVrfTable()->FindVrfFromId(get_vrf_index());
+        Agent::GetInstance()->vrf_table()->FindVrfFromId(get_vrf_index());
     if (!vrf) {
         ErrorResp *resp = new ErrorResp();
         resp->set_context(context());

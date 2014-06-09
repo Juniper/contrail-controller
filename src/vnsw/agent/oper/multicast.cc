@@ -70,9 +70,9 @@ void NotifyXMPPofRecipientChange(const std::string &vrf_name,
  * Enable trace print messages
  */
 void MulticastHandler::Register() {
-    Agent::GetInstance()->GetVnTable()->Register(boost::bind(&MulticastHandler::ModifyVN,
+    Agent::GetInstance()->vn_table()->Register(boost::bind(&MulticastHandler::ModifyVN,
                                               _1, _2));
-    Agent::GetInstance()->GetInterfaceTable()->Register(boost::bind(&MulticastHandler::ModifyVmInterface,
+    Agent::GetInstance()->interface_table()->Register(boost::bind(&MulticastHandler::ModifyVmInterface,
                                                      _1, _2));
 
     MulticastHandler::GetInstance()->GetMulticastObjList().clear();
@@ -139,7 +139,7 @@ void MulticastHandler::AddSubnetRoute(const std::string &vrf_name,
     req.key.reset(key);
     cnh_data = new CompositeNHData(CompositeNHData::REPLACE);
     req.data.reset(cnh_data);
-    Agent::GetInstance()->GetNextHopTable()->Enqueue(&req);
+    Agent::GetInstance()->nexthop_table()->Enqueue(&req);
 
     MulticastGroupObject *subnet_broadcast = 
         this->FindGroupObject(vrf_name, addr);
@@ -623,7 +623,7 @@ void MulticastHandler::AddChangeMultiProtocolCompositeNH(
     req.key.reset(key);
     cnh_data = new CompositeNHData(data, CompositeNHData::REPLACE);
     req.data.reset(cnh_data);
-    Agent::GetInstance()->GetNextHopTable()->Enqueue(&req);
+    Agent::GetInstance()->nexthop_table()->Enqueue(&req);
 }
 
 void MulticastHandler::AddChangeFabricCompositeNH(MulticastGroupObject *obj)
@@ -635,8 +635,8 @@ void MulticastHandler::AddChangeFabricCompositeNH(MulticastGroupObject *obj)
 
     for (TunnelOlist::const_iterator it = obj->GetTunnelOlist().begin();
          it != obj->GetTunnelOlist().end(); it++) {
-        ComponentNHData nh_data(it->label_, Agent::GetInstance()->GetDefaultVrf(),
-                                Agent::GetInstance()->GetRouterId(), it->daddr_, false,
+        ComponentNHData nh_data(it->label_, Agent::GetInstance()->fabric_vrf_name(),
+                                Agent::GetInstance()->router_id(), it->daddr_, false,
                                 it->tunnel_bmap_);
         data.push_back(nh_data);
     }
@@ -650,7 +650,7 @@ void MulticastHandler::AddChangeFabricCompositeNH(MulticastGroupObject *obj)
     req.key.reset(key);
     cnh_data = new CompositeNHData(data, CompositeNHData::REPLACE);
     req.data.reset(cnh_data);
-    Agent::GetInstance()->GetNextHopTable()->Enqueue(&req);
+    Agent::GetInstance()->nexthop_table()->Enqueue(&req);
 }
 
 void MulticastHandler::TriggerL2CompositeNHChange(MulticastGroupObject *obj)
@@ -683,7 +683,7 @@ void MulticastHandler::TriggerL2CompositeNHChange(MulticastGroupObject *obj)
     req.key.reset(key);
     cnh_data = new CompositeNHData(data, CompositeNHData::REPLACE);
     req.data.reset(cnh_data);
-    Agent::GetInstance()->GetNextHopTable()->Enqueue(&req);
+    Agent::GetInstance()->nexthop_table()->Enqueue(&req);
 }
 
 void MulticastHandler::TriggerCompositeNHChange(MulticastGroupObject *obj)
@@ -729,7 +729,7 @@ void MulticastHandler::TriggerL3CompositeNHChange(MulticastGroupObject *obj)
     req.key.reset(key);
     cnh_data = new CompositeNHData(data, CompositeNHData::REPLACE);
     req.data.reset(cnh_data);
-    Agent::GetInstance()->GetNextHopTable()->Enqueue(&req);
+    Agent::GetInstance()->nexthop_table()->Enqueue(&req);
 }
 
 void MulticastHandler::AddVmInterfaceInFloodGroup(const std::string &vrf_name, 
@@ -885,16 +885,16 @@ bool MulticastGroupObject::ModifyFabricMembers(const TunnelOlist &olist,
          it != olist.end(); it++) {
         AddMemberInTunnelOlist(it->label_, it->daddr_, it->tunnel_bmap_);
 
-        key = new TunnelNHKey(Agent::GetInstance()->GetDefaultVrf(), 
-                              Agent::GetInstance()->GetRouterId(),
+        key = new TunnelNHKey(Agent::GetInstance()->fabric_vrf_name(), 
+                              Agent::GetInstance()->router_id(),
                               it->daddr_, false, 
                               TunnelType::ComputeType(it->tunnel_bmap_));
         tnh_data = new TunnelNHData();
         req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
         req.key.reset(key);
         req.data.reset(tnh_data);
-        Agent::GetInstance()->GetNextHopTable()->Enqueue(&req);
-        MCTRACE(Log, "Enqueue add TUNNEL ", Agent::GetInstance()->GetDefaultVrf(),
+        Agent::GetInstance()->nexthop_table()->Enqueue(&req);
+        MCTRACE(Log, "Enqueue add TUNNEL ", Agent::GetInstance()->fabric_vrf_name(),
                 it->daddr_.to_string(), it->label_);
     }
     return true;

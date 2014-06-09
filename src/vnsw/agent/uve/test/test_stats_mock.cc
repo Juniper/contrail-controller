@@ -69,10 +69,10 @@ public:
         EXPECT_TRUE(VmPortActive(input, 1));
         EXPECT_TRUE(VmPortPolicyEnable(input, 0));
         EXPECT_TRUE(VmPortPolicyEnable(input, 1));
-        EXPECT_EQ(5U, Agent::GetInstance()->GetInterfaceTable()->Size());
-        EXPECT_EQ(2U, Agent::GetInstance()->GetVmTable()->Size());
-        EXPECT_EQ(vn_count, Agent::GetInstance()->GetVnTable()->Size());
-        EXPECT_EQ(2U, Agent::GetInstance()->GetIntfCfgTable()->Size());
+        EXPECT_EQ(5U, Agent::GetInstance()->interface_table()->Size());
+        EXPECT_EQ(2U, Agent::GetInstance()->vm_table()->Size());
+        EXPECT_EQ(vn_count, Agent::GetInstance()->vn_table()->Size());
+        EXPECT_EQ(2U, Agent::GetInstance()->interface_config_table()->Size());
 
         flow0 = VmInterfaceGet(input[0].intf_id);
         assert(flow0);
@@ -90,9 +90,9 @@ public:
 
         EXPECT_TRUE(VmPortActive(stats_if, 0));
         EXPECT_TRUE(VmPortActive(stats_if, 1));
-        EXPECT_EQ(4U, Agent::GetInstance()->GetVmTable()->Size());
-        EXPECT_EQ(vn_count, Agent::GetInstance()->GetVnTable()->Size());
-        EXPECT_EQ(4U, Agent::GetInstance()->GetIntfCfgTable()->Size());
+        EXPECT_EQ(4U, Agent::GetInstance()->vm_table()->Size());
+        EXPECT_EQ(vn_count, Agent::GetInstance()->vn_table()->Size());
+        EXPECT_EQ(4U, Agent::GetInstance()->interface_config_table()->Size());
 
         test0 = VmInterfaceGet(stats_if[0].intf_id);
         assert(test0);
@@ -433,7 +433,7 @@ TEST_F(StatsTestMock, DeletedFlowStatsTest) {
     EXPECT_TRUE(FlowStatsMatch("vrf5", "1.1.1.2", "1.1.1.1", 6, 200, 1000, 1, 30,
                                flow1->flow_key_nh()->id()));
 
-    VrfEntry *vrf = Agent::GetInstance()->GetVrfTable()->FindVrfFromName("vrf5");
+    VrfEntry *vrf = Agent::GetInstance()->vrf_table()->FindVrfFromName("vrf5");
     EXPECT_TRUE(vrf != NULL);
     if (vrf == NULL)
         return;
@@ -591,7 +591,7 @@ TEST_F(StatsTestMock, VrfStatsTest) {
     WAIT_FOR(100, 10000, (VrfFind("vrf41")== true));
     EXPECT_TRUE(DBTableFind("vrf41.uc.route.0"));
 
-    VrfEntry *vrf = Agent::GetInstance()->GetVrfTable()->FindVrfFromName("vrf41");
+    VrfEntry *vrf = Agent::GetInstance()->vrf_table()->FindVrfFromName("vrf41");
     EXPECT_TRUE(vrf != NULL);
     int vrf41_id = vrf->vrf_id();
 
@@ -600,7 +600,7 @@ TEST_F(StatsTestMock, VrfStatsTest) {
     WAIT_FOR(100, 10000, (VrfFind("vrf42")== true));
     EXPECT_TRUE(DBTableFind("vrf42.uc.route.0"));
 
-    vrf = Agent::GetInstance()->GetVrfTable()->FindVrfFromName("vrf42");
+    vrf = Agent::GetInstance()->vrf_table()->FindVrfFromName("vrf42");
     EXPECT_TRUE(vrf != NULL);
     int vrf42_id = vrf->vrf_id();
 
@@ -677,7 +677,7 @@ TEST_F(StatsTestMock, VrfStatsTest) {
     WAIT_FOR(100, 10000, (VrfFind("vrf41")== true));
     EXPECT_TRUE(DBTableFind("vrf41.uc.route.0"));
 
-    vrf = Agent::GetInstance()->GetVrfTable()->FindVrfFromName("vrf41");
+    vrf = Agent::GetInstance()->vrf_table()->FindVrfFromName("vrf41");
     EXPECT_TRUE(vrf != NULL);
 
     VrfAddReq("vrf42");
@@ -685,7 +685,7 @@ TEST_F(StatsTestMock, VrfStatsTest) {
     WAIT_FOR(100, 10000, (VrfFind("vrf42")== true));
     EXPECT_TRUE(DBTableFind("vrf42.uc.route.0"));
 
-    vrf = Agent::GetInstance()->GetVrfTable()->FindVrfFromName("vrf42");
+    vrf = Agent::GetInstance()->vrf_table()->FindVrfFromName("vrf42");
     EXPECT_TRUE(vrf != NULL);
 
     //Wait for stats to be updated in agent
@@ -779,7 +779,7 @@ int main(int argc, char *argv[]) {
 
     ret = RUN_ALL_TESTS();
 
-    Agent::GetInstance()->GetEventManager()->Shutdown();
+    Agent::GetInstance()->event_manager()->Shutdown();
     AsioStop();
     cout << "Return test result:" << ret << endl;
     TaskScheduler::GetInstance()->Terminate();

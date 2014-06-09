@@ -383,7 +383,7 @@ bool VnUveEntry::PopulateInterVnStats(UveVirtualNetworkAgent &s_vn) {
 
             InterVnStats diff_stats;
             diff_stats.set_other_vn(stats->dst_vn_);
-            diff_stats.set_vrouter(agent_->GetHostName());
+            diff_stats.set_vrouter(agent_->host_name());
             diff_stats.set_in_tpkts(stats->in_pkts_ - stats->prev_in_pkts_);
             diff_stats.set_in_bytes(stats->in_bytes_ - stats->prev_in_bytes_);
             diff_stats.set_out_tpkts(stats->out_pkts_ - stats->prev_out_pkts_);

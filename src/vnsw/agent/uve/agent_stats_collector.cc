@@ -280,17 +280,17 @@ void AgentStatsCollector::VrfNotify(DBTablePartBase *part, DBEntryBase *e) {
 }
 
 void AgentStatsCollector::RegisterDBClients() {
-    InterfaceTable *intf_table = agent_->GetInterfaceTable();
+    InterfaceTable *intf_table = agent_->interface_table();
     intf_listener_id_ = intf_table->Register
         (boost::bind(&AgentStatsCollector::InterfaceNotify, this, _1, _2));
 
-    VrfTable *vrf_table = agent_->GetVrfTable();
+    VrfTable *vrf_table = agent_->vrf_table();
     vrf_listener_id_ = vrf_table->Register
         (boost::bind(&AgentStatsCollector::VrfNotify, this, _1, _2));
 }
 
 void AgentStatsCollector::Shutdown(void) {
-    agent_->GetVrfTable()->Unregister(vrf_listener_id_);
-    agent_->GetInterfaceTable()->Unregister(intf_listener_id_);
+    agent_->vrf_table()->Unregister(vrf_listener_id_);
+    agent_->interface_table()->Unregister(intf_listener_id_);
 }
 

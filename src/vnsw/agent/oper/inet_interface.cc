@@ -57,14 +57,14 @@ Interface *InetInterfaceKey::AllocEntry(const InterfaceTable *table,
 
     VrfKey key(data->vrf_name_);
     VrfEntry *vrf = static_cast<VrfEntry *>
-        (table->agent()->GetVrfTable()->FindActiveEntry(&key));
+        (table->agent()->vrf_table()->FindActiveEntry(&key));
     assert(vrf);
 
 	Interface *xconnect = NULL;
     if (vhost_data->sub_type_ == InetInterface::VHOST) {
         PhysicalInterfaceKey key(vhost_data->xconnect_);
         xconnect = static_cast<Interface *>
-            (table->agent()->GetInterfaceTable()->FindActiveEntry(&key));
+            (table->agent()->interface_table()->FindActiveEntry(&key));
         assert(xconnect != NULL);
     }
 
@@ -102,7 +102,7 @@ void InetInterface::ActivateSimpleGateway() {
 
     if (label_ == MplsTable::kInvalidLabel) {
         // Allocate MPLS Label 
-        label_ = agent->GetMplsTable()->AllocLabel();
+        label_ = agent->mpls_table()->AllocLabel();
         // Create MPLS entry pointing to virtual host interface-nh
         MplsLabel::CreateInetInterfaceLabel(label_, name(), false,
                                             InterfaceNHFlags::INET4);
@@ -128,7 +128,7 @@ void InetInterface::DeActivateSimpleGateway() {
 
     // Delete routes
     Ip4Address addr = GetIp4SubnetAddress(ip_addr_, plen_);
-    uc_rt_table->DeleteReq(agent->local_vm_peer(), agent->GetDefaultVrf(),
+    uc_rt_table->DeleteReq(agent->local_vm_peer(), agent->fabric_vrf_name(),
                            addr, plen_, NULL);
 
     uc_rt_table->DeleteReq(agent->local_vm_peer(),
@@ -201,7 +201,7 @@ void InetInterface::ActivateHostInterface() {
     Agent *agent = table->agent();
 
     // Create receive nexthops
-    ReceiveNH::Create(agent->GetNextHopTable(), name_);
+    ReceiveNH::Create(agent->nexthop_table(), name_);
 
     VrfTable *vrf_table = static_cast<VrfTable *>(vrf()->get_table());
     Inet4UnicastAgentRouteTable *uc_rt_table = 
@@ -251,7 +251,7 @@ void InetInterface::DeActivateHostInterface() {
                         Ip4Address(0xFFFFFFFF));
 
     // Delete receive nexthops
-    ReceiveNH::Delete(agent->GetNextHopTable(), name_);
+    ReceiveNH::Delete(agent->nexthop_table(), name_);
     flow_key_nh_ = NULL;
 }
 

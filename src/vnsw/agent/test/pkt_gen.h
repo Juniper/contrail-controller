@@ -284,7 +284,7 @@ public:
         //Get NH
         if (label > 0) {
             MplsLabel *mpls_label =
-                Agent::GetInstance()->GetMplsTable()->FindMplsLabel(label);
+                Agent::GetInstance()->mpls_table()->FindMplsLabel(label);
             if (mpls_label) {
                 nh = mpls_label->nexthop()->id();
             }
@@ -298,12 +298,12 @@ public:
                     }
                 } else {
                     const VrfEntry *vrf_p =
-                        Agent::GetInstance()->GetVrfTable()->
+                        Agent::GetInstance()->vrf_table()->
                         FindVrfFromId(vrf);
                     //Consider vlan assigned VRF case
                     uint32_t label = vm_intf->GetServiceVlanLabel(vrf_p);
                     if (label) {
-                        nh = Agent::GetInstance()->GetMplsTable()->
+                        nh = Agent::GetInstance()->mpls_table()->
                             FindMplsLabel(label)->nexthop()->id();
                     }
                 }

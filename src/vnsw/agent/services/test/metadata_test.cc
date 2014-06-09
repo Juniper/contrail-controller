@@ -40,7 +40,7 @@
 class TestInterfaceTable : public InterfaceTable {
 public:
     TestInterfaceTable() :
-        InterfaceTable(Agent::GetInstance()->GetDB(), "test") {}
+        InterfaceTable(Agent::GetInstance()->db(), "test") {}
     ~TestInterfaceTable() {}
 
     bool FindVmUuidFromMetadataIp(const Ip4Address &ip,
@@ -58,12 +58,12 @@ class MetadataTest : public ::testing::Test {
 public:
     MetadataTest() : nova_api_proxy_(NULL), vm_http_client_(NULL),
                      done_(0), itf_count_(0) {
-        rid_ = Agent::GetInstance()->GetInterfaceTable()->Register(
+        rid_ = Agent::GetInstance()->interface_table()->Register(
                 boost::bind(&MetadataTest::ItfUpdate, this, _2));
     }
 
     ~MetadataTest() {
-        Agent::GetInstance()->GetInterfaceTable()->Unregister(rid_);
+        Agent::GetInstance()->interface_table()->Unregister(rid_);
     }
 
     void ItfUpdate(DBEntryBase *entry) {
@@ -132,7 +132,7 @@ public:
     }
 
     void StartHttpClient() {
-        vm_http_client_ = new HttpClient(Agent::GetInstance()->GetEventManager());
+        vm_http_client_ = new HttpClient(Agent::GetInstance()->event_manager());
         vm_http_client_->Init();
     }
 
@@ -147,7 +147,7 @@ public:
 
         boost::asio::ip::tcp::endpoint http_ep;
         http_ep.address(server);
-        http_ep.port(Agent::GetInstance()->GetMetadataServerPort());
+        http_ep.port(Agent::GetInstance()->metadata_server_port());
 
         std::string uri("openstack");
         std::string header_options;
@@ -189,7 +189,7 @@ public:
 
     void StartNovaApiProxy() {
         nova_api_proxy_ = 
-             new HttpServer(Agent::GetInstance()->GetEventManager());
+             new HttpServer(Agent::GetInstance()->event_manager());
         nova_api_proxy_->RegisterHandler(HTTP_WILDCARD_ENTRY,
              boost::bind(&MetadataTest::HandleNovaApiRequest, this, _1, _2));
         nova_api_proxy_->Initialize(0);
@@ -277,12 +277,12 @@ TEST_F(MetadataTest, MetadataReqTest) {
 
     // for agent to identify the vm, the remote end should have vm's ip;
     // overload the FindVmUuidFromMetadataIp to return true
-    InterfaceTable *intf_table = Agent::GetInstance()->GetInterfaceTable();
+    InterfaceTable *intf_table = Agent::GetInstance()->interface_table();
     TestInterfaceTable *interface_table = new TestInterfaceTable();
-    Agent::GetInstance()->SetInterfaceTable(static_cast<InterfaceTable *>(interface_table));
+    Agent::GetInstance()->set_interface_table(static_cast<InterfaceTable *>(interface_table));
     SendHttpClientRequest();
     METADATA_CHECK (stats.responses < 1);
-    Agent::GetInstance()->SetInterfaceTable(intf_table);
+    Agent::GetInstance()->set_interface_table(intf_table);
     EXPECT_EQ(2U, stats.requests);
     EXPECT_EQ(1U, stats.proxy_sessions);
     EXPECT_EQ(1U, stats.internal_errors);

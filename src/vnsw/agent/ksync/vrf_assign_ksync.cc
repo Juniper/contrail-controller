@@ -87,7 +87,7 @@ std::string VrfAssignKSyncEntry::ToString() const {
 
     s << " Tag : " << vlan_tag();
     const VrfEntry* vrf =
-        ksync_obj_->ksync()->agent()->GetVrfTable()->FindVrfFromId(vrf_id_);
+        ksync_obj_->ksync()->agent()->vrf_table()->FindVrfFromId(vrf_id_);
     if (vrf) {
         s << " Vrf : " << vrf->GetName();
     }
@@ -182,7 +182,7 @@ VrfAssignKSyncObject::~VrfAssignKSyncObject() {
 }
 
 void VrfAssignKSyncObject::RegisterDBClients() {
-    RegisterDb(ksync_->agent()->GetVrfAssignTable());
+    RegisterDb(ksync_->agent()->vrf_assign_table());
 }
 
 KSyncEntry *VrfAssignKSyncObject::Alloc(const KSyncEntry *ke, uint32_t index) {

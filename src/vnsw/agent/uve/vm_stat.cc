@@ -26,10 +26,10 @@ VmStat::VmStat(Agent *agent, const uuid &vm_uuid):
     virt_memory_(0), virt_memory_peak_(0), vm_memory_quota_(0), 
     prev_cpu_stat_(0), cpu_usage_(0), prev_cpu_snapshot_time_(0), 
     prev_vcpu_snapshot_time_(0), 
-    input_(*(agent_->GetEventManager()->io_service())),
-    timer_(TimerManager::CreateTimer(*(agent_->GetEventManager())->io_service(),
+    input_(*(agent_->event_manager()->io_service())),
+    timer_(TimerManager::CreateTimer(*(agent_->event_manager())->io_service(),
     "VmStatTimer")), marked_delete_(false), pid_(0), retry_(0), 
-    signal_(*(agent_->GetEventManager()->io_service())) {
+    signal_(*(agent_->event_manager()->io_service())) {
     InitSigHandler();
 }
 

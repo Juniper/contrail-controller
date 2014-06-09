@@ -137,7 +137,7 @@ NHKSyncEntry::NHKSyncEntry(NHKSyncObject *obj, const NextHop *nh) :
     case NextHop::COMPOSITE: {
         const CompositeNH *comp_nh = static_cast<const CompositeNH *>(nh);
         //vrf_id_ = comp_nh->vrf_id();
-        vrf_id_ = (ksync_obj_->ksync()->agent()->GetVrfTable()->
+        vrf_id_ = (ksync_obj_->ksync()->agent()->vrf_table()->
                    FindVrfFromName(comp_nh->vrf_name()))->vrf_id();
         sip_.s_addr = comp_nh->GetSrcAddr().to_ulong();
         dip_.s_addr = comp_nh->GetGrpAddr().to_ulong();
@@ -291,7 +291,7 @@ std::string NHKSyncEntry::ToString() const {
     case NextHop::VRF: {
         s << "VRF assign to ";
         const VrfEntry* vrf =
-            ksync_obj_->ksync()->agent()->GetVrfTable()->
+            ksync_obj_->ksync()->agent()->vrf_table()->
             FindVrfFromId(vrf_id_);
         if (vrf) {
             s << vrf->GetName() << " ";
@@ -935,7 +935,7 @@ NHKSyncObject::~NHKSyncObject() {
 }
 
 void NHKSyncObject::RegisterDBClients() {
-    RegisterDb(ksync_->agent()->GetNextHopTable());
+    RegisterDb(ksync_->agent()->nexthop_table());
 }
 
 KSyncEntry *NHKSyncObject::Alloc(const KSyncEntry *entry, uint32_t index) {

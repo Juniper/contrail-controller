@@ -125,11 +125,11 @@ class EcmpTest : public ::testing::Test {
         DeleteVmportEnv(input2, 3, true);
         DeleteVmportFIpEnv(input3, 3, true);
         DeleteVmportFIpEnv(input4, 1, true);
-        Agent::GetInstance()->GetDefaultInet4UnicastRouteTable()->DeleteReq(NULL, "vrf2", 
+        Agent::GetInstance()->fabric_inet4_unicast_table()->DeleteReq(NULL, "vrf2", 
                 remote_vm_ip1_, 32, NULL);
-        Agent::GetInstance()->GetDefaultInet4UnicastRouteTable()->DeleteReq(NULL, "vn3:vn3", 
+        Agent::GetInstance()->fabric_inet4_unicast_table()->DeleteReq(NULL, "vn3:vn3", 
                 remote_vm_ip2_, 32, NULL);
-        Agent::GetInstance()->GetDefaultInet4UnicastRouteTable()->DeleteReq(NULL, "vn4:vn4", 
+        Agent::GetInstance()->fabric_inet4_unicast_table()->DeleteReq(NULL, "vn4:vn4", 
                 remote_vm_ip3_, 32, NULL);
 
         client->WaitForIdle();
@@ -144,7 +144,7 @@ public:
         const VmInterface *vm_intf = VmInterfaceGet(intf_id);
         const VrfEntry *vrf = VrfGet(vrf_name.c_str());
         uint32_t label = vm_intf->GetServiceVlanLabel(vrf);
-        int nh_id = Agent::GetInstance()->GetMplsTable()->
+        int nh_id = Agent::GetInstance()->mpls_table()->
                         FindMplsLabel(label)->nexthop()->id();
         return nh_id;
     }
@@ -163,8 +163,8 @@ public:
         SecurityGroupList sg_id_list;
 
         for(int i = 0; i < count; i++) {
-            ComponentNHData comp_nh(label,Agent::GetInstance()->GetDefaultVrf(),
-                    Agent::GetInstance()->GetRouterId(), 
+            ComponentNHData comp_nh(label,Agent::GetInstance()->fabric_vrf_name(),
+                    Agent::GetInstance()->router_id(), 
                     Ip4Address(remote_server_ip++),
                     false, TunnelType::AllType());
             comp_nh_list.push_back(comp_nh);
@@ -181,7 +181,7 @@ public:
         Ip4Address vm_ip = Ip4Address::from_string(ip);
         const VmInterface *vm_intf = static_cast<const VmInterface *>
             (VmPortGet(intf_uuid));
-        Agent::GetInstance()->GetDefaultInet4UnicastRouteTable()->
+        Agent::GetInstance()->fabric_inet4_unicast_table()->
             AddLocalVmRouteReq(bgp_peer, vrf_name, vm_ip, plen,
                                vm_intf->GetUuid(), vn, vm_intf->label(),
                                SecurityGroupList(), false);
@@ -199,7 +199,7 @@ public:
     void DeleteRemoteRoute(const string vrf_name, const string ip,
                                uint32_t plen) {
         Ip4Address server_ip = Ip4Address::from_string(ip);
-        Agent::GetInstance()->GetDefaultInet4UnicastRouteTable()->DeleteReq(bgp_peer, vrf_name,
+        Agent::GetInstance()->fabric_inet4_unicast_table()->DeleteReq(bgp_peer, vrf_name,
                                                         server_ip, plen, NULL);
     } 
 
@@ -315,7 +315,7 @@ TEST_F(EcmpTest, EcmpTest_4) {
     char remote_server_ip[80]; 
     char remote_vm_ip[80];
 
-    strcpy(router_id, Agent::GetInstance()->GetRouterId().to_string().c_str());
+    strcpy(router_id, Agent::GetInstance()->router_id().to_string().c_str());
     strcpy(remote_server_ip, remote_server_ip_.to_string().c_str());
     strcpy(remote_vm_ip, remote_vm_ip1_.to_string().c_str());
 
@@ -344,7 +344,7 @@ TEST_F(EcmpTest, EcmpTest_5) {
     char remote_server_ip[80]; 
     char remote_vm_ip[80];
 
-    strcpy(router_id, Agent::GetInstance()->GetRouterId().to_string().c_str());
+    strcpy(router_id, Agent::GetInstance()->router_id().to_string().c_str());
     strcpy(remote_server_ip, remote_server_ip_.to_string().c_str());
     strcpy(remote_vm_ip, remote_vm_ip3_.to_string().c_str());
 
@@ -391,18 +391,18 @@ TEST_F(EcmpTest, EcmpTest_8) {
     Ip4Address server_ip2 = Ip4Address::from_string("15.15.15.16");
     Ip4Address server_ip3 = Ip4Address::from_string("15.15.15.17");
 
-    ComponentNHData comp_nh_data1(16, Agent::GetInstance()->GetDefaultVrf(), 
-                                  Agent::GetInstance()->GetRouterId(), server_ip1, false,
+    ComponentNHData comp_nh_data1(16, Agent::GetInstance()->fabric_vrf_name(), 
+                                  Agent::GetInstance()->router_id(), server_ip1, false,
                                   TunnelType::AllType());
     comp_nh.push_back(comp_nh_data1);
 
-    ComponentNHData comp_nh_data2(17, Agent::GetInstance()->GetDefaultVrf(), 
-                                  Agent::GetInstance()->GetRouterId(),
+    ComponentNHData comp_nh_data2(17, Agent::GetInstance()->fabric_vrf_name(), 
+                                  Agent::GetInstance()->router_id(),
                                   server_ip2, false, TunnelType::AllType());
     comp_nh.push_back(comp_nh_data2);
 
-    ComponentNHData comp_nh_data3(18, Agent::GetInstance()->GetDefaultVrf(), 
-                                  Agent::GetInstance()->GetRouterId(),
+    ComponentNHData comp_nh_data3(18, Agent::GetInstance()->fabric_vrf_name(), 
+                                  Agent::GetInstance()->router_id(),
                                   server_ip3, false, TunnelType::AllType());
     comp_nh.push_back(comp_nh_data3);
 
@@ -416,7 +416,7 @@ TEST_F(EcmpTest, EcmpTest_8) {
     char remote_server_ip[80]; 
     char remote_vm_ip[80];
 
-    strcpy(router_id, Agent::GetInstance()->GetRouterId().to_string().c_str());
+    strcpy(router_id, Agent::GetInstance()->router_id().to_string().c_str());
     strcpy(remote_server_ip, "15.15.15.16");
     strcpy(remote_vm_ip, "30.30.30.1");
 
@@ -436,7 +436,7 @@ TEST_F(EcmpTest, EcmpTest_8) {
     EXPECT_TRUE(rev_entry->data().component_nh_idx != 
             CompositeNH::kInvalidComponentNHIdx);
     EXPECT_TRUE(rev_entry->data().component_nh_idx == 1);
-    Agent::GetInstance()->GetDefaultInet4UnicastRouteTable()->DeleteReq(NULL,
+    Agent::GetInstance()->fabric_inet4_unicast_table()->DeleteReq(NULL,
                                          "vrf2", ip, 24, NULL);
     client->WaitForIdle();
 }
@@ -630,7 +630,7 @@ TEST_F(EcmpTest, ServiceVlanTest_1) {
             "virtual-machine-interface", "vnet12");
     client->WaitForIdle();
 
-    const VrfEntry *vrf = Agent::GetInstance()->GetVrfTable()->FindVrfFromName("vrf11");
+    const VrfEntry *vrf = Agent::GetInstance()->vrf_table()->FindVrfFromName("vrf11");
     TxIpPacket(VmPortGetId(11), "11.1.1.253", "11.1.1.252", 1, 10, vrf->vrf_id());
     client->WaitForIdle();
 
@@ -675,7 +675,7 @@ TEST_F(EcmpTest, ServiceVlanTest_2) {
     std::vector<ComponentNHData> local_comp_nh;
     AddRemoteEcmpRoute("vrf10", "11.1.1.0", 24, "vn11", 2, local_comp_nh);
 
-    uint32_t vrf_id = Agent::GetInstance()->GetVrfTable()->FindVrfFromName("vrf10")->vrf_id();
+    uint32_t vrf_id = Agent::GetInstance()->vrf_table()->FindVrfFromName("vrf10")->vrf_id();
     TxIpPacket(VmPortGetId(10), "10.1.1.1", "11.1.1.252", 1, 10, vrf_id);
     client->WaitForIdle();
 
@@ -747,9 +747,9 @@ TEST_F(EcmpTest, ServiceVlanTest_3) {
     AddRemoteVmRoute("service-vrf1", "10.1.1.3", 32, "vn10");
     client->WaitForIdle();
 
-    uint32_t vrf_id = Agent::GetInstance()->GetVrfTable()->FindVrfFromName("vrf10")->vrf_id();
+    uint32_t vrf_id = Agent::GetInstance()->vrf_table()->FindVrfFromName("vrf10")->vrf_id();
     uint32_t service_vrf_id = 
-        Agent::GetInstance()->GetVrfTable()->FindVrfFromName("service-vrf1")->vrf_id();
+        Agent::GetInstance()->vrf_table()->FindVrfFromName("service-vrf1")->vrf_id();
 
     //Choose some random source and destination port
     uint32_t sport = rand() % 65535;
@@ -812,7 +812,7 @@ TEST_F(EcmpTest, ServiceVlanTest_3) {
     dport = rand() % 65535;
     for (uint32_t i = 0; i < 100; i++) {
         char router_id[80];
-        strcpy(router_id, Agent::GetInstance()->GetRouterId().to_string().c_str());
+        strcpy(router_id, Agent::GetInstance()->router_id().to_string().c_str());
 
         uint32_t hash_id = rand() % 65535;
         TxTcpMplsPacket(eth_intf_id_, "10.11.11.1", router_id, 
@@ -878,9 +878,9 @@ TEST_F(EcmpTest, ServiceVlanTest_4) {
             "virtual-machine-interface", "vnet12");
     client->WaitForIdle();
 
-    uint32_t vrf_id = Agent::GetInstance()->GetVrfTable()->FindVrfFromName("vrf10")->vrf_id();
+    uint32_t vrf_id = Agent::GetInstance()->vrf_table()->FindVrfFromName("vrf10")->vrf_id();
     uint32_t service_vrf_id = 
-        Agent::GetInstance()->GetVrfTable()->FindVrfFromName("service-vrf1")->vrf_id();
+        Agent::GetInstance()->vrf_table()->FindVrfFromName("service-vrf1")->vrf_id();
 
     //Leak aggregarete route to vrf10
     Ip4Address service_vm_ip = Ip4Address::from_string("10.1.1.2"); 
@@ -940,7 +940,7 @@ TEST_F(EcmpTest, ServiceVlanTest_4) {
     dport = rand() % 65535;
     for (uint32_t i = 0; i < 100; i++) {
         char router_id[80];
-        strcpy(router_id, Agent::GetInstance()->GetRouterId().to_string().c_str());
+        strcpy(router_id, Agent::GetInstance()->router_id().to_string().c_str());
 
         uint32_t hash_id = rand() % 65535;
         TxTcpMplsPacket(eth_intf_id_, "10.11.11.1", router_id, 
@@ -1023,9 +1023,9 @@ TEST_F(EcmpTest, ServiceVlanTest_5) {
             "virtual-machine-interface", "vnet14");
     client->WaitForIdle();
 
-    uint32_t vrf_id = Agent::GetInstance()->GetVrfTable()->FindVrfFromName("vrf11")->vrf_id();
+    uint32_t vrf_id = Agent::GetInstance()->vrf_table()->FindVrfFromName("vrf11")->vrf_id();
     uint32_t service_vrf_id = 
-        Agent::GetInstance()->GetVrfTable()->FindVrfFromName("service-vrf1")->vrf_id();
+        Agent::GetInstance()->vrf_table()->FindVrfFromName("service-vrf1")->vrf_id();
 
     Ip4Address service_vm_ip = Ip4Address::from_string("11.1.1.2"); 
     Inet4UnicastRouteEntry *rt = RouteGet("service-vrf1", service_vm_ip, 32);
@@ -1161,7 +1161,7 @@ TEST_F(EcmpTest, ServiceVlanTest_6) {
     client->WaitForIdle();
 
     uint32_t service_vrf_id = 
-        Agent::GetInstance()->GetVrfTable()->FindVrfFromName("service-vrf1")->vrf_id();
+        Agent::GetInstance()->vrf_table()->FindVrfFromName("service-vrf1")->vrf_id();
 
     Ip4Address service_vm_ip = Ip4Address::from_string("11.1.1.2"); 
     Inet4UnicastRouteEntry *rt = RouteGet("service-vrf1", service_vm_ip, 32);
@@ -1256,7 +1256,7 @@ TEST_F(EcmpTest, ServiceVlanTest_6) {
     }
 
     char router_id[80];
-    strcpy(router_id, Agent::GetInstance()->GetRouterId().to_string().c_str());
+    strcpy(router_id, Agent::GetInstance()->router_id().to_string().c_str());
     //Send traffic from remote VM service
     for (uint32_t i = 0; i < 100; i++) {
         uint32_t hash_id = rand() % 65535;
@@ -1391,9 +1391,9 @@ TEST_F(EcmpTest, ServiceVlanTest_7) {
             "virtual-machine-interface", "vnet13");
     client->WaitForIdle();
 
-    uint32_t vrf_id = Agent::GetInstance()->GetVrfTable()->FindVrfFromName("vrf11")->vrf_id();
+    uint32_t vrf_id = Agent::GetInstance()->vrf_table()->FindVrfFromName("vrf11")->vrf_id();
     uint32_t service_vrf_id = 
-        Agent::GetInstance()->GetVrfTable()->FindVrfFromName("service-vrf1")->vrf_id();
+        Agent::GetInstance()->vrf_table()->FindVrfFromName("service-vrf1")->vrf_id();
 
     Ip4Address service_vm_ip = Ip4Address::from_string("11.1.1.2"); 
     Inet4UnicastRouteEntry *rt = RouteGet("service-vrf1", service_vm_ip, 32);
@@ -1486,7 +1486,7 @@ TEST_F(EcmpTest,ServiceVlanTest_8) {
     client->WaitForIdle();
 
     uint32_t service_vrf_id = 
-        Agent::GetInstance()->GetVrfTable()->FindVrfFromName("service-vrf1")->vrf_id();
+        Agent::GetInstance()->vrf_table()->FindVrfFromName("service-vrf1")->vrf_id();
 
     Ip4Address service_vm_ip = Ip4Address::from_string("11.1.1.2"); 
     Inet4UnicastRouteEntry *rt = RouteGet("service-vrf1", service_vm_ip, 32);

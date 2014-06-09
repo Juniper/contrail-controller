@@ -50,7 +50,7 @@ struct PhysicalInterfaceKey : public InterfaceKey {
                           const InterfaceData *data) const {
         VrfKey key(data->vrf_name_);
         VrfEntry *vrf = static_cast<VrfEntry *>
-            (table->agent()->GetVrfTable()->FindActiveEntry(&key));
+            (table->agent()->vrf_table()->FindActiveEntry(&key));
         if (vrf == NULL) {
             return NULL;
         }

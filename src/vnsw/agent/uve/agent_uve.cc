@@ -26,14 +26,14 @@ AgentUve::AgentUve(Agent *agent, uint64_t intvl)
       vm_uve_table_(new VmUveTable(agent)), 
       vrouter_uve_entry_(new VrouterUveEntry(agent)),
       agent_stats_collector_(new AgentStatsCollector(
-                                 *(agent->GetEventManager()->io_service()),
+                                 *(agent->event_manager()->io_service()),
                                  agent)),
       agent_(agent), bandwidth_intvl_(intvl),
       vrouter_stats_collector_(new VrouterStatsCollector(
-                                   *(agent->GetEventManager()->io_service()), 
+                                   *(agent->event_manager()->io_service()), 
                                    this)),
       flow_stats_collector_(new FlowStatsCollector(
-                                 *(agent->GetEventManager()->io_service()),
+                                 *(agent->event_manager()->io_service()),
                                  agent->params()->flow_stats_interval(),
                                  agent->params()->flow_cache_timeout(), 
                                  this)) {

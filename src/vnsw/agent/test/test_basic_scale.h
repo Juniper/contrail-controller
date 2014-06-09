@@ -132,7 +132,7 @@ void InitXmppServers() {
 
     for (int i = 0; i < num_ctrl_peers; i++) {
         addr = IncrementIpAddress(addr);
-        Agent::GetInstance()->SetXmppServer(addr.to_string(), i);
+        Agent::GetInstance()->set_controller_ifmap_xmpp_server(addr.to_string(), i);
     }
 }
 
@@ -269,7 +269,7 @@ public:
         if (remote) {
             item_nexthop.address = "127.127.127.127";
         } else {
-            item_nexthop.address = Agent::GetInstance()->GetRouterId().to_string();
+            item_nexthop.address = Agent::GetInstance()->router_id().to_string();
         }
         item_nexthop.label = label;
 
@@ -295,7 +295,7 @@ public:
 
         autogen::EnetNextHopType item_nexthop;
         item_nexthop.af = 1;
-        item_nexthop.address = Agent::GetInstance()->GetRouterId().to_string();
+        item_nexthop.address = Agent::GetInstance()->router_id().to_string();
         item_nexthop.label = label;
         if (is_vxlan) {
             item_nexthop.tunnel_encapsulation_list.tunnel_encapsulation.push_back("vxlan");
@@ -549,7 +549,7 @@ protected:
         client->WaitForIdle();
 
         for (int i = 0; i < num_ctrl_peers; i++) {
-            Agent::GetInstance()->SetAgentXmppChannel(NULL, i);
+            Agent::GetInstance()->set_controller_xmpp_channel(NULL, i);
             xc[i]->ConfigUpdate(new XmppConfigData());
             client->WaitForIdle(5);
             xs[i]->Shutdown();
@@ -634,12 +634,12 @@ protected:
             cchannel[i] = xc[i]->FindChannel(XmppInit::kControlNodeJID);
             //New bgp peer from agent
             bgp_peer[i].reset(new AgentBgpXmppPeerTest(cchannel[i],
-                                  Agent::GetInstance()->GetXmppServer(i),
-                                  Agent::GetInstance()->GetAgentMcastLabelRange(i), i));
+                                  Agent::GetInstance()->controller_ifmap_xmpp_server(i),
+                                  Agent::GetInstance()->multicast_label_range(i), i));
             xc[i]->RegisterConnectionEvent(xmps::BGP,
                            boost::bind(&AgentBgpXmppPeerTest::HandleXmppChannelEvent, 
                                        bgp_peer[i].get(), _2));
-            Agent::GetInstance()->SetAgentXmppChannel(bgp_peer[i].get(), i);
+            Agent::GetInstance()->set_controller_xmpp_channel(bgp_peer[i].get(), i);
 
             // server connection
             VerifyConnections(i);
@@ -679,7 +679,7 @@ protected:
         }
         //Create vn,vrf,vm,vm-port and route entry in vrf1 
         CreateVmportEnv(input, (intf_id - 1));
-        WAIT_FOR(10000, 10000, (agent_->GetInterfaceTable()->Size() == 
+        WAIT_FOR(10000, 10000, (agent_->interface_table()->Size() == 
                                 ((num_vns * num_vms_per_vn) + 3)));
         VerifyVmPortActive(true);
         VerifyRoutes(false);
@@ -701,7 +701,7 @@ protected:
         char vrf_name[80];
         PortInfo *del_input = NULL;
         int input_id = 0;
-        int intf_count = agent_->GetInterfaceTable()->Size();
+        int intf_count = agent_->interface_table()->Size();
         for (int vn_cnt = 1; vn_cnt <= num_vns; vn_cnt++) {
             for (int j = 0; j < num_vms_per_vn; j++) {
                 del_input = &input[input_id];
@@ -712,7 +712,7 @@ protected:
             WAIT_FOR(10000, 10000, !VnFind(vn_cnt));
             WAIT_FOR(10000, 10000, !VrfFind(vrf_name));
         }
-        WAIT_FOR(10000, 10000, (agent_->GetInterfaceTable()->Size() == 3));
+        WAIT_FOR(10000, 10000, (agent_->interface_table()->Size() == 3));
         VerifyRoutes(true);
         VerifyVmPortActive(false);
         TaskScheduler::GetInstance()->Stop();
@@ -720,8 +720,8 @@ protected:
         agent_->controller()->multicast_cleanup_timer().cleanup_timer_->Fire();
         TaskScheduler::GetInstance()->Start();
         client->WaitForIdle();
-        WAIT_FOR(10000, 10000, (Agent::GetInstance()->GetVrfTable()->Size() == 1));
-        WAIT_FOR(1000, 1000, (Agent::GetInstance()->GetVnTable()->Size() == 0));
+        WAIT_FOR(10000, 10000, (Agent::GetInstance()->vrf_table()->Size() == 1));
+        WAIT_FOR(1000, 1000, (Agent::GetInstance()->vn_table()->Size() == 0));
     }
 
     void VerifyRoutes(bool deleted) {

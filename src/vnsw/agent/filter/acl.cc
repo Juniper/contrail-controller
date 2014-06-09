@@ -302,7 +302,7 @@ bool AclTable::IFNodeToReq(IFMapNode *node, DBRequest &req) {
         AclKey *key = new AclKey(u);
         req.key.reset(key);
         req.data.reset(NULL);
-        Agent::GetInstance()->GetAclTable()->Enqueue(&req);
+        Agent::GetInstance()->acl_table()->Enqueue(&req);
         acl_spec.acl_id = u;
         AclObjectTrace(AgentLogEvent::DELETE, acl_spec);
         return false;
@@ -349,7 +349,7 @@ bool AclTable::IFNodeToReq(IFMapNode *node, DBRequest &req) {
     data->cfg_name_ = node->name();
     req.key.reset(key);
     req.data.reset(data);
-    Agent::GetInstance()->GetAclTable()->Enqueue(&req);
+    Agent::GetInstance()->acl_table()->Enqueue(&req);
 
     // Its possible that VN got notified before ACL are created.
     // Invoke change on VN linked to this ACL
@@ -364,7 +364,7 @@ bool AclTable::IFNodeToReq(IFMapNode *node, DBRequest &req) {
             assert(vn_cfg);
             if (adj_node->IsDeleted() == false) {
                 req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
-                Agent::GetInstance()->GetVnTable()->IFNodeToReq(adj_node, req);
+                Agent::GetInstance()->vn_table()->IFNodeToReq(adj_node, req);
             }
         }
         if (adj_node->table() == Agent::GetInstance()->cfg()->cfg_sg_table()) {
@@ -373,7 +373,7 @@ bool AclTable::IFNodeToReq(IFMapNode *node, DBRequest &req) {
             assert(sg_cfg);
             if (adj_node->IsDeleted() == false) {
                 req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
-                Agent::GetInstance()->GetSgTable()->IFNodeToReq(adj_node, req);
+                Agent::GetInstance()->sg_table()->IFNodeToReq(adj_node, req);
             }
         }
     }
@@ -422,14 +422,14 @@ AclEntry *AclDBEntry::AddAclEntry(const AclEntrySpec &acl_entry_spec, AclEntries
          ++it) {
         if ((*it).ta_type == TrafficAction::MIRROR_ACTION) {
             Ip4Address sip;
-            if (Agent::GetInstance()->GetRouterId() == (*it).ma.ip) {
+            if (Agent::GetInstance()->router_id() == (*it).ma.ip) {
                 sip = Ip4Address(METADATA_IP_ADDR);
             } else {
-                sip = Agent::GetInstance()->GetRouterId();
+                sip = Agent::GetInstance()->router_id();
             }
             MirrorEntryKey mirr_key((*it).ma.analyzer_name);
             MirrorEntry *mirr_entry = static_cast<MirrorEntry *>
-                    (Agent::GetInstance()->GetMirrorTable()->FindActiveEntry(&mirr_key));
+                    (Agent::GetInstance()->mirror_table()->FindActiveEntry(&mirr_key));
             assert(mirr_entry);
             // Store the mirror entry
             entry->set_mirror_entry(mirr_entry);
@@ -522,7 +522,7 @@ const AclDBEntry* AclTable::GetAclDBEntry(const string acl_uuid_str,
     }
 
     // Get acl entry from acl uuid string
-    AclTable *table = Agent::GetInstance()->GetAclTable();
+    AclTable *table = Agent::GetInstance()->acl_table();
     boost::uuids::string_generator gen;
     boost::uuids::uuid acl_id = gen(acl_uuid_str);
     AclKey key(acl_id);
@@ -537,7 +537,7 @@ void AclTable::AclFlowResponse(const string acl_uuid_str, const string ctx,
     const AclDBEntry *acl_entry = AclTable::GetAclDBEntry(acl_uuid_str, ctx, resp);
 
     if (acl_entry) {
-        AclTable *table = Agent::GetInstance()->GetAclTable();
+        AclTable *table = Agent::GetInstance()->acl_table();
         table->flow_acl_sandesh_data_cb_(acl_entry, *resp, last_count);
     }
 
@@ -551,7 +551,7 @@ void AclTable::AclFlowCountResponse(const string acl_uuid_str,
     const AclDBEntry *acl_entry = AclTable::GetAclDBEntry(acl_uuid_str, ctx, resp);
 
     if (acl_entry) {
-        AclTable *table = Agent::GetInstance()->GetAclTable();
+        AclTable *table = Agent::GetInstance()->acl_table();
         table->flow_ace_sandesh_data_cb_(acl_entry, *resp, ace_id);
     }
     resp->set_context(ctx);
@@ -719,14 +719,14 @@ void AclEntrySpec::AddMirrorEntry() const {
         }
 
         Ip4Address sip;
-        if (Agent::GetInstance()->GetRouterId() == action.ma.ip) {
+        if (Agent::GetInstance()->router_id() == action.ma.ip) {
             sip = Ip4Address(METADATA_IP_ADDR);
         } else {
-            sip = Agent::GetInstance()->GetRouterId();
+            sip = Agent::GetInstance()->router_id();
         }
-        Agent::GetInstance()->GetMirrorTable()->AddMirrorEntry(
+        Agent::GetInstance()->mirror_table()->AddMirrorEntry(
                 action.ma.analyzer_name, action.ma.vrf_name, sip,
-                Agent::GetInstance()->GetMirrorPort(),
+                Agent::GetInstance()->mirror_port(),
                 action.ma.ip.to_v4(), action.ma.port);
     }
 }

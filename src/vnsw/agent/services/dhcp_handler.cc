@@ -37,7 +37,7 @@ bool DhcpHandler::HandleVmRequest() {
     request_.UpdateData(dhcp_->xid, ntohs(dhcp_->flags), dhcp_->chaddr);
     DhcpProto *dhcp_proto = agent()->GetDhcpProto();
     Interface *itf =
-        agent()->GetInterfaceTable()->FindInterface(GetInterfaceIndex());
+        agent()->interface_table()->FindInterface(GetInterfaceIndex());
     if (itf == NULL) {
         dhcp_proto->IncrStatsOther();
         DHCP_TRACE(Error, "Received DHCP packet on invalid interface : "
@@ -146,7 +146,7 @@ bool DhcpHandler::HandleDhcpFromFabric() {
 
     int16_t options_len = ipc->len - DHCP_FIXED_LEN;
     if (ReadOptions(options_len) && vm_itf_ &&
-        agent()->GetInterfaceTable()->FindInterface(vm_itf_index_) == vm_itf_) {
+        agent()->interface_table()->FindInterface(vm_itf_index_) == vm_itf_) {
         // this is a DHCP relay response for our request
         RelayResponseFromFabric();
     }
@@ -237,7 +237,7 @@ bool DhcpHandler::FindLeaseData() {
                 Inet4UnicastAgentRouteTable::FindResolveRoute(
                              vm_itf_->vrf()->GetName(), ip);
             if (rt) {
-                uint32_t gw = agent()->GetGatewayId().to_ulong();
+                uint32_t gw = agent()->vhost_default_gateway().to_ulong();
                 boost::system::error_code ec;
                 if (IsIp4SubnetMember(rt->addr(),
                     Ip4Address::from_string("169.254.0.0", ec), rt->plen()))
@@ -289,7 +289,7 @@ void DhcpHandler::UpdateDnsServer() {
     }
 
     if (ipam_type_.ipam_dns_method != "virtual-dns-server" ||
-        !agent()->GetDomainConfigTable()->GetVDns(ipam_type_.ipam_dns_server.
+        !agent()->domain_config_table()->GetVDns(ipam_type_.ipam_dns_server.
                                           virtual_dns_server_name, &vdns_type_))
         return;
 
@@ -422,7 +422,7 @@ bool DhcpHandler::CreateRelayPacket() {
         read_opt = read_opt->GetNextOptionPtr();
     }
     dhcp_ = dhcp;
-    dhcp->giaddr = htonl(agent()->GetRouterId().to_ulong());
+    dhcp->giaddr = htonl(agent()->router_id().to_ulong());
     WriteOption82(write_opt, opt_len);
     write_opt = write_opt->GetNextOptionPtr();
     pkt_info_->sport = DHCP_SERVER_PORT;
@@ -433,7 +433,7 @@ bool DhcpHandler::CreateRelayPacket() {
     UdpHdr(pkt_info_->len, in_pkt_info.ip->saddr, pkt_info_->sport,
            in_pkt_info.ip->daddr, pkt_info_->dport);
     pkt_info_->len += sizeof(iphdr);
-    IpHdr(pkt_info_->len, htonl(agent()->GetRouterId().to_ulong()),
+    IpHdr(pkt_info_->len, htonl(agent()->router_id().to_ulong()),
           0xFFFFFFFF, IPPROTO_UDP);
     EthHdr(agent()->GetDhcpProto()->ip_fabric_interface_mac(),
            in_pkt_info.eth->h_dest, 0x800);
@@ -496,10 +496,10 @@ bool DhcpHandler::CreateRelayResponsePacket() {
     write_opt->WriteByte(DHCP_OPTION_END, opt_len);
     pkt_info_->len = DHCP_FIXED_LEN + opt_len + sizeof(udphdr);
 
-    UdpHdr(pkt_info_->len, agent()->GetRouterId().to_ulong(), pkt_info_->sport,
+    UdpHdr(pkt_info_->len, agent()->router_id().to_ulong(), pkt_info_->sport,
            0xFFFFFFFF, pkt_info_->dport);
     pkt_info_->len += sizeof(iphdr);
-    IpHdr(pkt_info_->len, htonl(agent()->GetRouterId().to_ulong()),
+    IpHdr(pkt_info_->len, htonl(agent()->router_id().to_ulong()),
           0xFFFFFFFF, IPPROTO_UDP);
     EthHdr(agent()->pkt()->pkt_handler()->mac_address(), dhcp->chaddr, 0x800);
     pkt_info_->len += sizeof(ethhdr);
@@ -522,14 +522,14 @@ void DhcpHandler::RelayResponseFromFabric() {
 
     if (msg_type_ == DHCP_ACK) {
         // Populate the DHCP Snoop table
-        agent()->GetInterfaceTable()->AddDhcpSnoopEntry
+        agent()->interface_table()->AddDhcpSnoopEntry
             (vm_itf_->name(), Ip4Address(ntohl(dhcp_->yiaddr)));
         // Enqueue RESYNC to update the IP address
         DBRequest req(DBRequest::DB_ENTRY_ADD_CHANGE);
         req.key.reset(new VmInterfaceKey(AgentKey::RESYNC, vm_itf_->GetUuid(),
                                          vm_itf_->name()));
         req.data.reset(new VmInterfaceIpAddressData());
-        agent()->GetInterfaceTable()->Enqueue(&req);
+        agent()->interface_table()->Enqueue(&req);
     }
 
     Send(pkt_info_->len, vm_itf_index_,

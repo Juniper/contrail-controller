@@ -151,7 +151,7 @@ static void AddAllowAcl(const char *name, int id) {
 
     pugi::xml_parse_result result = xdoc_.load(s.c_str());
     EXPECT_TRUE(result);
-    Agent::GetInstance()->GetIfMapAgentParser()->ConfigParse(xdoc_.first_child(), 0);
+    Agent::GetInstance()->ifmap_parser()->ConfigParse(xdoc_.first_child(), 0);
 }
 
 static void SetupMetadataService() {
@@ -163,7 +163,7 @@ static void SetupMetadataService() {
     global_config << "<linklocal-service-ip>169.254.169.254</linklocal-service-ip>\n";
     global_config << "<linklocal-service-port>80</linklocal-service-port>\n";
     global_config << "<ip-fabric-DNS-service-name>";
-    global_config << Agent::GetInstance()->GetRouterId().to_string();
+    global_config << Agent::GetInstance()->router_id().to_string();
     global_config << "</ip-fabric-DNS-service-name>\n";
     global_config << "<ip-fabric-service-ip></ip-fabric-service-ip>\n";
     global_config << "<ip-fabric-service-port>";
@@ -220,23 +220,23 @@ static void Setup() {
 
     VmPortSetup(input4, 1, 0);
 
-    EXPECT_EQ(10U, Agent::GetInstance()->GetInterfaceTable()->Size());
-    if (Agent::GetInstance()->GetInterfaceTable()->Size() != 10) {
+    EXPECT_EQ(10U, Agent::GetInstance()->interface_table()->Size());
+    if (Agent::GetInstance()->interface_table()->Size() != 10) {
         ret = false;
     }
 
-    EXPECT_EQ(7U, Agent::GetInstance()->GetVmTable()->Size());
-    if ( Agent::GetInstance()->GetVmTable()->Size() != 7) {
+    EXPECT_EQ(7U, Agent::GetInstance()->vm_table()->Size());
+    if ( Agent::GetInstance()->vm_table()->Size() != 7) {
         ret = false;
     }
 
-    EXPECT_EQ(4U, Agent::GetInstance()->GetVnTable()->Size());
-    if (Agent::GetInstance()->GetVnTable()->Size() != 4) {
+    EXPECT_EQ(4U, Agent::GetInstance()->vn_table()->Size());
+    if (Agent::GetInstance()->vn_table()->Size() != 4) {
         ret = false;
     }
 
-    EXPECT_EQ(7U, Agent::GetInstance()->GetIntfCfgTable()->Size());
-    if (Agent::GetInstance()->GetIntfCfgTable()->Size() != 7) {
+    EXPECT_EQ(7U, Agent::GetInstance()->interface_config_table()->Size());
+    if (Agent::GetInstance()->interface_config_table()->Size() != 7) {
         ret = false;
     }
 
@@ -260,13 +260,13 @@ static void Setup() {
     }
     // Get route tables
     vnet_table[1] = static_cast<Inet4UnicastAgentRouteTable *>
-        (Agent::GetInstance()->GetVrfTable()->
+        (Agent::GetInstance()->vrf_table()->
         GetInet4UnicastRouteTable("vrf1"));
     vnet_table[2] = static_cast<Inet4UnicastAgentRouteTable *>
-        (Agent::GetInstance()->GetVrfTable()->
+        (Agent::GetInstance()->vrf_table()->
         GetInet4UnicastRouteTable("vn2:vn2"));
     vnet_table[3] = static_cast<Inet4UnicastAgentRouteTable *>
-        (Agent::GetInstance()->GetVrfTable()->
+        (Agent::GetInstance()->vrf_table()->
         GetInet4UnicastRouteTable("vrf3"));
     EXPECT_TRUE(vnet_table[1] != NULL && vnet_table[2] != NULL &&
                 vnet_table[3] != NULL);
@@ -326,8 +326,8 @@ static void Setup() {
     }
 
     boost::scoped_ptr<InetInterfaceKey> key(new InetInterfaceKey("vhost0"));
-    vhost = static_cast<InetInterface *>(Agent::GetInstance()->GetInterfaceTable()->FindActiveEntry(key.get()));
-    strcpy(vhost_addr, Agent::GetInstance()->GetRouterId().to_string().c_str());
+    vhost = static_cast<InetInterface *>(Agent::GetInstance()->interface_table()->FindActiveEntry(key.get()));
+    strcpy(vhost_addr, Agent::GetInstance()->router_id().to_string().c_str());
 
     EXPECT_TRUE(ret);
     assert(ret == true);
@@ -491,9 +491,9 @@ TEST_F(FlowTest, ServerToVm_1) {
     TxIpPacketUtil(vhost->id(), vhost_addr, "80.80.80.80", 1, 1);
     client->WaitForIdle();
     EXPECT_TRUE(FlowGet(vhost->vrf()->GetName(), vhost_addr, "80.80.80.80", 
-                        1, 0, 0, false, Agent::GetInstance()->GetDefaultVrf().c_str(),
-                        // 1, 0, 0, false, Agent::GetInstance()->GetFabricVnName().c_str(),
-                        Agent::GetInstance()->GetFabricVnName().c_str(), 1,
+                        1, 0, 0, false, Agent::GetInstance()->fabric_vrf_name().c_str(),
+                        // 1, 0, 0, false, Agent::GetInstance()->fabric_vn_name().c_str(),
+                        Agent::GetInstance()->fabric_vn_name().c_str(), 1,
                         true, false, vhost->flow_key_nh()->id()));
 
     EXPECT_TRUE(FlowDelete(vhost->vrf()->GetName(), vhost_addr, "80.80.80.80",
@@ -512,7 +512,7 @@ TEST_F(FlowTest, ServerToVm_1) {
                                 vnet[1]->mdata_ip_addr().to_string().c_str(),
                                 1, 0, 0, 1, "vrf1", "169.254.169.254",
                                 vnet_addr[1], 0, 0,
-                                Agent::GetInstance()->GetDefaultVrf().c_str(), "vn1",
+                                Agent::GetInstance()->fabric_vrf_name().c_str(), "vn1",
                                 vhost->flow_key_nh()->id(),
                                 vnet[1]->flow_key_nh()->id()));
 
@@ -525,7 +525,7 @@ TEST_F(FlowTest, ServerToVm_1) {
                                 vnet[1]->mdata_ip_addr().to_string().c_str(),
                                 IPPROTO_UDP, 10, 20, 1, "vrf1",
                                 "169.254.169.254", vnet_addr[1], 10, 20,
-                                Agent::GetInstance()->GetDefaultVrf().c_str(), "vn1",
+                                Agent::GetInstance()->fabric_vrf_name().c_str(), "vn1",
                                 vhost->flow_key_nh()->id(),
                                 vnet[1]->flow_key_nh()->id()));
 
@@ -538,10 +538,10 @@ TEST_F(FlowTest, ServerToVm_1) {
                                 vnet[1]->mdata_ip_addr().to_string().c_str(),
                                 IPPROTO_TCP, 10, 20, 1, "vrf1", "169.254.169.254",
                                 vnet_addr[1], 10, 20,
-                                Agent::GetInstance()->GetDefaultVrf().c_str(), "vn1",
+                                Agent::GetInstance()->fabric_vrf_name().c_str(), "vn1",
                                 vhost->flow_key_nh()->id(),
                                 vnet[1]->flow_key_nh()->id()));
-                                // Agent::GetInstance()->GetFabricVnName().c_str(), "vn1"));
+                                // Agent::GetInstance()->fabric_vn_name().c_str(), "vn1"));
     RemoveMetadataService();
     client->WaitForIdle();
 }
@@ -561,10 +561,10 @@ TEST_F(FlowTest, VmToServer_1) {
                                 vnet[1]->mdata_ip_addr().to_string().c_str(),
                                 vhost_addr, 10000, MEDATA_NAT_DPORT,
                                 "vn1",
-                                Agent::GetInstance()->GetDefaultVrf().c_str(),
+                                Agent::GetInstance()->fabric_vrf_name().c_str(),
                                 vnet[1]->flow_key_nh()->id(),
                                 vhost->flow_key_nh()->id()));
-                                // Agent::GetInstance()->GetFabricVnName().c_str()));
+                                // Agent::GetInstance()->fabric_vn_name().c_str()));
     client->WaitForIdle();
 
     TxUdpPacket(vnet[1]->id(), vnet_addr[1], "169.254.169.254",
@@ -959,7 +959,7 @@ TEST_F(FlowTest, FlowCleanup_on_intf_del_1) {
     client->WaitForIdle();
     EXPECT_TRUE(FlowGetNat(vhost->vrf()->GetName(), vhost_addr,
                 vnet[7]->mdata_ip_addr().to_string().c_str(), 6, 100, 100,
-                Agent::GetInstance()->GetDefaultVrf(), "vn7", 2, vnet[7]->vrf()->GetName().c_str(), 
+                Agent::GetInstance()->fabric_vrf_name(), "vn7", 2, vnet[7]->vrf()->GetName().c_str(), 
                 "169.254.169.254", vnet_addr[7], 100, 100,
                 vhost->flow_key_nh()->id(), vnet[7]->flow_key_nh()->id()));
 
@@ -968,7 +968,7 @@ TEST_F(FlowTest, FlowCleanup_on_intf_del_1) {
     client->WaitForIdle();
     EXPECT_TRUE(FlowGetNat(vnet[7]->vrf()->GetName(), vnet_addr[7],
                 "169.254.169.254", 6, 10, 80,
-                "vn7", Agent::GetInstance()->GetDefaultVrf(), 3, 
+                "vn7", Agent::GetInstance()->fabric_vrf_name(), 3, 
                 vhost->vrf()->GetName().c_str(),
                 vnet[7]->mdata_ip_addr().to_string().c_str(), vhost_addr, 10, 
                 MEDATA_NAT_DPORT, vnet[7]->flow_key_nh()->id(),
@@ -1005,8 +1005,8 @@ TEST_F(FlowTest, FlowCleanup_on_intf_del_2) {
                 vnet[8]->mdata_ip_addr().to_string().c_str(), 100, 100, false, 2);
     client->WaitForIdle();
     EXPECT_TRUE(FlowGetNat(vhost->vrf()->GetName(), vhost_addr, mdata_ip,
-                           6, 100, 100, Agent::GetInstance()->GetDefaultVrf(), "vn8", 2,
-                           // 6, 100, 100, Agent::GetInstance()->GetFabricVnName(), "vn8", 2,
+                           6, 100, 100, Agent::GetInstance()->fabric_vrf_name(), "vn8", 2,
+                           // 6, 100, 100, Agent::GetInstance()->fabric_vn_name(), "vn8", 2,
                            "vrf8", "169.254.169.254", vnet_addr[8], 100, 100,
                            vhost->flow_key_nh()->id(),
                            vnet[8]->flow_key_nh()->id()));
@@ -1015,8 +1015,8 @@ TEST_F(FlowTest, FlowCleanup_on_intf_del_2) {
                 "169.254.169.254", 10, 80, false, 3);
     client->WaitForIdle();
     EXPECT_TRUE(FlowGetNat("vrf8", vnet_addr[8], "169.254.169.254", 6, 10, 80,
-                           "vn8", Agent::GetInstance()->GetDefaultVrf(), 3,
-                           // "vn8", Agent::GetInstance()->GetFabricVnName(), 3,
+                           "vn8", Agent::GetInstance()->fabric_vrf_name(), 3,
+                           // "vn8", Agent::GetInstance()->fabric_vn_name(), 3,
                            vhost->vrf()->GetName().c_str(), mdata_ip,
                            vhost_addr, 10, MEDATA_NAT_DPORT,
                            vnet[8]->flow_key_nh()->id(),

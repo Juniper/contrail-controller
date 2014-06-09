@@ -133,7 +133,7 @@ MplsKSyncObject::~MplsKSyncObject() {
 }
 
 void MplsKSyncObject::RegisterDBClients() {
-    RegisterDb(ksync_->agent()->GetMplsTable());
+    RegisterDb(ksync_->agent()->mpls_table());
 }
 
 KSyncEntry *MplsKSyncObject::Alloc(const KSyncEntry *entry, uint32_t index) {

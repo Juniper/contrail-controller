@@ -61,8 +61,8 @@ protected:
         default_dest_ip_ = Ip4Address::from_string("0.0.0.0");
         agent_ =Agent::GetInstance();
 
-        if (agent_->GetRouterIdConfigured()) {
-            vhost_ip_ = agent_->GetRouterId();
+        if (agent_->router_id_configured()) {
+            vhost_ip_ = agent_->router_id();
         } else {
             vhost_ip_ = Ip4Address::from_string("10.1.1.10");
         }
@@ -81,9 +81,9 @@ protected:
         client->Reset();
         //Create a VRF
         VrfAddReq(vrf_name_.c_str());
-        PhysicalInterface::CreateReq(agent_->GetInterfaceTable(),
+        PhysicalInterface::CreateReq(agent_->interface_table(),
                                 eth_name_, 
-                                agent_->GetDefaultVrf());
+                                agent_->fabric_vrf_name());
         AddResolveRoute(server1_ip_, 24);
         client->WaitForIdle();
     }
@@ -117,8 +117,8 @@ protected:
     }
 
     void AddResolveRoute(const Ip4Address &server_ip, uint32_t plen) {
-        agent_->GetDefaultInet4UnicastRouteTable()->AddResolveRoute(
-                agent_->GetDefaultVrf(), server_ip, plen);
+        agent_->fabric_inet4_unicast_table()->AddResolveRoute(
+                agent_->fabric_vrf_name(), server_ip, plen);
         client->WaitForIdle();
     }
 
@@ -193,7 +193,7 @@ TEST_F(RouteTest, LocalVmRoute_1) {
     uint32_t label = rt->GetMplsLabel();
     MplsLabelKey key(MplsLabel::MCAST_NH, label);
     MplsLabel *mpls = 
-        static_cast<MplsLabel *>(agent_->GetMplsTable()->Find(&key, true));
+        static_cast<MplsLabel *>(agent_->mpls_table()->Find(&key, true));
 
     EXPECT_TRUE(mpls->nexthop() == nh);
     const InterfaceNH *intf_nh = static_cast<const InterfaceNH *>(nh);
@@ -230,7 +230,7 @@ TEST_F(RouteTest, LocalVmRoute_2) {
     uint32_t label = rt->GetMplsLabel();
     MplsLabelKey key(MplsLabel::MCAST_NH, label);
     MplsLabel *mpls = 
-        static_cast<MplsLabel *>(agent_->GetMplsTable()->Find(&key, true));
+        static_cast<MplsLabel *>(agent_->mpls_table()->Find(&key, true));
 
     EXPECT_TRUE(mpls->nexthop() == nh);
     const InterfaceNH *intf_nh = static_cast<const InterfaceNH *>(nh);
@@ -511,7 +511,7 @@ TEST_F(RouteTest, Vxlan_basic) {
                 TunnelType::VXLAN);
     VxLanIdKey vxlan_id_key(101);
     VxLanId *vxlan_id = 
-        static_cast<VxLanId *>(agent_->GetVxLanTable()->FindActiveEntry(&vxlan_id_key));
+        static_cast<VxLanId *>(agent_->vxlan_table()->FindActiveEntry(&vxlan_id_key));
     VxLanIdKey new_vxlan_id_key(102);
     vxlan_id->SetKey(&new_vxlan_id_key);
     EXPECT_TRUE(vxlan_id->vxlan_id() == 102);
@@ -557,7 +557,7 @@ int main(int argc, char *argv[]) {
     GETUSERARGS();
     client = TestInit(init_file, ksync_init, true, false);
     if (vm.count("config")) {
-        eth_itf = Agent::GetInstance()->GetIpFabricItfName();
+        eth_itf = Agent::GetInstance()->fabric_interface_name();
     } else {
         eth_itf = "eth0";
     }

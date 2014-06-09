@@ -676,7 +676,7 @@ const std::string& FlowEntry::acl_assigned_vrf() const {
 uint32_t FlowEntry::acl_assigned_vrf_index() const {
     VrfKey vrf_key(data_.match_p.action_info.vrf_translate_action_.vrf_name());
     const VrfEntry *vrf = static_cast<const VrfEntry *>(
-            Agent::GetInstance()->GetVrfTable()->FindActiveEntry(&vrf_key));
+            Agent::GetInstance()->vrf_table()->FindActiveEntry(&vrf_key));
     if (vrf) {
         return vrf->vrf_id();
     }
@@ -1036,7 +1036,7 @@ bool FlowEntry::SetRpfNH(const Inet4UnicastRouteEntry *rt) {
     const NhState *nh_state = NULL;
     if (nh) {
         nh_state = static_cast<const NhState *>(
-                nh->GetState(Agent::GetInstance()->GetNextHopTable(),
+                nh->GetState(Agent::GetInstance()->nexthop_table(),
                     Agent::GetInstance()->pkt()->flow_table()->
                     nh_listener_id()));
         // With encap change nexthop can change for route. Route change
@@ -1047,8 +1047,8 @@ bool FlowEntry::SetRpfNH(const Inet4UnicastRouteEntry *rt) {
             DBEntryBase::KeyPtr key = nh->GetDBRequestKey();
             NextHopKey *nh_key = static_cast<NextHopKey *>(key.get());
             NextHop * new_nh = static_cast<NextHop *>(Agent::GetInstance()->
-                               GetNextHopTable()->FindActiveEntry(nh_key));
-            DBTablePartBase *part = Agent::GetInstance()->GetNextHopTable()->
+                               nexthop_table()->FindActiveEntry(nh_key));
+            DBTablePartBase *part = Agent::GetInstance()->nexthop_table()->
                 GetTablePartition(new_nh);
             NhState *new_nh_state = new NhState(new_nh);
             new_nh->SetState(part->parent(), Agent::GetInstance()->pkt()->
@@ -1409,24 +1409,24 @@ void FlowTable::Init() {
 
     FlowEntry::alloc_count_ = 0;
 
-    acl_listener_id_ = agent_->GetAclTable()->Register
+    acl_listener_id_ = agent_->acl_table()->Register
         (boost::bind(&FlowTable::AclNotify, this, _1, _2));
 
-    intf_listener_id_ = agent_->GetInterfaceTable()->Register
+    intf_listener_id_ = agent_->interface_table()->Register
         (boost::bind(&FlowTable::IntfNotify, this, _1, _2));
 
-    vn_listener_id_ = agent_->GetVnTable()->Register
+    vn_listener_id_ = agent_->vn_table()->Register
         (boost::bind(&FlowTable::VnNotify, this, _1, _2));
 
-    vrf_listener_id_ = agent_->GetVrfTable()->Register
+    vrf_listener_id_ = agent_->vrf_table()->Register
             (boost::bind(&FlowTable::VrfNotify, this, _1, _2));
 
     nh_listener_ = new NhListener();
 
-    agent_->GetAclTable()->set_ace_flow_sandesh_data_cb
+    agent_->acl_table()->set_ace_flow_sandesh_data_cb
         (boost::bind(&FlowTable::SetAceSandeshData, this, _1, _2, _3));
 
-    agent_->GetAclTable()->set_acl_flow_sandesh_data_cb
+    agent_->acl_table()->set_acl_flow_sandesh_data_cb
         (boost::bind(&FlowTable::SetAclFlowSandeshData, this, _1, _2, _3));
 
     return;
@@ -1582,7 +1582,7 @@ void Inet4RouteUpdate::WalkDone(DBTableBase *partition,
 }
 
 void Inet4RouteUpdate::Unregister() {
-    DBTableWalker *walker = Agent::GetInstance()->GetDB()->GetWalker();
+    DBTableWalker *walker = Agent::GetInstance()->db()->GetWalker();
     walker->WalkTable(rt_table_, NULL,
                       boost::bind(&Inet4RouteUpdate::DeleteState, this, _1, _2),
                       boost::bind(&Inet4RouteUpdate::WalkDone, _1, this));
@@ -2608,11 +2608,11 @@ FlowTable::FlowTable(Agent *agent) :
 }
 
 FlowTable::~FlowTable() {
-    agent_->GetAclTable()->Unregister(acl_listener_id_);
-    agent_->GetInterfaceTable()->Unregister(intf_listener_id_);
-    agent_->GetVnTable()->Unregister(vn_listener_id_);
-    agent_->GetVmTable()->Unregister(vm_listener_id_);
-    agent_->GetVrfTable()->Unregister(vrf_listener_id_);
+    agent_->acl_table()->Unregister(acl_listener_id_);
+    agent_->interface_table()->Unregister(intf_listener_id_);
+    agent_->vn_table()->Unregister(vn_listener_id_);
+    agent_->vm_table()->Unregister(vm_listener_id_);
+    agent_->vrf_table()->Unregister(vrf_listener_id_);
     delete nh_listener_;
 }
 

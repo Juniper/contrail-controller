@@ -27,7 +27,7 @@ void InterfaceCfgClient::Notify(DBTablePartBase *partition, DBEntryBase *e) {
     Agent *agent = Agent::GetInstance();
 
     if (entry->IsDeleted()) {
-        VmInterface::Delete(agent->GetInterfaceTable(),
+        VmInterface::Delete(agent->interface_table(),
                              entry->GetUuid());
     } else {
         uint16_t vlan_id = VmInterface::kInvalidVlanId;
@@ -37,7 +37,7 @@ void InterfaceCfgClient::Notify(DBTablePartBase *partition, DBEntryBase *e) {
             port = agent->params()->vmware_physical_port();
         }
 
-        VmInterface::Add(agent->GetInterfaceTable(),
+        VmInterface::Add(agent->interface_table(),
                          entry->GetUuid(), entry->GetIfname(),
                          entry->ip_addr().to_v4(), entry->GetMacAddr(),
                          entry->vm_name(), entry->vm_project_uuid(),
@@ -46,8 +46,8 @@ void InterfaceCfgClient::Notify(DBTablePartBase *partition, DBEntryBase *e) {
         if (node != NULL) {
             DBRequest req;
             req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
-            if (agent_cfg_->agent()->GetInterfaceTable()->IFNodeToReq(node, req)) {
-                agent_cfg_->agent()->GetInterfaceTable()->Enqueue(&req);
+            if (agent_cfg_->agent()->interface_table()->IFNodeToReq(node, req)) {
+                agent_cfg_->agent()->interface_table()->Enqueue(&req);
             }
         }
     }
@@ -77,8 +77,8 @@ void InterfaceCfgClient::RouteTableNotify(DBTablePartBase *partition,
             Agent::GetInstance()->cfg()->cfg_vm_interface_table()) {
             DBRequest req;
             req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
-            if (agent_cfg_->agent()->GetInterfaceTable()->IFNodeToReq(adj_node, req)) {
-                agent_cfg_->agent()->GetInterfaceTable()->Enqueue(&req);
+            if (agent_cfg_->agent()->interface_table()->IFNodeToReq(adj_node, req)) {
+                agent_cfg_->agent()->interface_table()->Enqueue(&req);
             }
         }
     }
@@ -137,18 +137,18 @@ IFMapNode *InterfaceCfgClient::UuidToIFNode(const uuid &u) {
 }
 
 void InterfaceCfgClient::Init() {
-    DBTableBase *table = agent_cfg_->agent()->GetIntfCfgTable();
+    DBTableBase *table = agent_cfg_->agent()->interface_config_table();
     table->Register(boost::bind(&InterfaceCfgClient::Notify, this, _1, _2));
 
     // Register with config DB table for vm-port UUID to IFNode mapping
-    DBTableBase *cfg_db = IFMapTable::FindTable(agent_cfg_->agent()->GetDB(), 
+    DBTableBase *cfg_db = IFMapTable::FindTable(agent_cfg_->agent()->db(), 
                                                 "virtual-machine-interface");
     assert(cfg_db);
     cfg_listener_id_ = cfg_db->Register
         (boost::bind(&InterfaceCfgClient::CfgNotify, this, _1, _2));
 
     // Register with config DB table for static route table changes
-    DBTableBase *cfg_route_db = IFMapTable::FindTable(agent_cfg_->agent()->GetDB(), 
+    DBTableBase *cfg_route_db = IFMapTable::FindTable(agent_cfg_->agent()->db(), 
                                                       "interface-route-table");
     assert(cfg_route_db);
     cfg_route_table_listener_id_ = cfg_route_db->Register
@@ -156,11 +156,11 @@ void InterfaceCfgClient::Init() {
 }
 
 void InterfaceCfgClient::Shutdown() {
-    DBTableBase *cfg_db = IFMapTable::FindTable(agent_cfg_->agent()->GetDB(), 
+    DBTableBase *cfg_db = IFMapTable::FindTable(agent_cfg_->agent()->db(), 
                                                 "virtual-machine-interface");
     cfg_db->Unregister(cfg_listener_id_);
 
-    DBTableBase *cfg_route_db = IFMapTable::FindTable(agent_cfg_->agent()->GetDB(), 
+    DBTableBase *cfg_route_db = IFMapTable::FindTable(agent_cfg_->agent()->db(), 
                                                       "interface-route-table");
     cfg_route_db->Unregister(cfg_route_table_listener_id_);
 }

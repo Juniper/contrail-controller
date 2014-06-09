@@ -635,7 +635,7 @@ void ServicesSandesh::HandleRequest(PktHandler::PktModuleName mod,
 void ServicesSandesh::MetadataHandleRequest(std::string ctxt, bool more = false) {
     MetadataResponse *resp = new MetadataResponse();
     resp->set_metadata_server_port(
-          Agent::GetInstance()->GetMetadataServerPort());
+          Agent::GetInstance()->metadata_server_port());
     const MetadataProxy::MetadataStats &stats = 
           Agent::GetInstance()->services()->metadataproxy()->metadatastats();
     resp->set_metadata_requests(stats.requests);

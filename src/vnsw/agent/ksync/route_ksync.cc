@@ -151,7 +151,7 @@ std::string RouteKSyncEntry::ToString() const {
     nexthop = nh();
 
     const VrfEntry* vrf =
-        ksync_obj_->ksync()->agent()->GetVrfTable()->FindVrfFromId(vrf_id_);
+        ksync_obj_->ksync()->agent()->vrf_table()->FindVrfFromId(vrf_id_);
     if (vrf) {
         s << "Route Vrf : " << vrf->GetName() << " ";
     }
@@ -182,7 +182,7 @@ bool RouteKSyncEntry::Sync(DBEntry *e) {
     if (tmp == NULL) {
         DiscardNHKey key;
         tmp = static_cast<NextHop *>
-            (ksync_obj_->ksync()->agent()->GetNextHopTable()->
+            (ksync_obj_->ksync()->agent()->nexthop_table()->
              FindActiveEntry(&key));
     }
     NHKSyncEntry nexthop(nh_object, tmp);
@@ -355,7 +355,7 @@ int RouteKSyncEntry::DeleteMsg(char *buf, int buf_len) {
     /* If better route is not found, send discardNH for route */
     DiscardNHKey nh_oper_key;
     NextHop *nexthop = static_cast<NextHop *>
-        (ksync_obj_->ksync()->agent()->GetNextHopTable()->
+        (ksync_obj_->ksync()->agent()->nexthop_table()->
                      FindActiveEntry(&nh_oper_key));
     if (nexthop != NULL) {
         NHKSyncObject *ksync_nh_object = 
@@ -555,12 +555,12 @@ VrfKSyncObject::~VrfKSyncObject() {
 }
 
 void VrfKSyncObject::RegisterDBClients() {
-    vrf_listener_id_ = ksync_->agent()->GetVrfTable()->Register
+    vrf_listener_id_ = ksync_->agent()->vrf_table()->Register
             (boost::bind(&VrfKSyncObject::VrfNotify, this, _1, _2));
 }
 
 void VrfKSyncObject::Shutdown() {
-    ksync_->agent()->GetVrfTable()->Unregister(vrf_listener_id_);
+    ksync_->agent()->vrf_table()->Unregister(vrf_listener_id_);
     vrf_listener_id_ = -1;
 }
 

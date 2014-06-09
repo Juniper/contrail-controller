@@ -62,14 +62,14 @@ GetHmacSha256(const std::string &key, const std::string &data) {
 MetadataProxy::MetadataProxy(ServicesModule *module,
                              const std::string &secret)
     : services_(module), shared_secret_(secret),
-      http_server_(new HttpServer(services_->agent()->GetEventManager())),
-      http_client_(new HttpClient(services_->agent()->GetEventManager())) {
+      http_server_(new HttpServer(services_->agent()->event_manager())),
+      http_client_(new HttpClient(services_->agent()->event_manager())) {
 
     // Register wildcard entry to match any URL coming on the metadata port
     http_server_->RegisterHandler(HTTP_WILDCARD_ENTRY,
         boost::bind(&MetadataProxy::HandleMetadataRequest, this, _1, _2));
     http_server_->Initialize(0);
-    services_->agent()->SetMetadataServerPort(http_server_->GetPort());
+    services_->agent()->set_metadata_server_port(http_server_->GetPort());
 
     http_client_->Init();
 }
@@ -108,7 +108,7 @@ MetadataProxy::HandleMetadataRequest(HttpSession *session, const HttpRequest *re
     metadata_stats_.requests++;
     boost::asio::ip::address_v4 ip = session->remote_endpoint().address().to_v4();
 
-    if (!services_->agent()->GetInterfaceTable()->
+    if (!services_->agent()->interface_table()->
          FindVmUuidFromMetadataIp(ip, &vm_ip, &vm_uuid, &vm_project_uuid)) {
         ErrorClose(session);
         http_server_->DeleteSession(session);
@@ -191,7 +191,7 @@ MetadataProxy::HandleMetadataResponse(HttpConnection *conn, HttpSessionPtr sessi
 
         std::string vm_ip, vm_uuid, vm_project_uuid;
         boost::asio::ip::address_v4 ip = session->remote_endpoint().address().to_v4();
-        services_->agent()->GetInterfaceTable()->
+        services_->agent()->interface_table()->
             FindVmUuidFromMetadataIp(ip, &vm_ip, &vm_uuid, &vm_project_uuid);
 
         if (!ec) {

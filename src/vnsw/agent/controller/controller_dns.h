@@ -34,7 +34,7 @@ public:
     virtual std::string ToString() const;
     virtual bool SendMsg(uint8_t *msg, std::size_t len);
     virtual void ReceiveMsg(const XmppStanza::XmppMessage *msg);
-    std::string GetXmppServer() { return xmpp_server_; }
+    std::string controller_ifmap_xmpp_server() { return xmpp_server_; }
     uint8_t GetXmppServerIdx() { return xs_idx_; }
     XmppChannel *GetXmppChannel() { return channel_; }
     static void HandleXmppClientChannelEvent(AgentDnsXmppChannel *peer,

@@ -23,14 +23,14 @@ static void ValidateSandeshResponse(Sandesh *sandesh, vector<int> &result) {
 static void NovaIntfAdd(int id, const char *name, const char *addr,
                         const char *mac) {
     IpAddress ip = Ip4Address::from_string(addr);
-    VmInterface::Add(Agent::GetInstance()->GetInterfaceTable(),
+    VmInterface::Add(Agent::GetInstance()->interface_table(),
                      MakeUuid(id), name, ip.to_v4(), mac, "",
                      MakeUuid(kProjectUuid),
                      VmInterface::kInvalidVlanId, Agent::NullString());
 }
 
 static void NovaDel(int id) {
-    VmInterface::Delete(Agent::GetInstance()->GetInterfaceTable(),
+    VmInterface::Delete(Agent::GetInstance()->interface_table(),
                         MakeUuid(id));
 }
 
@@ -57,7 +57,7 @@ static void CfgIntfSync(int id, const char *cfg_str, int vn, int vm, std::string
     cfg_data->vm_uuid_ = vm_uuid;
     cfg_data->floating_ip_list_ = list;
     req.data.reset(cfg_data);
-    Agent::GetInstance()->GetInterfaceTable()->Enqueue(&req);
+    Agent::GetInstance()->interface_table()->Enqueue(&req);
 }
 
 struct PortInfo input1[] = {

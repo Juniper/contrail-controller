@@ -75,7 +75,7 @@ void ProcessExceptionPackets() {
 	 TxIpPacket(intf->id(), ep->sip.c_str(), ep->dip.c_str(), 
 	            strtoul((ep->proto).c_str(), NULL, 0), hash_id);
          client->WaitForIdle();
-         AclTable *table = Agent::GetInstance()->GetAclTable();
+         AclTable *table = Agent::GetInstance()->acl_table();
          KSyncSockTypeMap *sock = KSyncSockTypeMap::GetKSyncSockTypeMap();
          KSyncSockTypeMap::ksync_map_flow::iterator ksit;
          EXPECT_TRUE((ksit = sock->flow_map.find(hash_id)) != sock->flow_map.end());
@@ -127,7 +127,7 @@ void CreateNodeNetworks() {
 void LoadAcl() {
     pugi::xml_document xdoc;
     xdoc.load_file("data.xml");
-    Agent::GetInstance()->GetIfMapAgentParser()->ConfigParse(xdoc.first_child(), 0);
+    Agent::GetInstance()->ifmap_parser()->ConfigParse(xdoc.first_child(), 0);
 }
   
 TEST_F(AclFlowTest, Setup) {
@@ -176,7 +176,7 @@ int main (int argc, char **argv) {
     LOG(DEBUG, "Config File:" << config_file);
 
     client = TestInit(config_file, false, true, false, true);
-	Agent::GetInstance()->SetRouterId(Ip4Address::from_string("10.1.1.1"));
+	Agent::GetInstance()->set_router_id(Ip4Address::from_string("10.1.1.1"));
 
     ::testing::InitGoogleTest(&argc, argv);
     int ret = RUN_ALL_TESTS();

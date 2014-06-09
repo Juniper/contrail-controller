@@ -19,13 +19,13 @@ using namespace boost::asio;
 
 void DiscoveryAgentClient::Init(AgentParam *param) {
     param_ = param;
-    if (!agent_cfg_->agent()->GetDiscoveryServer().empty()) {
+    if (!agent_cfg_->agent()->discovery_server().empty()) {
         boost::system::error_code ec;
         ip::tcp::endpoint dss_ep;
         dss_ep.address(
-            ip::address::from_string(agent_cfg_->agent()->GetDiscoveryServer(),
+            ip::address::from_string(agent_cfg_->agent()->discovery_server(),
             ec));
-        uint32_t port = agent_cfg_->agent()->GetDiscoveryServerPort();
+        uint32_t port = agent_cfg_->agent()->discovery_server_port();
         if (!port) {
             port = DISCOVERY_SERVER_PORT;
         }
@@ -34,22 +34,22 @@ void DiscoveryAgentClient::Init(AgentParam *param) {
         std::string subscriber_name = 
             g_vns_constants.ModuleNames.find(Module::VROUTER_AGENT)->second;
         DiscoveryServiceClient *ds_client = 
-            (new DiscoveryServiceClient(agent_cfg_->agent()->GetEventManager(), 
+            (new DiscoveryServiceClient(agent_cfg_->agent()->event_manager(), 
              dss_ep, subscriber_name));
         ds_client->Init();
 
-        agent_cfg_->agent()->SetDiscoveryServiceClient(ds_client);
+        agent_cfg_->agent()->set_discovery_service_client(ds_client);
     }
 }
 
 void DiscoveryAgentClient::DiscoverController() {
     
     DiscoveryServiceClient *ds_client = 
-        agent_cfg_->agent()->GetDiscoveryServiceClient();
+        agent_cfg_->agent()->discovery_service_client();
     if (ds_client) {
 
         int xs_instances = 
-            agent_cfg_->agent()->GetDiscoveryXmppServerInstances();
+            agent_cfg_->agent()->discovery_xmpp_server_instances();
         if ((xs_instances < 0) || (xs_instances > 2)) {
             xs_instances = 2;
         }
@@ -63,11 +63,11 @@ void DiscoveryAgentClient::DiscoverController() {
 void DiscoveryAgentClient::DiscoverDNS() {
     
     DiscoveryServiceClient *ds_client = 
-        agent_cfg_->agent()->GetDiscoveryServiceClient();
+        agent_cfg_->agent()->discovery_service_client();
     if (ds_client) {
 
         int dns_instances = 
-            agent_cfg_->agent()->GetDiscoveryXmppServerInstances();
+            agent_cfg_->agent()->discovery_xmpp_server_instances();
         if ((dns_instances < 0) || (dns_instances > 2)) {
             dns_instances = 2;
         }
@@ -89,9 +89,9 @@ void DiscoveryAgentClient::DiscoverySubscribeXmppHandler(std::vector<DSResponse>
 }
 
 void DiscoveryAgentClient::DiscoverServices() {
-    if (!agent_cfg_->agent()->GetDiscoveryServer().empty()) {
+    if (!agent_cfg_->agent()->discovery_server().empty()) {
         DiscoveryServiceClient *ds_client = 
-            agent_cfg_->agent()->GetDiscoveryServiceClient();
+            agent_cfg_->agent()->discovery_service_client();
         if (ds_client) {
 
             //subscribe to collector service
@@ -110,23 +110,23 @@ void DiscoveryAgentClient::DiscoverServices() {
                 std::vector<std::string> list;
                 list.clear();
                 Sandesh::InitGenerator(subscriber_name,
-                                       Agent::GetInstance()->GetHostName(),
+                                       Agent::GetInstance()->host_name(),
                                        node_type_name,
                                        g_vns_constants.INSTANCE_ID_DEFAULT, 
-                                       Agent::GetInstance()->GetEventManager(),
-                                       Agent::GetInstance()->GetSandeshPort(),
+                                       Agent::GetInstance()->event_manager(),
+                                       Agent::GetInstance()->sandesh_port(),
                                        csf,
                                        list,
                                        NULL);
             }
 
             //subscribe to Xmpp Server on controller
-            if (agent_cfg_->agent()->GetXmppServer(0).empty()) {
+            if (agent_cfg_->agent()->controller_ifmap_xmpp_server(0).empty()) {
                 DiscoveryAgentClient::DiscoverController(); 
             } 
 
             //subscribe to DNServer 
-            if (agent_cfg_->agent()->GetDnsServer(0).empty()) {
+            if (agent_cfg_->agent()->dns_server(0).empty()) {
                 DiscoveryAgentClient::DiscoverDNS(); 
             } 
         }
@@ -135,7 +135,7 @@ void DiscoveryAgentClient::DiscoverServices() {
 
 void DiscoveryAgentClient::Shutdown() {
     DiscoveryServiceClient *ds_client = 
-        agent_cfg_->agent()->GetDiscoveryServiceClient(); 
+        agent_cfg_->agent()->discovery_service_client(); 
     if (ds_client) {
         //unsubscribe to services 
         ds_client->Shutdown();
@@ -151,7 +151,7 @@ void DiscoveryClientSubscriberStatsReq::HandleRequest() const {
 
     std::vector<DiscoveryClientSubscriberStats> stats_list;
     DiscoveryServiceClient *ds = 
-        Agent::GetInstance()->GetDiscoveryServiceClient();
+        Agent::GetInstance()->discovery_service_client();
         //DiscoveryAgentClient::GetAgentDiscoveryServiceClient();
     if (ds) {
         ds->FillDiscoveryServiceSubscriberStats(stats_list);

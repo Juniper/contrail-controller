@@ -33,27 +33,27 @@ void DnsProto::IoShutdown() {
 void DnsProto::ConfigInit() {
     std::vector<BindResolver::DnsServer> dns_servers;
     for (int i = 0; i < MAX_XMPP_SERVERS; i++) {
-        std::string server = agent()->GetDnsServer(i);
+        std::string server = agent()->dns_server(i);
         if (server != "")
             dns_servers.push_back(BindResolver::DnsServer(
-                                  server, agent()->GetDnsServerPort(i)));
+                                  server, agent()->dns_server_port(i)));
     }
-    BindResolver::Init(*agent()->GetEventManager()->io_service(), dns_servers,
+    BindResolver::Init(*agent()->event_manager()->io_service(), dns_servers,
                        boost::bind(&DnsProto::SendDnsIpc, this, _1));
 }
 
 DnsProto::DnsProto(Agent *agent, boost::asio::io_service &io) :
     Proto(agent, "Agent::Services", PktHandler::DNS, io),
     xid_(0), timeout_(kDnsTimeout), max_retries_(kDnsMaxRetries) {
-    lid_ = agent->GetInterfaceTable()->Register(
+    lid_ = agent->interface_table()->Register(
                   boost::bind(&DnsProto::InterfaceNotify, this, _2));
-    Vnlid_ = agent->GetVnTable()->Register(
+    Vnlid_ = agent->vn_table()->Register(
                   boost::bind(&DnsProto::VnNotify, this, _2));
-    agent->GetDomainConfigTable()->RegisterIpamCb(
+    agent->domain_config_table()->RegisterIpamCb(
                   boost::bind(&DnsProto::IpamNotify, this, _1));
-    agent->GetDomainConfigTable()->RegisterVdnsCb(
+    agent->domain_config_table()->RegisterVdnsCb(
                   boost::bind(&DnsProto::VdnsNotify, this, _1));
-    agent->GetInterfaceTable()->set_update_floatingip_cb
+    agent->interface_table()->set_update_floatingip_cb
         (boost::bind(&DnsProto::UpdateFloatingIp, this, _1, _2, _3, _4));
 
     AgentDnsXmppChannel::set_dns_message_handler_cb
@@ -63,8 +63,8 @@ DnsProto::DnsProto(Agent *agent, boost::asio::io_service &io) :
 }
 
 DnsProto::~DnsProto() {
-    agent_->GetInterfaceTable()->Unregister(lid_);
-    agent_->GetVnTable()->Unregister(Vnlid_);
+    agent_->interface_table()->Unregister(lid_);
+    agent_->vn_table()->Unregister(Vnlid_);
 }
 
 ProtoHandler *DnsProto::AllocProtoHandler(boost::shared_ptr<PktInfo> info,
@@ -304,7 +304,7 @@ bool DnsProto::UpdateDnsEntry(const VmInterface *vmitf, const VnEntry *vn,
         }
 
         autogen::VirtualDnsType vdns_type;
-        if (agent_->GetDomainConfigTable()->GetVDns(vdns_name, &vdns_type)) {
+        if (agent_->domain_config_table()->GetVDns(vdns_name, &vdns_type)) {
             UpdateDnsEntry(vmitf, vmitf->vm_name(), ip, plen,
                            vdns_name, vdns_type, is_floating, is_deleted);
         } else {

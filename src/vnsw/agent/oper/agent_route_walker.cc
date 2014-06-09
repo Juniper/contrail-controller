@@ -25,7 +25,7 @@ AgentRouteWalker::AgentRouteWalker(Agent *agent, WalkType type) :
  * Cancels VRF walk. Does not stop route walks if issued for vrf
  */
 void AgentRouteWalker::CancelVrfWalk() {
-    DBTableWalker *walker = agent_->GetDB()->GetWalker();
+    DBTableWalker *walker = agent_->db()->GetWalker();
     if (vrf_walkid_ != DBTableWalker::kInvalidWalkerId) {
         AGENT_LOG(AgentRouteWalkerLog, vrf_walkid_, 0,
                   "VRF table walk cancelled ", "", 0);
@@ -39,7 +39,7 @@ void AgentRouteWalker::CancelVrfWalk() {
  * Cancels route walks started for given VRF
  */
 void AgentRouteWalker::CancelRouteWalk(const VrfEntry *vrf) {
-    DBTableWalker *walker = agent_->GetDB()->GetWalker();
+    DBTableWalker *walker = agent_->db()->GetWalker();
     uint32_t vrf_id = vrf->vrf_id();
 
     //Cancel Route table walks
@@ -64,13 +64,13 @@ void AgentRouteWalker::CancelRouteWalk(const VrfEntry *vrf) {
  */
 void AgentRouteWalker::StartVrfWalk()
 {
-    DBTableWalker *walker = agent_->GetDB()->GetWalker();
+    DBTableWalker *walker = agent_->db()->GetWalker();
 
     //Cancel the VRF walk if started previously
     CancelVrfWalk();
 
     //New walk start for VRF
-    vrf_walkid_ = walker->WalkTable(agent_->GetVrfTable(), NULL,
+    vrf_walkid_ = walker->WalkTable(agent_->vrf_table(), NULL,
                                     boost::bind(&AgentRouteWalker::VrfWalkNotify, 
                                                 this, _1, _2),
                                     boost::bind(&AgentRouteWalker::VrfWalkDone, 
@@ -87,7 +87,7 @@ void AgentRouteWalker::StartVrfWalk()
  * Cancels any old route walks started for given VRF
  */
 void AgentRouteWalker::StartRouteWalk(const VrfEntry *vrf) {
-    DBTableWalker *walker = agent_->GetDB()->GetWalker();
+    DBTableWalker *walker = agent_->db()->GetWalker();
     DBTableWalker::WalkId walkid;
     uint32_t vrf_id = vrf->vrf_id();
     AgentRouteTable *table = NULL;

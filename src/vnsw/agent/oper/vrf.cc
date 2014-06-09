@@ -34,7 +34,7 @@ class VrfEntry::DeleteActor : public LifetimeActor {
   public:
     DeleteActor(VrfEntry *vrf) : 
         LifetimeActor((static_cast<VrfTable *>(vrf->get_table()))->
-                      agent()->GetLifetimeManager()), table_(vrf) {
+                      agent()->lifetime_manager()), table_(vrf) {
     }
     virtual ~DeleteActor() { 
     }
@@ -226,7 +226,7 @@ bool VrfEntry::DeleteTimeout() {
 void VrfEntry::StartDeleteTimer() {
     Agent *agent = (static_cast<VrfTable *>(get_table()))->agent();
     delete_timeout_timer_ = TimerManager::CreateTimer(
-                                *(agent->GetEventManager())->io_service(),
+                                *(agent->event_manager())->io_service(),
                                 "VrfDeleteTimer");
     delete_timeout_timer_->Start(kDeleteTimeout, 
                                  boost::bind(&VrfEntry::DeleteTimeout,
@@ -484,11 +484,11 @@ bool VrfTable::IFNodeToReq(IFMapNode *node, DBRequest &req) {
             continue;
         }
 
-        agent()->GetInterfaceTable()->VmInterfaceVrfSync(adj_node);
+        agent()->interface_table()->VmInterfaceVrfSync(adj_node);
     }
 
     // Resync dependent Floating-IP
-    VmInterface::FloatingIpVrfSync(agent()->GetInterfaceTable(), node);
+    VmInterface::FloatingIpVrfSync(agent()->interface_table(), node);
     return false;
 }
 

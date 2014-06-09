@@ -80,7 +80,7 @@ const unsigned char *PktHandler::mac_address() {
 }
 
 void PktHandler::CreateInterfaces(const std::string &if_name) {
-    PacketInterface::Create(agent_->GetInterfaceTable(), if_name);
+    PacketInterface::Create(agent_->interface_table(), if_name);
 }
 
 // Send packet to tap interface
@@ -105,7 +105,7 @@ void PktHandler::HandleRcvPkt(uint8_t *ptr, std::size_t len) {
         goto drop;
     }
 
-    intf = agent_->GetInterfaceTable()->FindInterface(pkt_info->GetAgentHdr().
+    intf = agent_->interface_table()->FindInterface(pkt_info->GetAgentHdr().
                                                       ifindex);
     if (intf == NULL) {
         PKT_TRACE(Err, "Invalid interface index <" <<
@@ -340,7 +340,7 @@ uint8_t *PktHandler::ParseUserPkt(PktInfo *pkt_info, Interface *intf,
 
     pkt_type = PktType::INVALID;
     // Decap only IP-DA is ours
-    if (pkt_info->ip_daddr != agent_->GetRouterId().to_ulong()) {
+    if (pkt_info->ip_daddr != agent_->router_id().to_ulong()) {
         PKT_TRACE(Err, "Tunnel packet not destined to me. Ignoring");
         return pkt;
     }
@@ -375,7 +375,7 @@ uint8_t *PktHandler::ParseUserPkt(PktInfo *pkt_info, Interface *intf,
     pkt_info->tunnel.label = (mpls_host & 0xFFFFF000) >> 12;
 
     MplsLabel *label = 
-        agent_->GetMplsTable()->FindMplsLabel(pkt_info->tunnel.label);
+        agent_->mpls_table()->FindMplsLabel(pkt_info->tunnel.label);
     if (label == NULL) {
         PKT_TRACE(Err, "Invalid MPLS Label <" <<
                   pkt_info->tunnel.label << ">. Ignoring");

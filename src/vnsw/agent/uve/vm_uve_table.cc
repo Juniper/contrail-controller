@@ -132,7 +132,7 @@ void VmUveTable::InterfaceNotify(DBTablePartBase *partition, DBEntryBase *e) {
             if (e->IsDeleted() || ((state->ipv4_active_ == true) ||
                                     (state->l2_active_ == true))) {
                 VmKey key(state->vm_uuid_);
-                const VmEntry *vm = static_cast<VmEntry *>(agent_->GetVmTable()
+                const VmEntry *vm = static_cast<VmEntry *>(agent_->vm_table()
                      ->FindActiveEntry(&key));
                 /* If vm is marked for delete or if vm is deleted, required
                  * UVEs will be sent as part of Vm Delete Notification */
@@ -209,18 +209,18 @@ void VmUveTable::VmStatCollectionStop(VmUveVmState *state) {
 }
 
 void VmUveTable::RegisterDBClients() {
-    InterfaceTable *intf_table = agent_->GetInterfaceTable();
+    InterfaceTable *intf_table = agent_->interface_table();
     intf_listener_id_ = intf_table->Register
                   (boost::bind(&VmUveTable::InterfaceNotify, this, _1, _2));
 
-    VmTable *vm_table = agent_->GetVmTable();
+    VmTable *vm_table = agent_->vm_table();
     vm_listener_id_ = vm_table->Register
         (boost::bind(&VmUveTable::VmNotify, this, _1, _2));
 }
 
 void VmUveTable::Shutdown(void) {
-    agent_->GetVmTable()->Unregister(vm_listener_id_);
-    agent_->GetInterfaceTable()->Unregister(intf_listener_id_);
+    agent_->vm_table()->Unregister(vm_listener_id_);
+    agent_->interface_table()->Unregister(intf_listener_id_);
 }
 
 void VmUveTable::SendVmStats(void) {

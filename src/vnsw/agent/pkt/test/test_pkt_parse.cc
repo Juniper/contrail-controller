@@ -484,7 +484,7 @@ int main(int argc, char *argv[]) {
     ksync_init = false;
     client = TestInit(init_file, ksync_init, true, true, true);
     SetupIntf();
-    Agent::GetInstance()->SetRouterId(Ip4Address::from_string("10.1.1.1"));
+    Agent::GetInstance()->set_router_id(Ip4Address::from_string("10.1.1.1"));
 
     int ret = RUN_ALL_TESTS();
     client->WaitForIdle();
