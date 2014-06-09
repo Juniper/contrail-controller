@@ -1411,10 +1411,24 @@ class DBInterface(object):
         else:
             # Assigned by address manager
             alloc_pools = None
+
+        dhcp_option_list = None
         if subnet_q['dns_nameservers'] != attr.ATTR_NOT_SPECIFIED:
-            dns_server = subnet_q['dns_nameservers']
-        else:
-            dns_server = None
+            dhcp_options=[]
+            for dns_server in subnet_q['dns_nameservers']:
+                dhcp_options.append(DhcpOptionType(dhcp_option_name='6',
+                                                   dhcp_option_value=dns_server))
+            if dhcp_options:
+                dhcp_option_list = DhcpOptionsListType(dhcp_options)
+
+        host_route_list = None
+        if subnet_q['host_routes'] != attr.ATTR_NOT_SPECIFIED:
+            host_routes=[]
+            for host_route in subnet_q['host_routes']:
+                host_routes.append(RouteType(prefix=host_route['destination'],
+                                             next_hop=host_route['nexthop']))
+            if host_routes:
+                host_route_list = RouteTableType(host_routes)
 
         dhcp_config = subnet_q['enable_dhcp']
         subnet_vnc = IpamSubnetType(subnet=SubnetType(pfx, pfx_len),
@@ -1422,7 +1436,9 @@ class DBInterface(object):
                                     enable_dhcp=dhcp_config,
                                     dns_nameservers=dns_server,
                                     allocation_pools=alloc_pools,
-                                    addr_from_start=True)
+                                    addr_from_start=True,
+                                    dhcp_option_list=dhcp_option_list,
+                                    host_routes=host_route_list)
 
         return subnet_vnc
     #end _subnet_neutron_to_vnc
@@ -1467,22 +1483,24 @@ class DBInterface(object):
         sn_q_dict['allocation_pools'] = allocation_pools
 
         sn_q_dict['enable_dhcp'] = subnet_vnc.get_enable_dhcp()
-        nameservers = subnet_vnc.get_dns_nameservers()
-        if nameservers is None or not nameservers:
-            sn_q_dict['dns_nameservers'] = [{'address': '169.254.169.254',
-                                             'subnet_id': sn_id}]
-        else:
-            nameserver_dict_list = list()
-            for nameserver in nameservers:
-                nameserver_entry = {'address': nameserver,
+
+        nameserver_dict_list = list()
+        dhcp_option_list = subnet_vnc.get_dhcp_option_list()
+        for dhcp_option in dhcp_option_list:
+            if dhcp_option.get_dhcp_option_name() == '6':
+                nameserver_entry = {'address': dhcp_option.get_dhcp_option_value(),
                                     'subnet_id': sn_id}
                 nameserver_dict_list.append(nameserver_entry)
-            sn_q_dict['dns_nameservers'] = nameserver_dict_list
-
-        # TODO get from ipam_obj
-        sn_q_dict['routes'] = [{'destination': 'TODO-destination',
-                               'nexthop': 'TODO-nexthop',
-                               'subnet_id': sn_id}]
+        sn_q_dict['dns_nameservers'] = nameserver_dict_list
+                
+        host_route_dict_list = list()
+        host_routes = subnet_vnc.get_host_routes()
+        for host_route in host_routes:
+            host_route_entry = {'destination': host_route.get_prefix(),
+                                'nexthop': host_route.get_next_hop(),
+                                'subnet_id': sn_id}
+            host_route_dict_list.append(host_route_entry)
+        sn_q_dict['host-routes'] = host_route_dict_list
 
         if net_obj.is_shared:
             sn_q_dict['shared'] = True
