@@ -537,18 +537,124 @@ void DhcpHandler::RelayResponseFromFabric() {
     agent()->GetDhcpProto()->IncrStatsRelayResps();
 }
 
+// Add the DHCP options coming via config. Config priority is
+// 1) options at VM interface level
+// 2) options at subnet level
+// 3) options at IPAM level
+// Add the options defined at the highest level in priority
+uint16_t DhcpHandler::AddConfigDhcpOptions(uint16_t opt_len,
+                                           bool domain_name_added) {
+    std::vector<autogen::DhcpOptionType> options;
+    do {
+        if (vm_itf_->oper_dhcp_options().are_dhcp_options_set()) {
+            options = vm_itf_->oper_dhcp_options().dhcp_options();
+            break;
+        }
+
+        if (vm_itf_->vn()) {
+            Ip4Address ip(config_.ip_addr);
+            const std::vector<VnIpam> &vn_ipam = vm_itf_->vn()->GetVnIpam();
+            uint32_t index;
+            for (index = 0; index < vn_ipam.size(); ++index) {
+                if (vn_ipam[index].IsSubnetMember(ip)) {
+                    break;
+                }
+            }
+            if (index < vn_ipam.size() &&
+                vn_ipam[index].oper_dhcp_options.are_dhcp_options_set()) {
+                options = vn_ipam[index].oper_dhcp_options.dhcp_options();
+                break;
+            }
+        }
+
+        options = ipam_type_.dhcp_option_list.dhcp_option;
+    } while (false);
+
+    for (unsigned int i = 0; i < options.size(); ++i) {
+        uint32_t option_type;
+        std::stringstream str(options[i].dhcp_option_name);
+        str >> option_type;
+        switch(option_type) {
+            case DHCP_OPTION_NTP:
+            case DHCP_OPTION_DNS: {
+                boost::system::error_code ec;
+                uint32_t ip = Ip4Address::from_string(options[i].
+                              dhcp_option_value, ec).to_ulong();
+                if (!ec.value()) {
+                    DhcpOptions *opt = GetNextOptionPtr(opt_len);
+                    opt->WriteWord(option_type, ip, opt_len);
+                } else {
+                    Ip4Address ip(config_.ip_addr);
+                    DHCP_TRACE(Error, "Invalid DHCP option " <<
+                               option_type << " for VM " << 
+                               ip.to_string() << "; has to be IP address");
+                }
+                break;
+            }
+
+            case DHCP_OPTION_DOMAIN_NAME:
+                // allow only one domain name option in a DHCP response
+                if (!domain_name_added && options[i].dhcp_option_value.size()) {
+                    domain_name_added = true;
+                    DhcpOptions *opt = GetNextOptionPtr(opt_len);
+                    opt->WriteData(option_type, 
+                                   options[i].dhcp_option_value.size(), 
+                                   options[i].dhcp_option_value.c_str(), 
+                                   opt_len);
+                }
+                break;
+
+            default:
+                DHCP_TRACE(Error, "Unsupported DHCP option in Ipam : " +
+                           options[i].dhcp_option_name);
+                break;
+        }
+    }
+
+    return opt_len;
+}
+
+// Add host route options coming via config. Config priority is
+// 1) options at VM interface level
+// 2) options at subnet level
+// 3) options at IPAM level
+// Add the options defined at the highest level in priority
 uint16_t DhcpHandler::AddClasslessRouteOption(uint16_t opt_len) {
-    std::set<VnSubnet> host_routes;
-    vm_itf_->vn()->GetVnHostRoutes(ipam_name_, &host_routes);
+    std::vector<OperDhcpOptions::Subnet> host_routes;
+    do {
+        if (vm_itf_->oper_dhcp_options().are_host_routes_set()) {
+            host_routes = vm_itf_->oper_dhcp_options().host_routes();
+            break;
+        }
+
+        if (vm_itf_->vn()) {
+            vm_itf_->vn()->GetVnHostRoutes(ipam_name_, &host_routes);
+            if (host_routes.size() > 0)
+                break;
+        }
+
+        const std::vector<autogen::RouteType> &routes =
+            ipam_type_.host_routes.route;
+        for (unsigned int i = 0; i < routes.size(); ++i) {
+            OperDhcpOptions::Subnet subnet;
+            boost::system::error_code ec = Ip4PrefixParse(routes[i].prefix,
+                                                          &subnet.prefix_,
+                                                          (int *)&subnet.plen_);
+            if (ec || subnet.plen_ > 32) {
+                continue;
+            }
+            host_routes.push_back(subnet);
+        }
+    } while (false);
+
     if (host_routes.size()) {
         DhcpOptions *opt = GetNextOptionPtr(opt_len);
         opt->code = DHCP_OPTION_CLASSLESS_ROUTE;
         uint8_t *ptr = opt->data;
         uint8_t len = 0;
-        for (std::set<VnSubnet>::iterator it = host_routes.begin();
-             it != host_routes.end(); ++it) {
-            uint32_t prefix = it->prefix.to_ulong();
-            uint32_t plen = it->plen;
+        for (uint32_t i = 0; i < host_routes.size(); ++i) {
+            uint32_t prefix = host_routes[i].prefix_.to_ulong();
+            uint32_t plen = host_routes[i].plen_;
             *ptr++ = plen;
             len++;
             for (unsigned int i = 0; plen && i <= (plen - 1) / 8; ++i) {
@@ -566,7 +672,7 @@ uint16_t DhcpHandler::AddClasslessRouteOption(uint16_t opt_len) {
 }
 
 uint16_t DhcpHandler::DhcpHdr(in_addr_t yiaddr, in_addr_t siaddr) {
-    int num_domain_name = 0;
+    bool domain_name_added = false;
 
     dhcp_->op = BOOT_REPLY;
     dhcp_->htype = HW_TYPE_ETHERNET;
@@ -649,7 +755,7 @@ uint16_t DhcpHandler::DhcpHdr(in_addr_t yiaddr, in_addr_t siaddr) {
                 opt->WriteWord(DHCP_OPTION_DNS, config_.dns_addr, opt_len);
             }
             if (config_.domain_name_.size()) {
-                num_domain_name++;
+                domain_name_added = true;
                 opt = GetNextOptionPtr(opt_len);
                 opt->WriteData(DHCP_OPTION_DOMAIN_NAME,
                                config_.domain_name_.size(),
@@ -657,57 +763,12 @@ uint16_t DhcpHandler::DhcpHdr(in_addr_t yiaddr, in_addr_t siaddr) {
             }
         }
 
-        // Add dhcp options coming from Ipam
-        // adding them irrespective of the DNS method chosen
-        std::vector<autogen::DhcpOptionType> &options = 
-                        ipam_type_.dhcp_option_list.dhcp_option;
-        for (unsigned int i = 0; i < options.size(); ++i) {
-            uint32_t option_type;
-            std::stringstream str(options[i].dhcp_option_name);
-            str >> option_type;
-            switch(option_type) {
-                case DHCP_OPTION_NTP:
-                case DHCP_OPTION_DNS: {
-                    boost::system::error_code ec;
-                    uint32_t ip = Ip4Address::from_string(options[i].
-                                  dhcp_option_value, ec).to_ulong();
-                    if (!ec.value()) {
-                        opt = GetNextOptionPtr(opt_len);
-                        opt->WriteWord(option_type, ip, opt_len);
-                    } else {
-                        Ip4Address ip(config_.ip_addr);
-                        DHCP_TRACE(Error, "Invalid DHCP option " <<
-                                   option_type << " for VM " << 
-                                   ip.to_string() << "; has to be IP address");
-                    }
-                    break;
-                }
-
-                case DHCP_OPTION_DOMAIN_NAME:
-                    // allow only one domain name option in a DHCP response
-                    if (!num_domain_name &&
-                        options[i].dhcp_option_value.size()) {
-                        num_domain_name++;
-                        opt = GetNextOptionPtr(opt_len);
-                        opt->WriteData(option_type, 
-                                       options[i].dhcp_option_value.size(), 
-                                       options[i].dhcp_option_value.c_str(), 
-                                       opt_len);
-                    }
-                    break;
-
-                default:
-                    DHCP_TRACE(Error, "Unsupported DHCP option in Ipam : " +
-                               options[i].dhcp_option_name);
-                    break;
-            }
-        }
+        // Add dhcp options coming from Config
+        opt_len = AddConfigDhcpOptions(opt_len, domain_name_added);
 
         // Add classless route option
         uint16_t old_opt_len = opt_len;
-        if (vm_itf_->vn()) {
-            opt_len = AddClasslessRouteOption(opt_len);
-        }
+        opt_len = AddClasslessRouteOption(opt_len);
 
         // Add GW only if classless route option is not present
         if (opt_len == old_opt_len && config_.gw_addr) {

@@ -163,7 +163,8 @@ void AddNodeString(char *buff, int &len, const char *node_name,
 
 void AddNodeString(char *buff, int &len, const char *nodename, const char *name,
                    IpamInfo *ipam, int count,
-                   const std::vector<std::string> *vm_host_routes) {
+                   const std::vector<std::string> *vm_host_routes,
+                   const char *add_subnet_tags) {
     std::stringstream str;
     str << "       <node type=\"" << nodename << "\">\n";
     str << "           <name>" << name << "</name>\n";
@@ -175,6 +176,8 @@ void AddNodeString(char *buff, int &len, const char *nodename, const char *name,
         str << "                       <ip-prefix-len>" << ipam[i].plen << "</ip-prefix-len>\n";
         str << "                   </subnet>\n";
         str << "                   <default-gateway>" << ipam[i].gw << "</default-gateway>\n";
+        if (add_subnet_tags)
+            str <<                 add_subnet_tags << "\n";
         str << "               </ipam-subnets>\n";
     }
     if (vm_host_routes && vm_host_routes->size()) {
@@ -1352,8 +1355,11 @@ void DelVn(const char *name) {
     DelNode("virtual-network", name);
 }
 
-void AddPort(const char *name, int id) {
-    AddNode("virtual-machine-interface", name, id);
+void AddPort(const char *name, int id, const char *attr) {
+    if (attr)
+        AddNode("virtual-machine-interface", name, id, attr);
+    else
+        AddNode("virtual-machine-interface", name, id);
 }
 
 void AddPortByStatus(const char *name, int id, bool admin_status) {
@@ -1528,8 +1534,9 @@ void DelVmPortVrf(const char *name) {
 }
 
 void AddIPAM(const char *name, IpamInfo *ipam, int ipam_size, const char *ipam_attr,
-             const char *vdns_name, const std::vector<std::string> *vm_host_routes) {
-    char buff[4096];
+             const char *vdns_name, const std::vector<std::string> *vm_host_routes,
+             const char *add_subnet_tags) {
+    char buff[8192];
     char node_name[128];
     char ipam_name[128];
     int len = 0;
@@ -1543,7 +1550,7 @@ void AddIPAM(const char *name, IpamInfo *ipam, int ipam_size, const char *ipam_a
         AddNodeString(buff, len, "network-ipam", ipam_name, 1);
     }
     AddNodeString(buff, len, "virtual-network-network-ipam", node_name,
-                            ipam, ipam_size, vm_host_routes);
+                            ipam, ipam_size, vm_host_routes, add_subnet_tags);
     AddLinkString(buff, len, "virtual-network", name,
                   "virtual-network-network-ipam", node_name);
     AddLinkString(buff, len, "network-ipam", ipam_name,
@@ -1973,7 +1980,9 @@ void CreateVmportFIpEnv(struct PortInfo *input, int count, int acl_id,
 }
 
 void CreateVmportEnvInternal(struct PortInfo *input, int count, int acl_id, 
-                     const char *vn, const char *vrf, bool l2_vn, bool with_ip) {
+                     const char *vn, const char *vrf,
+                     const char *vm_interface_attr,
+                     bool l2_vn, bool with_ip) {
     char vn_name[MAX_TESTNAME_LEN];
     char vm_name[MAX_TESTNAME_LEN];
     char vrf_name[MAX_TESTNAME_LEN];
@@ -2010,7 +2019,7 @@ void CreateVmportEnvInternal(struct PortInfo *input, int count, int acl_id,
         //AddNode("virtual-machine-interface-routing-instance", input[i].name, 
         //        input[i].intf_id);
         IntfCfgAdd(input, i);
-        AddPort(input[i].name, input[i].intf_id);
+        AddPort(input[i].name, input[i].intf_id, vm_interface_attr);
         if (with_ip) {
             AddInstanceIp(instance_ip, input[i].vm_id, input[i].addr);
         }
@@ -2038,17 +2047,19 @@ void CreateVmportEnvInternal(struct PortInfo *input, int count, int acl_id,
 
 void CreateVmportEnvWithoutIp(struct PortInfo *input, int count, int acl_id, 
                               const char *vn, const char *vrf) {
-    CreateVmportEnvInternal(input, count, acl_id, vn, vrf, false, false);
+    CreateVmportEnvInternal(input, count, acl_id, vn, vrf, NULL, false, false);
 }
 
 void CreateVmportEnv(struct PortInfo *input, int count, int acl_id, 
-                     const char *vn, const char *vrf) {
-    CreateVmportEnvInternal(input, count, acl_id, vn, vrf, false, true);
+                     const char *vn, const char *vrf,
+                     const char *vm_interface_attr) {
+    CreateVmportEnvInternal(input, count, acl_id, vn, vrf,
+                            vm_interface_attr, false, true);
 }
 
 void CreateL2VmportEnv(struct PortInfo *input, int count, int acl_id, 
                      const char *vn, const char *vrf) {
-    CreateVmportEnvInternal(input, count, acl_id, vn, vrf, true, true);
+    CreateVmportEnvInternal(input, count, acl_id, vn, vrf, NULL, true, true);
 }
 
 void FlushFlowTable() {

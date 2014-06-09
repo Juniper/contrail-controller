@@ -21,6 +21,7 @@
 #include <oper/mpls.h>
 #include <oper/mirror_table.h>
 #include <oper/agent_sandesh.h>
+#include <oper/oper_dhcp_options.h>
 
 using namespace autogen;
 using namespace std;
@@ -54,10 +55,10 @@ AgentDBTable *VnEntry::DBToTable() const {
 }
 
 bool VnEntry::GetVnHostRoutes(const std::string &ipam,
-                              std::set<VnSubnet> *routes) const { 
+                              std::vector<OperDhcpOptions::Subnet> *routes) const {
     VnData::VnIpamDataMap::const_iterator it = vn_ipam_data_.find(ipam);
     if (it != vn_ipam_data_.end()) {
-        *routes = it->second.host_routes;
+        *routes = it->second.oper_dhcp_options_.host_routes();
         return true;
     }
     return false;
@@ -458,21 +459,11 @@ bool VnTable::IFNodeToReq(IFMapNode *node, DBRequest &req) {
                         vn_ipam.push_back(
                            VnIpam(subnets.ipam_subnets[i].subnet.ip_prefix,
                                   subnets.ipam_subnets[i].subnet.ip_prefix_len,
-                                  subnets.ipam_subnets[i].default_gateway, ipam_name));
+                                  subnets.ipam_subnets[i].default_gateway, ipam_name,
+                                  subnets.ipam_subnets[i].dhcp_option_list.dhcp_option));
                     }
                     VnIpamLinkData ipam_data;
-                    for (unsigned int i = 0;
-                         i < subnets.host_routes.route.size(); ++i) {
-                        VnSubnet subnet;
-                        boost::system::error_code ec =
-                            Ip4PrefixParse(subnets.host_routes.route[i].prefix,
-                                           &subnet.prefix, (int *)&subnet.plen);
-                        if (ec) {
-                            continue;
-                        }
-                        subnet.plen = (subnet.plen > 32) ? 32 : subnet.plen;
-                        ipam_data.AddRoute(subnet);
-                    }
+                    ipam_data.oper_dhcp_options_.set_host_routes(subnets.host_routes.route);
                     vn_ipam_data.insert(VnData::VnIpamDataPair(ipam_name, ipam_data));
                 }
             }
@@ -627,6 +618,9 @@ bool VnTable::IpamChangeNotify(std::vector<VnIpam> &old_ipam,
                 (*it_old).default_gw = (*it_new).default_gw;
             }
 
+            // update DHCP options
+            (*it_old).oper_dhcp_options = (*it_new).oper_dhcp_options;
+
             it_old++;
             it_new++;
         }
@@ -760,10 +754,11 @@ bool VnEntry::DBEntrySandesh(Sandesh *sresp, std::string &name)  const {
              it != vn_ipam_data_.end(); ++it) {
             VnIpamHostRoutes vn_ipam_host_routes;
             vn_ipam_host_routes.ipam_name = it->first;
-            for (std::set<VnSubnet>::iterator iter =
-                 it->second.host_routes.begin();
-                 iter != it->second.host_routes.end(); ++iter) {
-                vn_ipam_host_routes.host_routes.push_back(iter->ToString());
+            const std::vector<OperDhcpOptions::Subnet> &host_routes =
+                it->second.oper_dhcp_options_.host_routes();
+            for (uint32_t i = 0; i < host_routes.size(); ++i) {
+                vn_ipam_host_routes.host_routes.push_back(
+                    host_routes[i].ToString());
             }
             vn_ipam_host_routes_list.push_back(vn_ipam_host_routes);
         }

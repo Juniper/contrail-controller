@@ -38,6 +38,10 @@ char src_mac[MAC_LEN] = { 0x00, 0x01, 0x02, 0x03, 0x04, 0x05 };
 char dest_mac[MAC_LEN] = { 0x00, 0x11, 0x12, 0x13, 0x14, 0x15 };
 #define HOST_ROUTE_STRING "Host Routes : 10.1.1.0/24 -> 1.1.1.200;10.1.2.0/24 -> 1.1.1.200;150.25.75.0/24 -> 1.1.1.200;192.168.1.128/28 -> 1.1.1.200;"
 #define CHANGED_HOST_ROUTE_STRING "Host Routes : 150.2.2.0/24 -> 1.1.1.200;192.1.1.1/28 -> 1.1.1.200;"
+#define IPAM_DHCP_OPTIONS_STRING "Domain Name : test.contrail.juniper.net; DNS : 1.2.3.4; NTP : 3.2.14.5"
+#define SUBNET_DHCP_OPTIONS_STRING "DNS : 11.12.13.14; Domain Name : subnet.com; NTP : 13.12.14.15;"
+#define PORT_DHCP_OPTIONS_STRING "DNS : 21.22.23.24; Domain Name : interface.com; NTP : 23.22.24.25;"
+#define PORT_HOST_ROUTE_STRING "Host Routes : 99.2.3.0/24 -> 1.1.1.200;99.5.0.0/16 -> 1.1.1.200;"
 
 #define DHCP_CHECK(condition)                                                  \
                     do {                                                       \
@@ -111,13 +115,18 @@ public:
     }
 
     void CheckSandeshResponse(Sandesh *sandesh, bool check_host_routes,
-                              const char *option_string) {
+                              const char *option_string,
+                              const char *dhcp_option_string) {
         if (memcmp(sandesh->Name(), "DhcpPktSandesh",
                    strlen("DhcpPktSandesh")) == 0) {
             DhcpPktSandesh *dhcp_pkt = (DhcpPktSandesh *)sandesh;
             if (check_host_routes) {
                 DhcpPkt pkt = (dhcp_pkt->get_pkt_list())[3];
                 if (pkt.dhcp_hdr.dhcp_options.find(option_string) ==
+                    std::string::npos) {
+                    assert(0);
+                }
+                if (pkt.dhcp_hdr.dhcp_options.find(dhcp_option_string) ==
                     std::string::npos) {
                     assert(0);
                 }
@@ -406,7 +415,7 @@ TEST_F(DhcpTest, DhcpReqTest) {
 
     DhcpInfo *sand = new DhcpInfo();
     Sandesh::set_response_callback(
-        boost::bind(&DhcpTest::CheckSandeshResponse, this, _1, false, ""));
+        boost::bind(&DhcpTest::CheckSandeshResponse, this, _1, false, "", ""));
     sand->HandleRequest();
     client->WaitForIdle();
     sand->Release();
@@ -525,7 +534,7 @@ TEST_F(DhcpTest, DhcpOptionTest) {
 
     DhcpInfo *sand = new DhcpInfo();
     Sandesh::set_response_callback(boost::bind(&DhcpTest::CheckSandeshResponse,
-                                               this, _1, false, ""));
+                                               this, _1, false, "", ""));
     sand->HandleRequest();
     client->WaitForIdle();
     sand->Release();
@@ -573,7 +582,7 @@ TEST_F(DhcpTest, DhcpNakTest) {
 
     DhcpInfo *sand = new DhcpInfo();
     Sandesh::set_response_callback(boost::bind(&DhcpTest::CheckSandeshResponse,
-                                               this, _1, false, ""));
+                                               this, _1, false, "", ""));
     sand->HandleRequest();
     client->WaitForIdle();
     sand->Release();
@@ -797,7 +806,7 @@ TEST_F(DhcpTest, DhcpZeroIpTest) {
     Agent::GetInstance()->GetDhcpProto()->ClearStats();
 }
 
-TEST_F(DhcpTest, DhcpHostRoutesTest) {
+TEST_F(DhcpTest, IpamSpecificDhcpOptions) {
     struct PortInfo input[] = {
         {"vnet1", 1, "1.1.1.1", "00:00:00:01:01:01", 1, 1},
         {"vnet2", 2, "1.1.1.2", "00:00:00:02:02:02", 1, 2},
@@ -816,19 +825,38 @@ TEST_F(DhcpTest, DhcpHostRoutesTest) {
         {"1.1.1.0", 24, "1.1.1.200"},
     };
     char vdns_attr[] = "<virtual-DNS-data>\n <domain-name>test.contrail.juniper.net</domain-name>\n <dynamic-records-from-client>true</dynamic-records-from-client>\n <record-order>fixed</record-order>\n <default-ttl-seconds>120</default-ttl-seconds>\n </virtual-DNS-data>\n";
-    char ipam_attr[] = "<network-ipam-mgmt>\n <ipam-dns-method>virtual-dns-server</ipam-dns-method>\n <ipam-dns-server><virtual-dns-server-name>vdns1</virtual-dns-server-name></ipam-dns-server>\n </network-ipam-mgmt>\n";
-    std::vector<std::string> vm_host_routes;
-    vm_host_routes.push_back("10.1.1.0/24");
-    vm_host_routes.push_back("10.1.2.0/24");
-    vm_host_routes.push_back("192.168.1.128/28");
-    vm_host_routes.push_back("150.25.75.0/24");
+    char ipam_attr[] = 
+    "<network-ipam-mgmt>\
+        <ipam-dns-method>virtual-dns-server</ipam-dns-method>\
+        <ipam-dns-server><virtual-dns-server-name>vdns1</virtual-dns-server-name></ipam-dns-server>\
+        <dhcp-option-list>\
+            <dhcp-option>\
+                <dhcp-option-name>6</dhcp-option-name>\
+                <dhcp-option-value>1.2.3.4</dhcp-option-value>\
+            </dhcp-option>\
+            <dhcp-option>\
+                <dhcp-option-name>15</dhcp-option-name>\
+                <dhcp-option-value>test.com</dhcp-option-value>\
+            </dhcp-option>\
+            <dhcp-option>\
+                <dhcp-option-name>4</dhcp-option-name>\
+                <dhcp-option-value>3.2.14.5</dhcp-option-value>\
+            </dhcp-option>\
+        </dhcp-option-list>\
+        <host-routes>\
+            <route><prefix>10.1.1.0/24</prefix> <next-hop /> <next-hop-type /></route>\
+            <route><prefix>10.1.2.0/24</prefix> <next-hop /> <next-hop-type /></route>\
+            <route><prefix>150.25.75.0/24</prefix> <next-hop /> <next-hop-type /></route>\
+            <route><prefix>192.168.1.128/28</prefix> <next-hop /> <next-hop-type /></route>\
+        </host-routes>\
+    </network-ipam-mgmt>";
 
     CreateVmportEnv(input, 2, 0);
     client->WaitForIdle();
     client->Reset();
     AddVDNS("vdns1", vdns_attr);
     client->WaitForIdle();
-    AddIPAM("vn1", ipam_info, 3, ipam_attr, "vdns1", &vm_host_routes);
+    AddIPAM("vn1", ipam_info, 3, ipam_attr, "vdns1");
     client->WaitForIdle();
 
     ClearPktTrace();
@@ -844,16 +872,17 @@ TEST_F(DhcpTest, DhcpHostRoutesTest) {
     DhcpInfo *sand = new DhcpInfo();
     Sandesh::set_response_callback(boost::bind(&DhcpTest::CheckSandeshResponse,
                                                this, _1, true,
-                                               HOST_ROUTE_STRING));
+                                               HOST_ROUTE_STRING,
+                                               IPAM_DHCP_OPTIONS_STRING));
     sand->HandleRequest();
     client->WaitForIdle();
     sand->Release();
 
     // change host routes
     ClearPktTrace();
-    vm_host_routes.clear();
-    vm_host_routes.push_back("192.1.1.1/28");
+    std::vector<std::string> vm_host_routes;
     vm_host_routes.push_back("150.2.2.0/24");
+    vm_host_routes.push_back("192.1.1.1/28");
     AddIPAM("vn1", ipam_info, 3, ipam_attr, "vdns1", &vm_host_routes);
     client->WaitForIdle();
 
@@ -869,7 +898,8 @@ TEST_F(DhcpTest, DhcpHostRoutesTest) {
     DhcpInfo *new_sand = new DhcpInfo();
     Sandesh::set_response_callback(boost::bind(&DhcpTest::CheckSandeshResponse,
                                                this, _1, true,
-                                               CHANGED_HOST_ROUTE_STRING));
+                                               CHANGED_HOST_ROUTE_STRING,
+                                               IPAM_DHCP_OPTIONS_STRING));
     new_sand->HandleRequest();
     client->WaitForIdle();
     new_sand->Release();
@@ -884,6 +914,235 @@ TEST_F(DhcpTest, DhcpHostRoutesTest) {
     DeleteVmportEnv(input, 2, 1, 0); 
     client->WaitForIdle();
 
+    ClearPktTrace();
+    Agent::GetInstance()->GetDhcpProto()->ClearStats();
+}
+
+// Check that options at subnet override options at ipam level
+TEST_F(DhcpTest, SubnetSpecificDhcpOptions) {
+    struct PortInfo input[] = {
+        {"vnet1", 1, "1.1.1.1", "00:00:00:01:01:01", 1, 1},
+        {"vnet2", 2, "1.1.1.2", "00:00:00:02:02:02", 1, 2},
+    };
+    uint8_t options[] = {
+        DHCP_OPTION_MSG_TYPE,
+        DHCP_OPTION_HOST_NAME,
+        DHCP_OPTION_DOMAIN_NAME,
+        DHCP_OPTION_END
+    };
+    DhcpProto::DhcpStats stats;
+
+    IpamInfo ipam_info[] = {
+        {"1.2.3.128", 27, "1.2.3.129"},
+        {"7.8.9.0", 24, "7.8.9.12"},
+        {"1.1.1.0", 24, "1.1.1.200"},
+    };
+    char vdns_attr[] = "<virtual-DNS-data>\n <domain-name>test.contrail.juniper.net</domain-name>\n <dynamic-records-from-client>true</dynamic-records-from-client>\n <record-order>fixed</record-order>\n <default-ttl-seconds>120</default-ttl-seconds>\n </virtual-DNS-data>\n";
+    char ipam_attr[] = 
+    "<network-ipam-mgmt>\
+        <ipam-dns-method>default-dns-server</ipam-dns-method>\
+        <dhcp-option-list>\
+            <dhcp-option>\
+                <dhcp-option-name>6</dhcp-option-name>\
+                <dhcp-option-value>1.2.3.4</dhcp-option-value>\
+            </dhcp-option>\
+            <dhcp-option>\
+                <dhcp-option-name>15</dhcp-option-name>\
+                <dhcp-option-value>test.com</dhcp-option-value>\
+            </dhcp-option>\
+            <dhcp-option>\
+                <dhcp-option-name>4</dhcp-option-name>\
+                <dhcp-option-value>3.2.14.5</dhcp-option-value>\
+            </dhcp-option>\
+        </dhcp-option-list>\
+        <host-routes>\
+            <route><prefix>1.2.3.0/24</prefix> <next-hop /> <next-hop-type /></route>\
+            <route><prefix>4.5.0.0/16</prefix> <next-hop /> <next-hop-type /></route>\
+        </host-routes>\
+    </network-ipam-mgmt>";
+    char add_subnet_tags[] = 
+    "<dhcp-option-list>\
+        <dhcp-option>\
+            <dhcp-option-name>6</dhcp-option-name>\
+            <dhcp-option-value>11.12.13.14</dhcp-option-value>\
+        </dhcp-option>\
+        <dhcp-option>\
+            <dhcp-option-name>15</dhcp-option-name>\
+            <dhcp-option-value>subnet.com</dhcp-option-value>\
+        </dhcp-option>\
+        <dhcp-option>\
+            <dhcp-option-name>4</dhcp-option-name>\
+            <dhcp-option-value>13.12.14.15</dhcp-option-value>\
+        </dhcp-option>\
+     </dhcp-option-list>";
+
+    std::vector<std::string> vm_host_routes;
+    vm_host_routes.push_back("10.1.1.0/24");
+    vm_host_routes.push_back("10.1.2.0/24");
+    vm_host_routes.push_back("150.25.75.0/24");
+    vm_host_routes.push_back("192.168.1.128/28");
+
+    CreateVmportEnv(input, 2, 0);
+    client->WaitForIdle();
+    client->Reset();
+    AddVDNS("vdns1", vdns_attr);
+    client->WaitForIdle();
+    AddIPAM("vn1", ipam_info, 3, ipam_attr, "vdns1", &vm_host_routes, add_subnet_tags);
+    client->WaitForIdle();
+
+    ClearPktTrace();
+    SendDhcp(GetItfId(0), 0x8000, DHCP_DISCOVER, options, 4);
+    SendDhcp(GetItfId(0), 0x8000, DHCP_REQUEST, options, 4);
+    int count = 0;
+    DHCP_CHECK (stats.acks < 1);
+    EXPECT_EQ(1U, stats.discover);
+    EXPECT_EQ(1U, stats.request);
+    EXPECT_EQ(1U, stats.offers);
+    EXPECT_EQ(1U, stats.acks);
+
+    DhcpInfo *sand = new DhcpInfo();
+    Sandesh::set_response_callback(boost::bind(&DhcpTest::CheckSandeshResponse,
+                                               this, _1, true,
+                                               HOST_ROUTE_STRING,
+                                               SUBNET_DHCP_OPTIONS_STRING));
+    sand->HandleRequest();
+    client->WaitForIdle();
+    sand->Release();
+
+    client->Reset();
+    DelIPAM("vn1", "vdns1"); 
+    client->WaitForIdle();
+    DelVDNS("vdns1"); 
+    client->WaitForIdle();
+
+    client->Reset();
+    DeleteVmportEnv(input, 2, 1, 0); 
+    client->WaitForIdle();
+
+    ClearPktTrace();
+    Agent::GetInstance()->GetDhcpProto()->ClearStats();
+}
+
+// Check that options at vm interface override options at subnet & ipam levels
+TEST_F(DhcpTest, PortSpecificDhcpOptions) {
+    struct PortInfo input[] = {
+        {"vnet1", 1, "1.1.1.1", "00:00:00:01:01:01", 1, 1},
+        {"vnet2", 2, "1.1.1.2", "00:00:00:02:02:02", 1, 2},
+    };
+    uint8_t options[] = {
+        DHCP_OPTION_MSG_TYPE,
+        DHCP_OPTION_HOST_NAME,
+        DHCP_OPTION_DOMAIN_NAME,
+        DHCP_OPTION_END
+    };
+    DhcpProto::DhcpStats stats;
+
+    IpamInfo ipam_info[] = {
+        {"1.2.3.128", 27, "1.2.3.129"},
+        {"7.8.9.0", 24, "7.8.9.12"},
+        {"1.1.1.0", 24, "1.1.1.200"},
+    };
+    char ipam_attr[] = 
+    "<network-ipam-mgmt>\
+        <ipam-dns-method>default-dns-server</ipam-dns-method>\
+        <dhcp-option-list>\
+            <dhcp-option>\
+                <dhcp-option-name>6</dhcp-option-name>\
+                <dhcp-option-value>1.2.3.4</dhcp-option-value>\
+            </dhcp-option>\
+            <dhcp-option>\
+                <dhcp-option-name>15</dhcp-option-name>\
+                <dhcp-option-value>test.com</dhcp-option-value>\
+            </dhcp-option>\
+            <dhcp-option>\
+                <dhcp-option-name>4</dhcp-option-name>\
+                <dhcp-option-value>3.2.14.5</dhcp-option-value>\
+            </dhcp-option>\
+        </dhcp-option-list>\
+        <host-routes>\
+            <route><prefix>1.2.3.0/24</prefix> <next-hop /> <next-hop-type /></route>\
+            <route><prefix>4.5.0.0/16</prefix> <next-hop /> <next-hop-type /></route>\
+        </host-routes>\
+    </network-ipam-mgmt>";
+
+    char add_subnet_tags[] = 
+    "<dhcp-option-list>\
+        <dhcp-option>\
+            <dhcp-option-name>6</dhcp-option-name>\
+            <dhcp-option-value>11.12.13.14</dhcp-option-value>\
+        </dhcp-option>\
+        <dhcp-option>\
+            <dhcp-option-name>15</dhcp-option-name>\
+            <dhcp-option-value>subnet.com</dhcp-option-value>\
+        </dhcp-option>\
+        <dhcp-option>\
+            <dhcp-option-name>4</dhcp-option-name>\
+            <dhcp-option-value>13.12.14.15</dhcp-option-value>\
+        </dhcp-option>\
+     </dhcp-option-list>";
+
+    char vm_interface_attr[] = 
+    "<virtual-machine-interface-dhcp-option-list>\
+        <dhcp-option>\
+            <dhcp-option-name>6</dhcp-option-name>\
+            <dhcp-option-value>21.22.23.24</dhcp-option-value>\
+         </dhcp-option>\
+         <dhcp-option>\
+            <dhcp-option-name>15</dhcp-option-name>\
+            <dhcp-option-value>interface.com</dhcp-option-value>\
+         </dhcp-option>\
+         <dhcp-option>\
+            <dhcp-option-name>4</dhcp-option-name>\
+            <dhcp-option-value>23.22.24.25</dhcp-option-value>\
+         </dhcp-option>\
+     </virtual-machine-interface-dhcp-option-list>\
+     <virtual-machine-interface-host-routes>\
+         <route><prefix>99.2.3.0/24</prefix> <next-hop /> <next-hop-type /> </route>\
+         <route><prefix>99.5.0.0/16</prefix> <next-hop /> <next-hop-type /> </route>\
+    </virtual-machine-interface-host-routes>";
+
+    std::vector<std::string> vm_host_routes;
+    vm_host_routes.push_back("10.1.1.0/24");
+    vm_host_routes.push_back("10.1.2.0/24");
+    vm_host_routes.push_back("150.25.75.0/24");
+    vm_host_routes.push_back("192.168.1.128/28");
+
+    CreateVmportEnv(input, 2, 0, NULL, NULL, vm_interface_attr);
+    client->WaitForIdle();
+    client->Reset();
+    AddIPAM("vn1", ipam_info, 3, ipam_attr, "vdns1", &vm_host_routes, add_subnet_tags);
+    client->WaitForIdle();
+
+    ClearPktTrace();
+    SendDhcp(GetItfId(0), 0x8000, DHCP_DISCOVER, options, 4);
+    SendDhcp(GetItfId(0), 0x8000, DHCP_REQUEST, options, 4);
+    int count = 0;
+    DHCP_CHECK (stats.acks < 1);
+    EXPECT_EQ(1U, stats.discover);
+    EXPECT_EQ(1U, stats.request);
+    EXPECT_EQ(1U, stats.offers);
+    EXPECT_EQ(1U, stats.acks);
+
+    DhcpInfo *sand = new DhcpInfo();
+    Sandesh::set_response_callback(boost::bind(&DhcpTest::CheckSandeshResponse,
+                                               this, _1, true,
+                                               PORT_HOST_ROUTE_STRING,
+                                               PORT_DHCP_OPTIONS_STRING));
+    sand->HandleRequest();
+    client->WaitForIdle();
+    sand->Release();
+
+    client->Reset();
+    DelIPAM("vn1", "vdns1"); 
+    client->WaitForIdle();
+    DelVDNS("vdns1"); 
+    client->WaitForIdle();
+
+    client->Reset();
+    DeleteVmportEnv(input, 2, 1, 0); 
+    client->WaitForIdle();
+
+    ClearPktTrace();
     Agent::GetInstance()->GetDhcpProto()->ClearStats();
 }
 
