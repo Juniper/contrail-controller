@@ -1702,8 +1702,21 @@ class DBInterface(object):
         else:
             fip_obj.set_virtual_machine_interface_list([])
 
-        # AJAY if fip_q['fixed_ip_address']:
-        # AJAY     fip_obj.set_floating_ip_fixed_ip_address(fip_q['fixed_ip_address'])
+        if fip_q.get('fixed_ip_address'):
+            fip_obj.set_floating_ip_fixed_ip_address(fip_q['fixed_ip_address'])
+        else:
+            # fixed_ip_address not specified, pick from port_obj in create,
+            # reset in case of disassociate
+            port_refs = fip_obj.get_virtual_machine_interface_refs()
+            if not port_refs:
+                fip_obj.set_floating_ip_fixed_ip_address(None)
+            else:
+                port_obj = self._virtual_machine_interface_read(
+                    port_id=port_refs[0]['uuid'], fields=['instance_ip_back_refs'])
+                iip_refs = port_obj.get_instance_ip_back_refs()
+                if iip_refs:
+                    iip_obj = self._instance_ip_read(instance_ip_id=iip_refs[0]['uuid'])
+                    fip_obj.set_floating_ip_fixed_ip_address(iip_obj.get_instance_ip_address())
 
         return fip_obj
     #end _floatingip_neutron_to_vnc
@@ -1723,11 +1736,6 @@ class DBInterface(object):
             port_id = port_refs[0]['uuid']
             port_obj = self._virtual_machine_interface_read(port_id=port_id,
                                              fields=['instance_ip_back_refs'])
-            iip_refs = getattr(port_obj, 'instance_ip_back_refs', None)
-            if iip_refs: # AJAY
-                iip_id = iip_refs[0]['uuid'] # AJAY
-                iip_obj = self._instance_ip_read(instance_ip_id=iip_id) # AJAY
-                fixed_ip = iip_obj.get_instance_ip_address() # AJAY
 
             # find router_id from port
             internal_net_obj = self._virtual_network_read(net_id=port_obj.get_virtual_network_refs()[0]['uuid'])
@@ -1744,8 +1752,7 @@ class DBInterface(object):
         fip_q_dict['floating_network_id'] = floating_net_id
         fip_q_dict['router_id'] = router_id
         fip_q_dict['port_id'] = port_id
-        fip_q_dict['fixed_ip_address'] = fixed_ip # AJAY
-        # AJAY fip_q_dict['fixed_ip_address'] = fip_obj.get_floating_ip_fixed_ip_address()
+        fip_q_dict['fixed_ip_address'] = fip_obj.get_floating_ip_fixed_ip_address()
         fip_q_dict['status'] = constants.PORT_STATUS_ACTIVE
 
         return fip_q_dict
