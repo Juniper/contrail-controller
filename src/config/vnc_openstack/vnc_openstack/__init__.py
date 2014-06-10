@@ -185,6 +185,9 @@ class ResourceApiDriver(vnc_plugin_base.ResourceApi):
         self._auth_user = conf_sections.get('KEYSTONE', 'admin_user')
         self._auth_passwd = conf_sections.get('KEYSTONE', 'admin_password')
         self._auth_tenant = conf_sections.get('KEYSTONE', 'admin_tenant_name')
+        self._dedicated_ipam = conf_sections.get('OPENSTACK', 'dedicated_ipam')
+        self._nameserver_ip = conf_sections.get('OPENSTACK', 'nameserver_ip')
+        self._dns_default_domain = conf_sections.get('OPENSTACK', 'dns_default_domain')
         self._vnc_lib = None
 
     def _get_api_connection(self):
@@ -241,18 +244,66 @@ class ResourceApiDriver(vnc_plugin_base.ResourceApi):
         self._vnc_lib.security_group_create(sg_obj)
     # end _create_default_security_group
 
+    def _create_default_virtual_DNS_and_IPAM(self, proj_dict):
+        project_obj = vnc_api.Project.from_dict(**proj_dict)
+        domain_name, project_name = project_obj.get_fq_name()
+        try:
+            domain_obj = self._vnc_lib.domain_read(fq_name=[domain_name])
+        except vnc_api.NoIdError:
+            pass #TODO: log error
+
+        vdns_name = 'default-virtual-DNS-%s' % project_obj.uuid
+        vdns_fq_name = [domain_name, vdns_name]
+        dyn_updates = True
+        rec_order = 'fixed'
+        ttl = 86400
+        vdns_data = vnc_api.VirtualDnsType(self._dns_default_domain,
+                                           dyn_updates,
+                                           rec_order,
+                                           int(ttl),
+                                           self._dns_nameservers)
+        dns_obj = vnc_api.VirtualDns(name=vdns_name,
+                                     parent_obj=domain_obj,
+                                     virtual_DNS_data=vdns_data)
+        self._vnc_lib.virtual_DNS_create(dns_obj)
+
+        ipam_name = 'default-network-ipam'
+        ipam_fq_name = [domain_name, project_name, ipam_name]
+        ipam_mgmt_obj = vnc_api.IpamType('dhcp')
+        ipam_mgmt_obj.set_ipam_dns_method('virtual-dns-server')
+        ipam_dns_srv_obj = vnc_api.IpamDnsAddressType(virtual_dns_server_name=self._dns_nameservers)
+        ipam_obj = vnc_api.NetworkIpam(ipam_name, project_obj)
+        ipam_mgmt_obj.set_ipam_dns_server(ipam_dns_srv_obj)
+        ipam_obj.set_network_ipam_mgmt(ipam_mgmt_obj)
+        self._vnc_lib.network_ipam_create(ipam_obj)
+
     def post_project_create(self, proj_dict):
         self._get_api_connection()
         self._create_default_security_group(proj_dict)
+        if self._dedicated_ipam:
+            self._create_default_virtual_DNS_and_IPAM(proj_dict)
     # end post_create_project
 
     def pre_project_delete(self, proj_uuid):
         self._get_api_connection()
-        proj_obj = self._vnc_lib.project_read(id=proj_uuid)
-        sec_groups = proj_obj.get_security_groups()
+        project_obj = self._vnc_lib.project_read(id=proj_uuid)
+        domain_name, project_name = project_obj.get_fq_name()
+
+        # Default security group
+        sec_groups = project_obj.get_security_groups()
         for group in sec_groups or []:
             if group['to'][2] == 'default':
                 self._vnc_lib.security_group_delete(id=group['uuid'])
+
+        # Default virtual DNS
+        vdns_fq_name = [domain_name] + ['default_%s' % project_name]
+        self._vnc_lib.virtual_DNS_delete(vdns_fq_name)
+
+        # Default IPAM
+        ipams = project_obj.get_network_ipams()
+        for ipam in ipams or []:
+            if ipam['name'] == ('default_%s' % project_name):
+                self._vnc_lib.network_ipam_delete(id=ipam['uuid'])
     # end pre_project_delete
 
 

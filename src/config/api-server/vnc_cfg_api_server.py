@@ -603,6 +603,12 @@ class VncApiServer(VncApiServerGen):
             'admin_password': '',
             'admin_tenant_name': '',
         }
+        # openStack options
+        ksopts = {
+            'dedicated_ipam': False,
+            'nameserver_ip': None,
+            'dns_default_domain': 'openstacklocal',
+        }
 
         config = None
         if args.conf_file:
@@ -618,6 +624,8 @@ class VncApiServer(VncApiServerGen):
                     secopts.update(dict(config.items("SECURITY")))
             if 'KEYSTONE' in config.sections():
                 ksopts.update(dict(config.items("KEYSTONE")))
+            if 'OPENSTACK' in config.sections():
+                ksopts.update(dict(config.items("OPENSTACK")))
             if 'QUOTA' in config.sections():
                 for (k, v) in config.items("QUOTA"):
                     try:
