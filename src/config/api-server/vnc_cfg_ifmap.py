@@ -11,6 +11,7 @@ monkey.patch_all()
 import gevent
 import gevent.event
 import gevent.pool
+import gevent.queue
 import sys
 import time
 from pprint import pformat
@@ -91,21 +92,12 @@ class VncIfmapClient(VncIfmapClientGen):
         if ifmap_srv_loc:
             self._launch_mapserver(ifmap_srv_ip, ifmap_srv_port, ifmap_srv_loc)
 
-        mapclient = client(("%s" % (ifmap_srv_ip), "%s" % (ifmap_srv_port)),
-                           uname, passwd, self._NAMESPACES, ssl_options)
-
-        self._mapclient = mapclient
-
-        connected = False
-        while not connected:
-            try:
-                result = mapclient.call('newSession', NewSessionRequest())
-                connected = True
-            except socket.error as e:
-                time.sleep(3)
-
-        mapclient.set_session_id(newSessionResult(result).get_session_id())
-        mapclient.set_publisher_id(newSessionResult(result).get_publisher_id())
+        SIZE=10  # Users in basicauthusers.properties like: user{0..N}:password
+        self._connpool = gevent.queue.Queue(SIZE)
+        for i in xrange(SIZE):
+            _connargs = [("%s" % (ifmap_srv_ip), "%s" % (ifmap_srv_port)),
+                         uname + str(i), passwd, self._NAMESPACES, ssl_options]
+            self._connpool.put(client(*_connargs))
 
         # Initialize ifmap-id handler (alloc|convert|parse etc.)
         self._imid_handler = Imid()
@@ -123,6 +115,29 @@ class VncIfmapClient(VncIfmapClientGen):
                             ns_prefix='contrail', elements=id_perms_xml))
         self._publish_id_self_meta("contrail:config-root:root", meta)
     # end __init__
+
+    def _get_client(self):
+        def init(mapclient):
+            connected = False
+            while not connected:
+                try:
+                    result = mapclient.call('newSession', NewSessionRequest())
+                    connected = True
+                except socket.error as e:
+                    time.sleep(3)
+                mapclient.set_session_id(newSessionResult(result).get_session_id())
+                mapclient.set_publisher_id(newSessionResult(result).get_publisher_id())
+
+        mapclient = self._connpool.get(block=True)
+        if not mapclient.get_session_id():
+            init(mapclient)
+
+        #import ipdb; ipdb.set_trace()
+        return mapclient
+
+    def _release_client(self, mapclient):
+        self._connpool.put(mapclient)
+
 
     def get_imid_handler(self):
         return self._imid_handler
@@ -199,9 +214,9 @@ class VncIfmapClient(VncIfmapClientGen):
 
     # Helper routines for IFMAP
     def _publish_id_self_meta(self, self_imid, meta):
-        mapclient = self._mapclient
-
-        pubreq = PublishRequest(mapclient.get_session_id(),
+        try:
+            mapclient = self._get_client()
+            pubreq = PublishRequest(mapclient.get_session_id(),
                                 str(PublishUpdateOperation(
                                     id1=str(Identity(
                                             name=self_imid,
@@ -209,28 +224,32 @@ class VncIfmapClient(VncIfmapClientGen):
                                             other_type="extended")),
                                     metadata=meta,
                                     lifetime='forever')))
-        result = mapclient.call('publish', pubreq)
+            result = mapclient.call('publish', pubreq)
+        finally:
+            self._release_client(mapclient)
     # end _publish_id_self_meta
 
     def _delete_id_self_meta(self, self_imid, meta_name):
-        mapclient = self._mapclient
-
-        pubreq = PublishRequest(mapclient.get_session_id(),
+        try:
+            mapclient = self._get_client()
+            pubreq = PublishRequest(mapclient.get_session_id(),
                                 str(PublishDeleteOperation(
                                     id1=str(Identity(
                                             name=self_imid,
                                             type="other",
                                             other_type="extended")),
                                     filter=meta_name)))
-        result = mapclient.call('publish', pubreq)
+            result = mapclient.call('publish', pubreq)
+        finally:
+            self._release_client(mapclient)
     # end _delete_id_self_meta
 
     def _publish_id_pair_meta(self, id1, id2, metadata):
         if 'ERROR' in [id1, id2]:
             return
-        mapclient = self._mapclient
-
-        pubreq = PublishRequest(mapclient.get_session_id(),
+        try:
+            mapclient = self._get_client()
+            pubreq = PublishRequest(mapclient.get_session_id(),
                                 str(PublishUpdateOperation(
                                     id1=str(Identity(name=id1,
                                                      type="other",
@@ -240,13 +259,15 @@ class VncIfmapClient(VncIfmapClientGen):
                                                      other_type="extended")),
                                     metadata=metadata,
                                     lifetime='forever')))
-        result = mapclient.call('publish', pubreq)
+            result = mapclient.call('publish', pubreq)
+        finally:
+            self._release_client(mapclient)
     # end _publish_id_pair_meta
 
     def _delete_id_pair_meta(self, id1, id2, metadata):
-        mapclient = self._mapclient
-
-        pubreq = PublishRequest(mapclient.get_session_id(),
+        try:
+            mapclient = self._get_client()
+            pubreq = PublishRequest(mapclient.get_session_id(),
                                 str(PublishDeleteOperation(
                                     id1=str(Identity(
                                             name=id1,
@@ -257,7 +278,9 @@ class VncIfmapClient(VncIfmapClientGen):
                                             type="other",
                                             other_type="extended")),
                                     filter=metadata)))
-        result = mapclient.call('publish', pubreq)
+            result = mapclient.call('publish', pubreq)
+        finally:
+            self._release_client(mapclient)
     # end _delete_id_pair_meta
 
     def _search(self, start_id, match_meta=None, result_meta=None,
@@ -285,8 +308,8 @@ class VncIfmapClient(VncIfmapClientGen):
         result = mapclient.call('search', srch_req)
 
         return result
-    # end _search
 
+    # end _search
     def _parse(self, srch_result, xpath_expr):
         soap_doc = etree.parse(StringIO.StringIO(srch_result))
         result_items = soap_doc.xpath(xpath_expr,
