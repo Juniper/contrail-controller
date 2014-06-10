@@ -244,8 +244,15 @@ class VirtualMachineInterfaceServer(VirtualMachineInterfaceServerGen):
                 if not ok:
                     return (False, (403, pformat(obj_dict['fq_name']) + ' : ' + quota_limit))
 
-        mac_addr = cls.addr_mgmt.mac_alloc(obj_dict)
-        mac_addrs_obj = MacAddressesType([mac_addr])
+        recv_mac = None
+        if 'virtual_machine_interface_mac_addresses' in obj_dict:
+            addr_list = obj_dict['virtual_machine_interface_mac_addresses']
+            recv_mac = addr_list.get('mac_address')
+        if recv_mac != None:
+            mac_addrs_obj = MacAddressesType([recv_mac])
+        else:
+            mac_addr = cls.addr_mgmt.mac_alloc(obj_dict)
+            mac_addrs_obj = MacAddressesType([mac_addr])
         mac_addrs_json = json.dumps(
             mac_addrs_obj,
             default=lambda o: dict((k, v)
