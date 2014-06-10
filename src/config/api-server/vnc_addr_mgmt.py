@@ -340,7 +340,7 @@ class AddrMgmt(object):
                 subnet_dict['gw'] = ipam_subnet.get('default_gateway', None)
                 subnet_dict['allocation_pools'] = \
                     ipam_subnet.get('allocation_pools', None)
-                subnet_dict['enable_dhcp'] = ipam_subnet.get('enable_dhcp', None)
+                subnet_dict['enable_dhcp'] = ipam_subnet.get('enable_dhcp', True)
                 subnet_dict['dns_nameservers'] = ipam_subnet.get('dns_nameservers', None)
                 subnet_name = subnet_dict['ip_prefix'] + '/' + str(
                               subnet_dict['ip_prefix_len'])
@@ -365,7 +365,7 @@ class AddrMgmt(object):
 
                     gateway_ip = ipam_subnet.get('default_gateway', None)
                     allocation_pools = ipam_subnet.get('allocation_pools', None)
-                    dhcp_config = ipam_subnet.get('enable_dhcp', None)
+                    dhcp_config = ipam_subnet.get('enable_dhcp', True)
                     nameservers = ipam_subnet.get('dns_nameservers', None)
                     addr_start = ipam_subnet.get('addr_from_start', None)
                     subnet_obj = Subnet(
@@ -446,7 +446,7 @@ class AddrMgmt(object):
                     raise AddrMgmtSubnetInvalid(vn_fq_name_str, key)
 
                 req_alloc_list = req_subnet['allocation_pools'] or []
-                db_alloc_list = db_subnet['allocation_pools'] 
+                db_alloc_list = db_subnet['allocation_pools']  or []
                 if (len(req_alloc_list) != len(db_alloc_list)):
                     raise AddrMgmtSubnetInvalid(vn_fq_name_str, key)
 

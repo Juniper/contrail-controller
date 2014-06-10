@@ -372,7 +372,7 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
         <xsd:element name="subnet" type="SubnetType"/>
         <xsd:element name="default-gateway" type="IpAddressType"/>
         <xsd:element name="subnet-uuid" type="xsd:string"/>
-        <xsd:element name="enable-dhcp" type="xsd:boolean"/>
+        <xsd:element name="enable-dhcp" type="xsd:boolean" default="true"/>
         <xsd:element name="dns-nameservers" type="xsd:string" maxOccurs="unbounded"/>
         <xsd:element name="allocation-pools" type="AllocationPoolType" maxOccurs="unbounded"/>
         <xsd:element name="addr_from_start" type="xsd:boolean"/>
