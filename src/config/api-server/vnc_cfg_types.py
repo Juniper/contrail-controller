@@ -24,7 +24,10 @@ class FloatingIpServer(FloatingIpServerGen):
     @classmethod
     def http_post_collection(cls, tenant_name, obj_dict, db_conn):
         proj_dict = obj_dict['project_refs'][0]
-        proj_uuid = proj_dict['uuid']
+        if 'uuid' in proj_dict:
+            proj_uuid = proj_dict['uuid']
+        else:
+            proj_uuid = db_conn.fq_name_to_uuid('project', proj_dict['to'])
         (ok, proj_dict) = QuotaHelper.get_project_dict(proj_uuid, db_conn)
         if not ok:
             return (False, (500, 'Internal error : ' + pformat(proj_dict)))
