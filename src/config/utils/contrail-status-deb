@@ -41,7 +41,7 @@ dpkg -l contrail-analytics 2> /dev/null 1> /dev/null && analytics='analytics'
 dpkg -l contrail-vrouter  2> /dev/null 1> /dev/null && agent='agent'
 dpkg -l contrail-config  2> /dev/null 1> /dev/null && capi='capi'
 dpkg -l openstack-quantum-contrail 2> /dev/null 1> /dev/null && cquantum='cquantum'
-dpkg -l contrail-webui  2> /dev/null 1> /dev/null && cwebui='cwebui'
+dpkg -l contrail-web-core  2> /dev/null 1> /dev/null && cwebui='cwebui'
 dpkg -l contrail-openstack-database 2> /dev/null 1> /dev/null  && database='database'
 lsmod | grep vrouter 2> /dev/null 1> /dev/null && vr='vr'
 
@@ -176,7 +176,7 @@ if [[ "$dpkg_info" -eq 1 || "detailed" -eq 1 ]]; then
   dpkg_info contrail-analytics
   dpkg_info contrail-config
   dpkg_info openstack-quantum-contrail
-  dpkg_info contrail-webui
+  dpkg_info contrail-web-core
   dpkg_info redis
   dpkg_info contrail-database
 fi
