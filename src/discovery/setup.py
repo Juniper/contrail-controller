@@ -22,7 +22,7 @@ setup(
     ],
     entry_points = {
         'console_scripts' : [
-            'discovery-server = discovery.disc_server_zk:server_main',
+            'discovery-server = discovery.disc_server:server_main',
         ],
     },
  
