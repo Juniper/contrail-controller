@@ -157,7 +157,11 @@ class IndexAllocator(object):
 
     @classmethod
     def delete_all(cls, zookeeper_client, path):
-        zookeeper_client.delete_node(path, recursive=True)
+        try:
+            zookeeper_client.delete_node(path, recursive=True)
+        except kazoo.exceptions.NotEmptyError:
+            #TODO: Add retries for NotEmptyError
+            zookeeper_client.syslog("NotEmptyError while deleting %s" % path)
     # end delete_all
 
 #end class IndexAllocator
