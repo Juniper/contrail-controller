@@ -430,11 +430,15 @@ bool InterfaceTable::IFNodeToReq(IFMapNode *node, DBRequest &req) {
                     (adj_node->GetObject());
             assert(sg_cfg);
             autogen::IdPermsType id_perms = sg_cfg->id_perms();
-            uuid sg_uuid = nil_uuid();
-            CfgUuidSet(id_perms.uuid.uuid_mslong, id_perms.uuid.uuid_lslong,
-                       sg_uuid);
-            data->sg_list_.list_.insert
-                (VmInterface::SecurityGroupEntry(sg_uuid));
+            uint32_t sg_id = SgTable::kInvalidSgId;
+            stringToInteger(sg_cfg->id(), sg_id);
+            if (sg_id != SgTable::kInvalidSgId) {
+                uuid sg_uuid = nil_uuid();
+                CfgUuidSet(id_perms.uuid.uuid_mslong, id_perms.uuid.uuid_lslong,
+                           sg_uuid);
+                data->sg_list_.list_.insert
+                    (VmInterface::SecurityGroupEntry(sg_uuid));
+            }
         }
 
         if (adj_node->table() == agent_->cfg()->cfg_vn_table()) {

@@ -1525,7 +1525,7 @@ TEST_F(CfgTest, SecurityGroup_ignore_invalid_sgid_2) {
     if (intf == NULL) {
         return;
     }
-    EXPECT_TRUE(intf->sg_list().list_.size() == 1);
+    EXPECT_TRUE(intf->sg_list().list_.size() == 0);
     VmInterface::SecurityGroupEntrySet::const_iterator it = intf->sg_list().list_.begin();
     EXPECT_TRUE(it->sg_.get() == NULL);
 
