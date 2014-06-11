@@ -38,7 +38,7 @@ class QuotaHelper(object):
         proj_id = {'uuid': proj_uuid}
         (ok, proj_dict) = db_conn.dbe_read(obj_type, proj_id)
         if not ok:
-            return (False, objtype + ' is not valid')
+            return (False, obj_type + ' is not valid')
         return (ok, proj_dict)
 
     @staticmethod
