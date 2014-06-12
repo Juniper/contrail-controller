@@ -8,11 +8,8 @@ Import('QueryEnv')
 
 env = QueryEnv.Clone()
 
-env.Append(LIBS=['gunit', 'io', 'sandesh', 'http', 'sandeshvns', 'io', 'base',
-                 'http_parser', 'curl', 'boost_filesystem',
-                 'boost_program_options', 'pugixml', 'rt',
-                 'sandesh', 'sandeshvns',
-                 'libsandeshflow', 'hiredis', 'thrift', 'task_test'])
+env.Append(LIBS=['gunit', 'task_test'])
+env.Prepend(LIBS=['libsandeshflow'])
 env.Append(LIBPATH=['#/build/lib', Dir(env['TOP']).abspath + '/base/test/'])
 env.Append(CPPPATH = ['#/'+Dir('.').path ,
                       env['TOP'],

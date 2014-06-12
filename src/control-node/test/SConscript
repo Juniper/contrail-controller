@@ -19,7 +19,7 @@ env.Append(LIBPATH = env['TOP'] + '/base')
 env.Append(LIBPATH = env['TOP'] + '/io')
 
 env.Prepend(LIBS = ['gunit', 'io', 'sandesh', 'http',
-                    'sandeshvns', 'io', 'base', 'http_parser', 'curl',
+                    'sandeshvns', 'connection_info', 'io', 'base', 'http_parser', 'curl',
                     'boost_filesystem', 'boost_program_options', 'pugixml'])
 
 if sys.platform != 'darwin':

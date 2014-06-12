@@ -62,6 +62,9 @@ public:
     // Stats
     virtual bool Db_GetStats(std::vector<GenDb::DbTableInfo> &vdbti,
         GenDb::DbErrors &dbe);
+    // Connection
+    virtual std::string Db_GetHost() const;
+    virtual int Db_GetPort() const;
 
 private:
     friend class CdbIfTest;

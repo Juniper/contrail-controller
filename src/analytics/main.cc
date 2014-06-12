@@ -17,6 +17,7 @@
 #include "base/task.h"
 #include "base/task_trigger.h"
 #include "base/timer.h"
+#include "base/connection_info.h"
 #include "io/event_manager.h"
 #include <sandesh/sandesh_types.h>
 #include <sandesh/sandesh.h>
@@ -130,6 +131,38 @@ bool CollectorSummaryLogger(Collector *collector, const string & hostname,
     return true;
 }
 
+void CollectorGetConnectivityStatus(const std::vector<ConnectionInfo> &cinfos,
+    ConnectivityStatus::type &cstatus, std::string &message) {
+    // Determine if the number of connections is expected:
+    // 1. Collector client
+    // 2. Redis From
+    // 3. Redis To
+    // 4. Discovery Collector Publish
+    // 5. Database global
+    size_t num_conns(cinfos.size());
+    if (num_conns != 5) {
+        cstatus = ConnectivityStatus::NON_FUNCTIONAL;
+        message = "Number of connections:" + integerToString(num_conns) + 
+            ", Expected: 5";
+        return;
+    }   
+    std::string cdown(g_connection_info_constants.ConnectionStatusNames.
+        find(ConnectionStatus::DOWN)->second);
+    // Iterate to determine process connectivity status
+    for (std::vector<ConnectionInfo>::const_iterator it = cinfos.begin();
+         it != cinfos.end(); it++) {
+        const ConnectionInfo &cinfo(*it);
+        const std::string &conn_status(cinfo.get_status());
+        if (conn_status == cdown) {
+            cstatus = ConnectivityStatus::NON_FUNCTIONAL;
+            message = cinfo.get_type() + ":" + cinfo.get_name();
+            return;
+        }
+    }
+    cstatus = ConnectivityStatus::FUNCTIONAL;
+    return;  
+}
+
 bool CollectorInfoLogger(VizSandeshContext &ctx) {
     VizCollector *analytics = ctx.Analytics();
 
@@ -195,6 +228,8 @@ static void ShutdownServers(VizCollector *viz_collector,
     TimerManager::DeleteTimer(collector_info_log_timer);
     delete collector_info_trigger;
 
+    ConnectionStateManager<CollectorStatus, CollectorProcessStatus>::
+        GetInstance()->Shutdown();
     VizCollector::WaitForIdle();
     Sandesh::Uninit();
     VizCollector::WaitForIdle();
@@ -282,11 +317,13 @@ int main(int argc, char *argv[])
     Module::type module = Module::COLLECTOR;
     NodeType::type node_type =
         g_vns_constants.Module2NodeType.find(module)->second;
+    std::string module_id(g_vns_constants.ModuleNames.find(module)->second);
+    std::string instance_id(g_vns_constants.INSTANCE_ID_DEFAULT);
     Sandesh::InitCollector(
-            g_vns_constants.ModuleNames.find(module)->second,
+            module_id,
             analytics.name(),
             g_vns_constants.NodeTypeNames.find(node_type)->second,
-            g_vns_constants.INSTANCE_ID_DEFAULT, 
+            instance_id, 
             &evm, "127.0.0.1", options.collector_port(),
             options.http_server_port(), &vsc);
 
@@ -324,6 +361,10 @@ int main(int argc, char *argv[])
     }
              
     CpuLoadData::Init();
+    ConnectionStateManager<CollectorStatus, CollectorProcessStatus>::
+        GetInstance()->Init(*evm.io_service(),
+            analytics.name(), module_id, instance_id,
+            boost::bind(&CollectorGetConnectivityStatus, _1, _2, _3));
     collector_info_trigger =
         new TaskTrigger(boost::bind(&CollectorInfoLogger, vsc),
                     TaskScheduler::GetInstance()->GetTaskId("vizd::Stats"), 0);

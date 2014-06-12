@@ -105,6 +105,7 @@ mockEnv.Prepend(LIBS=[
     'sandesh',
     'http',
     'http_parser',
+    'connection_info',
     'io',
     'sandesh',
     'base',

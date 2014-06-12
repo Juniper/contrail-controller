@@ -4,6 +4,7 @@
 
 #include <boost/bind.hpp>
 #include <boost/assign/list_of.hpp>
+#include <boost/pointer_cast.hpp>
 
 #include <base/parse_object.h>
 #include <sandesh/sandesh_constants.h>
@@ -704,6 +705,18 @@ void CdbIf::Db_Uninit(std::string task_id, int task_instance) {
         TaskScheduler *scheduler = TaskScheduler::GetInstance();
         scheduler->Enqueue(cleanup_task_);
     }
+}
+
+std::string CdbIf::Db_GetHost() const {
+    boost::shared_ptr<TSocket> tsocket = 
+        boost::dynamic_pointer_cast<TSocket>(socket_);
+    return tsocket->getHost();
+}
+
+int CdbIf::Db_GetPort() const {
+    boost::shared_ptr<TSocket> tsocket = 
+        boost::dynamic_pointer_cast<TSocket>(socket_);
+    return tsocket->getPort();
 }
 
 void CdbIf::Db_SetQueueWaterMarkInternal(CdbIfQueue *queue,
