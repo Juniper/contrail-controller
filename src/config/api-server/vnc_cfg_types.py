@@ -313,14 +313,16 @@ class VirtualNetworkServer(VirtualNetworkServerGen):
             # Ignore ip-fabric subnet updates
             return True,  ""
 
-        if 'network_ipam_refs' not in obj_dict:
-            # NOP for addr-mgmt module
-            return True,  ""
-
         vn_id = {'uuid': id}
         (read_ok, read_result) = db_conn.dbe_read('virtual-network', vn_id)
         if not read_ok:
             return (False, (500, read_result))
+
+        old_ipam_refs = read_result.get('network_ipam_refs')
+        new_ipam_refs = obj_dict.get('network_ipam_refs')
+        if not old_ipam_refs and not new_ipam_refs:
+            # NOP for addr-mgmt module
+            return True,  ""
 
         (ok, result) = cls.addr_mgmt.net_check_subnet_quota(read_result,
                                                             obj_dict, db_conn)
