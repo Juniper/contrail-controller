@@ -494,7 +494,7 @@ class ResourceApiDriver(vnc_plugin_base.ResourceApi):
         self._get_api_connection()
         proj_obj = self._vnc_lib.project_read(id=proj_uuid)
         sec_groups = proj_obj.get_security_groups()
-        for group in sec_groups:
+        for group in sec_groups or []:
             if group['to'][2] == 'default':
                 self._vnc_lib.security_group_delete(id=group['uuid'])
     # end pre_project_delete
