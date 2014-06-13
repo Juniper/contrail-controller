@@ -2419,6 +2419,13 @@ class SchemaTransformer(object):
             sg.update_policy_entries(entries)
     # end add_security_group_entries
 
+    def delete_security_group_entries(self, idents, meta):
+        sg_name = idents['security-group']
+        sg = SecurityGroupST.get(sg_name)
+        if sg:
+            sg.update_policy_entries(None)
+    # end delete_security_group_entries
+
     def add_network_policy_entries(self, idents, meta):
         # Network policy entries arrived or modified
         policy_name = idents['network-policy']
