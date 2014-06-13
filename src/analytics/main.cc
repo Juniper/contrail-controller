@@ -288,6 +288,7 @@ int main(int argc, char *argv[])
     LOG(INFO, "COLLECTOR REDIS UVE PORT: " << options.redis_port());
     LOG(INFO, "COLLECTOR CASSANDRA SERVER: " << cassandra_ip);
     LOG(INFO, "COLLECTOR CASSANDRA PORT: " << cassandra_port);
+    LOG(INFO, "COLLECTOR SYSLOG LISTEN PORT: " << options.syslog_port());
 
     VizCollector analytics(&evm,
             options.collector_port(),
