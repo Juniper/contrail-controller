@@ -1075,7 +1075,7 @@ class SecurityGroupST(DictST):
     def __init__(self, name):
         self.name = name
         self.obj = _vnc_lib.security_group_read(fq_name_str=name)
-        if self.obj.get_security_group_id() is None:
+        if not self.obj.get_security_group_id():
             # TODO handle overflow + check alloc'd id is not in use
             sg_id_num = self._sg_id_allocator.alloc(name)
             self.obj.set_security_group_id(sg_id_num)
@@ -2282,15 +2282,21 @@ class SchemaTransformer(object):
 
         # reset zookeeper config
         if self._args.reset_config:
-            _zookeeper_client.delete_node("/id", True);
+            _zookeeper_client.delete_node("/id", True)
 
         VirtualNetworkST._vn_id_allocator = IndexAllocator(_zookeeper_client,
-                                                    _VN_ID_ALLOC_PATH,
-                                                    _VN_MAX_ID)
-        SecurityGroupST._sg_id_allocator = IndexAllocator(_zookeeper_client,
-            _SECURITY_GROUP_ID_ALLOC_PATH, _SECURITY_GROUP_MAX_ID)
-        VirtualNetworkST._rt_allocator = IndexAllocator(_zookeeper_client,
-            _BGP_RTGT_ALLOC_PATH, _BGP_RTGT_MAX_ID)
+                                                           _VN_ID_ALLOC_PATH,
+                                                           _VN_MAX_ID)
+        SecurityGroupST._sg_id_allocator = IndexAllocator(
+            _zookeeper_client, _SECURITY_GROUP_ID_ALLOC_PATH,
+            _SECURITY_GROUP_MAX_ID)
+        # 0 is not a valid sg id any more. So, if it was previously allocated,
+        # delete it and reserve it
+        if SecurityGroupST._sg_id_allocator.read(0) != '__reserved__':
+            SecurityGroupST._sg_id_allocator.delete(0)
+        SecurityGroupST._sg_id_allocator.reserve(0, '__reserved__')
+        VirtualNetworkST._rt_allocator = IndexAllocator(
+            _zookeeper_client, _BGP_RTGT_ALLOC_PATH, _BGP_RTGT_MAX_ID)
 
         # Initialize discovery client
         self._disc = None
