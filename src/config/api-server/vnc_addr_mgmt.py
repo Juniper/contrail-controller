@@ -533,7 +533,11 @@ class AddrMgmt(object):
 
         obj_type = 'subnet'
         QuotaHelper.ensure_quota_project_present(obj_type, proj_uuid, proj_dict, db_conn)
-        quota_count = len(self._vn_to_subnets(req_vn_dict))
+        subnets = self._vn_to_subnets(req_vn_dict)
+        if subnets:
+            quota_count = len(subnets)
+        else:
+            quota_count = 0
         (ok, quota_limit) = QuotaHelper.check_quota_limit(proj_dict, obj_type, quota_count)
         if not ok:
             return (False, (403, pformat(db_vn_dict['fq_name']) + ' : ' + quota_limit))
