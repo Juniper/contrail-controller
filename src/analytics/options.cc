@@ -100,7 +100,7 @@ void Options::Initialize(EventManager &evm,
              "Severity level for local logging of sandesh messages")
         ("DEFAULT.log_local", opt::bool_switch(&log_local_),
              "Enable local logging of sandesh messages")
-        ("DEFAULT.syslog_port", opt::value<uint16_t>()->default_value(0),
+        ("DEFAULT.syslog_port", opt::value<uint16_t>()->default_value(0xffff),
              "Syslog listener port")
         ("DEFAULT.test_mode", opt::bool_switch(&test_mode_),
              "Enable collector to run in test-mode")
