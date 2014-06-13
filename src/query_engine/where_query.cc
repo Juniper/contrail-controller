@@ -199,6 +199,22 @@ WhereQuery::WhereQuery(const std::string& where_json_string, int direction,
 
                 QE_TRACE(DEBUG, "where match term for source " << value);
             }
+
+            if ((name == g_viz_constants.KEYWORD) && (idx == -1))
+            {
+                DbQueryUnit *db_query = new DbQueryUnit(and_node, main_query);
+
+                db_query->cfname = g_viz_constants.MESSAGE_TABLE_KEYWORD;
+                db_query->t_only_col = true;
+
+                // only EQUAL op supported currently
+                QE_INVALIDARG_ERROR(op == EQUAL);
+
+                // string encoding
+                db_query->row_key_suffix.push_back(value);
+
+                QE_TRACE(DEBUG, "where match term for source " << value);
+            }
            
             if ((name == g_viz_constants.MODULE) && (!isStat))
             {
