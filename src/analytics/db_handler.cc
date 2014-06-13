@@ -259,7 +259,8 @@ bool DbHandler::AllowMessageTableInsert(const SandeshHeader &header) {
 bool DbHandler::MessageIndexTableInsert(const std::string& cfname,
         const SandeshHeader& header,
         const std::string& message_type,
-        const boost::uuids::uuid& unm) {
+        const boost::uuids::uuid& unm,
+        const std::string keyword) {
     std::auto_ptr<GenDb::ColList> col_list(new GenDb::ColList);
     col_list->cfname_ = cfname;
     // Rowkey
@@ -276,6 +277,11 @@ bool DbHandler::MessageIndexTableInsert(const std::string& cfname,
     } else if (cfname == g_viz_constants.MESSAGE_TABLE_MESSAGE_TYPE) {
         rowkey.push_back(message_type);
     } else if (cfname == g_viz_constants.MESSAGE_TABLE_TIMESTAMP) {
+    } else if (cfname == g_viz_constants.MESSAGE_TABLE_KEYWORD) {
+        if (keyword.length())
+            rowkey.push_back(keyword);
+        else
+            return false;
     } else {
         DB_LOG(ERROR, "Unknown table: " << cfname << ", message: "
                 << message_type << ", message UUID: " << unm);
@@ -389,6 +395,13 @@ void DbHandler::MessageTableInsert(const VizMsg *vmsgp) {
     MessageIndexTableInsert(g_viz_constants.MESSAGE_TABLE_CATEGORY, header, message_type, vmsgp->unm);
     MessageIndexTableInsert(g_viz_constants.MESSAGE_TABLE_MESSAGE_TYPE, header, message_type, vmsgp->unm);
     MessageIndexTableInsert(g_viz_constants.MESSAGE_TABLE_TIMESTAMP, header, message_type, vmsgp->unm);
+
+    for (std::vector<std::string>::const_iterator i = vmsgp->keywords.begin();
+            i != vmsgp->keywords.end(); i++) {
+        // tableinsert@{(t2,*i), (t1,header.get_Source())} -> vmsgp->unm
+        MessageIndexTableInsert(g_viz_constants.MESSAGE_TABLE_KEYWORD, header,
+                message_type, vmsgp->unm, *i);
+    }
     /*
      * Insert the message types in the stat table
      * Construct the atttributes,attrib_tags beofore inserting

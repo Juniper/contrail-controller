@@ -12,6 +12,7 @@ const string COLLECTOR_KEYSPACE     = "ContrailAnalytics"
 const string COLLECTOR_GLOBAL_TABLE = "MessageTable"
 const string UUID_KEY               = "UuidKey"
 const string SOURCE                 = "Source"
+const string KEYWORD                = "Keyword"
 const string NAMESPACE              = "Namespace"
 const string MODULE                 = "ModuleId"
 const string INSTANCE_ID            = "InstanceId"
@@ -33,6 +34,7 @@ const string MESSAGE_TABLE_MESSAGE_TYPE  = "MessageTableMessageType"
 const string MESSAGE_TABLE_CATEGORY = "MessageTableCategory"
 const string MESSAGE_TABLE_LEVEL    = "MessageTableLevel"
 const string MESSAGE_TABLE_TIMESTAMP = "MessageTableTimestamp"
+const string MESSAGE_TABLE_KEYWORD = "MessageTableKeyword"
 const string OBJECT_ID              = "ObjectId"
 
 const string ROWTIMESTAMP           = "RowTimeStamp"
@@ -474,6 +476,7 @@ const list<query_table> _TABLES = [
                { 'name' : 'Messagetype', 'datatype' : 'string', 'index' : true },
                { 'name' : 'SequenceNum', 'datatype' : 'int', 'index' : false },
                { 'name' : 'Context', 'datatype' : 'string', 'index' : false },
+               { 'name' : 'Keyword', 'datatype' : 'string', 'index' : true },
                { 'name' : 'Xmlmessage', 'datatype' : 'string', 'index' : false },
                ]
               },

@@ -52,6 +52,7 @@ class Collector(object):
         self.analytics_fixture = analytics_fixture
         self.listen_port = AnalyticsFixture.get_free_port()
         self.http_port = AnalyticsFixture.get_free_port()
+        self.syslog_port = AnalyticsFixture.get_free_port()
         self.hostname = socket.gethostname()
         self._instance = None
         self._redis_uve = redis_uve
@@ -65,6 +66,9 @@ class Collector(object):
         return '127.0.0.1:'+str(self.listen_port)
     # end get_addr
 
+    def get_syslog_port(self):
+        return self.syslog_port
+
     def start(self):
         assert(self._instance == None)
         self._log_file = '/tmp/vizd.messages.' + str(self.listen_port)
@@ -76,6 +80,7 @@ class Collector(object):
             str(self._redis_uve.port),
             '--COLLECTOR.port', str(self.listen_port),
             '--DEFAULT.http_server_port', str(self.http_port),
+            '--DEFAULT.syslog_port', str(self.syslog_port),
             '--DEFAULT.log_file', self._log_file]
         if self._is_dup is True:
             args.append('--DEFAULT.dup')
@@ -1523,6 +1528,24 @@ class AnalyticsFixture(fixtures.Fixture):
 
         return True
     # end verify_object_table_query
+
+    @retry(delay=1, tries=5)
+    def verify_keyword_query(self, line, keywords=[]):
+        self.logger.info('Verify where query with keywords');
+        vns = VerificationOpsSrv('127.0.0.1', self.opserver_port);
+
+        query = Query(table="MessageTable",
+                            start_time="now-1h",
+                            end_time="now",
+                            select_fields=["Xmlmessage","Level"],
+                            where=map(lambda x:[{"name": "Keyword", "value": x,
+                                "op": 1}], keywords))
+        json_qstr = json.dumps(query.__dict__)
+        res = vns.post_query_json(json_qstr)
+        assert(len(res)>0)
+        self.logger.info(str(res))
+        return len(res)>0
+    # end verify_keyword_query
 
     def cleanUp(self):
 

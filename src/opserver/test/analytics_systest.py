@@ -549,6 +549,36 @@ class AnalyticsTest(testtools.TestCase, fixtures.TestWithFixtures):
         assert vizd_obj.verify_object_table_query()
     # end test_12_verify_object_table_query
 
+    #@unittest.skip('verify ObjectTable query')
+    def test_13_verify_syslog_table_query(self):
+        '''
+        This test verifies the Syslog query.
+        '''
+        import logging.handlers
+        logging.info('*** test_13_verify_syslog_table_query ***')
+
+        if AnalyticsTest._check_skip_test() is True:
+            return True
+
+        vizd_obj = self.useFixture(
+            AnalyticsFixture(logging,
+                             builddir,
+                             self.__class__.cassandra_port))
+        assert vizd_obj.verify_on_setup()
+        syslogger = logging.getLogger("SYSLOGER")
+        lh = logging.handlers.SysLogHandler(address=('127.0.0.1',
+                    vizd_obj.collectors[0].get_syslog_port()))
+        lh.setFormatter(logging.Formatter('%(asctime)s %(name)s:%(message)s',
+                    datefmt='%b %d %H:%M:%S'))
+        lh.setLevel(logging.INFO)
+        syslogger.addHandler(lh)
+        line = 'pizza pasta babaghanoush'
+        syslogger.critical(line)
+        assert vizd_obj.verify_keyword_query(line, ['pasta', 'pizza'])
+
+    # end test_13_verify_syslog_table_query
+
+
     @staticmethod
     def get_free_port():
         cs = socket.socket(socket.AF_INET, socket.SOCK_STREAM)

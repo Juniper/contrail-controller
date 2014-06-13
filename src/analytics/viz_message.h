@@ -26,6 +26,7 @@ struct VizMsg {
 
     const SandeshMessage *msg;
     boost::uuids::uuid unm; /* uuid key for this message in the global table */
+    std::vector<std::string> keywords;
 };
 
 class SandeshStats;
