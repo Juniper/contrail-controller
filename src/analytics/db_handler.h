@@ -69,7 +69,7 @@ public:
     bool AllowMessageTableInsert(const SandeshHeader &header);
     bool MessageIndexTableInsert(const std::string& cfname,
         const SandeshHeader& header, const std::string& message_type,
-        const boost::uuids::uuid& unm);
+        const boost::uuids::uuid& unm, const std::string keyword="");
     virtual void MessageTableInsert(const VizMsg *vmsgp);
     void MessageTableOnlyInsert(const VizMsg *vmsgp);
 

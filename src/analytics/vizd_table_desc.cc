@@ -124,6 +124,14 @@ void init_vizd_tables() {
                       (GenDb::DbDataType::Unsigned32Type),
                       boost::assign::list_of
                       (GenDb::DbDataType::LexicalUUIDType)))
+        (GenDb::NewCf(g_viz_constants.MESSAGE_TABLE_KEYWORD,
+                      boost::assign::list_of
+                      (GenDb::DbDataType::Unsigned32Type)
+                      (GenDb::DbDataType::AsciiType),
+                      boost::assign::list_of
+                      (GenDb::DbDataType::Unsigned32Type),
+                      boost::assign::list_of
+                      (GenDb::DbDataType::LexicalUUIDType)))
         ;
 
 /* flow records table and flow series table are created in the code path itself
