@@ -135,6 +135,7 @@ class AnalyticsTest(testtools.TestCase, fixtures.TestWithFixtures):
         assert vizd_obj.verify_message_table_where_or()
         assert vizd_obj.verify_message_table_where_and()
         assert vizd_obj.verify_message_table_filter()
+        assert vizd_obj.verify_message_table_filter2()
         assert vizd_obj.verify_message_table_sort()
         return True
     # end test_02_message_table_query

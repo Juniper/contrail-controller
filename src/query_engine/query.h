@@ -662,11 +662,12 @@ public:
 
     std::string json_string_;
 
-    // filter list
-    std::vector<filter_match_t> filter_list;
+    // filter list is an OR of ANDs
+    std::vector<std::vector<filter_match_t> > filter_list;
 
     // Whether to sort the table or not
     bool sorted;
+
     // Type of sorting
     sort_op sorting_type;
     // fields to sort on (these are actual Cassandra column names)

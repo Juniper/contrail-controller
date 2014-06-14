@@ -121,8 +121,12 @@ PostProcessingQuery::PostProcessingQuery(
             }
         }
 
-        if (iter->first == QUERY_FILTER)
-        {
+        /*
+         * old filter style is just list of expr ANDed
+         * new filter are list of ANDs over OR
+         * both modes are supported with the below code
+         */
+        if (iter->first == QUERY_FILTER) {
             rapidjson::Document d;
             std::string json_string = "{ \"filter\" : " + 
                 iter->second + " }";
@@ -134,68 +138,142 @@ PostProcessingQuery::PostProcessingQuery(
                 d["filter"]; 
             QE_PARSE_ERROR(json_filters.IsArray());
             QE_TRACE(DEBUG, "# of filters:"<< json_filters.Size());
-            for (rapidjson::SizeType j = 0; j<json_filters.Size(); j++) 
-            {
-                filter_match_t filter;
+            bool single_list = false;
+            if (json_filters.Size()) {
+                rapidjson::SizeType zeroth = 0;
+                const rapidjson::Value& json_filters_0 = json_filters[zeroth];
+                if (!json_filters_0.IsArray()) {
+                    single_list = true;
+                }
+            }
 
-                const rapidjson::Value& name_value = 
-                    json_filters[j][WHERE_MATCH_NAME];
-                const rapidjson::Value&  value_value = 
-                    json_filters[j][WHERE_MATCH_VALUE];
-                const rapidjson::Value& op_value = 
-                    json_filters[j][WHERE_MATCH_OP];
+            if (single_list) {
+                //parse the old format 
+                std::vector<filter_match_t> filter_and;
+                for (rapidjson::SizeType j = 0; j<json_filters.Size(); j++) 
+                  {
+                    filter_match_t filter;
 
-                // do some validation checks
-                QE_INVALIDARG_ERROR(name_value.IsString());
-                QE_INVALIDARG_ERROR
-                    ((value_value.IsString() || value_value.IsNumber()));
-                QE_INVALIDARG_ERROR(op_value.IsNumber());
+                    const rapidjson::Value& name_value = 
+                        json_filters[j][WHERE_MATCH_NAME];
+                    const rapidjson::Value&  value_value = 
+                        json_filters[j][WHERE_MATCH_VALUE];
+                    const rapidjson::Value& op_value = 
+                        json_filters[j][WHERE_MATCH_OP];
 
-                filter.name = name_value.GetString();
-                filter.op = (match_op)op_value.GetInt();
+                    // do some validation checks
+                    QE_INVALIDARG_ERROR(name_value.IsString());
+                    QE_INVALIDARG_ERROR
+                        ((value_value.IsString() || value_value.IsNumber()));
+                    QE_INVALIDARG_ERROR(op_value.IsNumber());
 
-                // extract value after type conversion
-                {
-                    if (value_value.IsString())
-                    {
-                        filter.value = value_value.GetString();
-                    } else if (value_value.IsInt()){
-                        int int_value;
-                        std::ostringstream convert;
-                        int_value = value_value.GetInt();
-                        convert << int_value;
-                        filter.value = convert.str();
-                    } else if (value_value.IsUint()) {
-                        uint32_t uint_value;
-                        std::ostringstream convert;
-                        uint_value = value_value.GetUint();
-                        convert << uint_value;
-                        filter.value = convert.str();
+                    filter.name = name_value.GetString();
+                    filter.op = (match_op)op_value.GetInt();
+
+                    // extract value after type conversion
+                      {
+                        if (value_value.IsString())
+                          {
+                            filter.value = value_value.GetString();
+                          } else if (value_value.IsInt()){
+                              int int_value;
+                              std::ostringstream convert;
+                              int_value = value_value.GetInt();
+                              convert << int_value;
+                              filter.value = convert.str();
+                          } else if (value_value.IsUint()) {
+                              uint32_t uint_value;
+                              std::ostringstream convert;
+                              uint_value = value_value.GetUint();
+                              convert << uint_value;
+                              filter.value = convert.str();
+                          }
+                      }
+
+                    if (filter.op == REGEX_MATCH)
+                      {
+                        // compile regex beforehand
+                        filter.match_e = boost::regex(filter.value);
+                      }
+
+                    filter_and.push_back(filter);
+                  }
+                filter_list.push_back(filter_and);
+            } else {
+                //new OR of ANDs
+                for (rapidjson::SizeType j = 0; j<json_filters.Size(); j++) {
+                    std::vector<filter_match_t> filter_and;
+                    const rapidjson::Value& json_filter_and = json_filters[j];
+                    QE_PARSE_ERROR(json_filter_and.IsArray());
+
+                    for (rapidjson::SizeType k = 0; k<json_filter_and.Size(); k++) {
+                        filter_match_t filter;
+
+                        const rapidjson::Value& name_value = 
+                            json_filter_and[k][WHERE_MATCH_NAME];
+                        const rapidjson::Value&  value_value = 
+                            json_filter_and[k][WHERE_MATCH_VALUE];
+                        const rapidjson::Value& op_value = 
+                            json_filter_and[k][WHERE_MATCH_OP];
+
+                        // do some validation checks
+                        QE_INVALIDARG_ERROR(name_value.IsString());
+                        QE_INVALIDARG_ERROR
+                            ((value_value.IsString() || value_value.IsNumber()));
+                        QE_INVALIDARG_ERROR(op_value.IsNumber());
+
+                        filter.name = name_value.GetString();
+                        filter.op = (match_op)op_value.GetInt();
+
+                        // extract value after type conversion
+                        if (value_value.IsString()) {
+                            filter.value = value_value.GetString();
+                        } else if (value_value.IsInt()) {
+                            int int_value;
+                            std::ostringstream convert;
+                            int_value = value_value.GetInt();
+                            convert << int_value;
+                            filter.value = convert.str();
+                        } else if (value_value.IsUint()) {
+                            uint32_t uint_value;
+                            std::ostringstream convert;
+                            uint_value = value_value.GetUint();
+                            convert << uint_value;
+                            filter.value = convert.str();
+                        }
+
+                        if (filter.op == REGEX_MATCH) {
+                            // compile regex beforehand
+                            filter.match_e = boost::regex(filter.value);
+                        }
+
+                        filter_and.push_back(filter);
                     }
+                    filter_list.push_back(filter_and);
                 }
-
-                if (filter.op == REGEX_MATCH)
-                {
-                    // compile regex beforehand
-                    filter.match_e = boost::regex(filter.value);
-                }
-
-                filter_list.push_back(filter);
             }
         }
-        // add filter to filter query engine logs if requested
-        if ((((AnalyticsQuery *)main_query)->filter_qe_logs) &&
+    }
+
+    // add filter to filter query engine logs if requested
+    if ((((AnalyticsQuery *)main_query)->filter_qe_logs) &&
             (((AnalyticsQuery *)main_query)->table() == 
-             g_viz_constants.COLLECTOR_GLOBAL_TABLE))
-        {
-            QE_TRACE(DEBUG,  " Adding filter for QE logs");
-            filter_match_t filter;
-            filter.name = g_viz_constants.MODULE;
-            filter.value = 
-                ((AnalyticsQuery *)main_query)->sandesh_moduleid;
-            filter.op = NOT_EQUAL;
-            filter.ignore_col_absence = true;
-            filter_list.push_back(filter);
+             g_viz_constants.COLLECTOR_GLOBAL_TABLE)) {
+        QE_TRACE(DEBUG,  " Adding filter for QE logs");
+        filter_match_t filter;
+        filter.name = g_viz_constants.MODULE;
+        filter.value = 
+            ((AnalyticsQuery *)main_query)->sandesh_moduleid;
+        filter.op = NOT_EQUAL;
+        filter.ignore_col_absence = true;
+        if (!filter_list.size()) {
+            std::vector<filter_match_t> filter_and;
+            filter_and.push_back(filter);
+            filter_list.push_back(filter_and);
+        } else {
+            for (unsigned int i = 0; i < filter_list.size(); i++) {
+                filter_list[i].push_back(filter);
+            }
         }
     }
 
