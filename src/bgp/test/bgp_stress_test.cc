@@ -1,7 +1,6 @@
 /*
  * Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
  */
-
 #include <boost/algorithm/string.hpp>
 #include <boost/assign/std/vector.hpp>
 #include <boost/assign/list_of.hpp>
