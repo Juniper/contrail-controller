@@ -569,6 +569,43 @@ class AnalyticsFixture(fixtures.Fixture):
             return False
         return True
 
+    @retry(delay=1, tries=6)
+    def verify_message_table_filter2(self):
+        self.logger.info("verify_message_table_filter2")
+        vns = VerificationOpsSrv('127.0.0.1', self.opserver_port)
+        a_query = Query(table="MessageTable",
+                start_time='now-10m',
+                end_time='now',
+                select_fields=["ModuleId"],
+                filter=[[{"name": "ModuleId", "value": "Collector", "op": 1}]])
+        json_qstr = json.dumps(a_query.__dict__)
+        res = vns.post_query_json(json_qstr)
+        if res == []:
+            return False
+        else:
+            assert(len(res) > 0)
+            moduleids = list(set(x['ModuleId'] for x in res))
+            self.logger.info(str(moduleids))
+            if len(moduleids) != 1:  # 1 moduleid: Collector
+                return False
+
+        a_query = Query(table="MessageTable",
+                start_time='now-10m',
+                end_time='now',
+                select_fields=["ModuleId"],
+                filter=[[{"name": "ModuleId", "value": "Collector", "op": 1}], [{"name": "ModuleId", "value": "OpServer", "op": 1}]])
+        json_qstr = json.dumps(a_query.__dict__)
+        res = vns.post_query_json(json_qstr)
+        if res == []:
+            return False
+        else:
+            assert(len(res) > 0)
+            moduleids = list(set(x['ModuleId'] for x in res))
+            self.logger.info(str(moduleids))
+            if len(moduleids) != 2:  # 1 moduleid: Collector || OpServer
+                return False
+        return True
+
     @retry(delay=1, tries=1)
     def verify_message_table_sort(self):
         self.logger.info("verify_message_table_sort:Ascending Sort")
