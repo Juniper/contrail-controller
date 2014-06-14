@@ -936,34 +936,28 @@ class VncKombuClient(object):
             raise Exception(result)
     #end _dbe_create_notification
 
-    def dbe_update_publish(self, obj_type, obj_ids, is_resync=False):
-        oper_info = {'oper': 'UPDATE', 'type': obj_type, 'is_resync': is_resync}
+    def dbe_update_publish(self, obj_type, obj_ids):
+        oper_info = {'oper': 'UPDATE', 'type': obj_type}
         oper_info.update(obj_ids)
         self._obj_update_q_put(oper_info, serializer='json')
     # end dbe_update_publish
 
-    def _dbe_update_notification(self, oper_info):
-        r_class = self._db_client_mgr.get_resource_class(oper_info['type'])
+    def _dbe_update_notification(self, obj_info):
+        r_class = self._db_client_mgr.get_resource_class(obj_info['type'])
         if r_class:
-            r_class.dbe_update_notification(oper_info)
+            r_class.dbe_update_notification(obj_info)
 
-        ifmap_id = self._db_client_mgr.uuid_to_ifmap_id(oper_info['type'],
-                                                        oper_info['uuid'])
+        ifmap_id = self._db_client_mgr.uuid_to_ifmap_id(obj_info['type'],
+                                                        obj_info['uuid'])
 
-        (ok, result) = self._db_client_mgr.dbe_read(oper_info['type'], oper_info)
+        (ok, result) = self._db_client_mgr.dbe_read(obj_info['type'], obj_info)
         if not ok:
             raise Exception(result)
         new_obj_dict = result
 
-        method_name = oper_info['type'].replace('-', '_')
-        if oper_info['is_resync']:
-            obj_ids = oper_info
-            method = getattr(self._ifmap_db, "_ifmap_%s_create" % (method_name))
-            (ok, ifmap_result) = method(obj_ids, new_obj_dict)
-        else:
-            method = getattr(self._ifmap_db, "_ifmap_%s_update" % (method_name))
-            (ok, ifmap_result) = method(ifmap_id, new_obj_dict)
-
+        method_name = obj_info['type'].replace('-', '_')
+        method = getattr(self._ifmap_db, "_ifmap_%s_update" % (method_name))
+        (ok, ifmap_result) = method(ifmap_id, new_obj_dict)
         if not ok:
             raise Exception(ifmap_result)
     #end _dbe_update_notification
@@ -1212,7 +1206,8 @@ class VncDbClient(object):
         try:
             obj_ids = {'uuid': obj_uuid, 'imid': my_imid,
                        'parent_imid': parent_imid}
-            self._msgbus.dbe_update_publish(obj_type, obj_ids, is_resync=True)
+            method = getattr(self._ifmap_db, "_ifmap_%s_create" % (obj_type))
+            (ok, result) = method(obj_ids, obj_dict)
         except Exception as e:
             self.config_object_error(
                 obj_uuid, None, obj_type, 'dbe_resync:ifmap_create', str(e))
