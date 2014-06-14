@@ -182,6 +182,8 @@ class VncApiServer(VncApiServerGen):
             vnc_cfg_types.VirtualMachineInterfaceServer
         self._resource_classes['virtual-network'] = \
             vnc_cfg_types.VirtualNetworkServer
+        self._resource_classes['network-policy'] = \
+            vnc_cfg_types.NetworkPolicyServer
         self._resource_classes['network-ipam'] = \
             vnc_cfg_types.NetworkIpamServer
         self._resource_classes['virtual-DNS'] = vnc_cfg_types.VirtualDnsServer

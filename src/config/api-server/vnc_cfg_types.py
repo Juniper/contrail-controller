@@ -16,7 +16,7 @@ from gen.resource_xsd import *
 from gen.resource_common import *
 from gen.resource_server import *
 from pprint import pformat
-
+import uuid
 
 class FloatingIpServer(FloatingIpServerGen):
     generate_default_instance = False
@@ -717,6 +717,14 @@ class VirtualDnsRecordServer(VirtualDnsRecordServerGen):
     # end validate_dns_record
 # end class VirtualDnsRecordServer
 
+def _check_policy_rule_uuid(entries):
+    if not entries:
+        return
+    for rule in entries.get('policy_rule') or []:
+        if not rule.get('rule_uuid'):
+            rule['rule_uuid'] = str(uuid.uuid4())
+# end _check_policy_rule_uuid
+
 class SecurityGroupServer(SecurityGroupServerGen):
     generate_default_instance = False
 
@@ -764,3 +772,54 @@ class SecurityGroupServer(SecurityGroupServerGen):
     # end http_put
 
 # end class SecurityGroupServer
+
+
+class NetworkPolicyServer(NetworkPolicyServerGen):
+
+    @classmethod
+    def http_post_collection(cls, tenant_name, obj_dict, db_conn):
+        try:
+            fq_name = obj_dict['fq_name']
+            proj_uuid = db_conn.fq_name_to_uuid('project', fq_name[0:2])
+        except NoIdError:
+            return (False, (500, 'No Project ID error : ' + proj_uuid))
+
+        (ok, proj_dict) = QuotaHelper.get_project_dict(proj_uuid, db_conn)
+        if not ok:
+            return (False, (500, 'Internal error : ' + pformat(proj_dict)))
+
+        obj_type = 'network-policy'
+        QuotaHelper.ensure_quota_project_present(obj_type, proj_uuid, proj_dict, db_conn)
+        if 'network-policys' in proj_dict:
+            quota_count = len(proj_dict['network-policys'])
+            (ok, quota_limit) = QuotaHelper.check_quota_limit(proj_dict, obj_type, quota_count)
+            if not ok:
+                return (False, (403, pformat(obj_dict['fq_name']) + ' : ' + quota_limit))
+
+        _check_policy_rule_uuid(obj_dict.get('network_policy_entries'))
+        try:
+            cls._check_policy(obj_dict)
+        except Exception as e:
+            return (False, (500, str(e)))
+
+        return True, ""
+    # end http_post_collection
+
+    @classmethod
+    def http_put(cls, id, fq_name, obj_dict, db_conn):
+        p_id = {'uuid': id}
+        (read_ok, read_result) = db_conn.dbe_read('network-policy', p_id)
+        if not read_ok:
+            return (False, (500, read_result))
+        _check_policy_rule_uuid(obj_dict.get('network_policy_entries'))
+        return True, ""
+    # end http_put
+
+    @classmethod
+    def _check_policy(cls, obj_dict):
+        entries = obj_dict.get('network_policy_entries')
+        if not entries:
+            return
+    # end _check_policy
+
+# end class VirtualNetworkServer
