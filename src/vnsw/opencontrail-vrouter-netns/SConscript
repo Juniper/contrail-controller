@@ -1,0 +1,43 @@
+# -*- mode: python; -*-
+
+#
+# Copyright (c) 2013 Contrail Systems. All rights reserved.
+#
+
+import glob
+
+Import('BuildEnv')
+env = BuildEnv.Clone()
+
+source_files = ['setup.py',
+                'requirements.txt',
+                'opencontrail_vrouter_netns/__init__.py',
+                'opencontrail_vrouter_netns/vrouter_netns.py',
+                'opencontrail_vrouter_netns/linux/__init__.py',
+                'opencontrail_vrouter_netns/linux/ip_lib.py',
+                'opencontrail_vrouter_netns/linux/utils.py']
+
+source_rules = []
+for file in source_files:
+    if len(file.split('/')) > 1:
+        idir = '/'.join(file.split('/')[:-1])
+    else:
+        idir = ''
+    source_rules.append(
+        env.Install(idir, "#/controller/src/vnsw/opencontrail-vrouter-netns/" + file))
+
+sdist_depends = []
+sdist_depends.extend(source_rules)
+sdist_gen = env.Command('dist', 'setup.py', 'python setup.py sdist', chdir=1)
+
+env.Depends(sdist_gen, sdist_depends)
+env.Default(sdist_gen)
+
+if 'install' in BUILD_TARGETS:
+    install_cmd = env.Command(None, 'setup.py',
+                              'python setup.py install %s' %
+                              env['PYTHON_INSTALL_OPT'],
+                              chdir = 1)
+    env.Depends(install_cmd, sdist_depends)
+    env.Alias('install', install_cmd)
+

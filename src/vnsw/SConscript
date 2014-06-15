@@ -14,7 +14,7 @@ BuildEnv.SConscript(dirs=['contrail-vrouter-api'],
                     variant_dir='#build/noarch/contrail-vrouter-api',
                     duplicate=1)
 
-subdirs = ['agent',
+subdirs = ['agent', 'opencontrail-contrail-netns'
 ]
 
 for dir in subdirs:
