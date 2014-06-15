@@ -109,7 +109,9 @@ public:
                         "Updated Autonomous System from " <<
                         server_->autonomous_system_ << " to "
                         << params.autonomous_system);
+            as_t old_asn = server_->autonomous_system_;
             server_->autonomous_system_ = params.autonomous_system;
+            server_->NotifyASNUpdate(old_asn);
         }
 
         if (server_->hold_time_ != params.hold_time) {
@@ -326,3 +328,51 @@ void BgpServer::VisitBgpPeers(BgpServer::VisitorFn fn) const {
         }
     }
 }
+
+int
+BgpServer::RegisterASNUpdateCallback(ASNUpdateCb callback) {
+    tbb::spin_rw_mutex::scoped_lock write_lock(rw_mutex_, true);
+    size_t i = bmap_.find_first();
+    if (i == bmap_.npos) {
+        i = asn_listeners_.size();
+        asn_listeners_.push_back(callback);
+    } else {
+        bmap_.reset(i);
+        if (bmap_.none()) {
+            bmap_.clear();
+        }
+        asn_listeners_[i] = callback;
+    }
+    return i;
+}
+
+void BgpServer::UnregisterASNUpdateCallback(int listener) {
+    tbb::spin_rw_mutex::scoped_lock write_lock(rw_mutex_, true);
+    asn_listeners_[listener] = NULL;
+    if ((size_t) listener == asn_listeners_.size() - 1) {
+        while (!asn_listeners_.empty() && asn_listeners_.back() == NULL) {
+            asn_listeners_.pop_back();
+        }
+        if (bmap_.size() > asn_listeners_.size()) {
+            bmap_.resize(asn_listeners_.size());
+        }
+    } else {
+        if ((size_t) listener >= bmap_.size()) {
+            bmap_.resize(listener + 1);
+        }
+        bmap_.set(listener);
+    }
+}
+
+void BgpServer::NotifyASNUpdate(as_t asn) {
+    tbb::spin_rw_mutex::scoped_lock read_lock(rw_mutex_, false);
+    for (ASNUpdateListenersList::iterator iter = asn_listeners_.begin();
+         iter != asn_listeners_.end(); ++iter) {
+        if (*iter != NULL) {
+            ASNUpdateCb cb = *iter;
+            (cb)(asn);
+        }
+    }
+}
+
+

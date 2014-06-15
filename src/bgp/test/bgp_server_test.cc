@@ -83,6 +83,20 @@ public:
 int StateMachineTest::hold_time_msec_ = 0;
 
 class BgpServerUnitTest : public ::testing::Test {
+public:
+    void ASNUpdateCb(BgpServerTest *server, as_t old_asn) {
+        if (server == a_.get()) {
+            a_asn_update_notification_cnt_++;
+            assert(old_asn == a_old_as_);
+            a_old_as_ = server->autonomous_system();
+        } else {
+            b_asn_update_notification_cnt_++;
+            assert(old_asn == b_old_as_);
+            b_old_as_ = server->autonomous_system();
+        }
+        return;
+    }
+
 protected:
     static bool validate_done_;
     static void ValidateClearBgpNeighborResponse(Sandesh *sandesh, bool success);
@@ -90,6 +104,10 @@ protected:
 
     BgpServerUnitTest() {
         ControlNode::SetTestMode(true);
+        a_asn_update_notification_cnt_ = 0;
+        b_asn_update_notification_cnt_ = 0;
+        a_old_as_ = 0;
+        b_old_as_ = 0;
     }
 
     virtual void SetUp() {
@@ -179,6 +197,10 @@ protected:
     auto_ptr<BgpServerTest> b_;
     BgpSessionManagerCustom *a_session_manager_;
     BgpSessionManagerCustom *b_session_manager_;
+    tbb::atomic<long> a_asn_update_notification_cnt_;
+    tbb::atomic<long> b_asn_update_notification_cnt_;
+    as_t a_old_as_;
+    as_t b_old_as_;
 };
 
 bool BgpServerUnitTest::validate_done_;
@@ -550,6 +572,105 @@ TEST_F(BgpServerUnitTest, ChangeAsNumber3) {
         TASK_UTIL_EXPECT_TRUE(peer_b->flap_count() > flap_count_b[j]);
 
     }
+}
+
+TEST_F(BgpServerUnitTest, ASNUpdateRegUnreg) {
+    for (int i = 0; i < 1024; i++) {
+        int j = a_->RegisterASNUpdateCallback(
+              boost::bind(&BgpServerUnitTest::ASNUpdateCb, this, a_.get(), _1));
+        assert(j == i);
+    }
+    for (int i = 0; i < 1024; i++) {
+        a_->UnregisterASNUpdateCallback(i);
+        int j = a_->RegisterASNUpdateCallback(
+              boost::bind(&BgpServerUnitTest::ASNUpdateCb, this, a_.get(), _1));
+        assert(j == 0);
+        a_->UnregisterASNUpdateCallback(j);
+    }
+}
+
+TEST_F(BgpServerUnitTest, ASNUpdateNotification) {
+    int peer_count = 3;
+
+    int a_asn_listener_id = a_->RegisterASNUpdateCallback(
+                        boost::bind(&BgpServerUnitTest::ASNUpdateCb, this, a_.get(), _1));
+    int b_asn_listener_id = b_->RegisterASNUpdateCallback(
+                        boost::bind(&BgpServerUnitTest::ASNUpdateCb, this, b_.get(), _1));
+    BgpPeerTest::verbose_name(true);
+    SetupPeers(peer_count, a_->session_manager()->GetPort(),
+               b_->session_manager()->GetPort(), false,
+               BgpConfigManager::kDefaultAutonomousSystem,
+               BgpConfigManager::kDefaultAutonomousSystem,
+               "127.0.0.1", "127.0.0.1",
+               "192.168.0.10", "192.168.0.11");
+    VerifyPeers(peer_count, 0,
+                BgpConfigManager::kDefaultAutonomousSystem,
+                BgpConfigManager::kDefaultAutonomousSystem);
+
+
+    vector<uint32_t> flap_count_a;
+    vector<uint32_t> flap_count_b;
+
+    //
+    // Note down the current flap count
+    //
+    for (int j = 0; j < peer_count; j++) {
+        string uuid = BgpConfigParser::session_uuid("A", "B", j + 1);
+        BgpPeer *peer_a = a_->FindPeerByUuid(BgpConfigManager::kMasterInstance,
+                                             uuid);
+        BgpPeer *peer_b = b_->FindPeerByUuid(BgpConfigManager::kMasterInstance,
+                                             uuid);
+        flap_count_a.push_back(peer_a->flap_count());
+        flap_count_b.push_back(peer_b->flap_count());
+    }
+
+    //
+    // Modify AS Number and apply
+    //
+    SetupPeers(peer_count, a_->session_manager()->GetPort(),
+               b_->session_manager()->GetPort(), false,
+               BgpConfigManager::kDefaultAutonomousSystem + 1,
+               BgpConfigManager::kDefaultAutonomousSystem + 1,
+               "127.0.0.1", "127.0.0.1",
+               "192.168.0.10", "192.168.0.11");
+    VerifyPeers(peer_count, 0,
+                BgpConfigManager::kDefaultAutonomousSystem + 1,
+                BgpConfigManager::kDefaultAutonomousSystem + 1);
+
+    TASK_UTIL_EXPECT_EQ(a_asn_update_notification_cnt_, 2);
+    TASK_UTIL_EXPECT_EQ(b_asn_update_notification_cnt_, 2);
+    //
+    // Make sure that the peers did flap
+    //
+    for (int j = 0; j < peer_count; j++) {
+        string uuid = BgpConfigParser::session_uuid("A", "B", j + 1);
+        BgpPeer *peer_a = a_->FindPeerByUuid(BgpConfigManager::kMasterInstance,
+                                             uuid);
+        BgpPeer *peer_b = b_->FindPeerByUuid(BgpConfigManager::kMasterInstance,
+                                             uuid);
+        TASK_UTIL_EXPECT_TRUE(peer_a->flap_count() > flap_count_a[j]);
+        TASK_UTIL_EXPECT_TRUE(peer_b->flap_count() > flap_count_b[j]);
+    }
+    a_->UnregisterASNUpdateCallback(a_asn_listener_id);
+    b_->UnregisterASNUpdateCallback(b_asn_listener_id);
+    a_asn_update_notification_cnt_ = 0;
+    b_asn_update_notification_cnt_ = 0;
+
+    //
+    // Modify AS Number and apply AGAIN
+    //
+    SetupPeers(peer_count, a_->session_manager()->GetPort(),
+               b_->session_manager()->GetPort(), false,
+               BgpConfigManager::kDefaultAutonomousSystem + 2,
+               BgpConfigManager::kDefaultAutonomousSystem + 2,
+               "127.0.0.1", "127.0.0.1",
+               "192.168.0.10", "192.168.0.11");
+    VerifyPeers(peer_count, 0,
+                BgpConfigManager::kDefaultAutonomousSystem + 2,
+                BgpConfigManager::kDefaultAutonomousSystem + 2);
+
+    TASK_UTIL_EXPECT_EQ(a_asn_update_notification_cnt_, 0);
+    TASK_UTIL_EXPECT_EQ(b_asn_update_notification_cnt_, 0);
 }
 
 TEST_F(BgpServerUnitTest, ChangePeerAddress) {
