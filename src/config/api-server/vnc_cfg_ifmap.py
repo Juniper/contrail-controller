@@ -257,6 +257,79 @@ class VncIfmapClient(VncIfmapClientGen):
         result = mapclient.call('publish', pubreq)
     # end _delete_id_pair_meta
 
+    def _update_id_self_meta(self, update, meta):
+        """ update: dictionary of the type
+                update[id | 'self'] = list(metadata)
+        """
+        if 'self' in update:
+            mlist = update['self']
+        else:
+            mlist = []
+            update['self'] = mlist
+
+        mlist.append(meta)
+    # end _update_id_self_meta
+
+    def _update_id_pair_meta(self, update, to_id, meta):
+        if to_id in update:
+            mlist = update[to_id]
+        else:
+            mlist = []
+            update[to_id] = mlist
+        mlist.append(meta)
+     # end _update_id_pair_meta
+
+    def _publish_update(self, self_imid, update):
+        class RequestList(object):
+            """ Generates the request body """
+            def __init__(self):
+                self._request_list = []
+            def append(self, element):
+                self._request_list.append(element)
+            def __str__(self):
+                return ''.join([str(x) for x in self._request_list])
+
+        def _build_request_id_self(imid, metalist):
+            request = ''
+            for m in metalist:
+                request += str(PublishUpdateOperation(
+                        id1=str(Identity(name=self_imid, type="other",
+                                         other_type="extended")),
+                        metadata=str(m),
+                        lifetime='forever'))
+            return request
+
+        def _build_request_id_pair(id1, id2, metalist):
+            request = ''
+            for m in metalist:
+                request += str(PublishUpdateOperation(
+                    id1=str(Identity(name=id1, type="other",
+                                     other_type="extended")),
+                    id2=str(Identity(name=id2, type="other",
+                                     other_type="extended")),
+                    metadata=str(m),
+                    lifetime='forever'))
+            return request
+
+        mapclient = self._mapclient
+        requests = RequestList()
+        if 'self' in update:
+            metalist = update['self']
+            requests.append(PublishRequest(
+                    mapclient.get_session_id(),
+                    _build_request_id_self(self_imid, metalist)))
+
+        for id2 in update:
+            if id2 == 'self':
+                continue
+            metalist = update[id2]
+            requests.append(PublishRequest(
+                        mapclient.get_session_id(),
+                        _build_request_id_pair(self_imid, id2, metalist)))
+
+        mapclient.call_async_result('publish', requests)
+
+
     def _search(self, start_id, match_meta=None, result_meta=None,
                 max_depth=1):
         # set ifmap search parmeters
