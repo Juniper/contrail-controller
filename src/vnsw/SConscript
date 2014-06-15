@@ -14,6 +14,11 @@ BuildEnv.SConscript(dirs=['contrail-vrouter-api'],
                     variant_dir='#build/noarch/contrail-vrouter-api',
                     duplicate=1)
 
+BuildEnv.SConscript(dirs=['opencontrail-vrouter-netns'],
+                    exports='BuildEnv',
+                    variant_dir='#build/noarch/opencontrail-vrouter-netns',
+                    duplicate=1)
+
 subdirs = ['agent',
 ]
 
