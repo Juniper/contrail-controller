@@ -580,12 +580,12 @@ TEST_F(BgpServerUnitTest, ChangeAsNumber3) {
 }
 
 TEST_F(BgpServerUnitTest, ASNUpdateRegUnreg) {
-    for (int i=0; i < 1024; i++) {
+    for (int i = 0; i < 1024; i++) {
         int j = a_->RegisterASNUpdateCallback(
               boost::bind(&BgpServerUnitTest::ASNUpdateCb, this, a_.get(), _1));
         assert(j == i);
     }
-    for (int i=0; i < 1024; i++) {
+    for (int i = 0; i < 1024; i++) {
         a_->UnregisterASNUpdateCallback(i);
         int j = a_->RegisterASNUpdateCallback(
               boost::bind(&BgpServerUnitTest::ASNUpdateCb, this, a_.get(), _1));
@@ -660,31 +660,20 @@ TEST_F(BgpServerUnitTest, ASNUpdateNotification) {
     b_->UnregisterASNUpdateCallback(b_asn_listener_id);
     a_asn_update_notification_cnt_ = 0;
     b_asn_update_notification_cnt_ = 0;
+
     //
     // Modify AS Number and apply AGAIN
     //
     SetupPeers(peer_count, a_->session_manager()->GetPort(),
                b_->session_manager()->GetPort(), false,
-               BgpConfigManager::kDefaultAutonomousSystem + 1,
-               BgpConfigManager::kDefaultAutonomousSystem + 1,
+               BgpConfigManager::kDefaultAutonomousSystem + 2,
+               BgpConfigManager::kDefaultAutonomousSystem + 2,
                "127.0.0.1", "127.0.0.1",
                "192.168.0.10", "192.168.0.11");
     VerifyPeers(peer_count, 0,
-                BgpConfigManager::kDefaultAutonomousSystem + 1,
-                BgpConfigManager::kDefaultAutonomousSystem + 1);
+                BgpConfigManager::kDefaultAutonomousSystem + 2,
+                BgpConfigManager::kDefaultAutonomousSystem + 2);
 
-    //
-    // Make sure that the peers did flap
-    //
-    for (int j = 0; j < peer_count; j++) {
-        string uuid = BgpConfigParser::session_uuid("A", "B", j + 1);
-        BgpPeer *peer_a = a_->FindPeerByUuid(BgpConfigManager::kMasterInstance,
-                                             uuid);
-        BgpPeer *peer_b = b_->FindPeerByUuid(BgpConfigManager::kMasterInstance,
-                                             uuid);
-        TASK_UTIL_EXPECT_TRUE(peer_a->flap_count() > flap_count_a[j]);
-        TASK_UTIL_EXPECT_TRUE(peer_b->flap_count() > flap_count_b[j]);
-    }
     TASK_UTIL_EXPECT_EQ(a_asn_update_notification_cnt_, 0);
     TASK_UTIL_EXPECT_EQ(b_asn_update_notification_cnt_, 0);
 }

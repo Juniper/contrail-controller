@@ -202,7 +202,7 @@ private:
     WorkQueue<BgpXmppChannel *> queue_;
     XmppChannelMap channel_map_;
     int id_;
-    int asn_listner_id_;
+    int asn_listener_id_;
 
     DISALLOW_COPY_AND_ASSIGN(BgpXmppChannelManager);
 };

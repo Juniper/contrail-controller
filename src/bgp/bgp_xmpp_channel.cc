@@ -1756,7 +1756,7 @@ BgpXmppChannelManager::BgpXmppChannelManager(XmppServer *xmpp_server,
                boost::bind(&BgpXmppChannelManager::XmppHandleChannelEvent,
                            this, _1, _2));
     }
-    asn_listner_id_ = server->RegisterASNUpdateCallback(
+    asn_listener_id_ = server->RegisterASNUpdateCallback(
         boost::bind(&BgpXmppChannelManager::ASNUpdateCallback, this, _1));
 
     id_ = server->routing_instance_mgr()->RegisterInstanceOpCallback(
@@ -1772,7 +1772,7 @@ BgpXmppChannelManager::~BgpXmppChannelManager() {
 
     queue_.Shutdown();
     channel_map_.clear();
-    bgp_server_->UnregisterASNUpdateCallback(asn_listner_id_);
+    bgp_server_->UnregisterASNUpdateCallback(asn_listener_id_);
     bgp_server_->routing_instance_mgr()->UnregisterInstanceOpCallback(id_);
 }
 
