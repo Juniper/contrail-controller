@@ -36,6 +36,7 @@ struct BgpNeighborRoutingTable {
 struct BgpNeighborResp {
     1: string peer;             // Peer name
     2: string peer_address (link="BgpNeighborReq");
+    36: bool deleted;           // Deletion in progress
     3: u32 peer_asn;
     4: string local_address;    // local ip address and port
     5: u32 local_asn;
@@ -125,6 +126,7 @@ struct ShowRoute {
 struct ShowRouteTable {
     1: string routing_instance (link="ShowRoutingInstanceReq");
     2: string routing_table_name (link="ShowRouteReq");
+    9: bool deleted;
     3: u64 prefixes;
     4: u64 paths;
     5: u64 primary_paths;
@@ -168,6 +170,7 @@ response sandesh ShowRouteVrfResp {
 
 struct ShowRoutingInstanceTable {
     1: string name (link="ShowRouteReq"); // routing table name
+    13: bool deleted;
     2: list<string> peers;
     3: u64 prefixes;
     4: u64 paths;
@@ -185,6 +188,7 @@ struct ShowRoutingInstance {
     1: string name (link="ShowRoutingInstanceReq"); // Routing instance name
     3: string virtual_network;                      // Virtual network
     6: i32 vn_index;                                // Virtual network index
+    7: bool deleted;                                // Deletion in progress
     4: list<string> import_target;                  // Import Route targets
     5: list<string> export_target;                  // Export Route targets
     2: list<ShowRoutingInstanceTable> tables;

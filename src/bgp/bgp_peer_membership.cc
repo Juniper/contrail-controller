@@ -746,6 +746,7 @@ void PeerRibMembershipManager::FillRoutingInstanceInfo(
     }
 
     inst.set_name(table->name());
+    inst.set_deleted(table->IsDeleted());
     if (peers.size()) inst.set_peers(peers);
 }
 

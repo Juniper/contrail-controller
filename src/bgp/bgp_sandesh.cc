@@ -159,6 +159,7 @@ bool ShowRouteHandler::CallbackS1(const Sandesh *sr,
             ShowRouteTable srt;
             srt.set_routing_instance(i->first);
             srt.set_routing_table_name(table->name());
+            srt.set_deleted(table->IsDeleted());
 
             // Encode routing-table stats.
             srt.prefixes = table->Size();
@@ -208,6 +209,7 @@ int MergeValues(ShowRouteTable &result, vector<const ShowRouteTable *> &input,
     vector<const vector<ShowRoute> *> list;
     result.routing_instance = input[0]->routing_instance;
     result.routing_table_name = input[0]->routing_table_name;
+    result.deleted = input[0]->deleted;
     result.prefixes = input[0]->prefixes;
     result.primary_paths = input[0]->primary_paths;
     result.secondary_paths = input[0]->secondary_paths;
@@ -381,12 +383,13 @@ void ShowNeighborHandler::FillXmppNeighborInfo(
     BgpNeighborResp resp;
     resp.set_peer(channel->ToString());
     resp.set_peer_address(channel->remote_endpoint().address().to_string());
+    resp.set_deleted(channel->peer_deleted());
     resp.set_local_address(channel->local_endpoint().address().to_string());
     resp.set_peer_type("internal");
     resp.set_encoding("XMPP");
     resp.set_state(channel->StateName());
     PeerRibMembershipManager *mgr = channel->Peer()->server()->membership_mgr();
-    
+
     BgpPeer::FillBgpNeighborDebugState(resp, channel->Peer()->peer_stats());
 
     mgr->FillPeerMembershipInfo(channel->Peer(), resp);
@@ -712,6 +715,7 @@ public:
             inst.set_name(ri->name());
             inst.set_virtual_network(ri->virtual_network());
             inst.set_vn_index(ri->virtual_network_index());
+            inst.set_deleted(ri->deleted());
             std::vector<std::string> import_rt;
             BOOST_FOREACH(RouteTarget rt, ri->GetImportList()) {
                 import_rt.push_back(rt.ToString());
