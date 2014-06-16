@@ -58,6 +58,7 @@ public:
     void set_deleted(bool deleted) { deleted_ = deleted; }
     bool deleted() { return deleted_; }
     void RoutingInstanceCallback(std::string vrf_name, int op);
+    void ASNUpdateCallback(as_t old_asn);
 
 private:
     friend class BgpXmppChannelMock;
@@ -111,8 +112,9 @@ private:
     void ProcessEnetItem(std::string rt_instance,
                          const pugi::xml_node &item, bool add_change);
     void PublishRTargetRoute(RoutingInstance *instance, bool add_change);
-    void RTargetRouteOp(BgpTable *rtarget_table, const RouteTarget &rt, 
-                        BgpAttrPtr attr, bool add_change);
+    void RTargetRouteOp(BgpTable *rtarget_table, as4_t asn, 
+                    const RouteTarget &rt, BgpAttrPtr attr, bool add_change);
+    void ProcessASUpdate(as4_t old_as);
     void ProcessSubscriptionRequest(std::string rt_instance,
                                     const XmppStanza::XmppMessageIq *iq,
                                     bool add_change);
@@ -179,6 +181,7 @@ public:
     }
     bool IsReadyForDeletion();
     void RoutingInstanceCallback(std::string vrf_name, int op);
+    void ASNUpdateCallback(as_t old_asn);
 
     uint32_t count() const {
         return channel_map_.size();
@@ -199,6 +202,7 @@ private:
     WorkQueue<BgpXmppChannel *> queue_;
     XmppChannelMap channel_map_;
     int id_;
+    int asn_listner_id_;
 
     DISALLOW_COPY_AND_ASSIGN(BgpXmppChannelManager);
 };

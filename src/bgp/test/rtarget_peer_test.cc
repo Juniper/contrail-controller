@@ -25,6 +25,8 @@
 #include "bgp/l3vpn/inetvpn_table.h"
 #include "bgp/origin-vn/origin_vn.h"
 #include "bgp/routing-instance/rtarget_group_types.h"
+#include "bgp/rtarget/rtarget_prefix.h"
+#include "bgp/rtarget/rtarget_table.h"
 #include "bgp/security_group/security_group.h"
 #include "bgp/tunnel_encap/tunnel_encap.h"
 #include "bgp/test/bgp_server_test_util.h"
@@ -105,6 +107,21 @@ public:
 };
 
 
+static const char *config_update= "\
+<config>\
+    <routing-instance name='default-domain:default-project:ip-fabric:__default__'>\
+    <bgp-router name=\'CN1\'>\
+        <autonomous-system>64510</autonomous-system>\
+    </bgp-router>\
+    <bgp-router name=\'CN2\'>\
+        <autonomous-system>64510</autonomous-system>\
+    </bgp-router>\
+    <bgp-router name=\'MX\'>\
+        <autonomous-system>64510</autonomous-system>\
+    </bgp-router>\
+    </routing-instance>\
+</config>\
+";
 static const char *config_control_node= "\
 <config>\
     <routing-instance name='default-domain:default-project:ip-fabric:__default__'>\
@@ -400,6 +417,18 @@ protected:
         mx_->Configure(config);
     }
 
+    void UpdateASN() {
+        char config[4096];
+        snprintf(config, sizeof(config), "%s", config_update);
+        cn1_->Configure(config);
+        cn2_->Configure(config);
+        mx_->Configure(config);
+
+        VerifyAllPeerUp(cn1_.get());
+        VerifyAllPeerUp(cn2_.get());
+        VerifyAllPeerUp(mx_.get());
+    }
+
     int RouteCount(BgpServerTest *server, const string &instance_name) const {
         string tablename(instance_name);
         tablename.append(".inet.0");
@@ -412,6 +441,15 @@ protected:
         return table->Size();
     }
 
+    int RTargetRouteCount(BgpServerTest *server) const {
+        BgpTable *table = static_cast<BgpTable *>(
+            server->database()->FindTable("bgp.rtarget.0"));
+        EXPECT_TRUE(table != NULL);
+        if (table == NULL) {
+            return 0;
+        }
+        return table->Size();
+    }
 
     void AddRouteTarget(BgpServerTest *server, string name, string target) {
         TASK_UTIL_EXPECT_NE(static_cast<RoutingInstance *>(NULL),
@@ -433,6 +471,20 @@ protected:
                                       "instance-target");
     }
 
+    BgpRoute *RTargetRouteLookup(BgpServerTest *server, const string &prefix) {
+        BgpTable *table = static_cast<BgpTable *>(
+            server->database()->FindTable("bgp.rtarget.0"));
+        EXPECT_TRUE(table != NULL);
+        if (table == NULL) {
+            return NULL;
+        }
+        error_code error;
+        RTargetPrefix nlri = RTargetPrefix::FromString(prefix, &error);
+        EXPECT_FALSE(error);
+        RTargetTable::RequestKey key(nlri, NULL);
+        BgpRoute *rt = static_cast<BgpRoute *>(table->Find(&key));
+        return rt;
+    }
 
     BgpRoute *InetRouteLookup(BgpServerTest *server, const string &instance_name,
                               const string &prefix) {
@@ -824,6 +876,114 @@ TEST_F(RTargetPeerTest, HTTPIntro) {
     agent_a_2_->Unsubscribe("blue", -1, false); 
     agent_b_2_->Unsubscribe("blue", -1, false); 
 
+}
+
+TEST_F(RTargetPeerTest, BulkAddRt) {
+    AddInetRoute(mx_.get(), NULL, "blue", "1.1.2.3/32", 100);
+    AddRouteTarget(mx_.get(), "blue", "target:64496:1");
+    agent_a_1_->Subscribe("blue", 2); 
+    agent_b_1_->Subscribe("blue", 2); 
+    agent_a_2_->Subscribe("blue", 2); 
+    agent_b_2_->Subscribe("blue", 2); 
+
+    TASK_UTIL_WAIT_NE_NO_MSG(InetRouteLookup(mx_.get(), "blue", "1.1.2.3/32"),
+                             NULL, 1000, 10000, 
+                             "Wait for route in blue..");
+    TASK_UTIL_WAIT_NE_NO_MSG(InetRouteLookup(cn1_.get(), "blue", "1.1.2.3/32"),
+                             NULL, 1000, 10000, 
+                             "Wait for route in blue..");
+    TASK_UTIL_WAIT_NE_NO_MSG(InetRouteLookup(cn2_.get(), "blue", "1.1.2.3/32"),
+                             NULL, 1000, 10000, 
+                             "Wait for route in blue..");
+
+    std::vector<BgpServerTest *> to_play = list_of(cn1_.get())(cn2_.get())(mx_.get());
+    for (std::vector<BgpServerTest *>::iterator sit = to_play.begin(); sit != to_play.end(); sit++) {
+        std::vector<string> to_add = list_of("target:1:400")("target:64496:100")
+            ("target:64496:200")("target:64496:300")("target:64496:400")("target:64496:500");
+        for (std::vector<string>::iterator it = to_add.begin(); it != to_add.end(); it++) {
+            AddRouteTarget(*sit, "blue", *it);
+        }
+
+        for (std::vector<string>::iterator it = to_add.begin(); it != to_add.end(); it++) {
+            RemoveRouteTarget(*sit, "blue", *it);
+        }
+    }
+
+    agent_a_1_->Unsubscribe("blue", -1, false); 
+    agent_b_1_->Unsubscribe("blue", -1, false); 
+    agent_a_2_->Unsubscribe("blue", -1, false); 
+    agent_b_2_->Unsubscribe("blue", -1, false); 
+
+    DeleteInetRoute(mx_.get(), NULL, "blue", "1.1.2.3/32");
+}
+
+TEST_F(RTargetPeerTest, DuplicateUnsubscribe) {
+    agent_a_1_->Subscribe("blue", 2); 
+    agent_a_1_->Unsubscribe("blue", -1, false); 
+    agent_a_1_->Unsubscribe("blue", -1, false); 
+}
+
+TEST_F(RTargetPeerTest, ASNUpdate) {
+    TASK_UTIL_WAIT_EQ_NO_MSG(RTargetRouteLookup(cn1_.get(), "64512:target:64496:1"),
+                             NULL, 1000, 10000, 
+                             "Wait for route in rtarget table..");
+    TASK_UTIL_WAIT_EQ_NO_MSG(RTargetRouteLookup(cn2_.get(), "64512:target:64496:1"),
+                             NULL, 1000, 10000, 
+                             "Wait for route in rtarget table..");
+    VERIFY_EQ(4, RTargetRouteCount(cn1_.get()));
+    VERIFY_EQ(4, RTargetRouteCount(cn2_.get()));
+    agent_a_1_->Subscribe("blue", 2); 
+    agent_b_1_->Subscribe("blue", 2); 
+    agent_a_2_->Subscribe("blue", 2); 
+    agent_b_2_->Subscribe("blue", 2); 
+    TASK_UTIL_WAIT_NE_NO_MSG(RTargetRouteLookup(cn1_.get(), "64512:target:64496:1"),
+                             NULL, 1000, 10000, 
+                             "Wait for route in rtarget table..");
+    TASK_UTIL_WAIT_NE_NO_MSG(RTargetRouteLookup(cn2_.get(), "64512:target:64496:1"),
+                             NULL, 1000, 10000, 
+                             "Wait for route in rtarget table..");
+    VERIFY_EQ(5, RTargetRouteCount(cn1_.get()));
+    VERIFY_EQ(5, RTargetRouteCount(cn2_.get()));
+
+    UpdateASN();    
+
+    TASK_UTIL_WAIT_EQ_NO_MSG(RTargetRouteLookup(cn1_.get(), "64512:target:64496:1"),
+                             NULL, 1000, 10000, 
+                             "Wait for route in rtarget table..");
+    TASK_UTIL_WAIT_EQ_NO_MSG(RTargetRouteLookup(cn2_.get(), "64512:target:64496:1"),
+                             NULL, 1000, 10000, 
+                             "Wait for route in rtarget table..");
+
+    TASK_UTIL_WAIT_NE_NO_MSG(RTargetRouteLookup(cn1_.get(), "64510:target:64496:1"),
+                             NULL, 1000, 10000, 
+                             "Wait for route in rtarget table..");
+    TASK_UTIL_WAIT_NE_NO_MSG(RTargetRouteLookup(cn2_.get(), "64510:target:64496:1"),
+                             NULL, 1000, 10000, 
+                             "Wait for route in rtarget table..");
+
+    VERIFY_EQ(5, RTargetRouteCount(cn1_.get()));
+    VERIFY_EQ(5, RTargetRouteCount(cn2_.get()));
+
+    agent_a_1_->Unsubscribe("blue", -1, false); 
+    agent_b_1_->Unsubscribe("blue", -1, false); 
+    agent_a_2_->Unsubscribe("blue", -1, false); 
+    agent_b_2_->Unsubscribe("blue", -1, false); 
+
+    VERIFY_EQ(4, RTargetRouteCount(cn1_.get()));
+    VERIFY_EQ(4, RTargetRouteCount(cn2_.get()));
+
+    TASK_UTIL_WAIT_EQ_NO_MSG(RTargetRouteLookup(cn1_.get(), "64510:target:64496:1"),
+                             NULL, 1000, 10000, 
+                             "Wait for route in rtarget table..");
+    TASK_UTIL_WAIT_EQ_NO_MSG(RTargetRouteLookup(cn2_.get(), "64510:target:64496:1"),
+                             NULL, 1000, 10000, 
+                             "Wait for route in rtarget table..");
+    TASK_UTIL_WAIT_EQ_NO_MSG(RTargetRouteLookup(cn1_.get(), "64512:target:64496:1"),
+                             NULL, 1000, 10000, 
+                             "Wait for route in rtarget table..");
+    TASK_UTIL_WAIT_EQ_NO_MSG(RTargetRouteLookup(cn2_.get(), "64512:target:64496:1"),
+                             NULL, 1000, 10000, 
+                             "Wait for route in rtarget table..");
 }
 
 int main(int argc, char **argv) {
