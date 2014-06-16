@@ -28,6 +28,9 @@ local_sources = [
            'opserver_util.py',
            'sandesh_req_impl.py',
            'uveserver.py',
+           'log.py',
+           'stats.py',
+           'flow.py',
           ]
 
 local_sources_rules = []
