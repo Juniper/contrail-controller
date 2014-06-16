@@ -14,9 +14,9 @@ import sys
 import argparse
 import json
 import datetime
-import opserver.sandesh.viz.constants as VizConstants
-from opserver.sandesh.viz.ttypes import FlowRecordFields
-from opserver.opserver_util import OpServerUtils
+import sandesh.viz.constants as VizConstants
+from server.sandesh.viz.ttypes import FlowRecordFields
+from opserver_util import OpServerUtils
 
 class FlowQuerier(object):
 

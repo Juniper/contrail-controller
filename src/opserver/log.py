@@ -14,10 +14,10 @@ import sys
 import argparse
 import json
 import datetime
-from opserver.opserver_util import OpServerUtils
+from opserver_util import OpServerUtils
 from sandesh_common.vns.ttypes import Module
 from sandesh_common.vns.constants import ModuleNames, NodeTypeNames
-import opserver.sandesh.viz.constants as VizConstants
+import sandesh.viz.constants as VizConstants
 from pysandesh.gen_py.sandesh.ttypes import SandeshType, SandeshLevel
 
 OBJECT_TABLE_LIST = [table for table in VizConstants._OBJECT_TABLES]
