@@ -2162,7 +2162,12 @@ class VirtualMachineInterfaceST(DictST):
         vm_id = get_vm_id_from_interface(vmi_obj)
         if vm_id is None:
             return network_set
-        vm_obj = _vnc_lib.virtual_machine_read(id=vm_id)
+        try:
+            vm_obj = _vnc_lib.virtual_machine_read(id=vm_id)
+        except NoIdError:
+            _sandesh._logger.debug("NoIdError while reading virtual machine " +
+                                   vm_id)
+            return network_set
         vm_si_refs = vm_obj.get_service_instance_refs()
         if not vm_si_refs:
             return network_set
