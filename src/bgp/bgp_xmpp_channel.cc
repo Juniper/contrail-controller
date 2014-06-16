@@ -958,6 +958,10 @@ void BgpXmppChannel::ProcessItem(string vrf_name,
             }
         }
 
+        BgpAttrLocalPref local_pref(item.entry.local_preference);
+        if (local_pref.local_pref != 0)
+            attrs.push_back(&local_pref);
+
         BgpAttrNextHop nexthop(nh_address.to_v4().to_ulong());
         attrs.push_back(&nexthop);
 
