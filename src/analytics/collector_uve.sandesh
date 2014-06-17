@@ -9,6 +9,7 @@
 include "io/io.sandesh"
 include "sandesh/library/common/sandesh_uve.sandesh"
 include "gendb/gendb.sandesh"
+include "base/sandesh/connection_info.sandesh"
 
 struct SandeshStats {
     1: string                              message_type
@@ -128,6 +129,18 @@ struct CollectorState {
 
 uve sandesh CollectorInfo {
     1: CollectorState                      data
+}
+
+struct CollectorProcessStatus {
+    1: string name (key="ObjectCollectorInfo")
+    2: optional bool deleted
+    3: optional string status
+    4: optional list<connection_info.ProcessConnectivityStatus> connection_status (aggtype="union")
+    5: optional string description
+}
+
+uve sandesh CollectorStatus {
+    1: CollectorProcessStatus data
 }
 
 trace sandesh publish_uve_update {

@@ -30,7 +30,7 @@ env.Prepend(LIBS = ['dbtest', 'ifmap_vnc', 'task_test',
                     'pugixml', 'curl', 'net',
                     'ifmap_test_util', 'ifmap_server', 'ifmap_common',
                     'ifmapio', 'crypto', 'ssl',
-                    'sandesh', 'http', 'http_parser',
+                    'sandesh', 'http', 'http_parser', 'connection_info',
                     'db', 'sandeshvns', 'io', 'base', 'xml', 
                     'boost_regex', 'boost_program_options', 'gunit'])
 

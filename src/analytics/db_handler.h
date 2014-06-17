@@ -93,6 +93,8 @@ public:
 
     void SetDbQueueWaterMarkInfo(Sandesh::QueueWaterMarkInfo &wm);
     void ResetDbQueueWaterMarkInfo();
+    std::string GetHost() const;
+    int GetPort() const;
 
 private:
     bool CreateTables();

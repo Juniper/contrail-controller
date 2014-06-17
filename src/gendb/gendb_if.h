@@ -167,6 +167,9 @@ public:
     // Stats
     virtual bool Db_GetStats(std::vector<DbTableInfo> &vdbti,
         DbErrors &dbe) = 0;
+    // Connection
+    virtual std::string Db_GetHost() const = 0;
+    virtual int Db_GetPort() const = 0;
 
     static GenDbIf *GenDbIfImpl(DbErrorHandler hdlr, 
         std::string cassandra_ip, unsigned short cassandra_port, 

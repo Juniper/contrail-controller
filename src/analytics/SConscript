@@ -22,6 +22,7 @@ python = 'python'+full_version[0]+'.'+full_version[1]
 AnalyticsEnv.Append(CPPPATH = ['/usr/include/'+ python,
                                AnalyticsEnv['TOP'] + '/tools/sandesh/library/common',
                                AnalyticsEnv['TOP'] + '/io',
+                               AnalyticsEnv['TOP'],
                               ])
 AnalyticsEnv.Append(LIBS=['boost_python', python])
 
@@ -41,6 +42,7 @@ AnalyticsEnv.Prepend(LIBS=['cpuinfo',
         'cdb',
         'ruleparser',
         'xml',
+        'connection_info',
         'base',
         'io',
         'sandeshvns',

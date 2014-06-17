@@ -59,6 +59,14 @@ DbHandler::DbHandler(GenDb::GenDbIf *dbif) :
 DbHandler::~DbHandler() {
 }
 
+std::string DbHandler::GetHost() const {
+    return dbif_->Db_GetHost();
+}
+
+int DbHandler::GetPort() const {
+    return dbif_->Db_GetPort();
+}
+
 bool DbHandler::DropMessage(const SandeshHeader &header,
     const VizMsg *vmsg) {
     bool drop(DoDropSandeshMessage(header, drop_level_));
