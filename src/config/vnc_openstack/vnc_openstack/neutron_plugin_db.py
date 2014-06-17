@@ -2902,6 +2902,9 @@ class DBInterface(object):
         # if ip address passed then use it
         req_ip_addrs = []
         req_ip_subnets = []
+        port_q['id'] = port_id
+        port_obj = self._port_neutron_to_vnc(port_q, None, UPDATE)
+        net_id = port_obj.get_virtual_network_refs()[0]['uuid']
         fixed_ips = port_q.get('fixed_ips', [])
         for fixed_ip in fixed_ips:
             if 'ip_address' in fixed_ip:
@@ -2913,12 +2916,9 @@ class DBInterface(object):
             elif 'subnet_id' in fixed_ip:
                 req_ip_subnets.append(fixed_ip['subnet_id'])
 
-        port_q['id'] = port_id
-        port_obj = self._port_neutron_to_vnc(port_q, None, UPDATE)
         self._virtual_machine_interface_update(port_obj)
 
         if req_ip_addrs or req_ip_subnets:
-            net_id = port_obj.get_virtual_network_refs()[0]['uuid']
             net_obj = self._network_read(net_id)
             # initialize ip object
             if net_obj.get_network_ipam_refs():
