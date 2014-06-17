@@ -59,6 +59,8 @@ public:
     bool deleted() { return deleted_; }
     void RoutingInstanceCallback(std::string vrf_name, int op);
     void ASNUpdateCallback(as_t old_asn);
+    void FillInstanceMembershipInfo(BgpNeighborResp *resp);
+    void FillTableMembershipInfo(BgpNeighborResp *resp);
 
 private:
     friend class BgpXmppChannelMock;
@@ -86,9 +88,17 @@ private:
 
     };
 
-    // Set of routing instances to which this BgpXmppChannel is subscribed to
-    typedef std::map<RoutingInstance *, RoutingInstance::RouteTargetList> 
+    // Map of routing instances to which this BgpXmppChannel is subscribed.
+    struct SubscriptionState {
+        SubscriptionState(const RoutingInstance::RouteTargetList &targets,
+            int index) : targets(targets), index(index) {
+        }
+        RoutingInstance::RouteTargetList targets;
+        int index;
+    };
+    typedef std::map<RoutingInstance *, SubscriptionState>
         SubscribedRoutingInstanceList;
+
     // map of routing-instance table name to XMPP subscription request state
     typedef std::map<std::string, MembershipRequestState> 
                                             RoutingTableMembershipRequestMap;
@@ -111,7 +121,8 @@ private:
                           const pugi::xml_node &item, bool add_change);
     void ProcessEnetItem(std::string rt_instance,
                          const pugi::xml_node &item, bool add_change);
-    void PublishRTargetRoute(RoutingInstance *instance, bool add_change);
+    void PublishRTargetRoute(RoutingInstance *instance, bool add_change,
+                             int index);
     void RTargetRouteOp(BgpTable *rtarget_table, as4_t asn, 
                     const RouteTarget &rt, BgpAttrPtr attr, bool add_change);
     void ProcessASUpdate(as4_t old_as);

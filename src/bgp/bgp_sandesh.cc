@@ -385,11 +385,13 @@ void ShowNeighborHandler::FillXmppNeighborInfo(
     resp.set_peer_type("internal");
     resp.set_encoding("XMPP");
     resp.set_state(channel->StateName());
-    PeerRibMembershipManager *mgr = channel->Peer()->server()->membership_mgr();
-    
-    BgpPeer::FillBgpNeighborDebugState(resp, channel->Peer()->peer_stats());
 
+    PeerRibMembershipManager *mgr = channel->Peer()->server()->membership_mgr();
     mgr->FillPeerMembershipInfo(channel->Peer(), resp);
+    channel->FillTableMembershipInfo(&resp);
+    channel->FillInstanceMembershipInfo(&resp);
+
+    BgpPeer::FillBgpNeighborDebugState(resp, channel->Peer()->peer_stats());
     nbr_list->push_back(resp);
 }
 

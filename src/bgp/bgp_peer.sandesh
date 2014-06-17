@@ -25,9 +25,18 @@ request sandesh BgpNeighborReq {
     2: string domain;
 }
 
+struct BgpNeighborRoutingInstance {
+    1: string name;
+    2: string state;
+    3: u32 index;
+    4: list<string> import_targets;
+}
+
 struct BgpNeighborRoutingTable {
     1: string name;
-    2: string rib_state;
+    2: string current_state;
+    3: string current_request;
+    4: string pending_request;
     5: u32 active_prefixes;
     6: u32 received_prefixes;
     7: u32 accepted_prefixes;
@@ -61,6 +70,7 @@ struct BgpNeighborResp {
     26: u32 local_id;
     27: string local_interface;
     28: u32 active_holdtime;
+    36: list<BgpNeighborRoutingInstance> routing_instances;
     29: list<BgpNeighborRoutingTable> routing_tables;
     30: peer_info.PeerProtoStats rx_proto_stats;
     31: peer_info.PeerProtoStats tx_proto_stats;
