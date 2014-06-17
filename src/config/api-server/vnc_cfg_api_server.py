@@ -572,6 +572,7 @@ class VncApiServer(VncApiServerGen):
             'rabbit_user': 'guest',
             'rabbit_password': 'guest',
             'rabbit_vhost': None,
+            'resync_workers': 10,
         }
         # ssl options
         secopts = {
@@ -711,6 +712,9 @@ class VncApiServer(VncApiServerGen):
         parser.add_argument(
             "--rabbit_password",
             help="password for rabbit")
+        parser.add_argument(
+            "--resync_workers",
+            help="Number of workers used to rsync VNC from database")
         self._args = parser.parse_args(remaining_argv)
         self._args.config_sections = config
         if type(self._args.cassandra_server_list) is str:
@@ -820,7 +824,7 @@ class VncApiServer(VncApiServerGen):
         self._create_singleton_entry(
             RoutingInstance('__link_local__', link_local_vn))
 
-        self._db_conn.db_resync()
+        self._db_conn.db_resync(workers=self._args.resync_workers)
         try:
             self._extension_mgrs['resync'].map(self._resync_domains_projects)
         except Exception as e:
