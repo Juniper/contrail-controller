@@ -50,7 +50,8 @@ InterfaceKSyncEntry::InterfaceKSyncEntry(InterfaceKSyncObject *obj,
     layer3_forwarding_(entry->layer3_forwarding_),
     ksync_obj_(obj), l2_active_(false),
     layer2_forwarding_(entry->layer2_forwarding_),
-    mac_(entry->mac_), mirror_direction_(entry->mirror_direction_),
+    mac_(entry->mac_), smac_(entry->smac_),
+    mirror_direction_(entry->mirror_direction_),
     network_id_(entry->network_id_), os_index_(Interface::kInvalidIndex),
     parent_(entry->parent_), policy_enabled_(entry->policy_enabled_),
     sub_type_(entry->sub_type_), type_(entry->type_), vlan_id_(entry->vlan_id_),
@@ -65,7 +66,7 @@ InterfaceKSyncEntry::InterfaceKSyncEntry(InterfaceKSyncObject *obj,
     has_service_vlan_(false), interface_id_(intf->id()),
     interface_name_(intf->name()), ip_(0), ipv4_active_(false),
     layer3_forwarding_(true), ksync_obj_(obj), l2_active_(false),                
-    layer2_forwarding_(true), mac_(),                                          
+    layer2_forwarding_(true), mac_(), smac_(),
     mirror_direction_(Interface::UNKNOWN), os_index_(intf->os_index()), 
     parent_(NULL), policy_enabled_(false), sub_type_(InetInterface::VHOST),
     type_(intf->type()), vlan_id_(VmInterface::kInvalidVlanId),
@@ -248,30 +249,43 @@ bool InterfaceKSyncEntry::Sync(DBEntry *e) {
     }
 
     InterfaceTable *table = static_cast<InterfaceTable *>(intf->get_table());
-    MacAddress smac;
+    MacAddress dmac;
 
     switch (intf->type()) {
     case Interface::VM_INTERFACE:
     case Interface::PACKET:
-        smac = table->agent()->vrrp_mac();
+        dmac = table->agent()->vrrp_mac();
         break;
 
     case Interface::PHYSICAL:
     {
-        smac = intf->mac();
+        dmac = intf->mac();
         PhysicalInterface *phy_intf = static_cast<PhysicalInterface *>(intf);
         persistent_ = phy_intf->persistent();
         break;
     }
     case Interface::INET:
-        smac = intf->mac();
+        dmac = intf->mac();
         break;
     default:
         assert(0);
     }
 
-    if (smac != mac()) {
-        mac_ = smac;
+    if (dmac != mac()) {
+        mac_ = dmac;
+        ret = true;
+    }
+
+    // In VMWare VCenter mode, interface is assigned using the SMAC
+    // in packet. Store the SMAC for interface
+    MacAddress smac;
+    if (intf->type() == Interface::VM_INTERFACE &&
+        ksync_obj_->ksync()->agent()->isVmwareVcenterMode()) {
+        smac = intf->mac();
+    }
+
+    if (smac != smac_) {
+        smac_ = smac;
         ret = true;
     }
 
@@ -436,6 +450,8 @@ int InterfaceKSyncEntry::Encode(sandesh_op::type op, char *buf, int buf_len) {
 
     encoder.set_vifr_mac(std::vector<int8_t>((const int8_t *)mac(),
                                              (const int8_t *)mac() + mac().size()));
+    encoder.set_vifr_src_mac(std::vector<int8_t>((const int8_t *)smac(),
+                                                 (const int8_t *)smac() + smac().size()));
     encoder.set_vifr_flags(flags);
 
     encoder.set_vifr_vrf(vrf_id_);

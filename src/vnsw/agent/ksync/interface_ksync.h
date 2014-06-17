@@ -48,6 +48,7 @@ public:
             return parent->mac();
         }
     }
+    const MacAddress &smac() const {return smac_;}
 
     uint32_t interface_id() const {return interface_id_;}
     const string &interface_name() const {return interface_name_;}
@@ -80,6 +81,7 @@ private:
     bool l2_active_;
     bool layer2_forwarding_;
     MacAddress mac_;
+    MacAddress smac_;
     Interface::MirrorDirection mirror_direction_;
     int network_id_;
     size_t os_index_;

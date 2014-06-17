@@ -4,9 +4,12 @@
 
 #include <stdio.h>
 #include <stdlib.h>
+#include <boost/program_options.hpp>
 
 #include "testing/gunit.h"
 #include "test/test_cmn_util.h"
+
+namespace opt = boost::program_options;
 
 void RouterIdDepInit(Agent *agent) {
 }
@@ -14,6 +17,19 @@ void RouterIdDepInit(Agent *agent) {
 class VmwareTest : public ::testing::Test {
 public:
     virtual void SetUp() {
+        uint16_t http_server_port = ContrailPorts::HttpPortAgent;
+
+        desc.add_options()
+        ("help", "help message")
+        ("HYPERVISOR.type", opt::value<string>()->default_value("kvm"), 
+         "Type of hypervisor <kvm|xen|vmware>")
+        ("HYPERVISOR.vmware_physical_port", opt::value<string>(),
+         "Physical port used to connect to VMs in VMWare environment")
+        ("HYPERVISOR.vmware_mode",
+         opt::value<string>()->default_value("esxi_neutron"), 
+         "VMWare mode <esxi_neutron|vcenter>")
+            ;
+
         agent = Agent::GetInstance();
         param = agent->params();
 
@@ -28,6 +44,7 @@ public:
         WAIT_FOR(100, 1000, (agent->nexthop_table()->Size() == nh_count_));
         WAIT_FOR(100, 1000, (agent->vm_table()->Size() == 0U));
         WAIT_FOR(100, 1000, (agent->vn_table()->Size() == 0U));
+        var_map.clear();
     }
 
     AgentParam *param;
@@ -36,6 +53,9 @@ public:
     int intf_count_;
     int nh_count_;
     int vrf_count_;
+
+    opt::options_description desc;
+    opt::variables_map var_map;
 };
 
 // Validate the vmware parameters set in AgentParam
@@ -93,6 +113,79 @@ TEST_F(VmwareTest, VmwareVmPort_1) {
     client->WaitForIdle();
     EXPECT_FALSE(VmPortFind(1));
     client->Reset();
+}
+
+// Validate the vmware mode parameters
+TEST_F(VmwareTest, VmwareMode_1) {
+    AgentParam param(Agent::GetInstance());
+    param.Init("controller/src/vnsw/agent/cmn/test/cfg-vmware.ini",
+               "test-param", var_map);
+    EXPECT_EQ(param.mode(), AgentParam::MODE_VMWARE);
+    EXPECT_EQ(param.vmware_mode(), AgentParam::ESXI_NEUTRON);
+}
+
+TEST_F(VmwareTest, VmwareMode_2) {
+    AgentParam param(Agent::GetInstance());
+    param.Init("controller/src/vnsw/agent/cmn/test/cfg-vmware-1.ini",
+               "test-param", var_map);
+    EXPECT_EQ(param.mode(), AgentParam::MODE_VMWARE);
+    EXPECT_EQ(param.vmware_mode(), AgentParam::ESXI_NEUTRON);
+}
+
+TEST_F(VmwareTest, VmwareMode_3) {
+    AgentParam param(Agent::GetInstance());
+    param.Init("controller/src/vnsw/agent/cmn/test/cfg-vmware-2.ini",
+               "test-param", var_map);
+    EXPECT_EQ(param.mode(), AgentParam::MODE_VMWARE);
+    EXPECT_EQ(param.vmware_mode(), AgentParam::VCENTER);
+}
+
+TEST_F(VmwareTest, VmwareMode_4) {
+    int argc = 5;
+    char *argv[] = {
+        (char *) "",
+        (char *) "--HYPERVISOR.type",    (char *)"vmware",
+        (char *) "--HYPERVISOR.vmware_mode", (char *)"esxi_neutron"
+    };
+
+    try {
+        opt::store(opt::parse_command_line(argc, argv, desc), var_map);
+        opt::notify(var_map);
+    } catch (...) {
+        cout << "Invalid arguments. ";
+        cout << desc << endl;
+        exit(0);
+    }
+
+    AgentParam param(Agent::GetInstance());
+    param.Init("controller/src/vnsw/agent/cmn/test/cfg-vmware-2.ini",
+               "test-param", var_map);
+    EXPECT_EQ(param.mode(), AgentParam::MODE_VMWARE);
+    EXPECT_EQ(param.vmware_mode(), AgentParam::ESXI_NEUTRON);
+}
+
+TEST_F(VmwareTest, VmwareMode_5) {
+    int argc = 5;
+    char *argv[] = {
+        (char *) "",
+        (char *) "--HYPERVISOR.type",    (char *)"vmware",
+        (char *) "--HYPERVISOR.vmware_mode", (char *)"vcenter"
+    };
+
+    try {
+        opt::store(opt::parse_command_line(argc, argv, desc), var_map);
+        opt::notify(var_map);
+    } catch (...) {
+        cout << "Invalid arguments. ";
+        cout << desc << endl;
+        exit(0);
+    }
+
+    AgentParam param(Agent::GetInstance());
+    param.Init("controller/src/vnsw/agent/cmn/test/cfg-vmware-1.ini",
+               "test-param", var_map);
+    EXPECT_EQ(param.mode(), AgentParam::MODE_VMWARE);
+    EXPECT_EQ(param.vmware_mode(), AgentParam::VCENTER);
 }
 
 int main(int argc, char **argv) {
