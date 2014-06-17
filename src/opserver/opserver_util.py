@@ -600,8 +600,16 @@ class OpServerUtils(object):
         def __init__(self, name, value, op, value2=None):
             self.name = name
             self.value = value
+            try:
+                 self.value = json.loads(value)
+            except:
+                 self.value = value
+
             self.op = op
-            self.value2 = value2
+            try:
+                 self.value2 = json.loads(value2)
+            except:
+                 self.value2 = value2
         # end __init__
 
     # end class Match

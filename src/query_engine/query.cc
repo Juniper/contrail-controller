@@ -113,7 +113,12 @@ PostProcessingQuery::PostProcessingQuery(
                 std::string sort_str(json_sort_fields[i].GetString());
                 QE_TRACE(DEBUG, sort_str);
                 std::string datatype(m_query->get_column_field_datatype(sort_str));
-                QE_INVALIDARG_ERROR(datatype != std::string(""));
+                if (!m_query->is_stat_table_query()) {
+                    QE_INVALIDARG_ERROR(datatype != std::string(""));
+                } else if (m_query->stat_table_index()!=-1) {
+                    // This is a static StatTable. We can check the schema
+                    QE_INVALIDARG_ERROR(datatype != std::string(""));
+                }
                 QE_INVALIDARG_ERROR(
                     m_query->is_valid_sort_field(sort_str) != false);
                 sort_field_t sort_field(get_column_name(sort_str), datatype);
@@ -264,8 +269,11 @@ void AnalyticsQuery::get_query_details(bool& is_merge_needed, bool& is_map_outpu
         chunk_sizes.push_back(0); // just return some dummy value
     }
 
-    parse_status = status_details;
+    time_period = (end_time_ - from_time_) / 1000000;
 
+    parse_status = status_details;
+    if (parse_status != 0) return;
+    
     if (is_stat_table_query()) {
         is_merge_needed = selectquery_->stats_->IsMergeNeeded();
     } else {
@@ -273,11 +281,8 @@ void AnalyticsQuery::get_query_details(bool& is_merge_needed, bool& is_map_outpu
     }
 
     where = wherequery_->json_string_;
-    if (parse_status == 0) {
-        select = selectquery_->json_string_;
-        post = postprocess_->json_string_;
-    }
-    time_period = (end_time_ - from_time_) / 1000000;
+    select = selectquery_->json_string_;
+    post = postprocess_->json_string_;
     is_map_output = is_stat_table_query();
 }
 
@@ -1191,7 +1196,6 @@ int AnalyticsQuery::stat_table_index() {
         if (nm == this->table_) 
             return i;
     }
-    assert(!is_stat_table_query());
     return -1;
 }
 
@@ -1209,7 +1213,7 @@ bool AnalyticsQuery::is_valid_from_field(const std::string& from_field)
         if (it->first == from_field)
             return true;
     }
-    if (stat_table_index()!=-1) 
+    if (is_stat_table_query())
         return true;
 
     return false;
@@ -1246,22 +1250,24 @@ bool AnalyticsQuery::is_valid_where_field(const std::string& where_field)
             return false;
         }
     }
+
     int i = stat_table_index();
     if (i != -1) {
-        for (size_t j = 0; 
+        for (size_t j = 0;
              j < g_viz_constants._STAT_TABLES[i].attributes.size(); j++) {
             if ((g_viz_constants._STAT_TABLES[i].attributes[j].name ==
-                    where_field) & g_viz_constants._STAT_TABLES[i].attributes[j].index) 
+                    where_field) & g_viz_constants._STAT_TABLES[i].attributes[j].index)
                 return true;
         }
-        if (g_viz_constants.STAT_OBJECTID_FIELD == where_field) 
-            return true;        
-        if (g_viz_constants.STAT_SOURCE_FIELD == where_field) 
-            return true;        
+        if (g_viz_constants.STAT_OBJECTID_FIELD == where_field)
+            return true;
+        if (g_viz_constants.STAT_SOURCE_FIELD == where_field)
+            return true;
         return false;
     }
 
-    return false;
+    // For dynamic Stat Table queries, allow anything in the where clause
+    return is_stat_table_query();
 }
 
 bool AnalyticsQuery::is_valid_sort_field(const std::string& sort_field) {
@@ -1306,9 +1312,9 @@ std::string AnalyticsQuery::get_column_field_datatype(
     if (i != -1) {
         std::string sfield;
         QEOpServerProxy::AggOper agg;
-        QEOpServerProxy::VarType vt = StatsSelect::Parse(i, column_field, 
+        QEOpServerProxy::VarType vt = StatsSelect::Parse(i, column_field,
             sfield, agg);
-        if (vt == QEOpServerProxy::STRING) 
+        if (vt == QEOpServerProxy::STRING)
             return string("string");
         else if (vt == QEOpServerProxy::UINT64)
             return string("int");
@@ -1317,7 +1323,6 @@ std::string AnalyticsQuery::get_column_field_datatype(
         else
             return string("");
     }
-
     return std::string("");
 }
 

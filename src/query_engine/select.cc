@@ -466,13 +466,9 @@ query_status_t SelectQuery::process_query() {
             QE_IO_ERROR_RETURN(0, QUERY_FAILURE);
         }
 
-        int idx = m_query->stat_table_index();
-        QE_ASSERT(idx!=-1);
-
         //uint64_t parset=0;
         //uint64_t loadt=0;
         //uint64_t jsont=0;
-        std::map<std::string,QEOpServerProxy::VarType> vtmap;
         for (std::vector<query_result_unit_t>::iterator it = query_result.begin();
                 it != query_result.end(); it++) {
 
@@ -494,25 +490,16 @@ query_status_t SelectQuery::process_query() {
                     QE_ASSERT(itr->name.IsString());
 
                     //uint64_t thenp = UTCTimestampUsec();
-                    std::string vname(itr->name.GetString());
-                    QEOpServerProxy::VarType vt;
-                    std::map<std::string,QEOpServerProxy::VarType>::const_iterator vit = vtmap.find(vname);
-                    if (vit == vtmap.end()) {
-                        std::string sfield;
-                        QEOpServerProxy::AggOper agg;
-                        vt = StatsSelect::Parse(idx, vname, sfield, agg);
-                        vtmap.insert(std::make_pair( vname, vt));
-                    } else {
-                        vt = vit->second;
-                    }
+                    std::string fvname(itr->name.GetString());
+                    char tname = fvname[fvname.length()-1];
 
                     StatsSelect::StatEntry se;
-                    se.name = itr->name.GetString();
-                    if (vt == QEOpServerProxy::STRING) {
+                    se.name = fvname.substr(0,fvname.length()-2);
+                    if (tname == 's') {
                         se.value = itr->value.GetString();
-                    } else if (vt == QEOpServerProxy::UINT64) {
+                    } else if (tname == 'n') {
                         se.value = (uint64_t)itr->value.GetUint();
-                    } else if (vt == QEOpServerProxy::DOUBLE) {
+                    } else if (tname == 'd') {
                         if (itr->value.IsDouble())
                             se.value = (double) itr->value.GetDouble();
                         else

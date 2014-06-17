@@ -840,22 +840,27 @@ class OpServer(object):
                 if self._VIRTUAL_TABLES[i].name == tabl:
                     tabn = i
 
+            if (tabn is not None):
+                tabtypes = {}
+                for cols in self._VIRTUAL_TABLES[tabn].schema.columns:
+                    if cols.datatype in ['long', 'int']:
+                        tabtypes[cols.name] = 'int'
+                    elif cols.datatype in ['ipv4']:
+                        tabtypes[cols.name] = 'ipv4'
+                    else:
+                        tabtypes[cols.name] = 'string'
+
+                self._logger.info(str(tabtypes))
+
             if (tabn is None):
-                reply = bottle.HTTPError(_ERRORS[errno.ENOENT], 
-                            'Table %s not found' % tabl)
-                yield reply
-                return
-
-            tabtypes = {}
-            for cols in self._VIRTUAL_TABLES[tabn].schema.columns:
-                if cols.datatype in ['long', 'int']:
-                    tabtypes[cols.name] = 'int'
-                elif cols.datatype in ['ipv4']:
-                    tabtypes[cols.name] = 'ipv4'
+                if not tabl.startswith("StatTable."):
+                    reply = bottle.HTTPError(_ERRORS[errno.ENOENT], 
+                                'Table %s not found' % tabl)
+                    yield reply
+                    return
                 else:
-                    tabtypes[cols.name] = 'string'
+                    self._logger.info("Schema not known for dynamic table %s" % tabl)
 
-            self._logger.info(str(tabtypes))
             prg = redis_query_start('127.0.0.1',
                                     int(self._args.redis_query_port),
                                     qid, request.json)
