@@ -2158,7 +2158,14 @@ class VirtualMachineInterfaceST(DictST):
         # return all networks that refer to those policies
         if self.service_interface_type not in ['left', 'right']:
             return network_set
-        vmi_obj = _vnc_lib.virtual_machine_interface_read(fq_name_str=self.name)
+
+        try:
+            vmi_obj = _vnc_lib.virtual_machine_interface_read(fq_name_str=self.name)
+        except NoIdError:
+            _sandesh._logger.debug("NoIdError while reading virtual machine interface " +
+                                   self.name)
+            return network_set
+
         vm_id = get_vm_id_from_interface(vmi_obj)
         if vm_id is None:
             return network_set
