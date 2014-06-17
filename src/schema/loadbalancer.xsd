@@ -1,0 +1,150 @@
+<!--
+ Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
+ -->
+<xsd:schema
+    xmlns:xsd="http://www.w3.org/2001/XMLSchema"
+    xsd:targetNamespace="http://www.contrailsystems.com/loadbalancer.xsd">
+
+<xsd:simpleType name="UuidStringType">
+    <xsd:restriction base="xsd:string">
+        <xsd:pattern value=
+        "[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}"/>
+    </xsd:restriction>
+</xsd:simpleType>
+
+<xsd:simpleType name="HealthmonitorType">
+    <xsd:restriction base="xsd:string">
+        <xsd:enumeration value="PING"/>
+        <xsd:enumeration value="TCP"/>
+        <xsd:enumeration value="HTTP"/>
+        <xsd:enumeration value="HTTPS"/>
+    </xsd:restriction>
+</xsd:simpleType>
+
+<xsd:simpleType name="LoadbalancerProtocolType">
+    <xsd:restriction base="xsd:string">
+        <xsd:enumeration value="HTTP"/>
+        <xsd:enumeration value="HTTPS"/>
+        <xsd:enumeration value="TCP"/>
+    </xsd:restriction>
+</xsd:simpleType>
+
+<xsd:simpleType name="LoadbalancerMethodType">
+    <xsd:restriction base="xsd:string">
+        <xsd:enumeration value="ROUND_ROBIN"/>
+        <xsd:enumeration value="LEAST_CONNECTIONS"/>
+        <xsd:enumeration value="SOURCE_IP"/>
+    </xsd:restriction>
+</xsd:simpleType>
+
+<xsd:simpleType name="SessionPersistenceType">
+    <xsd:restriction base="xsd:string">
+        <xsd:enumeration value="SOURCE_IP"/>
+        <xsd:enumeration value="HTTP_COOKIE"/>
+        <xsd:enumeration value="APP_COOKIE"/>
+    </xsd:restriction>
+</xsd:simpleType>
+
+<xsd:element name="loadbalancer-pool" type="ifmap:IdentityType"/>
+<xsd:element name="project-loadbalancer-pool"/>
+<!--#IFMAP-SEMANTICS-IDL
+     Link('project-loadbalancer-pool',
+          'project', 'loadbalancer-pool', ['has']) -->
+
+<xsd:element name="loadbalancer-pool-service-instance"/>
+<!--#IFMAP-SEMANTICS-IDL
+     Link('loadbalancer-pool-service-instance',
+          'loadbalancer-pool', 'service-instance', ['ref']) -->
+
+<xsd:element name="loadbalancer-pool-properties" type="LoadbalancerPoolType"/>
+<!--#IFMAP-SEMANTICS-IDL
+     Property('loadbalancer-pool-properties', 'loadbalancer-pool') -->
+
+<xsd:complexType name='LoadbalancerPoolType'>
+    <xsd:sequence>
+        <xsd:element name='description' type='xsd:string'/>
+        <xsd:element name='status' type='xsd:string'/>
+        <xsd:element name='status-description' type='xsd:string'/>
+        <xsd:element name='admin-state' type='xsd:boolean' default='true'/>
+        <xsd:element name='protocol' type='LoadbalancerProtocolType'/>
+        <xsd:element name='loadbalancer-method' type='LoadbalancerMethodType'/>
+        <xsd:element name='subnet-id' type='UuidStringType'/>
+    </xsd:sequence>
+</xsd:complexType>
+
+<xsd:element name="loadbalancer-member" type="ifmap:IdentityType"/>
+<xsd:element name="loadbalancer-pool-loadbalancer-member"/>
+<!--#IFMAP-SEMANTICS-IDL
+     Link('loadbalancer-pool-loadbalancer-member',
+          'loadbalancer-pool', 'loadbalancer-member', ['has']) -->
+
+<xsd:element name="loadbalancer-member-properties" type="LoadbalancerMemberType"/>
+<!--#IFMAP-SEMANTICS-IDL
+     Property('loadbalancer-member-properties', 'loadbalancer-member') -->
+
+<xsd:complexType name='LoadbalancerMemberType'>
+    <xsd:sequence>
+        <xsd:element name='admin-state' type='xsd:boolean' default='true'/>
+        <xsd:element name='status' type='xsd:string'/>
+        <xsd:element name='status-description' type='xsd:string'/>
+        <xsd:element name='protocol-port' type='xsd:integer'/>
+        <xsd:element name='weight' type='xsd:integer'/>
+        <xsd:element name='address' type='IpAddressType'/>
+    </xsd:sequence>
+</xsd:complexType>
+
+
+<xsd:element name="loadbalancer-healthmonitor" type="ifmap:IdentityType"/>
+<xsd:element name="loadbalancer-pool-loadbalancer-healthmonitor"/>
+<!--#IFMAP-SEMANTICS-IDL
+     Link('loadbalancer-pool-loadbalancer-healthmonitor',
+          'loadbalancer-pool', 'loadbalancer-healthmonitor', ['ref']) -->
+
+<xsd:element name="loadbalancer-healthmonitor-properties" type="LoadbalancerHealthmonitorType"/>
+<!--#IFMAP-SEMANTICS-IDL
+     Property('loadbalancer-healthmonitor-properties', 'loadbalancer-healthmonitor') -->
+
+<xsd:complexType name='LoadbalancerHealthmonitorType'>
+    <xsd:sequence>
+        <xsd:element name='admin-state' type='xsd:boolean' default='true'/>
+        <xsd:element name='type' type='HealthmonitorType'/>
+        <xsd:element name='delay' type='xsd:integer'/>
+        <xsd:element name='timeout' type='xsd:integer'/>
+        <xsd:element name='max-retries' type='xsd:integer'/>
+        <xsd:element name='http-method' type='xsd:string'/>
+        <xsd:element name='url-path' type='xsd:string'/>
+        <xsd:element name='expected-codes' type='xsd:string'/>
+    </xsd:sequence>
+</xsd:complexType>
+
+<xsd:element name="virtual-ip" type="ifmap:IdentityType"/>
+<xsd:element name="virtual-ip-loadbalancer-pool"/>
+<!--#IFMAP-SEMANTICS-IDL
+     Link('virtual-ip-loadbalancer-pool',
+          'virtual-ip', 'loadbalancer-pool', ['ref']) -->
+
+<xsd:element name="virtual-ip-virtual-machine-interface"/>
+<!--#IFMAP-SEMANTICS-IDL
+     Link('virtual-ip-virtual-machine-interface',
+          'virtual-ip', 'virtual-machine-interface', ['ref']) -->
+
+<xsd:element name="virtual-ip-properties" type="VirtualIpType"/>
+<!--#IFMAP-SEMANTICS-IDL
+     Property('virtual-ip-properties', 'virtual-ip') -->
+
+<xsd:complexType name='VirtualIpType'>
+    <xsd:sequence>
+        <xsd:element name='description' type='xsd:string'/>
+        <xsd:element name='status' type='xsd:string'/>
+        <xsd:element name='status-description' type='xsd:string'/>
+        <xsd:element name='admin-state' type='xsd:boolean' default='true'/>
+        <xsd:element name='protocol' type='LoadbalancerProtocolType'/>
+        <xsd:element name='protocol-port' type='xsd:integer'/>
+        <xsd:element name='connection-limit' type='xsd:integer'/>
+        <xsd:element name='subnet-id' type='UuidStringType'/>
+        <xsd:element name='persistence-cookie-name' type='xsd:string'/>
+        <xsd:element name='persistence-type' type='SessionPersistenceType'/>
+    </xsd:sequence>
+</xsd:complexType>
+
+</xsd:schema>
