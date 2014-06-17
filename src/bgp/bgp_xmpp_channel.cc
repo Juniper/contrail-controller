@@ -19,6 +19,7 @@
 #include "bgp/bgp_factory.h"
 #include "bgp/bgp_log.h"
 #include "bgp/bgp_peer_membership.h"
+#include "bgp/bgp_peer_types.h"
 #include "bgp/bgp_ribout.h"
 #include "bgp/bgp_server.h"
 #include "bgp/inet/inet_table.h"
@@ -50,6 +51,8 @@ using std::auto_ptr;
 using std::string;
 using std::vector;
 using boost::system::error_code;
+
+using namespace std;
 
 BgpXmppChannel::Stats::Stats()
     : rt_updates(0), reach(0), unreach(0) {
@@ -96,7 +99,7 @@ public:
         for (SubscribedRoutingInstanceList::iterator 
              it = parent_->routing_instances_.begin(), next; 
              it != parent_->routing_instances_.end(); it++) {
-            BOOST_FOREACH(RouteTarget rtarget, it->second) {
+            BOOST_FOREACH(RouteTarget rtarget, it->second.targets) {
                 parent_->RTargetRouteOp(rtarget_table, 
                     parent_->bgp_server_->autonomous_system(), rtarget, 
                     NULL, false);
@@ -457,7 +460,7 @@ void BgpXmppChannel::ASNUpdateCallback(as_t old_asn) {
     // Delete the route and add with new ASN
     for (SubscribedRoutingInstanceList::iterator it = routing_instances_.begin();
          it != routing_instances_.end(); it++) {
-        RoutingInstance::RouteTargetList &cur_list = it->second;
+        RoutingInstance::RouteTargetList &cur_list = it->second.targets;
         for (RoutingInstance::RouteTargetList::iterator rt_it = cur_list.begin();
              rt_it != cur_list.end(); rt_it++) {
             RTargetRouteOp(rtarget_table, old_asn, *rt_it, NULL, false);
@@ -510,7 +513,7 @@ void BgpXmppChannel::RoutingInstanceCallback(std::string vrf_name,
             rt_instance->GetImportList();
 
         // Previous route target list for which the rtarget route was added
-        RoutingInstance::RouteTargetList &current = it->second;
+        RoutingInstance::RouteTargetList &current = it->second.targets;
         RoutingInstance::RouteTargetList::iterator cur_next_it, cur_it;
         cur_it = cur_next_it = current.begin();
         RoutingInstance::RouteTargetList::const_iterator new_it = 
@@ -1441,6 +1444,66 @@ void BgpXmppChannel::MembershipRequestCallback(IPeer *ipeer, BgpTable *table) {
     membership_response_worker_.Enqueue(table->name());
 }
 
+void BgpXmppChannel::FillInstanceMembershipInfo(BgpNeighborResp *resp) {
+    vector<BgpNeighborRoutingInstance> instance_list;
+    BOOST_FOREACH(SubscribedRoutingInstanceList::value_type &entry,
+        routing_instances_) {
+        BgpNeighborRoutingInstance instance;
+        instance.set_name(entry.first->name());
+        instance.set_state("subscribed");
+        instance.set_index(entry.second.index);
+        vector<string> import_targets;
+        BOOST_FOREACH(RouteTarget rt, entry.second.targets) {
+            import_targets.push_back(rt.ToString());
+        }
+        instance.set_import_targets(import_targets);
+        instance_list.push_back(instance);
+    }
+    BOOST_FOREACH(VrfMembershipRequestMap::value_type &entry,
+        vrf_membership_request_map_) {
+        BgpNeighborRoutingInstance instance;
+        instance.set_name(entry.first);
+        instance.set_state("pending");
+        instance.set_index(entry.second);
+        instance_list.push_back(instance);
+    }
+    resp->set_routing_instances(instance_list);
+}
+
+void BgpXmppChannel::FillTableMembershipInfo(BgpNeighborResp *resp) {
+    vector<BgpNeighborRoutingTable> old_table_list = resp->get_routing_tables();
+    set<string> old_table_set;
+    vector<BgpNeighborRoutingTable> new_table_list;
+
+    BOOST_FOREACH(const BgpNeighborRoutingTable &table, old_table_list) {
+        old_table_set.insert(table.get_name());
+        if (routingtable_membership_request_map_.find(table.get_name()) ==
+            routingtable_membership_request_map_.end()) {
+            new_table_list.push_back(table);
+        }
+    }
+
+    BOOST_FOREACH(RoutingTableMembershipRequestMap::value_type &entry,
+        routingtable_membership_request_map_) {
+        BgpNeighborRoutingTable table;
+        table.set_name(entry.first);
+        if (old_table_set.find(entry.first) != old_table_set.end())
+            table.set_current_state("subscribed");
+        const MembershipRequestState &state = entry.second;
+        if (state.current_req == SUBSCRIBE) {
+            table.set_current_request("subscribe");
+        } else {
+            table.set_current_request("unsubscribe");
+        }
+        if (state.pending_req == SUBSCRIBE) {
+            table.set_pending_request("subscribe");
+        } else {
+            table.set_pending_request("unsubscribe");
+        }
+        new_table_list.push_back(table);
+    }
+    resp->set_routing_tables(new_table_list);
+}
 
 void BgpXmppChannel::FlushDeferRegisterRequest() {
     // Erase all elements for the table
@@ -1473,7 +1536,7 @@ void BgpXmppChannel::FlushDeferQ(std::string vrf_name) {
 }
 
 void BgpXmppChannel::PublishRTargetRoute(RoutingInstance *rt_instance, 
-                                         bool add_change) {
+    bool add_change, int index) {
     // Add rtarget route for import route target of the routing instance.
     RoutingInstanceMgr *instance_mgr = bgp_server_->routing_instance_mgr();
     RoutingInstance *master = 
@@ -1492,10 +1555,11 @@ void BgpXmppChannel::PublishRTargetRoute(RoutingInstance *rt_instance,
         BgpAttrOrigin origin(BgpAttrOrigin::IGP);
         attrs.push_back(&origin);
         attr = bgp_server_->attr_db()->Locate(attrs);
-        std::pair<SubscribedRoutingInstanceList::iterator,bool> ret =
+        SubscriptionState state(rt_instance->GetImportList(), index);
+        std::pair<SubscribedRoutingInstanceList::iterator, bool> ret =
             routing_instances_.insert(
-                  std::pair<RoutingInstance*, RoutingInstance::RouteTargetList>
-                  (rt_instance, rt_instance->GetImportList()));
+                  std::pair<RoutingInstance *, SubscriptionState>
+                  (rt_instance, state));
         if (!ret.second) return;
         it = ret.first;
     } else {
@@ -1503,7 +1567,7 @@ void BgpXmppChannel::PublishRTargetRoute(RoutingInstance *rt_instance,
         if (it == routing_instances_.end()) return;
     }
 
-    BOOST_FOREACH(RouteTarget rtarget, it->second) {
+    BOOST_FOREACH(RouteTarget rtarget, it->second.targets) {
         RTargetRouteOp(rtarget_table, bgp_server_->autonomous_system(),
                        rtarget, attr, add_change);
     }
@@ -1515,7 +1579,7 @@ void BgpXmppChannel::PublishRTargetRoute(RoutingInstance *rt_instance,
 
 void BgpXmppChannel::ProcessDeferredSubscribeRequest(RoutingInstance *instance,
                                                      int instance_id) {
-    PublishRTargetRoute(instance, true);
+    PublishRTargetRoute(instance, true, instance_id);
     RoutingInstance::RouteTableList const rt_list = instance->GetTables();
     for (RoutingInstance::RouteTableList::const_iterator it = rt_list.begin();
          it != rt_list.end(); ++it) {
@@ -1599,7 +1663,7 @@ void BgpXmppChannel::ProcessSubscriptionRequest(
         }
     }
 
-    PublishRTargetRoute(rt_instance, add_change);
+    PublishRTargetRoute(rt_instance, add_change, instance_id);
 
     RoutingInstance::RouteTableList const rt_list = rt_instance->GetTables();
     for (RoutingInstance::RouteTableList::const_iterator it = rt_list.begin();
