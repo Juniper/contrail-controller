@@ -14,11 +14,14 @@ import sys
 import argparse
 import json
 import datetime
+import logging
+import logging.handlers
 from opserver_util import OpServerUtils
 from sandesh_common.vns.ttypes import Module
 from sandesh_common.vns.constants import ModuleNames, NodeTypeNames
 import sandesh.viz.constants as VizConstants
 from pysandesh.gen_py.sandesh.ttypes import SandeshType, SandeshLevel
+from pysandesh.sandesh_logger import SandeshLogger
 
 OBJECT_TABLE_LIST = [table for table in VizConstants._OBJECT_TABLES]
 
@@ -27,6 +30,7 @@ class LogQuerier(object):
 
     def __init__(self):
         self._args = None
+        self._slogger = None
     # end __init__
 
     # Public functions
@@ -49,6 +53,9 @@ class LogQuerier(object):
                           --raw
                           --trace BgpPeerTraceBuf
                           [--start-time now-10m --end-time now] | --last 10m
+                          --send-syslog
+                          --syslog-server 127.0.0.1
+                          --syslog-port 514
         """
         defaults = {
             'opserver_ip': '127.0.0.1',
@@ -94,6 +101,12 @@ class LogQuerier(object):
             choices=[VizConstants.OBJECT_LOG, VizConstants.SYSTEM_LOG])
         parser.add_argument("--trace", help="Dump trace buffer")
         parser.add_argument("--limit", help="Limit the number of messages")
+        parser.add_argument("--send-syslog", action="store_true",
+                            help="Send syslog to specified server and port")
+        parser.add_argument("--syslog-server",
+            help="IP address of syslog server", default='localhost')
+        parser.add_argument("--syslog-port", help="Port to send syslog to",
+            type=int, default=514)
 
         self._args = parser.parse_args()
 
@@ -326,10 +339,29 @@ class LogQuerier(object):
         return result
     # end query
 
+    def _output(self, log_str, sandesh_level):
+        if self._args.send_syslog:
+            syslog_level = SandeshLogger._SANDESH_LEVEL_TO_LOGGER_LEVEL[
+                sandesh_level]
+            self._logger.log(syslog_level, log_str)
+        else:
+            print log_str
+    #end _output
+
     def display(self, result):
         if result == [] or result is None:
             return
         messages_dict_list = result
+        # Setup logger and syslog handler
+        if self._args.send_syslog:
+            logger = logging.getLogger()
+            logger.setLevel(logging.DEBUG)
+            syslog_handler = logging.handlers.SysLogHandler(
+                address = (self._args.syslog_server, self._args.syslog_port))
+            contrail_formatter = logging.Formatter('contrail: %(message)s')
+            syslog_handler.setFormatter(contrail_formatter)
+            logger.addHandler(syslog_handler)
+            self._logger = logger
 
         for messages_dict in messages_dict_list:
 
@@ -368,14 +400,16 @@ class LogQuerier(object):
                 sandesh_type = messages_dict[VizConstants.SANDESH_TYPE]
             else:
                 sandesh_type = SandeshType.INVALID
+            # By default SYS_DEBUG
+            sandesh_level = SandeshLevel.SYS_DEBUG
             if self._args.object is None:
                 if VizConstants.CATEGORY in messages_dict:
                     category = messages_dict[VizConstants.CATEGORY]
                 else:
                     category = 'Category: NA'
                 if VizConstants.LEVEL in messages_dict:
-                    level = SandeshLevel._VALUES_TO_NAMES[
-                        messages_dict[VizConstants.LEVEL]]
+                    sandesh_level = messages_dict[VizConstants.LEVEL]
+                    level = SandeshLevel._VALUES_TO_NAMES[sandesh_level]
                 else:
                     level = 'Level: NA'
                 if VizConstants.SEQUENCE_NUM in messages_dict:
@@ -398,12 +432,15 @@ class LogQuerier(object):
                 else:
                     data_str = 'Data not present'
                 if self._args.trace is not None:
-                    print '{0} {1}:{2} {3}'.format(
+                    trace_str = '{0} {1}:{2} {3}'.format(
                         message_ts, message_type, seq_num, data_str)
+                    self._output(trace_str, sandesh_level)
                 else:
-                    print '{0} {1} [{2}:{3}:{4}:{5}][{6}] : {7}:{8} {9}'.format(
+                    log_str = \
+                        '{0} {1} [{2}:{3}:{4}:{5}][{6}] : {7}:{8} {9}'.format(
                         message_ts, source, node_type, module, instance_id,
                         category, level, message_type, seq_num, data_str)
+                    self._output(log_str, sandesh_level)
             else:
                 for obj_sel_field in self._args.object_select_field:
                     if obj_sel_field in messages_dict:
@@ -422,9 +459,10 @@ class LogQuerier(object):
                             else:
                                 data_str = messages_dict[obj_sel_field]
                         if data_str:
-                            print '{0} {1} [{2}:{3}:{4}] : {5}: {6}'.format(
-                                message_ts, source, node_type, module, instance_id,
-                                message_type, data_str)
+                            obj_str = '{0} {1} [{2}:{3}:{4}] : {5}: {6}'.format(
+                                message_ts, source, node_type, module,
+                                instance_id, message_type, data_str)
+                            self._output(obj_str, sandesh_level)
     # end display
 
 # end class LogQuerier
