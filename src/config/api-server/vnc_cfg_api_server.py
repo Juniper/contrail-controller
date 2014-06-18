@@ -426,7 +426,7 @@ class VncApiServer(VncApiServerGen):
             (ok, put_result) = r_class.http_put(obj_uuid, fq_name, obj_dict, self._db_conn)
             if not ok:
                 (code, msg) = put_result
-                self.config_object_error(id, None, obj_type, 'ref_update', msg)
+                self.config_object_error(obj_uuid, None, obj_type, 'ref_update', msg)
                 abort(code, msg)
         obj_type = obj_type.replace('-', '_')
         try:
