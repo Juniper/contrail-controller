@@ -293,6 +293,7 @@ void BgpRoute::FillRouteInfo(BgpTable *table, ShowRoute *show_route) {
                     srp.communities.push_back(sg.ToString());
                 } else if (ExtCommunity::is_tunnel_encap(*it)) {
                     TunnelEncap encap(*it);
+                    srp.communities.push_back(encap.ToString());
                     TunnelEncapType::Encap id = encap.tunnel_encap();
                     srp.tunnel_encap.push_back(
                                TunnelEncapType::TunnelEncapToString(id));
