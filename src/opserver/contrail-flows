@@ -2,7 +2,7 @@
 
 source /opt/contrail/analytics-venv/bin/activate
 
-python /opt/contrail/utils/flow.py $*
+python /opt/contrail/analytics-venv/lib/python2.7/site-packages/opserver/flow.py $*
 ret=$?
 
 deactivate
