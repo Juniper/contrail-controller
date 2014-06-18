@@ -2606,9 +2606,9 @@ class DBInterface(object):
             for p in rports:
                 for ip in p['fixed_ips']:
                     if ip['subnet_id'] == subnet_id:
-                        exc_info = {'type': 'RouterInUse',
-                                    'message': "Router %s still has ports " % rtr_uuid}
-                        bottle.abort(409, json.dumps(exc_info))
+                        exc_info = {'type': 'BadRequest',
+                                    'message': "Router already has a port on subnet %s" % subnet_id}
+                        bottle.abort(400, json.dumps(exc_info))
                     sub_id = ip['subnet_id']
                     subnet = self.subnet_read(sub_id)
                     cidr = subnet['cidr']
