@@ -3,6 +3,7 @@
  */
 
 #include <base/cpuinfo.h>
+#include <base/connection_info.h>
 #include <db/db.h>
 #include <cmn/agent_cmn.h>
 #include <oper/interface_common.h>
@@ -51,7 +52,49 @@ void AgentUve::Shutdown() {
 }
 
 void AgentUve::Init() {
+    Module::type module = Module::VROUTER_AGENT;
+    std::string module_id(g_vns_constants.ModuleNames.find(module)->second);
+    std::string instance_id(g_vns_constants.INSTANCE_ID_DEFAULT);
+    EventManager *evm = agent_->event_manager();
+    boost::asio::io_service &io = *evm->io_service();
+
     CpuLoadData::Init();
+    ConnectionStateManager<VrouterAgentStatus, VrouterAgentProcessStatus>::
+        GetInstance()->Init(io,
+            agent_->params()->host_name(), module_id, instance_id,
+            boost::bind(&AgentUve::VrouterAgentConnectivityStatus,
+                        this, _1, _2, _3));
+}
+
+void AgentUve::VrouterAgentConnectivityStatus
+    (const std::vector<ConnectionInfo> &cinfos,
+     ConnectivityStatus::type &cstatus, std::string &message) {
+    // Determine if the number of connections is expected:
+    // 1. Discovery:Collector 
+    // 2. Discovery:dns-server
+    // 3. Discovery:xmpp-server
+    size_t num_conns(cinfos.size());
+    if (num_conns != 3) {
+        cstatus = ConnectivityStatus::NON_FUNCTIONAL;
+        message = "Number of connections:" + integerToString(num_conns) +
+            ", Expected: 3";
+        return;
+    }
+    std::string cdown(g_connection_info_constants.ConnectionStatusNames.
+        find(ConnectionStatus::DOWN)->second);
+    // Iterate to determine process connectivity status
+    for (std::vector<ConnectionInfo>::const_iterator it = cinfos.begin();
+         it != cinfos.end(); it++) {
+        const ConnectionInfo &cinfo(*it);
+        const std::string &conn_status(cinfo.get_status());
+        if (conn_status == cdown) {
+            cstatus = ConnectivityStatus::NON_FUNCTIONAL;
+            message = cinfo.get_type() + ":" + cinfo.get_name();
+            return;
+        }
+    }
+    cstatus = ConnectivityStatus::FUNCTIONAL;
+    return;
 }
 
 void AgentUve::RegisterDBClients() {
