@@ -6,6 +6,7 @@
 #define vnsw_agent_vm_interface_hpp
 
 #include <vnc_cfg_types.h>
+#include <oper/oper_dhcp_options.h>
 /////////////////////////////////////////////////////////////////////////////
 // Implementation of VM Port interfaces
 /////////////////////////////////////////////////////////////////////////////
@@ -16,6 +17,7 @@ struct VmInterfaceConfigData;
 struct VmInterfaceIpAddressData;
 struct VmInterfaceOsOperStateData;
 struct VmInterfaceMirrorData;
+class OperDhcpOptions;
 
 /////////////////////////////////////////////////////////////////////////////
 // Definition for VmInterface
@@ -218,8 +220,9 @@ public:
         do_dhcp_relay_(false), vm_name_(),
         vm_project_uuid_(nil_uuid()), vxlan_id_(0), layer2_forwarding_(true),
         ipv4_forwarding_(true), mac_set_(false), vlan_id_(kInvalidVlanId),
-        parent_(NULL), sg_list_(), floating_ip_list_(), service_vlan_list_(),
-        static_route_list_(), vrf_assign_rule_list_(), vrf_assign_acl_(NULL) {
+        parent_(NULL), oper_dhcp_options_(), sg_list_(), floating_ip_list_(),
+        service_vlan_list_(), static_route_list_(), vrf_assign_rule_list_(),
+        vrf_assign_acl_(NULL) {
         ipv4_active_ = false;
         l2_active_ = false;
     }
@@ -237,9 +240,9 @@ public:
         do_dhcp_relay_(false), vm_name_(vm_name),
         vm_project_uuid_(vm_project_uuid), vxlan_id_(0),
         layer2_forwarding_(true), ipv4_forwarding_(true), mac_set_(false),
-        vlan_id_(vlan_id), parent_(parent), sg_list_(), floating_ip_list_(),
-        service_vlan_list_(), static_route_list_(), vrf_assign_rule_list_(),
-        vrf_assign_acl_(NULL) {
+        vlan_id_(vlan_id), parent_(parent), oper_dhcp_options_(), sg_list_(),
+        floating_ip_list_(), service_vlan_list_(), static_route_list_(),
+        vrf_assign_rule_list_(), vrf_assign_acl_(NULL) {
         ipv4_active_ = false;
         l2_active_ = false;
     }
@@ -283,6 +286,7 @@ public:
     const std::string &cfg_name() const { return cfg_name_; }
     uint16_t vlan_id() const { return vlan_id_; }
     const Interface *parent() const { return parent_.get(); }
+    const OperDhcpOptions &oper_dhcp_options() const { return oper_dhcp_options_; }
 
     Interface::MirrorDirection mirror_direction() const {
         return mirror_direction_;
@@ -471,6 +475,8 @@ private:
     // VLAN Tag and the parent interface when VLAN is enabled
     uint16_t vlan_id_;
     InterfaceRef parent_;
+    // DHCP options defined for the interface
+    OperDhcpOptions oper_dhcp_options_;
 
     // Lists
     SecurityGroupEntryList sg_list_;
@@ -585,7 +591,8 @@ struct VmInterfaceConfigData : public VmInterfaceData {
         vm_uuid_(), vm_name_(), vn_uuid_(), vrf_name_(""), fabric_port_(true),
         need_linklocal_ip_(false), layer2_forwarding_(true),
         ipv4_forwarding_(true), mirror_enable_(false), dhcp_enable_(true),
-        analyzer_name_(""), mirror_direction_(Interface::UNKNOWN), sg_list_(),
+        analyzer_name_(""), oper_dhcp_options_(),
+        mirror_direction_(Interface::UNKNOWN), sg_list_(),
         floating_ip_list_(), service_vlan_list_(), static_route_list_() {
     }
 
@@ -596,7 +603,7 @@ struct VmInterfaceConfigData : public VmInterfaceData {
         fabric_port_(true), need_linklocal_ip_(false), 
         layer2_forwarding_(true), ipv4_forwarding_(true), 
         mirror_enable_(false), dhcp_enable_(true), analyzer_name_(""),
-        mirror_direction_(Interface::UNKNOWN), sg_list_(),
+        oper_dhcp_options_(), mirror_direction_(Interface::UNKNOWN), sg_list_(),
         floating_ip_list_(), service_vlan_list_(), static_route_list_() {
     }
 
@@ -619,6 +626,7 @@ struct VmInterfaceConfigData : public VmInterfaceData {
     bool mirror_enable_;
     bool dhcp_enable_; // is DHCP enabled for the interface (from subnet config)
     std::string analyzer_name_;
+    OperDhcpOptions oper_dhcp_options_;
     Interface::MirrorDirection mirror_direction_;
     VmInterface::SecurityGroupEntryList sg_list_;
     VmInterface::FloatingIpList floating_ip_list_;

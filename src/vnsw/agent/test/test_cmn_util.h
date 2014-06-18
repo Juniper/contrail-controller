@@ -33,7 +33,8 @@ void AddNodeString(char *buff, int &len, const char *node_name,
                    const char *name, int id);
 void AddNodeString(char *buff, int &len, const char *nodename, const char *name,
                    IpamInfo *ipam, int count,
-                   const std::vector<std::string> *vm_host_routes = NULL);
+                   const std::vector<std::string> *vm_host_routes = NULL,
+                   const char *add_subnet_tags = NULL);
 void AddVmPortVrfNodeString(char *buff, int &len, const char *name, int id);
 void DelNodeString(char *buff, int &len, const char *node_name, const char *name);
 void ApplyXmlString(const char *buff); 
@@ -161,7 +162,7 @@ void ModifyForwardingModeVn(const string &name, int id, const string &fw_mode);
 void AddL2Vn(const char *name, int id);
 void AddVn(const char *name, int id);
 void DelVn(const char *name);
-void AddPort(const char *name, int id);
+void AddPort(const char *name, int id, const char *attr = NULL);
 void DelPort(const char *name);
 void AddAcl(const char *name, int id);
 void AddAcl(const char *name, int id, const char *src_vn, const char *dest_vn,
@@ -174,7 +175,8 @@ void AddFloatingIpPool(const char *name, int id);
 void DelFloatingIpPool(const char *name);
 void AddIPAM(const char *name, IpamInfo *ipam, int size, const char *ipam_attr = NULL,
              const char *vdns_name = NULL,
-             const std::vector<std::string> *vm_host_routes = NULL);
+             const std::vector<std::string> *vm_host_routes = NULL,
+             const char *add_subnet_tags = NULL);
 void DelIPAM(const char *name, const char *vdns_name = NULL);
 void AddVDNS(const char *vdns_name, const char *vdns_attr);
 void DelVDNS(const char *vdns_name);
@@ -190,13 +192,15 @@ void DeleteVmportFIpEnv(struct PortInfo *input, int count, int del_vn, int acl_i
                      const char *vn = NULL, const char *vrf = NULL);
 void CreateVmportEnvInternal(struct PortInfo *input, int count, int acl_id = 0,
                      const char *vn = NULL, const char *vrf = NULL, 
-                     bool l2_vn = false);
+                     const char *vm_interface_attr = NULL, bool l2_vn = false,
+                     bool with_ip = false);
 void CreateL2VmportEnv(struct PortInfo *input, int count, int acl_id = 0,
                      const char *vn = NULL, const char *vrf = NULL);
 void CreateVmportEnvWithoutIp(struct PortInfo *input, int count, int acl_id = 0,
                      const char *vn = NULL, const char *vrf = NULL);
 void CreateVmportEnv(struct PortInfo *input, int count, int acl_id = 0,
-                     const char *vn = NULL, const char *vrf = NULL);
+                     const char *vn = NULL, const char *vrf = NULL,
+                     const char *vm_interface_attr = NULL);
 void CreateVmportFIpEnv(struct PortInfo *input, int count, int acl_id = 0,
                      const char *vn = NULL, const char *vrf = NULL);
 void FlushFlowTable();
