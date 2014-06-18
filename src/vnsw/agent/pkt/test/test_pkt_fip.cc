@@ -1030,6 +1030,28 @@ TEST_F(FlowTest, DNAT_Fip_preference_over_policy_2) {
     client->WaitForIdle();
 }
 
+TEST_F(FlowTest, fip1_to_fip2_SNAT_DNAT) {
+    AddLink("virtual-machine-interface", "vnet5", "floating-ip", "fip_2");
+    client->WaitForIdle();
+    TxUdpPacket(vnet[1]->id(), vnet_addr[1], "2.1.1.99", 10, 20, 1, 1);
+    client->WaitForIdle();
+    EXPECT_EQ(2U, Agent::GetInstance()->pkt()->flow_table()->Size());
+
+    FlowEntry *fe = FlowGet(vnet[1]->vrf()->vrf_id(), vnet_addr[1], "2.1.1.99",
+                            IPPROTO_UDP, 10, 20);
+    FlowEntry *rfe = fe->reverse_flow_entry();
+    EXPECT_TRUE(fe->is_flags_set(FlowEntry::NatFlow));
+
+    // both Source and Destination NAT should be set
+    EXPECT_TRUE(fe->key().src.ipv4 != rfe->key().dst.ipv4);
+    EXPECT_TRUE(fe->key().dst.ipv4 != rfe->key().src.ipv4);
+
+    DelLink("virtual-machine-interface", "vnet5", "floating-ip", "fip_2");
+    client->WaitForIdle();
+
+    EXPECT_EQ(0U, Agent::GetInstance()->pkt()->flow_table()->Size());
+}
+
 int main(int argc, char *argv[]) {
     int ret = 0;
 
