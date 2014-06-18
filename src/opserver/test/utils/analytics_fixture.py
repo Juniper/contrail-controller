@@ -1475,7 +1475,7 @@ class AnalyticsFixture(fixtures.Fixture):
         where_clause.append('Category = ' + tracebuf)
         where_clause = ' AND '.join(where_clause)
         res = vns.post_query('MessageTable', start_time='-3m', end_time='now',
-                             select_fields=['MessageTS', 'Messagetype'],
+                             select_fields=['MessageTS', 'Type'],
                              where_clause=where_clause, filter='Type=4')
         if not res:
             return False

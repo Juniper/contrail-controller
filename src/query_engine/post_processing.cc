@@ -541,9 +541,11 @@ query_status_t PostProcessingQuery::process_query() {
                     iter = row.first.find(filter_and[k].name);
                     if (iter == row.first.end())
                       {
-                        if (!(filter_and[k].ignore_col_absence))
+                        if (!(filter_and[k].ignore_col_absence)) {
                             and_check = false;
-                        break;
+                            break;
+                        } 
+                        continue;
                       }
 
                     switch(filter_and[k].op)
