@@ -2247,7 +2247,7 @@ bool FlowGet(int vrf_id, const char *sip, const char *dip, uint8_t proto,
         if (entry->is_flags_set(FlowEntry::NatFlow) == true)
             ret = false;
 
-        if (reverse_nh_id != rev->key().nh)
+        if ((unsigned int) reverse_nh_id != rev->key().nh)
             ret = false;
 
         EXPECT_EQ(entry->key().protocol, rev->key().protocol);
@@ -2349,7 +2349,7 @@ bool FlowGet(const string &vrf_name, const char *sip, const char *dip,
             ret = false;
 
         if (rev_nh_id != -1) {
-            EXPECT_EQ(rev_nh_id, rev->key().nh);
+            EXPECT_EQ((unsigned int) rev_nh_id, rev->key().nh);
             ret = false;
         } else {
             //EXPECT_EQ((uint32_t) rflow_vrf, rev->key().vrf);
