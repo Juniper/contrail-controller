@@ -323,6 +323,7 @@ void Collector::GetGeneratorStats(vector<SandeshMessageStat> &smslist,
         gdbstats.set_name(gen->ToString());
         gdbstats.set_table_info(vdbti);
         gdbstats.set_errors(vdbe); 
+        gdbslist.push_back(gdbstats);
     }
 }
 

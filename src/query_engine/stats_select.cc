@@ -163,6 +163,7 @@ QEOpServerProxy::VarType StatsSelect::Parse(int sidx,
             "string", QEOpServerProxy::STRING)(
             "uuid", QEOpServerProxy::UUID)(
             "int", QEOpServerProxy::UINT64)(
+            "long", QEOpServerProxy::UINT64)(
             "double", QEOpServerProxy::DOUBLE);
 
         for (size_t k = 0; 

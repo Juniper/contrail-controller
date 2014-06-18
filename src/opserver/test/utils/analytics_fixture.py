@@ -1513,7 +1513,7 @@ class AnalyticsFixture(fixtures.Fixture):
         query = Query(table="StatTable.QueryPerfInfo.query_stats",
                             start_time="now-1h",
                             end_time="now",
-                            select_fields=["query_stats.rows","query_stats.table","query_stats.time"],
+                            select_fields=["query_stats.rows","table","query_stats.time"],
                             where=[[{"name":"query_stats.rows","value":0,"op":1}]])
         json_qstr = json.dumps(query.__dict__)
         res = vns.post_query_json(json_qstr)

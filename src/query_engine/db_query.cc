@@ -36,7 +36,7 @@ query_status_t DbQueryUnit::process_query()
         GenDb::DbDataValueVec rowkey;
 
         rowkey.push_back(t2);
-        if (m_query->is_flow_query() || 
+        if (m_query->is_flow_query() || m_query->is_stat_table_query() ||
             (m_query->is_object_table_query() && 
              cfname == g_viz_constants.OBJECT_TABLE)) {
             uint8_t partition_no = 0;
@@ -93,10 +93,10 @@ query_status_t DbQueryUnit::process_query()
                     uint32_t t1;
                     
                     if (m_query->is_stat_table_query()) {
-                        assert(i->name->size()==4);
-                        assert(i->value->size()==1);                        
+                        assert(i->value->size()==1);
+                        assert((i->name->size()==4)||(i->name->size()==3));
                         try {
-                            t1 = boost::get<uint32_t>(i->name->at(2));
+                            t1 = boost::get<uint32_t>(i->name->at(i->name->size()-2));
                         } catch (boost::bad_get& ex) {
                             assert(0);
                         }
@@ -136,7 +136,7 @@ query_status_t DbQueryUnit::process_query()
                         boost::uuids::uuid uuid;
 
                         try {
-                            uuid = boost::get<boost::uuids::uuid>(i->name->at(3));
+                            uuid = boost::get<boost::uuids::uuid>(i->name->at(i->name->size()-1));
                         } catch (boost::bad_get& ex) {
                             QE_ASSERT(0);
                         } catch (const std::out_of_range& oor) {
