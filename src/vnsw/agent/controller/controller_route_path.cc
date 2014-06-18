@@ -109,12 +109,12 @@ bool ControllerVmRoute::AddChangePath(Agent *agent, AgentPath *path) {
         (tunnel_bmap_ != (1 << TunnelType::VXLAN) &&
          (new_tunnel_type == TunnelType::VXLAN))) {
         new_tunnel_type = TunnelType::INVALID;
-        nh_req_.key.reset(new TunnelNHKey(agent->GetDefaultVrf(),
-                                          agent->GetRouterId(), server_ip_,
+        nh_req_.key.reset(new TunnelNHKey(agent->fabric_vrf_name(),
+                                          agent->router_id(), server_ip_,
                                           false, new_tunnel_type));
     }
     agent->nexthop_table()->Process(nh_req_);
-    TunnelNHKey key(agent->GetDefaultVrf(), agent->GetRouterId(), server_ip_,
+    TunnelNHKey key(agent->fabric_vrf_name(), agent->router_id(), server_ip_,
                     false, new_tunnel_type);
     nh = static_cast<NextHop *>(agent->nexthop_table()->FindActiveEntry(&key));
     path->set_server_ip(server_ip_);

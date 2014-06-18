@@ -120,23 +120,23 @@ void InterfaceTable::Delete(DBEntry *entry, const DBRequest *req) {
 VrfEntry *InterfaceTable::FindVrfRef(const string &name) const {
     VrfKey key(name);
     return static_cast<VrfEntry *>
-        (agent_->GetVrfTable()->FindActiveEntry(&key));
+        (agent_->vrf_table()->FindActiveEntry(&key));
 }
 
 VmEntry *InterfaceTable::FindVmRef(const uuid &uuid) const {
     VmKey key(uuid);
-    return static_cast<VmEntry *>(agent_->GetVmTable()->FindActiveEntry(&key));
+    return static_cast<VmEntry *>(agent_->vm_table()->FindActiveEntry(&key));
 }
 
 VnEntry *InterfaceTable::FindVnRef(const uuid &uuid) const {
     VnKey key(uuid);
-    return static_cast<VnEntry *>(agent_->GetVnTable()->FindActiveEntry(&key));
+    return static_cast<VnEntry *>(agent_->vn_table()->FindActiveEntry(&key));
 }
 
 MirrorEntry *InterfaceTable::FindMirrorRef(const string &name) const {
     MirrorEntryKey key(name);
     return static_cast<MirrorEntry *>
-        (agent_->GetMirrorTable()->FindActiveEntry(&key));
+        (agent_->mirror_table()->FindActiveEntry(&key));
 }
 
 DBTableBase *InterfaceTable::CreateTable(DB *db, const std::string &name) {
@@ -207,7 +207,7 @@ void InterfaceTable::VmInterfaceWalkDone(DBTableBase *partition) {
 }
 
 void InterfaceTable::UpdateVxLanNetworkIdentifierMode() {
-    DBTableWalker *walker = agent_->GetDB()->GetWalker();
+    DBTableWalker *walker = agent_->db()->GetWalker();
     if (walkid_ != DBTableWalker::kInvalidWalkerId) {
         walker->WalkCancel(walkid_);
     }

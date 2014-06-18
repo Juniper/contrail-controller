@@ -192,7 +192,7 @@ void ValidateSubnetReceiveRoute(uint32_t count) {
     for (uint32_t i = 0; i < count; ++i) {
         for (uint32_t j = 0; j < i+1; ++j) {
             Inet4UnicastRouteEntry *route;
-            route = RouteGet(Agent::GetInstance()->GetDefaultVrf(),
+            route = RouteGet(Agent::GetInstance()->fabric_vrf_name(),
                              Ip4Address::from_string(subnet_list[i][j]), 24);
             EXPECT_TRUE(route != NULL);
             if (route == NULL)
@@ -287,7 +287,7 @@ void ValidateVgwDelete(uint32_t count, uint32_t route_count,
 
         for (uint32_t j = 0; j < i+1; ++j) {
             Inet4UnicastRouteEntry *route;
-            route = RouteGet(Agent::GetInstance()->GetDefaultVrf(),
+            route = RouteGet(Agent::GetInstance()->fabric_vrf_name(),
                              Ip4Address::from_string(subnet_list[i][j]), 24);
             EXPECT_TRUE(route == NULL);
         }
@@ -520,7 +520,7 @@ TEST_F(DynamicVgwTest, Reconnect) {
 
         for (uint32_t j = 0; j < i+1; ++j) {
             Inet4UnicastRouteEntry *route;
-            route = RouteGet(Agent::GetInstance()->GetDefaultVrf(),
+            route = RouteGet(Agent::GetInstance()->fabric_vrf_name(),
                              Ip4Address::from_string(subnet_list[i][j]), 24);
             EXPECT_TRUE(route == NULL);
         }

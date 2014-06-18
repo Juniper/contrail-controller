@@ -124,7 +124,7 @@ TEST_F(CfgTest, FloatingIp_1) {
     AddVn("vn2", 2);
     client->WaitForIdle();
     EXPECT_TRUE(client->VnNotifyWait(2));
-    EXPECT_EQ(2U, Agent::GetInstance()->GetVnTable()->Size());
+    EXPECT_EQ(2U, Agent::GetInstance()->vn_table()->Size());
 
     AddLink("virtual-network", "vn1", "routing-instance", "vn1:vn1");
     AddLink("virtual-network", "vn2", "routing-instance", "vn2:vn2");
@@ -190,8 +190,8 @@ TEST_F(CfgTest, FloatingIp_1) {
     EXPECT_TRUE(RouteFind("vn2:vn2", Ip4Address::from_string("2.2.2.2"), 32));
     EXPECT_TRUE(RouteFind("vn2:vn2", Ip4Address::from_string("2.2.2.100"), 32));
 
-    PhysicalInterface::CreateReq(Agent::GetInstance()->GetInterfaceTable(),
-                            "enet1", Agent::GetInstance()->GetDefaultVrf());
+    PhysicalInterface::CreateReq(Agent::GetInstance()->interface_table(),
+                            "enet1", Agent::GetInstance()->fabric_vrf_name());
     client->WaitForIdle();
 
     AddArp("10.1.1.2", "00:00:00:00:00:02", "enet1");
@@ -231,7 +231,7 @@ TEST_F(CfgTest, FloatingIp_1) {
     DelLink("virtual-network", "vn1", "routing-instance", "vn1:vn1");
     DelLink("virtual-network", "vn2", "routing-instance", "vn2:vn2");
 
-    PhysicalInterface::DeleteReq(Agent::GetInstance()->GetInterfaceTable(), "enet1");
+    PhysicalInterface::DeleteReq(Agent::GetInstance()->interface_table(), "enet1");
     client->WaitForIdle();
 
     EXPECT_TRUE(VmPortInactive(input, 0));

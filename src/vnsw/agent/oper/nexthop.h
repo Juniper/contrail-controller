@@ -1298,7 +1298,7 @@ public:
         DBRequest req;
         req.key.reset(key);
         req.data.reset(NULL);
-        Agent::GetInstance()->GetNextHopTable()->Enqueue(&req);
+        Agent::GetInstance()->nexthop_table()->Enqueue(&req);
     }
 
     virtual void OnZeroRefcount(AgentDBEntry *e);

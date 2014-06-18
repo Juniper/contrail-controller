@@ -22,7 +22,7 @@ PktModule::~PktModule() {
 }
 
 void PktModule::Init(bool run_with_vrouter) {
-    EventManager *event = agent_->GetEventManager();
+    EventManager *event = agent_->event_manager();
     boost::asio::io_service &io = *event->io_service();
     std::string ifname(agent_->pkt_interface_name());
 

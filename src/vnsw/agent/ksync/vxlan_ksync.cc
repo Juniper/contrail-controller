@@ -152,7 +152,7 @@ VxLanKSyncObject::~VxLanKSyncObject() {
 }
 
 void VxLanKSyncObject::RegisterDBClients() {
-    RegisterDb(ksync_->agent()->GetVxLanTable());
+    RegisterDb(ksync_->agent()->vxlan_table());
 }
 
 KSyncEntry *VxLanKSyncObject::Alloc(const KSyncEntry *entry, uint32_t index) {

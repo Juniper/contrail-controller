@@ -17,17 +17,17 @@ public:
         agent = Agent::GetInstance();
         param = agent->params();
 
-        intf_count_ = agent->GetInterfaceTable()->Size();
-        nh_count_ = agent->GetNextHopTable()->Size();
-        vrf_count_ = agent->GetVrfTable()->Size();
+        intf_count_ = agent->interface_table()->Size();
+        nh_count_ = agent->nexthop_table()->Size();
+        vrf_count_ = agent->vrf_table()->Size();
     }
 
     virtual void TearDown() {
-        WAIT_FOR(100, 1000, (agent->GetInterfaceTable()->Size() == intf_count_));
-        WAIT_FOR(100, 1000, (agent->GetVrfTable()->Size() == vrf_count_));
-        WAIT_FOR(100, 1000, (agent->GetNextHopTable()->Size() == nh_count_));
-        WAIT_FOR(100, 1000, (agent->GetVmTable()->Size() == 0U));
-        WAIT_FOR(100, 1000, (agent->GetVnTable()->Size() == 0U));
+        WAIT_FOR(100, 1000, (agent->interface_table()->Size() == intf_count_));
+        WAIT_FOR(100, 1000, (agent->vrf_table()->Size() == vrf_count_));
+        WAIT_FOR(100, 1000, (agent->nexthop_table()->Size() == nh_count_));
+        WAIT_FOR(100, 1000, (agent->vm_table()->Size() == 0U));
+        WAIT_FOR(100, 1000, (agent->vn_table()->Size() == 0U));
     }
 
     AgentParam *param;
@@ -50,11 +50,11 @@ TEST_F(VmwareTest, VmwarePhysicalPort_1) {
     // Validate the both IP Fabric and VM physical interfaces are present
     PhysicalInterfaceKey key(param->vmware_physical_port());
     Interface *intf = static_cast<Interface *>
-        (agent->GetInterfaceTable()->Find(&key, false));
+        (agent->interface_table()->Find(&key, false));
     EXPECT_TRUE(intf != NULL);
 
-    PhysicalInterfaceKey key1(agent->GetIpFabricItfName());
-    EXPECT_TRUE((agent->GetInterfaceTable()->Find(&key1, false)) != NULL);
+    PhysicalInterfaceKey key1(agent->fabric_interface_name());
+    EXPECT_TRUE((agent->interface_table()->Find(&key1, false)) != NULL);
 }
 
 // Create a VM VLAN interface

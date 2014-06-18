@@ -649,11 +649,11 @@ inline void intrusive_ptr_release(const NhState *nh_state) {
 class NhListener {
 public:
     NhListener() {
-        id_ = Agent::GetInstance()->GetNextHopTable()->
+        id_ = Agent::GetInstance()->nexthop_table()->
               Register(boost::bind(&NhListener::Notify, this, _1, _2));
     }
     ~NhListener() {
-        Agent::GetInstance()->GetNextHopTable()->Unregister(id_);
+        Agent::GetInstance()->nexthop_table()->Unregister(id_);
     }
     void Notify(DBTablePartBase *part, DBEntryBase *e);
     DBTableBase::ListenerId id() {

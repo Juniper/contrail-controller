@@ -72,5 +72,5 @@ void VrfTranslateAction::SetActionSandeshData(std::vector<ActionStr> &actions) {
 }
 
 MirrorAction::~MirrorAction() {
-    //Agent::GetMirrorTable()->DelMirrorEntry(analyzer_name_);
+    //Agent::mirror_table()->DelMirrorEntry(analyzer_name_);
 }

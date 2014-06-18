@@ -203,7 +203,7 @@ TEST_F(NovaInfoServerTest, IntrospecPortAdd) {
     Sandesh::set_response_callback(boost::bind(PortReqResponse, _1, std::string("Success")));
     req->HandleRequest();
     client->WaitForIdle();
-    EXPECT_EQ(1, Agent::GetInstance()->GetIntfCfgTable()->Size());
+    EXPECT_EQ(1, Agent::GetInstance()->interface_config_table()->Size());
     req->Release();
 }
 
@@ -214,7 +214,7 @@ TEST_F(NovaInfoServerTest, IntrospecPortDelete) {
     Sandesh::set_response_callback(boost::bind(PortReqResponse, _1, std::string("Success")));
     req->HandleRequest();
     client->WaitForIdle();
-    EXPECT_EQ(0, Agent::GetInstance()->GetIntfCfgTable()->Size());
+    EXPECT_EQ(0, Agent::GetInstance()->interface_config_table()->Size());
     req->Release();
 }
 
@@ -251,44 +251,44 @@ TEST_F(NovaInfoClientServerTest, KeepAliveTest) {
 TEST_F(NovaInfoClientServerTest, PortAdd) {
     // Add and delete port check the status of the cfg intf db
     AddVmPort(client_service, 1, 1, 1);
-    CfgIntTable *cfgtable = Agent::GetInstance()->GetIntfCfgTable();
+    CfgIntTable *cfgtable = Agent::GetInstance()->interface_config_table();
     CfgIntKey key(MakeUuid(1));
-    TASK_UTIL_EXPECT_EQ(1, Agent::GetInstance()->GetIntfCfgTable()->Size());
+    TASK_UTIL_EXPECT_EQ(1, Agent::GetInstance()->interface_config_table()->Size());
     CfgIntEntry *cfg_entry;
     TASK_UTIL_EXPECT_NE((CfgIntEntry *)NULL, 
                         (cfg_entry = 
-                         static_cast<CfgIntEntry *>(Agent::GetInstance()->GetIntfCfgTable()->Find(&key))));
+                         static_cast<CfgIntEntry *>(Agent::GetInstance()->interface_config_table()->Find(&key))));
     EXPECT_EQ(cfg_entry->GetVersion(), 1);
 }
 
 TEST_F(NovaInfoClientServerTest, PortDelete) {
-    CfgIntTable *cfgtable = Agent::GetInstance()->GetIntfCfgTable();
+    CfgIntTable *cfgtable = Agent::GetInstance()->interface_config_table();
     CfgIntKey key(MakeUuid(1));
-    TASK_UTIL_EXPECT_EQ(1, Agent::GetInstance()->GetIntfCfgTable()->Size());
+    TASK_UTIL_EXPECT_EQ(1, Agent::GetInstance()->interface_config_table()->Size());
     CfgIntEntry *cfg_entry;
     TASK_UTIL_EXPECT_NE((CfgIntEntry *)NULL, 
                         (cfg_entry = 
-                         static_cast<CfgIntEntry *>(Agent::GetInstance()->GetIntfCfgTable()->Find(&key))));
+                         static_cast<CfgIntEntry *>(Agent::GetInstance()->interface_config_table()->Find(&key))));
     EXPECT_EQ(cfg_entry->GetVersion(), 1);
     DelVmPort(client_service, 1);
-    TASK_UTIL_EXPECT_EQ(0, Agent::GetInstance()->GetIntfCfgTable()->Size());
-    TASK_UTIL_EXPECT_EQ(base_port_count, Agent::GetInstance()->GetInterfaceTable()->Size());
+    TASK_UTIL_EXPECT_EQ(0, Agent::GetInstance()->interface_config_table()->Size());
+    TASK_UTIL_EXPECT_EQ(base_port_count, Agent::GetInstance()->interface_table()->Size());
 }
 
 TEST_F(NovaInfoClientServerTest, ReconnectVersionCheck) {
     AddVmPort(client_service, 1, 1, 1);
     ConnectToServer(client_service);
-    CfgIntTable *cfgtable = Agent::GetInstance()->GetIntfCfgTable();
+    CfgIntTable *cfgtable = Agent::GetInstance()->interface_config_table();
     CfgIntKey key(MakeUuid(1));
-    TASK_UTIL_EXPECT_EQ(1, Agent::GetInstance()->GetIntfCfgTable()->Size());
+    TASK_UTIL_EXPECT_EQ(1, Agent::GetInstance()->interface_config_table()->Size());
     CfgIntEntry *cfg_entry;
     TASK_UTIL_EXPECT_NE((CfgIntEntry *)NULL, 
                         (cfg_entry = 
-                         static_cast<CfgIntEntry *>(Agent::GetInstance()->GetIntfCfgTable()->Find(&key))));
+                         static_cast<CfgIntEntry *>(Agent::GetInstance()->interface_config_table()->Find(&key))));
     EXPECT_EQ(cfg_entry->GetVersion(), 1);
     DelVmPort(client_service, 1);
-    TASK_UTIL_EXPECT_EQ(0, Agent::GetInstance()->GetIntfCfgTable()->Size());
-    TASK_UTIL_EXPECT_EQ(base_port_count, Agent::GetInstance()->GetInterfaceTable()->Size());
+    TASK_UTIL_EXPECT_EQ(0, Agent::GetInstance()->interface_config_table()->Size());
+    TASK_UTIL_EXPECT_EQ(base_port_count, Agent::GetInstance()->interface_table()->Size());
 }
 
 TEST_F(NovaInfoClientServerTest, MultiPortAddDelete) {
@@ -307,7 +307,7 @@ TEST_F(NovaInfoClientServerTest, MultiPortAddDelete) {
     client_service->AddPort(pl).setCallback(
         boost::bind(&AddPortCallback,
                     port3.port_id, port3.tap_name, _1)).setErrback(AddPortErrback);
-    TASK_UTIL_EXPECT_EQ(3, Agent::GetInstance()->GetIntfCfgTable()->Size());
+    TASK_UTIL_EXPECT_EQ(3, Agent::GetInstance()->interface_config_table()->Size());
     // Add again same muliple ports
     pl.clear();
     pl.push_back(port1);
@@ -316,13 +316,13 @@ TEST_F(NovaInfoClientServerTest, MultiPortAddDelete) {
     client_service->AddPort(pl).setCallback(
         boost::bind(&AddPortCallback,
                     port3.port_id, port3.tap_name, _1)).setErrback(AddPortErrback);
-    TASK_UTIL_EXPECT_EQ(3, Agent::GetInstance()->GetIntfCfgTable()->Size());
+    TASK_UTIL_EXPECT_EQ(3, Agent::GetInstance()->interface_config_table()->Size());
     // Delete Multiple ports
     DelVmPort(client_service, 3);
     DelVmPort(client_service, 4);
     DelVmPort(client_service, 5);
-    TASK_UTIL_EXPECT_EQ(0, Agent::GetInstance()->GetIntfCfgTable()->Size());
-    TASK_UTIL_EXPECT_EQ(base_port_count, Agent::GetInstance()->GetInterfaceTable()->Size());
+    TASK_UTIL_EXPECT_EQ(0, Agent::GetInstance()->interface_config_table()->Size());
+    TASK_UTIL_EXPECT_EQ(base_port_count, Agent::GetInstance()->interface_table()->Size());
 }
 
 TEST_F(NovaInfoClientServerTest, AddPortWrongIP) {
@@ -336,8 +336,8 @@ TEST_F(NovaInfoClientServerTest, AddPortWrongIP) {
     client_service->AddPort(pl).setCallback(
         boost::bind(&AddPortCallback,
                     port.port_id, port.tap_name, _1)).setErrback(AddPortErrback);
-    TASK_UTIL_EXPECT_EQ(0, Agent::GetInstance()->GetIntfCfgTable()->Size());
-    TASK_UTIL_EXPECT_EQ(base_port_count, Agent::GetInstance()->GetInterfaceTable()->Size());
+    TASK_UTIL_EXPECT_EQ(0, Agent::GetInstance()->interface_config_table()->Size());
+    TASK_UTIL_EXPECT_EQ(base_port_count, Agent::GetInstance()->interface_table()->Size());
 }
 
 TEST_F(NovaInfoClientServerTest, NullUUIDTest) {
@@ -358,11 +358,11 @@ TEST_F(NovaInfoClientServerTest, NullUUIDTest) {
     client_service->AddPort(pl).setCallback(
         boost::bind(&AddPortCallback,
                     port.port_id, port.tap_name, _1)).setErrback(AddPortErrback);
-    TASK_UTIL_EXPECT_EQ(1, Agent::GetInstance()->GetIntfCfgTable()->Size());
+    TASK_UTIL_EXPECT_EQ(1, Agent::GetInstance()->interface_config_table()->Size());
     client_service->DeletePort(null_tuuid).setCallback(
         boost::bind(&DeletePortCallback, null_tuuid, _1)).setErrback(DeletePortErrback);
-    TASK_UTIL_EXPECT_EQ(0, Agent::GetInstance()->GetIntfCfgTable()->Size());
-    TASK_UTIL_EXPECT_EQ(base_port_count, Agent::GetInstance()->GetInterfaceTable()->Size());
+    TASK_UTIL_EXPECT_EQ(0, Agent::GetInstance()->interface_config_table()->Size());
+    TASK_UTIL_EXPECT_EQ(base_port_count, Agent::GetInstance()->interface_table()->Size());
 }
 
 TEST_F(NovaInfoClientServerTest, WrongUUIDTest1) {
@@ -383,8 +383,8 @@ TEST_F(NovaInfoClientServerTest, WrongUUIDTest1) {
     client_service->AddPort(pl).setCallback(
         boost::bind(&AddPortCallback,
                     port.port_id, port.tap_name, _1)).setErrback(AddPortErrback);
-    TASK_UTIL_EXPECT_EQ(0, Agent::GetInstance()->GetIntfCfgTable()->Size());
-    TASK_UTIL_EXPECT_EQ(base_port_count, Agent::GetInstance()->GetInterfaceTable()->Size());
+    TASK_UTIL_EXPECT_EQ(0, Agent::GetInstance()->interface_config_table()->Size());
+    TASK_UTIL_EXPECT_EQ(base_port_count, Agent::GetInstance()->interface_table()->Size());
 }
 
 TEST_F(NovaInfoClientServerTest, WrongUUIDTest2) {
@@ -410,8 +410,8 @@ TEST_F(NovaInfoClientServerTest, WrongUUIDTest2) {
     client_service->AddPort(pl).setCallback(
         boost::bind(&AddPortCallback,
                     port.port_id, port.tap_name, _1)).setErrback(AddPortErrback);
-    TASK_UTIL_EXPECT_EQ(0, Agent::GetInstance()->GetIntfCfgTable()->Size());
-    TASK_UTIL_EXPECT_EQ(base_port_count, Agent::GetInstance()->GetInterfaceTable()->Size());
+    TASK_UTIL_EXPECT_EQ(0, Agent::GetInstance()->interface_config_table()->Size());
+    TASK_UTIL_EXPECT_EQ(base_port_count, Agent::GetInstance()->interface_table()->Size());
 }
 
 TEST_F(NovaInfoClientServerTest, ConnectionDelete) {
@@ -424,7 +424,7 @@ TEST_F(NovaInfoClientServerTest, ConnectionDelete) {
 int main (int argc, char **argv) {
     GETUSERARGS();
     client = TestInit(init_file, ksync_init);
-    EventManager *evm = Agent::GetInstance()->GetEventManager();
+    EventManager *evm = Agent::GetInstance()->event_manager();
     InstanceInfoServiceServerInit(Agent::GetInstance());
     int ret = RUN_ALL_TESTS();
     client->WaitForIdle();

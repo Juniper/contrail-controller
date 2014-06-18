@@ -40,7 +40,7 @@
 #include <diag/diag.h>
 #include <ksync/ksync_init.h>
 
-const std::string Agent::null_str_ = "";
+const std::string Agent::null_string_ = "";
 const std::string Agent::fabric_vn_name_ = 
     "default-domain:default-project:ip-fabric";
 std::string Agent::fabric_vrf_name_ =
@@ -56,17 +56,19 @@ const std::string Agent::log_file_ = "/var/log/contrail/vrouter.log";
 
 Agent *Agent::singleton_;
 
-const string &Agent::GetHostInterfaceName() {
+const string &Agent::GetHostInterfaceName() const {
     // There is single host interface.  Its addressed by type and not name
-    return Agent::null_str_;
+    return Agent::null_string_;
 };
+
+std::string Agent::GetUuidStr(boost::uuids::uuid uuid_val) const {
+    std::ostringstream str;
+    str << uuid_val;
+    return str.str();
+}
 
 const string &Agent::vhost_interface_name() const {
     return vhost_interface_name_;
-};
-
-const string &Agent::GetHostName() {
-    return host_name_;
 };
 
 bool Agent::isXenMode() {
@@ -244,7 +246,7 @@ void Agent::InitCollector() {
                            params_->host_name(),
                            g_vns_constants.NodeTypeNames.find(node_type)->second,
                            g_vns_constants.INSTANCE_ID_DEFAULT,
-                           GetEventManager(),
+                           event_manager(),
                            params_->http_server_port());
 
     if (params_->collector_port() != 0 && 
@@ -312,7 +314,7 @@ Agent::Agent() :
     cn_mcast_builder_(NULL), ds_client_(NULL), host_name_(""),
     prog_name_(""), sandesh_port_(0), db_(NULL), intf_table_(NULL),
     nh_table_(NULL), uc_rt_table_(NULL), mc_rt_table_(NULL), vrf_table_(NULL),
-    vm_table_(NULL), vn_table_(NULL), sg_table_(NULL), addr_table_(NULL),
+    vm_table_(NULL), vn_table_(NULL), sg_table_(NULL),
     mpls_table_(NULL), acl_table_(NULL), mirror_table_(NULL),
     vrf_assign_table_(NULL), mirror_cfg_table_(NULL),
     intf_mirror_cfg_table_(NULL), intf_cfg_table_(NULL), 

@@ -55,12 +55,12 @@ public:
     };
 
     PktTraceTest() : itf_count_(0), icmp_seq_(0) {
-        rid_ = Agent::GetInstance()->GetInterfaceTable()->Register(
+        rid_ = Agent::GetInstance()->interface_table()->Register(
                 boost::bind(&PktTraceTest::ItfUpdate, this, _2));
     }
 
     ~PktTraceTest() {
-        Agent::GetInstance()->GetInterfaceTable()->Unregister(rid_);
+        Agent::GetInstance()->interface_table()->Unregister(rid_);
     }
 
     void ItfUpdate(DBEntryBase *entry) {
@@ -180,7 +180,7 @@ public:
     AsioRunEvent() : Task(75) { };
     virtual  ~AsioRunEvent() { };
     bool Run() {
-        Agent::GetInstance()->GetEventManager()->Run();
+        Agent::GetInstance()->event_manager()->Run();
         return true;
     }
 };

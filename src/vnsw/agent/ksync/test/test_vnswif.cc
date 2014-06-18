@@ -373,7 +373,7 @@ int main(int argc, char *argv[]) {
 
     client = TestInit(init_file, ksync_init);
     Agent::GetInstance()->ksync()->VnswInterfaceListenerInit();
-    Agent::GetInstance()->SetRouterId(Ip4Address::from_string("10.1.1.1"));
+    Agent::GetInstance()->set_router_id(Ip4Address::from_string("10.1.1.1"));
 
     int ret = RUN_ALL_TESTS();
     TestShutdown();

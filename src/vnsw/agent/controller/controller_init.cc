@@ -44,29 +44,29 @@ void VNController::XmppServerConnect() {
     uint8_t count = 0;
 
     while (count < MAX_XMPP_SERVERS) {
-        if (!agent_->GetXmppServer(count).empty()) {
+        if (!agent_->controller_ifmap_xmpp_server(count).empty()) {
 
-            AgentXmppChannel *ch = agent_->GetAgentXmppChannel(count);
+            AgentXmppChannel *ch = agent_->controller_xmpp_channel(count);
             if (ch) {
                 // Channel is created, do not disturb
                 CONTROLLER_TRACE(DiscoveryConnection, "XMPP Server",
-                                 ch->GetXmppServer(), 
+                                 ch->controller_ifmap_xmpp_server(), 
                                  "is already present, ignore discovery response");
                 count++;
                 continue; 
             }
 
             XmppInit *xmpp = new XmppInit();
-            XmppClient *client = new XmppClient(agent_->GetEventManager());
+            XmppClient *client = new XmppClient(agent_->event_manager());
             XmppChannelConfig *xmpp_cfg = new XmppChannelConfig(true);
             xmpp_cfg->ToAddr = XmppInit::kControlNodeJID;
             boost::system::error_code ec;
-            xmpp_cfg->FromAddr = agent_->GetHostName();
+            xmpp_cfg->FromAddr = agent_->host_name();
             xmpp_cfg->NodeAddr = XmppInit::kPubSubNS; 
             xmpp_cfg->endpoint.address(
-                ip::address::from_string(agent_->GetXmppServer(count), ec));
+                ip::address::from_string(agent_->controller_ifmap_xmpp_server(count), ec));
             assert(ec.value() == 0);
-            uint32_t port = agent_->GetXmppPort(count);
+            uint32_t port = agent_->controller_ifmap_xmpp_port(count);
             if (!port) {
                 port = XMPP_SERVER_PORT;
             }
@@ -81,8 +81,8 @@ void VNController::XmppServerConnect() {
             agent_->SetAgentMcastLabelRange(count);
             // create bgp peer
             AgentXmppChannel *bgp_peer = new AgentXmppChannel(agent_, channel, 
-                                         agent_->GetXmppServer(count), 
-                                         agent_->GetAgentMcastLabelRange(count),
+                                         agent_->controller_ifmap_xmpp_server(count), 
+                                         agent_->multicast_label_range(count),
                                          count);
             client->RegisterConnectionEvent(xmps::BGP,
                boost::bind(&AgentXmppChannel::HandleAgentXmppClientChannelEvent,
@@ -92,10 +92,10 @@ void VNController::XmppServerConnect() {
             AgentIfMapXmppChannel *ifmap_peer = 
                 new AgentIfMapXmppChannel(agent_, channel, count);
 
-            agent_->SetAgentXmppChannel(bgp_peer, count);
-            agent_->SetAgentIfMapXmppChannel(ifmap_peer, count);
-            agent_->SetAgentXmppClient(client, count);
-            agent_->SetAgentXmppInit(xmpp, count);
+            agent_->set_controller_xmpp_channel(bgp_peer, count);
+            agent_->set_ifmap_xmpp_channel(ifmap_peer, count);
+            agent_->set_controller_ifmap_xmpp_client(client, count);
+            agent_->set_controller_ifmap_xmpp_init(xmpp, count);
         }
         count++;
     }
@@ -109,13 +109,13 @@ void VNController::DnsXmppServerConnect() {
 
     uint8_t count = 0;
     while (count < MAX_XMPP_SERVERS) {
-        if (!agent_->GetDnsServer(count).empty()) {
+        if (!agent_->dns_server(count).empty()) {
 
-            AgentDnsXmppChannel *ch = agent_->GetAgentDnsXmppChannel(count);
+            AgentDnsXmppChannel *ch = agent_->dns_xmpp_channel(count);
             if (ch) {
                 // Channel is up and running, do not disturb
                 CONTROLLER_TRACE(DiscoveryConnection, "DNS Server",
-                                 ch->GetXmppServer(), 
+                                 ch->controller_ifmap_xmpp_server(), 
                                  "is already present, ignore discovery response");
                 count++;
                 continue; 
@@ -123,14 +123,14 @@ void VNController::DnsXmppServerConnect() {
 
             // create Xmpp channel with DNS server
             XmppInit *xmpp_dns = new XmppInit();
-            XmppClient *client_dns = new XmppClient(agent_->GetEventManager());
+            XmppClient *client_dns = new XmppClient(agent_->event_manager());
             XmppChannelConfig xmpp_cfg_dns(true);
             xmpp_cfg_dns.ToAddr = XmppInit::kDnsNodeJID;
             boost::system::error_code ec;
-            xmpp_cfg_dns.FromAddr = agent_->GetHostName() + "/dns";
+            xmpp_cfg_dns.FromAddr = agent_->host_name() + "/dns";
             xmpp_cfg_dns.NodeAddr = "";
             xmpp_cfg_dns.endpoint.address(
-                     ip::address::from_string(agent_->GetDnsServer(count), ec));
+                     ip::address::from_string(agent_->dns_server(count), ec));
             assert(ec.value() == 0);
             xmpp_cfg_dns.endpoint.port(ContrailPorts::DnsXmpp);
             xmpp_dns->AddXmppChannelConfig(&xmpp_cfg_dns);
@@ -143,17 +143,17 @@ void VNController::DnsXmppServerConnect() {
             // create dns peer
             AgentDnsXmppChannel *dns_peer = new AgentDnsXmppChannel(agent_,
                                                 channel_dns,
-                                                agent_->GetDnsServer(count),
+                                                agent_->dns_server(count),
                                                 count);
             client_dns->RegisterConnectionEvent(xmps::DNS,
                 boost::bind(&AgentDnsXmppChannel::HandleXmppClientChannelEvent, 
                             dns_peer, _2));
-            agent_->SetAgentDnsXmppClient(client_dns, count);
-            agent_->SetAgentDnsXmppChannel(dns_peer, count);
-            agent_->SetAgentDnsXmppInit(xmpp_dns, count);
+            agent_->set_dns_xmpp_client(client_dns, count);
+            agent_->set_dns_xmpp_channel(dns_peer, count);
+            agent_->set_dns_xmpp_init(xmpp_dns, count);
             BindResolver::Resolver()->SetupResolver(
-                BindResolver::DnsServer(agent_->GetDnsServer(count),
-                                        agent_->GetDnsServerPort(count)),
+                BindResolver::DnsServer(agent_->dns_server(count),
+                                        agent_->dns_server_port(count)),
                 count);
         }
         count++;
@@ -177,8 +177,8 @@ void VNController::XmppServerDisConnect() {
     XmppClient *cl;
     uint8_t count = 0;
     while (count < MAX_XMPP_SERVERS) {
-        if ((cl = agent_->GetAgentXmppClient(count)) != NULL) {
-            BgpPeer *peer = agent_->GetAgentXmppChannel(count)->bgp_peer_id();
+        if ((cl = agent_->controller_ifmap_xmpp_client(count)) != NULL) {
+            BgpPeer *peer = agent_->controller_xmpp_channel(count)->bgp_peer_id();
             // Sets the context of walk to decide on callback when walks are
             // done, setting to true results in callback of cleanup for
             // VNController once all walks are done for deleting peer info.
@@ -197,7 +197,7 @@ void VNController::DnsXmppServerDisConnect() {
     XmppClient *cl;
     uint8_t count = 0;
     while (count < MAX_XMPP_SERVERS) {
-        if ((cl = agent_->GetAgentDnsXmppClient(count)) != NULL) {
+        if ((cl = agent_->dns_xmpp_client(count)) != NULL) {
             cl->Shutdown();
         }
         count ++;
@@ -216,37 +216,37 @@ void VNController::Cleanup() {
     uint8_t count = 0;
     XmppClient *cl;
     while (count < MAX_XMPP_SERVERS) {
-        if ((cl = agent_->GetAgentXmppClient(count)) != NULL) {
+        if ((cl = agent_->controller_ifmap_xmpp_client(count)) != NULL) {
 
             agent_->ResetAgentMcastLabelRange(count);
 
-            delete agent_->GetAgentXmppChannel(count);
-            agent_->SetAgentXmppChannel(NULL, count);
+            delete agent_->controller_xmpp_channel(count);
+            agent_->set_controller_xmpp_channel(NULL, count);
 
-            delete agent_->GetAgentIfMapXmppChannel(count);
-            agent_->SetAgentIfMapXmppChannel(NULL, count);
+            delete agent_->ifmap_xmpp_channel(count);
+            agent_->set_ifmap_xmpp_channel(NULL, count);
 
-            agent_->SetAgentXmppClient(NULL, count);
+            agent_->set_controller_ifmap_xmpp_client(NULL, count);
           
-            XmppInit *xmpp = agent_->GetAgentXmppInit(count);
+            XmppInit *xmpp = agent_->controller_ifmap_xmpp_init(count);
             xmpp->Reset();
             delete xmpp;
-            agent_->SetAgentXmppInit(NULL, count);
+            agent_->set_controller_ifmap_xmpp_init(NULL, count);
         }
-        if ((cl = agent_->GetAgentDnsXmppClient(count)) != NULL) {
+        if ((cl = agent_->dns_xmpp_client(count)) != NULL) {
 
-            delete agent_->GetAgentDnsXmppChannel(count);
-            agent_->SetAgentDnsXmppChannel(NULL, count);
+            delete agent_->dns_xmpp_channel(count);
+            agent_->set_dns_xmpp_channel(NULL, count);
 
-            agent_->SetAgentDnsXmppClient(NULL, count);
+            agent_->set_dns_xmpp_client(NULL, count);
 
-            XmppInit *xmpp = agent_->GetAgentDnsXmppInit(count);
+            XmppInit *xmpp = agent_->dns_xmpp_init(count);
             xmpp->Reset();
             delete xmpp;
-            agent_->SetAgentDnsXmppInit(NULL, count);
+            agent_->set_dns_xmpp_init(NULL, count);
 
-            agent_->SetDnsServerPort(0, count);
-            agent_->SetXmppDnsCfgServer(-1);
+            agent_->set_dns_server_port(0, count);
+            agent_->set_dns_xmpp_server_index(-1);
         }
         count++;
     }
@@ -263,8 +263,8 @@ AgentXmppChannel *VNController::FindAgentXmppChannel(
 
     uint8_t count = 0;
     while (count < MAX_XMPP_SERVERS) {
-        AgentXmppChannel *ch = agent_->GetAgentXmppChannel(count);
-        if (ch && (ch->GetXmppServer().compare(server_ip) == 0)) {
+        AgentXmppChannel *ch = agent_->controller_xmpp_channel(count);
+        if (ch && (ch->controller_ifmap_xmpp_server().compare(server_ip) == 0)) {
             return ch; 
         }
         count++;
@@ -287,60 +287,60 @@ void VNController::ApplyDiscoveryXmppServices(std::vector<DSResponse> resp) {
             if (chnl->GetXmppChannel() &&
                 chnl->GetXmppChannel()->GetPeerState() == xmps::READY) {
                 CONTROLLER_TRACE(DiscoveryConnection, "XMPP Server",
-                                 chnl->GetXmppServer(), "is UP and running, ignore");
+                                 chnl->controller_ifmap_xmpp_server(), "is UP and running, ignore");
                 continue;
             } else { 
                 CONTROLLER_TRACE(DiscoveryConnection, "XMPP Server",
-                                 chnl->GetXmppServer(), "is NOT_READY, ignore");
+                                 chnl->controller_ifmap_xmpp_server(), "is NOT_READY, ignore");
                 continue;
             } 
 
         } else { 
-            if (agent_->GetXmppServer(0).empty()) {
-                agent_->SetXmppServer(dr.ep.address().to_string(), 0);
-                agent_->SetXmppPort(dr.ep.port(), 0);
+            if (agent_->controller_ifmap_xmpp_server(0).empty()) {
+                agent_->set_controller_ifmap_xmpp_server(dr.ep.address().to_string(), 0);
+                agent_->set_controller_ifmap_xmpp_port(dr.ep.port(), 0);
                 CONTROLLER_TRACE(DiscoveryConnection, "Set Xmpp Channel[0] = ", 
                                  dr.ep.address().to_string(), ""); 
-            } else if (agent_->GetXmppServer(1).empty()) {
-                agent_->SetXmppServer(dr.ep.address().to_string(), 1);
-                agent_->SetXmppPort(dr.ep.port(), 1);
+            } else if (agent_->controller_ifmap_xmpp_server(1).empty()) {
+                agent_->set_controller_ifmap_xmpp_server(dr.ep.address().to_string(), 1);
+                agent_->set_controller_ifmap_xmpp_port(dr.ep.port(), 1);
                 CONTROLLER_TRACE(DiscoveryConnection, "Set Xmpp Channel[1] = ", 
                                  dr.ep.address().to_string(), ""); 
-            } else if (agent_->GetAgentXmppChannel(0)->GetXmppChannel()->
+            } else if (agent_->controller_xmpp_channel(0)->GetXmppChannel()->
                        GetPeerState() == xmps::NOT_READY) {
 
                 //cleanup older xmpp channel
                 agent_->ResetAgentMcastLabelRange(0);
-                delete agent_->GetAgentXmppChannel(0);
-                agent_->SetAgentXmppChannel(NULL, 0);
-                delete agent_->GetAgentIfMapXmppChannel(0);
-                agent_->SetAgentIfMapXmppChannel(NULL, 0);
-                agent_->SetAgentXmppClient(NULL, 0);
-                delete agent_->GetAgentXmppInit(0);
-                agent_->SetAgentXmppInit(NULL, 0);
+                delete agent_->controller_xmpp_channel(0);
+                agent_->set_controller_xmpp_channel(NULL, 0);
+                delete agent_->ifmap_xmpp_channel(0);
+                agent_->set_ifmap_xmpp_channel(NULL, 0);
+                agent_->set_controller_ifmap_xmpp_client(NULL, 0);
+                delete agent_->controller_ifmap_xmpp_init(0);
+                agent_->set_controller_ifmap_xmpp_init(NULL, 0);
 
                 CONTROLLER_TRACE(DiscoveryConnection, 
                                 "Refresh Xmpp Channel[0] = ", dr.ep.address().to_string(), ""); 
-                agent_->SetXmppServer(dr.ep.address().to_string(),0);
-                agent_->SetXmppPort(dr.ep.port(), 0);
+                agent_->set_controller_ifmap_xmpp_server(dr.ep.address().to_string(),0);
+                agent_->set_controller_ifmap_xmpp_port(dr.ep.port(), 0);
 
-            } else if (agent_->GetAgentXmppChannel(1)->GetXmppChannel()->
+            } else if (agent_->controller_xmpp_channel(1)->GetXmppChannel()->
                        GetPeerState() == xmps::NOT_READY) {
 
                 //cleanup older xmpp channel
                 agent_->ResetAgentMcastLabelRange(1);
-                delete agent_->GetAgentXmppChannel(1);
-                agent_->SetAgentXmppChannel(NULL, 1);
-                delete agent_->GetAgentIfMapXmppChannel(1);
-                agent_->SetAgentIfMapXmppChannel(NULL, 1);
-                agent_->SetAgentXmppClient(NULL, 1);
-                delete agent_->GetAgentXmppInit(1);
-                agent_->SetAgentXmppInit(NULL, 1);
+                delete agent_->controller_xmpp_channel(1);
+                agent_->set_controller_xmpp_channel(NULL, 1);
+                delete agent_->ifmap_xmpp_channel(1);
+                agent_->set_ifmap_xmpp_channel(NULL, 1);
+                agent_->set_controller_ifmap_xmpp_client(NULL, 1);
+                delete agent_->controller_ifmap_xmpp_init(1);
+                agent_->set_controller_ifmap_xmpp_init(NULL, 1);
 
                 CONTROLLER_TRACE(DiscoveryConnection, 
                                  "Refresh Xmpp Channel[1] = ", dr.ep.address().to_string(), ""); 
-                agent_->SetXmppServer(dr.ep.address().to_string(), 1);
-                agent_->SetXmppPort(dr.ep.port(), 1);
+                agent_->set_controller_ifmap_xmpp_server(dr.ep.address().to_string(), 1);
+                agent_->set_controller_ifmap_xmpp_port(dr.ep.port(), 1);
            }
         }
     }
@@ -353,8 +353,8 @@ AgentDnsXmppChannel *VNController::FindAgentDnsXmppChannel(
 
     uint8_t count = 0;
     while (count < MAX_XMPP_SERVERS) {
-        AgentDnsXmppChannel *ch = agent_->GetAgentDnsXmppChannel(count);
-        if (ch && (ch->GetXmppServer().compare(server_ip) == 0)) {
+        AgentDnsXmppChannel *ch = agent_->dns_xmpp_channel(count);
+        if (ch && (ch->controller_ifmap_xmpp_server().compare(server_ip) == 0)) {
             return ch; 
         }
         count++;
@@ -377,56 +377,56 @@ void VNController::ApplyDiscoveryDnsXmppServices(std::vector<DSResponse> resp) {
             if (chnl->GetXmppChannel() &&
                 chnl->GetXmppChannel()->GetPeerState() == xmps::READY) {
                 CONTROLLER_TRACE(DiscoveryConnection, "DNS Server",
-                                 chnl->GetXmppServer(), "is UP and running, ignore");
+                                 chnl->controller_ifmap_xmpp_server(), "is UP and running, ignore");
                 continue;
             } else { 
                 CONTROLLER_TRACE(DiscoveryConnection, "DNS Server",
-                                 chnl->GetXmppServer(), "is NOT_READY, ignore");
+                                 chnl->controller_ifmap_xmpp_server(), "is NOT_READY, ignore");
                 continue;
             } 
 
         } else { 
-            if (agent_->GetDnsServer(0).empty()) {
-                agent_->SetDnsServer(dr.ep.address().to_string(), 0);
-                agent_->SetDnsServerPort(dr.ep.port(), 0);
+            if (agent_->dns_server(0).empty()) {
+                agent_->set_dns_server(dr.ep.address().to_string(), 0);
+                agent_->set_dns_server_port(dr.ep.port(), 0);
                 CONTROLLER_TRACE(DiscoveryConnection, "Set Dns Xmpp Channel[0] = ", 
                                  dr.ep.address().to_string(), integerToString(dr.ep.port())); 
-            } else if (agent_->GetDnsServer(1).empty()) {
-                agent_->SetDnsServer(dr.ep.address().to_string(), 1);
-                agent_->SetDnsServerPort(dr.ep.port(), 1);
+            } else if (agent_->dns_server(1).empty()) {
+                agent_->set_dns_server(dr.ep.address().to_string(), 1);
+                agent_->set_dns_server_port(dr.ep.port(), 1);
                 CONTROLLER_TRACE(DiscoveryConnection, "Set Dns Xmpp Channel[1] = ", 
                                  dr.ep.address().to_string(), integerToString(dr.ep.port())); 
-            } else if (agent_->GetAgentDnsXmppChannel(0)->GetXmppChannel()->GetPeerState() 
+            } else if (agent_->dns_xmpp_channel(0)->GetXmppChannel()->GetPeerState() 
                        == xmps::NOT_READY) {
 
                 //cleanup older xmpp channel
-                delete agent_->GetAgentDnsXmppChannel(0);
-                delete agent_->GetAgentDnsXmppInit(0);
-                agent_->SetAgentDnsXmppChannel(NULL, 0);
-                agent_->SetAgentDnsXmppClient(NULL, 0);
-                agent_->SetAgentDnsXmppInit(NULL, 0);
+                delete agent_->dns_xmpp_channel(0);
+                delete agent_->dns_xmpp_init(0);
+                agent_->set_dns_xmpp_channel(NULL, 0);
+                agent_->set_dns_xmpp_client(NULL, 0);
+                agent_->set_dns_xmpp_init(NULL, 0);
 
                 CONTROLLER_TRACE(DiscoveryConnection,   
                                 "Refresh Dns Xmpp Channel[0] = ", 
                                  dr.ep.address().to_string(), integerToString(dr.ep.port())); 
-                agent_->SetDnsServer(dr.ep.address().to_string(), 0);
-                agent_->SetDnsServerPort(dr.ep.port(), 0);
+                agent_->set_dns_server(dr.ep.address().to_string(), 0);
+                agent_->set_dns_server_port(dr.ep.port(), 0);
 
-            } else if (agent_->GetAgentDnsXmppChannel(1)->GetXmppChannel()->GetPeerState() 
+            } else if (agent_->dns_xmpp_channel(1)->GetXmppChannel()->GetPeerState() 
                        == xmps::NOT_READY) {
 
                 //cleanup older xmpp channel
-                delete agent_->GetAgentDnsXmppChannel(1);
-                delete agent_->GetAgentDnsXmppInit(1);
-                agent_->SetAgentDnsXmppChannel(NULL, 1);
-                agent_->SetAgentDnsXmppClient(NULL, 1);
-                agent_->SetAgentDnsXmppInit(NULL, 1);
+                delete agent_->dns_xmpp_channel(1);
+                delete agent_->dns_xmpp_init(1);
+                agent_->set_dns_xmpp_channel(NULL, 1);
+                agent_->set_dns_xmpp_client(NULL, 1);
+                agent_->set_dns_xmpp_init(NULL, 1);
 
                 CONTROLLER_TRACE(DiscoveryConnection, 
                                  "Refresh Dns Xmpp Channel[1] = ", 
                                  dr.ep.address().to_string(), integerToString(dr.ep.port())); 
-                agent_->SetDnsServer(dr.ep.address().to_string(), 1);
-                agent_->SetDnsServerPort(dr.ep.port(), 1);
+                agent_->set_dns_server(dr.ep.address().to_string(), 1);
+                agent_->set_dns_server_port(dr.ep.port(), 1);
            }
         }
     } 
@@ -442,7 +442,7 @@ void VNController::ApplyDiscoveryDnsXmppServices(std::vector<DSResponse> resp) {
 uint8_t VNController::ActiveXmppConnectionCount() {
     uint8_t active_xmpps = 0;
     for (uint8_t count = 0; count < MAX_XMPP_SERVERS; count++) {
-        AgentXmppChannel *xc = agent_->GetAgentXmppChannel(count);
+        AgentXmppChannel *xc = agent_->controller_xmpp_channel(count);
        if (xc) {
            // Check if AgentXmppChannel has BGP peer
            if (xc->bgp_peer_id() != NULL)
@@ -455,7 +455,7 @@ uint8_t VNController::ActiveXmppConnectionCount() {
 
 AgentXmppChannel *VNController::GetActiveXmppChannel() {
     for (uint8_t count = 0; count < MAX_XMPP_SERVERS; count++) {
-        AgentXmppChannel *xc = agent_->GetAgentXmppChannel(count);
+        AgentXmppChannel *xc = agent_->controller_xmpp_channel(count);
        if (xc) {
            // Check if AgentXmppChannel has BGP peer
            if (xc->bgp_peer_id() != NULL)

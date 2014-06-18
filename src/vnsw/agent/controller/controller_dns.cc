@@ -72,17 +72,17 @@ void AgentDnsXmppChannel::HandleXmppClientChannelEvent(AgentDnsXmppChannel *peer
                                                        xmps::PeerState state) {
     Agent *agent = peer->agent();
     if (state == xmps::READY) {
-        if (agent->GetXmppDnsCfgServerIdx() == -1)
-            agent->SetXmppDnsCfgServer(peer->xs_idx_);
+        if (agent->dns_xmpp_server_index() == -1)
+            agent->set_dns_xmpp_server_index(peer->xs_idx_);
         peer->dns_xmpp_event_handler_cb_(peer);
     } else {
-        if (agent->GetXmppDnsCfgServerIdx() == peer->xs_idx_) {
-            agent->SetXmppDnsCfgServer(-1);
+        if (agent->dns_xmpp_server_index() == peer->xs_idx_) {
+            agent->set_dns_xmpp_server_index(-1);
             uint8_t o_idx = ((peer->xs_idx_ == 0) ? 1 : 0);
-            AgentDnsXmppChannel *o_chn = agent->GetAgentDnsXmppChannel(o_idx);
+            AgentDnsXmppChannel *o_chn = agent->dns_xmpp_channel(o_idx);
             if (o_chn && o_chn->GetXmppChannel() &&
                 o_chn->GetXmppChannel()->GetPeerState() == xmps::READY)
-                agent->SetXmppDnsCfgServer(o_idx);
+                agent->set_dns_xmpp_server_index(o_idx);
         }
     }
 }

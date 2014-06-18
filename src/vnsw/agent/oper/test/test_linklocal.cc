@@ -64,7 +64,7 @@ private:
 };
 
 TEST_F(LinkLocalTest, LinkLocalReqTest) {
-    Agent::GetInstance()->SetRouterId(Ip4Address::from_string(VHOST_IP));
+    Agent::GetInstance()->set_router_id(Ip4Address::from_string(VHOST_IP));
     TestLinkLocalService services[MAX_SERVICES];
     FillServices(services, MAX_SERVICES);
     AddLinkLocalConfig(services, MAX_SERVICES);
@@ -106,7 +106,7 @@ TEST_F(LinkLocalTest, LinkLocalReqTest) {
     }
     for (int i = 0; i < MAX_SERVICES; ++i) {
         Inet4UnicastRouteEntry *rt =
-            RouteGet(Agent::GetInstance()->GetDefaultVrf(),
+            RouteGet(Agent::GetInstance()->fabric_vrf_name(),
                      Ip4Address::from_string(fabric_ip[i]), 32);
         EXPECT_TRUE(rt != NULL);
         EXPECT_TRUE(rt->GetActiveNextHop()->GetType() == NextHop::ARP);
@@ -146,7 +146,7 @@ TEST_F(LinkLocalTest, LinkLocalReqTest) {
 }
 
 TEST_F(LinkLocalTest, LinkLocalChangeTest) {
-    Agent::GetInstance()->SetRouterId(Ip4Address::from_string(VHOST_IP));
+    Agent::GetInstance()->set_router_id(Ip4Address::from_string(VHOST_IP));
     TestLinkLocalService services[MAX_SERVICES];
     FillServices(services, MAX_SERVICES);
     AddLinkLocalConfig(services, MAX_SERVICES);
@@ -179,7 +179,7 @@ TEST_F(LinkLocalTest, LinkLocalChangeTest) {
     EXPECT_TRUE(local_rt->GetActiveNextHop()->GetType() == NextHop::RECEIVE);
     for (int i = 0; i < 3; ++i) {
         Inet4UnicastRouteEntry *rt =
-            RouteGet(Agent::GetInstance()->GetDefaultVrf(),
+            RouteGet(Agent::GetInstance()->fabric_vrf_name(),
                      Ip4Address::from_string(fabric_ip[i]), 32);
         EXPECT_TRUE(rt != NULL);
         EXPECT_TRUE(rt->GetActiveNextHop()->GetType() == NextHop::ARP);
@@ -212,7 +212,7 @@ TEST_F(LinkLocalTest, LinkLocalChangeTest) {
 }
 
 TEST_F(LinkLocalTest, GlobalVrouterDeleteTest) {
-    Agent::GetInstance()->SetRouterId(Ip4Address::from_string(VHOST_IP));
+    Agent::GetInstance()->set_router_id(Ip4Address::from_string(VHOST_IP));
     TestLinkLocalService services[MAX_SERVICES];
     FillServices(services, MAX_SERVICES);
     AddLinkLocalConfig(services, MAX_SERVICES);
@@ -254,7 +254,7 @@ TEST_F(LinkLocalTest, GlobalVrouterDeleteTest) {
     }
     for (int i = 0; i < MAX_SERVICES; ++i) {
         Inet4UnicastRouteEntry *rt =
-            RouteGet(Agent::GetInstance()->GetDefaultVrf(),
+            RouteGet(Agent::GetInstance()->fabric_vrf_name(),
                      Ip4Address::from_string(fabric_ip[i]), 32);
         EXPECT_TRUE(rt != NULL);
         EXPECT_TRUE(rt->GetActiveNextHop()->GetType() == NextHop::ARP);

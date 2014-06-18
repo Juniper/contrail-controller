@@ -126,7 +126,7 @@ bool ControllerRouteWalker::VrfNotifyInternal(DBTablePartBase *partition,
             static_cast<VrfExport::State *>(vrf->GetState(partition->parent(), 
                                                           id)); 
         //TODO check if state is not added for default vrf
-        if (state && (vrf->GetName().compare(agent()->GetDefaultVrf()) != 0)) {
+        if (state && (vrf->GetName().compare(agent()->fabric_vrf_name()) != 0)) {
             StartRouteWalk(vrf);
         }
 
@@ -173,7 +173,7 @@ bool ControllerRouteWalker::RouteNotifyInternal(DBTablePartBase *partition,
     }
 
     VrfEntry *vrf = route->vrf();
-    DBTablePartBase *vrf_partition = agent()->GetVrfTable()->
+    DBTablePartBase *vrf_partition = agent()->vrf_table()->
         GetTablePartition(vrf);
     VrfExport::State *vs = static_cast<VrfExport::State *>
         (bgp_peer->GetVrfExportState(vrf_partition, vrf));
@@ -213,7 +213,7 @@ bool ControllerRouteWalker::RouteDelPeer(DBTablePartBase *partition,
                      peer_->GetName());
 
     VrfEntry *vrf = route->vrf();
-    DBTablePartBase *vrf_partition = agent()->GetVrfTable()->
+    DBTablePartBase *vrf_partition = agent()->vrf_table()->
         GetTablePartition(vrf);
     VrfExport::State *vrf_state = static_cast<VrfExport::State *>
         (bgp_peer->GetVrfExportState(vrf_partition, vrf));
@@ -257,7 +257,7 @@ void ControllerRouteWalker::RouteWalkDoneForVrf(VrfEntry *vrf) {
                      peer_->GetName());
     BgpPeer *bgp_peer = static_cast<BgpPeer *>(peer_);
     DBEntryBase *entry = static_cast<DBEntryBase *>(vrf);
-    DBTablePartBase *partition = agent()->GetVrfTable()->GetTablePartition(vrf);
+    DBTablePartBase *partition = agent()->vrf_table()->GetTablePartition(vrf);
     bgp_peer->DeleteVrfState(partition, entry);
 }
 

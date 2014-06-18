@@ -23,7 +23,7 @@ MplsLabel::~MplsLabel() {
     }
     if ((type_ != MplsLabel::MCAST_NH) &&
         free_label_) {
-        Agent::GetInstance()->GetMplsTable()->FreeLabel(label_);
+        Agent::GetInstance()->mpls_table()->FreeLabel(label_);
     }
 }
 
@@ -70,7 +70,7 @@ bool MplsTable::ChangeHandler(MplsLabel *mpls, const DBRequest *req) {
     bool ret = false;
     MplsLabelData *data = static_cast<MplsLabelData *>(req->data.get());
     NextHop *nh = static_cast<NextHop *>
-        (Agent::GetInstance()->GetNextHopTable()->FindActiveEntry(data->nh_key));
+        (Agent::GetInstance()->nexthop_table()->FindActiveEntry(data->nh_key));
 
     if (mpls->nh_ != nh) {
         mpls->nh_ = nh;

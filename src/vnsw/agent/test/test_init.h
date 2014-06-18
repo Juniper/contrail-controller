@@ -534,21 +534,21 @@ public:
     }
 
     void Init() {
-        Agent::GetInstance()->GetIntfCfgTable()->Register(boost::bind(&TestClient::CfgNotify, 
+        Agent::GetInstance()->interface_config_table()->Register(boost::bind(&TestClient::CfgNotify, 
                                                    this, _1, _2));
-        Agent::GetInstance()->GetVnTable()->Register(boost::bind(&TestClient::VnNotify, 
+        Agent::GetInstance()->vn_table()->Register(boost::bind(&TestClient::VnNotify, 
                                                    this, _1, _2));
-        Agent::GetInstance()->GetVmTable()->Register(boost::bind(&TestClient::VmNotify, 
+        Agent::GetInstance()->vm_table()->Register(boost::bind(&TestClient::VmNotify, 
                                                    this, _1, _2));
-        Agent::GetInstance()->GetInterfaceTable()->Register(boost::bind(&TestClient::PortNotify, 
+        Agent::GetInstance()->interface_table()->Register(boost::bind(&TestClient::PortNotify, 
                                                    this, _1, _2));
-        Agent::GetInstance()->GetAclTable()->Register(boost::bind(&TestClient::AclNotify, 
+        Agent::GetInstance()->acl_table()->Register(boost::bind(&TestClient::AclNotify, 
                                                    this, _1, _2));
-        Agent::GetInstance()->GetVrfTable()->Register(boost::bind(&TestClient::VrfNotify, 
+        Agent::GetInstance()->vrf_table()->Register(boost::bind(&TestClient::VrfNotify, 
                                                    this, _1, _2));
-        Agent::GetInstance()->GetNextHopTable()->Register(boost::bind(&TestClient::CompositeNHNotify,
+        Agent::GetInstance()->nexthop_table()->Register(boost::bind(&TestClient::CompositeNHNotify,
                                                    this, _1, _2));
-        Agent::GetInstance()->GetMplsTable()->Register(boost::bind(&TestClient::MplsNotify, 
+        Agent::GetInstance()->mpls_table()->Register(boost::bind(&TestClient::MplsNotify, 
                                                    this, _1, _2));
     };
     TestAgentInit *agent_init() { return &agent_init_; }

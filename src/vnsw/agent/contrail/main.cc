@@ -68,7 +68,7 @@ int main(int argc, char *argv[]) {
     desc.add_options()
         ("help", "help message")
         ("config_file", 
-         opt::value<string>()->default_value(Agent::DefaultConfigFile()), 
+         opt::value<string>()->default_value(Agent::GetInstance()->config_file()), 
          "Configuration file")
         ("version", "Display version information")
         ("COLLECTOR.server", opt::value<string>(), 
@@ -92,7 +92,7 @@ int main(int argc, char *argv[]) {
         ("DEFAULT.log_category", opt::value<string>()->default_value("*"),
          "Category filter for local logging of sandesh messages")
         ("DEFAULT.log_file", 
-         opt::value<string>()->default_value(Agent::DefaultLogFile()),
+         opt::value<string>()->default_value(Agent::GetInstance()->log_file()),
          "Filename for the logs to be written to")
         ("DEFAULT.log_level", opt::value<string>()->default_value("SYS_DEBUG"),
          "Severity level for local logging of sandesh messages")
@@ -189,7 +189,7 @@ int main(int argc, char *argv[]) {
     // kick start initialization
     init.Start();
 
-    Agent::GetInstance()->GetEventManager()->RunWithExceptionHandling();
+    Agent::GetInstance()->event_manager()->RunWithExceptionHandling();
 
     return 0;
 }

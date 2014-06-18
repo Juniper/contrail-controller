@@ -229,7 +229,7 @@ void ApplyXmlString(const char *buff) {
     pugi::xml_document xdoc_;
     pugi::xml_parse_result result = xdoc_.load(buff);
     EXPECT_TRUE(result);
-    Agent::GetInstance()->GetIfMapAgentParser()->ConfigParse(xdoc_.first_child(), 0);
+    Agent::GetInstance()->ifmap_parser()->ConfigParse(xdoc_.first_child(), 0);
     return;
 }
 
@@ -245,7 +245,7 @@ void AddLink(const char *node_name1, const char *name1,
     pugi::xml_document xdoc_;
     pugi::xml_parse_result result = xdoc_.load(buff);
     EXPECT_TRUE(result);
-    Agent::GetInstance()->GetIfMapAgentParser()->ConfigParse(xdoc_.first_child(), 0);
+    Agent::GetInstance()->ifmap_parser()->ConfigParse(xdoc_.first_child(), 0);
     return;
 }
 
@@ -261,7 +261,7 @@ void DelLink(const char *node_name1, const char *name1,
     pugi::xml_document xdoc_;
     pugi::xml_parse_result result = xdoc_.load(buff);
     EXPECT_TRUE(result);
-    Agent::GetInstance()->GetIfMapAgentParser()->ConfigParse(xdoc_.first_child(), 0);
+    Agent::GetInstance()->ifmap_parser()->ConfigParse(xdoc_.first_child(), 0);
     return;
 }
 
@@ -275,7 +275,7 @@ void AddNode(const char *node_name, const char *name, int id) {
     pugi::xml_document xdoc_;
     pugi::xml_parse_result result = xdoc_.load(buff);
     EXPECT_TRUE(result);
-    Agent::GetInstance()->GetIfMapAgentParser()->ConfigParse(xdoc_.first_child(), 0);
+    Agent::GetInstance()->ifmap_parser()->ConfigParse(xdoc_.first_child(), 0);
     return;
 }
 
@@ -289,7 +289,7 @@ void AddNodeByStatus(const char *node_name, const char *name, int id, bool statu
     pugi::xml_document xdoc_;
     pugi::xml_parse_result result = xdoc_.load(buff);
     EXPECT_TRUE(result);
-    Agent::GetInstance()->GetIfMapAgentParser()->ConfigParse(xdoc_.first_child(), 0);
+    Agent::GetInstance()->ifmap_parser()->ConfigParse(xdoc_.first_child(), 0);
     return;
 }
 
@@ -304,7 +304,7 @@ void AddNode(const char *node_name, const char *name, int id,
     pugi::xml_document xdoc_;
     pugi::xml_parse_result result = xdoc_.load(buff);
     EXPECT_TRUE(result);
-    Agent::GetInstance()->GetIfMapAgentParser()->ConfigParse(xdoc_.first_child(), 0);
+    Agent::GetInstance()->ifmap_parser()->ConfigParse(xdoc_.first_child(), 0);
     return;
 }
 
@@ -319,7 +319,7 @@ void AddLinkNode(const char *node_name, const char *name, const char *attr) {
     pugi::xml_document xdoc_;
     pugi::xml_parse_result result = xdoc_.load(buff);
     EXPECT_TRUE(result);
-    Agent::GetInstance()->GetIfMapAgentParser()->ConfigParse(xdoc_.first_child(), 0);
+    Agent::GetInstance()->ifmap_parser()->ConfigParse(xdoc_.first_child(), 0);
     return;
 }
 
@@ -333,7 +333,7 @@ void DelNode(const char *node_name, const char *name) {
     pugi::xml_document xdoc_;
     pugi::xml_parse_result result = xdoc_.load(buff);
     EXPECT_TRUE(result);
-    Agent::GetInstance()->GetIfMapAgentParser()->ConfigParse(xdoc_.first_child(), 0);
+    Agent::GetInstance()->ifmap_parser()->ConfigParse(xdoc_.first_child(), 0);
     return;
 }
 
@@ -344,7 +344,7 @@ void IntfSyncMsg(PortInfo *input, int id) {
     req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
     req.key.reset(key);
     req.data.reset(NULL);
-    Agent::GetInstance()->GetInterfaceTable()->Enqueue(&req);
+    Agent::GetInstance()->interface_table()->Enqueue(&req);
     usleep(1000);
 }
 
@@ -364,7 +364,7 @@ void IntfCfgAdd(int intf_id, const string &name, const string ipaddr,
     req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
     req.key.reset(key);
     req.data.reset(data);
-    Agent::GetInstance()->GetIntfCfgTable()->Enqueue(&req);
+    Agent::GetInstance()->interface_config_table()->Enqueue(&req);
     usleep(1000);
 }
 
@@ -385,83 +385,83 @@ void IntfCfgDel(PortInfo *input, int id) {
     CfgIntKey *key = new CfgIntKey(MakeUuid(input[id].intf_id));
     req.key.reset(key);
     req.data.reset(NULL);
-    Agent::GetInstance()->GetIntfCfgTable()->Enqueue(&req);
+    Agent::GetInstance()->interface_config_table()->Enqueue(&req);
     usleep(1000);
 }
 
 bool VrfFind(const char *name, bool ret_del) {
     VrfEntry *vrf;
     VrfKey key(name);
-    vrf = static_cast<VrfEntry *>(Agent::GetInstance()->GetVrfTable()->Find(&key, ret_del));
+    vrf = static_cast<VrfEntry *>(Agent::GetInstance()->vrf_table()->Find(&key, ret_del));
     return (vrf != NULL);
 }
 
 bool VrfFind(const char *name) {
     VrfEntry *vrf;
     VrfKey key(name);
-    vrf = static_cast<VrfEntry *>(Agent::GetInstance()->GetVrfTable()->FindActiveEntry(&key));
+    vrf = static_cast<VrfEntry *>(Agent::GetInstance()->vrf_table()->FindActiveEntry(&key));
     return (vrf != NULL);
 }
 
 VrfEntry *VrfGet(const char *name) {
     VrfKey key(name);
-    return static_cast<VrfEntry *>(Agent::GetInstance()->GetVrfTable()->FindActiveEntry(&key));
+    return static_cast<VrfEntry *>(Agent::GetInstance()->vrf_table()->FindActiveEntry(&key));
 }
 
 bool VnFind(int id) {
     VnEntry *vn;
     VnKey key(MakeUuid(id));
-    vn = static_cast<VnEntry *>(Agent::GetInstance()->GetVnTable()->FindActiveEntry(&key));
+    vn = static_cast<VnEntry *>(Agent::GetInstance()->vn_table()->FindActiveEntry(&key));
     return (vn != NULL);
 }
 
 VnEntry *VnGet(int id) {
     VnKey key(MakeUuid(id));
-    return static_cast<VnEntry *>(Agent::GetInstance()->GetVnTable()->FindActiveEntry(&key));
+    return static_cast<VnEntry *>(Agent::GetInstance()->vn_table()->FindActiveEntry(&key));
 }
 
 bool AclFind(int id) {
     AclDBEntry *acl;
     AclKey key(MakeUuid(id));
-    acl = static_cast<AclDBEntry *>(Agent::GetInstance()->GetAclTable()->FindActiveEntry(&key));
+    acl = static_cast<AclDBEntry *>(Agent::GetInstance()->acl_table()->FindActiveEntry(&key));
     return (acl != NULL);
 }
 
 AclDBEntry *AclGet(int id) {
     AclKey key(MakeUuid(id));
-    return static_cast<AclDBEntry *>(Agent::GetInstance()->GetAclTable()->FindActiveEntry(&key));
+    return static_cast<AclDBEntry *>(Agent::GetInstance()->acl_table()->FindActiveEntry(&key));
 }
 
 VmEntry *VmGet(int id) {
     VmKey key(MakeUuid(id));
-    return static_cast<VmEntry *>(Agent::GetInstance()->GetVmTable()->FindActiveEntry(&key));
+    return static_cast<VmEntry *>(Agent::GetInstance()->vm_table()->FindActiveEntry(&key));
 }
 
 bool VmFind(int id) {
     VmEntry *vm;
     VmKey key(MakeUuid(id));
-    vm = static_cast<VmEntry *>(Agent::GetInstance()->GetVmTable()->FindActiveEntry(&key));
+    vm = static_cast<VmEntry *>(Agent::GetInstance()->vm_table()->FindActiveEntry(&key));
     return (vm != NULL);
 }
 
 bool VmPortFind(int id) {
     Interface *intf;
     VmInterfaceKey key(AgentKey::ADD_DEL_CHANGE, MakeUuid(id), "");
-    intf = static_cast<Interface *>(Agent::GetInstance()->GetInterfaceTable()->FindActiveEntry(&key));
+    intf = static_cast<Interface *>(Agent::GetInstance()->interface_table()->FindActiveEntry(&key));
     return (intf != NULL ? !intf->IsDeleted() : false);
 }
 
 bool VmPortFindRetDel(int id) {
     Interface *intf;
     VmInterfaceKey key(AgentKey::ADD_DEL_CHANGE, MakeUuid(id), "");
-    intf = static_cast<Interface *>(Agent::GetInstance()->GetInterfaceTable()->Find(&key, true));
+    intf = static_cast<Interface *>(Agent::GetInstance()->interface_table()->Find(&key, true));
     return (intf != NULL);
 }
 
 uint32_t VmPortGetId(int id) {
     Interface *intf;
     VmInterfaceKey key(AgentKey::ADD_DEL_CHANGE, MakeUuid(id), "");
-    intf = static_cast<Interface *>(Agent::GetInstance()->GetInterfaceTable()->FindActiveEntry(&key));
+    intf = static_cast<Interface *>(Agent::GetInstance()->interface_table()->FindActiveEntry(&key));
     if (intf) {
         return intf->id();
     }
@@ -472,7 +472,7 @@ uint32_t VmPortGetId(int id) {
 std::string VmPortGetAnalyzerName(int id) {
     VmInterface *intf;
     VmInterfaceKey key(AgentKey::ADD_DEL_CHANGE, MakeUuid(id), "");
-    intf = static_cast<VmInterface *>(Agent::GetInstance()->GetInterfaceTable()->FindActiveEntry(&key));
+    intf = static_cast<VmInterface *>(Agent::GetInstance()->interface_table()->FindActiveEntry(&key));
     if (intf) {
         return intf->GetAnalyzer();
     }
@@ -482,7 +482,7 @@ std::string VmPortGetAnalyzerName(int id) {
 Interface::MirrorDirection VmPortGetMirrorDirection(int id) {
     VmInterface *intf;
     VmInterfaceKey key(AgentKey::ADD_DEL_CHANGE, MakeUuid(id), "");
-    intf = static_cast<VmInterface *>(Agent::GetInstance()->GetInterfaceTable()->FindActiveEntry(&key));
+    intf = static_cast<VmInterface *>(Agent::GetInstance()->interface_table()->FindActiveEntry(&key));
     if (intf) {
         return intf->mirror_direction();
     }
@@ -496,7 +496,7 @@ bool VmPortFind(PortInfo *input, int id) {
 bool VmPortL2Active(int id) {
     Interface *intf;
     VmInterfaceKey key(AgentKey::ADD_DEL_CHANGE, MakeUuid(id), "");
-    intf = static_cast<Interface *>(Agent::GetInstance()->GetInterfaceTable()->FindActiveEntry(&key));
+    intf = static_cast<Interface *>(Agent::GetInstance()->interface_table()->FindActiveEntry(&key));
     if (intf == NULL)
         return false;
 
@@ -510,7 +510,7 @@ bool VmPortL2Active(PortInfo *input, int id) {
 bool VmPortActive(int id) {
     Interface *intf;
     VmInterfaceKey key(AgentKey::ADD_DEL_CHANGE, MakeUuid(id), "");
-    intf = static_cast<Interface *>(Agent::GetInstance()->GetInterfaceTable()->FindActiveEntry(&key));
+    intf = static_cast<Interface *>(Agent::GetInstance()->interface_table()->FindActiveEntry(&key));
     if (intf == NULL)
         return false;
 
@@ -525,7 +525,7 @@ bool VmPortPolicyEnabled(int id) {
     VmInterface *intf;
     VmInterfaceKey key(AgentKey::ADD_DEL_CHANGE, MakeUuid(id), "");
     intf = static_cast<VmInterface *>
-        (Agent::GetInstance()->GetInterfaceTable()->FindActiveEntry(&key));
+        (Agent::GetInstance()->interface_table()->FindActiveEntry(&key));
     if (intf == NULL)
         return false;
 
@@ -538,12 +538,12 @@ bool VmPortPolicyEnabled(PortInfo *input, int id) {
 
 InetInterface *InetInterfaceGet(const char *ifname) {
     InetInterfaceKey key(ifname);
-    return static_cast<InetInterface *>(Agent::GetInstance()->GetInterfaceTable()->FindActiveEntry(&key));
+    return static_cast<InetInterface *>(Agent::GetInstance()->interface_table()->FindActiveEntry(&key));
 }
 
 Interface *VmPortGet(int id) {
     VmInterfaceKey key(AgentKey::ADD_DEL_CHANGE, MakeUuid(id), "");
-    return static_cast<Interface *>(Agent::GetInstance()->GetInterfaceTable()->FindActiveEntry(&key));
+    return static_cast<Interface *>(Agent::GetInstance()->interface_table()->FindActiveEntry(&key));
 }
 
 bool VmPortFloatingIpCount(int id, unsigned int count) {
@@ -563,7 +563,7 @@ bool VmPortGetStats(PortInfo *input, int id, uint32_t & bytes, uint32_t & pkts) 
     Interface *intf;
     VmInterfaceKey key(AgentKey::ADD_DEL_CHANGE, MakeUuid(input[id].intf_id),
                        input[id].name);
-    intf=static_cast<Interface *>(Agent::GetInstance()->GetInterfaceTable()->FindActiveEntry(&key));
+    intf=static_cast<Interface *>(Agent::GetInstance()->interface_table()->FindActiveEntry(&key));
     if (intf == NULL)
         return false;
 
@@ -686,7 +686,7 @@ bool VmPortStats(PortInfo *input, int id, uint32_t bytes, uint32_t pkts) {
     Interface *intf;
     VmInterfaceKey key(AgentKey::ADD_DEL_CHANGE, MakeUuid(input[id].intf_id),
                        input[id].name);
-    intf=static_cast<Interface *>(Agent::GetInstance()->GetInterfaceTable()->FindActiveEntry(&key));
+    intf=static_cast<Interface *>(Agent::GetInstance()->interface_table()->FindActiveEntry(&key));
     if (intf == NULL)
         return false;
 
@@ -718,7 +718,7 @@ bool VmPortStatsMatch(Interface *intf, uint32_t ibytes, uint32_t ipkts,
 bool VmPortL2Inactive(int id) {
     Interface *intf;
     VmInterfaceKey key(AgentKey::ADD_DEL_CHANGE, MakeUuid(id), "");
-    intf=static_cast<Interface *>(Agent::GetInstance()->GetInterfaceTable()->FindActiveEntry(&key));
+    intf=static_cast<Interface *>(Agent::GetInstance()->interface_table()->FindActiveEntry(&key));
     if (intf == NULL)
         return false;
     return (intf->l2_active() == false);
@@ -728,7 +728,7 @@ bool VmPortL2Inactive(PortInfo *input, int id) {
     Interface *intf;
     VmInterfaceKey key(AgentKey::ADD_DEL_CHANGE, MakeUuid(input[id].intf_id),
                        input[id].name);
-    intf=static_cast<Interface *>(Agent::GetInstance()->GetInterfaceTable()->FindActiveEntry(&key));
+    intf=static_cast<Interface *>(Agent::GetInstance()->interface_table()->FindActiveEntry(&key));
     if (intf == NULL)
         return false;
 
@@ -738,7 +738,7 @@ bool VmPortL2Inactive(PortInfo *input, int id) {
 bool VmPortInactive(int id) {
     Interface *intf;
     VmInterfaceKey key(AgentKey::ADD_DEL_CHANGE, MakeUuid(id), "");
-    intf=static_cast<Interface *>(Agent::GetInstance()->GetInterfaceTable()->FindActiveEntry(&key));
+    intf=static_cast<Interface *>(Agent::GetInstance()->interface_table()->FindActiveEntry(&key));
     if (intf == NULL)
         return false;
     return (intf->ipv4_active() == false);
@@ -748,7 +748,7 @@ bool VmPortInactive(PortInfo *input, int id) {
     Interface *intf;
     VmInterfaceKey key(AgentKey::ADD_DEL_CHANGE, MakeUuid(input[id].intf_id),
                        input[id].name);
-    intf=static_cast<Interface *>(Agent::GetInstance()->GetInterfaceTable()->FindActiveEntry(&key));
+    intf=static_cast<Interface *>(Agent::GetInstance()->interface_table()->FindActiveEntry(&key));
     if (intf == NULL)
         return false;
 
@@ -758,21 +758,21 @@ bool VmPortInactive(PortInfo *input, int id) {
 PhysicalInterface *EthInterfaceGet(const char *name) {
     PhysicalInterface *intf;
     PhysicalInterfaceKey key(name);
-    intf=static_cast<PhysicalInterface *>(Agent::GetInstance()->GetInterfaceTable()->FindActiveEntry(&key));
+    intf=static_cast<PhysicalInterface *>(Agent::GetInstance()->interface_table()->FindActiveEntry(&key));
     return intf;
 }
 
 VmInterface *VmInterfaceGet(int id) {
     VmInterface *intf;
     VmInterfaceKey key(AgentKey::ADD_DEL_CHANGE, MakeUuid(id), "");
-    intf = static_cast<VmInterface *>(Agent::GetInstance()->GetInterfaceTable()->FindActiveEntry(&key));
+    intf = static_cast<VmInterface *>(Agent::GetInstance()->interface_table()->FindActiveEntry(&key));
     return intf;
 }
 
 bool VmPortPolicyEnable(int id) {
     VmInterface *intf;
     VmInterfaceKey key(AgentKey::ADD_DEL_CHANGE, MakeUuid(id), "");
-    intf = static_cast<VmInterface *>(Agent::GetInstance()->GetInterfaceTable()->FindActiveEntry(&key));
+    intf = static_cast<VmInterface *>(Agent::GetInstance()->interface_table()->FindActiveEntry(&key));
     if (intf == NULL)
         return false;
 
@@ -786,7 +786,7 @@ bool VmPortPolicyEnable(PortInfo *input, int id) {
 bool VmPortPolicyDisable(int id) {
     VmInterface *intf;
     VmInterfaceKey key(AgentKey::ADD_DEL_CHANGE, MakeUuid(id), "");
-    intf = static_cast<VmInterface *>(Agent::GetInstance()->GetInterfaceTable()->FindActiveEntry(&key));
+    intf = static_cast<VmInterface *>(Agent::GetInstance()->interface_table()->FindActiveEntry(&key));
     if (intf == NULL)
         return false;
 
@@ -797,7 +797,7 @@ bool VmPortPolicyDisable(PortInfo *input, int id) {
 }
 
 bool DBTableFind(const string &table_name) {
-   return (Agent::GetInstance()->GetDB()->FindTable(table_name) != NULL);
+   return (Agent::GetInstance()->db()->FindTable(table_name) != NULL);
 }
 
 void DeleteTap(int fd) {
@@ -905,7 +905,7 @@ void CreateTapInterfaces(const char *name, int count, int *fd) {
 void VnAddReq(int id, const char *name) {
     std::vector<VnIpam> ipam;
     VnData::VnIpamDataMap vn_ipam_data;
-    Agent::GetInstance()->GetVnTable()->AddVn(MakeUuid(id), name, nil_uuid(),
+    Agent::GetInstance()->vn_table()->AddVn(MakeUuid(id), name, nil_uuid(),
                                               name, ipam, vn_ipam_data, id);
     usleep(1000);
 }
@@ -913,7 +913,7 @@ void VnAddReq(int id, const char *name) {
 void VnAddReq(int id, const char *name, int acl_id) {
     std::vector<VnIpam> ipam;
     VnData::VnIpamDataMap vn_ipam_data;
-    Agent::GetInstance()->GetVnTable()->AddVn(MakeUuid(id), name, 
+    Agent::GetInstance()->vn_table()->AddVn(MakeUuid(id), name, 
                                               MakeUuid(acl_id),
                                               name, ipam, vn_ipam_data, id);
     usleep(1000);
@@ -922,7 +922,7 @@ void VnAddReq(int id, const char *name, int acl_id) {
 void VnAddReq(int id, const char *name, int acl_id, const char *vrf_name) {
     std::vector<VnIpam> ipam;
     VnData::VnIpamDataMap vn_ipam_data;
-    Agent::GetInstance()->GetVnTable()->AddVn(MakeUuid(id), name, 
+    Agent::GetInstance()->vn_table()->AddVn(MakeUuid(id), name, 
                                               MakeUuid(acl_id), vrf_name, ipam,
                                               vn_ipam_data, id);
     usleep(1000);
@@ -931,23 +931,23 @@ void VnAddReq(int id, const char *name, int acl_id, const char *vrf_name) {
 void VnAddReq(int id, const char *name, const char *vrf_name) {
     std::vector<VnIpam> ipam;
     VnData::VnIpamDataMap vn_ipam_data;
-    Agent::GetInstance()->GetVnTable()->AddVn(MakeUuid(id), name, nil_uuid(), 
+    Agent::GetInstance()->vn_table()->AddVn(MakeUuid(id), name, nil_uuid(), 
                                               vrf_name, ipam, vn_ipam_data, id);
     usleep(1000);
 }
 
 void VnDelReq(int id) {
-    Agent::GetInstance()->GetVnTable()->DelVn(MakeUuid(id));
+    Agent::GetInstance()->vn_table()->DelVn(MakeUuid(id));
     usleep(1000);
 }
 
 void VrfAddReq(const char *name) {
-    Agent::GetInstance()->GetVrfTable()->CreateVrfReq(name);
+    Agent::GetInstance()->vrf_table()->CreateVrfReq(name);
     usleep(1000);
 }
 
 void VrfDelReq(const char *name) {
-    Agent::GetInstance()->GetVrfTable()->DeleteVrfReq(name);
+    Agent::GetInstance()->vrf_table()->DeleteVrfReq(name);
     usleep(1000);
 }
 
@@ -963,7 +963,7 @@ void VmAddReq(int id) {
     req.key.reset(key);
     req.data.reset(data);
 
-    Agent::GetInstance()->GetVmTable()->Enqueue(&req);
+    Agent::GetInstance()->vm_table()->Enqueue(&req);
     usleep(1000);
 }
 
@@ -975,7 +975,7 @@ void VmDelReq(int id) {
     req.key.reset(key);
     req.data.reset(NULL);
 
-    Agent::GetInstance()->GetVmTable()->Enqueue(&req);
+    Agent::GetInstance()->vm_table()->Enqueue(&req);
     usleep(1000);
 }
 
@@ -995,7 +995,7 @@ void AclAddReq(int id) {
 
     AclData *data = new AclData(*acl_spec);
     req.data.reset(data);
-    Agent::GetInstance()->GetAclTable()->Enqueue(&req);
+    Agent::GetInstance()->acl_table()->Enqueue(&req);
     delete acl_spec;
     usleep(1000);
 }
@@ -1006,7 +1006,7 @@ void AclDelReq(int id) {
     AclKey *key = new AclKey(MakeUuid(id));
     req.key.reset(key);
     req.data.reset(NULL);
-    Agent::GetInstance()->GetAclTable()->Enqueue(&req);
+    Agent::GetInstance()->acl_table()->Enqueue(&req);
     usleep(1000);
 }
 
@@ -1035,13 +1035,13 @@ void AclAddReq(int id, int ace_id, bool drop) {
 
     req.key.reset(key);
     req.data.reset(data);
-    Agent::GetInstance()->GetAclTable()->Enqueue(&req);
+    Agent::GetInstance()->acl_table()->Enqueue(&req);
     delete acl_spec;
     usleep(1000);
 }
 
 bool RouteFind(const string &vrf_name, const Ip4Address &addr, int plen) {
-    VrfEntry *vrf = Agent::GetInstance()->GetVrfTable()->FindVrfFromName(vrf_name);
+    VrfEntry *vrf = Agent::GetInstance()->vrf_table()->FindVrfFromName(vrf_name);
     if (vrf == NULL)
         return false;
 
@@ -1059,7 +1059,7 @@ bool RouteFind(const string &vrf_name, const string &addr, int plen) {
 
 bool L2RouteFind(const string &vrf_name, const struct ether_addr &mac) {
     VrfEntry *vrf = Agent::GetInstance()->
-        GetVrfTable()->FindVrfFromName(vrf_name);
+        vrf_table()->FindVrfFromName(vrf_name);
     if (vrf == NULL)
         return false;
 
@@ -1073,7 +1073,7 @@ bool L2RouteFind(const string &vrf_name, const struct ether_addr &mac) {
 
 bool MCRouteFind(const string &vrf_name, const Ip4Address &grp_addr,
                  const Ip4Address &src_addr) {
-    VrfEntry *vrf = Agent::GetInstance()->GetVrfTable()->FindVrfFromName(vrf_name);
+    VrfEntry *vrf = Agent::GetInstance()->vrf_table()->FindVrfFromName(vrf_name);
     if (vrf == NULL)
         return false;
 
@@ -1092,7 +1092,7 @@ bool MCRouteFind(const string &vrf_name, const string &grp_addr,
 }
 
 bool MCRouteFind(const string &vrf_name, const Ip4Address &grp_addr) {
-    VrfEntry *vrf = Agent::GetInstance()->GetVrfTable()->FindVrfFromName(vrf_name);
+    VrfEntry *vrf = Agent::GetInstance()->vrf_table()->FindVrfFromName(vrf_name);
     if (vrf == NULL)
         return false;
 
@@ -1111,7 +1111,7 @@ bool MCRouteFind(const string &vrf_name, const string &grp_addr) {
 
 Layer2RouteEntry *L2RouteGet(const string &vrf_name, 
                              const struct ether_addr &mac) {
-    VrfEntry *vrf = Agent::GetInstance()->GetVrfTable()->FindVrfFromName(vrf_name);
+    VrfEntry *vrf = Agent::GetInstance()->vrf_table()->FindVrfFromName(vrf_name);
     if (vrf == NULL)
         return NULL;
 
@@ -1124,7 +1124,7 @@ Layer2RouteEntry *L2RouteGet(const string &vrf_name,
 }
 
 Inet4UnicastRouteEntry* RouteGet(const string &vrf_name, const Ip4Address &addr, int plen) {
-    VrfEntry *vrf = Agent::GetInstance()->GetVrfTable()->FindVrfFromName(vrf_name);
+    VrfEntry *vrf = Agent::GetInstance()->vrf_table()->FindVrfFromName(vrf_name);
     if (vrf == NULL)
         return NULL;
 
@@ -1137,7 +1137,7 @@ Inet4UnicastRouteEntry* RouteGet(const string &vrf_name, const Ip4Address &addr,
 }
 
 Inet4MulticastRouteEntry *MCRouteGet(const string &vrf_name, const Ip4Address &grp_addr) {
-    VrfEntry *vrf = Agent::GetInstance()->GetVrfTable()->FindVrfFromName(vrf_name);
+    VrfEntry *vrf = Agent::GetInstance()->vrf_table()->FindVrfFromName(vrf_name);
     if (vrf == NULL)
         return NULL;
 
@@ -1150,7 +1150,7 @@ Inet4MulticastRouteEntry *MCRouteGet(const string &vrf_name, const Ip4Address &g
 }
 
 Inet4MulticastRouteEntry *MCRouteGet(const string &vrf_name, const string &grp_addr) {
-    VrfEntry *vrf = Agent::GetInstance()->GetVrfTable()->FindVrfFromName(vrf_name);
+    VrfEntry *vrf = Agent::GetInstance()->vrf_table()->FindVrfFromName(vrf_name);
     if (vrf == NULL)
         return NULL;
 
@@ -1163,10 +1163,10 @@ Inet4MulticastRouteEntry *MCRouteGet(const string &vrf_name, const string &grp_a
 }
 
 bool TunnelNHFind(const Ip4Address &server_ip, bool policy, TunnelType::Type type) {
-    TunnelNHKey key(Agent::GetInstance()->GetDefaultVrf(), 
-                    Agent::GetInstance()->GetRouterId(), server_ip,
+    TunnelNHKey key(Agent::GetInstance()->fabric_vrf_name(), 
+                    Agent::GetInstance()->router_id(), server_ip,
                     policy, type);
-    NextHop *nh = static_cast<NextHop *>(Agent::GetInstance()->GetNextHopTable()->FindActiveEntry(&key));
+    NextHop *nh = static_cast<NextHop *>(Agent::GetInstance()->nexthop_table()->FindActiveEntry(&key));
     return (nh != NULL);
 }
 
@@ -1182,7 +1182,7 @@ bool TunnelNHFind(const Ip4Address &server_ip) {
 
 bool VlanNhFind(int id, uint16_t tag) {
     VlanNHKey key(MakeUuid(id), tag);
-    NextHop *nh = static_cast<NextHop *>(Agent::GetInstance()->GetNextHopTable()->FindActiveEntry(&key));
+    NextHop *nh = static_cast<NextHop *>(Agent::GetInstance()->nexthop_table()->FindActiveEntry(&key));
     return (nh != NULL);
 }
 
@@ -1192,8 +1192,8 @@ bool Layer2TunnelRouteAdd(const Peer *peer, const string &vm_vrf,
                           const Ip4Address &vm_addr, uint8_t plen) {
     ControllerVmRoute *data =
         ControllerVmRoute::MakeControllerVmRoute(peer,
-                              Agent::GetInstance()->GetDefaultVrf(),
-                              Agent::GetInstance()->GetRouterId(),
+                              Agent::GetInstance()->fabric_vrf_name(),
+                              Agent::GetInstance()->router_id(),
                               vm_vrf, server_ip,
                               bmap, label, "", SecurityGroupList());
     Layer2AgentRouteTable::AddRemoteVmRouteReq(peer, vm_vrf, remote_vm_mac,
@@ -1232,8 +1232,8 @@ bool Inet4TunnelRouteAdd(const Peer *peer, const string &vm_vrf, const Ip4Addres
                          const SecurityGroupList &sg) {
     ControllerVmRoute *data =
         ControllerVmRoute::MakeControllerVmRoute(peer,
-                              Agent::GetInstance()->GetDefaultVrf(),
-                              Agent::GetInstance()->GetRouterId(),
+                              Agent::GetInstance()->fabric_vrf_name(),
+                              Agent::GetInstance()->router_id(),
                               vm_vrf, server_ip,
                               bmap, label, dest_vn_name, sg);
     Inet4UnicastAgentRouteTable::AddRemoteVmRouteReq(peer, vm_vrf,
@@ -1256,8 +1256,8 @@ bool TunnelRouteAdd(const char *server, const char *vmip, const char *vm_vrf,
     boost::system::error_code ec;
     ControllerVmRoute *data =
         ControllerVmRoute::MakeControllerVmRoute(bgp_peer_,
-                              Agent::GetInstance()->GetDefaultVrf(),
-                              Agent::GetInstance()->GetRouterId(),
+                              Agent::GetInstance()->fabric_vrf_name(),
+                              Agent::GetInstance()->router_id(),
                               vm_vrf, Ip4Address::from_string(server, ec),
                               TunnelType::AllType(), label, "",
                               SecurityGroupList());
@@ -1277,11 +1277,11 @@ bool AddArp(const char *ip, const char *mac_str, const char *ifname) {
     struct ether_addr mac = *ether_aton(mac_str);
     Interface *intf;
     PhysicalInterfaceKey key(ifname);
-    intf = static_cast<Interface *>(Agent::GetInstance()->GetInterfaceTable()->FindActiveEntry(&key));
+    intf = static_cast<Interface *>(Agent::GetInstance()->interface_table()->FindActiveEntry(&key));
     boost::system::error_code ec;
     Inet4UnicastAgentRouteTable::ArpRoute(DBRequest::DB_ENTRY_ADD_CHANGE,
                               Ip4Address::from_string(ip, ec), mac, 
-                              Agent::GetInstance()->GetDefaultVrf(),
+                              Agent::GetInstance()->fabric_vrf_name(),
                               *intf, true, 32);
 
     return true;
@@ -1291,11 +1291,11 @@ bool DelArp(const string &ip, const char *mac_str, const string &ifname) {
     struct ether_addr mac = *ether_aton(mac_str);
     Interface *intf;
     PhysicalInterfaceKey key(ifname);
-    intf = static_cast<Interface *>(Agent::GetInstance()->GetInterfaceTable()->FindActiveEntry(&key));
+    intf = static_cast<Interface *>(Agent::GetInstance()->interface_table()->FindActiveEntry(&key));
     boost::system::error_code ec;
     Inet4UnicastAgentRouteTable::ArpRoute(DBRequest::DB_ENTRY_DELETE, 
                               Ip4Address::from_string(ip, ec),
-                              mac, Agent::GetInstance()->GetDefaultVrf(), *intf, false, 32);
+                              mac, Agent::GetInstance()->fabric_vrf_name(), *intf, false, 32);
     return true;
 }
 
@@ -1462,7 +1462,7 @@ void AddAcl(const char *name, int id, const char *src_vn, const char *dest_vn,
     pugi::xml_parse_result result = xdoc_.load(s.c_str());
     EXPECT_TRUE(result);
     Agent::GetInstance()->
-        GetIfMapAgentParser()->ConfigParse(xdoc_.first_child(), 0);
+        ifmap_parser()->ConfigParse(xdoc_.first_child(), 0);
 }
 
 void DelOperDBAcl(int id) {
@@ -1472,7 +1472,7 @@ void DelOperDBAcl(int id) {
     AclKey *key = new AclKey(MakeUuid(id));
     req.key.reset(key);
     req.data.reset(NULL);
-    Agent::GetInstance()->GetAclTable()->Enqueue(&req);
+    Agent::GetInstance()->acl_table()->Enqueue(&req);
 }
 
 void AddSg(const char *name, int id, int sg_id) {
@@ -1556,7 +1556,7 @@ void AddIPAM(const char *name, IpamInfo *ipam, int ipam_size, const char *ipam_a
     pugi::xml_document xdoc_;
     pugi::xml_parse_result result = xdoc_.load(buff);
     EXPECT_TRUE(result);
-    Agent::GetInstance()->GetIfMapAgentParser()->ConfigParse(xdoc_.first_child(), 0);
+    Agent::GetInstance()->ifmap_parser()->ConfigParse(xdoc_.first_child(), 0);
 }
 
 void DelIPAM(const char *name, const char *vdns_name) {
@@ -1582,7 +1582,7 @@ void DelIPAM(const char *name, const char *vdns_name) {
     pugi::xml_document xdoc_;
     pugi::xml_parse_result result = xdoc_.load(buff);
     EXPECT_TRUE(result);
-    Agent::GetInstance()->GetIfMapAgentParser()->ConfigParse(xdoc_.first_child(), 0);
+    Agent::GetInstance()->ifmap_parser()->ConfigParse(xdoc_.first_child(), 0);
     return;
 }
 
@@ -1724,7 +1724,7 @@ uint32_t GetFlowKeyNH(int id) {
     uuid intf_uuid = MakeUuid(id);
     VmInterfaceKey key(AgentKey::RESYNC, intf_uuid, "");
     const Interface *intf = static_cast<const Interface *>(
-            Agent::GetInstance()->GetInterfaceTable()->FindActiveEntry(&key));
+            Agent::GetInstance()->interface_table()->FindActiveEntry(&key));
     return intf->flow_key_nh()->id();
 }
 
@@ -1736,7 +1736,7 @@ uint32_t GetFlowkeyNH(char *name) {
 bool FlowStats(FlowIp *input, int id, uint32_t bytes, uint32_t pkts) {
     VrfEntry *vrf;
     VrfKey vrf_key(input[id].vrf);
-    vrf = static_cast<VrfEntry *>(Agent::GetInstance()->GetVrfTable()->FindActiveEntry(&vrf_key));
+    vrf = static_cast<VrfEntry *>(Agent::GetInstance()->vrf_table()->FindActiveEntry(&vrf_key));
     LOG(DEBUG, "Vrf id for " << input[id].vrf << " is " << vrf->vrf_id());
 
     FlowKey key;
@@ -2061,7 +2061,7 @@ bool FlowDelete(const string &vrf_name, const char *sip, const char *dip,
                 uint8_t proto, uint16_t sport, uint16_t dport, int nh_id) {
 
     FlowTable *table = Agent::GetInstance()->pkt()->flow_table();
-    VrfEntry *vrf = Agent::GetInstance()->GetVrfTable()->FindVrfFromName(vrf_name);
+    VrfEntry *vrf = Agent::GetInstance()->vrf_table()->FindVrfFromName(vrf_name);
     EXPECT_TRUE(vrf != NULL);
     if (vrf == NULL)
         return false;
@@ -2106,7 +2106,7 @@ bool FlowFail(int vrf_id, const char *sip, const char *dip,
 bool FlowFail(const string &vrf_name, const char *sip, const char *dip,
               uint8_t proto, uint16_t sport, uint16_t dport, int nh_id) {
 
-    VrfEntry *vrf = Agent::GetInstance()->GetVrfTable()->FindVrfFromName(vrf_name);
+    VrfEntry *vrf = Agent::GetInstance()->vrf_table()->FindVrfFromName(vrf_name);
     EXPECT_TRUE(vrf != NULL);
     if (vrf == NULL)
         return false;
@@ -2122,7 +2122,7 @@ bool FlowGetNat(const string &vrf_name, const char *sip, const char *dip,
                 int nh_id, int nat_nh_id) {
 
     FlowTable *table = Agent::GetInstance()->pkt()->flow_table();
-    VrfEntry *vrf = Agent::GetInstance()->GetVrfTable()->FindVrfFromName(vrf_name);
+    VrfEntry *vrf = Agent::GetInstance()->vrf_table()->FindVrfFromName(vrf_name);
     EXPECT_TRUE(vrf != NULL);
     if (vrf == NULL)
         return false;
@@ -2163,7 +2163,7 @@ bool FlowGetNat(const string &vrf_name, const char *sip, const char *dip,
         }
     }
 
-    vrf = Agent::GetInstance()->GetVrfTable()->FindVrfFromName(nat_vrf);
+    vrf = Agent::GetInstance()->vrf_table()->FindVrfFromName(nat_vrf);
     EXPECT_TRUE(vrf != NULL);
     if (vrf == NULL)
         return false;
@@ -2287,7 +2287,7 @@ bool FlowGet(const string &vrf_name, const char *sip, const char *dip,
              int rev_nh_id) {
 
     FlowTable *table = Agent::GetInstance()->pkt()->flow_table();
-    VrfEntry *vrf = Agent::GetInstance()->GetVrfTable()->FindVrfFromName(vrf_name);
+    VrfEntry *vrf = Agent::GetInstance()->vrf_table()->FindVrfFromName(vrf_name);
     EXPECT_TRUE(vrf != NULL);
     if (vrf == NULL)
         return false;
@@ -2382,7 +2382,7 @@ bool FlowGet(const string &vrf_name, const char *sip, const char *dip,
                        svn, dvn, hash_id, nh_id, rev_nh_id);
 
     FlowTable *table = Agent::GetInstance()->pkt()->flow_table();
-    VrfEntry *vrf = Agent::GetInstance()->GetVrfTable()->FindVrfFromName(vrf_name);
+    VrfEntry *vrf = Agent::GetInstance()->vrf_table()->FindVrfFromName(vrf_name);
     EXPECT_TRUE(vrf != NULL);
     if (vrf == NULL)
         return false;
@@ -2422,7 +2422,7 @@ bool FlowStatsMatch(const string &vrf_name, const char *sip,
                     uint16_t dport, uint64_t pkts, uint64_t bytes, int nh_id) {
 
     FlowTable *table = Agent::GetInstance()->pkt()->flow_table();
-    VrfEntry *vrf = Agent::GetInstance()->GetVrfTable()->FindVrfFromName(vrf_name);
+    VrfEntry *vrf = Agent::GetInstance()->vrf_table()->FindVrfFromName(vrf_name);
     EXPECT_TRUE(vrf != NULL);
     if (vrf == NULL)
         return false;
@@ -2455,7 +2455,7 @@ bool FindFlow(const string &vrf_name, const char *sip, const char *dip,
               int fwd_nh_id, int rev_nh_id) {
 
     FlowTable *table = Agent::GetInstance()->pkt()->flow_table();
-    VrfEntry *vrf = Agent::GetInstance()->GetVrfTable()->FindVrfFromName(vrf_name);
+    VrfEntry *vrf = Agent::GetInstance()->vrf_table()->FindVrfFromName(vrf_name);
     EXPECT_TRUE(vrf != NULL);
     if (vrf == NULL)
         return false;
@@ -2482,7 +2482,7 @@ bool FindFlow(const string &vrf_name, const char *sip, const char *dip,
         return false;
     }
 
-    VrfEntry *nat_vrf = Agent::GetInstance()->GetVrfTable()->FindVrfFromName(nat_vrf_name);
+    VrfEntry *nat_vrf = Agent::GetInstance()->vrf_table()->FindVrfFromName(nat_vrf_name);
     EXPECT_TRUE(nat_vrf != NULL);
     if (nat_vrf == NULL)
         return false;
@@ -2546,7 +2546,7 @@ PktGen *TxIpPacketUtil(int ifindex, const char *sip, const char *dip,
 
 int MplsToVrfId(int label) {
     int vrf = 0;
-    MplsLabel *mpls = Agent::GetInstance()->GetMplsTable()->FindMplsLabel(label);
+    MplsLabel *mpls = Agent::GetInstance()->mpls_table()->FindMplsLabel(label);
     if (mpls) {
         const NextHop *nh = mpls->nexthop();
         if (nh->GetType() == NextHop::INTERFACE) {
@@ -2620,7 +2620,7 @@ PktGen *TxMplsTcpPacketUtil(int ifindex, const char *out_sip,
 }
 
 bool RouterIdMatch(Ip4Address rid2) {
-    Ip4Address rid1 = Agent::GetInstance()->GetRouterId();
+    Ip4Address rid1 = Agent::GetInstance()->router_id();
     int ret = rid1.to_string().compare(rid2.to_string());
     EXPECT_TRUE(ret == 0);
     if (ret) {
@@ -2630,7 +2630,7 @@ bool RouterIdMatch(Ip4Address rid2) {
 }
 
 bool ResolvRouteFind(const string &vrf_name, const Ip4Address &addr, int plen) {
-    VrfEntry *vrf = Agent::GetInstance()->GetVrfTable()->FindVrfFromName(vrf_name);
+    VrfEntry *vrf = Agent::GetInstance()->vrf_table()->FindVrfFromName(vrf_name);
     if (vrf == NULL) {
         LOG(DEBUG, "VRF not found " << vrf_name);
         return false;
@@ -2662,7 +2662,7 @@ bool ResolvRouteFind(const string &vrf_name, const Ip4Address &addr, int plen) {
 
 bool VhostRecvRouteFind(const string &vrf_name, const Ip4Address &addr,
                         int plen) {
-    VrfEntry *vrf = Agent::GetInstance()->GetVrfTable()->FindVrfFromName(vrf_name);
+    VrfEntry *vrf = Agent::GetInstance()->vrf_table()->FindVrfFromName(vrf_name);
     if (vrf == NULL) {
         LOG(DEBUG, "VRF not found " << vrf_name);
         return false;
@@ -2695,7 +2695,7 @@ bool VhostRecvRouteFind(const string &vrf_name, const Ip4Address &addr,
 
 uint32_t PathCount(const string vrf_name, const Ip4Address &addr, int plen) {
 
-    VrfEntry *vrf = Agent::GetInstance()->GetVrfTable()->FindVrfFromName(vrf_name);
+    VrfEntry *vrf = Agent::GetInstance()->vrf_table()->FindVrfFromName(vrf_name);
     Inet4UnicastRouteKey key(NULL, vrf_name, addr, plen);
 
     Inet4UnicastRouteEntry* route = 
@@ -2711,22 +2711,22 @@ uint32_t PathCount(const string vrf_name, const Ip4Address &addr, int plen) {
 
 bool FindMplsLabel(MplsLabel::Type type, uint32_t label) {
     MplsLabelKey key(type, label);
-    MplsLabel *mpls = static_cast<MplsLabel *>(Agent::GetInstance()->GetMplsTable()->FindActiveEntry(&key));
+    MplsLabel *mpls = static_cast<MplsLabel *>(Agent::GetInstance()->mpls_table()->FindActiveEntry(&key));
     return (mpls != NULL);
 }
 
 MplsLabel* GetMplsLabel(MplsLabel::Type type, uint32_t label) {
     MplsLabelKey key(type, label);
-    return static_cast<MplsLabel *>(Agent::GetInstance()->GetMplsTable()->FindActiveEntry(&key));
+    return static_cast<MplsLabel *>(Agent::GetInstance()->mpls_table()->FindActiveEntry(&key));
 }
 
 bool FindNH(NextHopKey *key) {
-    return (Agent::GetInstance()->GetNextHopTable()->FindActiveEntry(key) != NULL);
+    return (Agent::GetInstance()->nexthop_table()->FindActiveEntry(key) != NULL);
 }
 
 NextHop *GetNH(NextHopKey *key) {
     return static_cast<NextHop *>
-        (Agent::GetInstance()->GetNextHopTable()->FindActiveEntry(key));
+        (Agent::GetInstance()->nexthop_table()->FindActiveEntry(key));
 }
 
 bool VmPortServiceVlanCount(int id, unsigned int count) {
@@ -2746,7 +2746,8 @@ bool VmPortServiceVlanCount(int id, unsigned int count) {
 BgpPeer *CreateBgpPeer(const Ip4Address &addr, std::string name) {
     XmppChannelMock *xmpp_channel = new XmppChannelMock();
     AgentXmppChannel *channel;
-    Agent::GetInstance()->SetXmppServer(addr.to_string(), 0);
+    Agent::GetInstance()->set_controller_ifmap_xmpp_server(addr.to_string(), 0);
+    
     channel = new AgentXmppChannel(Agent::GetInstance(), xmpp_channel, 
                                    "XMPP Server", "", 0);
     AgentXmppChannel::HandleAgentXmppClientChannelEvent(channel, xmps::READY);

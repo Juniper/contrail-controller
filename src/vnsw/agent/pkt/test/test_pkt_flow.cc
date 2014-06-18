@@ -71,7 +71,7 @@ public:
     FlowTest() : peer_(NULL), agent_(Agent::GetInstance()) {
         boost::scoped_ptr<InetInterfaceKey> key(new InetInterfaceKey("vhost0"));
         vhost = static_cast<InetInterface *>(Agent::GetInstance()->
-                GetInterfaceTable()->FindActiveEntry(key.get()));
+                interface_table()->FindActiveEntry(key.get()));
     }
 
     bool FlowTableWait(size_t count) {
@@ -96,7 +96,7 @@ public:
     void CreateLocalRoute(const char *vrf, const char *ip,
                           VmInterface *intf, int label) {
         Ip4Address addr = Ip4Address::from_string(ip);
-        agent()->GetDefaultInet4UnicastRouteTable()->
+        agent()->fabric_inet4_unicast_table()->
             AddLocalVmRouteReq(peer_, vrf, addr, 32, intf->GetUuid(),
                                intf->vn()->GetName(), label,
                                SecurityGroupList(), false); 
@@ -116,7 +116,7 @@ public:
 
     void DeleteRoute(const char *vrf, const char *ip) {
         Ip4Address addr = Ip4Address::from_string(ip);
-        agent()->GetDefaultInet4UnicastRouteTable()->DeleteReq(peer_, 
+        agent()->fabric_inet4_unicast_table()->DeleteReq(peer_, 
                                                 vrf, addr, 32, NULL);
         client->WaitForIdle();
         WAIT_FOR(1000, 1, (RouteFind(vrf, addr, 32) == false));
@@ -124,7 +124,7 @@ public:
 
     void DeleteRemoteRoute(const char *vrf, const char *ip) {
         Ip4Address addr = Ip4Address::from_string(ip);
-        agent()->GetDefaultInet4UnicastRouteTable()->DeleteReq(peer_, 
+        agent()->fabric_inet4_unicast_table()->DeleteReq(peer_, 
                 vrf, addr, 32, NULL);
         client->WaitForIdle();
         WAIT_FOR(1000, 1, (RouteFind(vrf, addr, 32) == false));
@@ -319,10 +319,10 @@ protected:
         EXPECT_TRUE(VmPortPolicyEnable(input, 0));
         EXPECT_TRUE(VmPortPolicyEnable(input, 1));
         EXPECT_TRUE(VmPortPolicyEnable(input, 2));
-        EXPECT_EQ(7U, agent()->GetInterfaceTable()->Size());
-        EXPECT_EQ(3U, agent()->GetVmTable()->Size());
-        EXPECT_EQ(vn_count, agent()->GetVnTable()->Size());
-        EXPECT_EQ(3U, agent()->GetIntfCfgTable()->Size());
+        EXPECT_EQ(7U, agent()->interface_table()->Size());
+        EXPECT_EQ(3U, agent()->vm_table()->Size());
+        EXPECT_EQ(vn_count, agent()->vn_table()->Size());
+        EXPECT_EQ(3U, agent()->interface_config_table()->Size());
 
         flow0 = VmInterfaceGet(input[0].intf_id);
         assert(flow0);
@@ -338,11 +338,11 @@ protected:
         vn_count++;
         EXPECT_TRUE(VmPortActive(input2, 0));
         EXPECT_TRUE(VmPortPolicyEnable(input2, 0));
-        EXPECT_EQ(8U, agent()->GetInterfaceTable()->Size());
-        EXPECT_EQ(4U, agent()->GetVmTable()->Size());
-        EXPECT_EQ(vn_count, agent()->GetVnTable()->Size());
-        EXPECT_EQ(4U, agent()->GetIntfCfgTable()->Size());
-        EXPECT_EQ(2U, agent()->GetAclTable()->Size());
+        EXPECT_EQ(8U, agent()->interface_table()->Size());
+        EXPECT_EQ(4U, agent()->vm_table()->Size());
+        EXPECT_EQ(vn_count, agent()->vn_table()->Size());
+        EXPECT_EQ(4U, agent()->interface_config_table()->Size());
+        EXPECT_EQ(2U, agent()->acl_table()->Size());
 
         flow3 = VmInterfaceGet(input2[0].intf_id);
         assert(flow3);
@@ -353,10 +353,10 @@ protected:
         client->WaitForIdle(5);
         vn_count++;
         EXPECT_TRUE(VmPortActive(input3, 0));
-        EXPECT_EQ(9U, agent()->GetInterfaceTable()->Size());
-        EXPECT_EQ(5U, agent()->GetVmTable()->Size());
-        EXPECT_EQ(vn_count, agent()->GetVnTable()->Size());
-        EXPECT_EQ(5U, agent()->GetIntfCfgTable()->Size());
+        EXPECT_EQ(9U, agent()->interface_table()->Size());
+        EXPECT_EQ(5U, agent()->vm_table()->Size());
+        EXPECT_EQ(vn_count, agent()->vn_table()->Size());
+        EXPECT_EQ(5U, agent()->interface_config_table()->Size());
         flow4 = VmInterfaceGet(input3[0].intf_id);
         assert(flow4);
         // Configure Floating-IP
@@ -385,7 +385,7 @@ protected:
         client->Reset();
         VrfEntry *vrf = VrfGet("vrf5");
         Ip4Address gw_ip = Ip4Address::from_string("11.1.1.254");
-        Agent::GetInstance()->GetDefaultInet4UnicastRouteTable()->DeleteReq(
+        Agent::GetInstance()->fabric_inet4_unicast_table()->DeleteReq(
             Agent::GetInstance()->local_peer(), "vrf5", gw_ip, 32, NULL);
         client->WaitForIdle();
         DeleteVmportEnv(input, 3, true, 1);
@@ -394,28 +394,28 @@ protected:
         EXPECT_FALSE(VmPortFind(input, 0));
         EXPECT_FALSE(VmPortFind(input, 1));
         EXPECT_FALSE(VmPortFind(input, 2));
-        EXPECT_EQ(6U, agent()->GetInterfaceTable()->Size());
-        EXPECT_EQ(2U, agent()->GetIntfCfgTable()->Size());
+        EXPECT_EQ(6U, agent()->interface_table()->Size());
+        EXPECT_EQ(2U, agent()->interface_config_table()->Size());
 
         client->Reset();
         DeleteVmportEnv(input2, 1, true, 2);
         client->WaitForIdle(3);
         client->PortDelNotifyWait(1);
-        EXPECT_EQ(5U, agent()->GetInterfaceTable()->Size());
-        EXPECT_EQ(1U, agent()->GetIntfCfgTable()->Size());
+        EXPECT_EQ(5U, agent()->interface_table()->Size());
+        EXPECT_EQ(1U, agent()->interface_config_table()->Size());
         EXPECT_FALSE(VmPortFind(input2, 0));
 
         client->Reset();
         DeleteVmportFIpEnv(input3, 1, true);
         client->WaitForIdle(3);
         client->PortDelNotifyWait(1);
-        EXPECT_EQ(4U, agent()->GetInterfaceTable()->Size());
-        EXPECT_EQ(0U, agent()->GetIntfCfgTable()->Size());
+        EXPECT_EQ(4U, agent()->interface_table()->Size());
+        EXPECT_EQ(0U, agent()->interface_config_table()->Size());
         EXPECT_FALSE(VmPortFind(input3, 0));
 
-        EXPECT_EQ(0U, agent()->GetVmTable()->Size());
-        EXPECT_EQ(0U, agent()->GetVnTable()->Size());
-        EXPECT_EQ(0U, agent()->GetAclTable()->Size());
+        EXPECT_EQ(0U, agent()->vm_table()->Size());
+        EXPECT_EQ(0U, agent()->vn_table()->Size());
+        EXPECT_EQ(0U, agent()->acl_table()->Size());
         DeleteBgpPeer(peer_);
     }
 
@@ -502,7 +502,7 @@ TEST_F(FlowTest, FlowAdd_2) {
     //Create PHYSICAL interface to receive GRE packets on it.
     PhysicalInterfaceKey key(eth_itf);
     Interface *intf = static_cast<Interface *>
-        (agent()->GetInterfaceTable()->FindActiveEntry(&key));
+        (agent()->interface_table()->FindActiveEntry(&key));
     EXPECT_TRUE(intf != NULL);
 
     //Create remote VM route. This will be used to figure out destination VN for
@@ -641,7 +641,7 @@ TEST_F(FlowTest, FlowAdd_3) {
 TEST_F(FlowTest, FlowAdd_4) {
     /* Add remote VN route to vrf5 */
     CreateRemoteRoute("vrf5", remote_vm4_ip, remote_router_ip, 8, "vn3");
-    Ip4Address rid1 = agent()->GetRouterId();
+    Ip4Address rid1 = agent()->router_id();
     std::string router_ip_str = rid1.to_string();
 
     TestFlow flow[] = {
@@ -1568,7 +1568,7 @@ TEST_F(FlowTest, FlowAudit) {
     KFlowPurgeHold();
 
     string vrf_name =
-        Agent::GetInstance()->GetVrfTable()->FindVrfFromId(1)->GetName();
+        Agent::GetInstance()->vrf_table()->FindVrfFromId(1)->GetName();
     TestFlow flow[] = {
         {
             TestFlowPkt("1.1.1.1", "2.2.2.2", 1, 0, 0, vrf_name,
@@ -1704,7 +1704,7 @@ TEST_F(FlowTest, Flow_with_encap_change) {
     //Create PHYSICAL interface to receive GRE packets on it.
     PhysicalInterfaceKey key(eth_itf);
     Interface *intf = static_cast<Interface *>
-        (agent()->GetInterfaceTable()->FindActiveEntry(&key));
+        (agent()->interface_table()->FindActiveEntry(&key));
     EXPECT_TRUE(intf != NULL);
     CreateRemoteRoute("vrf5", remote_vm1_ip, remote_router_ip, 30, "vn5");
     client->WaitForIdle();
@@ -1795,7 +1795,7 @@ TEST_F(FlowTest, Flow_return_error) {
     //Create PHYSICAL interface to receive GRE packets on it.
     PhysicalInterfaceKey key(eth_itf);
     Interface *intf = static_cast<Interface *>
-        (agent()->GetInterfaceTable()->FindActiveEntry(&key));
+        (agent()->interface_table()->FindActiveEntry(&key));
     EXPECT_TRUE(intf != NULL);
     CreateRemoteRoute("vrf5", remote_vm1_ip, remote_router_ip, 30, "vn5");
     client->WaitForIdle();
@@ -1912,7 +1912,7 @@ TEST_F(FlowTest, Flow_ksync_nh_state_find_failure) {
         }
     };
 
-    DBTableBase *table = Agent::GetInstance()->GetNextHopTable();
+    DBTableBase *table = Agent::GetInstance()->nexthop_table();
     NHKSyncObject *nh_object = Agent::GetInstance()->ksync()->nh_ksync_obj();
     DBTableBase::ListenerId nh_listener =
         table->Register(boost::bind(&NHNotify, _1, _2));
@@ -1988,7 +1988,7 @@ TEST_F(FlowTest, Flow_entry_reuse) {
 
 // Linklocal flow add & delete
 TEST_F(FlowTest, LinkLocalFlow_1) {
-    Agent::GetInstance()->SetRouterId(Ip4Address::from_string(vhost_ip_addr));
+    Agent::GetInstance()->set_router_id(Ip4Address::from_string(vhost_ip_addr));
     std::string fabric_ip("1.2.3.4");
     std::vector<std::string> fabric_ip_list;
     fabric_ip_list.push_back("1.2.3.4");
@@ -2061,7 +2061,7 @@ TEST_F(FlowTest, LinkLocalFlow_1) {
 }
 
 TEST_F(FlowTest, LinkLocalFlow_Fail1) {
-    Agent::GetInstance()->SetRouterId(Ip4Address::from_string(vhost_ip_addr));
+    Agent::GetInstance()->set_router_id(Ip4Address::from_string(vhost_ip_addr));
     std::string fabric_ip("1.2.3.4");
     std::vector<std::string> fabric_ip_list;
     fabric_ip_list.push_back("1.2.3.4");
@@ -2141,7 +2141,7 @@ TEST_F(FlowTest, LinkLocalFlow_Fail1) {
 }
 
 TEST_F(FlowTest, LinkLocalFlow_Fail2) {
-    Agent::GetInstance()->SetRouterId(Ip4Address::from_string(vhost_ip_addr));
+    Agent::GetInstance()->set_router_id(Ip4Address::from_string(vhost_ip_addr));
     std::string fabric_ip("1.2.3.4");
     std::vector<std::string> fabric_ip_list;
     fabric_ip_list.push_back("1.2.3.4");
@@ -2242,7 +2242,7 @@ TEST_F(FlowTest, LinkLocalFlow_Fail2) {
 
 // Check that flow limit per VM works
 TEST_F(FlowTest, FlowLimit_1) {
-    Agent::GetInstance()->SetRouterId(Ip4Address::from_string(vhost_ip_addr));
+    Agent::GetInstance()->set_router_id(Ip4Address::from_string(vhost_ip_addr));
     uint32_t vm_flows = Agent::GetInstance()->pkt()->flow_table()->max_vm_flows();
     Agent::GetInstance()->pkt()->flow_table()->set_max_vm_flows(3);
 
@@ -2351,18 +2351,18 @@ int main(int argc, char *argv[]) {
     client = 
         TestInit(init_file, ksync_init, true, true, true, (1000000 * 60 * 10), (3 * 60 * 1000));
     if (vm.count("config")) {
-		eth_itf = Agent::GetInstance()->GetIpFabricItfName();
+		eth_itf = Agent::GetInstance()->fabric_interface_name();
     } else {
         eth_itf = "eth0";
-        PhysicalInterface::CreateReq(Agent::GetInstance()->GetInterfaceTable(),
-                                eth_itf, Agent::GetInstance()->GetDefaultVrf());
+        PhysicalInterface::CreateReq(Agent::GetInstance()->interface_table(),
+                                eth_itf, Agent::GetInstance()->fabric_vrf_name());
         client->WaitForIdle();
     }
 
     FlowTest::TestSetup(ksync_init);
     int ret = RUN_ALL_TESTS();
     usleep(1000);
-    Agent::GetInstance()->GetEventManager()->Shutdown();
+    Agent::GetInstance()->event_manager()->Shutdown();
     AsioStop();
     TaskScheduler::GetInstance()->Terminate();
     return ret;

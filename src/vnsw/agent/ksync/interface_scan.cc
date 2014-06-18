@@ -19,7 +19,7 @@ InterfaceKScan::~InterfaceKScan() {
 
 void InterfaceKScan::Init() {
     timer_ = TimerManager::CreateTimer(
-             *(agent_->GetEventManager())->io_service(), "InterfaceKScanTimer");
+             *(agent_->event_manager())->io_service(), "InterfaceKScanTimer");
     timer_->Start(timeout_, boost::bind(&InterfaceKScan::Reset, this));
 }
 
@@ -28,14 +28,14 @@ void InterfaceKScan::KernelInterfaceData(vr_interface_req *r) {
     if (r->get_vifr_os_idx() >= 0 && r->get_vifr_type() == VIF_TYPE_VIRTUAL) {
         uint32_t ipaddr = r->get_vifr_ip();
         if (ipaddr && if_indextoname(r->get_vifr_os_idx(), name)) {
-            agent_->GetInterfaceTable()->AddDhcpSnoopEntry(name,
+            agent_->interface_table()->AddDhcpSnoopEntry(name,
                                                            Ip4Address(ipaddr));
         }
     }
 }
 
 bool InterfaceKScan::Reset() { 
-    agent_->GetInterfaceTable()->AuditDhcpSnoopTable();
+    agent_->interface_table()->AuditDhcpSnoopTable();
     return false;
 }
 

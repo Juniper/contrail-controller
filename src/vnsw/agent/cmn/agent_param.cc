@@ -333,7 +333,7 @@ void AgentParam::ParseDefaultSection() {
         log_level_ = "SYS_DEBUG";
     }
     if (!GetValueFromTree<string>(log_file_, "DEFAULT.log_file")) {
-        log_file_ = Agent::DefaultLogFile();
+        log_file_ = Agent::GetInstance()->log_file();
     }
 
     if (!GetValueFromTree<string>(log_category_, "DEFAULT.log_category")) {

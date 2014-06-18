@@ -91,11 +91,11 @@ public:
         char acl_name[80];
 
         sprintf(acl_name, "acl%d", id);
-        uint32_t count = Agent::GetInstance()->GetAclTable()->Size();
+        uint32_t count = Agent::GetInstance()->acl_table()->Size();
         client->Reset();
         AddAcl(acl_name, id);
         EXPECT_TRUE(client->AclNotifyWait(1));
-        EXPECT_EQ((count + 1), Agent::GetInstance()->GetAclTable()->Size());
+        EXPECT_EQ((count + 1), Agent::GetInstance()->acl_table()->Size());
     }
 
     void CreateRemoteRoute(const char *vrf, const char *remote_vm, 
@@ -113,7 +113,7 @@ public:
         boost::system::error_code ec;
         Ip4Address addr = Ip4Address::from_string(ip, ec);
         Agent::Agent::GetInstance()->
-            GetDefaultInet4UnicastRouteTable()->DeleteReq(peer_, 
+            fabric_inet4_unicast_table()->DeleteReq(peer_, 
                 vrf, addr, 32, NULL);
         client->WaitForIdle();
         WAIT_FOR(1000, 1, (RouteFind(vrf, addr, 32) == false));

@@ -57,7 +57,7 @@ class CfgTest : public ::testing::Test {
     }
 
     virtual void TearDown() {
-        EXPECT_EQ(0U, Agent::GetInstance()->GetAclTable()->Size());
+        EXPECT_EQ(0U, Agent::GetInstance()->acl_table()->Size());
     }
 
 };
@@ -71,16 +71,16 @@ TEST_F(CfgTest, AddDelVmPortNoVn_1) {
     IntfCfgAdd(input, 0);
     EXPECT_TRUE(client->PortNotifyWait(1));
     EXPECT_TRUE(VmPortInactive(input, 0));
-    EXPECT_EQ(4U, Agent::GetInstance()->GetInterfaceTable()->Size());
-    EXPECT_EQ(1U, Agent::GetInstance()->GetIntfCfgTable()->Size());
+    EXPECT_EQ(4U, Agent::GetInstance()->interface_table()->Size());
+    EXPECT_EQ(1U, Agent::GetInstance()->interface_config_table()->Size());
 
     client->Reset();
     IntfCfgDel(input, 0);
     client->WaitForIdle();
     EXPECT_TRUE(client->PortNotifyWait(1));
     EXPECT_FALSE(VmPortFind(input, 0));
-    EXPECT_EQ(3U, Agent::GetInstance()->GetInterfaceTable()->Size());
-    EXPECT_EQ(0U, Agent::GetInstance()->GetIntfCfgTable()->Size());
+    EXPECT_EQ(3U, Agent::GetInstance()->interface_table()->Size());
+    EXPECT_EQ(0U, Agent::GetInstance()->interface_config_table()->Size());
 }
 
 TEST_F(CfgTest, AddDelExport) {
@@ -99,7 +99,7 @@ TEST_F(CfgTest, AddDelExport) {
     req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
     req.key.reset(key);
     req.data.reset(data);
-    Agent::GetInstance()->GetIntfCfgTable()->Enqueue(&req);
+    Agent::GetInstance()->interface_config_table()->Enqueue(&req);
 
     CfgIntKey *key1 = new CfgIntKey(MakeUuid(1)); 
     CfgIntData *data1 = new CfgIntData();
@@ -110,10 +110,10 @@ TEST_F(CfgTest, AddDelExport) {
     req.key.reset(key1);
     req.data.reset(data1);
     req.oper = DBRequest::DB_ENTRY_DELETE;
-    Agent::GetInstance()->GetIntfCfgTable()->Enqueue(&req);
+    Agent::GetInstance()->interface_config_table()->Enqueue(&req);
     usleep(1000);
 
-    EXPECT_EQ(0U, Agent::GetInstance()->GetIntfCfgTable()->Size());
+    EXPECT_EQ(0U, Agent::GetInstance()->interface_config_table()->Size());
 }
 
 TEST_F(CfgTest, AddDelVmPortDepOnVmVn_1) {
@@ -126,15 +126,15 @@ TEST_F(CfgTest, AddDelVmPortDepOnVmVn_1) {
     IntfCfgAdd(input, 0);
     EXPECT_TRUE(client->PortNotifyWait(1));
     EXPECT_TRUE(VmPortInactive(input, 0));
-    EXPECT_EQ(4U, Agent::GetInstance()->GetInterfaceTable()->Size());
-    EXPECT_EQ(1U, Agent::GetInstance()->GetIntfCfgTable()->Size());
+    EXPECT_EQ(4U, Agent::GetInstance()->interface_table()->Size());
+    EXPECT_EQ(1U, Agent::GetInstance()->interface_config_table()->Size());
 
     // Config VM Add - Port inactive since VN not present
     AddVm("vm1", 1);
     EXPECT_TRUE(client->VmNotifyWait(1));
     EXPECT_TRUE(VmFind(1));
     EXPECT_TRUE(VmPortInactive(input, 0));
-    EXPECT_EQ(1U, Agent::GetInstance()->GetVmTable()->Size());
+    EXPECT_EQ(1U, Agent::GetInstance()->vm_table()->Size());
 
     AddVrf("vrf1");
     client->WaitForIdle();
@@ -147,7 +147,7 @@ TEST_F(CfgTest, AddDelVmPortDepOnVmVn_1) {
     EXPECT_TRUE(client->VnNotifyWait(1));
     EXPECT_TRUE(VnFind(1));
     EXPECT_TRUE(VmPortInactive(input, 0));
-    EXPECT_EQ(1U, Agent::GetInstance()->GetVnTable()->Size());
+    EXPECT_EQ(1U, Agent::GetInstance()->vn_table()->Size());
 
     // Config Port add - Interface oper-db still inactive since no link between
     // VN and VRF
@@ -241,10 +241,10 @@ TEST_F(CfgTest, AddDelVmPortDepOnVmVn_1) {
     client->WaitForIdle();
     EXPECT_TRUE(client->PortNotifyWait(1));
     EXPECT_FALSE(VmPortFind(input, 0));
-    EXPECT_EQ(3U, Agent::GetInstance()->GetInterfaceTable()->Size());
-    EXPECT_EQ(0U, Agent::GetInstance()->GetVmTable()->Size());
-    EXPECT_EQ(0U, Agent::GetInstance()->GetIntfCfgTable()->Size());
-    EXPECT_EQ(0U, Agent::GetInstance()->GetVnTable()->Size());
+    EXPECT_EQ(3U, Agent::GetInstance()->interface_table()->Size());
+    EXPECT_EQ(0U, Agent::GetInstance()->vm_table()->Size());
+    EXPECT_EQ(0U, Agent::GetInstance()->interface_config_table()->Size());
+    EXPECT_EQ(0U, Agent::GetInstance()->vn_table()->Size());
     EXPECT_FALSE(VnFind(1));
 }
 
@@ -258,15 +258,15 @@ TEST_F(CfgTest, AddDelVmPortDepOnVmVn_2) {
     AddVm("vm1", 1);
     EXPECT_TRUE(client->VmNotifyWait(1));
     EXPECT_TRUE(VmFind(1));
-    EXPECT_EQ(1U, Agent::GetInstance()->GetVmTable()->Size());
+    EXPECT_EQ(1U, Agent::GetInstance()->vm_table()->Size());
 
     // Nova Port add message - Should be inactive since VN not present
     client->Reset();
     IntfCfgAdd(input, 0);
     EXPECT_TRUE(client->PortNotifyWait(1));
     EXPECT_TRUE(VmPortInactive(input, 0));
-    EXPECT_EQ(4U, Agent::GetInstance()->GetInterfaceTable()->Size());
-    EXPECT_EQ(1U, Agent::GetInstance()->GetIntfCfgTable()->Size());
+    EXPECT_EQ(4U, Agent::GetInstance()->interface_table()->Size());
+    EXPECT_EQ(1U, Agent::GetInstance()->interface_config_table()->Size());
 
     // Config VN Add - Port inactive since interface oper-db not aware of
     // VM and VN added
@@ -274,7 +274,7 @@ TEST_F(CfgTest, AddDelVmPortDepOnVmVn_2) {
     EXPECT_TRUE(client->VnNotifyWait(1));
     EXPECT_TRUE(VmPortInactive(input, 0));
     EXPECT_TRUE(VnFind(1));
-    EXPECT_EQ(1U, Agent::GetInstance()->GetVnTable()->Size());
+    EXPECT_EQ(1U, Agent::GetInstance()->vn_table()->Size());
 
     // Add link between VN and VRF. Interface still inactive
     client->Reset();
@@ -331,8 +331,8 @@ TEST_F(CfgTest, AddDelVmPortDepOnVmVn_2) {
     IntfCfgDel(input, 0);
     EXPECT_TRUE(client->PortNotifyWait(1));
     EXPECT_FALSE(VmPortFind(input, 0));
-    EXPECT_EQ(3U, Agent::GetInstance()->GetInterfaceTable()->Size());
-    EXPECT_EQ(0U, Agent::GetInstance()->GetIntfCfgTable()->Size());
+    EXPECT_EQ(3U, Agent::GetInstance()->interface_table()->Size());
+    EXPECT_EQ(0U, Agent::GetInstance()->interface_config_table()->Size());
 
     client->Reset();
     DelLink("virtual-machine", "vm1", "virtual-machine-interface", "vnet1");
@@ -366,15 +366,15 @@ TEST_F(CfgTest, AddDelVmPortDepOnVmVn_3) {
     IntfCfgAdd(input, 0);
     EXPECT_TRUE(client->PortNotifyWait(1));
     EXPECT_TRUE(VmPortInactive(input, 0));
-    EXPECT_EQ(4U, Agent::GetInstance()->GetInterfaceTable()->Size());
-    EXPECT_EQ(1U, Agent::GetInstance()->GetIntfCfgTable()->Size());
+    EXPECT_EQ(4U, Agent::GetInstance()->interface_table()->Size());
+    EXPECT_EQ(1U, Agent::GetInstance()->interface_config_table()->Size());
 
     // Config VM Add - Port inactive since VN not present
     AddVm("vm1", 1);
     EXPECT_TRUE(client->VmNotifyWait(1));
     EXPECT_TRUE(VmFind(1));
     EXPECT_TRUE(VmPortInactive(input, 0));
-    EXPECT_EQ(1U, Agent::GetInstance()->GetVmTable()->Size());
+    EXPECT_EQ(1U, Agent::GetInstance()->vm_table()->Size());
 
     AddVrf("vrf1");
     client->WaitForIdle();
@@ -387,7 +387,7 @@ TEST_F(CfgTest, AddDelVmPortDepOnVmVn_3) {
     EXPECT_TRUE(client->VnNotifyWait(1));
     EXPECT_TRUE(VnFind(1));
     EXPECT_TRUE(VmPortInactive(input, 0));
-    EXPECT_EQ(1U, Agent::GetInstance()->GetVnTable()->Size());
+    EXPECT_EQ(1U, Agent::GetInstance()->vn_table()->Size());
 
     // Config Port add - Interface oper-db still inactive since no link between
     // VN and VRF
@@ -490,9 +490,9 @@ TEST_F(CfgTest, VmPortPolicy_1) {
     EXPECT_TRUE(client->VmNotifyWait(1));
     EXPECT_TRUE(client->VrfNotifyWait(1));
     EXPECT_TRUE(client->VnNotifyWait(1));
-    EXPECT_EQ(1U, Agent::GetInstance()->GetVnTable()->Size());
-    EXPECT_EQ(1U, Agent::GetInstance()->GetVmTable()->Size());
-    EXPECT_EQ(1U, Agent::GetInstance()->GetAclTable()->Size());
+    EXPECT_EQ(1U, Agent::GetInstance()->vn_table()->Size());
+    EXPECT_EQ(1U, Agent::GetInstance()->vm_table()->Size());
+    EXPECT_EQ(1U, Agent::GetInstance()->acl_table()->Size());
     EXPECT_TRUE(VrfFind("vrf3"));
 
     // Add vm-port interface to vrf link
@@ -549,7 +549,7 @@ TEST_F(CfgTest, VmPortPolicy_1) {
     DelNode("access-control-list", "acl1");
     client->WaitForIdle();
     EXPECT_TRUE(client->AclNotifyWait(1));
-    EXPECT_EQ(0U, Agent::GetInstance()->GetAclTable()->Size());
+    EXPECT_EQ(0U, Agent::GetInstance()->acl_table()->Size());
 
     // Del VN to VRF link. Port should become inactive
     client->Reset();
@@ -610,10 +610,10 @@ TEST_F(CfgTest, VmPortPolicy_1) {
     EXPECT_TRUE(client->PortDelNotifyWait(2));
     EXPECT_FALSE(VmFind(1));
     EXPECT_FALSE(VmPortFind(input, 0));
-    EXPECT_EQ(3U, Agent::GetInstance()->GetInterfaceTable()->Size());
-    EXPECT_EQ(0U, Agent::GetInstance()->GetVmTable()->Size());
-    EXPECT_EQ(1U, Agent::GetInstance()->GetVnTable()->Size());
-    EXPECT_EQ(0U, Agent::GetInstance()->GetVmTable()->Size());
+    EXPECT_EQ(3U, Agent::GetInstance()->interface_table()->Size());
+    EXPECT_EQ(0U, Agent::GetInstance()->vm_table()->Size());
+    EXPECT_EQ(1U, Agent::GetInstance()->vn_table()->Size());
+    EXPECT_EQ(0U, Agent::GetInstance()->vm_table()->Size());
 
     DelNode("virtual-network", "vn1");
     client->WaitForIdle();
@@ -639,7 +639,7 @@ TEST_F(CfgTest, VmPortPolicy_2) {
 
     AddVn("vn1", 1);
     EXPECT_TRUE(client->VnNotifyWait(1));
-    EXPECT_EQ(1U, Agent::GetInstance()->GetVnTable()->Size());
+    EXPECT_EQ(1U, Agent::GetInstance()->vn_table()->Size());
 
     client->Reset();
     AddAcl("acl1", 1);
@@ -658,10 +658,10 @@ TEST_F(CfgTest, VmPortPolicy_2) {
     EXPECT_TRUE(VmPortInactive(input, 1));
     EXPECT_TRUE(VmPortPolicyDisable(input, 0));
     EXPECT_TRUE(VmPortPolicyDisable(input, 1));
-    EXPECT_EQ(5U, Agent::GetInstance()->GetInterfaceTable()->Size());
-    EXPECT_EQ(1U, Agent::GetInstance()->GetVmTable()->Size());
-    EXPECT_EQ(1U, Agent::GetInstance()->GetVnTable()->Size());
-    EXPECT_EQ(2U, Agent::GetInstance()->GetIntfCfgTable()->Size());
+    EXPECT_EQ(5U, Agent::GetInstance()->interface_table()->Size());
+    EXPECT_EQ(1U, Agent::GetInstance()->vm_table()->Size());
+    EXPECT_EQ(1U, Agent::GetInstance()->vn_table()->Size());
+    EXPECT_EQ(2U, Agent::GetInstance()->interface_config_table()->Size());
 
     AddVrf("vrf4");
     client->WaitForIdle();
@@ -716,7 +716,7 @@ TEST_F(CfgTest, VmPortPolicy_2) {
     DelNode("access-control-list", "acl1");
     client->WaitForIdle();
     EXPECT_TRUE(client->AclNotifyWait(1));
-    EXPECT_EQ(0U, Agent::GetInstance()->GetAclTable()->Size());
+    EXPECT_EQ(0U, Agent::GetInstance()->acl_table()->Size());
 
     // Delete virtual-machine-interface to vrf link attribute
     DelLink("virtual-machine-interface-routing-instance", "vmvrf1",
@@ -748,10 +748,10 @@ TEST_F(CfgTest, VmPortPolicy_2) {
     EXPECT_TRUE(VnFind(1));
     EXPECT_FALSE(VmFind(1));
     EXPECT_TRUE(VmPortFind(input, 0));
-    EXPECT_EQ(5U, Agent::GetInstance()->GetInterfaceTable()->Size());
-    EXPECT_EQ(0U, Agent::GetInstance()->GetVmTable()->Size());
-    EXPECT_EQ(1U, Agent::GetInstance()->GetVnTable()->Size());
-    EXPECT_EQ(2U, Agent::GetInstance()->GetIntfCfgTable()->Size());
+    EXPECT_EQ(5U, Agent::GetInstance()->interface_table()->Size());
+    EXPECT_EQ(0U, Agent::GetInstance()->vm_table()->Size());
+    EXPECT_EQ(1U, Agent::GetInstance()->vn_table()->Size());
+    EXPECT_EQ(2U, Agent::GetInstance()->interface_config_table()->Size());
 
     DelPort(input[0].name);
     DelPort(input[1].name);
@@ -764,10 +764,10 @@ TEST_F(CfgTest, VmPortPolicy_2) {
     EXPECT_TRUE(client->PortDelNotifyWait(2));
     EXPECT_FALSE(VmFind(1));
     EXPECT_FALSE(VmPortFind(input, 0));
-    EXPECT_EQ(3U, Agent::GetInstance()->GetInterfaceTable()->Size());
-    EXPECT_EQ(0U, Agent::GetInstance()->GetVmTable()->Size());
-    EXPECT_EQ(1U, Agent::GetInstance()->GetVnTable()->Size());
-    EXPECT_EQ(0U, Agent::GetInstance()->GetVmTable()->Size());
+    EXPECT_EQ(3U, Agent::GetInstance()->interface_table()->Size());
+    EXPECT_EQ(0U, Agent::GetInstance()->vm_table()->Size());
+    EXPECT_EQ(1U, Agent::GetInstance()->vn_table()->Size());
+    EXPECT_EQ(0U, Agent::GetInstance()->vm_table()->Size());
 
     // Del VN to VRF link. Port should become inactive
     client->Reset();
@@ -799,7 +799,7 @@ TEST_F(CfgTest, VnDepOnVrfAcl_1) {
 
     AddVn("vn1", 1);
     EXPECT_TRUE(client->VnNotifyWait(1));
-    EXPECT_EQ(1U, Agent::GetInstance()->GetVnTable()->Size());
+    EXPECT_EQ(1U, Agent::GetInstance()->vn_table()->Size());
 
     client->Reset();
     AddAcl("acl1", 1);
@@ -858,10 +858,10 @@ TEST_F(CfgTest, VnDepOnVrfAcl_1) {
     EXPECT_TRUE(VmPortActive(input, 1));
     EXPECT_TRUE(VmPortPolicyEnable(input, 0));
     EXPECT_TRUE(VmPortPolicyEnable(input, 1));
-    EXPECT_EQ(5U, Agent::GetInstance()->GetInterfaceTable()->Size());
-    EXPECT_EQ(1U, Agent::GetInstance()->GetVmTable()->Size());
-    EXPECT_EQ(1U, Agent::GetInstance()->GetVnTable()->Size());
-    EXPECT_EQ(2U, Agent::GetInstance()->GetIntfCfgTable()->Size());
+    EXPECT_EQ(5U, Agent::GetInstance()->interface_table()->Size());
+    EXPECT_EQ(1U, Agent::GetInstance()->vm_table()->Size());
+    EXPECT_EQ(1U, Agent::GetInstance()->vn_table()->Size());
+    EXPECT_EQ(2U, Agent::GetInstance()->interface_config_table()->Size());
 
     client->Reset();
     AddLink("virtual-network", "vn1", "access-control-list", "acl1");
@@ -915,7 +915,7 @@ TEST_F(CfgTest, VnDepOnVrfAcl_1) {
     DelNode("access-control-list", "acl1");
     client->WaitForIdle();
     EXPECT_TRUE(client->AclNotifyWait(1));
-    EXPECT_EQ(0U, Agent::GetInstance()->GetAclTable()->Size());
+    EXPECT_EQ(0U, Agent::GetInstance()->acl_table()->Size());
 
     // Delete config vm entry - no-op for oper-db. Port is active
     client->Reset();
@@ -924,10 +924,10 @@ TEST_F(CfgTest, VnDepOnVrfAcl_1) {
     EXPECT_TRUE(VnFind(1));
     EXPECT_FALSE(VmFind(1));
     EXPECT_TRUE(VmPortFind(input, 0));
-    EXPECT_EQ(5U, Agent::GetInstance()->GetInterfaceTable()->Size());
-    EXPECT_EQ(0U, Agent::GetInstance()->GetVmTable()->Size());
-    EXPECT_EQ(1U, Agent::GetInstance()->GetVnTable()->Size());
-    EXPECT_EQ(2U, Agent::GetInstance()->GetIntfCfgTable()->Size());
+    EXPECT_EQ(5U, Agent::GetInstance()->interface_table()->Size());
+    EXPECT_EQ(0U, Agent::GetInstance()->vm_table()->Size());
+    EXPECT_EQ(1U, Agent::GetInstance()->vn_table()->Size());
+    EXPECT_EQ(2U, Agent::GetInstance()->interface_config_table()->Size());
 
     // Delete Nova Port entry.
     client->Reset();
@@ -937,10 +937,10 @@ TEST_F(CfgTest, VnDepOnVrfAcl_1) {
     EXPECT_FALSE(VmFind(1));
     EXPECT_FALSE(VmPortFind(input, 0));
     WAIT_FOR(100, 1000, 
-             (3U == Agent::GetInstance()->GetInterfaceTable()->Size()));
-    EXPECT_EQ(0U, Agent::GetInstance()->GetVmTable()->Size());
-    EXPECT_EQ(1U, Agent::GetInstance()->GetVnTable()->Size());
-    EXPECT_EQ(0U, Agent::GetInstance()->GetVmTable()->Size());
+             (3U == Agent::GetInstance()->interface_table()->Size()));
+    EXPECT_EQ(0U, Agent::GetInstance()->vm_table()->Size());
+    EXPECT_EQ(1U, Agent::GetInstance()->vn_table()->Size());
+    EXPECT_EQ(0U, Agent::GetInstance()->vm_table()->Size());
 
     // Del VN to VRF link. Port should become inactive
     client->Reset();
@@ -978,7 +978,7 @@ TEST_F(CfgTest, FloatingIp_1) {
     AddVn("vn1", 1);
     client->WaitForIdle();
     EXPECT_TRUE(client->VnNotifyWait(1));
-    EXPECT_EQ(1U, Agent::GetInstance()->GetVnTable()->Size());
+    EXPECT_EQ(1U, Agent::GetInstance()->vn_table()->Size());
 
     AddLink("virtual-network", "vn1", "routing-instance", "vrf6");
     client->WaitForIdle();
@@ -1144,10 +1144,10 @@ TEST_F(CfgTest, FloatingIp_1) {
     EXPECT_TRUE(VnFind(1));
     EXPECT_FALSE(VmFind(1));
     EXPECT_TRUE(VmPortFind(input, 0));
-    EXPECT_EQ(4U, Agent::GetInstance()->GetInterfaceTable()->Size());
-    EXPECT_EQ(0U, Agent::GetInstance()->GetVmTable()->Size());
-    EXPECT_EQ(1U, Agent::GetInstance()->GetVnTable()->Size());
-    EXPECT_EQ(2U, Agent::GetInstance()->GetIntfCfgTable()->Size());
+    EXPECT_EQ(4U, Agent::GetInstance()->interface_table()->Size());
+    EXPECT_EQ(0U, Agent::GetInstance()->vm_table()->Size());
+    EXPECT_EQ(1U, Agent::GetInstance()->vn_table()->Size());
+    EXPECT_EQ(2U, Agent::GetInstance()->interface_config_table()->Size());
 
     // Delete Nova Port entry.
     client->Reset();
@@ -1156,10 +1156,10 @@ TEST_F(CfgTest, FloatingIp_1) {
     EXPECT_TRUE(client->PortNotifyWait(2));
     EXPECT_FALSE(VmFind(1));
     EXPECT_FALSE(VmPortFind(input, 0));
-    EXPECT_EQ(2U, Agent::GetInstance()->GetInterfaceTable()->Size());
-    EXPECT_EQ(0U, Agent::GetInstance()->GetVmTable()->Size());
-    EXPECT_EQ(1U, Agent::GetInstance()->GetVnTable()->Size());
-    EXPECT_EQ(0U, Agent::GetInstance()->GetVmTable()->Size());
+    EXPECT_EQ(2U, Agent::GetInstance()->interface_table()->Size());
+    EXPECT_EQ(0U, Agent::GetInstance()->vm_table()->Size());
+    EXPECT_EQ(1U, Agent::GetInstance()->vn_table()->Size());
+    EXPECT_EQ(0U, Agent::GetInstance()->vm_table()->Size());
 
     // Del VN to VRF link. Port should become inactive
     client->Reset();
@@ -1180,15 +1180,15 @@ TEST_F(CfgTest, Basic_1) {
     };
 
     client->Reset();
-    PhysicalInterface::CreateReq(Agent::GetInstance()->GetInterfaceTable(),
+    PhysicalInterface::CreateReq(Agent::GetInstance()->interface_table(),
                             eth_intf, vrf_name);
     client->WaitForIdle();
-    PhysicalInterface::CreateReq(Agent::GetInstance()->GetInterfaceTable(),
-                            eth_intf, Agent::GetInstance()->GetDefaultVrf());
+    PhysicalInterface::CreateReq(Agent::GetInstance()->interface_table(),
+                            eth_intf, Agent::GetInstance()->fabric_vrf_name());
     client->WaitForIdle();
-    InetInterface::CreateReq(Agent::GetInstance()->GetInterfaceTable(),
+    InetInterface::CreateReq(Agent::GetInstance()->interface_table(),
                              "vhost10", InetInterface::VHOST,
-                             Agent::GetInstance()->GetDefaultVrf(),
+                             Agent::GetInstance()->fabric_vrf_name(),
                              Ip4Address(0), 0, Ip4Address(0), "", "");
 
     client->WaitForIdle();
@@ -1268,10 +1268,10 @@ TEST_F(CfgTest, Basic_1) {
     sand_4->DoSandesh();
     client->WaitForIdle();
 
-    InetInterface::DeleteReq(Agent::GetInstance()->GetInterfaceTable(),
+    InetInterface::DeleteReq(Agent::GetInstance()->interface_table(),
                                     "vhost10");
     client->WaitForIdle();
-    PhysicalInterface::DeleteReq(Agent::GetInstance()->GetInterfaceTable(),
+    PhysicalInterface::DeleteReq(Agent::GetInstance()->interface_table(),
                             eth_intf);
     client->WaitForIdle();
 
@@ -1325,7 +1325,7 @@ TEST_F(CfgTest, Basic_1) {
     client->WaitForIdle();
     DelNode("virtual-network", "vn5");
     client->WaitForIdle();
-    WAIT_FOR(1000, 1000, (0 == Agent::GetInstance()->GetVmTable()->Size()));
+    WAIT_FOR(1000, 1000, (0 == Agent::GetInstance()->vm_table()->Size()));
     WAIT_FOR(1000, 1000, (VnFind(5) == false));
     WAIT_FOR(1000, 1000, (VmFind(5) == false));
 }
@@ -1341,14 +1341,14 @@ TEST_F(CfgTest, Basic_2) {
     EXPECT_TRUE(VmPortActive(input, 0));
     VmInterfaceKey key(AgentKey::ADD_DEL_CHANGE, MakeUuid(1), "");
     VmInterface *intf = static_cast<VmInterface *>
-        (Agent::GetInstance()->GetInterfaceTable()->FindActiveEntry(&key));
+        (Agent::GetInstance()->interface_table()->FindActiveEntry(&key));
     EXPECT_TRUE(intf != NULL);
     if (intf == NULL) {
         return;
     }
 
     Inet4UnicastAgentRouteTable *table = 
-        Agent::GetInstance()->GetDefaultInet4UnicastRouteTable();
+        Agent::GetInstance()->fabric_inet4_unicast_table();
     Inet4UnicastRouteEntry *rt = static_cast<Inet4UnicastRouteEntry *>
         (table->FindRoute(intf->mdata_ip_addr()));
     EXPECT_TRUE(rt != NULL);
@@ -1366,7 +1366,7 @@ TEST_F(CfgTest, Basic_2) {
     Ip4Address addr = Ip4Address::from_string("1.1.1.1");
 
     table = static_cast<Inet4UnicastAgentRouteTable *>
-        (Agent::GetInstance()->GetVrfTable()->GetInet4UnicastRouteTable("vrf1"));
+        (Agent::GetInstance()->vrf_table()->GetInet4UnicastRouteTable("vrf1"));
     rt = table->FindRoute(addr); 
 
     EXPECT_TRUE(rt != NULL);
@@ -1405,7 +1405,7 @@ TEST_F(CfgTest, SecurityGroup_1) {
 
     VmInterfaceKey key(AgentKey::ADD_DEL_CHANGE, MakeUuid(1), "");
     VmInterface *intf = static_cast<VmInterface *>
-        (Agent::GetInstance()->GetInterfaceTable()->FindActiveEntry(&key));
+        (Agent::GetInstance()->interface_table()->FindActiveEntry(&key));
     EXPECT_TRUE(intf != NULL);
     if (intf == NULL) {
         return;
@@ -1416,7 +1416,7 @@ TEST_F(CfgTest, SecurityGroup_1) {
     Ip4Address addr(Ip4Address::from_string("1.1.1.1"));
     Inet4UnicastAgentRouteTable *table = 
         static_cast<Inet4UnicastAgentRouteTable *>
-        (Agent::GetInstance()->GetVrfTable()->GetInet4UnicastRouteTable("vrf1"));
+        (Agent::GetInstance()->vrf_table()->GetInet4UnicastRouteTable("vrf1"));
     Inet4UnicastRouteEntry *rt = table->FindRoute(addr); 
     EXPECT_TRUE(rt != NULL);
     if (rt == NULL) {
@@ -1462,7 +1462,7 @@ TEST_F(CfgTest, SecurityGroup_ignore_invalid_sgid_1) {
     //Query for SG
     SgKey *key = new SgKey(MakeUuid(1));
     const SgEntry *sg_entry =
-        static_cast<const SgEntry *>(Agent::GetInstance()->GetSgTable()->
+        static_cast<const SgEntry *>(Agent::GetInstance()->sg_table()->
         FindActiveEntry(key));
     EXPECT_TRUE(sg_entry == NULL);
 
@@ -1470,7 +1470,7 @@ TEST_F(CfgTest, SecurityGroup_ignore_invalid_sgid_1) {
     AddSg("sg1", 1, 2);
     client->WaitForIdle();
     key = new SgKey(MakeUuid(1));
-    sg_entry = static_cast<const SgEntry *>(Agent::GetInstance()->GetSgTable()->
+    sg_entry = static_cast<const SgEntry *>(Agent::GetInstance()->sg_table()->
                                             FindActiveEntry(key));
 
     EXPECT_TRUE(sg_entry != NULL);
@@ -1481,7 +1481,7 @@ TEST_F(CfgTest, SecurityGroup_ignore_invalid_sgid_1) {
     AddSg("sg1", 1, 3);
     client->WaitForIdle();
     key = new SgKey(MakeUuid(1));
-    sg_entry = static_cast<const SgEntry *>(Agent::GetInstance()->GetSgTable()->
+    sg_entry = static_cast<const SgEntry *>(Agent::GetInstance()->sg_table()->
                                             FindActiveEntry(key));
 
     EXPECT_TRUE(sg_entry != NULL);
@@ -1520,7 +1520,7 @@ TEST_F(CfgTest, SecurityGroup_ignore_invalid_sgid_2) {
 
     VmInterfaceKey key(AgentKey::ADD_DEL_CHANGE, MakeUuid(1), "");
     VmInterface *intf = static_cast<VmInterface *>
-        (Agent::GetInstance()->GetInterfaceTable()->FindActiveEntry(&key));
+        (Agent::GetInstance()->interface_table()->FindActiveEntry(&key));
     EXPECT_TRUE(intf != NULL);
     if (intf == NULL) {
         return;

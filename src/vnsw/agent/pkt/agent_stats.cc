@@ -53,9 +53,9 @@ void AgentStatsReq::HandleRequest() const {
     vector<XmppStatsInfo> list;
     for (int count = 0; count < MAX_XMPP_SERVERS; count++) {
         XmppStatsInfo peer;
-        if (!agent->GetXmppServer(count).empty()) {
-            peer.set_ip(agent->GetXmppServer(count));
-            AgentXmppChannel *ch = agent->GetAgentXmppChannel(count);
+        if (!agent->controller_ifmap_xmpp_server(count).empty()) {
+            peer.set_ip(agent->controller_ifmap_xmpp_server(count));
+            AgentXmppChannel *ch = agent->controller_xmpp_channel(count);
             if (ch == NULL) {
                 continue;
             }

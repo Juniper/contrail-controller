@@ -29,19 +29,19 @@ ArpProto::ArpProto(Agent *agent, boost::asio::io_service &io,
     aging_timeout_(kAgingTimeout) {
 
     memset(ip_fabric_interface_mac_, 0, ETH_ALEN);
-    vrf_table_listener_id_ = agent->GetVrfTable()->Register(
+    vrf_table_listener_id_ = agent->vrf_table()->Register(
                              boost::bind(&ArpProto::VrfNotify, this, _1, _2));
-    interface_table_listener_id_ = agent->GetInterfaceTable()->Register(
+    interface_table_listener_id_ = agent->interface_table()->Register(
                                    boost::bind(&ArpProto::InterfaceNotify,
                                                this, _2));
-    nexthop_table_listener_id_ = agent->GetNextHopTable()->Register(
+    nexthop_table_listener_id_ = agent->nexthop_table()->Register(
                                  boost::bind(&ArpProto::NextHopNotify, this, _2));
 }
 
 ArpProto::~ArpProto() {
-    agent_->GetVrfTable()->Unregister(vrf_table_listener_id_);
-    agent_->GetInterfaceTable()->Unregister(interface_table_listener_id_);
-    agent_->GetNextHopTable()->Unregister(nexthop_table_listener_id_);
+    agent_->vrf_table()->Unregister(vrf_table_listener_id_);
+    agent_->interface_table()->Unregister(interface_table_listener_id_);
+    agent_->nexthop_table()->Unregister(nexthop_table_listener_id_);
 }
 
 ProtoHandler *ArpProto::AllocProtoHandler(boost::shared_ptr<PktInfo> info,
@@ -72,7 +72,7 @@ void ArpProto::VrfNotify(DBTablePartBase *part, DBEntryBase *entry) {
         return;
     }
 
-    if (!state && vrf->GetName() == agent_->GetDefaultVrf()) {
+    if (!state && vrf->GetName() == agent_->fabric_vrf_name()) {
         state = new DBState;
         fabric_route_table_listener_ = vrf->
             GetInet4UnicastRouteTable()->
@@ -113,7 +113,7 @@ void ArpProto::InterfaceNotify(DBEntryBase *entry) {
     Interface *itf = static_cast<Interface *>(entry);
     if (entry->IsDeleted()) {
         if (itf->type() == Interface::PHYSICAL && 
-            itf->name() == agent_->GetIpFabricItfName()) {
+            itf->name() == agent_->fabric_interface_name()) {
             for (ArpProto::ArpIterator it = arp_cache_.begin();
                  it != arp_cache_.end();) {
                 ArpEntry *arp_entry = it->second;
@@ -127,7 +127,7 @@ void ArpProto::InterfaceNotify(DBEntryBase *entry) {
         }
     } else {
         if (itf->type() == Interface::PHYSICAL && 
-            itf->name() == agent_->GetIpFabricItfName()) {
+            itf->name() == agent_->fabric_interface_name()) {
             set_ip_fabric_interface(itf);
             set_ip_fabric_interface_index(itf->id());
             if (run_with_vrouter_) {

@@ -79,7 +79,7 @@ bool VnEntry::GetIpamData(const Ip4Address &vm_addr, std::string *ipam_name,
     // This will be executed from non DB context; task policy will ensure that
     // this is not run while DB task is updating the map
     if (!GetIpamName(vm_addr, ipam_name) ||
-        !Agent::GetInstance()->GetDomainConfigTable()->GetIpam(*ipam_name, ipam_type))
+        !Agent::GetInstance()->domain_config_table()->GetIpam(*ipam_name, ipam_type))
         return false;
 
     return true;
@@ -90,11 +90,11 @@ bool VnEntry::GetIpamVdnsData(const Ip4Address &vm_addr,
                               autogen::VirtualDnsType *vdns_type) const {
     std::string ipam_name;
     if (!GetIpamName(vm_addr, &ipam_name) ||
-        !Agent::GetInstance()->GetDomainConfigTable()->GetIpam(ipam_name, ipam_type) ||
+        !Agent::GetInstance()->domain_config_table()->GetIpam(ipam_name, ipam_type) ||
         ipam_type->ipam_dns_method != "virtual-dns-server")
         return false;
     
-    if (!Agent::GetInstance()->GetDomainConfigTable()->GetVDns(
+    if (!Agent::GetInstance()->domain_config_table()->GetVDns(
                 ipam_type->ipam_dns_server.virtual_dns_server_name, vdns_type))
         return false;
         
@@ -115,7 +115,7 @@ void VnEntry::RebakeVxLan(int vxlan_id) {
     VxLanId *vxlan_id_entry = NULL;
     VxLanIdKey vxlan_key(vxlan_id);
     vxlan_id_entry = static_cast<VxLanId *>(Agent::GetInstance()->
-                            GetVxLanTable()->FindActiveEntry(&vxlan_key));
+                            vxlan_table()->FindActiveEntry(&vxlan_key));
     vxlan_id_ref_ = vxlan_id_entry;
 }
 
@@ -206,7 +206,7 @@ bool VnTable::VnEntryWalk(DBTablePartBase *partition, DBEntryBase *entry) {
         req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
         req.key.reset(key); 
         req.data.reset(NULL);
-        Agent::GetInstance()->GetVnTable()->Enqueue(&req); 
+        Agent::GetInstance()->vn_table()->Enqueue(&req); 
     }
     return true;
 }
@@ -216,7 +216,7 @@ void VnTable::VnEntryWalkDone(DBTableBase *partition) {
 }
 
 void VnTable::UpdateVxLanNetworkIdentifierMode() {
-    DBTableWalker *walker = Agent::GetInstance()->GetDB()->GetWalker();
+    DBTableWalker *walker = Agent::GetInstance()->db()->GetWalker();
     if (walkid_ != DBTableWalker::kInvalidWalkerId) {
         walker->WalkCancel(walkid_);
     }
@@ -258,7 +258,7 @@ bool VnTable::ChangeHandler(DBEntry *entry, const DBRequest *req) {
 
     AclKey key(data->acl_id_);
     AclDBEntry *acl = static_cast<AclDBEntry *>
-        (Agent::GetInstance()->GetAclTable()->FindActiveEntry(&key));
+        (Agent::GetInstance()->acl_table()->FindActiveEntry(&key));
     if (vn->acl_.get() != acl) {
         vn->acl_ = acl;
         ret = true;
@@ -266,7 +266,7 @@ bool VnTable::ChangeHandler(DBEntry *entry, const DBRequest *req) {
 
     AclKey mirror_key(data->mirror_acl_id_);
     AclDBEntry *mirror_acl = static_cast<AclDBEntry *>
-        (Agent::GetInstance()->GetAclTable()->FindActiveEntry(&mirror_key));
+        (Agent::GetInstance()->acl_table()->FindActiveEntry(&mirror_key));
     if (vn->mirror_acl_.get() != mirror_acl) {
         vn->mirror_acl_ = mirror_acl;
         ret = true;
@@ -274,7 +274,7 @@ bool VnTable::ChangeHandler(DBEntry *entry, const DBRequest *req) {
 
     AclKey mirror_cfg_acl_key(data->mirror_cfg_acl_id_);
     AclDBEntry *mirror_cfg_acl = static_cast<AclDBEntry *>
-         (Agent::GetInstance()->GetAclTable()->FindActiveEntry(&mirror_cfg_acl_key));
+         (Agent::GetInstance()->acl_table()->FindActiveEntry(&mirror_cfg_acl_key));
     if (vn->mirror_cfg_acl_.get() != mirror_cfg_acl) {
         vn->mirror_cfg_acl_ = mirror_cfg_acl;
         ret = true;
@@ -282,7 +282,7 @@ bool VnTable::ChangeHandler(DBEntry *entry, const DBRequest *req) {
 
     VrfKey vrf_key(data->vrf_name_);
     VrfEntry *vrf = static_cast<VrfEntry *>
-        (Agent::GetInstance()->GetVrfTable()->FindActiveEntry(&vrf_key));
+        (Agent::GetInstance()->vrf_table()->FindActiveEntry(&vrf_key));
     if (vrf != old_vrf) {
         if (!vrf)
             DeleteAllIpamRoutes(vn);
@@ -478,7 +478,7 @@ bool VnTable::IFNodeToReq(IFMapNode *node, DBRequest &req) {
             }
         }
 
-        uuid mirror_acl_uuid = Agent::GetInstance()->GetMirrorCfgTable()->GetMirrorUuid(node->name());
+        uuid mirror_acl_uuid = Agent::GetInstance()->mirror_cfg_table()->GetMirrorUuid(node->name());
         std::sort(vn_ipam.begin(), vn_ipam.end());
         data = new VnData(node->name(), acl_uuid, vrf_name, mirror_acl_uuid, 
                           mirror_cfg_acl_uuid, vn_ipam, vn_ipam_data,
@@ -487,7 +487,7 @@ bool VnTable::IFNodeToReq(IFMapNode *node, DBRequest &req) {
 
     req.key.reset(key);
     req.data.reset(data);
-    Agent::GetInstance()->GetVnTable()->Enqueue(&req);
+    Agent::GetInstance()->vn_table()->Enqueue(&req);
 
     if (node->IsDeleted()) {
         return false;
@@ -510,15 +510,15 @@ bool VnTable::IFNodeToReq(IFMapNode *node, DBRequest &req) {
         if (adj_node->GetObject() == NULL) {
             continue;
         }
-        if (Agent::GetInstance()->GetInterfaceTable()->IFNodeToReq(adj_node, req)) {
-            Agent::GetInstance()->GetInterfaceTable()->Enqueue(&req);
+        if (Agent::GetInstance()->interface_table()->IFNodeToReq(adj_node, req)) {
+            Agent::GetInstance()->interface_table()->Enqueue(&req);
         }
     }
 
     // Trigger Floating-IP resync
-    VmInterface::FloatingIpVnSync(Agent::GetInstance()->GetInterfaceTable(),
+    VmInterface::FloatingIpVnSync(Agent::GetInstance()->interface_table(),
                                   node);
-    VmInterface::VnSync(Agent::GetInstance()->GetInterfaceTable(), node);
+    VmInterface::VnSync(Agent::GetInstance()->interface_table(), node);
 
     return false;
 }
@@ -567,7 +567,7 @@ void VnTable::IpamVnSync(IFMapNode *node) {
 
         DBRequest req;
         req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
-        Agent::GetInstance()->GetVnTable()->IFNodeToReq(adj_node, req);
+        Agent::GetInstance()->vn_table()->IFNodeToReq(adj_node, req);
     }
 
     return;
@@ -579,7 +579,7 @@ void VnTable::UpdateSubnetGateway(const VnIpam &old_ipam,
     VrfEntry *vrf = vn->GetVrf();
 
     if (vrf && (vrf->GetName() != Agent::GetInstance()->
-                GetLinkLocalVrfName())) {
+                linklocal_vrf_name())) {
         AddHostRouteForGw(vn, new_ipam);
         DelHostRouteForGw(vn, old_ipam);
     }
@@ -659,7 +659,7 @@ void VnTable::AddIPAMRoutes(VnEntry *vn, VnIpam &ipam) {
     VrfEntry *vrf = vn->GetVrf();
     if (vrf) {
         // Do not let the gateway configuration overwrite the receive nh.
-        if (vrf->GetName() == Agent::GetInstance()->GetLinkLocalVrfName()) {
+        if (vrf->GetName() == Agent::GetInstance()->linklocal_vrf_name()) {
             return;
         }
         AddHostRouteForGw(vn, ipam);

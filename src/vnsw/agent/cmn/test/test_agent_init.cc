@@ -60,7 +60,7 @@ public:
         desc.add_options()
         ("help", "help message")
         ("config_file", 
-         opt::value<string>()->default_value(Agent::DefaultConfigFile()), 
+         opt::value<string>()->default_value(Agent::GetInstance()->config_file()), 
          "Configuration file")
         ("version", "Display version information")
         ("COLLECTOR.server", opt::value<string>(), 
@@ -82,7 +82,7 @@ public:
         ("DEFAULT.log_category", opt::value<string>()->default_value("*"),
          "Category filter for local logging of sandesh messages")
         ("DEFAULT.log_file", 
-         opt::value<string>()->default_value(Agent::DefaultLogFile()),
+         opt::value<string>()->default_value(Agent::GetInstance()->log_file()),
          "Filename for the logs to be written to")
         ("DEFAULT.log_level", opt::value<string>()->default_value("SYS_DEBUG"),
          "Severity level for local logging of sandesh messages")
@@ -157,7 +157,7 @@ TEST_F(FlowTest, Agent_Conf_file_1) {
               Ip4Address::from_string("127.0.0.1").to_ulong());
     EXPECT_EQ(param.dns_port_1(), 53);
     EXPECT_EQ(param.dns_server_2().to_ulong(), 0);
-    EXPECT_EQ(param.dns_port_2(), 0);
+    EXPECT_EQ(param.dns_port_2(), 53);
     EXPECT_EQ(param.discovery_server().to_ulong(),
               Ip4Address::from_string("10.3.1.1").to_ulong());
     EXPECT_EQ(param.mgmt_ip().to_ulong(), 0);
@@ -315,8 +315,8 @@ TEST_F(FlowTest, Agent_Arg_Override_Config_2) {
     int argc = 9;
     char *argv[] = {
         (char *) "",
-        (char *) "--DNS.server",    (char *)"20.1.1.1:500 21.1.1.1:15001", 
-        (char *) "--CONTROL-NODE.server",   (char *)"22.1.1.1 23.1.1.1",
+        (char *) "--DNS.server",    (char *)"20.1.1.1:500", (char *)"21.1.1.1:15001", 
+        (char *) "--CONTROL-NODE.server",   (char *)"22.1.1.1", (char *)"23.1.1.1",
         (char *) "--DEFAULT.debug",   (char *)"0",
     };
 
@@ -387,7 +387,8 @@ TEST_F(FlowTest, Default_Cmdline_arg2) {
     EXPECT_EQ(param.flow_cache_timeout(), flow_timeout);
     EXPECT_EQ(param.http_server_port(), http_server_port);
     EXPECT_STREQ(param.log_category().c_str(), "*");
-    EXPECT_STREQ(param.log_file().c_str(), Agent::DefaultLogFile().c_str());
+    EXPECT_STREQ(param.log_file().c_str(),
+                 Agent::GetInstance()->log_file().c_str());
     EXPECT_STREQ(param.log_level().c_str(), "SYS_DEBUG");
     EXPECT_TRUE(param.isKvmMode());
 }

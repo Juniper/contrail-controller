@@ -115,7 +115,7 @@ static void AddSgIdAcl(const char *name, int id, int proto,
     pugi::xml_document xdoc_;
     pugi::xml_parse_result result = xdoc_.load(s.c_str());
     EXPECT_TRUE(result);
-    Agent::GetInstance()->GetIfMapAgentParser()->ConfigParse(xdoc_.first_child(), 0);
+    Agent::GetInstance()->ifmap_parser()->ConfigParse(xdoc_.first_child(), 0);
     client->WaitForIdle();
 }
 
@@ -182,7 +182,7 @@ static bool VmPortSetup(struct PortInfo *input, int count, int aclid) {
         ret = false;
     }
 
-    strcpy(vhost_addr, Agent::GetInstance()->GetRouterId().to_string().c_str());
+    strcpy(vhost_addr, Agent::GetInstance()->router_id().to_string().c_str());
     return ret;
 }
 

@@ -26,7 +26,7 @@ SandeshTraceBufferPtr AgentDBwalkTraceBuf(SandeshTraceBufferCreate(
 class AgentRouteTable::DeleteActor : public LifetimeActor {
   public:
     DeleteActor(AgentRouteTable *rt_table) : 
-        LifetimeActor(rt_table->agent()->GetLifetimeManager()), 
+        LifetimeActor(rt_table->agent()->lifetime_manager()), 
         table_(rt_table) { 
     }
     virtual ~DeleteActor() { 
@@ -97,7 +97,7 @@ auto_ptr<DBEntry> AgentRouteTable::AllocEntry(const DBRequestKey *k) const {
     const AgentRouteKey *key = static_cast<const AgentRouteKey*>(k);
     VrfKey vrf_key(key->vrf_name());
     VrfEntry *vrf = 
-        static_cast<VrfEntry *>(agent_->GetVrfTable()->Find(&vrf_key, true));
+        static_cast<VrfEntry *>(agent_->vrf_table()->Find(&vrf_key, true));
     AgentRoute *route = 
         static_cast<AgentRoute *>(key->AllocRouteEntry(vrf, false));
     return auto_ptr<DBEntry>(static_cast<DBEntry *>(route));
@@ -264,7 +264,7 @@ void AgentRouteTable::Input(DBTablePartition *part, DBClient *client,
     bool notify = false;
     bool route_added = false;
 
-    VrfEntry *vrf = agent_->GetVrfTable()->FindVrfFromName(key->vrf_name());
+    VrfEntry *vrf = agent_->vrf_table()->FindVrfFromName(key->vrf_name());
     // Ignore request if VRF not found. Note, we process the DELETE
     // request even if VRF is in deleted state
     if (vrf == NULL) {
@@ -408,7 +408,7 @@ LifetimeActor *AgentRouteTable::deleter() {
 
 //Delete all the routes
 void AgentRouteTable::ManagedDelete() {
-    DBTableWalker *walker = agent_->GetDB()->GetWalker();
+    DBTableWalker *walker = agent_->db()->GetWalker();
     RouteTableWalkerState *state = new RouteTableWalkerState(deleter());
     walker->WalkTable(this, NULL, 
          boost::bind(&AgentRouteTable::DelExplicitRouteWalkerCb, this, _1, _2),
@@ -426,7 +426,7 @@ void AgentRouteTable::MayResumeDelete(bool is_empty) {
         return;
     }
 
-    agent_->GetLifetimeManager()->Enqueue(deleter());
+    agent_->lifetime_manager()->Enqueue(deleter());
 }
 
 // Find entry not in deleted state

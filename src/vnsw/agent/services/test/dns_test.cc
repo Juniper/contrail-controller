@@ -98,10 +98,10 @@ std::string auth_data[MAX_ITEMS] = {"8.8.8.254",
 class DnsTest : public ::testing::Test {
 public:
     DnsTest() { 
-        Agent::GetInstance()->SetXmppServer("127.0.0.1", 0);
-        Agent::GetInstance()->SetXmppCfgServer("127.0.0.1", 0);
-        Agent::GetInstance()->SetXmppDnsCfgServer(0);
-        rid_ = Agent::GetInstance()->GetInterfaceTable()->Register(
+        Agent::GetInstance()->set_controller_ifmap_xmpp_server("127.0.0.1", 0);
+        Agent::GetInstance()->set_ifmap_active_xmpp_server("127.0.0.1", 0);
+        Agent::GetInstance()->set_dns_xmpp_server_index(0);
+        rid_ = Agent::GetInstance()->interface_table()->Register(
                 boost::bind(&DnsTest::ItfUpdate, this, _2));
         for (int i = 0; i < MAX_ITEMS; i++) {
             a_items[i].eclass   = ptr_items[i].eclass   = DNS_CLASS_IN;
@@ -139,7 +139,7 @@ public:
         }
     }
     ~DnsTest() { 
-        Agent::GetInstance()->GetInterfaceTable()->Unregister(rid_);
+        Agent::GetInstance()->interface_table()->Unregister(rid_);
     }
 
     void ItfUpdate(DBEntryBase *entry) {
@@ -321,7 +321,7 @@ public:
             new AgentDnsXmppChannel(Agent::GetInstance(), NULL, "server", 0);
         Agent *agent = Agent::GetInstance();
         boost::shared_ptr<PktInfo> pkt_info(new PktInfo(NULL, 0));;
-        DnsHandler *dns_handler = new DnsHandler(agent, pkt_info, *agent->GetEventManager()->io_service());
+        DnsHandler *dns_handler = new DnsHandler(agent, pkt_info, *agent->event_manager()->io_service());
         DnsUpdateData data;
         FillDnsUpdateData(data, 10);
         dns_handler->SendXmppUpdate(tmp_xmpp_channel, &data);
@@ -348,7 +348,7 @@ public:
     AsioRunEvent() : Task(75) { };
     virtual  ~AsioRunEvent() { };
     bool Run() {
-        Agent::GetInstance()->GetEventManager()->Run();
+        Agent::GetInstance()->event_manager()->Run();
         return true;
     }
 };

@@ -64,7 +64,7 @@ bool ArpHandler::HandlePacket() {
             arp_tpa_ = spa;
         
         // if it is our own, ignore
-        if (arp_tpa_ == agent()->GetRouterId().to_ulong()) {
+        if (arp_tpa_ == agent()->router_id().to_ulong()) {
             arp_proto->IncrementStatsGratuitous();
             return true;
         }
@@ -79,7 +79,7 @@ bool ArpHandler::HandlePacket() {
     }
 
     const Interface *itf =
-        agent()->GetInterfaceTable()->FindInterface(GetInterfaceIndex());
+        agent()->interface_table()->FindInterface(GetInterfaceIndex());
     if (!itf || !itf->IsActive()) {
         arp_proto->IncrementStatsInvalidInterface();
         ARP_TRACE(Error, "Received ARP packet from invalid / inactive interface");

@@ -523,7 +523,7 @@ void NovaMsgProcess (xml_document &xdoc, pair<xml_node, GroupEntry *> node, bool
         req.key.reset(key);
         req.data.reset(NULL);
     }
-    Agent::GetInstance()->GetIntfCfgTable()->Enqueue(&req);
+    Agent::GetInstance()->interface_config_table()->Enqueue(&req);
     xdoc.append_copy(parent);
 
     if (create) {
@@ -538,7 +538,7 @@ void IntegrationTestAddConfig(xml_document &xdoc, xml_node &node) {
     xml_node update = config.append_child("update");
     update.append_copy(node);
     DumpXmlNode(config);
-    Agent::GetInstance()->GetIfMapAgentParser()->ConfigParse(config, 0);
+    Agent::GetInstance()->ifmap_parser()->ConfigParse(config, 0);
 }
 
 void IntegrationTestDelConfig(xml_document &xdoc, xml_node &node) {
@@ -546,7 +546,7 @@ void IntegrationTestDelConfig(xml_document &xdoc, xml_node &node) {
     xml_node update = config.append_child("delete");
     update.append_copy(node);
     DumpXmlNode(config);
-    Agent::GetInstance()->GetIfMapAgentParser()->ConfigParse(config, 0);
+    Agent::GetInstance()->ifmap_parser()->ConfigParse(config, 0);
 }
 
 void AddNodeConfig (xml_document &xdoc, xml_node &node, GroupEntry *g_parent) {

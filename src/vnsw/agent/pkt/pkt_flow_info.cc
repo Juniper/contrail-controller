@@ -286,7 +286,7 @@ static void SetInEcmpIndex(const PktInfo *pkt, PktFlowInfo *flow_info,
         const VmInterface *vm_port = 
             static_cast<const VmInterface *>(in->intf_);
         const VrfEntry *vrf = 
-            Agent::GetInstance()->GetVrfTable()->FindVrfFromId(pkt->vrf);
+            Agent::GetInstance()->vrf_table()->FindVrfFromId(pkt->vrf);
         if (vm_port->HasServiceVlan() && vm_port->vrf() != vrf) {
             //Packet came on service VRF
             label = vm_port->GetServiceVlanLabel(vrf);
@@ -295,24 +295,24 @@ static void SetInEcmpIndex(const PktInfo *pkt, PktFlowInfo *flow_info,
             VlanNHKey key(vm_port->GetUuid(), vlan);
             component_nh_ptr =
                 static_cast<NextHop *>
-                (Agent::GetInstance()->GetNextHopTable()->FindActiveEntry(&key));
+                (Agent::GetInstance()->nexthop_table()->FindActiveEntry(&key));
         } else {
             InterfaceNHKey key(static_cast<InterfaceKey *>(vm_port->GetDBRequestKey().release()),
                                false, InterfaceNHFlags::INET4);
             component_nh_ptr =
                 static_cast<NextHop *>
-                (Agent::GetInstance()->GetNextHopTable()->FindActiveEntry(&key));
+                (Agent::GetInstance()->nexthop_table()->FindActiveEntry(&key));
             label = vm_port->label();
         }
     } else {
         //Packet from fabric
         Ip4Address dest_ip(pkt->tunnel.ip_saddr);
-        TunnelNHKey key(Agent::GetInstance()->GetDefaultVrf(), 
-                        Agent::GetInstance()->GetRouterId(), dest_ip,
+        TunnelNHKey key(Agent::GetInstance()->fabric_vrf_name(), 
+                        Agent::GetInstance()->router_id(), dest_ip,
                         false, pkt->tunnel.type);
         //Get component NH pointer
         component_nh_ptr =
-            static_cast<NextHop *>(Agent::GetInstance()->GetNextHopTable()->FindActiveEntry(&key));
+            static_cast<NextHop *>(Agent::GetInstance()->nexthop_table()->FindActiveEntry(&key));
         //Get Label to be used to reach destination server
         const CompositeNH *nh = 
             static_cast<const CompositeNH *>(in->rt_->GetActiveNextHop());
@@ -442,14 +442,14 @@ void PktFlowInfo::LinkLocalServiceFromVm(const PktInfo *pkt, PktControlInfo *in,
         return; 
     }
 
-    out->vrf_ = Agent::GetInstance()->GetVrfTable()->
-                FindVrfFromName(Agent::GetInstance()->GetDefaultVrf());
+    out->vrf_ = Agent::GetInstance()->vrf_table()->
+                FindVrfFromName(Agent::GetInstance()->fabric_vrf_name());
     dest_vrf = out->vrf_->vrf_id();
 
     // Set NAT flow fields
     linklocal_flow = true;
     nat_done = true;
-    if (nat_server == Agent::GetInstance()->GetRouterId()) {
+    if (nat_server == Agent::GetInstance()->router_id()) {
         // In case of metadata or when link local destination is local host,
         // set VM's metadata address as NAT source address. This is required
         // to avoid response from the linklocal service being looped back and
@@ -458,7 +458,7 @@ void PktFlowInfo::LinkLocalServiceFromVm(const PktInfo *pkt, PktControlInfo *in,
         nat_ip_saddr = vm_port->mdata_ip_addr().to_ulong();
         nat_sport = pkt->sport;
     } else {
-        nat_ip_saddr = Agent::GetInstance()->GetRouterId().to_ulong();
+        nat_ip_saddr = Agent::GetInstance()->router_id().to_ulong();
         // we bind to a local port & use it as NAT source port (cannot use
         // incoming src port); init here and bind in Add;
         nat_sport = 0;
@@ -491,7 +491,7 @@ void PktFlowInfo::LinkLocalServiceFromHost(const PktInfo *pkt, PktControlInfo *i
     }
 
     if ((pkt->ip_daddr != vm_port->mdata_ip_addr().to_ulong()) ||
-        (pkt->ip_saddr != Agent::GetInstance()->GetRouterId().to_ulong())) {
+        (pkt->ip_saddr != Agent::GetInstance()->router_id().to_ulong())) {
         // Force implicit deny
         in->rt_ = NULL;
         out->rt_ = NULL;
@@ -506,7 +506,7 @@ void PktFlowInfo::LinkLocalServiceFromHost(const PktInfo *pkt, PktControlInfo *i
     nat_ip_saddr = METADATA_IP_ADDR;
     nat_ip_daddr = vm_port->ip_addr().to_ulong();
     nat_dport = pkt->dport;
-    if (pkt->sport == Agent::GetInstance()->GetMetadataServerPort()) {
+    if (pkt->sport == Agent::GetInstance()->metadata_server_port()) {
         nat_sport = METADATA_NAT_PORT;
     } else {
         nat_sport = pkt->sport;
@@ -747,7 +747,7 @@ void PktFlowInfo::VrfTranslate(const PktInfo *pkt, PktControlInfo *in,
     if (match_acl_param.action_info.vrf_translate_action_.vrf_name() != "") {
         VrfKey key(match_acl_param.action_info.vrf_translate_action_.vrf_name());
         const VrfEntry *vrf = static_cast<const VrfEntry*>
-            (Agent::GetInstance()->GetVrfTable()->FindActiveEntry(&key));
+            (Agent::GetInstance()->vrf_table()->FindActiveEntry(&key));
         out->vrf_ = vrf;
         if (vrf) {
             out->rt_ = vrf->GetUcRoute(Ip4Address(pkt->ip_daddr));
@@ -830,7 +830,7 @@ void PktFlowInfo::IngressProcess(const PktInfo *pkt, PktControlInfo *in,
 
 void PktFlowInfo::EgressProcess(const PktInfo *pkt, PktControlInfo *in,
                                 PktControlInfo *out) {
-    MplsLabel *mpls = Agent::GetInstance()->GetMplsTable()->FindMplsLabel(pkt->tunnel.label);
+    MplsLabel *mpls = Agent::GetInstance()->mpls_table()->FindMplsLabel(pkt->tunnel.label);
     if (mpls == NULL) {
         LogError(pkt, "Invalid Label in egress flow");
         return;
@@ -881,7 +881,7 @@ bool PktFlowInfo::Process(const PktInfo *pkt, PktControlInfo *in,
         }
     }
 
-    in->vrf_ = Agent::GetInstance()->GetVrfTable()->FindVrfFromId(pkt->agent_hdr.vrf);
+    in->vrf_ = Agent::GetInstance()->vrf_table()->FindVrfFromId(pkt->agent_hdr.vrf);
     if (in->vrf_ == NULL || !in->vrf_->IsActive()) {
         in->vrf_ = NULL;
         LogError(pkt, "Invalid or Inactive VRF");

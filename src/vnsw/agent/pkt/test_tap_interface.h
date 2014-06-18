@@ -24,8 +24,8 @@ public:
           cb_(boost::bind(&TestPktHandler::TestPktReceive, this, _1, _2)), 
           test_ep_(boost::asio::ip::address::from_string("127.0.0.1", ec_), 0), 
           agent_ep_(boost::asio::ip::address::from_string("127.0.0.1", ec_), tap_port),
-          test_sock_(*agent->GetEventManager()->io_service()),
-          write_sock_(*agent->GetEventManager()->io_service()) {
+          test_sock_(*agent->event_manager()->io_service()),
+          write_sock_(*agent->event_manager()->io_service()) {
             test_sock_.open(boost::asio::ip::udp::v4(), ec_);
             test_sock_.bind(test_ep_, ec_);
             write_sock_.open(boost::asio::ip::udp::v4(), ec_);

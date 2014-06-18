@@ -240,7 +240,7 @@ void RouteExport::Walkdone(DBTableBase *partition,
 
 void RouteExport::Unregister() {
     //Start unregister process
-    DBTableWalker *walker = Agent::GetInstance()->GetDB()->GetWalker();
+    DBTableWalker *walker = Agent::GetInstance()->db()->GetWalker();
     walker->WalkTable(rt_table_, NULL, 
             boost::bind(&RouteExport::DeleteState, this, _1, _2),
             boost::bind(&RouteExport::Walkdone, _1, this));

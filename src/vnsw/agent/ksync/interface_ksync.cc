@@ -112,7 +112,7 @@ std::string InterfaceKSyncEntry::ToString() const {
     std::stringstream s;
     s << "Interface : " << interface_name_ << " Index : " << interface_id_;
     const VrfEntry* vrf =
-        ksync_obj_->ksync()->agent()->GetVrfTable()->FindVrfFromId(vrf_id_);
+        ksync_obj_->ksync()->agent()->vrf_table()->FindVrfFromId(vrf_id_);
     if (vrf) {
         s << " Vrf : " << vrf->GetName();
     }
@@ -486,7 +486,7 @@ InterfaceKSyncObject::~InterfaceKSyncObject() {
 }
 
 void InterfaceKSyncObject::RegisterDBClients() {
-    RegisterDb(ksync_->agent()->GetInterfaceTable());
+    RegisterDb(ksync_->agent()->interface_table());
 }
 
 KSyncEntry *InterfaceKSyncObject::Alloc(const KSyncEntry *entry, 

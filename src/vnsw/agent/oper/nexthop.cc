@@ -227,11 +227,11 @@ DBTableBase *NextHopTable::CreateTable(DB *db, const std::string &name) {
 
 Interface *NextHopTable::FindInterface(const InterfaceKey &key) const {
     return static_cast<Interface *>
-        (Agent::GetInstance()->GetInterfaceTable()->FindActiveEntry(&key));
+        (Agent::GetInstance()->interface_table()->FindActiveEntry(&key));
 }
 
 VrfEntry *NextHopTable::FindVrfEntry(const VrfKey &key) const {
-    return static_cast<VrfEntry *>(Agent::GetInstance()->GetVrfTable()->FindActiveEntry(&key));
+    return static_cast<VrfEntry *>(Agent::GetInstance()->vrf_table()->FindActiveEntry(&key));
 }
 
 void NextHopTable::Process(DBRequest &req) {
@@ -270,7 +270,7 @@ void NextHop::SetKey(const DBRequestKey *key) {
 /////////////////////////////////////////////////////////////////////////////
 NextHop *ArpNHKey::AllocEntry() const {
     VrfEntry *vrf = static_cast<VrfEntry *>
-        (Agent::GetInstance()->GetVrfTable()->Find(&vrf_key_, true));
+        (Agent::GetInstance()->vrf_table()->Find(&vrf_key_, true));
     return new ArpNH(vrf, dip_);
 }
 
@@ -373,7 +373,7 @@ void ArpNH::SendObjectLog(AgentLogEvent::type event) const {
 /////////////////////////////////////////////////////////////////////////////
 NextHop *InterfaceNHKey::AllocEntry() const {
     Interface *intf = static_cast<Interface *>
-        (Agent::GetInstance()->GetInterfaceTable()->Find(intf_key_.get(), true));
+        (Agent::GetInstance()->interface_table()->Find(intf_key_.get(), true));
     if (intf && intf->IsDeleted() && intf->GetRefCount() == 0) {
         //Ignore interface which are  deleted, and there are no reference to it
         //taking reference on deleted interface with refcount 0, would result 
@@ -428,7 +428,7 @@ bool InterfaceNH::Change(const DBRequest *req) {
     bool ret = false;
 
     VrfEntry *vrf = static_cast<VrfEntry *>
-        (Agent::GetInstance()->GetVrfTable()->FindActiveEntry(&data->vrf_key_));
+        (Agent::GetInstance()->vrf_table()->FindActiveEntry(&data->vrf_key_));
     if (vrf_.get() != vrf) {
         vrf_ = vrf;
         ret = true;
@@ -460,7 +460,7 @@ static void AddInterfaceNH(const uuid &intf_uuid, const struct ether_addr &dmac,
                   (new VmInterfaceKey(AgentKey::ADD_DEL_CHANGE, intf_uuid, ""),
                    policy, flags));
     req.data.reset(new InterfaceNHData(vrf_name, dmac));
-    Agent::GetInstance()->GetNextHopTable()->Process(req);
+    Agent::GetInstance()->nexthop_table()->Process(req);
 }
 
 // Create 3 InterfaceNH for every Vm interface. One with policy another without 
@@ -555,7 +555,7 @@ void InterfaceNH::CreatePacketInterfaceNh(const string &ifname) {
     mac.ether_addr_octet[ETHER_ADDR_LEN-1] = 1;
     req.key.reset(new InterfaceNHKey(new PacketInterfaceKey(nil_uuid(), ifname),
                                      false, InterfaceNHFlags::INET4));
-    req.data.reset(new InterfaceNHData(Agent::GetInstance()->GetDefaultVrf(),
+    req.data.reset(new InterfaceNHData(Agent::GetInstance()->fabric_vrf_name(),
                                        mac));
     NextHopTable::GetInstance()->Process(req);
 }
@@ -600,7 +600,7 @@ bool VrfNH::CanAdd() const {
 
 NextHop *VrfNHKey::AllocEntry() const {
     VrfEntry *vrf = static_cast<VrfEntry *>
-        (Agent::GetInstance()->GetVrfTable()->Find(&vrf_key_, true));
+        (Agent::GetInstance()->vrf_table()->Find(&vrf_key_, true));
     return new VrfNH(vrf, policy_);
 }
 
@@ -650,7 +650,7 @@ bool TunnelNH::CanAdd() const {
 
 NextHop *TunnelNHKey::AllocEntry() const {
     VrfEntry *vrf = static_cast<VrfEntry *>
-        (Agent::GetInstance()->GetVrfTable()->Find(&vrf_key_, true));
+        (Agent::GetInstance()->vrf_table()->Find(&vrf_key_, true));
     return new TunnelNH(vrf, sip_, dip_, policy_, tunnel_type_);
 }
 
@@ -761,7 +761,7 @@ bool MirrorNH::CanAdd() const {
 
 NextHop *MirrorNHKey::AllocEntry() const {
     VrfEntry *vrf = static_cast<VrfEntry *>
-        (Agent::GetInstance()->GetVrfTable()->Find(&vrf_key_, true));
+        (Agent::GetInstance()->vrf_table()->Find(&vrf_key_, true));
     return new MirrorNH(vrf, sip_, sport_, dip_, dport_);
 }
 
@@ -816,7 +816,7 @@ bool MirrorNH::Change(const DBRequest *req) {
         valid = false;
         rt_table->AddUnresolvedNH(this);
     } else if ((rt->GetActiveNextHop()->GetType() == NextHop::RESOLVE) &&
-               (GetVrf()->GetName() == Agent::GetInstance()->GetDefaultVrf())) {
+               (GetVrf()->GetName() == Agent::GetInstance()->fabric_vrf_name())) {
         //Trigger ARP resolution
         valid = false;
         rt_table->AddUnresolvedNH(this);
@@ -879,7 +879,7 @@ bool ReceiveNH::CanAdd() const {
 
 NextHop *ReceiveNHKey::AllocEntry() const {
     Interface *intf = static_cast<Interface *>
-        (Agent::GetInstance()->GetInterfaceTable()->Find(intf_key_.get(), true));
+        (Agent::GetInstance()->interface_table()->Find(intf_key_.get(), true));
     if (intf && intf->IsDeleted() && intf->GetRefCount() == 0) {
         // Ignore interface which are  deleted, and there are no reference to it
         // taking reference on deleted interface with refcount 0, would result 
@@ -983,7 +983,7 @@ bool VlanNH::CanAdd() const {
 
 NextHop *VlanNHKey::AllocEntry() const {
     Interface *intf = static_cast<Interface *>
-        (Agent::GetInstance()->GetInterfaceTable()->Find(intf_key_.get(), true));
+        (Agent::GetInstance()->interface_table()->Find(intf_key_.get(), true));
     return new VlanNH(intf, vlan_tag_);
 }
 
@@ -1015,7 +1015,7 @@ bool VlanNH::Change(const DBRequest *req) {
     bool ret = false;
 
     VrfEntry *vrf = static_cast<VrfEntry *>
-        (Agent::GetInstance()->GetVrfTable()->FindActiveEntry(&data->vrf_key_));
+        (Agent::GetInstance()->vrf_table()->FindActiveEntry(&data->vrf_key_));
     if (vrf_.get() != vrf) {
         vrf_ = vrf;
         ret = true;
@@ -1119,7 +1119,7 @@ bool CompositeNH::CanAdd() const {
 
 NextHop *CompositeNHKey::AllocEntry() const {
     VrfEntry *vrf = static_cast<VrfEntry *>
-        (Agent::GetInstance()->GetVrfTable()->Find(&vrf_key_, true));
+        (Agent::GetInstance()->vrf_table()->Find(&vrf_key_, true));
     if (is_mcast_nh_) {
         return new CompositeNH(vrf, dip_, sip_, comp_type_);
     } else {
@@ -1265,7 +1265,7 @@ void CompositeNH::Sync(bool deleted) {
             remote_comp_nh->local_comp_nh_.reset(NULL);
         }
         DBTablePartBase *part = 
-            Agent::GetInstance()->GetNextHopTable()->GetTablePartition(remote_comp_nh);
+            Agent::GetInstance()->nexthop_table()->GetTablePartition(remote_comp_nh);
         part->Notify(remote_comp_nh);
     }
 }
@@ -1295,7 +1295,7 @@ bool CompositeNH::GetOldNH(const CompositeNHData *data,
     std::vector<ComponentNHData>::const_iterator it = key_list.begin();
     for (;it != key_list.end(); it++) {
         list_nh = static_cast<NextHop *>
-            (table->agent()->GetNextHopTable()->FindActiveEntry(it->nh_key_));
+            (table->agent()->nexthop_table()->FindActiveEntry(it->nh_key_));
         if (!list_nh) {
             continue;
         }
@@ -1337,7 +1337,7 @@ bool CompositeNH::Change(const DBRequest* req) {
     std::vector<ComponentNHData>::const_iterator it = key_list.begin();
     for (;it != key_list.end(); it++) {
         nh = static_cast<NextHop *>
-            (Agent::GetInstance()->GetNextHopTable()->FindActiveEntry(it->nh_key_));
+            (Agent::GetInstance()->nexthop_table()->FindActiveEntry(it->nh_key_));
         if (!nh) {
             continue;
         }
@@ -1463,7 +1463,7 @@ void CompositeNH::CreateComponentNH(std::vector<ComponentNHData> comp_nh_list) {
 
             TunnelNHData *data = new TunnelNHData();
             req.data.reset(data);
-            Agent::GetInstance()->GetNextHopTable()->Enqueue(&req); 
+            Agent::GetInstance()->nexthop_table()->Enqueue(&req); 
         }
         it++;
     }
@@ -1494,7 +1494,7 @@ void CompositeNH::AppendComponentNH(const string vrf_name,
     req.key.reset(key);
     data = new CompositeNHData(comp_nh_list, CompositeNHData::ADD);
     req.data.reset(data);
-    Agent::GetInstance()->GetNextHopTable()->Process(req);
+    Agent::GetInstance()->nexthop_table()->Process(req);
 }
 
 //Delete composite NH of type ECMP
@@ -1513,7 +1513,7 @@ void CompositeNH::DeleteComponentNH(const string vrf_name,
     req.key.reset(key);
     data = new CompositeNHData(comp_nh_list, CompositeNHData::DELETE);
     req.data.reset(data);
-    Agent::GetInstance()->GetNextHopTable()->Process(req);
+    Agent::GetInstance()->nexthop_table()->Process(req);
 }
 
 //Create composite NH of type multicast
@@ -1533,7 +1533,7 @@ void CompositeNH::CreateCompositeNH(const string vrf_name,
     req.key.reset(key);
     data = new CompositeNHData(comp_nh_list, CompositeNHData::ADD);
     req.data.reset(data);
-    Agent::GetInstance()->GetNextHopTable()->Enqueue(&req);
+    Agent::GetInstance()->nexthop_table()->Enqueue(&req);
 }
 
 /////////////////////////////////////////////////////////////////////////////

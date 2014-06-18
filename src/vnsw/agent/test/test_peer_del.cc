@@ -78,8 +78,8 @@ TEST_F(AgentPeerDelete, peer_test_1) {
     BgpPeer *peer1, *peer2; 
     AgentXmppChannel *channel1, *channel2;
     XmppChannelMock xmpp_channel;
-    Agent::GetInstance()->SetXmppServer("0.0.0.1", 0);
-    Agent::GetInstance()->SetXmppServer("0.0.0.2", 1);
+    Agent::GetInstance()->set_controller_ifmap_xmpp_server("0.0.0.1", 0);
+    Agent::GetInstance()->set_controller_ifmap_xmpp_server("0.0.0.2", 1);
     channel1 = new AgentXmppChannel(Agent::GetInstance(), &xmpp_channel, 
                                    "XMPP Server 1", "", 0);
     channel2 = new AgentXmppChannel(Agent::GetInstance(), &xmpp_channel, 
@@ -165,8 +165,8 @@ TEST_F(AgentPeerDelete, DeletePeerOnDeletedVrf) {
     BgpPeer *peer1, *peer2; 
     AgentXmppChannel *channel1;
     AgentXmppChannel *channel2;
-    Agent::GetInstance()->SetXmppServer("0.0.0.1", 0);
-    Agent::GetInstance()->SetXmppServer("0.0.0.2", 1);
+    Agent::GetInstance()->set_controller_ifmap_xmpp_server("0.0.0.1", 0);
+    Agent::GetInstance()->set_controller_ifmap_xmpp_server("0.0.0.2", 1);
     channel1 = new AgentXmppChannel(Agent::GetInstance(), &xmpp_channel, 
                                    "XMPP Server 1", "", 0);
     channel2 = new AgentXmppChannel(Agent::GetInstance(), &xmpp_channel, 
