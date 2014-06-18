@@ -1772,6 +1772,10 @@ class DBInterface(object):
                                                id_perms=id_perms)
             port_obj.uuid = port_uuid
             port_obj.set_virtual_network(net_obj)
+            if ('mac_address' in port_q and port_q['mac_address']):
+                mac_addrs_obj = MacAddressesType()
+                mac_addrs_obj.set_mac_address(port_q['mac_address'])
+                port_obj.set_virtual_machine_interface_mac_addresses(mac_addrs_obj)
         else:  # READ/UPDATE/DELETE
             port_obj = self._virtual_machine_interface_read(
                 port_id=port_q['id'], fields=['instance_ip_back_refs',
