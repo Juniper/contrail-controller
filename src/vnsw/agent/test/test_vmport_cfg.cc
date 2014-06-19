@@ -1556,6 +1556,7 @@ int main(int argc, char **argv) {
     client = TestInit(init_file, ksync_init);
     int ret = RUN_ALL_TESTS();
     TestShutdown();
+    client->WaitForIdle();
     delete client;
 
     return ret;

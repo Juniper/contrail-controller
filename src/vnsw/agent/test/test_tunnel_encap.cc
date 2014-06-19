@@ -157,6 +157,9 @@ public:
                                          vrf_name_,
                                          *remote_vm_mac_, NULL);
         client->WaitForIdle();
+        DelArp("8.8.8.8", "00:00:08:08:08:08", 
+               Agent::GetInstance()->GetIpFabricItfName().c_str());
+        client->WaitForIdle();
     }
 
     void VerifyLabel(AgentPath *path) {
@@ -340,8 +343,10 @@ TEST_F(TunnelEncapTest, gre_to_vxlan_udp) {
 
 int main(int argc, char **argv) {
     GETUSERARGS();
-    client = TestInit(init_file, ksync_init, true, false);
+    client = TestInit(init_file, ksync_init);
     int ret = RUN_ALL_TESTS();
     client->WaitForIdle();
+    TestShutdown();
+    delete client;
     return ret;
 }

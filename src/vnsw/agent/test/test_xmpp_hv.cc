@@ -731,7 +731,8 @@ int main(int argc, char **argv) {
     InitXmppServers();
     ret |= RUN_ALL_TESTS();
 
-    Agent::GetInstance()->GetEventManager()->Shutdown();
-    AsioStop();
+    client->WaitForIdle();
+    TestShutdown();
+    delete client;
     return ret;
 }

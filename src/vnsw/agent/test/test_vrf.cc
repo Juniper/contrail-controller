@@ -84,6 +84,7 @@ protected:
             Agent::GetInstance()->controller()->Cleanup();
             client->WaitForIdle();
         }
+        Agent::GetInstance()->controller()->config_cleanup_timer().cleanup_timer_->Cancel();
 
         bgp_peer1->Shutdown();
         client->WaitForIdle();
@@ -344,5 +345,9 @@ int main(int argc, char **argv) {
     GETUSERARGS();
     client = TestInit(init_file, ksync_init, false, true, false);
 
-    return RUN_ALL_TESTS();
+    int ret = RUN_ALL_TESTS();
+    client->WaitForIdle();
+    TestShutdown();
+    delete client;
+    return ret;
 }

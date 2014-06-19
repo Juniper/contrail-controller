@@ -10,8 +10,9 @@ int main(int argc, char **argv) {
     Agent::GetInstance()->set_headless_agent_mode(false);
 
     int ret = RUN_ALL_TESTS();
-    Agent::GetInstance()->GetEventManager()->Shutdown();
-    AsioStop();
+    client->WaitForIdle();
+    TestShutdown();
+    delete client;
     return ret;
 }
 

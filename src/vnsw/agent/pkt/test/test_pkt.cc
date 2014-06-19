@@ -127,6 +127,10 @@ TEST_F(PktTest, FlowAdd_1) {
     sand->HandleRequest();
     client->WaitForIdle();
     sand->Release();
+
+    client->WaitForIdle();
+    DeleteVmportEnv(input, 1, true, 1);
+    client->WaitForIdle();
 }
 
 
@@ -136,5 +140,9 @@ int main(int argc, char *argv[]) {
     client = TestInit(init_file, ksync_init);
     Agent::GetInstance()->SetRouterId(Ip4Address::from_string("10.1.1.1"));
 
-    return RUN_ALL_TESTS();
+    int ret = RUN_ALL_TESTS();
+    client->WaitForIdle();
+    TestShutdown();
+    delete client;
+    return ret;
 }

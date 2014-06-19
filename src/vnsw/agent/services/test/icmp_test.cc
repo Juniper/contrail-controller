@@ -397,7 +397,7 @@ int main(int argc, char *argv[]) {
     client->WaitForIdle();
 
     int ret = RUN_ALL_TESTS();
-    //TestShutdown();
+    TestShutdown();
     delete client;
     return ret;
 }

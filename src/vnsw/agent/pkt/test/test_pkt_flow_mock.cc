@@ -183,5 +183,8 @@ int main (int argc, char **argv) {
     usleep(1000);
     ret = RUN_ALL_TESTS();
     usleep(100000);
+    client->WaitForIdle();
+    TestShutdown();
+    delete client;
     return ret;
 }

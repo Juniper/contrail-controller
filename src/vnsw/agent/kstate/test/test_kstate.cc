@@ -445,7 +445,8 @@ int main(int argc, char *argv[]) {
     ::testing::InitGoogleTest(&argc, argv);
     ret = RUN_ALL_TESTS();
     KStateTest::TestTearDown();
-    Agent::GetInstance()->GetEventManager()->Shutdown();
-    AsioStop();
+    client->WaitForIdle();
+    TestShutdown();
+    delete client;
     return ret;
 }

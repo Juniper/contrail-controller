@@ -265,7 +265,8 @@ int main(int argc, char *argv[]) {
     FlowRpfTest::TestSetup(ksync_init);
     int ret = RUN_ALL_TESTS();
     usleep(1000);
-    Agent::GetInstance()->GetEventManager()->Shutdown();
-    AsioStop();
+    client->WaitForIdle();
+    TestShutdown();
+    delete client;
     return ret;
 }
