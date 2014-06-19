@@ -20,6 +20,7 @@ env.Append(LIBPATH = env['TOP'] + '/bgp/inet')
 env.Append(LIBPATH = env['TOP'] + '/bgp/enet')
 env.Append(LIBPATH = env['TOP'] + '/bgp/ermvpn')
 env.Append(LIBPATH = env['TOP'] + '/bgp/evpn')
+env.Append(LIBPATH = env['TOP'] + '/bgp/extended-community')
 env.Append(LIBPATH = env['TOP'] + '/bgp/test')
 env.Append(LIBPATH = env['TOP'] + '/bgp/l3vpn')
 env.Append(LIBPATH = env['TOP'] + '/bgp/origin-vn')
@@ -41,6 +42,7 @@ env.Prepend(LIBS = [
                     'task_test',
                     'bgptest',
                     'bgp',
+                    'extended_community',                    
                     'peer_sandesh',
                     'control_node',
                     'origin_vn',

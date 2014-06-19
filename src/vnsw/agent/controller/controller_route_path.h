@@ -37,10 +37,13 @@ public:
     ControllerVmRoute(const Peer *peer, const string &vrf_name,
                   const Ip4Address &addr, uint32_t label,
                   const string &dest_vn_name, int bmap,
-                  const SecurityGroupList &sg_list, DBRequest &req):
+                  const SecurityGroupList &sg_list,
+                  const PathPreference &path_preference,
+                  DBRequest &req):
         ControllerPeerPath(peer), server_vrf_(vrf_name), server_ip_(addr),
         tunnel_bmap_(bmap), label_(label), dest_vn_name_(dest_vn_name),
-        sg_list_(sg_list) {nh_req_.Swap(&req);}
+        sg_list_(sg_list),path_preference_(path_preference)
+        {nh_req_.Swap(&req);}
     // Data passed in case of delete from BGP peer, to validate 
     // the request at time of processing.
     ControllerVmRoute(const Peer *peer) : ControllerPeerPath(peer) { }
@@ -58,7 +61,9 @@ public:
                                             TunnelType::TypeBmap bmap,
                                             uint32_t label,
                                             const string &dest_vn_name,
-                                            const SecurityGroupList &sg_list);
+                                            const SecurityGroupList &sg_list,
+                                            const PathPreference 
+                                            &path_preference);
 
 private:
     string server_vrf_;
@@ -67,6 +72,7 @@ private:
     uint32_t label_;
     string dest_vn_name_;
     SecurityGroupList sg_list_;
+    PathPreference path_preference_;
     DBRequest nh_req_;
     DISALLOW_COPY_AND_ASSIGN(ControllerVmRoute);
 };
@@ -76,10 +82,13 @@ public:
     ControllerEcmpRoute(const Peer *peer, const Ip4Address &dest_addr,
                         uint8_t plen, const string &vn_name, uint32_t label,
                         bool local_ecmp_nh, const string &vrf_name,
-                        SecurityGroupList sg_list, DBRequest &nh_req) :
+                        SecurityGroupList sg_list,
+                        const PathPreference &path_preference,
+                        DBRequest &nh_req) :
         ControllerPeerPath(peer), dest_addr_(dest_addr), plen_(plen),
         vn_name_(vn_name), label_(label), local_ecmp_nh_(local_ecmp_nh),
-        vrf_name_(vrf_name), sg_list_(sg_list) {nh_req_.Swap(&nh_req);}
+        vrf_name_(vrf_name), sg_list_(sg_list), path_preference_(path_preference)
+        {nh_req_.Swap(&nh_req);}
 
     virtual ~ControllerEcmpRoute() { }
     virtual bool AddChangePath(Agent *agent, AgentPath *path);
@@ -94,6 +103,7 @@ private:
     bool local_ecmp_nh_;
     string vrf_name_;
     SecurityGroupList sg_list_;
+    PathPreference path_preference_;
     DBRequest nh_req_;
     DISALLOW_COPY_AND_ASSIGN(ControllerEcmpRoute);
 };

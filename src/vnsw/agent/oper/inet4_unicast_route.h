@@ -58,6 +58,7 @@ public:
                                uint32_t label, bool local_ecmp_nh,
                                const string &vrf_name,
                                SecurityGroupList sg_list,
+                               const PathPreference &path_preference,
                                DBRequest &nh_req,
                                Agent* agent,
                                AgentPath *path);
@@ -140,12 +141,14 @@ public:
                                   const Ip4Address &addr, uint8_t plen,
                                   const uuid &intf_uuid, uint16_t tag,
                                   uint32_t label, const string &dest_vn_name,
-                                  const SecurityGroupList &sg_list_);
+                                  const SecurityGroupList &sg_list_,
+                                  const PathPreference &rp);
     static void AddVlanNHRoute(const Peer *peer, const string &vm_vrf,
                                const Ip4Address &addr, uint8_t plen,
                                const uuid &intf_uuid, uint16_t tag,
                                uint32_t label, const string &dest_vn_name,
-                               const SecurityGroupList &sg_list_);
+                               const SecurityGroupList &sg_list_,
+                               const PathPreference &rp);
     static void AddSubnetBroadcastRoute(const Peer *peer, 
                                         const string &vrf_name,
                                         const Ip4Address &src_addr, 
@@ -156,13 +159,15 @@ public:
                                    const uuid &intf_uuid, const string &vn_name,
                                    uint32_t label, 
                                    const SecurityGroupList &sg_list,
-                                   bool force_policy);
+                                   bool force_policy,
+                                   const PathPreference &rp);
     static void AddLocalVmRoute(const Peer *peer, const string &vm_vrf,
                                 const Ip4Address &addr, uint8_t plen,
                                 const uuid &intf_uuid, const string &vn_name,
                                 uint32_t label, 
                                 const SecurityGroupList &sg_list,
-                                bool force_policy);
+                                bool force_policy,
+                                const PathPreference &rp);
     static void AddRemoteVmRouteReq(const Peer *peer, const string &vm_vrf,
                                     const Ip4Address &vm_addr,uint8_t plen,
                                     AgentRouteData *data);

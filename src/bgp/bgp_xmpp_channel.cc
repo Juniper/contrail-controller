@@ -23,6 +23,7 @@
 #include "bgp/bgp_server.h"
 #include "bgp/inet/inet_table.h"
 #include "bgp/enet/enet_table.h"
+#include "bgp/extended-community/mac_mobility.h"
 #include "bgp/ermvpn/ermvpn_table.h"
 #include "bgp/ipeer.h"
 #include "bgp/origin-vn/origin_vn.h"
@@ -1008,6 +1009,19 @@ void BgpXmppChannel::ProcessItem(string vrf_name,
             SecurityGroup sg(bgp_server_->autonomous_system(), *it);
             ext.communities.push_back(sg.GetExtCommunityValue());
         }
+
+        // Seq number
+        if (item.entry.sequence_number) {
+            MacMobility seq_no(item.entry.sequence_number);
+            ext.communities.push_back(seq_no.GetExtCommunityValue());
+        }
+
+        // Preference
+        uint32_t preference = BgpAttrLocalPref::kDefault;
+        if (item.entry.preference)
+            preference = item.entry.preference;
+        BgpAttrLocalPref local_pref(preference);
+        attrs.push_back(&local_pref);
 
         if (rt_instance) {
             OriginVn origin_vn(bgp_server_->autonomous_system(),

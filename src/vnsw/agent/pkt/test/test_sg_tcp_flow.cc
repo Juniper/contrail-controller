@@ -295,13 +295,13 @@ public:
         boost::system::error_code ec;
         Inet4TunnelRouteAdd(NULL, "vn1:vn1", Ip4Address::from_string("1.1.1.0", ec), 24,
              Ip4Address::from_string("10.10.10.10", ec), TunnelType::AllType(),
-             17, "vn1", sg_id_list);
+             17, "vn1", sg_id_list, PathPreference());
         client->WaitForIdle();
 
         //Add a remote route for floating-ip VN pointing to SG id 2
         Inet4TunnelRouteAdd(NULL, "vn3:vn3", Ip4Address::from_string("3.3.3.2", ec), 24,
              Ip4Address::from_string("10.10.10.10", ec), TunnelType::AllType(),
-             18, "vn3", sg_id_list);
+             18, "vn3", sg_id_list, PathPreference());
         client->WaitForIdle();
 
 

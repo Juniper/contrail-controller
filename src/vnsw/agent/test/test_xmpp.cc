@@ -660,7 +660,7 @@ TEST_F(AgentXmppUnitTest, Add_db_req_by_deleted_peer_non_hv) {
     Inet4TunnelRouteAdd(old_bgp_peer, "vrf10", addr, 32,
                         Ip4Address::from_string("8.8.8.8"),
                         TunnelType::ComputeType(TunnelType::MplsType()),
-                        100, "vn10", SecurityGroupList());
+                        100, "vn10", SecurityGroupList(), PathPreference());
     client->WaitForIdle();
     EXPECT_TRUE(rt->GetPathList().size() == 1);
 
@@ -723,7 +723,7 @@ TEST_F(AgentXmppUnitTest, Del_db_req_by_deleted_peer_non_hv) {
     Inet4TunnelRouteAdd(old_bgp_peer, "vrf10", addr, 32,
                         Ip4Address::from_string("8.8.8.8"),
                         TunnelType::ComputeType(TunnelType::MplsType()),
-                        100, "vn10", SecurityGroupList());
+                        100, "vn10", SecurityGroupList(), PathPreference());
     client->WaitForIdle();
     EXPECT_TRUE(rt->GetPathList().size() == 2);
 
@@ -796,7 +796,8 @@ TEST_F(AgentXmppUnitTest, resync_db_req_by_deleted_peer_non_hv) {
                               Agent::GetInstance()->fabric_vrf_name(),
                               Agent::GetInstance()->router_id(), "vrf10",
                               addr, TunnelType::ComputeType(TunnelType::MplsType()),
-                              100, "vn10", SecurityGroupList());
+                              100, "vn10", SecurityGroupList(),
+                              PathPreference());
     DBRequest req(DBRequest::DB_ENTRY_ADD_CHANGE);
     Inet4UnicastRouteKey *key = 
         new Inet4UnicastRouteKey(old_bgp_peer, "vrf10", addr, 32);

@@ -92,7 +92,7 @@ public:
         Agent::GetInstance()->fabric_inet4_unicast_table()->
             AddLocalVmRouteReq(NULL, vrf, addr, 32, intf->GetUuid(),
                                intf->vn()->GetName(), label,
-                               SecurityGroupList(), false); 
+                               SecurityGroupList(), false, PathPreference()); 
         client->WaitForIdle();
         EXPECT_TRUE(RouteFind(vrf, addr, 32));
     }
@@ -102,7 +102,7 @@ public:
         Ip4Address addr = Ip4Address::from_string(remote_vm);
         Ip4Address gw = Ip4Address::from_string(serv);
         Inet4TunnelRouteAdd(NULL, vrf, addr, 32, gw, TunnelType::AllType(), 
-                            label, vn, SecurityGroupList());
+                            label, vn, SecurityGroupList(), PathPreference());
         client->WaitForIdle();
         EXPECT_TRUE(RouteFind(vrf, addr, 32));
     }

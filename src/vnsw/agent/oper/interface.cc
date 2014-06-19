@@ -649,6 +649,20 @@ void Interface::SetItfSandeshData(ItfSandeshData &data) const {
         }
         data.set_static_route_list(static_route_list);
 
+        std::vector<StaticRouteSandesh> aap_list;
+        VmInterface::AllowedAddressPairSet::iterator aap_it =
+            vintf->allowed_address_pair_list().list_.begin();
+        while (aap_it != vintf->allowed_address_pair_list().list_.end()) {
+            const VmInterface::AllowedAddressPair &rt = *aap_it;
+            StaticRouteSandesh entry;
+            entry.set_vrf_name(rt.vrf_);
+            entry.set_ip_addr(rt.addr_.to_string());
+            entry.set_prefix(rt.plen_);
+            aap_it++;
+            aap_list.push_back(entry);
+        }
+        data.set_allowed_address_pair_list(aap_list);
+
         if (vintf->fabric_port()) {
             data.set_fabric_port("FabricPort");
         } else {

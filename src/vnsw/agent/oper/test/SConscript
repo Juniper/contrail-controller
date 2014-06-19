@@ -18,6 +18,7 @@ test_inet_interface = AgentEnv.MakeTestCmd(env, 'test_inet_interface',
                                            oper_test_suite)
 test_fabric_interface = AgentEnv.MakeTestCmd(env, 'test_fabric_interface',
                                              oper_test_suite)
+test_aap = AgentEnv.MakeTestCmd(env, 'test_aap', oper_test_suite)
 
 test = env.TestSuite('agent-test', oper_test_suite)
 env.Alias('agent:oper', test)
