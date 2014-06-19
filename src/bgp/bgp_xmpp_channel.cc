@@ -1912,3 +1912,10 @@ boost::asio::ip::tcp::endpoint BgpXmppChannel::local_endpoint() {
     }
     return boost::asio::ip::tcp::endpoint();
 }
+
+//
+// Return true if the XmppPeer is deleted.
+//
+bool BgpXmppChannel::peer_deleted() {
+    return peer_->IsDeleted();
+}

@@ -487,6 +487,10 @@ LifetimeActor *BgpTable::deleter() {
     return deleter_.get();
 }
 
+const LifetimeActor *BgpTable::deleter() const {
+    return deleter_.get();
+}
+
 void BgpTable::UpdatePathCount(const BgpPath *path, int count) {
     if (dynamic_cast<const BgpSecondaryPath *>(path)) {
         secondary_path_count_ += count;

@@ -95,7 +95,7 @@ public:
     void Shutdown();
     bool MayDelete() const;
     void MayResumeDelete(bool is_empty);
-    const bool IsDeleted() { return deleter()->IsDeleted(); }
+    bool IsDeleted() const { return deleter()->IsDeleted(); }
 
     RoutingInstance *routing_instance() { return rtinstance_; }
     const RoutingInstance *routing_instance() const { return rtinstance_; }
@@ -110,6 +110,7 @@ public:
                      uint32_t path_id, uint32_t flags, uint32_t label);
 
     LifetimeActor *deleter();
+    const LifetimeActor *deleter() const;
     size_t GetPendingRiboutsCount(size_t &markers);
 
     void UpdatePathCount(const BgpPath *path, int count);
