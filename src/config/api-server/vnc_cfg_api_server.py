@@ -104,6 +104,12 @@ _ACTION_RESOURCES = [
 ]
 
 
+@bottle.error(400)
+def error_400(err):
+    return err.body
+# end error_400
+
+
 @bottle.error(403)
 def error_403(err):
     return err.body
