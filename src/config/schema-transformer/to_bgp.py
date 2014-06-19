@@ -883,6 +883,7 @@ class VirtualNetworkST(DictST):
         sp_list = prule.src_ports
         daddr_list = prule.dst_addresses
         dp_list = prule.dst_ports
+        rule_uuid = prule.get_rule_uuid()
 
         arule_proto = self.protocol_policy_to_acl(prule.protocol)
         if arule_proto is None:
@@ -959,7 +960,7 @@ class VirtualNetworkST(DictST):
                         match = MatchConditionType(arule_proto,
                                                    saddr_match, sp,
                                                    daddr_match, dp)
-                        acl = AclRuleType(match, action)
+                        acl = AclRuleType(match, action, rule_uuid)
                         result_acl_rule_list.append(acl)
                         if ((prule.direction == "<>") and
                                 (svn != dvn or sp != dp)):
@@ -975,7 +976,7 @@ class VirtualNetworkST(DictST):
                             else:
                                 raction.assign_routing_instance = None
 
-                            acl = AclRuleType(rmatch, raction)
+                            acl = AclRuleType(rmatch, raction, rule_uuid)
                             result_acl_rule_list.append(acl)
                     # end for dp
                 # end for sp
@@ -1163,6 +1164,7 @@ class SecurityGroupST(DictST):
     def policy_to_acl_rule(self, prule):
         ingress_acl_rule_list = []
         egress_acl_rule_list = []
+        rule_uuid = prule.get_rule_uuid()
 
         # convert policy proto input(in str) to acl proto (num)
         if prule.protocol.isdigit():
@@ -1192,7 +1194,7 @@ class SecurityGroupST(DictST):
                         match = MatchConditionType(arule_proto,
                                                    saddr_match, sp,
                                                    daddr_match, dp)
-                        acl = AclRuleType(match, action)
+                        acl = AclRuleType(match, action, rule_uuid)
                         acl_rule_list.append(acl)
                     # end for dp
                 # end for daddr
@@ -3055,7 +3057,8 @@ class SchemaTransformer(object):
                         PortType(-1, -1), rule.match_condition.dst_address,
                         PortType(-1, -1))
 
-                    acl = AclRuleType(match, ActionListType("deny"))
+                    acl = AclRuleType(match, ActionListType("deny"),
+                                      rule.get_rule_uuid())
                     acl_list.append(acl)
 
                     match = MatchConditionType(
@@ -3063,7 +3066,8 @@ class SchemaTransformer(object):
                         PortType(-1, -1), rule.match_condition.src_address,
                         PortType(-1, -1))
 
-                    acl = AclRuleType(match, ActionListType("deny"))
+                    acl = AclRuleType(match, ActionListType("deny"),
+                                      rule.get_rule_uuid())
                     acl_list.append(acl)
                 # end for rule
 
