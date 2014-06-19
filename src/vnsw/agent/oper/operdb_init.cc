@@ -24,6 +24,7 @@
 #include <oper/multicast.h>
 #include <oper/global_vrouter.h>
 #include <oper/agent_route_encap.h>
+#include <oper/path_preference.h>
 #include <base/task_trigger.h>
 
 OperDB *OperDB::singleton_ = NULL;
@@ -120,6 +121,9 @@ void OperDB::CreateDBTables(DB *db) {
 
     multicast_ = std::auto_ptr<MulticastHandler>(new MulticastHandler(agent_));
     global_vrouter_ = std::auto_ptr<GlobalVrouter> (new GlobalVrouter(this));
+    route_preference_module_ =
+        std::auto_ptr<PathPreferenceModule>(new PathPreferenceModule(agent_));
+    route_preference_module_->Init();
 }
 
 void OperDB::Init() {

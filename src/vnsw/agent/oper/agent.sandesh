@@ -62,6 +62,7 @@ struct ItfSandeshData {
    30: string vm_project_uuid; // project uuid of the vm to which the interface belongs
    31: string admin_state;
    32: i32 flow_key_idx;
+   33: optional list<StaticRouteSandesh> allowed_address_pair_list;
 }
 
 struct VnIpamData {
@@ -164,6 +165,13 @@ struct NhSandeshData {
    21: i32 nh_index;
 }
 
+struct PathPreferenceSandeshData {
+    1: i32 sequence;
+    2: i32 preference;
+    3: bool ecmp;
+    4: bool wait_for_traffic;
+}
+
 struct PathSandeshData {
     1: NhSandeshData nh;              // next hop info
     2: i32 label;                     // mpls label
@@ -178,6 +186,7 @@ struct PathSandeshData {
    11: string supported_tunnel_type;
    12: string active_tunnel_type;
    13: bool stale;
+   14: optional PathPreferenceSandeshData path_preference_data;
 }
 
 struct RouteUcSandeshData {

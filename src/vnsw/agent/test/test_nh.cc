@@ -309,7 +309,7 @@ TEST_F(CfgTest, EcmpNH_1) {
         {"vnet5", 5, "1.1.1.1", "00:00:00:02:02:05", 1, 5},
     };
 
-    CreateVmportEnv(input1, 5);
+    CreateVmportWithEcmp(input1, 5);
     client->WaitForIdle();
 
     //Check that route points to composite NH,
@@ -368,7 +368,7 @@ TEST_F(CfgTest, EcmpNH_2) {
         {"vnet5", 5, "1.1.1.1", "00:00:00:02:02:05", 1, 5}
     };
 
-    CreateVmportEnv(input1, 1);
+    CreateVmportWithEcmp(input1, 1);
     client->WaitForIdle();
     //First VM added, route points to composite NH
     Ip4Address ip = Ip4Address::from_string("1.1.1.1");
@@ -378,22 +378,22 @@ TEST_F(CfgTest, EcmpNH_2) {
     EXPECT_TRUE(nh->GetType() == NextHop::INTERFACE);
 
     //Second VM added, route should point to composite NH
-    CreateVmportEnv(input2, 1);
+    CreateVmportWithEcmp(input2, 1);
     client->WaitForIdle();
     nh = rt->GetActiveNextHop();
     EXPECT_TRUE(nh->GetType() == NextHop::COMPOSITE);
     const CompositeNH *comp_nh = static_cast<const CompositeNH *>(nh);
     EXPECT_TRUE(comp_nh->ComponentNHCount() == 2);
 
-    CreateVmportEnv(input3, 1);
+    CreateVmportWithEcmp(input3, 1);
     client->WaitForIdle();
     EXPECT_TRUE(comp_nh->ComponentNHCount() == 3);
 
-    CreateVmportEnv(input4, 1);
+    CreateVmportWithEcmp(input4, 1);
     client->WaitForIdle();
     EXPECT_TRUE(comp_nh->ComponentNHCount() == 4);
 
-    CreateVmportEnv(input5, 1);
+    CreateVmportWithEcmp(input5, 1);
     client->WaitForIdle();
     EXPECT_TRUE(nh->GetType() == NextHop::COMPOSITE);
     EXPECT_TRUE(comp_nh->ComponentNHCount() == 5);
@@ -722,7 +722,7 @@ TEST_F(CfgTest, EcmpNH_5) {
     //Add a remote VM route
     Inet4TunnelRouteAdd(NULL, "vrf2", remote_vm_ip, 32, remote_server_ip1,
                         TunnelType::DefaultType(), 30, "vn2",
-                        SecurityGroupList());
+                        SecurityGroupList(), PathPreference());
     client->WaitForIdle();
     //Create component NH list
     //Transition remote VM route to ECMP route
@@ -745,7 +745,7 @@ TEST_F(CfgTest, EcmpNH_5) {
 
     SecurityGroupList sg_id_list;
     EcmpTunnelRouteAdd(NULL, "vrf2", remote_vm_ip, 32,
-                       comp_nh_list, -1, "vn2", sg_id_list);
+                       comp_nh_list, -1, "vn2", sg_id_list, PathPreference());
     client->WaitForIdle();
     Inet4UnicastRouteEntry *rt = RouteGet("vrf2", remote_vm_ip, 32);
     EXPECT_TRUE(rt != NULL);
@@ -793,7 +793,7 @@ TEST_F(CfgTest, EcmpNH_6) {
                         32, remote_server_ip1,
                         TunnelType::AllType(),
                         30, "vn2",
-                        SecurityGroupList());
+                        SecurityGroupList(), PathPreference());
     client->WaitForIdle();
     //Create component NH list
     //Transition remote VM route to ECMP route
@@ -816,7 +816,7 @@ TEST_F(CfgTest, EcmpNH_6) {
 
     SecurityGroupList sg_list;
     EcmpTunnelRouteAdd(NULL, "vrf2", remote_vm_ip, 32,
-                        comp_nh_list, -1, "vn2", sg_list);
+                        comp_nh_list, -1, "vn2", sg_list, PathPreference());
     client->WaitForIdle();
     Inet4UnicastRouteEntry *rt = RouteGet("vrf2", remote_vm_ip, 32);
     EXPECT_TRUE(rt != NULL);
@@ -1192,7 +1192,7 @@ TEST_F(CfgTest, Nexthop_keys) {
     SecurityGroupList sg_l;
     agent_->fabric_inet4_unicast_table()->AddVlanNHRouteReq(NULL, "vrf10",
                           Ip4Address::from_string("2.2.2.0"), 24, MakeUuid(10), 100, 100, 
-                          "vn10", sg_l);                          
+                          "vn10", sg_l, PathPreference());
     client->WaitForIdle();
     Inet4UnicastRouteEntry *vlan_rt = 
         RouteGet("vrf10", Ip4Address::from_string("2.2.2.0"), 24);

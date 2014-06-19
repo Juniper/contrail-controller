@@ -14,6 +14,7 @@
 #include "oper/interface_common.h"
 #include "oper/nexthop.h"
 #include "oper/route_common.h"
+#include "oper/path_preference.h"
 #include "oper/vrf.h"
 #include "oper/sg.h"
 #include "oper/global_vrouter.h"
@@ -939,6 +940,13 @@ void PktFlowInfo::Add(const PktInfo *pkt, PktControlInfo *in,
                 pkt->ip_proto, pkt->sport, pkt->dport);
     FlowEntryPtr flow(Agent::GetInstance()->pkt()->flow_table()->Allocate(key));
 
+    if (ingress && !short_flow && !linklocal_flow) {
+        if (in->rt_->WaitForTraffic()) {
+            flow_table->agent()->oper_db()->route_preference_module()->
+                EnqueueTrafficSeen(Ip4Address(pkt->ip_saddr), 32,
+                                   in->intf_->id(), pkt->vrf);
+        }
+    }
     // Do not allow more than max flows
     if ((in->vm_ &&
          (flow_table->VmFlowCount(in->vm_) + 2) > flow_table->max_vm_flows()) ||

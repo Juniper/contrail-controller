@@ -48,7 +48,14 @@ struct AgentRouteKey : public AgentKey {
 };
 
 struct AgentRouteData : public AgentData {
-    AgentRouteData(bool is_multicast) : is_multicast_(is_multicast) { }
+    enum Type {
+        ADD_DEL_CHANGE,
+        ROUTE_PREFERENCE_CHANGE,
+    };
+    AgentRouteData(bool is_multicast) : type_(ADD_DEL_CHANGE),
+    is_multicast_(is_multicast) { }
+    AgentRouteData(Type type, bool is_multicast):
+        type_(type), is_multicast_(is_multicast) { }
     virtual ~AgentRouteData() { }
 
     virtual std::string ToString() const = 0;
@@ -57,6 +64,7 @@ struct AgentRouteData : public AgentData {
 
     bool is_multicast() const {return is_multicast_;}
 
+    Type type_;
     bool is_multicast_;
     DISALLOW_COPY_AND_ASSIGN(AgentRouteData);
 };
@@ -231,6 +239,7 @@ public:
     bool IsTunnelNHListEmpty() { return tunnel_nh_list_.empty(); }
 
     void FillTrace(RouteInfo &route, Trace event, const AgentPath *path);
+    bool WaitForTraffic() const;
 protected:
     void SetVrf(VrfEntryRef vrf) { vrf_ = vrf; }
     void RemovePathInternal(AgentPath *path);

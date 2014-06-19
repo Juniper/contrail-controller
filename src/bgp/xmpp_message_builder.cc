@@ -14,6 +14,7 @@
 #include "bgp/routing-instance/routing_instance.h"
 #include "bgp/bgp_table.h"
 #include "bgp/enet/enet_route.h"
+#include "bgp/extended-community/mac_mobility.h"
 #include "bgp/ermvpn/ermvpn_route.h"
 #include "bgp/origin-vn/origin_vn.h"
 #include "bgp/security_group/security_group.h"
@@ -31,6 +32,7 @@ public:
     BgpXmppMessage(const BgpTable *table, const RibOutAttr *roattr)
         : table_(table),
           is_reachable_(roattr->IsReachable()),
+          sequence_number_(0),
           virtual_network_("unresolved") {
     }
     virtual ~BgpXmppMessage() { }
@@ -67,6 +69,10 @@ private:
                 SecurityGroup security_group(*iter);
                 security_group_list_.push_back(security_group.security_group_id());
             }
+            if (ExtCommunity::is_mac_mobility(*iter)) {
+                MacMobility mm(*iter);
+                sequence_number_ = mm.sequence_number();
+            }
             if (ExtCommunity::is_origin_vn(*iter)) {
                 OriginVn origin_vn(*iter);
                 const RoutingInstanceMgr *manager =
@@ -81,6 +87,7 @@ private:
     bool is_reachable_;
     xml_document xdoc_;
     xml_node xitems_;
+    uint32_t sequence_number_;
     std::string virtual_network_;
     std::vector<int> security_group_list_;
     string repr_;
@@ -158,6 +165,7 @@ void BgpXmppMessage::AddInetReach(const BgpRoute *route, const RibOutAttr *roatt
     item.entry.version = 1;
     item.entry.virtual_network = virtual_network_;
     item.entry.local_preference = roattr->attr()->local_pref();
+    item.entry.sequence_number = sequence_number_;
 
     assert(!roattr->nexthop_list().empty());
 

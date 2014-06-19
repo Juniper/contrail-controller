@@ -143,7 +143,8 @@ bool AgentRouteTable::PathSelection(const Path &path1, const Path &path2) {
     if (l_path.is_stale() != r_path.is_stale()) {
         return (l_path.is_stale() < r_path.is_stale());
     }
-    return l_path.peer()->IsLess(r_path.peer());
+
+    return l_path.IsLess(r_path);
 }
 
 // Re-evaluate all unresolved NH. Flush and enqueue RESYNC for all NH in the 
@@ -304,10 +305,19 @@ void AgentRouteTable::Input(DBTablePartition *part, DBClient *client,
         }
 
         if (key->sub_op_ == AgentKey::RESYNC) {
-            // Ignore RESYNC if received on non-existing or deleted route entry
             if (rt && (rt->IsDeleted() == false)) {
-                rt->Sync();
-                notify = true;
+                if (data &&
+                    data->type_ == AgentRouteData::ROUTE_PREFERENCE_CHANGE) {
+                    //Resync operation changes preference, sequence number and
+                    //wait for traffic flag for a path
+                    path = rt->FindPath(key->peer());
+                    notify = data->AddChangePath(agent_, path);
+                } else {
+                    //Ignore RESYNC if received on non-existing
+                    //or deleted route entry
+                    rt->Sync();
+                    notify = true;
+                }
             }
         } else if (key->sub_op_ == AgentKey::ADD_DEL_CHANGE) {
             // Renew the route if its in deleted state
@@ -396,6 +406,10 @@ void AgentRouteTable::Input(DBTablePartition *part, DBClient *client,
 
     //Route changed, trigger change on dependent routes
     if (notify) {
+        const Path *prev_front = rt->front();
+        if (prev_front) {
+            rt->Sort(&AgentRouteTable::PathSelection, prev_front);
+        }
         part->Notify(rt);
         rt->UpdateDependantRoutes();
         rt->ResyncTunnelNextHop();
@@ -485,9 +499,12 @@ AgentPath *AgentRoute::FindLocalVmPortPath() const {
     for(Route::PathList::const_iterator it = GetPathList().begin(); 
         it != GetPathList().end(); it++) {
         const AgentPath *path = static_cast<const AgentPath *>(it.operator->());
+        if (path->peer() == NULL) {
+            continue;
+        }
         if (path->peer()->GetType() == Peer::ECMP_PEER ||
-            path->peer()->GetType() == Peer::LOCAL_VM_PORT_PEER ||
-            path->peer()->GetType() == Peer::VGW_PEER) {
+            path->peer()->GetType() == Peer::VGW_PEER ||
+            path->peer()->GetType() == Peer::LOCAL_VM_PORT_PEER) {
             return const_cast<AgentPath *>(path);
         }
     }
@@ -640,6 +657,17 @@ bool AgentRoute::Sync(void) {
         }
     }
     return ret;
+}
+
+bool AgentRoute::WaitForTraffic() const {
+    for(Route::PathList::const_iterator it = GetPathList().begin();
+        it != GetPathList().end(); it++) {
+        const AgentPath *path = static_cast<const AgentPath *>(it.operator->());
+        if (path->path_preference().wait_for_traffic() == true) {
+            return true;
+        }
+    }
+    return false;
 }
 
 void AgentRouteTable::StalePathFromPeer(DBTablePartBase *part, AgentRoute *rt,

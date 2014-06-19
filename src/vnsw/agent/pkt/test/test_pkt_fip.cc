@@ -280,7 +280,7 @@ static void Setup() {
     Ip4Address gw = Ip4Address::from_string("10.1.1.2");
     Inet4TunnelRouteAdd(NULL, "vrf1", addr, 32, gw, 
                         TunnelType::AllType(), 8, "vn1",
-                        SecurityGroupList());
+                        SecurityGroupList(), PathPrefernce());
     client->WaitForIdle();
     EXPECT_TRUE(RouteFind("vrf1", addr, 32));
 
@@ -290,7 +290,8 @@ static void Setup() {
                                       vnet[3]->GetUuid(),
                                       vnet[3]->vn()->GetName(),
                                       vnet[3]->label(),
-                                      SecurityGroupList(), 0);
+                                      SecurityGroupList(), 0,
+                                      PathPreference());
     client->WaitForIdle();
     EXPECT_TRUE(RouteFind("vn2:vn2", addr, 32));
 
@@ -298,7 +299,7 @@ static void Setup() {
     addr = Ip4Address::from_string("20.1.1.0");
     Inet4TunnelRouteAdd(NULL, "vn2:vn2", addr, 24, gw,
                         TunnelType::AllType(), 8, "vn3",
-                        SecurityGroupList());
+                        SecurityGroupList(), PathPreference());
     client->WaitForIdle();
     EXPECT_TRUE(RouteFind("vn2:vn2", addr, 24));
 
@@ -306,7 +307,7 @@ static void Setup() {
     addr = Ip4Address::from_string("20.1.1.0");
     Inet4TunnelRouteAdd(NULL, "vrf3", addr, 24, gw,
                         TunnelType::AllType(), 8, "vn2",
-                        SecurityGroupList());
+                        SecurityGroupList(), PathPreference());
     client->WaitForIdle();
     EXPECT_TRUE(RouteFind("vrf3", addr, 24));
 
@@ -315,7 +316,7 @@ static void Setup() {
     gw = Ip4Address::from_string("10.1.1.2");
     Inet4TunnelRouteAdd(NULL, "vrf1", addr, 32, gw, 
                         TunnelType::AllType(), 8, "vn2",
-                        SecurityGroupList());
+                        SecurityGroupList(), PathPreference());
     client->WaitForIdle();
     EXPECT_TRUE(RouteFind("vrf1", addr, 32));
 
@@ -1041,7 +1042,8 @@ TEST_F(FlowTest, FIP_traffic_to_leaked_routes) {
     vnet_table[2]->AddLocalVmRouteReq(NULL, "vn2:vn2", vnet[5]->ip_addr(), 32,
                                       vnet[5]->GetUuid(), 
                                       vnet[5]->vn()->GetName(),
-                                      vnet[5]->label(), SecurityGroupList(), 0);
+                                      vnet[5]->label(), SecurityGroupList(), 0,
+                                      PathPreference());
     client->WaitForIdle();
 
   // HTTP packet from VM to Server
@@ -1064,7 +1066,7 @@ TEST_F(FlowTest, Fip_preference_over_policy) {
     Ip4Address gw = Ip4Address::from_string("10.1.1.2");
     Inet4TunnelRouteAdd(NULL, "vrf1", addr, 32, gw, 
                         TunnelType::AllType(), 8, "vn2", 
-                        SecurityGroupList());
+                        SecurityGroupList(), PathPreference());
     client->WaitForIdle();
     TxUdpPacket(vnet[1]->id(), vnet_addr[1], "2.1.1.1", 10, 20, 1, 1);
     client->WaitForIdle();
@@ -1139,7 +1141,7 @@ TEST_F(FlowTest, Prefer_policy_over_fip_LPM_find) {
     Ip4Address gw = Ip4Address::from_string("10.1.1.2");
     Inet4TunnelRouteAdd(NULL, "vrf1", addr, 32, gw,
                         TunnelType::AllType(), 8, "vn2",
-                        SecurityGroupList());
+                        SecurityGroupList(), PathPreference());
     client->WaitForIdle();
     TxUdpPacket(vnet[1]->id(), vnet_addr[1], "20.1.1.1", 10, 20, 1, 1);
     client->WaitForIdle();

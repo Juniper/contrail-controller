@@ -1,0 +1,24 @@
+#
+# Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
+#
+
+# -*- mode: python; -*-
+
+Import('BuildEnv')
+env = BuildEnv.Clone()
+
+env.Append(LIBPATH = env['TOP'] + '/bgp/extended-community')
+
+env.Prepend(LIBS = ['gunit', 'extended_community', 'boost_regex'])
+
+mac_mobility_test = env.UnitTest('mac_mobility_test', ['mac_mobility_test.cc'])
+env.Alias('src/bgp/extended-community:mac_mobility_test', mac_mobility_test)
+
+test_suite = [
+    mac_mobility_test,
+]
+
+test = env.TestSuite('bgp-test', test_suite)
+env.Alias('controller/src/bgp/extended-community:test', test)
+
+Return('test_suite')
