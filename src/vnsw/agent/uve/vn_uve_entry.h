@@ -85,7 +85,8 @@ public:
     bool FillVrfStats(int vrf_id, UveVirtualNetworkAgent &s_vn);
     bool PopulateInterVnStats(UveVirtualNetworkAgent &s_vn);
     bool FrameVnMsg(const VnEntry *vn, UveVirtualNetworkAgent &uve);
-    bool FrameVnStatsMsg(const VnEntry *vn, UveVirtualNetworkAgent &uve);
+    bool FrameVnStatsMsg(const VnEntry *vn, UveVirtualNetworkAgent &uve,
+                         bool only_vrf_stats);
     void UpdateInterVnStats(const string &dst_vn, uint64_t bytes, 
                             uint64_t pkts, bool outgoing);
     void ClearInterVnStats();
