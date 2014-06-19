@@ -158,17 +158,16 @@ class Subnet(object):
         network = IPNetwork('%s/%s' % (prefix, prefix_len))
 
         # check allocation-pool
-        if alloc_pool_list is not None:
-            for ip_pool in alloc_pool_list:
-                try:
-                    start_ip = IPAddress(ip_pool['start'])
-                    end_ip = IPAddress(ip_pool['end'])
-                except AddrFormatError:
-                    raise AddrMgmtInvalidIpAddr(name, ip_pool)
-                if (start_ip not in network or end_ip not in network):
-                    raise AddrMgmtOutofBoundAllocPool(name, ip_pool)
-                if (end_ip < start_ip):
-                    raise AddrMgmtInvalidAllocPool(name, ip_pool)
+        for ip_pool in alloc_pool_list or []:
+            try:
+                start_ip = IPAddress(ip_pool['start'])
+                end_ip = IPAddress(ip_pool['end'])
+            except AddrFormatError:
+                raise AddrMgmtInvalidIpAddr(name, ip_pool)
+            if (start_ip not in network or end_ip not in network):
+                raise AddrMgmtOutofBoundAllocPool(name, ip_pool)
+            if (end_ip < start_ip):
+                raise AddrMgmtInvalidAllocPool(name, ip_pool)
         # check gw
         if gw:
             try:
@@ -183,22 +182,19 @@ class Subnet(object):
                 gw_ip = IPAddress(network.last - 1)
 
         # check dns_nameservers
-        if dns_nameservers:
-            for nameserver in dns_nameservers:
-                try:
-                    ip_addr = IPAddress(nameserver)
-                except AddrFormatError:
-                    raise AddrMgmtInvalidDnsServer(name, nameserver)
-
+        for nameserver in dns_nameservers or []:
+            try:
+                ip_addr = IPAddress(nameserver)
+            except AddrFormatError:
+                raise AddrMgmtInvalidDnsServer(name, nameserver)
 
         # Exclude host and broadcast
-        exclude = [IPAddress(network.first), IPAddress(
-            network.last), network.broadcast]
+        exclude = [IPAddress(network.first), network.broadcast]
 
         # if allocation-pool is not specified, create one with entire cidr
-        if alloc_pool_list is None or not alloc_pool_list:
+        if not alloc_pool_list:
             alloc_pool_list = [{'start':str(IPAddress(network.first)),
-                                'end':str(IPAddress(network.last))}]
+                                'end':str(IPAddress(network.last-1))}]
 
         # need alloc_pool_list with integer to use in Allocator
         alloc_int_list = list()
