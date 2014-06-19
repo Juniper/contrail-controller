@@ -23,6 +23,7 @@
 #include "ruleeng.h"
 
 using std::string;
+using std::vector;
 
 int Ruleeng::RuleBuilderID = 0;
 int Ruleeng::RuleWorkerID = 0;
@@ -135,8 +136,13 @@ void Ruleeng::remove_identifier(const pugi::xml_node &parent) {
 }
 
 static DbHandler::Var ParseNode(const pugi::xml_node& node) {
-    string attype = node.attribute("type").value();
     DbHandler::Var sample;
+
+    if (node.empty()) {
+        LOG(ERROR, __func__ << "Parsing Empty node");
+        return sample;
+    }
+    string attype = node.attribute("type").value();
     if (attype == "string") {
         sample = string(node.child_value());
     } else if (attype == "double") {   
@@ -252,6 +258,7 @@ bool Ruleeng::handle_uve_publish(const pugi::xml_node& parent,
                     if (tstr.empty()) continue;
          
                     DbHandler::TagMap tmap;
+                    DbHandler::AttribMap attribs;
                     size_t pos;
                     size_t npos = 0;
                     do {
@@ -267,9 +274,6 @@ bool Ruleeng::handle_uve_publish(const pugi::xml_node& parent,
                         else 
                             term = tstr.substr(pos, npos - pos);
 
-                        // TODO : check for timestamp character sequence
-                        //        If it is found, use it as timestamp
-
                         // Separating this term into a prefix and suffix
                         // Read the suffix here as well
                         size_t spos = term.find(':');
@@ -283,16 +287,17 @@ bool Ruleeng::handle_uve_publish(const pugi::xml_node& parent,
                            
                             if (!sterm.empty()) {
                                 pugi::xml_node anode_s;
-                                string sname;
                                 if (sterm[0] != '.') {
                                     anode_s = object.child(sterm.c_str());
                                     sname = sterm;
+                                    sv = ParseNode(anode_s);
+                                    attribs.insert(make_pair(sterm, sv));
                                 } else {
                                     string cattr = sterm.substr(1,string::npos);
                                     anode_s = elem.child(cattr.c_str());
                                     sname = string(node.name()) + sterm;
+                                    sv = ParseNode(anode_s);
                                 }
-                                sv = ParseNode(anode_s);
                             }
                         }
 
@@ -309,13 +314,18 @@ bool Ruleeng::handle_uve_publish(const pugi::xml_node& parent,
                         if (tr == tmap.end()) {
                             
                             pugi::xml_node anode_p;
+                            DbHandler::Var pv;
                             if (pterm[0] != '.') {
+                                // This is either a mandatory tag (name,Source)
+                                // or a sibling tag.
                                 anode_p = object.child(pterm.c_str());
+                                pv = ParseNode(anode_p);
+                                attribs.insert(make_pair(pterm, pv));
                             } else {
                                 string cattr = pterm.substr(1,string::npos);
                                 anode_p = elem.child(cattr.c_str());
+                                pv = ParseNode(anode_p);
                             }
-                            DbHandler::Var pv = ParseNode(anode_p);
 
                             DbHandler::AttribMap amap;
                             if (!sterm.empty()) {
@@ -332,7 +342,6 @@ bool Ruleeng::handle_uve_publish(const pugi::xml_node& parent,
 
                     } while (npos != string::npos);
 
-                    DbHandler::AttribMap attribs;
                     if (tmap.find(g_viz_constants.STAT_OBJECTID_FIELD) == tmap.end()) {
                         DbHandler::AttribMap amap;
                         pugi::xml_node anode_p = object.child(g_viz_constants.STAT_OBJECTID_FIELD.c_str());
@@ -358,16 +367,44 @@ bool Ruleeng::handle_uve_publish(const pugi::xml_node& parent,
                         string tname = string(node.name()) + sattrname;
                         attribs.insert(make_pair(tname, sample));
                     }
-                    db->StatTableInsert(ts, object.name(), node.name(), tmap, attribs);
+                    vector<string> sels = 
+                        db->StatTableInsert(ts, object.name(), node.name(), tmap, attribs);
+                    // We don't want to show query info in the Analytics Node UVE
+                    if (!strcmp(object.name(),"QueryPerfInfo")) continue;
+                    if (elem == subs.first_child()) {
+                        string qclause;
+                        qclause.reserve(100);
+                        qclause.append("[{\"rtype\":\"query\", \"aggtype\":\"StatTable.");
+                        qclause.append(object.name());
+                        qclause.append(".");
+                        qclause.append(node.name());
+                        qclause.append("\", \"select\":[");
+                        int elems = 0;
+                        for (vector<string>::const_iterator it = sels.begin();
+                                it != sels.end(); it++) {
+                            if (*it==g_viz_constants.STAT_OBJECTID_FIELD) continue;
+                            if (*it==g_viz_constants.STAT_SOURCE_FIELD) continue;
+                            if (elems) qclause.append(",");
+                            qclause.append("\"");
+                            qclause.append(*it);
+                            qclause.append("\"");
+                            elems++;
+                        }
+                        qclause.append("] }]");
+                        ostr.str("");
+                        ostr.clear();
+                        ostr << qclause;
+                    }
                 }
-
+                // We don't want to show query info in the Analytics Node UVE
+                if (!strcmp(object.name(),"QueryPerfInfo")) continue;
             } else {
                 LOG(ERROR, __func__ << " Message: "  << type << " Source: " << source <<
                   ":" << node_type << ":" << module << ":" << instance_id << 
                   " Name: " << object.name() <<  " Node: " << node.name()  <<
                   " Bad Stat type " << ltype); 
-            }
-            continue;
+                continue;
+            }  
         }
         
         if (!osp_->UVEUpdate(object.name(), node.name(),

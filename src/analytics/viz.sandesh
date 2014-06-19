@@ -100,12 +100,14 @@ const string FLOW_TABLE_VROUTER     = "FlowTableVRouterVer2"
 const string FLOW_SERIES_TABLE      = "FlowSeriesTable"
 const string FLOW_TABLE_INVALID     = "Invalid Flow Table"
 
-const string STATS_TABLE_BY_STR_STR_TAG     = "StatsTableByStrStrTagV2"
-const string STATS_TABLE_BY_STR_U64_TAG     = "StatsTableByStrU64TagV2"
-const string STATS_TABLE_BY_STR_DBL_TAG     = "StatsTableByStrDblTagV2"
-const string STATS_TABLE_BY_U64_STR_TAG     = "StatsTableByU64StrTagV2"
-const string STATS_TABLE_BY_U64_U64_TAG     = "StatsTableByU64U64TagV2"
-const string STATS_TABLE_BY_DBL_STR_TAG     = "StatsTableByDblStrTagV2"
+const string STATS_TABLE_BY_STR_STR_TAG     = "StatsTableByStrStrTagV3"
+const string STATS_TABLE_BY_STR_U64_TAG     = "StatsTableByStrU64TagV3"
+const string STATS_TABLE_BY_U64_STR_TAG     = "StatsTableByU64StrTagV3"
+const string STATS_TABLE_BY_U64_U64_TAG     = "StatsTableByU64U64TagV3"
+
+const string STATS_TABLE_BY_DBL_TAG         = "StatsTableByDblTagV3"
+const string STATS_TABLE_BY_STR_TAG         = "StatsTableByStrTagV3"
+const string STATS_TABLE_BY_U64_TAG         = "StatsTableByU64TagV3"
 
 // Please keep FlowRecordFields and FlowRecordNames in sync
 enum FlowRecordFields {
@@ -425,9 +427,9 @@ const list<stat_table> _STAT_TABLES  = [
       'stat_attr' : 'query_stats',
       'obj_table' : COLLECTOR_INFO_TABLE,
       'attributes': [
+          { 'name' : 'table',            'datatype' : 'string','index' : true},
           { 'name' : 'query_stats.time', 'datatype' : 'int',   'index' : true},
           { 'name' : 'query_stats.rows', 'datatype' : 'int',   'index' : true},
-          { 'name' : 'query_stats.table','datatype' : 'string','index' : true},
           { 'name' : 'query_stats.qid',  'datatype' : 'string','index' : true},
           { 'name' : 'query_stats.where'      ,'datatype' : 'string','index' : false},
           { 'name' : 'query_stats.select'     ,'datatype' : 'string','index' : false},

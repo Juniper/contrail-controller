@@ -428,7 +428,7 @@ WhereQuery::WhereQuery(const std::string& where_json_string, int direction,
                 DbQueryUnit *db_query = new DbQueryUnit(and_node, main_query);
                 if ((name == g_viz_constants.STAT_OBJECTID_FIELD) || 
                     (name == g_viz_constants.STAT_SOURCE_FIELD)) {
-                    db_query->cfname = g_viz_constants.STATS_TABLE_BY_STR_STR_TAG;
+                    db_query->cfname = g_viz_constants.STATS_TABLE_BY_STR_TAG;
                     smpl = value;
                     isStr = true;
                 } else {
@@ -448,19 +448,19 @@ WhereQuery::WhereQuery(const std::string& where_json_string, int direction,
                     }
 
                     if (value_value.IsString()) {
-                        db_query->cfname = g_viz_constants.STATS_TABLE_BY_STR_STR_TAG;
+                        db_query->cfname = g_viz_constants.STATS_TABLE_BY_STR_TAG;
                         smpl = value;
                         endsmpl = std::string();
                         isStr = true;
                     } else if (value_value.IsUint() || value_value.IsInt()) {
-                        db_query->cfname = g_viz_constants.STATS_TABLE_BY_U64_STR_TAG;
+                        db_query->cfname = g_viz_constants.STATS_TABLE_BY_U64_TAG;
                         smpl = (uint64_t) strtoul(value.c_str(), NULL, 10);
                         if (op == IN_RANGE) {
                             smpl2 = (uint64_t) strtoul(value2.c_str(), NULL, 10);
                         }
                         endsmpl = (uint64_t)0xffffffffffffffff;
                     } else if (value_value.IsDouble()) {
-                        db_query->cfname = g_viz_constants.STATS_TABLE_BY_DBL_STR_TAG;
+                        db_query->cfname = g_viz_constants.STATS_TABLE_BY_DBL_TAG;
                         smpl = (double) strtod(value.c_str(), NULL);
                         if (op == IN_RANGE) {
                             smpl2 = (double) strtod(value2.c_str(), NULL);
@@ -501,7 +501,8 @@ WhereQuery::WhereQuery(const std::string& where_json_string, int direction,
                 } else {
                     db_query->cr.finish_.push_back(smpl);
                 }
-                db_query->cr.finish_.push_back(std::string());
+                // TODO: Only needed in the twotag case (prefix+suffix)
+                // db_query->cr.finish_.push_back(std::string());
                 QE_TRACE(DEBUG, "where match term for stat name: " <<
                     name << " value: " << value);
                 object_id_specified = true;

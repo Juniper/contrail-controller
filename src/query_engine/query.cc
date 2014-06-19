@@ -938,6 +938,13 @@ AnalyticsQuery::AnalyticsQuery(std::string qid, std::map<std::string,
             this->status_details = EIO;
         }
     }
+    for (std::vector<GenDb::NewCf>::const_iterator it = vizd_stat_tables.begin();
+            it != vizd_stat_tables.end(); it++) {
+        if (!dbif_->Db_UseColumnfamily(*it)) {
+            QE_LOG(ERROR, "Database initialization:Db_UseColumnfamily failed");
+            this->status_details = EIO;
+        }
+    }
     dbif->Db_SetInitDone(true);
     Init(dbif, qid, json_api_data, analytics_start_time);
 }
