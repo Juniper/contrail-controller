@@ -576,6 +576,9 @@ class AnalyticsTest(testtools.TestCase, fixtures.TestWithFixtures):
         line = 'pizza pasta babaghanoush'
         syslogger.critical(line)
         assert vizd_obj.verify_keyword_query(line, ['pasta', 'pizza'])
+        assert vizd_obj.verify_keyword_query(line, ['babaghanoush'])
+        # SYSTEMLOG
+        assert vizd_obj.verify_keyword_query(line, ['PROGRESS', 'QueryExec'])
 
     # end test_13_verify_syslog_table_query
 

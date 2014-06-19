@@ -22,6 +22,7 @@
 #include "vizd_table_desc.h"
 #include "collector.h"
 #include "db_handler.h"
+#include "parser_util.h"
 
 #define DB_LOG(_Level, _Msg)                                                   \
     do {                                                                       \
@@ -404,11 +405,30 @@ void DbHandler::MessageTableInsert(const VizMsg *vmsgp) {
     MessageIndexTableInsert(g_viz_constants.MESSAGE_TABLE_MESSAGE_TYPE, header, message_type, vmsgp->unm);
     MessageIndexTableInsert(g_viz_constants.MESSAGE_TABLE_TIMESTAMP, header, message_type, vmsgp->unm);
 
-    for (std::vector<std::string>::const_iterator i = vmsgp->keywords.begin();
-            i != vmsgp->keywords.end(); i++) {
-        // tableinsert@{(t2,*i), (t1,header.get_Source())} -> vmsgp->unm
-        MessageIndexTableInsert(g_viz_constants.MESSAGE_TABLE_KEYWORD, header,
-                message_type, vmsgp->unm, *i);
+    const SandeshType::type &stype(header.get_Type());
+    std::string s;
+
+    if (stype == SandeshType::SYSTEM) {
+        const SandeshXMLMessage *sxmsg =
+            static_cast<const SandeshXMLMessage *>(vmsgp->msg);
+        const pugi::xml_node &parent(sxmsg->GetMessageNode());
+        s = LineParser::GetXmlString(parent);
+    } else if (!vmsgp->keyword_doc_.empty()) {
+        s = std::string(vmsgp->keyword_doc_);
+    }
+    if (!s.empty()) {
+        LineParser::WordListType words;
+        LineParser::ParseDoc(s.begin(), s.end(), words);
+        LineParser::RemoveStopWrods(words);
+        for (LineParser::WordListType::iterator i = words.begin();
+                i != words.end(); i++) {
+            // tableinsert@{(t2,*i), (t1,header.get_Source())} -> vmsgp->unm
+            bool r = MessageIndexTableInsert(
+                    g_viz_constants.MESSAGE_TABLE_KEYWORD, header,
+                    message_type, vmsgp->unm, *i);
+            if (!r)
+                DB_LOG(ERROR, "Failed to parse:" << vmsgp->keyword_doc_);
+        }
     }
     /*
      * Insert the message types in the stat table

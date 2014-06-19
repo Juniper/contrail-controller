@@ -117,6 +117,7 @@ def RedisLuaBuild(env, scr_name):
 AnalyticsEnv_boost_no_unreach = AnalyticsEnv.Clone()
 AnalyticsEnv_boost_no_unreach.AppendUnique(CCFLAGS='-DBOOST_NO_UNREACHABLE_RETURN_DETECTION')
 syslog_collector_obj = AnalyticsEnv_boost_no_unreach.Object('syslog_collector.o', 'syslog_collector.cc')
+parser_util_obj = AnalyticsEnv_boost_no_unreach.Object('parser_util.o', 'parser_util.cc')
 
 vizd_sources = ['viz_collector.cc', 'ruleeng.cc', 'collector.cc',
                 'vizd_table_desc.cc', 'viz_message.cc','generator.cc',
@@ -145,6 +146,7 @@ vizd = AnalyticsEnv.Program(target = 'vizd',
         db_handler_obj,
         OpServerProxy_obj,
         syslog_collector_obj,
+        parser_util_obj,
         ])
 AnalyticsEnv.Alias('src/analytics:vizd', vizd)
 AnalyticsEnv.Alias('install',

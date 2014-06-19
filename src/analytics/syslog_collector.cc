@@ -570,8 +570,9 @@ class SyslogParser
                 static_cast<SandeshSyslogMessage *>(xmessage);
             smessage->SetHeader(hdr);
             VizMsg vmsg(smessage, umn_gen_());
-            ParseMsgBody(body.begin(), body.end(), vmsg.keywords);
+            //ParseMsgBody(body.begin(), body.end(), vmsg.keywords);
             //LOG(DEBUG, "[" << body << "]");
+            vmsg.keyword_doc_ = body;
 
             GetGenerator (ip)->ReceiveSandeshMsg (&vmsg, false);
             vmsg.msg = NULL;
