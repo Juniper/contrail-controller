@@ -110,6 +110,7 @@ for src in ControlNodeSandeshGenSrcs:
 
 env.Prepend(LIBS=['bgp',
                   'bgp_schema',
+                  'extended_community',
                   'xmpp_unicast',
                   'xmpp_multicast',
                   'xmpp_enet',
@@ -157,6 +158,7 @@ libs = MapBuildDir(['base',
                     'bgp/enet',
                     'bgp/ermvpn',
                     'bgp/evpn',
+                    'bgp/extended-community',
                     'bgp/l3vpn',
                     'bgp/origin-vn',
                     'bgp/routing-instance',
@@ -190,12 +192,13 @@ lib_rtarget = File('../bgp/rtarget/librtarget.a')
 lib_ifmap_server = File('../ifmap/libifmap_server.a')
 lib_sandesh = File('../sandesh/library/cpp/libsandesh.a')
 lib_cpuinfo = File('../base/libcpuinfo.a')
+lib_extend_community = File('../bgp/extended-community/libextended_community.a')
 
 if sys.platform != 'darwin':
     env.Prepend(LINKFLAGS =
                      ['-Wl,--whole-archive',
                       '-lbgp_l3vpn', '-lbgp_inet',
-                      '-lbgp_enet', '-lbgp_ermvpn', '-lbgp_evpn', '-lrtarget',
+                      '-lbgp_enet', '-lbgp_ermvpn', '-lbgp_evpn', '-lextended_community', '-lrtarget',
                       '-lifmap_server', '-lcpuinfo',
                       '-Wl,--no-whole-archive'])
 else:
@@ -208,11 +211,13 @@ else:
     env.Prepend(LINKFLAGS = ['-Wl,-force_load,' + lib_ifmap_server.path])
     env.Prepend(LINKFLAGS = ['-Wl,-force_load,' + lib_sandesh.path])
     env.Prepend(LINKFLAGS = ['-Wl,-force_load,' + lib_cpuinfo.path])
+    env.Prepend(LINKFLAGS = ['-Wl,-force_load,' + lib_extend_community.path])
 
 buildinfo_dep_libs = ['../bgp/libbgp.a', '../schema/libbgp_schema.a', '../schema/libxmpp_unicast.a', 
                       '../schema/libxmpp_multicast.a', '../schema/libxmpp_enet.a',
                       '../control-node/libcontrol_node.a', '../bgp/routing-instance/librouting_instance.a', 
                       '../bgp/origin-vn/liborigin_vn.a',
+                      '../bgp/extended-community/libextended_community.a',
                       '../bgp/rtarget/librtarget.a', '../bgp/security_group/libsecurity_group.a', '../schema/libifmap_vnc.a', 
                       '../ifmap/libifmap_server.a', '../ifmap/libifmap_common.a', '../route/libroute.a', '../net/libnet.a', 
                       '../../lib/libifmapio.a', '../xmpp/libxmpp.a', '../xml/libxml.a', '../../lib/libsandeshvns.a', 

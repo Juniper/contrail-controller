@@ -29,7 +29,7 @@ public:
                             Ip4Address::from_string("5.0.0.0", ec),
                             8, Ip4Address::from_string("1.1.1.2", ec),
                             TunnelType::AllType(), 16, "TestVn",
-                            SecurityGroupList());
+                            SecurityGroupList(), PathPreference());
         client->WaitForIdle();
         EXPECT_EQ(0U, Agent::GetInstance()->pkt()->flow_table()->Size());
     }
