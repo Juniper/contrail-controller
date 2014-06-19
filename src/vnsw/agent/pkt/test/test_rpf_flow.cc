@@ -182,7 +182,7 @@ TEST_F(FlowRpfTest, Flow_rpf_failure_subnet_discard_route) {
     EXPECT_EQ(0U, agent()->pkt()->flow_table()->Size());
 
     IpamInfo ipam_info[] = {
-        {"11.1.1.0", 24, "11.1.1.200"},
+        {"11.1.1.0", 24, "11.1.1.200", true},
     };
     AddIPAM("vn5", ipam_info, 1);
     client->WaitForIdle();

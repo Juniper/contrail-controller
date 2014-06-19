@@ -40,33 +40,35 @@
 InterfaceKSyncEntry::InterfaceKSyncEntry(InterfaceKSyncObject *obj, 
                                          const InterfaceKSyncEntry *entry, 
                                          uint32_t index) :
-    KSyncNetlinkDBEntry(index), ksync_obj_(obj), 
+    KSyncNetlinkDBEntry(index), analyzer_name_(entry->analyzer_name_),
+    dhcp_enable_(entry->dhcp_enable_), fd_(kInvalidIndex),
+    flow_key_nh_id_(entry->flow_key_nh_id_),
+    has_service_vlan_(entry->has_service_vlan_),
+    interface_id_(entry->interface_id_),
     interface_name_(entry->interface_name_), 
-    type_(entry->type_), interface_id_(entry->interface_id_), 
-    vrf_id_(entry->vrf_id_), fd_(kInvalidIndex),
-    has_service_vlan_(entry->has_service_vlan_), mac_(entry->mac_),
-    ip_(entry->ip_), policy_enabled_(entry->policy_enabled_),
-    analyzer_name_(entry->analyzer_name_),
-    mirror_direction_(entry->mirror_direction_), 
-    ipv4_active_(false), l2_active_(false),
-    os_index_(Interface::kInvalidIndex), network_id_(entry->network_id_),
-    sub_type_(entry->sub_type_), ipv4_forwarding_(entry->ipv4_forwarding_),
-    layer2_forwarding_(entry->layer2_forwarding_), vlan_id_(entry->vlan_id_),
-    parent_(entry->parent_), flow_key_nh_id_(entry->flow_key_nh_id_),
-    xconnect_(entry->xconnect_) {
+    ip_(entry->ip_), ipv4_active_(false),
+    ipv4_forwarding_(entry->ipv4_forwarding_),
+    ksync_obj_(obj), l2_active_(false),
+    layer2_forwarding_(entry->layer2_forwarding_),
+    mac_(entry->mac_), mirror_direction_(entry->mirror_direction_), 
+    network_id_(entry->network_id_), os_index_(Interface::kInvalidIndex),
+    parent_(entry->parent_), policy_enabled_(entry->policy_enabled_),
+    sub_type_(entry->sub_type_), type_(entry->type_), vlan_id_(entry->vlan_id_),
+    vrf_id_(entry->vrf_id_), xconnect_(entry->xconnect_) {
 }
 
 InterfaceKSyncEntry::InterfaceKSyncEntry(InterfaceKSyncObject *obj, 
                                          const Interface *intf) :
-    KSyncNetlinkDBEntry(kInvalidIndex), ksync_obj_(obj), 
-    interface_name_(intf->name()),
-    type_(intf->type()), interface_id_(intf->id()), vrf_id_(intf->vrf_id()),
-    fd_(-1), has_service_vlan_(false), mac_(), ip_(0),
-    policy_enabled_(false), analyzer_name_(),
-    mirror_direction_(Interface::UNKNOWN), ipv4_active_(false), l2_active_(false),
-    os_index_(intf->os_index()), sub_type_(InetInterface::VHOST),
-    ipv4_forwarding_(true), layer2_forwarding_(true),
-    vlan_id_(VmInterface::kInvalidVlanId), parent_(NULL), flow_key_nh_id_(0), xconnect_(NULL) {
+    KSyncNetlinkDBEntry(kInvalidIndex), analyzer_name_(),
+    dhcp_enable_(true), fd_(-1), flow_key_nh_id_(0),
+    has_service_vlan_(false), interface_id_(intf->id()),
+    interface_name_(intf->name()), ip_(0), ipv4_active_(false),
+    ipv4_forwarding_(true), ksync_obj_(obj), l2_active_(false),
+    layer2_forwarding_(true), mac_(),
+    mirror_direction_(Interface::UNKNOWN), os_index_(intf->os_index()),
+    parent_(NULL), policy_enabled_(false), sub_type_(InetInterface::VHOST),
+    type_(intf->type()), vlan_id_(VmInterface::kInvalidVlanId),
+    vrf_id_(intf->vrf_id()), xconnect_(NULL) {
 
     if (intf->flow_key_nh()) {
         flow_key_nh_id_ = intf->flow_key_nh()->id();
@@ -140,6 +142,10 @@ bool InterfaceKSyncEntry::Sync(DBEntry *e) {
 
     if (intf->type() == Interface::VM_INTERFACE) {
         VmInterface *vm_port = static_cast<VmInterface *>(intf);
+        if (dhcp_enable_ != vm_port->dhcp_enable_config()) {
+            dhcp_enable_ = vm_port->dhcp_enable_config();
+            ret = true;
+        }
         if (vm_port->do_dhcp_relay()) {
             if (ip_ != vm_port->ip_addr().to_ulong()) {
                 ip_ = vm_port->ip_addr().to_ulong();
@@ -333,6 +339,9 @@ int InterfaceKSyncEntry::Encode(sandesh_op::type op, char *buf, int buf_len) {
     encoder.set_h_op(op);
     switch (type_) {
     case Interface::VM_INTERFACE: {
+        if (dhcp_enable_) {
+            flags |= VIF_FLAG_DHCP_ENABLED;
+        }
         if (layer2_forwarding_) {
             flags |= VIF_FLAG_L2_ENABLED;
         }

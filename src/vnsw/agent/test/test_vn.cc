@@ -71,15 +71,15 @@ TEST_F(CfgTest, VnBasic_1) {
     int len = 0;
 
     IpamInfo ipam_info[] = {
-        {"1.2.3.128", 27, "1.2.3.129"},
-        {"7.8.9.0", 24, "7.8.9.12"},
-        {"1.1.1.0", 24, "1.1.1.200"},
+        {"1.2.3.128", 27, "1.2.3.129", true},
+        {"7.8.9.0", 24, "7.8.9.12", true},
+        {"1.1.1.0", 24, "1.1.1.200", true},
     };
 
     IpamInfo ipam_updated_info[] = {
-        {"4.2.3.128", 27, "4.2.3.129"},
-        {"1.1.1.0", 24, "1.1.1.200"},
-        {"3.3.3.0", 24, "3.3.3.12"},
+        {"4.2.3.128", 27, "4.2.3.129", true},
+        {"1.1.1.0", 24, "1.1.1.200", true},
+        {"3.3.3.0", 24, "3.3.3.12", true},
     };
 
     client->WaitForIdle();
@@ -341,7 +341,7 @@ TEST_F(CfgTest, vn_forwarding_mode_changed_1) {
     };
 
     IpamInfo ipam_info[] = {
-        {"1.1.1.0", 24, "1.1.1.200"},
+        {"1.1.1.0", 24, "1.1.1.200", true},
     };
 
     client->Reset();
@@ -448,7 +448,7 @@ TEST_F(CfgTest, vn_forwarding_mode_changed_2) {
     };
 
     IpamInfo ipam_info[] = {
-        {"1.1.1.0", 24, "1.1.1.200"},
+        {"1.1.1.0", 24, "1.1.1.200", true},
     };
 
     client->Reset();
@@ -561,11 +561,11 @@ TEST_F(CfgTest, change_in_gateway) {
     };
 
     IpamInfo ipam_info[] = {
-        {"11.1.1.0", 24, "11.1.1.200"},
+        {"11.1.1.0", 24, "11.1.1.200", true},
     };
 
     IpamInfo ipam_info_2[] = {
-        {"11.1.1.0", 24, "11.1.1.100"},
+        {"11.1.1.0", 24, "11.1.1.100", true},
     };
 
     EXPECT_FALSE(VrfFind("vrf1"));
@@ -603,11 +603,11 @@ TEST_F(CfgTest, change_in_gatewaywith_no_vrf) {
     };
 
     IpamInfo ipam_info[] = {
-        {"11.1.1.0", 24, "11.1.1.200"},
+        {"11.1.1.0", 24, "11.1.1.200", true},
     };
 
     IpamInfo ipam_info_2[] = {
-        {"11.1.1.0", 24, "11.1.1.100"},
+        {"11.1.1.0", 24, "11.1.1.100", true},
     };
 
     EXPECT_FALSE(VrfFind("vrf1"));

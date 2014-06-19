@@ -31,17 +31,19 @@ struct VnIpam {
     uint32_t   plen;
     Ip4Address default_gw;
     bool       installed;    // is the route to send pkts to host installed
+    bool       dhcp_enable;
     std::string ipam_name;
     OperDhcpOptions oper_dhcp_options;
 
     VnIpam(const std::string& ip, uint32_t len, const std::string& gw,
-           std::string &name, const std::vector<autogen::DhcpOptionType> &dhcp,
+           bool dhcp, std::string &name,
+           const std::vector<autogen::DhcpOptionType> &dhcp_options,
            const std::vector<autogen::RouteType> &host_routes)
-        : plen(len), installed(false), ipam_name(name) {
+        : plen(len), installed(false), dhcp_enable(dhcp), ipam_name(name) {
         boost::system::error_code ec;
         ip_prefix = Ip4Address::from_string(ip, ec);
         default_gw = Ip4Address::from_string(gw, ec);
-        oper_dhcp_options.set_options(dhcp);
+        oper_dhcp_options.set_options(dhcp_options);
         oper_dhcp_options.set_host_routes(host_routes);
     }
     bool operator<(const VnIpam &rhs) const {

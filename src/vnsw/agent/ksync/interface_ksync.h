@@ -65,29 +65,32 @@ public:
 private:
     friend class InterfaceKSyncObject;
     int Encode(sandesh_op::type op, char *buf, int buf_len);
-    InterfaceKSyncObject *ksync_obj_;
-    string interface_name_;     // Key
-    Interface::Type type_;
-    uint32_t interface_id_;
-    uint32_t vrf_id_;
-    uint32_t fd_;       // FD opened for this
-    bool has_service_vlan_;
-    struct ether_addr mac_;
-    uint32_t ip_;
-    bool policy_enabled_;
+
     string analyzer_name_;
-    Interface::MirrorDirection mirror_direction_;
-    bool ipv4_active_;
-    bool l2_active_;
-    size_t os_index_;
-    int network_id_;
-    InetInterface::SubType sub_type_;
-    bool ipv4_forwarding_;
-    bool layer2_forwarding_;
-    uint16_t vlan_id_;
-    KSyncEntryPtr parent_;
+    bool dhcp_enable_;
+    uint32_t fd_;       // FD opened for this
     uint32_t flow_key_nh_id_;
+    bool has_service_vlan_;
+    uint32_t interface_id_;
+    string interface_name_;     // Key
+    uint32_t ip_;
+    bool ipv4_active_;
+    bool ipv4_forwarding_;
+    InterfaceKSyncObject *ksync_obj_;
+    bool l2_active_;
+    bool layer2_forwarding_;
+    struct ether_addr mac_;
+    Interface::MirrorDirection mirror_direction_;
+    int network_id_;
+    size_t os_index_;
+    KSyncEntryPtr parent_;
+    bool policy_enabled_;
+    InetInterface::SubType sub_type_;
+    Interface::Type type_;
+    uint16_t vlan_id_;
+    uint32_t vrf_id_;
     KSyncEntryPtr xconnect_;
+
     DISALLOW_COPY_AND_ASSIGN(InterfaceKSyncEntry);
 };
 

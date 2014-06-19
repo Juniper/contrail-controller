@@ -193,8 +193,8 @@ TEST_F(PktTraceTest, TraceTest) {
     IcmpProto::IcmpStats stats;
 
     IpamInfo ipam_info[] = {
-        {"1.1.1.0", 24, "1.1.1.200"},
-        {"7.8.9.0", 24, "7.8.9.12"},
+        {"1.1.1.0", 24, "1.1.1.200", true},
+        {"7.8.9.0", 24, "7.8.9.12", true},
     };
 
     CreateVmportEnv(input, 2, 0); 

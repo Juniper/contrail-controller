@@ -178,15 +178,15 @@ TEST_F(IcmpTest, IcmpPingTest) {
     IcmpProto::IcmpStats stats;
 
     IpamInfo ipam_info[] = {
-        {"1.2.3.128", 27, "1.2.3.129"},
-        {"7.8.9.0", 24, "7.8.9.12"},
-        {"1.1.1.0", 24, "1.1.1.200"},
+        {"1.2.3.128", 27, "1.2.3.129", true},
+        {"7.8.9.0", 24, "7.8.9.12", true},
+        {"1.1.1.0", 24, "1.1.1.200", true},
     };
 
     IpamInfo ipam_updated_info[] = {
-        {"4.2.3.128", 24, "4.2.3.254"},
-        {"1.1.1.0", 24, "1.1.1.254"},
-        {"7.8.9.0", 24, "7.8.9.12"},
+        {"4.2.3.128", 24, "4.2.3.254", true},
+        {"1.1.1.0", 24, "1.1.1.254", true},
+        {"7.8.9.0", 24, "7.8.9.12", true},
     };
 
     CreateVmportEnv(input, 2, 0); 
@@ -339,7 +339,7 @@ TEST_F(IcmpTest, IcmpErrorTest) {
     IcmpProto::IcmpStats stats;
 
     IpamInfo ipam_info[] = {
-        {"1.1.1.0", 24, "1.1.1.200"},
+        {"1.1.1.0", 24, "1.1.1.200", true},
     };
 
     CreateVmportEnv(input, 1, 0); 

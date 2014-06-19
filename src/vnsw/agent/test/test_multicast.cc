@@ -124,21 +124,21 @@ TEST_F(MulticastTest, McastSubnet_1) {
     };
 
     IpamInfo ipam_info[] = {
-        {"1.1.1.0", 24, "1.1.1.200"},
-        {"2.2.2.0", 24, "2.2.2.200"},
-        {"3.3.3.0", 16, "3.3.30.200"},
+        {"1.1.1.0", 24, "1.1.1.200", true},
+        {"2.2.2.0", 24, "2.2.2.200", true},
+        {"3.3.3.0", 16, "3.3.30.200", true},
     };
 
     IpamInfo ipam_updated_info[] = {
-        {"1.1.1.0", 24, "1.1.1.200"},
-        {"2.2.2.0", 24, "2.2.2.200"},
-        {"3.3.3.0", 16, "3.3.30.200"},
-        {"4.0.0.0", 8, "4.4.40.200"},
+        {"1.1.1.0", 24, "1.1.1.200", true},
+        {"2.2.2.0", 24, "2.2.2.200", true},
+        {"3.3.3.0", 16, "3.3.30.200", true},
+        {"4.0.0.0", 8, "4.4.40.200", true},
     };
 
     IpamInfo ipam_updated_info_2[] = {
-        {"2.2.2.0", 24, "2.2.2.200"},
-        {"3.3.3.0", 16, "3.3.30.200"},
+        {"2.2.2.0", 24, "2.2.2.200", true},
+        {"3.3.3.0", 16, "3.3.30.200", true},
     };
     char buf[BUF_SIZE];
     int len = 0;
@@ -307,9 +307,9 @@ TEST_F(MulticastTest, L2Broadcast_1) {
     };
 
     IpamInfo ipam_info[] = {
-        {"1.1.1.0", 24, "1.1.1.200"},
-        {"2.2.2.0", 24, "2.2.2.200"},
-        {"3.3.3.0", 16, "3.3.30.200"},
+        {"1.1.1.0", 24, "1.1.1.200", true},
+        {"2.2.2.0", 24, "2.2.2.200", true},
+        {"3.3.3.0", 16, "3.3.30.200", true},
     };
 
     client->Reset();
@@ -427,7 +427,7 @@ TEST_F(MulticastTest, McastSubnet_DeleteRouteOnVRFDeleteofVN) {
     };
 
     IpamInfo ipam_info[] = {
-        {"1.1.1.0", 24, "1.1.1.200"},
+        {"1.1.1.0", 24, "1.1.1.200", true},
     };
 
     client->Reset();
@@ -510,7 +510,7 @@ TEST_F(MulticastTest, McastSubnet_DeleteRouteOnIPAMDeleteofVN) {
     };
 
     IpamInfo ipam_info[] = {
-        {"1.1.1.0", 24, "1.1.1.200"},
+        {"1.1.1.0", 24, "1.1.1.200", true},
     };
 
     client->Reset();
@@ -582,7 +582,7 @@ TEST_F(MulticastTest, McastSubnet_DeleteCompNHThenModifyFabricList) {
     };
 
     IpamInfo ipam_info[] = {
-        {"1.1.1.0", 24, "1.1.1.200"},
+        {"1.1.1.0", 24, "1.1.1.200", true},
     };
 
     client->Reset();
@@ -673,14 +673,14 @@ TEST_F(MulticastTest, McastSubnet_SubnetIPAMAddDel) {
     client->WaitForIdle();
 
     IpamInfo ipam_info[] = {
-        {"10.1.1.0", 30, "10.1.1.2"},
-        {"11.1.1.0", 30, "11.1.1.2"},
+        {"10.1.1.0", 30, "10.1.1.2", true},
+        {"11.1.1.0", 30, "11.1.1.2", true},
     };
 
     IpamInfo ipam_info_2[] = {
-        {"10.1.1.0", 30, "10.1.1.2"},
-        {"10.1.1.10", 29, "10.1.1.14"},
-        {"11.1.1.0", 30, "11.1.1.2"},
+        {"10.1.1.0", 30, "10.1.1.2", true},
+        {"10.1.1.10", 29, "10.1.1.14", true},
+        {"11.1.1.0", 30, "11.1.1.2", true},
     };
 
     client->Reset();
@@ -724,7 +724,7 @@ TEST_F(MulticastTest, McastSubnet_interfaceadd_after_ipam_delete) {
     };
 
     IpamInfo ipam_info[] = {
-        {"11.1.1.0", 24, "11.1.1.200"},
+        {"11.1.1.0", 24, "11.1.1.200", true},
     };
 
     const char *vrf_name = "domain:vn1:vrf1";
@@ -773,9 +773,9 @@ TEST_F(MulticastTest, McastSubnet_VN2MultipleVRFtest_ignore_unknown_vrf) {
     };
 
     IpamInfo ipam_info[] = {
-        {"10.1.1.0", 30, "10.1.1.2"},
-        {"10.1.1.10", 29, "10.1.1.14"},
-        {"11.1.1.0", 30, "11.1.1.2"},
+        {"10.1.1.0", 30, "10.1.1.2", true},
+        {"10.1.1.10", 29, "10.1.1.14", true},
+        {"11.1.1.0", 30, "11.1.1.2", true},
     };
 
     const char *vrf_name = "domain:vn1:vrf1";
@@ -822,8 +822,8 @@ TEST_F(MulticastTest, subnet_bcast_ipv4_vn_delete) {
     };
 
     IpamInfo ipam_info[] = {
-        {"10.1.1.0", 24, "10.1.1.100"},
-        {"11.1.1.0", 24, "11.1.1.100"},
+        {"10.1.1.0", 24, "10.1.1.100", true},
+        {"11.1.1.0", 24, "11.1.1.100", true},
     };
 
     EXPECT_FALSE(VrfFind("vrf1"));
@@ -877,13 +877,13 @@ TEST_F(MulticastTest, subnet_bcast_ipv4_vn_ipam_change) {
     };
 
     IpamInfo ipam_info[] = {
-        {"10.1.1.0", 24, "10.1.1.100"},
-        {"11.1.1.0", 24, "11.1.1.100"},
+        {"10.1.1.0", 24, "10.1.1.100", true},
+        {"11.1.1.0", 24, "11.1.1.100", true},
     };
 
     IpamInfo ipam_info_2[] = {
-        {"10.1.1.0", 24, "10.1.1.100"},
-        {"12.1.1.0", 24, "12.1.1.100"},
+        {"10.1.1.0", 24, "10.1.1.100", true},
+        {"12.1.1.0", 24, "12.1.1.100", true},
     };
 
     EXPECT_FALSE(VrfFind("vrf1"));
@@ -937,8 +937,8 @@ TEST_F(MulticastTest, subnet_bcast_ipv4_vn_vrf_link_delete) {
     };
 
     IpamInfo ipam_info[] = {
-        {"10.1.1.0", 24, "10.1.1.100"},
-        {"11.1.1.0", 24, "11.1.1.100"},
+        {"10.1.1.0", 24, "10.1.1.100", true},
+        {"11.1.1.0", 24, "11.1.1.100", true},
     };
 
     EXPECT_FALSE(VrfFind("vrf1"));
@@ -995,8 +995,8 @@ TEST_F(MulticastTest, subnet_bcast_add_l2l3vn_and_l2vn) {
     };
 
     IpamInfo ipam_info[] = {
-        {"10.1.1.0", 24, "10.1.1.100"},
-        {"11.1.1.0", 24, "11.1.1.100"},
+        {"10.1.1.0", 24, "10.1.1.100", true},
+        {"11.1.1.0", 24, "11.1.1.100", true},
     };
 
     EXPECT_FALSE(VrfFind("vrf1"));
@@ -1058,11 +1058,11 @@ TEST_F(MulticastTest, change_in_gateway_of_subnet_noop) {
     };
 
     IpamInfo ipam_info[] = {
-        {"11.1.1.0", 24, "11.1.1.200"},
+        {"11.1.1.0", 24, "11.1.1.200", true},
     };
 
     IpamInfo ipam_info_2[] = {
-        {"11.1.1.0", 24, "11.1.1.100"},
+        {"11.1.1.0", 24, "11.1.1.100", true},
     };
 
     EXPECT_FALSE(VrfFind("vrf1"));
@@ -1103,9 +1103,9 @@ TEST_F(MulticastTest, McastSubnet_VN2MultipleVRFtest_negative) {
     };
 
     IpamInfo ipam_info[] = {
-        {"10.1.1.0", 30, "10.1.1.2"},
-        {"10.1.1.10", 29, "10.1.1.14"},
-        {"11.1.1.0", 30, "11.1.1.2"},
+        {"10.1.1.0", 30, "10.1.1.2", true},
+        {"10.1.1.10", 29, "10.1.1.14", true},
+        {"11.1.1.0", 30, "11.1.1.2", true},
     };
 
     const char *vrf_name = "vn1:vn1";

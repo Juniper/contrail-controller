@@ -69,6 +69,7 @@ struct VnIpamData {
     2: i32 prefix_len;
     3: string gateway;
     4: string ipam_name;
+    5: string dhcp_enable;
 }
 
 struct VnIpamHostRoutes {

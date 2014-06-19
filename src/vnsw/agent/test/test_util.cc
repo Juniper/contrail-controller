@@ -170,12 +170,14 @@ void AddNodeString(char *buff, int &len, const char *nodename, const char *name,
     str << "           <name>" << name << "</name>\n";
     str << "           <value>\n";
     for (int i = 0; i < count; i++) {
+        std::string dhcp_enable = (ipam[i].dhcp_enable == true) ? "true" : "false";
         str << "               <ipam-subnets>\n";
         str << "                   <subnet>\n";
         str << "                       <ip-prefix>" << ipam[i].ip_prefix << "</ip-prefix>\n";
         str << "                       <ip-prefix-len>" << ipam[i].plen << "</ip-prefix-len>\n";
         str << "                   </subnet>\n";
         str << "                   <default-gateway>" << ipam[i].gw << "</default-gateway>\n";
+        str << "                   <enable-dhcp>" << dhcp_enable << "</enable-dhcp>\n";
         if (add_subnet_tags)
             str <<                 add_subnet_tags << "\n";
         str << "               </ipam-subnets>\n";
