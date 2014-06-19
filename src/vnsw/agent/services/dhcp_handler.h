@@ -187,6 +187,8 @@ private:
     void RelayRequestToFabric();
     void RelayResponseFromFabric();
     uint16_t DhcpHdr(in_addr_t, in_addr_t);
+    uint16_t AddConfigDhcpOptions(uint16_t opt_len, bool &domain_name_added,
+                                  bool &dns_server_added);
     uint16_t AddClasslessRouteOption(uint16_t opt_len);
     uint16_t FillDhcpResponse(unsigned char *dest_mac,
                               in_addr_t src_ip, in_addr_t dest_ip,
