@@ -181,6 +181,7 @@ bool Inet4UnicastRouteEntry::ModifyEcmpPath(const Ip4Address &dest_addr,
                                             uint32_t label, bool local_ecmp_nh,
                                             const string &vrf_name,
                                             SecurityGroupList sg_list,
+                                            const PathPreference &path_preference,
                                             DBRequest &nh_req,
                                             Agent* agent, AgentPath *path) {
     bool ret = false;
@@ -209,6 +210,11 @@ bool Inet4UnicastRouteEntry::ModifyEcmpPath(const Ip4Address &dest_addr,
     path_sg_list = path->sg_list();
     if (path_sg_list != sg_list) {
         path->set_sg_list(sg_list);
+        ret = true;
+    }
+
+    if (path_preference != path->path_preference()) {
+        path->set_path_preference(path_preference);
         ret = true;
     }
 
@@ -258,14 +264,9 @@ AgentPath *Inet4UnicastRouteEntry::AllocateEcmpPath(Agent *agent,
 
     Inet4UnicastRouteEntry::ModifyEcmpPath(addr_, plen_, path2->dest_vn_name(),
                                            label, true, vrf()->GetName(),
-                                           path2->sg_list(), nh_req,
+                                           path2->sg_list(),
+                                           path2->path_preference(), nh_req,
                                            agent, path);
-    /*
-    Inet4UnicastEcmpRoute data(NULL, addr_, plen_, path2->dest_vn_name(),
-                               label, true, vrf()->GetName(), path2->sg_list(),
-                               nh_req);
-    data.AddChangePath(agent, path);
-                               */
 
     //Make MPLS label point to Composite NH
     MplsLabel::CreateEcmpLabel(label, vrf()->GetName(), addr_, plen_);
@@ -287,7 +288,8 @@ bool Inet4UnicastRouteEntry::EcmpDeletePath(AgentPath *path) {
         return false;
     }
 
-    if (path->peer()->GetType() != Peer::LOCAL_VM_PORT_PEER) {
+    if (path->peer()->GetType() != Peer::LOCAL_VM_PORT_PEER ||
+        path->path_preference().ecmp() == false) {
         return false;
     }
 
@@ -347,7 +349,8 @@ bool Inet4UnicastRouteEntry::EcmpAddPath(AgentPath *path) {
     }
 
     // We are interested only in path from LOCAL_VM_PORT_PEER
-    if (path->peer()->GetType() != Peer::LOCAL_VM_PORT_PEER) {
+    if (path->peer()->GetType() != Peer::LOCAL_VM_PORT_PEER ||
+        path->path_preference().ecmp() == false) {
         return false;
     }
 
@@ -605,13 +608,14 @@ Inet4UnicastAgentRouteTable::AddVlanNHRouteReq(const Peer *peer,
                                                uint16_t tag,
                                                uint32_t label,
                                                const string &dest_vn_name,
-                                               const SecurityGroupList &sg_list) {
+                                               const SecurityGroupList &sg_list,
+                                               const PathPreference &rp) {
     DBRequest req(DBRequest::DB_ENTRY_ADD_CHANGE);
     req.key.reset(new Inet4UnicastRouteKey(peer, vm_vrf, addr, plen));
 
     VmInterfaceKey intf_key(AgentKey::ADD_DEL_CHANGE, intf_uuid, "");
     req.data.reset(new VlanNhRoute(intf_key, tag, label, dest_vn_name,
-                                   sg_list));
+                                   sg_list, rp));
     UnicastTableEnqueue(Agent::GetInstance(), vm_vrf, &req);
 }
 
@@ -625,13 +629,14 @@ Inet4UnicastAgentRouteTable::AddVlanNHRoute(const Peer *peer,
                                             uint16_t tag,
                                             uint32_t label,
                                             const string &dest_vn_name,
-                                            const SecurityGroupList &sg_list) {
+                                            const SecurityGroupList &sg_list,
+                                            const PathPreference &rp) {
     DBRequest req(DBRequest::DB_ENTRY_ADD_CHANGE);
     req.key.reset(new Inet4UnicastRouteKey(peer, vm_vrf, addr, plen));
 
     VmInterfaceKey intf_key(AgentKey::ADD_DEL_CHANGE, intf_uuid, "");
     req.data.reset(new VlanNhRoute(intf_key, tag, label, dest_vn_name,
-                                   sg_list));
+                                   sg_list, rp));
 
     UnicastTableProcess(Agent::GetInstance(), vm_vrf, req);
 }
@@ -645,14 +650,16 @@ Inet4UnicastAgentRouteTable::AddLocalVmRouteReq(const Peer *peer,
                                                 const string &vn_name,
                                                 uint32_t label,
                                                 const SecurityGroupList &sg_list,
-                                                bool force_policy) {
+                                                bool force_policy,
+                                                const PathPreference &rp) {
     DBRequest req(DBRequest::DB_ENTRY_ADD_CHANGE);
     req.key.reset(new Inet4UnicastRouteKey(peer, vm_vrf, addr, plen));
 
     VmInterfaceKey intf_key(AgentKey::ADD_DEL_CHANGE, intf_uuid, "");
     req.data.reset(new LocalVmRoute(intf_key, label,
                                     VxLanTable::kInvalidvxlan_id, force_policy,
-                                    vn_name, InterfaceNHFlags::INET4, sg_list));
+                                    vn_name, InterfaceNHFlags::INET4, sg_list,
+                                    rp));
 
     UnicastTableEnqueue(Agent::GetInstance(), vm_vrf, &req);
 }
@@ -668,15 +675,16 @@ Inet4UnicastAgentRouteTable::AddLocalVmRoute(const Peer *peer,
                                              const string &vn_name,
                                              uint32_t label,
                                              const SecurityGroupList &sg_list,
-                                             bool force_policy) {
-
+                                             bool force_policy,
+                                             const PathPreference &rp) {
     DBRequest req(DBRequest::DB_ENTRY_ADD_CHANGE);
     req.key.reset(new Inet4UnicastRouteKey(peer, vm_vrf, addr, plen));
 
     VmInterfaceKey intf_key(AgentKey::ADD_DEL_CHANGE, intf_uuid, "");
     req.data.reset(new LocalVmRoute(intf_key, label, VxLanTable::kInvalidvxlan_id,
                                     force_policy, vn_name,
-                                    InterfaceNHFlags::INET4, sg_list));
+                                    InterfaceNHFlags::INET4, sg_list,
+                                    rp));
     UnicastTableProcess(Agent::GetInstance(), vm_vrf, req);
 }
 

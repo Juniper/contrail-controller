@@ -20,6 +20,7 @@ import bottle
 from neutron.common import constants
 from neutron.common import exceptions
 from neutron.api.v2 import attributes as attr
+from neutron.extensions import allowedaddresspairs as addr_pair
 
 from cfgm_common import exceptions as vnc_exc
 from vnc_api.vnc_api import *
@@ -148,6 +149,16 @@ class DBInterface(object):
     def _obj_to_dict(self, obj):
         return self._vnc_lib.obj_to_dict(obj)
     #end _obj_to_dict
+
+    def _get_plugin_property(self, property_in):
+        fq_name=['default-global-system-config'];
+        gsc_obj = self._vnc_lib.global_system_config_read(fq_name);
+        plugin_settings = gsc_obj.plugin_tuning.plugin_property
+        for each_setting in plugin_settings:
+            if each_setting.property == property_in:
+                return each_setting.value
+        return None
+    #end _get_plugin_property
 
     def _ensure_instance_exists(self, instance_id):
         instance_name = instance_id
@@ -1823,6 +1834,31 @@ class DBInterface(object):
             id_perms.enable = port_q['admin_state_up']
             port_obj.set_id_perms(id_perms)
 
+
+        if (addr_pair.ADDRESS_PAIRS in port_q and 
+           port_q[addr_pair.ADDRESS_PAIRS]):
+            aaps = AllowedAddressPairs()
+            aap_array = []
+            for address_pair in port_q[addr_pair.ADDRESS_PAIRS]:
+                mode = u'active-active';
+                if 'mac_address' not in address_pair:
+                    mode = u'active-standby';
+                    mac_refs = port_obj.get_virtual_machine_interface_mac_addresses()
+                    if mac_refs:
+                        address_pair['mac_address'] = mac_refs.mac_address[0]
+                
+                cidr = address_pair['ip_address'].split('/')
+                if len(cidr) == 1:
+                    subnet=SubnetType(cidr[0], 32);
+                elif len(cidr) == 2:
+                    subnet=SubnetType(cidr[0], int(cidr[1]));
+                else:
+                    raise exceptions.BadRequest(resource='port', msg="Invalid address pair argument")
+                aap = AllowedAddressPair(subnet, address_pair['mac_address'], mode)
+                aap_array.append(aap)
+            aaps.set_allowed_address_pair(aap_array)
+            port_obj.set_virtual_machine_interface_allowed_address_pairs(aaps)
+             
         return port_obj
     #end _port_neutron_to_vnc
 
@@ -1871,6 +1907,16 @@ class DBInterface(object):
         mac_refs = port_obj.get_virtual_machine_interface_mac_addresses()
         if mac_refs:
             port_q_dict['mac_address'] = mac_refs.mac_address[0]
+
+        allowed_address_pairs = port_obj.get_virtual_machine_interface_allowed_address_pairs()
+        if allowed_address_pairs and allowed_address_pairs.allowed_address_pair:
+            address_pairs = []
+            for aap in allowed_address_pairs.allowed_address_pair:
+                pair = {"ip_address": '%s/%s' % (aap.ip.get_ip_prefix(), 
+                                                 aap.ip.get_ip_prefix_len()),
+                        "mac_address": aap.mac}
+                address_pairs.append(pair)
+            port_q_dict['allowed_address_pairs'] = address_pairs
 
         port_q_dict['fixed_ips'] = []
         ip_back_refs = port_obj.get_instance_ip_back_refs()
@@ -1923,6 +1969,7 @@ class DBInterface(object):
         else:
             port_q_dict['device_id'] = ''
             port_q_dict['device_owner'] = 'TODO-device-owner'
+
 
         return port_q_dict
     #end _port_vnc_to_neutron

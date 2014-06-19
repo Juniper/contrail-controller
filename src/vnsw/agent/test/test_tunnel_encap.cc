@@ -124,7 +124,7 @@ public:
         Inet4TunnelRouteAdd(Agent::GetInstance()->local_peer(), 
                             vrf_name_, remote_vm_ip_, 32, server1_ip_,
                             l3_bmap, 1000, vrf_name_,
-                            SecurityGroupList());
+                            SecurityGroupList(), PathPreference());
         client->WaitForIdle();
 
         Layer2TunnelRouteAdd(Agent::GetInstance()->local_peer(), vrf_name_,

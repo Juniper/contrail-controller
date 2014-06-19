@@ -36,13 +36,14 @@ RouteKSyncEntry::RouteKSyncEntry(RouteKSyncObject* obj,
     addr_(entry->addr_), src_addr_(entry->src_addr_), mac_(entry->mac_), 
     prefix_len_(entry->prefix_len_), nh_(entry->nh_), label_(entry->label_), 
     proxy_arp_(false), address_string_(entry->address_string_),
-    tunnel_type_(entry->tunnel_type_) {
+    tunnel_type_(entry->tunnel_type_),
+    wait_for_traffic_(entry->wait_for_traffic_) {
 }
 
 RouteKSyncEntry::RouteKSyncEntry(RouteKSyncObject* obj, const AgentRoute *rt) :
     KSyncNetlinkDBEntry(kInvalidIndex), ksync_obj_(obj), 
     vrf_id_(rt->vrf_id()), nh_(NULL), label_(0), proxy_arp_(false),
-    tunnel_type_(TunnelType::DefaultType()) {
+    tunnel_type_(TunnelType::DefaultType()), wait_for_traffic_(false) {
     boost::system::error_code ec;
     switch (rt->GetTableType()) {
     case Agent::INET4_UNICAST: {
@@ -214,6 +215,10 @@ bool RouteKSyncEntry::Sync(DBEntry *e) {
         proxy_arp_ = path->proxy_arp();
     }
 
+    if (wait_for_traffic_ != route->WaitForTraffic()) {
+        wait_for_traffic_ =  route->WaitForTraffic();
+        ret = true;
+    }
     return ret;
 };
 
@@ -280,6 +285,9 @@ int RouteKSyncEntry::Encode(sandesh_op::type op, uint8_t replace_plen,
 
     if (proxy_arp_) {
         flags |= VR_RT_HOSTED_FLAG;
+    }
+    if (wait_for_traffic_) {
+        flags |= VR_RT_ARP_TRAP_FLAG;
     }
     encoder.set_rtr_label_flags(flags);
     encoder.set_rtr_label(label);

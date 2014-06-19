@@ -338,6 +338,11 @@ void AgentXmppChannel::ReceiveMulticastUpdate(XmlPugi *pugi) {
 
 void AgentXmppChannel::AddEcmpRoute(string vrf_name, Ip4Address prefix_addr, 
                                     uint32_t prefix_len, ItemType *item) {
+    PathPreference::Preference preference = PathPreference::LOW;
+    if (item->entry.local_preference == PathPreference::HIGH) {
+        preference = PathPreference::HIGH;
+    }
+    PathPreference rp(item->entry.sequence_number, preference, false, false);
     Inet4UnicastAgentRouteTable *rt_table = 
         static_cast<Inet4UnicastAgentRouteTable *>
         (agent_->vrf_table()->GetInet4UnicastRouteTable
@@ -390,7 +395,7 @@ void AgentXmppChannel::AddEcmpRoute(string vrf_name, Ip4Address prefix_addr,
                                 item->entry.virtual_network, -1,
                                 false, vrf_name,
                                 item->entry.security_group_list.security_group,
-                                nh_req);
+                                rp, nh_req);
 
     //ECMP create component NH
     rt_table->AddRemoteVmRouteReq(bgp_peer_id(), vrf_name,
@@ -442,7 +447,7 @@ void AgentXmppChannel::AddRemoteEvpnRoute(string vrf_name,
                                                     vrf_name, addr.to_v4(),
                                                     encap, label,
                                                     item->entry.virtual_network,
-                                                    sg);
+                                                    sg, PathPreference());
         rt_table->AddRemoteVmRouteReq(bgp_peer_id(), vrf_name, mac, prefix_addr,
                                       prefix_len, data);
         return;
@@ -524,6 +529,12 @@ void AgentXmppChannel::AddRemoteRoute(string vrf_name, Ip4Address prefix_addr,
         return;
     }
 
+    PathPreference::Preference preference = PathPreference::LOW;
+    if (item->entry.local_preference == PathPreference::HIGH) {
+        preference = PathPreference::HIGH;
+    }
+    PathPreference path_preference(item->entry.sequence_number, preference,
+                                   false, false);
     CONTROLLER_TRACE(RouteImport, GetBgpPeerName(), vrf_name, 
                      prefix_addr.to_string(), prefix_len, 
                      addr.to_v4().to_string(), label, 
@@ -535,7 +546,8 @@ void AgentXmppChannel::AddRemoteRoute(string vrf_name, Ip4Address prefix_addr,
                                agent_->fabric_vrf_name(), agent_->router_id(),
                                vrf_name, addr.to_v4(), encap, label,
                                item->entry.virtual_network ,
-                               item->entry.security_group_list.security_group);
+                               item->entry.security_group_list.security_group,
+                               path_preference);
         rt_table->AddRemoteVmRouteReq(bgp_peer_id(), vrf_name, prefix_addr,
                                       prefix_len, data);
         return;
@@ -557,7 +569,7 @@ void AgentXmppChannel::AddRemoteRoute(string vrf_name, Ip4Address prefix_addr,
                                              prefix_len, intf_nh->GetIfUuid(),
                                              item->entry.virtual_network, label,
                                              item->entry.security_group_list.security_group,
-                                             false);
+                                             false, path_preference);
             } else if (interface->type() == Interface::INET) {
                 rt_table->AddInetInterfaceRoute(bgp_peer_id(), vrf_name,
                                                  prefix_addr, prefix_len,
@@ -580,7 +592,8 @@ void AgentXmppChannel::AddRemoteRoute(string vrf_name, Ip4Address prefix_addr,
                                         prefix_len, vlan_nh->GetIfUuid(),
                                         vlan_nh->GetVlanTag(), label,
                                         item->entry.virtual_network,
-                                        item->entry.security_group_list.security_group);
+                                        item->entry.security_group_list.security_group,
+                                        path_preference);
             break;
             }
         case NextHop::COMPOSITE: {
@@ -1269,7 +1282,8 @@ bool AgentXmppChannel::ControllerSendV4UnicastRoute(AgentXmppChannel *peer,
                                                const SecurityGroupList *sg_list,
                                                uint32_t mpls_label,
                                                TunnelType::TypeBmap bmap,
-                                               bool add_route) {
+                                               bool add_route,
+                                               PathPreference &rp) {
 
     static int id = 0;
     ItemType item;
@@ -1308,6 +1322,10 @@ bool AgentXmppChannel::ControllerSendV4UnicastRoute(AgentXmppChannel *peer,
 
     item.entry.version = 1; //TODO
     item.entry.virtual_network = vn;
+
+    //Set sequence number and preference of route
+    item.entry.sequence_number = rp.sequence();
+    item.entry.local_preference = rp.preference();
    
     pugi->AddNode("iq", "");
     pugi->AddAttribute("type", "set");
@@ -1487,12 +1505,13 @@ bool AgentXmppChannel::ControllerSendRoute(AgentXmppChannel *peer,
                                            TunnelType::TypeBmap bmap,
                                            const SecurityGroupList *sg_list,
                                            bool add_route,
-                                           Agent::RouteTableType type)
+                                           Agent::RouteTableType type,
+                                           PathPreference &rp)
 {
     bool ret = false;
     if (type == Agent::INET4_UNICAST) {
         ret = AgentXmppChannel::ControllerSendV4UnicastRoute(peer, route, vn,
-                                          sg_list, label, bmap, add_route);
+                                          sg_list, label, bmap, add_route, rp);
     } 
     if (type == Agent::LAYER2) {
         ret = AgentXmppChannel::ControllerSendEvpnRoute(peer, route, vn, 

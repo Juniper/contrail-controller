@@ -282,7 +282,7 @@ TEST_F(TestVnswIf, EcmpActivateDeactivate_1) {
 
     client->Reset();
     // Create ports with ECMP
-    CreateVmportEnv(input, 3);
+    CreateVmportWithEcmp(input, 3);
     client->WaitForIdle();
     client->WaitForIdle();
     // Ensure all interface are active

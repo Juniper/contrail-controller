@@ -21,6 +21,7 @@ class Peer;
 class BgpPeer;
 class VrfEntry;
 class XmlPugi;
+class PathPreference;
 
 class AgentXmppChannel {
 public:
@@ -61,7 +62,8 @@ public:
                                     uint32_t tunnel_bmap,
                                     const SecurityGroupList *sg_list, 
                                     bool add_route, 
-                                    Agent::RouteTableType type);
+                                    Agent::RouteTableType type,
+                                    PathPreference &rp);
     static bool ControllerSendMcastRoute(AgentXmppChannel *peer,
                                          AgentRoute *route, bool add_route);
     static bool ControllerSendV4UnicastRoute(AgentXmppChannel *peer,
@@ -70,7 +72,8 @@ public:
                                              const SecurityGroupList *sg_list,
                                              uint32_t mpls_label,
                                              uint32_t tunnel_bmap,
-                                             bool add_route);
+                                             bool add_route,
+                                             PathPreference &rp);
     static bool ControllerSendEvpnRoute(AgentXmppChannel *peer,
                                         AgentRoute *route, 
                                         std::string vn,

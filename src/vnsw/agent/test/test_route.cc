@@ -145,7 +145,7 @@ protected:
         //Passing vn name as vrf name itself
         Inet4TunnelRouteAdd(NULL, vrf_name_, remote_vm_ip, plen, server_ip, 
                             bmap, label, vrf_name_,
-                            SecurityGroupList());
+                            SecurityGroupList(), PathPreference());
         client->WaitForIdle();
     }
 
@@ -178,7 +178,8 @@ protected:
         SecurityGroupList sg_l;
         Agent::GetInstance()->fabric_inet4_unicast_table()->
             AddVlanNHRouteReq(NULL, vrf_name_, Ip4Address::from_string(ip), plen, 
-                              MakeUuid(id), tag, label, vn_name, sg_l);
+                              MakeUuid(id), tag, label, vn_name, sg_l,
+                              PathPreference());
         client->WaitForIdle();
     }
 
@@ -948,7 +949,7 @@ TEST_F(RouteTest, RouteToDeletedNH_1) {
     Inet4UnicastAgentRouteTable::AddLocalVmRouteReq(peer, "vrf1", addr, 32, 
                                                     MakeUuid(1), "Test", 
                                                     10, SecurityGroupList(),
-                                                    false);
+                                                    false, PathPreference());
     client->WaitForIdle();
 
     Inet4UnicastAgentRouteTable::DeleteReq(peer, "vrf1", addr, 32, NULL);
@@ -989,11 +990,11 @@ TEST_F(RouteTest, RouteToDeletedNH_2) {
     Inet4UnicastAgentRouteTable::AddLocalVmRouteReq(peer1, "vrf1", addr, 32, 
                                                     MakeUuid(1),
                                                     "Test", 10, SecurityGroupList(),
-                                                    false);
+                                                    false, PathPreference());
     Inet4UnicastAgentRouteTable::AddLocalVmRouteReq(peer2, "vrf1", addr, 32, 
                                                     MakeUuid(1), "Test", 10,
                                                     SecurityGroupList(),
-                                                    false);
+                                                    false, PathPreference());
     client->WaitForIdle();
 
     DelNode("access-control-list", "acl1");
@@ -1003,7 +1004,7 @@ TEST_F(RouteTest, RouteToDeletedNH_2) {
     Inet4UnicastAgentRouteTable::AddLocalVmRouteReq(peer1, "vrf1", addr, 32, 
                                                     MakeUuid(1), "Test", 10, 
                                                     SecurityGroupList(),
-                                                    false);
+                                                    false, PathPreference());
     client->WaitForIdle();
 
     Inet4UnicastAgentRouteTable::DeleteReq(peer1, "vrf1", addr, 32, NULL);
@@ -1038,7 +1039,7 @@ TEST_F(RouteTest, RouteToInactiveInterface) {
     Inet4UnicastAgentRouteTable::AddLocalVmRouteReq(peer, "vrf1", addr, 32, 
                                                     MakeUuid(1), "Test", 10, 
                                                     SecurityGroupList(),
-                                                    false);
+                                                    false, PathPreference());
     client->WaitForIdle();
     DelVn("vn1");
     client->WaitForIdle();
@@ -1048,7 +1049,7 @@ TEST_F(RouteTest, RouteToInactiveInterface) {
     Inet4UnicastAgentRouteTable::AddLocalVmRouteReq(peer, "vrf1", addr, 32, 
                                                     MakeUuid(1), "Test", 10, 
                                                     SecurityGroupList(),
-                                                    false);
+                                                    false, PathPreference());
     client->WaitForIdle();
 
     Inet4UnicastAgentRouteTable::DeleteReq(peer, "vrf1", addr, 32, NULL);
@@ -1165,7 +1166,8 @@ TEST_F(RouteTest, ScaleRouteAddDel_3) {
     SecurityGroupList sg_id_list;
     for (uint32_t i = 0; i < 1000; i++) {    
         EcmpTunnelRouteAdd(NULL, vrf_name_, remote_vm_ip_, 32, 
-                           comp_nh_list, -1, "test", sg_id_list);
+                           comp_nh_list, -1, "test", sg_id_list,
+                           PathPreference());
         DeleteRoute(NULL, vrf_name_, remote_vm_ip_, 32);
     }
     client->WaitForIdle(5);
@@ -1195,7 +1197,8 @@ TEST_F(RouteTest, ScaleRouteAddDel_4) {
     sg_id_list.push_back(1);
     for (uint32_t i = 0; i < repeat; i++) {    
         EcmpTunnelRouteAdd(NULL, vrf_name_, remote_vm_ip_, 32, 
-                           comp_nh_list, -1, "test", sg_id_list);
+                           comp_nh_list, -1, "test", sg_id_list,
+                           PathPreference());
         if (i != (repeat - 1)) {
             DeleteRoute(NULL, vrf_name_, remote_vm_ip_, 32);
         }
@@ -1212,6 +1215,40 @@ TEST_F(RouteTest, ScaleRouteAddDel_4) {
     EXPECT_FALSE(RouteFind(vrf_name_, remote_vm_ip_, 32));
     CompositeNHKey key(vrf_name_, remote_vm_ip_, 32, true);
     EXPECT_FALSE(FindNH(&key));
+}
+
+//Check path with highest preference gets priority
+TEST_F(RouteTest, PathPreference) {
+    BgpPeer *peer1 = CreateBgpPeer(Ip4Address(1), "BGP Peer 1");
+    BgpPeer *peer2 = CreateBgpPeer(Ip4Address(2), "BGP Peer 2");
+
+    //Add route from both peer
+    Inet4TunnelRouteAdd(peer1, vrf_name_, remote_vm_ip_, 32, fabric_gw_ip_,
+       TunnelType::AllType(), MplsTable::kStartLabel, "vn1",
+       SecurityGroupList(), PathPreference());
+    client->WaitForIdle();
+
+    Inet4UnicastRouteEntry *rt = RouteGet(vrf_name_, remote_vm_ip_, 32);
+    //Add route with higher preference from peer2
+    Inet4TunnelRouteAdd(peer2, vrf_name_, remote_vm_ip_, 32, fabric_gw_ip_,
+        TunnelType::AllType(), MplsTable::kStartLabel, "vn1",
+        SecurityGroupList(), PathPreference(2, PathPreference::LOW,
+        false, false));
+    client->WaitForIdle();
+    //Check that path from peer2 is preferred path
+    EXPECT_TRUE(rt->GetActivePath()->peer() == peer2);
+
+    //Add route with higher preference from peer1
+    Inet4TunnelRouteAdd(peer1, vrf_name_, remote_vm_ip_, 32, fabric_gw_ip_,
+        TunnelType::AllType(), MplsTable::kStartLabel, "vn1",
+        SecurityGroupList(), PathPreference(3, PathPreference::HIGH,
+        false, false));
+    client->WaitForIdle();
+    //Check that path from peer1 is preferred path
+    EXPECT_TRUE(rt->GetActivePath()->peer() == peer1);
+    DeleteBgpPeer(peer1);
+    DeleteBgpPeer(peer2);
+    client->WaitForIdle();
 }
 
 int main(int argc, char *argv[]) {

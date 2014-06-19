@@ -1200,7 +1200,8 @@ bool Layer2TunnelRouteAdd(const Peer *peer, const string &vm_vrf,
                               Agent::GetInstance()->fabric_vrf_name(),
                               Agent::GetInstance()->router_id(),
                               vm_vrf, server_ip,
-                              bmap, label, "", SecurityGroupList());
+                              bmap, label, "", SecurityGroupList(),
+                              PathPreference());
     Layer2AgentRouteTable::AddRemoteVmRouteReq(peer, vm_vrf, remote_vm_mac,
                                         vm_addr, plen, data);
     return true;
@@ -1218,7 +1219,8 @@ bool Layer2TunnelRouteAdd(const Peer *peer, const string &vm_vrf,
 
 bool EcmpTunnelRouteAdd(const Peer *peer, const string &vrf_name, const Ip4Address &vm_ip,
                        uint8_t plen, std::vector<ComponentNHData> &comp_nh_list,
-                       bool local_ecmp, const string &vn_name, const SecurityGroupList &sg) {
+                       bool local_ecmp, const string &vn_name, const SecurityGroupList &sg,
+                       const PathPreference &path_preference) {
     DBRequest nh_req(DBRequest::DB_ENTRY_ADD_CHANGE);
     nh_req.key.reset(new CompositeNHKey(vrf_name, vm_ip, plen,
                                         false));
@@ -1227,20 +1229,22 @@ bool EcmpTunnelRouteAdd(const Peer *peer, const string &vrf_name, const Ip4Addre
     nh_req.data.reset(new CompositeNHData(comp_nh_list,
                                           CompositeNHData::REPLACE));
     ControllerEcmpRoute *data =
-        new ControllerEcmpRoute(peer, vm_ip, plen, vn_name, -1, false, vrf_name, sg, nh_req);
+        new ControllerEcmpRoute(peer, vm_ip, plen, vn_name, -1, false, vrf_name,
+                                sg, path_preference, nh_req);
     Inet4UnicastAgentRouteTable::AddRemoteVmRouteReq(peer, vrf_name, vm_ip, plen, data);
 }
 
 bool Inet4TunnelRouteAdd(const Peer *peer, const string &vm_vrf, const Ip4Address &vm_addr,
                          uint8_t plen, const Ip4Address &server_ip, TunnelType::TypeBmap bmap,
                          uint32_t label, const string &dest_vn_name,
-                         const SecurityGroupList &sg) {
+                         const SecurityGroupList &sg,
+                         const PathPreference &path_preference) {
     ControllerVmRoute *data =
         ControllerVmRoute::MakeControllerVmRoute(peer,
                               Agent::GetInstance()->fabric_vrf_name(),
                               Agent::GetInstance()->router_id(),
                               vm_vrf, server_ip,
-                              bmap, label, dest_vn_name, sg);
+                              bmap, label, dest_vn_name, sg, path_preference);
     Inet4UnicastAgentRouteTable::AddRemoteVmRouteReq(peer, vm_vrf,
                                         vm_addr, plen, data);
     return true;
@@ -1249,11 +1253,12 @@ bool Inet4TunnelRouteAdd(const Peer *peer, const string &vm_vrf, const Ip4Addres
 bool Inet4TunnelRouteAdd(const Peer *peer, const string &vm_vrf, char *vm_addr,
                          uint8_t plen, char *server_ip, TunnelType::TypeBmap bmap,
                          uint32_t label, const string &dest_vn_name,
-                         const SecurityGroupList &sg) {
+                         const SecurityGroupList &sg,
+                         const PathPreference &path_preference) {
     boost::system::error_code ec;
     Inet4TunnelRouteAdd(peer, vm_vrf, Ip4Address::from_string(vm_addr, ec), plen,
                         Ip4Address::from_string(server_ip, ec), bmap, label,
-                        dest_vn_name, sg);
+                        dest_vn_name, sg, path_preference);
 }
 
 bool TunnelRouteAdd(const char *server, const char *vmip, const char *vm_vrf,
@@ -1265,7 +1270,7 @@ bool TunnelRouteAdd(const char *server, const char *vmip, const char *vm_vrf,
                               Agent::GetInstance()->router_id(),
                               vm_vrf, Ip4Address::from_string(server, ec),
                               TunnelType::AllType(), label, "",
-                              SecurityGroupList());
+                              SecurityGroupList(), PathPreference());
     Inet4UnicastAgentRouteTable::AddRemoteVmRouteReq(bgp_peer_, vm_vrf,
                                         Ip4Address::from_string(vmip, ec),
                                         32, data);
@@ -1512,6 +1517,13 @@ void AddInstanceIp(const char *name, int id, const char *addr) {
     char buf[128];
 
     sprintf(buf, "<instance-ip-address>%s</instance-ip-address>", addr);
+    AddNode("instance-ip", name, id, buf);
+}
+
+void AddActiveActiveInstanceIp(const char *name, int id, const char *addr) {
+    char buf[128];
+    sprintf(buf, "<instance-ip-address>%s</instance-ip-address>"
+                 "<instance-ip-mode>act-act</instance-ip-mode>", addr);
     AddNode("instance-ip", name, id, buf);
 }
 
@@ -1962,7 +1974,7 @@ void CreateVmportFIpEnv(struct PortInfo *input, int count, int acl_id,
         //        input[i].intf_id);
         IntfCfgAdd(input, i);
         AddPort(input[i].name, input[i].intf_id);
-        AddInstanceIp(instance_ip, input[i].vm_id, input[i].addr);
+        AddActiveActiveInstanceIp(instance_ip, input[i].vm_id, input[i].addr);
         AddLink("virtual-network", vn_name, "routing-instance", vrf_name);
         AddLink("virtual-machine", vm_name, "virtual-machine-interface",
                 input[i].name);
@@ -1984,7 +1996,7 @@ void CreateVmportFIpEnv(struct PortInfo *input, int count, int acl_id,
 void CreateVmportEnvInternal(struct PortInfo *input, int count, int acl_id, 
                      const char *vn, const char *vrf,
                      const char *vm_interface_attr,
-                     bool l2_vn, bool with_ip) {
+                     bool l2_vn, bool with_ip, bool ecmp) {
     char vn_name[MAX_TESTNAME_LEN];
     char vm_name[MAX_TESTNAME_LEN];
     char vrf_name[MAX_TESTNAME_LEN];
@@ -2023,7 +2035,12 @@ void CreateVmportEnvInternal(struct PortInfo *input, int count, int acl_id,
         IntfCfgAdd(input, i);
         AddPort(input[i].name, input[i].intf_id, vm_interface_attr);
         if (with_ip) {
-            AddInstanceIp(instance_ip, input[i].vm_id, input[i].addr);
+            if (ecmp) {
+                AddActiveActiveInstanceIp(instance_ip, input[i].vm_id,
+                                          input[i].addr);
+            } else {
+                AddInstanceIp(instance_ip, input[i].vm_id, input[i].addr);
+            }
         }
         if (!l2_vn) {
             AddLink("virtual-network", vn_name, "routing-instance", vrf_name);
@@ -2049,19 +2066,27 @@ void CreateVmportEnvInternal(struct PortInfo *input, int count, int acl_id,
 
 void CreateVmportEnvWithoutIp(struct PortInfo *input, int count, int acl_id, 
                               const char *vn, const char *vrf) {
-    CreateVmportEnvInternal(input, count, acl_id, vn, vrf, NULL, false, false);
+    CreateVmportEnvInternal(input, count, acl_id, vn, vrf, NULL, false, false,
+                            false);
 }
 
 void CreateVmportEnv(struct PortInfo *input, int count, int acl_id, 
                      const char *vn, const char *vrf,
                      const char *vm_interface_attr) {
     CreateVmportEnvInternal(input, count, acl_id, vn, vrf,
-                            vm_interface_attr, false, true);
+                            vm_interface_attr, false, true, false);
 }
 
 void CreateL2VmportEnv(struct PortInfo *input, int count, int acl_id, 
                      const char *vn, const char *vrf) {
-    CreateVmportEnvInternal(input, count, acl_id, vn, vrf, NULL, true, true);
+    CreateVmportEnvInternal(input, count, acl_id, vn, vrf, NULL, true,
+                            true, false);
+}
+
+void CreateVmportWithEcmp(struct PortInfo *input, int count, int acl_id,
+                          const char *vn, const char *vrf) {
+    CreateVmportEnvInternal(input, count, acl_id, vn, vrf, NULL, false,
+                            true, true);
 }
 
 void FlushFlowTable() {
