@@ -132,6 +132,8 @@ public:
     // assures that the dequeue task - QueueTaskRunner is not running
     // concurrently
     void Shutdown() {
+        ResetHighWaterMark();
+        ResetLowWaterMark();
         WorkQueueDelete<QueueEntryT> deleter;
         deleter(queue_);
         queue_.clear();
