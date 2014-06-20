@@ -35,6 +35,7 @@ generator_sandesh_files = env.SandeshGenPy('#controller/src/vnsw/agent/uve/virtu
 generator_sandesh_files += env.SandeshGenPy('#controller/src/vnsw/agent/uve/virtual_network.sandesh')
 generator_sandesh_files += env.SandeshGenPy('#controller/src/sandesh/common/flow.sandesh')
 generator_sandesh_files += env.SandeshGenPy('#controller/src/opserver/test/utils/stats_test.sandesh')
+generator_sandesh_files += env.SandeshGenPy('#controller/src/vnsw/agent/uve/port_bmap.sandesh')
 
 generator_sandesh_dirs = ['virtual_machine', 'flow', 'virtual_network', 'stats_test']
 for dir in generator_sandesh_dirs:
@@ -44,6 +45,13 @@ generator_sandesh_srcs = ['gen_py/' + src for src in generator_sandesh_dirs]
 generator_sandesh_rules = []
 for file in generator_sandesh_srcs:
     generator_sandesh_rules.append(env.Install('sandesh', env['TOP'] + '/opserver/test/' + file))
+
+generator_inc_dirs = ['port_bmap']
+for dir in generator_inc_dirs:
+    Dir(env['TOP'] + '/opserver/test/gen_py/' + dir)
+generator_inc_srcs = ['gen_py/' + src for src in generator_inc_dirs]
+for file in generator_inc_srcs:
+    generator_sandesh_rules.append(env.Install('', env['TOP'] + '/opserver/test/' + file))
 
 env.Depends(generator_sandesh_rules, generator_sandesh_files)
 env.Depends(local_sources_rules, [generator_sandesh_rules, local_dirs_rules])
