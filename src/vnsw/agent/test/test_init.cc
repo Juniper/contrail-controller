@@ -249,9 +249,15 @@ void TestClient::Shutdown() {
     Agent::GetInstance()->uve()->Shutdown();
     KSyncTest *ksync = static_cast<KSyncTest *>(Agent::GetInstance()->ksync());
     ksync->NetlinkShutdownTest();
-    Agent::GetInstance()->ksync()->Shutdown();
-    Agent::GetInstance()->pkt()->Shutdown();  
-    Agent::GetInstance()->services()->Shutdown();
+    if (Agent::GetInstance()->ksync()) {
+        Agent::GetInstance()->ksync()->Shutdown();
+    }
+    if (Agent::GetInstance()->pkt()) {
+        Agent::GetInstance()->pkt()->Shutdown();  
+    }
+    if (Agent::GetInstance()->services()) {
+        Agent::GetInstance()->services()->Shutdown();
+    }
     MulticastHandler::Shutdown();
     Agent::GetInstance()->oper_db()->Shutdown();
     Agent::GetInstance()->GetDB()->Clear();
@@ -268,9 +274,6 @@ void TestShutdown() {
         Agent::GetInstance()->vgw()->Shutdown();
     }
 
-    Agent::GetInstance()->init()->DeleteRoutes();
-    client->WaitForIdle();
-
     Agent::GetInstance()->init()->DeleteInterfaces();
     client->WaitForIdle();
 
@@ -278,6 +281,9 @@ void TestShutdown() {
     client->WaitForIdle();
 
     Agent::GetInstance()->init()->DeleteNextHops();
+    client->WaitForIdle();
+
+    Agent::GetInstance()->init()->DeleteRoutes();
     client->WaitForIdle();
 
     WaitForDbCount(Agent::GetInstance()->GetInterfaceTable(), 0, 100);

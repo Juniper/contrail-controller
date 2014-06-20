@@ -84,11 +84,20 @@ protected:
         PhysicalInterface::CreateReq(agent_->GetInterfaceTable(),
                                 eth_name_, 
                                 agent_->GetDefaultVrf());
-        AddResolveRoute(server1_ip_, 24);
+        client->WaitForIdle();
+        AddArp(server1_ip_.to_string().c_str(), "00:00:08:08:08:08", 
+                eth_name_.c_str());
+        //AddResolveRoute(server1_ip_, 24);
         client->WaitForIdle();
     }
 
     virtual void TearDown() {
+        DelArp(server1_ip_.to_string().c_str(), "00:00:08:08:08:08", 
+                eth_name_.c_str());
+        client->WaitForIdle();
+        PhysicalInterface::DeleteReq(agent_->GetInterfaceTable(), eth_name_);
+        client->WaitForIdle();
+
         TestRouteTable table1(1);
         WAIT_FOR(100, 100, (table1.Size() == 0));
         EXPECT_EQ(table1.Size(), 0U);
@@ -104,6 +113,14 @@ protected:
         VrfDelReq(vrf_name_.c_str());
         client->WaitForIdle();
         WAIT_FOR(100, 100, (VrfFind(vrf_name_.c_str()) != true));
+
+        DBRequest del_arp_nh_req;
+        del_arp_nh_req.oper = DBRequest::DB_ENTRY_DELETE;
+        del_arp_nh_req.key.reset(new ArpNHKey(agent_->GetDefaultVrf(),
+                                          Ip4Address::from_string("10.1.1.254")));
+        del_arp_nh_req.data.reset(new ArpNHData());
+        agent_->GetNextHopTable()->Enqueue(&del_arp_nh_req);
+        client->WaitForIdle();
     }
 
     void AddRemoteVmRoute(struct ether_addr *remote_vm_mac, 
@@ -556,14 +573,18 @@ int main(int argc, char *argv[]) {
     ::testing::InitGoogleTest(&argc, argv);
     GETUSERARGS();
     client = TestInit(init_file, ksync_init, true, false);
-    if (vm.count("config")) {
+    //if (vm.count("config")) {
         eth_itf = Agent::GetInstance()->GetIpFabricItfName();
-    } else {
-        eth_itf = "eth0";
-    }
+    //} else {
+    //    eth_itf = "eth0";
+    //}
 
     RouteTest::SetTunnelType(TunnelType::MPLS_GRE);
     int ret = RUN_ALL_TESTS();
     RouteTest::SetTunnelType(TunnelType::MPLS_UDP);
-    return ret + RUN_ALL_TESTS();
+    ret += RUN_ALL_TESTS();
+    client->WaitForIdle();
+    TestShutdown();
+    delete client;
+    return ret;
 }

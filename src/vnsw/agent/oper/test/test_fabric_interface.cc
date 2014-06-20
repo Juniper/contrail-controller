@@ -289,6 +289,8 @@ int main(int argc, char **argv) {
     usleep(10000);
     client->WaitForIdle();
     usleep(10000);
-
+    client->WaitForIdle();
+    TestShutdown();
+    delete client;
     return ret;
 }
