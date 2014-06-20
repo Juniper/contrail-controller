@@ -20,4 +20,5 @@ test_sandesh_kstate = AgentEnv.MakeTestCmdSrc(env, 'test_sandesh_kstate',
 
 test = env.TestSuite('agent-test', kstate_test_suite)
 env.Alias('agent:kstate', test)
+env.Alias('controller/src/vnsw/agent/kstate:test', test)
 Return('kstate_test_suite')

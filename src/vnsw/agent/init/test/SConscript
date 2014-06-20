@@ -15,4 +15,5 @@ test_vmware = AgentEnv.MakeTestCmd(env, 'test_vmware', init_test_suite)
 
 test = env.TestSuite('agent-test', init_test_suite)
 env.Alias('agent:init', test)
+env.Alias('controller/src/vnsw/agent/init:test', test)
 Return('init_test_suite')
