@@ -81,7 +81,7 @@ public:
     virtual const std::string GetStateName() const {
         return "";
     }
-    virtual void UpdateRefCount(int count) { }
+    virtual void UpdateRefCount(int count) const { }
     virtual tbb::atomic<int> GetRefCount() const {
         tbb::atomic<int> count;
         count = 0;

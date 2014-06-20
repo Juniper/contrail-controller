@@ -33,7 +33,7 @@ public:
     BgpProto::BgpPeerType PeerType() const { return BgpProto::IBGP; }
     virtual uint32_t bgp_identifier() const { return 0; }
     virtual const std::string GetStateName() const { return "UNKNOWN"; }
-    virtual void UpdateRefCount(int count) { }
+    virtual void UpdateRefCount(int count) const { }
     virtual tbb::atomic<int> GetRefCount() const {
         tbb::atomic<int> count;
         count = 0;

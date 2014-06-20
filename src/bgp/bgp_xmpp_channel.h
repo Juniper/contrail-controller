@@ -141,7 +141,6 @@ private:
     bool ResumeClose();
     void FlushDeferQ(std::string vrf_name);
     void FlushDeferQ(std::string vrf_name, std::string table_name);
-    void FlushDeferRegisterRequest();
     void ProcessDeferredSubscribeRequest(RoutingInstance *rt_instance, 
                                          int instance_id);
     xmps::PeerId peer_id_;
@@ -158,8 +157,9 @@ private:
     RoutingTableMembershipRequestMap routingtable_membership_request_map_;
     VrfMembershipRequestMap vrf_membership_request_map_;
     BgpXmppChannelManager *manager_;
+    bool close_in_progress_;
     bool deleted_;
-    bool defer_close_;
+    bool defer_peer_close_;
     WorkQueue<std::string> membership_response_worker_;
     SubscribedRoutingInstanceList routing_instances_;
 
@@ -208,7 +208,8 @@ protected:
 
 private:
     friend class BgpXmppChannelManagerMock;
-    
+    friend class BgpXmppUnitTest;
+
     XmppServer *xmpp_server_;
     BgpServer  *bgp_server_;
     WorkQueue<BgpXmppChannel *> queue_;

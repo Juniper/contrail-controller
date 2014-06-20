@@ -15,6 +15,7 @@ using namespace boost::assign;
 
 #include <pugixml/pugixml.hpp>
 
+#include "base/task_annotations.h"
 #include "base/util.h"
 #include "base/test/task_test_util.h"
 #include "bgp/bgp_attr.h"
@@ -134,12 +135,16 @@ public:
         return true;
     }
 
+    bool PeerHasPendingInstanceMembershipRequests(BgpXmppChannel *channel) {
+        return (!channel->vrf_membership_request_map_.empty());
+    }
+
     bool PeerHasPendingMembershipRequests(BgpXmppChannel *channel) {
         return (channel->routingtable_membership_request_map_.size() != 0);
     }
 
     bool PeerCloseIsDeferred(BgpXmppChannel *channel) {
-        return channel->defer_close_;
+        return channel->defer_peer_close_;
     }
 
     void PausePeerRibMembershipManager() {
@@ -148,6 +153,14 @@ public:
 
     void ResumePeerRibMembershipManager() {
         a_->membership_mgr()->event_queue_->set_disable(false);
+    }
+
+    void PauseBgpXmppChannelManager() {
+        bgp_channel_manager_->queue_.set_disable(true);
+    }
+
+    void ResumeBgpXmppChannelManager() {
+        bgp_channel_manager_->queue_.set_disable(false);
     }
 
 protected:
@@ -178,6 +191,9 @@ protected:
     }
 
     virtual void TearDown() {
+        ConcurrencyScope scope("bgp::Config");
+        TASK_UTIL_EXPECT_TRUE(a_->IsReadyForDeletion());
+        task_util::WaitForIdle();
         agent_a_->SessionDown();
         task_util::WaitForIdle();
         xs_a_->Shutdown();
@@ -316,6 +332,9 @@ class BgpXmppSerializeMembershipReqTest : public BgpXmppUnitTest {
     }
 
     virtual void TearDown() {
+        ConcurrencyScope scope("bgp::Config");
+        TASK_UTIL_EXPECT_TRUE(a_->IsReadyForDeletion());
+        task_util::WaitForIdle();
         agent_a_->SessionDown();
         task_util::WaitForIdle();
         xs_a_->Shutdown();
@@ -1499,6 +1518,148 @@ TEST_F(BgpXmppUnitTest, DeferCloseWithPendingUnregister) {
     // Resume the peer membership manager.  This should cause the deferred
     // peer close to resume and finish.
     ResumePeerRibMembershipManager();
+}
+
+TEST_F(BgpXmppUnitTest, CreateRoutingInstanceWithPeerCloseInProgress1) {
+    // create an XMPP client in server A
+    agent_a_.reset(
+        new test::NetworkAgentMock(&evm_, SUB_ADDR, xs_a_->GetPort()));
+
+    TASK_UTIL_EXPECT_TRUE(bgp_channel_manager_->channel_ != NULL);
+    TASK_UTIL_EXPECT_TRUE(agent_a_->IsEstablished());
+
+    // Nothing has been configured yet, so there should be no instances.
+    VerifyNoRoutingInstance("red");
+    VerifyNoRoutingInstance("blue");
+
+    // Subscribe to non-existent blue instance. Make sure that the message is
+    // processed on the bgp server.
+    agent_a_->Subscribe("blue", 1);
+    TASK_UTIL_EXPECT_EQ(1, bgp_channel_manager_->channel_->Count());
+    TASK_UTIL_EXPECT_TRUE(
+        PeerNotRegistered(bgp_channel_manager_->channel_, "blue"));
+    TASK_UTIL_EXPECT_TRUE(
+        PeerHasPendingInstanceMembershipRequests(bgp_channel_manager_->channel_));
+    TASK_UTIL_EXPECT_FALSE(
+        PeerHasPendingMembershipRequests(bgp_channel_manager_->channel_));
+
+    // Pause the channel manager work queue.
+    PauseBgpXmppChannelManager();
+
+    // Bring the session down.  The peer close should not get deferred since
+    // there are no pending membership requests in the channel.  However, the
+    // channel cleanup won't finish because the channel manager work queue has
+    // been paused.
+    agent_a_->SessionDown();
+    TASK_UTIL_EXPECT_TRUE(bgp_channel_manager_->channel_->peer_deleted());
+    task_util::WaitForIdle();
+    TASK_UTIL_EXPECT_FALSE(
+        PeerCloseIsDeferred(bgp_channel_manager_->channel_));
+    TASK_UTIL_EXPECT_FALSE(
+        PeerHasPendingInstanceMembershipRequests(bgp_channel_manager_->channel_));
+    TASK_UTIL_EXPECT_FALSE(
+        PeerHasPendingMembershipRequests(bgp_channel_manager_->channel_));
+
+    // Configure instances and verify that the instances are created.
+    Configure();
+    VerifyRoutingInstance("red");
+    VerifyRoutingInstance("blue");
+
+    // The channel should not be registered to the blue instance since the
+    // instance was created after the session went down.  It shouldn't have
+    // any pending membership requests either.
+    TASK_UTIL_EXPECT_TRUE(
+        PeerNotRegistered(bgp_channel_manager_->channel_, "blue"));
+    TASK_UTIL_EXPECT_FALSE(
+        PeerHasPendingInstanceMembershipRequests(bgp_channel_manager_->channel_));
+    TASK_UTIL_EXPECT_FALSE(
+        PeerHasPendingMembershipRequests(bgp_channel_manager_->channel_));
+
+    // Resume the channel manager work queue. This should cause the deferred
+    // peer close to resume and finish.
+    ResumeBgpXmppChannelManager();
+    task_util::WaitForIdle();
+}
+
+TEST_F(BgpXmppUnitTest, CreateRoutingInstanceWithPeerCloseInProgress2) {
+    Configure();
+    task_util::WaitForIdle();
+
+    // create an XMPP client in server A
+    agent_a_.reset(
+        new test::NetworkAgentMock(&evm_, SUB_ADDR, xs_a_->GetPort()));
+
+    TASK_UTIL_EXPECT_TRUE(bgp_channel_manager_->channel_ != NULL);
+    TASK_UTIL_EXPECT_TRUE(agent_a_->IsEstablished());
+
+    // Pause deletion for blue instance.
+    RoutingInstance *blue = VerifyRoutingInstance("blue");
+    PauseDelete(blue->deleter());
+
+    // Unconfigure all instances.
+    // The red instance should get destroyed while the blue instance should
+    // still exist in deleted state. All tables in the blue instance should
+    // get destroyed.
+    UnconfigureRoutingInstances();
+    task_util::WaitForIdle();
+    VerifyNoRoutingInstance("red");
+    blue = VerifyRoutingInstance("blue");
+    TASK_UTIL_EXPECT_TRUE(blue->deleted());
+    TASK_UTIL_EXPECT_EQ(0, blue->GetTables().size());
+
+    // Subscribe to deleted blue instance. Make sure that the message has is
+    // processed on the bgp server.
+    agent_a_->Subscribe("blue", 1);
+    TASK_UTIL_EXPECT_EQ(1, bgp_channel_manager_->channel_->Count());
+    TASK_UTIL_EXPECT_TRUE(
+        PeerNotRegistered(bgp_channel_manager_->channel_, "blue"));
+    TASK_UTIL_EXPECT_TRUE(
+        PeerHasPendingInstanceMembershipRequests(bgp_channel_manager_->channel_));
+    TASK_UTIL_EXPECT_FALSE(
+        PeerHasPendingMembershipRequests(bgp_channel_manager_->channel_));
+
+    // Resume deletion of blue instance and make sure it's gone.
+    ResumeDelete(blue->deleter());
+    VerifyNoRoutingInstance("blue");
+    TASK_UTIL_EXPECT_TRUE(
+        PeerNotRegistered(bgp_channel_manager_->channel_, "blue"));
+
+    // Pause the channel manager work queue.
+    PauseBgpXmppChannelManager();
+
+    // Bring the session down.  The peer close should not get deferred since
+    // there are no pending membership requests in the channel.  However, the
+    // channel cleanup won't finish because the channel manager work queue has
+    // been paused.
+    agent_a_->SessionDown();
+    TASK_UTIL_EXPECT_TRUE(bgp_channel_manager_->channel_->peer_deleted());
+    task_util::WaitForIdle();
+    TASK_UTIL_EXPECT_FALSE(
+        PeerCloseIsDeferred(bgp_channel_manager_->channel_));
+    TASK_UTIL_EXPECT_FALSE(
+        PeerHasPendingInstanceMembershipRequests(bgp_channel_manager_->channel_));
+    TASK_UTIL_EXPECT_FALSE(
+        PeerHasPendingMembershipRequests(bgp_channel_manager_->channel_));
+
+    // Configure instances and verify that the instances are created.
+    Configure();
+    VerifyRoutingInstance("red");
+    VerifyRoutingInstance("blue");
+
+    // The channel should not be registered to the blue instance since the
+    // instance was created after the session went down.  It shouldn't have
+    // any pending membership requests either.
+    TASK_UTIL_EXPECT_TRUE(
+        PeerNotRegistered(bgp_channel_manager_->channel_, "blue"));
+    TASK_UTIL_EXPECT_FALSE(
+        PeerHasPendingInstanceMembershipRequests(bgp_channel_manager_->channel_));
+    TASK_UTIL_EXPECT_FALSE(
+        PeerHasPendingMembershipRequests(bgp_channel_manager_->channel_));
+
+    // Resume the channel manager work queue. This should cause the deferred
+    // peer close to resume and finish.
+    ResumeBgpXmppChannelManager();
+    task_util::WaitForIdle();
 }
 
 TEST_F(BgpXmppSerializeMembershipReqTest, SerializedMembershipReq0) {
