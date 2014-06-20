@@ -742,6 +742,7 @@ void CdbIf::Db_SetQueueWaterMark(bool high, size_t queue_count,
                                  DbQueueWaterMarkCb cb) {
     DbQueueWaterMarkInfo wm(high, queue_count, cb);
     cdbq_wm_info_.push_back(wm);
+    tbb::mutex::scoped_lock lock(cdbq_mutex_);
     if (cdbq_.get() == NULL) {
         return;
     }
@@ -750,6 +751,7 @@ void CdbIf::Db_SetQueueWaterMark(bool high, size_t queue_count,
 
 void CdbIf::Db_ResetQueueWaterMarks() {
     cdbq_wm_info_.clear();
+    tbb::mutex::scoped_lock lock(cdbq_mutex_);
     if (cdbq_.get() != NULL) {
         cdbq_->ResetHighWaterMark();
         cdbq_->ResetLowWaterMark();
@@ -1318,6 +1320,7 @@ void CdbIf::Db_BatchAddColumn(bool done) {
 }
 
 bool CdbIf::Db_AddColumn(std::auto_ptr<GenDb::ColList> cl) {
+    tbb::mutex::scoped_lock lock(cdbq_mutex_);
     if (!Db_IsInitDone() || !cdbq_.get()) {
         UpdateCfWriteFailStats(cl->cfname_);
         return false;
