@@ -345,6 +345,10 @@ class SvcMonitor(object):
         return vn_id
     # end _get_vn_id
 
+    def _get_virtualization_type(self, st_props):
+        return st_props.get_service_virtualisation_type() or 'virtual-machine'
+    # end _get_virtualization_type
+
     def _create_svc_instance(self, st_obj, si_obj):
         #check if all config received before launch
         if not self._check_store_si_info(st_obj, si_obj):
@@ -354,7 +358,7 @@ class SvcMonitor(object):
         if st_props is None:
             self._svc_syslog("Cannot find service template associated to "
                              "service instance %s" % si_obj.get_fq_name_str())
-        virt_type = st_props.get_service_virtualisation_type()
+        virt_type = self._get_virtualization_type(st_props)
         method_str = self._SERVICE_VIRTUALIZATION_TYPE['create'].get(virt_type,
                                                                      None)
         method = getattr(self, method_str)
@@ -370,7 +374,7 @@ class SvcMonitor(object):
                              "service instance %s" % si_obj.get_fq_name_str())
             return
         if (st_props.get_service_type() != 'source-nat' and
-            st_props.get_service_virtualisation_type() != 'network-namespace'):
+            self._get_virtualization_type(st_props) != 'network-namespace'):
             self._svc_syslog("Only service type 'source-nat' is actually "
                              "supported with 'network-namespace' service "
                              "virtualization type")
@@ -461,8 +465,7 @@ class SvcMonitor(object):
             row_entry = {}
             row_entry['si_fq_str'] = si_obj.get_fq_name_str()
             row_entry['instance_name'] = instance_name
-            row_entry['instance_type'] = \
-                st_props.get_service_virtualisation_type()
+            row_entry['instance_type'] = self._get_virtualization_type(st_props)
             self._svc_vm_cf.insert(vm_obj.uuid, row_entry)
 
             # uve trace
@@ -567,7 +570,7 @@ class SvcMonitor(object):
             row_entry['si_fq_str'] = si_obj.get_fq_name_str()
             row_entry['instance_name'] = instance_name
             row_entry['instance_type'] = \
-                st_props.get_service_virtualisation_type()
+                self._get_virtualization_type(st_props)
             self._svc_vm_cf.insert(vm_uuid, row_entry)
 
             # uve trace
