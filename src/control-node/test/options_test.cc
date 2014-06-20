@@ -32,6 +32,10 @@ protected:
         default_collector_server_list_.push_back("127.0.0.1:8086");
     }
 
+    virtual void TearDown() {
+        remove("./options_test_config_file.conf");
+    }
+
     EventManager evm_;
     std::string hostname_;
     std::string host_ip_;
@@ -216,14 +220,14 @@ TEST_F(OptionsTest, CustomConfigFile) {
         "user=test-user\n";
 
     ofstream config_file;
-    config_file.open("/tmp/options_test_config_file.conf");
+    config_file.open("./options_test_config_file.conf");
     config_file << config;
     config_file.close();
 
     int argc = 2;
     char *argv[argc];
     char argv_0[] = "options_test";
-    char argv_1[] = "--conf_file=/tmp/options_test_config_file.conf";
+    char argv_1[] = "--conf_file=./options_test_config_file.conf";
     argv[0] = argv_0;
     argv[1] = argv_1;
 
@@ -239,7 +243,7 @@ TEST_F(OptionsTest, CustomConfigFile) {
     TASK_UTIL_EXPECT_VECTOR_EQ(collector_server_list,
                      options_.collector_server_list());
     EXPECT_EQ(options_.config_file(),
-              "/tmp/options_test_config_file.conf");
+              "./options_test_config_file.conf");
     EXPECT_EQ(options_.discovery_server(), "1.0.0.1");
     EXPECT_EQ(options_.discovery_port(), 100);
     EXPECT_EQ(options_.hostname(), "test");
@@ -292,14 +296,14 @@ TEST_F(OptionsTest, CustomConfigFileAndOverrideFromCommandLine) {
         "user=test-user\n";
 
     ofstream config_file;
-    config_file.open("/tmp/options_test_config_file.conf");
+    config_file.open("./options_test_config_file.conf");
     config_file << config;
     config_file.close();
 
     int argc = 7;
     char *argv[argc];
     char argv_0[] = "options_test";
-    char argv_1[] = "--conf_file=/tmp/options_test_config_file.conf";
+    char argv_1[] = "--conf_file=./options_test_config_file.conf";
     char argv_2[] = "--DEFAULT.log_file=new_test.log";
     char argv_3[] = "--DEFAULT.log_local";
     char argv_4[] = "--DEFAULT.collectors=11.10.10.1:100";
@@ -326,7 +330,7 @@ TEST_F(OptionsTest, CustomConfigFileAndOverrideFromCommandLine) {
                      options_.collector_server_list());
 
     EXPECT_EQ(options_.config_file(),
-              "/tmp/options_test_config_file.conf");
+              "./options_test_config_file.conf");
     EXPECT_EQ(options_.discovery_server(), "1.0.0.1");
     EXPECT_EQ(options_.discovery_port(), 100);
     EXPECT_EQ(options_.hostname(), "test");
@@ -355,14 +359,14 @@ TEST_F(OptionsTest, CustomConfigFileWithInvalidHostIp) {
         ;
 
     ofstream config_file;
-    config_file.open("/tmp/options_test_config_file.conf");
+    config_file.open("./options_test_config_file.conf");
     config_file << config;
     config_file.close();
 
     int argc = 2;
     char *argv[argc];
     char argv_0[] = "options_test";
-    char argv_1[] = "--conf_file=/tmp/options_test_config_file.conf";
+    char argv_1[] = "--conf_file=./options_test_config_file.conf";
     argv[0] = argv_0;
     argv[1] = argv_1;
 
@@ -377,7 +381,7 @@ TEST_F(OptionsTest, CustomConfigFileWithInvalidHostIpFromCommandLine) {
         ;
 
     ofstream config_file;
-    config_file.open("/tmp/options_test_config_file.conf");
+    config_file.open("./options_test_config_file.conf");
     config_file << config;
     config_file.close();
 
@@ -401,14 +405,14 @@ TEST_F(OptionsTest, CustomConfigFileWithInvalidCollectors) {
         ;
 
     ofstream config_file;
-    config_file.open("/tmp/options_test_config_file.conf");
+    config_file.open("./options_test_config_file.conf");
     config_file << config;
     config_file.close();
 
     int argc = 2;
     char *argv[argc];
     char argv_0[] = "options_test";
-    char argv_1[] = "--conf_file=/tmp/options_test_config_file.conf";
+    char argv_1[] = "--conf_file=./options_test_config_file.conf";
     argv[0] = argv_0;
     argv[1] = argv_1;
 
@@ -425,7 +429,7 @@ TEST_F(OptionsTest, CustomConfigFileWithInvalidCollectorsFromCommandLine) {
         ;
 
     ofstream config_file;
-    config_file.open("/tmp/options_test_config_file.conf");
+    config_file.open("./options_test_config_file.conf");
     config_file << config;
     config_file.close();
 
