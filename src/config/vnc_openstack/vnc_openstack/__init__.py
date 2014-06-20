@@ -547,9 +547,9 @@ class ResourceApiDriver(vnc_plugin_base.ResourceApi):
                     tenant_name=self._admin_tenant)
 
                 vnc_lib = self._vnc_lib
-                domain_id = vnc_lib.fq_name_to_uuid(
+                domain_id = vnc_lib.fq_name_to_id(
                         'domain', ['default-domain'])
-                project_id = vnc_lib.fq_name_to_uuid(
+                project_id = vnc_lib.fq_name_to_id(
                         'project', ['default-domain', 'default-project'])
                 self._vnc_projects.add(project_id)
                 self._vnc_domains.add(domain_id)
