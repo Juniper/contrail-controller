@@ -3,20 +3,17 @@
 #
 
 # -*- mode: python; -*-
-
+import re
 Import('AgentEnv')
 env = AgentEnv.Clone()
 
-env.Prepend(LIBS=['gunit'])
-cflags = env['CCFLAGS']
-cflags.append('-Wno-return-type')
+AgentEnv.MakeTestEnv(env)
+ 
+cmn_test_suite = []
+test_cmn = AgentEnv.MakeTestCmdSrc(env, 'test_cmn', ['test.cc'], cmn_test_suite)
+test_subop = AgentEnv.MakeTestCmd(env, 'test_subop', cmn_test_suite)
+ 
+test = env.TestSuite('agent-test', cmn_test_suite)
+env.Alias('agent:cmn', test)
+Return('cmn_test_suite')
 
-env.Append(LIBPATH=['../../test'])
-env.Append(LIBS=['agent_test_buildinfo'])
-
-import sys
-test = env.Program(target = 'test', source = ['test.cc'])
-env.Alias('controller/src/vnsw/agent/cmn:test', test)
-
-test_subop = env.Program(target = 'test_subop', source = ['test_subop.cc'])
-env.Alias('src/vnsw/agent/cmn/test:test_subop', test_subop)
