@@ -944,11 +944,6 @@ class DBInterface(object):
     def _subnet_vnc_read_mapping(self, id=None, key=None):
         if id:
             try:
-                return self._db_cache['q_subnet_maps'][id]
-                #raise KeyError
-            except KeyError:
-                pass
-            try:
                 subnet_key = self._vnc_lib.kv_retrieve(id)
                 self._db_cache['q_subnet_maps'][id] = subnet_key
                 return subnet_key
@@ -958,13 +953,9 @@ class DBInterface(object):
                 bottle.abort(404, json.dumps(exc_info))
 
         if key:
-            try:
-                return self._db_cache['q_subnet_maps'][key]
-                #raise KeyError
-            except KeyError:
-                subnet_id = self._vnc_lib.kv_retrieve(key)
-                self._db_cache['q_subnet_maps'][key] = subnet_id
-                return subnet_id
+            subnet_id = self._vnc_lib.kv_retrieve(key)
+            self._db_cache['q_subnet_maps'][key] = subnet_id
+            return subnet_id
 
     #end _subnet_vnc_read_mapping
 
@@ -1956,12 +1947,6 @@ class DBInterface(object):
         #    return {'id': net_uuid, 'tenant_id': tenant_id}
 
         try:
-            # return self._db_cache['q_networks']['net_uuid']
-            raise KeyError
-        except KeyError:
-            pass
-
-        try:
             net_obj = self._network_read(net_uuid)
         except NoIdError:
             exc_info = {'type': 'NetworkNotFound',
@@ -2199,12 +2184,6 @@ class DBInterface(object):
     #end subnet_create
 
     def subnet_read(self, subnet_id):
-        try:
-            # return self._db_cache['q_subnets'][subnet_id]
-            raise KeyError
-        except KeyError:
-            pass
-
         subnet_key = self._subnet_vnc_read_mapping(id=subnet_id)
         net_id = subnet_key.split()[0]
 
@@ -2495,12 +2474,6 @@ class DBInterface(object):
         if fields and (len(fields) == 1) and fields[0] == 'tenant_id':
             tenant_id = self._get_obj_tenant_id('router', rtr_uuid)
             return {'id': rtr_uuid, 'tenant_id': tenant_id}
-
-        try:
-            # return self._db_cache['q_routers']['rtr_uuid']
-            raise KeyError
-        except KeyError:
-            pass
 
         try:
             rtr_obj = self._logical_router_read(rtr_uuid)
@@ -2915,12 +2888,6 @@ class DBInterface(object):
 
     # TODO add obj param and let caller use below only as a converter
     def port_read(self, port_id):
-        try:
-            # return self._db_cache['q_ports'][port_id]
-            raise KeyError
-        except KeyError:
-            pass
-
         try:
             port_obj = self._virtual_machine_interface_read(port_id=port_id)
         except NoIdError:
