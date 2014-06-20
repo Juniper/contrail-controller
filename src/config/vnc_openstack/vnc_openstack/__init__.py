@@ -593,6 +593,7 @@ class ResourceApiDriver(vnc_plugin_base.ResourceApi):
         for group in sec_groups or []:
             if group['to'][2] == 'default':
                 self._vnc_lib.security_group_delete(id=group['uuid'])
+        self._vnc_projects.remove(proj_uuid)
     # end pre_project_delete
 
     def pre_virtual_network_create(self, vn_dict):
