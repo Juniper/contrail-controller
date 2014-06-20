@@ -157,6 +157,7 @@ void BgpXmppMessage::AddInetReach(const BgpRoute *route, const RibOutAttr *roatt
     item.entry.nlri.address = route->ToString();
     item.entry.version = 1;
     item.entry.virtual_network = virtual_network_;
+    item.entry.local_preference = roattr->attr()->local_pref();
 
     assert(!roattr->nexthop_list().empty());
 
