@@ -298,13 +298,21 @@ struct query_table
     4: string display_name;
 }
 
+struct stat_query_column
+{
+    1: string name;
+    2: string datatype;
+    3: bool index;
+    4: list<string> suffixes;
+}
+
 struct stat_table
 {
     6: string display_name;
     1: string stat_type;
     2: string stat_attr;
     3: string obj_table;
-    5: list<query_column> attributes;
+    5: list<stat_query_column> attributes;
 }
 
 const string STAT_OBJECTID_FIELD = "name";
@@ -427,10 +435,11 @@ const list<stat_table> _STAT_TABLES  = [
       'stat_attr' : 'query_stats',
       'obj_table' : COLLECTOR_INFO_TABLE,
       'attributes': [
-          { 'name' : 'table',            'datatype' : 'string','index' : true},
-          { 'name' : 'query_stats.time', 'datatype' : 'int',   'index' : true},
-          { 'name' : 'query_stats.rows', 'datatype' : 'int',   'index' : true},
-          { 'name' : 'query_stats.qid',  'datatype' : 'string','index' : true},
+          { 'name' : 'table', 'datatype' : 'string','index' : true 'suffixes': ['query_stats.rows']},
+          { 'name' : 'name', 'datatype' : 'string','index' : true, 'suffixes': ['query_stats.qid']},
+          { 'name' : 'query_stats.time', 'datatype' : 'int', 'index' : true, 'suffixes': ['query_stats.rows']},
+          { 'name' : 'query_stats.rows', 'datatype' : 'int', 'index' : true, 'suffixes': ['query_stats.time']},
+          { 'name' : 'query_stats.qid',  'datatype' : 'string','index' : false},
           { 'name' : 'query_stats.where'      ,'datatype' : 'string','index' : false},
           { 'name' : 'query_stats.select'     ,'datatype' : 'string','index' : false},
           { 'name' : 'query_stats.post'       ,'datatype' : 'string','index' : false},

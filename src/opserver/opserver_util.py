@@ -16,6 +16,7 @@ import xmltodict
 import json
 import gevent
 import socket, struct
+
 try:
     from pysandesh.gen_py.sandesh.ttypes import SandeshType
 except:
@@ -338,6 +339,7 @@ class OpServerUtils(object):
                 value_dict = value
             else:
                 continue
+
             # Handle struct, list, ipv4 type
             if '@type' in value_dict:
                 if value_dict['@type'] == 'ipv4':
@@ -481,24 +483,43 @@ class OpServerUtils(object):
                 match_e = match_s.split('=')
                 match_e[0] = match_e[0].strip(' ()')
                 match_e[1] = match_e[1].strip(' ()')
-                match_v = match_e[1].split("<")
 
+                match_sp = match_e[0].split('|')
+
+                if len(match_sp) is 1:
+                    tname = match_sp[0]
+                    match_v = match_e[1].split("<")
+                else:
+                    tname = match_sp[1]
+                    bname = match_sp[0]
+                    match_vp = match_e[1].split('|')
+                    bval = match_vp[0]
+                    match_v = match_vp[1].split("<")
+
+                
                 if len(match_v) is 1:
                     if match_v[0][-1] is '*':
                         match_prefix = match_v[0][:(len(match_v[0]) - 1)]
                         print match_prefix
                         match_elem = OpServerUtils.Match(
-                            name=match_e[0], value=match_prefix,
+                            name=tname, value=match_prefix,
                             op=OpServerUtils.MatchOp.PREFIX)
                     else:
                         match_elem = OpServerUtils.Match(
-                            name=match_e[0], value=match_v[0],
+                            name=tname, value=match_v[0],
                             op=OpServerUtils.MatchOp.EQUAL)
                 else:
                     match_elem = OpServerUtils.Match(
-                        name=match_e[0], value=match_v[0],
+                        name=tname, value=match_v[0],
                         op=OpServerUtils.MatchOp.IN_RANGE, value2=match_v[1])
-                term_elem.append(match_elem.__dict__)
+
+                if len(match_sp) is 1:
+                    term_elem.append(match_elem.__dict__)
+                else:
+                    selem = OpServerUtils.Match(
+                        name=bname, value=bval, op=OpServerUtils.MatchOp.EQUAL,
+                        value2=None, suffix = match_elem)
+                    term_elem.append(selem.__dict__)
 
             if len(term_elem) == 0:
                 where = None
@@ -597,9 +618,8 @@ class OpServerUtils(object):
         op = None
         value2 = None
 
-        def __init__(self, name, value, op, value2=None):
+        def __init__(self, name, value, op, value2=None, suffix = None):
             self.name = name
-            self.value = value
             try:
                  self.value = json.loads(value)
             except:
@@ -610,6 +630,11 @@ class OpServerUtils(object):
                  self.value2 = json.loads(value2)
             except:
                  self.value2 = value2
+
+            if suffix:
+                self.suffix = suffix.__dict__
+            else:
+                self.suffix = None
         # end __init__
 
     # end class Match
