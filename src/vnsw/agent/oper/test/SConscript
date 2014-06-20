@@ -21,4 +21,5 @@ test_fabric_interface = AgentEnv.MakeTestCmd(env, 'test_fabric_interface',
 
 test = env.TestSuite('agent-test', oper_test_suite)
 env.Alias('agent:oper', test)
+env.Alias('controller/src/vnsw/agent/oper:test', test)
 Return('oper_test_suite')

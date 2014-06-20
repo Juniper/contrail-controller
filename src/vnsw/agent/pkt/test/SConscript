@@ -77,4 +77,5 @@ test_sg_tcp_flow = AgentEnv.MakeTestCmdSrc(env, 'test_sg_tcp_flow',
 
 test = env.TestSuite('agent-test', pkt_test_suite)
 env.Alias('agent:pkt', test)
+env.Alias('controller/src/vnsw/agent/pkt:test', test)
 Return('pkt_test_suite')
