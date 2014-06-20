@@ -315,7 +315,7 @@ public:
         return 0;
     }
 
-    virtual void UpdateRefCount(int count) { refcount_ += count; }
+    virtual void UpdateRefCount(int count) const { refcount_ += count; }
     virtual tbb::atomic<int> GetRefCount() const { return refcount_; }
 
 private:
@@ -334,7 +334,7 @@ private:
 
     BgpServer *server_;
     BgpXmppChannel *parent_;
-    tbb::atomic<int> refcount_;
+    mutable tbb::atomic<int> refcount_;
     bool is_deleted_;
     bool send_ready_;
 };
@@ -386,8 +386,9 @@ BgpXmppChannel::BgpXmppChannel(XmppChannel *channel, BgpServer *bgp_server,
       peer_stats_(new PeerStats(this)),
       bgp_policy_(peer_->PeerType(), RibExportPolicy::XMPP, 0, -1, 0),
       manager_(manager),
+      close_in_progress_(false),
       deleted_(false),
-      defer_close_(false),
+      defer_peer_close_(false),
       membership_response_worker_(
             TaskScheduler::GetInstance()->GetTaskId("xmpp::StateMachine"),
             channel->connection()->GetIndex(),
@@ -428,6 +429,9 @@ std::string BgpXmppChannel::StateName() const {
 void BgpXmppChannel::RTargetRouteOp(BgpTable *rtarget_table, as4_t asn,
                                     const RouteTarget &rtarget, BgpAttrPtr attr,
                                     bool add_change) {
+    if (add_change && close_in_progress_)
+        return;
+
     DBRequest req;
     RTargetPrefix rt_prefix(asn, rtarget);
     req.key.reset(new RTargetTable::RequestKey(rt_prefix, Peer()));
@@ -441,7 +445,9 @@ void BgpXmppChannel::RTargetRouteOp(BgpTable *rtarget_table, as4_t asn,
 }
 
 void BgpXmppChannel::ASNUpdateCallback(as_t old_asn) {
-    if (routing_instances_.empty()) return;
+    if (routing_instances_.empty())
+        return;
+
     RoutingInstanceMgr *instance_mgr = bgp_server_->routing_instance_mgr();
     assert(instance_mgr);
     RoutingInstance *master = 
@@ -470,10 +476,13 @@ void BgpXmppChannel::ASNUpdateCallback(as_t old_asn) {
     }
 }
 
-void BgpXmppChannel::RoutingInstanceCallback(std::string vrf_name, 
-                                             int op) {
-    if (vrf_name == BgpConfigManager::kMasterInstance) return;
-    if (op == RoutingInstanceMgr::INSTANCE_DELETE) return;
+void BgpXmppChannel::RoutingInstanceCallback(std::string vrf_name, int op) {
+    if (close_in_progress_)
+        return;
+    if (vrf_name == BgpConfigManager::kMasterInstance)
+        return;
+    if (op == RoutingInstanceMgr::INSTANCE_DELETE)
+        return;
 
     RoutingInstanceMgr *instance_mgr = bgp_server_->routing_instance_mgr();
     assert(instance_mgr);
@@ -485,8 +494,7 @@ void BgpXmppChannel::RoutingInstanceCallback(std::string vrf_name,
             vrf_membership_request_map_.find(vrf_name);
         if (it == vrf_membership_request_map_.end())
             return;
-        if (!defer_close_)
-            ProcessDeferredSubscribeRequest(rt_instance, it->second);
+        ProcessDeferredSubscribeRequest(rt_instance, it->second);
         vrf_membership_request_map_.erase(it);
     } else {
         SubscribedRoutingInstanceList::iterator it = 
@@ -1364,12 +1372,12 @@ bool BgpXmppChannel::MembershipResponseHandler(std::string table_name) {
         assert(0);
     }
 
-    if (defer_close_) {
+    if (defer_peer_close_) {
         routingtable_membership_request_map_.erase(loc);
         if (routingtable_membership_request_map_.size()) {
             return true;
         }
-        defer_close_ = false;
+        defer_peer_close_ = false;
         ResumeClose();
         return true;
     }
@@ -1507,11 +1515,6 @@ void BgpXmppChannel::FillTableMembershipInfo(BgpNeighborResp *resp) {
         new_table_list.push_back(table);
     }
     resp->set_routing_tables(new_table_list);
-}
-
-void BgpXmppChannel::FlushDeferRegisterRequest() {
-    // Erase all elements for the table
-    vrf_membership_request_map_.clear();
 }
 
 void BgpXmppChannel::FlushDeferQ(std::string vrf_name, std::string table_name) {
@@ -1759,7 +1762,7 @@ void BgpXmppChannel::ReceiveUpdate(const XmppStanza::XmppMessage *msg) {
     //
     // Make sure that peer is not set for closure already
     //
-    assert(!defer_close_);
+    assert(!defer_peer_close_);
     assert(!peer_->IsDeleted());
     assert(!channel_->connection() || 
            !channel_->connection()->ShutdownPending());
@@ -1949,11 +1952,14 @@ void BgpXmppChannelManager::XmppHandleChannelEvent(XmppChannel *channel,
 }
 
 void BgpXmppChannel::Close() {
+    close_in_progress_ = true;
+    vrf_membership_request_map_.clear();
+    STLDeleteElements(&defer_q_);
+
     if (routingtable_membership_request_map_.size()) {
         BGP_LOG(BgpMessage, SandeshLevel::SYS_WARN, BGP_LOG_FLAG_ALL,
                 "Peer Close with pending membership request");
-        defer_close_ = true;
-        FlushDeferRegisterRequest();
+        defer_peer_close_ = true;
         return;
     }
     peer_->Close();
