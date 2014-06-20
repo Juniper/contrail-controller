@@ -191,7 +191,7 @@ bool AgentStatsCollector::Run() {
 }
 
 void AgentStatsCollector::SendStats() {
-    agent_->uve()->vn_uve_table()->SendVnStats();
+    agent_->uve()->vn_uve_table()->SendVnStats(false);
     agent_->uve()->vm_uve_table()->SendVmStats();
 }
 

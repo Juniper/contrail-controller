@@ -517,7 +517,8 @@ bool VnUveEntry::FrameVnMsg(const VnEntry *vn, UveVirtualNetworkAgent &uve) {
 }
 
 bool VnUveEntry::FrameVnStatsMsg(const VnEntry *vn, 
-                                 UveVirtualNetworkAgent &uve) {
+                                 UveVirtualNetworkAgent &uve,
+                                 bool only_vrf_stats) {
     bool changed = false;
     uve.set_name(vn->GetName());
 
@@ -525,6 +526,14 @@ bool VnUveEntry::FrameVnStatsMsg(const VnEntry *vn,
     uint64_t in_bytes = 0;
     uint64_t out_pkts = 0;
     uint64_t out_bytes = 0;
+
+    if (UpdateVrfStats(vn, uve)) {
+        changed = true;
+    }
+
+    if (only_vrf_stats) {
+        return changed;
+    }
 
     int fip_count = 0;
     InterfaceSet::iterator it = interface_tree_.begin();
@@ -633,9 +642,6 @@ bool VnUveEntry::FrameVnStatsMsg(const VnEntry *vn,
         changed = true;
     }
 
-    if (UpdateVrfStats(vn, uve)) {
-        changed = true;
-    }
     return changed;
 }
 
