@@ -1022,7 +1022,8 @@ class SvcMonitor(object):
         if_properties = VirtualMachineInterfacePropertiesType(nic['type'])
         vmi_obj.set_virtual_machine_interface_properties(if_properties)
         st_props = st_obj.get_service_template_properties()
-        if st_props.service_mode in ['in-network', 'in-network-nat']:
+        if (st_props.service_mode in ['in-network', 'in-network-nat'] and
+            proj_name != 'default-project'):
             sg_obj = self._get_default_security_group(proj_obj)
             vmi_obj.set_security_group(sg_obj)
         if nic['static-route-enable']:
