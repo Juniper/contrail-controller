@@ -34,6 +34,10 @@ protected:
         default_collector_server_list_.push_back("127.0.0.1:8086");
     }
 
+    virtual void TearDown() {
+        remove("./options_test_query_engine.conf");
+    }
+
     EventManager evm_;
     std::string hostname_;
     std::string host_ip_;
@@ -225,14 +229,14 @@ TEST_F(OptionsTest, CustomConfigFile) {
     ;
 
     ofstream config_file;
-    config_file.open("/tmp/options_test_query_engine.conf");
+    config_file.open("./options_test_query_engine.conf");
     config_file << config;
     config_file.close();
 
     int argc = 2;
     char *argv[argc];
     char argv_0[] = "options_test";
-    char argv_1[] = "--conf_file=/tmp/options_test_query_engine.conf";
+    char argv_1[] = "--conf_file=./options_test_query_engine.conf";
     argv[0] = argv_0;
     argv[1] = argv_1;
 
@@ -255,7 +259,7 @@ TEST_F(OptionsTest, CustomConfigFile) {
     EXPECT_EQ(options_.redis_server(), "1.2.3.4");
     EXPECT_EQ(options_.redis_port(), 200);
     EXPECT_EQ(options_.config_file(),
-              "/tmp/options_test_query_engine.conf");
+              "./options_test_query_engine.conf");
     EXPECT_EQ(options_.discovery_server(), "1.0.0.1");
     EXPECT_EQ(options_.discovery_port(), 100);
     EXPECT_EQ(options_.hostname(), "test");
@@ -310,14 +314,14 @@ TEST_F(OptionsTest, CustomConfigFileAndOverrideFromCommandLine) {
     ;
 
     ofstream config_file;
-    config_file.open("/tmp/options_test_query_engine.conf");
+    config_file.open("./options_test_query_engine.conf");
     config_file << config;
     config_file.close();
 
     int argc = 15;
     char *argv[argc];
     char argv_0[] = "options_test";
-    char argv_1[] = "--conf_file=/tmp/options_test_query_engine.conf";
+    char argv_1[] = "--conf_file=./options_test_query_engine.conf";
     char argv_2[] = "--DEFAULT.log_file=new_test.log";
     char argv_3[] = "--DEFAULT.log_local";
     char argv_4[] = "--DEFAULT.log_disable";
@@ -364,7 +368,7 @@ TEST_F(OptionsTest, CustomConfigFileAndOverrideFromCommandLine) {
     EXPECT_EQ(options_.redis_server(), "1.2.3.4");
     EXPECT_EQ(options_.redis_port(), 200);
     EXPECT_EQ(options_.config_file(),
-              "/tmp/options_test_query_engine.conf");
+              "./options_test_query_engine.conf");
     EXPECT_EQ(options_.discovery_server(), "1.0.0.1");
     EXPECT_EQ(options_.discovery_port(), 100);
     EXPECT_EQ(options_.hostname(), "test");
