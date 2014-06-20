@@ -54,11 +54,14 @@ peer_server_finder_test = env.UnitTest('peer_server_finder_test',
                                        ['peer_server_finder_test.cc'])
 env.Alias('src/ifmap/client:peer_server_finder_test', peer_server_finder_test)
 
-client_unit_tests = [ifmap_state_machine_test,
+client_unit_tests = [
                      peer_server_finder_test
                     ]
 
 client_test = env.TestSuite('ifmap-test', client_unit_tests)
 
 env.Alias('src/ifmap/client:test', client_test)
+env.Alias('src/ifmap/client:flaky-test', [
+    ifmap_state_machine_test,
+])
 Return('client_unit_tests')

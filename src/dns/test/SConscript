@@ -56,12 +56,14 @@ env.Alias('src/dns:dns_options_test', dns_options_test)
 
 test_suite = [
                 dns_bind_test,
-                dns_config_test,
                 dns_options_test,
-#                dns_mgr_test,
+#               dns_mgr_test,
              ]
 
 test = env.TestSuite('dns-test', test_suite)
 env.Alias('controller/src/dns:test', test)
+env.Alias('controller/src/dns:flaky-test', [
+    dns_config_test,
+])
 Return('test_suite')
 
