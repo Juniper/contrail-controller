@@ -2144,9 +2144,13 @@ class DBInterface(object):
             domain_obj = Domain(domain_name)
             project_obj = Project(project_name, domain_obj)
             netipam_obj = NetworkIpam(ipam_name, project_obj)
-        else:  # link subnet with default ipam
-            project_obj = Project(net_obj.parent_name)
-            netipam_obj = NetworkIpam(project_obj=project_obj)
+        else:  # link with project's default ipam or global default ipam
+            try:
+                ipam_fq_name = net_obj.get_fq_name()[:-1]
+                ipam_fq_name.append('default-network-ipam')
+                netipam_obj = self._vnc_lib.network_ipam_read(fq_name=ipam_fq_name)
+            except NoIdError:
+                netipam_obj = NetworkIpam()
             ipam_fq_name = netipam_obj.get_fq_name()
 
         subnet_vnc = self._subnet_neutron_to_vnc(subnet_q)
