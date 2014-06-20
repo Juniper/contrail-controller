@@ -1466,21 +1466,23 @@ class DBInterface(object):
 
         dhcp_option_list = None
         if subnet_q['dns_nameservers'] != attr.ATTR_NOT_SPECIFIED:
-            dhcp_options=[]
-            for dns_server in subnet_q['dns_nameservers']:
-                dhcp_options.append(DhcpOptionType(dhcp_option_name='6',
-                                                   dhcp_option_value=dns_server))
-            if dhcp_options:
-                dhcp_option_list = DhcpOptionsListType(dhcp_options)
+            if subnet_q['dns_nameservers']:
+                dhcp_options=[]
+                for dns_server in subnet_q['dns_nameservers']:
+                    dhcp_options.append(DhcpOptionType(dhcp_option_name='6',
+                                                       dhcp_option_value=dns_server))
+                if dhcp_options:
+                    dhcp_option_list = DhcpOptionsListType(dhcp_options)
 
         host_route_list = None
         if subnet_q['host_routes'] != attr.ATTR_NOT_SPECIFIED:
-            host_routes=[]
-            for host_route in subnet_q['host_routes']:
-                host_routes.append(RouteType(prefix=host_route['destination'],
-                                             next_hop=host_route['nexthop']))
-            if host_routes:
-                host_route_list = RouteTableType(host_routes)
+            if subnet_q['host_routes']:
+                host_routes=[]
+                for host_route in subnet_q['host_routes']:
+                    host_routes.append(RouteType(prefix=host_route['destination'],
+                                                 next_hop=host_route['nexthop']))
+                if host_routes:
+                    host_route_list = RouteTableType(host_routes)
 
         dhcp_config = subnet_q['enable_dhcp']
         subnet_vnc = IpamSubnetType(subnet=SubnetType(pfx, pfx_len),
