@@ -1796,6 +1796,11 @@ class DBInterface(object):
                 mac_addrs_obj = MacAddressesType()
                 mac_addrs_obj.set_mac_address(port_q['mac_address'])
                 port_obj.set_virtual_machine_interface_mac_addresses(mac_addrs_obj)
+            port_obj.set_security_group_list([])
+            if ('security_groups' not in port_q or
+                port_q['security_groups'].__class__ is object):
+                sg_obj = SecurityGroup("default", proj_obj)
+                port_obj.add_security_group(sg_obj)
         else:  # READ/UPDATE/DELETE
             port_obj = self._virtual_machine_interface_read(
                 port_id=port_q['id'], fields=['instance_ip_back_refs',
@@ -1813,6 +1818,7 @@ class DBInterface(object):
 
         if ('security_groups' in port_q and
             port_q['security_groups']):
+            port_obj.set_security_group_list([])
             for sg_id in port_q['security_groups']:
                 # TODO optimize to not read sg (only uuid/fqn needed)
                 sg_obj = self._vnc_lib.security_group_read(id=sg_id)
