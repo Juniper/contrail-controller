@@ -117,12 +117,14 @@ inetvpn_table_test = env.Program('inetvpn_table_test',
 env.Alias('src/bgp/l3vpn:inetvpn_table_test', inetvpn_table_test)
 
 test_suite = [
-    inetvpn_peer_test,
     inetvpn_route_test,
     inetvpn_table_test
 ]
 
 test = env.TestSuite('bgp-test', test_suite)
 env.Alias('controller/src/bgp/l3vpn:test', test)
+env.Alias('controller/src/bgp/l3vpn:flaky-test', [
+    inetvpn_peer_test,
+])
 
 Return('test_suite')

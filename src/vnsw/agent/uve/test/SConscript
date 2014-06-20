@@ -32,4 +32,5 @@ test_stats_mock =  AgentEnv.MakeTestCmd(env, 'test_stats_mock', uve_test_suite)
 
 test = env.TestSuite('agent-test', uve_test_suite)
 env.Alias('agent:uve', test)
+env.Alias('controller/src/vnsw/agent/uve:test', test)
 Return('uve_test_suite')

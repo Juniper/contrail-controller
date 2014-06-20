@@ -16,5 +16,6 @@ test_dynamic_vgw = AgentEnv.MakeTestCmd(env, 'test_dynamic_vgw', vgw_test_suite)
 
 test = env.TestSuite('agent-test', vgw_test_suite)
 env.Alias('agent:vgw', test)
+env.Alias('controller/src/vnsw/agent/vgw:test', test)
 Return('vgw_test_suite')
 

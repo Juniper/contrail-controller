@@ -88,4 +88,5 @@ test_acl_entry = AgentEnv.MakeTestCmdSrc(env, 'test_acl_entry',
 
 test = env.TestSuite('agent-test', agent_suite)
 env.Alias('agent:agent_test', test)
+env.Alias('controller/src/vnsw/agent:test', test)
 Return('agent_suite')

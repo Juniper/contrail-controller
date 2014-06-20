@@ -30,4 +30,5 @@ nova_info_server_test = AgentEnv.MakeTestCmdSrc(env, 'nova_info_server_test',
 
 test = env.TestSuite('agent-test', openstack_test_suite)
 env.Alias('agent:openstack', test)
+env.Alias('controller/src/vnsw/agent/openstack:test', test)
 Return('openstack_test_suite')
