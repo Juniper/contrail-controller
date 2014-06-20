@@ -77,15 +77,19 @@ env.Alias('src/xmpp:xmpp_client_sm_test', xmpp_client_sm_test)
 xmpp_test_suite = [
      xmpp_server_test,
      xmpp_pubsub_test,
-     xmpp_session_test,
      xmpp_regex_test,
      xmpp_server_sm_test,
      xmpp_client_sm_test
-#    xmpp_stream_message_client_test, # TODO This test fails!
-#    xmpp_stream_message_server_test, # TODO This test fails!
+]
+
+flaky_xmpp_test_suite = [
+    xmpp_session_test,
 ]
 
 test = env.TestSuite('xmpp-test', xmpp_test_suite)
 env.Alias('controller/src/xmpp:test', test)
+
+flaky_test = env.TestSuite('flaky-xmpp-test', flaky_xmpp_test_suite)
+env.Alias('controller/src/xmpp:flaky-test', flaky_test)
  
 Return('xmpp_test_suite')
