@@ -1,0 +1,59 @@
+# -*- mode: python; -*-
+
+#
+# Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
+# 
+
+Import('BuildEnv')
+env = BuildEnv.Clone()
+
+setup_sources = [
+           'setup.py',
+           'MANIFEST.in',
+          ]
+
+
+setup_sources_rules = []
+for file in setup_sources:
+    setup_sources_rules.append(env.Install("", "#controller/src/storage/stats-daemon/" + file))
+
+local_sources = [
+           '__init__.py',
+           'storage-nodemgr.py',
+          ]
+
+local_sources_rules = []
+for file in local_sources:
+    local_sources_rules.append(
+        env.Install("storage_stats", "#controller/src/storage/stats-daemon/" + file))
+
+sandesh_gen_py_gfiles = env.SandeshGenPy('storage.sandesh')
+sandesh_gen_py_dirs = ['storage']
+sandesh_gen_py_files = sandesh_gen_py_dirs + [ '__init__.py' ]
+sandesh_gen_py_sources = ['gen_py/' + ssrc for ssrc in sandesh_gen_py_files]
+sandesh_gen_py_rules = []
+for file in sandesh_gen_py_sources:
+    sandesh_gen_py_rules.append(
+        env.Install("storage_stats/sandesh", file))
+env.Depends(sandesh_gen_py_rules, sandesh_gen_py_gfiles)
+
+sdist_depends = []
+sdist_depends.extend(setup_sources_rules)
+sdist_depends.extend(local_sources_rules)
+sdist_depends.extend(sandesh_gen_py_rules)
+# TODO(roque): deprecate
+sdist_gen = env.Command('dist', 'setup.py', 'python setup.py sdist', chdir=1)
+
+env.Depends(sdist_gen, sdist_depends)
+env.Default(sdist_gen)
+
+if 'install' in BUILD_TARGETS:
+    install_cmd = env.Command(None, 'setup.py',
+                              'python setup.py install %s' %
+                              env['PYTHON_INSTALL_OPT'],
+                              chdir = 1)
+    env.Depends(install_cmd, sdist_depends)
+    env.Alias('install', install_cmd)
+
+env.Alias('install', env.Install(env['INSTALL_CONF'],
+            'stats_daemon.conf'))
