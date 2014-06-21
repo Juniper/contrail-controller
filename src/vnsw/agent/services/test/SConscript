@@ -19,4 +19,5 @@ pkt_trace_test = AgentEnv.MakeTestCmd(env, 'pkt_trace_test', service_test_suite)
 
 test = env.TestSuite('agent-test', service_test_suite)
 env.Alias('agent:services', test)
+env.Alias('controller/src/vnsw/agent/services:test', test)
 Return('service_test_suite')

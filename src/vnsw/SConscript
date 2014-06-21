@@ -26,7 +26,7 @@ env.Alias('controller/src/agent:test', [
     'controller/src/vnsw/agent/cmn:test',
     'controller/src/vnsw/agent/diag:test',
 #   'controller/src/vnsw/agent/filter:test',
-    'controller/src/vnsw/agent/init:test',
+#   'controller/src/vnsw/agent/init:test',
     'controller/src/vnsw/agent/kstate:test',
     'controller/src/vnsw/agent/ksync:test',
     'controller/src/vnsw/agent/openstack:test',
