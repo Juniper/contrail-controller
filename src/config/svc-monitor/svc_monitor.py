@@ -612,6 +612,10 @@ class SvcMonitor(object):
             for ip in vmi_obj.get_instance_ip_back_refs() or []:
                 self._vnc_lib.instance_ip_delete(id=ip['uuid'])
             self._vnc_lib.virtual_machine_interface_delete(id=vmi['uuid'])
+        for vr in vm_obj.get_virtual_router_back_refs() or []:
+            vr_obj = self._vnc_lib.virtual_router_read(id=vr['uuid'])
+            vr_obj.del_virtual_machine(vm_obj)
+            self._vnc_lib.virtual_router_update(vr_obj)
         self._vnc_lib.virtual_machine_delete(id=vm_obj.uuid)
 
     def _delete_svc_instance_vm(self, vm_uuid, proj_name, si_fq_str=None):
