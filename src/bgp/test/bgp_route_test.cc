@@ -125,7 +125,7 @@ TEST_F(BgpRouteTest, Paths) {
     BgpPath *path4 = new BgpPath(&peer, BgpPath::BGP_XMPP, attr4, 0, 0);
     route.InsertPath(path4);
 
-    EXPECT_EQ(path3, route.FindPath(BgpPath::BGP_XMPP, &peer, 0));
+    EXPECT_NE(path3, route.FindPath(BgpPath::BGP_XMPP, &peer, 0));
 
     // Remove all 4 paths that have been added so far
     route.RemovePath(&peer);
