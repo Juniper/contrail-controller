@@ -235,8 +235,11 @@ bool AgentParam::ParseServerListArguments
 }
 
 void AgentParam::ParseCollector() { 
-    ParseIp("COLLECTOR.server", &collector_);
-    GetValueFromTree<uint16_t>(collector_port_, "COLLECTOR.port");
+    optional<string> opt_str;
+    if (opt_str = tree_.get_optional<string>("DEFAULT.collectors")) {
+        boost::split(collector_server_list_, opt_str.get(),
+                     boost::is_any_of(" "));
+    }
 }
 
 void AgentParam::ParseVirtualHost() { 
@@ -386,8 +389,8 @@ void AgentParam::ParseHeadlessMode() {
 
 void AgentParam::ParseCollectorArguments
     (const boost::program_options::variables_map &var_map) {
-    ParseIpArgument(var_map, collector_, "COLLECTOR.server");
-    GetOptValue<uint16_t>(var_map, collector_port_, "COLLECTOR.port");
+    GetOptValue< vector<string> >(var_map, collector_server_list_,
+                                      "DEFAULT.collectors");
 }
 
 void AgentParam::ParseVirtualHostArguments
@@ -737,7 +740,7 @@ AgentParam::AgentParam(Agent *agent) :
         linklocal_system_flows_(), linklocal_vm_flows_(),
         flow_cache_timeout_(), config_file_(), program_name_(),
         log_file_(), log_local_(false), log_level_(), log_category_(),
-        collector_(), collector_port_(), http_server_port_(), host_name_(),
+        collector_server_list_(), http_server_port_(), host_name_(),
         agent_stats_interval_(AgentStatsCollector::AgentStatsInterval), 
         flow_stats_interval_(FlowStatsCollector::FlowStatsInterval),
         vmware_physical_port_(""), test_mode_(false), debug_(false), tree_(),

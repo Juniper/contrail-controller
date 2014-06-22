@@ -71,13 +71,13 @@ int main(int argc, char *argv[]) {
          opt::value<string>()->default_value(Agent::GetInstance()->config_file()), 
          "Configuration file")
         ("version", "Display version information")
-        ("COLLECTOR.server", opt::value<string>(), 
-         "IP address of sandesh collector")
-        ("COLLECTOR.port", opt::value<uint16_t>(), "Port of sandesh collector")
         ("CONTROL-NODE.server", 
          opt::value<std::vector<std::string> >()->multitoken(),
          "IP addresses of control nodes."
          " Max of 2 Ip addresses can be configured")
+        ("DEFAULT.collectors",
+         opt::value<std::vector<std::string> >()->multitoken(),
+         "Collector server list")
         ("DEFAULT.debug", "Enable debug logging")
         ("DEFAULT.flow_cache_timeout", 
          opt::value<uint16_t>()->default_value(Agent::kDefaultFlowCacheTimeout),

@@ -247,13 +247,10 @@ void Agent::InitCollector() {
                            g_vns_constants.NodeTypeNames.find(node_type)->second,
                            g_vns_constants.INSTANCE_ID_DEFAULT,
                            event_manager(),
-                           params_->http_server_port());
+                           params_->http_server_port(), 0,
+                           params_->collector_server_list(),
+                           NULL);
 
-    if (params_->collector_port() != 0 && 
-        params_->collector().to_ulong() != 0) {
-        Sandesh::ConnectToCollector(params_->collector().to_string(),
-                                    params_->collector_port());
-    }
 }
 
 static bool interface_exist(string &name) {
