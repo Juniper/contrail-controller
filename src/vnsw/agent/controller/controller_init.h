@@ -73,6 +73,8 @@ public:
 private:
     AgentXmppChannel *FindAgentXmppChannel(const std::string &server_ip);
     AgentDnsXmppChannel *FindAgentDnsXmppChannel(const std::string &server_ip);
+    void DeleteConnectionInfo(const std::string &addr, bool is_dns) const;
+    const std::string MakeConnectionPrefix(bool is_dns) const;
 
     Agent *agent_;
     uint64_t multicast_sequence_number_;

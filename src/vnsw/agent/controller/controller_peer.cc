@@ -4,6 +4,7 @@
 
 #include <base/util.h>
 #include <base/logging.h>
+#include <base/connection_info.h>
 #include <net/bgp_af.h>
 #include <sandesh/sandesh.h>
 #include <sandesh/sandesh_types.h>
@@ -963,6 +964,7 @@ void AgentXmppChannel::SetMulticastPeer(AgentXmppChannel *old_peer,
 void AgentXmppChannel::HandleAgentXmppClientChannelEvent(AgentXmppChannel *peer,
                                                          xmps::PeerState state) {
     Agent *agent = peer->agent();
+    peer->UpdateConnectionInfo(state);
     bool change_agent_mcast_builder = false;
     bool headless_mode = agent->headless_agent_mode();
 
@@ -1600,3 +1602,26 @@ bool AgentXmppChannel::ControllerSendMcastRoute(AgentXmppChannel *peer,
     return (peer->SendUpdate(data_,datalen_));
 }
 
+void AgentXmppChannel::UpdateConnectionInfo(xmps::PeerState state) {
+    boost::asio::ip::tcp::endpoint ep;
+    boost::system::error_code ec;
+    string last_state_name;
+    ep.address(boost::asio::ip::address::from_string(agent_->
+                controller_ifmap_xmpp_server(xs_idx_), ec));
+    ep.port(agent_->controller_ifmap_xmpp_port(xs_idx_));
+    const string name = agent_->xmpp_control_node_prefix() +
+                        ep.address().to_string();
+    XmppChannel *xc = GetXmppChannel();
+    if (xc) {
+        last_state_name = xc->LastStateName();
+    }
+    if (state == xmps::READY) {
+        agent_->connection_state()->Update(ConnectionType::XMPP, name,
+                                           ConnectionStatus::UP, ep,
+                                           last_state_name);
+    } else {
+        agent_->connection_state()->Update(ConnectionType::XMPP, name,
+                                           ConnectionStatus::DOWN, ep,
+                                           last_state_name);
+    }
+}

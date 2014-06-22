@@ -54,6 +54,12 @@ protected:
     boost::scoped_ptr<AgentStatsCollector> agent_stats_collector_;
 
 private:
+    void VrouterAgentConnectivityStatus(const std::vector<ConnectionInfo> &c,
+        ConnectivityStatus::type &cstatus, std::string &message);
+    uint8_t ExpectedConnections(uint8_t &num_c_nodes, uint8_t &num_d_servers);
+    void UpdateStatus(const ConnectionInfo &info, ConnectivityStatus::type &c,
+                      std::string &message);
+
     static AgentUve *singleton_;
     Agent *agent_;
     uint64_t bandwidth_intvl_; //in microseconds

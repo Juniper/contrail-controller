@@ -100,6 +100,7 @@ class Peer;
 class LifetimeManager;
 class DiagTable;
 class VNController;
+class ConnectionState;
 
 extern void RouterIdDepInit(Agent *agent);
 
@@ -141,6 +142,12 @@ public:
     static const std::string &NullString() {return null_string_;};
     static const uint8_t *vrrp_mac() {return vrrp_mac_;}
     static const std::string &BcastMac() {return bcast_mac_;};
+    static const std::string &xmpp_dns_server_prefix() {
+        return xmpp_dns_server_connection_name_prefix_;
+    }
+    static const std::string &xmpp_control_node_prefix() {
+        return xmpp_control_node_connection_name_prefix_;
+    }
 
     const std::string &host_name() const {return host_name_; }
     const std::string &program_name() const {return prog_name_;}
@@ -449,7 +456,12 @@ public:
     void set_vhost_interface(const Interface *interface) {
         vhost_interface_ = interface;
     }
-
+    ConnectionState* connection_state() const {
+        return connection_state_;
+    }
+    void set_connection_state(ConnectionState* state) {
+        connection_state_ = state;
+    }
     uint16_t metadata_server_port() const {return metadata_server_port_;}
     void set_metadata_server_port(uint16_t port) {
         metadata_server_port_ = port;
@@ -695,6 +707,7 @@ private:
     VxLanNetworkIdentifierMode vxlan_network_identifier_mode_;
     bool headless_agent_mode_;
     const Interface *vhost_interface_;
+    ConnectionState* connection_state_;
     bool debug_;
     bool test_mode_;
     bool init_done_;
@@ -712,6 +725,8 @@ private:
     static const std::string link_local_vn_name_;
     static const uint8_t vrrp_mac_[ETHER_ADDR_LEN];
     static const std::string bcast_mac_;
+    static const std::string xmpp_dns_server_connection_name_prefix_;
+    static const std::string xmpp_control_node_connection_name_prefix_;
 };
 
 #endif // vnsw_agent_hpp
