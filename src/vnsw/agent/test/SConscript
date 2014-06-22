@@ -170,7 +170,7 @@ test_suite = [
               test_route,
               test_l2route,
               test_cfg,
-              test_xmpp_hv,
+#              test_xmpp_hv,
               test_xmpp_hv2,
               test_xmppcs_hv,
               test_xmpp_non_hv,

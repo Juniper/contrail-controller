@@ -32,23 +32,33 @@ std::string fabric_dns_name[] =
 std::string fabric_ip[] = 
     { "10.1.2.3", "10.1.2.4", "10.1.2.5", "10.1.2.6", "10.1.2.7" };
 
+struct PortInfo input[] = { 
+    {"vnet1", 1, "1.1.1.1", "00:00:00:01:01:01", 1, 1}, 
+};  
+
 uint16_t fabric_port[] = { 8775, 8080, 9000, 12345, 8000 };
+
+IpamInfo ipam_info[] = {
+    {"1.1.1.0", 24, "1.1.1.200", true},
+    {"1.2.3.128", 27, "1.2.3.129", true},
+    {"7.8.9.0", 24, "7.8.9.12", true},
+};
 
 class LinkLocalTest : public ::testing::Test {
 public:
     LinkLocalTest() : response_count_(0) {}
     ~LinkLocalTest() {}
 
-    void FillServices(TestLinkLocalService *services, int count) {
-        for (int i = 0; i < count; ++i) {
-            services[i].linklocal_name = linklocal_name[i];
-            services[i].linklocal_ip = linklocal_ip[i];
-            services[i].linklocal_port = linklocal_port[i];
-            services[i].fabric_dns_name = fabric_dns_name[i];
+    void FillServices() {
+        for (int i = 0; i < MAX_SERVICES; ++i) {
+            services_[i].linklocal_name = linklocal_name[i];
+            services_[i].linklocal_ip = linklocal_ip[i];
+            services_[i].linklocal_port = linklocal_port[i];
+            services_[i].fabric_dns_name = fabric_dns_name[i];
             for (int j = 0; j < i + 1; ++j) {
-                services[i].fabric_ip.push_back(fabric_ip[j]);
+                services_[i].fabric_ip.push_back(fabric_ip[j]);
             }
-            services[i].fabric_port = fabric_port[i];
+            services_[i].fabric_port = fabric_port[i];
         }
     }
 
@@ -59,31 +69,32 @@ public:
     int sandesh_response_count() { return response_count_; }
     void ClearSandeshResponseCount() { response_count_ = 0; }
 
+    virtual void SetUp() {
+        client->Reset();
+        Agent::GetInstance()->SetRouterId(Ip4Address::from_string(VHOST_IP));
+        FillServices();
+        AddLinkLocalConfig(services_, MAX_SERVICES);
+        CreateVmportEnv(input, 1, 0);
+        client->WaitForIdle();
+    }
+
+    virtual void TearDown() {
+        client->Reset();
+        client->WaitForIdle();
+        DelIPAM("ipam1");
+        client->WaitForIdle();
+        DeleteVmportEnv(input, 1, 1, 0); 
+        client->WaitForIdle();
+    }
+    TestLinkLocalService services_[MAX_SERVICES];
+
 private:
     int response_count_;
 };
 
 TEST_F(LinkLocalTest, LinkLocalReqTest) {
-    Agent::GetInstance()->SetRouterId(Ip4Address::from_string(VHOST_IP));
-    TestLinkLocalService services[MAX_SERVICES];
-    FillServices(services, MAX_SERVICES);
-    AddLinkLocalConfig(services, MAX_SERVICES);
-
-    struct PortInfo input[] = { 
-        {"vnet1", 1, "1.1.1.1", "00:00:00:01:01:01", 1, 1}, 
-    };  
-    CreateVmportEnv(input, 1, 0);
-    client->WaitForIdle();
-    client->Reset();
-
-    IpamInfo ipam_info[] = {
-        {"1.1.1.0", 24, "1.1.1.200", true},
-        {"1.2.3.128", 27, "1.2.3.129", true},
-        {"7.8.9.0", 24, "7.8.9.12", true},
-    };
     AddIPAM("ipam1", ipam_info, 3);
     client->WaitForIdle();
-
     struct PortInfo new_input[] = { 
         {"vnet2", 2, "2.2.2.2", "00:00:00:02:02:02", 2, 2}, 
     };  
@@ -119,6 +130,9 @@ TEST_F(LinkLocalTest, LinkLocalReqTest) {
     EXPECT_TRUE(count < MAX_COUNT);
 
     // Delete linklocal config
+    Agent::GetInstance()->oper_db()->global_vrouter()->
+        LinkLocalCleanup();
+    client->WaitForIdle();
     DelLinkLocalConfig();
     client->WaitForIdle();
 
@@ -137,31 +151,15 @@ TEST_F(LinkLocalTest, LinkLocalReqTest) {
                  Ip4Address::from_string("127.0.0.1")));
 
     client->Reset();
-    DelIPAM("ipam1");
-    client->WaitForIdle();
-    DeleteVmportEnv(input, 1, 1, 0); 
-    client->WaitForIdle();
     DeleteVmportEnv(new_input, 1, 1, 0); 
     client->WaitForIdle();
 }
 
 TEST_F(LinkLocalTest, LinkLocalChangeTest) {
-    Agent::GetInstance()->SetRouterId(Ip4Address::from_string(VHOST_IP));
-    TestLinkLocalService services[MAX_SERVICES];
-    FillServices(services, MAX_SERVICES);
-    AddLinkLocalConfig(services, MAX_SERVICES);
-
-    struct PortInfo input[] = { 
-        {"vnet1", 1, "1.1.1.1", "00:00:00:01:01:01", 1, 1}, 
-    };  
-    CreateVmportEnv(input, 1, 0);
-    client->WaitForIdle();
-    client->Reset();
-
-    // change linklocal request and send request for 3 services
-    services[2].linklocal_ip = "169.254.100.100";
-    services[2].fabric_ip.clear();
-    AddLinkLocalConfig(services, 3);
+    // change linklocal request and send request for 3 services_
+    services_[2].linklocal_ip = "169.254.100.100";
+    services_[2].fabric_ip.clear();
+    AddLinkLocalConfig(services_, 3);
     client->WaitForIdle();
     for (int i = 0; i < MAX_SERVICES; ++i) {
         Inet4UnicastRouteEntry *rt =
@@ -195,6 +193,9 @@ TEST_F(LinkLocalTest, LinkLocalChangeTest) {
     ClearSandeshResponseCount();
 
     // Delete linklocal config
+    Agent::GetInstance()->oper_db()->global_vrouter()->
+        LinkLocalCleanup();
+    client->WaitForIdle();
     DelLinkLocalConfig();
     client->WaitForIdle();
 
@@ -206,32 +207,11 @@ TEST_F(LinkLocalTest, LinkLocalChangeTest) {
     }
     local_rt = RouteGet("vrf1", Ip4Address::from_string("169.254.100.100"), 32);
     EXPECT_TRUE(local_rt == NULL);
-    client->Reset();
-    DeleteVmportEnv(input, 1, 1, 0); 
-    client->WaitForIdle();
 }
 
 TEST_F(LinkLocalTest, GlobalVrouterDeleteTest) {
-    Agent::GetInstance()->SetRouterId(Ip4Address::from_string(VHOST_IP));
-    TestLinkLocalService services[MAX_SERVICES];
-    FillServices(services, MAX_SERVICES);
-    AddLinkLocalConfig(services, MAX_SERVICES);
-
-    struct PortInfo input[] = { 
-        {"vnet1", 1, "1.1.1.1", "00:00:00:01:01:01", 1, 1}, 
-    };  
-    CreateVmportEnv(input, 1, 0);
-    client->WaitForIdle();
-    client->Reset();
-
-    IpamInfo ipam_info[] = {
-        {"1.1.1.0", 24, "1.1.1.200", true},
-        {"1.2.3.128", 27, "1.2.3.129", true},
-        {"7.8.9.0", 24, "7.8.9.12", true},
-    };
     AddIPAM("ipam1", ipam_info, 3);
     client->WaitForIdle();
-
     struct PortInfo new_input[] = { 
         {"vnet2", 2, "2.2.2.2", "00:00:00:02:02:02", 2, 2}, 
     };  
@@ -262,6 +242,9 @@ TEST_F(LinkLocalTest, GlobalVrouterDeleteTest) {
 
     // Delete global vrouter config; this is different from the earlier case
     // where we delete the link local entries
+    Agent::GetInstance()->oper_db()->global_vrouter()->
+        LinkLocalCleanup();
+    client->WaitForIdle();
     DeleteGlobalVrouterConfig();
     client->WaitForIdle();
 
@@ -278,11 +261,9 @@ TEST_F(LinkLocalTest, GlobalVrouterDeleteTest) {
     }
 
     client->Reset();
-    DelIPAM("ipam1");
-    client->WaitForIdle();
-    DeleteVmportEnv(input, 1, 1, 0); 
-    client->WaitForIdle();
     DeleteVmportEnv(new_input, 1, 1, 0); 
+    client->WaitForIdle();
+    DelLinkLocalConfig();
     client->WaitForIdle();
 }
 
@@ -293,7 +274,6 @@ int main(int argc, char *argv[]) {
     GETUSERARGS();
 
     client = TestInit(init_file, ksync_init, false, false, false);
-    usleep(100000);
     client->WaitForIdle();
 
     int ret = RUN_ALL_TESTS();

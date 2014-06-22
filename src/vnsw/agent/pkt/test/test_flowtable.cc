@@ -81,7 +81,8 @@ public:
     void FlushFlowTable() {
         client->EnqueueFlowFlush();
         client->WaitForIdle();
-        EXPECT_EQ(0U, Agent::GetInstance()->pkt()->flow_table()->Size());
+        WAIT_FOR(1000, 100,
+                 (0U == Agent::GetInstance()->pkt()->flow_table()->Size()));
     }
 
     void CreateLocalRoute(const char *vrf, const char *ip,
@@ -139,7 +140,7 @@ public:
         if (rev) {
             rev->InitFlowKey(&key);
             rflow = Agent::GetInstance()->pkt()->flow_table()->Find(key);
-            EXPECT_EQ(flow->reverse_flow_entry(), rflow);
+            WAIT_FOR(1000, 100, (flow->reverse_flow_entry() == rflow));
             if (flow->reverse_flow_entry() != rflow) {
                 ret = false;
             }
@@ -183,8 +184,8 @@ public:
         }
 
         if (!flow->is_flags_set(FlowEntry::LocalFlow)) {
-            EXPECT_EQ(flow->match_p().m_out_acl_l.size(), 0U);
-            EXPECT_EQ(flow->match_p().m_out_sg_acl_l.size(), 0U);
+            WAIT_FOR(1000, 100, (flow->match_p().m_out_acl_l.size() == 0U));
+            WAIT_FOR(1000, 100, (flow->match_p().m_out_sg_acl_l.size() == 0U));
             if ((flow->match_p().m_out_acl_l.size() != 0) || 
                 (flow->match_p().m_out_sg_acl_l.size() != 0)) {
                 ret = false;
@@ -283,11 +284,16 @@ public:
         EXPECT_TRUE(VmPortActive(tap3, 0));
         EXPECT_TRUE(VmPortPolicyEnable(tap3, 0));
 
-        EXPECT_EQ(7U, Agent::GetInstance()->GetInterfaceTable()->Size());
-        EXPECT_EQ(3U, Agent::GetInstance()->GetVmTable()->Size());
+        WAIT_FOR(1000, 100,
+                 (7U == Agent::GetInstance()->GetInterfaceTable()->Size()));
 
-        EXPECT_EQ(2U,  Agent::GetInstance()->GetVnTable()->Size());
-        EXPECT_EQ(3U, Agent::GetInstance()->GetIntfCfgTable()->Size());
+        WAIT_FOR(1000, 100, (3U == Agent::GetInstance()->GetVmTable()->Size()));
+
+        WAIT_FOR(1000, 100,
+                 (2U ==  Agent::GetInstance()->GetVnTable()->Size()));
+
+        WAIT_FOR(1000, 100,
+                 (3U == Agent::GetInstance()->GetIntfCfgTable()->Size()));
 
         vif1 = VmInterfaceGet(tap1[0].intf_id);
         assert(vif1);
@@ -313,11 +319,13 @@ public:
         EXPECT_FALSE(VmPortFind(tap2, 0));
         EXPECT_FALSE(VmPortFind(tap3, 0));
 
-        EXPECT_EQ(3U, Agent::GetInstance()->GetInterfaceTable()->Size());
-        EXPECT_EQ(0U, Agent::GetInstance()->GetIntfCfgTable()->Size());
-        EXPECT_EQ(0U, Agent::GetInstance()->GetVmTable()->Size());
-        EXPECT_EQ(0U, Agent::GetInstance()->GetVnTable()->Size());
-        EXPECT_EQ(0U, Agent::GetInstance()->GetAclTable()->Size());
+        WAIT_FOR(1000, 100, 
+                 (Agent::GetInstance()->GetInterfaceTable()->Size() == 3));
+        WAIT_FOR(1000, 100, 
+                 (Agent::GetInstance()->GetIntfCfgTable()->Size() == 0));
+        WAIT_FOR(1000, 100, (Agent::GetInstance()->GetVmTable()->Size() == 0));
+        WAIT_FOR(1000, 100, (Agent::GetInstance()->GetVnTable()->Size() == 0));
+        WAIT_FOR(1000, 100, (Agent::GetInstance()->GetAclTable()->Size() == 0));
 
         if (ksync_init_) {
             DeleteTapIntf(fd_table, MAX_VNET);
@@ -334,7 +342,8 @@ public:
 
 protected:
     virtual void SetUp() {
-        EXPECT_EQ(0U, Agent::GetInstance()->pkt()->flow_table()->Size());
+        WAIT_FOR(1000, 100,
+                 (0U == Agent::GetInstance()->pkt()->flow_table()->Size()));
         //Reset flow age
         client->EnqueueFlowAge();
         client->WaitForIdle();
