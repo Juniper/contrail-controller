@@ -5,6 +5,7 @@
 #include "base/logging.h"
 #include "base/timer.h"
 #include "base/contrail_ports.h"
+#include "base/connection_info.h"
 #include <sandesh/sandesh.h>
 #include <sandesh/sandesh_types.h>
 #include <sandesh/sandesh_trace.h>
@@ -87,6 +88,7 @@ void VNController::XmppServerConnect() {
             client->RegisterConnectionEvent(xmps::BGP,
                boost::bind(&AgentXmppChannel::HandleAgentXmppClientChannelEvent,
                            bgp_peer, _2));
+            bgp_peer->UpdateConnectionInfo();
 
             // create ifmap peer
             AgentIfMapXmppChannel *ifmap_peer = 
@@ -148,6 +150,8 @@ void VNController::DnsXmppServerConnect() {
             client_dns->RegisterConnectionEvent(xmps::DNS,
                 boost::bind(&AgentDnsXmppChannel::HandleXmppClientChannelEvent, 
                             dns_peer, _2));
+
+            dns_peer->UpdateConnectionInfo();
             agent_->set_dns_xmpp_client(client_dns, count);
             agent_->set_dns_xmpp_channel(dns_peer, count);
             agent_->set_dns_xmpp_init(xmpp_dns, count);
@@ -220,6 +224,8 @@ void VNController::Cleanup() {
 
             agent_->ResetAgentMcastLabelRange(count);
 
+            DeleteConnectionInfo(agent_->controller_ifmap_xmpp_server(count),
+                                 false);
             delete agent_->controller_xmpp_channel(count);
             agent_->set_controller_xmpp_channel(NULL, count);
 
@@ -235,6 +241,7 @@ void VNController::Cleanup() {
         }
         if ((cl = agent_->dns_xmpp_client(count)) != NULL) {
 
+            DeleteConnectionInfo(agent_->dns_server(count), false);
             delete agent_->dns_xmpp_channel(count);
             agent_->set_dns_xmpp_channel(NULL, count);
 
@@ -273,6 +280,22 @@ AgentXmppChannel *VNController::FindAgentXmppChannel(
     return NULL;
 }
 
+const string VNController::MakeConnectionPrefix(bool is_dns) const {
+    string name_prefix;
+    if (is_dns) {
+        name_prefix = "dns-server:";
+    } else {
+        name_prefix = "control-node:";
+    }
+    return name_prefix;
+}
+
+void VNController::DeleteConnectionInfo(const std::string &addr, bool is_dns)
+                                        const {
+    const string &name_prefix = MakeConnectionPrefix(is_dns);
+    ConnectionState::GetInstance()->Delete(ConnectionType::XMPP,
+                                           name_prefix + addr);
+}
 
 void VNController::ApplyDiscoveryXmppServices(std::vector<DSResponse> resp) {
 
@@ -318,6 +341,8 @@ void VNController::ApplyDiscoveryXmppServices(std::vector<DSResponse> resp) {
                 agent_->set_controller_ifmap_xmpp_client(NULL, 0);
                 delete agent_->controller_ifmap_xmpp_init(0);
                 agent_->set_controller_ifmap_xmpp_init(NULL, 0);
+                DeleteConnectionInfo(agent_->controller_ifmap_xmpp_server(0),
+                                     false);
 
                 CONTROLLER_TRACE(DiscoveryConnection, 
                                 "Refresh Xmpp Channel[0] = ", dr.ep.address().to_string(), ""); 
@@ -336,6 +361,8 @@ void VNController::ApplyDiscoveryXmppServices(std::vector<DSResponse> resp) {
                 agent_->set_controller_ifmap_xmpp_client(NULL, 1);
                 delete agent_->controller_ifmap_xmpp_init(1);
                 agent_->set_controller_ifmap_xmpp_init(NULL, 1);
+                DeleteConnectionInfo(agent_->controller_ifmap_xmpp_server(1),
+                                     false);
 
                 CONTROLLER_TRACE(DiscoveryConnection, 
                                  "Refresh Xmpp Channel[1] = ", dr.ep.address().to_string(), ""); 
@@ -405,6 +432,7 @@ void VNController::ApplyDiscoveryDnsXmppServices(std::vector<DSResponse> resp) {
                 agent_->set_dns_xmpp_channel(NULL, 0);
                 agent_->set_dns_xmpp_client(NULL, 0);
                 agent_->set_dns_xmpp_init(NULL, 0);
+                DeleteConnectionInfo(agent_->dns_server(0), true);
 
                 CONTROLLER_TRACE(DiscoveryConnection,   
                                 "Refresh Dns Xmpp Channel[0] = ", 
@@ -421,6 +449,7 @@ void VNController::ApplyDiscoveryDnsXmppServices(std::vector<DSResponse> resp) {
                 agent_->set_dns_xmpp_channel(NULL, 1);
                 agent_->set_dns_xmpp_client(NULL, 1);
                 agent_->set_dns_xmpp_init(NULL, 1);
+                DeleteConnectionInfo(agent_->dns_server(1), true);
 
                 CONTROLLER_TRACE(DiscoveryConnection, 
                                  "Refresh Dns Xmpp Channel[1] = ", 

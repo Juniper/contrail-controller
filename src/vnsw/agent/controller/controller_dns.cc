@@ -4,6 +4,7 @@
 
 #include "base/util.h"
 #include "base/logging.h"
+#include "base/connection_info.h"
 #include "controller/controller_dns.h"
 #include "xmpp/xmpp_channel.h"
 #include "cmn/agent_cmn.h"
@@ -71,6 +72,7 @@ void AgentDnsXmppChannel::WriteReadyCb(uint8_t *msg,
 void AgentDnsXmppChannel::HandleXmppClientChannelEvent(AgentDnsXmppChannel *peer,
                                                        xmps::PeerState state) {
     Agent *agent = peer->agent();
+    peer->UpdateConnectionInfo();
     if (state == xmps::READY) {
         if (agent->dns_xmpp_server_index() == -1)
             agent->set_dns_xmpp_server_index(peer->xs_idx_);
@@ -93,4 +95,24 @@ void AgentDnsXmppChannel::set_dns_message_handler_cb(DnsMessageHandler cb) {
 
 void AgentDnsXmppChannel::set_dns_xmpp_event_handler_cb(DnsXmppEventHandler cb){
     dns_xmpp_event_handler_cb_ = cb;
+}
+
+void AgentDnsXmppChannel::UpdateConnectionInfo(void) {
+    boost::asio::ip::tcp::endpoint ep;
+    boost::system::error_code ec;
+    ep.address(boost::asio::ip::address::from_string(agent_->dns_server
+                                                             (xs_idx_), ec));
+    ep.port(agent_->dns_server_port(xs_idx_));
+    XmppChannel *xc = GetXmppChannel();
+    if (xc) {
+        if (xc->GetPeerState() == xmps::READY) {
+            ConnectionState::GetInstance()->Update(ConnectionType::XMPP,
+                    "dns-server:" + ep.address().to_string(), ConnectionStatus::UP,
+                    ep, xc->LastStateName());
+        } else {
+            ConnectionState::GetInstance()->Update(ConnectionType::XMPP,
+                    "dns-server:" + ep.address().to_string(), ConnectionStatus::DOWN,
+                    ep, xc->LastStateName());
+        }
+    }
 }
