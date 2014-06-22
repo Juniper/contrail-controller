@@ -2299,6 +2299,9 @@ class VirtualMachineInterfaceST(DictST):
             return
 
         vm_id = get_vm_id_from_interface(vmi_obj)
+        if vm_id is None:
+            _sandesh._logger.debug("vm id is None for interface %s", self.name)
+            return
         try:
             vm_obj = _vnc_lib.virtual_machine_read(id=vm_id)
         except NoIdError as e:
