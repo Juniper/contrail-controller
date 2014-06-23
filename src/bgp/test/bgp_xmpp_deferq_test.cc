@@ -147,6 +147,10 @@ public:
         return channel->defer_peer_close_;
     }
 
+    size_t PeerDeferQSize(BgpXmppChannel *channel) {
+        return channel->defer_q_.size();
+    }
+
     void PausePeerRibMembershipManager() {
         a_->membership_mgr()->event_queue_->set_disable(true);
     }
@@ -1791,6 +1795,152 @@ TEST_F(BgpXmppSerializeMembershipReqTest, SerializedMembershipReq6) {
     BGP_VERIFY_ROUTE_COUNT(
         a_->routing_instance_mgr()->GetRoutingInstance("red")->GetTable(
                            Address::INET), 0);
+}
+
+TEST_F(BgpXmppSerializeMembershipReqTest, FlushDeferQForVrfAndTable1) {
+    PausePeerRibMembershipManager();
+
+    agent_a_->Subscribe("blue", 1, false);
+    agent_a_->Subscribe("red", 2, false);
+    TASK_UTIL_EXPECT_EQ(2, bgp_channel_manager_->channel_->Count());
+    TASK_UTIL_EXPECT_TRUE(
+        PeerHasPendingMembershipRequests(bgp_channel_manager_->channel_));
+    task_util::WaitForIdle();
+
+    TASK_UTIL_EXPECT_TRUE(
+        PeerNotRegistered(bgp_channel_manager_->channel_, "blue"));
+    TASK_UTIL_EXPECT_TRUE(
+        PeerNotRegistered(bgp_channel_manager_->channel_, "red"));
+
+    agent_a_->AddRoute("red", "10.1.1.1/32");
+    agent_a_->AddRoute("red", "10.1.1.2/32");
+    agent_a_->AddRoute("blue", "10.1.1.1/32");
+    agent_a_->AddRoute("blue", "10.1.1.2/32");
+    TASK_UTIL_EXPECT_EQ(6, bgp_channel_manager_->channel_->Count());
+    TASK_UTIL_EXPECT_EQ(4, PeerDeferQSize(bgp_channel_manager_->channel_));
+
+    agent_a_->Unsubscribe("blue", -1, false);
+    TASK_UTIL_EXPECT_EQ(7, bgp_channel_manager_->channel_->Count());
+    TASK_UTIL_EXPECT_EQ(2, PeerDeferQSize(bgp_channel_manager_->channel_));
+
+    agent_a_->Unsubscribe("red", -1, false);
+    TASK_UTIL_EXPECT_EQ(8, bgp_channel_manager_->channel_->Count());
+    TASK_UTIL_EXPECT_EQ(0, PeerDeferQSize(bgp_channel_manager_->channel_));
+
+    TASK_UTIL_EXPECT_TRUE(
+        PeerHasPendingMembershipRequests(bgp_channel_manager_->channel_));
+    ResumePeerRibMembershipManager();
+    TASK_UTIL_EXPECT_FALSE(
+        PeerHasPendingMembershipRequests(bgp_channel_manager_->channel_));
+}
+
+TEST_F(BgpXmppSerializeMembershipReqTest, FlushDeferQForVrfAndTable2) {
+    PausePeerRibMembershipManager();
+
+    agent_a_->Subscribe("blue", 1, false);
+    agent_a_->Subscribe("red", 2, false);
+    TASK_UTIL_EXPECT_EQ(2, bgp_channel_manager_->channel_->Count());
+    TASK_UTIL_EXPECT_TRUE(
+        PeerHasPendingMembershipRequests(bgp_channel_manager_->channel_));
+    task_util::WaitForIdle();
+
+    TASK_UTIL_EXPECT_TRUE(
+        PeerNotRegistered(bgp_channel_manager_->channel_, "blue"));
+    TASK_UTIL_EXPECT_TRUE(
+        PeerNotRegistered(bgp_channel_manager_->channel_, "red"));
+
+    agent_a_->AddRoute("red", "10.1.1.1/32");
+    agent_a_->AddRoute("red", "10.1.1.2/32");
+    agent_a_->AddRoute("blue", "10.1.1.1/32");
+    agent_a_->AddRoute("blue", "10.1.1.2/32");
+    TASK_UTIL_EXPECT_EQ(6, bgp_channel_manager_->channel_->Count());
+    TASK_UTIL_EXPECT_EQ(4, PeerDeferQSize(bgp_channel_manager_->channel_));
+
+    agent_a_->Unsubscribe("red", -1, false);
+    TASK_UTIL_EXPECT_EQ(7, bgp_channel_manager_->channel_->Count());
+    TASK_UTIL_EXPECT_EQ(2, PeerDeferQSize(bgp_channel_manager_->channel_));
+
+    agent_a_->Unsubscribe("blue", -1, false);
+    TASK_UTIL_EXPECT_EQ(8, bgp_channel_manager_->channel_->Count());
+    TASK_UTIL_EXPECT_EQ(0, PeerDeferQSize(bgp_channel_manager_->channel_));
+
+    TASK_UTIL_EXPECT_TRUE(
+        PeerHasPendingMembershipRequests(bgp_channel_manager_->channel_));
+    ResumePeerRibMembershipManager();
+    TASK_UTIL_EXPECT_FALSE(
+        PeerHasPendingMembershipRequests(bgp_channel_manager_->channel_));
+}
+
+TEST_F(BgpXmppSerializeMembershipReqTest, FlushDeferQForVrf1) {
+    agent_a_->Subscribe("red1", 1, false);
+    agent_a_->Subscribe("red2", 2, false);
+    agent_a_->Subscribe("red3", 3, false);
+    TASK_UTIL_EXPECT_EQ(3, bgp_channel_manager_->channel_->Count());
+    task_util::WaitForIdle();
+
+    TASK_UTIL_EXPECT_TRUE(
+        PeerNotRegistered(bgp_channel_manager_->channel_, "red1"));
+    TASK_UTIL_EXPECT_TRUE(
+        PeerNotRegistered(bgp_channel_manager_->channel_, "red2"));
+    TASK_UTIL_EXPECT_TRUE(
+        PeerNotRegistered(bgp_channel_manager_->channel_, "red3"));
+
+    agent_a_->AddRoute("red2", "10.1.1.1/32");
+    agent_a_->AddRoute("red2", "10.1.1.2/32");
+    agent_a_->AddRoute("red3", "10.1.1.1/32");
+    agent_a_->AddRoute("red3", "10.1.1.2/32");
+    agent_a_->AddRoute("red1", "10.1.1.1/32");
+    agent_a_->AddRoute("red1", "10.1.1.2/32");
+    TASK_UTIL_EXPECT_EQ(9, bgp_channel_manager_->channel_->Count());
+    TASK_UTIL_EXPECT_EQ(6, PeerDeferQSize(bgp_channel_manager_->channel_));
+
+    agent_a_->Unsubscribe("red1", -1, false);
+    TASK_UTIL_EXPECT_EQ(10, bgp_channel_manager_->channel_->Count());
+    TASK_UTIL_EXPECT_EQ(4, PeerDeferQSize(bgp_channel_manager_->channel_));
+
+    agent_a_->Unsubscribe("red2", -1, false);
+    TASK_UTIL_EXPECT_EQ(11, bgp_channel_manager_->channel_->Count());
+    TASK_UTIL_EXPECT_EQ(2, PeerDeferQSize(bgp_channel_manager_->channel_));
+
+    agent_a_->Unsubscribe("red3", -1, false);
+    TASK_UTIL_EXPECT_EQ(12, bgp_channel_manager_->channel_->Count());
+    TASK_UTIL_EXPECT_EQ(0, PeerDeferQSize(bgp_channel_manager_->channel_));
+}
+
+TEST_F(BgpXmppSerializeMembershipReqTest, FlushDeferQForVrf2) {
+    agent_a_->Subscribe("red1", 1, false);
+    agent_a_->Subscribe("red2", 2, false);
+    agent_a_->Subscribe("red3", 3, false);
+    TASK_UTIL_EXPECT_EQ(3, bgp_channel_manager_->channel_->Count());
+    task_util::WaitForIdle();
+
+    TASK_UTIL_EXPECT_TRUE(
+        PeerNotRegistered(bgp_channel_manager_->channel_, "red1"));
+    TASK_UTIL_EXPECT_TRUE(
+        PeerNotRegistered(bgp_channel_manager_->channel_, "red2"));
+    TASK_UTIL_EXPECT_TRUE(
+        PeerNotRegistered(bgp_channel_manager_->channel_, "red3"));
+
+    agent_a_->AddRoute("red2", "10.1.1.1/32");
+    agent_a_->AddRoute("red2", "10.1.1.2/32");
+    agent_a_->AddRoute("red3", "10.1.1.1/32");
+    agent_a_->AddRoute("red3", "10.1.1.2/32");
+    agent_a_->AddRoute("red1", "10.1.1.1/32");
+    agent_a_->AddRoute("red1", "10.1.1.2/32");
+    TASK_UTIL_EXPECT_EQ(9, bgp_channel_manager_->channel_->Count());
+    TASK_UTIL_EXPECT_EQ(6, PeerDeferQSize(bgp_channel_manager_->channel_));
+
+    agent_a_->Unsubscribe("red2", -1, false);
+    TASK_UTIL_EXPECT_EQ(10, bgp_channel_manager_->channel_->Count());
+    TASK_UTIL_EXPECT_EQ(4, PeerDeferQSize(bgp_channel_manager_->channel_));
+
+    agent_a_->Unsubscribe("red1", -1, false);
+    TASK_UTIL_EXPECT_EQ(11, bgp_channel_manager_->channel_->Count());
+    TASK_UTIL_EXPECT_EQ(2, PeerDeferQSize(bgp_channel_manager_->channel_));
+
+    agent_a_->Unsubscribe("red3", -1, false);
+    TASK_UTIL_EXPECT_EQ(12, bgp_channel_manager_->channel_->Count());
+    TASK_UTIL_EXPECT_EQ(0, PeerDeferQSize(bgp_channel_manager_->channel_));
 }
 
 TEST_F(BgpXmppUnitTest, BgpXmppBadAddress) {

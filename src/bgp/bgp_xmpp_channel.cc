@@ -1517,9 +1517,11 @@ void BgpXmppChannel::FillTableMembershipInfo(BgpNeighborResp *resp) {
     resp->set_routing_tables(new_table_list);
 }
 
+//
+// Erase all defer_q_ elements with the given (vrf, table).
+//
 void BgpXmppChannel::FlushDeferQ(std::string vrf_name, std::string table_name) {
-    // Erase all elements for the table
-    for(DeferQ::iterator it =
+    for (DeferQ::iterator it =
         defer_q_.find(std::make_pair(vrf_name, table_name)), itnext;
         (it != defer_q_.end() && it->first.second == table_name);
         it = itnext) {
@@ -1530,9 +1532,12 @@ void BgpXmppChannel::FlushDeferQ(std::string vrf_name, std::string table_name) {
     }
 }
 
+//
+// Erase all defer_q_ elements for all tables for the given vrf.
+//
 void BgpXmppChannel::FlushDeferQ(std::string vrf_name) {
-    // Erase all elements for the table
-    for(DeferQ::iterator it = defer_q_.begin(), itnext;
+    for (DeferQ::iterator it =
+        defer_q_.lower_bound(std::make_pair(vrf_name, std::string())), itnext;
         (it != defer_q_.end() && it->first.first == vrf_name);
         it = itnext) {
         itnext = it;
