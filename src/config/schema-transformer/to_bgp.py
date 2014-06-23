@@ -305,6 +305,9 @@ class VirtualNetworkST(DictST):
         for router in BgpRouterST.values():
             router.update_autonomous_system(new_asn)
         # end for router
+        for router in LogicalRouterST.values():
+            router.update_autonomous_system(new_asn)
+        # end for router
         cls._autonomous_system = int(new_asn)
     # end update_autonomous_system
 
@@ -2451,6 +2454,29 @@ class LogicalRouterST(DictST):
                 ri_obj.update_route_target_list(rt_add=[self.route_target])
         self.virtual_networks = vn_set
     # end set_virtual_networks
+
+    def update_autonomous_system(self, asn):
+        old_rt = self.route_target
+        rtgt_num = int(old_rt.split(':')[-1])
+        rt_key = "target:%s:%d" % (asn, rtgt_num)
+        rtgt_obj = RouteTargetST.locate(rt_key)
+        try:
+            obj = _vnc_lib.logical_router_read(fq_name_str=self.name)
+            obj.set_route_target(rtgt_obj)
+            _vnc_lib.logical_router_update(obj)
+        except NoIdError:
+            _sandesh._logger.debug(
+                "NoIdError while accessing logical router %s" % self.name)
+        for vn in self.virtual_networks:
+            vn_obj = VirtualNetworkST.get(vn)
+            if vn_obj is not None:
+                ri_obj = vn_obj.get_primary_routing_instance()
+                ri_obj.update_route_target_list(rt_del=[old_rt],
+                                                rt_add=[rt_key])
+        _vnc_lib.route_target_delete(fq_name=[old_rt])
+        self.route_target = rt_key
+    # end update_autonomous_system
+
 # end LogicaliRouterST
 
 
