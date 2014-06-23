@@ -423,7 +423,7 @@ class VncApiServer(VncApiServerGen):
             if not ok:
                 (code, msg) = put_result
                 self.config_object_error(obj_uuid, None, obj_type, 'ref_update', msg)
-                abort(code, msg)
+                bottle.abort(code, msg)
         obj_type = obj_type.replace('-', '_')
         try:
             id = self._db_conn.ref_update(obj_type, obj_uuid, ref_type, ref_uuid, {'attr': attr}, operation)
