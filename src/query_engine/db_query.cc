@@ -12,7 +12,6 @@ query_status_t DbQueryUnit::process_query()
 
     QE_TRACE(DEBUG,  " Database query for " << 
             (t2_end - t2_start + 1) << " rows");
-
     QE_TRACE(DEBUG,  " Database query for T2_start:"
             << t2_start
             << " T2_end:" << t2_end

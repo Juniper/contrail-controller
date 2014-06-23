@@ -82,6 +82,7 @@
 #include "viz_constants.h"
 #include "query_engine/qe_constants.h"
 #include "query_engine/qe_types.h"
+#include "rapidjson/document.h"
 #include "sandesh/common/query_types.h"
 #include <boost/regex.hpp>
 
@@ -419,6 +420,16 @@ private:
 
 class WhereQuery : public QueryUnit {
 public:
+
+    bool StatTermParse(QueryUnit *main_query, const rapidjson::Value& where_term,
+        std::string& pname, match_op& pop,
+        GenDb::DbDataValue& pval, GenDb::DbDataValue& pval2,
+        std::string& sname, match_op& sop,
+        GenDb::DbDataValue& sval, GenDb::DbDataValue& sval2);
+
+    bool StatTermProcess(const rapidjson::Value& where_term,
+        SetOperationUnit * and_node, QueryUnit *main_query);
+ 
     WhereQuery(const std::string& where_json_string, int direction,
             QueryUnit *main_query);
     virtual query_status_t process_query();

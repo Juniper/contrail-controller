@@ -488,31 +488,35 @@ class OpServer(object):
             stat_id = t.stat_type + "." + t.stat_attr
             scols = []
 
-            keyln = query_column(name=STAT_OBJECTID_FIELD, datatype='string', index=True)
+            keyln = stat_query_column(name=STAT_SOURCE_FIELD, datatype='string', index=True)
             scols.append(keyln)
 
-            keyln = query_column(name=STAT_SOURCE_FIELD, datatype='string', index=True)
-            scols.append(keyln)
-
-            tln = query_column(name=STAT_TIME_FIELD, datatype='int', index=False)
+            tln = stat_query_column(name=STAT_TIME_FIELD, datatype='int', index=False)
             scols.append(tln)
 
-            teln = query_column(name=STAT_TIMEBIN_FIELD, datatype='int', index=False)
+            teln = stat_query_column(name=STAT_TIMEBIN_FIELD, datatype='int', index=False)
             scols.append(teln)
 
-            uln = query_column(name=STAT_UUID_FIELD, datatype='uuid', index=False)
+            uln = stat_query_column(name=STAT_UUID_FIELD, datatype='uuid', index=False)
             scols.append(uln)
 
-            cln = query_column(name="COUNT(" + t.stat_attr + ")",
+            cln = stat_query_column(name="COUNT(" + t.stat_attr + ")",
                     datatype='int', index=False)
             scols.append(cln)
 
+            isname = False
             for aln in t.attributes:
+                if aln.name==STAT_OBJECTID_FIELD:
+                    isname = True
                 scols.append(aln)
                 if aln.datatype in ['int','double']:
-                    sln = query_column(name= "SUM(" + aln.name + ")",
+                    sln = stat_query_column(name= "SUM(" + aln.name + ")",
                             datatype=aln.datatype, index=False)
                     scols.append(sln)
+
+            if not isname: 
+                keyln = stat_query_column(name=STAT_OBJECTID_FIELD, datatype='string', index=True)
+                scols.append(keyln)
 
             sch = query_schema_type(type='STAT', columns=scols)
 
