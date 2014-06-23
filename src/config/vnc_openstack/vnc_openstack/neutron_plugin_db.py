@@ -3112,7 +3112,14 @@ class DBInterface(object):
             if 'network_id' in filters:
                 ret_q_ports = self._port_list_network(filters['network_id'])
 
-            return ret_q_ports
+            # prune phase
+            ret_list = []
+            for port_obj in ret_q_ports:
+                if not self._filters_is_present(filters, 'name',
+                                                port_obj['q_api_data']['name']):
+                    continue
+                ret_list.append(port_obj)
+            return ret_list
 
         # Listing from parent to children
         device_ids = filters['device_id']
