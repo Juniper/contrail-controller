@@ -4,7 +4,7 @@ import logging
 import uuid
 from thrift.protocol import TBinaryProtocol
 from thrift.transport import TTransport
-from gen_py.instance_service import InstanceService, ttypes
+from nova_contrail_vif.gen_py.instance_service import InstanceService, ttypes
 
 
 class ContrailVRouterApi(object):
