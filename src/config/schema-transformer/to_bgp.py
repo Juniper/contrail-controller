@@ -1474,7 +1474,13 @@ class ServiceChain(DictST):
                                                  sc_ip_address)
 
             if service_instance:
-                vm_refs = service_instance.get_virtual_machine_back_refs()
+                try:
+                    vm_refs = service_instance.get_virtual_machine_back_refs()
+                except NoIdError:
+                    _sandesh._logger.debug("service chain %s: NoIdError on "
+                                           "service_instance, disappear?",
+                                           self.name)
+                    return None
                 if vm_refs is None:
                     return None
                 for service_vm in vm_refs:
@@ -1575,7 +1581,8 @@ class ServiceChain(DictST):
                           vm_obj.get_virtual_machine_interface_back_refs()
                           or []):
             if_obj = VirtualMachineInterfaceST.get(':'.join(interface['to']))
-            if if_obj.service_interface_type not in ['left', 'right']:
+            if (if_obj is None or
+                if_obj.service_interface_type not in ['left', 'right']):
                 continue
             ip_obj = None
             for ip_ref in if_obj.instance_ip_set:
