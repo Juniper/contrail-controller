@@ -2402,7 +2402,7 @@ class DBInterface(object):
     #end policy_read
 
     def policy_update(self, policy_id, policy):
-        policy_q = policy['policy']
+        policy_q = policy
         policy_q['id'] = policy_id
         policy_obj = self._policy_neutron_to_vnc(policy_q, UPDATE)
         self._vnc_lib.network_policy_update(policy_obj)
