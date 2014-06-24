@@ -79,10 +79,10 @@ env_noWerror_excep = env_noWerror.Clone()
 while env_noWerror_excep['CCFLAGS'].count('-fno-exceptions') > 0:
     env_noWerror_excep['CCFLAGS'].remove('-fno-exceptions')
 
-env.Install('', '../analytics/analytics_cpuinfo.sandesh') 
+env.Install('', '../analytics/analytics.sandesh') 
 # Generate the source files
 SandeshGenFiles  = env.SandeshGenCpp('qe.sandesh')
-SandeshGenFiles += env.SandeshGenOnlyCpp('analytics_cpuinfo.sandesh')
+SandeshGenFiles += env.SandeshGenOnlyCpp('analytics.sandesh')
 SandeshGenFiles += env.SandeshGenOnlyCpp('../sandesh/common/query.sandesh')
 SandeshGenSrcs = env.ExtractCpp(SandeshGenFiles)
 

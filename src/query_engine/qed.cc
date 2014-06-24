@@ -21,7 +21,7 @@
 #include <boost/assign/list_of.hpp>
 #include <sandesh/common/vns_types.h>
 #include <sandesh/common/vns_constants.h>
-#include "analytics_cpuinfo_types.h"
+#include "analytics_types.h"
 #include "query_engine/options.h"
 #include "query.h"
 #include <base/misc_utils.h>

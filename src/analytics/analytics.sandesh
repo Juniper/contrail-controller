@@ -3,10 +3,11 @@
  */
 
 //
-//  analytics_cpuinfo.sandesh
+//  analytics.sandesh
 //
 
 include "base/sandesh/cpuinfo.sandesh"
+include "base/sandesh/connection_info.sandesh"
 
 struct  ModuleCpuInfo {
     1: string                              module_id
@@ -45,6 +46,18 @@ struct  AnalyticsCpuState {
 
 uve sandesh AnalyticsCpuStateTrace {
     1: AnalyticsCpuState data
+}
+
+struct AnalyticsProcessStatus {
+    1: string name (key="ObjectCollectorInfo")
+    2: optional bool deleted
+    3: optional string status
+    4: optional list<connection_info.ProcessConnectivityStatus> connection_status (aggtype="union")
+    5: optional string description
+}
+
+uve sandesh AnalyticsProcessStatusUVE {
+    1: AnalyticsProcessStatus data
 }
 
 struct QueryStats {

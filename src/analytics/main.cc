@@ -28,7 +28,7 @@
 #include "viz_sandesh.h"
 #include "ruleeng.h"
 #include "viz_types.h"
-#include "analytics_cpuinfo_types.h"
+#include "analytics_types.h"
 #include "generator.h"
 #include "Thrift.h"
 #include <base/misc_utils.h>
@@ -228,7 +228,7 @@ static void ShutdownServers(VizCollector *viz_collector,
     TimerManager::DeleteTimer(collector_info_log_timer);
     delete collector_info_trigger;
 
-    ConnectionStateManager<CollectorStatus, CollectorProcessStatus>::
+    ConnectionStateManager<AnalyticsProcessStatusUVE, AnalyticsProcessStatus>::
         GetInstance()->Shutdown();
     VizCollector::WaitForIdle();
     Sandesh::Uninit();
@@ -361,7 +361,7 @@ int main(int argc, char *argv[])
     }
              
     CpuLoadData::Init();
-    ConnectionStateManager<CollectorStatus, CollectorProcessStatus>::
+    ConnectionStateManager<AnalyticsProcessStatusUVE, AnalyticsProcessStatus>::
         GetInstance()->Init(*evm.io_service(),
             analytics.name(), module_id, instance_id,
             boost::bind(&CollectorGetConnectivityStatus, _1, _2, _3));
