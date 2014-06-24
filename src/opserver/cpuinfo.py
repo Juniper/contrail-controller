@@ -5,8 +5,8 @@
 import os
 import psutil
 
-from sandesh.analytics_cpuinfo.ttypes import *
-from sandesh.analytics_cpuinfo.cpuinfo.ttypes import *
+from sandesh.analytics.ttypes import *
+from sandesh.analytics.cpuinfo.ttypes import *
 
 
 class CpuInfoData(object):

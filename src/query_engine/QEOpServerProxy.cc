@@ -21,7 +21,7 @@
 #include "rapidjson/stringbuffer.h"
 #include "rapidjson/writer.h"
 #include "query.h"
-#include "analytics_cpuinfo_types.h"
+#include "analytics_types.h"
 #include "stats_select.h"
 
 using std::list;
