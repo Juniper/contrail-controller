@@ -379,6 +379,7 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
         <xsd:element name="addr_from_start" type="xsd:boolean"/>
         <xsd:element name="dhcp-option-list" type="DhcpOptionsListType"/>
         <xsd:element name="host-routes" type="RouteTableType"/>
+        <xsd:element name="sn-name" type="xsd:string"/>
     </xsd:all>
 </xsd:complexType>
 

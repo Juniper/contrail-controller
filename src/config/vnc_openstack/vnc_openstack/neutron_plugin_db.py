@@ -1474,6 +1474,9 @@ class DBInterface(object):
                 host_route_list = RouteTableType(host_routes)
 
         dhcp_config = subnet_q['enable_dhcp']
+        subnet_name = None
+        if subnet_q['name']:
+            subnet_name = subnet_q['name']
         subnet_vnc = IpamSubnetType(subnet=SubnetType(pfx, pfx_len),
                                     default_gateway=default_gw,
                                     enable_dhcp=dhcp_config,
@@ -1481,14 +1484,19 @@ class DBInterface(object):
                                     allocation_pools=alloc_pools,
                                     addr_from_start=True,
                                     dhcp_option_list=dhcp_option_list,
-                                    host_routes=host_route_list)
+                                    host_routes=host_route_list,
+                                    sn_name=subnet_name)
 
         return subnet_vnc
     #end _subnet_neutron_to_vnc
 
     def _subnet_vnc_to_neutron(self, subnet_vnc, net_obj, ipam_fq_name):
         sn_q_dict = {}
-        sn_q_dict['name'] = ''
+        subnet_name = subnet_vnc.get_sn_name()
+        if subnet_name is not None:
+            sn_q_dict['name'] = subnet_name
+        else:
+            sn_q_dict['name'] = ''
         sn_q_dict['tenant_id'] = net_obj.parent_uuid.replace('-', '')
         sn_q_dict['network_id'] = net_obj.uuid
         sn_q_dict['ip_version'] = 4  # TODO ipv6?
