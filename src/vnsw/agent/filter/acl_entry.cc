@@ -32,6 +32,7 @@ AclEntry::~AclEntry() {
 void AclEntry::PopulateAclEntry(const AclEntrySpec &acl_entry_spec)
 {
     id_ = acl_entry_spec.id;
+    uuid_ = acl_entry_spec.rule_uuid;
 
     if (acl_entry_spec.src_addr_type == AddressMatch::IP_ADDR) {
         AddressMatch *src_addr = new AddressMatch();
@@ -171,6 +172,8 @@ void AclEntry::SetAclEntrySandeshData(AclEntrySandeshData &data) const {
 
     // AclEntry ID
     data.ace_id = integerToString(id_);
+    // UUID
+    data.uuid = uuid_;
 }
 
 bool AclEntry::IsTerminal() const

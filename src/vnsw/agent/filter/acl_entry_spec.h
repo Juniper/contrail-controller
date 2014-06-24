@@ -94,6 +94,9 @@ public:
 
     // Action
     std::vector<ActionSpec> action_l;
+
+    // Rule-UUID
+    std::string rule_uuid;
     bool Populate(const autogen::MatchConditionType *match_condition);
     void PopulateAction(const AclTable *acl_table,
                         const autogen::ActionListType &action_list);

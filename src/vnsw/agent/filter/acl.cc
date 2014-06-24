@@ -335,8 +335,10 @@ bool AclTable::IFNodeToReq(IFMapNode *node, DBRequest &req) {
         }
 
         ace_spec.PopulateAction(this, ir->action_list);
+        ace_spec.rule_uuid = ir->rule_uuid;
         // Add the Ace to the acl
         acl_spec.acl_entry_specs_.push_back(ace_spec);
+
 
         // Trace acl entry object
         AclEntrySandeshData ae_spec;
@@ -470,7 +472,7 @@ void AclDBEntry::DeleteAllAclEntries()
 }
 
 bool AclDBEntry::PacketMatch(const PacketHeader &packet_header, 
-			     MatchAclParams &m_acl) const
+			                 MatchAclParams &m_acl, FlowPolicyInfo *info) const
 {
     AclEntries::const_iterator iter;
     bool ret_val = false;
@@ -501,13 +503,34 @@ bool AclDBEntry::PacketMatch(const PacketHeader &packet_header,
                                                          a->ignore_acl());
              m_acl.action_info.vrf_translate_action_ = vrf_translate_action;
          }
+         if (info && ta->IsDrop()) {
+             if (!info->drop) {
+                 info->drop = true;
+                 info->terminal = false;
+                 info->other = false;
+                 info->uuid = iter->uuid();
+             }
+         }
 	}
         if (!(al.empty())) {
             ret_val = true;
             m_acl.ace_id_list.push_back((int32_t)(iter->id()));
             if (iter->IsTerminal()) {
-	        m_acl.terminal_rule = true;
+                m_acl.terminal_rule = true;
+                /* Set uuid only if it is NOT already set as
+                 * drop/terminal uuid */
+                if (info && !info->drop && !info->terminal) {
+                    info->terminal = true;
+                    info->other = false;
+                    info->uuid = iter->uuid();
+                }
                 return ret_val;
+            }
+            /* If the ace action is not drop and if ace is not terminal rule
+             * then set the uuid with the first matching uuid */
+            if (info && !info->drop && !info->terminal && !info->other) {
+                info->other = true;
+                info->uuid = iter->uuid();
             }
         }
     }
