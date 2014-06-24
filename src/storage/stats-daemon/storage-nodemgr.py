@@ -283,7 +283,6 @@ class EventManager:
         
         cs_disk1_trace = ComputeStorageDiskTrace(data=cs_disk1)
         sys.stderr.write('sending UVE:' +str(cs_disk1_trace))
-        pdb.set_trace()
         if len(set(cs_disk1.list_of_curr_disks).difference(set(self.prev_list))) != 0:
             cs_disk1_trace.send()
         self.prev_list=cs_disk1.list_of_curr_disks
