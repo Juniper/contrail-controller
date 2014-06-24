@@ -335,8 +335,10 @@ bool AclTable::IFNodeToReq(IFMapNode *node, DBRequest &req) {
         }
 
         ace_spec.PopulateAction(this, ir->action_list);
+        ace_spec.rule_uuid = ir->rule_uuid;
         // Add the Ace to the acl
         acl_spec.acl_entry_specs_.push_back(ace_spec);
+
 
         // Trace acl entry object
         AclEntrySandeshData ae_spec;
@@ -475,6 +477,8 @@ bool AclDBEntry::PacketMatch(const PacketHeader &packet_header,
     AclEntries::const_iterator iter;
     bool ret_val = false;
     m_acl.terminal_rule = false;
+    m_acl.discard_ace_uuid = false;
+    m_acl.ace_uuid.clear();
 	m_acl.action_info.action = 0;
     for (iter = acl_entries_.begin();
          iter != acl_entries_.end();
@@ -501,13 +505,29 @@ bool AclDBEntry::PacketMatch(const PacketHeader &packet_header,
                                                          a->ignore_acl());
              m_acl.action_info.vrf_translate_action_ = vrf_translate_action;
          }
+         if (ta->IsDrop()) {
+             if (!m_acl.discard_ace_uuid) {
+                 m_acl.discard_ace_uuid = true;
+                 m_acl.ace_uuid = iter->uuid();
+             }
+         }
 	}
         if (!(al.empty())) {
             ret_val = true;
             m_acl.ace_id_list.push_back((int32_t)(iter->id()));
             if (iter->IsTerminal()) {
-	        m_acl.terminal_rule = true;
+                m_acl.terminal_rule = true;
+                /* Set ace_uuid only if it is NOT already set as
+                 * discard_uuid */
+                if (!m_acl.discard_ace_uuid) {
+                    m_acl.ace_uuid = iter->uuid();
+                }
                 return ret_val;
+            }
+            /* If the ace action is not discard and if ace is not terminal rule
+             * then set the ace_uuid with the first matching uuid */
+            if (!m_acl.discard_ace_uuid && m_acl.ace_uuid.empty()) {
+                 m_acl.ace_uuid = iter->uuid();
             }
         }
     }

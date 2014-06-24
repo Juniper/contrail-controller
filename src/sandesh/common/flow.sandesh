@@ -8,6 +8,11 @@
  * Flow sandesh definitions
  */
 
+struct FlowPolicy {
+    1: string             sg_rule_uuid;
+    2: string             nw_ace_uuid;
+}
+
 struct FlowDataIpv4 {
     1: string             flowuuid;
     2: byte               direction_ing;
@@ -39,6 +44,7 @@ struct FlowDataIpv4 {
     26: optional i64       diff_bytes;
     27: optional i64       diff_packets;
     28: optional string    action;
+    29: optional FlowPolicy policy;
 }
 
 flowlog sandesh FlowDataIpv4Object {

@@ -90,6 +90,57 @@ FlowEntry::FlowEntry(const FlowKey &k) :
     alloc_count_.fetch_and_increment();
 }
 
+void FlowEntry::FillFlowPolicy(FlowPolicy &pol) const {
+    pol.nw_ace_uuid = AclListToUuid(data_.match_p.m_acl_l,
+                                    data_.match_p.m_out_acl_l);
+    pol.sg_rule_uuid = AclListToUuid(data_.match_p.m_sg_acl_l,
+                                     data_.match_p.m_out_sg_acl_l);
+}
+
+const string FlowEntry::AclListToUuid(const MatchAclParamsList &in_l,
+                                      const MatchAclParamsList &out_l) const {
+    FlowPolicyInfo in, out;
+    FillFlowPolicyInfo(in_l, in);
+    if (in.discard) {
+        return in.uuid;
+    }
+    FillFlowPolicyInfo(out_l, out);
+    if (out.discard) {
+        return out.uuid;
+    }
+    if (in.terminal) {
+        return in.uuid;
+    }
+    if (out.terminal) {
+        return out.uuid;
+    }
+    if (in_l.size()) {
+        return in.uuid;
+    }
+    if (out_l.size()) {
+        return out.uuid;
+    }
+    return "";
+}
+
+void FlowEntry::FillFlowPolicyInfo(const MatchAclParamsList &acl_l,
+                                   FlowPolicyInfo &info) const {
+    std::list<MatchAclParams>::const_iterator acl_it;
+    for (acl_it = acl_l.begin(); acl_it != acl_l.end(); ++acl_it) {
+        MatchAclParams acl = *acl_it;
+        if (acl.discard_ace_uuid) {
+            info.uuid = acl.ace_uuid;
+            info.discard = true;
+            break;
+        } else if (acl.terminal_rule && !info.terminal) {
+            info.uuid = acl.ace_uuid;
+            info.terminal = true;
+        } else {
+            info.uuid = acl.ace_uuid;
+        }
+    }
+}
+
 uint32_t FlowEntry::MatchAcl(const PacketHeader &hdr,
                              std::list<MatchAclParams> &acl,
                              bool add_implicit_deny, bool add_implicit_allow) {

@@ -9,6 +9,14 @@
 #include <oper/nexthop.h>
 #include <vnsw/agent/oper/mirror_table.h>
 
+bool TrafficAction::IsDrop() {
+    if ((action_ & TrafficAction::DROP_FLAGS) ||
+        (action_ & TrafficAction::IMPLICIT_DENY_FLAGS)) {
+        return true;
+    }
+    return false;
+}
+
 std::string TrafficAction::ActionToString(enum Action at)
 {
     switch(at) {

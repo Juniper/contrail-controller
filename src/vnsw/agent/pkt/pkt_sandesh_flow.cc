@@ -98,6 +98,7 @@ static void SetOneAclInfo(FlowAclInfo *policy, uint32_t action,
 
 static void SetAclInfo(SandeshFlowData &data, FlowEntry *fe) {
     FlowAclInfo policy;
+    FlowPolicy  flow_policy;
 
     SetOneAclInfo(&policy, fe->match_p().policy_action, fe->match_p().m_acl_l);
     data.set_policy(policy);
@@ -138,6 +139,10 @@ static void SetAclInfo(SandeshFlowData &data, FlowEntry *fe) {
     SetOneAclInfo(&policy, fe->match_p().out_mirror_action,
                   fe->match_p().m_out_mirror_acl_l);
     data.set_out_mirror(policy);
+
+    fe->FillFlowPolicy(flow_policy);
+    data.set_sg_rule_uuid(flow_policy.get_sg_rule_uuid());
+    data.set_nw_ace_uuid(flow_policy.get_nw_ace_uuid());
 }
 
 ////////////////////////////////////////////////////////////////////////////////

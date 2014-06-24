@@ -39,13 +39,21 @@ struct FlowAction {
 };
 
 struct MatchAclParams {
-    MatchAclParams(): acl(NULL), ace_id_list(), terminal_rule(false) {};
+    MatchAclParams(): acl(NULL), ace_id_list(), terminal_rule(false),
+                      ace_uuid(), discard_ace_uuid(false) {}
     ~MatchAclParams() { };
 
     AclDBEntryConstRef acl;
     AclEntryIDList ace_id_list;
     FlowAction action_info;
     bool terminal_rule;
+    /* The ace_uuid field is used for export in FlowLog message. Its value is
+     * set as per the following priority
+     * 1. First matching ace with 'discard' action
+     * 2. First matching ace which is 'terminal'
+     * 3. First matching ace */
+    std::string ace_uuid;
+    bool discard_ace_uuid;
 };
 
 struct AclKey : public AgentKey {

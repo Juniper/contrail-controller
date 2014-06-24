@@ -38,6 +38,7 @@
 #include <oper/interface_common.h>
 #include <oper/nexthop.h>
 #include <oper/route_common.h>
+#include <sandesh/common/flow_types.h>
 
 class FlowStatsCollector;
 class PktSandeshFlow;
@@ -273,6 +274,12 @@ class FlowEntry {
     static const uint32_t kInvalidFlowHandle=0xFFFFFFFF;
     static const uint8_t kMaxMirrorsPerFlow=0x2;
 
+    struct FlowPolicyInfo {
+        std::string uuid;
+        bool discard;
+        bool terminal;
+        FlowPolicyInfo() : uuid(), discard(false), terminal(false) {}
+    };
     // Don't go beyond PCAP_END, pcap type is one byte
     enum PcapType {
         PCAP_CAPTURE_HOST = 1,
@@ -374,6 +381,7 @@ class FlowEntry {
     int linklocal_src_port_fd() const { return linklocal_src_port_fd_; }
     const std::string& acl_assigned_vrf() const;
     uint32_t acl_assigned_vrf_index() const;
+    void FillFlowPolicy(FlowPolicy &pol) const;
 private:
     friend class FlowTable;
     friend class FlowStatsCollector;
@@ -382,6 +390,10 @@ private:
     bool SetRpfNH(const Inet4UnicastRouteEntry *rt);
     bool InitFlowCmn(const PktFlowInfo *info, const PktControlInfo *ctrl,
                      const PktControlInfo *rev_ctrl);
+    const std::string AclListToUuid(const MatchAclParamsList &in_l,
+                                    const MatchAclParamsList &out_l) const;
+    void FillFlowPolicyInfo(const MatchAclParamsList &acl_l,
+                            FlowPolicyInfo &info) const;
 
     FlowKey key_;
     FlowData data_;

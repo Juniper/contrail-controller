@@ -43,6 +43,7 @@ public:
     TrafficAction() {};
     virtual ~TrafficAction() {};
 
+    bool IsDrop();
     virtual Action GetAction() {return action_;};
     virtual TrafficActionType GetActionType() {return tact_type;};
     static std::string ActionToString(enum Action at);

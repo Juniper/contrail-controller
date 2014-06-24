@@ -72,6 +72,7 @@ void FlowStatsCollector::SourceIpOverride(FlowEntry *flow,
 void FlowStatsCollector::FlowExport(FlowEntry *flow, uint64_t diff_bytes, 
                                     uint64_t diff_pkts) {
     FlowDataIpv4   s_flow;
+    FlowPolicy     policy;
     SandeshLevel::type level = SandeshLevel::SYS_DEBUG;
     FlowStats &stats = flow->stats_;
 
@@ -99,6 +100,9 @@ void FlowStatsCollector::FlowExport(FlowEntry *flow, uint64_t diff_bytes,
             }
         }
     }
+    flow->FillFlowPolicy(policy);
+    s_flow.set_policy(policy);
+
     FlowEntry *rev_flow = flow->reverse_flow_entry();
     if (rev_flow) {
         s_flow.set_reverse_uuid(to_string(rev_flow->flow_uuid()));
