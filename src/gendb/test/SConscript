@@ -28,10 +28,14 @@ cdb_if_test = env.UnitTest('cdb_if_test',
 gendb_if_test = env.UnitTest('gendb_if_test',
         ['gendb_if_test.cc'])
 
-test_suite = [ cdb_if_test,
-               gendb_if_test,
+test_suite = [
+                 cdb_if_test,
              ]
 test = env.TestSuite('gendb_test_suite', test_suite)
-
 env.Alias('controller/src/gendb:test', test)
 
+flaky_test_suite = [
+                       gendb_if_test,
+                   ]
+flaky_test = env.TestSuite('gendb_flaky_test_suite', flaky_test_suite)
+env.Alias('controller/src/gendb:flaky-test', flaky_test)

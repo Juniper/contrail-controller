@@ -96,7 +96,7 @@ if env['OPT'] != 'coverage':
     test = env.TestSuite('io-test', test_suite)
     env.Alias('controller/src/io:test', test)
 
-    flaky_test = env.TestSuite('io-test', flaky_test_suite)
+    flaky_test = env.TestSuite('io-flaky-test', flaky_test_suite)
     env.Alias('controller/src/io:flaky-test', flaky_test)
     Return('test_suite')
 else:
