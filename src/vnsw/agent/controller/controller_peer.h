@@ -97,6 +97,7 @@ public:
     Agent *agent() const {return agent_;}
     BgpPeer *bgp_peer_id() const {return bgp_peer_id_.get();}
     std::string GetBgpPeerName() const;
+    void UpdateConnectionInfo(xmps::PeerState state);
 
     //Unicast peer identifier
     void increment_unicast_sequence_number() {unicast_sequence_number_++;}

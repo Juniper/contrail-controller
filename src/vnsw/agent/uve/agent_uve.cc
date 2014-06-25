@@ -3,6 +3,7 @@
  */
 
 #include <base/cpuinfo.h>
+#include <base/connection_info.h>
 #include <db/db.h>
 #include <cmn/agent_cmn.h>
 #include <oper/interface_common.h>
@@ -51,7 +52,99 @@ void AgentUve::Shutdown() {
 }
 
 void AgentUve::Init() {
+    Module::type module = Module::VROUTER_AGENT;
+    std::string module_id(g_vns_constants.ModuleNames.find(module)->second);
+    std::string instance_id(g_vns_constants.INSTANCE_ID_DEFAULT);
+    EventManager *evm = agent_->event_manager();
+    boost::asio::io_service &io = *evm->io_service();
+
     CpuLoadData::Init();
+    agent_->set_connection_state(ConnectionState::GetInstance());
+    ConnectionStateManager<VrouterAgentStatus, VrouterAgentProcessStatus>::
+        GetInstance()->Init(io,
+            agent_->params()->host_name(), module_id, instance_id,
+            boost::bind(&AgentUve::VrouterAgentConnectivityStatus,
+                        this, _1, _2, _3));
+}
+
+uint8_t AgentUve::ExpectedConnections(uint8_t &num_control_nodes,
+                                      uint8_t &num_dns_servers) {
+    uint8_t count = 0;
+
+    /* If Discovery server is configured, increment the count to
+     * 3 for 3 possible discovery services */
+    if (!agent_->discovery_server().empty()) {
+        // Discovery:Collector
+        // Discovery:dns-server
+        // Discovery:xmpp-server
+        count += 3;
+    }
+    for (int i = 0; i < MAX_XMPP_SERVERS; i++) {
+        if (!agent_->controller_ifmap_xmpp_server(i).empty()) {
+            num_control_nodes++;
+            count++;
+        }
+        if (!agent_->dns_server(i).empty()) {
+            num_dns_servers++;
+            count++;
+        }
+    }
+    //Increment 1 for collector service
+    count++;
+    return count;
+}
+
+void AgentUve::UpdateStatus(const ConnectionInfo &cinfo,
+                            ConnectivityStatus::type &cstatus,
+                            std::string &message) {
+    cstatus = ConnectivityStatus::NON_FUNCTIONAL;
+    message = cinfo.get_type() + " connection is down";
+}
+
+void AgentUve::VrouterAgentConnectivityStatus
+    (const std::vector<ConnectionInfo> &cinfos,
+     ConnectivityStatus::type &cstatus, std::string &message) {
+    size_t num_conns(cinfos.size());
+    uint8_t num_control_nodes = 0, num_dns_servers = 0;
+    uint8_t down_control_nodes = 0, down_dns_servers = 0;
+    uint8_t expected_conns = ExpectedConnections(num_control_nodes,
+                                                 num_dns_servers);
+    if (num_conns != expected_conns) {
+        cstatus = ConnectivityStatus::NON_FUNCTIONAL;
+        message = "Number of connections:" + integerToString(num_conns) +
+            ", Expected: " + integerToString(expected_conns);
+        return;
+    }
+    std::string cdown(g_connection_info_constants.ConnectionStatusNames.
+        find(ConnectionStatus::DOWN)->second);
+    // Iterate to determine process connectivity status
+    for (std::vector<ConnectionInfo>::const_iterator it = cinfos.begin();
+         it != cinfos.end(); it++) {
+        const ConnectionInfo &cinfo(*it);
+        const std::string &conn_status(cinfo.get_status());
+        if (conn_status == cdown) {
+            if (cinfo.get_name().compare(0, 13,
+                agent_->xmpp_control_node_prefix()) == 0) {
+                down_control_nodes++;
+                if (num_control_nodes == down_control_nodes) {
+                    UpdateStatus(cinfo, cstatus, message);
+                    return;
+                }
+            } else if (cinfo.get_name().compare(0, 11,
+                agent_->xmpp_dns_server_prefix()) == 0) {
+                down_dns_servers++;
+                if (num_dns_servers == down_dns_servers) {
+                    UpdateStatus(cinfo, cstatus, message);
+                    return;
+                }
+            } else {
+                UpdateStatus(cinfo, cstatus, message);
+                return;
+            }
+        }
+    }
+    cstatus = ConnectivityStatus::FUNCTIONAL;
+    return;
 }
 
 void AgentUve::RegisterDBClients() {

@@ -3,6 +3,7 @@
  */
 
 include "base/sandesh/cpuinfo.sandesh"
+include "base/sandesh/connection_info.sandesh"
 
 struct AgentXenConfig {
     1: string            xen_ll_port;
@@ -241,5 +242,17 @@ struct ComputeCpuState {
 
 uve sandesh ComputeCpuStateTrace {
     1: ComputeCpuState data
+}
+
+struct VrouterAgentProcessStatus {
+    1: string name (key="ObjectVRouter")
+    2: optional bool deleted
+    3: optional string status
+    4: optional list<connection_info.ProcessConnectivityStatus> connection_status (aggtype="union")
+    5: optional string description
+}
+
+uve sandesh VrouterAgentStatus {
+    1: VrouterAgentProcessStatus data
 }
 

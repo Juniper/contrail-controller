@@ -37,6 +37,7 @@ public:
     std::string controller_ifmap_xmpp_server() { return xmpp_server_; }
     uint8_t GetXmppServerIdx() { return xs_idx_; }
     XmppChannel *GetXmppChannel() { return channel_; }
+    void UpdateConnectionInfo(xmps::PeerState state);
     static void HandleXmppClientChannelEvent(AgentDnsXmppChannel *peer,
                                              xmps::PeerState state);
     static void set_dns_message_handler_cb(DnsMessageHandler cb);
