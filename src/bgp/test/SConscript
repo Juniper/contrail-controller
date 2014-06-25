@@ -335,7 +335,18 @@ test_suite = [
 
 test = env.TestSuite('bgp-test', test_suite)
 
-env.Alias('controller/src/bgp:flaky-test', [
+env.Alias('controller/src/bgp:test', [
+    test,
+    'controller/src/bgp/enet:test',
+    'controller/src/bgp/ermvpn:test',
+    'controller/src/bgp/evpn:test',
+    'controller/src/bgp/l3vpn:test',
+    'controller/src/bgp/origin-vn:test',
+    'controller/src/bgp/rtarget:test',
+    'controller/src/bgp/tunnel_encap:test',
+])
+
+flaky_test_suite = [
     bgp_config_listener_test,
     bgp_config_manager_test,
     bgp_config_test,
@@ -351,18 +362,19 @@ env.Alias('controller/src/bgp:flaky-test', [
     bgp_xmpp_mcast_test,
     rt_network_attr_test,
     svc_static_route_intergration_test,
+]
+
+flaky_test = env.TestSuite('bgp-flaky-test', flaky_test_suite)
+
+env.Alias('controller/src/bgp:flaky-test', [
+    flaky_test,
     'controller/src/bgp/l3vpn:flaky-test',
 ])
 
-env.Alias('controller/src/bgp:test', [
+env.Alias('controller/src/bgp:all-test', [
     test,
-    'controller/src/bgp/enet:test',
-    'controller/src/bgp/ermvpn:test',
-    'controller/src/bgp/evpn:test',
-    'controller/src/bgp/l3vpn:test',
-    'controller/src/bgp/origin-vn:test',
-    'controller/src/bgp/rtarget:test',
-    'controller/src/bgp/tunnel_encap:test',
+    flaky_test,
+    'controller/src/bgp/l3vpn:flaky-test',
 ])
 
 #  Update Engine Tests
