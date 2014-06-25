@@ -2,6 +2,7 @@
  * Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
  */
 
+include "base/sandesh/connection_info.sandesh"
 include "base/sandesh/cpuinfo.sandesh"
 include "ifmap/ifmap_server_show.sandesh"
 
@@ -45,3 +46,14 @@ uve sandesh ControlCpuStateTrace {
     1: ControlCpuState data
 }
 
+struct ControlNodeProcessStatus {
+    1: string name (key="ObjectControlNodeInfo")
+    2: optional bool deleted
+    3: optional string status
+    4: optional list<connection_info.ProcessConnectivityStatus> connection_status (aggtype="union")
+    5: optional string description
+}
+
+uve sandesh ControlNodeStatus {
+    1: ControlNodeProcessStatus data
+}
