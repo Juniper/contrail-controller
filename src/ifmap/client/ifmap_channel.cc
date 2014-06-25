@@ -6,6 +6,7 @@
 #include <sstream>
 #include <string>
 
+#include "base/connection_info.h"
 #include "base/logging.h"
 #include "base/task.h"
 #include "base/task_annotations.h"
@@ -141,8 +142,16 @@ IFMapChannel::IFMapChannel(IFMapManager *manager, const std::string& user,
 }
 
 void IFMapChannel::set_connection_status(ConnectionStatus status) {
-    connection_status_ = status;
-    connection_status_change_at_ = UTCTimestampUsec();
+    if (connection_status_ != status) {
+        connection_status_ = status;
+        connection_status_change_at_ = UTCTimestampUsec();
+
+        // Update connection info
+        ConnectionState::GetInstance()->Update(ConnectionType::IFMAP,
+            "IFMapServer", connection_status_ == UP ? ::ConnectionStatus::UP :
+                                                      ::ConnectionStatus::DOWN,
+            endpoint_, "Connection with IFMap Server (irond)");
+    }
 }
 
 // Will run in the context of the main task
