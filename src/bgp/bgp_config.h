@@ -251,16 +251,20 @@ private:
 // BgpInstanceConfig is deleted only when all references to it are gone. The
 // IFMapNode for the routing-instance must be deleted, any BgpProtcolConfig
 // for the local bgp-router in the routing-instance must be deleted and all
-// the BgpNeighborConfigs in the routing-instance must be deleted.
+// the BgpNeighborConfigs and BgpPeeringConfigs in the routing-instance must
+// be deleted.
 //
 // The protocol_ field is a pointer to the BgpProtocolConfig object for the
 // local bgp-router object, if any, in the routing-instance.
 // The NeighborMap keeps pointers to all the BgpNeighborConfig objects in a
 // BgpInstanceConfig.
+// The PeeringMap keeps pointers to all the BgpPeeringConfig objects in the
+// BgpInstanceConfig.
 //
 class BgpInstanceConfig {
 public:
     typedef std::map<std::string, BgpNeighborConfig *> NeighborMap;
+    typedef std::map<std::string, BgpPeeringConfig *> PeeringMap;
     typedef std::set<std::string> RouteTargetList;
 
     explicit BgpInstanceConfig(const std::string &name);
@@ -292,6 +296,9 @@ public:
         return neighbors_;
     }
 
+    void AddPeering(BgpPeeringConfig *peering);
+    void DeletePeering(BgpPeeringConfig *peering);
+
     const std::string &virtual_network() const { return virtual_network_; }
     int virtual_network_index() const { return virtual_network_index_; }
 
@@ -310,6 +317,7 @@ private:
     IFMapNodeProxy node_proxy_;
     boost::scoped_ptr<BgpProtocolConfig> protocol_;
     NeighborMap neighbors_;
+    PeeringMap peerings_;
 
     RouteTargetList import_list_;
     RouteTargetList export_list_;
