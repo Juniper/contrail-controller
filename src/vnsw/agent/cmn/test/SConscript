@@ -10,6 +10,7 @@ env = AgentEnv.Clone()
 AgentEnv.MakeTestEnv(env)
 
 cmn_test_suite = []
+cmn_flaky_test_suite = []
 test_cmn = AgentEnv.MakeTestCmdSrc(env, 'test_cmn', ['test.cc'], cmn_test_suite)
 test_subop = AgentEnv.MakeTestCmd(env, 'test_subop', cmn_test_suite)
 test_agent_init = AgentEnv.MakeTestCmd(env, 'test_agent_init', cmn_test_suite)
@@ -18,4 +19,8 @@ test_vmware = AgentEnv.MakeTestCmd(env, 'test_vmware', cmn_test_suite)
 test = env.TestSuite('agent-test', cmn_test_suite)
 env.Alias('agent:cmn', test)
 env.Alias('controller/src/vnsw/agent/cmn:test', test)
+
+flaky_test = env.TestSuite('agent-flaky-test', cmn_flaky_test_suite)
+env.Alias('controller/src/vnsw/agent/cmn:flaky_test', flaky_test)
+
 Return('cmn_test_suite')

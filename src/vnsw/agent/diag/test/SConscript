@@ -15,4 +15,9 @@ test_ping = AgentEnv.MakeTestCmd(env, 'test_ping', diag_test_suite)
 test = env.TestSuite('agent-test', diag_test_suite)
 env.Alias('agent:diag', test)
 env.Alias('controller/src/vnsw/agent/diag:test', test)
+
+diag_flaky_test_suite = []
+flaky_test = env.TestSuite('agent-flaky-test', diag_flaky_test_suite)
+env.Alias('controller/src/vnsw/agent/diag:flaky_test', flaky_test)
+
 Return('diag_test_suite')

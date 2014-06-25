@@ -21,12 +21,17 @@ env.Append(LIBS=['agent_test_buildinfo'])
 env.Prepend(CPPPATH = env['TOP'] + '/vnsw/agent/test')
 
 openstack_test_suite = []
+openstack_flaky_test_suite = []
+
 nova_info_server_test = AgentEnv.MakeTestCmdSrc(env, 'nova_info_server_test',
                                                 ['instance_service_test.cc'],
                                                 openstack_test_suite)
-#nova_inc = AgentEnv.MakeTestCmdSrc(env, 'nova_inc',
-#                                   ['instance_service_client.cc'],
-#                                    openstack_test_suite)
+nova_inc = AgentEnv.MakeTestCmdSrc(env, 'nova_inc',
+                                   ['instance_service_client.cc'],
+                                    openstack_flaky_test_suite)
+
+flaky_test = env.TestSuite('agent-flaky-test', openstack_flaky_test_suite)
+env.Alias('controller/src/vnsw/agent/openstack:flaky_test', flaky_test)
 
 test = env.TestSuite('agent-test', openstack_test_suite)
 env.Alias('agent:openstack', test)
