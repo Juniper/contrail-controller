@@ -347,6 +347,7 @@ env.Alias('controller/src/bgp:flaky-test', [
     rt_network_attr_test,
     svc_static_route_intergration_test,
     'controller/src/bgp/l3vpn:flaky-test',
+    'controller/src/bgp/rtarget:flaky-test',
 ])
 
 env.Alias('controller/src/bgp:test', [
