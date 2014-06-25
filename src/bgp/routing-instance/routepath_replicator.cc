@@ -271,6 +271,9 @@ void RoutePathReplicator::Leave(BgpTable *table, const RouteTarget &rt,
                 group->RemoveImportTable(family(), vpntable);
                 group->RemoveExportTable(family(), vpntable);
                 server()->rtarget_group_mgr()->RemoveRtGroup(rt);
+                if (ts->GetGroupList().empty()) {
+                    RequestWalk(vpntable);
+                }
             }
         }
     } else if (group->empty(family())) {
