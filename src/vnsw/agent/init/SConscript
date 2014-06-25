@@ -16,3 +16,4 @@ except_objs = AgentEnv.BuildExceptionCcObj(env, except_files)
 libvnswinit = env.Library('vnswinit', except_objs)
 
 env.SConscript('test/SConscript', exports='AgentEnv', duplicate = 0)
+env.Alias('controller/src/vnsw/agent/cmn:flaky_test', flaky_test)
