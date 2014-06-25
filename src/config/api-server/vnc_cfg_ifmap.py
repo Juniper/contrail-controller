@@ -10,7 +10,6 @@ from gevent import ssl, monkey
 monkey.patch_all()
 import gevent
 import gevent.event
-import gevent.pool
 import sys
 import time
 from pprint import pformat
@@ -809,18 +808,12 @@ class VncCassandraClient(VncCassandraClientGen):
             return None
     # end subnet_delete
 
-    def walk(self, fn, workers=1):
+    def walk(self, fn):
         walk_results = []
-
-        pool = gevent.pool.Pool(size=workers)
-        iterator = self._obj_uuid_cf.get_range()
-
-        def worker(args):
-            result = fn(*args)
+        for obj_uuid, obj_cols in self._obj_uuid_cf.get_range():
+            result = fn(obj_uuid, dict(obj_cols))
             if result:
-                # [].append is thread-safe.
                 walk_results.append(result)
-        pool.map(worker, iterator)
 
         return walk_results
     # end walk
@@ -1119,9 +1112,9 @@ class VncDbClient(object):
                                   reset_config)
     # end __init__
 
-    def db_resync(self, workers=1):
+    def db_resync(self):
         # Read contents from cassandra and publish to ifmap
-        self._cassandra_db.walk(self._dbe_resync, workers=workers)
+        self._cassandra_db.walk(self._dbe_resync)
         self._db_resync_done.set()
     # end db_resync
 
