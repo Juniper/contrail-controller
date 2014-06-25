@@ -25,14 +25,7 @@ from collections import OrderedDict
 import pycassa
 import yaml
 
-
-sys.path.insert(0, os.path.realpath(
-    '../../../../build/debug/pysandesh/gen_py/sandesh_ctrl/ttypes'))
-sys.path.insert(
-    0, os.path.realpath('../../../../build/debug/sandesh/library/python'))
-sys.path.insert(0, os.path.realpath('../../../../build/debug/cfgm/'
-                                    'api-server/vnc_cfg_api_server'))
-sys.path.insert(0, os.path.realpath('../../../../build/debug/api-lib'))
+import test_common
 
 from vnc_api.vnc_api import *
 from vnc_api.common import exceptions as vnc_exceptions

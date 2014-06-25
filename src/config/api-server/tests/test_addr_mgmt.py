@@ -9,9 +9,12 @@ import StringIO
 import string
 import unittest
 from netaddr import *
+
+import test_common
+
 from vnc_addr_mgmt import *
-from vnc_cfg_gen.resource_common import *
-from vnc_cfg_gen.resource_xsd import *
+from vnc_api.gen.resource_common import *
+from vnc_api.gen.resource_xsd import *
 
 # convert object to dictionary representation
 
@@ -109,7 +112,7 @@ class TestIp(unittest.TestCase):
         self.ip_1.set_virtual_network(self.vn_1)
 
         obj_dict = todict(self.ip_1)
-        self.vn_fq_name = obj_dict['_virtual_network_refs'][0]['to']
+        self.vn_fq_name = obj_dict['virtual_network_refs'][0]['to']
         pass
 
     # test objects
