@@ -223,6 +223,7 @@ class VirtualNetworkST(DictST):
     @classmethod
     def delete(cls, name):
         vn = cls.get(name)
+        analyzer_vn_set = set()
         if vn:
             for service_chain_list in vn.service_chains.values():
                 for service_chain in service_chain_list:
@@ -236,13 +237,12 @@ class VirtualNetworkST(DictST):
             props = vn.obj.get_virtual_network_properties()
             if props and props.network_id:
                 cls._vn_id_allocator.delete(props.network_id - 1)
-            analyzer_vn_set = set()
             for policy in NetworkPolicyST.values():
                 if name in policy.analyzer_vn_set:
                     analyzer_vn_set |= policy.network_back_ref
                     policy.analyzer_vn_set.discard(name)
             del cls._dict[name]
-            return analyzer_vn_set
+        return analyzer_vn_set
     # end delete
 
     @classmethod
