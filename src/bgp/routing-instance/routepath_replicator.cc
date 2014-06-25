@@ -425,6 +425,11 @@ bool RoutePathReplicator::BgpTableListener(DBTablePartBase *root,
     for (Route::PathList::iterator it = rt->GetPathList().begin(); 
         it != rt->GetPathList().end(); it++) {
         BgpPath *path = static_cast<BgpPath *>(it.operator->());
+
+        // Skip if the source peer is down
+        if (!path->IsStale() && path->GetPeer() && !path->GetPeer()->IsReady())
+            continue;
+
         // No need to replicate the replicated path
         if (path->IsReplicated()) continue;
 

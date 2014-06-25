@@ -188,7 +188,7 @@ public:
     bool ResumeClose();
     void MembershipRequestCallback(IPeer *ipeer, BgpTable *table, bool start);
 
-    virtual void UpdateRefCount(int count) { refcount_ += count; }
+    virtual void UpdateRefCount(int count) const { refcount_ += count; }
     virtual tbb::atomic<int> GetRefCount() const { return refcount_; }
 
     bool IsControlNode() const { return control_node_; }
@@ -281,7 +281,7 @@ private:
     boost::scoped_ptr<PeerStats> peer_stats_;
     boost::scoped_ptr<DeleteActor> deleter_;
     LifetimeRef<BgpPeer> instance_delete_ref_;
-    tbb::atomic<int> refcount_;
+    mutable tbb::atomic<int> refcount_;
     uint32_t flap_count_;
     uint64_t last_flap_;
 

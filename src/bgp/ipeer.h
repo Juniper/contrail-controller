@@ -115,7 +115,7 @@ public:
     virtual BgpProto::BgpPeerType PeerType() const = 0;
     virtual uint32_t bgp_identifier() const = 0;
     virtual const std::string GetStateName() const = 0;
-    virtual void UpdateRefCount(int count) = 0;
+    virtual void UpdateRefCount(int count) const = 0;
     virtual tbb::atomic<int> GetRefCount() const = 0;
 };
 
