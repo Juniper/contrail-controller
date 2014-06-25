@@ -87,6 +87,9 @@ test_acl = AgentEnv.MakeTestCmdSrc(env, 'test_acl',
 test_acl_entry = AgentEnv.MakeTestCmdSrc(env, 'test_acl_entry',
                                          ['../filter/test/acl_entry_test.cc'],
                                          agent_suite)
+test_acl_change = AgentEnv.MakeTestCmdSrc(env, 'test_acl_change',
+                                         ['../filter/test/acl_change_test.cc'],
+                                         agent_suite)
 
 flaky_test = env.TestSuite('agent-flaky-test', flaky_agent_suite)
 env.Alias('controller/src/vnsw/agent:flaky_test', flaky_test)

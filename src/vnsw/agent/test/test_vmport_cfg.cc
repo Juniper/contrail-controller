@@ -1189,7 +1189,7 @@ TEST_F(CfgTest, Basic_1) {
     InetInterface::CreateReq(Agent::GetInstance()->interface_table(),
                              "vhost10", InetInterface::VHOST,
                              Agent::GetInstance()->fabric_vrf_name(),
-                             Ip4Address(0), 0, Ip4Address(0), "", "");
+                             Ip4Address(0), 0, Ip4Address(0), eth_intf, "");
 
     client->WaitForIdle();
 
@@ -1526,14 +1526,13 @@ TEST_F(CfgTest, SecurityGroup_ignore_invalid_sgid_2) {
         return;
     }
     EXPECT_TRUE(intf->sg_list().list_.size() == 0);
-    VmInterface::SecurityGroupEntrySet::const_iterator it = intf->sg_list().list_.begin();
-    EXPECT_TRUE(it->sg_.get() == NULL);
 
     // Add with proper sg id
     AddSg("sg1", 1, 1);
     client->WaitForIdle();
     EXPECT_TRUE(intf->sg_list().list_.size() == 1);
-    it = intf->sg_list().list_.begin();
+    VmInterface::SecurityGroupEntrySet::const_iterator it =
+        intf->sg_list().list_.begin();
     EXPECT_TRUE(it->sg_.get() != NULL);
     EXPECT_TRUE(it->sg_->GetSgId() == 1);
 

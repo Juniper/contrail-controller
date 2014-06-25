@@ -105,6 +105,7 @@ DBEntry *AclTable::Add(const DBRequest *req) {
 }
 
 bool AclTable::OnChange(DBEntry *entry, const DBRequest *req) {
+    bool changed = false;
     AclDBEntry *acl = static_cast<AclDBEntry *>(entry);
     AclData *data = static_cast<AclData *>(req->data.get());
 
@@ -121,18 +122,34 @@ bool AclTable::OnChange(DBEntry *entry, const DBRequest *req) {
         if (!data->ace_add) { //Replace existing aces
             acl->AddAclEntry(*it, entries);
         } else { // Add to the existing entries
-            acl->AddAclEntry(*it, acl->acl_entries_);
+            if (acl->AddAclEntry(*it, acl->acl_entries_)) {
+                changed = true;
+            }
         }
     }
 
     // Replace the existing aces, ace_add is to add to the existing
     // entries
     if (!data->ace_add) {
-        // Delete All acl entries for now and set newly created one.
-        acl->DeleteAllAclEntries();
-        acl->SetAclEntries(entries);
+        if (acl->Changed(entries)) {
+            //Delete All acl entries for now and set newly created one.
+            acl->DeleteAllAclEntries();
+            acl->SetAclEntries(entries);
+            changed = true;
+        }
     }
-    return true;
+
+    if (changed == false) {
+        //Remove temporary create acl entries
+        AclDBEntry::AclEntries::iterator iter;
+        iter = entries.begin();
+        while (iter != entries.end()) {
+            AclEntry *ae = iter.operator->();
+            entries.erase(iter++);
+            delete ae;
+        }
+    }
+    return changed;
 }
 
 void AclTable::Delete(DBEntry *entry, const DBRequest *req) {
@@ -512,6 +529,25 @@ bool AclDBEntry::PacketMatch(const PacketHeader &packet_header,
         }
     }
     return ret_val;
+}
+
+bool AclDBEntry::Changed(const AclEntries &new_entries) const {
+    AclEntries::const_iterator it = acl_entries_.begin();
+    AclEntries::const_iterator new_entries_it = new_entries.begin();
+    while (it != acl_entries_.end() &&
+           new_entries_it != new_entries.end()) {
+        if (*it == *new_entries_it) {
+            it++;
+            new_entries_it++;
+            continue;
+        }
+        return true;
+    }
+    if (it == acl_entries_.end() &&
+        new_entries_it == new_entries.end()) {
+        return false;
+    }
+    return true;
 }
 
 const AclDBEntry* AclTable::GetAclDBEntry(const string acl_uuid_str, 

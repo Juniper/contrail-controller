@@ -1461,6 +1461,10 @@ void AddAcl(const char *name, int id) {
     AddNode("access-control-list", name, id);
 }
 
+void DelAcl(const char *name) {
+    DelNode("access-control-list", name);
+}
+
 void AddAcl(const char *name, int id, const char *src_vn, const char *dest_vn,
             const char *action) {
     std::string s = AddAclXmlString("access-control-list", name, id,

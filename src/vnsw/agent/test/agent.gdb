@@ -3,7 +3,7 @@
 #
 
 define nh_entry_format
-    set $__nh = (NextHop *) ((size_t)($Xnode) - (size_t)&(NextHop::node_))
+    set $__nh = (NextHop *) ((size_t)($Xnode) - (size_t)&(((NextHop*)0)->node_))
     printf "%p    type=%-4d    flags=%-4d    ref=%-4d    valid=%-4d    policy=%-4d\n", $__nh, $__nh->type_,\
            $__nh->flags, $__nh->refcount_->rep->value, $__nh->valid_, $__nh->policy_
 end
@@ -162,7 +162,7 @@ define dump_vxlan_entries
 end
  
 define mirror_entry_format
-    set $__mirror = (MirrorEntry *)((size_t)($Xnode) - (size_t)&(MirrorEntry::node_))
+    set $__mirror = (MirrorEntry *)((size_t)($Xnode) - (size_t)&(((MirrorEntry*)0)->node_))
     set $__sip = $__mirror->sip_.addr_.s_addr
     set $__dip = $__mirror->dip_.addr_.s_addr
     printf "%p   %d.%d.%d.%d:%d   %d.%d.%d.%d:%d nh=%p\n", $__mirror,\
