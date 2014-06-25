@@ -63,6 +63,7 @@ subdirs = [
            'mgr',
            'uve',
            'test',
+           'scripts',
           ]
 
 for dir in subdirs:
