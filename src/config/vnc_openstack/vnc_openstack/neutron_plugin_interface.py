@@ -17,8 +17,16 @@ from neutron_plugin_db import DBInterface
 
 LOG = logging.getLogger(__name__)
 
+@bottle.error(400)
+def error_400(err):
+    return err.body
+
 @bottle.error(404)
 def error_404(err):
+    return err.body
+
+@bottle.error(409)
+def error_409(err):
     return err.body
 
 
