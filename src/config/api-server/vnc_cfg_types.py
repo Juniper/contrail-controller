@@ -507,7 +507,7 @@ class VirtualDnsServer(VirtualDnsServerGen):
             if not read_ok:
                 return (
                     False,
-                    (500, "Internal error : Virtual Dns is not in a domain"))
+                    (500, "Internal error : Virtual DNS is not in a domain"))
             virtual_DNSs = read_result.get('virtual_DNSs', None)
             for vdns in virtual_DNSs:
                 vdns_uuid = vdns['uuid']
@@ -518,7 +518,7 @@ class VirtualDnsServer(VirtualDnsServerGen):
                     return (
                         False,
                         (500,
-                         "Internal error : Unable to read Virtual Dns data"))
+                         "Internal error : Unable to read Virtual DNS data"))
                 vdns_data = read_result['virtual_DNS_data']
                 if 'next_virtual_DNS' in vdns_data:
                     if vdns_data['next_virtual_DNS'] == vdns_name:
@@ -621,7 +621,7 @@ class VirtualDnsServer(VirtualDnsServerGen):
                         return (
                             False,
                             (403,
-                             "Cannot have Virtual Dns servers "
+                             "Cannot have Virtual DNS Servers "
                              "referring to each other"))
         return True, ""
     # end validate_dns_server
