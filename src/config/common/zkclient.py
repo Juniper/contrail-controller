@@ -52,7 +52,8 @@ class IndexAllocator(object):
         self._reverse = reverse
         for idx in self._zookeeper_client.get_children(path):
             idx_int = self._get_bit_from_zk_index(int(idx))
-            self._set_in_use(idx_int)
+            if idx_int >= 0:
+                self._set_in_use(idx_int)
         # end for idx
     # end __init__
 
@@ -85,7 +86,7 @@ class IndexAllocator(object):
                 if alloc['start'] <= idx <= alloc['end']:
                     return idx - alloc['start'] + size
                 size += alloc['end'] - alloc['start'] + 1
-        raise Exception()
+        return -1
     # end _get_bit_from_zk_index
 
     def _set_in_use(self, idx):
@@ -120,9 +121,8 @@ class IndexAllocator(object):
     # end alloc
 
     def reserve(self, idx, value=None):
-        try:
-            bit_idx = self._get_bit_from_zk_index(idx)
-        except Exception:
+        bit_idx = self._get_bit_from_zk_index(idx)
+        if bit_idx < 0:
             return None  
         try:
             # Create a node at path and return its integer value
@@ -139,7 +139,7 @@ class IndexAllocator(object):
         id_str = "%(#)010d" % {'#': idx}
         self._zookeeper_client.delete_node(self._path + id_str)
         bit_idx = self._get_bit_from_zk_index(idx)
-        if bit_idx < self._in_use.length():
+        if 0 <= bit_idx < self._in_use.length():
             self._in_use[bit_idx] = 0
     # end delete
 
@@ -147,7 +147,9 @@ class IndexAllocator(object):
         id_str = "%(#)010d" % {'#': idx}
         id_val = self._zookeeper_client.read_node(self._path+id_str)
         if id_val is not None:
-            self._set_in_use(self._get_bit_from_zk_index(idx))
+            bit_idx = self._get_bit_from_zk_index(idx)
+            if bit_idx >= 0:
+                self._set_in_use(bit_idx)
         return id_val
     # end read
 
