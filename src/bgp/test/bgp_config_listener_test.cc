@@ -103,7 +103,6 @@ protected:
         config_manager_ = server_.config_manager();
         listener_ = static_cast<BgpConfigListenerMock *>(
             config_manager_->listener_.get());
-        tracker_ = listener_->tracker_.get();
         change_list_ = &listener_->change_list_;
     }
 
@@ -112,6 +111,7 @@ protected:
         vnc_cfg_Server_ModuleInit(&db_, &graph_);
         bgp_schema_Server_ModuleInit(&db_, &graph_);
         config_manager_->Initialize(&db_, &graph_, "local");
+        tracker_ = listener_->tracker_.get();
     }
 
     virtual void TearDown() {
@@ -158,7 +158,7 @@ protected:
     }
 
     size_t GetNodeListCount() {
-        return listener_->tracker_->node_list().size();
+        return tracker_->node_list().size();
     }
 
     size_t GetNodeListCount(const string &id_type) {
@@ -172,14 +172,14 @@ protected:
     }
 
     size_t GetEdgeListCount() {
-        return listener_->tracker_->edge_list().size();
+        return tracker_->edge_list().size();
     }
 
-    size_t GetEdgeListCount(const string &id_type) {
+    size_t GetEdgeListCount(const string &metadata) {
         size_t count = 0;
         for (EdgeList::const_iterator it = tracker_->edge_list().begin();
              it != tracker_->edge_list().end(); ++it) {
-            if (it->id_type == id_type)
+            if (it->metadata == metadata)
                 count++;
         }
         return count;
@@ -434,6 +434,7 @@ TEST_F(BgpConfigListenerTest, DeletedLinkEvent1) {
     PauseChangeListPropagation();
     string content_b = ReadFile("controller/src/bgp/testdata/config_listener_test_7b.xml");
     EXPECT_TRUE(parser_.Parse(content_b));
+    task_util::WaitForIdle();
     ifmap_test_util::IFMapMsgUnlink(&db_, "routing-instance", "red",
         "routing-instance", "blue", "connection");
     task_util::WaitForIdle();
@@ -447,7 +448,7 @@ TEST_F(BgpConfigListenerTest, DeletedLinkEvent1) {
 
     TASK_UTIL_EXPECT_EQ(2, GetChangeListCount());
     TASK_UTIL_EXPECT_EQ(0, GetNodeListCount());
-    TASK_UTIL_EXPECT_EQ(0, GetEdgeListCount());
+    TASK_UTIL_EXPECT_EQ(0, GetEdgeListCount("connection"));
 
     PerformChangeListPropagation();
     TASK_UTIL_EXPECT_EQ(2, GetChangeListCount());
@@ -490,7 +491,7 @@ TEST_F(BgpConfigListenerTest, DeletedLinkEvent2) {
 
     TASK_UTIL_EXPECT_EQ(2, GetChangeListCount());
     TASK_UTIL_EXPECT_EQ(0, GetNodeListCount());
-    TASK_UTIL_EXPECT_EQ(2, GetEdgeListCount());
+    TASK_UTIL_EXPECT_EQ(2, GetEdgeListCount("connection"));
 
     PerformChangeListPropagation();
     TASK_UTIL_EXPECT_EQ(2, GetChangeListCount());

@@ -58,7 +58,7 @@ void BgpConfigListener::DependencyTrackerInit() {
 }
 
 //
-// Constructor, create and initialize the DependencyTracker.
+// Constructor.
 //
 BgpConfigListener::BgpConfigListener(BgpConfigManager *manager)
     : manager_(manager) {
@@ -87,6 +87,7 @@ static const char *bgp_config_types[] = {
 //
 // Initialize the BgpConfigListener.
 //
+// Create and initialize the DependencyTracker.
 // We register one listener for the IFMapLinkTable and a listener for each of
 // the relevant IFMapTables.
 //
