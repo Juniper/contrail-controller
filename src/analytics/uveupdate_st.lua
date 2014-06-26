@@ -35,6 +35,7 @@ local seq = ARGV[8]
 local hist = tonumber(ARGV[9])
 local tim = ARGV[10]
 local val = tonumber(ARGV[11])
+local db = tonumber(ARGV[12])
 
 local _types = KEYS[1]
 local _origins = KEYS[2]
@@ -45,6 +46,7 @@ local _stats = KEYS[6]
 local _s_3600 = KEYS[7]
 local _s_3600p = KEYS[8]
 
+redis.call('select',db)
 redis.call('sadd',_types,typ)
 redis.call('sadd',_origins,sm..":"..typ)
 redis.call('sadd',_table,key..':'..sm..":"..typ)
