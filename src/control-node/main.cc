@@ -433,7 +433,7 @@ int main(int argc, char *argv[]) {
     ControlNode::SetDefaultSchedulingPolicy();
     BgpSandeshContext sandesh_context;
 
-    if (options.discovery_server().empty()) {
+    if (options.collectors_configured()) {
         Module::type module = Module::CONTROL_NODE;
         NodeType::type node_type = 
             g_vns_constants.Module2NodeType.find(module)->second; 
