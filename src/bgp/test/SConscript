@@ -369,6 +369,7 @@ flaky_test = env.TestSuite('bgp-flaky-test', flaky_test_suite)
 env.Alias('controller/src/bgp:flaky-test', [
     flaky_test,
     'controller/src/bgp/l3vpn:flaky-test',
+    'controller/src/bgp/rtarget:flaky-test',
 ])
 
 env.Alias('controller/src/bgp:all-test', [
