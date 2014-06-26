@@ -589,8 +589,8 @@ class OpServer(object):
     def _parse_args(self, args_str=' '.join(sys.argv[1:])):
         '''
         Eg. python opserver.py --host_ip 127.0.0.1
-                               --redis_server_port 6381
-                               --redis_query_port 6380
+                               --redis_server_port 6379
+                               --redis_query_port 6379
                                --collectors 127.0.0.1:8086
                                --http_server_port 8090
                                --rest_api_port 8081
@@ -600,7 +600,7 @@ class OpServer(object):
                                --log_category test
                                --log_file <stdout>
                                --worker_id 0
-                               --redis_uve_list 127.0.0.1:6381
+                               --redis_uve_list 127.0.0.1:6379
         '''
         # Source any specified config/ini file
         # Turn off help, so we print all options in response to -h
@@ -621,11 +621,11 @@ class OpServer(object):
             'log_category'       : '',
             'log_file'           : Sandesh._DEFAULT_LOG_FILE,
             'dup'                : False,
-            'redis_uve_list'     : ['127.0.0.1:6381']
+            'redis_uve_list'     : ['127.0.0.1:6379']
         }
         redis_opts = {
-            'redis_server_port'  : 6381,
-            'redis_query_port'   : 6380,
+            'redis_server_port'  : 6379,
+            'redis_query_port'   : 6379,
         }
         disc_opts = {
             'disc_server_ip'     : None,
@@ -1387,7 +1387,7 @@ class OpServer(object):
             moduleids = []
             for redis_uve in self.redis_uve_list:
                 redish = redis.StrictRedis(
-                    db=0,
+                    db=1,
                     host=redis_uve[0],
                     port=redis_uve[1])
                 try:

@@ -29,7 +29,7 @@ class UVEServer(object):
         self._redis = None
         if self._local_redis_uve:
             self._redis = redis.StrictRedis(self._local_redis_uve[0],
-                                            self._local_redis_uve[1], db=0)
+                                            self._local_redis_uve[1], db=1)
     #end __init__
 
     def update_redis_uve_list(self, redis_uve_list):
@@ -197,7 +197,7 @@ class UVEServer(object):
         statdict = {}
         for redis_uve in self._redis_uve_list:
             redish = redis.StrictRedis(host=redis_uve[0],
-                                       port=redis_uve[1], db=0)
+                                       port=redis_uve[1], db=1)
             try:
                 empty = True
                 qmap = {}
@@ -400,7 +400,7 @@ class UVEServer(object):
                 patterns.add(self.get_uve_regex(filt))
         for redis_uve in self._redis_uve_list:
             redish = redis.StrictRedis(host=redis_uve[0],
-                                       port=redis_uve[1], db=0)
+                                       port=redis_uve[1], db=1)
             try:
                 for entry in redish.smembers("TABLE:" + key):
                     info = (entry.split(':', 1)[1]).rsplit(':', 5)

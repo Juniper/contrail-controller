@@ -133,7 +133,7 @@ class OpServer(object):
                 '/analytics_test/bin/contrail-analytics-api',
                 '--redis_server_port', str(self._redis_port),
                 '--redis_query_port', 
-                str(self.analytics_fixture.redis_query.port),
+                str(self.analytics_fixture.redis_uves[0].port),
                 '--http_server_port', str(self.http_port),
                 '--log_file', self._log_file,
                 '--rest_api_port', str(self.listen_port)]
@@ -202,7 +202,7 @@ class QueryEngine(object):
         self._log_file = '/tmp/qed.messages.' + str(self.listen_port)
         subprocess.call(['rm', '-rf', self._log_file])
         args = [self.analytics_fixture.builddir + '/query_engine/qedt',
-                '--REDIS.port', str(self.analytics_fixture.redis_query.port),
+                '--REDIS.port', str(self.analytics_fixture.redis_uves[0].port),
                 '--DEFAULT.cassandra_server_list', '127.0.0.1:' +
                 str(self.analytics_fixture.cassandra_port),
                 '--DEFAULT.http_server_port', str(self.listen_port),
@@ -275,8 +275,6 @@ class AnalyticsFixture(fixtures.Fixture):
 
         self.redis_uves = [Redis(self.builddir)]
         self.redis_uves[0].start()
-        self.redis_query = Redis(self.builddir)
-        self.redis_query.start()
 
         self.collectors = [Collector(self, self.redis_uves[0], self.logger)] 
         self.collectors[0].start()
@@ -1577,7 +1575,6 @@ class AnalyticsFixture(fixtures.Fixture):
                 pass
         for redis_uve in self.redis_uves:
             redis_uve.stop()
-        self.redis_query.stop()
         super(AnalyticsFixture, self).cleanUp()
 
     @staticmethod
