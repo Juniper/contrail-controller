@@ -199,7 +199,8 @@ TEST_F(DbHandlerTest, MessageIndexTableInsertTest) {
         .Times(1)
         .WillOnce(Return(true));
 
-    db_handler()->MessageIndexTableInsert(g_viz_constants.MESSAGE_TABLE_SOURCE, hdr, "", unm);
+    db_handler()->MessageIndexTableInsert(g_viz_constants.MESSAGE_TABLE_SOURCE,
+            hdr, "", unm, "");
 }
 
 TEST_F(DbHandlerTest, MessageTableInsertTest) {

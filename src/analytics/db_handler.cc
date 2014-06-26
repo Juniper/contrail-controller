@@ -22,6 +22,7 @@
 #include "vizd_table_desc.h"
 #include "collector.h"
 #include "db_handler.h"
+#include "parser_util.h"
 
 #define DB_LOG(_Level, _Msg)                                                   \
     do {                                                                       \
@@ -267,7 +268,8 @@ bool DbHandler::AllowMessageTableInsert(const SandeshHeader &header) {
 bool DbHandler::MessageIndexTableInsert(const std::string& cfname,
         const SandeshHeader& header,
         const std::string& message_type,
-        const boost::uuids::uuid& unm) {
+        const boost::uuids::uuid& unm,
+        const std::string keyword) {
     std::auto_ptr<GenDb::ColList> col_list(new GenDb::ColList);
     col_list->cfname_ = cfname;
     // Rowkey
@@ -284,6 +286,11 @@ bool DbHandler::MessageIndexTableInsert(const std::string& cfname,
     } else if (cfname == g_viz_constants.MESSAGE_TABLE_MESSAGE_TYPE) {
         rowkey.push_back(message_type);
     } else if (cfname == g_viz_constants.MESSAGE_TABLE_TIMESTAMP) {
+    } else if (cfname == g_viz_constants.MESSAGE_TABLE_KEYWORD) {
+        if (keyword.length())
+            rowkey.push_back(keyword);
+        else
+            return false;
     } else {
         DB_LOG(ERROR, "Unknown table: " << cfname << ", message: "
                 << message_type << ", message UUID: " << unm);
@@ -392,11 +399,42 @@ void DbHandler::MessageTableInsert(const VizMsg *vmsgp) {
 
     MessageTableOnlyInsert(vmsgp);
 
-    MessageIndexTableInsert(g_viz_constants.MESSAGE_TABLE_SOURCE, header, message_type, vmsgp->unm);
-    MessageIndexTableInsert(g_viz_constants.MESSAGE_TABLE_MODULE_ID, header, message_type, vmsgp->unm);
-    MessageIndexTableInsert(g_viz_constants.MESSAGE_TABLE_CATEGORY, header, message_type, vmsgp->unm);
-    MessageIndexTableInsert(g_viz_constants.MESSAGE_TABLE_MESSAGE_TYPE, header, message_type, vmsgp->unm);
-    MessageIndexTableInsert(g_viz_constants.MESSAGE_TABLE_TIMESTAMP, header, message_type, vmsgp->unm);
+    MessageIndexTableInsert(g_viz_constants.MESSAGE_TABLE_SOURCE, header,
+            message_type, vmsgp->unm, "");
+    MessageIndexTableInsert(g_viz_constants.MESSAGE_TABLE_MODULE_ID, header,
+            message_type, vmsgp->unm, "");
+    MessageIndexTableInsert(g_viz_constants.MESSAGE_TABLE_CATEGORY, header,
+            message_type, vmsgp->unm, "");
+    MessageIndexTableInsert(g_viz_constants.MESSAGE_TABLE_MESSAGE_TYPE, header,
+            message_type, vmsgp->unm, "");
+    MessageIndexTableInsert(g_viz_constants.MESSAGE_TABLE_TIMESTAMP, header,
+            message_type, vmsgp->unm, "");
+
+    const SandeshType::type &stype(header.get_Type());
+    std::string s;
+
+    if (stype == SandeshType::SYSTEM) {
+        const SandeshXMLMessage *sxmsg =
+            static_cast<const SandeshXMLMessage *>(vmsgp->msg);
+        const pugi::xml_node &parent(sxmsg->GetMessageNode());
+        s = LineParser::GetXmlString(parent);
+    } else if (!vmsgp->keyword_doc_.empty()) {
+        s = std::string(vmsgp->keyword_doc_);
+    }
+    if (!s.empty()) {
+        LineParser::WordListType words = LineParser::ParseDoc(s.begin(),
+                s.end());
+        LineParser::RemoveStopWords(&words);
+        for (LineParser::WordListType::iterator i = words.begin();
+                i != words.end(); i++) {
+            // tableinsert@{(t2,*i), (t1,header.get_Source())} -> vmsgp->unm
+            bool r = MessageIndexTableInsert(
+                    g_viz_constants.MESSAGE_TABLE_KEYWORD, header,
+                    message_type, vmsgp->unm, *i);
+            if (!r)
+                DB_LOG(ERROR, "Failed to parse:" << s);
+        }
+    }
     /*
      * Insert the message types in the stat table
      * Construct the atttributes,attrib_tags beofore inserting
