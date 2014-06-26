@@ -235,12 +235,14 @@ void Agent::set_cn_mcast_builder(AgentXmppChannel *peer) {
 }
 
 void Agent::InitCollector() {
-    // If discovery server is not specified, init connection to collector
-    // based on configuration
-    if (dss_addr_.empty() == false) {
+    /* Return if collector is not configured in config file */
+    if (params_->collector_server_list().size() == 0) {
         return;
     }
 
+    /* If collector configuration is specified, use that for connection to
+     * collector regardless of whether discovery is configured or not.
+     */
     Module::type module = Module::VROUTER_AGENT;
     NodeType::type node_type =
         g_vns_constants.Module2NodeType.find(module)->second;
