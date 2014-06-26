@@ -80,7 +80,6 @@ test_agent_route_walker = AgentEnv.MakeTestCmd(env, 'test_agent_route_walker',
                                                agent_suite)
 test_xmpp_hv = AgentEnv.MakeTestCmd(env, 'test_xmpp_hv', flaky_agent_suite)
 test_scale_walk = AgentEnv.MakeTestCmd(env, 'test_scale_walk', flaky_agent_suite)
-test_sg = AgentEnv.MakeTestCmd(env, 'test_sg', flaky_agent_suite)
 test_acl = AgentEnv.MakeTestCmdSrc(env, 'test_acl',
                                    ['../filter/test/acl_test.cc'],
                                    agent_suite)
