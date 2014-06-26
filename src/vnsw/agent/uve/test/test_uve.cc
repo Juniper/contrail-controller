@@ -465,7 +465,7 @@ int main(int argc, char **argv) {
     client = TestInit(init_file, ksync_init, true, false);
     UveTest::TestSetup(vrf_array, 2);
 
-    ret = RUN_ALL_TESTS();
+    int ret = RUN_ALL_TESTS();
     UveTest::TestTearDown();
     Agent::GetInstance()->event_manager()->Shutdown();
     AsioStop();
