@@ -1,5 +1,3 @@
-#fq_name =  vim: tabstop=4 shiftwidth=4 softtabstop=4
-
 # Copyright 2012, Contrail Systems, Inc.
 #
 
@@ -3093,7 +3091,7 @@ class DBInterface(object):
             ret_list = []
             for port_obj in ret_q_ports:
                 if not self._filters_is_present(filters, 'name',
-                                                port_obj['q_api_data']['name']):
+                                                port_obj['name']):
                     continue
                 ret_list.append(port_obj)
             return ret_list
