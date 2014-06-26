@@ -96,13 +96,13 @@ env.Prepend(LINKFLAGS = ['-Wl,--whole-archive', '-rdynamic', '-lkstate',
 
 #Add -Wno-return-type to ignore errors from thrift generated code in 
 #InstanceService.h
-contrail-vrouter-agent = env.Program(target = 'contrail-vrouter-agent',
+contrail_vrouter_agent = env.Program(target = 'contrail-vrouter-agent',
                      source = ['buildinfo.cc',
                                'contrail_agent_init.cc',
                                'main.cc'])
-env.Alias('agent:contrail-vrouter-agent', contrail-vrouter-agent)
-env.Default(contrail-vrouter-agent)
+env.Alias('agent:contrail-vrouter-agent', contrail_vrouter_agent)
+env.Default(contrail_vrouter_agent)
 
-env.Alias('install', env.Install(env['INSTALL_BIN'], contrail-vrouter-agent))
+env.Alias('install', env.Install(env['INSTALL_BIN'], contrail_vrouter_agent))
 env.Alias('install', env.Install(env['INSTALL_CONF'], 
           '../contrail-vrouter-agent.conf'))
