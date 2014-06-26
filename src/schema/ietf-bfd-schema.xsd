@@ -1,0 +1,13 @@
+<xsd:schema
+    xmlns:xsd="http://www.w3.org/2001/XMLSchema"
+    xmlns:smi="urn:ietf:params:xml:ns:opsawg:smi:base:1.0">
+
+	<xsd:complexType name='BFDSessionConfig'>
+		<xsd:sequence>
+			<!-- naming scheme conforms to RFC 5880 -->
+			<xsd:element name='desired-min-tx-interval' type='xsd:time'/>
+			<xsd:element name='required-min-rx-interval' type='xsd:time'/>
+			<xsd:element name='detection-time-multiplier' type='xsd:integer/'>
+		</xsd:sequence>
+	</xsd:complexType>
+</xsd:schema>
