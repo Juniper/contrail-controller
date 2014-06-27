@@ -8,6 +8,7 @@
 #include <boost/asio.hpp>
 
 #include "base/logging.h"
+#include "base/task_annotations.h"
 #include "base/test/task_test_util.h"
 #include "control-node/control_node.h"
 
@@ -35,12 +36,11 @@ protected:
         evm_.reset(new EventManager());
     }
 
-    ~XmppStateMachineTest() { 
+    ~XmppStateMachineTest() {
     }
 
     virtual void SetUp() {
         server_ = new XmppServer(evm_.get(), XMPP_CONTROL_SERV);
-
         server_->Initialize(0, false);
         LOG(DEBUG, "Created Xmpp server at port: " << server_->GetPort());
         SetUpServerSideConnection(); //Accept
@@ -48,8 +48,8 @@ protected:
 
     virtual void TearDown() {
         connection_->Shutdown();
+        connection_->deleter()->ResumeDelete();
         task_util::WaitForIdle();
-        delete connection_;
         server_->Shutdown();
         task_util::WaitForIdle();
         TcpServerManager::DeleteServer(server_);
@@ -57,6 +57,7 @@ protected:
     }
 
     void SetUpServerSideConnection() {
+        ConcurrencyScope scope("bgp::Config");
 
         LOG(DEBUG, "Mock Server side connection created on accept");
         ip::tcp::endpoint remote_endpoint;
@@ -67,9 +68,9 @@ protected:
         cfg.FromAddr = server_->ServerAddr();
 
         connection_ = new XmppServerConnection(server_, &cfg);
-
         sm_ = connection_->state_machine_.get();
-        // server_->InsertConnection(connection_);
+        server_->InsertConnection(connection_);
+        connection_->deleter()->PauseDelete();
     }
 
     void VerifyState(xmsm::XmState state) {
@@ -209,7 +210,7 @@ namespace {
 
 //Verify Active state on EvStart
 TEST_F(XmppStateMachineTest, Idle) {
-
+    EvStop();
     VerifyState(xmsm::IDLE);
 
     EvStart();
@@ -221,8 +222,6 @@ TEST_F(XmppStateMachineTest, Idle) {
 // Event    : EvOpenTimerExpired
 // NewState : Active with SendClose
 TEST_F(XmppStateMachineTest, OpenTimerExpired) {
-  
-    EvStart();
     VerifyState(xmsm::ACTIVE);
 
     EvTcpPassiveOpen();
@@ -236,8 +235,6 @@ TEST_F(XmppStateMachineTest, OpenTimerExpired) {
 // Event    :EvTcpClose
 // NewState :Idle
 TEST_F(XmppStateMachineTest, Active_EvTcpClose) {
-
-    EvStart();
     VerifyState(xmsm::ACTIVE);
 
     EvTcpPassiveOpenFake();
@@ -251,8 +248,6 @@ TEST_F(XmppStateMachineTest, Active_EvTcpClose) {
 // Event    :EvStop
 // NewState :Idle
 TEST_F(XmppStateMachineTest, Active_EvStop) {
-
-    EvStart();
     VerifyState(xmsm::ACTIVE);
 
     EvStop();
@@ -263,8 +258,6 @@ TEST_F(XmppStateMachineTest, Active_EvStop) {
 // Event    :EvStop
 // NewState :Idle
 TEST_F(XmppStateMachineTest, Active_EvPassive_EvStop) {
-
-    EvStart();
     VerifyState(xmsm::ACTIVE);
 
     EvTcpPassiveOpenFake();
@@ -279,8 +272,6 @@ TEST_F(XmppStateMachineTest, Active_EvPassive_EvStop) {
 // Event     : EvTcpClose
 // New State : Idle
 TEST_F(XmppStateMachineTest, DISABLED_OpenConfirm_EvTcpClose) {
-
-    EvStart();
     VerifyState(xmsm::ACTIVE);
 
     EvTcpPassiveOpenFake();
@@ -297,8 +288,6 @@ TEST_F(XmppStateMachineTest, DISABLED_OpenConfirm_EvTcpClose) {
 // Event     : EvHoldTimerExpired
 // New State : Idle
 TEST_F(XmppStateMachineTest, DISABLED_OpenConfirm_EvHoldTimerExpired) {
-
-    EvStart();
     VerifyState(xmsm::ACTIVE);
 
     EvTcpPassiveOpenFake();
@@ -316,8 +305,6 @@ TEST_F(XmppStateMachineTest, DISABLED_OpenConfirm_EvHoldTimerExpired) {
 // Event     : EvXmppKeepalive
 // New State : Established
 TEST_F(XmppStateMachineTest, EvXmppOpen) {
-
-    EvStart();
     VerifyState(xmsm::ACTIVE);
 
     EvTcpPassiveOpenFake();
@@ -343,8 +330,6 @@ TEST_F(XmppStateMachineTest, EvXmppOpen) {
 // Event    :EvHoldTimerExpired
 // NewState :Idle
 TEST_F(XmppStateMachineTest, Established_EvHoldTimerExpired) {
-
-    EvStart();
     VerifyState(xmsm::ACTIVE);
 
     EvTcpPassiveOpenFake();
@@ -362,8 +347,6 @@ TEST_F(XmppStateMachineTest, Established_EvHoldTimerExpired) {
 // Event     : EvTcpClose
 // New State : Idle
 TEST_F(XmppStateMachineTest, Established_EvTcpClose) {
-
-    EvStart();
     VerifyState(xmsm::ACTIVE);
 
     EvTcpPassiveOpenFake();
@@ -381,8 +364,6 @@ TEST_F(XmppStateMachineTest, Established_EvTcpClose) {
 // Event     : EvStop
 // New State : Idle
 TEST_F(XmppStateMachineTest, Established_EvStop) {
-
-    EvStart();
     VerifyState(xmsm::ACTIVE);
 
     EvTcpPassiveOpenFake();
@@ -401,8 +382,6 @@ TEST_F(XmppStateMachineTest, Established_EvStop) {
 // Event     : EvXmppMessageReceive
 // New State : Established 
 TEST_F(XmppStateMachineTest, EvXmppMessageReceive) {
-
-    EvStart();
     VerifyState(xmsm::ACTIVE);
 
     EvTcpPassiveOpenFake();

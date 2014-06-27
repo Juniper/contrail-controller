@@ -762,7 +762,7 @@ bool McastManagerPartition::ProcessSGEntry(McastSGEntry *sg_entry) {
     }
 
     if (sg_list_.empty())
-        tree_manager_->MayResumeDelete();
+        tree_manager_->RetryDelete();
 
     return true;
 }
@@ -1016,12 +1016,10 @@ void McastTreeManager::ManagedDelete() {
 //
 // Attempt to enqueue a delete for the McastTreeManager.
 //
-void McastTreeManager::MayResumeDelete() {
+void McastTreeManager::RetryDelete() {
     if (!deleter()->IsDeleted())
         return;
-
-    BgpServer *server = table_->routing_instance()->server();
-    server->lifetime_manager()->Enqueue(deleter());
+    deleter()->RetryDelete();
 }
 
 //

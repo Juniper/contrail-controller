@@ -97,11 +97,10 @@ void DBTablePartition::Remove(DBEntryBase *db_entry) {
     assert(tree_.erase(*entry));
     delete entry;
 
-    //
     // If a table is marked for deletion, then we may trigger the deletion
     // process when the last prefix is deleted
-    //
-    table()->MayResumeDelete(tree_.empty());
+    if (tree_.empty())
+        table()->RetryDelete();
 }
 
 DBEntry *DBTablePartition::Find(const DBEntry *entry) {

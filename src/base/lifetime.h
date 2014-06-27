@@ -122,6 +122,8 @@ public:
     // may be called from any thread.
     virtual void Delete();
 
+    virtual void RetryDelete();
+
     // called to check dependencies.
     virtual bool MayDelete() const = 0;
 

@@ -94,9 +94,19 @@ public:
         XmppServer::InsertConnection(connection);
     }
 
-    void RemoveConnection(XmppConnection *connection) {
+    bool RemoveConnection(XmppConnection *connection) {
         tbb::mutex::scoped_lock lock(mutex_);
-        XmppServer::RemoveConnection(connection);
+        return XmppServer::RemoveConnection(connection);
+    }
+
+    void DeleteConnection(XmppConnection *connection) {
+        tbb::mutex::scoped_lock lock(mutex_);
+        XmppServer::DeleteConnection(connection);
+    }
+
+    void DestroyConnection(XmppConnection *connection) {
+        tbb::mutex::scoped_lock lock(mutex_);
+        XmppServer::DestroyConnection(connection);
     }
 
     boost::function<bool()> GetIsPeerCloseGraceful_fnc_;

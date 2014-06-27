@@ -16,6 +16,7 @@
 #include "sandesh/sandesh.h"
 #include "sandesh/sandesh_server.h"
 #include "xmpp/xmpp_server.h"
+#include "xmpp/xmpp_state_machine.h"
 #include "testing/gunit.h"
 
 class BgpAttr;
@@ -182,13 +183,24 @@ public:
 };
 
 class StateMachineTest : public StateMachine {
-    public:
-        explicit StateMachineTest(BgpPeer *peer) : StateMachine(peer) { }
-        ~StateMachineTest() { }
+public:
+    explicit StateMachineTest(BgpPeer *peer) : StateMachine(peer) { }
+    ~StateMachineTest() { }
 
-        void StartConnectTimer(int seconds);
-        void StartOpenTimer(int seconds);
-        void StartIdleHoldTimer();
+    void StartConnectTimer(int seconds);
+    void StartOpenTimer(int seconds);
+    void StartIdleHoldTimer();
+};
+
+class XmppStateMachineTest : public XmppStateMachine {
+public:
+    explicit XmppStateMachineTest(XmppConnection *connection, bool active)
+        : XmppStateMachine(connection, active) {
+    }
+    ~XmppStateMachineTest() { }
+
+    void StartConnectTimer(int seconds);
+    void StartOpenTimer(int seconds);
 };
 
 class BgpXmppChannelManagerMock : public BgpXmppChannelManager {

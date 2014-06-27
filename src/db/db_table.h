@@ -143,10 +143,8 @@ public:
     // Delete hook for user function
     virtual void Delete(DBEntry *entry, const DBRequest *req);
 
-    //
     // Suspended deletion resume hook for user function
-    //
-    virtual void MayResumeDelete(bool is_empty) { return; }
+    virtual void RetryDelete() { }
 
     ///////////////////////////////////////////////////////////
     // Utility methods for table

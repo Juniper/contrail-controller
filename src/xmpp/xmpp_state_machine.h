@@ -50,7 +50,7 @@ class XmppStateMachine :
 public:
     static const int kOpenTime = 15;        // seconds
     static const int kConnectInterval = 30;
-        
+
     XmppStateMachine(XmppConnection *connection, bool active);
     ~XmppStateMachine();
 
@@ -60,11 +60,11 @@ public:
     // State transitions
     void OnStart(const xmsm::EvStart &event);
 
-    void StartConnectTimer(int seconds);
+    virtual void StartConnectTimer(int seconds);
     void CancelConnectTimer();
-    void StartOpenTimer(int seconds);
+    virtual void StartOpenTimer(int seconds);
     void CancelOpenTimer();
-    void StartHoldTimer(int seconds);
+    virtual void StartHoldTimer(int seconds);
     void CancelHoldTimer();
     void ResetSession();
 
@@ -124,8 +124,8 @@ public:
     bool OpenTimerCancelled() { return open_timer_->cancelled(); }
     bool HoldTimerCancelled() { return hold_timer_->cancelled(); }
     void AssertOnHoldTimeout();
-private:
 
+private:
     bool ConnectTimerExpired();
     bool OpenTimerExpired();
     bool HoldTimerExpired();
@@ -147,10 +147,8 @@ private:
     uint64_t state_since_;
     std::string last_event_;
     uint64_t last_event_at_;
-            
+
     DISALLOW_COPY_AND_ASSIGN(XmppStateMachine);
 };
-
-
 
 #endif
