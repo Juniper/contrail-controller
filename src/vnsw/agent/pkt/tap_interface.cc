@@ -87,9 +87,9 @@ void TapInterface::SetupTap() {
             assert(0);
         }
 
-        if (ioctl(tap_fd_, TUNSETPERSIST, 1) < 0) {
+        if (ioctl(tap_fd_, TUNSETPERSIST, 0) < 0) {
             LOG(ERROR, "Packet Tap Error <" << errno << ": " << 
-                strerror(errno) << "> making tap interface persistent");
+                strerror(errno) << "> making tap interface non-persistent");
             assert(0);
         }
 

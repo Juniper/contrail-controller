@@ -368,6 +368,7 @@ int InterfaceKSyncEntry::Encode(sandesh_op::type op, char *buf, int buf_len) {
     case Interface::PHYSICAL: {
         encoder.set_vifr_type(VIF_TYPE_PHYSICAL); 
         flags |= VIF_FLAG_L3_ENABLED;
+        flags |= VIF_FLAG_VHOST_PHYS;
         break;
     }
 
