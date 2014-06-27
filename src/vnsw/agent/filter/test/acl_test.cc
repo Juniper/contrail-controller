@@ -303,7 +303,7 @@ TEST_F(AclTest, PacketMatching) {
     packet1->dst_port = 99;
     MatchAclParams m_acl;
     m_acl.acl = acl1;
-    EXPECT_TRUE(acl1->PacketMatch(*packet1, m_acl));
+    EXPECT_TRUE(acl1->PacketMatch(*packet1, m_acl, NULL));
     uint32_t action_val = ((1 << TrafficAction::DENY) | (1 << TrafficAction::PASS));
     EXPECT_EQ(action_val, m_acl.action_info.action);
     delete packet1;
@@ -332,7 +332,7 @@ TEST_F(AclTest, Config) {
     packet1->dst_port = 100;
     packet1->src_port = 100;
     m_acl.acl = acl1;
-    EXPECT_TRUE(acl1->PacketMatch(*packet1, m_acl));
+    EXPECT_TRUE(acl1->PacketMatch(*packet1, m_acl, NULL));
     uint32_t action = (1 << TrafficAction::DENY);
     EXPECT_EQ(action, m_acl.action_info.action);
     delete packet1;
