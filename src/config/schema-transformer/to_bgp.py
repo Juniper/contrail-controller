@@ -47,7 +47,8 @@ import discoveryclient.client as client
 from collections import OrderedDict
 import jsonpickle
 
-_BGP_RTGT_MAX_ID = 1 << 20
+_BGP_RTGT_MIN_ID = 8000000
+_BGP_RTGT_MAX_ID = 1 << 24
 _BGP_RTGT_ALLOC_PATH = "/id/bgp/route-targets/"
 
 _VN_MAX_ID = 1 << 24
@@ -506,6 +507,8 @@ class VirtualNetworkST(DictST):
         rinst_fq_name_str = '%s:%s' % (self.obj.get_fq_name_str(), rinst_name)
         try:
             rtgt_num = int(self._rt_cf.get(rinst_fq_name_str)['rtgt_num'])
+            if rtgt_num < _BGP_RTGT_MIN_ID:
+                raise pycassa.NotFoundException
             rtgt_ri_fq_name_str = self._rt_allocator.read(rtgt_num)
             if (rtgt_ri_fq_name_str != rinst_fq_name_str):
                 alloc_new = True
@@ -2399,6 +2402,12 @@ class LogicalRouterST(DictST):
         self.virtual_networks = set()
         obj = _vnc_lib.logical_router_read(fq_name_str=name)
         rt_ref = obj.get_route_target_refs()
+        if rt_ref:
+            rt_key = rt_ref[0]['to'][0]
+            rtgt_num = int(rt_key.split(':')[-1])
+            if rtgt_num < _BGP_RTGT_MIN_ID:
+                _vnc_lib.route_target_delete(fq_name=[rt_key])
+            rt_ref = None
         if not rt_ref:
             rtgt_num = VirtualNetworkST._rt_allocator.alloc(name)
             rt_key = "target:%s:%d" % (
@@ -2406,8 +2415,6 @@ class LogicalRouterST(DictST):
             rtgt_obj = RouteTargetST.locate(rt_key)
             obj.set_route_target(rtgt_obj)
             _vnc_lib.logical_router_update(obj)
-        else:
-            rt_key = rt_ref[0]['to'][0]
 
         self.route_target = rt_key
     # end __init__
@@ -2519,7 +2526,8 @@ class SchemaTransformer(object):
             SecurityGroupST._sg_id_allocator.delete(0)
         SecurityGroupST._sg_id_allocator.reserve(0, '__reserved__')
         VirtualNetworkST._rt_allocator = IndexAllocator(
-            _zookeeper_client, _BGP_RTGT_ALLOC_PATH, _BGP_RTGT_MAX_ID)
+            _zookeeper_client, _BGP_RTGT_ALLOC_PATH, _BGP_RTGT_MAX_ID,
+            _BGP_RTGT_MIN_ID)
 
         # Initialize discovery client
         self._disc = None
