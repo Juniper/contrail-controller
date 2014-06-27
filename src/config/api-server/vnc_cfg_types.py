@@ -273,6 +273,28 @@ class VirtualMachineInterfaceServer(VirtualMachineInterfaceServerGen):
 class VirtualNetworkServer(VirtualNetworkServerGen):
 
     @classmethod
+    def _check_route_targets(cls, obj_dict, db_conn):
+        if 'route_target_list' not in obj_dict:
+            return (True, '')
+        config_uuid = db_conn.fq_name_to_uuid('global_system_config', ['default-global-system-config'])
+        config = db_conn.uuid_to_obj_dict(config_uuid)
+        global_asn = config.get('prop:autonomous_system')
+        if not global_asn:
+            return (True, '')
+        global_asn = json.loads(global_asn)
+        rt_dict = obj_dict.get('route_target_list')
+        if not rt_dict:
+            return (True, '')
+        for rt in rt_dict.get('route_target', []):
+            (_, asn, target) = rt.split(':')
+            if asn == global_asn and int(target) >= cfgm_common.BGP_RTGT_MIN_ID:
+                 return (False, "Configured route target must use ASN that is "
+                         "different from global ASN or route target value must"
+                         " be less than %d" % cfgm_common.BGP_RTGT_MIN_ID)
+        return True
+    # end _check_route_targets
+
+    @classmethod
     def http_post_collection(cls, tenant_name, obj_dict, db_conn):
         try:
             fq_name = obj_dict['fq_name']
@@ -292,6 +314,9 @@ class VirtualNetworkServer(VirtualNetworkServerGen):
             if not ok:
                 return (False, (403, pformat(obj_dict['fq_name']) + ' : ' + quota_limit))
 
+        (ok, error) =  cls._check_route_targets(obj_dict, db_conn)
+        if not ok:
+            return (False, (400, error))
         try:
             cls.addr_mgmt.net_create_req(obj_dict)
         except Exception as e:
@@ -340,6 +365,9 @@ class VirtualNetworkServer(VirtualNetworkServerGen):
         except Exception as e:
             return (False, (500, str(e)))
 
+        (ok, error) =  cls._check_route_targets(obj_dict, db_conn)
+        if not ok:
+            return (False, (400, error))
         return True, ""
     # end http_put
 
