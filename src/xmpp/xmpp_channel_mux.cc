@@ -57,9 +57,7 @@ void XmppChannelMux::UnRegisterReceive(xmps::PeerId id) {
     if (it != rxmap_.end()) {
         rxmap_.erase(it);
     }
-    if (rxmap_.empty() && connection_->ShutdownPending()) {
-        connection_->ManagedDelete();
-    }
+    connection_->RetryDelete();
 }
 
 size_t XmppChannelMux::ReceiverCount() const {
