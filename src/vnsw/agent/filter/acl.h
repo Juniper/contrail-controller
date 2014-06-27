@@ -23,6 +23,15 @@ using namespace boost::uuids;
 class VnEntry;
 class Interface;
 
+struct FlowPolicyInfo {
+    std::string uuid;
+    bool drop;
+    bool terminal;
+    bool other;
+    FlowPolicyInfo(std::string u) : uuid(u), drop(false), terminal(false), 
+                                    other(false) {}
+};
+
 struct FlowAction {
     FlowAction(): 
         action(0), mirror_l() {};
@@ -39,7 +48,7 @@ struct FlowAction {
 };
 
 struct MatchAclParams {
-    MatchAclParams(): acl(NULL), ace_id_list(), terminal_rule(false) {};
+    MatchAclParams(): acl(NULL), ace_id_list(), terminal_rule(false) {}
     ~MatchAclParams() { };
 
     AclDBEntryConstRef acl;
@@ -102,8 +111,8 @@ public:
     bool GetDynamicAcl () const {return dynamic_acl_;};
 
     // Packet Match
-    bool PacketMatch(const PacketHeader &packet_header, 
-		     MatchAclParams &m_acl) const;
+    bool PacketMatch(const PacketHeader &packet_header, MatchAclParams &m_acl,
+                     FlowPolicyInfo *info) const;
     bool Changed(const AclEntries &new_acl_entries) const;
     uint32_t ace_count() const { return acl_entries_.size();}
 private:
