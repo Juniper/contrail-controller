@@ -121,6 +121,14 @@ private:
     template <typename ValueType>
     bool GetOptValue(const boost::program_options::variables_map &var_map, 
                      ValueType &var, const std::string &val);
+    // Implementation overloads
+    template <typename ValueType>
+    bool GetOptValueImpl(const boost::program_options::variables_map &var_map,
+                         ValueType &var, const std::string &val, ValueType*);
+    template <typename ElementType>
+    bool GetOptValueImpl(const boost::program_options::variables_map &var_map,
+                         std::vector<ElementType> &var, const std::string &val,
+                         std::vector<ElementType> *);
     template <typename ValueType>
     bool GetValueFromTree(ValueType &var, const std::string &val);
     bool GetIpAddress(const std::string &str, Ip4Address *addr);

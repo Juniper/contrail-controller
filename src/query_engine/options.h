@@ -45,6 +45,14 @@ private:
     template <typename ValueType>
     void GetOptValue(const boost::program_options::variables_map &var_map,
                      ValueType &var, std::string val);
+    // Implementation overloads
+    template <typename ValueType>
+    void GetOptValueImpl(const boost::program_options::variables_map &var_map,
+                         ValueType &var, std::string val, ValueType*);
+    template <typename ElementType>
+    void GetOptValueImpl(const boost::program_options::variables_map &var_map,
+                         std::vector<ElementType> &var, std::string val,
+                         std::vector<ElementType> *);
     void Process(int argc, char *argv[],
             boost::program_options::options_description &cmdline_options);
     void Initialize(EventManager &evm,

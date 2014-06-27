@@ -725,8 +725,9 @@ class AnalyticsQuery: public QueryUnit {
 public:
     AnalyticsQuery(std::string qid, std::map<std::string, 
             std::string>& json_api_data, uint64_t analytics_start_time,
-            EventManager *evm, const std::string & cassandra_ip, 
-            unsigned short cassandra_port, int batch, int total_batches);
+            EventManager *evm, std::vector<std::string> cassandra_ips, 
+            std::vector<int> cassandra_ports, int batch,
+            int total_batches);
     AnalyticsQuery(std::string qid, GenDb::GenDbIf *dbif, 
             std::map<std::string, std::string> json_api_data,
             uint64_t analytics_start_time, int batch, int total_batches);
@@ -880,7 +881,8 @@ public:
     uint64_t stime;
 
     QueryEngine(EventManager *evm,
-            const std::string & cassandra_ip, unsigned short cassandra_port,
+            std::vector<std::string> cassandra_ips,
+            std::vector<int> cassandra_ports,
             const std::string & redis_ip, unsigned short redis_port, 
             int max_tasks, int max_slice, uint64_t anal_ttl, 
             uint64_t start_time=0);
@@ -923,8 +925,8 @@ private:
     boost::scoped_ptr<GenDb::GenDbIf> dbif_;
     boost::scoped_ptr<QEOpServerProxy> qosp_;
     EventManager *evm_;
-    unsigned short cassandra_port_;
-    std::string cassandra_ip_;
+    std::vector<int> cassandra_ports_;
+    std::vector<std::string> cassandra_ips_;
     
 };
 

@@ -273,27 +273,37 @@ int main(int argc, char *argv[])
                     options.log_files_count());
     }
 
-    string cassandra_server = options.cassandra_server_list()[0];
-    typedef boost::tokenizer<boost::char_separator<char> > tokenizer;
-    boost::char_separator<char> sep(":");
-    tokenizer tokens(cassandra_server, sep);
-    tokenizer::iterator it = tokens.begin();
-    std::string cassandra_ip(*it);
-    ++it;
-    std::string port(*it);
-    int cassandra_port;
-    stringToInteger(port, cassandra_port);
+    vector<string> cassandra_servers(options.cassandra_server_list());
+    vector<string> cassandra_ips;
+    vector<int> cassandra_ports;
+    for (vector<string>::const_iterator it = cassandra_servers.begin();
+         it != cassandra_servers.end(); it++) {
+        string cassandra_server(*it);
+        typedef boost::tokenizer<boost::char_separator<char> > tokenizer;
+        boost::char_separator<char> sep(":");
+        tokenizer tokens(cassandra_server, sep);
+        tokenizer::iterator tit = tokens.begin();
+        string cassandra_ip(*tit);
+        cassandra_ips.push_back(cassandra_ip);
+        ++tit;
+        string port(*tit);
+        int cassandra_port;
+        stringToInteger(port, cassandra_port);
+        cassandra_ports.push_back(cassandra_port);
+    }
 
     LOG(INFO, "COLLECTOR LISTEN PORT: " << options.collector_port());
     LOG(INFO, "COLLECTOR REDIS UVE PORT: " << options.redis_port());
-    LOG(INFO, "COLLECTOR CASSANDRA SERVER: " << cassandra_ip);
-    LOG(INFO, "COLLECTOR CASSANDRA PORT: " << cassandra_port);
+    ostringstream css;
+    copy(cassandra_servers.begin(), cassandra_servers.end(),
+         ostream_iterator<string>(css, " "));
+    LOG(INFO, "COLLECTOR CASSANDRA SERVERS: " << css.str());
     LOG(INFO, "COLLECTOR SYSLOG LISTEN PORT: " << options.syslog_port());
 
     VizCollector analytics(&evm,
             options.collector_port(),
-            cassandra_ip,
-            cassandra_port,
+            cassandra_ips,
+            cassandra_ports,
             string("127.0.0.1"),
             options.redis_port(),
             options.syslog_port(),

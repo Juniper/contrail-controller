@@ -388,6 +388,29 @@ TEST_F(OptionsTest, CustomConfigFileAndOverrideFromCommandLine) {
     EXPECT_EQ(options_.test_mode(), true);
 }
 
+TEST_F(OptionsTest, MultitokenVector) {
+    int argc = 3;
+    char *argv[argc];
+    char argv_0[] = "options_test";
+    char argv_1[] = "--DEFAULT.collectors=10.10.10.1:100 20.20.20.2:200";
+    char argv_2[] = "--DEFAULT.cassandra_server_list=30.30.30.3:300";
+    argv[0] = argv_0;
+    argv[1] = argv_1;
+    argv[2] = argv_2;
+
+    options_.Parse(evm_, argc, argv);
+
+    vector<string> collector_server_list;
+    collector_server_list.push_back("10.10.10.1:100");
+    collector_server_list.push_back("20.20.20.2:200");
+    vector<string> cassandra_server_list;
+    cassandra_server_list.push_back("30.30.30.3:300");
+    TASK_UTIL_EXPECT_VECTOR_EQ(options_.collector_server_list(),
+                     collector_server_list);
+    TASK_UTIL_EXPECT_VECTOR_EQ(options_.cassandra_server_list(),
+                     cassandra_server_list);
+}
+
 int main(int argc, char **argv) {
     ::testing::InitGoogleTest(&argc, argv);
     int result = RUN_ALL_TESTS();

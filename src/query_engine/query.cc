@@ -889,12 +889,13 @@ query_status_t AnalyticsQuery::process_query()
 
 AnalyticsQuery::AnalyticsQuery(std::string qid, std::map<std::string, 
         std::string>& json_api_data, uint64_t analytics_start_time,
-        EventManager *evm, const std::string & cassandra_ip, 
-        unsigned short cassandra_port, int batch, int total_batches):
+        EventManager *evm, std::vector<std::string> cassandra_ips, 
+        std::vector<int> cassandra_ports, int batch,
+        int total_batches):
         QueryUnit(NULL, this),
         dbif_(GenDb::GenDbIf::GenDbIfImpl(
             boost::bind(&AnalyticsQuery::db_err_handler, this),
-            cassandra_ip, cassandra_port, 0, "QueryEngine", true)),
+            cassandra_ips, cassandra_ports, 0, "QueryEngine", true)),
         filter_qe_logs(true),
         json_api_data_(json_api_data),
         where_start_(0),
@@ -972,7 +973,7 @@ QueryEngine::QueryEngine(EventManager *evm,
         qosp_(new QEOpServerProxy(evm,
             this, redis_ip, redis_port, max_tasks)),
         evm_(evm),
-        cassandra_port_(0)
+        cassandra_ports_(0)
 {
     max_slice_ =  max_slice;
     init_vizd_tables();
@@ -988,18 +989,19 @@ QueryEngine::QueryEngine(EventManager *evm,
 }
 
 QueryEngine::QueryEngine(EventManager *evm,
-            const std::string & cassandra_ip, unsigned short cassandra_port,
+            std::vector<std::string> cassandra_ips,
+            std::vector<int> cassandra_ports,
             const std::string & redis_ip, unsigned short redis_port,
             int max_tasks, int max_slice, uint64_t anal_ttl, 
             uint64_t start_time) :  
         dbif_(GenDb::GenDbIf::GenDbIfImpl( 
             boost::bind(&QueryEngine::db_err_handler, this),
-            cassandra_ip, cassandra_port, 0, "QueryEngine", true)),
+            cassandra_ips, cassandra_ports, 0, "QueryEngine", true)),
         qosp_(new QEOpServerProxy(evm,
             this, redis_ip, redis_port, max_tasks)),
         evm_(evm),
-        cassandra_port_(cassandra_port),
-        cassandra_ip_(cassandra_ip)
+        cassandra_ports_(cassandra_ports),
+        cassandra_ips_(cassandra_ips)
 {
     max_slice_ = max_slice;
     init_vizd_tables();
@@ -1111,7 +1113,7 @@ QueryEngine::QueryPrepare(QueryParams qp,
     QE_LOG_NOQID(INFO, 
              " Got Query to prepare for QID " << qid);
     int ret_code;
-    if (cassandra_port_ == 0) {
+    if (cassandra_ports_.size() == 1 && cassandra_ports_[0] == 0) {
         chunk_size.push_back(999);
         need_merge = false;
         map_output = false;
@@ -1120,7 +1122,7 @@ QueryEngine::QueryPrepare(QueryParams qp,
     } else {
 
         AnalyticsQuery *q = new AnalyticsQuery(qid, qp.terms, stime, evm_,
-                cassandra_ip_, cassandra_port_, 0, qp.maxChunks);
+                cassandra_ips_, cassandra_ports_, 0, qp.maxChunks);
         chunk_size.clear();
         q->get_query_details(need_merge, map_output, chunk_size,
             where, select, post, time_period, ret_code);
@@ -1137,7 +1139,7 @@ QueryEngine::QueryAccumulate(QueryParams qp,
 
     QE_TRACE_NOQID(DEBUG, "Creating analytics query object for merge_processing");
     AnalyticsQuery *q = new AnalyticsQuery(qp.qid, qp.terms, stime, evm_,
-        cassandra_ip_, cassandra_port_, 1, qp.maxChunks);
+        cassandra_ips_, cassandra_ports_, 1, qp.maxChunks);
     QE_TRACE_NOQID(DEBUG, "Calling merge_processing");
     bool ret = q->merge_processing(input, output);
     delete q;
@@ -1151,7 +1153,7 @@ QueryEngine::QueryFinalMerge(QueryParams qp,
 
     QE_TRACE_NOQID(DEBUG, "Creating analytics query object for final_merge_processing");
     AnalyticsQuery *q = new AnalyticsQuery(qp.qid, qp.terms, stime, evm_,
-        cassandra_ip_, cassandra_port_, 1, qp.maxChunks);
+        cassandra_ips_, cassandra_ports_, 1, qp.maxChunks);
     QE_TRACE_NOQID(DEBUG, "Calling final_merge_processing");
     bool ret = q->final_merge_processing(inputs, output);
     delete q;
@@ -1164,7 +1166,7 @@ QueryEngine::QueryFinalMerge(QueryParams qp,
         QEOpServerProxy::OutRowMultimapT& output) {
     QE_TRACE_NOQID(DEBUG, "Creating analytics query object for final_merge_processing");
     AnalyticsQuery *q = new AnalyticsQuery(qp.qid, qp.terms, stime, evm_,
-        cassandra_ip_, cassandra_port_, 1, qp.maxChunks);
+        cassandra_ips_, cassandra_ports_, 1, qp.maxChunks);
 
     if (!q->is_stat_table_query()) {
         QE_TRACE_NOQID(DEBUG, "MultiMap merge_final is for Stats only");
@@ -1185,7 +1187,7 @@ QueryEngine::QueryExec(void * handle, QueryParams qp, uint32_t chunk)
     QE_TRACE_NOQID(DEBUG,
              " Got Query to execute for QID " << qid << " chunk:"<< chunk);
     //GenDb::GenDbIf *db_if = dbif_.get();
-    if (cassandra_port_ == 0) {
+    if (cassandra_ports_.size() == 1 && cassandra_ports_[0] == 0) {
         std::auto_ptr<QEOpServerProxy::BufferT> final_output(new QEOpServerProxy::BufferT);
         QEOpServerProxy::OutRowT outrow = boost::assign::map_list_of(
             "MessageTS", "1368037623434740")(
@@ -1205,7 +1207,7 @@ QueryEngine::QueryExec(void * handle, QueryParams qp, uint32_t chunk)
     }
 
     AnalyticsQuery *q = new AnalyticsQuery(qid, qp.terms, stime, evm_,
-            cassandra_ip_, cassandra_port_, chunk, qp.maxChunks);
+            cassandra_ips_, cassandra_ports_, chunk, qp.maxChunks);
 
     QE_TRACE_NOQID(DEBUG, " Finished parsing and starting processing for QID " << qid << " chunk:" << chunk); 
     q->process_query(); 

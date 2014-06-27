@@ -9,6 +9,7 @@
 #include <boost/ptr_container/ptr_map.hpp>
 #include <boost/uuid/uuid.hpp>
 #include <boost/tuple/tuple_comparison.hpp>
+#include <boost/assign/list_of.hpp>
 
 #if __GNUC_PREREQ(4, 6)
 #pragma GCC diagnostic push
@@ -46,7 +47,10 @@ public:
 
     Collector(EventManager *evm, short server_port,
               DbHandler *db_handler, Ruleeng *ruleeng,
-              std::string cassandra_ip="127.0.0.1", unsigned short cassandra_port=9160, int analytics_ttl=7);
+              std::vector<std::string> cassandra_ips = 
+                  boost::assign::list_of("127.0.0.1"), 
+              std::vector<int> cassandra_ports =
+                  boost::assign::list_of(9160), int analytics_ttl=7);
     virtual ~Collector();
     virtual void Shutdown();
     virtual void SessionShutdown();
@@ -92,8 +96,8 @@ public:
     static std::string GetSelfIp() { return self_ip_; }
     static void SetSelfIp(std::string ip) { self_ip_ = ip; }
 
-    std::string cassandra_ip() { return cassandra_ip_; }
-    unsigned short cassandra_port() { return cassandra_port_; }
+    std::vector<std::string> cassandra_ips() { return cassandra_ips_; }
+    std::vector<int> cassandra_ports() { return cassandra_ports_; }
     int analytics_ttl() { return analytics_ttl_; }
     int db_task_id();
     const CollectorStats &GetStats() const { return stats_; }
@@ -136,8 +140,8 @@ private:
     EventManager * const evm_;
     VizCallback cb_;
 
-    std::string cassandra_ip_;
-    unsigned short cassandra_port_;
+    std::vector<std::string> cassandra_ips_;
+    std::vector<int> cassandra_ports_;
     int analytics_ttl_;
     int db_task_id_;
 

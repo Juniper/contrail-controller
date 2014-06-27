@@ -40,11 +40,42 @@ namespace opt = boost::program_options;
 
 template <typename ValueType>
 bool AgentParam::GetOptValue
-    (const boost::program_options::variables_map &var_map, ValueType &var, 
+    (const boost::program_options::variables_map &var_map, ValueType &var,
      const std::string &val) {
+    return GetOptValueImpl(var_map, var, val,
+        static_cast<ValueType *>(0));
+}
+
+template <typename ValueType>
+bool AgentParam::GetOptValueImpl
+    (const boost::program_options::variables_map &var_map,
+     ValueType &var, const std::string &val, ValueType*) {
     // Check if the value is present.
     if (var_map.count(val) && !var_map[val].defaulted()) {
         var = var_map[val].as<ValueType>();
+        return true;
+    }
+    return false;
+}
+
+template <typename ElementType>
+bool AgentParam::GetOptValueImpl(
+    const boost::program_options::variables_map &var_map,
+    std::vector<ElementType> &var, const std::string &val,
+    std::vector<ElementType>*) {
+    // Check if the value is present.
+    if (var_map.count(val) && !var_map[val].defaulted()) {
+        std::vector<ElementType> tmp(
+            var_map[val].as<std::vector<ElementType> >());
+        // Now split the individual elements
+        for (typename std::vector<ElementType>::const_iterator it = 
+                 tmp.begin();
+             it != tmp.end(); it++) {
+            std::stringstream ss(*it);
+            std::copy(istream_iterator<ElementType>(ss),
+                istream_iterator<ElementType>(),
+                std::back_inserter(var));
+        }
         return true;
     }
     return false;

@@ -240,8 +240,8 @@ TEST_F(OptionsTest, CustomConfigFile) {
     cassandra_server_list.push_back("10.10.10.1:100");
     cassandra_server_list.push_back("20.20.20.2:200");
     cassandra_server_list.push_back("30.30.30.3:300");
-    TASK_UTIL_EXPECT_VECTOR_EQ(cassandra_server_list,
-                     options_.cassandra_server_list());
+    TASK_UTIL_EXPECT_VECTOR_EQ(options_.cassandra_server_list(),
+                     cassandra_server_list);
 
     EXPECT_EQ(options_.redis_server(), "1.2.3.4");
     EXPECT_EQ(options_.redis_port(), 200);
@@ -331,8 +331,8 @@ TEST_F(OptionsTest, CustomConfigFileAndOverrideFromCommandLine) {
     cassandra_server_list.push_back("11.10.10.1:100");
     cassandra_server_list.push_back("21.20.20.2:200");
     cassandra_server_list.push_back("31.30.30.3:300");
-    TASK_UTIL_EXPECT_VECTOR_EQ(cassandra_server_list,
-                     options_.cassandra_server_list());
+    TASK_UTIL_EXPECT_VECTOR_EQ(options_.cassandra_server_list(),
+                     cassandra_server_list);
     EXPECT_EQ(options_.redis_server(), "1.2.3.4");
     EXPECT_EQ(options_.redis_port(), 200);
     EXPECT_EQ(options_.collector_server(), "3.4.5.6");
@@ -355,6 +355,26 @@ TEST_F(OptionsTest, CustomConfigFileAndOverrideFromCommandLine) {
     EXPECT_EQ(options_.syslog_port(), 102);
     EXPECT_EQ(options_.dup(), true);
     EXPECT_EQ(options_.test_mode(), true);
+}
+
+TEST_F(OptionsTest, MultitokenVector) {
+    int argc = 3;
+    char *argv[argc];
+    char argv_0[] = "options_test";
+    char argv_1[] = "--DEFAULT.cassandra_server_list=10.10.10.1:100 20.20.20.2:200";
+    char argv_2[] = "--DEFAULT.cassandra_server_list=30.30.30.3:300";
+    argv[0] = argv_0;
+    argv[1] = argv_1;
+    argv[2] = argv_2;
+
+    options_.Parse(evm_, argc, argv);
+
+    vector<string> cassandra_server_list;
+    cassandra_server_list.push_back("10.10.10.1:100");
+    cassandra_server_list.push_back("20.20.20.2:200");
+    cassandra_server_list.push_back("30.30.30.3:300");
+    TASK_UTIL_EXPECT_VECTOR_EQ(options_.cassandra_server_list(),
+                     cassandra_server_list);
 }
 
 int main(int argc, char **argv) {

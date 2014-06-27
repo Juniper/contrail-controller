@@ -13,7 +13,7 @@
 #include <boost/ptr_container/ptr_unordered_map.hpp>
 
 #include <protocol/TBinaryProtocol.h>
-#include <transport/TSocket.h>
+#include <transport/TSocketPool.h>
 #include <transport/TTransportUtils.h>
 #include "gen-cpp/Cassandra.h"
 
@@ -22,8 +22,8 @@
 
 class CdbIf : public GenDb::GenDbIf {
 public:
-    CdbIf(DbErrorHandler, std::string, unsigned short, int ttl,
-        std::string name, bool only_sync);
+    CdbIf(DbErrorHandler, std::vector<std::string>, std::vector<int>,
+        int ttl, std::string name, bool only_sync);
     CdbIf();
     ~CdbIf();
     // Init/Uninit

@@ -23,7 +23,7 @@
 #include <sandesh/common/vns_types.h>
 #include <sandesh/common/vns_constants.h>
 #include <base/misc_utils.h>
-
+#include <base/test/task_test_util.h>
 #include <cmn/agent_cmn.h>
 
 #include <cfg/cfg_init.h>
@@ -422,6 +422,37 @@ TEST_F(FlowTest, Default_Cmdline_arg3) {
     EXPECT_EQ(param.http_server_port(), 20001);
     EXPECT_STREQ(param.log_file().c_str(), "3.log");
     EXPECT_TRUE(param.isVmwareMode());
+}
+
+TEST_F(FlowTest, MultitokenVector) {
+    int argc = 3;
+    char *argv[argc];
+    char argv_0[] = "";
+    char argv_1[] = "--DEFAULT.collectors=10.10.10.1:100 20.20.20.2:200";
+    char argv_2[] = "--DEFAULT.collectors=30.30.30.3:300";
+    argv[0] = argv_0;
+    argv[1] = argv_1;
+    argv[2] = argv_2;
+
+    try {
+        opt::store(opt::parse_command_line(argc, argv, desc), var_map);
+        opt::notify(var_map);
+    } catch (...) {
+        cout << "Invalid arguments. ";
+        cout << desc << endl;
+        exit(0);
+    }
+
+    AgentParam param(Agent::GetInstance());
+    param.Init("controller/src/vnsw/agent/cmn/test/cfg.ini", "test-param",
+               var_map);
+
+    vector<string> collector_server_list;
+    collector_server_list.push_back("10.10.10.1:100");
+    collector_server_list.push_back("20.20.20.2:200");
+    collector_server_list.push_back("30.30.30.3:300");
+    TASK_UTIL_EXPECT_VECTOR_EQ(param.collector_server_list(),
+                     collector_server_list);
 }
 
 int main(int argc, char **argv) {
