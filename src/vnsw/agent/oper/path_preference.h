@@ -74,6 +74,7 @@ class PathPreferenceState: public DBState {
 public:
     typedef std::map<const Peer *, PathPreferenceSM *> PeerPathPreferenceMap;
     PathPreferenceState(Agent *agent, Inet4UnicastRouteEntry *rt_);
+    ~PathPreferenceState();
     void Process();
     PathPreferenceSM *GetSM(const Peer *);
 private:
