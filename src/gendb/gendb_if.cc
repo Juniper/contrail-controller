@@ -8,9 +8,10 @@
 using namespace GenDb;
 
 GenDbIf *GenDbIf::GenDbIfImpl(GenDbIf::DbErrorHandler hdlr,
-        std::string cassandra_ip, unsigned short cassandra_port,
+        std::vector<std::string> cassandra_ips,
+        std::vector<int> cassandra_ports,
         int analytics_ttl, std::string name, bool only_sync) {
-    return (new CdbIf(hdlr, cassandra_ip, cassandra_port, analytics_ttl,
+    return (new CdbIf(hdlr, cassandra_ips, cassandra_ports, analytics_ttl,
         name, only_sync));
 }
 

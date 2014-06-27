@@ -24,16 +24,17 @@ using std::string;
 using boost::system::error_code;
 
 VizCollector::VizCollector(EventManager *evm, unsigned short listen_port,
-            std::string cassandra_ip, unsigned short cassandra_port,
+            std::vector<std::string> cassandra_ips,
+            std::vector<int> cassandra_ports,
             const std::string redis_uve_ip, unsigned short redis_uve_port,
             int syslog_port, bool dup, int analytics_ttl) :
     evm_(evm),
     osp_(new OpServerProxy(evm, this, redis_uve_ip, redis_uve_port)),
     db_handler_(new DbHandler(evm, boost::bind(&VizCollector::StartDbifReinit, this),
-                cassandra_ip, cassandra_port, analytics_ttl, DbifGlobalName(dup))),
+                cassandra_ips, cassandra_ports, analytics_ttl, DbifGlobalName(dup))),
     ruleeng_(new Ruleeng(db_handler_.get(), osp_.get())),
     collector_(new Collector(evm, listen_port, db_handler_.get(), ruleeng_.get(),
-            cassandra_ip, cassandra_port, analytics_ttl)),
+            cassandra_ips, cassandra_ports, analytics_ttl)),
     syslog_listener_(new SyslogListeners (evm,
             boost::bind(&Ruleeng::rule_execute, ruleeng_.get(), _1, _2, _3),
             db_handler_.get(), syslog_port)),

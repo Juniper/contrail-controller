@@ -94,7 +94,7 @@ SandeshGenerator::SandeshGenerator(Collector * const collector, VizSession *sess
         db_handler_(new DbHandler(
             collector->event_manager(), boost::bind(
                 &SandeshGenerator::StartDbifReinit, this),
-            collector->cassandra_ip(), collector->cassandra_port(),
+            collector->cassandra_ips(), collector->cassandra_ports(),
             collector->analytics_ttl(), source + ":" + node_type + ":" +
                 module + ":" + instance_id)) {
     disconnected_ = false;
