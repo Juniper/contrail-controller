@@ -92,9 +92,9 @@ public:
                               const RibPeerSet &peerset);
 
     void ManagedDelete();
+    virtual void RetryDelete();
     void Shutdown();
     bool MayDelete() const;
-    void MayResumeDelete(bool is_empty);
     bool IsDeleted() const { return deleter()->IsDeleted(); }
 
     RoutingInstance *routing_instance() { return rtinstance_; }
