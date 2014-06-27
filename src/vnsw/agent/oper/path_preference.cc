@@ -421,6 +421,17 @@ PathPreferenceState::PathPreferenceState(Agent *agent,
     Inet4UnicastRouteEntry *rt): agent_(agent), rt_(rt) {
 }
 
+PathPreferenceState::~PathPreferenceState() {
+    PeerPathPreferenceMap::iterator path_preference_it =
+        path_preference_peer_map_.begin();
+    while (path_preference_it != path_preference_peer_map_.end()) {
+        PeerPathPreferenceMap::iterator prev_it = path_preference_it++;
+        PathPreferenceSM *path_preference_sm = prev_it->second;
+        delete path_preference_sm;
+        path_preference_peer_map_.erase(prev_it);
+    }
+}
+
 void PathPreferenceState::Process() {
      AgentPath *local_path = rt_->FindLocalVmPortPath();
      //No local path

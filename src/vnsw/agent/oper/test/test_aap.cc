@@ -61,7 +61,7 @@ public:
     }
 
     ~TestAap() {
-        delete peer_;
+        DeleteBgpPeer(peer_);
     }
     void AddAap(std::string intf_name, int intf_id,
             std::vector<Ip4Address> aap_list) {
@@ -411,10 +411,15 @@ TEST_F(TestAap, StateMachine_8) {
     EXPECT_TRUE(path->path_preference().preference() == PathPreference::LOW);
     EXPECT_TRUE(path->path_preference().ecmp() == false);
     EXPECT_TRUE(path->path_preference().wait_for_traffic() == true);
+
+    DeleteVmportEnv(input1, 1, false);
+    client->WaitForIdle();
 }
 
 int main(int argc, char *argv[]) {
     GETUSERARGS();
     client = TestInit(init_file, ksync_init);
-    return RUN_ALL_TESTS();
+    int ret = RUN_ALL_TESTS();
+    TestShutdown();
+    return ret;
 }
