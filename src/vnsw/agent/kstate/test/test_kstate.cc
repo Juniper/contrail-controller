@@ -379,7 +379,7 @@ TEST_F(KStateTest, RouteDumpTest) {
     }
 }
 
-TEST_F(KStateTest, FlowDumpTest) {
+TEST_F(KStateTest, DISABLED_FlowDumpTest) {
     EXPECT_EQ(0U, Agent::GetInstance()->pkt()->flow_table()->Size());
     TestFlowKState::Init(true, -1, 0);
     client->WaitForIdle();
@@ -451,8 +451,8 @@ int main(int argc, char *argv[]) {
     ::testing::InitGoogleTest(&argc, argv);
     ret = RUN_ALL_TESTS();
     KStateTest::TestTearDown();
-    Agent::GetInstance()->event_manager()->Shutdown();
-    AsioStop();
-    TaskScheduler::GetInstance()->Terminate();
+    client->WaitForIdle();
+    TestShutdown();
+    delete client;
     return ret;
 }

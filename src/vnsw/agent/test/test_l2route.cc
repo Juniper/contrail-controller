@@ -566,5 +566,8 @@ int main(int argc, char *argv[]) {
     int ret = RUN_ALL_TESTS();
     RouteTest::SetTunnelType(TunnelType::MPLS_UDP);
     ret += RUN_ALL_TESTS();
+    client->WaitForIdle();
+    TestShutdown();
+    delete client;
     return ret;
 }
