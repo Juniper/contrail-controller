@@ -52,6 +52,16 @@ void LifetimeActor::Delete() {
 }
 
 //
+// Concurrency: called in the context of any Task or the main thread.
+//
+// Enqueue a delete event for this actor to the LifetimeManager.
+//
+void LifetimeActor::RetryDelete() {
+    assert(deleted_);
+    manager_->Enqueue(this);
+}
+
+//
 // Concurrency: called in the context of the LifetimeManager's Task.
 //
 // Called immediately before the object is destroyed.
