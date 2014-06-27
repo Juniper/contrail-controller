@@ -3,7 +3,6 @@
  */
 
 #include <base/cpuinfo.h>
-#include <base/connection_info.h>
 #include <db/db.h>
 #include <cmn/agent_cmn.h>
 #include <oper/interface_common.h>
@@ -49,6 +48,7 @@ void AgentUve::Shutdown() {
     vn_uve_table_.get()->Shutdown();
     vm_uve_table_.get()->Shutdown();
     vrouter_uve_entry_.get()->Shutdown();
+    connection_state_manager_->Shutdown();
 }
 
 void AgentUve::Init() {
@@ -60,9 +60,11 @@ void AgentUve::Init() {
 
     CpuLoadData::Init();
     agent_->set_connection_state(ConnectionState::GetInstance());
-    ConnectionStateManager<VrouterAgentStatus, VrouterAgentProcessStatus>::
-        GetInstance()->Init(io,
-            agent_->params()->host_name(), module_id, instance_id,
+    connection_state_manager_ =
+        ConnectionStateManager<VrouterAgentStatus, VrouterAgentProcessStatus>::
+            GetInstance();
+    connection_state_manager_->Init(io, agent_->params()->host_name(),
+            module_id, instance_id,
             boost::bind(&AgentUve::VrouterAgentConnectivityStatus,
                         this, _1, _2, _3));
 }
