@@ -421,7 +421,8 @@ class VirtualNetworkST(DictST):
         alloc_new = False
         if service_vm not in cls._sc_vlan_allocator_dict:
             cls._sc_vlan_allocator_dict[service_vm] = IndexAllocator(
-                _zookeeper_client, _SERVICE_CHAIN_VLAN_ALLOC_PATH + service_vm,
+                _zookeeper_client,
+                self._zk_path_pfx+_SERVICE_CHAIN_VLAN_ALLOC_PATH+service_vm,
                 _SERVICE_CHAIN_MAX_VLAN)
 
         vlan_ia = cls._sc_vlan_allocator_dict[service_vm]
@@ -2512,19 +2513,26 @@ class SchemaTransformer(object):
         global _sandesh
         self._args = args
 
+        if args.cluster_id:
+            self._zk_path_pfx = args.cluster_id + '/'
+            self._keyspace = '%s_%s' %(args.cluster_id, SchemaTransformer._KEYSPACE)
+        else:
+            self._zk_path_pfx = ''
+            self._keyspace = SchemaTransformer._KEYSPACE
+
         self._fabric_rt_inst_obj = None
         self._cassandra_init()
 
         # reset zookeeper config
         if self._args.reset_config:
-            _zookeeper_client.delete_node("/id", True)
+            _zookeeper_client.delete_node(self._zk_path_pfx + "/id", True)
 
         ServiceChain.init()
         VirtualNetworkST._vn_id_allocator = IndexAllocator(_zookeeper_client,
-                                                           _VN_ID_ALLOC_PATH,
-                                                           _VN_MAX_ID)
+            self._zk_path_pfx+_VN_ID_ALLOC_PATH,
+            _VN_MAX_ID)
         SecurityGroupST._sg_id_allocator = IndexAllocator(
-            _zookeeper_client, _SECURITY_GROUP_ID_ALLOC_PATH,
+            _zookeeper_client, self._zk_path_pfx+_SECURITY_GROUP_ID_ALLOC_PATH,
             _SECURITY_GROUP_MAX_ID)
         # 0 is not a valid sg id any more. So, if it was previously allocated,
         # delete it and reserve it
@@ -2532,7 +2540,7 @@ class SchemaTransformer(object):
             SecurityGroupST._sg_id_allocator.delete(0)
         SecurityGroupST._sg_id_allocator.reserve(0, '__reserved__')
         VirtualNetworkST._rt_allocator = IndexAllocator(
-            _zookeeper_client, _BGP_RTGT_ALLOC_PATH, _BGP_RTGT_MAX_ID,
+            _zookeeper_client, self._zk_path_pfx+_BGP_RTGT_ALLOC_PATH, _BGP_RTGT_MAX_ID,
             common.BGP_RTGT_MIN_ID)
 
         # Initialize discovery client
@@ -3245,14 +3253,14 @@ class SchemaTransformer(object):
 
         if self._args.reset_config:
             try:
-                sys_mgr.drop_keyspace(SchemaTransformer._KEYSPACE)
+                sys_mgr.drop_keyspace(self._keyspace)
             except pycassa.cassandra.ttypes.InvalidRequestException as e:
                 # TODO verify only EEXISTS
                 print "Warning! " + str(e)
 
         try:
             sys_mgr.create_keyspace(
-                SchemaTransformer._KEYSPACE, SIMPLE_STRATEGY,
+                self._keyspace, SIMPLE_STRATEGY,
                 {'replication_factor': str(num_dbnodes)})
         except pycassa.cassandra.ttypes.InvalidRequestException as e:
             # TODO verify only EEXISTS
@@ -3261,14 +3269,14 @@ class SchemaTransformer(object):
         column_families = [self._RT_CF, self._SC_IP_CF, self._SERVICE_CHAIN_CF,
                            self._SERVICE_CHAIN_UUID_CF]
         conn_pool = pycassa.ConnectionPool(
-            SchemaTransformer._KEYSPACE,
+            self._keyspace,
             server_list=self._args.cassandra_server_list)
 
         rd_consistency = pycassa.cassandra.ttypes.ConsistencyLevel.QUORUM
         wr_consistency = pycassa.cassandra.ttypes.ConsistencyLevel.QUORUM
         for cf in column_families:
             try:
-                sys_mgr.create_column_family(SchemaTransformer._KEYSPACE, cf)
+                sys_mgr.create_column_family(self._keyspace, cf)
             except pycassa.cassandra.ttypes.InvalidRequestException as e:
                 # TODO verify only EEXISTS
                 print "Warning! " + str(e)
@@ -3396,6 +3404,7 @@ def parse_args(args_str):
                          --log_level SYS_DEBUG
                          --log_category test
                          --log_file <stdout>
+                         --cluster_id <testbed-name>
                          [--reset_config]
     '''
 
@@ -3425,6 +3434,7 @@ def parse_args(args_str):
         'log_level': SandeshLevel.SYS_DEBUG,
         'log_category': '',
         'log_file': Sandesh._DEFAULT_LOG_FILE,
+        'cluster_id': '',
     }
     secopts = {
         'use_certs': False,
@@ -3511,6 +3521,8 @@ def parse_args(args_str):
                         help="Password of keystone admin user")
     parser.add_argument("--admin_tenant_name",
                         help="Tenant name for keystone admin user")
+    parser.add_argument("--cluster_id",
+                        help="Used for database keyspace separation")
     args = parser.parse_args(remaining_argv)
     if type(args.cassandra_server_list) is str:
         args.cassandra_server_list = args.cassandra_server_list.split()
@@ -3549,8 +3561,14 @@ def main(args_str=None):
     if not args_str:
         args_str = ' '.join(sys.argv[1:])
     args = parse_args(args_str)
-    _zookeeper_client = ZookeeperClient("schema", args.zk_server_ip)
-    _zookeeper_client.master_election("/schema-transformer", os.getpid(),
+    if args.cluster_id:
+        client_pfx = args.cluster_id + '-'
+        zk_path_pfx = args.cluster_id + '/'
+    else:
+        client_pfx = ''
+        zk_path_pfx = ''
+    _zookeeper_client = ZookeeperClient(client_pfx+"schema", args.zk_server_ip)
+    _zookeeper_client.master_election(zk_path_pfx+"/schema-transformer", os.getpid(),
                                       run_schema_transformer, args)
 # end main
 
