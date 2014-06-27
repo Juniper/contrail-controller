@@ -27,6 +27,7 @@ public:
         std::string vn_;
         SecurityGroupList sg_list_;
         TunnelType::Type tunnel_type_;
+        PathPreference path_preference_;
 
         bool Changed(const AgentPath *path) const;
         void Update(const AgentPath *path);

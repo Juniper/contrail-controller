@@ -9,6 +9,74 @@
 class AgentXmppChannel;
 class Peer;
 
+class PathPreference {
+public:
+    enum Preference {
+        LOW = 100,
+        HIGH = 200
+    };
+    PathPreference(): sequence_(0), preference_(LOW),
+        wait_for_traffic_(true), ecmp_(false) {}
+    PathPreference(uint32_t sequence, Preference preference,
+        bool wait_for_traffic, bool ecmp): sequence_(sequence),
+        preference_(preference), wait_for_traffic_(wait_for_traffic),
+        ecmp_(ecmp) {}
+    uint32_t sequence() const { return sequence_;}
+    Preference preference() const { return preference_;}
+    bool wait_for_traffic() const {
+        return wait_for_traffic_;
+    }
+    bool ecmp() const {
+        return ecmp_;
+    }
+    void set_sequence(uint32_t sequence) {
+        sequence_ = sequence;
+    }
+    void set_preference(Preference preference) {
+        preference_ = preference;
+    }
+    void set_wait_for_traffic(bool wait_for_traffic) {
+        wait_for_traffic_ = wait_for_traffic;
+    }
+    void set_ecmp(bool ecmp) {
+        ecmp_ = ecmp;
+    }
+
+    bool operator!=(const PathPreference &rhs) const {
+        return (sequence_ != rhs.sequence_ || preference_ != rhs.preference_
+                || wait_for_traffic_ != rhs.wait_for_traffic_
+                || ecmp_ != rhs.ecmp_);
+    }
+
+    bool operator<(const PathPreference &rhs) const {
+        if (preference_ < rhs.preference_) {
+            return true;
+        }
+
+        if (sequence_ <  rhs.sequence_) {
+            return true;
+        }
+        return false;
+    }
+private:
+    uint32_t sequence_;
+    Preference preference_;
+    bool wait_for_traffic_;
+    bool ecmp_;
+};
+
+//Route data to change preference and sequence number of path
+struct PathPreferenceData : public AgentRouteData {
+    PathPreferenceData(const PathPreference &path_preference):
+        AgentRouteData(ROUTE_PREFERENCE_CHANGE, false),
+        path_preference_(path_preference) { }
+    virtual std::string ToString() const {
+        return "";
+    }
+    virtual bool AddChangePath(Agent*, AgentPath*);
+    PathPreference path_preference_;
+};
+
 // A common class for all different type of paths
 class AgentPath : public Path {
 public:
@@ -19,7 +87,7 @@ public:
         server_ip_(0), tunnel_bmap_(TunnelType::AllType()),
         tunnel_type_(TunnelType::ComputeType(TunnelType::AllType())),
         vrf_name_(""), gw_ip_(0), unresolved_(true), is_stale_(false), 
-        is_subnet_discard_(false), dependant_rt_(rt) {
+        is_subnet_discard_(false), dependant_rt_(rt), path_preference_() {
     }
     virtual ~AgentPath() { 
         clear_sg_list();
@@ -77,7 +145,11 @@ public:
     void SetSandeshData(PathSandeshData &data) const;
     bool is_stale() const {return is_stale_;}
     void set_is_stale(bool is_stale) {is_stale_ = is_stale;}
-
+    uint32_t preference() const { return path_preference_.preference();}
+    uint32_t sequence() const { return path_preference_.sequence();}
+    const PathPreference& path_preference() const { return path_preference_;}
+    void set_path_preference(const PathPreference &rp) { path_preference_ = rp;}
+    bool IsLess(const AgentPath &right) const;
 private:
     const Peer *peer_;
     // Nexthop for route. Not used for gateway routes
@@ -121,6 +193,7 @@ private:
     bool is_subnet_discard_;
     // route for the gateway
     DependencyRef<AgentRoute, AgentRoute> dependant_rt_;
+    PathPreference path_preference_;
     DISALLOW_COPY_AND_ASSIGN(AgentPath);
 };
 
@@ -138,11 +211,13 @@ class LocalVmRoute : public AgentRouteData {
 public:
     LocalVmRoute(const VmInterfaceKey &intf, uint32_t mpls_label, 
                  uint32_t vxlan_id, bool force_policy, const string &vn_name,
-                 uint8_t flags, const SecurityGroupList &sg_list) :
+                 uint8_t flags, const SecurityGroupList &sg_list, 
+                 const PathPreference &path_preference) :
         AgentRouteData(false), intf_(intf), mpls_label_(mpls_label),
         vxlan_id_(vxlan_id), force_policy_(force_policy),
         dest_vn_name_(vn_name), proxy_arp_(true), sync_route_(false),
-        flags_(flags), sg_list_(sg_list), tunnel_bmap_(TunnelType::MplsType()) {
+        flags_(flags), sg_list_(sg_list), tunnel_bmap_(TunnelType::MplsType()),
+        path_preference_(path_preference) {
     }
     virtual ~LocalVmRoute() { }
     void DisableProxyArp() {proxy_arp_ = false;}
@@ -150,6 +225,10 @@ public:
     virtual bool AddChangePath(Agent *agent, AgentPath *path);
     const SecurityGroupList &sg_list() const {return sg_list_;}
     void set_tunnel_bmap(TunnelType::TypeBmap bmap) {tunnel_bmap_ = bmap;}
+    const PathPreference& path_preference() const { return path_preference_;}
+    void set_path_preference(const PathPreference &path_preference) {
+        path_preference_ = path_preference;
+    }
 
 private:
     VmInterfaceKey intf_;
@@ -162,6 +241,7 @@ private:
     uint8_t flags_;
     SecurityGroupList sg_list_;
     TunnelType::TypeBmap tunnel_bmap_;
+    PathPreference path_preference_;
     DISALLOW_COPY_AND_ASSIGN(LocalVmRoute);
 };
 
@@ -205,9 +285,11 @@ private:
 class VlanNhRoute : public AgentRouteData {
 public:
     VlanNhRoute(const VmInterfaceKey &intf, uint16_t tag, uint32_t label,
-                const string &dest_vn_name, const SecurityGroupList &sg_list) :
+                const string &dest_vn_name, const SecurityGroupList &sg_list,
+                const PathPreference &path_preference) :
         AgentRouteData(false), intf_(intf), tag_(tag), label_(label),
-        dest_vn_name_(dest_vn_name), sg_list_(sg_list) {
+        dest_vn_name_(dest_vn_name), sg_list_(sg_list),
+        path_preference_(path_preference) {
     }
     virtual ~VlanNhRoute() { }
     virtual bool AddChangePath(Agent *agent, AgentPath *path);
@@ -219,6 +301,7 @@ private:
     uint32_t label_;
     string dest_vn_name_;
     SecurityGroupList sg_list_;
+    PathPreference path_preference_;
     DISALLOW_COPY_AND_ASSIGN(VlanNhRoute);
 };
 
@@ -317,5 +400,4 @@ private:
     bool is_subnet_discard_;
     DISALLOW_COPY_AND_ASSIGN(DropRoute);
 };
-
 #endif // vnsw_agent_path_hpp

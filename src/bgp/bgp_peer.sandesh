@@ -124,6 +124,7 @@ struct ShowRoutePath {
     14: string primary_table (link="ShowRouteReq");
     15: list<string> communities;
     16: string origin_vn;
+    19: string sequence_no;
     17: u32 flags;
 }
 

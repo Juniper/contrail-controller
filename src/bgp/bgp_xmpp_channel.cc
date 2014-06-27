@@ -24,6 +24,7 @@
 #include "bgp/bgp_server.h"
 #include "bgp/inet/inet_table.h"
 #include "bgp/enet/enet_table.h"
+#include "bgp/extended-community/mac_mobility.h"
 #include "bgp/ermvpn/ermvpn_table.h"
 #include "bgp/ipeer.h"
 #include "bgp/origin-vn/origin_vn.h"
@@ -1022,6 +1023,12 @@ void BgpXmppChannel::ProcessItem(string vrf_name,
              it++) {
             SecurityGroup sg(bgp_server_->autonomous_system(), *it);
             ext.communities.push_back(sg.GetExtCommunityValue());
+        }
+
+        // Seq number
+        if (item.entry.sequence_number) {
+            MacMobility mm(item.entry.sequence_number);
+            ext.communities.push_back(mm.GetExtCommunityValue());
         }
 
         if (rt_instance) {

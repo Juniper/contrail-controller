@@ -584,7 +584,7 @@ TEST_F(SgTest, Sg_Policy_1) {
                         24,
                         Ip4Address::from_string("10.10.10.10", ec),
                         TunnelType::AllType(), 
-                        17, "vn1", sg_id_list);
+                        17, "vn1", sg_id_list, PathPreference());
     client->WaitForIdle();
 
     char remote_ip[] = "10.10.10.1";
@@ -600,7 +600,8 @@ TEST_F(SgTest, Sg_Policy_1) {
     sg_id_list[0] = 3;
     Inet4TunnelRouteAdd(NULL, "vrf1", Ip4Address::from_string("10.10.10.0", ec),
                         24, Ip4Address::from_string("10.10.10.10", ec),
-                        TunnelType::AllType(), 17, "vn1", sg_id_list);
+                        TunnelType::AllType(), 17, "vn1", sg_id_list,
+                        PathPreference());
     client->WaitForIdle();
 
     EXPECT_TRUE(ValidateAction(vnet[1]->vrf()->vrf_id(), vnet_addr[1],
@@ -636,7 +637,8 @@ TEST_F(SgTest, Sg_Policy_2) {
     boost::system::error_code ec;
     Inet4TunnelRouteAdd(NULL, "vrf1", Ip4Address::from_string("10.10.10.0", ec),
                         24, Ip4Address::from_string("10.10.10.10", ec),
-                        TunnelType::AllType(), 17, "vn1", sg_id_list);
+                        TunnelType::AllType(), 17, "vn1", sg_id_list,
+                        PathPreference());
     client->WaitForIdle();
 
     char remote_ip[] = "10.10.10.1";
@@ -653,7 +655,8 @@ TEST_F(SgTest, Sg_Policy_2) {
     sg_id_list[0] = 3;
     Inet4TunnelRouteAdd(NULL, "vrf1", Ip4Address::from_string("10.10.10.0", ec),
                         24, Ip4Address::from_string("10.10.10.10", ec),
-                        TunnelType::AllType(), 17, "vn1", sg_id_list);
+                        TunnelType::AllType(), 17, "vn1", sg_id_list,
+                        PathPreference());
     client->WaitForIdle();
 
     EXPECT_TRUE(ValidateAction(vnet[1]->vrf()->vrf_id(), remote_ip,

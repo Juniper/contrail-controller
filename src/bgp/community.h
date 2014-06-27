@@ -166,6 +166,14 @@ public:
         return (val[0] == 0x80) && (val[1] == 0x71);
     }
 
+    static bool is_mac_mobility(const ExtCommunityValue &val) {
+        //
+        // MAC Mobility extended community
+        //
+        return (val[0] == 0x06) && (val[1] == 0x00);
+    }
+
+
     static bool is_route_target(const ExtCommunityValue &val) {
         //
         // Route target extended community

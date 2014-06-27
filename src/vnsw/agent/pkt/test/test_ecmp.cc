@@ -36,8 +36,8 @@ class EcmpTest : public ::testing::Test {
         //                 -<vnet2, vrf2>----<vnet5,vrf3>
         // <vnet1, vrf1>----<vnet3, vrf2>----<vnet6,vrf3>----<vnet8, vrf4>
         //                 -<vnet4, vrf2>----<vnet7,vrf3>
-        CreateVmportEnv(input1, 1);
-        CreateVmportEnv(input2, 3);
+        CreateVmportWithEcmp(input1, 1);
+        CreateVmportWithEcmp(input2, 3);
         CreateVmportFIpEnv(input3, 3);
         CreateVmportFIpEnv(input4, 1);
         client->WaitForIdle();
@@ -97,15 +97,18 @@ class EcmpTest : public ::testing::Test {
         //Add couple of remote VM routes for generating packet
         Inet4TunnelRouteAdd(bgp_peer, "vrf2", remote_vm_ip1_, 32, 
                             remote_server_ip_, TunnelType::AllType(),
-                            30, "vn2", SecurityGroupList());
+                            30, "vn2", SecurityGroupList(),
+                            PathPreference());
 
         Inet4TunnelRouteAdd(bgp_peer, "vn3:vn3", remote_vm_ip2_, 32, 
                             remote_server_ip_, TunnelType::AllType(),
-                            30, "vn3", SecurityGroupList());
+                            30, "vn3", SecurityGroupList(),
+                            PathPreference());
 
         Inet4TunnelRouteAdd(bgp_peer, "vn4:vn4", remote_vm_ip3_, 32,
                             remote_server_ip_, TunnelType::AllType(),
-                            30, "vn4", SecurityGroupList());
+                            30, "vn4", SecurityGroupList(),
+                            PathPreference());
         client->WaitForIdle();
     }
 
@@ -173,7 +176,8 @@ public:
             }
         }
         EcmpTunnelRouteAdd(bgp_peer, vrf_name, vm_ip, plen, 
-                           comp_nh_list, -1, vn, sg_id_list);
+                           comp_nh_list, -1, vn, sg_id_list,
+                           PathPreference());
     }
 
     void AddLocalVmRoute(const string vrf_name, const string ip, uint32_t plen,
@@ -184,7 +188,7 @@ public:
         Agent::GetInstance()->fabric_inet4_unicast_table()->
             AddLocalVmRouteReq(bgp_peer, vrf_name, vm_ip, plen,
                                vm_intf->GetUuid(), vn, vm_intf->label(),
-                               SecurityGroupList(), false);
+                               SecurityGroupList(), false, PathPreference());
     }
 
     void AddRemoteVmRoute(const string vrf_name, const string ip, uint32_t plen,
@@ -193,7 +197,7 @@ public:
         Ip4Address server_ip = Ip4Address::from_string("10.11.1.1");
         Inet4TunnelRouteAdd(bgp_peer, vrf_name, vm_ip, plen, server_ip,
                             TunnelType::AllType(), 16,
-                            vn, SecurityGroupList());
+                            vn, SecurityGroupList(), PathPreference());
     }
 
     void DeleteRemoteRoute(const string vrf_name, const string ip,
@@ -407,7 +411,8 @@ TEST_F(EcmpTest, EcmpTest_8) {
     comp_nh.push_back(comp_nh_data3);
 
     SecurityGroupList sg_list;
-    EcmpTunnelRouteAdd(bgp_peer, "vrf2", ip, 24, comp_nh, -1, "vn2", sg_list);
+    EcmpTunnelRouteAdd(bgp_peer, "vrf2", ip, 24, comp_nh, -1, "vn2", sg_list,
+                       PathPreference());
     client->WaitForIdle();
 
     //VIP of vrf2 interfaces
@@ -512,7 +517,7 @@ TEST_F(EcmpTest, EcmpReEval_2) {
     Ip4Address remote_server_ip = Ip4Address::from_string("10.10.10.10");
     Inet4TunnelRouteAdd(bgp_peer, "vrf2",remote_vm_ip, 32, 
                         remote_server_ip, TunnelType::AllType(), 16, "vn2",
-                        SecurityGroupList());
+                        SecurityGroupList(), PathPreference());
 
     TxIpPacket(VmPortGetId(1), "1.1.1.1", "3.1.1.10", 1);
     client->WaitForIdle();
@@ -606,7 +611,7 @@ TEST_F(EcmpTest, ServiceVlanTest_1) {
         {"vnet12", 12, "12.1.1.1", "00:00:00:01:01:01", 10, 12},
     };
 
-    CreateVmportEnv(input1, 3);
+    CreateVmportWithEcmp(input1, 3);
     client->WaitForIdle();
     EXPECT_TRUE(VmPortActive(10));
     EXPECT_TRUE(VmPortActive(11));
@@ -616,7 +621,7 @@ TEST_F(EcmpTest, ServiceVlanTest_1) {
     struct PortInfo input2[] = {
         {"vnet13", 13, "11.1.1.252", "00:00:00:01:01:01", 11, 13},
     };
-    CreateVmportEnv(input2, 1);
+    CreateVmportWithEcmp(input2, 1);
     client->WaitForIdle();
 
     AddVmPortVrf("ser1", "11.1.1.253", 1);
@@ -669,7 +674,7 @@ TEST_F(EcmpTest, ServiceVlanTest_2) {
     struct PortInfo input1[] = {
         {"vnet10", 10, "10.1.1.1", "00:00:00:01:01:01", 10, 10},
     };
-    CreateVmportEnv(input1, 1);
+    CreateVmportWithEcmp(input1, 1);
     client->WaitForIdle();
 
     std::vector<ComponentNHData> local_comp_nh;
@@ -712,14 +717,14 @@ TEST_F(EcmpTest, ServiceVlanTest_3) {
     struct PortInfo input1[] = {
         {"vnet10", 10, "10.1.1.1", "00:00:00:01:01:01", 10, 10},
     };
-    CreateVmportEnv(input1, 1);
+    CreateVmportWithEcmp(input1, 1);
     client->WaitForIdle();
 
     //Add service VM in vrf11 as mgmt VRF
     struct PortInfo input2[] = {
         {"vnet11", 11, "1.1.1.252", "00:00:00:01:01:01", 11, 11},
     };
-    CreateVmportEnv(input2, 1);
+    CreateVmportWithEcmp(input2, 1);
     client->WaitForIdle();
 
     AddVrf("service-vrf1", 12);
@@ -857,7 +862,7 @@ TEST_F(EcmpTest, ServiceVlanTest_4) {
     struct PortInfo input1[] = {
         {"vnet10", 10, "10.1.1.1", "00:00:00:01:01:01", 10, 10},
     };
-    CreateVmportEnv(input1, 1);
+    CreateVmportWithEcmp(input1, 1);
     client->WaitForIdle();
 
     //Add service VM in vrf11 as mgmt VRF
@@ -865,7 +870,7 @@ TEST_F(EcmpTest, ServiceVlanTest_4) {
         {"vnet11", 11, "1.1.1.252", "00:00:00:01:01:01", 11, 11},
         {"vnet12", 12, "1.1.1.253", "00:00:00:01:01:01", 11, 12},
     };
-    CreateVmportEnv(input2, 2);
+    CreateVmportWithEcmp(input2, 2);
     client->WaitForIdle();
 
     AddVrf("service-vrf1", 12);
@@ -1002,7 +1007,7 @@ TEST_F(EcmpTest, ServiceVlanTest_5) {
     struct PortInfo input1[] = {
         {"vnet11", 11, "11.1.1.1", "00:00:00:01:01:01", 11, 11},
     };
-    CreateVmportEnv(input1, 1);
+    CreateVmportWithEcmp(input1, 1);
     client->WaitForIdle();
 
     //Add service VM in vrf13 as mgmt VRF
@@ -1010,7 +1015,7 @@ TEST_F(EcmpTest, ServiceVlanTest_5) {
         {"vnet13", 13, "1.1.1.252", "00:00:00:01:01:01", 13, 13},
         {"vnet14", 14, "1.1.1.253", "00:00:00:01:01:01", 13, 14},
     };
-    CreateVmportEnv(input2, 2);
+    CreateVmportWithEcmp(input2, 2);
     client->WaitForIdle();
 
     AddVrf("service-vrf1", 12);
@@ -1147,7 +1152,7 @@ TEST_F(EcmpTest, ServiceVlanTest_6) {
         {"vnet13", 13, "1.1.1.252", "00:00:00:01:01:01", 13, 13},
         {"vnet14", 14, "1.1.1.253", "00:00:00:01:01:01", 13, 14},
     };
-    CreateVmportEnv(input2, 2);
+    CreateVmportWithEcmp(input2, 2);
     client->WaitForIdle();
 
     AddVrf("service-vrf1", 12);
@@ -1373,14 +1378,14 @@ TEST_F(EcmpTest, ServiceVlanTest_7) {
     struct PortInfo input1[] = {
         {"vnet11", 11, "11.1.1.1", "00:00:00:01:01:01", 11, 11},
     };
-    CreateVmportEnv(input1, 1);
+    CreateVmportWithEcmp(input1, 1);
     client->WaitForIdle();
 
     //Add service VM in vrf13 as mgmt VRF
     struct PortInfo input2[] = {
         {"vnet13", 13, "1.1.1.252", "00:00:00:01:01:01", 13, 13},
     };
-    CreateVmportEnv(input2, 1);
+    CreateVmportWithEcmp(input2, 1);
     client->WaitForIdle();
 
     AddVrf("service-vrf1", 12);
@@ -1474,7 +1479,7 @@ TEST_F(EcmpTest,ServiceVlanTest_8) {
     struct PortInfo input2[] = {
         {"vnet13", 13, "1.1.1.252", "00:00:00:01:01:01", 13, 13},
     };
-    CreateVmportEnv(input2, 1);
+    CreateVmportWithEcmp(input2, 1);
     client->WaitForIdle();
 
     AddVrf("service-vrf1", 12);

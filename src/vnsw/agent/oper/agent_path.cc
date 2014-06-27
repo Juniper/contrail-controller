@@ -272,6 +272,20 @@ bool AgentPath::Sync(AgentRoute *sync_route) {
     return ret;
 }
 
+bool AgentPath::IsLess(const AgentPath &r_path) const {
+    if (peer()->GetType() == Peer::LOCAL_VM_PORT_PEER && 
+        peer()->GetType() == r_path.peer()->GetType()) {
+        if (path_preference() != r_path.path_preference()) {
+            //If right path has lesser preference, then
+            //it should be after the current entry
+            //Hence the reverse check
+            return (r_path.path_preference() < path_preference());
+        }
+    }
+
+    return peer()->IsLess(r_path.peer());
+}
+
 bool HostRoute::AddChangePath(Agent *agent, AgentPath *path) {
     bool ret = false;
     NextHop *nh = NULL;
@@ -406,6 +420,13 @@ bool LocalVmRoute::AddChangePath(Agent *agent, AgentPath *path) {
         ret = true;
     }
 
+    //If there is a transition in path from active-active to
+    //ative-backup or vice-versa copy over entire path preference structure
+    if (path->path_preference().ecmp() != path_preference_.ecmp()) {
+        path->set_path_preference(path_preference_);
+        ret = true;
+    }
+
     // When BGP path was added, the policy flag in BGP path was based on
     // interface config at that instance. If the policy flag changes in
     // path for "Local Peer", we should change policy flag on BGP peer
@@ -460,9 +481,17 @@ bool VlanNhRoute::AddChangePath(Agent *agent, AgentPath *path) {
         ret = true;
     }
 
-    path->set_unresolved(false);
-    if (path->ChangeNH(agent, nh) == true)
+    //Copy over entire path preference structure, whenever there is a
+    //transition from active-active to active-backup struture
+    if (path->path_preference().ecmp() != path_preference_.ecmp()) {
+        path->set_path_preference(path_preference_);
         ret = true;
+    }
+
+    path->set_unresolved(false);
+    if (path->ChangeNH(agent, nh) == true) {
+        ret = true;
+    }
 
     return ret;
 }
@@ -529,6 +558,16 @@ bool MulticastRoute::AddChangePath(Agent *agent, AgentPath *path) {
     if (path->ChangeNH(agent, nh) == true)
         ret = true;
 
+    return ret;
+}
+
+bool PathPreferenceData::AddChangePath(Agent *agent, AgentPath *path) {
+    bool ret = false;
+    if (path &&
+        path->path_preference() != path_preference_) {
+        path->set_path_preference(path_preference_);
+        ret = true;
+    }
     return ret;
 }
 
@@ -702,4 +741,11 @@ void AgentPath::SetSandeshData(PathSandeshData &pdata) const {
     pdata.set_supported_tunnel_type(
             TunnelType::GetString(tunnel_bmap()));
     pdata.set_stale(is_stale());
+    PathPreferenceSandeshData path_preference_data;
+    path_preference_data.set_sequence(path_preference_.sequence());
+    path_preference_data.set_preference(path_preference_.preference());
+    path_preference_data.set_ecmp(path_preference_.ecmp());
+    path_preference_data.set_wait_for_traffic(
+         path_preference_.wait_for_traffic());
+    pdata.set_path_preference_data(path_preference_data);
 }

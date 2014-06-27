@@ -45,6 +45,13 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
     <xsd:restriction base="xsd:string"/>
 </xsd:simpleType>
 
+<xsd:simpleType name="AddressMode">
+    <xsd:restriction base="xsd:string">
+        <xsd:enumeration value="active-active"/>
+        <xsd:enumeration value="active-standby"/>
+    </xsd:restriction>
+</xsd:simpleType>
+
 <xsd:complexType name="IpAddressesType">
     <xsd:all>
         <xsd:element name="ip-address" type="IpAddressType" maxOccurs="unbounded"/>
@@ -64,6 +71,20 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
         <xsd:element name="ip-prefix-len" type="xsd:integer"/>
     </xsd:all>
 </xsd:complexType> 
+
+<xsd:complexType name="AllowedAddressPair">
+    <xsd:all>
+        <xsd:element name="ip" type="SubnetType"/>
+        <xsd:element name="mac" type="xsd:string"/>
+        <xsd:element name="address-mode" type="AddressMode"/>
+    </xsd:all>
+</xsd:complexType> 
+
+<xsd:complexType name="AllowedAddressPairs">
+    <xsd:all>
+        <xsd:element name="allowed-address-pair" type="AllowedAddressPair" maxOccurs="unbounded"/>
+    </xsd:all>
+</xsd:complexType>
 
 <xsd:complexType name="UuidType">
     <xsd:all>
@@ -441,6 +462,20 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
     </xsd:all>
 </xsd:complexType> 
 
+
+<xsd:complexType name="PluginProperty">
+    <xsd:all>
+        <xsd:element name="property"   type="xsd:string"/>
+        <xsd:element name="value"   type="xsd:string"/>
+    </xsd:all>
+</xsd:complexType> 
+
+<xsd:complexType name="PluginProperties">
+    <xsd:all>
+        <xsd:element name="plugin-property" type="PluginProperty" maxOccurs="unbounded"/>
+    </xsd:all>
+</xsd:complexType>
+  
 <xsd:element name="id-perms" type="IdPermsType"/>
 <!--#IFMAP-SEMANTICS-IDL Property('id-perms', 'all') -->
 
@@ -493,6 +528,10 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
 <xsd:element name="config-version" type="xsd:string"/>
 <!--#IFMAP-SEMANTICS-IDL 
      Property('config-version', 'global-system-config') -->
+
+<xsd:element name="plugin-tuning" type="PluginProperties"/>
+<!--#IFMAP-SEMANTICS-IDL 
+     Property('plugin-tuning', 'global-system-config') -->
 
 <xsd:element name="global-system-config-bgp-router"/>
 <!--#IFMAP-SEMANTICS-IDL 
@@ -700,6 +739,11 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
      Property('virtual-machine-interface-host-routes',
               'virtual-machine-interface') -->
 
+<xsd:element name="virtual-machine-interface-allowed-address-pairs" 
+                                                type="AllowedAddressPairs"/>
+<!--#IFMAP-SEMANTICS-IDL 
+     Property('virtual-machine-interface-allowed-address-pairs',
+             'virtual-machine-interface') -->
 <xsd:complexType name="VrfAssignRuleType">
     <xsd:all>
         <xsd:element name="match-condition" type="MatchConditionType"/>
@@ -810,6 +854,9 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
 <xsd:element name="instance-ip-address" type="IpAddressType"/>
 <!--#IFMAP-SEMANTICS-IDL 
      Property('instance-ip-address', 'instance-ip') -->
+<xsd:element name="instance-ip-mode" type="AddressMode"/>
+<!--#IFMAP-SEMANTICS-IDL 
+     Property('instance-ip-mode', 'instance-ip') -->
 
 <xsd:element name="instance-ip-virtual-network"/>
 <!--#IFMAP-SEMANTICS-IDL 
