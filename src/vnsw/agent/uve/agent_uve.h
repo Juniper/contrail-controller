@@ -5,6 +5,7 @@
 #ifndef vnsw_agent_uve_h
 #define vnsw_agent_uve_h
 
+#include <base/connection_info.h>
 #include <uve/stats_collector.h>
 #include <uve/agent_stats_collector.h>
 #include <uve/flow_stats_collector.h>
@@ -65,6 +66,8 @@ private:
     uint64_t bandwidth_intvl_; //in microseconds
     boost::scoped_ptr<VrouterStatsCollector> vrouter_stats_collector_;
     boost::scoped_ptr<FlowStatsCollector> flow_stats_collector_;
+    ConnectionStateManager<VrouterAgentStatus, VrouterAgentProcessStatus>
+        *connection_state_manager_;
     DISALLOW_COPY_AND_ASSIGN(AgentUve);
 };
 
