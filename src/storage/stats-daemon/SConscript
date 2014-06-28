@@ -10,6 +10,8 @@ env = BuildEnv.Clone()
 setup_sources = [
            'setup.py',
            'MANIFEST.in',
+           'requirements.txt',
+           'test-requirements.txt',
           ]
 
 
@@ -18,8 +20,8 @@ for file in setup_sources:
     setup_sources_rules.append(env.Install("", "#controller/src/storage/stats-daemon/" + file))
 
 local_sources = [
-           '__init__.py',
-           'storage-nodemgr.py',
+           'stats-daemon/__init__.py',
+           'stats-daemon/storage-nodemgr.py',
           ]
 
 local_sources_rules = []
@@ -42,13 +44,13 @@ sdist_depends.extend(setup_sources_rules)
 sdist_depends.extend(local_sources_rules)
 sdist_depends.extend(sandesh_gen_py_rules)
 # TODO(roque): deprecate
-sdist_gen = env.Command('dist', 'setup.py', 'python setup.py sdist', chdir=1)
+sdist_gen = env.Command('dist', setup_sources , 'python setup.py sdist', chdir=1)
 
 env.Depends(sdist_gen, sdist_depends)
 env.Default(sdist_gen)
 
 if 'install' in BUILD_TARGETS:
-    install_cmd = env.Command(None, 'setup.py',
+    install_cmd = env.Command(None, setup_sources,
                               'python setup.py install %s' %
                               env['PYTHON_INSTALL_OPT'],
                               chdir = 1)

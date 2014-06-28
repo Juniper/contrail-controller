@@ -5,7 +5,7 @@ Storage Compute manager
 
 Description of Node manager options:
 --nodetype: Type of node which nodemgr is managing
---discovery_server: filename as argument 
+--discovery_server: filename as argument
 
 """
 
@@ -28,10 +28,10 @@ sys.path.append(os.path.abspath(scriptpath))
 from storage_stats.sandesh.storage.ttypes import *
 from pysandesh.sandesh_base import *
 from pysandesh.sandesh_session import SandeshWriter
-from pysandesh.gen_py.sandesh_trace.ttypes import SandeshTraceRequest 
+from pysandesh.gen_py.sandesh_trace.ttypes import SandeshTraceRequest
 from sandesh_common.vns.ttypes import Module, NodeType
 from sandesh_common.vns.constants import ModuleNames, NodeTypeNames,\
-    Module2NodeType, INSTANCE_ID_DEFAULT 
+    Module2NodeType, INSTANCE_ID_DEFAULT
 from subprocess import Popen, PIPE
 
 def usage():
@@ -50,15 +50,15 @@ class osdMap:
 
 class diskUsage:
 	disk = ''
-	disk_used = '' 
+	disk_used = ''
 	disk_avail = ''
-	disk_size = '' 
+	disk_size = ''
 
 class EventManager:
     rules_data = []
     headers = dict()
     process_state_db = {}
-    prev_list = []    
+    prev_list = []
 
     def __init__(self, node_type='contrail-analytics'):
         self.stdin = sys.stdin
@@ -71,10 +71,10 @@ class EventManager:
 	self._hostname = socket.gethostname()
 	pattern = 'rm -rf ceph.conf; ln -s /etc/ceph/ceph.conf ceph.conf'
 	subprocess.check_output(pattern, stderr=subprocess.STDOUT, shell=True)
-	
 
-    ''' 
-    This function reads the ceph rados statistics. 
+
+    '''
+    This function reads the ceph rados statistics.
     Parses this statistics output and gets the read_cnt/read_bytes \
     write_cnt/write_bytes. ComputeStoragePool object created and all \
     the above statictics are assigned
@@ -88,18 +88,18 @@ class EventManager:
                     result = re.sub('\s+',' ',line).strip()
 		    arr1 = result.split()
                     if arr1[0] != "total":
-            		cs_pool = ComputeStoragePool()
-            		cs_pool.name  = self._hostname + ':' + arr1[0]
+                        cs_pool = ComputeStoragePool()
+                        cs_pool.name  = self._hostname + ':' + arr1[0]
 	    		pool_stats = PoolStats()
 		        pool_stats.pool = arr1[0]
 		        pool_stats.reads = int(arr1[7])
 		        pool_stats.read_kbytes = int(arr1[8])
 		        pool_stats.writes = int(arr1[9])
 		        pool_stats.write_kbytes = int(arr1[10])
-		        cs_pool.pool_stats = [pool_stats]
+		        cs_pool.info_stats = [pool_stats]
 	    	        pool_stats_trace = ComputeStoragePoolTrace(data=cs_pool)
-            	        sys.stderr.write('sending UVE:' + str(pool_stats_trace))
-            	        pool_stats_trace.send()
+                        sys.stderr.write('sending UVE:' + str(pool_stats_trace))
+                        pool_stats_trace.send()
 
     ''' 
     This function checks if an osd is active, if yes parses output of \
@@ -112,11 +112,11 @@ class EventManager:
         linecount= 0
         for line in arr:
                 cmd = "cat /var/lib/ceph/osd/"+arr[linecount]+"/active"
-		is_active = subprocess.check_output(cmd, stderr=subprocess.STDOUT, shell=True)  
+		is_active = subprocess.check_output(cmd, stderr=subprocess.STDOUT, shell=True)
 		if is_active == "ok\n":
-        		cs_osd = ComputeStorageOsd()
+                        cs_osd = ComputeStorageOsd()
 			cs_osd.current_state = "active"
-        		osd_stats = OsdStats()
+                        osd_stats = OsdStats()
 			# this means osd is not down
 			num = arr[linecount].split('-')[1]
 			osd_stats.osd_name = "osd."+num
@@ -127,7 +127,7 @@ class EventManager:
 			# optimized the pattern search. combined multiple search to one regex.
 			# In this case subprocess is called once.
 			cmd =  "ceph --admin-daemon /var/run/ceph/" + ceph_name + " perf dump | egrep  -w \"\\\"op_w\\\":|\\\"op_r\\\":|\\\"subop_r\\\":|\\\"subop_w\\\":|\\\"op_r_out_bytes\\\":|\\\"subop_r_out_bytes\\\":|\\\"op_w_in_bytes\\\":|\\\"subop_w_in_bytes\\\":\""
-        		cs_osd.name = self._hostname + ':' + osd_stats.osd_name
+                        cs_osd.name = self._hostname + ':' + osd_stats.osd_name
 			try:
 			    res1 = subprocess.check_output(cmd, stderr=subprocess.STDOUT, shell=True)
 			    arr1 = res1.splitlines()
@@ -135,12 +135,12 @@ class EventManager:
 			    osd_stats.writes = 0
 			    osd_stats.read_kbytes = 0
 			    osd_stats.write_kbytes = 0
-			    for line1 in arr1:		    
+			    for line1 in arr1:
                                 result = re.sub('\s+',' ',line1).strip()    # replace multiple spaces to single space here
 			        line2 = result.split(":")
 			        if len(line2) != 0:
 				    if line2[0].find('op_r_out_bytes') != -1:
-					osd_stats.read_kbytes += int(line2[1].rstrip(",").strip(' '))  
+					osd_stats.read_kbytes += int(line2[1].rstrip(",").strip(' '))
 				    elif line2[0].find('subop_r_out_bytes') != -1:
 					osd_stats.read_kbytes += int(line2[1].rstrip(",").strip(' '))
 				    elif line2[0].find('op_w_in_bytes') != -1:
@@ -155,29 +155,29 @@ class EventManager:
 					osd_stats.writes += int(line2[1].rstrip(",").strip(' '))
 				    elif line2[0].find('op_w') != -1:
 					osd_stats.writes += int(line2[1].rstrip(",").strip(' '))
-			except:				
+			except:
 				pass
                 else:
 	            cs_osd.current_state = "inactive"
-		cs_osd.osd_stats = [osd_stats]
-    		osd_stats_trace = ComputeStorageOsdTrace(data=cs_osd)
-       	    	sys.stderr.write('sending UVE:' + str(osd_stats_trace))
-      		osd_stats_trace.send()
+		cs_osd.info_stats = [osd_stats]
+                osd_stats_trace = ComputeStorageOsdTrace(data=cs_osd)
+                sys.stderr.write('sending UVE:' + str(osd_stats_trace))
+                osd_stats_trace.send()
                 linecount = linecount + 1
 
 
     def find_osdmaplist(self, osd_map, disk):
 	for osdmap_obj in osd_map:
 	   if osdmap_obj.osd_disk.find(disk) != -1:
-		return 'y' 
+		return 'y'
 	return 'n'
-    
+
     def find_diskusagelist(self, disk_usage, disk):
 	for disk_usage_obj in disk_usage:
 	   if disk_usage_obj.disk.find(disk) != -1:
-		return disk_usage_obj 
-	return None 
-    ''' 
+		return disk_usage_obj
+	return None
+    '''
     This function parses output of iostat and assigns statistice to \
     ComputeStorageDisk
     UVE send call invoked to send the ComputeStorageDisk object
@@ -187,13 +187,13 @@ class EventManager:
 	res = subprocess.check_output('iostat', stderr=subprocess.STDOUT, shell=True)
 	disk_list = res.splitlines()
 	#osd disk list to get the mapping of osd to raw disk
-	pattern = 'ceph-deploy disk list ' + self._hostname 
+	pattern = 'ceph-deploy disk list ' + self._hostname
 	res1 = subprocess.check_output(pattern, stderr=subprocess.STDOUT, shell=True)
-	osd_list = res1.splitlines() 
+	osd_list = res1.splitlines()
 	#df used to get the free space of all disks
 	res1 = subprocess.check_output('df -h', stderr=subprocess.STDOUT, shell=True)
 	df_list = res1.splitlines()
-	osd_map = [] 
+	osd_map = []
 	for line in osd_list:
 	    if line.find('ceph data, active') != -1:
 	    	result = re.sub('\s+',' ',line).strip()    # replace multiple spaces to single space here
@@ -216,7 +216,7 @@ class EventManager:
 		    disk_usage_obj.disk_used = arr1[2]
 		    disk_usage_obj.disk_avail = arr1[3]
 		    disk_usage.append(disk_usage_obj);
-		
+
 	    elif line.find('sd') != -1:
 	    	result = re.sub('\s+',' ',line).strip()    # replace multiple spaces to single space here
 	    	arr1 = result.split()
@@ -226,7 +226,7 @@ class EventManager:
 		disk_usage_obj.disk_used = arr1[2]
 		disk_usage_obj.disk_avail = arr1[3]
 		disk_usage.append(disk_usage_obj);
-	
+
         # create a dictionary of disk_name: model_num + serial_num
         new_dict = dict()
         resp = subprocess.check_output('ls -l /dev/disk/by-id/', stderr=subprocess.STDOUT, shell=True)
@@ -235,13 +235,13 @@ class EventManager:
             resp1 = line.split()
             if resp1[-1].find('sd') != -1 and resp1[8].find('part') == -1 and resp1[8].find('ata') != -1:
                 new_dict[resp1[-1].split('/')[2]] = resp1[8]
-         
+
         cs_disk1 = ComputeStorageDisk()
         cs_disk1.list_of_curr_disks = []
-	for line in disk_list:       # this will have all rows 
+	for line in disk_list:       # this will have all rows
             result = re.sub('\s+',' ',line).strip()    # replace multiple spaces to single space here
-            arr1 = result.split()  
-            if len(arr1) != 0 and arr1[0].find('sd') != -1: 
+            arr1 = result.split()
+            if len(arr1) != 0 and arr1[0].find('sd') != -1:
                 cs_disk = ComputeStorageDisk()
                 cs_disk.name  = self._hostname + ':' + arr1[0]
                 cs_disk1.list_of_curr_disks.append(arr1[0])
@@ -249,7 +249,7 @@ class EventManager:
 		disk_usage_obj = self.find_diskusagelist(disk_usage, arr1[0])
 		if disk_usage_obj is None:
 		    cs_disk.current_disk_usage = 0
-                    
+
 	        else:
 		    last = disk_usage_obj.disk_used[-1:]
 		    if last == 'K':
@@ -262,7 +262,7 @@ class EventManager:
 			cs_disk.current_disk_usage = long(float (disk_usage_obj.disk_used.strip('T')) * 1024 * 1024 * 1024 * 1024)
                     elif last == 'P':
 			cs_disk.current_disk_usage = long(float (disk_usage_obj.disk_used.strip('P')) * 1024 * 1024 * 1024 * 1024 * 1024)
-		
+
 	        disk_stats = DiskStats()
 		disk_stats.disk_name = arr1[0]
                 if new_dict.has_key(disk_stats.disk_name):
@@ -275,12 +275,12 @@ class EventManager:
 		disk_stats.reads = int(arr[0])
 		disk_stats.writes = int(arr[4])
 		disk_stats.read_kbytes = int(arr[2])
-		disk_stats.write_kbytes = int(arr[6]) 
-		cs_disk.disk_stats = [disk_stats]
+		disk_stats.write_kbytes = int(arr[6])
+		cs_disk.info_stats = [disk_stats]
 	    	disk_stats_trace = ComputeStorageDiskTrace(data=cs_disk)
-       	    	sys.stderr.write('sending UVE:' + str(disk_stats_trace))
-            	disk_stats_trace.send()
-        
+                sys.stderr.write('sending UVE:' + str(disk_stats_trace))
+                disk_stats_trace.send()
+
         cs_disk1_trace = ComputeStorageDiskTrace(data=cs_disk1)
         sys.stderr.write('sending UVE:' +str(cs_disk1_trace))
         if len(set(cs_disk1.list_of_curr_disks).difference(set(self.prev_list))) != 0:
@@ -298,7 +298,7 @@ class EventManager:
     
     def runforever(self, sandeshconn, test=False):
     #sys.stderr.write(str(self.rules_data['Rules'])+'\n')
-        prev_current_time = int(time.time())    
+        prev_current_time = int(time.time())
         while 1:
             gevent.sleep(1)
 	    self.headers['eventname'] = 'TICK_60'
@@ -310,9 +310,8 @@ class EventManager:
                 current_time = int(time.time())
                 if ((abs(current_time - prev_current_time)) > 5):
                     if (self.node_type == "storage-compute"):
-                    	self.send_process_state_db(sandeshconn)
-                    prev_current_time = int(time.time())
-            childutils.listener.ok(self.stdout)
+                        self.send_process_state_db(sandeshconn)
+                        prev_current_time = int(time.time())
 
 def main(argv=sys.argv):
 # Parse Arguments
@@ -345,7 +344,7 @@ def main(argv=sys.argv):
     for line in file1:
         if len(line) !=0 and line.find('DISCOVERY') != -1:
             arr = line.split('=')
-            ip  = arr[1].rstrip()              
+            ip  = arr[1].rstrip()
     node_type = _args.nodetype
     discovery_port = _args.discovery_port
     sys.stderr.write("Discovery port: " + str(discovery_port) + "\n")
@@ -362,7 +361,7 @@ def main(argv=sys.argv):
         except:
             import discoveryclient.client as client
 
-        # since this may be a local node, wait for sometime to let 
+        # since this may be a local node, wait for sometime to let
 	# collector come up
         import time
         module = Module.STORAGE_NODE_MGR
@@ -371,8 +370,8 @@ def main(argv=sys.argv):
         node_type_name = NodeTypeNames[node_type]
         instance_id = INSTANCE_ID_DEFAULT
         _disc= client.DiscoveryClient(ip , discovery_port, module_name)
-        sandesh_global.init_generator(module_name, socket.gethostname(), 
-            node_type_name, instance_id, collector_addr, module_name, 
+        sandesh_global.init_generator(module_name, socket.gethostname(),
+            node_type_name, instance_id, collector_addr, module_name,
             8103, ['storage_stats.sandesh.storage'], _disc)
     gevent.joinall([gevent.spawn(prog.runforever, sandesh_global)])
 

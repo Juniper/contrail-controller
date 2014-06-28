@@ -3,19 +3,21 @@
 #
 
 from setuptools import setup
+import setuptools
 
+def requirements(filename):
+    with open(filename) as f:
+        lines = f.read().splitlines()
+    return lines
+
+    
 setup(
     name='storage_stats',
     version='0.1dev',
-    packages=['storage_stats',
-              'storage_stats.sandesh',
-              'storage_stats.sandesh.storage',
-
-              ],
-    package_data={'': ['*.html', '*.css', '*.xml']},
+    packages=setuptools.find_packages(),
     zip_safe=False,
     long_description="Storage Statistics",
-    install_requires=[
-        'gevent',
-    ],
+    install_requires=requirements('requirements.txt'),
+    test_suite='stats-daemon.tests',
+    test_require=requirements('test-requirements.txt'),
 )
