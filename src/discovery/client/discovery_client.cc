@@ -694,15 +694,15 @@ void DiscoveryServiceClient::SendHttpPostMessage(std::string msg_type,
 
     HttpConnection *conn = http_client_->CreateConnection(ds_endpoint_);
     if (msg_type.compare("subscribe") == 0) {
-        conn->HttpPut(msg, msg_type,
+        conn->HttpPost(msg, msg_type,
             boost::bind(&DiscoveryServiceClient::SubscribeResponseHandler,
                         this, _1, _2, serviceName, conn));
     } else if (msg_type.find("publish") != string::npos) {
-        conn->HttpPut(msg, msg_type,
+        conn->HttpPost(msg, msg_type,
             boost::bind(&DiscoveryServiceClient::PublishResponseHandler,
                         this, _1, _2, serviceName, conn));
     } else if (msg_type.find("heartbeat") != string::npos) {
-        conn->HttpPut(msg, msg_type,
+        conn->HttpPost(msg, msg_type,
             boost::bind(&DiscoveryServiceClient::HeartBeatResponseHandler,
                         this, _1, _2, serviceName, conn));
     } else {

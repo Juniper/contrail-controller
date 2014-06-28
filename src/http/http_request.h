@@ -25,16 +25,21 @@ public:
     void PushHeader(const std::string &key, const std::string &value) {
 	headers_.insert(make_pair(key, value));
     }
+    void SetBody(const char *data, size_t length) {
+        body_.append(data, length);
+    }
 
     std::string ToString() const;
 
     std::string UrlPath() const;
     std::string UrlQuery() const;
     const HeaderMap & Headers() const { return headers_; }
+    const std::string & Body() const { return body_; }
 private:
     http_method method_;
     std::string url_;
     HeaderMap headers_;
+    std::string body_;
 };
 
 #endif
