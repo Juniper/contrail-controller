@@ -386,11 +386,14 @@ void set_header_options(ConnInfo *conn, const char *options) {
     curl_easy_setopt(conn->easy, CURLOPT_HTTPHEADER, conn->headers);
 }
 
-void set_put_string(ConnInfo *conn, const char *post) { 
-    conn->headers = curl_slist_append(conn->headers, "Content-Type: application/xml");
-    curl_easy_setopt(conn->easy, CURLOPT_HTTPHEADER, conn->headers);
-    
+void set_post_string(ConnInfo *conn, const char *post) {
     conn->post = strdup(post);
+    curl_easy_setopt(conn->easy, CURLOPT_POSTFIELDS, conn->post);
+}
+
+void set_put_string(ConnInfo *conn, const char *put) {
+    curl_easy_setopt(conn->easy, CURLOPT_CUSTOMREQUEST, "PUT");
+    conn->post = strdup(put);
     curl_easy_setopt(conn->easy, CURLOPT_POSTFIELDS, conn->post);
 }
 
@@ -399,7 +402,24 @@ int http_get(ConnInfo *conn, GlobalInfo *g) {
     return (int)rc;
 }
 
+int http_head(ConnInfo *conn, GlobalInfo *g) {
+    curl_easy_setopt(conn->easy, CURLOPT_CUSTOMREQUEST, "HEAD");
+    CURLMcode rc = curl_multi_add_handle(g->multi, conn->easy);
+    return (int)rc;
+}
+
 int http_put(ConnInfo *conn, GlobalInfo *g) {
+    CURLMcode rc = curl_multi_add_handle(g->multi, conn->easy);
+    return (int)rc;
+}
+
+int http_post(ConnInfo *conn, GlobalInfo *g) {
+    CURLMcode rc = curl_multi_add_handle(g->multi, conn->easy);
+    return (int)rc;
+}
+
+int http_delete(ConnInfo *conn, GlobalInfo *g) {
+    curl_easy_setopt(conn->easy, CURLOPT_CUSTOMREQUEST, "DELETE");
     CURLMcode rc = curl_multi_add_handle(g->multi, conn->easy);
     return (int)rc;
 }

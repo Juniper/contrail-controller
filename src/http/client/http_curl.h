@@ -34,8 +34,12 @@ ConnInfo *new_conn(HttpConnection *connection, GlobalInfo *g,
                    bool header, bool timeout);
 void del_conn(HttpConnection *connection, GlobalInfo *g);
 void set_header_options(ConnInfo *conn, const char *options);
-void set_put_string(ConnInfo *conn, const char *post); 
-int http_put(ConnInfo *conn, GlobalInfo *g); 
+void set_post_string(ConnInfo *conn, const char *post);
+void set_put_string(ConnInfo *conn, const char *put);
+int http_head(ConnInfo *conn, GlobalInfo *g); 
+int http_put(ConnInfo *conn, GlobalInfo *g);
+int http_post(ConnInfo *conn, GlobalInfo *g);
+int http_delete(ConnInfo *conn, GlobalInfo *g);
 void timer_cb(GlobalInfo *g);
 
 #endif /* __HTPP_CURL_INCLUDE__ */
