@@ -14,6 +14,7 @@
 #include "base/timer.h"
 #include "io/tcp_server.h"
 #include "io/tcp_session.h"
+#include "http_parser/http_parser.h"
 
 class LifetimeActor;
 class LifetimeManager;
@@ -65,10 +66,17 @@ public:
     typedef boost::function<void(std::string &, boost::system::error_code &)> HttpCb;
     int HttpPut(std::string &put_string, std::string &path, HttpCb);
     int HttpPut(std::string &put_string, std::string &path,
-                bool header, bool timeout, std::string &hdr_options, HttpCb cb);
+                bool header, bool timeout,
+                std::vector<std::string> &hdr_options, HttpCb cb);
+    int HttpPost(std::string &post_string, std::string &path, HttpCb);
+    int HttpPost(std::string &post_string, std::string &path,
+                 bool header, bool timeout,
+                 std::vector<std::string> &hdr_options, HttpCb cb);
     int HttpGet(std::string &path, HttpCb);
     int HttpGet(std::string &path, bool header, bool timeout,
-                std::string &hdr_options, HttpCb cb);
+                std::vector<std::string> &hdr_options, HttpCb cb);
+    int HttpDelete(std::string &path, bool header, bool timeout,
+                   std::vector<std::string> &hdr_options, HttpCb cb);
 
     struct _ConnInfo *curl_handle() { return curl_handle_; }
     HttpClient *client() { return client_; }
@@ -89,10 +97,10 @@ public:
 
 private:
     std::string make_url(std::string &path);
-    void HttpPutInternal(std::string put_string, std::string path,
-                         bool header, bool timeout, std::string hdr_option, HttpCb);
-    void HttpGetInternal(std::string path, bool header, bool timeout,
-                         std::string hdr_option, HttpCb);
+    void HttpProcessInternal(std::string body, std::string path,
+                             bool header, bool timeout,
+                             std::vector<std::string> hdr_options,
+                             HttpCb, http_method);
 
     // key = endpoint_ + id_ 
     boost::asio::ip::tcp::endpoint endpoint_;
