@@ -106,6 +106,8 @@ struct SandeshFlowData {
     38: FlowAclInfo reverse_out_sg;
     39: i32 nh;
     40: FlowAclInfo vrf_assign_acl;
+    41: optional string sg_rule_uuid;
+    42: optional string nw_ace_uuid;
 }
 
 request sandesh FetchFlowRecord {

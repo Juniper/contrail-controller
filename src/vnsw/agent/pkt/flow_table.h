@@ -38,6 +38,7 @@
 #include <oper/interface_common.h>
 #include <oper/nexthop.h>
 #include <oper/route_common.h>
+#include <sandesh/common/flow_types.h>
 
 class FlowStatsCollector;
 class PktSandeshFlow;
@@ -272,6 +273,7 @@ class FlowEntry {
   public:
     static const uint32_t kInvalidFlowHandle=0xFFFFFFFF;
     static const uint8_t kMaxMirrorsPerFlow=0x2;
+    static const std::string no_uuid_string_;
 
     // Don't go beyond PCAP_END, pcap type is one byte
     enum PcapType {
@@ -347,7 +349,7 @@ class FlowEntry {
     void GetVrfAssignAcl();
     uint32_t MatchAcl(const PacketHeader &hdr,
                       MatchAclParamsList &acl, bool add_implicit_deny,
-                      bool add_implicit_allow);
+                      bool add_implicit_allow, FlowPolicyInfo *info);
     void ResetPolicy();
     void ResetStats();
     void set_deleted(bool deleted) { deleted_ = deleted; }
@@ -374,6 +376,8 @@ class FlowEntry {
     int linklocal_src_port_fd() const { return linklocal_src_port_fd_; }
     const std::string& acl_assigned_vrf() const;
     uint32_t acl_assigned_vrf_index() const;
+    const std::string &sg_rule_uuid() const { return sg_rule_uuid_; }
+    const std::string &nw_ace_uuid() const { return nw_ace_uuid_; }
 private:
     friend class FlowTable;
     friend class FlowStatsCollector;
@@ -399,6 +403,8 @@ private:
     uint16_t linklocal_src_port_;
     // fd of the socket used to locally bind in case of linklocal
     int linklocal_src_port_fd_;
+    std::string sg_rule_uuid_;
+    std::string nw_ace_uuid_;
     // atomic refcount
     tbb::atomic<int> refcount_;
 };

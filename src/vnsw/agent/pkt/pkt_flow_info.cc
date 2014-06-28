@@ -750,7 +750,7 @@ void PktFlowInfo::VrfTranslate(const PktInfo *pkt, PktControlInfo *in,
     }
 
     MatchAclParams match_acl_param;
-    if (!acl->PacketMatch(hdr, match_acl_param)) {
+    if (!acl->PacketMatch(hdr, match_acl_param, NULL)) {
         return;
     }
 
