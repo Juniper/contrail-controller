@@ -43,11 +43,11 @@ int main() {
 
     std::string putstr("<ifmap-server><uuid> 57 </uuid> </ifmap-server>");
     std::string uri("publish");
-    conn->HttpPut(putstr, uri, boost::bind(&httpc_print, conn, _1, _2));
+    conn->HttpPost(putstr, uri, boost::bind(&httpc_print, conn, _1, _2));
 
     conn = client->CreateConnection(ep);
     std::string putstr2("<ifmap-server><uuid> 59 </uuid> </ifmap-server>");
-    conn->HttpPut(putstr2, uri, boost::bind(&httpc_print, conn, _1, _2));
+    conn->HttpPost(putstr2, uri, boost::bind(&httpc_print, conn, _1, _2));
 
     // std::string uri("");
     // conn->HttpGet(uri, boost::bind(&httpc_print, conn, _1, _2));
