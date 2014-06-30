@@ -321,7 +321,6 @@ test_suite = [
     bgp_xmpp_channel_test,
     bgp_xmpp_inetvpn_test,
     bgp_xmpp_test,
-    bgp_xmpp_wready_test,
     ribout_attributes_test,
     routepath_replicator_random_test,
     routepath_replicator_test,
@@ -361,6 +360,7 @@ flaky_test_suite = [
     bgp_server_test,
     bgp_stress_test,
     bgp_xmpp_mcast_test,
+    bgp_xmpp_wready_test,
     rt_network_attr_test,
     svc_static_route_intergration_test,
 ]
