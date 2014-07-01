@@ -823,10 +823,11 @@ class VncCassandraClient(VncCassandraClientGen):
 
 
 class VncKombuClient(object):
-    def _init_server_conn(self, rabbit_ip, rabbit_user, rabbit_password, rabbit_vhost):
+    def _init_server_conn(self, rabbit_ip, rabbit_port, rabbit_user, rabbit_password, rabbit_vhost):
         while True:
             try:
                 self._conn = kombu.Connection(hostname=rabbit_ip,
+                                              port=rabbit_port,
                                               userid=rabbit_user,
                                               password=rabbit_password,
                                               virtual_host=rabbit_vhost)
@@ -843,10 +844,11 @@ class VncKombuClient(object):
                 time.sleep(2)
     # end _init_server_conn
 
-    def __init__(self, db_client_mgr, rabbit_ip, ifmap_db, rabbit_user, rabbit_password, rabbit_vhost):
+    def __init__(self, db_client_mgr, rabbit_ip, rabbit_port, ifmap_db, rabbit_user, rabbit_password, rabbit_vhost):
         self._db_client_mgr = db_client_mgr
         self._ifmap_db = ifmap_db
         self._rabbit_ip = rabbit_ip
+        self._rabbit_port = rabbit_port
         self._rabbit_user = rabbit_user
         self._rabbit_password = rabbit_password
         self._rabbit_vhost = rabbit_vhost
@@ -861,7 +863,7 @@ class VncKombuClient(object):
         self._dbe_oper_subscribe_greenlet = None
         if self._rabbit_vhost == "__NONE__":
             return
-        self._init_server_conn(self._rabbit_ip, self._rabbit_user, self._rabbit_password, self._rabbit_vhost)
+        self._init_server_conn(self._rabbit_ip, self._rabbit_port, self._rabbit_user, self._rabbit_password, self._rabbit_vhost)
     # end __init__
 
     def _obj_update_q_put(self, *args, **kwargs):
@@ -874,7 +876,7 @@ class VncKombuClient(object):
             except Exception as e:
                 logger.info("Disconnected from rabbitmq. Reinitializing connection: %s" % str(e))
                 time.sleep(1)
-                self._init_server_conn(self._rabbit_ip, self._rabbit_user, self._rabbit_password, self._rabbit_vhost)
+                self._init_server_conn(self._rabbit_ip, self._rabbit_port, self._rabbit_user, self._rabbit_password, self._rabbit_vhost)
     # end _obj_update_q_put
 
     def _dbe_oper_subscribe(self):
@@ -890,7 +892,7 @@ class VncKombuClient(object):
                     message = queue.get()
                 except Exception as e:
                     logger.info("Disconnected from rabbitmq. Reinitializing connection: %s" % str(e))
-                    self._init_server_conn(self._rabbit_ip, self._rabbit_user, self._rabbit_password, self._rabbit_vhost)
+                    self._init_server_conn(self._rabbit_ip, self._rabbit_port, self._rabbit_user, self._rabbit_password, self._rabbit_vhost)
                     # never reached
                     continue
 
@@ -911,7 +913,7 @@ class VncKombuClient(object):
                         message.ack()
                     except Exception as e:
                         logger.info("Disconnected from rabbitmq. Reinitializing connection: %s" % str(e))
-                        self._init_server_conn(self._rabbit_ip, self._rabbit_user, self._rabbit_password, self._rabbit_vhost)
+                        self._init_server_conn(self._rabbit_ip, self._rabbit_port, self._rabbit_user, self._rabbit_password, self._rabbit_vhost)
                         # never reached
 
     #end _dbe_oper_subscribe
@@ -1077,7 +1079,7 @@ class VncZkClient(object):
 class VncDbClient(object):
     def __init__(self, api_svr_mgr, ifmap_srv_ip, ifmap_srv_port, uname,
                  passwd, cass_srv_list,
-                 rabbit_server, rabbit_user, rabbit_password, rabbit_vhost, 
+                 rabbit_server, rabbit_port, rabbit_user, rabbit_password, rabbit_vhost,
                  reset_config=False, ifmap_srv_loc=None,
                  zk_server_ip=None):
 
@@ -1107,7 +1109,7 @@ class VncDbClient(object):
         self._cassandra_db = VncCassandraClient(
             self, cass_srv_list, reset_config)
 
-        self._msgbus = VncKombuClient(self, rabbit_server, self._ifmap_db,
+        self._msgbus = VncKombuClient(self, rabbit_server, rabbit_port, self._ifmap_db,
                                       rabbit_user, rabbit_password,
                                       rabbit_vhost)
         self._zk_db = VncZkClient(api_svr_mgr._args.worker_id, zk_server_ip,
