@@ -1581,21 +1581,21 @@ class DBInterface(object):
         cidr = subnet_q['cidr'].split('/')
         pfx = cidr[0]
         pfx_len = int(cidr[1])
-        if subnet_q['gateway_ip'] != attr.ATTR_NOT_SPECIFIED:
+        if 'gateway_ip' in subnet_q:
             default_gw = subnet_q['gateway_ip']
         else:
             # Assigned first+1 from cidr
             network = IPNetwork('%s/%s' % (pfx, pfx_len))
             default_gw = str(IPAddress(network.first + 1))
 
-        if subnet_q['allocation_pools'] != attr.ATTR_NOT_SPECIFIED:
+        if 'allocation_pools' in subnet_q:
             alloc_pools = subnet_q['allocation_pools']
         else:
             # Assigned by address manager
             alloc_pools = None
 
         dhcp_option_list = None
-        if subnet_q['dns_nameservers']:
+        if 'dns_nameservers' in subnet_q:
             dhcp_options=[]
             for dns_server in subnet_q['dns_nameservers']:
                 dhcp_options.append(DhcpOptionType(dhcp_option_name='6',
@@ -1604,7 +1604,7 @@ class DBInterface(object):
                 dhcp_option_list = DhcpOptionsListType(dhcp_options)
 
         host_route_list = None
-        if subnet_q['host_routes']:
+        if 'host_routes' in subnet_q:
             host_routes=[]
             for host_route in subnet_q['host_routes']:
                 host_routes.append(RouteType(prefix=host_route['destination'],
@@ -1612,7 +1612,10 @@ class DBInterface(object):
             if host_routes:
                 host_route_list = RouteTableType(host_routes)
 
-        dhcp_config = subnet_q['enable_dhcp']
+        if 'enable_dhcp' in subnet_q:
+            dhcp_config = subnet_q['enable_dhcp']
+        else:
+            dhcp_config = None
         sn_name=subnet_q.get('name')
         subnet_vnc = IpamSubnetType(subnet=SubnetType(pfx, pfx_len),
                                     default_gateway=default_gw,
@@ -1959,6 +1962,8 @@ class DBInterface(object):
                 # TODO optimize to not read sg (only uuid/fqn needed)
                 sg_obj = self._vnc_lib.security_group_read(id=sg_id)
                 port_obj.add_security_group(sg_obj)
+        else:
+            port_obj.set_security_group_list([])
 
         id_perms = port_obj.get_id_perms()
         if 'admin_state_up' in port_q:
@@ -3017,13 +3022,14 @@ class DBInterface(object):
 
         # if ip address passed then use it
         req_ip_addrs = []
-        for fixed_ip in port_q['fixed_ips'] or []:
-            if 'ip_address' in fixed_ip:
-                ip_addr = fixed_ip['ip_address']
-                if self._ip_addr_in_net_id(ip_addr, net_id):
-                    self._raise_contrail_exception(409, exceptions.IpAddressInUse(net_id=net_id,
-                                                    ip_address=ip_addr))
-                req_ip_addrs.append(ip_addr)
+        if 'fixed_ips' in port_q:
+            for fixed_ip in port_q['fixed_ips'] or []:
+                if 'ip_address' in fixed_ip:
+                    ip_addr = fixed_ip['ip_address']
+                    if self._ip_addr_in_net_id(ip_addr, net_id):
+                        self._raise_contrail_exception(409, exceptions.IpAddressInUse(net_id=net_id,
+                                                        ip_address=ip_addr))
+                    req_ip_addrs.append(ip_addr)
 
         # create the object
         port_id = self._virtual_machine_interface_create(port_obj)
