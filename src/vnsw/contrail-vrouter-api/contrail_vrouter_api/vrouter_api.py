@@ -9,24 +9,26 @@ from gen_py.instance_service import InstanceService, ttypes
 
 class ContrailVRouterApi(object):
 
-    def __init__(self):
+    def __init__(self, server_port=9090):
         """
         local variables:
         _client: current transport connection
         _ports: dictionary of active ports keyed by vif uuid.
         """
+        self._server_port = server_port
         self._client = None
         self._ports = {}
 
     def _rpc_client_instance(self):
         """ Return an RPC client connection """
         import thrift.transport.TSocket as TSocket
-        socket = TSocket.TSocket('127.0.0.1', 9090)
+        socket = TSocket.TSocket('localhost', self._server_port)
         try:
             transport = TTransport.TFramedTransport(socket)
             transport.open()
-        except thrift.transport.TTransport.TTransportException:
-            logging.error('Connection failure')
+        except TTransport.TTransportException:
+            logging.error('Unable to connect to contrail-vrouter-agent '
+                          'localhost:%d' % self._server_port)
             return None
         protocol = TBinaryProtocol.TBinaryProtocol(transport)
         client = InstanceService.Client(protocol)
@@ -34,11 +36,8 @@ class ContrailVRouterApi(object):
 
     def _resynchronize(self):
         """ Add all the active ports to the agent """
-        for port in self._ports:
-            try:
-                self._client.AddPort(port)
-            except:
-                return
+        for port in self._ports.iteritems():
+            self._client.AddPort(port)
 
     def _uuid_from_string(self, idstr):
         """ Convert an uuid string into an uuid object """
@@ -53,6 +52,15 @@ class ContrailVRouterApi(object):
 
     def _uuid_string_to_hex(self, idstr):
         return self._uuid_to_hex(self._uuid_from_string(idstr))
+
+    def connect(self):
+        if self._client is None:
+            self._client = self._rpc_client_instance()
+
+        if self._client is None:
+            return False
+
+        return self._client.Connect()
 
     def add_port(self, vm_uuid_str, vif_uuid_str, interface_name, mac_address,
                  **kwargs):
@@ -74,7 +82,7 @@ class ContrailVRouterApi(object):
         if 'network_uuid' in kwargs:
             network_uuid = self._uuid_string_to_hex(kwargs['network_uuid'])
         else:
-            network_uuid = [0] * 16,
+            network_uuid = [0] * 16
 
         # create port with mandatory arguments
         data = ttypes.Port(
@@ -95,19 +103,23 @@ class ContrailVRouterApi(object):
 
         data.validate()
 
+        if self._client is None:
+            self._client = self._rpc_client_instance()
+
+        if self._client is None:
+            self._ports[vif_uuid] = data
+            return False
+
+        self._resynchronize()
+
         self._ports[vif_uuid] = data
 
         try:
-            if self._client is None:
-                self._client = self._rpc_client_instance()
-                self._resynchronize()
-        except:
-            return
-
-        try:
-            self._client.AddPort([data])
+            result = self._client.AddPort([data])
         except:
             self._client = None
+            raise
+        return result
 
     def delete_port(self, vif_uuid_str):
         """
@@ -117,12 +129,11 @@ class ContrailVRouterApi(object):
         vif_uuid = self._uuid_from_string(vif_uuid_str)
         del self._ports[vif_uuid]
 
-        try:
+        if self._client is None:
+            self._client = self._rpc_client_instance()
             if self._client is None:
-                self._client = self._rpc_client_instance()
-                self._resynchronize()
-        except:
-            return
+                return
+            self._resynchronize()
 
         try:
             self._client.DeletePort(self._uuid_to_hex(vif_uuid))
@@ -135,15 +146,15 @@ class ContrailVRouterApi(object):
         It is the API client's resposibility to periodically invoke this
         method.
         """
-        try:
+        if self._client is None:
+            self._client = self._rpc_client_instance()
             if self._client is None:
-                self._client = self._rpc_client_instance()
-                self._resynchronize()
-        except:
-            return
+                return
+            self._resynchronize()
 
         try:
             if self._client:
                 self._client.KeepAliveCheck()
-        except:
+        except Exception as ex:
             self._client = None
+            logging.exception(ex)
