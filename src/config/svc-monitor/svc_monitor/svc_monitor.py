@@ -6,11 +6,12 @@
 Service monitor to instantiate/scale/monitor services like firewall, LB, ...
 """
 
-import gevent
-from cfgm_common.zkclient import ZookeeperClient
-from gevent import monkey
-monkey.patch_all()
 import sys
+import gevent
+from gevent import monkey
+monkey.patch_all(thread=not 'unittest' in sys.modules)
+
+from cfgm_common.zkclient import ZookeeperClient
 import requests
 import ConfigParser
 import cgitb

@@ -82,7 +82,8 @@ sdist_depends.extend(sandesh_base_sources_rules)
 sdist_depends.extend(build_info_rules)
 
 # TODO: deprecate
-sdist_gen = env.Command('dist', 'setup.py', 'python setup.py sdist', chdir=1)
+sdist_gen = env.Command('dist/cfgm_common-0.1dev.tar.gz',
+                        'setup.py', 'python setup.py sdist', chdir=Dir('.'))
 
 env.Depends(sdist_gen, sdist_depends)
 env.Default(sdist_gen)

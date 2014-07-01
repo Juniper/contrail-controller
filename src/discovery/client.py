@@ -5,14 +5,16 @@
 # stdout as communication channel and gratitious text there will break it.
 # stderr should be fine
 
-from gevent import monkey
-monkey.patch_all()
+import sys
 import gevent
+from gevent import monkey
+if not 'unittest' in sys.modules:
+    monkey.patch_all()
+
 import requests
 import uuid
 import json
 import hashlib
-import sys
 import socket
 from disc_utils import *
 from disc_consts import *
