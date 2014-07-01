@@ -507,11 +507,6 @@ void AnalyticsQuery::Init(GenDb::GenDbIf *db_if, std::string qid,
         }
     }
 
-    if (this->is_object_table_query() && where_json_string == "") {
-        QE_LOG_GLOBAL(DEBUG, "Cannot support WHERE * query for " << table_);
-        QE_INVALIDARG_ERROR(0);
-    }
-
     // post processing initialization
     QE_TRACE(DEBUG,  " Initializing PostProcessing Query");
     postprocess_ = new PostProcessingQuery(json_api_data, this);

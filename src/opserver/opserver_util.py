@@ -109,16 +109,45 @@ class OpServerUtils(object):
     # end utc_timestamp_usec
 
     @staticmethod
-    def get_start_end_time(start_time, end_time):
-        if start_time is None and end_time is None:
-            end_time = OpServerUtils.utc_timestamp_usec()
-            start_time = end_time - OpServerUtils.DEFAULT_TIME_DELTA
-        elif start_time is None and end_time is not None:
-            start_time = end_time - OpServerUtils.DEFAULT_TIME_DELTA
-        elif start_time is not None and end_time is None:
-            end_time = start_time + OpServerUtils.DEFAULT_TIME_DELTA
-        return start_time, end_time
-    # end get_start_end_time
+    def parse_start_end_time(start_time, end_time, last):
+        ostart_time = None
+        oend_time = None
+        if last is not None:
+            last = '-' + last
+            ostart_time = 'now' + last
+            oend_time = 'now'
+        else:
+            try:
+                if 'now' in start_time and \
+                        'now' in end_time:
+                    ostart_time = start_time
+                    oend_time = end_time
+                elif start_time.isdigit() and \
+                        end_time.isdigit():
+                    ostart_time = int(start_time)
+                    oend_time = int(end_time)
+                else:
+                    ostart_time =\
+                        OpServerUtils.convert_to_utc_timestamp_usec(
+                            start_time)
+                    oend_time =\
+                        OpServerUtils.convert_to_utc_timestamp_usec(
+                            end_time)
+            except:
+                print 'Incorrect start-time (%s) or end-time (%s) format' %\
+                    (start_time, end_time)
+                raise
+
+        if ostart_time is None and oend_time is None:
+            oend_time = OpServerUtils.utc_timestamp_usec()
+            ostart_time = end_time - OpServerUtils.DEFAULT_TIME_DELTA
+        elif ostart_time is None and oend_time is not None:
+            ostart_time = oend_time - OpServerUtils.DEFAULT_TIME_DELTA
+        elif ostart_time is not None and oend_time is None:
+            oend_time = ostart_time + OpServerUtils.DEFAULT_TIME_DELTA
+
+        return ostart_time, oend_time
+    # end parse_start_end_time
 
     @staticmethod
     def post_url_http(url, params, sync=False):
@@ -455,24 +484,15 @@ class OpServerUtils(object):
         :raises: Error
 
         """
-
         try:
-            if start_time.isdigit() and end_time.isdigit():
-                start_time = int(start_time)
-                end_time = int(end_time)
-            else:
-                start_time = OpServerUtils.convert_to_utc_timestamp_usec(
-                    start_time)
-                end_time = OpServerUtils.convert_to_utc_timestamp_usec(
-                    end_time)
+            lstart, lend_time = OpServerUtils.parse_start_end_time(
+                                    start_time = start_time,
+                                    end_time = end_time,
+                                    last = None)
         except:
-            print 'Incorrect start-time (%s) or end-time (%s) format'\
-                % (start_time, end_time)
             return None
 
         sf = select_fields
-        lstart_time, lend_time = OpServerUtils.get_start_end_time(start_time,
-                                                                  end_time)
         where = []
         for term in where_clause.split('OR'):
             term_elem = []
