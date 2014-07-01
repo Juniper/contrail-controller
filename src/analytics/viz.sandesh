@@ -217,62 +217,81 @@ const map<string, string> UVE_MAP = {
 
 struct objtable_info {
     1: string objtable_display_name;
+    2: string log_query_name;
 }
 
 const map<string, objtable_info> _OBJECT_TABLES = {
     CONFIG_OBJECT_TABLE    : {
         'objtable_display_name' : CONFIG_OBJECT_DISPLAY_NAME
+        'log_query_name'        : "config"
     }
     VN_TABLE               : {
         'objtable_display_name' : VN_DISPLAY_NAME
+        'log_query_name'        : "virtual-network"
     }
     VM_TABLE               : {
         'objtable_display_name' : VM_DISPLAY_NAME
+        'log_query_name'        : "virtual-machine"
     }
     SI_TABLE               : {
         'objtable_display_name' : SI_DISPLAY_NAME
+        'log_query_name'        : "service-instance"
     }
     VROUTER_TABLE          : {
         'objtable_display_name' : VROUTER_DISPLAY_NAME
+        'log_query_name'        : "vrouter"
     }
     BGP_PEER_TABLE         : {
         'objtable_display_name' : BGP_PEER_DISPLAY_NAME
+        'log_query_name'        : "bgp-peer"
     }
     BGP_ROUTER_TABLE       : {
         'objtable_display_name' : BGP_ROUTER_DISPLAY_NAME
+        'log_query_name'        : "control-node"
     }
     ROUTING_INSTANCE_TABLE : {
         'objtable_display_name' : ROUTING_INSTANCE_DISPLAY_NAME
+        'log_query_name'        : "routing-instance"
     }
     XMPP_CONNECTION_TABLE  : {
         'objtable_display_name' : XMPP_CONNECTION_DISPLAY_NAME
+        'log_query_name'        : "xmpp-connection"
     }
     XMPP_PEER_INFO_TABLE  : {
         'objtable_display_name' : XMPP_PEER_INFO_DISPLAY_NAME
+        'log_query_name'        : "xmpp-peer"
     }
     COLLECTOR_INFO_TABLE   : {
         'objtable_display_name' : COLLECTOR_INFO_DISPLAY_NAME
+        'log_query_name'        : "analytics-node"
     }
     DATABASE_INFO_TABLE   : {
         'objtable_display_name' : DATABASE_INFO_DISPLAY_NAME
+        'log_query_name'        : "database-node"
     }
     GENERATOR_INFO_TABLE   : {
         'objtable_display_name' : GENERATOR_INFO_DISPLAY_NAME
+        'log_query_name'        : "generator"
     }
     CONFIG_NODE_TABLE      : {
         'objtable_display_name' : CONFIG_NODE_DISPLAY_NAME
+        'log_query_name'        : "config-node"
     }
     SERVICE_CHAIN          : {
         'objtable_display_name' : SERVICE_CHAIN_DISPLAY_NAME
+        'log_query_name'        : "service-chain"
     }
     DNS_TABLE       : {
         'objtable_display_name' : DNS_DISPLAY_NAME
+        'log_query_name'        : "dns-node"
     }
     QUERY_TABLE_OBJECT       : {
         'objtable_display_name' : QUERY_TABLE_DISPLAY_NAME
+        'log_query_name'        : "analytics-query"
     }
     QUERY_QID_OBJECT       : {
         'objtable_display_name' : QUERY_QID_DISPLAY_NAME
+        'log_query_name'        : "analytics-query-id"
     }
 }
 
