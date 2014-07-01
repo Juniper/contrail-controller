@@ -180,6 +180,8 @@ class VncApiServer(VncApiServerGen):
         self._post_common = self._http_post_common
 
         # Type overrides from generated code
+        self._resource_classes['global-system-config'] = \
+            vnc_cfg_types.GlobalSystemConfigServer
         self._resource_classes['floating-ip'] = vnc_cfg_types.FloatingIpServer
         self._resource_classes['instance-ip'] = vnc_cfg_types.InstanceIpServer
         self._resource_classes['logical-router'] = vnc_cfg_types.LogicalRouterServer

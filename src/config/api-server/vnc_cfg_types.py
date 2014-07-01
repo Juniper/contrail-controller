@@ -18,6 +18,50 @@ from gen.resource_server import *
 from pprint import pformat
 import uuid
 
+class GlobalSystemConfigServer(GlobalSystemConfigServerGen):
+    @classmethod
+    def _check_asn(cls, obj_dict, db_conn):
+        global_asn = obj_dict.get('autonomous_system')
+        if not global_asn:
+            return (True, '')
+        (ok, result) = db_conn.dbe_list('virtual-network')
+        if not ok:
+            return (ok, result)
+        for vn_name, vn_uuid in result:
+            ok, result = db_conn.dbe_read('virtual-network', {'uuid': vn_uuid})
+            if not ok:
+                return ok, result
+            rt_dict = result.get('route_target_list', {})
+            for rt in rt_dict.get('route_target', []):
+                (_, asn, target) = rt.split(':')
+                if (int(asn) == global_asn and
+                    int(target) >= cfgm_common.BGP_RTGT_MIN_ID):
+                    return (False, (400, "Virtual network %s is configured "
+                            "with a route target with this ASN and route "
+                            "target value in the same range as used by "
+                            "automatically allocated route targets" % vn_name))
+        return (True, '')
+    # end _check_asn
+
+    @classmethod
+    def http_post_collection(cls, tenant_name, obj_dict, db_conn):
+        ok, result = cls._check_asn(obj_dict, db_conn)
+        if not ok:
+            return ok, result
+        return True, ''
+    # end http_post_collection
+
+    @classmethod
+    def http_put(cls, id, fq_name, obj_dict, db_conn):
+        ok, result = cls._check_asn(obj_dict, db_conn)
+        if not ok:
+            return ok, result
+        return True, ''
+    # end http_put
+
+# end class GlobalSystemConfigServer
+
+
 class FloatingIpServer(FloatingIpServerGen):
     generate_default_instance = False
 
@@ -273,6 +317,28 @@ class VirtualMachineInterfaceServer(VirtualMachineInterfaceServerGen):
 class VirtualNetworkServer(VirtualNetworkServerGen):
 
     @classmethod
+    def _check_route_targets(cls, obj_dict, db_conn):
+        if 'route_target_list' not in obj_dict:
+            return (True, '')
+        config_uuid = db_conn.fq_name_to_uuid('global_system_config', ['default-global-system-config'])
+        config = db_conn.uuid_to_obj_dict(config_uuid)
+        global_asn = config.get('prop:autonomous_system')
+        if not global_asn:
+            return (True, '')
+        global_asn = json.loads(global_asn)
+        rt_dict = obj_dict.get('route_target_list')
+        if not rt_dict:
+            return (True, '')
+        for rt in rt_dict.get('route_target', []):
+            (_, asn, target) = rt.split(':')
+            if asn == global_asn and int(target) >= cfgm_common.BGP_RTGT_MIN_ID:
+                 return (False, "Configured route target must use ASN that is "
+                         "different from global ASN or route target value must"
+                         " be less than %d" % cfgm_common.BGP_RTGT_MIN_ID)
+        return (True, '')
+    # end _check_route_targets
+
+    @classmethod
     def http_post_collection(cls, tenant_name, obj_dict, db_conn):
         try:
             fq_name = obj_dict['fq_name']
@@ -292,6 +358,9 @@ class VirtualNetworkServer(VirtualNetworkServerGen):
             if not ok:
                 return (False, (403, pformat(obj_dict['fq_name']) + ' : ' + quota_limit))
 
+        (ok, error) =  cls._check_route_targets(obj_dict, db_conn)
+        if not ok:
+            return (False, (400, error))
         try:
             cls.addr_mgmt.net_create_req(obj_dict)
         except Exception as e:
@@ -340,6 +409,9 @@ class VirtualNetworkServer(VirtualNetworkServerGen):
         except Exception as e:
             return (False, (500, str(e)))
 
+        (ok, error) =  cls._check_route_targets(obj_dict, db_conn)
+        if not ok:
+            return (False, (400, error))
         return True, ""
     # end http_put
 
