@@ -2526,7 +2526,7 @@ class SchemaTransformer(object):
         SecurityGroupST._sg_id_allocator.reserve(0, '__reserved__')
         VirtualNetworkST._rt_allocator = IndexAllocator(
             _zookeeper_client, _BGP_RTGT_ALLOC_PATH, _BGP_RTGT_MAX_ID,
-            cfgm_common.BGP_RTGT_MIN_ID)
+            common.BGP_RTGT_MIN_ID)
 
         # Initialize discovery client
         self._disc = None
