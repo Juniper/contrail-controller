@@ -170,7 +170,7 @@ class SvcMonitor(object):
         svc_properties = ServiceTemplateType()
         svc_properties.set_service_type(svc_type)
         svc_properties.set_service_mode(svc_mode)
-        svc_properties.set_service_virtualisation_type(hypervisor_type)
+        svc_properties.set_service_virtualization_type(hypervisor_type)
         svc_properties.set_image_name(image_name)
         svc_properties.set_flavor(flavor)
         svc_properties.set_ordered_interfaces(True)
@@ -346,7 +346,7 @@ class SvcMonitor(object):
     # end _get_vn_id
 
     def _get_virtualization_type(self, st_props):
-        return st_props.get_service_virtualisation_type() or 'virtual-machine'
+        return st_props.get_service_virtualization_type() or 'virtual-machine'
     # end _get_virtualization_type
 
     def _create_svc_instance(self, st_obj, si_obj):
