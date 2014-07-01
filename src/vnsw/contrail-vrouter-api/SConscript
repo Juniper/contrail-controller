@@ -10,7 +10,9 @@ sources = [
     'contrail_vrouter_api/__init__.py',
     'contrail_vrouter_api/vrouter_api.py',
     'contrail_vrouter_api/tests/__init__.py',
-    'contrail_vrouter_api/tests/test_vrouter_api.py'
+    'contrail_vrouter_api/tests/instance_server.py',
+    'contrail_vrouter_api/tests/test_vrouter_api.py',
+    'contrail_vrouter_api/tests/test_vrouter_api_connection.py',
     ]
 
 sources += env.ThriftGenPy(
