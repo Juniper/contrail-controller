@@ -114,18 +114,21 @@ void DnsProto::VnNotify(DBEntryBase *entry) {
             CheckForUpdate(it->second, it->first, it->first->vn(),
                            it->first->ip_addr(), vdns_name, domain, ttl, false);
         }
-        const VmInterface::FloatingIpSet &fip_list =
-            it->first->floating_ip_list().list_;
-        for (VmInterface::FloatingIpSet::iterator fip = fip_list.begin();
-             fip != fip_list.end(); ++fip) {
-            if (fip->vn_.get() == vn) {
-                uint32_t ttl = kDnsDefaultTtl;
-                std::string vdns_name, domain;
-                GetVdnsData(vn, fip->floating_ip_, vdns_name, domain, ttl);
-                CheckForUpdate(it->second, it->first, vn,
-                               fip->floating_ip_, vdns_name, domain, ttl, true);
-            }
+    }
+    Ip4Address ip_key(0);
+    DnsFipEntryPtr key(new DnsFipEntry(vn, ip_key, NULL));
+    DnsFipSet::iterator it = fip_list_.upper_bound(key);
+    while (it != fip_list_.end()) {
+        std::string fip_vdns_name, fip_domain;
+        DnsFipEntry *entry = (*it).get();
+        if (entry->vn_ != vn) {
+            break;
         }
+        uint32_t fip_ttl = kDnsDefaultTtl;
+        GetVdnsData(entry->vn_, entry->floating_ip_, fip_vdns_name,
+                    fip_domain, fip_ttl);
+        CheckForFipUpdate(entry, fip_vdns_name, fip_domain, fip_ttl);
+        ++it;
     }
 }
 
@@ -159,17 +162,16 @@ void DnsProto::ProcessNotify(std::string name, bool is_deleted, bool is_ipam) {
             vdns_name.clear();
         CheckForUpdate(it->second, it->first, it->first->vn(),
                        it->first->ip_addr(), vdns_name, domain, ttl, false);
-
-        const VmInterface::FloatingIpSet &fip_list =
-            it->first->floating_ip_list().list_;
-        for (VmInterface::FloatingIpSet::iterator fip = fip_list.begin();
-             fip != fip_list.end(); ++fip) {
-            VnEntry *vn = fip->vn_.get();
-            ttl = kDnsDefaultTtl;
-            GetVdnsData(vn, fip->floating_ip_, vdns_name, domain, ttl);
-            CheckForUpdate(it->second, it->first, vn,
-                           fip->floating_ip_, vdns_name, domain, ttl, true);
-        }
+    }
+    DnsFipSet::iterator it = fip_list_.begin();
+    while (it != fip_list_.end()) {
+        std::string fip_vdns_name, fip_domain;
+        DnsFipEntry *entry = (*it).get();
+        uint32_t fip_ttl = kDnsDefaultTtl;
+        GetVdnsData(entry->vn_, entry->floating_ip_, fip_vdns_name,
+                    fip_domain, fip_ttl);
+        CheckForFipUpdate(entry, fip_vdns_name, fip_domain, fip_ttl);
+        ++it;
     }
 }
 
@@ -197,6 +199,21 @@ void DnsProto::CheckForUpdate(IpVdnsMap &ipvdns, const VmInterface *vmitf,
 	if (UpdateDnsEntry(vmitf, vdns_name, vmdata_it->second, domain,
                            ttl, is_floating))
 	    vmdata_it->second = vdns_name;
+    }
+}
+
+void DnsProto::CheckForFipUpdate(DnsFipEntry *entry, std::string &vdns_name,
+                                 std::string &domain, uint32_t ttl) {
+    if (entry->vdns_name_.empty() && entry->vdns_name_ != vdns_name) {
+        if (UpdateDnsEntry(entry->interface_, entry->vn_, vdns_name,
+                           entry->floating_ip_, true, false)) {
+            entry->vdns_name_.assign(vdns_name);
+        }
+    } else if (entry->vdns_name_ != vdns_name) {
+        if (UpdateDnsEntry(entry->interface_, vdns_name, entry->vdns_name_,
+                           domain, ttl, true)) {
+            entry->vdns_name_.assign(vdns_name);
+        }
     }
 }
 
@@ -260,22 +277,22 @@ bool DnsProto::UpdateDnsEntry(const VmInterface *vmitf, const VnEntry *vn,
     uint32_t ttl = kDnsDefaultTtl;
     std::string vdns_name, domain;
     GetVdnsData(vn, ip, vdns_name, domain, ttl);
-    VmDataMap::iterator it = all_vms_.find(vmitf);
-    if (it == all_vms_.end()) {
+    DnsFipEntryPtr key(new DnsFipEntry(vn, ip, vmitf));
+    DnsFipSet::iterator it = fip_list_.find(key);
+    if (it == fip_list_.end()) {
         if (is_deleted)
             return true;
         if (!UpdateDnsEntry(vmitf, vn, vdns_name, ip, is_floating, false))
             vdns_name = "";
-        IpVdnsMap vmdata;
-        vmdata.insert(IpVdnsPair(ip.to_ulong(), vdns_name));
-        all_vms_.insert(VmDataPair(vmitf, vmdata));
+        key.get()->vdns_name_ = vdns_name;
+        fip_list_.insert(key);
     } else {
         if (is_deleted) {
             UpdateDnsEntry(vmitf, vn, vdns_name, ip, is_floating, true);
-            it->second.erase(ip.to_ulong());
+            fip_list_.erase(key);
         } else {
-            CheckForUpdate(it->second, vmitf, vn, ip, vdns_name, domain,
-                           ttl, is_floating);
+            DnsFipEntry *entry = (*it).get();
+            CheckForFipUpdate(entry, vdns_name, domain, ttl);
         }
     }
     return true;
@@ -422,4 +439,27 @@ void DnsProto::DelVmRequest(DnsHandler::QueryKey *key) {
 
 bool DnsProto::IsVmRequestDuplicate(DnsHandler::QueryKey *key) {
     return curr_vm_requests_.find(*key) != curr_vm_requests_.end();
+}
+
+DnsProto::DnsFipEntry::DnsFipEntry(const VnEntry *vn, const Ip4Address &fip,
+                                   const VmInterface *itf)
+    : vn_(vn), floating_ip_(fip), interface_(itf) {
+}
+
+DnsProto::DnsFipEntry::~DnsFipEntry() {
+}
+
+bool DnsProto::DnsFipEntryCmp::operator() (const DnsFipEntryPtr &lhs,
+                                           const DnsFipEntryPtr &rhs) const {
+    return lhs->IsLess(rhs.get());
+}
+
+bool DnsProto::DnsFipEntry::IsLess(const DnsFipEntry *rhs) const {
+    if (vn_ != rhs->vn_) {
+        return vn_ < rhs->vn_;
+    }
+    if (floating_ip_ != rhs->floating_ip_) {
+        return floating_ip_ < rhs->floating_ip_;
+    }
+    return interface_ < rhs->interface_;
 }
