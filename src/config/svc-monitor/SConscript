@@ -3,57 +3,71 @@
 #
 # Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
 # 
+import os
 
 Import('CfgmEnv')
 env = CfgmEnv.Clone()
 
-setup_sources = [
-           'setup.py',
-           'MANIFEST.in',
-          ]
+sources = [
+    'setup.py',
+    'requirements.txt',
+    'test-requirements.txt',
+    'MANIFEST.in',
+    'svc_monitor/__init__.py',
+    'svc_monitor/svc_monitor.py',
+    'svc_monitor/tests/__init__.py',
+    'svc_monitor/tests/test_init.py',
+]
 
+sources += env.SandeshGenPy('svc_mon_introspect.sandesh',
+                            'svc_monitor/sandesh/', False)
 
-setup_sources_rules = []
-for file in setup_sources:
-    setup_sources_rules.append(env.Install("", "#controller/src/config/svc-monitor/" + file))
+sdist_gen = env.Command('dist', sources, 'python setup.py sdist', chdir=1)
+env.Alias('controller/src/config/svc_monitor:sdist', sdist_gen)
 
-local_sources = [
-           '__init__.py',
-           'svc_monitor.py',
-          ]
+test_sources = sources
+packages = [
+    '%s/api-lib/dist/vnc_api-0.1dev.tar.gz' % env['TOP'],
+    '%s/config/common/dist/cfgm_common-0.1dev.tar.gz' % env['TOP'],
+    '%s/discovery/client/dist/discoveryclient-0.1dev.tar.gz' % env['TOP'],
+    '%s/sandesh/common/dist/sandesh-common-0.1dev.tar.gz' % env['TOP'],
+    '%s/tools/sandesh/library/python/dist/sandesh-0.1dev.tar.gz' % env['TOP'],
+]
 
-local_sources_rules = []
-for file in local_sources:
-    local_sources_rules.append(
-        env.Install("svc_monitor", "#controller/src/config/svc-monitor/" + file))
+def BuildPyTestSetup(env, target, source):
+    file = open(target[0].abspath, 'w')
+    file.write("[easy_install]\nfind_links =")
+    for pkg in source:
+        dependency = env.File(pkg)
+        file.write(" %s" % os.path.dirname(dependency.abspath))
+    file.write("\n")
+    file.close()
+    return
 
-sandesh_gen_py_gfiles = env.SandeshGenPy('svc_mon_introspect.sandesh')
-sandesh_gen_py_dirs = ['svc_mon_introspect']
-sandesh_gen_py_files = sandesh_gen_py_dirs + [ '__init__.py' ]
-sandesh_gen_py_sources = ['gen_py/' + ssrc for ssrc in sandesh_gen_py_files]
-sandesh_gen_py_rules = []
-for file in sandesh_gen_py_sources:
-    sandesh_gen_py_rules.append(
-        env.Install("svc_monitor/sandesh", file))
-env.Depends(sandesh_gen_py_rules, sandesh_gen_py_gfiles)
+def GeneratePyTestSetup(env, targets, source):
+    """
+    Generate a setup.cfg file that contains a list of directories
+    where dependent packages can be found. The fact that package directory
+    list is being given as a source automatically adds them as dependencies.
+    """
+    target = env.File('setup.cfg')
+    return env.Command(target=target, source=source, action=BuildPyTestSetup);
 
-sdist_depends = []
-sdist_depends.extend(setup_sources_rules)
-sdist_depends.extend(local_sources_rules)
-sdist_depends.extend(sandesh_gen_py_rules)
-# TODO(roque): deprecate
-sdist_gen = env.Command('dist', 'setup.py', 'python setup.py sdist', chdir=1)
+env.Append(BUILDERS = {'PythonTestSetup': GeneratePyTestSetup})
+test_sources += env.PythonTestSetup(source=packages)
 
-env.Depends(sdist_gen, sdist_depends)
-env.Default(sdist_gen)
+test = env.Command(None, test_sources,
+                   'python setup.py test',
+                   chdir=1)
+
+env.Alias('controller/src/config/svc_monitor:test', test)
 
 if 'install' in BUILD_TARGETS:
-    install_cmd = env.Command(None, 'setup.py',
+    install_cmd = env.Command(None, sources,
                               'python setup.py install %s' %
                               env['PYTHON_INSTALL_OPT'],
                               chdir = 1)
-    env.Depends(install_cmd, sdist_depends)
     env.Alias('install', install_cmd)
 
-env.Alias('install', env.Install(env['INSTALL_CONF'],
-            'svc-monitor.conf'))
+env.Alias('install', env.Install(env['INSTALL_CONF'], 'svc-monitor.conf'))
+
