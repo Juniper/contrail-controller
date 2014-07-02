@@ -1308,11 +1308,11 @@ class DBInterface(object):
         sg_q_dict['description'] = sg_obj.get_id_perms().get_description()
 
         # get security group rules
-        sg_q_dict['rules'] = []
+        sg_q_dict['security_group_rules'] = []
         rule_list = self.security_group_rules_read(sg_obj.uuid, sg_obj)
         if rule_list:
             for rule in rule_list:
-                sg_q_dict['rules'].append(rule)
+                sg_q_dict['security_group_rules'].append(rule)
 
         return sg_q_dict
     #end _security_group_vnc_to_neutron
