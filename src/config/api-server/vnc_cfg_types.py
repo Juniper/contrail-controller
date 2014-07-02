@@ -273,6 +273,11 @@ class VirtualMachineInterfaceServer(VirtualMachineInterfaceServerGen):
     def http_post_collection(cls, tenant_name, obj_dict, db_conn):
         vn_dict = obj_dict['virtual_network_refs'][0]
         vn_uuid = vn_dict['uuid']
+        if not vn_uuid:
+            vn_fq_name = vn_dict.get('to')
+            if not vn_fq_name:
+                return (False, (500, 'Internal error : ' + pformat(vn_dict)))
+            vn_uuid = db_conn.fq_name_to_uuid('virtual-network', vn_fq_name)
         (ok, vn_dict) = QuotaHelper.get_objtype_dict(vn_uuid, 'virtual-network', db_conn)
         if not ok:
             return (False, (500, 'Internal error : ' + pformat(vn_dict)))
