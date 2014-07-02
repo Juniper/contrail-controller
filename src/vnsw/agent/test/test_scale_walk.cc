@@ -131,6 +131,7 @@ int main(int argc, char **argv) {
 
     int ret = RUN_ALL_TESTS();
     Agent::GetInstance()->GetEventManager()->Shutdown();
+    TaskScheduler::GetInstance()->Terminate();
     AsioStop();
     return ret;
 }

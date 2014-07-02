@@ -320,11 +320,11 @@ void TestShutdown() {
     Sandesh::Uninit();
     client->WaitForIdle();
 
-    Agent::GetInstance()->GetEventManager()->Shutdown();
-    AsioStop();
-    TaskScheduler::GetInstance()->Terminate();
-
     AgentStats::GetInstance()->Shutdown();
     Agent::GetInstance()->Shutdown();
+    Agent::GetInstance()->GetEventManager()->Shutdown();
     delete agent_init;
+
+    AsioStop();
+    TaskScheduler::GetInstance()->Terminate();
 }

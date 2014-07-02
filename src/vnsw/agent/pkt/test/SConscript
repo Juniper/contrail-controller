@@ -81,13 +81,13 @@ if sys.platform != 'darwin':
                                             'test_pkt_util.cc'])
     env.Alias('src/vnsw/agent/pkt/test:test_vrf_assign_acl', test_vrf_assign_acl)
 
-    pkt_flow_suite = [test_ecmp,
+    pkt_flow_suite = [test_pkt,
                       test_flowtable,
-                      test_pkt,
-                      test_pkt_fip,
-                      test_pkt_flow,
-                      test_pkt_flow_mock,
-                      test_pkt_parse,
+#                      test_ecmp,
+#                      test_pkt_fip,
+#                      test_pkt_flow,
+#                      test_pkt_flow_mock,
+#                      test_pkt_parse,
                       test_sg_flow,
                       test_rpf_flow
                       ]

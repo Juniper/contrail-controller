@@ -190,6 +190,8 @@ public:
     void DeleteDBClients();
     void AddArpRoute(const Ip4Address &srv);
     void UpdateAllVns(const LinkLocalServiceKey &key, bool is_add);
+    //For unit test clear ip fabric address list
+    void ClearIpFabricAddressList() {ipfabric_address_list_.clear();}
 
 private:
     bool VnUpdateWalk(DBEntryBase *entry, const LinkLocalServiceKey key,
@@ -390,6 +392,22 @@ void GlobalVrouter::GlobalVrouterConfig(IFMapNode *node) {
         AGENT_LOG(GlobalVrouterLog, "Rebake all routes for changed encap");
         agent_route_encap_update_walker_.get()->Update();
     }
+}
+
+// Cleanup via test at shutdown of test cases
+void GlobalVrouter::LinkLocalCleanup() {
+    Agent *agent = oper_->agent();
+    for (GlobalVrouter::LinkLocalServicesMap::const_iterator it =
+         linklocal_services_map_.begin();
+         it != linklocal_services_map_.end(); ++it) {
+        BOOST_FOREACH(Ip4Address ip, it->second.ipfabric_service_ip) {
+            agent->GetDefaultInet4UnicastRouteTable()->
+                DeleteReq(agent->local_peer(),
+                          agent->GetDefaultVrf(),
+                          ip, 32, NULL);
+        }
+    }
+    linklocal_route_mgr_->ClearIpFabricAddressList();
 }
 
 // Get link local service configuration info, for a given service name

@@ -38,9 +38,9 @@ if sys.platform != 'darwin':
     env.Alias('src/vnsw/agent/uve/test:test_uve', test_uve)
 
     uve_test_suite = [
-                      test_vn_uve,
+#                      test_vn_uve,
                       test_vm_uve,
-                      test_vrouter_uve,
+#                      test_vrouter_uve,
                       test_port_bitmap,
                       test_stats_mock,
 #                     test_uve

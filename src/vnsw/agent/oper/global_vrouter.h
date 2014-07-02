@@ -76,6 +76,9 @@ public:
     bool IsAddressInUse(const Ip4Address &ip) const;
     bool IsLinkLocalAddressInUse(const Ip4Address &ip) const;
 
+    //Test cases requirement to flush link local service 
+    void LinkLocalCleanup();
+
 private:
     class FabricDnsResolver;
     class LinkLocalRouteManager;

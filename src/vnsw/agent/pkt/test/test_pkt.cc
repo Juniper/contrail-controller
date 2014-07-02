@@ -42,6 +42,16 @@ class PktTest : public ::testing::Test {
 public:
     void CheckSandeshResponse(Sandesh *sandesh) {
     }
+
+    void FlushFlowTable() {
+        client->EnqueueFlowFlush();
+        client->WaitForIdle();
+        EXPECT_EQ(0U, Agent::GetInstance()->pkt()->flow_table()->Size());
+    }
+
+    void TearDown() {
+        FlushFlowTable();
+    }
 };
 
 static void MakeIpPacket(PktGen *pkt, int ifindex, const char *sip,
