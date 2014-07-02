@@ -154,15 +154,18 @@ def main():
         schematxt = OpServerUtils.get_url_http(tab_url + "/schema")
         schema = json.loads(schematxt.text)['columns']
         for pp in schema:
+            if pp.has_key('suffixes') and pp['suffixes']:
+                des = "%s %s" % (pp['name'],str(pp['suffixes']))
+            else:
+                des = "%s" % pp['name']
             if pp['index']:
                 valuetxt = OpServerUtils.get_url_http(tab_url + "/column-values/" + pp['name'])
-                print "%s : %s %s" % (pp['name'],pp['datatype'], valuetxt.text)
+                print "%s : %s %s" % (des,pp['datatype'], valuetxt.text)
             else:
-                print "%s : %s" % (pp['name'],pp['datatype'])
-        return
-
-    result = querier.query()
-    querier.display(result)
+                print "%s : %s" % (des,pp['datatype'])
+    else:
+        result = querier.query()
+        querier.display(result)
 # end main
 
 if __name__ == "__main__":
