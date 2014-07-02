@@ -936,15 +936,37 @@ void PktFlowInfo::Add(const PktInfo *pkt, PktControlInfo *in,
         rflow = Agent::GetInstance()->pkt()->flow_table()->Allocate(rkey);
     }
 
+    // If the flows are already present, we want to retain the Forward and
+    // Reverse flow characteristics for flow.
+    // We have following conditions,
+    // flow has ReverseFlow set, rflow has ReverseFlow reset
+    //      Swap flow and rflow
+    // flow has ReverseFlow set, rflow has ReverseFlow set
+    //      Unexpected case. Continue with flow as forward flow
+    // flow has ReverseFlow reset, rflow has ReverseFlow reset
+    //      Unexpected case. Continue with flow as forward flow
+    // flow has ReverseFlow reset, rflow has ReverseFlow set
+    //      No change in forward/reverse flow. Continue with flow as forward-flow
+    bool swap_flows = false;
+    if (flow->is_flags_set(FlowEntry::ReverseFlow) &&
+        !rflow->is_flags_set(FlowEntry::ReverseFlow)) {
+        swap_flows = true;
+    }
+
     tcp_ack = pkt->tcp_ack;
     flow->InitFwdFlow(this, pkt, in, out);
     rflow->InitRevFlow(this, out, in);
 
     /* Fip stats info in not updated in InitFwdFlow and InitRevFlow because
-     * both forward and reverse flows are not not linked to each other yet.
+     * both forward and reverse flows are not always linked to each other yet.
      * We need both forward and reverse flows to update Fip stats info */
     UpdateFipStatsInfo(flow.get(), rflow.get(), pkt, in, out);
-    Agent::GetInstance()->pkt()->flow_table()->Add(flow.get(), rflow.get());
+
+    if (swap_flows) {
+        Agent::GetInstance()->pkt()->flow_table()->Add(rflow.get(), flow.get());
+    } else {
+        Agent::GetInstance()->pkt()->flow_table()->Add(flow.get(), rflow.get());
+    }
 }
 
 void PktFlowInfo::UpdateFipStatsInfo(
