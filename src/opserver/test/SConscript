@@ -35,9 +35,10 @@ generator_sandesh_files = env.SandeshGenPy('#controller/src/vnsw/agent/uve/virtu
 generator_sandesh_files += env.SandeshGenPy('#controller/src/vnsw/agent/uve/virtual_network.sandesh')
 generator_sandesh_files += env.SandeshGenPy('#controller/src/sandesh/common/flow.sandesh')
 generator_sandesh_files += env.SandeshGenPy('#controller/src/opserver/test/utils/stats_test.sandesh')
+generator_sandesh_files += env.SandeshGenPy('#controller/src/query_engine/qe.sandesh')
 generator_sandesh_files += env.SandeshGenPy('#controller/src/vnsw/agent/uve/port_bmap.sandesh')
 
-generator_sandesh_dirs = ['virtual_machine', 'flow', 'virtual_network', 'stats_test']
+generator_sandesh_dirs = ['virtual_machine', 'flow', 'virtual_network', 'stats_test', 'qe']
 for dir in generator_sandesh_dirs:
     Dir(env['TOP'] + '/opserver/test/gen_py/' + dir)
 generator_sandesh_dirs.append('__init__.py')    

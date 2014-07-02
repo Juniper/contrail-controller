@@ -367,11 +367,13 @@ bool Ruleeng::handle_uve_publish(const pugi::xml_node& parent,
                         string tname = string(node.name()) + sattrname;
                         attribs.insert(make_pair(tname, sample));
                     }
-                    vector<string> sels = 
-                        db->StatTableInsert(ts, object.name(), node.name(), tmap, attribs);
+                    db->StatTableInsert(ts, object.name(), node.name(), tmap, attribs);
+
                     // We don't want to show query info in the Analytics Node UVE
                     if (!strcmp(object.name(),"QueryPerfInfo")) continue;
                     if (elem == subs.first_child()) {
+                        vector<string> sels = DbHandler::StatTableSelectStr(
+                                object.name(), node.name(), attribs);
                         string qclause;
                         qclause.reserve(100);
                         qclause.append("[{\"rtype\":\"query\", \"aggtype\":\"StatTable.");

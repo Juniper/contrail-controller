@@ -16,6 +16,7 @@
 #include <cerrno>
 #include "analytics/vizd_table_desc.h"
 #include "stats_select.h"
+#include "stats_query.h"
 
 using std::map;
 using std::string;
@@ -115,7 +116,7 @@ PostProcessingQuery::PostProcessingQuery(
                 std::string datatype(m_query->get_column_field_datatype(sort_str));
                 if (!m_query->is_stat_table_query()) {
                     QE_INVALIDARG_ERROR(datatype != std::string(""));
-                } else if (m_query->stat_table_index()!=-1) {
+                } else if (m_query->stats().is_stat_table_static()) {
                     // This is a static StatTable. We can check the schema
                     QE_INVALIDARG_ERROR(datatype != std::string(""));
                 }
@@ -414,6 +415,9 @@ void AnalyticsQuery::Init(GenDb::GenDbIf *db_if, std::string qid,
 
         // boost::to_upper(table);
         QE_TRACE(DEBUG,  " table is " << table_);
+        if (StatsQuery::is_stat_table_query(table_)) {
+            stats_.reset(new StatsQuery(table_));
+        }
         QE_INVALIDARG_ERROR(is_valid_from_field(table_));
     }
 
@@ -899,7 +903,8 @@ AnalyticsQuery::AnalyticsQuery(std::string qid, std::map<std::string,
         merge_needed(false),
         parallel_batch_num(batch),
         total_parallel_batches(total_batches),
-        processing_needed(true)
+        processing_needed(true),
+        stats_(NULL)
 {
     // Need to do this for logging/tracing with query ids
     query_id = qid;
@@ -958,7 +963,8 @@ AnalyticsQuery::AnalyticsQuery(std::string qid, GenDb::GenDbIf *dbif,
     merge_needed(false),
     parallel_batch_num(batch),
     total_parallel_batches(total_batches),
-    processing_needed(true) {
+    processing_needed(true),
+    stats_(NULL) {
     Init(dbif, qid, json_api_data, analytics_start_time);
 }
 
@@ -1265,21 +1271,6 @@ bool AnalyticsQuery::is_object_table_query()
         !is_stat_table_query());
 }
 
-bool AnalyticsQuery::is_stat_table_query() {
-    return (!this->table_.compare(0, g_viz_constants.STAT_VT_PREFIX.length(),
-            g_viz_constants.STAT_VT_PREFIX));
-}
-
-int AnalyticsQuery::stat_table_index() {
-    for(size_t i = 0; i < g_viz_constants._STAT_TABLES.size(); i++) {
-        string nm = g_viz_constants.STAT_VT_PREFIX + "." + 
-                g_viz_constants._STAT_TABLES[i].stat_type + "." +
-                g_viz_constants._STAT_TABLES[i].stat_attr;
-        if (nm == this->table_) 
-            return i;
-    }
-    return -1;
-}
 
 bool AnalyticsQuery::is_valid_from_field(const std::string& from_field)
 {
@@ -1333,23 +1324,17 @@ bool AnalyticsQuery::is_valid_where_field(const std::string& where_field)
         }
     }
 
-    int i = stat_table_index();
-    if (i != -1) {
-        for (size_t j = 0;
-             j < g_viz_constants._STAT_TABLES[i].attributes.size(); j++) {
-            if ((g_viz_constants._STAT_TABLES[i].attributes[j].name ==
-                    where_field) & g_viz_constants._STAT_TABLES[i].attributes[j].index)
-                return true;
+    if (is_stat_table_query()) {
+        AnalyticsQuery *m_query = (AnalyticsQuery *)main_query;
+        if (m_query->stats().is_stat_table_static()) {
+            StatsQuery::column_t cdesc = m_query->stats().get_column_desc(where_field);
+            if (cdesc.index) return true;
+        } else {
+            // For dynamic Stat Table queries, allow anything in the where clause
+            return true;
         }
-        if (g_viz_constants.STAT_OBJECTID_FIELD == where_field)
-            return true;
-        if (g_viz_constants.STAT_SOURCE_FIELD == where_field)
-            return true;
-        return false;
     }
-
-    // For dynamic Stat Table queries, allow anything in the where clause
-    return is_stat_table_query();
+    return false;
 }
 
 bool AnalyticsQuery::is_valid_sort_field(const std::string& sort_field) {
@@ -1390,17 +1375,13 @@ std::string AnalyticsQuery::get_column_field_datatype(
             return std::string("");
         }
     }
-    int i = stat_table_index();
-    if (i != -1) {
-        std::string sfield;
-        QEOpServerProxy::AggOper agg;
-        QEOpServerProxy::VarType vt = StatsSelect::Parse(i, column_field,
-            sfield, agg);
-        if (vt == QEOpServerProxy::STRING)
+    if (stats_.get()) {
+        StatsQuery::column_t vt = stats().get_column_desc(column_field);
+        if (vt.datatype == QEOpServerProxy::STRING)
             return string("string");
-        else if (vt == QEOpServerProxy::UINT64)
+        else if (vt.datatype == QEOpServerProxy::UINT64)
             return string("int");
-        else if (vt == QEOpServerProxy::DOUBLE)
+        else if (vt.datatype == QEOpServerProxy::DOUBLE)
             return string("double");
         else
             return string("");

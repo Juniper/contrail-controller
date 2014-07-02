@@ -12,7 +12,8 @@
 
 import sys
 builddir = sys.path[0] + '/../..'
-
+import threading
+threading._DummyThread._Thread__stop = lambda x: 42
 import signal
 import gevent
 from gevent import monkey

@@ -664,10 +664,39 @@ bool DbHandler::StatTableWrite(uint32_t t2,
     }
 }
 
-// This function writes Stats samples to the DB.
-// It returns a list of select terms to use for full aggregation
+// This returns a list of select terms to use for full aggregation
 // for the given row
-std::vector<std::string>  DbHandler::StatTableInsert(uint64_t ts, 
+std::vector<std::string>
+DbHandler::StatTableSelectStr(
+        const std::string& statName, const std::string& statAttr,
+        const AttribMap & attribs) {
+    std::vector<std::string> aggstr;
+    aggstr.push_back(string("COUNT(") + statAttr + string(")"));
+    for (AttribMap::const_iterator it = attribs.begin();
+            it != attribs.end(); it++) {
+        switch (it->second.type) {
+            case STRING: {
+                    aggstr.push_back(it->first);
+                }
+                break;
+            case UINT64: {
+                    aggstr.push_back(string("SUM(") + it->first + string(")"));
+                }
+                break;
+            case DOUBLE: {
+                    aggstr.push_back(string("SUM(") + it->first + string(")"));
+                }
+                break;                
+            default:
+                continue;
+        }
+    }
+    return aggstr;
+}
+
+// This function writes Stats samples to the DB.
+void
+DbHandler::StatTableInsert(uint64_t ts, 
         const std::string& statName,
         const std::string& statAttr,
         const TagMap & attribs_tag,
@@ -764,7 +793,6 @@ std::vector<std::string>  DbHandler::StatTableInsert(uint64_t ts,
         }
 
     }
-    return aggstr;
 
 }
 

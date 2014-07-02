@@ -7,6 +7,7 @@
 #include "rapidjson/document.h"
 #include "query.h"
 #include "json_parse.h"
+#include "stats_query.h"
 
 static std::string ToString(const rapidjson::Value& value_value) {
     std::string svalue;
@@ -35,15 +36,13 @@ static std::string ToString(const rapidjson::Value& value_value) {
     return svalue;
 }
 
-static GenDb::DbDataValue ToDbDataValue(const std::string& value, const std::string& desc) {
+static GenDb::DbDataValue ToDbDataValue(const std::string& value, QEOpServerProxy::VarType desc) {
     GenDb::DbDataValue smpl;
-    if (!desc.compare("string")) {
+    if (desc == QEOpServerProxy::STRING) {
         smpl = value;
-    } else if (!desc.compare("long")) {
+    } else if (desc == QEOpServerProxy::UINT64) {
         smpl = (uint64_t) strtoul(value.c_str(), NULL, 10);
-    } else if (!desc.compare("int")) {
-        smpl = (uint64_t) strtoul(value.c_str(), NULL, 10);
-    } else if (!desc.compare("double")) {
+    } else if (desc == QEOpServerProxy::DOUBLE) {
         smpl = (double) strtod(value.c_str(), NULL); 
     }
     return smpl;
@@ -61,36 +60,6 @@ static GenDb::DbDataValue ToDbDataValue(const rapidjson::Value& val) {
         ret = (double) val.GetDouble();
     }
     return ret;
-}
-
-static bool GetColumnDesc(int idx, std::string colname, stat_query_column& desc) {
-    int at_idx = -1;
-    for (size_t j = 0;
-            j < g_viz_constants._STAT_TABLES[idx].attributes.size();
-            j++) {
-        if (g_viz_constants._STAT_TABLES[idx].attributes[j].name == colname) {
-            at_idx = j;
-            break;
-        }
-    }
-
-    if (at_idx == -1) {
-        if (colname == g_viz_constants.STAT_SOURCE_FIELD) {
-            desc.set_name(g_viz_constants.STAT_SOURCE_FIELD);
-            desc.set_index(true);
-            desc.set_datatype("string");
-            return true;
-        } else if (colname == g_viz_constants.STAT_OBJECTID_FIELD) {
-            desc.set_name(g_viz_constants.STAT_OBJECTID_FIELD);
-            desc.set_index(true);
-            desc.set_datatype("string");
-            return true;
-        } else {
-            return false;
-        }
-    }
-    desc = g_viz_constants._STAT_TABLES[idx].attributes[at_idx];
-    return true;
 }
 
 bool
@@ -165,12 +134,11 @@ WhereQuery::StatTermParse(QueryUnit *main_query, const rapidjson::Value& where_t
     QE_TRACE(DEBUG, "StatTable Where Term Suffix" << sname << " val " << srvalstr
             << " val2 " << srval2str << " op " << sop);
      
-
-    int idx = m_query->stat_table_index();
-    if (idx != -1) {
+    if (m_query->stats().is_stat_table_static()) {
         // For static tables, check that prefix is valid and convert types as per schema
-        stat_query_column cdesc;
-        if (!GetColumnDesc(idx, pname, cdesc)) return false;
+        StatsQuery::column_t cdesc = m_query->stats().get_column_desc(pname);
+
+        if (cdesc.datatype == QEOpServerProxy::BLANK) return false;
         if (!cdesc.index) return false;
 
         QE_TRACE(DEBUG, "StatTable Where prefix Schema match " << cdesc.datatype);
@@ -192,21 +160,26 @@ WhereQuery::StatTermParse(QueryUnit *main_query, const rapidjson::Value& where_t
             // We will need to use a twotag cf as the index
             if (sname.empty()) {
                 // Where Query did not specify a suffix. Insert a NULL suffix
-                sname = cdesc.suffixes[0];
-                stat_query_column cdesc2;
+                sname = *(cdesc.suffixes.begin());
+
                 // The suffix attribute MUST exist in the schema
-                QE_ASSERT(GetColumnDesc(idx, sname, cdesc2));
+                StatsQuery::column_t cdesc2 = m_query->stats().get_column_desc(sname);
                 
-                if (!cdesc2.datatype.compare("string")) {
+                if (cdesc2.datatype == QEOpServerProxy::STRING) {
                     sval = std::string("");
-                } else {
+                } else if (cdesc2.datatype == QEOpServerProxy::UINT64){
                     sval = (uint64_t) 0;
+                } else {
+                    QE_ASSERT(0);
                 }
                 QE_TRACE(DEBUG, "StatTable Where Suffix creation of " << sname);
             } else {
                 // Where query specified a suffix. Check that it is valid
-                stat_query_column cdesc2;
-                if (!GetColumnDesc(idx, sname, cdesc2)) return false;
+                if (cdesc.suffixes.find(sname)==cdesc.suffixes.end()) return false;
+
+                StatsQuery::column_t cdesc2 = m_query->stats().get_column_desc(sname);
+                QE_ASSERT ((cdesc2.datatype == QEOpServerProxy::STRING) ||
+                    (cdesc2.datatype == QEOpServerProxy::UINT64));
 
                 // Now fill in the suffix value and value2 based on types in schema 
                 sval = ToDbDataValue(srvalstr, cdesc2.datatype);

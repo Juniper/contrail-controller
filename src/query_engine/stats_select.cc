@@ -3,6 +3,7 @@
  */
 #include "viz_constants.h"
 #include "stats_select.h"
+#include "stats_query.h"
 #include "query.h"
 #include <cstdlib>
 #include <boost/assign/list_of.hpp>
@@ -110,82 +111,25 @@ StatsSelect::Jsonify(const std::map<std::string, StatVal>&  uniks,
     return true;
 }
 
-QEOpServerProxy::VarType StatsSelect::Parse(int sidx, 
+QEOpServerProxy::AggOper StatsSelect::ParseAgg(
         const std::string& vname,
-        std::string& sfield, QEOpServerProxy::AggOper& agg) {
+        std::string& sfield) {
 
-    sfield = string();
-    agg = QEOpServerProxy::INVALID;
-
-    if (vname == g_viz_constants.STAT_OBJECTID_FIELD) {
-        return QEOpServerProxy::STRING;
-    }
-
-    if (vname == g_viz_constants.STAT_SOURCE_FIELD) {
-        return QEOpServerProxy::STRING;
-    }
-
-    if (vname == g_viz_constants.STAT_TIME_FIELD) {
-        return QEOpServerProxy::UINT64;
-    }
-
-    if (vname.substr(0, g_viz_constants.STAT_TIMEBIN_FIELD.size()) ==
-            g_viz_constants.STAT_TIMEBIN_FIELD) {
-        sfield = vname.substr(g_viz_constants.STAT_TIMEBIN_FIELD.size());
-        return QEOpServerProxy::UINT64;
-    }    
-
-
-    if (vname == g_viz_constants.STAT_UUID_FIELD) {
-        return QEOpServerProxy::UUID;
-    }
-
-    sfield = vname;
     if (0 == vname.compare(0,5,string("COUNT"))) {
         sfield = vname.substr(6);
         int len = sfield.size();
         sfield.erase(len-1);
-        if (sfield == g_viz_constants._STAT_TABLES[sidx].get_stat_attr()) {
-            agg = QEOpServerProxy::COUNT;
-            return QEOpServerProxy::UINT64;
-        } 
+        return QEOpServerProxy::COUNT;
     }
 
     if (0 == vname.compare(0,3,string("SUM"))) {
         sfield = vname.substr(4);
         int len = sfield.size();
         sfield.erase(len-1);
-        agg = QEOpServerProxy::SUM;
+        return QEOpServerProxy::SUM;
     }
 
-    if (sidx!=-1) {
-        map<string,QEOpServerProxy::VarType> typs = map_list_of(
-            "string", QEOpServerProxy::STRING)(
-            "uuid", QEOpServerProxy::UUID)(
-            "int", QEOpServerProxy::UINT64)(
-            "long", QEOpServerProxy::UINT64)(
-            "double", QEOpServerProxy::DOUBLE);
-
-        for (size_t k = 0; 
-                k < g_viz_constants._STAT_TABLES[sidx].attributes.size(); k++) {
-            if (g_viz_constants._STAT_TABLES[sidx].attributes[k].name == sfield) {
-                QEOpServerProxy::VarType vt = QEOpServerProxy::BLANK;
-                if (typs.find(g_viz_constants._STAT_TABLES[sidx].attributes[k].datatype)!=typs.end()) {
-                    vt = typs[g_viz_constants._STAT_TABLES[sidx].attributes[k].datatype];
-                }
-                if (agg == QEOpServerProxy::SUM) {
-                    if ((vt == QEOpServerProxy::DOUBLE) || (vt == QEOpServerProxy::UINT64))
-                        return vt;
-                    else
-                        return QEOpServerProxy::BLANK;
-                } else if (agg == QEOpServerProxy::INVALID) {
-                    return vt;
-                }
-            }
-        }
-    }
-
-    return QEOpServerProxy::BLANK;
+    return QEOpServerProxy::INVALID;
 }
 
 void StatsSelect::MergeFinal(const std::vector<boost::shared_ptr<MapBufT> >& inputs,
@@ -235,68 +179,64 @@ StatsSelect::StatsSelect(AnalyticsQuery * m_query,
 			main_query(m_query), select_fields_(select_fields),
 			ts_period_(0), isT_(false), count_field_() {
 
-    int i = main_query->stat_table_index();
+    QE_ASSERT(main_query->is_stat_table_query());
     status_ = false;
-
-    if (i != -1) {
-        isStatic_ = true;
-    } else {
-        isStatic_ = false;
-    }
 
     for (size_t j=0; j<select_fields_.size(); j++) {
 
-        std::string sfield;
-        QEOpServerProxy::AggOper agg;
-        QEOpServerProxy::VarType vt = Parse(i, select_fields_[j], 
-            sfield, agg);
+        if (select_fields_[j] == g_viz_constants.STAT_TIME_FIELD) {
+            if (ts_period_) {
+                QE_LOG(INFO, "StatsSelect cannot accept both T and T="); 
+                return;
+            }
+            isT_ = true;
+            sort_cols_.insert(std::make_pair(select_fields_[j], 0));
+            QE_TRACE(DEBUG, "StatsSelect T");
 
-        if ((i!=-1) && (vt == QEOpServerProxy::BLANK)) {
-            QE_LOG(INFO, "StatsSelect unknown field " << select_fields_[j]);
-            return;
-        }
+        } else if (select_fields_[j].substr(0, g_viz_constants.STAT_TIMEBIN_FIELD.size()) ==
+                g_viz_constants.STAT_TIMEBIN_FIELD) {
+            if (isT_) { 
+                QE_LOG(INFO, "StatsSelect cannot accept both T and T="); 
+                return;
+            }
+            string tsstr = select_fields_[j].substr(g_viz_constants.STAT_TIMEBIN_FIELD.size());
+            ts_period_ = strtoul(tsstr.c_str(), NULL, 10) * 1000000;
+            if (!ts_period_) {
+                QE_LOG(INFO, "StatsSelect cannot accept T= for " << tsstr);
+                return;
+            }
+            sort_cols_.insert(std::make_pair(g_viz_constants.STAT_TIMEBIN_FIELD,0));
+            QE_TRACE(DEBUG, "StatsSelect T=");
+        } else {
+            std::string sfield = select_fields_[j];
+            QEOpServerProxy::AggOper agg = ParseAgg(select_fields_[j], sfield);
 
-        if (agg == QEOpServerProxy::INVALID) {
-            
-            if (select_fields_[j] == g_viz_constants.STAT_TIME_FIELD) {
-                if (ts_period_) {
-                    QE_LOG(INFO, "StatsSelect cannot accept both T and T="); 
-                    return;
+            if (main_query->stats().is_stat_table_static()) {
+                if (agg != QEOpServerProxy::COUNT) {
+                    StatsQuery::column_t c = main_query->stats().get_column_desc(sfield);
+                    if (c.datatype == QEOpServerProxy::BLANK) {
+                        QE_TRACE(DEBUG, "StatsSelect unknown field " << select_fields_[j]);
+                        return;
+                    }
+                } else {
+                    if (sfield != main_query->stats().attr()) {
+                        QE_TRACE(DEBUG,"StatsSelect Invalid COUNT field " << sfield);
+                        return;
+                    }
                 }
-                isT_ = true;
-                sort_cols_.insert(std::make_pair(select_fields_[j], 0));
-                QE_TRACE(DEBUG, "StatsSelect T");
-
-            } else if (select_fields_[j].substr(0, g_viz_constants.STAT_TIMEBIN_FIELD.size()) ==
-                    g_viz_constants.STAT_TIMEBIN_FIELD) {
-                if (isT_) { 
-                    QE_LOG(INFO, "StatsSelect cannot accept both T and T="); 
-                    return;
-                }
-                string tsstr = sfield;
-                ts_period_ = strtoul(tsstr.c_str(), NULL, 10) * 1000000;
-                if (!ts_period_) {
-                    QE_LOG(INFO, "StatsSelect cannot accept T= for " << tsstr);
-                    return;
-                }
-                sort_cols_.insert(std::make_pair(g_viz_constants.STAT_TIMEBIN_FIELD,0));
-                QE_TRACE(DEBUG, "StatsSelect T=");
-            } else {
+            }
+            if (agg == QEOpServerProxy::INVALID) {
                 unik_cols_.insert(select_fields_[j]);
                 QE_TRACE(DEBUG, "StatsSelect unik field " << select_fields_[j]);                 
+            } else if (agg == QEOpServerProxy::COUNT) {
+                count_field_ = sfield;
+                QE_TRACE(DEBUG, "StatsSelect COUNT " << sfield);
+            } else if (agg == QEOpServerProxy::SUM) {
+                sum_cols_.insert(sfield);
+                QE_TRACE(DEBUG, "StatsSelect SUM " << sfield);
+            } else {
+                QE_ASSERT(0);
             }
-
-        } else if (agg == QEOpServerProxy::COUNT) {
-
-            count_field_ = sfield;
-            QE_TRACE(DEBUG, "StatsSelect COUNT " << sfield);
-
-        } else if (agg == QEOpServerProxy::SUM) {
-
-            sum_cols_.insert(sfield);
-            QE_TRACE(DEBUG, "StatsSelect SUM " << sfield);
-        } else {
-            QE_ASSERT(0);
         }
     }
 
@@ -309,33 +249,32 @@ void StatsSelect::SetSortOrder(const std::vector<sort_field_t>& sort_fields) {
     } else {
         QE_TRACE(DEBUG, "StatsSelect Sort By T/T=");
     }
-    int i = main_query->stat_table_index();
     for (size_t st = 0; st < sort_fields.size(); st++) {
 
-        std::string sfield;
-        QEOpServerProxy::AggOper agg;
-        QEOpServerProxy::VarType vt = Parse(i, sort_fields[st].name,
-            sfield, agg);
-
-        if ((i!=-1) && (vt == QEOpServerProxy::BLANK)) {
-            QE_LOG(INFO, "StatsSelect sort unknown field " << sort_fields[st].name);
-            QE_ASSERT(0);
-        }
-        
-        if (agg == QEOpServerProxy::INVALID) {
-
-            if (sort_fields[st].name.substr(0, g_viz_constants.STAT_TIMEBIN_FIELD.size()) ==
-                    g_viz_constants.STAT_TIMEBIN_FIELD) {
-                QE_TRACE(DEBUG, "StatsSelect Sort By T=");
-                sort_cols_.insert(std::make_pair(g_viz_constants.STAT_TIMEBIN_FIELD,st));
-            } else {
+        if (sort_fields[st].name.substr(0, g_viz_constants.STAT_TIMEBIN_FIELD.size()) ==
+                g_viz_constants.STAT_TIMEBIN_FIELD) {
+            QE_TRACE(DEBUG, "StatsSelect Sort By T=");
+            sort_cols_.insert(std::make_pair(g_viz_constants.STAT_TIMEBIN_FIELD,st));
+        } else if (sort_fields[st].name == g_viz_constants.STAT_TIME_FIELD) {
+            QE_TRACE(DEBUG, "StatsSelect Sort By " << sort_fields[st].name);
+            sort_cols_.insert(std::make_pair(sort_fields[st].name, st));                
+        } else {
+            std::string sfield = sort_fields[st].name;
+            QEOpServerProxy::AggOper agg = ParseAgg(sort_fields[st].name, sfield);
+            if (main_query->stats().is_stat_table_static()) {
+                StatsQuery::column_t c = main_query->stats().get_column_desc(sfield);
+                if (c.datatype == QEOpServerProxy::BLANK) {
+                    QE_LOG(INFO, "StatsSelect unknown field " << sort_fields[st].name);
+                    return;
+                }
+            }
+            if (agg == QEOpServerProxy::INVALID) {
                 QE_TRACE(DEBUG, "StatsSelect Sort By " << sort_fields[st].name);
                 sort_cols_.insert(std::make_pair(sort_fields[st].name,st));                
+            } else  {
+                agg_sort_cols_.insert(make_pair(make_pair(agg, sfield), st));
+                QE_TRACE(DEBUG, "StatsSelect Sort Agg " << agg << " of " << sfield);
             }
-
-        } else {
-            agg_sort_cols_.insert(make_pair(make_pair(agg, sfield), st));
-            QE_TRACE(DEBUG, "StatsSelect Sort Agg " << agg << " of " << sfield);
         }
     }    
 }
