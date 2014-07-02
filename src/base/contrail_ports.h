@@ -18,11 +18,9 @@ public:
     static const uint16_t ControlBgp = 179;
     static const uint16_t ControlXmpp = 5269;
     static const uint16_t DiscoveryServerPort = 5998;
-    static const uint16_t RedisQueryPort = 6380;
-    static const uint16_t RedisUvePort = 6381;
+    static const uint16_t RedisQueryPort = 6379;
+    static const uint16_t RedisUvePort = 6379;
     static const uint16_t RedisWebuiPort = 6383;
-    static const uint16_t RedisQueryEnginePort = 6379;
-    static const uint16_t AnalyticsRedisSentinelPort = 26379;
     static const uint16_t WebConsole = 8080;
     static const uint16_t OpServer = 8081;
     static const uint16_t ApiServer = 8082;
