@@ -579,6 +579,7 @@ class VncApiServer(VncApiServerGen):
             'zk_server_ip': '127.0.0.1:2181',
             'worker_id': '0',
             'rabbit_server': 'localhost',
+            'rabbit_port': '5672',
             'rabbit_user': 'guest',
             'rabbit_password': 'guest',
             'rabbit_vhost': None,
@@ -713,6 +714,9 @@ class VncApiServer(VncApiServerGen):
             "--rabbit_server",
             help="Rabbitmq server address")
         parser.add_argument(
+            "--rabbit_port",
+            help="Rabbitmq server port")
+        parser.add_argument(
             "--rabbit_user",
             help="Username for rabbit")
         parser.add_argument(
@@ -773,16 +777,16 @@ class VncApiServer(VncApiServerGen):
         ifmap_loc = self._args.ifmap_server_loc
         zk_server = self._args.zk_server_ip
         rabbit_server = self._args.rabbit_server
+        rabbit_port = self._args.rabbit_port
         rabbit_user = self._args.rabbit_user
         rabbit_password = self._args.rabbit_password
         rabbit_vhost = self._args.rabbit_vhost
 
 
         db_conn = VncDbClient(self, ifmap_ip, ifmap_port, user, passwd,
-                              cass_server_list,
-                              rabbit_server, rabbit_user, rabbit_password, 
-                              rabbit_vhost, reset_config, ifmap_loc,
-                              zk_server)
+                              cass_server_list, rabbit_server, rabbit_port,
+                              rabbit_user, rabbit_password, rabbit_vhost,
+                              reset_config, ifmap_loc, zk_server)
         self._db_conn = db_conn
     # end _db_connect
 

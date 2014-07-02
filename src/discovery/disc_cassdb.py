@@ -39,9 +39,15 @@ class DiscoveryCassendraClient():
         # 1. Ensure keyspace and schema/CFs exist
         self._cassandra_ensure_keyspace(server_list, self._keyspace_name,
                 [disco_cf_info])
+
         pool = pycassa.ConnectionPool(self._keyspace_name,
-                                           server_list, max_overflow = -1)
-        self._disco_cf = pycassa.ColumnFamily(pool, self._disco_cf_name)
+                                      server_list, max_overflow = -1,
+                                      pool_timeout=300, max_retries=100, timeout=300)
+        rd_consistency = pycassa.cassandra.ttypes.ConsistencyLevel.QUORUM
+        wr_consistency = pycassa.cassandra.ttypes.ConsistencyLevel.QUORUM
+        self._disco_cf = pycassa.ColumnFamily(pool, self._disco_cf_name,
+                                              read_consistency_level = rd_consistency,
+                                              write_consistency_level = wr_consistency)
     #end _cassandra_init
 
     def _cassandra_ensure_keyspace(self, server_list,
@@ -70,7 +76,7 @@ class DiscoveryCassendraClient():
         try:
             # TODO replication_factor adjust?
             sys_mgr.create_keyspace(keyspace_name, SIMPLE_STRATEGY,
-                                    {'replication_factor': '1'})
+                                    {'replication_factor': str(num_dbnodes)})
         except pycassa.cassandra.ttypes.InvalidRequestException as e:
             # TODO verify only EEXISTS
             print "Warning! " + str(e)
@@ -310,4 +316,3 @@ class DiscoveryCassendraClient():
     # end
 
     # return tuple (service_type, client_id, service_id)
-
