@@ -150,9 +150,6 @@ vizd = AnalyticsEnv.Program(target = 'vizd',
         parser_util_obj,
         ])
 AnalyticsEnv.Alias('src/analytics:vizd', vizd)
-AnalyticsEnv.Alias('install',
-    AnalyticsEnv.InstallAs(
-        AnalyticsEnv['INSTALL_BIN'] + '/collector', vizd))
 AnalyticsEnv.Default(vizd)
 
 AnalyticsEnv.Requires(OpServerProxy_obj, '#/build/include/rapidjson')
