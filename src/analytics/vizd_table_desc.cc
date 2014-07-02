@@ -412,7 +412,7 @@ void init_vizd_tables() {
  *   RowKey      : T2, Partition #, StatName, StatAttr, PrefixTagName, SuffixTagName
  *   ColumnName  : U64 TagValue, String Tag2 Value, T1, SampleUUID
  *   ColumnValue : JSON of attrib:value */
-        (GenDb::NewCf(g_viz_constants.STATS_TABLE_BY_STR_STR_TAG,
+        (GenDb::NewCf(g_viz_constants.STATS_TABLE_BY_U64_STR_TAG,
                       stat_row_twotag,
                       boost::assign::list_of
                       (GenDb::DbDataType::Unsigned64Type)

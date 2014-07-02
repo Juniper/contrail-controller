@@ -66,6 +66,7 @@ select_fs_query_test = env.UnitTest('select_fs_query_test',
                                      '../select.o',
                                      '../select_fs_query.o',
                                      '../stats_select.o',
+                                     '../stats_query.o',
                                      '../post_processing.o',
                                      '../QEOpServerProxy.o'])
 

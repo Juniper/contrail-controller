@@ -251,22 +251,10 @@ class GeneratorFixture(fixtures.Fixture):
             vm_if = VmInterfaceAgent()
             vm_if.name = self._VM_IF_PREFIX + str(num)
             vm_if_list.append(vm_if)
-            vm_if_stats = VmInterfaceAgentStats()
-            vm_if_stats.name = vm_if.name
-            vm_if_stats.in_pkts = self._INITIAL_PKT_COUNT
-            vm_if_stats.in_bytes = self._INITIAL_PKT_COUNT * \
-                self._BYTES_PER_PACKET
-            vm_if_stats_list.append(vm_if_stats)
 
         for num in range(msg_count):
             vm_agent = UveVirtualMachineAgent(interface_list=vm_if_list)
             vm_agent.name = vm_id
-            if num != 0:
-                for vm_if_stats in vm_if_stats_list:
-                    vm_if_stats.in_pkts += self._PKTS_PER_SEC
-                    vm_if_stats.in_bytes = vm_if_stats.in_pkts * \
-                        self._BYTES_PER_PACKET
-            vm_agent.if_stats_list = vm_if_stats_list
             uve_agent_vm = UveVirtualMachineAgentTrace(
                 data=vm_agent,
                 sandesh=self._sandesh_instance)
@@ -308,23 +296,11 @@ class GeneratorFixture(fixtures.Fixture):
             self._logger.info(str(res))
             anum_vm_ifs = len(res.get_attr('Agent', 'interface_list'))
             assert anum_vm_ifs == num_vm_ifs
-            anum_vm_if_stats = len(res.get_attr('Agent', 'if_stats_list'))
-            assert anum_vm_if_stats == num_vm_ifs
             for i in range(num_vm_ifs):
                 vm_if_dict = res.get_attr('Agent', 'interface_list')[i]
-                vm_if_stats_dict = res.get_attr('Agent', 'if_stats_list')[i]
                 evm_if_name = self._VM_IF_PREFIX + str(i)
                 avm_if_name = vm_if_dict['name']
                 assert avm_if_name == evm_if_name
-                avm_if_stats_name = vm_if_stats_dict['name']
-                assert avm_if_stats_name == evm_if_name
-                epkt_count = self._INITIAL_PKT_COUNT + \
-                    (msg_count - 1) * self._PKTS_PER_SEC
-                apkt_count = vm_if_stats_dict['in_pkts']
-                assert int(apkt_count) == epkt_count
-                ebyte_count = epkt_count * self._BYTES_PER_PACKET
-                abyte_count = vm_if_stats_dict['in_bytes']
-                assert int(abyte_count) == ebyte_count
             return True
     # end verify_uve_vm
 

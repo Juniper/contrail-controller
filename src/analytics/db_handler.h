@@ -26,7 +26,7 @@
 #include "io/event_manager.h"
 
 #include "gendb_if.h"
-
+#include "sandesh/sandesh.h"
 #include "viz_message.h"
 
 class DbHandler {
@@ -50,6 +50,23 @@ public:
         std::string str;
         uint64_t num;
         double dbl;
+        bool operator==(const Var &other) const {
+            if (type!=other.type) return false;
+            switch (type) {
+                case STRING:
+                    if (str!=other.str) return false;
+                    break;
+                case UINT64:
+                    if (num!=other.num) return false;
+                    break;
+                case DOUBLE:
+                    if (dbl!=other.dbl) return false;
+                    break;
+                default:
+                    break; 
+            }
+            return true;
+        }
     };
 
     typedef std::map<std::string, std::string> RuleMap;
@@ -80,7 +97,11 @@ public:
     void ObjectTableInsert(const std::string &table, const std::string &rowkey,
         uint64_t &timestamp, const boost::uuids::uuid& unm);
 
-    std::vector<std::string> StatTableInsert(uint64_t ts, 
+    static std::vector<std::string> StatTableSelectStr(
+            const std::string& statName, const std::string& statAttr,
+            const AttribMap & attribs);
+
+    void StatTableInsert(uint64_t ts, 
             const std::string& statName,
             const std::string& statAttr,
             const TagMap & attribs_tag,
