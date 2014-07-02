@@ -1345,7 +1345,7 @@ void AddInterfaceRouteTable(const char *name, int id, TestIp4Prefix *rt,
 
 static string AddAclXmlString(const char *node_name, const char *name, int id,
                               const char *src_vn, const char *dest_vn,
-                              const char *action) {
+                              const char *action, std::string vrf_assign) {
     char buff[10240];
     sprintf(buff, 
             "<?xml version=\"1.0\"?>\n"
@@ -1391,18 +1391,28 @@ static string AddAclXmlString(const char *node_name, const char *name, int id,
             "                            </virtual-network>\n"
             "                        </dst-address>\n"
             "                        <dst-port>\n"
+            "                            <start-port>\n"
+            "                                 10\n"
+            "                            </start-port>\n"
+            "                            <end-port>\n"
+            "                                 20\n"
+            "                            </end-port>\n"
             "                        </dst-port>\n"
             "                    </match-condition>\n"
             "                    <action-list>\n"
             "                        <simple-action>\n"
             "                            %s\n"
             "                        </simple-action>\n"
+            "                        <assign-routing-instance>"
+            "                            %s\n"
+            "                        </assign-routing-instance>"
             "                    </action-list>\n"
             "                </acl-rule>\n"
             "           </access-control-list-entries>\n"
             "       </node>\n"
             "   </update>\n"
-            "</config>\n", node_name, name, id, src_vn, dest_vn, action);
+            "</config>\n", node_name, name, id, src_vn, dest_vn, action,
+            vrf_assign.c_str());
     string s(buff);
     return s;
 }
@@ -1414,7 +1424,20 @@ void AddAcl(const char *name, int id) {
 void AddAcl(const char *name, int id, const char *src_vn, const char *dest_vn,
             const char *action) {
     std::string s = AddAclXmlString("access-control-list", name, id,
-                                    src_vn, dest_vn, action);
+                                    src_vn, dest_vn, action, "");
+    pugi::xml_document xdoc_;
+
+    pugi::xml_parse_result result = xdoc_.load(s.c_str());
+    EXPECT_TRUE(result);
+    Agent::GetInstance()->
+        GetIfMapAgentParser()->ConfigParse(xdoc_.first_child(), 0);
+}
+
+void AddVrfAssignNetworkAcl(const char *name, int id, const char *src_vn,
+                            const char *dest_vn, const char *action,
+                            std::string vrf_name) {
+    std::string s = AddAclXmlString("access-control-list", name, id,
+                                    src_vn, dest_vn, action, vrf_name);
     pugi::xml_document xdoc_;
 
     pugi::xml_parse_result result = xdoc_.load(s.c_str());
@@ -1724,11 +1747,12 @@ void DeleteVmportFIpEnv(struct PortInfo *input, int count, int del_vn, int acl_i
         if (vn)
             strncpy(vn_name, vn, MAX_TESTNAME_LEN);
         else
-            sprintf(vn_name, "vn%d", input[i].vn_id);
+            sprintf(vn_name, "default-project:vn%d", input[i].vn_id);
         if (vrf)
             strncpy(vrf_name, vrf, MAX_TESTNAME_LEN);
         else
-            sprintf(vrf_name, "vn%d:vn%d", input[i].vn_id, input[i].vn_id);
+            sprintf(vrf_name, "default-project:vn%d:vn%d", input[i].vn_id,
+                    input[i].vn_id);
         sprintf(vm_name, "vm%d", input[i].vm_id);
         sprintf(instance_ip, "instance%d", input[i].vm_id);
         boost::system::error_code ec;
@@ -1764,11 +1788,12 @@ void DeleteVmportFIpEnv(struct PortInfo *input, int count, int del_vn, int acl_i
             if (vn)
                 sprintf(vn_name, "%s", vn);
             else
-                sprintf(vn_name, "vn%d", input[i].vn_id);
+                sprintf(vn_name, "default-project:vn%d", input[i].vn_id);
             if (vrf)
                 sprintf(vrf_name, "%s", vrf);
             else
-                sprintf(vrf_name, "vn%d:vn%d", input[i].vn_id, input[i].vn_id);
+                sprintf(vrf_name, "default-project:vn%d:vn%d", input[i].vn_id,
+                        input[i].vn_id);
             sprintf(vm_name, "vm%d", input[i].vm_id);
             DelLink("virtual-network", vn_name, "routing-instance", vrf_name);
             if (acl_id) {
@@ -1883,11 +1908,12 @@ void CreateVmportFIpEnv(struct PortInfo *input, int count, int acl_id,
         if (vn)
             strncpy(vn_name, vn, MAX_TESTNAME_LEN);
         else
-            sprintf(vn_name, "vn%d", input[i].vn_id);
+            sprintf(vn_name, "default-project:vn%d", input[i].vn_id);
         if (vrf)
             strncpy(vrf_name, vrf, MAX_TESTNAME_LEN);
         else
-            sprintf(vrf_name, "vn%d:vn%d", input[i].vn_id, input[i].vn_id);
+            sprintf(vrf_name, "default-project:vn%d:vn%d", input[i].vn_id,
+                    input[i].vn_id);
         sprintf(vm_name, "vm%d", input[i].vm_id);
         sprintf(instance_ip, "instance%d", input[i].vm_id);
         AddVn(vn_name, input[i].vn_id);

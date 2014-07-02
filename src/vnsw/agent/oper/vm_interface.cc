@@ -147,11 +147,14 @@ static void BuildFloatingIpList(Agent *agent, VmInterfaceConfigData *data,
                     continue;
                 }
                 // Checking whether it is default vrf of not
-                unsigned found = vrf_node->name().find_last_of(':');
-                if (vn_node->name().compare(vrf_node->name().substr(0, found)) != 0) {
+                size_t found = vn_node->name().find_last_of(':');
+                std::string vrf_name = "";
+                if (found != string::npos) {
+                    vrf_name = vn_node->name() + vn_node->name().substr(found);
+                }
+                if (vrf_node->name().compare(vrf_name) != 0) {
                     continue;
                 }
-
                 FloatingIp *fip = static_cast<FloatingIp *>(node->GetObject());
                 assert(fip != NULL);
                 LOG(DEBUG, "Add FloatingIP <" << fip->address() << ":" <<

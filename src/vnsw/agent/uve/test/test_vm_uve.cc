@@ -106,7 +106,8 @@ public:
         AddFloatingIpPool("fip-pool1", 1);
         AddFloatingIp("fip1", 1, vm1_fip);
         AddLink("floating-ip", "fip1", "floating-ip-pool", "fip-pool1");
-        AddLink("floating-ip-pool", "fip-pool1", "virtual-network", "vn4");
+        AddLink("floating-ip-pool", "fip-pool1", "virtual-network",
+                "default-project:vn4");
         AddLink("virtual-machine-interface", "flow0", "floating-ip", "fip1");
         client->WaitForIdle();
         EXPECT_TRUE(flow0->HasFloatingIp());
@@ -173,7 +174,8 @@ public:
         AddFloatingIp("fipc2", 1, vm_c_fip2);
         AddLink("floating-ip", "fipc1", "floating-ip-pool", "fip-poolc");
         AddLink("floating-ip", "fipc2", "floating-ip-pool", "fip-poolc");
-        AddLink("floating-ip-pool", "fip-poolc", "virtual-network", "vn8");
+        AddLink("floating-ip-pool", "fip-poolc", "virtual-network",
+                "default-project:vn8");
         AddLink("virtual-machine-interface", "flowa", "floating-ip", "fipc1");
         AddLink("virtual-machine-interface", "flowb", "floating-ip", "fipc2");
         client->WaitForIdle();
@@ -183,7 +185,8 @@ public:
 
     void RemoveFipConfig() {
         DelLink("virtual-machine-interface", "flow0", "floating-ip", "fip1");
-        DelLink("floating-ip-pool", "fip-pool1", "virtual-network", "vn4");
+        DelLink("floating-ip-pool", "fip-pool1", "virtual-network",
+                "default-project:vn4");
         DelLink("floating-ip", "fip1", "floating-ip-pool", "fip-pool1");
         DelFloatingIp("fip1");
         DelFloatingIpPool("fip-pool1");
@@ -193,7 +196,7 @@ public:
     void RemoveFipConfig2() {
         DelLink("virtual-machine-interface", "flowa", "floating-ip", "fipc1");
         DelLink("virtual-machine-interface", "flowb", "floating-ip", "fipc2");
-        DelLink("floating-ip-pool", "fip-poolc", "virtual-network", "vn8");
+        DelLink("floating-ip-pool", "fip-poolc", "virtual-network", "default-project:vn8");
         DelLink("floating-ip", "fipc1", "floating-ip-pool", "fip-poolc");
         DelLink("floating-ip", "fipc2", "floating-ip-pool", "fip-poolc");
         DelFloatingIp("fipc1");
@@ -227,7 +230,7 @@ public:
         AddFloatingIpPool("fip-pool1", 1);
         AddFloatingIp("fip1", 1, vm1_fip);
         AddLink("floating-ip", "fip1", "floating-ip-pool", "fip-pool1");
-        AddLink("floating-ip-pool", "fip-pool1", "virtual-network", "vn4");
+        AddLink("floating-ip-pool", "fip-pool1", "virtual-network", "default-project:vn4");
         AddLink("virtual-machine-interface", "flow0", "floating-ip", "fip1");
         client->WaitForIdle();
         EXPECT_TRUE(flow0->HasFloatingIp());
@@ -614,7 +617,7 @@ TEST_F(UveVmUveTest, FipStats_1) {
     //Verify Floating IP flows are created.
     EXPECT_TRUE(FlowGet(VrfGet("vrf5")->vrf_id(), vm1_ip, vm4_ip, 1, 0, 0,
                         false, -1, -1));
-    EXPECT_TRUE(FlowGet(VrfGet("vn4:vn4")->vrf_id(), vm4_ip, vm1_fip, 1, 0, 0,
+    EXPECT_TRUE(FlowGet(VrfGet("default-project:vn4:vn4")->vrf_id(), vm4_ip, vm1_fip, 1, 0, 0,
                         false, -1, -1));
 
     const FlowEntry *f1 = flow[0].pkt_.FlowFetch();
@@ -634,7 +637,7 @@ TEST_F(UveVmUveTest, FipStats_1) {
 
     //Fetch stats FIP entry and verify its statistics
     const VmUveEntry::FloatingIp *fip = vmut->GetVmIntfFip(flow0->vm(), flow0,
-                                                           vm1_fip, "vn4");
+                                                           vm1_fip, "default-project:vn4");
     EXPECT_EQ(3U, fip->in_packets_);
     EXPECT_EQ(3U, fip->out_packets_);
     EXPECT_EQ(300U, fip->in_bytes_);
@@ -665,7 +668,7 @@ TEST_F(UveVmUveTest, FipStats_2) {
     //Verify Floating IP flows are created.
     EXPECT_TRUE(FlowGet(VrfGet("vrf5")->vrf_id(), vm1_ip, vm4_ip, 1, 0, 0,
                         false, -1, -1));
-    EXPECT_TRUE(FlowGet(VrfGet("vn4:vn4")->vrf_id(), vm4_ip, vm1_fip, 1, 0, 0,
+    EXPECT_TRUE(FlowGet(VrfGet("default-project:vn4:vn4")->vrf_id(), vm4_ip, vm1_fip, 1, 0, 0,
                         false, -1, -1));
 
     const FlowEntry *f1 = flow[0].pkt_.FlowFetch();
@@ -712,7 +715,7 @@ TEST_F(UveVmUveTest, FipStats_3) {
     //Verify Floating IP flows are created.
     EXPECT_TRUE(FlowGet(VrfGet("vrf5")->vrf_id(), vm1_ip, vm4_ip, 1, 0, 0,
                         false, -1, -1));
-    EXPECT_TRUE(FlowGet(VrfGet("vn4:vn4")->vrf_id(), vm4_ip, vm1_fip, 1, 0, 0,
+    EXPECT_TRUE(FlowGet(VrfGet("default-project:vn4:vn4")->vrf_id(), vm4_ip, vm1_fip, 1, 0, 0,
                         false, -1, -1));
 
     const FlowEntry *f1 = flow[0].pkt_.FlowFetch();
@@ -732,7 +735,7 @@ TEST_F(UveVmUveTest, FipStats_3) {
 
     //Fetch stats FIP entry and verify its statistics
     const VmUveEntry::FloatingIp *fip = vmut->GetVmIntfFip(flow0->vm(), flow0,
-                                                           vm1_fip, "vn4");
+                                                           vm1_fip, "default-project:vn4");
     EXPECT_EQ(3U, fip->in_packets_);
     EXPECT_EQ(3U, fip->out_packets_);
     EXPECT_EQ(300U, fip->in_bytes_);
@@ -803,7 +806,7 @@ TEST_F(UveVmUveTest, FipStats_4) {
 
     //Fetch stats FIP entry and verify its statistics
     const VmUveEntry::FloatingIp *fip = vmut->GetVmIntfFip(flowa->vm(), flowa,
-                                                           vm_c_fip1, "vn8");
+                                                           vm_c_fip1, "default-project:vn8");
     EXPECT_EQ(3U, fip->in_packets_);
     EXPECT_EQ(3U, fip->out_packets_);
     EXPECT_EQ(300U, fip->in_bytes_);
@@ -839,7 +842,7 @@ TEST_F(UveVmUveTest, FipStats_4) {
 TEST_F(UveVmUveTest, FipStats_5) {
     FlowSetUp();
     CreatePeer();
-    CreateRemoteRoute("vn4:vn4", remote_vm_fip, remote_router_ip, 30, "vn4");
+    CreateRemoteRoute("default-project:vn4:vn4", remote_vm_fip, remote_router_ip, 30, "default-project:vn4");
     client->WaitForIdle();
     TestFlow flow[] = {
         {
@@ -875,7 +878,7 @@ TEST_F(UveVmUveTest, FipStats_5) {
 
     //Fetch stats FIP entry and verify its statistics
     const VmUveEntry::FloatingIp *fip = vmut->GetVmIntfFip(flow0->vm(), flow0,
-                                                           vm1_fip, "vn4");
+                                                           vm1_fip, "default-project:vn4");
     EXPECT_EQ(3U, fip->in_packets_);
     EXPECT_EQ(3U, fip->out_packets_);
     EXPECT_EQ(300U, fip->in_bytes_);
@@ -899,7 +902,7 @@ TEST_F(UveVmUveTest, FipStats_5) {
     EXPECT_EQ(300U, stats.get_out_bytes());
     //cleanup
     FlowTearDown();
-    DeleteRemoteRoute("vn4:vn4", remote_vm_fip);
+    DeleteRemoteRoute("default-project:vn4:vn4", remote_vm_fip);
     RemoveFipConfig();
     DeletePeer();
     vmut->ClearCount();
