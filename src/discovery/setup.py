@@ -10,7 +10,6 @@ setup(
     packages=[
         'discovery',
         'discovery.sandesh',
-        'discovery.sandesh.vns',
         'discovery.sandesh.discovery_introspect',
     ],
     package_data={'': ['*.html', '*.css', '*.xml']},
