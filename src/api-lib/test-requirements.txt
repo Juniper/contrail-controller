@@ -1,0 +1,8 @@
+python-subunit
+testrepository
+flexmock
+coverage
+pyaml
+httpretty
+../../../build/debug/config/common/dist/cfgm_common-0.1dev.tar.gz
+../../../build/debug/api-lib/dist/vnc_api-0.1dev.tar.gz
