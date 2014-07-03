@@ -147,8 +147,6 @@ qed = env.Program(
         ['../analytics/vizd_table_desc.o', 'rac_alloc.cc', '../analytics/viz_constants.o']
         )
 
-env.Alias('install', env.InstallAs(env['INSTALL_BIN'] + '/query_engine', qed))
-
 if env['OPT'] == 'coverage':
     env.AppendUnique(CCFLAGS='-g')
     env.AppendUnique(CCFLAGS='-O0')

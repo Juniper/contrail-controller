@@ -528,7 +528,7 @@ class DiscoveryServer():
             len(pubs), len(pubs_active), len(subs)))
 
         if subs:
-            plist = {entry['service_id']:entry for entry in pubs_active}
+            plist = dict((entry['service_id'],entry) for entry in pubs_active)
             for service_id, result in subs:
                 # previously published service is gone
                 entry = plist.get(service_id, None)

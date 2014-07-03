@@ -44,7 +44,12 @@ from sandesh_common.vns.constants import ModuleNames, Module2NodeType, NodeTypeN
 from schema_transformer.sandesh.st_introspect import ttypes as sandesh
 from ncclient import manager
 import discoveryclient.client as client
-from collections import OrderedDict
+try:
+    #python2.7
+    from collections import OrderedDict
+except:
+    #python2.6
+    from ordereddict import OrderedDict
 import jsonpickle
 
 _BGP_RTGT_MAX_ID = 1 << 24
@@ -2441,7 +2446,7 @@ class LogicalRouterST(DictST):
         self.interfaces.add(intf_name)
         vmi_obj = VirtualMachineInterfaceST.get(intf_name)
         if vmi_obj is not None:
-            vn_set = self.virtual_networks | {vmi_obj.virtual_network}
+            vn_set = self.virtual_networks | vmi_obj.virtual_network
             self.set_virtual_networks(vn_set)
     # end add_interface
 
@@ -3162,7 +3167,7 @@ class SchemaTransformer(object):
 
             for lr in LogicalRouterST.values():
                 if network_name in lr.virtual_networks:
-                    for vn_name in (lr.virtual_networks - {network_name}):
+                    for vn_name in (lr.virtual_networks - network_name):
                         virtual_network.add_connection(vn_name)
             # end for lr
 
