@@ -374,10 +374,6 @@ WhereQuery::WhereQuery(const std::string& where_json_string, int direction,
             db_query->cr.finish_.push_back((uint16_t)0xffff);
 
         } else if (m_query->is_object_table_query()) {
-            SetOperationUnit *or_node= new SetOperationUnit(this, main_query);
-            SetOperationUnit *and_node= 
-                new SetOperationUnit(or_node, main_query);
-            DbQueryUnit *db_query = new DbQueryUnit(and_node, main_query);
             // These values will encompass all possible ascii strings in their range
             GenDb::DbDataValue value = "\x1b", value2 = "\x7f";
 
