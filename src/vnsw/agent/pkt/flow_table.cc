@@ -561,6 +561,7 @@ void FlowEntry::ResetPolicy() {
     data_.match_p.m_reverse_sg_acl_l.clear();
     data_.match_p.reverse_out_sg_rule_present = false;
     data_.match_p.m_reverse_out_sg_acl_l.clear();
+    data_.match_p.m_vrf_assign_acl_l.clear();
 }
 
 void FlowEntry::GetPolicy(const VnEntry *vn) {
@@ -640,8 +641,8 @@ void FlowEntry::GetVrfAssignAcl() {
     //packet, else get the acl attached to VN and try matching the packet to
     //network acl
     const AclDBEntry* acl = intf->vrf_assign_acl();
-    if (acl == NULL && intf->vn()) {
-        acl = intf->vn()->GetAcl();
+    if (acl == NULL &&  data_.vn_entry.get() != NULL) {
+        acl = data_.vn_entry.get()->GetAcl();
     }
     if (!acl) {
         return;

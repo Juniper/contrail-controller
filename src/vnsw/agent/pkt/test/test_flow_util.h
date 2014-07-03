@@ -242,13 +242,11 @@ public:
         EXPECT_TRUE(dest_vrf != NULL);
 
         EXPECT_TRUE(fe->key().vrf == src_vrf->vrf_id());
-        EXPECT_TRUE(fe->data().flow_dest_vrf == dest_vrf->vrf_id());
 
         if (true) {
             FlowEntry *rev = fe->reverse_flow_entry();
             EXPECT_TRUE(rev != NULL);
             EXPECT_TRUE(rev->key().vrf == dest_vrf->vrf_id());
-            EXPECT_TRUE(rev->data().flow_dest_vrf == src_vrf->vrf_id());
         }
     };
 
