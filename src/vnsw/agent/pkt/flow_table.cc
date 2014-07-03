@@ -668,8 +668,8 @@ void FlowEntry::GetVrfAssignAcl() {
     //packet, else get the acl attached to VN and try matching the packet to
     //network acl
     const AclDBEntry* acl = intf->vrf_assign_acl();
-    if (acl == NULL && intf->vn()) {
-        acl = intf->vn()->GetAcl();
+    if (acl == NULL) {
+        acl = data_.vn_entry.get()->GetAcl();
     }
     if (!acl) {
         return;

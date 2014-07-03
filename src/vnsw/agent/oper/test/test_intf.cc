@@ -1141,19 +1141,21 @@ TEST_F(IntfTest, VmPortFloatingIpDelete_1) {
     client->WaitForIdle();
     EXPECT_TRUE(VmPortActive(input, 0));
  
-    AddVn("vn2", 2);
-    AddVrf("vn2:vn2", 2);
-    AddLink("virtual-network", "vn2", "routing-instance", "vn2:vn2");
+    AddVn("default-project:vn2", 2);
+    AddVrf("default-project:vn2:vn2", 2);
+    AddLink("virtual-network", "default-project:vn2", "routing-instance",
+            "default-project:vn2:vn2");
     //Add floating IP for vnet1
     AddFloatingIpPool("fip-pool1", 1);
     AddFloatingIp("fip1", 1, "2.1.1.100");
     AddLink("floating-ip", "fip1", "floating-ip-pool", "fip-pool1");
-    AddLink("floating-ip-pool", "fip-pool1", "virtual-network", "vn2");
+    AddLink("floating-ip-pool", "fip-pool1", "virtual-network",
+            "default-project:vn2");
     client->WaitForIdle();
     AddLink("virtual-machine-interface", "vnet1", "floating-ip", "fip1");
     client->WaitForIdle();
     Ip4Address floating_ip = Ip4Address::from_string("2.1.1.100");
-    EXPECT_TRUE(RouteFind("vn2:vn2", floating_ip, 32));
+    EXPECT_TRUE(RouteFind("default-project:vn2:vn2", floating_ip, 32));
     EXPECT_TRUE(VmPortFloatingIpCount(1, 1));
 
     //Delete config for vnet1, forcing interface to deactivate
@@ -1165,13 +1167,15 @@ TEST_F(IntfTest, VmPortFloatingIpDelete_1) {
 
     //Clean up
     DelLink("floating-ip", "fip1", "floating-ip-pool", "fip-pool1");
-    DelLink("floating-ip-pool", "fip-pool1", "virtual-network", "vn1");
+    DelLink("floating-ip-pool", "fip-pool1",
+            "virtual-network", "default-project:vn2");
     DelFloatingIp("fip1");
     DelFloatingIpPool("fip-pool1");
     client->WaitForIdle();
-    DelLink("virtual-network", "vn2", "routing-instance", "vn2:vn2");
-    DelVrf("vn2:vn2");
-    DelVn("vn2");
+    DelLink("virtual-network", "vn2", "routing-instance",
+            "default-project:vn2:vn2");
+    DelVrf("default-project:vn2:vn2");
+    DelVn("default-project:vn2");
     DeleteVmportEnv(input, 1, true);
     client->WaitForIdle();
     EXPECT_FALSE(VrfFind("vrf1"));

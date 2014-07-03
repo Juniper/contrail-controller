@@ -991,24 +991,26 @@ TEST_F(CfgTest, FloatingIp_1) {
     AddPort(input[0].name, input[0].intf_id);
     client->WaitForIdle();
 
-    // Create floating-ip on vn2
+    // Create floating-ip on default-project:vn2
     client->Reset();
-    AddVn("vn2", 2);
+    AddVn("default-project:vn2", 2);
     client->WaitForIdle();
     EXPECT_TRUE(client->VnNotifyWait(1));
-    AddVrf("vn2:vn2");
+    AddVrf("default-project:vn2:vn2");
     AddVrf("vrf8");
     client->WaitForIdle();
     EXPECT_TRUE(client->VrfNotifyWait(2));
-    EXPECT_TRUE(VrfFind("vn2:vn2"));
+    EXPECT_TRUE(VrfFind("default-project:vn2:vn2"));
     EXPECT_TRUE(VrfFind("vrf8"));
     AddFloatingIpPool("fip-pool1", 1);
     AddFloatingIp("fip1", 1, "1.1.1.1");
     AddFloatingIp("fip3", 3, "2.2.2.5");
     AddFloatingIp("fip4", 4, "2.2.2.1");
     client->WaitForIdle();
-    AddLink("virtual-network", "vn2", "routing-instance", "vn2:vn2");
-    AddLink("floating-ip-pool", "fip-pool1", "virtual-network", "vn2");
+    AddLink("virtual-network", "default-project:vn2", "routing-instance",
+            "default-project:vn2:vn2");
+    AddLink("floating-ip-pool", "fip-pool1", "virtual-network",
+            "default-project:vn2");
     AddLink("floating-ip", "fip1", "floating-ip-pool", "fip-pool1");
     AddLink("floating-ip", "fip3", "floating-ip-pool", "fip-pool1");
     client->WaitForIdle();
@@ -1062,17 +1064,22 @@ TEST_F(CfgTest, FloatingIp_1) {
     client->WaitForIdle();
     EXPECT_TRUE(VmPortFloatingIpCount(1, 2));
 
-    AddLink("virtual-network", "vn2", "routing-instance", "vrf6");
+    AddLink("virtual-network", "default-project:vn2", "routing-instance",
+            "vrf6");
     client->WaitForIdle();
-    AddLink("virtual-network", "vn2", "routing-instance", "vrf8");
+    AddLink("virtual-network", "default-project:vn2", "routing-instance",
+            "vrf8");
     client->WaitForIdle();
     DelLink("virtual-network", "vn1", "routing-instance", "vrf6");
     client->WaitForIdle();
-    DelLink("virtual-network", "vn2", "routing-instance", "vrf6");
+    DelLink("virtual-network", "default-project:vn2", "routing-instance",
+            "vrf6");
     client->WaitForIdle();
-    DelLink("virtual-network", "vn2", "routing-instance", "vrf8");
+    DelLink("virtual-network", "default-project:vn2", "routing-instance",
+            "vrf8");
     client->WaitForIdle();
-    DelLink("virtual-network", "vn2", "routing-instance", "vn2:vn2");
+    DelLink("virtual-network", "default-project:vn2", "routing-instance",
+            "default-project:vn2:vn2");
     client->WaitForIdle();
     DelLink("virtual-machine-interface", "vnet1", "floating-ip", "fip1");
     client->WaitForIdle();
@@ -1082,7 +1089,8 @@ TEST_F(CfgTest, FloatingIp_1) {
     client->WaitForIdle();
     DelLink("floating-ip", "fip2", "floating-ip-pool", "fip-pool1");
     client->WaitForIdle();
-    DelLink("virtual-network", "vn2", "floating-ip-pool", "fip-pool1");
+    DelLink("virtual-network", "default-project:vn2", "floating-ip-pool",
+            "fip-pool1");
     client->WaitForIdle();
     DelLink("virtual-network", "vn1", "virtual-machine-interface", "vnet1");
     client->WaitForIdle();
@@ -1110,16 +1118,16 @@ TEST_F(CfgTest, FloatingIp_1) {
     DelNode("routing-instance", "vrf6");
     client->WaitForIdle();
     EXPECT_FALSE(VrfFind("vrf6"));
-    DelNode("routing-instance", "vn2:vn2");
+    DelNode("routing-instance", "default-project:vn2:vn2");
     client->WaitForIdle();
-    EXPECT_FALSE(VrfFind("vn2:vn2"));
+    EXPECT_FALSE(VrfFind("default-project:vn2:vn2"));
     DelNode("routing-instance", "vrf8");
     client->WaitForIdle();
     EXPECT_FALSE(VrfFind("vrf8"));
     DelNode("virtual-network", "vn1");
     client->WaitForIdle();
     EXPECT_FALSE(VnFind(1));
-    DelNode("virtual-network", "vn2");
+    DelNode("virtual-network", "default-project:vn2");
     client->WaitForIdle();
     EXPECT_FALSE(VnFind(2));
     DelNode("virtual-machine", "vm1");
@@ -1193,16 +1201,16 @@ TEST_F(CfgTest, Basic_1) {
 
     client->WaitForIdle();
 
-    AddVn("vn5", 5);
+    AddVn("default-project:vn5", 5);
     client->WaitForIdle();
     EXPECT_TRUE(client->VnNotifyWait(1));
     AddVm("vm5", 5);
     client->WaitForIdle();
     EXPECT_TRUE(client->VmNotifyWait(1));
-    AddVrf("vrf10");
+    AddVrf("default-project:vn5:vn5");
     client->WaitForIdle();
     EXPECT_TRUE(client->VrfNotifyWait(1));
-    EXPECT_TRUE(VrfFind("vrf10"));
+    EXPECT_TRUE(VrfFind("default-project:vn5:vn5"));
     AddFloatingIpPool("fip-pool1", 1);
     AddFloatingIp("fip1", 1, "10.10.10.1");
     AddFloatingIp("fip2", 2, "2.2.2.2");
@@ -1214,9 +1222,11 @@ TEST_F(CfgTest, Basic_1) {
 
     AddPort(input[0].name, input[0].intf_id);
     client->WaitForIdle();
-    AddLink("virtual-network", "vn5", "routing-instance", "vrf10");
+    AddLink("virtual-network", "default-project:vn5", "routing-instance",
+            "default-project:vn5:vn5");
     client->WaitForIdle();
-    AddLink("floating-ip-pool", "fip-pool1", "virtual-network", "vn5");
+    AddLink("floating-ip-pool", "fip-pool1", "virtual-network",
+            "default-project:vn5");
     client->WaitForIdle();
     AddLink("floating-ip", "fip1", "floating-ip-pool", "fip-pool1");
     client->WaitForIdle();
@@ -1230,7 +1240,7 @@ TEST_F(CfgTest, Basic_1) {
     client->WaitForIdle();
     AddLink("virtual-machine-interface", "vnet1", "floating-ip", "fip3");
     client->WaitForIdle();
-    AddLink("virtual-network", "vn5", "virtual-machine-interface", "vnet1");
+    AddLink("virtual-network", "default-project:vn5", "virtual-machine-interface", "vnet1");
     client->WaitForIdle();
     AddLink("virtual-machine", "vm5", "virtual-machine-interface", "vnet1");
     client->WaitForIdle();
@@ -1243,7 +1253,7 @@ TEST_F(CfgTest, Basic_1) {
     // Add vm-port interface to vrf link
     AddVmPortVrf("vmvrf1", "", 0);
     AddLink("virtual-machine-interface-routing-instance", "vmvrf1",
-            "routing-instance", "vrf10");
+            "routing-instance", "default-project:vn5:vn5");
     AddLink("virtual-machine-interface-routing-instance", "vmvrf1",
             "virtual-machine-interface", "vnet1");
     client->WaitForIdle();
@@ -1276,9 +1286,11 @@ TEST_F(CfgTest, Basic_1) {
     client->WaitForIdle();
 
     client->Reset();
-    DelLink("virtual-network", "vn5", "routing-instance", "vrf10");
+    DelLink("virtual-network", "default-project:vn5", "routing-instance",
+            "default-project:vn5:vn5");
     client->WaitForIdle();
-    DelLink("floating-ip-pool", "fip-pool1", "virtual-network", "vn5");
+    DelLink("floating-ip-pool", "fip-pool1", "virtual-network",
+            "default-project:vn5");
     client->WaitForIdle();
     DelLink("floating-ip", "fip1", "floating-ip-pool", "fip-pool1");
     client->WaitForIdle();
@@ -1293,7 +1305,8 @@ TEST_F(CfgTest, Basic_1) {
     client->WaitForIdle();
     DelLink("virtual-machine-interface", "vnet1", "floating-ip", "fip3");
     client->WaitForIdle();
-    DelLink("virtual-network", "vn5", "virtual-machine-interface", "vnet1");
+    DelLink("virtual-network", "default-project:vn5", "virtual-machine-interface",
+            "vnet1");
     client->WaitForIdle();
     DelLink("virtual-machine", "vm5", "virtual-machine-interface", "vnet1");
     client->WaitForIdle();
@@ -1302,7 +1315,7 @@ TEST_F(CfgTest, Basic_1) {
     
     // Delete virtual-machine-interface to vrf link attribute
     DelLink("virtual-machine-interface-routing-instance", "vmvrf1",
-            "routing-instance", "vrf10");
+            "routing-instance", "default-project:vn5:vn5");
     DelLink("virtual-machine-interface-routing-instance", "vmvrf1",
             "virtual-machine-interface", "vnet1");
     DelNode("virtual-machine-interface-routing-instance", "vmvrf1");
@@ -1320,10 +1333,10 @@ TEST_F(CfgTest, Basic_1) {
     client->WaitForIdle();
     DelNode("virtual-machine", "vm5");
     client->WaitForIdle();
-    DelNode("routing-instance", "vrf10");
+    DelNode("routing-instance", "default-project:vn5:vn5");
     DelInstanceIp("instance0");
     client->WaitForIdle();
-    DelNode("virtual-network", "vn5");
+    DelNode("virtual-network", "default-project:vn5");
     client->WaitForIdle();
     WAIT_FOR(1000, 1000, (0 == Agent::GetInstance()->vm_table()->Size()));
     WAIT_FOR(1000, 1000, (VnFind(5) == false));

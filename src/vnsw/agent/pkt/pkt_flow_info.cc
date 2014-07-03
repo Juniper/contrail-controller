@@ -576,7 +576,6 @@ void PktFlowInfo::FloatingIpDNat(const PktInfo *pkt, PktControlInfo *in,
         nat_dest_vrf = it->vrf_.get()->vrf_id();
     }
     out->rt_ = ftable->GetUcRoute(it->vrf_.get(), Ip4Address(pkt->ip_daddr));
-    //VrfTranslate(pkt, in, out);
     out->vn_ = it->vn_.get();
     dest_vn = &(it->vn_.get()->GetName());
     dest_vrf = out->intf_->vrf()->vrf_id();
@@ -651,11 +650,11 @@ void PktFlowInfo::FloatingIpSNat(const PktInfo *pkt, PktControlInfo *in,
         return;
     }
 
-    //VrfTranslate(pkt, in, out);
-    // Compute out-intf and ECMP info from out-route
-    if (RouteToOutInfo(out->rt_, pkt, this, in, out) == false) {
-        return;
-    }
+    //Populate in->vn, used for VRF translate ACL lookup
+    in->vn_ = fip_it->vn_.get();
+    // Source-VN for policy processing is based on floating-ip VN
+    // Dest-VN will be based on out->rt_ and computed below
+    source_vn = &(fip_it->vn_.get()->GetName());
 
     // Floating-ip found. We will change src-ip to floating-ip. Recompute route
     // for new source-ip. All policy decisions will be based on this new route
@@ -664,12 +663,15 @@ void PktFlowInfo::FloatingIpSNat(const PktInfo *pkt, PktControlInfo *in,
         return;
     }
 
-    dest_vrf = fip_it->vrf_.get()->vrf_id();
-    in->vn_ = fip_it->vn_.get();
-    // Source-VN for policy processing is based on floating-ip VN
-    // Dest-VN will be based on out->rt_ and computed below
-    source_vn = &(fip_it->vn_.get()->GetName());
+    if (in->rt_ && out->rt_) {
+        VrfTranslate(pkt, in, out);
+    }
+    // Compute out-intf and ECMP info from out-route
+    if (RouteToOutInfo(out->rt_, pkt, this, in, out) == false) {
+        return;
+    }
 
+    dest_vrf = out->rt_->vrf_id();
     // Setup reverse flow to translate sip.
     nat_done = true;
     nat_ip_saddr = fip_it->floating_ip_.to_ulong();
@@ -716,9 +718,11 @@ void PktFlowInfo::VrfTranslate(const PktInfo *pkt, PktControlInfo *in,
     //packet, else get the acl attached to VN and try matching the packet to
     //network acl
     const AclDBEntry *acl = vm_intf->vrf_assign_acl();
-    if (acl == NULL && vm_intf->vn()) {
-        //Check if the network ACL is present
-        acl = vm_intf->vn()->GetAcl();
+    if (acl == NULL) {
+        if (in->vn_) {
+            //Check if the network ACL is present
+            acl = in->vn_->GetAcl();
+        }
     }
 
     if (!acl) {
@@ -737,8 +741,17 @@ void PktFlowInfo::VrfTranslate(const PktInfo *pkt, PktControlInfo *in,
         hdr.src_port = 0;
         hdr.dst_port = 0;
     }
-    hdr.src_policy_id = RouteToVn(in->rt_);
-    hdr.dst_policy_id = RouteToVn(out->rt_);
+    if (source_vn != NULL) {
+        hdr.src_policy_id = source_vn;
+    } else {
+        hdr.src_policy_id = RouteToVn(in->rt_);
+    }
+
+    if (dest_vn != NULL) {
+        hdr.dst_policy_id = dest_vn;
+    } else {
+        hdr.dst_policy_id = RouteToVn(out->rt_);
+    }
 
     if (in->rt_) {
         const AgentPath *path = in->rt_->GetActivePath();
@@ -1052,4 +1065,3 @@ void PktFlowInfo::RewritePktInfo(uint32_t flow_index) {
     }
     return;
 }
-
