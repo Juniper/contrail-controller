@@ -508,6 +508,82 @@ TEST_F(SgTest, Sg_Delete_1) {
                            vnet_addr[2], 6, 10, 20));
 }
 
+// Packet trap for reverse flow
+TEST_F(SgTest, Rev_Trap_1) {
+    AddAclEntry("sg_acl1", 10, 1, "pass", EGRESS);
+    client->WaitForIdle();
+
+    TxIpPacket(vnet[1]->id(), vnet_addr[1], vnet_addr[2], 1);
+    client->WaitForIdle();
+    EXPECT_TRUE(ValidateAction(vnet[1]->vrf()->vrf_id(), vnet_addr[1],
+                               vnet_addr[2], 1, 0, 0, TrafficAction::PASS));
+
+    FlowEntry *flow = FlowGet(vnet[1]->vrf()->vrf_id(), vnet_addr[1],
+                               vnet_addr[2], 1, 0, 0);
+    assert(flow);
+    EXPECT_FALSE(flow->is_flags_set(FlowEntry::ReverseFlow));
+    FlowEntry *rflow = flow->reverse_flow_entry();
+    EXPECT_TRUE(rflow->is_flags_set(FlowEntry::ReverseFlow));
+
+    TxIpPacket(vnet[2]->id(), vnet_addr[2], vnet_addr[1], 1,
+               rflow->flow_handle());
+    client->WaitForIdle();
+    EXPECT_TRUE(ValidateAction(vnet[1]->vrf()->vrf_id(), vnet_addr[1],
+                               vnet_addr[2], 1, 0, 0, TrafficAction::PASS));
+
+    EXPECT_FALSE(flow->is_flags_set(FlowEntry::ReverseFlow));
+    EXPECT_TRUE(rflow->is_flags_set(FlowEntry::ReverseFlow));
+
+    EXPECT_TRUE(FlowDelete(vnet[1]->vrf()->GetName(), vnet_addr[1],
+                           vnet_addr[2], 1, 0, 0));
+    EXPECT_TRUE(FlowDelete(vnet[2]->vrf()->GetName(), vnet_addr[2],
+                           vnet_addr[1], 1, 0, 0));
+}
+
+// Packet trap for forward flow
+TEST_F(SgTest, Rev_Trap_2) {
+    AddAclEntry("sg_acl1", 10, 1, "pass", EGRESS);
+    client->WaitForIdle();
+
+    TxIpPacket(vnet[1]->id(), vnet_addr[1], vnet_addr[2], 1);
+    client->WaitForIdle();
+    EXPECT_TRUE(ValidateAction(vnet[1]->vrf()->vrf_id(), vnet_addr[1],
+                               vnet_addr[2], 1, 0, 0, TrafficAction::PASS));
+
+    FlowEntry *flow = FlowGet(vnet[1]->vrf()->vrf_id(), vnet_addr[1],
+                               vnet_addr[2], 1, 0, 0);
+    assert(flow);
+    EXPECT_FALSE(flow->is_flags_set(FlowEntry::ReverseFlow));
+    FlowEntry *rflow = flow->reverse_flow_entry();
+    EXPECT_TRUE(rflow->is_flags_set(FlowEntry::ReverseFlow));
+
+    TxIpPacket(vnet[1]->id(), vnet_addr[1], vnet_addr[2], 1, flow->flow_handle());
+    client->WaitForIdle();
+    EXPECT_TRUE(ValidateAction(vnet[1]->vrf()->vrf_id(), vnet_addr[1],
+                               vnet_addr[2], 1, 0, 0, TrafficAction::PASS));
+
+    EXPECT_FALSE(flow->is_flags_set(FlowEntry::ReverseFlow));
+    EXPECT_TRUE(rflow->is_flags_set(FlowEntry::ReverseFlow));
+
+    EXPECT_TRUE(FlowDelete(vnet[1]->vrf()->GetName(), vnet_addr[1],
+                           vnet_addr[2], 1, 0, 0));
+    EXPECT_TRUE(FlowDelete(vnet[2]->vrf()->GetName(), vnet_addr[2],
+                           vnet_addr[1], 1, 0, 0));
+}
+
+static void DelSgAcl(const char *name) {
+    char acl_name[1024];
+    strcpy(acl_name, name);
+    strcat(acl_name, "ingress-access-control-list");
+    DelNode("access-control-list", acl_name);
+    client->WaitForIdle();
+
+    strcpy(acl_name, name);
+    strcat(acl_name, "egress-access-control-list");
+    DelNode("access-control-list", acl_name);
+    client->WaitForIdle();
+}
+
 TEST_F(SgTest, Sg_Introspec) {
     // Delete sg added for setup()
     DelLink("virtual-machine-interface", "vnet1", "security-group", "sg1");
@@ -657,6 +733,7 @@ TEST_F(SgTest, Sg_Policy_2) {
     DelLink("virtual-machine-interface", "vnet1", "security-group", "sg2");
     DelNode("security-group", "sg2");
     DelNode("access-control-list", "ag2");
+    DelSgAcl("ag2");
     Inet4UnicastAgentRouteTable::DeleteReq(NULL, "vrf1",
             Ip4Address::from_string("10.10.10.0", ec), 24, NULL);
     client->WaitForIdle();
