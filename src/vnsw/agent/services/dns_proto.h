@@ -126,7 +126,7 @@ public:
     virtual ~DnsProto();
     ProtoHandler *AllocProtoHandler(boost::shared_ptr<PktInfo> info,
                                     boost::asio::io_service &io);
-    void UpdateDnsEntry(const VmInterface *vmitf, const std::string &name,
+    bool UpdateDnsEntry(const VmInterface *vmitf, const std::string &name,
                         const Ip4Address &ip, uint32_t plen,
                         const std::string &vdns_name,
                         const autogen::VirtualDnsType &vdns_type,

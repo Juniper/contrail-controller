@@ -54,10 +54,12 @@ void DnsProto::InterfaceNotify(DBEntryBase *entry) {
         return;
 
     const VmInterface *vmitf = static_cast<VmInterface *>(entry);
+    DNS_BIND_TRACE(DnsBindTrace, "Vm Notify : " << vmitf->vm_name());
     if (entry->IsDeleted()) {
         SendDnsUpdateIpc(NULL, DnsAgentXmpp::Update, vmitf, false);
         SendDnsUpdateIpc(NULL, DnsAgentXmpp::Update, vmitf, true);
         all_vms_.erase(vmitf);
+        DNS_BIND_TRACE(DnsBindTrace, "Vm deleted : " << vmitf->vm_name());
     } else {
         uint32_t ttl = kDnsDefaultTtl;
         std::string vdns_name, domain;
@@ -82,6 +84,7 @@ void DnsProto::VnNotify(DBEntryBase *entry) {
     const VnEntry *vn = static_cast<const VnEntry *>(entry);
     if (vn->IsDeleted() || vn->GetVnIpam().size() == 0)
         return;
+    DNS_BIND_TRACE(DnsBindTrace, "Vn Notify : " << vn->GetName());
     for (VmDataMap::iterator it = all_vms_.begin(); it != all_vms_.end(); ++it) {
         if (it->first->vn() == vn) {
             uint32_t ttl = kDnsDefaultTtl;
@@ -108,10 +111,12 @@ void DnsProto::VnNotify(DBEntryBase *entry) {
 void DnsProto::IpamNotify(IFMapNode *node) {
     if (node->IsDeleted())
         return;
+    DNS_BIND_TRACE(DnsBindTrace, "Ipam Notify : " << node->name());
     ProcessNotify(node->name(), node->IsDeleted(), true);
 }
 
 void DnsProto::VdnsNotify(IFMapNode *node) {
+    DNS_BIND_TRACE(DnsBindTrace, "Vdns Notify : " << node->name());
     // Update any existing records prior to checking for new ones
     if (!node->IsDeleted()) {
         autogen::VirtualDns *virtual_dns =
@@ -119,7 +124,7 @@ void DnsProto::VdnsNotify(IFMapNode *node) {
         autogen::VirtualDnsType vdns_type = virtual_dns->data();
         std::string name = node->name();
         UpdateDnsEntry(NULL, name, name, vdns_type.domain_name,
-                       (uint32_t)vdns_type.default_ttl_seconds, false);
+                           (uint32_t)vdns_type.default_ttl_seconds, false);
     }
     ProcessNotify(node->name(), node->IsDeleted(), false);
 }
@@ -155,24 +160,24 @@ void DnsProto::CheckForUpdate(IpVdnsMap &ipvdns, const VmInterface *vmitf,
                               uint32_t ttl, bool is_floating) {
     IpVdnsMap::iterator vmdata_it = ipvdns.find(ip.to_ulong());
     if (vmdata_it == ipvdns.end()) {
-	if (UpdateDnsEntry(vmitf, vn, vdns_name, ip, is_floating, false))
+        if (UpdateDnsEntry(vmitf, vn, vdns_name, ip, is_floating, false))
             ipvdns.insert(IpVdnsPair(ip.to_ulong(), vdns_name));
         else
             ipvdns.insert(IpVdnsPair(ip.to_ulong(), ""));
-	return;
+        return;
     }
     if (vmdata_it->second.empty() && vmdata_it->second != vdns_name) {
-	if (UpdateDnsEntry(vmitf, vn, vdns_name, ip, is_floating, false))
-	    vmdata_it->second = vdns_name;
+        if (UpdateDnsEntry(vmitf, vn, vdns_name, ip, is_floating, false))
+            vmdata_it->second = vdns_name;
     } else if (vmdata_it->second != vdns_name) {
-	if (UpdateDnsEntry(vmitf, vdns_name, vmdata_it->second, domain,
+        if (UpdateDnsEntry(vmitf, vdns_name, vmdata_it->second, domain,
                            ttl, is_floating))
-	    vmdata_it->second = vdns_name;
+            vmdata_it->second = vdns_name;
     }
 }
 
 // Send A & PTR record entries
-void DnsProto::UpdateDnsEntry(const VmInterface *vmitf,
+bool DnsProto::UpdateDnsEntry(const VmInterface *vmitf,
                               const std::string &name,
                               const Ip4Address &ip, uint32_t plen,
                               const std::string &vdns_name,
@@ -182,7 +187,7 @@ void DnsProto::UpdateDnsEntry(const VmInterface *vmitf,
         DNS_BIND_TRACE(DnsBindTrace, "Not adding DNS entry; Name = " <<
                        name << "Dynamic records allowed = " <<
                        (vdns_type.dynamic_records_from_client ? "yes" : "no"));
-        return;
+        return false;
     }
 
     DnsUpdateData *data = new DnsUpdateData();
@@ -222,6 +227,7 @@ void DnsProto::UpdateDnsEntry(const VmInterface *vmitf,
                    " VDNS : " << ptr_data->virtual_dns <<
                    " Zone : " << ptr_data->zone);
     SendDnsUpdateIpc(ptr_data, DnsAgentXmpp::Update, vmitf, is_floating);
+    return true;
 }
 
 // Update the floating ip entries
@@ -276,8 +282,8 @@ bool DnsProto::UpdateDnsEntry(const VmInterface *vmitf, const VnEntry *vn,
 
         autogen::VirtualDnsType vdns_type;
         if (agent_->GetDomainConfigTable()->GetVDns(vdns_name, &vdns_type)) {
-            UpdateDnsEntry(vmitf, vmitf->vm_name(), ip, plen,
-                           vdns_name, vdns_type, is_floating, is_deleted);
+            return UpdateDnsEntry(vmitf, vmitf->vm_name(), ip, plen,
+                                  vdns_name, vdns_type, is_floating, is_deleted);
         } else {
             DNS_BIND_TRACE(DnsBindTrace, "UpdateDnsEntry for VM <" <<
                            vmitf->vm_name() << "> entry not " <<
