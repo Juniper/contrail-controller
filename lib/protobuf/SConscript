@@ -1,0 +1,36 @@
+# -*- mode: python; -*-
+import os
+import subprocess
+import sys
+
+vpath = '#/third_party/protobuf-2.5.0'
+
+env = DefaultEnvironment()
+
+config_opts = '--prefix=' + str(Dir('#/build'))
+
+cmd = ('(cd ' + Dir('.').abspath + '; ' + str(Dir(vpath)) +
+       '/configure' + ' ' + config_opts + '; make clean; make; make install)')
+
+version = '.8.0.0'
+symlink_version = '.8'
+libs = [ str(File('#build/lib/libprotobuf' + env['LIBSUFFIX'])),
+         str(File('#build/lib/libprotoc' + env['LIBSUFFIX'])),
+         str(File('#build/lib/libprotobuf-lite' + env['LIBSUFFIX']))
+       ]
+shlibs = [ str(File('#build/lib/libprotobuf' + env['SHLIBSUFFIX'] + version)),
+           str(File('#build/lib/libprotoc' + env['SHLIBSUFFIX'] + version)),
+           str(File('#build/lib/libprotobuf-lite' + env['SHLIBSUFFIX'] + version))
+         ]
+bins = [ str(File('#build/bin/protoc')) ]
+includes = [ Glob('#build/include/google/protobuf/*') ]
+products = libs + shlibs + bins + includes
+
+protobuf_cfg = env.Command('config.status', str(Dir(vpath)), cmd)
+
+env.SideEffect(products, protobuf_cfg)
+
+env.Alias('install', env.Install(env['INSTALL_LIB'], shlibs))
+env.Alias('install',
+          env.Symlink(env['INSTALL_LIB'] + '/libprotobuf' + env['SHLIBSUFFIX'] + symlink_version,
+                      env['INSTALL_LIB'] + '/libprotobuf' + env['SHLIBSUFFIX'] + version))
