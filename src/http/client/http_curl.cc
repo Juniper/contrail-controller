@@ -406,7 +406,7 @@ void set_put_string(ConnInfo *conn, const char *put, uint32_t len) {
     conn->post_len = len;
     curl_easy_setopt(conn->easy, CURLOPT_UPLOAD, 1);
     curl_easy_setopt(conn->easy, CURLOPT_PUT, 1);
-    curl_easy_setopt(conn->easy, CURLOPT_INFILESIZE_LARGE, (curl_off_t)len);
+    curl_easy_setopt(conn->easy, CURLOPT_POSTFIELDSIZE_LARGE, (curl_off_t)len);
 }
 
 int http_get(ConnInfo *conn, GlobalInfo *g) {
