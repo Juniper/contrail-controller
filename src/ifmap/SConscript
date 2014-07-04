@@ -48,6 +48,7 @@ libifmap_common = env.Library('ifmap_common',
 # control-node
 libifmap = env.Library('ifmap_server',
                        ['ifmap_client.cc',
+                        'ifmap_config_listener.cc',
                         'ifmap_encoder.cc',
                         'ifmap_exporter.cc',
                         'ifmap_factory.cc',
