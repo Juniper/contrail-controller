@@ -22,7 +22,6 @@
 #include <oper/agent_sandesh.h>
 #include <oper/nexthop.h>
 #include <oper/mirror_table.h>
-#include <pkt/flow_table.h>
 
 static AclTable *acl_table_;
 
@@ -106,6 +105,7 @@ DBEntry *AclTable::Add(const DBRequest *req) {
 }
 
 bool AclTable::OnChange(DBEntry *entry, const DBRequest *req) {
+    bool changed = false;
     AclDBEntry *acl = static_cast<AclDBEntry *>(entry);
     AclData *data = static_cast<AclData *>(req->data.get());
 
@@ -122,18 +122,34 @@ bool AclTable::OnChange(DBEntry *entry, const DBRequest *req) {
         if (!data->ace_add) { //Replace existing aces
             acl->AddAclEntry(*it, entries);
         } else { // Add to the existing entries
-            acl->AddAclEntry(*it, acl->acl_entries_);
+            if (acl->AddAclEntry(*it, acl->acl_entries_)) {
+                changed = true;
+            }
         }
     }
 
     // Replace the existing aces, ace_add is to add to the existing
     // entries
     if (!data->ace_add) {
-        // Delete All acl entries for now and set newly created one.
-        acl->DeleteAllAclEntries();
-        acl->SetAclEntries(entries);
+        if (acl->Changed(entries)) {
+            //Delete All acl entries for now and set newly created one.
+            acl->DeleteAllAclEntries();
+            acl->SetAclEntries(entries);
+            changed = true;
+        }
     }
-    return true;
+
+    if (changed == false) {
+        //Remove temporary create acl entries
+        AclDBEntry::AclEntries::iterator iter;
+        iter = entries.begin();
+        while (iter != entries.end()) {
+            AclEntry *ae = iter.operator->();
+            entries.erase(iter++);
+            delete ae;
+        }
+    }
+    return changed;
 }
 
 void AclTable::Delete(DBEntry *entry, const DBRequest *req) {
@@ -303,7 +319,7 @@ bool AclTable::IFNodeToReq(IFMapNode *node, DBRequest &req) {
         AclKey *key = new AclKey(u);
         req.key.reset(key);
         req.data.reset(NULL);
-        Agent::GetInstance()->GetAclTable()->Enqueue(&req);
+        Agent::GetInstance()->acl_table()->Enqueue(&req);
         acl_spec.acl_id = u;
         AclObjectTrace(AgentLogEvent::DELETE, acl_spec);
         return false;
@@ -336,8 +352,10 @@ bool AclTable::IFNodeToReq(IFMapNode *node, DBRequest &req) {
         }
 
         ace_spec.PopulateAction(this, ir->action_list);
+        ace_spec.rule_uuid = ir->rule_uuid;
         // Add the Ace to the acl
         acl_spec.acl_entry_specs_.push_back(ace_spec);
+
 
         // Trace acl entry object
         AclEntrySandeshData ae_spec;
@@ -350,7 +368,7 @@ bool AclTable::IFNodeToReq(IFMapNode *node, DBRequest &req) {
     data->cfg_name_ = node->name();
     req.key.reset(key);
     req.data.reset(data);
-    Agent::GetInstance()->GetAclTable()->Enqueue(&req);
+    Agent::GetInstance()->acl_table()->Enqueue(&req);
 
     // Its possible that VN got notified before ACL are created.
     // Invoke change on VN linked to this ACL
@@ -365,7 +383,7 @@ bool AclTable::IFNodeToReq(IFMapNode *node, DBRequest &req) {
             assert(vn_cfg);
             if (adj_node->IsDeleted() == false) {
                 req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
-                Agent::GetInstance()->GetVnTable()->IFNodeToReq(adj_node, req);
+                Agent::GetInstance()->vn_table()->IFNodeToReq(adj_node, req);
             }
         }
         if (adj_node->table() == Agent::GetInstance()->cfg()->cfg_sg_table()) {
@@ -374,7 +392,7 @@ bool AclTable::IFNodeToReq(IFMapNode *node, DBRequest &req) {
             assert(sg_cfg);
             if (adj_node->IsDeleted() == false) {
                 req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
-                Agent::GetInstance()->GetSgTable()->IFNodeToReq(adj_node, req);
+                Agent::GetInstance()->sg_table()->IFNodeToReq(adj_node, req);
             }
         }
     }
@@ -423,14 +441,14 @@ AclEntry *AclDBEntry::AddAclEntry(const AclEntrySpec &acl_entry_spec, AclEntries
          ++it) {
         if ((*it).ta_type == TrafficAction::MIRROR_ACTION) {
             Ip4Address sip;
-            if (Agent::GetInstance()->GetRouterId() == (*it).ma.ip) {
+            if (Agent::GetInstance()->router_id() == (*it).ma.ip) {
                 sip = Ip4Address(METADATA_IP_ADDR);
             } else {
-                sip = Agent::GetInstance()->GetRouterId();
+                sip = Agent::GetInstance()->router_id();
             }
             MirrorEntryKey mirr_key((*it).ma.analyzer_name);
             MirrorEntry *mirr_entry = static_cast<MirrorEntry *>
-                    (Agent::GetInstance()->GetMirrorTable()->FindActiveEntry(&mirr_key));
+                    (Agent::GetInstance()->mirror_table()->FindActiveEntry(&mirr_key));
             assert(mirr_entry);
             // Store the mirror entry
             entry->set_mirror_entry(mirr_entry);
@@ -471,7 +489,7 @@ void AclDBEntry::DeleteAllAclEntries()
 }
 
 bool AclDBEntry::PacketMatch(const PacketHeader &packet_header, 
-			     MatchAclParams &m_acl) const
+			                 MatchAclParams &m_acl, FlowPolicyInfo *info) const
 {
     AclEntries::const_iterator iter;
     bool ret_val = false;
@@ -502,17 +520,57 @@ bool AclDBEntry::PacketMatch(const PacketHeader &packet_header,
                                                          a->ignore_acl());
              m_acl.action_info.vrf_translate_action_ = vrf_translate_action;
          }
+         if (info && ta->IsDrop()) {
+             if (!info->drop) {
+                 info->drop = true;
+                 info->terminal = false;
+                 info->other = false;
+                 info->uuid = iter->uuid();
+             }
+         }
 	}
         if (!(al.empty())) {
             ret_val = true;
             m_acl.ace_id_list.push_back((int32_t)(iter->id()));
             if (iter->IsTerminal()) {
-	        m_acl.terminal_rule = true;
+                m_acl.terminal_rule = true;
+                /* Set uuid only if it is NOT already set as
+                 * drop/terminal uuid */
+                if (info && !info->drop && !info->terminal) {
+                    info->terminal = true;
+                    info->other = false;
+                    info->uuid = iter->uuid();
+                }
                 return ret_val;
+            }
+            /* If the ace action is not drop and if ace is not terminal rule
+             * then set the uuid with the first matching uuid */
+            if (info && !info->drop && !info->terminal && !info->other) {
+                info->other = true;
+                info->uuid = iter->uuid();
             }
         }
     }
     return ret_val;
+}
+
+bool AclDBEntry::Changed(const AclEntries &new_entries) const {
+    AclEntries::const_iterator it = acl_entries_.begin();
+    AclEntries::const_iterator new_entries_it = new_entries.begin();
+    while (it != acl_entries_.end() &&
+           new_entries_it != new_entries.end()) {
+        if (*it == *new_entries_it) {
+            it++;
+            new_entries_it++;
+            continue;
+        }
+        return true;
+    }
+    if (it == acl_entries_.end() &&
+        new_entries_it == new_entries.end()) {
+        return false;
+    }
+    return true;
 }
 
 const AclDBEntry* AclTable::GetAclDBEntry(const string acl_uuid_str, 
@@ -523,7 +581,7 @@ const AclDBEntry* AclTable::GetAclDBEntry(const string acl_uuid_str,
     }
 
     // Get acl entry from acl uuid string
-    AclTable *table = Agent::GetInstance()->GetAclTable();
+    AclTable *table = Agent::GetInstance()->acl_table();
     boost::uuids::string_generator gen;
     boost::uuids::uuid acl_id = gen(acl_uuid_str);
     AclKey key(acl_id);
@@ -538,9 +596,10 @@ void AclTable::AclFlowResponse(const string acl_uuid_str, const string ctx,
     const AclDBEntry *acl_entry = AclTable::GetAclDBEntry(acl_uuid_str, ctx, resp);
 
     if (acl_entry) {
-        Agent::GetInstance()->pkt()->flow_table()->SetAclFlowSandeshData(
-                                                   acl_entry, *resp, last_count);
+        AclTable *table = Agent::GetInstance()->acl_table();
+        table->flow_acl_sandesh_data_cb_(acl_entry, *resp, last_count);
     }
+
     resp->set_context(ctx);
     resp->Response();
 }
@@ -551,8 +610,8 @@ void AclTable::AclFlowCountResponse(const string acl_uuid_str,
     const AclDBEntry *acl_entry = AclTable::GetAclDBEntry(acl_uuid_str, ctx, resp);
 
     if (acl_entry) {
-        Agent::GetInstance()->pkt()->flow_table()->SetAceSandeshData(
-                                                   acl_entry, *resp, ace_id);
+        AclTable *table = Agent::GetInstance()->acl_table();
+        table->flow_ace_sandesh_data_cb_(acl_entry, *resp, ace_id);
     }
     resp->set_context(ctx);
     resp->Response();
@@ -719,14 +778,14 @@ void AclEntrySpec::AddMirrorEntry() const {
         }
 
         Ip4Address sip;
-        if (Agent::GetInstance()->GetRouterId() == action.ma.ip) {
+        if (Agent::GetInstance()->router_id() == action.ma.ip) {
             sip = Ip4Address(METADATA_IP_ADDR);
         } else {
-            sip = Agent::GetInstance()->GetRouterId();
+            sip = Agent::GetInstance()->router_id();
         }
-        Agent::GetInstance()->GetMirrorTable()->AddMirrorEntry(
+        Agent::GetInstance()->mirror_table()->AddMirrorEntry(
                 action.ma.analyzer_name, action.ma.vrf_name, sip,
-                Agent::GetInstance()->GetMirrorPort(),
+                Agent::GetInstance()->mirror_port(),
                 action.ma.ip.to_v4(), action.ma.port);
     }
 }
@@ -774,4 +833,12 @@ void AclEntrySpec::PopulateAction(const AclTable *acl_table,
         vrf_translate_spec.vrf_translate.set_ignore_acl(false);
         action_l.push_back(vrf_translate_spec);
     }
+}
+
+void AclTable::set_ace_flow_sandesh_data_cb(FlowAceSandeshDataFn fn) {
+    flow_ace_sandesh_data_cb_ = fn;
+}
+
+void AclTable::set_acl_flow_sandesh_data_cb(FlowAclSandeshDataFn fn) {
+    flow_acl_sandesh_data_cb_ = fn;
 }

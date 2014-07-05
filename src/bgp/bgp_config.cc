@@ -585,11 +585,15 @@ bool BgpInstanceConfig::DeleteIfEmpty(BgpConfigManager *manager) {
     if (name_ == BgpConfigManager::kMasterInstance) {
         return false;
     }
-    if (node() == NULL && protocol_.get() == NULL && neighbors_.empty()) {
-        manager->Notify(this, BgpConfigManager::CFG_DELETE);
-        return true;
+    if (node() != NULL || protocol_.get() != NULL) {
+        return false;
     }
-    return false;
+    if (!neighbors_.empty() || !peerings_.empty()) {
+        return false;
+    }
+
+    manager->Notify(this, BgpConfigManager::CFG_DELETE);
+    return true;
 }
 
 //
@@ -650,6 +654,20 @@ const BgpNeighborConfig *BgpInstanceConfig::FindNeighbor(string name) const {
 }
 
 //
+// Add a BgpPeeringConfig to this BgpInstanceConfig.
+//
+void BgpInstanceConfig::AddPeering(BgpPeeringConfig *peering) {
+    peerings_.insert(make_pair(peering->name(), peering));
+}
+
+//
+// Delete a BgpPeeringConfig from this BgpInstanceConfig.
+//
+void BgpInstanceConfig::DeletePeering(BgpPeeringConfig *peering) {
+    peerings_.erase(peering->name());
+}
+
+//
 // Constructor for BgpConfigData.
 //
 BgpConfigData::BgpConfigData() {
@@ -685,8 +703,9 @@ BgpInstanceConfig *BgpConfigData::LocateInstance(const string &name) {
 // Remove the given BgpInstanceConfig from the BgpInstanceMap and delete it.
 //
 void BgpConfigData::DeleteInstance(BgpInstanceConfig *rti) {
-    string name(rti->name());
-    instances_.erase(name);
+    BgpInstanceMap::iterator loc = instances_.find(rti->name());
+    assert(loc != instances_.end());
+    instances_.erase(loc);
     delete rti;
 }
 
@@ -727,6 +746,7 @@ BgpPeeringConfig *BgpConfigData::CreatePeering(BgpInstanceConfig *rti,
     pair<BgpPeeringMap::iterator, bool> result =
             peerings_.insert(make_pair(peering->node()->name(), peering));
     assert(result.second);
+    peering->instance()->AddPeering(peering);
     return peering;
 }
 
@@ -738,6 +758,7 @@ BgpPeeringConfig *BgpConfigData::CreatePeering(BgpInstanceConfig *rti,
 // via the destructor when the IFMapNodeProxy is destroyed.
 //
 void BgpConfigData::DeletePeering(BgpPeeringConfig *peering) {
+    peering->instance()->DeletePeering(peering);
     peerings_.erase(peering->node()->name());
     delete peering;
 }
@@ -984,6 +1005,15 @@ void BgpConfigManager::ProcessBgpProtocol(const BgpConfigDelta &delta) {
         if (rti == NULL) {
             rti = config_->LocateInstance(instance_name);
             Notify(rti, BgpConfigManager::CFG_ADD);
+
+            vector<string> import_rt(rti->import_list().begin(),
+                                     rti->import_list().end());
+            vector<string> export_rt(rti->export_list().begin(),
+                                     rti->export_list().end());
+            BGP_CONFIG_LOG_INSTANCE(Create, server_, rti,
+                SandeshLevel::SYS_DEBUG, BGP_LOG_FLAG_ALL,
+                import_rt, export_rt,
+                rti->virtual_network(), rti->virtual_network_index());
         }
         protocol = rti->LocateProtocol();
         protocol->SetNodeProxy(proxy);
@@ -1002,6 +1032,8 @@ void BgpConfigManager::ProcessBgpProtocol(const BgpConfigDelta &delta) {
             protocol->Delete(this);
             rti->ResetProtocol();
             if (rti->DeleteIfEmpty(this)) {
+                BGP_CONFIG_LOG_INSTANCE(Delete, server_, rti,
+                    SandeshLevel::SYS_DEBUG, BGP_LOG_FLAG_ALL);
                 config_->DeleteInstance(rti);
             }
             return;
@@ -1115,6 +1147,8 @@ void BgpConfigManager::ProcessBgpPeering(const BgpConfigDelta &delta) {
             peering->Delete(this);
             config_->DeletePeering(peering);
             if (rti->DeleteIfEmpty(this)) {
+                BGP_CONFIG_LOG_INSTANCE(Delete, server_, rti,
+                    SandeshLevel::SYS_DEBUG, BGP_LOG_FLAG_ALL);
                 config_->DeleteInstance(rti);
             }
             return;

@@ -28,6 +28,7 @@ public:
         BGP_XMPP = 1,
         ServiceChain = 2,
         StaticRoute = 3,
+        Local = 4,
     };
 
     static const uint32_t INFEASIBLE_MASK =
@@ -41,7 +42,7 @@ public:
     BgpPath(const IPeer *peer, PathSource src, const BgpAttrPtr attr,
             uint32_t flags, uint32_t label);
     BgpPath(uint32_t path_id, PathSource src, const BgpAttrPtr attr,
-            uint32_t flags, uint32_t label);
+            uint32_t flags = 0, uint32_t label = 0);
 
     const IPeer *GetPeer() const {
         return peer_;
@@ -52,7 +53,10 @@ public:
     }
 
     void UpdatePeerRefCount(int count) {
-        if (peer_) const_cast<IPeer *>(peer_)->UpdateRefCount(count);
+        if (peer_) {
+            assert(count < 0 || peer_->IsReady() || IsStale());
+            peer_->UpdateRefCount(count);
+        }
     }
 
     const BgpAttr *GetAttr() const {

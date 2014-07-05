@@ -3,35 +3,22 @@
 #
 
 # -*- mode: python; -*-
-
 import re
-
 Import('AgentEnv')
 env = AgentEnv.Clone()
 
-env.Prepend(LIBS=['gunit'])
-cflags = env['CCFLAGS']
-if '-fno-exceptions' in cflags:
-    cflags.remove('-fno-exceptions')
-    env.Replace(CCFLAGS = cflags)
+AgentEnv.MakeTestEnv(env)
 
-import sys
-if sys.platform != 'darwin':
-    env.Append(LIBPATH=['../../test'])
-    env.Prepend(LIBS=['agent_test']);
-    env.Append(LIBS=['agent_test_buildinfo']);
+init_test_suite = []
+test_agent_init = AgentEnv.MakeTestCmd(env, 'test_agent_init', init_test_suite)
+test_vmware = AgentEnv.MakeTestCmd(env, 'test_vmware', init_test_suite)
 
-    test_agent_init = env.Program(target = 'test_agent_init', 
-                                  source = ['test_agent_init.cc'])
-    env.Alias('agent:test_agent_init', test_agent_init)
+test = env.TestSuite('agent-test', init_test_suite)
+env.Alias('agent:init', test)
+env.Alias('controller/src/vnsw/agent/init:test', test)
 
-    test_vmware = env.Program(target = 'test_vmware',
-                              source = ['test_vmware.cc'])
-    env.Alias('agent:test_vmware', test_vmware)
+init_flaky_test_suite = []
+flaky_test = env.TestSuite('agent-flaky-test', init_flaky_test_suite)
+env.Alias('controller/src/vnsw/agent/init:flaky_test', flaky_test)
 
-    agent_init_suite = [test_agent_init, test_vmware]
-
-    test = env.TestSuite('agent-test', agent_init_suite)
-    env.Alias('controller/src/vnsw/agent/init:test', test)
-    Return('agent_init_suite')
-
+Return('init_test_suite')

@@ -109,6 +109,9 @@ private:
 
     static int OnBody(struct http_parser *parser,
               const char *loc, size_t length) {
+        RequestBuilder *builder =
+            reinterpret_cast<RequestBuilder *>(parser->data);
+        builder->request_->SetBody(loc, length);
         return 0;
     }
 

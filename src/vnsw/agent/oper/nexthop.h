@@ -312,6 +312,7 @@ private:
 /////////////////////////////////////////////////////////////////////////////
 class NextHop : AgentRefCount<NextHop>, public AgentDBEntry {
 public:
+    static const uint32_t kInvalidIndex = 0xFFFFFFFF;
     enum Type {
         INVALID,
         DISCARD,
@@ -327,10 +328,10 @@ public:
     };
 
     NextHop(Type type, bool policy) : 
-        type_(type), valid_(true), policy_(policy) { };
+        type_(type), valid_(true), policy_(policy), id_(kInvalidIndex) {}
     NextHop(Type type, bool valid, bool policy) : 
-        type_(type), valid_(valid), policy_(policy) { };
-    virtual ~NextHop() { };
+        type_(type), valid_(valid), policy_(policy), id_(kInvalidIndex) {}
+    virtual ~NextHop();
 
     virtual std::string ToString() const { return "NH";}
     virtual bool Change(const DBRequest *req) { return false; }
@@ -360,6 +361,8 @@ public:
     Type GetType() const {return type_;}
     bool IsValid() const {return valid_;};
     bool PolicyEnabled() const {return policy_;};
+    uint32_t id() const { return id_;}
+    void set_id(uint32_t index) { id_ = index;}
 
     bool DBEntrySandesh(Sandesh *sresp, std::string &name) const;
     void SetNHSandeshData(NhSandeshData &data) const;
@@ -373,6 +376,7 @@ protected:
     Type type_;
     bool valid_;
     bool policy_;
+    uint32_t id_;
 private:
     DISALLOW_COPY_AND_ASSIGN(NextHop);
 };
@@ -402,7 +406,7 @@ public:
     NextHop::Type GetType() const {return type_;}
     bool GetPolicy() const {return policy_;}
 protected:
-    friend class NextHop;;
+    friend class NextHop;
     NextHop::Type type_;
     bool policy_;
 private:
@@ -930,6 +934,10 @@ public:
                           const std::string &vrf_name, const ether_addr &smac,
                           const ether_addr &dmac);
     static void Delete(const uuid &intf_uuid, uint16_t vlan_tag);
+    static void CreateReq(const uuid &intf_uuid, uint16_t vlan_tag,
+                          const std::string &vrf_name, const ether_addr &smac,
+                          const ether_addr &dmac);
+    static void DeleteReq(const uuid &intf_uuid, uint16_t vlan_tag);
 
 private:
     InterfaceRef interface_;
@@ -1290,7 +1298,7 @@ public:
         DBRequest req;
         req.key.reset(key);
         req.data.reset(NULL);
-        Agent::GetInstance()->GetNextHopTable()->Enqueue(&req);
+        Agent::GetInstance()->nexthop_table()->Enqueue(&req);
     }
 
     virtual void OnZeroRefcount(AgentDBEntry *e);
@@ -1302,12 +1310,16 @@ public:
 
     void set_discard_nh(NextHop *nh) { discard_nh_ = nh; }
     NextHop *discard_nh() const {return discard_nh_;}
+    // NextHop index managing routines
+    void FreeInterfaceId(size_t index) { index_table_.Remove(index); }
+    NextHop *FindNextHop(size_t index);
 
 private:
     NextHop *AllocWithKey(const DBRequestKey *k) const;
     virtual std::auto_ptr<DBEntry> GetEntry(const DBRequestKey *key) const;
 
     NextHop *discard_nh_;
+    IndexVector<NextHop> index_table_;
     static NextHopTable *nexthop_table_;
     DISALLOW_COPY_AND_ASSIGN(NextHopTable);
 };

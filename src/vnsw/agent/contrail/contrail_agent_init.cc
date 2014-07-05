@@ -17,7 +17,6 @@
 
 #include <cmn/agent_cmn.h>
 #include <cmn/agent_factory.h>
-#include <cmn/agent_stats.h>
 #include <cmn/agent_param.h>
 
 #include <cfg/cfg_init.h>
@@ -31,6 +30,7 @@
 #include <uve/agent_uve.h>
 #include <kstate/kstate.h>
 #include <pkt/proto_handler.h>
+#include <pkt/agent_stats.h>
 #include <diag/diag.h>
 #include <vgw/cfg_vgw.h>
 #include <vgw/vgw.h>
@@ -45,9 +45,9 @@ void ContrailAgentInit::InitVmwareInterface() {
     if (!params_->isVmwareMode())
         return;
 
-    PhysicalInterface::Create(agent_->GetInterfaceTable(),
+    PhysicalInterface::Create(agent_->interface_table(),
                               params_->vmware_physical_port(),
-                              agent_->GetDefaultVrf());
+                              agent_->fabric_vrf_name());
 }
 
 void ContrailAgentInit::InitLogging() {
@@ -71,23 +71,29 @@ void ContrailAgentInit::CreateModules() {
     agent_->set_uve(AgentObjectFactory::Create<AgentUve>(
                     agent_, AgentUve::kBandwidthInterval));
     agent_->set_ksync(AgentObjectFactory::Create<KSync>(agent_));
-    agent_->set_pkt(new PktModule(agent_));
 
-    agent_->set_services(new ServicesModule(agent_,
-                                            params_->metadata_shared_secret()));
+    pkt_.reset(new PktModule(agent_));
+    agent_->set_pkt(pkt_.get());
+
+    services_.reset(new ServicesModule(agent_,
+                                       params_->metadata_shared_secret()));
+    agent_->set_services(services_.get());
+
     agent_->set_vgw(new VirtualGateway(agent_));
 
     agent_->set_controller(new VNController(agent_));
 }
 
 void ContrailAgentInit::CreateDBTables() {
-    agent_->CreateDBTables();
+    agent_->cfg()->CreateDBTables(agent_->db());
+    agent_->oper_db()->CreateDBTables(agent_->db());
 }
 
-void ContrailAgentInit::CreateDBClients() {
-    agent_->CreateDBClients();
+void ContrailAgentInit::RegisterDBClients() {
+    agent_->cfg()->RegisterDBClients(agent_->db());
+    agent_->oper_db()->RegisterDBClients();
     agent_->uve()->RegisterDBClients();
-    agent_->ksync()->RegisterDBClients(agent_->GetDB());
+    agent_->ksync()->RegisterDBClients(agent_->db());
     agent_->vgw()->RegisterDBClients();
 }
 
@@ -96,7 +102,8 @@ void ContrailAgentInit::InitPeers() {
 }
 
 void ContrailAgentInit::InitModules() {
-    agent_->InitModules();
+    agent_->cfg()->Init();
+    agent_->oper_db()->Init();
     agent_->ksync()->Init(true);
     agent_->pkt()->Init(true);
     agent_->services()->Init(true);
@@ -105,21 +112,21 @@ void ContrailAgentInit::InitModules() {
 
 void ContrailAgentInit::CreateVrf() {
     // Create the default VRF
-    VrfTable *vrf_table = agent_->GetVrfTable();
+    VrfTable *vrf_table = agent_->vrf_table();
 
     if (agent_->isXenMode()) {
-        vrf_table->CreateStaticVrf(agent_->GetLinkLocalVrfName());
+        vrf_table->CreateStaticVrf(agent_->linklocal_vrf_name());
     }
-    vrf_table->CreateStaticVrf(agent_->GetDefaultVrf());
+    vrf_table->CreateStaticVrf(agent_->fabric_vrf_name());
 
-    VrfEntry *vrf = vrf_table->FindVrfFromName(agent_->GetDefaultVrf());
+    VrfEntry *vrf = vrf_table->FindVrfFromName(agent_->fabric_vrf_name());
     assert(vrf);
 
     // Default VRF created; create nexthops
-    agent_->SetDefaultInet4UnicastRouteTable(vrf->GetInet4UnicastRouteTable());
-    agent_->SetDefaultInet4MulticastRouteTable
+    agent_->set_fabric_inet4_unicast_table(vrf->GetInet4UnicastRouteTable());
+    agent_->set_fabric_inet4_multicast_table
         (vrf->GetInet4MulticastRouteTable());
-    agent_->SetDefaultLayer2RouteTable(vrf->GetLayer2RouteTable());
+    agent_->set_fabric_l2_unicast_table(vrf->GetLayer2RouteTable());
 
     // Create VRF for VGw
     agent_->vgw()->CreateVrf();
@@ -136,14 +143,14 @@ void ContrailAgentInit::CreateNextHops() {
 }
 
 void ContrailAgentInit::CreateInterfaces() {
-    InterfaceTable *table = agent_->GetInterfaceTable();
+    InterfaceTable *table = agent_->interface_table();
 
-    InetInterface::Create(table, params_->vhost_name(), InetInterface::VHOST,
-                          agent_->GetDefaultVrf(), params_->vhost_addr(),
-                          params_->vhost_plen(), params_->vhost_gw(),
-                          agent_->GetDefaultVrf());
     PhysicalInterface::Create(table, params_->eth_port(),
-                              agent_->GetDefaultVrf());
+                              agent_->fabric_vrf_name());
+    InetInterface::Create(table, params_->vhost_name(), InetInterface::VHOST,
+                          agent_->fabric_vrf_name(), params_->vhost_addr(),
+                          params_->vhost_plen(), params_->vhost_gw(),
+                          params_->eth_port(), agent_->fabric_vrf_name());
     agent_->InitXenLinkLocalIntf();
     InitVmwareInterface();
 
@@ -154,12 +161,12 @@ void ContrailAgentInit::CreateInterfaces() {
     assert(agent_->vhost_interface());
 
     // Validate physical interface
-    PhysicalInterfaceKey physical_key(agent_->GetIpFabricItfName());
+    PhysicalInterfaceKey physical_key(agent_->fabric_interface_name());
     assert(table->FindActiveEntry(&physical_key));
 
-    agent_->SetRouterId(params_->vhost_addr());
-    agent_->SetPrefixLen(params_->vhost_plen());
-    agent_->SetGatewayId(params_->vhost_gw());
+    agent_->set_router_id(params_->vhost_addr());
+    agent_->set_vhost_prefix_len(params_->vhost_plen());
+    agent_->set_vhost_default_gateway(params_->vhost_gw());
     agent_->pkt()->CreateInterfaces();
     agent_->vgw()->CreateInterfaces();
 }
@@ -170,7 +177,7 @@ void ContrailAgentInit::InitDiscovery() {
 
 void ContrailAgentInit::InitDone() {
     //Open up mirror socket
-    agent_->GetMirrorTable()->MirrorSockInit();
+    agent_->mirror_table()->MirrorSockInit();
 
     agent_->services()->ConfigInit();
     // Diag module needs PktModule
@@ -180,7 +187,7 @@ void ContrailAgentInit::InitDone() {
     agent_->ksync()->UpdateVhostMac();
     agent_->ksync()->VnswInterfaceListenerInit();
 
-    if (agent_->GetRouterIdConfigured()) {
+    if (agent_->router_id_configured()) {
         RouterIdDepInit(agent_);
     } else {
         LOG(DEBUG, 
@@ -197,7 +204,7 @@ bool ContrailAgentInit::Run() {
     InitPeers();
     CreateModules();
     CreateDBTables();
-    CreateDBClients();
+    RegisterDBClients();
     InitModules();
     CreateVrf();
     CreateNextHops();

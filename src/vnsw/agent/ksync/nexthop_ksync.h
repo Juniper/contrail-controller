@@ -13,6 +13,7 @@
 #include <db/db_table_partition.h>
 #include <ksync/ksync_entry.h>
 #include <ksync/ksync_object.h>
+#include <ksync/ksync_netlink.h>
 #include <ksync/interface_ksync.h>
 #include "oper/nexthop.h"
 
@@ -42,7 +43,8 @@ public:
     virtual int ChangeMsg(char *buf, int buf_len);
     virtual int DeleteMsg(char *buf, int buf_len);
     void FillObjectLog(sandesh_op::type op, KSyncNhInfo &info) const;
-    void SetEncap(std::vector<int8_t> &encap);
+    uint32_t nh_id() const { return nh_id_;}
+    void SetEncap(InterfaceKSyncEntry *if_ksync, std::vector<int8_t> &encap);
 private:
     class KSyncComponentNH {
     public:
@@ -50,8 +52,8 @@ private:
             label_(label), nh_(entry) {
         }
 
-        KSyncEntry *nh() const {
-            return nh_.get();
+        NHKSyncEntry *nh() const {
+            return static_cast<NHKSyncEntry *>(nh_.get());
         }
 
         uint32_t label() const {
@@ -88,6 +90,7 @@ private:
     COMPOSITETYPE comp_type_;
     TunnelType tunnel_type_;
     uint8_t prefix_len_;
+    uint32_t nh_id_;
     DISALLOW_COPY_AND_ASSIGN(NHKSyncEntry);
 };
 

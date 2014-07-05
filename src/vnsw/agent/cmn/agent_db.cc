@@ -128,3 +128,20 @@ void AgentDBTable::Process(DBRequest &req) {
         static_cast<DBTablePartition *>(GetTablePartition(req.key.get()));
     tpart->Process(NULL, &req);
 }
+
+
+static bool FlushNotify(DBTablePartBase *partition, DBEntryBase *e) {
+    DBRequest req(DBRequest::DB_ENTRY_DELETE);
+    req.key = e->GetDBRequestKey();
+    (static_cast<AgentDBTable *>(e->get_table()))->Process(req);
+    return true;
+}
+
+static void FlushWalkDone(DBTableBase *table) {
+}
+
+DBTableWalker *AgentDBTable::Flush() {
+    DBTableWalker *walker = new DBTableWalker();
+    walker->WalkTable(this, NULL, FlushNotify, FlushWalkDone);
+    return walker;
+}

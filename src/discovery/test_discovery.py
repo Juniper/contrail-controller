@@ -6,9 +6,10 @@ import gevent
 import argparse
 import os
 import sys
-import discovery.services as services
+#import discovery.services as services
 import discoveryclient.client as client
 import uuid
+import time
 
 
 class TestDiscService():
@@ -26,13 +27,15 @@ class TestDiscService():
             'server_ip': '127.0.0.1',
             'server_port': '5998',
             'service_type': None,
-            'count': 1,
+            'service_count': 1,
             'ip_addr': None,
             'port': None,
             'service_id': None,
             'admin_state': None,
             'prov_state': None,
             'subscribe_type': None,
+            'iterations': 1,
+            'delay': 0,
         }
 
         # override with CLI options
@@ -40,8 +43,8 @@ class TestDiscService():
             description="Test Discovery Service")
         parser.add_argument(
             'oper',
-            choices=['publish', 'subscribe', 'pubtest', 'update_service'],
-            help="Operation: publish/subscribe/pubtest")
+            choices=['publish', 'subscribe', 'pubtest', 'subtest', 'update_service', 'pubsub'],
+            help="Operation: publish/subscribe/pubtest/subtest/pubsub")
         parser.add_argument(
             '--server_ip', help="Discovery Server IP (default: 127.0.0.1)")
         parser.add_argument(
@@ -50,7 +53,7 @@ class TestDiscService():
         parser.add_argument(
             '--service_data', help="Service data to publish state of service)")
         parser.add_argument(
-            '--count', type=int, help="Number of instances. Default is 1")
+            '--service_count', type=int, help="Number of instances. Default is 1")
         parser.add_argument(
             '--ip_addr', help="IP address service to publish")
         parser.add_argument('--port', help="Port of service to publish)")
@@ -59,6 +62,10 @@ class TestDiscService():
         parser.add_argument(
             '--prov_state', help="Provision state of service)")
         parser.add_argument('--subscribe_type', help="sync or async")
+        parser.add_argument(
+            '--iterations', type=int, help="Number of iterations for scaled test. Default is 1")
+        parser.add_argument(
+            '--delay', type=int, help="Delay in seconds between iterations for scaled test. Default is 0")
 
         parser.set_defaults(**defaults)
         self.args = parser.parse_args(args_str.split())
@@ -80,7 +87,7 @@ class TestDiscService():
         print 'Discovery server = %s:%s'\
             % (self.args.server_ip, self.args.server_port)
         print 'Service type = ', self.args.service_type
-        print 'Instance count = ', self.args.count
+        print 'Instance count = ', self.args.service_count
     # end _parse_args
 
 
@@ -94,34 +101,59 @@ def main(args_str=None):
     _uuid = str(uuid.uuid4())
     myid = 'test_disc:%s' % (_uuid[:8])
     disc = client.DiscoveryClient(
-        x.args.server_ip, x.args.server_port, id=myid)
+        x.args.server_ip, x.args.server_port, "test-discovery")
     if x.args.oper == 'subscribe':
         print 'subscribe: service-type = %s, count = %d, myid = %s,\
             subscribe type: %s' \
-            % (x.args.service_type, x.args.count, myid, x.args.subscribe_type)
+            % (x.args.service_type, x.args.service_count, myid, x.args.subscribe_type)
 
         # sync
         if x.args.subscribe_type == 'sync':
-            obj = disc.subscribe(x.args.service_type, x.args.count)
+            obj = disc.subscribe(x.args.service_type, x.args.service_count)
             print obj.info
         else:
         # async
             obj = disc.subscribe(
-                x.args.service_type, x.args.count, info_callback)
+                x.args.service_type, x.args.service_count, info_callback)
             gevent.joinall([obj.task])
     elif x.args.oper == 'publish':
         print 'Publish: service-type %s info %s' \
             % (x.args.service_type, x.args.service_data)
         task = disc.publish(x.args.service_type, x.args.service_data)
         gevent.joinall([task])
+    elif x.args.oper == 'pubsub':
+        print 'PubSub: service-type %s info %s' \
+            % (x.args.service_type, x.args.service_data)
+        pubtask = disc.publish(x.args.service_type, x.args.service_data)
+        subobj = disc.subscribe(
+            x.args.service_type, x.args.service_count, info_callback)
+        gevent.joinall([pubtask, subobj.task])
     elif x.args.oper == 'pubtest':
         tasks = []
-        for i in range(x.args.count):
+        for i in range(x.args.iterations):
+            disc = client.DiscoveryClient(
+                x.args.server_ip, x.args.server_port, 
+                    "disco-%d" % i, pub_id = "disco-%d" % i)
             data = '%s-%d' % (x.args.service_type, i)
             print 'Publish: service-type %s, data %s'\
                 % (x.args.service_type, data)
             task = disc.publish(x.args.service_type, data)
             tasks.append(task)
+            if x.args.delay:
+                time.sleep(x.args.delay)
+        gevent.joinall(tasks)
+    elif x.args.oper == 'subtest':
+        tasks = []
+        for i in range(x.args.iterations):
+            disc = client.DiscoveryClient(
+                x.args.server_ip, x.args.server_port, "test-discovery-%d" % i)
+            obj = disc.subscribe(
+                      x.args.service_type, x.args.service_count, info_callback)
+            tasks.append(obj.task)
+            if x.args.delay:
+                time.sleep(x.args.delay)
+        print 'Started %d tasks to subscribe service %s, count %d' \
+            % (x.args.iterations, x.args.service_type, x.args.service_count)
         gevent.joinall(tasks)
     elif x.args.oper == 'update_service':
         if x.args.service_id is None:

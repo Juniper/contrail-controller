@@ -422,7 +422,7 @@ TEST_F(UveVrouterUveTest, BandwidthTest_1) {
 
     PhysicalInterfaceKey key(Agent::GetInstance()->params()->eth_port());
     Interface *intf = static_cast<Interface *>
-        (Agent::GetInstance()->GetInterfaceTable()->FindActiveEntry(&key));
+        (Agent::GetInstance()->interface_table()->FindActiveEntry(&key));
     EXPECT_TRUE((intf != NULL));
 
     //Fetch interface stats
@@ -470,7 +470,7 @@ TEST_F(UveVrouterUveTest, BandwidthTest_2) {
 
     PhysicalInterfaceKey key(Agent::GetInstance()->params()->eth_port());
     Interface *intf = static_cast<Interface *>
-        (Agent::GetInstance()->GetInterfaceTable()->FindActiveEntry(&key));
+        (Agent::GetInstance()->interface_table()->FindActiveEntry(&key));
     EXPECT_TRUE((intf != NULL));
 
     //Fetch interface stats
@@ -544,7 +544,7 @@ TEST_F(UveVrouterUveTest, BandwidthTest_3) {
 
     PhysicalInterfaceKey key(Agent::GetInstance()->params()->eth_port());
     Interface *intf = static_cast<Interface *>
-        (Agent::GetInstance()->GetInterfaceTable()->FindActiveEntry(&key));
+        (Agent::GetInstance()->interface_table()->FindActiveEntry(&key));
     EXPECT_TRUE((intf != NULL));
 
     //Fetch interface stats
@@ -795,7 +795,8 @@ int main(int argc, char **argv) {
 
     usleep(10000);
     int ret = RUN_ALL_TESTS();
-    Agent::GetInstance()->GetEventManager()->Shutdown();
+    Agent::GetInstance()->event_manager()->Shutdown();
     AsioStop();
+    TaskScheduler::GetInstance()->Terminate();
     return ret;
 }

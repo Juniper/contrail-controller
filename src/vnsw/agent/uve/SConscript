@@ -13,9 +13,11 @@ vrouter_pkg = env.SandeshGenPy('vrouter.sandesh', 'vrouter/', False)
 virtual_machine_pkg = env.SandeshGenPy('virtual_machine.sandesh', 'vrouter/sandesh/', False)
 virtual_network_pkg = env.SandeshGenPy('virtual_network.sandesh', 'vrouter/sandesh/', False)
 cpuinfo_pkg = env.SandeshGenPy('#controller/src/base/sandesh/cpuinfo.sandesh', 'vrouter/vrouter/', False)
+conn_info_pkg = env.SandeshGenPy('#controller/src/base/sandesh/connection_info.sandesh', 'vrouter/vrouter/', False)
 port_bmap_pkg = env.SandeshGenPy('port_bmap.sandesh', 'vrouter/sandesh/virtual_machine/', False)
 flow_pkg = env.SandeshGenPy('#controller/src/sandesh/common/flow.sandesh', 'vrouter/sandesh/', False)
 env.Depends(cpuinfo_pkg, vrouter_pkg)
+env.Depends(conn_info_pkg, vrouter_pkg)
 env.Depends(port_bmap_pkg, virtual_machine_pkg)
 
 setup_sources = [
@@ -51,6 +53,7 @@ sdist_depends.extend(setup_sources_rules)
 sdist_depends.extend(vrouter_sources_rules)
 sdist_depends.extend(vrouter_pkg)
 sdist_depends.extend(cpuinfo_pkg)
+sdist_depends.extend(conn_info_pkg)
 sdist_depends.extend(virtual_machine_pkg)
 sdist_depends.extend(virtual_network_pkg)
 sdist_depends.extend(port_bmap_pkg)
@@ -105,6 +108,7 @@ mockEnv.Prepend(LIBS=[
     'sandesh',
     'http',
     'http_parser',
+    'connection_info',
     'io',
     'sandesh',
     'base',

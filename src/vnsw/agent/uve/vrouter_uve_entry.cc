@@ -14,9 +14,9 @@
 #include <oper/mirror_table.h>
 #include <controller/controller_peer.h>
 #include <uve/agent_uve.h>
+#include <pkt/agent_stats.h>
 #include <base/cpuinfo.h>
 #include <base/util.h>
-#include <cmn/agent_stats.h>
 #include <cmn/agent_cmn.h>
 
 using namespace std;
@@ -34,23 +34,23 @@ VrouterUveEntry::~VrouterUveEntry() {
 }
 
 void VrouterUveEntry::RegisterDBClients() {
-    VnTable *vn_table = agent_->GetVnTable();
+    VnTable *vn_table = agent_->vn_table();
     vn_listener_id_ = vn_table->Register
                   (boost::bind(&VrouterUveEntry::VnNotify, this, _1, _2));
 
-    VmTable *vm_table = agent_->GetVmTable();
+    VmTable *vm_table = agent_->vm_table();
     vm_listener_id_ = vm_table->Register
         (boost::bind(&VrouterUveEntry::VmNotify, this, _1, _2));
 
-    InterfaceTable *intf_table = agent_->GetInterfaceTable();
+    InterfaceTable *intf_table = agent_->interface_table();
     intf_listener_id_ = intf_table->Register
                (boost::bind(&VrouterUveEntry::InterfaceNotify, this, _1, _2));
 }
 
 void VrouterUveEntry::Shutdown(void) {
-    agent_->GetInterfaceTable()->Unregister(intf_listener_id_);
-    agent_->GetVmTable()->Unregister(vm_listener_id_);
-    agent_->GetVnTable()->Unregister(vn_listener_id_);
+    agent_->interface_table()->Unregister(intf_listener_id_);
+    agent_->vm_table()->Unregister(vm_listener_id_);
+    agent_->vn_table()->Unregister(vn_listener_id_);
 }
 
 void VrouterUveEntry::DispatchVrouterMsg(const VrouterAgent &uve) {
@@ -67,7 +67,7 @@ void VrouterUveEntry::DispatchComputeCpuStateMsg(const ComputeCpuState &ccs) {
 
 void VrouterUveEntry::VmWalkDone(DBTableBase *base, StringVectorPtr list) {
     VrouterAgent vrouter_agent;
-    vrouter_agent.set_name(agent_->GetHostName());
+    vrouter_agent.set_name(agent_->host_name());
     vrouter_agent.set_virtual_machine_list(*(list.get()));
     DispatchVrouterMsg(vrouter_agent);
 }
@@ -86,8 +86,8 @@ bool VrouterUveEntry::AppendVm(DBTablePartBase *part, DBEntryBase *entry,
 
 void VrouterUveEntry::VmNotifyHandler(const VmEntry *vm) {
     StringVectorPtr list(new vector<string>());
-    DBTableWalker *walker = agent_->GetDB()->GetWalker();
-    walker->WalkTable(agent_->GetVmTable(), NULL,
+    DBTableWalker *walker = agent_->db()->GetWalker();
+    walker->WalkTable(agent_->vm_table(), NULL,
         boost::bind(&VrouterUveEntry::AppendVm, this, _1, _2, list),
         boost::bind(&VrouterUveEntry::VmWalkDone, this, _1, list));
 }
@@ -117,7 +117,7 @@ void VrouterUveEntry::VmNotify(DBTablePartBase *partition, DBEntryBase *e) {
 
 void VrouterUveEntry::VnWalkDone(DBTableBase *base, StringVectorPtr list) {
     VrouterAgent vrouter_agent;
-    vrouter_agent.set_name(agent_->GetHostName());
+    vrouter_agent.set_name(agent_->host_name());
     vrouter_agent.set_connected_networks(*(list.get()));
     DispatchVrouterMsg(vrouter_agent);
 }
@@ -134,8 +134,8 @@ bool VrouterUveEntry::AppendVn(DBTablePartBase *part, DBEntryBase *entry,
 
 void VrouterUveEntry::VnNotifyHandler(const VnEntry *vn) {
     StringVectorPtr list(new vector<string>());
-    DBTableWalker *walker = agent_->GetDB()->GetWalker();
-    walker->WalkTable(agent_->GetVnTable(), NULL, 
+    DBTableWalker *walker = agent_->db()->GetWalker();
+    walker->WalkTable(agent_->vn_table(), NULL, 
              boost::bind(&VrouterUveEntry::AppendVn, this, _1, _2, list),
              boost::bind(&VrouterUveEntry::VnWalkDone, this, _1, list));
 }
@@ -167,7 +167,7 @@ void VrouterUveEntry::InterfaceWalkDone(DBTableBase *base,
                                         StringVectorPtr err_if_list,
                                         StringVectorPtr nova_if_list) {
     VrouterAgent vrouter_agent;
-    vrouter_agent.set_name(agent_->GetHostName());
+    vrouter_agent.set_name(agent_->host_name());
     vrouter_agent.set_interface_list(*(if_list.get()));
     vrouter_agent.set_error_intf_list(*(err_if_list.get()));
     vrouter_agent.set_no_config_intf_list(*(nova_if_list.get()));
@@ -206,8 +206,8 @@ void VrouterUveEntry::InterfaceNotifyHandler(const Interface *intf) {
     StringVectorPtr err_if_list(new std::vector<std::string>());
     StringVectorPtr nova_if_list(new std::vector<std::string>());
 
-    DBTableWalker *walker = agent_->GetDB()->GetWalker();
-    walker->WalkTable(agent_->GetInterfaceTable(), NULL,
+    DBTableWalker *walker = agent_->db()->GetWalker();
+    walker->WalkTable(agent_->interface_table(), NULL,
         boost::bind(&VrouterUveEntry::AppendInterface, this, _1, _2, intf_list,
                     err_if_list, nova_if_list),
         boost::bind(&VrouterUveEntry::InterfaceWalkDone, this, _1, intf_list, 
@@ -279,7 +279,7 @@ void VrouterUveEntry::BuildAndSendComputeCpuStateMsg(const CpuLoadInfo &info) {
     VrouterCpuInfo ainfo;
     vector<VrouterCpuInfo> aciv;
 
-    astate.set_name(agent_->GetHostName());
+    astate.set_name(agent_->host_name());
     ainfo.set_cpu_share(info.get_cpu_share());
     ainfo.set_mem_virt(info.get_meminfo().get_virt());
     ainfo.set_used_sys_mem(info.get_sys_mem_info().get_used());
@@ -297,7 +297,7 @@ bool VrouterUveEntry::SendVrouterMsg() {
 
     SendVrouterUve();
 
-    stats.set_name(agent_->GetHostName());
+    stats.set_name(agent_->host_name());
 
     if (prev_stats_.get_in_tpkts() != 
         agent_->stats()->in_pkts() || first) {
@@ -465,7 +465,7 @@ bool VrouterUveEntry::SendVrouterMsg() {
     }
     InetInterfaceKey key(agent_->vhost_interface_name());
     const Interface *vhost = static_cast<const Interface *>
-        (agent_->GetInterfaceTable()->FindActiveEntry(&key));
+        (agent_->interface_table()->FindActiveEntry(&key));
     const AgentStatsCollector::InterfaceStats *s = 
         agent_->uve()->agent_stats_collector()->GetInterfaceStats(vhost);
     if (s != NULL) {
@@ -523,16 +523,12 @@ void VrouterUveEntry::BuildAgentConfig(VrouterAgent &vrouter_agent) {
     AgentXenConfig xen_cfg;
     AgentVmwareConfig vmware_cfg;
     string hypervisor;
-    int collector_port;
     vector<string> dns_list;
     vector<string> control_node_list;
     vector<AgentVgwConfig> gw_cfg_list;
 
     AgentParam *param = agent_->params();
 
-    vrouter_agent.set_collector(param->collector().to_string());
-    collector_port = param->collector_port();
-    vrouter_agent.set_collector_port(collector_port);
     vrouter_agent.set_log_file(param->log_file());
     vrouter_agent.set_config_file(param->config_file());
     vrouter_agent.set_log_local(param->log_local());
@@ -543,12 +539,12 @@ void VrouterUveEntry::BuildAgentConfig(VrouterAgent &vrouter_agent) {
     vrouter_agent.set_hostname_cfg(param->host_name());
     vrouter_agent.set_flow_cache_timeout_cfg(param->flow_cache_timeout());
 
-    dns_list.push_back(param->xmpp_server_1().to_string());
-    dns_list.push_back(param->xmpp_server_2().to_string());
+    dns_list.push_back(param->dns_server_1().to_string());
+    dns_list.push_back(param->dns_server_2().to_string());
     vrouter_agent.set_dns_server_list_cfg(dns_list);
 
-    control_node_list.push_back(param->dns_server_1().to_string());
-    control_node_list.push_back(param->dns_server_2().to_string());
+    control_node_list.push_back(param->xmpp_server_1().to_string());
+    control_node_list.push_back(param->xmpp_server_2().to_string());
     vrouter_agent.set_control_node_list_cfg(control_node_list);
 
     vrouter_agent.set_ll_max_system_flows_cfg(param->linklocal_system_flows());
@@ -604,6 +600,7 @@ void VrouterUveEntry::BuildAgentConfig(VrouterAgent &vrouter_agent) {
     }
     vrouter_agent.set_gateway_cfg_list(gw_cfg_list);
     vrouter_agent.set_headless_mode_cfg(param->headless_mode());
+    vrouter_agent.set_collector_server_list_cfg(param->collector_server_list());
 }
 
 
@@ -611,8 +608,8 @@ void VrouterUveEntry::SendVrouterUve() {
     VrouterAgent vrouter_agent;
     bool changed = false;
     static bool first = true, build_info = false;
-    vrouter_agent.set_name(agent_->GetHostName());
-    Ip4Address rid = agent_->GetRouterId();
+    vrouter_agent.set_name(agent_->host_name());
+    Ip4Address rid = agent_->router_id();
     vector<string> ip_list;
     vector<string> dns_list;
 
@@ -635,7 +632,7 @@ void VrouterUveEntry::SendVrouterUve() {
         //vhost attributes
         InetInterfaceKey key(agent_->vhost_interface_name());
         const Interface *vhost = static_cast<const Interface *>(
-             agent_->GetInterfaceTable()->FindActiveEntry(&key));
+             agent_->interface_table()->FindActiveEntry(&key));
         if (vhost) {
             AgentInterface vitf;
             vitf.set_name(vhost->name());
@@ -665,9 +662,9 @@ void VrouterUveEntry::SendVrouterUve() {
     std::vector<AgentXmppPeer> xmpp_list;
     for (int count = 0; count < MAX_XMPP_SERVERS; count++) {
         AgentXmppPeer peer;
-        if (!agent_->GetXmppServer(count).empty()) {
-            peer.set_ip(agent_->GetXmppServer(count));
-            AgentXmppChannel *ch = agent_->GetAgentXmppChannel(count);
+        if (!agent_->controller_ifmap_xmpp_server(count).empty()) {
+            peer.set_ip(agent_->controller_ifmap_xmpp_server(count));
+            AgentXmppChannel *ch = agent_->controller_xmpp_channel(count);
             if (ch == NULL) {
                 continue;
             }
@@ -680,8 +677,8 @@ void VrouterUveEntry::SendVrouterUve() {
             } else {
                 peer.set_status(false);
             }
-            peer.set_setup_time(agent_->GetAgentXmppChannelSetupTime(count));
-            if (agent_->GetXmppCfgServerIdx() == count) {
+            peer.set_setup_time(agent_->controller_xmpp_channel_setup_time(count));
+            if (agent_->ifmap_active_xmpp_server_index() == count) {
                 peer.set_primary(true);
             } else {
                 peer.set_primary(false);
@@ -708,8 +705,8 @@ void VrouterUveEntry::SendVrouterUve() {
 
 
     for (int idx = 0; idx < MAX_XMPP_SERVERS; idx++) {
-        if (!agent_->GetDnsXmppServer(idx).empty()) {
-            dns_list.push_back(agent_->GetDnsXmppServer(idx));
+        if (!agent_->dns_server(idx).empty()) {
+            dns_list.push_back(agent_->dns_server(idx));
         }
     }
 
@@ -911,8 +908,8 @@ void VrouterUveEntry::FetchDropStats(AgentDropStats &ds) const {
 void VrouterUveEntry::BuildXmppStatsList(vector<AgentXmppStats> &list) const {
     for (int count = 0; count < MAX_XMPP_SERVERS; count++) {
         AgentXmppStats peer;
-        if (!agent_->GetXmppServer(count).empty()) {
-            AgentXmppChannel *ch = agent_->GetAgentXmppChannel(count);
+        if (!agent_->controller_ifmap_xmpp_server(count).empty()) {
+            AgentXmppChannel *ch = agent_->controller_xmpp_channel(count);
             if (ch == NULL) {
                 continue;
             }
@@ -920,7 +917,7 @@ void VrouterUveEntry::BuildXmppStatsList(vector<AgentXmppStats> &list) const {
             if (xc == NULL) {
                 continue;
             }
-            peer.set_ip(agent_->GetXmppServer(count));
+            peer.set_ip(agent_->controller_ifmap_xmpp_server(count));
             peer.set_reconnects(agent_->stats()->xmpp_reconnects(count));
             peer.set_in_msgs(agent_->stats()->xmpp_in_msgs(count));
             peer.set_out_msgs(agent_->stats()->xmpp_out_msgs(count));

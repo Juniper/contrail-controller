@@ -17,6 +17,7 @@
 #include "base/task.h"
 #include "base/task_trigger.h"
 #include "base/timer.h"
+#include "base/connection_info.h"
 #include "io/event_manager.h"
 #include <sandesh/sandesh_types.h>
 #include <sandesh/sandesh.h>
@@ -27,7 +28,7 @@
 #include "viz_sandesh.h"
 #include "ruleeng.h"
 #include "viz_types.h"
-#include "analytics_cpuinfo_types.h"
+#include "analytics_types.h"
 #include "generator.h"
 #include "Thrift.h"
 #include <base/misc_utils.h>
@@ -130,6 +131,38 @@ bool CollectorSummaryLogger(Collector *collector, const string & hostname,
     return true;
 }
 
+void CollectorGetConnectivityStatus(const std::vector<ConnectionInfo> &cinfos,
+    ConnectivityStatus::type &cstatus, std::string &message) {
+    // Determine if the number of connections is expected:
+    // 1. Collector client
+    // 2. Redis From
+    // 3. Redis To
+    // 4. Discovery Collector Publish
+    // 5. Database global
+    size_t num_conns(cinfos.size());
+    if (num_conns != 5) {
+        cstatus = ConnectivityStatus::NON_FUNCTIONAL;
+        message = "Number of connections:" + integerToString(num_conns) + 
+            ", Expected: 5";
+        return;
+    }   
+    std::string cdown(g_connection_info_constants.ConnectionStatusNames.
+        find(ConnectionStatus::DOWN)->second);
+    // Iterate to determine process connectivity status
+    for (std::vector<ConnectionInfo>::const_iterator it = cinfos.begin();
+         it != cinfos.end(); it++) {
+        const ConnectionInfo &cinfo(*it);
+        const std::string &conn_status(cinfo.get_status());
+        if (conn_status == cdown) {
+            cstatus = ConnectivityStatus::NON_FUNCTIONAL;
+            message = cinfo.get_type() + ":" + cinfo.get_name();
+            return;
+        }
+    }
+    cstatus = ConnectivityStatus::FUNCTIONAL;
+    return;  
+}
+
 bool CollectorInfoLogger(VizSandeshContext &ctx) {
     VizCollector *analytics = ctx.Analytics();
 
@@ -195,6 +228,8 @@ static void ShutdownServers(VizCollector *viz_collector,
     TimerManager::DeleteTimer(collector_info_log_timer);
     delete collector_info_trigger;
 
+    ConnectionStateManager<AnalyticsProcessStatusUVE, AnalyticsProcessStatus>::
+        GetInstance()->Shutdown();
     VizCollector::WaitForIdle();
     Sandesh::Uninit();
     VizCollector::WaitForIdle();
@@ -238,26 +273,37 @@ int main(int argc, char *argv[])
                     options.log_files_count());
     }
 
-    string cassandra_server = options.cassandra_server_list()[0];
-    typedef boost::tokenizer<boost::char_separator<char> > tokenizer;
-    boost::char_separator<char> sep(":");
-    tokenizer tokens(cassandra_server, sep);
-    tokenizer::iterator it = tokens.begin();
-    std::string cassandra_ip(*it);
-    ++it;
-    std::string port(*it);
-    int cassandra_port;
-    stringToInteger(port, cassandra_port);
+    vector<string> cassandra_servers(options.cassandra_server_list());
+    vector<string> cassandra_ips;
+    vector<int> cassandra_ports;
+    for (vector<string>::const_iterator it = cassandra_servers.begin();
+         it != cassandra_servers.end(); it++) {
+        string cassandra_server(*it);
+        typedef boost::tokenizer<boost::char_separator<char> > tokenizer;
+        boost::char_separator<char> sep(":");
+        tokenizer tokens(cassandra_server, sep);
+        tokenizer::iterator tit = tokens.begin();
+        string cassandra_ip(*tit);
+        cassandra_ips.push_back(cassandra_ip);
+        ++tit;
+        string port(*tit);
+        int cassandra_port;
+        stringToInteger(port, cassandra_port);
+        cassandra_ports.push_back(cassandra_port);
+    }
 
     LOG(INFO, "COLLECTOR LISTEN PORT: " << options.collector_port());
     LOG(INFO, "COLLECTOR REDIS UVE PORT: " << options.redis_port());
-    LOG(INFO, "COLLECTOR CASSANDRA SERVER: " << cassandra_ip);
-    LOG(INFO, "COLLECTOR CASSANDRA PORT: " << cassandra_port);
+    ostringstream css;
+    copy(cassandra_servers.begin(), cassandra_servers.end(),
+         ostream_iterator<string>(css, " "));
+    LOG(INFO, "COLLECTOR CASSANDRA SERVERS: " << css.str());
+    LOG(INFO, "COLLECTOR SYSLOG LISTEN PORT: " << options.syslog_port());
 
     VizCollector analytics(&evm,
             options.collector_port(),
-            cassandra_ip,
-            cassandra_port,
+            cassandra_ips,
+            cassandra_ports,
             string("127.0.0.1"),
             options.redis_port(),
             options.syslog_port(),
@@ -282,11 +328,13 @@ int main(int argc, char *argv[])
     Module::type module = Module::COLLECTOR;
     NodeType::type node_type =
         g_vns_constants.Module2NodeType.find(module)->second;
+    std::string module_id(g_vns_constants.ModuleNames.find(module)->second);
+    std::string instance_id(g_vns_constants.INSTANCE_ID_DEFAULT);
     Sandesh::InitCollector(
-            g_vns_constants.ModuleNames.find(module)->second,
+            module_id,
             analytics.name(),
             g_vns_constants.NodeTypeNames.find(node_type)->second,
-            g_vns_constants.INSTANCE_ID_DEFAULT, 
+            instance_id, 
             &evm, "127.0.0.1", options.collector_port(),
             options.http_server_port(), &vsc);
 
@@ -324,6 +372,10 @@ int main(int argc, char *argv[])
     }
              
     CpuLoadData::Init();
+    ConnectionStateManager<AnalyticsProcessStatusUVE, AnalyticsProcessStatus>::
+        GetInstance()->Init(*evm.io_service(),
+            analytics.name(), module_id, instance_id,
+            boost::bind(&CollectorGetConnectivityStatus, _1, _2, _3));
     collector_info_trigger =
         new TaskTrigger(boost::bind(&CollectorInfoLogger, vsc),
                     TaskScheduler::GetInstance()->GetTaskId("vizd::Stats"), 0);

@@ -5,6 +5,8 @@
 #ifndef __BGP_SERVER_H__
 #define __BGP_SERVER_H__
 
+#include <tbb/spin_rw_mutex.h>
+
 #include <boost/asio/ip/tcp.hpp>
 #include <boost/dynamic_bitset.hpp>
 #include <boost/scoped_ptr.hpp>
@@ -34,6 +36,7 @@ class ServiceChainMgr;
 
 class BgpServer {
 public:
+    typedef boost::function<void(as_t)> ASNUpdateCb;
     typedef boost::function<void(BgpPeer *)> VisitorFn;
     explicit BgpServer(EventManager *evm);
     virtual ~BgpServer();
@@ -70,6 +73,8 @@ public:
             return inetvpn_replicator_.get();
         if (family == Address::EVPN)
             return evpn_replicator_.get();
+        if (family == Address::ERMVPN)
+            return ermvpn_replicator_.get();
 
         assert(false);
         return NULL;
@@ -108,17 +113,24 @@ public:
     }
     LifetimeActor *deleter();
     boost::asio::io_service *ioservice();
+    int RegisterASNUpdateCallback(ASNUpdateCb cb);
+    void UnregisterASNUpdateCallback(int id);
+    void NotifyASNUpdate(as_t old_asn);
 
 private:
     class ConfigUpdater;
     class DeleteActor;
     friend class BgpServerTest;
     typedef std::map<std::string, BgpPeer *> BgpPeerList;
+    typedef std::vector<ASNUpdateCb> ASNUpdateListenersList;
 
     void RoutingInstanceMgrDeletionComplete(RoutingInstanceMgr *mgr);
 
     // base config variables
     as_t autonomous_system_;
+    tbb::spin_rw_mutex rw_mutex_;
+    ASNUpdateListenersList asn_listeners_;
+    boost::dynamic_bitset<> bmap_;      // free list.
     Ip4Address bgp_identifier_;
     uint16_t hold_time_;
 
@@ -144,6 +156,7 @@ private:
     boost::scoped_ptr<PeerRibMembershipManager> membership_mgr_;
     boost::scoped_ptr<BgpConditionListener> condition_listener_;
     boost::scoped_ptr<RoutePathReplicator> inetvpn_replicator_;
+    boost::scoped_ptr<RoutePathReplicator> ermvpn_replicator_;
     boost::scoped_ptr<RoutePathReplicator> evpn_replicator_;
     boost::scoped_ptr<ServiceChainMgr> service_chain_mgr_;
 

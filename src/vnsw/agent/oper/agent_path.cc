@@ -14,7 +14,7 @@
 #include <oper/tunnel_nh.h>
 #include <oper/mpls.h>
 #include <oper/mirror_table.h>
-#include <controller/controller_export.h>
+#include <oper/peer.h>
 #include <oper/agent_sandesh.h>
 
 using namespace std;
@@ -198,13 +198,13 @@ bool AgentPath::UpdateTunnelType(Agent *agent, const AgentRoute *sync_route) {
     if (nh_.get() && nh_->GetType() == NextHop::TUNNEL) {
         DBRequest nh_req(DBRequest::DB_ENTRY_ADD_CHANGE);
         TunnelNHKey *tnh_key =
-            new TunnelNHKey(agent->GetDefaultVrf(), agent->GetRouterId(),
+            new TunnelNHKey(agent->fabric_vrf_name(), agent->router_id(),
                             server_ip_, false, tunnel_type_);
         nh_req.key.reset(tnh_key);
         nh_req.data.reset(new TunnelNHData());
         agent->nexthop_table()->Process(nh_req);
 
-        TunnelNHKey nh_key(agent->GetDefaultVrf(), agent->GetRouterId(),
+        TunnelNHKey nh_key(agent->fabric_vrf_name(), agent->router_id(),
                            server_ip_, false, tunnel_type_);
         NextHop *nh = static_cast<NextHop *>
             (agent->nexthop_table()->FindActiveEntry(&nh_key));
@@ -242,7 +242,7 @@ bool AgentPath::Sync(AgentRoute *sync_route) {
     Inet4UnicastAgentRouteTable *table = NULL;
     Inet4UnicastRouteEntry *rt = NULL;
     table = static_cast<Inet4UnicastAgentRouteTable *>
-        (agent->GetVrfTable()->GetInet4UnicastRouteTable(vrf_name_));
+        (agent->vrf_table()->GetInet4UnicastRouteTable(vrf_name_));
     if (table)
         rt = table->FindRoute(gw_ip_);
 
@@ -270,6 +270,20 @@ bool AgentPath::Sync(AgentRoute *sync_route) {
         ret = true;
     }
     return ret;
+}
+
+bool AgentPath::IsLess(const AgentPath &r_path) const {
+    if (peer()->GetType() == Peer::LOCAL_VM_PORT_PEER && 
+        peer()->GetType() == r_path.peer()->GetType()) {
+        if (path_preference() != r_path.path_preference()) {
+            //If right path has lesser preference, then
+            //it should be after the current entry
+            //Hence the reverse check
+            return (r_path.path_preference() < path_preference());
+        }
+    }
+
+    return peer()->IsLess(r_path.peer());
 }
 
 bool HostRoute::AddChangePath(Agent *agent, AgentPath *path) {
@@ -352,7 +366,7 @@ bool LocalVmRoute::AddChangePath(Agent *agent, AgentPath *path) {
     //TODO Based on key table type pick up interface
     VmInterfaceKey intf_key(AgentKey::ADD_DEL_CHANGE, intf_.uuid_, "");
     VmInterface *vm_port = static_cast<VmInterface *>
-        (agent->GetInterfaceTable()->FindActiveEntry(&intf_key));
+        (agent->interface_table()->FindActiveEntry(&intf_key));
 
     bool policy = false;
     // Use policy based NH if policy enabled on interface
@@ -403,6 +417,13 @@ bool LocalVmRoute::AddChangePath(Agent *agent, AgentPath *path) {
     path_sg_list = path->sg_list();
     if (path_sg_list != sg_list_) {
         path->set_sg_list(sg_list_);
+        ret = true;
+    }
+
+    //If there is a transition in path from active-active to
+    //ative-backup or vice-versa copy over entire path preference structure
+    if (path->path_preference().ecmp() != path_preference_.ecmp()) {
+        path->set_path_preference(path_preference_);
         ret = true;
     }
 
@@ -460,70 +481,15 @@ bool VlanNhRoute::AddChangePath(Agent *agent, AgentPath *path) {
         ret = true;
     }
 
-    path->set_unresolved(false);
-    if (path->ChangeNH(agent, nh) == true)
-        ret = true;
-
-    return ret;
-}
-
-bool RemoteVmRoute::AddChangePath(Agent *agent, AgentPath *path) {
-    bool ret = false;
-    NextHop *nh = NULL;
-    SecurityGroupList path_sg_list;
-
-    if (path->tunnel_bmap() != tunnel_bmap_) {
-        path->set_tunnel_bmap(tunnel_bmap_);
-        ret = true;
-    }
-
-    TunnelType::Type new_tunnel_type = TunnelType::ComputeType(tunnel_bmap_);
-    if ((tunnel_bmap_ == (1 << TunnelType::VXLAN) && 
-         (new_tunnel_type != TunnelType::VXLAN)) ||
-        (tunnel_bmap_ != (1 << TunnelType::VXLAN) &&
-         (new_tunnel_type == TunnelType::VXLAN))) {
-        new_tunnel_type = TunnelType::INVALID;
-        nh_req_.key.reset(new TunnelNHKey(agent->GetDefaultVrf(),
-                                          agent->GetRouterId(), server_ip_,
-                                          false, new_tunnel_type));
-    }
-    agent->nexthop_table()->Process(nh_req_);
-    TunnelNHKey key(agent->GetDefaultVrf(), agent->GetRouterId(), server_ip_,
-                    false, new_tunnel_type);
-    nh = static_cast<NextHop *>(agent->nexthop_table()->FindActiveEntry(&key));
-    path->set_server_ip(server_ip_);
-
-    if (path->tunnel_type() != new_tunnel_type) {
-        path->set_tunnel_type(new_tunnel_type);
-        ret = true;
-    }
-
-    if (new_tunnel_type == TunnelType::VXLAN) {
-        if (path->vxlan_id() != label_) {
-            path->set_vxlan_id(label_);
-            path->set_label(MplsTable::kInvalidLabel);
-            ret = true;
-        }
-    } else {
-        if (path->label() != label_) {
-            path->set_label(label_);
-            path->set_vxlan_id(VxLanTable::kInvalidvxlan_id);
-            ret = true;
-        }
-    }
-
-    if (path->dest_vn_name() != dest_vn_name_) {
-        path->set_dest_vn_name(dest_vn_name_);
+    //Copy over entire path preference structure, whenever there is a
+    //transition from active-active to active-backup struture
+    if (path->path_preference().ecmp() != path_preference_.ecmp()) {
+        path->set_path_preference(path_preference_);
         ret = true;
     }
 
     path->set_unresolved(false);
-    if (path->ChangeNH(agent, nh) == true)
-        ret = true;
-
-    path_sg_list = path->sg_list();
-    if (path_sg_list != sg_list_) {
-        path->set_sg_list(sg_list_);
+    if (path->ChangeNH(agent, nh) == true) {
         ret = true;
     }
 
@@ -537,8 +503,8 @@ bool ResolveRoute::AddChangePath(Agent *agent, AgentPath *path) {
 
     nh = static_cast<NextHop *>(agent->nexthop_table()->FindActiveEntry(&key));
     path->set_unresolved(false);
-    if (path->dest_vn_name() != agent->GetFabricVnName()) {
-        path->set_dest_vn_name(agent->GetFabricVnName());
+    if (path->dest_vn_name() != agent->fabric_vn_name()) {
+        path->set_dest_vn_name(agent->fabric_vn_name());
         ret = true;
     }
     if (path->ChangeNH(agent, nh) == true)
@@ -595,13 +561,23 @@ bool MulticastRoute::AddChangePath(Agent *agent, AgentPath *path) {
     return ret;
 }
 
+bool PathPreferenceData::AddChangePath(Agent *agent, AgentPath *path) {
+    bool ret = false;
+    if (path &&
+        path->path_preference() != path_preference_) {
+        path->set_path_preference(path_preference_);
+        ret = true;
+    }
+    return ret;
+}
+
 ///////////////////////////////////////////////
 // Sandesh routines below (route_sandesh.cc) 
 //////////////////////////////////////////////
 //TODO make it generic 
 void UnresolvedNH::HandleRequest() const {
 
-    VrfEntry *vrf = Agent::GetInstance()->GetVrfTable()->FindVrfFromId(0);
+    VrfEntry *vrf = Agent::GetInstance()->vrf_table()->FindVrfFromId(0);
     if (!vrf) {
         ErrorResp *resp = new ErrorResp();
         resp->set_context(context());
@@ -765,4 +741,11 @@ void AgentPath::SetSandeshData(PathSandeshData &pdata) const {
     pdata.set_supported_tunnel_type(
             TunnelType::GetString(tunnel_bmap()));
     pdata.set_stale(is_stale());
+    PathPreferenceSandeshData path_preference_data;
+    path_preference_data.set_sequence(path_preference_.sequence());
+    path_preference_data.set_preference(path_preference_.preference());
+    path_preference_data.set_ecmp(path_preference_.ecmp());
+    path_preference_data.set_wait_for_traffic(
+         path_preference_.wait_for_traffic());
+    pdata.set_path_preference_data(path_preference_data);
 }

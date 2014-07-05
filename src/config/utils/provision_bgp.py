@@ -43,7 +43,7 @@ class BgpProvisioner(object):
 
     def add_bgp_router(self, router_type, router_name, router_ip, router_asn):
         if router_type == 'contrail':
-            bgp_addr_fams = AddressFamilies(['route-target', 'inet-vpn', 'e-vpn'])
+            bgp_addr_fams = AddressFamilies(['route-target', 'inet-vpn', 'e-vpn', 'erm-vpn'])
         else:
             bgp_addr_fams = AddressFamilies(['route-target', 'inet-vpn'])
         bgp_sess_attrs = [

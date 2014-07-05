@@ -17,7 +17,8 @@ env.Append(LIBPATH = ['#/' + Dir('..').path,
 env.Append(LIBPATH = env['TOP'] + '/base/test')
 
 env.Prepend(LIBS = ['gunit', 'task_test', 'io', 'sandesh', 'http',
-                    'sandeshvns', 'io', 'base', 'http_parser', 'curl',
+                    'sandeshvns', 'connection_info', 'io', 'base',
+                    'http_parser', 'curl',
                     'boost_program_options', 'pugixml'])
 
 if sys.platform != 'darwin':
@@ -59,11 +60,14 @@ env.Alias('src/io:udp_io_test', udp_io_test)
 
 test_suite = [
     event_manager_test,
-    tcp_server_test,
-    tcp_io_test,
-#   tcp_stress_test, # TODO Flaky test
     udp_io_test,
-    ]
+]
+
+flaky_test_suite = [
+    tcp_io_test,
+    tcp_server_test,
+    tcp_stress_test,
+]
 
 def clean_coverage(env, target, source):
     # rm -rf opserver/test/test_coverage
@@ -92,6 +96,9 @@ def run_coverage(env, target, source):
 if env['OPT'] != 'coverage':
     test = env.TestSuite('io-test', test_suite)
     env.Alias('controller/src/io:test', test)
+
+    flaky_test = env.TestSuite('io-flaky-test', flaky_test_suite)
+    env.Alias('controller/src/io:flaky-test', flaky_test)
     Return('test_suite')
 else:
     test = env.TestSuite('io-test', test_suite)
@@ -102,4 +109,14 @@ else:
     env.Depends(run_coverage_cmd, test[0])
     env.AlwaysBuild(run_coverage_cmd)
     env.Alias('controller/src/io:test', run_coverage_cmd)
+
+    flaky_test = env.TestSuite('io-flaky-test', flaky_test_suite)
+    clean_coverage_cmd = env.Command('clean_coverage', '', clean_coverage)
+    env.Depends(flaky_test, clean_coverage_cmd[0].name)
+    env.AlwaysBuild(clean_coverage_cmd)
+    run_coverage_cmd = env.Command('run_coverage', '', run_coverage)
+    env.Depends(run_coverage_cmd, flaky_test[0])
+    env.AlwaysBuild(run_coverage_cmd)
+    env.Alias('controller/src/io:flaky-test', run_coverage_cmd)
+
     Return('test_suite')

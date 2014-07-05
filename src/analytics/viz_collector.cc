@@ -10,6 +10,7 @@
 #include "base/logging.h"
 #include "base/task.h"
 #include "base/parse_object.h"
+#include <base/connection_info.h>
 #include "io/event_manager.h"
 
 #include "sandesh/sandesh_types.h"
@@ -23,16 +24,17 @@ using std::string;
 using boost::system::error_code;
 
 VizCollector::VizCollector(EventManager *evm, unsigned short listen_port,
-            std::string cassandra_ip, unsigned short cassandra_port,
+            std::vector<std::string> cassandra_ips,
+            std::vector<int> cassandra_ports,
             const std::string redis_uve_ip, unsigned short redis_uve_port,
             int syslog_port, bool dup, int analytics_ttl) :
     evm_(evm),
     osp_(new OpServerProxy(evm, this, redis_uve_ip, redis_uve_port)),
     db_handler_(new DbHandler(evm, boost::bind(&VizCollector::StartDbifReinit, this),
-                cassandra_ip, cassandra_port, analytics_ttl, DbifGlobalName(dup))),
+                cassandra_ips, cassandra_ports, analytics_ttl, DbifGlobalName(dup))),
     ruleeng_(new Ruleeng(db_handler_.get(), osp_.get())),
     collector_(new Collector(evm, listen_port, db_handler_.get(), ruleeng_.get(),
-            cassandra_ip, cassandra_port, analytics_ttl)),
+            cassandra_ips, cassandra_ports, analytics_ttl)),
     syslog_listener_(new SyslogListeners (evm,
             boost::bind(&Ruleeng::rule_execute, ruleeng_.get(), _1, _2, _3),
             db_handler_.get(), syslog_port)),
@@ -144,11 +146,21 @@ void VizCollector::StartDbifReinit() {
 }
 
 bool VizCollector::Init() {
+    boost::system::error_code ec;
+    boost::asio::ip::address db_addr(boost::asio::ip::address::from_string(
+        db_handler_->GetHost(), ec));
+    boost::asio::ip::tcp::endpoint db_endpoint(db_addr, db_handler_->GetPort());
     if (!db_handler_->Init(true, -1)) {
+        // Update connection info
+        ConnectionState::GetInstance()->Update(ConnectionType::DATABASE,
+            std::string(), ConnectionStatus::DOWN, db_endpoint, std::string()); 
         LOG(DEBUG, __func__ << " DB Handler initialization failed");
         StartDbifReinit();
         return false;
     }
+    // Update connection info
+    ConnectionState::GetInstance()->Update(ConnectionType::DATABASE,
+        std::string(), ConnectionStatus::UP, db_endpoint, std::string()); 
     ruleeng_->Init();
     LOG(DEBUG, __func__ << " Initialization complete");
     if (!syslog_listener_->IsRunning ()) {

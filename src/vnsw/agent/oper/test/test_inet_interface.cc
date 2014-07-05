@@ -51,12 +51,12 @@ class InetInterfaceTest : public ::testing::Test {
 public:
     virtual void SetUp() {
         agent_ = Agent::GetInstance();
-        interface_table_ = agent_->GetInterfaceTable();
-        nh_table_ = agent_->GetNextHopTable();
-        vrf_table_ = agent_->GetVrfTable();
-        intf_count_ = agent_->GetInterfaceTable()->Size();
-        nh_count_ = agent_->GetNextHopTable()->Size();
-        vrf_count_ = agent_->GetVrfTable()->Size();
+        interface_table_ = agent_->interface_table();
+        nh_table_ = agent_->nexthop_table();
+        vrf_table_ = agent_->vrf_table();
+        intf_count_ = agent_->interface_table()->Size();
+        nh_count_ = agent_->nexthop_table()->Size();
+        vrf_count_ = agent_->vrf_table()->Size();
         peer_ = agent_->local_peer();
 
         vrf_table_->CreateVrfReq(VRF_VHOST);
@@ -79,10 +79,10 @@ public:
         client->WaitForIdle();
 
         WAIT_FOR(100, 1000, (interface_table_->Size() == intf_count_));
-        WAIT_FOR(100, 1000, (agent_->GetVrfTable()->Size() == vrf_count_));
-        WAIT_FOR(100, 1000, (agent_->GetNextHopTable()->Size() == nh_count_));
-        WAIT_FOR(100, 1000, (agent_->GetVmTable()->Size() == 0U));
-        WAIT_FOR(100, 1000, (agent_->GetVnTable()->Size() == 0U));
+        WAIT_FOR(100, 1000, (agent_->vrf_table()->Size() == vrf_count_));
+        WAIT_FOR(100, 1000, (agent_->nexthop_table()->Size() == nh_count_));
+        WAIT_FOR(100, 1000, (agent_->vm_table()->Size() == 0U));
+        WAIT_FOR(100, 1000, (agent_->vn_table()->Size() == 0U));
     }
 
     int intf_count_;
@@ -107,8 +107,8 @@ static void AddInterface(InetInterfaceTest *t, const char *ifname,
                          const char *ip, int plen, const char *gw) {
     InetInterface::CreateReq(t->interface_table_, ifname, sub_type, vrf,
                              Ip4Address::from_string(ip), plen,
-                             Ip4Address::from_string(gw), "TEST");
-
+                             Ip4Address::from_string(gw),
+                             client->param()->eth_port(), "TEST");
 }
 
 static void DelInterface(InetInterfaceTest *t, const char *ifname,
@@ -117,17 +117,17 @@ static void DelInterface(InetInterfaceTest *t, const char *ifname,
 
     if (strcmp(vrf, VRF_VHOST) == 0){
         t->vhost_rt_table_->DeleteReq(t->peer_, vrf,
-                                      Ip4Address::from_string(gw), 32);
+                                      Ip4Address::from_string(gw), 32, NULL);
     }
 
     if (strcmp(vrf, VRF_LL) == 0){
         t->ll_rt_table_->DeleteReq(t->peer_, vrf, Ip4Address::from_string(gw),
-                                   32);
+                                   32, NULL);
     }
 
     if (strcmp(vrf, VRF_GW) == 0){
         t->gw_rt_table_->DeleteReq(t->peer_, vrf, Ip4Address::from_string(gw),
-                                   32);
+                                   32, NULL);
     }
 
 }
@@ -293,10 +293,8 @@ int main(int argc, char **argv) {
     client = TestInit(init_file, ksync_init, false, false, false);
 
     int ret = RUN_ALL_TESTS();
-
-    usleep(10000);
     client->WaitForIdle();
-    usleep(10000);
-
+    TestShutdown();
+    delete client;
     return ret;
 }

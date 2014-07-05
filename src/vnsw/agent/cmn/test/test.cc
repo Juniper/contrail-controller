@@ -272,7 +272,7 @@ EntryB *FindB(int id) {
 }
 
 void WaitForIdle() {
-    static const int kTimeout = 1;
+    static const int kTimeout = 15;
     for (int i = 0; i < (kTimeout * 1000); i++) {
         if (scheduler->IsEmpty()) {
             usleep(1000);
@@ -521,5 +521,7 @@ int main(int argc, char *argv[]) {
     create_db_tables(db_);
     init_db_clients(db_);
 
-    return RUN_ALL_TESTS();
+    int ret = RUN_ALL_TESTS();
+    scheduler->Terminate();
+    return ret;
 }

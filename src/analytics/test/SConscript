@@ -59,6 +59,7 @@ syslog_test = env.UnitTest('syslog_test',
                                   '../viz_message.o',
                                   '../ruleeng.o',
                                   '../db_handler.o',
+                                  '../parser_util.o',
                                   '../viz_constants.o',
                                   '../collector_uve_types.o',
                                   '../collector_uve_html.o',
@@ -83,6 +84,7 @@ db_handler_test = env.UnitTest('db_handler_test',
                               AnalyticsEnv['ANALYTICS_VIZ_SANDESH_GEN_OBJS'] + 
                               [db_handler_test_obj,
                               '../db_handler.o',
+                              '../parser_util.o',
                               '../vizd_table_desc.o',
                               '../viz_message.o',
                               ]
@@ -116,7 +118,6 @@ test_suite = [
                options_test,
                viz_message_test,
                db_handler_test,
-#              syslog_test, # TODO This test fails!
              ]
 test = env.TestSuite('analytics-test', test_suite)
 
@@ -124,5 +125,6 @@ env.Alias('controller/src/analytics:test', [
     test,
     'controller/src/analytics/ruleparser:test',
 ])
+env.Alias('controller/src/analytics:flaky-test', [ syslog_test ])
 
 Return('test_suite')

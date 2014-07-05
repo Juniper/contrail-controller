@@ -74,7 +74,7 @@ const char *MirrorCfgTable::Add(const MirrorCreateReq &cfg) {
 
     entry->data.time_period = cfg.get_time_period();
     if (cfg.get_mirror_vrf().empty()) {
-        entry->data.mirror_vrf = agent_cfg_->agent()->GetDefaultVrf();
+        entry->data.mirror_vrf = agent_cfg_->agent()->fabric_vrf_name();
     } else {
         entry->data.mirror_vrf = cfg.get_mirror_vrf();
     }
@@ -93,18 +93,18 @@ const char *MirrorCfgTable::Add(const MirrorCreateReq &cfg) {
     }
 
     Ip4Address sip;
-    if (agent_cfg_->agent()->GetRouterId() == dest_ip) {
+    if (agent_cfg_->agent()->router_id() == dest_ip) {
         // If source IP and dest IP are same,
         // linux kernel will drop the packet. 
         // Hence we will use link local IP address as sip.
         sip = Ip4Address(METADATA_IP_ADDR);
     } else {
-        sip = agent_cfg_->agent()->GetRouterId();
+        sip = agent_cfg_->agent()->router_id();
     }
     
     MirrorTable::AddMirrorEntry(entry->key.handle,
                                 entry->data.mirror_vrf, sip, 
-                                agent_cfg_->agent()->GetMirrorPort(), 
+                                agent_cfg_->agent()->mirror_port(), 
                                 dest_ip, entry->data.udp_port);
 
     // Update ACL
@@ -143,7 +143,7 @@ const char *MirrorCfgTable::Add(const MirrorCreateReq &cfg) {
     IFMapNode *vn_node = agent_cfg_->cfg_vn_table()->FindNode(entry->data.apply_vn);
     if (vn_node && agent_cfg_->cfg_listener()->CanUseNode(vn_node)) {
         DBRequest req;
-        assert(agent_cfg_->agent()->GetVnTable()->IFNodeToReq(vn_node, req) == false);
+        assert(agent_cfg_->agent()->vn_table()->IFNodeToReq(vn_node, req) == false);
     }
     return NULL;
 }
@@ -246,7 +246,7 @@ const char *MirrorCfgTable::UpdateAclEntry (AclUuid &uuid, bool create,
     req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
     req.key.reset(key);
     req.data.reset(data);
-    agent_cfg_->agent()->GetAclTable()->Enqueue(&req);
+    agent_cfg_->agent()->acl_table()->Enqueue(&req);
 
     return NULL;
 }
@@ -272,7 +272,7 @@ void MirrorCfgTable::Delete(MirrorCfgKey &key) {
         AclData *adata = new AclData(entry->ace_info.id);
         areq.key.reset(akey);
         areq.data.reset(adata);
-        agent_cfg_->agent()->GetAclTable()->Enqueue(&areq);
+        agent_cfg_->agent()->acl_table()->Enqueue(&areq);
         
         // delete entry from mv map
         delete entry;
@@ -285,7 +285,7 @@ void MirrorCfgTable::Delete(MirrorCfgKey &key) {
     AclKey *akey = new AclKey(va_it->second.id);
     areq.key.reset(akey);
     areq.data.reset(NULL);
-    agent_cfg_->agent()->GetAclTable()->Enqueue(&areq);
+    agent_cfg_->agent()->acl_table()->Enqueue(&areq);
 
     mc_tree_.erase(it);
 
@@ -295,7 +295,7 @@ void MirrorCfgTable::Delete(MirrorCfgKey &key) {
     IFMapNode *vn_node = agent_cfg_->cfg_vn_table()->FindNode(entry->data.apply_vn);
     if (vn_node && agent_cfg_->cfg_listener()->CanUseNode(vn_node)) {
         DBRequest req;
-        assert(agent_cfg_->agent()->GetVnTable()->IFNodeToReq(vn_node, req) == false);
+        assert(agent_cfg_->agent()->vn_table()->IFNodeToReq(vn_node, req) == false);
     }
 
     // delete entry from mv map
@@ -364,7 +364,7 @@ void MirrorCfgTable::SetMirrorCfgVnSandeshData(std::string &vn_name,
 }
 
 void MirrorCreateReq::HandleRequest() const {
-    const char *str = Agent::GetInstance()->GetMirrorCfgTable()->Add(*this);
+    const char *str = Agent::GetInstance()->mirror_cfg_table()->Add(*this);
     MirrorCfgResp *resp = new MirrorCfgResp();
     resp->set_context(context());
     if (str == NULL) {
@@ -378,7 +378,7 @@ void MirrorCreateReq::HandleRequest() const {
 void MirrorDeleteReq::HandleRequest() const {
     MirrorCfgKey key;
     key.handle = get_handle();
-    Agent::GetInstance()->GetMirrorCfgTable()->Delete(key);
+    Agent::GetInstance()->mirror_cfg_table()->Delete(key);
     MirrorCfgResp *resp = new MirrorCfgResp();
     resp->set_context(context());
     resp->Response();
@@ -388,7 +388,7 @@ void MirrorDeleteReq::HandleRequest() const {
 void MirrorCfgDisplayReq::HandleRequest() const {
     std::string handle = get_handle();
     MirrorCfgDisplayResp *resp = new MirrorCfgDisplayResp();
-    Agent::GetInstance()->GetMirrorCfgTable()->SetMirrorCfgSandeshData(handle, *resp);
+    Agent::GetInstance()->mirror_cfg_table()->SetMirrorCfgSandeshData(handle, *resp);
     resp->set_context(context());
     resp->Response();
     return;
@@ -397,7 +397,7 @@ void MirrorCfgDisplayReq::HandleRequest() const {
 void MirrorCfgVnInfoReq::HandleRequest() const {
     std::string vn_name = get_vn_name();
     MirrorCfgVnInfoResp *resp = new MirrorCfgVnInfoResp();
-    Agent::GetInstance()->GetMirrorCfgTable()->SetMirrorCfgVnSandeshData(vn_name, *resp);
+    Agent::GetInstance()->mirror_cfg_table()->SetMirrorCfgVnSandeshData(vn_name, *resp);
     resp->set_context(context());
     resp->Response();
     return;
@@ -440,12 +440,12 @@ const char *IntfMirrorCfgTable::Add(const IntfMirrorCreateReq &intf_mirror) {
         return "Invald mirror destination port ";
     }
     entry->data.mirror_dest.dport = intf_mirror.get_udp_port();
-    if (agent_cfg_->agent()->GetRouterId() == entry->data.mirror_dest.dip) {
+    if (agent_cfg_->agent()->router_id() == entry->data.mirror_dest.dip) {
         entry->data.mirror_dest.sip = Ip4Address(METADATA_IP_ADDR);
     } else {
-        entry->data.mirror_dest.sip = agent_cfg_->agent()->GetRouterId();
+        entry->data.mirror_dest.sip = agent_cfg_->agent()->router_id();
     }
-    entry->data.mirror_dest.sport = agent_cfg_->agent()->GetMirrorPort();
+    entry->data.mirror_dest.sport = agent_cfg_->agent()->mirror_port();
     entry->data.mirror_dest.time_period = intf_mirror.get_time_period();
     entry->data.mirror_dest.mirror_vrf = intf_mirror.get_mirror_vrf();
 
@@ -461,7 +461,7 @@ const char *IntfMirrorCfgTable::Add(const IntfMirrorCreateReq &intf_mirror) {
                                                   entry->data.intf_id,
                                                   entry->data.intf_name);
     Interface *intf;
-    intf = static_cast<Interface *>(agent_cfg_->agent()->GetInterfaceTable()->FindActiveEntry(intf_key));
+    intf = static_cast<Interface *>(agent_cfg_->agent()->interface_table()->FindActiveEntry(intf_key));
     if (intf) {
         DBRequest req;
         req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
@@ -469,7 +469,7 @@ const char *IntfMirrorCfgTable::Add(const IntfMirrorCreateReq &intf_mirror) {
         VmInterfaceMirrorData *intf_data =
             new VmInterfaceMirrorData(true, entry->key.handle);
         req.data.reset(intf_data);
-        agent_cfg_->agent()->GetInterfaceTable()->Enqueue(&req);
+        agent_cfg_->agent()->interface_table()->Enqueue(&req);
     } else {
         delete intf_key;
     }
@@ -490,7 +490,7 @@ void IntfMirrorCfgTable::Delete(MirrorCfgKey &key) {
                                                   entry->data.intf_id,
                                                   entry->data.intf_name);
     Interface *intf;
-    intf = static_cast<Interface *>(agent_cfg_->agent()->GetInterfaceTable()->FindActiveEntry(intf_key));
+    intf = static_cast<Interface *>(agent_cfg_->agent()->interface_table()->FindActiveEntry(intf_key));
     if (intf) {
         DBRequest req;
         req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
@@ -498,7 +498,7 @@ void IntfMirrorCfgTable::Delete(MirrorCfgKey &key) {
         VmInterfaceMirrorData *intf_data =
             new VmInterfaceMirrorData(false, std::string());
         req.data.reset(intf_data);
-        agent_cfg_->agent()->GetInterfaceTable()->Enqueue(&req);
+        agent_cfg_->agent()->interface_table()->Enqueue(&req);
     } else {
         delete intf_key;
     }
@@ -508,7 +508,7 @@ void IntfMirrorCfgTable::Delete(MirrorCfgKey &key) {
 }
 
 void IntfMirrorCreateReq::HandleRequest() const {
-    const char *str = Agent::GetInstance()->GetIntfMirrorCfgTable()->Add(*this);
+    const char *str = Agent::GetInstance()->interface_mirror_cfg_table()->Add(*this);
     MirrorCfgResp *resp = new MirrorCfgResp();
     resp->set_context(context());
     if (str == NULL) {
@@ -522,7 +522,7 @@ void IntfMirrorCreateReq::HandleRequest() const {
 void IntfMirrorDeleteReq::HandleRequest() const {
     MirrorCfgKey key;
     key.handle = get_handle();
-    Agent::GetInstance()->GetIntfMirrorCfgTable()->Delete(key);
+    Agent::GetInstance()->interface_mirror_cfg_table()->Delete(key);
     MirrorCfgResp *resp = new MirrorCfgResp();
     resp->set_context(context());
     resp->set_resp("Success");
@@ -555,7 +555,7 @@ void IntfMirrorCfgTable::SetIntfMirrorCfgSandeshData(std::string &handle,
 void IntfMirrorCfgDisplayReq::HandleRequest() const {
     std::string handle = get_handle();
     IntfMirrorCfgDisplayResp *resp = new IntfMirrorCfgDisplayResp();
-    Agent::GetInstance()->GetIntfMirrorCfgTable()->SetIntfMirrorCfgSandeshData(handle, *resp);
+    Agent::GetInstance()->interface_mirror_cfg_table()->SetIntfMirrorCfgSandeshData(handle, *resp);
     resp->set_context(context());
     resp->Response();
     return;

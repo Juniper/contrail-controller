@@ -548,6 +548,33 @@ TEST_F(BgpConfigTest, InstanceTargetExport2) {
     TASK_UTIL_EXPECT_EQ(0, db_graph_.vertex_count());
 }
 
+TEST_F(BgpConfigTest, InstanceTargetExport3) {
+    string content = FileRead("controller/src/bgp/testdata/config_test_32.xml");
+    EXPECT_TRUE(parser_.Parse(content));
+    task_util::WaitForIdle();
+
+    RoutingInstanceMgr *mgr = server_.routing_instance_mgr();
+    RoutingInstance *red = mgr->GetRoutingInstance("red");
+    TASK_UTIL_ASSERT_TRUE(red != NULL);
+    RouteTarget rtarget;
+
+    const RoutingInstance::RouteTargetList elist = red->GetExportList();
+    TASK_UTIL_EXPECT_EQ(1, elist.size());
+    rtarget = RouteTarget::FromString("target:100:2");
+    TASK_UTIL_EXPECT_TRUE(elist.find(rtarget) != elist.end());
+
+    const RoutingInstance::RouteTargetList ilist = red->GetImportList();
+    TASK_UTIL_EXPECT_EQ(0, red->GetImportList().size());
+
+    boost::replace_all(content, "<config>", "<delete>");
+    boost::replace_all(content, "</config>", "</delete>");
+    EXPECT_TRUE(parser_.Parse(content));
+    task_util::WaitForIdle();
+
+    TASK_UTIL_EXPECT_EQ(1, mgr->count());
+    TASK_UTIL_EXPECT_EQ(0, db_graph_.vertex_count());
+}
+
 TEST_F(BgpConfigTest, InstanceTargetImport1) {
     string content = FileRead("controller/src/bgp/testdata/config_test_9.xml");
     EXPECT_TRUE(parser_.Parse(content));
@@ -1031,8 +1058,9 @@ TEST_F(BgpConfigTest, AddressFamilies2) {
     BgpPeer *peer = rti->peer_manager()->PeerFind("10.1.1.1");
     TASK_UTIL_ASSERT_TRUE(peer != NULL);
 
-    TASK_UTIL_EXPECT_EQ(2, peer->families().size());
+    TASK_UTIL_EXPECT_EQ(3, peer->families().size());
     TASK_UTIL_EXPECT_TRUE(peer->LookupFamily(Address::INETVPN));
+    TASK_UTIL_EXPECT_TRUE(peer->LookupFamily(Address::ERMVPN));
     TASK_UTIL_EXPECT_TRUE(peer->LookupFamily(Address::EVPN));
 
     boost::replace_all(content, "<config>", "<delete>");

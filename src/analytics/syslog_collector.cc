@@ -118,11 +118,7 @@ class SyslogParser
                              &SyslogParser::ClientParse, this, _1)),
             syslog_(syslog)
         {
-            facilitynames_ = boost::assign::list_of ("auth") ("authpriv")
-                ("cron") ("daemon") ("ftp") ("kern") ("lpr") ("mail") ("mark")
-                ("news") ("security") ("syslog") ("user") ("uucp") ("local0")
-                ("local1") ("local2") ("local3") ("local4") ("local5")
-                ("local6") ("local7");
+            Init();
         }
         virtual ~SyslogParser ()
         {
@@ -145,6 +141,11 @@ class SyslogParser
                          "vizd::syslog"), 0, boost::bind(
                              &SyslogParser::ClientParse, this, _1)),
             syslog_(0)
+        {
+            Init();
+        }
+
+        void Init()
         {
             facilitynames_ = boost::assign::list_of ("auth") ("authpriv")
                 ("cron") ("daemon") ("ftp") ("kern") ("lpr") ("mail") ("mark")
@@ -208,7 +209,6 @@ class SyslogParser
         };
 
         typedef std::map<std::string, Holder>  syslog_m_t;
-
 
         template <typename Iterator>
         bool parse_syslog (Iterator start, Iterator end, syslog_m_t &v)
@@ -493,13 +493,19 @@ class SyslogParser
             if (pid >= 0)
                 hdr.set_Pid(pid);
 
-            std::string xmsg("<Syslog>" + GetMsgBody(v) + "</Syslog>");
+
+            std::string   body = GetMapVals (v, "body", "");
+            std::string xmsg("<Syslog>" + EscapeXmlTags(body) + "</Syslog>");
             SandeshMessage *xmessage = syslog_->GetBuilder()->Create(
                 reinterpret_cast<const uint8_t *>(xmsg.c_str()), xmsg.size());
             SandeshSyslogMessage *smessage =
                 static_cast<SandeshSyslogMessage *>(xmessage);
             smessage->SetHeader(hdr);
             VizMsg vmsg(smessage, umn_gen_());
+            //ParseMsgBody(body.begin(), body.end(), vmsg.keywords);
+            //LOG(DEBUG, "[" << body << "]");
+            vmsg.keyword_doc_ = body;
+
             GetGenerator (ip)->ReceiveSandeshMsg (&vmsg, false);
             vmsg.msg = NULL;
             delete smessage;
@@ -519,7 +525,10 @@ class SyslogParser
 #endif
 
           syslog_m_t v;
-          bool r = parse_syslog (p, p + sqe->length, v);
+          int len = sqe->length;
+          while (!*(p + len - 1))
+              --len;
+          bool r = parse_syslog (p, p + len, v);
 #ifdef SYSLOG_DEBUG
           LOG(DEBUG, "parsed " << r << ".");
 #endif
@@ -580,7 +589,7 @@ void SyslogTcpListener::Shutdown ()
 void SyslogTcpListener::Start (std::string ipaddress, int port)
 {
     Initialize (port);
-    LOG(DEBUG, __func__ << " Initialization of TCP syslog listener done!");
+    LOG(DEBUG, __func__ << " Initialization of TCP syslog listener @" << port);
 }
 
 SyslogUDPListener::SyslogUDPListener (EventManager *evm): UDPServer (evm)
@@ -597,7 +606,7 @@ void SyslogUDPListener::Start (std::string ipaddress, int port)
     else
       Initialize (ipaddress, port);
     StartReceive ();
-    LOG(DEBUG, __func__ << " Initialization of UDP syslog listener done!");
+    LOG(DEBUG, __func__ << " Initialization of UDP syslog listener @" << port);
 }
 
 void SyslogUDPListener::HandleReceive (
@@ -636,10 +645,12 @@ SyslogListeners::SyslogListeners (EventManager *evm, VizCallback cb,
 
 void SyslogListeners::Start ()
 {
-    if (port_ != -1) {
+    if (port_ >= 0) {
         SyslogTcpListener::Start (ipaddress_, port_);
         SyslogUDPListener::Start (ipaddress_, port_);
         inited_ = true;
+    } else {
+        LOG(DEBUG, __func__ << " skip starting syslog listener port:" << port_);
     }
 }
 void SyslogListeners::Parse (SyslogQueueEntry *sqe)

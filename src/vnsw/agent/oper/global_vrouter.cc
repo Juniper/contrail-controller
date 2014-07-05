@@ -204,13 +204,13 @@ private:
 };
 
 void GlobalVrouter::LinkLocalRouteManager::CreateDBClients() {
-    vn_id_ = global_vrouter_->oper_db()->agent()->GetVnTable()->Register(
+    vn_id_ = global_vrouter_->oper_db()->agent()->vn_table()->Register(
              boost::bind(&GlobalVrouter::LinkLocalRouteManager::VnNotify,
                          this, _1, _2));
 }
 
 void GlobalVrouter::LinkLocalRouteManager::DeleteDBClients() {
-    global_vrouter_->oper_db()->agent()->GetVnTable()->Unregister(vn_id_);
+    global_vrouter_->oper_db()->agent()->vn_table()->Unregister(vn_id_);
 }
 
 void GlobalVrouter::LinkLocalRouteManager::AddArpRoute(const Ip4Address &srv) {
@@ -218,7 +218,7 @@ void GlobalVrouter::LinkLocalRouteManager::AddArpRoute(const Ip4Address &srv) {
         return;
 
     Inet4UnicastAgentRouteTable::CheckAndAddArpReq(global_vrouter_->oper_db()->
-                                                   agent()->GetDefaultVrf(),
+                                                   agent()->fabric_vrf_name(),
                                                    srv);
 }
 
@@ -234,7 +234,7 @@ void GlobalVrouter::LinkLocalRouteManager::UpdateAllVns(
     }
 
     Agent *agent = global_vrouter_->oper_db()->agent();
-    DBTableWalker *walker = agent->GetDB()->GetWalker();
+    DBTableWalker *walker = agent->db()->GetWalker();
     walker->WalkTable(VnTable::GetInstance(), NULL,
       boost::bind(&GlobalVrouter::LinkLocalRouteManager::VnUpdateWalk,
                   this, _2, key, is_add),
@@ -258,7 +258,7 @@ bool GlobalVrouter::LinkLocalRouteManager::VnUpdateWalk(
 
     Agent *agent = global_vrouter_->oper_db()->agent();
     // Do not create the routes for the default VRF
-    if (agent->GetDefaultVrf() == vrf_entry->GetName()) {
+    if (agent->fabric_vrf_name() == vrf_entry->GetName()) {
         return true;
     }
 
@@ -277,7 +277,7 @@ bool GlobalVrouter::LinkLocalRouteManager::VnUpdateWalk(
         }
     } else {
         rt_table->DeleteReq(agent->link_local_peer(), vrf_entry->GetName(),
-                            key.linklocal_service_ip, 32);
+                            key.linklocal_service_ip, 32, NULL);
     }
     return true;
 }
@@ -305,7 +305,7 @@ bool GlobalVrouter::LinkLocalRouteManager::VnNotify(DBTablePartBase *partition,
              services.begin(); it != services.end(); ++it) {
             rt_table->DeleteReq(agent->link_local_peer(),
                                 state->vrf_->GetName(),
-                                it->first.linklocal_service_ip, 32);
+                                it->first.linklocal_service_ip, 32, NULL);
         }
         vn_entry->ClearState(partition->parent(), vn_id_);
         delete state;
@@ -313,7 +313,7 @@ bool GlobalVrouter::LinkLocalRouteManager::VnNotify(DBTablePartBase *partition,
     }
 
     // Do not create the routes for the default VRF
-    if (agent->GetDefaultVrf() == vrf_entry->GetName()) {
+    if (agent->fabric_vrf_name() == vrf_entry->GetName()) {
         return true;
     }
 
@@ -347,7 +347,7 @@ GlobalVrouter::GlobalVrouter(OperDB *oper)
     : oper_(oper), linklocal_services_map_(),
       linklocal_route_mgr_(new LinkLocalRouteManager(this)),
       fabric_dns_resolver_(new FabricDnsResolver(this,
-                           *(oper->agent()->GetEventManager()->io_service()))),
+                           *(oper->agent()->event_manager()->io_service()))),
       agent_route_encap_update_walker_(new AgentRouteEncap(oper->agent())) {
 }
 
@@ -381,8 +381,8 @@ void GlobalVrouter::GlobalVrouterConfig(IFMapNode *node) {
         oper_->agent()->vxlan_network_identifier_mode()) {
         oper_->agent()->set_vxlan_network_identifier_mode(
                         cfg_vxlan_network_identifier_mode);
-        oper_->agent()->GetVnTable()->UpdateVxLanNetworkIdentifierMode();
-        oper_->agent()->GetInterfaceTable()->
+        oper_->agent()->vn_table()->UpdateVxLanNetworkIdentifierMode();
+        oper_->agent()->interface_table()->
                         UpdateVxLanNetworkIdentifierMode();
     }
 
@@ -442,8 +442,8 @@ bool GlobalVrouter::FindLinkLocalService(const Ip4Address &service_ip,
                                      &metadata_fabric_ip,
                                      &metadata_fabric_port) &&
                 service_ip == metadata_service_ip) {
-                *fabric_port = oper_->agent()->GetMetadataServerPort();
-                *fabric_ip = oper_->agent()->GetRouterId();
+                *fabric_port = oper_->agent()->metadata_server_port();
+                *fabric_ip = oper_->agent()->router_id();
                 return true;
             }
         }
@@ -454,8 +454,8 @@ bool GlobalVrouter::FindLinkLocalService(const Ip4Address &service_ip,
     *service_name = it->second.linklocal_service_name;
     if (*service_name == GlobalVrouter::kMetadataService) {
         // for metadata, return vhost0 ip and HTTP proxy port
-        *fabric_port = oper_->agent()->GetMetadataServerPort();
-        *fabric_ip = oper_->agent()->GetRouterId();
+        *fabric_port = oper_->agent()->metadata_server_port();
+        *fabric_ip = oper_->agent()->router_id();
         return true;
     }
 

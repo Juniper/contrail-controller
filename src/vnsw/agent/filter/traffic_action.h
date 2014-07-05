@@ -43,10 +43,21 @@ public:
     TrafficAction() {};
     virtual ~TrafficAction() {};
 
+    bool IsDrop() const;
     virtual Action GetAction() {return action_;};
     virtual TrafficActionType GetActionType() {return tact_type;};
     static std::string ActionToString(enum Action at);
     virtual void SetActionSandeshData(std::vector<ActionStr> &actions); 
+    virtual bool Compare(const TrafficAction &rhs) const = 0;
+    bool operator==(const TrafficAction &rhs) const {
+        if (tact_type != rhs.tact_type) {
+            return false;
+        }
+        if (action_ != rhs.action_) {
+            return false;
+        }
+        return Compare(rhs);
+    }
 
     TrafficActionType tact_type;
     Action action_;
@@ -57,6 +68,12 @@ public:
     SimpleAction(Action action) {action_ = action; tact_type = SIMPLE_ACTION;};
     ~SimpleAction() {};
     Action GetAction() const {return action_;};
+    virtual bool Compare(const TrafficAction &rhs) const {
+        if (action_ != rhs.action_) {
+            return false;
+        }
+        return true;
+    }
 private:
     DISALLOW_COPY_AND_ASSIGN(SimpleAction);
 };
@@ -78,6 +95,7 @@ public:
     std::string GetAnalyzerName() {return analyzer_name_;};
     std::string GetEncap() {return encap_;};
     virtual void SetActionSandeshData(std::vector<ActionStr> &actions); 
+    virtual bool Compare(const TrafficAction &rhs) const;
 private:
     std::string analyzer_name_;
     std::string vrf_name_;
@@ -96,6 +114,7 @@ public:
     const std::string& vrf_name() const { return vrf_name_;}
     bool ignore_acl() const { return ignore_acl_;}
     virtual void SetActionSandeshData(std::vector<ActionStr> &actions);
+    virtual bool Compare(const TrafficAction &rhs) const;
 private:
     std::string vrf_name_;
     bool ignore_acl_;

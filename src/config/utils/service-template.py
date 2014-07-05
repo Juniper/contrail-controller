@@ -5,6 +5,7 @@
 import os
 import sys
 import errno
+import pprint
 import subprocess
 import time
 import argparse
@@ -28,7 +29,7 @@ class ServiceTemplateCmd(object):
             args_str = ' '.join(sys.argv[1:])
         self._parse_args(args_str)
 
-        if self._args.svc_type == 'analyzer':
+        if self._args.svc_type in ['analyzer', 'source-nat']:
             self._if_list = [
                 ['management', False], ['left', self._args.svc_scaling]]
         else:
@@ -62,7 +63,7 @@ class ServiceTemplateCmd(object):
             'api_server_port': '8082',
         }
 
-	if not args.conf_file:
+        if not args.conf_file:
             args.conf_file = '/etc/contrail/svc-monitor.conf'
 
         config = ConfigParser.SafeConfigParser()
@@ -92,7 +93,7 @@ class ServiceTemplateCmd(object):
             "template_name", help="service template name")
         create_parser.add_argument(
             "--svc_type", help="firewall or analyzer [default: firewall]",
-            choices=['firewall', 'analyzer'])
+            choices=['firewall', 'analyzer', 'source-nat'])
         create_parser.add_argument(
             "--image_name", help="glance image name [default: vsrx]")
         create_parser.add_argument(
@@ -100,12 +101,19 @@ class ServiceTemplateCmd(object):
         create_parser.add_argument(
             "--svc_scaling", action="store_true", default=False,
             help="enable service scaling [default: False]")
+        create_parser.add_argument(
+            "--svc_virt_type", default='virtual-machine',
+            help="define virtualization type [default: virtual-machine]")
+
         create_parser.set_defaults(func=self.create_st)
 
         delete_parser = subparsers.add_parser('del')
         delete_parser.add_argument(
             "template_name", help="service template name")
         delete_parser.set_defaults(func=self.delete_st)
+
+        list_parser = subparsers.add_parser('list')
+        list_parser.set_defaults(func=self.list_st)
 
         self._args = parser.parse_args(remaining_argv)
     # end _parse_args
@@ -129,6 +137,7 @@ class ServiceTemplateCmd(object):
             svc_properties.set_flavor(self._args.flavor)
         svc_properties.set_service_scaling(True)
         svc_properties.set_service_type(self._args.svc_type)
+        svc_properties.set_service_virtualization_type(self._args.svc_virt_type)
 
         # set interface list
         for itf in self._if_list:
@@ -151,6 +160,12 @@ class ServiceTemplateCmd(object):
                 % (self._args.template_name)
             return
     #_delete_st
+
+    def list_st(self):
+        print "Listing service templates"
+        templates = self._vnc_lib.service_templates_list()
+        pprint.pprint(templates)
+    #_list_st
 
 # end class ServiceTemplateCmd
 

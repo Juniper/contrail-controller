@@ -66,7 +66,7 @@ TEST_F(VmPortTest, XmppConnection) {
     VrfAddReq("vrf2");
     VnAddReq(2, "vn2", 0, "vrf2");
 
-    AgentXmppChannel *peer = Agent::GetInstance()->GetAgentXmppChannel(0);
+    AgentXmppChannel *peer = Agent::GetInstance()->controller_xmpp_channel(0);
     WAIT_FOR(1000, 1000, (peer->GetXmppChannel()->GetPeerState() == xmps::READY));
     ASSERT_TRUE(peer->GetXmppChannel()->GetPeerState() == xmps::READY);
 
@@ -115,7 +115,7 @@ TEST_F(VmPortTest, XmppConnection) {
 int main(int argc, char *argv[]) {
     GETUSERARGS();
     client = TestInit(init_file, ksync_init);
-    Agent::GetInstance()->SetXmppServer("127.0.0.1", 0);
+    Agent::GetInstance()->set_controller_ifmap_xmpp_server("127.0.0.1", 0);
 
     Agent::GetInstance()->controller()->Connect();
 

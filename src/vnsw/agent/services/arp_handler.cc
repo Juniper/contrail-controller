@@ -4,6 +4,8 @@
 
 #include "vr_defs.h"
 #include "oper/route_common.h"
+#include "oper/operdb_init.h"
+#include "oper/path_preference.h"
 #include "pkt/pkt_init.h"
 #include "services/arp_proto.h"
 #include "services/services_init.h"
@@ -19,8 +21,10 @@ ArpHandler::~ArpHandler() {
 
 bool ArpHandler::Run() {
     // Process ARP only when the IP Fabric interface is configured
-    if (agent()->GetArpProto()->ip_fabric_interface() == NULL)
+    if (agent()->GetArpProto()->ip_fabric_interface() == NULL) {
+        delete pkt_info_->ipc;
         return true;
+    }
 
     switch(pkt_info_->type) {
         case PktType::MESSAGE:
@@ -62,7 +66,7 @@ bool ArpHandler::HandlePacket() {
             arp_tpa_ = spa;
         
         // if it is our own, ignore
-        if (arp_tpa_ == agent()->GetRouterId().to_ulong()) {
+        if (arp_tpa_ == agent()->router_id().to_ulong()) {
             arp_proto->IncrementStatsGratuitous();
             return true;
         }
@@ -77,7 +81,7 @@ bool ArpHandler::HandlePacket() {
     }
 
     const Interface *itf =
-        agent()->GetInterfaceTable()->FindInterface(GetInterfaceIndex());
+        agent()->interface_table()->FindInterface(GetInterfaceIndex());
     if (!itf || !itf->IsActive()) {
         arp_proto->IncrementStatsInvalidInterface();
         ARP_TRACE(Error, "Received ARP packet from invalid / inactive interface");
@@ -158,6 +162,16 @@ bool ArpHandler::HandlePacket() {
 
         case GRATUITOUS_ARP: {
             arp_proto->IncrementStatsGratuitous();
+            if (itf->type() == Interface::VM_INTERFACE) {
+                uint32_t ip;
+                memcpy(&ip, arp_->arp_spa, sizeof(ip));
+                ip = ntohl(ip);
+                //Enqueue a request to trigger state machine
+                agent()->oper_db()->route_preference_module()->
+                    EnqueueTrafficSeen(Ip4Address(ip), 32, itf->id(),
+                                       vrf->vrf_id());
+            }
+
             if (entry) {
                 entry->HandleArpReply(arp_->arp_sha);
                 return true;

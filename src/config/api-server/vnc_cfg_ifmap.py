@@ -823,10 +823,11 @@ class VncCassandraClient(VncCassandraClientGen):
 
 
 class VncKombuClient(object):
-    def _init_server_conn(self, rabbit_ip, rabbit_user, rabbit_password, rabbit_vhost):
+    def _init_server_conn(self, rabbit_ip, rabbit_port, rabbit_user, rabbit_password, rabbit_vhost):
         while True:
             try:
                 self._conn = kombu.Connection(hostname=rabbit_ip,
+                                              port=rabbit_port,
                                               userid=rabbit_user,
                                               password=rabbit_password,
                                               virtual_host=rabbit_vhost)
@@ -843,10 +844,11 @@ class VncKombuClient(object):
                 time.sleep(2)
     # end _init_server_conn
 
-    def __init__(self, db_client_mgr, rabbit_ip, ifmap_db, rabbit_user, rabbit_password, rabbit_vhost):
+    def __init__(self, db_client_mgr, rabbit_ip, rabbit_port, ifmap_db, rabbit_user, rabbit_password, rabbit_vhost):
         self._db_client_mgr = db_client_mgr
         self._ifmap_db = ifmap_db
         self._rabbit_ip = rabbit_ip
+        self._rabbit_port = rabbit_port
         self._rabbit_user = rabbit_user
         self._rabbit_password = rabbit_password
         self._rabbit_vhost = rabbit_vhost
@@ -861,7 +863,7 @@ class VncKombuClient(object):
         self._dbe_oper_subscribe_greenlet = None
         if self._rabbit_vhost == "__NONE__":
             return
-        self._init_server_conn(self._rabbit_ip, self._rabbit_user, self._rabbit_password, self._rabbit_vhost)
+        self._init_server_conn(self._rabbit_ip, self._rabbit_port, self._rabbit_user, self._rabbit_password, self._rabbit_vhost)
     # end __init__
 
     def _obj_update_q_put(self, *args, **kwargs):
@@ -874,7 +876,7 @@ class VncKombuClient(object):
             except Exception as e:
                 logger.info("Disconnected from rabbitmq. Reinitializing connection: %s" % str(e))
                 time.sleep(1)
-                self._init_server_conn(self._rabbit_ip, self._rabbit_user, self._rabbit_password, self._rabbit_vhost)
+                self._init_server_conn(self._rabbit_ip, self._rabbit_port, self._rabbit_user, self._rabbit_password, self._rabbit_vhost)
     # end _obj_update_q_put
 
     def _dbe_oper_subscribe(self):
@@ -890,7 +892,7 @@ class VncKombuClient(object):
                     message = queue.get()
                 except Exception as e:
                     logger.info("Disconnected from rabbitmq. Reinitializing connection: %s" % str(e))
-                    self._init_server_conn(self._rabbit_ip, self._rabbit_user, self._rabbit_password, self._rabbit_vhost)
+                    self._init_server_conn(self._rabbit_ip, self._rabbit_port, self._rabbit_user, self._rabbit_password, self._rabbit_vhost)
                     # never reached
                     continue
 
@@ -911,7 +913,7 @@ class VncKombuClient(object):
                         message.ack()
                     except Exception as e:
                         logger.info("Disconnected from rabbitmq. Reinitializing connection: %s" % str(e))
-                        self._init_server_conn(self._rabbit_ip, self._rabbit_user, self._rabbit_password, self._rabbit_vhost)
+                        self._init_server_conn(self._rabbit_ip, self._rabbit_port, self._rabbit_user, self._rabbit_password, self._rabbit_vhost)
                         # never reached
 
     #end _dbe_oper_subscribe
@@ -936,28 +938,34 @@ class VncKombuClient(object):
             raise Exception(result)
     #end _dbe_create_notification
 
-    def dbe_update_publish(self, obj_type, obj_ids):
-        oper_info = {'oper': 'UPDATE', 'type': obj_type}
+    def dbe_update_publish(self, obj_type, obj_ids, is_resync=False):
+        oper_info = {'oper': 'UPDATE', 'type': obj_type, 'is_resync': is_resync}
         oper_info.update(obj_ids)
         self._obj_update_q_put(oper_info, serializer='json')
     # end dbe_update_publish
 
-    def _dbe_update_notification(self, obj_info):
-        r_class = self._db_client_mgr.get_resource_class(obj_info['type'])
+    def _dbe_update_notification(self, oper_info):
+        r_class = self._db_client_mgr.get_resource_class(oper_info['type'])
         if r_class:
-            r_class.dbe_update_notification(obj_info)
+            r_class.dbe_update_notification(oper_info)
 
-        ifmap_id = self._db_client_mgr.uuid_to_ifmap_id(obj_info['type'],
-                                                        obj_info['uuid'])
+        ifmap_id = self._db_client_mgr.uuid_to_ifmap_id(oper_info['type'],
+                                                        oper_info['uuid'])
 
-        (ok, result) = self._db_client_mgr.dbe_read(obj_info['type'], obj_info)
+        (ok, result) = self._db_client_mgr.dbe_read(oper_info['type'], oper_info)
         if not ok:
             raise Exception(result)
         new_obj_dict = result
 
-        method_name = obj_info['type'].replace('-', '_')
-        method = getattr(self._ifmap_db, "_ifmap_%s_update" % (method_name))
-        (ok, ifmap_result) = method(ifmap_id, new_obj_dict)
+        method_name = oper_info['type'].replace('-', '_')
+        if oper_info['is_resync']:
+            obj_ids = oper_info
+            method = getattr(self._ifmap_db, "_ifmap_%s_create" % (method_name))
+            (ok, ifmap_result) = method(obj_ids, new_obj_dict)
+        else:
+            method = getattr(self._ifmap_db, "_ifmap_%s_update" % (method_name))
+            (ok, ifmap_result) = method(ifmap_id, new_obj_dict)
+
         if not ok:
             raise Exception(ifmap_result)
     #end _dbe_update_notification
@@ -1006,12 +1014,16 @@ class VncZkClient(object):
         self._subnet_allocators = {}
     # end __init__
 
-    def create_subnet_allocator(self, subnet, first, last):
+    def create_subnet_allocator(self, subnet, subnet_alloc_list,
+                                addr_from_start):
         # TODO handle subnet resizing change, ignore for now
         if subnet not in self._subnet_allocators:
+            if addr_from_start is None:
+                addr_from_start = False
             self._subnet_allocators[subnet] = IndexAllocator(
                 self._zk_client, self._SUBNET_PATH+'/'+subnet+'/',
-                size=last-first, start_idx=first, reverse=True)
+                size=0, start_idx=0, reverse=not addr_from_start,
+                alloc_list=subnet_alloc_list)
     # end create_subnet_allocator
 
     def delete_subnet_allocator(self, subnet):
@@ -1067,7 +1079,7 @@ class VncZkClient(object):
 class VncDbClient(object):
     def __init__(self, api_svr_mgr, ifmap_srv_ip, ifmap_srv_port, uname,
                  passwd, cass_srv_list,
-                 rabbit_server, rabbit_user, rabbit_password, rabbit_vhost, 
+                 rabbit_server, rabbit_port, rabbit_user, rabbit_password, rabbit_vhost,
                  reset_config=False, ifmap_srv_loc=None,
                  zk_server_ip=None):
 
@@ -1097,7 +1109,7 @@ class VncDbClient(object):
         self._cassandra_db = VncCassandraClient(
             self, cass_srv_list, reset_config)
 
-        self._msgbus = VncKombuClient(self, rabbit_server, self._ifmap_db,
+        self._msgbus = VncKombuClient(self, rabbit_server, rabbit_port, self._ifmap_db,
                                       rabbit_user, rabbit_password,
                                       rabbit_vhost)
         self._zk_db = VncZkClient(api_svr_mgr._args.worker_id, zk_server_ip,
@@ -1176,13 +1188,7 @@ class VncDbClient(object):
             (ok, obj_dicts) = method([obj_uuid])
             obj_dict = obj_dicts[0]
 
-            # TODO remove backward compat create mapping in zk
-            try:
-                self._zk_db.create_fq_name_to_uuid_mapping(obj_type,
-                                      obj_dict['fq_name'], obj_uuid)
-            except ResourceExistsError:
-                pass
-
+            # TODO remove backward compat (use RT instead of VN->LR ref)
             if (obj_type == 'virtual_network' and
                 'logical_router_refs' in obj_dict):
                 for router in obj_dict['logical_router_refs']:
@@ -1208,8 +1214,7 @@ class VncDbClient(object):
         try:
             obj_ids = {'uuid': obj_uuid, 'imid': my_imid,
                        'parent_imid': parent_imid}
-            method = getattr(self._ifmap_db, "_ifmap_%s_create" % (obj_type))
-            (ok, result) = method(obj_ids, obj_dict)
+            self._msgbus.dbe_update_publish(obj_type, obj_ids, is_resync=True)
         except Exception as e:
             self.config_object_error(
                 obj_uuid, None, obj_type, 'dbe_resync:ifmap_create', str(e))
@@ -1251,9 +1256,8 @@ class VncDbClient(object):
                 ok = self.set_uuid(obj_type, obj_dict, uuid.UUID(uuid_requested), False)
             else:
                 (ok, obj_uuid) = self._alloc_set_uuid(obj_type, obj_dict)
-        except ResourceExistsError:
-            return (409, '' + pformat(obj_dict['fq_name']) +
-                ' already exists with uuid: ' + obj_dict['uuid'])
+        except ResourceExistsError as e:
+            return (409, str(e))
 
         parent_type = obj_dict.get('parent_type', None)
         method_name = obj_type.replace('-', '_')
@@ -1388,8 +1392,10 @@ class VncDbClient(object):
         self._zk_db.subnet_free_req(subnet, addr)
     # end subnet_free_req
 
-    def subnet_create_allocator(self, subnet, first, last):
-        self._zk_db.create_subnet_allocator(subnet, first, last)
+    def subnet_create_allocator(self, subnet, subnet_alloc_list,
+                                addr_from_start):
+        self._zk_db.create_subnet_allocator(subnet, subnet_alloc_list,
+                                            addr_from_start)
     # end subnet_create_allocator
 
     def subnet_delete_allocator(self, subnet):

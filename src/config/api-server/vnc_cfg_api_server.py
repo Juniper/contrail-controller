@@ -57,6 +57,7 @@ from cfgm_common.uve.vrouter.ttypes import VRLog
 from sandesh_common.vns.ttypes import Module, NodeType
 from sandesh_common.vns.constants import ModuleNames, Module2NodeType, NodeTypeNames, INSTANCE_ID_DEFAULT
 from provision_defaults import Provision
+from vnc_quota import *
 from gen.resource_xsd import *
 from gen.resource_common import *
 from gen.resource_server import *
@@ -101,6 +102,12 @@ _ACTION_RESOURCES = [
     {'uri': '/stop-profile', 'link_name': 'stop-profile',
      'method_name': 'stop_profile'},
 ]
+
+
+@bottle.error(400)
+def error_400(err):
+    return err.body
+# end error_400
 
 
 @bottle.error(403)
@@ -173,12 +180,18 @@ class VncApiServer(VncApiServerGen):
         self._post_common = self._http_post_common
 
         # Type overrides from generated code
+        self._resource_classes['global-system-config'] = \
+            vnc_cfg_types.GlobalSystemConfigServer
         self._resource_classes['floating-ip'] = vnc_cfg_types.FloatingIpServer
         self._resource_classes['instance-ip'] = vnc_cfg_types.InstanceIpServer
+        self._resource_classes['logical-router'] = vnc_cfg_types.LogicalRouterServer
+        self._resource_classes['security-group'] = vnc_cfg_types.SecurityGroupServer
         self._resource_classes['virtual-machine-interface'] = \
             vnc_cfg_types.VirtualMachineInterfaceServer
         self._resource_classes['virtual-network'] = \
             vnc_cfg_types.VirtualNetworkServer
+        self._resource_classes['network-policy'] = \
+            vnc_cfg_types.NetworkPolicyServer
         self._resource_classes['network-ipam'] = \
             vnc_cfg_types.NetworkIpamServer
         self._resource_classes['virtual-DNS'] = vnc_cfg_types.VirtualDnsServer
@@ -194,6 +207,8 @@ class VncApiServer(VncApiServerGen):
         self._resource_classes[
             'floating-ip-pool'].generate_default_instance = False
         self._resource_classes['instance-ip'].generate_default_instance = False
+        self._resource_classes['logical-router'].generate_default_instance = False
+        self._resource_classes['security-group'].generate_default_instance = False
         self._resource_classes[
             'virtual-machine'].generate_default_instance = False
         self._resource_classes[
@@ -283,6 +298,8 @@ class VncApiServer(VncApiServerGen):
 
         # Address Management interface
         addr_mgmt = vnc_addr_mgmt.AddrMgmt(self)
+        vnc_cfg_types.LogicalRouterServer.addr_mgmt = addr_mgmt
+        vnc_cfg_types.SecurityGroupServer.addr_mgmt = addr_mgmt
         vnc_cfg_types.VirtualMachineInterfaceServer.addr_mgmt = addr_mgmt
         vnc_cfg_types.FloatingIpServer.addr_mgmt = addr_mgmt
         vnc_cfg_types.InstanceIpServer.addr_mgmt = addr_mgmt
@@ -310,18 +327,6 @@ class VncApiServer(VncApiServerGen):
         else:
             self._db_connect(self._args.reset_config)
             self._db_init_entries()
-
-        # recreate subnet operating state from DB
-        (ok, vn_fq_names_uuids) = self._db_conn.dbe_list('virtual-network')
-        for vn_fq_name, vn_uuid in vn_fq_names_uuids:
-            try:
-                (ok, vn_dict) = self._db_conn.dbe_read(
-                    'virtual-network', {'uuid': vn_uuid})
-                if ok:
-                    self._addr_mgmt.net_create(vn_dict)
-            except Exception as e:
-                # TODO log
-                pass
 
         # Cpuinfo interface
         sysinfo_req = True
@@ -419,8 +424,8 @@ class VncApiServer(VncApiServerGen):
             (ok, put_result) = r_class.http_put(obj_uuid, fq_name, obj_dict, self._db_conn)
             if not ok:
                 (code, msg) = put_result
-                self.config_object_error(id, None, obj_type, 'ref_update', msg)
-                abort(code, msg)
+                self.config_object_error(obj_uuid, None, obj_type, 'ref_update', msg)
+                bottle.abort(code, msg)
         obj_type = obj_type.replace('-', '_')
         try:
             id = self._db_conn.ref_update(obj_type, obj_uuid, ref_type, ref_uuid, {'attr': attr}, operation)
@@ -559,7 +564,7 @@ class VncApiServer(VncApiServerGen):
             'wipe_config': False,
             'listen_ip_addr': _WEB_HOST,
             'listen_port': _WEB_PORT,
-            'ifmap_server_ip': _WEB_HOST,
+            'ifmap_server_ip': '127.0.0.1',
             'ifmap_server_port': "8443",
             'collectors': None,
             'http_server_port': '8084',
@@ -570,10 +575,11 @@ class VncApiServer(VncApiServerGen):
             'logging_level': 'WARN',
             'multi_tenancy': False,
             'disc_server_ip': None,
-            'disc_server_port': None,
+            'disc_server_port': '5998',
             'zk_server_ip': '127.0.0.1:2181',
             'worker_id': '0',
             'rabbit_server': 'localhost',
+            'rabbit_port': '5672',
             'rabbit_user': 'guest',
             'rabbit_password': 'guest',
             'rabbit_vhost': None,
@@ -610,6 +616,13 @@ class VncApiServer(VncApiServerGen):
                     secopts.update(dict(config.items("SECURITY")))
             if 'KEYSTONE' in config.sections():
                 ksopts.update(dict(config.items("KEYSTONE")))
+            if 'QUOTA' in config.sections():
+                for (k, v) in config.items("QUOTA"):
+                    try:
+                        if str(k) != 'admin_token':
+                            QuotaHelper.default_quota[str(k)] = int(v)
+                    except ValueError:
+                        pass
 
         # Override with CLI options
         # Don't surpress add_help here so it will handle -h
@@ -701,6 +714,9 @@ class VncApiServer(VncApiServerGen):
             "--rabbit_server",
             help="Rabbitmq server address")
         parser.add_argument(
+            "--rabbit_port",
+            help="Rabbitmq server port")
+        parser.add_argument(
             "--rabbit_user",
             help="Username for rabbit")
         parser.add_argument(
@@ -761,16 +777,16 @@ class VncApiServer(VncApiServerGen):
         ifmap_loc = self._args.ifmap_server_loc
         zk_server = self._args.zk_server_ip
         rabbit_server = self._args.rabbit_server
+        rabbit_port = self._args.rabbit_port
         rabbit_user = self._args.rabbit_user
         rabbit_password = self._args.rabbit_password
         rabbit_vhost = self._args.rabbit_vhost
 
 
         db_conn = VncDbClient(self, ifmap_ip, ifmap_port, user, passwd,
-                              cass_server_list,
-                              rabbit_server, rabbit_user, rabbit_password, 
-                              rabbit_vhost, reset_config, ifmap_loc,
-                              zk_server)
+                              cass_server_list, rabbit_server, rabbit_port,
+                              rabbit_user, rabbit_password, rabbit_vhost,
+                              reset_config, ifmap_loc, zk_server)
         self._db_conn = db_conn
     # end _db_connect
 
@@ -820,14 +836,14 @@ class VncApiServer(VncApiServerGen):
 
         self._db_conn.db_resync()
         try:
-            self._extension_mgrs['resync'].map(self._resync_projects)
+            self._extension_mgrs['resync'].map(self._resync_domains_projects)
         except Exception as e:
             pass
     # end _db_init_entries
 
-    def _resync_projects(self, ext):
-        ext.obj.resync_projects()
-    # end _resync_projects
+    def _resync_domains_projects(self, ext):
+        ext.obj.resync_domains_projects()
+    # end _resync_domains_projects
 
     def _create_singleton_entry(self, singleton_obj):
         s_obj = singleton_obj

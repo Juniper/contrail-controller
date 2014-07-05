@@ -91,7 +91,7 @@ void VirtualGateway::InterfaceNotify(DBTablePartBase *partition, DBEntryBase *en
 }
 
 void VirtualGateway::RegisterDBClients() {
-   listener_id_ = agent_->GetInterfaceTable()->Register
+   listener_id_ = agent_->interface_table()->Register
        (boost::bind(&VirtualGateway::InterfaceNotify, this, _1, _2));
 }
 
@@ -108,11 +108,11 @@ void VirtualGateway::CreateVrf() {
 }
 
 void VirtualGateway::CreateVrf(const std::string &vrf_name) {
-    agent_->GetVrfTable()->CreateVrf(vrf_name, VrfData::GwVrf);
+    agent_->vrf_table()->CreateVrf(vrf_name, VrfData::GwVrf);
 }
 
 void VirtualGateway::DeleteVrf(const std::string &vrf_name) {
-    agent_->GetVrfTable()->DeleteVrf(vrf_name, VrfData::GwVrf);
+    agent_->vrf_table()->DeleteVrf(vrf_name, VrfData::GwVrf);
 }
 
 // Create virtual-gateway interface
@@ -130,13 +130,14 @@ void VirtualGateway::CreateInterfaces() {
 
 void VirtualGateway::CreateInterface(const std::string &interface_name,
                                      const std::string &vrf_name) {
-    InetInterface::Create(agent_->GetInterfaceTable(), interface_name,
+    InetInterface::Create(agent_->interface_table(), interface_name,
                           InetInterface::SIMPLE_GATEWAY, vrf_name,
-                          Ip4Address(0), 0, Ip4Address(0), "");
+                          Ip4Address(0), 0, Ip4Address(0), Agent::NullString(),
+                          "");
 }
 
 void VirtualGateway::DeleteInterface(const std::string &interface_name) {
-    InetInterface::Delete(agent_->GetInterfaceTable(), interface_name);
+    InetInterface::Delete(agent_->interface_table(), interface_name);
 }
 
 void
@@ -164,7 +165,7 @@ VirtualGateway::SubnetUpdate(const std::string &vrf,
         Ip4Address addr = GetIp4SubnetAddress(add_list[idx].ip_,
                                               add_list[idx].plen_);
         rt_table->AddVHostRecvRouteReq(agent_->vgw_peer(),
-                                       agent_->GetDefaultVrf(),
+                                       agent_->fabric_vrf_name(),
                                        agent_->vhost_interface_name(),
                                        addr, add_list[idx].plen_,
                                        vrf, false);
@@ -172,8 +173,8 @@ VirtualGateway::SubnetUpdate(const std::string &vrf,
     for (uint32_t idx = 0; idx < del_list.size(); idx++) {
         Ip4Address addr = GetIp4SubnetAddress(del_list[idx].ip_,
                                               del_list[idx].plen_);
-        rt_table->DeleteReq(agent_->vgw_peer(), agent_->GetDefaultVrf(),
-                            addr, del_list[idx].plen_);
+        rt_table->DeleteReq(agent_->vgw_peer(), agent_->fabric_vrf_name(),
+                            addr, del_list[idx].plen_, NULL);
     }
 }
 
@@ -204,7 +205,7 @@ VirtualGateway::RouteUpdate(const VirtualGatewayConfig &vgw,
     if (vgw.routes().size() == 0 && del_default_route) {
         // no routes earlier, remove default route
         rt_table->DeleteReq(agent_->vgw_peer(), vgw.vrf_name(),
-                            Ip4Address(0), 0);
+                            Ip4Address(0), 0, NULL);
     } else if (new_list_size == 0 && add_default_route) {
         // no routes now, add a default route
         rt_table->AddInetInterfaceRoute(agent_->vgw_peer(), vgw.vrf_name(),
@@ -217,7 +218,7 @@ VirtualGateway::RouteUpdate(const VirtualGatewayConfig &vgw,
         Ip4Address addr = GetIp4SubnetAddress(del_list[idx].ip_,
                                               del_list[idx].plen_);
         rt_table->DeleteReq(agent_->vgw_peer(), vgw.vrf_name(),
-                            addr, del_list[idx].plen_);
+                            addr, del_list[idx].plen_, NULL);
     }
     for (uint32_t idx = 0; idx < add_list.size(); idx++) {
         Ip4Address addr = GetIp4SubnetAddress(add_list[idx].ip_,
@@ -241,10 +242,10 @@ void VirtualGateway::Shutdown() {
     const VirtualGatewayConfigTable::Table &table = vgw_config_table_->table();
     for (it = table.begin(); it != table.end(); it++) {
         // Delete Interface
-        InetInterface::Delete(agent_->GetInterfaceTable(),
+        InetInterface::Delete(agent_->interface_table(),
                                  it->interface_name());
 
         // Delete VRF for "public" virtual-network
-        agent_->GetVrfTable()->DeleteStaticVrf(it->vrf_name());
+        agent_->vrf_table()->DeleteStaticVrf(it->vrf_name());
     }
 }

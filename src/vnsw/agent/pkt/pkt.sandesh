@@ -104,10 +104,14 @@ struct SandeshFlowData {
     36: list<agent.ActionStr> sg_action_summary;
     37: FlowAclInfo reverse_sg;
     38: FlowAclInfo reverse_out_sg;
+    39: i32 nh;
+    40: FlowAclInfo vrf_assign_acl;
+    41: optional string sg_rule_uuid;
+    42: optional string nw_ace_uuid;
 }
 
 request sandesh FetchFlowRecord {
-    1: i32 vrf;
+    1: i32 nh;
     2: string sip;
     3: string dip;
     4: i32 src_port;
@@ -176,6 +180,7 @@ struct FlowInfo {
    27: optional string dest_vn;
    28: optional list<u32> source_sg_id_l;
    29: optional list<u32> dest_sg_id_l;
+   30: u16 nh_id;
 }
 
 traceobject sandesh FlowTrace {

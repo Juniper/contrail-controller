@@ -40,6 +40,9 @@ bool RouteExport::State::Changed(const AgentPath *path) const {
     if (sg_list_ != path->sg_list())
         return true;
 
+    if (path_preference_ != path->path_preference())
+        return true;
+
     return false;
 }
 
@@ -49,6 +52,7 @@ void RouteExport::State::Update(const AgentPath *path) {
     vn_ = path->dest_vn_name();
     sg_list_ = path->sg_list();
     tunnel_type_ = path->tunnel_type();
+    path_preference_ = path->path_preference();
 }
 
 RouteExport::RouteExport(AgentRouteTable *rt_table):
@@ -142,7 +146,7 @@ void RouteExport::UnicastNotify(AgentXmppChannel *bgp_xmpp_peer,
                 AgentXmppChannel::ControllerSendRoute(bgp_xmpp_peer, 
                         static_cast<AgentRoute * >(route), state->vn_, 
                         state->label_, path->GetTunnelBmap(),
-                        &path->sg_list(), true, type);
+                        &path->sg_list(), true, type, state->path_preference_);
         }
     } else {
         if (state->exported_ == true) {
@@ -154,7 +158,8 @@ void RouteExport::UnicastNotify(AgentXmppChannel *bgp_xmpp_peer,
 
             AgentXmppChannel::ControllerSendRoute(bgp_xmpp_peer, 
                     static_cast<AgentRoute *>(route), state->vn_, 
-                    state->label_, TunnelType::AllType(), NULL, false, type);
+                    state->label_, TunnelType::AllType(), NULL, false,
+                    type, state->path_preference_);
             state->exported_ = false;
         }
     }
@@ -240,7 +245,7 @@ void RouteExport::Walkdone(DBTableBase *partition,
 
 void RouteExport::Unregister() {
     //Start unregister process
-    DBTableWalker *walker = Agent::GetInstance()->GetDB()->GetWalker();
+    DBTableWalker *walker = Agent::GetInstance()->db()->GetWalker();
     walker->WalkTable(rt_table_, NULL, 
             boost::bind(&RouteExport::DeleteState, this, _1, _2),
             boost::bind(&RouteExport::Walkdone, _1, this));

@@ -10,7 +10,7 @@
 
 #include <uve/agent_stats_sandesh_context.h>
 #include <uve/agent_stats_collector.h>
-#include <cmn/agent_stats.h>
+#include <pkt/agent_stats.h>
 
 AgentStatsSandeshContext::AgentStatsSandeshContext(AgentStatsCollector *col) 
     : collector_(col), marker_id_(-1) {
@@ -78,7 +78,7 @@ void AgentStatsSandeshContext::IfMsgHandler(vr_interface_req *req) {
 void AgentStatsSandeshContext::VrfStatsMsgHandler(vr_vrf_stats_req *req) {
     set_marker_id(req->get_vsr_vrf());
     bool vrf_present = true;
-    const VrfEntry *vrf = collector_->agent()->GetVrfTable()->
+    const VrfEntry *vrf = collector_->agent()->vrf_table()->
                           FindVrfFromId(req->get_vsr_vrf());
     if (vrf == NULL) {
         if (req->get_vsr_vrf() != collector_->GetNamelessVrfId()) { 

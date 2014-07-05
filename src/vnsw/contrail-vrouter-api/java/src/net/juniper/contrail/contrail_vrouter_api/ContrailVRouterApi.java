@@ -34,12 +34,14 @@ public class ContrailVRouterApi {
     private final int rpc_port;
     private Map<UUID, Port> ports;
     private InstanceService.Client client;
+    private boolean oneShot;
 
-    public ContrailVRouterApi(InetAddress ip, int port) {
+    public ContrailVRouterApi(InetAddress ip, int port, boolean oneShot) {
         this.rpc_address = ip;
         this.rpc_port = port;
         this.ports = new HashMap<UUID, Port>();
         this.client = null;
+        this.oneShot = oneShot;
     }
 
     private static List<Short> UUIDToArray(UUID uuid) {
@@ -84,6 +86,9 @@ public class ContrailVRouterApi {
         client = CreateRpcClient();
         if (client == null) {
             return false;
+        }
+        if (oneShot) {
+            return true;
         }
         try {
             client.Connect();

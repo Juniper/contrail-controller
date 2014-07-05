@@ -13,6 +13,7 @@
 #include <ksync/ksync_index.h>
 #include <ksync/ksync_entry.h>
 #include <ksync/ksync_object.h>
+#include <ksync/ksync_netlink.h>
 #include <ksync/ksync_sock.h>
 #include <uve/agent_uve.h>
 #include <uve/flow_stats_collector.h>
@@ -98,6 +99,9 @@ void FlowStatsCollector::FlowExport(FlowEntry *flow, uint64_t diff_bytes,
             }
         }
     }
+    s_flow.set_sg_rule_uuid(flow->sg_rule_uuid());
+    s_flow.set_nw_ace_uuid(flow->nw_ace_uuid());
+
     FlowEntry *rev_flow = flow->reverse_flow_entry();
     if (rev_flow) {
         s_flow.set_reverse_uuid(to_string(rev_flow->flow_uuid()));

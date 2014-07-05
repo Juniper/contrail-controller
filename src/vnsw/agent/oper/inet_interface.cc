@@ -57,13 +57,21 @@ Interface *InetInterfaceKey::AllocEntry(const InterfaceTable *table,
 
     VrfKey key(data->vrf_name_);
     VrfEntry *vrf = static_cast<VrfEntry *>
-        (table->agent()->GetVrfTable()->FindActiveEntry(&key));
+        (table->agent()->vrf_table()->FindActiveEntry(&key));
     assert(vrf);
+
+	Interface *xconnect = NULL;
+    if (vhost_data->sub_type_ == InetInterface::VHOST) {
+        PhysicalInterfaceKey key(vhost_data->xconnect_);
+        xconnect = static_cast<Interface *>
+            (table->agent()->interface_table()->FindActiveEntry(&key));
+        assert(xconnect != NULL);
+    }
 
     InetInterface *intf = new InetInterface(name_, vhost_data->sub_type_, vrf,
                                             vhost_data->ip_addr_,
                                             vhost_data->plen_, vhost_data->gw_,
-                                            vhost_data->vn_name_);
+                                            xconnect, vhost_data->vn_name_);
     return intf;
 }
 
@@ -75,9 +83,10 @@ InetInterfaceData::InetInterfaceData(InetInterface::SubType sub_type,
                                      const std::string &vrf_name,
                                      const Ip4Address &addr, int plen,
                                      const Ip4Address &gw,
+                                     const std::string &xconnect,
                                      const std::string vn_name) :
     InterfaceData(), sub_type_(sub_type), ip_addr_(addr), plen_(plen), gw_(gw),
-    vn_name_(vn_name) {
+    xconnect_(xconnect), vn_name_(vn_name) {
     InetInit(vrf_name);
 }
 
@@ -93,12 +102,20 @@ void InetInterface::ActivateSimpleGateway() {
 
     if (label_ == MplsTable::kInvalidLabel) {
         // Allocate MPLS Label 
-        label_ = agent->GetMplsTable()->AllocLabel();
+        label_ = agent->mpls_table()->AllocLabel();
         // Create MPLS entry pointing to virtual host interface-nh
         MplsLabel::CreateInetInterfaceLabel(label_, name(), false,
                                             InterfaceNHFlags::INET4);
 
     }
+
+    //There is no policy enabled nexthop created for VGW interface,
+    //hence use interface nexthop without policy as flow key index
+    InterfaceNHKey key(new InetInterfaceKey(name()),
+                       false, InterfaceNHFlags::INET4);
+    flow_key_nh_ = static_cast<const NextHop *>(
+            agent->nexthop_table()->FindActiveEntry(&key));
+    assert(flow_key_nh_);
 }
 
 void InetInterface::DeActivateSimpleGateway() {
@@ -111,11 +128,11 @@ void InetInterface::DeActivateSimpleGateway() {
 
     // Delete routes
     Ip4Address addr = GetIp4SubnetAddress(ip_addr_, plen_);
-    uc_rt_table->DeleteReq(agent->local_vm_peer(), agent->GetDefaultVrf(),
-                           addr, plen_);
+    uc_rt_table->DeleteReq(agent->local_vm_peer(), agent->fabric_vrf_name(),
+                           addr, plen_, NULL);
 
     uc_rt_table->DeleteReq(agent->local_vm_peer(),
-                           vrf()->GetName(), Ip4Address(0), 0);
+                           vrf()->GetName(), Ip4Address(0), 0, NULL);
 
     // Delete NH
     InterfaceNH::DeleteInetInterfaceNextHop(name());
@@ -123,6 +140,7 @@ void InetInterface::DeActivateSimpleGateway() {
     // Delete MPLS Label
     MplsLabel::DeleteReq(label_);
     label_ = MplsTable::kInvalidLabel;
+    flow_key_nh_ = NULL;
 }
 
 /////////////////////////////////////////////////////////////////////////////
@@ -183,7 +201,7 @@ void InetInterface::ActivateHostInterface() {
     Agent *agent = table->agent();
 
     // Create receive nexthops
-    ReceiveNH::Create(agent->GetNextHopTable(), name_);
+    ReceiveNH::Create(agent->nexthop_table(), name_);
 
     VrfTable *vrf_table = static_cast<VrfTable *>(vrf()->get_table());
     Inet4UnicastAgentRouteTable *uc_rt_table = 
@@ -204,6 +222,9 @@ void InetInterface::ActivateHostInterface() {
         (VrfTable::GetInstance()->GetInet4MulticastRouteTable(vrf()->GetName()));
     mc_rt_table->AddVHostRecvRoute(vrf()->GetName(), name_,
                                    Ip4Address(0xFFFFFFFF), false);
+    ReceiveNHKey nh_key(new InetInterfaceKey(name_), false);
+    flow_key_nh_ = static_cast<const NextHop *>(
+            agent->nexthop_table()->FindActiveEntry(&nh_key));
 }
 
 void InetInterface::DeActivateHostInterface() {
@@ -230,7 +251,8 @@ void InetInterface::DeActivateHostInterface() {
                         Ip4Address(0xFFFFFFFF));
 
     // Delete receive nexthops
-    ReceiveNH::Delete(agent->GetNextHopTable(), name_);
+    ReceiveNH::Delete(agent->nexthop_table(), name_);
+    flow_key_nh_ = NULL;
 }
 
 /////////////////////////////////////////////////////////////////////////////
@@ -244,9 +266,10 @@ InetInterface::InetInterface(const std::string &name) :
 
 InetInterface::InetInterface(const std::string &name, SubType sub_type,
                              VrfEntry *vrf, const Ip4Address &ip_addr, int plen,
-                             const Ip4Address &gw, const std::string &vn_name) :
+                             const Ip4Address &gw, Interface *xconnect,
+                             const std::string &vn_name) :
     Interface(Interface::INET, nil_uuid(), name, vrf), sub_type_(sub_type),
-    ip_addr_(ip_addr), plen_(plen), gw_(gw), vn_name_(vn_name) {
+    ip_addr_(ip_addr), plen_(plen), gw_(gw), xconnect_(xconnect), vn_name_(vn_name) {
     ipv4_active_ = false;
     l2_active_ = false;
 }
@@ -362,11 +385,12 @@ void InetInterface::CreateReq(InterfaceTable *table, const std::string &ifname,
                               SubType sub_type, const std::string &vrf_name,
                               const Ip4Address &addr, int plen,
                               const Ip4Address &gw,
+                              const std::string &xconnect,
                               const std::string &vn_name) {
     DBRequest req(DBRequest::DB_ENTRY_ADD_CHANGE);
     req.key.reset(new InetInterfaceKey(ifname));
     req.data.reset(new InetInterfaceData(sub_type, vrf_name, Ip4Address(addr),
-                                         plen, Ip4Address(gw), vn_name));
+                                         plen, Ip4Address(gw), xconnect, vn_name));
     table->Enqueue(&req);
 }
 
@@ -375,11 +399,13 @@ void InetInterface::Create(InterfaceTable *table, const std::string &ifname,
                            SubType sub_type, const std::string &vrf_name,
                            const Ip4Address &addr, int plen,
                            const Ip4Address &gw,
+                           const std::string &xconnect,
                            const std::string &vn_name) {
     DBRequest req(DBRequest::DB_ENTRY_ADD_CHANGE);
     req.key.reset(new InetInterfaceKey(ifname));
     req.data.reset(new InetInterfaceData(sub_type, vrf_name, Ip4Address(addr),
-                                         plen, Ip4Address(gw), vn_name));
+                                         plen, Ip4Address(gw), xconnect,
+                                         vn_name));
     table->Process(req);
 }
 

@@ -134,6 +134,38 @@ struct DhcpOptions {
 // DHCP protocol handler
 class DhcpHandler : public ProtoHandler {
 public:
+    struct ConfigRecord {
+        ConfigRecord() : ip_addr(0), subnet_mask(0), bcast_addr(0), gw_addr(0), 
+                         dns_addr(0), plen(0), lease_time(-1) {
+        }
+
+        uint32_t ip_addr;
+        uint32_t subnet_mask;
+        uint32_t bcast_addr;
+        uint32_t gw_addr;
+        uint32_t dns_addr;
+        uint32_t plen;
+        uint32_t lease_time;
+        std::string client_name_;
+        std::string domain_name_;
+    };
+
+    struct DhcpRequestData {
+        DhcpRequestData() : xid(-1), flags(0), ip_addr(0) {
+            memset(mac_addr, 0, ETH_ALEN);
+        }
+        void UpdateData(uint32_t id, uint16_t fl, uint8_t *mac) {
+            xid = id;
+            flags = fl;
+            memcpy(mac_addr, mac, ETH_ALEN);
+        }
+
+        uint32_t  xid;
+        uint16_t  flags;
+        uint8_t   mac_addr[ETH_ALEN];
+        in_addr_t ip_addr;
+    };
+
     DhcpHandler(Agent *agent, boost::shared_ptr<PktInfo> info,
                 boost::asio::io_service &io);
     virtual ~DhcpHandler() {};
@@ -141,17 +173,26 @@ public:
     bool Run();
 
 private:
-    bool ReadOptions();
+    bool HandleVmRequest();
+    bool HandleMessage();
+    bool HandleDhcpFromFabric();
+    bool ReadOptions(int16_t opt_rem_len);
     bool FindLeaseData();
     void FillDhcpInfo(uint32_t addr, int plen, uint32_t gw, uint32_t dns);
     void UpdateDnsServer();
     void WriteOption82(DhcpOptions *opt, uint16_t &optlen);
     bool ReadOption82(DhcpOptions *opt);
-    bool CreateRelayPacket(bool is_request);
+    bool CreateRelayPacket();
+    bool CreateRelayResponsePacket();
     void RelayRequestToFabric();
     void RelayResponseFromFabric();
-    uint16_t DhcpHdr(in_addr_t, in_addr_t, uint8_t *);
+    uint16_t DhcpHdr(in_addr_t, in_addr_t);
+    uint16_t AddConfigDhcpOptions(uint16_t opt_len, bool &domain_name_added,
+                                  bool &dns_server_added);
     uint16_t AddClasslessRouteOption(uint16_t opt_len);
+    uint16_t FillDhcpResponse(unsigned char *dest_mac,
+                              in_addr_t src_ip, in_addr_t dest_ip,
+                              in_addr_t siaddr, in_addr_t yiaddr);
     void SendDhcpResponse();
     void UpdateStats();
     DhcpOptions *GetNextOptionPtr(uint16_t optlen) {
@@ -163,11 +204,9 @@ private:
     uint32_t vm_itf_index_;
     uint8_t msg_type_;
     uint8_t out_msg_type_;
-    std::string client_name_;
-    std::string domain_name_;
-    in_addr_t req_ip_addr_;
     std::string nak_msg_;
     ConfigRecord config_;
+    DhcpRequestData request_;
     std::string ipam_name_;
     autogen::IpamType ipam_type_;
     autogen::VirtualDnsType vdns_type_;

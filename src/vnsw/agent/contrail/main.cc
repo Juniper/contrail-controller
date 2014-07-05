@@ -68,16 +68,16 @@ int main(int argc, char *argv[]) {
     desc.add_options()
         ("help", "help message")
         ("config_file", 
-         opt::value<string>()->default_value(Agent::DefaultConfigFile()), 
+         opt::value<string>()->default_value(Agent::GetInstance()->config_file()), 
          "Configuration file")
         ("version", "Display version information")
-        ("COLLECTOR.server", opt::value<string>(), 
-         "IP address of sandesh collector")
-        ("COLLECTOR.port", opt::value<uint16_t>(), "Port of sandesh collector")
         ("CONTROL-NODE.server", 
          opt::value<std::vector<std::string> >()->multitoken(),
          "IP addresses of control nodes."
          " Max of 2 Ip addresses can be configured")
+        ("DEFAULT.collectors",
+         opt::value<std::vector<std::string> >()->multitoken(),
+         "Collector server list")
         ("DEFAULT.debug", "Enable debug logging")
         ("DEFAULT.flow_cache_timeout", 
          opt::value<uint16_t>()->default_value(Agent::kDefaultFlowCacheTimeout),
@@ -92,7 +92,7 @@ int main(int argc, char *argv[]) {
         ("DEFAULT.log_category", opt::value<string>()->default_value("*"),
          "Category filter for local logging of sandesh messages")
         ("DEFAULT.log_file", 
-         opt::value<string>()->default_value(Agent::DefaultLogFile()),
+         opt::value<string>()->default_value(Agent::GetInstance()->log_file()),
          "Filename for the logs to be written to")
         ("DEFAULT.log_level", opt::value<string>()->default_value("SYS_DEBUG"),
          "Severity level for local logging of sandesh messages")
@@ -189,7 +189,7 @@ int main(int argc, char *argv[]) {
     // kick start initialization
     init.Start();
 
-    Agent::GetInstance()->GetEventManager()->RunWithExceptionHandling();
+    Agent::GetInstance()->event_manager()->RunWithExceptionHandling();
 
     return 0;
 }

@@ -31,10 +31,12 @@ public:
     typedef std::list<TrafficAction *> ActionList;
     static ActionList kEmptyActionList;
     AclEntry() : 
-        id_(0), type_(TERMINAL), matches_(), actions_(), mirror_entry_(NULL) {};
+        id_(0), type_(TERMINAL), matches_(), actions_(), mirror_entry_(NULL),
+        uuid_() {}
 
     AclEntry(AclType type) :
-        id_(0), type_(type), matches_(), actions_(), mirror_entry_(NULL) {};
+        id_(0), type_(type), matches_(), actions_(), mirror_entry_(NULL),
+        uuid_() {}
 
     ~AclEntry();
     
@@ -52,15 +54,18 @@ public:
     bool IsTerminal() const;
 
     uint32_t id() const { return id_; }
+    const std::string &uuid() const { return uuid_; }
 
     boost::intrusive::list_member_hook<> acl_list_node;
 
+    bool operator==(const AclEntry &rhs) const;
 private:
     uint32_t id_;
     AclType type_;
     std::vector<AclEntryMatch *> matches_;
     ActionList actions_;
     MirrorEntryRef mirror_entry_;
+    std::string uuid_;
 
     DISALLOW_COPY_AND_ASSIGN(AclEntry);
 };

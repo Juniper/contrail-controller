@@ -17,9 +17,10 @@ env.Append(LIBPATH = env['TOP'] + '/base')
 env.Append(LIBPATH = env['TOP'] + '/base/test')
 env.Append(LIBPATH = env['TOP'] + '/bgp')
 env.Append(LIBPATH = env['TOP'] + '/bgp/inet')
-env.Append(LIBPATH = env['TOP'] + '/bgp/inetmcast')
 env.Append(LIBPATH = env['TOP'] + '/bgp/enet')
+env.Append(LIBPATH = env['TOP'] + '/bgp/ermvpn')
 env.Append(LIBPATH = env['TOP'] + '/bgp/evpn')
+env.Append(LIBPATH = env['TOP'] + '/bgp/extended-community')
 env.Append(LIBPATH = env['TOP'] + '/bgp/test')
 env.Append(LIBPATH = env['TOP'] + '/bgp/l3vpn')
 env.Append(LIBPATH = env['TOP'] + '/bgp/origin-vn')
@@ -41,13 +42,14 @@ env.Prepend(LIBS = [
                     'task_test',
                     'bgptest',
                     'bgp',
+                    'extended_community',
                     'peer_sandesh',
                     'control_node',
                     'origin_vn',
                     'routing_instance',
-                    'rtarget',                    
-                    'security_group',                    
-                    'tunnel_encap',                    
+                    'rtarget',
+                    'security_group',
+                    'tunnel_encap',
                     'ifmap_vnc',
                     'bgp_schema',
                     'sandesh',
@@ -56,6 +58,7 @@ env.Prepend(LIBS = [
                     'curl',
                     'ifmap_server',
                     'ifmap_common',
+                    'connection_info',
                     'base',
                     'db',
                     'gunit',
@@ -65,6 +68,7 @@ env.Prepend(LIBS = [
                     'route',
                     'xmpp',
                     'bgp_enet',
+                    'bgp_ermvpn',
                     'bgp_evpn',
                     'xmpp_unicast',
                     'xmpp_multicast',
@@ -79,6 +83,7 @@ if sys.platform != 'darwin':
     env.Prepend(LINKFLAGS = ['-Wl,--whole-archive',
                              '-lbgp_enet',
                              '-lbgp_evpn',
+                             '-lbgp_ermvpn',
                              '-lbgp_l3vpn',
                              '-lrtarget',
                              '-ltask_test',
@@ -86,6 +91,8 @@ if sys.platform != 'darwin':
 else:
     lib_enet = Dir('../../enet').path + '/libbgp_enet.a'
     env.Prepend(LINKFLAGS = ['-Wl,-force_load,' + lib_enet])
+    lib_ermvpn = Dir('../../ermvpn').path + '/libbgp_ermvpn.a'
+    env.Prepend(LINKFLAGS = ['-Wl,-force_load,' + lib_ermvpn])
     lib_evpn = Dir('../../evpn').path + '/libbgp_evpn.a'
     env.Prepend(LINKFLAGS = ['-Wl,-force_load,' + lib_evpn])
     lib_l3vpn = Dir('../../l3vpn').path + '/libbgp_l3vpn.a'
@@ -93,7 +100,7 @@ else:
     lib_rtarget = Dir('../../rtarget').path + '/librtarget.a'
     env.Prepend(LINKFLAGS = ['-Wl,-force_load,' + lib_rtarget])
 
-env.Append(LIBS = ['bgp_inet', 'bgp_inetmcast'])
+env.Append(LIBS = ['bgp_inet'])
 
 inetvpn_ext_peer_test = env.UnitTest('inetvpn_ext_peer_test',
                                  ['inetvpn_ext_peer_test.cc'])
@@ -112,12 +119,17 @@ inetvpn_table_test = env.Program('inetvpn_table_test',
 env.Alias('src/bgp/l3vpn:inetvpn_table_test', inetvpn_table_test)
 
 test_suite = [
-    inetvpn_peer_test,
     inetvpn_route_test,
     inetvpn_table_test
 ]
 
-test = env.TestSuite('bgp-test', test_suite)
+test = env.TestSuite('l3vpn-test', test_suite)
 env.Alias('controller/src/bgp/l3vpn:test', test)
+
+flaky_test_suite = [
+    inetvpn_peer_test,
+]
+flaky_test = env.TestSuite('l3vpn-flaky-test', flaky_test_suite)
+env.Alias('controller/src/bgp/l3vpn:flaky-test', flaky_test)
 
 Return('test_suite')

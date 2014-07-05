@@ -14,9 +14,9 @@ import sys
 import argparse
 import json
 import datetime
-import opserver.sandesh.viz.constants as VizConstants
-from opserver.sandesh.viz.ttypes import FlowRecordFields
-from opserver.opserver_util import OpServerUtils
+import sandesh.viz.constants as VizConstants
+from sandesh.viz.ttypes import FlowRecordFields
+from opserver_util import OpServerUtils
 
 class FlowQuerier(object):
 
@@ -104,29 +104,14 @@ class FlowQuerier(object):
             "--verbose", action="store_true", help="Show internal information")        
         self._args = parser.parse_args()
 
-        # Validate start-time and end-time
-        if self._args.last is not None:
-            self._args.last = '-' + self._args.last
-            self._start_time = OpServerUtils.convert_to_utc_timestamp_usec(
-                self._args.last)
-            self._end_time = OpServerUtils.convert_to_utc_timestamp_usec('now')
-        else:
-            try:
-                if (self._args.start_time.isdigit() and
-                        self._args.end_time.isdigit()):
-                    self._start_time = int(self._args.start_time)
-                    self._end_time = int(self._args.end_time)
-                else:
-                    self._start_time =\
-                        OpServerUtils.convert_to_utc_timestamp_usec(
-                            self._args.start_time)
-                    self._end_time =\
-                        OpServerUtils.convert_to_utc_timestamp_usec(
-                            self._args.end_time)
-            except:
-                print 'Incorrect start-time (%s) or end-time (%s) format' %\
-                    (self._args.start_time, self._args.end_time)
-                return -1
+        try:
+            self._start_time, self._end_time = \
+                OpServerUtils.parse_start_end_time(
+                    start_time = self._args.start_time,
+                    end_time = self._args.end_time,
+                    last = self._args.last)
+        except:
+            return -1
 
         # Validate flow arguments
         if self._args.source_ip is not None and self._args.source_vn is None:
@@ -171,9 +156,7 @@ class FlowQuerier(object):
 
     # Public functions
     def query(self):
-        start_time, end_time = OpServerUtils.get_start_end_time(
-            self._start_time,
-            self._end_time)
+        start_time, end_time = self._start_time, self._end_time
         flow_url = OpServerUtils.opserver_query_url(
             self._args.opserver_ip,
             self._args.opserver_port)

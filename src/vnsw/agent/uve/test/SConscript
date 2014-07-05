@@ -5,46 +5,37 @@
 # -*- mode: python; -*-
 
 import re
-
 Import('AgentEnv')
 env = AgentEnv.Clone()
 
-env.Prepend(CPPPATH = env['TOP'] + '/vnsw/agent/test')
-env.Prepend(LIBS=['gunit'])
-env.Prepend(CCFLAGS = ['-Wno-return-type', '-Wno-unused-function'])
+# test specific modifications
+AgentEnv.MakeTestEnv(env)
 
-import sys
-if sys.platform != 'darwin':
-    env.Append(LIBPATH=['../../test'])
-    env.Prepend(LIBS=['agent_test'])
-    env.Append(LIBS=['agent_test_buildinfo'])
+uve_test_suite=[]
+uve_flaky_test_suite=[]
 
-    test_vn_uve = env.Program(target = 'test_vn_uve', source = ['test_vn_uve.cc', '../../pkt/test/test_pkt_util.o'])
-    env.Alias('agent:test_vn_uve', test_vn_uve)
+test_vm_uve = AgentEnv.MakeTestCmd(env, 'test_vm_uve', uve_test_suite)
+test_port_bitmap = AgentEnv.MakeTestCmd(env, 'test_port_bitmap', uve_test_suite)
+test_stats_mock =  AgentEnv.MakeTestCmd(env, 'test_stats_mock', uve_flaky_test_suite)
+test_uve = AgentEnv.MakeTestCmd(env, 'test_uve', uve_flaky_test_suite)
 
-    test_vm_uve = env.Program(target = 'test_vm_uve', source = ['test_vm_uve.cc'])
-    env.Alias('agent:test_vm_uve', test_vm_uve)
+test_vn_uve = AgentEnv.MakeTestCmdSrc(env, 'test_vn_uve', 
+                                      [
+                                       'test_vn_uve.cc', 
+                                       '../../pkt/test/test_pkt_util.o'
+                                       ],
+                                       uve_flaky_test_suite)
+test_vrouter_uve = AgentEnv.MakeTestCmdSrc(env, 'test_vrouter_uve', 
+                                           [
+                                            'test_vrouter_uve.cc',
+                                            '../../pkt/test/test_pkt_util.o'
+                                           ],
+                                           uve_flaky_test_suite)
 
-    test_vrouter_uve = env.Program(target = 'test_vrouter_uve', source = ['test_vrouter_uve.cc', '../../pkt/test/test_pkt_util.o'])
-    env.Alias('agent:test_vrouter_uve', test_vrouter_uve)
+flaky_test = env.TestSuite('agent-flaky-test', uve_flaky_test_suite)
+env.Alias('controller/src/vnsw/agent/uve:flaky_test', flaky_test)
 
-    test_port_bitmap = env.Program(target = 'test_port_bitmap', source = ['test_port_bitmap.cc'])
-    env.Alias('agent:test_port_bitmap', test_port_bitmap)
-
-    test_stats_mock =  env.Program(target = 'test_stats_mock', source = ['test_stats_mock.cc'])
-    env.Alias('agent:test_stats_mock', test_stats_mock)
-
-    test_uve = env.Program(target = 'test_uve', source = ['test_uve.cc'])
-    env.Alias('agent:test_uve', test_uve)
-
-    uve_test_suite = [
-                      test_vn_uve,
-                      test_vm_uve,
-                      test_vrouter_uve,
-                      test_port_bitmap,
-                      test_stats_mock,
-#                     test_uve
-                      ]
-    test = env.TestSuite('agent-test', uve_test_suite)
-    env.Alias('controller/src/vnsw/agent/uve:test', test)
-    Return('uve_test_suite')
+test = env.TestSuite('agent-test', uve_test_suite)
+env.Alias('agent:uve', test)
+env.Alias('controller/src/vnsw/agent/uve:test', test)
+Return('uve_test_suite')

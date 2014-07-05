@@ -14,19 +14,25 @@ import sys
 import argparse
 import json
 import datetime
-from opserver.opserver_util import OpServerUtils
+import logging
+import logging.handlers
+from opserver_util import OpServerUtils
 from sandesh_common.vns.ttypes import Module
 from sandesh_common.vns.constants import ModuleNames, NodeTypeNames
-import opserver.sandesh.viz.constants as VizConstants
+import sandesh.viz.constants as VizConstants
 from pysandesh.gen_py.sandesh.ttypes import SandeshType, SandeshLevel
+from pysandesh.sandesh_logger import SandeshLogger
 
-OBJECT_TABLE_LIST = [table for table in VizConstants._OBJECT_TABLES]
-
+OBJECT_TYPE_LIST = [table_info.log_query_name for table_info in \
+    VizConstants._OBJECT_TABLES.values()]
+OBJECT_TABLE_MAP = dict((table_info.log_query_name, table_name) for \
+   (table_name, table_info) in VizConstants._OBJECT_TABLES.items())
 
 class LogQuerier(object):
 
     def __init__(self):
         self._args = None
+        self._slogger = None
     # end __init__
 
     # Public functions
@@ -41,7 +47,7 @@ class LogQuerier(object):
                           --message-type UveVirtualMachineConfigTrace
                           --category xmpp
                           --level SYS_INFO | SYS_ERROR
-                          --object vn | vm
+                          --object-type virtual-network | virtual-machine
                           --object-id name
                           --object-select-field ObjectLog | SystemLog
                           --reverse
@@ -49,6 +55,9 @@ class LogQuerier(object):
                           --raw
                           --trace BgpPeerTraceBuf
                           [--start-time now-10m --end-time now] | --last 10m
+                          --send-syslog
+                          --syslog-server 127.0.0.1
+                          --syslog-port 514
         """
         defaults = {
             'opserver_ip': '127.0.0.1',
@@ -87,46 +96,36 @@ class LogQuerier(object):
             "--raw", action="store_true", help="Show raw XML messages")
 
         parser.add_argument(
-            "--object", help="Logs of object type", choices=OBJECT_TABLE_LIST)
+            "--object-type", help="Logs of object type", choices=OBJECT_TYPE_LIST)
+        parser.add_argument("--object-values", action="store_true",
+            help="Display list of object names")
         parser.add_argument("--object-id", help="Logs of object name")
         parser.add_argument(
             "--object-select-field", help="Select field to filter the log",
             choices=[VizConstants.OBJECT_LOG, VizConstants.SYSTEM_LOG])
         parser.add_argument("--trace", help="Dump trace buffer")
         parser.add_argument("--limit", help="Limit the number of messages")
-
+        parser.add_argument("--send-syslog", action="store_true",
+                            help="Send syslog to specified server and port")
+        parser.add_argument("--syslog-server",
+            help="IP address of syslog server", default='localhost')
+        parser.add_argument("--syslog-port", help="Port to send syslog to",
+            type=int, default=514)
         self._args = parser.parse_args()
-
-        if self._args.last is not None:
-            self._args.last = '-' + self._args.last
-            self._start_time = OpServerUtils.convert_to_utc_timestamp_usec(
-                self._args.last)
-            self._end_time = OpServerUtils.convert_to_utc_timestamp_usec('now')
-        else:
-            try:
-                if (self._args.start_time.isdigit() and
-                        self._args.end_time.isdigit()):
-                    self._start_time = int(self._args.start_time)
-                    self._end_time = int(self._args.end_time)
-                else:
-                    self._start_time =\
-                        OpServerUtils.convert_to_utc_timestamp_usec(
-                            self._args.start_time)
-                    self._end_time =\
-                        OpServerUtils.convert_to_utc_timestamp_usec(
-                            self._args.end_time)
-            except:
-                print 'Incorrect start-time (%s) or end-time (%s) format' %\
-                    (self._args.start_time, self._args.end_time)
-                return -1
+        try:
+            self._start_time, self._end_time = \
+                OpServerUtils.parse_start_end_time(
+                    start_time = self._args.start_time,
+                    end_time = self._args.end_time,
+                    last = self._args.last)
+        except:
+            return -1
         return 0
     # end parse_args
 
     # Public functions
     def query(self):
-        start_time, end_time = OpServerUtils.get_start_end_time(
-            self._start_time,
-            self._end_time)
+        start_time, end_time = self._start_time, self._end_time 
         messages_url = OpServerUtils.opserver_query_url(
             self._args.opserver_ip,
             self._args.opserver_port)
@@ -180,55 +179,86 @@ class LogQuerier(object):
                 op=OpServerUtils.MatchOp.EQUAL)
             filter.append(instance_id_match.__dict__)
 
-        if (self._args.object is not None or
-            self._args.object_id is not None or
-                self._args.object_select_field is not None):
-            # Object Table Query
-            where_obj = list(where_msg)
-
-            if self._args.object is not None:
-                if self._args.object in OBJECT_TABLE_LIST:
-                    table = self._args.object
+        # Object logs :
+        # --object-type <> : All logs for the particular object type
+        # --object-type <> --object-values : Object-id values for the particular
+        #     object tye
+        # --object-type <> --object-id <> : All logs matching object-id for
+        #     particular object type
+        if (self._args.object_type is not None or
+           self._args.object_id is not None or
+           self._args.object_select_field is not None or
+           self._args.object_values is True):
+            # Validate object-type
+            if self._args.object_type is not None:
+                if self._args.object_type in OBJECT_TYPE_LIST:
+                    if self._args.object_type in OBJECT_TABLE_MAP:
+                        table = OBJECT_TABLE_MAP[self._args.object_type]
+                    else:
+                        print 'Table not found for object-type [%s]' % \
+                            (self._args.object_type)
+                        return None
                 else:
-                    print 'Unknown object table [%s]' % (self._args.object)
+                    print 'Unknown object-type [%s]' % (self._args.object_type)
                     return None
             else:
-                print 'Object required for query'
+                print 'Object-type required for query'
                 return None
-
-            if self._args.object_id is not None:
-                id_match = OpServerUtils.Match(name=OpServerUtils.OBJECT_ID,
-                                               value=self._args.object_id,
-                                               op=OpServerUtils.MatchOp.EQUAL)
+            # Validate object-id and object-values
+            if self._args.object_id is not None and \
+               self._args.object_values is False:
+                object_id = self._args.object_id
+                if object_id.endswith("*"):
+                    id_match = OpServerUtils.Match(
+                        name=OpServerUtils.OBJECT_ID,
+                        value=object_id[:-1],
+                        op=OpServerUtils.MatchOp.PREFIX) 
+                else:
+                    id_match = OpServerUtils.Match(
+                        name=OpServerUtils.OBJECT_ID,
+                        value=object_id,
+                        op=OpServerUtils.MatchOp.EQUAL)
                 where_obj.append(id_match.__dict__)
-            else:
-                print 'Object id required for table [%s]' % (self._args.object)
+            elif self._args.object_id is not None and \
+               self._args.object_values is True:
+                print 'Please specify either object-id or object-values but not both'
                 return None
 
-            if self._args.object_select_field is not None:
-                if ((self._args.object_select_field !=
-                     VizConstants.OBJECT_LOG) and
-                    (self._args.object_select_field !=
-                     VizConstants.SYSTEM_LOG)):
-                    print 'Invalid object-select-field. '\
-                        'Valid values are "%s" or "%s"' \
-                        % (VizConstants.OBJECT_LOG,
-                           VizConstants.SYSTEM_LOG)
-                    return None
-                obj_sel_field = [self._args.object_select_field]
-                self._args.object_select_field = obj_sel_field
+            if len(where_obj):
+                where = [where_obj]
             else:
-                self._args.object_select_field = obj_sel_field = [
-                    VizConstants.OBJECT_LOG, VizConstants.SYSTEM_LOG]
+                where = None
 
-            where = [where_obj]
-
-            select_list = [
-                VizConstants.TIMESTAMP,
-                VizConstants.SOURCE,
-                VizConstants.MODULE,
-                VizConstants.MESSAGE_TYPE,
-            ] + obj_sel_field
+            if self._args.object_values is False:
+                if self._args.object_select_field is not None:
+                    if ((self._args.object_select_field !=
+                         VizConstants.OBJECT_LOG) and
+                        (self._args.object_select_field !=
+                         VizConstants.SYSTEM_LOG)):
+                        print 'Invalid object-select-field. '\
+                            'Valid values are "%s" or "%s"' \
+                            % (VizConstants.OBJECT_LOG,
+                               VizConstants.SYSTEM_LOG)
+                        return None
+                    obj_sel_field = [self._args.object_select_field]
+                    self._args.object_select_field = obj_sel_field
+                else:
+                    self._args.object_select_field = obj_sel_field = [
+                        VizConstants.OBJECT_LOG, VizConstants.SYSTEM_LOG]
+                select_list = [
+                    VizConstants.TIMESTAMP,
+                    VizConstants.SOURCE,
+                    VizConstants.MODULE,
+                    VizConstants.MESSAGE_TYPE,
+                ] + obj_sel_field
+            else:
+                if self._args.object_select_field:
+                    print 'Plesae specify either object-id with ' + \
+                        'object-select-field or only object-values'
+                    return None
+                select_list = [
+                    OpServerUtils.OBJECT_ID
+                ]
         elif self._args.trace is not None:
             table = VizConstants.COLLECTOR_GLOBAL_TABLE
             if self._args.source is None:
@@ -290,12 +320,15 @@ class LogQuerier(object):
         if len(filter) == 0:
             filter = None
 
-        # Add sort by timestamp
-        if self._args.reverse:
-            sort_op = OpServerUtils.SortOp.DESCENDING
-        else:
-            sort_op = OpServerUtils.SortOp.ASCENDING
-        sort_fields = [VizConstants.TIMESTAMP]
+        # Add sort by timestamp for non object value queries
+        sort_op = None
+        sort_fields = None
+        if self._args.object_values is False:
+            if self._args.reverse:
+                sort_op = OpServerUtils.SortOp.DESCENDING
+            else:
+                sort_op = OpServerUtils.SortOp.ASCENDING
+            sort_fields = [VizConstants.TIMESTAMP]
 
         if self._args.limit:
             limit = int(self._args.limit)
@@ -326,10 +359,29 @@ class LogQuerier(object):
         return result
     # end query
 
+    def _output(self, log_str, sandesh_level):
+        if self._args.send_syslog:
+            syslog_level = SandeshLogger._SANDESH_LEVEL_TO_LOGGER_LEVEL[
+                sandesh_level]
+            self._logger.log(syslog_level, log_str)
+        else:
+            print log_str
+    #end _output
+
     def display(self, result):
         if result == [] or result is None:
             return
         messages_dict_list = result
+        # Setup logger and syslog handler
+        if self._args.send_syslog:
+            logger = logging.getLogger()
+            logger.setLevel(logging.DEBUG)
+            syslog_handler = logging.handlers.SysLogHandler(
+                address = (self._args.syslog_server, self._args.syslog_port))
+            contrail_formatter = logging.Formatter('contrail: %(message)s')
+            syslog_handler.setFormatter(contrail_formatter)
+            logger.addHandler(syslog_handler)
+            self._logger = logger
 
         for messages_dict in messages_dict_list:
 
@@ -368,14 +420,16 @@ class LogQuerier(object):
                 sandesh_type = messages_dict[VizConstants.SANDESH_TYPE]
             else:
                 sandesh_type = SandeshType.INVALID
-            if self._args.object is None:
+            # By default SYS_DEBUG
+            sandesh_level = SandeshLevel.SYS_DEBUG
+            if self._args.object_type is None:
                 if VizConstants.CATEGORY in messages_dict:
                     category = messages_dict[VizConstants.CATEGORY]
                 else:
                     category = 'Category: NA'
                 if VizConstants.LEVEL in messages_dict:
-                    level = SandeshLevel._VALUES_TO_NAMES[
-                        messages_dict[VizConstants.LEVEL]]
+                    sandesh_level = messages_dict[VizConstants.LEVEL]
+                    level = SandeshLevel._VALUES_TO_NAMES[sandesh_level]
                 else:
                     level = 'Level: NA'
                 if VizConstants.SEQUENCE_NUM in messages_dict:
@@ -398,13 +452,21 @@ class LogQuerier(object):
                 else:
                     data_str = 'Data not present'
                 if self._args.trace is not None:
-                    print '{0} {1}:{2} {3}'.format(
+                    trace_str = '{0} {1}:{2} {3}'.format(
                         message_ts, message_type, seq_num, data_str)
+                    self._output(trace_str, sandesh_level)
                 else:
-                    print '{0} {1} [{2}:{3}:{4}:{5}][{6}] : {7}:{8} {9}'.format(
+                    log_str = \
+                        '{0} {1} [{2}:{3}:{4}:{5}][{6}] : {7}:{8} {9}'.format(
                         message_ts, source, node_type, module, instance_id,
                         category, level, message_type, seq_num, data_str)
+                    self._output(log_str, sandesh_level)
             else:
+                if self._args.object_values is True:
+                    if OpServerUtils.OBJECT_ID in messages_dict:
+                        obj_str = messages_dict[OpServerUtils.OBJECT_ID]
+                        print obj_str
+                        continue
                 for obj_sel_field in self._args.object_select_field:
                     if obj_sel_field in messages_dict:
                         if self._args.raw:
@@ -422,9 +484,10 @@ class LogQuerier(object):
                             else:
                                 data_str = messages_dict[obj_sel_field]
                         if data_str:
-                            print '{0} {1} [{2}:{3}:{4}] : {5}: {6}'.format(
-                                message_ts, source, node_type, module, instance_id,
-                                message_type, data_str)
+                            obj_str = '{0} {1} [{2}:{3}:{4}] : {5}: {6}'.format(
+                                message_ts, source, node_type, module,
+                                instance_id, message_type, data_str)
+                            self._output(obj_str, sandesh_level)
     # end display
 
 # end class LogQuerier

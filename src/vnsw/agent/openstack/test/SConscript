@@ -4,38 +4,36 @@
 
 # -*- mode: python; -*-
 # nova/test directory
-
-import sys
+import re
 Import('AgentEnv')
 env = AgentEnv.Clone()
 
-cflags = env['CCFLAGS']
-cflags.append(['-Wno-reorder', '-Wno-return-type', '-Wno-unused-variable'])
+AgentEnv.MakeTestEnv(env)
+env.Append(CCFLAGS = ['-Wno-reorder'])
 
-cflags = env['CCFLAGS']
-if '-fno-exceptions' in cflags:
-    cflags.remove('-fno-exceptions')
-    env.Replace(CCFLAGS = cflags)
+env.Append(LIBS=['rt'])
+env.Prepend(LIBS = ['cfg'])
+env.Prepend(LIBS = ['nova_ins'])
+env.Append(LIBS = ['gunit'])
+env.Append(LIBPATH = env['TOP'] + '/vnsw/agent/test')
+env.Prepend(LIBS=['agent_test'])
+env.Append(LIBS=['agent_test_buildinfo'])
+env.Prepend(CPPPATH = env['TOP'] + '/vnsw/agent/test')
 
-if sys.platform != 'darwin':
-    env.Append(LIBS=['rt'])
-    env.Prepend(LIBS = ['cfg'])
-    env.Prepend(LIBS = ['nova_ins'])
-    env.Append(LIBS = ['gunit'])
-    env.Append(LIBPATH = env['TOP'] + '/vnsw/agent/test')
-    env.Prepend(LIBS=['agent_test'])
-    env.Append(LIBS=['agent_test_buildinfo'])
-    env.Prepend(CPPPATH = env['TOP'] + '/vnsw/agent/test')
+openstack_test_suite = []
+openstack_flaky_test_suite = []
 
+nova_info_server_test = AgentEnv.MakeTestCmdSrc(env, 'nova_info_server_test',
+                                                ['instance_service_test.cc'],
+                                                openstack_test_suite)
+nova_inc = AgentEnv.MakeTestCmdSrc(env, 'nova_inc',
+                                   ['instance_service_client.cc'],
+                                    openstack_flaky_test_suite)
 
-    nova_info_server_test = env.Program(target = 'nova_info_server_test',
-                                        source = ['instance_service_test.cc'])
-    env.Alias('agent:nova_info_server_test', nova_info_server_test)
+flaky_test = env.TestSuite('agent-flaky-test', openstack_flaky_test_suite)
+env.Alias('controller/src/vnsw/agent/openstack:flaky_test', flaky_test)
 
-    nova_inc = env.Program(target = 'nova_inc',
-                           source = ['instance_service_client.cc'])
-
-nova_cfg_test_suite = [nova_info_server_test]
-test = env.TestSuite('agent-test', nova_cfg_test_suite)
+test = env.TestSuite('agent-test', openstack_test_suite)
+env.Alias('agent:openstack', test)
 env.Alias('controller/src/vnsw/agent/openstack:test', test)
-Return('nova_cfg_test_suite')
+Return('openstack_test_suite')

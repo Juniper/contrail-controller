@@ -18,6 +18,11 @@ struct PseudoUdpHdr {
         src(s), dest(d), res(0), prot(p), len(l) { }
 };
 
+struct vlanhdr {
+    uint16_t tpid;
+    uint16_t tci;
+};
+
 // Protocol handler, to process an incoming packet
 // Each protocol has a handler derived from this
 class ProtoHandler {
@@ -31,6 +36,7 @@ public:
     void Send(uint16_t, uint16_t, uint16_t, uint16_t, PktHandler::PktModuleName);
 
     void EthHdr(const unsigned char *, const unsigned char *, const uint16_t);
+    void VlanHdr(uint8_t *ptr, uint16_t tci);
     void IpHdr(uint16_t, in_addr_t, in_addr_t, uint8_t);
     void UdpHdr(uint16_t, in_addr_t, uint16_t, in_addr_t, uint16_t);
 

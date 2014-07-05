@@ -17,7 +17,7 @@
 using namespace std;
 using namespace boost::asio::ip;
 
-static uint16_t default_redis_port = ContrailPorts::RedisQueryEnginePort;
+static uint16_t default_redis_port = ContrailPorts::RedisQueryPort;
 static uint16_t default_collector_port = ContrailPorts::CollectorPort;
 static uint16_t default_http_server_port = ContrailPorts::HttpPortQueryEngine;
 static uint16_t default_discovery_port = ContrailPorts::DiscoveryServerPort;
@@ -32,6 +32,10 @@ protected:
         host_ip_ = GetHostIp(evm_.io_service(), hostname_);
         default_cassandra_server_list_.push_back("127.0.0.1:9160");
         default_collector_server_list_.push_back("127.0.0.1:8086");
+    }
+
+    virtual void TearDown() {
+        remove("./options_test_query_engine.conf");
     }
 
     EventManager evm_;
@@ -225,14 +229,14 @@ TEST_F(OptionsTest, CustomConfigFile) {
     ;
 
     ofstream config_file;
-    config_file.open("/tmp/options_test_query_engine.conf");
+    config_file.open("./options_test_query_engine.conf");
     config_file << config;
     config_file.close();
 
     int argc = 2;
     char *argv[argc];
     char argv_0[] = "options_test";
-    char argv_1[] = "--conf_file=/tmp/options_test_query_engine.conf";
+    char argv_1[] = "--conf_file=./options_test_query_engine.conf";
     argv[0] = argv_0;
     argv[1] = argv_1;
 
@@ -255,7 +259,7 @@ TEST_F(OptionsTest, CustomConfigFile) {
     EXPECT_EQ(options_.redis_server(), "1.2.3.4");
     EXPECT_EQ(options_.redis_port(), 200);
     EXPECT_EQ(options_.config_file(),
-              "/tmp/options_test_query_engine.conf");
+              "./options_test_query_engine.conf");
     EXPECT_EQ(options_.discovery_server(), "1.0.0.1");
     EXPECT_EQ(options_.discovery_port(), 100);
     EXPECT_EQ(options_.hostname(), "test");
@@ -310,14 +314,14 @@ TEST_F(OptionsTest, CustomConfigFileAndOverrideFromCommandLine) {
     ;
 
     ofstream config_file;
-    config_file.open("/tmp/options_test_query_engine.conf");
+    config_file.open("./options_test_query_engine.conf");
     config_file << config;
     config_file.close();
 
     int argc = 15;
     char *argv[argc];
     char argv_0[] = "options_test";
-    char argv_1[] = "--conf_file=/tmp/options_test_query_engine.conf";
+    char argv_1[] = "--conf_file=./options_test_query_engine.conf";
     char argv_2[] = "--DEFAULT.log_file=new_test.log";
     char argv_3[] = "--DEFAULT.log_local";
     char argv_4[] = "--DEFAULT.log_disable";
@@ -364,7 +368,7 @@ TEST_F(OptionsTest, CustomConfigFileAndOverrideFromCommandLine) {
     EXPECT_EQ(options_.redis_server(), "1.2.3.4");
     EXPECT_EQ(options_.redis_port(), 200);
     EXPECT_EQ(options_.config_file(),
-              "/tmp/options_test_query_engine.conf");
+              "./options_test_query_engine.conf");
     EXPECT_EQ(options_.discovery_server(), "1.0.0.1");
     EXPECT_EQ(options_.discovery_port(), 100);
     EXPECT_EQ(options_.hostname(), "test");
@@ -382,6 +386,29 @@ TEST_F(OptionsTest, CustomConfigFileAndOverrideFromCommandLine) {
     EXPECT_EQ(options_.max_tasks(), 900);
     EXPECT_EQ(options_.max_slice(), 800);
     EXPECT_EQ(options_.test_mode(), true);
+}
+
+TEST_F(OptionsTest, MultitokenVector) {
+    int argc = 3;
+    char *argv[argc];
+    char argv_0[] = "options_test";
+    char argv_1[] = "--DEFAULT.collectors=10.10.10.1:100 20.20.20.2:200";
+    char argv_2[] = "--DEFAULT.cassandra_server_list=30.30.30.3:300";
+    argv[0] = argv_0;
+    argv[1] = argv_1;
+    argv[2] = argv_2;
+
+    options_.Parse(evm_, argc, argv);
+
+    vector<string> collector_server_list;
+    collector_server_list.push_back("10.10.10.1:100");
+    collector_server_list.push_back("20.20.20.2:200");
+    vector<string> cassandra_server_list;
+    cassandra_server_list.push_back("30.30.30.3:300");
+    TASK_UTIL_EXPECT_VECTOR_EQ(options_.collector_server_list(),
+                     collector_server_list);
+    TASK_UTIL_EXPECT_VECTOR_EQ(options_.cassandra_server_list(),
+                     cassandra_server_list);
 }
 
 int main(int argc, char **argv) {

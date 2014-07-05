@@ -18,6 +18,7 @@ env.Prepend(LIBS=[  'gendb',
                     'cdb',
                     'cpuinfo',
                     'ds',
+                    'io',
                     'sandesh',
                     'http',
                     'httpc',
@@ -27,6 +28,7 @@ env.Prepend(LIBS=[  'gendb',
                     'curl',
                     'thrift',
                     'hiredis',
+                    'connection_info',
                     'io',
                     'base',
                     'sandeshvns',
@@ -77,10 +79,10 @@ env_noWerror_excep = env_noWerror.Clone()
 while env_noWerror_excep['CCFLAGS'].count('-fno-exceptions') > 0:
     env_noWerror_excep['CCFLAGS'].remove('-fno-exceptions')
 
-env.Install('', '../analytics/analytics_cpuinfo.sandesh') 
+env.Install('', '../analytics/analytics.sandesh') 
 # Generate the source files
 SandeshGenFiles  = env.SandeshGenCpp('qe.sandesh')
-SandeshGenFiles += env.SandeshGenOnlyCpp('analytics_cpuinfo.sandesh')
+SandeshGenFiles += env.SandeshGenOnlyCpp('analytics.sandesh')
 SandeshGenFiles += env.SandeshGenOnlyCpp('../sandesh/common/query.sandesh')
 SandeshGenSrcs = env.ExtractCpp(SandeshGenFiles)
 
@@ -144,8 +146,6 @@ qed = env.Program(
         SandeshGenObjs +  RedisConn_obj +
         ['../analytics/vizd_table_desc.o', 'rac_alloc.cc', '../analytics/viz_constants.o']
         )
-
-env.Alias('install', env.InstallAs(env['INSTALL_BIN'] + '/query_engine', qed))
 
 if env['OPT'] == 'coverage':
     env.AppendUnique(CCFLAGS='-g')

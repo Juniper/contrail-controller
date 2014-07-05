@@ -18,7 +18,7 @@ AgentUveTest::AgentUveTest(Agent *agent, uint64_t intvl)
     vm_uve_table_.reset(new VmUveTableTest(agent));
     vrouter_uve_entry_.reset(new VrouterUveEntryTest(agent));
     agent_stats_collector_.reset(new AgentStatsCollectorTest(
-                                 *(agent->GetEventManager()->io_service()),
+                                 *(agent->event_manager()->io_service()),
                                  agent));
 }
 

@@ -21,14 +21,17 @@ for file in node_setup_sources:
         OpEnv.Install("", '#controller/src/opserver/node_mgr/' + file))
 
 # Generate nodemgr python package
-analytics_cpuinfo_pkg = OpEnv.SandeshGenPy(
-	'#controller/src/analytics/analytics_cpuinfo.sandesh', "", False)
+analytics_pkg = OpEnv.SandeshGenPy(
+	'#controller/src/analytics/analytics.sandesh', "", False)
 node_cpu_info_pkg = OpEnv.SandeshGenPy('#controller/src/base/sandesh/cpuinfo.sandesh',
-                                       'analytics_cpuinfo/', False)
-OpEnv.Depends(node_cpu_info_pkg, analytics_cpuinfo_pkg)
+                                       'analytics/', False)
+connection_info_pkg = OpEnv.SandeshGenPy('#controller/src/base/sandesh/connection_info.sandesh',
+                                         'analytics/', False)
+OpEnv.Depends(node_cpu_info_pkg, analytics_pkg)
+OpEnv.Depends(connection_info_pkg, analytics_pkg)
  
-node_sdist_depends = [node_setup_sources_rules, analytics_cpuinfo_pkg,
-	node_cpu_info_pkg]
+node_sdist_depends = [node_setup_sources_rules, analytics_pkg,
+	node_cpu_info_pkg, connection_info_pkg]
 
 node_sdist_gen = OpEnv.Command('dist', 'setup.py', 'python setup.py sdist', chdir=1)
 # install everything before building distribution

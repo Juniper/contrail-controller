@@ -71,10 +71,11 @@ void Layer2AgentRouteTable::AddLocalVmRouteReq(const Peer *peer,
 
     VmInterfaceKey intf_key(AgentKey::ADD_DEL_CHANGE, intf_uuid, "");
     SecurityGroupList sg_list;
+    PathPreference path_preference;
     LocalVmRoute *data = new LocalVmRoute(intf_key, mpls_label, vxlan_id,
                                           false, vn_name,
                                           InterfaceNHFlags::LAYER2,
-                                          sg_list);
+                                          sg_list, path_preference);
     data->set_tunnel_bmap(TunnelType::AllType());
     req.data.reset(data);
     Layer2TableEnqueue(Agent::GetInstance(), vrf_name, &req);
@@ -98,10 +99,11 @@ void Layer2AgentRouteTable::AddLocalVmRoute(const Peer *peer,
 
     VmInterfaceKey intf_key(AgentKey::ADD_DEL_CHANGE, intf_uuid, "");
     SecurityGroupList sg_list;
+    PathPreference path_preference;
     LocalVmRoute *data = new LocalVmRoute(intf_key, mpls_label, vxlan_id,
                                           false, vn_name,
                                           InterfaceNHFlags::LAYER2,
-                                          sg_list);
+                                          sg_list, path_preference);
     data->set_tunnel_bmap(TunnelType::AllType());
     req.data.reset(data);
     Layer2TableProcess(Agent::GetInstance(), vrf_name, req);
@@ -128,56 +130,27 @@ void Layer2AgentRouteTable::AddLayer2BroadcastRoute(const string &vrf_name,
 
 void Layer2AgentRouteTable::AddRemoteVmRouteReq(const Peer *peer,
                                                 const string &vrf_name,
-                                                TunnelType::TypeBmap bmap,
-                                                const Ip4Address &server_ip,
-                                                uint32_t label,
                                                 struct ether_addr &mac,
                                                 const Ip4Address &vm_ip,
-                                                uint32_t plen) { 
-    assert(peer);
-    DBRequest nh_req;
-    nh_req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
-
-    if (bmap != (1 << TunnelType::VXLAN) || 
-        (TunnelType::ComputeType(TunnelType::AllType()) != 
-                                 (1 << TunnelType::VXLAN))) {
-    }
-
-    NextHopKey *nh_key = 
-        new TunnelNHKey(Agent::GetInstance()->GetDefaultVrf(),
-                        Agent::GetInstance()->GetRouterId(), server_ip,
-                        false, TunnelType::ComputeType(bmap));
-    nh_req.key.reset(nh_key);
-
-    TunnelNHData *nh_data = new TunnelNHData();
-    nh_req.data.reset(nh_data);
-
-    DBRequest req;
-    req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
-
+                                                uint8_t plen,
+                                                AgentRouteData *data) {
+    DBRequest req(DBRequest::DB_ENTRY_ADD_CHANGE);
     Layer2RouteKey *key = new Layer2RouteKey(peer, vrf_name, mac, vm_ip, plen);
     req.key.reset(key);
-
-    SecurityGroupList sg_list;
-    RemoteVmRoute *data = 
-        new RemoteVmRoute(Agent::GetInstance()->GetDefaultVrf(),
-                          server_ip, label, "", bmap, 
-                          sg_list, nh_req);
     req.data.reset(data);
-    ostringstream str;
-    str << (ether_ntoa ((struct ether_addr *)&mac));
 
     Layer2TableEnqueue(Agent::GetInstance(), vrf_name, &req);
 }
 
 void Layer2AgentRouteTable::DeleteReq(const Peer *peer, const string &vrf_name,
-                                      const struct ether_addr &mac) {
+                                      const struct ether_addr &mac, 
+                                      AgentRouteData *data) {
     DBRequest req;
     req.oper = DBRequest::DB_ENTRY_DELETE;
 
     Layer2RouteKey *key = new Layer2RouteKey(peer, vrf_name, mac);
     req.key.reset(key);
-    req.data.reset(NULL);
+    req.data.reset(data);
     Layer2TableEnqueue(Agent::GetInstance(), vrf_name, &req);
 }
 
@@ -201,6 +174,12 @@ void Layer2AgentRouteTable::DeleteBroadcastReq(const string &vrf_name) {
     req.key.reset(key);
     req.data.reset(NULL);
     Layer2TableEnqueue(Agent::GetInstance(), vrf_name, &req);
+}
+
+string Layer2RouteKey::ToString() const {
+    ostringstream str;
+    str << (ether_ntoa ((struct ether_addr *)&dmac_));
+    return str.str();
 }
 
 string Layer2RouteEntry::ToString() const {
@@ -255,7 +234,7 @@ bool Layer2RouteEntry::DBEntrySandesh(Sandesh *sresp, bool stale) const {
 
 void Layer2RouteReq::HandleRequest() const {
     VrfEntry *vrf = 
-        Agent::GetInstance()->GetVrfTable()->FindVrfFromId(get_vrf_index());
+        Agent::GetInstance()->vrf_table()->FindVrfFromId(get_vrf_index());
     if (!vrf) {
         ErrorResp *resp = new ErrorResp();
         resp->set_context(context());

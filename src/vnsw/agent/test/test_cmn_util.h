@@ -33,7 +33,8 @@ void AddNodeString(char *buff, int &len, const char *node_name,
                    const char *name, int id);
 void AddNodeString(char *buff, int &len, const char *nodename, const char *name,
                    IpamInfo *ipam, int count,
-                   const std::vector<std::string> *vm_host_routes = NULL);
+                   const std::vector<std::string> *vm_host_routes = NULL,
+                   const char *add_subnet_tags = NULL);
 void AddVmPortVrfNodeString(char *buff, int &len, const char *name, int id);
 void DelNodeString(char *buff, int &len, const char *node_name, const char *name);
 void ApplyXmlString(const char *buff); 
@@ -127,6 +128,28 @@ Inet4MulticastRouteEntry *MCRouteGet(const string &vrf_name, const string &grp_a
 Layer2RouteEntry *L2RouteGet(const string &vrf_name, const struct ether_addr &mac);
 bool TunnelNHFind(const Ip4Address &server_ip);
 bool TunnelNHFind(const Ip4Address &server_ip, bool policy, TunnelType::Type type);
+bool EcmpTunnelRouteAdd(const Peer *peer, const string &vrf_name, const Ip4Address &vm_ip,
+                       uint8_t plen, std::vector<ComponentNHData> &comp_nh_list,
+                       bool local_ecmp, const string &vn_name, const SecurityGroupList &sg,
+                       const PathPreference &path_preference);
+bool Layer2TunnelRouteAdd(const Peer *peer, const string &vm_vrf, 
+                          TunnelType::TypeBmap bmap, const Ip4Address &server_ip,
+                          uint32_t label, struct ether_addr &remote_vm_mac,
+                          const Ip4Address &vm_addr, uint8_t plen);
+bool Inet4TunnelRouteAdd(const Peer *peer, const string &vm_vrf, const Ip4Address &vm_addr,
+                         uint8_t plen, const Ip4Address &server_ip, TunnelType::TypeBmap bmap,
+                         uint32_t label, const string &dest_vn_name,
+                         const SecurityGroupList &sg,
+                         const PathPreference &path_preference);
+bool Layer2TunnelRouteAdd(const Peer *peer, const string &vm_vrf, 
+                          TunnelType::TypeBmap bmap, const char *server_ip,
+                          uint32_t label, struct ether_addr &remote_vm_mac,
+                          const char *vm_addr, uint8_t plen);
+bool Inet4TunnelRouteAdd(const Peer *peer, const string &vm_vrf, char *vm_addr,
+                         uint8_t plen, char *server_ip, TunnelType::TypeBmap bmap,
+                         uint32_t label, const string &dest_vn_name,
+                         const SecurityGroupList &sg,
+                         const PathPreference &path_preference);
 bool TunnelRouteAdd(const char *server, const char *vmip, const char *vm_vrf,
                     int label, const char *vn);
 bool AddArp(const char *ip, const char *mac_str, const char *ifname);
@@ -142,12 +165,17 @@ void ModifyForwardingModeVn(const string &name, int id, const string &fw_mode);
 void AddL2Vn(const char *name, int id);
 void AddVn(const char *name, int id);
 void DelVn(const char *name);
-void AddPort(const char *name, int id);
+void AddPort(const char *name, int id, const char *attr = NULL);
+void AddPortByStatus(const char *name, int id, bool admin_status);
 void DelPort(const char *name);
 void AddAcl(const char *name, int id);
+void DelAcl(const char *name);
 void AddAcl(const char *name, int id, const char *src_vn, const char *dest_vn,
             const char *action);
-void AddSg(const char *name, int id);
+void AddVrfAssignNetworkAcl(const char *name, int id, const char *src_vn,
+                            const char *dest_vn, const char *action,
+                            std::string vrf_name);
+void AddSg(const char *name, int id, int sg_id = 1);
 void DelOperDBAcl(int id);
 void AddFloatingIp(const char *name, int id, const char *addr);
 void DelFloatingIp(const char *name);
@@ -155,7 +183,8 @@ void AddFloatingIpPool(const char *name, int id);
 void DelFloatingIpPool(const char *name);
 void AddIPAM(const char *name, IpamInfo *ipam, int size, const char *ipam_attr = NULL,
              const char *vdns_name = NULL,
-             const std::vector<std::string> *vm_host_routes = NULL);
+             const std::vector<std::string> *vm_host_routes = NULL,
+             const char *add_subnet_tags = NULL);
 void DelIPAM(const char *name, const char *vdns_name = NULL);
 void AddVDNS(const char *vdns_name, const char *vdns_attr);
 void DelVDNS(const char *vdns_name);
@@ -171,47 +200,54 @@ void DeleteVmportFIpEnv(struct PortInfo *input, int count, int del_vn, int acl_i
                      const char *vn = NULL, const char *vrf = NULL);
 void CreateVmportEnvInternal(struct PortInfo *input, int count, int acl_id = 0,
                      const char *vn = NULL, const char *vrf = NULL, 
-                     bool l2_vn = false);
+                     const char *vm_interface_attr = NULL, bool l2_vn = false,
+                     bool with_ip = false, bool ecmp = false);
 void CreateL2VmportEnv(struct PortInfo *input, int count, int acl_id = 0,
                      const char *vn = NULL, const char *vrf = NULL);
 void CreateVmportEnvWithoutIp(struct PortInfo *input, int count, int acl_id = 0,
                      const char *vn = NULL, const char *vrf = NULL);
 void CreateVmportEnv(struct PortInfo *input, int count, int acl_id = 0,
-                     const char *vn = NULL, const char *vrf = NULL);
+                     const char *vn = NULL, const char *vrf = NULL,
+                     const char *vm_interface_attr = NULL);
 void CreateVmportFIpEnv(struct PortInfo *input, int count, int acl_id = 0,
                      const char *vn = NULL, const char *vrf = NULL);
+void CreateVmportWithEcmp(struct PortInfo *input, int count, int acl_id = 0,
+                          const char *vn = NULL, const char *vrf = NULL);
 void FlushFlowTable();
 bool FlowDelete(const string &vrf_name, const char *sip,
-                const char *dip, uint8_t proto, uint16_t sport, uint16_t dport);
+                const char *dip, uint8_t proto, uint16_t sport, uint16_t dport,
+                int nh_id);
 bool FlowFail(const string &vrf_name, const char *sip, const char *dip,
-              uint8_t proto, uint16_t sport, uint16_t dport);
+              uint8_t proto, uint16_t sport, uint16_t dport, int nh_id);
 bool FlowFail(int vrf_id, const char *sip, const char *dip,
-              uint8_t proto, uint16_t sport, uint16_t dport);
+              uint8_t proto, uint16_t sport, uint16_t dport, int nh_id);
 bool FlowGetNat(const string &vrf_name, const char *sip, const char *dip,
                 uint8_t proto, uint16_t sport, uint16_t dport,
                 std::string svn, std::string dvn, uint32_t hash_id,
                 const char *nat_vrf, const char *nat_sip,
-                const char *nat_dip, uint16_t nat_sport, int16_t nat_dport);
+                const char *nat_dip, uint16_t nat_sport, int16_t nat_dport,
+                int nh_id, int nat_nh_id);
 bool FlowGet(const string &vrf_name, const char *sip, const char *dip,
              uint8_t proto, uint16_t sport, uint16_t dport, bool rflow,
              std::string svn, std::string dvn, uint32_t hash_id, 
-             int rflow_vrf = -1);
+             int nh_id, int rev_nh_id = -1);
 bool FlowGet(const string &vrf_name, const char *sip, const char *dip,
              uint8_t proto, uint16_t sport, uint16_t dport, bool rflow,
              std::string svn, std::string dvn, uint32_t hash_id, bool fwd, 
-             bool nat, int rflow_vrf = -1);
+             bool nat, int nh_id, int rev_nh_id = -1);
 bool FlowGet(int vrf_id, const char *sip, const char *dip, uint8_t proto, 
              uint16_t sport, uint16_t dport, bool short_flow, int hash_id,
-             int reverse_hash_id);
+             int reverse_hash_id, int nh_id, int rev_nh_id = -1);
 FlowEntry* FlowGet(int vrf_id, std::string sip, std::string dip, uint8_t proto,
-                   uint16_t sport, uint16_t dport);
+                   uint16_t sport, uint16_t dport, int nh_id);
 bool FlowStatsMatch(const string &vrf_name, const char *sip, const char *dip,
                     uint8_t proto, uint16_t sport, uint16_t dport,
-                    uint64_t pkts, uint64_t bytes);
+                    uint64_t pkts, uint64_t bytes, int nh_id);
 bool FindFlow(const string &vrf_name, const char *sip, const char *dip,
               uint8_t proto, uint16_t sport, uint16_t dport, bool nat,
               const string &nat_vrf_name, const char *nat_sip,
-              const char *nat_dip, uint16_t nat_sport, uint16_t nat_dport);
+              const char *nat_dip, uint16_t nat_sport, uint16_t nat_dport,
+              int fwd_nh_id, int rev_nh_id);
 PktGen *TxTcpPacketUtil(int ifindex, const char *sip, const char *dip,
                         int sport, int dport, uint32_t hash_idx);
 PktGen *TxIpPacketUtil(int ifindex, const char *sip, const char *dip, int proto,
@@ -246,10 +282,13 @@ void DelVmPortVrf(const char *name);
 uint32_t PathCount(const string vrf_name, const Ip4Address &addr, int plen);
 bool VlanNhFind(int id, uint16_t tag);
 void AddInstanceIp(const char *name, int id, const char* addr);
+void AddActiveActiveInstanceIp(const char *name, int id, const char* addr);
 void DelInstanceIp(const char *name);
 extern Peer *bgp_peer_;
 bool FindMplsLabel(MplsLabel::Type type, uint32_t label);
 MplsLabel *GetMplsLabel(MplsLabel::Type type, uint32_t label);
+uint32_t GetFlowKeyNH(int id);
+uint32_t GetFlowKeyNH(char *name);
 bool FindNH(NextHopKey *key);
 NextHop *GetNH(NextHopKey *key);
 bool VmPortServiceVlanCount(int id, unsigned int count);

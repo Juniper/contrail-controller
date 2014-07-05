@@ -9,7 +9,8 @@
 BindResolver *BindResolver::resolver_;
 
 void BindResolver::Init(boost::asio::io_service &io,
-                       std::vector<std::string> &dns_servers, Callback cb) {
+                        const std::vector<DnsServer> &dns_servers,
+                        Callback cb) {
     assert(resolver_ == NULL);
     resolver_ = new BindResolver(io, dns_servers, cb);
 }
@@ -21,8 +22,9 @@ void BindResolver::Shutdown() {
     }
 }
 
-BindResolver::BindResolver(boost::asio::io_service &io, 
-                         std::vector<std::string> &dns_servers, Callback cb) 
+BindResolver::BindResolver(boost::asio::io_service &io,
+                           const std::vector<DnsServer> &dns_servers,
+                           Callback cb)
                : pkt_buf_(NULL), cb_(cb), sock_(io) {
 
     boost::system::error_code ec;
@@ -33,7 +35,7 @@ BindResolver::BindResolver(boost::asio::io_service &io,
         boost::asio::ip::udp::endpoint *ep = 
             new boost::asio::ip::udp::endpoint(
                      boost::asio::ip::address::from_string(
-                     dns_servers[i], ec), DNS_SERVER_PORT);
+                     dns_servers[i].ip_, ec), dns_servers[i].port_);
         assert (ec.value() == 0);
         dns_ep_[i] = ep;
     }
@@ -57,7 +59,7 @@ BindResolver::~BindResolver() {
     if (pkt_buf_) delete [] pkt_buf_;
 }
 
-void BindResolver::SetupResolver(const std::string &server, uint8_t idx) {
+void BindResolver::SetupResolver(const DnsServer &server, uint8_t idx) {
     if (idx >= max_dns_servers) {
         DNS_BIND_TRACE(DnsBindError, "BindResolver doesnt support more than " <<
                        max_dns_servers << " servers; ignoring request for " <<
@@ -71,15 +73,14 @@ void BindResolver::SetupResolver(const std::string &server, uint8_t idx) {
     }
 
     boost::system::error_code ec;
-    boost::asio::ip::udp::endpoint *ep = 
-        new boost::asio::ip::udp::endpoint(
-            boost::asio::ip::address::from_string(server, ec), DNS_SERVER_PORT);
+    boost::asio::ip::udp::endpoint *ep = new boost::asio::ip::udp::endpoint(
+        boost::asio::ip::address::from_string(server.ip_, ec), server.port_);
     assert (ec.value() == 0);
     dns_ep_[idx] = ep;
 }
 
 bool BindResolver::DnsSend(uint8_t *pkt, unsigned int dns_srv_index, 
-                          std::size_t len) {
+                           std::size_t len) {
     if (dns_srv_index < dns_ep_.size() && dns_ep_[dns_srv_index] && len > 0) {
         sock_.async_send_to(
               boost::asio::buffer(pkt, len), *dns_ep_[dns_srv_index],
@@ -96,7 +97,7 @@ bool BindResolver::DnsSend(uint8_t *pkt, unsigned int dns_srv_index,
 }
 
 void BindResolver::DnsSendHandler(const boost::system::error_code &error,
-                                 std::size_t length, uint8_t *pkt) {
+                                  std::size_t length, uint8_t *pkt) {
     if (error)
         DNS_BIND_TRACE(DnsBindError, "Error sending packet to DNS server : " <<
                        boost::system::system_error(error).what() << ";");
@@ -112,7 +113,7 @@ void BindResolver::AsyncRead() {
 }
 
 void BindResolver::DnsRcvHandler(const boost::system::error_code &error,
-                                std::size_t length) {
+                                 std::size_t length) {
     bool del = false;
     if (!error) {
         if (cb_)

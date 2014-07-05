@@ -7,6 +7,15 @@
 
 #include <boost/intrusive_ptr.hpp>
 #include <tbb/atomic.h>
+#include <sandesh/common/vns_constants.h>
+#include <sandesh/common/vns_types.h>
+
+#define KSYNC_ERROR(obj, ...)\
+do {\
+    if (LoggingDisabled()) break;\
+    obj::Send(g_vns_constants.CategoryNames.find(Category::VROUTER)->second,\
+              SandeshLevel::SYS_ERR, __FILE__, __LINE__, ##__VA_ARGS__);\
+} while (false);\
 
 class KSyncObject;
 
@@ -127,35 +136,6 @@ private:
     DISALLOW_COPY_AND_ASSIGN(KSyncEntry);
 };
 
-// Implementation of KSyncEntry with Netlink ASIO as backend to send message
-// Use this class in cases where KSyncEntry state-machine should be controlled
-// by application
-//
-// Replaces virtual functions Add with AddMsg, Change with ChangeMsg and Delete
-// with DeleteMsg. Uses KSyncSock in backend to send/receives netlink message
-// to kernel
-class KSyncNetlinkEntry : public KSyncEntry {
-public:
-    KSyncNetlinkEntry() : KSyncEntry() { };
-    KSyncNetlinkEntry(uint32_t index) : KSyncEntry(index) { };
-    virtual ~KSyncNetlinkEntry() { };
-
-    // Generate netlink add message for the object
-    virtual int AddMsg(char *msg, int len) = 0;
-    // Generate netlink change message for the object
-    virtual int ChangeMsg(char *msgi, int len) = 0;
-    // Generate netlink delete message for the object
-    virtual int DeleteMsg(char *msg, int len) = 0;
-
-    bool Add();
-    bool Change();
-    bool Delete();
-    virtual bool Sync() = 0;
-    virtual bool AllowDeleteStateComp() {return true;}
-private:
-    DISALLOW_COPY_AND_ASSIGN(KSyncNetlinkEntry);
-};
-
 // Implementation of KSyncEntry with with DBTable. Must be used along
 // with KSyncDBObject.
 // Registers with DBTable and drives state-machine based on DBTable 
@@ -176,34 +156,6 @@ public:
 private:
     DBEntry *db_entry_;
     DISALLOW_COPY_AND_ASSIGN(KSyncDBEntry);
-};
-
-// Implementation of KSyncDBEntry with Netlink ASIO as backend to send message
-// Use this class in cases where KSyncEntry state-machine should be managed
-// by DBTable notification.
-// Applications are not needed to generate any events to the state-machine
-//
-// Replaces virtual functions Add with AddMsg, Change with ChangeMsg and Delete
-// with DeleteMsg. Uses KSyncSock in backend to send/receives netlink message
-// to kernel
-class KSyncNetlinkDBEntry : public KSyncDBEntry {
-public:
-    KSyncNetlinkDBEntry() : KSyncDBEntry() { };
-    KSyncNetlinkDBEntry(uint32_t index) : KSyncDBEntry(index) { };
-    virtual ~KSyncNetlinkDBEntry() { };
-
-    // Generate netlink add message for the object
-    virtual int AddMsg(char *msg, int len) = 0;
-    // Generate netlink change message for the object
-    virtual int ChangeMsg(char *msg, int len) = 0;
-    // Generate netlink delete message for the object
-    virtual int DeleteMsg(char *msg, int len) = 0;
-
-    bool Add();
-    bool Change();
-    bool Delete();
-private:
-    DISALLOW_COPY_AND_ASSIGN(KSyncNetlinkDBEntry);
 };
 
 #endif // ctrlplane_ksync_entry_h 

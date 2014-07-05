@@ -34,10 +34,10 @@ TEST_F(StatsTest, IntfStatsTest) {
 
     EXPECT_TRUE(VmPortActive(input, 0));
     EXPECT_TRUE(VmPortActive(input, 1));
-    EXPECT_EQ(4U, Agent::GetInstance()->GetInterfaceTable()->Size());
-    EXPECT_EQ(2U, Agent::GetInstance()->GetVmTable()->Size());
-    EXPECT_EQ(vn_count, Agent::GetInstance()->GetVnTable()->Size());
-    EXPECT_EQ(2U, Agent::GetInstance()->GetIntfCfgTable()->Size());
+    EXPECT_EQ(4U, Agent::GetInstance()->interface_table()->Size());
+    EXPECT_EQ(2U, Agent::GetInstance()->vm_table()->Size());
+    EXPECT_EQ(vn_count, Agent::GetInstance()->vn_table()->Size());
+    EXPECT_EQ(2U, Agent::GetInstance()->interface_config_table()->Size());
 
     /* Wait for stats-collector task to be run */
 
@@ -106,10 +106,10 @@ TEST_F(StatsTest, FlowStatsTest) {
     EXPECT_TRUE(VmPortPolicyEnable(input, 2));
     EXPECT_TRUE(VmPortPolicyEnable(input, 3));
     if_count += 4;
-    EXPECT_EQ(if_count, Agent::GetInstance()->GetInterfaceTable()->Size());
-    EXPECT_EQ(vn_count, Agent::GetInstance()->GetVnTable()->Size());
+    EXPECT_EQ(if_count, Agent::GetInstance()->interface_table()->Size());
+    EXPECT_EQ(vn_count, Agent::GetInstance()->vn_table()->Size());
     cfg_if_count += 4;
-    EXPECT_EQ(cfg_if_count, Agent::GetInstance()->GetIntfCfgTable()->Size());
+    EXPECT_EQ(cfg_if_count, Agent::GetInstance()->interface_config_table()->Size());
 
     /* Flush any existing Flows */
     Agent::GetInstance()->pkt()->flow_table()->DeleteAll();
@@ -160,6 +160,10 @@ int main(int argc, char *argv[]) {
 
     ::testing::InitGoogleTest(&argc, argv);
     usleep(1000);
-    return RUN_ALL_TESTS();
+    int ret = RUN_ALL_TESTS();
+    client->WaitForIdle();
+    TestShutdown();
+    delete client;
+    return ret;
 }
 

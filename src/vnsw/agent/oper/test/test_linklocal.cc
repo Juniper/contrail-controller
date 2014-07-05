@@ -64,7 +64,7 @@ private:
 };
 
 TEST_F(LinkLocalTest, LinkLocalReqTest) {
-    Agent::GetInstance()->SetRouterId(Ip4Address::from_string(VHOST_IP));
+    Agent::GetInstance()->set_router_id(Ip4Address::from_string(VHOST_IP));
     TestLinkLocalService services[MAX_SERVICES];
     FillServices(services, MAX_SERVICES);
     AddLinkLocalConfig(services, MAX_SERVICES);
@@ -77,9 +77,9 @@ TEST_F(LinkLocalTest, LinkLocalReqTest) {
     client->Reset();
 
     IpamInfo ipam_info[] = {
-        {"1.1.1.0", 24, "1.1.1.200"},
-        {"1.2.3.128", 27, "1.2.3.129"},
-        {"7.8.9.0", 24, "7.8.9.12"},
+        {"1.1.1.0", 24, "1.1.1.200", true},
+        {"1.2.3.128", 27, "1.2.3.129", true},
+        {"7.8.9.0", 24, "7.8.9.12", true},
     };
     AddIPAM("ipam1", ipam_info, 3);
     client->WaitForIdle();
@@ -106,7 +106,7 @@ TEST_F(LinkLocalTest, LinkLocalReqTest) {
     }
     for (int i = 0; i < MAX_SERVICES; ++i) {
         Inet4UnicastRouteEntry *rt =
-            RouteGet(Agent::GetInstance()->GetDefaultVrf(),
+            RouteGet(Agent::GetInstance()->fabric_vrf_name(),
                      Ip4Address::from_string(fabric_ip[i]), 32);
         EXPECT_TRUE(rt != NULL);
         EXPECT_TRUE(rt->GetActiveNextHop()->GetType() == NextHop::ARP);
@@ -146,7 +146,7 @@ TEST_F(LinkLocalTest, LinkLocalReqTest) {
 }
 
 TEST_F(LinkLocalTest, LinkLocalChangeTest) {
-    Agent::GetInstance()->SetRouterId(Ip4Address::from_string(VHOST_IP));
+    Agent::GetInstance()->set_router_id(Ip4Address::from_string(VHOST_IP));
     TestLinkLocalService services[MAX_SERVICES];
     FillServices(services, MAX_SERVICES);
     AddLinkLocalConfig(services, MAX_SERVICES);
@@ -179,7 +179,7 @@ TEST_F(LinkLocalTest, LinkLocalChangeTest) {
     EXPECT_TRUE(local_rt->GetActiveNextHop()->GetType() == NextHop::RECEIVE);
     for (int i = 0; i < 3; ++i) {
         Inet4UnicastRouteEntry *rt =
-            RouteGet(Agent::GetInstance()->GetDefaultVrf(),
+            RouteGet(Agent::GetInstance()->fabric_vrf_name(),
                      Ip4Address::from_string(fabric_ip[i]), 32);
         EXPECT_TRUE(rt != NULL);
         EXPECT_TRUE(rt->GetActiveNextHop()->GetType() == NextHop::ARP);
@@ -212,7 +212,7 @@ TEST_F(LinkLocalTest, LinkLocalChangeTest) {
 }
 
 TEST_F(LinkLocalTest, GlobalVrouterDeleteTest) {
-    Agent::GetInstance()->SetRouterId(Ip4Address::from_string(VHOST_IP));
+    Agent::GetInstance()->set_router_id(Ip4Address::from_string(VHOST_IP));
     TestLinkLocalService services[MAX_SERVICES];
     FillServices(services, MAX_SERVICES);
     AddLinkLocalConfig(services, MAX_SERVICES);
@@ -225,9 +225,9 @@ TEST_F(LinkLocalTest, GlobalVrouterDeleteTest) {
     client->Reset();
 
     IpamInfo ipam_info[] = {
-        {"1.1.1.0", 24, "1.1.1.200"},
-        {"1.2.3.128", 27, "1.2.3.129"},
-        {"7.8.9.0", 24, "7.8.9.12"},
+        {"1.1.1.0", 24, "1.1.1.200", true},
+        {"1.2.3.128", 27, "1.2.3.129", true},
+        {"7.8.9.0", 24, "7.8.9.12", true},
     };
     AddIPAM("ipam1", ipam_info, 3);
     client->WaitForIdle();
@@ -254,7 +254,7 @@ TEST_F(LinkLocalTest, GlobalVrouterDeleteTest) {
     }
     for (int i = 0; i < MAX_SERVICES; ++i) {
         Inet4UnicastRouteEntry *rt =
-            RouteGet(Agent::GetInstance()->GetDefaultVrf(),
+            RouteGet(Agent::GetInstance()->fabric_vrf_name(),
                      Ip4Address::from_string(fabric_ip[i]), 32);
         EXPECT_TRUE(rt != NULL);
         EXPECT_TRUE(rt->GetActiveNextHop()->GetType() == NextHop::ARP);
@@ -297,8 +297,8 @@ int main(int argc, char *argv[]) {
     client->WaitForIdle();
 
     int ret = RUN_ALL_TESTS();
-    // TestShutdown();
-    // client->WaitForIdle();
+    TestShutdown();
+    client->WaitForIdle();
     delete client;
     return ret;
 }

@@ -32,7 +32,6 @@
 #include "route/route.h"
 #include "cmn/agent_param.h"
 #include "cmn/agent_cmn.h"
-#include "cmn/agent_stats.h"
 #include "oper/interface_common.h"
 #include "oper/nexthop.h"
 #include "oper/route_common.h"
@@ -48,11 +47,13 @@
 #include "pkt/pkt_handler.h"
 #include "pkt/flow_proto.h"
 #include "pkt/pkt_types.h"
-#include "uve/agent_uve.h"
 #include "pkt/pkt_sandesh_flow.h"
+#include "pkt/agent_stats.h"
+#include "uve/agent_uve.h"
 
 boost::uuids::random_generator FlowTable::rand_gen_ = boost::uuids::random_generator();
 tbb::atomic<int> FlowEntry::alloc_count_;
+const std::string FlowEntry::no_uuid_string_ = "0";
 
 static bool ShouldDrop(uint32_t action) {
     if ((action & TrafficAction::DROP_FLAGS) || (action & TrafficAction::IMPLICIT_DENY_FLAGS))
@@ -83,7 +84,8 @@ static void SetAclListAceId(const AclDBEntry *acl, const std::list<MatchAclParam
 FlowEntry::FlowEntry(const FlowKey &k) : 
     key_(k), data_(), stats_(), flow_handle_(kInvalidFlowHandle),
     ksync_entry_(NULL), deleted_(false), flags_(0), linklocal_src_port_(),
-    linklocal_src_port_fd_(PktFlowInfo::kLinkLocalInvalidFd) {
+    linklocal_src_port_fd_(PktFlowInfo::kLinkLocalInvalidFd), 
+    sg_rule_uuid_(no_uuid_string_), nw_ace_uuid_(no_uuid_string_) {
     flow_uuid_ = FlowTable::rand_gen_(); 
     egress_uuid_ = FlowTable::rand_gen_(); 
     refcount_ = 0;
@@ -92,7 +94,8 @@ FlowEntry::FlowEntry(const FlowKey &k) :
 
 uint32_t FlowEntry::MatchAcl(const PacketHeader &hdr,
                              std::list<MatchAclParams> &acl,
-                             bool add_implicit_deny, bool add_implicit_allow) {
+                             bool add_implicit_deny, bool add_implicit_allow,
+                             FlowPolicyInfo *info) {
     // If there are no ACL to match, make it pass
     if (acl.size() == 0 &&  add_implicit_allow) {
         return (1 << TrafficAction::PASS);
@@ -116,26 +119,13 @@ uint32_t FlowEntry::MatchAcl(const PacketHeader &hdr,
             continue;
         }
 
-        if (it->acl->PacketMatch(hdr, *it)) {
+        if (it->acl->PacketMatch(hdr, *it, info)) {
             action |= it->action_info.action;
             if (it->action_info.action & (1 << TrafficAction::MIRROR)) {
                 data_.match_p.action_info.mirror_l.insert
                     (data_.match_p.action_info.mirror_l.end(),
                      it->action_info.mirror_l.begin(),
                      it->action_info.mirror_l.end());
-            }
-
-            //If vrf translate action, update action info
-            if (it->action_info.action & (1 << TrafficAction::VRF_TRANSLATE)) {
-                std::string vrf =
-                    it->action_info.vrf_translate_action_.vrf_name();
-                data_.match_p.action_info.vrf_translate_action_.set_vrf_name(vrf);
-                //Check if VRF assign acl says, network ACL and SG action
-                //to be ignored
-                bool ignore_acl =
-                    it->action_info.vrf_translate_action_.ignore_acl();
-                data_.match_p.action_info.vrf_translate_action_.
-                    set_ignore_acl(ignore_acl);
             }
 
             if (it->terminal_rule) {
@@ -164,8 +154,9 @@ bool FlowEntry::ActionRecompute() {
 
     action = data_.match_p.policy_action | data_.match_p.out_policy_action |
         data_.match_p.sg_action_summary |
-        data_.match_p.mirror_action | data_.match_p.out_mirror_action |
-        data_.match_p.vrf_assign_acl_action;
+        data_.match_p.mirror_action | data_.match_p.out_mirror_action;
+    action &= ~(1 << TrafficAction::VRF_TRANSLATE);
+    action |= data_.match_p.vrf_assign_acl_action;
 
     if (action & (1 << TrafficAction::VRF_TRANSLATE) && 
         data_.match_p.action_info.vrf_translate_action_.ignore_acl() == true) {
@@ -197,7 +188,7 @@ bool FlowEntry::ActionRecompute() {
 }
 
 void FlowEntry::SetPacketHeader(PacketHeader *hdr) {
-    hdr->vrf = key_.vrf;
+    hdr->vrf = data_.vrf;
     hdr->src_ip = key_.src.ipv4;
     hdr->dst_ip = key_.dst.ipv4;
     hdr->protocol = key_.protocol;
@@ -221,7 +212,7 @@ void FlowEntry::SetOutPacketHeader(PacketHeader *hdr) {
     if (rflow == NULL)
         return;
 
-    hdr->vrf = rflow->key().vrf;
+    hdr->vrf = rflow->data().vrf;
     hdr->src_ip = rflow->key().dst.ipv4;
     hdr->dst_ip = rflow->key().src.ipv4;
     hdr->protocol = rflow->key().protocol;
@@ -279,6 +270,8 @@ bool FlowEntry::DoPolicy() {
     data_.match_p.mirror_action = 0;
     data_.match_p.out_mirror_action = 0;
     data_.match_p.sg_action_summary = 0;
+    FlowPolicyInfo nw_acl_info(no_uuid_string_), sg_acl_info(no_uuid_string_);
+    FlowPolicyInfo rev_sg_acl_info(no_uuid_string_);
 
     FlowEntry *rflow = reverse_flow_entry();
     PacketHeader hdr;
@@ -287,37 +280,31 @@ bool FlowEntry::DoPolicy() {
     //Calculate VRF assign entry, and ignore acl is set
     //skip network and SG acl action is set
     data_.match_p.vrf_assign_acl_action =
-        MatchAcl(hdr, data_.match_p.m_vrf_assign_acl_l, false, true);
-    if (data_.match_p.vrf_assign_acl_action & 
-        (1 << TrafficAction::VRF_TRANSLATE) && acl_assigned_vrf_index() == 0) {
-         MakeShortFlow();
-    }
+        MatchAcl(hdr, data_.match_p.m_vrf_assign_acl_l, false, true, NULL);
 
     // Mirror is valid even if packet is to be dropped. So, apply it first
     data_.match_p.mirror_action = MatchAcl(hdr, data_.match_p.m_mirror_acl_l,
-                                           false, true);
+                                           false, true, NULL);
 
     // Apply out-policy. Valid only for local-flow
     data_.match_p.out_mirror_action = MatchAcl(hdr,
-                           data_.match_p.m_out_mirror_acl_l, false, true);
+                           data_.match_p.m_out_mirror_acl_l, false, true, NULL);
 
     // Apply network policy
     data_.match_p.policy_action = MatchAcl(hdr, data_.match_p.m_acl_l, true,
-                                           true);
-    if (ShouldDrop(data_.match_p.policy_action)) {
-        goto done;
+                                           true, &nw_acl_info);
+    if (!ShouldDrop(data_.match_p.policy_action)) {
+        data_.match_p.out_policy_action = MatchAcl(hdr, 
+                                                   data_.match_p.m_out_acl_l,
+                                                   true, true, &nw_acl_info);
     }
 
-    data_.match_p.out_policy_action = MatchAcl(hdr, data_.match_p.m_out_acl_l,
-                                               true, true);
-    if (ShouldDrop(data_.match_p.out_policy_action)) {
-        goto done;
-    }
-
+    nw_ace_uuid_ = nw_acl_info.uuid;
     // Apply security-group
     if (!is_flags_set(FlowEntry::ReverseFlow)) {
         data_.match_p.sg_action = MatchAcl(hdr, data_.match_p.m_sg_acl_l, true,
-                                           !data_.match_p.sg_rule_present);
+                                           !data_.match_p.sg_rule_present,
+                                           &sg_acl_info);
 
         PacketHeader out_hdr;
         if (ShouldDrop(data_.match_p.sg_action) == false && rflow) {
@@ -326,7 +313,7 @@ bool FlowEntry::DoPolicy() {
             SetOutPacketHeader(&out_hdr);
             data_.match_p.out_sg_action =
                 MatchAcl(out_hdr, data_.match_p.m_out_sg_acl_l, true,
-                         !data_.match_p.out_sg_rule_present);
+                         !data_.match_p.out_sg_rule_present, &sg_acl_info);
         }
 
         // For TCP-ACK packet, we allow packet if either forward or reverse
@@ -336,14 +323,16 @@ bool FlowEntry::DoPolicy() {
             rflow->SetPacketHeader(&hdr);
             data_.match_p.reverse_sg_action =
                 MatchAcl(hdr, data_.match_p.m_reverse_sg_acl_l, true,
-                         !data_.match_p.reverse_sg_rule_present);
+                         !data_.match_p.reverse_sg_rule_present,
+                         &rev_sg_acl_info);
             if (ShouldDrop(data_.match_p.reverse_sg_action) == false) {
                 // Key fields for lookup in out-acl can potentially change in
                 // case of NAT. Form ACL lookup based on post-NAT fields
                 rflow->SetOutPacketHeader(&out_hdr);
                 data_.match_p.reverse_out_sg_action =
                     MatchAcl(out_hdr, data_.match_p.m_reverse_out_sg_acl_l, true,
-                             !data_.match_p.reverse_out_sg_rule_present);
+                             !data_.match_p.reverse_out_sg_rule_present,
+                             &rev_sg_acl_info);
             }
         }
 
@@ -361,6 +350,7 @@ bool FlowEntry::DoPolicy() {
                 data_.match_p.out_sg_action |
                 data_.match_p.reverse_sg_action |
                 data_.match_p.reverse_out_sg_action;
+            sg_rule_uuid_ = sg_acl_info.uuid;
         } else {
             if (ShouldDrop(data_.match_p.sg_action |
                            data_.match_p.out_sg_action)
@@ -368,8 +358,14 @@ bool FlowEntry::DoPolicy() {
                 ShouldDrop(data_.match_p.reverse_sg_action |
                            data_.match_p.reverse_out_sg_action)) {
                 data_.match_p.sg_action_summary = (1 << TrafficAction::DROP);
+                 sg_rule_uuid_ = sg_acl_info.uuid;
             } else {
                 data_.match_p.sg_action_summary = (1 << TrafficAction::PASS);
+                if (!sg_acl_info.drop) {
+                    sg_rule_uuid_ = sg_acl_info.uuid;
+                } else if (!rev_sg_acl_info.drop) {
+                    sg_rule_uuid_ = rev_sg_acl_info.uuid;
+                }
             }
         }
     } else {
@@ -378,12 +374,42 @@ bool FlowEntry::DoPolicy() {
         UpdateReflexiveAction();
     }
 
-done:
     // Set mirror vrf after evaluation of actions
     SetMirrorVrfFromAction();
+    //Set VRF assign action
+    SetVrfAssignEntry();
     // Summarize the actions based on lookups above
     ActionRecompute();
     return true;
+}
+
+void FlowEntry::SetVrfAssignEntry() {
+    if (!(data_.match_p.vrf_assign_acl_action &
+         (1 << TrafficAction::VRF_TRANSLATE))) {
+        data_.vrf_assign_evaluated = true;
+        return;
+    }
+    std::string vrf_assigned_name =
+        data_.match_p.action_info.vrf_translate_action_.vrf_name();
+    std::list<MatchAclParams>::const_iterator acl_it;
+    for (acl_it = match_p().m_vrf_assign_acl_l.begin();
+         acl_it != match_p().m_vrf_assign_acl_l.end();
+         ++acl_it) {
+        std::string vrf = acl_it->action_info.vrf_translate_action_.vrf_name();
+        data_.match_p.action_info.vrf_translate_action_.set_vrf_name(vrf);
+        //Check if VRF assign acl says, network ACL and SG action
+        //to be ignored
+        bool ignore_acl = acl_it->action_info.vrf_translate_action_.ignore_acl();
+        data_.match_p.action_info.vrf_translate_action_.set_ignore_acl(ignore_acl);
+    }
+    if (data_.vrf_assign_evaluated && vrf_assigned_name !=
+        data_.match_p.action_info.vrf_translate_action_.vrf_name()) {
+        MakeShortFlow();
+    }
+    if (acl_assigned_vrf_index() == 0) {
+        MakeShortFlow();
+    }
+    data_.vrf_assign_evaluated = true;
 }
 
 // SetMirrorVrfFromAction
@@ -562,6 +588,7 @@ void FlowEntry::ResetPolicy() {
     data_.match_p.m_reverse_sg_acl_l.clear();
     data_.match_p.reverse_out_sg_rule_present = false;
     data_.match_p.m_reverse_out_sg_acl_l.clear();
+    data_.match_p.m_vrf_assign_acl_l.clear();
 }
 
 void FlowEntry::GetPolicy(const VnEntry *vn) {
@@ -641,8 +668,8 @@ void FlowEntry::GetVrfAssignAcl() {
     //packet, else get the acl attached to VN and try matching the packet to
     //network acl
     const AclDBEntry* acl = intf->vrf_assign_acl();
-    if (acl == NULL && intf->vn()) {
-        acl = intf->vn()->GetAcl();
+    if (acl == NULL) {
+        acl = data_.vn_entry.get()->GetAcl();
     }
     if (!acl) {
         return;
@@ -660,7 +687,7 @@ const std::string& FlowEntry::acl_assigned_vrf() const {
 uint32_t FlowEntry::acl_assigned_vrf_index() const {
     VrfKey vrf_key(data_.match_p.action_info.vrf_translate_action_.vrf_name());
     const VrfEntry *vrf = static_cast<const VrfEntry *>(
-            Agent::GetInstance()->GetVrfTable()->FindActiveEntry(&vrf_key));
+            Agent::GetInstance()->vrf_table()->FindActiveEntry(&vrf_key));
     if (vrf) {
         return vrf->vrf_id();
     }
@@ -686,7 +713,6 @@ void FlowEntry::UpdateKSync() {
         ksync_entry_ =
             static_cast<FlowTableKSyncEntry *>(ksync_obj->Create(&key));
     } else {
-        FLOW_TRACE(Trace, "Change", flow_info);
         ksync_obj->Change(ksync_entry_);    
     }
 }
@@ -731,6 +757,8 @@ void FlowEntry::GetPolicyInfo() {
 }
 
 void FlowTable::Add(FlowEntry *flow, FlowEntry *rflow) {
+    flow->reset_flags(FlowEntry::ReverseFlow);
+    rflow->set_flags(FlowEntry::ReverseFlow);
     UpdateReverseFlow(flow, rflow);
 
     flow->GetPolicyInfo();
@@ -816,7 +844,8 @@ void FlowEntry::FillFlowInfo(FlowInfo &info) {
     info.set_destination_ip(key_.dst.ipv4);
     info.set_destination_port(key_.dst_port);
     info.set_protocol(key_.protocol);
-    info.set_vrf(key_.vrf);
+    info.set_nh_id(key_.nh);
+    info.set_vrf(data_.vrf);
     info.set_source_vn(data_.source_vn);
     info.set_dest_vn(data_.dest_vn);
     std::vector<uint32_t> v;
@@ -924,6 +953,8 @@ void FlowEntry::UpdateReflexiveAction() {
     if (fwd_flow) {
         data_.match_p.sg_action_summary =
             fwd_flow->data().match_p.sg_action_summary;
+        // Since SG is reflexive ACL, copy sg_rule_uuid_ from forward flow
+        sg_rule_uuid_ = fwd_flow->sg_rule_uuid();
     }
     // If forward flow is DROP, set action for reverse flow to
     // TRAP. If packet hits reverse flow, we will re-establish
@@ -936,7 +967,7 @@ void FlowEntry::UpdateReflexiveAction() {
 
 void FlowEntry::SetAclFlowSandeshData(const AclDBEntry *acl,
         FlowSandeshData &fe_sandesh_data) const {
-    fe_sandesh_data.set_vrf(integerToString(key_.vrf));
+    fe_sandesh_data.set_vrf(integerToString(data_.vrf));
     fe_sandesh_data.set_src(Ip4Address(key_.src.ipv4).to_string());
     fe_sandesh_data.set_dst(Ip4Address(key_.dst.ipv4).to_string());
     fe_sandesh_data.set_src_port(key_.src_port);
@@ -989,8 +1020,10 @@ void FlowEntry::SetAclFlowSandeshData(const AclDBEntry *acl,
     SetAclListAceId(acl, data_.match_p.m_reverse_out_sg_acl_l, fe_sandesh_data.ace_l);
     SetAclListAceId(acl, data_.match_p.m_out_sg_acl_l, fe_sandesh_data.ace_l);
     SetAclListAceId(acl, data_.match_p.m_out_mirror_acl_l, fe_sandesh_data.ace_l);
+    SetAclListAceId(acl, data_.match_p.m_vrf_assign_acl_l, fe_sandesh_data.ace_l);
 
-    fe_sandesh_data.set_reverse_flow(reverse_flow_entry() ? "yes" : "no");
+    fe_sandesh_data.set_reverse_flow(is_flags_set(FlowEntry::ReverseFlow) ?
+                                     "yes" : "no");
     fe_sandesh_data.set_nat(is_flags_set(FlowEntry::NatFlow) ? "yes" : "no");
     fe_sandesh_data.set_implicit_deny(ImplicitDenyFlow() ? "yes" : "no");
     fe_sandesh_data.set_short_flow(is_flags_set(FlowEntry::ShortFlow) ? 
@@ -1019,7 +1052,7 @@ bool FlowEntry::SetRpfNH(const Inet4UnicastRouteEntry *rt) {
     const NhState *nh_state = NULL;
     if (nh) {
         nh_state = static_cast<const NhState *>(
-                nh->GetState(Agent::GetInstance()->GetNextHopTable(),
+                nh->GetState(Agent::GetInstance()->nexthop_table(),
                     Agent::GetInstance()->pkt()->flow_table()->
                     nh_listener_id()));
         // With encap change nexthop can change for route. Route change
@@ -1030,8 +1063,8 @@ bool FlowEntry::SetRpfNH(const Inet4UnicastRouteEntry *rt) {
             DBEntryBase::KeyPtr key = nh->GetDBRequestKey();
             NextHopKey *nh_key = static_cast<NextHopKey *>(key.get());
             NextHop * new_nh = static_cast<NextHop *>(Agent::GetInstance()->
-                               GetNextHopTable()->FindActiveEntry(nh_key));
-            DBTablePartBase *part = Agent::GetInstance()->GetNextHopTable()->
+                               nexthop_table()->FindActiveEntry(nh_key));
+            DBTablePartBase *part = Agent::GetInstance()->nexthop_table()->
                 GetTablePartition(new_nh);
             NhState *new_nh_state = new NhState(new_nh);
             new_nh->SetState(part->parent(), Agent::GetInstance()->pkt()->
@@ -1116,7 +1149,6 @@ void FlowEntry::InitFwdFlow(const PktFlowInfo *info, const PktInfo *pkt,
     } else {
         reset_flags(FlowEntry::LinkLocalBindLocalSrcPort);
     }
-    reset_flags(FlowEntry::ReverseFlow);
     stats_.intf_in = pkt->GetAgentHdr().ifindex;
 
     if (info->ingress) {
@@ -1134,6 +1166,7 @@ void FlowEntry::InitFwdFlow(const PktFlowInfo *info, const PktInfo *pkt,
     data_.flow_source_vrf = info->flow_source_vrf;
     data_.flow_dest_vrf = info->flow_dest_vrf;
     data_.dest_vrf = info->dest_vrf;
+    data_.vrf = pkt->vrf;
 
     if (info->ecmp) {
         set_flags(FlowEntry::EcmpFlow);
@@ -1158,7 +1191,6 @@ void FlowEntry::InitRevFlow(const PktFlowInfo *info,
     if (InitFlowCmn(info, ctrl, rev_ctrl) == false) {
         return;
     }
-    set_flags(FlowEntry::ReverseFlow);
     if (ctrl->intf_) {
         stats_.intf_in = ctrl->intf_->id();
     } else {
@@ -1184,6 +1216,7 @@ void FlowEntry::InitRevFlow(const PktFlowInfo *info,
     data_.flow_source_vrf = info->flow_dest_vrf;
     data_.flow_dest_vrf = info->flow_source_vrf;
     data_.dest_vrf = info->nat_dest_vrf;
+    data_.vrf = info->dest_vrf;
     if (info->ecmp) {
         set_flags(FlowEntry::EcmpFlow);
     } else {
@@ -1390,19 +1423,26 @@ void FlowTable::Init() {
 
     FlowEntry::alloc_count_ = 0;
 
-    acl_listener_id_ = agent_->GetAclTable()->Register
+    acl_listener_id_ = agent_->acl_table()->Register
         (boost::bind(&FlowTable::AclNotify, this, _1, _2));
 
-    intf_listener_id_ = agent_->GetInterfaceTable()->Register
+    intf_listener_id_ = agent_->interface_table()->Register
         (boost::bind(&FlowTable::IntfNotify, this, _1, _2));
 
-    vn_listener_id_ = agent_->GetVnTable()->Register
+    vn_listener_id_ = agent_->vn_table()->Register
         (boost::bind(&FlowTable::VnNotify, this, _1, _2));
 
-    vrf_listener_id_ = agent_->GetVrfTable()->Register
+    vrf_listener_id_ = agent_->vrf_table()->Register
             (boost::bind(&FlowTable::VrfNotify, this, _1, _2));
 
     nh_listener_ = new NhListener();
+
+    agent_->acl_table()->set_ace_flow_sandesh_data_cb
+        (boost::bind(&FlowTable::SetAceSandeshData, this, _1, _2, _3));
+
+    agent_->acl_table()->set_acl_flow_sandesh_data_cb
+        (boost::bind(&FlowTable::SetAclFlowSandeshData, this, _1, _2, _3));
+
     return;
 }
 
@@ -1556,7 +1596,7 @@ void Inet4RouteUpdate::WalkDone(DBTableBase *partition,
 }
 
 void Inet4RouteUpdate::Unregister() {
-    DBTableWalker *walker = Agent::GetInstance()->GetDB()->GetWalker();
+    DBTableWalker *walker = Agent::GetInstance()->db()->GetWalker();
     walker->WalkTable(rt_table_, NULL,
                       boost::bind(&Inet4RouteUpdate::DeleteState, this, _1, _2),
                       boost::bind(&Inet4RouteUpdate::WalkDone, _1, this));
@@ -2398,6 +2438,12 @@ void SetActionStr(const FlowAction &action_info, std::vector<ActionStr> &action_
                     action_str_l.push_back(mstr);
                 }
             }
+            if ((TrafficAction::Action)i == TrafficAction::VRF_TRANSLATE) {
+                ActionStr vrf_action_str;
+                vrf_action_str.action +=
+                    action_info.vrf_translate_action_.vrf_name();
+                action_str_l.push_back(vrf_action_str);
+            }
         }
     }
 }
@@ -2463,6 +2509,10 @@ void FlowEntry::SetAclAction(std::vector<AclAction> &acl_action_l) const
     const std::list<MatchAclParams> &r_out_sg_l = data_.match_p.m_reverse_out_sg_acl_l;
     acl_type = "r o sg";
     SetAclListAclAction(r_out_sg_l, acl_action_l, acl_type);
+
+    const std::list<MatchAclParams> &vrf_assign_acl_l = data_.match_p.m_vrf_assign_acl_l;
+    acl_type = "vrf assign";
+    SetAclListAclAction(vrf_assign_acl_l, acl_action_l, acl_type);
 }
 
 string FlowTable::GetAceSandeshDataKey(const AclDBEntry *acl, int ace_id) {
@@ -2572,11 +2622,11 @@ FlowTable::FlowTable(Agent *agent) :
 }
 
 FlowTable::~FlowTable() {
-    agent_->GetAclTable()->Unregister(acl_listener_id_);
-    agent_->GetInterfaceTable()->Unregister(intf_listener_id_);
-    agent_->GetVnTable()->Unregister(vn_listener_id_);
-    agent_->GetVmTable()->Unregister(vm_listener_id_);
-    agent_->GetVrfTable()->Unregister(vrf_listener_id_);
+    agent_->acl_table()->Unregister(acl_listener_id_);
+    agent_->interface_table()->Unregister(intf_listener_id_);
+    agent_->vn_table()->Unregister(vn_listener_id_);
+    agent_->vm_table()->Unregister(vm_listener_id_);
+    agent_->vrf_table()->Unregister(vrf_listener_id_);
     delete nh_listener_;
 }
 

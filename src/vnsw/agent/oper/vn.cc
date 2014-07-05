@@ -21,6 +21,7 @@
 #include <oper/mpls.h>
 #include <oper/mirror_table.h>
 #include <oper/agent_sandesh.h>
+#include <oper/oper_dhcp_options.h>
 
 using namespace autogen;
 using namespace std;
@@ -54,10 +55,10 @@ AgentDBTable *VnEntry::DBToTable() const {
 }
 
 bool VnEntry::GetVnHostRoutes(const std::string &ipam,
-                              std::set<VnSubnet> *routes) const { 
+                              std::vector<OperDhcpOptions::Subnet> *routes) const {
     VnData::VnIpamDataMap::const_iterator it = vn_ipam_data_.find(ipam);
     if (it != vn_ipam_data_.end()) {
-        *routes = it->second.host_routes;
+        *routes = it->second.oper_dhcp_options_.host_routes();
         return true;
     }
     return false;
@@ -79,7 +80,7 @@ bool VnEntry::GetIpamData(const Ip4Address &vm_addr, std::string *ipam_name,
     // This will be executed from non DB context; task policy will ensure that
     // this is not run while DB task is updating the map
     if (!GetIpamName(vm_addr, ipam_name) ||
-        !Agent::GetInstance()->GetDomainConfigTable()->GetIpam(*ipam_name, ipam_type))
+        !Agent::GetInstance()->domain_config_table()->GetIpam(*ipam_name, ipam_type))
         return false;
 
     return true;
@@ -90,11 +91,11 @@ bool VnEntry::GetIpamVdnsData(const Ip4Address &vm_addr,
                               autogen::VirtualDnsType *vdns_type) const {
     std::string ipam_name;
     if (!GetIpamName(vm_addr, &ipam_name) ||
-        !Agent::GetInstance()->GetDomainConfigTable()->GetIpam(ipam_name, ipam_type) ||
+        !Agent::GetInstance()->domain_config_table()->GetIpam(ipam_name, ipam_type) ||
         ipam_type->ipam_dns_method != "virtual-dns-server")
         return false;
     
-    if (!Agent::GetInstance()->GetDomainConfigTable()->GetVDns(
+    if (!Agent::GetInstance()->domain_config_table()->GetVDns(
                 ipam_type->ipam_dns_server.virtual_dns_server_name, vdns_type))
         return false;
         
@@ -115,7 +116,7 @@ void VnEntry::RebakeVxLan(int vxlan_id) {
     VxLanId *vxlan_id_entry = NULL;
     VxLanIdKey vxlan_key(vxlan_id);
     vxlan_id_entry = static_cast<VxLanId *>(Agent::GetInstance()->
-                            GetVxLanTable()->FindActiveEntry(&vxlan_key));
+                            vxlan_table()->FindActiveEntry(&vxlan_key));
     vxlan_id_ref_ = vxlan_id_entry;
 }
 
@@ -206,7 +207,7 @@ bool VnTable::VnEntryWalk(DBTablePartBase *partition, DBEntryBase *entry) {
         req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
         req.key.reset(key); 
         req.data.reset(NULL);
-        Agent::GetInstance()->GetVnTable()->Enqueue(&req); 
+        Agent::GetInstance()->vn_table()->Enqueue(&req); 
     }
     return true;
 }
@@ -216,7 +217,7 @@ void VnTable::VnEntryWalkDone(DBTableBase *partition) {
 }
 
 void VnTable::UpdateVxLanNetworkIdentifierMode() {
-    DBTableWalker *walker = Agent::GetInstance()->GetDB()->GetWalker();
+    DBTableWalker *walker = Agent::GetInstance()->db()->GetWalker();
     if (walkid_ != DBTableWalker::kInvalidWalkerId) {
         walker->WalkCancel(walkid_);
     }
@@ -258,7 +259,7 @@ bool VnTable::ChangeHandler(DBEntry *entry, const DBRequest *req) {
 
     AclKey key(data->acl_id_);
     AclDBEntry *acl = static_cast<AclDBEntry *>
-        (Agent::GetInstance()->GetAclTable()->FindActiveEntry(&key));
+        (Agent::GetInstance()->acl_table()->FindActiveEntry(&key));
     if (vn->acl_.get() != acl) {
         vn->acl_ = acl;
         ret = true;
@@ -266,7 +267,7 @@ bool VnTable::ChangeHandler(DBEntry *entry, const DBRequest *req) {
 
     AclKey mirror_key(data->mirror_acl_id_);
     AclDBEntry *mirror_acl = static_cast<AclDBEntry *>
-        (Agent::GetInstance()->GetAclTable()->FindActiveEntry(&mirror_key));
+        (Agent::GetInstance()->acl_table()->FindActiveEntry(&mirror_key));
     if (vn->mirror_acl_.get() != mirror_acl) {
         vn->mirror_acl_ = mirror_acl;
         ret = true;
@@ -274,7 +275,7 @@ bool VnTable::ChangeHandler(DBEntry *entry, const DBRequest *req) {
 
     AclKey mirror_cfg_acl_key(data->mirror_cfg_acl_id_);
     AclDBEntry *mirror_cfg_acl = static_cast<AclDBEntry *>
-         (Agent::GetInstance()->GetAclTable()->FindActiveEntry(&mirror_cfg_acl_key));
+         (Agent::GetInstance()->acl_table()->FindActiveEntry(&mirror_cfg_acl_key));
     if (vn->mirror_cfg_acl_.get() != mirror_cfg_acl) {
         vn->mirror_cfg_acl_ = mirror_cfg_acl;
         ret = true;
@@ -282,7 +283,7 @@ bool VnTable::ChangeHandler(DBEntry *entry, const DBRequest *req) {
 
     VrfKey vrf_key(data->vrf_name_);
     VrfEntry *vrf = static_cast<VrfEntry *>
-        (Agent::GetInstance()->GetVrfTable()->FindActiveEntry(&vrf_key));
+        (Agent::GetInstance()->vrf_table()->FindActiveEntry(&vrf_key));
     if (vrf != old_vrf) {
         if (!vrf)
             DeleteAllIpamRoutes(vn);
@@ -458,27 +459,19 @@ bool VnTable::IFNodeToReq(IFMapNode *node, DBRequest &req) {
                         vn_ipam.push_back(
                            VnIpam(subnets.ipam_subnets[i].subnet.ip_prefix,
                                   subnets.ipam_subnets[i].subnet.ip_prefix_len,
-                                  subnets.ipam_subnets[i].default_gateway, ipam_name));
+                                  subnets.ipam_subnets[i].default_gateway,
+                                  subnets.ipam_subnets[i].enable_dhcp, ipam_name,
+                                  subnets.ipam_subnets[i].dhcp_option_list.dhcp_option,
+                                  subnets.ipam_subnets[i].host_routes.route));
                     }
                     VnIpamLinkData ipam_data;
-                    for (unsigned int i = 0;
-                         i < subnets.host_routes.route.size(); ++i) {
-                        VnSubnet subnet;
-                        boost::system::error_code ec =
-                            Ip4PrefixParse(subnets.host_routes.route[i].prefix,
-                                           &subnet.prefix, (int *)&subnet.plen);
-                        if (ec) {
-                            continue;
-                        }
-                        subnet.plen = (subnet.plen > 32) ? 32 : subnet.plen;
-                        ipam_data.AddRoute(subnet);
-                    }
+                    ipam_data.oper_dhcp_options_.set_host_routes(subnets.host_routes.route);
                     vn_ipam_data.insert(VnData::VnIpamDataPair(ipam_name, ipam_data));
                 }
             }
         }
 
-        uuid mirror_acl_uuid = Agent::GetInstance()->GetMirrorCfgTable()->GetMirrorUuid(node->name());
+        uuid mirror_acl_uuid = Agent::GetInstance()->mirror_cfg_table()->GetMirrorUuid(node->name());
         std::sort(vn_ipam.begin(), vn_ipam.end());
         data = new VnData(node->name(), acl_uuid, vrf_name, mirror_acl_uuid, 
                           mirror_cfg_acl_uuid, vn_ipam, vn_ipam_data,
@@ -487,13 +480,15 @@ bool VnTable::IFNodeToReq(IFMapNode *node, DBRequest &req) {
 
     req.key.reset(key);
     req.data.reset(data);
-    Agent::GetInstance()->GetVnTable()->Enqueue(&req);
+    Agent::GetInstance()->vn_table()->Enqueue(&req);
 
     if (node->IsDeleted()) {
         return false;
     }
     // Change to ACL referernce can result in change of Policy flag 
-    // on interfaces. Find all interfaces on this VN and RESYNC them
+    // on interfaces. Find all interfaces on this VN and RESYNC them.
+    // This is also required to check changes to the enable_dhcp flag
+    // in the VN subnets (VN Ipam).
     // TODO: Check if there is change in VRF
     req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
     // Find link with VM-Port adjacency
@@ -510,15 +505,15 @@ bool VnTable::IFNodeToReq(IFMapNode *node, DBRequest &req) {
         if (adj_node->GetObject() == NULL) {
             continue;
         }
-        if (Agent::GetInstance()->GetInterfaceTable()->IFNodeToReq(adj_node, req)) {
-            Agent::GetInstance()->GetInterfaceTable()->Enqueue(&req);
+        if (Agent::GetInstance()->interface_table()->IFNodeToReq(adj_node, req)) {
+            Agent::GetInstance()->interface_table()->Enqueue(&req);
         }
     }
 
     // Trigger Floating-IP resync
-    VmInterface::FloatingIpVnSync(Agent::GetInstance()->GetInterfaceTable(),
+    VmInterface::FloatingIpVnSync(Agent::GetInstance()->interface_table(),
                                   node);
-    VmInterface::VnSync(Agent::GetInstance()->GetInterfaceTable(), node);
+    VmInterface::VnSync(Agent::GetInstance()->interface_table(), node);
 
     return false;
 }
@@ -567,7 +562,7 @@ void VnTable::IpamVnSync(IFMapNode *node) {
 
         DBRequest req;
         req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
-        Agent::GetInstance()->GetVnTable()->IFNodeToReq(adj_node, req);
+        Agent::GetInstance()->vn_table()->IFNodeToReq(adj_node, req);
     }
 
     return;
@@ -579,7 +574,7 @@ void VnTable::UpdateSubnetGateway(const VnIpam &old_ipam,
     VrfEntry *vrf = vn->GetVrf();
 
     if (vrf && (vrf->GetName() != Agent::GetInstance()->
-                GetLinkLocalVrfName())) {
+                linklocal_vrf_name())) {
         AddHostRouteForGw(vn, new_ipam);
         DelHostRouteForGw(vn, old_ipam);
     }
@@ -627,6 +622,16 @@ bool VnTable::IpamChangeNotify(std::vector<VnIpam> &old_ipam,
                 (*it_old).default_gw = (*it_new).default_gw;
             }
 
+            // update DHCP options
+            (*it_old).oper_dhcp_options = (*it_new).oper_dhcp_options;
+
+            // check if dhcp enable flag changed
+            if ((*it_old).dhcp_enable != (*it_new).dhcp_enable) {
+                (*it_old).dhcp_enable = (*it_new).dhcp_enable;
+                // Trigger to interface entries already is sent in config DB
+                // processing, nothing else to do here
+            }
+
             it_old++;
             it_new++;
         }
@@ -659,7 +664,7 @@ void VnTable::AddIPAMRoutes(VnEntry *vn, VnIpam &ipam) {
     VrfEntry *vrf = vn->GetVrf();
     if (vrf) {
         // Do not let the gateway configuration overwrite the receive nh.
-        if (vrf->GetName() == Agent::GetInstance()->GetLinkLocalVrfName()) {
+        if (vrf->GetName() == Agent::GetInstance()->linklocal_vrf_name()) {
             return;
         }
         AddHostRouteForGw(vn, ipam);
@@ -692,7 +697,7 @@ void VnTable::DelHostRouteForGw(VnEntry *vn, const VnIpam &ipam) {
     static_cast<Inet4UnicastAgentRouteTable *>
         (vrf->GetInet4UnicastRouteTable())->DeleteReq
         (Agent::GetInstance()->local_peer(), vrf->GetName(),
-         ipam.default_gw, 32);
+         ipam.default_gw, 32, NULL);
 }
 
 void VnTable::AddSubnetRoute(VnEntry *vn, VnIpam &ipam) {
@@ -709,7 +714,7 @@ void VnTable::DelSubnetRoute(VnEntry *vn, VnIpam &ipam) {
     static_cast<Inet4UnicastAgentRouteTable *>(vrf->
         GetInet4UnicastRouteTable())->DeleteReq
         (Agent::GetInstance()->local_peer(), vrf->GetName(),
-         ipam.GetSubnetAddress(), ipam.plen);
+         ipam.GetSubnetAddress(), ipam.plen, NULL);
 }
 
 bool VnEntry::DBEntrySandesh(Sandesh *sresp, std::string &name)  const {
@@ -751,6 +756,7 @@ bool VnEntry::DBEntrySandesh(Sandesh *sresp, std::string &name)  const {
             entry.set_prefix_len(vn_ipam[i].plen);
             entry.set_gateway(vn_ipam[i].default_gw.to_string());
             entry.set_ipam_name(vn_ipam[i].ipam_name);
+            entry.set_dhcp_enable(vn_ipam[i].dhcp_enable ? "true" : "false");
             vn_subnet_sandesh_list.push_back(entry);
         } 
         data.set_ipam_data(vn_subnet_sandesh_list);
@@ -760,10 +766,11 @@ bool VnEntry::DBEntrySandesh(Sandesh *sresp, std::string &name)  const {
              it != vn_ipam_data_.end(); ++it) {
             VnIpamHostRoutes vn_ipam_host_routes;
             vn_ipam_host_routes.ipam_name = it->first;
-            for (std::set<VnSubnet>::iterator iter =
-                 it->second.host_routes.begin();
-                 iter != it->second.host_routes.end(); ++iter) {
-                vn_ipam_host_routes.host_routes.push_back(iter->ToString());
+            const std::vector<OperDhcpOptions::Subnet> &host_routes =
+                it->second.oper_dhcp_options_.host_routes();
+            for (uint32_t i = 0; i < host_routes.size(); ++i) {
+                vn_ipam_host_routes.host_routes.push_back(
+                    host_routes[i].ToString());
             }
             vn_ipam_host_routes_list.push_back(vn_ipam_host_routes);
         }

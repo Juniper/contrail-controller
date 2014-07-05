@@ -47,16 +47,16 @@ class FabricInterfaceTest : public ::testing::Test {
 public:
     virtual void SetUp() {
         agent_ = Agent::GetInstance();
-        interface_table_ = agent_->GetInterfaceTable();
-        nh_table_ = agent_->GetNextHopTable();
-        vrf_table_ = agent_->GetVrfTable();
-        fabric_rt_table_ = agent_->GetDefaultInet4UnicastRouteTable();
+        interface_table_ = agent_->interface_table();
+        nh_table_ = agent_->nexthop_table();
+        vrf_table_ = agent_->vrf_table();
+        fabric_rt_table_ = agent_->fabric_inet4_unicast_table();
 
-        intf_count_ = agent_->GetInterfaceTable()->Size();
-        nh_count_ = agent_->GetNextHopTable()->Size();
-        vrf_count_ = agent_->GetVrfTable()->Size();
+        intf_count_ = agent_->interface_table()->Size();
+        nh_count_ = agent_->nexthop_table()->Size();
+        vrf_count_ = agent_->vrf_table()->Size();
 
-        strcpy(fabric_vrf_name_, agent_->GetDefaultVrf().c_str());
+        strcpy(fabric_vrf_name_, agent_->fabric_vrf_name().c_str());
         VmAddReq(1);
         VmAddReq(2);
     }
@@ -65,10 +65,10 @@ public:
         VmDelReq(1);
         VmDelReq(2);
         WAIT_FOR(100, 1000, (interface_table_->Size() == intf_count_));
-        WAIT_FOR(100, 1000, (agent_->GetVrfTable()->Size() == vrf_count_));
-        WAIT_FOR(100, 1000, (agent_->GetNextHopTable()->Size() == nh_count_));
-        WAIT_FOR(100, 1000, (agent_->GetVmTable()->Size() == 0U));
-        WAIT_FOR(100, 1000, (agent_->GetVnTable()->Size() == 0U));
+        WAIT_FOR(100, 1000, (agent_->vrf_table()->Size() == vrf_count_));
+        WAIT_FOR(100, 1000, (agent_->nexthop_table()->Size() == nh_count_));
+        WAIT_FOR(100, 1000, (agent_->vm_table()->Size() == 0U));
+        WAIT_FOR(100, 1000, (agent_->vn_table()->Size() == 0U));
     }
 
     int intf_count_;
@@ -107,6 +107,7 @@ static void CfgIntfSync(FabricInterfaceTest *t, int id, const char *cfg_name,
     cfg_data->vrf_name_ = vrf_name;
     cfg_data->addr_ = Ip4Address::from_string(ip);
     cfg_data->fabric_port_ = fab_port;
+    cfg_data->admin_state_ = true;
     t->interface_table_->Enqueue(&req);
 }
 
@@ -324,12 +325,8 @@ int main(int argc, char **argv) {
     GETUSERARGS();
 
     client = TestInit(init_file, ksync_init, false, false, false);
-
     int ret = RUN_ALL_TESTS();
-
-    usleep(10000);
-    client->WaitForIdle();
-    usleep(10000);
-
+    TestShutdown();
+    delete client;
     return ret;
 }

@@ -19,6 +19,8 @@ public:
 
     void Init(bool run_with_vrouter);
     void Shutdown();
+    void IoShutdown();
+    void FlushFlows();
 
     Agent *agent() const { return agent_; }
     PktHandler *pkt_handler() { return pkt_handler_.get(); }

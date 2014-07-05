@@ -53,7 +53,7 @@ static bool ValidateServiceVlan(int ifid, const string &vrf, const string &addr,
     }
 
     int label = rt->GetMplsLabel();
-    MplsLabel *mpls = Agent::GetInstance()->GetMplsTable()->FindMplsLabel(label);
+    MplsLabel *mpls = Agent::GetInstance()->mpls_table()->FindMplsLabel(label);
     EXPECT_TRUE(mpls != NULL);
     if (mpls == NULL) {
         return false;
@@ -83,7 +83,7 @@ static bool ValidateServiceVlanDel(int ifid, const string &vrf,
     Inet4UnicastRouteEntry *rt = RouteGet(vrf, Ip4Address::from_string(addr), 32);
     EXPECT_TRUE(rt == NULL);
 
-    MplsLabel *mpls = Agent::GetInstance()->GetMplsTable()->FindMplsLabel(label);
+    MplsLabel *mpls = Agent::GetInstance()->mpls_table()->FindMplsLabel(label);
     EXPECT_TRUE(mpls == NULL);
 
     return ((rt == NULL) && (mpls == NULL));
@@ -238,6 +238,8 @@ int main(int argc, char **argv) {
     client = TestInit(init_file, ksync_init);
 
     int ret = RUN_ALL_TESTS();
-    usleep(10000);
+    client->WaitForIdle();
+    TestShutdown();
+    delete client;
     return ret;
 }

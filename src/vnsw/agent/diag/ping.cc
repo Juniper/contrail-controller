@@ -51,7 +51,7 @@ Ping::CreateTcpPkt(Agent *agent) {
 
     boost::shared_ptr<PktInfo> pkt_info(new PktInfo(msg, len_));
     DiagPktHandler *pkt_handler = new DiagPktHandler(diag_table_->agent(), pkt_info,
-                                   *(diag_table_->agent()->GetEventManager())->io_service());
+                                   *(diag_table_->agent()->event_manager())->io_service());
 
     //Update pointers to ethernet header, ip header and l4 header
     pkt_info->UpdateHeaderPtr();
@@ -78,7 +78,7 @@ Ping::CreateUdpPkt(Agent *agent) {
 
     boost::shared_ptr<PktInfo> pkt_info(new PktInfo(msg, len_));
     DiagPktHandler *pkt_handler = new DiagPktHandler(diag_table_->agent(), pkt_info,
-                                    *(diag_table_->agent()->GetEventManager())->io_service());
+                                    *(diag_table_->agent()->event_manager())->io_service());
 
     //Update pointers to ethernet header, ip header and l4 header
     pkt_info->UpdateHeaderPtr();
@@ -110,7 +110,7 @@ void Ping::SendRequest() {
 
     Inet4UnicastAgentRouteTable *table = NULL;
     table = static_cast<Inet4UnicastAgentRouteTable *>
-        (agent->GetVrfTable()->GetInet4UnicastRouteTable(vrf_name_));
+        (agent->vrf_table()->GetInet4UnicastRouteTable(vrf_name_));
     AgentRoute *rt = table->FindRoute(sip_);
     if (!rt) {
         delete pkt_handler;
@@ -128,7 +128,7 @@ void Ping::SendRequest() {
     intf_nh = static_cast<const InterfaceNH *>(nh);
 
     uint32_t intf_id = intf_nh->GetInterface()->id();
-    uint32_t vrf_id = diag_table_->agent()->GetVrfTable()->FindVrfFromName(vrf_name_)->vrf_id();
+    uint32_t vrf_id = diag_table_->agent()->vrf_table()->FindVrfFromName(vrf_name_)->vrf_id();
     //Send request out
     pkt_handler->SetDiagChkSum();
     pkt_handler->Send(len_ - IPC_HDR_LEN, intf_id, vrf_id, 
@@ -227,7 +227,7 @@ void PingReq::HandleRequest() const {
         goto error;
     }
 
-    if (Agent::GetInstance()->GetVrfTable()->FindVrfFromName(get_vrf_name()) == NULL) {
+    if (Agent::GetInstance()->vrf_table()->FindVrfFromName(get_vrf_name()) == NULL) {
         err_str = "Invalid VRF";
         goto error;
     }
@@ -236,7 +236,7 @@ void PingReq::HandleRequest() const {
     Agent *agent = Agent::GetInstance();
     Inet4UnicastAgentRouteTable *table = NULL;
     table = static_cast<Inet4UnicastAgentRouteTable *>
-        (agent->GetVrfTable()->GetInet4UnicastRouteTable(get_vrf_name()));
+        (agent->vrf_table()->GetInet4UnicastRouteTable(get_vrf_name()));
     AgentRoute *rt = table->FindRoute(sip);
     if (rt) {
         nh = rt->GetActiveNextHop();

@@ -70,11 +70,11 @@ libbgp = env.Library('bgp',
 
 test_suite = env.SConscript('enet/SConscript', exports='BuildEnv',
                             duplicate = 0)
+test_suite += env.SConscript('ermvpn/SConscript', exports='BuildEnv',
+                             duplicate = 0)
 test_suite += env.SConscript('evpn/SConscript', exports='BuildEnv',
                              duplicate = 0)
 env.SConscript('inet/SConscript', exports='BuildEnv', duplicate = 0)
-test_suite += env.SConscript('inetmcast/SConscript', exports='BuildEnv',
-                             duplicate = 0)
 test_suite += env.SConscript('l3vpn/SConscript', exports='BuildEnv',
                              duplicate = 0)
 test_suite += env.SConscript('origin-vn/SConscript', exports='BuildEnv',
@@ -84,6 +84,8 @@ test_suite += env.SConscript('rtarget/SConscript', exports='BuildEnv',
                              duplicate = 0)
 env.SConscript('security_group/SConscript', exports='BuildEnv', duplicate = 0)
 test_suite += env.SConscript('tunnel_encap/SConscript', exports='BuildEnv',
+                             duplicate = 0)
+test_suite += env.SConscript('extended-community/SConscript', exports='BuildEnv',
                              duplicate = 0)
 
 test_suite += env.SConscript('test/SConscript',

@@ -26,7 +26,7 @@ SandeshTraceBufferPtr AgentDBwalkTraceBuf(SandeshTraceBufferCreate(
 class AgentRouteTable::DeleteActor : public LifetimeActor {
   public:
     DeleteActor(AgentRouteTable *rt_table) : 
-        LifetimeActor(rt_table->agent()->GetLifetimeManager()), 
+        LifetimeActor(rt_table->agent()->lifetime_manager()), 
         table_(rt_table) { 
     }
     virtual ~DeleteActor() { 
@@ -97,7 +97,7 @@ auto_ptr<DBEntry> AgentRouteTable::AllocEntry(const DBRequestKey *k) const {
     const AgentRouteKey *key = static_cast<const AgentRouteKey*>(k);
     VrfKey vrf_key(key->vrf_name());
     VrfEntry *vrf = 
-        static_cast<VrfEntry *>(agent_->GetVrfTable()->Find(&vrf_key, true));
+        static_cast<VrfEntry *>(agent_->vrf_table()->Find(&vrf_key, true));
     AgentRoute *route = 
         static_cast<AgentRoute *>(key->AllocRouteEntry(vrf, false));
     return auto_ptr<DBEntry>(static_cast<DBEntry *>(route));
@@ -143,7 +143,8 @@ bool AgentRouteTable::PathSelection(const Path &path1, const Path &path2) {
     if (l_path.is_stale() != r_path.is_stale()) {
         return (l_path.is_stale() < r_path.is_stale());
     }
-    return l_path.peer()->IsLess(r_path.peer());
+
+    return l_path.IsLess(r_path);
 }
 
 // Re-evaluate all unresolved NH. Flush and enqueue RESYNC for all NH in the 
@@ -264,7 +265,7 @@ void AgentRouteTable::Input(DBTablePartition *part, DBClient *client,
     bool notify = false;
     bool route_added = false;
 
-    VrfEntry *vrf = agent_->GetVrfTable()->FindVrfFromName(key->vrf_name());
+    VrfEntry *vrf = agent_->vrf_table()->FindVrfFromName(key->vrf_name());
     // Ignore request if VRF not found. Note, we process the DELETE
     // request even if VRF is in deleted state
     if (vrf == NULL) {
@@ -291,6 +292,12 @@ void AgentRouteTable::Input(DBTablePartition *part, DBClient *client,
     AgentPath *path = NULL;
     AgentRoute *rt = static_cast<AgentRoute *>(part->Find(key));
 
+    if (data && data->IsPeerValid() == false) {
+        AGENT_ROUTE_LOG("Invalid/Inactive Peer ", key->ToString(), vrf_name(),
+                        key->peer());
+        return;
+    }
+
     if (req->oper == DBRequest::DB_ENTRY_ADD_CHANGE) {
         // Ignore ADD_CHANGE if received on deleted VRF
         if(vrf->IsDeleted()) {
@@ -298,10 +305,19 @@ void AgentRouteTable::Input(DBTablePartition *part, DBClient *client,
         }
 
         if (key->sub_op_ == AgentKey::RESYNC) {
-            // Ignore RESYNC if received on non-existing or deleted route entry
             if (rt && (rt->IsDeleted() == false)) {
-                rt->Sync();
-                notify = true;
+                if (data &&
+                    data->type_ == AgentRouteData::ROUTE_PREFERENCE_CHANGE) {
+                    //Resync operation changes preference, sequence number and
+                    //wait for traffic flag for a path
+                    path = rt->FindPath(key->peer());
+                    notify = data->AddChangePath(agent_, path);
+                } else {
+                    //Ignore RESYNC if received on non-existing
+                    //or deleted route entry
+                    rt->Sync();
+                    notify = true;
+                }
             }
         } else if (key->sub_op_ == AgentKey::ADD_DEL_CHANGE) {
             // Renew the route if its in deleted state
@@ -390,6 +406,10 @@ void AgentRouteTable::Input(DBTablePartition *part, DBClient *client,
 
     //Route changed, trigger change on dependent routes
     if (notify) {
+        const Path *prev_front = rt->front();
+        if (prev_front) {
+            rt->Sort(&AgentRouteTable::PathSelection, prev_front);
+        }
         part->Notify(rt);
         rt->UpdateDependantRoutes();
         rt->ResyncTunnelNextHop();
@@ -402,7 +422,7 @@ LifetimeActor *AgentRouteTable::deleter() {
 
 //Delete all the routes
 void AgentRouteTable::ManagedDelete() {
-    DBTableWalker *walker = agent_->GetDB()->GetWalker();
+    DBTableWalker *walker = agent_->db()->GetWalker();
     RouteTableWalkerState *state = new RouteTableWalkerState(deleter());
     walker->WalkTable(this, NULL, 
          boost::bind(&AgentRouteTable::DelExplicitRouteWalkerCb, this, _1, _2),
@@ -420,7 +440,7 @@ void AgentRouteTable::MayResumeDelete(bool is_empty) {
         return;
     }
 
-    agent_->GetLifetimeManager()->Enqueue(deleter());
+    agent_->lifetime_manager()->Enqueue(deleter());
 }
 
 // Find entry not in deleted state
@@ -479,9 +499,12 @@ AgentPath *AgentRoute::FindLocalVmPortPath() const {
     for(Route::PathList::const_iterator it = GetPathList().begin(); 
         it != GetPathList().end(); it++) {
         const AgentPath *path = static_cast<const AgentPath *>(it.operator->());
+        if (path->peer() == NULL) {
+            continue;
+        }
         if (path->peer()->GetType() == Peer::ECMP_PEER ||
-            path->peer()->GetType() == Peer::LOCAL_VM_PORT_PEER ||
-            path->peer()->GetType() == Peer::VGW_PEER) {
+            path->peer()->GetType() == Peer::VGW_PEER ||
+            path->peer()->GetType() == Peer::LOCAL_VM_PORT_PEER) {
             return const_cast<AgentPath *>(path);
         }
     }
@@ -634,6 +657,17 @@ bool AgentRoute::Sync(void) {
         }
     }
     return ret;
+}
+
+bool AgentRoute::WaitForTraffic() const {
+    for(Route::PathList::const_iterator it = GetPathList().begin();
+        it != GetPathList().end(); it++) {
+        const AgentPath *path = static_cast<const AgentPath *>(it.operator->());
+        if (path->path_preference().wait_for_traffic() == true) {
+            return true;
+        }
+    }
+    return false;
 }
 
 void AgentRouteTable::StalePathFromPeer(DBTablePartBase *part, AgentRoute *rt,

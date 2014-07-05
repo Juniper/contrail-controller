@@ -113,7 +113,12 @@ PostProcessingQuery::PostProcessingQuery(
                 std::string sort_str(json_sort_fields[i].GetString());
                 QE_TRACE(DEBUG, sort_str);
                 std::string datatype(m_query->get_column_field_datatype(sort_str));
-                QE_INVALIDARG_ERROR(datatype != std::string(""));
+                if (!m_query->is_stat_table_query()) {
+                    QE_INVALIDARG_ERROR(datatype != std::string(""));
+                } else if (m_query->stat_table_index()!=-1) {
+                    // This is a static StatTable. We can check the schema
+                    QE_INVALIDARG_ERROR(datatype != std::string(""));
+                }
                 QE_INVALIDARG_ERROR(
                     m_query->is_valid_sort_field(sort_str) != false);
                 sort_field_t sort_field(get_column_name(sort_str), datatype);
@@ -121,8 +126,12 @@ PostProcessingQuery::PostProcessingQuery(
             }
         }
 
-        if (iter->first == QUERY_FILTER)
-        {
+        /*
+         * old filter style is just list of expr ANDed
+         * new filter are list of ANDs over OR
+         * both modes are supported with the below code
+         */
+        if (iter->first == QUERY_FILTER) {
             rapidjson::Document d;
             std::string json_string = "{ \"filter\" : " + 
                 iter->second + " }";
@@ -134,68 +143,142 @@ PostProcessingQuery::PostProcessingQuery(
                 d["filter"]; 
             QE_PARSE_ERROR(json_filters.IsArray());
             QE_TRACE(DEBUG, "# of filters:"<< json_filters.Size());
-            for (rapidjson::SizeType j = 0; j<json_filters.Size(); j++) 
-            {
-                filter_match_t filter;
+            bool single_list = false;
+            if (json_filters.Size()) {
+                rapidjson::SizeType zeroth = 0;
+                const rapidjson::Value& json_filters_0 = json_filters[zeroth];
+                if (!json_filters_0.IsArray()) {
+                    single_list = true;
+                }
+            }
 
-                const rapidjson::Value& name_value = 
-                    json_filters[j][WHERE_MATCH_NAME];
-                const rapidjson::Value&  value_value = 
-                    json_filters[j][WHERE_MATCH_VALUE];
-                const rapidjson::Value& op_value = 
-                    json_filters[j][WHERE_MATCH_OP];
+            if (single_list) {
+                //parse the old format 
+                std::vector<filter_match_t> filter_and;
+                for (rapidjson::SizeType j = 0; j<json_filters.Size(); j++) 
+                  {
+                    filter_match_t filter;
 
-                // do some validation checks
-                QE_INVALIDARG_ERROR(name_value.IsString());
-                QE_INVALIDARG_ERROR
-                    ((value_value.IsString() || value_value.IsNumber()));
-                QE_INVALIDARG_ERROR(op_value.IsNumber());
+                    const rapidjson::Value& name_value = 
+                        json_filters[j][WHERE_MATCH_NAME];
+                    const rapidjson::Value&  value_value = 
+                        json_filters[j][WHERE_MATCH_VALUE];
+                    const rapidjson::Value& op_value = 
+                        json_filters[j][WHERE_MATCH_OP];
 
-                filter.name = name_value.GetString();
-                filter.op = (match_op)op_value.GetInt();
+                    // do some validation checks
+                    QE_INVALIDARG_ERROR(name_value.IsString());
+                    QE_INVALIDARG_ERROR
+                        ((value_value.IsString() || value_value.IsNumber()));
+                    QE_INVALIDARG_ERROR(op_value.IsNumber());
 
-                // extract value after type conversion
-                {
-                    if (value_value.IsString())
-                    {
-                        filter.value = value_value.GetString();
-                    } else if (value_value.IsInt()){
-                        int int_value;
-                        std::ostringstream convert;
-                        int_value = value_value.GetInt();
-                        convert << int_value;
-                        filter.value = convert.str();
-                    } else if (value_value.IsUint()) {
-                        uint32_t uint_value;
-                        std::ostringstream convert;
-                        uint_value = value_value.GetUint();
-                        convert << uint_value;
-                        filter.value = convert.str();
+                    filter.name = name_value.GetString();
+                    filter.op = (match_op)op_value.GetInt();
+
+                    // extract value after type conversion
+                      {
+                        if (value_value.IsString())
+                          {
+                            filter.value = value_value.GetString();
+                          } else if (value_value.IsInt()){
+                              int int_value;
+                              std::ostringstream convert;
+                              int_value = value_value.GetInt();
+                              convert << int_value;
+                              filter.value = convert.str();
+                          } else if (value_value.IsUint()) {
+                              uint32_t uint_value;
+                              std::ostringstream convert;
+                              uint_value = value_value.GetUint();
+                              convert << uint_value;
+                              filter.value = convert.str();
+                          }
+                      }
+
+                    if (filter.op == REGEX_MATCH)
+                      {
+                        // compile regex beforehand
+                        filter.match_e = boost::regex(filter.value);
+                      }
+
+                    filter_and.push_back(filter);
+                  }
+                filter_list.push_back(filter_and);
+            } else {
+                //new OR of ANDs
+                for (rapidjson::SizeType j = 0; j<json_filters.Size(); j++) {
+                    std::vector<filter_match_t> filter_and;
+                    const rapidjson::Value& json_filter_and = json_filters[j];
+                    QE_PARSE_ERROR(json_filter_and.IsArray());
+
+                    for (rapidjson::SizeType k = 0; k<json_filter_and.Size(); k++) {
+                        filter_match_t filter;
+
+                        const rapidjson::Value& name_value = 
+                            json_filter_and[k][WHERE_MATCH_NAME];
+                        const rapidjson::Value&  value_value = 
+                            json_filter_and[k][WHERE_MATCH_VALUE];
+                        const rapidjson::Value& op_value = 
+                            json_filter_and[k][WHERE_MATCH_OP];
+
+                        // do some validation checks
+                        QE_INVALIDARG_ERROR(name_value.IsString());
+                        QE_INVALIDARG_ERROR
+                            ((value_value.IsString() || value_value.IsNumber()));
+                        QE_INVALIDARG_ERROR(op_value.IsNumber());
+
+                        filter.name = name_value.GetString();
+                        filter.op = (match_op)op_value.GetInt();
+
+                        // extract value after type conversion
+                        if (value_value.IsString()) {
+                            filter.value = value_value.GetString();
+                        } else if (value_value.IsInt()) {
+                            int int_value;
+                            std::ostringstream convert;
+                            int_value = value_value.GetInt();
+                            convert << int_value;
+                            filter.value = convert.str();
+                        } else if (value_value.IsUint()) {
+                            uint32_t uint_value;
+                            std::ostringstream convert;
+                            uint_value = value_value.GetUint();
+                            convert << uint_value;
+                            filter.value = convert.str();
+                        }
+
+                        if (filter.op == REGEX_MATCH) {
+                            // compile regex beforehand
+                            filter.match_e = boost::regex(filter.value);
+                        }
+
+                        filter_and.push_back(filter);
                     }
+                    filter_list.push_back(filter_and);
                 }
-
-                if (filter.op == REGEX_MATCH)
-                {
-                    // compile regex beforehand
-                    filter.match_e = boost::regex(filter.value);
-                }
-
-                filter_list.push_back(filter);
             }
         }
-        // add filter to filter query engine logs if requested
-        if ((((AnalyticsQuery *)main_query)->filter_qe_logs) &&
+    }
+
+    // add filter to filter query engine logs if requested
+    if ((((AnalyticsQuery *)main_query)->filter_qe_logs) &&
             (((AnalyticsQuery *)main_query)->table() == 
-             g_viz_constants.COLLECTOR_GLOBAL_TABLE))
-        {
-            QE_TRACE(DEBUG,  " Adding filter for QE logs");
-            filter_match_t filter;
-            filter.name = g_viz_constants.MODULE;
-            filter.value = 
-                ((AnalyticsQuery *)main_query)->sandesh_moduleid;
-            filter.op = NOT_EQUAL;
-            filter.ignore_col_absence = true;
-            filter_list.push_back(filter);
+             g_viz_constants.COLLECTOR_GLOBAL_TABLE)) {
+        QE_TRACE(DEBUG,  " Adding filter for QE logs");
+        filter_match_t filter;
+        filter.name = g_viz_constants.MODULE;
+        filter.value = 
+            ((AnalyticsQuery *)main_query)->sandesh_moduleid;
+        filter.op = NOT_EQUAL;
+        filter.ignore_col_absence = true;
+        if (!filter_list.size()) {
+            std::vector<filter_match_t> filter_and;
+            filter_and.push_back(filter);
+            filter_list.push_back(filter_and);
+        } else {
+            for (unsigned int i = 0; i < filter_list.size(); i++) {
+                filter_list[i].push_back(filter);
+            }
         }
     }
 
@@ -264,8 +347,11 @@ void AnalyticsQuery::get_query_details(bool& is_merge_needed, bool& is_map_outpu
         chunk_sizes.push_back(0); // just return some dummy value
     }
 
-    parse_status = status_details;
+    time_period = (end_time_ - from_time_) / 1000000;
 
+    parse_status = status_details;
+    if (parse_status != 0) return;
+    
     if (is_stat_table_query()) {
         is_merge_needed = selectquery_->stats_->IsMergeNeeded();
     } else {
@@ -273,11 +359,8 @@ void AnalyticsQuery::get_query_details(bool& is_merge_needed, bool& is_map_outpu
     }
 
     where = wherequery_->json_string_;
-    if (parse_status == 0) {
-        select = selectquery_->json_string_;
-        post = postprocess_->json_string_;
-    }
-    time_period = (end_time_ - from_time_) / 1000000;
+    select = selectquery_->json_string_;
+    post = postprocess_->json_string_;
     is_map_output = is_stat_table_query();
 }
 
@@ -422,11 +505,6 @@ void AnalyticsQuery::Init(GenDb::GenDbIf *db_if, std::string qid,
                 table_ = g_viz_constants.OBJECT_VALUE_TABLE;
             }
         }
-    }
-
-    if (this->is_object_table_query() && where_json_string == "") {
-        QE_LOG_GLOBAL(DEBUG, "Cannot support WHERE * query for " << table_);
-        QE_INVALIDARG_ERROR(0);
     }
 
     // post processing initialization
@@ -806,12 +884,13 @@ query_status_t AnalyticsQuery::process_query()
 
 AnalyticsQuery::AnalyticsQuery(std::string qid, std::map<std::string, 
         std::string>& json_api_data, uint64_t analytics_start_time,
-        EventManager *evm, const std::string & cassandra_ip, 
-        unsigned short cassandra_port, int batch, int total_batches):
+        EventManager *evm, std::vector<std::string> cassandra_ips, 
+        std::vector<int> cassandra_ports, int batch,
+        int total_batches):
         QueryUnit(NULL, this),
         dbif_(GenDb::GenDbIf::GenDbIfImpl(
             boost::bind(&AnalyticsQuery::db_err_handler, this),
-            cassandra_ip, cassandra_port, 0, "QueryEngine", true)),
+            cassandra_ips, cassandra_ports, 0, "QueryEngine", true)),
         filter_qe_logs(true),
         json_api_data_(json_api_data),
         where_start_(0),
@@ -855,6 +934,13 @@ AnalyticsQuery::AnalyticsQuery(std::string qid, std::map<std::string,
             this->status_details = EIO;
         }
     }
+    for (std::vector<GenDb::NewCf>::const_iterator it = vizd_stat_tables.begin();
+            it != vizd_stat_tables.end(); it++) {
+        if (!dbif_->Db_UseColumnfamily(*it)) {
+            QE_LOG(ERROR, "Database initialization:Db_UseColumnfamily failed");
+            this->status_details = EIO;
+        }
+    }
     dbif->Db_SetInitDone(true);
     Init(dbif, qid, json_api_data, analytics_start_time);
 }
@@ -882,7 +968,7 @@ QueryEngine::QueryEngine(EventManager *evm,
         qosp_(new QEOpServerProxy(evm,
             this, redis_ip, redis_port, max_tasks)),
         evm_(evm),
-        cassandra_port_(0)
+        cassandra_ports_(0)
 {
     max_slice_ =  max_slice;
     init_vizd_tables();
@@ -898,18 +984,19 @@ QueryEngine::QueryEngine(EventManager *evm,
 }
 
 QueryEngine::QueryEngine(EventManager *evm,
-            const std::string & cassandra_ip, unsigned short cassandra_port,
+            std::vector<std::string> cassandra_ips,
+            std::vector<int> cassandra_ports,
             const std::string & redis_ip, unsigned short redis_port,
             int max_tasks, int max_slice, uint64_t anal_ttl, 
             uint64_t start_time) :  
         dbif_(GenDb::GenDbIf::GenDbIfImpl( 
             boost::bind(&QueryEngine::db_err_handler, this),
-            cassandra_ip, cassandra_port, 0, "QueryEngine", true)),
+            cassandra_ips, cassandra_ports, 0, "QueryEngine", true)),
         qosp_(new QEOpServerProxy(evm,
             this, redis_ip, redis_port, max_tasks)),
         evm_(evm),
-        cassandra_port_(cassandra_port),
-        cassandra_ip_(cassandra_ip)
+        cassandra_ports_(cassandra_ports),
+        cassandra_ips_(cassandra_ips)
 {
     max_slice_ = max_slice;
     init_vizd_tables();
@@ -1021,7 +1108,7 @@ QueryEngine::QueryPrepare(QueryParams qp,
     QE_LOG_NOQID(INFO, 
              " Got Query to prepare for QID " << qid);
     int ret_code;
-    if (cassandra_port_ == 0) {
+    if (cassandra_ports_.size() == 1 && cassandra_ports_[0] == 0) {
         chunk_size.push_back(999);
         need_merge = false;
         map_output = false;
@@ -1030,7 +1117,7 @@ QueryEngine::QueryPrepare(QueryParams qp,
     } else {
 
         AnalyticsQuery *q = new AnalyticsQuery(qid, qp.terms, stime, evm_,
-                cassandra_ip_, cassandra_port_, 0, qp.maxChunks);
+                cassandra_ips_, cassandra_ports_, 0, qp.maxChunks);
         chunk_size.clear();
         q->get_query_details(need_merge, map_output, chunk_size,
             where, select, post, time_period, ret_code);
@@ -1047,7 +1134,7 @@ QueryEngine::QueryAccumulate(QueryParams qp,
 
     QE_TRACE_NOQID(DEBUG, "Creating analytics query object for merge_processing");
     AnalyticsQuery *q = new AnalyticsQuery(qp.qid, qp.terms, stime, evm_,
-        cassandra_ip_, cassandra_port_, 1, qp.maxChunks);
+        cassandra_ips_, cassandra_ports_, 1, qp.maxChunks);
     QE_TRACE_NOQID(DEBUG, "Calling merge_processing");
     bool ret = q->merge_processing(input, output);
     delete q;
@@ -1061,7 +1148,7 @@ QueryEngine::QueryFinalMerge(QueryParams qp,
 
     QE_TRACE_NOQID(DEBUG, "Creating analytics query object for final_merge_processing");
     AnalyticsQuery *q = new AnalyticsQuery(qp.qid, qp.terms, stime, evm_,
-        cassandra_ip_, cassandra_port_, 1, qp.maxChunks);
+        cassandra_ips_, cassandra_ports_, 1, qp.maxChunks);
     QE_TRACE_NOQID(DEBUG, "Calling final_merge_processing");
     bool ret = q->final_merge_processing(inputs, output);
     delete q;
@@ -1074,7 +1161,7 @@ QueryEngine::QueryFinalMerge(QueryParams qp,
         QEOpServerProxy::OutRowMultimapT& output) {
     QE_TRACE_NOQID(DEBUG, "Creating analytics query object for final_merge_processing");
     AnalyticsQuery *q = new AnalyticsQuery(qp.qid, qp.terms, stime, evm_,
-        cassandra_ip_, cassandra_port_, 1, qp.maxChunks);
+        cassandra_ips_, cassandra_ports_, 1, qp.maxChunks);
 
     if (!q->is_stat_table_query()) {
         QE_TRACE_NOQID(DEBUG, "MultiMap merge_final is for Stats only");
@@ -1095,7 +1182,7 @@ QueryEngine::QueryExec(void * handle, QueryParams qp, uint32_t chunk)
     QE_TRACE_NOQID(DEBUG,
              " Got Query to execute for QID " << qid << " chunk:"<< chunk);
     //GenDb::GenDbIf *db_if = dbif_.get();
-    if (cassandra_port_ == 0) {
+    if (cassandra_ports_.size() == 1 && cassandra_ports_[0] == 0) {
         std::auto_ptr<QEOpServerProxy::BufferT> final_output(new QEOpServerProxy::BufferT);
         QEOpServerProxy::OutRowT outrow = boost::assign::map_list_of(
             "MessageTS", "1368037623434740")(
@@ -1115,7 +1202,7 @@ QueryEngine::QueryExec(void * handle, QueryParams qp, uint32_t chunk)
     }
 
     AnalyticsQuery *q = new AnalyticsQuery(qid, qp.terms, stime, evm_,
-            cassandra_ip_, cassandra_port_, chunk, qp.maxChunks);
+            cassandra_ips_, cassandra_ports_, chunk, qp.maxChunks);
 
     QE_TRACE_NOQID(DEBUG, " Finished parsing and starting processing for QID " << qid << " chunk:" << chunk); 
     q->process_query(); 
@@ -1191,7 +1278,6 @@ int AnalyticsQuery::stat_table_index() {
         if (nm == this->table_) 
             return i;
     }
-    assert(!is_stat_table_query());
     return -1;
 }
 
@@ -1209,7 +1295,7 @@ bool AnalyticsQuery::is_valid_from_field(const std::string& from_field)
         if (it->first == from_field)
             return true;
     }
-    if (stat_table_index()!=-1) 
+    if (is_stat_table_query())
         return true;
 
     return false;
@@ -1246,22 +1332,24 @@ bool AnalyticsQuery::is_valid_where_field(const std::string& where_field)
             return false;
         }
     }
+
     int i = stat_table_index();
     if (i != -1) {
-        for (size_t j = 0; 
+        for (size_t j = 0;
              j < g_viz_constants._STAT_TABLES[i].attributes.size(); j++) {
             if ((g_viz_constants._STAT_TABLES[i].attributes[j].name ==
-                    where_field) & g_viz_constants._STAT_TABLES[i].attributes[j].index) 
+                    where_field) & g_viz_constants._STAT_TABLES[i].attributes[j].index)
                 return true;
         }
-        if (g_viz_constants.STAT_OBJECTID_FIELD == where_field) 
-            return true;        
-        if (g_viz_constants.STAT_SOURCE_FIELD == where_field) 
-            return true;        
+        if (g_viz_constants.STAT_OBJECTID_FIELD == where_field)
+            return true;
+        if (g_viz_constants.STAT_SOURCE_FIELD == where_field)
+            return true;
         return false;
     }
 
-    return false;
+    // For dynamic Stat Table queries, allow anything in the where clause
+    return is_stat_table_query();
 }
 
 bool AnalyticsQuery::is_valid_sort_field(const std::string& sort_field) {
@@ -1306,9 +1394,9 @@ std::string AnalyticsQuery::get_column_field_datatype(
     if (i != -1) {
         std::string sfield;
         QEOpServerProxy::AggOper agg;
-        QEOpServerProxy::VarType vt = StatsSelect::Parse(i, column_field, 
+        QEOpServerProxy::VarType vt = StatsSelect::Parse(i, column_field,
             sfield, agg);
-        if (vt == QEOpServerProxy::STRING) 
+        if (vt == QEOpServerProxy::STRING)
             return string("string");
         else if (vt == QEOpServerProxy::UINT64)
             return string("int");
@@ -1317,7 +1405,6 @@ std::string AnalyticsQuery::get_column_field_datatype(
         else
             return string("");
     }
-
     return std::string("");
 }
 

@@ -71,6 +71,7 @@ private:
             const QEOpServerProxy::AggRowT& narows,
             MapBufT& output);
 
+    bool isStatic_;
     bool status_;
 
     AnalyticsQuery * const main_query;

@@ -33,6 +33,10 @@ protected:
         default_cassandra_server_list_.push_back("127.0.0.1:9160");
     }
 
+    virtual void TearDown() {
+        remove("./options_test_collector_config_file.conf");
+    }
+
     EventManager evm_;
     std::string hostname_;
     std::string host_ip_;
@@ -68,7 +72,7 @@ TEST_F(OptionsTest, NoArguments) {
     EXPECT_EQ(options_.log_level(), "SYS_NOTICE");
     EXPECT_EQ(options_.log_local(), false);
     EXPECT_EQ(options_.analytics_data_ttl(), ANALYTICS_DATA_TTL_DEFAULT);
-    EXPECT_EQ(options_.syslog_port(), 0);
+    EXPECT_EQ(options_.syslog_port(), -1);
     EXPECT_EQ(options_.dup(), false);
     EXPECT_EQ(options_.test_mode(), false);
 }
@@ -104,7 +108,7 @@ TEST_F(OptionsTest, DefaultConfFile) {
     EXPECT_EQ(options_.log_level(), "SYS_NOTICE");
     EXPECT_EQ(options_.log_local(), false);
     EXPECT_EQ(options_.analytics_data_ttl(), ANALYTICS_DATA_TTL_DEFAULT);
-    EXPECT_EQ(options_.syslog_port(), 0);
+    EXPECT_EQ(options_.syslog_port(), -1);
     EXPECT_EQ(options_.dup(), false);
     EXPECT_EQ(options_.test_mode(), false);
 }
@@ -142,7 +146,7 @@ TEST_F(OptionsTest, OverrideStringFromCommandLine) {
     EXPECT_EQ(options_.log_level(), "SYS_NOTICE");
     EXPECT_EQ(options_.log_local(), false);
     EXPECT_EQ(options_.analytics_data_ttl(), ANALYTICS_DATA_TTL_DEFAULT);
-    EXPECT_EQ(options_.syslog_port(), 0);
+    EXPECT_EQ(options_.syslog_port(), -1);
     EXPECT_EQ(options_.dup(), false);
     EXPECT_EQ(options_.test_mode(), false);
 }
@@ -180,7 +184,7 @@ TEST_F(OptionsTest, OverrideBooleanFromCommandLine) {
     EXPECT_EQ(options_.log_level(), "SYS_NOTICE");
     EXPECT_EQ(options_.log_local(), false);
     EXPECT_EQ(options_.analytics_data_ttl(), ANALYTICS_DATA_TTL_DEFAULT);
-    EXPECT_EQ(options_.syslog_port(), 0);
+    EXPECT_EQ(options_.syslog_port(), -1);
     EXPECT_EQ(options_.dup(), false);
     EXPECT_EQ(options_.test_mode(), true); // Overridden from command line.
 }
@@ -203,7 +207,7 @@ TEST_F(OptionsTest, CustomConfigFile) {
         "log_level=SYS_DEBUG\n"
         "log_local=1\n"
         "test_mode=1\n"
-        "syslog_port=100\n"
+        "syslog_port=101\n"
         "\n"
         "[COLLECTOR]\n"
         "port=100\n"
@@ -219,14 +223,14 @@ TEST_F(OptionsTest, CustomConfigFile) {
     ;
 
     ofstream config_file;
-    config_file.open("/tmp/options_test_collector_config_file.conf");
+    config_file.open("./options_test_collector_config_file.conf");
     config_file << config;
     config_file.close();
 
     int argc = 2;
     char *argv[argc];
     char argv_0[] = "options_test";
-    char argv_1[] = "--conf_file=/tmp/options_test_collector_config_file.conf";
+    char argv_1[] = "--conf_file=./options_test_collector_config_file.conf";
     argv[0] = argv_0;
     argv[1] = argv_1;
 
@@ -236,15 +240,15 @@ TEST_F(OptionsTest, CustomConfigFile) {
     cassandra_server_list.push_back("10.10.10.1:100");
     cassandra_server_list.push_back("20.20.20.2:200");
     cassandra_server_list.push_back("30.30.30.3:300");
-    TASK_UTIL_EXPECT_VECTOR_EQ(cassandra_server_list,
-                     options_.cassandra_server_list());
+    TASK_UTIL_EXPECT_VECTOR_EQ(options_.cassandra_server_list(),
+                     cassandra_server_list);
 
     EXPECT_EQ(options_.redis_server(), "1.2.3.4");
     EXPECT_EQ(options_.redis_port(), 200);
     EXPECT_EQ(options_.collector_server(), "3.4.5.6");
     EXPECT_EQ(options_.collector_port(), 100);
     EXPECT_EQ(options_.config_file(),
-              "/tmp/options_test_collector_config_file.conf");
+              "./options_test_collector_config_file.conf");
     EXPECT_EQ(options_.discovery_server(), "1.0.0.1");
     EXPECT_EQ(options_.discovery_port(), 100);
     EXPECT_EQ(options_.hostname(), "test");
@@ -258,7 +262,7 @@ TEST_F(OptionsTest, CustomConfigFile) {
     EXPECT_EQ(options_.log_level(), "SYS_DEBUG");
     EXPECT_EQ(options_.log_local(), true);
     EXPECT_EQ(options_.analytics_data_ttl(), ANALYTICS_DATA_TTL_DEFAULT);
-    EXPECT_EQ(options_.syslog_port(), 100);
+    EXPECT_EQ(options_.syslog_port(), 101);
     EXPECT_EQ(options_.dup(), true);
     EXPECT_EQ(options_.test_mode(), true);
 }
@@ -282,7 +286,7 @@ TEST_F(OptionsTest, CustomConfigFileAndOverrideFromCommandLine) {
         "log_level=SYS_DEBUG\n"
         "log_local=0\n"
         "test_mode=1\n"
-        "syslog_port=100\n"
+        "syslog_port=102\n"
         "\n"
         "[COLLECTOR]\n"
         "port=100\n"
@@ -298,14 +302,14 @@ TEST_F(OptionsTest, CustomConfigFileAndOverrideFromCommandLine) {
     ;
 
     ofstream config_file;
-    config_file.open("/tmp/options_test_collector_config_file.conf");
+    config_file.open("./options_test_collector_config_file.conf");
     config_file << config;
     config_file.close();
 
     int argc = 8;
     char *argv[argc];
     char argv_0[] = "options_test";
-    char argv_1[] = "--conf_file=/tmp/options_test_collector_config_file.conf";
+    char argv_1[] = "--conf_file=./options_test_collector_config_file.conf";
     char argv_2[] = "--DEFAULT.log_file=new_test.log";
     char argv_3[] = "--DEFAULT.log_local";
     char argv_4[] = "--COLLECTOR.port=1000";
@@ -327,14 +331,14 @@ TEST_F(OptionsTest, CustomConfigFileAndOverrideFromCommandLine) {
     cassandra_server_list.push_back("11.10.10.1:100");
     cassandra_server_list.push_back("21.20.20.2:200");
     cassandra_server_list.push_back("31.30.30.3:300");
-    TASK_UTIL_EXPECT_VECTOR_EQ(cassandra_server_list,
-                     options_.cassandra_server_list());
+    TASK_UTIL_EXPECT_VECTOR_EQ(options_.cassandra_server_list(),
+                     cassandra_server_list);
     EXPECT_EQ(options_.redis_server(), "1.2.3.4");
     EXPECT_EQ(options_.redis_port(), 200);
     EXPECT_EQ(options_.collector_server(), "3.4.5.6");
     EXPECT_EQ(options_.collector_port(), 1000);
     EXPECT_EQ(options_.config_file(),
-              "/tmp/options_test_collector_config_file.conf");
+              "./options_test_collector_config_file.conf");
     EXPECT_EQ(options_.discovery_server(), "1.0.0.1");
     EXPECT_EQ(options_.discovery_port(), 100);
     EXPECT_EQ(options_.hostname(), "test");
@@ -348,9 +352,29 @@ TEST_F(OptionsTest, CustomConfigFileAndOverrideFromCommandLine) {
     EXPECT_EQ(options_.log_level(), "SYS_DEBUG");
     EXPECT_EQ(options_.log_local(), true);
     EXPECT_EQ(options_.analytics_data_ttl(), 30);
-    EXPECT_EQ(options_.syslog_port(), 100);
+    EXPECT_EQ(options_.syslog_port(), 102);
     EXPECT_EQ(options_.dup(), true);
     EXPECT_EQ(options_.test_mode(), true);
+}
+
+TEST_F(OptionsTest, MultitokenVector) {
+    int argc = 3;
+    char *argv[argc];
+    char argv_0[] = "options_test";
+    char argv_1[] = "--DEFAULT.cassandra_server_list=10.10.10.1:100 20.20.20.2:200";
+    char argv_2[] = "--DEFAULT.cassandra_server_list=30.30.30.3:300";
+    argv[0] = argv_0;
+    argv[1] = argv_1;
+    argv[2] = argv_2;
+
+    options_.Parse(evm_, argc, argv);
+
+    vector<string> cassandra_server_list;
+    cassandra_server_list.push_back("10.10.10.1:100");
+    cassandra_server_list.push_back("20.20.20.2:200");
+    cassandra_server_list.push_back("30.30.30.3:300");
+    TASK_UTIL_EXPECT_VECTOR_EQ(options_.cassandra_server_list(),
+                     cassandra_server_list);
 }
 
 int main(int argc, char **argv) {

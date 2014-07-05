@@ -271,6 +271,9 @@ void RoutePathReplicator::Leave(BgpTable *table, const RouteTarget &rt,
                 group->RemoveImportTable(family(), vpntable);
                 group->RemoveExportTable(family(), vpntable);
                 server()->rtarget_group_mgr()->RemoveRtGroup(rt);
+                if (ts->GetGroupList().empty()) {
+                    RequestWalk(vpntable);
+                }
             }
         }
     } else if (group->empty(family())) {
@@ -332,7 +335,7 @@ RoutePathReplicator::DBStateSync(BgpTable *table, BgpRoute *rt,
 //
 // Update the ExtCommunity with the RouteTargets from the export list
 // and the OriginVn. The OriginVn is derived from the RouteTargets in
-// l3vpn routes.
+// vpn routes.
 //
 static ExtCommunityPtr UpdateExtCommunity(BgpServer *server,
         const RoutingInstance *rtinstance, const ExtCommunity *ext_community,
@@ -346,7 +349,7 @@ static ExtCommunityPtr UpdateExtCommunity(BgpServer *server,
         return extcomm_ptr;
     }
 
-    // Bail if we have a l3vpn/evpn route without extended communities.
+    // Bail if we have a vpn route without extended communities.
     if (!ext_community)
         return ExtCommunityPtr(NULL);
 
@@ -357,7 +360,6 @@ static ExtCommunityPtr UpdateExtCommunity(BgpServer *server,
             continue;
         return ExtCommunityPtr(ext_community);
     }
-
 
     // Add the OriginVn if we have a valid vn index.
     int vn_index =
@@ -423,6 +425,11 @@ bool RoutePathReplicator::BgpTableListener(DBTablePartBase *root,
     for (Route::PathList::iterator it = rt->GetPathList().begin(); 
         it != rt->GetPathList().end(); it++) {
         BgpPath *path = static_cast<BgpPath *>(it.operator->());
+
+        // Skip if the source peer is down
+        if (!path->IsStale() && path->GetPeer() && !path->GetPeer()->IsReady())
+            continue;
+
         // No need to replicate the replicated path
         if (path->IsReplicated()) continue;
 

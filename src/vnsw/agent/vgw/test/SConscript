@@ -5,32 +5,22 @@
 # -*- mode: python; -*-
 
 import re
-
 Import('AgentEnv')
 env = AgentEnv.Clone()
 
-env.Prepend(LIBS=['gunit'])
-cflags = env['CCFLAGS']
-if '-fno-exceptions' in cflags:
-    cflags.remove('-fno-exceptions')
-    cflags.append('-Wno-return-type')
-    env.Replace(CCFLAGS = cflags)
+AgentEnv.MakeTestEnv(env)
 
-import sys
-if sys.platform != 'darwin':
-    env.Append(LIBPATH=['../../test'])
-    env.Prepend(LIBS=['agent_test'])
-    env.Append(LIBS=['agent_test_buildinfo'])
+vgw_test_suite = []
+vgw_flaky_test_suite = []
 
-    test_vgw = env.Program(target = 'test_vgw', source = ['test_vgw.cc'])
-    env.Alias('agent:test_vgw', test_vgw)
+test_vgw = AgentEnv.MakeTestCmd(env, 'test_vgw', vgw_test_suite)
+test_dynamic_vgw = AgentEnv.MakeTestCmd(env, 'test_dynamic_vgw', vgw_test_suite)
 
-    test_dynamic_vgw = env.Program(target = 'test_dynamic_vgw', source = ['test_dynamic_vgw.cc'])
-    env.Alias('agent:test_dynamic_vgw', test_dynamic_vgw)
+flaky_test = env.TestSuite('agent-flaky-test', vgw_flaky_test_suite)
+env.Alias('controller/src/vnsw/agent/uve:flaky_test', flaky_test)
 
-    vgw_suite = [test_vgw, test_dynamic_vgw]
-
-test = env.TestSuite('agent-test', vgw_suite)
+test = env.TestSuite('agent-test', vgw_test_suite)
+env.Alias('agent:vgw', test)
 env.Alias('controller/src/vnsw/agent/vgw:test', test)
-Return('vgw_suite')
+Return('vgw_test_suite')
 

@@ -58,15 +58,16 @@ const std::vector<Sandesh::QueueWaterMarkInfo> Collector::kSmQueueWaterMarkInfo 
         (25000, SandeshLevel::INVALID, false);
 
 Collector::Collector(EventManager *evm, short server_port,
-        DbHandler *db_handler, Ruleeng *ruleeng, std::string cassandra_ip,
-        unsigned short cassandra_port, int analytics_ttl) :
+        DbHandler *db_handler, Ruleeng *ruleeng,
+        std::vector<std::string> cassandra_ips,
+        std::vector<int> cassandra_ports, int analytics_ttl) :
         SandeshServer(evm),
         db_handler_(db_handler),
         osp_(ruleeng->GetOSP()),
         evm_(evm),
         cb_(boost::bind(&Ruleeng::rule_execute, ruleeng, _1, _2, _3)),
-        cassandra_ip_(cassandra_ip),
-        cassandra_port_(cassandra_port),
+        cassandra_ips_(cassandra_ips),
+        cassandra_ports_(cassandra_ports),
         analytics_ttl_(analytics_ttl),
         db_task_id_(TaskScheduler::GetInstance()->GetTaskId(kDbTask)),
         db_queue_wm_info_(kDbQueueWaterMarkInfo),
@@ -323,6 +324,7 @@ void Collector::GetGeneratorStats(vector<SandeshMessageStat> &smslist,
         gdbstats.set_name(gen->ToString());
         gdbstats.set_table_info(vdbti);
         gdbstats.set_errors(vdbe); 
+        gdbslist.push_back(gdbstats);
     }
 }
 

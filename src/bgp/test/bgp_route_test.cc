@@ -54,7 +54,7 @@ public:
     virtual uint32_t bgp_identifier() const {
         return 0;
     }
-    virtual void UpdateRefCount(int count) { }
+    virtual void UpdateRefCount(int count) const { }
     virtual tbb::atomic<int> GetRefCount() const {
         tbb::atomic<int> count;
         count = 0;

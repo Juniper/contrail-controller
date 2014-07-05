@@ -58,18 +58,18 @@ void StartControlNodeMock() {
     thread1 = new ServerThread(&evm1);
     bgp_peer1 = new test::ControlNodeMock(&evm1, "127.0.0.1");
     
-    Agent::GetInstance()->SetXmppServer("127.0.0.1", 0);
-    Agent::GetInstance()->SetXmppPort(bgp_peer1->GetServerPort(), 0);
-    Agent::GetInstance()->SetDnsXmppServer("", 0);
-    Agent::GetInstance()->SetDnsXmppPort(bgp_peer1->GetServerPort(), 0);
+    Agent::GetInstance()->set_controller_ifmap_xmpp_server("127.0.0.1", 0);
+    Agent::GetInstance()->set_controller_ifmap_xmpp_port(bgp_peer1->GetServerPort(), 0);
+    Agent::GetInstance()->set_dns_server("", 0);
+    Agent::GetInstance()->set_dns_server_port(bgp_peer1->GetServerPort(), 0);
 
     thread2 = new ServerThread(&evm2);
     bgp_peer2 = new test::ControlNodeMock(&evm2, "127.0.0.1");
     
-    Agent::GetInstance()->SetXmppServer("127.0.0.1", 1);
-    Agent::GetInstance()->SetXmppPort(bgp_peer2->GetServerPort(), 1);
-    Agent::GetInstance()->SetDnsXmppServer("", 1);
-    Agent::GetInstance()->SetDnsXmppPort(bgp_peer2->GetServerPort(), 1);
+    Agent::GetInstance()->set_controller_ifmap_xmpp_server("127.0.0.1", 1);
+    Agent::GetInstance()->set_controller_ifmap_xmpp_port(bgp_peer2->GetServerPort(), 1);
+    Agent::GetInstance()->set_dns_server("", 1);
+    Agent::GetInstance()->set_dns_server_port(bgp_peer2->GetServerPort(), 1);
     thread1->Start();
     thread2->Start();
 }
@@ -77,8 +77,8 @@ void StartControlNodeMock() {
 void StopControlNodeMock() {
     Agent::GetInstance()->controller()->DisConnect();
     client->WaitForIdle();
-    TcpServerManager::DeleteServer(Agent::GetInstance()->GetAgentXmppClient(0));
-    TcpServerManager::DeleteServer(Agent::GetInstance()->GetAgentXmppClient(1));
+    TcpServerManager::DeleteServer(Agent::GetInstance()->controller_ifmap_xmpp_client(0));
+    TcpServerManager::DeleteServer(Agent::GetInstance()->controller_ifmap_xmpp_client(1));
 
     bgp_peer1->Shutdown();
     client->WaitForIdle();
@@ -558,9 +558,9 @@ TEST_F(RouteTest, EcmpRouteTest_4) {
 
     //Leak route to vrf2
     bgp_peer1->AddRoute("vrf2", "1.1.1.1/32", 
-            Agent::GetInstance()->GetRouterId().to_string().c_str(), 18, "vn1");
+            Agent::GetInstance()->router_id().to_string().c_str(), 18, "vn1");
     bgp_peer2->AddRoute("vrf2", "1.1.1.1/32", 
-            Agent::GetInstance()->GetRouterId().to_string().c_str(), 18, "vn1");
+            Agent::GetInstance()->router_id().to_string().c_str(), 18, "vn1");
     client->WaitForIdle();
 
     WAIT_FOR(100, 10000, (RouteGet("vrf2", ip, 32) != NULL));
@@ -581,9 +581,9 @@ TEST_F(RouteTest, EcmpRouteTest_4) {
  
     //Delete route leaked to vrf2
     bgp_peer1->DeleteRoute("vrf2", "1.1.1.1/32", 
-            Agent::GetInstance()->GetRouterId().to_string().c_str(), 18, "vn1");
+            Agent::GetInstance()->router_id().to_string().c_str(), 18, "vn1");
     bgp_peer2->DeleteRoute("vrf2", "1.1.1.1/32", 
-            Agent::GetInstance()->GetRouterId().to_string().c_str(), 18, "vn1");
+            Agent::GetInstance()->router_id().to_string().c_str(), 18, "vn1");
     client->WaitForIdle();
     WAIT_FOR(100, 10000, RouteFind("vrf2", ip, 32) == false);
     DelVrf("vrf2");
@@ -607,9 +607,9 @@ TEST_F(RouteTest, EcmpRouteTest_5) {
 
     //Leak route to vrf2
     bgp_peer1->AddRoute("vrf2", "1.1.1.1/32", 
-            Agent::GetInstance()->GetRouterId().to_string().c_str(), 18, "vn1");
+            Agent::GetInstance()->router_id().to_string().c_str(), 18, "vn1");
     bgp_peer2->AddRoute("vrf2", "1.1.1.1/32", 
-            Agent::GetInstance()->GetRouterId().to_string().c_str(), 18, "vn1");
+            Agent::GetInstance()->router_id().to_string().c_str(), 18, "vn1");
     client->WaitForIdle();
 
     WAIT_FOR(100, 10000, (RouteGet("vrf2", ip, 32) != NULL));
@@ -640,9 +640,9 @@ TEST_F(RouteTest, EcmpRouteTest_5) {
  
     //Delete route leaked to vrf2
     bgp_peer1->DeleteRoute("vrf2", "1.1.1.1/32", 
-            Agent::GetInstance()->GetRouterId().to_string().c_str(), 18, "vn1");
+            Agent::GetInstance()->router_id().to_string().c_str(), 18, "vn1");
     bgp_peer2->DeleteRoute("vrf2", "1.1.1.1/32", 
-            Agent::GetInstance()->GetRouterId().to_string().c_str(), 18, "vn1");
+            Agent::GetInstance()->router_id().to_string().c_str(), 18, "vn1");
     client->WaitForIdle();
     WAIT_FOR(100, 10000, RouteFind("vrf2", ip, 32) == false);
     DelVrf("vrf2");

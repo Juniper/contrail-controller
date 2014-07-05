@@ -14,7 +14,9 @@ env.Append(LIBPATH = env['TOP'] + '/ifmap')
 env.Append(LIBPATH = env['TOP'] + '/db')
 env.Append(LIBPATH = env['TOP'] + '/io')
 
-env.Prepend(LIBS = ['sandesh', 'http', 'http_parser', 'curl', 'db', 'sandeshvns', 'io', 'base', 'gunit', 'pugixml'])
+env.Prepend(LIBS = ['sandesh', 'http', 'http_parser', 'curl', 'db', 
+                    'connection_info', 'sandeshvns', 'io', 'base', 
+                    'gunit', 'pugixml'])
 
 if sys.platform != 'darwin':
     env.Append(LIBS = ['rt'])

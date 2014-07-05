@@ -31,7 +31,9 @@ env.Append(LIBPATH = ['#/' + Dir('..').path,
                       '../../debug/curl'
                      ])
 
-env.Append(LIBS = ['task_test', 'gunit', 'base', 'httpc', 'sandesh', 'http', 'http_parser', 'curl', 'io', 'sandeshvns', 'base', 'pugixml'])
+env.Append(LIBS = ['task_test', 'gunit', 'base', 'httpc', 'sandesh', 'http', 
+                   'http_parser', 'connection_info', 'curl', 'io', 
+                   'sandeshvns', 'base', 'pugixml'])
 
 if sys.platform != 'darwin':
     env.Append(LIBS=['rt'])

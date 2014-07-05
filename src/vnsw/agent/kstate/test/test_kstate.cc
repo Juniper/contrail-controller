@@ -99,16 +99,16 @@ public:
             idx = i;
             WAIT_FOR(1000, 1000, (VmPortActive(input, idx) == true));
         }
-        WAIT_FOR(1000, 1000, (num_ports == Agent::GetInstance()->GetVmTable()->Size()));
-        WAIT_FOR(1000, 1000, (1 == Agent::GetInstance()->GetVnTable()->Size()));
+        WAIT_FOR(1000, 1000, (num_ports == Agent::GetInstance()->vm_table()->Size()));
+        WAIT_FOR(1000, 1000, (1 == Agent::GetInstance()->vn_table()->Size()));
         WaitForVrf(input, 0, true);
         if (if_count) {
 	    unsigned int oper_if_count = num_ports + if_count;
             WAIT_FOR(1000, 1000, ((oper_if_count) == 
-                                Agent::GetInstance()->GetInterfaceTable()->Size()));
+                                Agent::GetInstance()->interface_table()->Size()));
         }
         WAIT_FOR(1000, 1000, ((num_ports * 2)== 
-                            Agent::GetInstance()->GetMplsTable()->Size()));
+                            Agent::GetInstance()->mpls_table()->Size()));
         if (!ksync_init_) {
             WAIT_FOR(1000, 1000, ((num_ports * 2)== 
                                  KSyncSockTypeMap::MplsCount()));
@@ -134,10 +134,10 @@ public:
     void DeletePorts(int num_ports = MAX_TEST_FD) {
         DeleteVmportEnv(input, num_ports, true);
         client->WaitForIdle(10);
-        WAIT_FOR(1000, 1000, (0 == Agent::GetInstance()->GetVmTable()->Size()));
-        WAIT_FOR(1000, 1000, (0 == Agent::GetInstance()->GetVnTable()->Size()));
+        WAIT_FOR(1000, 1000, (0 == Agent::GetInstance()->vm_table()->Size()));
+        WAIT_FOR(1000, 1000, (0 == Agent::GetInstance()->vn_table()->Size()));
         WaitForVrf(input, 0, false);
-        WAIT_FOR(1000, 1000, (0 == Agent::GetInstance()->GetMplsTable()->Size()));
+        WAIT_FOR(1000, 1000, (0 == Agent::GetInstance()->mpls_table()->Size()));
     }
 
     void CreatePortsWithPolicy() {
@@ -151,10 +151,10 @@ public:
             WAIT_FOR(1000, 1000, (VmPortActive(input, idx) == true));
             WAIT_FOR(1000, 1000, (VmPortPolicyEnable(input, idx) == true));
         }
-        WAIT_FOR(1000, 1000, (MAX_TEST_FD == Agent::GetInstance()->GetVmTable()->Size()));
-        WAIT_FOR(1000, 1000, (1 == Agent::GetInstance()->GetVnTable()->Size()));
+        WAIT_FOR(1000, 1000, (MAX_TEST_FD == Agent::GetInstance()->vm_table()->Size()));
+        WAIT_FOR(1000, 1000, (1 == Agent::GetInstance()->vn_table()->Size()));
         WaitForVrf(input, 0, true);
-        WAIT_FOR(1000, 1000, ((MAX_TEST_FD + 3) == Agent::GetInstance()->GetInterfaceTable()->Size()));
+        WAIT_FOR(1000, 1000, ((MAX_TEST_FD + 3) == Agent::GetInstance()->interface_table()->Size()));
         if (!ksync_init_) {
             WAIT_FOR(1000, 1000, ((MAX_TEST_FD + 3) == KSyncSockTypeMap::IfCount()));
         }
@@ -170,10 +170,10 @@ public:
             idx = i;
             WAIT_FOR(1000, 1000, (VmPortFind(input, idx) == false));
         }
-        WAIT_FOR(1000, 1000, (0 == Agent::GetInstance()->GetVmTable()->Size()));
-        WAIT_FOR(1000, 1000, (0 == Agent::GetInstance()->GetVnTable()->Size()));
+        WAIT_FOR(1000, 1000, (0 == Agent::GetInstance()->vm_table()->Size()));
+        WAIT_FOR(1000, 1000, (0 == Agent::GetInstance()->vn_table()->Size()));
         WaitForVrf(input, 0, false);
-        WAIT_FOR(1000, 1000, (3 == Agent::GetInstance()->GetInterfaceTable()->Size()));
+        WAIT_FOR(1000, 1000, (3 == Agent::GetInstance()->interface_table()->Size()));
     }
 
     void CreateMirrorEntry() {
@@ -181,13 +181,13 @@ public:
         Ip4Address dip(DIP);
 
         //Create Mirror entry
-        MirrorTable::AddMirrorEntry(analyzer, Agent::GetInstance()->GetDefaultVrf(),
+        MirrorTable::AddMirrorEntry(analyzer, Agent::GetInstance()->fabric_vrf_name(),
                                     sip, SPORT, dip, DPORT);
         client->WaitForIdle(2);
 
         //Verify mirror NH is created
-        MirrorNHKey key(Agent::GetInstance()->GetDefaultVrf(), sip, SPORT, dip, DPORT);
-        WAIT_FOR(1000, 1000, (Agent::GetInstance()->GetNextHopTable()->FindActiveEntry(&key) != NULL));
+        MirrorNHKey key(Agent::GetInstance()->fabric_vrf_name(), sip, SPORT, dip, DPORT);
+        WAIT_FOR(1000, 1000, (Agent::GetInstance()->nexthop_table()->FindActiveEntry(&key) != NULL));
     }
 
     void DeleteMirrorEntry() {
@@ -198,8 +198,8 @@ public:
         client->WaitForIdle(2);
 
         //Verify mirror NH is deleted
-        MirrorNHKey key(Agent::GetInstance()->GetDefaultVrf(), sip, SPORT, dip, DPORT);
-        WAIT_FOR(1000, 1000, (Agent::GetInstance()->GetNextHopTable()->FindActiveEntry(&key) == NULL));
+        MirrorNHKey key(Agent::GetInstance()->fabric_vrf_name(), sip, SPORT, dip, DPORT);
+        WAIT_FOR(1000, 1000, (Agent::GetInstance()->nexthop_table()->FindActiveEntry(&key) == NULL));
     }
 
     static bool ksync_init_;
@@ -322,7 +322,7 @@ TEST_F(KStateTest, MirrorNHGetTest) {
     CreateMirrorEntry();
 
     //Verify that NH table size is increased by 1
-    EXPECT_EQ(Agent::GetInstance()->GetNextHopTable()->Size(), nh_count + 1);
+    EXPECT_EQ(Agent::GetInstance()->nexthop_table()->Size(), nh_count + 1);
 
     //Verify the get of Mirror NH
     TestNHKState::Init(nh_count);
@@ -379,7 +379,7 @@ TEST_F(KStateTest, RouteDumpTest) {
     }
 }
 
-TEST_F(KStateTest, FlowDumpTest) {
+TEST_F(KStateTest, DISABLED_FlowDumpTest) {
     EXPECT_EQ(0U, Agent::GetInstance()->pkt()->flow_table()->Size());
     TestFlowKState::Init(true, -1, 0);
     client->WaitForIdle();
@@ -398,27 +398,33 @@ TEST_F(KStateTest, FlowDumpTest) {
     TxIpPacketUtil(test0->id(), vm1_ip, vm2_ip, 0, hash_id);
     client->WaitForIdle(2);
     EXPECT_TRUE(FlowGet("vrf3", vm1_ip, vm2_ip, 0, 0, 0, false, 
-                        "vn3", "vn3", hash_id++));
+                        "vn3", "vn3", hash_id++,
+                        test0->flow_key_nh()->id()));
 
     //Create flow in reverse direction
     TxIpPacketUtil(test1->id(), vm2_ip, vm1_ip, 0, hash_id);
     client->WaitForIdle(2);
     EXPECT_TRUE(FlowGet("vrf3", vm2_ip, vm1_ip, 0, 0, 0, true, 
-                        "vn3", "vn3", hash_id++));
+                        "vn3", "vn3", hash_id++,
+                        test1->flow_key_nh()->id(),
+                        test0->flow_key_nh()->id()));
 
     //Flow creation using TCP packet
     TxTcpPacketUtil(test0->id(), vm1_ip, vm2_ip, 1000, 200, 
                     hash_id);
     client->WaitForIdle(2);
     EXPECT_TRUE(FlowGet("vrf3", vm1_ip, vm2_ip, 6, 1000, 200, false,
-                        "vn3", "vn3", hash_id++));
+                        "vn3", "vn3", hash_id++,
+                        test0->flow_key_nh()->id()));
 
     //Create flow in reverse direction and make sure it is linked to previous flow
     TxTcpPacketUtil(test1->id(), vm2_ip, vm1_ip, 200, 1000, 
                     hash_id);
     client->WaitForIdle(2);
     EXPECT_TRUE(FlowGet("vrf3", vm2_ip, vm1_ip, 6, 200, 1000, true, 
-                        "vn3", "vn3", hash_id++));
+                        "vn3", "vn3", hash_id++,
+                        test1->flow_key_nh()->id(),
+                        test0->flow_key_nh()->id()));
     EXPECT_EQ(4U, Agent::GetInstance()->pkt()->flow_table()->Size());
 
     TestFlowKState::Init(true, -1, 6);
@@ -445,7 +451,8 @@ int main(int argc, char *argv[]) {
     ::testing::InitGoogleTest(&argc, argv);
     ret = RUN_ALL_TESTS();
     KStateTest::TestTearDown();
-    Agent::GetInstance()->GetEventManager()->Shutdown();
-    AsioStop();
+    client->WaitForIdle();
+    TestShutdown();
+    delete client;
     return ret;
 }

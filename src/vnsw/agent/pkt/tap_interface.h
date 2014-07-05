@@ -22,7 +22,7 @@ public:
                  boost::asio::io_service &io, PktReadCallback cb);
     virtual ~TapInterface();
     void Init();
-    void Shutdown();
+    void IoShutdown();
 
     int tap_fd() const { return tap_fd_; }
     const unsigned char *mac_address() const { return mac_address_; }

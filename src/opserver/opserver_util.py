@@ -16,6 +16,7 @@ import xmltodict
 import json
 import gevent
 import socket, struct
+
 try:
     from pysandesh.gen_py.sandesh.ttypes import SandeshType
 except:
@@ -108,16 +109,45 @@ class OpServerUtils(object):
     # end utc_timestamp_usec
 
     @staticmethod
-    def get_start_end_time(start_time, end_time):
-        if start_time is None and end_time is None:
-            end_time = OpServerUtils.utc_timestamp_usec()
-            start_time = end_time - OpServerUtils.DEFAULT_TIME_DELTA
-        elif start_time is None and end_time is not None:
-            start_time = end_time - OpServerUtils.DEFAULT_TIME_DELTA
-        elif start_time is not None and end_time is None:
-            end_time = start_time + OpServerUtils.DEFAULT_TIME_DELTA
-        return start_time, end_time
-    # end get_start_end_time
+    def parse_start_end_time(start_time, end_time, last):
+        ostart_time = None
+        oend_time = None
+        if last is not None:
+            last = '-' + last
+            ostart_time = 'now' + last
+            oend_time = 'now'
+        else:
+            try:
+                if 'now' in start_time and \
+                        'now' in end_time:
+                    ostart_time = start_time
+                    oend_time = end_time
+                elif start_time.isdigit() and \
+                        end_time.isdigit():
+                    ostart_time = int(start_time)
+                    oend_time = int(end_time)
+                else:
+                    ostart_time =\
+                        OpServerUtils.convert_to_utc_timestamp_usec(
+                            start_time)
+                    oend_time =\
+                        OpServerUtils.convert_to_utc_timestamp_usec(
+                            end_time)
+            except:
+                print 'Incorrect start-time (%s) or end-time (%s) format' %\
+                    (start_time, end_time)
+                raise
+
+        if ostart_time is None and oend_time is None:
+            oend_time = OpServerUtils.utc_timestamp_usec()
+            ostart_time = end_time - OpServerUtils.DEFAULT_TIME_DELTA
+        elif ostart_time is None and oend_time is not None:
+            ostart_time = oend_time - OpServerUtils.DEFAULT_TIME_DELTA
+        elif ostart_time is not None and oend_time is None:
+            oend_time = ostart_time + OpServerUtils.DEFAULT_TIME_DELTA
+
+        return ostart_time, oend_time
+    # end parse_start_end_time
 
     @staticmethod
     def post_url_http(url, params, sync=False):
@@ -338,6 +368,7 @@ class OpServerUtils(object):
                 value_dict = value
             else:
                 continue
+
             # Handle struct, list, ipv4 type
             if '@type' in value_dict:
                 if value_dict['@type'] == 'ipv4':
@@ -453,24 +484,15 @@ class OpServerUtils(object):
         :raises: Error
 
         """
-
         try:
-            if start_time.isdigit() and end_time.isdigit():
-                start_time = int(start_time)
-                end_time = int(end_time)
-            else:
-                start_time = OpServerUtils.convert_to_utc_timestamp_usec(
-                    start_time)
-                end_time = OpServerUtils.convert_to_utc_timestamp_usec(
-                    end_time)
+            lstart_time, lend_time = OpServerUtils.parse_start_end_time(
+                                         start_time = start_time,
+                                         end_time = end_time,
+                                         last = None)
         except:
-            print 'Incorrect start-time (%s) or end-time (%s) format'\
-                % (start_time, end_time)
             return None
 
         sf = select_fields
-        lstart_time, lend_time = OpServerUtils.get_start_end_time(start_time,
-                                                                  end_time)
         where = []
         for term in where_clause.split('OR'):
             term_elem = []
@@ -481,24 +503,43 @@ class OpServerUtils(object):
                 match_e = match_s.split('=')
                 match_e[0] = match_e[0].strip(' ()')
                 match_e[1] = match_e[1].strip(' ()')
-                match_v = match_e[1].split("<")
 
+                match_sp = match_e[0].split('|')
+
+                if len(match_sp) is 1:
+                    tname = match_sp[0]
+                    match_v = match_e[1].split("<")
+                else:
+                    tname = match_sp[1]
+                    bname = match_sp[0]
+                    match_vp = match_e[1].split('|')
+                    bval = match_vp[0]
+                    match_v = match_vp[1].split("<")
+
+                
                 if len(match_v) is 1:
                     if match_v[0][-1] is '*':
                         match_prefix = match_v[0][:(len(match_v[0]) - 1)]
                         print match_prefix
                         match_elem = OpServerUtils.Match(
-                            name=match_e[0], value=match_prefix,
+                            name=tname, value=match_prefix,
                             op=OpServerUtils.MatchOp.PREFIX)
                     else:
                         match_elem = OpServerUtils.Match(
-                            name=match_e[0], value=match_v[0],
+                            name=tname, value=match_v[0],
                             op=OpServerUtils.MatchOp.EQUAL)
                 else:
                     match_elem = OpServerUtils.Match(
-                        name=match_e[0], value=match_v[0],
+                        name=tname, value=match_v[0],
                         op=OpServerUtils.MatchOp.IN_RANGE, value2=match_v[1])
-                term_elem.append(match_elem.__dict__)
+
+                if len(match_sp) is 1:
+                    term_elem.append(match_elem.__dict__)
+                else:
+                    selem = OpServerUtils.Match(
+                        name=bname, value=bval, op=OpServerUtils.MatchOp.EQUAL,
+                        value2=None, suffix = match_elem)
+                    term_elem.append(selem.__dict__)
 
             if len(term_elem) == 0:
                 where = None
@@ -597,11 +638,23 @@ class OpServerUtils(object):
         op = None
         value2 = None
 
-        def __init__(self, name, value, op, value2=None):
+        def __init__(self, name, value, op, value2=None, suffix = None):
             self.name = name
-            self.value = value
+            try:
+                 self.value = json.loads(value)
+            except:
+                 self.value = value
+
             self.op = op
-            self.value2 = value2
+            try:
+                 self.value2 = json.loads(value2)
+            except:
+                 self.value2 = value2
+
+            if suffix:
+                self.suffix = suffix.__dict__
+            else:
+                self.suffix = None
         # end __init__
 
     # end class Match

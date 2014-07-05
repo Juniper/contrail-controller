@@ -3,32 +3,28 @@
 #
 
 # -*- mode: python; -*-
-
 import re
-
 Import('AgentEnv')
 env = AgentEnv.Clone()
 
-env.Prepend(CPPPATH = env['TOP'] + '/vnsw/agent/test')
-env.Prepend(LIBS=['gunit'])
-env.Prepend(CCFLAGS = ['-Wno-return-type', '-Wno-unused-function'])
+AgentEnv.MakeTestEnv(env)
 
-import sys
-if sys.platform != 'darwin':
-    env.Append(LIBPATH=['../../test'])
-    env.Prepend(LIBS=['agent_test'])
-    env.Append(LIBS=['agent_test_buildinfo'])
+kstate_test_suite = []
+kstate_flaky_test_suite = []
 
-    test_kstate = env.Program(target = 'test_kstate', source = ['test_kstate.cc'])
-    env.Alias('agent:test_kstate', test_kstate)
+test_kstate = AgentEnv.MakeTestCmd(env, 'test_kstate', kstate_test_suite)
+test_sandesh_kstate = AgentEnv.MakeTestCmdSrc(env, 'test_sandesh_kstate',
+                                              [
+                                               'test_sandesh_kstate.cc',
+                                               '../../pkt/test/test_pkt_util.o'
+                                              ],
+                                              kstate_test_suite)
 
-    test_sandesh_kstate = env.Program(target = 'test_sandesh_kstate', source = ['test_sandesh_kstate.cc', '../../pkt/test/test_pkt_util.o'])
-    env.Alias('agent:test_sandesh_kstate', test_sandesh_kstate)
+test = env.TestSuite('agent-test', kstate_test_suite)
+env.Alias('agent:kstate', test)
+env.Alias('controller/src/vnsw/agent/kstate:test', test)
 
-    kstate_test_suite = [
-                      test_kstate,
-                      test_sandesh_kstate
-                      ]
-    test = env.TestSuite('agent-test', kstate_test_suite)
-    env.Alias('controller/src/vnsw/agent/kstate:test', test)
-    Return('kstate_test_suite')
+flaky_test = env.TestSuite('agent-flaky-test', kstate_flaky_test_suite)
+env.Alias('controller/src/vnsw/agent/kstate:flaky_test', flaky_test)
+
+Return('kstate_test_suite')

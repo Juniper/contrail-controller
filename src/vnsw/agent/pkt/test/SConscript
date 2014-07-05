@@ -3,96 +3,83 @@
 #
 
 # -*- mode: python; -*-
-
 import re
-
 Import('AgentEnv')
 env = AgentEnv.Clone()
 
-env.Prepend(CPPPATH = env['TOP'] + '/vnsw/dp/sandesh')
-env.Prepend(LIBS=['gunit'])
-env.Prepend(CCFLAGS = ['-Wno-return-type', '-Wno-unused-function'])
+AgentEnv.MakeTestEnv(env)
 
-cflags = env['CCFLAGS']
-if '-fno-exceptions' in cflags:
-    cflags.remove('-fno-exceptions')
-    env.Replace(CCFLAGS = cflags)
+pkt_test_suite = []
+pkt_flaky_test_suite = []
 
-import sys
-if sys.platform != 'darwin':
-    env.Append(LIBPATH=['../../test'])
-    env.Prepend(LIBS=['agent_test'])
-    env.Append(LIBS=['agent_test_buildinfo'])
+test_pkt = AgentEnv.MakeTestCmd(env, 'test_pkt', pkt_test_suite)
+test_pkt_flow_mock = AgentEnv.MakeTestCmd(env, 'test_pkt_flow_mock',
+                                          pkt_flaky_test_suite)
 
-    test_pkt = env.Program(target = 'test_pkt', source = ['test_pkt.cc'])
-    env.Alias('agent:test_pkt', test_pkt)
+test_pkt_flow = AgentEnv.MakeTestCmdSrc(env, 'test_pkt_flow', 
+                                        [
+                                         'test_pkt_flow.cc',
+                                         'test_pkt_util.cc'
+                                        ],
+                                        pkt_flaky_test_suite)
 
-    test_pkt_flow = env.Program(target = 'test_pkt_flow', 
-                                source = ['test_pkt_flow.cc', 
-                                          'test_pkt_util.cc'])
-    env.Alias('agent:test_pkt_flow', test_pkt_flow)
+test_rpf_flow = AgentEnv.MakeTestCmdSrc(env, 'test_rpf_flow',
+                                        [
+                                         'test_rpf_flow.cc',
+                                         'test_pkt_util.cc'
+                                        ],
+                                        pkt_flaky_test_suite)
 
-    test_rpf_flow = env.Program(target = 'test_rpf_flow',
-                                source = ['test_rpf_flow.cc',
-                                          'test_pkt_util.cc'])
-    env.Alias('agent:test_rpf_flow', test_rpf_flow)
+test_pkt_parse = AgentEnv.MakeTestCmdSrc(env, 'test_pkt_parse',
+                                         [
+                                          'test_pkt_parse.cc',
+                                          'test_pkt_util.cc'
+                                         ],
+                                         pkt_flaky_test_suite)
 
-    test_pkt_parse = env.Program(target = 'test_pkt_parse',
-                                 source = ['test_pkt_parse.cc',
-                                           'test_pkt_util.cc'])
-    env.Alias('agent:test_pkt_parse', test_pkt_parse)
+test_flowtable = AgentEnv.MakeTestCmdSrc(env, 'test_flowtable',
+                                         [
+                                          'test_flowtable.cc',
+                                          'test_pkt_util.cc'
+                                         ],
+                                         pkt_test_suite)
 
-    test_flowtable =  env.Program(target = 'test_flowtable',
-                                  source = ['test_flowtable.cc',
-                                            'test_pkt_util.cc'])
-    env.Alias('agent:test_flowtable', test_flowtable)
+test_pkt_fip = AgentEnv.MakeTestCmdSrc(env, 'test_pkt_fip',
+                                       ['test_pkt_fip.cc', 'test_pkt_util.cc'],
+                                       pkt_flaky_test_suite)
 
-    test_pkt_fip =  env.Program(target = 'test_pkt_fip',
-                                source = ['test_pkt_fip.cc',
-                                          'test_pkt_util.cc'])
-    env.Alias('agent:test_pkt_fip', test_pkt_fip)
+test_ecmp = AgentEnv.MakeTestCmdSrc(env, 'test_ecmp',
+                                    ['test_ecmp.cc', 'test_pkt_util.cc'],
+                                    pkt_flaky_test_suite)
 
-    test_pkt_flow_mock = env.Program(target = 'test_pkt_flow_mock', 
-                                     source = ['test_pkt_flow_mock.cc'])
-    env.Alias('agent:test_pkt_flow_mock', test_pkt_flow_mock)
+test_flow_scale = AgentEnv.MakeTestCmdSrc(env, 'test_flow_scale', 
+                                          [
+                                           'test_flow_scale.cc',
+                                           'test_pkt_util.cc'
+                                          ],
+                                          pkt_test_suite)
 
-    test_ecmp = env.Program(target = 'test_ecmp', 
-                            source = ['test_ecmp.cc',
-                                      'test_pkt_util.cc'])
-    env.Alias('agent:test_ecmp', test_ecmp)
+test_sg_flow = AgentEnv.MakeTestCmdSrc(env, 'test_sg_flow', 
+                                       ['test_sg_flow.cc', 'test_pkt_util.cc'],
+                                       pkt_test_suite)
 
-    test_flow_scale = env.Program(target = 'test_flow_scale', 
-                            source = ['test_flow_scale.cc',
-                                      'test_pkt_util.cc'])
-    env.Alias('agent:test_flow_scale', test_flow_scale)
+test_sg_tcp_flow = AgentEnv.MakeTestCmdSrc(env, 'test_sg_tcp_flow', 
+                                           [
+                                            'test_sg_tcp_flow.cc',
+                                            'test_pkt_util.cc'
+                                           ],
+                                           pkt_test_suite)
 
-    test_sg_flow = env.Program(target = 'test_sg_flow', 
-                            source = ['test_sg_flow.cc',
-                                      'test_pkt_util.cc'])
-    env.Alias('agent:test_sg_flow', test_sg_flow)
+test_vrf_assign_acl = AgentEnv.MakeTestCmdSrc(env, 'test_vrf_assign_acl',
+                                              ['test_vrf_assign_acl.cc',
+                                               'test_pkt_util.cc'
+                                              ],
+                                              pkt_flaky_test_suite)
 
-    test_sg_tcp_flow = env.Program(target = 'test_sg_tcp_flow', 
-                            source = ['test_sg_tcp_flow.cc',
-                                      'test_pkt_util.cc'])
-    env.Alias('agent:test_sg_tcp_flow', test_sg_tcp_flow)
+flaky_test = env.TestSuite('agent-flaky-test', pkt_flaky_test_suite)
+env.Alias('controller/src/vnsw/agent/pkt:flaky_test', flaky_test)
 
-    test_vrf_assign_acl = env.Program(target = 'test_vrf_assign_acl',
-                                  source = ['test_vrf_assign_acl.cc',
-                                            'test_pkt_util.cc'])
-    env.Alias('agent:test_vrf_assign_acl', test_vrf_assign_acl)
-
-    pkt_flow_suite = [test_ecmp,
-                      test_flowtable,
-                      test_pkt,
-                      test_pkt_fip,
-                      test_pkt_flow,
-                      test_pkt_flow_mock,
-                      test_pkt_parse,
-                      test_sg_flow,
-                      test_rpf_flow
-                      ]
-
-    test = env.TestSuite('agent-test', pkt_flow_suite)
-    env.Alias('controller/src/vnsw/agent/pkt:test', test)
-    Return('pkt_flow_suite')
-
+test = env.TestSuite('agent-test', pkt_test_suite)
+env.Alias('agent:pkt', test)
+env.Alias('controller/src/vnsw/agent/pkt:test', test)
+Return('pkt_test_suite')

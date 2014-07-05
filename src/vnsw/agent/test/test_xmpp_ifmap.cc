@@ -85,10 +85,10 @@ private:
 class AgentIFMapXmppUnitTest : public ::testing::Test { 
 protected:
     virtual void SetUp() {
-        Agent::GetInstance()->SetEventManager(&evm_);
-        thread_ = new ServerThread(Agent::GetInstance()->GetEventManager());
+        Agent::GetInstance()->set_event_manager(&evm_);
+        thread_ = new ServerThread(Agent::GetInstance()->event_manager());
         RouterIdDepInit(Agent::GetInstance());
-        xs.reset(new XmppServer(Agent::GetInstance()->GetEventManager(), XmppInit::kControlNodeJID));
+        xs.reset(new XmppServer(Agent::GetInstance()->event_manager(), XmppInit::kControlNodeJID));
 
         xs->Initialize(XMPP_SERVER_PORT, false);
         thread_->Start();
@@ -100,7 +100,7 @@ protected:
         client->WaitForIdle();
         Agent::GetInstance()->controller()->DisConnect();
         client->WaitForIdle();
-        Agent::GetInstance()->GetEventManager()->Shutdown();
+        Agent::GetInstance()->event_manager()->Shutdown();
         client->WaitForIdle();
         thread_->Join();
     }
@@ -118,7 +118,7 @@ protected:
         req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
         req.key.reset(key);
         req.data.reset(data);
-        Agent::GetInstance()->GetIntfCfgTable()->Enqueue(&req);
+        Agent::GetInstance()->interface_config_table()->Enqueue(&req);
         usleep(1000);
     }
 
@@ -229,7 +229,7 @@ TEST_F(AgentIFMapXmppUnitTest, vntest) {
     IFMapTable::RequestKey *req_key = new IFMapTable::RequestKey;
     req_key->id_type = "virtual-network";
     req_key->id_name = "vn1";
-    WAIT_FOR(100, 10000, ((node = IFMapAgentTable::TableEntryLookup(Agent::GetInstance()->GetDB(), req_key)) != NULL));
+    WAIT_FOR(100, 10000, ((node = IFMapAgentTable::TableEntryLookup(Agent::GetInstance()->db(), req_key)) != NULL));
     EXPECT_EQ(node->name(), "vn1");
 
     //Lookup in oper db
@@ -255,7 +255,7 @@ TEST_F(AgentIFMapXmppUnitTest, vmtest) {
     IFMapTable::RequestKey *req_key = new IFMapTable::RequestKey;
     req_key->id_type = "virtual-machine";
     req_key->id_name = "vm1";
-    WAIT_FOR(100, 10000, ((node = IFMapAgentTable::TableEntryLookup(Agent::GetInstance()->GetDB(), req_key)) != NULL));
+    WAIT_FOR(100, 10000, ((node = IFMapAgentTable::TableEntryLookup(Agent::GetInstance()->db(), req_key)) != NULL));
     EXPECT_EQ(node->name(), "vm1");
 
     //Lookup in oper db
@@ -303,22 +303,22 @@ TEST_F(AgentIFMapXmppUnitTest, vn_vm_vrf_test) {
 
     req_key->id_type = "virtual-machine";
     req_key->id_name = "vm3";
-    WAIT_FOR(100, 10000, ((node = IFMapAgentTable::TableEntryLookup(Agent::GetInstance()->GetDB(), req_key)) != NULL));
+    WAIT_FOR(100, 10000, ((node = IFMapAgentTable::TableEntryLookup(Agent::GetInstance()->db(), req_key)) != NULL));
     EXPECT_EQ(node->name(), "vm3");
 
     req_key->id_type = "virtual-network";
     req_key->id_name = "vn1";
-    WAIT_FOR(100, 10000, ((node = IFMapAgentTable::TableEntryLookup(Agent::GetInstance()->GetDB(), req_key)) != NULL));
+    WAIT_FOR(100, 10000, ((node = IFMapAgentTable::TableEntryLookup(Agent::GetInstance()->db(), req_key)) != NULL));
     EXPECT_EQ(node->name(), "vn1");
 
     req_key->id_type = "routing-instance";
     req_key->id_name = "vrf2";
-    WAIT_FOR(100, 10000, ((node = IFMapAgentTable::TableEntryLookup(Agent::GetInstance()->GetDB(), req_key)) != NULL));
+    WAIT_FOR(100, 10000, ((node = IFMapAgentTable::TableEntryLookup(Agent::GetInstance()->db(), req_key)) != NULL));
     EXPECT_EQ(node->name(), "vrf2");
 
     req_key->id_type = "virtual-machine-interface";
     req_key->id_name = "vnet4";
-    WAIT_FOR(100, 10000, ((node = IFMapAgentTable::TableEntryLookup(Agent::GetInstance()->GetDB(), req_key)) != NULL));
+    WAIT_FOR(100, 10000, ((node = IFMapAgentTable::TableEntryLookup(Agent::GetInstance()->db(), req_key)) != NULL));
     EXPECT_EQ(node->name(), "vnet4");
 
     client->WaitForIdle();
@@ -354,10 +354,14 @@ TEST_F(AgentIFMapXmppUnitTest, vn_vm_vrf_test) {
 int main(int argc, char **argv) {
     GETUSERARGS();
     client = TestInit(init_file, ksync_init);
-    Agent::GetInstance()->SetXmppServer("127.0.0.1", 0);
+    Agent::GetInstance()->set_controller_ifmap_xmpp_server("127.0.0.1", 0);
     Agent::GetInstance()->set_headless_agent_mode(HEADLESS_MODE);
 
-    return RUN_ALL_TESTS();
+    int ret = RUN_ALL_TESTS();
+    client->WaitForIdle();
+    TestShutdown();
+    delete client;
+    return ret;
 }
 
 

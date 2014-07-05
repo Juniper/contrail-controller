@@ -100,8 +100,8 @@ void Options::Initialize(EventManager &evm,
              "Severity level for local logging of sandesh messages")
         ("DEFAULT.log_local", opt::bool_switch(&log_local_),
              "Enable local logging of sandesh messages")
-        ("DEFAULT.syslog_port", opt::value<uint16_t>()->default_value(0),
-             "Syslog listener port")
+        ("DEFAULT.syslog_port", opt::value<int>()->default_value(-1),
+             "Syslog listener port (< 0 will disable the syslog)")
         ("DEFAULT.test_mode", opt::bool_switch(&test_mode_),
              "Enable collector to run in test-mode")
 
@@ -125,10 +125,36 @@ void Options::Initialize(EventManager &evm,
 template <typename ValueType>
 void Options::GetOptValue(const boost::program_options::variables_map &var_map,
                           ValueType &var, std::string val) {
+    GetOptValueImpl(var_map, var, val, static_cast<ValueType *>(0));
+}
 
+template <typename ValueType>
+void Options::GetOptValueImpl(
+    const boost::program_options::variables_map &var_map,
+    ValueType &var, std::string val, ValueType*) {
     // Check if the value is present.
     if (var_map.count(val)) {
         var = var_map[val].as<ValueType>();
+    }
+}
+
+template <typename ElementType>
+void Options::GetOptValueImpl(
+    const boost::program_options::variables_map &var_map,
+    std::vector<ElementType> &var, std::string val, std::vector<ElementType>*) {
+    // Check if the value is present.
+    if (var_map.count(val)) {
+        std::vector<ElementType> tmp(
+            var_map[val].as<std::vector<ElementType> >());
+        // Now split the individual elements
+        for (typename std::vector<ElementType>::const_iterator it = 
+                 tmp.begin();
+             it != tmp.end(); it++) {
+            std::stringstream ss(*it);
+            std::copy(istream_iterator<ElementType>(ss),
+                istream_iterator<ElementType>(),
+                std::back_inserter(var));
+        }
     }
 }
 
@@ -182,7 +208,7 @@ void Options::Process(int argc, char *argv[],
     GetOptValue<int>(var_map, log_files_count_, "DEFAULT.log_files_count");
     GetOptValue<long>(var_map, log_file_size_, "DEFAULT.log_file_size");
     GetOptValue<string>(var_map, log_level_, "DEFAULT.log_level");
-    GetOptValue<uint16_t>(var_map, syslog_port_, "DEFAULT.syslog_port");
+    GetOptValue<int>(var_map, syslog_port_, "DEFAULT.syslog_port");
 
     GetOptValue<uint16_t>(var_map, discovery_port_, "DISCOVERY.port");
     GetOptValue<string>(var_map, discovery_server_, "DISCOVERY.server");

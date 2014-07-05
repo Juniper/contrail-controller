@@ -28,41 +28,21 @@ local_sources = [
            'opserver_util.py',
            'sandesh_req_impl.py',
            'uveserver.py',
+           'log.py',
+           'stats.py',
+           'flow.py',
           ]
 
 local_sources_rules = []
 for file in local_sources:
     local_sources_rules.append(OpEnv.Install("opserver", file))
     
-viz_sandesh_gen_files = OpEnv.SandeshGenPy('#controller/src/analytics/viz.sandesh')
-viz_sandesh_gen_files += OpEnv.SandeshGenPy('#controller/src/analytics/analytics_cpuinfo.sandesh') 
-viz_sandesh_gen_files += OpEnv.SandeshGenPy('#controller/src/analytics/redis.sandesh')
-viz_sandesh_gen_py_dirs = ['viz', 'analytics_cpuinfo', 'redis']
-viz_sandesh_gen_py_files = viz_sandesh_gen_py_dirs + [ '__init__.py' ]
-viz_sandesh_gen_py_srcs = ['gen_py/' + src for src in viz_sandesh_gen_py_files]
-viz_sandesh_gen_py_rules = []
-for file in viz_sandesh_gen_py_srcs:
-    viz_sandesh_gen_py_rules.append(OpEnv.Install('opserver/sandesh', file))
-OpEnv.Depends(viz_sandesh_gen_py_rules, viz_sandesh_gen_files)
-
-# auto-generate opserver sandesh packages
-ops_sandesh_gen_py_files = OpEnv.SandeshGenPy('discovery.sandesh')
-ops_sandesh_gen_py_dirs = ['discovery']
-ops_sandesh_gen_py_srcs = ['gen_py/' + dir for dir in ops_sandesh_gen_py_dirs]
-ops_sandesh_gen_py_rules = []
-for file in ops_sandesh_gen_py_srcs:
-    ops_sandesh_gen_py_rules.append(OpEnv.Install('opserver/sandesh', file))
-OpEnv.Depends(ops_sandesh_gen_py_rules, ops_sandesh_gen_py_files)
-
-# generate the sandesh cpuinfo from base and copy it under analytics_cpuinfo
-cpu_info_gen_py_files = OpEnv.SandeshGenPy('#controller/src/base/sandesh/cpuinfo.sandesh')
-
-cpu_info_gen_py_srcs = ['gen_py/cpuinfo']
-cpu_info_gen_py_rules = []
-for file in cpu_info_gen_py_srcs:
-    cpu_info_gen_py_rules.append(
-        OpEnv.Install('opserver/sandesh/analytics_cpuinfo', file))
-OpEnv.Depends(cpu_info_gen_py_rules, cpu_info_gen_py_files)
+viz_pkg = OpEnv.SandeshGenPy('#controller/src/analytics/viz.sandesh', 'opserver/sandesh/', False)
+analytics_pkg = OpEnv.SandeshGenPy('#controller/src/analytics/analytics.sandesh', 'opserver/sandesh/', False) 
+cpu_info_pkg = OpEnv.SandeshGenPy('#controller/src/base/sandesh/cpuinfo.sandesh', 'opserver/sandesh/analytics/', False)
+connection_info_pkg = OpEnv.SandeshGenPy('#controller/src/base/sandesh/connection_info.sandesh', 'opserver/sandesh/analytics/', False)
+redis_pkg = OpEnv.SandeshGenPy('#controller/src/analytics/redis.sandesh', 'opserver/sandesh/', False)
+discovery_pkg = OpEnv.SandeshGenPy('discovery.sandesh', 'opserver/sandesh/', False)
 
 doc_sources_rules = []
 if sys.platform != 'darwin':
@@ -70,7 +50,8 @@ if sys.platform != 'darwin':
         OpEnv.Install('.', '#controller/src/docs/opserver'))
 
 sdist_depends = [setup_sources_rules, local_sources_rules, 
-                 viz_sandesh_gen_py_rules, doc_sources_rules]
+                 viz_pkg, analytics_pkg, cpu_info_pkg, redis_pkg,
+                 connection_info_pkg, discovery_pkg]
 
 sdist_gen = OpEnv.Command('dist', 'setup.py', 'python setup.py sdist', chdir=1)
 # install everything before building distribution

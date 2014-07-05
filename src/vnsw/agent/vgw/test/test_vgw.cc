@@ -102,7 +102,7 @@ TEST_F(VgwTest, interface_1) {
 // The route for public-vn in fabric-vrf shold point to receive NH
 TEST_F(VgwTest, fabric_route_1) {
     Inet4UnicastRouteEntry *route;
-    route = RouteGet(Agent::GetInstance()->GetDefaultVrf(),
+    route = RouteGet(Agent::GetInstance()->fabric_vrf_name(),
                      Ip4Address::from_string("1.1.1.0"), 24);
     EXPECT_TRUE(route != NULL);
     if (route == NULL)
@@ -114,7 +114,7 @@ TEST_F(VgwTest, fabric_route_1) {
         return;
     EXPECT_TRUE(nh->GetType() == NextHop::RECEIVE);
 
-    route = RouteGet(Agent::GetInstance()->GetDefaultVrf(),
+    route = RouteGet(Agent::GetInstance()->fabric_vrf_name(),
                      Ip4Address::from_string("2.2.1.0"), 24);
     EXPECT_TRUE(route != NULL);
     if (route == NULL)
@@ -126,7 +126,7 @@ TEST_F(VgwTest, fabric_route_1) {
         return;
     EXPECT_TRUE(nh->GetType() == NextHop::RECEIVE);
 
-    route = RouteGet(Agent::GetInstance()->GetDefaultVrf(),
+    route = RouteGet(Agent::GetInstance()->fabric_vrf_name(),
                      Ip4Address::from_string("2.2.2.0"), 24);
     EXPECT_TRUE(route != NULL);
     if (route == NULL)

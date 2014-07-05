@@ -21,6 +21,7 @@
 #include <ksync/ksync_index.h>
 #include <ksync/ksync_entry.h>
 #include <ksync/ksync_object.h>
+#include <ksync/ksync_netlink.h>
 #include <ksync/ksync_sock.h>
 #include <ksync/ksync_sock_user.h>
 
@@ -57,7 +58,7 @@ void KSyncTest::RegisterDBClients(DB *db) {
     mirror_ksync_obj_.get()->RegisterDBClients();
     vrf_assign_ksync_obj_.get()->RegisterDBClients();
     vxlan_ksync_obj_.get()->RegisterDBClients();
-    agent_->SetRouterIdConfigured(false);
+    agent_->set_router_id_configured(false);
 }
 
 void KSyncTest::GenericNetlinkInitTest() const {
@@ -69,7 +70,7 @@ void KSyncTest::GenericNetlinkInitTest() const {
 void KSyncTest::NetlinkInitTest() const {
     EventManager *event_mgr;
 
-    event_mgr = agent_->GetEventManager();
+    event_mgr = agent_->event_manager();
     boost::asio::io_service &io = *event_mgr->io_service();
 
     KSyncSockTypeMap::Init(io, 1);

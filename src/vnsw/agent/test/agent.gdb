@@ -3,7 +3,7 @@
 #
 
 define nh_entry_format
-    set $__nh = (NextHop *) ((size_t)($Xnode) - (size_t)&(NextHop::node_))
+    set $__nh = (NextHop *) ((size_t)($Xnode) - (size_t)&(((NextHop*)0)->node_))
     printf "%p    type=%-4d    flags=%-4d    ref=%-4d    valid=%-4d    policy=%-4d\n", $__nh, $__nh->type_,\
            $__nh->flags, $__nh->refcount_->rep->value, $__nh->valid_, $__nh->policy_
 end
@@ -122,7 +122,7 @@ document dump_route_paths
 end
 
 define vrf_entry_format
-    set $__vrf = (VrfEntry *)((size_t)($Xnode) - (size_t)&(VrfEntry::node_))
+    set $__vrf = (VrfEntry *)((size_t)($Xnode) - (size_t)&(((VrfEntry *)0)->node_))
     printf "%p    %-20s    idx=%-4d    ref_count=%-4d   flags=%-4d rt_db=%p mcrt_db=%p layer2_db=%p\n", $__vrf,\
            $__vrf->name_._M_dataplus._M_p, $__vrf->id_, $__vrf->refcount_->rep->value,\
            $__vrf->flags, $__vrf->rt_table_db_[0], $__vrf->rt_table_db_[1], \
@@ -162,7 +162,7 @@ define dump_vxlan_entries
 end
  
 define mirror_entry_format
-    set $__mirror = (MirrorEntry *)((size_t)($Xnode) - (size_t)&(MirrorEntry::node_))
+    set $__mirror = (MirrorEntry *)((size_t)($Xnode) - (size_t)&(((MirrorEntry*)0)->node_))
     set $__sip = $__mirror->sip_.addr_.s_addr
     set $__dip = $__mirror->dip_.addr_.s_addr
     printf "%p   %d.%d.%d.%d:%d   %d.%d.%d.%d:%d nh=%p\n", $__mirror,\

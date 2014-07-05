@@ -28,6 +28,8 @@ public:
     // Helper function to enqueue DBRequest to delete a Pkt Interface
     static void DeleteReq(InterfaceTable *table, const std::string &ifname);
     static void Delete(InterfaceTable *table, const std::string &ifname);
+    void PostAdd();
+    void Delete();
 private:
     DISALLOW_COPY_AND_ASSIGN(PacketInterface);
 };

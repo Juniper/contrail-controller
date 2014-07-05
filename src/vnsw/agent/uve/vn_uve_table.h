@@ -45,7 +45,7 @@ public:
 
     void UpdateBitmap(const std::string &vn, uint8_t proto, uint16_t sport, 
                       uint16_t dport);
-    void SendVnStats(void);
+    void SendVnStats(bool only_vrf_stats);
     void UpdateInterVnStats(const FlowEntry *e, uint64_t bytes, uint64_t pkts);
     void RegisterDBClients();
     void Shutdown(void);
@@ -64,7 +64,7 @@ private:
     void InterfaceNotify(DBTablePartBase *partition, DBEntryBase *e);
     void SendDeleteVnMsg(const std::string &vn);
     void SendVnMsg(const VnEntry *vn);
-    void SendVnStatsMsg(const VnEntry *vn);
+    void SendVnStatsMsg(const VnEntry *vn, bool only_vrf_stats);
     void InterfaceDeleteHandler(const std::string &vm, const std::string &vn, 
                                 const Interface* intf);
     void InterfaceAddHandler(const VmEntry *vm, const VnEntry *vn, 

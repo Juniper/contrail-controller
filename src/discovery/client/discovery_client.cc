@@ -4,6 +4,7 @@
 
 #include "base/util.h"
 #include "base/logging.h"
+#include <base/connection_info.h>
 #include <sandesh/sandesh.h>
 #include <sandesh/sandesh_types.h>
 #include <sandesh/common/vns_constants.h>
@@ -212,6 +213,10 @@ void DiscoveryServiceClient::PublishResponseHandler(std::string &xmls,
         if (conn) {
             http_client_->RemoveConnection(conn);
         }
+        // Update connection info
+        ConnectionState::GetInstance()->Update(ConnectionType::DISCOVERY,
+            serviceName, ConnectionStatus::DOWN, ds_endpoint_,
+            "Stray Publish Response");
         return;
     }
 
@@ -228,6 +233,10 @@ void DiscoveryServiceClient::PublishResponseHandler(std::string &xmls,
             // exponential back-off and retry
             resp->pub_fail_++;
             resp->attempts_++; 
+            // Update connection info
+            ConnectionState::GetInstance()->Update(ConnectionType::DISCOVERY,
+                serviceName, ConnectionStatus::DOWN, ds_endpoint_,
+                ec.message());
             resp->StartPublishConnectTimer(resp->GetConnectTime());
         } else if (resp->publish_cb_called_ == false) {
             DISCOVERY_CLIENT_TRACE(DiscoveryClientErrorMsg,
@@ -236,6 +245,10 @@ void DiscoveryServiceClient::PublishResponseHandler(std::string &xmls,
             // exponential back-off and retry
             resp->pub_fail_++;
             resp->attempts_++; 
+            // Update connection info
+            ConnectionState::GetInstance()->Update(ConnectionType::DISCOVERY,
+                serviceName, ConnectionStatus::DOWN, ds_endpoint_,
+                "Only header received");
             resp->StartPublishConnectTimer(resp->GetConnectTime());
         }
 
@@ -252,6 +265,10 @@ void DiscoveryServiceClient::PublishResponseHandler(std::string &xmls,
         // exponential back-off and retry
         resp->pub_fail_++;
         resp->attempts_++; 
+        // Update connection info
+        ConnectionState::GetInstance()->Update(ConnectionType::DISCOVERY,
+            serviceName, ConnectionStatus::DOWN, ds_endpoint_,
+            "Loading Xml Doc Failed");
         resp->StartPublishConnectTimer(resp->GetConnectTime());
         return;
     }
@@ -265,6 +282,10 @@ void DiscoveryServiceClient::PublishResponseHandler(std::string &xmls,
         resp->cookie_ = node.child_value();
         resp->attempts_ = 0;
         resp->pub_rcvd_++;
+        // Update connection info
+        ConnectionState::GetInstance()->Update(ConnectionType::DISCOVERY,
+            serviceName, ConnectionStatus::UP, ds_endpoint_,
+            "Publish Response - HeartBeat");
         //Start periodic heartbeat, timer per service 
         resp->StartHeartBeatTimer(5); // TODO hardcoded to 5secs
     } else {
@@ -293,6 +314,10 @@ void DiscoveryServiceClient::PublishResponseHandler(std::string &xmls,
             // exponential back-off and retry
             resp->pub_fail_++;
             resp->attempts_++; 
+            // Update connection info
+            ConnectionState::GetInstance()->Update(ConnectionType::DISCOVERY,
+                serviceName, ConnectionStatus::DOWN, ds_endpoint_,
+                response);
             resp->StartPublishConnectTimer(resp->GetConnectTime());
         } else {
             DISCOVERY_CLIENT_TRACE(DiscoveryClientMsg,
@@ -302,6 +327,10 @@ void DiscoveryServiceClient::PublishResponseHandler(std::string &xmls,
             // exponential back-off and retry
             resp->pub_fail_++;
             resp->attempts_++; 
+            // Update connection info
+            ConnectionState::GetInstance()->Update(ConnectionType::DISCOVERY,
+                serviceName, ConnectionStatus::DOWN, ds_endpoint_,
+                "No [h1] tag");
             resp->StartPublishConnectTimer(resp->GetConnectTime());
         }
     }
@@ -322,6 +351,10 @@ void DiscoveryServiceClient::Publish(std::string serviceName, std::string &msg) 
      
     SendHttpPostMessage(pub_msg->publish_hdr_, serviceName, msg); 
 
+    // Update connection info
+    ConnectionState::GetInstance()->Update(ConnectionType::DISCOVERY,
+        serviceName, ConnectionStatus::INIT, ds_endpoint_,
+        "Publish");
     DISCOVERY_CLIENT_TRACE(DiscoveryClientMsg, pub_msg->publish_hdr_, 
                            serviceName, msg);
 }
@@ -335,6 +368,10 @@ void DiscoveryServiceClient::Publish(std::string serviceName) {
         DSPublishResponse *resp = loc->second;
         resp->pub_sent_++; 
         SendHttpPostMessage(resp->publish_hdr_, serviceName, resp->publish_msg_);
+        // Update connection info
+        ConnectionState::GetInstance()->Update(ConnectionType::DISCOVERY,
+            serviceName, ConnectionStatus::INIT, ds_endpoint_,
+            "Publish");
 
         DISCOVERY_CLIENT_TRACE(DiscoveryClientMsg, resp->publish_hdr_, 
                                serviceName, resp->publish_msg_);
@@ -412,7 +449,11 @@ void DiscoveryServiceClient::Subscribe(std::string serviceName,
     }
 
     SendHttpPostMessage("subscribe", serviceName, ss.str()); 
-
+ 
+    // Update connection info
+    ConnectionState::GetInstance()->Update(ConnectionType::DISCOVERY,
+        serviceName, ConnectionStatus::INIT, ds_endpoint_,
+        "Subscribe");
     DISCOVERY_CLIENT_TRACE(DiscoveryClientMsg, "subscribe",
                            serviceName, ss.str());
 }
@@ -425,6 +466,10 @@ void DiscoveryServiceClient::Subscribe(std::string serviceName, uint8_t numbOfIn
         DSResponseHeader *resp = loc->second;
         resp->sub_sent_++;
         SendHttpPostMessage("subscribe", serviceName, resp->subscribe_msg_);
+        // Update connection info
+        ConnectionState::GetInstance()->Update(ConnectionType::DISCOVERY,
+            serviceName, ConnectionStatus::INIT, ds_endpoint_,
+            "Subscribe");
     }
 }
 
@@ -454,8 +499,6 @@ void DiscoveryServiceClient::SubscribeResponseHandler(std::string &xmls,
                                                       std::string serviceName,
                                                       HttpConnection *conn)
 {
-
-
     // Connection will be deleted on complete transfer 
     // on indication by the http client code.
 
@@ -470,11 +513,14 @@ void DiscoveryServiceClient::SubscribeResponseHandler(std::string &xmls,
         if (conn) {
             http_client_->RemoveConnection(conn);
         }
+        // Update connection info
+        ConnectionState::GetInstance()->Update(ConnectionType::DISCOVERY,
+            serviceName, ConnectionStatus::DOWN, ds_endpoint_,
+            "Stray Subscribe Response");
         return;
     }
 
     if (xmls.empty()) {
-
         if (conn) {
             http_client_->RemoveConnection(conn);
         }
@@ -487,6 +533,9 @@ void DiscoveryServiceClient::SubscribeResponseHandler(std::string &xmls,
             // exponential back-off and retry
             hdr->attempts_++; 
             hdr->sub_fail_++;
+            // Update connection info
+            ConnectionState::GetInstance()->Update(ConnectionType::DISCOVERY,
+                serviceName, ConnectionStatus::DOWN, ds_endpoint_, ec.message());
             hdr->StartSubscribeTimer(hdr->GetConnectTime());
         } else  if (hdr->subscribe_cb_called_ == false) {
             DISCOVERY_CLIENT_TRACE(DiscoveryClientErrorMsg,
@@ -495,6 +544,10 @@ void DiscoveryServiceClient::SubscribeResponseHandler(std::string &xmls,
             // exponential back-off and retry
             hdr->attempts_++; 
             hdr->sub_fail_++;
+            // Update connection info
+            ConnectionState::GetInstance()->Update(ConnectionType::DISCOVERY,
+                serviceName, ConnectionStatus::DOWN, ds_endpoint_,
+                "Only header received");
             hdr->StartSubscribeTimer(hdr->GetConnectTime());
         }
 
@@ -511,6 +564,10 @@ void DiscoveryServiceClient::SubscribeResponseHandler(std::string &xmls,
         // exponential back-off and retry
         hdr->attempts_++; 
         hdr->sub_fail_++;
+        // Update connection info
+        ConnectionState::GetInstance()->Update(ConnectionType::DISCOVERY,
+            serviceName, ConnectionStatus::DOWN, ds_endpoint_,
+            "Loading Xml Doc Failed");
         hdr->StartSubscribeTimer(hdr->GetConnectTime());
         return;
     }
@@ -571,6 +628,10 @@ void DiscoveryServiceClient::SubscribeResponseHandler(std::string &xmls,
 
         DISCOVERY_CLIENT_TRACE(DiscoveryClientMsg, "SubscribeResponseHandler",
                                serviceName, xmls);
+        // Update connection info
+        ConnectionState::GetInstance()->Update(ConnectionType::DISCOVERY,
+                serviceName, ConnectionStatus::UP, ds_endpoint_,
+                "SubscribeResponse");
 
         // Update DSResponseHeader for first response or change in response
         hdr->chksum_ = gen_chksum;
@@ -600,6 +661,9 @@ void DiscoveryServiceClient::SubscribeResponseHandler(std::string &xmls,
             // exponential back-off and retry
             hdr->attempts_++; 
             hdr->sub_fail_++;
+            // Update connection info
+            ConnectionState::GetInstance()->Update(ConnectionType::DISCOVERY,
+                serviceName, ConnectionStatus::DOWN, ds_endpoint_, response);
             hdr->StartSubscribeTimer(hdr->GetConnectTime());
 
         } else {
@@ -610,6 +674,10 @@ void DiscoveryServiceClient::SubscribeResponseHandler(std::string &xmls,
             // exponential back-off and retry
             hdr->attempts_++; 
             hdr->sub_fail_++;
+            // Update connection info
+            ConnectionState::GetInstance()->Update(ConnectionType::DISCOVERY,
+                serviceName, ConnectionStatus::DOWN, ds_endpoint_,
+                "No [h1] tag");
             //Use connect timer as subscribe timer 
             hdr->StartSubscribeTimer(hdr->GetConnectTime());
         }
@@ -639,6 +707,10 @@ void DiscoveryServiceClient::HeartBeatResponseHandler(std::string &xmls,
         if (conn) {
             http_client_->RemoveConnection(conn);
         }
+        // Update connection info
+        ConnectionState::GetInstance()->Update(ConnectionType::DISCOVERY,
+            serviceName, ConnectionStatus::DOWN, ds_endpoint_,
+            "Stray HeartBeat Response");
         return;
     }
 
@@ -654,19 +726,27 @@ void DiscoveryServiceClient::HeartBeatResponseHandler(std::string &xmls,
         if (ec.value() != 0) {
             DISCOVERY_CLIENT_TRACE(DiscoveryClientErrorMsg,
                 "HeartBeatResponseHandler Error", serviceName, ec.value());
-             resp->pub_hb_fail_++;
-             resp->StopHeartBeatTimer();
-             // Resend original publish request after exponential back-off
-             resp->attempts_++;
+            resp->pub_hb_fail_++;
+            resp->StopHeartBeatTimer();
+            // Resend original publish request after exponential back-off
+            resp->attempts_++;
+            // Update connection info
+            ConnectionState::GetInstance()->Update(ConnectionType::DISCOVERY,
+                serviceName, ConnectionStatus::DOWN, ds_endpoint_,
+                ec.message());
              resp->StartPublishConnectTimer(resp->GetConnectTime());
         } else if (resp->heartbeat_cb_called_ == false) {
             DISCOVERY_CLIENT_TRACE(DiscoveryClientErrorMsg,
                 "HeartBeatResponseHandler, Only header received",
                  serviceName, ec.value());
-             resp->pub_hb_fail_++;
-             resp->StopHeartBeatTimer();
-             // Resend original publish request after exponential back-off
-             resp->attempts_++;
+            resp->pub_hb_fail_++;
+            resp->StopHeartBeatTimer();
+            // Resend original publish request after exponential back-off
+            resp->attempts_++;
+            // Update connection info
+            ConnectionState::GetInstance()->Update(ConnectionType::DISCOVERY,
+                serviceName, ConnectionStatus::DOWN, ds_endpoint_,
+                "Only header received");
              resp->StartPublishConnectTimer(resp->GetConnectTime());
         }
 
@@ -682,6 +762,10 @@ void DiscoveryServiceClient::HeartBeatResponseHandler(std::string &xmls,
             resp->pub_hb_fail_++;
             resp->StopHeartBeatTimer(); 
             resp->attempts_++;
+            // Update connection info
+            ConnectionState::GetInstance()->Update(ConnectionType::DISCOVERY,
+                serviceName, ConnectionStatus::DOWN, ds_endpoint_,
+                "HeartBeatResponse NOT 200 OK");
             resp->StartPublishConnectTimer(resp->GetConnectTime());
             return;
     }
@@ -694,15 +778,15 @@ void DiscoveryServiceClient::SendHttpPostMessage(std::string msg_type,
 
     HttpConnection *conn = http_client_->CreateConnection(ds_endpoint_);
     if (msg_type.compare("subscribe") == 0) {
-        conn->HttpPut(msg, msg_type,
+        conn->HttpPost(msg, msg_type,
             boost::bind(&DiscoveryServiceClient::SubscribeResponseHandler,
                         this, _1, _2, serviceName, conn));
     } else if (msg_type.find("publish") != string::npos) {
-        conn->HttpPut(msg, msg_type,
+        conn->HttpPost(msg, msg_type,
             boost::bind(&DiscoveryServiceClient::PublishResponseHandler,
                         this, _1, _2, serviceName, conn));
     } else if (msg_type.find("heartbeat") != string::npos) {
-        conn->HttpPut(msg, msg_type,
+        conn->HttpPost(msg, msg_type,
             boost::bind(&DiscoveryServiceClient::HeartBeatResponseHandler,
                         this, _1, _2, serviceName, conn));
     } else {

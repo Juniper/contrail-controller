@@ -37,7 +37,9 @@ struct BgpAttribute : public ParseObject {
         ClusterList = 10,
         MPReachNlri = 14,
         MPUnreachNlri = 15,
-        ExtendedCommunities = 16
+        ExtendedCommunities = 16,
+        McastEdgeDiscovery = 241,
+        McastEdgeForwarding = 242,
     };
     enum Subcode {
         OList = 1,
@@ -63,7 +65,7 @@ struct BgpProtoPrefix : public ParseObject {
     BgpProtoPrefix();
     std::vector<uint8_t> prefix;
     int prefixlen;
-    uint8_t type; // only applicable for evpn
+    uint8_t type; // only applicable for evpn and ermvpn
 };
 
 // Base class to manage BGP Path Attributes database. This class provides

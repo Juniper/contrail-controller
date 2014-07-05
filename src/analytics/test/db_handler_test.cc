@@ -199,7 +199,8 @@ TEST_F(DbHandlerTest, MessageIndexTableInsertTest) {
         .Times(1)
         .WillOnce(Return(true));
 
-    db_handler()->MessageIndexTableInsert(g_viz_constants.MESSAGE_TABLE_SOURCE, hdr, "", unm);
+    db_handler()->MessageIndexTableInsert(g_viz_constants.MESSAGE_TABLE_SOURCE,
+            hdr, "", unm, "");
 }
 
 TEST_F(DbHandlerTest, MessageTableInsertTest) {
@@ -329,7 +330,7 @@ TEST_F(DbHandlerTest, MessageTableInsertTest) {
     EXPECT_CALL(*dbif_mock(),
             Db_AddColumnProxy(
                 Pointee(
-                    AllOf(Field(&GenDb::ColList::cfname_, g_viz_constants.STATS_TABLE_BY_STR_STR_TAG),
+                    AllOf(Field(&GenDb::ColList::cfname_, g_viz_constants.STATS_TABLE_BY_STR_TAG),
                         _,
                         _))))
         .Times(2)
@@ -414,13 +415,14 @@ TEST_F(DbHandlerTest, ObjectTableInsertTest) {
 
         GenDb::DbDataValueVec rowkey;
         rowkey.push_back((uint32_t)(hdr.get_Timestamp() >> g_viz_constants.RowTimeInBits));
+        rowkey.push_back((uint8_t)0);
         rowkey.push_back("FieldNames");
         rowkey.push_back("fields");
         rowkey.push_back("name");
         EXPECT_CALL(*dbif_mock(),
                 Db_AddColumnProxy(
                     Pointee(
-                        AllOf(Field(&GenDb::ColList::cfname_, g_viz_constants.STATS_TABLE_BY_STR_STR_TAG),
+                        AllOf(Field(&GenDb::ColList::cfname_, g_viz_constants.STATS_TABLE_BY_STR_TAG),
                             Field(&GenDb::ColList::rowkey_, rowkey),_))))
             .Times(1)
             .WillOnce(Return(true));
@@ -442,13 +444,14 @@ TEST_F(DbHandlerTest, ObjectTableInsertTest) {
 
         GenDb::DbDataValueVec rowkey;
         rowkey.push_back((uint32_t)(hdr.get_Timestamp() >> g_viz_constants.RowTimeInBits));
+        rowkey.push_back((uint8_t)0);
         rowkey.push_back("FieldNames");
         rowkey.push_back("fields");
         rowkey.push_back("Source");
         EXPECT_CALL(*dbif_mock(),
                 Db_AddColumnProxy(
                     Pointee(
-                        AllOf(Field(&GenDb::ColList::cfname_, g_viz_constants.STATS_TABLE_BY_STR_STR_TAG),
+                        AllOf(Field(&GenDb::ColList::cfname_, g_viz_constants.STATS_TABLE_BY_STR_TAG),
                             Field(&GenDb::ColList::rowkey_, rowkey),_))))
             .Times(1)
             .WillOnce(Return(true));

@@ -27,7 +27,6 @@
 #include <base/util.h>
 
 #include <cmn/agent_cmn.h>
-#include <cmn/agent_stats.h>
 #include <cfg/cfg_init.h>
 #include <cfg/cfg_interface.h>
 #include "cfg/cfg_mirror.h"
@@ -55,12 +54,15 @@
 #include <uve/test/agent_stats_collector_test.h>
 #include "pkt_gen.h"
 #include "pkt/flow_table.h"
+#include "pkt/agent_stats.h"
 #include "testing/gunit.h"
 #include "kstate/kstate.h"
 #include "pkt/pkt_init.h"
 #include "kstate/test/test_kstate.h"
 #include "sandesh/sandesh_http.h"
 #include "xmpp/test/xmpp_test_util.h"
+#include <oper/agent_path.h>
+#include <controller/controller_route_path.h>
 
 #include "test_agent_init.h"
 using namespace std;
@@ -137,6 +139,7 @@ struct IpamInfo {
     char ip_prefix[32];
     int plen;
     char gw[32];
+    bool dhcp_enable;
 };
 
 struct TestIp4Prefix {
@@ -144,10 +147,9 @@ struct TestIp4Prefix {
     int plen_;
 };
 
-class AgentTestInit;
 class TestClient {
 public:
-    TestClient() { 
+    TestClient(Agent *agent) : agent_(agent), param_(agent) {
         vn_notify_ = 0;
         vm_notify_ = 0;
         port_notify_ = 0;
@@ -254,6 +256,7 @@ public:
     void Reset() {vrf_notify_ = acl_notify_ = port_notify_ = vn_notify_ = 
         vm_notify_ = cfg_notify_ = port_del_notify_ =  
         vm_del_notify_ = vn_del_notify_ = vrf_del_notify_ = 0;};
+    uint32_t acl_notify() { return acl_notify_;}
 
     void NotifyCfgWait(int cfg_count) {
         int i = 0;
@@ -533,28 +536,31 @@ public:
     }
 
     void Init() {
-        Agent::GetInstance()->GetIntfCfgTable()->Register(boost::bind(&TestClient::CfgNotify, 
+        Agent::GetInstance()->interface_config_table()->Register(boost::bind(&TestClient::CfgNotify, 
                                                    this, _1, _2));
-        Agent::GetInstance()->GetVnTable()->Register(boost::bind(&TestClient::VnNotify, 
+        Agent::GetInstance()->vn_table()->Register(boost::bind(&TestClient::VnNotify, 
                                                    this, _1, _2));
-        Agent::GetInstance()->GetVmTable()->Register(boost::bind(&TestClient::VmNotify, 
+        Agent::GetInstance()->vm_table()->Register(boost::bind(&TestClient::VmNotify, 
                                                    this, _1, _2));
-        Agent::GetInstance()->GetInterfaceTable()->Register(boost::bind(&TestClient::PortNotify, 
+        Agent::GetInstance()->interface_table()->Register(boost::bind(&TestClient::PortNotify, 
                                                    this, _1, _2));
-        Agent::GetInstance()->GetAclTable()->Register(boost::bind(&TestClient::AclNotify, 
+        Agent::GetInstance()->acl_table()->Register(boost::bind(&TestClient::AclNotify, 
                                                    this, _1, _2));
-        Agent::GetInstance()->GetVrfTable()->Register(boost::bind(&TestClient::VrfNotify, 
+        Agent::GetInstance()->vrf_table()->Register(boost::bind(&TestClient::VrfNotify, 
                                                    this, _1, _2));
-        Agent::GetInstance()->GetNextHopTable()->Register(boost::bind(&TestClient::CompositeNHNotify,
+        Agent::GetInstance()->nexthop_table()->Register(boost::bind(&TestClient::CompositeNHNotify,
                                                    this, _1, _2));
-        Agent::GetInstance()->GetMplsTable()->Register(boost::bind(&TestClient::MplsNotify, 
+        Agent::GetInstance()->mpls_table()->Register(boost::bind(&TestClient::MplsNotify, 
                                                    this, _1, _2));
     };
-    void set_init(AgentTestInit *init) { init_ = init; }
-    AgentTestInit *init() const { return init_; }
-
-    TestAgentInit *agent_init() { return agent_init_; }
-    void set_agent_init(TestAgentInit *init) {agent_init_ = init;}
+    TestAgentInit *agent_init() { return &agent_init_; }
+    AgentParam *param() { return &param_; }
+    Agent *agent() { return agent_; }
+    void set_agent(Agent *agent) { agent_ = agent; }
+    void delete_agent() {
+        delete agent_;
+        agent_ = NULL;
+    }
 
     void Shutdown();
 
@@ -574,54 +580,9 @@ public:
     int nh_notify_;
     int mpls_notify_;
     std::vector<const NextHop *> comp_nh_list_;
-    TestAgentInit *agent_init_;
-    AgentTestInit *init_;
-};
-
-class AgentTestInit {
-public:
-    AgentTestInit(TestClient *client) : param_(Agent::GetInstance()), client_(client) { }
-    ~AgentTestInit() {
-        for (std::vector<TaskTrigger *>::iterator it = list_.begin();
-             it != list_.end(); ++it) {
-            (*it)->Reset();
-            delete *it;
-        }
-    }
-
-    bool Run();
-    void TriggerShutdown() {
-        shutdown_done_ = false;
-        trigger_ = new TaskTrigger
-            (boost::bind(&AgentTestInit::Shutdown, this), 
-             TaskScheduler::GetInstance()->GetTaskId("db::DBTable"), 0);
-        list_.push_back(trigger_);
-        trigger_->Set();
-        while (shutdown_done_ != true) {
-            usleep(1000);
-        }
-        usleep(1000);
-    }
-
-    bool Shutdown() {
-        client_->Shutdown();
-        shutdown_done_ = true;
-        return true;
-    }
-
-    Agent *agent() {return &agent_;}
-    AgentParam *param() {return &param_;}
-    TestAgentInit *init() {return &init_;}
-
-private:
-    Agent agent_;
-    TestAgentInit init_;
+    Agent *agent_;
+    TestAgentInit agent_init_;
     AgentParam param_;
-    TestClient *client_;
-    bool shutdown_done_;
-
-    TaskTrigger *trigger_;
-    std::vector<TaskTrigger *> list_;
 };
 
 TestClient *TestInit(const char *init_file = NULL, bool ksync_init = false, 

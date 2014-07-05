@@ -40,11 +40,42 @@ namespace opt = boost::program_options;
 
 template <typename ValueType>
 bool AgentParam::GetOptValue
-    (const boost::program_options::variables_map &var_map, ValueType &var, 
+    (const boost::program_options::variables_map &var_map, ValueType &var,
      const std::string &val) {
+    return GetOptValueImpl(var_map, var, val,
+        static_cast<ValueType *>(0));
+}
+
+template <typename ValueType>
+bool AgentParam::GetOptValueImpl
+    (const boost::program_options::variables_map &var_map,
+     ValueType &var, const std::string &val, ValueType*) {
     // Check if the value is present.
     if (var_map.count(val) && !var_map[val].defaulted()) {
         var = var_map[val].as<ValueType>();
+        return true;
+    }
+    return false;
+}
+
+template <typename ElementType>
+bool AgentParam::GetOptValueImpl(
+    const boost::program_options::variables_map &var_map,
+    std::vector<ElementType> &var, const std::string &val,
+    std::vector<ElementType>*) {
+    // Check if the value is present.
+    if (var_map.count(val) && !var_map[val].defaulted()) {
+        std::vector<ElementType> tmp(
+            var_map[val].as<std::vector<ElementType> >());
+        // Now split the individual elements
+        for (typename std::vector<ElementType>::const_iterator it = 
+                 tmp.begin();
+             it != tmp.end(); it++) {
+            std::stringstream ss(*it);
+            std::copy(istream_iterator<ElementType>(ss),
+                istream_iterator<ElementType>(),
+                std::back_inserter(var));
+        }
         return true;
     }
     return false;
@@ -95,7 +126,7 @@ bool AgentParam::ParseServerList(const string &key, Ip4Address *server1,
     Ip4Address addr;
     vector<string> tokens;
     if (opt_str = tree_.get_optional<string>(key)) {
-        boost::split(tokens, opt_str.get(), boost::is_any_of(" "));
+        boost::split(tokens, opt_str.get(), boost::is_any_of(" \t"));
         if (tokens.size() > 2) {
             LOG(ERROR, "Error in config file <" << config_file_ 
                     << ">. Cannot have more than 2 servers <" 
@@ -112,6 +143,57 @@ bool AgentParam::ParseServerList(const string &key, Ip4Address *server1,
                 if (!GetIpAddress(*it, server2)) {
                     return false;
                 }
+            }
+        }
+    }
+    return true;
+}
+
+// Parse address string in the form <ip>:<port>
+bool AgentParam::ParseAddress(const std::string &addr_string,
+                              Ip4Address *server, uint16_t *port) {
+    vector<string> tokens;
+    boost::split(tokens, addr_string, boost::is_any_of(":"));
+    if (tokens.size() > 2) {
+        cout << "Error in config file <" << config_file_
+             << ">. Improper server address <" << addr_string << ">\n";
+        return false;
+    }
+    vector<string>::iterator it = tokens.begin();
+    if (!GetIpAddress(*it, server)) {
+        cout << "Error in config file <" << config_file_
+             << ">. Improper server address <" << addr_string << ">\n";
+        return false;
+    }
+    ++it;
+    if (it != tokens.end()) {
+        stringToInteger(*it, *port);
+    }
+
+    return true;
+}
+
+// Parse list of servers in the <ip1>:<port1> <ip2>:<port2> format
+bool AgentParam::ParseServerList(const std::string &key,
+                                 Ip4Address *server1, uint16_t *port1,
+                                 Ip4Address *server2, uint16_t *port2) {
+    optional<string> opt_str;
+    if (opt_str = tree_.get_optional<string>(key)) {
+        vector<string> tokens;
+        boost::split(tokens, opt_str.get(), boost::is_any_of(" \t"));
+        if (tokens.size() > 2) {
+            cout << "Error in config file <" << config_file_
+                 << ">. Cannot have more than 2 DNS servers <"
+                 << opt_str.get() << ">\n";
+            return false;
+        }
+        vector<string>::iterator it = tokens.begin();
+        if (it != tokens.end()) {
+            if (!ParseAddress(*it, server1, port1))
+                return false;
+            ++it;
+            if (it != tokens.end()) {
+                return ParseAddress(*it, server2, port2);
             }
         }
     }
@@ -137,8 +219,8 @@ bool AgentParam::ParseServerListArguments
     if (var_map.count(key)) {
         vector<string> value = var_map[key].as<vector<string> >();
         if (value.size() > 2) {
-            LOG(ERROR, "Error in Arguments. Cannot have more than 2 servers "
-                    "for " << key );
+            cout << "Error in Arguments. Cannot have more than 2 servers for "
+                 << key << "\n";
             return false;
         }
         vector<string>::iterator it = value.begin();
@@ -158,9 +240,37 @@ bool AgentParam::ParseServerListArguments
     return true;
 }
 
+bool AgentParam::ParseServerListArguments
+    (const boost::program_options::variables_map &var_map, Ip4Address *server1,
+     uint16_t *port1, Ip4Address *server2, uint16_t *port2,
+     const std::string &key) {
+
+    if (var_map.count(key)) {
+        vector<string> value = var_map[key].as<vector<string> >();
+        if (value.size() > 2) {
+            LOG(ERROR, "Error in Arguments. Cannot have more than 2 servers "
+                    "for " << key );
+            return false;
+        }
+        vector<string>::iterator it = value.begin();
+        if (it != value.end()) {
+            if (!ParseAddress(*it, server1, port1))
+                return false;
+            ++it;
+            if (it != value.end()) {
+                return ParseAddress(*it, server2, port2);
+            }
+        }
+    }
+    return true;
+}
+
 void AgentParam::ParseCollector() { 
-    ParseIp("COLLECTOR.server", &collector_);
-    GetValueFromTree<uint16_t>(collector_port_, "COLLECTOR.port");
+    optional<string> opt_str;
+    if (opt_str = tree_.get_optional<string>("DEFAULT.collectors")) {
+        boost::split(collector_server_list_, opt_str.get(),
+                     boost::is_any_of(" "));
+    }
 }
 
 void AgentParam::ParseVirtualHost() { 
@@ -257,9 +367,13 @@ void AgentParam::ParseDefaultSection() {
         log_level_ = "SYS_DEBUG";
     }
     if (!GetValueFromTree<string>(log_file_, "DEFAULT.log_file")) {
-        log_file_ = Agent::DefaultLogFile();
+        log_file_ = Agent::GetInstance()->log_file();
     }
-    GetValueFromTree<string>(log_category_, "DEFAULT.log_category");
+
+    if (!GetValueFromTree<string>(log_category_, "DEFAULT.log_category")) {
+        log_category_ = "*";
+    }
+
     unsigned int log_local = 0, debug_logging = 0;
     if (opt_uint = tree_.get_optional<unsigned int>("DEFAULT.log_local")) {
         log_local = opt_uint.get();
@@ -299,15 +413,15 @@ void AgentParam::ParseFlows() {
 }
 
 void AgentParam::ParseHeadlessMode() {
-    if (!GetValueFromTree<bool>(headless_mode_, "DEFAULT.headless")) {
+    if (!GetValueFromTree<bool>(headless_mode_, "DEFAULT.headless_mode")) {
         headless_mode_ = false;
     }
 }
 
 void AgentParam::ParseCollectorArguments
     (const boost::program_options::variables_map &var_map) {
-    ParseIpArgument(var_map, collector_, "COLLECTOR.server");
-    GetOptValue<uint16_t>(var_map, collector_port_, "COLLECTOR.port");
+    GetOptValue< vector<string> >(var_map, collector_server_list_,
+                                      "DEFAULT.collectors");
 }
 
 void AgentParam::ParseVirtualHostArguments
@@ -376,7 +490,7 @@ void AgentParam::ParseDefaultSectionArguments
     GetOptValue<string>(var_map, host_name_, "DEFAULT.hostname");
     GetOptValue<uint16_t>(var_map, http_server_port_, 
                           "DEFAULT.http_server_port");
-    GetOptValue<string>(var_map, log_category_, "DEFAULT.log-category");
+    GetOptValue<string>(var_map, log_category_, "DEFAULT.log_category");
     GetOptValue<string>(var_map, log_file_, "DEFAULT.log_file");
     GetOptValue<string>(var_map, log_level_, "DEFAULT.log_level");
     if (var_map.count("DEFAULT.log_local")) {
@@ -437,7 +551,8 @@ void AgentParam::InitFromConfig() {
     ParseCollector();
     ParseVirtualHost();
     ParseServerList("CONTROL-NODE.server", &xmpp_server_1_, &xmpp_server_2_);
-    ParseServerList("DNS.server", &dns_server_1_, &dns_server_2_);
+    ParseServerList("DNS.server", &dns_server_1_, &dns_port_1_,
+                    &dns_server_2_, &dns_port_2_);
     ParseDiscovery();
     ParseNetworks();
     ParseHypervisor();
@@ -455,8 +570,8 @@ void AgentParam::InitFromArguments
     ParseVirtualHostArguments(var_map);
     ParseServerListArguments(var_map, xmpp_server_1_, xmpp_server_2_, 
                              "CONTROL-NODE.server");
-    ParseServerListArguments(var_map, dns_server_1_, dns_server_2_, 
-                             "DNS.server");
+    ParseServerListArguments(var_map, &dns_server_1_, &dns_port_1_,
+                             &dns_server_2_, &dns_port_2_, "DNS.server");
     ParseDiscoveryArguments(var_map);
     ParseNetworksArguments(var_map);
     ParseHypervisorArguments(var_map);
@@ -472,11 +587,11 @@ void AgentParam::InitFromArguments
 // linklocal_system_flows + kMaxOtherOpenFds files
 void AgentParam::ComputeFlowLimits() {
     if (max_vm_flows_ > 100) {
-        LOG(DEBUG, "Updating flows configuration max-vm-flows to : 100%");
+        cout << "Updating flows configuration max-vm-flows to : 100%\n";
         max_vm_flows_ = 100;
     }
     if (max_vm_flows_ < 0) {
-        LOG(DEBUG, "Updating flows configuration max-vm-flows to : 0%");
+        cout << "Updating flows configuration max-vm-flows to : 0%\n";
         max_vm_flows_ = 0;
     }
 
@@ -612,7 +727,9 @@ void AgentParam::LogConfig() const {
     LOG(DEBUG, "XMPP Server-1               : " << xmpp_server_1_);
     LOG(DEBUG, "XMPP Server-2               : " << xmpp_server_2_);
     LOG(DEBUG, "DNS Server-1                : " << dns_server_1_);
+    LOG(DEBUG, "DNS Port-1                  : " << dns_port_1_);
     LOG(DEBUG, "DNS Server-2                : " << dns_server_2_);
+    LOG(DEBUG, "DNS Port-2                  : " << dns_port_2_);
     LOG(DEBUG, "Discovery Server            : " << dss_server_);
     LOG(DEBUG, "Controller Instances        : " << xmpp_instance_count_);
     LOG(DEBUG, "Tunnel-Type                 : " << tunnel_type_);
@@ -646,13 +763,15 @@ void AgentParam::set_test_mode(bool mode) {
 
 AgentParam::AgentParam(Agent *agent) :
         vhost_(), eth_port_(), xmpp_instance_count_(), xmpp_server_1_(),
-        xmpp_server_2_(), dns_server_1_(), dns_server_2_(), dss_server_(),
-        mgmt_ip_(), mode_(MODE_KVM), xen_ll_(), tunnel_type_(),
-        metadata_shared_secret_(), max_vm_flows_(),
+        xmpp_server_2_(), dns_server_1_(), dns_server_2_(),
+        dns_port_1_(ContrailPorts::DnsServerPort),
+        dns_port_2_(ContrailPorts::DnsServerPort),
+        dss_server_(), mgmt_ip_(), mode_(MODE_KVM), xen_ll_(),
+        tunnel_type_(), metadata_shared_secret_(), max_vm_flows_(),
         linklocal_system_flows_(), linklocal_vm_flows_(),
         flow_cache_timeout_(), config_file_(), program_name_(),
         log_file_(), log_local_(false), log_level_(), log_category_(),
-        collector_(), collector_port_(), http_server_port_(), host_name_(),
+        collector_server_list_(), http_server_port_(), host_name_(),
         agent_stats_interval_(AgentStatsCollector::AgentStatsInterval), 
         flow_stats_interval_(FlowStatsCollector::FlowStatsInterval),
         vmware_physical_port_(""), test_mode_(false), debug_(false), tree_(),

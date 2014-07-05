@@ -25,9 +25,18 @@ request sandesh BgpNeighborReq {
     2: string domain;
 }
 
+struct BgpNeighborRoutingInstance {
+    1: string name;
+    2: string state;
+    3: u32 index;
+    4: list<string> import_targets;
+}
+
 struct BgpNeighborRoutingTable {
     1: string name;
-    2: string rib_state;
+    2: string current_state;
+    3: string current_request;
+    4: string pending_request;
     5: u32 active_prefixes;
     6: u32 received_prefixes;
     7: u32 accepted_prefixes;
@@ -36,6 +45,7 @@ struct BgpNeighborRoutingTable {
 struct BgpNeighborResp {
     1: string peer;             // Peer name
     2: string peer_address (link="BgpNeighborReq");
+    36: bool deleted;           // Deletion in progress
     3: u32 peer_asn;
     4: string local_address;    // local ip address and port
     5: u32 local_asn;
@@ -61,6 +71,7 @@ struct BgpNeighborResp {
     26: u32 local_id;
     27: string local_interface;
     28: u32 active_holdtime;
+    37: list<BgpNeighborRoutingInstance> routing_instances;
     29: list<BgpNeighborRoutingTable> routing_tables;
     30: peer_info.PeerProtoStats rx_proto_stats;
     31: peer_info.PeerProtoStats tx_proto_stats;
@@ -113,6 +124,7 @@ struct ShowRoutePath {
     14: string primary_table (link="ShowRouteReq");
     15: list<string> communities;
     16: string origin_vn;
+    19: string sequence_no;
     17: u32 flags;
 }
 
@@ -125,6 +137,7 @@ struct ShowRoute {
 struct ShowRouteTable {
     1: string routing_instance (link="ShowRoutingInstanceReq");
     2: string routing_table_name (link="ShowRouteReq");
+    9: bool deleted;
     3: u64 prefixes;
     4: u64 paths;
     5: u64 primary_paths;
@@ -168,6 +181,7 @@ response sandesh ShowRouteVrfResp {
 
 struct ShowRoutingInstanceTable {
     1: string name (link="ShowRouteReq"); // routing table name
+    13: bool deleted;
     2: list<string> peers;
     3: u64 prefixes;
     4: u64 paths;
@@ -185,6 +199,7 @@ struct ShowRoutingInstance {
     1: string name (link="ShowRoutingInstanceReq"); // Routing instance name
     3: string virtual_network;                      // Virtual network
     6: i32 vn_index;                                // Virtual network index
+    7: bool deleted;                                // Deletion in progress
     4: list<string> import_target;                  // Import Route targets
     5: list<string> export_target;                  // Export Route targets
     2: list<ShowRoutingInstanceTable> tables;

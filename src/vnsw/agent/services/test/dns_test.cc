@@ -98,10 +98,10 @@ std::string auth_data[MAX_ITEMS] = {"8.8.8.254",
 class DnsTest : public ::testing::Test {
 public:
     DnsTest() { 
-        Agent::GetInstance()->SetXmppServer("127.0.0.1", 0);
-        Agent::GetInstance()->SetXmppCfgServer("127.0.0.1", 0);
-        Agent::GetInstance()->SetXmppDnsCfgServer(0);
-        rid_ = Agent::GetInstance()->GetInterfaceTable()->Register(
+        Agent::GetInstance()->set_controller_ifmap_xmpp_server("127.0.0.1", 0);
+        Agent::GetInstance()->set_ifmap_active_xmpp_server("127.0.0.1", 0);
+        Agent::GetInstance()->set_dns_xmpp_server_index(0);
+        rid_ = Agent::GetInstance()->interface_table()->Register(
                 boost::bind(&DnsTest::ItfUpdate, this, _2));
         for (int i = 0; i < MAX_ITEMS; i++) {
             a_items[i].eclass   = ptr_items[i].eclass   = DNS_CLASS_IN;
@@ -139,7 +139,7 @@ public:
         }
     }
     ~DnsTest() { 
-        Agent::GetInstance()->GetInterfaceTable()->Unregister(rid_);
+        Agent::GetInstance()->interface_table()->Unregister(rid_);
     }
 
     void ItfUpdate(DBEntryBase *entry) {
@@ -321,7 +321,7 @@ public:
             new AgentDnsXmppChannel(Agent::GetInstance(), NULL, "server", 0);
         Agent *agent = Agent::GetInstance();
         boost::shared_ptr<PktInfo> pkt_info(new PktInfo(NULL, 0));;
-        DnsHandler *dns_handler = new DnsHandler(agent, pkt_info, *agent->GetEventManager()->io_service());
+        DnsHandler *dns_handler = new DnsHandler(agent, pkt_info, *agent->event_manager()->io_service());
         DnsUpdateData data;
         FillDnsUpdateData(data, 10);
         dns_handler->SendXmppUpdate(tmp_xmpp_channel, &data);
@@ -348,7 +348,7 @@ public:
     AsioRunEvent() : Task(75) { };
     virtual  ~AsioRunEvent() { };
     bool Run() {
-        Agent::GetInstance()->GetEventManager()->Run();
+        Agent::GetInstance()->event_manager()->Run();
         return true;
     }
 };
@@ -358,9 +358,9 @@ TEST_F(DnsTest, VirtualDnsReqTest) {
         {"vnet1", 1, "1.1.1.1", "00:00:00:01:01:01", 1, 1},
     };
     IpamInfo ipam_info[] = {
-        {"1.2.3.128", 27, "1.2.3.129"},
-        {"7.8.9.0", 24, "7.8.9.12"},
-        {"1.1.1.0", 24, "1.1.1.200"},
+        {"1.2.3.128", 27, "1.2.3.129", true},
+        {"7.8.9.0", 24, "7.8.9.12", true},
+        {"1.1.1.0", 24, "1.1.1.200", true},
     };
 
     char vdns_attr[] = 
@@ -498,9 +498,9 @@ TEST_F(DnsTest, DnsXmppTest) {
         {"vnet1", 1, "1.1.1.1", "00:00:00:01:01:01", 1, 1},
     };
     IpamInfo ipam_info[] = {
-        {"1.2.3.128", 27, "1.2.3.129"},
-        {"7.8.9.0", 24, "7.8.9.12"},
-        {"1.1.1.0", 24, "1.1.1.200"},
+        {"1.2.3.128", 27, "1.2.3.129", true},
+        {"7.8.9.0", 24, "7.8.9.12", true},
+        {"1.1.1.0", 24, "1.1.1.200", true},
     };
 
     char vdns_attr[] = 
@@ -564,9 +564,9 @@ TEST_F(DnsTest, DefaultDnsReqTest) {
         {"vnet1", 1, "1.1.1.1", "00:00:00:01:01:01", 1, 1},
     };
     IpamInfo ipam_info[] = {
-        {"1.2.3.128", 27, "1.2.3.129"},
-        {"7.8.9.0", 24, "7.8.9.12"},
-        {"1.1.1.0", 24, "1.1.1.200"},
+        {"1.2.3.128", 27, "1.2.3.129", true},
+        {"7.8.9.0", 24, "7.8.9.12", true},
+        {"1.1.1.0", 24, "1.1.1.200", true},
     };
 
     char ipam_attr[] = "<network-ipam-mgmt>\n <ipam-dns-method>default-dns-server</ipam-dns-method>\n </network-ipam-mgmt>\n";
@@ -641,9 +641,9 @@ TEST_F(DnsTest, DnsDropTest) {
         {"vnet1", 1, "1.1.1.1", "00:00:00:01:01:01", 1, 1},
     };
     IpamInfo ipam_info[] = {
-        {"1.2.3.128", 27, "1.2.3.129"},
-        {"7.8.9.0", 24, "7.8.9.12"},
-        {"1.1.1.0", 24, "1.1.1.200"},
+        {"1.2.3.128", 27, "1.2.3.129", true},
+        {"7.8.9.0", 24, "7.8.9.12", true},
+        {"1.1.1.0", 24, "1.1.1.200", true},
     };
     dns_flags flags = default_flags;
     DnsProto::DnsStats stats;
@@ -699,7 +699,8 @@ int main(int argc, char *argv[]) {
     client->WaitForIdle();
 
     int ret = RUN_ALL_TESTS();
-    //TestShutdown();
+    client->WaitForIdle();
+    TestShutdown();
     delete client;
     return ret;
 }

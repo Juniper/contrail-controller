@@ -67,11 +67,11 @@ bool VxLanTable::ChangeHandler(VxLanId *vxlan_id, const DBRequest *req) {
     bool ret = false;
     VxLanIdData *data = static_cast<VxLanIdData *>(req->data.get());
 
-    Agent::GetInstance()->GetNextHopTable()->Process(data->nh_req());
+    Agent::GetInstance()->nexthop_table()->Process(data->nh_req());
 
     VrfNHKey nh_key(data->vrf_name(), false);
     NextHop *nh = static_cast<NextHop *>
-        (Agent::GetInstance()->GetNextHopTable()->FindActiveEntry(&nh_key));
+        (Agent::GetInstance()->nexthop_table()->FindActiveEntry(&nh_key));
 
     if (vxlan_id->nh_ != nh) {
         vxlan_id->nh_ = nh;

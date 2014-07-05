@@ -6,6 +6,7 @@
 #define __ctrlplane__network_agent_mock__
 
 #include <boost/scoped_ptr.hpp>
+#include <boost/shared_ptr.hpp>
 #include <map>
 #include <pugixml/pugixml.hpp>
 #include <tbb/compat/condition_variable>
@@ -83,16 +84,17 @@ public:
     XmppDocumentMock(const std::string &hostname);
     pugi::xml_document *RouteAddXmlDoc(const std::string &network, 
                                        const std::string &prefix,
-        NextHops nexthops = NextHops());
+                                       NextHops nexthops = NextHops(),
+                                       int local_pref = 0);
     pugi::xml_document *RouteDeleteXmlDoc(const std::string &network, 
                                           const std::string &prefix,
-        NextHops nexthops = NextHops());
+                                          NextHops nexthops = NextHops());
     pugi::xml_document *RouteEnetAddXmlDoc(const std::string &network,
                                            const std::string &prefix,
-        NextHops nexthops = NextHops());
+                                           NextHops nexthops = NextHops());
     pugi::xml_document *RouteEnetDeleteXmlDoc(const std::string &network,
                                               const std::string &prefix,
-        NextHops nexthops = NextHops());
+                                              NextHops nexthops = NextHops());
     pugi::xml_document *RouteMcastAddXmlDoc(const std::string &network, 
                                             const std::string &sg,
                                             const std::string &nexthop,
@@ -115,9 +117,11 @@ private:
     pugi::xml_document *SubUnsubXmlDoc(
             const std::string &network, int id, bool sub, std::string type);
     pugi::xml_document *RouteAddDeleteXmlDoc(const std::string &network,
-            const std::string &prefix, bool add, const std::string nexthop);
+            const std::string &prefix, bool add, const std::string nexthop,
+            int local_pref = 0);
     pugi::xml_document *RouteAddDeleteXmlDoc(const std::string &network,
-            const std::string &prefix, bool add, NextHops nexthop);
+            const std::string &prefix, bool add, NextHops nexthop,
+            int local_pref = 0);
     pugi::xml_document *RouteEnetAddDeleteXmlDoc(const std::string &network,
             const std::string &prefix, const std::string nexthop, bool add);
     pugi::xml_document *RouteEnetAddDeleteXmlDoc(const std::string &network,
@@ -229,12 +233,12 @@ public:
     }
 
     void AddRoute(const std::string &network, const std::string &prefix,
-                  const std::string nexthop = "");
+                  const std::string nexthop = "", int local_pref = 0);
     void DeleteRoute(const std::string &network, const std::string &prefix,
                      const std::string nexthop = "");
 
     void AddRoute(const std::string &network, const std::string &prefix,
-                  NextHops nexthops);
+                  NextHops nexthops, int local_pref = 0);
     void DeleteRoute(const std::string &network, const std::string &prefix,
                   NextHops nexthops);
 
@@ -339,6 +343,8 @@ private:
 
     tbb::interface5::condition_variable cond_var_;
 };
+
+typedef boost::shared_ptr<NetworkAgentMock> NetworkAgentMockPtr;
 
 }  // namespace test
 

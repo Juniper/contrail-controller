@@ -12,7 +12,8 @@ env.Append(LIBPATH = env['TOP'] + '/base')
 env.Append(LIBPATH = env['TOP'] + '/base/test')
 env.Append(LIBPATH = env['TOP'] + '/io')
 
-env.Prepend(LIBS = ['gunit', 'task_test', 'io', 'sandesh', 'io', 'sandeshvns', 'base', 'http',
+env.Prepend(LIBS = ['gunit', 'task_test', 'io', 'sandesh', 'io', 'sandeshvns',
+                    'connection_info', 'base', 'http',
                     'http_parser', 'curl', 'pugixml', 'boost_program_options'])
 
 if sys.platform != 'darwin':
@@ -85,10 +86,7 @@ test_suite = [
     dependency_test,
     label_block_test,
     queue_task_test,
-    #proto_test,
     subset_test,
-    #task_test,
-    timer_test,
     patricia_test,
     task_annotations_test,
     factory_test,
@@ -98,4 +96,16 @@ test_suite = [
 
 test = env.TestSuite('base-test', test_suite)
 env.Alias('controller/src/base:test', test)
+
+flaky_test_suite = [
+    proto_test,
+#   task_test,
+    timer_test,
+]
+
+flaky_test = env.TestSuite('base-flaky-test', flaky_test_suite)
+env.Alias('controller/src/base:flaky-test', flaky_test)
+
+
+
 Return('test_suite')

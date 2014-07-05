@@ -50,7 +50,7 @@ void Options::Initialize(EventManager &evm,
         ("version", "Display version information")
     ;
 
-    uint16_t default_redis_port = ContrailPorts::RedisQueryEnginePort;
+    uint16_t default_redis_port = ContrailPorts::RedisQueryPort;
     uint16_t default_http_server_port = ContrailPorts::HttpPortQueryEngine;
     uint16_t default_discovery_port = ContrailPorts::DiscoveryServerPort;
 
@@ -127,10 +127,36 @@ void Options::Initialize(EventManager &evm,
 template <typename ValueType>
 void Options::GetOptValue(const boost::program_options::variables_map &var_map,
                           ValueType &var, std::string val) {
+    GetOptValueImpl(var_map, var, val, static_cast<ValueType *>(0));
+}
 
+template <typename ValueType>
+void Options::GetOptValueImpl(
+    const boost::program_options::variables_map &var_map,
+    ValueType &var, std::string val, ValueType*) {
     // Check if the value is present.
     if (var_map.count(val)) {
         var = var_map[val].as<ValueType>();
+    }
+}
+
+template <typename ElementType>
+void Options::GetOptValueImpl(
+    const boost::program_options::variables_map &var_map,
+    std::vector<ElementType> &var, std::string val, std::vector<ElementType>*) {
+    // Check if the value is present.
+    if (var_map.count(val)) {
+        std::vector<ElementType> tmp(
+            var_map[val].as<std::vector<ElementType> >());
+        // Now split the individual elements
+        for (typename std::vector<ElementType>::const_iterator it = 
+                 tmp.begin();
+             it != tmp.end(); it++) {
+            std::stringstream ss(*it);
+            std::copy(istream_iterator<ElementType>(ss),
+                istream_iterator<ElementType>(),
+                std::back_inserter(var));
+        }
     }
 }
 

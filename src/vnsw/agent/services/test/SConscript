@@ -3,52 +3,26 @@
 #
 
 # -*- mode: python; -*-
-
 import re
 Import('AgentEnv')
 env = AgentEnv.Clone()
 
-env.Prepend(LIBS=['gunit'])
-cflags = env['CCFLAGS']
-cflags.append(['-Wno-return-type', '-Wno-unused-function'])
+AgentEnv.MakeTestEnv(env)
 
-if '-fno-exceptions' in cflags:
-    cflags.remove('-fno-exceptions')
-    env.Replace(CCFLAGS = cflags)
+service_test_suite = []
+service_flaky_test_suite = []
 
-import sys
-if sys.platform != 'darwin':
-    env.Append(LIBPATH=['../../test'])
-    env.Prepend(LIBS=['agent_test'])
-    env.Append(LIBS=['agent_test_buildinfo'])
+dhcp_test = AgentEnv.MakeTestCmd(env, 'dhcp_test', service_test_suite)
+dns_test = AgentEnv.MakeTestCmd(env, 'dns_test', service_test_suite)
+arp_test = AgentEnv.MakeTestCmd(env, 'arp_test', service_test_suite)
+icmp_test = AgentEnv.MakeTestCmd(env, 'icmp_test', service_test_suite)
+metadata_test = AgentEnv.MakeTestCmd(env, 'metadata_test', service_test_suite)
+pkt_trace_test = AgentEnv.MakeTestCmd(env, 'pkt_trace_test', service_test_suite)
 
-    dhcp_test = env.Program(target = 'dhcp_test', source = ['dhcp_test.cc'])
-    env.Alias('agent:dhcp_test', dhcp_test)
+flaky_test = env.TestSuite('agent-flaky-test', service_flaky_test_suite)
+env.Alias('controller/src/vnsw/agent/services:flaky_test', flaky_test)
 
-    dns_test = env.Program(target = 'dns_test', source = ['dns_test.cc'])
-    env.Alias('agent:dns_test', dns_test)
-
-    arp_test = env.Program(target = 'arp_test', source = ['arp_test.cc'])
-    env.Alias('agent:arp_test', arp_test)
-
-    icmp_test = env.Program(target = 'icmp_test', source = ['icmp_test.cc'])
-    env.Alias('agent:icmp_test', icmp_test)
-
-    metadata_test = env.Program(target = 'metadata_test', source = ['metadata_test.cc'])
-    env.Alias('agent:metadata_test', metadata_test)
-
-    pkt_trace_test = env.Program(target = 'pkt_trace_test', source = ['pkt_trace_test.cc'])
-    env.Alias('agent:pkt_trace_test', pkt_trace_test)
-
-    srv_test_suite = [
-                  dhcp_test,
-                  arp_test,
-                  dns_test,
-                  icmp_test,
-                  metadata_test,
-                  pkt_trace_test,
-                 ]
-    test = env.TestSuite('agent-test', srv_test_suite)
-    env.Alias('controller/src/vnsw/agent/services:test', test)
-    Return('srv_test_suite')
-
+test = env.TestSuite('agent-test', service_test_suite)
+env.Alias('agent:services', test)
+env.Alias('controller/src/vnsw/agent/services:test', test)
+Return('service_test_suite')

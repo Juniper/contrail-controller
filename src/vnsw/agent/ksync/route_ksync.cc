@@ -11,6 +11,7 @@
 #include <ksync/ksync_index.h>
 #include <ksync/ksync_entry.h>
 #include <ksync/ksync_object.h>
+#include <ksync/ksync_netlink.h>
 #include <ksync/ksync_sock.h>
 
 #include "oper/interface_common.h"
@@ -35,13 +36,14 @@ RouteKSyncEntry::RouteKSyncEntry(RouteKSyncObject* obj,
     addr_(entry->addr_), src_addr_(entry->src_addr_), mac_(entry->mac_), 
     prefix_len_(entry->prefix_len_), nh_(entry->nh_), label_(entry->label_), 
     proxy_arp_(false), address_string_(entry->address_string_),
-    tunnel_type_(entry->tunnel_type_) {
+    tunnel_type_(entry->tunnel_type_),
+    wait_for_traffic_(entry->wait_for_traffic_) {
 }
 
 RouteKSyncEntry::RouteKSyncEntry(RouteKSyncObject* obj, const AgentRoute *rt) :
     KSyncNetlinkDBEntry(kInvalidIndex), ksync_obj_(obj), 
     vrf_id_(rt->vrf_id()), nh_(NULL), label_(0), proxy_arp_(false),
-    tunnel_type_(TunnelType::DefaultType()) {
+    tunnel_type_(TunnelType::DefaultType()), wait_for_traffic_(false) {
     boost::system::error_code ec;
     switch (rt->GetTableType()) {
     case Agent::INET4_UNICAST: {
@@ -150,7 +152,7 @@ std::string RouteKSyncEntry::ToString() const {
     nexthop = nh();
 
     const VrfEntry* vrf =
-        ksync_obj_->ksync()->agent()->GetVrfTable()->FindVrfFromId(vrf_id_);
+        ksync_obj_->ksync()->agent()->vrf_table()->FindVrfFromId(vrf_id_);
     if (vrf) {
         s << "Route Vrf : " << vrf->GetName() << " ";
     }
@@ -181,7 +183,7 @@ bool RouteKSyncEntry::Sync(DBEntry *e) {
     if (tmp == NULL) {
         DiscardNHKey key;
         tmp = static_cast<NextHop *>
-            (ksync_obj_->ksync()->agent()->GetNextHopTable()->
+            (ksync_obj_->ksync()->agent()->nexthop_table()->
              FindActiveEntry(&key));
     }
     NHKSyncEntry nexthop(nh_object, tmp);
@@ -213,6 +215,10 @@ bool RouteKSyncEntry::Sync(DBEntry *e) {
         proxy_arp_ = path->proxy_arp();
     }
 
+    if (wait_for_traffic_ != route->WaitForTraffic()) {
+        wait_for_traffic_ =  route->WaitForTraffic();
+        ret = true;
+    }
     return ret;
 };
 
@@ -228,7 +234,7 @@ void RouteKSyncEntry::FillObjectLog(sandesh_op::type type,
     }
 
     if (nh()) {
-        info.set_nh_idx(nh()->GetIndex());
+        info.set_nh_idx(nh()->nh_id());
         if (nh()->type() == NextHop::TUNNEL) {
             info.set_label(label_);
         }
@@ -280,11 +286,14 @@ int RouteKSyncEntry::Encode(sandesh_op::type op, uint8_t replace_plen,
     if (proxy_arp_) {
         flags |= VR_RT_HOSTED_FLAG;
     }
+    if (wait_for_traffic_) {
+        flags |= VR_RT_ARP_TRAP_FLAG;
+    }
     encoder.set_rtr_label_flags(flags);
     encoder.set_rtr_label(label);
 
     if (nexthop != NULL) {
-        encoder.set_rtr_nh_id(nexthop->GetIndex());
+        encoder.set_rtr_nh_id(nexthop->nh_id());
     } else {
         encoder.set_rtr_nh_id(NH_DISCARD_ID);
     }
@@ -354,7 +363,7 @@ int RouteKSyncEntry::DeleteMsg(char *buf, int buf_len) {
     /* If better route is not found, send discardNH for route */
     DiscardNHKey nh_oper_key;
     NextHop *nexthop = static_cast<NextHop *>
-        (ksync_obj_->ksync()->agent()->GetNextHopTable()->
+        (ksync_obj_->ksync()->agent()->nexthop_table()->
                      FindActiveEntry(&nh_oper_key));
     if (nexthop != NULL) {
         NHKSyncObject *ksync_nh_object = 
@@ -554,12 +563,12 @@ VrfKSyncObject::~VrfKSyncObject() {
 }
 
 void VrfKSyncObject::RegisterDBClients() {
-    vrf_listener_id_ = ksync_->agent()->GetVrfTable()->Register
+    vrf_listener_id_ = ksync_->agent()->vrf_table()->Register
             (boost::bind(&VrfKSyncObject::VrfNotify, this, _1, _2));
 }
 
 void VrfKSyncObject::Shutdown() {
-    ksync_->agent()->GetVrfTable()->Unregister(vrf_listener_id_);
+    ksync_->agent()->vrf_table()->Unregister(vrf_listener_id_);
     vrf_listener_id_ = -1;
 }
 

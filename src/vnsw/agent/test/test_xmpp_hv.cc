@@ -13,7 +13,7 @@ TEST_F(AgentBasicScaleTest, Del_peer_deleted_vrf_1) {
     uint32_t listener_id = peer->GetVrfExportListenerId();
     EXPECT_TRUE(listener_id != 0);
     VrfEntry *vrf = VrfGet("vrf1");
-    DBTablePartBase *part = Agent::GetInstance()->GetVrfTable()->GetTablePartition(vrf);
+    DBTablePartBase *part = Agent::GetInstance()->vrf_table()->GetTablePartition(vrf);
     EXPECT_TRUE(vrf->GetState(part->parent(), listener_id) != NULL);
 
     bgp_peer[0].get()->HandleXmppChannelEvent(xmps::NOT_READY);
@@ -40,7 +40,7 @@ TEST_F(AgentBasicScaleTest, Del_peer_deleted_vrf_2) {
     uint32_t listener_id = peer->GetVrfExportListenerId();
     EXPECT_TRUE(listener_id != 0);
     VrfEntry *vrf = VrfGet("vrf1");
-    DBTablePartBase *part = Agent::GetInstance()->GetVrfTable()->GetTablePartition(vrf);
+    DBTablePartBase *part = Agent::GetInstance()->vrf_table()->GetTablePartition(vrf);
     EXPECT_TRUE(vrf->GetState(part->parent(), listener_id) != NULL);
 
     DelVrf("vrf1");
@@ -61,7 +61,7 @@ TEST_F(AgentBasicScaleTest, Basic) {
     XmppConnectionSetUp();
     BuildVmPortEnvironment();
 	IpamInfo ipam_info[] = {
-	    {"1.1.1.0", 24, "1.1.1.200"}
+	    {"1.1.1.0", 24, "1.1.1.200", true}
 	};
     AddIPAM("vn1", ipam_info, 1);
     WAIT_FOR(1000, 10000, RouteFind("vrf1", Ip4Address::from_string("1.1.1.255"), 32));
@@ -93,7 +93,7 @@ TEST_F(AgentBasicScaleTest, multicast_one_channel_down_up) {
     XmppConnectionSetUp();
     BuildVmPortEnvironment();
 	IpamInfo ipam_info[] = {
-	    {"1.1.1.0", 24, "1.1.1.200"}
+	    {"1.1.1.0", 24, "1.1.1.200", true}
 	};
     AddIPAM("vn1", ipam_info, 1);
     WAIT_FOR(1000, 10000, RouteFind("vrf1", Ip4Address::from_string("1.1.1.255"), 32));
@@ -177,7 +177,7 @@ TEST_F(AgentBasicScaleTest, multicast_one_channel_down_up_skip_route_from_peer) 
     XmppConnectionSetUp();
     BuildVmPortEnvironment();
 	IpamInfo ipam_info[] = {
-	    {"1.1.1.0", 24, "1.1.1.200"}
+	    {"1.1.1.0", 24, "1.1.1.200", true}
 	};
     AddIPAM("vn1", ipam_info, 1);
     WAIT_FOR(1000, 10000, RouteFind("vrf1", Ip4Address::from_string("1.1.1.255"), 32));
@@ -282,7 +282,7 @@ TEST_F(AgentBasicScaleTest, v4_unicast_one_channel_down_up) {
     }
 
     //Get the peer
-    Peer *peer = Agent::GetInstance()->GetAgentXmppChannel(0)->bgp_peer_id();
+    Peer *peer = Agent::GetInstance()->controller_xmpp_channel(0)->bgp_peer_id();
     AgentPath *path = static_cast<AgentPath *>(rt->FindPath(peer));
     EXPECT_TRUE(path->is_stale() == false);
 
@@ -307,7 +307,7 @@ TEST_F(AgentBasicScaleTest, v4_unicast_one_channel_down_up) {
     EXPECT_TRUE(RouteFind("vrf1", uc_addr, 32));
     path = static_cast<AgentPath *>(rt->FindPath(peer));
     EXPECT_TRUE(path->is_stale());
-    Peer *new_peer = Agent::GetInstance()->GetAgentXmppChannel(0)->bgp_peer_id();
+    Peer *new_peer = Agent::GetInstance()->controller_xmpp_channel(0)->bgp_peer_id();
     AgentPath *new_path = static_cast<AgentPath *>(rt->FindPath(new_peer));
     EXPECT_TRUE(new_path != path);
     EXPECT_TRUE(!new_path->is_stale());
@@ -352,7 +352,7 @@ TEST_F(AgentBasicScaleTest, walk_on_vrf_marked_for_delete) {
     }
 
     //Get the peer
-    Peer *peer = Agent::GetInstance()->GetAgentXmppChannel(0)->bgp_peer_id();
+    Peer *peer = Agent::GetInstance()->controller_xmpp_channel(0)->bgp_peer_id();
     AgentPath *path = static_cast<AgentPath *>(rt->FindPath(peer));
     EXPECT_TRUE(path->is_stale() == false);
 
@@ -410,7 +410,7 @@ TEST_F(AgentBasicScaleTest, flap_xmpp_channel_check_stale_path_count) {
     WAIT_FOR(1000, 10000, (rt->GetPathList().size() == 2));
 
     //Get the peer
-    Peer *peer = Agent::GetInstance()->GetAgentXmppChannel(0)->bgp_peer_id();
+    Peer *peer = Agent::GetInstance()->controller_xmpp_channel(0)->bgp_peer_id();
     AgentPath *path = static_cast<AgentPath *>(rt->FindPath(peer));
     EXPECT_TRUE(path->is_stale() == false);
 
@@ -450,7 +450,7 @@ TEST_F(AgentBasicScaleTest, unicast_one_channel_down_up_skip_route_from_peer) {
     XmppConnectionSetUp();
     BuildVmPortEnvironment();
 	IpamInfo ipam_info[] = {
-	    {"1.1.1.0", 24, "1.1.1.200"}
+	    {"1.1.1.0", 24, "1.1.1.200", true}
 	};
     AddIPAM("vn1", ipam_info, 1);
     WAIT_FOR(1000, 10000, RouteFind("vrf1", Ip4Address::from_string("1.1.1.255"), 32));
@@ -475,7 +475,7 @@ TEST_F(AgentBasicScaleTest, unicast_one_channel_down_up_skip_route_from_peer) {
         Agent::GetInstance()->controller()->multicast_sequence_number();
     WAIT_FOR(1000, 1000, (mcobj->GetSourceMPLSLabel() != 0));
     uint32_t subnet_src_label = mcobj->GetSourceMPLSLabel();
-    //EXPECT_TRUE(Agent::GetInstance()->GetMplsTable()->FindMplsLabel(subnet_src_label));
+    //EXPECT_TRUE(Agent::GetInstance()->mpls_table()->FindMplsLabel(subnet_src_label));
 
     //Bring down the channel
     AgentXmppChannel *ch = static_cast<AgentXmppChannel *>(bgp_peer[0].get());
@@ -554,8 +554,8 @@ TEST_F(AgentBasicScaleTest, unicast_cleanup_timer_1) {
     WAIT_FOR(1000, 10000, (rt->GetPathList().size() == 3));
 
     //Get the peer
-    Peer *peer_1 = Agent::GetInstance()->GetAgentXmppChannel(0)->bgp_peer_id();
-    Peer *peer_2 = Agent::GetInstance()->GetAgentXmppChannel(1)->bgp_peer_id();
+    Peer *peer_1 = Agent::GetInstance()->controller_xmpp_channel(0)->bgp_peer_id();
+    Peer *peer_2 = Agent::GetInstance()->controller_xmpp_channel(1)->bgp_peer_id();
     AgentPath *path1 = static_cast<AgentPath *>(rt->FindPath(peer_1));
     EXPECT_TRUE(path1->is_stale() == false);
     AgentPath *path2 = static_cast<AgentPath *>(rt->FindPath(peer_2));
@@ -643,8 +643,8 @@ TEST_F(AgentBasicScaleTest, unicast_cleanup_timer_2) {
     WAIT_FOR(1000, 10000, (rt->GetPathList().size() == 3));
 
     //Get the peer
-    Peer *peer_1 = Agent::GetInstance()->GetAgentXmppChannel(0)->bgp_peer_id();
-    Peer *peer_2 = Agent::GetInstance()->GetAgentXmppChannel(1)->bgp_peer_id();
+    Peer *peer_1 = Agent::GetInstance()->controller_xmpp_channel(0)->bgp_peer_id();
+    Peer *peer_2 = Agent::GetInstance()->controller_xmpp_channel(1)->bgp_peer_id();
     AgentPath *path1 = static_cast<AgentPath *>(rt->FindPath(peer_1));
     EXPECT_TRUE(path1->is_stale() == false);
     AgentPath *path2 = static_cast<AgentPath *>(rt->FindPath(peer_2));
@@ -731,7 +731,8 @@ int main(int argc, char **argv) {
     InitXmppServers();
     ret |= RUN_ALL_TESTS();
 
-    Agent::GetInstance()->GetEventManager()->Shutdown();
+    Agent::GetInstance()->event_manager()->Shutdown();
     AsioStop();
+    TaskScheduler::GetInstance()->Terminate();
     return ret;
 }

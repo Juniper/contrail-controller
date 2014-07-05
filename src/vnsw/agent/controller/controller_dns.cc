@@ -4,13 +4,16 @@
 
 #include "base/util.h"
 #include "base/logging.h"
+#include "base/connection_info.h"
 #include "controller/controller_dns.h"
 #include "xmpp/xmpp_channel.h"
 #include "cmn/agent_cmn.h"
 #include "pugixml/pugixml.hpp"
 #include "xml/xml_pugi.h"
-#include "services/dns_proto.h"
 #include "bind/xmpp_dns_agent.h"
+
+AgentDnsXmppChannel::DnsMessageHandler AgentDnsXmppChannel::dns_message_handler_cb_;
+AgentDnsXmppChannel::DnsXmppEventHandler AgentDnsXmppChannel::dns_xmpp_event_handler_cb_;
 
 AgentDnsXmppChannel::AgentDnsXmppChannel(Agent *agent, XmppChannel *channel, 
       std::string xmpp_server, uint8_t xs_idx) 
@@ -47,8 +50,8 @@ void AgentDnsXmppChannel::ReceiveMsg(const XmppStanza::XmppMessage *msg) {
         std::auto_ptr<DnsUpdateData> xmpp_data(new DnsUpdateData);
         if (DnsAgentXmpp::DnsAgentXmppDecode(node, xmpp_type, xid, 
                                              code, xmpp_data.get())) {
-            agent_->GetDnsProto()->SendDnsUpdateIpc(
-                                  xmpp_data.release(), xmpp_type, NULL, false);
+            dns_message_handler_cb_(xmpp_data.release(), xmpp_type, NULL,
+                                    false);
         }
     }
 }
@@ -69,18 +72,51 @@ void AgentDnsXmppChannel::WriteReadyCb(uint8_t *msg,
 void AgentDnsXmppChannel::HandleXmppClientChannelEvent(AgentDnsXmppChannel *peer,
                                                        xmps::PeerState state) {
     Agent *agent = peer->agent();
+    peer->UpdateConnectionInfo(state);
     if (state == xmps::READY) {
-        if (agent->GetXmppDnsCfgServerIdx() == -1)
-            agent->SetXmppDnsCfgServer(peer->xs_idx_);
-        agent->GetDnsProto()->SendDnsUpdateIpc(peer);
+        if (agent->dns_xmpp_server_index() == -1)
+            agent->set_dns_xmpp_server_index(peer->xs_idx_);
+        peer->dns_xmpp_event_handler_cb_(peer);
     } else {
-        if (agent->GetXmppDnsCfgServerIdx() == peer->xs_idx_) {
-            agent->SetXmppDnsCfgServer(-1);
+        if (agent->dns_xmpp_server_index() == peer->xs_idx_) {
+            agent->set_dns_xmpp_server_index(-1);
             uint8_t o_idx = ((peer->xs_idx_ == 0) ? 1 : 0);
-            AgentDnsXmppChannel *o_chn = agent->GetAgentDnsXmppChannel(o_idx);
+            AgentDnsXmppChannel *o_chn = agent->dns_xmpp_channel(o_idx);
             if (o_chn && o_chn->GetXmppChannel() &&
                 o_chn->GetXmppChannel()->GetPeerState() == xmps::READY)
-                agent->SetXmppDnsCfgServer(o_idx);
+                agent->set_dns_xmpp_server_index(o_idx);
         }
+    }
+}
+
+void AgentDnsXmppChannel::set_dns_message_handler_cb(DnsMessageHandler cb) {
+    dns_message_handler_cb_ = cb;
+}
+
+void AgentDnsXmppChannel::set_dns_xmpp_event_handler_cb(DnsXmppEventHandler cb){
+    dns_xmpp_event_handler_cb_ = cb;
+}
+
+void AgentDnsXmppChannel::UpdateConnectionInfo(xmps::PeerState state) {
+    boost::asio::ip::tcp::endpoint ep;
+    boost::system::error_code ec;
+    std::string last_state_name;
+    ep.address(boost::asio::ip::address::from_string(agent_->dns_server
+                                                             (xs_idx_), ec));
+    ep.port(agent_->dns_server_port(xs_idx_));
+    const std::string name = agent_->xmpp_dns_server_prefix() +
+                             ep.address().to_string();
+    XmppChannel *xc = GetXmppChannel();
+    if (xc) {
+        last_state_name = xc->LastStateName();
+    }
+    if (state == xmps::READY) {
+        agent_->connection_state()->Update(ConnectionType::XMPP, name,
+                                           ConnectionStatus::UP, ep,
+                                           last_state_name);
+    } else {
+        agent_->connection_state()->Update(ConnectionType::XMPP, name,
+                                           ConnectionStatus::DOWN, ep,
+                                           last_state_name);
     }
 }

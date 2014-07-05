@@ -12,6 +12,7 @@ const string COLLECTOR_KEYSPACE     = "ContrailAnalytics"
 const string COLLECTOR_GLOBAL_TABLE = "MessageTable"
 const string UUID_KEY               = "UuidKey"
 const string SOURCE                 = "Source"
+const string KEYWORD                = "Keyword"
 const string NAMESPACE              = "Namespace"
 const string MODULE                 = "ModuleId"
 const string INSTANCE_ID            = "InstanceId"
@@ -33,6 +34,7 @@ const string MESSAGE_TABLE_MESSAGE_TYPE  = "MessageTableMessageType"
 const string MESSAGE_TABLE_CATEGORY = "MessageTableCategory"
 const string MESSAGE_TABLE_LEVEL    = "MessageTableLevel"
 const string MESSAGE_TABLE_TIMESTAMP = "MessageTableTimestamp"
+const string MESSAGE_TABLE_KEYWORD = "MessageTableKeyword"
 const string OBJECT_ID              = "ObjectId"
 
 const string ROWTIMESTAMP           = "RowTimeStamp"
@@ -100,12 +102,14 @@ const string FLOW_TABLE_VROUTER     = "FlowTableVRouterVer2"
 const string FLOW_SERIES_TABLE      = "FlowSeriesTable"
 const string FLOW_TABLE_INVALID     = "Invalid Flow Table"
 
-const string STATS_TABLE_BY_STR_STR_TAG     = "StatsTableByStrStrTag"
-const string STATS_TABLE_BY_STR_U64_TAG     = "StatsTableByStrU64Tag"
-const string STATS_TABLE_BY_STR_DBL_TAG     = "StatsTableByStrDblTag"
-const string STATS_TABLE_BY_U64_STR_TAG     = "StatsTableByU64StrTag"
-const string STATS_TABLE_BY_U64_U64_TAG     = "StatsTableByU64U64Tag"
-const string STATS_TABLE_BY_DBL_STR_TAG     = "StatsTableByDblStrTag"
+const string STATS_TABLE_BY_STR_STR_TAG     = "StatsTableByStrStrTagV3"
+const string STATS_TABLE_BY_STR_U64_TAG     = "StatsTableByStrU64TagV3"
+const string STATS_TABLE_BY_U64_STR_TAG     = "StatsTableByU64StrTagV3"
+const string STATS_TABLE_BY_U64_U64_TAG     = "StatsTableByU64U64TagV3"
+
+const string STATS_TABLE_BY_DBL_TAG         = "StatsTableByDblTagV3"
+const string STATS_TABLE_BY_STR_TAG         = "StatsTableByStrTagV3"
+const string STATS_TABLE_BY_U64_TAG         = "StatsTableByU64TagV3"
 
 // Please keep FlowRecordFields and FlowRecordNames in sync
 enum FlowRecordFields {
@@ -213,62 +217,81 @@ const map<string, string> UVE_MAP = {
 
 struct objtable_info {
     1: string objtable_display_name;
+    2: string log_query_name;
 }
 
 const map<string, objtable_info> _OBJECT_TABLES = {
     CONFIG_OBJECT_TABLE    : {
         'objtable_display_name' : CONFIG_OBJECT_DISPLAY_NAME
+        'log_query_name'        : "config"
     }
     VN_TABLE               : {
         'objtable_display_name' : VN_DISPLAY_NAME
+        'log_query_name'        : "virtual-network"
     }
     VM_TABLE               : {
         'objtable_display_name' : VM_DISPLAY_NAME
+        'log_query_name'        : "virtual-machine"
     }
     SI_TABLE               : {
         'objtable_display_name' : SI_DISPLAY_NAME
+        'log_query_name'        : "service-instance"
     }
     VROUTER_TABLE          : {
         'objtable_display_name' : VROUTER_DISPLAY_NAME
+        'log_query_name'        : "vrouter"
     }
     BGP_PEER_TABLE         : {
         'objtable_display_name' : BGP_PEER_DISPLAY_NAME
+        'log_query_name'        : "bgp-peer"
     }
     BGP_ROUTER_TABLE       : {
         'objtable_display_name' : BGP_ROUTER_DISPLAY_NAME
+        'log_query_name'        : "control-node"
     }
     ROUTING_INSTANCE_TABLE : {
         'objtable_display_name' : ROUTING_INSTANCE_DISPLAY_NAME
+        'log_query_name'        : "routing-instance"
     }
     XMPP_CONNECTION_TABLE  : {
         'objtable_display_name' : XMPP_CONNECTION_DISPLAY_NAME
+        'log_query_name'        : "xmpp-connection"
     }
     XMPP_PEER_INFO_TABLE  : {
         'objtable_display_name' : XMPP_PEER_INFO_DISPLAY_NAME
+        'log_query_name'        : "xmpp-peer"
     }
     COLLECTOR_INFO_TABLE   : {
         'objtable_display_name' : COLLECTOR_INFO_DISPLAY_NAME
+        'log_query_name'        : "analytics-node"
     }
     DATABASE_INFO_TABLE   : {
         'objtable_display_name' : DATABASE_INFO_DISPLAY_NAME
+        'log_query_name'        : "database-node"
     }
     GENERATOR_INFO_TABLE   : {
         'objtable_display_name' : GENERATOR_INFO_DISPLAY_NAME
+        'log_query_name'        : "generator"
     }
     CONFIG_NODE_TABLE      : {
         'objtable_display_name' : CONFIG_NODE_DISPLAY_NAME
+        'log_query_name'        : "config-node"
     }
     SERVICE_CHAIN          : {
         'objtable_display_name' : SERVICE_CHAIN_DISPLAY_NAME
+        'log_query_name'        : "service-chain"
     }
     DNS_TABLE       : {
         'objtable_display_name' : DNS_DISPLAY_NAME
+        'log_query_name'        : "dns-node"
     }
     QUERY_TABLE_OBJECT       : {
         'objtable_display_name' : QUERY_TABLE_DISPLAY_NAME
+        'log_query_name'        : "analytics-query"
     }
     QUERY_QID_OBJECT       : {
         'objtable_display_name' : QUERY_QID_DISPLAY_NAME
+        'log_query_name'        : "analytics-query-id"
     }
 }
 
@@ -296,13 +319,21 @@ struct query_table
     4: string display_name;
 }
 
+struct stat_query_column
+{
+    1: string name;
+    2: string datatype;
+    3: bool index;
+    4: list<string> suffixes;
+}
+
 struct stat_table
 {
     6: string display_name;
     1: string stat_type;
     2: string stat_attr;
     3: string obj_table;
-    5: list<query_column> attributes;
+    5: list<stat_query_column> attributes;
 }
 
 const string STAT_OBJECTID_FIELD = "name";
@@ -425,10 +456,11 @@ const list<stat_table> _STAT_TABLES  = [
       'stat_attr' : 'query_stats',
       'obj_table' : COLLECTOR_INFO_TABLE,
       'attributes': [
-          { 'name' : 'query_stats.time', 'datatype' : 'int',   'index' : true},
-          { 'name' : 'query_stats.rows', 'datatype' : 'int',   'index' : true},
-          { 'name' : 'query_stats.table','datatype' : 'string','index' : true},
-          { 'name' : 'query_stats.qid',  'datatype' : 'string','index' : true},
+          { 'name' : 'table', 'datatype' : 'string','index' : true 'suffixes': ['query_stats.rows']},
+          { 'name' : 'name', 'datatype' : 'string','index' : true, 'suffixes': ['query_stats.qid']},
+          { 'name' : 'query_stats.time', 'datatype' : 'int', 'index' : true, 'suffixes': ['query_stats.rows']},
+          { 'name' : 'query_stats.rows', 'datatype' : 'int', 'index' : true, 'suffixes': ['query_stats.time']},
+          { 'name' : 'query_stats.qid',  'datatype' : 'string','index' : false},
           { 'name' : 'query_stats.where'      ,'datatype' : 'string','index' : false},
           { 'name' : 'query_stats.select'     ,'datatype' : 'string','index' : false},
           { 'name' : 'query_stats.post'       ,'datatype' : 'string','index' : false},
@@ -474,6 +506,7 @@ const list<query_table> _TABLES = [
                { 'name' : 'Messagetype', 'datatype' : 'string', 'index' : true },
                { 'name' : 'SequenceNum', 'datatype' : 'int', 'index' : false },
                { 'name' : 'Context', 'datatype' : 'string', 'index' : false },
+               { 'name' : 'Keyword', 'datatype' : 'string', 'index' : true },
                { 'name' : 'Xmlmessage', 'datatype' : 'string', 'index' : false },
                ]
               },

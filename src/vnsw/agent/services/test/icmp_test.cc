@@ -46,12 +46,12 @@ public:
     };
 
     IcmpTest() : itf_count_(0), icmp_seq_(0) {
-        rid_ = Agent::GetInstance()->GetInterfaceTable()->Register(
+        rid_ = Agent::GetInstance()->interface_table()->Register(
                 boost::bind(&IcmpTest::ItfUpdate, this, _2));
     }
 
     ~IcmpTest() {
-        Agent::GetInstance()->GetInterfaceTable()->Unregister(rid_);
+        Agent::GetInstance()->interface_table()->Unregister(rid_);
     }
 
     void ItfUpdate(DBEntryBase *entry) {
@@ -165,7 +165,7 @@ public:
     AsioRunEvent() : Task(75) { };
     virtual  ~AsioRunEvent() { };
     bool Run() {
-        Agent::GetInstance()->GetEventManager()->Run();
+        Agent::GetInstance()->event_manager()->Run();
         return true;
     }
 };
@@ -178,15 +178,15 @@ TEST_F(IcmpTest, IcmpPingTest) {
     IcmpProto::IcmpStats stats;
 
     IpamInfo ipam_info[] = {
-        {"1.2.3.128", 27, "1.2.3.129"},
-        {"7.8.9.0", 24, "7.8.9.12"},
-        {"1.1.1.0", 24, "1.1.1.200"},
+        {"1.2.3.128", 27, "1.2.3.129", true},
+        {"7.8.9.0", 24, "7.8.9.12", true},
+        {"1.1.1.0", 24, "1.1.1.200", true},
     };
 
     IpamInfo ipam_updated_info[] = {
-        {"4.2.3.128", 24, "4.2.3.254"},
-        {"1.1.1.0", 24, "1.1.1.254"},
-        {"7.8.9.0", 24, "7.8.9.12"},
+        {"4.2.3.128", 24, "4.2.3.254", true},
+        {"1.1.1.0", 24, "1.1.1.254", true},
+        {"7.8.9.0", 24, "7.8.9.12", true},
     };
 
     CreateVmportEnv(input, 2, 0); 
@@ -339,7 +339,7 @@ TEST_F(IcmpTest, IcmpErrorTest) {
     IcmpProto::IcmpStats stats;
 
     IpamInfo ipam_info[] = {
-        {"1.1.1.0", 24, "1.1.1.200"},
+        {"1.1.1.0", 24, "1.1.1.200", true},
     };
 
     CreateVmportEnv(input, 1, 0); 
@@ -397,7 +397,8 @@ int main(int argc, char *argv[]) {
     client->WaitForIdle();
 
     int ret = RUN_ALL_TESTS();
-    //TestShutdown();
+    client->WaitForIdle();
+    TestShutdown();
     delete client;
     return ret;
 }

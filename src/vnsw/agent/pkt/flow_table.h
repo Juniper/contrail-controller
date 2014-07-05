@@ -38,6 +38,7 @@
 #include <oper/interface_common.h>
 #include <oper/nexthop.h>
 #include <oper/route_common.h>
+#include <sandesh/common/flow_types.h>
 
 class FlowStatsCollector;
 class PktSandeshFlow;
@@ -92,26 +93,26 @@ struct RouteFlowKeyCmp {
 
 struct FlowKey {
     FlowKey() :
-        vrf(0), src_port(0), dst_port(0), protocol(0) {
+        nh(0), src_port(0), dst_port(0), protocol(0) {
         src.ipv4 = 0;
         dst.ipv4 = 0;
     }
 
-    FlowKey(uint32_t vrf_p, uint32_t sip_p, uint32_t dip_p, uint8_t proto_p,
+    FlowKey(uint32_t nh_p, uint32_t sip_p, uint32_t dip_p, uint8_t proto_p,
             uint16_t sport_p, uint16_t dport_p) 
-        : vrf(vrf_p), src_port(sport_p), dst_port(dport_p), protocol(proto_p) {
+        : nh(nh_p), src_port(sport_p), dst_port(dport_p), protocol(proto_p) {
         src.ipv4 = sip_p;
         dst.ipv4 = dip_p;
     }
 
     FlowKey(const FlowKey &key) : 
-        vrf(key.vrf), src_port(key.src_port), dst_port(key.dst_port),
+        nh(key.nh), src_port(key.src_port), dst_port(key.dst_port),
         protocol(key.protocol) {
         src.ipv4 = key.src.ipv4;
         dst.ipv4 = key.dst.ipv4;
     }
 
-    uint32_t vrf;
+    uint32_t nh;
     union {
         uint32_t ipv4;
     } src;
@@ -122,7 +123,7 @@ struct FlowKey {
     uint16_t dst_port;
     uint8_t protocol;
     bool CompareKey(const FlowKey &key) {
-        return (key.vrf == vrf &&
+        return (key.nh == nh &&
                 key.src.ipv4 == src.ipv4 &&
                 key.dst.ipv4 == dst.ipv4 &&
                 key.src_port == src_port &&
@@ -130,7 +131,7 @@ struct FlowKey {
                 key.protocol == protocol);
     }
     void Reset() {
-        vrf = -1;
+        nh = -1;
         src.ipv4 = -1;
         dst.ipv4 = -1;
         src_port = -1;
@@ -142,8 +143,8 @@ struct FlowKey {
 struct FlowKeyCmp {
     bool operator()(const FlowKey &lhs, const FlowKey &rhs) {
 
-        if (lhs.vrf != rhs.vrf) {
-            return lhs.vrf < rhs.vrf;
+        if (lhs.nh != rhs.nh) {
+            return lhs.nh < rhs.nh;
         }
 
         if (lhs.src.ipv4 != rhs.src.ipv4) {
@@ -236,9 +237,11 @@ struct FlowData {
         flow_source_vrf(VrfEntry::kInvalidIndex),
         flow_dest_vrf(VrfEntry::kInvalidIndex), match_p(), vn_entry(NULL),
         intf_entry(NULL), in_vm_entry(NULL), out_vm_entry(NULL),
+        vrf(VrfEntry::kInvalidIndex),
         mirror_vrf(VrfEntry::kInvalidIndex), dest_vrf(),
         component_nh_idx((uint32_t)CompositeNH::kInvalidComponentNHIdx),
-        nh_state_(NULL), source_plen(0), dest_plen(0) {}
+        nh_state_(NULL), source_plen(0), dest_plen(0),
+        vrf_assign_evaluated(false) {}
 
     std::string source_vn;
     std::string dest_vn;
@@ -252,6 +255,7 @@ struct FlowData {
     InterfaceConstRef intf_entry;
     VmEntryConstRef in_vm_entry;
     VmEntryConstRef out_vm_entry;
+    uint32_t vrf;
     uint32_t mirror_vrf;
 
     uint16_t dest_vrf;
@@ -262,12 +266,14 @@ struct FlowData {
     NhStatePtr nh_state_;
     uint8_t source_plen;
     uint8_t dest_plen;
+    bool vrf_assign_evaluated;
 };
 
 class FlowEntry {
   public:
     static const uint32_t kInvalidFlowHandle=0xFFFFFFFF;
     static const uint8_t kMaxMirrorsPerFlow=0x2;
+    static const std::string no_uuid_string_;
 
     // Don't go beyond PCAP_END, pcap type is one byte
     enum PcapType {
@@ -329,6 +335,7 @@ class FlowEntry {
     void GetPolicyInfo(const VnEntry *vn);
     void SetMirrorVrf(const uint32_t id) {data_.mirror_vrf = id;}
     void SetMirrorVrfFromAction();
+    void SetVrfAssignEntry();
 
     void GetPolicy(const VnEntry *vn);
     void GetNonLocalFlowSgList(const VmInterface *vm_port);
@@ -342,7 +349,7 @@ class FlowEntry {
     void GetVrfAssignAcl();
     uint32_t MatchAcl(const PacketHeader &hdr,
                       MatchAclParamsList &acl, bool add_implicit_deny,
-                      bool add_implicit_allow);
+                      bool add_implicit_allow, FlowPolicyInfo *info);
     void ResetPolicy();
     void ResetStats();
     void set_deleted(bool deleted) { deleted_ = deleted; }
@@ -369,6 +376,8 @@ class FlowEntry {
     int linklocal_src_port_fd() const { return linklocal_src_port_fd_; }
     const std::string& acl_assigned_vrf() const;
     uint32_t acl_assigned_vrf_index() const;
+    const std::string &sg_rule_uuid() const { return sg_rule_uuid_; }
+    const std::string &nw_ace_uuid() const { return nw_ace_uuid_; }
 private:
     friend class FlowTable;
     friend class FlowStatsCollector;
@@ -394,6 +403,8 @@ private:
     uint16_t linklocal_src_port_;
     // fd of the socket used to locally bind in case of linklocal
     int linklocal_src_port_fd_;
+    std::string sg_rule_uuid_;
+    std::string nw_ace_uuid_;
     // atomic refcount
     tbb::atomic<int> refcount_;
 };
@@ -644,11 +655,11 @@ inline void intrusive_ptr_release(const NhState *nh_state) {
 class NhListener {
 public:
     NhListener() {
-        id_ = Agent::GetInstance()->GetNextHopTable()->
+        id_ = Agent::GetInstance()->nexthop_table()->
               Register(boost::bind(&NhListener::Notify, this, _1, _2));
     }
     ~NhListener() {
-        Agent::GetInstance()->GetNextHopTable()->Unregister(id_);
+        Agent::GetInstance()->nexthop_table()->Unregister(id_);
     }
     void Notify(DBTablePartBase *part, DBEntryBase *e);
     DBTableBase::ListenerId id() {

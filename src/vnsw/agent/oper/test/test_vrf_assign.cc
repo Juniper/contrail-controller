@@ -23,14 +23,14 @@ static void ValidateSandeshResponse(Sandesh *sandesh, vector<int> &result) {
 static void NovaIntfAdd(int id, const char *name, const char *addr,
                         const char *mac) {
     IpAddress ip = Ip4Address::from_string(addr);
-    VmInterface::Add(Agent::GetInstance()->GetInterfaceTable(),
+    VmInterface::Add(Agent::GetInstance()->interface_table(),
                      MakeUuid(id), name, ip.to_v4(), mac, "",
                      MakeUuid(kProjectUuid),
                      VmInterface::kInvalidVlanId, Agent::NullString());
 }
 
 static void NovaDel(int id) {
-    VmInterface::Delete(Agent::GetInstance()->GetInterfaceTable(),
+    VmInterface::Delete(Agent::GetInstance()->interface_table(),
                         MakeUuid(id));
 }
 
@@ -57,7 +57,7 @@ static void CfgIntfSync(int id, const char *cfg_str, int vn, int vm, std::string
     cfg_data->vm_uuid_ = vm_uuid;
     cfg_data->floating_ip_list_ = list;
     req.data.reset(cfg_data);
-    Agent::GetInstance()->GetInterfaceTable()->Enqueue(&req);
+    Agent::GetInstance()->interface_table()->Enqueue(&req);
 }
 
 struct PortInfo input1[] = {
@@ -71,9 +71,15 @@ public:
         CreateVmportEnv(input1, 1);
         client->WaitForIdle();
         EXPECT_TRUE(VmPortActive(1));
+        VmInterface *interface = static_cast<VmInterface *>(VmPortGet(1));
+        ether_addr mac;
+        VlanNH::CreateReq(interface->GetUuid(), 1, "vrf1", mac, mac);
+        client->WaitForIdle();
     }
 
     virtual void TearDown() {
+        VmInterface *interface = static_cast<VmInterface *>(VmPortGet(1));
+        VlanNH::DeleteReq(interface->GetUuid(), 1);
         DeleteVmportEnv(input1, 1, true);
         client->WaitForIdle();
         EXPECT_FALSE(VmPortActive(1));
@@ -155,6 +161,7 @@ int main(int argc, char **argv) {
     client = TestInit(init_file, ksync_init);
 
     int ret = RUN_ALL_TESTS();
-    usleep(10000);
+    TestShutdown();
+    delete client;
     return ret;
 }

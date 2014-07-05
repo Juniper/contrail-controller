@@ -58,6 +58,10 @@ public:
     }
 
     virtual void TearDown() {
+        InterfaceEvent(true, "vnet1", 0);
+        InterfaceEvent(true, "vnet1", 0);
+        InterfaceEvent(false, "vnet1", 0);
+        InterfaceEvent(false, "vnet2", 0);
         DeleteVmportEnv(input, 2, true, 1);
         client->WaitForIdle();
     }
@@ -278,7 +282,7 @@ TEST_F(TestVnswIf, EcmpActivateDeactivate_1) {
 
     client->Reset();
     // Create ports with ECMP
-    CreateVmportEnv(input, 3);
+    CreateVmportWithEcmp(input, 3);
     client->WaitForIdle();
     client->WaitForIdle();
     // Ensure all interface are active
@@ -369,7 +373,7 @@ int main(int argc, char *argv[]) {
 
     client = TestInit(init_file, ksync_init);
     Agent::GetInstance()->ksync()->VnswInterfaceListenerInit();
-    Agent::GetInstance()->SetRouterId(Ip4Address::from_string("10.1.1.1"));
+    Agent::GetInstance()->set_router_id(Ip4Address::from_string("10.1.1.1"));
 
     int ret = RUN_ALL_TESTS();
     TestShutdown();

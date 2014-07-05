@@ -35,7 +35,7 @@ public:
     const bool log_local() const { return log_local_; }
     const bool dup() const { return dup_; }
     const int analytics_data_ttl() const { return analytics_data_ttl_; }
-    const uint16_t syslog_port() const { return syslog_port_; }
+    const int syslog_port() const { return syslog_port_; }
     const bool test_mode() const { return test_mode_; }
 
 private:
@@ -43,6 +43,14 @@ private:
     template <typename ValueType>
     void GetOptValue(const boost::program_options::variables_map &var_map,
                      ValueType &var, std::string val);
+    // Implementation overloads
+    template <typename ValueType>
+    void GetOptValueImpl(const boost::program_options::variables_map &var_map,
+                         ValueType &var, std::string val, ValueType*);
+    template <typename ElementType>
+    void GetOptValueImpl(const boost::program_options::variables_map &var_map,
+                         std::vector<ElementType> &var, std::string val,
+                         std::vector<ElementType> *);
     void Process(int argc, char *argv[],
             boost::program_options::options_description &cmdline_options);
     void Initialize(EventManager &evm,
@@ -65,7 +73,7 @@ private:
     long log_file_size_;
     std::string log_level_;
     bool log_local_;
-    uint16_t syslog_port_;
+    int syslog_port_;
     bool test_mode_;
     bool dup_;
     int analytics_data_ttl_;

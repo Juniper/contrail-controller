@@ -10,7 +10,6 @@ setup(
     packages=[
         'discovery',
         'discovery.sandesh',
-        'discovery.sandesh.vns',
         'discovery.sandesh.discovery_introspect',
     ],
     package_data={'': ['*.html', '*.css', '*.xml']},
@@ -22,7 +21,7 @@ setup(
     ],
     entry_points = {
         'console_scripts' : [
-            'discovery-server = discovery.disc_server_zk:server_main',
+            'discovery-server = discovery.disc_server:server_main',
         ],
     },
  

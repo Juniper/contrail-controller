@@ -69,10 +69,10 @@ public:
         EXPECT_TRUE(VmPortActive(input, 1));
         EXPECT_TRUE(VmPortPolicyEnable(input, 0));
         EXPECT_TRUE(VmPortPolicyEnable(input, 1));
-        EXPECT_EQ(5U, Agent::GetInstance()->GetInterfaceTable()->Size());
-        EXPECT_EQ(2U, Agent::GetInstance()->GetVmTable()->Size());
-        EXPECT_EQ(vn_count, Agent::GetInstance()->GetVnTable()->Size());
-        EXPECT_EQ(2U, Agent::GetInstance()->GetIntfCfgTable()->Size());
+        EXPECT_EQ(5U, Agent::GetInstance()->interface_table()->Size());
+        EXPECT_EQ(2U, Agent::GetInstance()->vm_table()->Size());
+        EXPECT_EQ(vn_count, Agent::GetInstance()->vn_table()->Size());
+        EXPECT_EQ(2U, Agent::GetInstance()->interface_config_table()->Size());
 
         flow0 = VmInterfaceGet(input[0].intf_id);
         assert(flow0);
@@ -90,9 +90,9 @@ public:
 
         EXPECT_TRUE(VmPortActive(stats_if, 0));
         EXPECT_TRUE(VmPortActive(stats_if, 1));
-        EXPECT_EQ(4U, Agent::GetInstance()->GetVmTable()->Size());
-        EXPECT_EQ(vn_count, Agent::GetInstance()->GetVnTable()->Size());
-        EXPECT_EQ(4U, Agent::GetInstance()->GetIntfCfgTable()->Size());
+        EXPECT_EQ(4U, Agent::GetInstance()->vm_table()->Size());
+        EXPECT_EQ(vn_count, Agent::GetInstance()->vn_table()->Size());
+        EXPECT_EQ(4U, Agent::GetInstance()->interface_config_table()->Size());
 
         test0 = VmInterfaceGet(stats_if[0].intf_id);
         assert(test0);
@@ -110,28 +110,30 @@ TEST_F(StatsTestMock, FlowStatsTest) {
     //Flow creation using IP packet
     TxIpPacketUtil(flow0->id(), "1.1.1.1", "1.1.1.2", 0, hash_id);
     client->WaitForIdle(10);
-    EXPECT_TRUE(FlowGet("vrf5", "1.1.1.1", "1.1.1.2", 0, 0, 0, false, 
-                        "vn5", "vn5", hash_id++));
+    EXPECT_TRUE(FlowGet("vrf5", "1.1.1.1", "1.1.1.2", 0, 0, 0, false,
+                        "vn5", "vn5", hash_id++, flow0->flow_key_nh()->id()));
 
     //Create flow in reverse direction and make sure it is linked to previous flow
     TxIpPacketUtil(flow1->id(), "1.1.1.2", "1.1.1.1", 0, hash_id);
     client->WaitForIdle(10);
     EXPECT_TRUE(FlowGet("vrf5", "1.1.1.2", "1.1.1.1", 0, 0, 0, true, 
-                          "vn5", "vn5", hash_id++));
+                        "vn5", "vn5", hash_id++, flow1->flow_key_nh()->id(),
+                        flow0->flow_key_nh()->id()));
 
     //Flow creation using TCP packet
     TxTcpPacketUtil(flow0->id(), "1.1.1.1", "1.1.1.2",
                     1000, 200, hash_id);
     client->WaitForIdle(10);
     EXPECT_TRUE(FlowGet("vrf5", "1.1.1.1", "1.1.1.2", 6, 1000, 200, false,
-                        "vn5", "vn5", hash_id++));
+                        "vn5", "vn5", hash_id++, flow0->flow_key_nh()->id()));
 
     //Create flow in reverse direction and make sure it is linked to previous flow
     TxTcpPacketUtil(flow1->id(), "1.1.1.2", "1.1.1.1",
                 200, 1000, hash_id);
     client->WaitForIdle(10);
     EXPECT_TRUE(FlowGet("vrf5", "1.1.1.2", "1.1.1.1", 6, 200, 1000, true, 
-                        "vn5", "vn5", hash_id++));
+                        "vn5", "vn5", hash_id++, flow1->flow_key_nh()->id(),
+                        flow0->flow_key_nh()->id()));
 
     //Verify flow count
     EXPECT_EQ(4U, Agent::GetInstance()->pkt()->flow_table()->Size());
@@ -140,10 +142,14 @@ TEST_F(StatsTestMock, FlowStatsTest) {
     Agent::GetInstance()->uve()->flow_stats_collector()->Run();
 
     //Verify flow stats
-    EXPECT_TRUE(FlowStatsMatch("vrf5", "1.1.1.1", "1.1.1.2", 0, 0, 0, 1, 30));
-    EXPECT_TRUE(FlowStatsMatch("vrf5", "1.1.1.2", "1.1.1.1", 0, 0, 0, 1, 30));
-    EXPECT_TRUE(FlowStatsMatch("vrf5", "1.1.1.1", "1.1.1.2", 6, 1000, 200, 1, 30));
-    EXPECT_TRUE(FlowStatsMatch("vrf5", "1.1.1.2", "1.1.1.1", 6, 200, 1000, 1, 30));
+    EXPECT_TRUE(FlowStatsMatch("vrf5", "1.1.1.1", "1.1.1.2", 0, 0, 0, 1, 30,
+                               flow0->flow_key_nh()->id()));
+    EXPECT_TRUE(FlowStatsMatch("vrf5", "1.1.1.2", "1.1.1.1", 0, 0, 0, 1, 30,
+                               flow1->flow_key_nh()->id()));
+    EXPECT_TRUE(FlowStatsMatch("vrf5", "1.1.1.1", "1.1.1.2", 6, 1000, 200, 1, 30,
+                               flow0->flow_key_nh()->id()));
+    EXPECT_TRUE(FlowStatsMatch("vrf5", "1.1.1.2", "1.1.1.1", 6, 200, 1000, 1, 30,
+                               flow1->flow_key_nh()->id()));
 
     //Change the stats
     KSyncSockTypeMap::IncrFlowStats(1, 1, 30);
@@ -155,10 +161,14 @@ TEST_F(StatsTestMock, FlowStatsTest) {
     Agent::GetInstance()->uve()->flow_stats_collector()->Run();
 
     //Verify the updated flow stats
-    EXPECT_TRUE(FlowStatsMatch("vrf5", "1.1.1.1", "1.1.1.2", 0, 0, 0, 2, 60));
-    EXPECT_TRUE(FlowStatsMatch("vrf5", "1.1.1.2", "1.1.1.1", 0, 0, 0, 2, 60));
-    EXPECT_TRUE(FlowStatsMatch("vrf5", "1.1.1.1", "1.1.1.2", 6, 1000, 200, 2, 60));
-    EXPECT_TRUE(FlowStatsMatch("vrf5", "1.1.1.2", "1.1.1.1", 6, 200, 1000, 2, 60));
+    EXPECT_TRUE(FlowStatsMatch("vrf5", "1.1.1.1", "1.1.1.2", 0, 0, 0, 2, 60,
+                               flow0->flow_key_nh()->id()));
+    EXPECT_TRUE(FlowStatsMatch("vrf5", "1.1.1.2", "1.1.1.1", 0, 0, 0, 2, 60,
+                               flow1->flow_key_nh()->id()));
+    EXPECT_TRUE(FlowStatsMatch("vrf5", "1.1.1.1", "1.1.1.2", 6, 1000, 200, 2, 60,
+                               flow0->flow_key_nh()->id()));
+    EXPECT_TRUE(FlowStatsMatch("vrf5", "1.1.1.2", "1.1.1.1", 6, 200, 1000, 2, 60,
+                               flow1->flow_key_nh()->id()));
 
     client->EnqueueFlowFlush();
     client->WaitForIdle(10);
@@ -172,14 +182,15 @@ TEST_F(StatsTestMock, FlowStatsOverflowTest) {
                     1000, 200, hash_id);
     client->WaitForIdle(10);
     EXPECT_TRUE(FlowGet("vrf5", "1.1.1.1", "1.1.1.2", 6, 1000, 200, false,
-                        "vn5", "vn5", hash_id++));
+                        "vn5", "vn5", hash_id++, flow0->flow_key_nh()->id()));
 
     //Create flow in reverse direction and make sure it is linked to previous flow
     TxTcpPacketUtil(flow1->id(), "1.1.1.2", "1.1.1.1",
                 200, 1000, hash_id);
     client->WaitForIdle(10);
     EXPECT_TRUE(FlowGet("vrf5", "1.1.1.2", "1.1.1.1", 6, 200, 1000, true, 
-                        "vn5", "vn5", hash_id++));
+                        "vn5", "vn5", hash_id++, flow1->flow_key_nh()->id(),
+                        flow0->flow_key_nh()->id()));
 
     //Verify flow count
     EXPECT_EQ(2U, Agent::GetInstance()->pkt()->flow_table()->Size());
@@ -188,8 +199,10 @@ TEST_F(StatsTestMock, FlowStatsOverflowTest) {
     Agent::GetInstance()->uve()->flow_stats_collector()->Run();
 
     //Verify flow stats
-    EXPECT_TRUE(FlowStatsMatch("vrf5", "1.1.1.1", "1.1.1.2", 6, 1000, 200, 1, 30));
-    EXPECT_TRUE(FlowStatsMatch("vrf5", "1.1.1.2", "1.1.1.1", 6, 200, 1000, 1, 30));
+    EXPECT_TRUE(FlowStatsMatch("vrf5", "1.1.1.1", "1.1.1.2", 6, 1000, 200, 1, 30,
+                               flow0->flow_key_nh()->id()));
+    EXPECT_TRUE(FlowStatsMatch("vrf5", "1.1.1.2", "1.1.1.1", 6, 200, 1000, 1, 30,
+                               flow1->flow_key_nh()->id()));
 
     /* Verify overflow counter of vrouter-Test1 */
     //Decrement the stats so that they become 0
@@ -203,8 +216,12 @@ TEST_F(StatsTestMock, FlowStatsOverflowTest) {
     Agent::GetInstance()->uve()->flow_stats_collector()->Run();
 
     //Verify the updated flow stats
-    EXPECT_TRUE(FlowStatsMatch("vrf5", "1.1.1.1", "1.1.1.2", 6, 1000, 200, 0x100000000ULL, 0x100000000ULL));
-    EXPECT_TRUE(FlowStatsMatch("vrf5", "1.1.1.2", "1.1.1.1", 6, 200, 1000, 0x100000000ULL, 0x100000000ULL));
+    EXPECT_TRUE(FlowStatsMatch("vrf5", "1.1.1.1", "1.1.1.2", 6, 1000, 200,
+                               0x100000000ULL, 0x100000000ULL,
+                               flow0->flow_key_nh()->id()));
+    EXPECT_TRUE(FlowStatsMatch("vrf5", "1.1.1.2", "1.1.1.1", 6, 200, 1000,
+                               0x100000000ULL, 0x100000000ULL,
+                               flow1->flow_key_nh()->id()));
 
     /* Verify overflow counter of vrouter-Test2 */
     KSyncSockTypeMap::IncrFlowStats(1, 1, 0x10);
@@ -214,8 +231,12 @@ TEST_F(StatsTestMock, FlowStatsOverflowTest) {
     Agent::GetInstance()->uve()->flow_stats_collector()->Run();
 
     //Verify the updated flow stats
-    EXPECT_TRUE(FlowStatsMatch("vrf5", "1.1.1.1", "1.1.1.2", 6, 1000, 200, 0x100000001ULL, 0x100000010ULL));
-    EXPECT_TRUE(FlowStatsMatch("vrf5", "1.1.1.2", "1.1.1.1", 6, 200, 1000, 0x100000001ULL, 0x100000010ULL));
+    EXPECT_TRUE(FlowStatsMatch("vrf5", "1.1.1.1", "1.1.1.2", 6, 1000, 200,
+                               0x100000001ULL, 0x100000010ULL,
+                               flow0->flow_key_nh()->id()));
+    EXPECT_TRUE(FlowStatsMatch("vrf5", "1.1.1.2", "1.1.1.1", 6, 200, 1000,
+                               0x100000001ULL, 0x100000010ULL,
+                               flow1->flow_key_nh()->id()));
 
     /* Verify overflow counter of vrouter-Test3 */
     KSyncSockTypeMap::SetOFlowStats(1, 2, 3);
@@ -225,8 +246,12 @@ TEST_F(StatsTestMock, FlowStatsOverflowTest) {
     Agent::GetInstance()->uve()->flow_stats_collector()->Run();
 
     //Verify the updated flow stats
-    EXPECT_TRUE(FlowStatsMatch("vrf5", "1.1.1.1", "1.1.1.2", 6, 1000, 200, 0x200000001ULL, 0x300000010ULL));
-    EXPECT_TRUE(FlowStatsMatch("vrf5", "1.1.1.2", "1.1.1.1", 6, 200, 1000, 0x400000001ULL, 0x500000010ULL));
+    EXPECT_TRUE(FlowStatsMatch("vrf5", "1.1.1.1", "1.1.1.2", 6, 1000, 200,
+                               0x200000001ULL, 0x300000010ULL,
+                               flow0->flow_key_nh()->id()));
+    EXPECT_TRUE(FlowStatsMatch("vrf5", "1.1.1.2", "1.1.1.1", 6, 200, 1000,
+                               0x400000001ULL, 0x500000010ULL,
+                               flow1->flow_key_nh()->id()));
 
     /* Verify overflow counter of vrouter-Test4 */
     KSyncSockTypeMap::IncrFlowStats(1, 1, 0x10);
@@ -239,8 +264,12 @@ TEST_F(StatsTestMock, FlowStatsOverflowTest) {
     Agent::GetInstance()->uve()->flow_stats_collector()->Run();
 
     //Verify the updated flow stats
-    EXPECT_TRUE(FlowStatsMatch("vrf5", "1.1.1.1", "1.1.1.2", 6, 1000, 200, 0xA00000002ULL, 0xB00000020ULL));
-    EXPECT_TRUE(FlowStatsMatch("vrf5", "1.1.1.2", "1.1.1.1", 6, 200, 1000, 0xC00000002ULL, 0xD00000020ULL));
+    EXPECT_TRUE(FlowStatsMatch("vrf5", "1.1.1.1", "1.1.1.2", 6, 1000, 200,
+                               0xA00000002ULL, 0xB00000020ULL,
+                               flow0->flow_key_nh()->id()));
+    EXPECT_TRUE(FlowStatsMatch("vrf5", "1.1.1.2", "1.1.1.1", 6, 200, 1000,
+                               0xC00000002ULL, 0xD00000020ULL,
+                               flow1->flow_key_nh()->id()));
 
     /* Verify overflow counter of agent-Test1 */
     //Decrement flow stats
@@ -251,8 +280,12 @@ TEST_F(StatsTestMock, FlowStatsOverflowTest) {
     Agent::GetInstance()->uve()->flow_stats_collector()->Run();
 
     //Verify the updated flow stats
-    EXPECT_TRUE(FlowStatsMatch("vrf5", "1.1.1.1", "1.1.1.2", 6, 1000, 200, 0x10A00000001ULL, 0x1000B00000010ULL));
-    EXPECT_TRUE(FlowStatsMatch("vrf5", "1.1.1.2", "1.1.1.1", 6, 200, 1000, 0x10C00000001ULL, 0x1000D00000010ULL));
+    EXPECT_TRUE(FlowStatsMatch("vrf5", "1.1.1.1", "1.1.1.2", 6, 1000, 200,
+                               0x10A00000001ULL, 0x1000B00000010ULL,
+                               flow0->flow_key_nh()->id()));
+    EXPECT_TRUE(FlowStatsMatch("vrf5", "1.1.1.2", "1.1.1.1", 6, 200, 1000,
+                               0x10C00000001ULL, 0x1000D00000010ULL,
+                               flow1->flow_key_nh()->id()));
 
     /* Verify overflow counter of agent-Test2 */
     KSyncSockTypeMap::IncrFlowStats(1, 1, 0x10);
@@ -262,8 +295,12 @@ TEST_F(StatsTestMock, FlowStatsOverflowTest) {
     Agent::GetInstance()->uve()->flow_stats_collector()->Run();
 
     //Verify the updated flow stats
-    EXPECT_TRUE(FlowStatsMatch("vrf5", "1.1.1.1", "1.1.1.2", 6, 1000, 200, 0x10A00000002ULL, 0x1000B00000020ULL));
-    EXPECT_TRUE(FlowStatsMatch("vrf5", "1.1.1.2", "1.1.1.1", 6, 200, 1000, 0x10C00000002ULL, 0x1000D00000020ULL));
+    EXPECT_TRUE(FlowStatsMatch("vrf5", "1.1.1.1", "1.1.1.2", 6, 1000, 200,
+                               0x10A00000002ULL, 0x1000B00000020ULL,
+                               flow0->flow_key_nh()->id()));
+    EXPECT_TRUE(FlowStatsMatch("vrf5", "1.1.1.2", "1.1.1.1", 6, 200, 1000,
+                               0x10C00000002ULL, 0x1000D00000020ULL,
+                               flow1->flow_key_nh()->id()));
 
     /* Verify overflow counter of agent-Test3 */
     KSyncSockTypeMap::SetOFlowStats(1, 0xA1, 0xB1);
@@ -273,8 +310,12 @@ TEST_F(StatsTestMock, FlowStatsOverflowTest) {
     Agent::GetInstance()->uve()->flow_stats_collector()->Run();
 
     //Verify the updated flow stats
-    EXPECT_TRUE(FlowStatsMatch("vrf5", "1.1.1.1", "1.1.1.2", 6, 1000, 200, 0x1A100000002ULL, 0x100B100000020ULL));
-    EXPECT_TRUE(FlowStatsMatch("vrf5", "1.1.1.2", "1.1.1.1", 6, 200, 1000, 0x1C100000002ULL, 0x100D100000020ULL));
+    EXPECT_TRUE(FlowStatsMatch("vrf5", "1.1.1.1", "1.1.1.2", 6, 1000, 200,
+                               0x1A100000002ULL, 0x100B100000020ULL,
+                               flow0->flow_key_nh()->id()));
+    EXPECT_TRUE(FlowStatsMatch("vrf5", "1.1.1.2", "1.1.1.1", 6, 200, 1000,
+                               0x1C100000002ULL, 0x100D100000020ULL,
+                               flow1->flow_key_nh()->id()));
 
     //cleanup
     KSyncSockTypeMap::SetOFlowStats(1, 0, 0);
@@ -291,14 +332,15 @@ TEST_F(StatsTestMock, FlowStatsOverflow_AgeTest) {
                     1000, 200, hash_id);
     client->WaitForIdle(10);
     EXPECT_TRUE(FlowGet("vrf5", "1.1.1.1", "1.1.1.2", 6, 1000, 200, false,
-                        "vn5", "vn5", hash_id++));
+                        "vn5", "vn5", hash_id++, flow0->flow_key_nh()->id()));
 
     //Create flow in reverse direction and make sure it is linked to previous flow
     TxTcpPacketUtil(flow1->id(), "1.1.1.2", "1.1.1.1",
                 200, 1000, hash_id);
     client->WaitForIdle(10);
-    EXPECT_TRUE(FlowGet("vrf5", "1.1.1.2", "1.1.1.1", 6, 200, 1000, true, 
-                        "vn5", "vn5", hash_id++));
+    EXPECT_TRUE(FlowGet("vrf5", "1.1.1.2", "1.1.1.1", 6, 200, 1000, true,
+                        "vn5", "vn5", hash_id++, flow1->flow_key_nh()->id(),
+                        flow0->flow_key_nh()->id()));
 
     //Verify flow count
     EXPECT_EQ(2U, Agent::GetInstance()->pkt()->flow_table()->Size());
@@ -307,8 +349,10 @@ TEST_F(StatsTestMock, FlowStatsOverflow_AgeTest) {
     Agent::GetInstance()->uve()->flow_stats_collector()->Run();
 
     //Verify flow stats
-    EXPECT_TRUE(FlowStatsMatch("vrf5", "1.1.1.1", "1.1.1.2", 6, 1000, 200, 1, 30));
-    EXPECT_TRUE(FlowStatsMatch("vrf5", "1.1.1.2", "1.1.1.1", 6, 200, 1000, 1, 30));
+    EXPECT_TRUE(FlowStatsMatch("vrf5", "1.1.1.1", "1.1.1.2", 6, 1000, 200, 1, 30,
+                               flow0->flow_key_nh()->id()));
+    EXPECT_TRUE(FlowStatsMatch("vrf5", "1.1.1.2", "1.1.1.1", 6, 200, 1000, 1, 30,
+                               flow1->flow_key_nh()->id()));
 
     /* Verify overflow counter of agent */
     //Decrement the stats so that they become 0
@@ -319,8 +363,12 @@ TEST_F(StatsTestMock, FlowStatsOverflow_AgeTest) {
     Agent::GetInstance()->uve()->flow_stats_collector()->Run();
 
     //Verify flow stats
-    EXPECT_TRUE(FlowStatsMatch("vrf5", "1.1.1.1", "1.1.1.2", 6, 1000, 200, 0x10000000000ULL, 0x1000000000000ULL));
-    EXPECT_TRUE(FlowStatsMatch("vrf5", "1.1.1.2", "1.1.1.1", 6, 200, 1000, 0x10000000000ULL, 0x1000000000000ULL));
+    EXPECT_TRUE(FlowStatsMatch("vrf5", "1.1.1.1", "1.1.1.2", 6, 1000, 200,
+                               0x10000000000ULL, 0x1000000000000ULL,
+                               flow0->flow_key_nh()->id()));
+    EXPECT_TRUE(FlowStatsMatch("vrf5", "1.1.1.2", "1.1.1.1", 6, 200, 1000,
+                               0x10000000000ULL, 0x1000000000000ULL,
+                               flow1->flow_key_nh()->id()));
 
     int tmp_age_time = 1000 * 1000;
     int bkp_age_time = 
@@ -346,26 +394,28 @@ TEST_F(StatsTestMock, DeletedFlowStatsTest) {
     TxIpPacketUtil(flow0->id(), "1.1.1.1", "1.1.1.2", 0, hash_id);
     client->WaitForIdle(10);
     EXPECT_TRUE(FlowGet("vrf5", "1.1.1.1", "1.1.1.2", 0, 0, 0, false, 
-                        "vn5", "vn5", hash_id++));
+                        "vn5", "vn5", hash_id++, flow0->flow_key_nh()->id()));
     //Create flow in reverse direction and make sure it is linked to previous flow
     TxIpPacketUtil(flow1->id(), "1.1.1.2", "1.1.1.1", 0, hash_id);
     client->WaitForIdle(10);
     EXPECT_TRUE(FlowGet("vrf5", "1.1.1.2", "1.1.1.1", 0, 0, 0, true, 
-                          "vn5", "vn5", hash_id++));
+                        "vn5", "vn5", hash_id++, flow1->flow_key_nh()->id(),
+                        flow0->flow_key_nh()->id()));
 
     //Flow creation using TCP packet
     TxTcpPacketUtil(flow0->id(), "1.1.1.1", "1.1.1.2",
                     1000, 200, hash_id);
     client->WaitForIdle(10);
     EXPECT_TRUE(FlowGet("vrf5", "1.1.1.1", "1.1.1.2", 6, 1000, 200, false,
-                        "vn5", "vn5", hash_id++));
+                        "vn5", "vn5", hash_id++, flow0->flow_key_nh()->id()));
 
     //Create flow in reverse direction and make sure it is linked to previous flow
     TxTcpPacketUtil(flow1->id(), "1.1.1.2", "1.1.1.1",
                 200, 1000, hash_id);
     client->WaitForIdle(10);
     EXPECT_TRUE(FlowGet("vrf5", "1.1.1.2", "1.1.1.1", 6, 200, 1000, true, 
-                        "vn5", "vn5", hash_id++));
+                        "vn5", "vn5", hash_id++, flow1->flow_key_nh()->id(),
+                        flow0->flow_key_nh()->id()));
 
     //Verify flow count
     EXPECT_EQ(4U, Agent::GetInstance()->pkt()->flow_table()->Size());
@@ -374,18 +424,24 @@ TEST_F(StatsTestMock, DeletedFlowStatsTest) {
     Agent::GetInstance()->uve()->flow_stats_collector()->Run();
 
     //Verify flow stats
-    EXPECT_TRUE(FlowStatsMatch("vrf5", "1.1.1.1", "1.1.1.2", 0, 0, 0, 1, 30));
-    EXPECT_TRUE(FlowStatsMatch("vrf5", "1.1.1.2", "1.1.1.1", 0, 0, 0, 1, 30));
-    EXPECT_TRUE(FlowStatsMatch("vrf5", "1.1.1.1", "1.1.1.2", 6, 1000, 200, 1, 30));
-    EXPECT_TRUE(FlowStatsMatch("vrf5", "1.1.1.2", "1.1.1.1", 6, 200, 1000, 1, 30));
+    EXPECT_TRUE(FlowStatsMatch("vrf5", "1.1.1.1", "1.1.1.2", 0, 0, 0, 1, 30,
+                               flow0->flow_key_nh()->id()));
+    EXPECT_TRUE(FlowStatsMatch("vrf5", "1.1.1.2", "1.1.1.1", 0, 0, 0, 1, 30,
+                               flow1->flow_key_nh()->id()));
+    EXPECT_TRUE(FlowStatsMatch("vrf5", "1.1.1.1", "1.1.1.2", 6, 1000, 200, 1, 30,
+                               flow0->flow_key_nh()->id()));
+    EXPECT_TRUE(FlowStatsMatch("vrf5", "1.1.1.2", "1.1.1.1", 6, 200, 1000, 1, 30,
+                               flow1->flow_key_nh()->id()));
 
-    VrfEntry *vrf = Agent::GetInstance()->GetVrfTable()->FindVrfFromName("vrf5");
+    VrfEntry *vrf = Agent::GetInstance()->vrf_table()->FindVrfFromName("vrf5");
     EXPECT_TRUE(vrf != NULL);
     if (vrf == NULL)
         return;
 
-    FlowEntry* one = FlowGet(vrf->vrf_id(), "1.1.1.1", "1.1.1.2", 0, 0, 0);
-    FlowEntry* two = FlowGet(vrf->vrf_id(), "1.1.1.2", "1.1.1.1", 0, 0, 0);
+    FlowEntry* one = FlowGet(vrf->vrf_id(), "1.1.1.1", "1.1.1.2", 0, 0, 0,
+                             flow0->flow_key_nh()->id());
+    FlowEntry* two = FlowGet(vrf->vrf_id(), "1.1.1.2", "1.1.1.1", 0, 0, 0,
+                             flow1->flow_key_nh()->id());
 
     //Mark the flow entries as deleted
     one->set_deleted(true);
@@ -401,12 +457,16 @@ TEST_F(StatsTestMock, DeletedFlowStatsTest) {
     Agent::GetInstance()->uve()->flow_stats_collector()->Run();
 
     //Verify flow stats are unchanged for deleted flows
-    EXPECT_TRUE(FlowStatsMatch("vrf5", "1.1.1.1", "1.1.1.2", 0, 0, 0, 1, 30));
-    EXPECT_TRUE(FlowStatsMatch("vrf5", "1.1.1.2", "1.1.1.1", 0, 0, 0, 1, 30));
+    EXPECT_TRUE(FlowStatsMatch("vrf5", "1.1.1.1", "1.1.1.2", 0, 0, 0, 1, 30,
+                               flow0->flow_key_nh()->id()));
+    EXPECT_TRUE(FlowStatsMatch("vrf5", "1.1.1.2", "1.1.1.1", 0, 0, 0, 1, 30,
+                               flow1->flow_key_nh()->id()));
 
     //Verfiy flow stats are updated for flows which are not marked for delete
-    EXPECT_TRUE(FlowStatsMatch("vrf5", "1.1.1.1", "1.1.1.2", 6, 1000, 200, 2, 60));
-    EXPECT_TRUE(FlowStatsMatch("vrf5", "1.1.1.2", "1.1.1.1", 6, 200, 1000, 2, 60));
+    EXPECT_TRUE(FlowStatsMatch("vrf5", "1.1.1.1", "1.1.1.2", 6, 1000, 200, 2, 60,
+                               flow0->flow_key_nh()->id()));
+    EXPECT_TRUE(FlowStatsMatch("vrf5", "1.1.1.2", "1.1.1.1", 6, 200, 1000, 2, 60,
+                               flow1->flow_key_nh()->id()));
 
     //Remove the deleted flag, so that the cleanup can happen
     one->set_deleted(false);
@@ -453,13 +513,14 @@ TEST_F(StatsTestMock, InterVnStatsTest) {
                     30, 40, hash_id);
     client->WaitForIdle(10);
     EXPECT_TRUE(FlowGet("vrf5", "1.1.1.1", "1.1.1.2", 6, 30, 40, false, 
-                        "vn5", "vn5", hash_id++));
+                        "vn5", "vn5", hash_id++, flow0->flow_key_nh()->id()));
 
     //Invoke FlowStatsCollector to update the stats
     Agent::GetInstance()->uve()->flow_stats_collector()->Run();
 
     //Verify flow stats
-    EXPECT_TRUE(FlowStatsMatch("vrf5", "1.1.1.1", "1.1.1.2", 6, 30, 40, 1, 30));
+    EXPECT_TRUE(FlowStatsMatch("vrf5", "1.1.1.1", "1.1.1.2", 6, 30, 40, 1, 30,
+                               flow0->flow_key_nh()->id()));
 
     //Verify Inter-Vn stats
     InterVnStatsMatch("vn5", "vn5", 1, 30, true); //outgoing stats
@@ -471,13 +532,15 @@ TEST_F(StatsTestMock, InterVnStatsTest) {
     client->WaitForIdle(10);
     client->WaitForIdle(10);
     EXPECT_TRUE(FlowGet("vrf5", "1.1.1.2", "1.1.1.1", 6, 40, 30, true, 
-                        "vn5", "vn5", hash_id++));
+                        "vn5", "vn5", hash_id++, flow1->flow_key_nh()->id(),
+                        flow0->flow_key_nh()->id()));
 
     //Invoke FlowStatsCollector to update the stats
     Agent::GetInstance()->uve()->flow_stats_collector()->Run();
 
     //Verify flow stats
-    EXPECT_TRUE(FlowStatsMatch("vrf5", "1.1.1.2", "1.1.1.1", 6, 40, 30, 1, 30));
+    EXPECT_TRUE(FlowStatsMatch("vrf5", "1.1.1.2", "1.1.1.1", 6, 40, 30, 1, 30,
+                               flow1->flow_key_nh()->id()));
 
     //Verify Inter-Vn stats
     InterVnStatsMatch("vn5", "vn5", 2, 60, true); //outgoing stats
@@ -528,7 +591,7 @@ TEST_F(StatsTestMock, VrfStatsTest) {
     WAIT_FOR(100, 10000, (VrfFind("vrf41")== true));
     EXPECT_TRUE(DBTableFind("vrf41.uc.route.0"));
 
-    VrfEntry *vrf = Agent::GetInstance()->GetVrfTable()->FindVrfFromName("vrf41");
+    VrfEntry *vrf = Agent::GetInstance()->vrf_table()->FindVrfFromName("vrf41");
     EXPECT_TRUE(vrf != NULL);
     int vrf41_id = vrf->vrf_id();
 
@@ -537,7 +600,7 @@ TEST_F(StatsTestMock, VrfStatsTest) {
     WAIT_FOR(100, 10000, (VrfFind("vrf42")== true));
     EXPECT_TRUE(DBTableFind("vrf42.uc.route.0"));
 
-    vrf = Agent::GetInstance()->GetVrfTable()->FindVrfFromName("vrf42");
+    vrf = Agent::GetInstance()->vrf_table()->FindVrfFromName("vrf42");
     EXPECT_TRUE(vrf != NULL);
     int vrf42_id = vrf->vrf_id();
 
@@ -614,7 +677,7 @@ TEST_F(StatsTestMock, VrfStatsTest) {
     WAIT_FOR(100, 10000, (VrfFind("vrf41")== true));
     EXPECT_TRUE(DBTableFind("vrf41.uc.route.0"));
 
-    vrf = Agent::GetInstance()->GetVrfTable()->FindVrfFromName("vrf41");
+    vrf = Agent::GetInstance()->vrf_table()->FindVrfFromName("vrf41");
     EXPECT_TRUE(vrf != NULL);
 
     VrfAddReq("vrf42");
@@ -622,7 +685,7 @@ TEST_F(StatsTestMock, VrfStatsTest) {
     WAIT_FOR(100, 10000, (VrfFind("vrf42")== true));
     EXPECT_TRUE(DBTableFind("vrf42.uc.route.0"));
 
-    vrf = Agent::GetInstance()->GetVrfTable()->FindVrfFromName("vrf42");
+    vrf = Agent::GetInstance()->vrf_table()->FindVrfFromName("vrf42");
     EXPECT_TRUE(vrf != NULL);
 
     //Wait for stats to be updated in agent
@@ -716,9 +779,10 @@ int main(int argc, char *argv[]) {
 
     ret = RUN_ALL_TESTS();
 
-    Agent::GetInstance()->GetEventManager()->Shutdown();
+    Agent::GetInstance()->event_manager()->Shutdown();
     AsioStop();
     cout << "Return test result:" << ret << endl;
+    TaskScheduler::GetInstance()->Terminate();
     return ret;
 }
 

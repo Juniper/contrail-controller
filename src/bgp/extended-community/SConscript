@@ -1,0 +1,15 @@
+#
+# Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
+#
+
+# -*- mode: python; -*-
+
+Import('BuildEnv')
+
+env = BuildEnv.Clone()
+
+libextended_community = env.Library('extended_community', ['mac_mobility.cc'])
+
+extended_community_test_cases = env.SConscript('test/SConscript', exports='BuildEnv',
+                                     duplicate = 0)
+Return('extended_community_test_cases')

@@ -38,6 +38,22 @@ do {                                                                           \
     Metadata##obj::TraceMsg(MetadataTraceBuf, __FILE__, __LINE__, _str.str()); \
 } while (false)                                                                \
 
+std::map<uint16_t, std::string>
+        g_http_error_map = boost::assign::map_list_of<uint16_t, std::string>
+                                        (404, "404 Not Found")
+                                        (500, "500 Internal Server Error")
+                                        (501, "501 Not Implemented")
+                                        (502, "502 Bad Gateway")
+                                        (503, "503 Service Unavailable")
+                                        (504, "504 Gateway Timeout");
+
+static std::string ErrorMessage(uint16_t ec) {
+    std::map<uint16_t, std::string>::iterator iter = g_http_error_map.find(ec);
+    if (iter == g_http_error_map.end())
+        return ""; 
+    return iter->second;
+}
+
 // Get HMAC SHA256 digest
 static std::string
 GetHmacSha256(const std::string &key, const std::string &data) {
@@ -62,19 +78,32 @@ GetHmacSha256(const std::string &key, const std::string &data) {
 MetadataProxy::MetadataProxy(ServicesModule *module,
                              const std::string &secret)
     : services_(module), shared_secret_(secret),
-      http_server_(new HttpServer(services_->agent()->GetEventManager())),
-      http_client_(new HttpClient(services_->agent()->GetEventManager())) {
+      http_server_(new HttpServer(services_->agent()->event_manager())),
+      http_client_(new HttpClient(services_->agent()->event_manager())) {
 
     // Register wildcard entry to match any URL coming on the metadata port
     http_server_->RegisterHandler(HTTP_WILDCARD_ENTRY,
         boost::bind(&MetadataProxy::HandleMetadataRequest, this, _1, _2));
     http_server_->Initialize(0);
-    services_->agent()->SetMetadataServerPort(http_server_->GetPort());
+    services_->agent()->set_metadata_server_port(http_server_->GetPort());
 
     http_client_->Init();
 }
 
 MetadataProxy::~MetadataProxy() {
+}
+
+void MetadataProxy::CloseSessions() {
+    for (SessionMap::iterator it = metadata_sessions_.begin();
+         it != metadata_sessions_.end(); ) {
+        SessionMap::iterator next = ++it;
+        CloseClientSession(it->second.conn);
+        CloseServerSession(it->first);
+        it = next;
+    }
+
+    assert(metadata_sessions_.empty());
+    assert(metadata_proxy_sessions_.empty());
 }
 
 void
@@ -88,20 +117,18 @@ MetadataProxy::Shutdown() {
 void 
 MetadataProxy::HandleMetadataRequest(HttpSession *session, const HttpRequest *request) {
     bool conn_close = false;
-    std::string msg;
-    std::string uri;
-    std::string header_options;
+    std::vector<std::string> header_options;
     std::string vm_ip, vm_uuid, vm_project_uuid;
     metadata_stats_.requests++;
     boost::asio::ip::address_v4 ip = session->remote_endpoint().address().to_v4();
 
-    if (!services_->agent()->GetInterfaceTable()->
+    if (!services_->agent()->interface_table()->
          FindVmUuidFromMetadataIp(ip, &vm_ip, &vm_uuid, &vm_project_uuid)) {
-        ErrorClose(session);
+        METADATA_TRACE(Trace, "Error: Interface Config not available; "
+                       << "; Request for VM : " << ip);
+        ErrorClose(session, 500);
         http_server_->DeleteSession(session);
         delete request;
-        METADATA_TRACE(Trace, "Metadata GET for VM : " << ip <<
-                       " Error : Interface Config not available");
         return;
     }
     std::string signature = GetHmacSha256(shared_secret_, vm_uuid);
@@ -118,47 +145,88 @@ MetadataProxy::HandleMetadataRequest(HttpSession *session, const HttpRequest *re
                 conn_close = true;
             continue;
         }
-        header_options += it->first + ": " + it->second + "\r\n";
+        header_options.push_back(std::string(it->first + ": " + it->second));
     }
 
     // keystone uses uuids without dashes and that is what ends up in
     // the nova database entry for the instance. Remove dashes from the
     // uuid string representation.
     boost::replace_all(vm_project_uuid, "-", "");
-    header_options += "X-Forwarded-For: " + vm_ip + "\r\n" +
-                      "X-Instance-ID: " + vm_uuid + "\r\n" +
-                      "X-Tenant-ID: " + vm_project_uuid + "\r\n" +
-                      "X-Instance-ID-Signature: " + signature;
+    header_options.push_back(std::string("X-Forwarded-For: " + vm_ip));
+    header_options.push_back(std::string("X-Instance-ID: " + vm_uuid));
+    header_options.push_back(std::string("X-Tenant-ID: " + vm_project_uuid));
+    header_options.push_back(std::string("X-Instance-ID-Signature: " +
+                                         signature));
 
-    bool delete_session = false;
-    uri = request->UrlPath().substr(1); // ignore the first "/"
-    switch(request->GetMethod()) {
-        case HTTP_GET: {
-            tbb::mutex::scoped_lock lock(mutex_);
-            HttpConnection *conn = GetProxyConnection(session, conn_close);
-            if (conn) {
-                conn->HttpGet(uri, true, false, header_options,
-                boost::bind(&MetadataProxy::HandleMetadataResponse,
-                            this, conn, HttpSessionPtr(session), _1, _2));
-                METADATA_TRACE(Trace, "Metadata GET for VM : " << vm_ip <<
-                               " URL : " << uri);
-            } else {
-                ErrorClose(session);
-                delete_session = true;
-                METADATA_TRACE(Trace, "Metadata GET for VM : " << vm_ip <<
-                               " Error : Metadata Config not available");
+    std::string uri = request->UrlPath().substr(1); // ignore the first "/"
+    const std::string &body = request->Body();
+    {
+        tbb::mutex::scoped_lock lock(mutex_);
+        HttpConnection *conn = GetProxyConnection(session, conn_close);
+        if (conn) {
+            switch(request->GetMethod()) {
+                case HTTP_GET: {
+                    conn->HttpGet(uri, true, false, header_options,
+                    boost::bind(&MetadataProxy::HandleMetadataResponse,
+                                this, conn, HttpSessionPtr(session), _1, _2));
+                    METADATA_TRACE(Trace, "GET request for VM : " << vm_ip
+                                   << " URL : " << uri);
+                    break;
+                }
+
+                case HTTP_HEAD: {
+                    conn->HttpHead(uri, true, false, header_options,
+                    boost::bind(&MetadataProxy::HandleMetadataResponse,
+                                this, conn, HttpSessionPtr(session), _1, _2));
+                    METADATA_TRACE(Trace, "HEAD request for VM : " << vm_ip
+                                   << " URL : " << uri);
+                    break;
+                }
+
+                case HTTP_POST: {
+                    conn->HttpPost(body, uri, true, false, header_options,
+                    boost::bind(&MetadataProxy::HandleMetadataResponse,
+                                this, conn, HttpSessionPtr(session), _1, _2));
+                    METADATA_TRACE(Trace, "POST request for VM : " << vm_ip
+                                   << " URL : " << uri);
+                    break;
+                }
+
+                case HTTP_PUT: {
+                    conn->HttpPut(body, uri, true, false, header_options,
+                    boost::bind(&MetadataProxy::HandleMetadataResponse,
+                                this, conn, HttpSessionPtr(session), _1, _2));
+                    METADATA_TRACE(Trace, "PUT request for VM : " << vm_ip
+                                   << " URL : " << uri);
+                    break;
+                }
+
+                case HTTP_DELETE: {
+                    conn->HttpDelete(uri, true, false, header_options,
+                    boost::bind(&MetadataProxy::HandleMetadataResponse,
+                                this, conn, HttpSessionPtr(session), _1, _2));
+                    METADATA_TRACE(Trace, "Delete request for VM : " << vm_ip
+                                   << " URL : " << uri);
+                    break;
+                }
+
+                default:
+                    METADATA_TRACE(Trace, "Error: Unsupported Method; "
+                                   << "Request Method: " << request->GetMethod()
+                                   << "; Request for VM: " << vm_ip);
+                    CloseClientSession(conn);
+                    ErrorClose(session, 501);
+                    http_server_->DeleteSession(session);
+                    break;
             }
-            break;
+        } else {
+            METADATA_TRACE(Trace, "Error: Config not available; "
+                           << "Request Method: " << request->GetMethod()
+                           << "; Request for VM : " << vm_ip);
+            ErrorClose(session, 500);
+            http_server_->DeleteSession(session);
         }
-
-        default:
-            METADATA_TRACE(Trace, "Metadata Unsupported Request Method : " <<
-                           request->GetMethod());
-            break;
     }
-
-    if (delete_session)
-        http_server_->DeleteSession(session);
 
     delete request;
 }
@@ -178,7 +246,7 @@ MetadataProxy::HandleMetadataResponse(HttpConnection *conn, HttpSessionPtr sessi
 
         std::string vm_ip, vm_uuid, vm_project_uuid;
         boost::asio::ip::address_v4 ip = session->remote_endpoint().address().to_v4();
-        services_->agent()->GetInterfaceTable()->
+        services_->agent()->interface_table()->
             FindVmUuidFromMetadataIp(ip, &vm_ip, &vm_uuid, &vm_project_uuid);
 
         if (!ec) {
@@ -189,7 +257,7 @@ MetadataProxy::HandleMetadataResponse(HttpConnection *conn, HttpSessionPtr sessi
             METADATA_TRACE(Trace, "Metadata for VM : " << vm_ip << " Error : " << 
                                   boost::system::system_error(ec).what());
             CloseClientSession(conn);
-            ErrorClose(session.get());
+            ErrorClose(session.get(), 502);
             delete_session = true;
             goto done;
         }
@@ -311,18 +379,20 @@ MetadataProxy::CloseClientSession(HttpConnection *conn) {
 }
 
 void
-MetadataProxy::ErrorClose(HttpSession *session) {
-    const char body[] = "<html>\n"
-                        "<head>\n"
-                        " <title>404 Not Found</title>\n"
-                        "</head>\n"
-                        "</html>\n";
+MetadataProxy::ErrorClose(HttpSession *session, uint16_t error) {
+    std::string message = ErrorMessage(error);
+    char body[512];
+    snprintf(body, sizeof(body), "<html>\n"
+                                 "<head>\n"
+                                 " <title>%s</title>\n"
+                                 "</head>\n"
+                                 "</html>\n", message.c_str());
     char response[512];
     snprintf(response, sizeof(response),
-             "HTTP/1.1 404 Not Found\n"
+             "HTTP/1.1 %s\n"
              "Content-Type: text/html; charset=UTF-8\n"
              "Content-Length: %u\n"
-             "\n%s", (unsigned int) strlen(body), body);
+             "\n%s", message.c_str(), (unsigned int) strlen(body), body);
     session->Send(reinterpret_cast<const u_int8_t *>(response),
                   strlen(response), NULL);
     CloseServerSession(session);

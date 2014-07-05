@@ -12,6 +12,7 @@
 #include <filter/acl.h>
 #include <oper/vrf.h>
 #include <oper/vxlan.h>
+#include <oper/oper_dhcp_options.h>
 
 using namespace boost::uuids;
 using namespace std;
@@ -24,19 +25,26 @@ namespace autogen {
 }
 
 class VmInterface;
+
 struct VnIpam {
     Ip4Address ip_prefix;
     uint32_t   plen;
     Ip4Address default_gw;
     bool       installed;    // is the route to send pkts to host installed
+    bool       dhcp_enable;
     std::string ipam_name;
+    OperDhcpOptions oper_dhcp_options;
 
     VnIpam(const std::string& ip, uint32_t len, const std::string& gw,
-           std::string &name)
-        : plen(len), installed(false), ipam_name(name) {
+           bool dhcp, std::string &name,
+           const std::vector<autogen::DhcpOptionType> &dhcp_options,
+           const std::vector<autogen::RouteType> &host_routes)
+        : plen(len), installed(false), dhcp_enable(dhcp), ipam_name(name) {
         boost::system::error_code ec;
         ip_prefix = Ip4Address::from_string(ip, ec);
         default_gw = Ip4Address::from_string(gw, ec);
+        oper_dhcp_options.set_options(dhcp_options);
+        oper_dhcp_options.set_host_routes(host_routes);
     }
     bool operator<(const VnIpam &rhs) const {
         if (ip_prefix != rhs.ip_prefix)
@@ -58,36 +66,13 @@ struct VnIpam {
     }
 };
 
-struct VnSubnet {
-    Ip4Address prefix;
-    uint32_t plen;
-
-    VnSubnet() : prefix(), plen(0) {}
-    bool operator<(const VnSubnet &rhs) const {
-        if (prefix != rhs.prefix)
-            return prefix < rhs.prefix;
-        return (plen < rhs.plen);
-    }
-    bool operator==(const VnSubnet &rhs) const {
-        if (prefix == rhs.prefix && plen == rhs.plen)
-            return true;
-        return false;
-    }
-    std::string ToString() const { 
-        char len[32];
-        snprintf(len, sizeof(len), "%u", plen);
-        return prefix.to_string() + "/" + std::string(len);
-    }
-};
-
 // Per IPAM data of the VN
-// TODO: move the subnet, gw data here
 struct VnIpamLinkData {
-    std::set<VnSubnet> host_routes;
+    OperDhcpOptions oper_dhcp_options_;
 
-    void AddRoute(const VnSubnet &route) { host_routes.insert(route); }
     bool operator==(const VnIpamLinkData &rhs) const {
-        if (host_routes == rhs.host_routes)
+        if (oper_dhcp_options_.host_routes() ==
+            rhs.oper_dhcp_options_.host_routes())
             return true;
         return false;
     }
@@ -152,7 +137,8 @@ public:
     const AclDBEntry *GetMirrorCfgAcl() const {return mirror_cfg_acl_.get();};
     VrfEntry *GetVrf() const {return vrf_.get();};
     const std::vector<VnIpam> &GetVnIpam() const { return ipam_; };
-    bool GetVnHostRoutes(const std::string &ipam, std::set<VnSubnet> *routes) const;
+    bool GetVnHostRoutes(const std::string &ipam,
+                         std::vector<OperDhcpOptions::Subnet> *routes) const;
     bool GetIpamName(const Ip4Address &vm_addr, std::string *ipam_name) const;
     bool GetIpamData(const Ip4Address &vm_addr, std::string *ipam_name,
                      autogen::IpamType *ipam_type) const;
@@ -167,6 +153,7 @@ public:
                          bool vxlan_network_identifier_mode_changed);
 
     const VxLanId *vxlan_id_ref() const {return vxlan_id_ref_.get();}
+    const VxLanId *vxlan_id() const {return vxlan_id_ref_.get();}
     bool layer2_forwarding() const {return layer2_forwarding_;};
     bool Ipv4Forwarding() const {return ipv4_forwarding_;};
 

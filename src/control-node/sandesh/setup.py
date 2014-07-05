@@ -11,7 +11,7 @@ setup(
               'control_node.control_node', 
               'control_node.control_node.cpuinfo',
               'control_node.control_node.ifmap_server_show',
-              'control_node.vns'
+              'control_node.control_node.connection_info'
              ],
     package_data={'':['*.html', '*.css', '*.xml']},
     zip_safe=False,

@@ -44,7 +44,9 @@ xsd:targetNamespace="http://www.contrailsystems.com/bgp-l3vpn-unicast-cfg.xsd">
         <xsd:element name="next-hops" type="NextHopListType"/>
         <xsd:element name="version" type="xsd:integer"/>
         <xsd:element name="virtual-network" type="xsd:string"/>
+        <xsd:element name="sequence-number" type="xsd:integer"/>
         <xsd:element name="security-group-list" type="SecurityGroupListType"/>
+        <xsd:element name="local-preference" type="xsd:integer"/>
     </xsd:all>
 </xsd:complexType>
 

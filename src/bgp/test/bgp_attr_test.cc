@@ -2,9 +2,11 @@
  * Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
  */
 
+#include "bgp/bgp_attr.h"
+
 #include <boost/foreach.hpp>
 #include <pthread.h>
-#include "bgp/bgp_attr.h"
+#include <sstream>
 
 #include "base/logging.h"
 #include "base/task.h"
@@ -14,6 +16,8 @@
 #include "control-node/control_node.h"
 #include "io/event_manager.h"
 #include "testing/gunit.h"
+
+using boost::system::error_code;
 
 class BgpAttrTest : public ::testing::Test {
 protected:
@@ -327,6 +331,233 @@ TEST_F(BgpAttrTest, SourceRdBasic3) {
     ptr = attr_db_->ReplaceSourceRdAndLocate(ptr.get(), rd2);
     EXPECT_EQ(1, attr_db_->Size());
     EXPECT_EQ(rd2, ptr->source_rd());
+}
+
+TEST_F(BgpAttrTest, EdgeDiscovery1) {
+    EdgeDiscoverySpec edspec;
+    EXPECT_EQ(0, edspec.edge_list.size());
+}
+
+TEST_F(BgpAttrTest, EdgeDiscovery2) {
+    EdgeDiscoverySpec edspec;
+    for (int idx = 1; idx < 3; ++idx) {
+        error_code ec;
+        EdgeDiscoverySpec::Edge *edge = new(EdgeDiscoverySpec::Edge);
+        std::string addr_str = "10.1.1." + integerToString(idx);
+        edge->SetIp4Address(Ip4Address::from_string(addr_str, ec));
+        edge->SetLabels(1000 * idx, 1000 * idx + 999);
+        edspec.edge_list.push_back(edge);
+    }
+
+    EXPECT_EQ(2, edspec.edge_list.size());
+    int idx = 1;
+    for (EdgeDiscoverySpec::EdgeList::const_iterator it =
+         edspec.edge_list.begin(); it != edspec.edge_list.end(); ++it, ++idx) {
+        const EdgeDiscoverySpec::Edge *edge = *it;
+        std::string addr_str = "10.1.1." + integerToString(idx);
+        uint32_t first_label, last_label;
+        edge->GetLabels(&first_label, &last_label);
+        error_code ec;
+        EXPECT_EQ(addr_str, edge->GetIp4Address().to_string(ec));
+        EXPECT_EQ(1000 * idx, first_label);
+        EXPECT_EQ(1000 * idx + 999, last_label);
+    }
+}
+
+TEST_F(BgpAttrTest, EdgeDiscovery3) {
+    EdgeDiscoverySpec edspec1;
+    for (int idx = 1; idx < 3; ++idx) {
+        error_code ec;
+        EdgeDiscoverySpec::Edge *edge = new(EdgeDiscoverySpec::Edge);
+        std::string addr_str = "10.1.1." + integerToString(idx);
+        edge->SetIp4Address(Ip4Address::from_string(addr_str, ec));
+        edge->SetLabels(1000 * idx, 1000 * idx + 999);
+        edspec1.edge_list.push_back(edge);
+    }
+
+    EdgeDiscoverySpec edspec2(edspec1);
+    EXPECT_EQ(2, edspec2.edge_list.size());
+    int idx = 1;
+    for (EdgeDiscoverySpec::EdgeList::const_iterator it =
+         edspec2.edge_list.begin(); it != edspec2.edge_list.end(); ++it, ++idx) {
+        const EdgeDiscoverySpec::Edge *edge = *it;
+        std::string addr_str = "10.1.1." + integerToString(idx);
+        uint32_t first_label, last_label;
+        edge->GetLabels(&first_label, &last_label);
+        error_code ec;
+        EXPECT_EQ(addr_str, edge->GetIp4Address().to_string(ec));
+        EXPECT_EQ(1000 * idx, first_label);
+        EXPECT_EQ(1000 * idx + 999, last_label);
+    }
+}
+
+TEST_F(BgpAttrTest, EdgeDiscovery4) {
+    BgpAttrSpec attr_spec;
+    EdgeDiscoverySpec edspec;
+    for (int idx = 1; idx < 3; ++idx) {
+        error_code ec;
+        EdgeDiscoverySpec::Edge *edge = new(EdgeDiscoverySpec::Edge);
+        std::string addr_str = "10.1.1." + integerToString(idx);
+        edge->SetIp4Address(Ip4Address::from_string(addr_str, ec));
+        edge->SetLabels(1000 * idx, 1000 * idx + 999);
+        edspec.edge_list.push_back(edge);
+    }
+    attr_spec.push_back(&edspec);
+    BgpAttrPtr attr = attr_db_->Locate(attr_spec);
+    EXPECT_EQ(1, attr_db_->Size());
+
+    const EdgeDiscovery *ediscovery = attr->edge_discovery();
+    EXPECT_EQ(2, ediscovery->edge_list.size());
+    int idx = 1;
+    for (EdgeDiscovery::EdgeList::const_iterator it =
+         ediscovery->edge_list.begin(); it != ediscovery->edge_list.end();
+         ++it, ++idx) {
+        const EdgeDiscovery::Edge *edge = *it;
+        std::string addr_str = "10.1.1." + integerToString(idx);
+        error_code ec;
+        EXPECT_EQ(addr_str, edge->address.to_string(ec));
+        EXPECT_EQ(1000 * idx, edge->label_block->first());
+        EXPECT_EQ(1000 * idx + 999, edge->label_block->last());
+    }
+}
+
+TEST_F(BgpAttrTest, EdgeDiscoveryToString1) {
+    EdgeDiscoverySpec edspec;
+    EXPECT_EQ("EdgeDiscovery <code: 241, flags: 0xc0>", edspec.ToString());
+}
+
+TEST_F(BgpAttrTest, EdgeDiscoveryToString2) {
+    EdgeDiscoverySpec edspec;
+    for (int idx = 1; idx < 3; ++idx) {
+        error_code ec;
+        EdgeDiscoverySpec::Edge *edge = new(EdgeDiscoverySpec::Edge);
+        std::string addr_str = "10.1.1." + integerToString(idx);
+        edge->SetIp4Address(Ip4Address::from_string(addr_str, ec));
+        edge->SetLabels(1000 * idx, 1000 * idx + 999);
+        edspec.edge_list.push_back(edge);
+    }
+    EXPECT_EQ("EdgeDiscovery <code: 241, flags: 0xc0>"
+              " Edge[0] = (10.1.1.1, 1000-1999)"
+              " Edge[1] = (10.1.1.2, 2000-2999)",
+        edspec.ToString());
+}
+
+TEST_F(BgpAttrTest, EdgeForwarding1) {
+    EdgeForwardingSpec efspec;
+    EXPECT_EQ(0, efspec.edge_list.size());
+}
+
+TEST_F(BgpAttrTest, EdgeForwarding2) {
+    EdgeForwardingSpec efspec;
+    for (int idx = 1; idx < 3; ++idx) {
+        error_code ec;
+        std::string addr_str = "10.1.1." + integerToString(idx);
+        EdgeForwardingSpec::Edge *edge = new(EdgeForwardingSpec::Edge);
+        edge->SetInboundIp4Address(Ip4Address::from_string("10.1.1.100", ec));
+        edge->inbound_label = 100000;
+        edge->SetOutboundIp4Address(Ip4Address::from_string(addr_str, ec));
+        edge->outbound_label = 1000 * idx;
+        efspec.edge_list.push_back(edge);
+    }
+
+    EXPECT_EQ(2, efspec.edge_list.size());
+    int idx = 1;
+    for (EdgeForwardingSpec::EdgeList::const_iterator it =
+         efspec.edge_list.begin(); it != efspec.edge_list.end(); ++it, ++idx) {
+        const EdgeForwardingSpec::Edge *edge = *it;
+        error_code ec;
+        std::string addr_str = "10.1.1." + integerToString(idx);
+        EXPECT_EQ("10.1.1.100", edge->GetInboundIp4Address().to_string(ec));
+        EXPECT_EQ(100000, edge->inbound_label);
+        EXPECT_EQ(addr_str, edge->GetOutboundIp4Address().to_string(ec));
+        EXPECT_EQ(1000 * idx, edge->outbound_label);
+    }
+}
+
+TEST_F(BgpAttrTest, EdgeForwarding3) {
+    EdgeForwardingSpec efspec1;
+    for (int idx = 1; idx < 3; ++idx) {
+        error_code ec;
+        std::string addr_str = "10.1.1." + integerToString(idx);
+        EdgeForwardingSpec::Edge *edge = new(EdgeForwardingSpec::Edge);
+        edge->SetInboundIp4Address(Ip4Address::from_string("10.1.1.100", ec));
+        edge->inbound_label = 100000;
+        edge->SetOutboundIp4Address(Ip4Address::from_string(addr_str, ec));
+        edge->outbound_label = 1000 * idx;
+        efspec1.edge_list.push_back(edge);
+    }
+
+    EdgeForwardingSpec efspec2(efspec1);
+    EXPECT_EQ(2, efspec2.edge_list.size());
+    int idx = 1;
+    for (EdgeForwardingSpec::EdgeList::const_iterator it =
+         efspec2.edge_list.begin(); it != efspec2.edge_list.end(); ++it, ++idx) {
+        const EdgeForwardingSpec::Edge *edge = *it;
+        error_code ec;
+        std::string addr_str = "10.1.1." + integerToString(idx);
+        EXPECT_EQ("10.1.1.100", edge->GetInboundIp4Address().to_string(ec));
+        EXPECT_EQ(100000, edge->inbound_label);
+        EXPECT_EQ(addr_str, edge->GetOutboundIp4Address().to_string(ec));
+        EXPECT_EQ(1000 * idx, edge->outbound_label);
+    }
+}
+
+TEST_F(BgpAttrTest, EdgeForwarding4) {
+    BgpAttrSpec attr_spec;
+    EdgeForwardingSpec efspec;
+    for (int idx = 1; idx < 3; ++idx) {
+        error_code ec;
+        std::string addr_str = "10.1.1." + integerToString(idx);
+        EdgeForwardingSpec::Edge *edge = new(EdgeForwardingSpec::Edge);
+        edge->SetInboundIp4Address(Ip4Address::from_string("10.1.1.100", ec));
+        edge->inbound_label = 100000;
+        edge->SetOutboundIp4Address(Ip4Address::from_string(addr_str, ec));
+        edge->outbound_label = 1000 * idx;
+        efspec.edge_list.push_back(edge);
+    }
+    attr_spec.push_back(&efspec);
+    BgpAttrPtr attr = attr_db_->Locate(attr_spec);
+    EXPECT_EQ(1, attr_db_->Size());
+
+    const EdgeForwarding *eforwarding = attr->edge_forwarding();
+    EXPECT_EQ(2, eforwarding->edge_list.size());
+    int idx = 1;
+    for (EdgeForwarding::EdgeList::const_iterator it =
+         eforwarding->edge_list.begin(); it != eforwarding->edge_list.end();
+         ++it, ++idx) {
+        const EdgeForwarding::Edge *edge = *it;
+        error_code ec;
+        std::string addr_str = "10.1.1." + integerToString(idx);
+        EXPECT_EQ("10.1.1.100", edge->inbound_address.to_string(ec));
+        EXPECT_EQ(100000, edge->inbound_label);
+        EXPECT_EQ(addr_str, edge->outbound_address.to_string(ec));
+        EXPECT_EQ(1000 * idx, edge->outbound_label);
+    }
+}
+
+TEST_F(BgpAttrTest, EdgeForwardingToString1) {
+    EdgeForwardingSpec efspec;
+    EXPECT_EQ("EdgeForwarding <code: 242, flags: 0xc0>", efspec.ToString());
+}
+
+TEST_F(BgpAttrTest, EdgeForwardingToString2) {
+    EdgeForwardingSpec efspec;
+    for (int idx = 1; idx < 3; ++idx) {
+        error_code ec;
+        std::string addr_str = "10.1.1." + integerToString(idx);
+        EdgeForwardingSpec::Edge *edge = new(EdgeForwardingSpec::Edge);
+        edge->SetInboundIp4Address(Ip4Address::from_string("10.1.1.100", ec));
+        edge->inbound_label = 100000;
+        edge->SetOutboundIp4Address(Ip4Address::from_string(addr_str, ec));
+        edge->outbound_label = 1000 * idx;
+        efspec.edge_list.push_back(edge);
+    }
+    EXPECT_EQ("EdgeForwarding <code: 242, flags: 0xc0>"
+              " Edge[0] = (InAddress=10.1.1.100, InLabel=100000,"
+              " OutAddress=10.1.1.1, OutLabel=1000)"
+              " Edge[1] = (InAddress=10.1.1.100, InLabel=100000,"
+              " OutAddress=10.1.1.2, OutLabel=2000)",
+        efspec.ToString());
 }
 
 TEST_F(BgpAttrTest, BgpAttrDB) {

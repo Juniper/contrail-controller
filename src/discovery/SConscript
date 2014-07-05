@@ -42,10 +42,13 @@ for file in setup_sources:
 local_sources = [
            '__init__.py',
            'disc_server_zk.py',
+           'disc_server.py',
            'disc_utils.py',
            'disc_consts.py',
+           'disc_exceptions.py',
            'client.py',
            'disc_zk.py',
+           'disc_cassdb.py',
            'output.py',
           ]
 local_sources_rules = []
@@ -53,33 +56,12 @@ for file in local_sources:
     local_sources_rules.append(
         env.Install("discovery", '#controller/src/discovery/' + file))
 
-sandesh_common_dirs = [ 'vns' ]
-
-sandesh_common_files = sandesh_common_dirs + ['__init__.py'] 
-sandesh_common_sources = ['gen_py/' + ssrc for ssrc in sandesh_common_files]
-sandesh_common_sources_rules = []
-for file in sandesh_common_sources:
-    sandesh_common_sources_rules.append(
-        env.Install("discovery/sandesh", "../sandesh/common/" + file))
-        
-env.Depends(sandesh_common_sources_rules, Dir('../sandesh/common/gen_py/'))
-
-sandesh_gen_py_gfiles = env.SandeshGenPy('discovery_introspect.sandesh')
-sandesh_gen_py_dirs = ['discovery_introspect']
-for file in sandesh_gen_py_dirs:
-    Dir('#/build/debug/discovery/gen_py/' + file)
-sandesh_gen_py_files = sandesh_gen_py_dirs 
-sandesh_gen_py_sources = ['gen_py/' + ssrc for ssrc in sandesh_gen_py_files]
-sandesh_gen_py_rules = []
-for file in sandesh_gen_py_sources:
-    sandesh_gen_py_rules.append(env.Install("discovery/sandesh", file))
-env.Depends(sandesh_gen_py_rules, sandesh_gen_py_gfiles)
+introspect_pkg = env.SandeshGenPy('discovery_introspect.sandesh', 'discovery/sandesh/', False)
 
 sdist_depends = [generated_rule]
 sdist_depends.extend(setup_sources_rules)
 sdist_depends.extend(local_sources_rules)
-sdist_depends.extend(sandesh_common_sources_rules)
-sdist_depends.extend(sandesh_gen_py_rules)
+sdist_depends.extend(introspect_pkg)
 
 sdist_gen = env.Command('dist', 'setup.py', 'python setup.py sdist', chdir=1)
 

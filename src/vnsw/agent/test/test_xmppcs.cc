@@ -237,7 +237,7 @@ protected:
 
         autogen::NextHopType item_nexthop;
         item_nexthop.af = BgpAf::IPv4;
-        item_nexthop.address = Agent::GetInstance()->GetRouterId().to_string();;
+        item_nexthop.address = Agent::GetInstance()->router_id().to_string();;
         item_nexthop.label = label;
 
         autogen::ItemType item;
@@ -279,10 +279,10 @@ protected:
         cchannel_p = xc_p->FindChannel(XmppInit::kControlNodeJID); 
         //Create agent bgp peer
 	bgp_peer.reset(new AgentBgpXmppPeerTest(cchannel_p,
-                       Agent::GetInstance()->GetXmppServer(0), 0));
+                       Agent::GetInstance()->controller_ifmap_xmpp_server(0), 0));
 	xc_p->RegisterConnectionEvent(xmps::BGP,
 	    boost::bind(&AgentBgpXmppPeerTest::HandleXmppChannelEvent, bgp_peer.get(), _2));
-	Agent::GetInstance()->SetAgentXmppChannel(bgp_peer.get(), 0);
+	Agent::GetInstance()->set_controller_xmpp_channel(bgp_peer.get(), 0);
 
 
 	
@@ -313,8 +313,8 @@ protected:
         cchannel_s = xc_s->FindChannel(XmppInit::kControlNodeJID);
         //Create agent bgp peer
 	bgp_peer_s.reset(new AgentBgpXmppPeerTest(cchannel_s,
-                         Agent::GetInstance()->GetXmppServer(1), 1));
-	Agent::GetInstance()->SetAgentXmppChannel(bgp_peer_s.get(), 1);
+                         Agent::GetInstance()->controller_ifmap_xmpp_server(1), 1));
+	Agent::GetInstance()->set_controller_xmpp_channel(bgp_peer_s.get(), 1);
 	xc_s->RegisterConnectionEvent(xmps::BGP,
 	    boost::bind(&AgentBgpXmppPeerTest::HandleXmppChannelEvent, bgp_peer_s.get(), _2));
 
@@ -514,10 +514,10 @@ TEST_F(AgentXmppUnitTest, Connection) {
 
     VnDelReq(1);
     client->WaitForIdle();
-    EXPECT_EQ(1U, Agent::GetInstance()->GetVnTable()->Size());
+    EXPECT_EQ(1U, Agent::GetInstance()->vn_table()->Size());
     VnDelReq(2);
     client->WaitForIdle();
-    EXPECT_EQ(0U, Agent::GetInstance()->GetVnTable()->Size());
+    EXPECT_EQ(0U, Agent::GetInstance()->vn_table()->Size());
 
     EXPECT_FALSE(DBTableFind("vrf1.route.0"));
     EXPECT_FALSE(VrfFind("vrf1"));
@@ -542,19 +542,19 @@ TEST_F(AgentXmppUnitTest, CfgServerSelection) {
     client->Reset();
     client->WaitForIdle();
 
-    WAIT_FOR(1000, 10000, (Agent::GetInstance()->GetXmppCfgServer().empty() == false));
-    if (Agent::GetInstance()->GetXmppCfgServer().compare(Agent::GetInstance()->GetXmppServer(0)) == 0) {
+    WAIT_FOR(1000, 10000, (Agent::GetInstance()->ifmap_active_xmpp_server().empty() == false));
+    if (Agent::GetInstance()->ifmap_active_xmpp_server().compare(Agent::GetInstance()->controller_ifmap_xmpp_server(0)) == 0) {
         //bring-down the channel
         bgp_peer.get()->HandleXmppChannelEvent(xmps::NOT_READY);
         client->WaitForIdle();
-        EXPECT_TRUE(Agent::GetInstance()->GetXmppCfgServer().
-                    compare(Agent::GetInstance()->GetXmppServer(1)) == 0);
+        EXPECT_TRUE(Agent::GetInstance()->ifmap_active_xmpp_server().
+                    compare(Agent::GetInstance()->controller_ifmap_xmpp_server(1)) == 0);
     } else {
         //bring-down the channel
         bgp_peer_s.get()->HandleXmppChannelEvent(xmps::NOT_READY);
         client->WaitForIdle();
-        EXPECT_TRUE(Agent::GetInstance()->GetXmppCfgServer().
-                    compare(Agent::GetInstance()->GetXmppServer(0)) == 0);
+        EXPECT_TRUE(Agent::GetInstance()->ifmap_active_xmpp_server().
+                    compare(Agent::GetInstance()->controller_ifmap_xmpp_server(0)) == 0);
     }
 
     //Mock Sandesh request

@@ -22,7 +22,7 @@ env.Prepend(CPPPATH = env['TOP'] + '/http/client')
 
 env.Prepend(LIBS=['ifmap_vnc', 'ifmap_server', 'ifmap_common', 'net', 'ifmapio',
                   'xmpp', 'ds', 'sandeshvns', 'sandesh', 'peer_sandesh',
-                  'httpc', 'http', 'http_parser', 'curl',
+                  'httpc', 'http', 'http_parser', 'curl', 'connection_info',
                   'db', 'io', 'base', 'xml', 'pugixml', 'libxml2',
                   'boost_regex', 'boost_chrono', 'boost_program_options',
                   'crypto', 'ssl',
@@ -49,7 +49,7 @@ env.Alias('src/dns:dnsd', dnsd)
 env.Default(dnsd)
 
 env.Alias('install', env.Install(env['INSTALL_BIN'], dnsd))
-env.Alias('install', env.Install(env['INSTALL_CONF'], 'dns.conf'))
+env.Alias('install', env.Install(env['INSTALL_CONF'] + '/dns', 'dns.conf'))
 
 DnsEnv = env.Clone()
 DnsEnv.AppendUnique(CCFLAGS='-fno-exceptions')
@@ -63,6 +63,7 @@ subdirs = [
            'mgr',
            'uve',
            'test',
+           'scripts',
           ]
 
 for dir in subdirs:

@@ -21,7 +21,7 @@
 #include <boost/assign/list_of.hpp>
 #include <sandesh/common/vns_types.h>
 #include <sandesh/common/vns_constants.h>
-#include "analytics_cpuinfo_types.h"
+#include "analytics_types.h"
 #include "query_engine/options.h"
 #include "query.h"
 #include <base/misc_utils.h>
@@ -204,19 +204,31 @@ main(int argc, char *argv[]) {
         SetLoggingDisabled(true);
     }
 
-    string cassandra_server = options.cassandra_server_list()[0];
-    typedef boost::tokenizer<boost::char_separator<char> > tokenizer;
-    boost::char_separator<char> sep(":");
-    tokenizer tokens(cassandra_server, sep);
-    tokenizer::iterator it = tokens.begin();
-    std::string cassandra_ip(*it);
-    ++it;
-    std::string port(*it);
-    int cassandra_port;
-    stringToInteger(port, cassandra_port);
+    vector<string> cassandra_servers(options.cassandra_server_list());
+    vector<string> cassandra_ips;
+    vector<int> cassandra_ports;
+    for (vector<string>::const_iterator it = cassandra_servers.begin();
+         it != cassandra_servers.end(); it++) {
+        string cassandra_server(*it);
+        typedef boost::tokenizer<boost::char_separator<char> > tokenizer;
+        boost::char_separator<char> sep(":");
+        tokenizer tokens(cassandra_server, sep);
+        tokenizer::iterator tit = tokens.begin();
+        string cassandra_ip(*tit);
+        cassandra_ips.push_back(cassandra_ip);
+        ++tit;
+        string port(*tit);
+        int cassandra_port;
+        stringToInteger(port, cassandra_port);
+        cassandra_ports.push_back(cassandra_port);
+    }
+    ostringstream css;
+    copy(cassandra_servers.begin(), cassandra_servers.end(),
+         ostream_iterator<string>(css, " "));
+    LOG(INFO, "Cassandra Servers: " << css.str());
 
     QueryEngine *qe;
-    if (cassandra_port == 0) {
+    if (cassandra_ports.size() == 1 && cassandra_ports[0] == 0) {
         qe = new QueryEngine(&evm,
             options.redis_server(),
             options.redis_port(),
@@ -225,8 +237,8 @@ main(int argc, char *argv[]) {
             options.analytics_data_ttl());
     } else {
         qe = new QueryEngine(&evm,
-            cassandra_ip,
-            cassandra_port,
+            cassandra_ips,
+            cassandra_ports,
             options.redis_server(),
             options.redis_port(),
             options.max_tasks(),

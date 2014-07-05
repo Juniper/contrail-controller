@@ -23,9 +23,9 @@
 #include "bgp/bgp_session_manager.h"
 #include "bgp/bgp_table.h"
 #include "bgp/bgp_xmpp_channel.h"
+#include "bgp/ermvpn/ermvpn_table.h"
 #include "bgp/inet/inet_route.h"
 #include "bgp/inet/inet_table.h"
-#include "bgp/inetmcast/inetmcast_table.h"
 #include "bgp/routing-instance/peer_manager.h"
 #include "bgp/routing-instance/routing_instance.h"
 #include "bgp/origin-vn/origin_vn.h"
@@ -159,6 +159,7 @@ bool ShowRouteHandler::CallbackS1(const Sandesh *sr,
             ShowRouteTable srt;
             srt.set_routing_instance(i->first);
             srt.set_routing_table_name(table->name());
+            srt.set_deleted(table->IsDeleted());
 
             // Encode routing-table stats.
             srt.prefixes = table->Size();
@@ -208,6 +209,7 @@ int MergeValues(ShowRouteTable &result, vector<const ShowRouteTable *> &input,
     vector<const vector<ShowRoute> *> list;
     result.routing_instance = input[0]->routing_instance;
     result.routing_table_name = input[0]->routing_table_name;
+    result.deleted = input[0]->deleted;
     result.prefixes = input[0]->prefixes;
     result.primary_paths = input[0]->primary_paths;
     result.secondary_paths = input[0]->secondary_paths;
@@ -381,15 +383,18 @@ void ShowNeighborHandler::FillXmppNeighborInfo(
     BgpNeighborResp resp;
     resp.set_peer(channel->ToString());
     resp.set_peer_address(channel->remote_endpoint().address().to_string());
+    resp.set_deleted(channel->peer_deleted());
     resp.set_local_address(channel->local_endpoint().address().to_string());
     resp.set_peer_type("internal");
     resp.set_encoding("XMPP");
     resp.set_state(channel->StateName());
-    PeerRibMembershipManager *mgr = channel->Peer()->server()->membership_mgr();
-    
-    BgpPeer::FillBgpNeighborDebugState(resp, channel->Peer()->peer_stats());
 
+    PeerRibMembershipManager *mgr = channel->Peer()->server()->membership_mgr();
     mgr->FillPeerMembershipInfo(channel->Peer(), resp);
+    channel->FillTableMembershipInfo(&resp);
+    channel->FillInstanceMembershipInfo(&resp);
+
+    BgpPeer::FillBgpNeighborDebugState(resp, channel->Peer()->peer_stats());
     nbr_list->push_back(resp);
 }
 
@@ -712,6 +717,7 @@ public:
             inst.set_name(ri->name());
             inst.set_virtual_network(ri->virtual_network());
             inst.set_vn_index(ri->virtual_network_index());
+            inst.set_deleted(ri->deleted());
             std::vector<std::string> import_rt;
             BOOST_FOREACH(RouteTarget rt, ri->GetImportList()) {
                 import_rt.push_back(rt.ToString());
@@ -795,7 +801,7 @@ public:
     }
 
     static void FillMulticastManagerStats(MulticastManagerData *data,
-            InetMcastTable *table, int inst_id) {
+            ErmVpnTable *table, int inst_id) {
         MulticastManagerDataKey key;
         key.routing_table = table->name();
         McastTreeManager *tm = table->GetTreeManager();
@@ -819,8 +825,8 @@ public:
         for (RoutingInstanceMgr::NameIterator it = rim->name_begin();
              it != rim->name_end(); it++) {
             RoutingInstance *ri = it->second;
-            InetMcastTable *table =
-                static_cast<InetMcastTable *>(ri->GetTable(Address::INETMCAST));
+            ErmVpnTable *table =
+                static_cast<ErmVpnTable *>(ri->GetTable(Address::ERMVPN));
             if (table)
                 FillMulticastManagerStats(mydata, table, inst_id);
         }
@@ -829,7 +835,7 @@ public:
     }
 
     static void FillMulticastManagerInfo(const RequestPipeline::StageData *sd,
-            vector<ShowMulticastManager> &mgr_list, InetMcastTable *table) {
+            vector<ShowMulticastManager> &mgr_list, ErmVpnTable *table) {
         ShowMulticastManager mgr;
         MulticastManagerDataKey key;
         key.routing_table = table->name();
@@ -861,8 +867,8 @@ public:
         for (RoutingInstanceMgr::NameIterator it = rim->name_begin();
              it != rim->name_end(); it++) {
             RoutingInstance *ri = it->second;
-            InetMcastTable *table =
-                static_cast<InetMcastTable *>(ri->GetTable(Address::INETMCAST));
+            ErmVpnTable *table =
+                static_cast<ErmVpnTable *>(ri->GetTable(Address::ERMVPN));
             if (table)
                 FillMulticastManagerInfo(sd, mgr_list, table);
         }
@@ -938,15 +944,15 @@ public:
         tree.set_group(sg->group().to_string());
         tree.set_source(sg->source().to_string());
         for (McastSGEntry::ForwarderSet::const_iterator it =
-             sg->forwarders_.begin();
-             it != sg->forwarders_.end(); it++) {
+             sg->forwarder_sets_[0]->begin();
+             it != sg->forwarder_sets_[0]->end(); it++) {
             FillMulticastForwarderInfo(&tree, *it);
         }
         data->tree_list.push_back(tree);
     }
 
     static void FillMulticastPartitionInfo(MulticastManagerDetailData *data,
-            InetMcastTable *table, int inst_id) {
+            ErmVpnTable *table, int inst_id) {
         McastTreeManager *tm = table->GetTreeManager();
         McastManagerPartition *partition = tm->GetPartition(inst_id);
         for (McastManagerPartition::SGList::const_iterator it =
@@ -969,7 +975,7 @@ public:
         BgpSandeshContext *bsc =
             static_cast<BgpSandeshContext *>(req->client_context());
         DBTableBase *table = bsc->bgp_server->database()->FindTable(req->get_name());
-        InetMcastTable *mcast_table = dynamic_cast<InetMcastTable *>(table);
+        ErmVpnTable *mcast_table = dynamic_cast<ErmVpnTable *>(table);
         if (mcast_table)
             FillMulticastPartitionInfo(mydata, mcast_table, inst_id);
 

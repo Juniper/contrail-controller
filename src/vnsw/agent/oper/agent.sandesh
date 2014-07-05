@@ -60,6 +60,9 @@ struct ItfSandeshData {
    27: list<StaticRouteSandesh> static_route_list; //Static route list
    28: string l2_active;
    30: string vm_project_uuid; // project uuid of the vm to which the interface belongs
+   31: string admin_state;
+   32: i32 flow_key_idx;
+   33: optional list<StaticRouteSandesh> allowed_address_pair_list;
 }
 
 struct VnIpamData {
@@ -67,6 +70,7 @@ struct VnIpamData {
     2: i32 prefix_len;
     3: string gateway;
     4: string ipam_name;
+    5: string dhcp_enable;
 }
 
 struct VnIpamHostRoutes {
@@ -158,6 +162,14 @@ struct NhSandeshData {
    18: optional FabricCompositeData fabric_comp;  //Multicast sub nh list
    19: optional L2CompositeData l2_comp;  //Multicast sub nh list
    20: optional L3CompositeData l3_comp;  //Multicast sub nh list
+   21: i32 nh_index;
+}
+
+struct PathPreferenceSandeshData {
+    1: i32 sequence;
+    2: i32 preference;
+    3: bool ecmp;
+    4: bool wait_for_traffic;
 }
 
 struct PathSandeshData {
@@ -174,6 +186,7 @@ struct PathSandeshData {
    11: string supported_tunnel_type;
    12: string active_tunnel_type;
    13: bool stale;
+   14: optional PathPreferenceSandeshData path_preference_data;
 }
 
 struct RouteUcSandeshData {
@@ -399,6 +412,7 @@ struct AclEntrySandeshData {
     8: list <ActionStr> action_l;
     9: string src_type;
     10: string dst_type;
+    11: string uuid;
 }
 
 // ACL to Flow mapping Sandesh
@@ -892,3 +906,9 @@ systemlog sandesh AgentRouteWalkerLog {
 systemlog sandesh GlobalVrouterLog {
     1: string message;
 }
+
+trace sandesh OperSg {
+    1: string message;
+    2: string uuid;
+}
+

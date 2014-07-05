@@ -42,6 +42,16 @@ class PktTest : public ::testing::Test {
 public:
     void CheckSandeshResponse(Sandesh *sandesh) {
     }
+
+    void FlushFlowTable() {
+        client->EnqueueFlowFlush();
+        client->WaitForIdle();
+        EXPECT_EQ(0U, Agent::GetInstance()->pkt()->flow_table()->Size());
+    }
+
+    void TearDown() {
+        FlushFlowTable();
+    }
 };
 
 static void MakeIpPacket(PktGen *pkt, int ifindex, const char *sip,
@@ -99,10 +109,10 @@ TEST_F(PktTest, FlowAdd_1) {
 
     EXPECT_TRUE(VmPortActive(input, 0));
     EXPECT_TRUE(VmPortPolicyEnable(input, 0));
-    EXPECT_EQ(4U, Agent::GetInstance()->GetInterfaceTable()->Size());
-    EXPECT_EQ(1U, Agent::GetInstance()->GetVmTable()->Size());
-    EXPECT_EQ(1U, Agent::GetInstance()->GetVnTable()->Size());
-    EXPECT_EQ(1U, Agent::GetInstance()->GetIntfCfgTable()->Size());
+    EXPECT_EQ(4U, Agent::GetInstance()->interface_table()->Size());
+    EXPECT_EQ(1U, Agent::GetInstance()->vm_table()->Size());
+    EXPECT_EQ(1U, Agent::GetInstance()->vn_table()->Size());
+    EXPECT_EQ(1U, Agent::GetInstance()->interface_config_table()->Size());
 
     // Generate packet and enqueue
     VmInterface *intf = VmInterfaceGet(input[0].intf_id);
@@ -110,8 +120,8 @@ TEST_F(PktTest, FlowAdd_1) {
     TxIpPacket(intf->id(), "1.1.1.1", "1.1.1.2", 1);
     client->WaitForIdle();
 
-    PhysicalInterface::CreateReq(Agent::GetInstance()->GetInterfaceTable(),
-                            "vnet0", Agent::GetInstance()->GetDefaultVrf());
+    PhysicalInterface::CreateReq(Agent::GetInstance()->interface_table(),
+                            "vnet0", Agent::GetInstance()->fabric_vrf_name());
     client->WaitForIdle();
     TxMplsPacket(2, "1.1.1.2", "10.1.1.1", 0, "2.2.2.2", "3.3.3.3", 1);
     
@@ -127,6 +137,9 @@ TEST_F(PktTest, FlowAdd_1) {
     sand->HandleRequest();
     client->WaitForIdle();
     sand->Release();
+
+    client->WaitForIdle();
+    DeleteVmportEnv(input, 1, true, 1);
 }
 
 
@@ -134,7 +147,11 @@ int main(int argc, char *argv[]) {
     GETUSERARGS();
 
     client = TestInit(init_file, ksync_init);
-    Agent::GetInstance()->SetRouterId(Ip4Address::from_string("10.1.1.1"));
+    Agent::GetInstance()->set_router_id(Ip4Address::from_string("10.1.1.1"));
 
-    return RUN_ALL_TESTS();
+    int ret = RUN_ALL_TESTS();
+    client->WaitForIdle();
+    TestShutdown();
+    delete client;
+    return ret;
 }

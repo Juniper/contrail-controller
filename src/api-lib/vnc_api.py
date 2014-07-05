@@ -156,10 +156,6 @@ class VncApi(VncApiClientGen):
         #self._http = HTTPClient(self._web_host, self._web_port,
         #                        network_timeout = 300)
 
-        # set when a request is retried after fetching new token, to
-        # prevent infinite retries
-        self._retry_after_authn = False
-
         self._create_api_server_session()
 
         homepage = self._request_server(rest.OP_GET, self._base_url,
@@ -305,7 +301,7 @@ class VncApi(VncApiClientGen):
             return (True, self.ifmap_to_id(ifmap_id))
     #end _read_args_to_id
 
-    def _request_server(self, op, url, data=None, retry_on_error=True):
+    def _request_server(self, op, url, data=None, retry_on_error=True, retry_after_authn=False):
         while True:
             try:
                 if (op == rest.OP_GET):
@@ -334,12 +330,10 @@ class VncApi(VncApiClientGen):
                 return content
      
             # Exception Response, see if it can be resolved
-            if ((status == 401) and (not self._auth_token_input) and (not self._retry_after_authn)):
+            if ((status == 401) and (not self._auth_token_input) and (not retry_after_authn)):
                 self._headers = self._authenticate(content, self._headers)
                 # Recursive call after authentication (max 1 level)
-                self._retry_after_authn = True
-                content = self._request_server(op, url, data=data)
-                self._retry_after_authn = False
+                content = self._request_server(op, url, data=data, retry_after_authn=True)
      
                 return content
             elif status == 404:

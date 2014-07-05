@@ -58,7 +58,9 @@ public:
     typedef std::map<std::string, std::pair<Var, AttribMap> > TagMap;
 
     DbHandler(EventManager *evm, GenDb::GenDbIf::DbErrorHandler err_handler,
-            std::string cassandra_ip, unsigned short cassandra_port, int analytics_ttl, std::string name);
+        std::vector<std::string> cassandra_ips,
+        std::vector<int> cassandra_ports, int analytics_ttl,
+        std::string name);
     DbHandler(GenDb::GenDbIf *dbif);
     virtual ~DbHandler();
 
@@ -69,7 +71,7 @@ public:
     bool AllowMessageTableInsert(const SandeshHeader &header);
     bool MessageIndexTableInsert(const std::string& cfname,
         const SandeshHeader& header, const std::string& message_type,
-        const boost::uuids::uuid& unm);
+        const boost::uuids::uuid& unm, const std::string keyword);
     virtual void MessageTableInsert(const VizMsg *vmsgp);
     void MessageTableOnlyInsert(const VizMsg *vmsgp);
 
@@ -78,7 +80,7 @@ public:
     void ObjectTableInsert(const std::string &table, const std::string &rowkey,
         uint64_t &timestamp, const boost::uuids::uuid& unm);
 
-    void StatTableInsert(uint64_t ts, 
+    std::vector<std::string> StatTableInsert(uint64_t ts, 
             const std::string& statName,
             const std::string& statAttr,
             const TagMap & attribs_tag,
@@ -93,12 +95,20 @@ public:
 
     void SetDbQueueWaterMarkInfo(Sandesh::QueueWaterMarkInfo &wm);
     void ResetDbQueueWaterMarkInfo();
+    std::string GetHost() const;
+    int GetPort() const;
 
 private:
     bool CreateTables();
     void SetDropLevel(size_t queue_count, SandeshLevel::type level);
     bool Setup(int instance);
     bool Initialize(int instance);
+    bool StatTableWrite(uint32_t t2,
+        const std::string& statName, const std::string& statAttr,
+        const std::pair<std::string,DbHandler::Var>& ptag,
+        const std::pair<std::string,DbHandler::Var>& stag,
+        uint32_t t1, const boost::uuids::uuid& unm,
+        const std::string& jsonline);
 
     boost::scoped_ptr<GenDb::GenDbIf> dbif_;
 

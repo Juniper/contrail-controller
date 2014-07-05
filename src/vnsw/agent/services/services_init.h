@@ -25,6 +25,7 @@ public:
     void Init(bool run_with_vrouter);
     void ConfigInit();
     void Shutdown();
+    void IoShutdown();
 
 private:
     Agent *agent_;

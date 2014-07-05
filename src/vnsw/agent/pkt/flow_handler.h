@@ -23,7 +23,7 @@ public:
 
     static const std::string *UnknownVn() { return &unknown_vn_; }
     static const std::string *LinkLocalVn() {
-        return &Agent::GetInstance()->GetLinkLocalVnName();
+        return &Agent::GetInstance()->linklocal_vn_name();
     }
 
 private:

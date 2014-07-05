@@ -27,7 +27,8 @@ public:
     static const int DbifReinitTime = 10;
 
     VizCollector(EventManager *evm, unsigned short listen_port,
-            std::string cassandra_ip, unsigned short cassandra_port,
+            std::vector<std::string> cassandra_ips,
+            std::vector<int> cassandra_ports,
             const std::string redis_uve_ip, unsigned short redis_uve_port,
             int syslog_port, bool dup=false,
             int analytics_ttl=g_viz_constants.AnalyticsTTL);

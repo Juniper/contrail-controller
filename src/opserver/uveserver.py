@@ -29,7 +29,7 @@ class UVEServer(object):
         self._redis = None
         if self._local_redis_uve:
             self._redis = redis.StrictRedis(self._local_redis_uve[0],
-                                            self._local_redis_uve[1], db=0)
+                                            self._local_redis_uve[1], db=1)
     #end __init__
 
     def update_redis_uve_list(self, redis_uve_list):
@@ -191,14 +191,16 @@ class UVEServer(object):
 
         return state
 
-    def get_uve(self, key, flat, sfilter=None, mfilter=None, tfilter=None):
+    def get_uve(self, key, flat, sfilter=None, mfilter=None, tfilter=None, multi=False):
         state = {}
         state[key] = {}
         statdict = {}
         for redis_uve in self._redis_uve_list:
             redish = redis.StrictRedis(host=redis_uve[0],
-                                       port=redis_uve[1], db=0)
+                                       port=redis_uve[1], db=1)
             try:
+                empty = True
+                qmap = {}
                 for origs in redish.smembers("ORIGINS:" + key):
                     info = origs.rsplit(":", 1)
                     sm = info[0].split(":", 1)
@@ -219,7 +221,6 @@ class UVEServer(object):
 
                     odict = redish.hgetall("VALUES:" + key + ":" + origs)
 
-                    empty = True
                     afilter_list = set()
                     if tfilter is not None:
                         afilter_list = tfilter[typ]
@@ -228,13 +229,11 @@ class UVEServer(object):
                             if attr not in afilter_list:
                                 continue
 
-                        if empty:
-                            empty = False
-                            # print "Src %s, Mod %s, Typ %s" % (source, mdule, typ)
-                            if typ not in state[key]:
-                                state[key][typ] = {}
+                        if typ not in state[key]:
+                            state[key][typ] = {}
 
                         if value[0] == '<':
+                            empty = False
                             snhdict = xmltodict.parse(value)
                             if snhdict[attr]['@type'] == 'list':
                                 if snhdict[attr]['list']['@size'] == '0':
@@ -249,7 +248,6 @@ class UVEServer(object):
                         else:
                             if not flat:
                                 continue
-
                             if typ not in statdict:
                                 statdict[typ] = {}
                             statdict[typ][attr] = []
@@ -276,6 +274,19 @@ class UVEServer(object):
                                 elif elem["rtype"] == "hash":
                                     elist = redish.hgetall(elem["href"])
                                     edict = elist
+                                elif elem["rtype"] == "query":
+                                    if sfilter is None and mfilter is None and not multi:
+                                        qdict = {}
+                                        qdict["table"] = elem["aggtype"]
+                                        qdict["select_fields"] = elem["select"]
+                                        qdict["where"] =[[{"name":"name",
+                                            "value":key.split(":",1)[1],
+                                            "op":1}]]
+                                        qmap[elem["aggtype"]] = {"query":qdict,
+                                            "type":typ, "attr":attr}
+                                    # For the stats query case, defer processing
+                                    continue
+
                                 statdict[typ][attr].append(
                                     {elem["aggtype"]: edict})
                             continue
@@ -288,7 +299,25 @@ class UVEServer(object):
                                 (key, typ, attr, source, mdule, state[
                                 key][typ][attr][dsource])
                         state[key][typ][attr][dsource] = snhdict[attr]
-
+                
+                if not empty:
+                    url = OpServerUtils.opserver_query_url(
+                        self._local_redis_uve[0],
+                        str(8081))
+                    for t,q in qmap.iteritems():
+                        try:
+                            q["query"]["end_time"] = OpServerUtils.utc_timestamp_usec()
+                            q["query"]["start_time"] = qdict["end_time"] - (3600 * 1000000)
+                            json_str = json.dumps(q["query"])
+                            resp = OpServerUtils.post_url_http(url, json_str, True)
+                            if resp is not None:
+                                edict = json.loads(resp)
+                                edict = edict['value']
+                                statdict[q["type"]][q["attr"]].append(
+                                    {t: edict})
+                        except Exception as e:
+                            print "Stats Query Exception:" + str(e)
+                        
                 if sfilter is None and mfilter is None:
                     for ptyp in redish.smembers("PTYPES:" + key):
                         afilter = None
@@ -354,7 +383,7 @@ class UVEServer(object):
                     continue
             uve_val = self.get_uve(
                 table + ':' + uve_name, flat,
-                sfilter, mfilter, tfilter)
+                sfilter, mfilter, tfilter, True)
             if uve_val == {}:
                 continue
             else:
@@ -371,7 +400,7 @@ class UVEServer(object):
                 patterns.add(self.get_uve_regex(filt))
         for redis_uve in self._redis_uve_list:
             redish = redis.StrictRedis(host=redis_uve[0],
-                                       port=redis_uve[1], db=0)
+                                       port=redis_uve[1], db=1)
             try:
                 for entry in redish.smembers("TABLE:" + key):
                     info = (entry.split(':', 1)[1]).rsplit(':', 5)

@@ -74,6 +74,8 @@ public:
     VnUveEntry(Agent *agent);
     virtual ~VnUveEntry();
 
+    void set_vn(const VnEntry *vn) { vn_ = vn; }
+
     void InterfaceAdd(const Interface *intf);
     void InterfaceDelete(const Interface *intf);
     void VmAdd(const std::string &vm);
@@ -83,7 +85,8 @@ public:
     bool FillVrfStats(int vrf_id, UveVirtualNetworkAgent &s_vn);
     bool PopulateInterVnStats(UveVirtualNetworkAgent &s_vn);
     bool FrameVnMsg(const VnEntry *vn, UveVirtualNetworkAgent &uve);
-    bool FrameVnStatsMsg(const VnEntry *vn, UveVirtualNetworkAgent &uve);
+    bool FrameVnStatsMsg(const VnEntry *vn, UveVirtualNetworkAgent &uve,
+                         bool only_vrf_stats);
     void UpdateInterVnStats(const string &dst_vn, uint64_t bytes, 
                             uint64_t pkts, bool outgoing);
     void ClearInterVnStats();

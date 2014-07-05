@@ -3,38 +3,24 @@
 #
 
 # -*- mode: python; -*-
-
+import re
 Import('AgentEnv')
 env = AgentEnv.Clone()
 
-env.Prepend(LIBS=['gunit'])
-cflags = env['CCFLAGS']
-cflags.append('-Wno-return-type')
-if '-fno-exceptions' in cflags:
-    cflags.remove('-fno-exceptions')
-    env.Replace(CCFLAGS = cflags)
+AgentEnv.MakeTestEnv(env)
 
-env.Append(LIBPATH=['../../test'])
-env.Prepend(LIBS=['agent_test']);
-env.Append(LIBS=['agent_test_buildinfo'])
+cmn_test_suite = []
+cmn_flaky_test_suite = []
+test_cmn = AgentEnv.MakeTestCmdSrc(env, 'test_cmn', ['test.cc'], cmn_test_suite)
+test_subop = AgentEnv.MakeTestCmd(env, 'test_subop', cmn_test_suite)
+test_agent_init = AgentEnv.MakeTestCmd(env, 'test_agent_init', cmn_test_suite)
+test_vmware = AgentEnv.MakeTestCmd(env, 'test_vmware', cmn_test_suite)
 
-import sys
-test = env.Program(target = 'test', source = ['test.cc'])
+test = env.TestSuite('agent-test', cmn_test_suite)
+env.Alias('agent:cmn', test)
 env.Alias('controller/src/vnsw/agent/cmn:test', test)
 
-test_subop = env.Program(target = 'test_subop', source = ['test_subop.cc'])
-env.Alias('agent:test_subop', test_subop)
+flaky_test = env.TestSuite('agent-flaky-test', cmn_flaky_test_suite)
+env.Alias('controller/src/vnsw/agent/cmn:flaky_test', flaky_test)
 
-test_agent_init = env.Program(target = 'test_agent_init', 
-                              source = ['test_agent_init.cc'])
-env.Alias('agent:test_agent_init', test_agent_init)
-
-test_vmware = env.Program(target = 'test_vmware',
-                          source = ['test_vmware.cc'])
-env.Alias('agent:test_vmware', test_vmware)
-
-agent_init_suite = [test_agent_init, test_vmware, test_subop]
-
-test = env.TestSuite('agent-test', agent_init_suite)
-env.Alias('src/vnsw/agent:test', test)
-Return('agent_init_suite')
+Return('cmn_test_suite')

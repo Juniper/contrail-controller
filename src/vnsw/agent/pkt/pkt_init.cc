@@ -22,7 +22,7 @@ PktModule::~PktModule() {
 }
 
 void PktModule::Init(bool run_with_vrouter) {
-    EventManager *event = agent_->GetEventManager();
+    EventManager *event = agent_->event_manager();
     boost::asio::io_service &io = *event->io_service();
     std::string ifname(agent_->pkt_interface_name());
 
@@ -45,6 +45,14 @@ void PktModule::Shutdown() {
 
     flow_table_->Shutdown();
     flow_table_.reset(NULL);
+}
+
+void PktModule::IoShutdown() {
+    pkt_handler_->IoShutdown();
+}
+
+void PktModule::FlushFlows() {
+    flow_table_->DeleteAll();
 }
 
 void PktModule::CreateInterfaces() {

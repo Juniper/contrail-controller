@@ -142,7 +142,7 @@ TEST_F(UveTest, VmAddDelTest1) {
     client->WaitForIdle(2);
     WAIT_FOR(500, 1000, (VmPortActive(input, 0) == true));
     WAIT_FOR(500, 1000, (VmPortActive(input, 1) == true));
-    EXPECT_EQ(2U, Agent::GetInstance()->GetIntfCfgTable()->Size());
+    EXPECT_EQ(2U, Agent::GetInstance()->interface_config_table()->Size());
 
     VnUveTableTest *vnut = static_cast<VnUveTableTest *>
         (Agent::GetInstance()->uve()->vn_uve_table());
@@ -182,9 +182,9 @@ TEST_F(UveTest, VmAddDelTest1) {
     client->VnDelNotifyWait(2);
     client->PortDelNotifyWait(2);
     
-    WAIT_FOR(100, 1000, (Agent::GetInstance()->GetIntfCfgTable()->Size() == 0));
-    WAIT_FOR(100, 1000, (Agent::GetInstance()->GetVmTable()->Size() == 0));
-    WAIT_FOR(100, 1000, (Agent::GetInstance()->GetVnTable()->Size() == 0));
+    WAIT_FOR(100, 1000, (Agent::GetInstance()->interface_config_table()->Size() == 0));
+    WAIT_FOR(100, 1000, (Agent::GetInstance()->vm_table()->Size() == 0));
+    WAIT_FOR(100, 1000, (Agent::GetInstance()->vn_table()->Size() == 0));
 }
 
 TEST_F(UveTest, VnAddDelTest1) {
@@ -198,7 +198,7 @@ TEST_F(UveTest, VnAddDelTest1) {
     client->WaitForIdle(2);
     WAIT_FOR(500, 1000, (VmPortActive(input, 0) == true));
     WAIT_FOR(500, 1000, (VmPortActive(input, 1) == true));
-    EXPECT_EQ(2U, Agent::GetInstance()->GetIntfCfgTable()->Size());
+    EXPECT_EQ(2U, Agent::GetInstance()->interface_config_table()->Size());
 
     VnUveTableTest *vnut = static_cast<VnUveTableTest *>
         (Agent::GetInstance()->uve()->vn_uve_table());
@@ -237,9 +237,9 @@ TEST_F(UveTest, VnAddDelTest1) {
     client->VmDelNotifyWait(2);
     client->PortDelNotifyWait(2);
 
-    WAIT_FOR(500, 1000, (Agent::GetInstance()->GetIntfCfgTable()->Size() == 0));
-    WAIT_FOR(500, 1000, (Agent::GetInstance()->GetVmTable()->Size() == 0));
-    WAIT_FOR(500, 1000, (Agent::GetInstance()->GetVnTable()->Size() == 0));
+    WAIT_FOR(500, 1000, (Agent::GetInstance()->interface_config_table()->Size() == 0));
+    WAIT_FOR(500, 1000, (Agent::GetInstance()->vm_table()->Size() == 0));
+    WAIT_FOR(500, 1000, (Agent::GetInstance()->vn_table()->Size() == 0));
 }
 
 TEST_F(UveTest, IntAddDelTest1) {
@@ -259,7 +259,7 @@ TEST_F(UveTest, IntAddDelTest1) {
     client->WaitForIdle(2);
     WAIT_FOR(500, 1000, (VmPortActive(input, 0) == true));
     WAIT_FOR(500, 1000, (VmPortActive(input, 1) == true));
-    EXPECT_EQ(2U, Agent::GetInstance()->GetIntfCfgTable()->Size());
+    EXPECT_EQ(2U, Agent::GetInstance()->interface_config_table()->Size());
     //Two entries in VM and VN map
     WAIT_FOR(500, 1000, (vnut->GetVnUveInterfaceCount("vn1")) == 1U);
     WAIT_FOR(500, 1000, (vnut->GetVnUveInterfaceCount("vn2")) == 1U);
@@ -284,9 +284,9 @@ TEST_F(UveTest, IntAddDelTest1) {
     client->VnDelNotifyWait(2);
     client->VmDelNotifyWait(2);
 
-    WAIT_FOR(500, 1000, (Agent::GetInstance()->GetIntfCfgTable()->Size() == 0));
-    WAIT_FOR(500, 1000, (Agent::GetInstance()->GetVmTable()->Size() == 0));
-    WAIT_FOR(500, 1000, (Agent::GetInstance()->GetVnTable()->Size() == 0));
+    WAIT_FOR(500, 1000, (Agent::GetInstance()->interface_config_table()->Size() == 0));
+    WAIT_FOR(500, 1000, (Agent::GetInstance()->vm_table()->Size() == 0));
+    WAIT_FOR(500, 1000, (Agent::GetInstance()->vn_table()->Size() == 0));
 }
 
 //To verify VRF addition/removal keeps the vrf stats tree in correct state
@@ -297,7 +297,7 @@ TEST_F(UveTest, VrfAddDelTest_1) {
     WAIT_FOR(100, 10000, (VrfFind("vrf11")== true));
     EXPECT_TRUE(DBTableFind("vrf11.uc.route.0"));
  
-    VrfEntry *vrf = Agent::GetInstance()->GetVrfTable()->FindVrfFromName("vrf11");
+    VrfEntry *vrf = Agent::GetInstance()->vrf_table()->FindVrfFromName("vrf11");
     EXPECT_TRUE(vrf != NULL);
     int vrf11_id = vrf->vrf_id();
 
@@ -322,7 +322,7 @@ TEST_F(UveTest, VrfAddDelTest_1) {
     client->WaitForIdle();
     EXPECT_TRUE(DBTableFind("vrf21.uc.route.0"));
  
-    vrf = Agent::GetInstance()->GetVrfTable()->FindVrfFromName("vrf21");
+    vrf = Agent::GetInstance()->vrf_table()->FindVrfFromName("vrf21");
     EXPECT_TRUE(vrf != NULL);
     int vrf21_id = vrf->vrf_id();
     LOG(DEBUG, "vrf 11 " << vrf11_id << " vrf 21 " << vrf21_id);
@@ -461,15 +461,14 @@ TEST_F(UveTest, SandeshTest) {
 }
 
 int main(int argc, char **argv) {
-    int ret;
     GETUSERARGS();
     client = TestInit(init_file, ksync_init, true, false);
     UveTest::TestSetup(vrf_array, 2);
 
-    ret = RUN_ALL_TESTS();
+    int ret = RUN_ALL_TESTS();
     UveTest::TestTearDown();
-    Agent::GetInstance()->GetEventManager()->Shutdown();
+    Agent::GetInstance()->event_manager()->Shutdown();
     AsioStop();
-
+    TaskScheduler::GetInstance()->Terminate();
     return ret;
 }

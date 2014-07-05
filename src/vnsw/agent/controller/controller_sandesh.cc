@@ -12,11 +12,11 @@ void AgentXmppConnectionStatusReq::HandleRequest() const {
     uint8_t count = 0;
     AgentXmppConnectionStatus *resp = new AgentXmppConnectionStatus();
     while (count < MAX_XMPP_SERVERS) {
-        if (!Agent::GetInstance()->GetXmppServer(count).empty()) {
+        if (!Agent::GetInstance()->controller_ifmap_xmpp_server(count).empty()) {
 
             AgentXmppData data;
-            data.set_controller_ip(Agent::GetInstance()->GetXmppServer(count));
-            AgentXmppChannel *ch = Agent::GetInstance()->GetAgentXmppChannel(count);
+            data.set_controller_ip(Agent::GetInstance()->controller_ifmap_xmpp_server(count));
+            AgentXmppChannel *ch = Agent::GetInstance()->controller_xmpp_channel(count);
             if (ch) {
 		XmppChannel *xc = ch->GetXmppChannel(); 
 		if (xc->GetPeerState() == xmps::READY) {
@@ -25,13 +25,13 @@ void AgentXmppConnectionStatusReq::HandleRequest() const {
 		    data.set_state("Down");
 		}
 
-		if (Agent::GetInstance()->GetControlNodeMulticastBuilder() == ch) {
+		if (Agent::GetInstance()->mulitcast_builder() == ch) {
 		    data.set_mcast_controller("Yes");
 		} else {
 		    data.set_mcast_controller("No");
 		}
 
-		if (Agent::GetInstance()->GetXmppCfgServer().compare(Agent::GetInstance()->GetXmppServer(count)) == 0) {
+		if (Agent::GetInstance()->ifmap_active_xmpp_server().compare(Agent::GetInstance()->controller_ifmap_xmpp_server(count)) == 0) {
 		    data.set_cfg_controller("Yes");
 		} else {
 		    data.set_cfg_controller("No");

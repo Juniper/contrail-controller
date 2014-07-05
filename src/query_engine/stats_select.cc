@@ -158,26 +158,29 @@ QEOpServerProxy::VarType StatsSelect::Parse(int sidx,
         agg = QEOpServerProxy::SUM;
     }
 
-    map<string,QEOpServerProxy::VarType> typs = map_list_of(
-        "string", QEOpServerProxy::STRING)(
-        "uuid", QEOpServerProxy::UUID)(
-        "int", QEOpServerProxy::UINT64)(
-        "double", QEOpServerProxy::DOUBLE);
+    if (sidx!=-1) {
+        map<string,QEOpServerProxy::VarType> typs = map_list_of(
+            "string", QEOpServerProxy::STRING)(
+            "uuid", QEOpServerProxy::UUID)(
+            "int", QEOpServerProxy::UINT64)(
+            "long", QEOpServerProxy::UINT64)(
+            "double", QEOpServerProxy::DOUBLE);
 
-    for (size_t k = 0; 
-            k < g_viz_constants._STAT_TABLES[sidx].attributes.size(); k++) {
-        if (g_viz_constants._STAT_TABLES[sidx].attributes[k].name == sfield) {
-            QEOpServerProxy::VarType vt = QEOpServerProxy::BLANK;
-            if (typs.find(g_viz_constants._STAT_TABLES[sidx].attributes[k].datatype)!=typs.end()) {
-                vt = typs[g_viz_constants._STAT_TABLES[sidx].attributes[k].datatype];
-            }
-            if (agg == QEOpServerProxy::SUM) {
-                if ((vt == QEOpServerProxy::DOUBLE) || (vt == QEOpServerProxy::UINT64))
+        for (size_t k = 0; 
+                k < g_viz_constants._STAT_TABLES[sidx].attributes.size(); k++) {
+            if (g_viz_constants._STAT_TABLES[sidx].attributes[k].name == sfield) {
+                QEOpServerProxy::VarType vt = QEOpServerProxy::BLANK;
+                if (typs.find(g_viz_constants._STAT_TABLES[sidx].attributes[k].datatype)!=typs.end()) {
+                    vt = typs[g_viz_constants._STAT_TABLES[sidx].attributes[k].datatype];
+                }
+                if (agg == QEOpServerProxy::SUM) {
+                    if ((vt == QEOpServerProxy::DOUBLE) || (vt == QEOpServerProxy::UINT64))
+                        return vt;
+                    else
+                        return QEOpServerProxy::BLANK;
+                } else if (agg == QEOpServerProxy::INVALID) {
                     return vt;
-                else
-                    return QEOpServerProxy::BLANK;
-            } else if (agg == QEOpServerProxy::INVALID) {
-                return vt;
+                }
             }
         }
     }
@@ -233,9 +236,13 @@ StatsSelect::StatsSelect(AnalyticsQuery * m_query,
 			ts_period_(0), isT_(false), count_field_() {
 
     int i = main_query->stat_table_index();
-    QE_ASSERT(i != -1);
-
     status_ = false;
+
+    if (i != -1) {
+        isStatic_ = true;
+    } else {
+        isStatic_ = false;
+    }
 
     for (size_t j=0; j<select_fields_.size(); j++) {
 
@@ -244,13 +251,12 @@ StatsSelect::StatsSelect(AnalyticsQuery * m_query,
         QEOpServerProxy::VarType vt = Parse(i, select_fields_[j], 
             sfield, agg);
 
-        if (vt == QEOpServerProxy::BLANK) {
+        if ((i!=-1) && (vt == QEOpServerProxy::BLANK)) {
             QE_LOG(INFO, "StatsSelect unknown field " << select_fields_[j]);
             return;
         }
 
         if (agg == QEOpServerProxy::INVALID) {
-
             
             if (select_fields_[j] == g_viz_constants.STAT_TIME_FIELD) {
                 if (ts_period_) {
@@ -311,7 +317,7 @@ void StatsSelect::SetSortOrder(const std::vector<sort_field_t>& sort_fields) {
         QEOpServerProxy::VarType vt = Parse(i, sort_fields[st].name,
             sfield, agg);
 
-        if (vt == QEOpServerProxy::BLANK) {
+        if ((i!=-1) && (vt == QEOpServerProxy::BLANK)) {
             QE_LOG(INFO, "StatsSelect sort unknown field " << sort_fields[st].name);
             QE_ASSERT(0);
         }

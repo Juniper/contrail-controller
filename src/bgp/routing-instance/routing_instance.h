@@ -120,6 +120,7 @@ private:
     void Shutdown();
 
     BgpTable *InetVpnTableCreate(BgpServer *server);
+    BgpTable *ErmVpnTableCreate(BgpServer *server);
     BgpTable *EvpnTableCreate(BgpServer *server);
     BgpTable *RTargetTableCreate(BgpServer *server);
 

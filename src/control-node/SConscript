@@ -20,9 +20,6 @@ env.Append(CPPPATH = [env['TOP'] + '/bgp'])
 ControlNodeSandeshGenFiles = env.SandeshGenCpp('sandesh/control_node.sandesh')
 ControlNodeSandeshGenSrcs = env.ExtractCpp(ControlNodeSandeshGenFiles)
 
-# Generate the sandesh UVE source files
-SandeshGenPyFiles  = env.SandeshGenPy('sandesh/control_node.sandesh')
-
 setup_sources = [
            'setup.py',
            'MANIFEST.in',
@@ -32,56 +29,14 @@ setup_sources_rules = []
 for file in setup_sources:
     setup_sources_rules.append(env.Install("", "#controller/src/control-node/sandesh/" + file))
 
-sandesh_dirs = ['control_node']
-for file in sandesh_dirs:
-    Dir(env['TOP'] + '/control-node/gen_py/' + file)
-sandesh_files = sandesh_dirs
-sandesh_sources = ['gen_py/' + ssrc for ssrc in sandesh_files]
-sandesh_sources_rules = []
-for file in sandesh_sources:
-    sandesh_sources_rules.append(env.Install("control_node", env['TOP'] + "/control-node/" + file))
-env.Depends(sandesh_sources_rules, env['TOP'] + '/control-node/gen_py/')
-
-sandesh_init_rules = [env.Install("control_node", env['TOP'] + "/control-node/gen_py/__init__.py")]
-env.Requires(sandesh_init_rules, sandesh_sources_rules)
-
-# Generate the sandesh cpuinfo from base
-sandesh_base_gen_py_files = env.SandeshGenPy('#controller/src/base/sandesh/cpuinfo.sandesh')
-sandesh_base_dirs = [ 'cpuinfo' ]
-for file in sandesh_base_dirs:
-    Dir(env['TOP'] + '/control-node/gen_py/' + file)
-sandesh_base_files = sandesh_base_dirs
-sandesh_base_sources = ['gen_py/' + ssrc for ssrc in sandesh_base_files]
-sandesh_base_sources_rules = []
-for file in sandesh_base_sources:
-    sandesh_base_sources_rules.append(env.Install("control_node/control_node/", env['TOP'] + "/control-node/" + file))
-env.Requires(sandesh_base_sources_rules, sandesh_base_gen_py_files)
-env.Requires(sandesh_base_sources_rules, Dir(env['TOP'] + '/base/sandesh/gen_py/'))
-
-# Generate the sandesh ifmap from third-party
-sandesh_base_gen_py_files = env.SandeshGenPy('#controller/src/ifmap/ifmap_server_show.sandesh')
-sandesh_base_dirs = [ 'ifmap_server_show' ]
-for file in sandesh_base_dirs:
-    Dir(env['TOP'] + '/control-node/gen_py/' + file)
-sandesh_base_files = sandesh_base_dirs
-sandesh_base_sources = ['gen_py/' + ssrc for ssrc in sandesh_base_files]
-sandesh_base_sources_rules = []
-for file in sandesh_base_sources:
-    sandesh_base_sources_rules.append(env.Install("control_node/control_node/", env['TOP'] + "/control-node/" + file))
-env.Requires(sandesh_base_sources_rules, sandesh_base_gen_py_files)
-env.Requires(sandesh_base_sources_rules, Dir(env['TOP'] + '/src/ifmap/gen_py/'))
-
-
-
-sandesh_common_dirs = [ 'vns' ]
-for file in sandesh_common_dirs:
-    Dir(env['TOP'] + '/sandesh/common/gen_py/' + file)
-sandesh_common_files = sandesh_common_dirs 
-sandesh_common_sources = ['gen_py/' + ssrc for ssrc in sandesh_common_files]
-sandesh_common_sources_rules = []
-for file in sandesh_common_sources:
-    sandesh_common_sources_rules.append(env.Install("control_node", env['TOP'] + "/sandesh/common/" + file))
-env.Depends(sandesh_common_sources_rules, Dir(env['TOP'] + '/sandesh/common/gen_py/'))
+# Generate the sandesh UVE source files
+control_node_pkg  = env.SandeshGenPy('sandesh/control_node.sandesh', 'control_node/', False)
+cpu_info_pkg = env.SandeshGenPy('#controller/src/base/sandesh/cpuinfo.sandesh', 'control_node/control_node/', False)
+ifmap_pkg = env.SandeshGenPy('#controller/src/ifmap/ifmap_server_show.sandesh', 'control_node/control_node/', False)
+conn_info_pkg = env.SandeshGenPy('#controller/src/base/sandesh/connection_info.sandesh', 'control_node/control_node/', False)
+env.Depends(cpu_info_pkg, control_node_pkg)
+env.Depends(ifmap_pkg, control_node_pkg)
+env.Depends(conn_info_pkg, control_node_pkg)
 
 rel_path = Dir('control_node').path
 def BuildInfoAction(target, source, env):
@@ -91,10 +46,10 @@ build_info_rules = [env.Command(target='buildinfo.py', source = None, action=Bui
 
 sdist_depends = []
 sdist_depends.extend(setup_sources_rules)
-sdist_depends.extend(sandesh_sources_rules)
-sdist_depends.extend(sandesh_init_rules)
-sdist_depends.extend(sandesh_common_sources_rules)
-sdist_depends.extend(sandesh_base_sources_rules)
+sdist_depends.extend(control_node_pkg)
+sdist_depends.extend(cpu_info_pkg)
+sdist_depends.extend(ifmap_pkg)
+sdist_depends.extend(conn_info_pkg)
 sdist_depends.extend(build_info_rules)
 sdist_gen = env.Command('dist', 'setup.py', 'python setup.py sdist', chdir=1)
 
@@ -110,6 +65,7 @@ for src in ControlNodeSandeshGenSrcs:
 
 env.Prepend(LIBS=['bgp',
                   'bgp_schema',
+                  'extended_community',
                   'xmpp_unicast',
                   'xmpp_multicast',
                   'xmpp_enet',
@@ -136,6 +92,7 @@ env.Prepend(LIBS=['bgp',
                   'http_parser',
                   'curl',
                   'db',
+                  'connection_info',
                   'io',
                   'base',
                   'cpuinfo',
@@ -153,9 +110,10 @@ if sys.platform != 'darwin':
 libs = MapBuildDir(['base',
                     'bgp',
                     'bgp/inet',
-                    'bgp/inetmcast',
                     'bgp/enet',
+                    'bgp/ermvpn',
                     'bgp/evpn',
+                    'bgp/extended-community',
                     'bgp/l3vpn',
                     'bgp/origin-vn',
                     'bgp/routing-instance',
@@ -182,36 +140,39 @@ env.Append(CPPPATH = env['TOP'] + '/io')
 
 lib_l3vpn = File('../bgp/l3vpn/libbgp_l3vpn.a')
 lib_inet = File('../bgp/inet/libbgp_inet.a')
-lib_inetmcast = File('../bgp/inetmcast/libbgp_inetmcast.a')
 lib_enet = File('../bgp/enet/libbgp_enet.a')
+lib_ermvpn = File('../bgp/ermvpn/libbgp_ermvpn.a')
 lib_evpn = File('../bgp/evpn/libbgp_evpn.a')
 lib_rtarget = File('../bgp/rtarget/librtarget.a')
 lib_ifmap_server = File('../ifmap/libifmap_server.a')
 lib_sandesh = File('../sandesh/library/cpp/libsandesh.a')
 lib_cpuinfo = File('../base/libcpuinfo.a')
+lib_extend_community = File('../bgp/extended-community/libextended_community.a')
 
 if sys.platform != 'darwin':
     env.Prepend(LINKFLAGS =
                      ['-Wl,--whole-archive',
-                      '-lbgp_l3vpn', '-lbgp_inet', '-lbgp_inetmcast',
-                      '-lbgp_enet', '-lbgp_evpn', '-lrtarget',
+                      '-lbgp_l3vpn', '-lbgp_inet',
+                      '-lbgp_enet', '-lbgp_ermvpn', '-lbgp_evpn', '-lextended_community', '-lrtarget',
                       '-lifmap_server', '-lcpuinfo',
                       '-Wl,--no-whole-archive'])
 else:
     env.Prepend(LINKFLAGS = ['-Wl,-force_load,' + lib_l3vpn.path])
     env.Prepend(LINKFLAGS = ['-Wl,-force_load,' + lib_inet.path])
-    env.Prepend(LINKFLAGS = ['-Wl,-force_load,' + lib_inetmcast.path])
     env.Prepend(LINKFLAGS = ['-Wl,-force_load,' + lib_enet.path])
+    env.Prepend(LINKFLAGS = ['-Wl,-force_load,' + lib_ermvpn.path])
     env.Prepend(LINKFLAGS = ['-Wl,-force_load,' + lib_evpn.path])
     env.Prepend(LINKFLAGS = ['-Wl,-force_load,' + lib_rtarget.path])
     env.Prepend(LINKFLAGS = ['-Wl,-force_load,' + lib_ifmap_server.path])
     env.Prepend(LINKFLAGS = ['-Wl,-force_load,' + lib_sandesh.path])
     env.Prepend(LINKFLAGS = ['-Wl,-force_load,' + lib_cpuinfo.path])
+    env.Prepend(LINKFLAGS = ['-Wl,-force_load,' + lib_extend_community.path])
 
 buildinfo_dep_libs = ['../bgp/libbgp.a', '../schema/libbgp_schema.a', '../schema/libxmpp_unicast.a', 
                       '../schema/libxmpp_multicast.a', '../schema/libxmpp_enet.a',
                       '../control-node/libcontrol_node.a', '../bgp/routing-instance/librouting_instance.a', 
                       '../bgp/origin-vn/liborigin_vn.a',
+                      '../bgp/extended-community/libextended_community.a',
                       '../bgp/rtarget/librtarget.a', '../bgp/security_group/libsecurity_group.a', '../schema/libifmap_vnc.a', 
                       '../ifmap/libifmap_server.a', '../ifmap/libifmap_common.a', '../route/libroute.a', '../net/libnet.a', 
                       '../../lib/libifmapio.a', '../xmpp/libxmpp.a', '../xml/libxml.a', '../../lib/libsandeshvns.a', 
@@ -240,8 +201,8 @@ env.Default(ctrlnode)
 
 env.Depends(ctrlnode, lib_l3vpn)
 env.Depends(ctrlnode, lib_inet)
-env.Depends(ctrlnode, lib_inetmcast)
 env.Depends(ctrlnode, lib_enet)
+env.Depends(ctrlnode, lib_ermvpn)
 env.Depends(ctrlnode, lib_evpn)
 env.Depends(ctrlnode, lib_rtarget)
 env.Depends(ctrlnode, lib_ifmap_server)

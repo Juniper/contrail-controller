@@ -4,6 +4,8 @@
 
 #include <stdio.h>
 #include <stdlib.h>
+#include <sys/time.h>
+#include <sys/resource.h>
 
 #include <boost/uuid/string_generator.hpp>
 #include <boost/program_options.hpp>
@@ -21,7 +23,7 @@
 #include <sandesh/common/vns_types.h>
 #include <sandesh/common/vns_constants.h>
 #include <base/misc_utils.h>
-
+#include <base/test/task_test_util.h>
 #include <cmn/agent_cmn.h>
 
 #include <cfg/cfg_init.h>
@@ -58,16 +60,16 @@ public:
         desc.add_options()
         ("help", "help message")
         ("config_file", 
-         opt::value<string>()->default_value(Agent::DefaultConfigFile()), 
+         opt::value<string>()->default_value(Agent::GetInstance()->config_file()), 
          "Configuration file")
         ("version", "Display version information")
-        ("COLLECTOR.server", opt::value<string>(), 
-         "IP address of sandesh collector")
-        ("COLLECTOR.port", opt::value<uint16_t>(), "Port of sandesh collector")
         ("CONTROL-NODE.server", 
          opt::value<std::vector<std::string> >()->multitoken(),
          "IP addresses of control nodes."
          " Max of 2 Ip addresses can be configured")
+        ("DEFAULT.collectors",
+         opt::value<std::vector<std::string> >()->multitoken(),
+         "Collector server list")
         ("DEFAULT.debug", "Enable debug logging")
         ("DEFAULT.flow_cache_timeout", 
          opt::value<uint16_t>()->default_value(Agent::kDefaultFlowCacheTimeout),
@@ -80,7 +82,7 @@ public:
         ("DEFAULT.log_category", opt::value<string>()->default_value("*"),
          "Category filter for local logging of sandesh messages")
         ("DEFAULT.log_file", 
-         opt::value<string>()->default_value(Agent::DefaultLogFile()),
+         opt::value<string>()->default_value(Agent::GetInstance()->log_file()),
          "Filename for the logs to be written to")
         ("DEFAULT.log_level", opt::value<string>()->default_value("SYS_DEBUG"),
          "Severity level for local logging of sandesh messages")
@@ -124,6 +126,7 @@ public:
     }
 
     virtual void TearDown() {
+        var_map.clear();
     }
 
     opt::options_description desc;
@@ -152,7 +155,9 @@ TEST_F(FlowTest, Agent_Conf_file_1) {
     EXPECT_EQ(param.xmpp_server_2().to_ulong(), 0);
     EXPECT_EQ(param.dns_server_1().to_ulong(),
               Ip4Address::from_string("127.0.0.1").to_ulong());
+    EXPECT_EQ(param.dns_port_1(), 53);
     EXPECT_EQ(param.dns_server_2().to_ulong(), 0);
+    EXPECT_EQ(param.dns_port_2(), 53);
     EXPECT_EQ(param.discovery_server().to_ulong(),
               Ip4Address::from_string("10.3.1.1").to_ulong());
     EXPECT_EQ(param.mgmt_ip().to_ulong(), 0);
@@ -182,8 +187,10 @@ TEST_F(FlowTest, Agent_Conf_file_2) {
               Ip4Address::from_string("12.1.1.1").to_ulong());
     EXPECT_EQ(param.dns_server_1().to_ulong(),
               Ip4Address::from_string("13.1.1.1").to_ulong());
+    EXPECT_EQ(param.dns_port_1(), 9001);
     EXPECT_EQ(param.dns_server_2().to_ulong(),
               Ip4Address::from_string("14.1.1.1").to_ulong());
+    EXPECT_EQ(param.dns_port_2(), 12999);
 }
 
 // Check that linklocal flows are updated when the system limits are lowered
@@ -231,16 +238,15 @@ TEST_F(FlowTest, Agent_Conf_Xen_1) {
 }
 
 TEST_F(FlowTest, Agent_Param_1) {
-    int argc = 16;
+    int argc = 14;
     char *argv[] = {
         (char *) "",
-        (char *) "--config-file", 
+        (char *) "--config_file", 
                         (char *)"controller/src/vnsw/agent/cmn/test/cfg.ini",
+        (char *) "--DEFAULT.collectors",     (char *)"1.1.1.1:1000",
         (char *) "--DEFAULT.log_local",
         (char *) "--DEFAULT.log_level",     (char *)"SYS_DEBUG",
         (char *) "--DEFAULT.log_category",  (char *)"Test",
-        (char *) "--COLLECTOR.server",     (char *)"1.1.1.1",
-        (char *) "--COLLECTOR.port",(char *)"1000",
         (char *) "--DEFAULT.http_server_port", (char *)"8000",
         (char *) "--DEFAULT.hostname",     (char *)"vhost-1",
     };
@@ -261,17 +267,19 @@ TEST_F(FlowTest, Agent_Param_1) {
     EXPECT_TRUE(param.log_local());
     EXPECT_STREQ(param.log_level().c_str(), "SYS_DEBUG");
     EXPECT_STREQ(param.log_category().c_str(), "Test");
-    EXPECT_EQ(param.collector().to_ulong(),
-              Ip4Address::from_string("1.1.1.1").to_ulong());
-    EXPECT_EQ(param.collector_port(), 1000);
+    EXPECT_EQ(param.collector_server_list().size(), 1);
+    vector<string> collector_list = param.collector_server_list();
+    string first_collector = collector_list.at(0);
+    EXPECT_STREQ(first_collector.c_str(), "1.1.1.1:1000");
     EXPECT_EQ(param.http_server_port(), 8000);
     EXPECT_STREQ(param.host_name().c_str(), "vhost-1");
 
 }
 
-TEST_F(FlowTest, Agen_Arg_Override_Config_1) {
-    int argc = 8;
+TEST_F(FlowTest, Agent_Arg_Override_Config_1) {
+    int argc = 9;
     char *argv[] = {
+        (char *) "",
         (char *) "--config_file",
                         (char *)"controller/src/vnsw/agent/cmn/test/cfg.ini",
         (char *) "--HYPERVISOR.type",    (char *)"xen", 
@@ -299,15 +307,16 @@ TEST_F(FlowTest, Agen_Arg_Override_Config_1) {
     EXPECT_EQ(param.xen_ll_addr().to_ulong(),
               Ip4Address::from_string("1.1.1.2").to_ulong());
     EXPECT_EQ(param.xen_ll_prefix().to_ulong(),
-              Ip4Address::from_string("1.1.1.0").to_ulong());
-    EXPECT_EQ(param.xen_ll_plen(), 24);
+              Ip4Address::from_string("1.1.0.0").to_ulong());
+    EXPECT_EQ(param.xen_ll_plen(), 16);
 }
 
-TEST_F(FlowTest, Agen_Arg_Override_Config_2) {
-    int argc = 6;
+TEST_F(FlowTest, Agent_Arg_Override_Config_2) {
+    int argc = 9;
     char *argv[] = {
-        (char *) "--DNS.server",    (char *)"20.1.1.1 21.1.1.1", 
-        (char *) "--CONTROL-NODE.server",   (char *)"22.1.1.1 23.1.1.1",
+        (char *) "",
+        (char *) "--DNS.server",    (char *)"20.1.1.1:500", (char *)"21.1.1.1:15001", 
+        (char *) "--CONTROL-NODE.server",   (char *)"22.1.1.1", (char *)"23.1.1.1",
         (char *) "--DEFAULT.debug",   (char *)"0",
     };
 
@@ -329,16 +338,19 @@ TEST_F(FlowTest, Agen_Arg_Override_Config_2) {
               Ip4Address::from_string("23.1.1.1").to_ulong());
     EXPECT_EQ(param.dns_server_1().to_ulong(),
               Ip4Address::from_string("20.1.1.1").to_ulong());
+    EXPECT_EQ(param.dns_port_1(), 500);
     EXPECT_EQ(param.dns_server_2().to_ulong(),
               Ip4Address::from_string("21.1.1.1").to_ulong());
+    EXPECT_EQ(param.dns_port_2(), 15001);
 }
 
 /* Some command line args have default values. If user has not passed these
  * command line args, but has specified values in config file, then values
  * specified config file should be taken */
 TEST_F(FlowTest, Default_Cmdline_arg1) {
-    int argc = 2;
+    int argc = 3;
     char *argv[] = {
+        (char *) "",
         (char *) "--config_file",
                         (char *)"controller/src/vnsw/agent/cmn/test/cfg-default1.ini",
     };
@@ -375,7 +387,8 @@ TEST_F(FlowTest, Default_Cmdline_arg2) {
     EXPECT_EQ(param.flow_cache_timeout(), flow_timeout);
     EXPECT_EQ(param.http_server_port(), http_server_port);
     EXPECT_STREQ(param.log_category().c_str(), "*");
-    EXPECT_STREQ(param.log_file().c_str(), Agent::DefaultLogFile().c_str());
+    EXPECT_STREQ(param.log_file().c_str(),
+                 Agent::GetInstance()->log_file().c_str());
     EXPECT_STREQ(param.log_level().c_str(), "SYS_DEBUG");
     EXPECT_TRUE(param.isKvmMode());
 }
@@ -384,8 +397,9 @@ TEST_F(FlowTest, Default_Cmdline_arg2) {
  * values for these command line args and has also specified values in config 
  * file, then values specified on command line should be taken */
 TEST_F(FlowTest, Default_Cmdline_arg3) {
-    int argc = 8;
+    int argc = 9;
     char *argv[] = {
+        (char *) "",
         (char *) "--DEFAULT.flow_cache_timeout", (char *)"100",
         (char *) "--DEFAULT.http_server_port", (char *)"20001",
         (char *) "--DEFAULT.log_file", (char *)"3.log",
@@ -408,6 +422,37 @@ TEST_F(FlowTest, Default_Cmdline_arg3) {
     EXPECT_EQ(param.http_server_port(), 20001);
     EXPECT_STREQ(param.log_file().c_str(), "3.log");
     EXPECT_TRUE(param.isVmwareMode());
+}
+
+TEST_F(FlowTest, MultitokenVector) {
+    int argc = 3;
+    char *argv[argc];
+    char argv_0[] = "";
+    char argv_1[] = "--DEFAULT.collectors=10.10.10.1:100 20.20.20.2:200";
+    char argv_2[] = "--DEFAULT.collectors=30.30.30.3:300";
+    argv[0] = argv_0;
+    argv[1] = argv_1;
+    argv[2] = argv_2;
+
+    try {
+        opt::store(opt::parse_command_line(argc, argv, desc), var_map);
+        opt::notify(var_map);
+    } catch (...) {
+        cout << "Invalid arguments. ";
+        cout << desc << endl;
+        exit(0);
+    }
+
+    AgentParam param(Agent::GetInstance());
+    param.Init("controller/src/vnsw/agent/cmn/test/cfg.ini", "test-param",
+               var_map);
+
+    vector<string> collector_server_list;
+    collector_server_list.push_back("10.10.10.1:100");
+    collector_server_list.push_back("20.20.20.2:200");
+    collector_server_list.push_back("30.30.30.3:300");
+    TASK_UTIL_EXPECT_VECTOR_EQ(param.collector_server_list(),
+                     collector_server_list);
 }
 
 int main(int argc, char **argv) {

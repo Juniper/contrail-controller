@@ -31,9 +31,10 @@
 #include <openstack/instance_service_server.h>
 #include <base/contrail_ports.h>
 #include <vgw/cfg_vgw.h>
+#include <controller/controller_route_path.h>
 
 InstanceServiceAsyncHandler::InstanceServiceAsyncHandler(Agent *agent)
-    : io_service_(*(agent->GetEventManager()->io_service())),
+    : io_service_(*(agent->event_manager()->io_service())),
       agent_(agent), version_(0), vgw_version_(0),
       novaPeer_(new Peer(Peer::NOVA_PEER, NOVA_PEER_NAME)),
       interface_stale_cleaner_(new InterfaceConfigStaleCleaner(agent)),
@@ -72,7 +73,7 @@ InstanceServiceAsyncHandler::AddPort(const PortList& port_list) {
         }
         
         CfgIntTable *ctable = static_cast<CfgIntTable *>
-            (agent_->GetDB()->FindTable("db.cfg_int.0"));
+            (agent_->db()->FindTable("db.cfg_int.0"));
         assert(ctable);
 
         DBRequest req(DBRequest::DB_ENTRY_ADD_CHANGE);
@@ -117,7 +118,7 @@ InstanceServiceAsyncHandler::DeletePort(const tuuid& t_port_id) {
     uuid port_id = ConvertToUuid(t_port_id);
 
     CfgIntTable *ctable = static_cast<CfgIntTable *>
-        (agent_->GetDB()->FindTable("db.cfg_int.0"));
+        (agent_->db()->FindTable("db.cfg_int.0"));
     assert(ctable);
     
     DBRequest req;
@@ -257,7 +258,7 @@ InstanceServiceAsyncHandler::TunnelNHEntryAdd(const std::string& src_ip,
     treq.data.reset(nh_data);
     treq.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
     NextHopTable *nh_table_ = static_cast<NextHopTable *>
-        (agent_->GetDB()->FindTable("db.nexthop.0"));
+        (agent_->db()->FindTable("db.nexthop.0"));
     nh_table_->Enqueue(&treq);
 
     return true;
@@ -300,11 +301,17 @@ InstanceServiceAsyncHandler::RouteEntryAdd(const std::string& ip_address,
     uint32_t mpls_label;
     const std::string vn = " ";
     sscanf(label.c_str(), "%u", &mpls_label);
-    Inet4UnicastAgentRouteTable::AddRemoteVmRouteReq(
-                                     agent_->local_peer(),
-                                     vrf, ipv4, 32, gwv4,
-                                     TunnelType::AllType(),
-                                     mpls_label, vn, SecurityGroupList());
+    ControllerVmRoute *data =
+        ControllerVmRoute::MakeControllerVmRoute(agent_->local_peer(),
+                                                 agent_->fabric_vrf_name(),
+                                                 agent_->router_id(),
+                                                 vrf, gwv4,
+                                                 TunnelType::AllType(),
+                                                 mpls_label,
+                                                 vn, SecurityGroupList(),
+                                                 PathPreference());
+    Inet4UnicastAgentRouteTable::AddRemoteVmRouteReq(agent_->local_peer(),
+                                     vrf, ipv4, 32, data);
     return true;
 }
 
@@ -329,8 +336,8 @@ InstanceServiceAsyncHandler::AddHostRoute(const std::string& ip_address,
 	return false;
     }
 
-    agent_->GetDefaultInet4UnicastRouteTable()->
-        AddHostRoute(vrf, ip.to_v4(), 32, agent_->GetFabricVnName());
+    agent_->fabric_inet4_unicast_table()->
+        AddHostRoute(vrf, ip.to_v4(), 32, agent_->fabric_vn_name());
 
     return true;
 }
@@ -367,10 +374,10 @@ InstanceServiceAsyncHandler::AddLocalVmRoute(const std::string& ip_address,
         sscanf(label.c_str(), "%u", &mpls_label);
     }
 
-    agent_->GetDefaultInet4UnicastRouteTable()->
+    agent_->fabric_inet4_unicast_table()->
         AddLocalVmRouteReq(novaPeer_.get(), vrf, ip.to_v4(), 32, intf_uuid, 
                            "instance-service", mpls_label, SecurityGroupList(),
-                           false);
+                           false, PathPreference());
     return true;
 }
 
@@ -401,10 +408,15 @@ InstanceServiceAsyncHandler::AddRemoteVmRoute(const std::string& ip_address,
         sscanf(label.c_str(), "%u", &mpls_label);
     }
 
-    agent_->GetDefaultInet4UnicastRouteTable()->
-        AddRemoteVmRouteReq(novaPeer_.get(), vrf, ip.to_v4(), 32,
-                            gw.to_v4(), TunnelType::AllType(), mpls_label, "",
-                            SecurityGroupList());
+    ControllerVmRoute *data =
+        ControllerVmRoute::MakeControllerVmRoute(novaPeer_.get(),
+                              agent_->fabric_vrf_name(),
+                              agent_->router_id(), vrf, gw.to_v4(),
+                              TunnelType::AllType(), mpls_label, "",
+                              SecurityGroupList(), PathPreference());
+    agent_->fabric_inet4_unicast_table()->
+        AddRemoteVmRouteReq(novaPeer_.get(),
+                            vrf, ip.to_v4(), 32, data);
     return true;
 }
 
@@ -412,7 +424,7 @@ InstanceServiceAsyncIf::CreateVrf_shared_future_t
 InstanceServiceAsyncHandler::CreateVrf(const std::string& vrf) {
     LOG(DEBUG, "CreateVrf" << vrf);
     // Vrf
-    agent_->GetVrfTable()->CreateVrf(vrf);
+    agent_->vrf_table()->CreateVrf(vrf);
     return true;
 }
 
@@ -449,7 +461,7 @@ void InstanceInfoServiceServerInit(Agent *agent) {
 
     boost::shared_ptr<apache::thrift::async::TAsioServer> server(
         new apache::thrift::async::TAsioServer(
-            *(agent->GetEventManager()->io_service()),
+            *(agent->event_manager()->io_service()),
             ContrailPorts::NovaVifVrouterAgentPort,
             protocolFactory,
             protocolFactory,
@@ -519,7 +531,7 @@ void AddPortReq::HandleRequest() const {
         return;
     }
 
-    CfgIntTable *ctable = Agent::GetInstance()->GetIntfCfgTable();
+    CfgIntTable *ctable = Agent::GetInstance()->interface_config_table();
     assert(ctable);
 
     DBRequest req(DBRequest::DB_ENTRY_ADD_CHANGE);
@@ -549,7 +561,7 @@ void DeletePortReq::HandleRequest() const {
         resp->Response();
     }
 
-    CfgIntTable *ctable = Agent::GetInstance()->GetIntfCfgTable();
+    CfgIntTable *ctable = Agent::GetInstance()->interface_config_table();
     assert(ctable);
 
     DBRequest req;
@@ -580,7 +592,7 @@ void ConfigStaleCleaner::StartStaleCleanTimer(int32_t version) {
     // create timer, to be deleted on completion
     Timer *timer =
         TimerManager::CreateTimer(
-            *(agent_->GetEventManager())->io_service(), "Stale cleanup timer",
+            *(agent_->event_manager())->io_service(), "Stale cleanup timer",
             TaskScheduler::GetInstance()->GetTaskId("db::DBTable"), 0, true);
     running_timer_list_.insert(timer);
     timer->Start(timeout_,
@@ -605,19 +617,19 @@ InterfaceConfigStaleCleaner::InterfaceConfigStaleCleaner(Agent *agent) :
 InterfaceConfigStaleCleaner::~InterfaceConfigStaleCleaner() {
     if (walkid_ != DBTableWalker::kInvalidWalkerId) {
         CFG_TRACE(IntfInfo, "InterfaceConfigStaleCleaner Walk cancelled.");
-        agent_->GetDB()->GetWalker()->WalkCancel(walkid_);
+        agent_->db()->GetWalker()->WalkCancel(walkid_);
     }
 }
 
 bool
 InterfaceConfigStaleCleaner::OnInterfaceConfigStaleTimeout(int32_t version) {
-    DBTableWalker *walker = agent_->GetDB()->GetWalker();
+    DBTableWalker *walker = agent_->db()->GetWalker();
     if (walkid_ != DBTableWalker::kInvalidWalkerId) {
         CFG_TRACE(IntfInfo, "InterfaceConfigStaleCleaner Walk cancelled.");
         walker->WalkCancel(walkid_);
     }
 
-    walkid_ = walker->WalkTable(agent_->GetIntfCfgTable(), NULL,
+    walkid_ = walker->WalkTable(agent_->interface_config_table(), NULL,
               boost::bind(&InterfaceConfigStaleCleaner::CfgIntfWalk, this,
                           _1, _2, version),
               boost::bind(&InterfaceConfigStaleCleaner::CfgIntfWalkDone, this,
@@ -631,7 +643,7 @@ bool InterfaceConfigStaleCleaner::CfgIntfWalk(DBTablePartBase *partition,
                                               int32_t version) {
     const CfgIntEntry *cfg_intf = static_cast<const CfgIntEntry *>(entry);
     if (cfg_intf->GetVersion() < version) {
-        CfgIntTable *ctable = Agent::GetInstance()->GetIntfCfgTable();
+        CfgIntTable *ctable = Agent::GetInstance()->interface_config_table();
         DBRequest req;
         req.key.reset(new CfgIntKey(cfg_intf->GetUuid()));
         req.oper = DBRequest::DB_ENTRY_DELETE;

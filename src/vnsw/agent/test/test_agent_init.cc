@@ -26,7 +26,6 @@
 
 #include <cmn/agent_cmn.h>
 #include <cmn/agent_factory.h>
-#include <cmn/agent_stats.h>
 #include <cfg/cfg_init.h>
 #include <cfg/cfg_mirror.h>
 #include <cfg/discovery_agent.h>
@@ -46,57 +45,20 @@
 #include <kstate/kstate.h>
 #include <pkt/proto.h>
 #include <pkt/proto_handler.h>
+#include <pkt/agent_stats.h>
 #include <diag/diag.h>
 #include <vgw/cfg_vgw.h>
 #include <vgw/vgw.h>
 
 #include "test_agent_init.h"
-/****************************************************************************
- * Cleanup routines on shutdown
-****************************************************************************/
-void TestAgentInit::DeleteRoutes() {
-    Inet4UnicastAgentRouteTable *uc_rt_table =
-        agent_->GetDefaultInet4UnicastRouteTable();
+TestAgentInit::TestAgentInit() :
+        agent_(NULL), params_(NULL), create_vhost_(true), ksync_enable_(true),
+        services_enable_(true), packet_enable_(true), uve_enable_(true),
+        vgw_enable_(true), router_id_dep_enable_(true), trigger_() { }
 
-    uc_rt_table->DeleteReq(agent_->local_peer(), agent_->GetDefaultVrf(),
-                           agent_->GetGatewayId(), 32);
-}
-
-void TestAgentInit::DeleteNextHops() {
-    agent_->nexthop_table()->Delete(new DiscardNHKey());
-    agent_->nexthop_table()->Delete(new ResolveNHKey());
-    agent_->nexthop_table()->set_discard_nh(NULL);
-
-    NextHopKey *key = new InterfaceNHKey
-        (new PacketInterfaceKey(nil_uuid(), agent_->GetHostInterfaceName()),
-         false, InterfaceNHFlags::INET4);
-    agent_->GetNextHopTable()->Delete(key);
-}
-
-void TestAgentInit::DeleteVrfs() {
-    agent_->GetVrfTable()->DeleteStaticVrf(agent_->GetDefaultVrf());
-}
-
-void TestAgentInit::DeleteInterfaces() {
-    PacketInterface::DeleteReq(agent_->GetInterfaceTable(),
-                               agent_->GetHostInterfaceName());
-    agent_->set_vhost_interface(NULL);
-    InetInterface::DeleteReq(agent_->GetInterfaceTable(),
-                             agent_->vhost_interface_name());
-    PhysicalInterface::DeleteReq(agent_->GetInterfaceTable(),
-                                 agent_->GetIpFabricItfName());
-
-    if (!params_->isVmwareMode())
-        return;
-    PhysicalInterface::DeleteReq(agent_->GetInterfaceTable(),
-                                 params_->vmware_physical_port());
-}
-
-void TestAgentInit::Shutdown() {
-    agent_->cfg()->Shutdown();
-    agent_->diag_table()->Shutdown();
-}
-
+TestAgentInit::~TestAgentInit() {
+        trigger_->Reset();
+    }
 /****************************************************************************
  * Initialization routines
 ****************************************************************************/
@@ -105,9 +67,9 @@ void TestAgentInit::InitVmwareInterface() {
     if (!params_->isVmwareMode())
         return;
 
-    PhysicalInterface::Create(agent_->GetInterfaceTable(),
+    PhysicalInterface::Create(agent_->interface_table(),
                               params_->vmware_physical_port(),
-                              agent_->GetDefaultVrf());
+                              agent_->fabric_vrf_name());
 }
 
 void TestAgentInit::InitLogging() {
@@ -131,10 +93,12 @@ void TestAgentInit::CreateModules() {
     agent_->set_uve(AgentObjectFactory::Create<AgentUve>(
                     agent_, AgentUve::kBandwidthInterval));
     agent_->set_ksync(AgentObjectFactory::Create<KSync>(agent_));
-    agent_->set_pkt(new PktModule(agent_));
+    pkt_.reset(new PktModule(agent_));
+    agent_->set_pkt(pkt_.get());
 
-    agent_->set_services(new ServicesModule(agent_,
-                                            params_->metadata_shared_secret()));
+    services_.reset(new ServicesModule(agent_,
+                                       params_->metadata_shared_secret()));
+    agent_->set_services(services_.get());
     if (vgw_enable_) {
         agent_->set_vgw(new VirtualGateway(agent_));
     }
@@ -143,17 +107,30 @@ void TestAgentInit::CreateModules() {
 }
 
 void TestAgentInit::CreateDBTables() {
-    agent_->CreateDBTables();
+    if (agent_->cfg()) {
+        agent_->cfg()->CreateDBTables(agent_->db());
+    }
+
+    if (agent_->oper_db()) {
+        agent_->oper_db()->CreateDBTables(agent_->db());
+    }
 }
 
-void TestAgentInit::CreateDBClients() {
-    agent_->CreateDBClients();
+void TestAgentInit::RegisterDBClients() {
+    if (agent_->cfg()) {
+        agent_->cfg()->RegisterDBClients(agent_->db());
+    }
+
+    if (agent_->oper_db()) {
+        agent_->oper_db()->RegisterDBClients();
+    }
+
     if (agent_->uve()) {
         agent_->uve()->RegisterDBClients();
     }
 
     if (agent_->ksync()) {
-        agent_->ksync()->RegisterDBClients(agent_->GetDB());
+        agent_->ksync()->RegisterDBClients(agent_->db());
     }
 
     if (agent_->vgw()) {
@@ -166,7 +143,13 @@ void TestAgentInit::InitPeers() {
 }
 
 void TestAgentInit::InitModules() {
-    agent_->InitModules();
+    if (agent_->cfg()) {
+        agent_->cfg()->Init();
+    }
+
+    if (agent_->oper_db()) {
+        agent_->oper_db()->Init();
+    }
 
     if (agent_->ksync()) {
         agent_->ksync()->Init(create_vhost_);
@@ -187,21 +170,21 @@ void TestAgentInit::InitModules() {
 
 void TestAgentInit::CreateVrf() {
     // Create the default VRF
-    VrfTable *vrf_table = agent_->GetVrfTable();
+    VrfTable *vrf_table = agent_->vrf_table();
 
     if (agent_->isXenMode()) {
-        vrf_table->CreateStaticVrf(agent_->GetLinkLocalVrfName());
+        vrf_table->CreateStaticVrf(agent_->linklocal_vrf_name());
     }
-    vrf_table->CreateStaticVrf(agent_->GetDefaultVrf());
+    vrf_table->CreateStaticVrf(agent_->fabric_vrf_name());
 
-    VrfEntry *vrf = vrf_table->FindVrfFromName(agent_->GetDefaultVrf());
+    VrfEntry *vrf = vrf_table->FindVrfFromName(agent_->fabric_vrf_name());
     assert(vrf);
 
     // Default VRF created; create nexthops
-    agent_->SetDefaultInet4UnicastRouteTable(vrf->GetInet4UnicastRouteTable());
-    agent_->SetDefaultInet4MulticastRouteTable
+    agent_->set_fabric_inet4_unicast_table(vrf->GetInet4UnicastRouteTable());
+    agent_->set_fabric_inet4_multicast_table
         (vrf->GetInet4MulticastRouteTable());
-    agent_->SetDefaultLayer2RouteTable(vrf->GetLayer2RouteTable());
+    agent_->set_fabric_l2_unicast_table(vrf->GetLayer2RouteTable());
 
     // Create VRF for VGw
     if (agent_->vgw()) {
@@ -220,14 +203,14 @@ void TestAgentInit::CreateNextHops() {
 }
 
 void TestAgentInit::CreateInterfaces() {
-    InterfaceTable *table = agent_->GetInterfaceTable();
+    InterfaceTable *table = agent_->interface_table();
 
-    InetInterface::Create(table, params_->vhost_name(), InetInterface::VHOST,
-                          agent_->GetDefaultVrf(), params_->vhost_addr(),
-                          params_->vhost_plen(), params_->vhost_gw(),
-                          agent_->GetDefaultVrf());
     PhysicalInterface::Create(table, params_->eth_port(),
-                              agent_->GetDefaultVrf());
+                              agent_->fabric_vrf_name());
+    InetInterface::Create(table, params_->vhost_name(), InetInterface::VHOST,
+                          agent_->fabric_vrf_name(), params_->vhost_addr(),
+                          params_->vhost_plen(), params_->vhost_gw(),
+                          params_->eth_port(), agent_->fabric_vrf_name());
     agent_->InitXenLinkLocalIntf();
     InitVmwareInterface();
 
@@ -238,12 +221,12 @@ void TestAgentInit::CreateInterfaces() {
     assert(agent_->vhost_interface());
 
     // Validate physical interface
-    PhysicalInterfaceKey physical_key(agent_->GetIpFabricItfName());
+    PhysicalInterfaceKey physical_key(agent_->fabric_interface_name());
     assert(table->FindActiveEntry(&physical_key));
 
-    agent_->SetRouterId(params_->vhost_addr());
-    agent_->SetPrefixLen(params_->vhost_plen());
-    agent_->SetGatewayId(params_->vhost_gw());
+    agent_->set_router_id(params_->vhost_addr());
+    agent_->set_vhost_prefix_len(params_->vhost_plen());
+    agent_->set_vhost_default_gateway(params_->vhost_gw());
 
     if (agent_->pkt()) {
         agent_->pkt()->CreateInterfaces();
@@ -262,7 +245,7 @@ void TestAgentInit::InitDiscovery() {
 
 void TestAgentInit::InitDone() {
     //Open up mirror socket
-    agent_->GetMirrorTable()->MirrorSockInit();
+    agent_->mirror_table()->MirrorSockInit();
 
     if (agent_->services()) {
         agent_->services()->ConfigInit();
@@ -270,7 +253,8 @@ void TestAgentInit::InitDone() {
 
     // Diag module needs PktModule
     if (agent_->pkt()) {
-        agent_->set_diag_table(new DiagTable(agent_));
+        diag_table_.reset(new DiagTable(agent_));
+        agent_->set_diag_table(diag_table_.get());
     }
 
     if (create_vhost_) {
@@ -283,7 +267,7 @@ void TestAgentInit::InitDone() {
         agent_->ksync()->VnswInterfaceListenerInit();
     }
 
-    if (router_id_dep_enable() && agent_->GetRouterIdConfigured()) {
+    if (router_id_dep_enable() && agent_->router_id_configured()) {
         RouterIdDepInit(agent_);
     } else {
         LOG(DEBUG, 
@@ -302,7 +286,7 @@ bool TestAgentInit::Run() {
     InitPeers();
     CreateModules();
     CreateDBTables();
-    CreateDBClients();
+    RegisterDBClients();
     InitModules();
     CreateVrf();
     CreateNextHops();
@@ -353,3 +337,87 @@ void TestAgentInit::Start() {
     trigger_->Set();
     return;
 }
+
+/****************************************************************************
+ * Cleanup routines on shutdown
+****************************************************************************/
+DBTableWalker *TestAgentInit::DeleteNextHops() {
+    agent_->nexthop_table()->Delete(new DiscardNHKey());
+    agent_->nexthop_table()->Delete(new ResolveNHKey());
+    agent_->nexthop_table()->set_discard_nh(NULL);
+
+    NextHopKey *key = new InterfaceNHKey
+        (new PacketInterfaceKey(nil_uuid(), agent_->GetHostInterfaceName()),
+         false, InterfaceNHFlags::INET4);
+    agent_->nexthop_table()->Delete(key);
+    return agent_->nexthop_table()->Flush();
+}
+
+DBTableWalker *TestAgentInit::DeleteInterfaces() {
+    PacketInterface::DeleteReq(agent_->interface_table(),
+                               agent_->GetHostInterfaceName());
+    agent_->set_vhost_interface(NULL);
+    InetInterface::DeleteReq(agent_->interface_table(),
+                             agent_->vhost_interface_name());
+    PhysicalInterface::DeleteReq(agent_->interface_table(),
+                                 agent_->fabric_interface_name());
+
+    if (!params_->isVmwareMode()) {
+        PhysicalInterface::DeleteReq(agent_->interface_table(),
+                                     params_->vmware_physical_port());
+    }
+    return agent_->interface_table()->Flush();
+}
+
+DBTableWalker *TestAgentInit::DeleteVms() {
+    return agent_->vm_table()->Flush();
+}
+
+DBTableWalker *TestAgentInit::DeleteVns() {
+    return agent_->vn_table()->Flush();
+}
+
+DBTableWalker *TestAgentInit::DeleteVrfs() {
+    agent_->vrf_table()->DeleteStaticVrf(agent_->fabric_vrf_name());
+    return agent_->vrf_table()->Flush();
+}
+
+DBTableWalker *TestAgentInit::DeleteSecurityGroups() {
+    return agent_->sg_table()->Flush();
+}
+
+DBTableWalker *TestAgentInit::DeleteAcls() {
+    return agent_->acl_table()->Flush();
+}
+
+void TestAgentInit::Shutdown() {
+    agent_->cfg()->Shutdown();
+    agent_->diag_table()->Shutdown();
+}
+
+// Shutdown IO channel to controller+DNS and Packet interface
+void TestAgentInit::IoShutdown() {
+    agent_->controller()->DisConnect();
+
+    if (agent_->pkt())
+        agent_->pkt()->IoShutdown();
+
+    if (agent_->services())
+        agent_->services()->IoShutdown();
+}
+
+void TestAgentInit::FlushFlows() {
+    if (agent_->pkt())
+        agent_->pkt()->FlushFlows();
+}
+
+void TestAgentInit::ServicesShutdown() {
+    if (agent_->services())
+        agent_->services()->Shutdown();
+}
+
+void TestAgentInit::DeleteRoutes() {
+    if (agent_->oper_db())
+        agent_->oper_db()->DeleteRoutes();
+}
+

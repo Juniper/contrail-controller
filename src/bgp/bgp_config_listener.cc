@@ -10,6 +10,7 @@
 #include "base/task_annotations.h"
 #include "bgp/bgp_config.h"
 #include "db/db.h"
+#include "ifmap/ifmap_dependency_tracker.h"
 #include "ifmap/ifmap_link.h"
 #include "ifmap/ifmap_node.h"
 #include "ifmap/ifmap_table.h"
@@ -18,14 +19,6 @@ class DBTablePartBase;
 
 using namespace boost::assign;
 using namespace std;
-
-//
-// Initialize the policy for the DependencyTracker.
-//
-BgpConfigListener::DependencyTracker::DependencyTracker(
-    BgpConfigListener *listener) : listener_(listener) {
-    Initialize();
-}
 
 //
 // Populate the policy with entries for each interesting identifier type.
@@ -39,249 +32,36 @@ BgpConfigListener::DependencyTracker::DependencyTracker(
 // Additional unit tests should be added to bgp_config_listener_test.cc as
 // and when this policy is modified.
 //
-void BgpConfigListener::DependencyTracker::Initialize() {
+void BgpConfigListener::DependencyTrackerInit() {
+    typedef IFMapDependencyTracker::PropagateList PropagateList;
+    typedef IFMapDependencyTracker::ReactionMap ReactionMap;
+
+    IFMapDependencyTracker::NodeEventPolicy *policy = tracker_->policy_map();
+
     ReactionMap bgp_peering_react = map_list_of<string, PropagateList>
         ("bgp-peering", list_of("self"));
-    policy_.insert(make_pair("bgp-peering", bgp_peering_react));
+    policy->insert(make_pair("bgp-peering", bgp_peering_react));
 
     ReactionMap bgp_router_react = map_list_of<string, PropagateList>
         ("self", list_of("bgp-peering"));
-    policy_.insert(make_pair("bgp-router", bgp_router_react));
+    policy->insert(make_pair("bgp-router", bgp_router_react));
 
     ReactionMap rt_instance_react = map_list_of<string, PropagateList>
         ("instance-target", list_of("self")("connection"))
         ("connection", list_of("self"))
         ("virtual-network-routing-instance", list_of("self"));
-    policy_.insert(make_pair("routing-instance", rt_instance_react));
+    policy->insert(make_pair("routing-instance", rt_instance_react));
 
     ReactionMap virtual_network_react = map_list_of<string, PropagateList>
         ("self", list_of("virtual-network-routing-instance"));
-    policy_.insert(make_pair("virtual-network", virtual_network_react));
+    policy->insert(make_pair("virtual-network", virtual_network_react));
 }
 
 //
-// Add an IFMapNode to the NodeList for further propagation if it's an
-// interesting node. It's interesting if there's an entry for self in the
-// ReactionMap.
-//
-// The node is always added to the ChangeList even if it's not interesting.
-//
-void BgpConfigListener::DependencyTracker::NodeEvent(
-    ChangeList *change_list, IFMapNode *node) {
-    CHECK_CONCURRENCY("db::DBTable");
-
-    AddChangeEvent(change_list, node);
-    if (IsInterestingEvent(node, "self")) {
-        node_list_.push_back(
-            make_pair(node->table()->Typename(), node->name()));
-    }
-}
-
-//
-// Check both the edges corresponding to the IFMapLink and add them to the
-// EdgeDescriptorList if interesting. An edge is considered interesting if
-// there's an entry for the metadata in the ReactionMap for the IFMapNode's
-// identifier type.
-//
-bool BgpConfigListener::DependencyTracker::LinkEvent(const string metadata,
-    IFMapNode *left, IFMapNode *right) {
-    CHECK_CONCURRENCY("db::DBTable");
-
-    bool interest = false;
-
-    if ((left != NULL) && IsInterestingEvent(left, metadata)) {
-        const char *type_left = left->table()->Typename();
-        edge_list_.push_back(
-            EdgeDescriptor(metadata, type_left, left->name()));
-        interest = true;
-    }
-    if ((right != NULL) && IsInterestingEvent(right, metadata)) {
-        const char *type_right = right->table()->Typename();
-        edge_list_.push_back(
-            EdgeDescriptor(metadata, type_right, right->name()));
-        interest = true;
-    }
-
-    return interest;
-}
-
-//
-// Walk the NodeList and EdgeDescriptorList and evaluate the NodeEventPolicy
-// to build up the change list. The InEdgeSet is used to avoid evaluating the
-// same EdgeDescriptor more than once, hence avoiding any loops in the graph.
-//
-void BgpConfigListener::DependencyTracker::PropagateChanges(
-    ChangeList *change_list) {
-    CHECK_CONCURRENCY("bgp::Config");
-    InEdgeSet in_edges;
-
-    for (NodeList::iterator iter = node_list_.begin();
-         iter != node_list_.end(); ++iter) {
-        IFMapTable *table =
-            IFMapTable::FindTable(listener_->database(), iter->first);
-        if (table == NULL) {
-            continue;
-        }
-        IFMapNode *node = table->FindNode(iter->second);
-        if ((node == NULL) || node->IsDeleted()) {
-            continue;
-        }
-        PropagateNode(node, &in_edges, change_list);
-    }
-
-    for (EdgeDescriptorList::iterator iter = edge_list_.begin();
-         iter != edge_list_.end(); ++iter) {
-        const EdgeDescriptor &edge = *iter;
-        IFMapTable *table =
-            IFMapTable::FindTable(listener_->database(), edge.id_type);
-        if (table == NULL) {
-            continue;
-        }
-        IFMapNode *node = table->FindNode(edge.id_name);
-        if ((node == NULL) || node->IsDeleted()) {
-            continue;
-        }
-        PropagateEdge(node, edge.metadata, &in_edges, change_list);
-    }
-}
-
-//
-// Clear all intermediate state used during propagation. This is called after
-// we're done propagating all accumulated node and edge triggers to the change
-// list.
-//
-void BgpConfigListener::DependencyTracker::Clear() {
-    CHECK_CONCURRENCY("bgp::Config");
-
-    vertex_list_.clear();
-    node_list_.clear();
-    edge_list_.clear();
-}
-
-//
-// Get the PropagateList for the given identifier type and metadata.
-//
-const BgpConfigListener::DependencyTracker::PropagateList *
-BgpConfigListener::DependencyTracker::GetPropagateList(
-    const string &type, const string &metadata) const {
-    CHECK_CONCURRENCY("bgp::Config", "db::DBTable");
-
-    NodeEventPolicy::const_iterator ploc = policy_.find(type);
-    if (ploc == policy_.end()) {
-        return NULL;
-    }
-    ReactionMap::const_iterator rloc = ploc->second.find(metadata);
-    if (rloc == ploc->second.end()) {
-        return NULL;
-    }
-    return &rloc->second;
-}
-
-//
-// Determine if the event specified by the node and metadata is interesting.
-// It's interesting if the NodeEventPolicy has non-empty propagate list for
-// the event.
-//
-bool BgpConfigListener::DependencyTracker::IsInterestingEvent(
-    const IFMapNode *node, const string &metadata) const {
-    if (node->IsDeleted()) {
-        return false;
-    }
-    return GetPropagateList(node->table()->Typename(), metadata) != NULL;
-}
-
-//
-// Propagate changes for a IFMapNode on the NodeList.  The fact that it's on
-// the NodeList means that the node must have been deemed interesting and so
-// it's PropagateList must be non-empty.
-//
-void BgpConfigListener::DependencyTracker::PropagateNode(
-    IFMapNode *node, InEdgeSet *in_edges, ChangeList *change_list) {
-    CHECK_CONCURRENCY("bgp::Config");
-
-    const PropagateList *plist =
-        GetPropagateList(node->table()->Typename(), "self");
-    assert(plist);
-
-    // Iterate through the edges of node. If the metadata for an edge is in
-    // the PropagateList, we need to propagate changes for the edge itself.
-    for (DBGraphVertex::edge_iterator iter =
-         node->edge_list_begin(listener_->graph());
-         iter != node->edge_list_end(listener_->graph()); ++iter) {
-        IFMapLink *link = static_cast<IFMapLink *>(iter.operator->());
-        IFMapNode *target = static_cast<IFMapNode *>(iter.target());
-        if (plist->find(link->metadata()) == plist->end()) {
-            continue;
-        }
-        PropagateEdge(target, link->metadata(), in_edges, change_list);
-    }
-}
-
-//
-// Propagate changes for an edge on the EdgeDescriptorList.
-//
-void BgpConfigListener::DependencyTracker::PropagateEdge(
-    IFMapNode *node, const string &metadata,
-    InEdgeSet *in_edges, ChangeList *change_list) {
-    CHECK_CONCURRENCY("bgp::Config");
-    assert(!node->IsDeleted());
-
-    // Make a bidirectional check i.e. policy terms that apply to the two
-    // edges for a link must be symmetrical.
-    const PropagateList *plist =
-        GetPropagateList(node->table()->Typename(), metadata);
-    assert(plist);
-
-    // Skip if this edge in already in the InEdgeSet i.e. it's a duplicate.
-    if (in_edges->count(make_pair(node, metadata)) > 0) {
-        return;
-    }
-
-    // Add entry to InEdgeSet for loop prevention.
-    in_edges->insert(make_pair(node, metadata));
-
-    // Add the node corresponding to this edge to the change list if there's
-    // an entry for self in the PropagateList.
-    PropagateList::const_iterator self = plist->find("self");
-    if (self != plist->end()) {
-        AddChangeEvent(change_list, node);
-    }
-
-    // Iterate through the edges of node. If the metadata for an edge is in
-    // the PropagateList, we need to propagate changes for the edge itself.
-    for (DBGraphVertex::edge_iterator iter =
-         node->edge_list_begin(listener_->graph());
-         iter != node->edge_list_end(listener_->graph()); ++iter) {
-        IFMapLink *link = static_cast<IFMapLink *>(iter.operator->());
-        if (plist->find(link->metadata()) == plist->end()) {
-            continue;
-        }
-        IFMapNode *target = static_cast<IFMapNode *>(iter.target());
-        PropagateEdge(target, link->metadata(), in_edges, change_list);
-    }
-}
-
-//
-// Add the IFMapNode to the change list it's not already on there.
-//
-void BgpConfigListener::DependencyTracker::AddChangeEvent(
-    ChangeList *change_list, IFMapNode *node) {
-    CHECK_CONCURRENCY("bgp::Config", "db::DBTable");
-
-    ostringstream identifier;
-    identifier << node->table()->Typename() << ':' << node->name();
-    if (vertex_list_.count(identifier.str()) > 0) {
-        return;
-    }
-    listener_->ChangeListAdd(change_list, node);
-    vertex_list_.insert(identifier.str());
-}
-
-//
-// Constructor, create and initialize the DependencyTracker.
+// Constructor.
 //
 BgpConfigListener::BgpConfigListener(BgpConfigManager *manager)
-    : manager_(manager), tracker_(new DependencyTracker(this)) {
+    : manager_(manager) {
 }
 
 //
@@ -307,10 +87,17 @@ static const char *bgp_config_types[] = {
 //
 // Initialize the BgpConfigListener.
 //
+// Create and initialize the DependencyTracker.
 // We register one listener for the IFMapLinkTable and a listener for each of
 // the relevant IFMapTables.
 //
 void BgpConfigListener::Initialize(DB *database) {
+    tracker_.reset(
+        new IFMapDependencyTracker(
+            database, manager_->graph(),
+            boost::bind(&BgpConfigListener::ChangeListAdd, this, _1)));
+    DependencyTrackerInit();
+
     DBTable *link_table = static_cast<DBTable *>(
         database->FindTable("__ifmap_metadata__.0"));
     assert(link_table != NULL);
@@ -352,19 +139,12 @@ DB *BgpConfigListener::database() {
 }
 
 //
-// Get the DBGraph in the BgpConfigManager.
-//
-DBGraph *BgpConfigListener::graph() {
-    return manager_->graph();
-}
-
-//
 // Ask the DependencyTracker to build up the ChangeList.
 //
 void BgpConfigListener::GetChangeList(ChangeList *change_list) {
     CHECK_CONCURRENCY("bgp::Config");
 
-    tracker_->PropagateChanges(&change_list_);
+    tracker_->PropagateChanges();
     tracker_->Clear();
     change_list->swap(change_list_);
 }
@@ -374,8 +154,7 @@ void BgpConfigListener::GetChangeList(ChangeList *change_list) {
 //
 // We take references on the IFMapNode and the IFMapObject.
 //
-void BgpConfigListener::ChangeListAdd(
-    ChangeList *change_list, IFMapNode *node) const {
+void BgpConfigListener::ChangeListAdd(IFMapNode *node) {
     CHECK_CONCURRENCY("bgp::Config", "db::DBTable");
 
     IFMapTable *table = node->table();
@@ -394,7 +173,7 @@ void BgpConfigListener::ChangeListAdd(
         }
         delta.obj = IFMapObjectRef(node->GetObject());
     }
-    change_list->push_back(delta);
+    change_list_.push_back(delta);
 }
 
 //
@@ -419,7 +198,7 @@ void BgpConfigListener::NodeObserver(
         }
     }
 
-    tracker_->NodeEvent(&change_list_, node);
+    tracker_->NodeEvent(node);
     manager_->OnChange();
 }
 

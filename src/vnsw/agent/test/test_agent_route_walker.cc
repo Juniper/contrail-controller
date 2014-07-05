@@ -85,8 +85,8 @@ public:
         if (num_vrfs > 2) {
             VrfAddReq(vrf_name_3_.c_str());
         }
-        Agent::GetInstance()->GetDefaultInet4UnicastRouteTable()->AddResolveRoute(
-                Agent::GetInstance()->GetDefaultVrf(), server_ip_, 24);
+        Agent::GetInstance()->fabric_inet4_unicast_table()->AddResolveRoute(
+                Agent::GetInstance()->fabric_vrf_name(), server_ip_, 24);
         client->WaitForIdle();
         client->WaitForIdle();
         if (num_vrfs > 0) {

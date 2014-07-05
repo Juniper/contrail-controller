@@ -40,7 +40,7 @@
 class TestInterfaceTable : public InterfaceTable {
 public:
     TestInterfaceTable() :
-        InterfaceTable(Agent::GetInstance()->GetDB(), "test") {}
+        InterfaceTable(Agent::GetInstance()->db(), "test") {}
     ~TestInterfaceTable() {}
 
     bool FindVmUuidFromMetadataIp(const Ip4Address &ip,
@@ -56,14 +56,22 @@ public:
 
 class MetadataTest : public ::testing::Test {
 public:
+    enum HttpMethod {
+        GET_METHOD,
+        HEAD_METHOD,
+        POST_METHOD,
+        PUT_METHOD,
+        DELETE_METHOD
+    };
+
     MetadataTest() : nova_api_proxy_(NULL), vm_http_client_(NULL),
                      done_(0), itf_count_(0) {
-        rid_ = Agent::GetInstance()->GetInterfaceTable()->Register(
+        rid_ = Agent::GetInstance()->interface_table()->Register(
                 boost::bind(&MetadataTest::ItfUpdate, this, _2));
     }
 
     ~MetadataTest() {
-        Agent::GetInstance()->GetInterfaceTable()->Unregister(rid_);
+        Agent::GetInstance()->interface_table()->Unregister(rid_);
     }
 
     void ItfUpdate(DBEntryBase *entry) {
@@ -131,8 +139,20 @@ public:
         ApplyXmlString(buf);
     }
 
+    void ClearLinkLocalConfig() {
+        char buf[BUF_SIZE];
+        int len = 0;
+        memset(buf, 0, BUF_SIZE);
+        AddXmlHdr(buf, len);
+        AddNodeString(buf, len, "global-vrouter-config",
+                      "default-global-system-config:default-global-vrouter-config",
+                      1024, "");
+        AddXmlTail(buf, len);
+        ApplyXmlString(buf);
+    }
+
     void StartHttpClient() {
-        vm_http_client_ = new HttpClient(Agent::GetInstance()->GetEventManager());
+        vm_http_client_ = new HttpClient(Agent::GetInstance()->event_manager());
         vm_http_client_->Init();
     }
 
@@ -141,23 +161,48 @@ public:
         vm_http_client_ = NULL;
     }
 
-    HttpConnection *SendHttpClientRequest() {
+    HttpConnection *SendHttpClientRequest(HttpMethod method) {
         boost::system::error_code ec;
         Ip4Address server(Ip4Address::from_string("127.0.0.1", ec));
 
         boost::asio::ip::tcp::endpoint http_ep;
         http_ep.address(server);
-        http_ep.port(Agent::GetInstance()->GetMetadataServerPort());
+        http_ep.port(Agent::GetInstance()->metadata_server_port());
 
         std::string uri("openstack");
-        std::string header_options;
-        header_options = "Connection: close";
+        std::string body("test body");
+        std::vector<std::string> header_options;
+        header_options.push_back(std::string("Connection: close"));
         HttpConnection *conn = vm_http_client_->CreateConnection(http_ep);
         conn->RegisterEventCb(
               boost::bind(&MetadataTest::OnClientSessionEvent, this, _1, _2));
-        conn->HttpGet(uri, false, false, header_options,
-                      boost::bind(&MetadataTest::HandleHttpResponse,
-                                  this, conn, _1, _2));
+        switch (method) {
+            case GET_METHOD:
+                conn->HttpGet(uri, false, false, header_options,
+                              boost::bind(&MetadataTest::HandleHttpResponse,
+                                          this, conn, _1, _2));
+                break;
+            case HEAD_METHOD:
+                conn->HttpHead(uri, false, false, header_options,
+                               boost::bind(&MetadataTest::HandleHttpResponse,
+                                           this, conn, _1, _2));
+                break;
+            case PUT_METHOD:
+                conn->HttpPut(body, uri, false, false, header_options,
+                              boost::bind(&MetadataTest::HandleHttpResponse,
+                                          this, conn, _1, _2));
+                break;
+            case POST_METHOD:
+                conn->HttpPost(body, uri, false, false, header_options,
+                              boost::bind(&MetadataTest::HandleHttpResponse,
+                                          this, conn, _1, _2));
+                break;
+            case DELETE_METHOD:
+                conn->HttpDelete(uri, false, false, header_options,
+                                 boost::bind(&MetadataTest::HandleHttpResponse,
+                                             this, conn, _1, _2));
+                break;
+        }
         return conn;
     }
 
@@ -189,7 +234,7 @@ public:
 
     void StartNovaApiProxy() {
         nova_api_proxy_ = 
-             new HttpServer(Agent::GetInstance()->GetEventManager());
+             new HttpServer(Agent::GetInstance()->event_manager());
         nova_api_proxy_->RegisterHandler(HTTP_WILDCARD_ENTRY,
              boost::bind(&MetadataTest::HandleNovaApiRequest, this, _1, _2));
         nova_api_proxy_->Initialize(0);
@@ -259,7 +304,7 @@ TEST_F(MetadataTest, MetadataReqTest) {
 
     // If the local address is not same as VM address in this request,
     // agent will have an internal error as it cannot find the VM
-    HttpConnection *conn = SendHttpClientRequest();
+    HttpConnection *conn = SendHttpClientRequest(GET_METHOD);
     METADATA_CHECK (stats.internal_errors < 1);
     EXPECT_EQ(1U, stats.requests);
     EXPECT_EQ(0U, stats.responses);
@@ -277,14 +322,118 @@ TEST_F(MetadataTest, MetadataReqTest) {
 
     // for agent to identify the vm, the remote end should have vm's ip;
     // overload the FindVmUuidFromMetadataIp to return true
-    InterfaceTable *intf_table = Agent::GetInstance()->GetInterfaceTable();
+    InterfaceTable *intf_table = Agent::GetInstance()->interface_table();
     TestInterfaceTable *interface_table = new TestInterfaceTable();
-    Agent::GetInstance()->SetInterfaceTable(static_cast<InterfaceTable *>(interface_table));
-    SendHttpClientRequest();
+    Agent::GetInstance()->set_interface_table(static_cast<InterfaceTable *>(interface_table));
+    SendHttpClientRequest(GET_METHOD);
     METADATA_CHECK (stats.responses < 1);
-    Agent::GetInstance()->SetInterfaceTable(intf_table);
+    Agent::GetInstance()->set_interface_table(intf_table);
     EXPECT_EQ(2U, stats.requests);
     EXPECT_EQ(1U, stats.proxy_sessions);
+    EXPECT_EQ(1U, stats.internal_errors);
+
+    client->Reset();
+    StopHttpClient();
+    DeleteVmportEnv(input, 1, 1, 0); 
+    client->WaitForIdle();
+
+    ClearLinkLocalConfig();
+    StopNovaApiProxy();
+    client->WaitForIdle();
+
+    Agent::GetInstance()->services()->metadataproxy()->ClearStats();
+}
+
+// Send POST / HEAD / DELETE requests
+TEST_F(MetadataTest, MetadataOtherMethodsTest) {
+    int count = 0;
+    MetadataProxy::MetadataStats stats;
+    struct PortInfo input[] = {
+        {"vnet1", 1, vm1_ip, "00:00:00:01:01:01", 1, 1},
+    };
+
+    StartNovaApiProxy();
+    SetupLinkLocalConfig();
+
+    CreateVmportEnv(input, 1, 0);
+    client->WaitForIdle();
+    client->Reset();
+
+    StartHttpClient();
+
+    // for agent to identify the vm, the remote end should have vm's ip;
+    // overload the FindVmUuidFromMetadataIp to return true
+    InterfaceTable *intf_table = Agent::GetInstance()->interface_table();
+    TestInterfaceTable *interface_table = new TestInterfaceTable();
+    Agent::GetInstance()->set_interface_table(static_cast<InterfaceTable *>(interface_table));
+    SendHttpClientRequest(POST_METHOD);
+    METADATA_CHECK (stats.responses < 1);
+    EXPECT_EQ(1U, stats.requests);
+    EXPECT_EQ(1U, stats.responses);
+    EXPECT_EQ(1U, stats.proxy_sessions);
+    EXPECT_EQ(0U, stats.internal_errors);
+
+    SendHttpClientRequest(POST_METHOD);
+    METADATA_CHECK (stats.responses < 2);
+    EXPECT_EQ(2U, stats.requests);
+    EXPECT_EQ(2U, stats.responses);
+    EXPECT_EQ(2U, stats.proxy_sessions);
+    EXPECT_EQ(0U, stats.internal_errors);
+
+    SendHttpClientRequest(HEAD_METHOD);
+    METADATA_CHECK (stats.responses < 3);
+    EXPECT_EQ(3U, stats.requests);
+    EXPECT_EQ(3U, stats.responses);
+    EXPECT_EQ(3U, stats.proxy_sessions);
+    EXPECT_EQ(0U, stats.internal_errors);
+
+    SendHttpClientRequest(DELETE_METHOD);
+    METADATA_CHECK (stats.responses < 4);
+    Agent::GetInstance()->set_interface_table(intf_table);
+    EXPECT_EQ(4U, stats.requests);
+    EXPECT_EQ(4U, stats.responses);
+    EXPECT_EQ(4U, stats.proxy_sessions);
+    EXPECT_EQ(0U, stats.internal_errors);
+
+    client->Reset();
+    StopHttpClient();
+    DeleteVmportEnv(input, 1, 1, 0); 
+    client->WaitForIdle();
+
+    ClearLinkLocalConfig();
+    StopNovaApiProxy();
+    client->WaitForIdle();
+
+    Agent::GetInstance()->services()->metadataproxy()->ClearStats();
+}
+
+// Send request without linklocal metadata
+TEST_F(MetadataTest, MetadataNoLinkLocalTest) {
+    int count = 0;
+    MetadataProxy::MetadataStats stats;
+    struct PortInfo input[] = {
+        {"vnet1", 1, vm1_ip, "00:00:00:01:01:01", 1, 1},
+    };
+
+    StartNovaApiProxy();
+
+    CreateVmportEnv(input, 1, 0);
+    client->WaitForIdle();
+    client->Reset();
+
+    StartHttpClient();
+
+    // for agent to identify the vm, the remote end should have vm's ip;
+    // overload the FindVmUuidFromMetadataIp to return true
+    InterfaceTable *intf_table = Agent::GetInstance()->interface_table();
+    TestInterfaceTable *interface_table = new TestInterfaceTable();
+    Agent::GetInstance()->set_interface_table(static_cast<InterfaceTable *>(interface_table));
+    SendHttpClientRequest(GET_METHOD);
+    METADATA_CHECK (stats.internal_errors < 1);
+    Agent::GetInstance()->set_interface_table(intf_table);
+    EXPECT_EQ(1U, stats.requests);
+    EXPECT_EQ(0U, stats.responses);
+    EXPECT_EQ(0U, stats.proxy_sessions);
     EXPECT_EQ(1U, stats.internal_errors);
 
     client->Reset();

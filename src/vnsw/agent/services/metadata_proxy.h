@@ -42,6 +42,7 @@ public:
 
     MetadataProxy(ServicesModule *module, const std::string &secret);
     virtual ~MetadataProxy();
+    void CloseSessions();
     void Shutdown();
 
     void HandleMetadataRequest(HttpSession *session, const HttpRequest *request);
@@ -58,7 +59,7 @@ private:
     HttpConnection *GetProxyConnection(HttpSession *session, bool conn_close);
     void CloseServerSession(HttpSession *session);
     void CloseClientSession(HttpConnection *conn);
-    void ErrorClose(HttpSession *sesion);
+    void ErrorClose(HttpSession *sesion, uint16_t error);
 
     ServicesModule *services_;
     std::string shared_secret_;

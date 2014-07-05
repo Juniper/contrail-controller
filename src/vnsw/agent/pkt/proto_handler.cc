@@ -50,6 +50,14 @@ void ProtoHandler::EthHdr(const unsigned char *src, const unsigned char *dest,
     eth->h_proto = htons(proto);
 }
 
+void ProtoHandler::VlanHdr(uint8_t *ptr, uint16_t tci) {
+    vlanhdr *vlan = reinterpret_cast<vlanhdr *>(ptr);
+    vlan->tpid = htons(0x8100);
+    vlan->tci = htons(tci);
+    vlan += 1;
+    vlan->tpid = htons(0x800);
+}
+
 void ProtoHandler::IpHdr(uint16_t len, in_addr_t src, in_addr_t dest, 
                          uint8_t protocol) {
     iphdr *ip = pkt_info_->ip;

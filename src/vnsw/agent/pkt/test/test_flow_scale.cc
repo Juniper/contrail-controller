@@ -14,7 +14,6 @@ struct PortInfo input[] = {
 void RouterIdDepInit(Agent *agent) {
 }
 
-extern Peer *bgp_peer_;
 class FlowTest : public ::testing::Test {
 public:
     virtual void SetUp() {
@@ -26,11 +25,11 @@ public:
         strcpy(vnet_addr, vnet->ip_addr().to_string().c_str());
 
         boost::system::error_code ec;
-        Inet4UnicastAgentRouteTable::AddRemoteVmRouteReq(bgp_peer_, "vrf1", 
-                                        Ip4Address::from_string("5.0.0.0", ec),
-                                        8, Ip4Address::from_string("1.1.1.2", ec),
-                                        TunnelType::AllType(), 16, "TestVn",
-                                        SecurityGroupList());
+        Inet4TunnelRouteAdd(NULL, "vrf1", 
+                            Ip4Address::from_string("5.0.0.0", ec),
+                            8, Ip4Address::from_string("1.1.1.2", ec),
+                            TunnelType::AllType(), 16, "TestVn",
+                            SecurityGroupList(), PathPreference());
         client->WaitForIdle();
         EXPECT_EQ(0U, Agent::GetInstance()->pkt()->flow_table()->Size());
     }
@@ -45,8 +44,8 @@ public:
             a = 1;
         client->WaitForIdle(a);
         boost::system::error_code ec;
-        Inet4UnicastAgentRouteTable::DeleteReq(bgp_peer_, "vrf1",
-                                     Ip4Address::from_string("5.0.0.0", ec), 8);
+        Inet4UnicastAgentRouteTable::DeleteReq(NULL, "vrf1",
+                                     Ip4Address::from_string("5.0.0.0", ec), 8, NULL);
         DeleteVmportEnv(input, 1, 1);
         client->WaitForIdle();
     }

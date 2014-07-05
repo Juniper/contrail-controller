@@ -245,18 +245,21 @@ static size_t write_cb(void *ptr, size_t size, size_t nmemb, void *data)
 static size_t read_cb(void *ptr, size_t size, size_t nmemb, void *data)
 {
   HttpConnection *conn = static_cast<HttpConnection *>(data);
-  const std::string str = conn->GetData();
+  ConnInfo *curl_handle = conn->curl_handle();
+  char *str = curl_handle->post;
 
   size_t maxb = size*nmemb;
   size_t offset = conn->GetOffset();
-  size_t datasize = str.length() - offset;
+  size_t datasize = 0;
+  if (curl_handle->post_len > offset)
+      datasize = curl_handle->post_len - offset;
 
   if (maxb >= datasize) {
-      memcpy(ptr, str.data() + offset, datasize);
+      memcpy(ptr, str + offset, datasize);
       conn->UpdateOffset(datasize);
-      return str.length();
+      return datasize;
   } else {
-      memcpy(ptr, str.data() + offset, maxb);
+      memcpy(ptr, str + offset, maxb);
       conn->UpdateOffset(maxb);
       return maxb;
   }
@@ -386,12 +389,24 @@ void set_header_options(ConnInfo *conn, const char *options) {
     curl_easy_setopt(conn->easy, CURLOPT_HTTPHEADER, conn->headers);
 }
 
-void set_put_string(ConnInfo *conn, const char *post) { 
-    conn->headers = curl_slist_append(conn->headers, "Content-Type: application/xml");
-    curl_easy_setopt(conn->easy, CURLOPT_HTTPHEADER, conn->headers);
-    
-    conn->post = strdup(post);
+void set_post_string(ConnInfo *conn, const char *post, uint32_t len) {
+    conn->post = (char *) malloc(len);
+    memcpy(conn->post, post, len);
+    conn->post_len = len;
+    curl_easy_setopt(conn->easy, CURLOPT_POST, 1);
+    // TODO: Using post fields to send post data; could be a problem if the
+    // data size is large; should move to UPLOAD and send in chunks ?
     curl_easy_setopt(conn->easy, CURLOPT_POSTFIELDS, conn->post);
+    curl_easy_setopt(conn->easy, CURLOPT_POSTFIELDSIZE_LARGE, (curl_off_t)len);
+}
+
+void set_put_string(ConnInfo *conn, const char *put, uint32_t len) {
+    conn->post = (char *) malloc(len);
+    memcpy(conn->post, put, len);
+    conn->post_len = len;
+    curl_easy_setopt(conn->easy, CURLOPT_UPLOAD, 1);
+    curl_easy_setopt(conn->easy, CURLOPT_PUT, 1);
+    curl_easy_setopt(conn->easy, CURLOPT_POSTFIELDSIZE_LARGE, (curl_off_t)len);
 }
 
 int http_get(ConnInfo *conn, GlobalInfo *g) {
@@ -399,7 +414,26 @@ int http_get(ConnInfo *conn, GlobalInfo *g) {
     return (int)rc;
 }
 
+int http_head(ConnInfo *conn, GlobalInfo *g) {
+    curl_easy_setopt(conn->easy, CURLOPT_CUSTOMREQUEST, "HEAD");
+    CURLMcode rc = curl_multi_add_handle(g->multi, conn->easy);
+    return (int)rc;
+}
+
 int http_put(ConnInfo *conn, GlobalInfo *g) {
+    // CURLMcode rc = curl_multi_perform(g->multi, counter);
+    // return (rc == CURLM_OK) ? true : false;
+    CURLcode rc = curl_easy_perform(conn->easy);
+    return (int)rc;
+}
+
+int http_post(ConnInfo *conn, GlobalInfo *g) {
+    CURLMcode rc = curl_multi_add_handle(g->multi, conn->easy);
+    return (int)rc;
+}
+
+int http_delete(ConnInfo *conn, GlobalInfo *g) {
+    curl_easy_setopt(conn->easy, CURLOPT_CUSTOMREQUEST, "DELETE");
     CURLMcode rc = curl_multi_add_handle(g->multi, conn->easy);
     return (int)rc;
 }
