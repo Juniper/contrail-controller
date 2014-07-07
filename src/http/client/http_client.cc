@@ -15,7 +15,7 @@ using tbb::mutex;
 HttpClientSession::HttpClientSession(HttpClient *client, Socket *socket) 
     : TcpSession(client, socket) , delete_called_(0) {
         set_observer(boost::bind(&HttpClientSession::OnEvent, this, _1, _2));
-}
+    }
 
 void HttpClientSession::OnRead(Buffer buffer) {
     return;
@@ -53,10 +53,10 @@ void HttpClientSession::RegisterEventCb(SessionEventCb cb) {
 }
 
 HttpConnection::HttpConnection(boost::asio::ip::tcp::endpoint ep, size_t id, 
-                               HttpClient *client) :
+        HttpClient *client) :
     endpoint_(ep), id_(id), cb_(NULL), offset_(0), curl_handle_(NULL),
     session_(NULL), client_(client) {
-}
+    }
 
 HttpConnection::~HttpConnection() {
     if (session_) {
@@ -102,54 +102,54 @@ int HttpConnection::HttpGet(std::string &path, HttpCb cb) {
 }
 
 int HttpConnection::HttpGet(std::string &path, bool header, bool timeout,
-                            std::vector<std::string> &hdr_options,
-                            HttpCb cb) {
+        std::vector<std::string> &hdr_options,
+        HttpCb cb) {
     const std::string body;
     client()->ProcessEvent(boost::bind(&HttpConnection::HttpProcessInternal,
-                           this, body, path, header, timeout, hdr_options, cb,
-                           HTTP_GET));
+                this, body, path, header, timeout, hdr_options, cb,
+                HTTP_GET));
     return 0;
 }
 
 int HttpConnection::HttpHead(std::string &path, bool header, bool timeout,
-                             std::vector<std::string> &hdr_options,
-                             HttpCb cb) {
+        std::vector<std::string> &hdr_options,
+        HttpCb cb) {
     const std::string body;
     client()->ProcessEvent(boost::bind(&HttpConnection::HttpProcessInternal,
-                           this, body, path, header, timeout, hdr_options, cb,
-                           HTTP_HEAD));
+                this, body, path, header, timeout, hdr_options, cb,
+                HTTP_HEAD));
     return 0;
 }
 
 int HttpConnection::HttpPut(const std::string &put_string,
-                            std::string &path,  HttpCb cb) {
+        std::string &path,  HttpCb cb) {
     std::vector<std::string> hdr_options;
     return HttpPut(put_string, path, false, true, hdr_options, cb);
 }
 
 int HttpConnection::HttpPut(const std::string &put_string,
-                            std::string &path, bool header, bool timeout,
-                            std::vector<std::string> &hdr_options,
-                            HttpCb cb) {
+        std::string &path, bool header, bool timeout,
+        std::vector<std::string> &hdr_options,
+        HttpCb cb) {
     client()->ProcessEvent(boost::bind(&HttpConnection::HttpProcessInternal,
-                                       this, put_string, path, header, timeout,
-                                       hdr_options, cb, HTTP_PUT));
+                this, put_string, path, header, timeout,
+                hdr_options, cb, HTTP_PUT));
     return 0;
 }
 
 int HttpConnection::HttpPost(const std::string &post_string,
-                             std::string &path,  HttpCb cb) {
+        std::string &path,  HttpCb cb) {
     std::vector<std::string> hdr_options;
     return HttpPost(post_string, path, false, true, hdr_options, cb);
 }
 
 int HttpConnection::HttpPost(const std::string &post_string,
-                             std::string &path, bool header, bool timeout,
-                             std::vector<std::string> &hdr_options,
-                             HttpCb cb) {
+        std::string &path, bool header, bool timeout,
+        std::vector<std::string> &hdr_options,
+        HttpCb cb) {
     client()->ProcessEvent(boost::bind(&HttpConnection::HttpProcessInternal,
-                           this, post_string, path, header, timeout,
-                           hdr_options, cb, HTTP_POST));
+                this, post_string, path, header, timeout,
+                hdr_options, cb, HTTP_POST));
     return 0;
 }
 
