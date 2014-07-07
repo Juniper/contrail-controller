@@ -64,6 +64,7 @@ public:
     int Initialize();
 
     typedef boost::function<void(std::string &, boost::system::error_code &)> HttpCb;
+
     int HttpPut(const std::string &put_string, std::string &path, HttpCb);
     int HttpPut(const std::string &put_string, std::string &path,
                 bool header, bool timeout,
@@ -96,9 +97,12 @@ public:
     size_t GetOffset();
     HttpCb HttpClientCb() { return cb_; }
     void RegisterEventCb(HttpClientSession::SessionEventCb cb) { event_cb_ = cb; }
+    bool IsStopped() const { return stopped_; }
+    void Stop() { stopped_ = true; }
 
 private:
     std::string make_url(std::string &path);
+
     void HttpProcessInternal(const std::string body, std::string path,
                              bool header, bool timeout,
                              std::vector<std::string> hdr_options,
@@ -115,6 +119,7 @@ private:
     HttpClient *client_;
     mutable tbb::mutex mutex_;
     HttpClientSession::SessionEventCb event_cb_;
+    bool stopped_;
 
     DISALLOW_COPY_AND_ASSIGN(HttpConnection);
 };
