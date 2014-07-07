@@ -17,7 +17,7 @@
 using namespace BFD;
 
 class BFDTest : public ::testing::Test {
- public:
+  public:
     void ComparePacket(const ControlPacket *p1, const ControlPacket *p2) {
         LOG(INFO, p1->toString());
         LOG(INFO, p2->toString());

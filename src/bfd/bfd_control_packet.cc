@@ -1,16 +1,18 @@
 /*
  * Copyright (c) 2014 CodiLime, Inc. All rights reserved.
  */
+
 #include "bfd/bfd_control_packet.h"
 
 #include <string>
-#include "base/proto.h"
+#include <boost/mpl/list.hpp>
 
+#include "base/proto.h"
 
 namespace BFD {
 
 class VersionAndDiagnostic: public ProtoElement<VersionAndDiagnostic> {
- public:
+  public:
     static const int kSize = 1;
 
     static const int kVersionBitmask = 0xE0;
@@ -19,7 +21,7 @@ class VersionAndDiagnostic: public ProtoElement<VersionAndDiagnostic> {
     static const int kSupportedVersion = 1;
 
     static bool Verifier(const ControlPacket *obj, const uint8_t *data,
-            size_t size, ParseContext *context) {
+                         size_t size, ParseContext *context) {
         uint8_t value = get_value(data, 1);
         return ((value & kVersionBitmask) >> kVersionOffset == kSupportedVersion)
                 && ((value & kDiagnosticBitmask) < kDiagnosticFirstInvalid);
@@ -37,7 +39,7 @@ class VersionAndDiagnostic: public ProtoElement<VersionAndDiagnostic> {
 };
 
 class Flags: public ProtoElement<Flags> {
- public:
+  public:
     static const int kSize = 1;
 
     static const int kStateBitmask = 0xC0;
@@ -52,13 +54,13 @@ class Flags: public ProtoElement<Flags> {
     typedef struct {
         static void set(ControlPacket *obj, uint8_t value) {
             obj->state = (BFDState) ((value & kStateBitmask)
-                    >> kStateOffset);
+                                     >> kStateOffset);
             obj->poll = value & (1 << kPollOffset);
             obj->final = value & (1 << kFinallOffset);
             obj->control_plane_independent = value
-                    & (1 << kControlPlaneIndependentOffset);
+                                             & (1 << kControlPlaneIndependentOffset);
             obj->authentication_present = value
-                    & (1 << kAuthenticationPresentOffset);
+                                          & (1 << kAuthenticationPresentOffset);
             obj->demand = value & (1 << kDemandOffset);
             obj->multipoint = value & (1 << kMultipointOffset);
         }
@@ -67,7 +69,7 @@ class Flags: public ProtoElement<Flags> {
             return (obj->state << kStateOffset) | (obj->poll << kPollOffset)
                     | (obj->final << kFinallOffset)
                     | (obj->control_plane_independent
-                            << kControlPlaneIndependentOffset)
+                       << kControlPlaneIndependentOffset)
                     | (obj->authentication_present << kAuthenticationPresentOffset)
                     | (obj->demand << kDemandOffset)
                     | (obj->multipoint << kMultipointOffset);
@@ -76,21 +78,22 @@ class Flags: public ProtoElement<Flags> {
 };
 
 class DetectionTimeMultiplier: public ProtoElement<DetectionTimeMultiplier> {
- public:
+  public:
     static const int kSize = 1;
     static bool Verifier(const ControlPacket *obj, const uint8_t *data,
-            size_t size, ParseContext *context) {
+                         size_t size, ParseContext *context) {
         uint8_t value = get_value(data, 1);
         return value > 0;
     }
-    typedef Accessor<ControlPacket, int, &ControlPacket::detection_time_multiplier> Setter;
+    typedef Accessor<ControlPacket, int,
+                     &ControlPacket::detection_time_multiplier> Setter;
 };
 
 class Length: public ProtoElement<Length> {
- public:
+  public:
     static const int kSize = 1;
     static bool Verifier(const void *obj, const uint8_t *data, size_t size,
-            ParseContext *context) {
+                         ParseContext *context) {
         uint8_t value = get_value(data, 1);
         return value == kMinimalPacketLength;
     }
@@ -98,26 +101,26 @@ class Length: public ProtoElement<Length> {
 };
 
 class SenderDiscriminator: public ProtoElement<SenderDiscriminator> {
- public:
+  public:
     static const int kSize = 4;
     static bool Verifier(const ControlPacket *obj, const uint8_t *data,
-            size_t size, ParseContext *context) {
+                         size_t size, ParseContext *context) {
         uint32_t value = get_value(data, 4);
         return value > 0;
     }
     typedef Accessor<ControlPacket, uint32_t,
-            &ControlPacket::sender_discriminator> Setter;
+                     &ControlPacket::sender_discriminator> Setter;
 };
 
 class ReceiverDiscriminator: public ProtoElement<ReceiverDiscriminator> {
- public:
+  public:
     static const int kSize = 4;
     typedef Accessor<ControlPacket, uint32_t,
-            &ControlPacket::receiver_discriminator> Setter;
+                     &ControlPacket::receiver_discriminator> Setter;
 };
 
 class DesiredMinTxInterval: public ProtoElement<DesiredMinTxInterval> {
- public:
+  public:
     static const int kSize = 4;
     typedef struct {
         static void set(ControlPacket *obj, uint32_t value) {
@@ -131,7 +134,7 @@ class DesiredMinTxInterval: public ProtoElement<DesiredMinTxInterval> {
 };
 
 class RequiredMinRxInterval: public ProtoElement<RequiredMinRxInterval> {
- public:
+  public:
     static const int kSize = 4;
     typedef struct {
         static void set(ControlPacket *obj, uint32_t value) {
@@ -144,13 +147,14 @@ class RequiredMinRxInterval: public ProtoElement<RequiredMinRxInterval> {
     } Setter;
 };
 
-class RequiredMinEchoRXInterval: public ProtoElement<RequiredMinEchoRXInterval> {
- public:
+class RequiredMinEchoRXInterval :
+            public ProtoElement<RequiredMinEchoRXInterval> {
+  public:
     static const int kSize = 4;
     typedef struct {
         static void set(ControlPacket *obj, uint32_t value) {
             obj->required_min_echo_rx_interval = boost::posix_time::microseconds(
-                    value);
+                value);
         }
 
         static uint32_t get(const ControlPacket *obj) {
@@ -160,11 +164,11 @@ class RequiredMinEchoRXInterval: public ProtoElement<RequiredMinEchoRXInterval> 
 };
 
 class ControlPacketMessage: public ProtoSequence<ControlPacketMessage> {
- public:
+  public:
     typedef mpl::list<VersionAndDiagnostic, Flags, DetectionTimeMultiplier,
-            Length, SenderDiscriminator, ReceiverDiscriminator,
-            DesiredMinTxInterval, RequiredMinRxInterval,
-            RequiredMinEchoRXInterval> Sequence;
+                      Length, SenderDiscriminator, ReceiverDiscriminator,
+                      DesiredMinTxInterval, RequiredMinRxInterval,
+                      RequiredMinEchoRXInterval> Sequence;
 };
 
 std::string ControlPacket::toString() const {
@@ -181,7 +185,7 @@ std::string ControlPacket::toString() const {
     out << "DetectionTimeMultiplier: " << detection_time_multiplier << "\n";
     out << "SenderDiscriminator: 0x" << std::hex << sender_discriminator << "\n";
     out << "ReceiverDiscriminator: 0x" << std::hex << receiver_discriminator
-            << "\n";
+        << "\n";
     out << "DesiredMinTxInterval: " << desired_min_tx_interval << "\n";
     out << "RequiredMinRxInterval: " << required_min_rx_interval << "\n";
     out << "RequiredMinEchoRXInterval: " << required_min_echo_rx_interval << "\n";
@@ -206,7 +210,8 @@ ResultCode ControlPacket::Verify() const {
 
 ControlPacket* ParseControlPacket(const uint8_t *data, size_t size) {
     ParseContext context;
-    int result = ControlPacketMessage::Parse(data, size, &context, new ControlPacket());
+    int result = ControlPacketMessage::Parse(data, size, &context,
+                                             new ControlPacket());
     if (result < 0 || (size_t)result != size) {
         return NULL;
     }
