@@ -1,0 +1,34 @@
+#
+# Copyright (c) 2014 CodiLime, Inc. All rights reserved.
+#
+
+# -*- mode: python; -*-
+
+Import('BuildEnv')
+import sys
+env = BuildEnv.Clone()
+
+env.Append(LIBPATH = env['TOP'] + '/base')
+env.Append(LIBPATH = env['TOP'] + '/io')
+env.Append(LIBPATH = env['TOP'] + '/bfd')
+env.Append(LIBPATH = env['TOP'] + '/bfd/rest_api')
+env.Append(LIBPATH = env['TOP'] + '/http')
+env.Append(LIBPATH = env['TOP'] + '/http/client')
+
+env.Prepend(LIBS = ['bfd', 'bfd_rest_api', 'io', 'sandesh', 'io',
+                    'sandeshvns', 'http', 'httpc', 'http_parser', 'curl',
+                    'pugixml', 'boost_program_options', 'boost_thread',
+                    'boost_regex', 'process_info', 'connection_info', 'base'])
+
+libbfd_rest_api_source = ['bfd_rest_server.cc',
+                          'bfd_rest_client.cc', 
+                          'bfd_rest_common.cc',
+                          'bfd_client_session.cc',
+                          'bfd_json_config.cc']
+
+libbfd_rest_api = env.Library('bfd_rest_api', libbfd_rest_api_source)
+
+bfdd = env.Program(target = 'bfdd', source = ['bfdd.cc'])
+env.Alias('src/bfd:bfdd', bfdd)
+
+env.SConscript('test/SConscript', exports='BuildEnv', duplicate = 0)

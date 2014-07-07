@@ -1,11 +1,14 @@
 /*
  * Copyright (c) 2014 CodiLime, Inc. All rights reserved.
  */
+
 #include "bfd/bfd_control_packet.h"
 
 #include <string>
-#include "base/proto.h"
+#include <list>
+#include <boost/mpl/list.hpp>
 
+#include "base/proto.h"
 
 namespace BFD {
 
@@ -19,9 +22,10 @@ class VersionAndDiagnostic: public ProtoElement<VersionAndDiagnostic> {
     static const int kSupportedVersion = 1;
 
     static bool Verifier(const ControlPacket *obj, const uint8_t *data,
-            size_t size, ParseContext *context) {
+                         size_t size, ParseContext *context) {
         uint8_t value = get_value(data, 1);
-        return ((value & kVersionBitmask) >> kVersionOffset == kSupportedVersion)
+        return ((value & kVersionBitmask) >>
+                    kVersionOffset == kSupportedVersion)
                 && ((value & kDiagnosticBitmask) < kDiagnosticFirstInvalid);
     }
 
@@ -52,13 +56,13 @@ class Flags: public ProtoElement<Flags> {
     typedef struct {
         static void set(ControlPacket *obj, uint8_t value) {
             obj->state = (BFDState) ((value & kStateBitmask)
-                    >> kStateOffset);
+                                     >> kStateOffset);
             obj->poll = value & (1 << kPollOffset);
             obj->final = value & (1 << kFinallOffset);
-            obj->control_plane_independent = value
-                    & (1 << kControlPlaneIndependentOffset);
-            obj->authentication_present = value
-                    & (1 << kAuthenticationPresentOffset);
+            obj->control_plane_independent = value &
+                                       (1 << kControlPlaneIndependentOffset);
+            obj->authentication_present = value &
+                                      (1 << kAuthenticationPresentOffset);
             obj->demand = value & (1 << kDemandOffset);
             obj->multipoint = value & (1 << kMultipointOffset);
         }
@@ -67,8 +71,9 @@ class Flags: public ProtoElement<Flags> {
             return (obj->state << kStateOffset) | (obj->poll << kPollOffset)
                     | (obj->final << kFinallOffset)
                     | (obj->control_plane_independent
-                            << kControlPlaneIndependentOffset)
-                    | (obj->authentication_present << kAuthenticationPresentOffset)
+                       << kControlPlaneIndependentOffset)
+                    | (obj->authentication_present
+                       << kAuthenticationPresentOffset)
                     | (obj->demand << kDemandOffset)
                     | (obj->multipoint << kMultipointOffset);
         }
@@ -77,94 +82,108 @@ class Flags: public ProtoElement<Flags> {
 
 class DetectionTimeMultiplier: public ProtoElement<DetectionTimeMultiplier> {
  public:
+    typedef Accessor<ControlPacket, int,
+                     &ControlPacket::detection_time_multiplier> Setter;
+
     static const int kSize = 1;
+
     static bool Verifier(const ControlPacket *obj, const uint8_t *data,
-            size_t size, ParseContext *context) {
+                         size_t size, ParseContext *context) {
         uint8_t value = get_value(data, 1);
         return value > 0;
     }
-    typedef Accessor<ControlPacket, int, &ControlPacket::detection_time_multiplier> Setter;
 };
 
 class Length: public ProtoElement<Length> {
  public:
+    typedef Accessor<ControlPacket, int, &ControlPacket::length> Setter;
+
     static const int kSize = 1;
+
     static bool Verifier(const void *obj, const uint8_t *data, size_t size,
-            ParseContext *context) {
+                         ParseContext *context) {
         uint8_t value = get_value(data, 1);
         return value == kMinimalPacketLength;
     }
-    typedef Accessor<ControlPacket, int, &ControlPacket::length> Setter;
 };
 
 class SenderDiscriminator: public ProtoElement<SenderDiscriminator> {
  public:
+    typedef Accessor<ControlPacket, uint32_t,
+                     &ControlPacket::sender_discriminator> Setter;
+
     static const int kSize = 4;
+
     static bool Verifier(const ControlPacket *obj, const uint8_t *data,
-            size_t size, ParseContext *context) {
+                         size_t size, ParseContext *context) {
         uint32_t value = get_value(data, 4);
         return value > 0;
     }
-    typedef Accessor<ControlPacket, uint32_t,
-            &ControlPacket::sender_discriminator> Setter;
 };
 
 class ReceiverDiscriminator: public ProtoElement<ReceiverDiscriminator> {
  public:
-    static const int kSize = 4;
     typedef Accessor<ControlPacket, uint32_t,
-            &ControlPacket::receiver_discriminator> Setter;
+                     &ControlPacket::receiver_discriminator> Setter;
+
+    static const int kSize = 4;
 };
 
 class DesiredMinTxInterval: public ProtoElement<DesiredMinTxInterval> {
  public:
-    static const int kSize = 4;
     typedef struct {
         static void set(ControlPacket *obj, uint32_t value) {
-            obj->desired_min_tx_interval = boost::posix_time::microseconds(value);
+            obj->desired_min_tx_interval =
+                boost::posix_time::microseconds(value);
         }
 
         static uint32_t get(const ControlPacket *obj) {
             return obj->desired_min_tx_interval.total_microseconds();
         }
     } Setter;
+
+    static const int kSize = 4;
 };
 
 class RequiredMinRxInterval: public ProtoElement<RequiredMinRxInterval> {
  public:
-    static const int kSize = 4;
     typedef struct {
         static void set(ControlPacket *obj, uint32_t value) {
-            obj->required_min_rx_interval = boost::posix_time::microseconds(value);
+            obj->required_min_rx_interval =
+                boost::posix_time::microseconds(value);
         }
 
         static uint32_t get(const ControlPacket *obj) {
             return obj->required_min_rx_interval.total_microseconds();
         }
     } Setter;
+
+    static const int kSize = 4;
 };
 
-class RequiredMinEchoRXInterval: public ProtoElement<RequiredMinEchoRXInterval> {
+class RequiredMinEchoRXInterval :
+            public ProtoElement<RequiredMinEchoRXInterval> {
  public:
-    static const int kSize = 4;
     typedef struct {
         static void set(ControlPacket *obj, uint32_t value) {
-            obj->required_min_echo_rx_interval = boost::posix_time::microseconds(
-                    value);
+            obj->required_min_echo_rx_interval =
+                boost::posix_time::microseconds(value);
         }
 
         static uint32_t get(const ControlPacket *obj) {
             return obj->required_min_echo_rx_interval.total_microseconds();
         }
     } Setter;
+
+    static const int kSize = 4;
 };
 
 class ControlPacketMessage: public ProtoSequence<ControlPacketMessage> {
  public:
     typedef mpl::list<VersionAndDiagnostic, Flags, DetectionTimeMultiplier,
-            Length, SenderDiscriminator, ReceiverDiscriminator,
-            DesiredMinTxInterval, RequiredMinRxInterval,
-            RequiredMinEchoRXInterval> Sequence;
+                      Length, SenderDiscriminator, ReceiverDiscriminator,
+                      DesiredMinTxInterval, RequiredMinRxInterval,
+                      RequiredMinEchoRXInterval> Sequence;
 };
 
 std::string ControlPacket::toString() const {
@@ -179,12 +198,14 @@ std::string ControlPacket::toString() const {
     out << "Demand: " << demand << "\n";
     out << "Multipoint: " << multipoint << "\n";
     out << "DetectionTimeMultiplier: " << detection_time_multiplier << "\n";
-    out << "SenderDiscriminator: 0x" << std::hex << sender_discriminator << "\n";
+    out << "SenderDiscriminator: 0x"
+        << std::hex << sender_discriminator << "\n";
     out << "ReceiverDiscriminator: 0x" << std::hex << receiver_discriminator
-            << "\n";
+        << "\n";
     out << "DesiredMinTxInterval: " << desired_min_tx_interval << "\n";
     out << "RequiredMinRxInterval: " << required_min_rx_interval << "\n";
-    out << "RequiredMinEchoRXInterval: " << required_min_echo_rx_interval << "\n";
+    out << "RequiredMinEchoRXInterval: "
+        << required_min_echo_rx_interval << "\n";
     return out.str();
 }
 
@@ -206,7 +227,8 @@ ResultCode ControlPacket::Verify() const {
 
 ControlPacket* ParseControlPacket(const uint8_t *data, size_t size) {
     ParseContext context;
-    int result = ControlPacketMessage::Parse(data, size, &context, new ControlPacket());
+    int result = ControlPacketMessage::Parse(data, size, &context,
+                                             new ControlPacket());
     if (result < 0 || (size_t)result != size) {
         return NULL;
     }
@@ -230,6 +252,7 @@ bool operator==(const ControlPacket &p1, const ControlPacket &p2) {
             && p1.diagnostic == p2.diagnostic && p1.state == p2.state
             && p1.desired_min_tx_interval == p2.desired_min_tx_interval
             && p1.required_min_rx_interval == p2.required_min_rx_interval
-            && p1.required_min_echo_rx_interval == p2.required_min_echo_rx_interval;
+            && p1.required_min_echo_rx_interval ==
+                p2.required_min_echo_rx_interval;
 }
 }  // namespace BFD
