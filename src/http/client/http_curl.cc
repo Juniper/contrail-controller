@@ -77,6 +77,18 @@ static void mcode_or_die(const char *where, CURLMcode code)
   }
 }
 
+class _CurlErrorCategory : public boost::system::error_category
+{
+ public:
+    virtual const char *name() const { return "http_curl"; }
+    virtual std::string message( int ev ) const { return curl_easy_strerror((CURLcode)ev); }
+};
+
+static _CurlErrorCategory curl_error_category;
+boost::system::error_category &CurlErrorCategory() {
+    return curl_error_category;
+}
+
 /* Check for completed transfers, and remove their easy handles */
 static void check_multi_info(GlobalInfo *g)
 {
@@ -96,7 +108,7 @@ static void check_multi_info(GlobalInfo *g)
       curl_easy_getinfo(easy, CURLINFO_PRIVATE, &conn);
       curl_easy_getinfo(easy, CURLINFO_EFFECTIVE_URL, &eff_url);
 
-      boost::system::error_code error(res, boost::system::system_category());
+      boost::system::error_code error(res, CurlErrorCategory());
       std::string empty_str("");
       conn->connection->HttpClientCb()(empty_str, error);
     }
