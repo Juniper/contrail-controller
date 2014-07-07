@@ -1156,7 +1156,9 @@ void BgpStressTest::SubscribeConfiguration(int agent_id, bool verify) {
 }
 
 void BgpStressTest::VerifyConfiguration(int agent_id, int &pending) {
-   if (!d_vms_count_ || d_no_agent_messages_processing_) return;
+   if (!d_vms_count_ || d_no_agent_messages_processing_) {
+       return;
+   }
 
     for (int i = 0; i < d_vms_count_; i++) {
         string vm_uuid = GetAgentVmConfigName(agent_id, i);
