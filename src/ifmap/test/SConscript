@@ -54,20 +54,22 @@ def AppendLibraries(env, libs):
         env.Append(LIBPATH = env['TOP'] + '/' + path)
         env.Append(LIBS = libname)
 
-def BuildTest(env, testname, sources, prepend_libs, append_libs, ts = test_suite):
+def BuildTest(env, testname, sources, prepend_libs, append_libs,
+              ts = test_suite):
     build_env = env.Clone()
     PrependLibraries(build_env, prepend_libs)
     AppendLibraries(build_env, append_libs)
     target = build_env.UnitTest(testname, sources)
     ts.append(target)
     env.Alias('src/ifmap:' + testname, target)
+    env.Alias('controller/src/ifmap:' + testname, target)
     return target
 
 BuildTest(env, 'ifmap_exporter_test', ['ifmap_exporter_test.cc'], [],
           ['schema/ifmap_vnc', 'schema/bgp_schema'])
 
 BuildTest(env, 'ifmap_graph_walker_test', ['ifmap_graph_walker_test.cc'], [],
-          ['schema/ifmap_vnc', 'schema/bgp_schema'], flaky_test_suite)
+          ['schema/ifmap_vnc', 'schema/bgp_schema'])
 
 BuildTest(env, 'ifmap_restart_test', ['ifmap_restart_test.cc'],
           ['schema/ifmap_vnc', 'schema/bgp_schema', 'xml/xml'], [])
@@ -91,7 +93,8 @@ BuildTest(env, 'ifmap_update_sender_test', ['ifmap_update_sender_test.cc'],
           ['schema/ifmap_vnc', 'schema/bgp_schema', 'xml/xml'], [])
 
 BuildTest(env, 'ifmap_xmpp_test', ['ifmap_xmpp_test.cc'],
-          ['schema/ifmap_vnc', 'schema/bgp_schema', 'xml/xml'], [], flaky_test_suite)
+          ['schema/ifmap_vnc', 'schema/bgp_schema', 'xml/xml'], [], 
+          flaky_test_suite)
 
 test = env.TestSuite('ifmap-test', test_suite)
 flaky_test = env.TestSuite('ifmap-flaky-test', flaky_test_suite)
