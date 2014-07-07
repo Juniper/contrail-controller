@@ -28,6 +28,16 @@ typedef struct _ConnInfo
   HttpConnection *connection;
 } ConnInfo;
 
+class CurlErrorCategory : public boost::system::error_category
+{
+ public:
+    virtual const char *name() const { return "http_curl"; }
+    virtual std::string message( int ev ) const {
+        return curl_easy_strerror((CURLcode)ev);
+    }
+};
+extern const CurlErrorCategory curl_error_category;
+
 int http_get(ConnInfo *conn, GlobalInfo *g); 
 void set_url(ConnInfo *conn, const char *url); 
 int curl_init(HttpClient *);
