@@ -10,16 +10,14 @@
 #include <boost/asio.hpp>
 #include <boost/thread/thread.hpp>
 #include <testing/gunit.h>
-#include "base/test/task_test_util.h"
 
+#include "base/test/task_test_util.h"
 
 using namespace BFD;
 
-#if 1
 // Test with external system
-
 class BFDExternalTest : public ::testing::Test {
- protected:
+  protected:
 };
 
 TEST_F(BFDExternalTest, Test1) {
@@ -28,24 +26,21 @@ TEST_F(BFDExternalTest, Test1) {
 
     const boost::asio::ip::address addr = boost::asio::ip::address::from_string("10.5.3.165");
 
-        BFDServer server(&evm, &cm);
-        BFDSessionConfig config1;
-        config1.desiredMinTxInterval = boost::posix_time::milliseconds(1000);
-        config1.requiredMinRxInterval = boost::posix_time::milliseconds(1000);
-        config1.detectionTimeMultiplier = 3;
-        Discriminator disc1;
-        server.createSession(addr, &config1, &disc1);
+    Server server(&evm, &cm);
+    SessionConfig config1;
+    config1.desiredMinTxInterval = boost::posix_time::milliseconds(1000);
+    config1.requiredMinRxInterval = boost::posix_time::milliseconds(1000);
+    config1.detectionTimeMultiplier = 3;
+    Discriminator disc1;
+    server.ConfigureSession(addr, config1, &disc1);
 
-        cm.RegisterCallback(boost::bind(&BFDServer::processControlPacket, &server, _1));
+    cm.RegisterCallback(boost::bind(&Server::ProcessControlPacket, &server, _1));
 
-
-        EventManagerThread emt(&evm);
-        for (;;) {
-            boost::this_thread::sleep(boost::posix_time::milliseconds(100));
-        }
+    EventManagerThread emt(&evm);
+    for (;;) {
+        boost::this_thread::sleep(boost::posix_time::milliseconds(100));
+    }
 }
-
-#endif
 
 int main(int argc, char **argv) {
     LoggingInit();

@@ -1,19 +1,22 @@
 /*
  * Copyright (c) 2014 CodiLime, Inc. All rights reserved.
  */
-#ifndef BFD_COMMON_H_
-#define BFD_COMMON_H_
+#ifndef SRC_BFD_BFD_COMMON_H_
+#define SRC_BFD_BFD_COMMON_H_
 
+#include <ostream>
+#include <string>
+#include <boost/optional.hpp>
 #include <boost/date_time.hpp>
 #include <boost/random/taus88.hpp>
 
 namespace BFD {
-
 typedef uint32_t Discriminator;
 typedef boost::posix_time::time_duration TimeInterval;
+typedef uint32_t ClientId;
 
 enum BFDState {
-    kAdminDown, kDown, kInit, kUp,
+    kAdminDown, kDown, kInit, kUp
 };
 
 enum AuthType {
@@ -46,9 +49,12 @@ enum Diagnostic {
     kDiagnosticFirstInvalid
 };
 
-static const int kMinimalPacketLength = 24;
-static const TimeInterval kIdleTxInterval = boost::posix_time::seconds(1);
+std::ostream &operator<<(std::ostream &, enum BFDState);
+boost::optional<BFDState> BFDStateFromString(const char *);
+
+extern const int kMinimalPacketLength;
+extern const TimeInterval kIdleTxInterval;
 extern boost::random::taus88 randomGen;
 }  // namespace BFD
 
-#endif /* BFD_COMMON_H_ */
+#endif  // SRC_BFD_BFD_COMMON_H_
