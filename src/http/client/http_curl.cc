@@ -110,7 +110,8 @@ static void check_multi_info(GlobalInfo *g)
 
       boost::system::error_code error(res, CurlErrorCategory());
       std::string empty_str("");
-      conn->connection->HttpClientCb()(empty_str, error);
+      if(!conn->connection->IsStopped())
+          conn->connection->HttpClientCb()(empty_str, error);
     }
   }
 }
