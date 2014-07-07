@@ -64,6 +64,7 @@ public:
     int Initialize();
 
     typedef boost::function<void(std::string &, boost::system::error_code &)> HttpCb;
+
     int HttpPut(const std::string &put_string, std::string &path, HttpCb);
     int HttpPut(const std::string &put_string, std::string &path,
                 bool header, bool timeout,
@@ -79,6 +80,7 @@ public:
                  std::vector<std::string> &hdr_options, HttpCb cb);
     int HttpDelete(std::string &path, bool header, bool timeout,
                    std::vector<std::string> &hdr_options, HttpCb cb);
+    void ClearCallback();
 
     struct _ConnInfo *curl_handle() { return curl_handle_; }
     HttpClient *client() { return client_; }
@@ -99,6 +101,7 @@ public:
 
 private:
     std::string make_url(std::string &path);
+
     void HttpProcessInternal(const std::string body, std::string path,
                              bool header, bool timeout,
                              std::vector<std::string> hdr_options,
