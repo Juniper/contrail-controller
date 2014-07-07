@@ -55,7 +55,7 @@ void HttpClientSession::RegisterEventCb(SessionEventCb cb) {
 HttpConnection::HttpConnection(boost::asio::ip::tcp::endpoint ep, size_t id, 
                                HttpClient *client) :
     endpoint_(ep), id_(id), cb_(NULL), offset_(0), curl_handle_(NULL),
-    session_(NULL), client_(client) {
+    session_(NULL), client_(client), stopped_(false) {
 }
 
 HttpConnection::~HttpConnection() {
@@ -167,7 +167,6 @@ void HttpConnection::HttpProcessInternal(const std::string body, std::string pat
                                          bool header, bool timeout,
                                          std::vector<std::string> hdr_options,
                                          HttpCb cb, http_method method) {
-
     if (client()->AddConnection(this) == false) {
         // connection already exists
         return;
@@ -187,6 +186,7 @@ void HttpConnection::HttpProcessInternal(const std::string body, std::string pat
 
     std::string url = make_url(path);
     set_url(curl_handle_, url.c_str());
+
     // Add header options to the get request
     for (uint32_t i = 0; i < hdr_options.size(); ++i)
         set_header_options(curl_handle_, hdr_options[i].c_str());
@@ -233,7 +233,8 @@ void HttpConnection::AssignData(const char *ptr, size_t size) {
 
     // callback to client
     boost::system::error_code error;
-    cb_(buf_, error);
+    if (!stopped_)
+        cb_(buf_, error);
 }
 
 const std::string &HttpConnection::GetData() {
@@ -328,6 +329,7 @@ bool HttpClient::AddConnection(HttpConnection *conn) {
 }
 
 void HttpClient::RemoveConnection(HttpConnection *connection) {
+    connection->Stop();
     work_queue_.Enqueue(boost::bind(&HttpClient::RemoveConnectionInternal, 
                                      this, connection));
 }
