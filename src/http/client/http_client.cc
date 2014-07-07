@@ -153,6 +153,11 @@ int HttpConnection::HttpPost(const std::string &post_string,
     return 0;
 }
 
+int HttpConnection::HttpDelete(const std::string &path, HttpCb cb) {
+    std::vector<std::string> hdr_options;
+    return HttpDelete(path, false, true, hdr_options, cb);
+}
+
 int HttpConnection::HttpDelete(std::string &path, bool header, bool timeout,
                                std::vector<std::string> &hdr_options,
                                HttpCb cb) {
