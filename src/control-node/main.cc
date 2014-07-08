@@ -416,6 +416,7 @@ static void ControlNodeGetConnectivityStatus(
 
 int main(int argc, char *argv[]) {
     Options options;
+    bool sandesh_generator_init = true;
 
     // Process options from command-line and configuration file.
     if (!options.Parse(evm, argc, argv)) {
@@ -433,19 +434,41 @@ int main(int argc, char *argv[]) {
     ControlNode::SetDefaultSchedulingPolicy();
     BgpSandeshContext sandesh_context;
 
-    if (options.collectors_configured()) {
+    /* If Sandesh initialization is not being done via discovery we need to
+     * initialize here. We need to do sandesh initialization here for cases
+     * (i) When both Discovery and Collectors are configured.
+     * (ii) When both are not configured (to initilialize introspect)
+     * (iii) When only collector is configured
+     */
+    if (!options.discovery_server().empty() &&
+        !options.collectors_configured()) {
+        sandesh_generator_init = false;
+    }
+
+    if (sandesh_generator_init) {
         Module::type module = Module::CONTROL_NODE;
         NodeType::type node_type = 
-            g_vns_constants.Module2NodeType.find(module)->second; 
-        Sandesh::InitGenerator(
-            g_vns_constants.ModuleNames.find(module)->second,
-            options.hostname(), 
-            g_vns_constants.NodeTypeNames.find(node_type)->second,
-            g_vns_constants.INSTANCE_ID_DEFAULT, 
-            &evm,
-            options.http_server_port(), 0,
-            options.collector_server_list(),
-            &sandesh_context);
+            g_vns_constants.Module2NodeType.find(module)->second;
+        if (options.collectors_configured()) {
+            Sandesh::InitGenerator(
+                    g_vns_constants.ModuleNames.find(module)->second,
+                    options.hostname(),
+                    g_vns_constants.NodeTypeNames.find(node_type)->second,
+                    g_vns_constants.INSTANCE_ID_DEFAULT,
+                    &evm,
+                    options.http_server_port(), 0,
+                    options.collector_server_list(),
+                    &sandesh_context);
+        } else {
+            Sandesh::InitGenerator(
+                    g_vns_constants.ModuleNames.find(module)->second,
+                    options.hostname(),
+                    g_vns_constants.NodeTypeNames.find(node_type)->second,
+                    g_vns_constants.INSTANCE_ID_DEFAULT,
+                    &evm,
+                    options.http_server_port(),
+                    &sandesh_context);
+        }
     }
 
     Sandesh::SetLoggingParams(options.log_local(), options.log_category(),
