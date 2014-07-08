@@ -2446,7 +2446,7 @@ class LogicalRouterST(DictST):
         self.interfaces.add(intf_name)
         vmi_obj = VirtualMachineInterfaceST.get(intf_name)
         if vmi_obj is not None:
-            vn_set = self.virtual_networks | vmi_obj.virtual_network
+            vn_set = self.virtual_networks | set(vmi_obj.virtual_network)
             self.set_virtual_networks(vn_set)
     # end add_interface
 
@@ -3167,7 +3167,7 @@ class SchemaTransformer(object):
 
             for lr in LogicalRouterST.values():
                 if network_name in lr.virtual_networks:
-                    for vn_name in (lr.virtual_networks - network_name):
+                    for vn_name in (lr.virtual_networks - set(network_name)):
                         virtual_network.add_connection(vn_name)
             # end for lr
 
