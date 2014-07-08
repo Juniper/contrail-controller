@@ -766,6 +766,80 @@ void ShowDnsEntries::HandleRequest() const {
     resp->Response();
 }
 
+void VmVdnsListReq::HandleRequest() const {
+    VmVdnsListResponse *resp = new VmVdnsListResponse();
+    resp->set_context(context());
+
+    const DnsProto::VmDataMap& vm_list = Agent::GetInstance()->GetDnsProto()->all_vms();
+    std::vector<VmVdnsListEntry> &list =
+        const_cast<std::vector<VmVdnsListEntry>&>(resp->get_rlist());
+    DnsProto::VmDataMap::const_iterator it = vm_list.begin();
+    while (it != vm_list.end()) {
+        const VmInterface *itf = it->first;
+        VmVdnsListEntry entry;
+        entry.set_name(itf->name());
+        entry.set_vm_interface_index(itf->id());
+        list.push_back(entry);
+        ++it;
+    }
+    resp->Response();
+}
+
+void VmVdnsDataReq::HandleRequest() const {
+    VmVdnsDataResponse *resp = new VmVdnsDataResponse();
+    resp->set_context(context());
+
+    Agent *agent = Agent::GetInstance();
+    const VmInterface *vmi = static_cast<const VmInterface *>
+        (agent->interface_table()->FindInterface(get_vm_interface_index()));
+    if (vmi == NULL) {
+        resp->Response();
+        return;
+    }
+    const DnsProto::VmDataMap& all_vms = agent->GetDnsProto()->all_vms();
+    DnsProto::VmDataMap::const_iterator it = all_vms.find(vmi);
+    if (it == all_vms.end()) {
+        resp->Response();
+        return;
+    }
+    const DnsProto::IpVdnsMap &ip_list = it->second;
+    DnsProto::IpVdnsMap::const_iterator ip_it = ip_list.begin();
+    std::vector<VmVdnsDataEntry> &list =
+        const_cast<std::vector<VmVdnsDataEntry>&>(resp->get_rlist());
+    while (ip_it != ip_list.end()) {
+        VmVdnsDataEntry entry;
+        Ip4Address ip4(ip_it->first);
+        entry.set_ip(ip4.to_string());
+        entry.set_vdns_name(ip_it->second);
+        list.push_back(entry);
+        ++ip_it;
+    }
+    resp->Response();
+}
+
+void FipVdnsDataReq::HandleRequest() const {
+    FipVdnsDataResponse *resp = new FipVdnsDataResponse();
+    resp->set_context(context());
+    const DnsProto::DnsFipSet& fip_list = Agent::GetInstance()->GetDnsProto()
+                                                                ->fip_list();
+    std::vector<FipVdnsEntry> &list =
+        const_cast<std::vector<FipVdnsEntry>&>(resp->get_rlist());
+    DnsProto::DnsFipSet::const_iterator it = fip_list.begin();
+    while (it != fip_list.end()) {
+        FipVdnsEntry entry;
+        const DnsProto::DnsFipEntry *fip = (*it).get();
+        Ip4Address ip4(fip->floating_ip_);
+        entry.set_vn(fip->vn_->GetName());
+        entry.set_ip(ip4.to_string());
+        entry.set_vm_interface(fip->interface_->name());
+        entry.set_vdns_name(fip->vdns_name_);
+        list.push_back(entry);
+        ++it;
+    }
+
+    resp->Response();
+}
+
 ///////////////////////////////////////////////////////////////////////////////
 
 void ShowArpCache::HandleRequest() const {
