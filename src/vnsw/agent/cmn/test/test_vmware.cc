@@ -50,11 +50,18 @@ TEST_F(VmwareTest, VmwarePhysicalPort_1) {
     // Validate the both IP Fabric and VM physical interfaces are present
     PhysicalInterfaceKey key(param->vmware_physical_port());
     Interface *intf = static_cast<Interface *>
-        (agent->interface_table()->Find(&key, false));
+        (agent->interface_table()->Find(&key, true));
     EXPECT_TRUE(intf != NULL);
+    PhysicalInterface *phy_intf =
+        static_cast<PhysicalInterface *>(intf);
+    EXPECT_TRUE(phy_intf->persistent() == true);
 
     PhysicalInterfaceKey key1(agent->fabric_interface_name());
-    EXPECT_TRUE((agent->interface_table()->Find(&key1, false)) != NULL);
+    intf = static_cast<Interface *>
+        (agent->interface_table()->Find(&key1, true));
+    EXPECT_TRUE(intf != NULL);
+    phy_intf = static_cast<PhysicalInterface *>(intf);
+    EXPECT_TRUE(phy_intf->persistent() == false);
 }
 
 // Create a VM VLAN interface
