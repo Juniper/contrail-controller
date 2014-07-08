@@ -121,7 +121,8 @@ TEST_F(PktTest, FlowAdd_1) {
     client->WaitForIdle();
 
     PhysicalInterface::CreateReq(Agent::GetInstance()->interface_table(),
-                            "vnet0", Agent::GetInstance()->fabric_vrf_name());
+                            "vnet0", Agent::GetInstance()->fabric_vrf_name(),
+                            false);
     client->WaitForIdle();
     TxMplsPacket(2, "1.1.1.2", "10.1.1.1", 0, "2.2.2.2", "3.3.3.3", 1);
     

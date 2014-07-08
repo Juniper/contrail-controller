@@ -100,7 +100,9 @@ protected:
         //Create a VRF
         VrfAddReq(vrf_name_.c_str());
         PhysicalInterface::CreateReq(Agent::GetInstance()->interface_table(),
-                                eth_name_, Agent::GetInstance()->fabric_vrf_name());
+                                eth_name_,
+                                Agent::GetInstance()->fabric_vrf_name(),
+                                false);
         AddResolveRoute(server1_ip_, 24);
         client->WaitForIdle();
 

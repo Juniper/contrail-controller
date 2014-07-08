@@ -54,7 +54,8 @@ InterfaceKSyncEntry::InterfaceKSyncEntry(InterfaceKSyncObject *obj,
     network_id_(entry->network_id_), os_index_(Interface::kInvalidIndex),
     parent_(entry->parent_), policy_enabled_(entry->policy_enabled_),
     sub_type_(entry->sub_type_), type_(entry->type_), vlan_id_(entry->vlan_id_),
-    vrf_id_(entry->vrf_id_), xconnect_(entry->xconnect_) {
+    vrf_id_(entry->vrf_id_), persistent_(entry->persistent_),
+    xconnect_(entry->xconnect_) {
 }
 
 InterfaceKSyncEntry::InterfaceKSyncEntry(InterfaceKSyncObject *obj, 
@@ -68,7 +69,7 @@ InterfaceKSyncEntry::InterfaceKSyncEntry(InterfaceKSyncObject *obj,
     mirror_direction_(Interface::UNKNOWN), os_index_(intf->os_index()),
     parent_(NULL), policy_enabled_(false), sub_type_(InetInterface::VHOST),
     type_(intf->type()), vlan_id_(VmInterface::kInvalidVlanId),
-    vrf_id_(intf->vrf_id()), xconnect_(NULL) {
+    vrf_id_(intf->vrf_id()), persistent_(false), xconnect_(NULL) {
 
     if (intf->flow_key_nh()) {
         flow_key_nh_id_ = intf->flow_key_nh()->id();
@@ -261,7 +262,13 @@ bool InterfaceKSyncEntry::Sync(DBEntry *e) {
         memcpy(smac, table->agent()->vrrp_mac(), ETHER_ADDR_LEN);
         break;
 
-    case Interface::PHYSICAL:
+    case Interface::PHYSICAL: 
+    {
+        memcpy(smac, intf->mac().ether_addr_octet, ETHER_ADDR_LEN);
+        PhysicalInterface *phy_intf = static_cast<PhysicalInterface *>(intf);
+        persistent_ = phy_intf->persistent();
+        break;
+    }
     case Interface::INET:
         memcpy(smac, intf->mac().ether_addr_octet, ETHER_ADDR_LEN);
         break;
@@ -368,7 +375,9 @@ int InterfaceKSyncEntry::Encode(sandesh_op::type op, char *buf, int buf_len) {
     case Interface::PHYSICAL: {
         encoder.set_vifr_type(VIF_TYPE_PHYSICAL); 
         flags |= VIF_FLAG_L3_ENABLED;
-        flags |= VIF_FLAG_VHOST_PHYS;
+        if (!persistent_) {
+            flags |= VIF_FLAG_VHOST_PHYS;
+        }
         break;
     }
 
