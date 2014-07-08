@@ -311,31 +311,35 @@ TEST_F(VrfTest, FloatingIpRouteWithdraw) {
     CreateVmportFIpEnv(input, 2);
     client->WaitForIdle();
     EXPECT_TRUE(client->VrfNotifyWait(2));
-    EXPECT_TRUE(DBTableFind("vn1:vn1.uc.route.0"));
-    EXPECT_TRUE(RouteFind("vn1:vn1", vm1_ip, 32));
+    EXPECT_TRUE(DBTableFind("default-project:vn1:vn1.uc.route.0"));
+    EXPECT_TRUE(RouteFind("default-project:vn1:vn1", vm1_ip, 32));
 
-    EXPECT_TRUE(DBTableFind("vn2:vn2.uc.route.0"));
-    EXPECT_TRUE(RouteFind("vn2:vn2", vm2_ip, 32));
+    EXPECT_TRUE(DBTableFind("default-project:vn2:vn2.uc.route.0"));
+    EXPECT_TRUE(RouteFind("default-project:vn2:vn2", vm2_ip, 32));
 
     //Add floating IP for vm2 to talk to vm1
     AddFloatingIpPool("fip-pool1", 1);
     AddFloatingIp("fip1", 1, "2.1.1.100");
     AddLink("floating-ip", "fip1", "floating-ip-pool", "fip-pool1");
-    AddLink("floating-ip-pool", "fip-pool1", "virtual-network", "vn1");
+    AddLink("floating-ip-pool", "fip-pool1", "virtual-network",
+            "default-project:vn1");
     client->WaitForIdle();
     AddLink("virtual-machine-interface", "vnet2", "floating-ip", "fip1");
     client->WaitForIdle();
     Ip4Address floating_ip = Ip4Address::from_string("2.1.1.100");
-    EXPECT_TRUE(RouteFind("vn1:vn1", floating_ip, 32));
-    WAIT_FOR(100, 10000, PathCount("vn1:vn1", floating_ip, 32) == 2);
+    EXPECT_TRUE(RouteFind("default-project:vn1:vn1", floating_ip, 32));
+    WAIT_FOR(100, 10000,
+             PathCount("default-project:vn1:vn1", floating_ip, 32) == 2);
 
     //Delete floating IP and expect route to get deleted
     DelLink("floating-ip", "fip1", "floating-ip-pool", "fip-pool1");
-    DelLink("floating-ip-pool", "fip-pool1", "virtual-network", "vn1");
+    DelLink("floating-ip-pool", "fip-pool1", "virtual-network",
+            "default-project:vn1");
     DelLink("virtual-machine-interface", "vnet2", "floating-ip", "fip1");
     DelFloatingIp("fip1");
     client->WaitForIdle();
-    WAIT_FOR(100, 1000, RouteFind("vn1:vn1", floating_ip, 32) == false);
+    WAIT_FOR(100, 1000,
+             RouteFind("default-project:vn1:vn1",floating_ip, 32) == false);
     DeleteVmportFIpEnv(input, 2, true);
     client->WaitForIdle();
 }

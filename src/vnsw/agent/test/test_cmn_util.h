@@ -165,7 +165,10 @@ void AddPort(const char *name, int id);
 void DelPort(const char *name);
 void AddAcl(const char *name, int id);
 void AddAcl(const char *name, int id, const char *src_vn, const char *dest_vn,
-            const char *action);
+        const char *action);
+void AddVrfAssignNetworkAcl(const char *name, int id, const char *src_vn,
+                            const char *dest_vn, const char *action,
+                            std::string vrf_name);
 void AddSg(const char *name, int id, int sg_id = 1);
 void DelOperDBAcl(int id);
 void AddFloatingIp(const char *name, int id, const char *addr);

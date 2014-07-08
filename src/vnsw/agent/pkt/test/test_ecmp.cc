@@ -54,13 +54,14 @@ class EcmpTest : public ::testing::Test {
         AddFloatingIpPool("fip-pool1", 1);
         AddFloatingIp("fip1", 1, "3.1.1.100");
         AddLink("floating-ip", "fip1", "floating-ip-pool", "fip-pool1");
-        AddLink("floating-ip-pool", "fip-pool1", "virtual-network", "vn3");
+        AddLink("floating-ip-pool", "fip-pool1", "virtual-network",
+                "default-project:vn3");
         AddLink("virtual-machine-interface", "vnet2", "floating-ip", "fip1");
         AddLink("virtual-machine-interface", "vnet3", "floating-ip", "fip1");
         AddLink("virtual-machine-interface", "vnet4", "floating-ip", "fip1");
         client->WaitForIdle();
         Ip4Address ip = Ip4Address::from_string("3.1.1.100");
-        Inet4UnicastRouteEntry *rt = RouteGet("vn3:vn3", ip, 32);
+        Inet4UnicastRouteEntry *rt = RouteGet("default-project:vn3:vn3", ip, 32);
         EXPECT_TRUE(rt != NULL);
         EXPECT_TRUE(rt->GetActiveNextHop()->GetType() == NextHop::COMPOSITE);
         mpls_label_1 = rt->GetMplsLabel();
@@ -75,13 +76,14 @@ class EcmpTest : public ::testing::Test {
         AddFloatingIpPool("fip-pool2", 2);
         AddFloatingIp("fip2", 2, "4.1.1.100");
         AddLink("floating-ip", "fip2", "floating-ip-pool", "fip-pool2");
-        AddLink("floating-ip-pool", "fip-pool2", "virtual-network", "vn4");
+        AddLink("floating-ip-pool", "fip-pool2", "virtual-network",
+                "default-project:vn4");
         AddLink("virtual-machine-interface", "vnet5", "floating-ip", "fip2");
         AddLink("virtual-machine-interface", "vnet6", "floating-ip", "fip2");
         AddLink("virtual-machine-interface", "vnet7", "floating-ip", "fip2");
         client->WaitForIdle();
         ip = Ip4Address::from_string("4.1.1.100");
-        rt = RouteGet("vn4:vn4", ip, 32);
+        rt = RouteGet("default-project:vn4:vn4", ip, 32);
         EXPECT_TRUE(rt != NULL);
         EXPECT_TRUE(rt->GetActiveNextHop()->GetType() == NextHop::COMPOSITE);
         mpls_label_3 = rt->GetMplsLabel();
@@ -99,13 +101,13 @@ class EcmpTest : public ::testing::Test {
                             remote_server_ip_, TunnelType::AllType(),
                             30, "vn2", SecurityGroupList());
 
-        Inet4TunnelRouteAdd(bgp_peer, "vn3:vn3", remote_vm_ip2_, 32, 
-                            remote_server_ip_, TunnelType::AllType(),
-                            30, "vn3", SecurityGroupList());
+        Inet4TunnelRouteAdd(bgp_peer, "default-project:vn3:vn3", remote_vm_ip2_,
+                            32, remote_server_ip_, TunnelType::AllType(),
+                            30, "default-project:vn3", SecurityGroupList());
 
-        Inet4TunnelRouteAdd(bgp_peer, "vn4:vn4", remote_vm_ip3_, 32,
-                            remote_server_ip_, TunnelType::AllType(),
-                            30, "vn4", SecurityGroupList());
+        Inet4TunnelRouteAdd(bgp_peer, "default-project:vn4:vn4", remote_vm_ip3_,
+                            32, remote_server_ip_, TunnelType::AllType(),
+                            30, "default-project:vn4", SecurityGroupList());
         client->WaitForIdle();
     }
 
@@ -113,13 +115,15 @@ class EcmpTest : public ::testing::Test {
         DelLink("virtual-machine-interface", "vnet2", "floating-ip", "fip1");
         DelLink("virtual-machine-interface", "vnet3", "floating-ip", "fip1");
         DelLink("virtual-machine-interface", "vnet4", "floating-ip", "fip1");
-        DelLink("floating-ip-pool", "fip-pool1", "virtual-network", "vn3");
+        DelLink("floating-ip-pool", "fip-pool1", "virtual-network",
+                "default-project:vn3");
         client->WaitForIdle();
 
         DelLink("virtual-machine-interface", "vnet5", "floating-ip", "fip2");
         DelLink("virtual-machine-interface", "vnet6", "floating-ip", "fip2");
         DelLink("virtual-machine-interface", "vnet7", "floating-ip", "fip2");
-        DelLink("floating-ip-pool", "fip-pool2", "virtual-network", "vn4");
+        DelLink("floating-ip-pool", "fip-pool2", "virtual-network",
+                "default-project:vn4");
         client->WaitForIdle();
         DeleteVmportEnv(input1, 1, false);
         DeleteVmportEnv(input2, 3, true);
@@ -127,17 +131,17 @@ class EcmpTest : public ::testing::Test {
         DeleteVmportFIpEnv(input4, 1, true);
         Agent::GetInstance()->GetDefaultInet4UnicastRouteTable()->DeleteReq(NULL, "vrf2", 
                 remote_vm_ip1_, 32, NULL);
-        Agent::GetInstance()->GetDefaultInet4UnicastRouteTable()->DeleteReq(NULL, "vn3:vn3", 
-                remote_vm_ip2_, 32, NULL);
-        Agent::GetInstance()->GetDefaultInet4UnicastRouteTable()->DeleteReq(NULL, "vn4:vn4", 
-                remote_vm_ip3_, 32, NULL);
+        Agent::GetInstance()->GetDefaultInet4UnicastRouteTable()->DeleteReq(NULL,
+                "default-project:vn3:vn3", remote_vm_ip2_, 32, NULL);
+        Agent::GetInstance()->GetDefaultInet4UnicastRouteTable()->DeleteReq(NULL,
+                "default-project:vn4:vn4", remote_vm_ip3_, 32, NULL);
 
         client->WaitForIdle();
         DeleteBgpPeer(bgp_peer);
         EXPECT_FALSE(VrfFind("vrf1", true));
         EXPECT_FALSE(VrfFind("vrf2", true));
-        EXPECT_FALSE(VrfFind("vn3:vn3", true));
-        EXPECT_FALSE(VrfFind("vn4:vn4", true));
+        EXPECT_FALSE(VrfFind("default-project:vn3:vn3", true));
+        EXPECT_FALSE(VrfFind("default-project:vn4:vn4", true));
     }
 
 public:
@@ -243,7 +247,7 @@ TEST_F(EcmpTest, EcmpTest_2) {
     //Make sure reverse component index point to right interface
     Ip4Address ip = Ip4Address::from_string("3.1.1.100");
     const CompositeNH *comp_nh = static_cast<const CompositeNH *>
-        (RouteGet("vn3:vn3", ip, 32)->GetActiveNextHop());
+        (RouteGet("default-project:vn3:vn3", ip, 32)->GetActiveNextHop());
     const InterfaceNH *intf_nh = static_cast<const InterfaceNH *>
         (comp_nh->GetComponentNHList()->Get(rev_entry->data().component_nh_idx)->GetNH());
     EXPECT_TRUE(intf_nh->GetInterface()->name() == "vnet4");
@@ -254,7 +258,7 @@ TEST_F(EcmpTest, EcmpTest_3) {
     TxIpPacket(VmPortGetId(5), "3.1.1.1", "4.1.1.1", 1);
     client->WaitForIdle();
 
-    FlowEntry *entry = FlowGet(VrfGet("vn3:vn3")->vrf_id(),
+    FlowEntry *entry = FlowGet(VrfGet("default-project:vn3:vn3")->vrf_id(),
                                "3.1.1.1", "4.1.1.1", 1, 0, 0);
     EXPECT_TRUE(entry != NULL);
     EXPECT_TRUE(entry->data().component_nh_idx == 
@@ -268,7 +272,7 @@ TEST_F(EcmpTest, EcmpTest_3) {
     //Make sure reverse component index point to right interface
     Ip4Address ip = Ip4Address::from_string("4.1.1.100");
     const CompositeNH *comp_nh = static_cast<const CompositeNH *>
-        (RouteGet("vn4:vn4", ip, 32)->GetActiveNextHop());
+        (RouteGet("default-project:vn4:vn4", ip, 32)->GetActiveNextHop());
     const InterfaceNH *intf_nh = static_cast<const InterfaceNH *>
         (comp_nh->GetComponentNHList()->Get(rev_entry->data().component_nh_idx)->GetNH());
     EXPECT_TRUE(intf_nh->GetInterface()->name() == "vnet5");
@@ -279,7 +283,7 @@ TEST_F(EcmpTest, EcmpTest_7) {
     TxIpPacket(VmPortGetId(6), "3.1.1.2", "4.1.1.1", 1);
     client->WaitForIdle();
 
-    FlowEntry *entry = FlowGet(VrfGet("vn3:vn3")->vrf_id(),
+    FlowEntry *entry = FlowGet(VrfGet("default-project:vn3:vn3")->vrf_id(),
                                "3.1.1.2", "4.1.1.1", 1, 0, 0);
     EXPECT_TRUE(entry != NULL);
     EXPECT_TRUE(entry->data().component_nh_idx == 
@@ -293,7 +297,7 @@ TEST_F(EcmpTest, EcmpTest_7) {
     //Make sure reverse component index point to right interface
     Ip4Address ip = Ip4Address::from_string("4.1.1.100");
     const CompositeNH *comp_nh = static_cast<const CompositeNH *>
-        (RouteGet("vn4:vn4", ip, 32)->GetActiveNextHop());
+        (RouteGet("default-project:vn4:vn4", ip, 32)->GetActiveNextHop());
     const InterfaceNH *intf_nh = static_cast<const InterfaceNH *>
         (comp_nh->GetComponentNHList()->Get(rev_entry->data().component_nh_idx)->GetNH());
     EXPECT_TRUE(intf_nh->GetInterface()->name() == "vnet6");
@@ -343,7 +347,7 @@ TEST_F(EcmpTest, EcmpTest_5) {
                    remote_vm_ip, vm_ip, 1, 10);
     client->WaitForIdle();
 
-    FlowEntry *entry = FlowGet(VrfGet("vn4:vn4")->vrf_id(),
+    FlowEntry *entry = FlowGet(VrfGet("default-project:vn4:vn4")->vrf_id(),
             remote_vm_ip, vm_ip, 1, 0, 0);
     EXPECT_TRUE(entry != NULL);
     EXPECT_TRUE(entry->data().component_nh_idx != 
@@ -360,7 +364,7 @@ TEST_F(EcmpTest, EcmpTest_6) {
     TxIpPacket(VmPortGetId(8), "4.1.1.1", "4.1.1.100", 1);
     client->WaitForIdle();
 
-    FlowEntry *entry = FlowGet(VrfGet("vn4:vn4")->vrf_id(),
+    FlowEntry *entry = FlowGet(VrfGet("default-project:vn4:vn4")->vrf_id(),
                                "4.1.1.1", "4.1.1.100", 1, 0, 0);
     EXPECT_TRUE(entry != NULL);
     EXPECT_TRUE(entry->data().component_nh_idx != 
@@ -437,24 +441,26 @@ TEST_F(EcmpTest, EcmpTest_9) {
     TxIpPacket(VmPortGetId(5), "3.1.1.1", remote_vm_ip, 1);
     client->WaitForIdle();
 
-    FlowEntry *entry = FlowGet(VrfGet("vn3:vn3")->vrf_id(),
+    FlowEntry *entry = FlowGet(VrfGet("default-project:vn3:vn3")->vrf_id(),
                                "3.1.1.1", remote_vm_ip, 1, 0, 0);
     EXPECT_TRUE(entry != NULL);
     EXPECT_TRUE(entry->data().component_nh_idx == 
             CompositeNH::kInvalidComponentNHIdx);
     EXPECT_TRUE(entry->is_flags_set(FlowEntry::NatFlow) == true);
-    EXPECT_TRUE(entry->key().vrf == VrfGet("vn3:vn3")->vrf_id());
-    EXPECT_TRUE(entry->data().dest_vrf == VrfGet("vn4:vn4")->vrf_id());
-    EXPECT_TRUE(entry->data().source_vn == "vn4");
-    EXPECT_TRUE(entry->data().dest_vn == "vn4");
+    EXPECT_TRUE(entry->key().vrf ==
+                VrfGet("default-project:vn3:vn3")->vrf_id());
+    EXPECT_TRUE(entry->data().dest_vrf ==
+                VrfGet("default-project:vn4:vn4")->vrf_id());
+    EXPECT_TRUE(entry->data().source_vn == "default-project:vn4");
+    EXPECT_TRUE(entry->data().dest_vn == "default-project:vn4");
 
     FlowEntry *rev_entry = entry->reverse_flow_entry();
     EXPECT_TRUE(rev_entry->data().component_nh_idx != 
             CompositeNH::kInvalidComponentNHIdx);
-    EXPECT_TRUE(rev_entry->key().vrf == VrfGet("vn4:vn4")->vrf_id());
-    EXPECT_TRUE(rev_entry->data().dest_vrf == VrfGet("vn3:vn3")->vrf_id());
-    EXPECT_TRUE(rev_entry->data().source_vn == "vn4");
-    EXPECT_TRUE(rev_entry->data().dest_vn == "vn4");
+    EXPECT_TRUE(rev_entry->key().vrf == VrfGet("default-project:vn4:vn4")->vrf_id());
+    EXPECT_TRUE(rev_entry->data().dest_vrf == VrfGet("default-project:vn3:vn3")->vrf_id());
+    EXPECT_TRUE(rev_entry->data().source_vn == "default-project:vn4");
+    EXPECT_TRUE(rev_entry->data().dest_vn == "default-project:vn4");
 }
 
 TEST_F(EcmpTest, EcmpReEval_1) {

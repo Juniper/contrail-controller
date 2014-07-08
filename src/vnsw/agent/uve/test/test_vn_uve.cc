@@ -636,21 +636,23 @@ TEST_F(UveVnUveTest, FipCount) {
 
     //Create a VN for floating-ip
     client->Reset();
-    AddVn("vn2", 2);
+    AddVn("default-project:vn2", 2);
     client->WaitForIdle();
     EXPECT_TRUE(client->VnNotifyWait(1));
-    AddVrf("vn2:vn2");
+    AddVrf("default-project:vn2:vn2");
     client->WaitForIdle();
     EXPECT_TRUE(client->VrfNotifyWait(1));
-    EXPECT_TRUE(VrfFind("vn2:vn2"));
-    AddLink("virtual-network", "vn2", "routing-instance", "vn2:vn2");
+    EXPECT_TRUE(VrfFind("default-project:vn2:vn2"));
+    AddLink("virtual-network", "default-project:vn2", "routing-instance",
+            "default-project:vn2:vn2");
     client->WaitForIdle();
 
     // Configure Floating-IP
     AddFloatingIpPool("fip-pool1", 1);
     AddFloatingIp("fip1", 1, "71.1.1.100");
     AddLink("floating-ip", "fip1", "floating-ip-pool", "fip-pool1");
-    AddLink("floating-ip-pool", "fip-pool1", "virtual-network", "vn2");
+    AddLink("floating-ip-pool", "fip-pool1", "virtual-network",
+            "default-project:vn2");
     client->WaitForIdle();
     AddLink("virtual-machine-interface", "vnet1", "floating-ip", "fip1");
     client->WaitForIdle();

@@ -525,14 +525,15 @@ TEST_F(CfgTest, EcmpNH_3) {
     AddFloatingIpPool("fip-pool1", 1);
     AddFloatingIp("fip1", 1, "2.2.2.2");
     AddLink("floating-ip", "fip1", "floating-ip-pool", "fip-pool1");
-    AddLink("floating-ip-pool", "fip-pool1", "virtual-network", "vn2");
+    AddLink("floating-ip-pool", "fip-pool1", "virtual-network",
+            "default-project:vn2");
 
     //Associate vnet1 with floating IP
     AddLink("virtual-machine-interface", "vnet1", "floating-ip", "fip1");
     client->WaitForIdle();
     //First VM added, route points to composite NH
     Ip4Address ip = Ip4Address::from_string("2.2.2.2");
-    Inet4UnicastRouteEntry *rt = RouteGet("vn2:vn2", ip, 32);
+    Inet4UnicastRouteEntry *rt = RouteGet("default-project:vn2:vn2", ip, 32);
     EXPECT_TRUE(rt != NULL);
     const NextHop *nh = rt->GetActiveNextHop();
     EXPECT_TRUE(nh->GetType() == NextHop::INTERFACE);
@@ -660,9 +661,10 @@ TEST_F(CfgTest, EcmpNH_3) {
     EXPECT_FALSE(FindMplsLabel(MplsLabel::VPORT_NH, composite_mpls_label));
  
     DelLink("virtual-machine-interface", "vnet5", "floating-ip", "fip1");
-    DelLink("floating-ip-pool", "fip-pool1", "virtual-network", "vn2");
+    DelLink("floating-ip-pool", "fip-pool1", "virtual-network",
+            "default-project:vn2");
     client->WaitForIdle();
-    EXPECT_FALSE(RouteFind("vn2:vn2", ip, 32));
+    EXPECT_FALSE(RouteFind("default-project:vn2:vn2", ip, 32));
 
     DeleteVmportEnv(input2, 1, true);
     DeleteVmportEnv(input1, 5, true);
