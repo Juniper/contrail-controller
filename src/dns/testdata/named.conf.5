@@ -148,11 +148,6 @@ view "_default_view_" {
     match-clients {any;};
     match-destinations {any;};
     match-recursive-only no;
-    zone "test.juniper.net" IN {
-        type static-stub;
-        virtual-server-name "last-DNS";
-        server-addresses {127.0.0.1;};
-    };
     zone "0.3.13.in-addr.arpa." IN {
         type static-stub;
         virtual-server-name "last-DNS1";
@@ -168,21 +163,6 @@ view "_default_view_" {
         virtual-server-name "last-DNS1";
         server-addresses {127.0.0.1;};
     };
-    zone "2.3.13.in-addr.arpa." IN {
-        type static-stub;
-        virtual-server-name "last-DNS1";
-        server-addresses {127.0.0.1;};
-    };
-    zone "3.3.13.in-addr.arpa." IN {
-        type static-stub;
-        virtual-server-name "last-DNS1";
-        server-addresses {127.0.0.1;};
-    };
-    zone "test1.juniper.net" IN {
-        type static-stub;
-        virtual-server-name "last-DNS1";
-        server-addresses {127.0.0.1;};
-    };
     zone "192.1.1.in-addr.arpa." IN {
         type static-stub;
         virtual-server-name "new-DNS";
@@ -193,6 +173,11 @@ view "_default_view_" {
         virtual-server-name "new-DNS";
         server-addresses {127.0.0.1;};
     };
+    zone "2.3.13.in-addr.arpa." IN {
+        type static-stub;
+        virtual-server-name "last-DNS1";
+        server-addresses {127.0.0.1;};
+    };
     zone "3.2.1.in-addr.arpa." IN {
         type static-stub;
         virtual-server-name "new-DNS";
@@ -201,6 +186,11 @@ view "_default_view_" {
     zone "3.2.25.in-addr.arpa." IN {
         type static-stub;
         virtual-server-name "new-DNS";
+        server-addresses {127.0.0.1;};
+    };
+    zone "3.3.13.in-addr.arpa." IN {
+        type static-stub;
+        virtual-server-name "last-DNS1";
         server-addresses {127.0.0.1;};
     };
     zone "6.5.4.in-addr.arpa." IN {
@@ -228,14 +218,24 @@ view "_default_view_" {
         virtual-server-name "new-DNS";
         server-addresses {127.0.0.1;};
     };
+    zone "contrail.juniper.net" IN {
+        type static-stub;
+        virtual-server-name "test-DNS";
+        server-addresses {127.0.0.1;};
+    };
     zone "test.example.com" IN {
         type static-stub;
         virtual-server-name "new-DNS";
         server-addresses {127.0.0.1;};
     };
-    zone "contrail.juniper.net" IN {
+    zone "test.juniper.net" IN {
         type static-stub;
-        virtual-server-name "test-DNS";
+        virtual-server-name "last-DNS";
+        server-addresses {127.0.0.1;};
+    };
+    zone "test1.juniper.net" IN {
+        type static-stub;
+        virtual-server-name "last-DNS1";
         server-addresses {127.0.0.1;};
     };
 };
