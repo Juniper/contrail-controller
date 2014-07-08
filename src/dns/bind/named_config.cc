@@ -254,6 +254,8 @@ void NamedConfig::WriteDefaultView(ViewZoneMap &view_zone_map) {
     if (!default_forwarders_.empty()) {
         file_ << "    forwarders {" << default_forwarders_ << "};" << endl;
     }
+#if 0
+    // not creating the entries in default view
     for (ViewZoneMap::iterator it = view_zone_map.begin(); 
          it != view_zone_map.end(); ++it) {
         std::string view_name = it->first;
@@ -261,6 +263,7 @@ void NamedConfig::WriteDefaultView(ViewZoneMap &view_zone_map) {
             WriteZone(view_name, it->second[i], false);
         }
     }
+#endif
     file_ << "};" << endl << endl;
 }
 
