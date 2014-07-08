@@ -9,6 +9,7 @@
 
 class IFMapNode;
 class IFMapNodeTableListShowEntry;
+class IFMapObject;
 
 class IFMapTable : public DBTable {
 public:
@@ -26,6 +27,9 @@ public:
     }
 
     virtual const char *Typename() const = 0;
+
+    // Allocate an IFMapObject
+    virtual IFMapObject *AllocObject() = 0;
 
     IFMapNode *FindNode(const std::string &name);
 

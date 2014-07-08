@@ -129,6 +129,11 @@ void IFMapAgentParser::LinkParse(xml_node &link, DBRequest::DBOperation oper, ui
     req_key->right_key.id_type = name2;
     req_key->right_key.id_seq_num = seq;
 
+    xml_node metadata = link.child("metadata");
+    if (metadata) {
+        req_key->metadata = metadata.attribute("type").value();
+    }
+
     auto_ptr <DBRequest> req (new DBRequest);
     req->oper = oper;
     req->key = req_key;

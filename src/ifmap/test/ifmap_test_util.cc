@@ -11,96 +11,27 @@
 #include "db/db_table_partition.h"
 #include "ifmap/ifmap_link.h"
 #include "ifmap/ifmap_node.h"
-#include "ifmap/ifmap_server_table.h"
+#include "ifmap/ifmap_table.h"
 
 using namespace std;
 
 namespace ifmap_test_util {
 
-void IFMapLinkCommon(DBRequest *request,
-                     const string &lhs, const string &lid,
-                     const string &rhs, const string &rid,
-                     const string &metadata, uint64_t sequence_number) {
-    IFMapTable::RequestKey *key = new IFMapTable::RequestKey();
-    request->key.reset(key);
-    key->id_type = lhs;
-    key->id_name = lid;
-    key->id_seq_num = sequence_number;
-    IFMapServerTable::RequestData *data = new IFMapServerTable::RequestData();
-    request->data.reset(data);
-    data->metadata = metadata;
-    data->id_type = rhs;
-    data->id_name = rid;
-    data->origin.set_origin(IFMapOrigin::MAP_SERVER);
-}
-
-void IFMapMsgLink(DB *db, const string &ltype, const string &lid,
-                  const string &rtype, const string &rid,
-                  const string &metadata, uint64_t sequence_number) {
-    auto_ptr<DBRequest> request(new DBRequest());
-    request->oper = DBRequest::DB_ENTRY_ADD_CHANGE;
-    IFMapLinkCommon(request.get(), ltype, lid, rtype, rid, metadata,
-                    sequence_number);
-    IFMapTable *tbl = IFMapTable::FindTable(db, ltype);
-    tbl->Enqueue(request.get());
-}
-
-void IFMapMsgUnlink(DB *db, const string &lhs, const string &lid,
-                    const string &rhs, const string &rid,
-                    const string &metadata) {
-    auto_ptr<DBRequest> request(new DBRequest());
-    request->oper = DBRequest::DB_ENTRY_DELETE;
-    IFMapLinkCommon(request.get(), lhs, lid, rhs, rid, metadata, 0);
-    IFMapTable *tbl = IFMapTable::FindTable(db, lhs);
-    tbl->Enqueue(request.get());
-}
-
-void IFMapNodeCommon(DBRequest *request, const string &type,
-                     const string &id, uint64_t sequence_number) {
-    IFMapTable::RequestKey *key = new IFMapTable::RequestKey();
-    request->key.reset(key);
-    key->id_type = type;
-    key->id_name = id;
-    key->id_seq_num = sequence_number;
-
-    IFMapServerTable::RequestData *data = new IFMapServerTable::RequestData();
-    request->data.reset(data);
-    data->origin.set_origin(IFMapOrigin::MAP_SERVER);
-}
-
 void IFMapMsgNodeAdd(DB *db, const string &type, const string &id,
                      uint64_t sequence_number) {
     auto_ptr<DBRequest> request(new DBRequest());
     request->oper = DBRequest::DB_ENTRY_ADD_CHANGE;
-    IFMapNodeCommon(request.get(), type, id, sequence_number);
     IFMapTable *tbl = IFMapTable::FindTable(db, type);
+    IFMapNodeCommon(tbl, request.get(), type, id, sequence_number);
     tbl->Enqueue(request.get());
 }
 
 void IFMapMsgNodeDelete(DB *db, const string &type, const string &id) {
     auto_ptr<DBRequest> request(new DBRequest());
     request->oper = DBRequest::DB_ENTRY_DELETE;
-    IFMapNodeCommon(request.get(), type, id, 0);
     IFMapTable *tbl = IFMapTable::FindTable(db, type);
+    IFMapNodeCommon(tbl, request.get(), type, id, 0);
     tbl->Enqueue(request.get());
-}
-
-void IFMapPropertyCommon(DBRequest *request, const string &type,
-                         const string &id, const string &metadata,
-                         AutogenProperty *content, uint64_t sequence_number) {
-    IFMapTable::RequestKey *key = new IFMapTable::RequestKey();
-    request->key.reset(key);
-    key->id_type = type;
-    key->id_name = id;
-    key->id_seq_num = sequence_number;
-
-    IFMapServerTable::RequestData *data = new IFMapServerTable::RequestData();
-    request->data.reset(data);
-    data->metadata = metadata;
-    data->origin.set_origin(IFMapOrigin::MAP_SERVER);
-    if (content != NULL) {
-        data->content.reset(content);
-    }
 }
 
 void IFMapMsgPropertyAdd(DB *db, const string &type, const string &id,

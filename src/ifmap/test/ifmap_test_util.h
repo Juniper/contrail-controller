@@ -11,6 +11,7 @@ class DB;
 class DBGraph;
 class IFMapNode;
 class IFMapLink;
+class IFMapTable;
 struct DBRequest;
 struct AutogenProperty;
 
@@ -29,10 +30,18 @@ void IFMapMsgUnlink(DB *db, const std::string &ltype, const std::string &lid,
                     const std::string &rtype, const std::string &rid,
                     const std::string &metadata);
 
+void IFMapNodeCommon(IFMapTable *table, DBRequest *request,
+                     const std::string &type, const std::string &id,
+                     uint64_t sequence_number);
+
 void IFMapMsgNodeAdd(DB *db, const std::string &type, const std::string &id,
                      uint64_t sequence_number = 0);
 
 void IFMapMsgNodeDelete(DB *db, const std::string &type, const std::string &id);
+
+void IFMapPropertyCommon(DBRequest *request, const std::string &type,
+                         const std::string &id, const std::string &metadata,
+                         AutogenProperty *content, uint64_t sequence_number);
 
 void IFMapMsgPropertyAdd(DB *db, const std::string &type, const std::string &id,
                          const std::string &metadata, AutogenProperty *content,
