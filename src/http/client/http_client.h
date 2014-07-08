@@ -79,7 +79,7 @@ public:
     int HttpHead(std::string &path, bool header, bool timeout,
                  std::vector<std::string> &hdr_options, HttpCb cb);
     int HttpDelete(const std::string &path, HttpCb);
-    int HttpDelete(std::string &path, bool header, bool timeout,
+    int HttpDelete(const std::string &path, bool header, bool timeout,
                    std::vector<std::string> &hdr_options, HttpCb cb);
 
     struct _ConnInfo *curl_handle() { return curl_handle_; }
