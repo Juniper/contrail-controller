@@ -67,6 +67,9 @@ using boost::system::error_code;
         data.set_ecmp_index(fe->data().component_nh_idx);                     \
     }                                                                       \
     data.set_reverse_flow(fe->is_flags_set(FlowEntry::ReverseFlow) ? "yes" : "no"); \
+    Ip4Address fip(fe->stats().fip);                                        \
+    data.set_fip(fip.to_string());                                          \
+    data.set_fip_vm_interface_idx(fe->stats().fip_vm_port_id);              \
     SetAclInfo(data, fe);                                                   \
     data.set_nh(fe->key().nh);                                              \
 
