@@ -594,6 +594,41 @@ class ResourceApiDriver(vnc_plugin_base.ResourceApi):
         self._vnc_lib.security_group_create(sg_obj)
     # end _create_default_security_group
 
+    def _update_default_quota(self, id):
+        """ Read the default quotas from the configuration
+        and update it in the project object if not already
+        updated.
+        """
+        if 'QUOTA' not in self._config_sections.sections():
+            return
+        default_quota = {}
+        for (k, v) in self._config_sections.items("QUOTA"):
+            try:
+                key = str(k).replace('-', '_')
+                default_quota[key] = int(v)
+            except ValueError:
+                pass
+
+        # calling vnc_lib.project_read leads to a recursive call
+        # to the function pre_project_read. But since the project id is
+        # added to the _vnc_projects list before calling this function,
+        # there will not be any infinite recursive calls.
+        proj_obj = self._vnc_lib.project_read(id=id)
+        quota = proj_obj.get_quota()
+        modified = False
+        for k in default_quota.keys():
+            get_quota = getattr(quota, 'get_' + k)
+            set_quota = getattr(quota, 'set_' + k)
+            if get_quota is None or set_quota is None:
+                continue
+            if get_quota() is None or get_quota() == -1:
+                modified = True
+                set_quota(default_quota[k])
+
+        if modified:
+            proj_obj.set_quota(quota)
+            self._vnc_lib.project_update(proj_obj)
+
     def pre_domain_read(self, id):
         if not self._keystone_sync_on_demand:
             # domain added via poll
@@ -624,6 +659,9 @@ class ResourceApiDriver(vnc_plugin_base.ResourceApi):
             # another api server has brought syncd it
             pass
         self._vnc_projects.add(id)
+
+        # update default quota from the configuration file
+        self._update_default_quota(id)
     # end pre_project_read
 
     def post_project_create(self, proj_dict):
