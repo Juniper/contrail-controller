@@ -869,8 +869,18 @@ void DomainConfig::RegisterVdnsCb(Callback cb) {
 }
 
 void DomainConfig::IpamSync(IFMapNode *node) {
+    autogen::NetworkIpam *network_ipam =
+            static_cast <autogen::NetworkIpam *> (node->GetObject());
+    assert(network_ipam);
+
     if (!node->IsDeleted()) {
-        ipam_config_.insert(DomainConfigPair(node->name(), node));
+        IpamDomainConfigMap::iterator it = ipam_config_.find(node->name());
+        if (it != ipam_config_.end()) {
+            it->second = network_ipam->mgmt();
+        } else {
+            ipam_config_.insert(IpamDomainConfigPair(node->name(),
+                                                     network_ipam->mgmt()));
+        }
         CallIpamCb(node);
     } else {
         CallIpamCb(node);
@@ -880,8 +890,18 @@ void DomainConfig::IpamSync(IFMapNode *node) {
 }
 
 void DomainConfig::VDnsSync(IFMapNode *node) {
+    autogen::VirtualDns *virtual_dns =
+            static_cast <autogen::VirtualDns *> (node->GetObject());
+    assert(virtual_dns);
+
     if (!node->IsDeleted()) {
-        vdns_config_.insert(DomainConfigPair(node->name(), node));
+        VdnsDomainConfigMap::iterator it = vdns_config_.find(node->name());
+        if (it != vdns_config_.end()) {
+            it->second = virtual_dns->data();
+        } else {
+            vdns_config_.insert(VdnsDomainConfigPair(node->name(),
+                                                     virtual_dns->data()));
+        }
         CallVdnsCb(node);
     } else {
         CallVdnsCb(node);
@@ -902,26 +922,18 @@ void DomainConfig::CallVdnsCb(IFMapNode *node) {
 }
 
 bool DomainConfig::GetIpam(const std::string &name, autogen::IpamType *ipam) {
-    DomainConfigMap::iterator it = ipam_config_.find(name);
+    IpamDomainConfigMap::iterator it = ipam_config_.find(name);
     if (it == ipam_config_.end())
         return false;
-    autogen::NetworkIpam *network_ipam = 
-            static_cast <autogen::NetworkIpam *> (it->second->GetObject());
-    assert(network_ipam);
-
-    *ipam = network_ipam->mgmt();
+    *ipam = it->second;
     return true;
 }
 
 bool DomainConfig::GetVDns(const std::string &vdns, 
                            autogen::VirtualDnsType *vdns_type) {
-    DomainConfigMap::iterator it = vdns_config_.find(vdns);
+    VdnsDomainConfigMap::iterator it = vdns_config_.find(vdns);
     if (it == vdns_config_.end())
         return false;
-    autogen::VirtualDns *virtual_dns = 
-            static_cast <autogen::VirtualDns *> (it->second->GetObject());
-    assert(virtual_dns);
-
-    *vdns_type = virtual_dns->data();
+    *vdns_type = it->second;
     return true;
 }
