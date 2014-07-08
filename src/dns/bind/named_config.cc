@@ -189,9 +189,9 @@ void NamedConfig::WriteLoggingConfig() {
 }
 
 void NamedConfig::WriteViewConfig(const VirtualDnsConfig *updated_vdns) {
-    ViewZoneMap view_zone_map;
+    ZoneViewMap zone_view_map;
     if (reset_flag_) {
-        WriteDefaultView(view_zone_map);
+        WriteDefaultView(zone_view_map);
         return;
     }
 
@@ -207,7 +207,6 @@ void NamedConfig::WriteViewConfig(const VirtualDnsConfig *updated_vdns) {
         }
 
         std::string view_name = curr_vdns->GetViewName();
-        view_zone_map.insert(ViewZonePair(view_name, zones));
         file_ << "view \"" << view_name << "\" {" << endl;
 
         std::string order = curr_vdns->GetRecordOrder();
@@ -233,6 +232,10 @@ void NamedConfig::WriteViewConfig(const VirtualDnsConfig *updated_vdns) {
 
         for (unsigned int i = 0; i < zones.size(); i++) {
             WriteZone(view_name, zones[i], true);
+            // update the zone view map, to be used to generate default view
+            // TODO : if there are multiple views having the same zone,
+            // we consider only the first one for now
+            zone_view_map.insert(ZoneViewPair(zones[i], view_name));
         }
 
         file_ << "};" << endl << endl;
@@ -241,10 +244,10 @@ void NamedConfig::WriteViewConfig(const VirtualDnsConfig *updated_vdns) {
             AddZoneFiles(zones, curr_vdns);
     }
 
-    WriteDefaultView(view_zone_map);
+    WriteDefaultView(zone_view_map);
 }
 
-void NamedConfig::WriteDefaultView(ViewZoneMap &view_zone_map) {
+void NamedConfig::WriteDefaultView(ZoneViewMap &zone_view_map) {
     // Create a default view first for any requests which do not have 
     // view name TXT record
     file_ << "view \"_default_view_\" {" << endl;
@@ -254,17 +257,15 @@ void NamedConfig::WriteDefaultView(ViewZoneMap &view_zone_map) {
     if (!default_forwarders_.empty()) {
         file_ << "    forwarders {" << default_forwarders_ << "};" << endl;
     }
-    for (ViewZoneMap::iterator it = view_zone_map.begin(); 
-         it != view_zone_map.end(); ++it) {
-        std::string view_name = it->first;
-        for (unsigned int i = 0; i < it->second.size(); i++) {
-            WriteZone(view_name, it->second[i], false);
-        }
+    for (ZoneViewMap::iterator it = zone_view_map.begin(); 
+         it != zone_view_map.end(); ++it) {
+        WriteZone(it->second, it->first, false);
     }
     file_ << "};" << endl << endl;
 }
 
-void NamedConfig::WriteZone(string &vdns, std::string &name, bool is_master) {
+void NamedConfig::WriteZone(const string &vdns, const string &name,
+                            bool is_master) {
     file_ << "    zone \"" << name << "\" IN \{" << endl;
     if (is_master) {
         file_ << "        type master;" << endl;
