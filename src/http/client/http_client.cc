@@ -157,7 +157,7 @@ int HttpConnection::HttpDelete(const std::string &path, HttpCb cb) {
     return HttpDelete(path, false, true, hdr_options, cb);
 }
 
-int HttpConnection::HttpDelete(std::string &path, bool header, bool timeout,
+int HttpConnection::HttpDelete(const std::string &path, bool header, bool timeout,
                                std::vector<std::string> &hdr_options,
                                HttpCb cb) {
     const std::string body;
