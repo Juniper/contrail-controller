@@ -60,7 +60,7 @@ env.Depends (env['config_test'], env['TOP']+'/config/common/dist/')
 env.Depends (env['config_test'], env['TOP']+'/config/schema-transformer/dist/')
 env.Depends (env['config_test'], env['TOP']+'/config/svc-monitor/dist/')
 env.Depends (env['config_test'], env['TOP']+'/sandesh/common/dist/')
-env.Depends (env['config_test'], env['TOP']+'/tools/sandesh/library/python/dist')
+env.Depends (env['config_test'], env['TOP']+'/tools/sandesh/library/python/dist/sandesh-0.1dev.tar.gz')
 
 for local_sources_rule in local_sources_rules:
     env.Depends (env['config_test'], local_sources_rule)
