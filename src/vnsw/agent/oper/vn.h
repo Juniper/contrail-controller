@@ -252,8 +252,10 @@ private:
 
 class DomainConfig {
 public:
-    typedef std::map<std::string, IFMapNode  *> DomainConfigMap;
-    typedef std::pair<std::string, IFMapNode *> DomainConfigPair;
+    typedef std::map<std::string, autogen::IpamType> IpamDomainConfigMap;
+    typedef std::pair<std::string, autogen::IpamType> IpamDomainConfigPair;
+    typedef std::map<std::string, autogen::VirtualDnsType> VdnsDomainConfigMap;
+    typedef std::pair<std::string, autogen::VirtualDnsType> VdnsDomainConfigPair;
     typedef boost::function<void(IFMapNode *)> Callback;
     
     DomainConfig() {}
@@ -270,8 +272,8 @@ private:
     void CallVdnsCb(IFMapNode *node);
     void CallIpamCb(IFMapNode *node);
 
-    DomainConfigMap ipam_config_;
-    DomainConfigMap vdns_config_;
+    IpamDomainConfigMap ipam_config_;
+    VdnsDomainConfigMap vdns_config_;
     std::vector<Callback> ipam_callback_;
     std::vector<Callback> vdns_callback_;
 

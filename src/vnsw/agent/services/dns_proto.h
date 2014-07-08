@@ -111,6 +111,24 @@ public:
         uint32_t drop;
     };
 
+    struct DnsFipEntry {
+        DnsFipEntry(const VnEntry *vn, const Ip4Address &fip,
+                    const VmInterface *itf);
+        virtual ~DnsFipEntry();
+        bool IsLess(const DnsFipEntry *rhs) const;
+        const VnEntry *vn_;
+        Ip4Address floating_ip_;
+        const VmInterface *interface_;
+        std::string vdns_name_;
+    };
+
+    typedef boost::shared_ptr<DnsFipEntry> DnsFipEntryPtr;
+
+    class DnsFipEntryCmp {
+        public:
+            bool operator()(const DnsFipEntryPtr &lhs, const DnsFipEntryPtr &rhs) const;
+    };
+    typedef std::set<DnsFipEntryPtr, DnsFipEntryCmp> DnsFipSet;
     typedef std::map<uint32_t, DnsHandler *> DnsBindQueryMap;
     typedef std::pair<uint32_t, DnsHandler *> DnsBindQueryPair;
     typedef std::set<DnsHandler::QueryKey> DnsVmRequestSet;
@@ -126,7 +144,7 @@ public:
     virtual ~DnsProto();
     ProtoHandler *AllocProtoHandler(boost::shared_ptr<PktInfo> info,
                                     boost::asio::io_service &io);
-    void UpdateDnsEntry(const VmInterface *vmitf, const std::string &name,
+    bool UpdateDnsEntry(const VmInterface *vmitf, const std::string &name,
                         const Ip4Address &ip, uint32_t plen,
                         const std::string &vdns_name,
                         const autogen::VirtualDnsType &vdns_type,
@@ -180,6 +198,8 @@ public:
     void IncrStatsDrop() { stats_.drop++; }
     const DnsStats &GetStats() const { return stats_; }
     void ClearStats() { stats_.Reset(); }
+    const VmDataMap& all_vms() const { return all_vms_; }
+    const DnsFipSet& fip_list() const { return fip_list_; }
 
 private:
     void InterfaceNotify(DBEntryBase *entry);
@@ -189,6 +209,8 @@ private:
                         const VnEntry *vn, const Ip4Address &ip,
                         std::string &vdns_name, std::string &domain,
                         uint32_t ttl, bool is_floating);
+    void CheckForFipUpdate(DnsFipEntry *entry, std::string &vdns_name,
+                           std::string &domain, uint32_t ttl);
     bool UpdateDnsEntry(const VmInterface *vmitf, const VnEntry *vn,
                         const std::string &vdns_name, const Ip4Address &ip,
                         bool is_floating, bool is_deleted);
@@ -209,6 +231,7 @@ private:
     uint32_t max_retries_;
 
     VmDataMap all_vms_;
+    DnsFipSet fip_list_;
     DBTableBase::ListenerId lid_;
     DBTableBase::ListenerId Vnlid_;
 

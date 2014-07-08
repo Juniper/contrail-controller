@@ -300,6 +300,45 @@ response sandesh AgentDnsEntries {
     1: list<VmDnsSandesh> dns_list;
 }
 
+struct VmVdnsDataEntry {
+    1: string ip;
+    2: string vdns_name;
+}
+
+request sandesh VmVdnsDataReq {
+    1: u32 vm_interface_index;
+}
+
+response sandesh VmVdnsDataResponse {
+    1: list<VmVdnsDataEntry> rlist;
+}
+
+struct VmVdnsListEntry {
+    1: string name;
+    2: u32 vm_interface_index (link="VmVdnsDataReq");
+}
+
+request sandesh VmVdnsListReq {
+}
+
+response sandesh VmVdnsListResponse {
+    1: list<VmVdnsListEntry> rlist;
+}
+
+struct FipVdnsEntry {
+    1: string vn;
+    2: string ip;
+    3: string vm_interface;
+    4: string vdns_name;
+}
+
+request sandesh FipVdnsDataReq {
+}
+
+response sandesh FipVdnsDataResponse {
+    1: list<FipVdnsEntry> rlist;
+}
+
 ///////////////////////////////////////////////////////////////////////////////
 
 struct ArpSandeshData {
