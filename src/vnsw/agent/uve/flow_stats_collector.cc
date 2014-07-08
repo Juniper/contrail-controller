@@ -322,6 +322,9 @@ bool FlowStatsCollector::Run() {
                 //Update Inter-VN stats
                 VnUveTable *vn_table = agent_uve_->vn_uve_table();
                 vn_table->UpdateInterVnStats(entry, diff_bytes, diff_pkts);
+                //Update Floating-IP stats
+                VmUveTable *vm_table = agent_uve_->vm_uve_table();
+                vm_table->UpdateFloatingIpStats(entry, diff_bytes, diff_pkts);
                 stats->bytes = bytes;
                 stats->packets = packets;
                 stats->last_modified_time = curr_time;

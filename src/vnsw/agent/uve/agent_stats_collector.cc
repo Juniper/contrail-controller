@@ -294,3 +294,26 @@ void AgentStatsCollector::Shutdown(void) {
     agent_->interface_table()->Unregister(intf_listener_id_);
 }
 
+void AgentStatsCollector::InterfaceStats::UpdateStats
+    (uint64_t in_b, uint64_t in_p, uint64_t out_b, uint64_t out_p) {
+    in_bytes = in_b;
+    in_pkts = in_p;
+    out_bytes = out_b;
+    out_pkts = out_p;
+}
+
+void AgentStatsCollector::InterfaceStats::UpdatePrevStats() {
+    prev_in_bytes = in_bytes;
+    prev_in_pkts = in_pkts;
+    prev_out_bytes = out_bytes;
+    prev_out_pkts = out_pkts;
+}
+
+void AgentStatsCollector::InterfaceStats::GetDiffStats
+    (uint64_t &in_b, uint64_t &in_p, uint64_t &out_b, uint64_t &out_p) {
+    in_b = in_bytes - prev_in_bytes;
+    in_p = in_pkts - prev_in_pkts;
+    out_b = out_bytes - prev_out_bytes;
+    out_p = out_pkts - prev_out_pkts;
+}
+

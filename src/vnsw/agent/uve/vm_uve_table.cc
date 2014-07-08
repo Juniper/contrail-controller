@@ -2,6 +2,7 @@
  * Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
  */
 
+#include <oper/interface_common.h>
 #include <uve/vm_uve_table.h>
 #include <uve/agent_uve.h>
 
@@ -36,9 +37,12 @@ void VmUveTable::Delete(const VmEntry *vm) {
     }
 
     UveVirtualMachineAgent uve;
-    BuildVmDeleteMsg(vm, uve);
+    VirtualMachineStats stats_uve;
+    BuildVmDeleteMsg(vm, uve, stats_uve);
 
     DispatchVmMsg(uve);
+    DispatchVmStatsMsg(stats_uve);
+
     uve_vm_map_.erase(it);
 }
 
@@ -56,19 +60,27 @@ VmUveEntry* VmUveTable::UveEntryFromVm(const VmEntry *vm) {
 }
 
 void VmUveTable::BuildVmDeleteMsg(const VmEntry *vm, 
-                                  UveVirtualMachineAgent &uve) {
+                                  UveVirtualMachineAgent &uve,
+                                  VirtualMachineStats &stats_uve) {
+    bool stats_uve_changed = false;
     VmUveEntry* entry = UveEntryFromVm(vm);
     if (entry == NULL) {
         return;
     }
     uve.set_name(vm->GetCfgName());
     uve.set_deleted(true); 
-    entry->FrameVmStatsMsg(vm, uve);
+    stats_uve.set_name(vm->GetCfgName());
+    stats_uve.set_deleted(true); 
+    entry->FrameVmStatsMsg(vm, uve, stats_uve, stats_uve_changed);
     entry->FrameVmMsg(vm, uve);
 }
 
 void VmUveTable::DispatchVmMsg(const UveVirtualMachineAgent &uve) {
     UveVirtualMachineAgentTrace::Send(uve);
+}
+
+void VmUveTable::DispatchVmStatsMsg(const VirtualMachineStats &uve) {
+    VirtualMachineStatsTrace::Send(uve);
 }
 
 void VmUveTable::SendVmMsg(const VmEntry *vm) {
@@ -90,17 +102,26 @@ void VmUveTable::SendVmStatsMsg(const VmEntry *vm) {
         return;
     }
     UveVirtualMachineAgent uve;
+    VirtualMachineStats stats_uve;
+    bool stats_uve_send = false;
 
-    bool send = entry->FrameVmStatsMsg(vm, uve);
+    /* Two VM UVEs will be sent for all VM stats. VirtualMachineStats will
+     * have VM stats and UveVirtualMachineAgent will have port bitmap for VM
+     * and all its containing interfaces */
+    bool send = entry->FrameVmStatsMsg(vm, uve, stats_uve, stats_uve_send);
     if (send) {
         DispatchVmMsg(uve);
     }
+    if (stats_uve_send) {
+        DispatchVmStatsMsg(stats_uve);
+    }
 }
 
-void VmUveTable::InterfaceAddHandler(const VmEntry* vm, const Interface* itf) {
+void VmUveTable::InterfaceAddHandler(const VmEntry* vm, const Interface* itf,
+                                     VmInterface::FloatingIpSet &old_list) {
     VmUveEntry *vm_uve_entry = Add(vm, false);
 
-    vm_uve_entry->InterfaceAdd(itf);
+    vm_uve_entry->InterfaceAdd(itf, old_list);
     SendVmMsg(vm);
 }
 
@@ -149,21 +170,25 @@ void VmUveTable::InterfaceNotify(DBTablePartBase *partition, DBEntryBase *e) {
         }
     } else {
         const VmEntry *vm = vm_port->vm();
+        VmInterface::FloatingIpSet old_list;
 
         if (!state) {
             state = new VmUveInterfaceState(vm->GetUuid(), 
                                             vm_port->ipv4_active(),
-                                            vm_port->l2_active());
+                                            vm_port->l2_active(),
+                                            vm_port->floating_ip_list().list_);
             e->SetState(partition->parent(), intf_listener_id_, state);
         } else {
             state->ipv4_active_ = vm_port->ipv4_active();
             state->l2_active_ = vm_port->l2_active();
+            old_list = state->fip_list_;
+            state->fip_list_ = vm_port->floating_ip_list().list_;
         }
         /* Change of VM in a given VM interface is not supported now */
         if (vm->GetUuid() != state->vm_uuid_) {
             assert(0);
         }
-        InterfaceAddHandler(vm, vm_port);
+        InterfaceAddHandler(vm, vm_port, old_list);
     }
 }
 
@@ -176,7 +201,7 @@ void VmUveTable::VmNotify(DBTablePartBase *partition, DBEntryBase *e) {
     if (e->IsDeleted()) {
         if (state) {
             Delete(vm);
-	
+
             VmStatCollectionStop(state);
 
             e->ClearState(partition->parent(), vm_listener_id_);
@@ -254,3 +279,65 @@ bool VmUveTable::Process(VmStatData* vm_stat_data) {
     return true;
 }
 
+void VmUveTable::UpdateFloatingIpStats(const FlowEntry *flow, uint64_t bytes,
+                                       uint64_t pkts) {
+    VmUveEntry::FipInfo fip_info;
+
+    /* Ignore Non-Floating-IP flow */
+    if (!flow->stats().fip ||
+        flow->stats().fip_vm_port_id == Interface::kInvalidIndex) {
+        return;
+    }
+
+    VmUveEntry *entry = InterfaceIdToVmUveEntry(flow->stats().fip_vm_port_id);
+    if (entry == NULL) {
+        return;
+    }
+
+    fip_info.bytes_ = bytes;
+    fip_info.packets_ = pkts;
+    fip_info.flow_ = flow;
+    fip_info.rev_fip_ = NULL;
+    if (flow->stats().fip != flow->reverse_flow_fip()) {
+        /* This is the case where Source and Destination VMs (part of 
+         * same compute node) ping to each other to their respective 
+         * Floating IPs. In this case for each flow we need to increment
+         * stats for both the VMs */
+        fip_info.rev_fip_ = ReverseFlowFip(fip_info);
+    }
+
+    entry->UpdateFloatingIpStats(fip_info);
+}
+
+VmUveEntry::FloatingIp *VmUveTable::ReverseFlowFip
+    (const VmUveEntry::FipInfo &fip_info) {
+    uint32_t fip = fip_info.flow_->reverse_flow_fip();
+    const string &vn = fip_info.flow_->data().source_vn;
+    uint32_t intf_id = fip_info.flow_->reverse_flow_vmport_id();
+    Interface *intf = InterfaceTable::GetInstance()->FindInterface(intf_id);
+
+    VmUveEntry *entry = InterfaceIdToVmUveEntry(intf_id);
+    if (entry != NULL) {
+        return entry->FipEntry(fip, vn, intf);
+    }
+    return NULL;
+}
+
+VmUveEntry *VmUveTable::InterfaceIdToVmUveEntry(uint32_t id) {
+    Interface *intf = InterfaceTable::GetInstance()->FindInterface(id);
+    if (!intf || intf->type() != Interface::VM_INTERFACE) {
+        return NULL;
+    }
+    VmInterface *vm_intf = static_cast<VmInterface *>(intf);
+    /* Ignore if Vm interface does not have a VM */
+    if (vm_intf->vm() == NULL) {
+        return NULL;
+    }
+
+    UveVmMap::iterator it = uve_vm_map_.find(vm_intf->vm());
+    if (it == uve_vm_map_.end()) {
+        return NULL;
+    }
+
+    return it->second.get();
+}

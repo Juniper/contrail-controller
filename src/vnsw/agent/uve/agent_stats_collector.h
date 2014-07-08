@@ -30,10 +30,16 @@ public:
         InterfaceStats() 
             : name(""), speed(0), duplexity(0), in_pkts(0), in_bytes(0),
               out_pkts(0), out_bytes(0), prev_in_bytes(0), 
-              prev_out_bytes(0), prev_5min_in_bytes(0), 
-              prev_5min_out_bytes(0), prev_10min_in_bytes(0), 
-              prev_10min_out_bytes(10), stats_time(0) {
+              prev_out_bytes(0), prev_in_pkts(0), prev_out_pkts(0), 
+              prev_5min_in_bytes(0), prev_5min_out_bytes(0), 
+              prev_10min_in_bytes(0), prev_10min_out_bytes(10), stats_time(0) {
         }
+        void UpdateStats(uint64_t in_b, uint64_t in_p, uint64_t out_b, 
+                         uint64_t out_p);
+        void UpdatePrevStats();
+        void GetDiffStats(uint64_t &in_b, uint64_t &in_p, uint64_t &out_b,
+                          uint64_t &out_p);
+
         std::string name;
         int32_t  speed;
         int32_t  duplexity;
@@ -43,6 +49,8 @@ public:
         uint64_t out_bytes;
         uint64_t prev_in_bytes;
         uint64_t prev_out_bytes;
+        uint64_t prev_in_pkts;  /* Required for sending diff stats to analytics */
+        uint64_t prev_out_pkts; /* Required for sending diff stats to analytics */
         uint64_t prev_5min_in_bytes;
         uint64_t prev_5min_out_bytes;
         uint64_t prev_10min_in_bytes;

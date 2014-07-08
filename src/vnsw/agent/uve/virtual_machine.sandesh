@@ -4,6 +4,16 @@
 
 include "vnsw/agent/uve/port_bmap.sandesh"
 
+struct VmFloatingIPStats {
+    1: string virtual_network (aggtype="listkey")
+    2: string ip_address;
+    3: string iface_name;
+    4: u64 in_pkts;
+    5: u64 in_bytes;
+    6: u64 out_pkts;
+    7: u64 out_bytes;
+}
+
 struct VmFloatingIPAgent {
     1: string virtual_network;
     2: string ip_address;
@@ -27,40 +37,67 @@ struct VmInterfaceAgent {
    10: bool l2_active;
 }
 
-struct VmInterfaceAgentStats {
-    1: string name (aggtype="listkey")
-    2: i64 in_pkts;
-    3: i64 in_bytes; 
-    4: i64 out_pkts; 
-    5: i64 out_bytes; 
-    6: u64 in_bandwidth_usage;
-    7: u64 out_bandwidth_usage;
-}
-
-struct UveVirtualMachineStats {
-    1: double cpu_one_min_avg;
-    2: list<double> vcpu_one_min_avg;
-    3: u32 vm_memory_quota;
-    4: u32 rss;
-    5: u32 virt_memory;
-    6: u32 peak_virt_memory;
-}
-
 struct UveVirtualMachineAgent {
     1: string                name (key="ObjectVMTable")
     2: optional bool         deleted
     3: optional list<string> attached_groups; 
     4: optional list<VmInterfaceAgent> interface_list;
     5: optional string       vrouter; 
-    6: optional list<VmInterfaceAgentStats> if_stats_list;
     7: optional list<VmInterfaceAgentBMap> if_bmap_list;
-    8: optional UveVirtualMachineStats vm_stats;
     9: optional list<u32>   udp_sport_bitmap;
     10: optional list<u32>  udp_dport_bitmap;
     11: optional list<u32>  tcp_sport_bitmap;
     12: optional list<u32>  tcp_dport_bitmap;
+    13: optional list<VmFloatingIPStats> fip_stats_list;
 }
 
 uve sandesh UveVirtualMachineAgentTrace {
     1: UveVirtualMachineAgent data;
 }
+
+/*
+ * VM's floating ip stats samples
+ */
+struct VmFloatingIPStatSamples {
+    1: string vn;
+    2: string ip_address;
+    3: string iface_name;
+    4: u64 in_pkts;
+    5: u64 in_bytes;
+    6: u64 out_pkts;
+    7: u64 out_bytes;
+}
+
+/*
+ * VM's interfaces' stats samples
+ */
+struct VmInterfaceStats {
+    1: string name;
+    2: u64 in_pkts;
+    3: u64 in_bytes;
+    4: u64 out_pkts;
+    5: u64 out_bytes;
+    6: u64 in_bw_usage;
+    7: u64 out_bw_usage;
+}
+
+struct VmCpuStats {
+    1: double cpu_one_min_avg;
+    2: u64 vm_memory_quota;
+    3: u64 rss;
+    4: u64 virt_memory;
+    5: u64 peak_virt_memory;
+}
+
+struct VirtualMachineStats {
+    1: string         name (key="ObjectVMTable")
+    2: optional bool  deleted
+    3: optional list<VmFloatingIPStatSamples> fip_stats (tags=".vn,.iface_name,.ip_address")
+    4: optional list<VmInterfaceStats> if_stats (tags=".name")
+    5: optional list<VmCpuStats> cpu_stats (tags="")
+}
+
+uve sandesh VirtualMachineStatsTrace {
+    1:  VirtualMachineStats data;
+}
+

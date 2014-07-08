@@ -45,7 +45,8 @@ public:
         tcp_ack(false), linklocal_bind_local_port(false),
         linklocal_src_port_fd(kLinkLocalInvalidFd),
         ecmp(false), in_component_nh_idx(-1), out_component_nh_idx(-1),
-        trap_rev_flow(false), source_plen(0), dest_plen(0) {
+        trap_rev_flow(false), source_plen(0), dest_plen(0), fip_snat(false),
+        fip_dnat(false), snat_fip(0) {
     }
 
     static bool ComputeDirection(const Interface *intf);
@@ -75,6 +76,8 @@ public:
     void VrfTranslate(const PktInfo *pkt, PktControlInfo *ctrl,
                       PktControlInfo *rev_flow);
     uint32_t LinkLocalBindPort(const VmEntry *vm, uint8_t proto);
+    void UpdateFipStatsInfo(FlowEntry *flow, FlowEntry *rflow, const PktInfo *p, 
+                            const PktControlInfo *in, const PktControlInfo *o);
 
 public:
     boost::shared_ptr<PktInfo> pkt;
@@ -121,6 +124,11 @@ public:
     bool                trap_rev_flow;
     uint8_t             source_plen;
     uint8_t             dest_plen;
+
+    // Following fields are required for FIP stats accounting
+    bool                fip_snat;
+    bool                fip_dnat;
+    uint32_t            snat_fip;
 };
 
 #endif // __agent_pkt_flow_info_h_

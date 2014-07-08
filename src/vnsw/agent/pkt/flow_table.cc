@@ -837,6 +837,11 @@ void FlowTable::UpdateReverseFlow(FlowEntry *flow, FlowEntry *rflow) {
     }
 }
 
+void FlowEntry::UpdateFipStatsInfo(uint32_t fip, uint32_t id) {
+    stats_.fip = fip;
+    stats_.fip_vm_port_id = id;
+}
+
 void FlowEntry::FillFlowInfo(FlowInfo &info) {
     info.set_flow_index(flow_handle_);
     info.set_source_ip(key_.src.ipv4);
@@ -2513,6 +2518,22 @@ void FlowEntry::SetAclAction(std::vector<AclAction> &acl_action_l) const
     const std::list<MatchAclParams> &vrf_assign_acl_l = data_.match_p.m_vrf_assign_acl_l;
     acl_type = "vrf assign";
     SetAclListAclAction(vrf_assign_acl_l, acl_action_l, acl_type);
+}
+
+uint32_t FlowEntry::reverse_flow_fip() const {
+    FlowEntry *rflow = reverse_flow_entry_.get();
+    if (rflow) {
+        return rflow->stats().fip;
+    }
+    return 0;
+}
+
+uint32_t FlowEntry::reverse_flow_vmport_id() const {
+    FlowEntry *rflow = reverse_flow_entry_.get();
+    if (rflow) {
+        return rflow->stats().fip_vm_port_id;
+    }
+    return Interface::kInvalidIndex;
 }
 
 string FlowTable::GetAceSandeshDataKey(const AclDBEntry *acl, int ace_id) {

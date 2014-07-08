@@ -67,10 +67,8 @@ void AgentStatsSandeshContext::IfMsgHandler(vr_interface_req *req) {
                                                    stats->out_bytes);
     }
 
-    stats->in_pkts = req->get_vifr_ipackets();
-    stats->in_bytes = req->get_vifr_ibytes();
-    stats->out_pkts = req->get_vifr_opackets();
-    stats->out_bytes = req->get_vifr_obytes();
+    stats->UpdateStats(req->get_vifr_ibytes(), req->get_vifr_ipackets(),
+                       req->get_vifr_obytes(), req->get_vifr_opackets());
     stats->speed = req->get_vifr_speed();
     stats->duplexity = req->get_vifr_duplex();
 }
