@@ -1952,8 +1952,12 @@ class DBInterface(object):
         if port_q.get('device_owner') != constants.DEVICE_OWNER_ROUTER_INTF:
             instance_name = port_q.get('device_id')
             if instance_name:
-                instance_obj = self._ensure_instance_exists(instance_name)
-                port_obj.set_virtual_machine(instance_obj)
+                try:
+                    instance_obj = self._ensure_instance_exists(instance_name)
+                    port_obj.set_virtual_machine(instance_obj)
+                except RefsExistError as e:
+                    exc_info = {'type': 'BadRequest', 'message': str(e)}
+                    bottle.abort(400, json.dumps(exc_info))
 
         if 'security_groups' in port_q:
             port_obj.set_security_group_list([])

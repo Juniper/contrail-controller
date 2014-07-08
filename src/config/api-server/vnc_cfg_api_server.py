@@ -1114,6 +1114,13 @@ class VncApiServer(VncApiServerGen):
         apiConfig.object_type = obj_type
         apiConfig.body = str(request.json)
         if uuid_in_req:
+            try:
+                fq_name = self._db_conn.uuid_to_fq_name(uuid_in_req)
+                bottle.abort(
+                    409, uuid_in_req + ' already exists with fq_name: ' +
+                    pformat(fq_name))
+            except NoIdError:
+                pass
             apiConfig.identifier_uuid = uuid_in_req
         # TODO should be from x-auth-token
         apiConfig.user = ''
