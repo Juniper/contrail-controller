@@ -893,3 +893,9 @@ systemlog sandesh AgentRouteWalkerLog {
 systemlog sandesh GlobalVrouterLog {
     1: string message;
 }
+
+trace sandesh OperSg {
+    1: string message;
+    2: string uuid;
+}
+
