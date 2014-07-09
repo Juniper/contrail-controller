@@ -48,13 +48,12 @@ for file in init_sources:
 sdist_depends = [local_sources_rules, init_sources_rules,
                  flow_pkg, vns_pkg, query_pkg]
 
-sdist_gen = env.Command('dist', 'setup.py', 'python setup.py sdist', chdir=1)
+sdist_gen = env.Command('dist/sandesh-common-0.1dev.tar.gz',
+                        'setup.py',
+                        'python setup.py sdist', chdir=Dir('.'))
 
 # install everything before building distribution
 env.Depends(sdist_gen, sdist_depends)
-sdist_gen = env.Command('dist',
-                        'setup.py',
-                        'python setup.py sdist', chdir=1)
 
 env.Default(sdist_gen)
 
