@@ -41,8 +41,9 @@ private:
 
 class NamedConfig {
 public:
-    typedef std::map<std::string, ZoneList> ViewZoneMap;
-    typedef std::pair<std::string, ZoneList> ViewZonePair;
+    // map of zone name to list of views to which they belong
+    typedef std::map<std::string, std::string> ZoneViewMap;
+    typedef std::pair<std::string, std::string> ZoneViewPair;
 
     static const char NamedConfigFile[];
     static const char NamedLogFile[];
@@ -101,8 +102,8 @@ protected:
     void WriteRndcConfig();
     void WriteLoggingConfig();
     void WriteViewConfig(const VirtualDnsConfig *updated_vdns);
-    void WriteDefaultView(ViewZoneMap &view_zone_map);
-    void WriteZone(std::string &vdns, std::string &name, bool is_master);
+    void WriteDefaultView(ZoneViewMap &zone_view_map);
+    void WriteZone(const std::string &vdns, const std::string &name, bool is_master);
     void AddZoneFiles(ZoneList &zones, const VirtualDnsConfig *vdns);
     void RemoveZoneFile(const VirtualDnsConfig *vdns, std::string &zone);
     std::string GetZoneNSName(const std::string domain_name);
