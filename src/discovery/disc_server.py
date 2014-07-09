@@ -273,9 +273,9 @@ class DiscoveryServer():
         pass
     # end cleanup
 
-    def syslog(self, log_msg):
+    def syslog(self, log_msg, log_level=SandeshLevel.SYS_DEBUG):
         log = sandesh.discServiceLog(
-            log_msg=log_msg, sandesh=self._sandesh)
+            log_msg=log_msg, sandesh=self._sandesh, level=log_level)
         log.send(sandesh=self._sandesh)
 
     def get_ttl_short(self, client_id, service_type, default):
@@ -296,15 +296,17 @@ class DiscoveryServer():
     def service_expired(self, entry, include_color=False, include_down=True):
         timedelta = datetime.timedelta(
                 seconds=(int(time.time()) - entry['heartbeat']))
+        if timedelta.total_seconds() < 0:
+            self.syslog('NTP not synched !!!', log_level=SandeshLevel.SYS_EMERG)
 
         if self._args.hc_interval <= 0:
             # health check has been disabled
             color = "#00FF00"   # green - all good
             expired = False
-        elif timedelta.seconds <= self._args.hc_interval:
+        elif timedelta.total_seconds() <= self._args.hc_interval:
             color = "#00FF00"   # green - all good
             expired = False
-        elif (timedelta.seconds > (self._args.hc_interval *
+        elif (timedelta.total_seconds() > (self._args.hc_interval *
                                    self._args.hc_max_miss)):
             color = "#FF0000"   # red - publication expired
             expired = True
