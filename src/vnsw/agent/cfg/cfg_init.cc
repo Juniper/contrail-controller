@@ -125,9 +125,9 @@ void AgentConfig::RegisterDBClients(DB *db) {
     cfg_listener_->Register("virtual-network-network-ipam", 
                             boost::bind(&VnTable::IpamVnSync, _1), -1);
     cfg_listener_->Register("network-ipam", boost::bind(&DomainConfig::IpamSync,
-                            agent_->domain_config_table(), _1), -1);
+                            agent_->domain_config_table(), _1), NetworkIpam::ID_PERMS);
     cfg_listener_->Register("virtual-DNS", boost::bind(&DomainConfig::VDnsSync, 
-                            agent_->domain_config_table(), _1), -1);
+                            agent_->domain_config_table(), _1), VirtualDns::ID_PERMS);
     cfg_listener_->Register
         ("virtual-machine-interface-routing-instance", 
          boost::bind(&InterfaceTable::VmInterfaceVrfSync,
