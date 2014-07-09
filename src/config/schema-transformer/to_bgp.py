@@ -695,6 +695,10 @@ class VirtualNetworkST(DictST):
             return (None, None)
         sc = ServiceChain.find(left_vn_str, right_vn_str, '<>',
                                [PortType(0, -1)], [PortType(0, -1)], 'any')
+        if sc is None:
+            _sandesh._logger.debug("Service chain between %s and %s not "
+                                   "present", left_vn_str, right_vn_str)
+            return (None, None)
         left_ri_name = left_vn.get_service_name(sc.name, next_hop)
         return (left_vn.get_primary_routing_instance(),
                 left_vn.rinst.get(left_ri_name))
