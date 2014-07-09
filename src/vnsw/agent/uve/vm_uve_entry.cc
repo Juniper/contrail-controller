@@ -353,6 +353,7 @@ void VmUveEntry::UpdateFloatingIpStats(const FipInfo &fip_info) {
 
 void VmUveEntry::UveInterfaceEntry::UpdateFloatingIpStats
                                     (const FipInfo &fip_info) {
+    tbb::mutex::scoped_lock lock(mutex_);
     string vn = fip_info.flow_->data().source_vn;
     FloatingIp *entry = FipEntry(fip_info.flow_->stats().fip, vn);
     entry->UpdateFloatingIpStats(fip_info);
@@ -409,7 +410,8 @@ void VmUveEntry::FloatingIp::UpdateFloatingIpStats(const FipInfo &fip_info) {
 
 
 bool VmUveEntry::UveInterfaceEntry::FillFloatingIpStats
-    (vector<VmFloatingIPStats> &result) const {
+    (vector<VmFloatingIPStats> &result) {
+    tbb::mutex::scoped_lock lock(mutex_);
     const VmInterface *vm_intf = static_cast<const VmInterface *>(intf_);
     if (vm_intf->HasFloatingIp()) {
         const VmInterface::FloatingIpList fip_list =
@@ -451,6 +453,7 @@ void VmUveEntry::UveInterfaceEntry::SetStats
 
 void VmUveEntry::UveInterfaceEntry::RemoveFloatingIp
     (const VmInterface::FloatingIp &fip) {
+    tbb::mutex::scoped_lock lock(mutex_);
     FloatingIpPtr key(new FloatingIp(fip.floating_ip_, fip.vn_.get()->GetName()));
     FloatingIpSet::iterator it = fip_tree_.find(key);
     if (it != fip_tree_.end()) {

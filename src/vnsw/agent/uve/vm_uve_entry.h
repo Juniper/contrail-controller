@@ -68,12 +68,14 @@ public:
         const Interface *intf_;
         L4PortBitmap port_bitmap_;
         FloatingIpSet fip_tree_;
+        /* For exclusion between Agent::StatsCollector and Agent::Uve tasks */
+        tbb::mutex mutex_;
 
         UveInterfaceEntry(const Interface *i) : intf_(i), port_bitmap_(),
-            fip_tree_() { }
+            fip_tree_(), mutex_() { }
         virtual ~UveInterfaceEntry() {}
         void UpdateFloatingIpStats(const FipInfo &fip_info);
-        bool FillFloatingIpStats(vector<VmFloatingIPStats> &result) const;
+        bool FillFloatingIpStats(vector<VmFloatingIPStats> &result);
         void SetStats(VmFloatingIPStats &fip, uint64_t in_bytes,
             uint64_t in_pkts, uint64_t out_bytes, uint64_t out_pkts) const;
         void RemoveFloatingIp(const VmInterface::FloatingIp &fip);
