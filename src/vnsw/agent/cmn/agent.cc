@@ -235,25 +235,42 @@ void Agent::set_cn_mcast_builder(AgentXmppChannel *peer) {
 }
 
 void Agent::InitCollector() {
-    /* Return if collector is not configured in config file */
-    if (params_->collector_server_list().size() == 0) {
+    /* If Sandesh initialization is not being done via discovery we need to
+     * initialize here. We need to do sandesh initialization here for cases
+     * (i) When both Discovery and Collectors are configured.
+     * (ii) When both are not configured (to initilialize introspect)
+     * (iii) When only collector is configured
+     */
+    if (!discovery_server().empty() &&
+        params_->collector_server_list().size() == 0) {
         return;
     }
 
     /* If collector configuration is specified, use that for connection to
-     * collector regardless of whether discovery is configured or not.
+     * collector. If not we still need to invoke InitGenerator to initialize
+     * introspect.
      */
     Module::type module = Module::VROUTER_AGENT;
     NodeType::type node_type =
         g_vns_constants.Module2NodeType.find(module)->second;
-    Sandesh::InitGenerator(g_vns_constants.ModuleNames.find(module)->second,
-                           params_->host_name(),
-                           g_vns_constants.NodeTypeNames.find(node_type)->second,
-                           g_vns_constants.INSTANCE_ID_DEFAULT,
-                           event_manager(),
-                           params_->http_server_port(), 0,
-                           params_->collector_server_list(),
-                           NULL);
+    if (params_->collector_server_list().size() != 0) {
+        Sandesh::InitGenerator(g_vns_constants.ModuleNames.find(module)->second,
+                params_->host_name(),
+                g_vns_constants.NodeTypeNames.find(node_type)->second,
+                g_vns_constants.INSTANCE_ID_DEFAULT,
+                event_manager(),
+                params_->http_server_port(), 0,
+                params_->collector_server_list(),
+                NULL);
+    } else {
+        Sandesh::InitGenerator(g_vns_constants.ModuleNames.find(module)->second,
+                params_->host_name(),
+                g_vns_constants.NodeTypeNames.find(node_type)->second,
+                g_vns_constants.INSTANCE_ID_DEFAULT,
+                event_manager(),
+                params_->http_server_port(),
+                NULL);
+    }
 
 }
 
