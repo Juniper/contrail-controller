@@ -200,7 +200,8 @@ TEST_F(CfgTest, FloatingIp_1) {
                           Ip4Address::from_string("2.2.2.100"), 32));
 
     PhysicalInterface::CreateReq(Agent::GetInstance()->interface_table(),
-                            "enet1", Agent::GetInstance()->fabric_vrf_name());
+                            "enet1", Agent::GetInstance()->fabric_vrf_name(),
+                            false);
     client->WaitForIdle();
 
     AddArp("10.1.1.2", "00:00:00:00:00:02", "enet1");

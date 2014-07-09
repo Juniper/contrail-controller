@@ -11,8 +11,10 @@
 /////////////////////////////////////////////////////////////////////////////
 class PhysicalInterface : public Interface {
 public:
-    PhysicalInterface(const std::string &name, VrfEntry *vrf) :
-        Interface(Interface::PHYSICAL, nil_uuid(), name, vrf) {
+    PhysicalInterface(const std::string &name, VrfEntry *vrf,
+                      bool persistent) :
+        Interface(Interface::PHYSICAL, nil_uuid(), name, vrf),
+        persistent_(persistent) {
     }
     virtual ~PhysicalInterface() { }
 
@@ -24,16 +26,31 @@ public:
 
     std::string ToString() const { return "ETH <" + name() + ">"; }
     KeyPtr GetDBRequestKey() const;
+    // Lets kernel know if physical interface is to be kept after agent exits or
+    // dies. If its true keep the interface, else remove it.
+    // Currently only vnware physical interface is persistent.
+    // By default every physical interface is non-persistent.
+    bool persistent() const {return persistent_;}
 
     // Helper functions
     static void CreateReq(InterfaceTable *table, const std::string &ifname,
-                          const std::string &vrf_name);
+                          const std::string &vrf_name, bool persistent);
     static void Create(InterfaceTable *table, const std::string &ifname,
-                       const std::string &vrf_name);
+                       const std::string &vrf_name, bool persistent);
     static void DeleteReq(InterfaceTable *table, const std::string &ifname);
     static void Delete(InterfaceTable *table, const std::string &ifname);
 private:
+    bool persistent_;
     DISALLOW_COPY_AND_ASSIGN(PhysicalInterface);
+};
+
+struct PhysicalInterfaceData : public InterfaceData {
+    PhysicalInterfaceData(const std::string &vrf_name, bool persistent)
+        : InterfaceData(), persistent_(persistent) {
+        EthInit(vrf_name);
+    }
+
+    bool persistent_;
 };
 
 struct PhysicalInterfaceKey : public InterfaceKey {
@@ -44,7 +61,7 @@ struct PhysicalInterfaceKey : public InterfaceKey {
     virtual ~PhysicalInterfaceKey() {}
 
     Interface *AllocEntry(const InterfaceTable *table) const {
-        return new PhysicalInterface(name_, NULL);
+        return new PhysicalInterface(name_, NULL, false);
     }
     Interface *AllocEntry(const InterfaceTable *table,
                           const InterfaceData *data) const {
@@ -54,18 +71,14 @@ struct PhysicalInterfaceKey : public InterfaceKey {
         if (vrf == NULL) {
             return NULL;
         }
+        const PhysicalInterfaceData *phy_data =
+            static_cast<const PhysicalInterfaceData *>(data);
 
-        return new PhysicalInterface(name_, vrf);
+        return new PhysicalInterface(name_, vrf, phy_data->persistent_);
     }
 
     InterfaceKey *Clone() const {
         return new PhysicalInterfaceKey(*this);
-    }
-};
-
-struct PhysicalInterfaceData : public InterfaceData {
-    PhysicalInterfaceData(const std::string &vrf_name) : InterfaceData() {
-        EthInit(vrf_name);
     }
 };
 

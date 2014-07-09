@@ -89,6 +89,7 @@ private:
     Interface::Type type_;
     uint16_t vlan_id_;
     uint32_t vrf_id_;
+    bool persistent_;
     KSyncEntryPtr xconnect_;
 
     DISALLOW_COPY_AND_ASSIGN(InterfaceKSyncEntry);

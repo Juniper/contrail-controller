@@ -365,18 +365,18 @@ DBEntryBase::KeyPtr PhysicalInterface::GetDBRequestKey() const {
 
 // Enqueue DBRequest to create a Host Interface
 void PhysicalInterface::CreateReq(InterfaceTable *table, const string &ifname,
-                                  const string &vrf_name) {
+                                  const string &vrf_name, bool persistent) {
     DBRequest req(DBRequest::DB_ENTRY_ADD_CHANGE);
     req.key.reset(new PhysicalInterfaceKey(ifname));
-    req.data.reset(new PhysicalInterfaceData(vrf_name));
+    req.data.reset(new PhysicalInterfaceData(vrf_name, persistent));
     table->Enqueue(&req);
 }
 
 void PhysicalInterface::Create(InterfaceTable *table, const string &ifname,
-                               const string &vrf_name) {
+                               const string &vrf_name, bool persistent) {
     DBRequest req(DBRequest::DB_ENTRY_ADD_CHANGE);
     req.key.reset(new PhysicalInterfaceKey(ifname));
-    req.data.reset(new PhysicalInterfaceData(vrf_name));
+    req.data.reset(new PhysicalInterfaceData(vrf_name, persistent));
     table->Process(req);
 }
 

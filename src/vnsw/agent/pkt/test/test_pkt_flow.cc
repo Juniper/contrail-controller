@@ -2360,7 +2360,9 @@ int main(int argc, char *argv[]) {
     } else {
         eth_itf = "eth0";
         PhysicalInterface::CreateReq(Agent::GetInstance()->interface_table(),
-                                eth_itf, Agent::GetInstance()->fabric_vrf_name());
+                                eth_itf,
+                                Agent::GetInstance()->fabric_vrf_name(),
+                                false);
         client->WaitForIdle();
     }
 
