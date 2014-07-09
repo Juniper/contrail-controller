@@ -10,6 +10,7 @@ from gevent import ssl, monkey
 monkey.patch_all()
 import gevent
 import gevent.event
+from gevent.queue import Queue
 import sys
 import time
 from pprint import pformat
@@ -860,24 +861,32 @@ class VncKombuClient(object):
         q_name = 'vnc_config.%s-%s' %(socket.gethostname(), listen_port)
         self._update_queue_obj = kombu.Queue(q_name, obj_upd_exchange)
 
+        self._publish_queue = Queue()
+        self._dbe_publish_greenlet = gevent.spawn(self._dbe_oper_publish)
         self._dbe_oper_subscribe_greenlet = None
         if self._rabbit_vhost == "__NONE__":
             return
         self._init_server_conn(self._rabbit_ip, self._rabbit_port, self._rabbit_user, self._rabbit_password, self._rabbit_vhost)
     # end __init__
 
-    def _obj_update_q_put(self, *args, **kwargs):
+    def _obj_update_q_put(self, oper_info):
         if self._rabbit_vhost == "__NONE__":
             return
-        while True:
-            try:
-                self._obj_update_q.put(*args, **kwargs)
-                break
-            except Exception as e:
-                logger.info("Disconnected from rabbitmq. Reinitializing connection: %s" % str(e))
-                time.sleep(1)
-                self._init_server_conn(self._rabbit_ip, self._rabbit_port, self._rabbit_user, self._rabbit_password, self._rabbit_vhost)
+        self._publish_queue.put(oper_info)
     # end _obj_update_q_put
+
+    def _dbe_oper_publish(self):
+        while True:
+            message = self._publish_queue.get()
+            while True:
+                try:
+                    self._obj_update_q.put(message, serializer='json')
+                    break
+                except Exception as e:
+                    logger.info("Disconnected from rabbitmq. Reinitializing connection: %s" % str(e))
+                    time.sleep(1)
+                    self._init_server_conn(self._rabbit_ip, self._rabbit_port, self._rabbit_user, self._rabbit_password, self._rabbit_vhost)
+    # end _dbe_oper_publish
 
     def _dbe_oper_subscribe(self):
         if self._rabbit_vhost == "__NONE__":
@@ -921,7 +930,7 @@ class VncKombuClient(object):
     def dbe_create_publish(self, obj_type, obj_ids, obj_dict):
         oper_info = {'oper': 'CREATE', 'type': obj_type, 'obj_dict': obj_dict}
         oper_info.update(obj_ids)
-        self._obj_update_q_put(oper_info, serializer='json')
+        self._obj_update_q_put(oper_info)
     # end dbe_create_publish
 
     def _dbe_create_notification(self, obj_info):
@@ -941,7 +950,7 @@ class VncKombuClient(object):
     def dbe_update_publish(self, obj_type, obj_ids, is_resync=False):
         oper_info = {'oper': 'UPDATE', 'type': obj_type, 'is_resync': is_resync}
         oper_info.update(obj_ids)
-        self._obj_update_q_put(oper_info, serializer='json')
+        self._obj_update_q_put(oper_info)
     # end dbe_update_publish
 
     def _dbe_update_notification(self, oper_info):
@@ -973,7 +982,7 @@ class VncKombuClient(object):
     def dbe_delete_publish(self, obj_type, obj_ids, obj_dict):
         oper_info = {'oper': 'DELETE', 'type': obj_type, 'obj_dict': obj_dict}
         oper_info.update(obj_ids)
-        self._obj_update_q_put(oper_info, serializer='json')
+        self._obj_update_q_put(oper_info)
     # end dbe_delete_publish
 
     def _dbe_delete_notification(self, obj_info):
