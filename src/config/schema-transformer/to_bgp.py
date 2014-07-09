@@ -707,9 +707,7 @@ class VirtualNetworkST(DictST):
         ) or StaticRouteEntriesType()
         for static_route in static_route_entries.get_route() or []:
             if prefix == static_route.prefix:
-                if self.get_route_target() in static_route.route_target:
-                    return
-                else:
+                if self.get_route_target() not in static_route.route_target:
                     static_route.route_target.append(self.get_route_target())
                 break
         else:
@@ -2637,17 +2635,18 @@ class SchemaTransformer(object):
         policy = NetworkPolicyST.locate(policy_name)
         addr1 = AddressType(virtual_network=left_vn_str)
         addr2 = AddressType(virtual_network=right_vn_str)
-        ports = PortType(0, -1)
         action_list = ActionListType(apply_service=[si_name])
 
         prule = PolicyRuleType(direction="<>", protocol="any",
                                src_addresses=[addr1], dst_addresses=[addr2],
-                               src_ports=[ports], dst_ports=[ports],
+                               src_ports=[PortType(0, -1)],
+                               dst_ports=[PortType(0, -1)],
                                action_list=action_list)
         pentry = PolicyEntriesType([prule])
         policy.obj = NetworkPolicy(policy_name, network_policy_entries=pentry)
         policy.network_back_ref = set([left_vn_str, right_vn_str])
         policy.internal = True
+        policy.add_rules(pentry)
         vn1 = VirtualNetworkST.get(left_vn_str)
         if vn1:
             vn1.add_policy(policy_name)
