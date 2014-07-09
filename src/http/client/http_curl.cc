@@ -312,6 +312,28 @@ static int closesocket(void *clientp, curl_socket_t item)
   return 0;
 }
 
+static int send_perform(ConnInfo *conn, GlobalInfo *g) {
+    // add the handle
+    CURLMcode m_rc = curl_multi_add_handle(g->multi, conn->easy);
+    if (m_rc != CURLM_OK)
+        return m_rc;
+
+    // send data rightaway; this can be done with a timer, if required
+    int counter = 0;
+    CURLMcode rc;
+    do {
+        rc = curl_multi_perform(g->multi, &counter);
+    } while (rc == CURLM_OK && counter > 0);
+
+    // send done; invoke callback to indicate this
+    if (conn->connection && conn->connection->session()) {
+        const boost::system::error_code ec;
+        event_cb(g, TcpSessionPtr(conn->connection->session()), 0, ec, 0);
+    }
+
+    return rc;
+}
+
 void del_conn(HttpConnection *connection, GlobalInfo *g) {
 
     if (connection->session()) {
@@ -342,9 +364,8 @@ ConnInfo *new_conn(HttpConnection *connection, GlobalInfo *g,
 
   conn->easy = curl_easy_init();
 
-  if ( !conn->easy )
-  {
-    exit(2);
+  if ( !conn->easy ) {
+    return NULL;
   }
   conn->global = g;
   curl_easy_setopt(conn->easy, CURLOPT_FOLLOWLOCATION, 1L);
@@ -394,8 +415,6 @@ void set_post_string(ConnInfo *conn, const char *post, uint32_t len) {
     memcpy(conn->post, post, len);
     conn->post_len = len;
     curl_easy_setopt(conn->easy, CURLOPT_POST, 1);
-    // TODO: Using post fields to send post data; could be a problem if the
-    // data size is large; should move to UPLOAD and send in chunks ?
     curl_easy_setopt(conn->easy, CURLOPT_POSTFIELDS, conn->post);
     curl_easy_setopt(conn->easy, CURLOPT_POSTFIELDSIZE_LARGE, (curl_off_t)len);
 }
@@ -421,15 +440,11 @@ int http_head(ConnInfo *conn, GlobalInfo *g) {
 }
 
 int http_put(ConnInfo *conn, GlobalInfo *g) {
-    // CURLMcode rc = curl_multi_perform(g->multi, counter);
-    // return (rc == CURLM_OK) ? true : false;
-    CURLcode rc = curl_easy_perform(conn->easy);
-    return (int)rc;
+    return send_perform(conn, g);
 }
 
 int http_post(ConnInfo *conn, GlobalInfo *g) {
-    CURLMcode rc = curl_multi_add_handle(g->multi, conn->easy);
-    return (int)rc;
+    return send_perform(conn, g);
 }
 
 int http_delete(ConnInfo *conn, GlobalInfo *g) {
