@@ -191,6 +191,15 @@ bool BgpServer::IsReadyForDeletion() {
     }
 
     //
+    // Check if the RTargetGroupManager has processed all rtarget route updates
+    // This is done to ensure that InterestedPeerList of rtgroup is updated
+    // before allowing the peer to get deleted
+    //
+    if (!rtarget_group_mgr_->IsRTargetRoutesProcessed()) {
+        return false;
+    }
+
+    //
     // Check if the DB requests queue and change list is empty
     //
     if (!db_.IsDBQueueEmpty()) {

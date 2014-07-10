@@ -209,10 +209,12 @@ public:
     void Enqueue(RtGroupMgrReq *req);
     void Initialize();
     void ManagedDelete();
+    bool IsRTargetRoutesProcessed() { return rtarget_route_list_.empty(); }
 
 private:
     static int rtfilter_task_id_;
 
+    friend class RTargetPeerTest;
     void RTargetDepSync(DBTablePartBase *root, BgpRoute *rt, 
                         DBTableBase::ListenerId id, VpnRouteState *dbstate,
                         VpnRouteState::RTargetList &current);
@@ -231,6 +233,15 @@ private:
     bool VpnRouteNotify(DBTablePartBase *root, DBEntryBase *entry);
     bool RTargetRouteNotify(DBTablePartBase *root, DBEntryBase *entry);
     bool RequestHandler(RtGroupMgrReq *req);
+    void DisableRtargetRouteProcessing() {
+        rtarget_route_processing_disabled_ = true;
+    }
+    void EnableRtargetRouteProcessing() {
+        rtarget_route_processing_disabled_ = false;
+        if (!rtarget_route_list_.empty()) {
+            rtarget_route_trigger_->Set();
+        }
+    }
 
     BgpServer *server_;
     tbb::mutex mutex_;
@@ -246,6 +257,7 @@ private:
     RtGroupRemoveList rtgroup_remove_list_;
     WorkQueue<RtGroupMgrReq *> *process_queue_;
     LifetimeRef<RTargetGroupMgr> master_instance_delete_ref_;
+    bool rtarget_route_processing_disabled_;
 
     DISALLOW_COPY_AND_ASSIGN(RTargetGroupMgr);
 };

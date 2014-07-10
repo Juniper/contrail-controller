@@ -28,7 +28,8 @@ RTargetGroupMgr::RTargetGroupMgr(BgpServer *server) : server_(server),
     remove_rtgroup_trigger_(new TaskTrigger(
            boost::bind(&RTargetGroupMgr::RemoveRtGroups, this),
            TaskScheduler::GetInstance()->GetTaskId("bgp::RTFilter"), 0)),
-    master_instance_delete_ref_(this, NULL) {
+    master_instance_delete_ref_(this, NULL), 
+    rtarget_route_processing_disabled_(false) {
 
     if (rtfilter_task_id_ == -1) {
         TaskScheduler *scheduler = TaskScheduler::GetInstance();
@@ -204,6 +205,7 @@ void RTargetGroupMgr::RTargetPeerSync(BgpTable *table, RTargetRoute *rt,
     }
     if (rtarget == RouteTarget::null_rtarget &&  !impacted_peers.empty()) {
         BOOST_FOREACH(BgpPeer *bgppeer, impacted_peers) {
+            assert(bgppeer->GetIndex() >= 0);
             bgppeer->RegisterToVpnTables(false);
         }
     }
@@ -272,6 +274,8 @@ bool RTargetGroupMgr::ProcessRouteTargetList(int part_id) {
 
 bool RTargetGroupMgr::ProcessRTargetRouteList() {
     CHECK_CONCURRENCY("bgp::RTFilter");
+
+    if (rtarget_route_processing_disabled_) return true;
 
     RoutingInstanceMgr *mgr = server()->routing_instance_mgr();
     RoutingInstance *master = 

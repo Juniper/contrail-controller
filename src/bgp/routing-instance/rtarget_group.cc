@@ -110,6 +110,7 @@ void RtGroup::AddInterestedPeer(const BgpPeer *peer, RTargetRoute *rt) {
         it = peer_list_.insert(peer_list_.begin(), 
                                std::pair<const BgpPeer *, 
                                RTargetRouteList>(peer, RTargetRouteList()));
+        assert(peer->GetIndex() >= 0);
         interested_peers_.set(peer->GetIndex());
     }
     it->second.insert(rt);
@@ -121,6 +122,7 @@ void RtGroup::RemoveInterestedPeer(const BgpPeer *peer, RTargetRoute *rt) {
     it->second.erase(rt);
     if (it->second.empty()) {
         peer_list_.erase(peer);
+        assert(peer->GetIndex() >= 0);
         interested_peers_.reset(peer->GetIndex());
     }
 }
