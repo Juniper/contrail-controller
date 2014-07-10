@@ -4,6 +4,7 @@
 
 #include "bgp/routing-instance/routing_instance.h"
 #include "bgp/routing-instance/routepath_replicator.h"
+#include "bgp/routing-instance/rtarget_group_mgr.h"
 
 #include <fstream>
 #include <list>
@@ -345,14 +346,21 @@ protected:
         IFMapServerParser::GetInstance("schema")->MetadataClear("schema");
     }
 
-
-    void VerifyAllPeerUp(BgpServerTest *server) {
-        TASK_UTIL_EXPECT_EQ_MSG(2, server->num_bgp_peer(), 
+    void VerifyAllPeerUp(BgpServerTest *server, int num) {
+        TASK_UTIL_EXPECT_EQ_MSG(num, server->num_bgp_peer(),
                                 "Wait for all peers to get configured");
-        TASK_UTIL_EXPECT_EQ_MSG(2, server->NumUpPeer(), 
+        TASK_UTIL_EXPECT_EQ_MSG(num, server->NumUpPeer(),
                                 "Wait for all peers to come up");
 
         LOG(DEBUG, "All Peers are up: " << server->localname());
+    }
+
+    void EnableRtargetRouteProcessing(BgpServerTest *server) {
+        server->rtarget_group_mgr()->EnableRtargetRouteProcessing();
+    }
+
+    void DisableRtargetRouteProcessing(BgpServerTest *server) {
+        server->rtarget_group_mgr()->DisableRtargetRouteProcessing();
     }
 
     void Configure() {
@@ -368,9 +376,9 @@ protected:
         mx_->Configure(config);
         task_util::WaitForIdle();
 
-        VerifyAllPeerUp(cn1_.get());
-        VerifyAllPeerUp(cn2_.get());
-        VerifyAllPeerUp(mx_.get());
+        VerifyAllPeerUp(cn1_.get(), 2);
+        VerifyAllPeerUp(cn2_.get(), 2);
+        VerifyAllPeerUp(mx_.get(), 2);
 
         vector<string> instance_names = 
             list_of("blue")("blue-i1")("red-i2")("red")("purple");
@@ -424,9 +432,9 @@ protected:
         cn2_->Configure(config);
         mx_->Configure(config);
 
-        VerifyAllPeerUp(cn1_.get());
-        VerifyAllPeerUp(cn2_.get());
-        VerifyAllPeerUp(mx_.get());
+        VerifyAllPeerUp(cn1_.get(), 2);
+        VerifyAllPeerUp(cn2_.get(), 2);
+        VerifyAllPeerUp(mx_.get(), 2);
     }
 
     int RouteCount(BgpServerTest *server, const string &instance_name) const {
@@ -984,6 +992,105 @@ TEST_F(RTargetPeerTest, ASNUpdate) {
     TASK_UTIL_WAIT_EQ_NO_MSG(RTargetRouteLookup(cn2_.get(), "64512:target:64496:1"),
                              NULL, 1000, 10000, 
                              "Wait for route in rtarget table..");
+}
+
+//
+// Test to validate the defer logic of peer deletion.
+// Peer will not be deleted till RTGroupManager stops referring to it
+// in InterestedPeers list
+//
+TEST_F(RTargetPeerTest, DeletedPeer) {
+    // CN1 & CN2 removes all rtarget routes
+    agent_a_2_->Unsubscribe("blue-i1", -1, false);
+    agent_b_2_->Unsubscribe("blue-i1", -1, false);
+    agent_a_2_->Unsubscribe("red-i2", -1, false);
+    agent_b_2_->Unsubscribe("red-i2", -1, false);
+    agent_a_2_->Unsubscribe("red", -1, false);
+    agent_b_2_->Unsubscribe("red", -1, false);
+    agent_a_2_->Unsubscribe("purple", -1, false);
+    agent_b_2_->Unsubscribe("purple", -1, false);
+    agent_a_1_->Unsubscribe("blue-i1", -1, false);
+    agent_b_1_->Unsubscribe("blue-i1", -1, false);
+    agent_a_1_->Unsubscribe("red-i2", -1, false);
+    agent_b_1_->Unsubscribe("red-i2", -1, false);
+    agent_a_1_->Unsubscribe("red", -1, false);
+    agent_b_1_->Unsubscribe("red", -1, false);
+    agent_a_1_->Unsubscribe("purple", -1, false);
+    agent_b_1_->Unsubscribe("purple", -1, false);
+
+    VERIFY_EQ(0, RTargetRouteCount(cn2_.get()));
+    VERIFY_EQ(0, RTargetRouteCount(cn1_.get()));
+
+    // CN1 generates rtarget route for blue import rt
+    agent_a_1_->Subscribe("blue", 2);
+    agent_b_1_->Subscribe("blue", 2);
+
+    TASK_UTIL_WAIT_NE_NO_MSG(RTargetRouteLookup(cn1_.get(),
+                             "64512:target:64496:1"),
+                             NULL, 1000, 10000,
+                             "Wait for route in rtarget table..");
+    TASK_UTIL_WAIT_NE_NO_MSG(RTargetRouteLookup(cn2_.get(),
+                             "64512:target:64496:1"),
+                             NULL, 1000, 10000,
+                             "Wait for route in rtarget table..");
+
+    VERIFY_EQ(1, RTargetRouteCount(cn1_.get()));
+    VERIFY_EQ(1, RTargetRouteCount(cn2_.get()));
+
+    // Stop the RTGroupMgr processing of RTargetRoute notification
+    DisableRtargetRouteProcessing(cn2_.get());
+
+    size_t count = cn2_->lifetime_manager()->GetQueueDeferCount();
+
+    // Delete the peer from both CNs
+    ifmap_test_util::IFMapMsgUnlink(cn1_->config_db(),
+      "bgp-router", "default-domain:default-project:ip-fabric:__default__:CN1",
+      "bgp-router", "default-domain:default-project:ip-fabric:__default__:CN2",
+      "bgp-peering");
+    ifmap_test_util::IFMapMsgUnlink(cn2_->config_db(),
+      "bgp-router", "default-domain:default-project:ip-fabric:__default__:CN1",
+      "bgp-router", "default-domain:default-project:ip-fabric:__default__:CN2",
+      "bgp-peering");
+
+    ifmap_test_util::IFMapMsgUnlink(cn1_->config_db(),
+      "bgp-router", "default-domain:default-project:ip-fabric:__default__:CN2",
+      "bgp-router", "default-domain:default-project:ip-fabric:__default__:CN1",
+      "bgp-peering");
+    ifmap_test_util::IFMapMsgUnlink(cn2_->config_db(),
+      "bgp-router", "default-domain:default-project:ip-fabric:__default__:CN2",
+      "bgp-router", "default-domain:default-project:ip-fabric:__default__:CN1",
+      "bgp-peering");
+
+    // Wait for the peer to go down in CN2
+    TASK_UTIL_EXPECT_EQ_MSG(1, cn2_->NumUpPeer(),
+                            "Wait for control-node peer to go down");
+
+    // Route on CN2 will not be deleted due to DBState from RTGroupMgr
+    TASK_UTIL_WAIT_NE_NO_MSG(RTargetRouteLookup(cn2_.get(),
+                             "64512:target:64496:1"),
+                             NULL, 1000, 10000,
+                             "Wait for route in rtarget table..");
+    BgpRoute *rt_route = RTargetRouteLookup(cn2_.get(), "64512:target:64496:1");
+    // Ensure that the path from CN1 is deleted
+    VERIFY_EQ(rt_route->count(), 0);
+
+    //
+    // Make sure that life time manager does not delete this peer as there is
+    // a reference to the peer from membership manager's queue
+    //
+    TASK_UTIL_EXPECT_TRUE(
+        cn2_->lifetime_manager()->GetQueueDeferCount() > count);
+
+    // Enable the RTGroupMgr processing
+    EnableRtargetRouteProcessing(cn2_.get());
+
+    TASK_UTIL_EXPECT_TRUE(cn1_->rtarget_group_mgr()->IsRTargetRoutesProcessed());
+    TASK_UTIL_EXPECT_TRUE(cn2_->rtarget_group_mgr()->IsRTargetRoutesProcessed());
+    TASK_UTIL_WAIT_EQ_NO_MSG(RTargetRouteLookup(cn2_.get(),
+                             "64512:target:64496:1"),
+                             NULL, 1000, 10000,
+                             "Wait for route in rtarget table..");
+    VerifyAllPeerUp(cn2_.get(), 1);
 }
 
 int main(int argc, char **argv) {
