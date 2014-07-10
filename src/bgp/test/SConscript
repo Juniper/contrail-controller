@@ -58,7 +58,8 @@ env.Append(LIBPATH = env['TOP'] + '/http/client')
 env.Prepend(LIBS = ['control_test', 'bgptest', 'bgp', 'peer_sandesh',
                     'bgp_schema', 'control_node', 'dbtest',
                     'ifmap_vnc', 'task_test',
-                    'ifmap_test_util', 'ifmap_server', 'ifmap_common',
+                    'ifmap_test_util', 'ifmap_test_util_server',
+		    'ifmap_server', 'ifmap_common',
                     'ifmapio', 'ds', 'pugixml', 'httpc', 'curl',
                     'crypto', 'ssl', 'sandesh', 'http', 'http_parser',
                     'db', 'sandeshvns', 'connection_info', 'io', 'base', 'gunit'])

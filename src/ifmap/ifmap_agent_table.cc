@@ -319,12 +319,14 @@ void IFMapAgentTable::Clear() {
 // Agent link table routines
 
 void IFMapAgentLinkTable::AddLink(DBGraphBase::edge_descriptor edge,
-                                   IFMapNode *left, IFMapNode *right, uint64_t seq) {
+                                  IFMapNode *left, IFMapNode *right,
+                                  const std::string &metadata,
+                                  uint64_t seq) {
 
     IFMapLinkTable *table = static_cast<IFMapLinkTable *>(
         database()->FindTable(IFMAP_AGENT_LINK_DB_NAME));
     assert(table != NULL);
-    table->AddLink(edge, left, right, string(), seq,
+    table->AddLink(edge, left, right, metadata, seq,
                    IFMapOrigin(IFMapOrigin::UNKNOWN));
 }
 
@@ -425,7 +427,7 @@ void IFMapAgentLinkTable::Input(DBTablePartition *partition, DBClient *client,
     if (req->oper == DBRequest::DB_ENTRY_ADD_CHANGE) {
         if (link == NULL) {
             edge = graph_->Link(left, right);
-            AddLink(edge, left, right, key->left_key.id_seq_num);
+            AddLink(edge, left, right, key->metadata, key->left_key.id_seq_num);
         } else {
             IFMapOrigin origin(IFMapOrigin::UNKNOWN);
             IFMapLink *l = static_cast<IFMapLink *>(link);
