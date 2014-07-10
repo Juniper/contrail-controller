@@ -231,31 +231,28 @@ void VmStat::ReadMemStat() {
     data_.str(" ");
     data_.clear();
     //Send Stats
-    UveVirtualMachineAgent vm_agent;
-    if (BuildVmStatsMsg(vm_agent)) {
-        agent_->uve()->vm_uve_table()->DispatchVmMsg(vm_agent);
+    VirtualMachineStats vm_agent;
+    if (BuildVmStatsMsg(&vm_agent)) {
+        agent_->uve()->vm_uve_table()->DispatchVmStatsMsg(vm_agent);
     }
     StartTimer();    
 }
 
-bool VmStat::BuildVmStatsMsg(UveVirtualMachineAgent &uve) {
-    bool changed = false;
-    uve.set_name(UuidToString(vm_uuid_));
+bool VmStat::BuildVmStatsMsg(VirtualMachineStats *uve) {
+    uve->set_name(UuidToString(vm_uuid_));
 
-    UveVirtualMachineStats stats;
+    std::vector<VmCpuStats> cpu_stats_list;
+    VmCpuStats stats;
     stats.set_cpu_one_min_avg(cpu_usage_);
-    stats.set_vcpu_one_min_avg(vcpu_usage_percent_);
     stats.set_vm_memory_quota(vm_memory_quota_);
     stats.set_rss(mem_usage_);
     stats.set_virt_memory(virt_memory_);
-    stats.set_peak_virt_memory(virt_memory_peak_);   
+    stats.set_peak_virt_memory(virt_memory_peak_);
 
-    if (stats != prev_stats_){
-        uve.set_vm_stats(stats);
-        prev_stats_ = stats;
-        changed = true;
-    }
-    return changed;
+    cpu_stats_list.push_back(stats);
+    uve->set_cpu_stats(cpu_stats_list);
+
+    return true;
 }
 
 void VmStat::GetCpuStat() {
