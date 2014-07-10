@@ -39,7 +39,9 @@ vnswoperdb = env.Library('vnswoperdb',
                           'vrf.cc',
                           'vrf_assign.cc',
                           'vxlan.cc',
-                          'ifmap_dependency_manager.cc'
+                          'ifmap_dependency_manager.cc',
+                          'service_instance.cc',
+                          'namespace_manager.cc'
                          ])
 subdirs = ['test']
 for dir in subdirs:
