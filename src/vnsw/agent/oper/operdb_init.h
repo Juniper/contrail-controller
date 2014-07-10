@@ -13,6 +13,7 @@ class GlobalVrouter;
 class PathPreferenceModule;
 class IFMapDependencyManager;
 class MulticastHandler;
+class NamespaceManager;
 
 class OperDB {
 public:
@@ -35,6 +36,9 @@ public:
     IFMapDependencyManager *dependency_manager() {
         return dependency_manager_.get();
     }
+    NamespaceManager *namespace_manager() {
+        return namespace_manager_.get();
+    }
 
 private:
     OperDB();
@@ -45,6 +49,7 @@ private:
     std::auto_ptr<GlobalVrouter> global_vrouter_;
     std::auto_ptr<PathPreferenceModule> route_preference_module_;
     std::auto_ptr<IFMapDependencyManager> dependency_manager_;
+    std::auto_ptr<NamespaceManager> namespace_manager_;
     DISALLOW_COPY_AND_ASSIGN(OperDB);
 };
 #endif

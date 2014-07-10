@@ -4,6 +4,7 @@
 
 #include <cmn/agent_factory.h>
 #include <cmn/agent_cmn.h>
+#include <cmn/agent_param.h>
 #include <db/db.h>
 #include <sandesh/sandesh_types.h>
 #include <sandesh/sandesh_constants.h>
@@ -28,6 +29,7 @@
 #include <oper/path_preference.h>
 #include <oper/ifmap_dependency_manager.h>
 #include <base/task_trigger.h>
+#include <oper/namespace_manager.h>
 
 OperDB *OperDB::singleton_ = NULL;
 SandeshTraceBufferPtr OperDBTraceBuf(SandeshTraceBufferCreate("Oper DB", 5000));
@@ -49,6 +51,8 @@ void OperDB::CreateDBTables(DB *db) {
     DB::RegisterFactory("db.mirror_table.0", &MirrorTable::CreateTable);
     DB::RegisterFactory("db.vrf_assign.0", &VrfAssignTable::CreateTable);
     DB::RegisterFactory("db.vxlan.0", &VxLanTable::CreateTable);
+    DB::RegisterFactory("db.service-instance.0",
+                        &ServiceInstanceTable::CreateTable);
 
     InterfaceTable *intf_table;
     intf_table = static_cast<InterfaceTable *>(db->CreateTable("db.interface.0"));
@@ -126,9 +130,28 @@ void OperDB::CreateDBTables(DB *db) {
     route_preference_module_ =
         std::auto_ptr<PathPreferenceModule>(new PathPreferenceModule(agent_));
     route_preference_module_->Init();
+
+    ServiceInstanceTable *si_table =
+        static_cast<ServiceInstanceTable *>(
+            db->CreateTable("db.service-instance.0"));
+    agent_->set_service_instance_table(si_table);
+    si_table->Initialize(agent_->cfg()->cfg_graph(), dependency_manager_.get());
 }
 
 void OperDB::Init() {
+    dependency_manager_->Initialize();
+
+    // Unit tests may not initialize the agent configuration parameters.
+    std::string netns_cmd;
+    int netns_workers = -1;
+    int netns_timeout = -1;
+    if (agent_->params()) {
+        netns_cmd = agent_->params()->si_netns_command();
+        netns_workers = agent_->params()->si_netns_workers();
+        netns_timeout = agent_->params()->si_netns_timeout();
+    }
+    namespace_manager_->Initialize(agent_->db(), agent_->agent_signal(),
+                                   netns_cmd, netns_workers, netns_timeout);
 }
 
 void OperDB::RegisterDBClients() {
@@ -140,7 +163,10 @@ OperDB::OperDB(Agent *agent)
         : agent_(agent),
           dependency_manager_(
               AgentObjectFactory::Create<IFMapDependencyManager>(
-                  agent->db(), agent->cfg()->cfg_graph())) {
+                  agent->db(), agent->cfg()->cfg_graph())),
+          namespace_manager_(
+              AgentObjectFactory::Create<NamespaceManager>(
+                  agent->event_manager())) {
     assert(singleton_ == NULL);
     singleton_ = this;
 }
@@ -149,6 +175,8 @@ OperDB::~OperDB() {
 }
 
 void OperDB::Shutdown() {
+    namespace_manager_->Terminate();
+    dependency_manager_->Terminate();
     global_vrouter_.reset();
 
 #if 0
@@ -163,6 +191,7 @@ void OperDB::Shutdown() {
     agent_->mirror_table()->Clear();
     agent_->vrf_assign_table()->Clear();
     agent_->vxlan_table()->Clear();
+    agent_->service_instance_table()->Clear();
 #endif
 }
 
