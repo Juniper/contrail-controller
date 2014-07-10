@@ -145,6 +145,12 @@ public:
     virtual DBEntry *CfgAdd(DBRequest *req) {return NULL;};
     virtual bool Resync(DBEntry *entry, DBRequest *req) {return false;};
 
+    /*
+     * Clear all entries on a table. Requires the table to have no listeners.
+     * Used in process shutdown.
+     */
+    virtual void Clear();
+
     virtual bool IFNodeToReq(IFMapNode *node, DBRequest &req) {assert(0);};
     virtual DBTablePartition *AllocPartition(int index) {
         return new AgentDBTablePartition(this, index);

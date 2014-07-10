@@ -122,6 +122,22 @@ void AgentDBTable::Input(DBTablePartition *partition, DBClient *client,
     return;
 }
 
+void AgentDBTable::Clear() {
+    Unregister(ref_listener_id_);
+    assert(!HasListeners());
+    DBTablePartition *partition = static_cast<DBTablePartition *>(
+        GetTablePartition(0));
+
+    DBEntryBase *next = NULL;
+    for (DBEntryBase *entry = partition->GetFirst(); entry; entry = next) {
+        next = partition->GetNext(entry);
+        if (entry->IsDeleted()) {
+            continue;
+        }
+        partition->Delete(entry);
+    }
+}
+
 void AgentDBTable::Process(DBRequest &req) {
     CHECK_CONCURRENCY("db::DBTable");
     DBTablePartition *tpart =
