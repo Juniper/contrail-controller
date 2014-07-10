@@ -33,8 +33,6 @@ public:
     void ProcessData();
 private:
     bool BuildVmStatsMsg(VirtualMachineStats *uve);
-    void RegisterSigHandler();
-    void InitSigHandler();
     void ReadCpuStat();
     void ReadVcpuStat();
     void ReadMemStat();
@@ -70,7 +68,6 @@ private:
     bool marked_delete_;
     uint32_t pid_;
     uint32_t retry_;
-    boost::asio::signal_set signal_;
     DoneCb call_back_;
     DISALLOW_COPY_AND_ASSIGN(VmStat);
 };
