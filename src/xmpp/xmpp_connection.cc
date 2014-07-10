@@ -469,7 +469,6 @@ public:
             parent_->state_machine()->clear_session();
         }
         if (session) {
-            LOG(DEBUG, "XXXDeleteXmppSession " << session->ToString());
             server_->DeleteSession(session);
         }
     }
@@ -576,6 +575,7 @@ XmppClientConnection::XmppClientConnection(
 }
 
 XmppClientConnection::~XmppClientConnection() {
+    XMPP_INFO(XmppConnectionDelete, "Client", FromString(), ToString());
 }
 
 void XmppClientConnection::ManagedDelete() {

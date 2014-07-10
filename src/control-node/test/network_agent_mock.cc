@@ -570,6 +570,10 @@ NetworkAgentMock::~NetworkAgentMock() {
     assert(!client_);
 }
 
+bool NetworkAgentMock::ConnectionDestroyed() const {
+    return (client_->ConnectionsCount() == 0);
+}
+
 void NetworkAgentMock::Delete() {
     AgentPeer *peer = peer_.get();
     peer_.release();
@@ -577,7 +581,11 @@ void NetworkAgentMock::Delete() {
         delete peer;
     }
     client_->Shutdown();
+    client_->WaitForEmpty();
     task_util::WaitForIdle();
+    for (int idx = 0; idx < 5000 && !ConnectionDestroyed(); ++idx)
+        usleep(1000);
+    assert(ConnectionDestroyed());
     TcpServerManager::DeleteServer(client_);
     client_ = NULL;
 }
@@ -619,17 +627,19 @@ void NetworkAgentMock::SessionDown() {
     tbb::mutex::scoped_lock lock(mutex_);
     down_ = true;
     ClearInstances();
-    peer_.reset(NULL);
-    XmppConfigData *data = new XmppConfigData();
-    client_->ConfigUpdate(data);
+    XmppConnection *connection =
+        client_->FindConnection("network-control@contrailsystems.com");
+    if (connection)
+        connection->SetAdminState(true);
 }
 
 void NetworkAgentMock::SessionUp() {
     tbb::mutex::scoped_lock lock(mutex_);
-    XmppConfigData *data = new XmppConfigData();
-    data->AddXmppChannelConfig(CreateXmppConfig());
-    client_->ConfigUpdate(data);
     down_ = false;
+    XmppConnection *connection =
+        client_->FindConnection("network-control@contrailsystems.com");
+    if (connection)
+        connection->SetAdminState(false);
 }
 
 //
