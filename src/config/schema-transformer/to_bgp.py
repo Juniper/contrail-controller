@@ -2573,7 +2573,9 @@ class SchemaTransformer(object):
         _sandesh.set_logging_params(enable_local_log=args.log_local,
                                     category=args.log_category,
                                     level=args.log_level,
-                                    file=args.log_file)
+                                    file=args.log_file,
+                                    enable_syslog=args.use_syslog,
+                                    syslog_facility=args.syslog_facility)
 
         # create cpu_info object to send periodic updates
         sysinfo_req = False
@@ -3405,6 +3407,8 @@ def parse_args(args_str):
                          --log_level SYS_DEBUG
                          --log_category test
                          --log_file <stdout>
+                         --use_syslog
+                         --syslog_facility LOG_USER
                          [--reset_config]
     '''
 
@@ -3434,6 +3438,8 @@ def parse_args(args_str):
         'log_level': SandeshLevel.SYS_DEBUG,
         'log_category': '',
         'log_file': Sandesh._DEFAULT_LOG_FILE,
+        'use_syslog': False,
+        'syslog_facility': Sandesh._DEFAULT_SYSLOG_FACILITY,
     }
     secopts = {
         'use_certs': False,
@@ -3514,6 +3520,10 @@ def parse_args(args_str):
         help="Category filter for local logging of sandesh messages")
     parser.add_argument("--log_file",
                         help="Filename for the logs to be written to")
+    parser.add_argument("--use_syslog", action="store_true",
+                        help="Use syslog for logging")
+    parser.add_argument("--syslog_facility",
+                        help="Syslog facility to receive log lines")
     parser.add_argument("--admin_user",
                         help="Name of keystone admin user")
     parser.add_argument("--admin_password",
