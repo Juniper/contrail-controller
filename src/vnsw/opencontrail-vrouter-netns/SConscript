@@ -1,0 +1,27 @@
+# -*- mode: python; -*-
+
+Import('BuildEnv')
+env = BuildEnv.Clone()
+
+sources = ['setup.py',
+           'requirements.txt',
+           'test-requirements.txt',
+           'opencontrail_vrouter_netns/__init__.py',
+           'opencontrail_vrouter_netns/vrouter_netns.py',
+           'opencontrail_vrouter_netns/linux/__init__.py',
+           'opencontrail_vrouter_netns/linux/ip_lib.py',
+           'opencontrail_vrouter_netns/linux/utils.py',
+           'opencontrail_vrouter_netns/tests/__init__.py',
+           'opencontrail_vrouter_netns/tests/test_vrouter_netns.py']
+
+env.Alias('opencontrail-vrouter-netns:test',
+          env.Command(None, sources,
+                      'python setup.py test',
+                      chdir=1))
+
+if 'install' in BUILD_TARGETS:
+    env.Alias('install',
+              env.Command(None, sources,
+                          'python setup.py install %s' %
+                          env['PYTHON_INSTALL_OPT'],
+                          chdir=1))
