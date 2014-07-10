@@ -56,6 +56,7 @@ public:
 
     void Initialize();
     void Clear();
+    void SetAdminState(bool down);
 
     // State transitions
     void OnStart(const xmsm::EvStart &event);

@@ -108,13 +108,9 @@ public:
         return 0;
     }
 
-    void Initialize() {
-        state_machine_->Initialize();
-    }
-
-    void Clear() {
-        state_machine_->Clear();
-    }
+    void Initialize() { state_machine_->Initialize(); }
+    void Clear() { state_machine_->Clear(); }
+    void SetAdminState(bool down) { state_machine_->SetAdminState(down); }
 
     void Shutdown();
     bool ShutdownPending() const;

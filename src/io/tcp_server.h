@@ -106,8 +106,8 @@ protected:
     // Passively accepted a new session. Returns true if the session is
     // accepted, false otherwise.
     //
-    // XXX If the session is not accepted, tcp_server.cc shall delete the
-    // newly created session.
+    // If the session is not accepted, tcp_server.cc deletes the newly
+    // created session.
     //
     virtual bool AcceptSession(TcpSession *session);
 

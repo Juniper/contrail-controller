@@ -26,7 +26,6 @@ public:
     virtual ~XmppClient();
 
     void Shutdown();
-    void SessionShutdown(); 
     typedef boost::function<void(XmppChannelMux *, xmps::PeerState)> 
         ConnectionEventCb;
     void RegisterConnectionEvent(xmps::PeerId, ConnectionEventCb);
@@ -42,6 +41,7 @@ public:
     void ConfigUpdate(const XmppConfigData *cfg);
     XmppConfigManager *xmpp_config_mgr() { return config_mgr_.get(); }
     XmppConnection *CreateConnection(const XmppChannelConfig *config);
+    size_t ConnectionsCount() const;
 
     LifetimeManager *lifetime_manager();
     LifetimeActor *deleter();
