@@ -14,6 +14,7 @@ class AgentUve;
 class AgentObjectFactory : public Factory<AgentObjectFactory> {
     FACTORY_TYPE_N1(AgentObjectFactory, KSync, Agent *);
     FACTORY_TYPE_N2(AgentObjectFactory, AgentUve, Agent *, uint64_t);
+    FACTORY_TYPE_N1(AgentObjectFactory, AgentSignal, EventManager *);
 };
 
 #endif // vnsw_agent_factory_hpp
