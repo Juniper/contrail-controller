@@ -127,7 +127,7 @@ class ContrailVRouterApi(object):
         internal _ports dictionary.
         """
         vif_uuid = self._uuid_from_string(vif_uuid_str)
-        del self._ports[vif_uuid]
+        self._ports.pop(vif_uuid, None)
 
         if self._client is None:
             self._client = self._rpc_client_instance()
