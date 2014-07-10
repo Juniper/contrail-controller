@@ -340,8 +340,7 @@ void HttpClient::TimerErrorHandler(std::string name, std::string error) {
 }
 
 bool HttpClient::TimerCb() {
-    timer_cb(gi_);
-    return false;
+    return timer_cb(gi_);
 }
 
 void HttpClient::StartTimer(long timeout_ms) {

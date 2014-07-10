@@ -141,13 +141,19 @@ static void event_cb(GlobalInfo *g, TcpSessionPtr session, int action,
 }
 
 /* Called by asio when our timeout expires */
-void timer_cb(GlobalInfo *g)
+bool timer_cb(GlobalInfo *g)
 {
     CURLMcode rc;
     rc = curl_multi_socket_action(g->multi, CURL_SOCKET_TIMEOUT, 0, &g->still_running);
-
     mcode_or_die("timer_cb: curl_multi_socket_action", rc);
+
+    // When timeout happens, call multi_perform to check if we still have
+    // pending handles; if yes, continue running the timer
+    rc = curl_multi_perform(g->multi, &g->still_running);
+    mcode_or_die("timer_cb: curl_multi_perform", rc);
+
     check_multi_info(g);
+    return (g->still_running > 0);
 }
 
 /* Clean up any data */
@@ -320,15 +326,16 @@ static int send_perform(ConnInfo *conn, GlobalInfo *g) {
 
     // send data rightaway; this can be done with a timer, if required
     int counter = 0;
-    CURLMcode rc;
-    do {
-        rc = curl_multi_perform(g->multi, &counter);
-    } while (rc == CURLM_OK && counter > 0);
-
-    // send done; invoke callback to indicate this
-    if (conn->connection && conn->connection->session()) {
-        const boost::system::error_code ec;
-        event_cb(g, TcpSessionPtr(conn->connection->session()), 0, ec, 0);
+    CURLMcode rc = curl_multi_perform(g->multi, &counter);
+    if (rc == CURLM_OK && counter <= 0) {
+        // send done; invoke callback to indicate this
+        if (conn->connection && conn->connection->session()) {
+            const boost::system::error_code ec;
+            event_cb(g, TcpSessionPtr(conn->connection->session()), 0, ec, 0);
+        }
+    } else {
+        // start timer and check for send completion on timeout
+        g->client->StartTimer(HttpClient::kDefaultTimeout);
     }
 
     return rc;
