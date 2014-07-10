@@ -1,0 +1,2 @@
+include *.txt
+prune contrail_vrouter_api/tests
