@@ -42,8 +42,7 @@ def validate_uuid(val):
 
 
 class NetnsManager(object):
-    RT_TABLES_PATH = '/etc/iproute2/rt_tables'
-    SNAT_RT_TABLES_NAME = 'inside'
+    SNAT_RT_TABLES_ID = 42
     DEV_NAME_LEN = 14
     NETNS_PREFIX = 'vrouter-'
     LEFT_DEV_PREFIX = 'int-'
@@ -63,6 +62,7 @@ class NetnsManager(object):
         self.ip_ns = ip_lib.IPWrapper(root_helper=self.root_helper,
                                       namespace=self.namespace)
         self.vrouter_client = ContrailVRouterApi()
+        self.vrouter_client.periodic_connection_check()
 
     def _get_tap_name(self, uuid_str):
             return (self.TAP_PREFIX + uuid_str)[:self.DEV_NAME_LEN]
@@ -85,11 +85,6 @@ class NetnsManager(object):
             raise ValueError('Need to create the network namespace before set '
                              'up the SNAT')
 
-        if self.SNAT_RT_TABLES_NAME not in open(self.RT_TABLES_PATH).read():
-            raise ValueError('Need to set the routing table "%s" into file '
-                             '%s' % (self.SNAT_RT_TABLES_NAME,
-                                     self.RT_TABLES_PATH))
-
         self.ip_ns.netns.execute(['sysctl', '-w', 'net.ipv4.ip_forward=1'])
         self.ip_ns.netns.execute(['iptables', '-t', 'nat', '-F'])
         self.ip_ns.netns.execute(['iptables', '-t', 'nat', '-A', 'POSTROUTING',
@@ -98,16 +93,17 @@ class NetnsManager(object):
         self.ip_ns.netns.execute(['ip', 'route', 'replace', 'default', 'dev',
                                   self.nic_right['name']])
         self.ip_ns.netns.execute(['ip', 'route', 'replace', 'default', 'dev',
-                                  self.nic_left['name'], 'table', 'inside'])
+                                  self.nic_left['name'], 'table',
+                                  self.SNAT_RT_TABLES_ID])
         try:
             self.ip_ns.netns.execute(['ip', 'rule', 'del', 'iif',
                                       str(self.nic_right['name']), 'table',
-                                      'inside'])
+                                      self.SNAT_RT_TABLES_ID])
         except RuntimeError:
             pass
         self.ip_ns.netns.execute(['ip', 'rule', 'add', 'iif',
                                   str(self.nic_right['name']), 'table',
-                                  'inside'])
+                                  self.SNAT_RT_TABLES_ID])
 
     def destroy(self):
         if not self.ip_ns.netns.exists(self.namespace):
@@ -124,8 +120,10 @@ class NetnsManager(object):
         if not self.nic_left or not self.nic_right:
             raise ValueError('Need left and right interfaces to plug a '
                              'network namespace onto vrouter')
-        for nic in [self.nic_left, self.nic_right]:
-            self._add_port_to_agent(nic)
+        self._add_port_to_agent(self.nic_left,
+                                display_name='NetNS left interface')
+        self._add_port_to_agent(self.nic_right,
+                                display_name='NetNS right interface')
 
     def unplug_namespace_interface(self):
         if not self.nic_left or not self.nic_right:
@@ -147,6 +145,7 @@ class NetnsManager(object):
                                        namespace2=self.namespace)
         if nic['mac']:
             ns_dev.link.set_address(str(nic['mac']))
+            root_dev.link.set_address(str(nic['mac']))
 
         ns_dev.link.set_up()
         root_dev.link.set_up()
@@ -164,9 +163,12 @@ class NetnsManager(object):
                                   'net.ipv4.conf.%s.rp_filter=2' % nic['name']]
                                  )
 
-    def _add_port_to_agent(self, nic):
+    def _add_port_to_agent(self, nic, display_name=None):
         kwargs = {}
         kwargs['ip_address'] = str(nic['ip'].ip)
+        if display_name:
+            kwargs['display_name'] = display_name
+
         self.vrouter_client.add_port(self.vm_uuid, nic['uuid'],
                                      self._get_tap_name(nic['uuid']),
                                      str(nic['mac']), **kwargs)
