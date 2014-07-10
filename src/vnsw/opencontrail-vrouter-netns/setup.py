@@ -23,11 +23,9 @@ setuptools.setup(
     long_description="Script to manage Linux network namespaces",
 
     install_requires=requirements('requirements.txt'),
-#    dependency_links = [
-#        "http://github.com/Juniper/contrail-controller/tarball/master/src/vnsw/contrail-vrouter-api#egg=contrail-vrouter-api-1.0",
-#    ],
-#    test_suite='opencontrail_vrouter_netns.tests',
-#    tests_require=requirements('test-requirements.txt'),
+
+    test_suite='opencontrail_vrouter_netns.tests',
+    tests_require=requirements('test-requirements.txt'),
 
     entry_points = {
         'console_scripts': [

@@ -9,16 +9,6 @@ import sys
 
 env = BuildEnv.Clone()
 
-BuildEnv.SConscript(dirs=['contrail-vrouter-api'],
-                    exports='BuildEnv',
-                    variant_dir='#build/noarch/contrail-vrouter-api',
-                    duplicate=1)
-
-BuildEnv.SConscript(dirs=['opencontrail-vrouter-netns'],
-                    exports='BuildEnv',
-                    variant_dir='#build/noarch/opencontrail-vrouter-netns',
-                    duplicate=1)
-
 subdirs = ['agent',
 ]
 
@@ -26,6 +16,16 @@ for dir in subdirs:
     env.SConscript(dir + '/SConscript', exports='BuildEnv',
                    variant_dir=BuildEnv['TOP'] + '/vnsw/' + dir,
                    duplicate=0)
+
+noarch_subdirs = [
+    'contrail-vrouter-api',
+    'opencontrail-vrouter-netns'
+]
+
+for sdir in noarch_subdirs:
+    BuildEnv.SConscript('%s/SConscript' % sdir, exports='BuildEnv',
+                       variant_dir='#build/noarch/%s' % sdir,
+                       duplicate = 1)
 
 env.Alias('controller/src/agent:test', [
     'controller/src/vnsw/agent/cmn:test',
