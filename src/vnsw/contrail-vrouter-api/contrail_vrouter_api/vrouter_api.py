@@ -127,8 +127,10 @@ class ContrailVRouterApi(object):
         internal _ports dictionary.
         """
         vif_uuid = self._uuid_from_string(vif_uuid_str)
-        del self._ports[vif_uuid]
-
+        try:
+            del self._ports[vif_uuid]
+        except KeyError:
+            pass
         if self._client is None:
             self._client = self._rpc_client_instance()
             if self._client is None:
