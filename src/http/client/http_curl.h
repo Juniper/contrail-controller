@@ -41,6 +41,6 @@ int http_head(ConnInfo *conn, GlobalInfo *g);
 int http_put(ConnInfo *conn, GlobalInfo *g);
 int http_post(ConnInfo *conn, GlobalInfo *g);
 int http_delete(ConnInfo *conn, GlobalInfo *g);
-void timer_cb(GlobalInfo *g);
+bool timer_cb(GlobalInfo *g);
 
 #endif /* __HTPP_CURL_INCLUDE__ */
