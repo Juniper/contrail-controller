@@ -37,7 +37,6 @@ public:
     size_t ConnectionEventCount() const;
 
     void Shutdown();
-    void SessionShutdown();
 
     LifetimeManager *lifetime_manager();
     LifetimeActor *deleter();
@@ -59,7 +58,7 @@ public:
     void ClearAllConnections();
 
     const std::string &ServerAddr() const { return server_addr_; }
-    size_t ConnectionsCount();
+    size_t ConnectionsCount() const;
 
 protected:
     virtual TcpSession *AllocSession(Socket *socket);
