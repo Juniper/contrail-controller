@@ -9,6 +9,7 @@
 
 class IFMapNode;
 class AgentConfig;
+class AgentDBTable;
 
 class CfgDBState : public DBState {
 public:

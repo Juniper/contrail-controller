@@ -165,6 +165,14 @@ struct NhSandeshData {
    21: i32 nh_index;
 }
 
+struct NamespaceStateSandeshData {
+    1: i32 pid;
+    2: i32 status;
+    3: string cmd; 
+    4: i32 status_type;
+    5: optional string errors;
+}
+
 struct PathPreferenceSandeshData {
     1: i32 sequence;
     2: i32 preference;
@@ -455,6 +463,16 @@ struct VxLanSandeshData {
     3: optional string vrf_name;      // vrf name from nh
 }
 
+struct ServiceInstanceSandeshData {
+    1: string uuid;
+    2: string service_type;
+    3: string virtualization_type;
+    4: string instance_id;
+    5: string vmi_inside;
+    6: string vmi_outside;
+    7: NamespaceStateSandeshData ns_state;      // NamespaceState
+}
+
 struct AceIdFlowCnt {
     1: i32 ace_id;
     2: i32 flow_cnt;
@@ -582,6 +600,14 @@ request sandesh VxLanReq {
 
 response sandesh VxLanResp {
     1: list<VxLanSandeshData> vxlan_list;
+}
+
+request sandesh ServiceInstanceReq {
+    1: string uuid;
+}
+
+response sandesh ServiceInstanceResp {
+    1: list<ServiceInstanceSandeshData> service_instance_list;
 }
 
 struct MirrorCfgSandesh {

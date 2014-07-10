@@ -84,6 +84,11 @@ test_scale_walk = AgentEnv.MakeTestCmd(env, 'test_scale_walk', flaky_agent_suite
 flaky_test = env.TestSuite('agent-flaky-test', flaky_agent_suite)
 env.Alias('controller/src/vnsw/agent:flaky_test', flaky_test)
 
+service_instance_test = env.UnitTest('service_instance_test',
+                                     ['service_instance_test.cc'])
+env.Alias('agent:service_instance_test', service_instance_test)
+agent_suite.append(service_instance_test)
+
 test = env.TestSuite('agent-test', agent_suite)
 env.Alias('agent:agent_test', test)
 env.Alias('controller/src/vnsw/agent:test', test)

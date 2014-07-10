@@ -13,6 +13,7 @@ class AgentUve;
 class DB;
 class DBGraph;
 class IFMapDependencyManager;
+class NamespaceManager;
 
 class AgentObjectFactory : public Factory<AgentObjectFactory> {
     FACTORY_TYPE_N1(AgentObjectFactory, KSync, Agent *);
@@ -20,6 +21,8 @@ class AgentObjectFactory : public Factory<AgentObjectFactory> {
     FACTORY_TYPE_N1(AgentObjectFactory, AgentSignal, EventManager *);
     FACTORY_TYPE_N2(AgentObjectFactory, IFMapDependencyManager, DB *,
                     DBGraph *);
+    FACTORY_TYPE_N1(AgentObjectFactory, NamespaceManager,
+                    EventManager *);
 };
 
 #endif // vnsw_agent_factory_hpp
