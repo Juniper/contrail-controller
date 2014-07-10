@@ -70,12 +70,17 @@ void NotifyXMPPofRecipientChange(const std::string &vrf_name,
  * Enable trace print messages
  */
 void MulticastHandler::Register() {
-    Agent::GetInstance()->vn_table()->Register(boost::bind(&MulticastHandler::ModifyVN,
-                                              _1, _2));
-    Agent::GetInstance()->interface_table()->Register(boost::bind(&MulticastHandler::ModifyVmInterface,
-                                                     _1, _2));
+    vn_listener_id_ = agent_->vn_table()->Register(
+        boost::bind(&MulticastHandler::ModifyVN, _1, _2));
+    interface_listener_id_ = agent_->interface_table()->Register(
+        boost::bind(&MulticastHandler::ModifyVmInterface, _1, _2));
 
     MulticastHandler::GetInstance()->GetMulticastObjList().clear();
+}
+
+void MulticastHandler::Terminate() {
+    agent_->vn_table()->Unregister(vn_listener_id_);
+    agent_->interface_table()->Unregister(interface_listener_id_);
 }
 
 /*
@@ -938,7 +943,10 @@ void MulticastGroupObject::FlushAllPeerInfo(uint64_t peer_identifier) {
     ModifyFabricMembers(olist, peer_identifier, true, 0);
 }
 
-MulticastHandler::MulticastHandler(Agent *agent) : agent_(agent) { 
+MulticastHandler::MulticastHandler(Agent *agent)
+        : agent_(agent),
+          vn_listener_id_(DBTable::kInvalidId),
+          interface_listener_id_(DBTable::kInvalidId) { 
     obj_ = this; 
 }
 

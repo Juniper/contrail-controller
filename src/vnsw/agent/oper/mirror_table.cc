@@ -21,6 +21,13 @@ using namespace boost::asio;
 
 MirrorTable *MirrorTable::mirror_table_;
 
+MirrorTable::~MirrorTable() { 
+    boost::system::error_code err;
+    if (udp_sock_.get()) {
+        udp_sock_->close(err);
+    }
+}
+
 bool MirrorEntry::IsLess(const DBEntry &rhs) const {
     const MirrorEntry &a = static_cast<const MirrorEntry &>(rhs);
     return (analyzer_name_ < a.GetAnalyzerName());
@@ -139,7 +146,7 @@ void MirrorTable::MirrorSockInit(void) {
     boost::asio::io_service &io = *event_mgr->io_service();
     ip::udp::endpoint ep(ip::udp::v4(), 0);
 
-    udp_sock_ = new ip::udp::socket(io);
+    udp_sock_.reset(new ip::udp::socket(io));
 
     boost::system::error_code ec;
     udp_sock_->open(ip::udp::v4(), ec);

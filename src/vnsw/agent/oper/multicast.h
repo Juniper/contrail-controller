@@ -173,12 +173,13 @@ public:
     //Registered for VM notification
     static void ModifyVmInterface(DBTablePartBase *partition, DBEntryBase *e); 
     //Register VM and VN notification
-    static void Register();
+    void Register();
 
     //Singleton object reference
     static MulticastHandler *GetInstance() { 
         return obj_; 
     };
+
     void AddChangeMultiProtocolCompositeNH(MulticastGroupObject *);
     void TriggerCompositeNHChange(MulticastGroupObject *);
     void TriggerL2CompositeNHChange(MulticastGroupObject *);
@@ -192,6 +193,8 @@ public:
     MulticastGroupObject *FindGroupObject(const std::string &vrf_name,
                                           const Ip4Address &dip);
     bool FlushPeerInfo(uint64_t peer_sequence);
+
+    void Terminate();
 
 private:
     //operations on list of all objectas per group/source/vrf
@@ -321,6 +324,9 @@ private:
     std::map<uuid, string> vn_vrf_mapping_;
     //VM uuid <-> VN uuid
     std::map<uuid, uuid> vm_vn_mapping_;
+
+    DBTable::ListenerId vn_listener_id_;
+    DBTable::ListenerId interface_listener_id_;
     DISALLOW_COPY_AND_ASSIGN(MulticastHandler);
 };
 
