@@ -2475,6 +2475,7 @@ class DBInterface(object):
                         sn_id = sn_info['id']
                         sn_proj_id = sn_info['tenant_id']
                         sn_net_id = sn_info['network_id']
+                        sn_name = sn_info['name']
 
                         if (filters and 'shared' in filters and
                                         filters['shared'][0] == True):
@@ -2491,6 +2492,10 @@ class DBInterface(object):
                             if not self._filters_is_present(filters,
                                                             'network_id',
                                                             sn_net_id):
+                                continue
+                            if not self._filters_is_present(filters,
+                                                            'name',
+                                                            sn_name):
                                 continue
 
                         ret_subnets.append(sn_info)
