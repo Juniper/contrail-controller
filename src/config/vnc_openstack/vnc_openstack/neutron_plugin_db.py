@@ -19,7 +19,6 @@ from neutron.common import constants
 from neutron.common import exceptions
 from neutron.api.v2 import attributes as attr
 from neutron.extensions import allowedaddresspairs as addr_pair
-from neutron.extensions import l3
 
 from cfgm_common import exceptions as vnc_exc
 from vnc_api.vnc_api import *
@@ -2953,7 +2952,7 @@ class DBInterface(object):
         try:
             fip_obj = self._vnc_lib.floating_ip_read(id=fip_uuid)
         except NoIdError:
-            self._raise_contrail_exception(404, l3.FloatingIPNotFound(floatingip_id=fip_uuid))
+            self._raise_contrail_exception(404, FloatingIPNotFound(floatingip_id=fip_uuid))
 
         return self._floatingip_vnc_to_neutron(fip_obj)
     #end floatingip_read
@@ -3180,11 +3179,11 @@ class DBInterface(object):
             else:
                 instance_id = None
         if port_obj.get_logical_router_back_refs():
-            self._raise_contrail_exception(409, l3.L3PortInUse(port_id=port_id,
+            self._raise_contrail_exception(409, L3PortInUse(port_id=port_id,
                 device_owner=constants.DEVICE_OWNER_ROUTER_INTF))
 
         if port_obj.get_logical_router_back_refs():
-            self._raise_contrail_exception(409, l3.L3PortInUse(port_id=port_id,
+            self._raise_contrail_exception(409, L3PortInUse(port_id=port_id,
                 device_owner=constants.DEVICE_OWNER_ROUTER_INTF))
 
         # release instance IP address
