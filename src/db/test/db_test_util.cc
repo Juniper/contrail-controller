@@ -15,6 +15,7 @@ namespace db_util {
 void Clear(DB *db) {
     IFMapLinkTable *ltable = static_cast<IFMapLinkTable *>(
                 db->FindTable("__ifmap_metadata__.0"));
+    assert(ltable);
     ltable->Clear();
     IFMapTable::ClearTables(db);
 

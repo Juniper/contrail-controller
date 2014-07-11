@@ -156,8 +156,9 @@ void InterfaceCfgClient::Init() {
 }
 
 void InterfaceCfgClient::Shutdown() {
-    DBTableBase *cfg_db = IFMapTable::FindTable(agent_cfg_->agent()->db(), 
+    IFMapTable *cfg_db = IFMapTable::FindTable(agent_cfg_->agent()->db(), 
                                                 "virtual-machine-interface");
+    DBTable::DBStateClear(cfg_db, cfg_listener_id_);
     cfg_db->Unregister(cfg_listener_id_);
 
     DBTableBase *cfg_route_db = IFMapTable::FindTable(agent_cfg_->agent()->db(), 
