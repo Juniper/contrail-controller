@@ -3255,9 +3255,12 @@ class DBInterface(object):
 
                 # read all VMI and IIP in detail one-shot
                 all_port_gevent = gevent.spawn(self._virtual_machine_interface_list,
+                                               parent_id=project_id,
                                                fields=['instance_ip_back_refs'])
                 port_iip_gevent = gevent.spawn(self._instance_ip_list)
-                port_net_gevent = gevent.spawn(self._virtual_network_list, detail=True)
+                port_net_gevent = gevent.spawn(self._virtual_network_list,
+                                               parent_id=project_id,
+                                               detail=True)
 
                 gevent.joinall([all_port_gevent, port_iip_gevent, port_net_gevent])
 
