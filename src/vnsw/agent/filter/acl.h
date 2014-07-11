@@ -28,8 +28,7 @@ struct FlowPolicyInfo {
     bool drop;
     bool terminal;
     bool other;
-    FlowPolicyInfo(std::string u) : uuid(u), drop(false), terminal(false), 
-                                    other(false) {}
+    FlowPolicyInfo(const std::string &u);
 };
 
 struct FlowAction {
