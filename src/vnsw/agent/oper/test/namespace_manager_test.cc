@@ -56,7 +56,6 @@ protected:
     virtual void SetUp() {
         IFMapAgentLinkTable_Init(&database_, &graph_);
         vnc_cfg_Agent_ModuleInit(&database_, &graph_);
-        IFMapLinkTable_Init(&database_, &graph_);
         dependency_manager_->Initialize();
         DB::RegisterFactory("db.service-instance.0",
                             &ServiceInstanceTable::CreateTable);
@@ -78,7 +77,7 @@ protected:
             database_.FindTable(IFMAP_AGENT_LINK_DB_NAME));
         assert(link_table);
         link_table->Clear();
-        IFMapLinkTable_Clear(&database_);
+        db_util::Clear(&database_);
     }
 
     boost::uuids::uuid AddServiceInstance(const std::string &name) {
@@ -109,7 +108,7 @@ protected:
         /*
          * Set non-nil uuids
          */
-        UpdateProperties(svc_instance);
+        UpdateProperties(svc_instance, true);
         return instance_id;
     }
 
@@ -127,14 +126,14 @@ protected:
         }
     }
 
-    bool UpdateProperties(boost::uuids::uuid id) {
+    bool UpdateProperties(boost::uuids::uuid id, bool usable) {
         ServiceInstanceKey key(id);
         ServiceInstance *svc_instance =
                 static_cast<ServiceInstance *>(si_table_->Find(&key, true));
         if (svc_instance == NULL) {
             return false;
         }
-        UpdateProperties(svc_instance);
+        UpdateProperties(svc_instance, usable);
 
         return true;
     }
@@ -181,7 +180,7 @@ protected:
         si_table_->Change(svc_instance);
     }
 
-    void UpdateProperties(ServiceInstance* svc_instance) {
+    void UpdateProperties(ServiceInstance* svc_instance, bool usable) {
         /*
          * Set non-nil uuids
          */
@@ -195,9 +194,15 @@ protected:
         prop.ip_addr_inside = "10.0.0.1";
         prop.ip_addr_outside = "10.0.0.2";
         prop.ip_prefix_len_inside = 24;
-        prop.ip_prefix_len_outside = 24;
+        if (usable) {
+            prop.ip_prefix_len_outside = 24;
+        }
         svc_instance->set_properties(prop);
-        EXPECT_TRUE(svc_instance->IsUsable());
+        if (usable) {
+            EXPECT_TRUE(svc_instance->IsUsable());
+        } else {
+            EXPECT_FALSE(svc_instance->IsUsable());
+        }
         si_table_->Change(svc_instance);
     }
 
@@ -231,7 +236,6 @@ TEST_F(NamespaceManagerTest, ExecTrue) {
     EXPECT_EQ(0, ns_state->status());
 
     MarkServiceInstanceAsDeleted(id);
-    DeleteServiceInstance("exec-true");
     task_util::WaitForIdle();
 }
 
@@ -254,7 +258,6 @@ TEST_F(NamespaceManagerTest, ExecFalse) {
     EXPECT_NE(0, ns_state->status());
 
     MarkServiceInstanceAsDeleted(id);
-    DeleteServiceInstance("exec-false");
     task_util::WaitForIdle();
 }
 
@@ -276,7 +279,7 @@ TEST_F(NamespaceManagerTest, Update) {
     EXPECT_EQ(NamespaceState::Started, ns_state->status_type());
     EXPECT_EQ(0, ns_state->status());
 
-    bool updated = UpdateProperties(id);
+    bool updated = UpdateProperties(id, true);
     EXPECT_EQ(true, updated);
 
     task_util::WaitForCondition(&evm_,
@@ -286,7 +289,6 @@ TEST_F(NamespaceManagerTest, Update) {
     EXPECT_TRUE(IsUpdateCommand(ns_state));
 
     MarkServiceInstanceAsDeleted(id);
-    DeleteServiceInstance("exec-update");
     task_util::WaitForIdle();
 }
 
@@ -313,7 +315,7 @@ TEST_F(NamespaceManagerTest, UpdateProperties) {
 
     EXPECT_NE(NamespaceState::Starting, ns_state->status_type());
 
-    bool updated = UpdateProperties(id);
+    bool updated = UpdateProperties(id, true);
     EXPECT_EQ(true, updated);
 
     task_util::WaitForCondition(&evm_,
@@ -321,7 +323,6 @@ TEST_F(NamespaceManagerTest, UpdateProperties) {
             kTimeoutSeconds);
 
     MarkServiceInstanceAsDeleted(id);
-    DeleteServiceInstance("exec-update");
     task_util::WaitForIdle();
 }
 
@@ -344,7 +345,6 @@ TEST_F(NamespaceManagerTest, Timeout) {
     EXPECT_EQ(NamespaceState::Timeout, ns_state->status_type());
 
     MarkServiceInstanceAsDeleted(id);
-    DeleteServiceInstance("exec-timeout");
     task_util::WaitForIdle();
 }
 
@@ -364,7 +364,7 @@ TEST_F(NamespaceManagerTest, TaskQueue) {
     EXPECT_EQ(1, queue->Size());
 
     for (int i = 0; i != kNumUpdate; i++) {
-        bool updated = UpdateProperties(id);
+        bool updated = UpdateProperties(id, true);
         EXPECT_EQ(true, updated);
         task_util::WaitForIdle();
 
@@ -379,7 +379,40 @@ TEST_F(NamespaceManagerTest, TaskQueue) {
     }
 
     MarkServiceInstanceAsDeleted(id);
-    DeleteServiceInstance("exec-queue");
+    task_util::WaitForIdle();
+}
+
+TEST_F(NamespaceManagerTest, Usable) {
+    ns_manager_->Initialize(&database_, agent_signal_, "/bin/true", 1, 10);
+    boost::uuids::uuid id = AddServiceInstance("exec-usable");
+    EXPECT_FALSE(id.is_nil());
+    task_util::WaitForIdle();
+    NamespaceState *ns_state = ServiceInstanceState(id);
+    ASSERT_TRUE(ns_state != NULL);
+
+    EXPECT_EQ(0, ns_state->status());
+    EXPECT_EQ(NamespaceState::Starting, ns_state->status_type());
+
+    task_util::WaitForCondition(&evm_,
+            boost::bind(&NamespaceManagerTest::IsExpectedStatusType, this, ns_state, NamespaceState::Started),
+            kTimeoutSeconds);
+
+    EXPECT_EQ(NamespaceState::Started, ns_state->status_type());
+    EXPECT_EQ(0, ns_state->status());
+
+    NotifyChange(id);
+    task_util::WaitForIdle();
+
+    EXPECT_NE(NamespaceState::Starting, ns_state->status_type());
+
+    bool updated = UpdateProperties(id, false);
+    EXPECT_EQ(true, updated);
+
+    task_util::WaitForCondition(&evm_,
+            boost::bind(&NamespaceManagerTest::IsExpectedStatusType, this, ns_state, NamespaceState::Stopped),
+            kTimeoutSeconds);
+
+    MarkServiceInstanceAsDeleted(id);
     task_util::WaitForIdle();
 }
 

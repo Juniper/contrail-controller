@@ -21,6 +21,15 @@ env.Library('ifmap_test', lib_srcs)
 env.Library('control_node_mock', 'control_node_mock.cc');
 env.Library('agent_test_buildinfo', 'test_buildinfo.cc')
 
+env.Append(LIBPATH = [
+        '../../../base/test',
+        '../../../db/test',
+])
+env.Append(LIBS = [
+        'dbtest',
+        'task_test',
+        ])
+
 test_lib_srcs = ['test_agent_init.cc',
                  'test_init.cc', 
                  'test_util.cc',

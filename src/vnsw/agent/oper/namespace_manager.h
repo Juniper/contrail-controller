@@ -162,7 +162,7 @@ class NamespaceTask {
     static const size_t kBufLen = 4098;
     typedef boost::function<void(NamespaceTask *task, const std::string errors)> OnErrorCallback;
 
-    NamespaceTask(const std::string &cmd, EventManager *evm);
+    NamespaceTask(const std::string &cmd, int cmd_type, EventManager *evm);
 
     void ReadErrors(const boost::system::error_code &ec, size_t read_bytes);
     pid_t Run();
@@ -187,6 +187,8 @@ class NamespaceTask {
         return cmd_;
     }
 
+    int cmd_type() const { return cmd_type_; }
+
  private:
     const std::string cmd_;
 
@@ -197,6 +199,7 @@ class NamespaceTask {
 
     bool is_running_;
     pid_t pid_;
+    int cmd_type_;
 
     OnErrorCallback on_error_cb_;
 
