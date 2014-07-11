@@ -26,6 +26,12 @@ public:
                                     const Ip4Address &vm_addr,uint8_t plen,
                                     AgentRouteData *data);
     static void AddLocalVmRouteReq(const Peer *peer,
+                                   const string &vrf_name,
+                                   struct ether_addr &mac,
+                                   const Ip4Address &vm_ip,
+                                   uint32_t plen,
+                                   LocalVmRoute *data);
+    static void AddLocalVmRouteReq(const Peer *peer,
                                    const uuid &intf_uuid,
                                    const string &vn_name, 
                                    const string &vrf_name,
