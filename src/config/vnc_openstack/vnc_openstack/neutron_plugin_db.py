@@ -19,7 +19,6 @@ from neutron.common import constants
 from neutron.common import exceptions
 from neutron.api.v2 import attributes as attr
 from neutron.extensions import allowedaddresspairs as addr_pair
-from neutron.extensions import l3
 
 from cfgm_common import exceptions as vnc_exc
 from vnc_api.vnc_api import *
