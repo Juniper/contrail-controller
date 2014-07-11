@@ -5,6 +5,7 @@
 #include "test/test_cmn_util.h"
 #include "test_pkt_util.h"
 #include "pkt/flow_proto.h"
+#include <ksync/ksync_sock_user.h>
 
 #define AGE_TIME 10*1000
 #define MEDATA_NAT_DPORT 8775
@@ -556,6 +557,68 @@ TEST_F(FlowTest, VmToServer_1) {
     client->WaitForIdle();
 }
 
+// Test for traffic from VM to server without Metadata Service and default route with ecmp
+// later enable Metadata service and send traffic from server to vm.
+TEST_F(FlowTest, VmToServer_ecmp_to_nat) {
+    KSyncSockTypeMap *sock = KSyncSockTypeMap::GetKSyncSockTypeMap();
+    client->WaitForIdle();
+    EXPECT_EQ(0U, Agent::GetInstance()->pkt()->flow_table()->Size());
+    SecurityGroupList sg_id_list;
+    std::vector<ComponentNHData> comp_nh_list;
+    int remote_server_ip = 0x0A0A0A0A;
+    int label = 16;
+    for(int i = 0; i < 2; i++) {
+        ComponentNHData comp_nh(label,Agent::GetInstance()->GetDefaultVrf(),
+                Agent::GetInstance()->GetRouterId(),
+                Ip4Address(remote_server_ip++),
+                false, TunnelType::AllType());
+        comp_nh_list.push_back(comp_nh);
+        label++;
+    }
+    Agent::GetInstance()->GetDefaultInet4UnicastRouteTable()->
+        AddRemoteVmRouteReq(Agent::GetInstance()->local_peer(),
+                            vnet[1]->vrf()->GetName(),
+                            Ip4Address::from_string("0.0.0.0"), 0,
+                            comp_nh_list, -1, vnet[1]->vn()->GetName(),
+                            sg_id_list);
+    sock->SetBlockMsgProcessing(true);
+    // HTTP packet from VM to Server
+    TxTcpPacket(vnet[1]->id(), vnet_addr[1], "169.254.169.254", 10000, 80, false);
+    client->WaitForIdle();
+
+    FlowEntry *entry = FlowGet(vnet[1]->vrf()->vrf_id(), vnet_addr[1], "169.254.169.254",
+                               IPPROTO_TCP, 10000, 80);
+    FlowEntry *rev_old = NULL;
+    EXPECT_TRUE(entry != NULL);
+    if (entry) {
+        rev_old = entry->reverse_flow_entry();
+        EXPECT_TRUE(entry->data().component_nh_idx !=
+                CompositeNH::kInvalidComponentNHIdx);
+    }
+
+    EXPECT_EQ(2U, Agent::GetInstance()->pkt()->flow_table()->Size());
+    // send reverse packet from Server to VM
+    TxTcpPacket(vhost->id(), vhost_addr,
+                vnet[1]->mdata_ip_addr().to_string().c_str(),
+                80, 10000, false);
+    sock->SetBlockMsgProcessing(false);
+    client->WaitForIdle();
+    EXPECT_EQ(3U, Agent::GetInstance()->pkt()->flow_table()->Size());
+
+    FlowDelete(vnet[1]->vrf()->GetName(), "169.254.169.254", vnet_addr[1],
+               IPPROTO_TCP, 80, 10000);
+    FlowDelete(vhost->vrf()->GetName(), vhost_addr,
+               vnet[1]->mdata_ip_addr().to_string().c_str(),
+               IPPROTO_TCP, 80, 10000);
+
+    Agent::GetInstance()->GetDefaultInet4UnicastRouteTable()->
+        DeleteReq(Agent::GetInstance()->local_peer(), vnet[1]->vrf()->GetName(),
+                  Ip4Address::from_string("0.0.0.0"), 0);
+    client->WaitForIdle();
+    client->WaitForIdle();
+    EXPECT_EQ(0U, Agent::GetInstance()->pkt()->flow_table()->Size());
+}
+
 // FloatingIP test for traffic from VM to local VM
 TEST_F(FlowTest, FipVmToLocalVm_1) {
     TxIpPacket(vnet[1]->id(), vnet_addr[1], vnet_addr[3], 1);
@@ -1056,7 +1119,8 @@ int main(int argc, char *argv[]) {
     int ret = 0;
 
     GETUSERARGS();
-    client = TestInit(init_file, ksync_init, true, true, true, 100*1000);
+    client = TestInit(init_file, ksync_init, true, true, true, 100*1000,
+                      FlowStatsCollector::FlowStatsInterval, true, false);
     Setup();
     ret = RUN_ALL_TESTS();
     usleep(100000);
