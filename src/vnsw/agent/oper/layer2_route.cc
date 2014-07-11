@@ -54,6 +54,23 @@ Layer2RouteKey::AllocRouteEntry(VrfEntry *vrf, bool is_multicast) const
 }
 
 void Layer2AgentRouteTable::AddLocalVmRouteReq(const Peer *peer,
+                                               const string &vrf_name,
+                                               struct ether_addr &mac,
+                                               const Ip4Address &vm_ip,
+                                               uint32_t plen,
+                                               LocalVmRoute *data) { 
+    assert(peer);
+    DBRequest req;
+    req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
+
+    Layer2RouteKey *key = new Layer2RouteKey(peer, vrf_name, mac, vm_ip, 32);
+    req.key.reset(key);
+    data->set_tunnel_bmap(TunnelType::AllType());
+    req.data.reset(data);
+    Layer2TableEnqueue(Agent::GetInstance(), vrf_name, &req);
+}
+
+void Layer2AgentRouteTable::AddLocalVmRouteReq(const Peer *peer,
                                                const uuid &intf_uuid,
                                                const string &vn_name, 
                                                const string &vrf_name,
@@ -63,12 +80,6 @@ void Layer2AgentRouteTable::AddLocalVmRouteReq(const Peer *peer,
                                                const Ip4Address &vm_ip,
                                                uint32_t plen) { 
     assert(peer);
-    DBRequest req;
-    req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
-
-    Layer2RouteKey *key = new Layer2RouteKey(peer, vrf_name, mac, vm_ip, 32);
-    req.key.reset(key);
-
     VmInterfaceKey intf_key(AgentKey::ADD_DEL_CHANGE, intf_uuid, "");
     SecurityGroupList sg_list;
     PathPreference path_preference;
@@ -76,9 +87,7 @@ void Layer2AgentRouteTable::AddLocalVmRouteReq(const Peer *peer,
                                           false, vn_name,
                                           InterfaceNHFlags::LAYER2,
                                           sg_list, path_preference);
-    data->set_tunnel_bmap(TunnelType::AllType());
-    req.data.reset(data);
-    Layer2TableEnqueue(Agent::GetInstance(), vrf_name, &req);
+    AddLocalVmRouteReq(peer, vrf_name, mac, vm_ip, plen, data);
 }
 
 void Layer2AgentRouteTable::AddLocalVmRoute(const Peer *peer,

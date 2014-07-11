@@ -14,16 +14,41 @@ class TunnelNHKey;
 class TunnelNHData;
 class TunnelType;
 class ControllerVmRoute;
+class LocalVmRoute;
+class InetInterfaceRoute;
+class VlanNhRoute;
+class VNController;
 
 class ControllerPeerPath : public AgentRouteData {
 public:
+    static const uint64_t kInvalidPeerIdentifier = 0xFFFFFFFFFFFFFFFFLL;
     ControllerPeerPath(const Peer *peer);
     ~ControllerPeerPath() { }
 
-    bool CheckPeerValidity() const;
     // Only to be used for tests
     void set_sequence_number(uint64_t sequence_number) {
         sequence_number_ = sequence_number;
+    }
+    const AgentXmppChannel *channel() const {return channel_;}
+    uint64_t sequence_number() const {return sequence_number_;}
+    static uint64_t GetUnicastSequenceNumber(const Peer *peer) {
+        uint64_t sequence_number = ControllerPeerPath::kInvalidPeerIdentifier;
+        if ((peer != NULL) && (peer->GetType() == Peer::BGP_PEER) ) {
+            const BgpPeer *bgp_peer = static_cast<const BgpPeer *>(peer);
+            sequence_number = bgp_peer->GetBgpXmppPeerConst()->
+                unicast_sequence_number();
+        }
+        return sequence_number;
+    }
+
+    static const AgentXmppChannel *GetAgentXmppChannel(const Peer *peer) {
+        const AgentXmppChannel *channel = NULL;
+        if ((peer != NULL) && (peer->GetType() == Peer::BGP_PEER) ) {
+            const BgpPeer *bgp_peer = static_cast<const BgpPeer *>(peer);
+            channel = bgp_peer->GetBgpXmppPeerConst();
+            assert(channel);
+        }
+        return channel;
     }
 
 private:
@@ -106,6 +131,53 @@ private:
     PathPreference path_preference_;
     DBRequest nh_req_;
     DISALLOW_COPY_AND_ASSIGN(ControllerEcmpRoute);
+};
+
+class ControllerLocalVmRoute : public LocalVmRoute {
+public:
+    ControllerLocalVmRoute(const VmInterfaceKey &intf, uint32_t mpls_label, 
+                           uint32_t vxlan_id, bool force_policy, const string &vn_name,
+                           uint8_t flags, const SecurityGroupList &sg_list, 
+                           const PathPreference &path_preference,
+                           uint64_t sequence_number,
+                           const AgentXmppChannel *channel);
+    virtual ~ControllerLocalVmRoute() { }
+    virtual bool IsPeerValid() const;
+
+private:    
+    uint64_t sequence_number_;
+    const AgentXmppChannel *channel_;
+    DISALLOW_COPY_AND_ASSIGN(ControllerLocalVmRoute);
+};
+
+class ControllerInetInterfaceRoute : public InetInterfaceRoute {
+public:
+    ControllerInetInterfaceRoute(const InetInterfaceKey &intf, uint32_t label, 
+                                 int tunnel_bmap, const string &dest_vn_name,
+                                 uint64_t sequence_number,
+                                 const AgentXmppChannel *channel);
+    virtual ~ControllerInetInterfaceRoute() { }
+    virtual bool IsPeerValid() const;
+
+private:    
+    uint64_t sequence_number_;
+    const AgentXmppChannel *channel_;
+    DISALLOW_COPY_AND_ASSIGN(ControllerInetInterfaceRoute);
+};
+
+class ControllerVlanNhRoute : public VlanNhRoute {
+public:
+    ControllerVlanNhRoute(const VmInterfaceKey &intf, uint32_t tag, uint32_t label, 
+                          const string &dest_vn_name, const SecurityGroupList &sg_list,
+                          const PathPreference &path_preference,
+                          uint64_t sequence_number, const AgentXmppChannel *channel);
+    virtual ~ControllerVlanNhRoute() { }
+    virtual bool IsPeerValid() const;
+
+private:    
+    uint64_t sequence_number_;
+    const AgentXmppChannel *channel_;
+    DISALLOW_COPY_AND_ASSIGN(ControllerVlanNhRoute);
 };
 
 #endif //controller_route_path_hpp
