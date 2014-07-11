@@ -29,6 +29,10 @@ using namespace autogen;
 
 SandeshTraceBufferPtr AclTraceBuf(SandeshTraceBufferCreate("Acl", 32000));
 
+FlowPolicyInfo::FlowPolicyInfo(const std::string &u)
+    : uuid(u), drop(false), terminal(false), other(false) {
+}
+
 bool AclDBEntry::IsLess(const DBEntry &rhs) const {
     const AclDBEntry &a = static_cast<const AclDBEntry &>(rhs);
     return (uuid_ < a.uuid_);

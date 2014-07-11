@@ -39,8 +39,8 @@ struct FlowDataIpv4 {
     26: optional i64       diff_bytes;
     27: optional i64       diff_packets;
     28: optional string    action;
-    29: string             sg_rule_uuid;
-    30: string             nw_ace_uuid;
+    29: optional string    sg_rule_uuid;
+    30: optional string    nw_ace_uuid;
 }
 
 flowlog sandesh FlowDataIpv4Object {
