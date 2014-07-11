@@ -29,6 +29,7 @@ AgentEnv.MakeTestEnv(env)
 filter_flaky_test_suite = []
 acl_entry_test = AgentEnv.MakeTestCmd(env, 'acl_entry_test', filter_flaky_test_suite)
 acl_test = AgentEnv.MakeTestCmd(env, 'acl_test', filter_flaky_test_suite)
+acl_change_test = AgentEnv.MakeTestCmd(env, 'acl_change_test', filter_flaky_test_suite)
 #policy_test = AgentEnv.MakeTestCmd(env, 'policy_test', filter_flaky_test_suite)
 
 flaky_test = env.TestSuite('agent-flaky-test', filter_flaky_test_suite)
