@@ -386,7 +386,7 @@ bool ServiceInstance::DBEntrySandesh(Sandesh *sresp, std::string &name) const {
                                     properties_.virtualization_type)));
 
     data.set_vmi_inside(UuidToString(properties_.vmi_inside));
-    data.set_vmi_outside(UuidToString(properties_.vmi_inside));
+    data.set_vmi_outside(UuidToString(properties_.vmi_outside));
 
     Agent *agent = Agent::GetInstance();
     DBTableBase *si_table = agent->db()->FindTable("db.service-instance.0");

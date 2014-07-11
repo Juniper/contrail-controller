@@ -96,7 +96,6 @@ class IFMapDependencyManagerTest : public ::testing::Test {
             database_.CreateTable("db.test.0"));
         IFMapAgentLinkTable_Init(&database_, &graph_);
         vnc_cfg_Agent_ModuleInit(&database_, &graph_);
-        IFMapLinkTable_Init(&database_, &graph_);
         manager_->Initialize();
     }
 
@@ -108,7 +107,7 @@ class IFMapDependencyManagerTest : public ::testing::Test {
             database_.FindTable(IFMAP_AGENT_LINK_DB_NAME));
         assert(link_table);
         link_table->Clear();
-        IFMapLinkTable_Clear(&database_);
+        db_util::Clear(&database_);
     }
 
     void AddObject(const std::string &id_name) {
@@ -184,14 +183,6 @@ TEST_F(IFMapDependencyManagerTest, VirtualMachineEvent) {
     ASSERT_EQ(1, change_list_.size());
     TestEntry *entry = static_cast<TestEntry *>(change_list_.at(0));
     EXPECT_EQ("id-1", entry->name());
-
-    ifmap_test_util::IFMapMsgUnlink(&database_, "service-instance", "id-1",
-                                    "virtual-machine", "id-1",
-                                    "virtual-machine-service-instance");
-
-    ifmap_test_util::IFMapMsgNodeDelete(&database_, "virtual-machine", "id-1");
-    ifmap_test_util::IFMapMsgNodeDelete(&database_, "service-instance", "id-1");
-    task_util::WaitForIdle();
 }
 
 TEST_F(IFMapDependencyManagerTest, TemplateEvent) {
@@ -212,14 +203,6 @@ TEST_F(IFMapDependencyManagerTest, TemplateEvent) {
     ASSERT_EQ(1, change_list_.size());
     TestEntry *entry = static_cast<TestEntry *>(change_list_.at(0));
     EXPECT_EQ("id-1", entry->name());
-
-    ifmap_test_util::IFMapMsgUnlink(&database_, "service-instance", "id-1",
-                                    "service-template", "id-1",
-                                    "service-instance-service-template");
-
-    ifmap_test_util::IFMapMsgNodeDelete(&database_, "service-instance", "id-1");
-    ifmap_test_util::IFMapMsgNodeDelete(&database_, "service-template", "id-1");
-    task_util::WaitForIdle();
 }
 
 TEST_F(IFMapDependencyManagerTest, VMIEvent) {
@@ -302,54 +285,6 @@ TEST_F(IFMapDependencyManagerTest, VMIEvent) {
         EXPECT_EQ("id-2", entry->name());
     }
     change_list_.clear();
-
-    /*
-     * clean up
-     */
-    ifmap_test_util::IFMapMsgNodeDelete(&database_, "service-instance", "id-1");
-    ifmap_test_util::IFMapMsgNodeDelete(&database_, "service-instance", "id-2");
-    ifmap_test_util::IFMapMsgNodeDelete(&database_, "virtual-machine", "id-1");
-    ifmap_test_util::IFMapMsgUnlink(&database_, "service-instance", "id-1",
-                                    "virtual-machine", "id-1",
-                                    "virtual-machine-service-instance");
-    ifmap_test_util::IFMapMsgNodeDelete(&database_,
-                                     "virtual-machine-interface",
-                                     "id-1-left");
-    ifmap_test_util::IFMapMsgUnlink(
-        &database_,
-        "virtual-machine-interface", "id-1-left",
-        "virtual-machine", "id-1",
-        "virtual-machine-interface-virtual-machine");
-
-    ifmap_test_util::IFMapMsgNodeDelete(&database_, "virtual-machine", "id-1");
-    ifmap_test_util::IFMapMsgUnlink(&database_, "service-instance", "id-1",
-                                    "virtual-machine", "id-1",
-                                    "virtual-machine-service-instance");
-
-    ifmap_test_util::IFMapMsgNodeDelete(&database_,
-                                        "virtual-machine-interface",
-                                        "id-1-right");
-    ifmap_test_util::IFMapMsgUnlink(
-        &database_,
-        "virtual-machine-interface", "id-1-right",
-        "virtual-machine", "id-1",
-        "virtual-machine-interface-virtual-machine");
-
-    ifmap_test_util::IFMapMsgNodeDelete(&database_, "virtual-machine", "id-2");
-    ifmap_test_util::IFMapMsgUnlink(&database_, "service-instance", "id-2",
-                                    "virtual-machine", "id-2",
-                                    "virtual-machine-service-instance");
-
-    ifmap_test_util::IFMapMsgNodeDelete(&database_,
-                                       "virtual-machine-interface",
-                                       "id-2-left");
-    ifmap_test_util::IFMapMsgUnlink(
-        &database_,
-        "virtual-machine-interface", "id-2-left",
-        "virtual-machine", "id-2",
-        "virtual-machine-interface-virtual-machine");
-
-    task_util::WaitForIdle();
 }
 
 static void SetUp() {

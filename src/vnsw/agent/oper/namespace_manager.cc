@@ -104,13 +104,6 @@ void NamespaceManager::HandleSigChild(const boost::system::error_code &error,
                     task_queue->Pop();
                     delete task;
 
-                    if (!task_queue->Empty()) {
-                        NamespaceTask *task = task_queue->Front();
-                        if (task) {
-                            LOG(DEBUG, "NetNS next command: " << task->cmd());
-                        }
-                    }
-
                     task_queue->StopTimer();
 
                     ScheduleNextTask(task_queue);
@@ -346,7 +339,13 @@ void NamespaceManager::StopNetNS(ServiceInstance *svc_instance,
 void NamespaceManager::SetLastCmdType(ServiceInstance *svc_instance,
                                       int last_cmd_type) {
     std::string uuid = UuidToString(svc_instance->properties().instance_id);
-    last_cmd_types_.insert(std::make_pair(uuid, last_cmd_type));
+    std::map<std::string, int>::iterator iter =
+            last_cmd_types_.find(uuid);
+    if (iter != last_cmd_types_.end()) {
+        iter->second = last_cmd_type;
+    } else {
+        last_cmd_types_.insert(std::make_pair(uuid, last_cmd_type));
+    }
 }
 
 int NamespaceManager::GetLastCmdType(ServiceInstance *svc_instance) const {
