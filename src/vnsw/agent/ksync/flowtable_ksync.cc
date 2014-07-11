@@ -188,7 +188,8 @@ int FlowTableKSyncEntry::Encode(sandesh_op::type op, char *buf, int buf_len) {
         req.set_fr_ftable_size(0);
         req.set_fr_ecmp_nh_index(flow_entry_->data().component_nh_idx);
 
-        if (flow_entry_->is_flags_set(FlowEntry::EcmpFlow)) {
+        if (flow_entry_->is_flags_set(FlowEntry::EcmpFlow) &&
+            flow_entry_->reverse_flow_entry() != NULL) {
             flags |= VR_RFLOW_VALID; 
             FlowEntry *rev_flow = flow_entry_->reverse_flow_entry();
             req.set_fr_rindex(rev_flow->flow_handle());
