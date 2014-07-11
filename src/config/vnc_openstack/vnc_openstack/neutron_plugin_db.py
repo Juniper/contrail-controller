@@ -183,7 +183,8 @@ class DBInterface(object):
 
     def __init__(self, admin_name, admin_password, admin_tenant_name,
                  api_srvr_ip, api_srvr_port, user_info=None,
-                 contrail_extensions_enabled=True):
+                 contrail_extensions_enabled=True,
+                 list_optimization_enabled=False):
         self._api_srvr_ip = api_srvr_ip
         self._api_srvr_port = api_srvr_port
 
@@ -209,6 +210,7 @@ class DBInterface(object):
         self._db_cache['vnc_routers'] = {}
 
         self._contrail_extensions_enabled = contrail_extensions_enabled
+        self._list_optimization_enabled = list_optimization_enabled
 
         # Retry till a api-server is up
         connected = False
@@ -3562,10 +3564,17 @@ class DBInterface(object):
                     project_id = None
 
                 # read all VMI and IIP in detail one-shot
-                all_port_gevent = gevent.spawn(self._virtual_machine_interface_list,
-                                               fields=['instance_ip_back_refs'])
+                if self._list_optimization_enabled:
+                    all_port_gevent = gevent.spawn(self._virtual_machine_interface_list,
+                                                   parent_id=project_id,
+                                                   fields=['instance_ip_back_refs'])
+                else:
+                    all_port_gevent = gevent.spawn(self._virtual_machine_interface_list,
+                                                   fields=['instance_ip_back_refs'])
                 port_iip_gevent = gevent.spawn(self._instance_ip_list)
-                port_net_gevent = gevent.spawn(self._virtual_network_list, detail=True)
+                port_net_gevent = gevent.spawn(self._virtual_network_list,
+                                               parent_id=project_id,
+                                               detail=True)
 
                 gevent.joinall([all_port_gevent, port_iip_gevent, port_net_gevent])
 

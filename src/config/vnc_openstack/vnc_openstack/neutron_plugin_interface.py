@@ -56,6 +56,11 @@ class NeutronPluginInterface(object):
             self._multi_tenancy = conf_sections.get('DEFAULTS', 'multi_tenancy')
         except ConfigParser.NoOptionError:
             self._multi_tenancy = False
+        try:
+            self._list_optimization_enabled = \
+                conf_sections.get('DEFAULTS', 'list_optimization_enabled')
+        except ConfigParser.NoOptionError:
+            self._list_optimization_enabled = False
         self._vnc_lib = None
         self._cfgdb = None
         self._cfgdb_map = {}
@@ -86,7 +91,9 @@ class NeutronPluginInterface(object):
                                       self._auth_tenant,
                                       self._vnc_api_ip,
                                       self._vnc_api_port,
-                                      contrail_extensions_enabled=exts_enabled)
+                                      contrail_extensions_enabled=exts_enabled,
+                                      list_optimization_enabled=\
+                                      self._list_optimization_enabled)
             self._cfgdb.manager = self
     #end _connect_to_db
 
@@ -103,7 +110,8 @@ class NeutronPluginInterface(object):
             self._cfgdb_map[user_id] = DBInterface(
                 self._auth_user, self._auth_passwd, self._auth_tenant,
                 self._vnc_api_ip, self._vnc_api_port,
-                user_info={'user_id': user_id, 'role': role})
+                user_info={'user_id': user_id, 'role': role},
+                list_optimization_enabled=self._list_optimization_enabled)
             self._cfgdb_map[user_id].manager = self
 
         return self._cfgdb_map[user_id]
