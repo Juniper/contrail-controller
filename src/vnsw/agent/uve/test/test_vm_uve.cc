@@ -906,6 +906,42 @@ TEST_F(UveVmUveTest, FipStats_5) {
     vmut->ClearCount();
 }
 
+// Update FIP stats and verify dispatched VM Stats UVE has the expected stats
+TEST_F(UveVmUveTest, VmUVE_Name_1) {
+    FlowSetUp();
+    VmUveTableTest *vmut = static_cast<VmUveTableTest *>
+        (Agent::GetInstance()->uve()->vm_uve_table());
+
+    //Trigger VM UVE send
+    vmut->ClearCount();
+    vmut->SendVmStats();
+
+    //Verify the count based on number of VMs we have.
+    EXPECT_EQ(3U, vmut->send_count());
+    EXPECT_EQ(3U, vmut->vm_stats_send_count());
+
+    //Verify that VM name was not empty
+    const UveVirtualMachineAgent uve = vmut->last_sent_uve();
+    const VirtualMachineStats stats_uve = vmut->last_sent_stats_uve();
+    EXPECT_STRNE(uve.get_name().c_str(), "");
+    EXPECT_STRNE(stats_uve.get_name().c_str(), "");
+
+    //cleanup
+    vmut->ClearCount();
+    FlowTearDown();
+
+    //Verify dispatched UVE deletes match the number of VMs deleted
+    EXPECT_EQ(3U, vmut->delete_count());
+    EXPECT_EQ(3U, vmut->vm_stats_delete_count());
+
+    //Verify that VM name was not empty in delete msg
+    const UveVirtualMachineAgent uve2 = vmut->last_sent_uve();
+    const VirtualMachineStats stats_uve2 = vmut->last_sent_stats_uve();
+    EXPECT_STRNE(uve2.get_name().c_str(), "");
+    EXPECT_STRNE(stats_uve2.get_name().c_str(), "");
+    vmut->ClearCount();
+}
+
 int main(int argc, char **argv) {
     GETUSERARGS();
     client = TestInit(init_file, ksync_init);

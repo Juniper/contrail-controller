@@ -54,11 +54,14 @@ void VmUveTableTest::DispatchVmMsg(const UveVirtualMachineAgent &uve) {
     if (uve.get_deleted()) {
         delete_count_++;
     }
+    uve_ = uve;
 }
 
 void VmUveTableTest::ClearCount() {
     send_count_ = 0;
     delete_count_ = 0;
+    vm_stats_send_count_ = 0;
+    vm_stats_delete_count_ = 0;
 }
 
 UveVirtualMachineAgent* VmUveTableTest::VmUveObject(const VmEntry *vm) {
@@ -92,4 +95,12 @@ const VmUveEntry::FloatingIp *VmUveTableTest::GetVmIntfFip
         return entry->IntfFloatingIp(intf, fip, vn);
     }
     return NULL;
+}
+
+void VmUveTableTest::DispatchVmStatsMsg(const VirtualMachineStats &uve) {
+    vm_stats_send_count_++;
+    if (uve.get_deleted()) {
+        vm_stats_delete_count_++;
+    }
+    stats_uve_ = uve;
 }
