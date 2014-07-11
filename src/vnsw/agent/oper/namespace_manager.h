@@ -39,7 +39,7 @@ class NamespaceManager {
                     const int netns_timeout);
     void Terminate();
 
-    NamespaceState *GetState(ServiceInstance *);
+    NamespaceState *GetState(ServiceInstance *) const;
 
  private:
     friend class NamespaceManagerTest;
@@ -55,17 +55,21 @@ class NamespaceManager {
     void RegisterSvcInstance(NamespaceTask *task,
                              ServiceInstance *svc_instance);
     void UnRegisterSvcInstance(ServiceInstance *svc_instance);
-    ServiceInstance *GetSvcInstance(NamespaceTask *task);
+    ServiceInstance *GetSvcInstance(NamespaceTask *task) const;
 
     NamespaceTaskQueue *GetTaskQueue(const std::string &str);
     void Enqueue(NamespaceTask *task, const boost::uuids::uuid &uuid);
     void ScheduleNextTask(NamespaceTaskQueue *task_queue);
     bool StartTask(NamespaceTaskQueue *task_queue, NamespaceTask *task);
 
-    NamespaceState *GetState(NamespaceTask* task);
+    NamespaceState *GetState(NamespaceTask* task) const;
     void SetState(ServiceInstance *svc_instance, NamespaceState *state);
     void ClearState(ServiceInstance *svc_instance);
     void UpdateStateStatusType(NamespaceTask* task, int status);
+
+    void SetLastCmdType(ServiceInstance *svc_instance, int last_cmd_type);
+    int GetLastCmdType(ServiceInstance *svc_instance) const;
+    void ClearLastCmdType(ServiceInstance *svc_instance);
 
     /*
      * Event observer for changes in the "db.service-instance.0" table.
@@ -77,10 +81,10 @@ class NamespaceManager {
     DBTableBase::ListenerId listener_id_;
     std::string netns_cmd_;
     int netns_timeout_;
-    int last_cmd_type_;
 
     std::vector<NamespaceTaskQueue *> task_queues_;
     std::map<NamespaceTask *, ServiceInstance *> task_svc_instances_;
+    std::map<std::string, int> last_cmd_types_;
 };
 
 class NamespaceState : public DBState {
@@ -206,7 +210,7 @@ public:
     ~NamespaceTaskQueue();
 
     bool OnTimerTimeout();
-    void TimerErrorHandler(std::string name, std::string error);
+    void TimerErrorHandler(const std::string &name, std::string error);
 
     NamespaceTask *Front() { return task_queue_.front(); }
     void Pop() { task_queue_.pop(); }

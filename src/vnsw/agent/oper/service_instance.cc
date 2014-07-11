@@ -200,7 +200,6 @@ static void FindAndSetInterfaces(
             properties->vmi_inside = IdPermsGetUuid(vmi->id_perms());
             properties->mac_addr_inside = vmi->mac_addresses().at(0);
             properties->ip_addr_inside = FindInterfaceIp(graph, adj);
-
         } else if (netname == si_properties.right_virtual_network) {
             properties->vmi_outside = IdPermsGetUuid(vmi->id_perms());
             properties->mac_addr_outside = vmi->mac_addresses().at(0);
@@ -260,7 +259,7 @@ static void FindAndSetTypes(DBGraph *graph, IFMapNode *si_node,
             ServiceInstanceTypesMapping::StrServiceTypeToInt(
                 svc_template_props.service_type);
 
-    properties->virtualization_type = 
+    properties->virtualization_type =
             ServiceInstanceTypesMapping::StrVirtualizationTypeToInt(
                 svc_template_props.service_virtualization_type);
 }
@@ -561,7 +560,7 @@ void ServiceInstanceTable::ChangeEventHandler(DBEntry *entry) {
         Enqueue(&request);
     }
 }
- 
+
 DBTableBase *ServiceInstanceTable::CreateTable(
     DB *db, const std::string &name) {
     ServiceInstanceTable *table = new ServiceInstanceTable(db, name);

@@ -358,7 +358,7 @@ public:
     };
 
     // Service instance
-   ServiceInstanceTable *service_instance_table() {
+   ServiceInstanceTable *service_instance_table() const {
        return service_instance_table_;
    }
 

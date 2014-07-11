@@ -122,12 +122,12 @@ void NamespaceManager::HandleSigChild(const boost::system::error_code &error,
     }
 }
 
-NamespaceState *NamespaceManager::GetState(ServiceInstance *svc_instance) {
+NamespaceState *NamespaceManager::GetState(ServiceInstance *svc_instance) const {
     return static_cast<NamespaceState *>(
         svc_instance->GetState(si_table_, listener_id_));
 }
 
-NamespaceState *NamespaceManager::GetState(NamespaceTask* task) {
+NamespaceState *NamespaceManager::GetState(NamespaceTask* task) const {
     ServiceInstance* svc_instance = GetSvcInstance(task);
     if (svc_instance) {
         NamespaceState *state = GetState(svc_instance);
@@ -238,8 +238,8 @@ void NamespaceManager::ScheduleNextTask(NamespaceTaskQueue *task_queue) {
     }
 }
 
-ServiceInstance *NamespaceManager::GetSvcInstance(NamespaceTask *task) {
-    std::map<NamespaceTask *, ServiceInstance*>::iterator iter =
+ServiceInstance *NamespaceManager::GetSvcInstance(NamespaceTask *task) const {
+    std::map<NamespaceTask *, ServiceInstance*>::const_iterator iter =
                     task_svc_instances_.find(task);
     if (iter != task_svc_instances_.end()) {
         return iter->second;
@@ -343,36 +343,68 @@ void NamespaceManager::StopNetNS(ServiceInstance *svc_instance,
     LOG(DEBUG, "NetNS run command queued: " << task->cmd());
 }
 
+void NamespaceManager::SetLastCmdType(ServiceInstance *svc_instance,
+                                      int last_cmd_type) {
+    std::string uuid = UuidToString(svc_instance->properties().instance_id);
+    last_cmd_types_.insert(std::make_pair(uuid, last_cmd_type));
+}
+
+int NamespaceManager::GetLastCmdType(ServiceInstance *svc_instance) const {
+    std::string uuid = UuidToString(svc_instance->properties().instance_id);
+    std::map<std::string, int>::const_iterator iter =
+        last_cmd_types_.find(uuid);
+    if (iter != last_cmd_types_.end()) {
+        return iter->second;
+    }
+
+    return 0;
+}
+
+void NamespaceManager::ClearLastCmdType(ServiceInstance *svc_instance) {
+    std::string uuid = UuidToString(svc_instance->properties().instance_id);
+        std::map<std::string, int>::iterator iter =
+            last_cmd_types_.find(uuid);
+    if (iter != last_cmd_types_.end()) {
+        last_cmd_types_.erase(iter);
+    }
+}
+
 void NamespaceManager::EventObserver(
     DBTablePartBase *db_part, DBEntryBase *entry) {
     ServiceInstance *svc_instance = static_cast<ServiceInstance *>(entry);
 
     NamespaceState *state = GetState(svc_instance);
-    if (state == NULL) {
-        state = new NamespaceState();
-        SetState(svc_instance, state);
-    }
-
-    bool usable = svc_instance->IsUsable();
-    LOG(DEBUG, "NetNS event notification for uuid: " << svc_instance->ToString()
-        << (usable ? " usable" : " not usable"));
-    if (!usable && last_cmd_type_ == Start) {
-        StopNetNS(svc_instance, state);
-        last_cmd_type_ = Stop;
-    } else if (usable) {
-        if (last_cmd_type_ == Start && state->properties().CompareTo(
-                        svc_instance->properties()) != 0) {
-            StartNetNS(svc_instance, state, true);
-        } else if (last_cmd_type_ != Start) {
-            StartNetNS(svc_instance, state, false);
-            last_cmd_type_ = Start;
-        }
-    }
     if (svc_instance->IsDeleted()) {
         if (state) {
-            UnRegisterSvcInstance(svc_instance);
+            if (GetLastCmdType(svc_instance) == Start) {
+                StopNetNS(svc_instance, state);
+            }
+
             ClearState(svc_instance);
             delete state;
+        }
+        UnRegisterSvcInstance(svc_instance);
+        ClearLastCmdType(svc_instance);
+    } else {
+        if (state == NULL) {
+            state = new NamespaceState();
+            SetState(svc_instance, state);
+        }
+
+        bool usable = svc_instance->IsUsable();
+        LOG(DEBUG, "NetNS event notification for uuid: " << svc_instance->ToString()
+            << (usable ? " usable" : " not usable"));
+        if (!usable && GetLastCmdType(svc_instance) == Start) {
+            StopNetNS(svc_instance, state);
+            SetLastCmdType(svc_instance, Stop);
+        } else if (usable) {
+            if (GetLastCmdType(svc_instance) == Start && state->properties().CompareTo(
+                            svc_instance->properties()) != 0) {
+                StartNetNS(svc_instance, state, true);
+            } else if (GetLastCmdType(svc_instance) != Start) {
+                StartNetNS(svc_instance, state, false);
+                SetLastCmdType(svc_instance, Start);
+            }
         }
     }
 }
@@ -544,7 +576,7 @@ bool NamespaceTaskQueue::OnTimerTimeout() {
     return true;
 }
 
-void NamespaceTaskQueue::TimerErrorHandler(std::string name, std::string error) {
+void NamespaceTaskQueue::TimerErrorHandler(const std::string &name, std::string error) {
     LOG(ERROR, "NetNS timeout error: " << error);
 }
 
