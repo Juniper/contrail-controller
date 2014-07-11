@@ -104,13 +104,6 @@ void NamespaceManager::HandleSigChild(const boost::system::error_code &error,
                     task_queue->Pop();
                     delete task;
 
-                    if (!task_queue->Empty()) {
-                        NamespaceTask *task = task_queue->Front();
-                        if (task) {
-                            LOG(DEBUG, "NetNS next command: " << task->cmd());
-                        }
-                    }
-
                     task_queue->StopTimer();
 
                     ScheduleNextTask(task_queue);
@@ -188,7 +181,11 @@ bool NamespaceManager::StartTask(NamespaceTaskQueue *task_queue,
     if (state != NULL) {
         state->set_pid(pid);
         state->set_cmd(task->cmd());
-        state->set_status_type(NamespaceState::Starting);
+        if (task->cmd_type() == Start) {
+            state->set_status_type(NamespaceState::Starting);
+        } else {
+            state->set_status_type(NamespaceState::Stopping);
+        }
     }
 
     if (pid > 0) {
@@ -288,7 +285,7 @@ void NamespaceManager::StartNetNS(ServiceInstance *svc_instance,
     }
     state->set_properties(props);
 
-    NamespaceTask *task = new NamespaceTask(cmd_str.str(), evm_);
+    NamespaceTask *task = new NamespaceTask(cmd_str.str(), Start, evm_);
     task->set_on_error_cb(boost::bind(&NamespaceManager::OnError,
                                       this, _1, _2));
 
@@ -333,24 +330,28 @@ void NamespaceManager::StopNetNS(ServiceInstance *svc_instance,
     cmd_str << " " << UuidToString(props.vmi_inside);
     cmd_str << " " << UuidToString(props.vmi_outside);
 
-    state->set_cmd(cmd_str.str());
-    state->set_status_type(NamespaceState::Stopping);
-
-    NamespaceTask *task = new NamespaceTask(cmd_str.str(), evm_);
+    NamespaceTask *task = new NamespaceTask(cmd_str.str(), Stop, evm_);
     boost::uuids::uuid uuid = svc_instance->properties().instance_id;
     Enqueue(task, uuid);
 
+    RegisterSvcInstance(task, svc_instance);
     LOG(DEBUG, "NetNS run command queued: " << task->cmd());
 }
 
 void NamespaceManager::SetLastCmdType(ServiceInstance *svc_instance,
                                       int last_cmd_type) {
-    std::string uuid = UuidToString(svc_instance->properties().instance_id);
-    last_cmd_types_.insert(std::make_pair(uuid, last_cmd_type));
+    std::string uuid = UuidToString(svc_instance->uuid());
+    std::map<std::string, int>::iterator iter =
+            last_cmd_types_.find(uuid);
+    if (iter != last_cmd_types_.end()) {
+        iter->second = last_cmd_type;
+    } else {
+        last_cmd_types_.insert(std::make_pair(uuid, last_cmd_type));
+    }
 }
 
 int NamespaceManager::GetLastCmdType(ServiceInstance *svc_instance) const {
-    std::string uuid = UuidToString(svc_instance->properties().instance_id);
+    std::string uuid = UuidToString(svc_instance->uuid());
     std::map<std::string, int>::const_iterator iter =
         last_cmd_types_.find(uuid);
     if (iter != last_cmd_types_.end()) {
@@ -361,7 +362,7 @@ int NamespaceManager::GetLastCmdType(ServiceInstance *svc_instance) const {
 }
 
 void NamespaceManager::ClearLastCmdType(ServiceInstance *svc_instance) {
-    std::string uuid = UuidToString(svc_instance->properties().instance_id);
+    std::string uuid = UuidToString(svc_instance->uuid());
         std::map<std::string, int>::iterator iter =
             last_cmd_types_.find(uuid);
     if (iter != last_cmd_types_.end()) {
@@ -375,6 +376,7 @@ void NamespaceManager::EventObserver(
 
     NamespaceState *state = GetState(svc_instance);
     if (svc_instance->IsDeleted()) {
+        UnRegisterSvcInstance(svc_instance);
         if (state) {
             if (GetLastCmdType(svc_instance) == Start) {
                 StopNetNS(svc_instance, state);
@@ -383,7 +385,6 @@ void NamespaceManager::EventObserver(
             ClearState(svc_instance);
             delete state;
         }
-        UnRegisterSvcInstance(svc_instance);
         ClearLastCmdType(svc_instance);
     } else {
         if (state == NULL) {
@@ -426,9 +427,9 @@ void NamespaceState::Clear() {
 /*
  * NamespaceTask class
  */
-NamespaceTask::NamespaceTask(const std::string &cmd, EventManager *evm) :
+NamespaceTask::NamespaceTask(const std::string &cmd, int cmd_type, EventManager *evm) :
         cmd_(cmd), errors_(*(evm->io_service())), is_running_(false),
-        pid_(0), start_time_(0) {
+        pid_(0), cmd_type_(cmd_type), start_time_(0) {
 }
 
 void NamespaceTask::ReadErrors(const boost::system::error_code &ec,

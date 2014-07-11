@@ -174,6 +174,7 @@ OperDB::OperDB(Agent *agent)
 }
 
 OperDB::~OperDB() {
+    singleton_ = NULL;
 }
 
 void OperDB::Shutdown() {
