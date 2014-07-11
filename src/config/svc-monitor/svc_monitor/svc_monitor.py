@@ -50,13 +50,16 @@ import discoveryclient.client as client
 _SVC_VN_MGMT = "svc-vn-mgmt"
 _SVC_VN_LEFT = "svc-vn-left"
 _SVC_VN_RIGHT = "svc-vn-right"
+_SVC_VN_SNAT = "svc-vn-snat"
 _MGMT_STR = "management"
 _LEFT_STR = "left"
 _RIGHT_STR = "right"
+_SNAT_STR = "snat"
 
 _SVC_VNS = {_MGMT_STR:  [_SVC_VN_MGMT,  '250.250.1.0/24'],
             _LEFT_STR:  [_SVC_VN_LEFT,  '250.250.2.0/24'],
-            _RIGHT_STR: [_SVC_VN_RIGHT, '250.250.3.0/24']}
+            _RIGHT_STR: [_SVC_VN_RIGHT, '250.250.3.0/24'],
+            _SNAT_STR:  [_SVC_VN_SNAT,  '100.64.0.0/10']}
 
 _CHECK_SVC_VM_HEALTH_INTERVAL = 30
 _CHECK_CLEANUP_INTERVAL = 5
@@ -182,8 +185,9 @@ class SvcMonitor(object):
         # set interface list
         if svc_type == 'analyzer':
             if_list = [['left', False]]
-        elif hypervisor_type == 'network-namespace':
-            if_list = [['left', False], ['right', False]]
+        elif (hypervisor_type == 'network-namespace' and
+            svc_type == 'source-nat'):
+            if_list = [['snat', False], ['right', False]]
         else:
             if_list = [
                 ['management', False], ['left', False], ['right', False]]

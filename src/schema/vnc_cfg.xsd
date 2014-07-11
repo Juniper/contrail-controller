@@ -766,6 +766,7 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
         <xsd:enumeration value="management"/>
         <xsd:enumeration value="left"/>
         <xsd:enumeration value="right"/>
+        <xsd:enumeration value="snat"/>
         <xsd:enumeration value="other"/>
     </xsd:restriction>
 </xsd:simpleType>
@@ -1031,6 +1032,8 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
         <xsd:element name='left-ip-address' type='IpAddressType'/>
         <xsd:element name='right-virtual-network' type='xsd:string'/>
         <xsd:element name='right-ip-address' type='IpAddressType'/>
+        <xsd:element name='snat-virtual-network' type='xsd:string'/>
+        <xsd:element name='snat-ip-address' type='IpAddressType'/>
         <xsd:element name='interface-list' type='ServiceInstanceInterfaceType' maxOccurs='unbounded'/>
         <xsd:element name='scale-out' type='ServiceScaleOutType'/>
     </xsd:sequence>
@@ -1139,4 +1142,9 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
 <!--#IFMAP-SEMANTICS-IDL 
      Link('logical-router-target',
           'logical-router', 'route-target', ['ref']) -->
+
+<xsd:element name="logical-router-gateway"/>
+<!--#IFMAP-SEMANTICS-IDL
+     Link('logical-router-gateway',
+          'logical-router', 'virtual-network', ['ref']) -->
 </xsd:schema>
