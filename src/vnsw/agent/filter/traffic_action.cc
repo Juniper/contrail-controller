@@ -10,8 +10,8 @@
 #include <vnsw/agent/oper/mirror_table.h>
 
 bool TrafficAction::IsDrop() const {
-    if ((action_ & TrafficAction::DROP_FLAGS) ||
-        (action_ & TrafficAction::IMPLICIT_DENY_FLAGS)) {
+    if (((1 << action_) & TrafficAction::DROP_FLAGS) ||
+        ((1 << action_) & TrafficAction::IMPLICIT_DENY_FLAGS)) {
         return true;
     }
     return false;

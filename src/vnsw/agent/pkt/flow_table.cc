@@ -5,6 +5,8 @@
 #include <vector>
 #include <bitset>
 #include <boost/date_time/posix_time/posix_time.hpp>
+#include <boost/assign/list_of.hpp>
+#include <boost/unordered_map.hpp>
 #include <sandesh/sandesh_types.h>
 #include <sandesh/sandesh.h>
 #include <sandesh/sandesh_trace.h>
@@ -51,9 +53,18 @@
 #include "pkt/agent_stats.h"
 #include "uve/agent_uve.h"
 
+using boost::assign::map_list_of;
+const std::map<FlowEntry::FlowPolicyState, const char*>
+    FlowEntry::FlowPolicyStateStr = map_list_of
+                            (NOT_EVALUATED, "0")
+                            (IMPLICIT_ALLOW, "1")
+                            (IMPLICIT_DENY, "2")
+                            (DEFAULT_GW_ICMP_OR_DNS, "3")
+                            (LINKLOCAL_FLOW, "4")
+                            (MULTICAST_FLOW, "5");
+
 boost::uuids::random_generator FlowTable::rand_gen_ = boost::uuids::random_generator();
 tbb::atomic<int> FlowEntry::alloc_count_;
-const std::string FlowEntry::no_uuid_string_ = "0";
 
 static bool ShouldDrop(uint32_t action) {
     if ((action & TrafficAction::DROP_FLAGS) || (action & TrafficAction::IMPLICIT_DENY_FLAGS))
@@ -84,11 +95,12 @@ static void SetAclListAceId(const AclDBEntry *acl, const std::list<MatchAclParam
 FlowEntry::FlowEntry(const FlowKey &k) : 
     key_(k), data_(), stats_(), flow_handle_(kInvalidFlowHandle),
     ksync_entry_(NULL), deleted_(false), flags_(0), linklocal_src_port_(),
-    linklocal_src_port_fd_(PktFlowInfo::kLinkLocalInvalidFd), 
-    sg_rule_uuid_(no_uuid_string_), nw_ace_uuid_(no_uuid_string_) {
+    linklocal_src_port_fd_(PktFlowInfo::kLinkLocalInvalidFd) {
     flow_uuid_ = FlowTable::rand_gen_(); 
     egress_uuid_ = FlowTable::rand_gen_(); 
     refcount_ = 0;
+    nw_ace_uuid_ = FlowPolicyStateStr.at(NOT_EVALUATED);
+    sg_rule_uuid_= FlowPolicyStateStr.at(NOT_EVALUATED);
     alloc_count_.fetch_and_increment();
 }
 
@@ -98,6 +110,17 @@ uint32_t FlowEntry::MatchAcl(const PacketHeader &hdr,
                              FlowPolicyInfo *info) {
     // If there are no ACL to match, make it pass
     if (acl.size() == 0 &&  add_implicit_allow) {
+        if (info) {
+            if (is_flags_set(FlowEntry::LinkLocalFlow)) {
+                info->uuid = FlowPolicyStateStr.at(LINKLOCAL_FLOW);
+            } else if (is_flags_set(FlowEntry::Multicast)) {
+                info->uuid = FlowPolicyStateStr.at(MULTICAST_FLOW);
+            } else {
+                if (!info->terminal && !info->other) {
+                    info->uuid = FlowPolicyStateStr.at(IMPLICIT_ALLOW);
+                }
+            }
+        }
         return (1 << TrafficAction::PASS);
     }
 
@@ -109,6 +132,9 @@ uint32_t FlowEntry::MatchAcl(const PacketHeader &hdr,
          IsGwPacket(data_.intf_entry.get(), hdr.dst_ip) ||
          Agent::GetInstance()->pkt()->pkt_handler()->
          IsGwPacket(data_.intf_entry.get(), hdr.src_ip))) {
+        if (info) {
+            info->uuid = FlowPolicyStateStr.at(DEFAULT_GW_ICMP_OR_DNS);
+        }
         return (1 << TrafficAction::PASS);
     }
 
@@ -138,6 +164,10 @@ uint32_t FlowEntry::MatchAcl(const PacketHeader &hdr,
     if (action == 0 && add_implicit_deny) {
         action = (1 << TrafficAction::DROP) | 
             (1 << TrafficAction::IMPLICIT_DENY);;
+        if (info) {
+            info->uuid = FlowPolicyStateStr.at(IMPLICIT_DENY);
+            info->drop = true;
+        }
     }
 
     return action;
@@ -270,8 +300,9 @@ bool FlowEntry::DoPolicy() {
     data_.match_p.mirror_action = 0;
     data_.match_p.out_mirror_action = 0;
     data_.match_p.sg_action_summary = 0;
-    FlowPolicyInfo nw_acl_info(no_uuid_string_), sg_acl_info(no_uuid_string_);
-    FlowPolicyInfo rev_sg_acl_info(no_uuid_string_);
+    const string value = FlowPolicyStateStr.at(NOT_EVALUATED);
+    FlowPolicyInfo nw_acl_info(value), sg_acl_info(value);
+    FlowPolicyInfo rev_sg_acl_info(value);
 
     FlowEntry *rflow = reverse_flow_entry();
     PacketHeader hdr;
@@ -293,13 +324,15 @@ bool FlowEntry::DoPolicy() {
     // Apply network policy
     data_.match_p.policy_action = MatchAcl(hdr, data_.match_p.m_acl_l, true,
                                            true, &nw_acl_info);
-    if (!ShouldDrop(data_.match_p.policy_action)) {
-        data_.match_p.out_policy_action = MatchAcl(hdr, 
-                                                   data_.match_p.m_out_acl_l,
-                                                   true, true, &nw_acl_info);
+    if (ShouldDrop(data_.match_p.policy_action)) {
+        goto done;
+    }
+    data_.match_p.out_policy_action = MatchAcl(hdr, data_.match_p.m_out_acl_l,
+                                               true, true, &nw_acl_info);
+    if (ShouldDrop(data_.match_p.policy_action)) {
+        goto done;
     }
 
-    nw_ace_uuid_ = nw_acl_info.uuid;
     // Apply security-group
     if (!is_flags_set(FlowEntry::ReverseFlow)) {
         data_.match_p.sg_action = MatchAcl(hdr, data_.match_p.m_sg_acl_l, true,
@@ -340,9 +373,20 @@ bool FlowEntry::DoPolicy() {
         // For Non-TCP-ACK Flows
         //     DROP if any of sg_action, sg_out_action, reverse_sg_action or
         //     reverse_out_sg_action says DROP
+        //     Only sg_acl_info which is derived from data_.match_p.m_sg_acl_l
+        //     and data_.match_p.m_out_sg_acl_l will be populated. Pick the
+        //     UUID specified by sg_acl_info for flow's SG rule UUID
         // For TCP-ACK flows
         //     ALLOW if either ((sg_action && sg_out_action) ||
         //                      (reverse_sg_action & reverse_out_sg_action)) ALLOW
+        //     For flow's SG rule UUID use the following rules
+        //     --If both sg_acl_info and rev_sg_acl_info has drop set, pick the
+        //       UUID from sg_acl_info.
+        //     --If either of sg_acl_info or rev_sg_acl_info does not have drop
+        //       set, pick the UUID from the one which does not have drop set.
+        //     --If both of them does not have drop set, pick it up from
+        //       sg_acl_info
+        //
         data_.match_p.sg_action_summary = 0;
         if (!is_flags_set(FlowEntry::TcpAckFlow)) {
             data_.match_p.sg_action_summary =
@@ -358,12 +402,14 @@ bool FlowEntry::DoPolicy() {
                 ShouldDrop(data_.match_p.reverse_sg_action |
                            data_.match_p.reverse_out_sg_action)) {
                 data_.match_p.sg_action_summary = (1 << TrafficAction::DROP);
-                 sg_rule_uuid_ = sg_acl_info.uuid;
+                sg_rule_uuid_ = sg_acl_info.uuid;
             } else {
                 data_.match_p.sg_action_summary = (1 << TrafficAction::PASS);
-                if (!sg_acl_info.drop) {
+                if (!ShouldDrop(data_.match_p.sg_action |
+                                data_.match_p.out_sg_action)) {
                     sg_rule_uuid_ = sg_acl_info.uuid;
-                } else if (!rev_sg_acl_info.drop) {
+                } else if (!ShouldDrop(data_.match_p.reverse_sg_action |
+                                       data_.match_p.reverse_out_sg_action)) {
                     sg_rule_uuid_ = rev_sg_acl_info.uuid;
                 }
             }
@@ -374,6 +420,8 @@ bool FlowEntry::DoPolicy() {
         UpdateReflexiveAction();
     }
 
+done:
+    nw_ace_uuid_ = nw_acl_info.uuid;
     // Set mirror vrf after evaluation of actions
     SetMirrorVrfFromAction();
     //Set VRF assign action

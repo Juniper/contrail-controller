@@ -58,6 +58,7 @@ class NhListener;
 class NhState;
 typedef boost::intrusive_ptr<FlowEntry> FlowEntryPtr;
 typedef boost::intrusive_ptr<const NhState> NhStatePtr;
+
 struct RouteFlowKey {
     RouteFlowKey() : vrf(0), plen(0) { ip.ipv4 = 0; }
     RouteFlowKey(uint32_t v, uint32_t ipv4, uint8_t prefix) : 
@@ -274,10 +275,19 @@ struct FlowData {
 };
 
 class FlowEntry {
-  public:
+    public:
+    enum FlowPolicyState {
+        NOT_EVALUATED,
+        IMPLICIT_ALLOW, /* Due to No Acl rules */
+        IMPLICIT_DENY,
+        DEFAULT_GW_ICMP_OR_DNS, /* DNS/ICMP pkt to/from default gateway */
+        LINKLOCAL_FLOW, /* No policy applied for linklocal flow */
+        MULTICAST_FLOW /* No policy applied for multicast flow */
+    };
+
     static const uint32_t kInvalidFlowHandle=0xFFFFFFFF;
     static const uint8_t kMaxMirrorsPerFlow=0x2;
-    static const std::string no_uuid_string_;
+    static const std::map<FlowPolicyState, const char*> FlowPolicyStateStr;
 
     // Don't go beyond PCAP_END, pcap type is one byte
     enum PcapType {
