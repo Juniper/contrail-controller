@@ -169,6 +169,7 @@ bool VmUveEntry::FrameVmStatsMsg(const VmEntry* vm,
                                  bool *stats_uve_changed) {
     bool changed = false;
     uve->set_name(vm->GetCfgName());
+    stats_uve->set_name(vm->GetCfgName());
     vector<VmInterfaceStats> s_intf_list;
     vector<VmInterfaceAgentBMap> if_bmap_list;
     vector<VmFloatingIPStats> s_fip_list;
