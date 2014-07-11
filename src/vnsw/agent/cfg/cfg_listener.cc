@@ -56,7 +56,8 @@ void CfgListener::Shutdown() {
     for (CfgListenerIdMap::iterator iter = cfg_listener_id_map_.begin();
          iter != cfg_listener_id_map_.end(); ++iter) {
 
-        DBTableBase *table = iter->first;
+        DBTable *table = static_cast<DBTable *>(iter->first);
+        DBTable::DBStateClear(table, iter->second);
         table->Unregister(iter->second);
     }
 

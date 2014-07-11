@@ -175,6 +175,12 @@ public:
     // Calculate the size across all partitions.
     virtual size_t Size() const;
 
+    // helper functions
+
+    // Delete all the state entries of a specific listener.
+    // Not thread-safe. Used to shutdown and cleanup the process.
+    static void DBStateClear(DBTable *table, ListenerId id);
+
 private:
     ///////////////////////////////////////////////////////////
     // Utility methods
