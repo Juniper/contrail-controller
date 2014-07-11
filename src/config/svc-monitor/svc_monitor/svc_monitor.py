@@ -58,6 +58,8 @@ _SVC_VNS = {_MGMT_STR:  [_SVC_VN_MGMT,  '250.250.1.0/24'],
             _LEFT_STR:  [_SVC_VN_LEFT,  '250.250.2.0/24'],
             _RIGHT_STR: [_SVC_VN_RIGHT, '250.250.3.0/24']}
 
+_SNAT_SUBNET_CIDR = '100.64.0.0/10'
+
 _CHECK_SVC_VM_HEALTH_INTERVAL = 30
 _CHECK_CLEANUP_INTERVAL = 5
 
@@ -407,9 +409,14 @@ class SvcMonitor(object):
                 vn_fq_name_str = func()
 
             if itf_type in _SVC_VNS:
-                vn_id = self._get_vn_id(proj_obj, vn_fq_name_str,
-                                        _SVC_VNS[itf_type][0],
-                                        _SVC_VNS[itf_type][1])
+                if st_props.get_service_type() != 'source-nat':
+                    vn_id = self._get_vn_id(proj_obj, vn_fq_name_str,
+                                            _SVC_VNS[itf_type][0],
+                                            _SNAT_SUBNET_CIDR)
+                else:
+                    vn_id = self._get_vn_id(proj_obj, vn_fq_name_str,
+                                            _SVC_VNS[itf_type][0],
+                                            _SVC_VNS[itf_type][1])
             else:
                 vn_id = self._get_vn_id(proj_obj, vn_fq_name_str)
             if vn_id is None:
