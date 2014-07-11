@@ -58,6 +58,8 @@ _SVC_VNS = {_MGMT_STR:  [_SVC_VN_MGMT,  '250.250.1.0/24'],
             _LEFT_STR:  [_SVC_VN_LEFT,  '250.250.2.0/24'],
             _RIGHT_STR: [_SVC_VN_RIGHT, '250.250.3.0/24']}
 
+_SNAT_SUBNET_CIDR = '100.64.0.0/29'
+
 _CHECK_SVC_VM_HEALTH_INTERVAL = 30
 _CHECK_CLEANUP_INTERVAL = 5
 
@@ -407,9 +409,22 @@ class SvcMonitor(object):
                 vn_fq_name_str = func()
 
             if itf_type in _SVC_VNS:
-                vn_id = self._get_vn_id(proj_obj, vn_fq_name_str,
-                                        _SVC_VNS[itf_type][0],
-                                        _SVC_VNS[itf_type][1])
+                if (itf_type == 'left' and
+                    st_props.get_service_type() == 'source-nat'):
+                    # Service instance SNAT NetNS use a dedicated network (non
+                    # shared vn)
+                    vn_name = 'svc_snat_%s' % si_obj.name
+                    vn_fq_name = proj_obj.get_fq_name() + [vn_name]
+                    try:
+                        vn_id = self._vnc_lib.fq_name_to_id('virtual-network',
+                                                            vn_fq_name)
+                    except NoIdError:
+                        vn_id = self._create_svc_vn(vn_name, _SNAT_SUBNET_CIDR,
+                                                    proj_obj)
+                else:
+                    vn_id = self._get_vn_id(proj_obj, vn_fq_name_str,
+                                            _SVC_VNS[itf_type][0],
+                                            _SVC_VNS[itf_type][1])
             else:
                 vn_id = self._get_vn_id(proj_obj, vn_fq_name_str)
             if vn_id is None:
@@ -712,7 +727,22 @@ class SvcMonitor(object):
 
     def _delmsg_project_service_instance(self, idents):
         proj_fq_str = idents['project']
+        si_fq_str = idents['service-instance']
         proj_obj = self._vnc_lib.project_read(fq_name_str=proj_fq_str)
+
+        # Service instance SNAT NetNS have a dedicated left network (non
+        # shared vn)
+        vn_name = 'svc_snat_%s' % si_fq_str.split(':')[2]
+        vn_fq_name = proj_obj.get_fq_name() + [vn_name]
+        try:
+            vn_uuid = self._vnc_lib.fq_name_to_id('virtual-network',
+                                                  vn_fq_name)
+            self._cleanup_cf.insert(vn_uuid,
+                                    {'proj_name': proj_obj.name,
+                                     'type': 'vn'})
+        except NoIdError:
+            pass
+
         if proj_obj.get_service_instances() is not None:
             return
 
