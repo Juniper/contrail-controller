@@ -12,6 +12,7 @@
 #include "cmn/agent_signal.h"
 #include "db/db_entry.h"
 #include "oper/service_instance.h"
+#include "base/queue_task.h"
 
 class DB;
 class EventManager;
@@ -21,12 +22,43 @@ class NamespaceTaskQueue;
 
 /*
  * Starts and stops network namespaces corresponding to service-instances.
+ *
+ * In order to prevent concurrency issues between the signal hanlder leveraged
+ * by this class and the db::task context specific methods are protected by
+ * a mutex.
  */
 class NamespaceManager {
  public:
     enum CmdType {
         Start = 1,
         Stop
+    };
+
+    enum ChldEventType {
+        SigChldEvent = 1,
+        OnErrorEvent,
+        OnTaskTimeoutEvent
+    };
+
+    struct NamespaceManagerChildEvent {
+        int type;
+
+        /*
+         * SigChld variables
+         */
+        pid_t pid;
+        int status;
+
+        /*
+         * OnError variables
+         */
+        NamespaceTask *task;
+        std::string errors;
+
+        /*
+         * OnTimeout
+         */
+        NamespaceTaskQueue *task_queue;
     };
 
     static const int kTimeoutDefault = 30;
@@ -38,6 +70,7 @@ class NamespaceManager {
                     const std::string &netns_cmd, const int netns_workers,
                     const int netns_timeout);
     void Terminate();
+    bool DequeueEvent(NamespaceManagerChildEvent event);
 
     NamespaceState *GetState(ServiceInstance *) const;
 
@@ -54,7 +87,8 @@ class NamespaceManager {
     void OnError(NamespaceTask *task, const std::string errors);
     void RegisterSvcInstance(NamespaceTask *task,
                              ServiceInstance *svc_instance);
-    void UnRegisterSvcInstance(ServiceInstance *svc_instance);
+    void UnregisterSvcInstance(ServiceInstance *svc_instance);
+    ServiceInstance *UnregisterSvcInstance(NamespaceTask *task);
     ServiceInstance *GetSvcInstance(NamespaceTask *task) const;
 
     NamespaceTaskQueue *GetTaskQueue(const std::string &str);
@@ -71,6 +105,12 @@ class NamespaceManager {
     int GetLastCmdType(ServiceInstance *svc_instance) const;
     void ClearLastCmdType(ServiceInstance *svc_instance);
 
+    void OnTaskTimeout(NamespaceTaskQueue *task_queue);
+
+    void SigChlgEventHandler(NamespaceManagerChildEvent event);
+    void OnErrorEventHandler(NamespaceManagerChildEvent event);
+    void OnTaskTimeoutEventHandler(NamespaceManagerChildEvent event);
+
     /*
      * Event observer for changes in the "db.service-instance.0" table.
      */
@@ -81,6 +121,7 @@ class NamespaceManager {
     DBTableBase::ListenerId listener_id_;
     std::string netns_cmd_;
     int netns_timeout_;
+    WorkQueue<NamespaceManagerChildEvent> work_queue_;
 
     std::vector<NamespaceTaskQueue *> task_queues_;
     std::map<NamespaceTask *, ServiceInstance *> task_svc_instances_;
