@@ -62,7 +62,7 @@ void NamespaceManager::Initialize(DB *database, AgentSignal *signal,
 }
 
 void NamespaceManager::UpdateStateStatusType(NamespaceTask* task, int status) {
-    ServiceInstance* svc_instance = GetSvcInstance(task);
+    ServiceInstance* svc_instance = UnRegisterSvcInstance(task);
     if (svc_instance) {
         NamespaceState *state = GetState(svc_instance);
         if (state != NULL) {
@@ -158,8 +158,8 @@ void NamespaceManager::Terminate() {
     }
 }
 
-void  NamespaceManager::Enqueue(NamespaceTask *task,
-                                const boost::uuids::uuid &uuid) {
+void NamespaceManager::Enqueue(NamespaceTask *task,
+                               const boost::uuids::uuid &uuid) {
     std::stringstream ss;
     ss << uuid;
     NamespaceTaskQueue *task_queue = GetTaskQueue(ss.str());
@@ -246,15 +246,34 @@ ServiceInstance *NamespaceManager::GetSvcInstance(NamespaceTask *task) const {
 
 void NamespaceManager::RegisterSvcInstance(NamespaceTask *task,
                                            ServiceInstance *svc_instance) {
+    tbb::mutex::scoped_lock lock(task_svc_instances_mutex_);
     task_svc_instances_.insert(std::make_pair(task, svc_instance));
 }
 
-void NamespaceManager::UnRegisterSvcInstance(ServiceInstance *svc_instance) {
+ServiceInstance *NamespaceManager::UnRegisterSvcInstance(NamespaceTask *task) {
+    tbb::mutex::scoped_lock lock(task_svc_instances_mutex_);
     for (std::map<NamespaceTask *, ServiceInstance*>::iterator iter =
                     task_svc_instances_.begin();
          iter != task_svc_instances_.end(); ++iter) {
-        if (svc_instance == iter->second) {
+        if (task == iter->first) {
+            ServiceInstance *svc_instance = iter->second;
             task_svc_instances_.erase(iter);
+            return svc_instance;
+        }
+    }
+
+    return NULL;
+}
+
+void NamespaceManager::UnRegisterSvcInstance(ServiceInstance *svc_instance) {
+    tbb::mutex::scoped_lock lock(task_svc_instances_mutex_);
+    std::map<NamespaceTask *, ServiceInstance*>::iterator iter =
+        task_svc_instances_.begin();
+    while(iter != task_svc_instances_.end()) {
+        if (svc_instance == iter->second) {
+            task_svc_instances_.erase(iter++);
+        } else {
+            ++iter;
         }
     }
 }

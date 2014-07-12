@@ -55,6 +55,7 @@ class NamespaceManager {
     void RegisterSvcInstance(NamespaceTask *task,
                              ServiceInstance *svc_instance);
     void UnRegisterSvcInstance(ServiceInstance *svc_instance);
+    ServiceInstance *UnRegisterSvcInstance(NamespaceTask *task);
     ServiceInstance *GetSvcInstance(NamespaceTask *task) const;
 
     NamespaceTaskQueue *GetTaskQueue(const std::string &str);
@@ -85,6 +86,8 @@ class NamespaceManager {
     std::vector<NamespaceTaskQueue *> task_queues_;
     std::map<NamespaceTask *, ServiceInstance *> task_svc_instances_;
     std::map<std::string, int> last_cmd_types_;
+
+    tbb::mutex task_svc_instances_mutex_;
 };
 
 class NamespaceState : public DBState {
