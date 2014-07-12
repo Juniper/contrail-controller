@@ -21,6 +21,10 @@ class NamespaceTaskQueue;
 
 /*
  * Starts and stops network namespaces corresponding to service-instances.
+ *
+ * In order to prevent concurrency issues between the signal hanlder leveraged
+ * by this class and the db::task context specific methods are protected by
+ * a mutex.
  */
 class NamespaceManager {
  public:
@@ -54,7 +58,8 @@ class NamespaceManager {
     void OnError(NamespaceTask *task, const std::string errors);
     void RegisterSvcInstance(NamespaceTask *task,
                              ServiceInstance *svc_instance);
-    void UnRegisterSvcInstance(ServiceInstance *svc_instance);
+    void UnregisterSvcInstance(ServiceInstance *svc_instance);
+    ServiceInstance *UnregisterSvcInstance(NamespaceTask *task);
     ServiceInstance *GetSvcInstance(NamespaceTask *task) const;
 
     NamespaceTaskQueue *GetTaskQueue(const std::string &str);
@@ -85,6 +90,8 @@ class NamespaceManager {
     std::vector<NamespaceTaskQueue *> task_queues_;
     std::map<NamespaceTask *, ServiceInstance *> task_svc_instances_;
     std::map<std::string, int> last_cmd_types_;
+
+    tbb::mutex task_svc_instances_mutex_;
 };
 
 class NamespaceState : public DBState {
