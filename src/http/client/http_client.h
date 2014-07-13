@@ -122,6 +122,8 @@ private:
 // Http Client class
 class HttpClient : public TcpServer {
 public:
+    static const uint32_t kDefaultTimeout = 1;  // one millisec
+
     explicit HttpClient(EventManager *evm);
     virtual ~HttpClient();
 

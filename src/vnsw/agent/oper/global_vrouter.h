@@ -72,6 +72,10 @@ public:
     bool FindLinkLocalService(const Ip4Address &service_ip,
                               uint16_t service_port, std::string *service_name,
                               Ip4Address *fabric_ip, uint16_t *fabric_port);
+    bool FindLinkLocalService(const std::string &service_name,
+                              std::set<Ip4Address> *service_ip);
+    bool FindLinkLocalService(const Ip4Address &service_ip,
+                              std::set<std::string> *service_names);
     void LinkLocalRouteUpdate(const std::vector<Ip4Address> &addr_list);
     bool IsAddressInUse(const Ip4Address &ip) const;
     bool IsLinkLocalAddressInUse(const Ip4Address &ip) const;

@@ -472,6 +472,39 @@ bool GlobalVrouter::FindLinkLocalService(const Ip4Address &service_ip,
     return false;
 }
 
+// Get link local services, for a given service name
+bool GlobalVrouter::FindLinkLocalService(const std::string &service_name,
+                                         std::set<Ip4Address> *service_ip) {
+    if (service_name.empty())
+        return false;
+
+    std::string name = boost::to_lower_copy(service_name);
+    for (GlobalVrouter::LinkLocalServicesMap::const_iterator it =
+         linklocal_services_map_.begin();
+         it != linklocal_services_map_.end(); ++it) {
+        if (it->second.linklocal_service_name == name) {
+            service_ip->insert(it->first.linklocal_service_ip);
+        }
+    }
+
+    return (service_ip->size() > 0);
+}
+
+// Get link local services info for a given linklocal service <ip>
+bool GlobalVrouter::FindLinkLocalService(const Ip4Address &service_ip,
+                                         std::set<std::string> *service_names) {
+    LinkLocalServicesMap::iterator it =
+        linklocal_services_map_.lower_bound(LinkLocalServiceKey(service_ip, 0));
+
+    while (it != linklocal_services_map_.end() &&
+           it->first.linklocal_service_ip == service_ip) {
+        service_names->insert(it->second.linklocal_service_name);
+        it++;
+    }
+
+    return (service_names->size() > 0);
+}
+
 // Handle changes to link local service configuration
 void GlobalVrouter::UpdateLinkLocalServiceConfig(
     const LinkLocalServiceList &linklocal_list) {

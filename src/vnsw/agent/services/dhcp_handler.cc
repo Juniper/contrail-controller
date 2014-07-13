@@ -546,30 +546,8 @@ uint16_t DhcpHandler::AddConfigDhcpOptions(uint16_t opt_len,
                                            bool &domain_name_added,
                                            bool &dns_server_added) {
     std::vector<autogen::DhcpOptionType> options;
-    do {
-        if (vm_itf_->oper_dhcp_options().are_dhcp_options_set()) {
-            options = vm_itf_->oper_dhcp_options().dhcp_options();
-            break;
-        }
-
-        if (vm_itf_->vn()) {
-            Ip4Address ip(config_.ip_addr);
-            const std::vector<VnIpam> &vn_ipam = vm_itf_->vn()->GetVnIpam();
-            uint32_t index;
-            for (index = 0; index < vn_ipam.size(); ++index) {
-                if (vn_ipam[index].IsSubnetMember(ip)) {
-                    break;
-                }
-            }
-            if (index < vn_ipam.size() &&
-                vn_ipam[index].oper_dhcp_options.are_dhcp_options_set()) {
-                options = vn_ipam[index].oper_dhcp_options.dhcp_options();
-                break;
-            }
-        }
-
-        options = ipam_type_.dhcp_option_list.dhcp_option;
-    } while (false);
+    if (!vm_itf_->GetDhcpOptions(&options))
+        return opt_len;
 
     for (unsigned int i = 0; i < options.size(); ++i) {
         uint32_t option_type;

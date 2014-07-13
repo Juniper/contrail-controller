@@ -147,7 +147,7 @@ struct DnsItem {
     DnsItem() : eclass(1), type(0), ttl(0), priority(0), offset(0),
     name_plen(0), name_offset(0), data_plen(0), data_offset(0), soa() {}
 
-    std::string ToString();
+    std::string ToString() const;
 
     bool operator ==(const DnsItem &rhs) const {
         if (eclass == rhs.eclass && type == rhs.type && 
@@ -255,7 +255,7 @@ struct Subnet {
     bool IsDeleted() const { return (flags & DeleteMarked); }
     void ClearDelete() { flags &= ~DeleteMarked; }
 
-    std::string ToString() { return prefix.to_string(); }   
+    std::string ToString() const { return prefix.to_string(); }
 };
 
 typedef std::vector<Subnet> Subnets;
@@ -274,16 +274,14 @@ public:
     static uint16_t DnsType(const std::string &tp);
     static std::string DnsType(uint16_t tp);
     static const std::string &DnsResponseCode(uint16_t code);
-    static int ParseDnsQuery(uint8_t *buf, std::vector<DnsItem> &items);
+    static int ParseDnsQuery(uint8_t *buf, DnsItems &items);
     static void ParseDnsQuery(uint8_t *buf, uint16_t &xid, dns_flags &flags,
-                              std::vector<DnsItem> &ques,
-                              std::vector<DnsItem> &ans,
-                              std::vector<DnsItem> &auth,
-                              std::vector<DnsItem> &add);
+                              DnsItems &ques, DnsItems &ans,
+                              DnsItems &auth, DnsItems &add);
     static int ParseDnsUpdate(uint8_t *buf, DnsUpdateData &data);
     static int BuildDnsQuery(uint8_t *buf, uint16_t xid, 
                              const std::string &domain,
-                             const std::vector<DnsItem> &items);
+                             const DnsItems &items);
     static int BuildDnsUpdate(uint8_t *buf, Operation op, uint16_t xid, 
                               const std::string &domain, 
                               const std::string &zone, 

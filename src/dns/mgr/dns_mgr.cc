@@ -341,7 +341,7 @@ void DnsManager::UpdateAll() {
 void DnsManager::HandleUpdateResponse(uint8_t *pkt) {
     dns_flags flags;
     uint16_t xid;
-    std::vector<DnsItem> ques, ans, auth, add;
+    DnsItems ques, ans, auth, add;
     BindUtil::ParseDnsQuery(pkt, xid, flags, ques, ans, auth, add);
     if (flags.ret) {
         DNS_BIND_TRACE(DnsBindError, "Update failed : " <<

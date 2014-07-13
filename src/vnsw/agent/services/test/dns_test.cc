@@ -189,7 +189,7 @@ public:
     }
 
     int SendDnsQuery(dnshdr *dns, int numItems, DnsItem *items, dns_flags flags) {
-        std::vector<DnsItem> questions;
+        DnsItems questions;
         for (int i = 0; i < numItems; i++) {
             questions.push_back(items[i]);
         }
