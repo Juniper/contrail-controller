@@ -207,10 +207,11 @@ VirtualGateway::RouteUpdate(const VirtualGatewayConfig &vgw,
                             Ip4Address(0), 0, NULL);
     } else if (new_list_size == 0 && add_default_route) {
         // no routes now, add a default route
-        rt_table->AddInetInterfaceRoute(agent_->vgw_peer(), vgw.vrf_name(),
-                                        Ip4Address(0), 0, vgw.interface_name(),
-                                        vgw.interface()->label(),
-                                        vgw.vrf_name());
+        rt_table->AddInetInterfaceRouteReq(agent_->vgw_peer(), vgw.vrf_name(),
+                                           Ip4Address(0), 0,
+                                           vgw.interface_name(),
+                                           vgw.interface()->label(),
+                                           vgw.vrf_name());
     }
     // remove old routes, add new routes
     for (uint32_t idx = 0; idx < del_list.size(); idx++) {
@@ -222,11 +223,12 @@ VirtualGateway::RouteUpdate(const VirtualGatewayConfig &vgw,
     for (uint32_t idx = 0; idx < add_list.size(); idx++) {
         Ip4Address addr = GetIp4SubnetAddress(add_list[idx].ip_,
                                               add_list[idx].plen_);
-        rt_table->AddInetInterfaceRoute(agent_->vgw_peer(),
-                                        vgw.vrf_name(), addr, add_list[idx].plen_,
-                                        vgw.interface_name(),
-                                        vgw.interface()->label(),
-                                        vgw.vrf_name());
+        rt_table->AddInetInterfaceRouteReq(agent_->vgw_peer(),
+                                           vgw.vrf_name(), addr,
+                                           add_list[idx].plen_,
+                                           vgw.interface_name(),
+                                           vgw.interface()->label(),
+                                           vgw.vrf_name());
     }
 }
 
