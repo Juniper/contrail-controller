@@ -15,6 +15,7 @@
 #include <oper/multicast.h>
 #include <oper/mirror_table.h>
 #include <controller/controller_init.h>
+#include <controller/controller_route_path.h>
 
 #include <sandesh/sandesh_types.h>
 #include <sandesh/sandesh_constants.h>
@@ -22,7 +23,7 @@
 #include <sandesh/sandesh_trace.h>
 
 using namespace std;
-#define INVALID_PEER_IDENTIFIER VNController::kInvalidPeerIdentifier 
+#define INVALID_PEER_IDENTIFIER ControllerPeerPath::kInvalidPeerIdentifier
 
 MulticastHandler *MulticastHandler::obj_;
 SandeshTraceBufferPtr MulticastTraceBuf(SandeshTraceBufferCreate("Multicast",
