@@ -195,6 +195,7 @@ protected:
     }
 
     virtual void TearDown() {
+        task_util::WaitForIdle();
         ConcurrencyScope scope("bgp::Config");
         TASK_UTIL_EXPECT_TRUE(a_->IsReadyForDeletion());
         task_util::WaitForIdle();

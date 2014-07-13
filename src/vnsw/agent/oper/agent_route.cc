@@ -430,17 +430,11 @@ void AgentRouteTable::ManagedDelete() {
     deleter_->Delete();
 }
 
-// If the table has entries, deletion cannot be resumed
-void AgentRouteTable::MayResumeDelete(bool is_empty) {
+void AgentRouteTable::RetryDelete() {
     if (!deleter()->IsDeleted()) {
         return;
     }
-
-    if (!is_empty) {
-        return;
-    }
-
-    agent_->lifetime_manager()->Enqueue(deleter());
+    deleter()->RetryDelete();
 }
 
 // Find entry not in deleted state

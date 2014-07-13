@@ -145,7 +145,7 @@ public:
     // Lifetime actor routines
     LifetimeActor *deleter();
     void ManagedDelete();
-    void MayResumeDelete(bool is_empty);
+    virtual void RetryDelete();
 
     // Process DBRequest inline
     void Process(DBRequest &req);

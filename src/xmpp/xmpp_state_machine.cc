@@ -3,6 +3,7 @@
  */
 
 #include "xmpp/xmpp_state_machine.h"
+
 #include <typeinfo>
 #include <boost/bind.hpp>
 #include <boost/date_time/posix_time/posix_time.hpp>
@@ -26,6 +27,7 @@
 #include "sandesh/xmpp_state_machine_sandesh_types.h"
 #include "sandesh/xmpp_trace_sandesh_types.h"
 #include "xmpp/xmpp_connection.h"
+#include "xmpp/xmpp_factory.h"
 #include "xmpp/xmpp_log.h"
 #include "xmpp/xmpp_server.h"
 #include "xmpp/xmpp_session.h"

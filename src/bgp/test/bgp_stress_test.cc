@@ -53,6 +53,7 @@
 
 #include "xmpp/xmpp_client.h"
 #include "xmpp/xmpp_init.h"
+#include "xmpp/xmpp_factory.h"
 #include "xmpp/xmpp_state_machine.h"
 
 #include "bgp/test/bgp_stress_test.h"
@@ -228,6 +229,18 @@ void StateMachineTest::StartIdleHoldTimer() {
     idle_hold_timer_->Start(100,
             boost::bind(&StateMachine::IdleHoldTimerExpired, this),
             boost::bind(&StateMachine::TimerErrorHanlder, this, _1, _2));
+}
+
+void XmppStateMachineTest::StartConnectTimer(int seconds) {
+    connect_timer_->Start(10,
+        boost::bind(&XmppStateMachine::ConnectTimerExpired, this),
+        boost::bind(&XmppStateMachine::TimerErrorHandler, this, _1, _2));
+}
+
+void XmppStateMachineTest::StartOpenTimer(int seconds) {
+    open_timer_->Start(10,
+        boost::bind(&XmppStateMachine::OpenTimerExpired, this),
+        boost::bind(&XmppStateMachine::TimerErrorHandler, this, _1, _2));
 }
 
 static string GetRouterName(int router_id) {
@@ -2986,6 +2999,8 @@ static void SetUp() {
         boost::factory<StateMachineTest *>());
     IFMapFactory::Register<IFMapXmppChannel>(
         boost::factory<IFMapXmppChannelTest *>());
+    XmppObjectFactory::Register<XmppStateMachine>(
+        boost::factory<XmppStateMachineTest *>());
 }
 
 static void TearDown() {

@@ -34,6 +34,7 @@ public:
         uint32_t keepalive;
         uint32_t update;
     };
+
     XmppConnection(TcpServer *server, const XmppChannelConfig *config);
     virtual ~XmppConnection();
 
@@ -88,7 +89,9 @@ public:
     }
     virtual bool IsClient() const = 0;
     virtual void ManagedDelete() = 0;
+    virtual void RetryDelete() = 0;
     virtual LifetimeActor *deleter() = 0;
+    virtual const LifetimeActor *deleter() const = 0;
     virtual LifetimeManager *lifetime_manager() = 0;
     virtual void Destroy() = 0;
     xmsm::XmState GetStateMcState() const;
@@ -206,7 +209,7 @@ private:
     std::auto_ptr<XmppChannelMux> mux_; 
     int keepalive_time_;
     std::auto_ptr<XmppStanza::XmppMessage> last_msg_;
-    
+
     ProtoStats stats_[2];
     bool     disable_read_;
     uint32_t flap_count_;
@@ -223,7 +226,9 @@ public:
     virtual ~XmppServerConnection();
     virtual bool IsClient() const;
     virtual void ManagedDelete();
+    virtual void RetryDelete();
     virtual LifetimeActor *deleter();
+    virtual const LifetimeActor *deleter() const;
     virtual LifetimeManager *lifetime_manager();
     virtual void Destroy();
 
@@ -239,7 +244,9 @@ public:
     virtual ~XmppClientConnection();
     virtual bool IsClient() const;
     virtual void ManagedDelete();
+    virtual void RetryDelete();
     virtual LifetimeActor *deleter();
+    virtual const LifetimeActor *deleter() const;
     virtual LifetimeManager *lifetime_manager();
     virtual void Destroy();
 

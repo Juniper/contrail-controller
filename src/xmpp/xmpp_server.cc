@@ -4,6 +4,7 @@
 
 #include "xmpp/xmpp_server.h"
 #include <boost/bind.hpp>
+#include <boost/tuple/tuple.hpp>
 
 #include "base/task_annotations.h"
 
@@ -22,6 +23,7 @@
 
 using namespace std;
 using namespace boost::asio;
+using boost::tie;
 
 class XmppServer::DeleteActor : public LifetimeActor {
 public:
@@ -37,6 +39,7 @@ public:
     virtual void Destroy() {
         CHECK_CONCURRENCY("bgp::Config");
     }
+
 private:
     XmppServer *server_;
 };
@@ -46,7 +49,7 @@ XmppServer::XmppServer(EventManager *evm, const string &server_addr)
             TaskScheduler::GetInstance()->GetTaskId("bgp::Config"))),
       deleter_(new DeleteActor(this)), 
       work_queue_(TaskScheduler::GetInstance()->GetTaskId("bgp::Config"), 0,
-                  boost::bind(&XmppServer::DequeueSession, this, _1)) {
+                  boost::bind(&XmppServer::DequeueConnection, this, _1)) {
     server_addr_ = server_addr;
     log_uve_ = false;
 }
@@ -56,7 +59,7 @@ XmppServer::XmppServer(EventManager *evm)
             TaskScheduler::GetInstance()->GetTaskId("bgp::Config"))),
       deleter_(new DeleteActor(this)), 
       work_queue_(TaskScheduler::GetInstance()->GetTaskId("bgp::Config"), 0,
-                  boost::bind(&XmppServer::DequeueSession, this, _1)) {
+                  boost::bind(&XmppServer::DequeueConnection, this, _1)) {
     log_uve_ = false;
 }
 
@@ -131,7 +134,7 @@ TcpSession *XmppServer::CreateSession() {
         XMPP_WARNING(SetSockOptFail, err.message());
         return session;
     }
-    
+
     socket->bind(LocalEndpoint(), err);
     if (err) {
         XMPP_WARNING(ServerBindFailure, err.message());
@@ -155,8 +158,20 @@ size_t XmppServer::ConnectionEventCount() const {
     return connection_event_map_.size();
 }
 
+size_t XmppServer::ConnectionsCount() {
+    return connection_map_.size() + deleted_connection_set_.size();
+}
+
+XmppConnection *XmppServer::FindConnection(Endpoint remote_endpoint) {
+    XmppConnectionMap::iterator loc = connection_map_.find(remote_endpoint);
+    if (loc != connection_map_.end()) {
+        return loc->second;
+    }
+    return NULL;
+}
+
 XmppConnection *XmppServer::FindConnection(const string &peer_addr) {
-    XmppConnectionMap::iterator loc = find_if(connection_map_.begin(), 
+    XmppConnectionMap::iterator loc = find_if(connection_map_.begin(),
             connection_map_.end(), boost::bind(&XmppServer::Compare, this,
                                            boost::ref(peer_addr), _1));
     if (loc != connection_map_.end()) {
@@ -166,7 +181,6 @@ XmppConnection *XmppServer::FindConnection(const string &peer_addr) {
 }
 
 XmppConnection *XmppServer::FindConnectionbyHostName(const string hostname) {
-
     for (XmppConnectionMap::iterator iter = connection_map_.begin(), next = iter;
                                      iter != connection_map_.end(); 
                                      iter = next) {
@@ -180,7 +194,6 @@ XmppConnection *XmppServer::FindConnectionbyHostName(const string hostname) {
 }
 
 void XmppServer::ClearAllConnections() {
-
     for (XmppConnectionMap::iterator iter = connection_map_.begin(), next = iter;
                                      iter != connection_map_.end(); 
                                      iter = next) {
@@ -221,21 +234,85 @@ TcpSession *XmppServer::AllocSession(Socket *socket) {
     return session;
 }
 
-void XmppServer::RemoveConnection(XmppConnection *connection) {
-    CHECK_CONCURRENCY("bgp::Config");
-    boost::asio::ip::tcp::endpoint endpoint = connection->endpoint();
-    connection_map_.erase(endpoint);
+// Accept newly formed passive tcp session by creating necessary xmpp data
+// structures. We do so to make sure that if there is any error reported
+// over this tcp session, it can still be correctly handled, even though
+// the allocated xmpp data structures are not fully processed yet.
+bool XmppServer::AcceptSession(TcpSession *tcp_session) {
+    XmppSession *session = dynamic_cast<XmppSession *>(tcp_session);
+    XmppConnection *connection = CreateConnection(session);
+
+    // Register event handler.
+    tcp_session->set_observer(boost::bind(&XmppStateMachine::OnSessionEvent,
+                                          connection->state_machine(), _1, _2));
+
+    // set async_read_ready as false
+    session->set_read_on_connect(false);
+    connection->set_session(session);
+    work_queue_.Enqueue(connection);
+    return true;
 }
 
+//
+// Remove the given XmppConnection from the XmppConnectionMap.
+//
+// Return true if the XmppConnection was in the map, false otherwise.
+// Note that the map may have a different incarnation of the XmppConnection
+// i.e. same endpoint but different XmppConnection.
+//
+bool XmppServer::RemoveConnection(XmppConnection *connection) {
+    CHECK_CONCURRENCY("bgp::Config");
+
+    boost::asio::ip::tcp::endpoint endpoint = connection->endpoint();
+    XmppConnectionMap::iterator loc = connection_map_.find(endpoint);
+    if (loc != connection_map_.end() && loc->second == connection) {
+        connection_map_.erase(loc);
+        return true;
+    }
+    return false;
+}
+
+//
+// Insert the given XmppConnection into the XmppConnectionMap.
+//
 void XmppServer::InsertConnection(XmppConnection *connection) {
+    CHECK_CONCURRENCY("bgp::Config");
+
     connection->Initialize();
     boost::asio::ip::tcp::endpoint endpoint = connection->endpoint();
-    connection_map_.insert(endpoint, connection);
+    XmppConnectionMap::iterator loc;
+    bool result;
+    tie(loc, result) = connection_map_.insert(make_pair(endpoint, connection));
+    assert(result);
 }
 
-// Create XmppConnnection and its associated data structures. This API is only
-// used to allocate data structures and initialize necessary fields. However,
-// the data structurs are not populated to any maps yet.
+//
+// Connection is being deleted, add it to the XmppConnectionSet.
+//
+void XmppServer::DeleteConnection(XmppConnection *connection) {
+    CHECK_CONCURRENCY("bgp::Config");
+
+    XmppConnectionSet::iterator it;
+    bool result;
+    tie(it, result) = deleted_connection_set_.insert(connection);
+    assert(result);
+}
+
+//
+// Connection is being destroyed, remove it from the XmppConnectionSet.
+//
+void XmppServer::DestroyConnection(XmppConnection *connection) {
+    CHECK_CONCURRENCY("bgp::Config");
+
+    XmppConnectionSet::iterator it = deleted_connection_set_.find(connection);
+    assert(it != deleted_connection_set_.end());
+    deleted_connection_set_.erase(it);
+    delete connection;
+}
+
+// Create XmppConnnection and its associated data structures. This API is
+// only used to allocate data structures and initialize necessary fields.
+// However, the data structures are not populated to any maps yet.
 XmppConnection *XmppServer::CreateConnection(XmppSession *session) {
     XmppConnection   *connection;
     ip::tcp::endpoint remote_endpoint;
@@ -256,50 +333,34 @@ XmppConnection *XmppServer::CreateConnection(XmppSession *session) {
     return connection;
 }
 
-// Accept newly formed passive tcp session by creating necessary xmpp data
-// structures. We do so to make sure that if there is any error reported
-// over this tcp session, it can still be correctly handled, even though
-// the allocated xmpp data structures are not fully processed yet.
-bool XmppServer::AcceptSession(TcpSession *tcp_session) {
-    XmppSession *session = dynamic_cast<XmppSession *>(tcp_session);
-    XmppConnection *connection = CreateConnection(session);
-
-    // Register event handler.
-    tcp_session->set_observer(boost::bind(&XmppStateMachine::OnSessionEvent,
-                                          connection->state_machine(), _1, _2));
-
-    // set async_read_ready as false
-    session->set_read_on_connect(false);
-    connection->set_session(session);
-    work_queue_.Enqueue(connection);
-    return true;
-}
-
-bool XmppServer::DequeueSession(XmppConnection *connection) {
+bool XmppServer::DequeueConnection(XmppConnection *connection) {
     CHECK_CONCURRENCY("bgp::Config"); 
 
     XmppSession *session = connection->session();
     connection->set_session(NULL);
 
-    ip::tcp::endpoint remote_endpoint;
+    Endpoint remote_endpoint;
     remote_endpoint.address(session->remote_endpoint().address());
     remote_endpoint.port(0);
 
-    XmppConnectionMap::iterator loc = connection_map_.find(remote_endpoint);
-    if (loc == connection_map_.end()) {
+    XmppConnection *old_connection = FindConnection(remote_endpoint);
+    if (old_connection == NULL) {
         InsertConnection(connection);
         connection->AcceptSession(session);
     } else {
         if (!IsPeerCloseGraceful()) {
 
-            // Close the newly created session
-            XMPP_DEBUG(XmppCreateConnection, "Close duplicate connection" +
-                       session->remote_endpoint().address().to_string());
+            // Delete the newly created connection and session.
+            XMPP_DEBUG(XmppCreateConnection, "Close duplicate connection " +
+                       session->ToString());
             DeleteSession(session);
+            DeleteConnection(connection);
+            connection->ManagedDelete();
+
         } else {
 
-            // XXX Do this the right way.
-            delete connection;
+            DeleteConnection(connection);
+            connection->ManagedDelete();
 
             // TODO GR case: associate the new session
             // ShutdownPending() is set in bgp::config task context via LTM
@@ -314,7 +375,7 @@ bool XmppServer::DequeueSession(XmppConnection *connection) {
             // Also appropriately take care of asserts in bgp_xmpp_channel.cc
             // for ReceiveUpdate
             //
-            connection = loc->second;
+            connection = old_connection;
             if (connection->session()) {
                 DeleteSession(connection->session());
             }
