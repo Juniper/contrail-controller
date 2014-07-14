@@ -138,8 +138,6 @@ class TestFixtures(object):
         try:
             super(TestFixtures, self).assertThat(*args)
         except MismatchError as e:
-            import pdb
-            pdb.set_trace()
             raise e
     # end assertThat
 
@@ -271,8 +269,6 @@ class TestNetAddrAlloc(object):
         try:
             super(TestNetAddrAlloc, self).assertThat(*args)
         except MismatchError as e:
-            import pdb
-            pdb.set_trace()
             raise e
     # end assertThat
 
