@@ -322,7 +322,7 @@ class OpenstackDriver(vnc_plugin_base.Resync):
             self._failed_domain_dels.add(domain_id)
     # _del_domain_from_vnc
 
-    def _resync_all_domains(self):
+    def _resync_domains(self, domain_id):
         if not self._ks_domains_list:
             # < keystonev3, no domains
             return False
@@ -352,19 +352,17 @@ class OpenstackDriver(vnc_plugin_base.Resync):
             self._del_domain_from_vnc(vnc_domain_id)
 
         if self._keystone_sync_on_demand:
-            # pre_domain_read will get it
-            pass
+            # if on_demand, sync just that domain id
+            self.sync_domain_to_vnc(domain_id)
         else:
             for ks_domain_id in ks_domain_ids - vnc_domain_ids:
-                self._add_domain_to_vnc(ks_domain_id)
+                self.sync_domain_to_vnc(ks_domain_id)
 
         # we are in sync
         self._vnc_domain_ids = ks_domain_ids
+    # end _resync_domains
 
-        return False
-    # end _resync_all_domains
-
-    def _resync_all_projects(self):
+    def _resync_projects(self, project_id):
         self._get_keystone_conn()
         # compare new and old set,
         # optimize for common case where nothing has changed,
@@ -380,90 +378,27 @@ class OpenstackDriver(vnc_plugin_base.Resync):
 
         vnc_project_ids = self._vnc_project_ids
         if vnc_project_ids == ks_project_ids:
-            # no change, go back to poll
-            return False
+            return
 
         for vnc_project_id in vnc_project_ids - ks_project_ids:
             self._del_project_from_vnc(vnc_project_id)
 
         if self._keystone_sync_on_demand:
-            pass # pre_project_read will get it
+            # if on_demand, sync just that project
+            self.sync_project_to_vnc(project_id)
         else:
             for ks_project_id in ks_project_ids - vnc_project_ids:
-                self._add_project_to_vnc(ks_project_id)
+                self.sync_project_to_vnc(ks_project_id)
 
         # we are in sync
         self._vnc_project_ids = ks_project_ids
-
-        return False
-    # end _resync_all_projects
-
-    def _resync_domains_projects_forever(self):
-        try:
-            # get connection to api-server REST interface
-            while True:
-                try:
-                    self._get_vnc_conn()
-                    break
-                except requests.ConnectionError:
-                    gevent.sleep(1)
-
-            vnc_domains = self._vnc_lib.domains_list()['domains']
-            for dom in vnc_domains:
-                self._vnc_domain_ids.add(dom['uuid'])
-                if dom['fq_name'] == ['default-domain']:
-                    self._vnc_default_domain_id = dom['uuid']
-
-            vnc_projects = self._vnc_lib.projects_list()['projects']
-            self._vnc_project_ids = set([proj['uuid'] for proj in vnc_projects])
-        except Exception as e:
-            cgitb.Hook(
-                format="text",
-                file=open(self._tmp_file_name,
-                          'w')).handle(sys.exc_info())
-            fhandle = open(self._tmp_file_name)
-            self._vnc_os_logger.error("%s" % fhandle.read())
-
-        while True:
-            # Get domains/projects from Keystone and audit with api-server
-            try:
-                retry = self._resync_all_domains()
-                if retry:
-                    continue
-            except Exception as e:
-                self._ks = None
-                cgitb.Hook(
-                    format="text",
-                    file=open(self._tmp_file_name,
-                              'w')).handle(sys.exc_info())
-                fhandle = open(self._tmp_file_name)
-                self._vnc_os_logger.error("%s" % fhandle.read())
-                gevent.sleep(2)
-
-            try:
-                retry = self._resync_all_projects()
-                if retry:
-                    continue
-            except Exception as e:
-                self._ks = None
-                cgitb.Hook(
-                    format="text",
-                    file=open(self._tmp_file_name,
-                              'w')).handle(sys.exc_info())
-                fhandle = open(self._tmp_file_name)
-                self._vnc_os_logger.error("%s" % fhandle.read())
-                gevent.sleep(2)
-
-            gevent.sleep(self._resync_interval_secs)
-
-        #end while True
-
-    #end _resync_domains_projects_forever
+    # end _resync_projects
 
     def resync_domains_projects(self):
         # add asynchronously
-        gevent.spawn(self._resync_domains_projects_forever)
+        pass
     #end resync_domains_projects
+
 
 #end class OpenstackResync
 
@@ -585,15 +520,11 @@ class ResourceApiDriver(vnc_plugin_base.ResourceApi):
             self._vnc_lib.project_update(proj_obj)
 
     def pre_domain_read(self, id):
-        if not self._keystone_sync_on_demand:
-            # domain added via poll
-            return
-
         if id in self._vnc_domains:
             return
 
         try:
-            self._openstack_drv.sync_domain_to_vnc(id)
+            self._openstack_drv._resync_domains(id)
         except vnc_api.RefsExistError as e:
             # another api server has brought syncd it
             pass
@@ -601,15 +532,11 @@ class ResourceApiDriver(vnc_plugin_base.ResourceApi):
     # end pre_domain_read
 
     def pre_project_read(self, id):
-        if not self._keystone_sync_on_demand:
-            # project added via poll
-            return
-
         if id in self._vnc_projects:
             return
 
         try:
-            self._openstack_drv.sync_project_to_vnc(id)
+            self._openstack_drv._resync_projects(id)
         except vnc_api.RefsExistError as e:
             # another api server has brought syncd it
             pass
