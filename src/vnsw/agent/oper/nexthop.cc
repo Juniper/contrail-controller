@@ -3,6 +3,7 @@
  */
 
 #include <boost/uuid/uuid_io.hpp>
+#include <boost/foreach.hpp>
 #include <cmn/agent_cmn.h>
 #include "ifmap/ifmap_node.h"
 #include <vnc_cfg_types.h>
@@ -1118,35 +1119,55 @@ bool CompositeNH::CanAdd() const {
 }
 
 NextHop *CompositeNHKey::AllocEntry() const {
+    ComponentNHKeyList comp_nh_key_list = component_nh_key_list_;
     VrfEntry *vrf = static_cast<VrfEntry *>
         (Agent::GetInstance()->vrf_table()->Find(&vrf_key_, true));
-    if (is_mcast_nh_) {
-        return new CompositeNH(vrf, dip_, sip_, comp_type_);
-    } else {
-        return new CompositeNH(vrf, dip_, plen_, is_local_ecmp_nh_, comp_type_);
+    return new CompositeNH(composite_nh_type_, policy_, comp_nh_key_list, vrf);
+}
+
+bool CompositeNH::Change(const DBRequest* req) {
+    ComponentNHList component_nh_list;
+    ComponentNHKeyList::const_iterator it = component_nh_key_list_.begin();
+    for (;it != component_nh_key_list_.end(); it++) {
+        if ((*it) == NULL) {
+            ComponentNHPtr nh_key;
+            nh_key.reset();
+            component_nh_list.push_back(nh_key);
+            continue;
+        }
+
+        //One of the component NH may be marked for
+        //delete, hence find entries which are delete marked
+        const NextHop *nh = static_cast<const NextHop *>
+            (NextHopTable::GetInstance()->Find((*it)->nh_key(), true));
+        assert(nh);
+        if (nh) {
+            ComponentNHPtr nh_key(new ComponentNH((*it)->label(), nh));
+            component_nh_list.push_back(nh_key);
+        }
     }
+    component_nh_list_ = component_nh_list;
+    return false;
 }
 
 void CompositeNH::SendObjectLog(AgentLogEvent::type event) const {
     NextHopObjectLogInfo info;
     FillObjectLog(event, info);
 
-    const VrfEntry *vrf = GetVrf();
-    if (vrf) {
-        info.set_vrf(vrf->GetName());
+    const VrfEntry *vrf_entry = vrf();
+    if (vrf_entry) {
+        info.set_vrf(vrf_entry->GetName());
     }
-    const Ip4Address dip = GetGrpAddr();
-    info.set_dest_ip(dip.to_string());
 
     std::vector<ComponentNHLogInfo> comp_nh_log_list;
     ComponentNHList::const_iterator component_nh_it = begin();
     for (;component_nh_it != end(); component_nh_it++) {
         ComponentNHLogInfo component_nh_info;
-        ComponentNH *comp_nh = *component_nh_it;
+        const ComponentNH *comp_nh = (*component_nh_it).get();
         if (comp_nh == NULL) {
             continue;
         }
-        const NextHop *nh = comp_nh->GetNH();
+        const NextHop *nh = comp_nh->nh();
         switch(nh->GetType()) {
         case TUNNEL: {
             const TunnelNH *tun_nh = static_cast<const TunnelNH *>(nh);
@@ -1160,7 +1181,7 @@ void CompositeNH::SendObjectLog(AgentLogEvent::type event) const {
             const InterfaceNH *intf_nh = static_cast<const InterfaceNH *>(nh);
             component_nh_info.set_type("Interface");
             component_nh_info.set_label(comp_nh->label());
-            const Interface *intf = 
+            const Interface *intf =
                 static_cast<const Interface *>(intf_nh->GetInterface());
             component_nh_info.set_intf_name(intf->name());
             break;
@@ -1179,11 +1200,11 @@ void CompositeNH::SendObjectLog(AgentLogEvent::type event) const {
         case COMPOSITE: {
             const CompositeNH *cnh = static_cast<const CompositeNH *>(nh);
             std::stringstream str;
-            str << "Composite; Type: " << cnh->CompositeType() << 
+            str << "Composite; Type: " << cnh->composite_nh_type() <<
                 " comp_nh_count" << cnh->ComponentNHCount();
             component_nh_info.set_type(str.str());
-            break;            
-        }           
+            break;
+        }
         default:
             break;
         }
@@ -1194,346 +1215,584 @@ void CompositeNH::SendObjectLog(AgentLogEvent::type event) const {
     OPER_TRACE(NextHop, info);
 }
 
+//Key for composite NH is list of component NH
+//Some of the component NH may be NULL, in case of ECMP, as deletion of
+//component NH resulting in addition of invalid component NH at that location,
+//so that kernel can trap packet hitting such component NH
 void CompositeNH::SetKey(const DBRequestKey *k) {
     const CompositeNHKey *key = static_cast<const CompositeNHKey *>(k);
     NextHop::SetKey(k);
-    vrf_ = NextHopTable::GetInstance()->FindVrfEntry(key->vrf_key_);
-    src_addr_ = key->sip_;
-    grp_addr_ = key->dip_;
-    is_local_ecmp_nh_ = key->is_local_ecmp_nh_;
-    comp_type_ = key->comp_type_;
+    composite_nh_type_ = key->composite_nh_type_;
+    component_nh_key_list_ = key->component_nh_key_list_;
 }
 
-bool CompositeNH::NextHopIsLess(const DBEntry &rhs) const {
-    const CompositeNH &a = static_cast<const CompositeNH &>(rhs);
-
-    if (vrf_.get() != a.vrf_.get()) {
-        return vrf_.get() < a.vrf_.get();
+bool CompositeNH::NextHopIsLess(const DBEntry &rhs_db) const {
+    const CompositeNH &rhs = static_cast<const CompositeNH &>(rhs_db);
+    if (composite_nh_type_ != rhs.composite_nh_type_) {
+        return composite_nh_type_ < rhs.composite_nh_type_;
     }
 
-    if (grp_addr_ != a.grp_addr_) {
-        return grp_addr_ < a.grp_addr_;
+    if (vrf_ != rhs.vrf_) {
+        return vrf_ < rhs.vrf_;
     }
 
-    if (plen_ != a.plen_) {
-        return plen_ < a.plen_;
-    }
+    //Parse thought indivial key entries and compare if they are same
+    ComponentNHKeyList::const_iterator left_component_nh_it =
+        component_nh_key_list_.begin();
+    ComponentNHKeyList::const_iterator right_component_nh_it =
+        rhs.component_nh_key_list_.begin();
 
-    if (is_local_ecmp_nh_ != a.is_local_ecmp_nh_) {
-        return is_local_ecmp_nh_ < a.is_local_ecmp_nh_;
-    }   
-
-    return (comp_type_ < a.comp_type_);
-}
-
-void CompositeNH::Sync(bool deleted) {
-    //Loop thru all the dependent composite NH
-    CompositeNH::iterator iter = remote_comp_nh_list_.begin();
-    while (iter != remote_comp_nh_list_.end()) {
-        CompositeNH *remote_comp_nh = 
-            static_cast<CompositeNH *>(iter.operator->());
-
-        //Append newly added component NH to remote composite NH
-        ComponentNHList::iterator it = begin();
-        while (it != end()) {
-            ComponentNH *component_nh = *it;
-            if (component_nh && 
-                    !remote_comp_nh->component_nh_list_.Find(*component_nh)) {
-                remote_comp_nh->component_nh_list_.insert(*component_nh);
-            }
-            it++;
-        }
-
-        //Delete component NH not present in local composite NH
-        it = remote_comp_nh->begin();
-        while (it != remote_comp_nh->component_nh_list_.end()) {
-            ComponentNH *component_nh = *it;
-            it++;
-
-            if (!component_nh || 
-                    component_nh->GetNH()->GetType() == NextHop::TUNNEL) {
-                continue;
-            }
-            if (!component_nh_list_.Find(*component_nh)) {
-                remote_comp_nh->component_nh_list_.remove(*component_nh);
-            }
-        }
-
-        iter++;
-        //Reset the reference to local composite NH
-        if (deleted) {
-            remote_comp_nh->local_comp_nh_.reset(NULL);
-        }
-        DBTablePartBase *part = 
-            Agent::GetInstance()->nexthop_table()->GetTablePartition(remote_comp_nh);
-        part->Notify(remote_comp_nh);
-    }
-}
-
-bool CompositeNH::GetOldNH(const CompositeNHData *data, 
-                           ComponentNH &component_nh) {
-    //In case of ECMP give preference to already existing nexthop
-    //and make it first entry in composite NH, so that existing flow
-    //can just migrate to same index
-    Inet4UnicastAgentRouteTable *table = 
-        static_cast<Inet4UnicastAgentRouteTable *>
-        (vrf_->GetInet4UnicastRouteTable());
-    Inet4UnicastRouteEntry *rt = table->FindRoute(grp_addr_);
-    if (!rt || rt->IsDeleted()) {
-        return false;
-    }
-
-    const NextHop *nh = rt->GetActiveNextHop();
-    if (nh->GetType() == NextHop::COMPOSITE || 
-        nh->GetType() == NextHop::DISCARD) {
-        return false;
-    }
-
-    bool found = false;
-    NextHop *list_nh = NULL;
-    const std::vector<ComponentNHData> &key_list = data->data_;
-    std::vector<ComponentNHData>::const_iterator it = key_list.begin();
-    for (;it != key_list.end(); it++) {
-        list_nh = static_cast<NextHop *>
-            (table->agent()->nexthop_table()->FindActiveEntry(it->nh_key_));
-        if (!list_nh) {
+    for (;left_component_nh_it != component_nh_key_list_.end() &&
+          right_component_nh_it != rhs.component_nh_key_list_.end();
+          left_component_nh_it++, right_component_nh_it++) {
+        //If both component NH are empty, nothing to compare
+        if (*left_component_nh_it == NULL &&
+            *right_component_nh_it == NULL) {
             continue;
         }
-        if (list_nh == nh && it->label_ == rt->GetMplsLabel()) {
-            found = true;
-            break;
+        //One of the component NH is NULL
+        if ((*left_component_nh_it) == NULL ||
+            (*right_component_nh_it) == NULL) {
+            return (*left_component_nh_it) < (*right_component_nh_it);
+        }
+
+        //Check if the label is different
+        if ((*left_component_nh_it)->label() !=
+            (*right_component_nh_it)->label()) {
+            return (*left_component_nh_it)->label() <
+                   (*right_component_nh_it)->label();
+        }
+
+        //Check if the nexthop key is different
+        //Ideally we could find the nexthop and compare pointer alone
+        //it wont work because this is called from Find context itself,
+        //and it would result in deadlock
+        //Hence compare nexthop key alone
+        const NextHopKey *left_nh = (*left_component_nh_it)->nh_key();
+        const NextHopKey *right_nh = (*right_component_nh_it)->nh_key();
+
+        if (left_nh->IsEqual(*right_nh) == false) {
+            if (left_nh->GetType() != right_nh->GetType()) {
+                return left_nh->GetType() < right_nh->GetType();
+            }
+            return left_nh->IsLess(*right_nh);
         }
     }
 
-    if (found) {
-        component_nh.nh_ = list_nh;
-        component_nh.label_ = rt->GetMplsLabel();
-        return true;
-    } 
+    //Both composite nexthop are same
+    if (left_component_nh_it == component_nh_key_list_.end() &&
+        right_component_nh_it == rhs.component_nh_key_list_.end()) {
+        return false;
+    }
 
+    //Right composite nexthop entry has more entries, hence
+    //left composite nexthop is lesser then right composite nh
+    if (left_component_nh_it == component_nh_key_list_.end()) {
+        return true;
+    }
     return false;
 }
 
-
-bool CompositeNH::Change(const DBRequest* req) {
-    const CompositeNHData *data = 
-        static_cast<const CompositeNHData *>(req->data.get());
-    const std::vector<ComponentNHData> &key_list = data->data_;
-    std::vector<ComponentNH> component_nh_list;
-    NextHop *nh;
-
-    if (data->op_ == CompositeNHData::REBAKE) {
-        return true;
-    }
-
-    if (comp_type_ == Composite::ECMP) {
-        ComponentNH component_nh(0, NULL);
-        if (GetOldNH(data, component_nh)) {
-            component_nh_list.push_back(component_nh);
-        }
-    }
-
-    //Add entries
-    std::vector<ComponentNHData>::const_iterator it = key_list.begin();
-    for (;it != key_list.end(); it++) {
-        nh = static_cast<NextHop *>
-            (Agent::GetInstance()->nexthop_table()->FindActiveEntry(it->nh_key_));
-        if (!nh) {
-            continue;
-        }
-
-        CompositeNH *comp_nh = static_cast<CompositeNH *>(nh);
-        if ((nh->GetType() == NextHop::COMPOSITE) && comp_nh->IsEcmpNH()) {
-            //Add all the members in composite NH
-            ComponentNHList::iterator it = comp_nh->begin();
-            for(;it != comp_nh->end(); it++) {
-                ComponentNH *component_nh = *it;
-                if (component_nh) {
-                    component_nh_list.push_back(*component_nh);
-                }
-            }
-            local_comp_nh_.reset(comp_nh);
-        } else { 
-            ComponentNH component_nh(it->label_, nh);
-            component_nh_list.push_back(component_nh);
-        }
-    }
-
-    if (IsMcastNH() == true) {
-        component_nh_list_.clear();
-    }
-
-    if (data->op_ == CompositeNHData::ADD) {
-        std::vector<ComponentNH>::iterator it = 
-            component_nh_list.begin();
-        while (it != component_nh_list.end()) {
-            if (!component_nh_list_.Find(*it)) {
-                component_nh_list_.insert(*it);
-            }
-            it++;
-        }
-    } else if (data->op_ == CompositeNHData::DELETE) {
-        std::vector<ComponentNH>::iterator it = 
-            component_nh_list.begin();
-        while (it != component_nh_list.end()) {
-            if (component_nh_list_.Find(*it)) {
-                component_nh_list_.remove(*it);
-            }
-            it++;
-        }
-    } else if (data->op_ == CompositeNHData::REPLACE) {
-        component_nh_list_.replace(component_nh_list);
-    }
-
-    if (is_local_ecmp_nh_ == true) {
-        //Sync dependent remote NH
-        Sync(false);
-    }
-    return true;
-}
-
-const NextHop* CompositeNH::GetLocalNextHop() const {
-    const NextHop *nh = NULL;
-    if ((nh = GetLocalCompositeNH()) == NULL) {
-        //Get interface NH inside composite NH
-        ComponentNHList::const_iterator component_nh_it = begin();
-        while (component_nh_it != end()) {
-            if (*component_nh_it &&
-                ((*component_nh_it)->GetNH()->GetType() == NextHop::INTERFACE ||
-                (*component_nh_it)->GetNH()->GetType() == NextHop::VLAN))  {
-                nh = (*component_nh_it)->GetNH();
-                break;
-            }
-            component_nh_it++;
-        }
-    }
-    return nh;
-}
-
 CompositeNH::KeyPtr CompositeNH::GetDBRequestKey() const {
-    NextHopKey *key = NULL;
-    if (comp_type_ != Composite::ECMP) {
-        key = new CompositeNHKey(vrf_->GetName(), grp_addr_, src_addr_, 
-                                 false, comp_type_);
-    } else {
-        key = new CompositeNHKey(vrf_->GetName(), grp_addr_, plen_,
-                                 is_local_ecmp_nh_);
-    }
+    ComponentNHKeyList component_nh_key_list;
+    component_nh_key_list = component_nh_key_list_;
+    NextHopKey *key = new CompositeNHKey(composite_nh_type_, policy_,
+                                         component_nh_key_list,
+                                         vrf_->GetName());
     return DBEntryBase::KeyPtr(key);
 }
 
 void CompositeNH::Delete(const DBRequest* req) {
-    if (is_local_ecmp_nh_ == true) {
-        component_nh_list_.clear();
-        Sync(true);
+    component_nh_list_.clear();
+}
+
+void CompositeNH::CreateComponentNH(Agent *agent,
+                                    TunnelType::Type type) const {
+    //Create all component NH
+    for (ComponentNHList::const_iterator it = component_nh_list_.begin();
+         it != component_nh_list_.end(); it++) {
+        if ((*it) == NULL) {
+            continue;
+        }
+        const NextHop *nh = (*it)->nh();
+        switch (nh->GetType()) {
+        case NextHop::TUNNEL: {
+            const TunnelNH *tnh = static_cast<const TunnelNH *>(nh);
+            if (type != tnh->GetTunnelType().GetType()) {
+                DBRequest tnh_req(DBRequest::DB_ENTRY_ADD_CHANGE);
+                tnh_req.key.reset(new TunnelNHKey(tnh->GetVrf()->GetName(),
+                                                  *(tnh->GetSip()),
+                                                  *(tnh->GetDip()),
+                                                  tnh->PolicyEnabled(),
+                                                  type));
+                tnh_req.data.reset(new TunnelNHData());
+                agent->nexthop_table()->Process(tnh_req);
+            }
+            break;
+        }
+        case NextHop::COMPOSITE: {
+            const CompositeNH *cnh =
+                static_cast<const CompositeNH *>(nh);
+            cnh->ChangeTunnelType(agent, type);
+            break;
+        }
+        default: {
+            break;
+        }
+        }
     }
-    local_comp_nh_.reset(NULL);
+}
+
+void CompositeNH::ChangeComponentNHKeyTunnelType(
+        ComponentNHKeyList &component_nh_key_list, TunnelType::Type type) const {
+
+    ComponentNHKeyList::iterator it = component_nh_key_list.begin();
+    for (;it != component_nh_key_list.end(); it++) {
+        if ((*it) == NULL) {
+            continue;
+        }
+
+        if ((*it)->nh_key()->GetType() == NextHop::COMPOSITE) {
+            CompositeNHKey *composite_nh_key =
+                static_cast<CompositeNHKey *>((*it)->nh_key()->Clone());
+            ChangeComponentNHKeyTunnelType(
+                    composite_nh_key->component_nh_key_list_, type);
+            std::auto_ptr<const NextHopKey> nh_key(composite_nh_key);
+            ComponentNHKeyPtr new_comp_nh(new ComponentNHKey((*it)->label(),
+                                                             nh_key));
+            (*it) = new_comp_nh;
+        }
+
+        if ((*it)->nh_key()->GetType() == NextHop::TUNNEL) {
+            TunnelNHKey *tunnel_nh_key =
+                static_cast<TunnelNHKey *>((*it)->nh_key()->Clone());
+            tunnel_nh_key->set_tunnel_type(type);
+            std::auto_ptr<const NextHopKey> nh_key(tunnel_nh_key);
+            ComponentNHKeyPtr new_tunnel_nh(new ComponentNHKey((*it)->label(),
+                                                               nh_key));
+            (*it) = new_tunnel_nh;
+        }
+    }
+}
+
+CompositeNH *CompositeNH::ChangeTunnelType(Agent *agent,
+                                           TunnelType::Type type) const {
+    //Create all component NH with new tunnel type
+    CreateComponentNH(agent, type);
+
+    //Change the tunnel type of all component NH key
+    ComponentNHKeyList new_component_nh_key_list = component_nh_key_list_;
+    ChangeComponentNHKeyTunnelType(new_component_nh_key_list, type);
+
+    //Create the new nexthop
+    CompositeNHKey *comp_nh_key = new CompositeNHKey(composite_nh_type_,
+                                                     policy_,
+                                                     new_component_nh_key_list,
+                                                     vrf_->GetName());
+    DBRequest nh_req(DBRequest::DB_ENTRY_ADD_CHANGE);
+    nh_req.key.reset(comp_nh_key);
+    nh_req.data.reset(new CompositeNHData());
+    agent->nexthop_table()->Process(nh_req);
+
+    CompositeNH *comp_nh = static_cast<CompositeNH *>(
+            agent->nexthop_table()->FindActiveEntry(comp_nh_key));
+    assert(comp_nh);
+    return comp_nh;
+}
+
+bool CompositeNH::GetIndex(ComponentNH &component_nh, uint32_t &idx) const {
+    idx = 0;
+    BOOST_FOREACH(ComponentNHPtr it, component_nh_list_) {
+        if (it.get() == NULL) {
+            idx++;
+            continue;
+        }
+
+        if (it->nh() == component_nh.nh() &&
+            it->label() == component_nh.label()) {
+            return true;
+        }
+        idx++;
+    }
+    return false;
 }
 
 uint32_t CompositeNH::GetRemoteLabel(Ip4Address ip) const {
-    ComponentNHList::const_iterator component_nh_it = begin();
-    while(component_nh_it != end()) {
-        if (*component_nh_it) {
-            const NextHop *nh = (*component_nh_it)->GetNH();
-            if (nh && nh->GetType() == NextHop::TUNNEL) {
-                const TunnelNH *tun_nh = static_cast<const TunnelNH *>(nh);
-                if (*(tun_nh->GetDip()) == ip) {
-                    return (*component_nh_it)->label();
-                }
-            }
+    BOOST_FOREACH(ComponentNHPtr component_nh,
+                  component_nh_list_) {
+        if (component_nh.get() == NULL) {
+            continue;
         }
-        component_nh_it++;
+        const NextHop *nh = component_nh->nh();
+        if (nh->GetType() != NextHop::TUNNEL) {
+            continue;
+        }
+        const TunnelNH *tun_nh = static_cast<const TunnelNH *>(nh);
+        if (*(tun_nh->GetDip()) == ip) {
+            return component_nh->label();
+        }
     }
-    return 0;
+    return -1;
 }
 
-void CompositeNH::CreateComponentNH(std::vector<ComponentNHData> comp_nh_list) {
-    //Go thru list of component NH, and if there a tunnel NH,
-    //enqueue a request to create tunnel NH
-    std::vector<ComponentNHData>::const_iterator it = comp_nh_list.begin();
-    while (it != comp_nh_list.end()) {
-        ComponentNHData nh_data = *it;
-        if (nh_data.nh_key_->GetType() == NextHop::TUNNEL) {
+void CompositeNHKey::CreateTunnelNH(Agent *agent) {
+    BOOST_FOREACH(ComponentNHKeyPtr component_nh_key, component_nh_key_list_) {
+        if (component_nh_key.get() &&
+                component_nh_key->nh_key()->GetType() == NextHop::TUNNEL) {
             DBRequest req;
-            // First enqueue request to add/change Interface NH
+            // First enqueue request to create Tunnel NH
             req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
-
-            req.key.reset(nh_data.nh_key_);
-            nh_data.nh_key_ = NULL;
-
+            req.key.reset(component_nh_key->nh_key()->Clone());
             TunnelNHData *data = new TunnelNHData();
             req.data.reset(data);
-            Agent::GetInstance()->nexthop_table()->Enqueue(&req); 
+            agent->nexthop_table()->Process(req);
         }
-        it++;
     }
 }
 
-//Create composite NH of type ECMP
-void CompositeNH::CreateCompositeNH(const string vrf_name,
-                                    const Ip4Address ip,
-                                    bool local_ecmp_nh,
-                                    std::vector<ComponentNHData> comp_nh_list) {
-    CreateComponentNH(comp_nh_list);
+void CompositeNHKey::EnqueueTunnelNH(Agent *agent) {
+    BOOST_FOREACH(ComponentNHKeyPtr component_nh_key, component_nh_key_list_) {
+        if (component_nh_key.get() &&
+                component_nh_key->nh_key()->GetType() == NextHop::TUNNEL) {
+            DBRequest req;
+            // First enqueue request to create Tunnel NH
+            req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
+            req.key.reset(component_nh_key->nh_key()->Clone());
+            TunnelNHData *data = new TunnelNHData();
+            req.data.reset(data);
+            agent->nexthop_table()->Enqueue(&req);
+        }
+    }
 }
 
-//Create composite NH of type ECMP
-void CompositeNH::AppendComponentNH(const string vrf_name,
-                                    const Ip4Address ip, uint8_t plen,
-                                    bool local_ecmp_nh,
-                                    ComponentNHData comp_nh_data) {
-    std::vector<ComponentNHData> comp_nh_list;
-    comp_nh_list.push_back(comp_nh_data);
-    CreateComponentNH(comp_nh_list);
-    DBRequest req;
-    CompositeNHData *data;
-
-    NextHopKey *key = new CompositeNHKey(vrf_name, ip, plen, local_ecmp_nh);
-    key->sub_op_ = AgentKey::RESYNC;
-    req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
-    req.key.reset(key);
-    data = new CompositeNHData(comp_nh_list, CompositeNHData::ADD);
-    req.data.reset(data);
-    Agent::GetInstance()->nexthop_table()->Process(req);
+CompositeNHKey* CompositeNHKey::Clone() const {
+    return new CompositeNHKey(composite_nh_type_, policy_,
+                              component_nh_key_list_, vrf_key_.name_);
 }
 
-//Delete composite NH of type ECMP
-void CompositeNH::DeleteComponentNH(const string vrf_name,
-                                    const Ip4Address ip, uint8_t plen,
-                                    bool local_ecmp_nh,
-                                    ComponentNHData comp_nh_data) {
-    std::vector<ComponentNHData> comp_nh_list;
-    comp_nh_list.push_back(comp_nh_data);
-    DBRequest req;
-    CompositeNHData *data;
-    NextHopKey *key = new CompositeNHKey(vrf_name, ip, plen, local_ecmp_nh);
-
-    key->sub_op_ = AgentKey::RESYNC;
-    req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
-    req.key.reset(key);
-    data = new CompositeNHData(comp_nh_list, CompositeNHData::DELETE);
-    req.data.reset(data);
-    Agent::GetInstance()->nexthop_table()->Process(req);
+bool CompositeNHKey::find(ComponentNHKeyPtr new_component_nh_key) {
+    BOOST_FOREACH(ComponentNHKeyPtr component_nh_key,
+                  component_nh_key_list_) {
+        if (component_nh_key == NULL) {
+            continue;
+        }
+        if (*component_nh_key == *new_component_nh_key) {
+            return true;
+        }
+    }
+    return false;
 }
 
-//Create composite NH of type multicast
-void CompositeNH::CreateCompositeNH(const string vrf_name,
-                                    const Ip4Address source_address,
-                                    const Ip4Address group_address,
-                                    COMPOSITETYPE type,
-                                    std::vector<ComponentNHData> comp_nh_list) {
-    CreateComponentNH(comp_nh_list);
+void CompositeNHKey::insert(ComponentNHKeyPtr new_component_nh_key) {
+    if (new_component_nh_key == NULL) {
+        component_nh_key_list_.push_back(new_component_nh_key);
+        return;
+    }
 
-    DBRequest req;
-    NextHopKey *key = new CompositeNHKey(vrf_name, group_address,
-                                         source_address, false, type);
-    CompositeNHData *data;
+    if (find(new_component_nh_key)) {
+        return;
+    }
 
-    req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
-    req.key.reset(key);
-    data = new CompositeNHData(comp_nh_list, CompositeNHData::ADD);
-    req.data.reset(data);
-    Agent::GetInstance()->nexthop_table()->Enqueue(&req);
+    ComponentNHKeyList::iterator it;
+    for (it = begin();it != end();it++) {
+        //Insert at empty spot
+        if ((*it) == NULL) {
+            *it = new_component_nh_key;
+            return;
+        }
+    }
+    component_nh_key_list_.push_back(new_component_nh_key);
+}
+
+void CompositeNHKey::erase(ComponentNHKeyPtr nh_key) {
+    ComponentNHKeyList::iterator it;
+    for (it = begin();it != end();it++) {
+        if ((*it) == NULL) {
+            continue;
+        }
+        //Find the nexthop and compare
+        if (**it == *nh_key) {
+            (*it).reset();
+            return;
+        }
+    }
+}
+
+ComponentNHKeyList CompositeNH::AddComponentNHKey(ComponentNHKeyPtr cnh) const {
+    Agent *agent = static_cast<NextHopTable *>(get_table())->agent();
+    const NextHop *nh = static_cast<const NextHop *>(agent->nexthop_table()->
+                                       FindActiveEntry(cnh->nh_key()));
+    assert(nh);
+
+    ComponentNHKeyList component_nh_key_list = component_nh_key_list_;
+    ComponentNHList::const_iterator it = begin();
+    //Make sure new entry is not already present
+    for (;it != end(); it++) {
+        if((*it) && (*it)->label() == cnh->label() && (*it)->nh() == nh) {
+            //Entry already present, return old component nh key list
+            return component_nh_key_list;
+        }
+    }
+
+    bool inserted = false;
+    ComponentNHKeyList::const_iterator key_it = component_nh_key_list.begin();
+    for (;key_it != component_nh_key_list.end(); key_it++) {
+        //If there is a empty slot, in
+        //component key list insert the element there.
+        if ((*key_it) == NULL) {
+            component_nh_key_list.push_back(cnh);
+            inserted = true;
+            break;
+        }
+    }
+
+    //No empty slots found, insert entry at last
+    if (inserted == false) {
+        component_nh_key_list.push_back(cnh);
+    }
+    return component_nh_key_list;
+}
+
+ComponentNHKeyList
+CompositeNH::DeleteComponentNHKey(ComponentNHKeyPtr cnh) const {
+    Agent *agent = static_cast<NextHopTable *>(get_table())->agent();
+    const NextHop *nh = static_cast<const NextHop *>(agent->nexthop_table()->
+                                       FindActiveEntry(cnh->nh_key()));
+    assert(nh);
+
+    ComponentNHKeyList component_nh_key_list = component_nh_key_list_;
+    ComponentNHKeyPtr component_nh_key;
+    ComponentNHList::const_iterator it = begin();
+    int index = 0;
+    for (;it != end(); it++, index++) {
+        ComponentNHKeyPtr dummy_ptr;
+        dummy_ptr.reset();
+        if ((*it) && ((*it)->label() == cnh->label() && (*it)->nh() == nh)) {
+            component_nh_key_list[index] = dummy_ptr;
+            break;
+        }
+    }
+    return component_nh_key_list;
+}
+
+//Reorder component NH key, so that existing component NH maintain there index
+void CompositeNH::OrderKey(const NextHop *nh, CompositeNHKey *composite_nh_key) {
+    ComponentNHKeyList ordered_component_nh_key_list;
+    if (!nh || nh->GetType() != NextHop::COMPOSITE) {
+        return;
+    }
+
+    const CompositeNH *composite_nh = static_cast<const CompositeNH *>(nh);
+    uint32_t index = 0;
+    bool found = false;
+    //Add existing entries at there existing location in previous composite NH
+    ComponentNHList::const_iterator it = composite_nh->begin();
+    for (;it != composite_nh->end();it++, index++) {
+        ComponentNHKeyPtr dummy_ptr;
+        dummy_ptr.reset();
+        ordered_component_nh_key_list.resize(index + 1);
+        if ((*it) == NULL) {
+            ordered_component_nh_key_list[index] = dummy_ptr;
+            continue;
+        }
+        ComponentNHKeyList::iterator key_it = composite_nh_key->begin();
+        for (;key_it != composite_nh_key->end(); key_it++) {
+            if ((*key_it) == NULL) {
+                continue;
+            }
+            const NextHop *nh = static_cast<const NextHop *>
+                (NextHopTable::GetInstance()->FindActiveEntry((*key_it)->nh_key()));
+            if (!nh) {
+                continue;
+            }
+            if (nh == (*it)->nh() && (*key_it)->label() == (*it)->label()) {
+                ordered_component_nh_key_list[index] = (*key_it);
+                found = true;
+                composite_nh_key->erase((*key_it));
+                break;
+            }
+        }
+        if (found == false) {
+            ordered_component_nh_key_list[index] = dummy_ptr;
+        }
+    }
+
+    //Add new entries at empty slot
+    ComponentNHKeyList::iterator ordered_it =
+        ordered_component_nh_key_list.begin();
+    ComponentNHKeyList::iterator key_it = composite_nh_key->begin();
+    while (ordered_it != ordered_component_nh_key_list.end() &&
+            key_it != composite_nh_key->end()) {
+        while ((*ordered_it) != NULL &&
+                ordered_it != ordered_component_nh_key_list.end()) {
+            ordered_it++;
+        }
+        if (ordered_it != ordered_component_nh_key_list.end()) {
+            ComponentNHKeyList::iterator tmp_it = ordered_it++;
+            ordered_component_nh_key_list.insert(tmp_it, (*key_it));
+        }
+        key_it++;
+    }
+
+    if (key_it != composite_nh_key->end()) {
+        while(key_it != composite_nh_key->end()) {
+            ordered_component_nh_key_list.push_back(*key_it);
+            key_it++;
+        }
+    }
+}
+
+bool CompositeNHKey::Compare(const NextHopKey &rhs) const {
+    const CompositeNHKey *comp_rhs = static_cast<const CompositeNHKey *>(&rhs);
+    if (vrf_key_.name_ != comp_rhs->vrf_key_.name_) {
+        return vrf_key_.name_ < comp_rhs->vrf_key_.name_;
+    }
+
+    if (composite_nh_type_ != comp_rhs->composite_nh_type_) {
+        return composite_nh_type_ < comp_rhs->composite_nh_type_;
+    }
+
+    ComponentNHKeyList::const_iterator key_it = begin();
+    ComponentNHKeyList::const_iterator rhs_key_it = comp_rhs->begin();
+    for (;key_it != end() && rhs_key_it != comp_rhs->end();
+          key_it++, rhs_key_it++) {
+        const ComponentNHKey *lhs_component_nh_ptr = (*key_it).get();
+        const ComponentNHKey *rhs_component_nh_ptr = (*rhs_key_it).get();
+        if (lhs_component_nh_ptr == NULL &&
+            rhs_component_nh_ptr == NULL) {
+            continue;
+        }
+
+        if (lhs_component_nh_ptr == NULL ||
+            rhs_component_nh_ptr == NULL) {
+            return lhs_component_nh_ptr < rhs_component_nh_ptr;
+        }
+
+        if (lhs_component_nh_ptr->label() !=
+            rhs_component_nh_ptr->label()) {
+            return lhs_component_nh_ptr->label() < rhs_component_nh_ptr->label();
+        }
+
+        const NextHopKey *left_nh_key = lhs_component_nh_ptr->nh_key();
+        const NextHopKey *right_nh_key = rhs_component_nh_ptr->nh_key();
+        if (left_nh_key->IsEqual(*right_nh_key) == false) {
+            if (left_nh_key->GetType() != right_nh_key->GetType()) {
+                return left_nh_key->GetType() < right_nh_key->GetType();
+            }
+            return left_nh_key->Compare(*right_nh_key);
+        }
+    }
+
+    if (key_it == end() && rhs_key_it == comp_rhs->end()) {
+        return false;
+    }
+
+    if (key_it == end()) {
+        return true;
+    }
+    return false;
+}
+
+void CompositeNHKey::ExpandLocalCompositeNH(Agent *agent) {
+    uint32_t label = MplsTable::kInvalidLabel;
+    //Find local composite ecmp label
+    BOOST_FOREACH(ComponentNHKeyPtr component_nh_key,
+                  component_nh_key_list_) {
+        if (component_nh_key.get() &&
+                component_nh_key->nh_key()->GetType() == NextHop::COMPOSITE) {
+            label = component_nh_key->label();
+            //Erase the entry from list, it will be replaced with
+            //individual entries of this local composite NH
+            erase(component_nh_key);
+            break;
+        }
+    }
+
+     //No Local composite NH found
+    if (label ==  MplsTable::kInvalidLabel) {
+        return;
+    }
+
+    MplsLabel *mpls = agent->mpls_table()->FindMplsLabel(label);
+    if (mpls == NULL) {
+        return;
+    }
+
+    DBEntryBase::KeyPtr key = mpls->nexthop()->GetDBRequestKey();
+    NextHopKey *nh_key = static_cast<NextHopKey *>(key.get());
+    assert(nh_key->GetType() == NextHop::COMPOSITE);
+    CompositeNHKey *local_composite_nh_key =
+        static_cast<CompositeNHKey *>(nh_key);
+    //Insert individual entries
+    BOOST_FOREACH(ComponentNHKeyPtr component_nh_key,
+                  local_composite_nh_key->component_nh_key_list()) {
+        insert(component_nh_key);
+    }
+}
+
+void CompositeNHKey::Reorder(Agent *agent,
+                             uint32_t label, const NextHop *nh) {
+    //Enqueue request to create Tunnel NH
+    CreateTunnelNH(agent);
+    //First expand local composite NH, if any
+    ExpandLocalCompositeNH(agent);
+    //Order the component NH entries, so that previous position of
+    //component NH are maintained.
+    //For example, if previous composite NH consisted of A, B and C
+    //as component NH, and the new array of component NH is B, A and C
+    //or any combination of the three entries, the result should be A, B and C
+    //only, so that previous position are mainatined.
+    //If the new key list is C and A, then the end result would be A <NULL> C,
+    //so that A and C component NH position are maintained
+    if (!nh) {
+        return;
+    }
+
+    if (nh->GetType() != NextHop::COMPOSITE) {
+        DBEntryBase::KeyPtr key = nh->GetDBRequestKey();
+        NextHopKey *nh_key = static_cast<NextHopKey *>(key.release());
+        std::auto_ptr<const NextHopKey> nh_key_ptr(nh_key);
+        //Insert exisiting nexthop at first slot
+        ComponentNHKeyPtr component_nh_key(new ComponentNHKey(label,
+                                                              nh_key_ptr));
+        if (find(component_nh_key)) {
+            //Erase first entry
+            ComponentNHKeyPtr first_entry = component_nh_key_list_[0];
+            erase(first_entry);
+            erase(component_nh_key);
+            insert(component_nh_key);
+            insert(first_entry);
+        }
+        return;
+    }
+
+    CompositeNHKey *composite_nh_key;
+    DBEntryBase::KeyPtr key = nh->GetDBRequestKey();
+    composite_nh_key = static_cast<CompositeNHKey *>(key.get());
+    //Delete entries not present in the new composite NH key
+    BOOST_FOREACH(ComponentNHKeyPtr component_nh_key,
+                  composite_nh_key->component_nh_key_list()) {
+        if (component_nh_key != NULL &&
+                find(component_nh_key) == false) {
+            composite_nh_key->erase(component_nh_key);
+        }
+    }
+
+    //Add new entries
+    BOOST_FOREACH(ComponentNHKeyPtr component_nh_key,
+                  component_nh_key_list()) {
+        if (component_nh_key != NULL) {
+            composite_nh_key->insert(component_nh_key);
+        }
+    }
+    //Copy over the list
+    component_nh_key_list_ = composite_nh_key->component_nh_key_list();
+}
+
+ComponentNHKey::ComponentNHKey(int label, Composite::Type type, bool policy,
+    ComponentNHKeyList &component_nh_list, const std::string vrf_name):
+    label_(label), nh_key_(new CompositeNHKey(type, policy, component_nh_list,
+    vrf_name)) {
 }
 
 /////////////////////////////////////////////////////////////////////////////
@@ -1542,69 +1801,63 @@ void CompositeNH::CreateCompositeNH(const string vrf_name,
 static void FillComponentNextHop(const CompositeNH *comp_nh,
                                  std::vector<McastData> &list) 
 {
-    for (CompositeNH::ComponentNHList::const_iterator it =
-         comp_nh->begin(); it != comp_nh->end(); it++) {
-        ComponentNH *component_nh = *it;
-        if ((component_nh == NULL) || (component_nh->GetNH() == NULL)) {
+    for (ComponentNHList::const_iterator it = comp_nh->begin();
+         it != comp_nh->end(); it++) {
+        const ComponentNH *component_nh = (*it).get();
+        McastData sdata;
+        if (component_nh == NULL) {
+            sdata.set_type("NULL");
+            list.push_back(sdata);
             continue;
         }
-        McastData sdata;
-        switch (component_nh->GetNH()->GetType()) {
+        switch (component_nh->nh()->GetType()) {
         case NextHop::INTERFACE: {
             sdata.set_type("Interface");
             const InterfaceNH *sub_nh = 
-                static_cast<const InterfaceNH *>(component_nh->GetNH());
+                static_cast<const InterfaceNH *>(component_nh->nh());
             if (sub_nh && sub_nh->GetInterface())
                 sdata.set_label(component_nh->label());
             sdata.set_itf(sub_nh->GetInterface()->name());
+            list.push_back(sdata);
             break;
         }
         case NextHop::TUNNEL: {
             sdata.set_type("Tunnel");
             const TunnelNH *tnh = 
-                static_cast<const TunnelNH *>(component_nh->GetNH());
+                static_cast<const TunnelNH *>(component_nh->nh());
             sdata.set_dip(tnh->GetDip()->to_string());
             sdata.set_sip(tnh->GetSip()->to_string());
             sdata.set_label(component_nh->label());
+            list.push_back(sdata);
             break;
         }
         case NextHop::VLAN: {
             sdata.set_type("Vlan");
             const VlanNH *vlan_nh = 
-                static_cast<const VlanNH *>(component_nh->GetNH());
+                static_cast<const VlanNH *>(component_nh->nh());
             sdata.set_itf(vlan_nh->GetInterface()->name());
             sdata.set_vlan_tag(vlan_nh->GetVlanTag());
+            list.push_back(sdata);
             break;
         }
         case NextHop::COMPOSITE: {
-            continue;                         
-            break;                         
-        }                    
+            sdata.set_type("Composite");
+            const CompositeNH *child_component_nh =
+                static_cast<const CompositeNH *>(component_nh->nh());
+            std::vector<McastData> comp_list;
+            FillComponentNextHop(child_component_nh, comp_list);
+            list.insert(list.begin(), comp_list.begin(), comp_list.end());
+            break;
+        }
         default:
             std::stringstream s;
-            s << "UNKNOWN<" << component_nh->GetNH()->GetType() 
+            s << "UNKNOWN<" << component_nh->nh()->GetType()
                 << ">";
             sdata.set_type(s.str());
-            break;                      
+            list.push_back(sdata);
+            break;
         }
-        list.push_back(sdata);
     }
-}
-
-static void FillFabricCompositeNextHop(const CompositeNH *comp_nh,
-                                   FabricCompositeData &data) 
-{
-    std::stringstream str;
-    str << "Fabric  Composite, subnh count : " 
-        << comp_nh->ComponentNHCount();
-    data.set_type(str.str());
-    data.set_sip(comp_nh->GetSrcAddr().to_string());
-    data.set_dip(comp_nh->GetGrpAddr().to_string());
-    if (comp_nh->ComponentNHCount() == 0)
-        return;
-    std::vector<McastData> data_list;                      
-    FillComponentNextHop(comp_nh, data_list);                          
-    data.set_mc_list(data_list);
 }
 
 static void FillL2CompositeNextHop(const CompositeNH *comp_nh,
@@ -1614,20 +1867,10 @@ static void FillL2CompositeNextHop(const CompositeNH *comp_nh,
     str << "L2 Composite, subnh count : " 
         << comp_nh->ComponentNHCount();
     data.set_type(str.str());
-    data.set_sip(comp_nh->GetSrcAddr().to_string());
-    data.set_dip(comp_nh->GetGrpAddr().to_string());
     if (comp_nh->ComponentNHCount() == 0)
         return;
-    CompositeNH::ComponentNHList::const_iterator it = comp_nh->begin();
-    ComponentNH *component_nh = *it;
-    
-    const CompositeNH *sub_cnh = 
-        static_cast<const CompositeNH *>(component_nh->GetNH());
-    FabricCompositeData fab_data;
-    FillFabricCompositeNextHop(sub_cnh, fab_data);
-    data.set_fabric_comp(fab_data); 
-    std::vector<McastData> data_list;                      
-    FillComponentNextHop(comp_nh, data_list);                          
+    std::vector<McastData> data_list;
+    FillComponentNextHop(comp_nh, data_list);
     data.set_mc_list(data_list);
 }
 
@@ -1638,18 +1881,8 @@ static void FillL3CompositeNextHop(const CompositeNH *comp_nh,
     str << "L3 Composite, subnh count : " 
         << comp_nh->ComponentNHCount();
     data.set_type(str.str());
-    data.set_sip(comp_nh->GetSrcAddr().to_string());
-    data.set_dip(comp_nh->GetGrpAddr().to_string());
     if (comp_nh->ComponentNHCount() == 0)
         return;
-    CompositeNH::ComponentNHList::const_iterator it = comp_nh->begin();
-    ComponentNH *component_nh = *it;
-    
-    const CompositeNH *sub_cnh = 
-        static_cast<const CompositeNH *>(component_nh->GetNH());
-    FabricCompositeData fab_data;
-    FillFabricCompositeNextHop(sub_cnh, fab_data);
-    data.set_fabric_comp(fab_data); 
     std::vector<McastData> data_list;                      
     FillComponentNextHop(comp_nh, data_list);                          
     data.set_mc_list(data_list);
@@ -1662,24 +1895,22 @@ static void FillMultiProtoCompositeNextHop(const CompositeNH *comp_nh,
     str << "Multi Proto Composite, subnh count : " 
         << comp_nh->ComponentNHCount();
     data.set_type(str.str());
-    data.set_sip(comp_nh->GetSrcAddr().to_string());
-    data.set_dip(comp_nh->GetGrpAddr().to_string());
     if (comp_nh->ComponentNHCount() == 0)
         return;
-    for (CompositeNH::ComponentNHList::const_iterator it =
-         comp_nh->begin(); it != comp_nh->end(); it++) {
-        ComponentNH *component_nh = *it;
+    for (ComponentNHList::const_iterator it = comp_nh->begin();
+            it != comp_nh->end(); it++) {
+        const ComponentNH *component_nh = (*it).get();
         if (component_nh == NULL) {
             continue;
         }
         const CompositeNH *sub_cnh = 
-            static_cast<const CompositeNH *>(component_nh->GetNH());
-        if (sub_cnh->CompositeType() == Composite::L2COMP) {
+            static_cast<const CompositeNH *>(component_nh->nh());
+        if (sub_cnh->composite_nh_type() == Composite::L2COMP) {
             L2CompositeData l2_data;
             FillL2CompositeNextHop(sub_cnh, l2_data);
             data.set_l2_comp(l2_data);
         }
-        if (sub_cnh->CompositeType() == Composite::L3COMP) {
+        if (sub_cnh->composite_nh_type() == Composite::L3COMP) {
             L3CompositeData l3_data;
             FillL3CompositeNextHop(sub_cnh, l3_data);
             data.set_l3_comp(l3_data);
@@ -1688,19 +1919,19 @@ static void FillMultiProtoCompositeNextHop(const CompositeNH *comp_nh,
 }
 
 static void ExpandCompositeNextHop(const CompositeNH *comp_nh, 
-                                   NhSandeshData &data) 
+                                   NhSandeshData &data)
 {
     stringstream comp_str;
-    switch (comp_nh->CompositeType()) {
+    switch (comp_nh->composite_nh_type()) {
     case Composite::FABRIC: {
         comp_str << "fabric Composite"  << " sub nh count: " 
             << comp_nh->ComponentNHCount();
         data.set_type(comp_str.str());
         if (comp_nh->ComponentNHCount() == 0)
             break;
-        FabricCompositeData fab_data;
-        FillFabricCompositeNextHop(comp_nh, fab_data);
-        data.set_fabric_comp(fab_data); 
+        std::vector<McastData> data_list;
+        FillComponentNextHop(comp_nh, data_list);
+        data.set_mc_list(data_list);
         break;
     }    
     case Composite::L3COMP: {
@@ -1709,33 +1940,17 @@ static void ExpandCompositeNextHop(const CompositeNH *comp_nh,
         data.set_type(comp_str.str());
         if (comp_nh->ComponentNHCount() == 0)
             break;
-        CompositeNH::ComponentNHList::const_iterator it = comp_nh->begin();
-        ComponentNH *component_nh = *it;
-    
-        const CompositeNH *sub_cnh = 
-            static_cast<const CompositeNH *>(component_nh->GetNH());
-        FabricCompositeData fab_data;
-        FillFabricCompositeNextHop(sub_cnh, fab_data);
-        data.set_fabric_comp(fab_data); 
         std::vector<McastData> data_list;                      
         FillComponentNextHop(comp_nh, data_list);                          
         data.set_mc_list(data_list);
         break;
-    }    
+    }
     case Composite::L2COMP: {
         comp_str << "L2 Composite"  << " sub nh count: " 
             << comp_nh->ComponentNHCount();
         data.set_type(comp_str.str());
         if (comp_nh->ComponentNHCount() == 0)
             break;
-        CompositeNH::ComponentNHList::const_iterator it = comp_nh->begin();
-        ComponentNH *component_nh = *it;
-    
-        const CompositeNH *sub_cnh = 
-            static_cast<const CompositeNH *>(component_nh->GetNH());
-        FabricCompositeData fab_data;
-        FillFabricCompositeNextHop(sub_cnh, fab_data);
-        data.set_fabric_comp(fab_data); 
         std::vector<McastData> data_list;                      
         FillComponentNextHop(comp_nh, data_list);                          
         data.set_mc_list(data_list);
@@ -1748,7 +1963,8 @@ static void ExpandCompositeNextHop(const CompositeNH *comp_nh,
         FillMultiProtoCompositeNextHop(comp_nh, data);
         break;
     }    
-    case Composite::ECMP: {
+    case Composite::ECMP:
+    case Composite::LOCAL_ECMP: {
         comp_str << "ECMP Composite"  << " sub nh count: " 
             << comp_nh->ComponentNHCount();
         data.set_type(comp_str.str());
@@ -1758,7 +1974,7 @@ static void ExpandCompositeNextHop(const CompositeNH *comp_nh,
         break;
     }    
     default: {
-        comp_str << "UNKNOWN<" << comp_nh->CompositeType() 
+        comp_str << "UNKNOWN<" << comp_nh->composite_nh_type()
             << ">";
         data.set_type(comp_str.str());
         break;
@@ -1875,21 +2091,6 @@ void NextHop::SetNHSandeshData(NhSandeshData &data) const {
         }
         case COMPOSITE: {
             const CompositeNH *comp_nh = static_cast<const CompositeNH *>(this);
-            const MulticastGroupObject *obj = MulticastHandler::GetInstance()->
-                FindGroupObject(comp_nh->vrf_name(),
-                                comp_nh->GetGrpAddr());
-            if (obj != NULL) {
-                data.set_label(obj->GetSourceMPLSLabel());
-            }
-
-            data.set_dip(comp_nh->GetGrpAddr().to_string());
-            if (comp_nh->IsMcastNH()) {
-                data.set_sip(comp_nh->GetSrcAddr().to_string());
-            }
-            data.set_vrf(comp_nh->GetVrf() ? comp_nh->GetVrf()->GetName() : "");
-            if (comp_nh->IsLocal()) {
-                data.set_local_ecmp("true");
-            }
             ExpandCompositeNextHop(comp_nh, data);
             break;
         }

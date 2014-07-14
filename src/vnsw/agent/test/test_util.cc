@@ -1218,16 +1218,18 @@ bool Layer2TunnelRouteAdd(const Peer *peer, const string &vm_vrf,
 }
 
 bool EcmpTunnelRouteAdd(const Peer *peer, const string &vrf_name, const Ip4Address &vm_ip,
-                       uint8_t plen, std::vector<ComponentNHData> &comp_nh_list,
+                       uint8_t plen, ComponentNHKeyList &comp_nh_list,
                        bool local_ecmp, const string &vn_name, const SecurityGroupList &sg,
                        const PathPreference &path_preference) {
+    COMPOSITETYPE type = Composite::ECMP;
+    if (local_ecmp) {
+        type = Composite::LOCAL_ECMP;
+    }
     DBRequest nh_req(DBRequest::DB_ENTRY_ADD_CHANGE);
-    nh_req.key.reset(new CompositeNHKey(vrf_name, vm_ip, plen,
-                                        false));
+    nh_req.key.reset(new CompositeNHKey(type, true,
+                                        comp_nh_list, vrf_name));
+    nh_req.data.reset(new CompositeNHData());
 
-    CompositeNH::CreateCompositeNH(vrf_name, vm_ip, false, comp_nh_list);
-    nh_req.data.reset(new CompositeNHData(comp_nh_list,
-                                          CompositeNHData::REPLACE));
     ControllerEcmpRoute *data =
         new ControllerEcmpRoute(peer, vm_ip, plen, vn_name, -1, false, vrf_name,
                                 sg, path_preference, nh_req);
@@ -2626,7 +2628,7 @@ int MplsToVrfId(int label) {
             }
         } else if (nh->GetType() == NextHop::COMPOSITE) {
             const CompositeNH *nh1 = static_cast<const CompositeNH *>(nh);
-            vrf = nh1->GetVrf()->vrf_id();
+            vrf = nh1->vrf()->vrf_id();
         } else if (nh->GetType() == NextHop::VLAN) {
             const VlanNH *nh1 = static_cast<const VlanNH *>(nh);
             const VmInterface *intf =

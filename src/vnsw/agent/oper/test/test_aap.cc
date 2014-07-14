@@ -98,6 +98,7 @@ public:
         DeleteVmportEnv(input, 1, true);
         client->WaitForIdle();
         EXPECT_FALSE(VmPortFindRetDel(1));
+        client->WaitForIdle();
     }
 protected:
     Peer *peer_;
@@ -174,7 +175,7 @@ TEST_F(TestAap, StateMachine_1) {
 //moves to wait for traffic state
 TEST_F(TestAap, StateMachine_2) {
     Ip4Address ip = Ip4Address::from_string("1.1.1.1");
-    Ip4Address server_ip = Ip4Address::from_string("10.1.1.1");
+    Ip4Address server_ip = Ip4Address::from_string("10.1.1.3");
 
     PathPreference path_preference(1, PathPreference::LOW, false, false);
     TunnelType::TypeBmap bmap = (1 << TunnelType::MPLS_GRE);
@@ -196,7 +197,7 @@ TEST_F(TestAap, StateMachine_2) {
 //moves to wait for traffic state
 TEST_F(TestAap, StateMachine_3) {
     Ip4Address ip = Ip4Address::from_string("1.1.1.1");
-    Ip4Address server_ip = Ip4Address::from_string("10.1.1.1");
+    Ip4Address server_ip = Ip4Address::from_string("10.1.1.3");
 
     PathPreference path_preference(1, PathPreference::LOW, false, false);
     TunnelType::TypeBmap bmap = (1 << TunnelType::MPLS_GRE);

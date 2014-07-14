@@ -4,7 +4,7 @@
 
 #include <boost/uuid/uuid_io.hpp>
 #include <boost/lexical_cast.hpp>
-
+#include <boost/foreach.hpp>
 #include <cmn/agent_cmn.h>
 #include <route/route.h>
 
@@ -16,9 +16,23 @@
 #include <oper/mirror_table.h>
 #include <oper/peer.h>
 #include <oper/agent_sandesh.h>
-
 using namespace std;
 using namespace boost::asio;
+
+AgentPath::AgentPath(const Peer *peer, AgentRoute *rt):
+    Path(), peer_(peer), nh_(NULL), label_(-1),
+    vxlan_id_(VxLanTable::kInvalidvxlan_id), dest_vn_name_(""),
+    sync_(false), proxy_arp_(false), force_policy_(false), sg_list_(),
+    server_ip_(0), tunnel_bmap_(TunnelType::AllType()),
+    tunnel_type_(TunnelType::ComputeType(TunnelType::AllType())),
+    vrf_name_(""), gw_ip_(0), unresolved_(true), is_stale_(false),
+    is_subnet_discard_(false), dependant_rt_(rt),
+    local_ecmp_mpls_label_(rt), composite_nh_key_(NULL) {
+}
+
+AgentPath::~AgentPath() {
+    clear_sg_list();
+}
 
 uint32_t AgentPath::GetTunnelBmap() const {
     TunnelType::Type type = TunnelType::ComputeType(TunnelType::AllType());
@@ -69,82 +83,30 @@ bool AgentPath::ChangeNH(Agent *agent, NextHop *nh) {
     return false;
 }
 
-bool AgentPath::RebakeAllTunnelNHinCompositeNH(const AgentRoute *sync_route, 
-                                               const NextHop *nh) {
-    bool ret = false;
-    const CompositeNH *cnh = static_cast<const CompositeNH *>(nh);
-    const CompositeNH::ComponentNHList *comp_nh_list = 
-        cnh->GetComponentNHList();
-    Agent *agent = static_cast<AgentRouteTable *>
-        (sync_route->get_table())->agent();
-    NextHopTable *nh_table = agent->nexthop_table();
+bool AgentPath::RebakeAllTunnelNHinCompositeNH(const AgentRoute *sync_route) {
+    if (nh_->GetType() != NextHop::COMPOSITE){
+        return false;
+    }
 
+    Agent *agent =
+        static_cast<AgentRouteTable *>(sync_route->get_table())->agent();
+    CompositeNH *cnh = static_cast<CompositeNH *>(nh_.get());
+
+    //Compute new tunnel type
     TunnelType::Type new_tunnel_type;
     //Only MPLS types are supported for multicast
     if (sync_route->is_multicast()) {
         new_tunnel_type = TunnelType::ComputeType(TunnelType::MplsType());
-        if (new_tunnel_type == TunnelType::VXLAN)
+        if (new_tunnel_type == TunnelType::VXLAN) {
             new_tunnel_type = TunnelType::MPLS_GRE;
+        }
     } else {
-        new_tunnel_type = TunnelType::ComputeType(tunnel_bmap_);              
-    }        
-    for (CompositeNH::ComponentNHList::const_iterator it =
-         comp_nh_list->begin(); it != comp_nh_list->end(); it++) {
-        if ((*it) == NULL) {
-            continue;
-        }
-
-        const NextHop *nh = (*it)->GetNH();
-        switch (nh->GetType()) {
-        case NextHop::TUNNEL: {
-            const TunnelNH *tnh = static_cast<const TunnelNH *>(nh);
-            if (new_tunnel_type != tnh->GetTunnelType().GetType()) {
-                DBRequest tnh_req(DBRequest::DB_ENTRY_ADD_CHANGE);
-                tnh_req.key.reset(new TunnelNHKey(tnh->GetVrf()->GetName(),
-                                                  *(tnh->GetSip()),
-                                                  *(tnh->GetDip()),
-                                                  tnh->PolicyEnabled(), 
-                                                  new_tunnel_type));
-                tnh_req.data.reset(new TunnelNHData());
-                nh_table->Process(tnh_req);
-
-                TunnelNHKey find_key(tnh->GetVrf()->GetName(), *(tnh->GetSip()),
-                                     *(tnh->GetDip()), tnh->PolicyEnabled(),
-                                     new_tunnel_type);
-                (*it)->SetNH(static_cast<NextHop *>
-                             (nh_table->FindActiveEntry(&find_key)));
-                ret = true;
-            }
-            break;
-        }
-        case NextHop::COMPOSITE: {
-            ret = RebakeAllTunnelNHinCompositeNH(sync_route, nh);
-            break;
-        }      
-        default:
-            continue;
-            break;
-        }
+        new_tunnel_type = TunnelType::ComputeType(tunnel_bmap_);
     }
 
-    if (ret) {
-        //Resync the parent composite NH
-        DBRequest cnh_req(DBRequest::DB_ENTRY_ADD_CHANGE);
-        NextHopKey *cnh_key = NULL;
-        if (sync_route->is_multicast()) {
-            cnh_key = new CompositeNHKey(cnh->vrf_name(), cnh->GetGrpAddr(),
-                                         cnh->GetSrcAddr(), cnh->IsLocal(),
-                                         cnh->CompositeType());
-        } else {
-            cnh_key = new CompositeNHKey(cnh->vrf_name(), cnh->GetGrpAddr(),
-                                         cnh->prefix_len(), cnh->IsLocal());
-        }
-        cnh_key->sub_op_ = AgentKey::RESYNC;
-        cnh_req.key.reset(cnh_key);
-        cnh_req.data.reset(new CompositeNHData(CompositeNHData::REBAKE));
-        agent->nexthop_table()->Process(cnh_req);
-    }
-    return ret;
+    CompositeNH *new_composite_nh = NULL;
+    new_composite_nh = cnh->ChangeTunnelType(agent, new_tunnel_type);
+    return ChangeNH(agent, new_composite_nh);
 }
 
 bool AgentPath::UpdateNHPolicy(Agent *agent) {
@@ -212,7 +174,7 @@ bool AgentPath::UpdateTunnelType(Agent *agent, const AgentRoute *sync_route) {
     }
 
     if (nh_.get() && nh_->GetType() == NextHop::COMPOSITE) {
-        RebakeAllTunnelNHinCompositeNH(sync_route, nh_.get());
+        RebakeAllTunnelNHinCompositeNH(sync_route);
     }
     return true;
 }
@@ -233,6 +195,13 @@ bool AgentPath::Sync(AgentRoute *sync_route) {
     //Handle tunnel type change
     if (UpdateTunnelType(agent, sync_route)) {
         ret = true;
+    }
+
+    //Check if there was a change in local ecmp composite nexthop
+    if (composite_nh_key_.get() != NULL) {
+        if (SetCompositeNH(agent, composite_nh_key_.get())) {
+            ret = true;
+        }
     }
 
     if (vrf_name_ == Agent::NullString()) {
@@ -269,6 +238,7 @@ bool AgentPath::Sync(AgentRoute *sync_route) {
         dependant_rt_.reset(rt);
         ret = true;
     }
+
     return ret;
 }
 
@@ -547,9 +517,13 @@ bool MulticastRoute::AddChangePath(Agent *agent, AgentPath *path) {
     bool ret = false;
     NextHop *nh = NULL;
 
-    CompositeNHKey key(vrf_name_, grp_addr_,
-                       src_addr_, false, comp_type_);
-    nh = static_cast<NextHop *>(agent->nexthop_table()->FindActiveEntry(&key));
+    nh = static_cast<NextHop *>(agent->nexthop_table()->
+            FindActiveEntry(composite_nh_req_.key.get()));
+    if (nh == NULL) {
+        nh = static_cast<NextHop *>(agent->nexthop_table()->
+                            FindActiveEntry(composite_nh_req_.key.get()));
+    }
+    assert(nh);
     path->set_dest_vn_name(vn_name_);
     path->set_unresolved(false);
     path->set_vxlan_id(vxlan_id_);
@@ -748,4 +722,60 @@ void AgentPath::SetSandeshData(PathSandeshData &pdata) const {
     path_preference_data.set_wait_for_traffic(
          path_preference_.wait_for_traffic());
     pdata.set_path_preference_data(path_preference_data);
+}
+
+void AgentPath::set_local_ecmp_mpls_label(MplsLabel *mpls) {
+    local_ecmp_mpls_label_.reset(mpls);
+}
+
+const MplsLabel* AgentPath::local_ecmp_mpls_label() const {
+    return local_ecmp_mpls_label_.get();
+}
+
+bool AgentPath::SetCompositeNH(Agent *agent,
+                               CompositeNHKey *nh_key) {
+    CompositeNHKey *composite_nh_key = nh_key->Clone();
+    //Find local composite mpls label, if present
+    //This has to be done, before expanding component NH
+    BOOST_FOREACH(ComponentNHKeyPtr component_nh_key,
+                  composite_nh_key->component_nh_key_list()) {
+         if (component_nh_key.get() == NULL ||
+                 component_nh_key->nh_key()->GetType() != NextHop::COMPOSITE) {
+             continue;
+         }
+         //Get mpls label allocated for this composite NH
+         MplsLabel *mpls = agent->mpls_table()->
+             FindMplsLabel(component_nh_key->label());
+         if (!mpls) {
+             //If a mpls label is deleted,
+             //wait for bgp to update latest list
+             local_ecmp_mpls_label_.reset(mpls);
+             return false;
+         }
+         local_ecmp_mpls_label_.reset(mpls);
+         break;
+     }
+
+    set_composite_nh_key(nh_key->Clone());
+    //Reorder the keys so that, existing component NH maintain
+    //there previous position
+    //For example take a composite NH with members A, B, C
+    //in that exact order,If B gets deleted,
+    //the new composite NH created should be A <NULL> C in that order,
+    //irrespective of the order user passed it in
+    composite_nh_key->Reorder(agent, label_, nexthop(agent));
+    //Create the nexthop
+    DBRequest nh_req(DBRequest::DB_ENTRY_ADD_CHANGE);
+    nh_req.key.reset(composite_nh_key);
+    nh_req.data.reset(new CompositeNHData());
+    agent->nexthop_table()->Process(nh_req);
+
+    NextHop *nh = static_cast<NextHop *>(agent->nexthop_table()->
+                                         FindActiveEntry(composite_nh_key));
+    assert(nh);
+
+    if (ChangeNH(agent, nh) == true) {
+        return true;
+    }
+    return false;
 }

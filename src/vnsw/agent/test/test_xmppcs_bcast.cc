@@ -512,8 +512,7 @@ protected:
         MulticastGroupObject *obj;
 	ASSERT_TRUE(nh != NULL);
 	ASSERT_TRUE(nh->GetType() == NextHop::COMPOSITE);
-	obj = MulticastHandler::GetInstance()->FindGroupObject(cnh->vrf_name(),
-			cnh->GetGrpAddr());
+	obj = MulticastHandler::GetInstance()->FindGroupObject("vrf1", addr);
 	WAIT_FOR(1000, 1000, (obj->GetSourceMPLSLabel() != 0));
     WAIT_FOR(1000, 10000, (cnh->ComponentNHCount() == 3));
 
@@ -540,8 +539,7 @@ protected:
 	ASSERT_TRUE(nh != NULL);
 	ASSERT_TRUE(nh->GetType() == NextHop::COMPOSITE);
 	cnh = static_cast<CompositeNH *>(nh);
-	obj = MulticastHandler::GetInstance()->FindGroupObject(cnh->vrf_name(),
-			cnh->GetGrpAddr());
+	obj = MulticastHandler::GetInstance()->FindGroupObject("vrf1", addr);
 	WAIT_FOR(1000, 1000, (obj->GetSourceMPLSLabel() != 0));
     ASSERT_TRUE(cnh->ComponentNHCount() == 3);
 
@@ -613,7 +611,11 @@ TEST_F(AgentXmppUnitTest, SubnetBcast_Test_FailOver) {
     ASSERT_TRUE(nh != NULL);
     ASSERT_TRUE(nh->GetType() == NextHop::COMPOSITE);
     CompositeNH *cnh = static_cast<CompositeNH *>(nh);
-    ASSERT_TRUE(cnh->ComponentNHCount() == 3);
+    if (Agent::GetInstance()->headless_agent_mode()) {
+        ASSERT_TRUE(cnh->ComponentNHCount() == 3);
+    } else {
+        ASSERT_TRUE(cnh->ComponentNHCount() == 2);
+    }
 
     //ensure route learnt via control-node is cleaned/updated 
     addr = Ip4Address::from_string("255.255.255.255");
@@ -623,7 +625,11 @@ TEST_F(AgentXmppUnitTest, SubnetBcast_Test_FailOver) {
     ASSERT_TRUE(nh != NULL);
     ASSERT_TRUE(nh->GetType() == NextHop::COMPOSITE);
     cnh = static_cast<CompositeNH *>(nh);
-    ASSERT_TRUE(cnh->ComponentNHCount() == 3);
+    if (Agent::GetInstance()->headless_agent_mode()) {
+        ASSERT_TRUE(cnh->ComponentNHCount() == 3);
+    } else {
+        ASSERT_TRUE(cnh->ComponentNHCount() == 2);
+    }
 
     //Verify label deallocated from Mpls Table
     if (Agent::GetInstance()->headless_agent_mode()) {
@@ -636,7 +642,13 @@ TEST_F(AgentXmppUnitTest, SubnetBcast_Test_FailOver) {
 
     //expect subnet and all braodcast routes to newly elected
     //multicast builder
-    WAIT_FOR(1000, 10000, (mock_peer.get()->Count() == 9));
+    if (Agent::GetInstance()->headless_agent_mode()) {
+        WAIT_FOR(1000, 10000, (mock_peer.get()->Count() == 9));
+    } else {
+        //3 notification for fabric member modification
+        //3 notification for same route, during walk
+        WAIT_FOR(1000, 10000, (mock_peer.get()->Count() == 12));
+    }
 
     //we could add olists from mock_peer due to
     //local-vms on another agent attached to mock_peer
@@ -655,7 +667,11 @@ TEST_F(AgentXmppUnitTest, SubnetBcast_Test_FailOver) {
     EXPECT_STREQ(ch->controller_ifmap_xmpp_server().c_str(), "127.0.0.1");
 
     //expect dissociate to the older peer, 127.0.0.2
-    WAIT_FOR(1000, 10000, (mock_peer.get()->Count() == 12));
+    if (Agent::GetInstance()->headless_agent_mode()) {
+        WAIT_FOR(1000, 10000, (mock_peer.get()->Count() == 12));
+    } else {
+        WAIT_FOR(1000, 10000, (mock_peer.get()->Count() == 15));
+    }
 
     //expect subscribe, 2VM routes, 
     //subnet and all braodcast routes to newly elected
@@ -692,7 +708,11 @@ TEST_F(AgentXmppUnitTest, SubnetBcast_Test_FailOver) {
     EXPECT_STREQ(ch->controller_ifmap_xmpp_server().c_str(), "127.0.0.1");
 
     //expect subscribe + 2VM routes
-    WAIT_FOR(1000, 10000, (mock_peer.get()->Count() == 18));
+    if (Agent::GetInstance()->headless_agent_mode()) {
+        WAIT_FOR(1000, 10000, (mock_peer.get()->Count() == 18));
+    } else {
+        WAIT_FOR(1000, 10000, (mock_peer.get()->Count() == 21));
+    }
 
     //cleanup all config links via config
     XmppSubnetTearDown();
