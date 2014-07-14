@@ -160,15 +160,23 @@ struct InterfaceKey : public AgentKey {
         name_ = name;
     }
 
-    bool Compare(const InterfaceKey &rhs) const {
-        if (type_ != rhs.type_)
-            return false;
+    bool IsLess(const InterfaceKey &rhs) const {
+        if (type_ != rhs.type_) {
+            return type_ < rhs.type_;
+        }
 
-        if (uuid_ != rhs.uuid_)
-            return false;
+        if (uuid_ != rhs.uuid_) {
+            return uuid_ < rhs.uuid_;
+        }
 
-        return (name_ == rhs.name_);
+        return name_ < rhs.name_;
+    }
 
+    bool IsEqual(const InterfaceKey &rhs) const {
+        if ((IsLess(rhs) == false) && (rhs.IsLess(*this) == false)) {
+            return true;
+        }
+        return false;
     }
 
     // Virtual methods for interface keys

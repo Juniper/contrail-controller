@@ -1225,7 +1225,7 @@ TEST_F(AgentXmppUnitTest, TransparentSISgList) {
     AddLink("virtual-machine-interface-routing-instance", "ser1",
             "virtual-machine-interface", "vnet1");
     client->WaitForIdle();
-    //expect subscribe message+route at the mock server
+    //expect route at the mock server
     WAIT_FOR(1000, 10000, (mock_peer.get()->Count() == 8));
 
     Ip4Address addr = Ip4Address::from_string("11.1.1.1");

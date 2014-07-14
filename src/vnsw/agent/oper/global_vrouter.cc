@@ -389,6 +389,7 @@ void GlobalVrouter::GlobalVrouterConfig(IFMapNode *node) {
     if (encap_changed) {
         AGENT_LOG(GlobalVrouterLog, "Rebake all routes for changed encap");
         agent_route_encap_update_walker_.get()->Update();
+        oper_->multicast()->ChangeTunnelType();
     }
 }
 

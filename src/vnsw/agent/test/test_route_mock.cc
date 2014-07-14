@@ -231,16 +231,16 @@ TEST_F(RouteTest, BgpEcmpRouteTest_1) {
     EXPECT_TRUE(comp_nh->ComponentNHCount() == 2); 
 
     //Verfiy that all members of component NH are correct 
-    CompositeNH::ComponentNHList::const_iterator component_nh_it =
+    ComponentNHList::const_iterator component_nh_it =
         comp_nh->begin();
     EXPECT_TRUE((*component_nh_it)->label() == 16);
     const TunnelNH *tun_nh = 
-        static_cast<const TunnelNH *>((*component_nh_it)->GetNH());
+        static_cast<const TunnelNH *>((*component_nh_it)->nh());
     EXPECT_TRUE((*(tun_nh->GetDip())).to_string() == "10.10.10.10");
 
     component_nh_it++;
     EXPECT_TRUE((*component_nh_it)->label() == 17);
-    tun_nh = static_cast<const TunnelNH *>((*component_nh_it)->GetNH());
+    tun_nh = static_cast<const TunnelNH *>((*component_nh_it)->nh());
     EXPECT_TRUE((*(tun_nh->GetDip())).to_string() == "11.11.11.11");
 
     DelVrf("vrf1");
@@ -281,16 +281,16 @@ TEST_F(RouteTest, BgpEcmpRouteTest_2) {
     EXPECT_TRUE(comp_nh->ComponentNHCount() == 2); 
 
     //Verfiy that all members of component NH are correct 
-    CompositeNH::ComponentNHList::const_iterator component_nh_it =
+    ComponentNHList::const_iterator component_nh_it =
         comp_nh->begin();
     EXPECT_TRUE((*component_nh_it)->label() == 16);
     const TunnelNH *tun_nh = 
-        static_cast<const TunnelNH *>((*component_nh_it)->GetNH());
+        static_cast<const TunnelNH *>((*component_nh_it)->nh());
     EXPECT_TRUE((*(tun_nh->GetDip())).to_string() == "10.10.10.10");
 
     component_nh_it++;
     EXPECT_TRUE((*component_nh_it)->label() == 17);
-    tun_nh = static_cast<const TunnelNH *>((*component_nh_it)->GetNH());
+    tun_nh = static_cast<const TunnelNH *>((*component_nh_it)->nh());
     EXPECT_TRUE((*(tun_nh->GetDip())).to_string() == "11.11.11.11");
 
     DelVrf("vrf1");
@@ -324,16 +324,16 @@ TEST_F(RouteTest, BgpEcmpRouteTest_3) {
     EXPECT_TRUE(comp_nh->ComponentNHCount() == 2); 
 
     //Verfiy that all members of component NH are correct 
-    CompositeNH::ComponentNHList::const_iterator component_nh_it =
+    ComponentNHList::const_iterator component_nh_it =
         comp_nh->begin();
     EXPECT_TRUE((*component_nh_it)->label() == 16);
     const TunnelNH *tun_nh = 
-        static_cast<const TunnelNH *>((*component_nh_it)->GetNH());
+        static_cast<const TunnelNH *>((*component_nh_it)->nh());
     EXPECT_TRUE((*(tun_nh->GetDip())).to_string() == "10.10.10.10");
 
     component_nh_it++;
     EXPECT_TRUE((*component_nh_it)->label() == 17);
-    tun_nh = static_cast<const TunnelNH *>((*component_nh_it)->GetNH());
+    tun_nh = static_cast<const TunnelNH *>((*component_nh_it)->nh());
     EXPECT_TRUE((*(tun_nh->GetDip())).to_string() == "11.11.11.11");
 
     //Delete one of the component route
@@ -383,11 +383,11 @@ TEST_F(RouteTest, BgpEcmpRouteTest_4) {
     bgp_peer1->DeleteRoute("vrf1", "1.1.1.1/32", "11.11.11.11", 17, "vn1");
     bgp_peer2->DeleteRoute("vrf1", "1.1.1.1/32", "11.11.11.11", 17, "vn1");
     //Verfiy that all members of component NH are correct 
-    CompositeNH::ComponentNHList::const_iterator component_nh_it =
+    ComponentNHList::const_iterator component_nh_it =
         comp_nh->begin();
     EXPECT_TRUE((*component_nh_it)->label() == 16);
     const TunnelNH *tun_nh = 
-        static_cast<const TunnelNH *>((*component_nh_it)->GetNH());
+        static_cast<const TunnelNH *>((*component_nh_it)->nh());
     EXPECT_TRUE((*(tun_nh->GetDip())).to_string() == "10.10.10.10");
 
     //Component NH at index 2 was deleted
@@ -396,7 +396,7 @@ TEST_F(RouteTest, BgpEcmpRouteTest_4) {
 
     component_nh_it++;
     EXPECT_TRUE((*component_nh_it)->label() == 18);
-    tun_nh = static_cast<const TunnelNH *>((*component_nh_it)->GetNH());
+    tun_nh = static_cast<const TunnelNH *>((*component_nh_it)->nh());
     EXPECT_TRUE((*(tun_nh->GetDip())).to_string() == "12.12.12.12");
 
     DelVrf("vrf1");
@@ -681,11 +681,11 @@ TEST_F(RouteTest, EcmpRouteTest_7) {
     const CompositeNH *comp_nh = static_cast<const CompositeNH *>(bgp_nh);
 
     //Verfiy that all members of component NH are correct 
-    CompositeNH::ComponentNHList::const_iterator component_nh_it =
+    ComponentNHList::const_iterator component_nh_it =
         comp_nh->begin();
-    EXPECT_TRUE((*component_nh_it)->GetNH()->GetType() == NextHop::INTERFACE);
+    EXPECT_TRUE((*component_nh_it)->nh()->GetType() == NextHop::INTERFACE);
     const  InterfaceNH *intf_nh =
-        static_cast<const InterfaceNH *>((*component_nh_it)->GetNH());
+        static_cast<const InterfaceNH *>((*component_nh_it)->nh());
     EXPECT_TRUE(intf_nh->PolicyEnabled() == false);
     DeleteVmportEnv(input1, 1, true);
     client->WaitForIdle();

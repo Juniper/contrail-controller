@@ -61,6 +61,8 @@ bool ControllerEcmpRoute::IsPeerValid() const {
 }
 
 bool ControllerEcmpRoute::AddChangePath(Agent *agent, AgentPath *path) {
+    CompositeNHKey *comp_key = static_cast<CompositeNHKey *>(nh_req_.key.get());
+    path->SetCompositeNH(agent, comp_key, false);
     return Inet4UnicastRouteEntry::ModifyEcmpPath(dest_addr_, plen_, vn_name_,
                                                   label_, local_ecmp_nh_,
                                                   vrf_name_, sg_list_,

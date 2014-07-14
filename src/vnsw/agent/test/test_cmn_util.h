@@ -129,7 +129,7 @@ Layer2RouteEntry *L2RouteGet(const string &vrf_name, const struct ether_addr &ma
 bool TunnelNHFind(const Ip4Address &server_ip);
 bool TunnelNHFind(const Ip4Address &server_ip, bool policy, TunnelType::Type type);
 bool EcmpTunnelRouteAdd(const Peer *peer, const string &vrf_name, const Ip4Address &vm_ip,
-                       uint8_t plen, std::vector<ComponentNHData> &comp_nh_list,
+                       uint8_t plen, ComponentNHKeyList &comp_nh_list,
                        bool local_ecmp, const string &vn_name, const SecurityGroupList &sg,
                        const PathPreference &path_preference);
 bool Layer2TunnelRouteAdd(const Peer *peer, const string &vm_vrf, 
