@@ -51,6 +51,7 @@ from pycassa.system_manager import *
 from datetime import datetime
 from pycassa.util import *
 
+import amqp.exceptions
 import kombu
 
 #from cfgm_common import vnc_type_conv
@@ -824,7 +825,8 @@ class VncCassandraClient(VncCassandraClientGen):
 
 
 class VncKombuClient(object):
-    def _init_server_conn(self, rabbit_ip, rabbit_port, rabbit_user, rabbit_password, rabbit_vhost):
+    def _init_server_conn(self, rabbit_ip, rabbit_port, rabbit_user, rabbit_password, rabbit_vhost,
+                          delete_old_q=False):
         while True:
             try:
                 self._conn = kombu.Connection(hostname=rabbit_ip,
@@ -832,6 +834,15 @@ class VncKombuClient(object):
                                               userid=rabbit_user,
                                               password=rabbit_password,
                                               virtual_host=rabbit_vhost)
+
+                if delete_old_q:
+                    bound_q = self._update_queue_obj(self._conn.channel())
+                    try:
+                        bound_q.delete()
+                    except amqp.exceptions.ChannelError as e:
+                        if e.message != 404:
+                            raise e
+
                 self._obj_update_q = self._conn.SimpleQueue(self._update_queue_obj)
 
                 old_subscribe_greenlet = self._dbe_oper_subscribe_greenlet
@@ -866,7 +877,8 @@ class VncKombuClient(object):
         self._dbe_oper_subscribe_greenlet = None
         if self._rabbit_vhost == "__NONE__":
             return
-        self._init_server_conn(self._rabbit_ip, self._rabbit_port, self._rabbit_user, self._rabbit_password, self._rabbit_vhost)
+        self._init_server_conn(self._rabbit_ip, self._rabbit_port, self._rabbit_user, self._rabbit_password, self._rabbit_vhost,
+                               delete_old_q=True)
     # end __init__
 
     def _obj_update_q_put(self, oper_info):

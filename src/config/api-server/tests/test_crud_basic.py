@@ -135,12 +135,7 @@ class TestFixtures(object):
     # end tearDown
 
     def assertThat(self, *args):
-        try:
-            super(TestFixtures, self).assertThat(*args)
-        except MismatchError as e:
-            import pdb
-            pdb.set_trace()
-            raise e
+        super(TestFixtures, self).assertThat(*args)
     # end assertThat
 
     def test_fixture_ref(self):
@@ -268,12 +263,7 @@ class TestNetAddrAlloc(object):
     # end tearDown
 
     def assertThat(self, *args):
-        try:
-            super(TestNetAddrAlloc, self).assertThat(*args)
-        except MismatchError as e:
-            import pdb
-            pdb.set_trace()
-            raise e
+        super(TestNetAddrAlloc, self).assertThat(*args)
     # end assertThat
 
     def test_ip_alloc_on_net(self):
