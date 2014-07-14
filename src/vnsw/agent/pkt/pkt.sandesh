@@ -110,6 +110,7 @@ struct SandeshFlowData {
     42: u32 fip_vm_interface_idx;
     43: optional string sg_rule_uuid;
     44: optional string nw_ace_uuid;
+    45: i32 rpf_nh;
 }
 
 request sandesh FetchFlowRecord {

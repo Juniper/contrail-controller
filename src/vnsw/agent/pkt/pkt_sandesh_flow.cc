@@ -72,6 +72,11 @@ using boost::system::error_code;
     data.set_fip_vm_interface_idx(fe->stats().fip_vm_port_id);              \
     SetAclInfo(data, fe);                                                   \
     data.set_nh(fe->key().nh);                                              \
+    if (fe->data().nh_state_.get() != NULL &&                               \
+                             (fe->data().nh_state_.get())->nh() != NULL) {  \
+        data.set_rpf_nh((fe->data().nh_state_.get())->nh()->id());          \
+    }                                                                       \
+
 
 const std::string PktSandeshFlow::start_key = "0:0:0:0:0.0.0.0:0.0.0.0";
 
