@@ -1,9 +1,5 @@
-bitarray	# common
-bottle		# common
 gevent
-geventhttpclient	# common
 kazoo
-psutil		# common
 pycassa
 python-novaclient
 requests

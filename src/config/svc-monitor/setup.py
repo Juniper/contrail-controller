@@ -2,12 +2,13 @@
 # Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
 #
 
-import setuptools
+import setuptools, re
 
 def requirements(filename):
     with open(filename) as f:
         lines = f.read().splitlines()
-    return lines
+    c = re.compile(r'\s*#.*')
+    return filter(bool, map(lambda y: c.sub('', y).strip(), lines))
 
 setuptools.setup(
     name='svc-monitor',

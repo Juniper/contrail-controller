@@ -2,6 +2,13 @@
 # Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
 #
 from setuptools import setup
+import re
+
+def requirements(filename):
+    with open(filename) as f:
+        lines = f.read().splitlines()
+    c = re.compile(r'\s*#.*')
+    return filter(bool, map(lambda y: c.sub('', y).strip(), lines))
 
 setup(
     name='cfgm_common',
@@ -21,4 +28,5 @@ setup(
     package_data={'': ['*.html', '*.css', '*.xml']},
     zip_safe=False,
     long_description="VNC Configuration Common Utils",
+    install_requires=requirements('requirements.txt'),
 )
