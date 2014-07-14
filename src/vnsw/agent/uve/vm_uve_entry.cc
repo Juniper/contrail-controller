@@ -118,6 +118,7 @@ bool VmUveEntry::FrameInterfaceMsg(const VmInterface *vm_intf,
     s_intf->set_label(vm_intf->label());
     s_intf->set_active(vm_intf->ipv4_active());
     s_intf->set_l2_active(vm_intf->l2_active());
+    s_intf->set_uuid(to_string(vm_intf->GetUuid()));
     string gw;
     if (GetVmInterfaceGateway(vm_intf, gw)) {
         s_intf->set_gateway(gw);

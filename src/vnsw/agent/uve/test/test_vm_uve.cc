@@ -386,6 +386,13 @@ TEST_F(UveVmUveTest, VmIntfAddDel_1) {
     EXPECT_EQ(2U, vmut->send_count());
     EXPECT_EQ(1U, uve1->get_interface_list().size()); 
 
+    //Verify interface UUID
+    VmInterfaceAgent intf_entry = uve1->get_interface_list().front();
+    VmInterface *vmi = VmInterfaceGet(input[0].intf_id);
+    assert(vmi);
+    string uuid_str = to_string(vmi->GetUuid());
+    EXPECT_STREQ(uuid_str.c_str(), intf_entry.get_uuid().c_str());
+
     // Delete virtual-machine-interface to vrf link attribute
     DelLink("virtual-machine-interface-routing-instance", "vnet1",
             "routing-instance", "vrf1");

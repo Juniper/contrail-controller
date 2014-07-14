@@ -35,6 +35,7 @@ struct VmInterfaceAgent {
     8: string vm_name;
     9: string gateway;
    10: bool l2_active;
+   11: string uuid;
 }
 
 struct UveVirtualMachineAgent {
