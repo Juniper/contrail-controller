@@ -550,6 +550,7 @@ class VncApiServer(VncApiServerGen):
                                          --disc_server_ip 127.0.0.1
                                          --disc_server_port 5998
                                          --worker_id 1
+                                         --cluster_id <testbed-name>
                                          [--auth keystone]
                                          [--ifmap_server_loc
                                           /home/contrail/source/ifmap-server/]
@@ -589,6 +590,7 @@ class VncApiServer(VncApiServerGen):
             'rabbit_user': 'guest',
             'rabbit_password': 'guest',
             'rabbit_vhost': None,
+            'cluster_id': '',
         }
         # ssl options
         secopts = {
@@ -736,6 +738,9 @@ class VncApiServer(VncApiServerGen):
         parser.add_argument(
             "--rabbit_password",
             help="password for rabbit")
+        parser.add_argument(
+            "--cluster_id",
+            help="Used for database keyspace separation")
         self._args = parser.parse_args(remaining_argv)
         self._args.config_sections = config
         if type(self._args.cassandra_server_list) is str:
@@ -797,7 +802,7 @@ class VncApiServer(VncApiServerGen):
         db_conn = VncDbClient(self, ifmap_ip, ifmap_port, user, passwd,
                               cass_server_list, rabbit_server, rabbit_port,
                               rabbit_user, rabbit_password, rabbit_vhost,
-                              reset_config, ifmap_loc, zk_server)
+                              reset_config, ifmap_loc, zk_server, self._args.cluster_id)
         self._db_conn = db_conn
     # end _db_connect
 
