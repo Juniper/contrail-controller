@@ -1110,8 +1110,7 @@ bool FlowEntry::SetRpfNH(const Inet4UnicastRouteEntry *rt) {
             //  If there are multiple instances of ECMP in local server
             //  then RPF NH would point to local composite NH(containing 
             //  local members only)
-        const CompositeNH *comp_nh = static_cast<const CompositeNH *>(nh);
-        nh = comp_nh->GetLocalNextHop();
+        nh = rt->GetLocalNextHop();
     }
 
     const NhState *nh_state = NULL;
@@ -1741,9 +1740,7 @@ void Inet4RouteUpdate::UnicastNotify(DBTablePartBase *partition, DBEntryBase *e)
     if (active_nh->GetType() == NextHop::COMPOSITE) {
         //If destination is ecmp, all remote flow would
         //have RPF NH set to that local component NH
-        const CompositeNH *comp_nh = 
-            static_cast<const CompositeNH *>(active_nh);
-        local_nh = comp_nh->GetLocalCompositeNH();
+        local_nh = route->GetLocalNextHop();
     }
 
     if ((state->active_nh_ != active_nh) || (state->local_nh_ != local_nh)) {

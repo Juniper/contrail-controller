@@ -56,18 +56,23 @@ void DoMulticastSandesh(int vrf_id) {
     client->WaitForIdle();
 }
 
-void WaitForCompositeNHDelete(Ip4Address grp, std::string vrf_name)
+void WaitForRouteDelete(Ip4Address grp, std::string vrf_name, bool mcast)
 {
-    CompositeNHKey key(vrf_name, grp,
-                       IpAddress::from_string("0.0.0.0").to_v4(), false,
-                       Composite::FABRIC);
-    NextHop *nh;
-    do {
-        nh = static_cast<NextHop *>(Agent::GetInstance()->nexthop_table()->
-                                    FindActiveEntry(&key));
-        usleep(1000);
+    client->WaitForIdle();
+    while (1) {
+        AgentRoute *rt;
+        if (mcast) {
+            rt = MCRouteGet(vrf_name, grp);
+        } else {
+            rt = RouteGet(vrf_name, grp, 32);
+        }
+
+        if (rt == NULL) {
+            break;
+        }
         client->WaitForIdle();
-    } while ((nh != NULL) && (nh->IsDeleted() != true));
+        usleep(100);
+    }
 }
 
 TEST_F(MulticastTest, Mcast_basic) {
@@ -189,8 +194,9 @@ TEST_F(MulticastTest, McastSubnet_1) {
     rt = RouteGet("vrf1", addr, 32);
     nh = const_cast<NextHop *>(rt->GetActiveNextHop());
     cnh = static_cast<CompositeNH *>(nh);
-    mcobj = MulticastHandler::GetInstance()->FindGroupObject(cnh->vrf_name(),
-                                              cnh->GetGrpAddr());
+    EXPECT_TRUE(cnh->GetType() == NextHop::COMPOSITE);
+    mcobj = MulticastHandler::GetInstance()->FindGroupObject("vrf1",
+                                              addr);
     ASSERT_TRUE(mcobj->GetSourceMPLSLabel() == 1111);
 	MplsLabel *mpls = 
 	    agent_->mpls_table()->FindMplsLabel(1111);
@@ -278,8 +284,10 @@ TEST_F(MulticastTest, McastSubnet_1) {
     ApplyXmlString(buf);
     client->WaitForIdle();
 
-    WaitForCompositeNHDelete(IpAddress::from_string("1.1.1.255").to_v4(), "vrf1");
-    WaitForCompositeNHDelete(IpAddress::from_string("4.255.255.255").to_v4(), "vrf1");
+    WaitForRouteDelete(IpAddress::from_string("1.1.1.255").to_v4(), "vrf1",
+                       false);
+    WaitForRouteDelete(IpAddress::from_string("4.255.255.255").to_v4(), "vrf1",
+                       false);
 
     client->Reset();
     DelIPAM("vn1"); 
@@ -290,11 +298,16 @@ TEST_F(MulticastTest, McastSubnet_1) {
     DeleteVmportEnv(input, 3, 1, 0);
     client->WaitForIdle();
 
-    WaitForCompositeNHDelete(IpAddress::from_string("1.1.1.255").to_v4(), "vrf1");
-    WaitForCompositeNHDelete(IpAddress::from_string("4.255.255.255").to_v4(), "vrf1");
-    WaitForCompositeNHDelete(IpAddress::from_string("2.2.2.255").to_v4(), "vrf1");
-    WaitForCompositeNHDelete(IpAddress::from_string("3.3.255.255").to_v4(), "vrf1");
-    WaitForCompositeNHDelete(IpAddress::from_string("255.255.255.255").to_v4(), "vrf1");
+    WaitForRouteDelete(IpAddress::from_string("1.1.1.255").to_v4(), "vrf1",
+                       false);
+    WaitForRouteDelete(IpAddress::from_string("4.255.255.255").to_v4(), "vrf1",
+                       false);
+    WaitForRouteDelete(IpAddress::from_string("2.2.2.255").to_v4(), "vrf1",
+                       false);
+    WaitForRouteDelete(IpAddress::from_string("3.3.255.255").to_v4(), "vrf1",
+                       false);
+    WaitForRouteDelete(IpAddress::from_string("255.255.255.255").to_v4(), "vrf1",
+                       true);
     client->WaitForIdle();
 }
 
@@ -347,52 +360,51 @@ TEST_F(MulticastTest, L2Broadcast_1) {
            agent_->fabric_interface_name().c_str());
     client->WaitForIdle();
 
+    Ip4Address addr = Ip4Address::from_string("255.255.255.255");
     Inet4MulticastRouteEntry *rt = 
         MCRouteGet("vrf1", "255.255.255.255");
     nh = const_cast<NextHop *>(rt->GetActiveNextHop());
     cnh = static_cast<CompositeNH *>(nh);
-    mcobj = MulticastHandler::GetInstance()->FindGroupObject(cnh->vrf_name(),
-                                              cnh->GetGrpAddr());
+    mcobj = MulticastHandler::GetInstance()->FindGroupObject("vrf1", addr);
     ASSERT_TRUE(mcobj->GetSourceMPLSLabel() == 1111);
     WAIT_FOR(1000, 1000, FindMplsLabel(MplsLabel::MCAST_NH, 1111));
 	MplsLabel *mpls = GetMplsLabel(MplsLabel::MCAST_NH, 1111);; 
     ASSERT_TRUE((mcobj->GetLocalOlist()).size() == 3);
     ASSERT_TRUE((mcobj->GetTunnelOlist()).size() == 1);
     EXPECT_TRUE(cnh->ComponentNHCount() == 4);
-    EXPECT_TRUE(cnh->IsMcastNH() == true);
-    EXPECT_TRUE(cnh->CompositeType() == Composite::L3COMP);
+    EXPECT_TRUE(cnh->composite_nh_type() == Composite::L3COMP);
     DoMulticastSandesh(1);
 
     Layer2RouteEntry *l2_rt = L2RouteGet("vrf1", *ether_aton("FF:FF:FF:FF:FF:FF"));
     NextHop *l2_nh = const_cast<NextHop *>(l2_rt->GetActiveNextHop());
     CompositeNH *l2_cnh = static_cast<CompositeNH *>(l2_nh);
     EXPECT_TRUE(l2_cnh->ComponentNHCount() == 4);
-    EXPECT_TRUE(l2_cnh->IsMcastNH() == true);
-    EXPECT_TRUE(l2_cnh->CompositeType() == Composite::L2COMP);
+    EXPECT_TRUE(l2_cnh->composite_nh_type() == Composite::L2COMP);
 
     EXPECT_TRUE(cnh->GetNH(0) == l2_cnh->GetNH(0));
     for (uint8_t i = 1; i < cnh->ComponentNHCount(); i++) {
         const InterfaceNH *l3_comp_nh = 
-            static_cast<const InterfaceNH *>(cnh->GetNH(i));
+            static_cast<const InterfaceNH *>(cnh->Get(i)->nh());
         const InterfaceNH *l2_comp_nh = 
-            static_cast<const InterfaceNH *>(l2_cnh->GetNH(i));
+            static_cast<const InterfaceNH *>(l2_cnh->Get(i)->nh());
         EXPECT_TRUE(l3_comp_nh->GetFlags() == 
                     (InterfaceNHFlags::MULTICAST));
         EXPECT_TRUE(l2_comp_nh->GetFlags() == InterfaceNHFlags::LAYER2);
         EXPECT_TRUE(l3_comp_nh->GetIfUuid() == l2_comp_nh->GetIfUuid());
     }
 
-    const CompositeNH *fabric_cnh = static_cast<const CompositeNH *>(cnh->GetNH(0));
-    EXPECT_TRUE(fabric_cnh->CompositeType() == Composite::FABRIC);
+    const CompositeNH *fabric_cnh =
+        static_cast<const CompositeNH *>(cnh->Get(0)->nh());
+    EXPECT_TRUE(fabric_cnh->composite_nh_type() == Composite::FABRIC);
     EXPECT_TRUE(fabric_cnh->ComponentNHCount() == 1);
-    EXPECT_TRUE(fabric_cnh->GetComponentNHList()->Get(0)->label() == 2000);
+    EXPECT_TRUE(fabric_cnh->Get(0)->label() == 2000);
 
     const CompositeNH *mpls_cnh = 
         static_cast<const CompositeNH *>(mpls->nexthop());
-    EXPECT_TRUE(mpls_cnh->CompositeType() == Composite::MULTIPROTO);
+    EXPECT_TRUE(mpls_cnh->composite_nh_type() == Composite::MULTIPROTO);
     EXPECT_TRUE(mpls_cnh->ComponentNHCount() == 2);
-    EXPECT_TRUE(mpls_cnh->GetNH(0) == cnh);
-    EXPECT_TRUE(mpls_cnh->GetNH(1) == l2_cnh);
+    EXPECT_TRUE(mpls_cnh->Get(0)->nh() == cnh);
+    EXPECT_TRUE(mpls_cnh->Get(1)->nh() == l2_cnh);
     DoMulticastSandesh(1);
     DoMulticastSandesh(2);
     DoMulticastSandesh(3);
@@ -416,7 +428,8 @@ TEST_F(MulticastTest, L2Broadcast_1) {
     DeleteVmportEnv(input, 3, 1, 0);
     client->WaitForIdle();
 
-    WaitForCompositeNHDelete(IpAddress::from_string("255.255.255.255").to_v4(), "vrf1");
+    WaitForRouteDelete(IpAddress::from_string("255.255.255.255").to_v4(), "vrf1",
+                       true);
     client->WaitForIdle();
 }
 
@@ -439,8 +452,8 @@ TEST_F(MulticastTest, McastSubnet_DeleteRouteOnVRFDeleteofVN) {
     client->Reset();
 
     Inet4UnicastRouteEntry *rt;
-    NextHop *nh;
-    CompositeNH *cnh;
+    const NextHop *nh;
+    const CompositeNH *cnh;
     MulticastGroupObject *mcobj;
 
     AddIPAM("vn1", ipam_info, 1);
@@ -450,11 +463,10 @@ TEST_F(MulticastTest, McastSubnet_DeleteRouteOnVRFDeleteofVN) {
 
     WAIT_FOR(1000, 1000, RouteFind("vrf1", "1.1.1.255", 32));
     EXPECT_TRUE(RouteFind("vrf1", "1.1.1.255", 32));
-    CompositeNHKey key("vrf1", IpAddress::from_string("1.1.1.255").to_v4(),
-                       IpAddress::from_string("0.0.0.0").to_v4(), false,
-                       Composite::L3COMP);
-    nh = static_cast<NextHop *>(agent_->nexthop_table()->FindActiveEntry(&key));
-    cnh = static_cast<CompositeNH *>(nh);
+    Ip4Address addr = Ip4Address::from_string("1.1.1.255");
+    rt = RouteGet("vrf1", addr, 32);
+    nh = rt->GetActiveNextHop();
+    cnh = static_cast<const CompositeNH *>(nh);
     WAIT_FOR(1000, 1000, (cnh->ComponentNHCount() != 0));
 
     TunnelOlist olist_map;
@@ -468,12 +480,10 @@ TEST_F(MulticastTest, McastSubnet_DeleteRouteOnVRFDeleteofVN) {
     AddArp("8.8.8.8", "00:00:08:08:08:08", agent_->fabric_interface_name().c_str());
     client->WaitForIdle();
 
-    Ip4Address addr = Ip4Address::from_string("1.1.1.255");
     rt = RouteGet("vrf1", addr, 32);
-    nh = const_cast<NextHop *>(rt->GetActiveNextHop());
-    cnh = static_cast<CompositeNH *>(nh);
-    mcobj = MulticastHandler::GetInstance()->FindGroupObject(cnh->vrf_name(),
-                                              cnh->GetGrpAddr());
+    nh = rt->GetActiveNextHop();
+    cnh = static_cast<const CompositeNH *>(nh);
+    mcobj = MulticastHandler::GetInstance()->FindGroupObject("vrf1", addr);
     ASSERT_TRUE(mcobj->GetSourceMPLSLabel() == 1111);
 	MplsLabel *mpls = 
 	    agent_->mpls_table()->FindMplsLabel(1111);
@@ -500,7 +510,8 @@ TEST_F(MulticastTest, McastSubnet_DeleteRouteOnVRFDeleteofVN) {
                                    IpAddress::from_string("1.1.1.255").to_v4(),
                                    32));
     client->WaitForIdle();
-    WaitForCompositeNHDelete(IpAddress::from_string("255.255.255.255").to_v4(), "vrf1");
+    WaitForRouteDelete(IpAddress::from_string("255.255.255.255").to_v4(), "vrf1",
+                       true);
 }
 
 TEST_F(MulticastTest, McastSubnet_DeleteRouteOnIPAMDeleteofVN) {
@@ -546,8 +557,8 @@ TEST_F(MulticastTest, McastSubnet_DeleteRouteOnIPAMDeleteofVN) {
     rt = RouteGet("vrf1", addr, 32);
     nh = const_cast<NextHop *>(rt->GetActiveNextHop());
     cnh = static_cast<CompositeNH *>(nh);
-    mcobj = MulticastHandler::GetInstance()->FindGroupObject("vrf1",
-                                              cnh->GetGrpAddr());
+    EXPECT_TRUE(cnh->GetType() == NextHop::COMPOSITE);
+    mcobj = MulticastHandler::GetInstance()->FindGroupObject("vrf1", addr);
     ASSERT_TRUE(mcobj->GetSourceMPLSLabel() == 1111);
 	MplsLabel *mpls = 
 	    agent_->mpls_table()->FindMplsLabel(1111);
@@ -612,10 +623,7 @@ TEST_F(MulticastTest, McastSubnet_DeleteCompNHThenModifyFabricList) {
     EXPECT_TRUE(nh != NULL);
     
     DBRequest req;
-    NextHopKey *key = new CompositeNHKey
-        ("vrf1", IpAddress::from_string("1.1.1.255").to_v4(),
-         IpAddress::from_string("0.0.0.0").to_v4(), false, 
-         Composite::L3COMP);
+    NextHopKey *key = static_cast<NextHopKey *>(nh->GetDBRequestKey().release());
     req.oper = DBRequest::DB_ENTRY_DELETE;
     req.key.reset(key);
     req.data.reset(NULL);
@@ -637,12 +645,6 @@ TEST_F(MulticastTest, McastSubnet_DeleteCompNHThenModifyFabricList) {
                                           1111, olist_map);
     AddArp("8.8.8.8", "00:00:08:08:08:08", agent_->fabric_interface_name().c_str());
     client->WaitForIdle();
-
-    CompositeNHKey nhkey("vrf1", IpAddress::from_string("1.1.1.255").to_v4(),
-                         IpAddress::from_string("0.0.0.0").to_v4(), false,
-                         Composite::L3COMP);
-    nh = static_cast<NextHop *>(agent_->nexthop_table()->Find(&nhkey, true));
-    EXPECT_TRUE(nh->IsDeleted() == true);
 
     client->Reset();
     DelArp("8.8.8.8", "00:00:08:08:08:08", 

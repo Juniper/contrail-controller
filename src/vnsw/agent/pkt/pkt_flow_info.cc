@@ -53,7 +53,7 @@ static uint32_t NhToVrf(const NextHop *nh) {
     const VrfEntry *vrf = NULL;
     switch (nh->GetType()) {
     case NextHop::COMPOSITE: {
-        vrf = (static_cast<const CompositeNH *>(nh))->GetVrf();
+        vrf = (static_cast<const CompositeNH *>(nh))->vrf();
         break;
     }
     case NextHop::NextHop::INTERFACE: {
@@ -112,7 +112,8 @@ static bool NhDecode(const NextHop *nh, const PktInfo *pkt, PktFlowInfo *info,
     const CompositeNH *comp_nh = NULL;
     if (nh->GetType() == NextHop::COMPOSITE) {
         comp_nh = static_cast<const CompositeNH *>(nh);
-        if (comp_nh->IsEcmpNH() == true) {
+        if (comp_nh->composite_nh_type() == Composite::ECMP ||
+            comp_nh->composite_nh_type() == Composite::LOCAL_ECMP) {
             info->ecmp = true;
             const CompositeNH *comp_nh = static_cast<const CompositeNH *>(nh);
             if (info->out_component_nh_idx ==
@@ -125,7 +126,7 @@ static bool NhDecode(const NextHop *nh, const PktInfo *pkt, PktFlowInfo *info,
                     info->trap_rev_flow = true;
                 }
                 info->out_component_nh_idx =
-                    comp_nh->GetComponentNHList()->hash(pkt->hash());
+                    comp_nh->hash(pkt->hash());
              }
              nh = comp_nh->GetNH(info->out_component_nh_idx);
              if (nh->IsActive() == false) {
@@ -173,8 +174,8 @@ static bool NhDecode(const NextHop *nh, const PktInfo *pkt, PktFlowInfo *info,
     }
 
     case NextHop::TUNNEL: {
-         if (comp_nh && comp_nh->IsLocal() == true) {
-             out->nh_ = comp_nh->id();
+         if (in->rt_ != NULL && in->rt_->GetLocalNextHop()) {
+             out->nh_ = in->rt_->GetLocalNextHop()->id();
          } else {
              out->nh_ = in->nh_;
          }
@@ -333,19 +334,17 @@ static void SetInEcmpIndex(const PktInfo *pkt, PktFlowInfo *flow_info,
                 (in->rt_->get_table())->agent();
             nh = in->rt_->FindPath(agent->ecmp_peer())->nexthop(agent);
         } else {
-            const CompositeNH *comp_nh = static_cast<const CompositeNH *>
-                (in->rt_->GetActiveNextHop());
             //Aggregarated routes may not have local path
             //Derive local path
-            nh = comp_nh->GetLocalCompositeNH();
+            nh = in->rt_->GetLocalNextHop();
         }
     }
 
     if (nh && nh->GetType() == NextHop::COMPOSITE) {
         const CompositeNH *comp_nh = static_cast<const CompositeNH *>(nh);
         //Find component entry index in composite NH
-        uint32_t idx;
-        if (comp_nh->GetComponentNHList()->Find(component_nh, idx)) {
+        uint32_t idx = 0;
+        if (comp_nh->GetIndex(component_nh, idx)) {
             flow_info->in_component_nh_idx = idx;
             flow_info->ecmp = true;
         }
@@ -872,6 +871,7 @@ void PktFlowInfo::EgressProcess(const PktInfo *pkt, PktControlInfo *in,
     FlowTable *ftable = Agent::GetInstance()->pkt()->flow_table();
     out->rt_ = ftable->GetUcRoute(out->vrf_, Ip4Address(pkt->ip_daddr));
     in->rt_ = ftable->GetUcRoute(out->vrf_, Ip4Address(pkt->ip_saddr));
+
     if (out->intf_) {
         out->vn_ = InterfaceToVn(out->intf_);
     }

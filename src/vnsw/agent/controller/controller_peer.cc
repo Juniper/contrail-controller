@@ -349,7 +349,7 @@ void AgentXmppChannel::AddEcmpRoute(string vrf_name, Ip4Address prefix_addr,
         (agent_->vrf_table()->GetInet4UnicastRouteTable
          (vrf_name));
 
-    std::vector<ComponentNHData> comp_nh_list;
+    ComponentNHKeyList comp_nh_list;
     for (uint32_t i = 0; i < item->entry.next_hops.next_hop.size(); i++) {
         std::string nexthop_addr = 
             item->entry.next_hops.next_hop[i].address;
@@ -368,29 +368,37 @@ void AgentXmppChannel::AddEcmpRoute(string vrf_name, Ip4Address prefix_addr,
                 agent_->mpls_table()->FindMplsLabel(label);
             if (mpls != NULL) {
                 DBEntryBase::KeyPtr key = mpls->nexthop()->GetDBRequestKey();
-                NextHopKey *nh_key = static_cast<NextHopKey *>(key.get());
-                nh_key->SetPolicy(false);
-                ComponentNHData nh_data(label, nh_key);
-                comp_nh_list.push_back(nh_data);
+                NextHopKey *nh_key = static_cast<NextHopKey *>(key.release());
+                if (nh_key->GetType() != NextHop::COMPOSITE) {
+                    //By default all component members of composite NH
+                    //will be policy disabled, except for component NH
+                    //of type composite
+                    nh_key->SetPolicy(false);
+                }
+                std::auto_ptr<const NextHopKey> nh_key_ptr(nh_key);
+                ComponentNHKeyPtr component_nh_key(new ComponentNHKey(label,
+                                                   nh_key_ptr));
+                comp_nh_list.push_back(component_nh_key);
             }
         } else {
             TunnelType::TypeBmap encap = GetTypeBitmap
                 (item->entry.next_hops.next_hop[i].tunnel_encapsulation_list);
-            ComponentNHData nh_data(label, agent_->fabric_vrf_name(),
-                                    agent_->router_id(), 
-                                    addr.to_v4(), false, encap);
-            comp_nh_list.push_back(nh_data);
+            TunnelNHKey *nh_key = new TunnelNHKey(agent_->fabric_vrf_name(),
+                                                  agent_->router_id(),
+                                                  addr.to_v4(), false,
+                                                  TunnelType::ComputeType(encap));
+            std::auto_ptr<const NextHopKey> nh_key_ptr(nh_key);
+            ComponentNHKeyPtr component_nh_key(new ComponentNHKey(label,
+                                                                  nh_key_ptr));
+            comp_nh_list.push_back(component_nh_key);
         }
     }
 
     // Build the NH request and then create route data to be passed
     DBRequest nh_req(DBRequest::DB_ENTRY_ADD_CHANGE);
-    nh_req.key.reset(new CompositeNHKey(vrf_name, prefix_addr, prefix_len,
-                                        false));
-
-    CompositeNH::CreateCompositeNH(vrf_name, prefix_addr, false, comp_nh_list);
-    nh_req.data.reset(new CompositeNHData(comp_nh_list,
-                                          CompositeNHData::REPLACE));
+    nh_req.key.reset(new CompositeNHKey(Composite::ECMP, true,
+                                        comp_nh_list, vrf_name));
+    nh_req.data.reset(new CompositeNHData());
     ControllerEcmpRoute *data =
         new ControllerEcmpRoute(bgp_peer_id(), prefix_addr, prefix_len,
                                 item->entry.virtual_network, -1,

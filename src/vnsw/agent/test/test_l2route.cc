@@ -556,11 +556,7 @@ int main(int argc, char *argv[]) {
     ::testing::InitGoogleTest(&argc, argv);
     GETUSERARGS();
     client = TestInit(init_file, ksync_init, true, false);
-    if (vm.count("config")) {
-        eth_itf = Agent::GetInstance()->fabric_interface_name();
-    } else {
-        eth_itf = "eth0";
-    }
+    eth_itf = Agent::GetInstance()->fabric_interface_name();
 
     RouteTest::SetTunnelType(TunnelType::MPLS_GRE);
     int ret = RUN_ALL_TESTS();

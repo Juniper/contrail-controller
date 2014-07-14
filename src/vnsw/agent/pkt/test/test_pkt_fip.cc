@@ -613,20 +613,21 @@ TEST_F(FlowTest, VmToServer_ecmp_to_nat) {
     client->WaitForIdle();
     EXPECT_EQ(0U, Agent::GetInstance()->pkt()->flow_table()->Size());
     SecurityGroupList sg_id_list;
-    std::vector<ComponentNHData> comp_nh_list;
+    ComponentNHKeyList comp_nh_list;
     int remote_server_ip = 0x0A0A0A0A;
     int label = 16;
     for(int i = 0; i < 2; i++) {
-        ComponentNHData comp_nh(label,Agent::GetInstance()->fabric_vrf_name(),
+        ComponentNHKeyPtr comp_nh(new ComponentNHKey(
+                label,Agent::GetInstance()->fabric_vrf_name(),
                 Agent::GetInstance()->router_id(),
                 Ip4Address(remote_server_ip++),
-                false, TunnelType::AllType());
+                false, TunnelType::AllType()));
         comp_nh_list.push_back(comp_nh);
         label++;
     }
     EcmpTunnelRouteAdd(Agent::GetInstance()->local_peer(), vnet[1]->vrf()->GetName(),
                        Ip4Address::from_string("0.0.0.0"), 0,
-                       comp_nh_list, -1, vnet[1]->vn()->GetName(),
+                       comp_nh_list, false, vnet[1]->vn()->GetName(),
                        sg_id_list, PathPreference());
     sock->SetBlockMsgProcessing(true);
     // HTTP packet from VM to Server
@@ -635,10 +636,8 @@ TEST_F(FlowTest, VmToServer_ecmp_to_nat) {
 
     FlowEntry *entry = FlowGet(vnet[1]->id(), vnet_addr[1], "169.254.169.254",
                                IPPROTO_TCP, 10000, 80, GetFlowKeyNH(1));
-    FlowEntry *rev_old = NULL;
     EXPECT_TRUE(entry);
     if (entry) {
-        rev_old = entry->reverse_flow_entry();
         EXPECT_TRUE(entry->data().component_nh_idx !=
                 CompositeNH::kInvalidComponentNHIdx);
     }

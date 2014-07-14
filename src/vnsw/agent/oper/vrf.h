@@ -25,8 +25,15 @@ struct VrfKey : public AgentKey {
     virtual ~VrfKey() { };
 
     void Init(const string &vrf_name) {name_ = vrf_name;};
-    bool Compare(const VrfKey &rhs) const {
-        return name_ == rhs.name_;
+    bool IsLess(const VrfKey &rhs) const {
+        return name_ < rhs.name_;
+    }
+
+    bool IsEqual(const VrfKey &rhs) const {
+        if ((IsLess(rhs) == false) && (rhs.IsLess(*this) == false)) {
+            return true;
+        }
+        return false;
     }
 
     string name_;

@@ -48,23 +48,6 @@ static bool IsSubnetMember(const Ip4Address &ip, const Ip4Address &ip_prefix,
 }
 
 /*
- * Helper to send route change for xmpp listener
- */
-void NotifyXMPPofRecipientChange(const std::string &vrf_name, 
-                                 const Ip4Address &dip, 
-                                 const std::string &vn_name) {
-    boost::system::error_code ec;
-    if (!IS_BCAST_MCAST(dip)) { 
-        MCTRACE(Log, "notify subnet route chg", vrf_name, dip.to_string(), 0);
-        Inet4UnicastAgentRouteTable::AddSubnetBroadcastRoute(
-                                     Agent::GetInstance()->local_vm_peer(), 
-                                     vrf_name,
-                                     IpAddress::from_string("0.0.0.0", ec).to_v4(),
-                                     dip, vn_name);
-    }
-}
-
-/*
  * Registeration for notification
  * VM - Looking for local VM added 
  * VN - Looking for subnet information from VN 
@@ -84,20 +67,8 @@ void MulticastHandler::Terminate() {
     agent_->interface_table()->Unregister(interface_listener_id_);
 }
 
-/*
- * Route address 255.255.255.255 addition from first VM in VN add
- */
-void MulticastHandler::AddBroadcastRoute(const string &vrf_name,
-                                         const string &vn_name,
-                                         const Ip4Address &addr)
-{
-    boost::system::error_code ec;
-    MCTRACE(Log, "add IP V4 bcast route ", vrf_name, addr.to_string(), 0);
-    Inet4MulticastAgentRouteTable::AddMulticastRoute(vrf_name, vn_name,
-                       IpAddress::from_string("0.0.0.0", ec).to_v4(), addr);
-}
-
-void MulticastHandler::AddL2BroadcastRoute(const string &vrf_name,
+void MulticastHandler::AddL2BroadcastRoute(MulticastGroupObject *obj,
+                                           const string &vrf_name,
                                            const string &vn_name,
                                            const Ip4Address &addr,
                                            int vxlan_id)
@@ -105,8 +76,10 @@ void MulticastHandler::AddL2BroadcastRoute(const string &vrf_name,
     boost::system::error_code ec;
     MCTRACE(Log, "add L2 bcast route ", vrf_name, addr.to_string(), 0);
     //Add Layer2 FF:FF:FF:FF:FF:FF
-    Layer2AgentRouteTable::AddLayer2BroadcastRoute(vrf_name, vn_name, addr,
-                  IpAddress::from_string("0.0.0.0", ec).to_v4(), vxlan_id); 
+    ComponentNHKeyList component_nh_key_list = GetL2ComponentNHKeyList(obj);
+    Layer2AgentRouteTable::AddLayer2BroadcastRoute(vrf_name, vn_name,
+                                                   vxlan_id,
+                                                   component_nh_key_list);
 }
 
 /*
@@ -132,35 +105,34 @@ void MulticastHandler::AddSubnetRoute(const std::string &vrf_name,
                                       const Ip4Address &addr, 
                                       const std::string &vn_name)
 {
-    DBRequest req;
-    NextHopKey *key;
     boost::system::error_code ec;
-    CompositeNHData *cnh_data;
-
+    MulticastGroupObject *subnet_broadcast = this->FindGroupObject(vrf_name,
+                                                                   addr);
     MCTRACE(Log, "subnet comp NH creation ", vrf_name, addr.to_string(), 0);
-    key = new CompositeNHKey(vrf_name, addr,
-                             IpAddress::from_string("0.0.0.0", ec).to_v4(),  
-                             false, Composite::L3COMP); 
-    req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
-    req.key.reset(key);
-    cnh_data = new CompositeNHData(CompositeNHData::REPLACE);
-    req.data.reset(cnh_data);
-    Agent::GetInstance()->nexthop_table()->Enqueue(&req);
-
-    MulticastGroupObject *subnet_broadcast = 
-        this->FindGroupObject(vrf_name, addr);
     if (subnet_broadcast != NULL) {
         subnet_broadcast->Deleted(false);
         MCTRACE(Log, "mc obj rt added for subnet route ", 
                 vrf_name, addr.to_string(), 0);
     }
 
+    DBRequest req;
+    ComponentNHKeyList component_nh_key_list;
+    CompositeNHKey *key;
+    CompositeNHData *cnh_data;
+    component_nh_key_list = GetL3ComponentNHKeyList(subnet_broadcast);
+    key = new CompositeNHKey(Composite::L3COMP, false, component_nh_key_list,
+                             vrf_name);
+    req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
+    req.key.reset(key);
+    cnh_data = new CompositeNHData();
+    req.data.reset(cnh_data);
+    agent_->nexthop_table()->Enqueue(&req);
     MCTRACE(Log, "subnet route ", vrf_name, addr.to_string(), 0);
     Inet4UnicastAgentRouteTable::AddSubnetBroadcastRoute(
-                                 Agent::GetInstance()->local_vm_peer(), 
+                                 agent_->local_vm_peer(),
                                  vrf_name,
                                  IpAddress::from_string("0.0.0.0", ec).to_v4(),
-                                 addr, vn_name);
+                                 addr, vn_name, component_nh_key_list);
 
 }
 
@@ -361,7 +333,7 @@ void MulticastHandler::HandleVxLanChange(const VnEntry *vn) {
         Ip4Address broadcast =  IpAddress::from_string("255.255.255.255",
                                                        ec).to_v4();
         obj->set_vxlan_id(new_vxlan_id);
-        AddL2BroadcastRoute(vn->GetVrf()->GetName(), vn->GetName(), 
+        AddL2BroadcastRoute(obj, vn->GetVrf()->GetName(), vn->GetName(),
                             broadcast, new_vxlan_id);
     }
 }
@@ -399,8 +371,8 @@ void MulticastHandler::HandleFamilyConfig(const VnEntry *vn)
             }
         }
         if ((*it)->IsMultiProtoSupported() && 
-            ((*it)->GetSourceMPLSLabel() != 0)) { 
-            this->AddChangeMultiProtocolCompositeNH((*it));
+            ((*it)->GetSourceMPLSLabel() != 0)) {
+            this->TriggerCompositeNHChange(*it);
         }
     }
 }
@@ -499,7 +471,6 @@ void MulticastHandler::DeleteRouteandMPLS(MulticastGroupObject *obj)
                                                   obj->GetGroupAddress());
         Layer2AgentRouteTable::DeleteBroadcastReq(obj->vrf_name());
     }
-    /* delete the MPLS label route */
     obj->FlushAllPeerInfo(INVALID_PEER_IDENTIFIER);
     MCTRACE(Log, "delete route mpls ", obj->vrf_name(),
             obj->GetGroupAddress().to_string(),
@@ -538,12 +509,8 @@ void MulticastHandler::DeleteVmInterface(const Interface *intf)
             MCTRACE(Info, "Del vm notify ", vm_itf->ip_addr().to_string());
             //Empty tunnel list
             (*it)->FlushAllPeerInfo(INVALID_PEER_IDENTIFIER);
-            //Update comp nh
             if ((*it)->IsDeleted() == false) {
                 this->TriggerCompositeNHChange(*it);
-                NotifyXMPPofRecipientChange((*it)->vrf_name(),
-                                            (*it)->GetGroupAddress(),
-                                            (*it)->GetVnName());
             }
             //Time to delete route(for mcast address) and mpls
             this->DeleteRouteandMPLS(*it);
@@ -600,61 +567,142 @@ MulticastGroupObject *MulticastHandler::FindGroupObject(const std::string &vrf_n
 }
 
 void MulticastHandler::AddChangeMultiProtocolCompositeNH(
-                                     MulticastGroupObject *obj)
+                                     MulticastGroupObject *obj, uint32_t label)
 {
     DBRequest req;
-    NextHopKey *key; 
-    std::vector<ComponentNHData> data;
-    CompositeNHData *cnh_data;
+    NextHopKey *key;
+    ComponentNHKeyList component_nh_key_list;
+
+    if (obj->IsMultiProtoSupported() == false &&
+        obj->Ipv4Forwarding()) {
+        ComponentNHKeyList l3_component_nh_key_list =
+            GetL3ComponentNHKeyList(obj);
+        key = new CompositeNHKey(Composite::L3COMP, false,
+                l3_component_nh_key_list, obj->vrf_name());
+        req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
+        req.key.reset(key);
+        req.data.reset(new CompositeNHData());
+        Agent::GetInstance()->nexthop_table()->Enqueue(&req);
+
+        MplsLabel::CreateMcastLabelReq(label, Composite::L3COMP,
+                l3_component_nh_key_list, obj->vrf_name());
+        return;
+    }
 
     if (obj->Ipv4Forwarding()) {
-        ComponentNHData l3_data(obj->vrf_name(), obj->GetGroupAddress(),
-                                obj->GetSourceAddress(), false,
-                                Composite::L3COMP);
-        data.push_back(l3_data);
+        ComponentNHKeyList l3_component_nh_key_list =
+            GetL3ComponentNHKeyList(obj);
+        ComponentNHKeyPtr l3_component_key(new ComponentNHKey(
+                    0, Composite::L3COMP, false, l3_component_nh_key_list,
+                    obj->vrf_name()));
+        component_nh_key_list.push_back(l3_component_key);
     }
     if (obj->layer2_forwarding()) {
-        ComponentNHData l2_data(obj->vrf_name(), obj->GetGroupAddress(),
-                                obj->GetSourceAddress(), false,
-                                Composite::L2COMP);
-        data.push_back(l2_data);
+        ComponentNHKeyList l2_component_nh_key_list =
+            GetL2ComponentNHKeyList(obj);
+        ComponentNHKeyPtr l2_component_key(new ComponentNHKey(
+                    0, Composite::L2COMP, false, l2_component_nh_key_list,
+                    obj->vrf_name()));
+        component_nh_key_list.push_back(l2_component_key);
     }
 
     MCTRACE(Log, "enqueue multiproto comp ", obj->vrf_name(),
-            obj->GetGroupAddress().to_string(), data.size());
-    key = new CompositeNHKey(obj->vrf_name(), obj->GetGroupAddress(),
-                             obj->GetSourceAddress(), false,
-                             Composite::MULTIPROTO); 
+            obj->GetGroupAddress().to_string(), component_nh_key_list.size());
+    key = new CompositeNHKey(Composite::MULTIPROTO, false,
+                             component_nh_key_list, obj->vrf_name());
     req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
     req.key.reset(key);
-    cnh_data = new CompositeNHData(data, CompositeNHData::REPLACE);
-    req.data.reset(cnh_data);
+    req.data.reset(new CompositeNHData());
     Agent::GetInstance()->nexthop_table()->Enqueue(&req);
+
+    MplsLabel::CreateMcastLabelReq(label, Composite::MULTIPROTO,
+                                   component_nh_key_list, obj->vrf_name());
+}
+
+ComponentNHKeyList
+MulticastHandler::GetFabricComponentNHKeyList(MulticastGroupObject *obj) {
+    ComponentNHKeyList component_nh_key_list;
+    for (TunnelOlist::const_iterator it = obj->GetTunnelOlist().begin();
+            it != obj->GetTunnelOlist().end(); it++) {
+        ComponentNHKeyPtr component_key_ptr(new ComponentNHKey(it->label_,
+                    agent_->fabric_vrf_name(),
+                    agent_->router_id(), it->daddr_,
+                    false, it->tunnel_bmap_));
+        component_nh_key_list.push_back(component_key_ptr);
+    }
+    return component_nh_key_list;
+}
+
+ComponentNHKeyList
+MulticastHandler::GetL3ComponentNHKeyList(MulticastGroupObject *obj) {
+    if (obj == NULL) {
+        ComponentNHKeyList null;
+        return null;
+    }
+
+    ComponentNHKeyList fabric_component_nh_key_list;
+    fabric_component_nh_key_list = GetFabricComponentNHKeyList(obj);
+
+    ComponentNHKeyList l3_component_nh_key_list;
+    ComponentNHKeyPtr component_key_ptr;
+    if (fabric_component_nh_key_list.size() != 0) {
+        component_key_ptr.reset(new ComponentNHKey(0, Composite::FABRIC,
+                    false, fabric_component_nh_key_list, obj->vrf_name()));
+        l3_component_nh_key_list.push_back(component_key_ptr);
+    }
+
+    for (std::list<uuid>::const_iterator it = obj->GetLocalOlist().begin();
+            it != obj->GetLocalOlist().end(); it++) {
+        component_key_ptr.reset(new ComponentNHKey(0, (*it),
+                    InterfaceNHFlags::MULTICAST));
+        l3_component_nh_key_list.push_back(component_key_ptr);
+    }
+
+    return l3_component_nh_key_list;
+}
+
+ComponentNHKeyList
+MulticastHandler::GetL2ComponentNHKeyList(MulticastGroupObject *obj) {
+    ComponentNHKeyList fabric_component_nh_key_list;
+    fabric_component_nh_key_list = GetFabricComponentNHKeyList(obj);
+    ComponentNHKeyPtr component_nh_key;
+
+    ComponentNHKeyList l2_component_nh_key_list;
+    if (fabric_component_nh_key_list.size() != 0) {
+        component_nh_key.reset(new ComponentNHKey(0, Composite::FABRIC, false,
+                    fabric_component_nh_key_list, obj->vrf_name()));
+        l2_component_nh_key_list.push_back(component_nh_key);
+    }
+
+    for (std::list<uuid>::const_iterator it = obj->GetLocalOlist().begin();
+            it != obj->GetLocalOlist().end(); it++) {
+        component_nh_key.reset(new ComponentNHKey(0, (*it),
+                    InterfaceNHFlags::LAYER2));
+        l2_component_nh_key_list.push_back(component_nh_key);
+    }
+    return l2_component_nh_key_list;
 }
 
 void MulticastHandler::AddChangeFabricCompositeNH(MulticastGroupObject *obj)
 {
     DBRequest req;
-    NextHopKey *key; 
-    std::vector<ComponentNHData> data;
+    CompositeNHKey *key;
+    ComponentNHKeyList component_nh_key_list;
     CompositeNHData *cnh_data;
 
-    for (TunnelOlist::const_iterator it = obj->GetTunnelOlist().begin();
-         it != obj->GetTunnelOlist().end(); it++) {
-        ComponentNHData nh_data(it->label_, Agent::GetInstance()->fabric_vrf_name(),
-                                Agent::GetInstance()->router_id(), it->daddr_, false,
-                                it->tunnel_bmap_);
-        data.push_back(nh_data);
+    component_nh_key_list = GetFabricComponentNHKeyList(obj);
+    if (component_nh_key_list.size() == 0) {
+        return;
     }
 
     MCTRACE(Log, "enqueue fabric comp ", obj->vrf_name(),
-            obj->GetGroupAddress().to_string(), data.size());
-    key = new CompositeNHKey(obj->vrf_name(), obj->GetGroupAddress(),
-                             obj->GetSourceAddress(), false,
-                             Composite::FABRIC); 
+            obj->GetGroupAddress().to_string(), component_nh_key_list.size());
+    key = new CompositeNHKey(Composite::FABRIC, false, component_nh_key_list,
+                             obj->vrf_name());
+    key->CreateTunnelNHReq(agent_);
     req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
     req.key.reset(key);
-    cnh_data = new CompositeNHData(data, CompositeNHData::REPLACE);
+    cnh_data = new CompositeNHData();
     req.data.reset(cnh_data);
     Agent::GetInstance()->nexthop_table()->Enqueue(&req);
 }
@@ -663,33 +711,25 @@ void MulticastHandler::TriggerL2CompositeNHChange(MulticastGroupObject *obj)
 {
     DBRequest req;
     NextHopKey *key; 
-    std::vector<ComponentNHData> data;
-    CompositeNHData *cnh_data;
+    ComponentNHKeyList component_nh_key_list;
 
     //Add fabric Comp NH
     AddChangeFabricCompositeNH(obj);
 
-    ComponentNHData fabric_nh_data(obj->vrf_name(), 
-                                   obj->GetGroupAddress(),
-                                   obj->GetSourceAddress(), false,
-                                   Composite::FABRIC);
-
-    data.push_back(fabric_nh_data);
-    for (std::list<uuid>::const_iterator it = obj->GetLocalOlist().begin();
-         it != obj->GetLocalOlist().end(); it++) {
-        ComponentNHData nh_data(0, (*it), InterfaceNHFlags::LAYER2);
-        data.push_back(nh_data);
-    }
+    component_nh_key_list = GetL2ComponentNHKeyList(obj);
     MCTRACE(Log, "enqueue l2 comp ", obj->vrf_name(),
-            obj->GetGroupAddress().to_string(), data.size());
-    key = new CompositeNHKey(obj->vrf_name(), obj->GetGroupAddress(),
-                             obj->GetSourceAddress(), false,
-                             Composite::L2COMP); 
+            obj->GetGroupAddress().to_string(),component_nh_key_list.size());
+    key = new CompositeNHKey(Composite::L2COMP, false, component_nh_key_list,
+                             obj->vrf_name());
     req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
     req.key.reset(key);
-    cnh_data = new CompositeNHData(data, CompositeNHData::REPLACE);
-    req.data.reset(cnh_data);
+    req.data.reset(new CompositeNHData());
     Agent::GetInstance()->nexthop_table()->Enqueue(&req);
+    //Add Layer2 FF:FF:FF:FF:FF:FF$
+    Layer2AgentRouteTable::AddLayer2BroadcastRoute(obj->vrf_name(),
+                                                   obj->GetVnName(),
+                                                   obj->vxlan_id(),
+                                                   component_nh_key_list);
 }
 
 void MulticastHandler::TriggerCompositeNHChange(MulticastGroupObject *obj)
@@ -700,6 +740,10 @@ void MulticastHandler::TriggerCompositeNHChange(MulticastGroupObject *obj)
     if (obj->Ipv4Forwarding()) {
         this->TriggerL3CompositeNHChange(obj);
     }
+
+    if (obj->GetSourceMPLSLabel() != 0) {
+       this->AddChangeMultiProtocolCompositeNH(obj, obj->GetSourceMPLSLabel());
+    }
 }
 /*
  * Send the updated list for composite NH
@@ -708,34 +752,38 @@ void MulticastHandler::TriggerCompositeNHChange(MulticastGroupObject *obj)
 void MulticastHandler::TriggerL3CompositeNHChange(MulticastGroupObject *obj)
 {
     DBRequest req;
-    NextHopKey *key; 
-    std::vector<ComponentNHData> data;
+    NextHopKey *key;
+    boost::system::error_code ec;
+    ComponentNHKeyList component_nh_key_list;
     CompositeNHData *cnh_data;
 
     //Add fabric Comp NH
     AddChangeFabricCompositeNH(obj);
-
-    ComponentNHData fabric_nh_data(obj->vrf_name(), obj->GetGroupAddress(),
-                                   obj->GetSourceAddress(), false,
-                                   Composite::FABRIC);
-
-    data.push_back(fabric_nh_data);
-    for (std::list<uuid>::const_iterator it = obj->GetLocalOlist().begin();
-         it != obj->GetLocalOlist().end(); it++) {
-        ComponentNHData nh_data(0, (*it), InterfaceNHFlags::MULTICAST);
-        data.push_back(nh_data);
-    }
-
+    component_nh_key_list = GetL3ComponentNHKeyList(obj);
     MCTRACE(Log, "enqueue l3 comp ", obj->vrf_name(),
-            obj->GetGroupAddress().to_string(), data.size());
-    key = new CompositeNHKey(obj->vrf_name(), obj->GetGroupAddress(),
-                             obj->GetSourceAddress(), false,
-                             Composite::L3COMP); 
+            obj->GetGroupAddress().to_string(), component_nh_key_list.size());
+    key = new CompositeNHKey(Composite::L3COMP, false, component_nh_key_list,
+                             obj->vrf_name());
     req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
     req.key.reset(key);
-    cnh_data = new CompositeNHData(data, CompositeNHData::REPLACE);
+    cnh_data = new CompositeNHData();
     req.data.reset(cnh_data);
     Agent::GetInstance()->nexthop_table()->Enqueue(&req);
+
+
+    MCTRACE(Log, "add IP V4 bcast route ", obj->vrf_name(),
+            obj->GetGroupAddress().to_string(), component_nh_key_list.size());
+    //Trigger route change
+    if (IS_BCAST_MCAST(obj->GetGroupAddress())) {
+        Inet4MulticastAgentRouteTable::AddMulticastRoute(obj->vrf_name(),
+                obj->GetVnName(), IpAddress::from_string("0.0.0.0", ec).to_v4(),
+                obj->GetGroupAddress(), component_nh_key_list);
+    } else {
+        Inet4UnicastAgentRouteTable::AddSubnetBroadcastRoute(
+                agent_->local_vm_peer(), obj->vrf_name(),
+                IpAddress::from_string("0.0.0.0", ec).to_v4(),
+                obj->GetGroupAddress(), obj->GetVnName(), component_nh_key_list);
+    }
 }
 
 void MulticastHandler::AddVmInterfaceInFloodGroup(const std::string &vrf_name, 
@@ -768,7 +816,8 @@ void MulticastHandler::AddVmInterfaceInFloodGroup(const std::string &vrf_name,
         //Add l2/l3 comp nh in multi proto in case one of them is enabled later
         if (!add_route && (all_broadcast->GetSourceMPLSLabel() != 0) &&
             all_broadcast->IsMultiProtoSupported()) {
-            this->AddChangeMultiProtocolCompositeNH(all_broadcast);
+            this->AddChangeMultiProtocolCompositeNH(all_broadcast,
+                    all_broadcast->GetSourceMPLSLabel());
         }
         this->AddVmToMulticastObjMap(intf_uuid, all_broadcast);
     }
@@ -777,7 +826,10 @@ void MulticastHandler::AddVmInterfaceInFloodGroup(const std::string &vrf_name,
                        vn->Ipv4Forwarding())) && vn->Ipv4Forwarding()) {
         all_broadcast->SetIpv4Forwarding(vn->Ipv4Forwarding());
         this->TriggerL3CompositeNHChange(all_broadcast);
-        this->AddBroadcastRoute(vrf_name, vn_name, broadcast); 
+        if (all_broadcast->GetSourceMPLSLabel() != 0) {
+            this->AddChangeMultiProtocolCompositeNH(all_broadcast,
+                    all_broadcast->GetSourceMPLSLabel());
+        }
     }
     if ((add_route || (all_broadcast->layer2_forwarding() != 
                        vn->layer2_forwarding())) && vn->layer2_forwarding()) {
@@ -787,8 +839,10 @@ void MulticastHandler::AddVmInterfaceInFloodGroup(const std::string &vrf_name,
         } 
         all_broadcast->SetLayer2Forwarding(vn->layer2_forwarding());
         this->TriggerL2CompositeNHChange(all_broadcast);
-        this->AddL2BroadcastRoute(vrf_name, vn_name, broadcast,
-                                  all_broadcast->vxlan_id()); 
+        if (all_broadcast->GetSourceMPLSLabel() != 0) {
+            this->AddChangeMultiProtocolCompositeNH(all_broadcast,
+                    all_broadcast->GetSourceMPLSLabel());
+        }
     }
 }
 
@@ -803,7 +857,6 @@ void MulticastHandler::AddVmInterfaceInSubnet(const std::string &vrf_name,
                                               const VnEntry *vn) {
     MulticastGroupObject *subnet_broadcast = NULL;
     boost::system::error_code ec;
-    bool add_route = false;
     const string vn_name = vn->GetName();
 
     //Subnet broadcast 
@@ -813,24 +866,16 @@ void MulticastHandler::AddVmInterfaceInSubnet(const std::string &vrf_name,
                                                     vn_name, false);
         this->AddToMulticastObjList(subnet_broadcast); 
     }
-    if (subnet_broadcast->GetLocalListSize() == 0) {
-        add_route = true;
-    }
     if ((subnet_broadcast->Ipv4Forwarding() != 
                        vn->Ipv4Forwarding()) && vn->Ipv4Forwarding()) {
         this->TriggerL3CompositeNHChange(subnet_broadcast);
-        NotifyXMPPofRecipientChange(vrf_name, dip, vn_name);
     }
     subnet_broadcast->SetLayer2Forwarding(false);
     subnet_broadcast->SetIpv4Forwarding(true);
 
     if (subnet_broadcast->AddLocalMember(intf_uuid) == true) {
-        this->TriggerL3CompositeNHChange(subnet_broadcast);
+        this->TriggerCompositeNHChange(subnet_broadcast);
         this->AddVmToMulticastObjMap(intf_uuid, subnet_broadcast);
-        //Dummy notification to let xmpp know that cnh is populated
-        if (add_route) {
-            NotifyXMPPofRecipientChange(vrf_name, dip, vn_name);
-        }
     }
 }
 
@@ -941,6 +986,8 @@ void MulticastHandler::ModifyFabricMembers(const std::string &vrf_name,
 // For delete via control node it uses the sequence sent.
 void MulticastGroupObject::FlushAllPeerInfo(uint64_t peer_identifier) {
     TunnelOlist olist;
+     MCTRACE(Log, "Flushing peer info", vrf_name_,
+                         grp_address_.to_string(), src_mpls_label_);
     ModifyFabricMembers(olist, peer_identifier, true, 0);
 }
 
@@ -977,7 +1024,6 @@ void MulticastGroupObject::SetSourceMPLSLabel(uint32_t label) {
         return;
     }
 
-    COMPOSITETYPE comp_type = Composite::L3COMP;
     //Add new label
     if ((label != 0) && (label != src_mpls_label_)) {
         MCTRACE(Log, "new src label ", vrf_name_, 
@@ -988,17 +1034,20 @@ void MulticastGroupObject::SetSourceMPLSLabel(uint32_t label) {
             //In case evpn is disabled then this is equivalent of drop NH
             MulticastHandler::GetInstance()->
                 TriggerCompositeNHChange(this);
-            MulticastHandler::GetInstance()->
-                AddChangeMultiProtocolCompositeNH(this);
-            comp_type = Composite::MULTIPROTO;
         }
-        MplsLabel::CreateMcastLabelReq(vrf_name(), GetGroupAddress(),
-                                       GetSourceAddress(), label, comp_type); 
     }
     //Delete old_label
-    MplsLabel::DeleteMcastLabelReq(vrf_name(), GetGroupAddress(),
-                                   GetSourceAddress(), src_mpls_label_);
+    MplsLabel::DeleteMcastLabelReq(src_mpls_label_);
     src_mpls_label_ = label; 
+}
+
+void MulticastHandler::ChangeTunnelType() {
+    std::set<MulticastGroupObject *>::iterator it =
+        multicast_obj_list_.begin();
+    while(it != multicast_obj_list_.end()) {
+        TriggerCompositeNHChange(*it);
+        it++;
+    }
 }
 
 /*

@@ -1169,17 +1169,17 @@ TEST_F(RouteTest, ScaleRouteAddDel_2) {
 
 //Test scale add and delete of composite routes
 TEST_F(RouteTest, ScaleRouteAddDel_3) {
-    std::vector<ComponentNHData> comp_nh_list;
+    ComponentNHKeyList comp_nh_list;
 
     int remote_server_ip = 0x0A0A0A0A;
     int label = 16;
     int nh_count = 3;
 
     for(int i = 0; i < nh_count; i++) {
-        ComponentNHData comp_nh(label,Agent::GetInstance()->fabric_vrf_name(),
-                Agent::GetInstance()->router_id(),
-                Ip4Address(remote_server_ip++),
-                false, TunnelType::AllType());
+        ComponentNHKeyPtr comp_nh(new ComponentNHKey(label,
+            Agent::GetInstance()->fabric_vrf_name(),
+            Agent::GetInstance()->router_id(), Ip4Address(remote_server_ip++),
+            false, TunnelType::AllType()));
         comp_nh_list.push_back(comp_nh);
         label++;
     }
@@ -1187,28 +1187,29 @@ TEST_F(RouteTest, ScaleRouteAddDel_3) {
     SecurityGroupList sg_id_list;
     for (uint32_t i = 0; i < 1000; i++) {    
         EcmpTunnelRouteAdd(NULL, vrf_name_, remote_vm_ip_, 32, 
-                           comp_nh_list, -1, "test", sg_id_list,
+                           comp_nh_list, false, "test", sg_id_list,
                            PathPreference());
         DeleteRoute(NULL, vrf_name_, remote_vm_ip_, 32);
     }
     client->WaitForIdle(5);
     EXPECT_FALSE(RouteFind(vrf_name_, remote_vm_ip_, 32));
-    CompositeNHKey key(vrf_name_, remote_vm_ip_, 32, true);
+    CompositeNHKey key(Composite::ECMP, true, comp_nh_list, vrf_name_);
     EXPECT_FALSE(FindNH(&key));
 }
 
 //Test scale add and delete of composite routes
 TEST_F(RouteTest, ScaleRouteAddDel_4) {
-    std::vector<ComponentNHData> comp_nh_list;
+    ComponentNHKeyList comp_nh_list;
     int remote_server_ip = 0x0A0A0A0A;
     int label = 16;
     int nh_count = 3;
 
     for(int i = 0; i < nh_count; i++) {
-        ComponentNHData comp_nh(label,Agent::GetInstance()->fabric_vrf_name(),
+        ComponentNHKeyPtr comp_nh(new ComponentNHKey(label,
+                Agent::GetInstance()->fabric_vrf_name(),
                 Agent::GetInstance()->router_id(),
                 Ip4Address(remote_server_ip++),
-                false, TunnelType::AllType());
+                false, TunnelType::AllType()));
         comp_nh_list.push_back(comp_nh);
         label++;
     }
@@ -1234,7 +1235,7 @@ TEST_F(RouteTest, ScaleRouteAddDel_4) {
 
     DeleteRoute(NULL, vrf_name_, remote_vm_ip_, 32);
     EXPECT_FALSE(RouteFind(vrf_name_, remote_vm_ip_, 32));
-    CompositeNHKey key(vrf_name_, remote_vm_ip_, 32, true);
+    CompositeNHKey key(Composite::ECMP, true, comp_nh_list, vrf_name_);
     EXPECT_FALSE(FindNH(&key));
 }
 
@@ -1277,11 +1278,7 @@ int main(int argc, char *argv[]) {
     ::testing::InitGoogleTest(&argc, argv);
     GETUSERARGS();
     client = TestInit(init_file, ksync_init, true, false);
-    if (vm.count("config")) {
-        eth_itf = Agent::GetInstance()->fabric_interface_name();
-    } else {
-        eth_itf = "eth0";
-    }
+    eth_itf = Agent::GetInstance()->fabric_interface_name();
 
     RouteTest::SetTunnelType(TunnelType::MPLS_GRE);
     int ret = RUN_ALL_TESTS();

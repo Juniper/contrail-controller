@@ -308,6 +308,7 @@ TEST_F(TestVnswIf, EcmpActivateDeactivate_1) {
     InterfaceEvent(true, "vnet1", 0);
     WAIT_FOR(100, 100, (VmPortActive(input, 0) == false));
     client->WaitForIdle();
+    nh = dynamic_cast<const CompositeNH *>(rt->GetActiveNextHop());
     EXPECT_EQ(nh->ActiveComponentNHCount(), 2);
 
     // Set oper-state of vnet2 down. We should have non-ECMP route
