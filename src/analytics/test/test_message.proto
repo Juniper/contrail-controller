@@ -1,0 +1,14 @@
+/*
+ * Copyright (c) 2014 Juniper Networks, Inc. All rights reserved.
+ */
+
+message TestMessageInner {
+    required string tm_inner_name = 1;
+    optional int32 tm_inner_status = 2;
+}
+
+message TestMessage {
+    required string tm_name = 1;
+    optional string tm_status = 2;
+    repeated TestMessageInner tm_inner = 3;
+}
