@@ -269,6 +269,7 @@ private:
     boost::scoped_ptr<StateMachine> state_machine_;
     uint32_t membership_req_pending_;
     bool defer_close_;
+    bool vpn_tables_registered_;
     std::vector<BgpProto::OpenMessage::Capability *> capabilities_;
     as_t local_as_;
     as_t peer_as_;

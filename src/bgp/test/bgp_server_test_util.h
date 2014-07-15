@@ -188,6 +188,10 @@ public:
         return IsReady_fnc_();
     }
 
+    void set_vpn_tables_registered(bool registered) {
+        vpn_tables_registered_ = registered;
+    }
+
     boost::function<bool(const uint8_t *, size_t)> SendUpdate_fnc_;
     boost::function<bool(uint16_t, uint8_t)> MpNlriAllowed_fnc_;
     boost::function<bool()> IsReady_fnc_;

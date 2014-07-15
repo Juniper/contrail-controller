@@ -634,6 +634,7 @@ void BgpPeerCloseTest::AddAllRoutes() {
             // Add routes to RibIn
             AddRoutes(table, npeer);
         }
+        npeer->peer()->set_vpn_tables_registered(true);
     }
 
     WaitForIdle();
