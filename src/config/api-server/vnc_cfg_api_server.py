@@ -413,7 +413,7 @@ class VncApiServer(VncApiServerGen):
             try:
                 ref_uuid = self._db_conn.fq_name_to_uuid(ref_type, ref_fq_name)
             except NoIdError:
-                bottle.abort(404, 'Name ' + pformat(fq_name) + ' not found')
+                bottle.abort(404, 'Name ' + pformat(ref_fq_name) + ' not found')
 
         # type-specific hook
         r_class = self._resource_classes.get(obj_type)
