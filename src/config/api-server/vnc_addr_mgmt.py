@@ -338,6 +338,8 @@ class AddrMgmt(object):
                     ipam_subnet.get('allocation_pools', None)
                 subnet_dict['enable_dhcp'] = ipam_subnet.get('enable_dhcp', True)
                 subnet_dict['dns_nameservers'] = ipam_subnet.get('dns_nameservers', None)
+                subnet_dict['addr_start'] = ipam_subnet.get('addr_from_start',
+                                                            False)
                 subnet_name = subnet_dict['ip_prefix'] + '/' + str(
                               subnet_dict['ip_prefix_len'])
                 subnet_dicts[subnet_name] = subnet_dict
@@ -670,7 +672,8 @@ class AddrMgmt(object):
                                     gw=subnet_dict['gw'],
                                     enable_dhcp=subnet_dict['enable_dhcp'],
                                     dns_nameservers=subnet_dict['dns_nameservers'],
-                                    alloc_pool_list=subnet_dict['allocation_pools'])
+                                    alloc_pool_list=subnet_dict['allocation_pools'],
+                                    addr_from_start = subnet_dict['addr_start'])
                 self._subnet_objs[vn_fq_name_str][subnet_name] = subnet_obj
 
             if asked_ip_addr and not subnet_obj.ip_belongs(asked_ip_addr):
@@ -710,7 +713,8 @@ class AddrMgmt(object):
                                     gw=subnet_dict['gw'],
                                     enable_dhcp=subnet_dict['enable_dhcp'],
                                     dns_nameservers=subnet_dict['dns_nameservers'],
-                                    alloc_pool_list=subnet_dict['allocation_pools'])
+                                    alloc_pool_list=subnet_dict['allocation_pools'],
+                                    addr_from_start = subnet_dict['addr_start'])
                 self._subnet_objs[vn_fq_name_str][subnet_name] = subnet_obj
 
             if not subnet_obj.ip_belongs(ip_addr):
@@ -744,7 +748,8 @@ class AddrMgmt(object):
                                     gw=subnet_dict['gw'],
                                     enable_dhcp=subnet_dict['enable_dhcp'],
                                     dns_nameservers=subnet_dict['dns_nameservers'],
-                                    alloc_pool_list=subnet_dict['allocation_pools'])
+                                    alloc_pool_list=subnet_dict['allocation_pools'],
+                                    addr_from_start = subnet_dict['addr_start'])
                 self._subnet_objs[vn_fq_name_str][subnet_name] = subnet_obj
 
             if Subnet.ip_belongs_to(IPNetwork(subnet_name),
@@ -771,7 +776,8 @@ class AddrMgmt(object):
                                     gw=subnet_dict['gw'],
                                     enable_dhcp=subnet_dict['enable_dhcp'],
                                     dns_nameservers=subnet_dict['dns_nameservers'],
-                                    alloc_pool_list=subnet_dict['allocation_pools'])
+                                    alloc_pool_list=subnet_dict['allocation_pools'],
+                                    addr_from_start = subnet_dict['addr_start'])
                 self._subnet_objs[vn_fq_name_str][subnet_name] = subnet_obj
 
             if Subnet.ip_belongs_to(IPNetwork(subnet_name),
