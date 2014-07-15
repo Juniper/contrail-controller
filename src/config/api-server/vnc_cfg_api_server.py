@@ -540,6 +540,7 @@ class VncApiServer(VncApiServerGen):
                                          --disc_server_ip 127.0.0.1
                                          --disc_server_port 5998
                                          --worker_id 1
+                                         --rabbit_max_pending_updates 4096
                                          [--auth keystone]
                                          [--ifmap_server_loc
                                           /home/contrail/source/ifmap-server/]
@@ -578,6 +579,7 @@ class VncApiServer(VncApiServerGen):
             'rabbit_user': 'guest',
             'rabbit_password': 'guest',
             'rabbit_vhost': None,
+            'rabbit_max_pending_updates': '4096',
         }
         # ssl options
         secopts = {
@@ -722,6 +724,9 @@ class VncApiServer(VncApiServerGen):
         parser.add_argument(
             "--rabbit_password",
             help="password for rabbit")
+        parser.add_argument(
+            "--rabbit_max_pending_updates",
+            help="Max updates before stateful changes disallowed")
         self._args = parser.parse_args(remaining_argv)
         self._args.config_sections = config
         if type(self._args.cassandra_server_list) is str:
@@ -964,6 +969,14 @@ class VncApiServer(VncApiServerGen):
         if not self._db_conn._zk_db.is_connected():
             return (False,
                     (503, "Not connected to zookeeper. Not able to perform requested action"))
+
+        # If there are too many pending updates to rabbit, do not allow
+        # operations that cause state change
+        npending = self._db_conn.dbe_oper_publish_pending()
+        if (npending >= int(self._args.rabbit_max_pending_updates)):
+            err_str = str(MaxRabbitPendingError(npending))
+            return (False, (500, err_str))
+
         if obj_dict:
             fq_name_str = ":".join(obj_fq_name)
 
@@ -1029,6 +1042,14 @@ class VncApiServer(VncApiServerGen):
         if not self._db_conn._zk_db.is_connected():
             return (False,
                     (503, "Not connected to zookeeper. Not able to perform requested action"))
+
+        # If there are too many pending updates to rabbit, do not allow
+        # operations that cause state change
+        npending = self._db_conn.dbe_oper_publish_pending()
+        if (npending >= int(self._args.rabbit_max_pending_updates)):
+            err_str = str(MaxRabbitPendingError(npending))
+            return (False, (500, err_str))
+
         fq_name_str = ":".join(self._db_conn.uuid_to_fq_name(uuid))
         apiConfig = VncApiCommon(identifier_name=fq_name_str)
         apiConfig.operation = 'delete'
@@ -1085,6 +1106,13 @@ class VncApiServer(VncApiServerGen):
         if not obj_dict:
             # TODO check api + resource perms etc.
             return (True, None)
+
+        # If there are too many pending updates to rabbit, do not allow
+        # operations that cause state change
+        npending = self._db_conn.dbe_oper_publish_pending()
+        if (npending >= int(self._args.rabbit_max_pending_updates)):
+            err_str = str(MaxRabbitPendingError(npending))
+            return (False, (500, err_str))
 
         # Fail if object exists already
         try:
@@ -1265,9 +1293,13 @@ class VncApiServer(VncApiServerGen):
 
 # end class VncApiServer
 
-
+server = None
 def main(args_str=None):
     vnc_api_server = VncApiServer(args_str)
+    # set module var for uses with import e.g unit test
+    global server
+    server = vnc_api_server
+
     pipe_start_app = vnc_api_server.get_pipe_start_app()
 
     server_ip = vnc_api_server.get_listen_ip()

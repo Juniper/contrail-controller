@@ -21,6 +21,17 @@ class NoIdError(VncError):
 # end class NoIdError
 
 
+class MaxRabbitPendingError(VncError):
+
+    def __init__(self, npending):
+        self._npending = npending
+    # end __init__
+
+    def __str__(self):
+        return 'Too many pending updates to RabbitMQ: %s' % (self._npending)
+    # end __str__
+# end class MaxRabbitPendingError
+
 class ResourceExistsError(VncError):
     def __init__(self, eexists_fq_name, eexists_id):
         self._eexists_fq_name = eexists_fq_name
