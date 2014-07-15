@@ -46,3 +46,15 @@ struct ConfigCpuState {
 uve sandesh ConfigCpuStateTrace {
     1: ConfigCpuState data
 }
+
+struct ConfigProcessStatus {
+    1: string name (key="ObjectConfigNode")
+    2: optional bool deleted
+    3: optional string status
+    4: optional list<connection_info.ProcessConnectivityStatus> connection_status (aggtype="union")
+    5: optional string description
+}
+
+uve sandesh ConfigProcessStatusUVE {
+    1: ConfigProcessStatus data
+}

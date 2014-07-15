@@ -10,6 +10,7 @@ enum ConnectionType {
     REDIS,
     ZOOKEEPER,
     DISCOVERY,
+    APISERVER,
 }
 
 const map<ConnectionType, string> ConnectionTypeNames = {
@@ -20,6 +21,7 @@ const map<ConnectionType, string> ConnectionTypeNames = {
     ConnectionType.REDIS : "Redis",
     ConnectionType.ZOOKEEPER : "Zookeeper",
     ConnectionType.DISCOVERY : "Discovery",
+    ConnectionType.APISERVER : "ApiServer"
 }
     
 enum ConnectionStatus {
@@ -58,4 +60,3 @@ struct ProcessConnectivityStatus {
     3: string status
     4: list<ConnectionInfo> connection_infos
 }
- 
