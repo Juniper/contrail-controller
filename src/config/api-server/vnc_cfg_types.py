@@ -246,7 +246,7 @@ class LogicalRouterServer(LogicalRouterServerGen):
         try:
             fq_name = obj_dict['fq_name']
             proj_uuid = db_conn.fq_name_to_uuid('project', fq_name[0:2])
-        except NoIdError:
+        except cfgm_common.exceptions.NoIdError:
             return (False, (500, 'No Project ID error : ' + proj_uuid))
 
         (ok, proj_dict) = QuotaHelper.get_project_dict(proj_uuid, db_conn)
@@ -348,7 +348,7 @@ class VirtualNetworkServer(VirtualNetworkServerGen):
         try:
             fq_name = obj_dict['fq_name']
             proj_uuid = db_conn.fq_name_to_uuid('project', fq_name[0:2])
-        except NoIdError:
+        except cfgm_common.exceptions.NoIdError:
             return (False, (500, 'No Project ID error : ' + proj_uuid))
 
         (ok, proj_dict) = QuotaHelper.get_project_dict(proj_uuid, db_conn)
@@ -808,7 +808,7 @@ class SecurityGroupServer(SecurityGroupServerGen):
         try:
             fq_name = obj_dict['fq_name']
             proj_uuid = db_conn.fq_name_to_uuid('project', fq_name[0:2])
-        except NoIdError:
+        except cfgm_common.exceptions.NoIdError:
             return (False, (500, 'No Project ID error : ' + proj_uuid))
 
         (ok, proj_dict) = QuotaHelper.get_project_dict(proj_uuid, db_conn)
@@ -856,7 +856,7 @@ class NetworkPolicyServer(NetworkPolicyServerGen):
         try:
             fq_name = obj_dict['fq_name']
             proj_uuid = db_conn.fq_name_to_uuid('project', fq_name[0:2])
-        except NoIdError:
+        except cfgm_common.exceptions.NoIdError:
             return (False, (500, 'No Project ID error : ' + proj_uuid))
 
         (ok, proj_dict) = QuotaHelper.get_project_dict(proj_uuid, db_conn)
