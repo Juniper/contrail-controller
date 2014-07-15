@@ -2107,7 +2107,7 @@ class DBInterface(object):
             port_q_dict['device_owner'] = ''
         else:
             port_q_dict['device_id'] = ''
-            port_q_dict['device_owner'] = 'TODO-device-owner'
+            port_q_dict['device_owner'] = ''
 
 
         return port_q_dict
