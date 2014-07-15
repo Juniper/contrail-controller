@@ -2,6 +2,7 @@
  * Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
  */
 
+#include <cmn/agent_factory.h>
 #include <cmn/agent_cmn.h>
 #include <db/db.h>
 #include <sandesh/sandesh_types.h>
@@ -25,6 +26,7 @@
 #include <oper/global_vrouter.h>
 #include <oper/agent_route_encap.h>
 #include <oper/path_preference.h>
+#include <oper/ifmap_dependency_manager.h>
 #include <base/task_trigger.h>
 
 OperDB *OperDB::singleton_ = NULL;
@@ -134,7 +136,11 @@ void OperDB::RegisterDBClients() {
     global_vrouter_.get()->CreateDBClients();
 }
 
-OperDB::OperDB(Agent *agent) : agent_(agent) {
+OperDB::OperDB(Agent *agent)
+        : agent_(agent),
+          dependency_manager_(
+              AgentObjectFactory::Create<IFMapDependencyManager>(
+                  agent->db(), agent->cfg()->cfg_graph())) {
     assert(singleton_ == NULL);
     singleton_ = this;
 }
@@ -145,48 +151,19 @@ OperDB::~OperDB() {
 void OperDB::Shutdown() {
     global_vrouter_.reset();
 
-    agent_->db()->RemoveTable(agent_->vn_table());
-    delete agent_->vn_table();
-    agent_->set_vn_table(NULL);
-
-    agent_->db()->RemoveTable(agent_->vm_table());
-    delete agent_->vm_table();
-    agent_->set_vm_table(NULL);
-
-    agent_->db()->RemoveTable(agent_->sg_table());
-    delete agent_->sg_table();
-    agent_->set_sg_table(NULL);
-
-    agent_->db()->RemoveTable(agent_->interface_table());
-    delete agent_->interface_table();
-    agent_->set_interface_table(NULL);
-
-    agent_->db()->RemoveTable(agent_->vrf_table());
-    delete agent_->vrf_table();
-    agent_->set_vrf_table(NULL);
-
-    agent_->db()->RemoveTable(agent_->mpls_table());
-    delete agent_->mpls_table();
-    agent_->set_mpls_table(NULL);
-
-    agent_->db()->RemoveTable(agent_->nexthop_table());
-    delete agent_->nexthop_table();
-    agent_->set_nexthop_table(NULL);
-
-    agent_->db()->RemoveTable(agent_->mirror_table());
-    delete agent_->mirror_table();
-    agent_->set_mirror_table(NULL);
-
-    agent_->db()->RemoveTable(agent_->vrf_assign_table());
-    delete agent_->vrf_assign_table();
-    agent_->set_vrf_assign_table(NULL);
-
-    agent_->db()->RemoveTable(agent_->vxlan_table());
-    delete agent_->vxlan_table();
-    agent_->set_vxlan_table(NULL);
-
-    delete agent_->domain_config_table();
-    agent_->set_domain_config_table(NULL);
+#if 0
+    agent_->interface_table()->Clear();
+    agent_->nexthop_table()->Clear();
+    agent_->vrf_table()->Clear();
+    agent_->vn_table()->Clear();
+    agent_->sg_table()->Clear();
+    agent_->vm_table()->Clear();
+    agent_->mpls_table()->Clear();
+    agent_->acl_table()->Clear();
+    agent_->mirror_table()->Clear();
+    agent_->vrf_assign_table()->Clear();
+    agent_->vxlan_table()->Clear();
+#endif
 }
 
 void OperDB::DeleteRoutes() {

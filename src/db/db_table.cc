@@ -241,3 +241,22 @@ void DBTable::Input(DBTablePartition *tbl_partition, DBClient *client,
         }
     }
 }
+
+void DBTable::DBStateClear(DBTable *table, ListenerId id) {
+    DBEntryBase *next = NULL;
+
+    for (int i = 0; i < table->PartitionCount(); ++i) {
+        DBTablePartition *partition = static_cast<DBTablePartition *>(
+            table->GetTablePartition(i));
+
+        for (DBEntryBase *entry = partition->GetFirst(); entry; entry = next) {
+            next = partition->GetNext(entry);
+            DBState *state = entry->GetState(table, id);
+            if (state) {
+                entry->ClearState(table, id);
+                delete state;
+            }
+        }
+    }
+}
+

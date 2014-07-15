@@ -22,6 +22,27 @@ test_fabric_interface = AgentEnv.MakeTestCmd(env, 'test_fabric_interface',
                                              oper_test_suite)
 test_aap = AgentEnv.MakeTestCmd(env, 'test_aap', oper_test_suite)
 
+env.Append(LIBPATH = [
+        '../../../../base/test',
+        '../../../../db/test',
+        '../../../../ifmap/test',
+])
+
+env.Append(LIBS = [
+        'dbtest',
+        'ifmap_test_util',
+        'ifmap_test_util_agent',
+        'task_test',
+        ])
+
+ifmap_dependency_manager_test = env.UnitTest(
+        'ifmap_dependency_manager_test',
+        ['ifmap_dependency_manager_test.cc'])
+
+env.Alias('agent:ifmap_dependency_manager_test',
+          ifmap_dependency_manager_test)
+oper_test_suite.append(ifmap_dependency_manager_test)
+
 flaky_test = env.TestSuite('agent-flaky-test', oper_flaky_test_suite)
 env.Alias('controller/src/vnsw/agent/oper:flaky_test', flaky_test)
 
