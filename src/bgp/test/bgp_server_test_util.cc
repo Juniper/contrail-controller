@@ -376,7 +376,7 @@ BgpNeighborConfig::BgpNeighborConfig(const BgpInstanceConfig *instance,
                                      const string &remote_name,
                                      const string &local_name,
                                      const autogen::BgpRouter *router)
-        : instance_(instance), name_(remote_name) {
+        : instance_(instance), name_(remote_name), local_as_(0) {
     const autogen::BgpRouterParams &params = router->parameters();
     peer_config_ = params;
 }
