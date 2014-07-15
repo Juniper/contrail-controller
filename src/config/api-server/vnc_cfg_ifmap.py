@@ -877,16 +877,29 @@ class VncKombuClient(object):
 
     def _dbe_oper_publish(self):
         while True:
-            message = self._publish_queue.get()
-            while True:
-                try:
-                    self._obj_update_q.put(message, serializer='json')
-                    break
-                except Exception as e:
-                    logger.info("Disconnected from rabbitmq. Reinitializing connection: %s" % str(e))
-                    time.sleep(1)
-                    self._init_server_conn(self._rabbit_ip, self._rabbit_port, self._rabbit_user, self._rabbit_password, self._rabbit_vhost)
+            try:
+                message = self._publish_queue.get()
+                while True:
+                    try:
+                        self._obj_update_q.put(message, serializer='json')
+                        break
+                    except Exception as e:
+                        log_str = "Disconnected from rabbitmq. Reinitializing connection: %s" % str(e)
+                        logger.warn(log_str)
+                        self._db_client_mgr.config_log_error(log_str)
+                        time.sleep(1)
+                        self._init_server_conn(self._rabbit_ip, self._rabbit_port,
+                            self._rabbit_user, self._rabbit_password, self._rabbit_vhost)
+            except Exception as e:
+                log_str = "Unknown exception in _dbe_oper_publish greenlet" + str(e)
+                logger.error(log_str)
+                self._db_client_mgr.config_log_error(log_str)
+                time.sleep(1)
     # end _dbe_oper_publish
+
+    def dbe_oper_publish_pending(self):
+        return self._publish_queue.qsize()
+    # end dbe_oper_publish_pending
 
     def _dbe_oper_subscribe(self):
         if self._rabbit_vhost == "__NONE__":
@@ -1376,6 +1389,10 @@ class VncDbClient(object):
         pass
     # end dbe_cache_invalidate
 
+    def dbe_oper_publish_pending(self):
+        return self._msgbus.dbe_oper_publish_pending()
+    # end dbe_oper_publish_pending
+
     def useragent_kv_store(self, key, value):
         self._cassandra_db.useragent_kv_store(key, value)
     # end useragent_kv_store
@@ -1473,6 +1490,10 @@ class VncDbClient(object):
         self._api_svr_mgr.config_object_error(
             id, fq_name_str, obj_type, operation, err_str)
     # end config_object_error
+
+    def config_log_error(self, err_str):
+        self._api_svr_mgr.config_log_error(err_str)
+    # end config_log_error
 
     def get_server_port(self):
         return self._api_svr_mgr.get_server_port()
