@@ -39,33 +39,20 @@ ifmap_sources_rules = []
 for file in ifmap_sources:
     ifmap_sources_rules.append(env.Install("cfgm_common/", "#/third_party/ifmap-python-client/" + file))
 
-sandesh_dirs = [ 'service_instance', 'vnc_api', 'virtual_machine', 'virtual_network', 'acl', 'vrouter', 'cfgm_cpuinfo']
-for file in sandesh_dirs:
-    Dir('../uve/gen_py/' + file)
-sandesh_files = sandesh_dirs
-sandesh_sources = ['gen_py/' + ssrc for ssrc in sandesh_files]
-sandesh_sources_rules = []
-
-for file in sandesh_sources:
-    sandesh_sources_rules.append(env.Install("cfgm_common/uve", "../uve/" + file))
-env.Depends(sandesh_sources_rules, '../uve/gen_py')
-
-sandesh_init_rules = [env.Install("cfgm_common/uve", "../uve/gen_py/__init__.py")]
-env.Requires(sandesh_init_rules, sandesh_sources_rules)
+pkg = [env.SandeshGenPy('#controller/src/config/uve/service_instance.sandesh', 'cfgm_common/uve/', False),
+       env.SandeshGenPy('#controller/src/config/uve/vnc_api.sandesh', 'cfgm_common/uve/', False),
+       env.SandeshGenPy('#controller/src/config/uve/virtual_machine.sandesh', 'cfgm_common/uve/', False),
+       env.SandeshGenPy('#controller/src/config/uve/virtual_network.sandesh', 'cfgm_common/uve/', False),
+       env.SandeshGenPy('#controller/src/config/uve/acl.sandesh', 'cfgm_common/uve/', False),
+       env.SandeshGenPy('#controller/src/config/uve/vrouter.sandesh', 'cfgm_common/uve/', False),
+       env.SandeshGenPy('#controller/src/config/uve/cfgm_cpuinfo.sandesh', 'cfgm_common/uve/', False),
+]
 
 # Generate the sandesh cpuinfo from base
-sandesh_base_gen_py_files = env.SandeshGenPy('#/controller/src/base/sandesh/cpuinfo.sandesh')
-sandesh_base_dirs = [ 'cpuinfo' ]
-for file in sandesh_base_dirs:
-    Dir('gen_py/' + file)
-
-sandesh_base_files = sandesh_base_dirs
-sandesh_base_sources = ['gen_py/' + ssrc for ssrc in sandesh_base_files]
-sandesh_base_sources_rules = []
-
-for file in sandesh_base_sources:
-    sandesh_base_sources_rules.append(env.Install("cfgm_common/uve/cfgm_cpuinfo/", file))
-env.Depends(sandesh_base_sources_rules, sandesh_base_gen_py_files)
+cpu_info_pkg = env.SandeshGenPy('#controller/src/base/sandesh/cpuinfo.sandesh', 'cfgm_common/uve/cfgm_cpuinfo/', False)
+connection_info_pkg = env.SandeshGenPy('#controller/src/base/sandesh/connection_info.sandesh', 'cfgm_common/uve/cfgm_cpuinfo/', False)
+env.Depends(cpu_info_pkg, pkg)
+env.Depends(connection_info_pkg, pkg)
 
 rel_path = Dir('cfgm_common').path
 def BuildInfoAction(target, source, env):
@@ -77,9 +64,9 @@ sdist_depends = []
 sdist_depends.extend(setup_sources_rules)
 sdist_depends.extend(local_sources_rules)
 sdist_depends.extend(ifmap_sources_rules)
-sdist_depends.extend(sandesh_sources_rules)
-sdist_depends.extend(sandesh_init_rules)
-sdist_depends.extend(sandesh_base_sources_rules)
+sdist_depends.extend(pkg)
+sdist_depends.extend(cpu_info_pkg)
+sdist_depends.extend(connection_info_pkg)
 sdist_depends.extend(build_info_rules)
 
 # TODO: deprecate
