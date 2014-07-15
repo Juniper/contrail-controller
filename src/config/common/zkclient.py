@@ -16,6 +16,9 @@ from cfgm_common.exceptions import ResourceExhaustionError, ResourceExistsError
 from gevent.coros import BoundedSemaphore
 
 import uuid
+from pysandesh.connection_info import ConnectionState
+from pysandesh.gen_py.connection_info.ttypes import ConnectionStatus, \
+    ConnectionType
 
 
 class IndexAllocator(object):
@@ -194,9 +197,16 @@ class ZookeeperClient(object):
         self._zk_client.add_listener(self._zk_listener)
         self._logger = logger
         self._election = None
+        self._server_list = server_list
         # KazooRetry to retry keeper CRUD operations
         self._retry = KazooRetry(max_tries=None)
+
+        ConnectionState.update(conn_type = ConnectionType.ZOOKEEPER,
+            name = 'Zookeeper', status = ConnectionStatus.INIT,
+            message = '', server_addrs = [server_list])
+
         self.connect()
+
     # end __init__
 
     # start 
@@ -208,12 +218,25 @@ class ZookeeperClient(object):
             except gevent.event.Timeout as e:
                 self.syslog(
                     'Failed to connect with Zookeeper -will retry in a second')
+                # Update connection info
+                ConnectionState.update(conn_type = ConnectionType.ZOOKEEPER,
+                    name = 'Zookeeper', status = ConnectionStatus.DOWN,
+                    message = str(e), server_addrs = [self._server_list])
                 gevent.sleep(1)
             # Zookeeper is also throwing exception due to delay in master election
             except Exception as e:
                 self.syslog('%s -will retry in a second' % (str(e)))
+                # Update connection info
+                ConnectionState.update(conn_type = ConnectionType.ZOOKEEPER,
+                    name = 'Zookeeper', status = ConnectionStatus.DOWN,
+                    message = str(e), server_addrs = [self._server_list])
                 gevent.sleep(1)
         self.syslog('Connected to ZooKeeper!')
+                # Update connection info
+        ConnectionState.update(conn_type = ConnectionType.ZOOKEEPER,
+            name = 'Zookeeper', status = ConnectionStatus.UP,
+            message = '', server_addrs = [self._server_list])
+
     # end
 
     def is_connected(self):
@@ -230,11 +253,22 @@ class ZookeeperClient(object):
         if state == KazooState.CONNECTED:
             if self._election:
                 self._election.cancel()
+            # Update connection info
+            ConnectionState.update(conn_type = ConnectionType.ZOOKEEPER,
+                name = 'Zookeeper', status = ConnectionStatus.UP,
+                message = '', server_addrs = [self._server_list])
         elif state == KazooState.LOST:
             # Lost the session with ZooKeeper Server
             # Best of option we have is to exit the process and restart all 
             # over again
             os._exit(2)
+        elif state == KazooState.CONNECTING:
+            # Update connection info
+            ConnectionState.update(conn_type = ConnectionType.ZOOKEEPER,
+                name = 'Zookeeper', status = ConnectionStatus.INIT,
+                message = 'Connection to zookeeper lost. Retrying',
+                server_addrs = [self._server_list])
+
     # end
 
     def _zk_election_callback(self, func, *args, **kwargs):
