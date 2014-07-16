@@ -506,18 +506,24 @@ void VNController::AddToDecommissionedPeerList(BgpPeerPtr peer) {
  * destruction of same.
  */
 void VNController::ControllerPeerHeadlessAgentDelDone(BgpPeer *bgp_peer) {
+    // Retain the disconnect state for peer as bgp_peer will be freed
+    // below.
+    bool is_disconnect_walk = bgp_peer->is_disconnect_walk();
     for (BgpPeerIterator it  = decommissioned_peer_list_.begin(); 
          it != decommissioned_peer_list_.end(); ++it) {
         BgpPeer *peer = static_cast<BgpPeer *>((*it).get());
         if (peer == bgp_peer) {
+            //Release BGP peer, ideally this should be the last reference being
+            //released for peer.
             decommissioned_peer_list_.remove(*it);
             break;
         }
     }
+
     // Delete walk for peer was issued via shutdown of agentxmppchannel
     // If all bgp peers are gone(i.e. walk for delpeer for all decommissioned
     // peer is over), go ahead with cleanup.
-    if (decommissioned_peer_list_.empty() && bgp_peer->is_disconnect_walk()) {
+    if (decommissioned_peer_list_.empty() && is_disconnect_walk) {
         agent()->controller()->Cleanup();
     }
 }

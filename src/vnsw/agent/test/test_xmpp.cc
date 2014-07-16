@@ -172,6 +172,7 @@ protected:
     virtual void SetUp() {
         xs = new XmppServer(&evm_, XmppInit::kControlNodeJID);
         xc = new XmppClient(&evm_);
+        xmpp_init = new XmppInit();
 
         xs->Initialize(0, false);
         
@@ -179,12 +180,16 @@ protected:
     }
 
     virtual void TearDown() {
+        ASSERT_TRUE(agent_->GetAgentXmppChannel(0) != NULL);
+
         xs->Shutdown();
         bgp_peer.reset(); 
         client->WaitForIdle();
         xc->Shutdown();
         client->WaitForIdle();
 
+        agent_->SetAgentXmppClient(NULL, 0);
+        agent_->SetAgentXmppInit(NULL, 0);
         TaskScheduler::GetInstance()->Stop();
         Agent::GetInstance()->controller()->unicast_cleanup_timer().cleanup_timer_->Fire();
         TaskScheduler::GetInstance()->Start();
@@ -426,7 +431,9 @@ protected:
 	xc->RegisterConnectionEvent(xmps::BGP,
 	    boost::bind(&AgentBgpXmppPeerTest::HandleXmppChannelEvent, 
 			bgp_peer.get(), _2));
-	Agent::GetInstance()->set_controller_xmpp_channel(bgp_peer.get(), 0);
+    agent_->SetAgentXmppChannel(bgp_peer.get(), 0);
+    agent_->SetAgentXmppClient(xc, 0);
+    agent_->SetAgentXmppInit(xmpp_init, 0);
 
         // server connection
         WAIT_FOR(1000, 10000,
@@ -442,6 +449,7 @@ protected:
 
     XmppServer *xs;
     XmppClient *xc;
+    XmppInit *xmpp_init;
 
     XmppConnection *sconnection;
     XmppChannel *cchannel;
