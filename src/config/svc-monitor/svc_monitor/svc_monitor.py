@@ -41,6 +41,14 @@ from sandesh_common.vns.ttypes import Module, NodeType
 from sandesh_common.vns.constants import ModuleNames, Module2NodeType, NodeTypeNames, INSTANCE_ID_DEFAULT
 from sandesh.svc_mon_introspect import ttypes as sandesh
 
+from pysandesh.connection_info import ConnectionState
+from pysandesh.gen_py.connection_info.ttypes import ConnectionType,\
+    ConnectionStatus, ConnectivityStatus
+from pysandesh.gen_py.connection_info.constants import \
+    ConnectionStatusNames
+from cfgm_common.uve.cfgm_cpuinfo.ttypes import ConfigProcessStatusUVE, \
+    ConfigProcessStatus
+
 # nova imports
 from novaclient import client as nc
 from novaclient import exceptions as nc_exc
@@ -107,8 +115,9 @@ class SvcMonitor(object):
         node_type = Module2NodeType[module]
         node_type_name = NodeTypeNames[node_type]
         instance_id = INSTANCE_ID_DEFAULT
+        hostname = socket.gethostname()
         self._sandesh.init_generator(
-            module_name, socket.gethostname(), node_type_name, instance_id,
+            module_name, hostname, node_type_name, instance_id,
             self._args.collectors, 'svc_monitor_context',
             int(self._args.http_server_port), ['cfgm_common', 'sandesh'],
             self._disc)
@@ -133,6 +142,11 @@ class SvcMonitor(object):
                                       svc_mode='in-network-nat',
                                       hypervisor_type='network-namespace',
                                       scaling=True)
+
+        # connection state init
+        ConnectionState.init(self._sandesh, hostname, module_name,
+                instance_id, self._get_process_connectivity_status,
+                ConfigProcessStatusUVE, ConfigProcessStatus)
 
         #create cpu_info object to send periodic updates
         sysinfo_req = False
@@ -201,6 +215,14 @@ class SvcMonitor(object):
 
         self._svc_syslog("%s created with uuid %s" % (st_name, str(st_uuid)))
     #_create_default_analyzer_template
+
+    def _get_process_connectivity_status(self, conn_infos):
+        for conn_info in conn_infos:
+            if conn_info.status != ConnectionStatusNames[ConnectionStatus.UP]:
+                return (ConnectivityStatus.NON_FUNCTIONAL,
+                        conn_info.type + ':' + conn_info.name)
+        return (ConnectivityStatus.FUNCTIONAL, '')
+    #end _get_process_connectivity_status
 
     def cleanup(self):
         # TODO cleanup sandesh context
@@ -1122,14 +1144,30 @@ class SvcMonitor(object):
         server_idx = 0
         num_dbnodes = len(self._args.cassandra_server_list)
         connected = False
+
+        # Update connection info
+        ConnectionState.update(conn_type = ConnectionType.DATABASE,
+            name = 'Database', status = ConnectionStatus.INIT,
+            message = '', server_addrs = self._args.cassandra_server_list)
+
         while not connected:
             try:
                 cass_server = self._args.cassandra_server_list[server_idx]
                 sys_mgr = SystemManager(cass_server)
                 connected = True
             except Exception as e:
+                # Update connection info
+                ConnectionState.update(conn_type = ConnectionType.DATABASE,
+                    name = 'Database', status = ConnectionStatus.DOWN,
+                    message = '', server_addrs = [cass_server])
                 server_idx = (server_idx + 1) % num_dbnodes
                 time.sleep(3)
+
+
+        # Update connection info
+        ConnectionState.update(conn_type = ConnectionType.DATABASE,
+            name = 'Database', status = ConnectionStatus.UP,
+            message = '', server_addrs = self._args.cassandra_server_list)
 
         if self._args.reset_config:
             try:
@@ -1426,13 +1464,28 @@ def parse_args(args_str):
 def run_svc_monitor(args=None):
     # Retry till API server is up
     connected = False
+    ConnectionState.update(conn_type = ConnectionType.APISERVER,
+        name = 'ApiServer', status = ConnectionStatus.INIT,
+        message = '', server_addrs = ['%s:%s' % (args.api_server_ip,
+                                                 args.api_server_port)])
+
     while not connected:
         try:
             vnc_api = VncApi(
                 args.admin_user, args.admin_password, args.admin_tenant_name,
                 args.api_server_ip, args.api_server_port)
             connected = True
-        except requests.exceptions.ConnectionError:
+            ConnectionState.update(conn_type = ConnectionType.APISERVER,
+                name = 'ApiServer', status = ConnectionStatus.UP,
+                message = '', server_addrs = ['%s:%s    ' % (args.api_server_ip,
+                                                         args.api_server_port)])
+        except requests.exceptions.ConnectionError as e:
+            # Update connection info
+            ConnectionState.update(conn_type = ConnectionType.APISERVER,
+                name = 'ApiServer', status = ConnectionStatus.DOWN,
+                message = str(e),
+                server_addrs = ['%s:%s' % (args.api_server_ip,
+                                           args.api_server_port)])
             time.sleep(3)
         except ResourceExhaustionError:  # haproxy throws 503
             time.sleep(3)
