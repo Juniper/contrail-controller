@@ -41,6 +41,11 @@ vizd_flow_test = env.Program('vizd_flow_test',
                              )
 env.Alias('src/analytics:vizd_flow_test', vizd_flow_test)
 
+stat_walker_test = env.UnitTest('stat_walker_test',
+                              ['stat_walker_test.cc',
+                               '../stat_walker.cc'])
+env.Alias('src/analytics:stat_walker_test', stat_walker_test)
+
 viz_message_test = env.UnitTest('viz_message_test',
                               ['viz_message_test.cc',
                               '../viz_message.o']
@@ -118,6 +123,7 @@ test_suite = [
                options_test,
                viz_message_test,
                db_handler_test,
+               stat_walker_test,
              ]
 test = env.TestSuite('analytics-test', test_suite)
 

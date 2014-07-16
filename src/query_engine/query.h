@@ -721,6 +721,8 @@ private:
     void fs_update_flow_count(QEOpServerProxy::ResultRowT& rrow);
 };
 
+class StatsQuery;
+
 class AnalyticsQuery: public QueryUnit {
 public:
     AnalyticsQuery(std::string qid, std::map<std::string, 
@@ -824,8 +826,7 @@ const std::vector<boost::shared_ptr<QEOpServerProxy::BufferT> >& inputs,
     // validation functions
     bool is_valid_from_field(const std::string& from_field);
     virtual bool is_object_table_query();
-    virtual bool is_stat_table_query();
-    int  stat_table_index();
+    virtual bool is_stat_table_query() { return (stats_.get()!=NULL); }
     bool is_valid_where_field(const std::string& where_field);
     bool is_valid_sort_field(const std::string& sort_field);
     std::string get_column_field_datatype(const std::string& col_field);
@@ -833,7 +834,9 @@ const std::vector<boost::shared_ptr<QEOpServerProxy::BufferT> >& inputs,
     virtual bool is_query_parallelized() { return parallelize_query_; }
     uint64_t parse_time(const std::string& relative_time);
 
+    const StatsQuery& stats(void) const { return *stats_; }
     private:
+    std::auto_ptr<StatsQuery> stats_;
     // Analytics table to query
     std::string table_; 
     // query start time requested by the user

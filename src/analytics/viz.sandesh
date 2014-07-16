@@ -343,6 +343,24 @@ const string STAT_TIMEBIN_FIELD  = "T=";
 const string STAT_UUID_FIELD     = "UUID";
 const string STAT_VT_PREFIX      = "StatTable";
 
+const list<stat_table> _STAT_TEST_TABLES = [ 
+{
+      'display_name' : 'Test',
+      'stat_type' : 'StatTestState',
+      'stat_attr' : 'st',
+      'obj_table' : COLLECTOR_INFO_TABLE,
+      'attributes': [
+          { 'name' : 'st.i1', 'datatype' : 'int', 'index' : true, 'suffixes': ['st.i2','st.s1']},
+          { 'name' : 'st.i2', 'datatype' : 'int', 'index' : true},
+          { 'name' : 'st.d1', 'datatype' : 'double', 'index' : true},
+          { 'name' : 'st.s1', 'datatype' : 'string', 'index' : false},
+          { 'name' : 'st.s2', 'datatype' : 'string', 'index' : true},
+          { 'name' : 'l1',    'datatype' : 'string', 'index' : true},
+          { 'name' : 'name',  'datatype' : 'string', 'index' : true, 'suffixes': ['st.s1']},
+        ]
+}
+]
+
 const list<stat_table> _STAT_TABLES  = [
     {
       'display_name' : 'Analytics CPU Information',
