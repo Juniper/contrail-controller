@@ -36,6 +36,7 @@
 #include <oper/vrf.h>
 #include <oper/multicast.h>
 #include <oper/mirror_table.h>
+#include <oper/sg.h>
 #include <controller/controller_init.h>
 #include <controller/controller_vrf_export.h>
 #include <pkt/pkt_init.h>
@@ -87,12 +88,22 @@ void TestAgentInit::InitCollector() {
 // Optional modules or modules that have different implementation are created
 // by init module
 void TestAgentInit::CreateModules() {
-    agent_->set_cfg(new AgentConfig(agent_));
-    agent_->set_stats(new AgentStats(agent_));
+    cfg_.reset(new AgentConfig(agent_));
+    agent_->set_cfg(cfg_.get());
+
+    stats_.reset(new AgentStats(agent_));
+    agent_->set_stats(stats_.get());
+
     agent_->set_oper_db(new OperDB(agent_));
-    agent_->set_uve(AgentObjectFactory::Create<AgentUve>(
-                    agent_, AgentUve::kBandwidthInterval));
-    agent_->set_ksync(AgentObjectFactory::Create<KSync>(agent_));
+
+
+    uve_.reset(AgentObjectFactory::Create<AgentUve>
+               (agent_, AgentUve::kBandwidthInterval));
+    agent_->set_uve(uve_.get());
+
+    ksync_.reset(AgentObjectFactory::Create<KSync>(agent_));
+    agent_->set_ksync(ksync_.get());
+
     pkt_.reset(new PktModule(agent_));
     agent_->set_pkt(pkt_.get());
 

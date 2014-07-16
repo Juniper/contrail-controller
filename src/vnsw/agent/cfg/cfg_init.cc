@@ -1,34 +1,22 @@
 /*
  * Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
  */
-
-#include <iostream>
-#include <sys/types.h>
-#include <sys/stat.h>
-#include <unistd.h>
-
-#include <sys/stat.h>
+#include <cmn/agent_cmn.h>
 
 #include <boost/property_tree/xml_parser.hpp>
-#include <boost/uuid/string_generator.hpp>
-
-#include <db/db.h>
 #include <db/db_graph.h>
-#include <base/logging.h>
 
-#include <vnc_cfg_types.h> 
+#include <cmn/agent.h>
+#include <cmn/agent_db.h>
+
 #include <bgp_schema_types.h>
-#include <pugixml/pugixml.hpp>
-#include <sandesh/sandesh_types.h>
-#include <sandesh/sandesh.h>
-#include <sandesh/sandesh_trace.h>
 
-#include <cmn/agent_cmn.h>
 #include <cfg/cfg_init.h>
 #include <cfg/cfg_interface.h>
 #include <cfg/cfg_interface_listener.h>
 #include <cfg/cfg_filter.h>
 #include <cfg/cfg_mirror.h>
+#include <cfg/cfg_listener.h>
 #include <cfg/discovery_agent.h>
 
 #include <oper/vn.h>
@@ -41,9 +29,7 @@
 #include <oper/route_common.h>
 #include <oper/operdb_init.h>
 #include <oper/global_vrouter.h>
-
-#include <vgw/cfg_vgw.h>
-#include <vgw/vgw.h>
+#include <filter/acl.h>
 
 using namespace std;
 using namespace autogen;

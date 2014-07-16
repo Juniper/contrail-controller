@@ -21,11 +21,7 @@
 #endif
 
 #include "gen-cpp/InstanceService.h"
-#include "db/db.h"
-#include "db/db_table_walker.h"
-#include "io/event_manager.h"
-#include "oper/peer.h"
-#include "base/timer.h"
+#include <oper/peer.h>
 
 using namespace apache::thrift;
 

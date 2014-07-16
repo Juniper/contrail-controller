@@ -5,17 +5,15 @@
 #ifndef __AGENT_ACL_N_H__
 #define __AGENT_ACL_N_H__
 
-#include "filter/traffic_action.h"
-#include <filter/acl_entry_match.h>
-#include "filter/acl_entry_spec.h"
-#include "filter/acl_entry.h"
-
 #include <boost/intrusive/list.hpp>
 #include <boost/uuid/uuid.hpp>
 #include <boost/intrusive_ptr.hpp>
 #include <tbb/atomic.h>
-#include <cmn/agent_cmn.h>
-#include <oper/agent_types.h>
+
+#include <filter/traffic_action.h>
+#include <filter/acl_entry_match.h>
+#include <filter/acl_entry_spec.h>
+#include <filter/acl_entry.h>
 
 struct FlowKey;
 

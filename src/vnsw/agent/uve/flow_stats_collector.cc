@@ -45,6 +45,10 @@ FlowStatsCollector::FlowStatsCollector(boost::asio::io_service &io, int intvl,
 FlowStatsCollector::~FlowStatsCollector() { 
 }
 
+void FlowStatsCollector::Shutdown() {
+    StatsCollector::Shutdown();
+}
+
 void FlowStatsCollector::UpdateFlowMultiplier() {
     uint32_t age_time_millisec = flow_age_time_intvl_ / 1000;
     if (age_time_millisec == 0) {

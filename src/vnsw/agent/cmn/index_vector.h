@@ -8,6 +8,7 @@
 #include <cassert>
 #include <vector>
 #include <boost/dynamic_bitset.hpp>
+#include <base/logging.h>
 
 // Index management + Vector holding a pointer at allocated index
 template <typename EntryType> 

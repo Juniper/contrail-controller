@@ -6,6 +6,7 @@
 #define vnsw_agent_vrf_assign_hpp
 
 #include <cmn/agent_cmn.h>
+#include <cmn/agent.h>
 
 /////////////////////////////////////////////////////////////////////////////
 // Base class for VRF Assignment table. Implementation of specific types must
@@ -79,7 +80,7 @@ public:
     virtual ~VlanVrfAssign() {}
     bool VrfAssignIsLess(const VrfAssign &rhs) const;
 
-    virtual string ToString() const {return "VlanVrfAssign";};
+    virtual std::string ToString() const {return "VlanVrfAssign";};
 
     const uint32_t GetVlanTag() const {return vlan_tag_;};
     const NextHop *nh() const {return nh_.get();}

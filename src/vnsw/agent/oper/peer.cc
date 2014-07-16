@@ -2,14 +2,17 @@
  * Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
  */
 
+#include <cmn/agent_cmn.h>
+#include <oper/vrf.h>
+#include <oper/route_common.h>
+#include <oper/peer.h>
+#include <oper/agent_route_walker.h>
+#include <oper/mirror_table.h>
+
 #include <controller/controller_route_walker.h>
 #include <controller/controller_peer.h>
 #include <controller/controller_vrf_export.h>
 #include <controller/controller_export.h>
-#include <oper/agent_route.h>
-#include <oper/peer.h>
-#include <oper/vrf.h>
-#include <oper/mirror_table.h>
 
 Peer::Peer(Type type, const std::string &name) : 
     type_(type), name_(name){ 

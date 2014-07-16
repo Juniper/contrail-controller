@@ -2,16 +2,23 @@
  * Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
  */
 
-#include <sandesh/sandesh_types.h>
-#include <sandesh/sandesh.h>
-#include <boost/uuid/string_generator.hpp>
-#include <boost/uuid/uuid_io.hpp>
-#include <base/logging.h>
+#include <cmn/agent_cmn.h>
+#include <cmn/agent.h>
+
 #include <cfg/cfg_interface.h>
 #include <cfg/cfg_types.h>
 #include <cfg/cfg_init.h>
 
 using boost::uuids::uuid;
+
+CfgIntEntry::CfgIntEntry() {
+}
+
+CfgIntEntry::CfgIntEntry(const boost::uuids::uuid &id) : port_id_(id) {
+}
+
+CfgIntEntry::~CfgIntEntry() {
+}
 
 // CfgIntData methods
 void CfgIntData::Init (const uuid& vm_id, const uuid& vn_id,

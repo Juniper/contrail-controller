@@ -6,7 +6,10 @@
 #define __VNSW_OPERDB_INIT__
 
 #include <base/util.h>
+#include <cmn/agent_cmn.h>
+#include <cmn/agent.h>
 
+class DBEntryBase;
 class Agent;
 class DB;
 class GlobalVrouter;

@@ -33,8 +33,6 @@
 #include <sandesh/common/vns_types.h>
 #include <sandesh/common/vns_constants.h>
 
-#include <services/dns_proto.h>
-
 using namespace std;
 using namespace boost::uuids;
 
@@ -311,6 +309,13 @@ const InterfaceTable::UpdateFloatingIpFn &InterfaceTable::update_floatingip_cb()
 /////////////////////////////////////////////////////////////////////////////
 // Pkt Interface routines
 /////////////////////////////////////////////////////////////////////////////
+PacketInterface::PacketInterface(const std::string &name) : 
+    Interface(Interface::PACKET, nil_uuid(), name, NULL) {
+}
+
+PacketInterface::~PacketInterface() {
+}
+
 DBEntryBase::KeyPtr PacketInterface::GetDBRequestKey() const {
     InterfaceKey *key = new PacketInterfaceKey(uuid_, name_);
     return DBEntryBase::KeyPtr(key);
@@ -358,6 +363,21 @@ void PacketInterface::Delete(InterfaceTable *table, const std::string &ifname) {
 /////////////////////////////////////////////////////////////////////////////
 // Ethernet Interface routines
 /////////////////////////////////////////////////////////////////////////////
+PhysicalInterface::PhysicalInterface(const std::string &name, VrfEntry *vrf,
+                                     bool persistent) :
+    Interface(Interface::PHYSICAL, nil_uuid(), name, vrf),
+    persistent_(persistent) {
+}
+
+PhysicalInterface::~PhysicalInterface() {
+}
+
+bool PhysicalInterface::CmpInterface(const DBEntry &rhs) const {
+        const PhysicalInterface &intf = 
+            static_cast<const PhysicalInterface &>(rhs);
+        return name_ < intf.name_;
+}
+
 DBEntryBase::KeyPtr PhysicalInterface::GetDBRequestKey() const {
     InterfaceKey *key = new PhysicalInterfaceKey(name_);
     return DBEntryBase::KeyPtr(key);
@@ -393,6 +413,42 @@ void PhysicalInterface::Delete(InterfaceTable *table, const string &ifname) {
     req.key.reset(new PhysicalInterfaceKey(ifname));
     req.data.reset(NULL);
     table->Process(req);
+}
+
+PhysicalInterfaceKey::PhysicalInterfaceKey(const std::string &name) :
+    InterfaceKey(AgentKey::ADD_DEL_CHANGE, Interface::PHYSICAL, nil_uuid(),
+                 name, false) {
+}
+
+PhysicalInterfaceKey::~PhysicalInterfaceKey() {
+}
+
+Interface *PhysicalInterfaceKey::AllocEntry(const InterfaceTable *table) const {
+    return new PhysicalInterface(name_, NULL, false);
+}
+
+Interface *PhysicalInterfaceKey::AllocEntry(const InterfaceTable *table,
+                                            const InterfaceData *data) const {
+    VrfKey key(data->vrf_name_);
+    VrfEntry *vrf = static_cast<VrfEntry *>
+        (table->agent()->vrf_table()->FindActiveEntry(&key));
+    if (vrf == NULL) {
+        return NULL;
+    }
+    const PhysicalInterfaceData *phy_data =
+        static_cast<const PhysicalInterfaceData *>(data);
+
+    return new PhysicalInterface(name_, vrf, phy_data->persistent_);
+}
+
+InterfaceKey *PhysicalInterfaceKey::Clone() const {
+    return new PhysicalInterfaceKey(*this);
+}
+
+PhysicalInterfaceData::PhysicalInterfaceData(const std::string &vrf_name,
+                                             bool persistent)
+    : InterfaceData(), persistent_(persistent) {
+    EthInit(vrf_name);
 }
 
 /////////////////////////////////////////////////////////////////////////////

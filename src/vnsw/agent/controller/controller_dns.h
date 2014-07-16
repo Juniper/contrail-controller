@@ -11,8 +11,8 @@
 #include <boost/function.hpp>
 #include <boost/system/error_code.hpp>
 
-#include "xmpp/xmpp_channel.h"
-#include "bind/bind_util.h"
+#include <bind/bind_util.h>
+#include <xmpp/xmpp_channel.h>
 
 class XmppChannel;
 class Agent;

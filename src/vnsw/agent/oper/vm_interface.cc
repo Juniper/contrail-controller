@@ -13,6 +13,7 @@
 
 #include <cfg/cfg_init.h>
 #include <cfg/cfg_interface.h>
+#include <cfg/cfg_listener.h>
 #include <cmn/agent.h>
 #include <oper/operdb_init.h>
 #include <oper/route_common.h>
@@ -39,6 +40,52 @@ using namespace std;
 using namespace boost::uuids;
 using namespace autogen;
 
+VmInterface::VmInterface(const boost::uuids::uuid &uuid) :
+    Interface(Interface::VM_INTERFACE, uuid, "", NULL), vm_(NULL),
+    vn_(NULL), ip_addr_(0), mdata_addr_(0), subnet_bcast_addr_(0),
+    vm_mac_(""), policy_enabled_(false), mirror_entry_(NULL),
+    mirror_direction_(MIRROR_RX_TX), cfg_name_(""), fabric_port_(true),
+    need_linklocal_ip_(false), dhcp_enable_(true),
+    do_dhcp_relay_(false), vm_name_(),
+    vm_project_uuid_(nil_uuid()), vxlan_id_(0), layer2_forwarding_(true),
+    ipv4_forwarding_(true), mac_set_(false), ecmp_(false),
+    vlan_id_(kInvalidVlanId), parent_(NULL), oper_dhcp_options_(),
+    sg_list_(), floating_ip_list_(), service_vlan_list_(),
+    static_route_list_(), allowed_address_pair_list_(),
+    vrf_assign_rule_list_(), vrf_assign_acl_(NULL) {
+    ipv4_active_ = false;
+    l2_active_ = false;
+}
+
+VmInterface::VmInterface(const boost::uuids::uuid &uuid,
+                         const std::string &name,
+                         const Ip4Address &addr, const std::string &mac,
+                         const std::string &vm_name,
+                         const boost::uuids::uuid &vm_project_uuid,
+                         uint16_t vlan_id, Interface *parent) : 
+    Interface(Interface::VM_INTERFACE, uuid, name, NULL), vm_(NULL),
+    vn_(NULL), ip_addr_(addr), mdata_addr_(0), subnet_bcast_addr_(0),
+    vm_mac_(mac), policy_enabled_(false), mirror_entry_(NULL),
+    mirror_direction_(MIRROR_RX_TX), cfg_name_(""), fabric_port_(true),
+    need_linklocal_ip_(false), dhcp_enable_(true),
+    do_dhcp_relay_(false), vm_name_(vm_name),
+    vm_project_uuid_(vm_project_uuid), vxlan_id_(0),
+    layer2_forwarding_(true), ipv4_forwarding_(true), mac_set_(false),
+    ecmp_(false), vlan_id_(vlan_id), parent_(parent), oper_dhcp_options_(),
+    sg_list_(), floating_ip_list_(), service_vlan_list_(),
+    static_route_list_(), allowed_address_pair_list_(),
+    vrf_assign_rule_list_(), vrf_assign_acl_(NULL) {
+    ipv4_active_ = false;
+    l2_active_ = false;
+}
+
+VmInterface::~VmInterface() {
+}
+
+bool VmInterface::CmpInterface(const DBEntry &rhs) const {
+    const VmInterface &intf=static_cast<const VmInterface &>(rhs);
+    return uuid_ < intf.uuid_;
+}
 /////////////////////////////////////////////////////////////////////////////
 // Template function to audit two lists. This is used to synchronize the
 // operational and config list for Floating-IP, Service-Vlans, Static Routes
@@ -637,6 +684,10 @@ DBEntryBase::KeyPtr VmInterface::GetDBRequestKey() const {
     InterfaceKey *key = new VmInterfaceKey(AgentKey::ADD_DEL_CHANGE, uuid_,
                                            name_);
     return DBEntryBase::KeyPtr(key);
+}
+
+const Peer *VmInterface::peer() const { 
+    return peer_.get();
 }
 
 bool VmInterface::OnChange(VmInterfaceData *data) {

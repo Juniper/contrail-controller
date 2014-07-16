@@ -8,13 +8,21 @@
 #include <cmn/agent_cmn.h>
 #include <route/route.h>
 
-#include <cmn/agent_cmn.h>
-#include <oper/route_common.h>
-#include <oper/vrf.h>
-#include <oper/tunnel_nh.h>
-#include <oper/mpls.h>
-#include <oper/mirror_table.h>
+#include <vnc_cfg_types.h> 
+#include <agent_types.h>
+
+#include <filter/acl.h>
+
 #include <oper/peer.h>
+#include <oper/vrf.h>
+#include <oper/interface_common.h>
+#include <oper/nexthop.h>
+#include <oper/tunnel_nh.h>
+#include <oper/vn.h>
+#include <oper/mirror_table.h>
+#include <oper/vxlan.h>
+#include <oper/mpls.h>
+#include <oper/route_common.h>
 #include <oper/agent_sandesh.h>
 
 using namespace std;

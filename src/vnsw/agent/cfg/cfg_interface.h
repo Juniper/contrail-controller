@@ -5,16 +5,10 @@
 #ifndef __AGENT_INTERFACE_CFG_H__
 #define __AGENT_INTERFACE_CFG_H__
 
-#include <boost/uuid/uuid.hpp>
-#include <boost/uuid/nil_generator.hpp>
-
 #include <vector>
+#include <net/address.h>
 
-#include "db/db.h"
-#include "db/db_entry.h"
-#include "db/db_table.h"
-
-#include "net/address.h"
+#include <cmn/agent_cmn.h>
 
 struct CfgIntKey : public DBRequestKey {
     CfgIntKey(const boost::uuids::uuid id) : id_(id) {};
@@ -42,9 +36,10 @@ struct CfgIntData : public DBRequestData {
 
 class CfgIntEntry : public DBEntry {
 public:
-    CfgIntEntry() { };
-    CfgIntEntry(const boost::uuids::uuid &id) : port_id_(id) { };
-    virtual  ~CfgIntEntry() { };
+    CfgIntEntry();
+    CfgIntEntry(const boost::uuids::uuid &id);
+    virtual  ~CfgIntEntry();
+
     void Init(const CfgIntData &data);
     bool IsLess(const DBEntry &rhs) const;
     KeyPtr GetDBRequestKey() const;

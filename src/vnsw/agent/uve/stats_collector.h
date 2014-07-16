@@ -32,13 +32,20 @@ public:
     };
 
     virtual ~StatsCollector() { 
-        timer_->Cancel();
-        TimerManager::DeleteTimer(timer_);
+        Shutdown();
         timer_restart_trigger_->Reset();
         delete timer_restart_trigger_;
     }
 
     virtual bool Run() = 0;
+    void Shutdown() {
+        if (timer_) {
+            timer_->Cancel();
+            TimerManager::DeleteTimer(timer_);
+            timer_ = NULL;
+        }
+    }
+
     int expiry_time() const { return expiry_time_; }
     void set_expiry_time(int time) {
         if (time != expiry_time_) {
@@ -48,6 +55,7 @@ public:
     }
 
     int run_counter_; //used only in UT code
+
 private:
     bool RestartTimer() {
         timer_->Cancel();

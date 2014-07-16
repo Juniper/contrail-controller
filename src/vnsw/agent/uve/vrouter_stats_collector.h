@@ -18,6 +18,7 @@ public:
     virtual ~VrouterStatsCollector();
 
     bool Run();
+    void Shutdown();
 private:
     AgentUve *agent_uve_;
     DISALLOW_COPY_AND_ASSIGN(VrouterStatsCollector);
