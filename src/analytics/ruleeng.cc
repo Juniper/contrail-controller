@@ -21,9 +21,12 @@
 #include "collector_uve_types.h"
 #include "viz_constants.h"
 #include "ruleeng.h"
+#include "stat_walker.h"
 
 using std::string;
 using std::vector;
+using std::pair;
+using std::make_pair;
 
 int Ruleeng::RuleBuilderID = 0;
 int Ruleeng::RuleWorkerID = 0;
@@ -155,6 +158,66 @@ static DbHandler::Var ParseNode(const pugi::xml_node& node) {
     return sample;
 }
 
+static bool ParseTags(const string& tstr, const string& node,
+        vector<string> * singletag,
+        vector<pair<string,string> > * doubletag) {
+    size_t pos;
+    size_t npos = 0;
+    do {
+        if (npos)
+            pos = npos+1;
+        else
+            pos = 0;
+        
+        npos = tstr.find(',' , pos);
+        string term;
+        if (npos == string::npos)
+            term = tstr.substr(pos, string::npos);
+        else 
+            term = tstr.substr(pos, npos - pos);
+
+        // Separating this term into a prefix and suffix
+        // Read the suffix here as well
+        size_t spos = term.find(':');
+        string pterm, sterm, sname, pname;
+
+        if (spos == string::npos) {
+            pterm = term;
+            if (pterm.empty()) return false;
+            if (pterm[0] != '.') {
+                pname = pterm;
+            } else {
+                pname = node + pterm;
+            }
+            (*singletag).push_back(pname);
+        } else {
+            pterm = term.substr(0,spos);
+            sterm = term.substr(spos+1,string::npos);
+               
+            if (pterm.empty()) return false;
+            if (pterm[0] != '.') {
+                pname = pterm;
+            } else {
+                pname = node + pterm;
+            }
+
+            if (sterm.empty()) return false;
+            if (sterm[0] != '.') {
+                sname = sterm;
+            } else {
+                sname = node + sterm;
+            }
+
+            (*doubletag).push_back(make_pair(pname,sname));
+
+        }
+
+    } while (npos != string::npos);
+
+    return true;
+
+}
+
 bool Ruleeng::handle_uve_publish(const pugi::xml_node& parent,
     const VizMsg *rmsg, DbHandler *db, const SandeshHeader& header) {
     if (header.get_Type() != SandeshType::UVE) {
@@ -248,126 +311,126 @@ bool Ruleeng::handle_uve_publish(const pugi::xml_node& parent,
                 subs = node.child("list");
                 ltype = subs.attribute("type").value();
             }
-
-            if (ltype == "struct") {
+            
+            string tstr(node.attribute("tags").value());
+            vector<string> singletag;
+            vector<pair<string,string> > doubletag;
+            bool pt = ParseTags(tstr, node.name(), &singletag, &doubletag);
+  
+            if ((ltype == "struct") && pt) {
                                     
-                string tstr(node.attribute("tags").value());
+                pugi::xml_node anode_p =
+                    object.child(g_viz_constants.STAT_OBJECTID_FIELD.c_str());
 
+                StatWalker::TagMap m1;
+                StatWalker::TagVal h1,h2;
+                h1.val = ParseNode(anode_p);
+                m1.insert(make_pair(g_viz_constants.STAT_OBJECTID_FIELD, h1));
+                h2.val = source;
+                m1.insert(make_pair(g_viz_constants.STAT_SOURCE_FIELD, h2));
+
+                for (size_t idx=0; idx < singletag.size(); idx++) {
+                    // We only recognize top-level single-tags 
+                    if (singletag[idx].find(".") == string::npos) {
+                        pugi::xml_node anode_p =
+                            object.child(singletag[idx].c_str());
+                        StatWalker::TagVal th;
+                        th.val = ParseNode(anode_p);
+                        m1.insert(make_pair(singletag[idx], th));
+                    }
+                } 
+                
+                StatWalker sw(boost::bind(&DbHandler::StatTableInsert, db,
+                    ts, object.name(), _1, _2, _3) ,m1);
+ 
                 for (pugi::xml_node elem = subs.first_child(); elem;
                         elem = elem.next_sibling()) {
-                    if (tstr.empty()) continue;
-         
-                    DbHandler::TagMap tmap;
+
                     DbHandler::AttribMap attribs;
-                    size_t pos;
-                    size_t npos = 0;
-                    do {
-                        if (npos)
-                            pos = npos+1;
-                        else
-                            pos = 0;
-                        
-                        npos = tstr.find(',' , pos);
-                        string term;
-                        if (npos == string::npos)
-                            term = tstr.substr(pos, string::npos);
-                        else 
-                            term = tstr.substr(pos, npos - pos);
-
-                        // Separating this term into a prefix and suffix
-                        // Read the suffix here as well
-                        size_t spos = term.find(':');
-                        string pterm, sterm, sname, pname;
-                        DbHandler::Var sv;
-                        if (spos == string::npos) {
-                            pterm = term;
-                        } else {
-                            pterm = term.substr(0,spos);
-                            sterm = term.substr(spos+1,string::npos);
-                           
-                            if (!sterm.empty()) {
-                                pugi::xml_node anode_s;
-                                if (sterm[0] != '.') {
-                                    anode_s = object.child(sterm.c_str());
-                                    sname = sterm;
-                                    sv = ParseNode(anode_s);
-                                    attribs.insert(make_pair(sterm, sv));
-                                } else {
-                                    string cattr = sterm.substr(1,string::npos);
-                                    anode_s = elem.child(cattr.c_str());
-                                    sname = string(node.name()) + sterm;
-                                    sv = ParseNode(anode_s);
-                                }
-                            }
-                        }
-
-                        if (pterm[0] != '.') {
-                            pname = pterm;
-                        } else {
-                            pname = string(node.name()) + pterm;
-                        }
-
-                        // Look for an existing prefix entry
-                        // Add the suffix to it if suffix was present
-                        // If prefix doesn't exist, create it.
-                        DbHandler::TagMap::iterator tr = tmap.find(pname);
-                        if (tr == tmap.end()) {
-                            
-                            pugi::xml_node anode_p;
-                            DbHandler::Var pv;
-                            if (pterm[0] != '.') {
-                                // This is either a mandatory tag (name,Source)
-                                // or a sibling tag.
-                                anode_p = object.child(pterm.c_str());
-                                pv = ParseNode(anode_p);
-                                attribs.insert(make_pair(pterm, pv));
-                            } else {
-                                string cattr = pterm.substr(1,string::npos);
-                                anode_p = elem.child(cattr.c_str());
-                                pv = ParseNode(anode_p);
-                            }
-
-                            DbHandler::AttribMap amap;
-                            if (!sterm.empty()) {
-                                amap.insert(make_pair(sname, sv));
-                            }
-                            tmap.insert(make_pair(pname,
-                                                  make_pair(pv, amap))); 
-                        } else {
-                            DbHandler::AttribMap& amap = tr->second.second;
-                            if (!sterm.empty()) {
-                                amap.insert(make_pair(sname, sv));
-                            }                    
-                        }
-
-                    } while (npos != string::npos);
-
-                    if (tmap.find(g_viz_constants.STAT_OBJECTID_FIELD) == tmap.end()) {
-                        DbHandler::AttribMap amap;
-                        pugi::xml_node anode_p = object.child(g_viz_constants.STAT_OBJECTID_FIELD.c_str());
-                        DbHandler::Var pv = ParseNode(anode_p);
-
-                        tmap.insert(make_pair(g_viz_constants.STAT_OBJECTID_FIELD, make_pair(pv, amap)));
-                        attribs.insert(make_pair(g_viz_constants.STAT_OBJECTID_FIELD, pv));
-                    }
-
-                    // Add source as a mandatory index field
-                    tmap.insert(make_pair(g_viz_constants.STAT_SOURCE_FIELD,
-                                          make_pair(source, DbHandler::AttribMap())));
-                    attribs.insert(make_pair(g_viz_constants.STAT_SOURCE_FIELD, source));
-
 
                     // Load all tags and non-tags
                     for (pugi::xml_node sattr = elem.first_child(); sattr;
                             sattr = sattr.next_sibling()) {
-                        string sattrname(".");
-                        sattrname.append(sattr.name());
                         DbHandler::Var sample = ParseNode(sattr);
-
-                        string tname = string(node.name()) + sattrname;
-                        attribs.insert(make_pair(tname, sample));
+                        attribs.insert(make_pair(sattr.name(), sample));
                     }
-                    db->StatTableInsert(ts, object.name(), node.name(), tmap, attribs);
+
+                    StatWalker::TagMap tm;
+
+                    for (size_t idx=0; idx < singletag.size(); idx++) {
+                        size_t pos = singletag[idx].find(".");
+
+                        // Only look for tags at the current level
+                        if (pos != string::npos) {
+                            string term = singletag[idx].substr(pos+1, string::npos);
+                            // Match against attribs of this level
+                            if (attribs.find(term) != attribs.end()) {
+                                StatWalker::TagVal tv;
+                                pugi::xml_node anode_s = elem.child(term.c_str());
+                                tv.val = ParseNode(anode_s);
+                                tm.insert(make_pair(term, tv));
+                            } else {
+                                LOG(ERROR, __func__ << " Message: "  << type << " Source: " << source <<
+                                  ":" << node_type << ":" << module << ":" << instance_id << 
+                                  " Name: " << object.name() <<  " Node: " << node.name()  <<
+                                  " Count not find attrib for tag " << term);
+                            }
+                        }
+                    }
+
+                    for (size_t idx=0; idx < doubletag.size(); idx++) {
+                        size_t ppos = doubletag[idx].first.find(".");
+                        pugi::xml_node anode_p;
+                        if (ppos != string::npos) {
+                            string pterm = doubletag[idx].first.substr(ppos+1, string::npos);
+                            if (attribs.find(pterm) != attribs.end()) {
+                                anode_p = elem.child(pterm.c_str());
+                            } else {
+                                LOG(ERROR, __func__ << " Message: "  << type << " Source: " << source <<
+                                  ":" << node_type << ":" << module << ":" << instance_id << 
+                                  " Name: " << object.name() <<  " Node: " << node.name()  <<
+                                  " Could not find attrib for ptag " << pterm);
+                                continue;
+                            }
+                        } else {
+                            string pterm = doubletag[idx].first;
+                            anode_p = object.child(pterm.c_str());
+                        }
+                        DbHandler::Var pv = ParseNode(anode_p);
+                        StatWalker::TagVal tv;
+                        tv.prefix = make_pair(doubletag[idx].first, pv);
+
+                        size_t spos = doubletag[idx].second.find(".");
+                        pugi::xml_node anode_s;
+                        if (spos != string::npos) {
+                            string sterm = doubletag[idx].second.substr(spos+1, string::npos);
+                            if (tm.find(sterm) != tm.end()) {
+                                LOG(ERROR, __func__ << " Message: "  << type << " Source: " << source <<
+                                  ":" << node_type << ":" << module << ":" << instance_id << 
+                                  " Name: " << object.name() <<  " Node: " << node.name()  <<
+                                  " Duplicate suffix for " << sterm);
+                                continue;
+                            }
+                            if (attribs.find(sterm) != attribs.end()) {
+                                anode_s = elem.child(sterm.c_str());
+                                tv.val= ParseNode(anode_s);
+                                tm.insert(make_pair(sterm, tv));
+                            } else {
+                                LOG(ERROR, __func__ << " Message: "  << type << " Source: " << source <<
+                                  ":" << node_type << ":" << module << ":" << instance_id << 
+                                  " Name: " << object.name() <<  " Node: " << node.name()  <<
+                                  " Could not find attrib for stag " << sterm);
+                            }
+                        } else {
+                            LOG(ERROR, __func__ << " Message: "  << type << " Source: " << source <<
+                              ":" << node_type << ":" << module << ":" << instance_id << 
+                              " Name: " << object.name() <<  " Node: " << node.name()  <<
+                              " Cannot record top-level stag " << doubletag[idx].second);
+                        }
+                    }
+
+                    sw.Push(node.name(), tm, attribs);
+                    sw.Pop();
 
                     // We don't want to show query info in the Analytics Node UVE
                     if (!strcmp(object.name(),"QueryPerfInfo")) continue;
@@ -398,15 +461,17 @@ bool Ruleeng::handle_uve_publish(const pugi::xml_node& parent,
                         ostr << qclause;
                     }
                 }
+
                 // We don't want to show query info in the Analytics Node UVE
                 if (!strcmp(object.name(),"QueryPerfInfo")) continue;
+
             } else {
                 LOG(ERROR, __func__ << " Message: "  << type << " Source: " << source <<
                   ":" << node_type << ":" << module << ":" << instance_id << 
                   " Name: " << object.name() <<  " Node: " << node.name()  <<
-                  " Bad Stat type " << ltype); 
+                  " Bad Stat type " << ltype << " or tags " << tstr); 
                 continue;
-            }  
+            }
         }
         
         if (!osp_->UVEUpdate(object.name(), node.name(),

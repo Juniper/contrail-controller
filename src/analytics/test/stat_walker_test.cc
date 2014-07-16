@@ -108,6 +108,84 @@ TEST_F(StatWalkerTest, Simple) {
     sw.Pop(); 
 }
 
+TEST_F(StatWalkerTest, SingleTag) {
+
+    vector<ArgSet> av1;
+    ArgSet a1;
+    a1.statAttr = string("virt");
+    a1.attribs = map_list_of(
+        "name", DbHandler::Var("a6s40:MyProc"))(
+        "Source", DbHandler::Var("a6s40"))(
+        "virt.mem", DbHandler::Var((uint64_t)1000000))(
+        "virt.bank", DbHandler::Var("bank1"));
+
+    DbHandler::AttribMap sm;
+    a1.attribs_tag.insert(make_pair("name", make_pair(DbHandler::Var("a6s40:MyProc"), sm)));
+    a1.attribs_tag.insert(make_pair("Source", make_pair(DbHandler::Var("a6s40"), sm)));
+    a1.attribs_tag.insert(make_pair("virt.bank", make_pair(DbHandler::Var("bank1"), sm)));
+    av1.push_back(a1);
+         
+    StatCbTester ct(av1);
+    
+    StatWalker::TagMap m1;
+    StatWalker::TagVal h1,h2;
+    h1.val = string("a6s40:MyProc");
+    m1.insert(make_pair(string("name"), h1));
+    h2.val = string("a6s40");
+    m1.insert(make_pair(string("Source"), h2));
+
+    StatWalker::TagMap m2;
+    StatWalker sw(boost::bind(&StatCbTester::Cb, &ct, _1, _2, _3) ,m1); 
+    DbHandler::AttribMap attribs = map_list_of(
+        "mem", DbHandler::Var((uint64_t)1000000))(
+        "bank", string("bank1"));
+    StatWalker::TagVal tv1;
+    tv1.val = string("bank1");
+    m2.insert(make_pair("bank", tv1));
+    sw.Push("virt", m2, attribs);
+    sw.Pop(); 
+}
+
+TEST_F(StatWalkerTest, DoubleTag) {
+
+    vector<ArgSet> av1;
+    ArgSet a1;
+    a1.statAttr = string("virt");
+    a1.attribs = map_list_of(
+        "name", DbHandler::Var("a6s40:MyProc"))(
+        "Source", DbHandler::Var("a6s40"))(
+        "table", DbHandler::Var("table1"))(
+        "virt.mem", DbHandler::Var((uint64_t)1000000))(
+        "virt.bank", DbHandler::Var("bank1"));
+
+    DbHandler::AttribMap sm;
+    a1.attribs_tag.insert(make_pair("name", make_pair(DbHandler::Var("a6s40:MyProc"), sm)));
+    a1.attribs_tag.insert(make_pair("Source", make_pair(DbHandler::Var("a6s40"), sm)));
+    sm.insert(make_pair("virt.bank", DbHandler::Var("bank1")));
+    a1.attribs_tag.insert(make_pair("table", make_pair(DbHandler::Var("table1"), sm)));
+    av1.push_back(a1);
+         
+    StatCbTester ct(av1);
+    
+    StatWalker::TagMap m1;
+    StatWalker::TagVal h1,h2;
+    h1.val = string("a6s40:MyProc");
+    m1.insert(make_pair(string("name"), h1));
+    h2.val = string("a6s40");
+    m1.insert(make_pair(string("Source"), h2));
+
+    StatWalker::TagMap m2;
+    StatWalker sw(boost::bind(&StatCbTester::Cb, &ct, _1, _2, _3) ,m1); 
+    DbHandler::AttribMap attribs = map_list_of(
+        "mem", DbHandler::Var((uint64_t)1000000))(
+        "bank", string("bank1"));
+    StatWalker::TagVal tv1;
+    tv1.val = string("bank1");
+    tv1.prefix = make_pair("table", DbHandler::Var("table1"));
+    m2.insert(make_pair("bank", tv1));
+    sw.Push("virt", m2, attribs);
+    sw.Pop(); 
+}
 int main(int argc, char **argv) {
     LoggingInit();
     ::testing::InitGoogleTest(&argc, argv);

@@ -81,7 +81,7 @@ struct QueryPerfInfo {
     2: optional bool               deleted	
     3: optional string             table
     9: optional u32                enq_delay (aggtype="stats",hbin="1000")
-    10: optional list<QueryStats>  query_stats (tags="name:.qid,table:.rows,.time:.rows,.rows:.time")
+    10: optional list<QueryStats>  query_stats (tags="name:.qid,.rows,.time")
 }
 
 uve sandesh QueryPerfInfoTrace {

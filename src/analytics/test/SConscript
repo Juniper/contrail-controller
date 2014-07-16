@@ -43,7 +43,7 @@ env.Alias('src/analytics:vizd_flow_test', vizd_flow_test)
 
 stat_walker_test = env.UnitTest('stat_walker_test',
                               ['stat_walker_test.cc',
-                               '../stat_walker.cc'])
+                               '../stat_walker.o'])
 env.Alias('src/analytics:stat_walker_test', stat_walker_test)
 
 viz_message_test = env.UnitTest('viz_message_test',
@@ -63,6 +63,7 @@ syslog_test = env.UnitTest('syslog_test',
                                   '../vizd_table_desc.o',
                                   '../viz_message.o',
                                   '../ruleeng.o',
+                                  '../stat_walker.o',
                                   '../db_handler.o',
                                   '../parser_util.o',
                                   '../viz_constants.o',
