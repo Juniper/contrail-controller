@@ -6,7 +6,7 @@
 #define vnsw_agent_ksync_vxlan_bridge_h
 
 /**************************************************************************
- * KSync object to manage VxLan bridge. 
+ * KSync object to manage VxLan bridge.
  * Agent oper DBTable VxLan drives VxLan Bridges
  **************************************************************************/
 class KSyncVxlanBridgeEntry : public KSyncDBEntry {

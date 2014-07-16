@@ -7,7 +7,7 @@
 #include <ksync/ksync_entry.h>
 #include <ksync/ksync_object.h>
 
-#include <vnc_cfg_types.h> 
+#include <vnc_cfg_types.h>
 #include <bgp_schema_types.h>
 #include <agent_types.h>
 
@@ -171,7 +171,7 @@ void LinuxVxlanAgentInit::Start() {
     params_->Validate();
 
     int task_id = TaskScheduler::GetInstance()->GetTaskId("db::DBTable");
-    trigger_.reset(new TaskTrigger(boost::bind(&LinuxVxlanAgentInit::Run, this), 
+    trigger_.reset(new TaskTrigger(boost::bind(&LinuxVxlanAgentInit::Run, this),
                                    task_id, 0));
     trigger_->Set();
     return;

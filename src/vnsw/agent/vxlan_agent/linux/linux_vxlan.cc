@@ -7,7 +7,7 @@
 #include <ksync/ksync_entry.h>
 #include <ksync/ksync_object.h>
 
-#include <vnc_cfg_types.h> 
+#include <vnc_cfg_types.h>
 #include <bgp_schema_types.h>
 #include <agent_types.h>
 
@@ -39,7 +39,7 @@ KSyncLinuxVxlan::KSyncLinuxVxlan(Agent *agent) : KSyncVxlan(agent) {
     set_vrf_obj(new KSyncLinuxVrfObject(this));
 }
 
-void KSyncLinuxVxlan::Init() { 
+void KSyncLinuxVxlan::Init() {
 }
 
 static void Execute(const string &str) {
@@ -63,7 +63,7 @@ KSyncLinuxBridgeEntry::KSyncLinuxBridgeEntry(KSyncLinuxBridgeObject *obj,
 
 KSyncLinuxBridgeEntry::KSyncLinuxBridgeEntry(KSyncLinuxBridgeObject *obj,
                                          const KSyncLinuxBridgeEntry *entry) :
-    KSyncVxlanBridgeEntry(obj, entry) { 
+    KSyncVxlanBridgeEntry(obj, entry) {
     std::stringstream s;
     s << "br-" << vxlan_id();
     name_ = s.str();
@@ -119,7 +119,7 @@ bool KSyncLinuxBridgeEntry::Delete() {
 
 /****************************************************************************
  ****************************************************************************/
-KSyncLinuxBridgeObject::KSyncLinuxBridgeObject(KSyncLinuxVxlan *ksync) : 
+KSyncLinuxBridgeObject::KSyncLinuxBridgeObject(KSyncLinuxVxlan *ksync) :
     KSyncVxlanBridgeObject(ksync) {
 }
 
@@ -147,7 +147,7 @@ KSyncLinuxPortEntry::KSyncLinuxPortEntry(KSyncVxlanPortObject *obj,
     KSyncVxlanPortEntry(obj, entry), old_bridge_(NULL) {
 }
 
-bool KSyncLinuxPortEntry::Add() { 
+bool KSyncLinuxPortEntry::Add() {
     const KSyncLinuxBridgeEntry *br =
         dynamic_cast<const KSyncLinuxBridgeEntry *>(bridge());
 
@@ -170,7 +170,7 @@ bool KSyncLinuxPortEntry::Add() {
     return true;
 }
 
-bool KSyncLinuxPortEntry::Change() { 
+bool KSyncLinuxPortEntry::Change() {
     return Add();
 }
 
@@ -186,13 +186,13 @@ bool KSyncLinuxPortEntry::Delete() {
 
 /****************************************************************************
  ****************************************************************************/
-KSyncLinuxPortObject::KSyncLinuxPortObject(KSyncLinuxVxlan *ksync) : 
+KSyncLinuxPortObject::KSyncLinuxPortObject(KSyncLinuxVxlan *ksync) :
     KSyncVxlanPortObject(ksync) {
 }
 
 KSyncEntry *KSyncLinuxPortObject::Alloc(const KSyncEntry *entry,
                                         uint32_t index) {
-    const KSyncLinuxPortEntry *interface = 
+    const KSyncLinuxPortEntry *interface =
         static_cast<const KSyncLinuxPortEntry *>(entry);
     return new KSyncLinuxPortEntry(this, interface);
 }
@@ -309,7 +309,7 @@ KSyncEntry *KSyncLinuxFdbObject::DBToKSyncEntry(const DBEntry *e) {
 
 /****************************************************************************
  ****************************************************************************/
-KSyncLinuxVrfObject::KSyncLinuxVrfObject(KSyncLinuxVxlan *ksync) : 
+KSyncLinuxVrfObject::KSyncLinuxVrfObject(KSyncLinuxVxlan *ksync) :
     KSyncVxlanVrfObject(ksync) {
 }
 

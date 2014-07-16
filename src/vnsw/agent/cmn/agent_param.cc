@@ -769,7 +769,7 @@ AgentParam::AgentParam(Agent *agent) :
         flow_cache_timeout_(), config_file_(), program_name_(),
         log_file_(), log_local_(false), log_level_(), log_category_(),
         collector_server_list_(), http_server_port_(), host_name_(),
-        agent_stats_interval_(AgentStatsInterval), 
+        agent_stats_interval_(AgentStatsInterval),
         flow_stats_interval_(FlowStatsInterval),
         vmware_physical_port_(""), test_mode_(false), debug_(false), tree_(),
         headless_mode_(false) {

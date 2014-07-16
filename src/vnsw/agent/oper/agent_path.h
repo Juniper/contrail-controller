@@ -88,21 +88,21 @@ struct PathPreferenceData : public AgentRouteData {
 // A common class for all different type of paths
 class AgentPath : public Path {
 public:
-    AgentPath(const Peer *peer, AgentRoute *rt) : 
+    AgentPath(const Peer *peer, AgentRoute *rt) :
         Path(), peer_(peer), nh_(NULL), label_(MplsTable::kInvalidLabel),
         vxlan_id_(VxLanTable::kInvalidvxlan_id), dest_vn_name_(""),
         sync_(false), proxy_arp_(false), force_policy_(false), sg_list_(),
         server_ip_(0), tunnel_bmap_(TunnelType::AllType()),
         tunnel_type_(TunnelType::ComputeType(TunnelType::AllType())),
-        vrf_name_(""), gw_ip_(0), unresolved_(true), is_stale_(false), 
+        vrf_name_(""), gw_ip_(0), unresolved_(true), is_stale_(false),
         is_subnet_discard_(false), dependant_rt_(rt), path_preference_() {
     }
-    virtual ~AgentPath() { 
+    virtual ~AgentPath() {
         clear_sg_list();
     }
 
     const Peer *peer() const {return peer_;}
-    const NextHop *nexthop(Agent *agent) const; 
+    const NextHop *nexthop(Agent *agent) const;
     uint32_t label() const {return label_;}
     uint32_t vxlan_id() const {return vxlan_id_;}
     TunnelType::Type tunnel_type() const {return tunnel_type_;}
@@ -217,9 +217,9 @@ private:
 
 class LocalVmRoute : public AgentRouteData {
 public:
-    LocalVmRoute(const VmInterfaceKey &intf, uint32_t mpls_label, 
+    LocalVmRoute(const VmInterfaceKey &intf, uint32_t mpls_label,
                  uint32_t vxlan_id, bool force_policy, const string &vn_name,
-                 uint8_t flags, const SecurityGroupList &sg_list, 
+                 uint8_t flags, const SecurityGroupList &sg_list,
                  const PathPreference &path_preference) :
         AgentRouteData(false), intf_(intf), mpls_label_(mpls_label),
         vxlan_id_(vxlan_id), force_policy_(force_policy),
@@ -256,8 +256,8 @@ private:
 class InetInterfaceRoute : public AgentRouteData {
 public:
     InetInterfaceRoute(const InetInterfaceKey &intf, uint32_t label,
-                       int tunnel_bmap, const std::string &dest_vn_name) : 
-        AgentRouteData(false), intf_(intf), label_(label), 
+                       int tunnel_bmap, const std::string &dest_vn_name) :
+        AgentRouteData(false), intf_(intf), label_(label),
         tunnel_bmap_(tunnel_bmap), dest_vn_name_(dest_vn_name) {
     }
     virtual ~InetInterfaceRoute() { }
@@ -274,7 +274,7 @@ private:
 
 class HostRoute : public AgentRouteData {
 public:
-    HostRoute(const PacketInterfaceKey &intf, const std::string &dest_vn_name) : 
+    HostRoute(const PacketInterfaceKey &intf, const std::string &dest_vn_name) :
         AgentRouteData(false), intf_(intf), dest_vn_name_(dest_vn_name),
         proxy_arp_(false) {
     }
@@ -315,9 +315,9 @@ private:
 
 class MulticastRoute : public AgentRouteData {
 public:
-    MulticastRoute(const Ip4Address &src_addr, 
+    MulticastRoute(const Ip4Address &src_addr,
                    const Ip4Address &grp_addr,
-                   const std::string &vn_name, 
+                   const std::string &vn_name,
                    const std::string &vrf_name,
                    int vxlan_id,
                    COMPOSITETYPE type) :
@@ -342,7 +342,7 @@ private:
 class ReceiveRoute : public AgentRouteData {
 public:
     ReceiveRoute(const InetInterfaceKey &intf, uint32_t label,
-                 uint32_t tunnel_bmap, bool policy, const std::string &vn) : 
+                 uint32_t tunnel_bmap, bool policy, const std::string &vn) :
         AgentRouteData(false), intf_(intf), label_(label),
         tunnel_bmap_(tunnel_bmap), policy_(policy), proxy_arp_(false),
         vn_(vn), sg_list_() {
@@ -365,7 +365,7 @@ private:
 
 class Inet4UnicastArpRoute : public AgentRouteData {
 public:
-    Inet4UnicastArpRoute(const std::string &vrf_name, 
+    Inet4UnicastArpRoute(const std::string &vrf_name,
                          const Ip4Address &addr) :
         AgentRouteData(false), vrf_name_(vrf_name), addr_(addr) {
     }
@@ -381,7 +381,7 @@ private:
 
 class Inet4UnicastGatewayRoute : public AgentRouteData {
 public:
-    Inet4UnicastGatewayRoute(const Ip4Address &gw_ip, 
+    Inet4UnicastGatewayRoute(const Ip4Address &gw_ip,
                              const std::string &vrf_name) :
         AgentRouteData(false), gw_ip_(gw_ip), vrf_name_(vrf_name) {
     }

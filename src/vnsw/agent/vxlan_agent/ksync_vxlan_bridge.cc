@@ -7,7 +7,7 @@
 #include <ksync/ksync_entry.h>
 #include <ksync/ksync_object.h>
 
-#include <vnc_cfg_types.h> 
+#include <vnc_cfg_types.h>
 #include <bgp_schema_types.h>
 #include <agent_types.h>
 
@@ -41,7 +41,7 @@ KSyncVxlanBridgeEntry::KSyncVxlanBridgeEntry(KSyncVxlanBridgeObject *obj,
 KSyncVxlanBridgeEntry::~KSyncVxlanBridgeEntry() {
 }
 
-KSyncDBObject *KSyncVxlanBridgeEntry::GetObject() { 
+KSyncDBObject *KSyncVxlanBridgeEntry::GetObject() {
     return ksync_obj_;
 }
 

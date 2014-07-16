@@ -24,7 +24,7 @@ env.AppendUnique(CCFLAGS='-Wno-return-type')
 
 linux_vxlan_agent = env.Program(target = 'linux_vxlan_agent',
                                 source = [
-                                          'buildinfo.cc', 
+                                          'buildinfo.cc',
                                           'linux_vxlan.cc',
                                           'linux_vxlan_agent_init.cc',
                                           'main.cc',

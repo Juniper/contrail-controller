@@ -641,7 +641,7 @@ void VrfNH::SendObjectLog(AgentLogEvent::type event) const {
 /////////////////////////////////////////////////////////////////////////////
 TunnelNH::TunnelNH(VrfEntry *vrf, const Ip4Address &sip, const Ip4Address &dip,
                    bool policy, TunnelType type) :
-    NextHop(NextHop::TUNNEL, false, policy), vrf_(vrf), sip_(sip), 
+    NextHop(NextHop::TUNNEL, false, policy), vrf_(vrf), sip_(sip),
     dip_(dip), tunnel_type_(type), arp_rt_(this) {
 }
 

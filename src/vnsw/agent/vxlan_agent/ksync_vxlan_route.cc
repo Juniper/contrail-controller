@@ -8,7 +8,7 @@
 #include <ksync/ksync_entry.h>
 #include <ksync/ksync_object.h>
 
-#include <vnc_cfg_types.h> 
+#include <vnc_cfg_types.h>
 #include <bgp_schema_types.h>
 #include <agent_types.h>
 
@@ -45,15 +45,15 @@ KSyncVxlanRouteEntry::KSyncVxlanRouteEntry(KSyncVxlanRouteObject *obj,
 KSyncVxlanRouteEntry::~KSyncVxlanRouteEntry() {
 }
 
-KSyncDBObject *KSyncVxlanRouteEntry::GetObject() { 
+KSyncDBObject *KSyncVxlanRouteEntry::GetObject() {
     return ksync_obj_;
 }
 
 bool KSyncVxlanRouteEntry::IsLess(const KSyncEntry &rhs) const {
-    const KSyncVxlanRouteEntry &rhs_route = 
+    const KSyncVxlanRouteEntry &rhs_route =
         static_cast<const KSyncVxlanRouteEntry &>(rhs);
     Agent::RouteTableType lhs_type = ksync_obj_->route_table()->GetTableType();
-    Agent::RouteTableType rhs_type = 
+    Agent::RouteTableType rhs_type =
         rhs_route.ksync_obj_->route_table()->GetTableType();
 
     if (lhs_type != rhs_type)
@@ -69,7 +69,7 @@ bool KSyncVxlanRouteEntry::IsLess(const KSyncEntry &rhs) const {
  **************************************************************************/
 KSyncVxlanFdbEntry::KSyncVxlanFdbEntry(KSyncVxlanRouteObject *obj,
                                        const KSyncVxlanFdbEntry *entry) :
-    KSyncVxlanRouteEntry(obj, entry), bridge_(entry->bridge_), 
+    KSyncVxlanRouteEntry(obj, entry), bridge_(entry->bridge_),
     mac_(entry->mac_), port_(entry->port_), tunnel_dest_(entry->tunnel_dest_) {
 }
 
@@ -102,7 +102,7 @@ bool KSyncVxlanFdbEntry::Sync(DBEntry *e) {
     uint32_t old_vxlan_id = VxLanTable::kInvalidvxlan_id;
 
     Layer2RouteEntry *fdb = static_cast<Layer2RouteEntry *>(e);
-    KSyncVxlanRouteObject *obj = 
+    KSyncVxlanRouteObject *obj =
         static_cast<KSyncVxlanRouteObject *>(GetObject());
     Agent *agent = obj->ksync()->agent();
 
@@ -144,7 +144,7 @@ bool KSyncVxlanFdbEntry::Sync(DBEntry *e) {
             const InterfaceNH *intf_nh = static_cast<const InterfaceNH *>(nh);
             KSyncVxlanPortObject *port_obj =
                 ksync_object()->ksync()->port_obj();
-            KSyncEntry *port_key = 
+            KSyncEntry *port_key =
                 port_obj->DBToKSyncEntry(intf_nh->GetInterface());
             port = static_cast<KSyncVxlanPortEntry *>
                 (port_obj->GetReference(port_key));
@@ -248,7 +248,7 @@ KSyncVxlanRouteObject *KSyncVxlanVrfObject::GetRouteKSyncObject(uint32_t vrf_id)
     it = vrf_fdb_object_map_.find(vrf_id);
     if (it != vrf_fdb_object_map_.end()) {
         return it->second;
-    }          
+    }
 }
 
 void KSyncVxlanVrfObject::AddToVrfMap(uint32_t vrf_id,
@@ -258,7 +258,7 @@ void KSyncVxlanVrfObject::AddToVrfMap(uint32_t vrf_id,
 
 void KSyncVxlanVrfObject::DelFromVrfMap(KSyncVxlanRouteObject *rt) {
     VrfRouteObjectMap::iterator it;
-    for (it = vrf_fdb_object_map_.begin(); it != vrf_fdb_object_map_.end(); 
+    for (it = vrf_fdb_object_map_.begin(); it != vrf_fdb_object_map_.end();
         ++it) {
         if (it->second == rt) {
             vrf_fdb_object_map_.erase(it);

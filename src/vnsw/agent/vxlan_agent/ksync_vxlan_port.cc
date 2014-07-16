@@ -7,7 +7,7 @@
 #include <ksync/ksync_entry.h>
 #include <ksync/ksync_object.h>
 
-#include <vnc_cfg_types.h> 
+#include <vnc_cfg_types.h>
 #include <bgp_schema_types.h>
 #include <agent_types.h>
 
@@ -43,7 +43,7 @@ KSyncVxlanPortEntry::KSyncVxlanPortEntry(KSyncVxlanPortObject *obj,
 KSyncVxlanPortEntry::~KSyncVxlanPortEntry() {
 }
 
-KSyncDBObject *KSyncVxlanPortEntry::GetObject() { 
+KSyncDBObject *KSyncVxlanPortEntry::GetObject() {
     return ksync_obj_;
 }
 
@@ -97,8 +97,8 @@ KSyncEntry *KSyncVxlanPortEntry::UnresolvedReference() {
 
     if (bridge_ == NULL) {
         return KSyncVxlan::defer_entry();
-    } 
-    
+    }
+
     if ((bridge_->IsResolved() == false)) {
         return bridge_;
     }

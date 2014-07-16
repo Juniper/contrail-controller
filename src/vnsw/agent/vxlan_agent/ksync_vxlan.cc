@@ -7,7 +7,7 @@
 #include <ksync/ksync_entry.h>
 #include <ksync/ksync_object.h>
 
-#include <vnc_cfg_types.h> 
+#include <vnc_cfg_types.h>
 #include <bgp_schema_types.h>
 #include <agent_types.h>
 
@@ -30,7 +30,7 @@
 
 KSyncEntry *KSyncVxlan::defer_entry_;
 
-KSyncVxlan::KSyncVxlan(Agent *agent) : 
+KSyncVxlan::KSyncVxlan(Agent *agent) :
     agent_(agent), bridge_obj_(NULL), port_obj_(NULL), vrf_obj_(NULL) {
 }
 

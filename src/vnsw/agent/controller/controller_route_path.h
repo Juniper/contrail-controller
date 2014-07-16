@@ -9,8 +9,6 @@
 #include <cmn/agent.h>
 #include <oper/route_common.h>
 
-using namespace std;
-
 //Forward declaration
 class AgentXmppChannel;
 class AgentRouteData;
