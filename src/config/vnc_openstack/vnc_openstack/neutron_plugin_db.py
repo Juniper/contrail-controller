@@ -2304,6 +2304,50 @@ class DBInterface(object):
         return len(nets_info)
     #end network_count
 
+    def _set_route_table(self, net_obj, subnet_q):
+        project_obj = self._project_read(
+            proj_id=net_obj.parent_uuid.replace('-', ''))
+
+        host_route_list = None
+        if 'host_routes' in subnet_q:
+            host_routes=[]
+            for host_route in subnet_q['host_routes']:
+                host_routes.append(RouteType(prefix=host_route['destination'],
+                                             next_hop=host_route['nexthop']))
+            if host_routes:
+                host_route_list = RouteTableType(host_routes)
+
+        # Get route table for default route it it exists
+        rt_name = 'rt_subnet_' + subnet_q['uuid']
+        rt_fq_name = project_obj.get_fq_name() + [rt_name]
+        rt_created = False
+        try:
+            rt_obj = self._vnc_lib.route_table_read(fq_name=rt_fq_name)
+            if not host_route_list:
+                for net_ref in rt_obj.get_virtual_network_back_refs() or []:
+                    try:
+                        tmp_net_obj = self._vnc_lib.virtual_network_read(
+                            id=net_ref['uuid'])
+                    except NoIdError:
+                        continue
+                    tmp_net_obj.del_route_table(rt_obj)
+                    self._vnc_lib.virtual_network_update(tmp_net_obj)
+                rt_obj = self._vnc_lib.route_table_delete(fq_name=rt_obj.uuid)
+                return
+
+        except NoIdError:
+            rt_obj = RouteTable(name=rt_name, parent_obj=project_obj)
+            rt_created = True
+
+        # Set the route table
+        rt_obj.set_routes(host_route_list)
+        if rt_created:
+            rt_uuid = self._vnc_lib.route_table_create(rt_obj)
+        else:
+            self._vnc_lib.route_table_update(rt_obj)
+
+        net_obj.set_route_table(rt_obj)
+
     # subnet api handlers
     def subnet_create(self, subnet_q):
         net_id = subnet_q['network_id']
@@ -2362,6 +2406,9 @@ class DBInterface(object):
             vnsn_data.ipam_subnets.append(subnet_vnc)
             # TODO: Add 'ref_update' API that will set this field
             net_obj._pending_field_updates.add('network_ipam_refs')
+
+        self._set_route_table(net_obj, subnet_q)
+
         self._virtual_network_update(net_obj)
 
         # allocate an id to the subnet and store mapping with
