@@ -159,7 +159,7 @@ void VmStat::ReadVcpuStat() {
 
         if (tmp == "time:") {
             double usage = 0;
-            data_ >> usage;
+            data_ >> usage; 
             vcpu_usage.push_back(usage);
         }
     }
@@ -305,7 +305,8 @@ void VmStat::ReadPid() {
     while (data_) {
         data_ >> pid;
         data_ >> tmp;
-        if (tmp.find("qemu") != std::string::npos) {
+        if (tmp.find("qemu") != std::string::npos ||
+               tmp.find("kvm") != std::string::npos) {
             //Copy PID 
             pid_ = pid;
             break;
