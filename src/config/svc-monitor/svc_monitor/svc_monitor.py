@@ -1153,7 +1153,14 @@ class SvcMonitor(object):
                 print "Warning! " + str(e)
 
         conn_pool = pycassa.ConnectionPool(SvcMonitor._KEYSPACE,
-                                           self._args.cassandra_server_list)
+                                           self._args.cassandra_server_list,
+                                           max_overflow=10,
+                                           use_threadlocal=True,
+                                           prefill=True,
+                                           pool_size=10,
+                                           pool_timeout=30,
+                                           max_retries=-1,
+                                           timeout=0.5)
 
         rd_consistency = pycassa.cassandra.ttypes.ConsistencyLevel.QUORUM
         wr_consistency = pycassa.cassandra.ttypes.ConsistencyLevel.QUORUM
