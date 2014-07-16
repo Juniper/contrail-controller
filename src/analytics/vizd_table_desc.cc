@@ -217,6 +217,10 @@ void init_vizd_tables() {
                        GenDb::DbDataType::AsciiType)
                       (g_viz_constants.FlowRecordNames[FlowRecordFields::FLOWREC_ACTION],
                        GenDb::DbDataType::AsciiType)
+                      (g_viz_constants.FlowRecordNames[FlowRecordFields::FLOWREC_SG_RULE_UUID],
+                       GenDb::DbDataType::LexicalUUIDType)
+                      (g_viz_constants.FlowRecordNames[FlowRecordFields::FLOWREC_NW_ACE_UUID],
+                       GenDb::DbDataType::LexicalUUIDType)
                      ))
 
         /* (SVN, SIP) index  table */
@@ -537,4 +541,8 @@ void init_vizd_tables() {
          FlowTypeInfo(FlowRecordFields::FLOWREC_DATA_SAMPLE, GenDb::DbDataType::AsciiType);
     flow_msg2type_map[g_viz_constants.FlowRecordNames[FlowRecordFields::FLOWREC_ACTION]] =
          FlowTypeInfo(FlowRecordFields::FLOWREC_ACTION, GenDb::DbDataType::AsciiType);
+    flow_msg2type_map[g_viz_constants.FlowRecordNames[FlowRecordFields::FLOWREC_SG_RULE_UUID]] =
+         FlowTypeInfo(FlowRecordFields::FLOWREC_SG_RULE_UUID, GenDb::DbDataType::LexicalUUIDType);
+    flow_msg2type_map[g_viz_constants.FlowRecordNames[FlowRecordFields::FLOWREC_NW_ACE_UUID]] =
+         FlowTypeInfo(FlowRecordFields::FLOWREC_NW_ACE_UUID, GenDb::DbDataType::LexicalUUIDType);
 }

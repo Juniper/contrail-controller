@@ -826,7 +826,9 @@ static const std::vector<FlowRecordFields::type> FlowRecordTableColumns =
     (FlowRecordFields::FLOWREC_BYTES)
     (FlowRecordFields::FLOWREC_PACKETS)
     (FlowRecordFields::FLOWREC_DATA_SAMPLE)
-    (FlowRecordFields::FLOWREC_ACTION);
+    (FlowRecordFields::FLOWREC_ACTION)
+    (FlowRecordFields::FLOWREC_SG_RULE_UUID)
+    (FlowRecordFields::FLOWREC_NW_ACE_UUID);
 
 static void PopulateFlowRecordTableColumns(
     const std::vector<FlowRecordFields::type> &frvt,
