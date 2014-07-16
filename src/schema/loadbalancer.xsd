@@ -62,7 +62,6 @@
 
 <xsd:complexType name='LoadbalancerPoolType'>
     <xsd:sequence>
-        <xsd:element name='description' type='xsd:string'/>
         <xsd:element name='status' type='xsd:string'/>
         <xsd:element name='status-description' type='xsd:string'/>
         <xsd:element name='admin-state' type='xsd:boolean' default='true'/>
@@ -95,6 +94,11 @@
 
 
 <xsd:element name="loadbalancer-healthmonitor" type="ifmap:IdentityType"/>
+<xsd:element name="project-loadbalancer-healthmonitor"/>
+<!--#IFMAP-SEMANTICS-IDL
+     Link('project-loadbalancer-healthmonitor',
+          'project', 'loadbalancer-healthmonitor', ['has']) -->
+
 <xsd:element name="loadbalancer-pool-loadbalancer-healthmonitor"/>
 <!--#IFMAP-SEMANTICS-IDL
      Link('loadbalancer-pool-loadbalancer-healthmonitor',
@@ -118,6 +122,11 @@
 </xsd:complexType>
 
 <xsd:element name="virtual-ip" type="ifmap:IdentityType"/>
+<xsd:element name="project-virtual-ip"/>
+<!--#IFMAP-SEMANTICS-IDL
+     Link('project-virtual-ip',
+          'project', 'virtual-ip', ['has']) -->
+
 <xsd:element name="virtual-ip-loadbalancer-pool"/>
 <!--#IFMAP-SEMANTICS-IDL
      Link('virtual-ip-loadbalancer-pool',
@@ -134,7 +143,7 @@
 
 <xsd:complexType name='VirtualIpType'>
     <xsd:sequence>
-        <xsd:element name='description' type='xsd:string'/>
+        <xsd:element name='address' type='IpAddressType'/>
         <xsd:element name='status' type='xsd:string'/>
         <xsd:element name='status-description' type='xsd:string'/>
         <xsd:element name='admin-state' type='xsd:boolean' default='true'/>
