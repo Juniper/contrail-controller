@@ -610,10 +610,10 @@ TEST_F(FlowTest, VmToServer_ecmp_to_nat) {
 
     FlowEntry *entry = FlowGet(vnet[1]->vrf()->vrf_id(), vnet_addr[1], "169.254.169.254",
                                IPPROTO_TCP, 10000, 80);
-    FlowEntry *rev_old = NULL;
+    //FlowEntry *rev_old = NULL;
     EXPECT_TRUE(entry);
     if (entry) {
-        rev_old = entry->reverse_flow_entry();
+        //rev_old = entry->reverse_flow_entry();
         EXPECT_TRUE(entry->data().component_nh_idx !=
                 CompositeNH::kInvalidComponentNHIdx);
     }
