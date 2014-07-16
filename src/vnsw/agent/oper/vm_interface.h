@@ -407,6 +407,8 @@ public:
     const AclDBEntry* vrf_assign_acl() const { return vrf_assign_acl_.get();}
     bool WaitForTraffic() const;
     const Peer *peer() const { return peer_.get();}
+    bool GetDhcpOptions(std::vector<autogen::DhcpOptionType> *options) const;
+
 private:
     bool IsActive() const;
     bool IsL3Active() const;

@@ -49,7 +49,7 @@ public:
     bool TimerExpiry(uint16_t xid);
     void DefaultDnsResolveHandler(const boost::system::error_code &error,
                                   boost_udp::resolver::iterator it,
-                                  uint32_t index);
+                                  DnsItems::iterator item);
 
 private:
     friend class DnsTest;
@@ -58,6 +58,9 @@ private:
     bool HandleDefaultDnsRequest(const VmInterface *vmitf);
     void DefaultDnsSendResponse();
     bool HandleVirtualDnsRequest(const VmInterface *vmitf);
+    bool ResolveLinkLocalRequest(DnsItems::iterator &item,
+                                 DnsItems *linklocal_items) const;
+    bool ResolveAllLinkLocalRequests();
     bool HandleMessage();
     bool HandleDefaultDnsResponse();
     bool HandleBindResponse();
@@ -68,9 +71,8 @@ private:
     bool UpdateAll();
     void SendXmppUpdate(AgentDnsXmppChannel *channel, DnsUpdateData *xmpp_data);
     void ParseQuery();
-    void Resolve(dns_flags flags, std::vector<DnsItem> &ques, 
-                 std::vector<DnsItem> &ans, std::vector<DnsItem> &auth, 
-                 std::vector<DnsItem> &add);
+    void Resolve(dns_flags flags, const DnsItems &ques, DnsItems &ans,
+                 DnsItems &auth, DnsItems &add);
     bool SendDnsQuery();
     void SendDnsResponse();
     void UpdateQueryNames();
@@ -79,7 +81,9 @@ private:
     void Update(InterTaskMsg *msg);
     void DelUpdate(InterTaskMsg *msg);
     void UpdateStats();
-    std::string DnsItemsToString(std::vector<DnsItem> &items);
+    void GetDomainName(const VmInterface *vm_itf, std::string *domain_name) const;
+    void GetBaseName(const std::string &name, std::string *base) const;
+    std::string DnsItemsToString(DnsItems &items) const;
 
     dnshdr  *dns_;
     uint8_t *resp_ptr_;
@@ -90,9 +94,11 @@ private:
     QueryKey *rkey_;
     Timer *timer_;
     std::string ipam_name_;
+    std::string domain_name_;
     autogen::IpamType ipam_type_;
     autogen::VirtualDnsType vdns_type_;
-    std::vector<DnsItem> items_;
+    DnsItems items_;
+    DnsItems linklocal_items_;
     DnsNameEncoder name_encoder_;
     bool query_name_update_;
     uint16_t query_name_update_len_;   // num bytes added in the query section
