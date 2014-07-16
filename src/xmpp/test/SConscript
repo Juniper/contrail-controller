@@ -70,24 +70,26 @@ xmpp_stream_message_server_test = env.UnitTest('xmpp_stream_message_server_test'
 env.Alias('controller/xmpp:xmpp_stream_message_server_test', xmpp_stream_message_server_test)
 
 
-xmpp_test_suite = [
-     xmpp_server_test,
-     xmpp_pubsub_test,
-     xmpp_regex_test,
-     xmpp_server_sm_test,
-     xmpp_client_sm_test,
+test_suite = [
+    xmpp_server_test,
+    xmpp_pubsub_test,
+    xmpp_regex_test,
+    xmpp_server_sm_test,
+    xmpp_client_sm_test,
 ]
 
-flaky_xmpp_test_suite = [
-     xmpp_session_test,
-     xmpp_stream_message_client_test,
-     xmpp_stream_message_server_test,
+flaky_test_suite = [
+    xmpp_session_test,
+    xmpp_stream_message_client_test,
+    xmpp_stream_message_server_test,
 ]
 
-test = env.TestSuite('xmpp-test', xmpp_test_suite)
+test = env.TestSuite('xmpp-test', test_suite)
 env.Alias('controller/src/xmpp:test', test)
 
-flaky_test = env.TestSuite('flaky-xmpp-test', flaky_xmpp_test_suite)
+flaky_test = env.TestSuite('xmpp-flaky-test', flaky_test_suite)
 env.Alias('controller/src/xmpp:flaky-test', flaky_test)
  
-Return('xmpp_test_suite')
+env.Alias('controller/src/xmpp:all-test', [test, flaky_test])
+
+Return('test_suite')
