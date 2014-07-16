@@ -2870,7 +2870,6 @@ class DBInterface(object):
             port = self.port_create({'tenant_id': subnet['tenant_id'],
                  'network_id': subnet['network_id'],
                  'fixed_ips': [fixed_ip],
-                 'mac_address': attr.ATTR_NOT_SPECIFIED,
                  'admin_state_up': True,
                  'device_id': router_id,
                  'device_owner': constants.DEVICE_OWNER_ROUTER_INTF,
