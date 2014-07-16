@@ -1544,9 +1544,9 @@ class DBInterface(object):
             net_q_dict['shared'] = False
         net_q_dict['status'] = constants.NET_STATUS_ACTIVE
         if net_obj.router_external:
-            extra_dict['router:external'] = True
+            net_q_dict['router:external'] = True
         else:
-            extra_dict['router:external'] = False
+            net_q_dict['router:external'] = False
 
         if net_repr == 'SHOW' or net_repr == 'LIST':
             extra_dict['contrail:instance_count'] = 0
