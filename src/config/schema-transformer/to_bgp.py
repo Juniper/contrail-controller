@@ -2420,7 +2420,7 @@ class LogicalRouterST(DictST):
             rtgt_num = int(rt_key.split(':')[-1])
             if rtgt_num < common.BGP_RTGT_MIN_ID:
                 _vnc_lib.route_target_delete(fq_name=[rt_key])
-            rt_ref = None
+                rt_ref = None
         if not rt_ref:
             rtgt_num = VirtualNetworkST._rt_allocator.alloc(name)
             rt_key = "target:%s:%d" % (
@@ -2447,8 +2447,8 @@ class LogicalRouterST(DictST):
     def add_interface(self, intf_name):
         self.interfaces.add(intf_name)
         vmi_obj = VirtualMachineInterfaceST.get(intf_name)
-        if vmi_obj is not None:
-            vn_set = self.virtual_networks | set(vmi_obj.virtual_network)
+        if vmi_obj is not None and vmi_obj.virtual_network is not None:
+            vn_set = self.virtual_networks | set([vmi_obj.virtual_network])
             self.set_virtual_networks(vn_set)
     # end add_interface
 
