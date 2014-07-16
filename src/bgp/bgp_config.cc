@@ -48,17 +48,6 @@ static string IdentifierParent(const string &identifier) {
     return parent;
 }
 
-BgpConfigDelta::BgpConfigDelta() {
-}
-
-BgpConfigDelta::BgpConfigDelta(const BgpConfigDelta &rhs)
-    : id_type(rhs.id_type), id_name(rhs.id_name),
-      node(rhs.node), obj(rhs.obj) {
-}
-
-BgpConfigDelta::~BgpConfigDelta() {
-}
-
 template<>
 void BgpConfigManager::Notify<BgpInstanceConfig>(
         const BgpInstanceConfig *config, EventType event) {
@@ -818,7 +807,7 @@ void BgpConfigManager::Initialize(DB *db, DBGraph *db_graph,
     db_ = db;
     db_graph_ = db_graph;
     localname_ = localname;
-    listener_->Initialize(db);
+    listener_->Initialize();
     DefaultConfig();
 }
 
@@ -1195,6 +1184,6 @@ bool BgpConfigManager::ConfigHandler() {
 // Terminate the BgpConfigManager.
 //
 void BgpConfigManager::Terminate() {
-    listener_->Terminate(db_);
+    listener_->Terminate();
     config_.reset();
 }
