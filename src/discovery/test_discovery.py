@@ -131,9 +131,10 @@ def main(args_str=None):
     elif x.args.oper == 'pubtest':
         tasks = []
         for i in range(x.args.iterations):
+            pub_id = "disco-%d-%i" % (os.getpid(), i)
             disc = client.DiscoveryClient(
                 x.args.server_ip, x.args.server_port, 
-                    "disco-%d" % i, pub_id = "disco-%d" % i)
+                    pub_id, pub_id)
             data = '%s-%d' % (x.args.service_type, i)
             print 'Publish: service-type %s, data %s'\
                 % (x.args.service_type, data)
@@ -146,7 +147,8 @@ def main(args_str=None):
         tasks = []
         for i in range(x.args.iterations):
             disc = client.DiscoveryClient(
-                x.args.server_ip, x.args.server_port, "test-discovery-%d" % i)
+                x.args.server_ip, x.args.server_port, 
+                "test-discovery-%d-%d" % (os.getpid(), i))
             obj = disc.subscribe(
                       x.args.service_type, x.args.service_count, info_callback)
             tasks.append(obj.task)
