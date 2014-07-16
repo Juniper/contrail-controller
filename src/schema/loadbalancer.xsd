@@ -71,6 +71,10 @@
     </xsd:sequence>
 </xsd:complexType>
 
+<xsd:element name="loadbalancer-pool-provider" type="xsd:string"/>
+<!--#IFMAP-SEMANTICS-IDL
+     Property('loadbalancer-pool-provider', 'loadbalancer-pool') -->
+
 <xsd:element name="loadbalancer-member" type="ifmap:IdentityType"/>
 <xsd:element name="loadbalancer-pool-loadbalancer-member"/>
 <!--#IFMAP-SEMANTICS-IDL
