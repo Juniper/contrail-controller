@@ -52,8 +52,10 @@ except:
     from ordereddict import OrderedDict
 import jsonpickle
 from pysandesh.connection_info import ConnectionState
-from pysandesh.gen_py.connection_info.ttypes import ConnectionStatus, \
-    ConnectionType
+from pysandesh.gen_py.connection_info.ttypes import ConnectionType,\
+    ConnectionStatus, ConnectivityStatus
+from pysandesh.gen_py.connection_info.constants import \
+    ConnectionStatusNames
 from cfgm_common.uve.cfgm_cpuinfo.ttypes import ConfigProcessStatusUVE, \
     ConfigProcessStatus
 

@@ -60,6 +60,9 @@ import cfgm_common.imid
 from cfgm_common.exceptions import *
 from gen.vnc_ifmap_client_gen import *
 from gen.vnc_cassandra_client_gen import *
+from pysandesh.connection_info import ConnectionState
+from pysandesh.gen_py.connection_info.ttypes import ConnectionStatus, \
+    ConnectionType
 
 import logging
 logger = logging.getLogger(__name__)
@@ -88,6 +91,10 @@ class VncIfmapClient(VncIfmapClientGen):
 
         self._db_client_mgr = db_client_mgr
 
+        ConnectionState.update(conn_type = ConnectionType.IFMAP,
+            name = 'IfMap', status = ConnectionStatus.INIT, message = '',
+            server_addrs = ["%s:%s" % (ifmap_srv_ip, ifmap_srv_port)])
+
         # launch mapserver
         if ifmap_srv_loc:
             self._launch_mapserver(ifmap_srv_ip, ifmap_srv_port, ifmap_srv_loc)
@@ -104,6 +111,10 @@ class VncIfmapClient(VncIfmapClientGen):
                 connected = True
             except socket.error as e:
                 time.sleep(3)
+
+        ConnectionState.update(conn_type = ConnectionType.IFMAP,
+            name = 'IfMap', status = ConnectionStatus.UP, message = '',
+            server_addrs = ["%s:%s" % (ifmap_srv_ip, ifmap_srv_port)])
 
         mapclient.set_session_id(newSessionResult(result).get_session_id())
         mapclient.set_publisher_id(newSessionResult(result).get_publisher_id())
@@ -404,6 +415,10 @@ class VncCassandraClient(VncCassandraClientGen):
         # 1. Ensure keyspace and schema/CFs exist
         # 2. Read in persisted data and publish to ifmap server
 
+        ConnectionState.update(conn_type = ConnectionType.DATABASE,
+            name = 'Cassandra', status = ConnectionStatus.INIT, message = '',
+            server_addrs = server_list)
+
         uuid_ks_name = VncCassandraClient._UUID_KEYSPACE_NAME
         obj_uuid_cf_info = (VncCassandraClient._OBJ_UUID_CF_NAME, None)
         obj_fq_name_cf_info = (VncCassandraClient._OBJ_FQ_NAME_CF_NAME, None)
@@ -450,6 +465,10 @@ class VncCassandraClient(VncCassandraClientGen):
             uuid_pool, VncCassandraClient._SUBNET_CF_NAME,
             read_consistency_level = rd_consistency,
             write_consistency_level = wr_consistency)
+
+        ConnectionState.update(conn_type = ConnectionType.DATABASE,
+            name = 'Cassandra', status = ConnectionStatus.UP, message = '',
+            server_addrs = server_list)
 
     # end _cassandra_init
 
@@ -827,6 +846,10 @@ class VncCassandraClient(VncCassandraClientGen):
 class VncKombuClient(object):
     def _init_server_conn(self, rabbit_ip, rabbit_port, rabbit_user, rabbit_password, rabbit_vhost,
                           delete_old_q=False):
+        ConnectionState.update(conn_type = ConnectionType.DATABASE,
+            name = 'RabbitMQ', status = ConnectionStatus.INIT, message = '',
+            server_addrs = ["%s:%s" % (rabbit_ip, rabbit_port)])
+
         while True:
             try:
                 self._conn = kombu.Connection(hostname=rabbit_ip,
@@ -834,6 +857,11 @@ class VncKombuClient(object):
                                               userid=rabbit_user,
                                               password=rabbit_password,
                                               virtual_host=rabbit_vhost)
+
+                ConnectionState.update(conn_type = ConnectionType.DATABASE,
+                    name = 'RabbitMQ', status = ConnectionStatus.UP,
+                    message = '',
+                    server_addrs = ["%s:%s" % (rabbit_ip, rabbit_port)])
 
                 if delete_old_q:
                     bound_q = self._update_queue_obj(self._conn.channel())
