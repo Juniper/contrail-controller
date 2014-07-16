@@ -506,6 +506,14 @@ class FakeKombu(object):
             FakeKombu._queues[q_name] = self
         # end __init__
 
+        def __call__(self, *args):
+            class BoundQueue(object):
+                def delete(self):
+                    pass
+                # end delete
+            return BoundQueue()
+        # end __call__
+
         def put(self, msg_dict, serializer):
             msg_obj = self.Message(msg_dict)
             self._msg_obj_list.append(msg_obj)
@@ -545,6 +553,10 @@ class FakeKombu(object):
         def __init__(self, *args, **kwargs):
             pass
         # end __init__
+
+        def channel(self):
+            pass
+        # end channel
 # end class FakeKombu
 
 class FakeRedis(object):
