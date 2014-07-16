@@ -11,6 +11,7 @@ monkey.patch_all()
 from gevent import hub
 
 import sys
+import re
 import logging
 import signal
 import os
@@ -21,6 +22,8 @@ import copy
 import argparse
 import ConfigParser
 from pprint import pformat
+import cgitb
+from cStringIO import StringIO
 #import GreenletProfiler
 
 import logging
@@ -140,6 +143,52 @@ def error_503(err):
 # end error_503
 
 
+# Masking of password from openstack/common/log.py
+_SANITIZE_KEYS = ['adminPass', 'admin_pass', 'password', 'admin_password']
+
+# NOTE(ldbragst): Let's build a list of regex objects using the list of
+# _SANITIZE_KEYS we already have. This way, we only have to add the new key
+# to the list of _SANITIZE_KEYS and we can generate regular expressions
+# for XML and JSON automatically.
+_SANITIZE_PATTERNS = []
+_FORMAT_PATTERNS = [r'(%(key)s\s*[=]\s*[\"\']).*?([\"\'])',
+                    r'(<%(key)s>).*?(</%(key)s>)',
+                    r'([\"\']%(key)s[\"\']\s*:\s*[\"\']).*?([\"\'])',
+                    r'([\'"].*?%(key)s[\'"]\s*:\s*u?[\'"]).*?([\'"])']
+
+for key in _SANITIZE_KEYS:
+    for pattern in _FORMAT_PATTERNS:
+        reg_ex = re.compile(pattern % {'key': key}, re.DOTALL)
+        _SANITIZE_PATTERNS.append(reg_ex)
+
+def mask_password(message, secret="***"):
+    """Replace password with 'secret' in message.
+    :param message: The string which includes security information.
+    :param secret: value with which to replace passwords.
+    :returns: The unicode value of message with the password fields masked.
+
+    For example:
+
+    >>> mask_password("'adminPass' : 'aaaaa'")
+    "'adminPass' : '***'"
+    >>> mask_password("'admin_pass' : 'aaaaa'")
+    "'admin_pass' : '***'"
+    >>> mask_password('"password" : "aaaaa"')
+    '"password" : "***"'
+    >>> mask_password("'original_password' : 'aaaaa'")
+    "'original_password' : '***'"
+    >>> mask_password("u'original_password' :   u'aaaaa'")
+    "u'original_password' :   u'***'"
+    """
+    if not any(key in message for key in _SANITIZE_KEYS):
+        return message
+
+    secret = r'\g<1>' + secret + r'\g<2>'
+    for pattern in _SANITIZE_PATTERNS:
+        message = re.sub(pattern, secret, message)
+    return message
+
+
 class VncApiServer(VncApiServerGen):
 
     """
@@ -150,7 +199,7 @@ class VncApiServer(VncApiServerGen):
         bottle.route('/', 'GET', obj.homepage_http_get)
         for act_res in _ACTION_RESOURCES:
             method = getattr(obj, act_res['method_name'])
-            bottle.route(act_res['uri'], 'POST', method)
+            obj.route(act_res['uri'], 'POST', method)
         return obj
     # end __new__
 
@@ -341,6 +390,24 @@ class VncApiServer(VncApiServerGen):
     # end __init__
 
     # Public Methods
+    def route(self, uri, method, handler):
+        def handler_trap_exception(*args, **kwargs):
+            try:
+                return handler(*args, **kwargs)
+            except Exception as e:
+                string_buf = StringIO()
+                cgitb.Hook(
+                    file=string_buf,
+                    format="text",
+                    ).handle(sys.exc_info())
+                err_msg = mask_password(string_buf.getvalue())
+                logger.error("Exception in REST api handler:\n%s" %(err_msg))
+                self.config_log_error(err_msg)
+                bottle.abort(500, err_msg)
+
+        bottle.route(uri, method, handler_trap_exception)
+    # end route
+
     def get_args(self):
         return self._args
     # end get_args
