@@ -1435,7 +1435,7 @@ void BgpPeer::FillBgpNeighborDebugState(BgpNeighborResp &resp,
 
 void BgpPeer::FillNeighborInfo(std::vector<BgpNeighborResp> &nbr_list) const {
     BgpNeighborResp nbr;
-    nbr.set_peer(ToString());
+    nbr.set_peer(peer_name_.substr(rtinstance_->name().size() + 1));
     nbr.set_peer_address(peer_key_.endpoint.address().to_string());
     nbr.set_deleted(IsDeleted());
     nbr.set_peer_asn(peer_as());
