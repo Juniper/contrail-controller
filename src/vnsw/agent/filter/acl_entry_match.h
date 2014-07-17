@@ -9,11 +9,10 @@
 #include <boost/intrusive/list.hpp>
 #include <boost/intrusive/slist.hpp>
 #include <boost/uuid/uuid.hpp>
-#include "base/util.h"
-#include "net/address.h"
-#include "vnsw/agent/filter/traffic_action.h"
-#include "oper/agent_types.h"
-#include "vnsw/agent/cmn/agent_cmn.h"
+
+#include <cmn/agent_cmn.h>
+#include <cmn/agent.h>
+#include <agent_types.h>
 
 class PacketHeader;
 class AclEntryMatch {

@@ -5,16 +5,12 @@
 #ifndef vnsw_agent_db_hpp
 #define vnsw_agent_db_hpp
 
-#include "agent_cmn.h"
-#include "db/db_table_partition.h"
-#include "db/db_table_walker.h"
-#include "ifmap/ifmap_table.h"
+#include <cmn/agent_cmn.h>
 
-class AgentDBTable;
-class AgentDBEntry;
-class IFMapNode;
-class Sandesh;
 class Agent;
+class AgentDBEntry;
+class AgentDBTable;
+class AgentDBState;
 
 /////////////////////////////////////////////////////////////////////////////
 // Refcount class for AgentDBEntry

@@ -13,6 +13,8 @@
 #include"diag/diag_pkt_handler.h"
 struct AgentDiagPktData;
 class DiagProto;
+class DiagTable;
+class DiagPktHandler;
 
 class DiagEntry {
 public:

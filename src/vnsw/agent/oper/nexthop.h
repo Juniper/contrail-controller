@@ -7,15 +7,15 @@
 
 #include <netinet/in.h>
 #include <net/ethernet.h>
-#include <sandesh/sandesh_types.h>
-#include <sandesh/sandesh.h>
-#include <base/dependency.h>
+
 #include <cmn/agent_cmn.h>
-#include <oper/vrf.h>
+#include <agent_types.h>
+
 #include <oper/interface_common.h>
-#include <oper/agent_types.h>
+#include <oper/vrf.h>
 
 using namespace boost::uuids;
+using namespace std;
 
 template <typename Member>
 class MemberList {

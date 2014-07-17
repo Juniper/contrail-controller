@@ -11,6 +11,7 @@
 
 #include <cmn/agent_cmn.h>
 #include <cfg/cfg_init.h>
+#include <cfg/cfg_listener.h>
 #include <oper/sg.h>
 #include <filter/acl.h>
 

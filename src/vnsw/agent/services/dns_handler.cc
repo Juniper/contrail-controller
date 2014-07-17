@@ -9,6 +9,7 @@
 #include "cmn/agent_cmn.h"
 #include "controller/controller_dns.h"
 #include "base/timer.h"
+#include "oper/vn.h"
 
 DnsHandler::DnsHandler(Agent *agent, boost::shared_ptr<PktInfo> info,
                        boost::asio::io_service &io)

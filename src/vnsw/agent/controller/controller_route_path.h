@@ -5,6 +5,10 @@
 #ifndef controller_route_path_hpp
 #define controller_route_path_hpp
 
+#include <cmn/agent_cmn.h>
+#include <cmn/agent.h>
+#include <oper/route_common.h>
+
 //Forward declaration
 class AgentXmppChannel;
 class AgentRouteData;

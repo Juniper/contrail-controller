@@ -3,11 +3,20 @@
  */
 
 #include <vector>
-#include <vnsw/agent/filter/traffic_action.h>
-#include <vnsw/agent/cmn/agent_cmn.h>
+
+#include <cmn/agent_cmn.h>
+#include <vnc_cfg_types.h>
+#include <agent_types.h>
+
+#include <filter/traffic_action.h>
+#include <filter/acl_entry_match.h>
+#include <filter/acl_entry.h>
+#include <filter/acl_entry_spec.h>
+#include <filter/packet_header.h>
+
 #include <oper/vn.h>
 #include <oper/nexthop.h>
-#include <vnsw/agent/oper/mirror_table.h>
+#include <oper/mirror_table.h>
 
 bool TrafficAction::IsDrop() const {
     if (((1 << action_) & TrafficAction::DROP_FLAGS) ||

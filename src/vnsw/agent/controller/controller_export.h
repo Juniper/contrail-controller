@@ -6,11 +6,10 @@
 #define __CONTROLLER_EXPORT_H__
 
 #include <boost/uuid/uuid_io.hpp>
-
 #include <cmn/agent_cmn.h>
-#include <oper/route_common.h>
+#include <cmn/agent.h>
 #include <oper/nexthop.h>
-#include <controller/controller_vrf_export.h>
+#include <oper/agent_path.h>
 
 class AgentPath;
 

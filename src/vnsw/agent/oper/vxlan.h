@@ -7,6 +7,8 @@
 #define vnsw_agent_vxlan_hpp
 
 #include <cmn/agent_cmn.h>
+#include <cmn/agent.h>
+#include <agent_types.h>
 
 using namespace std;
 

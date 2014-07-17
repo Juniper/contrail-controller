@@ -1,21 +1,26 @@
 /*
  * Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
  */
-
 #include <boost/uuid/uuid_io.hpp>
 #include <boost/lexical_cast.hpp>
 
 #include <cmn/agent_cmn.h>
 #include <route/route.h>
 
-#include <cmn/agent_cmn.h>
-#include <oper/route_common.h>
+#include <vnc_cfg_types.h>
+#include <agent_types.h>
+
+#include <oper/peer.h>
 #include <oper/vrf.h>
+#include <oper/interface_common.h>
+#include <oper/nexthop.h>
 #include <oper/tunnel_nh.h>
-#include <oper/mpls.h>
+#include <oper/vn.h>
 #include <oper/mirror_table.h>
-#include <controller/controller_export.h>
-#include <oper/agent_sandesh.h>
+#include <oper/vxlan.h>
+#include <oper/mpls.h>
+#include <oper/route_common.h>
+#include <oper/multicast.h>
 
 using namespace std;
 using namespace boost::asio;
@@ -444,6 +449,14 @@ AgentRoute *AgentRouteTable::FindActiveEntry(const AgentRouteKey *key) {
         return NULL;
     }
     return entry;
+}
+
+const std::string &AgentRouteTable::vrf_name() const {
+    return vrf_entry_->GetName();
+}
+
+VrfEntry *AgentRouteTable::vrf_entry() const {
+    return vrf_entry_.get();
 }
 
 uint32_t AgentRoute::GetMplsLabel() const { 

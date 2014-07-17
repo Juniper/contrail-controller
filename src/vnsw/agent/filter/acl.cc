@@ -10,9 +10,17 @@
 #include <ifmap/ifmap_link.h>
 #include <ifmap/ifmap_table.h>
 #include <base/logging.h>
+
+#include <cmn/agent_cmn.h>
 #include <vnc_cfg_types.h>
+#include <agent_types.h>
 
 #include <cfg/cfg_init.h>
+
+#include <filter/traffic_action.h>
+#include <filter/acl_entry_match.h>
+#include <filter/acl_entry_spec.h>
+#include <filter/acl_entry.h>
 
 #include <filter/acl.h>
 #include <cmn/agent_cmn.h>

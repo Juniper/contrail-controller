@@ -9,9 +9,11 @@
 #include <string>
 #include <base/util.h>
 #include <net/address.h>
-#include <sandesh/sandesh_types.h>
-#include <sandesh/sandesh.h>
-#include <oper/agent_types.h>
+
+#include <cmn/agent_cmn.h>
+#include <cmn/agent.h>
+
+#include <agent_types.h>
 
 class TrafficAction {
 public:
