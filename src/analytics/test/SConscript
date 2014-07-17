@@ -119,11 +119,24 @@ env.Alias('src/analytics:options_test', options_test)
 #       )
 #env.Alias('src/analytics:vizd_test', vizd_test)
 
+protobufEnv = env.Clone()
+protobufEnv.Append(LIBS=['protobuf'])
+protobufEnv.Append(LIBPATH=['/usr/lib/'])
+protobuf_test_gen_files = protobufEnv.ProtocGenCpp('self_describing_message_test.proto')
+protobuf_test_gen_files += protobufEnv.ProtocGenCpp('test_message.proto')
+protobuf_test_gen_srcs = protobufEnv.ExtractCpp(protobuf_test_gen_files)
+protobuf_test_desc_files = protobufEnv.ProtocGenDesc('test_message.proto')
+protobuf_test = protobufEnv.UnitTest('protobuf_test', protobuf_test_gen_srcs +
+      ['protobuf_test.cc'])
+env.Requires(protobuf_test, '#build/debug/analytics/test/test_message.desc')
+protobufEnv.Alias('src/analytics:protobuf_test', protobuf_test)
+
 test_suite = [ 
                options_test,
                viz_message_test,
                db_handler_test,
                stat_walker_test,
+               protobuf_test,
              ]
 test = env.TestSuite('analytics-test', test_suite)
 
