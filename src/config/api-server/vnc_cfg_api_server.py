@@ -403,7 +403,7 @@ class VncApiServer(VncApiServerGen):
                 err_msg = mask_password(string_buf.getvalue())
                 logger.error("Exception in REST api handler:\n%s" %(err_msg))
                 self.config_log_error(err_msg)
-                bottle.abort(500, err_msg)
+                raise e
 
         bottle.route(uri, method, handler_trap_exception)
     # end route
