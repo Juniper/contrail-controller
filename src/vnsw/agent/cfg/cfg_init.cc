@@ -41,6 +41,7 @@
 #include <oper/route_common.h>
 #include <oper/operdb_init.h>
 #include <oper/global_vrouter.h>
+#include <oper/service_instance.h>
 
 #include <vgw/cfg_vgw.h>
 #include <vgw/vgw.h>
@@ -121,6 +122,9 @@ void AgentConfig::RegisterDBClients(DB *db) {
                             VirtualMachineInterface::ID_PERMS);
     cfg_listener_->Register("access-control-list", agent_->acl_table(),
                             AccessControlList::ID_PERMS);
+    cfg_listener_->Register("service-instance",
+                            agent_->service_instance_table(),
+                            ::autogen::ServiceInstance::ID_PERMS);
     cfg_listener_->Register("routing-instance", agent_->vrf_table(), -1);
     cfg_listener_->Register("virtual-network-network-ipam", 
                             boost::bind(&VnTable::IpamVnSync, _1), -1);

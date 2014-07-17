@@ -17,6 +17,7 @@
 #include <oper/mirror_table.h>
 #include <oper/vrf_assign.h>
 #include <oper/vxlan.h>
+#include <oper/service_instance.h>
 #include <filter/acl.h>
 #include <oper/sg.h>
 
@@ -153,6 +154,14 @@ DBTable *AgentVxLanSandesh::AgentGetTable() {
 
 void AgentVxLanSandesh::Alloc() {
     resp_ = new VxLanResp();
+}
+
+DBTable *AgentServiceInstanceSandesh::AgentGetTable() {
+    return static_cast<DBTable *>(Agent::GetInstance()->service_instance_table());
+}
+
+void AgentServiceInstanceSandesh::Alloc() {
+    resp_ = new ServiceInstanceResp();
 }
 
 void AgentSandesh::DoSandesh() {

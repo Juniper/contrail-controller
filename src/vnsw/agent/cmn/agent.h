@@ -102,6 +102,8 @@ class DiagTable;
 class VNController;
 class ConnectionState;
 class AgentSignal;
+class ServiceInstanceTable;
+class Agent;
 
 extern void RouterIdDepInit(Agent *agent);
 
@@ -354,6 +356,15 @@ public:
     void set_controller_xmpp_channel(AgentXmppChannel *channel, uint8_t idx) {
         agent_xmpp_channel_[idx] = channel;
     };
+
+    // Service instance
+   ServiceInstanceTable *service_instance_table() const {
+       return service_instance_table_;
+   }
+
+   void set_service_instance_table(ServiceInstanceTable *table) {
+       service_instance_table_= table;
+   }
 
     // DNS XMPP Server
     const int8_t &dns_xmpp_server_index() const {return xs_dns_idx_;}
@@ -655,6 +666,7 @@ private:
     MirrorTable *mirror_table_;
     VrfAssignTable *vrf_assign_table_;
     VxLanTable *vxlan_table_;
+    ServiceInstanceTable *service_instance_table_;
 
     // Mirror config table
     MirrorCfgTable *mirror_cfg_table_;

@@ -205,4 +205,14 @@ private:
     void Alloc();
 };
 
+class AgentServiceInstanceSandesh : public AgentSandesh {
+public:
+    AgentServiceInstanceSandesh(std::string context, std::string uuid)
+        : AgentSandesh(context, uuid) {}
+
+private:
+    DBTable *AgentGetTable();
+    void Alloc();
+};
+
 #endif // vnsw_agent_sandesh_h_
