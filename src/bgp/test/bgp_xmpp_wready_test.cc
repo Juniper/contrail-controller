@@ -56,27 +56,26 @@ using namespace autogen;
 
 class XmppChannelMuxMock : public XmppChannelMux {
 public:
-    XmppChannelMuxMock(XmppConnection *conn) : XmppChannelMux(conn) {
+    XmppChannelMuxMock(XmppConnection *conn) : XmppChannelMux(conn), count_(0) {
     }
 
-    virtual bool Send(const uint8_t *msg, size_t msgsize, 
-            xmps::PeerId id, SendReadyCb cb) {
-        static int count = 0;
+    virtual bool Send(const uint8_t *msg, size_t msgsize, xmps::PeerId id,
+        SendReadyCb cb) {
         bool ret;
 
-        count++;
+        // Simulate write blocked after the first message is sent.
         ret = XmppChannelMux::Send(msg, msgsize, id, cb);
-        if (ret && count == 1) {
-
-            //
-            // Simulate write blocked
-            //
+        assert(ret);
+        if (++count_ == 1) {
             XmppChannelMux::RegisterWriteReady(id, cb);
             return false;
         }
 
-        return ret;
+        return true;
     }
+
+private:
+    int count_;
 };
 
 class BgpXmppChannelMock : public BgpXmppChannel {
@@ -306,9 +305,12 @@ TEST_F(BgpXmppUnitTest, WriteReadyTest) {
     BGP_DEBUG_UT("Received route for red at Server \n ");
 
     // send blocked, no route should be reflected back after the first one.
-    WAIT_EQ(1, agent_a_->RouteCount());
-    TASK_UTIL_ASSERT_TRUE(agent_a_->RouteLookup("blue", "10.1.1.1/32") != NULL);
-    TASK_UTIL_ASSERT_TRUE(agent_a_->RouteLookup("red", "20.1.1.1/32") == NULL);
+    // check a few times to make sure that no more routes are reflected
+    for (int idx = 0; idx < 10; ++idx) {
+        WAIT_EQ(1, agent_a_->RouteCount());
+        usleep(10000);
+        task_util::WaitForIdle();
+    }
 
     // simulate write unblocked
     XmppConnection *sconnection = xs_a_->FindConnection(SUB_ADDR);
@@ -320,7 +322,9 @@ TEST_F(BgpXmppUnitTest, WriteReadyTest) {
     WAIT_EQ(4, agent_a_->RouteCount());
 
     // route reflected back + leaked
+    TASK_UTIL_ASSERT_TRUE(agent_a_->RouteLookup("blue", "10.1.1.1/32") != NULL);
     TASK_UTIL_ASSERT_TRUE(agent_a_->RouteLookup("blue", "20.1.1.1/32") != NULL);
+    TASK_UTIL_ASSERT_TRUE(agent_a_->RouteLookup("red", "10.1.1.1/32") != NULL);
     TASK_UTIL_ASSERT_TRUE(agent_a_->RouteLookup("red", "20.1.1.1/32") != NULL);
 
     //trigger a TCP close event on the server
