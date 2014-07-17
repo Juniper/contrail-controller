@@ -80,19 +80,8 @@ struct PathPreferenceData : public AgentRouteData {
 // A common class for all different type of paths
 class AgentPath : public Path {
 public:
-    AgentPath(const Peer *peer, AgentRoute *rt) : 
-        Path(), peer_(peer), nh_(NULL), label_(MplsTable::kInvalidLabel),
-        vxlan_id_(VxLanTable::kInvalidvxlan_id), dest_vn_name_(""),
-        sync_(false), proxy_arp_(false), force_policy_(false), sg_list_(),
-        server_ip_(0), tunnel_bmap_(TunnelType::AllType()),
-        tunnel_type_(TunnelType::ComputeType(TunnelType::AllType())),
-        vrf_name_(""), gw_ip_(0), unresolved_(true), is_stale_(false), 
-        is_subnet_discard_(false), dependant_rt_(rt), path_preference_() {
-    }
-    virtual ~AgentPath() { 
-        clear_sg_list();
-    }
-
+    AgentPath(const Peer *peer, AgentRoute *rt);
+    virtual ~AgentPath();
     const Peer *peer() const {return peer_;}
     const NextHop *nexthop(Agent *agent) const; 
     uint32_t label() const {return label_;}
@@ -130,7 +119,8 @@ public:
     void set_is_subnet_discard(bool discard) {
         is_subnet_discard_= discard;
     }
-
+    void set_local_ecmp_mpls_label(MplsLabel *mpls);
+    const MplsLabel* local_ecmp_mpls_label() const;
     void ResetDependantRoute(AgentRoute *rt) {dependant_rt_.reset(rt);}
     bool ChangeNH(Agent *agent, NextHop *nh);
     bool Sync(AgentRoute *sync_route); //vm_path sync
@@ -139,8 +129,7 @@ public:
     uint32_t GetTunnelBmap() const;
     bool UpdateNHPolicy(Agent *agent);
     bool UpdateTunnelType(Agent *agent, const AgentRoute *sync_route);
-    bool RebakeAllTunnelNHinCompositeNH(const AgentRoute *sync_route,
-                                        const NextHop *nh);
+    bool RebakeAllTunnelNHinCompositeNH(const AgentRoute *sync_route);
     virtual std::string ToString() const { return "AgentPath"; }
     void SetSandeshData(PathSandeshData &data) const;
     bool is_stale() const {return is_stale_;}
@@ -150,6 +139,13 @@ public:
     const PathPreference& path_preference() const { return path_preference_;}
     void set_path_preference(const PathPreference &rp) { path_preference_ = rp;}
     bool IsLess(const AgentPath &right) const;
+    void set_composite_nh_key(CompositeNHKey *key) {
+        composite_nh_key_.reset(key);
+    }
+    CompositeNHKey* composite_nh_key() {
+        return composite_nh_key_.get();
+    }
+    bool SetCompositeNH(Agent *agent, CompositeNHKey *nh, bool create);
 private:
     const Peer *peer_;
     // Nexthop for route. Not used for gateway routes
@@ -194,6 +190,10 @@ private:
     // route for the gateway
     DependencyRef<AgentRoute, AgentRoute> dependant_rt_;
     PathPreference path_preference_;
+    //Local MPLS label path is dependent on
+    DependencyRef<AgentRoute, MplsLabel> local_ecmp_mpls_label_;
+    //CompositeNH key for resync
+    boost::scoped_ptr<CompositeNHKey> composite_nh_key_;
     DISALLOW_COPY_AND_ASSIGN(AgentPath);
 };
 
@@ -307,27 +307,20 @@ private:
 
 class MulticastRoute : public AgentRouteData {
 public:
-    MulticastRoute(const Ip4Address &src_addr, 
-                   const Ip4Address &grp_addr,
-                   const string &vn_name, 
-                   const string &vrf_name,
-                   int vxlan_id,
-                   COMPOSITETYPE type) :
-        AgentRouteData(true), src_addr_(src_addr), grp_addr_(grp_addr),
-        vn_name_(vn_name), vrf_name_(vrf_name), vxlan_id_(vxlan_id),
-        comp_type_(type) {
+    MulticastRoute(const string &vn_name,
+                   int vxlan_id, DBRequest &nh_req):
+    AgentRouteData(true), vn_name_(vn_name),
+    vxlan_id_(vxlan_id) {
+        composite_nh_req_.Swap(&nh_req);
     }
     virtual ~MulticastRoute() { }
     virtual bool AddChangePath(Agent *agent, AgentPath *path);
     virtual string ToString() const {return "multicast";}
 
 private:
-    Ip4Address src_addr_;
-    Ip4Address grp_addr_;
     string vn_name_;
-    string vrf_name_;
     int vxlan_id_;
-    COMPOSITETYPE comp_type_;
+    DBRequest composite_nh_req_;
     DISALLOW_COPY_AND_ASSIGN(MulticastRoute);
 };
 

@@ -386,6 +386,10 @@ void AgentRouteTable::Input(DBTablePartition *part, DBClient *client,
             if (rt->EcmpAddPath(path)) {
                 notify = true;
             }
+
+            if (rt->EcmpAddPath(path)) {
+                notify = true;
+            }
         } else {
             assert(0);
         }

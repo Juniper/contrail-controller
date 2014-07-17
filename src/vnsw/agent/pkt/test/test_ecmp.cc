@@ -160,22 +160,23 @@ public:
 
     void AddRemoteEcmpRoute(const string vrf_name, const string ip,
             uint32_t plen, const string vn, int count,
-            std::vector<ComponentNHData> local_list,
+            ComponentNHKeyList local_list,
             bool same_label = false) {
         //If there is a local route, include that always
         Ip4Address vm_ip = Ip4Address::from_string(ip);
 
-        std::vector<ComponentNHData> comp_nh_list = local_list;
+        ComponentNHKeyList comp_nh_list = local_list;
 
         int remote_server_ip = 0x0A0A0A0A;
         int label = 16;
         SecurityGroupList sg_id_list;
 
         for(int i = 0; i < count; i++) {
-            ComponentNHData comp_nh(label,Agent::GetInstance()->fabric_vrf_name(),
-                    Agent::GetInstance()->router_id(), 
-                    Ip4Address(remote_server_ip++),
-                    false, TunnelType::AllType());
+            ComponentNHKeyPtr comp_nh(new ComponentNHKey(
+                        label, Agent::GetInstance()->fabric_vrf_name(),
+                        Agent::GetInstance()->router_id(),
+                        Ip4Address(remote_server_ip++),
+                        false, TunnelType::AllType()));
             comp_nh_list.push_back(comp_nh);
             if (!same_label) {
                 label++;
@@ -263,7 +264,7 @@ TEST_F(EcmpTest, EcmpTest_2) {
     const CompositeNH *comp_nh = static_cast<const CompositeNH *>
         (RouteGet("default-project:vn3:vn3", ip, 32)->GetActiveNextHop());
     const InterfaceNH *intf_nh = static_cast<const InterfaceNH *>
-        (comp_nh->GetComponentNHList()->Get(rev_entry->data().component_nh_idx)->GetNH());
+        (comp_nh->Get(rev_entry->data().component_nh_idx)->nh());
     EXPECT_TRUE(intf_nh->GetInterface()->name() == "vnet4");
 }
 
@@ -288,7 +289,7 @@ TEST_F(EcmpTest, EcmpTest_3) {
     const CompositeNH *comp_nh = static_cast<const CompositeNH *>
         (RouteGet("default-project:vn4:vn4", ip, 32)->GetActiveNextHop());
     const InterfaceNH *intf_nh = static_cast<const InterfaceNH *>
-        (comp_nh->GetComponentNHList()->Get(rev_entry->data().component_nh_idx)->GetNH());
+        (comp_nh->Get(rev_entry->data().component_nh_idx)->nh());
     EXPECT_TRUE(intf_nh->GetInterface()->name() == "vnet5");
 }
 
@@ -313,7 +314,7 @@ TEST_F(EcmpTest, EcmpTest_7) {
     const CompositeNH *comp_nh = static_cast<const CompositeNH *>
         (RouteGet("default-project:vn4:vn4", ip, 32)->GetActiveNextHop());
     const InterfaceNH *intf_nh = static_cast<const InterfaceNH *>
-        (comp_nh->GetComponentNHList()->Get(rev_entry->data().component_nh_idx)->GetNH());
+        (comp_nh->Get(rev_entry->data().component_nh_idx)->nh());
     EXPECT_TRUE(intf_nh->GetInterface()->name() == "vnet6");
 }
 
@@ -396,24 +397,27 @@ TEST_F(EcmpTest, EcmpTest_6) {
 
 TEST_F(EcmpTest, EcmpTest_8) {
     Ip4Address ip = Ip4Address::from_string("30.30.30.0");
-    std::vector<ComponentNHData> comp_nh;
+    ComponentNHKeyList comp_nh;
     Ip4Address server_ip1 = Ip4Address::from_string("15.15.15.15");
     Ip4Address server_ip2 = Ip4Address::from_string("15.15.15.16");
     Ip4Address server_ip3 = Ip4Address::from_string("15.15.15.17");
 
-    ComponentNHData comp_nh_data1(16, Agent::GetInstance()->fabric_vrf_name(), 
-                                  Agent::GetInstance()->router_id(), server_ip1, false,
-                                  TunnelType::AllType());
+    ComponentNHKeyPtr comp_nh_data1(new ComponentNHKey(
+        16, Agent::GetInstance()->fabric_vrf_name(),
+        Agent::GetInstance()->router_id(), server_ip1, false,
+        TunnelType::AllType()));
     comp_nh.push_back(comp_nh_data1);
 
-    ComponentNHData comp_nh_data2(17, Agent::GetInstance()->fabric_vrf_name(), 
-                                  Agent::GetInstance()->router_id(),
-                                  server_ip2, false, TunnelType::AllType());
+    ComponentNHKeyPtr comp_nh_data2(new ComponentNHKey(
+        17, Agent::GetInstance()->fabric_vrf_name(),
+        Agent::GetInstance()->router_id(),
+        server_ip2, false, TunnelType::AllType()));
     comp_nh.push_back(comp_nh_data2);
 
-    ComponentNHData comp_nh_data3(18, Agent::GetInstance()->fabric_vrf_name(), 
-                                  Agent::GetInstance()->router_id(),
-                                  server_ip3, false, TunnelType::AllType());
+    ComponentNHKeyPtr comp_nh_data3(new ComponentNHKey(
+        18, Agent::GetInstance()->fabric_vrf_name(),
+        Agent::GetInstance()->router_id(),
+        server_ip3, false, TunnelType::AllType()));
     comp_nh.push_back(comp_nh_data3);
 
     SecurityGroupList sg_list;
@@ -537,7 +541,7 @@ TEST_F(EcmpTest, EcmpReEval_2) {
             CompositeNH::kInvalidComponentNHIdx);
 
     //Convert dip to ECMP nh
-    std::vector<ComponentNHData> local_comp_nh;
+    ComponentNHKeyList local_comp_nh;
     AddRemoteEcmpRoute("vrf2", "3.1.1.10", 32, "vn2", 2, local_comp_nh);
     client->WaitForIdle();
 
@@ -685,7 +689,7 @@ TEST_F(EcmpTest, ServiceVlanTest_2) {
     CreateVmportWithEcmp(input1, 1);
     client->WaitForIdle();
 
-    std::vector<ComponentNHData> local_comp_nh;
+    ComponentNHKeyList local_comp_nh;
     AddRemoteEcmpRoute("vrf10", "11.1.1.0", 24, "vn11", 2, local_comp_nh);
 
     uint32_t vrf_id = Agent::GetInstance()->vrf_table()->FindVrfFromName("vrf10")->vrf_id();
@@ -746,11 +750,11 @@ TEST_F(EcmpTest, ServiceVlanTest_3) {
     //Leak aggregarete route to vrf10
     Ip4Address service_vm_ip = Ip4Address::from_string("10.1.1.2"); 
     Inet4UnicastRouteEntry *rt = RouteGet("service-vrf1", service_vm_ip, 32);
-    std::vector<ComponentNHData> comp_nh_list;
+    ComponentNHKeyList comp_nh_list;
     EXPECT_TRUE(rt != NULL);
     const VlanNH *vlan_nh = static_cast<const VlanNH *>(rt->GetActiveNextHop());
-    ComponentNHData comp_nh(rt->GetMplsLabel(), vlan_nh->GetIfUuid(), 
-                            vlan_nh->GetVlanTag(), false);
+    ComponentNHKeyPtr comp_nh(new ComponentNHKey(rt->GetMplsLabel(),
+        vlan_nh->GetVlanTag(), vlan_nh->GetIfUuid()));
     uint32_t vlan_label = rt->GetMplsLabel();
     comp_nh_list.push_back(comp_nh);
     AddRemoteEcmpRoute("vrf10", "11.1.1.0", 24, "vn11", 1, comp_nh_list);
@@ -900,10 +904,13 @@ TEST_F(EcmpTest, ServiceVlanTest_4) {
     Inet4UnicastRouteEntry *rt = RouteGet("service-vrf1", service_vm_ip, 32);
     EXPECT_TRUE(rt != NULL);
 
-    std::vector<ComponentNHData> comp_nh_list;
-    CompositeNHKey nh_key("service-vrf1", service_vm_ip, 32, true);
-    ComponentNHData comp_nh(-1, &nh_key);
-    comp_nh_list.push_back(comp_nh);
+    CompositeNHKey *composite_nh_key = static_cast<CompositeNHKey *>(
+        rt->GetActiveNextHop()->GetDBRequestKey().release());
+    ComponentNHKeyPtr comp_nh_data(new ComponentNHKey(rt->GetMplsLabel(),
+        Composite::ECMP, true, composite_nh_key->component_nh_key_list(),
+        "service-vrf1"));
+    ComponentNHKeyList comp_nh_list;
+    comp_nh_list.push_back(comp_nh_data);
     AddRemoteEcmpRoute("vrf10", "11.1.1.0", 24, "vn11", 0, comp_nh_list);
     AddRemoteEcmpRoute("service-vrf1", "11.1.1.0", 24, "vn11", 0, comp_nh_list);
 
@@ -1044,9 +1051,12 @@ TEST_F(EcmpTest, ServiceVlanTest_5) {
     Inet4UnicastRouteEntry *rt = RouteGet("service-vrf1", service_vm_ip, 32);
     EXPECT_TRUE(rt != NULL);
 
-    std::vector<ComponentNHData> comp_nh_list;
-    CompositeNHKey nh_key("service-vrf1", service_vm_ip, 32, true);
-    ComponentNHData comp_nh_data(-1, &nh_key);
+    CompositeNHKey *composite_nh_key = static_cast<CompositeNHKey *>(
+        rt->GetActiveNextHop()->GetDBRequestKey().release());
+    ComponentNHKeyPtr comp_nh_data(new ComponentNHKey(rt->GetMplsLabel(),
+        Composite::ECMP, true, composite_nh_key->component_nh_key_list(),
+        "service-vrf1"));
+    ComponentNHKeyList comp_nh_list;
     comp_nh_list.push_back(comp_nh_data);
     //Leak a aggregarate route to service VRF
     AddRemoteEcmpRoute("service-vrf1", "10.1.1.0", 24, "vn10", 0, comp_nh_list);
@@ -1181,10 +1191,14 @@ TEST_F(EcmpTest, ServiceVlanTest_6) {
     EXPECT_TRUE(rt != NULL);
     uint32_t mpls_label = rt->GetMplsLabel();
 
-    std::vector<ComponentNHData> comp_nh_list;
-    CompositeNHKey nh_key("service-vrf1", service_vm_ip, 32, true);
-    ComponentNHData comp_nh_data(-1, &nh_key);
+    CompositeNHKey *composite_nh_key = static_cast<CompositeNHKey *>(
+        rt->GetActiveNextHop()->GetDBRequestKey().release());
+    ComponentNHKeyPtr comp_nh_data(new ComponentNHKey(rt->GetMplsLabel(),
+        Composite::ECMP, true, composite_nh_key->component_nh_key_list(),
+        "service-vrf1"));
+    ComponentNHKeyList comp_nh_list;
     comp_nh_list.push_back(comp_nh_data);
+
     //Leak a aggregarate route to service VRF
     AddRemoteEcmpRoute("service-vrf1", "10.1.1.0", 24, "vn10", 0, comp_nh_list);
     //Leak routes from right vrf to service vrf
@@ -1412,10 +1426,10 @@ TEST_F(EcmpTest, ServiceVlanTest_7) {
     Inet4UnicastRouteEntry *rt = RouteGet("service-vrf1", service_vm_ip, 32);
     EXPECT_TRUE(rt != NULL);
 
-    std::vector<ComponentNHData> comp_nh_list;
+    ComponentNHKeyList comp_nh_list;
     const VlanNH *vlan_nh = static_cast<const VlanNH *>(rt->GetActiveNextHop());
-    ComponentNHData comp_nh_data(rt->GetMplsLabel(), vlan_nh->GetIfUuid(),
-                                 vlan_nh->GetVlanTag(), false);
+    ComponentNHKeyPtr comp_nh_data(new ComponentNHKey(
+        rt->GetMplsLabel(), vlan_nh->GetVlanTag(), vlan_nh->GetIfUuid()));
     comp_nh_list.push_back(comp_nh_data);
 
     //Leak a aggregarate route to service VRF
@@ -1505,10 +1519,11 @@ TEST_F(EcmpTest,ServiceVlanTest_8) {
     Inet4UnicastRouteEntry *rt = RouteGet("service-vrf1", service_vm_ip, 32);
     EXPECT_TRUE(rt != NULL);
 
-    std::vector<ComponentNHData> comp_nh_list;
+    ComponentNHKeyList comp_nh_list;
     const VlanNH *vlan_nh = static_cast<const VlanNH *>(rt->GetActiveNextHop());
-    ComponentNHData comp_nh_data(rt->GetMplsLabel(), vlan_nh->GetIfUuid(),
-                                 vlan_nh->GetVlanTag(), false);
+    ComponentNHKeyPtr comp_nh_data(new ComponentNHKey(
+        rt->GetMplsLabel(), vlan_nh->GetVlanTag(),
+        vlan_nh->GetIfUuid()));
     comp_nh_list.push_back(comp_nh_data);
 
     //Leak a aggregarate route to service VRF

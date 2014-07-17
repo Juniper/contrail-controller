@@ -10,5 +10,5 @@
 #include <oper/inet4_unicast_route.h>
 #include <oper/inet4_multicast_route.h>
 #include <oper/layer2_route.h>
-
+#include <oper/mpls.h>
 #endif // vnsw_route_common_hpp

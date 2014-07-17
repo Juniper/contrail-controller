@@ -40,7 +40,8 @@ NHKSyncEntry::NHKSyncEntry(NHKSyncObject *obj, const NHKSyncEntry *entry,
     is_local_ecmp_nh_(entry->is_local_ecmp_nh_),
     is_layer2_(entry->is_layer2_), comp_type_(entry->comp_type_), 
     tunnel_type_(entry->tunnel_type_), prefix_len_(entry->prefix_len_),
-    nh_id_(entry->nh_id()) {
+    nh_id_(entry->nh_id()),
+    component_nh_key_list_(entry->component_nh_key_list_) {
 }
 
 NHKSyncEntry::NHKSyncEntry(NHKSyncObject *obj, const NextHop *nh) :
@@ -136,16 +137,30 @@ NHKSyncEntry::NHKSyncEntry(NHKSyncObject *obj, const NextHop *nh) :
  
     case NextHop::COMPOSITE: {
         const CompositeNH *comp_nh = static_cast<const CompositeNH *>(nh);
-        //vrf_id_ = comp_nh->vrf_id();
-        vrf_id_ = (ksync_obj_->ksync()->agent()->vrf_table()->
-                   FindVrfFromName(comp_nh->vrf_name()))->vrf_id();
-        sip_.s_addr = comp_nh->GetSrcAddr().to_ulong();
-        dip_.s_addr = comp_nh->GetGrpAddr().to_ulong();
-        is_mcast_nh_ = comp_nh->IsMcastNH();
-        is_local_ecmp_nh_ = comp_nh->IsLocal();
-        comp_type_ = comp_nh->CompositeType();
-        prefix_len_ = comp_nh->prefix_len();
         component_nh_list_.clear();
+        vrf_id_ = comp_nh->vrf()->vrf_id();
+        comp_type_ = comp_nh->composite_nh_type();
+        component_nh_key_list_ = comp_nh->component_nh_key_list();
+        ComponentNHList::const_iterator component_nh_it =
+            comp_nh->begin();
+        while (component_nh_it != comp_nh->end()) {
+            const NextHop *component_nh = NULL;
+            uint32_t label = 0;
+            if (*component_nh_it) {
+                component_nh =  (*component_nh_it)->nh();
+                label = (*component_nh_it)->label();
+            }
+            KSyncEntry *ksync_nh = NULL;
+            if (component_nh != NULL) {
+                NHKSyncObject *nh_object =
+                    ksync_obj_->ksync()->nh_ksync_obj();
+                NHKSyncEntry nhksync(nh_object, component_nh);
+                ksync_nh = nh_object->GetReference(&nhksync);
+            }
+            KSyncComponentNH ksync_component_nh(label, ksync_nh);
+            component_nh_list_.push_back(ksync_component_nh);
+            component_nh_it++;
+        }
         break;
     }
 
@@ -231,27 +246,62 @@ bool NHKSyncEntry::IsLess(const KSyncEntry &rhs) const {
     }
 
     if (type_ == NextHop::COMPOSITE) {
-        if (vrf_id_ != entry.vrf_id_) {
-            return vrf_id_ < entry.vrf_id_;
-        }
-
-        if (is_local_ecmp_nh_ != entry.is_local_ecmp_nh_) {
-            return is_local_ecmp_nh_ < entry.is_local_ecmp_nh_;
-        }
-
         if (comp_type_ != entry.comp_type_) {
             return comp_type_ < entry.comp_type_;
         }
 
-        if (sip_.s_addr != entry.sip_.s_addr) {
-            return sip_.s_addr < entry.sip_.s_addr;
+        if (vrf_id_ != entry.vrf_id_) {
+            return vrf_id_ < entry.vrf_id_;
         }
 
-        if (prefix_len_ != entry.prefix_len_) {
-            return prefix_len_ < entry.prefix_len_;
+        ComponentNHKeyList::const_iterator it =
+            component_nh_key_list_.begin();
+        ComponentNHKeyList::const_iterator entry_it =
+            entry.component_nh_key_list_.begin();
+        for (;it != component_nh_key_list_.end() &&
+             entry_it != entry.component_nh_key_list_.end(); it++, entry_it++) {
+            if (*it == NULL &&
+                    *entry_it == NULL) {
+                continue;
+            }
+            //One of the component NH is NULL
+            if ((*it) == NULL ||
+                    (*entry_it) == NULL) {
+                return (*it) < (*entry_it);
+            }
+
+            //Check if the label is different
+            if ((*it)->label() !=
+                    (*entry_it)->label()) {
+                return (*it)->label() <
+                    (*entry_it)->label();
+            }
+
+            //Check if the nexthop key is different
+            //Ideally we could find the nexthop and compare pointer alone
+            //it wont work because this is called from Find context itself,
+            //and it would result in deadlock
+            //Hence compare nexthop key alone
+            const NextHopKey *left_nh = (*it)->nh_key();
+            const NextHopKey *right_nh = (*entry_it)->nh_key();
+
+            if (left_nh->IsEqual(*right_nh) == false) {
+                if (left_nh->GetType() != right_nh->GetType()) {
+                    return left_nh->GetType() < right_nh->GetType();
+                }
+                return left_nh->IsLess(*right_nh);
+            }
         }
 
-        return dip_.s_addr < entry.dip_.s_addr;
+        if (it == component_nh_key_list_.end() &&
+            entry_it == entry.component_nh_key_list_.end()) {
+            return false;
+        }
+
+        if (it == component_nh_key_list_.end()) {
+            return true;
+        }
+        return false;
     }
 
     if (type_ == NextHop::VLAN) {
@@ -453,28 +503,23 @@ bool NHKSyncEntry::Sync(DBEntry *e) {
     }
 
     case NextHop::COMPOSITE: {
-        const CompositeNH *composite_nh = static_cast<const CompositeNH *>(e);
-        ret = true;
-        valid_ = true;
-
-        is_mcast_nh_ = composite_nh->IsMcastNH();
-
-        //Iterate thru all sub nh to fill component NH list
+        CompositeNH *comp_nh = static_cast<CompositeNH *>(e);
         component_nh_list_.clear();
-        CompositeNH::ComponentNHList::const_iterator component_nh_it = 
-            composite_nh->begin();
-
-        while (component_nh_it != composite_nh->end()) {
+        ComponentNHList::const_iterator component_nh_it =
+            comp_nh->begin();
+        while (component_nh_it != comp_nh->end()) {
             const NextHop *component_nh = NULL;
             uint32_t label = 0;
             if (*component_nh_it) {
-               component_nh =  (*component_nh_it)->GetNH();
-               label = (*component_nh_it)->label();
+                component_nh =  (*component_nh_it)->nh();
+                label = (*component_nh_it)->label();
             }
             KSyncEntry *ksync_nh = NULL;
             if (component_nh != NULL) {
-                NHKSyncEntry nhksync(ksync_obj_, component_nh);
-                ksync_nh = ksync_obj_->GetReference(&nhksync);
+                NHKSyncObject *nh_object =
+                    ksync_obj_->ksync()->nh_ksync_obj();
+                NHKSyncEntry nhksync(nh_object, component_nh);
+                ksync_nh = nh_object->GetReference(&nhksync);
             }
             KSyncComponentNH ksync_component_nh(label, ksync_nh);
             component_nh_list_.push_back(ksync_component_nh);
@@ -654,7 +699,8 @@ int NHKSyncEntry::Encode(sandesh_op::type op, char *buf, int buf_len) {
                 flags |= NH_FLAG_COMPOSITE_MULTI_PROTO;
                 break;
             }
-            case Composite::ECMP: {
+            case Composite::ECMP:
+            case Composite::LOCAL_ECMP: {
                 flags |= NH_FLAG_COMPOSITE_ECMP;
                 break;
             }

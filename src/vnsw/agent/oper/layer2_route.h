@@ -51,9 +51,9 @@ public:
                                 uint32_t plen); 
     static void AddLayer2BroadcastRoute(const string &vrf_name,
                                         const string &vn_name,
-                                        const Ip4Address &dip,
-                                        const Ip4Address &sip,
-                                        int vxlan_id);
+                                        int vxlan_id,
+                                        ComponentNHKeyList
+                                        &component_nh_key_list);
     static void DeleteReq(const Peer *peer, const string &vrf_name,
                           const struct ether_addr &mac,
                           AgentRouteData *data);

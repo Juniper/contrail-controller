@@ -237,36 +237,25 @@ public:
     void VerifyMulticastRoutes(TunnelType::Type type) {
         Inet4MulticastRouteEntry *mc_rt = MCRouteGet("vrf1", "255.255.255.255");
         ASSERT_TRUE(mc_rt != NULL);
-        CompositeNHKey flood_fabric_key(vrf_name_, 
-                           IpAddress::from_string("255.255.255.255").to_v4(), 
-                           IpAddress::from_string("0.0.0.0").to_v4(), false,
-                           Composite::FABRIC);
-        const CompositeNH *flood_fabric_cnh = 
-            static_cast<CompositeNH *>(Agent::GetInstance()->nexthop_table()->
-                                       FindActiveEntry(&flood_fabric_key));
-        ASSERT_TRUE(flood_fabric_cnh != NULL);
-        const ComponentNH *component_nh = 
-            static_cast<const ComponentNH *>(flood_fabric_cnh->
-                                          GetComponentNHList()->Get(0));
-        ASSERT_TRUE(flood_fabric_cnh->ComponentNHCount() == 1);
-        const TunnelNH *tnh = 
-            static_cast<const TunnelNH *>(component_nh->GetNH());
+        const CompositeNH *flood_cnh =
+            static_cast<const CompositeNH *>(mc_rt->GetActiveNextHop());
+        ASSERT_TRUE(flood_cnh != NULL);
+        ASSERT_TRUE(flood_cnh->ComponentNHCount() == 2);
+        const CompositeNH *flood_fabric_cnh =
+            dynamic_cast<const CompositeNH *>(flood_cnh->GetNH(0));
+        const TunnelNH *tnh = dynamic_cast<const TunnelNH *>(
+            flood_fabric_cnh->GetNH(0));
         ASSERT_TRUE(tnh->GetTunnelType().GetType() == type);
 
-        CompositeNHKey subnet_fabric_key(vrf_name_, 
-                           IpAddress::from_string("1.1.1.255").to_v4(), 
-                           IpAddress::from_string("0.0.0.0").to_v4(), false,
-                           Composite::FABRIC);
-        const CompositeNH *subnet_fabric_cnh = 
-            static_cast<const CompositeNH *>(Agent::GetInstance()->
-                                             nexthop_table()->
-                                       FindActiveEntry(&subnet_fabric_key));
-        ASSERT_TRUE(subnet_fabric_cnh != NULL);
-        ASSERT_TRUE(subnet_fabric_cnh->ComponentNHCount() == 1);
-        component_nh = 
-            static_cast<const ComponentNH *>(subnet_fabric_cnh->
-                                             GetComponentNHList()->Get(0));
-        tnh = static_cast<const TunnelNH *>(component_nh->GetNH());
+        Ip4Address subnet_broadcast = Ip4Address::from_string("1.1.1.255");
+        Inet4UnicastRouteEntry *uc_rt =
+            RouteGet("vrf1", subnet_broadcast, 32);
+        const CompositeNH *subnet_cnh =
+            static_cast<const CompositeNH *>(mc_rt->GetActiveNextHop());
+        ASSERT_TRUE(subnet_cnh->ComponentNHCount() == 2);
+        const CompositeNH *subnet_fabric_cnh =
+            dynamic_cast<const CompositeNH *>(subnet_cnh->GetNH(0));
+        tnh = dynamic_cast<const TunnelNH *>(subnet_fabric_cnh->GetNH(0));
         ASSERT_TRUE(tnh->GetTunnelType().GetType() == type);
     }
 

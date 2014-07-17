@@ -13,7 +13,7 @@ define dump_nh_entries
 end
 
 define intf_entry_format
-   set $__intf = (Interface *)((size_t)($Xnode) - (size_t)&(Interface::node_))
+   set $__intf = (Interface *)((size_t)($Xnode) - (size_t)&(((Interface*)0)->node_))
    printf "%p    %-20s    flags=%-4d   ref=%-4d\n", $__intf, $__intf->name_._M_dataplus._M_p,\
            $__intf->flags, $__intf->refcount_->rep->value
 end
@@ -23,7 +23,7 @@ define dump_intf_entries
 end
 
 define mpls_entry_format
-    set $__mpls = (MplsLabel *)((size_t)($Xnode) - (size_t)&(MplsLabel::node_))
+    set $__mpls = (MplsLabel *)((size_t)($Xnode) - (size_t)&(((MplsLabel*)0)->node_))
     printf "%p    label=%-4x   nh=%p\n", $__mpls, $__mpls->label_, $__mpls->nh_.px
 end
   
@@ -144,7 +144,7 @@ define dump_vn_entries
 end
 
 define vm_entry_format
-    set $__vm = (VmEntry *)((size_t)($Xnode) - (size_t)&(VmEntry::node_))
+    set $__vm = (VmEntry *)((size_t)($Xnode) - (size_t)&((VmEntry*)0)->node_)
     printf "%p    %-20s\n", $__vm, $__vm->uuid_->data
 end
 

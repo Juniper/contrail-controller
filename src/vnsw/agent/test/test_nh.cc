@@ -39,6 +39,9 @@ void RouterIdDepInit(Agent *agent) {
 class CfgTest : public ::testing::Test {
 public:
     void SetUp() {
+        boost::system::error_code ec;
+        bgp_peer = CreateBgpPeer(Ip4Address::from_string("0.0.0.1", ec),
+                                 "xmpp channel");
         agent_ = Agent::GetInstance();
     }
     void TearDown() {
@@ -46,6 +49,7 @@ public:
     }
 
     Agent *agent_;
+    BgpPeer *bgp_peer;
 };
 
 static void ValidateSandeshResponse(Sandesh *sandesh, vector<int> &result) {
@@ -337,10 +341,6 @@ TEST_F(CfgTest, EcmpNH_1) {
     
     //Expect MPLS label to be not present
     EXPECT_FALSE(FindMplsLabel(MplsLabel::VPORT_NH, mpls_label));
-
-    //Make sure composite NH is also deleted
-    CompositeNHKey key("vrf1", ip, 32, true);
-    EXPECT_FALSE(FindNH(&key));
 }
 
 //Create multiple VM with same virtual IP and verify
@@ -387,22 +387,25 @@ TEST_F(CfgTest, EcmpNH_2) {
 
     CreateVmportWithEcmp(input3, 1);
     client->WaitForIdle();
+    comp_nh = static_cast<const CompositeNH *>(rt->GetActiveNextHop());
     EXPECT_TRUE(comp_nh->ComponentNHCount() == 3);
 
     CreateVmportWithEcmp(input4, 1);
     client->WaitForIdle();
+    comp_nh = static_cast<const CompositeNH *>(rt->GetActiveNextHop());
     EXPECT_TRUE(comp_nh->ComponentNHCount() == 4);
 
     CreateVmportWithEcmp(input5, 1);
     client->WaitForIdle();
-    EXPECT_TRUE(nh->GetType() == NextHop::COMPOSITE);
+    comp_nh = static_cast<const CompositeNH *>(rt->GetActiveNextHop());
+    EXPECT_TRUE(comp_nh->GetType() == NextHop::COMPOSITE);
     EXPECT_TRUE(comp_nh->ComponentNHCount() == 5);
 
     //Verify all the component NH have right label and nexthop
-    CompositeNH::ComponentNHList::const_iterator component_nh_it =
+    ComponentNHList::const_iterator component_nh_it =
         comp_nh->begin();
     const InterfaceNH *intf_nh = static_cast<const InterfaceNH *>
-                                     ((*component_nh_it)->GetNH());
+                                     ((*component_nh_it)->nh());
     EXPECT_TRUE(intf_nh->GetInterface()->name() == "vnet1");
     MplsLabel *mpls = GetMplsLabel(MplsLabel::VPORT_NH, 
                                    (*component_nh_it)->label());
@@ -410,7 +413,7 @@ TEST_F(CfgTest, EcmpNH_2) {
     EXPECT_TRUE(intf_nh->GetInterface()->name() == "vnet1");
 
     component_nh_it++;
-    intf_nh = static_cast<const InterfaceNH *>((*component_nh_it)->GetNH());
+    intf_nh = static_cast<const InterfaceNH *>((*component_nh_it)->nh());
     EXPECT_TRUE(intf_nh->GetInterface()->name() == "vnet2");
     mpls = GetMplsLabel(MplsLabel::VPORT_NH, 
                         (*component_nh_it)->label());
@@ -418,7 +421,7 @@ TEST_F(CfgTest, EcmpNH_2) {
     EXPECT_TRUE(intf_nh->GetInterface()->name() == "vnet2");
 
     component_nh_it++;
-    intf_nh = static_cast<const InterfaceNH *>((*component_nh_it)->GetNH());
+    intf_nh = static_cast<const InterfaceNH *>((*component_nh_it)->nh());
     EXPECT_TRUE(intf_nh->GetInterface()->name() == "vnet3");
     mpls = GetMplsLabel(MplsLabel::VPORT_NH, 
                         (*component_nh_it)->label());
@@ -426,7 +429,7 @@ TEST_F(CfgTest, EcmpNH_2) {
     EXPECT_TRUE(intf_nh->GetInterface()->name() == "vnet3");
 
     component_nh_it++;
-    intf_nh = static_cast<const InterfaceNH *>((*component_nh_it)->GetNH());
+    intf_nh = static_cast<const InterfaceNH *>((*component_nh_it)->nh());
     EXPECT_TRUE(intf_nh->GetInterface()->name() == "vnet4");
     mpls = GetMplsLabel(MplsLabel::VPORT_NH, 
                         (*component_nh_it)->label());
@@ -434,7 +437,7 @@ TEST_F(CfgTest, EcmpNH_2) {
     EXPECT_TRUE(intf_nh->GetInterface()->name() == "vnet4");
 
     component_nh_it++;
-    intf_nh = static_cast<const InterfaceNH *>((*component_nh_it)->GetNH());
+    intf_nh = static_cast<const InterfaceNH *>((*component_nh_it)->nh());
     EXPECT_TRUE(intf_nh->GetInterface()->name() == "vnet5");
     mpls = GetMplsLabel(MplsLabel::VPORT_NH, 
                         (*component_nh_it)->label());
@@ -455,8 +458,9 @@ TEST_F(CfgTest, EcmpNH_2) {
     client->WaitForIdle();
 
     //Verify all the component NH have right label and nexthop
+    comp_nh = static_cast<const CompositeNH *>(rt->GetActiveNextHop());
     component_nh_it = comp_nh->begin();
-    intf_nh = static_cast<const InterfaceNH *>((*component_nh_it)->GetNH());
+    intf_nh = static_cast<const InterfaceNH *>((*component_nh_it)->nh());
     EXPECT_TRUE(intf_nh->GetInterface()->name() == "vnet1");
     mpls = GetMplsLabel(MplsLabel::VPORT_NH, 
                         (*component_nh_it)->label());
@@ -469,7 +473,7 @@ TEST_F(CfgTest, EcmpNH_2) {
     EXPECT_TRUE(*component_nh_it == NULL);
 
     component_nh_it++;
-    intf_nh = static_cast<const InterfaceNH *>((*component_nh_it)->GetNH());
+    intf_nh = static_cast<const InterfaceNH *>((*component_nh_it)->nh());
     EXPECT_TRUE(intf_nh->GetInterface()->name() == "vnet3");
     mpls = GetMplsLabel(MplsLabel::VPORT_NH, 
                         (*component_nh_it)->label());
@@ -481,7 +485,7 @@ TEST_F(CfgTest, EcmpNH_2) {
     EXPECT_TRUE(*component_nh_it == NULL);
 
     component_nh_it++;
-    intf_nh = static_cast<const InterfaceNH *>((*component_nh_it)->GetNH());
+    intf_nh = static_cast<const InterfaceNH *>((*component_nh_it)->nh());
     EXPECT_TRUE(intf_nh->GetInterface()->name() == "vnet5");
     mpls = GetMplsLabel(MplsLabel::VPORT_NH, 
                         (*component_nh_it)->label());
@@ -497,9 +501,6 @@ TEST_F(CfgTest, EcmpNH_2) {
     //Expect MPLS label to be not present
     EXPECT_FALSE(FindMplsLabel(MplsLabel::VPORT_NH, composite_nh_mpls_label));
 
-    //Make sure composite NH is also deleted
-    CompositeNHKey key("vrf1", ip, 32, true);
-    EXPECT_FALSE(FindNH(&key));
     WAIT_FOR(100, 1000, (VrfFind("vrf1") == false));
 }
 
@@ -559,22 +560,24 @@ TEST_F(CfgTest, EcmpNH_3) {
 
     AddLink("virtual-machine-interface", "vnet3", "floating-ip", "fip1");
     client->WaitForIdle();
+    comp_nh = static_cast<const CompositeNH *>(rt->GetActiveNextHop());
     EXPECT_TRUE(comp_nh->ComponentNHCount() == 3);
 
     AddLink("virtual-machine-interface", "vnet4", "floating-ip", "fip1");
     client->WaitForIdle();
+    comp_nh = static_cast<const CompositeNH *>(rt->GetActiveNextHop());
     EXPECT_TRUE(comp_nh->ComponentNHCount() == 4);
 
     AddLink("virtual-machine-interface", "vnet5", "floating-ip", "fip1");
     client->WaitForIdle();
-    EXPECT_TRUE(nh->GetType() == NextHop::COMPOSITE);
+    comp_nh = static_cast<const CompositeNH *>(rt->GetActiveNextHop());
     EXPECT_TRUE(comp_nh->ComponentNHCount() == 5);
 
     //Verify all the component NH have right label and nexthop
-    CompositeNH::ComponentNHList::const_iterator component_nh_it =
+    ComponentNHList::const_iterator component_nh_it =
         comp_nh->begin();
     const InterfaceNH *intf_nh = static_cast<const InterfaceNH *>
-                                     ((*component_nh_it)->GetNH());
+                                     ((*component_nh_it)->nh());
     EXPECT_TRUE(intf_nh->GetInterface()->name() == "vnet1");
     MplsLabel *mpls = GetMplsLabel(MplsLabel::VPORT_NH, 
                                    (*component_nh_it)->label());
@@ -582,7 +585,7 @@ TEST_F(CfgTest, EcmpNH_3) {
     EXPECT_TRUE(intf_nh->GetInterface()->name() == "vnet1");
 
     component_nh_it++;
-    intf_nh = static_cast<const InterfaceNH *>((*component_nh_it)->GetNH());
+    intf_nh = static_cast<const InterfaceNH *>((*component_nh_it)->nh());
     EXPECT_TRUE(intf_nh->GetInterface()->name() == "vnet2");
     mpls = GetMplsLabel(MplsLabel::VPORT_NH, 
                         (*component_nh_it)->label());
@@ -590,7 +593,7 @@ TEST_F(CfgTest, EcmpNH_3) {
     EXPECT_TRUE(intf_nh->GetInterface()->name() == "vnet2");
 
     component_nh_it++;
-    intf_nh = static_cast<const InterfaceNH *>((*component_nh_it)->GetNH());
+    intf_nh = static_cast<const InterfaceNH *>((*component_nh_it)->nh());
     EXPECT_TRUE(intf_nh->GetInterface()->name() == "vnet3");
     mpls = GetMplsLabel(MplsLabel::VPORT_NH, 
                         (*component_nh_it)->label());
@@ -598,7 +601,7 @@ TEST_F(CfgTest, EcmpNH_3) {
     EXPECT_TRUE(intf_nh->GetInterface()->name() == "vnet3");
 
     component_nh_it++;
-    intf_nh = static_cast<const InterfaceNH *>((*component_nh_it)->GetNH());
+    intf_nh = static_cast<const InterfaceNH *>((*component_nh_it)->nh());
     EXPECT_TRUE(intf_nh->GetInterface()->name() == "vnet4");
     mpls = GetMplsLabel(MplsLabel::VPORT_NH, 
                         (*component_nh_it)->label());
@@ -606,7 +609,7 @@ TEST_F(CfgTest, EcmpNH_3) {
     EXPECT_TRUE(intf_nh->GetInterface()->name() == "vnet4");
 
     component_nh_it++;
-    intf_nh = static_cast<const InterfaceNH *>((*component_nh_it)->GetNH());
+    intf_nh = static_cast<const InterfaceNH *>((*component_nh_it)->nh());
     EXPECT_TRUE(intf_nh->GetInterface()->name() == "vnet5");
     mpls = GetMplsLabel(MplsLabel::VPORT_NH, 
                         (*component_nh_it)->label());
@@ -623,6 +626,7 @@ TEST_F(CfgTest, EcmpNH_3) {
     //deleted
     DelLink("virtual-machine-interface", "vnet1", "floating-ip", "fip1");
     client->WaitForIdle();
+    comp_nh = static_cast<const CompositeNH *>(rt->GetActiveNextHop());
 
     //Interface 1 has been deleted, expected the component NH to
     //be NULL
@@ -631,20 +635,24 @@ TEST_F(CfgTest, EcmpNH_3) {
 
     DelLink("virtual-machine-interface", "vnet2", "floating-ip", "fip1");
     client->WaitForIdle();
+    comp_nh = static_cast<const CompositeNH *>(rt->GetActiveNextHop());
     //Interface 2 has been deleted, expected the component NH to
     //be NULL
+    component_nh_it = comp_nh->begin();
     component_nh_it++;
     EXPECT_TRUE(*component_nh_it == NULL);
 
     DelLink("virtual-machine-interface", "vnet3", "floating-ip", "fip1");
     client->WaitForIdle();
-    //Interface 2 has been deleted, expected the component NH to
+    comp_nh = static_cast<const CompositeNH *>(rt->GetActiveNextHop());
     //be NULL
+    component_nh_it = comp_nh->begin();
+    component_nh_it++;
     component_nh_it++;
     EXPECT_TRUE(*component_nh_it == NULL);
 
     component_nh_it++;
-    intf_nh = static_cast<const InterfaceNH *>((*component_nh_it)->GetNH());
+    intf_nh = static_cast<const InterfaceNH *>((*component_nh_it)->nh());
     EXPECT_TRUE(intf_nh->GetInterface()->name() == "vnet4");
     mpls = GetMplsLabel(MplsLabel::VPORT_NH, 
                         (*component_nh_it)->label());
@@ -652,7 +660,7 @@ TEST_F(CfgTest, EcmpNH_3) {
     EXPECT_TRUE(intf_nh->GetInterface()->name() == "vnet4");
 
     component_nh_it++;
-    intf_nh = static_cast<const InterfaceNH *>((*component_nh_it)->GetNH());
+    intf_nh = static_cast<const InterfaceNH *>((*component_nh_it)->nh());
     EXPECT_TRUE(intf_nh->GetInterface()->name() == "vnet5");
     mpls = GetMplsLabel(MplsLabel::VPORT_NH, 
                         (*component_nh_it)->label());
@@ -665,9 +673,6 @@ TEST_F(CfgTest, EcmpNH_3) {
     client->WaitForIdle();
     EXPECT_TRUE(rt->GetActiveNextHop() == intf_nh);
 
-    //Make sure composite NH is also deleted
-    CompositeNHKey key("vn2:vn2", ip, 32, true);
-    EXPECT_FALSE(FindNH(&key));
     //Expect MPLS label to be not present
     EXPECT_FALSE(FindMplsLabel(MplsLabel::VPORT_NH, composite_mpls_label));
  
@@ -699,12 +704,16 @@ TEST_F(CfgTest, EcmpNH_4) {
     //Enqueue a request to add composite NH
     //since the entry is marked delete, composite NH will not get
     //created
-    std::vector<ComponentNHData> comp_nh_list;
-    Ip4Address ip = Ip4Address::from_string("1.1.1.1");
-    CompositeNH::CreateCompositeNH("vrf2", ip, false, comp_nh_list);
+    ComponentNHKeyList comp_nh_list;
+    DBRequest req;
+    req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
+    req.key.reset(new CompositeNHKey(Composite::ECMP, true, comp_nh_list, "vrf2"));
+    req.data.reset(new CompositeNHData());
+    agent_->nexthop_table()->Enqueue(&req);
+
     client->WaitForIdle();
 
-    CompositeNHKey key("vrf2", ip, 32, false);
+    CompositeNHKey key(Composite::ECMP, true, comp_nh_list, "vrf2");
     EXPECT_FALSE(FindNH(&key));
     vrf1.reset();
 }
@@ -727,19 +736,18 @@ TEST_F(CfgTest, EcmpNH_5) {
     client->WaitForIdle();
     //Create component NH list
     //Transition remote VM route to ECMP route
-    NextHopKey *nh_key1 = new TunnelNHKey(agent_->fabric_vrf_name(),
-                                          agent_->router_id(),
-                                          remote_server_ip1, false,
-                                          TunnelType::DefaultType());
-    NextHopKey *nh_key2 = new TunnelNHKey(agent_->fabric_vrf_name(),
-                                          agent_->router_id(),
-                                          remote_server_ip2, false,
-                                          TunnelType::DefaultType());
-
-    ComponentNHData nh_data1(30, nh_key1);
-    ComponentNHData nh_data2(20, nh_key2);   
-
-    std::vector<ComponentNHData> comp_nh_list;
+    ComponentNHKeyPtr nh_data1(new ComponentNHKey(30, agent_->fabric_vrf_name(),
+                                                  agent_->router_id(),
+                                                  remote_server_ip1,
+                                                  false,
+                                                  TunnelType::DefaultType()));
+    ComponentNHKeyPtr nh_data2(new ComponentNHKey(20,
+                                                  agent_->fabric_vrf_name(),
+                                                  agent_->router_id(),
+                                                  remote_server_ip2,
+                                                  false,
+                                                  TunnelType::DefaultType()));
+    ComponentNHKeyList comp_nh_list;
     //Insert new NH first and then existing route NH
     comp_nh_list.push_back(nh_data2);
     comp_nh_list.push_back(nh_data1);
@@ -757,15 +765,15 @@ TEST_F(CfgTest, EcmpNH_5) {
     EXPECT_TRUE(comp_nh->ComponentNHCount() == 2);
 
     //Verify all the component NH have right label and nexthop
-    CompositeNH::ComponentNHList::const_iterator component_nh_it =
+    ComponentNHList::const_iterator component_nh_it =
         comp_nh->begin();
     const TunnelNH *tun_nh1 = static_cast<const TunnelNH *>
-        ((*component_nh_it)->GetNH());
+        ((*component_nh_it)->nh());
     EXPECT_TRUE(*tun_nh1->GetDip() == remote_server_ip1);
     EXPECT_TRUE((*component_nh_it)->label() == 30);
 
     component_nh_it++;
-    tun_nh1 = static_cast<const TunnelNH *>((*component_nh_it)->GetNH());
+    tun_nh1 = static_cast<const TunnelNH *>((*component_nh_it)->nh());
     EXPECT_TRUE(*tun_nh1->GetDip() == remote_server_ip2);
     EXPECT_TRUE((*component_nh_it)->label() == 20);
 
@@ -798,19 +806,18 @@ TEST_F(CfgTest, EcmpNH_6) {
     client->WaitForIdle();
     //Create component NH list
     //Transition remote VM route to ECMP route
-    NextHopKey *nh_key1 = new TunnelNHKey(agent_->fabric_vrf_name(), 
-                                          agent_->router_id(),
-                                          remote_server_ip2, false,
-                                          TunnelType::DefaultType());
-    NextHopKey *nh_key2 = new TunnelNHKey(agent_->fabric_vrf_name(), 
-                                          agent_->router_id(),
-                                          remote_server_ip3, false,
-                                          TunnelType::DefaultType());
-
-    ComponentNHData nh_data1(30, nh_key1);
-    ComponentNHData nh_data2(20, nh_key2);   
-
-    std::vector<ComponentNHData> comp_nh_list;
+    ComponentNHKeyPtr nh_data1(new ComponentNHKey(30, agent_->fabric_vrf_name(),
+                                                  agent_->router_id(),
+                                                  remote_server_ip2,
+                                                  false,
+                                                  TunnelType::DefaultType()));
+    ComponentNHKeyPtr nh_data2(new ComponentNHKey(20,
+                                                  agent_->fabric_vrf_name(),
+                                                  agent_->router_id(),
+                                                  remote_server_ip3,
+                                                  false,
+                                                  TunnelType::DefaultType()));
+    ComponentNHKeyList comp_nh_list;
     //Insert new NH first and then existing route NH
     comp_nh_list.push_back(nh_data1);
     comp_nh_list.push_back(nh_data2);
@@ -828,15 +835,15 @@ TEST_F(CfgTest, EcmpNH_6) {
     EXPECT_TRUE(comp_nh->ComponentNHCount() == 2);
 
     //Verify all the component NH have right label and nexthop
-    CompositeNH::ComponentNHList::const_iterator component_nh_it =
+    ComponentNHList::const_iterator component_nh_it =
         comp_nh->begin();
     const TunnelNH *tun_nh1 = static_cast<const TunnelNH *>
-        ((*component_nh_it)->GetNH());
+        ((*component_nh_it)->nh());
     EXPECT_TRUE(*tun_nh1->GetDip() == remote_server_ip2);
     EXPECT_TRUE((*component_nh_it)->label() == 30);
 
     component_nh_it++;
-    tun_nh1 = static_cast<const TunnelNH *>((*component_nh_it)->GetNH());
+    tun_nh1 = static_cast<const TunnelNH *>((*component_nh_it)->nh());
     EXPECT_TRUE(*tun_nh1->GetDip() == remote_server_ip3);
     EXPECT_TRUE((*component_nh_it)->label() == 20);
 
@@ -846,6 +853,531 @@ TEST_F(CfgTest, EcmpNH_6) {
     WAIT_FOR(100, 1000, (VrfFind("vrf2") == false));
     client->WaitForIdle();
     EXPECT_FALSE(VrfFind("vrf2"));
+}
+
+TEST_F(CfgTest, EcmpNH_7) {
+    //Create mutliple VM interface with same IP
+    struct PortInfo input1[] = {
+        {"vnet1", 1, "1.1.1.1", "00:00:00:01:01:01", 1, 1}
+    };
+
+    struct PortInfo input2[] = {
+        {"vnet2", 2, "1.1.1.1", "00:00:00:02:02:01", 1, 2}
+    };
+
+    struct PortInfo input3[] = {
+        {"vnet3", 3, "1.1.1.1", "00:00:00:02:02:03", 1, 3}
+    };
+
+    boost::system::error_code ec;
+    BgpPeer *bgp_peer = CreateBgpPeer(Ip4Address::from_string("0.0.0.1", ec),
+                                      "xmpp channel");
+    client->WaitForIdle();
+
+    CreateVmportWithEcmp(input1, 1);
+    client->WaitForIdle();
+    //First VM added, route points to composite NH
+    Ip4Address ip = Ip4Address::from_string("1.1.1.1");
+    Inet4UnicastRouteEntry *rt = RouteGet("vrf1", ip, 32);
+    EXPECT_TRUE(rt != NULL);
+    const NextHop *nh = rt->GetActiveNextHop();
+    EXPECT_TRUE(nh->GetType() == NextHop::INTERFACE);
+
+    //Second VM added, route should point to composite NH
+    CreateVmportWithEcmp(input2, 1);
+    client->WaitForIdle();
+    nh = rt->GetActiveNextHop();
+    EXPECT_TRUE(nh->GetType() == NextHop::COMPOSITE);
+    const CompositeNH *comp_nh = static_cast<const CompositeNH *>(nh);
+    EXPECT_TRUE(comp_nh->ComponentNHCount() == 2);
+
+    DBEntryBase::KeyPtr comp_key = comp_nh->GetDBRequestKey();
+    NextHopKey *nh_key = static_cast<NextHopKey *>(comp_key.release());
+    std::auto_ptr<const NextHopKey> nh_key_ptr(nh_key);
+    ComponentNHKeyPtr nh_data1(new ComponentNHKey(rt->GetMplsLabel(),
+                                                  nh_key_ptr));
+    Ip4Address remote_server_ip1 = Ip4Address::from_string("11.1.1.1");
+    //Leak the route via BGP peer
+    ComponentNHKeyPtr nh_data2(new ComponentNHKey(30, agent_->fabric_vrf_name(),
+                                                  agent_->router_id(),
+                                                  remote_server_ip1,
+                                                  false,
+                                                  TunnelType::DefaultType()));
+    ComponentNHKeyList comp_nh_list;
+    comp_nh_list.push_back(nh_data1);
+    comp_nh_list.push_back(nh_data2);
+
+    SecurityGroupList sg_id_list;
+    EcmpTunnelRouteAdd(bgp_peer, "vrf1", ip, 32,
+            comp_nh_list, false, "vn1", sg_id_list, PathPreference());
+    client->WaitForIdle();
+
+    CreateVmportWithEcmp(input3, 1);
+    client->WaitForIdle();
+    comp_nh = static_cast<const CompositeNH *>(rt->GetActiveNextHop());
+    EXPECT_TRUE(comp_nh->ComponentNHCount() == 4);
+
+    //Verify all the component NH have right label and nexthop
+    ComponentNHList::const_iterator component_nh_it =
+        comp_nh->begin();
+    const InterfaceNH *intf_nh = static_cast<const InterfaceNH *>
+                                     ((*component_nh_it)->nh());
+    EXPECT_TRUE(intf_nh->GetInterface()->name() == "vnet1");
+    MplsLabel *mpls = GetMplsLabel(MplsLabel::VPORT_NH, 
+                                   (*component_nh_it)->label());
+    intf_nh = static_cast<const InterfaceNH *>(mpls->nexthop());
+    EXPECT_TRUE(intf_nh->GetInterface()->name() == "vnet1");
+
+    component_nh_it++;
+    component_nh_it++;
+    intf_nh = static_cast<const InterfaceNH *>((*component_nh_it)->nh());
+    EXPECT_TRUE(intf_nh->GetInterface()->name() == "vnet2");
+    mpls = GetMplsLabel(MplsLabel::VPORT_NH,
+                        (*component_nh_it)->label());
+    intf_nh = static_cast<const InterfaceNH *>(mpls->nexthop());
+    EXPECT_TRUE(intf_nh->GetInterface()->name() == "vnet2");
+
+    component_nh_it++;
+    intf_nh = static_cast<const InterfaceNH *>((*component_nh_it)->nh());
+    EXPECT_TRUE(intf_nh->GetInterface()->name() == "vnet3");
+    mpls = GetMplsLabel(MplsLabel::VPORT_NH,
+                        (*component_nh_it)->label());
+    intf_nh = static_cast<const InterfaceNH *>(mpls->nexthop());
+    EXPECT_TRUE(intf_nh->GetInterface()->name() == "vnet3");
+
+    //Delete couple of interface and verify composite NH also get 
+    //deleted
+    DeleteVmportEnv(input1, 1, false);
+    client->WaitForIdle();
+
+    //Verify all the component NH have right label and nexthop
+    comp_nh = static_cast<const CompositeNH *>(rt->GetActiveNextHop());
+    component_nh_it = comp_nh->begin();
+    EXPECT_TRUE(*component_nh_it == NULL);
+
+    component_nh_it++;
+    component_nh_it++;
+    intf_nh = static_cast<const InterfaceNH *>((*component_nh_it)->nh());
+    EXPECT_TRUE(intf_nh->GetInterface()->name() == "vnet2");
+    mpls = GetMplsLabel(MplsLabel::VPORT_NH, 
+                        (*component_nh_it)->label());
+    intf_nh = static_cast<const InterfaceNH *>(mpls->nexthop());
+    EXPECT_TRUE(intf_nh->GetInterface()->name() == "vnet2");
+
+    //Interface vnet3 has been deleted, expect the component NH to be NULL
+    component_nh_it++;
+    intf_nh = static_cast<const InterfaceNH *>((*component_nh_it)->nh());
+    EXPECT_TRUE(intf_nh->GetInterface()->name() == "vnet3");
+    mpls = GetMplsLabel(MplsLabel::VPORT_NH,
+                        (*component_nh_it)->label());
+    intf_nh = static_cast<const InterfaceNH *>(mpls->nexthop());
+    EXPECT_TRUE(intf_nh->GetInterface()->name() == "vnet3");
+
+    //Create Vmport again
+    CreateVmportWithEcmp(input1, 1);
+    client->WaitForIdle();
+    comp_nh = static_cast<const CompositeNH *>(rt->GetActiveNextHop());
+    EXPECT_TRUE(comp_nh->ComponentNHCount() == 4);
+
+    //Verify all the component NH have right label and nexthop
+    component_nh_it = comp_nh->begin();
+    intf_nh = static_cast<const InterfaceNH *>((*component_nh_it)->nh());
+    EXPECT_TRUE(intf_nh->GetInterface()->name() == "vnet1");
+    mpls = GetMplsLabel(MplsLabel::VPORT_NH,
+                       (*component_nh_it)->label());
+    intf_nh = static_cast<const InterfaceNH *>(mpls->nexthop());
+    EXPECT_TRUE(intf_nh->GetInterface()->name() == "vnet1");
+
+    component_nh_it++;
+    component_nh_it++;
+    intf_nh = static_cast<const InterfaceNH *>((*component_nh_it)->nh());
+    EXPECT_TRUE(intf_nh->GetInterface()->name() == "vnet2");
+    mpls = GetMplsLabel(MplsLabel::VPORT_NH,
+                        (*component_nh_it)->label());
+    intf_nh = static_cast<const InterfaceNH *>(mpls->nexthop());
+    EXPECT_TRUE(intf_nh->GetInterface()->name() == "vnet2");
+
+    component_nh_it++;
+    intf_nh = static_cast<const InterfaceNH *>((*component_nh_it)->nh());
+    EXPECT_TRUE(intf_nh->GetInterface()->name() == "vnet3");
+    mpls = GetMplsLabel(MplsLabel::VPORT_NH,
+                        (*component_nh_it)->label());
+    intf_nh = static_cast<const InterfaceNH *>(mpls->nexthop());
+    EXPECT_TRUE(intf_nh->GetInterface()->name() == "vnet3");
+
+
+    DeleteVmportEnv(input1, 1, false);
+    DeleteVmportEnv(input2, 1, false);
+    DeleteVmportEnv(input3, 1, true);
+    client->WaitForIdle();
+    EXPECT_FALSE(RouteFind("vrf1", ip, 32));
+
+    WAIT_FOR(100, 1000, (VrfFind("vrf1") == false));
+}
+
+//Add multiple remote routes with same set of composite NH
+//make sure they share the composite NH
+TEST_F(CfgTest, EcmpNH_8) {
+    AddVrf("vrf1");
+    client->WaitForIdle();
+
+    Ip4Address remote_server_ip1 = Ip4Address::from_string("10.10.10.100");
+    Ip4Address remote_server_ip2 = Ip4Address::from_string("10.10.10.101");
+
+    ComponentNHKeyPtr nh_data1(new ComponentNHKey(30, agent_->fabric_vrf_name(),
+                                                  agent_->router_id(),
+                                                  remote_server_ip1,
+                                                  false,
+                                                  TunnelType::DefaultType()));
+    ComponentNHKeyPtr nh_data2(new ComponentNHKey(20, agent_->fabric_vrf_name(),
+                                                  agent_->router_id(),
+                                                  remote_server_ip2,
+                                                  false,
+                                                  TunnelType::DefaultType()));
+
+    ComponentNHKeyList comp_nh_list;
+    comp_nh_list.push_back(nh_data1);
+    comp_nh_list.push_back(nh_data2);
+
+    Ip4Address ip1 = Ip4Address::from_string("100.1.1.1");
+    SecurityGroupList sg_id_list;
+    EcmpTunnelRouteAdd(bgp_peer, "vrf1", ip1, 32,
+            comp_nh_list, false, "vn1", sg_id_list, PathPreference());
+    client->WaitForIdle();
+
+    Ip4Address ip2 = Ip4Address::from_string("100.1.1.2");
+    EcmpTunnelRouteAdd(bgp_peer, "vrf1", ip2, 32,
+            comp_nh_list, false, "vn1", sg_id_list, PathPreference());
+    client->WaitForIdle();
+
+    Inet4UnicastRouteEntry *rt1 = RouteGet("vrf1", ip1, 32);
+    Inet4UnicastRouteEntry *rt2 = RouteGet("vrf1", ip2, 32);
+    EXPECT_TRUE(rt1->GetActiveNextHop()->GetType() == NextHop::COMPOSITE);
+    EXPECT_TRUE(rt1->GetActiveNextHop() == rt2->GetActiveNextHop());
+
+    const NextHop *nh = rt1->GetActiveNextHop();
+    //Change ip1 route nexthop to be unicast nexthop
+    //and ensure ip2 route still points to old composite nexthop
+    Inet4TunnelRouteAdd(bgp_peer, "vrf1", ip1, 32, remote_server_ip1,
+                        TunnelType::AllType(), 8, "vn1",
+                        SecurityGroupList(), PathPreference());
+    client->WaitForIdle();
+
+    EXPECT_TRUE(rt1->GetActiveNextHop()->GetType() == NextHop::TUNNEL);
+    EXPECT_TRUE(rt2->GetActiveNextHop() == nh);
+    client->WaitForIdle();
+
+    //Delete all the routes and make sure nexthop is also deleted
+    agent_->fabric_inet4_unicast_table()->
+        DeleteReq(bgp_peer, "vrf1", ip1, 32, NULL);
+    agent_->fabric_inet4_unicast_table()->
+        DeleteReq(bgp_peer, "vrf1", ip2, 32, NULL);
+    client->WaitForIdle();
+
+    CompositeNHKey composite_nh_key(Composite::ECMP, true, comp_nh_list, "vrf1");
+    EXPECT_FALSE(FindNH(&composite_nh_key));
+    DelVrf("vrf1");
+}
+
+//Add ECMP composite NH with no member
+TEST_F(CfgTest, EcmpNH_9) {
+    AddVrf("vrf1");
+    client->WaitForIdle();
+    ComponentNHKeyList comp_nh_list;
+    Ip4Address ip1 = Ip4Address::from_string("100.1.1.1");
+    Ip4Address remote_server_ip1 = Ip4Address::from_string("10.1.1.10");
+    SecurityGroupList sg_id_list;
+    EcmpTunnelRouteAdd(bgp_peer, "vrf1", ip1, 32,
+            comp_nh_list, false, "vn1", sg_id_list, PathPreference());
+    client->WaitForIdle();
+
+    Inet4UnicastRouteEntry *rt1 = RouteGet("vrf1", ip1, 32);
+    EXPECT_TRUE(rt1->GetActiveNextHop()->GetType() == NextHop::COMPOSITE);
+
+    const NextHop *nh = rt1->GetActiveNextHop();
+    //Change ip1 route nexthop to be unicast nexthop
+    Inet4TunnelRouteAdd(bgp_peer, "vrf1", ip1, 32, remote_server_ip1,
+                        TunnelType::AllType(), 8, "vn1",
+                        SecurityGroupList(), PathPreference());
+    client->WaitForIdle();
+
+    EXPECT_TRUE(rt1->GetActiveNextHop()->GetType() == NextHop::TUNNEL);
+    client->WaitForIdle();
+
+    //Delete all the routes and make sure nexthop is also deleted
+    agent_->fabric_inet4_unicast_table()->
+        DeleteReq(bgp_peer, "vrf1", ip1, 32, NULL);
+    client->WaitForIdle();
+
+    CompositeNHKey composite_nh_key(Composite::ECMP, true, comp_nh_list, "vrf1");
+    EXPECT_FALSE(FindNH(&composite_nh_key));
+    DelVrf("vrf1");
+}
+
+//Add 2 routes with different composite NH
+//Modify the routes, to point to same composite NH
+//and ensure both routes would share same nexthop
+TEST_F(CfgTest, EcmpNH_10) {
+    AddVrf("vrf1");
+    client->WaitForIdle();
+
+    Ip4Address remote_server_ip1 = Ip4Address::from_string("10.10.10.100");
+    Ip4Address remote_server_ip2 = Ip4Address::from_string("10.10.10.101");
+    Ip4Address remote_server_ip3 = Ip4Address::from_string("10.10.10.102");
+
+    ComponentNHKeyPtr nh_data1(new ComponentNHKey(30, agent_->fabric_vrf_name(),
+                                                  agent_->router_id(),
+                                                  remote_server_ip1,
+                                                  false,
+                                                  TunnelType::DefaultType()));
+    ComponentNHKeyPtr nh_data2(new ComponentNHKey(20, agent_->fabric_vrf_name(),
+                                                  agent_->router_id(),
+                                                  remote_server_ip2,
+                                                  false,
+                                                  TunnelType::DefaultType()));
+    ComponentNHKeyPtr nh_data3(new ComponentNHKey(20, agent_->fabric_vrf_name(),
+                                                  agent_->router_id(),
+                                                  remote_server_ip3,
+                                                  false,
+                                                  TunnelType::DefaultType()));
+    ComponentNHKeyList comp_nh_list1;
+    comp_nh_list1.push_back(nh_data1);
+    comp_nh_list1.push_back(nh_data2);
+
+    Ip4Address ip1 = Ip4Address::from_string("100.1.1.1");
+    SecurityGroupList sg_id_list;
+    EcmpTunnelRouteAdd(bgp_peer, "vrf1", ip1, 32,
+            comp_nh_list1, false, "vn1", sg_id_list, PathPreference());
+    client->WaitForIdle();
+
+    ComponentNHKeyList comp_nh_list2;
+    comp_nh_list2.push_back(nh_data3);
+    comp_nh_list2.push_back(nh_data2);
+
+    Ip4Address ip2 = Ip4Address::from_string("100.1.1.2");
+    EcmpTunnelRouteAdd(bgp_peer, "vrf1", ip2, 32,
+            comp_nh_list2, false, "vn1", sg_id_list, PathPreference());
+    client->WaitForIdle();
+
+    Inet4UnicastRouteEntry *rt1 = RouteGet("vrf1", ip1, 32);
+    Inet4UnicastRouteEntry *rt2 = RouteGet("vrf1", ip2, 32);
+    EXPECT_TRUE(rt1->GetActiveNextHop()->GetType() == NextHop::COMPOSITE);
+    EXPECT_TRUE(rt1->GetActiveNextHop() != rt2->GetActiveNextHop());
+
+    const NextHop *nh = rt1->GetActiveNextHop();
+    //Change ip2 route, such that ip1 route and ip2 route
+    //should share same nexthop
+    EcmpTunnelRouteAdd(bgp_peer, "vrf1", ip2, 32,
+                       comp_nh_list1, false, "vn1", sg_id_list,
+                       PathPreference());
+    client->WaitForIdle();
+
+    EXPECT_TRUE(rt1->GetActiveNextHop() == rt2->GetActiveNextHop());
+    EXPECT_TRUE(rt2->GetActiveNextHop() == nh);
+    EXPECT_TRUE(rt2->GetActiveNextHop()->GetType() == NextHop::COMPOSITE);
+    //Make sure old nexthop is deleted
+    CompositeNHKey composite_nh_key2(Composite::ECMP, true, comp_nh_list2, "vrf1");
+    EXPECT_FALSE(FindNH(&composite_nh_key2));
+    CompositeNHKey composite_nh_key1(Composite::ECMP, true, comp_nh_list1, "vrf1");
+    EXPECT_TRUE(GetNH(&composite_nh_key1)->GetRefCount() == 2);
+
+    //Delete all the routes and make sure nexthop is also deleted
+    agent_->fabric_inet4_unicast_table()->
+        DeleteReq(bgp_peer, "vrf1", ip1, 32, NULL);
+    agent_->fabric_inet4_unicast_table()->
+        DeleteReq(bgp_peer, "vrf1", ip2, 32, NULL);
+    client->WaitForIdle();
+
+    EXPECT_FALSE(FindNH(&composite_nh_key1));
+    DelVrf("vrf1");
+}
+
+//Add 2 routes with different composite NH
+//Modify the routes, to point to same composite NH
+//and ensure both routes would share same nexthop
+TEST_F(CfgTest, EcmpNH_11) {
+    AddVrf("vrf1");
+    client->WaitForIdle();
+
+    Ip4Address remote_server_ip1 = Ip4Address::from_string("10.10.10.100");
+    Ip4Address remote_server_ip2 = Ip4Address::from_string("10.10.10.101");
+    Ip4Address remote_server_ip3 = Ip4Address::from_string("10.10.10.102");
+
+    ComponentNHKeyPtr nh_data1(new ComponentNHKey(30, agent_->fabric_vrf_name(),
+                                                  agent_->router_id(),
+                                                  remote_server_ip1,
+                                                  false,
+                                                  TunnelType::DefaultType()));
+    ComponentNHKeyPtr nh_data2(new ComponentNHKey(20, agent_->fabric_vrf_name(),
+                                                  agent_->router_id(),
+                                                  remote_server_ip2,
+                                                  false,
+                                                  TunnelType::DefaultType()));
+    ComponentNHKeyPtr nh_data3(new ComponentNHKey(20, agent_->fabric_vrf_name(),
+                                                  agent_->router_id(),
+                                                  remote_server_ip3,
+                                                  false,
+                                                  TunnelType::DefaultType()));
+    ComponentNHKeyList comp_nh_list1;
+    comp_nh_list1.push_back(nh_data1);
+    comp_nh_list1.push_back(nh_data2);
+
+    Ip4Address ip1 = Ip4Address::from_string("100.1.1.1");
+    SecurityGroupList sg_id_list;
+    EcmpTunnelRouteAdd(bgp_peer, "vrf1", ip1, 32,
+            comp_nh_list1, false, "vn1", sg_id_list, PathPreference());
+    client->WaitForIdle();
+
+    ComponentNHKeyList comp_nh_list2;
+    comp_nh_list2.push_back(nh_data1);
+    comp_nh_list2.push_back(nh_data2);
+    comp_nh_list2.push_back(nh_data3);
+
+    Ip4Address ip2 = Ip4Address::from_string("100.1.1.2");
+    EcmpTunnelRouteAdd(bgp_peer, "vrf1", ip2, 32,
+            comp_nh_list2, false, "vn1", sg_id_list, PathPreference());
+    client->WaitForIdle();
+
+    Inet4UnicastRouteEntry *rt1 = RouteGet("vrf1", ip1, 32);
+    Inet4UnicastRouteEntry *rt2 = RouteGet("vrf1", ip2, 32);
+    EXPECT_TRUE(rt1->GetActiveNextHop()->GetType() == NextHop::COMPOSITE);
+    EXPECT_TRUE(rt1->GetActiveNextHop() != rt2->GetActiveNextHop());
+    CompositeNHKey composite_nh_key1(Composite::ECMP, true, comp_nh_list1, "vrf1");
+    CompositeNHKey composite_nh_key2(Composite::ECMP, true, comp_nh_list2, "vrf1");
+    CompositeNH *composite_nh1 =
+        static_cast<CompositeNH *>(GetNH(&composite_nh_key1));
+    EXPECT_TRUE(composite_nh1->GetRefCount() == 1);
+    EXPECT_TRUE(composite_nh1->ComponentNHCount() == 2);
+
+    CompositeNH *composite_nh2 =
+        static_cast<CompositeNH *>(GetNH(&composite_nh_key2));
+    EXPECT_TRUE(composite_nh2->GetRefCount() == 1);
+    EXPECT_TRUE(composite_nh2->ComponentNHCount() == 3);
+
+    //Change ip1 route, such that ip1 route and ip2 route
+    //should share same nexthop
+    EcmpTunnelRouteAdd(bgp_peer, "vrf1", ip1, 32,
+                       comp_nh_list2, false, "vn1", sg_id_list,
+                       PathPreference());
+    client->WaitForIdle();
+
+    EXPECT_TRUE(rt1->GetActiveNextHop() == rt2->GetActiveNextHop());
+    EXPECT_TRUE(rt2->GetActiveNextHop() == composite_nh2);
+    EXPECT_TRUE(rt2->GetActiveNextHop()->GetType() == NextHop::COMPOSITE);
+    //Make sure old nexthop is deleted
+    EXPECT_TRUE(composite_nh2->GetRefCount() == 2);
+    EXPECT_TRUE(composite_nh2->ComponentNHCount() == 3);
+
+    //Delete all the routes and make sure nexthop is also deleted
+    agent_->fabric_inet4_unicast_table()->
+        DeleteReq(bgp_peer, "vrf1", ip1, 32, NULL);
+    agent_->fabric_inet4_unicast_table()->
+        DeleteReq(bgp_peer, "vrf1", ip2, 32, NULL);
+    client->WaitForIdle();
+
+    EXPECT_FALSE(FindNH(&composite_nh_key1));
+    DelVrf("vrf1");
+}
+
+//Add a route pointing to tunnel NH
+//Change the route to point to ECMP composite NH with no member
+TEST_F(CfgTest, EcmpNH_12) {
+    AddVrf("vrf1");
+    client->WaitForIdle();
+
+    Ip4Address ip1 = Ip4Address::from_string("100.1.1.1");
+    Ip4Address remote_server_ip1 = Ip4Address::from_string("10.1.1.10");
+    SecurityGroupList sg_id_list;
+
+    //Change ip1 route nexthop to be unicast nexthop
+    Inet4TunnelRouteAdd(bgp_peer, "vrf1", ip1, 32, remote_server_ip1,
+                        TunnelType::AllType(), 8, "vn1",
+                        SecurityGroupList(), PathPreference());
+    client->WaitForIdle();
+
+    Inet4UnicastRouteEntry *rt1 = RouteGet("vrf1", ip1, 32);
+    EXPECT_TRUE(rt1->GetActiveNextHop()->GetType() == NextHop::TUNNEL);
+    client->WaitForIdle();
+
+    ComponentNHKeyList comp_nh_list;
+    EcmpTunnelRouteAdd(bgp_peer, "vrf1", ip1, 32,
+            comp_nh_list, false, "vn1", sg_id_list, PathPreference());
+    client->WaitForIdle();
+
+    rt1 = RouteGet("vrf1", ip1, 32);
+    EXPECT_TRUE(rt1->GetActiveNextHop()->GetType() == NextHop::COMPOSITE);
+
+    //Delete all the routes and make sure nexthop is also deleted
+    agent_->fabric_inet4_unicast_table()->
+        DeleteReq(bgp_peer, "vrf1", ip1, 32, NULL);
+    client->WaitForIdle();
+
+    CompositeNHKey composite_nh_key(Composite::ECMP, true, comp_nh_list, "vrf1");
+    EXPECT_FALSE(FindNH(&composite_nh_key));
+    DelVrf("vrf1");
+}
+
+//Verify renewal of composite NH
+TEST_F(CfgTest, EcmpNH_13) {
+    AddVrf("vrf1");
+    client->WaitForIdle();
+    Ip4Address remote_server_ip1 = Ip4Address::from_string("10.10.10.100");
+    Ip4Address remote_server_ip2 = Ip4Address::from_string("10.10.10.101");
+
+    ComponentNHKeyPtr nh_data1(new ComponentNHKey(30, agent_->fabric_vrf_name(),
+                                                  agent_->router_id(),
+                                                  remote_server_ip1,
+                                                  false,
+                                                  TunnelType::DefaultType()));
+    ComponentNHKeyPtr nh_data2(new ComponentNHKey(20, agent_->fabric_vrf_name(),
+                                                  agent_->router_id(),
+                                                  remote_server_ip2,
+                                                  false,
+                                                  TunnelType::DefaultType()));
+    ComponentNHKeyList comp_nh_list;
+    comp_nh_list.push_back(nh_data1);
+    comp_nh_list.push_back(nh_data2);
+
+    Ip4Address ip1 = Ip4Address::from_string("100.1.1.1");
+    SecurityGroupList sg_id_list;
+    EcmpTunnelRouteAdd(bgp_peer, "vrf1", ip1, 32,
+            comp_nh_list, false, "vn1", sg_id_list, PathPreference());
+    client->WaitForIdle();
+
+    //Delete composite NH
+    CompositeNHKey composite_nh_key(Composite::ECMP, true, comp_nh_list, "vrf1");
+    const CompositeNH *comp_nh = static_cast<const CompositeNH *>(
+            GetNH(&composite_nh_key));
+    EXPECT_TRUE(comp_nh->ComponentNHCount() == 2);
+
+    DBRequest req;
+    req.oper = DBRequest::DB_ENTRY_DELETE;
+    NextHopKey *key = new CompositeNHKey(Composite::ECMP, true,
+                                         comp_nh_list, "vrf1");
+    req.key.reset(key);
+    req.data.reset(NULL);
+    NextHopTable::GetInstance()->Enqueue(&req);
+    client->WaitForIdle();
+    EXPECT_TRUE(comp_nh->ActiveComponentNHCount() == 0);
+    client->NextHopReset();
+
+    req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
+    key = new CompositeNHKey(Composite::ECMP, true,
+                             comp_nh_list, "vrf1");
+    req.key.reset(key);
+    req.data.reset(NULL);
+    NextHopTable::GetInstance()->Enqueue(&req);
+    client->WaitForIdle();
+    client->CompositeNHWait(1);
+    EXPECT_TRUE(comp_nh->ComponentNHCount() == 2);
+ 
+    //Delete all the routes and make sure nexthop is also deleted
+    agent_->fabric_inet4_unicast_table()->
+        DeleteReq(bgp_peer, "vrf1", ip1, 32, NULL);
+    client->WaitForIdle();
+
+    EXPECT_FALSE(FindNH(&composite_nh_key));
+    DelVrf("vrf1");
 }
 
 TEST_F(CfgTest, TunnelType_1) {
@@ -1145,33 +1677,38 @@ TEST_F(CfgTest, Nexthop_keys) {
     client->WaitForIdle();
 
     //CompositeNHKey
-    CompositeNHKey key("vrf10", IpAddress::from_string("255.255.255.255").to_v4(),     
-                       IpAddress::from_string("0.0.0.0").to_v4(), false,Composite::L3COMP);
-    CompositeNH *cnh = static_cast<CompositeNH *>(agent_->nexthop_table()->
-                                                  FindActiveEntry(&key));
-    cnh->SetKey(cnh->GetDBRequestKey().release());
-
-    //Composite NH key ECMP local
+    Ip4Address remote_server_ip1 = Ip4Address::from_string("10.10.10.100");
+    Ip4Address remote_server_ip2 = Ip4Address::from_string("10.10.10.101");
+    ComponentNHKeyList component_nh_key_list;
+    ComponentNHKeyPtr nh_data1(new ComponentNHKey(30, agent_->fabric_vrf_name(),
+                                                  agent_->router_id(),
+                                                  remote_server_ip1,
+                                                  false,
+                                                  TunnelType::DefaultType()));
+    ComponentNHKeyPtr nh_data2(new ComponentNHKey(20,
+                                                  agent_->fabric_vrf_name(),
+                                                  agent_->router_id(),
+                                                  remote_server_ip2,
+                                                  false,
+                                                  TunnelType::DefaultType()));
+    //Composite NH key
     DBRequest comp_nh_req;
     comp_nh_req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
-    comp_nh_req.key.reset(new CompositeNHKey("vrf10", 
-                                             Ip4Address::from_string("1.1.1.1"),
-                                             32, true));
-    comp_nh_req.data.reset(new CompositeNHData(CompositeNHData::ADD));
+    comp_nh_req.key.reset(new CompositeNHKey(Composite::ECMP, true,
+                                             component_nh_key_list, "vrf10"));
+    comp_nh_req.data.reset(new CompositeNHData());
     agent_->nexthop_table()->Enqueue(&comp_nh_req);
     client->WaitForIdle();
-    CompositeNHKey find_cnh_key("vrf10",
-                                Ip4Address::from_string("1.1.1.1"),
-                                32, true);
+    CompositeNHKey find_cnh_key(Composite::ECMP, true, component_nh_key_list, "vrf10");
     EXPECT_TRUE(agent_->nexthop_table()->
                 FindActiveEntry(&find_cnh_key) != NULL);
     DoNextHopSandesh();
     DBRequest del_comp_nh_req;
     del_comp_nh_req.oper = DBRequest::DB_ENTRY_DELETE;
-    del_comp_nh_req.key.reset(new CompositeNHKey("vrf10", 
-                                             Ip4Address::from_string("1.1.1.1"),
-                                             32, true));
-    del_comp_nh_req.data.reset(new CompositeNHData(CompositeNHData::ADD));
+    del_comp_nh_req.key.reset(new CompositeNHKey(Composite::ECMP, true,
+                                                 component_nh_key_list,
+                                                 "vrf10"));
+    del_comp_nh_req.data.reset(new CompositeNHData());
     agent_->nexthop_table()->Enqueue(&del_comp_nh_req);
     client->WaitForIdle();
 
@@ -1354,19 +1891,29 @@ TEST_F(CfgTest, Nexthop_invalid_vrf) {
                 FindActiveEntry(&find_vlan_nh_key) == NULL);
 
     //Composite NH
+    Ip4Address remote_server_ip1 = Ip4Address::from_string("10.10.10.100");
+    Ip4Address remote_server_ip2 = Ip4Address::from_string("10.10.10.101");
+    ComponentNHKeyList component_nh_key_list;
+    ComponentNHKeyPtr nh_data1(new ComponentNHKey(30, agent_->fabric_vrf_name(),
+                                                  agent_->router_id(),
+                                                  remote_server_ip1,
+                                                  false,
+                                                  TunnelType::DefaultType()));
+    ComponentNHKeyPtr nh_data2(new ComponentNHKey(20,
+                                                  agent_->fabric_vrf_name(),
+                                                  agent_->router_id(),
+                                                  remote_server_ip2,
+                                                  false,
+                                                  TunnelType::DefaultType()));
     DBRequest comp_nh_req;
     comp_nh_req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
-    comp_nh_req.key.reset(new CompositeNHKey("vrf11", 
-                                             Ip4Address::from_string("255.255.255.255"), 
-                                             Ip4Address::from_string("0.0.0.0"), 
-                                             false, Composite::L3COMP));
-    comp_nh_req.data.reset(new CompositeNHData(CompositeNHData::ADD));
+    comp_nh_req.key.reset(new CompositeNHKey(Composite::L3COMP, false, component_nh_key_list,
+                                             "vrf11"));
+    comp_nh_req.data.reset(new CompositeNHData());
+
     agent_->nexthop_table()->Enqueue(&comp_nh_req);
     client->WaitForIdle();
-    CompositeNHKey find_cnh_key("vrf11",
-                                Ip4Address::from_string("255.255.255.255"),
-                                Ip4Address::from_string("0.0.0.0"),
-                                false, Composite::L3COMP);
+    CompositeNHKey find_cnh_key(Composite::L3COMP, false, component_nh_key_list, "vrf11");
     EXPECT_TRUE(agent_->nexthop_table()->
                 FindActiveEntry(&find_cnh_key) == NULL);
 
@@ -1383,6 +1930,5 @@ int main(int argc, char **argv) {
     client->WaitForIdle();
     TestShutdown();
     delete client;
-    return ret;
     return ret;
 }

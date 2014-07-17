@@ -20,7 +20,6 @@
 #include <oper/interface_common.h>
 #include <oper/nexthop.h>
 #include <oper/peer.h>
-#include <oper/mpls.h>
 #include <oper/agent_types.h>
 #include <oper/multicast.h>
 #include <controller/controller_peer.h>

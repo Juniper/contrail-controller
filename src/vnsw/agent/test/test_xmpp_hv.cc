@@ -245,6 +245,7 @@ TEST_F(AgentBasicScaleTest, multicast_one_channel_down_up_skip_route_from_peer) 
     EXPECT_TRUE(Agent::GetInstance()->controller()->multicast_cleanup_timer().cleanup_timer_->running());
 
     //Fire the timer
+    client->WaitForIdle();
     TaskScheduler::GetInstance()->Stop();
     Agent::GetInstance()->controller()->multicast_cleanup_timer().cleanup_timer_->Fire();
     TaskScheduler::GetInstance()->Start();
@@ -522,6 +523,7 @@ TEST_F(AgentBasicScaleTest, unicast_one_channel_down_up_skip_route_from_peer) {
     TaskScheduler::GetInstance()->Stop();
     Agent::GetInstance()->controller()->multicast_cleanup_timer().cleanup_timer_->Fire();
     TaskScheduler::GetInstance()->Start();
+    client->WaitForIdle();
     mc_addr = Ip4Address::from_string("1.1.1.255");
     mcobj = MulticastHandler::GetInstance()->FindGroupObject("vrf1", mc_addr);
     EXPECT_TRUE(mcobj != NULL);

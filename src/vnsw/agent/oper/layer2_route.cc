@@ -120,9 +120,20 @@ void Layer2AgentRouteTable::AddLocalVmRoute(const Peer *peer,
 
 void Layer2AgentRouteTable::AddLayer2BroadcastRoute(const string &vrf_name,
                                                     const string &vn_name,
-                                                    const Ip4Address &dip,
-                                                    const Ip4Address &sip,
-                                                    int vxlan_id) {
+                                                    int vxlan_id,
+                                                    ComponentNHKeyList
+                                                    &component_nh_key_list) {
+    DBRequest nh_req;
+    NextHopKey *nh_key;
+    CompositeNHData *nh_data;
+
+    nh_key = new CompositeNHKey(Composite::L2COMP, false, component_nh_key_list,
+                                vrf_name);
+    nh_req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
+    nh_req.key.reset(nh_key);
+    nh_data = new CompositeNHData();
+    nh_req.data.reset(nh_data);
+
     DBRequest req;
     req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
 
@@ -130,8 +141,7 @@ void Layer2AgentRouteTable::AddLayer2BroadcastRoute(const string &vrf_name,
         new Layer2RouteKey(Agent::GetInstance()->local_vm_peer(), vrf_name);
     req.key.reset(key);
 
-    MulticastRoute *data = new MulticastRoute(sip, dip, vn_name, vrf_name, vxlan_id,
-                                              Composite::L2COMP); 
+    MulticastRoute *data = new MulticastRoute(vn_name, vxlan_id, nh_req);
     req.data.reset(data);
     Layer2TableEnqueue(Agent::GetInstance(), vrf_name, &req);
 }
