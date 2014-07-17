@@ -238,8 +238,9 @@ TEST_F(BgpXmppUnitTest, TestSessionUpDown) {
     TASK_UTIL_EXPECT_EQ(0, ts->GetSessionCount());
 
     if (!xs_a_->IsPeerCloseGraceful()) {
-        TASK_UTIL_EXPECT_TRUE((sconnection = xs_a_->FindConnection(SUB_ADDR)) ==
-                NULL);
+        // Ensure XmppConnection is removed both from connection_map_
+        // and deleted_connection_set_
+        TASK_UTIL_EXPECT_TRUE(xs_a_->ConnectionsCount() == 0);
         EXPECT_TRUE(bgp_channel_manager_->FindChannel(SUB_ADDR) == NULL);
     } else {
         TASK_UTIL_EXPECT_TRUE((sconnection = xs_a_->FindConnection(SUB_ADDR)) !=
