@@ -51,6 +51,11 @@ except:
     #python2.6
     from ordereddict import OrderedDict
 import jsonpickle
+from pysandesh.connection_info import ConnectionState
+from pysandesh.gen_py.connection_info.ttypes import ConnectionStatus, \
+    ConnectionType
+from cfgm_common.uve.cfgm_cpuinfo.ttypes import ConfigProcessStatusUVE, \
+    ConfigProcessStatus
 
 _BGP_RTGT_MAX_ID = 1 << 24
 _BGP_RTGT_ALLOC_PATH = "/id/bgp/route-targets/"
@@ -2563,8 +2568,9 @@ class SchemaTransformer(object):
         node_type = Module2NodeType[module]
         node_type_name = NodeTypeNames[node_type]
         instance_id = INSTANCE_ID_DEFAULT
+        hostname = socket.gethostname()
         _sandesh.init_generator(
-            module_name, socket.gethostname(), node_type_name, instance_id,
+            module_name, hostname, node_type_name, instance_id,
             self._args.collectors, 'to_bgp_context',
             int(args.http_server_port),
             ['cfgm_common', 'schema_transformer.sandesh'], self._disc)
@@ -2574,6 +2580,9 @@ class SchemaTransformer(object):
                                     file=args.log_file,
                                     enable_syslog=args.use_syslog,
                                     syslog_facility=args.syslog_facility)
+        ConnectionState.init(_sandesh, hostname, module_name,
+                instance_id, self._get_process_connectivity_status,
+                ConfigProcessStatusUVE, ConfigProcessStatus)
 
         # create cpu_info object to send periodic updates
         sysinfo_req = False
@@ -2582,6 +2591,14 @@ class SchemaTransformer(object):
         self._cpu_info = cpu_info
 
     # end __init__
+
+    def _get_process_connectivity_status(self, conn_infos):
+        for conn_info in conn_infos:
+            if conn_info.status != ConnectionStatusNames[ConnectionStatus.UP]:
+                return (ConnectivityStatus.NON_FUNCTIONAL,
+                        conn_info.type + ':' + conn_info.name)
+        return (ConnectivityStatus.FUNCTIONAL, '')
+    #end _get_process_connectivity_status
 
     def cleanup(self):
         # TODO cleanup sandesh context
@@ -3244,14 +3261,28 @@ class SchemaTransformer(object):
         server_idx = 0
         num_dbnodes = len(self._args.cassandra_server_list)
         connected = False
+        # Update connection info
+        ConnectionState.update(conn_type = ConnectionType.DATABASE,
+            name = 'Database', status = ConnectionStatus.INIT,
+            message = '', server_addrs = self._args.cassandra_server_list)
+
         while not connected:
             try:
                 cass_server = self._args.cassandra_server_list[server_idx]
                 sys_mgr = SystemManager(cass_server)
                 connected = True
             except Exception as e:
+                # Update connection info
+                ConnectionState.update(conn_type = ConnectionType.DATABASE,
+                    name = 'Database', status = ConnectionStatus.DOWN,
+                    message = '', server_addrs = [cass_server])
                 server_idx = (server_idx + 1) % num_dbnodes
                 time.sleep(3)
+
+       # Update connection info
+        ConnectionState.update(conn_type = ConnectionType.DATABASE,
+            name = 'Database', status = ConnectionStatus.UP,
+            message = '', server_addrs = self._args.cassandra_server_list)
 
         if self._args.reset_config:
             try:
@@ -3544,13 +3575,27 @@ def run_schema_transformer(args):
 
     # Retry till API server is up
     connected = False
+    ConnectionState.update(conn_type = ConnectionType.APISERVER,
+        name = 'ApiServer', status = ConnectionStatus.INIT,
+        message = '', server_addrs = ['%s:%s' % (args.api_server_ip,
+                                                 args.api_server_port)])
     while not connected:
         try:
             _vnc_lib = VncApi(
                 args.admin_user, args.admin_password, args.admin_tenant_name,
                 args.api_server_ip, args.api_server_port)
             connected = True
-        except requests.exceptions.ConnectionError:
+            ConnectionState.update(conn_type = ConnectionType.APISERVER,
+                name = 'ApiServer', status = ConnectionStatus.UP,
+                message = '', server_addrs = ['%s:%s    ' % (args.api_server_ip,
+                                                         args.api_server_port)])
+        except requests.exceptions.ConnectionError as e:
+            # Update connection info
+            ConnectionState.update(conn_type = ConnectionType.APISERVER,
+                name = 'ApiServer', status = ConnectionStatus.DOWN,
+                message = str(e),
+                server_addrs = ['%s:%s' % (args.api_server_ip,
+                                           args.api_server_port)])
             time.sleep(3)
         except ResourceExhaustionError:  # haproxy throws 503
             time.sleep(3)

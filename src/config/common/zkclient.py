@@ -194,9 +194,14 @@ class ZookeeperClient(object):
         self._zk_client.add_listener(self._zk_listener)
         self._logger = logger
         self._election = None
+        self._server_list = server_list
         # KazooRetry to retry keeper CRUD operations
         self._retry = KazooRetry(max_tries=None)
+
+        self._sandesh_connection_info_update(status='INIT', message='')
+
         self.connect()
+
     # end __init__
 
     # start 
@@ -208,12 +213,21 @@ class ZookeeperClient(object):
             except gevent.event.Timeout as e:
                 self.syslog(
                     'Failed to connect with Zookeeper -will retry in a second')
+                # Update connection info
+                self._sandesh_connection_info_update(status='DOWN',
+                                                     message=str(e))
                 gevent.sleep(1)
             # Zookeeper is also throwing exception due to delay in master election
             except Exception as e:
                 self.syslog('%s -will retry in a second' % (str(e)))
+                # Update connection info
+                self._sandesh_connection_info_update(status='DOWN',
+                                                     message=str(e))
                 gevent.sleep(1)
         self.syslog('Connected to ZooKeeper!')
+                # Update connection info
+        self._sandesh_connection_info_update(status='UP', message='')
+
     # end
 
     def is_connected(self):
@@ -230,11 +244,18 @@ class ZookeeperClient(object):
         if state == KazooState.CONNECTED:
             if self._election:
                 self._election.cancel()
+            # Update connection info
+            self._sandesh_connection_info_update(status='UP', message='')
         elif state == KazooState.LOST:
             # Lost the session with ZooKeeper Server
             # Best of option we have is to exit the process and restart all 
             # over again
             os._exit(2)
+        elif state == KazooState.CONNECTING:
+            # Update connection info
+            self._sandesh_connection_info_update(status='INIT',
+                message = 'Connection to zookeeper lost. Retrying')
+
     # end
 
     def _zk_election_callback(self, func, *args, **kwargs):
@@ -288,5 +309,15 @@ class ZookeeperClient(object):
         except Exception:
             return []
     # end read_node
+
+    def _sandesh_connection_info_update(self, status, message):
+        from pysandesh.connection_info import ConnectionState
+        from pysandesh.gen_py.connection_info.ttypes import ConnectionStatus, \
+            ConnectionType
+        ConnectionState.update(conn_type = ConnectionType.ZOOKEEPER,
+                name = 'Zookeeper', status = getattr(ConnectionStatus, status),
+                message = message,
+                server_addrs = [self._server_list])
+    # end _sandesh_connection_info_update
 
 # end class ZookeeperClient
