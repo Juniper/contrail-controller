@@ -5,6 +5,7 @@
 #include <boost/assign/list_of.hpp>
 #include <pkt/pkt_handler.h>
 #include <oper/mirror_table.h>
+#include <oper/vn.h>
 #include <pkt/pkt_init.h>
 #include <services/services_init.h>
 #include <services/dhcp_proto.h>

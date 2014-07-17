@@ -6,11 +6,14 @@
 #define vnsw_cfg_filter_h
 
 class AgentConfig;
+class DBTable;
+class IFMapNode;
+class DBRequest;
 
 class CfgFilter {
 public:
-    CfgFilter(AgentConfig *cfg) : agent_cfg_(cfg) { };
-    virtual ~CfgFilter() { };
+    CfgFilter(AgentConfig *cfg);
+    virtual ~CfgFilter();
 
     void Init();
     void Shutdown();

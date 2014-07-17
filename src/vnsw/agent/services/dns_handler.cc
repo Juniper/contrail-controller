@@ -12,6 +12,7 @@
 #include "base/timer.h"
 #include "oper/operdb_init.h"
 #include "oper/global_vrouter.h"
+#include "oper/vn.h"
 
 DnsHandler::DnsHandler(Agent *agent, boost::shared_ptr<PktInfo> info,
                        boost::asio::io_service &io)

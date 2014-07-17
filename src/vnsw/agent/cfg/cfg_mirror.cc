@@ -20,12 +20,18 @@
 #include <base/logging.h>
 
 #include <cmn/agent_cmn.h>
+#include <agent_types.h>
 
 #include <cfg/cfg_init.h>
 #include <cfg/cfg_mirror.h>
+#include <cfg/cfg_listener.h>
 
 #include <oper/vn.h>
 #include <oper/mirror_table.h>
+#include <oper/interface_common.h>
+
+#include <filter/traffic_action.h>
+#include <filter/acl_entry_match.h>
 #include <filter/acl_entry_spec.h>
 #include <filter/acl.h>
 

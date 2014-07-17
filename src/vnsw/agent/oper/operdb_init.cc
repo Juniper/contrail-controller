@@ -6,6 +6,7 @@
 #include <cmn/agent_cmn.h>
 #include <cmn/agent_param.h>
 #include <db/db.h>
+#include <base/task_trigger.h>
 #include <sandesh/sandesh_types.h>
 #include <sandesh/sandesh_constants.h>
 #include <sandesh/sandesh.h>
@@ -27,6 +28,7 @@
 #include <oper/global_vrouter.h>
 #include <oper/agent_route_encap.h>
 #include <oper/path_preference.h>
+#include <filter/acl.h>
 #include <oper/ifmap_dependency_manager.h>
 #include <base/task_trigger.h>
 #include <oper/namespace_manager.h>

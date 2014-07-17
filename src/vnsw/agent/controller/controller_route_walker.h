@@ -5,8 +5,7 @@
 #ifndef vnsw_controller_route_walker_hpp
 #define vnsw_controller_route_walker_hpp
 
-#include "cmn/agent_cmn.h"
-#include "oper/agent_route_walker.h"
+#include <oper/agent_route_walker.h>
 
 /*
  * Handles all kind of walks issued in context ofr controller i.e. bgp peer.

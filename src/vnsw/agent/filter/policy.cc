@@ -5,9 +5,9 @@
 #include <boost/uuid/string_generator.hpp>
 #include <boost/uuid/uuid_io.hpp>
 #include "base/logging.h"
-#include "vnsw/agent/filter/policy.h"
-#include "vnsw/agent/filter/acl.h"
-#include "vnsw/agent/filter/policy_config_spec.h"
+#include "filter/policy.h"
+#include "filter/acl.h"
+#include "filter/policy_config_spec.h"
 
 void PolicyData::Init(const PolicyConfigSpec &policy_cfg) {
     vpc_id_ = policy_cfg.vpc_id;

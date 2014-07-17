@@ -7,8 +7,14 @@
 
 #include <vector>
 #include <boost/uuid/uuid.hpp>
-#include "net/address.h"
+#include <net/address.h>
+
+#include <cmn/agent_cmn.h>
+#include <cmn/agent.h>
 #include <vnc_cfg_types.h>
+
+#include <filter/traffic_action.h>
+#include <filter/acl_entry_match.h>
 
 struct RangeSpec {
     uint16_t min;

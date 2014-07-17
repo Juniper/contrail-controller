@@ -5,15 +5,12 @@
 #ifndef multicast_agent_oper_hpp
 #define multicast_agent_oper_hpp
 
-#include <oper/nexthop.h>
-#include <oper/route_common.h>
 #include <netinet/in.h>
 #include <net/ethernet.h>
 #include <cmn/agent_cmn.h>
-#include <oper/vrf.h>
-#include <oper/interface_common.h>
-#include <oper/agent_types.h>
-#include <sandesh/sandesh_trace.h>
+#include <cmn/agent.h>
+#include <oper/nexthop.h>
+#include <oper/vn.h>
 
 using namespace boost::uuids;
 

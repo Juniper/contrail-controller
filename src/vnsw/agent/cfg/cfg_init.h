@@ -15,6 +15,8 @@ class CfgFilter;
 class CfgListener;
 class InterfaceCfgClient;
 class DiscoveryAgentClient;
+class MirrorCfgTable;
+class IntfMirrorCfgTable;
 
 class AgentConfig  {
 public:

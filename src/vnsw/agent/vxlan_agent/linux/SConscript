@@ -1,0 +1,41 @@
+#
+# Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
+#
+
+import sys
+if sys.platform == 'darwin':
+    Return()
+
+import re
+import time
+import subprocess
+
+Import('AgentEnv')
+env = AgentEnv.Clone()
+
+env.GenerateBuildInfoCode(
+    target='buildinfo.cc',
+    source = ['main.cc'],
+    path=str(Dir('.').abspath))
+
+env = AgentEnv.RemoveExceptionFlag(env)
+env.AppendUnique(CCFLAGS='-Wno-reorder')
+env.AppendUnique(CCFLAGS='-Wno-return-type')
+
+linux_vxlan_agent = env.Program(target = 'linux_vxlan_agent',
+                                source = [
+                                          'buildinfo.cc',
+                                          'linux_vxlan.cc',
+                                          'linux_vxlan_agent_init.cc',
+                                          'main.cc',
+                                          '../ksync_vxlan.cc',
+                                          '../ksync_vxlan_bridge.cc',
+                                          '../ksync_vxlan_route.cc',
+                                          '../ksync_vxlan_port.cc',
+                                         ])
+
+env.Alias('agent:linux_vxlan_agent', linux_vxlan_agent)
+
+# Local Variables:
+# mode: python
+# End:

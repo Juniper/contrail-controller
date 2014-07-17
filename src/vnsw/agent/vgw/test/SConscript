@@ -23,4 +23,3 @@ test = env.TestSuite('agent-test', vgw_test_suite)
 env.Alias('agent:vgw', test)
 env.Alias('controller/src/vnsw/agent/vgw:test', test)
 Return('vgw_test_suite')
-

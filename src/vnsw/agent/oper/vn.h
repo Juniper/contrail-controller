@@ -5,13 +5,9 @@
 #ifndef vnsw_agent_vn_hpp
 #define vnsw_agent_vn_hpp
 
-#include <sandesh/sandesh_types.h>
-#include <sandesh/sandesh.h>
 #include <cmn/agent_cmn.h>
+#include <cmn/agent.h>
 #include <oper/agent_types.h>
-#include <filter/acl.h>
-#include <oper/vrf.h>
-#include <oper/vxlan.h>
 #include <oper/oper_dhcp_options.h>
 
 using namespace boost::uuids;

@@ -2,6 +2,7 @@
  * Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
  */
 
+#include <kstate/kstate.h>
 #include "kstate_io_context.h"
 #include "ksync/ksync_types.h"
 

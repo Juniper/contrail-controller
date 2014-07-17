@@ -6,10 +6,10 @@
 #define __VNSW_CONTROLLER_INIT_HPP__
 
 #include <sandesh/sandesh_trace.h>
-#include <discovery_client.h>
+#include <discovery/client/discovery_client.h>
 #include <boost/scoped_ptr.hpp>
 #include <boost/shared_ptr.hpp>
-#include "controller/controller_cleanup_timer.h"
+#include <controller/controller_cleanup_timer.h>
 
 class AgentXmppChannel;
 class AgentDnsXmppChannel;

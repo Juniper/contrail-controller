@@ -5,11 +5,6 @@
 #ifndef vnsw_agent_flow_kstate_h
 #define vnsw_agent_flow_kstate_h
 
-#include "base/task.h"
-#include "pkt/flow_table.h"
-#include <vr_flow.h>
-#include <vr_mirror.h>
-
 class FlowKState : public Task {
  public:
     FlowKState(Agent *agent, const std::string &resp_ctx, int idx);

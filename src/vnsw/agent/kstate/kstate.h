@@ -5,25 +5,19 @@
 #ifndef vnsw_agent_kstate_h
 #define vnsw_agent_kstate_h
 
-#include <boost/asio.hpp>
-#include <boost/bind.hpp>
-
-#include <base/logging.h>
-#include <db/db_entry.h>
-#include <db/db_table.h>
-#include <db/db_table_partition.h>
+#include <cmn/agent_cmn.h>
+#include <vr_types.h>
+#include <vr_flow.h>
+#include <kstate/kstate_types.h>
 
 #include <ksync/ksync_index.h>
 #include <ksync/ksync_entry.h>
 #include <ksync/ksync_object.h>
 #include <ksync/ksync_netlink.h>
 #include <ksync/ksync_sock.h>
-
-#include <sandesh/sandesh_types.h>
-#include <sandesh/sandesh.h>
-#include "vr_types.h"
-#include "kstate/kstate_types.h"
-#include "nl_util.h"
+#include <ksync/ksync_netlink.h>
+#include <ksync/ksync_types.h>
+#include <ksync/agent_ksync_types.h>
 
 class KState : public AgentSandeshContext {
 public:

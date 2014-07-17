@@ -10,8 +10,13 @@
 #include <cmn/agent_cmn.h>
 #include <cmn/agent.h>
 #include <cmn/agent_param.h>
+#include <cmn/agent_db.h>
+
+#include <cfg/cfg_init.h>
+#include <cfg/cfg_listener.h>
 #include <cfg/cfg_interface_listener.h>
 #include <cfg/cfg_interface.h>
+
 #include <oper/agent_types.h>
 #include <oper/interface_common.h>
 #include <oper/vm.h>
