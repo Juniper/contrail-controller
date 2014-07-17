@@ -41,8 +41,10 @@ class DiscoveryCassendraClient():
                 [disco_cf_info])
 
         pool = pycassa.ConnectionPool(self._keyspace_name,
-                                      server_list, max_overflow = -1,
-                                      pool_timeout=300, max_retries=100, timeout=300)
+                                      server_list, max_overflow=10,
+                                      use_threadlocal=True, prefill=True,
+                                      pool_size=10, pool_timeout=20,
+                                      max_retries=-1, timeout=0.5)
         rd_consistency = pycassa.cassandra.ttypes.ConsistencyLevel.QUORUM
         wr_consistency = pycassa.cassandra.ttypes.ConsistencyLevel.QUORUM
         self._disco_cf = pycassa.ColumnFamily(pool, self._disco_cf_name,
