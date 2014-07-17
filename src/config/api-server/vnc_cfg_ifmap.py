@@ -840,7 +840,7 @@ class VncKombuClient(object):
                     try:
                         bound_q.delete()
                     except amqp.exceptions.ChannelError as e:
-                        if e.message != 404:
+                        if e.reply_code != 404:
                             raise e
 
                 self._obj_update_q = self._conn.SimpleQueue(self._update_queue_obj)
