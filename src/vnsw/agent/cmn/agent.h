@@ -5,8 +5,13 @@
 #ifndef vnsw_agent_hpp
 #define vnsw_agent_hpp
 
+#include <vector>
+#include <stdint.h>
 #include <netinet/ether.h>
+#include <boost/intrusive_ptr.hpp>
+#include <cmn/agent_cmn.h>
 
+class Agent;
 class AgentParam;
 class AgentConfig;
 class AgentStats;
@@ -19,40 +24,77 @@ class MulticastHandler;
 class DiscoveryAgentClient;
 class AgentDBEntry;
 class XmppClient;
-class Interface;
 class OperDB;
+class AgentRoute;
+
+class Interface;
 typedef boost::intrusive_ptr<Interface> InterfaceRef;
 typedef boost::intrusive_ptr<const Interface> InterfaceConstRef;
+void intrusive_ptr_release(const Interface* p);
+void intrusive_ptr_add_ref(const Interface* p);
+
 class VmEntry;
 typedef boost::intrusive_ptr<VmEntry> VmEntryRef;
 typedef boost::intrusive_ptr<const VmEntry> VmEntryConstRef;
+void intrusive_ptr_release(const VmEntry* p);
+void intrusive_ptr_add_ref(const VmEntry* p);
+
 class VnEntry;
 typedef boost::intrusive_ptr<VnEntry> VnEntryRef;
 typedef boost::intrusive_ptr<const VnEntry> VnEntryConstRef;
+void intrusive_ptr_release(const VnEntry* p);
+void intrusive_ptr_add_ref(const VnEntry* p);
+
 class SgEntry;
 typedef boost::intrusive_ptr<SgEntry> SgEntryRef;
 typedef boost::intrusive_ptr<const SgEntry> SgEntryConstRef;
+void intrusive_ptr_release(const SgEntry* p);
+void intrusive_ptr_add_ref(const SgEntry* p);
+
 class VrfEntry;
 typedef boost::intrusive_ptr<VrfEntry> VrfEntryRef;
+void intrusive_ptr_release(const VrfEntry* p);
+void intrusive_ptr_add_ref(const VrfEntry* p);
+
 class MplsLabel;
 typedef boost::intrusive_ptr<MplsLabel> MplsLabelRef;
+void intrusive_ptr_release(const MplsLabel* p);
+void intrusive_ptr_add_ref(const MplsLabel* p);
+
 class MirrorEntry;
 typedef boost::intrusive_ptr<MirrorEntry> MirrorEntryRef;
+void intrusive_ptr_release(const MirrorEntry* p);
+void intrusive_ptr_add_ref(const MirrorEntry* p);
+
 class VxLanId;
 typedef boost::intrusive_ptr<VxLanId> VxLanIdRef;
+void intrusive_ptr_release(const VxLanId* p);
+void intrusive_ptr_add_ref(const VxLanId* p);
+
 class Inet4UnicastRouteEntry;
 class Inet4MulticastRouteEntry;
 class Layer2RouteEntry;
 class Route;
 typedef boost::intrusive_ptr<Route> RouteRef;
+void intrusive_ptr_release(const Route* p);
+void intrusive_ptr_add_ref(const Route* p);
+
 class NextHop;
 typedef boost::intrusive_ptr<NextHop> NextHopRef;
 typedef boost::intrusive_ptr<const NextHop> NextHopConstRef;
+void intrusive_ptr_release(const NextHop* p);
+void intrusive_ptr_add_ref(const NextHop* p);
+
 class AddrBase;
 typedef boost::intrusive_ptr<AddrBase> AddrRef;
+void intrusive_ptr_release(const AddrBase* p);
+void intrusive_ptr_add_ref(const AddrBase* p);
+
 class AclDBEntry;
 typedef boost::intrusive_ptr<AclDBEntry> AclDBEntryRef;
 typedef boost::intrusive_ptr<const AclDBEntry> AclDBEntryConstRef;
+void intrusive_ptr_release(const AclDBEntry* p);
+void intrusive_ptr_add_ref(const AclDBEntry* p);
 
 //class SecurityGroup;
 typedef std::vector<int> SecurityGroupList;
@@ -594,16 +636,10 @@ public:
     void CopyConfig(AgentParam *params);
 
     void Init(AgentParam *param);
-    void InitModules();
     void InitPeers();
     void InitDone();
     void InitXenLinkLocalIntf();
     void InitCollector();
-    void CreateDBTables();
-    void CreateDBClients();
-    void CreateVrf();
-    void CreateNextHops();
-    void CreateInterfaces();
 
     LifetimeManager *lifetime_manager() { return lifetime_manager_;}
     void CreateLifetimeManager();
@@ -612,16 +648,16 @@ public:
 private:
 
     AgentParam *params_;
-    std::auto_ptr<AgentConfig> cfg_;
-    std::auto_ptr<AgentStats> stats_;
-    std::auto_ptr<KSync> ksync_;
-    std::auto_ptr<AgentUve> uve_;
+    AgentConfig *cfg_;
+    AgentStats *stats_;
+    KSync *ksync_;
+    AgentUve *uve_;
     PktModule *pkt_;
     ServicesModule *services_;
-    std::auto_ptr<VirtualGateway> vgw_;
-    std::auto_ptr<OperDB> oper_db_;
+    VirtualGateway *vgw_;
+    OperDB *oper_db_;
     DiagTable *diag_table_;
-    std::auto_ptr<VNController> controller_;
+    VNController *controller_;
 
     EventManager *event_mgr_;
     AgentXmppChannel *agent_xmpp_channel_[MAX_XMPP_SERVERS];

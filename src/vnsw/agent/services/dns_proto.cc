@@ -10,6 +10,7 @@
 #include "ifmap/ifmap_table.h"
 #include "pkt/pkt_init.h"
 #include "controller/controller_dns.h"
+#include "oper/vn.h"
 
 void DnsProto::Shutdown() {
 }

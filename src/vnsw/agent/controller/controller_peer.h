@@ -12,9 +12,10 @@
 #include <boost/system/error_code.hpp>
 #include <boost/scoped_ptr.hpp>
 #include <boost/shared_ptr.hpp>
-#include "xmpp/xmpp_channel.h"
-#include "xmpp_enet_types.h"
-#include "xmpp_unicast_types.h"
+#include <xmpp/xmpp_channel.h>
+#include <xmpp_enet_types.h>
+#include <xmpp_unicast_types.h>
+#include <cmn/agent.h>
 
 class AgentRoute;
 class Peer;

@@ -40,6 +40,7 @@ public:
                            uint64_t diff_pkts);
     void UpdateFlowStats(FlowEntry *flow, uint64_t &diff_bytes, 
                          uint64_t &diff_pkts);
+    void Shutdown();
 private:
     uint64_t GetFlowStats(const uint16_t &oflow_data, const uint32_t &data);
     bool ShouldBeAged(FlowStats *stats, const vr_flow_entry *k_flow,

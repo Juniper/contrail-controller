@@ -34,5 +34,4 @@ libservices = env.Library('agent_services',
                       ])
 env.Requires('metadata_proxy.o', '#build/include/isc')
 
-
 env.SConscript('test/SConscript', exports='AgentEnv', duplicate = 0)

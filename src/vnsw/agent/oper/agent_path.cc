@@ -8,25 +8,33 @@
 #include <cmn/agent_cmn.h>
 #include <route/route.h>
 
-#include <cmn/agent_cmn.h>
-#include <oper/route_common.h>
-#include <oper/vrf.h>
-#include <oper/tunnel_nh.h>
-#include <oper/mpls.h>
-#include <oper/mirror_table.h>
+#include <vnc_cfg_types.h> 
+#include <agent_types.h>
+
+#include <filter/acl.h>
+
 #include <oper/peer.h>
+#include <oper/vrf.h>
+#include <oper/interface_common.h>
+#include <oper/nexthop.h>
+#include <oper/tunnel_nh.h>
+#include <oper/vn.h>
+#include <oper/mirror_table.h>
+#include <oper/vxlan.h>
+#include <oper/mpls.h>
+#include <oper/route_common.h>
 #include <oper/agent_sandesh.h>
 using namespace std;
 using namespace boost::asio;
 
 AgentPath::AgentPath(const Peer *peer, AgentRoute *rt):
-    Path(), peer_(peer), nh_(NULL), label_(-1),
+    Path(), peer_(peer), nh_(NULL), label_(MplsTable::kInvalidLabel),
     vxlan_id_(VxLanTable::kInvalidvxlan_id), dest_vn_name_(""),
     sync_(false), proxy_arp_(false), force_policy_(false), sg_list_(),
     server_ip_(0), tunnel_bmap_(TunnelType::AllType()),
     tunnel_type_(TunnelType::ComputeType(TunnelType::AllType())),
     vrf_name_(""), gw_ip_(0), unresolved_(true), is_stale_(false),
-    is_subnet_discard_(false), dependant_rt_(rt),
+    is_subnet_discard_(false), dependant_rt_(rt), path_preference_(),
     local_ecmp_mpls_label_(rt), composite_nh_key_(NULL) {
 }
 

@@ -292,6 +292,7 @@ void AgentStatsCollector::RegisterDBClients() {
 void AgentStatsCollector::Shutdown(void) {
     agent_->vrf_table()->Unregister(vrf_listener_id_);
     agent_->interface_table()->Unregister(intf_listener_id_);
+    StatsCollector::Shutdown();
 }
 
 void AgentStatsCollector::InterfaceStats::UpdateStats

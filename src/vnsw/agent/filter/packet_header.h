@@ -6,6 +6,8 @@
 #define __AGENT_PACKET_HEADER_H__
 
 #include <boost/asio/detail/socket_types.hpp>
+#include <cmn/agent_cmn.h>
+#include <cmn/agent.h>
 
 struct PacketHeader {
     //typedef std::vector<uint32_t> sgl;

@@ -12,10 +12,8 @@
 
 class PacketInterface : public Interface {
 public:
-    PacketInterface(const std::string &name) : 
-        Interface(Interface::PACKET, nil_uuid(), name, NULL) {
-    }
-    virtual ~PacketInterface() { }
+    PacketInterface(const std::string &name);
+    virtual ~PacketInterface();
 
     virtual bool CmpInterface(const DBEntry &rhs) const { return false; }
 

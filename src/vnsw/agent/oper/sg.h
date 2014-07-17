@@ -5,11 +5,9 @@
 #ifndef vnsw_agent_sg_hpp
 #define vnsw_agent_sg_hpp
 
-#include <sandesh/sandesh_types.h>
-#include <sandesh/sandesh.h>
 #include <cmn/agent_cmn.h>
-#include <oper/agent_types.h>
-#include <filter/acl.h>
+#include <cmn/agent.h>
+#include <agent_types.h>
 
 using namespace boost::uuids;
 using namespace std;

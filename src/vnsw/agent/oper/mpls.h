@@ -5,7 +5,10 @@
 #ifndef vnsw_agent_mpls_hpp
 #define vnsw_agent_mpls_hpp
 
-#include "oper/route_common.h"
+#include <cmn/agent_cmn.h>
+#include <cmn/agent.h>
+#include <oper/route_common.h>
+#include <oper/nexthop.h>
 
 using namespace boost::uuids;
 using namespace std;

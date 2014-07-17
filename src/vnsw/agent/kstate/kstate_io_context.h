@@ -5,8 +5,6 @@
 #ifndef vnsw_agent_kstate_io_context_h
 #define vnsw_agent_kstate_io_context_h
 
-#include "kstate.h"
-
 class KStateIoContext: public IoContext {
 public:
     KStateIoContext(int msg_len, char *msg, uint32_t seqno, 

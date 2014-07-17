@@ -1,0 +1,16 @@
+#
+# Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
+#
+
+import re
+import time
+import subprocess
+
+Import('AgentEnv')
+env = AgentEnv.Clone()
+
+env.SConscript('linux/SConscript', exports=['AgentEnv'], duplicate=0)
+
+# Local Variables:
+# mode: python
+# End:

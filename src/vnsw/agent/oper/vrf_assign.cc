@@ -9,6 +9,7 @@
 #include <oper/mirror_table.h>
 #include <oper/vrf.h>
 #include <oper/vrf_assign.h>
+#include <oper/nexthop.h>
 #include <oper/agent_sandesh.h>
 
 using namespace std;

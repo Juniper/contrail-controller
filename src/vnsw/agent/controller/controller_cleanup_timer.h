@@ -9,6 +9,8 @@
 #include <boost/scoped_ptr.hpp>
 #include <boost/shared_ptr.hpp>
 
+class AgentXmppChannel;
+
 /*
  * Cleanup Timer 
  * Used to manage timers required for removing stale entries for config and

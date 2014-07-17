@@ -8,6 +8,9 @@
 
 #include <vnc_cfg_types.h>
 #include <cmn/agent_cmn.h>
+#include <xmpp/xmpp_channel.h>
+#include <controller/controller_peer.h>
+
 #include <pkt/agent_stats.h>
 #include <pkt/pkt_init.h>
 #include <pkt/flow_table.h>

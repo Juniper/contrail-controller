@@ -9,15 +9,17 @@
 #include <boost/intrusive/list.hpp>
 #include <boost/intrusive/slist.hpp>
 #include <boost/uuid/uuid.hpp>
-#include "base/util.h"
-#include "net/address.h"
-#include "filter/traffic_action.h"
-#include  "filter/acl_entry_match.h"
-#include "oper/agent_types.h"
-#include "cmn/agent_cmn.h"
+
+#include <cmn/agent_cmn.h>
+#include <cmn/agent.h>
+
+#include <agent_types.h>
 
 struct PacketHeader;
 class AclEntrySpec;
+class TrafficAction;
+class AclEntryMatch;
+
 typedef std::vector<int32_t> AclEntryIDList;
 
 class AclEntry {
@@ -27,7 +29,6 @@ public:
        NON_TERMINAL = 2,
     };
 
-    //typedef boost::ptr_list<TrafficAction> ActionList;
     typedef std::list<TrafficAction *> ActionList;
     static ActionList kEmptyActionList;
     AclEntry() : 

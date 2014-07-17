@@ -5,6 +5,8 @@
 #ifndef vnsw_agent_oper_dhcp_options_h_
 #define vnsw_agent_oper_dhcp_options_h_
 
+#include <vnc_cfg_types.h>
+
 namespace autogen {
     struct DhcpOptionType;
     struct RouteType;

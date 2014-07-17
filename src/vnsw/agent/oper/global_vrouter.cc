@@ -3,21 +3,29 @@
  */
 
 // global_vrouter.cc - operational data for global vrouter configuration
-
 #include <boost/foreach.hpp>
+#include <base/util.h>
 #include <cmn/agent_cmn.h>
-#include <cmn/agent_param.h>
+#include <route/route.h>
+
 #include <vnc_cfg_types.h>
+#include <agent_types.h>
 #include <ifmap/ifmap_link.h>
-#include <oper/mirror_table.h>
+
+#include <oper/operdb_init.h>
+#include <oper/peer.h>
+#include <oper/vrf.h>
+#include <oper/interface_common.h>
 #include <oper/nexthop.h>
 #include <oper/vn.h>
-#include <oper/vrf.h>
+#include <oper/mirror_table.h>
+#include <oper/vxlan.h>
+#include <oper/mpls.h>
 #include <oper/route_common.h>
-#include <oper/operdb_init.h>
-#include <oper/global_vrouter.h>
+
+#include <oper/agent_route_walker.h>
 #include <oper/agent_route_encap.h>
-#include <base/util.h>
+#include <oper/global_vrouter.h>
 
 const std::string GlobalVrouter::kMetadataService = "metadata";
 
