@@ -6,6 +6,7 @@
 #include <boost/bind.hpp>
 #include "base/task_annotations.h"
 #include "io/event_manager.h"
+#include "base/logging.h"
 #include "http_curl.h"
 
 using namespace std;
@@ -174,6 +175,11 @@ void HttpConnection::HttpProcessInternal(const std::string body, std::string pat
 
     struct _GlobalInfo *gi = client()->GlobalInfo();
     struct _ConnInfo *curl_handle = new_conn(this, gi, header, timeout);
+    if (!curl_handle) {
+        LOG(DEBUG, "Http : unable to create new connection");
+        return;
+    }
+
     curl_handle->connection = this;
     set_curl_handle(curl_handle);
 
@@ -334,8 +340,7 @@ void HttpClient::TimerErrorHandler(std::string name, std::string error) {
 }
 
 bool HttpClient::TimerCb() {
-    timer_cb(gi_);
-    return false;
+    return timer_cb(gi_);
 }
 
 void HttpClient::StartTimer(long timeout_ms) {
