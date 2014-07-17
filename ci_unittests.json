@@ -1,0 +1,80 @@
+{
+    "contrail-collector" : {
+        "source_directories" : [
+            "controller/src/analytics",
+            "controller/src/bfd",
+            "controller/src/cdb",
+            "controller/src/dns",
+            "controller/src/opserver",
+            "controller/src/query_engine"
+        ],
+        "scons_test_targets" : [
+            "controller/src/analytics:test",
+            "controller/src/bfd:test",
+            "controller/src/dns:test",
+            "controller/src/query_engine:test"
+        ],
+        "misc_test_targets" : [ ]
+    },
+    "contrail-config" : {
+        "source_directories" : [
+            "controller/src/api-lib",
+            "controller/src/config"
+        ],
+        "scons_test_targets" : [ ],
+        "misc_test_targets" : [ ]
+    },
+    "contrail-control" : {
+        "source_directories" : [
+            "controller/src/bgp",
+            "controller/src/control-node",
+            "controller/src/ifmap",
+            "controller/src/xmpp"
+        ],
+        "scons_test_targets" : [
+            "controller/src/bgp:test",
+            "controller/src/control-node:test",
+            "controller/src/ifmap:test",
+            "controller/src/xmpp:test"
+        ],
+        "misc_test_targets" : [ ]
+    },
+    "contrail-vrouter" : {
+        "source_directories" : [
+            "controller/src/ksync",
+            "controller/src/vnsw"
+        ],
+        "scons_test_targets" : [ ],
+        "misc_test_targets" : [ ]
+    },
+    "contrail-libs" : {
+        "source_directories" : [
+            "controller/src/base",
+            "controller/src/db",
+            "controller/src/discovery",
+            "controller/src/gendb",
+            "controller/src/http",
+            "controller/src/io",
+            "controller/src/net",
+            "controller/src/route",
+            "controller/src/routing-policy",
+            "controller/src/sandesh",
+            "controller/src/schema",
+            "controller/src/xml"
+        ],
+        "scons_test_targets" : [
+            "controller/src/base:test",
+            "controller/src/db:test",
+            "controller/src/discovery:test",
+            "controller/src/gendb:test",
+            "controller/src/io:test",
+            "controller/src/net:test",
+            "controller/src/schema:test"
+        ],
+        "misc_test_targets" : [
+            "contrail-collector",
+            "contrail-control",
+            "contrail-vrouter"
+         ]
+    }
+}
