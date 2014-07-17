@@ -276,6 +276,8 @@ private:
     uint32_t remote_bgp_id_;
     uint32_t local_bgp_id_;
     AddressFamilyList family_;
+    std::vector<std::string> configured_families_;
+    std::vector<std::string> negotiated_families_;
     BgpProto::BgpPeerType peer_type_;
     RibExportPolicy policy_;
     boost::scoped_ptr<PeerClose> peer_close_;
