@@ -3,6 +3,7 @@
  */
 
 #include "xmpp/xmpp_connection.h"
+
 #include <boost/date_time/posix_time/posix_time.hpp>
 #include <sstream>
 
@@ -48,7 +49,7 @@ XmppConnection::XmppConnection(TcpServer *server,
       to_(config->ToAddr),
       mux_(XmppObjectFactory::Create<XmppChannelMux>(this)),
       keepalive_time_(GetDefaultkeepAliveTime()),
-      disable_read_(false), flap_count_(0), last_flap_(0), close_reason_("") {
+      disable_read_(false) {
 }
 
 XmppConnection::~XmppConnection() {
@@ -134,15 +135,6 @@ void XmppConnection::SetFrom(const string &from) {
         from_ = from;
         state_machine_->Initialize();
     }
-}
-
-void XmppConnection::set_close_reason(const string &reason) {
-    close_reason_ = reason;
-    if (!logUVE()) return;
-    XmppPeerInfoData peer_info;
-    peer_info.set_name(ToUVEKey());
-    peer_info.set_close_reason(close_reason_);
-    XMPPPeerInfo::Send(peer_info);
 }
 
 void XmppConnection::SetTo(const string &to) {
@@ -307,29 +299,6 @@ XmppStateMachine *XmppConnection::state_machine() {
     return state_machine_.get();
 }
 
-void XmppConnection::increment_flap_count() {
-    flap_count_++;
-    last_flap_ = UTCTimestampUsec();
-
-    if (!logUVE()) return;
-
-    XmppPeerInfoData peer_info;
-    peer_info.set_name(ToUVEKey());
-    PeerFlapInfo flap_info;
-    flap_info.set_flap_count(flap_count_);
-    flap_info.set_flap_time(last_flap_);
-    peer_info.set_flap_info(flap_info);
-    XMPPPeerInfo::Send(peer_info);
-}
-
-const std::string XmppConnection::last_flap_at() const {
-    if (last_flap_) {
-        return integerToString(UTCUsecToPTime(last_flap_));
-    } else {
-        return "";
-    }
-}
-
 const XmppStateMachine *XmppConnection::state_machine() const {
     return state_machine_.get();
 }
@@ -482,13 +451,15 @@ private:
     XmppServerConnection *parent_;
 };
 
-XmppServerConnection::XmppServerConnection(
-        XmppServer *server, const XmppChannelConfig *config)
+XmppServerConnection::XmppServerConnection(XmppServer *server,
+    const XmppChannelConfig *config)
     : XmppConnection(server, config), 
-    deleter_(new DeleteActor(server, this)),
-    server_delete_ref_(this, server->deleter()) {
+      deleter_(new DeleteActor(server, this)),
+      server_delete_ref_(this, server->deleter()) {
     assert(!config->ClientOnly());
     XMPP_INFO(XmppConnectionCreate, "Server", FromString(), ToString());
+    conn_endpoint_ =
+        server->LocateConnectionEndpoint(endpoint().address().to_v4());
 }
 
 XmppServerConnection::~XmppServerConnection() {
@@ -528,6 +499,41 @@ const LifetimeActor *XmppServerConnection::deleter() const {
     return deleter_.get();
 }
 
+void XmppServerConnection::set_close_reason(const string &close_reason) {
+    conn_endpoint_->set_close_reason(close_reason);
+
+    if (!logUVE())
+        return;
+
+    XmppPeerInfoData peer_info;
+    peer_info.set_name(ToUVEKey());
+    peer_info.set_close_reason(close_reason);
+    XMPPPeerInfo::Send(peer_info);
+}
+
+uint32_t XmppServerConnection::flap_count() const {
+    return conn_endpoint_->flap_count();
+}
+
+void XmppServerConnection::increment_flap_count() {
+    conn_endpoint_->increment_flap_count();
+
+    if (!logUVE())
+        return;
+
+    XmppPeerInfoData peer_info;
+    peer_info.set_name(ToUVEKey());
+    PeerFlapInfo flap_info;
+    flap_info.set_flap_count(conn_endpoint_->flap_count());
+    flap_info.set_flap_time(conn_endpoint_->last_flap());
+    peer_info.set_flap_info(flap_info);
+    XMPPPeerInfo::Send(peer_info);
+}
+
+const std::string XmppServerConnection::last_flap_at() const {
+    return conn_endpoint_->last_flap_at();
+}
+
 class XmppClientConnection::DeleteActor : public LifetimeActor {
 public:
     DeleteActor(XmppClient *client, XmppClientConnection *parent)
@@ -565,11 +571,11 @@ private:
     XmppClientConnection *parent_;
 };
 
-XmppClientConnection::XmppClientConnection(
-        TcpServer *server, const XmppChannelConfig *config)
+XmppClientConnection::XmppClientConnection(TcpServer *server,
+    const XmppChannelConfig *config)
     : XmppConnection(server, config), 
-    deleter_(new DeleteActor(static_cast<XmppClient *>(server), this)),
-    server_delete_ref_(this, static_cast<XmppClient *>(server)->deleter()) {
+      deleter_(new DeleteActor(static_cast<XmppClient *>(server), this)),
+      server_delete_ref_(this, static_cast<XmppClient *>(server)->deleter()) {
     assert(config->ClientOnly());
     XMPP_UTDEBUG(XmppConnectionCreate, "Client", FromString(), ToString());
 }
@@ -610,3 +616,63 @@ void XmppClientConnection::Destroy() {
     CHECK_CONCURRENCY("bgp::Config");
     (static_cast<XmppClient *>(server()))->RemoveConnection(this);
 };
+
+void XmppClientConnection::set_close_reason(const string &close_reason) {
+    close_reason_ = close_reason;
+    if (!logUVE())
+        return;
+
+    XmppPeerInfoData peer_info;
+    peer_info.set_name(ToUVEKey());
+    peer_info.set_close_reason(close_reason_);
+    XMPPPeerInfo::Send(peer_info);
+}
+
+uint32_t XmppClientConnection::flap_count() const {
+    return flap_count_;
+}
+
+void XmppClientConnection::increment_flap_count() {
+    flap_count_++;
+    last_flap_ = UTCTimestampUsec();
+
+    if (!logUVE())
+        return;
+
+    XmppPeerInfoData peer_info;
+    peer_info.set_name(ToUVEKey());
+    PeerFlapInfo flap_info;
+    flap_info.set_flap_count(flap_count_);
+    flap_info.set_flap_time(last_flap_);
+    peer_info.set_flap_info(flap_info);
+    XMPPPeerInfo::Send(peer_info);
+}
+
+const std::string XmppClientConnection::last_flap_at() const {
+    return last_flap_ ? integerToString(UTCUsecToPTime(last_flap_)) : "";
+}
+
+XmppConnectionEndpoint::XmppConnectionEndpoint(Ip4Address address)
+    : address_(address), flap_count_(0), last_flap_(0) {
+}
+
+void XmppConnectionEndpoint::set_close_reason(const string &close_reason) {
+    close_reason_ = close_reason;
+}
+
+uint32_t XmppConnectionEndpoint::flap_count() const {
+    return flap_count_;
+}
+
+void XmppConnectionEndpoint::increment_flap_count() {
+    flap_count_++;
+    last_flap_ = UTCTimestampUsec();
+}
+
+uint64_t XmppConnectionEndpoint::last_flap() const {
+    return last_flap_;
+}
+
+const std::string XmppConnectionEndpoint::last_flap_at() const {
+    return last_flap_ ? integerToString(UTCUsecToPTime(last_flap_)) : "";
+}

@@ -11,14 +11,16 @@
 #include "base/lifetime.h"
 #include "base/queue_task.h"
 #include "io/tcp_server.h"
+#include "net/address.h"
 #include "xmpp/xmpp_session.h"
 #include "xmpp/xmpp_config.h"
 #include "xmpp/xmpp_channel_mux.h"
 
-class TcpSession;
-class XmppConnection;
 class LifetimeActor;
 class LifetimeManager;
+class TcpSession;
+class XmppConnection;
+class XmppConnectionEndpoint;
 
 // Class to represent Xmpp Server
 class XmppServer : public TcpServer {
@@ -60,6 +62,8 @@ public:
     const std::string &ServerAddr() const { return server_addr_; }
     size_t ConnectionsCount() const;
 
+    XmppConnectionEndpoint *LocateConnectionEndpoint(Ip4Address address);
+
 protected:
     virtual TcpSession *AllocSession(Socket *socket);
     virtual bool AcceptSession(TcpSession *session);
@@ -71,6 +75,7 @@ private:
 
     typedef std::map<Endpoint, XmppConnection *> XmppConnectionMap;
     typedef std::set<XmppConnection *> XmppConnectionSet;
+    typedef std::map<Ip4Address, XmppConnectionEndpoint *> XmppConnectionEndpointMap;
     typedef std::map<xmps::PeerId, ConnectionEventCb> ConnectionEventCbMap;
 
     typedef boost::ptr_container_detail::ref_pair<
@@ -80,6 +85,7 @@ private:
 
     XmppConnectionMap connection_map_;
     XmppConnectionSet deleted_connection_set_;
+    XmppConnectionEndpointMap connection_endpoint_map_;
     void *bgp_server_;
 
     boost::scoped_ptr<LifetimeManager> lifetime_manager_;
