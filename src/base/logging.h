@@ -38,8 +38,12 @@
     } while (0)
 
 void LoggingInit();
-void LoggingInit(std::string filename, long maxFileSize = 10*1024*1024,
-                 int maxBackupIndex = 1);
+void LoggingInit(std::string filename,
+                 long maxFileSize,
+                 int maxBackupIndex,
+                 bool useSyslog,
+                 std::string syslogFacility,
+                 std::string ident);
 
 //
 // Disable logging - For testing purposes only

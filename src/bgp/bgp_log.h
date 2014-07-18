@@ -20,7 +20,8 @@ namespace bgp_log_test {
 
 void init();
 void init(std::string log_file, unsigned long log_file_size,
-          unsigned long log_file_index);
+          unsigned long log_file_index, bool use_syslog,
+          std::string syslog_facility, std::string ident);
 bool unit_test();
 void LogServerName(const BgpServer *server);
 void LogServerName(const IPeer *ipeer, const BgpTable *table);
