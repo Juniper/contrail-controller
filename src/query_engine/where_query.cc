@@ -944,11 +944,17 @@ WhereQuery::WhereQuery(const std::string& where_json_string, int direction,
             // object id table query
             if (!object_id_specified)
             {
-                QE_LOG(DEBUG, "Object id needs to be specified");
-                QE_INVALIDARG_ERROR(0);
+                GenDb::DbDataValue value = "\x1b", value2 = "\x7f";
+                DbQueryUnit *db_query = new DbQueryUnit(and_node, main_query);
+
+                db_query->cfname = g_viz_constants.OBJECT_TABLE;
+                db_query->row_key_suffix.push_back(m_query->table());
+                db_query->cr.start_.push_back(value);
+                db_query->cr.finish_.push_back(value2);
+
+                QE_TRACE(DEBUG, "where * for object table" << m_query->table());
             }
         }
-        
     }
 }
 

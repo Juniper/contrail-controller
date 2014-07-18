@@ -224,11 +224,6 @@ class LogQuerier(object):
                 print 'Please specify either object-id or object-values but not both'
                 return None
 
-            if len(where_obj):
-                where = [where_obj]
-            else:
-                where = None
-
             if self._args.object_values is False:
                 if self._args.object_select_field is not None:
                     if ((self._args.object_select_field !=
@@ -253,12 +248,22 @@ class LogQuerier(object):
                 ] + obj_sel_field
             else:
                 if self._args.object_select_field:
-                    print 'Plesae specify either object-id with ' + \
+                    print 'Please specify either object-id with ' + \
                         'object-select-field or only object-values'
+                    return None
+                if len(where_msg):
+                    options = [where['name'] for where in where_msg]
+                    print 'Invalid/unsupported where-clause options %s for object-values query' % str(options)
                     return None
                 select_list = [
                     OpServerUtils.OBJECT_ID
                 ]
+
+            if len(where_obj) or len(where_msg):
+                where = [where_obj + where_msg]
+            else:
+                where = None
+
         elif self._args.trace is not None:
             table = VizConstants.COLLECTOR_GLOBAL_TABLE
             if self._args.source is None:
