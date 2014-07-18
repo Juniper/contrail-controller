@@ -702,7 +702,6 @@ DbHandler::StatTableInsert(uint64_t ts,
         const TagMap & attribs_tag,
         const AttribMap & attribs) {
 
-    std::vector<std::string> aggstr;
     uint64_t temp_u64 = ts;
     uint32_t temp_u32 = temp_u64 >> g_viz_constants.RowTimeInBits;
     boost::uuids::uuid unm;
@@ -722,7 +721,6 @@ DbHandler::StatTableInsert(uint64_t ts,
     rapidjson::Document dd;
     dd.SetObject();
 
-    aggstr.push_back(string("COUNT(") + statAttr + string(")"));
     AttribMap attribs_buf;
     for (AttribMap::const_iterator it = attribs.begin();
             it != attribs.end(); it++) {
@@ -734,7 +732,6 @@ DbHandler::StatTableInsert(uint64_t ts,
                         attribs_buf.insert(make_pair(nm, it->second));
                     val.SetString(it->second.str.c_str());
                     dd.AddMember(rt.first->first.c_str(), val, dd.GetAllocator());
-                    aggstr.push_back(it->first);
                 }
                 break;
             case UINT64: {
@@ -744,7 +741,6 @@ DbHandler::StatTableInsert(uint64_t ts,
                         attribs_buf.insert(make_pair(nm, it->second));
                     val.SetUint64(it->second.num);
                     dd.AddMember(rt.first->first.c_str(), val, dd.GetAllocator());
-                    aggstr.push_back(string("SUM(") + it->first + string(")"));
                 }
                 break;
             case DOUBLE: {
@@ -754,7 +750,6 @@ DbHandler::StatTableInsert(uint64_t ts,
                         attribs_buf.insert(make_pair(nm, it->second));
                     val.SetDouble(it->second.dbl);
                     dd.AddMember(rt.first->first.c_str(), val, dd.GetAllocator());
-                    aggstr.push_back(string("SUM(") + it->first + string(")"));
                 }
                 break;                
             default:

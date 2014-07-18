@@ -54,7 +54,7 @@ struct StatTest {
 struct StatTestState {
     1: string name (key="ObjectCollectorInfo")
     2: optional bool deleted
-    3: optional list<StatTest> st (tags=".i1:.i2,.i1:.s1,.i2,.s2,.d1,l1,name:.s1")
+    3: optional list<StatTest> st (tags=".i1:.i2,.s2,.d1,l1,name:.s1")
     4: optional string l1
 }
 
