@@ -1,27 +1,67 @@
 # -*- mode: python; -*-
 
+#
+# Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
+#
+
+import os
+
 Import('BuildEnv')
 env = BuildEnv.Clone()
 
-sources = ['setup.py',
-           'requirements.txt',
-           'test-requirements.txt',
-           'opencontrail_vrouter_netns/__init__.py',
-           'opencontrail_vrouter_netns/vrouter_netns.py',
-           'opencontrail_vrouter_netns/linux/__init__.py',
-           'opencontrail_vrouter_netns/linux/ip_lib.py',
-           'opencontrail_vrouter_netns/linux/utils.py',
-           'opencontrail_vrouter_netns/tests/__init__.py',
-           'opencontrail_vrouter_netns/tests/test_vrouter_netns.py']
+sources = [
+    'setup.py',
+    'requirements.txt',
+    'test-requirements.txt',
+    'opencontrail_vrouter_netns/__init__.py',
+    'opencontrail_vrouter_netns/vrouter_netns.py',
+    'opencontrail_vrouter_netns/linux/__init__.py',
+    'opencontrail_vrouter_netns/linux/ip_lib.py',
+    'opencontrail_vrouter_netns/linux/utils.py',
+    'opencontrail_vrouter_netns/tests/__init__.py',
+    'opencontrail_vrouter_netns/tests/test_vrouter_netns.py'
+]
 
-env.Alias('opencontrail-vrouter-netns:test',
-          env.Command(None, sources,
-                      'python setup.py test',
-                      chdir=1))
+sdist_gen = env.Command('dist', sources, 'python setup.py sdist', chdir=1)
+env.Alias('controller/src/vnsw/opencontrail_vrouter_netns:sdist', sdist_gen)
+
+test_sources = sources
+packages = [
+    '#build/noarch/contrail-vrouter-api/dist/contrail-vrouter-api-1.0.tar.gz',
+]
+
+def BuildPyTestSetup(env, target, source):
+    file = open(target[0].abspath, 'w')
+    file.write("[easy_install]\nfind_links =")
+    for pkg in source:
+        dependency = env.File(pkg)
+        file.write(" %s" % os.path.dirname(dependency.abspath))
+    file.write("\n")
+    file.close()
+    return
+
+def GeneratePyTestSetup(env, targets, source):
+    """
+    Generate a setup.cfg file that contains a list of directories
+    where dependent packages can be found. The fact that package directory
+    list is being given as a source automatically adds them as dependencies.
+    """
+    target = env.File('setup.cfg')
+    return env.Command(target=target, source=source, action=BuildPyTestSetup);
+
+env.Append(BUILDERS = {'PythonTestSetup': GeneratePyTestSetup})
+test_sources += env.PythonTestSetup(source=packages)
+
+test = env.Command('test.log', test_sources,
+                   'python setup.py test > test.log',
+                   chdir=1)
+
+env.Alias('controller/src/vnsw/opencontrail_vrouter_netns:test',
+          env.AlwaysBuild(test))
 
 if 'install' in BUILD_TARGETS:
-    env.Alias('install',
-              env.Command(None, sources,
-                          'python setup.py install %s' %
-                          env['PYTHON_INSTALL_OPT'],
-                          chdir=1))
+    install_cmd = env.Command(None, sources,
+                              'python setup.py install %s' %
+                              env['PYTHON_INSTALL_OPT'],
+                              chdir = 1)
+    env.Alias('install', install_cmd)
