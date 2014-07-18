@@ -44,7 +44,9 @@
             "controller/src/ksync",
             "controller/src/vnsw"
         ],
-        "scons_test_targets" : [ ],
+        "scons_test_targets" : [
+            "controller/src/agent:test",
+        ],
         "misc_test_targets" : [ ]
     },
     "contrail-libs" : {
