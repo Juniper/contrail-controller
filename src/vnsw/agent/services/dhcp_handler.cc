@@ -317,7 +317,7 @@ void DhcpHandler::UpdateDnsServer() {
     if (out_msg_type_ != DHCP_ACK)
         return;
 
-    agent()->GetDnsProto()->UpdateDnsEntry(
+    agent()->GetDnsProto()->SendUpdateDnsEntry(
         vm_itf_, config_.client_name_, vm_itf_->ip_addr(), config_.plen,
         ipam_type_.ipam_dns_server.virtual_dns_server_name, vdns_type_,
         false, false);
