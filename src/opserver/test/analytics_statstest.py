@@ -154,6 +154,46 @@ class StatsTest(testtools.TestCase, fixtures.TestWithFixtures):
         return True
     # end test_01_statprefix
 
+    #@unittest.skip('Get samples using StatsOracle')
+    def test_02_overflowsamples(self):
+        '''
+        This test starts redis,vizd,opserver and qed
+        It uses the test class' cassandra instance
+        Then it sends test stats to the collector
+        and checks if they can be accessed from QE.
+        '''
+        logging.info("*** test_00_basicsamples ***")
+        if StatsTest._check_skip_test() is True:
+            return True
+
+        vizd_obj = self.useFixture(
+            AnalyticsFixture(logging,
+                             builddir,
+                             self.__class__.cassandra_port))
+        assert vizd_obj.verify_on_setup()
+        assert vizd_obj.verify_collector_obj_count()
+        collectors = [vizd_obj.get_collector()]
+
+        generator_obj = self.useFixture(
+            StatsFixture("VRouterAgent", collectors,
+                             logging, vizd_obj.get_opserver_port()))
+        assert generator_obj.verify_on_setup()
+
+        logging.info("Starting stat gen " + str(UTCTimestampUsec()))
+
+        generator_obj.send_test_stat_dynamic("t02","samp02-2",0xffffffffffffffff,1.1);
+
+        logging.info("Checking Stats " + str(UTCTimestampUsec()))
+
+        assert generator_obj.verify_test_stat("StatTable.TestState.ts","-2m",
+            select_fields = [ "UUID", "ts.s1", "ts.i1", "ts.d1" ],
+            where_clause = 'name="t02"', num = 1, check_rows =
+            [{"ts.s1":"samp02-2", "ts.i1":0xffffffffffffffff, "ts.d1":1.1}])
+            
+        return True
+    # end test_02_overflowsamples
+
+    #@unittest.skip('Get samples using StatsOracle')
     @staticmethod
     def get_free_port():
         cs = socket.socket(socket.AF_INET, socket.SOCK_STREAM)

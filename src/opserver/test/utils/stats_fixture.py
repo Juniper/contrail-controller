@@ -82,7 +82,7 @@ class StatsFixture(fixtures.Fixture):
         tdata.send(sandesh=self._sandesh_instance)
 
     def send_test_stat_dynamic(self,nm,s1,i1,d1,s2="",i2=0,d2=0):
-        self._logger.info('Sending Test Stats tags %s, %i, %d' % (s1,i1, d1))
+        self._logger.info('Sending Test Stats tags %s, %i, %f' % (s1,i1, d1))
         tstat = TestStat()
         tstat.s1 = s1
         tstat.s2 = s2
@@ -107,18 +107,21 @@ class StatsFixture(fixtures.Fixture):
                              where_clause=where_clause,
                              sort_fields=sort_fields, 
                              filter=filt)
-        self._logger.info(str(res))
+        self._logger.info('Recieved %s' % str(res))
         if (len(res) != num):
             self._logger.info("Found %d rows, expected %d" % (len(res),num))
             return False
         if check_rows is None:
             return True
+        self._logger.info('Checking against %s' % str(check_rows))
         for crow in check_rows:
             match = False
             for row in res:
                 for k in crow.keys():
                     if k in row:
                         if (crow[k] != row[k]):
+                            self._logger.error('Expected %s : %s got %s : %s' % 
+                                 (str(k), str(crow[k]), str(k), str(row[k])))
                             break
                     else:
                         break
