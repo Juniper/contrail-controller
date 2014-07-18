@@ -266,12 +266,11 @@ int main(int argc, char *argv[])
     }
 
     Collector::SetProgramName(argv[0]);
-    if (options.log_file() == "<stdout>") {
-        LoggingInit();
-    } else {
-        LoggingInit(options.log_file(), options.log_file_size(),
-                    options.log_files_count());
-    }
+    Module::type module = Module::COLLECTOR;
+    std::string module_id(g_vns_constants.ModuleNames.find(module)->second);
+    LoggingInit(options.log_file(), options.log_file_size(),
+                options.log_files_count(), options.use_syslog(),
+                options.syslog_facility(), module_id);
 
     vector<string> cassandra_servers(options.cassandra_server_list());
     vector<string> cassandra_ips;
@@ -325,10 +324,8 @@ int main(int argc, char *argv[])
     analytics.Init();
 
     VizSandeshContext vsc(&analytics);
-    Module::type module = Module::COLLECTOR;
     NodeType::type node_type =
         g_vns_constants.Module2NodeType.find(module)->second;
-    std::string module_id(g_vns_constants.ModuleNames.find(module)->second);
     std::string instance_id(g_vns_constants.INSTANCE_ID_DEFAULT);
     Sandesh::InitCollector(
             module_id,

@@ -143,19 +143,17 @@ main(int argc, char *argv[]) {
         usleep(1000);
     }
 
-    if (options.log_file() == "<stdout>") {
-        LoggingInit();
-    } else {
-        LoggingInit(options.log_file(), options.log_file_size(),
-                    options.log_files_count());
-    }
+    Module::type module = Module::QUERY_ENGINE;
+    string module_name = g_vns_constants.ModuleNames.find(module)->second;
+
+    LoggingInit(options.log_file(), options.log_file_size(),
+                options.log_files_count(), options.use_syslog(),
+                options.syslog_facility(), module_name);
 
     error_code error;
     DiscoveryServiceClient *ds_client = NULL;
     ip::tcp::endpoint dss_ep;
     Sandesh::CollectorSubFn csf = 0;
-    Module::type module = Module::QUERY_ENGINE;
-    string module_name = g_vns_constants.ModuleNames.find(module)->second;
     if (!options.discovery_server().empty()) {
         error_code error;
         dss_ep.address(
