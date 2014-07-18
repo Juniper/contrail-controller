@@ -17,28 +17,18 @@
 #include "base/util.h"
 #include "bgp/bgp_common.h"
 #include "ifmap/ifmap_node_proxy.h"
+#include "ifmap/ifmap_config_listener.h"
 #include "schema/bgp_schema_types.h"
 #include "schema/vnc_cfg_types.h"
 
 class BgpConfigListener;
+typedef struct IFMapConfigListener::ConfigDelta BgpConfigDelta;
 class BgpConfigManager;
 class BgpInstanceConfig;
 class BgpPeeringConfig;
 class BgpServer;
 class DB;
 class DBGraph;
-
-typedef boost::shared_ptr<IFMapNodeProxy> IFMapNodeRef;
-
-struct BgpConfigDelta {
-    BgpConfigDelta();
-    BgpConfigDelta(const BgpConfigDelta &rhs);
-    ~BgpConfigDelta();
-    std::string id_type;
-    std::string id_name;
-    IFMapNodeRef node;
-    IFMapObjectRef obj;
-};
 
 //
 // BgpNeighborConfig represents a single session between the local bgp-router
@@ -383,7 +373,7 @@ private:
 // registered Observers. The BgpServer::ConfigUpdater is the only client that
 // registers observers.
 //
-class BgpConfigManager {
+class BgpConfigManager : public IFMapConfigListener::ConfigManager {
 public:
     static const char *kMasterInstance;
     static const int kDefaultPort;
@@ -410,7 +400,7 @@ public:
     };
 
     BgpConfigManager(BgpServer *server);
-    ~BgpConfigManager();
+    virtual ~BgpConfigManager();
 
     void Initialize(DB *db, DBGraph *db_graph, const std::string &localname);
     void Terminate();
