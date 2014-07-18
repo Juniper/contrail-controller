@@ -870,8 +870,8 @@ class VncKombuClient(object):
                     try:
                         bound_q.delete()
                     except amqp.exceptions.ChannelError as e:
-                        if e.message != 404:
-                            raise e
+                        logger.error("Unable to delete the old amqp Q: %s" % str(e))
+                        pass
 
                 self._obj_update_q = self._conn.SimpleQueue(self._update_queue_obj)
 
