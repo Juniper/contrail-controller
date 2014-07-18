@@ -352,6 +352,7 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
         <xsd:element name="record-order"        type="DnsRecordOrderType"/>
         <xsd:element name="default-ttl-seconds" type="xsd:integer"/>
         <xsd:element name="next-virtual-DNS"    type="xsd:string"/>
+        <xsd:element name="floating-ip-name-in-dashed-notation" type="xsd:boolean" default="true"/>
     </xsd:all>
 </xsd:complexType>
 
