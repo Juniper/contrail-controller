@@ -1,0 +1,37 @@
+/*
+ * Copyright (c) 2014 Juniper Networks, Inc. All rights reserved.
+ */
+
+//
+//  database.sandesh
+//
+
+include "base/sandesh/cpuinfo.sandesh"
+
+struct  ModuleCpuInfo {
+    1: string                              module_id
+    2: cpuinfo.CpuLoadInfo                 cpu_info
+}
+
+struct  ModuleCpuState {
+    1: string                              name (key="ObjectDatabaseInfo")
+    2: optional bool                       deleted
+    3: optional list<ModuleCpuInfo>        module_cpu_info (aggtype="union")
+    4: optional list<cpuinfo.ProcessState> process_state_list
+}
+uve sandesh ModuleCpuStateTrace {
+    1: ModuleCpuState                      data
+}
+
+struct DatabaseUsageInfo {
+    1: string                              name (key="ObjectDatabaseInfo")
+    2: optional bool                       deleted
+    3: u64                                 disk_space_used
+    4: u64                                 disk_space_available
+    5: u64                                 analytics_db_size
+}
+
+//DatabaseUsageStat uve will be sent by Database-nodemgr
+uve sandesh DatabaseUsageStat {
+    1: DatabaseUsageInfo                   data
+}
