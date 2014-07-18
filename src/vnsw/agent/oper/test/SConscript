@@ -41,7 +41,7 @@ ifmap_dependency_manager_test = env.UnitTest(
 
 env.Alias('agent:ifmap_dependency_manager_test',
           ifmap_dependency_manager_test)
-oper_test_suite.append(ifmap_dependency_manager_test)
+oper_flaky_test_suite.append(ifmap_dependency_manager_test)
 
 namespace_manager_test = env.UnitTest(
     'namespace_manager_test',
