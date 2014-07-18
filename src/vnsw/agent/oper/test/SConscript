@@ -47,7 +47,7 @@ namespace_manager_test = env.UnitTest(
     'namespace_manager_test',
     ['namespace_manager_test.cc'])
 env.Alias('agent:namespace_manager_test', namespace_manager_test)
-oper_test_suite.append(namespace_manager_test)
+oper_flaky_test_suite.append(namespace_manager_test)
 
 flaky_test = env.TestSuite('agent-flaky-test', oper_flaky_test_suite)
 env.Alias('controller/src/vnsw/agent/oper:flaky_test', flaky_test)
