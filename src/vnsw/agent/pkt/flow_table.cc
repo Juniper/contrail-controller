@@ -773,7 +773,18 @@ void FlowEntry::UpdateKSync() {
         ksync_entry_ =
             static_cast<FlowTableKSyncEntry *>(ksync_obj->Create(&key));
     } else {
-        ksync_obj->Change(ksync_entry_);    
+        if (flow_handle_ != ksync_entry_->hash_id()) {
+            /*
+             * if flow handle changes delete the previous record from
+             * vrouter and install new
+             */
+            ksync_obj->Delete(ksync_entry_);
+            FlowTableKSyncEntry key(ksync_obj, this, flow_handle_);
+            ksync_entry_ =
+                static_cast<FlowTableKSyncEntry *>(ksync_obj->Create(&key));
+        } else {
+            ksync_obj->Change(ksync_entry_);
+        }
     }
 }
 
