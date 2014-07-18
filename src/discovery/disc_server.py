@@ -417,6 +417,7 @@ class DiscoveryServer():
                 'ts_created': int(time.time()),
                 'prov_state': 'new',
                 'remote': bottle.request.environ.get('REMOTE_ADDR'),
+                'sequence': service_type+sig
             }
             self._db_conn.insert_service(service_type, sig, entry)
 
@@ -441,18 +442,16 @@ class DiscoveryServer():
         return response
     # end api_publish
 
-    # find least loaded service instances - sort by subscriber count
+    # round-robin
     def service_list_round_robin(self, pubs):
         self._debug['policy_rr'] += 1
-        return sorted(pubs, key=lambda service: service['in_use'])
+        return sorted(pubs, key=lambda service: service['ts_use'])
     # end
 
-    # most recently used on top of round robin - MRU first
+    # load-balance
     def service_list_load_balance(self, pubs):
         self._debug['policy_lb'] += 1
-        temp = sorted(
-            pubs, key=lambda service: service['ts_use'], reverse=True)
-        return sorted(temp, key=lambda service: service['in_use'])
+        return sorted(pubs, key=lambda service: service['in_use'])
     # end
 
     # master election
@@ -462,7 +461,7 @@ class DiscoveryServer():
     # end
 
     def service_list(self, service_type, pubs):
-        policy = self.get_service_config(service_type, 'policy')
+        policy = self.get_service_config(service_type, 'policy') or 'load-balance'
 
         if policy == 'load-balance':
             f = self.service_list_load_balance
