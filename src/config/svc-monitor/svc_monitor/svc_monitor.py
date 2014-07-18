@@ -443,6 +443,11 @@ class SvcMonitor(object):
                     except NoIdError:
                         vn_id = self._create_svc_vn(vn_name, _SNAT_SUBNET_CIDR,
                                                     proj_obj)
+                    if (not vn_fq_name_str or
+                        vn_fq_name_str != ':'.join(vn_fq_name)):
+                        si_props.set_left_virtual_network(':'.join(vn_fq_name))
+                        si_obj.set_service_instance_properties(si_props)
+                        self._vnc_lib.service_instance_update(si_obj)
                 else:
                     vn_id = self._get_vn_id(proj_obj, vn_fq_name_str,
                                             _SVC_VNS[itf_type][0],
