@@ -7,10 +7,17 @@
 #include <log4cplus/helpers/pointer.h>
 #include <log4cplus/configurator.h>
 #include <log4cplus/fileappender.h>
+#include <log4cplus/syslogappender.h>
+#include <log4cplus/internal/env.h>
+
+#include <boost/format.hpp>
+#include <boost/algorithm/string/predicate.hpp>
 
 using namespace log4cplus;
 
 static bool disabled_;
+static const char *loggingPattern = "%D{%Y-%m-%d %a %H:%M:%S:%Q %Z} "
+                                    " %h [Thread %t, Pid %i]: %m%n";
 
 bool LoggingDisabled() {
     return disabled_;
@@ -25,27 +32,51 @@ void CheckEnvironmentAndUpdate() {
         SetLoggingDisabled(true);
     }
 }
+
 void LoggingInit() {
     BasicConfigurator config;
     config.configure();
     Logger logger = Logger::getRoot();
-    std::auto_ptr<Layout> layout_ptr(new PatternLayout("%D{%Y-%m-%d %a %H:%M:%S:%Q %Z} %h [Thread %t, Pid %i]: %m%n"));
+    std::auto_ptr<Layout> layout_ptr(new PatternLayout(loggingPattern));
     logger.getAllAppenders().at(0)->setLayout(layout_ptr);
     CheckEnvironmentAndUpdate();
 }
 
-void LoggingInit(std::string filename, long maxFileSize, int maxBackupIndex) {
+void LoggingInit(const std::string &filename, long maxFileSize, int maxBackupIndex,
+                 bool useSyslog, const std::string &syslogFacility,
+                 const std::string &ident) {
     helpers::Properties props;
     props.setProperty(LOG4CPLUS_TEXT("rootLogger"),
             LOG4CPLUS_TEXT("DEBUG"));
     PropertyConfigurator config(props);
-
-    SharedAppenderPtr fileappender(new RollingFileAppender(filename,
-                                           maxFileSize, maxBackupIndex));
-    std::auto_ptr<Layout> layout_ptr(new PatternLayout("%D{%Y-%m-%d %a %H:%M:%S:%Q %Z} %h [Thread %t, Pid %i]: %m%n"));
-    fileappender->setLayout(layout_ptr);
-
     Logger logger = Logger::getRoot();
-    logger.addAppender(fileappender);
+
+    if (filename == "<stdout>" || filename.length() == 0) {
+        BasicConfigurator config;
+        config.configure();
+    } else {
+        SharedAppenderPtr fileappender(new RollingFileAppender(filename,
+                                           maxFileSize, maxBackupIndex));
+        logger.addAppender(fileappender);
+    }
+
+    std::auto_ptr<Layout> layout_ptr(new PatternLayout(loggingPattern));
+    logger.getAllAppenders().at(0)->setLayout(layout_ptr);
+
+    if (useSyslog) {
+        std::string syslogident = boost::str(boost::format("%1%[%2%]")
+                                      % ident % internal::get_process_id());
+        props.setProperty(LOG4CPLUS_TEXT("facility"),
+                          boost::starts_with(syslogFacility, "LOG_")
+                        ? syslogFacility.substr(4)
+                        : syslogFacility);
+        props.setProperty(LOG4CPLUS_TEXT("ident"), syslogident);
+        SharedAppenderPtr syslogappender(new SysLogAppender(props));
+        std::auto_ptr<Layout> syslog_layout_ptr(new PatternLayout(
+                                                    loggingPattern));
+        syslogappender->setLayout(syslog_layout_ptr);
+        logger.addAppender(syslogappender);
+    }
+
     CheckEnvironmentAndUpdate();
 }

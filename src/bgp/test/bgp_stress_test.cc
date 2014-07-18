@@ -45,6 +45,7 @@
 #include "db/db.h"
 #include "io/event_manager.h"
 
+#include "sandesh/common/vns_types.h"
 #include "sandesh/sandesh_http.h"
 #include "sandesh/sandesh_types.h"
 #include "schema/xmpp_unicast_types.h"
@@ -2888,11 +2889,15 @@ static void process_command_line_args(int argc, const char **argv) {
             string hostname(boost::asio::ip::host_name(error));
             log_file << "." << hostname << "." << getpid();
         }
+
+        Module::type module = Module::CONTROL_NODE;
+        string module_name = g_vns_constants.ModuleNames.find(module)->second;
         bgp_log_test::init(log_file.str(),
             vm.count("log-file-size") ?
                 vm["log-file-size"].as<unsigned long>() : log_file_size,
             vm.count("log-file-index") ?
-                vm["log-file-index"].as<unsigned int>() : log_file_index);
+                vm["log-file-index"].as<unsigned int>() : log_file_index,
+                !d_log_disable_, d_log_level_, module_name);
     }
 
     //
