@@ -561,6 +561,52 @@ protected:
         table->Enqueue(&request);
     }
 
+    vector<string> GetExportRouteTargetList(BgpServerTest *server, const string &instance) {
+        TASK_UTIL_EXPECT_NE(static_cast<RoutingInstance *>(NULL),
+            server->routing_instance_mgr()->GetRoutingInstance(instance));
+        RoutingInstance *rti =
+            server->routing_instance_mgr()->GetRoutingInstance(instance);
+        vector<string> target_list;
+        BOOST_FOREACH(RouteTarget tgt, rti->GetExportList()) {
+            target_list.push_back(tgt.ToString());
+        }
+        sort(target_list.begin(), target_list.end());
+        return target_list;
+    }
+
+    vector<string> GetImportRouteTargetList(BgpServerTest *server, const string &instance) {
+        TASK_UTIL_EXPECT_NE(static_cast<RoutingInstance *>(NULL),
+            server->routing_instance_mgr()->GetRoutingInstance(instance));
+        RoutingInstance *rti =
+            server->routing_instance_mgr()->GetRoutingInstance(instance);
+        vector<string> target_list;
+        BOOST_FOREACH(RouteTarget tgt, rti->GetImportList()) {
+            target_list.push_back(tgt.ToString());
+        }
+        sort(target_list.begin(), target_list.end());
+        return target_list;
+    }
+
+
+
+    void RemoveConnection(BgpServerTest *server, string src, string tgt) {
+        ifmap_test_util::IFMapMsgUnlink(server->config_db(),
+                                        "routing-instance", src,
+                                        "routing-instance", tgt,
+                                        "connection");
+
+        task_util::WaitForIdle();
+    }
+
+    void AddConnection(BgpServerTest *server, string src, string tgt) {
+        ifmap_test_util::IFMapMsgLink(server->config_db(),
+                                      "routing-instance", src,
+                                      "routing-instance", tgt,
+                                      "connection");
+        task_util::WaitForIdle();
+    }
+
+
     static void ValidateRTGroupResponse(Sandesh *sandesh, 
                                         std::vector<string> &result) {
         ShowRtGroupResp *resp =
@@ -1092,6 +1138,102 @@ TEST_F(RTargetPeerTest, DeletedPeer) {
                              "Wait for route in rtarget table..");
     VerifyAllPeerUp(cn2_.get(), 1);
 }
+
+TEST_F(RTargetPeerTest, SameRTInMultipleVRF) {
+    agent_a_1_->Subscribe("blue", 2);
+    agent_b_1_->Subscribe("blue", 2);
+    agent_a_2_->Subscribe("blue", 2);
+    agent_b_2_->Subscribe("blue", 2);
+
+    TASK_UTIL_EXPECT_EQ(1, GetExportRouteTargetList(cn1_.get(), "blue").size());
+    TASK_UTIL_EXPECT_EQ(1, GetExportRouteTargetList(cn1_.get(), "blue-i1").size());
+    TASK_UTIL_EXPECT_EQ(1, GetExportRouteTargetList(cn2_.get(), "blue").size());
+    TASK_UTIL_EXPECT_EQ(1, GetExportRouteTargetList(cn2_.get(), "blue-i1").size());
+
+    AddRouteTarget(cn1_.get(), "blue", "target:1:99");
+    AddRouteTarget(cn2_.get(), "blue", "target:1:99");
+    AddRouteTarget(cn1_.get(), "blue-i1", "target:1:99");
+    AddRouteTarget(cn2_.get(), "blue-i1", "target:1:99");
+
+    TASK_UTIL_EXPECT_EQ(2, GetExportRouteTargetList(cn1_.get(), "blue").size());
+    TASK_UTIL_EXPECT_EQ(2, GetExportRouteTargetList(cn1_.get(), "blue-i1").size());
+    TASK_UTIL_EXPECT_EQ(2, GetExportRouteTargetList(cn2_.get(), "blue").size());
+    TASK_UTIL_EXPECT_EQ(2, GetExportRouteTargetList(cn2_.get(), "blue-i1").size());
+
+    TASK_UTIL_WAIT_NE_NO_MSG(RTargetRouteLookup(cn1_.get(), "64512:target:1:99"),
+                             NULL, 1000, 10000,
+                             "Wait for route in rtarget table..");
+    TASK_UTIL_WAIT_NE_NO_MSG(RTargetRouteLookup(cn2_.get(), "64512:target:1:99"),
+                             NULL, 1000, 10000,
+                             "Wait for route in rtarget table..");
+
+    RemoveRouteTarget(cn1_.get(), "blue", "target:1:99");
+    RemoveRouteTarget(cn2_.get(), "blue", "target:1:99");
+    TASK_UTIL_EXPECT_EQ(1, GetExportRouteTargetList(cn1_.get(), "blue").size());
+    TASK_UTIL_EXPECT_EQ(2, GetExportRouteTargetList(cn1_.get(), "blue-i1").size());
+    TASK_UTIL_EXPECT_EQ(1, GetExportRouteTargetList(cn2_.get(), "blue").size());
+    TASK_UTIL_EXPECT_EQ(2, GetExportRouteTargetList(cn2_.get(), "blue-i1").size());
+
+    TASK_UTIL_WAIT_NE_NO_MSG(RTargetRouteLookup(cn1_.get(), "64512:target:1:99"),
+                             NULL, 1000, 10000,
+                             "Wait for route in rtarget table..");
+    TASK_UTIL_WAIT_NE_NO_MSG(RTargetRouteLookup(cn2_.get(), "64512:target:1:99"),
+                             NULL, 1000, 10000,
+                             "Wait for route in rtarget table..");
+    agent_a_1_->Unsubscribe("blue", -1, false);
+    agent_a_2_->Unsubscribe("blue", -1, false);
+    agent_b_1_->Unsubscribe("blue", -1, false);
+    agent_b_2_->Unsubscribe("blue", -1, false);
+
+    RemoveRouteTarget(cn1_.get(), "blue-i1", "target:1:99");
+    RemoveRouteTarget(cn2_.get(), "blue-i1", "target:1:99");
+    TASK_UTIL_WAIT_EQ_NO_MSG(RTargetRouteLookup(cn1_.get(), "64512:target:1:99"),
+                             NULL, 1000, 10000,
+                             "Wait for route in rtarget table..");
+    TASK_UTIL_WAIT_EQ_NO_MSG(RTargetRouteLookup(cn2_.get(), "64512:target:1:99"),
+                             NULL, 1000, 10000,
+                             "Wait for route in rtarget table..");
+}
+
+TEST_F(RTargetPeerTest, ConnectedVRF) {
+    // RED and PURPLE are connected
+    AddRouteTarget(cn1_.get(), "red", "target:1:99");
+    AddRouteTarget(cn2_.get(), "red", "target:1:99");
+
+    TASK_UTIL_EXPECT_EQ(3, GetImportRouteTargetList(cn1_.get(), "red").size());
+    TASK_UTIL_EXPECT_EQ(3, GetImportRouteTargetList(cn2_.get(), "red").size());
+    TASK_UTIL_EXPECT_EQ(3, GetImportRouteTargetList(cn1_.get(), "purple").size());
+    TASK_UTIL_EXPECT_EQ(3, GetImportRouteTargetList(cn2_.get(), "purple").size());
+
+    RemoveConnection(cn1_.get(), "red", "purple");
+    RemoveConnection(cn2_.get(), "red", "purple");
+    TASK_UTIL_EXPECT_EQ(2, GetImportRouteTargetList(cn1_.get(), "red").size());
+    TASK_UTIL_EXPECT_EQ(2, GetImportRouteTargetList(cn2_.get(), "red").size());
+    TASK_UTIL_EXPECT_EQ(1, GetImportRouteTargetList(cn1_.get(), "purple").size());
+    TASK_UTIL_EXPECT_EQ(1, GetImportRouteTargetList(cn2_.get(), "purple").size());
+
+    TASK_UTIL_WAIT_NE_NO_MSG(RTargetRouteLookup(cn1_.get(), "64512:target:1:99"),
+                             NULL, 1000, 10000,
+                             "Wait for route in rtarget table..");
+    TASK_UTIL_WAIT_NE_NO_MSG(RTargetRouteLookup(cn2_.get(), "64512:target:1:99"),
+                             NULL, 1000, 10000,
+                             "Wait for route in rtarget table..");
+
+    AddConnection(cn1_.get(), "red", "purple");
+    AddConnection(cn2_.get(), "red", "purple");
+    TASK_UTIL_EXPECT_EQ(3, GetImportRouteTargetList(cn1_.get(), "red").size());
+    TASK_UTIL_EXPECT_EQ(3, GetImportRouteTargetList(cn2_.get(), "red").size());
+    TASK_UTIL_EXPECT_EQ(3, GetImportRouteTargetList(cn1_.get(), "purple").size());
+    TASK_UTIL_EXPECT_EQ(3, GetImportRouteTargetList(cn2_.get(), "purple").size());
+
+    TASK_UTIL_WAIT_NE_NO_MSG(RTargetRouteLookup(cn1_.get(), "64512:target:1:99"),
+                             NULL, 1000, 10000,
+                             "Wait for route in rtarget table..");
+    TASK_UTIL_WAIT_NE_NO_MSG(RTargetRouteLookup(cn2_.get(), "64512:target:1:99"),
+                             NULL, 1000, 10000,
+                             "Wait for route in rtarget table..");
+}
+
 
 int main(int argc, char **argv) {
     bgp_log_test::init();

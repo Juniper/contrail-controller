@@ -99,6 +99,8 @@ private:
     };
     typedef std::map<RoutingInstance *, SubscriptionState>
         SubscribedRoutingInstanceList;
+    typedef std::set<RoutingInstance *> RoutingInstanceList;
+    typedef std::map<RouteTarget, RoutingInstanceList> PublishedRTargetRoutes;
 
     // map of routing-instance table name to XMPP subscription request state
     typedef std::map<std::string, MembershipRequestState> 
@@ -126,6 +128,11 @@ private:
                              int index);
     void RTargetRouteOp(BgpTable *rtarget_table, as4_t asn, 
                     const RouteTarget &rt, BgpAttrPtr attr, bool add_change);
+    void AddNewRTargetRoute(BgpTable *rtarget_table,
+        RoutingInstance *rtinstance, const RouteTarget &rtarget,
+        BgpAttrPtr attr);
+    void DeleteRTargetRoute(BgpTable *rtarget_table,
+        RoutingInstance *rtinstance, const RouteTarget &rtarget);
     void ProcessASUpdate(as4_t old_as);
     void ProcessSubscriptionRequest(std::string rt_instance,
                                     const XmppStanza::XmppMessageIq *iq,
@@ -162,6 +169,7 @@ private:
     bool defer_peer_close_;
     WorkQueue<std::string> membership_response_worker_;
     SubscribedRoutingInstanceList routing_instances_;
+    PublishedRTargetRoutes rtarget_routes_;
 
     // statistics
     Stats stats_[2];
