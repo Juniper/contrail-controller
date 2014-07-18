@@ -1,0 +1,16 @@
+<xsd:schema 
+    xmlns:xsd="http://www.w3.org/2001/XMLSchema"
+    xmlns:smi="urn:ietf:params:xml:ns:opsawg:smi:base:1.0">
+
+<xsd:include schemaLocation='bgp_schema.xsd'/>
+<xsd:include schemaLocation='ietf-bfd-schema.xsd'/>
+
+<xsd:element name='bfd-session' type='IdentityType'/>
+<xsd:element name='bfd-session-config' type='BFDSessionConfig'/>
+<!--#IFMAP-SEMANTICS-IDL
+     Property('bfd-session', 'bfd-session-config') -->
+<xsd:element name='bfd-session-enabled' type='xsd:boolean'/>
+<!--#IFMAP-SEMANTICS-IDL
+     Link('bfd-session-enabled', 'bfd-session', 'bgp-router', ['ref']) -->
+
+</xsd:schema>

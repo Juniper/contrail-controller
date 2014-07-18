@@ -26,6 +26,10 @@ targets = env.IFMapAutogen('bgp_schema.xsd')
 lib_srcs = filter(lambda x: re.match(r'(.*)\.cc$', x.abspath), targets)
 lib = env.Library('bgp_schema', lib_srcs)
 
+targets = env.IFMapAutogen('bfd_schema.xsd')
+lib_srcs = filter(lambda x: re.match(r'(.*)\.cc$', x.abspath), targets)
+lib = env.Library('bfd_schema', lib_srcs)
+
 targets = env.TypeAutogen('xmpp_unicast.xsd')
 lib_srcs = filter(lambda x: re.match(r'(.*)\.cc$', x.abspath), targets)
 lib = env.Library('xmpp_unicast', lib_srcs)
