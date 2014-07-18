@@ -26,8 +26,8 @@ for file in local_sources:
     local_sources_rules.append(DatabaseEnv.Install("database", file))
 
 db_sandesh_gen_files = DatabaseEnv.SandeshGenPy('#controller/src/analytics/viz.sandesh')
-db_sandesh_gen_files += DatabaseEnv.SandeshGenPy('#controller/src/analytics/database/database_cpuinfo.sandesh')
-db_sandesh_gen_py_dirs = [ 'viz', 'database_cpuinfo']
+db_sandesh_gen_files += DatabaseEnv.SandeshGenPy('#controller/src/analytics/database/database.sandesh')
+db_sandesh_gen_py_dirs = [ 'viz', 'database']
 db_sandesh_gen_py_files = db_sandesh_gen_py_dirs + [ '__init__.py' ]
 db_sandesh_gen_py_srcs = ['gen_py/' + src for src in db_sandesh_gen_py_files]
 db_sandesh_gen_py_rules = []
@@ -40,7 +40,7 @@ cpu_info_gen_py_files = DatabaseEnv.SandeshGenPy('#/controller/src/base/sandesh/
 cpu_info_gen_py_srcs = ['gen_py/cpuinfo']
 cpu_info_gen_py_rules = []
 for file in cpu_info_gen_py_srcs:
-    cpu_info_gen_py_rules.append(DatabaseEnv.Install('database/sandesh/database_cpuinfo', file))
+    cpu_info_gen_py_rules.append(DatabaseEnv.Install('database/sandesh/database', file))
 DatabaseEnv.Depends(cpu_info_gen_py_rules, cpu_info_gen_py_files)
 
 sdist_depends = [setup_sources_rules, local_sources_rules, db_sandesh_gen_py_rules, cpu_info_gen_py_rules]
