@@ -581,11 +581,22 @@ class TestListUpdate(test_common.TestCase):
 # end class TestListUpdate
 
 class TestVncCfgApiServer(test_common.TestCase):
+    def _create_test_objects(self, count=1):
+        ret_objs = []
+        for i in range(count):
+            obj_name = self.id() + '-vn-' + str(i)
+            obj = VirtualNetwork(obj_name)
+            self.addDetail('creating-object', content.text_content(obj_name))
+            self._vnc_lib.virtual_network_create(obj)
+            ret_objs.append(obj)
+
+        return ret_objs
+
+    def _create_test_object(self):
+        return self._create_test_objects()[0]
+
     def test_fq_name_to_id_http_post(self):
-        test_vn_name = self.id() + '-vn'
-        test_obj = VirtualNetwork(test_vn_name)
-        self.addDetail('creating-object', content.text_content(test_vn_name))
-        self._vnc_lib.virtual_network_create(test_obj)
+        test_obj = self._create_test_object()
         test_uuid = self._vnc_lib.fq_name_to_id('virtual-network', test_obj.get_fq_name())
         # check that format is correct
         try:
@@ -597,9 +608,7 @@ class TestVncCfgApiServer(test_common.TestCase):
             test_uuid = self._vnc_lib.fq_name_to_id('project', test_obj.get_fq_name())
 
     def test_id_to_fq_name_http_post(self):
-        test_vn_name = self.id() + '-vn'
-        test_obj = VirtualNetwork(test_vn_name)
-        self.addDetail('creating-object', content.text_content(test_vn_name))
+        test_obj = self._create_test_object()
         self._vnc_lib.virtual_network_create(test_obj)
         fq_name = self._vnc_lib.id_to_fq_name(test_obj.uuid)
         self.assertEqual(test_obj.fq_name, fq_name)
@@ -626,6 +635,52 @@ class TestVncCfgApiServer(test_common.TestCase):
         self.addDetail('useragent-kv-post-wrongop', content.json_content(test_body))
         (code, msg) = self._http_post('/useragent-kv', test_body)
         self.assertEqual(code, 404)
+        
+    def test_err_on_max_rabbit_pending(self):
+        api_server = test_common.vnc_cfg_api_server.server
+        max_pend_upd = 10
+        api_server._args.rabbit_max_pending_updates = str(max_pend_upd)
+        orig_rabbitq_put = api_server._db_conn._msgbus._obj_update_q.put
+        try:
+            def err_rabbitq_put(*args, **kwargs):
+                raise Exception("Faking Rabbit Exception")
+            api_server._db_conn._msgbus._obj_update_q.put = err_rabbitq_put
+
+            logger.info("Creating objects to hit max rabbit pending.")
+            # every create updates project quota
+            test_objs = self._create_test_objects(count=max_pend_upd/2+1)
+
+            def asserts_on_max_pending():
+                self.assertEqual(e.status_code, 500)
+                self.assertIn("Too many pending updates", e.content)
+
+            logger.info("Creating one more object expecting failure.")
+            obj = VirtualNetwork('vn-to-fail')
+            self.addDetail('expecting-failed-create', content.text_content(obj.name))
+            try:
+                self._vnc_lib.virtual_network_create(obj)
+            except HttpError as e:
+                asserts_on_max_pending()
+
+            logger.info("Update of object should fail.")
+            test_objs[0].display_name = 'foo'
+            try:
+                self._vnc_lib.virtual_network_update(test_objs[0])
+            except HttpError as e:
+                asserts_on_max_pending()
+
+            logger.info("Delete of object should fail.")
+            test_objs[0].display_name = 'foo'
+            try:
+                self._vnc_lib.virtual_network_delete(id=test_objs[0].uuid)
+            except HttpError as e:
+                asserts_on_max_pending()
+
+            logger.info("Read obj object should be ok.")
+            self._vnc_lib.virtual_network_read(id=test_objs[0].uuid)
+
+        finally:
+            api_server._db_conn._msgbus._obj_update_q.put = orig_rabbitq_put
         
 # end class TestVncCfgApiServer
 
