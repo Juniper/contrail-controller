@@ -6,16 +6,16 @@
 #define vnsw_agent_tunnel_nh_hpp
 
 #include <base/dependency.h>
+#include <cmn/agent_cmn.h>
+#include <cmn/agent.h>
 #include <oper/nexthop.h>
-#include <oper/route_common.h>
+#include <oper/agent_route.h>
 
 class TunnelNH : public NextHop {
 public:
     TunnelNH(VrfEntry *vrf, const Ip4Address &sip, const Ip4Address &dip,
-             bool policy, TunnelType type) :
-        NextHop(NextHop::TUNNEL, false, policy), vrf_(vrf), sip_(sip), 
-        dip_(dip), tunnel_type_(type), arp_rt_(this) { }; 
-    virtual ~TunnelNH() { };
+             bool policy, TunnelType type);
+    virtual ~TunnelNH();
 
     virtual std::string ToString() const { 
         return "Tunnel to " + dip_.to_string();

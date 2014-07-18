@@ -10,10 +10,14 @@
 #include <net/ethernet.h>
 #include <net/address.h>
 #include <netinet/ether.h>
+
 #include <base/lifetime.h>
 #include <base/patricia.h>
 #include <base/task_annotations.h>
+
 #include <cmn/agent_cmn.h>
+#include <cmn/agent.h>
+#include <agent_types.h>
 #include <route/route.h>
 #include <route/table.h>
 
@@ -27,6 +31,7 @@
 
 class AgentRoute;
 class AgentPath;
+class Peer;
 
 struct AgentRouteKey : public AgentKey {
     AgentRouteKey(const Peer *peer, const std::string &vrf_name) : 
@@ -129,9 +134,9 @@ public:
     }
 
     Agent *agent() const { return agent_; }
-    const std::string &vrf_name() const { return vrf_entry_->GetName();};
+    const std::string &vrf_name() const;
     uint32_t vrf_id() const {return vrf_id_;}
-    VrfEntry *vrf_entry() const {return vrf_entry_.get();}
+    VrfEntry *vrf_entry() const;
     AgentRoute *FindActiveEntry(const AgentRouteKey *key);
 
     // Set VRF for the route-table

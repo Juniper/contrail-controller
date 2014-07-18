@@ -5,8 +5,8 @@
 #ifndef vnsw_agent_route_walker_hpp
 #define vnsw_agent_route_walker_hpp
 
-#include "cmn/agent_cmn.h"
-
+#include <cmn/agent_cmn.h>
+#include <cmn/agent.h>
 
 /**
  * The infrastructure is to support and manage VRF walks along with

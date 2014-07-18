@@ -10,6 +10,8 @@
 #include <oper/nexthop.h>
 #include <oper/peer.h>
 #include <oper/mirror_table.h>
+
+#include <controller/controller_vrf_export.h>
 #include <controller/controller_init.h>
 #include <controller/controller_export.h> 
 #include <controller/controller_peer.h>

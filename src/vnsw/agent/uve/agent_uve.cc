@@ -49,6 +49,8 @@ void AgentUve::Shutdown() {
     vm_uve_table_.get()->Shutdown();
     vrouter_uve_entry_.get()->Shutdown();
     connection_state_manager_->Shutdown();
+    flow_stats_collector_->Shutdown();
+    vrouter_stats_collector_->Shutdown();
 }
 
 void AgentUve::Init() {

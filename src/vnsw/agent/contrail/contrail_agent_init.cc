@@ -37,6 +37,14 @@
 
 #include "contrail_agent_init.h"
 
+ContrailAgentInit::ContrailAgentInit() :
+    agent_(NULL), params_(NULL), trigger_() {
+}
+
+ContrailAgentInit::~ContrailAgentInit() {
+    trigger_->Reset();
+}
+
 /****************************************************************************
  * Initialization routines
 ****************************************************************************/

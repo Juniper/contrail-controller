@@ -13,6 +13,7 @@
 #include <vnc_cfg_types.h>
 
 #include <cfg/cfg_init.h>
+#include <cfg/cfg_listener.h>
 #include <route/route.h>
 #include <oper/route_common.h>
 #include <oper/vn.h>

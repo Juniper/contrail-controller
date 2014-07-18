@@ -1,12 +1,18 @@
 /*
  * Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
  */
+#include <cmn/agent_cmn.h>
+#include <route/route.h>
 
-#include "agent_route_walker.h"
-#include "oper/route_common.h"
-#include "oper/vrf.h"
-#include "oper/mirror_table.h"
-#include "oper/agent_sandesh.h"
+#include <vnc_cfg_types.h>
+#include <agent_types.h>
+
+#include <cmn/agent_db.h>
+
+#include <oper/agent_route_walker.h>
+#include <oper/agent_route_encap.h>
+#include <oper/vrf.h>
+#include <oper/agent_route.h>
 
 using namespace std;
 

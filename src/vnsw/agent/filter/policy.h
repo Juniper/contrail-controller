@@ -8,11 +8,6 @@
 #include <boost/uuid/uuid.hpp>
 #include <vector>
 
-#include "db/db.h"
-#include "db/db_entry.h"
-#include "db/db_table.h"
-#include "vnsw/agent/filter/acl.h"
-
 typedef boost::uuids::uuid uuid;
 struct PolicyConfigSpec;
 

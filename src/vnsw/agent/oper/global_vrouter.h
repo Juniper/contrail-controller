@@ -5,7 +5,7 @@
 #ifndef vnsw_agent_global_router_h_
 #define vnsw_agent_global_router_h_
 
-#include "db/db_entry.h"
+#include <cmn/agent_cmn.h>
 
 class OperDB;
 class VnEntry;

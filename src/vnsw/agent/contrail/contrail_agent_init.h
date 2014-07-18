@@ -5,18 +5,20 @@
 #ifndef vnsw_contrail_agent_init_hpp
 #define vnsw_contrail_agent_init_hpp
 
+#include <boost/program_options.hpp>
+
 class Agent;
 class AgentParam;
+class DiagTable;
+class ServicesModule;
+class PktModule;
 
 // The class to drive agent initialization. 
 // Defines control parameters used to enable/disable agent features
 class ContrailAgentInit {
 public:
-    ContrailAgentInit() : agent_(NULL), params_(NULL), trigger_() { }
-
-    ~ContrailAgentInit() {
-        trigger_->Reset();
-    }
+    ContrailAgentInit();
+    virtual ~ContrailAgentInit();
 
     bool Run();
     void Start();

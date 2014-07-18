@@ -7,13 +7,18 @@
 
 #include <boost/property_tree/ptree.hpp>
 #include <boost/program_options.hpp>
+#include <cmn/agent_cmn.h>
 
+class Agent;
 class VirtualGatewayConfigTable;
 
 // Class handling agent configuration parameters from config file and 
 // arguments
 class AgentParam  {
 public:
+    static const uint32_t AgentStatsInterval = (30 * 1000); // time in millisecs
+    static const uint32_t FlowStatsInterval = (1000); // time in milliseconds
+
     // Hypervisor mode we are working on
     enum Mode {
         MODE_INVALID,

@@ -10,7 +10,11 @@
 // Interface class
 /////////////////////////////////////////////////////////////////////////////
 
+#include <cmn/agent_cmn.h>
+#include <cmn/index_vector.h>
+
 struct InterfaceData;
+class VmInterface;
 
 class Interface : AgentRefCount<Interface>, public AgentDBEntry {
 public:

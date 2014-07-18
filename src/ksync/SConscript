@@ -23,11 +23,10 @@ SandeshGenFiles = env.SandeshGenCpp('ksync.sandesh')
 SandeshGenSrcs = env.ExtractCpp(SandeshGenFiles)
 
 # Basic KSync library
-libksync = env.Library('ksync', ['ksync_object.cc'])
+libksync = env.Library('ksync', SandeshGenSrcs + ['ksync_object.cc'])
 
 # KSync Netlink library
 libksyncnl = env.Library('ksyncnl',
-                    SandeshGenSrcs + 
                     ['ksync_netlink.cc', 'ksync_sock.cc', 'ksync_sock_user.cc'])
 
 env.SConscript('test/SConscript', exports='BuildEnv', duplicate = 0)
