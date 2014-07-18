@@ -27,7 +27,6 @@ public:
     }
     virtual void Shutdown() {
         CHECK_CONCURRENCY("bgp::Config");
-        client_->SessionShutdown();
     }
     virtual void Destroy() {
         CHECK_CONCURRENCY("bgp::Config");
@@ -44,10 +43,6 @@ XmppClient::XmppClient(EventManager *evm)
 }
 
 XmppClient::~XmppClient() {
-}
-
-void XmppClient::SessionShutdown() {
-    TcpServer::Shutdown();
 }
 
 bool XmppClient::Initialize(short port) {
@@ -91,7 +86,7 @@ TcpSession *XmppClient::CreateSession() {
         XMPP_WARNING(SetSockOptFail, err.message());
         return session;
     }
-    
+
     err = session->SetSocketOptions();
     if (err) {
         DeleteSession(session);
@@ -102,7 +97,7 @@ TcpSession *XmppClient::CreateSession() {
 }
 
 void XmppClient::Shutdown() {
-    assert(deleter_.get());
+    TcpServer::Shutdown();
     deleter_->Delete();
 }
 
@@ -162,6 +157,10 @@ void XmppClient::NotifyConnectionEvent(XmppChannelMux *mux,
 
 size_t XmppClient::ConnectionEventCount() const {
     return connection_event_map_.size();
+}
+
+size_t XmppClient::ConnectionsCount() const {
+    return connection_map_.size();
 }
 
 TcpSession *XmppClient::AllocSession(Socket *socket) {

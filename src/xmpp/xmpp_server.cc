@@ -34,7 +34,6 @@ public:
     }
     virtual void Shutdown() {
         CHECK_CONCURRENCY("bgp::Config");
-        server_->SessionShutdown();
     }
     virtual void Destroy() {
         CHECK_CONCURRENCY("bgp::Config");
@@ -79,10 +78,6 @@ bool XmppServer::IsPeerCloseGraceful() {
         if (p && !strcasecmp(p, "true")) enabled = true;
     }
     return enabled;
-}
-
-void XmppServer::SessionShutdown() {
-    TcpServer::Shutdown();
 }
 
 XmppServer::~XmppServer() {
@@ -144,8 +139,8 @@ TcpSession *XmppServer::CreateSession() {
 }
 
 void XmppServer::Shutdown() {
+    TcpServer::Shutdown();
     work_queue_.Shutdown();
-    assert(deleter_.get());
     deleter_->Delete();
 }
 
@@ -158,7 +153,7 @@ size_t XmppServer::ConnectionEventCount() const {
     return connection_event_map_.size();
 }
 
-size_t XmppServer::ConnectionsCount() {
+size_t XmppServer::ConnectionsCount() const {
     return connection_map_.size() + deleted_connection_set_.size();
 }
 

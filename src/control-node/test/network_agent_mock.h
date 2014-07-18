@@ -327,6 +327,7 @@ private:
     static void Initialize();
     AgentPeer *GetAgent();
     XmppChannelConfig *CreateXmppConfig();
+    bool ConnectionDestroyed() const;
 
     XmppClient *client_;
     std::auto_ptr<AgentPeer> peer_;
