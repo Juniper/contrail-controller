@@ -13,6 +13,7 @@ setup(
               'opserver.sandesh.analytics',
               'opserver.sandesh.analytics.connection_info',
               'opserver.sandesh.analytics.cpuinfo',
+              'opserver.sandesh.analytics_database',
               'opserver.sandesh.redis',
               'opserver.sandesh.discovery'],
     package_data={'': ['*.html', '*.css', '*.xml']},
