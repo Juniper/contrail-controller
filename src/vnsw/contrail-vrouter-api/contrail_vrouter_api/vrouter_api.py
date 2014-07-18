@@ -36,8 +36,7 @@ class ContrailVRouterApi(object):
 
     def _resynchronize(self):
         """ Add all the active ports to the agent """
-        for port in self._ports.iteritems():
-            self._client.AddPort(port)
+        self._client.AddPort([port for port in self._ports.itervalues()])
 
     def _uuid_from_string(self, idstr):
         """ Convert an uuid string into an uuid object """
