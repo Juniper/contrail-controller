@@ -1677,7 +1677,7 @@ TEST_F(BgpXmppSerializeMembershipReqTest, SerializedMembershipReq0) {
     task_util::WaitForIdle();
 
     TASK_UTIL_EXPECT_TRUE(PeerRegistered(bgp_channel_manager_->channel_, 
-                                            "red", 2));
+                                            "red", 1));
     TASK_UTIL_EXPECT_EQ(1, agent_a_->RouteCount());
     ASSERT_TRUE(agent_a_->RouteCount() == 1);
 }

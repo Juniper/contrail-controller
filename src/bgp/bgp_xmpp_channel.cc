@@ -1718,6 +1718,7 @@ void BgpXmppChannel::ProcessSubscriptionRequest(
                                  BGP_LOG_FLAG_ALL, BGP_PEER_DIR_NA,
                                  "Received registration req without " <<
                                  "unregister : " << table->name());
+                    continue;
                 }
                 loc->second.instance_id = instance_id;
                 loc->second.pending_req = SUBSCRIBE;
