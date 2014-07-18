@@ -271,7 +271,7 @@ void TestClient::Shutdown() {
     Agent::GetInstance()->ksync()->Shutdown();
     Agent::GetInstance()->pkt()->Shutdown();  
     MulticastHandler::Shutdown();
-    Agent::GetInstance()->oper_db()->Shutdown();
+    //Agent::GetInstance()->oper_db()->Shutdown();
     Agent::GetInstance()->db()->Clear();
     Agent::GetInstance()->db()->ClearFactoryRegistry();
 }

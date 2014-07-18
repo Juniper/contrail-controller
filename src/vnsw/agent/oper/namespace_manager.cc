@@ -553,7 +553,6 @@ NamespaceTaskQueue::NamespaceTaskQueue(EventManager *evm) : evm_(evm),
 }
 
 NamespaceTaskQueue::~NamespaceTaskQueue() {
-    TimerManager::DeleteTimer(timeout_timer_);
 }
 
 void NamespaceTaskQueue::StartTimer(int time) {
@@ -588,4 +587,5 @@ void NamespaceTaskQueue::Clear() {
         task_queue_.pop();
         delete task;
     }
+    TimerManager::DeleteTimer(timeout_timer_);
 }
