@@ -402,6 +402,10 @@ DBTableWalker *TestAgentInit::DeleteAcls() {
 }
 
 void TestAgentInit::Shutdown() {
+    if (agent_->oper_db()) {
+        agent_->oper_db()->Shutdown();
+    }
+
     agent_->cfg()->Shutdown();
     agent_->diag_table()->Shutdown();
 }
