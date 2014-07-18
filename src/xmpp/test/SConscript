@@ -71,15 +71,15 @@ env.Alias('controller/xmpp:xmpp_stream_message_server_test', xmpp_stream_message
 
 
 test_suite = [
-    xmpp_server_test,
+    xmpp_client_sm_test,
     xmpp_pubsub_test,
     xmpp_regex_test,
     xmpp_server_sm_test,
-    xmpp_client_sm_test,
+    xmpp_server_test,
+    xmpp_session_test,
 ]
 
 flaky_test_suite = [
-    xmpp_session_test,
     xmpp_stream_message_client_test,
     xmpp_stream_message_server_test,
 ]

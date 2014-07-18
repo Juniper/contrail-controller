@@ -15,13 +15,14 @@
 class LifetimeActor;
 class LifetimeManager;
 class XmppSession;
-class XmppSessionTest;
 
 // Class to represent Xmpp Client
 // We derive from the common TCP server base class
 // which abstracts both server & client side methods.
 class XmppClient : public TcpServer {
 public:
+    typedef boost::asio::ip::tcp::endpoint Endpoint;
+
     explicit XmppClient(EventManager *evm);
     virtual ~XmppClient();
 
@@ -35,13 +36,16 @@ public:
 
     virtual TcpSession *CreateSession();
     virtual bool Initialize(short port) ;
-    XmppConnection *FindConnection(const std::string &server_addr);
-    XmppChannel *FindChannel(const std::string &server_addr);
-    void RemoveConnection(XmppConnection *);
+
+    XmppClientConnection *CreateConnection(const XmppChannelConfig *config);
+    XmppClientConnection *FindConnection(const std::string &address);
+    void InsertConnection(XmppClientConnection *connection);
+    void RemoveConnection(XmppClientConnection *connection);
+    size_t ConnectionCount() const;
+
+    XmppChannel *FindChannel(const std::string &address);
     void ConfigUpdate(const XmppConfigData *cfg);
     XmppConfigManager *xmpp_config_mgr() { return config_mgr_.get(); }
-    XmppConnection *CreateConnection(const XmppChannelConfig *config);
-    size_t ConnectionsCount() const;
 
     LifetimeManager *lifetime_manager();
     LifetimeActor *deleter();
@@ -54,21 +58,17 @@ private:
     friend class XmppSessionTest; 
     friend class XmppStreamMessageTest; 
     friend class DeleteActor; 
-    typedef boost::ptr_map<boost::asio::ip::tcp::endpoint, 
-                           XmppConnection> XmppConnectionMap;
+
+    typedef std::map<Endpoint, XmppClientConnection *> ConnectionMap;
     typedef std::map<xmps::PeerId, ConnectionEventCb> ConnectionEventCbMap;
 
     void ProcessConfigUpdate(XmppConfigManager::DiffType delta,
-                             const XmppChannelConfig *current,
-                             const XmppChannelConfig *future);
-    typedef boost::ptr_container_detail::ref_pair<
-                   boost::asio::ip::basic_endpoint<boost::asio::ip::tcp>, 
-                   XmppConnection *const> XmppConnectionPair;
-    bool Compare(const std::string &server, const XmppConnectionPair &) const;
-    XmppConnectionMap connection_map_;
-    std::auto_ptr<XmppConfigManager> config_mgr_;
+        const XmppChannelConfig *current, const XmppChannelConfig *future);
+
+    ConnectionMap connection_map_;
     ConnectionEventCbMap connection_event_map_;
 
+    boost::scoped_ptr<XmppConfigManager> config_mgr_;
     boost::scoped_ptr<LifetimeManager> lifetime_manager_;
     boost::scoped_ptr<DeleteActor> deleter_;
 

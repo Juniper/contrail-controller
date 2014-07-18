@@ -84,29 +84,29 @@ public:
 
     // Protect connection db with mutex as it is queried from main thread which
     // does not adhere to control-node scheduler policy.
-    XmppConnection *FindConnection(const std::string &peer_addr) {
+    XmppServerConnection *FindConnection(const std::string &peer_addr) {
         tbb::mutex::scoped_lock lock(mutex_);
         return XmppServer::FindConnection(peer_addr);
     }
 
-    void InsertConnection(XmppConnection *connection) {
+    void InsertConnection(XmppServerConnection *connection) {
         tbb::mutex::scoped_lock lock(mutex_);
         XmppServer::InsertConnection(connection);
     }
 
-    bool RemoveConnection(XmppConnection *connection) {
+    void RemoveConnection(XmppServerConnection *connection) {
         tbb::mutex::scoped_lock lock(mutex_);
-        return XmppServer::RemoveConnection(connection);
+        XmppServer::RemoveConnection(connection);
     }
 
-    void DeleteConnection(XmppConnection *connection) {
+    void InsertDeletedConnection(XmppServerConnection *connection) {
         tbb::mutex::scoped_lock lock(mutex_);
-        XmppServer::DeleteConnection(connection);
+        XmppServer::InsertDeletedConnection(connection);
     }
 
-    void DestroyConnection(XmppConnection *connection) {
+    void RemoveDeletedConnection(XmppServerConnection *connection) {
         tbb::mutex::scoped_lock lock(mutex_);
-        XmppServer::DestroyConnection(connection);
+        XmppServer::RemoveDeletedConnection(connection);
     }
 
     boost::function<bool()> GetIsPeerCloseGraceful_fnc_;

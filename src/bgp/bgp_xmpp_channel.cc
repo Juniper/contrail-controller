@@ -1799,7 +1799,7 @@ void BgpXmppChannel::ReceiveUpdate(const XmppStanza::XmppMessage *msg) {
 
     // Bail if the connection is being deleted. It's not safe to assert
     // because the Delete method can be called from the main thread.
-    if (channel_->connection() && channel_->connection()->ShutdownPending())
+    if (channel_->connection() && channel_->connection()->IsDeleted())
         return;
 
     // Make sure that peer is not set for closure already.

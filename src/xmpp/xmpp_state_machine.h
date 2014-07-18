@@ -48,8 +48,9 @@ class XmppConnectionInfo;
 class XmppStateMachine :
         public sc::state_machine<XmppStateMachine, xmsm::Idle> {
 public:
-    static const int kOpenTime = 15;        // seconds
-    static const int kConnectInterval = 30;
+    static const int kOpenTime = 15;         // seconds
+    static const int kConnectInterval = 30;  // seconds
+    static const int kHoldTime = 90;         // seconds
 
     XmppStateMachine(XmppConnection *connection, bool active);
     ~XmppStateMachine();
@@ -65,7 +66,9 @@ public:
     void CancelConnectTimer();
     virtual void StartOpenTimer(int seconds);
     void CancelOpenTimer();
-    virtual void StartHoldTimer(int seconds);
+
+    int GetConfiguredHoldTime() const;
+    virtual void StartHoldTimer();
     void CancelHoldTimer();
     void ResetSession();
 
@@ -107,7 +110,10 @@ public:
     void connect_attempts_inc() { attempts_++; }
     void connect_attempts_clear() { attempts_ = 0; }
 
-    bool DequeueEvent(boost::intrusive_ptr<const sc::event_base>  &event);
+    int hold_time() const { return hold_time_; }
+    virtual int hold_time_msecs() const { return hold_time_ * 1000; }
+    void set_hold_time(int hold_time) { hold_time_ = hold_time; }
+
     void unconsumed_event(const sc::event_base &event);
 
     void SendConnectionInfo(const std::string &event, 
@@ -115,8 +121,6 @@ public:
 
     void SendConnectionInfo(XmppConnectionInfo *info, const std::string &event, 
                             const std::string &nextstate = ""); 
-
-    friend class XmppStateMachineTest;
 
     void set_last_event(const std::string &event);
     const std::string &last_event() const { return last_event_; }
@@ -127,18 +131,22 @@ public:
     void AssertOnHoldTimeout();
 
 private:
+    friend class XmppStateMachineTest;
+
     bool ConnectTimerExpired();
     bool OpenTimerExpired();
     bool HoldTimerExpired();
-
     bool Enqueue(const sc::event_base &ev);
+    bool DequeueEvent(boost::intrusive_ptr<const sc::event_base> &event);
+
     WorkQueue<boost::intrusive_ptr<const sc::event_base> > work_queue_;
     XmppConnection *connection_;
     XmppSession *session_;
+    TcpServer *server_;
     Timer *connect_timer_;
     Timer *open_timer_;
     Timer *hold_timer_;
-
+    int hold_time_;
     int attempts_;
     bool deleted_;
     bool in_dequeue_;

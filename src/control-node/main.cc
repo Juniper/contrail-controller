@@ -108,7 +108,7 @@ static void ShutdownServers(
     WaitForIdle();
 
     // Wait until all XMPP connections are cleaned up.
-    for (cnt = 0; xmpp_server->ConnectionsCount() != 0 && cnt < 15; cnt++) {
+    for (cnt = 0; xmpp_server->ConnectionCount() != 0 && cnt < 15; cnt++) {
         sleep(1);
     }
 
@@ -370,7 +370,7 @@ void ControlNodeShutdown() {
 }
 
 // Get control-node's connectivity status with other servers which are critical
-// to the normnal operation. conenction_info library periodically sends this
+// to the normal operation. conenction_info library periodically sends this
 // information as UVEs to the collector for user visibility and assistance
 // during trouble-shooting.
 static void ControlNodeGetConnectivityStatus(
@@ -437,7 +437,7 @@ int main(int argc, char *argv[]) {
     /* If Sandesh initialization is not being done via discovery we need to
      * initialize here. We need to do sandesh initialization here for cases
      * (i) When both Discovery and Collectors are configured.
-     * (ii) When both are not configured (to initilialize introspect)
+     * (ii) When both are not configured (to initialize introspect)
      * (iii) When only collector is configured
      */
     if (!options.discovery_server().empty() &&

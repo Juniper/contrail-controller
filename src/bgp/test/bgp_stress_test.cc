@@ -580,7 +580,7 @@ void BgpStressTest::TearDown() {
     xmpp_server_test_->Shutdown();
     WaitForIdle();
     if (n_agents_) {
-        TASK_UTIL_EXPECT_EQ(0, xmpp_server_test_->ConnectionsCount());
+        TASK_UTIL_EXPECT_EQ(0, xmpp_server_test_->ConnectionCount());
     }
     AgentCleanup();
     channel_manager_.reset();

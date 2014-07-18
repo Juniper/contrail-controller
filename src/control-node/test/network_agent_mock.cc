@@ -571,7 +571,7 @@ NetworkAgentMock::~NetworkAgentMock() {
 }
 
 bool NetworkAgentMock::ConnectionDestroyed() const {
-    return (client_->ConnectionsCount() == 0);
+    return (client_->ConnectionCount() == 0);
 }
 
 void NetworkAgentMock::Delete() {
