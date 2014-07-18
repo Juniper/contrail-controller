@@ -30,7 +30,12 @@ import struct
 import errno
 import copy
 import datetime
+import pycassa
+from analytics_db import AnalyticsDb
 
+from pycassa.pool import ConnectionPool
+from pycassa.columnfamily import ColumnFamily
+from pysandesh.util import UTCTimestampUsec
 from pysandesh.sandesh_base import *
 from pysandesh.sandesh_session import SandeshWriter
 from pysandesh.gen_py.sandesh_trace.ttypes import SandeshTraceRequest
@@ -55,6 +60,7 @@ from sandesh.discovery.ttypes import CollectorTrace
 from opserver_util import OpServerUtils
 from cpuinfo import CpuInfoData
 from sandesh_req_impl import OpserverSandeshReqImpl
+from sandesh.analytics_database.ttypes import *
 
 _ERRORS = {
     errno.EBADMSG: 400,
@@ -371,6 +377,8 @@ class OpServer(object):
                      'GET', obj.query_chunk_get)
         bottle.route('/analytics/queries', 'GET', obj.show_queries)
         bottle.route('/analytics/tables', 'GET', obj.tables_process)
+        bottle.route('/analytics/operation/database-purge',
+                     'POST', obj.process_purge_request)
         bottle.route('/analytics/table/<table>', 'GET', obj.table_process)
         bottle.route(
             '/analytics/table/<table>/schema', 'GET', obj.table_schema_process)
@@ -431,7 +439,7 @@ class OpServer(object):
     def __init__(self):
         self._args = None
         self._parse_args()
-
+ 
         self._homepage_links = []
         self._homepage_links.append(
             LinkObject('documentation', '/documentation/index.html'))
@@ -568,6 +576,9 @@ class OpServer(object):
                 columnvalues = [STAT_OBJECTID_FIELD, SOURCE])
             self._VIRTUAL_TABLES.append(stt)
 
+        self._analytics_db = AnalyticsDb(self._logger, self._args.cassandra_server_list)
+        self._db_purge_running = False
+
         bottle.route('/', 'GET', self.homepage_http_get)
         bottle.route('/analytics', 'GET', self.analytics_http_get)
         bottle.route('/analytics/uves', 'GET', self.uves_http_get)
@@ -604,6 +615,8 @@ class OpServer(object):
                      'GET', self.query_chunk_get)
         bottle.route('/analytics/queries', 'GET', self.show_queries)
         bottle.route('/analytics/tables', 'GET', self.tables_process)
+        bottle.route('/analytics/operation/database-purge',
+                     'POST', self.process_purge_request)
         bottle.route('/analytics/table/<table>', 'GET', self.table_process)
         bottle.route('/analytics/table/<table>/schema',
                      'GET', self.table_schema_process)
@@ -633,6 +646,7 @@ class OpServer(object):
                                --redis_server_port 6379
                                --redis_query_port 6379
                                --collectors 127.0.0.1:8086
+                               --cassandra_server_list 127.0.0.1:9160
                                --http_server_port 8090
                                --rest_api_port 8081
                                --rest_api_ip 0.0.0.0
@@ -656,6 +670,7 @@ class OpServer(object):
         defaults = {
             'host_ip'            : "127.0.0.1",
             'collectors'         : ['127.0.0.1:8086'],
+            'cassandra_server_list' : ['127.0.0.1:9160'],
             'http_server_port'   : 8090,
             'rest_api_port'      : 8081,
             'rest_api_ip'        : '0.0.0.0',
@@ -747,12 +762,17 @@ class OpServer(object):
         parser.add_argument(
             "--worker_id",
             help="Worker Id")
+        parser.add_argument("--cassandra_server_list",
+            help="List of cassandra_server_ip in ip:port format",
+            nargs="+")
 
         self._args = parser.parse_args(remaining_argv)
         if type(self._args.collectors) is str:
             self._args.collectors = self._args.collectors.split()
         if type(self._args.redis_uve_list) is str:
             self._args.redis_uve_list = self._args.redis_uve_list.split()
+        if type(self._args.cassandra_server_list) is str:
+            self._args.cassandra_server_list = self._args.cassandra_server_list.split()
     # end _parse_args
 
     def get_args(self):
@@ -1448,6 +1468,59 @@ class OpServer(object):
         return json.dumps(json_links)
     # end tables_process
 
+    def process_purge_request(self):
+        self._post_common(bottle.request, None)
+
+        purge_input= None
+        for key, value in bottle.request.json.iteritems():
+            if (key == "purge_input"):
+                if( (type(value) is int) and (value <= 100) ):
+                    purge_input = value
+                else:
+                    return bottle.HTTPError(_ERRORS[errno.EINVALID],
+                           'INVALID purge_input')
+            else:
+                return bottle.HTTPError(_ERRORS[errno.EINVALID],
+                    'purge_input not specified')
+
+        purge_request_ip, = struct.unpack('>I', socket.inet_pton(
+                                        socket.AF_INET, self._args.host_ip))
+        purge_id = str(uuid.uuid1(purge_request_ip))
+        self._logger.info("Purge id is:" + str(purge_id))
+
+        if (self._db_purge_running == True):
+            self._logger.error('Purge id %s WARNING: Database Purge Operation is already running' % str(purge_id))
+            return bottle.HTTPError(_ERRORS[errno.EBUSY],
+                        'WARNING: Database Purge Operation Purge is already running')
+
+        gevent.spawn(self.db_purge_operation, purge_input, purge_id)
+        response = {'status': 'started', 'purge_id': purge_id}
+        return bottle.HTTPResponse(json.dumps(response), 200, {'Content-type': 'application/json'})
+    # end process_purge_request
+
+    def db_purge_operation(self, purge_input, purge_id):
+        self._logger.info("purge_id %s START Purging!" % str(purge_id))
+        self._db_purge_running = True
+        purge_stat = DatabasePurgeStats()
+        purge_stat.request_time = UTCTimestampUsec()
+        purge_info = DatabasePurgeInfo()
+        self._analytics_db.number_of_purge_requests += 1
+        purge_info.number_of_purge_requests = self._analytics_db.number_of_purge_requests
+        total_rows_deleted = self._analytics_db.db_purge(purge_input, purge_id)
+        end_time = UTCTimestampUsec()
+        duration = end_time - purge_stat.request_time
+        purge_stat.purge_id = purge_id
+        purge_stat.rows_deleted = total_rows_deleted
+        purge_stat.duration = duration
+        purge_info.name  = self._hostname
+        purge_info.stats = [purge_stat]
+        purge_data = DatabasePurge(data=purge_info)
+        purge_data.send()
+
+        self._logger.info("purge_id %s purging DONE" % str(purge_id))
+        self._db_purge_running = False
+        #end db_purge_operation
+
     def table_process(self, table):
         (ok, result) = self._get_common(bottle.request)
         if not ok:
@@ -1653,7 +1726,7 @@ def main():
         gevent.spawn(opserver.start_webserver),
         gevent.spawn(opserver.cpu_info_logger),
         gevent.spawn(opserver.start_uve_server),
-        gevent.spawn(opserver.poll_collector_list)
+        gevent.spawn(opserver.poll_collector_list),
     ])
 
 if __name__ == '__main__':

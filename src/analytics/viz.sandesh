@@ -509,6 +509,18 @@ const list<stat_table> _STAT_TABLES  = [
           { 'name' : 'vn_stats.out_bytes', 'datatype' : 'int',    'index' : false},
         ]
     },
+    {
+      'display_name' : 'Database Purge Statistics',
+      'stat_type' : 'DatabasePurgeInfo'
+      'stat_attr' : 'stats',
+      'obj_table' : DATABASE_INFO_TABLE, 
+      'attributes': [
+          { 'name' : 'stats.purge_id',  'datatype' : 'string', 'index' : true},
+          { 'name' : 'stats.request_time', 'datatype' : 'int', 'index' : true},
+          { 'name' : 'stats.rows_deleted', 'datatype' : 'int', 'index' : true},
+          { 'name' : 'stats.duration',     'datatype' : 'int', 'index' : true},
+        ]
+    },
 ]
 
 const list<query_table> _TABLES = [
