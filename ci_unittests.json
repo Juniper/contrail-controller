@@ -44,8 +44,21 @@
             "controller/src/ksync",
             "controller/src/vnsw"
         ],
-        "scons_test_targets" : [ ],
-        "misc_test_targets" : [ ]
+        "scons_test_targets" : [
+            "controller/src/vnsw/agent/cmn:test",
+            "controller/src/vnsw/agent/diag:test",
+            "controller/src/vnsw/agent/kstate:test",
+            "controller/src/vnsw/agent/ksync:test",
+            "controller/src/vnsw/agent/openstack:test",
+            "controller/src/vnsw/agent/oper:test",
+            "controller/src/vnsw/agent/pkt:test",
+            "controller/src/vnsw/agent/services:test",
+            "controller/src/vnsw/agent:test",
+            "controller/src/vnsw/agent/uve:test",
+            "controller/src/vnsw/agent/vgw:test",
+            ],
+        "misc_test_targets" : [
+         ]
     },
     "contrail-libs" : {
         "source_directories" : [
