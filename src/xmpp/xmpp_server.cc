@@ -3,10 +3,9 @@
  */
 
 #include "xmpp/xmpp_server.h"
-#include <boost/bind.hpp>
-#include <boost/tuple/tuple.hpp>
 
-#include "base/task_annotations.h"
+#include <boost/foreach.hpp>
+#include <boost/tuple/tuple.hpp>
 
 #include "base/task_annotations.h"
 #include "xmpp/xmpp_connection.h"
@@ -45,28 +44,25 @@ private:
 
 XmppServer::XmppServer(EventManager *evm, const string &server_addr) 
     : TcpServer(evm), lifetime_manager_(new LifetimeManager(
-            TaskScheduler::GetInstance()->GetTaskId("bgp::Config"))),
+        TaskScheduler::GetInstance()->GetTaskId("bgp::Config"))),
       deleter_(new DeleteActor(this)), 
       work_queue_(TaskScheduler::GetInstance()->GetTaskId("bgp::Config"), 0,
-                  boost::bind(&XmppServer::DequeueConnection, this, _1)) {
+          boost::bind(&XmppServer::DequeueConnection, this, _1)) {
     server_addr_ = server_addr;
     log_uve_ = false;
 }
 
 XmppServer::XmppServer(EventManager *evm) 
     : TcpServer(evm), lifetime_manager_(new LifetimeManager(
-            TaskScheduler::GetInstance()->GetTaskId("bgp::Config"))),
+        TaskScheduler::GetInstance()->GetTaskId("bgp::Config"))),
       deleter_(new DeleteActor(this)), 
       work_queue_(TaskScheduler::GetInstance()->GetTaskId("bgp::Config"), 0,
-                  boost::bind(&XmppServer::DequeueConnection, this, _1)) {
+          boost::bind(&XmppServer::DequeueConnection, this, _1)) {
     log_uve_ = false;
 }
 
 bool XmppServer::IsPeerCloseGraceful() {
-
-    //
     // If the server is deleted, do not do graceful restart
-    //
     if (deleter()->IsDeleted()) return false;
 
     static bool init = false;
@@ -145,63 +141,43 @@ void XmppServer::Shutdown() {
     deleter_->Delete();
 }
 
-bool XmppServer::Compare(const string &peer_addr, 
-                         const XmppConnectionPair &p) const {
-    return (peer_addr.compare(p.second->ToString()) ?  false : true);
-}
-
 size_t XmppServer::ConnectionEventCount() const {
     return connection_event_map_.size();
 }
 
-size_t XmppServer::ConnectionsCount() const {
+size_t XmppServer::ConnectionCount() const {
     return connection_map_.size() + deleted_connection_set_.size();
 }
 
-XmppConnection *XmppServer::FindConnection(Endpoint remote_endpoint) {
-    XmppConnectionMap::iterator loc = connection_map_.find(remote_endpoint);
+XmppServerConnection *XmppServer::FindConnection(Endpoint remote_endpoint) {
+    ConnectionMap::iterator loc = connection_map_.find(remote_endpoint);
     if (loc != connection_map_.end()) {
         return loc->second;
     }
     return NULL;
 }
 
-XmppConnection *XmppServer::FindConnection(const string &peer_addr) {
-    XmppConnectionMap::iterator loc = find_if(connection_map_.begin(),
-            connection_map_.end(), boost::bind(&XmppServer::Compare, this,
-                                           boost::ref(peer_addr), _1));
-    if (loc != connection_map_.end()) {
-        return loc->second;
+XmppServerConnection *XmppServer::FindConnection(const string &address) {
+    BOOST_FOREACH(ConnectionMap::value_type &value, connection_map_) {
+        if (value.second->ToString() == address)
+            return value.second;
     }
     return NULL;
 }
 
-XmppConnection *XmppServer::FindConnectionbyHostName(const string hostname) {
-    for (XmppConnectionMap::iterator iter = connection_map_.begin(), next = iter;
-                                     iter != connection_map_.end(); 
-                                     iter = next) {
-        next++;
-        XmppConnection *conn = iter->second;
-        if (hostname.compare(conn->GetComputeHostName()) == 0) {
-            return conn;
+bool XmppServer::ClearConnection(const string &hostname) {
+    BOOST_FOREACH(ConnectionMap::value_type &value, connection_map_) {
+        if (value.second->GetComputeHostName() == hostname) {
+            value.second->Clear();
+            return true;
         }
     }
-    return NULL;
+    return false;
 }
 
 void XmppServer::ClearAllConnections() {
-    for (XmppConnectionMap::iterator iter = connection_map_.begin(), next = iter;
-                                     iter != connection_map_.end(); 
-                                     iter = next) {
-        next++;
-        XmppConnection *conn = iter->second;
-        conn->Clear();
-    }
-}
-
-void XmppServer::ClearConnection(XmppConnection *conn) {
-    if (conn) {
-        conn->Clear();
+    BOOST_FOREACH(ConnectionMap::value_type &value, connection_map_) {
+        value.second->Clear();
     }
 }
 
@@ -236,7 +212,7 @@ TcpSession *XmppServer::AllocSession(Socket *socket) {
 // the allocated xmpp data structures are not fully processed yet.
 bool XmppServer::AcceptSession(TcpSession *tcp_session) {
     XmppSession *session = dynamic_cast<XmppSession *>(tcp_session);
-    XmppConnection *connection = CreateConnection(session);
+    XmppServerConnection *connection = CreateConnection(session);
 
     // Register event handler.
     tcp_session->set_observer(boost::bind(&XmppStateMachine::OnSessionEvent,
@@ -250,67 +226,38 @@ bool XmppServer::AcceptSession(TcpSession *tcp_session) {
 }
 
 //
-// Remove the given XmppConnection from the XmppConnectionMap.
+// Remove the given XmppServerConnection from the ConnectionMap.
 //
-// Return true if the XmppConnection was in the map, false otherwise.
-// Note that the map may have a different incarnation of the XmppConnection
-// i.e. same endpoint but different XmppConnection.
-//
-bool XmppServer::RemoveConnection(XmppConnection *connection) {
+void XmppServer::RemoveConnection(XmppServerConnection *connection) {
     CHECK_CONCURRENCY("bgp::Config");
 
-    boost::asio::ip::tcp::endpoint endpoint = connection->endpoint();
-    XmppConnectionMap::iterator loc = connection_map_.find(endpoint);
-    if (loc != connection_map_.end() && loc->second == connection) {
-        connection_map_.erase(loc);
-        return true;
-    }
-    return false;
+    assert(connection->IsDeleted());
+    Endpoint endpoint = connection->endpoint();
+    ConnectionMap::iterator loc = connection_map_.find(endpoint);
+    assert(loc != connection_map_.end() && loc->second == connection);
+    connection_map_.erase(loc);
 }
 
 //
-// Insert the given XmppConnection into the XmppConnectionMap.
+// Insert the given XmppServerConnection into the ConnectionMap.
 //
-void XmppServer::InsertConnection(XmppConnection *connection) {
+void XmppServer::InsertConnection(XmppServerConnection *connection) {
     CHECK_CONCURRENCY("bgp::Config");
 
+    assert(!connection->IsDeleted());
     connection->Initialize();
-    boost::asio::ip::tcp::endpoint endpoint = connection->endpoint();
-    XmppConnectionMap::iterator loc;
+    Endpoint endpoint = connection->endpoint();
+    ConnectionMap::iterator loc;
     bool result;
     tie(loc, result) = connection_map_.insert(make_pair(endpoint, connection));
     assert(result);
 }
 
-//
-// Connection is being deleted, add it to the XmppConnectionSet.
-//
-void XmppServer::DeleteConnection(XmppConnection *connection) {
-    CHECK_CONCURRENCY("bgp::Config");
-
-    XmppConnectionSet::iterator it;
-    bool result;
-    tie(it, result) = deleted_connection_set_.insert(connection);
-    assert(result);
-}
-
-//
-// Connection is being destroyed, remove it from the XmppConnectionSet.
-//
-void XmppServer::DestroyConnection(XmppConnection *connection) {
-    CHECK_CONCURRENCY("bgp::Config");
-
-    XmppConnectionSet::iterator it = deleted_connection_set_.find(connection);
-    assert(it != deleted_connection_set_.end());
-    deleted_connection_set_.erase(it);
-    delete connection;
-}
-
 // Create XmppConnnection and its associated data structures. This API is
 // only used to allocate data structures and initialize necessary fields.
 // However, the data structures are not populated to any maps yet.
-XmppConnection *XmppServer::CreateConnection(XmppSession *session) {
-    XmppConnection   *connection;
+XmppServerConnection *XmppServer::CreateConnection(XmppSession *session) {
+    XmppServerConnection  *connection;
     ip::tcp::endpoint remote_endpoint;
 
     remote_endpoint.address(session->remote_endpoint().address());
@@ -329,7 +276,7 @@ XmppConnection *XmppServer::CreateConnection(XmppSession *session) {
     return connection;
 }
 
-bool XmppServer::DequeueConnection(XmppConnection *connection) {
+bool XmppServer::DequeueConnection(XmppServerConnection *connection) {
     CHECK_CONCURRENCY("bgp::Config"); 
 
     XmppSession *session = connection->session();
@@ -339,7 +286,7 @@ bool XmppServer::DequeueConnection(XmppConnection *connection) {
     remote_endpoint.address(session->remote_endpoint().address());
     remote_endpoint.port(0);
 
-    XmppConnection *old_connection = FindConnection(remote_endpoint);
+    XmppServerConnection *old_connection = FindConnection(remote_endpoint);
     if (old_connection == NULL) {
         InsertConnection(connection);
         connection->AcceptSession(session);
@@ -350,13 +297,14 @@ bool XmppServer::DequeueConnection(XmppConnection *connection) {
             XMPP_DEBUG(XmppCreateConnection, "Close duplicate connection " +
                        session->ToString());
             DeleteSession(session);
-            DeleteConnection(connection);
+            connection->set_duplicate();
             connection->ManagedDelete();
+            InsertDeletedConnection(connection);
 
         } else {
 
-            DeleteConnection(connection);
             connection->ManagedDelete();
+            InsertDeletedConnection(connection);
 
             // TODO GR case: associate the new session
             // ShutdownPending() is set in bgp::config task context via LTM
@@ -383,9 +331,34 @@ bool XmppServer::DequeueConnection(XmppConnection *connection) {
     return true;
 }
 
+//
+// Connection is marked deleted, add it to the ConnectionSet.
+//
+void XmppServer::InsertDeletedConnection(XmppServerConnection *connection) {
+    CHECK_CONCURRENCY("bgp::Config");
+
+    assert(connection->IsDeleted());
+    ConnectionSet::iterator it;
+    bool result;
+    tie(it, result) = deleted_connection_set_.insert(connection);
+    assert(result);
+}
+
+//
+// Connection is being destroyed, remove it from the ConnectionSet.
+//
+void XmppServer::RemoveDeletedConnection(XmppServerConnection *connection) {
+    CHECK_CONCURRENCY("bgp::Config");
+
+    assert(connection->IsDeleted());
+    ConnectionSet::iterator it = deleted_connection_set_.find(connection);
+    assert(it != deleted_connection_set_.end());
+    deleted_connection_set_.erase(it);
+}
+
 XmppConnectionEndpoint *XmppServer::LocateConnectionEndpoint(
     Ip4Address address) {
-    XmppConnectionEndpointMap::iterator loc =
+    ConnectionEndpointMap::iterator loc =
         connection_endpoint_map_.find(address);
     if (loc != connection_endpoint_map_.end())
         return loc->second;

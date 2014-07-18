@@ -203,7 +203,7 @@ protected:
         task_util::WaitForIdle();
         xs_a_->Shutdown();
         task_util::WaitForIdle();
-        TASK_UTIL_EXPECT_EQ(0, xs_a_->ConnectionsCount());
+        TASK_UTIL_EXPECT_EQ(0, xs_a_->ConnectionCount());
         agent_a_->Delete();
         bgp_channel_manager_.reset();
         task_util::WaitForIdle();
@@ -344,7 +344,7 @@ class BgpXmppSerializeMembershipReqTest : public BgpXmppUnitTest {
         task_util::WaitForIdle();
         xs_a_->Shutdown();
         task_util::WaitForIdle();
-        TASK_UTIL_EXPECT_EQ(0, xs_a_->ConnectionsCount());
+        TASK_UTIL_EXPECT_EQ(0, xs_a_->ConnectionCount());
         agent_a_->Delete();
         bgp_channel_manager_.reset();
         task_util::WaitForIdle();

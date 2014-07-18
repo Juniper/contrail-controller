@@ -6,6 +6,7 @@
 #define __XMPP_CHANNEL_H__
 
 #include <boost/asio/ip/tcp.hpp>
+#include <boost/scoped_ptr.hpp>
 #include <tbb/spin_mutex.h>
 
 #include "base/timer.h"
@@ -25,9 +26,6 @@ class XmppSession;
 
 class XmppConnection {
 public:
-    static const int keepAliveTime = 30;
-    static const int GetDefaultkeepAliveTime();
-
     struct ProtoStats {
         ProtoStats() : open(0), close(0), keepalive(0), update(0) {
         }
@@ -69,13 +67,6 @@ public:
     // chat messages
     int ProcessXmppChatMessage(const XmppStanza::XmppChatMessage *);
 
-    void SetKeepAliveTimer(int seconds) {
-        keepalive_time_ = seconds; 
-        StopKeepAliveTimer();
-        StartKeepAliveTimer();
-    }
-    int  GetKeepAliveTimer() { return keepalive_time_; }
-
     void StartKeepAliveTimer();
     void StopKeepAliveTimer();
 
@@ -95,7 +86,6 @@ public:
     virtual LifetimeActor *deleter() = 0;
     virtual const LifetimeActor *deleter() const = 0;
     virtual LifetimeManager *lifetime_manager() = 0;
-    virtual void Destroy() = 0;
     xmsm::XmState GetStateMcState() const;
 
     std::string StateName() const { return state_machine_->StateName(); }
@@ -115,8 +105,8 @@ public:
     void SetAdminState(bool down) { state_machine_->SetAdminState(down); }
 
     void Shutdown();
-    bool ShutdownPending() const;
     bool MayDelete() const;
+    bool IsDeleted() const;
 
     std::string &GetComputeHostName() { return to_; }
     std::string &GetControllerHostName() { return from_; }
@@ -129,6 +119,14 @@ public:
     virtual void WriteReady(const boost::system::error_code &ec);
 
     friend class XmppStateMachineTest;
+
+    int GetConfiguredHoldTime() const {
+        return state_machine_->GetConfiguredHoldTime();
+    }
+
+    int GetNegotiatedHoldTime() const {
+        return state_machine_->hold_time();
+    }
 
     const std::string LastStateName() const {
         return state_machine_->LastStateName();
@@ -173,9 +171,9 @@ public:
     bool disable_read() const { return disable_read_; }
     void set_disable_read(bool disable_read) { disable_read_ = disable_read; }
     XmppStateMachine *state_machine();
+
 protected:
     const XmppStateMachine *state_machine() const;
-    bool is_deleted_;
 
 private:
     bool KeepAliveTimerExpired();
@@ -188,25 +186,25 @@ private:
     boost::asio::ip::tcp::endpoint endpoint_;
     boost::asio::ip::tcp::endpoint local_endpoint_;
     const XmppChannelConfig *config_;
+
     // Protection for session_ and keepalive_timer_
     tbb::spin_mutex spin_mutex_;
     XmppSession *session_;
-    std::auto_ptr<XmppStateMachine> state_machine_;
     Timer *keepalive_timer_;
 
     bool log_uve_;
-
     bool admin_down_;
+    bool disable_read_;
     std::string from_; // bare jid
     std::string to_;
-    std::auto_ptr<XmppChannelMux> mux_; 
-    int keepalive_time_;
+
+    boost::scoped_ptr<XmppStateMachine> state_machine_;
+    boost::scoped_ptr<XmppChannelMux> mux_;
     std::auto_ptr<XmppStanza::XmppMessage> last_msg_;
 
     ProtoStats stats_[2];
-    bool     disable_read_;
-
     void IncProtoStats(unsigned int type);
+
     DISALLOW_COPY_AND_ASSIGN(XmppConnection);
 };
 
@@ -220,15 +218,19 @@ public:
     virtual LifetimeActor *deleter();
     virtual const LifetimeActor *deleter() const;
     virtual LifetimeManager *lifetime_manager();
-    virtual void Destroy();
 
     virtual void set_close_reason(const std::string &reason);
     virtual uint32_t flap_count() const;
     virtual void increment_flap_count();
     virtual const std::string last_flap_at() const;
 
+    void set_duplicate() { duplicate_ = true; }
+    bool duplicate() { return duplicate_; }
+
 private:
     class DeleteActor;
+
+    bool duplicate_;
     boost::scoped_ptr<DeleteActor> deleter_;
     LifetimeRef<XmppServerConnection> server_delete_ref_;
     XmppConnectionEndpoint *conn_endpoint_;
@@ -244,7 +246,6 @@ public:
     virtual LifetimeActor *deleter();
     virtual const LifetimeActor *deleter() const;
     virtual LifetimeManager *lifetime_manager();
-    virtual void Destroy();
 
     virtual void set_close_reason(const std::string &reason);
     virtual uint32_t flap_count() const;
@@ -253,6 +254,7 @@ public:
 
 private:
     class DeleteActor;
+
     boost::scoped_ptr<DeleteActor> deleter_;
     LifetimeRef<XmppClientConnection> server_delete_ref_;
     std::string close_reason_;
