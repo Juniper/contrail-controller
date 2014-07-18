@@ -144,6 +144,8 @@ enum FlowRecordFields {
    FLOWREC_SHORT_FLOW,
    FLOWREC_JSON,
    FLOWREC_ACTION,
+   FLOWREC_SG_RULE_UUID,
+   FLOWREC_NW_ACE_UUID,
    FLOWREC_MAX,
 }
 
@@ -179,6 +181,8 @@ const list<string> FlowRecordNames = [
     "short_flow",
     "json",
     "action",
+    "sg_rule_uuid",
+    "nw_ace_uuid",
     "invalid",
 ]
 
@@ -550,6 +554,8 @@ const list<query_table> _TABLES = [
                { 'name' : FLOW_TABLE_AGG_PKTS, 'datatype' : 'long', 'index' : false },
                { 'name' : FLOW_TABLE_AGG_BYTES, 'datatype' : 'long', 'index' : false },
                { 'name' : 'action', 'datatype' : 'string', 'index' : false },
+               { 'name' : 'sg_rule_uuid', 'datatype' : 'uuid', 'index' : false },
+               { 'name' : 'nw_ace_uuid', 'datatype' : 'uuid', 'index' : false },
                ]
          },
          'columnvalues' : [ ],

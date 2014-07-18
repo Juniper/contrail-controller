@@ -46,6 +46,10 @@ class FlowQuerier(object):
             FlowRecordFields.FLOWREC_DIRECTION_ING]
         self._ACTION = VizConstants.FlowRecordNames[
             FlowRecordFields.FLOWREC_ACTION]
+        self._SG_RULE_UUID = VizConstants.FlowRecordNames[
+            FlowRecordFields.FLOWREC_SG_RULE_UUID]
+        self._NW_ACE_UUID = VizConstants.FlowRecordNames[
+            FlowRecordFields.FLOWREC_NW_ACE_UUID]
     # end __init__
 
     # Public functions
@@ -248,6 +252,8 @@ class FlowQuerier(object):
             self._DIRECTION,
             VizConstants.FLOW_TABLE_AGG_BYTES,
             VizConstants.FLOW_TABLE_AGG_PKTS,
+            self._SG_RULE_UUID,
+            self._NW_ACE_UUID,
         ]
 
         if len(filter) == 0:
@@ -387,13 +393,23 @@ class FlowQuerier(object):
                 agg_pkts = int(flow_dict[VizConstants.FLOW_TABLE_AGG_PKTS])
             else:
                 agg_pkts = 'Agg Packets: NA'
+            # SG rule UUID
+            if self._SG_RULE_UUID in flow_dict:
+                sg_rule_uuid = flow_dict[self._SG_RULE_UUID]
+            else:
+                sg_rule_uuid = None
+            # NW ACE UUID
+            if self._NW_ACE_UUID in flow_dict:
+                nw_ace_uuid = flow_dict[self._NW_ACE_UUID]
+            else:
+                nw_ace_uuid = None
             print '{0}({1}) {2} [{3} -- {4}] {5} '\
                 '{6}:{7}:{8} ---> {9}:{10}:{11} [{12} P ({13} B)]'\
-                ' : {14}'.format(
+                ' : SG:{14} ACL:{15} {16}'.format(
                vrouter, direction, action, setup_ts, teardown_ts,
                protocol, source_vn, source_ip, source_port, destination_vn,
                destination_ip, destination_port, agg_pkts, agg_bytes,
-               flow_uuid)
+               sg_rule_uuid, nw_ace_uuid, flow_uuid)
     # end display
 
 # end class FlowQuerier

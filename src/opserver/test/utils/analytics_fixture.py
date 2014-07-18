@@ -935,6 +935,15 @@ class AnalyticsFixture(fixtures.Fixture):
         assert(len(res) == 1)
         assert(res[0]['protocol'] == 2)
 
+        # Filter by action
+        res = vns.post_query('FlowRecordTable',
+                             start_time=str(generator_obj.flow_start_time),
+                             end_time=str(generator_obj.flow_end_time),
+                             select_fields=['UuidKey', 'action'],
+                             where_clause='vrouter=%s'% vrouter,
+                             filter='action=pass')
+        self.logger.info(str(res))
+        assert(len(res) == generator_obj.flow_cnt)
         return True
     # end verify_flow_table
 

@@ -448,6 +448,20 @@ query_status_t SelectQuery::process_query() {
 
                             break;
                           }
+                    case GenDb::DbDataType::LexicalUUIDType:
+                        {
+                            boost::uuids::uuid val;
+                            try {
+                                val = boost::get<boost::uuids::uuid>(kt->second);
+                            } catch (boost::bad_get& ex) {
+                                QE_ASSERT(0);
+                            }
+                            std::stringstream ss;
+                            ss << val;
+                            elem_value = ss.str();
+
+                            break;
+                        }
                     default:
                         QE_ASSERT(0);
                 }

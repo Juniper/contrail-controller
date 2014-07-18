@@ -76,8 +76,10 @@ class GeneratorFixture(fixtures.Fixture):
     def send_flow_stat(self, flow, flow_bytes, flow_pkts, ts=None):
         self._logger.info('Sending Flow Stats')
         if flow.bytes:
+            first_sample = False
             flow.diff_bytes = flow_bytes - flow.bytes
         else:
+            first_sample = True
             flow.diff_bytes = flow_bytes
         if flow.packets:
             flow.diff_packets = flow_pkts - flow.packets
@@ -85,6 +87,10 @@ class GeneratorFixture(fixtures.Fixture):
             flow.diff_packets = flow_pkts
         flow.bytes = flow_bytes
         flow.packets = flow_pkts
+        if first_sample:
+            action = flow.action
+        else:
+            action = None
         flow_data = FlowDataIpv4(
             flowuuid=flow.flowuuid, direction_ing=flow.direction_ing,
             sourcevn=flow.sourcevn, destvn=flow.destvn,
@@ -92,7 +98,9 @@ class GeneratorFixture(fixtures.Fixture):
             dport=flow.dport, sport=flow.sport,
             protocol=flow.protocol, bytes=flow.bytes,
             packets=flow.packets, diff_bytes=flow.diff_bytes,
-            diff_packets=flow.diff_packets)
+            diff_packets=flow.diff_packets, action=action,
+            sg_rule_uuid=flow.sg_rule_uuid,
+            nw_ace_uuid=flow.nw_ace_uuid)
         flow_object = FlowDataIpv4Object(flowdata=flow_data, sandesh=self._sandesh_instance)
         # overwrite the timestamp of the flow, if specified.
         if ts:
@@ -119,7 +127,10 @@ class GeneratorFixture(fixtures.Fixture):
                                            sourceip=0x0A0A0A01,
                                            destip=0x0A0A0A02,
                                            sport=i + 10, dport=i + 100,
-                                           protocol=i / 2))
+                                           protocol=i / 2,
+                                           action='pass',
+                                           sg_rule_uuid=str(uuid.uuid1()),
+                                           nw_ace_uuid=str(uuid.uuid1())))
             self.flows[i].samples = []
             self._logger.info(str(self.flows[i]))
         
@@ -131,7 +142,10 @@ class GeneratorFixture(fixtures.Fixture):
                                            destip=0x0A0A0A01,
                                            sourceip=0x0A0A0A02,
                                            dport=i + 10, sport=i + 100,
-                                           protocol=i / 2))
+                                           protocol=i / 2,
+                                           action='drop',
+                                           sg_rule_uuid=str(uuid.uuid1()),
+                                           nw_ace_uuid=str(uuid.uuid1())))
             self.egress_flows[i].samples = []
             self._logger.info(str(self.egress_flows[i]))
         
