@@ -818,7 +818,9 @@ void FlowEntry::GetPolicyInfo() {
 
 void FlowTable::Add(FlowEntry *flow, FlowEntry *rflow) {
     flow->reset_flags(FlowEntry::ReverseFlow);
-    rflow->set_flags(FlowEntry::ReverseFlow);
+    /* reverse flow may not be aviable always, eg: Flow Audit */
+    if (rflow != NULL)
+        rflow->set_flags(FlowEntry::ReverseFlow);
     UpdateReverseFlow(flow, rflow);
 
     flow->GetPolicyInfo();
