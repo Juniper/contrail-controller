@@ -247,11 +247,11 @@ void AgentInit::Init(AgentParam *param, Agent *agent,
 
 // Trigger inititlization in context of DBTable
 void AgentInit::Start() {
-    if (params_->log_file() == "") {
-        LoggingInit();
-    } else {
-        LoggingInit(params_->log_file());
-    }
+    Module::type module = Module::VROUTER_AGENT;
+    string module_name = g_vns_constants.ModuleNames.find(module)->second;
+    LoggingInit(params_->log_file(), params_->log_files_count(),
+                params_->log_file_size(), params_->use_syslog(),
+                params_->syslog_facility(), module_name);
 
     params_->LogConfig();
     params_->Validate();

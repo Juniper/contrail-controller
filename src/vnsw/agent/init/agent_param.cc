@@ -262,6 +262,13 @@ void AgentParam::ParseDefaultSection() {
     if (!GetValueFromTree<string>(log_file_, "DEFAULT.log_file")) {
         log_file_ = Agent::DefaultLogFile();
     }
+    if (!GetValueFromTree<int>(log_files_count_, "DEFAULT.log_files_count")) {
+        log_files_count_ = 10;
+    }
+    if (!GetValueFromTree<long>(log_file_size_, "DEFAULT.log_file_size")) {
+        log_file_size_ = 1024*1024;
+    }
+
     GetValueFromTree<string>(log_category_, "DEFAULT.log_category");
     unsigned int log_local = 0, debug_logging = 0;
     if (opt_uint = tree_.get_optional<unsigned int>("DEFAULT.log_local")) {
@@ -279,6 +286,11 @@ void AgentParam::ParseDefaultSection() {
         debug_ = true;
     } else {
         debug_ = false;
+    }
+
+    GetValueFromTree<bool>(use_syslog_, "DEFAULT.use_syslog");
+    if (!GetValueFromTree<string>(syslog_facility_, "DEFAULT.syslog_facility")) {
+        syslog_facility_ = "LOG_LOCAL0";
     }
 }
 
@@ -381,7 +393,13 @@ void AgentParam::ParseDefaultSectionArguments
                           "DEFAULT.http_server_port");
     GetOptValue<string>(var_map, log_category_, "DEFAULT.log-category");
     GetOptValue<string>(var_map, log_file_, "DEFAULT.log_file");
+    GetValueFromTree<int>(log_files_count_, "DEFAULT.log_files_count");
+    GetValueFromTree<long>(log_file_size_, "DEFAULT.log_file_size");
     GetOptValue<string>(var_map, log_level_, "DEFAULT.log_level");
+    GetOptValue<string>(var_map, syslog_facility_, "DEFAULT.syslog_facility");
+    if (var_map.count("DEFAULT.use_syslog")) {
+        use_syslog_ = true;
+    }
     if (var_map.count("DEFAULT.log_local")) {
          log_local_ = true;
     }
@@ -654,7 +672,8 @@ AgentParam::AgentParam(Agent *agent) :
         metadata_shared_secret_(), max_vm_flows_(),
         linklocal_system_flows_(), linklocal_vm_flows_(),
         flow_cache_timeout_(), config_file_(), program_name_(),
-        log_file_(), log_local_(false), log_level_(), log_category_(),
+        log_file_(), log_local_(false), log_level_(),
+        log_category_(), use_syslog_(false),
         collector_server_list_(), http_server_port_(), host_name_(),
         agent_stats_interval_(AgentStatsCollector::AgentStatsInterval), 
         flow_stats_interval_(FlowStatsCollector::FlowStatsInterval),

@@ -100,6 +100,10 @@ void Options::Initialize(EventManager &evm,
              "Severity level for local logging of sandesh messages")
         ("DEFAULT.log_local", opt::bool_switch(&log_local_),
              "Enable local logging of sandesh messages")
+        ("DEFAULT.use_syslog", opt::bool_switch(&use_syslog_),
+             "Enable logging to syslog")
+        ("DEFAULT.syslog_facility", opt::value<string>()->default_value("LOG_LOCAL0"),
+             "Syslog facility to receive log lines")
         ("DEFAULT.syslog_port", opt::value<uint16_t>()->default_value(0),
              "Syslog listener port")
         ("DEFAULT.test_mode", opt::bool_switch(&test_mode_),
@@ -182,6 +186,8 @@ void Options::Process(int argc, char *argv[],
     GetOptValue<int>(var_map, log_files_count_, "DEFAULT.log_files_count");
     GetOptValue<long>(var_map, log_file_size_, "DEFAULT.log_file_size");
     GetOptValue<string>(var_map, log_level_, "DEFAULT.log_level");
+    GetOptValue<bool>(var_map, use_syslog_, "DEFAULT.use_syslog");
+    GetOptValue<string>(var_map, syslog_facility_, "DEFAULT.syslog_facility");
     GetOptValue<uint16_t>(var_map, syslog_port_, "DEFAULT.syslog_port");
 
     GetOptValue<uint16_t>(var_map, discovery_port_, "DISCOVERY.port");

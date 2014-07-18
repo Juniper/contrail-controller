@@ -33,6 +33,8 @@ public:
     const long log_file_size() const { return log_file_size_; }
     const std::string log_level() const { return log_level_; }
     const bool log_local() const { return log_local_; }
+    const bool use_syslog() const { return use_syslog_; }
+    const std::string syslog_facility() const { return syslog_facility_; }
     const bool dup() const { return dup_; }
     const int analytics_data_ttl() const { return analytics_data_ttl_; }
     const uint16_t syslog_port() const { return syslog_port_; }
@@ -65,6 +67,8 @@ private:
     long log_file_size_;
     std::string log_level_;
     bool log_local_;
+    bool use_syslog_;
+    std::string syslog_facility_;
     uint16_t syslog_port_;
     bool test_mode_;
     bool dup_;

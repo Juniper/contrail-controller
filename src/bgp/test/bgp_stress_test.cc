@@ -2419,6 +2419,10 @@ static void process_command_line_args(int argc, const char **argv) {
     const unsigned long log_file_size = 1*1024*1024*1024; // 1GB
     const unsigned int log_file_index = 10;
     bool log_file_uniquefy = false;
+    bool use_syslog = false;
+    const string syslog_facility = "LOG_LOCAL0";
+    Module::type module = Module::CONTROL_NODE;
+    const string syslog_ident = g_vns_constants.ModuleNames.find(module)->second;
 
     if (cmd_line_processed) return;
     cmd_line_processed = true;
@@ -2480,6 +2484,12 @@ static void process_command_line_args(int argc, const char **argv) {
             "set log level ")
         ("log-local-disable", bool_switch(&d_log_local_disable_),
              "Disable local logging")
+        ("use-syslog", bool_switch(&use_syslog),
+            "Log to syslog")
+        ("syslog-facility", value<string>()->default_value(syslog_facility),
+            "Syslog facility")
+        ("syslog-ident", value<string>()->default_value(syslog_ident),
+            "Syslog ident")
         ("nagents", value<int>()->default_value(d_agents_),
             "set number of xmpp agents")
         ("nevents", value<int>()->default_value(d_events_),
@@ -2875,7 +2885,13 @@ static void process_command_line_args(int argc, const char **argv) {
             vm.count("log-file-size") ?
                 vm["log-file-size"].as<unsigned long>() : log_file_size,
             vm.count("log-file-index") ?
-                vm["log-file-index"].as<unsigned int>() : log_file_index);
+                vm["log-file-index"].as<unsigned int>() : log_file_index,
+            vm.count("use-syslog") ?
+                vm["use-syslog"].as<bool>() : use_syslog,
+            vm.count("syslog-facility") ?
+                vm["syslog-facility"].as<string>() : syslog_facility,
+            vm.count("syslog-ident") ?
+                vm["syslog-ident"].as<string>() : syslog_ident);
     }
 
     //
