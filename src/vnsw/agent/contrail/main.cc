@@ -94,9 +94,16 @@ int main(int argc, char *argv[]) {
         ("DEFAULT.log_file", 
          opt::value<string>()->default_value(Agent::GetInstance()->log_file()),
          "Filename for the logs to be written to")
+        ("DEFAULT.log_files_count", opt::value<int>()->default_value(10),
+         "Maximum log file roll over index")
+        ("DEFAULT.log_file_size", opt::value<long>()->default_value(1024*1024),
+         "Maximum size of the log file")
         ("DEFAULT.log_level", opt::value<string>()->default_value("SYS_DEBUG"),
          "Severity level for local logging of sandesh messages")
         ("DEFAULT.log_local", "Enable local logging of sandesh messages")
+        ("DEFAULT.use_syslog", "Enable logging to syslog")
+        ("DEFAULT.syslog_facility", opt::value<string>()->default_value("LOG_LOCAL0"),
+         "Syslog facility to receive log lines")
         ("DEFAULT.tunnel_type", opt::value<string>()->default_value("MPLSoGRE"),
          "Tunnel Encapsulation type <MPLSoGRE|MPLSoUDP|VXLAN>")
         ("DISCOVERY.server", opt::value<string>(), 

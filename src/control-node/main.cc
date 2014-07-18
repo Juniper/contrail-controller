@@ -424,12 +424,12 @@ int main(int argc, char *argv[]) {
     }
 
     ControlNode::SetProgramName(argv[0]);
-    if (options.log_file() == "<stdout>") {
-        LoggingInit();
-    } else {
-        LoggingInit(options.log_file(), options.log_file_size(),
-                    options.log_files_count());
-    }
+    Module::type module = Module::CONTROL_NODE;
+    string module_name = g_vns_constants.ModuleNames.find(module)->second;
+    LoggingInit(options.log_file(), options.log_file_size(),
+                options.log_files_count(), options.use_syslog(),
+                options.syslog_facility(), module_name);
+
     TaskScheduler::Initialize();
     ControlNode::SetDefaultSchedulingPolicy();
     BgpSandeshContext sandesh_context;
@@ -446,12 +446,11 @@ int main(int argc, char *argv[]) {
     }
 
     if (sandesh_generator_init) {
-        Module::type module = Module::CONTROL_NODE;
         NodeType::type node_type = 
             g_vns_constants.Module2NodeType.find(module)->second;
         if (options.collectors_configured()) {
             Sandesh::InitGenerator(
-                    g_vns_constants.ModuleNames.find(module)->second,
+                    module_name,
                     options.hostname(),
                     g_vns_constants.NodeTypeNames.find(node_type)->second,
                     g_vns_constants.INSTANCE_ID_DEFAULT,

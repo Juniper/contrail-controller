@@ -37,9 +37,11 @@
         LOG4CPLUS_##_Level(logger, _Msg);                        \
     } while (0)
 
-void LoggingInit();
-void LoggingInit(std::string filename, long maxFileSize = 10*1024*1024,
-                 int maxBackupIndex = 1);
+void LoggingInit(std::string filename="<stdout>",
+                 long maxFileSize = 10*1024*1024,
+                 int maxBackupIndex = 1, bool useSyslog = false,
+                 std::string syslogFacility = std::string(),
+                 std::string ident = std::string());
 
 //
 // Disable logging - For testing purposes only
