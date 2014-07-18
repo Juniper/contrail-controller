@@ -31,6 +31,8 @@
 
 using tbb::mutex;
 
+const CurlErrorCategory curl_error_category;
+
 /* boost::asio related objects
  * using global variables for simplicity
  */
@@ -96,7 +98,7 @@ static void check_multi_info(GlobalInfo *g)
       curl_easy_getinfo(easy, CURLINFO_PRIVATE, &conn);
       curl_easy_getinfo(easy, CURLINFO_EFFECTIVE_URL, &eff_url);
 
-      boost::system::error_code error(res, boost::system::system_category());
+      boost::system::error_code error(res, curl_error_category);
       std::string empty_str("");
       conn->connection->HttpClientCb()(empty_str, error);
     }
