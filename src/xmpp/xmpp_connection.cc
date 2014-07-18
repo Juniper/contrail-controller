@@ -334,7 +334,7 @@ void XmppConnection::ReceiveMsg(XmppSession *session, const string &msg) {
         state_machine_->OnMessage(session, minfo);
     } else {
         session->IncStats(XmppStanza::INVALID, msg.size());
-        XMPP_MESSAGE_TRACE(XmppRxStream, 
+        XMPP_MESSAGE_TRACE(XmppRxStreamInvalid,
              session->remote_endpoint().address().to_string(),
              session->remote_endpoint().port(), msg.size(), msg);
     }

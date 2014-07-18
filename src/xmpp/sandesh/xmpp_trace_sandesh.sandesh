@@ -11,7 +11,7 @@ trace sandesh XmppPayloadRead {
 
 trace sandesh XmppTxStream {
     1: "Sent xmpp message to: ";
-    2: string IPaddress; 
+    2: string IPaddress;
     3: "Port";
     4: i32 port;
     5: "Size: ";
@@ -23,6 +23,18 @@ trace sandesh XmppTxStream {
 
 trace sandesh XmppRxStream {
     1: "Received xmpp message from: ";
+    2: string IPaddress; 
+    3: "Port";
+    4: i32 port;
+    5: "Size: ";
+    6: i32 size;
+    7: "Packet: ";
+    8: string packet;
+    9: "$";
+}
+
+trace sandesh XmppRxStreamInvalid {
+    1: "Received Invalid xmpp message from: ";
     2: string IPaddress; 
     3: "Port";
     4: i32 port;
