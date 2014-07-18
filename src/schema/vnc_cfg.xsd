@@ -1139,4 +1139,13 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
 <!--#IFMAP-SEMANTICS-IDL 
      Link('logical-router-target',
           'logical-router', 'route-target', ['ref']) -->
+
+<!-- 
+    Link a virtual network used as the external gateway for source NAT support
+    (aka external gateway in OpenStack Neutron API).
+-->
+<xsd:element name="logical-router-gateway"/>
+<!--#IFMAP-SEMANTICS-IDL
+     Link('logical-router-gateway',
+          'logical-router', 'virtual-network', ['ref']) -->
 </xsd:schema>
