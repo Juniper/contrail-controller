@@ -946,6 +946,39 @@ TEST_F(FlowTest, FlowAdd_6) {
     EXPECT_EQ(2U, out_count);
 }
 
+TEST_F(FlowTest, FlowIndexChange) {
+    TestFlow flow[] = {
+        {
+            TestFlowPkt(vm1_ip, vm2_ip, 1, 0, 0, "vrf5",
+                    flow0->id(), 1),
+            { }
+        }
+    };
+    TestFlow flow_new[] = {
+        {
+            TestFlowPkt(vm1_ip, vm2_ip, 1, 0, 0, "vrf5",
+                    flow0->id(), 3),
+            { }
+        }
+    };
+    CreateFlow(flow, 1);
+    EXPECT_EQ(2U, agent()->pkt()->flow_table()->Size());
+
+    vr_flow_entry *vr_flow = KSyncSockTypeMap::GetFlowEntry(1);
+    EXPECT_TRUE(((vr_flow->fe_flags & VR_FLOW_FLAG_ACTIVE) == VR_FLOW_FLAG_ACTIVE));
+
+    /* Change Index for flow. */
+    CreateFlow(flow_new, 1);
+    EXPECT_EQ(2U, agent()->pkt()->flow_table()->Size());
+
+    /* verify the entry on hash id 1 being deleted */
+    EXPECT_TRUE(((vr_flow->fe_flags & VR_FLOW_FLAG_ACTIVE) != VR_FLOW_FLAG_ACTIVE));
+
+    DeleteFlow(flow_new, 1);
+    client->WaitForIdle();
+    EXPECT_TRUE(FlowTableWait(0));
+}
+
 // Validate flows to pkt 0 interface
 TEST_F(FlowTest, Flow_On_PktIntf) {
     TestFlow flow[] = {
