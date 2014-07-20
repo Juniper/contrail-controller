@@ -18,6 +18,8 @@
 
 using namespace ::google::protobuf;
 
+static std::string d_desc_file_ = "build/debug/analytics/test/test_message.desc";
+
 class ProtobufTest : public ::testing::Test {
 protected:
     bool VerifyTestMessageInner(const Message &inner_msg, int expected_status) {
@@ -63,7 +65,7 @@ TEST_F(ProtobufTest, SelfDescribingMessageTest) {
     bool success = test_message.SerializeToArray(data, test_message_size);
     ASSERT_TRUE(success);
     // Create SelfDescribingMessageTest for TestMessage and serialize it
-    std::ifstream desc("build/debug/analytics/test/test_message.desc", 
+    std::ifstream desc(d_desc_file_.c_str(), 
         std::ios_base::in | std::ios_base::binary); 
     ASSERT_TRUE(desc.is_open());
     FileDescriptorSet fds;
@@ -146,6 +148,10 @@ TEST_F(ProtobufTest, SelfDescribingMessageTest) {
 }
 
 int main(int argc, char **argv) {
+    char *top_obj_dir = getenv("TOP_OBJECT_PATH");
+    if (top_obj_dir) {
+        d_desc_file_ = std::string(top_obj_dir) + "/analytics/test/test_message.desc";
+    }
     ::testing::InitGoogleTest(&argc, argv);
     LoggingInit();
     int result = RUN_ALL_TESTS();

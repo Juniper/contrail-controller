@@ -129,7 +129,7 @@ protobuf_test_gen_srcs = protobufEnv.ExtractCpp(protobuf_test_gen_files)
 protobuf_test_desc_files = protobufEnv.ProtocGenDesc('test_message.proto')
 protobuf_test = protobufEnv.UnitTest('protobuf_test', protobuf_test_gen_srcs +
       ['protobuf_test.cc'])
-env.Requires(protobuf_test, '#build/debug/analytics/test/test_message.desc')
+env.Requires(protobuf_test, env['TOP'] + '/analytics/test/test_message.desc')
 protobufEnv.Alias('src/analytics:protobuf_test', protobuf_test)
 
 test_suite = [ 
