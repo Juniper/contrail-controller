@@ -10,6 +10,8 @@ import logging
 from pprint import pformat
 import requests
 import sys
+import string
+import ConfigParser
 
 from vnc_api import vnc_api
 from neutron_plugin_db import DBInterface
@@ -42,7 +44,10 @@ class NeutronPluginInterface(object):
         self._auth_user = conf_sections.get('KEYSTONE', 'admin_user')
         self._auth_passwd = conf_sections.get('KEYSTONE', 'admin_password')
         self._auth_tenant = conf_sections.get('KEYSTONE', 'admin_tenant_name')
-        self._multi_tenancy = None
+        try:
+            self._multi_tenancy = conf_sections.get('DEFAULTS', 'multi_tenancy')
+        except ConfigParser.NoOptionError:
+            self._multi_tenancy = False
         self._vnc_lib = None
         self._cfgdb = None
         self._cfgdb_map = {}
