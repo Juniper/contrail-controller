@@ -691,7 +691,7 @@ TEST_F(DiscoveryServiceClientTest, Publish_No_Cookie_Response) {
 
     DSPublishResponse *resp = dsc_publish->GetPublishResponse("xmpp-server-test");
     if (resp) {
-        EXPECT_TRUE(resp->pub_fail_ == 1);
+        EXPECT_TRUE(resp->pub_fail_ >= 1);
     }
 
     EvmShutdown();
