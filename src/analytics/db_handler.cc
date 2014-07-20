@@ -1042,7 +1042,15 @@ bool FlowDataIpv4ObjectWalker<T>::for_each(pugi::xml_node& node) {
         case GenDb::DbDataType::LexicalUUIDType:
         case GenDb::DbDataType::TimeUUIDType:
             {
-                values_[ftinfo.get<0>()] = s_gen_(node.child_value());
+                std::stringstream ss;
+                ss << node.child_value();
+                boost::uuids::uuid u;
+                ss >> u;
+                if (ss.fail()) {
+                    LOG(ERROR, "FlowRecordTable: " << col_name << ": (" << 
+                        node.child_value() << ") INVALID");
+                }     
+                values_[ftinfo.get<0>()] = u;
                 break;
             }
         case GenDb::DbDataType::AsciiType:
@@ -1065,8 +1073,7 @@ bool DbHandler::FlowTableInsert(const pugi::xml_node &parent,
     const SandeshHeader& header) {
     // Traverse and populate the flow entry values
     FlowValueArray flow_entry_values;
-    FlowDataIpv4ObjectWalker<FlowValueArray> flow_msg_walker(flow_entry_values,
-        s_gen_);
+    FlowDataIpv4ObjectWalker<FlowValueArray> flow_msg_walker(flow_entry_values);
     pugi::xml_node &mnode = const_cast<pugi::xml_node &>(parent);
     if (!mnode.traverse(flow_msg_walker)) {
         VIZD_ASSERT(0);

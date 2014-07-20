@@ -135,7 +135,6 @@ private:
 
     // Random generator for UUIDs
     boost::uuids::random_generator umn_gen_;
-    boost::uuids::string_generator s_gen_;
     std::string name_;
     std::string col_name_;
     SandeshLevel::type drop_level_;
@@ -151,10 +150,8 @@ private:
 template <typename T>
 class FlowDataIpv4ObjectWalker : public pugi::xml_tree_walker {
 public:
-    FlowDataIpv4ObjectWalker(T &values,
-        boost::uuids::string_generator &s_gen) :
-        values_(values),
-        s_gen_(s_gen) {
+    FlowDataIpv4ObjectWalker(T &values) :
+        values_(values) {
     }
     ~FlowDataIpv4ObjectWalker() {}
 
@@ -173,7 +170,6 @@ public:
 
 private:
     T &values_;
-    boost::uuids::string_generator &s_gen_;
 };
 
 #endif /* DB_HANDLER_H_ */
