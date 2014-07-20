@@ -399,6 +399,7 @@ TEST_F(ServiceInstanceIntegrationTest, Config) {
  * Ensure that the code can deal with multiple instances.
  * In this case, the same template is used for all instances.
  */
+
 TEST_F(ServiceInstanceIntegrationTest, MultipleInstances) {
     static const int kNumTestInstances = 16;
     typedef std::vector<uuid> UuidList;

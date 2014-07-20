@@ -95,6 +95,8 @@ public:
 
     const Properties &properties() const { return properties_; }
 
+    const boost::uuids::uuid &uuid() const { return uuid_; }
+
     bool IsUsable() const;
 
 private:
