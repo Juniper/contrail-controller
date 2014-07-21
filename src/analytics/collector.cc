@@ -261,7 +261,7 @@ bool Collector::ReceiveSandeshCtrlMsg(SandeshStateMachine *state_machine,
              it != seqReply.end(); it++) {
             UVETypeInfo uti;
             uti.set_type_name(it->first);
-            uti.set_seq_num(it->second);
+            uti.set_seq_num(0);
             vu.push_back(uti);
         }
         SandeshCtrlServerToClient::Request(vu, retc, "ctrl", vsession->connection());
