@@ -53,6 +53,8 @@ from pycassa.util import *
 
 import amqp.exceptions
 import kombu
+import signal, os
+
 
 #from cfgm_common import vnc_type_conv
 from provision_defaults import *
@@ -68,6 +70,11 @@ import logging
 logger = logging.getLogger(__name__)
 
 class VncIfmapClient(VncIfmapClientGen):
+
+    def handler(self, signum, frame):
+        file = open("/tmp/api-server-ifmap-cache.txt", "w")
+        file.write(str(self._id_to_metas))
+        file.close()
 
     def __init__(self, db_client_mgr, ifmap_srv_ip, ifmap_srv_port,
                  uname, passwd, ssl_options, ifmap_srv_loc=None):
@@ -99,9 +106,16 @@ class VncIfmapClient(VncIfmapClientGen):
         if ifmap_srv_loc:
             self._launch_mapserver(ifmap_srv_ip, ifmap_srv_port, ifmap_srv_loc)
 
+        # Cache of metas populated in ifmap server. Useful in update to find
+        # what things to remove in ifmap server
+        self._id_to_metas = {}
+        self.accumulator = None
+        self.accumulated_request_len = 0
+        # Set the signal handler
+        signal.signal(signal.SIGUSR2, self.handler)
+
         mapclient = client(("%s" % (ifmap_srv_ip), "%s" % (ifmap_srv_port)),
                            uname, passwd, self._NAMESPACES, ssl_options)
-
         self._mapclient = mapclient
 
         connected = False
@@ -130,10 +144,12 @@ class VncIfmapClient(VncIfmapClientGen):
         perms.exportChildren(buf, level=1, pretty_print=False)
         id_perms_xml = buf.getvalue()
         buf.close()
-        meta = str(Metadata(self._IPERMS_NAME, '',
-                            {'ifmap-cardinality': 'singleValue'},
-                            ns_prefix='contrail', elements=id_perms_xml))
-        self._publish_id_self_meta("contrail:config-root:root", meta)
+        update = {}
+        meta = Metadata(self._IPERMS_NAME, '',
+                        {'ifmap-cardinality': 'singleValue'},
+                        ns_prefix='contrail', elements=id_perms_xml)
+        self._update_id_self_meta(update, meta)
+        self._publish_update("contrail:config-root:root", update)
     # end __init__
 
     def get_imid_handler(self):
@@ -209,21 +225,6 @@ class VncIfmapClient(VncIfmapClientGen):
             'ifmap-server', ifmap_srv_ip, ifmap_srv_port)
     # end _launch_mapserver
 
-    # Helper routines for IFMAP
-    def _publish_id_self_meta(self, self_imid, meta):
-        mapclient = self._mapclient
-
-        pubreq = PublishRequest(mapclient.get_session_id(),
-                                str(PublishUpdateOperation(
-                                    id1=str(Identity(
-                                            name=self_imid,
-                                            type="other",
-                                            other_type="extended")),
-                                    metadata=meta,
-                                    lifetime='forever')))
-        result = mapclient.call('publish', pubreq)
-    # end _publish_id_self_meta
-
     def _delete_id_self_meta(self, self_imid, meta_name):
         mapclient = self._mapclient
 
@@ -235,25 +236,15 @@ class VncIfmapClient(VncIfmapClientGen):
                                             other_type="extended")),
                                     filter=meta_name)))
         result = mapclient.call('publish', pubreq)
+        # del meta from cache and del id if this was last meta
+        if meta_name:
+            prop_name = meta_name.replace('contrail:', '')
+            del self._id_to_metas[self_imid][prop_name]
+            if not self._id_to_metas[self_imid]:
+                del self._id_to_metas[self_imid]
+        else:
+            del self._id_to_metas[self_imid]
     # end _delete_id_self_meta
-
-    def _publish_id_pair_meta(self, id1, id2, metadata):
-        if 'ERROR' in [id1, id2]:
-            return
-        mapclient = self._mapclient
-
-        pubreq = PublishRequest(mapclient.get_session_id(),
-                                str(PublishUpdateOperation(
-                                    id1=str(Identity(name=id1,
-                                                     type="other",
-                                                     other_type="extended")),
-                                    id2=str(Identity(name=id2,
-                                                     type="other",
-                                                     other_type="extended")),
-                                    metadata=metadata,
-                                    lifetime='forever')))
-        result = mapclient.call('publish', pubreq)
-    # end _publish_id_pair_meta
 
     def _delete_id_pair_meta(self, id1, id2, metadata):
         mapclient = self._mapclient
@@ -270,7 +261,125 @@ class VncIfmapClient(VncIfmapClientGen):
                                             other_type="extended")),
                                     filter=metadata)))
         result = mapclient.call('publish', pubreq)
+
+        # del meta,id2 from cache and del id if this was last meta
+        def _id_to_metas_delete(id1, id2, meta_name):
+            # if meta is prop, noop
+            if meta_name not in self._id_to_metas[id1]:
+                return
+            if not self._id_to_metas[id1][meta_name]:
+                return
+            if 'id' not in self._id_to_metas[id1][meta_name][0]:
+                return
+            self._id_to_metas[id1][meta_name] = \
+                 [{'id':m['id'], 'meta':m['meta']} \
+                 for m in self._id_to_metas[id1][meta_name] if m['id'] != id2]
+
+        if metadata:
+            meta_name = metadata.replace('contrail:', '')
+            # replace with remaining refs
+            _id_to_metas_delete(id1, id2, meta_name)
+            if not self._id_to_metas[id1][meta_name]:
+                del self._id_to_metas[id1][meta_name]
+            if not self._id_to_metas[id1]:
+                del self._id_to_metas[id1]
+        else: # no meta specified remove all links from id1 to id2
+            for meta_name in self._id_to_metas.get(id1, []):
+                _id_to_metas_delete(id1, id2, meta_name)
     # end _delete_id_pair_meta
+
+    def _update_id_self_meta(self, update, meta):
+        """ update: dictionary of the type
+                update[<id> | 'self'] = list(metadata)
+        """
+        if 'self' in update:
+            mlist = update['self']
+        else:
+            mlist = []
+            update['self'] = mlist
+
+        mlist.append(meta)
+    # end _update_id_self_meta
+
+    def _update_id_pair_meta(self, update, to_id, meta):
+        if to_id in update:
+            mlist = update[to_id]
+        else:
+            mlist = []
+            update[to_id] = mlist
+        mlist.append(meta)
+     # end _update_id_pair_meta
+
+    def _publish_update(self, self_imid, update):
+        if self_imid not in self._id_to_metas:
+            self._id_to_metas[self_imid] = {}
+
+        def _build_request_id_self(imid, metalist):
+            request = ''
+            for m in metalist:
+                request += str(PublishUpdateOperation(
+                        id1=str(Identity(name=self_imid, type="other",
+                                         other_type="extended")),
+                        metadata=str(m),
+                        lifetime='forever'))
+            return request
+
+        def _build_request_id_pair(id1, id2, metalist):
+            request = ''
+            for m in metalist:
+                request += str(PublishUpdateOperation(
+                    id1=str(Identity(name=id1, type="other",
+                                     other_type="extended")),
+                    id2=str(Identity(name=id2, type="other",
+                                     other_type="extended")),
+                    metadata=str(m),
+                    lifetime='forever'))
+            return request
+
+        mapclient = self._mapclient
+        requests = []
+        if 'self' in update:
+            metalist = update['self']
+            requests.append(
+                _build_request_id_self(self_imid, metalist))
+
+            # remember what we wrote for diffing during next update
+            for m in metalist:
+                meta_name = m._Metadata__name.replace('contrail:', '')
+                self._id_to_metas[self_imid][meta_name] = [{'meta':m}]
+
+        for id2 in update:
+            if id2 == 'self':
+                continue
+            metalist = update[id2]
+            requests.append(
+                _build_request_id_pair(self_imid, id2, metalist))
+
+            # remember what we wrote for diffing during next update
+            for m in metalist:
+                meta_name = m._Metadata__name.replace('contrail:', '')
+                if meta_name in self._id_to_metas[self_imid]:
+                   self._id_to_metas[self_imid][meta_name].append({'meta':m,
+                                                                  'id': id2})
+                else:
+                   self._id_to_metas[self_imid][meta_name] = [{'meta':m,
+                                                               'id': id2}]
+
+        if self.accumulator is not None:
+            self.accumulator.append(requests)
+            self.accumulated_request_len += len(requests)
+            if self.accumulated_request_len >= 1024*1024:
+                upd_str = \
+                    ''.join(''.join(request) for request in \
+                        self._ifmap_db.accumulator)
+                mapclient.call_async_result('publish',
+                            PublishRequest(mapclient.get_session_id(), upd_str))
+                self.accumulator = []
+                self.accumulated_request_len = 0
+        else:
+            mapclient.call_async_result('publish',
+                PublishRequest(mapclient.get_session_id(), ''.join(requests)))
+    # end _publish_update
 
     def _search(self, start_id, match_meta=None, result_meta=None,
                 max_depth=1):
@@ -1176,7 +1285,20 @@ class VncDbClient(object):
 
     def db_resync(self):
         # Read contents from cassandra and publish to ifmap
+        mapclient = self._ifmap_db._mapclient
+        self._ifmap_db.accumulator = []
+        self._ifmap_db.accumulated_request_len = 0
+        start_time = datetime.datetime.utcnow()
         self._cassandra_db.walk(self._dbe_resync)
+        if self._ifmap_db.accumulated_request_len:
+            upd_str = ''.join(''.join(request) \
+                              for request in self._ifmap_db.accumulator)
+            mapclient.call_async_result('publish',
+                    PublishRequest(mapclient.get_session_id(), upd_str))
+        self._ifmap_db.accumulator = None
+        self._ifmap_db.accumulated_request_len = 0
+        end_time = datetime.datetime.utcnow()
+        logger.info("Time elapsed in syncing ifmap: %s" % (str(end_time - start_time)))
         self._db_resync_done.set()
     # end db_resync
 
