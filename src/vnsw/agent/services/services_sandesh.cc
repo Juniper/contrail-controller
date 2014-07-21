@@ -213,7 +213,7 @@ void ServicesSandesh::FillVrouterHdr(PktTrace::Pkt &pkt, VrouterHdr &resp) {
     else
         resp.cmd = "unknown";
     resp.cmd_param = ntohl(hdr->hdr_cmd_param);
-    resp.nh = ntohl(hdr->hdr_nh);
+    resp.nh = ntohl(hdr->hdr_cmd_param_1);
 }
 
 void ServicesSandesh::FillMacHdr(ethhdr *eth, MacHdr &resp) {

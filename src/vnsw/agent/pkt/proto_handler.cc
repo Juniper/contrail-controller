@@ -41,13 +41,38 @@ void ProtoHandler::Send(uint16_t len, uint16_t itf, uint16_t vrf,
     pkt_info_->pkt = NULL;
 }
 
-void ProtoHandler::EthHdr(const unsigned char *src, const unsigned char *dest, 
-                          const uint16_t proto) {
-    ethhdr *eth = pkt_info_->eth;
+uint16_t ProtoHandler::EthHdr(char *buff, uint8_t len, const unsigned char *src,
+                              const unsigned char *dest, const uint16_t proto,
+                              uint16_t vlan_id) {
+    ethhdr *eth = (ethhdr *)buff;
+    uint16_t encap_len = sizeof(ethhdr);
+
+    if (vlan_id != VmInterface::kInvalidVlanId) {
+        encap_len += 4;
+    }
+
+    if (len < encap_len) {
+        return 0;
+    }
 
     memcpy(eth->h_dest, dest, ETH_ALEN);
     memcpy(eth->h_source, src, ETH_ALEN);
-    eth->h_proto = htons(proto);
+
+    uint16_t *ptr = (uint16_t *) (buff + ETH_ALEN * 2);
+    if (vlan_id != VmInterface::kInvalidVlanId) {
+        *ptr = htons(ETH_P_8021Q);
+        ptr++;
+        *ptr = (vlan_id & 0xFFF);
+    }
+
+    *ptr = htons(proto);
+    return encap_len;
+}
+
+void ProtoHandler::EthHdr(const unsigned char *src, const unsigned char *dest,
+                          const uint16_t proto) {
+    EthHdr((char *)pkt_info_->eth, sizeof(ethhdr), src, dest, proto,
+           VmInterface::kInvalidVlanId);
 }
 
 void ProtoHandler::VlanHdr(uint8_t *ptr, uint16_t tci) {
@@ -56,11 +81,14 @@ void ProtoHandler::VlanHdr(uint8_t *ptr, uint16_t tci) {
     vlan->tci = htons(tci);
     vlan += 1;
     vlan->tpid = htons(0x800);
+    return;
 }
 
-void ProtoHandler::IpHdr(uint16_t len, in_addr_t src, in_addr_t dest, 
-                         uint8_t protocol) {
-    iphdr *ip = pkt_info_->ip;
+uint16_t ProtoHandler::IpHdr(char *buff, uint16_t buf_len, uint16_t len,
+                             in_addr_t src, in_addr_t dest, uint8_t protocol) {
+    iphdr *ip = (iphdr *)buff;
+    if (buf_len < sizeof(iphdr))
+        return 0;
 
     ip->ihl = 5;
     ip->version = 4;
@@ -75,11 +103,22 @@ void ProtoHandler::IpHdr(uint16_t len, in_addr_t src, in_addr_t dest,
     ip->daddr = dest;
 
     ip->check = Csum((uint16_t *)ip, ip->ihl * 4, 0);
+    return sizeof(iphdr);
 }
 
-void ProtoHandler::UdpHdr(uint16_t len, in_addr_t src, uint16_t src_port, 
-                          in_addr_t dest, uint16_t dest_port) {
-    udphdr *udp = pkt_info_->transp.udp;
+void ProtoHandler::IpHdr(uint16_t len, in_addr_t src, in_addr_t dest, 
+                         uint8_t protocol) {
+
+    IpHdr((char *)pkt_info_->ip, sizeof(iphdr), len, src, dest, protocol);
+}
+
+uint16_t ProtoHandler::UdpHdr(char *buff, uint16_t buf_len, uint16_t len,
+                              in_addr_t src, uint16_t src_port, in_addr_t dest,
+                              uint16_t dest_port) {
+    if (buf_len < sizeof(udphdr))
+        return 0;
+
+    udphdr *udp = (udphdr *) buff;
     udp->source = htons(src_port);
     udp->dest = htons(dest_port);
     udp->len = htons(len);
@@ -88,6 +127,34 @@ void ProtoHandler::UdpHdr(uint16_t len, in_addr_t src, uint16_t src_port,
 #ifdef VNSW_AGENT_UDP_CSUM
     udp->check = UdpCsum(src, dest, len, udp);
 #endif
+    return sizeof(udphdr);
+}
+
+void ProtoHandler::UdpHdr(uint16_t len, in_addr_t src, uint16_t src_port,
+                          in_addr_t dest, uint16_t dest_port) {
+    UdpHdr((char *)pkt_info_->transp.udp, sizeof(udphdr), len, src, src_port,
+           dest, dest_port);
+}
+
+uint16_t ProtoHandler::IcmpHdr(char *buff, uint16_t buf_len, uint8_t type,
+                               uint8_t code, uint16_t word1, uint16_t word2) {
+    icmphdr *hdr = ((icmphdr *)buff);
+    if (buf_len < sizeof(hdr))
+        return 0;
+
+    memset(hdr, sizeof(icmphdr), 0);
+
+    hdr->type = type;
+    hdr->code = code;
+    assert(type == ICMP_DEST_UNREACH);
+    hdr->un.frag.mtu = htons(word2);
+    hdr->checksum = 0;
+    return sizeof(icmphdr);
+}
+
+void ProtoHandler::IcmpChecksum(char *buff, uint16_t buf_len) {
+    icmphdr *hdr = ((icmphdr *)buff);
+    hdr->checksum = Csum((uint16_t *)buff, buf_len, 0);
 }
 
 uint32_t ProtoHandler::Sum(uint16_t *ptr, std::size_t len, uint32_t sum) {

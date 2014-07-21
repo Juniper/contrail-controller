@@ -1119,7 +1119,7 @@ void PktFlowInfo::RewritePktInfo(uint32_t flow_index) {
         Agent::GetInstance()->ksync()->flowtable_ksync_obj();
 
     FlowKey key;
-    if (!obj->GetFlowKey(flow_index, key)) {
+    if (!obj->GetFlowKey(flow_index, &key)) {
         std::ostringstream ostr;
         ostr << "ECMP Resolve: unable to find flow index " << flow_index;
         PKTFLOW_TRACE(Err,ostr.str());

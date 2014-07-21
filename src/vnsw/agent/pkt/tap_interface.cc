@@ -168,7 +168,7 @@ void TapInterface::WriteHandler(const boost::system::error_code &error,
 void TapInterface::ReadHandler(const boost::system::error_code &error,
                               std::size_t length) {
     if (!error) {
-        pkt_handler_(read_buf_, length);
+        pkt_handler_(read_buf_, length, kMaxPacketSize);
     } else  {
         TAP_TRACE(Err, 
                   "Packet Tap Error <" + error.message() + "> reading packet");

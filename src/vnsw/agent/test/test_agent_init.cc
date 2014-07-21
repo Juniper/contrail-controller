@@ -288,6 +288,10 @@ void TestAgentInit::InitDone() {
     if (agent_->cfg()) {
         agent_->cfg()->InitDone();
     }
+
+    if (agent_->pkt()) {
+        agent_->pkt()->InitDone();
+    }
 }
 
 // Start init sequence

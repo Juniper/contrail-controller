@@ -77,7 +77,7 @@ public:
     FlowTableKSyncEntry *Find(FlowEntry *key);
     const vr_flow_entry *GetKernelFlowEntry(uint32_t idx, 
                                             bool ignore_active_status);
-    bool GetFlowKey(uint32_t index, FlowKey &key);
+    bool GetFlowKey(uint32_t index, FlowKey *key);
 
     uint32_t flow_table_entries_count() { return flow_table_entries_count_; }
     bool AuditProcess();
@@ -90,6 +90,8 @@ public:
     void InitTest() {
         MapFlowMemTest();
     }
+    void Init();
+
     void Shutdown() {
         UnmapFlowMemTest();
     }

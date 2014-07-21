@@ -76,6 +76,7 @@ void KSync::Init(bool create_vhost) {
         CreateVhostIntf();
     }
     interface_ksync_obj_.get()->Init();
+    flowtable_ksync_obj_.get()->Init();
 }
 
 void KSync::InitFlowMem() {

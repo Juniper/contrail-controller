@@ -95,7 +95,8 @@ TEST_F(PktParseTest, InvalidAgentHdr_1) {
     uint8_t *ptr(new uint8_t[pkt->GetBuffLen()]);
     memcpy(ptr, pkt->GetBuff(), pkt->GetBuffLen());
     Agent::GetInstance()->pkt()->pkt_handler()->
-        HandleRcvPkt(ptr, (sizeof(ethhdr) + sizeof(agent_hdr)));
+        HandleRcvPkt(ptr, (sizeof(ethhdr) + sizeof(agent_hdr)),
+                     pkt->GetBuffLen());
 
     client->WaitForIdle();
     EXPECT_EQ((exception_count + 1), AgentStats::GetInstance()->pkt_exceptions());
@@ -127,7 +128,9 @@ TEST_F(PktParseTest, Arp_1) {
     pkt->AddIpHdr("1.1.1.1", "1.1.1.2", 1);
     uint8_t *ptr(new uint8_t[pkt->GetBuffLen()]);
     memcpy(ptr, pkt->GetBuff(), pkt->GetBuffLen());
-    Agent::GetInstance()->pkt()->pkt_handler()->HandleRcvPkt(ptr, pkt->GetBuffLen());
+    Agent::GetInstance()->pkt()->pkt_handler()->HandleRcvPkt(ptr,
+                                                             pkt->GetBuffLen(),
+                                                             pkt->GetBuffLen());
 
     client->WaitForIdle();
     EXPECT_EQ((exception_count + 1), AgentStats::GetInstance()->pkt_exceptions());
@@ -147,7 +150,7 @@ TEST_F(PktParseTest, NonIp_On_Vnet_1) {
     uint8_t *ptr1(new uint8_t[pkt1->GetBuffLen() + 64]);
     memcpy(ptr1, pkt1->GetBuff(), pkt1->GetBuffLen());
     Agent::GetInstance()->pkt()->pkt_handler()->
-        HandleRcvPkt(ptr1, pkt1->GetBuffLen() + 64);
+        HandleRcvPkt(ptr1, pkt1->GetBuffLen() + 64, pkt1->GetBuffLen() + 64);
 
     // Packet with VLAN header 0x88a8
     PktGen *pkt2 = new PktGen();
@@ -157,7 +160,7 @@ TEST_F(PktParseTest, NonIp_On_Vnet_1) {
     uint8_t *ptr2(new uint8_t[pkt2->GetBuffLen() + 64]);
     memcpy(ptr2, pkt2->GetBuff(), pkt2->GetBuffLen());
     Agent::GetInstance()->pkt()->pkt_handler()->
-        HandleRcvPkt(ptr2, pkt2->GetBuffLen() + 64);
+        HandleRcvPkt(ptr2, pkt2->GetBuffLen() + 64, pkt2->GetBuffLen() + 64);
 
     // Packet with VLAN header 0x9100
     PktGen *pkt3 = new PktGen();
@@ -167,7 +170,7 @@ TEST_F(PktParseTest, NonIp_On_Vnet_1) {
     uint8_t *ptr3(new uint8_t[pkt3->GetBuffLen() + 64]);
     memcpy(ptr3, pkt3->GetBuff(), pkt3->GetBuffLen());
     Agent::GetInstance()->pkt()->pkt_handler()->
-        HandleRcvPkt(ptr3, pkt3->GetBuffLen() + 64);
+        HandleRcvPkt(ptr3, pkt3->GetBuffLen() + 64, pkt3->GetBuffLen() + 64);
 
     // Packet with ether-type 0x100
     PktGen *pkt4 = new PktGen();
@@ -177,7 +180,7 @@ TEST_F(PktParseTest, NonIp_On_Vnet_1) {
     uint8_t *ptr4(new uint8_t[pkt4->GetBuffLen() + 64]);
     memcpy(ptr4, pkt4->GetBuff(), pkt4->GetBuffLen());
     Agent::GetInstance()->pkt()->pkt_handler()->
-        HandleRcvPkt(ptr4, pkt4->GetBuffLen() + 64);
+        HandleRcvPkt(ptr4, pkt4->GetBuffLen() + 64, pkt4->GetBuffLen() + 64);
 
     client->WaitForIdle();
     EXPECT_EQ((exception_count + 4), AgentStats::GetInstance()->pkt_exceptions());
@@ -197,7 +200,7 @@ TEST_F(PktParseTest, NonIp_On_Eth_1) {
     uint8_t *ptr1(new uint8_t[pkt1->GetBuffLen() + 64]);
     memcpy(ptr1, pkt1->GetBuff(), pkt1->GetBuffLen());
     Agent::GetInstance()->pkt()->pkt_handler()->
-        HandleRcvPkt(ptr1, pkt1->GetBuffLen() + 64);
+        HandleRcvPkt(ptr1, pkt1->GetBuffLen() + 64, pkt1->GetBuffLen() + 64);
 
     // Packet with VLAN header 0x88a8
     PktGen *pkt2 = new PktGen();
@@ -207,7 +210,7 @@ TEST_F(PktParseTest, NonIp_On_Eth_1) {
     uint8_t *ptr2(new uint8_t[pkt2->GetBuffLen() + 64]);
     memcpy(ptr2, pkt2->GetBuff(), pkt2->GetBuffLen());
     Agent::GetInstance()->pkt()->pkt_handler()->
-        HandleRcvPkt(ptr2, pkt2->GetBuffLen() + 64);
+        HandleRcvPkt(ptr2, pkt2->GetBuffLen() + 64, pkt2->GetBuffLen() + 64);
 
     // Packet with VLAN header 0x9100
     PktGen *pkt3 = new PktGen();
@@ -217,7 +220,7 @@ TEST_F(PktParseTest, NonIp_On_Eth_1) {
     uint8_t *ptr3(new uint8_t[pkt3->GetBuffLen() + 64]);
     memcpy(ptr3, pkt3->GetBuff(), pkt3->GetBuffLen());
     Agent::GetInstance()->pkt()->pkt_handler()->
-        HandleRcvPkt(ptr3, pkt3->GetBuffLen() + 64);
+        HandleRcvPkt(ptr3, pkt3->GetBuffLen() + 64, pkt3->GetBuffLen() + 64);
 
     // Packet with ether-type 0x100
     PktGen *pkt4 = new PktGen();
@@ -227,7 +230,7 @@ TEST_F(PktParseTest, NonIp_On_Eth_1) {
     uint8_t *ptr4(new uint8_t[pkt4->GetBuffLen() + 64]);
     memcpy(ptr4, pkt4->GetBuff(), pkt4->GetBuffLen());
     Agent::GetInstance()->pkt()->pkt_handler()->
-        HandleRcvPkt(ptr4, pkt4->GetBuffLen() + 64);
+        HandleRcvPkt(ptr4, pkt4->GetBuffLen() + 64, pkt4->GetBuffLen() + 64);
 
     client->WaitForIdle();
     EXPECT_EQ((exception_count + 4), AgentStats::GetInstance()->pkt_exceptions());
@@ -313,7 +316,7 @@ static bool ValidateIpPktInfo(PktInfo *pkt_info, const char *sip,
 TEST_F(PktParseTest, IP_On_Vnet_1) {
     VmInterface *vnet1 = VmInterfaceGet(1);
     PktGen *pkt = new PktGen();
-    PktInfo pkt_info(NULL, 0);
+    PktInfo pkt_info(NULL, 0, 0);
 
     pkt->Reset();
     MakeIpPacket(pkt, vnet1->id(), "1.1.1.1", "1.1.1.2", 1, 1, -1);
@@ -339,7 +342,7 @@ TEST_F(PktParseTest, IP_On_Vnet_1) {
 TEST_F(PktParseTest, IP_On_Eth_1) {
     PhysicalInterface *eth = EthInterfaceGet("vnet0");
     PktGen *pkt = new PktGen();
-    PktInfo pkt_info(NULL, 0);
+    PktInfo pkt_info(NULL, 0, 0);
 
     pkt->Reset();
     MakeIpPacket(pkt, eth->id(), "1.1.1.1", "1.1.1.2", 1, 1, -1);
@@ -363,7 +366,7 @@ TEST_F(PktParseTest, IP_On_Eth_1) {
 TEST_F(PktParseTest, GRE_On_Vnet_1) {
     VmInterface *vnet1 = VmInterfaceGet(1);
     PktGen *pkt = new PktGen();
-    PktInfo pkt_info(NULL, 0);
+    PktInfo pkt_info(NULL, 0, 0);
 
     pkt->Reset();
     MakeIpMplsPacket(pkt, vnet1->id(), "1.1.1.1", "1.1.1.2", 1,
@@ -394,7 +397,7 @@ TEST_F(PktParseTest, GRE_On_Enet_1) {
     PhysicalInterface *eth = EthInterfaceGet("vnet0");
     VmInterface *vnet1 = VmInterfaceGet(1);
     PktGen *pkt = new PktGen();
-    PktInfo pkt_info(NULL, 0);
+    PktInfo pkt_info(NULL, 0, 0);
 
     pkt->Reset();
     MakeIpMplsPacket(pkt, eth->id(), "1.1.1.1", "10.1.1.1",
@@ -428,7 +431,7 @@ TEST_F(PktParseTest, Invalid_GRE_On_Enet_1) {
     PhysicalInterface *eth = EthInterfaceGet("vnet0");
     VmInterface *vnet1 = VmInterfaceGet(1);
     PktGen *pkt = new PktGen();
-    PktInfo pkt_info(NULL, 0);
+    PktInfo pkt_info(NULL, 0, 0);
 
     // Invalid Label
     pkt->Reset();

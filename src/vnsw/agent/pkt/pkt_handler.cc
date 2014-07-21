@@ -50,11 +50,11 @@ PktHandler::PktHandler(Agent *agent, const std::string &if_name,
     if (run_with_vrouter)
         tap_interface_.reset(new TapInterface(agent, if_name, io_serv, 
                              boost::bind(&PktHandler::HandleRcvPkt,
-                                         this, _1, _2)));
+                                         this, _1, _2, _3)));
     else
         tap_interface_.reset(new TestTapInterface(agent, "test", io_serv,
                              boost::bind(&PktHandler::HandleRcvPkt,
-                                         this, _1, _2)));
+                                         this, _1, _2, _3)));
     tap_interface_->Init();
 }
 
@@ -91,8 +91,9 @@ void PktHandler::Send(uint8_t *msg, std::size_t len, PktModuleName mod) {
 }
  
 // Process the packet received from tap interface
-void PktHandler::HandleRcvPkt(uint8_t *ptr, std::size_t len) {
-    boost::shared_ptr<PktInfo> pkt_info(new PktInfo(ptr, len));
+void PktHandler::HandleRcvPkt(uint8_t *ptr, std::size_t len,
+                              std::size_t max_len) {
+    boost::shared_ptr<PktInfo> pkt_info(new PktInfo(ptr, len, max_len));
     PktType::Type pkt_type = PktType::INVALID;
     PktModuleName mod = INVALID;
     Interface *intf = NULL;
@@ -168,6 +169,12 @@ void PktHandler::HandleRcvPkt(uint8_t *ptr, std::size_t len) {
         goto enqueue;
     }
 
+    if (pkt_info->ip &&
+        pkt_info->GetAgentHdr().cmd == AGENT_TRAP_HANDLE_DF) {
+        mod = ICMP_ERROR;
+        goto enqueue;
+    }
+
     if (pkt_info->GetAgentHdr().cmd == AGENT_TRAP_DIAG && pkt_info->ip) {
         mod = DIAG;
         goto enqueue;
@@ -209,7 +216,11 @@ uint8_t *PktHandler::ParseAgentHdr(PktInfo *pkt_info) {
     pkt_info->agent_hdr.vrf = ntohs(agent->hdr_vrf);
     pkt_info->agent_hdr.cmd = ntohs(agent->hdr_cmd);
     pkt_info->agent_hdr.cmd_param = ntohl(agent->hdr_cmd_param);
-    pkt_info->agent_hdr.nh = ntohl(agent->hdr_nh);
+    pkt_info->agent_hdr.nh = ntohl(agent->hdr_cmd_param_1);
+    if (pkt_info->agent_hdr.cmd == AGENT_TRAP_HANDLE_DF) {
+        pkt_info->agent_hdr.mtu = ntohl(agent->hdr_cmd_param);
+        pkt_info->agent_hdr.flow_index = ntohl(agent->hdr_cmd_param_1);
+    }
     pkt += sizeof(agent_hdr);
     return pkt;
 }
@@ -462,17 +473,18 @@ void PktHandler::PktStats::PktQThresholdExceeded(PktModuleName mod) {
 
 ///////////////////////////////////////////////////////////////////////////////
 
-PktInfo::PktInfo(uint8_t *msg, std::size_t msg_size) : 
-    pkt(msg), len(msg_size), data(), ipc(), type(PktType::INVALID),
-    agent_hdr(), ether_type(-1), ip_saddr(), ip_daddr(), ip_proto(),
-    sport(), dport(), tcp_ack(false), tunnel(), eth(), arp(), ip() {
+PktInfo::PktInfo(uint8_t *msg, std::size_t msg_size, std::size_t max_len) : 
+    pkt(msg), len(msg_size), max_pkt_len(max_len), data(), ipc(),
+    type(PktType::INVALID), agent_hdr(), ether_type(-1), ip_saddr(),
+    ip_daddr(), ip_proto(), sport(), dport(), tcp_ack(false), tunnel(), eth(),
+    arp(), ip() {
     transp.tcp = 0;
 }
 
 PktInfo::PktInfo(InterTaskMsg *msg) :
-    pkt(), len(), data(), ipc(msg), type(PktType::MESSAGE), agent_hdr(),
-    ether_type(-1), ip_saddr(), ip_daddr(), ip_proto(), sport(), dport(),
-    tcp_ack(false), tunnel(), eth(), arp(), ip() {
+    pkt(), len(), max_pkt_len(0), data(), ipc(msg), type(PktType::MESSAGE),
+    agent_hdr(), ether_type(-1), ip_saddr(), ip_daddr(), ip_proto(), sport(),
+    dport(), tcp_ack(false), tunnel(), eth(), arp(), ip() {
     transp.tcp = 0;
 }
 
