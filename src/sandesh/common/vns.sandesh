@@ -1,7 +1,6 @@
 /*
  * Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
  */
- 
 /*
  * vns.sandesh
  *
@@ -26,7 +25,8 @@ enum Module {
     CONFIG_NODE_MGR,
     DATABASE_NODE_MGR,
     WEBUI_NODE_MGR,
-    COMPUTE_NODE_MGR,    
+    COMPUTE_NODE_MGR,
+    STORAGE_STATS_MGR,
     MAX_MODULE,
 }
 
@@ -49,6 +49,7 @@ const map<Module, string> ModuleNames = {
     Module.DATABASE_NODE_MGR  : "Contrail-Database-Nodemgr",
     Module.WEBUI_NODE_MGR     : "Contrail-WebUI-Nodemgr",
     Module.COMPUTE_NODE_MGR   : "Contrail-Vrouter-Nodemgr",
+    Module.STORAGE_STATS_MGR  : "Storage-Stats-mgr",
 }
 
 const map<string, Module> ModuleIds = {
@@ -70,6 +71,7 @@ const map<string, Module> ModuleIds = {
     "Contrail-Database-Nodemgr"  : Module.DATABASE_NODE_MGR,
     "Contrail-WebUI-Nodemgr"     : Module.WEBUI_NODE_MGR,
     "Contrail-Vrouter-Nodemgr"   : Module.COMPUTE_NODE_MGR,
+    "Storage-Stats-mgr"          : Module.STORAGE_STATS_MGR,
 }
 
 enum NodeType {
@@ -113,6 +115,7 @@ const map <Module, NodeType> Module2NodeType = {
     Module.DATABASE_NODE_MGR  : NodeType.DATABASE,
     Module.WEBUI_NODE_MGR     : NodeType.WEBUI,
     Module.COMPUTE_NODE_MGR   : NodeType.COMPUTE,
+    Module.STORAGE_STATS_MGR  : NodeType.COMPUTE,
 }
 
 const string INSTANCE_ID_DEFAULT = "0"
