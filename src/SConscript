@@ -31,7 +31,8 @@ subdirs = [
            'sandesh',
            'schema',
            'xml',
-           'xmpp'
+           'xmpp',
+           'storage'
            ]
 
 if sys.platform != 'darwin':
