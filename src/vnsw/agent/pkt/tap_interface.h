@@ -16,7 +16,8 @@
 class TapInterface {
 public:
     static const uint32_t kMaxPacketSize = 9060;
-    typedef boost::function<void(uint8_t*, std::size_t)> PktReadCallback;
+    typedef boost::function<void(uint8_t*, std::size_t, std::size_t)> 
+        PktReadCallback;
 
     TapInterface(Agent *agent, const std::string &name,
                  boost::asio::io_service &io, PktReadCallback cb);

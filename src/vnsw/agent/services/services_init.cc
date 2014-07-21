@@ -46,6 +46,8 @@ void ServicesModule::Init(bool run_with_vrouter) {
     icmp_proto_.reset(new IcmpProto(agent_, io));
     agent_->SetIcmpProto(icmp_proto_.get());
 
+    icmp_error_proto_.reset(new IcmpErrorProto(agent_, io));
+
     metadata_proxy_.reset(new MetadataProxy(this, metadata_secret_key_));
 }
 

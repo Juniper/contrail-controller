@@ -69,7 +69,9 @@ static void TxIpPacket(int ifindex, const char *sip, const char *dip,
     MakeIpPacket(pkt, ifindex, sip, dip, proto);
     uint8_t *ptr(new uint8_t[pkt->GetBuffLen()]);
     memcpy(ptr, pkt->GetBuff(), pkt->GetBuffLen());
-    Agent::GetInstance()->pkt()->pkt_handler()->HandleRcvPkt(ptr, pkt->GetBuffLen());
+    Agent::GetInstance()->pkt()->pkt_handler()->HandleRcvPkt(ptr,
+                                                             pkt->GetBuffLen(),
+                                                             pkt->GetBuffLen());
     delete pkt;
 }
 
@@ -94,7 +96,9 @@ static void TxMplsPacket(int ifindex, const char *out_sip,
     MakeMplsPacket(pkt, ifindex, out_sip, out_dip, label, sip, dip, proto);
     uint8_t *ptr(new uint8_t[pkt->GetBuffLen()]);
     memcpy(ptr, pkt->GetBuff(), pkt->GetBuffLen());
-    Agent::GetInstance()->pkt()->pkt_handler()->HandleRcvPkt(ptr, pkt->GetBuffLen());
+    Agent::GetInstance()->pkt()->pkt_handler()->HandleRcvPkt(ptr,
+                                                             pkt->GetBuffLen(),
+                                                             pkt->GetBuffLen());
     delete pkt;
 }
 

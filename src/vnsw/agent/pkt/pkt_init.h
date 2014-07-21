@@ -21,6 +21,7 @@ public:
     void Shutdown();
     void IoShutdown();
     void FlushFlows();
+    void InitDone();
 
     Agent *agent() const { return agent_; }
     PktHandler *pkt_handler() { return pkt_handler_.get(); }

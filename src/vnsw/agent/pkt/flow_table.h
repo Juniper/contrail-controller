@@ -492,6 +492,7 @@ public:
     virtual ~FlowTable();
     
     void Init();
+    void InitDone();
     void Shutdown();
 
     FlowEntry *Allocate(const FlowKey &key);

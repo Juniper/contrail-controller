@@ -133,6 +133,7 @@ public:
     const AclDBEntry *GetMirrorCfgAcl() const {return mirror_cfg_acl_.get();};
     VrfEntry *GetVrf() const {return vrf_.get();};
     const std::vector<VnIpam> &GetVnIpam() const { return ipam_; };
+    const VnIpam *GetIpam(const Ip4Address &ip) const;
     bool GetVnHostRoutes(const std::string &ipam,
                          std::vector<OperDhcpOptions::Subnet> *routes) const;
     bool GetIpamName(const Ip4Address &vm_addr, std::string *ipam_name) const;

@@ -35,10 +35,20 @@ public:
 
     void Send(uint16_t, uint16_t, uint16_t, uint16_t, PktHandler::PktModuleName);
 
-    void EthHdr(const unsigned char *, const unsigned char *, const uint16_t);
+    uint16_t EthHdr(char *buff, uint8_t len, const unsigned char *src,
+                    const unsigned char *dest, const uint16_t proto,
+                    uint16_t vlan_id);
+    void EthHdr(const unsigned char *, const unsigned char *,
+                    const uint16_t);
     void VlanHdr(uint8_t *ptr, uint16_t tci);
     void IpHdr(uint16_t, in_addr_t, in_addr_t, uint8_t);
+    uint16_t IpHdr(char *, uint16_t, uint16_t, in_addr_t, in_addr_t, uint8_t);
     void UdpHdr(uint16_t, in_addr_t, uint16_t, in_addr_t, uint16_t);
+    uint16_t UdpHdr(char *, uint16_t, uint16_t, in_addr_t, uint16_t,
+                    in_addr_t, uint16_t);
+    uint16_t IcmpHdr(char *buff, uint16_t buf_len, uint8_t type, uint8_t code,
+                     uint16_t word1, uint16_t word2);
+    void IcmpChecksum(char *buff, uint16_t buf_len);
 
     uint32_t Sum(uint16_t *, std::size_t, uint32_t);
     uint16_t Csum(uint16_t *, std::size_t, uint32_t);

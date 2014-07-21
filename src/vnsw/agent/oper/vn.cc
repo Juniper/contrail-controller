@@ -79,6 +79,15 @@ bool VnEntry::GetIpamName(const Ip4Address &vm_addr,
     return false;
 }
 
+const VnIpam *VnEntry::GetIpam(const Ip4Address &ip) const {
+    for (unsigned int i = 0; i < ipam_.size(); i++) {
+        if (ipam_[i].IsSubnetMember(ip)) {
+            return &ipam_[i];
+        }
+    }
+    return NULL;
+}
+
 bool VnEntry::GetIpamData(const Ip4Address &vm_addr, std::string *ipam_name,
                           autogen::IpamType *ipam_type) const {
     // This will be executed from non DB context; task policy will ensure that

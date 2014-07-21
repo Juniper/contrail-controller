@@ -316,7 +316,7 @@ public:
         hdr->hdr_cmd = htons(cmd);
         hdr->hdr_cmd_param = htonl(param);
         hdr->hdr_vrf = htons(vrf);
-        hdr->hdr_nh = htonl(nh);
+        hdr->hdr_cmd_param_1 = htonl(nh);
         len += sizeof(*hdr);
     };
 
