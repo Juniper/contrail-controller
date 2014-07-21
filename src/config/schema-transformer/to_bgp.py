@@ -3033,12 +3033,8 @@ class SchemaTransformer(object):
             for meta in metas:
                 meta_name = re.sub('{.*}', '', meta.tag)
                 if result_type == 'deleteResult':
-                    _sandesh._logger.debug(
-                        "deleting %s/%s/%s", meta_name, idents, meta)
                     funcname = "delete_" + meta_name.replace('-', '_')
                 elif result_type in ['searchResult', 'updateResult']:
-                    _sandesh._logger.debug(
-                        "adding %s/%s/%s", meta_name, idents, meta)
                     funcname = "add_" + meta_name.replace('-', '_')
                 # end if result_type
                 try:
@@ -3046,6 +3042,9 @@ class SchemaTransformer(object):
                 except AttributeError:
                     pass
                 else:
+                    _sandesh._logger.debug("%s %s/%s/%s. Calling '%s'.",
+                                           result_type.split('Result')[0].title(),
+                                           meta_name, idents, meta, funcname)
                     func(idents, meta)
             # end for meta
         # end for result_type
