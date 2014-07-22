@@ -3,6 +3,7 @@
 #
 import sys
 
+import logging
 from pprint import pformat
 import coverage
 import fixtures
@@ -137,7 +138,7 @@ class TestCase(testtools.TestCase, fixtures.TestWithFixtures):
         api_server_ip = socket.gethostbyname(socket.gethostname())
         api_server_port = get_free_port()
         http_server_port = get_free_port()
-        self._api_svr = gevent.spawn(launch_api_server,
+        self._api_svr_greenlet = gevent.spawn(launch_api_server,
                                      api_server_ip, api_server_port,
                                      http_server_port)
         block_till_port_listened(api_server_ip, api_server_port)
@@ -150,10 +151,12 @@ class TestCase(testtools.TestCase, fixtures.TestWithFixtures):
         adapter = requests.adapters.HTTPAdapter()
         self._api_server_session.mount("http://", adapter)
         self._api_server_session.mount("https://", adapter)
+        self._api_server = vnc_cfg_api_server.server
+        self._api_server._sandesh.set_logging_params(level="SYS_WARN")
     # end setUp
 
     def tearDown(self):
-        self._api_svr.kill()
+        self._api_svr_greenlet.kill()
         cov_handle.stop()
         cov_handle.report(file=open('covreport.txt', 'w'))
         super(TestCase, self).tearDown()
