@@ -854,12 +854,17 @@ void AgentXmppChannel::UnicastPeerDown(AgentXmppChannel *peer,
             vn_controller->unicast_cleanup_timer().Cancel();
             // Mark the peer path info as stale and retain it till new active
             // peer comes over. So no deletion of path.
+            // Also along with making stale walk deletes the state of dead peer.
             peer_id->StalePeerRoutes();
             CONTROLLER_TRACE(Trace, peer->GetBgpPeerName(), "None",
                        "No active xmpp, cancel cleanup timer, stale routes");
             return;
         }
 
+        // Delete peer state so that notification can be avoided to
+        // dead peer. When active xmpp count is 0 Stalepeerroutes will
+        // itself delete the state along with making path as stale above.
+        peer_id->DelPeerState();
         // Number of active peers has come down to 1 and the active peer
         // remaining may not be the one who had started the stale walk.
         // So re-evaluate the stale walk so that new peer can gets its due time 

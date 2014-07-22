@@ -42,6 +42,10 @@ void BgpPeer::DelPeerRoutes(DelPeerDone walk_done_cb) {
     route_walker_->Start(ControllerRouteWalker::DELPEER, false, walk_done_cb);
 }
 
+void BgpPeer::DelPeerState() {
+    route_walker_->Start(ControllerRouteWalker::DELPEERSTATE, false, NULL);
+}
+
 void BgpPeer::PeerNotifyRoutes() {
     route_walker_->Start(ControllerRouteWalker::NOTIFYALL, true, NULL);
 }

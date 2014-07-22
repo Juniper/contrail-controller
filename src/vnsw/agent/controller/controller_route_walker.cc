@@ -46,6 +46,8 @@ bool ControllerRouteWalker::VrfWalkNotify(DBTablePartBase *partition,
         return VrfDelPeer(partition, entry);
     case STALE:
         return VrfNotifyStale(partition, entry);
+    case DELPEERSTATE:
+        return VrfDelPeerState(partition, entry);
     default:
         return false;
     }
@@ -97,7 +99,23 @@ bool ControllerRouteWalker::VrfDelPeer(DBTablePartBase *partition,
                                     &ControllerRouteWalker::RouteWalkDoneForVrf,
                                     this, _1));
         StartRouteWalk(vrf);
-        CONTROLLER_TRACE(Walker, "Vrf DelPeer", vrf->GetName(), 
+        CONTROLLER_TRACE(Walker, "Vrf DelPeer", vrf->GetName(),
+                         peer_->GetName());
+        return true;
+    }
+    return false;
+}
+
+/*
+ * Delete peer state for VRF.
+ */
+bool ControllerRouteWalker::VrfDelPeerState(DBTablePartBase *partition,
+                                            DBEntryBase *entry) {
+    VrfEntry *vrf = static_cast<VrfEntry *>(entry);
+    if (peer_->GetType() == Peer::BGP_PEER) {
+        BgpPeer *bgp_peer = static_cast<BgpPeer *>(peer_);
+        bgp_peer->DeleteVrfState(partition, entry);
+        CONTROLLER_TRACE(Walker, "Vrf Del Peer State", vrf->GetName(),
                          peer_->GetName());
         return true;
     }
@@ -115,7 +133,11 @@ bool ControllerRouteWalker::VrfNotifyStale(DBTablePartBase *partition,
                                            DBEntryBase *entry) {
     VrfEntry *vrf = static_cast<VrfEntry *>(entry);
     CONTROLLER_TRACE(Walker, "Vrf Stale", vrf->GetName(), peer_->GetName());
-    return VrfNotifyInternal(partition, entry);
+    bool ret = VrfNotifyInternal(partition, entry);
+    // Delete peer states for this VRF
+    BgpPeer *bgp_peer = static_cast<BgpPeer *>(peer_);
+    bgp_peer->DeleteVrfState(partition, entry);
+    return ret;
 }
 
 //Common routeine if basic vrf and peer check is required for the walk
