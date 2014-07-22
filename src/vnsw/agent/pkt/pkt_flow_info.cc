@@ -709,11 +709,11 @@ void PktFlowInfo::FloatingIpSNat(const PktInfo *pkt, PktControlInfo *in,
 void PktFlowInfo::VrfTranslate(const PktInfo *pkt, PktControlInfo *in,
                                PktControlInfo *out) {
     const Interface *intf = NULL;
-    if (!ingress) {
-        return;
+    if (ingress) {
+        intf = in->intf_;
+    } else {
+        intf = out->intf_;
     }
-
-    intf = in->intf_;
     if (!intf || intf->type() != Interface::VM_INTERFACE) {
         return;
     }
@@ -724,9 +724,11 @@ void PktFlowInfo::VrfTranslate(const PktInfo *pkt, PktControlInfo *in,
     //network acl
     const AclDBEntry *acl = vm_intf->vrf_assign_acl();
     if (acl == NULL) {
-        if (in->vn_) {
+        if (ingress && in->vn_) {
             //Check if the network ACL is present
             acl = in->vn_->GetAcl();
+        } else if (out->vn_) {
+            acl = out->vn_->GetAcl();
         }
     }
 
@@ -871,6 +873,11 @@ void PktFlowInfo::EgressProcess(const PktInfo *pkt, PktControlInfo *in,
     FlowTable *ftable = Agent::GetInstance()->pkt()->flow_table();
     out->rt_ = ftable->GetUcRoute(out->vrf_, Ip4Address(pkt->ip_daddr));
     in->rt_ = ftable->GetUcRoute(out->vrf_, Ip4Address(pkt->ip_saddr));
+
+    //Apply vrf translate ACL to get ingress route
+    if (in->rt_ && out->rt_) {
+        VrfTranslate(pkt, in, out);
+    }
 
     if (out->intf_) {
         out->vn_ = InterfaceToVn(out->intf_);
