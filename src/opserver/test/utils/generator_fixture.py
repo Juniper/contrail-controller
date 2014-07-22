@@ -44,6 +44,7 @@ class GeneratorFixture(fixtures.Fixture):
         self._opserver_port = opserver_port
         self._start_time = start_time
         self._node_type = node_type
+        self._generator_id = self._hostname+':'+self._node_type+':'+self._name+':0'
     # end __init__
 
     def setUp(self):
@@ -61,6 +62,10 @@ class GeneratorFixture(fixtures.Fixture):
         self._sandesh_instance._client._connection.set_admin_state(down=True)
         super(GeneratorFixture, self).cleanUp()
     # end tearDown
+
+    def get_generator_id(self):
+        return self._generator_id
+    # end get_generator_id
 
     @retry(delay=2, tries=5)
     def verify_on_setup(self):

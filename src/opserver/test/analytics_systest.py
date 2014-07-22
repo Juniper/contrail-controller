@@ -276,12 +276,29 @@ class AnalyticsTest(testtools.TestCase, fixtures.TestWithFixtures):
         exp_genlist = ['Collector', 'VRouterAgent', 'OpServer', 'QueryEngine']
         assert vizd_obj.verify_generator_list(vizd_obj.collectors[0],
                                               exp_genlist)
+        # verify the generator list in redis
+        exp_genlist = [vizd_obj.collectors[0].get_generator_id(),
+                       vr_agent.get_generator_id(),
+                       vizd_obj.opserver.get_generator_id(),
+                       vizd_obj.query_engine.get_generator_id()]
+        assert vizd_obj.verify_generator_list_in_redis(\
+                                vizd_obj.collectors[0].get_redis_uve(),
+                                exp_genlist)
+
         # stop Opserver and QE 
         vizd_obj.opserver.stop()
         vizd_obj.query_engine.stop()
         exp_genlist = ['Collector', 'VRouterAgent']
         assert vizd_obj.verify_generator_list(vizd_obj.collectors[0],
                                               exp_genlist)
+
+        # verify the generator list in redis
+        exp_genlist = [vizd_obj.collectors[0].get_generator_id(),
+                       vr_agent.get_generator_id()]
+        assert vizd_obj.verify_generator_list_in_redis(\
+                                vizd_obj.collectors[0].get_redis_uve(),
+                                exp_genlist)
+
         # start Opserver and QE with collectors[1] as the primary and
         # collectors[0] as the secondary. On generator startup, verify 
         # that it connects to the secondary collector, if the 

@@ -17,6 +17,8 @@ from operator import itemgetter
 from opserver_introspect_utils import VerificationOpsSrv
 from collector_introspect_utils import VerificationCollector
 from opserver.sandesh.viz.constants import COLLECTOR_GLOBAL_TABLE, SOURCE, MODULE
+from sandesh_common.vns.constants import NodeTypeNames, ModuleNames
+from sandesh_common.vns.ttypes import NodeType, Module
 
 class Query(object):
     table = None
@@ -60,6 +62,8 @@ class Collector(object):
         self._is_dup = is_dup
         if self._is_dup is True:
             self.hostname = self.hostname+'dup'
+        self._generator_id = self.hostname+':'+NodeTypeNames[NodeType.ANALYTICS]+\
+                            ':'+ModuleNames[Module.COLLECTOR]+':0'
     # end __init__
 
     def get_addr(self):
@@ -68,6 +72,15 @@ class Collector(object):
 
     def get_syslog_port(self):
         return self.syslog_port
+    # end get_syslog_port
+
+    def get_generator_id(self):
+        return self._generator_id
+    # end get_generator_id
+
+    def get_redis_uve(self):
+        return self._redis_uve
+    # end get_redis_uve
 
     def start(self):
         assert(self._instance == None)
@@ -116,10 +129,15 @@ class OpServer(object):
         self.analytics_fixture = analytics_fixture
         self.listen_port = AnalyticsFixture.get_free_port()
         self.http_port = AnalyticsFixture.get_free_port()
+        self.hostname = socket.gethostname()
         self._redis_port = redis_port
         self._instance = None
         self._logger = logger
         self._is_dup = is_dup
+        if self._is_dup is True:
+            self.hostname = self.hostname+'dup'
+        self._generator_id = self.hostname+':'+NodeTypeNames[NodeType.ANALYTICS]+\
+                            ':'+ModuleNames[Module.OPSERVER]+':0'
     # end __init__
 
     def set_primary_collector(self, collector):
@@ -129,6 +147,10 @@ class OpServer(object):
     def set_secondary_collector(self, collector):
         self.secondary_collector = collector
     # end set_secondary_collector
+
+    def get_generator_id(self):
+        return self._generator_id
+    # end get_generator_id
 
     def start(self):
         assert(self._instance == None)
@@ -190,8 +212,11 @@ class QueryEngine(object):
         self.analytics_fixture = analytics_fixture
         self.listen_port = AnalyticsFixture.get_free_port()
         self.http_port = AnalyticsFixture.get_free_port()
+        self.hostname = socket.gethostname()
         self._instance = None
         self._logger = logger
+        self._generator_id = self.hostname+':'+NodeTypeNames[NodeType.ANALYTICS]+\
+                            ':'+ModuleNames[Module.QUERY_ENGINE]+':0'
     # end __init__
 
     def set_primary_collector(self, collector):
@@ -201,6 +226,10 @@ class QueryEngine(object):
     def set_secondary_collector(self, collector):
         self.secondary_collector = collector
     # end set_secondary_collector
+
+    def get_generator_id(self):
+        return self._generator_id
+    # end get_generator_id
 
     def start(self, analytics_start_time=None):
         assert(self._instance == None)
@@ -1589,6 +1618,21 @@ class AnalyticsFixture(fixtures.Fixture):
         self.logger.info(str(res))
         return len(res)>0
     # end verify_keyword_query
+
+    @retry(delay=1, tries=5)
+    def verify_generator_list_in_redis(self, redis_uve, exp_gen_list):
+        self.logger.info('Verify generator list in redis')
+        try:
+            r = redis.StrictRedis(db=1, port=redis_uve.port)
+            gen_list = r.smembers('NGENERATORS')
+        except Exception as e:
+            self.logger.error('Failed to get generator list from redis - %s' % e)
+            return False
+        else:
+            self.logger.info('Expected generator list: %s' % str(exp_gen_list))
+            self.logger.info('Actual generator list: %s' % str(gen_list))
+            return gen_list == set(exp_gen_list)
+    # end verify_generator_list_in_redis
 
     def cleanUp(self):
 

@@ -11,8 +11,10 @@ local function sub_del(_values)
         if string.byte(val,1) ~= 60 then
             local descs = cjson.decode(val)
             for k,desc in pairs(descs) do
-                redis.call('del',desc.href)
-                redis.log(redis.LOG_NOTICE,"Deleting for "..desc.href)
+                if desc.href ~= nil then
+                    redis.call('del',desc.href)
+                    redis.log(redis.LOG_NOTICE,"Deleting for "..desc.href)
+                end
             end
             redis.call('hdel', _values, attr)
         end 
