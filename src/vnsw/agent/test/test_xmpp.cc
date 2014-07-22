@@ -621,6 +621,80 @@ TEST_F(AgentXmppUnitTest, Connection) {
 
 }
 
+//Check number of notifications in headless mode when XMPP peer
+//has flapped.
+TEST_F(AgentXmppUnitTest, headless_vm_down_notifications) {
+
+    client->Reset();
+    client->WaitForIdle();
+    //Easier to catch this headless mode.
+    if (Agent::GetInstance()->headless_agent_mode() == false) {
+        return;
+    }
+
+    XmppConnectionSetUp();
+    //wait for connection establishment
+    WAIT_FOR(1000, 10000, (sconnection->GetStateMcState() == xmsm::ESTABLISHED));
+    WAIT_FOR(1000, 10000, (cchannel->GetPeerState() == xmps::READY));
+
+    //expect subscribe for __default__ at the mock server
+    WAIT_FOR(1000, 10000, (mock_peer.get()->Count() == 1));
+
+    VxLanNetworkIdentifierMode(false);
+    client->WaitForIdle();
+    // Create vm-port in vn1
+    struct PortInfo input[] = {
+        {"vnet2", 2, "1.1.1.2", "00:00:00:01:01:02", 1, 2},
+    };
+
+    //Create vn,vrf,vm,vm-port and route entry in vrf1
+    CreateVmportEnv(input, 1);
+    //expect subscribe message+route at the mock server
+    WAIT_FOR(1000, 10000, (mock_peer.get()->Count() == 6));
+    client->WaitForIdle();
+
+    //Flap the channel
+    bgp_peer.get()->HandleXmppChannelEvent(xmps::NOT_READY);
+    WAIT_FOR(1000, 1000, agent_->controller()->DecommissionedPeerListSize() ==
+             1);
+    client->WaitForIdle();
+    bgp_peer.get()->HandleXmppChannelEvent(xmps::READY);
+    client->WaitForIdle();
+
+    EXPECT_TRUE(mock_peer.get()->Count() == 12);
+    //Delete vm-port and route entry in vrf1
+    DeleteVmportEnv(input, 1, false);
+    client->WaitForIdle();
+
+    //Check for number of notifications(4 shud come)
+    // 1. 1.1.1.2/32; 2. 00:00:00:01:01:02
+    // 3. 255.255.255.255
+    // 4. ff:ff:ff:ff:ff:ff
+    EXPECT_TRUE(mock_peer.get()->Count() == 16);
+
+    //Confirm Vmport is deleted
+    EXPECT_FALSE(VmPortFind(input, 0));
+
+    //Delete vm-port and route entry in vrf1
+    DeleteVmportEnv(input, 1, true);
+    client->WaitForIdle();
+    EXPECT_EQ(0U, Agent::GetInstance()->vn_table()->Size());
+
+    TaskScheduler::GetInstance()->Stop();
+    Agent::GetInstance()->controller()->unicast_cleanup_timer().cleanup_timer_->Fire();
+    TaskScheduler::GetInstance()->Start();
+    client->WaitForIdle();
+
+    WAIT_FOR(1000, 10000, (Agent::GetInstance()->vrf_table()->Size() == 1));
+    EXPECT_FALSE(DBTableFind("vrf1.uc.route.0"));
+    EXPECT_FALSE(DBTableFind("vrf1.l2.route.0"));
+    EXPECT_FALSE(VrfFind("vrf1"));
+
+    xc->ConfigUpdate(new XmppConfigData());
+    client->WaitForIdle(5);
+
+}
+
 TEST_F(AgentXmppUnitTest, Del_db_req_by_deleted_peer_non_hv) {
 
     client->Reset();

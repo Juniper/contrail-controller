@@ -13,10 +13,18 @@
  * Kind of walks supported are:
  * 1) NOTIFYALL - Walks all VRF and corresponding route table  to notify to peer
  * 2) NOTIFYMULTICAST - Only sends multicast entries from all tables to peer.
- * 3) DELPEER - Deletes path received from this peer from all.
+ * 3) DELPEER - Deletes path received from this peer from all and delets state.
+ *    In headless mode deletion of state should have happened with DELSTATE walk
+ *    however it can so happen that walk is not yet over for DELSTATE and timer
+ *    expired. At this point DELSTATE walk will be cancelled and DELPEER start.
+ *    Nevertheless there is no DELSTATE walk so DELPEER needs to do all stuff.
  * 4) STALE - Marks the path/info from this peer as stale and does not delete
- * it. Valid only for headless agent mode. In the case of unicast it marks peer
- * path as stale and in multicast it doesnt delete  the info sent by this peer.
+ *    it. Valid only for headless agent mode. In the case of unicast it marks
+ *    peer path as stale and in multicast it doesnt delete the info
+ *    sent by this peer. Also deletes the state associated for peer.
+ * 5) DELSTATE - Deletes the state associated for a peer per vrf entry and
+ *    route tables. Meant only for headless mode where DELPEER will get
+ *    triggered at expiration of timer.
  */
 class ControllerRouteWalker : public AgentRouteWalker {
 public:    
@@ -25,6 +33,7 @@ public:
         NOTIFYMULTICAST,
         DELPEER,
         STALE,
+        DELPEERSTATE,
     };
     ControllerRouteWalker(Agent *agent, Peer *peer);
     virtual ~ControllerRouteWalker() { }
@@ -50,6 +59,7 @@ private:
     bool VrfNotifyAll(DBTablePartBase *partition, DBEntryBase *e);
     bool VrfDelPeer(DBTablePartBase *partition, DBEntryBase *e);
     bool VrfStaleMarker(DBTablePartBase *partition, DBEntryBase *e);
+    bool VrfDelPeerState(DBTablePartBase *partition, DBEntryBase *e);
 
     //Route notification handlers
     bool RouteNotifyInternal(DBTablePartBase *partition, DBEntryBase *e);
