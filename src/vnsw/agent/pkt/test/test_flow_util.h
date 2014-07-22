@@ -356,6 +356,26 @@ private:
     uint32_t action_;
     uint32_t rev_action_;
 };
+
+class VerifyRpf : public FlowVerify {
+public:
+    VerifyRpf(uint32_t forward_flow_nh, uint32_t reverse_flow_nh):
+        forward_flow_rpf_nh_(forward_flow_nh),
+        reverse_flow_rpf_nh_(reverse_flow_nh) {};
+    virtual ~VerifyRpf() {};
+    void Verify(FlowEntry *fe) {
+        FlowEntry *rev = fe->reverse_flow_entry();
+        EXPECT_TRUE(rev != NULL);
+        EXPECT_TRUE(fe->data().nh_state_.get()->nh()->id() ==
+                    forward_flow_rpf_nh_);
+        EXPECT_TRUE(rev->data().nh_state_.get()->nh()->id() ==
+                    reverse_flow_rpf_nh_);
+    }
+private:
+    uint32_t forward_flow_rpf_nh_;
+    uint32_t reverse_flow_rpf_nh_;
+};
+
 struct TestFlow {
     ~TestFlow() {
         for (int i = 0; i < 10; i++) {
