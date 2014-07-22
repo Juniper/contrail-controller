@@ -1651,7 +1651,72 @@ TEST_F(IntfTest, VmPortServiceVlanAdd_2) {
     EXPECT_FALSE(VrfFind("vrf1"));
     EXPECT_FALSE(VrfFind("vrf2"));
 }
-//A
+
+//Deactivate the interface, and make sure
+//vlan configuration is deleted
+//Reactivate and verify vlan NH and vrf entry are created again
+TEST_F(IntfTest, VmPortServiceVlanAdd_3) {
+    struct PortInfo input[] = {
+        {"vnet1", 1, "1.1.1.10", "00:00:00:01:01:01", 1, 1},
+    };
+
+    client->Reset();
+    CreateVmportEnv(input, 1);
+    client->WaitForIdle();
+    EXPECT_TRUE(VmPortActive(input, 0));
+
+    AddVn("vn2", 2);
+    AddVrf("vrf2", 2);
+    AddLink("virtual-network", "vn2", "routing-instance", "vrf2");
+    //Add service vlan for vnet1
+    client->WaitForIdle();
+    AddVmPortVrf("vmvrf1", "2.2.2.100", 10);
+    AddLink("virtual-machine-interface-routing-instance", "vmvrf1",
+            "routing-instance", "vrf2");
+    AddLink("virtual-machine-interface-routing-instance", "vmvrf1",
+            "virtual-machine-interface", "vnet1");
+
+    client->WaitForIdle();
+    Ip4Address service_ip = Ip4Address::from_string("2.2.2.100");
+    EXPECT_TRUE(RouteFind("vrf2", service_ip, 32));
+
+    //Deactivate the VM and make sure mpls label allocated for VM
+    //gets deleted
+    DelLink("virtual-network", "vn1", "virtual-machine-interface",
+            input[0].name);
+    client->WaitForIdle();
+    EXPECT_FALSE(VmPortActive(input, 0));
+    service_ip = Ip4Address::from_string("2.2.2.100");
+    EXPECT_FALSE(RouteFind("vrf2", service_ip, 32));
+
+    //Verify vrf assign rule and NH are deleted
+    VlanNHKey vlan_nh_key(MakeUuid(1), 10);
+    EXPECT_FALSE(FindNH(&vlan_nh_key));
+    EXPECT_TRUE(VrfAssignTable::FindVlanReq(MakeUuid(1), 10) == NULL);
+
+    //Activate VM
+    AddLink("virtual-network", "vn1", "virtual-machine-interface",
+            input[0].name);
+    client->WaitForIdle();
+    EXPECT_TRUE(RouteFind("vrf2", service_ip, 32));
+    EXPECT_TRUE(FindNH(&vlan_nh_key));
+    EXPECT_TRUE(VrfAssignTable::FindVlanReq(MakeUuid(1), 10) != NULL);
+
+    //Clean up
+    DelLink("virtual-machine-interface-routing-instance", "vmvrf1",
+            "routing-instance", "vrf2");
+    DelLink("virtual-machine-interface-routing-instance", "vmvrf1",
+            "virtual-machine-interface", "vnet1");
+    DelVmPortVrf("vmvrf1");
+    DelVrf("vrf2");
+    DelVn("vn2");
+    client->WaitForIdle();
+    DeleteVmportEnv(input, 1, true);
+    client->WaitForIdle();
+    EXPECT_FALSE(VrfFind("vrf1"));
+    EXPECT_FALSE(VrfFind("vrf2"));
+}
+
 //Add and delete static route 
 TEST_F(IntfTest, IntfStaticRoute) {
     struct PortInfo input[] = {
