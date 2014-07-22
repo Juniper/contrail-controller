@@ -2118,7 +2118,11 @@ class DBInterface(object):
     # network api handlers
     def network_create(self, network_q):
         net_obj = self._network_neutron_to_vnc(network_q, CREATE)
-        net_uuid = self._virtual_network_create(net_obj)
+        try:
+            net_uuid = self._virtual_network_create(net_obj)
+        except RefsExistError:
+            self._raise_contrail_exception(400, exceptions.BadRequest(
+                resource='network', msg='Network Already exists'))
 
         if net_obj.router_external:
             fip_pool_obj = FloatingIpPool('floating-ip-pool', net_obj)
