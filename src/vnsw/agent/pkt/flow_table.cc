@@ -196,14 +196,15 @@ bool FlowEntry::ActionRecompute() {
 
     action = data_.match_p.policy_action | data_.match_p.out_policy_action |
         data_.match_p.sg_action_summary |
-        data_.match_p.mirror_action | data_.match_p.out_mirror_action;
-    action &= ~(1 << TrafficAction::VRF_TRANSLATE);
-    action |= data_.match_p.vrf_assign_acl_action;
+        data_.match_p.mirror_action | data_.match_p.out_mirror_action |
+        data_.match_p.vrf_assign_acl_action;
 
     if (action & (1 << TrafficAction::VRF_TRANSLATE) && 
         data_.match_p.action_info.vrf_translate_action_.ignore_acl() == true) {
-        action = (1 << TrafficAction::VRF_TRANSLATE) |
-                 (1 << TrafficAction::PASS);
+        //Ignore network ACL action
+        action = data_.match_p.vrf_assign_acl_action |
+            data_.match_p.sg_action_summary | data_.match_p.mirror_action |
+            data_.match_p.out_mirror_action;
     }
 
     // Force short flows to DROP
