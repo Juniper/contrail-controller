@@ -15,6 +15,7 @@
 #include "uveupdate_lua.cpp"
 #include "uveupdate_st_lua.cpp"
 #include "uvedelete_lua.cpp"
+#include "flushuves_lua.cpp"
 
 using std::string;
 using std::vector;
@@ -212,6 +213,39 @@ RedisProcessorExec::SyncDeleteUVEs(const std::string & redis_ip, unsigned short 
     return false;
 }
 
+bool
+RedisProcessorExec::FlushUVEs(const std::string & redis_ip,
+                              unsigned short redis_port) {
+    redisContext *c = redisConnect(redis_ip.c_str(), redis_port);
+
+    if (c->err) {
+        LOG(ERROR, "No connection for FlushUVEs");
+        redisFree(c);
+        return false;
+    }
+
+    string lua_scr(reinterpret_cast<char *>(flushuves_lua), flushuves_lua_len);
+
+    redisReply * reply = (redisReply *) redisCommand(c, "EVAL %s 0 %s",
+            lua_scr.c_str(), integerToString(REDIS_DB_UVE).c_str());
+
+    if (!reply) {
+        LOG(INFO, "FlushUVEs Error : " << c->errstr);
+        redisFree(c);
+        return false;
+    }
+
+    if (reply->type == REDIS_REPLY_INTEGER) {
+        freeReplyObject(reply);
+        redisFree(c);
+        return true;
+    }
+    LOG(ERROR, "Unrecognized reponse of type " << reply->type
+            << " for FlushUVEs");
+    freeReplyObject(reply);
+    redisFree(c);
+    return false;
+}
 
 void RedisProcessorIf::ChildSpawn(const vector<RedisProcessorIf *> & vch) {
     for (vector<RedisProcessorIf *>::const_iterator it = vch.begin();

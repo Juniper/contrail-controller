@@ -269,6 +269,12 @@ class AnalyticsTest(testtools.TestCase, fixtures.TestWithFixtures):
         exp_genlist = ['Collector']
         assert vizd_obj.verify_generator_list(vizd_obj.collectors[0],
                                               exp_genlist)
+        # verify that the old UVEs are flushed from redis when collector restarts
+        exp_genlist = [vizd_obj.collectors[0].get_generator_id()]
+        assert vizd_obj.verify_generator_list_in_redis(\
+                                vizd_obj.collectors[0].get_redis_uve(),
+                                exp_genlist)
+
         # stop collectors[1] and verify that OpServer and QE switch 
         # from secondary to primary and VRouterAgent from primary to
         # secondary
