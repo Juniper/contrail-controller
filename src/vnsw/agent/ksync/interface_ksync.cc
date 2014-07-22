@@ -193,13 +193,7 @@ bool InterfaceKSyncEntry::Sync(DBEntry *e) {
         if (intf->type() == Interface::VM_INTERFACE) {
             VmInterface *vm_port = static_cast<VmInterface *>(intf);
             has_service_vlan = vm_port->HasServiceVlan();
-            // Policy is not supported on service-vm interfaces.
-            // So, disable policy if service-vlan interface
-            if (has_service_vlan) {
-                policy_enabled = false;
-            } else {
-                policy_enabled = vm_port->policy_enabled();
-            }
+            policy_enabled = vm_port->policy_enabled();
             analyzer_name = vm_port->GetAnalyzer();
             mirror_direction = vm_port->mirror_direction();
             if (network_id_ != vm_port->vxlan_id()) {
