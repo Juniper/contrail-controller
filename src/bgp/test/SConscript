@@ -305,7 +305,6 @@ test_suite = [
     bgp_attr_test,
     bgp_condition_listener_test,
     bgp_config_listener_test,
-    bgp_config_manager_test,
     bgp_config_test,
     bgp_export_nostate_test,
     bgp_export_rstate_test,
@@ -352,6 +351,7 @@ env.Alias('controller/src/bgp:test', [
 ])
 
 flaky_test_suite = [
+    bgp_config_manager_test,
     bgp_peer_close_test,
     bgp_xmpp_deferq_test,
     bgp_xmpp_evpn_test,
