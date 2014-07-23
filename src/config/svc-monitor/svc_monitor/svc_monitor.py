@@ -19,7 +19,6 @@ import logging
 import logging.handlers
 import argparse
 import socket
-import random
 import time
 import datetime
 
@@ -31,6 +30,7 @@ from pycassa.system_manager import *
 
 from cfgm_common.imid import *
 from cfgm_common import vnc_cpu_info
+from cfgm_common import importutils
 
 from vnc_api.vnc_api import *
 
@@ -169,6 +169,12 @@ class SvcMonitor(object):
         handler = logging.handlers.RotatingFileHandler(
             self._err_file, maxBytes=64*1024, backupCount=2)
         self._svc_err_logger.addHandler(handler)
+
+        # Load vrouter scheduler
+        self.vrouter_scheduler = importutils.import_object(
+            self._args.si_netns_scheduler_driver,
+            self._vnc_lib,
+            self._args)
     # end __init__
 
     # create service template
@@ -471,28 +477,7 @@ class SvcMonitor(object):
         # Create virtual machines, associate them to the service instance and
         # schedule them to different virtual routers
         max_instances = si_props.get_scale_out().get_max_instances()
-        vrs = [vr['fq_name'] for vr in
-               self._vnc_lib.virtual_routers_list()['virtual-routers']]
-        if not vrs:
-            self._svc_syslog("There is no virtual router available to schedule"
-                             "the network namespace instance")
-            return
-
         for inst_count in range(0, max_instances):
-            # Schedule instance on a vrouter
-            try:
-                vr_fq_name_selected = random.choice(vrs)
-            except IndexError:
-                self._svc_syslog("Cannot find enough virtual routers to "
-                                 "schedule service instance %s. %d virtual "
-                                 "machines were created to instantiate the "
-                                 "service instance" %
-                                 (si_obj.name, inst_count))
-                break
-            vrs.remove(vr_fq_name_selected)
-            vr_obj_selected = self._vnc_lib.virtual_router_read(
-                fq_name=vr_fq_name_selected)
-
             # Create a virtual machine
             instance_name = si_obj.name + '_' + str(inst_count + 1)
             vm_fq_name = proj_fq_name + [instance_name]
@@ -507,15 +492,21 @@ class SvcMonitor(object):
                 vmi_obj.set_virtual_machine(vm_obj)
                 self._vnc_lib.virtual_machine_interface_update(vmi_obj)
 
-            # Associate the instance onto the selected vrouter
-            vr_obj_selected.set_virtual_machine(vm_obj)
-            self._vnc_lib.virtual_router_update(vr_obj_selected)
-
-            # store vm, instance in cassandra; use for linking when VM is up
+            # store NetNS instance in cassandra use for linking when NetNS
+            # is up. If the 'vrouter_name' key does not exist that means the
+            # NetNS was not scheduled to a vrouter
             row_entry = {}
             row_entry['si_fq_str'] = si_obj.get_fq_name_str()
             row_entry['instance_name'] = instance_name
-            row_entry['instance_type'] = self._get_virtualization_type(st_props)
+            row_entry['instance_type'] = \
+                self._get_virtualization_type(st_props)
+
+            # Associate instance on the scheduled vrouter
+            chosen_vr_fq_name = self.vrouter_scheduler.schedule(si_obj.uuid,
+                                                                vm_obj.uuid)
+            if chosen_vr_fq_name:
+                row_entry['vrouter_name'] = chosen_vr_fq_name[-1]
+
             self._svc_vm_cf.insert(vm_obj.uuid, row_entry)
 
             # uve trace
@@ -680,6 +671,9 @@ class SvcMonitor(object):
     def _restart_svc(self, vm_uuid, si_fq_str):
         proj_name = self._get_proj_name_from_si_fq_str(si_fq_str)
         self._delete_svc_instance(vm_uuid, proj_name, si_fq_str=si_fq_str)
+
+        # Wait the clean phase was completely done before recreate the SI
+        gevent.sleep(_CHECK_CLEANUP_INTERVAL + 1)
 
         si_obj = self._vnc_lib.service_instance_read(fq_name_str=si_fq_str)
         st_list = si_obj.get_service_template_refs()
@@ -1298,15 +1292,23 @@ def timer_callback(monitor):
 
     for vm_uuid, si in vm_list:
         try:
-            virt_type = self._svc_vm_cf.get(vm_uuid)['instance_type']
             status = None
-            if virt_type == 'virtual-machine':
+            if si['instance_type'] == 'virtual-machine':
                 proj_name = monitor._get_proj_name_from_si_fq_str(si['si_fq_str'])
                 n_client = monitor._novaclient_get(proj_name)
                 status = n_client.servers.find(id=vm_uuid).status
-            # elif netns
-            # TODO: get netns status
-            if status.status == 'ERROR':
+            elif si['instance_type'] == 'network-namespace':
+                try:
+                    if not monitor.vrouter_scheduler.vrouter_running(si['vrouter_name']):
+                        # The scheduled vrouter is down, re-create it
+                        status = 'ERROR'
+                except KeyError:
+                    # Cannot found the scheduled vrouter, re-create it
+                    status = 'ERROR'
+            if status and status == 'ERROR':
+                monitor._svc_syslog("The VM %s of SI %s is not running. "
+                                    "Re-create it." %
+                                    (vm_uuid, si['si_fq_str']))
                 monitor._restart_svc(vm_uuid, si['si_fq_str'])
         except nc_exc.NotFound:
             continue
@@ -1427,6 +1429,12 @@ def parse_args(args_str):
         'admin_password': 'password1',
         'admin_tenant_name': 'default-domain'
     }
+    schedops = {
+        'si_netns_scheduler_driver': \
+            'svc_monitor.scheduler.vrouter_scheduler.ChanceScheduler',
+        'analytics_server_ip': '127.0.0.1',
+        'analytics_server_port': '8081',
+    }
 
     if args.conf_file:
         config = ConfigParser.SafeConfigParser()
@@ -1438,6 +1446,8 @@ def parse_args(args_str):
                 secopts.update(dict(config.items("SECURITY")))
         if 'KEYSTONE' in config.sections():
             ksopts.update(dict(config.items("KEYSTONE")))
+        if 'SCHEDULER' in config.sections():
+            schedops.update(dict(config.items("SCHEDULER")))
 
     # Override with CLI options
     # Don't surpress add_help here so it will handle -h
@@ -1451,6 +1461,7 @@ def parse_args(args_str):
     )
     defaults.update(secopts)
     defaults.update(ksopts)
+    defaults.update(schedops)
     parser.set_defaults(**defaults)
 
     parser.add_argument(
