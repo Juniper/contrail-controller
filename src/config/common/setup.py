@@ -30,4 +30,5 @@ setup(
     zip_safe=False,
     long_description="VNC Configuration Common Utils",
     install_requires=requirements('requirements.txt'),
+    test_suite='tests',
 )
