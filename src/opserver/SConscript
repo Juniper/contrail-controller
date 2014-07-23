@@ -28,6 +28,7 @@ local_sources = [
            'opserver_util.py',
            'sandesh_req_impl.py',
            'uveserver.py',
+           'analytics_db.py',
            'log.py',
            'stats.py',
            'flow.py',
@@ -43,6 +44,7 @@ cpu_info_pkg = OpEnv.SandeshGenPy('#controller/src/base/sandesh/cpuinfo.sandesh'
 connection_info_pkg = OpEnv.SandeshGenPy('#controller/src/base/sandesh/connection_info.sandesh', 'opserver/sandesh/analytics/', False)
 redis_pkg = OpEnv.SandeshGenPy('#controller/src/analytics/redis.sandesh', 'opserver/sandesh/', False)
 discovery_pkg = OpEnv.SandeshGenPy('discovery.sandesh', 'opserver/sandesh/', False)
+analytics_database_pkg = OpEnv.SandeshGenPy('analytics_database.sandesh', 'opserver/sandesh/', False)
 
 doc_sources_rules = []
 if sys.platform != 'darwin':
@@ -51,7 +53,7 @@ if sys.platform != 'darwin':
 
 sdist_depends = [setup_sources_rules, local_sources_rules, 
                  viz_pkg, analytics_pkg, cpu_info_pkg, redis_pkg,
-                 connection_info_pkg, discovery_pkg]
+                 connection_info_pkg, discovery_pkg, analytics_database_pkg]
 
 sdist_gen = OpEnv.Command('dist', 'setup.py', 'python setup.py sdist', chdir=1)
 # install everything before building distribution
