@@ -55,6 +55,8 @@ from novaclient import exceptions as nc_exc
 
 import discoveryclient.client as client
 
+import analytics_client as analytics_client
+
 _SVC_VN_MGMT = "svc-vn-mgmt"
 _SVC_VN_LEFT = "svc-vn-left"
 _SVC_VN_RIGHT = "svc-vn-right"
@@ -164,6 +166,11 @@ class SvcMonitor(object):
         handler = logging.handlers.RotatingFileHandler(
             self._err_file, maxBytes=64*1024, backupCount=2)
         self._svc_err_logger.addHandler(handler)
+
+        # initialize analytics client
+        endpoint = "http://%s:%s" % (self._args.analytics_server_ip,
+                                     self._args.analytics_server_port)
+        self._analytics = analytics_client.Client(endpoint)
     # end __init__
 
     # create service template
@@ -463,30 +470,22 @@ class SvcMonitor(object):
             nic['static-routes'] = None
             nics.append(nic)
 
+
         # Create virtual machines, associate them to the service instance and
         # schedule them to different virtual routers
         max_instances = si_props.get_scale_out().get_max_instances()
-        vrs = [vr['fq_name'] for vr in
-               self._vnc_lib.virtual_routers_list()['virtual-routers']]
-        if not vrs:
-            self._svc_syslog("There is no virtual router available to schedule"
-                             "the network namespace instance")
-            return
+        vrs_fq_name_selected = self._schedule_virtual_routers(max_instances)
+        if len(vrs_fq_name_selected) != max_instances:
+            self._svc_syslog("Cannot find enough virtual routers to "
+                             "schedule service instance %s. %d network "
+                             "namespace will be created to instantiate the "
+                             "service instance" %
+                             (si_obj.name, len(vrs_fq_name_selected)))
 
-        for inst_count in range(0, max_instances):
-            # Schedule instance on a vrouter
-            try:
-                vr_fq_name_selected = random.choice(vrs)
-            except IndexError:
-                self._svc_syslog("Cannot find enough virtual routers to "
-                                 "schedule service instance %s. %d virtual "
-                                 "machines were created to instantiate the "
-                                 "service instance" %
-                                 (si_obj.name, inst_count))
-                break
-            vrs.remove(vr_fq_name_selected)
+        for inst_count in range(0, len(vrs_fq_name_selected)):
+        # Schedule instance on a vrouter
             vr_obj_selected = self._vnc_lib.virtual_router_read(
-                fq_name=vr_fq_name_selected)
+                fq_name=vrs_fq_name_selected[inst_count])
 
             # Create a virtual machine
             instance_name = si_obj.name + '_' + str(inst_count + 1)
@@ -510,13 +509,53 @@ class SvcMonitor(object):
             row_entry = {}
             row_entry['si_fq_str'] = si_obj.get_fq_name_str()
             row_entry['instance_name'] = instance_name
-            row_entry['instance_type'] = self._get_virtualization_type(st_props)
+            row_entry['instance_type'] = \
+                self._get_virtualization_type(st_props)
+            row_entry['vr_fq_str'] = ':'.join(vrs_fq_name_selected[inst_count])
             self._svc_vm_cf.insert(vm_obj.uuid, row_entry)
 
             # uve trace
             self._uve_svc_instance(si_obj.get_fq_name_str(),
                                    status='CREATE', vm_uuid=vm_obj.uuid,
                                    st_name=st_obj.get_fq_name_str())
+
+    def _schedule_virtual_routers(vrouter_count=1):
+        vrs_fq_name_selected = []
+
+        vrs = [vr['fq_name'] for vr in
+               self._vnc_lib.virtual_routers_list()['virtual-routers']]
+        if not vrs:
+            self._svc_syslog("There is no virtual router available")
+            return []
+
+        if len(vrs) < vrouter_count:
+            self._svc_syslog("Cannot find %s enough virtual router(s)" %
+                             vrouter_count)
+            return []
+
+        while vrouter_count:
+            try:
+                vr_fq_name_selected = random.choice(vrs)
+            except IndexError:
+                self._svc_syslog("Cannot find %s virtual router(s) up on "
+                                 "running" % vrouter_count)
+                return vrs_fq_name_selected
+            vrs.remove(vr_fq_name_selected)
+            try:
+                if self._vrouter_running(vr_fq_name_selected):
+                    vrs_fq_name_selected.append(vr_fq_name_selected)
+                    vrouter_count -= 1
+                self._svc_syslog("Cannot request analytics API: %s" % e)
+
+        return vrs_fq_name_selected
+
+    def _vrouter_running(vrouter_fq_name):
+        try:
+            path = "/analytics/uves/vrouter/"
+            self._analytics.request(path, vrouter_fq_name[-1])
+        except OpencontrailAPIFailed:
+            return False
+        return True
 
     def _create_virtual_machine(self, vm_fq_name):
         try:
@@ -1293,9 +1332,11 @@ def timer_callback(monitor):
                 proj_name = monitor._get_proj_name_from_si_fq_str(si['si_fq_str'])
                 n_client = monitor._novaclient_get(proj_name)
                 status = n_client.servers.find(id=vm_uuid).status
-            # elif netns
-            # TODO: get netns status
-            if status.status == 'ERROR':
+            elif virt_type == 'network-namespace':
+                vr_fq_name = self._svc_vm_cf.get(vm_uuid)['vr_fq_str']
+                if not self._vrouter_running(vr_fq_name):
+                    status = 'ERROR'
+            if status and status == 'ERROR':
                 monitor._restart_svc(vm_uuid, si['si_fq_str'])
         except nc_exc.NotFound:
             continue
@@ -1360,6 +1401,8 @@ def parse_args(args_str):
                          --collectors 127.0.0.1:8086
                          --disc_server_ip 127.0.0.1
                          --disc_server_port 5998
+                         --analytics_server_ip 127.0.0.1
+                         --analytics_server_port 8081
                          --http_server_port 8090
                          --log_local
                          --log_level SYS_DEBUG
@@ -1392,6 +1435,8 @@ def parse_args(args_str):
         'collectors': None,
         'disc_server_ip': None,
         'disc_server_port': None,
+        'analytics_server_ip': '127.0.0.1',
+        'analytics_server_port': '8081',
         'http_server_port': '8088',
         'log_local': False,
         'log_level': SandeshLevel.SYS_DEBUG,
@@ -1466,6 +1511,10 @@ def parse_args(args_str):
     parser.add_argument("--disc_server_ip",
                         help="IP address of the discovery server")
     parser.add_argument("--disc_server_port",
+                        help="Port of the discovery server")
+    parser.add_argument("--analytics_server_ip",
+                        help="IP address of the analytics server")
+    parser.add_argument("--analytics_server_port",
                         help="Port of the discovery server")
     parser.add_argument("--http_server_port",
                         help="Port of local HTTP server")
