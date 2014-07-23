@@ -46,7 +46,7 @@ class SyslogTcpListener : public TcpServer
       SyslogTcpSession *session_;
 };
 
-class SyslogUDPListener: public UDPServer
+class SyslogUDPListener: public UdpServer
 {
     public:
       SyslogUDPListener (EventManager *evm);
