@@ -512,12 +512,16 @@ query_status_t SelectQuery::process_query() {
                     if (tname == 's') {
                         se.value = itr->value.GetString();
                     } else if (tname == 'n') {
-                        se.value = (uint64_t)itr->value.GetUint();
+                        if (itr->value.IsUint()) {
+                            se.value = (uint64_t)itr->value.GetUint();
+                        } else {
+                            se.value = (uint64_t)itr->value.GetUint64();
+                        }
                     } else if (tname == 'd') {
                         if (itr->value.IsDouble())
                             se.value = (double) itr->value.GetDouble();
                         else
-                            se.value = (double) itr->value.GetUint();
+                            se.value = (double) itr->value.GetUint64();
                     } else {
                         QE_ASSERT(0);
                     }
