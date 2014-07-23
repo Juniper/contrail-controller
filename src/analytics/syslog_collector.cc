@@ -592,12 +592,12 @@ void SyslogTcpListener::Start (std::string ipaddress, int port)
     LOG(DEBUG, __func__ << " Initialization of TCP syslog listener @" << port);
 }
 
-SyslogUDPListener::SyslogUDPListener (EventManager *evm): UDPServer (evm)
+SyslogUDPListener::SyslogUDPListener (EventManager *evm): UdpServer (evm)
 {
 }
 void SyslogUDPListener::Shutdown ()
 {
-    UDPServer::Shutdown ();
+    UdpServer::Shutdown ();
 }
 void SyslogUDPListener::Start (std::string ipaddress, int port)
 {
