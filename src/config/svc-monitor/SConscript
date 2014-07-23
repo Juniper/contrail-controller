@@ -15,6 +15,7 @@ sources = [
     'MANIFEST.in',
     'svc_monitor/__init__.py',
     'svc_monitor/svc_monitor.py',
+    'svc_monitor/analytics_client.py',
     'svc_monitor/tests/__init__.py',
     'svc_monitor/tests/test_init.py',
 ]
