@@ -2880,7 +2880,7 @@ class DBInterface(object):
         except NoIdError:
             self._raise_contrail_exception(404, RouterNotFound(router_id=rtr_id))
 
-        self._router_clear_external_gateway(rtr_id)
+        self._router_clear_external_gateway(rtr_obj)
         self._logical_router_delete(rtr_id=rtr_id)
         try:
             del self._db_cache['q_routers'][rtr_id]
