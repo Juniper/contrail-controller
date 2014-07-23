@@ -1026,6 +1026,7 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
 <xsd:complexType name='ServiceInstanceType'> 
     <xsd:sequence>
         <xsd:element name='auto-policy' type="xsd:boolean" default='false'/>
+        <xsd:element name='availability-zone' type='xsd:string'/>
         <xsd:element name='management-virtual-network' type='xsd:string'/>
         <xsd:element name='left-virtual-network' type='xsd:string'/>
         <xsd:element name='left-ip-address' type='IpAddressType'/>
