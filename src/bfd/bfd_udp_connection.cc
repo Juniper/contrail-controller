@@ -15,14 +15,14 @@
 namespace BFD {
 
 
-UDPConnectionManager::UDPRecvServer::UDPRecvServer(EventManager *evm, int recvPort) : UDPServer(evm) {
+UDPConnectionManager::UDPRecvServer::UDPRecvServer(EventManager *evm, int recvPort) : UdpServer(evm) {
             Initialize(recvPort);
         }
         void UDPConnectionManager::UDPRecvServer::RegisterCallback(RecvCallback callback) {
             this->callback_ = callback;
         }
 
-        void UDPConnectionManager::UDPRecvServer::HandleReceive(boost::asio::const_buffer recv_buffer,
+        void UDPConnectionManager::UDPRecvServer::HandleReceive(boost::asio::const_buffer &recv_buffer,
                 boost::asio::ip::udp::endpoint remote_endpoint, std::size_t bytes_transferred,
                 const boost::system::error_code& error) {
             LOG(DEBUG, __func__);
@@ -44,7 +44,7 @@ UDPConnectionManager::UDPRecvServer::UDPRecvServer(EventManager *evm, int recvPo
 
 
         UDPConnectionManager::UDPCommunicator::UDPCommunicator(EventManager *evm, int remotePort)
-                : UDPServer(evm), remotePort_(remotePort) {
+                : UdpServer(evm), remotePort_(remotePort) {
             boost::random::uniform_int_distribution<> dist(kSendPortMin, kSendPortMax);
             for (int i = 0; i < 100 && GetServerState() != OK; ++i) {
                 int localPort = dist(randomGen);
@@ -62,7 +62,7 @@ UDPConnectionManager::UDPRecvServer::UDPRecvServer(EventManager *evm, int recvPo
                  const boost::asio::ip::address &dstAddr, const ControlPacket *packet) {
             LOG(DEBUG, __func__);
 
-            mutable_buffer send = AllocateBuffer(kMinimalPacketLength);  // Packet without auth data
+            boost::asio::mutable_buffer send = AllocateBuffer(kMinimalPacketLength);  // Packet without auth data
             int pktSize = EncodeControlPacket(packet, boost::asio::buffer_cast<uint8_t *> (send), kMinimalPacketLength);
             if (pktSize != kMinimalPacketLength) {
                 LOG(ERROR, "Unable to encode packet");

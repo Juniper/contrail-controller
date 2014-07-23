@@ -46,7 +46,7 @@ class SyslogTcpListener : public TcpServer
       SyslogTcpSession *session_;
 };
 
-class SyslogUDPListener: public UDPServer
+class SyslogUDPListener: public UdpServer
 {
     public:
       SyslogUDPListener (EventManager *evm);
@@ -56,8 +56,9 @@ class SyslogUDPListener: public UDPServer
       virtual void Parse (SyslogQueueEntry *sqe) = 0;
     private:
 
-      void HandleReceive (boost::asio::const_buffer recv_buffer,
-            udp::endpoint remote_endpoint, std::size_t bytes_transferred,
+      void HandleReceive (boost::asio::const_buffer &recv_buffer,
+            boost::asio::ip::udp::endpoint remote_endpoint,
+            std::size_t bytes_transferred,
             const boost::system::error_code& error);
 };
 
