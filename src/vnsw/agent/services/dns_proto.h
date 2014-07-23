@@ -145,17 +145,15 @@ public:
     virtual ~DnsProto();
     ProtoHandler *AllocProtoHandler(boost::shared_ptr<PktInfo> info,
                                     boost::asio::io_service &io);
-    bool UpdateDnsEntry(const VmInterface *vmitf, const std::string &name,
-                        const Ip4Address &ip, uint32_t plen,
-                        const std::string &vdns_name,
-                        const autogen::VirtualDnsType &vdns_type,
-                        bool is_floating, bool is_delete);
-    bool UpdateDnsEntry(const VmInterface *vmitf, const VnEntry *vn,
-                        const Ip4Address &ip, bool is_deleted);
+    bool SendUpdateDnsEntry(const VmInterface *vmitf, const std::string &name,
+                            const Ip4Address &ip, uint32_t plen,
+                            const std::string &vdns_name,
+                            const autogen::VirtualDnsType &vdns_type,
+                            bool is_floating, bool is_delete);
+    bool UpdateFloatingIp(const VmInterface *vmitf, const VnEntry *vn,
+                          const Ip4Address &ip, bool is_deleted);
     void IpamNotify(IFMapNode *node);
     void VdnsNotify(IFMapNode *node);
-    void UpdateFloatingIp(VmInterface *interface, const VnEntry *vn,
-                          const Ip4Address &ip, bool op_del);
     uint16_t GetTransId();
 
     void SendDnsIpc(uint8_t *pkt);
@@ -210,20 +208,25 @@ private:
     void ProcessNotify(std::string name, bool is_deleted, bool is_ipam);
     void CheckForUpdate(IpVdnsMap &ipvdns, const VmInterface *vmitf,
                         const VnEntry *vn, const Ip4Address &ip,
-                        std::string &vdns_name, std::string &domain,
-                        uint32_t ttl, bool is_floating);
+                        std::string &vdns_name,
+                        const autogen::VirtualDnsType &vdns_type);
     void CheckForFipUpdate(DnsFipEntry *entry, std::string &vdns_name,
-                           std::string &domain, uint32_t ttl);
+                           const autogen::VirtualDnsType &vdns_type);
     bool UpdateDnsEntry(const VmInterface *vmitf, const VnEntry *vn,
+                        const std::string &vm_name,
                         const std::string &vdns_name, const Ip4Address &ip,
                         bool is_floating, bool is_deleted);
-    bool UpdateDnsEntry(const VmInterface *vmitf,
-                        std::string &new_vdns_name,
-                        std::string &old_vdns_name,
-                        std::string &new_domain,
-                        uint32_t ttl, bool is_floating);
+    bool MoveVDnsEntry(const VmInterface *vmitf,
+                       std::string &new_vdns_name,
+                       std::string &old_vdns_name,
+                       const autogen::VirtualDnsType &vdns_type,
+                       bool is_floating);
     bool GetVdnsData(const VnEntry *vn, const Ip4Address &vm_addr, 
-                     std::string &vdns_name, std::string &domain, uint32_t &ttl);
+                     std::string &vdns_name,
+                     autogen::VirtualDnsType &vdns_type);
+    void GetFipName(const VmInterface *vmitf,
+                    const  autogen::VirtualDnsType &vdns_type,
+                    const Ip4Address &ip, std::string &fip_name) const;
 
     uint16_t xid_;
     DnsUpdateSet update_set_;
