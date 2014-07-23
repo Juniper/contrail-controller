@@ -32,6 +32,7 @@
 #include "bgp/security_group/security_group.h"
 #include "bgp/tunnel_encap/tunnel_encap.h"
 #include "db/db_table_partition.h"
+#include "xmpp/xmpp_connection.h"
 #include "xmpp/xmpp_server.h"
 
 using namespace boost::assign;
@@ -379,22 +380,27 @@ public:
 };
 
 void ShowNeighborHandler::FillXmppNeighborInfo(
-        vector<BgpNeighborResp> *nbr_list, BgpServer *bgp_server, BgpXmppChannel *channel) {
+        vector<BgpNeighborResp> *nbr_list, BgpServer *bgp_server, BgpXmppChannel *bx_channel) {
     BgpNeighborResp resp;
-    resp.set_peer(channel->ToString());
-    resp.set_peer_address(channel->remote_endpoint().address().to_string());
-    resp.set_deleted(channel->peer_deleted());
-    resp.set_local_address(channel->local_endpoint().address().to_string());
+    resp.set_peer(bx_channel->ToString());
+    resp.set_peer_address(bx_channel->remote_endpoint().address().to_string());
+    resp.set_deleted(bx_channel->peer_deleted());
+    resp.set_local_address(bx_channel->local_endpoint().address().to_string());
     resp.set_peer_type("internal");
     resp.set_encoding("XMPP");
-    resp.set_state(channel->StateName());
+    resp.set_state(bx_channel->StateName());
 
-    PeerRibMembershipManager *mgr = channel->Peer()->server()->membership_mgr();
-    mgr->FillPeerMembershipInfo(channel->Peer(), resp);
-    channel->FillTableMembershipInfo(&resp);
-    channel->FillInstanceMembershipInfo(&resp);
+    const XmppConnection *connection = bx_channel->channel()->connection();
+    resp.set_configured_hold_time(connection->GetConfiguredHoldTime());
+    resp.set_negotiated_hold_time(connection->GetNegotiatedHoldTime());
 
-    BgpPeer::FillBgpNeighborDebugState(resp, channel->Peer()->peer_stats());
+    PeerRibMembershipManager *mgr =
+        bx_channel->Peer()->server()->membership_mgr();
+    mgr->FillPeerMembershipInfo(bx_channel->Peer(), resp);
+    bx_channel->FillTableMembershipInfo(&resp);
+    bx_channel->FillInstanceMembershipInfo(&resp);
+
+    BgpPeer::FillBgpNeighborDebugState(resp, bx_channel->Peer()->peer_stats());
     nbr_list->push_back(resp);
 }
 
@@ -1455,17 +1461,14 @@ public:
         XmppServer *server = bsc->xmpp_peer_manager->xmpp_server();
 
         ClearComputeNodeConnectionResp *resp = new ClearComputeNodeConnectionResp;
-        if (req->get_hostname_or_all().compare("all") != 0) {
-            XmppConnection *connection =
-                server->FindConnectionbyHostName(req->get_hostname_or_all());
-            if (connection) {
-                server->ClearConnection(connection);
+        if (req->get_hostname_or_all() != "all") {
+            if (server->ClearConnection(req->get_hostname_or_all())) {
                 resp->set_sucess(true);
             } else {
                 resp->set_sucess(false);
             }
         } else {
-            if (server->ConnectionsCount()) {
+            if (server->ConnectionCount()) {
                 server->ClearAllConnections();
                 resp->set_sucess(true);
             } else {

@@ -4,6 +4,9 @@
 
 #include "xmpp/xmpp_client.h"
 
+#include <boost/foreach.hpp>
+#include <boost/tuple/tuple.hpp>
+
 #include "base/task_annotations.h"
 #include "xmpp/xmpp_factory.h"
 #include "xmpp/xmpp_log.h"
@@ -17,6 +20,7 @@
 
 using namespace std;
 using namespace boost::asio;
+using boost::tie;
 
 class XmppClient::DeleteActor : public LifetimeActor {
 public:
@@ -101,26 +105,15 @@ void XmppClient::Shutdown() {
     deleter_->Delete();
 }
 
-XmppConnection *XmppClient::CreateConnection(const XmppChannelConfig *config) {
-    XmppConnection *connection =
-        XmppObjectFactory::Create<XmppClientConnection>(this, config);
-    boost::asio::ip::tcp::endpoint ep = connection->endpoint();
-    connection_map_.insert(ep, connection);
-
-    return connection;
-}
-
 void 
 XmppClient::ProcessConfigUpdate(XmppConfigManager::DiffType delta, 
-                                    const XmppChannelConfig *current,
-                                    const XmppChannelConfig *future) {
+    const XmppChannelConfig *current, const XmppChannelConfig *future) {
     if (delta == XmppConfigManager::DF_ADD) {
-        XmppConnection *connection = CreateConnection(future);
+        XmppClientConnection *connection = CreateConnection(future);
         connection->Initialize();
     }
     if (delta == XmppConfigManager::DF_DELETE) {
-        XmppConnectionMap::iterator loc =
-                connection_map_.find(current->endpoint);
+        ConnectionMap::iterator loc = connection_map_.find(current->endpoint);
         if (loc != connection_map_.end()) {
             loc->second->ManagedDelete(); 
         }
@@ -130,13 +123,13 @@ XmppClient::ProcessConfigUpdate(XmppConfigManager::DiffType delta,
 void
 XmppClient::ConfigUpdate(const XmppConfigData *cfg) {
     config_mgr_->SetFuture(cfg);
-
-    config_mgr_->PeerConfigDiff(boost::bind(&XmppClient::ProcessConfigUpdate,
-                                            this, _1, _2, _3));
+    config_mgr_->PeerConfigDiff(
+        boost::bind(&XmppClient::ProcessConfigUpdate, this, _1, _2, _3));
     config_mgr_->AcceptFuture();
 }
 
-void XmppClient::RegisterConnectionEvent(xmps::PeerId id, ConnectionEventCb cb) {
+void XmppClient::RegisterConnectionEvent(xmps::PeerId id,
+    ConnectionEventCb cb) {
     connection_event_map_.insert(make_pair(id, cb));
 }
 
@@ -147,7 +140,7 @@ void XmppClient::UnRegisterConnectionEvent(xmps::PeerId id) {
 }
 
 void XmppClient::NotifyConnectionEvent(XmppChannelMux *mux,
-                                       xmps::PeerState state) {
+    xmps::PeerState state) {
     ConnectionEventCbMap::iterator iter = connection_event_map_.begin();
     for (; iter != connection_event_map_.end(); ++iter) {
         ConnectionEventCb cb = iter->second;
@@ -159,7 +152,7 @@ size_t XmppClient::ConnectionEventCount() const {
     return connection_event_map_.size();
 }
 
-size_t XmppClient::ConnectionsCount() const {
+size_t XmppClient::ConnectionCount() const {
     return connection_map_.size();
 }
 
@@ -168,31 +161,45 @@ TcpSession *XmppClient::AllocSession(Socket *socket) {
     return session;
 }
 
-bool XmppClient::Compare(const string &server_addr, 
-                         const XmppConnectionPair &p) const {
-    return (server_addr.compare(p.second->ToString()) ? false : true);
-}
-
-XmppConnection *XmppClient::FindConnection(const string &server_addr) {
-    XmppConnectionMap::iterator loc =
-            find_if(connection_map_.begin(), connection_map_.end(),
-                    boost::bind(&XmppClient::Compare, this, server_addr, _1));
-    if (loc != connection_map_.end()) {
-        return loc->second;
+XmppClientConnection *XmppClient::FindConnection(const string &address) {
+    BOOST_FOREACH(ConnectionMap::value_type &value, connection_map_) {
+        if (value.second->ToString() == address)
+            return value.second;
     }
     return NULL;
 }
 
-void XmppClient::RemoveConnection(XmppConnection *connection) {
-    CHECK_CONCURRENCY("bgp::Config");
-    boost::asio::ip::tcp::endpoint endpoint = connection->endpoint();
-    connection_map_.erase(endpoint);
+XmppClientConnection *XmppClient::CreateConnection(
+    const XmppChannelConfig *config) {
+    XmppClientConnection *connection =
+        XmppObjectFactory::Create<XmppClientConnection>(this, config);
+    Endpoint endpoint = connection->endpoint();
+    ConnectionMap::iterator loc;
+    bool result;
+    tie(loc, result) = connection_map_.insert(make_pair(endpoint, connection));
+    assert(result);
+
+    return connection;
 }
 
-XmppChannel *XmppClient::FindChannel(const string &server_addr) {
-    XmppConnection *connection = FindConnection(server_addr);
-    if (connection == NULL) 
-        return NULL;
+void XmppClient::InsertConnection(XmppClientConnection *connection) {
+    assert(!connection->IsDeleted());
+    Endpoint endpoint = connection->endpoint();
+    ConnectionMap::iterator loc;
+    bool result;
+    tie(loc, result) = connection_map_.insert(make_pair(endpoint, connection));
+    assert(result);
+}
 
-    return connection->ChannelMux();
+void XmppClient::RemoveConnection(XmppClientConnection *connection) {
+    assert(connection->IsDeleted());
+    Endpoint endpoint = connection->endpoint();
+    ConnectionMap::iterator loc = connection_map_.find(endpoint);
+    assert(loc != connection_map_.end() && loc->second == connection);
+    connection_map_.erase(loc);
+}
+
+XmppChannel *XmppClient::FindChannel(const string &address) {
+    XmppClientConnection *connection = FindConnection(address);
+    return (connection ? connection->ChannelMux() : NULL);
 }

@@ -327,7 +327,7 @@ protected:
         xmpp_server_->Shutdown();
         WaitForIdle();
         if (n_agents_) {
-            TASK_UTIL_EXPECT_EQ(0, xmpp_server_->ConnectionsCount());
+            TASK_UTIL_EXPECT_EQ(0, xmpp_server_->ConnectionCount());
         }
         AgentCleanup();
         channel_manager_.reset();

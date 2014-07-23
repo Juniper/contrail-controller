@@ -36,17 +36,20 @@ using namespace std;
 
 class XmppMockServerConnection : public XmppServerConnection {
 public:
-    XmppMockServerConnection(XmppServer *server, const XmppChannelConfig *config, bool send_bad_open_resp, 
-                             bool send_write_doc=false)
-        : XmppServerConnection(server, config), send_bad_open_resp(send_bad_open_resp),
-                                                send_write_doc(send_write_doc) {}
+    XmppMockServerConnection(XmppServer *server,
+        const XmppChannelConfig *config, bool send_bad_open_resp,
+        bool end_write_doc=false)
+        : XmppServerConnection(server, config),
+          send_bad_open_resp(send_bad_open_resp),
+          send_write_doc(send_write_doc) {}
 
     void SendOpenConfirm(TcpSession *session) {
-	if (!session) return;
+        if (!session) return;
 
-	XmppProto::XmppStanza::XmppStreamMessage openstream;
-	openstream.strmtype = XmppStanza::XmppStreamMessage::INIT_STREAM_HEADER_RESP;
-	uint8_t data[256];
+        XmppProto::XmppStanza::XmppStreamMessage openstream;
+        openstream.strmtype =
+            XmppStanza::XmppStreamMessage::INIT_STREAM_HEADER_RESP;
+        uint8_t data[256];
 
         //EncodeStream
         auto_ptr<XmlBase> resp_doc(XmppXmlImplFactory::Instance()->GetXmlImpl()); 
@@ -95,9 +98,12 @@ public:
 class XmppMockServer : public XmppServer {
 public:
     XmppMockServer(EventManager *evm, const std::string &server_addr)
-        : XmppServer(evm, server_addr), send_bad_open_resp(true), sconn_count(0) {};
+        : XmppServer(evm, server_addr),
+          send_bad_open_resp(true),
+          sconn_count(0) {
+    }
 
-    XmppConnection *CreateConnection(XmppSession *session) {
+    XmppServerConnection *CreateConnection(XmppSession *session) {
 
         ip::tcp::endpoint remote_endpoint;
         remote_endpoint.address(session->remote_endpoint().address());
@@ -108,8 +114,9 @@ public:
         cfg.endpoint = remote_endpoint;
         cfg.FromAddr = this->ServerAddr();
 
-        XmppConnection *sconnection;
-        sconnection = new XmppMockServerConnection(this, &cfg, send_bad_open_resp);
+        XmppServerConnection *sconnection;
+        sconnection =
+            new XmppMockServerConnection(this, &cfg, send_bad_open_resp);
         send_bad_open_resp = false;
         sconn_count++;
         return (sconnection);
@@ -124,7 +131,6 @@ public:
     static const int kMaxMessageSize = 4096;
 
 protected:
-
     virtual void SetUp() {
         evm_.reset(new EventManager());
         a_ = new XmppMockServer(evm_.get(), XMPP_CONTROL_SERV);
@@ -168,23 +174,19 @@ protected:
     }
 
     void SetupConnection() {
-
         LOG(DEBUG, "Create client");
-         
         client_cfg = new XmppChannelConfig(true);
         CreateXmppChannelCfg(client_cfg, "127.0.0.1", a_->GetPort(), SUB_ADDR,
                              XMPP_CONTROL_SERV, true);
         init_->AddXmppChannelConfig(client_cfg); 
         init_->InitClient(b_);
 
-        LOG(DEBUG, "-- Exectuting --");
+        LOG(DEBUG, "-- Executing --");
     }
 
     void TearDownConnection() {
-        
         cconnection_->ManagedDelete();
         task_util::WaitForIdle();
-
         cconnection_ = NULL;
     }
 
@@ -205,7 +207,7 @@ TEST_F(XmppSessionTest, Connection) {
 
     XmppConnection *connection;
     TASK_UTIL_EXPECT_TRUE(
-	    (connection = b_->FindConnection(XMPP_CONTROL_SERV)) != NULL);
+        (connection = b_->FindConnection(XMPP_CONTROL_SERV)) != NULL);
     cconnection_ = connection;
 
     TASK_UTIL_EXPECT_TRUE(a_->sconn_count == 2);
@@ -213,14 +215,14 @@ TEST_F(XmppSessionTest, Connection) {
     // server connection
     XmppConnection *sconnection_good;
     TASK_UTIL_EXPECT_TRUE(
-	    (sconnection_good = a_->FindConnection(SUB_ADDR)) != NULL);
+        (sconnection_good = a_->FindConnection(SUB_ADDR)) != NULL);
 
     // Check for server, client connection is established. Wait upto 1 sec
     TASK_UTIL_EXPECT_TRUE(
-	    sconnection_good->GetStateMcState() == xmsm::ESTABLISHED);
+        sconnection_good->GetStateMcState() == xmsm::ESTABLISHED);
 
     TASK_UTIL_EXPECT_TRUE(
-	    cconnection_->GetStateMcState() == xmsm::ESTABLISHED); 
+        cconnection_->GetStateMcState() == xmsm::ESTABLISHED);
 
     TearDownConnection();
 }

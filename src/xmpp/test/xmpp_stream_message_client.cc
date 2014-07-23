@@ -153,8 +153,7 @@ protected:
     }
 
     void AddClientChannel(XmppMockClientConnection *connection) {
-        boost::asio::ip::tcp::endpoint ep = connection->endpoint();
-        b_->connection_map_.insert(ep, connection);
+        b_->InsertConnection(connection);
     }
 
     void SetupConnection() {

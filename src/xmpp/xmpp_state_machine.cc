@@ -290,7 +290,7 @@ struct Active : public sc::state<Active, XmppStateMachine> {
         TcpSession *session = state_machine->session();
         state_machine->AssignSession();
         state_machine->CancelOpenTimer();
-        state_machine->StartHoldTimer(connection->GetKeepAliveTimer() * 3);
+        state_machine->StartHoldTimer();
         connection->SendOpenConfirm(session);
         connection->StartKeepAliveTimer();
         // Skipping openconfirm state till we have client authentication 
@@ -391,7 +391,7 @@ struct Connect : public sc::state<Connect, XmppStateMachine> {
         state_machine->CancelConnectTimer();
         TcpSession *session = state_machine->session();
         connection->SendOpen(session);
-        state_machine->StartHoldTimer(connection->GetKeepAliveTimer() * 3);
+        state_machine->StartHoldTimer();
         SM_LOG(state_machine, "Xmpp Connected: Cancelling Connect timer");
         XmppConnectionInfo info;
         info.set_local_port(session->local_port());
@@ -515,7 +515,7 @@ struct OpenSent : public sc::state<OpenSent, XmppStateMachine> {
             state_machine->AssignSession();
             connection->SendKeepAlive();
             connection->StartKeepAliveTimer();
-            state_machine->StartHoldTimer(connection->GetKeepAliveTimer() * 3);
+            state_machine->StartHoldTimer();
             XmppConnectionInfo info;
             info.set_identifier(event.msg->from);
             state_machine->SendConnectionInfo(&info, event.Name(), "Established");
@@ -585,9 +585,8 @@ struct OpenConfirm : public sc::state<OpenConfirm, XmppStateMachine> {
 
     sc::result react(const EvXmppKeepalive &event) {
         XmppStateMachine *state_machine = &context<XmppStateMachine>();
-        XmppConnection *connection = state_machine->connection();
         SM_LOG(state_machine, "EvXmppKeepalive in (OpenConfirm) State");
-        state_machine->StartHoldTimer(connection->GetKeepAliveTimer() * 3);
+        state_machine->StartHoldTimer();
         state_machine->SendConnectionInfo(event.Name(), "Established");
         return transit<XmppStreamEstablished>();
     }
@@ -681,7 +680,7 @@ struct XmppStreamEstablished :
         SM_LOG(state_machine, "(XMPP Established)");
         state_machine->connect_attempts_clear();
         XmppConnection *connection = state_machine->connection();
-        state_machine->StartHoldTimer(connection->GetKeepAliveTimer() * 3);
+        state_machine->StartHoldTimer();
         state_machine->set_state(ESTABLISHED);
         connection->ChannelMux()->HandleStateEvent(xmsm::ESTABLISHED);
     }
@@ -707,8 +706,7 @@ struct XmppStreamEstablished :
         if (event.session != state_machine->session()) {
             return discard_event();
         }
-        XmppConnection *connection = state_machine->connection();
-        state_machine->StartHoldTimer(connection->GetKeepAliveTimer() * 3);
+        state_machine->StartHoldTimer();
         return discard_event();
     }
 
@@ -717,9 +715,8 @@ struct XmppStreamEstablished :
         if (event.session != state_machine->session()) {
             return discard_event();
         }
-        XmppConnection *connection = state_machine->connection();
         SM_LOG(state_machine, "EvXmppMessageReceive in (Established) State");
-        state_machine->StartHoldTimer(connection->GetKeepAliveTimer() * 3);
+        state_machine->StartHoldTimer();
         state_machine->connection()->ProcessXmppChatMessage(
             static_cast<const XmppStanza::XmppChatMessage *>(event.msg.get()));
         return discard_event();
@@ -730,12 +727,10 @@ struct XmppStreamEstablished :
         if (event.session != state_machine->session()) {
             return discard_event();
         }
-        XmppConnection *connection = state_machine->connection();
         SM_LOG(state_machine, "EvXmppIqMessageReceive in (Established) State");
-        state_machine->StartHoldTimer(connection->GetKeepAliveTimer() * 3);
+        state_machine->StartHoldTimer();
         state_machine->connection()->ProcessXmppIqMessage(
-                static_cast<const XmppStanza::XmppMessage *>(event.msg.get())
-                );
+            static_cast<const XmppStanza::XmppMessage *>(event.msg.get()));
         return discard_event();
     }
 
@@ -826,15 +821,24 @@ void XmppStateMachine::ResetSession() {
 
 XmppStateMachine::XmppStateMachine(XmppConnection *connection, bool active)
     : work_queue_(TaskScheduler::GetInstance()->GetTaskId("xmpp::StateMachine"),
-                  connection->GetIndex(),
-                  boost::bind(&XmppStateMachine::DequeueEvent, this, _1)),
-      connection_(connection), session_(NULL),
-      connect_timer_(TimerManager::CreateTimer(*connection->server()->event_manager()->io_service(), "Connect timer",
-             TaskScheduler::GetInstance()->GetTaskId("xmpp::StateMachine"), 0)),
-      open_timer_(TimerManager::CreateTimer(*connection->server()->event_manager()->io_service(), "Open timer",
-             TaskScheduler::GetInstance()->GetTaskId("xmpp::StateMachine"), 0)),
-      hold_timer_(TimerManager::CreateTimer(*connection->server()->event_manager()->io_service(), "Hold timer",
-             TaskScheduler::GetInstance()->GetTaskId("xmpp::StateMachine"), 0)),
+          connection->GetIndex(),
+          boost::bind(&XmppStateMachine::DequeueEvent, this, _1)),
+      connection_(connection),
+      session_(NULL),
+      server_(connection->server()),
+      connect_timer_(
+          TimerManager::CreateTimer(*server_->event_manager()->io_service(),
+          "Connect timer",
+          TaskScheduler::GetInstance()->GetTaskId("xmpp::StateMachine"), 0)),
+      open_timer_(
+          TimerManager::CreateTimer(*server_->event_manager()->io_service(),
+          "Open timer",
+          TaskScheduler::GetInstance()->GetTaskId("xmpp::StateMachine"), 0)),
+      hold_timer_(
+          TimerManager::CreateTimer(*server_->event_manager()->io_service(),
+          "Hold timer",
+          TaskScheduler::GetInstance()->GetTaskId("xmpp::StateMachine"), 0)),
+      hold_time_(GetConfiguredHoldTime()),
       attempts_(0),
       deleted_(false),
       in_dequeue_(false),
@@ -931,13 +935,35 @@ void XmppStateMachine::CancelOpenTimer() {
     open_timer_->Cancel();
 }
 
-void XmppStateMachine::StartHoldTimer(int seconds) {
+int XmppStateMachine::GetConfiguredHoldTime() const {
+    static tbb::atomic<bool> env_checked = tbb::atomic<bool>();
+    static tbb::atomic<int> env_hold_time = tbb::atomic<int>();
 
-    // To reset timer value, we need to cancel before start
+    // For testing only - configure through environment variable.
+    if (!env_checked) {
+        char *keepalive_time_str = getenv("XMPP_KEEPALIVE_SECONDS");
+        if (keepalive_time_str) {
+            env_hold_time = strtoul(keepalive_time_str, NULL, 0) * 3;
+            env_checked = true;
+            return env_hold_time;
+        } else {
+            env_checked = true;
+        }
+    } else if (env_hold_time) {
+        return env_hold_time;
+    }
+
+    // Use hard coded default.
+    return kHoldTime;
+}
+
+void XmppStateMachine::StartHoldTimer() {
     CancelHoldTimer();
-    if (!seconds) return;
 
-    hold_timer_->Start(seconds * 1000,
+    if (hold_time_ <= 0)
+        return;
+
+    hold_timer_->Start(hold_time_ * 1000,
         boost::bind(&XmppStateMachine::HoldTimerExpired, this),
         boost::bind(&XmppStateMachine::TimerErrorHandler, this, _1, _2));
 }

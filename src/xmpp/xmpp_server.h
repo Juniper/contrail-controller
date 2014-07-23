@@ -19,8 +19,8 @@
 class LifetimeActor;
 class LifetimeManager;
 class TcpSession;
-class XmppConnection;
 class XmppConnectionEndpoint;
+class XmppServerConnection;
 
 // Class to represent Xmpp Server
 class XmppServer : public TcpServer {
@@ -46,21 +46,21 @@ public:
     virtual TcpSession *CreateSession();
     virtual bool Initialize(short port);
     virtual void Initialize(short port, bool logUVE);
-    virtual XmppConnection *FindConnection(Endpoint remote_endpoint);
-    virtual XmppConnection *FindConnection(const std::string &peer_addr);
-    virtual XmppConnection *FindConnectionbyHostName(const std::string hostname);
-    virtual bool RemoveConnection(XmppConnection *);
-    virtual void InsertConnection(XmppConnection *);
-    virtual void DeleteConnection(XmppConnection *);
-    virtual void DestroyConnection(XmppConnection *);
-    virtual XmppConnection *CreateConnection(XmppSession *session);
 
-    //Clear a connection
-    void ClearConnection(XmppConnection *);
+    virtual XmppServerConnection *CreateConnection(XmppSession *session);
+    virtual XmppServerConnection *FindConnection(Endpoint remote_endpoint);
+    virtual XmppServerConnection *FindConnection(const std::string &address);
+    virtual void InsertConnection(XmppServerConnection *connection);
+    virtual void RemoveConnection(XmppServerConnection *connection);
+
+    virtual void InsertDeletedConnection(XmppServerConnection *connection);
+    virtual void RemoveDeletedConnection(XmppServerConnection *connection);
+
+    bool ClearConnection(const std::string &hostname);
     void ClearAllConnections();
 
     const std::string &ServerAddr() const { return server_addr_; }
-    size_t ConnectionsCount() const;
+    size_t ConnectionCount() const;
 
     XmppConnectionEndpoint *LocateConnectionEndpoint(Ip4Address address);
 
@@ -73,19 +73,14 @@ private:
     friend class XmppStateMachineTest;
     friend class DeleteActor;
 
-    typedef std::map<Endpoint, XmppConnection *> XmppConnectionMap;
-    typedef std::set<XmppConnection *> XmppConnectionSet;
-    typedef std::map<Ip4Address, XmppConnectionEndpoint *> XmppConnectionEndpointMap;
+    typedef std::map<Endpoint, XmppServerConnection *> ConnectionMap;
+    typedef std::set<XmppServerConnection *> ConnectionSet;
+    typedef std::map<Ip4Address, XmppConnectionEndpoint *> ConnectionEndpointMap;
     typedef std::map<xmps::PeerId, ConnectionEventCb> ConnectionEventCbMap;
 
-    typedef boost::ptr_container_detail::ref_pair<
-                   boost::asio::ip::basic_endpoint<boost::asio::ip::tcp>, 
-                   XmppConnection *const> XmppConnectionPair;
-    bool Compare(const std::string &peer_addr, const XmppConnectionPair &) const;
-
-    XmppConnectionMap connection_map_;
-    XmppConnectionSet deleted_connection_set_;
-    XmppConnectionEndpointMap connection_endpoint_map_;
+    ConnectionMap connection_map_;
+    ConnectionSet deleted_connection_set_;
+    ConnectionEndpointMap connection_endpoint_map_;
     void *bgp_server_;
 
     boost::scoped_ptr<LifetimeManager> lifetime_manager_;
@@ -94,8 +89,8 @@ private:
     ConnectionEventCbMap connection_event_map_;
     std::string server_addr_; // xmpp server addr
     bool log_uve_;
-    bool DequeueConnection(XmppConnection *connection);
-    WorkQueue<XmppConnection *> work_queue_;
+    bool DequeueConnection(XmppServerConnection *connection);
+    WorkQueue<XmppServerConnection *> work_queue_;
 
     DISALLOW_COPY_AND_ASSIGN(XmppServer);
 };

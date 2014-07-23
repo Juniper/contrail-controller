@@ -78,11 +78,6 @@ void XmppChannelMux::UnRegisterWriteReady(xmps::PeerId id) {
     map_.erase(id);
 }
 
-void XmppChannelMux::XmppChannelCleanup() {
-    XmppServer *server = static_cast<XmppServer *>(connection_->server());
-    server->RemoveConnection(connection_);
-}
-
 std::string XmppChannelMux::ToString() const {
     return connection_->ToString();
 }

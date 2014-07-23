@@ -63,6 +63,8 @@ public:
     void FillInstanceMembershipInfo(BgpNeighborResp *resp);
     void FillTableMembershipInfo(BgpNeighborResp *resp);
 
+    const XmppChannel *channel() const { return channel_; }
+
 private:
     friend class BgpXmppChannelMock;
     friend class BgpXmppChannelManager;

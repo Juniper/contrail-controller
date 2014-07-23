@@ -202,7 +202,7 @@ protected:
 
     XmppServer *server_;
     XmppStateMachine *sm_;
-    XmppConnection *connection_;
+    XmppServerConnection *connection_;
     XmppSession *session_;
 };
 

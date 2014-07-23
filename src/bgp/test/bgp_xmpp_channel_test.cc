@@ -55,7 +55,6 @@ public:
     xmps::PeerState GetPeerState() const { return xmps::READY; }
     std::string FromString() const  { return string("fake-from"); }
     const XmppConnection *connection() const { return NULL; }
-    MOCK_METHOD0(XmppChannelCleanup,void());
 
     virtual std::string LastStateName() const {
         return "";
