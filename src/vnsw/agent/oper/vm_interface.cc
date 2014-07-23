@@ -2253,20 +2253,15 @@ void VmInterface::ServiceVlan::Activate(VmInterface *interface,
 }
 
 void VmInterface::ServiceVlan::DeActivate(VmInterface *interface) const {
-    if (del_pending_ && label_ != MplsTable::kInvalidLabel) {
+    if (label_ != MplsTable::kInvalidLabel) {
         VrfAssignTable::DeleteVlanReq(interface->GetUuid(), tag_);
         interface->ServiceVlanRouteDel(*this);
         MplsLabel::Delete(label_);
         label_ = MplsTable::kInvalidLabel;
         VlanNH::Delete(interface->GetUuid(), tag_);
-        return;
     }
-
-    if (installed_ == false)
-        return;
-
-    interface->ServiceVlanRouteDel(*this);
     installed_ = false;
+    return;
 }
 
 void VmInterface::ServiceVlanList::Insert(const ServiceVlan *rhs) {
