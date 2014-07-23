@@ -3599,10 +3599,6 @@ class DBInterface(object):
                 for p_id in project_ids:
                     project_sgs = self._security_group_list_project(p_id)
                     all_sgs.append(project_sgs)
-            elif filters and 'name' in filters:
-                p_id = str(uuid.UUID(context['tenant']))
-                project_sgs = self._security_group_list_project(p_id)
-                all_sgs.append(project_sgs)
             else:  # no filters
                 all_sgs.append(self._security_group_list_project(None))
 
