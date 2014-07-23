@@ -27,6 +27,10 @@ local_sources = [
                   'test_utils.py',
                   'vnc_plugin_base.py',
                   'vnc_extensions.py',
+                  'importutils.py',
+                  'analytivs_client.py',
+                  'tests/__init__.py',
+                  'tests/test_analytics_client.py',
                  ]
 
 
@@ -76,6 +80,33 @@ sdist_gen = env.Command('dist/cfgm_common-0.1dev.tar.gz',
 env.Depends(sdist_gen, sdist_depends)
 env.Default(sdist_gen)
 
+def BuildPyTestSetup(env, target, source):
+    file = open(target[0].abspath, 'w')
+    file.write("[easy_install]\nfind_links =")
+    for pkg in source:
+        dependency = env.File(pkg)
+        file.write(" %s" % os.path.dirname(dependency.abspath))
+    file.write("\n")
+    file.close()
+    return
+
+def GeneratePyTestSetup(env, targets, source):
+    """
+    Generate a setup.cfg file that contains a list of directories
+    where dependent packages can be found. The fact that package directory
+    list is being given as a source automatically adds them as dependencies.
+    """
+    target = env.File('setup.cfg')
+    return env.Command(target=target, source=source, action=BuildPyTestSetup);
+
+env.Append(BUILDERS = {'PythonTestSetup': GeneratePyTestSetup})
+test_sources += env.PythonTestSetup(source=packages)
+
+test = env.Command(None, test_sources,
+                   'python setup.py test',
+                   chdir=1)
+
+env.Alias('controller/src/config/svc_monitor:test', test)
 if 'install' in BUILD_TARGETS:
     install_cmd = env.Command(None, 'setup.py',
                               'python setup.py install %s' %
