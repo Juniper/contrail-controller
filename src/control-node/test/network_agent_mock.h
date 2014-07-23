@@ -139,6 +139,7 @@ private:
 class NetworkAgentMock {
 private:
     class AgentPeer;
+
 public:
     typedef autogen::ItemType RouteEntry;
     typedef std::map<std::string, RouteEntry *> RouteTable;

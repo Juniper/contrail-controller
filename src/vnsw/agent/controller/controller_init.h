@@ -36,6 +36,9 @@ public:
     void ApplyDiscoveryXmppServices(std::vector<DSResponse> resp); 
     void ApplyDiscoveryDnsXmppServices(std::vector<DSResponse> resp); 
 
+    void DisConnectControllerIfmapServer(uint8_t idx);
+    void DisConnectDnsServer(uint8_t idx);
+
     //Multicast peer identifier
     void increment_multicast_sequence_number() {multicast_sequence_number_++;}
     uint64_t multicast_sequence_number() {return multicast_sequence_number_;}

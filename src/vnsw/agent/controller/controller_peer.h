@@ -37,6 +37,9 @@ public:
     virtual void ReceiveEvpnUpdate(XmlPugi *pugi);
     virtual void ReceiveMulticastUpdate(XmlPugi *pugi);
     XmppChannel *GetXmppChannel() { return channel_; }
+    XmppConnection *GetXmppConnection() { 
+        return const_cast<XmppConnection *>(channel_->connection()); 
+    }
 
     //Helper to identify if specified peer has active BGP peer attached
     static bool IsBgpPeerActive(AgentXmppChannel *peer);

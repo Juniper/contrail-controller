@@ -380,7 +380,9 @@ void BgpXmppChannel::XmppPeer::Close() {
 
 BgpXmppChannel::BgpXmppChannel(XmppChannel *channel, BgpServer *bgp_server,
         BgpXmppChannelManager *manager)
-    : peer_id_(xmps::BGP), channel_(channel), bgp_server_(bgp_server),
+    : channel_(channel),
+      peer_id_(xmps::BGP),
+      bgp_server_(bgp_server),
       peer_(new XmppPeer(bgp_server, this)),
       peer_close_(new PeerClose(this)),
       peer_stats_(new PeerStats(this)),

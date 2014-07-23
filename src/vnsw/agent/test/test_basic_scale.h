@@ -40,30 +40,6 @@ void SetWalkerYield(int yield) {
     putenv(iterations_env);
 }
 
-void WaitForIdle2(int wait_seconds = 30) {
-    static const int kTimeoutUsecs = 1000;
-    static int envWaitTime;
-
-    if (!envWaitTime) {
-        if (getenv("WAIT_FOR_IDLE")) {
-            envWaitTime = atoi(getenv("WAIT_FOR_IDLE"));
-        } else {
-            envWaitTime = wait_seconds;
-        }
-    }
-
-    if (envWaitTime > wait_seconds) wait_seconds = envWaitTime;
-
-    TaskScheduler *scheduler = TaskScheduler::GetInstance();
-    for (int i = 0; i < ((wait_seconds * 1000000)/kTimeoutUsecs); i++) {
-        if (scheduler->IsEmpty()) {
-            return;
-        }
-        usleep(kTimeoutUsecs);
-    }
-    EXPECT_TRUE(scheduler->IsEmpty());
-}
-
 xml_node MessageHeader(xml_document *xdoc, std::string vrf) {
     xml_node msg = xdoc->append_child("message");
     msg.append_attribute("type") = "set";

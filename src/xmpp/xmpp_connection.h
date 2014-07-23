@@ -20,6 +20,7 @@ class LifetimeActor;
 class TcpServer;
 class TcpSession;
 class XmppChannelConfig;
+class XmppClient;
 class XmppConnectionEndpoint;
 class XmppServer;
 class XmppSession;
@@ -173,6 +174,7 @@ public:
     XmppStateMachine *state_machine();
 
 protected:
+    TcpServer *server_;
     const XmppStateMachine *state_machine() const;
 
 private:
@@ -182,7 +184,6 @@ private:
     XmppStanza::XmppMessage *XmppDecode(const std::string &msg);
     void LogKeepAliveSend();
 
-    TcpServer *server_;
     boost::asio::ip::tcp::endpoint endpoint_;
     boost::asio::ip::tcp::endpoint local_endpoint_;
     const XmppChannelConfig *config_;
@@ -218,6 +219,7 @@ public:
     virtual LifetimeActor *deleter();
     virtual const LifetimeActor *deleter() const;
     virtual LifetimeManager *lifetime_manager();
+    XmppServer *server();
 
     virtual void set_close_reason(const std::string &reason);
     virtual uint32_t flap_count() const;
@@ -238,7 +240,7 @@ private:
 
 class XmppClientConnection : public XmppConnection {
 public:
-    XmppClientConnection(TcpServer *server, const XmppChannelConfig *config);
+    XmppClientConnection(XmppClient *server, const XmppChannelConfig *config);
     virtual ~XmppClientConnection();
     virtual bool IsClient() const;
     virtual void ManagedDelete();
@@ -246,6 +248,7 @@ public:
     virtual LifetimeActor *deleter();
     virtual const LifetimeActor *deleter() const;
     virtual LifetimeManager *lifetime_manager();
+    XmppClient *server();
 
     virtual void set_close_reason(const std::string &reason);
     virtual uint32_t flap_count() const;
