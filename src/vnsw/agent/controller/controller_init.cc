@@ -221,39 +221,10 @@ void VNController::Cleanup() {
     XmppClient *cl;
     while (count < MAX_XMPP_SERVERS) {
         if ((cl = agent_->controller_ifmap_xmpp_client(count)) != NULL) {
-
-            agent_->ResetAgentMcastLabelRange(count);
-
-            DeleteConnectionInfo(agent_->controller_ifmap_xmpp_server(count),
-                                 false);
-            delete agent_->controller_xmpp_channel(count);
-            agent_->set_controller_xmpp_channel(NULL, count);
-
-            delete agent_->ifmap_xmpp_channel(count);
-            agent_->set_ifmap_xmpp_channel(NULL, count);
-
-            agent_->set_controller_ifmap_xmpp_client(NULL, count);
-          
-            XmppInit *xmpp = agent_->controller_ifmap_xmpp_init(count);
-            xmpp->Reset();
-            delete xmpp;
-            agent_->set_controller_ifmap_xmpp_init(NULL, count);
+            DisConnectControllerIfmapServer(count);
         }
         if ((cl = agent_->dns_xmpp_client(count)) != NULL) {
-
-            DeleteConnectionInfo(agent_->dns_server(count), false);
-            delete agent_->dns_xmpp_channel(count);
-            agent_->set_dns_xmpp_channel(NULL, count);
-
-            agent_->set_dns_xmpp_client(NULL, count);
-
-            XmppInit *xmpp = agent_->dns_xmpp_init(count);
-            xmpp->Reset();
-            delete xmpp;
-            agent_->set_dns_xmpp_init(NULL, count);
-
-            agent_->set_dns_server_port(0, count);
-            agent_->set_dns_xmpp_server_index(-1);
+            DisConnectDnsServer(count);
         }
         count++;
     }
@@ -297,6 +268,35 @@ void VNController::DeleteConnectionInfo(const std::string &addr, bool is_dns)
                                            name_prefix + addr);
 }
 
+void VNController::DisConnectControllerIfmapServer(uint8_t idx) {
+
+	DeleteConnectionInfo(agent_->controller_ifmap_xmpp_server(idx),
+			     false);
+
+	// Managed Delete of XmppClient object, which deletes the 
+	// dependent XmppClientConnection object and
+        // scoped XmppChannel object
+	XmppClient *xc = agent_->controller_ifmap_xmpp_client(idx);
+	xc->UnRegisterConnectionEvent(xmps::BGP);
+	xc->Shutdown(); // ManagedDelete
+	agent_->set_controller_ifmap_xmpp_client(NULL, idx);
+
+	//cleanup AgentXmppChannel
+	agent_->ResetAgentMcastLabelRange(idx);
+	delete agent_->controller_xmpp_channel(idx);
+	agent_->set_controller_xmpp_channel(NULL, idx);
+
+	//cleanup AgentIfmapXmppChannel
+	delete agent_->ifmap_xmpp_channel(idx);
+	agent_->set_ifmap_xmpp_channel(NULL, idx);
+
+	agent_->controller_ifmap_xmpp_init(idx)->Reset();
+	delete agent_->controller_ifmap_xmpp_init(idx);
+	agent_->set_controller_ifmap_xmpp_init(NULL, idx);
+
+        agent_->reset_controller_ifmap_xmpp_server(idx);
+}
+
 void VNController::ApplyDiscoveryXmppServices(std::vector<DSResponse> resp) {
 
     std::vector<DSResponse>::iterator iter;
@@ -332,17 +332,7 @@ void VNController::ApplyDiscoveryXmppServices(std::vector<DSResponse> resp) {
             } else if (agent_->controller_xmpp_channel(0)->GetXmppChannel()->
                        GetPeerState() == xmps::NOT_READY) {
 
-                //cleanup older xmpp channel
-                agent_->ResetAgentMcastLabelRange(0);
-                delete agent_->controller_xmpp_channel(0);
-                agent_->set_controller_xmpp_channel(NULL, 0);
-                delete agent_->ifmap_xmpp_channel(0);
-                agent_->set_ifmap_xmpp_channel(NULL, 0);
-                agent_->set_controller_ifmap_xmpp_client(NULL, 0);
-                delete agent_->controller_ifmap_xmpp_init(0);
-                agent_->set_controller_ifmap_xmpp_init(NULL, 0);
-                DeleteConnectionInfo(agent_->controller_ifmap_xmpp_server(0),
-                                     false);
+                DisConnectControllerIfmapServer(0);
 
                 CONTROLLER_TRACE(DiscoveryConnection, 
                                 "Refresh Xmpp Channel[0] = ", dr.ep.address().to_string(), ""); 
@@ -352,17 +342,7 @@ void VNController::ApplyDiscoveryXmppServices(std::vector<DSResponse> resp) {
             } else if (agent_->controller_xmpp_channel(1)->GetXmppChannel()->
                        GetPeerState() == xmps::NOT_READY) {
 
-                //cleanup older xmpp channel
-                agent_->ResetAgentMcastLabelRange(1);
-                delete agent_->controller_xmpp_channel(1);
-                agent_->set_controller_xmpp_channel(NULL, 1);
-                delete agent_->ifmap_xmpp_channel(1);
-                agent_->set_ifmap_xmpp_channel(NULL, 1);
-                agent_->set_controller_ifmap_xmpp_client(NULL, 1);
-                delete agent_->controller_ifmap_xmpp_init(1);
-                agent_->set_controller_ifmap_xmpp_init(NULL, 1);
-                DeleteConnectionInfo(agent_->controller_ifmap_xmpp_server(1),
-                                     false);
+                DisConnectControllerIfmapServer(1);
 
                 CONTROLLER_TRACE(DiscoveryConnection, 
                                  "Refresh Xmpp Channel[1] = ", dr.ep.address().to_string(), ""); 
@@ -388,6 +368,30 @@ AgentDnsXmppChannel *VNController::FindAgentDnsXmppChannel(
     }
 
     return NULL;
+}
+
+void VNController::DisConnectDnsServer(uint8_t idx) {
+
+    DeleteConnectionInfo(agent_->dns_server(0), true);
+
+    // Managed Delete of XmppClient object, which deletes the 
+    // dependent XmppClientConnection object and
+    // scoped_ptr XmppChannel
+    XmppClient *xc = agent_->dns_xmpp_client(idx);
+    xc->UnRegisterConnectionEvent(xmps::DNS);
+    xc->Shutdown();
+    agent_->set_dns_xmpp_client(NULL, idx);
+
+    //cleanup AgentDnsXmppChannel
+    delete agent_->dns_xmpp_channel(idx);
+    agent_->set_dns_xmpp_channel(NULL, idx);
+
+    agent_->dns_xmpp_init(idx)->Reset();
+    delete agent_->dns_xmpp_init(idx);
+    agent_->set_dns_xmpp_init(NULL, idx);
+
+    agent_->reset_dns_server(idx);
+    agent_->set_dns_xmpp_server_index(-1);
 }
 
 
@@ -426,13 +430,7 @@ void VNController::ApplyDiscoveryDnsXmppServices(std::vector<DSResponse> resp) {
             } else if (agent_->dns_xmpp_channel(0)->GetXmppChannel()->GetPeerState() 
                        == xmps::NOT_READY) {
 
-                //cleanup older xmpp channel
-                delete agent_->dns_xmpp_channel(0);
-                delete agent_->dns_xmpp_init(0);
-                agent_->set_dns_xmpp_channel(NULL, 0);
-                agent_->set_dns_xmpp_client(NULL, 0);
-                agent_->set_dns_xmpp_init(NULL, 0);
-                DeleteConnectionInfo(agent_->dns_server(0), true);
+                DisConnectDnsServer(0);
 
                 CONTROLLER_TRACE(DiscoveryConnection,   
                                 "Refresh Dns Xmpp Channel[0] = ", 
@@ -443,13 +441,7 @@ void VNController::ApplyDiscoveryDnsXmppServices(std::vector<DSResponse> resp) {
             } else if (agent_->dns_xmpp_channel(1)->GetXmppChannel()->GetPeerState() 
                        == xmps::NOT_READY) {
 
-                //cleanup older xmpp channel
-                delete agent_->dns_xmpp_channel(1);
-                delete agent_->dns_xmpp_init(1);
-                agent_->set_dns_xmpp_channel(NULL, 1);
-                agent_->set_dns_xmpp_client(NULL, 1);
-                agent_->set_dns_xmpp_init(NULL, 1);
-                DeleteConnectionInfo(agent_->dns_server(1), true);
+                DisConnectDnsServer(1);
 
                 CONTROLLER_TRACE(DiscoveryConnection, 
                                  "Refresh Dns Xmpp Channel[1] = ", 

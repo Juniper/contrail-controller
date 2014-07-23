@@ -11,6 +11,7 @@ class TcpServer;
 class XmppChannelConfig;
 class XmppChannelMux;
 class XmppConnection;
+class XmppClient;
 class XmppClientConnection;
 class XmppServer;
 class XmppServerConnection;
@@ -20,7 +21,7 @@ class XmppObjectFactory : public Factory<XmppObjectFactory> {
     FACTORY_TYPE_N2(XmppObjectFactory, XmppServerConnection,
                     XmppServer *, const XmppChannelConfig *);
     FACTORY_TYPE_N2(XmppObjectFactory, XmppClientConnection,
-                    TcpServer *, const XmppChannelConfig *);
+                    XmppClient *, const XmppChannelConfig *);
     FACTORY_TYPE_N2(XmppObjectFactory, XmppStateMachine,
                     XmppConnection *, bool);
     FACTORY_TYPE_N1(XmppObjectFactory, XmppChannelMux, XmppConnection *);

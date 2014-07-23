@@ -52,7 +52,7 @@ private:
 
 class XmppMockConnection : public XmppClientConnection {
 public:
-    XmppMockConnection(TcpServer *server, const XmppChannelConfig *config)
+    XmppMockConnection(XmppClient *server, const XmppChannelConfig *config)
         : XmppClientConnection(server, config), byte_count(0), msg_count(0) {}
     virtual void ReceiveMsg(XmppSession *session, const string &str) {
         byte_count += str.size();

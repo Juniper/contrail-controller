@@ -27,6 +27,7 @@ public:
     virtual ~XmppClient();
 
     void Shutdown();
+
     typedef boost::function<void(XmppChannelMux *, xmps::PeerState)> 
         ConnectionEventCb;
     void RegisterConnectionEvent(xmps::PeerId, ConnectionEventCb);

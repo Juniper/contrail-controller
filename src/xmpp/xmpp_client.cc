@@ -35,6 +35,7 @@ public:
     virtual void Destroy() {
         CHECK_CONCURRENCY("bgp::Config");
     }
+
 private:
     XmppClient *client_;
 };
