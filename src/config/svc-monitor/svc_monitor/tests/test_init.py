@@ -20,6 +20,10 @@ class Arguments(object):
         self.use_syslog = False
         self.syslog_facility = Sandesh._DEFAULT_SYSLOG_FACILITY
         self.cluster_id = None
+        self.si_netns_scheduler_driver = \
+            'svc_monitor.scheduler.vrouter_scheduler.ChanceScheduler'
+        self.analytics_server_ip = '127.0.0.1'
+        self.analytics_server_port = '8081'
 
 class SvcMonitorInitTest(unittest.TestCase):
     def setUp(self):
