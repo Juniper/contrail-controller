@@ -32,7 +32,9 @@ static void TxIpPacket(int ifindex, const char *sip, const char *dip,
     
     uint8_t *ptr(new uint8_t[pkt->GetBuffLen()]);
     memcpy(ptr, pkt->GetBuff(), pkt->GetBuffLen());
-    Agent::GetInstance()->pkt()->pkt_handler()->HandleRcvPkt(ptr, pkt->GetBuffLen());
+    Agent::GetInstance()->pkt()->pkt_handler()->HandleRcvPkt(ptr,
+                                                             pkt->GetBuffLen(),
+                                                             pkt->GetBuffLen());
     delete pkt;
 }
 

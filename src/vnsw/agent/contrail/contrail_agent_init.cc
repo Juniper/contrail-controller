@@ -112,9 +112,9 @@ void ContrailAgentInit::InitPeers() {
 void ContrailAgentInit::InitModules() {
     agent_->cfg()->Init();
     agent_->oper_db()->Init();
-    agent_->ksync()->Init(true);
     agent_->pkt()->Init(true);
     agent_->services()->Init(true);
+    agent_->ksync()->Init(true);
     agent_->uve()->Init();
 }
 
@@ -203,6 +203,7 @@ void ContrailAgentInit::InitDone() {
     }
 
     agent_->cfg()->InitDone();
+    agent_->pkt()->InitDone();
 }
 
 // Start init sequence

@@ -320,7 +320,7 @@ public:
         AgentDnsXmppChannel *tmp_xmpp_channel = 
             new AgentDnsXmppChannel(Agent::GetInstance(), NULL, "server", 0);
         Agent *agent = Agent::GetInstance();
-        boost::shared_ptr<PktInfo> pkt_info(new PktInfo(NULL, 0));;
+        boost::shared_ptr<PktInfo> pkt_info(new PktInfo(NULL, 0, 0));;
         DnsHandler *dns_handler = new DnsHandler(agent, pkt_info, *agent->event_manager()->io_service());
         DnsUpdateData data;
         FillDnsUpdateData(data, 10);

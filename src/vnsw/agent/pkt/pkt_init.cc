@@ -36,6 +36,10 @@ void PktModule::Init(bool run_with_vrouter) {
     flow_proto_->Init();
 }
 
+void PktModule::InitDone() {
+    flow_table_->InitDone();
+}
+
 void PktModule::Shutdown() {
     flow_proto_->Shutdown();
     flow_proto_.reset(NULL);

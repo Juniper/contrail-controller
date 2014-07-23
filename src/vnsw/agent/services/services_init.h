@@ -6,6 +6,8 @@
 #define __VNSW_SERVICES_INIT__
 
 #include <sandesh/sandesh_trace.h>
+#include <pkt/proto.h>
+#include <services/icmp_error_proto.h>
 
 class MetadataProxy;
 
@@ -26,6 +28,9 @@ public:
     void ConfigInit();
     void Shutdown();
     void IoShutdown();
+    IcmpErrorProto *icmp_error_proto() const {
+        return icmp_error_proto_.get();
+    }
 
 private:
     Agent *agent_;
@@ -34,6 +39,7 @@ private:
     boost::scoped_ptr<DnsProto> dns_proto_;
     boost::scoped_ptr<ArpProto> arp_proto_;
     boost::scoped_ptr<IcmpProto> icmp_proto_;
+    boost::scoped_ptr<IcmpErrorProto> icmp_error_proto_;
     boost::scoped_ptr<MetadataProxy> metadata_proxy_;
 };
 

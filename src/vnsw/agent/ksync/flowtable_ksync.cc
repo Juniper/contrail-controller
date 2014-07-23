@@ -34,6 +34,8 @@
 
 #include <pkt/flow_proto.h>
 #include <oper/agent_types.h>
+#include <services/services_init.h>
+#include <services/icmp_error_proto.h>
 #include <uve/stats_collector.h>
 
 FlowTableKSyncEntry::FlowTableKSyncEntry(FlowTableKSyncObject *obj, 
@@ -471,17 +473,17 @@ const vr_flow_entry *FlowTableKSyncObject::GetKernelFlowEntry
     return NULL;
 }
 
-bool FlowTableKSyncObject::GetFlowKey(uint32_t index, FlowKey &key) {
+bool FlowTableKSyncObject::GetFlowKey(uint32_t index, FlowKey *key) {
     const vr_flow_entry *kflow = GetKernelFlowEntry(index, false);
     if (!kflow) {
         return false;
     }
-    key.nh = kflow->fe_key.key_nh_id;
-    key.src.ipv4 = ntohl(kflow->fe_key.key_src_ip);
-    key.dst.ipv4 = ntohl(kflow->fe_key.key_dest_ip);
-    key.src_port = ntohs(kflow->fe_key.key_src_port);
-    key.dst_port = ntohs(kflow->fe_key.key_dst_port);
-    key.protocol = kflow->fe_key.key_proto;
+    key->nh = kflow->fe_key.key_nh_id;
+    key->src.ipv4 = ntohl(kflow->fe_key.key_src_ip);
+    key->dst.ipv4 = ntohl(kflow->fe_key.key_dest_ip);
+    key->src_port = ntohs(kflow->fe_key.key_src_port);
+    key->dst_port = ntohs(kflow->fe_key.key_dst_port);
+    key->protocol = kflow->fe_key.key_proto;
     return true;
 }
 
@@ -637,7 +639,15 @@ void FlowTableKSyncObject::MapFlowMem() {
     audit_yield_ = AuditYield;
     audit_timeout_ = AuditTimeout;
     audit_timer_->Start(AuditTimeout,
-                        boost::bind(&FlowTableKSyncObject::AuditProcess, 
+                        boost::bind(&FlowTableKSyncObject::AuditProcess,
                                     this));
     return;
+}
+
+void FlowTableKSyncObject::Init() {
+    IcmpErrorProto *proto = NULL;
+
+    proto = ksync()->agent()->services()->icmp_error_proto();
+    proto->Register(boost::bind(&FlowTableKSyncObject::GetFlowKey, this, _1,
+                                _2));
 }
