@@ -30,6 +30,7 @@ TcpServer::TcpServer(EventManager *evm)
 TcpServer::~TcpServer() {
     assert(acceptor_ == NULL);
     assert(session_ref_.empty());
+    assert(session_map_.empty());
 }
 
 void TcpServer::SetName(Endpoint local_endpoint) {

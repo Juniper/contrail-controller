@@ -214,19 +214,20 @@ void TcpSession::CloseInternal(bool callObserver) {
     }
     established_ = false;
 
-    // Take a reference through intrusive pointer to protect session from
-    // possibly getting deleted from another thread.
+    // Take references through intrusive pointers to protect session and
+    // server from possibly getting deleted from another thread.
     TcpSessionPtr session = TcpSessionPtr(this);
+    TcpServerPtr server = TcpServerPtr(server_);
     lock.release();
 
     {
         tbb::mutex::scoped_lock obs_lock(obs_mutex_);
         if (callObserver == true && observer_) {
-            observer_(session.get(), CLOSE);
+            observer_(this, CLOSE);
         }
     }
 
-    server_->OnSessionClose(session.get());
+    server_->OnSessionClose(this);
 }
 
 void TcpSession::Close() {
