@@ -38,7 +38,7 @@ using namespace std;
 class XmppMockClientConnection;
 class XmppMockClientConnection : public XmppClientConnection {
 public:
-    XmppMockClientConnection(TcpServer *server, const XmppChannelConfig *config, bool send_write_doc=false)
+    XmppMockClientConnection(XmppClient *server, const XmppChannelConfig *config, bool send_write_doc=false)
         : XmppClientConnection(server, config),
                                open_count(0), send_bad_open(true), send_write_doc(send_write_doc) {}
     virtual bool IsClient() const { return true; }
