@@ -2176,15 +2176,6 @@ class DBInterface(object):
 
     def network_delete(self, net_id):
         net_obj = self._virtual_network_read(net_id=net_id)
-        fip_pools = net_obj.get_floating_ip_pools()
-        if fip_pools:
-            for fip_pool in fip_pools:
-                try:
-                    pool_id = fip_pool['uuid']
-                    self._floating_ip_pool_delete(fip_pool_id=pool_id)
-                except RefsExistError:
-                    self._raise_contrail_exception(409, exceptions.NetworkInUse(net_id=net_id))
-
         self._virtual_network_delete(net_id=net_id)
         try:
             del self._db_cache['q_networks'][net_id]
