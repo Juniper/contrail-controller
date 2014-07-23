@@ -152,6 +152,12 @@ void Agent::SetAgentTaskPolicy() {
     };
     SetTaskPolicyOne("Agent::StatsCollector", stats_collector_exclude_list,
                      sizeof(stats_collector_exclude_list) / sizeof(char *));
+
+    const char *metadata_exclude_list[] = {
+        "http::RequestHandlerTask"
+    };
+    SetTaskPolicyOne("http client", metadata_exclude_list,
+                     sizeof(metadata_exclude_list) / sizeof(char *));
 }
 
 void Agent::CreateLifetimeManager() {

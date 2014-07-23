@@ -22,8 +22,16 @@ void HttpClientSession::OnRead(Buffer buffer) {
 }
 
 void HttpClientSession::OnEvent(TcpSession *session, Event event) {
+    if (connection_) {
+        connection_->client()->
+            ProcessEvent(boost::bind(&HttpClientSession::OnEventInternal,
+                         this, TcpSessionPtr(session), event));
+    }
+}
+
+void HttpClientSession::OnEventInternal(TcpSessionPtr session, Event event) {
     if (event_cb_ && !event_cb_.empty()) {
-        event_cb_(static_cast<HttpClientSession *>(session), event);
+        event_cb_(static_cast<HttpClientSession *>(session.get()), event);
     }
 
     if (event == CLOSE) {
