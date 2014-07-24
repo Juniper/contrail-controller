@@ -16,12 +16,14 @@ import json
 import datetime
 import logging
 import logging.handlers
+import time
 from opserver_util import OpServerUtils
 from sandesh_common.vns.ttypes import Module
 from sandesh_common.vns.constants import ModuleNames, NodeTypeNames
 import sandesh.viz.constants as VizConstants
 from pysandesh.gen_py.sandesh.ttypes import SandeshType, SandeshLevel
 from pysandesh.sandesh_logger import SandeshLogger
+from pysandesh.util import UTCTimestampUsec
 
 OBJECT_TYPE_LIST = [table_info.log_query_name for table_info in \
     VizConstants._OBJECT_TABLES.values()]
@@ -62,8 +64,6 @@ class LogQuerier(object):
         defaults = {
             'opserver_ip': '127.0.0.1',
             'opserver_port': '8081',
-            'start_time': 'now-10m',
-            'end_time': 'now',
         }
 
         parser = argparse.ArgumentParser(
@@ -111,20 +111,26 @@ class LogQuerier(object):
             help="IP address of syslog server", default='localhost')
         parser.add_argument("--syslog-port", help="Port to send syslog to",
             type=int, default=514)
+        parser.add_argument("--f", help="Tail logs from now", action="store_true")
         self._args = parser.parse_args()
-        try:
-            self._start_time, self._end_time = \
-                OpServerUtils.parse_start_end_time(
-                    start_time = self._args.start_time,
-                    end_time = self._args.end_time,
-                    last = self._args.last)
-        except:
-            return -1
         return 0
     # end parse_args
 
     # Public functions
     def query(self):
+        if self._args.f and (self._args.send_syslog or self._args.reverse or
+               self._args.start_time or self._args.end_time):
+            invalid_combination = " --f"
+            if self._args.send_syslog:
+                 invalid_combination += ", --send-syslog"
+            if self._args.reverse:
+                 invalid_combination += ", --reverse"
+            if self._args.start_time:
+                 invalid_combination += ", --start-time"
+            if self._args.end_time:
+                 invalid_combination += ", --send-syslog"
+            print "Combination of options" + invalid_combination + " are not valid."
+            return -1
         start_time, end_time = self._start_time, self._end_time 
         messages_url = OpServerUtils.opserver_query_url(
             self._args.opserver_ip,
@@ -352,7 +358,6 @@ class LogQuerier(object):
         if self._args.verbose:
             print 'Performing query: {0}'.format(
                 json.dumps(messages_query.__dict__))
-        print ''
         resp = OpServerUtils.post_url_http(
             messages_url, json.dumps(messages_query.__dict__))
         result = {}
@@ -499,11 +504,40 @@ class LogQuerier(object):
 
 
 def main():
-    querier = LogQuerier()
-    if querier.parse_args() != 0:
+    try:
+        querier = LogQuerier()
+        if querier.parse_args() != 0:
+            return
+        if querier._args.f:
+            start_time = UTCTimestampUsec() - 10*pow(10,6)
+            while True:
+                querier._start_time = start_time
+                querier._end_time = UTCTimestampUsec()
+                start_time = querier._end_time + 1
+                time.sleep(10)
+                result = querier.query()
+                if result == -1:
+                    return
+                querier.display(result)
+        else:
+            _start_time = querier._args.start_time
+            _end_time = querier._args.end_time
+            if not querier._args.start_time:
+                _start_time = "now-10m"
+            if not querier._args.end_time:
+                _end_time = "now"
+            try:
+                querier._start_time, querier._end_time = \
+                    OpServerUtils.parse_start_end_time(
+                        start_time = _start_time,
+                        end_time = _end_time,
+                        last = querier._args.last)
+            except:
+                return -1
+            result = querier.query()
+            querier.display(result)
+    except KeyboardInterrupt:
         return
-    result = querier.query()
-    querier.display(result)
 # end main
 
 if __name__ == "__main__":
