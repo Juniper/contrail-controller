@@ -1,0 +1,206 @@
+VNsw Agent
+----------
+VNsw Agent (also called Agent) in Contrail solution is responsible to manage
+the dataplane component. It is similar to any data-path agent that runs on line
+cards of a network node. Responsibilities of Agent includes,
+    - Interface with Contrail-Controller to get and process the configuration
+    - Translate the data model from IFMap to the Agent data model
+    - Interface with Contrail-Controller to manage routes
+    - Collect and export statistics from datapath
+    - Translate & Program the Agent data model to the data model used by
+       datapath 
+
+Refer to Contrail architecture document at
+http://opencontrail.org/opencontrail-architecture-documentation/ for more
+information.
+
+Agent contains following modules,
+    - Cfg
+    - Oper-DB
+    - Controller
+    - UVE
+    - Pkt
+    - Services
+    - KSync
+
+Document src/vnsw/agent/README contains implementation notes for Agent
+including more details on the modules above
+
+Agent code is designed to be portable on different platforms. Based on the 
+platforms and feature requirements, Agent can be built by including only a 
+subset of modules given above.
+
+Contrail-Vrouter-Agent is one such implementation of Agent for platfroms using
+vRouter for datapath.
+
+Contrail-Vxlan-Agent is another implementation of Agent for platforms using
+VxLan based datapath for forwarding.
+
+Agent KSync
+-----------
+The Oper-DB in Agent contains different tables and defines the datamodel used
+in the Agent. While the Agent datamodel was initially developed for
+Contrail-Vrouter-Agent, it is mostly independent of specific platforms. 
+
+The datamodel used by a platform can vary based on design of it datapath.
+Agent KSync module is resposible to do the translation between the datamodels
+used by Agent and the datapath.
+
+Functionality of Agent KSync includes,
+    - Provide translation between datamodels of Agent and the Forwarding plane
+        - KSync will be aware of datamodel used in dataplane
+        - Oper-DB defines datamodule of Agent
+    - Keep the operational state of agent in-sync with the forwarding plane
+    - Keep Agent platform independent
+      Ex: KSync in Contrail-Vrouter-Agent is only module which knows that
+      flow table is memory mapped into Contrail-Vrouter-Agent memory
+
+We need to have different implementation of Agent KSync based on the platform.
+
+KSync Library
+-------------
+KSync Library is defined to simplify porting of Agent to different platforms. 
+It implements some of the common functionality needed to interface with a new
+datapath module. The library itself is independent of the datamodels used by
+both Agent and datapath module.
+
+KSync library provides following functionality,
+    - Each entry in the datapath module is defined as a KSyncEntry in Agent 
+      space
+      Ex: Each interface in datapath has a corresponding KSyncEntry in
+      Agent
+    - Provides state-machine to keep KSyncEntry in-sync between Agent and 
+      the Datapath modules
+    - Guarantees ordering in case of object dependencies
+      If Object-A is dependent on Object-B, KSync can ensure that Object-A
+      is not sent to datapath till Object-B
+    - Does state compression and optimizes on the number of writes
+    - Provides infrastructure to audit KSyncEntries between Agent and datapath
+      This audit can help in handling graceful restart of both Agent and the
+      datapath modules.
+      TBD : This feature is not yet implemented.
+
+File src/ksync/README contains more detailed notes on KSync. 
+
+Any port of Agent to different platforms can optionally make use of
+this library to keep VNsw agent state and datapath in-sync.
+
+Contrail-Vxlan-Agent
+--------------------
+The contrail-vxlan-agent is a reference port of Agent for platforms
+supporting Vxlan bridges as defined in Linux. It assumes that the underlying
+datapath uses Linux Vxlan Bridge like datamodel. The document
+https://www.kernel.org/doc/Documentation/networking/vxlan.txt gives details
+on Linux Vxlan Bridge interfaces
+
+The diagram below gives overview of different modules in contrail-vxlan-agent.
+Contrail-Vxlan-Agent does not make few of the modules from
+Contrail-Vrouter-Agent
+
++-----------------------------------------------------------+                      
+|                                                           |                      
+|                                      +----------------+   |  Thrift IPC            
+|      +-------------------------------|Instance Service|<---------                 
+|      |                               +----------------+   |                      
+|   Add/Del Port                                            |                      
+|      |                               +----------------+   |   +-------------+        
+|      |                         +---->|  VxLan KSync   |------>|Linux Kernel |        
+|      |                         |     +----------------+   |   +-------------+        
+|      |                  DB Notification                   |   Linux cmds /      
+|      |                         |                          |   Netlink msgs      
+|      v                         |     +----------------+   |                      
+| +--------+     +---------+     +---->|  UVE           |   |                      
+| |  Cfg   |---->| Oper-DB |-----|     +------^---------+   |                      
+| +--------+     +---------+     |            |             |                      
+|     ^                ^         |            |             |
+|     |                |         |     +---------------+    |
+|     |                |         |     | Discovery     |    | 
+|     |                |         |     +------+--------+    |
+|     |                |         |            |             |  IFMap msgs on
+|     |                |         |            |             |  XMPP Channel
+|   IFMap           Routes       |    +-------v--------+    |  +-------------+
+|     |                |         +--->| Controller     |<----->|Control Node |
+|     |                |              +--+------+------+    |  +-------------+
+|     |                |                 |      |           |
+|     |                +-----------------+      |           |
+|     +-----------------------------------------+           |
+|                                                           |
+|                AGENT                                      |
++-----------------------------------------------------------+
+
+Refer to src/vnsw/agent/README for notes on the different modules.
+
+Contrail-Vxlan-Agent is split into two parts.
+
+    Vxlan KSync
+    -----------
+    This layer defines datamodel for Contrail-Vxlan-Agent in the form of 
+    different tables. It also uses the KSync Library to keep the states in
+    Contrail-Vxlan-Agent in-sync with the datapath.
+
+    This layer only maintains the tables needed to program the datapath. Each
+    table defines three pure-virtual functions to program the datapath.
+        - Add
+        - Delete
+        - Update
+
+    The virtual-functions allows for using different implementations to 
+    program the datapath.
+    
+    The different tables supported are,
+        - KSyncVxlanBridgeEntry :
+          Represents VxLan Bridges. A Vxlan Bridge entry is created for every
+          entry in Vxlan DB-Table in Agent.
+
+          The table is built by listening to Vxlan DBTable in Oper-DB
+
+        - KSyncVxlanPortEntry :
+          Represents a port in Vxlan Bridge. It contains a reference to
+          KSyncVxlanBridgeEntry.
+
+          The table is built by listening to Vxlan DBTable in Oper-DB. Only 
+          interfaces of type VM_INTERFACE are added to the Vxlan Bridges.
+
+        - KSyncVxlanRouteEntry :
+          Represents FDB entries in VxLan bridges. Each route entry contains
+          reference to KSyncVxlanBridgeEntry it is member of and
+          KSyncVxlanPortEntry 
+
+          This table is populated by listening to Layer2 forwarding table in
+          Oper-DB
+        
+    Linux Vxlan KSync
+    -----------------
+    The current reference implementation uses Linux Kernel as datapath. The
+    "Linux Vxlan KSync" part is responsible to implement the virtual-functions
+    defined by "Vxlan KSync" part above. The reference implementation invokes
+    Linux commands "brctl", "route" etc.. to program Linux Kernel.
+
+        - KSyncLinuxBridgeEntry :
+          For every KSyncVxlanBridgeEntry, following entries are created
+          in kernel.
+            - Vxlan Bridge with name "br-<vxlan-id>" with command
+              "brctl addbr br-<vxlan-id>"
+            - Vxlan Port with name "vxlan-<vxlan-id>" with command
+              "ip link add vxlan-<vxlan-id> type vxlan id <vxlan-id>"
+            - The Vxlan port is added to the Vxlan bridge with command
+              "brctl addif br-<vxlan-id> vxlan-<vxlan-id>"
+           
+        - KSyncLinuxPortEntry :
+          The port is created to Vxlan Bridge it is member with following
+          command
+          "brctl addif br-<vxlan-id> <port-name>"
+           
+          It can also handle change to Vxlan Bridge for the port.
+           
+        - KSyncLinuxFdbEntry :
+          Adds a FDB entry to Vxlan Bridge. If the port in FDB entry is on
+          remote compute node, the FDB entry is added with Vxlan port as
+          destination. Else, a FDB entry is created on local port.
+           
+          For local ports, it uses following command
+          "bridge fdb add <mac> dev <port-name> master"
+           
+          For MAC on remote compute nodes, it uses following command
+          "bridge fdb add <mac> dst <tunnel-dest> dev vxlan-<vxlan-id>"
+          "bridge fdb add <mac-addr> dev 
