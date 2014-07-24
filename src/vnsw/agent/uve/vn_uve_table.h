@@ -51,6 +51,8 @@ public:
     void Shutdown(void);
 
 protected:
+    //The following API is made protected for UT.
+    void SendVnStatsMsg(const VnEntry *vn, bool only_vrf_stats);
     UveVnMap uve_vn_map_;
     Agent *agent_;
 private:
@@ -64,7 +66,6 @@ private:
     void InterfaceNotify(DBTablePartBase *partition, DBEntryBase *e);
     void SendDeleteVnMsg(const std::string &vn);
     void SendVnMsg(const VnEntry *vn);
-    void SendVnStatsMsg(const VnEntry *vn, bool only_vrf_stats);
     void InterfaceDeleteHandler(const std::string &vm, const std::string &vn, 
                                 const Interface* intf);
     void InterfaceAddHandler(const VmEntry *vm, const VnEntry *vn, 
