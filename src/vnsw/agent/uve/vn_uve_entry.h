@@ -120,7 +120,6 @@ private:
                                   &new_list) const;
     bool UveInterVnOutStatsChanged(const std::vector<UveInterVnStats> 
                                    &new_list) const;
-    bool UveInterVnStatsChanged(const std::vector<InterVnStats> &list) const;
     bool UveVnVrfStatsChanged(const std::vector<UveVrfStats> &vlist) const;
     bool UpdateVrfStats(const VnEntry *vn, UveVirtualNetworkAgent &s_vn);
     bool UveVnInFlowCountChanged(uint32_t size);

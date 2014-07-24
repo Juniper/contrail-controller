@@ -6,7 +6,7 @@
 #include <uve/test/vn_uve_entry_test.h>
 
 VnUveTableTest::VnUveTableTest(Agent *agent) 
-    : VnUveTable(agent), send_count_(0), delete_count_(0) {
+    : VnUveTable(agent), send_count_(0), delete_count_(0), uve_() {
 }
 
 const VnUveEntry::VnStatsSet* VnUveTableTest::FindInterVnStats
@@ -79,6 +79,7 @@ void VnUveTableTest::DispatchVnMsg(const UveVirtualNetworkAgent &uve) {
     if (uve.get_deleted()) {
         delete_count_++;
     }
+    uve_ = uve;
 }
 
 void VnUveTableTest::ClearCount() {

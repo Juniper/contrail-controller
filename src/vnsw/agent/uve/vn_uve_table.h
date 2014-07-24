@@ -49,6 +49,8 @@ public:
     void UpdateInterVnStats(const FlowEntry *e, uint64_t bytes, uint64_t pkts);
     void RegisterDBClients();
     void Shutdown(void);
+    //The following API is made public for UT. Otherwise it could be private
+    void SendVnStatsMsg(const VnEntry *vn, bool only_vrf_stats);
 
 protected:
     UveVnMap uve_vn_map_;
@@ -64,7 +66,6 @@ private:
     void InterfaceNotify(DBTablePartBase *partition, DBEntryBase *e);
     void SendDeleteVnMsg(const std::string &vn);
     void SendVnMsg(const VnEntry *vn);
-    void SendVnStatsMsg(const VnEntry *vn, bool only_vrf_stats);
     void InterfaceDeleteHandler(const std::string &vm, const std::string &vn, 
                                 const Interface* intf);
     void InterfaceAddHandler(const VmEntry *vm, const VnEntry *vn, 
