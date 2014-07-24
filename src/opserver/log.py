@@ -16,6 +16,8 @@ import json
 import datetime
 import logging
 import logging.handlers
+import time
+import signal
 from opserver_util import OpServerUtils
 from sandesh_common.vns.ttypes import Module
 from sandesh_common.vns.constants import ModuleNames, NodeTypeNames
@@ -111,6 +113,7 @@ class LogQuerier(object):
             help="IP address of syslog server", default='localhost')
         parser.add_argument("--syslog-port", help="Port to send syslog to",
             type=int, default=514)
+        parser.add_argument("--f", help="Tail logs from now", action="store_true")
         self._args = parser.parse_args()
         try:
             self._start_time, self._end_time = \
@@ -125,6 +128,9 @@ class LogQuerier(object):
 
     # Public functions
     def query(self):
+        if self._args.f and self._args.reverse:
+            print "Combination of options are not valid"
+            return None
         start_time, end_time = self._start_time, self._end_time 
         messages_url = OpServerUtils.opserver_query_url(
             self._args.opserver_ip,
@@ -352,7 +358,6 @@ class LogQuerier(object):
         if self._args.verbose:
             print 'Performing query: {0}'.format(
                 json.dumps(messages_query.__dict__))
-        print ''
         resp = OpServerUtils.post_url_http(
             messages_url, json.dumps(messages_query.__dict__))
         result = {}
@@ -493,17 +498,33 @@ class LogQuerier(object):
                                 message_ts, source, node_type, module,
                                 instance_id, message_type, data_str)
                             self._output(obj_str, sandesh_level)
+        signal.signal(signal.SIGINT, signal_handler)
     # end display
 
 # end class LogQuerier
 
+def signal_handler(signal, frame):
+    sys.exit(0)
 
 def main():
     querier = LogQuerier()
     if querier.parse_args() != 0:
         return
+    start = time.time()
     result = querier.query()
+    if result is [] or result is None or result is {}:
+        return
     querier.display(result)
+    if querier._args.f:
+        while True:
+            time.sleep(10)
+            querier._start_time = "now-" + str(time.time() - start) + "s"
+            querier._end_time = 'now'
+            start = time.time()
+            result = querier.query()
+            if result is [] or result is None or result is {}:
+                return
+            querier.display(result)
 # end main
 
 if __name__ == "__main__":
