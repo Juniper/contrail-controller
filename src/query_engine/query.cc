@@ -602,6 +602,7 @@ void AnalyticsQuery::Init(GenDb::GenDbIf *db_if, std::string qid,
 uint64_t AnalyticsQuery::parse_time(const std::string& relative_time)
 {
     uint64_t offset_usec = 0;
+    float offset_usec_f = 0;
     std::string temp;
     if (!relative_time.compare("\"now\"")) {
         return UTCTimestampUsec();
@@ -610,14 +611,14 @@ uint64_t AnalyticsQuery::parse_time(const std::string& relative_time)
         int found = 0;
     //Extract any number after now
         if ((found = relative_time.find_last_of("h")) > 0) {
-            std::istringstream(relative_time.substr(5,found-4)) >> offset_usec;
-            offset_usec = offset_usec*3600*1000000;
+            std::istringstream(relative_time.substr(5,found-4)) >> offset_usec_f;
+            offset_usec = offset_usec_f*3600*1000000;
         } else if ((found = relative_time.find_last_of("m")) > 0) {
-            std::istringstream(relative_time.substr(5,found-4)) >> offset_usec;
-            offset_usec = offset_usec*60*1000000;
+            std::istringstream(relative_time.substr(5,found-4)) >> offset_usec_f;
+            offset_usec = offset_usec_f*60*1000000;
         } else if ((found = relative_time.find_last_of("s")) > 0) {
-            std::istringstream(relative_time.substr(5,found-4)) >> offset_usec;
-            offset_usec = offset_usec*1000000;
+            std::istringstream(relative_time.substr(5,found-4)) >> offset_usec_f;
+            offset_usec = offset_usec_f*1000000;
         } else {
             QE_LOG_GLOBAL(DEBUG, "Error in time parsing.h/m/s expected");   
             return 0;
