@@ -121,6 +121,7 @@ private:
     class ConfigUpdater;
     class DeleteActor;
     friend class BgpServerTest;
+    friend class BgpServerUnitTest;
     typedef std::map<std::string, BgpPeer *> BgpPeerList;
     typedef std::vector<ASNUpdateCb> ASNUpdateListenersList;
 

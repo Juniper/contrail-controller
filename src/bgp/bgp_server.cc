@@ -163,7 +163,6 @@ public:
     }
     virtual void Shutdown() {
         CHECK_CONCURRENCY("bgp::Config");
-        server_->session_manager()->Shutdown();
     }
     virtual void Destroy() {
         CHECK_CONCURRENCY("bgp::Config");
@@ -171,6 +170,7 @@ public:
         TcpServerManager::DeleteServer(server_->session_manager());
         server_->session_mgr_ = NULL;
     }
+
 private:
     BgpServer *server_;
 };
@@ -242,6 +242,7 @@ string BgpServer::ToString() const {
 }
 
 void BgpServer::Shutdown() {
+    session_mgr_->Shutdown();
     deleter_->Delete();
 }
 
