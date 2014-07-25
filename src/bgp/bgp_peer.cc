@@ -204,9 +204,12 @@ public:
     virtual void UpdateTxReachRoute(uint32_t count) {
         update_stats_[1].reach += count;
     }
+
 private:
     friend class BgpPeer;
+
     BgpPeer *peer_;
+    ErrorStats error_stats_;
     ProtoStats proto_stats_[2];
     UpdateStats update_stats_[2];
 };
@@ -1502,6 +1505,22 @@ void BgpPeer::inc_rx_route_reach() {
 
 void BgpPeer::inc_rx_route_unreach() {
     peer_stats_->update_stats_[0].unreach++;
+}
+
+void BgpPeer::inc_rx_open_error() {
+    peer_stats_->error_stats_.open++;
+}
+
+void BgpPeer::inc_rx_update_error() {
+    peer_stats_->error_stats_.update++;
+}
+
+size_t BgpPeer::get_rx_open_error() {
+    return peer_stats_->error_stats_.open;
+}
+
+size_t BgpPeer::get_rx_update_error() {
+    return peer_stats_->error_stats_.update;
 }
 
 std::string BgpPeer::last_flap_at() const { 

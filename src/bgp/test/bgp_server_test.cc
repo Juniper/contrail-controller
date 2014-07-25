@@ -1254,8 +1254,8 @@ TEST_F(BgpServerUnitTest, AddressFamilyNegotiation7) {
                                              uuid);
         BgpPeer *peer_b = b_->FindPeerByUuid(BgpConfigManager::kMasterInstance,
                                              uuid);
-        TASK_UTIL_EXPECT_TRUE((peer_a->get_rx_notification() > 2) ||
-                              (peer_b->get_rx_notification() > 2));
+        TASK_UTIL_EXPECT_TRUE((peer_a->get_rx_open_error() >= 1) ||
+                              (peer_b->get_rx_open_error() >= 1));
         TASK_UTIL_EXPECT_NE(peer_a->GetState(), StateMachine::ESTABLISHED);
         TASK_UTIL_EXPECT_NE(peer_b->GetState(), StateMachine::ESTABLISHED);
     }
@@ -1286,8 +1286,8 @@ TEST_F(BgpServerUnitTest, AddressFamilyNegotiation8) {
                                              uuid);
         BgpPeer *peer_b = b_->FindPeerByUuid(BgpConfigManager::kMasterInstance,
                                              uuid);
-        TASK_UTIL_EXPECT_TRUE((peer_a->get_rx_notification() > 2) ||
-                              (peer_b->get_rx_notification() > 2));
+        TASK_UTIL_EXPECT_TRUE((peer_a->get_rx_open_error() >= 1) ||
+                              (peer_b->get_rx_open_error() >= 1));
         TASK_UTIL_EXPECT_NE(peer_a->GetState(), StateMachine::ESTABLISHED);
         TASK_UTIL_EXPECT_NE(peer_b->GetState(), StateMachine::ESTABLISHED);
     }
