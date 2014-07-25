@@ -48,7 +48,6 @@ public:
 
 private:
     OperDB();
-    static OperDB *singleton_;
 
     Agent *agent_;
     std::auto_ptr<MulticastHandler> multicast_;

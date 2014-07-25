@@ -69,6 +69,10 @@ class ServiceInstanceIntegrationTest : public ::testing::Test {
         db_util::Clear(database);
         task_util::WaitForIdle();
 
+        OperDB *oper = agent_->oper_db();
+        agent_->set_oper_db(NULL);
+        delete oper;
+
         /**
          * The factory create method for ifmap link table takes the
          * graph as a boost::bind() argument; failure to cleanup the registry
