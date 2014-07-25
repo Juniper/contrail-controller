@@ -189,7 +189,7 @@ public:
     }
 
     int SendDnsQuery(dnshdr *dns, int numItems, DnsItem *items, dns_flags flags) {
-        std::vector<DnsItem> questions;
+        DnsItems questions;
         for (int i = 0; i < numItems; i++) {
             questions.push_back(items[i]);
         }
@@ -479,10 +479,106 @@ TEST_F(DnsTest, VirtualDnsReqTest) {
     CHECK_STATS(stats, 11, 6, 2, 1, 1, 1);
 
     client->Reset();
-    DelIPAM("vn1", "vdns1"); 
+    DeleteVmportEnv(input, 1, 1, 0);
+    client->WaitForIdle();
+
+    IntfCfgDel(input, 0);
+    WaitForItfUpdate(0);
+    Agent::GetInstance()->GetDnsProto()->ClearStats();
+
+    client->Reset();
+    DelIPAM("vn1", "vdns1");
     client->WaitForIdle();
     DelVDNS("vdns1"); 
     client->WaitForIdle();
+}
+
+TEST_F(DnsTest, VirtualDnsLinkLocalReqTest) {
+    struct PortInfo input[] = {
+        {"vnet1", 1, "1.1.1.1", "00:00:00:01:01:01", 1, 1},
+    };
+    IpamInfo ipam_info[] = {
+        {"1.2.3.128", 27, "1.2.3.129", true},
+        {"7.8.9.0", 24, "7.8.9.12", true},
+        {"1.1.1.0", 24, "1.1.1.200", true},
+    };
+
+    std::vector<std::string> fabric_ip_list;
+    fabric_ip_list.push_back("1.2.3.4");
+    TestLinkLocalService services[5] = {
+        { "test_service1", "169.254.1.10", 1000, "", fabric_ip_list, 100 },
+        { "test_service1", "169.254.1.20", 2000, "", fabric_ip_list, 200 },
+        { "test_service2", "169.254.1.30", 3000, "", fabric_ip_list, 300 },
+        { "test_service3", "169.254.1.30", 4000, "", fabric_ip_list, 400 },
+        { "test_service4", "169.254.1.50", 5000, "", fabric_ip_list, 500 }
+    };
+    AddLinkLocalConfig(services, 5);
+    client->WaitForIdle();
+
+    char vdns_attr[] =
+        "<virtual-DNS-data>\
+            <domain-name>test.contrail.juniper.net</domain-name>\
+            <dynamic-records-from-client>true</dynamic-records-from-client>\
+            <record-order>fixed</record-order>\
+            <default-ttl-seconds>120</default-ttl-seconds>\
+        </virtual-DNS-data>\n";
+    char ipam_attr[] = "<network-ipam-mgmt>\n <ipam-dns-method>virtual-dns-server</ipam-dns-method>\n <ipam-dns-server><virtual-dns-server-name>vdns1</virtual-dns-server-name></ipam-dns-server>\n </network-ipam-mgmt>\n";
+
+    CreateVmportEnv(input, 1, 0);
+    client->WaitForIdle();
+    client->Reset();
+    IntfCfgAdd(input, 0);
+    WaitForItfUpdate(1);
+
+    AddIPAM("vn1", ipam_info, 3, ipam_attr, "vdns1");
+    client->WaitForIdle();
+
+    AddVDNS("vdns1", vdns_attr);
+    client->WaitForIdle();
+
+    DnsProto::DnsStats stats;
+    int count = 0;
+    DnsItem query_items[MAX_ITEMS] = a_items;
+    query_items[0].name     = "test_service1";
+    query_items[1].name     = "test_service2";
+    query_items[2].name     = "test_service3";
+    query_items[3].name     = "test_service4";
+
+    SendDnsReq(DNS_OPCODE_QUERY, GetItfId(0), 4, query_items);
+    client->WaitForIdle();
+    CHECK_CONDITION(stats.resolved < 1);
+    CHECK_STATS(stats, 1, 1, 0, 0, 0, 0);
+    Agent::GetInstance()->GetDnsProto()->ClearStats();
+
+    DnsItem query_items_2[MAX_ITEMS] = a_items;
+    // keep the 0th element as it is
+    query_items_2[1].name     = "test_service1";
+    query_items_2[2].name     = "test_service3";
+    query_items_2[3].name     = "test_service4";
+
+    SendDnsReq(DNS_OPCODE_QUERY, GetItfId(0), 4, query_items_2);
+    g_xid++;
+    usleep(1000);
+    client->WaitForIdle();
+    CHECK_CONDITION(stats.requests < 1);
+    SendDnsResp(1, a_items, 1, auth_items, 1, add_items);
+    CHECK_CONDITION(stats.resolved < 1);
+    CHECK_STATS(stats, 1, 1, 0, 0, 0, 0);
+    Agent::GetInstance()->GetDnsProto()->ClearStats();
+
+    DnsItem ptr_query_items[MAX_ITEMS] = ptr_items;
+    // keep the 0th element as it is
+    ptr_query_items[1].name     = "10.1.254.169.in-addr.arpa";
+    ptr_query_items[2].name     = "20.1.254.169.in-addr.arpa";
+    ptr_query_items[3].name     = "30.1.254.169.in-addr.arpa";
+    SendDnsReq(DNS_OPCODE_QUERY, GetItfId(0), 4, ptr_query_items);
+    g_xid++;
+    usleep(1000);
+    client->WaitForIdle();
+    SendDnsResp(1, ptr_items, 1, auth_items, 1, add_items);
+    CHECK_CONDITION(stats.resolved < 1);
+    CHECK_STATS(stats, 1, 1, 0, 0, 0, 0);
+    Agent::GetInstance()->GetDnsProto()->ClearStats();
 
     client->Reset();
     DeleteVmportEnv(input, 1, 1, 0); 
@@ -490,7 +586,15 @@ TEST_F(DnsTest, VirtualDnsReqTest) {
 
     IntfCfgDel(input, 0);
     WaitForItfUpdate(0);
-    Agent::GetInstance()->GetDnsProto()->ClearStats();
+
+    client->Reset();
+    DelIPAM("vn1", "vdns1");
+    client->WaitForIdle();
+    DelVDNS("vdns1");
+    client->WaitForIdle();
+
+    DelLinkLocalConfig();
+    client->WaitForIdle();
 }
 
 TEST_F(DnsTest, DnsXmppTest) {
@@ -634,6 +738,100 @@ TEST_F(DnsTest, DefaultDnsReqTest) {
     IntfCfgDel(input, 0);
     WaitForItfUpdate(0);
     Agent::GetInstance()->GetDnsProto()->ClearStats();
+}
+
+TEST_F(DnsTest, DefaultDnsLinklocalReqTest) {
+    struct PortInfo input[] = {
+        {"vnet1", 1, "1.1.1.1", "00:00:00:01:01:01", 1, 1},
+    };
+    IpamInfo ipam_info[] = {
+        {"1.2.3.128", 27, "1.2.3.129", true},
+        {"7.8.9.0", 24, "7.8.9.12", true},
+        {"1.1.1.0", 24, "1.1.1.200", true},
+    };
+    std::vector<std::string> fabric_ip_list;
+    fabric_ip_list.push_back("1.2.3.4");
+    TestLinkLocalService services[5] = {
+        { "test_service1", "169.254.1.10", 1000, "", fabric_ip_list, 100 },
+        { "test_service1", "169.254.1.20", 2000, "", fabric_ip_list, 200 },
+        { "test_service2", "169.254.1.30", 3000, "", fabric_ip_list, 300 },
+        { "test_service3", "169.254.1.30", 4000, "", fabric_ip_list, 400 },
+        { "test_service4", "169.254.1.50", 5000, "", fabric_ip_list, 500 }
+    };
+    AddLinkLocalConfig(services, 5);
+    client->WaitForIdle();
+
+    char ipam_attr[] = "<network-ipam-mgmt>\n <ipam-dns-method>default-dns-server</ipam-dns-method>\n </network-ipam-mgmt>\n";
+
+    CreateVmportEnv(input, 1, 0);
+    client->WaitForIdle();
+    client->Reset();
+    AddIPAM("vn1", ipam_info, 3, ipam_attr, "vdns1");
+    client->WaitForIdle();
+
+    IntfCfgAdd(input, 0);
+    WaitForItfUpdate(1);
+
+    DnsItem query_items[MAX_ITEMS] = a_items;
+    query_items[0].name     = "test_service1";
+    query_items[1].name     = "test_service2";
+    query_items[2].name     = "test_service3";
+    query_items[3].name     = "test_service4";
+
+    SendDnsReq(DNS_OPCODE_QUERY, GetItfId(0), 4, query_items);
+    usleep(1000);
+    client->WaitForIdle();
+    DnsProto::DnsStats stats;
+    int count = 0;
+    usleep(1000);
+    CHECK_CONDITION(stats.resolved < 1);
+    EXPECT_EQ(1U, stats.requests);
+    EXPECT_TRUE(stats.resolved == 1);
+    EXPECT_TRUE(stats.retransmit_reqs == 0);
+
+    DnsItem query_items_2[MAX_ITEMS] = a_items;
+    query_items_2[0].name     = "test_service1";
+    query_items_2[1].name     = "localhost";
+    query_items_2[2].name     = "test_service3";
+    query_items_2[3].name     = "test_service4";
+
+    SendDnsReq(DNS_OPCODE_QUERY, GetItfId(0), 4, query_items_2);
+    usleep(1000);
+    client->WaitForIdle();
+    count = 0;
+    usleep(1000);
+    CHECK_CONDITION(stats.resolved < 2);
+    EXPECT_EQ(2U, stats.requests);
+    EXPECT_TRUE(stats.resolved == 2);
+    EXPECT_TRUE(stats.retransmit_reqs == 0);
+    Agent::GetInstance()->GetDnsProto()->ClearStats();
+
+    DnsItem ptr_query_items[MAX_ITEMS] = ptr_items;
+    ptr_query_items[0].name     = "10.1.254.169.in-addr.arpa";
+    ptr_query_items[1].name     = "20.1.254.169.in-addr.arpa";
+    ptr_query_items[2].name     = "30.1.254.169.in-addr.arpa";
+    ptr_query_items[3].name     = "1.0.0.127.in-addr.arpa";
+    SendDnsReq(DNS_OPCODE_QUERY, GetItfId(0), 4, ptr_query_items);
+    usleep(1000);
+    client->WaitForIdle();
+    CHECK_CONDITION(stats.resolved < 1);
+    EXPECT_EQ(1U, stats.requests);
+    EXPECT_EQ(1U, stats.resolved);
+    Agent::GetInstance()->GetDnsProto()->ClearStats();
+
+    client->Reset();
+    DelIPAM("vn1", "vdns1");
+    client->WaitForIdle();
+
+    client->Reset();
+    DeleteVmportEnv(input, 1, 1, 0);
+    client->WaitForIdle();
+
+    IntfCfgDel(input, 0);
+    WaitForItfUpdate(0);
+
+    DelLinkLocalConfig();
+    client->WaitForIdle();
 }
 
 TEST_F(DnsTest, DnsDropTest) {

@@ -368,6 +368,8 @@ public:
     void AddL2Route();
     void UpdateL2();
     const AclDBEntry* vrf_assign_acl() const { return vrf_assign_acl_.get();}
+    bool GetDhcpOptions(std::vector<autogen::DhcpOptionType> *options) const;
+
 private:
     bool IsActive();
     bool IsL3Active();

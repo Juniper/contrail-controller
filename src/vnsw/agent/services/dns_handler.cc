@@ -5,10 +5,13 @@
 #include "vr_defs.h"
 #include "oper/interface_common.h"
 #include "services/dns_proto.h"
+#include "services/dhcp_proto.h"
 #include "bind/bind_resolver.h"
 #include "cmn/agent_cmn.h"
 #include "controller/controller_dns.h"
 #include "base/timer.h"
+#include "oper/operdb_init.h"
+#include "oper/global_vrouter.h"
 
 DnsHandler::DnsHandler(Agent *agent, boost::shared_ptr<PktInfo> info,
                        boost::asio::io_service &io)
@@ -93,6 +96,7 @@ bool DnsHandler::HandleRequest() {
             ret = DNS_ERR_NO_IMPLEMENT;
             goto error;
         }
+        GetDomainName(vmitf, &domain_name_);
         return HandleDefaultDnsRequest(vmitf);
     } else if (ipam_type_.ipam_dns_method == "virtual-dns-server") {
         if (!agent()->GetDomainConfigTable()->GetVDns(ipam_type_.ipam_dns_server.
@@ -102,6 +106,7 @@ bool DnsHandler::HandleRequest() {
             ret = DNS_ERR_SERVER_FAIL;
             goto error;
         }
+        domain_name_ = vdns_type_.domain_name;
         return HandleVirtualDnsRequest(vmitf);
     }
 
@@ -133,25 +138,26 @@ bool DnsHandler::HandleDefaultDnsRequest(const VmInterface *vmitf) {
     BindUtil::BuildDnsHeader(dns_, ntohs(dns_->xid), DNS_QUERY_RESPONSE, 
                              DNS_OPCODE_QUERY, 0, 1, DNS_ERR_NO_ERROR, 
                              ntohs(dns_->ques_rrcount));
-    for (uint32_t i = 0; i < items_.size(); i++) {
+    ResolveAllLinkLocalRequests();
+    for (DnsItems::iterator it = items_.begin(); it != items_.end(); ++it) {
         ResolveHandler resolv_handler = 
-            boost::bind(&DnsHandler::DefaultDnsResolveHandler, this, _1, _2, i);
+            boost::bind(&DnsHandler::DefaultDnsResolveHandler, this, _1, _2, it);
 
         boost_udp::resolver *resolv = new boost_udp::resolver(io_);
-        switch(items_[i].type) {
+        switch(it->type) {
             case DNS_A_RECORD:
                 resolv->async_resolve(
                         boost_udp::resolver::query(boost_udp::v4(), 
-                        items_[i].name, "domain"), resolv_handler);
+                        it->name, "domain"), resolv_handler);
                 break;
 
             case DNS_PTR_RECORD: {
                 uint32_t addr;
-                if (!BindUtil::GetAddrFromPtrName(items_[i].name, addr)) {
+                if (!BindUtil::GetAddrFromPtrName(it->name, addr)) {
                     DNS_BIND_TRACE(DnsBindError, "Default DNS request:"
                                    " interface = " << vmitf->vm_name() <<
                                    " Ignoring invalid IP in PTR type : " + 
-                                   items_[i].name);
+                                   it->name);
                     delete resolv;
                     continue;
                 }
@@ -164,25 +170,33 @@ bool DnsHandler::HandleDefaultDnsRequest(const VmInterface *vmitf) {
             case DNS_AAAA_RECORD:
                 resolv->async_resolve(
                         boost_udp::resolver::query(boost_udp::v6(),
-                        items_[i].name, "domain"), resolv_handler);
+                        it->name, "domain"), resolv_handler);
                 break;
 
             default:
                 DNS_BIND_TRACE(DnsBindError, "Default DNS request:"
                                " interface = " << vmitf->vm_name() <<
                                " Ignoring unsupported type : " << 
-                               items_[i].type);
+                               it->type);
                 continue;
         }
         resolv_list_.push_back(resolv);
         pend_req_++;
     }
 
-    DNS_BIND_TRACE(DnsBindTrace, "Default DNS query sent to server; "
+    DNS_BIND_TRACE(DnsBindTrace, "Default DNS query received; "
                    "interface = " << vmitf->vm_name() << " xid = " << 
                    dns_->xid << "; " << DnsItemsToString(items_) << ";");
     if (pend_req_)
         return false;
+
+    // Respond to requests needing only linklocal resolution.
+    // Requests needing both linklocal and non link local resolution are
+    // responded to when pending non linklocal items are resolved.
+    if (linklocal_items_.size()) {
+        dns_->ans_rrcount = htons(dns_->ans_rrcount);
+        DefaultDnsSendResponse();
+    }
 
     dns_proto->DelVmRequest(rkey_);
     return true;
@@ -190,36 +204,36 @@ bool DnsHandler::HandleDefaultDnsRequest(const VmInterface *vmitf) {
 
 void DnsHandler::DefaultDnsResolveHandler(const boost::system::error_code &error,
                                           boost_udp::resolver::iterator it,
-                                          uint32_t index) {
+                                          DnsItems::iterator item) {
     {
         tbb::mutex::scoped_lock lock(mutex_);
         if (error) {
             dns_->flags.ret = DNS_ERR_NO_SUCH_NAME;
         } else {
             bool resolved = true;
-            items_[index].ttl = DEFAULT_DNS_TTL;
-            if (items_[index].type == DNS_A_RECORD) {
+            item->ttl = DEFAULT_DNS_TTL;
+            if (item->type == DNS_A_RECORD) {
                 boost_udp::resolver::iterator end;
                 while (it != end) {
                     boost_udp::endpoint ep = *it;
                     if (ep.address().is_v4() && 
                         !ep.address().to_v4().is_unspecified())
-                        items_[index].data = ep.address().to_v4().to_string();
+                        item->data = ep.address().to_v4().to_string();
                     else {     
                         dns_->flags.ret = DNS_ERR_SERVER_FAIL;
                         resolved = false;
                     }
                     it++;
                 }
-            } else if (items_[index].type == DNS_PTR_RECORD) {
-                items_[index].data = it->host_name();
-            } else if (items_[index].type == DNS_AAAA_RECORD) {
+            } else if (item->type == DNS_PTR_RECORD) {
+                item->data = it->host_name();
+            } else if (item->type == DNS_AAAA_RECORD) {
                 boost_udp::resolver::iterator end;
                 while (it != end) {
                     boost_udp::endpoint ep = *it;
                     if (ep.address().is_v6() && 
                         !ep.address().to_v6().is_unspecified())
-                        items_[index].data = ep.address().to_v6().to_string();
+                        item->data = ep.address().to_v6().to_string();
                     else {     
                         dns_->flags.ret = DNS_ERR_SERVER_FAIL;
                         resolved = false;
@@ -229,7 +243,7 @@ void DnsHandler::DefaultDnsResolveHandler(const boost::system::error_code &error
             }
 
             if (resolved) {
-                resp_ptr_ = BindUtil::AddAnswerSection(resp_ptr_, items_[index], 
+                resp_ptr_ = BindUtil::AddAnswerSection(resp_ptr_, *item,
                                                        dns_resp_size_);
                 dns_->ans_rrcount++;
             }
@@ -251,10 +265,12 @@ void DnsHandler::DefaultDnsSendResponse() {
         DNS_BIND_TRACE(DnsBindError, "Query failed : " << 
                        BindUtil::DnsResponseCode(dns_->flags.ret) <<
                        "; xid = " << dns_->xid << "; " <<
-                       DnsItemsToString(items_) << ";");
+                       DnsItemsToString(items_) << ";" <<
+                       DnsItemsToString(linklocal_items_) << ";");
     } else {
         DNS_BIND_TRACE(DnsBindTrace, "Query successful : xid = " <<
-                       dns_->xid << ";" << DnsItemsToString(items_) << ";");
+                       dns_->xid << ";" << DnsItemsToString(items_) << ";" <<
+                       DnsItemsToString(linklocal_items_) << ";");
     }
     SendDnsResponse();
 }
@@ -266,7 +282,8 @@ bool DnsHandler::HandleVirtualDnsRequest(const VmInterface *vmitf) {
         DNS_BIND_TRACE(DnsBindTrace, 
                        "Retry DNS query from VM - dropping; interface = " <<
                        vmitf->vm_name() << " xid = " << dns_->xid << "; " << 
-                       DnsItemsToString(items_) << ";");
+                       DnsItemsToString(items_) << ";" <<
+                       DnsItemsToString(linklocal_items_) << "; ");
         dns_proto->IncrStatsRetransmitReq();
         return true;
     }
@@ -280,12 +297,20 @@ bool DnsHandler::HandleVirtualDnsRequest(const VmInterface *vmitf) {
         case DNS_OPCODE_QUERY: {
             dns_resp_size_ = BindUtil::ParseDnsQuery((uint8_t *)dns_, items_);
             resp_ptr_ = (uint8_t *)dns_ + dns_resp_size_;
-            UpdateQueryNames();
-            xid_ = dns_proto->GetTransId();
-            action_ = DnsHandler::DNS_QUERY;
             BindUtil::BuildDnsHeader(dns_, ntohs(dns_->xid), DNS_QUERY_RESPONSE, 
                                      DNS_OPCODE_QUERY, 0, 1, ret, 
                                      ntohs(dns_->ques_rrcount));
+            // Check for linklocal service name resolution
+            ResolveAllLinkLocalRequests();
+            if (!items_.size()) {
+                // no pending resolution, send response
+                dns_->ans_rrcount = htons(dns_->ans_rrcount);
+                SendDnsResponse();
+                break;
+            }
+            UpdateQueryNames();
+            xid_ = dns_proto->GetTransId();
+            action_ = DnsHandler::DNS_QUERY;
             if (SendDnsQuery())
                 return false;
             break;
@@ -363,6 +388,81 @@ cleanup:
     return false;
 }
 
+// Check the request against configured link local services and
+// update DnsItems, if found
+bool DnsHandler::ResolveLinkLocalRequest(DnsItems::iterator &item,
+                                         DnsItems *linklocal_items) const {
+    GlobalVrouter *global_vrouter = agent_->oper_db()->global_vrouter();
+
+    switch (item->type) {
+
+    case DNS_A_RECORD: {
+        std::string base_name;
+        GetBaseName(item->name, &base_name);
+        std::set<Ip4Address> service_ips;
+        if (global_vrouter->FindLinkLocalService(item->name, &service_ips) ||
+            (!base_name.empty() &&
+             global_vrouter->FindLinkLocalService(base_name, &service_ips))) {
+            for (std::set<Ip4Address>::iterator it = service_ips.begin();
+                 it != service_ips.end(); ++it) {
+                item->data = it->to_string();
+                linklocal_items->push_back(*item);
+            }
+        }
+        break;
+    }
+
+    case DNS_PTR_RECORD: {
+        std::set<std::string> service_names;
+        uint32_t addr;
+        if (!BindUtil::GetAddrFromPtrName(item->name, addr)) {
+            break;
+        }
+        if (global_vrouter->FindLinkLocalService(
+                boost::asio::ip::address_v4(addr), &service_names)) {
+            for (std::set<std::string>::iterator it = service_names.begin();
+                 it != service_names.end(); ++it) {
+                item->data = *it;
+                linklocal_items->push_back(*item);
+            }
+        }
+        break;
+    }
+
+    case DNS_AAAA_RECORD:
+        break;
+
+    default:
+        break;
+
+    }
+
+    return (linklocal_items->size() > 0);
+}
+
+// Resolve link local service name requests locally
+bool DnsHandler::ResolveAllLinkLocalRequests() {
+    bool linklocal_request = false;
+    for (DnsItems::iterator it = items_.begin(); it != items_.end(); ) {
+        DnsItems linklocal_items;
+        if (ResolveLinkLocalRequest(it, &linklocal_items)) {
+            linklocal_request = true;
+            for (DnsItems::iterator llit = linklocal_items.begin();
+                 llit != linklocal_items.end(); ++llit) {
+                resp_ptr_ = BindUtil::AddAnswerSection(resp_ptr_, *llit,
+                                                       dns_resp_size_);
+                dns_->ans_rrcount++;
+            }
+            // storing the link local items in a different list
+            linklocal_items_.splice(linklocal_items_.begin(), linklocal_items);
+            items_.erase(it++);
+        } else {
+            it++;
+        }
+    }
+    return linklocal_request;
+}
+
 bool DnsHandler::HandleMessage() {
     switch (pkt_info_->ipc->cmd) {
         case DnsProto::DNS_DEFAULT_RESPONSE:
@@ -407,7 +507,7 @@ bool DnsHandler::HandleBindResponse() {
     DnsHandler *handler = dns_proto->GetDnsQueryHandler(xid);
     if (handler) {
         dns_flags flags;
-        std::vector<DnsItem> ques, ans, auth, add;
+        DnsItems ques, ans, auth, add;
         BindUtil::ParseDnsQuery(ipc->resp, xid, flags, ques, ans, auth, add);
         switch(handler->action_) {
             case DnsHandler::DNS_QUERY:
@@ -416,10 +516,12 @@ bool DnsHandler::HandleBindResponse() {
                     DNS_BIND_TRACE(DnsBindError, "Query failed : " << 
                                    BindUtil::DnsResponseCode(flags.ret) <<
                                    "; xid = " << xid << "; " <<
-                                   DnsItemsToString(items_) << ";");
+                                   DnsItemsToString(items_) << ";" <<
+                                   DnsItemsToString(linklocal_items_) << ";");
                 } else {
                     DNS_BIND_TRACE(DnsBindTrace, "Query successful : xid = " <<
-                                   xid << ";" << DnsItemsToString(ans) << ";");
+                                   xid << ";" << DnsItemsToString(ans) << ";" <<
+                                   DnsItemsToString(linklocal_items_) << ";");
                 }
                 break;
 
@@ -578,41 +680,37 @@ void DnsHandler::SendXmppUpdate(AgentDnsXmppChannel *channel,
 }
 
 void 
-DnsHandler::Resolve(dns_flags flags, std::vector<DnsItem> &ques, 
-                    std::vector<DnsItem> &ans, std::vector<DnsItem> &auth, 
-                    std::vector<DnsItem> &add) {
-    for(unsigned int i = 0; i < ans.size(); ++i) {
+DnsHandler::Resolve(dns_flags flags, const DnsItems &ques, DnsItems &ans,
+                    DnsItems &auth, DnsItems &add) {
+    for (DnsItems::iterator it = ans.begin(); it != ans.end(); ++it) {
         // find the matching entry in the request
         bool name_update_required = true;
-        for (unsigned int j = 0; j < items_.size(); ++j) {
-            if (ans[i].name == items_[j].name &&
-                ans[i].eclass == items_[j].eclass) {
-                ans[i].name_plen = items_[j].name_plen;
-                ans[i].name_offset = items_[j].offset;
+        for (DnsItems::const_iterator item = items_.begin();
+             item != items_.end(); ++item) {
+            if (it->name == item->name && it->eclass == item->eclass) {
+                it->name_plen = item->name_plen;
+                it->name_offset = item->offset;
                 name_update_required = false;
                 break;
             }
         }
-        UpdateOffsets(ans[i], name_update_required);
-        UpdateGWAddress(ans[i]);
-        resp_ptr_ = BindUtil::AddAnswerSection(resp_ptr_, ans[i], 
-                                               dns_resp_size_);
+        UpdateOffsets(*it, name_update_required);
+        UpdateGWAddress(*it);
+        resp_ptr_ = BindUtil::AddAnswerSection(resp_ptr_, *it, dns_resp_size_);
         dns_->ans_rrcount++;
     }
 
-    for(unsigned int i = 0; i < auth.size(); ++i) {
-        UpdateOffsets(auth[i], true);
-        UpdateGWAddress(auth[i]);
-        resp_ptr_ = BindUtil::AddAnswerSection(resp_ptr_, auth[i], 
-                                               dns_resp_size_);
+    for (DnsItems::iterator it = auth.begin(); it != auth.end(); ++it) {
+        UpdateOffsets(*it, true);
+        UpdateGWAddress(*it);
+        resp_ptr_ = BindUtil::AddAnswerSection(resp_ptr_, *it, dns_resp_size_);
         dns_->auth_rrcount++;
     }
 
-    for(unsigned int i = 0; i < add.size(); ++i) {
-        UpdateOffsets(add[i], true);
-        UpdateGWAddress(add[i]);
-        resp_ptr_ = BindUtil::AddAnswerSection(resp_ptr_, add[i], 
-                                               dns_resp_size_);
+    for (DnsItems::iterator it = add.begin(); it != add.end(); ++it) {
+        UpdateOffsets(*it, true);
+        UpdateGWAddress(*it);
+        resp_ptr_ = BindUtil::AddAnswerSection(resp_ptr_, *it, dns_resp_size_);
         dns_->add_rrcount++;
     }
 
@@ -655,10 +753,10 @@ void DnsHandler::SendDnsResponse() {
 }
 
 void DnsHandler::UpdateQueryNames() {
-    for (unsigned int i = 0; i < items_.size(); ++i) {
-        if (items_[i].name.find('.', 0) == std::string::npos) {
-            items_[i].name.append(".");
-            items_[i].name.append(vdns_type_.domain_name);
+    for (DnsItems::iterator it = items_.begin(); it != items_.end(); ++it) {
+        if (it->name.find('.', 0) == std::string::npos) {
+            it->name.append(".");
+            it->name.append(vdns_type_.domain_name);
             query_name_update_ = true;
         }
     }
@@ -793,10 +891,44 @@ bool DnsHandler::TimerExpiry(uint16_t xid) {
     return false;
 }
 
-std::string DnsHandler::DnsItemsToString(std::vector<DnsItem> &items) {
+void DnsHandler::GetDomainName(const VmInterface *vm_itf,
+                               std::string *domain_name) const {
+    std::vector<autogen::DhcpOptionType> options;
+    if (!vm_itf->GetDhcpOptions(&options))
+        return;
+
+    for (unsigned int i = 0; i < options.size(); ++i) {
+        uint32_t option_type;
+        std::stringstream str(options[i].dhcp_option_name);
+        str >> option_type;
+        if (option_type == DHCP_OPTION_DOMAIN_NAME) {
+            *domain_name = options[i].dhcp_option_value;
+            return;
+        }
+    }
+}
+
+// remove domain name suffix from given name, if present
+void DnsHandler::GetBaseName(const std::string &name, std::string *base) const {
+    if (domain_name_.empty())
+        return;
+
+    std::size_t pos = name.find(domain_name_, 1);
+    while (pos != std::string::npos) {
+        std::string base_name = name.substr(0, pos - 1);
+        if (name == base_name + "." + domain_name_ ||
+            name == base_name + "." + domain_name_ + ".") {
+            *base = base_name;
+            return;
+        }
+        pos = name.find(domain_name_, pos + 1);
+    }
+}
+
+std::string DnsHandler::DnsItemsToString(DnsItems &items) const {
     std::string str;
-    for (unsigned int i = 0; i < items.size(); ++i) {
-        str.append(items[i].ToString());
+    for (DnsItems::const_iterator it = items.begin(); it != items.end(); ++it) {
+        str.append(it->ToString());
         str.append(" ");
     }
     return str;

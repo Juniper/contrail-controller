@@ -1676,6 +1676,42 @@ void VmInterface::UpdateL3Services(bool dhcp, bool dns) {
     dns_enabled_ = dns;
 }
 
+// Find DHCP options applicable to the Interface, based on following hierarchy
+// 1. Configured at the interface level
+// 2. Configured at subnet level
+// 3. Configured at ipam level
+bool VmInterface::GetDhcpOptions(
+                  std::vector<autogen::DhcpOptionType> *options) const {
+    if (oper_dhcp_options().are_dhcp_options_set()) {
+        *options = oper_dhcp_options().dhcp_options();
+        return true;
+    }
+
+    if (vn()) {
+        const std::vector<VnIpam> &vn_ipam = vn()->GetVnIpam();
+        uint32_t index;
+        for (index = 0; index < vn_ipam.size(); ++index) {
+            if (vn_ipam[index].IsSubnetMember(ip_addr())) {
+                break;
+            }
+        }
+        if (index < vn_ipam.size() &&
+            vn_ipam[index].oper_dhcp_options.are_dhcp_options_set()) {
+            *options = vn_ipam[index].oper_dhcp_options.dhcp_options();
+            return true;
+        }
+
+        std::string ipam_name;
+        autogen::IpamType ipam_type;
+        if (vn()->GetIpamData(ip_addr(), &ipam_name, &ipam_type)) {
+            *options = ipam_type.dhcp_option_list.dhcp_option;
+            return true;
+        }
+    }
+
+    return false;
+}
+
 /////////////////////////////////////////////////////////////////////////////
 // FloatingIp routines
 /////////////////////////////////////////////////////////////////////////////

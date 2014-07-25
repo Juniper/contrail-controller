@@ -68,10 +68,14 @@ public:
     void GlobalVrouterConfig(IFMapNode *node);
     bool FindLinkLocalService(const std::string &service_name,
                               Ip4Address *service_ip, uint16_t *service_port,
-                              Ip4Address *fabric_ip, uint16_t *fabric_port);
+                              Ip4Address *fabric_ip, uint16_t *fabric_port) const;
     bool FindLinkLocalService(const Ip4Address &service_ip,
                               uint16_t service_port, std::string *service_name,
-                              Ip4Address *fabric_ip, uint16_t *fabric_port);
+                              Ip4Address *fabric_ip, uint16_t *fabric_port) const;
+    bool FindLinkLocalService(const std::string &service_name,
+                              std::set<Ip4Address> *service_ip) const;
+    bool FindLinkLocalService(const Ip4Address &service_ip,
+                              std::set<std::string> *service_names) const;
     void LinkLocalRouteUpdate(const std::vector<Ip4Address> &addr_list);
     bool IsAddressInUse(const Ip4Address &ip) const;
     bool IsLinkLocalAddressInUse(const Ip4Address &ip) const;
