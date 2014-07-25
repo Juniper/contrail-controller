@@ -16,7 +16,9 @@ using boost::uuids::uuid;
 
 NamespaceManager::NamespaceManager(EventManager *evm)
         : evm_(evm), si_table_(NULL),
-          listener_id_(DBTableBase::kInvalidId), netns_timeout_() {
+          listener_id_(DBTableBase::kInvalidId), netns_timeout_(),
+          work_queue_(TaskScheduler::GetInstance()->GetTaskId("db::DBTable"), 0,
+                      boost::bind(&NamespaceManager::DequeueEvent, this, _1)) {
 }
 
 void NamespaceManager::Initialize(DB *database, AgentSignal *signal,
@@ -55,14 +57,75 @@ void NamespaceManager::Initialize(DB *database, AgentSignal *signal,
         NamespaceTaskQueue *task_queue = new NamespaceTaskQueue(evm_);
         assert(task_queue);
         task_queue->set_on_timeout_cb(
-                        boost::bind(&NamespaceManager::ScheduleNextTask,
+                        boost::bind(&NamespaceManager::OnTaskTimeout,
                                     this, _1));
         *iter = task_queue;
     }
 }
 
+void NamespaceManager::OnTaskTimeout(NamespaceTaskQueue *task_queue) {
+    NamespaceManagerChildEvent event;
+    event.type = OnTaskTimeoutEvent;
+    event.task_queue = task_queue;
+
+    work_queue_.Enqueue(event);
+}
+
+void NamespaceManager::OnTaskTimeoutEventHandler(NamespaceManagerChildEvent event) {
+    ScheduleNextTask(event.task_queue);
+}
+
+void NamespaceManager::SigChlgEventHandler(NamespaceManagerChildEvent event) {
+    /*
+      * check the head of each taskqueue in order to check whether there is
+      * a task with the corresponding pid, if present dequeue it.
+      */
+     for (std::vector<NamespaceTaskQueue *>::iterator iter = task_queues_.begin();
+              iter != task_queues_.end(); ++iter) {
+         NamespaceTaskQueue *task_queue = *iter;
+         if (!task_queue->Empty()) {
+             NamespaceTask *task = task_queue->Front();
+             if (task->pid() == event.pid) {
+                 UpdateStateStatusType(task, event.status);
+
+                 task_queue->Pop();
+                 delete task;
+
+                 task_queue->StopTimer();
+
+                 ScheduleNextTask(task_queue);
+                 return;
+             }
+         }
+     }
+}
+
+void NamespaceManager::OnErrorEventHandler(NamespaceManagerChildEvent event) {
+    ServiceInstance *svc_instance = GetSvcInstance(event.task);
+    if (!svc_instance) {
+       return;
+    }
+
+    NamespaceState *state = GetState(svc_instance);
+    if (state != NULL) {
+       state->set_errors(event.errors);
+    }
+}
+
+bool NamespaceManager::DequeueEvent(NamespaceManagerChildEvent event) {
+    if (event.type == SigChldEvent) {
+        SigChlgEventHandler(event);
+    } else if (event.type == OnErrorEvent) {
+        OnErrorEventHandler(event);
+    } else if (event.type == OnTaskTimeoutEvent) {
+        OnTaskTimeoutEventHandler(event);
+    }
+
+    return true;
+}
+
 void NamespaceManager::UpdateStateStatusType(NamespaceTask* task, int status) {
-    ServiceInstance* svc_instance = GetSvcInstance(task);
+    ServiceInstance* svc_instance = UnregisterSvcInstance(task);
     if (svc_instance) {
         NamespaceState *state = GetState(svc_instance);
         if (state != NULL) {
@@ -89,28 +152,12 @@ void NamespaceManager::HandleSigChild(const boost::system::error_code &error,
                                       int sig, pid_t pid, int status) {
     switch(sig) {
     case SIGCHLD:
-        /*
-         * check the head of each taskqueue in order to check whether there is
-         * a task with the corresponding pid, if present dequeue it.
-         */
-        for (std::vector<NamespaceTaskQueue *>::iterator iter = task_queues_.begin();
-                 iter != task_queues_.end(); ++iter) {
-            NamespaceTaskQueue *task_queue = *iter;
-            if (!task_queue->Empty()) {
-                NamespaceTask *task = task_queue->Front();
-                if (task->pid() == pid) {
-                    UpdateStateStatusType(task, status);
+        NamespaceManagerChildEvent event;
+        event.type = SigChldEvent;
+        event.pid = pid;
+        event.status = status;
 
-                    task_queue->Pop();
-                    delete task;
-
-                    task_queue->StopTimer();
-
-                    ScheduleNextTask(task_queue);
-                    return;
-                }
-            }
-        }
+        work_queue_.Enqueue(event);
         break;
     }
 }
@@ -158,8 +205,8 @@ void NamespaceManager::Terminate() {
     }
 }
 
-void  NamespaceManager::Enqueue(NamespaceTask *task,
-                                const boost::uuids::uuid &uuid) {
+void NamespaceManager::Enqueue(NamespaceTask *task,
+                               const boost::uuids::uuid &uuid) {
     std::stringstream ss;
     ss << uuid;
     NamespaceTaskQueue *task_queue = GetTaskQueue(ss.str());
@@ -249,12 +296,28 @@ void NamespaceManager::RegisterSvcInstance(NamespaceTask *task,
     task_svc_instances_.insert(std::make_pair(task, svc_instance));
 }
 
-void NamespaceManager::UnRegisterSvcInstance(ServiceInstance *svc_instance) {
+ServiceInstance *NamespaceManager::UnregisterSvcInstance(NamespaceTask *task) {
     for (std::map<NamespaceTask *, ServiceInstance*>::iterator iter =
                     task_svc_instances_.begin();
          iter != task_svc_instances_.end(); ++iter) {
-        if (svc_instance == iter->second) {
+        if (task == iter->first) {
+            ServiceInstance *svc_instance = iter->second;
             task_svc_instances_.erase(iter);
+            return svc_instance;
+        }
+    }
+
+    return NULL;
+}
+
+void NamespaceManager::UnregisterSvcInstance(ServiceInstance *svc_instance) {
+    std::map<NamespaceTask *, ServiceInstance*>::iterator iter =
+        task_svc_instances_.begin();
+    while(iter != task_svc_instances_.end()) {
+        if (svc_instance == iter->second) {
+            task_svc_instances_.erase(iter++);
+        } else {
+            ++iter;
         }
     }
 }
@@ -298,15 +361,13 @@ void NamespaceManager::StartNetNS(ServiceInstance *svc_instance,
 
 void NamespaceManager::OnError(NamespaceTask *task,
                                const std::string errors) {
-    ServiceInstance *svc_instance = GetSvcInstance(task);
-    if (!svc_instance) {
-        return;
-    }
 
-    NamespaceState *state = GetState(svc_instance);
-    if (state != NULL) {
-        state->set_errors(errors);
-    }
+    NamespaceManagerChildEvent event;
+    event.type = OnErrorEvent;
+    event.task = task;
+    event.errors = errors;
+
+    work_queue_.Enqueue(event);
 }
 
 void NamespaceManager::StopNetNS(ServiceInstance *svc_instance,
@@ -376,7 +437,7 @@ void NamespaceManager::EventObserver(
 
     NamespaceState *state = GetState(svc_instance);
     if (svc_instance->IsDeleted()) {
-        UnRegisterSvcInstance(svc_instance);
+        UnregisterSvcInstance(svc_instance);
         if (state) {
             if (GetLastCmdType(svc_instance) == Start) {
                 StopNetNS(svc_instance, state);
