@@ -222,11 +222,11 @@ void TcpSession::CloseInternal(bool callObserver) {
     {
         tbb::mutex::scoped_lock obs_lock(obs_mutex_);
         if (callObserver == true && observer_) {
-            observer_(session.get(), CLOSE);
+            observer_(this, CLOSE);
         }
     }
 
-    server_->OnSessionClose(session.get());
+    server_->OnSessionClose(this);
 }
 
 void TcpSession::Close() {

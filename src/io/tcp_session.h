@@ -34,7 +34,7 @@ class TcpMessageWriter;
 // also invokes the AsyncHandlers. ReleaseBuffer and Send will typically be
 // invoked by a different thread.
 class TcpSession {
-  public:
+public:
     static const int kDefaultBufferSize = 4 * 1024;
 
     enum Event {
@@ -61,7 +61,7 @@ class TcpSession {
 
     // Called by TcpServer to trigger async read.
     virtual bool Connected(Endpoint remote);
-    
+
     void ConnectFailed();
 
     void Close();
@@ -72,14 +72,11 @@ class TcpSession {
 
     // Getters and setters
     Socket *socket() { return socket_.get(); }
-
-    TcpServer *server() { return server_; }
-
+    TcpServer *server() { return server_.get(); }
     int32_t local_port() const;
-
     int32_t remote_port() const;
 
-    // Concurrency: changing the observer has guaranteed mutal exclusion with
+    // Concurrency: changing the observer guarantees mutual exclusion with
     // the observer invocation. e.g. if the caller sets the observer to NULL
     // it is guaranteed that the observer will not get invoked after this
     // method returns.
@@ -134,7 +131,7 @@ class TcpSession {
     void GetRxSocketStats(TcpServerSocketStats &socket_stats) const;
     void GetTxSocketStats(TcpServerSocketStats &socket_stats) const;
 
-  protected:
+protected:
     virtual ~TcpSession();
 
     // Read handler. Called from a TBB task.
@@ -150,20 +147,19 @@ class TcpSession {
     boost::system::error_code SetSocketKeepaliveOptions(int keepalive_time,
             int keepalive_intvl, int keepalive_probes);
 
-  private:
-    typedef boost::intrusive_ptr<TcpSession> TcpSessionPtr;
+private:
+    class Reader;
     friend class TcpServer;
     friend class TcpMessageWriter;
     friend void intrusive_ptr_add_ref(TcpSession *session);
     friend void intrusive_ptr_release(TcpSession *session);
+    typedef boost::intrusive_ptr<TcpSession> TcpSessionPtr;
     typedef std::list<boost::asio::mutable_buffer> BufferQueue;
 
-    class Reader;
-
     static void AsyncReadHandler(TcpSessionPtr session,
-                          boost::asio::mutable_buffer buffer,
-			  const boost::system::error_code &error,
-			  size_t size);
+                                 boost::asio::mutable_buffer buffer,
+                                 const boost::system::error_code &error,
+                                 size_t size);
     static void AsyncWriteHandler(TcpSessionPtr session,
                                   const boost::system::error_code &error);
 
@@ -184,7 +180,7 @@ class TcpSession {
 
     static int reader_task_id_;
 
-    TcpServer *server_;
+    TcpServerPtr server_;
     boost::scoped_ptr<Socket> socket_;
     bool read_on_connect_;
     int buffer_size_;
