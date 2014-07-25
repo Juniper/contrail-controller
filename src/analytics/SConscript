@@ -129,6 +129,7 @@ RedisLuaBuild(AnalyticsEnv, 'delrequest')
 RedisLuaBuild(AnalyticsEnv, 'uveupdate')
 RedisLuaBuild(AnalyticsEnv, 'uveupdate_st')
 RedisLuaBuild(AnalyticsEnv, 'uvedelete')
+RedisLuaBuild(AnalyticsEnv, 'flushuves')
 
 
 AnalyticsEnv.GenerateBuildInfoCode(

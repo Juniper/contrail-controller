@@ -43,6 +43,9 @@ public:
     SyncDeleteUVEs(const std::string & redis_ip, unsigned short redis_port,  
             const std::string &source, const std::string &node_type,
             const std::string &module, const std::string &instance_id);
+
+    static bool
+    FlushUVEs(const std::string & redis_ip, unsigned short redis_port);
 };
 
 class RedisProcessorIf {

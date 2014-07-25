@@ -133,10 +133,8 @@ class OpServerProxy::OpServerImpl {
             string node_type = Sandesh::node_type();
             
             if (!started_) {
-                RedisProcessorExec::SyncDeleteUVEs(redis_uve_.GetIp(), 
-                                                   redis_uve_.GetPort(),
-                                                   source, node_type,
-                                                   module, instance_id);
+                RedisProcessorExec::FlushUVEs(redis_uve_.GetIp(),
+                                              redis_uve_.GetPort());
                 started_=true;
             }
             if (collector_) 
