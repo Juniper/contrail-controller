@@ -511,11 +511,15 @@ class VncCassandraClient(VncCassandraClientGen):
     _USERAGENT_KEYSPACE_NAME = 'useragent'
     _USERAGENT_KV_CF_NAME = 'useragent_keyval_table'
 
-    def __init__(self, db_client_mgr, cass_srv_list, reset_config):
+    def __init__(self, db_client_mgr, cass_srv_list, reset_config, db_prefix):
         super(VncCassandraClient, self).__init__()
         self._db_client_mgr = db_client_mgr
         self._reset_config = reset_config
         self._cache_uuid_to_fq_name = {}
+        if db_prefix:
+            self._db_prefix = '%s_' %(db_prefix)
+        else:
+            self._db_prefix = ''
         self._cassandra_init(cass_srv_list)
     # end __init__
 
@@ -528,7 +532,7 @@ class VncCassandraClient(VncCassandraClientGen):
             name = 'Cassandra', status = ConnectionStatus.INIT, message = '',
             server_addrs = server_list)
 
-        uuid_ks_name = VncCassandraClient._UUID_KEYSPACE_NAME
+        uuid_ks_name = '%s%s' %(self._db_prefix, VncCassandraClient._UUID_KEYSPACE_NAME)
         obj_uuid_cf_info = (VncCassandraClient._OBJ_UUID_CF_NAME, None)
         obj_fq_name_cf_info = (VncCassandraClient._OBJ_FQ_NAME_CF_NAME, None)
         uuid_cf_info = (VncCassandraClient._UUID_CF_NAME, None)
@@ -543,7 +547,7 @@ class VncCassandraClient(VncCassandraClientGen):
              uuid_cf_info, fq_name_cf_info, ifmap_id_cf_info,
              subnet_cf_info, children_cf_info])
 
-        useragent_ks_name = VncCassandraClient._USERAGENT_KEYSPACE_NAME
+        useragent_ks_name = '%s%s' %(self._db_prefix, VncCassandraClient._USERAGENT_KEYSPACE_NAME)
         useragent_kv_cf_info = (VncCassandraClient._USERAGENT_KV_CF_NAME, None)
         self._cassandra_ensure_keyspace(server_list, useragent_ks_name,
                                         [useragent_kv_cf_info])
@@ -1167,17 +1171,29 @@ class VncZkClient(object):
     _SUBNET_PATH = "/api-server/subnets"
     _FQ_NAME_TO_UUID_PATH = "/fq-name-to-uuid"
 
-    def __init__(self, instance_id, zk_server_ip, reset_config):
+    def __init__(self, instance_id, zk_server_ip, reset_config, db_prefix):
+        self._db_prefix = db_prefix
+        if db_prefix:
+            client_pfx = db_prefix + '-'
+            zk_path_pfx = db_prefix + '/'
+        else:
+            client_pfx = ''
+            zk_path_pfx = ''
+
+        client_name = client_pfx + 'api-' + instance_id
+        self._subnet_path = zk_path_pfx + self._SUBNET_PATH
+        self._fq_name_to_uuid_path = zk_path_pfx + self._FQ_NAME_TO_UUID_PATH
+
         while True:
             try:
-                self._zk_client = ZookeeperClient("api-" + instance_id, zk_server_ip)
+                self._zk_client = ZookeeperClient(client_name, zk_server_ip)
                 break
             except gevent.event.Timeout as e:
                 pass
 
         if reset_config:
-            self._zk_client.delete_node(self._SUBNET_PATH, True);
-            self._zk_client.delete_node(self._FQ_NAME_TO_UUID_PATH, True);
+            self._zk_client.delete_node(self._subnet_path, True);
+            self._zk_client.delete_node(self._fq_name_to_uuid_path, True);
         self._subnet_allocators = {}
     # end __init__
 
@@ -1188,14 +1204,14 @@ class VncZkClient(object):
             if addr_from_start is None:
                 addr_from_start = False
             self._subnet_allocators[subnet] = IndexAllocator(
-                self._zk_client, self._SUBNET_PATH+'/'+subnet+'/',
+                self._zk_client, self._subnet_path+'/'+subnet+'/',
                 size=0, start_idx=0, reverse=not addr_from_start,
                 alloc_list=subnet_alloc_list)
     # end create_subnet_allocator
 
     def delete_subnet_allocator(self, subnet):
         IndexAllocator.delete_all(self._zk_client,
-                                  self._SUBNET_PATH+'/'+subnet+'/')
+                                  self._subnet_path+'/'+subnet+'/')
     # end delete_subnet_allocator
 
     def _get_subnet_allocator(self, subnet):
@@ -1224,14 +1240,14 @@ class VncZkClient(object):
 
     def create_fq_name_to_uuid_mapping(self, obj_type, fq_name, id):
         fq_name_str = ':'.join(fq_name)
-        zk_path = self._FQ_NAME_TO_UUID_PATH+'/%s:%s' %(obj_type.replace('-', '_'),
+        zk_path = self._fq_name_to_uuid_path+'/%s:%s' %(obj_type.replace('-', '_'),
                                              fq_name_str)
         self._zk_client.create_node(zk_path, id)
     # end create_fq_name_to_uuid_mapping
 
     def delete_fq_name_to_uuid_mapping(self, obj_type, fq_name):
         fq_name_str = ':'.join(fq_name)
-        zk_path = self._FQ_NAME_TO_UUID_PATH+'/%s:%s' %(obj_type.replace('-', '_'),
+        zk_path = self._fq_name_to_uuid_path+'/%s:%s' %(obj_type.replace('-', '_'),
                                              fq_name_str)
         self._zk_client.delete_node(zk_path)
     # end delete_fq_name_to_uuid_mapping
@@ -1248,7 +1264,7 @@ class VncDbClient(object):
                  passwd, cass_srv_list,
                  rabbit_server, rabbit_port, rabbit_user, rabbit_password, rabbit_vhost,
                  reset_config=False, ifmap_srv_loc=None,
-                 zk_server_ip=None):
+                 zk_server_ip=None, db_prefix=''):
 
         self._api_svr_mgr = api_svr_mgr
 
@@ -1274,13 +1290,13 @@ class VncDbClient(object):
         logger.info("connecting to cassandra on %s" % (cass_srv_list,))
 
         self._cassandra_db = VncCassandraClient(
-            self, cass_srv_list, reset_config)
+            self, cass_srv_list, reset_config, db_prefix)
 
         self._msgbus = VncKombuClient(self, rabbit_server, rabbit_port, self._ifmap_db,
                                       rabbit_user, rabbit_password,
                                       rabbit_vhost)
         self._zk_db = VncZkClient(api_svr_mgr._args.worker_id, zk_server_ip,
-                                  reset_config)
+                                  reset_config, db_prefix)
     # end __init__
 
     def db_resync(self):
