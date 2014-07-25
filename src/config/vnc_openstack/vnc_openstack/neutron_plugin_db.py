@@ -1600,7 +1600,7 @@ class DBInterface(object):
             alloc_pools = None
 
         dhcp_option_list = None
-        if 'dns_nameservers' in subnet_q:
+        if 'dns_nameservers' in subnet_q and subnet_q['dns_nameservers']:
             dhcp_options=[]
             for dns_server in subnet_q['dns_nameservers']:
                 dhcp_options.append(DhcpOptionType(dhcp_option_name='6',
@@ -1609,7 +1609,7 @@ class DBInterface(object):
                 dhcp_option_list = DhcpOptionsListType(dhcp_options)
 
         host_route_list = None
-        if 'host_routes' in subnet_q:
+        if 'host_routes' in subnet_q and subnet_q['host_routes']:
             host_routes=[]
             for host_route in subnet_q['host_routes']:
                 host_routes.append(RouteType(prefix=host_route['destination'],
