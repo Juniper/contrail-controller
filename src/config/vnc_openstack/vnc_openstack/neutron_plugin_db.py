@@ -2906,10 +2906,13 @@ class DBInterface(object):
                 # just read and populate ret_list
                 # prune is skipped because all_rtrs is empty
                 for rtr_id in filters['id']:
-                    rtr_obj = self._logical_router_read(rtr_id)
-                    rtr_info = self._router_vnc_to_neutron(rtr_obj,
-                                                            rtr_repr='LIST')
-                    ret_list.append(rtr_info)
+                    try:
+                        rtr_obj = self._logical_router_read(rtr_id)
+                        rtr_info = self._router_vnc_to_neutron(rtr_obj,
+                                                               rtr_repr='LIST')
+                        ret_list.append(rtr_info)
+                    except NoIdError:
+                        pass
             else:
                 # read all routers in project, and prune below
                 project_ids = [str(uuid.UUID(id)) \
@@ -2924,10 +2927,13 @@ class DBInterface(object):
             # required routers are specified, just read and populate ret_list
             # prune is skipped because all_rtrs is empty
             for rtr_id in filters['id']:
-                rtr_obj = self._logical_router_read(rtr_id)
-                rtr_info = self._router_vnc_to_neutron(rtr_obj,
-                                                        rtr_repr='LIST')
-                ret_list.append(rtr_info)
+                try:
+                    rtr_obj = self._logical_router_read(rtr_id)
+                    rtr_info = self._router_vnc_to_neutron(rtr_obj,
+                                                           rtr_repr='LIST')
+                    ret_list.append(rtr_info)
+                except NoIdError:
+                    pass
         else:
             # read all routers in all projects
             dom_projects = self._project_list_domain(None)
