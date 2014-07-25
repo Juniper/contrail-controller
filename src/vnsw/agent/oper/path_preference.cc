@@ -399,6 +399,19 @@ void PathPreferenceIntfState::Notify() {
     }
 
     //Go thru interface static routes
+    const VmInterface::ServiceVlanSet &service_vlan_set =
+        intf_->service_vlan_list().list_;
+    VmInterface::ServiceVlanSet::const_iterator service_vlan_it =
+        service_vlan_set.begin();
+    for (;service_vlan_it != service_vlan_set.end(); ++service_vlan_it) {
+        RouteAddrList rt;
+        rt.plen_ = service_vlan_it->plen_;
+        rt.ip_ = service_vlan_it->addr_;
+        rt.vrf_name_ = service_vlan_it->vrf_name_;
+        Insert(rt, traffic_seen);
+    }
+
+    //Go thru interface static routes
     const VmInterface::StaticRouteSet &static_rt_list =
         intf_->static_route_list().list_;
     VmInterface::StaticRouteSet::const_iterator static_rt_it =

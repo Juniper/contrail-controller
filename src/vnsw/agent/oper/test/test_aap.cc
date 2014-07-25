@@ -171,7 +171,7 @@ TEST_F(TestAap, StateMachine_1) {
     EXPECT_TRUE(path->path_preference().wait_for_traffic() == true);
 }
 
-//Add a remote path woth same preference and verify that local path
+//Add a remote path with same preference and verify that local path
 //moves to wait for traffic state
 TEST_F(TestAap, StateMachine_2) {
     Ip4Address ip = Ip4Address::from_string("1.1.1.1");
@@ -415,6 +415,37 @@ TEST_F(TestAap, StateMachine_8) {
 
     DeleteVmportEnv(input1, 1, false);
     client->WaitForIdle();
+}
+
+//Verify that dependent service route gets high preference,
+//when interface native IP sees traffic
+TEST_F(TestAap, StateMachine_9) {
+    Ip4Address ip = Ip4Address::from_string("1.1.1.1");
+
+    AddVmPortVrf("ser1", "11.1.1.253", 1);
+    AddLink("virtual-machine-interface-routing-instance", "ser1",
+            "routing-instance", "vrf1");
+    AddLink("virtual-machine-interface-routing-instance", "ser1",
+            "virtual-machine-interface", "intf1");
+   client->WaitForIdle();
+
+   Ip4Address service_vlan_rt = Ip4Address::from_string("11.1.1.253");
+   VmInterface *vm_intf = VmInterfaceGet(1);
+   Inet4UnicastRouteEntry *rt =
+       RouteGet("vrf1", service_vlan_rt, 32);
+   const AgentPath *path = rt->FindPath(vm_intf->peer());
+   EXPECT_TRUE(path->path_preference().sequence() == 0);
+   EXPECT_TRUE(path->path_preference().preference() == PathPreference::LOW);
+   EXPECT_TRUE(path->path_preference().ecmp() == false);
+   EXPECT_TRUE(path->path_preference().wait_for_traffic() == true);
+
+   Agent::GetInstance()->oper_db()->route_preference_module()->
+       EnqueueTrafficSeen(ip, 32, vm_intf->id(), vm_intf->vrf()->vrf_id());
+   client->WaitForIdle();
+   EXPECT_TRUE(path->path_preference().sequence() == 1);
+   EXPECT_TRUE(path->path_preference().preference() == PathPreference::HIGH);
+   EXPECT_TRUE(path->path_preference().ecmp() == false);
+   EXPECT_TRUE(path->path_preference().wait_for_traffic() == false);
 }
 
 int main(int argc, char *argv[]) {

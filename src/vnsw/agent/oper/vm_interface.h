@@ -81,7 +81,7 @@ public:
         ServiceVlan(uint16_t tag, const std::string &vrf_name,
                     const Ip4Address &addr, uint8_t plen,
                     const struct ether_addr &smac,
-                    const struct ether_addr &dmac, bool ecmp);
+                    const struct ether_addr &dmac);
         virtual ~ServiceVlan();
 
         bool operator() (const ServiceVlan &lhs, const ServiceVlan &rhs) const;
@@ -97,7 +97,6 @@ public:
         struct ether_addr dmac_;
         mutable VrfEntryRef vrf_;
         mutable uint32_t label_;
-        bool ecmp_;
     };
     typedef std::set<ServiceVlan, ServiceVlan> ServiceVlanSet;
 
