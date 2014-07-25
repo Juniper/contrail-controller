@@ -2403,8 +2403,13 @@ class VirtualMachineInterfaceST(DictST):
                                     ignore_acl=True)
                                 vrf_table.add_vrf_assign_rule(vrf_rule)
             # end for prule
-            vmi_obj = _vnc_lib.virtual_machine_interface_read(
-                fq_name_str=self.name)
+            try:
+                vmi_obj = _vnc_lib.virtual_machine_interface_read(
+                    fq_name_str=self.name)
+            except NoIdError:
+                _sandesh._logger.debug("NoIdError while reading virtual "
+                                       "machine interface: " + self.name)
+                return
             if (jsonpickle.encode(vrf_table) !=
                 jsonpickle.encode(vmi_obj.get_vrf_assign_table())):
                     vmi_obj.set_vrf_assign_table(vrf_table)
