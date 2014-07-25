@@ -196,14 +196,18 @@ bool FlowEntry::ActionRecompute() {
 
     action = data_.match_p.policy_action | data_.match_p.out_policy_action |
         data_.match_p.sg_action_summary |
-        data_.match_p.mirror_action | data_.match_p.out_mirror_action;
-    action &= ~(1 << TrafficAction::VRF_TRANSLATE);
-    action |= data_.match_p.vrf_assign_acl_action;
+        data_.match_p.mirror_action | data_.match_p.out_mirror_action |
+        data_.match_p.vrf_assign_acl_action;
 
     if (action & (1 << TrafficAction::VRF_TRANSLATE) && 
         data_.match_p.action_info.vrf_translate_action_.ignore_acl() == true) {
-        action = (1 << TrafficAction::VRF_TRANSLATE) |
-                 (1 << TrafficAction::PASS);
+        //In case of multi inline service chain, match condition generated on
+        //each of service instance interface takes higher priority than
+        //network ACL. Match condition on the interface would have ignore acl flag
+        //set to avoid applying two ACL for vrf translation
+        action = data_.match_p.vrf_assign_acl_action |
+            data_.match_p.sg_action_summary | data_.match_p.mirror_action |
+            data_.match_p.out_mirror_action;
     }
 
     // Force short flows to DROP
