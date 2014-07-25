@@ -494,20 +494,11 @@ void ServiceInstanceTable::Delete(DBEntry *entry, const DBRequest *request) {
 
 bool ServiceInstanceTable::OnChange(DBEntry *entry, const DBRequest *request) {
     ServiceInstance *svc_instance = static_cast<ServiceInstance *>(entry);
-    /*
-     * FIX(safchain), get OnChange with another object than ServiceInstanceUpdate
-     * when restarting agent with a registered instance
-     */
+
     if (dynamic_cast<ServiceInstanceUpdate*>(request->data.get()) != NULL) {
         ServiceInstanceUpdate *data =
                 static_cast<ServiceInstanceUpdate *>(request->data.get());
         svc_instance->set_properties(data->properties());
-    } else if (dynamic_cast<ServiceInstanceCreate*>(request->data.get()) != NULL) {
-        ServiceInstance::Properties properties;
-        properties.Clear();
-        assert(graph_);
-        svc_instance->CalculateProperties(graph_, &properties);
-        svc_instance->set_properties(properties);
     }
     return true;
 }
