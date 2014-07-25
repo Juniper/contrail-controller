@@ -273,17 +273,6 @@ bool VnUveEntry::UveVnVrfStatsChanged(const vector<UveVrfStats> &vlist) const {
     return false;
 }
 
-bool VnUveEntry::UveInterVnStatsChanged(const vector<InterVnStats> &new_list) 
-                                        const {
-    if (!uve_info_.__isset.vn_stats) {
-        return true;
-    }
-    if (new_list != uve_info_.get_vn_stats()) {
-        return true;
-    }
-    return false;
-}
-
 bool VnUveEntry::UveInterVnInStatsChanged(const vector<UveInterVnStats> 
                                           &new_list) const {
     if (!uve_info_.__isset.in_stats) {
@@ -413,11 +402,8 @@ bool VnUveEntry::PopulateInterVnStats(UveVirtualNetworkAgent &s_vn) {
         }
     }
     if (!vn_stats_list.empty()) {
-        if (UveInterVnStatsChanged(vn_stats_list)) {
-            s_vn.set_vn_stats(vn_stats_list);
-            uve_info_.set_vn_stats(vn_stats_list);
-            changed = true;
-        }
+        s_vn.set_vn_stats(vn_stats_list);
+        changed = true;
     }
     return changed;
 }

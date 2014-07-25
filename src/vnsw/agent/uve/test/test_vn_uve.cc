@@ -946,6 +946,94 @@ TEST_F(UveVnUveTest, VnThroughput) {
     EXPECT_EQ(size, Agent::GetInstance()->interface_config_table()->Size());
 }
 
+//Inter VN stats test between same VN(VMport to VMport - Same VN)
+TEST_F(UveVnUveTest, InterVnStats_1) {
+    VnUveTableTest *vnut = static_cast<VnUveTableTest *>
+        (Agent::GetInstance()->uve()->vn_uve_table());
+    vnut->ClearCount();
+    FlowSetUp();
+    TestFlow flow[] = {
+        //Add a ICMP forward and reverse flow
+        {  TestFlowPkt(vm1_ip, vm2_ip, 1, 0, 0, "vrf5",
+                flow0->id()),
+        {
+            new VerifyVn("vn5", "vn5"),
+            new VerifyVrf("vrf5", "vrf5")
+        }
+        },
+        {  TestFlowPkt(vm2_ip, vm1_ip, 1, 0, 0, "vrf5",
+                flow1->id()),
+        {
+            new VerifyVn("vn5", "vn5"),
+            new VerifyVrf("vrf5", "vrf5")
+        }
+        },
+        //Add a TCP forward and reverse flow
+        {  TestFlowPkt(vm1_ip, vm2_ip, IPPROTO_TCP, 1000, 200,
+                "vrf5", flow0->id()),
+        {
+            new VerifyVn("vn5", "vn5"),
+            new VerifyVrf("vrf5", "vrf5")
+        }
+        },
+        {  TestFlowPkt(vm2_ip, vm1_ip, IPPROTO_TCP, 200, 1000,
+                "vrf5", flow1->id()),
+        {
+            new VerifyVn("vn5", "vn5"),
+            new VerifyVrf("vrf5", "vrf5")
+        }
+        }
+    };
+
+    CreateFlow(flow, 4);
+    EXPECT_EQ(4U, Agent::GetInstance()->pkt()->flow_table()->Size());
+
+    //Invoke FlowStatsCollector to update the stats
+    Agent::GetInstance()->uve()->flow_stats_collector()->Run();
+
+    //Trigger dispatch of VN uve
+    const VnEntry *vn5 = VnGet(5);
+    vnut->SendVnStatsMsg_Test(vn5, false);
+
+    //Verify stats in the dispatched UVE
+    const UveVirtualNetworkAgent uve = vnut->last_sent_uve();
+    vector<InterVnStats> list = uve.get_vn_stats();
+    EXPECT_EQ(1U, list.size());
+    InterVnStats stats = list.front();
+    EXPECT_EQ(4U, stats.get_in_tpkts());
+    EXPECT_EQ(4U, stats.get_out_tpkts());
+    EXPECT_EQ((4U * 30), stats.get_in_bytes());
+    EXPECT_EQ((4U * 30U), stats.get_out_bytes());
+
+
+    const FlowEntry *fe1 = flow[0].pkt_.FlowFetch();
+    const FlowEntry *fe2 = flow[1].pkt_.FlowFetch();
+    //Inter-VN stats updation when flow stats are updated
+    //Change the stats in mock kernel
+    KSyncSockTypeMap::IncrFlowStats(fe1->flow_handle(), 1, 30);
+    KSyncSockTypeMap::IncrFlowStats(fe2->flow_handle(), 1, 30);
+    client->WaitForIdle(10);
+
+    //Invoke FlowStatsCollector to update the stats
+    Agent::GetInstance()->uve()->flow_stats_collector()->Run();
+
+    //Trigger dispatch of VN uve
+    vnut->SendVnStatsMsg_Test(vn5, false);
+
+    //Verify stats in the dispatched UVE. Verify only differential stats are sent
+    const UveVirtualNetworkAgent uve2 = vnut->last_sent_uve();
+    list = uve2.get_vn_stats();
+    EXPECT_EQ(1U, list.size());
+    stats = list.front();
+    EXPECT_EQ(2U, stats.get_in_tpkts());
+    EXPECT_EQ(2U, stats.get_out_tpkts());
+    EXPECT_EQ((2U * 30), stats.get_in_bytes());
+    EXPECT_EQ((2U * 30U), stats.get_out_bytes());
+
+    DeleteFlow(flow, 1);
+    FlowTearDown();
+}
+
 int main(int argc, char **argv) {
     GETUSERARGS();
     client = TestInit(init_file, ksync_init);
