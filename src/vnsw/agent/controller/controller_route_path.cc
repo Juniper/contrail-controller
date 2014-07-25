@@ -165,6 +165,13 @@ bool ControllerVmRoute::AddChangePath(Agent *agent, AgentPath *path) {
         ret = true;
     }
 
+    //If a transition of path happens from ECMP to non ECMP
+    //reset local mpls label reference and composite nh key
+    if (path->composite_nh_key()) {
+        path->set_composite_nh_key(NULL);
+        path->set_local_ecmp_mpls_label(NULL);
+    }
+
     return ret;
 }
 

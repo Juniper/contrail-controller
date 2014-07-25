@@ -206,7 +206,8 @@ bool AgentPath::Sync(AgentRoute *sync_route) {
     }
 
     //Check if there was a change in local ecmp composite nexthop
-    if (composite_nh_key_.get() != NULL) {
+    if (nh_ && nh_->GetType() == NextHop::COMPOSITE &&
+        composite_nh_key_.get() != NULL) {
         if (SetCompositeNH(agent, composite_nh_key_.get(), true)) {
             ret = true;
         }
