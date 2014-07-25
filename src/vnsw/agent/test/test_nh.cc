@@ -1380,6 +1380,61 @@ TEST_F(CfgTest, EcmpNH_13) {
     DelVrf("vrf1");
 }
 
+TEST_F(CfgTest, EcmpNH_14) {
+    //Create mutliple VM interface with same IP
+    struct PortInfo input1[] = {
+        {"vnet1", 1, "1.1.1.1", "00:00:00:01:01:01", 1, 1},
+        {"vnet2", 2, "1.1.1.1", "00:00:00:01:01:01", 1, 2}
+    };
+
+    CreateVmportWithEcmp(input1, 1);
+    client->WaitForIdle();
+    //First VM added, route points to composite NH
+    Ip4Address ip = Ip4Address::from_string("1.1.1.1");
+    Inet4UnicastRouteEntry *rt = RouteGet("vrf1", ip, 32);
+    EXPECT_TRUE(rt != NULL);
+    const NextHop *nh = rt->GetActiveNextHop();
+    EXPECT_TRUE(nh->GetType() == NextHop::INTERFACE);
+
+    DBEntryBase::KeyPtr db_nh_key = nh->GetDBRequestKey();
+    NextHopKey *nh_key = static_cast<NextHopKey *>(db_nh_key.release());
+    std::auto_ptr<const NextHopKey> nh_key_ptr(nh_key);
+    ComponentNHKeyPtr nh_data1(new ComponentNHKey(rt->GetMplsLabel(),
+                                                  nh_key_ptr));
+    Ip4Address remote_server_ip1 = Ip4Address::from_string("11.1.1.1");
+    //Leak the route via BGP peer
+    ComponentNHKeyPtr nh_data2(new ComponentNHKey(30, agent_->fabric_vrf_name(),
+                                                  agent_->router_id(),
+                                                  remote_server_ip1,
+                                                  false,
+                                                  TunnelType::DefaultType()));
+    ComponentNHKeyList comp_nh_list;
+    comp_nh_list.push_back(nh_data1);
+    comp_nh_list.push_back(nh_data2);
+
+    SecurityGroupList sg_id_list;
+    EcmpTunnelRouteAdd(bgp_peer, "vrf1", ip, 32,
+                       comp_nh_list, false, "vn1", sg_id_list,
+                       PathPreference());
+    client->WaitForIdle();
+
+    //Deactivate vm interface
+    DelLink("virtual-network", "vn1", "virtual-machine-interface", "vnet1");
+    //Transition ecmp to tunnel NH
+    Inet4TunnelRouteAdd(bgp_peer, "vrf1", ip, 32, remote_server_ip1,
+                        TunnelType::DefaultType(), 30, "vn2",
+                        SecurityGroupList(), PathPreference());
+    client->WaitForIdle();
+
+    //Resync the route
+    rt->EnqueueRouteResync();
+    client->WaitForIdle();
+
+    DeleteVmportEnv(input1, 2, true);
+    client->WaitForIdle();
+    EXPECT_FALSE(VrfFind("vrf1", true));
+}
+
 TEST_F(CfgTest, TunnelType_1) {
     AddEncapList("MPLSoGRE", NULL, NULL);
     client->WaitForIdle();
