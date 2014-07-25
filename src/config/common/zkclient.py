@@ -251,7 +251,7 @@ class ZookeeperClient(object):
             # Best of option we have is to exit the process and restart all 
             # over again
             os._exit(2)
-        elif state == KazooState.CONNECTING:
+        elif state == KazooState.SUSPENDED:
             # Update connection info
             self._sandesh_connection_info_update(status='INIT',
                 message = 'Connection to zookeeper lost. Retrying')
