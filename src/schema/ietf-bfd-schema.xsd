@@ -7,7 +7,7 @@
 			<!-- naming scheme conforms to RFC 5880 -->
 			<xsd:element name='desired-min-tx-interval' type='xsd:time'/>
 			<xsd:element name='required-min-rx-interval' type='xsd:time'/>
-			<xsd:element name='detection-time-multiplier' type='xsd:integer/'>
+			<xsd:element name='detection-time-multiplier' type='xsd:integer/'/>
 		</xsd:sequence>
 	</xsd:complexType>
 </xsd:schema>
