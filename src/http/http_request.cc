@@ -9,7 +9,7 @@
 using namespace std;
 
 HttpRequest::HttpRequest() :
-    method_(static_cast<http_method>(-1)) {
+    method_(static_cast<http_method>(-1)), event_(TcpSession::EVENT_NONE) {
 }
 
 string HttpRequest::ToString() const {

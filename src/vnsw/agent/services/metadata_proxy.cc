@@ -27,6 +27,10 @@
 #include "services/services_types.h"
 #include "services/services_init.h"
 #include "services/metadata_proxy.h"
+#include "services/metadata_server.h"
+#include "services/metadata_server_session.h"
+#include "services/metadata_client.h"
+#include "services/metadata_client_session.h"
 #include "services/services_sandesh.h"
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -78,8 +82,8 @@ GetHmacSha256(const std::string &key, const std::string &data) {
 MetadataProxy::MetadataProxy(ServicesModule *module,
                              const std::string &secret)
     : services_(module), shared_secret_(secret),
-      http_server_(new HttpServer(services_->agent()->event_manager())),
-      http_client_(new HttpClient(services_->agent()->event_manager())) {
+      http_server_(new MetadataServer(services_->agent()->event_manager())),
+      http_client_(new MetadataClient(services_->agent()->event_manager())) {
 
     // Register wildcard entry to match any URL coming on the metadata port
     http_server_->RegisterHandler(HTTP_WILDCARD_ENTRY,
@@ -161,7 +165,6 @@ MetadataProxy::HandleMetadataRequest(HttpSession *session, const HttpRequest *re
     std::string uri = request->UrlPath().substr(1); // ignore the first "/"
     const std::string &body = request->Body();
     {
-        tbb::mutex::scoped_lock lock(mutex_);
         HttpConnection *conn = GetProxyConnection(session, conn_close);
         if (conn) {
             switch(request->GetMethod()) {
@@ -237,8 +240,6 @@ MetadataProxy::HandleMetadataResponse(HttpConnection *conn, HttpSessionPtr sessi
                                       std::string &msg, boost::system::error_code &ec) {
     bool delete_session = false;
     {
-        tbb::mutex::scoped_lock lock(mutex_);
-
         // Ignore if session is closed in the meantime
         SessionMap::iterator it = metadata_sessions_.find(session.get());
         if (it == metadata_sessions_.end())
@@ -298,7 +299,6 @@ void
 MetadataProxy::OnServerSessionEvent(HttpSession *session, TcpSession::Event event) {
     switch (event) {
         case TcpSession::CLOSE: {
-            tbb::mutex::scoped_lock lock(mutex_);
             SessionMap::iterator it = metadata_sessions_.find(session);
             if (it == metadata_sessions_.end())
                 break;
@@ -317,7 +317,6 @@ MetadataProxy::OnClientSessionEvent(HttpClientSession *session, TcpSession::Even
     switch (event) {
         case TcpSession::CLOSE: {
             {
-                tbb::mutex::scoped_lock lock(mutex_);
                 ConnectionSessionMap::iterator it = 
                     metadata_proxy_sessions_.find(session->Connection());
                 if (it == metadata_proxy_sessions_.end())

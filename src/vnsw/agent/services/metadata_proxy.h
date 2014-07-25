@@ -8,7 +8,8 @@
 class EventManager;
 class HttpSession;
 class HttpRequest;
-class HttpServer;
+class MetadataServer;
+class MetadataClient;
 
 class MetadataProxy {
 public:
@@ -63,12 +64,11 @@ private:
 
     ServicesModule *services_;
     std::string shared_secret_;
-    HttpServer *http_server_;
-    HttpClient *http_client_;
+    MetadataServer *http_server_;
+    MetadataClient *http_client_;
     SessionMap metadata_sessions_;
     ConnectionSessionMap metadata_proxy_sessions_;
     MetadataStats metadata_stats_;
-    tbb::mutex mutex_;
 
     DISALLOW_COPY_AND_ASSIGN(MetadataProxy);
 };
