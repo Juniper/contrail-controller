@@ -127,8 +127,8 @@ class FloatingIpServer(FloatingIpServerGen):
             cls.addr_mgmt.ip_alloc_req(vn_fq_name, asked_ip_addr=req_ip)
         except Exception as e:
             return (False, (500, str(e)))
-        print 'AddrMgmt: alloc %s FIP for vn=%s, tenant=%s to recover DELETE failure' \
-            % (obj_dict['floating_ip_address'], vn_fq_name, tenant_name)
+        print 'AddrMgmt: alloc %s FIP for vn=%s to recover DELETE failure' \
+            % (obj_dict['floating_ip_address'], vn_fq_name)
         return True, ""
     # end http_delete_fail
 
@@ -216,8 +216,8 @@ class InstanceIpServer(InstanceIpServerGen):
             cls.addr_mgmt.ip_alloc_req(vn_fq_name, asked_ip_addr=req_ip)
         except Exception as e:
             return (False, (500, str(e)))
-        print 'AddrMgmt: alloc %s for vn=%s, tenant=%s to recover DELETE failure' \
-            % (obj_dict['instance_ip_address'], vn_fq_name, tenant_name)
+        print 'AddrMgmt: alloc %s for vn=%s to recover DELETE failure' \
+            % (obj_dict['instance_ip_address'], vn_fq_name)
         return True, ""
     # end http_delete_fail
 
