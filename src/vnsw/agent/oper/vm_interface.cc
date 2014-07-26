@@ -1775,7 +1775,7 @@ void VmInterface::FloatingIp::Activate(VmInterface *interface,
         (interface->get_table())->agent();
     DnsProto *dns = agent->GetDnsProto();
     if (dns) {
-        dns->UpdateDnsEntry(interface, vn_.get(), floating_ip_, false);
+        dns->UpdateFloatingIp(interface, vn_.get(), floating_ip_, false);
     }
 
     installed_ = true;
@@ -1790,7 +1790,7 @@ void VmInterface::FloatingIp::DeActivate(VmInterface *interface) const {
         (interface->get_table())->agent();
     DnsProto *dns = agent->GetDnsProto();
     if (dns) {
-        dns->UpdateDnsEntry(interface, vn_.get(), floating_ip_, true);
+        dns->UpdateFloatingIp(interface, vn_.get(), floating_ip_, true);
     }
     installed_ = false;
 }
