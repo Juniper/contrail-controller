@@ -339,6 +339,10 @@ public:
     void set_controller_ifmap_xmpp_server(const std::string &addr, uint8_t idx) {
         xs_addr_[idx] = addr;
     }
+    void reset_controller_ifmap_xmpp_server(uint8_t idx) {
+        xs_addr_[idx].clear();
+        xs_port_[idx] = 0;
+    }
 
     const uint32_t controller_ifmap_xmpp_port(uint8_t idx) const {
         return xs_port_[idx];
@@ -437,6 +441,10 @@ public:
     const std::string &dns_server(uint8_t idx) const {return dns_addr_[idx];}
     void set_dns_server(const std::string &addr, uint8_t idx) {
         dns_addr_[idx] = addr;
+    }
+    void reset_dns_server(uint8_t idx) {
+        dns_addr_[idx].clear();
+        dns_port_[idx] = 0;
     }
 
     const uint32_t dns_server_port(uint8_t idx) const {return dns_port_[idx];}

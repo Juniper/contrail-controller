@@ -41,7 +41,8 @@ public:
         int unreach;
     };
 
-    BgpXmppChannel(XmppChannel *, BgpServer *, BgpXmppChannelManager *);
+    explicit BgpXmppChannel(XmppChannel *channel,
+        BgpServer *bgp_server = NULL, BgpXmppChannelManager *manager = NULL);
     virtual ~BgpXmppChannel();
 
     void Close();
@@ -64,6 +65,9 @@ public:
     void FillTableMembershipInfo(BgpNeighborResp *resp);
 
     const XmppChannel *channel() const { return channel_; }
+
+protected:
+    XmppChannel *channel_;
 
 private:
     friend class BgpXmppChannelMock;
@@ -153,7 +157,6 @@ private:
     void ProcessDeferredSubscribeRequest(RoutingInstance *rt_instance, 
                                          int instance_id);
     xmps::PeerId peer_id_;
-    XmppChannel *channel_;
     BgpServer *bgp_server_;
     boost::scoped_ptr<XmppPeer> peer_;
     boost::scoped_ptr<PeerClose> peer_close_;
