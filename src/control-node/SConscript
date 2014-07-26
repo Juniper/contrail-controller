@@ -190,7 +190,7 @@ env.GenerateBuildInfoCode(
 		['main.cc', 'options.cc', 'sandesh/control_node_sandesh.cc'],
 	path = Dir('.').path)
 
-ctrlnode = env.Program(target = 'control-node',
+ctrlnode = env.Program(target = 'contrail-control',
                        source = ['buildinfo.cc',
                                  'main.cc',
                                  'options.cc',
@@ -212,4 +212,4 @@ env.Alias('control-node', ctrlnode)
 env.SConscript('test/SConscript', exports='BuildEnv', duplicate = 0)
 
 env.Alias('install', env.Install(env['INSTALL_BIN'], ctrlnode))
-env.Alias('install', env.Install(env['INSTALL_CONF'], 'control-node.conf'))
+env.Alias('install', env.Install(env['INSTALL_CONF'], 'contrail-control.conf'))
