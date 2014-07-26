@@ -1008,9 +1008,9 @@ class SvcMonitor(object):
                 pass
     # end _update_static_routes
 
-    def _get_default_security_group(self, proj_obj):
-        domain_name, proj_name = proj_obj.get_fq_name()
-        sg_fq_name = [domain_name, proj_name, "default"]
+    def _get_default_security_group(self, vn_obj):
+        sg_fq_name = vn_obj.get_fq_name()[:-1]
+        sg_fq_name.append('default')
         sg_obj = None
         try:
             sg_obj = self._vnc_lib.security_group_read(fq_name=sg_fq_name)
@@ -1093,7 +1093,7 @@ class SvcMonitor(object):
         st_props = st_obj.get_service_template_properties()
         if (st_props.service_mode in ['in-network', 'in-network-nat'] and
             proj_name != 'default-project'):
-            sg_obj = self._get_default_security_group(proj_obj)
+            sg_obj = self._get_default_security_group(vn_obj)
             vmi_obj.set_security_group(sg_obj)
         if nic['static-route-enable']:
             rt_obj = self._set_static_routes(nic, vmi_obj, proj_obj, si_obj)
