@@ -1,0 +1,440 @@
+TODO: Work in-progress
+----------------------
+
+VNsw Agent
+----------
+VNsw Agent (also called Agent) in Contrail solution is responsible to manage
+the dataplane component. It is similar to any data-path agent that runs on line
+cards of a network node. Responsibilities of Agent includes,
+    - Interface with Contrail-Controller to get the configuration
+      Agent gets processes the configuration and translates it to the
+      form that datapath can understand.
+    - Interface with Contrail-Controller to manage routes
+    - Collect and export statistics from datapath
+    - Translate the datamodel from IFMap to the datamodel used by datapath
+
+Refer to Contrail architecture document at
+http://opencontrail.org/opencontrail-architecture-documentation/ for more
+information.
+
+Agent contains following modules,
+    - Config
+    - Oper-DB
+    - Controller
+    - UVE
+    - Pkt
+    - Services
+    - KSync
+
+The contrail-vxlan-agent is port of contrail-vrouter-agent on platforms
+supporting vxlan bridges. The diagram below gives overview of different
+modules invovlved
+
++-----------------------------------------------------------+                      
+|                                                           |                      
+|                                      +----------------+   |  Thrift IPC            
+|      +-------------------------------|Instance Service|<---------                 
+|      |                               +----------------+   |                      
+|   Add/Del Port                                            |                      
+|      |                               +----------------+   |   +-------------+        
+|      |                         +---->| Vrouter KSync  |------>|Vrouter      |        
+|      |                         |     +------^---------+   |   +-------------+        
+|      |                         |            |             |   Netlink msgs
+|      |                         |            |             |   
+|      |                         |     +------+---------+   |
+|      |                         +---->| Flow           |   |
+|      |                         |     +----------------+   |
+|      |                         |                          |
+|      |                         |                          |
+|      |                         |     +----------------+   |
+|      |                         |---->| Services       |   |
+|      |                         |     +----------------+   |
+| +----V---+     +---------+ DB Notification                |
+| |Config  |---->| Oper-DB |-----+                          |
+| +----^---+     +-----^---+     |                          |
+|      |               |         |                          |  IFMap msgs on
+|      |               |         |                          |  XMPP Channel                 
+|   IFMap           Routes       |    +----------------+    |  +-------------+            
+|      |               |         |--->| Controller     |<----->|Control Node |            
+|      |               |         |    +--+------+---^--+    |  +-------------+            
+|      |               |         |       |      |   |       |                             
+|      |               +---------|-------+      |   |       |                             
+|      +-------------------------|--------------+   |       |                             
+|                                |                  |       |                             
+|                                |     +------------+---+   |                      
+|                                +---->| Discovery      |   |                      
+|                                      +------------+---+   |                      
+|                                                   |       |                      
+|                                                   |       |
+|                                      +------------V--+    |
+|                                      | UVE           |    |                             
+|                                      +---------------+    |
+|                AGENT                                      |                             
++-----------------------------------------------------------+                             
+
+
+Config :
+-------
+Config module implements the north-bound interface for agent. Agent gets two
+type of configurations,
+
+    Virtual-Machine Ports : 
+    -----------------------
+    Agent opens a thrift service (name InstanceService) to listen for
+    Port-Add / Port-Delete message. Port-Add informs agent about a
+    Virtual Machine Interface created on the compute node. The Port-Add message
+    also contains following information,
+        - Name of Virtual Machine Port
+        - Virtual Machine for the port
+        - Mac and IP address for the port
+        - Virtual Network for the port
+    
+    Once Agent comes to know about creation of a port, it will send a 
+    subscribe message to Contrail-Controller for the Virtual-Machine. 
+
+    When Contrail-Controller gets the subscribe message gor a virtual-machine,
+    it will walk through the IFMap Graph and send all configuration relavent
+    for virtual-machine to the agent.
+
+    IFMap :
+    ------
+    All VNC Configuration is stored as MAP (Metadata Access Point) database.
+    The MAP database is accessed using IF-MAP protcol. 
+
+    Agent does not access the MAP database directly. Instead, Agent opens an
+    XMPP connection to Contrail-Controller to get the MAP configuration.
+    Contrial-Controller works on a subscription model. Agent must subscribe
+    to the virtual-machines of interest and Contrail-Controller will download
+    all the configuration relavent to the virtual-machine. This way, Agent 
+    gets only minimal configuration needed for it.
+
+    Agent subscribes to a virtual-machine when it gets Port-Add message
+    for a Virtual Machine Interface. 
+
+    Agent uses IFMap-Agent-Client library to parse the IFMap messages from XMPP
+    channel to Contrail-Controller. The IFMap-Agent-Client defines a DBTable
+    for every IFMap Node type. A special DBTable is defined to store the IFMap
+    Links.
+    
+    IFMap-Agent-Client also forms a graph for ease of navigating the IFMap
+    configuration. An IFMap Node becomes vertex in the graph and Links become
+    edge in the graph.
+    
+    Config Handling
+    ---------------
+    Config module registers for DBTables of interest from IFMap-Agent-Client
+    library. Any add/delete/update of configuration will result in a callback
+    to the Config module. The Config module will in-turn do basic validation
+    on the config nodes and then invoke Oper-DB to process the configuration.
+
+    Redundancy
+    ----------
+    Agent connects to two different Control-Nodes for redundancy. When XMPP
+    connection for one of the Control-Node goes down, it will subscribe to
+    other Control-Node for configuration. On connecting to new Control-Node,
+    Config module audits the configuration to remove stale configuration.
+
+Oper-DB : 
+---------
+The Oper-DB module holds operational state of different objects in Agent. The
+operational state processes the configuration and creates different tables
+appropriate for agent.
+
+Some of the important tables in Oper-DB are,
+
+    Virtual-Network
+    ---------------
+    Table of all virtual-networks with UUID as the key. It contains following
+    information,
+      - IPAM Data : The IPAM configured for the virtual-network. It includes
+        DHCP configuration, DNS configuration, Subnet configuration etc...
+      - Network Policy : Network Policy ACL for the virtual-network
+      - Mirroring : Mirroring ACL for the virtual-network
+      - VxLan-Id : VxLan-Id to be used when VxLan encapsulations is used.
+      - layer3_forwarding : Specifies if layer3 forwarding is enabled for
+         IPv4/IPv6 packets
+      - layer2_forwarding : Specifies if layer2 forwarding is enabled.
+        If layer3_forwarding is disabled, even IPv4/IPv6 packets are layer2
+        forwarded.
+
+    VRF 
+    ---
+    VRF table is represents a routing-instance in configuration. Each
+    virtual-network has a "native" VRF. Other than per virtual-network VRF,
+    there can be other internal VRF. The internal VRF's are used in features
+    such as service-chaining etc...
+    
+    Each VRF has a set of routing-tables as its member.
+      - Inet4 Unicast Table : Table contraining Inet4 unicast routes
+      - Inet4 Multicast Table : Table containing Inet4 multicast route table
+      - Layer2 Table : Layer2 for routing-instance. The Layer2 table is
+        currently used only in case of "native" VRF for a virtual-network.
+
+    Based on platforms, agent creates few VRF implicitly,
+      - Openstack:
+        Agent implicitly creates a VRF for fabric-network with name
+        "default-domain:default-project:ip-fabric:__default__"
+      - XEN:
+        Agent implicitly creates a VRF for fabric-network with name
+        "default-domain:default-project:__link_local__"
+
+    Virtual-Machine
+    ---------------
+    Virtual-machine table stores all virtual-machines spawned on the compute
+    node.
+
+    Interface
+    ---------
+    Table contraining all interfaces in agent. Agent supports different type of
+    interfaces. They key and data of interface varies on type of interface.
+
+      - Physical Interface : 
+        Represents physical ports on the compute node.  Physical interfaces
+        are created based on config-file for agent.
+      - Packet Interface :
+        Interface used to exchange packets between vrouter and agent.
+        Typically named "pkt0". This interface is automatically created in
+        agent.
+      - Inet Interface :
+        The layer3 Inet interfaces managed by agent. Agent can have one or
+        more Inet Interfaces based on platform used. 
+          * Openstack :
+            In case of openstack, agent creates "vhost0" inet-interface.
+            "vhost0" is a layer-3 interface in host-os. Agent uses this
+            layer-3 interface for tunnel encap and decap. The interface is
+            added into Fabric VRF
+
+          * Xen:
+            In case of XEN, agent creates "xapi0" interface. The "xapi0"
+            interface is added into XEN link-local VRF.
+
+          * VGW :
+            Every VGW instance has a VGW interface created. VGW interface
+            is un-numbered and does not have any IP address.
+
+      - VM Interface :
+        This interface represents an virtual-machine interface. The interface
+        is created when agent gets a "AddPort" message from the thrift service
+        "InstanceService".
+
+    An interface is in "Active" state if all the necessary configuration
+    for interface is available and it can be made operational.
+
+    An interface is in "Inactive" if it cannot be made operational. The reason
+    could be missing configuration or the link-state down etc...
+
+    Routes
+    ------
+    Every VRF has a set of route tables for Inet4 Unicast routes, Inet4
+    Mulitcast routes and Layer2 MAC routes.
+
+    Every route specifies the forwarding action for a destination. Agent has
+    multiple modules that can have different view of forwarding action for a
+    destination. Each forwarding action is specified in the form of a path.
+    Each module that adds a path is identified by a Peer in the path.
+
+    Route keeps the list of paths sorted. The head of this list is treated as
+    "Active" path for the route.
+
+    Every path contains NextHop that describes forwarding action.
+
+    Unicast Route table also maintains route entries in form of Patricia tree
+    to support LPM on the tree.
+
+    NextHops
+    --------
+    NextHop describes the forwarding action for routes pointing it. When route 
+    lookup for an address hits the route, the forwarding action for packet is
+    defined by the NextHop.
+
+    Different type of NextHops supported in agent are,
+      - Discard 
+        Packets hitting Discard nexthop must be dropped.
+
+      - Receive 
+        Packets hitting Receive nexthop are destined to host-os. The nexthop
+        has an interface on which packets must be transmistted. 
+
+      - Resolve 
+        Packets hitting Resolve nexthop will need ARP resolution.
+        For example, if IP address 10.1.1.1/24 is assigned to interface vhost0,
+        following routes and nexthops are generated,
+          * Route 10.1.1.1/32 is added with Receive NextHop pointing to vhost0
+          * Route 10.1.1.0/24 is added with Resolve NextHop. Any packet hitting
+            this route will trigger ARP resolution.
+      - Arp
+        Routes created as a result of ARP resolution point to ARP nexthop.
+        In example above, we can have routes 10.1.1.1.2/32, 10.1.1.3/32 etc...
+        pointing to Arp nexthop.
+
+      - Interface
+        Specifies that packets hitting this nexthop must be transmitted on
+        the interface
+
+      - Tunnel
+        Specifies that packets hitting this nexthop must be encapsulated in a
+        tunnel. The tunnel-nexthop specifies tunnel destination IP address.
+        The packet post tunneling is routed on fabric network.
+
+      - Multicast Composite
+        Mulitcast Composite Nexthop contains a set of component-nexthops. Packet
+        hitting the Multicast Composite Nexthop must be replicated and
+        transmitted on all the component next-hops.
+
+      - ECMP Composite
+        ECMP Composite Nexthop contains a set of component-nexthops. Packet 
+        hitting the ECMP Composite Nexthop must be sent out on one of the 
+        component Nexthop. Pacekt forwarding component must ensure that 
+        packets for a connection are always transmitted on the same component
+        nexthop of a ECMP Composite nexthop.
+
+        ECMP composite nexthop is used to load-balance traffic across multiple
+        nexthops.
+
+    MPLS
+    ----
+    MPLS label defines forwarding action for MPLS tunelled packets recieved
+    on Fabric network.
+
+    Agent allocates following labels,
+
+      - Two labels are allocated for every VM Interface
+        * A label for layer3 packets
+        * A label for layer2 packets
+      - A label for every Multicast Composite Nexthop
+      - A label for every ECMP Composite Nexthop
+
+    Multicast
+    ---------
+    This module is responsible to manage multicast routes. 
+    TBD
+
+    VxLan
+    -----
+    The VxLan table contains an entry for every VxLan-Id created.
+
+Controller : 
+------------
+This module manages the communication between Agent and Contrail-Controller. 
+Agent connects to two Contrail-Controllers for redundancy.
+
+2 XMPP channels are opened with each of the Contrail-Controllers
+
+    Config Channel
+    --------------
+    Contrail-Controller uses this channel to send IFMap configuration to
+    agent.
+
+    Agent subscribes to configuration from only one of the XMPP channels at
+    a time. If the subscribed channel goes down, it will switch subscription
+    to the other channel.
+
+    Route Channel
+    -------------
+    This channel is used to exchange routes between agent and
+    Contrail-Controller. Agent connects to two Contrail-Controller at a time
+    and routes are exchanged between both the channels. Route from each
+    channels is added with a different "Route Peer". When one of the channel
+    goes down, it only deletes "Route Path" from channel that went down.
+
+        Route Export
+        ------------
+        Agent exports routes for virtual-machines spawned on the local compute
+        node. Agent exports route with following information,
+          * Routing instance for the route
+          * Destination Network for the route
+          * MPLS Label for route if MPLSoGRE or MPLSoUDP encapsulation is being
+            used
+          * VxLan-Id for route if VxLan encapsulation is being used
+          * Gateway for the route. This is implicitly derived from the XMPP
+            channel
+          * Security Group membership for the routes
+        Compute node implicity derives the virtual-network name for route from 
+        the Routing-Instance
+
+        Route Import
+        ------------
+        Contrail-Controller collects routes from all agents. Controller syncs
+        routes in a routing-instance if agent is subscribed to the
+        routing-instance. Agent will subscribe to all routing-instances for in
+        the VRF table.
+
+        Routes are exchanged between Agent and Contrail-Controller over XMPP
+        channel in XML format. 
+     
+        The Controller module decodes the XMPP messages and adds/deletes 
+        "Route Paths" into the routing-tables. Contrail-Controller gives
+        following information for every route,
+          * Routing instance for the route
+          * Destination Network for the route
+          * MPLS Label for route if MPLSoGRE or MPLSoUDP encapsulation is being
+            used
+          * VxLan-Id for route if VxLan encapsulation is being used
+          * Gateway for the route. This is implicitly derived from the XMPP
+            channel
+          * Security Group membership for the routes
+          * Virtual-Network for the route
+
+    Contrail-Controller also reflects back the routes added by agent itself.
+    When route is received, agent looks at the Gateway IP-Address to identify
+    if the route is hosted on local compute node or a remote compute node.
+    If the route is hosted on remote compute node, the Controller module 
+    will create a Tunnel-NextHop to be used in route.
+
+    Headless Mode
+    -------------
+    When the XMPP channel from Agent to contrail-controller goes down, agent
+    will flush all the "Route Path" added by a controller. If connection to
+    both Contrail-Controller goes down, this can result in deleting of routes
+    distributed by controller.
+
+    Connection to Contrail-Controllers can go down for many reasons including,
+    network failure, Contrail-Controller node going down etc.. Deleting paths
+    can result in connectivity loss between virtual-machines.
+
+    Headless mode is introucuded as a resilient mode of operation for Agent.
+    When running in Headless mode, agent will retain the last "Route Path"
+    from Contrail-Controller. The "Route Path" are held till a new stable 
+    connection is established to one of the Contrail-Controller. Once the 
+    XMPP connection is up and is stable for a pre-defined duration, the 
+    "Route Path" from old XMPP connection are flushed.
+
+Agent KSync
+-----------
+The Oper-DB in Agent contains different tables and defines the datamodel used
+in the Agent. While the Agent datamodel was initially developed for
+Contrail-Vrouter-Agent, it is mostly independent of specific platforms. 
+
+The datamodel used by datapath can vary based on the platform being ports.
+Agent KSync module is resposible to do the translation between the datamodels
+used by Agent and the datapath.
+
+Functionality of Agent KSync includes,
+    - Provide translation between datamodels of Agent and the Forwarding plane
+        - KSync will be aware of datamodel used in dataplane
+        - Oper-DB defines datamodule of Agent
+    - Keep the operational state of agent in-sync with the forwarding plane
+    - Keep Agent platform independent
+      Ex: KSync in Contrail-Vrouter-Agent is only module which knows that
+      flow table is memory mapped into Contrail-Vrouter-Agent memory
+
+We need to have different implementation of Agent KSync based on the platform.
+
+UVE
+---
+The UVE module is responsible to generate UVE message to collector. UVE module
+registers with Oper-DB and also polls the flows/vrouter to generate the UVE
+messages to collector.
+
+Services
+--------
+This module is responsible to run following services in agent,
+    - ARP
+    - DHCP
+    - DNS
+    - Ping
+    - ICMP error generation
+
+Flow
+---
+TBD
