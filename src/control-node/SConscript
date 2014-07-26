@@ -190,7 +190,7 @@ env.GenerateBuildInfoCode(
 		['main.cc', 'options.cc', 'sandesh/control_node_sandesh.cc'],
 	path = Dir('.').path)
 
-ctrlnode = env.Program(target = 'control-node',
+ctrlnode = env.Program(target = 'contrail-control',
                        source = ['buildinfo.cc',
                                  'main.cc',
                                  'options.cc',
