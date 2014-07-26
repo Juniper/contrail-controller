@@ -25,6 +25,11 @@ void AddXmlHdr(char *buff, int &len);
 void AddXmlTail(char *buff, int &len);
 void AddLinkString(char *buff, int &len, const char *node_name1,
                    const char *name1, const char *node_name2, const char *name2);
+void AddLinkString(char *buff, int &len, const char *node_name1,
+                   const char *name1, const char *node_name2,
+                   const char *name2, const char *mdata);
+void AddLink(const char *node_name1, const char *name1,
+             const char *node_name2, const char *name2, const char *mdata);
 void DelLinkString(char *buff, int &len, const char *node_name1,
                    const char *name1, const char *node_name2, const char *name2);
 void AddNodeString(char *buff, int &len, const char *node_name, const char *name,

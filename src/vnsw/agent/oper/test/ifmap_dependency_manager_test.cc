@@ -180,7 +180,7 @@ TEST_F(IFMapDependencyManagerTest, VirtualMachineEvent) {
                                   "virtual-machine", "id-1",
                                   "virtual-machine-service-instance");
     task_util::WaitForIdle();
-    ASSERT_EQ(1, change_list_.size());
+    ASSERT_EQ(2, change_list_.size());
     TestEntry *entry = static_cast<TestEntry *>(change_list_.at(0));
     EXPECT_EQ("id-1", entry->name());
 }
@@ -200,7 +200,7 @@ TEST_F(IFMapDependencyManagerTest, TemplateEvent) {
                                   "service-template", "id-1",
                                   "service-instance-service-template");
     task_util::WaitForIdle();
-    ASSERT_EQ(1, change_list_.size());
+    ASSERT_EQ(2, change_list_.size());
     TestEntry *entry = static_cast<TestEntry *>(change_list_.at(0));
     EXPECT_EQ("id-1", entry->name());
 }
@@ -238,7 +238,8 @@ TEST_F(IFMapDependencyManagerTest, VMIEvent) {
     ASSERT_LE(1, change_list_.size());
     for (int i = 0; i < change_list_.size(); ++i) {
         TestEntry *entry = static_cast<TestEntry *>(change_list_.at(i));
-        EXPECT_EQ("id-1", entry->name());
+        EXPECT_TRUE(((strcmp(entry->name().c_str(), "id-1") == 0) ||
+                    (strcmp(entry->name().c_str(), "id-2") == 0)));
     }
     change_list_.clear();
 
@@ -285,6 +286,48 @@ TEST_F(IFMapDependencyManagerTest, VMIEvent) {
         EXPECT_EQ("id-2", entry->name());
     }
     change_list_.clear();
+}
+
+TEST_F(IFMapDependencyManagerTest, NotifyOrder_1) {
+    typedef IFMapDependencyManagerTest_NotifyOrder_1_Test TestClass;
+    manager_->Register(
+        "service-instance",
+        boost::bind(&TestClass::ChangeEventHandler, this, _1));
+    ifmap_test_util::IFMapMsgNodeAdd(&database_, "service-instance", "si-1");
+    task_util::WaitForIdle();
+
+    CreateObject("service-instance", "si-1");
+    task_util::WaitForIdle();
+    ASSERT_EQ(1, change_list_.size());
+    TestEntry *entry = static_cast<TestEntry *>(change_list_.at(0));
+    EXPECT_EQ("si-1", entry->name());
+
+}
+
+TEST_F(IFMapDependencyManagerTest, NotifyOrder_2) {
+    typedef IFMapDependencyManagerTest_NotifyOrder_2_Test TestClass;
+    manager_->Register(
+        "service-instance",
+        boost::bind(&TestClass::ChangeEventHandler, this, _1));
+
+    ifmap_test_util::IFMapMsgNodeAdd(&database_, "virtual-machine", "vm-1");
+    ifmap_test_util::IFMapMsgNodeAdd(&database_, "virtual-network", "vn-1");
+    task_util::WaitForIdle();
+
+    ifmap_test_util::IFMapMsgLink(&database_,
+        "virtual-network", "vn-1", "virtual-machine", "vm-1",
+        "virtual-network-virtual-machine");
+    ifmap_test_util::IFMapMsgNodeAdd(&database_, "service-instance", "si-1");
+    ifmap_test_util::IFMapMsgNodeAdd(&database_, "service-template", "st-1");
+    ifmap_test_util::IFMapMsgLink(&database_,
+        "service-instance", "si-1", "service-template", "st-1",
+        "service-instance-service-template");
+    task_util::WaitForIdle();
+    CreateObject("service-instance", "si-1");
+    task_util::WaitForIdle();
+    ASSERT_EQ(1, change_list_.size());
+    TestEntry *entry = static_cast<TestEntry *>(change_list_.at(0));
+    EXPECT_EQ("si-1", entry->name());
 }
 
 static void SetUp() {

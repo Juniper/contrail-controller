@@ -135,6 +135,7 @@ class ServiceInstanceTable : public AgentDBTable {
 
     static DBTableBase *CreateTable(DB *db, const std::string &name);
 
+    void RegisterEventHandler();
  private:
     /*
      * Invoked by dependency manager whenever a node in the graph

@@ -257,6 +257,20 @@ void IFMapDependencyManager::SetObject(IFMapNode *node, DBEntry *entry) {
     } else {
         state->set_object(entry);
     }
+
+    /*
+     * Re-ordering of DBTable notifications can result in following sequence,
+     *    - Node-A
+     *    - Link(Node-A <-> Link-B)
+     *    - Node-B
+     *
+     * When Link is notified, Node-B is not yet created. As a result, Node-A
+     * would not create reference to Node-B.
+     *
+     * SetObject is typically called when DBEntry is created. Rebake the nodes
+     * to reprocess the ignored links.
+     */
+    NodeObserver(node->get_table_partition(), node);
 }
 
 /*

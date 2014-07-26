@@ -62,7 +62,13 @@ class ServiceInstanceIntegrationTest : public ::testing::Test {
         task_util::WaitForIdle();
 
         agent_->oper_db()->Shutdown();
+        delete agent_->oper_db();
+        agent_->set_oper_db(NULL);
+
         agent_->cfg()->Shutdown();
+        delete agent_->cfg();
+        agent_->set_cfg(NULL);
+
         task_util::WaitForIdle();
 
         DB *database = agent_->db();

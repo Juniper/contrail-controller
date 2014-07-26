@@ -69,6 +69,23 @@ void AddLinkString(char *buff, int &len, const char *node_name1,
     len = strlen(buff);
 }
 
+void AddLinkString(char *buff, int &len, const char *node_name1,
+                   const char *name1, const char *node_name2,
+                   const char *name2, const char *mdata) {
+    sprintf(buff + len,
+            "       <link>\n"
+            "           <node type=\"%s\">\n"
+            "               <name>%s</name>\n"
+            "           </node>\n"
+            "           <node type=\"%s\">\n"
+            "               <name>%s</name>\n"
+            "           </node>\n"
+            "           <metadata type=\"%s\"/>\n"
+            "       </link>\n", node_name1, name1, node_name2, name2, mdata);
+
+    len = strlen(buff);
+}
+
 void DelLinkString(char *buff, int &len, const char *node_name1,
                    const char *name1, const char *node_name2,
                    const char *name2) {
@@ -231,6 +248,22 @@ void DelNodeString(char *buff, int &len, const char *node_name,
 }
 
 void ApplyXmlString(const char *buff) {
+    pugi::xml_document xdoc_;
+    pugi::xml_parse_result result = xdoc_.load(buff);
+    EXPECT_TRUE(result);
+    Agent::GetInstance()->ifmap_parser()->ConfigParse(xdoc_.first_child(), 0);
+    return;
+}
+
+void AddLink(const char *node_name1, const char *name1,
+             const char *node_name2, const char *name2, const char *mdata) {
+    char buff[1024];
+    int len = 0;
+
+    AddXmlHdr(buff, len);
+    AddLinkString(buff, len, node_name1, name1, node_name2, name2, mdata);
+    AddXmlTail(buff, len);
+    //LOG(DEBUG, buff);
     pugi::xml_document xdoc_;
     pugi::xml_parse_result result = xdoc_.load(buff);
     EXPECT_TRUE(result);
