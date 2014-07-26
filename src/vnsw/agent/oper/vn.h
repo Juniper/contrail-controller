@@ -145,6 +145,7 @@ public:
     bool GetIpamVdnsData(const Ip4Address &vm_addr, 
                          autogen::IpamType *ipam_type,
                          autogen::VirtualDnsType *vdns_type) const;
+    std::string GetProject() const;
     int GetVxLanId() const;
     bool Resync(); 
     bool VxLanNetworkIdentifierChanged();
