@@ -290,13 +290,11 @@ class VirtualNetworkST(DictST):
             ri.obj.add_route_target(new_rtgt_obj, inst_tgt_data)
             _vnc_lib.routing_instance_update(ri.obj)
             for (prefix, nexthop) in vn.route_table.items():
-                primary_ri, left_ri = vn._get_routing_instances_from_route(
-                    next_hop)
-                if primary_ri is not None:
-                    primary_ri.update_route_target_list(
-                        set([new_rtgt_name]), set([old_rtgt_name]), "import")
+                left_ri = vn._get_routing_instance_from_route(next_hop)
                 if left_ri is None:
                     continue
+                left_ri.update_route_target_list(
+                    set([new_rtgt_name]), set([old_rtgt_name]), "import")
                 static_route_entries = left_ri.obj.get_static_route_entries()
                 if static_route_entries is None:
                     continue
@@ -657,11 +655,10 @@ class VirtualNetworkST(DictST):
             ri_obj.update_route_target_list(rt_add, rt_del,
                                             import_export='export')
         for (prefix, nexthop) in self.route_table.items():
-            primary_ri, _ = self._get_routing_instances_from_route(next_hop)
-            if primary_ri is None:
-                continue
-            primary_ri.update_route_target_list(
-                rt_add, rt_del, import_export='import')
+            left_ri = self._get_routing_instance_from_route(next_hop)
+            if left_ri is not None:
+                left_ri.update_route_target_list(rt_add, rt_del,
+                                                 import_export='import')
         for rt in rt_del:
             try:
                 _vnc_lib.route_target_delete(fq_name=[rt])
@@ -674,19 +671,19 @@ class VirtualNetworkST(DictST):
     # next-hop in a route contains fq-name of a service instance, which must
     # be an auto policy instance. This function will get the left vn for that
     # service instance and get the primary and service routing instances
-    def _get_routing_instances_from_route(self, next_hop):
+    def _get_routing_instance_from_route(self, next_hop):
         try:
             si = _vnc_lib.service_instance_read(fq_name_str=next_hop)
             si_props = si.get_service_instance_properties()
             if si_props is None:
-                return (None, None)
+                return None
         except NoIdError:
             _sandesh._logger.debug("Cannot read service instance %s", next_hop)
-            return (None, None)
+            return None
         if not si_props.auto_policy:
             _sandesh._logger.debug("%s: route table next hop must be service "
                                    "instance with auto policy", self.name)
-            return (None, None)
+            return None
         left_vn_str = svc_info.get_left_vn(si.get_parent_fq_name_str(),
             si_props.left_virtual_network)
         right_vn_str = svc_info.get_right_vn(si.get_parent_fq_name_str(),
@@ -695,29 +692,28 @@ class VirtualNetworkST(DictST):
             _sandesh._logger.debug("%s: route table next hop service instance "
                                    "must have left and right virtual networks",
                                    self.name)
-            return (None, None)
+            return None
         left_vn = VirtualNetworkST.get(left_vn_str)
         if left_vn is None:
             _sandesh._logger.debug("Virtual network %s not present",
                                    left_vn_str)
-            return (None, None)
+            return None
         sc = ServiceChain.find(left_vn_str, right_vn_str, '<>',
                                [PortType(0, -1)], [PortType(0, -1)], 'any')
         if sc is None:
             _sandesh._logger.debug("Service chain between %s and %s not "
                                    "present", left_vn_str, right_vn_str)
-            return (None, None)
+            return None
         left_ri_name = left_vn.get_service_name(sc.name, next_hop)
-        return (left_vn.get_primary_routing_instance(),
-                left_vn.rinst.get(left_ri_name))
-    # end _get_routing_instances_from_route
+        return left_vn.rinst.get(left_ri_name)
+    # end _get_routing_instance_from_route
 
     def add_route(self, prefix, next_hop):
         self.route_table[prefix] = next_hop
-        primary_ri, left_ri = self._get_routing_instances_from_route(next_hop)
-        if primary_ri is None or left_ri is None:
+        left_ri = self._get_routing_instance_from_route(next_hop)
+        if left_ri is None:
             _sandesh._logger.debug(
-                "primary/left routing instance is none for %s", next_hop)
+                "left routing instance is none for %s", next_hop)
             return
         service_info = left_ri.obj.get_service_chain_information()
         if service_info is None:
@@ -739,7 +735,7 @@ class VirtualNetworkST(DictST):
             static_route_entries.add_route(static_route)
         left_ri.obj.set_static_route_entries(static_route_entries)
         _vnc_lib.routing_instance_update(left_ri.obj)
-        primary_ri.update_route_target_list(
+        left_ri.update_route_target_list(
             rt_add=self.rt_list | set([self.get_route_target()]),
             import_export="import")
     # end add_route
@@ -749,14 +745,13 @@ class VirtualNetworkST(DictST):
             return
         next_hop = self.route_table[prefix]
         del self.route_table[prefix]
-        primary_ri, left_ri = self._get_routing_instances_from_route(next_hop)
-        if primary_ri is not None:
-            primary_ri.update_route_target_list(rt_add=set(),
-                                                rt_del=self.rt_list | set(
-                                                    [self.get_route_target()]),
-                                                import_export="import")
+        left_ri = self._get_routing_instance_from_route(next_hop)
         if left_ri is None:
             return
+        left_ri.update_route_target_list(rt_add=set(),
+                                         rt_del=self.rt_list | set(
+                                             [self.get_route_target()]),
+                                         import_export="import")
         static_route_entries = left_ri.obj.get_static_route_entries()
         for static_route in static_route_entries.get_route() or []:
             if static_route.prefix != prefix:
