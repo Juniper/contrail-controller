@@ -432,7 +432,8 @@ class VirtualNetworkST(DictST):
         if service_vm not in cls._sc_vlan_allocator_dict:
             cls._sc_vlan_allocator_dict[service_vm] = IndexAllocator(
                 _zookeeper_client,
-                self._zk_path_pfx+_SERVICE_CHAIN_VLAN_ALLOC_PATH+service_vm,
+                (SchemaTransformer._zk_path_prefix +
+                 _SERVICE_CHAIN_VLAN_ALLOC_PATH+service_vm),
                 _SERVICE_CHAIN_MAX_VLAN)
 
         vlan_ia = cls._sc_vlan_allocator_dict[service_vm]
@@ -2517,6 +2518,7 @@ class SchemaTransformer(object):
     _SC_IP_CF = 'service_chain_ip_address_table'
     _SERVICE_CHAIN_CF = 'service_chain_table'
     _SERVICE_CHAIN_UUID_CF = 'service_chain_uuid_table'
+    _zk_path_prefix = ''
 
     def __init__(self, args=None):
         global _sandesh
@@ -2524,6 +2526,7 @@ class SchemaTransformer(object):
 
         if args.cluster_id:
             self._zk_path_pfx = args.cluster_id + '/'
+            SchemaTransformer._zk_path_prefix = self._zk_path_pfx
             self._keyspace = '%s_%s' %(args.cluster_id, SchemaTransformer._KEYSPACE)
         else:
             self._zk_path_pfx = ''
