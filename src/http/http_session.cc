@@ -190,6 +190,9 @@ public:
             HTTP_SYS_LOG("HttpSession", SandeshLevel::UT_INFO,
                          "URL is " + request->ToString());
             if (request->ToString().empty()) {
+                if (session_->event_cb_ && !session_->event_cb_.empty()) {
+                    session_->event_cb_(session_.get(), request->Event());
+                }
                 del_session = true;
                 session_->set_observer(NULL);
                 session_->Close();
@@ -271,6 +274,7 @@ void HttpSession::OnSessionEvent(TcpSession *session,
             HttpRequest *request = new HttpRequest();
             string nourl = "";
             request->SetUrl(&nourl);
+            request->SetEvent(event);
             was_empty = request_queue_.empty();
             request_queue_.push(request);
         }
@@ -284,10 +288,6 @@ void HttpSession::OnSessionEvent(TcpSession *session,
         RequestHandler *task = new RequestHandler(this);
         HttpSession::task_count_++;
         scheduler->Enqueue(task);
-    }
-
-    if (event_cb_ && !event_cb_.empty()) {
-        event_cb_(h_session, event);
     }
 }
 
