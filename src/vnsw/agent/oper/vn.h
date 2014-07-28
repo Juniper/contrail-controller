@@ -242,7 +242,7 @@ public:
     typedef boost::function<void(IFMapNode *)> Callback;
     
     DomainConfig() {}
-    virtual ~DomainConfig() {}
+    virtual ~DomainConfig();
     void RegisterIpamCb(Callback cb);
     void RegisterVdnsCb(Callback cb);
     void IpamSync(IFMapNode *node);

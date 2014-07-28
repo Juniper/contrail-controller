@@ -1042,6 +1042,7 @@ TEST_F(MulticastTest, subnet_bcast_add_l2l3vn_and_l2vn) {
     EXPECT_TRUE(mcobj->GetTunnelOlist().size() == 1);
 
     //Restore and cleanup
+    DelLink("virtual-network", "vn2", "routing-instance", "vrf2");
     client->Reset();
     DelIPAM("vn1");
     client->WaitForIdle();

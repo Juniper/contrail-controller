@@ -21,8 +21,8 @@
 #include <base/patricia.h>
 #include <io/event_manager.h>
 #include <base/util.h>
-#include <ifmap_agent_parser.h>
-#include <ifmap_agent_table.h>
+#include <ifmap/ifmap_agent_parser.h>
+#include <ifmap/ifmap_agent_table.h>
 #include <oper/vn.h>
 #include <oper/vm.h>
 

@@ -69,7 +69,11 @@ public:
         vrf_notifications_ = vrf_notifications_count_ = 0;
         total_rt_vrf_walk_done_ = 0;
     };
-    ~AgentRouteWalkerTest() { };
+    ~AgentRouteWalkerTest() { 
+        free(local_vm_mac_1_);
+        free(local_vm_mac_2_);
+        free(remote_vm_mac_);
+    }
 
     void SetupEnvironment(int num_vrfs) {
         client->Reset();

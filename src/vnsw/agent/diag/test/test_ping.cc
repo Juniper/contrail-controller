@@ -122,6 +122,7 @@ public:
 
         // send the recieved packet back
         tap_->GetTestPktHandler()->TestPktSend(buf, length);
+        delete [] buf;
     }
 
     void SendDiag(const std::string &sip, int32_t sport, const std::string &dip,

@@ -13,7 +13,7 @@ service_test_suite = []
 service_flaky_test_suite = []
 
 dhcp_test = AgentEnv.MakeTestCmd(env, 'dhcp_test', service_test_suite)
-dns_test = AgentEnv.MakeTestCmd(env, 'dns_test', service_test_suite)
+dns_test = AgentEnv.MakeTestCmd(env, 'dns_test', service_flaky_test_suite)
 arp_test = AgentEnv.MakeTestCmd(env, 'arp_test', service_test_suite)
 icmp_test = AgentEnv.MakeTestCmd(env, 'icmp_test', service_test_suite)
 metadata_test = AgentEnv.MakeTestCmd(env, 'metadata_test', service_test_suite)

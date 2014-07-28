@@ -41,8 +41,8 @@ bool DiagPktHandler::Run() {
     if (ntohl(ad->op_) == AgentDiagPktData::DIAG_REQUEST) {
         //Request received swap the packet
         //and dump the packet back
-                Reply();
-                return false;
+        Reply();
+        return true;
     }
 
     if (ntohl(ad->op_) != AgentDiagPktData::DIAG_REPLY) {

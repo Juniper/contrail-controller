@@ -1166,9 +1166,12 @@ TEST_F(IntfTest, VmPortFloatingIpDelete_1) {
     EXPECT_TRUE(VmPortFloatingIpCount(1, 0));
 
     //Clean up
+    DelLink("virtual-network", "default-project:vn2", "routing-instance",
+            "default-project:vn2:vn2");
     DelLink("floating-ip", "fip1", "floating-ip-pool", "fip-pool1");
     DelLink("floating-ip-pool", "fip-pool1",
             "virtual-network", "default-project:vn2");
+    DelLink("virtual-machine-interface", "vnet1", "floating-ip", "fip1");
     DelFloatingIp("fip1");
     DelFloatingIpPool("fip-pool1");
     client->WaitForIdle();
@@ -1707,6 +1710,9 @@ TEST_F(IntfTest, VmPortServiceVlanAdd_3) {
             "routing-instance", "vrf2");
     DelLink("virtual-machine-interface-routing-instance", "vmvrf1",
             "virtual-machine-interface", "vnet1");
+    DelLink("virtual-network", "vn2", "routing-instance", "vrf2");
+    DelLink("virtual-network", "vn1", "virtual-machine-interface",
+            input[0].name);
     DelVmPortVrf("vmvrf1");
     DelVrf("vrf2");
     DelVn("vn2");
@@ -2036,8 +2042,8 @@ TEST_F(IntfTest, packet_interface_get_key_verification) {
     PacketInterfaceKey key(nil_uuid(), "pkt0");
     Interface *intf = 
         static_cast<Interface *>(agent->interface_table()->FindActiveEntry(&key));
-    PacketInterfaceKey *entry_key = static_cast<PacketInterfaceKey *>(intf->GetDBRequestKey().release());
-    EXPECT_TRUE(entry_key != NULL);
+    DBEntryBase::KeyPtr entry_key = intf->GetDBRequestKey();
+    EXPECT_TRUE(entry_key.get() != NULL);
     client->Reset();
 
     //Issue sandesh request
@@ -2153,6 +2159,8 @@ TEST_F(IntfTest, AdminState_1) {
 
     //other cleanup
     VnDelete(input[0].vn_id);
+    DelLink("virtual-machine-interface", input[0].name,
+            "instance-ip", "instance0");
     DelLink("virtual-machine", "vm1", "virtual-machine-interface", input[0].name);
     DelLink("virtual-network", "vn1", "virtual-machine-interface", input[0].name);
     client->WaitForIdle();
@@ -2234,6 +2242,8 @@ TEST_F(IntfTest, AdminState_2) {
 
     //other cleanup
     VnDelete(input[0].vn_id);
+    DelLink("virtual-machine-interface", input[0].name,
+            "instance-ip", "instance0");
     DelLink("virtual-machine", "vm1", "virtual-machine-interface", input[0].name);
     DelLink("virtual-network", "vn1", "virtual-machine-interface", input[0].name);
     client->WaitForIdle();

@@ -15,7 +15,7 @@ oper_flaky_test_suite = []
 
 test_intf = AgentEnv.MakeTestCmd(env, 'test_intf', oper_test_suite)
 test_vrf_assign = AgentEnv.MakeTestCmd(env, 'test_vrf_assign', oper_test_suite)
-test_linklocal = AgentEnv.MakeTestCmd(env, 'test_linklocal', oper_test_suite)
+test_linklocal = AgentEnv.MakeTestCmd(env, 'test_linklocal', oper_flaky_test_suite)
 test_inet_interface = AgentEnv.MakeTestCmd(env, 'test_inet_interface',
                                            oper_test_suite)
 test_fabric_interface = AgentEnv.MakeTestCmd(env, 'test_fabric_interface',

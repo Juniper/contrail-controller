@@ -58,16 +58,19 @@ public:
     }
 
     virtual void TearDown() {
-        InterfaceEvent(true, "vnet1", 0);
-        InterfaceEvent(true, "vnet1", 0);
         InterfaceEvent(false, "vnet1", 0);
         InterfaceEvent(false, "vnet2", 0);
         DeleteVmportEnv(input, 2, true, 1);
         client->WaitForIdle();
+        EXPECT_EQ(0, vnswif_->GetHostInterfaceCount());
     }
 
     void SetSeen(const string &ifname, bool oper) {
         vnswif_->SetSeen(agent_->vhost_interface_name(), true);
+    }
+
+    void ResetSeen(const string &ifname) {
+        vnswif_->ResetSeen(agent_->vhost_interface_name(), true);
     }
 
     void InterfaceEvent(bool add, const string &ifname, uint32_t flags) {
@@ -170,6 +173,10 @@ TEST_F(TestVnswIf, vhost_link_flap) {
 
     // Ensure routes are synced to host
     WAIT_FOR(1000, 100, (vnswif_->netlink_ll_add_count() >= (count + 2)));
+
+    InterfaceEvent(false, agent_->vhost_interface_name(), 0);
+    ResetSeen(agent_->vhost_interface_name());
+    client->WaitForIdle();
 }
 
 // Interface inactive when seen by oper only
@@ -196,6 +203,9 @@ TEST_F(TestVnswIf, inactive_1) {
 
 // vhost-ip address update
 TEST_F(TestVnswIf, vhost_addr_1) {
+    SetSeen(agent_->vhost_interface_name(), true);
+    client->WaitForIdle();
+
     VnswInterfaceListener::HostInterfaceEntry *entry =
         vnswif_->GetHostInterfaceEntry(agent_->vhost_interface_name());
     EXPECT_TRUE(entry != NULL);
@@ -238,6 +248,10 @@ TEST_F(TestVnswIf, vhost_addr_1) {
 
     // Ensure there is no change vhost-ip
     EXPECT_STREQ(vhost->ip_addr().to_string().c_str(), vhost_ip.c_str());
+
+    InterfaceEvent(false, agent_->vhost_interface_name(), 0);
+    ResetSeen(agent_->vhost_interface_name());
+    client->WaitForIdle();
 }
 
 // vhost-ip address update
@@ -340,6 +354,7 @@ TEST_F(TestVnswIf, EcmpActivateDeactivate_1) {
 
     //Clean up
     DeleteVmportEnv(input, 3, true);
+    InterfaceEvent(false, "vnet3", 0);
     client->WaitForIdle();
 }
 

@@ -109,6 +109,9 @@ public:
     void Shutdown();
     bool IsValidLinkLocalAddress(const Ip4Address &addr) const;
     void Enqueue(Event *event);
+    uint32_t GetHostInterfaceCount() const {
+        return host_interface_table_.size();
+    }
     HostInterfaceEntry *GetHostInterfaceEntry(const std::string &name);
     uint32_t netlink_ll_add_count() const { return netlink_ll_add_count_; }
     uint32_t netlink_ll_del_count() const { return netlink_ll_del_count_; }

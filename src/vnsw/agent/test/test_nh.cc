@@ -46,6 +46,7 @@ public:
     }
     void TearDown() {
         WAIT_FOR(1000, 1000, agent_->vrf_table()->Size() == 1);
+        DeleteBgpPeer(bgp_peer);
     }
 
     Agent *agent_;
@@ -214,7 +215,7 @@ TEST_F(CfgTest, MirrorNh_1) {
     MirrorNH *mirror_nh = static_cast<MirrorNH *>(agent_->nexthop_table()->
                                                   FindActiveEntry(&key));
     EXPECT_TRUE(mirror_nh != NULL);
-    mirror_nh->SetKey(mirror_nh->GetDBRequestKey().release());
+    mirror_nh->SetKey(mirror_nh->GetDBRequestKey().get());
 
     /* Test dport */
     table_size = agent_->nexthop_table()->Size();
@@ -1681,26 +1682,28 @@ TEST_F(CfgTest, Nexthop_keys) {
     //Issue set for nexthop key
     nh = rt->GetActiveNextHop();
     const InterfaceNH *intf_nh = static_cast<const InterfaceNH *>(nh);
-    NextHopKey *nh_key = static_cast<NextHopKey *>(intf_nh->GetDBRequestKey().release()); 
+
+    DBEntryBase::KeyPtr nh_key_base(intf_nh->GetDBRequestKey());
+    NextHopKey *nh_key = static_cast<NextHopKey *>(nh_key_base.get());
     EXPECT_TRUE(nh_key->GetType() == NextHop::INTERFACE);
     EXPECT_TRUE(nh_key->GetPolicy() == false);
-    NextHop *base_nh = static_cast<NextHop *>(agent_->
-                                              nexthop_table()->FindActiveEntry(nh_key));
-    base_nh->SetKey(base_nh->GetDBRequestKey().release());
+    NextHop *base_nh = static_cast<NextHop *>
+        (agent_-> nexthop_table()->FindActiveEntry(nh_key));
+    base_nh->SetKey(base_nh->GetDBRequestKey().get());
 
     //Issue set for interface nexthop key
-    InterfaceNHKey *interface_key = static_cast<InterfaceNHKey *>(nh_key);
     InterfaceNH *interface_nh = static_cast<InterfaceNH *>(base_nh);
-    interface_nh->SetKey(interface_key);
+    interface_nh->SetKey(static_cast<InterfaceNHKey *>(nh_key));
 
     //Issue set for VRF nexthop key
     VxLanIdKey vxlan_key(10);
-    VxLanId *vxlan_id_entry = static_cast<VxLanId *>(agent_->
-                                         vxlan_table()->FindActiveEntry(&vxlan_key));
-    VrfNHKey *vrf_nh_key = static_cast<VrfNHKey *>(vxlan_id_entry->nexthop()->
-                                                   GetDBRequestKey().release());
-    VrfNH *vrf_nh = static_cast<VrfNH*>(agent_->
-                                        nexthop_table()->FindActiveEntry(vrf_nh_key));
+    VxLanId *vxlan_id_entry = static_cast<VxLanId *>
+        (agent_->vxlan_table()->FindActiveEntry(&vxlan_key));
+
+    DBEntryBase::KeyPtr vrf_nh_key_base(vxlan_id_entry->nexthop()->GetDBRequestKey());
+    VrfNHKey *vrf_nh_key = static_cast<VrfNHKey *>(vrf_nh_key_base.get());
+    VrfNH *vrf_nh = static_cast<VrfNH*>
+        (agent_->nexthop_table()->FindActiveEntry(vrf_nh_key));
     vrf_nh->SetKey(vrf_nh_key);
     DoNextHopSandesh();
 
@@ -1711,24 +1714,25 @@ TEST_F(CfgTest, Nexthop_keys) {
                         Ip4Address::from_string("10.1.1.100"), 32);
     client->WaitForIdle();
 
-    struct ether_addr *remote_vm_mac = (struct ether_addr *)malloc(sizeof(struct ether_addr));
-    memcpy (remote_vm_mac, ether_aton("00:00:01:01:01:11"), sizeof(struct ether_addr));
+    struct ether_addr remote_vm_mac;
+    memcpy (&remote_vm_mac, ether_aton("00:00:01:01:01:11"), sizeof(struct ether_addr));
     Layer2TunnelRouteAdd(agent_->local_peer(), "vrf10", TunnelType::MplsType(), 
                          Ip4Address::from_string("10.1.1.100"),
-                         1000, *remote_vm_mac, Ip4Address::from_string("1.1.1.10"), 32);
+                         1000, remote_vm_mac, Ip4Address::from_string("1.1.1.10"), 32);
     client->WaitForIdle();
-    Layer2RouteEntry *l2_rt = L2RouteGet("vrf10", *remote_vm_mac);
+    Layer2RouteEntry *l2_rt = L2RouteGet("vrf10", remote_vm_mac);
     EXPECT_TRUE(l2_rt != NULL);
-    TunnelNHKey *tnh_key = static_cast<TunnelNHKey *>(l2_rt->GetActivePath()->
-                                                      nexthop(agent_)->
-                                                      GetDBRequestKey().release());
+    const NextHop *l2_rt_nh = l2_rt->GetActivePath()->nexthop(agent_);
+
+    DBEntryBase::KeyPtr tnh_key_base(l2_rt_nh->GetDBRequestKey());
+    TunnelNHKey *tnh_key = static_cast<TunnelNHKey *>(tnh_key_base.get());
     TunnelNH *tnh = static_cast<TunnelNH*>(agent_->nexthop_table()->
                                         FindActiveEntry(tnh_key));
     EXPECT_TRUE(tnh->ToString() == "Tunnel to 10.1.1.100");
-    tnh->SetKey(tnh->GetDBRequestKey().release());
+    tnh->SetKey(tnh->GetDBRequestKey().get());
     DoNextHopSandesh();
     Layer2AgentRouteTable::DeleteReq(agent_->local_peer(),
-                                     "vrf10", *remote_vm_mac, NULL);
+                                     "vrf10", remote_vm_mac, NULL);
     client->WaitForIdle();
 
     //CompositeNHKey
@@ -1768,14 +1772,12 @@ TEST_F(CfgTest, Nexthop_keys) {
     client->WaitForIdle();
 
     //VLAN nh
-    struct ether_addr *dst_vlan_mac = 
-        (struct ether_addr *)malloc(sizeof(struct ether_addr));
-    memcpy (dst_vlan_mac, ether_aton("00:00:01:01:01:12"), sizeof(struct ether_addr));
-    struct ether_addr *src_vlan_mac = 
-        (struct ether_addr *)malloc(sizeof(struct ether_addr));
-    memcpy (src_vlan_mac, ether_aton("00:00:01:01:01:11"), sizeof(struct ether_addr));
+    struct ether_addr dst_vlan_mac;
+    memcpy (&dst_vlan_mac, ether_aton("00:00:01:01:01:12"), sizeof(struct ether_addr));
+    struct ether_addr src_vlan_mac;
+    memcpy (&src_vlan_mac, ether_aton("00:00:01:01:01:11"), sizeof(struct ether_addr));
     VlanNHKey *vlan_nhkey = new VlanNHKey(MakeUuid(10), 100);
-    VlanNHData *vlan_nhdata = new VlanNHData("vrf10", *src_vlan_mac, *dst_vlan_mac);
+    VlanNHData *vlan_nhdata = new VlanNHData("vrf10", src_vlan_mac, dst_vlan_mac);
     DBRequest nh_req;
     nh_req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
     nh_req.key.reset(vlan_nhkey);
@@ -1792,9 +1794,9 @@ TEST_F(CfgTest, Nexthop_keys) {
     EXPECT_TRUE(vlan_rt != NULL);
     VlanNH *vlan_nh = static_cast<VlanNH *>(agent_->
                    nexthop_table()->FindActiveEntry(vlan_rt->
-                   GetActivePath()->nexthop(agent_)->GetDBRequestKey().release()));
+                   GetActivePath()->nexthop(agent_)->GetDBRequestKey().get()));
     EXPECT_TRUE(vlan_nh == VlanNH::Find(MakeUuid(10), 100));
-    vlan_nh->SetKey(vlan_nh->GetDBRequestKey().release());
+    vlan_nh->SetKey(vlan_nh->GetDBRequestKey().get());
 
     //Sandesh request
     DoNextHopSandesh();
@@ -1813,12 +1815,11 @@ TEST_F(CfgTest, Nexthop_keys) {
     DBRequest arp_nh_req;
     arp_nh_req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
     arp_nh_req.key.reset(new ArpNHKey("vrf10", Ip4Address::from_string("11.11.11.11")));
-    struct ether_addr *intf_vm_mac= 
-        (struct ether_addr *)malloc(sizeof(struct ether_addr));
-    memcpy(intf_vm_mac, ether_aton("00:00:01:01:01:11"), sizeof(struct ether_addr));
+    struct ether_addr intf_vm_mac;
+    memcpy(&intf_vm_mac, ether_aton("00:00:01:01:01:11"), sizeof(struct ether_addr));
     VmInterfaceKey *intf_key = new VmInterfaceKey(AgentKey::ADD_DEL_CHANGE, 
                                               MakeUuid(10), "vrf10");
-    arp_nh_req.data.reset(new ArpNHData(*intf_vm_mac, intf_key, true));
+    arp_nh_req.data.reset(new ArpNHData(intf_vm_mac, intf_key, true));
     agent_->nexthop_table()->Enqueue(&arp_nh_req);
     client->WaitForIdle();
     ArpNHKey find_arp_nh_key("vrf10", Ip4Address::from_string("11.11.11.11")); 
@@ -1826,7 +1827,7 @@ TEST_F(CfgTest, Nexthop_keys) {
         (agent_->nexthop_table()->FindActiveEntry(&find_arp_nh_key));
     EXPECT_TRUE(arp_nh != NULL);
     EXPECT_TRUE(arp_nh->GetIfUuid() == MakeUuid(10));
-    arp_nh->SetKey(arp_nh->GetDBRequestKey().release());
+    arp_nh->SetKey(arp_nh->GetDBRequestKey().get());
     DoNextHopSandesh();
 
     DBRequest del_arp_nh_req;
@@ -1869,15 +1870,14 @@ TEST_F(CfgTest, Nexthop_invalid_vrf) {
                 FindActiveEntry(&find_arp_nh_key) == NULL);
 
     //Interface NH
-    struct ether_addr *intf_vm_mac= 
-        (struct ether_addr *)malloc(sizeof(struct ether_addr));
-    memcpy(intf_vm_mac, ether_aton("00:00:01:01:01:11"), sizeof(struct ether_addr));
+    struct ether_addr intf_vm_mac;
+    memcpy(&intf_vm_mac, ether_aton("00:00:01:01:01:11"), sizeof(struct ether_addr));
     VmInterfaceKey *intf_key = new VmInterfaceKey(AgentKey::ADD_DEL_CHANGE, 
                                               MakeUuid(11), "vrf11");
     DBRequest intf_nh_req;
     intf_nh_req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
     intf_nh_req.key.reset(new InterfaceNHKey(intf_key, true, 5));
-    intf_nh_req.data.reset(new InterfaceNHData("vrf11", *intf_vm_mac));
+    intf_nh_req.data.reset(new InterfaceNHData("vrf11", intf_vm_mac));
     agent_->nexthop_table()->Enqueue(&intf_nh_req);
     client->WaitForIdle();
     VmInterfaceKey *find_intf_key = new VmInterfaceKey(AgentKey::ADD_DEL_CHANGE,
@@ -1929,16 +1929,14 @@ TEST_F(CfgTest, Nexthop_invalid_vrf) {
                 FindActiveEntry(&find_recv_nh_key) == NULL);
 
     //Vlan NH
-    struct ether_addr *vlan_dmac = 
-        (struct ether_addr *)malloc(sizeof(struct ether_addr));
-    memcpy(vlan_dmac, ether_aton("00:00:01:01:01:11"), sizeof(struct ether_addr));
-    struct ether_addr *vlan_smac = 
-        (struct ether_addr *)malloc(sizeof(struct ether_addr));
-    memcpy(vlan_smac, ether_aton("00:00:01:01:01:10"), sizeof(struct ether_addr));
+    struct ether_addr vlan_dmac;
+    memcpy(&vlan_dmac, ether_aton("00:00:01:01:01:11"), sizeof(struct ether_addr));
+    struct ether_addr vlan_smac;
+    memcpy(&vlan_smac, ether_aton("00:00:01:01:01:10"), sizeof(struct ether_addr));
     DBRequest vlan_nh_req;
     vlan_nh_req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
     vlan_nh_req.key.reset(new VlanNHKey(MakeUuid(11), 11));
-    vlan_nh_req.data.reset(new VlanNHData("vrf11", *vlan_smac, *vlan_dmac));
+    vlan_nh_req.data.reset(new VlanNHData("vrf11", vlan_smac, vlan_dmac));
     agent_->nexthop_table()->Enqueue(&vlan_nh_req);
     client->WaitForIdle();
     VlanNHKey find_vlan_nh_key(MakeUuid(11), 11);

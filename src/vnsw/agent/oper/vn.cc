@@ -950,3 +950,10 @@ bool DomainConfig::GetVDns(const std::string &vdns,
     *vdns_type = it->second;
     return true;
 }
+
+DomainConfig::~DomainConfig() {
+    assert(ipam_config_.size() == 0);
+    assert(vdns_config_.size() == 0);
+    ipam_callback_.clear();
+    vdns_callback_.size();
+}

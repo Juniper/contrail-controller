@@ -60,7 +60,10 @@ public:
         memcpy (remote_vm_mac_, ether_aton("00:00:01:01:01:11"), 
                 sizeof(struct ether_addr));
     };
-    ~TunnelEncapTest() { };
+    ~TunnelEncapTest() {
+        free(local_vm_mac_);
+        free(remote_vm_mac_);
+    }
 
     virtual void SetUp() {
         agent = Agent::GetInstance();

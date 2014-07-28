@@ -265,10 +265,7 @@ public:
         intf_cfg_table_ = table;
     }
 
-    DomainConfig *domain_config_table() const {return domain_config_table_;}
-    void set_domain_config_table(DomainConfig *table) {
-        domain_config_table_ = table;
-    }
+    DomainConfig *domain_config_table() const;
 
     IntfMirrorCfgTable *interface_mirror_cfg_table() const {
         return intf_mirror_cfg_table_;
@@ -719,9 +716,6 @@ private:
     
     // Config DB Table handles
     CfgIntTable *intf_cfg_table_;
-
-    // DomainConfig handle
-    DomainConfig *domain_config_table_;
 
     Ip4Address router_id_;
     uint32_t prefix_len_;

@@ -111,10 +111,12 @@ void TestAgentInit::CreateModules() {
                                        params_->metadata_shared_secret()));
     agent_->set_services(services_.get());
     if (vgw_enable_) {
-        agent_->set_vgw(new VirtualGateway(agent_));
+        vgw_.reset(new VirtualGateway(agent_));
+        agent_->set_vgw(vgw_.get());
     }
 
-    agent_->set_controller(new VNController(agent_));
+    controller_.reset(new VNController(agent_));
+    agent_->set_controller(controller_.get());
 }
 
 void TestAgentInit::CreateDBTables() {

@@ -85,6 +85,8 @@ private:
     std::auto_ptr<DiagTable> diag_table_;
     std::auto_ptr<ServicesModule> services_;
     std::auto_ptr<PktModule> pkt_;
+    std::auto_ptr<VNController> controller_;
+    std::auto_ptr<VirtualGateway> vgw_;
     DISALLOW_COPY_AND_ASSIGN(TestAgentInit);
 };
 

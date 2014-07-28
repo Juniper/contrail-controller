@@ -137,8 +137,9 @@ TEST_F(VrfAssignTest, Check_key_manipulations) {
     EXPECT_TRUE(interface != NULL);
     //Verify key
     VrfAssign *vrf_assign = VrfAssignTable::FindVlanReq(MakeUuid(1), 1);
+    DBEntryBase::KeyPtr tmp_key = vrf_assign->GetDBRequestKey();
     VrfAssign::VrfAssignKey *key = 
-        static_cast<VrfAssign::VrfAssignKey *>(vrf_assign->GetDBRequestKey().release());
+        static_cast<VrfAssign::VrfAssignKey *>(tmp_key.get());
     VlanVrfAssign *vlan_vrf_assign = static_cast<VlanVrfAssign *>(vrf_assign);
     EXPECT_TRUE(key != NULL);
     EXPECT_TRUE(key->vlan_tag_ == 1);
@@ -147,6 +148,7 @@ TEST_F(VrfAssignTest, Check_key_manipulations) {
     VrfAssign::VrfAssignKey *new_key = new VrfAssign::VrfAssignKey();
     new_key->VlanInit(MakeUuid(1), 2); 
     vlan_vrf_assign->SetKey(new_key);
+    delete new_key;
     EXPECT_TRUE(vlan_vrf_assign->GetVlanTag() == 2);
     vrf_assign->SetKey(key);
     EXPECT_TRUE(vlan_vrf_assign->GetVlanTag() == 1);

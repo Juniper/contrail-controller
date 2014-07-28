@@ -298,6 +298,31 @@ static void AddSgEntry(const char *sg_name, const char *name, int id,
     }
 }
 
+static void DelSgAcl(const char *name) {
+    char acl_name[1024];
+    strcpy(acl_name, name);
+    strcat(acl_name, "ingress-access-control-list");
+    DelNode("access-control-list", acl_name);
+    client->WaitForIdle();
+
+    strcpy(acl_name, name);
+    strcat(acl_name, "egress-access-control-list");
+    DelNode("access-control-list", acl_name);
+    client->WaitForIdle();
+}
+
+static void DelSgAclLink(const char *sg_name, const char *acl_name) {
+    char buff[1024];
+
+    strcpy(buff, acl_name);
+    strcat(buff, "egress-access-control-list");
+    DelLink("security-group", sg_name, "access-control-list", buff);
+
+    strcpy(buff, acl_name);
+    strcat(buff, "ingress-access-control-list");
+    DelLink("security-group", sg_name, "access-control-list", buff);
+}
+
 const VmInterface *GetVmPort(int id) {
     return static_cast<const VmInterface *>(vnet[id]);
 }
@@ -589,19 +614,6 @@ TEST_F(SgTest, Rev_Trap_2) {
                            vnet[2]->flow_key_nh()->id()));
 }
 
-static void DelSgAcl(const char *name) {
-    char acl_name[1024];
-    strcpy(acl_name, name);
-    strcat(acl_name, "ingress-access-control-list");
-    DelNode("access-control-list", acl_name);
-    client->WaitForIdle();
-
-    strcpy(acl_name, name);
-    strcat(acl_name, "egress-access-control-list");
-    DelNode("access-control-list", acl_name);
-    client->WaitForIdle();
-}
-
 TEST_F(SgTest, Sg_Introspec) {
     // Delete sg added for setup()
     DelLink("virtual-machine-interface", "vnet1", "security-group", "sg1");
@@ -641,8 +653,9 @@ TEST_F(SgTest, Sg_Introspec) {
 
     // Remove the added link and nodes
     DelLink("virtual-machine-interface", "vnet1", "security-group", "sg2");
+    DelSgAclLink("sg2", "ag2");
+    DelSgAcl("ag2");
     DelNode("security-group", "sg2");
-    DelNode("access-control-list", "ag2");
     boost::system::error_code ec;
     Inet4UnicastAgentRouteTable::DeleteReq(NULL, "vrf1",
         Ip4Address::from_string("10.10.10.0", ec), 24, NULL);
@@ -700,8 +713,9 @@ TEST_F(SgTest, Sg_Policy_1) {
     EXPECT_TRUE(FlowDelete(vnet[1]->vrf()->GetName(), vnet_addr[1],
                            remote_ip, 1, 0, 0, vnet[1]->flow_key_nh()->id()));
     DelLink("virtual-machine-interface", "vnet1", "security-group", "sg2");
+    DelSgAclLink("sg2", "ag2");
+    DelSgAcl("ag2");
     DelNode("security-group", "sg2");
-    DelNode("access-control-list", "ag2");
     Inet4UnicastAgentRouteTable::DeleteReq(NULL, "vrf1",
         Ip4Address::from_string("10.10.10.0", ec), 24, NULL);
     client->WaitForIdle();
@@ -714,7 +728,7 @@ TEST_F(SgTest, Sg_Policy_2) {
     DelLink("virtual-machine-interface", "vnet1", "security-group", "sg1");
     //Add a SG id acl to pass traffic between sg-id 1 and sg-id 2
     //to vnet1
-    AddSgEntry("sg2", "ag2", 20, 1, "pass", 1, 2, EGRESS);
+    AddSgEntry("sg2", "ag2", 20, 1, "pass", 1, 2, INGRESS);
     AddLink("virtual-machine-interface", "vnet1", "security-group", "sg2");
 
     SecurityGroupList sg_id_list;
@@ -757,7 +771,7 @@ TEST_F(SgTest, Sg_Policy_2) {
 
     DelLink("virtual-machine-interface", "vnet1", "security-group", "sg2");
     DelNode("security-group", "sg2");
-    DelNode("access-control-list", "ag2");
+    DelSgAclLink("sg2", "ag2");
     DelSgAcl("ag2");
     Inet4UnicastAgentRouteTable::DeleteReq(NULL, "vrf1",
             Ip4Address::from_string("10.10.10.0", ec), 24, NULL);

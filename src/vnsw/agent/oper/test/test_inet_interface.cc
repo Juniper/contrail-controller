@@ -163,7 +163,8 @@ TEST_F(InetInterfaceTest, vhost_key_manipulations) {
     ReceiveNH *nh = static_cast<ReceiveNH *>(ReceiveNHGet(nh_table_, "vhost1", 
                                                           false));
     EXPECT_TRUE(nh != NULL);
-    nh->SetKey(nh->GetDBRequestKey().release());
+    DBEntryBase::KeyPtr key = nh->GetDBRequestKey();
+    nh->SetKey(key.get());
 
     DelInterface(this, "vhost1", VRF_VHOST, "1.1.1.254");
     client->WaitForIdle();

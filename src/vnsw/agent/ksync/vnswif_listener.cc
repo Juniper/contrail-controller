@@ -78,9 +78,17 @@ void VnswInterfaceListener::Init() {
 }
 
 void VnswInterfaceListener::Shutdown() { 
+    // Expect only one entry for vhost0 during shutdown
+    assert(host_interface_table_.size() <= 1);
+    for (HostInterfaceTable::iterator it = host_interface_table_.begin();
+         it != host_interface_table_.end(); it++) {
+        it->second = NULL;
+    }
+    host_interface_table_.clear();
 
-    if (agent_->test_mode())
+    if (agent_->test_mode()) {
         return;
+    }
 
     boost::system::error_code ec;
     sock_.close(ec);
@@ -315,17 +323,18 @@ void VnswInterfaceListener::ResetSeen(const std::string &name, bool oper) {
         entry->host_seen_ = false;
     }
 
+    if (entry->oper_seen_ == false && entry->host_seen_ == false) {
+        HostInterfaceTable::iterator it = host_interface_table_.find(name);
+        host_interface_table_.erase(it);
+        delete entry;
+        return;
+    }
+
     if (old_active == IsInterfaceActive(entry))
         return;
 
     if (old_active)
         DeActivate(name, entry->oper_id_);
-
-    if (entry->oper_seen_ == false && entry->host_seen_ == false) {
-        HostInterfaceTable::iterator it = host_interface_table_.find(name);
-        host_interface_table_.erase(it);
-        delete entry;
-    }
 }
 
 void VnswInterfaceListener::SetLinkState(const std::string &name, bool link_up){

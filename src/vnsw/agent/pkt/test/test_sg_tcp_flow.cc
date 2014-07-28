@@ -327,6 +327,7 @@ public:
 
         client->WaitForIdle();
         DelLink("virtual-machine-interface", "vnet1", "floating-ip", "fip1");
+        DelLink("virtual-machine-interface", "vnet2", "floating-ip", "fip1");
         DelLink("floating-ip-pool", "fip-pool1", "virtual-network",
                 "default-project:vn3");
         DelLink("floating-ip", "fip1", "floating-ip-pool", "fip-pool1");

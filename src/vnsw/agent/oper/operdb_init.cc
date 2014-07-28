@@ -118,8 +118,7 @@ void OperDB::CreateDBTables(DB *db) {
     agent_->set_vrf_assign_table(vassign_table);
     vassign_table->set_agent(agent_);
 
-    DomainConfig *domain_config_table = new DomainConfig();
-    agent_->set_domain_config_table(domain_config_table);
+    domain_config_.reset(new DomainConfig());
 
     VxLanTable *vxlan_table;
     vxlan_table = static_cast<VxLanTable *>(db->CreateTable("db.vxlan.0"));
@@ -196,6 +195,7 @@ void OperDB::Shutdown() {
     agent_->vxlan_table()->Clear();
     agent_->service_instance_table()->Clear();
 #endif
+    domain_config_.reset(NULL);
 }
 
 void OperDB::DeleteRoutes() {

@@ -1176,9 +1176,8 @@ bool TunnelNHFind(const Ip4Address &server_ip, bool policy, TunnelType::Type typ
 }
 
 NextHop *ReceiveNHGet(NextHopTable *table, const char *ifname, bool policy) {
-    InetInterfaceKey *intf_key = new InetInterfaceKey(ifname);
-    return static_cast<NextHop *>
-        (table->FindActiveEntry(new ReceiveNHKey(intf_key, policy)));
+    ReceiveNHKey key(new InetInterfaceKey(ifname), policy);
+    return static_cast<NextHop *> (table->FindActiveEntry(&key));
 }
 
 bool TunnelNHFind(const Ip4Address &server_ip) {
@@ -2852,5 +2851,8 @@ void DeleteBgpPeer(Peer *peer) {
     client->WaitForIdle();
     Agent::GetInstance()->controller()->Cleanup();
     client->WaitForIdle();
+    XmppChannelMock *xmpp_channel = static_cast<XmppChannelMock *>
+        (channel->GetXmppChannel());
     delete channel;
+    delete xmpp_channel;
 }

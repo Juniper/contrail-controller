@@ -13,8 +13,8 @@
 #include <base/task.h>
 #include <io/event_manager.h>
 #include <base/util.h>
-#include <ifmap_agent_parser.h>
-#include <ifmap_agent_table.h>
+#include <ifmap/ifmap_agent_parser.h>
+#include <ifmap/ifmap_agent_table.h>
 #include <oper/vn.h>
 #include <oper/vm.h>
 #include <oper/interface_common.h>
@@ -183,8 +183,9 @@ public:
 
     void RemoveFipConfig() {
         DelLink("virtual-machine-interface", "flow0", "floating-ip", "fip1");
-        DelLink("floating-ip-pool", "fip-pool1", "virtual-network", "vn4");
         DelLink("floating-ip", "fip1", "floating-ip-pool", "fip-pool1");
+        DelLink("floating-ip-pool", "fip-pool1",
+                "virtual-network", "default-project:vn4");
         DelFloatingIp("fip1");
         DelFloatingIpPool("fip-pool1");
         client->WaitForIdle(3);
@@ -193,7 +194,8 @@ public:
     void RemoveFipConfig2() {
         DelLink("virtual-machine-interface", "flowa", "floating-ip", "fipc1");
         DelLink("virtual-machine-interface", "flowb", "floating-ip", "fipc2");
-        DelLink("floating-ip-pool", "fip-poolc", "virtual-network", "vn8");
+        DelLink("floating-ip-pool", "fip-poolc",
+                "virtual-network", "default-project:vn8");
         DelLink("floating-ip", "fipc1", "floating-ip-pool", "fip-poolc");
         DelLink("floating-ip", "fipc2", "floating-ip-pool", "fip-poolc");
         DelFloatingIp("fipc1");
@@ -227,7 +229,8 @@ public:
         AddFloatingIpPool("fip-pool1", 1);
         AddFloatingIp("fip1", 1, vm1_fip);
         AddLink("floating-ip", "fip1", "floating-ip-pool", "fip-pool1");
-        AddLink("floating-ip-pool", "fip-pool1", "virtual-network", "vn4");
+        AddLink("floating-ip-pool", "fip-pool1",
+                "virtual-network", "default-project:vn4");
         AddLink("virtual-machine-interface", "flow0", "floating-ip", "fip1");
         client->WaitForIdle();
         EXPECT_TRUE(flow0->HasFloatingIp());
@@ -439,6 +442,8 @@ TEST_F(UveVmUveTest, VmIntfAddDel_1) {
     client->WaitForIdle();
     EXPECT_TRUE(VmPortInactive(input, 0));
 
+    DelLink("virtual-machine-interface", input[0].name,
+            "instance-ip", "instance0");
     DelLink("virtual-network", "vn1", "routing-instance", "vrf1");
     DelNode("virtual-machine-interface-routing-instance", "vnet1");
     DelNode("virtual-machine", "vm1");
@@ -584,6 +589,8 @@ TEST_F(UveVmUveTest, VmIntfAddDel_2) {
     client->WaitForIdle();
     EXPECT_TRUE(VmPortInactive(input, 0));
 
+    DelLink("virtual-machine-interface", input[0].name,
+            "instance-ip", "instance0");
     DelLink("virtual-network", "vn1", "routing-instance", "vrf1");
     DelNode("virtual-machine-interface-routing-instance", "vnet1");
     DelNode("virtual-machine", "vm1");
@@ -947,6 +954,8 @@ TEST_F(UveVmUveTest, VmUVE_Name_1) {
     EXPECT_STRNE(uve2.get_name().c_str(), "");
     EXPECT_STRNE(stats_uve2.get_name().c_str(), "");
     vmut->ClearCount();
+
+    RemoveFipConfig();
 }
 
 int main(int argc, char **argv) {

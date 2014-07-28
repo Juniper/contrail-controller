@@ -240,13 +240,13 @@ def MakeTestEnvFn(self, env):
         env.Replace(CCFLAGS = cflags)
 
 def MakeTestCmdWithSrcFn(self, env, test_name, src, test_list):
-    tgt = env.Program(target = test_name, source = src)
+    tgt = env.UnitTest(target = test_name, source = src)
     env.Alias('agent:'+ test_name, tgt)
     test_list.append(tgt)
     return tgt
 
 def MakeTestCmdFn(self, env, test_name, test_list):
-    tgt = env.Program(target = test_name, source = [test_name + '.cc'])
+    tgt = env.UnitTest(target = test_name, source = [test_name + '.cc'])
     env.Alias('agent:'+ test_name, tgt)
     test_list.append(tgt)
     return tgt

@@ -41,8 +41,8 @@
 #include <services/services_init.h>
 #include <ksync/ksync_init.h>
 #include <ksync/vnswif_listener.h>
-#include <ifmap_agent_parser.h>
-#include <ifmap_agent_table.h>
+#include <ifmap/ifmap_agent_parser.h>
+#include <ifmap/ifmap_agent_table.h>
 #include <cmn/agent_param.h>
 #include <oper/vn.h>
 #include <oper/multicast.h>

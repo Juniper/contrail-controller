@@ -41,13 +41,16 @@ void VirtualGateway::InterfaceNotify(DBTablePartBase *partition, DBEntryBase *en
     if (intf->sub_type() != InetInterface::SIMPLE_GATEWAY)
         return;
 
-    if (entry->IsDeleted()) {
-        entry->ClearState(partition->parent(), listener_id_);
-        return;
-    }
-
     VirtualGatewayState *state = static_cast<VirtualGatewayState *>
         (entry->GetState(partition->parent(), listener_id_));
+
+    if (entry->IsDeleted()) {
+        if (state) {
+            entry->ClearState(partition->parent(), listener_id_);
+            delete state;
+        }
+        return;
+    }
 
     bool active = intf->ipv4_active();
     VirtualGatewayConfig cfg(intf->name());

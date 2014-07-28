@@ -42,6 +42,9 @@ public:
     NamespaceManager *namespace_manager() {
         return namespace_manager_.get();
     }
+    DomainConfig *domain_config_table() {
+        return domain_config_.get();
+    }
 
 private:
     OperDB();
@@ -53,6 +56,7 @@ private:
     std::auto_ptr<PathPreferenceModule> route_preference_module_;
     std::auto_ptr<IFMapDependencyManager> dependency_manager_;
     std::auto_ptr<NamespaceManager> namespace_manager_;
+    std::auto_ptr<DomainConfig> domain_config_;
     DISALLOW_COPY_AND_ASSIGN(OperDB);
 };
 #endif

@@ -526,7 +526,9 @@ public:
         return true;
     }
 
-    void WalkDone() { }
+    static void WalkDone(RouteDeleteWalker *walker) {
+        delete walker;
+    }
 };
 
 void VrfTable::DeleteRoutes() {
@@ -559,7 +561,9 @@ public:
         assert(0);
     }
 
-    void WalkDone() { }
+    static void WalkDone(VrfDeleteWalker *walker) { 
+        delete walker;
+    }
 
 private:
 };
