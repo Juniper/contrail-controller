@@ -8,7 +8,7 @@
 <xsd:element name='bfd-session' type='IdentityType'/>
 <xsd:element name='bfd-session-config' type='BFDSessionConfig'/>
 <!--#IFMAP-SEMANTICS-IDL
-     Property('bfd-session', 'bfd-session-config') -->
+     Property('bfd-session-config', 'bfd-session') -->
 
 <xsd:complexType name='BFDLinkMonitor'>
     <xsd:sequence>
