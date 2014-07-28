@@ -147,9 +147,11 @@ void IFMapChannel::set_connection_status(ConnectionStatus status) {
         connection_status_change_at_ = UTCTimestampUsec();
 
         // Update connection info
-        ConnectionState::GetInstance()->Update(ConnectionType::IFMAP,
-            "IFMapServer", connection_status_ == UP ? ::ConnectionStatus::UP :
-                                                      ::ConnectionStatus::DOWN,
+        process::ConnectionState::GetInstance()->Update(
+            process::ConnectionType::IFMAP,
+            "IFMapServer", connection_status_ == UP ? 
+            process::ConnectionStatus::UP :
+            process::ConnectionStatus::DOWN,
             endpoint_, "Connection with IFMap Server (irond)");
     }
 }

@@ -40,12 +40,12 @@ libcpuinfo = env.Library('cpuinfo', ['cpuinfo.cc'] + cpuinfo_sandesh_files_ + ta
 task = except_env.Object('task.o', 'task.cc')
 timer = timer_env.Object('timer.o', 'timer.cc')
 
-ConnInfoSandeshGenFiles = env.SandeshGenCpp('sandesh/connection_info.sandesh')
-ConnInfoSandeshGenSrcs = env.ExtractCpp(ConnInfoSandeshGenFiles)
+ProcessInfoSandeshGenFiles = env.SandeshGenCpp('sandesh/process_info.sandesh')
+ProcessInfoSandeshGenSrcs = env.ExtractCpp(ProcessInfoSandeshGenFiles)
 
-libconninfo = env.Library('connection_info',
+libprocessinfo = env.Library('process_info',
                           ['connection_info.cc'] +
-                          ConnInfoSandeshGenSrcs)
+                          ProcessInfoSandeshGenSrcs)
 
 VersionInfoSandeshGenFiles = env.SandeshGenCpp('sandesh/version.sandesh')
 VersionInfoSandeshGenSrcs = env.ExtractCpp(VersionInfoSandeshGenFiles)

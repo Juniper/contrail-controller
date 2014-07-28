@@ -312,7 +312,7 @@ class ZookeeperClient(object):
 
     def _sandesh_connection_info_update(self, status, message):
         from pysandesh.connection_info import ConnectionState
-        from pysandesh.gen_py.connection_info.ttypes import ConnectionStatus, \
+        from pysandesh.gen_py.process_info.ttypes import ConnectionStatus, \
             ConnectionType
         ConnectionState.update(conn_type = ConnectionType.ZOOKEEPER,
                 name = 'Zookeeper', status = getattr(ConnectionStatus, status),

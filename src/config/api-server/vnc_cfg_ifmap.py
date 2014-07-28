@@ -64,7 +64,7 @@ from cfgm_common.exceptions import *
 from gen.vnc_ifmap_client_gen import *
 from gen.vnc_cassandra_client_gen import *
 from pysandesh.connection_info import ConnectionState
-from pysandesh.gen_py.connection_info.ttypes import ConnectionStatus, \
+from pysandesh.gen_py.process_info.ttypes import ConnectionStatus, \
     ConnectionType
 
 import logging

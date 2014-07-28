@@ -10,6 +10,7 @@
 #include <netinet/ether.h>
 #include <boost/intrusive_ptr.hpp>
 #include <cmn/agent_cmn.h>
+#include <base/connection_info.h>
 
 class Agent;
 class AgentParam;
@@ -142,7 +143,6 @@ class Peer;
 class LifetimeManager;
 class DiagTable;
 class VNController;
-class ConnectionState;
 class AgentSignal;
 class ServiceInstanceTable;
 class Agent;
@@ -517,10 +517,10 @@ public:
     void set_vhost_interface(const Interface *interface) {
         vhost_interface_ = interface;
     }
-    ConnectionState* connection_state() const {
+    process::ConnectionState* connection_state() const {
         return connection_state_;
     }
-    void set_connection_state(ConnectionState* state) {
+    void set_connection_state(process::ConnectionState* state) {
         connection_state_ = state;
     }
     uint16_t metadata_server_port() const {return metadata_server_port_;}
@@ -762,7 +762,7 @@ private:
     VxLanNetworkIdentifierMode vxlan_network_identifier_mode_;
     bool headless_agent_mode_;
     const Interface *vhost_interface_;
-    ConnectionState* connection_state_;
+    process::ConnectionState* connection_state_;
     bool debug_;
     bool test_mode_;
     bool init_done_;

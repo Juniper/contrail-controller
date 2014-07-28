@@ -25,7 +25,7 @@ import socket
 # sandesh
 from sandesh.discovery_client import ttypes as sandesh
 from pysandesh.connection_info import ConnectionState
-from pysandesh.gen_py.connection_info.ttypes import ConnectionStatus, \
+from pysandesh.gen_py.process_info.ttypes import ConnectionStatus, \
     ConnectionType
 
 def CamelCase(input):
@@ -287,7 +287,7 @@ class DiscoveryClient(object):
                 except requests.exceptions.ConnectionError:
                     service, data = pub_list[cookie]
                     ConnectionState.update(conn_type = ConnectionType.DISCOVERY,
-                        name = service, status = ConnectionState.DOWN,
+                        name = service, status = ConnectionStatus.DOWN,
                         server_addrs = ['%s:%s' % (self._server_ip, \
                             self._server_port)],
                         message = 'HeartBeat - Connection Error') 

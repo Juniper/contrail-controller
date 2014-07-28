@@ -9,9 +9,8 @@ setup(
     version='0.1dev',
     packages=['database',
               'database.sandesh',
-              'database.sandesh.viz',
               'database.sandesh.database',
-              'database.sandesh.database.cpuinfo'
+              'database.sandesh.database.process_info'
               ],
     package_data={'': ['*.html', '*.css', '*.xml']},
     zip_safe=False,
