@@ -1421,6 +1421,77 @@ TEST_F(BgpConfigManagerTest, ShowPeerings) {
     TASK_UTIL_EXPECT_EQ(0, db_graph_.vertex_count());
 }
 
+TEST_F(BgpConfigManagerTest, AddBgpRouterBeforeParentLink) {
+    // Shenanigans to get rid of the default bgp-router config.
+    string bgp_router_id = string(BgpConfigManager::kMasterInstance) + ":local";
+    ifmap_test_util::IFMapMsgNodeAdd(&db_, "bgp-router", bgp_router_id);
+    task_util::WaitForIdle();
+    ifmap_test_util::IFMapMsgNodeDelete(&db_, "bgp-router", bgp_router_id);
+    task_util::WaitForIdle();
+    const BgpInstanceConfig *instance =
+        FindInstanceConfig(BgpConfigManager::kMasterInstance);
+    TASK_UTIL_EXPECT_TRUE(instance->protocol_config() == NULL);
+
+    // Add bgp-router with parameters.
+    autogen::BgpRouterParams *params = new autogen::BgpRouterParams;
+    params->Clear();
+    params->autonomous_system = 100;
+    params->identifier = "10.1.1.100";
+    params->address = "127.0.0.100";
+    ifmap_test_util::IFMapMsgPropertyAdd(&db_, "bgp-router", bgp_router_id,
+        "bgp-router-parameters", params);
+    task_util::WaitForIdle();
+
+    // Now add a link between the bgp-router and the routing-instance.
+    ifmap_test_util::IFMapMsgLink(&db_,
+        "routing-instance", BgpConfigManager::kMasterInstance,
+        "bgp-router", bgp_router_id, "instance-bgp-router");
+    task_util::WaitForIdle();
+
+    // Verify the protocol config.
+    TASK_UTIL_EXPECT_TRUE(instance->protocol_config() != NULL);
+    const BgpProtocolConfig *protocol = instance->protocol_config();
+    TASK_UTIL_EXPECT_TRUE(protocol->bgp_router() != NULL);
+    const autogen::BgpRouterParams &router_params = protocol->router_params();
+    TASK_UTIL_EXPECT_EQ(100, router_params.autonomous_system);
+    TASK_UTIL_EXPECT_EQ("10.1.1.100", router_params.identifier);
+    TASK_UTIL_EXPECT_EQ("127.0.0.100", router_params.address);
+}
+
+TEST_F(BgpConfigManagerTest, RemoveParentLinkBeforeBgpRouter) {
+    autogen::BgpRouterParams *params = new autogen::BgpRouterParams;
+    params->Clear();
+    params->autonomous_system = 100;
+    params->identifier = "10.1.1.100";
+    params->address = "127.0.0.100";
+    string bgp_router_id = string(BgpConfigManager::kMasterInstance) + ":local";
+    ifmap_test_util::IFMapMsgLink(&db_,
+        "routing-instance", BgpConfigManager::kMasterInstance,
+        "bgp-router", bgp_router_id, "instance-bgp-router");
+    ifmap_test_util::IFMapMsgPropertyAdd(&db_, "bgp-router", bgp_router_id,
+        "bgp-router-parameters", params);
+    task_util::WaitForIdle();
+
+    // Remove the link between the bgp-router and the routing-instance.
+    // Then notify the bgp-router to ensure that it's seen by the config.
+    ifmap_test_util::IFMapMsgUnlink(&db_,
+        "routing-instance", BgpConfigManager::kMasterInstance,
+        "bgp-router", bgp_router_id, "instance-bgp-router");
+    ifmap_test_util::IFMapNodeNotify(&db_, "bgp-router", bgp_router_id);
+    task_util::WaitForIdle();
+
+    // Verify the protocol config.
+    const BgpInstanceConfig *instance =
+        FindInstanceConfig(BgpConfigManager::kMasterInstance);
+    TASK_UTIL_EXPECT_TRUE(instance->protocol_config() != NULL);
+    const BgpProtocolConfig *protocol = instance->protocol_config();
+    TASK_UTIL_EXPECT_TRUE(protocol->bgp_router() != NULL);
+    const autogen::BgpRouterParams &router_params = protocol->router_params();
+    TASK_UTIL_EXPECT_EQ(100, router_params.autonomous_system);
+    TASK_UTIL_EXPECT_EQ("10.1.1.100", router_params.identifier);
+    TASK_UTIL_EXPECT_EQ("127.0.0.100", router_params.address);
+}
+
 class IFMapConfigTest : public ::testing::Test {
   protected:
     IFMapConfigTest()
