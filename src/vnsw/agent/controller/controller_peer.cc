@@ -33,6 +33,9 @@
 
 using namespace boost::asio;
 using namespace autogen;
+using process::ConnectionType;
+using process::ConnectionStatus;
+using process::ConnectionState;
  
 AgentXmppChannel::AgentXmppChannel(Agent *agent, XmppChannel *channel, 
                                    const std::string &xmpp_server, 

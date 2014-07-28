@@ -12,6 +12,10 @@
 #include "xml/xml_pugi.h"
 #include "bind/xmpp_dns_agent.h"
 
+using process::ConnectionState;
+using process::ConnectionType;
+using process::ConnectionStatus;
+
 AgentDnsXmppChannel::DnsMessageHandler AgentDnsXmppChannel::dns_message_handler_cb_;
 AgentDnsXmppChannel::DnsXmppEventHandler AgentDnsXmppChannel::dns_xmpp_event_handler_cb_;
 
