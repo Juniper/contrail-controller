@@ -47,7 +47,7 @@ uve sandesh ControlCpuStateTrace {
 }
 
 struct ControlNodeProcessStatus {
-    1: string name (key="ObjectControlNodeInfo")
+    1: string name (key="ObjectBgpRouter")
     2: optional bool deleted
     3: optional string status
     4: optional list<connection_info.ProcessConnectivityStatus> connection_status (aggtype="union")
