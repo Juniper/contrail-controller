@@ -224,7 +224,7 @@ private:
     bool GetVdnsData(const VnEntry *vn, const Ip4Address &vm_addr, 
                      std::string &vdns_name,
                      autogen::VirtualDnsType &vdns_type);
-    void GetFipName(const VmInterface *vmitf,
+    bool GetFipName(const VmInterface *vmitf,
                     const  autogen::VirtualDnsType &vdns_type,
                     const Ip4Address &ip, std::string &fip_name) const;
 

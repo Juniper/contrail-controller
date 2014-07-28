@@ -345,10 +345,12 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
     </xsd:restriction>
 </xsd:simpleType>
 
-<xsd:simpleType name="FloatingIpDnsNotation" default="dashed-ip">
+<xsd:simpleType name="FloatingIpDnsNotation" default="dashed-ip-tenant-name">
     <xsd:restriction base="xsd:string">
         <xsd:enumeration value="dashed-ip"/>
+        <xsd:enumeration value="dashed-ip-tenant-name"/>
         <xsd:enumeration value="vm-name"/>
+        <xsd:enumeration value="vm-name-tenant-name"/>
     </xsd:restriction>
 </xsd:simpleType>
 
