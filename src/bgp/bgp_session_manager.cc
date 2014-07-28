@@ -4,7 +4,7 @@
 
 #include "bgp/bgp_session_manager.h"
 
-#include "base/logging.h"
+#include "base/task_annotations.h"
 #include "bgp/bgp_log.h"
 #include "bgp/bgp_session.h"
 #include "bgp/routing-instance/peer_manager.h"
@@ -13,9 +13,11 @@
 using namespace std;
 using namespace boost::asio;
 
-BgpSessionManager::BgpSessionManager(EventManager *evm, 
-                                     BgpServer *bgp_server)
-    : TcpServer(evm) , server_(bgp_server) {
+BgpSessionManager::BgpSessionManager(EventManager *evm, BgpServer *server)
+    : TcpServer(evm),
+      server_(server),
+      session_queue_(TaskScheduler::GetInstance()->GetTaskId("bgp::Config"), 0,
+          boost::bind(&BgpSessionManager::ProcessSession, this, _1)) {
 }
 
 BgpSessionManager::~BgpSessionManager() {
@@ -64,35 +66,43 @@ BgpPeer *BgpSessionManager::FindPeer(ip::tcp::endpoint remote_endpoint) {
 
 bool BgpSessionManager::AcceptSession(TcpSession *tcp_session) {
     BgpSession *session = dynamic_cast<BgpSession *>(tcp_session);
-    ip::tcp::endpoint remote = session->remote_endpoint();
+    session->set_read_on_connect(false);
+    session_queue_.Enqueue(session);
+    return true;
+}
 
+bool BgpSessionManager::ProcessSession(BgpSession *session) {
+    CHECK_CONCURRENCY("bgp::Config");
+
+    ip::tcp::endpoint remote = session->remote_endpoint();
     BgpPeer *peer = FindPeer(remote);
+
     // Ignore if this peer is not configured or is being deleted.
     if (peer == NULL || peer->deleter()->IsDeleted()) {
         session->SendNotification(BgpProto::Notification::Cease,
                                   BgpProto::Notification::PeerDeconfigured);
         BGP_LOG_STR(BgpMessage, SandeshLevel::SYS_WARN,
                     BGP_LOG_FLAG_TRACE, "Remote end-point not found");
-        return false;
+        DeleteSession(session);
+        return true;
     }
 
     // Ignore if this peer is being held administratively down.
     if (peer->IsAdminDown()) {
         session->SendNotification(BgpProto::Notification::Cease,
                                   BgpProto::Notification::AdminShutdown);
-        return false;
+        DeleteSession(session);
+        return true;
     }
 
     // Ignore if this peer is being closed.
     if (peer->IsCloseInProgress()) {
         session->SendNotification(BgpProto::Notification::Cease,
                                   BgpProto::Notification::ConnectionRejected);
-        return false;
+        DeleteSession(session);
+        return true;
     }
 
-    if (!peer->AcceptSession(session)) {
-        return false;
-    }
-
+    peer->AcceptSession(session);
     return true;
 }

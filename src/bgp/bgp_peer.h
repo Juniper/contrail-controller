@@ -174,6 +174,7 @@ public:
     void inc_rx_keepalive();
     void inc_rx_update();
     void inc_rx_notification();
+
     void inc_rx_route_update();
     void inc_rx_route_reach();
     void inc_rx_route_unreach();
@@ -182,6 +183,11 @@ public:
     size_t get_rx_keepalive();
     size_t get_rx_notification();
     size_t get_tr_keepalive();
+
+    void inc_rx_open_error();
+    void inc_rx_update_error();
+    size_t get_rx_open_error();
+    size_t get_rx_update_error();
 
     static void FillBgpNeighborDebugState(BgpNeighborResp &resp, const IPeerDebugStats *peer);
 

@@ -1402,13 +1402,15 @@ void StateMachine::OnSessionEvent(
 
 //
 // Receive TCP Passive Open.
-// Set the observer right away, so that we don't miss any events on the socket
-// that happen before the state machine has processed EvTcpPassiveOpen event.
+// Set the observer and start async read on the session. Note that we disable
+// read on connect when we accept passive sessions.
 //
 bool StateMachine::PassiveOpen(BgpSession *session) {
+    Enqueue(fsm::EvTcpPassiveOpen(session));
     session->set_observer(boost::bind(&StateMachine::OnSessionEvent,
         this, _1, _2));
-    return Enqueue(fsm::EvTcpPassiveOpen(session));
+    session->AsyncReadStart();
+    return true;
 }
 
 //
@@ -1423,6 +1425,7 @@ void StateMachine::OnMessage(BgpSession *session, BgpProto::BgpMessage *msg) {
         peer->inc_rx_open();
         if (int subcode = open_msg->Validate(peer)) {
             Enqueue(fsm::EvBgpOpenError(session, subcode));
+            peer->inc_rx_open_error();
         } else {
             Enqueue(fsm::EvBgpOpen(session, open_msg));
             msg = NULL;
@@ -1437,7 +1440,8 @@ void StateMachine::OnMessage(BgpSession *session, BgpProto::BgpMessage *msg) {
     }
     case BgpProto::NOTIFICATION: {
         BgpPeer *peer = session->Peer();
-        if (peer) peer->inc_rx_notification();
+        if (peer)
+            peer->inc_rx_notification();
         Enqueue(fsm::EvBgpNotification(session,
                 static_cast<BgpProto::Notification *>(msg)));
         msg = NULL;
@@ -1448,12 +1452,14 @@ void StateMachine::OnMessage(BgpSession *session, BgpProto::BgpMessage *msg) {
         BgpPeer *peer = NULL;
         if (session) 
             peer = session->Peer();
-        if (peer) peer->inc_rx_update();
+        if (peer)
+            peer->inc_rx_update();
 
         std::string data;
         int subcode;
         if (peer && (subcode = update->Validate(peer, data))) {
             Enqueue(fsm::EvBgpUpdateError(session, subcode, data));
+            peer->inc_rx_update_error();
         } else {
             Enqueue(fsm::EvBgpUpdate(session, update));
             msg = NULL;
