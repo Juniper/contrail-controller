@@ -1904,6 +1904,7 @@ void BgpXmppChannelManager::ASNUpdateCallback(as_t old_asn) {
     BOOST_FOREACH(XmppChannelMap::value_type &i, channel_map_) {
         i.second->ASNUpdateCallback(old_asn);
     }
+    xmpp_server_->ClearAllConnections();
 }
 
 void BgpXmppChannelManager::RoutingInstanceCallback(std::string vrf_name,

@@ -62,6 +62,8 @@ public:
     const std::string &ServerAddr() const { return server_addr_; }
     size_t ConnectionCount() const;
 
+    const XmppConnectionEndpoint *FindConnectionEndpoint(
+        Ip4Address address) const;
     XmppConnectionEndpoint *LocateConnectionEndpoint(Ip4Address address);
 
 protected:
