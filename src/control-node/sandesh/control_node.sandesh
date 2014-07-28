@@ -2,30 +2,29 @@
  * Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
  */
 
-include "base/sandesh/connection_info.sandesh"
+include "base/sandesh/process_info.sandesh"
 include "base/sandesh/cpuinfo.sandesh"
 include "ifmap/ifmap_server_show.sandesh"
 
 struct BgpRouterState {
     1: string name (key="ObjectBgpRouter")
     2: optional bool deleted
-    7: optional u64 uptime;
-    3: optional cpuinfo.CpuLoadInfo cpu_info;
-   16: optional double cpu_share (aggtype="stats")
-   17: optional u32 virt_mem (aggtype="stats")
-   13: optional u32 output_queue_depth;
-    4: optional u32 num_bgp_peer;
-   14: optional u32 num_up_bgp_peer;
-    5: optional u32 num_xmpp_peer;
-   15: optional u32 num_up_xmpp_peer;
-    6: optional u32 num_routing_instance;
-    8: optional string build_info;
-    9: optional string collector_ip;
-   10: optional list<string> bgp_router_ip_list;
-   11: optional list<string> core_files_list; 
-   18: optional list<cpuinfo.ProcessState> process_state_list (aggtype="union")
-   19: optional ifmap_server_show.IFMapPeerServerInfoUI ifmap_info;
-   20: optional ifmap_server_show.IFMapServerInfoUI ifmap_server_info;
+    3: optional u64 uptime;
+    4: optional cpuinfo.CpuLoadInfo cpu_info;
+    5: optional double cpu_share (aggtype="stats")
+    6: optional u32 virt_mem (aggtype="stats")
+    7: optional u32 output_queue_depth;
+    8: optional u32 num_bgp_peer;
+    9: optional u32 num_up_bgp_peer;
+   10: optional u32 num_xmpp_peer;
+   11: optional u32 num_up_xmpp_peer;
+   12: optional u32 num_routing_instance;
+   13: optional string build_info;
+   14: optional string collector_ip;
+   15: optional list<string> bgp_router_ip_list;
+   16: optional list<string> core_files_list;
+   17: optional ifmap_server_show.IFMapPeerServerInfoUI ifmap_info;
+   18: optional ifmap_server_show.IFMapServerInfoUI ifmap_server_info;
 }
 
 uve sandesh BGPRouterInfo {
@@ -46,14 +45,17 @@ uve sandesh ControlCpuStateTrace {
     1: ControlCpuState data
 }
 
-struct ControlNodeProcessStatus {
-    1: string name (key="ObjectControlNodeInfo")
+struct NodeStatus {
+    1: string name (key="ObjectBgpRouter")
     2: optional bool deleted
     3: optional string status
-    4: optional list<connection_info.ProcessConnectivityStatus> connection_status (aggtype="union")
-    5: optional string description
+    // Sent by process
+    4: optional list<process_info.ProcessStatus> process_status (aggtype="union")
+    // Sent by node manager
+    5: optional list<process_info.ProcessInfo> process_info (aggtype="union")
+    6: optional string description
 }
 
-uve sandesh ControlNodeStatus {
-    1: ControlNodeProcessStatus data
+uve sandesh NodeStatusUVE {
+    1: NodeStatus data
 }

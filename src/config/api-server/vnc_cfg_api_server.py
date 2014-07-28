@@ -81,12 +81,8 @@ import discoveryclient.client as client
 #from gen_py.vnc_api.ttypes import *
 import netifaces
 from pysandesh.connection_info import ConnectionState
-from pysandesh.gen_py.connection_info.ttypes import ConnectionType,\
-    ConnectionStatus, ConnectivityStatus
-from pysandesh.gen_py.connection_info.constants import \
-    ConnectionStatusNames
-from cfgm_common.uve.cfgm_cpuinfo.ttypes import ConfigProcessStatusUVE, \
-    ConfigProcessStatus
+from cfgm_common.uve.cfgm_cpuinfo.ttypes import NodeStatusUVE, \
+    NodeStatus
 
 _WEB_HOST = '0.0.0.0'
 _WEB_PORT = 8082
@@ -351,8 +347,8 @@ class VncApiServer(VncApiServerGen):
             enable_syslog=self._args.use_syslog,
             syslog_facility=self._args.syslog_facility)
         ConnectionState.init(self._sandesh, hostname, module_name,
-                instance_id, self._get_process_connectivity_status,
-                ConfigProcessStatusUVE, ConfigProcessStatus)
+                instance_id, ConnectionState.get_process_state_cb,
+                NodeStatusUVE, NodeStatus)
 
         # Load extensions
         self._extension_mgrs = {}
@@ -399,14 +395,6 @@ class VncApiServer(VncApiServerGen):
         self._cpu_info = cpu_info
 
     # end __init__
-
-    def _get_process_connectivity_status(self, conn_infos):
-        for conn_info in conn_infos:
-            if conn_info.status != ConnectionStatusNames[ConnectionStatus.UP]:
-                return (ConnectivityStatus.NON_FUNCTIONAL,
-                        conn_info.type + ':' + conn_info.name)
-        return (ConnectivityStatus.FUNCTIONAL, '')
-    #end _get_process_connectivity_status
 
     # Public Methods
     def route(self, uri, method, handler):

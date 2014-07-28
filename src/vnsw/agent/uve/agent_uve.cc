@@ -19,6 +19,13 @@
 #include <oper/mirror_table.h>
 #include <uve/vrouter_stats_collector.h>
 
+using process::ConnectionInfo;
+using process::ProcessState;
+using process::ConnectionStatus;
+using process::ConnectionState;
+using process::ConnectionStateManager;
+using process::g_process_info_constants;
+
 AgentUve *AgentUve::singleton_;
 
 AgentUve::AgentUve(Agent *agent, uint64_t intvl) 
@@ -63,11 +70,11 @@ void AgentUve::Init() {
     CpuLoadData::Init();
     agent_->set_connection_state(ConnectionState::GetInstance());
     connection_state_manager_ =
-        ConnectionStateManager<VrouterAgentStatus, VrouterAgentProcessStatus>::
+        ConnectionStateManager<NodeStatusUVE, NodeStatus>::
             GetInstance();
     connection_state_manager_->Init(io, agent_->params()->host_name(),
             module_id, instance_id,
-            boost::bind(&AgentUve::VrouterAgentConnectivityStatus,
+            boost::bind(&AgentUve::VrouterAgentProcessState,
                         this, _1, _2, _3));
 }
 
@@ -98,28 +105,28 @@ uint8_t AgentUve::ExpectedConnections(uint8_t &num_control_nodes,
     return count;
 }
 
-void AgentUve::UpdateStatus(const ConnectionInfo &cinfo,
-                            ConnectivityStatus::type &cstatus,
+void AgentUve::UpdateState(const ConnectionInfo &cinfo,
+                            ProcessState::type &pstate,
                             std::string &message) {
-    cstatus = ConnectivityStatus::NON_FUNCTIONAL;
+    pstate = ProcessState::NON_FUNCTIONAL;
     message = cinfo.get_type() + " connection is down";
 }
 
-void AgentUve::VrouterAgentConnectivityStatus
+void AgentUve::VrouterAgentProcessState
     (const std::vector<ConnectionInfo> &cinfos,
-     ConnectivityStatus::type &cstatus, std::string &message) {
+     ProcessState::type &pstate, std::string &message) {
     size_t num_conns(cinfos.size());
     uint8_t num_control_nodes = 0, num_dns_servers = 0;
     uint8_t down_control_nodes = 0, down_dns_servers = 0;
     uint8_t expected_conns = ExpectedConnections(num_control_nodes,
                                                  num_dns_servers);
     if (num_conns != expected_conns) {
-        cstatus = ConnectivityStatus::NON_FUNCTIONAL;
+        pstate = ProcessState::NON_FUNCTIONAL;
         message = "Number of connections:" + integerToString(num_conns) +
             ", Expected: " + integerToString(expected_conns);
         return;
     }
-    std::string cdown(g_connection_info_constants.ConnectionStatusNames.
+    std::string cdown(g_process_info_constants.ConnectionStatusNames.
         find(ConnectionStatus::DOWN)->second);
     // Iterate to determine process connectivity status
     for (std::vector<ConnectionInfo>::const_iterator it = cinfos.begin();
@@ -131,23 +138,23 @@ void AgentUve::VrouterAgentConnectivityStatus
                 agent_->xmpp_control_node_prefix()) == 0) {
                 down_control_nodes++;
                 if (num_control_nodes == down_control_nodes) {
-                    UpdateStatus(cinfo, cstatus, message);
+                    UpdateState(cinfo, pstate, message);
                     return;
                 }
             } else if (cinfo.get_name().compare(0, 11,
                 agent_->xmpp_dns_server_prefix()) == 0) {
                 down_dns_servers++;
                 if (num_dns_servers == down_dns_servers) {
-                    UpdateStatus(cinfo, cstatus, message);
+                    UpdateState(cinfo, pstate, message);
                     return;
                 }
             } else {
-                UpdateStatus(cinfo, cstatus, message);
+                UpdateState(cinfo, pstate, message);
                 return;
             }
         }
     }
-    cstatus = ConnectivityStatus::FUNCTIONAL;
+    pstate = ProcessState::FUNCTIONAL;
     return;
 }
 

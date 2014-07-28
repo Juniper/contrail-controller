@@ -11,7 +11,7 @@ setup(
               'opserver.sandesh',
               'opserver.sandesh.viz',
               'opserver.sandesh.analytics',
-              'opserver.sandesh.analytics.connection_info',
+              'opserver.sandesh.analytics.process_info',
               'opserver.sandesh.analytics.cpuinfo',
               'opserver.sandesh.analytics_database',
               'opserver.sandesh.redis',

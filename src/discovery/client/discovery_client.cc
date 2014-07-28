@@ -23,6 +23,9 @@
 
 using namespace std; 
 namespace ip = boost::asio::ip;
+using process::ConnectionState;
+using process::ConnectionType;
+using process::ConnectionStatus;
 
 const char *DiscoveryServiceClient::XmppService = "xmpp-server";
 const char *DiscoveryServiceClient::CollectorService = "collector-server";

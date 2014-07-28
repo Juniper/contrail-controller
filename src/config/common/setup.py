@@ -24,7 +24,7 @@ setup(
               'cfgm_common.uve.vrouter',
               'cfgm_common.uve.cfgm_cpuinfo',
               'cfgm_common.uve.cfgm_cpuinfo.cpuinfo',
-              'cfgm_common.uve.cfgm_cpuinfo.connection_info'
+              'cfgm_common.uve.cfgm_cpuinfo.process_info'
               ],
     package_data={'': ['*.html', '*.css', '*.xml']},
     zip_safe=False,
