@@ -208,6 +208,10 @@ bgp_update_test = env.UnitTest('bgp_update_test',
                                  ['bgp_update_test.cc'])
 env.Alias('src/bgp:bgp_update_test', bgp_update_test)
 
+bgp_xmpp_basic_test = env.UnitTest('bgp_xmpp_basic_test',
+                                   ['bgp_xmpp_basic_test.cc'])
+env.Alias('src/bgp:bgp_xmpp_basic_test', bgp_xmpp_basic_test)
+
 bgp_xmpp_channel_test = env.UnitTest('bgp_xmpp_channel_test',
                                      ['bgp_xmpp_channel_test.cc'])
 env.Alias('src/bgp:bgp_xmpp_channel_test', bgp_xmpp_channel_test)
@@ -353,6 +357,7 @@ env.Alias('controller/src/bgp:test', [
 flaky_test_suite = [
     bgp_config_manager_test,
     bgp_peer_close_test,
+    bgp_xmpp_basic_test,
     bgp_xmpp_deferq_test,
     bgp_xmpp_evpn_test,
     rtarget_peer_test,

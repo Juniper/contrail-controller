@@ -216,6 +216,7 @@ public:
     }
     BgpServer *bgp_server() { return bgp_server_; }
     XmppServer *xmpp_server() { return xmpp_server_; }
+
 protected:
     virtual BgpXmppChannel *CreateChannel(XmppChannel *);
 

@@ -356,6 +356,13 @@ void XmppServer::RemoveDeletedConnection(XmppServerConnection *connection) {
     deleted_connection_set_.erase(it);
 }
 
+const XmppConnectionEndpoint *XmppServer::FindConnectionEndpoint(
+    Ip4Address address) const {
+    ConnectionEndpointMap::const_iterator loc =
+        connection_endpoint_map_.find(address);
+    return (loc != connection_endpoint_map_.end() ? loc->second : NULL);
+}
+
 XmppConnectionEndpoint *XmppServer::LocateConnectionEndpoint(
     Ip4Address address) {
     ConnectionEndpointMap::iterator loc =
