@@ -301,7 +301,13 @@ class LogQuerier(object):
                     value=str(
                         SandeshType.SYSTEM),
                     op=OpServerUtils.MatchOp.EQUAL)
-                filter.append(sandesh_type_filter.__dict__)
+                filter.append([sandesh_type_filter.__dict__])
+                sandesh_type_filter = OpServerUtils.Match(
+                    name=VizConstants.SANDESH_TYPE,
+                    value=str(
+                        SandeshType.SYSLOG),
+                    op=OpServerUtils.MatchOp.EQUAL)
+                filter.append([sandesh_type_filter.__dict__])
 
             if len(where_msg):
                 where = [where_msg]
