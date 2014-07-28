@@ -681,7 +681,32 @@ class TestVncCfgApiServer(test_common.TestCase):
 
         finally:
             api_server._db_conn._msgbus._obj_update_q.put = orig_rabbitq_put
-        
+ 
+    def test_handle_trap_on_exception(self):
+        api_server = test_common.vnc_cfg_api_server.server
+
+        def exception_on_log_error(*args, **kwargs):
+            self.assertTrue(False)
+
+        def exception_on_vn_read(*args, **kwargs):
+            raise Exception("fake vn read exception")
+
+        try:
+            orig_config_log_error = api_server.config_log_error
+            api_server.config_log_error = exception_on_log_error
+            with ExpectedException(NoIdError):
+                self._vnc_lib.virtual_network_read(fq_name=['foo', 'bar', 'baz'])
+        finally:
+            api_server.config_log_error = orig_config_log_error
+
+        try:
+            orig_vn_read = api_server._db_conn._cassandra_db._cassandra_virtual_network_read
+            test_obj = self._create_test_object()
+            api_server._db_conn._cassandra_db._cassandra_virtual_network_read = exception_on_vn_read
+            with ExpectedException(HttpError):
+                self._vnc_lib.virtual_network_read(fq_name=test_obj.get_fq_name())
+        finally:
+            api_server._db_conn._cassandra_db._cassandra_virtual_network_read = orig_vn_read
 # end class TestVncCfgApiServer
 
 if __name__ == '__main__':

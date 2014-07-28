@@ -414,14 +414,17 @@ class VncApiServer(VncApiServerGen):
             try:
                 return handler(*args, **kwargs)
             except Exception as e:
-                string_buf = StringIO()
-                cgitb.Hook(
-                    file=string_buf,
-                    format="text",
-                    ).handle(sys.exc_info())
-                err_msg = mask_password(string_buf.getvalue())
-                logger.error("Exception in REST api handler:\n%s" %(err_msg))
-                self.config_log_error(err_msg)
+                # don't log details of bottle.abort i.e handled error cases
+                if not isinstance(e, bottle.HTTPError):
+                    string_buf = StringIO()
+                    cgitb.Hook(
+                        file=string_buf,
+                        format="text",
+                        ).handle(sys.exc_info())
+                    err_msg = mask_password(string_buf.getvalue())
+                    logger.error("Exception in REST api handler:\n%s" %(err_msg))
+                    self.config_log_error(err_msg)
+
                 raise e
 
         bottle.route(uri, method, handler_trap_exception)
