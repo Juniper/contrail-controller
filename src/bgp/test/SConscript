@@ -62,7 +62,7 @@ env.Prepend(LIBS = ['control_test', 'bgptest', 'bgp', 'peer_sandesh',
 		    'ifmap_server', 'ifmap_common',
                     'ifmapio', 'ds', 'pugixml', 'httpc', 'curl',
                     'crypto', 'ssl', 'sandesh', 'http', 'http_parser',
-                    'db', 'sandeshvns', 'connection_info', 'io', 'base', 'gunit'])
+                    'db', 'sandeshvns', 'process_info', 'io', 'base', 'gunit'])
 
 
 if sys.platform == 'darwin':

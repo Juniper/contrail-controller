@@ -17,12 +17,18 @@
 #include <tbb/mutex.h>
 
 #include <base/timer.h>
-#include <base/sandesh/connection_info_constants.h>
-#include <base/sandesh/connection_info_types.h>
+#include <base/sandesh/process_info_constants.h>
+#include <base/sandesh/process_info_types.h>
+
+namespace process {
 
 typedef boost::asio::ip::tcp::endpoint Endpoint;
 typedef boost::function<void (const std::vector<ConnectionInfo> &,
-    ConnectivityStatus::type &, std::string &)> ConnectivityStatusFn;
+    ProcessState::type &, std::string &)> ProcessStateFn;
+
+void GetProcessStateCb(const std::vector<ConnectionInfo> &cinfos,
+    ProcessState::type &state, std::string &message,
+    size_t expected_connections);
 
 // ConnectionState
 class ConnectionState {
@@ -60,7 +66,7 @@ public:
 
     void Init(boost::asio::io_service &service, const std::string &hostname,
         const std::string &module, const std::string &instance_id,
-        ConnectivityStatusFn status_cb) {
+        ProcessStateFn status_cb) {
         timer_ = TimerManager::CreateTimer(service, "Connection State Timer",
                     TaskScheduler::GetInstance()->GetTaskId("connState::Timer"),
                     0);
@@ -93,16 +99,16 @@ private:
         // Update
         process_status_.set_connection_infos(
             ConnectionState::GetInstance()->GetInfos());
-        ConnectivityStatus::type cstatus;
+        ProcessState::type pstate;
         std::string message;
-        status_cb_(process_status_.get_connection_infos(), cstatus, message);
-        process_status_.set_status(g_connection_info_constants.
-            ConnectivityStatusNames.find(cstatus)->second);
+        status_cb_(process_status_.get_connection_infos(), pstate, message);
+        process_status_.set_state(g_process_info_constants.
+            ProcessStateNames.find(pstate)->second);
+        process_status_.set_description(message);
         // Send
-        std::vector<ProcessConnectivityStatus> vps = boost::assign::list_of
+        std::vector<ProcessStatus> vps = boost::assign::list_of
             (process_status_);
-        data_.set_connection_status(vps);
-        data_.set_description(message);
+        data_.set_process_status(vps);
         UVEType::Send(data_);
         // Keep running
         return true;
@@ -112,12 +118,15 @@ private:
     static boost::scoped_ptr<ConnectionStateManager> instance_;
 
     Timer *timer_;
-    ConnectivityStatusFn status_cb_;
-    ProcessConnectivityStatus process_status_;
+    ProcessStateFn status_cb_;
+    ProcessStatus process_status_;
     UVEDataType data_;
 };
 
 template <typename UVEType, typename UVEDataType>
 boost::scoped_ptr<ConnectionStateManager<UVEType, UVEDataType> > 
     ConnectionStateManager<UVEType, UVEDataType>::instance_;
+
+} // namespace process
+
 #endif // __CONNECTION_INFO_H__     

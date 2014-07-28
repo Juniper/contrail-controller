@@ -25,7 +25,7 @@ import socket
 # sandesh
 from sandesh.discovery_client import ttypes as sandesh
 from pysandesh.connection_info import ConnectionState
-from pysandesh.gen_py.connection_info.ttypes import ConnectionStatus, \
+from pysandesh.gen_py.process_info.ttypes import ConnectionStatus, \
     ConnectionType
 
 def CamelCase(input):

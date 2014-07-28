@@ -52,12 +52,10 @@ except:
     from ordereddict import OrderedDict
 import jsonpickle
 from pysandesh.connection_info import ConnectionState
-from pysandesh.gen_py.connection_info.ttypes import ConnectionType,\
-    ConnectionStatus, ConnectivityStatus
-from pysandesh.gen_py.connection_info.constants import \
-    ConnectionStatusNames
-from cfgm_common.uve.cfgm_cpuinfo.ttypes import ConfigProcessStatusUVE, \
-    ConfigProcessStatus
+from pysandesh.gen_py.process_info.ttypes import ConnectionType, \
+    ConnectionStatus
+from cfgm_common.uve.cfgm_cpuinfo.ttypes import NodeStatusUVE, \
+    NodeStatus
 
 _BGP_RTGT_MAX_ID = 1 << 24
 _BGP_RTGT_ALLOC_PATH = "/id/bgp/route-targets/"
@@ -2594,8 +2592,8 @@ class SchemaTransformer(object):
                                     enable_syslog=args.use_syslog,
                                     syslog_facility=args.syslog_facility)
         ConnectionState.init(_sandesh, hostname, module_name,
-                instance_id, self._get_process_connectivity_status,
-                ConfigProcessStatusUVE, ConfigProcessStatus)
+                instance_id, ConnectionState.get_process_state_cb,
+                NodeStatusUVE, NodeStatus)
 
         # create cpu_info object to send periodic updates
         sysinfo_req = False
@@ -2604,14 +2602,6 @@ class SchemaTransformer(object):
         self._cpu_info = cpu_info
 
     # end __init__
-
-    def _get_process_connectivity_status(self, conn_infos):
-        for conn_info in conn_infos:
-            if conn_info.status != ConnectionStatusNames[ConnectionStatus.UP]:
-                return (ConnectivityStatus.NON_FUNCTIONAL,
-                        conn_info.type + ':' + conn_info.name)
-        return (ConnectivityStatus.FUNCTIONAL, '')
-    #end _get_process_connectivity_status
 
     def cleanup(self):
         # TODO cleanup sandesh context
