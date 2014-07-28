@@ -1,4 +1,4 @@
-<xsd:schema 
+<xsd:schema
     xmlns:xsd="http://www.w3.org/2001/XMLSchema"
     xmlns:smi="urn:ietf:params:xml:ns:opsawg:smi:base:1.0">
 
@@ -9,8 +9,16 @@
 <xsd:element name='bfd-session-config' type='BFDSessionConfig'/>
 <!--#IFMAP-SEMANTICS-IDL
      Property('bfd-session', 'bfd-session-config') -->
-<xsd:element name='bfd-session-enabled' type='xsd:boolean'/>
+
+<xsd:complexType name='BFDLinkMonitor'>
+    <xsd:sequence>
+        <xsd:element name='enabled' type='xsd:boolean'/>
+    </xsd:sequence>
+</xsd:complexType>
+
+<!-- low-latency BGP session monitoring -->
+<xsd:element name='bfd-link-monitor' type='BFDLinkMonitor'/>
 <!--#IFMAP-SEMANTICS-IDL
-     Link('bfd-session-enabled', 'bfd-session', 'bgp-router', ['ref']) -->
+     Link('bfd-link-monitor', 'bfd-session', 'bgp-router', ['ref']) -->
 
 </xsd:schema>
