@@ -8,8 +8,8 @@
 #include <map>
 
 class IFMapNode;
-class AgentConfig;
 class AgentDBTable;
+class DB;
 
 class CfgDBState : public DBState {
 public:
@@ -19,7 +19,7 @@ public:
 
 class CfgListener {
 public:
-    CfgListener(AgentConfig *cfg);
+    CfgListener(DB *database);
     virtual ~CfgListener() { }
 
     // Data to register a DBTable listener
@@ -71,7 +71,7 @@ private:
     CfgDBState *GetCfgDBState(IFMapTable *table, DBEntryBase *dbe,
                               DBTableBase::ListenerId &id);
 
-    AgentConfig *agent_cfg_;
+    DB *database_;
 
     CfgListenerIdMap cfg_listener_id_map_;
     CfgListenerMap cfg_listener_map_;
