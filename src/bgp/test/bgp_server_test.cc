@@ -42,46 +42,6 @@ private:
     bool create_session_fail_;
 };
 
-//
-// Fire state machine timers faster and reduce possible delay in this test
-//
-class StateMachineTest : public StateMachine {
-public:
-    static int hold_time_msec_;
-
-    explicit StateMachineTest(BgpPeer *peer) : StateMachine(peer) { }
-    ~StateMachineTest() { }
-
-    void StartConnectTimer(int seconds) {
-        connect_timer_->Start(10,
-            boost::bind(&StateMachine::ConnectTimerExpired, this),
-            boost::bind(&StateMachine::TimerErrorHanlder, this, _1, _2));
-    }
-
-    void StartOpenTimer(int seconds) {
-        open_timer_->Start(10,
-            boost::bind(&StateMachine::OpenTimerExpired, this),
-            boost::bind(&StateMachine::TimerErrorHanlder, this, _1, _2));
-    }
-
-    void StartIdleHoldTimer() {
-        if (idle_hold_time_ <= 0)
-            return;
-
-        idle_hold_timer_->Start(10,
-            boost::bind(&StateMachine::IdleHoldTimerExpired, this),
-            boost::bind(&StateMachine::TimerErrorHanlder, this, _1, _2));
-    }
-
-    virtual int hold_time_msecs() const {
-        if (hold_time_msec_)
-            return hold_time_msec_;
-        return StateMachine::hold_time_msecs();
-    }
-};
-
-int StateMachineTest::hold_time_msec_ = 0;
-
 class BgpServerUnitTest : public ::testing::Test {
 public:
     void ASNUpdateCb(BgpServerTest *server, as_t old_asn) {
@@ -102,7 +62,7 @@ protected:
     static void ValidateClearBgpNeighborResponse(Sandesh *sandesh, bool success);
     static void ValidateShowBgpServerResponse(Sandesh *sandesh);
 
-    BgpServerUnitTest() {
+    BgpServerUnitTest() : a_session_manager_(NULL), b_session_manager_(NULL) {
         ControlNode::SetTestMode(true);
         a_asn_update_notification_cnt_ = 0;
         b_asn_update_notification_cnt_ = 0;
@@ -386,23 +346,21 @@ static void ResumeDelete(LifetimeActor *actor) {
 }
 
 TEST_F(BgpServerUnitTest, Connection) {
-    int hold_time_orig = StateMachineTest::hold_time_msec_;
-    StateMachineTest::hold_time_msec_ = 30;
+    StateMachineTest::set_hold_time_msecs(30);
     BgpPeerTest::verbose_name(true);
     SetupPeers(3, a_->session_manager()->GetPort(),
                b_->session_manager()->GetPort(), true);
     VerifyPeers(3, 2);
-    StateMachineTest::hold_time_msec_ = hold_time_orig;
+    StateMachineTest::set_hold_time_msecs(0);
 }
 
 TEST_F(BgpServerUnitTest, LotsOfKeepAlives) {
-    int hold_time_orig = StateMachineTest::hold_time_msec_;
-    StateMachineTest::hold_time_msec_ = 30;
+    StateMachineTest::set_hold_time_msecs(30);
     BgpPeerTest::verbose_name(true);
     SetupPeers(3, a_->session_manager()->GetPort(),
                b_->session_manager()->GetPort(), true);
     VerifyPeers(3, 50);
-    StateMachineTest::hold_time_msec_ = hold_time_orig;
+    StateMachineTest::set_hold_time_msecs(0);
 }
 
 TEST_F(BgpServerUnitTest, ChangeAsNumber1) {
@@ -1990,13 +1948,12 @@ TEST_F(BgpServerUnitTest, ClearNeighbor4) {
 }
 
 TEST_F(BgpServerUnitTest, ShowBgpServer) {
-    int hold_time_orig = StateMachineTest::hold_time_msec_;
-    StateMachineTest::hold_time_msec_ = 30;
+    StateMachineTest::set_hold_time_msecs(30);
     BgpPeerTest::verbose_name(true);
     SetupPeers(3,a_->session_manager()->GetPort(),
                b_->session_manager()->GetPort(), true);
     VerifyPeers(3, 50);
-    StateMachineTest::hold_time_msec_ = hold_time_orig;
+    StateMachineTest::set_hold_time_msecs(0);
 
     BgpSandeshContext sandesh_context;
     ShowBgpServerReq *show_req;

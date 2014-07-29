@@ -204,7 +204,7 @@ private:
     friend class BgpConfigTest;
     friend class BgpPeerTest;
     friend class BgpServerUnitTest;
-    friend class StateMachineTest;
+    friend class StateMachineUnitTest;
 
     class DeleteActor;
     class PeerClose;
