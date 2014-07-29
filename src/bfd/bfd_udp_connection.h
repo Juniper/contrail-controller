@@ -22,17 +22,17 @@ class UDPConnectionManager :  public Connection {
     static const int kSendPortMax = 65535;
 
 
-    class UDPRecvServer : public UDPServer {
+    class UDPRecvServer : public UdpServer {
         boost::optional<RecvCallback> callback_;
      public:
         UDPRecvServer(EventManager *evm, int recvPort);
         void RegisterCallback(RecvCallback callback);
-        void HandleReceive(boost::asio::const_buffer recv_buffer,
+        void HandleReceive(boost::asio::const_buffer &recv_buffer,
                 boost::asio::ip::udp::endpoint remote_endpoint, std::size_t bytes_transferred,
                 const boost::system::error_code& error);
     } udpRecv_;
 
-    class UDPCommunicator : public UDPServer {
+    class UDPCommunicator : public UdpServer {
         const int remotePort_;
      public:
         UDPCommunicator(EventManager *evm, int remotePort);

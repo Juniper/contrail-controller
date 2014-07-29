@@ -65,11 +65,11 @@ class SyslogParserTestHelper : public SyslogParser
         std::string body_;
 };
 
-class SyslogMsgGen : public UDPServer
+class SyslogMsgGen : public UdpServer
 {
   public:
-    explicit SyslogMsgGen(boost::asio::io_service& io_service, int snd_port) :
-                UDPServer(io_service) {
+    explicit SyslogMsgGen(boost::asio::io_service *io_service, int snd_port) :
+                UdpServer(io_service) {
         boost::system::error_code ec;
         ep_ = udp::endpoint(boost::asio::ip::address::from_string("127.0.0.1",
             ec), snd_port);
@@ -118,7 +118,7 @@ class SyslogCollectorTest : public ::testing::Test
         listener_ = new SyslogListeners(evm_.get(),
             boost::bind(&SyslogCollectorTest::myTestCb, this, _1, _2, _3),
             db_handler_.get(), 0);
-        gen_ = new SyslogMsgGen(*evm_.get()->io_service(),
+        gen_ = new SyslogMsgGen(evm_.get()->io_service(),
             listener_->GetUdpPort());
         gen_->Initialize(0);
         listener_->Start();

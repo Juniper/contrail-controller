@@ -94,7 +94,7 @@ class UDPSyslogQueueEntry : public SyslogQueueEntry
     public:
 
     UDPSyslogQueueEntry (SyslogUDPListener* svr, udp::endpoint ep,
-            boost::asio::const_buffer d, size_t l):
+            boost::asio::const_buffer &d, size_t l):
         SyslogQueueEntry (d, l, ep.address ().to_string (), ep.port ()),
         ep_ (ep), b_(d), server_ (svr)
     {
@@ -592,12 +592,12 @@ void SyslogTcpListener::Start (std::string ipaddress, int port)
     LOG(DEBUG, __func__ << " Initialization of TCP syslog listener @" << port);
 }
 
-SyslogUDPListener::SyslogUDPListener (EventManager *evm): UDPServer (evm)
+SyslogUDPListener::SyslogUDPListener (EventManager *evm): UdpServer (evm)
 {
 }
 void SyslogUDPListener::Shutdown ()
 {
-    UDPServer::Shutdown ();
+    UdpServer::Shutdown ();
 }
 void SyslogUDPListener::Start (std::string ipaddress, int port)
 {
@@ -610,7 +610,7 @@ void SyslogUDPListener::Start (std::string ipaddress, int port)
 }
 
 void SyslogUDPListener::HandleReceive (
-            boost::asio::const_buffer recv_buffer,
+            boost::asio::const_buffer &recv_buffer,
             udp::endpoint remote_endpoint,
             std::size_t bytes_transferred,
             const boost::system::error_code& error)
