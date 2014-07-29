@@ -52,7 +52,7 @@ class NamespaceManager {
         /*
          * OnError variables
          */
-        NamespaceTask *task;
+        boost::uuids::uuid task_uuid;
         std::string errors;
 
         /*
@@ -89,7 +89,7 @@ class NamespaceManager {
                              ServiceInstance *svc_instance);
     void UnregisterSvcInstance(ServiceInstance *svc_instance);
     ServiceInstance *UnregisterSvcInstance(NamespaceTask *task);
-    ServiceInstance *GetSvcInstance(NamespaceTask *task) const;
+    ServiceInstance *GetSvcInstance(const boost::uuids::uuid &uuid) const;
 
     NamespaceTaskQueue *GetTaskQueue(const std::string &str);
     void Enqueue(NamespaceTask *task, const boost::uuids::uuid &uuid);
@@ -124,7 +124,7 @@ class NamespaceManager {
     WorkQueue<NamespaceManagerChildEvent> work_queue_;
 
     std::vector<NamespaceTaskQueue *> task_queues_;
-    std::map<NamespaceTask *, ServiceInstance *> task_svc_instances_;
+    std::map<boost::uuids::uuid, ServiceInstance *> task_svc_instances_;
     std::map<std::string, int> last_cmd_types_;
 };
 
@@ -230,7 +230,12 @@ class NamespaceTask {
 
     int cmd_type() const { return cmd_type_; }
 
+    const boost::uuids::uuid &uuid() const {
+        return uuid_;
+    }
+
  private:
+    boost::uuids::uuid uuid_;
     const std::string cmd_;
 
     boost::asio::posix::stream_descriptor errors_;
