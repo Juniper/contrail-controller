@@ -25,14 +25,15 @@ from collections import OrderedDict
 import pycassa
 import yaml
 
-import test_common
-
 from vnc_api.vnc_api import *
 from vnc_api.common import exceptions as vnc_exceptions
 import vnc_cfg_api_server
 import ifmap.client as ifmap_client
 import ifmap.response as ifmap_response
-from cfgm_common.test_utils import *
+sys.path.append("../common/tests") 
+from test_utils import *
+import test_common
+
 import gen.vnc_api_test_gen
 
 

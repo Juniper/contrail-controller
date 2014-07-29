@@ -10,20 +10,25 @@ import fixtures
 import testtools
 from testtools import content, content_type
 from flexmock import flexmock, Mock
+from webtest import TestApp
 
 from vnc_api.vnc_api import *
-from cfgm_common.test_utils import *
 import cfgm_common.ifmap.client as ifmap_client
 import cfgm_common.ifmap.response as ifmap_response
 import kombu
 import discoveryclient.client as disc_client
 from cfgm_common.zkclient import ZookeeperClient
 
+from test_utils import *
 sys.path.insert(0, '../../../../build/debug/api-lib/vnc_api')
+sys.path.insert(0, '../../../../distro/openstack/')
 import bottle
 bottle.catchall=False
-import vnc_cfg_api_server
 
+# import from package for non-api server test or directly from file
+import vnc_cfg_api_server
+if not hasattr(vnc_cfg_api_server, 'main'):
+    from vnc_cfg_api_server import vnc_cfg_api_server
 
 def launch_api_server(listen_ip, listen_port, http_server_port):
     args_str = ""
@@ -41,7 +46,8 @@ def launch_api_server(listen_ip, listen_port, http_server_port):
 
 def setup_flexmock():
     flexmock(ifmap_client.client, __init__=FakeIfmapClient.initialize,
-             call=FakeIfmapClient.call)
+             call=FakeIfmapClient.call,
+             call_async_result=FakeIfmapClient.call_async_result)
     flexmock(ifmap_response.Response, __init__=stub, element=stub)
     flexmock(ifmap_response.newSessionResult, get_session_id=stub)
     flexmock(ifmap_response.newSessionResult, get_publisher_id=stub)
@@ -77,8 +83,7 @@ class TestCase(testtools.TestCase, fixtures.TestWithFixtures):
         self.addDetail('Requesting: ', content.text_content(request_str))
 
     def _http_get(self, uri, query_params=None):
-        url = "http://%s:%s%s" \
-              % (self._web_host, self._web_host, self._web_port, uri)
+        url = "http://%s:%s%s" % (self._web_host, self._web_port, uri)
         self._add_request_detail('GET', url, headers=self._HTTP_HEADERS,
                                  query_params=query_params)
         response = self._api_server_session.get(url, headers=self._HTTP_HEADERS,
@@ -92,8 +97,7 @@ class TestCase(testtools.TestCase, fixtures.TestWithFixtures):
     #end _http_get
 
     def _http_post(self, uri, body):
-        url = "http://%s:%s%s" \
-              % (self._web_host, self._web_port, uri)
+        url = "http://%s:%s%s" % (self._web_host, self._web_port, uri)
         self._add_request_detail('POST', url, headers=self._HTTP_HEADERS, body=body)
         response = self._api_server_session.post(url, data=body,
                                                  headers=self._HTTP_HEADERS)
@@ -104,8 +108,7 @@ class TestCase(testtools.TestCase, fixtures.TestWithFixtures):
     #end _http_post
 
     def _http_delete(self, uri, body):
-        url = "http://%s:%s%s" \
-              % (self._web_host, self._web_port, uri)
+        url = "http://%s:%s%s" % (self._web_host, self._web_port, uri)
         self._add_request_detail('DELETE', url, headers=self._HTTP_HEADERS, body=body)
         response = self._api_server_session.delete(url, data=body,
                                                    headers=self._HTTP_HEADERS)
@@ -116,8 +119,7 @@ class TestCase(testtools.TestCase, fixtures.TestWithFixtures):
     #end _http_delete
 
     def _http_put(self, uri, body, headers):
-        url = "http://%s:%s%s" \
-              % (self._web_host, self._web_port, uri)
+        url = "http://%s:%s%s" % (self._web_host, self._web_port, uri)
         self._add_request_detail('PUT', url, headers=self._HTTP_HEADERS, body=body)
         response = self._api_server_session.put(url, data=body,
                                                 headers=self._HTTP_HEADERS)
@@ -127,26 +129,45 @@ class TestCase(testtools.TestCase, fixtures.TestWithFixtures):
         return (response.status_code, response.text)
     #end _http_put
 
+    def _create_test_objects(self, count=1):
+        ret_objs = []
+        for i in range(count):
+            obj_name = self.id() + '-vn-' + str(i)
+            obj = VirtualNetwork(obj_name)
+            self.addDetail('creating-object', content.text_content(obj_name))
+            self._vnc_lib.virtual_network_create(obj)
+            ret_objs.append(obj)
+
+        return ret_objs
+
+    def _create_test_object(self):
+        return self._create_test_objects()[0]
+
     def setUp(self):
         super(TestCase, self).setUp()
         global cov_handle
         if not cov_handle:
-            cov_handle = coverage.coverage(source=['./'])
+            cov_handle = coverage.coverage(source=['./'], omit=['.venv/*'])
         cov_handle.start()
         setup_flexmock()
 
         api_server_ip = socket.gethostbyname(socket.gethostname())
         api_server_port = get_free_port()
         http_server_port = get_free_port()
+        self._web_host = api_server_ip
+        self._web_port = api_server_port
         self._api_svr_greenlet = gevent.spawn(launch_api_server,
                                      api_server_ip, api_server_port,
                                      http_server_port)
         block_till_port_listened(api_server_ip, api_server_port)
+        extra_env = {'HTTP_HOST':'%s%s' %(api_server_ip,
+                                          api_server_port)}
+        self._api_svr_app = TestApp(bottle.app(), extra_environ=extra_env)
+        #FakeRequestsSession._api_svr_app = self._api_svr_app
+        
         self._vnc_lib = VncApi('u', 'p', api_server_host=api_server_ip,
                                api_server_port=api_server_port)
 
-        self._web_host = api_server_ip
-        self._web_port = api_server_port
         self._api_server_session = requests.Session()
         adapter = requests.adapters.HTTPAdapter()
         self._api_server_session.mount("http://", adapter)
@@ -161,4 +182,4 @@ class TestCase(testtools.TestCase, fixtures.TestWithFixtures):
         cov_handle.report(file=open('covreport.txt', 'w'))
         super(TestCase, self).tearDown()
     # end tearDown
-# end TestCommon
+# end TestCase
