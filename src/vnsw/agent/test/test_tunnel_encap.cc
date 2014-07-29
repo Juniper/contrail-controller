@@ -53,16 +53,12 @@ public:
         server1_ip_ = Ip4Address::from_string("10.1.1.11");
         local_vm_ip_ = Ip4Address::from_string("1.1.1.10");
         remote_vm_ip_ = Ip4Address::from_string("1.1.1.11");
-        local_vm_mac_ = (struct ether_addr *)malloc(sizeof(struct ether_addr));
-        remote_vm_mac_ = (struct ether_addr *)malloc(sizeof(struct ether_addr));
-        memcpy (local_vm_mac_, ether_aton("00:00:01:01:01:10"), 
-                sizeof(struct ether_addr));
-        memcpy (remote_vm_mac_, ether_aton("00:00:01:01:01:11"), 
-                sizeof(struct ether_addr));
+        memcpy(&local_vm_mac_, ether_aton("00:00:01:01:01:10"),
+               sizeof(struct ether_addr));
+        memcpy(&remote_vm_mac_, ether_aton("00:00:01:01:01:11"),
+               sizeof(struct ether_addr));
     };
     ~TunnelEncapTest() {
-        free(local_vm_mac_);
-        free(remote_vm_mac_);
     }
 
     virtual void SetUp() {
@@ -131,7 +127,7 @@ public:
         client->WaitForIdle();
 
         Layer2TunnelRouteAdd(Agent::GetInstance()->local_peer(), vrf_name_,
-                             l2_bmap, server1_ip_, 2000, *remote_vm_mac_, remote_vm_ip_, 32);
+                             l2_bmap, server1_ip_, 2000, remote_vm_mac_, remote_vm_ip_, 32);
         client->WaitForIdle();
 
         TunnelOlist olist_map;
@@ -158,7 +154,7 @@ public:
         client->WaitForIdle();
         Layer2AgentRouteTable::DeleteReq(Agent::GetInstance()->local_peer(), 
                                          vrf_name_,
-                                         *remote_vm_mac_, NULL);
+                                         remote_vm_mac_, NULL);
         client->WaitForIdle();
         DelArp("8.8.8.8", "00:00:08:08:08:08", 
                Agent::GetInstance()->fabric_interface_name().c_str());
@@ -212,7 +208,7 @@ public:
     }
 
     void VerifyLayer2UnicastRoutes(TunnelType::Type type) {
-        Layer2RouteEntry *route = L2RouteGet(vrf_name_, *local_vm_mac_);
+        Layer2RouteEntry *route = L2RouteGet(vrf_name_, local_vm_mac_);
         for(Route::PathList::iterator it = route->GetPathList().begin();
             it != route->GetPathList().end(); it++) {
             const AgentPath *path =
@@ -224,7 +220,7 @@ public:
             }
         }  
         
-        route = L2RouteGet(vrf_name_, *remote_vm_mac_);
+        route = L2RouteGet(vrf_name_, remote_vm_mac_);
         for(Route::PathList::iterator it = route->GetPathList().begin();
             it != route->GetPathList().end(); it++) {
             const AgentPath *path =
@@ -268,8 +264,8 @@ public:
     Ip4Address  local_vm_ip_;
     Ip4Address  remote_vm_ip_;
     Ip4Address  server1_ip_;
-    struct ether_addr *local_vm_mac_;
-    struct ether_addr *remote_vm_mac_;
+    struct ether_addr local_vm_mac_;
+    struct ether_addr remote_vm_mac_;
     static TunnelType::Type type_;
 };
 
