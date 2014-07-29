@@ -100,6 +100,32 @@ public:
 };
 
 
+static const char *config_template_with_instances = "\
+<config>\
+    <bgp-router name=\'A\'>\
+        <identifier>192.168.0.1</identifier>\
+        <address>127.0.0.1</address>\
+        <port>%d</port>\
+    </bgp-router>\
+    <routing-instance name='blue'>\
+        <vrf-target>target:1:1</vrf-target>\
+    </routing-instance>\
+    <routing-instance name='red'>\
+        <vrf-target>target:1:1</vrf-target>\
+    </routing-instance>\
+</config>\
+";
+
+static const char *config_template_without_instances = "\
+<config>\
+    <bgp-router name=\'A\'>\
+        <identifier>192.168.0.1</identifier>\
+        <address>127.0.0.1</address>\
+        <port>%d</port>\
+    </bgp-router>\
+</config>\
+";
+
 class BgpXmppUnitTest : public ::testing::Test {
 public:
     bool PeerRegistered(BgpXmppChannel *channel, std::string instance_name, 
@@ -168,9 +194,7 @@ public:
     }
 
 protected:
-    static const char *config_tmpl;
-
-    BgpXmppUnitTest() : thread_(&evm_) { }
+    BgpXmppUnitTest() : thread_(&evm_), xs_a_(NULL) { }
 
     string FileRead(const string &filename) {
         ifstream file(filename.c_str());
@@ -218,7 +242,14 @@ protected:
 
     void Configure() {
         char config[4096];
-        snprintf(config, sizeof(config), config_tmpl,
+        snprintf(config, sizeof(config), config_template_with_instances,
+                 a_->session_manager()->GetPort());
+        a_->Configure(config);
+    }
+
+    void ConfigureWithoutRoutingInstances() {
+        char config[4096];
+        snprintf(config, sizeof(config), config_template_without_instances,
                  a_->session_manager()->GetPort());
         a_->Configure(config);
     }
@@ -360,22 +391,6 @@ class BgpXmppSerializeMembershipReqTest : public BgpXmppUnitTest {
 
 int BgpXmppUnitTest::validate_done_;
 
-const char *BgpXmppUnitTest::config_tmpl = "\
-<config>\
-    <bgp-router name=\'A\'>\
-        <identifier>192.168.0.1</identifier>\
-        <address>127.0.0.1</address>\
-        <port>%d</port>\
-    </bgp-router>\
-    <routing-instance name='blue'>\
-        <vrf-target>target:1:1</vrf-target>\
-    </routing-instance>\
-    <routing-instance name='red'>\
-        <vrf-target>target:1:1</vrf-target>\
-    </routing-instance>\
-</config>\
-";
-
 namespace {
 
 TEST_F(BgpXmppUnitTest, Connection) {
@@ -471,6 +486,8 @@ TEST_F(BgpXmppUnitTest, ConnectionTearWithPendingUnreg) {
 }
 
 TEST_F(BgpXmppUnitTest, RegisterWithoutRoutingInstance) {
+    ConfigureWithoutRoutingInstances();
+    task_util::WaitForIdle();
 
     // create an XMPP client in server A
     agent_a_.reset(
@@ -505,6 +522,8 @@ TEST_F(BgpXmppUnitTest, RegisterWithoutRoutingInstance) {
 }
 
 TEST_F(BgpXmppUnitTest, RegAddDelAddRouteWithoutRoutingInstance) {
+    ConfigureWithoutRoutingInstances();
+    task_util::WaitForIdle();
 
     // create an XMPP client in server A
     agent_a_.reset(
@@ -542,6 +561,8 @@ TEST_F(BgpXmppUnitTest, RegAddDelAddRouteWithoutRoutingInstance) {
 
 
 TEST_F(BgpXmppUnitTest, RegUnregWithoutRoutingInstance) {
+    ConfigureWithoutRoutingInstances();
+    task_util::WaitForIdle();
 
     // create an XMPP client in server A
     agent_a_.reset(

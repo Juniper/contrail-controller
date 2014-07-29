@@ -118,6 +118,15 @@ static const autogen::EnetItemType *VerifyRouteUpdated(
     return rt;
 }
 
+static const char *config_template_10 = "\
+<config>\
+    <bgp-router name=\'X\'>\
+        <identifier>192.168.0.1</identifier>\
+        <address>127.0.0.1</address>\
+    </bgp-router>\
+</config>\
+";
+
 static const char *config_template_11 = "\
 <config>\
     <bgp-router name=\'X\'>\
@@ -147,7 +156,7 @@ static const char *config_template_11 = "\
 //
 class BgpXmppEvpnTest1 : public ::testing::Test {
 protected:
-    BgpXmppEvpnTest1() : thread_(&evm_) { }
+    BgpXmppEvpnTest1() : thread_(&evm_), xs_x_(NULL) { }
 
     virtual void SetUp() {
         bs_x_.reset(new BgpServerTest(&evm_, "X"));
@@ -181,6 +190,10 @@ protected:
 
     void Configure(const char *cfg_template = config_template_11) {
         bs_x_->Configure(cfg_template);
+    }
+
+    void ConfigureWithoutRoutingInstances() {
+        bs_x_->Configure(config_template_10);
     }
 
     EventManager evm_;
@@ -1036,6 +1049,9 @@ TEST_F(BgpXmppEvpnTest1, 2AgentSessionDown) {
 // have already advertised routes.
 //
 TEST_F(BgpXmppEvpnTest1, CreateInstanceLater) {
+    ConfigureWithoutRoutingInstances();
+    task_util::WaitForIdle();
+
     // Create XMPP Agent A connected to XMPP server X.
     agent_a_.reset(
         new test::NetworkAgentMock(&evm_, "agent-a", xs_x_->GetPort(),
@@ -1246,7 +1262,7 @@ static const char *config_template_21 = "\
 //
 class BgpXmppEvpnTest2 : public ::testing::Test {
 protected:
-    BgpXmppEvpnTest2() : thread_(&evm_) { }
+    BgpXmppEvpnTest2() : thread_(&evm_), xs_x_(NULL), xs_y_(NULL) { }
 
     virtual void SetUp() {
         bs_x_.reset(new BgpServerTest(&evm_, "X"));
