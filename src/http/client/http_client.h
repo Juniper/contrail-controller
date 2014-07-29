@@ -80,7 +80,8 @@ public:
                 std::vector<std::string> &hdr_options, HttpCb cb);
     int HttpHead(std::string &path, bool header, bool timeout,
                  std::vector<std::string> &hdr_options, HttpCb cb);
-    int HttpDelete(std::string &path, bool header, bool timeout,
+    int HttpDelete(const std::string &path, HttpCb);
+    int HttpDelete(const std::string &path, bool header, bool timeout,
                    std::vector<std::string> &hdr_options, HttpCb cb);
     void ClearCallback();
 
