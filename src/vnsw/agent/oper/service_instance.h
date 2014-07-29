@@ -48,6 +48,9 @@ public:
         int CompareTo(const Properties &rhs) const;
         const std::string &ServiceTypeString() const;
 
+        bool Usable() const;
+        std::string DiffString(const Properties &rhs) const;
+
         /* template parameters */
         int service_type;
         int virtualization_type;
