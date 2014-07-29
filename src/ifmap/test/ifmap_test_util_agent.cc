@@ -93,10 +93,41 @@ void IFMapNodeCommon(IFMapTable *table, DBRequest *request, const string &type,
     }
 }
 
-void IFMapPropertyCommon(DBRequest *request, const string &type,
-                         const string &id, const string &metadata,
-                         AutogenProperty *content, uint64_t sequence_number) {
-    // TODO:(roque)
+void IFMapMsgPropertySet(DB *db,
+                         const std::string &type,
+                         const std::string &id,
+                         const std::map<std::string, AutogenProperty *> &pmap,
+                         uint64_t sequence_number) {
+    DBRequest request;
+    request.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
+
+    IFMapTable::RequestKey *key = new IFMapTable::RequestKey();
+    request.key.reset(key);
+    key->id_type = type;
+    key->id_name = id;
+    key->id_seq_num = sequence_number;
+
+    IFMapTable *table = IFMapTable::FindTable(db, type);
+
+    IFMapAgentTable::IFMapAgentData *data =
+            new IFMapAgentTable::IFMapAgentData();
+    request.data.reset(data);
+    data->content.reset(table->AllocObject());
+
+    IFMapIdentifier *mapid = static_cast<IFMapIdentifier *>(
+        data->content.get());
+    autogen::IdPermsType id_perms;
+    id_perms.Clear();
+    boost::uuids::string_generator gen;
+    UuidTypeSet(gen(id), &id_perms.uuid);
+    mapid->SetProperty("id-perms", &id_perms);
+
+    for (std::map<std::string, AutogenProperty *>::const_iterator iter =
+                 pmap.begin(); iter != pmap.end(); ++iter) {
+        mapid->SetProperty(iter->first, iter->second);
+    }
+
+    table->Enqueue(&request);
 }
 
-}
+}  // namespace ifmap_test_util
