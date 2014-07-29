@@ -156,6 +156,11 @@ protected:
         Agent::GetInstance()->controller()->unicast_cleanup_timer().cleanup_timer_->Fire();
         TaskScheduler::GetInstance()->Start();
         client->WaitForIdle();
+        TaskScheduler::GetInstance()->Stop();
+        Agent::GetInstance()->controller()->unicast_cleanup_timer().cleanup_timer_->Fire();
+        Agent::GetInstance()->controller()->multicast_cleanup_timer().cleanup_timer_->Fire();
+        Agent::GetInstance()->controller()->config_cleanup_timer().cleanup_timer_->Fire();
+        TaskScheduler::GetInstance()->Start();
         Agent::GetInstance()->controller()->Cleanup();
         client->WaitForIdle();
 
@@ -329,9 +334,8 @@ int main(int argc, char **argv) {
 
     int ret = RUN_ALL_TESTS();
 
-    Agent::GetInstance()->event_manager()->Shutdown();
-    AsioStop();
-    TaskScheduler::GetInstance()->Terminate();
+    TestShutdown();
+    delete client;
     return ret; 
 }
 
