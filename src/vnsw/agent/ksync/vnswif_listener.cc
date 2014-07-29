@@ -79,13 +79,7 @@ void VnswInterfaceListener::Init() {
 
 void VnswInterfaceListener::Shutdown() { 
     // Expect only one entry for vhost0 during shutdown
-    assert(host_interface_table_.size() <= 1);
-    for (HostInterfaceTable::iterator it = host_interface_table_.begin();
-         it != host_interface_table_.end(); it++) {
-        it->second = NULL;
-    }
-    host_interface_table_.clear();
-
+    assert(host_interface_table_.size() == 0);
     if (agent_->test_mode()) {
         return;
     }
