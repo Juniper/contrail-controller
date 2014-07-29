@@ -24,7 +24,6 @@ local_sources = [
                   'svc_info.py',
                   'vnc_cpu_info.py',
                   'rest.py',
-                  'test_utils.py',
                   'vnc_plugin_base.py',
                   'vnc_extensions.py',
                  ]

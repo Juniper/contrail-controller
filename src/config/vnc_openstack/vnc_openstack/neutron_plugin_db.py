@@ -18,7 +18,6 @@ import bottle
 from neutron.common import constants
 from neutron.common import exceptions
 from neutron.api.v2 import attributes as attr
-from neutron.extensions import allowedaddresspairs as addr_pair
 
 from cfgm_common import exceptions as vnc_exc
 from vnc_api.vnc_api import *
@@ -179,7 +178,8 @@ class DBInterface(object):
     Q_URL_PREFIX = '/extensions/ct'
 
     def __init__(self, admin_name, admin_password, admin_tenant_name,
-                 api_srvr_ip, api_srvr_port, user_info=None):
+                 api_srvr_ip, api_srvr_port, user_info=None,
+                 contrail_extensions_enabled=True):
         self._api_srvr_ip = api_srvr_ip
         self._api_srvr_port = api_srvr_port
 
@@ -203,6 +203,8 @@ class DBInterface(object):
         self._db_cache['vnc_projects'] = {}
         self._db_cache['vnc_instance_ips'] = {}
         self._db_cache['vnc_routers'] = {}
+
+        self._contrail_extensions_enabled = contrail_extensions_enabled
 
         # Retry till a api-server is up
         connected = False
@@ -1579,6 +1581,9 @@ class DBInterface(object):
                     sn_ipam['ipam_fq_name'] = ipam_ref['to']
                     extra_dict['contrail:subnet_ipam'].append(sn_ipam)
 
+        if self._contrail_extensions_enabled:
+            net_q_dict.update(extra_dict)
+
         return net_q_dict
     #end _network_vnc_to_neutron
 
@@ -1975,11 +1980,11 @@ class DBInterface(object):
             port_obj.set_id_perms(id_perms)
 
 
-        if (addr_pair.ADDRESS_PAIRS in port_q and
-           port_q[addr_pair.ADDRESS_PAIRS]):
+        if ('allowed_address_pairs' in port_q and
+           port_q['allowed_address_pairs']):
             aaps = AllowedAddressPairs()
             aap_array = []
-            for address_pair in port_q[addr_pair.ADDRESS_PAIRS]:
+            for address_pair in port_q['allowed_address_pairs']:
                 mode = u'active-active';
                 if 'mac_address' not in address_pair:
                     mode = u'active-standby';

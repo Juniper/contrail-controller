@@ -5,6 +5,7 @@ import gevent
 import os
 import sys
 import pdb
+import json
 from pprint import pprint
 import functools
 import socket
@@ -473,6 +474,10 @@ class FakeIfmapClient(object):
         else:
             print method
     # end call
+
+    @staticmethod
+    def call_async_result(method, body):
+        return FakeIfmapClient.call(method, body)
 
 # end class FakeIfmapClient
 
