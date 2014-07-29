@@ -1271,6 +1271,8 @@ TEST_F(AgentXmppUnitTest, Test_Update_Olist_Src_Label) {
     client->CompositeNHWait(13);
 
     //verify sub-nh list count
+    nh = const_cast<NextHop *>(rt->GetActiveNextHop());
+    cnh = static_cast<CompositeNH *>(nh);
     ASSERT_TRUE(cnh->ComponentNHCount() == 3);
     ASSERT_TRUE(obj->GetSourceMPLSLabel() == static_cast<uint>(alloc_label+2));
 
@@ -1592,6 +1594,10 @@ TEST_F(AgentXmppUnitTest, Test_Olist_change_with_same_label) {
     client->MplsWait(12);
 
     //verify sub-nh list count ( 2 local-VMs + 2 members in olist )
+    nh = const_cast<NextHop *>(rt_m->GetActiveNextHop());
+    ASSERT_TRUE(nh != NULL);
+    ASSERT_TRUE(nh->GetType() == NextHop::COMPOSITE);
+    cnh = static_cast<CompositeNH *>(nh);
     ASSERT_TRUE(cnh->ComponentNHCount() == 3);
     ASSERT_TRUE(obj->GetSourceMPLSLabel() == static_cast<uint>(alloc_label+50));
 
