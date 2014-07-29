@@ -10,6 +10,7 @@ import string
 import unittest
 from netaddr import *
 
+sys.path.append("../common/tests")
 import test_common
 
 from vnc_addr_mgmt import *
