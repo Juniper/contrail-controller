@@ -333,6 +333,16 @@ int ServiceInstance::Properties::CompareTo(const Properties &rhs) const {
     return cmp;
 }
 
+bool ServiceInstance::Properties::Usable() const {
+    return (!instance_id.is_nil() &&
+            !vmi_inside.is_nil() &&
+            !vmi_outside.is_nil() &&
+            !ip_addr_inside.empty() &&
+            !ip_addr_outside.empty() &&
+            !(ip_prefix_len_inside == -1) &&
+            !(ip_prefix_len_outside == -1));
+}
+
 const std::string &ServiceInstance::Properties::ServiceTypeString() const {
     return ServiceInstanceTypesMapping::IntServiceTypeToStr(
         static_cast<ServiceType>(service_type));
@@ -417,13 +427,47 @@ bool ServiceInstance::DBEntrySandesh(Sandesh *sresp, std::string &name) const {
 }
 
 bool ServiceInstance::IsUsable() const {
-    return (!properties_.instance_id.is_nil() &&
-            !properties_.vmi_inside.is_nil() &&
-            !properties_.vmi_outside.is_nil() &&
-            !properties_.ip_addr_inside.empty() &&
-            !properties_.ip_addr_outside.empty() &&
-            !(properties_.ip_prefix_len_inside == -1) &&
-            !(properties_.ip_prefix_len_outside == -1));
+    return properties_.Usable();
+}
+
+static std::string PropertiesDelta(const ServiceInstance::Properties &lhs,
+                                   const ServiceInstance::Properties &rhs) {
+    std::stringstream ss;
+
+    if (compare(lhs.service_type, rhs.service_type)) {
+        ss << " type: -" << lhs.service_type << " +" << rhs.service_type;
+    }
+    if (compare(lhs.virtualization_type, rhs.virtualization_type)) {
+        ss << " virtualization: -" << lhs.virtualization_type
+           << " +" << rhs.virtualization_type;
+    }
+    if (compare(lhs.instance_id, rhs.instance_id)) {
+        ss << " id: -" << lhs.instance_id << " +" << rhs.instance_id;
+    }
+    if (compare(lhs.vmi_inside, rhs.vmi_inside)) {
+        ss << " vmi-inside: -" << lhs.vmi_inside << " +" << rhs.vmi_inside;
+    }
+    if (compare(lhs.vmi_outside, rhs.vmi_outside)) {
+        ss << " vmi-outside: -" << lhs.vmi_outside << " +" << rhs.vmi_outside;
+    }
+    if (compare(lhs.ip_addr_inside, rhs.ip_addr_inside)) {
+        ss << " ip-inside: -" << lhs.ip_addr_inside
+           << " +" << rhs.ip_addr_inside;
+    }
+    if (compare(lhs.ip_addr_outside, rhs.ip_addr_outside)) {
+        ss << " ip-outside: -" << lhs.ip_addr_outside
+           << " +" << rhs.ip_addr_outside;
+    }
+    if (compare(lhs.ip_prefix_len_inside, rhs.ip_prefix_len_inside)) {
+        ss << " pfx-inside: -" << lhs.ip_prefix_len_inside
+           << " +" << rhs.ip_prefix_len_inside;
+    }
+    if (compare(lhs.ip_prefix_len_outside, rhs.ip_prefix_len_outside)) {
+        ss << " pfx-outside: -" << lhs.ip_prefix_len_outside
+           << " +" << rhs.ip_prefix_len_outside;
+    }
+
+    return ss.str();
 }
 
 void ServiceInstance::CalculateProperties(
@@ -553,6 +597,10 @@ void ServiceInstanceTable::ChangeEventHandler(DBEntry *entry) {
     svc_instance->CalculateProperties(graph_, &properties);
 
     if (properties.CompareTo(svc_instance->properties()) != 0) {
+        if (svc_instance->properties().Usable() != !properties.Usable()) {
+            LOG(DEBUG, "service-instance properties update "
+                << PropertiesDelta(svc_instance->properties(), properties));
+        }
         DBRequest request;
         request.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
         request.key = svc_instance->GetDBRequestKey();
