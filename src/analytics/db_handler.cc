@@ -676,15 +676,15 @@ DbHandler::StatTableSelectStr(
             it != attribs.end(); it++) {
         switch (it->second.type) {
             case STRING: {
-                    aggstr.push_back(it->first);
+                    aggstr.push_back(statAttr + "." + it->first);
                 }
                 break;
             case UINT64: {
-                    aggstr.push_back(string("SUM(") + it->first + string(")"));
+                    aggstr.push_back(string("SUM(") + statAttr + "." + it->first + string(")"));
                 }
                 break;
             case DOUBLE: {
-                    aggstr.push_back(string("SUM(") + it->first + string(")"));
+                    aggstr.push_back(string("SUM(") + statAttr + "." + it->first + string(")"));
                 }
                 break;                
             default:
