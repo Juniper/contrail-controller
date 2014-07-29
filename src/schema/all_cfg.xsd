@@ -8,5 +8,4 @@
 
 <xsd:include schemaLocation='vnc_cfg.xsd'/>
 <xsd:include schemaLocation='bgp_schema.xsd'/>
-<xsd:include schemaLocation='loadbalancer.xsd'/>
 </xsd:schema>
