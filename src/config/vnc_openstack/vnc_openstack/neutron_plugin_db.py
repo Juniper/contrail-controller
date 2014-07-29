@@ -2400,10 +2400,75 @@ class DBInterface(object):
     #end subnet_read
 
     def subnet_update(self, subnet_id, subnet_q):
-        ret_subnet_q = self.subnet_read(subnet_id)
         if 'name' in subnet_q:
-            ret_subnet_q['name'] = subnet_q['name']
-        return ret_subnet_q
+            subnet_q['name'] = subnet_q['name']
+
+        if 'gateway_ip' in subnet_q:
+            if subnet_q['gateway_ip'] != None:
+                exc_info = {'type': 'BadRequest',
+                            'message': "update of gateway is not supported"}
+                bottle.abort(400, json.dumps(exc_info))
+ 
+        if 'allocation_pools' in subnet_q:
+            if subnet_q['allocation_pools'] != None:
+                exc_info = {'type': 'BadRequest',
+                            'message': "update of allocation_pools is not allowed"}
+                bottle.abort(400, json.dumps(exc_info))
+
+        subnet_key = self._subnet_vnc_read_mapping(id=subnet_id)
+        net_id = subnet_key.split()[0]
+        net_obj = self._network_read(net_id)
+        ipam_refs = net_obj.get_network_ipam_refs()
+        subnet_found = False
+        if ipam_refs:
+            for ipam_ref in ipam_refs:
+                subnets = ipam_ref['attr'].get_ipam_subnets()
+                for subnet_vnc in subnets:
+                    if self._subnet_vnc_get_key(subnet_vnc,
+                               net_id) == subnet_key:
+                        subnet_found = True
+                        break
+                if subnet_found:
+                    if 'gateway_ip' in subnet_q:
+                        if subnet_q['gateway_ip'] != None:
+                            subnet_vnc.set_default_gateway(subnet_q['gateway_ip'])
+
+                    if 'enable_dhcp' in subnet_q:
+                        if subnet_q['enable_dhcp'] != None:
+                            subnet_vnc.set_enable_dhcp(subnet_q['enable_dhcp'])
+
+                    if 'dns_nameservers' in subnet_q:
+                        if subnet_q['dns_nameservers'] != None:
+                            dhcp_options=[]
+                            for dns_server in subnet_q['dns_nameservers']:
+                                dhcp_options.append(DhcpOptionType(dhcp_option_name='6',
+                                                                   dhcp_option_value=dns_server))
+                            if dhcp_options:
+                                subnet_vnc.set_dhcp_option_list(DhcpOptionsListType(dhcp_options))
+                            else:
+                                subnet_vnc.set_dhcp_option_list(None)
+
+                    if 'host_routes' in subnet_q:
+                        if subnet_q['host_routes'] != None:
+                            host_routes=[]
+                            for host_route in subnet_q['host_routes']:
+                                host_routes.append(RouteType(prefix=host_route['destination'],
+                                                             next_hop=host_route['nexthop']))
+                            if host_routes:
+                                subnet_vnc.set_host_routes(RouteTableType(host_routes))
+                            else:
+                                subnet_vnc.set_host_routes(None)
+
+                    net_obj._pending_field_updates.add('network_ipam_refs')
+                    self._virtual_network_update(net_obj)
+                    ret_subnet_q = self._subnet_vnc_to_neutron(
+                                        subnet_vnc, net_obj, ipam_ref['to'])
+
+                    self._db_cache['q_subnets'][subnet_id] = ret_subnet_q
+                    return ret_subnet_q
+
+        return {}
+    # end subnet_update
 
     def subnet_delete(self, subnet_id):
         subnet_key = self._subnet_vnc_read_mapping(id=subnet_id)
