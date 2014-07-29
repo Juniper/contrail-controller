@@ -175,6 +175,7 @@ public:
 
 private:
     friend class StateMachineTest;
+    friend class StateMachineUnitTest;
 
     struct EventContainer {
         boost::intrusive_ptr<const sc::event_base> event;
