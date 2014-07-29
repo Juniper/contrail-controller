@@ -30,12 +30,19 @@ public:
     virtual ~FlowStatsCollector();
 
     uint64_t flow_age_time_intvl() { return flow_age_time_intvl_; }
+    uint32_t flow_age_time_intvl_in_secs() {
+        return flow_age_time_intvl_/(1000 * 1000);
+    }
     void UpdateFlowMultiplier();
     bool Run();
     void UpdateFlowAgeTime(uint64_t usecs) { 
         flow_age_time_intvl_ = usecs; 
         UpdateFlowMultiplier();
     }
+    void UpdateFlowAgeTimeInSecs(uint32_t secs) {
+        UpdateFlowAgeTime(secs * 1000 * 1000);
+    }
+
     static void FlowExport(FlowEntry *flow, uint64_t diff_bytes, 
                            uint64_t diff_pkts);
     void UpdateFlowStats(FlowEntry *flow, uint64_t &diff_bytes, 

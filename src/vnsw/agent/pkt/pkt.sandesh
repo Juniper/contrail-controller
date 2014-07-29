@@ -248,3 +248,12 @@ traceobject sandesh FlowRouteUpdate {
    7: u32 num_sg;
    8: list <i32> sg_list;
 }
+
+response sandesh FlowAgeTimeResp {
+   1: u32 old_age_time;
+   2: u32 new_age_time;
+}
+
+request sandesh FlowAgeTimeReq {
+   1: u32 new_age_time;
+}
