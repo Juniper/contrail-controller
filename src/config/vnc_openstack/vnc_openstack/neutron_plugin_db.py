@@ -3443,6 +3443,7 @@ class DBInterface(object):
             for fip_back_ref in fip_back_refs:
                 self.floatingip_update(fip_back_ref['uuid'], {'port_id': None})
 
+        tenant_id = self._get_obj_tenant_id('port', port_id)
         self._virtual_machine_interface_delete(port_id=port_id)
 
         # delete instance if this was the last port
@@ -3458,9 +3459,7 @@ class DBInterface(object):
 
         # update cache on successful deletion
         try:
-            tenant_id = self._get_obj_tenant_id('port', port_id)
-            self._db_cache['q_tenant_port_count'][tenant_id] = \
-                self._db_cache['q_tenant_port_count'][tenant_id] - 1
+            self._db_cache['q_tenant_port_count'][tenant_id] -= 1
         except KeyError:
             pass
 
