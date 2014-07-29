@@ -76,4 +76,24 @@ void IFMapPropertyCommon(DBRequest *request, const string &type,
     }
 }
 
+void IFMapMsgPropertyAdd(DB *db, const string &type, const string &id,
+                         const string &metadata, AutogenProperty *content,
+                         uint64_t sequence_number) {
+    DBRequest request;
+    request.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
+    IFMapPropertyCommon(&request, type, id, metadata, content,
+                        sequence_number);
+    IFMapTable *tbl = IFMapTable::FindTable(db, type);
+    tbl->Enqueue(&request);
+}
+
+void IFMapMsgPropertyDelete(DB *db, const string &type, const string &id,
+                            const string &metadata) {
+    DBRequest request;
+    request.oper = DBRequest::DB_ENTRY_DELETE;
+    IFMapPropertyCommon(&request, type, id, metadata, NULL, 0);
+    IFMapTable *tbl = IFMapTable::FindTable(db, type);
+    tbl->Enqueue(&request);
+}
+
 }
