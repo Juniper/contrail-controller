@@ -8,6 +8,8 @@
 #include <sstream>
 #include <algorithm>
 
+#include <uve/agent_uve.h>
+
 using boost::system::error_code;
 
 #define SET_SANDESH_FLOW_DATA(data, fe)                                     \
@@ -318,6 +320,27 @@ void FetchFlowRecord::HandleRequest() const {
         resp = flow_resp;
     } else {
         resp = new FlowErrorResp();
+    }
+    resp->set_context(context());
+    resp->set_more(false);
+    resp->Response();
+}
+
+// Sandesh interface to modify flow aging interval
+// Intended for use in testing only
+void FlowAgeTimeReq::HandleRequest() const {
+    FlowStatsCollector *collector =
+        Agent::GetInstance()->uve()->flow_stats_collector();
+
+    FlowAgeTimeResp *resp = new FlowAgeTimeResp();
+    resp->set_old_age_time(collector->flow_age_time_intvl_in_secs());
+
+    uint32_t age_time = get_new_age_time();
+    if (age_time && age_time != resp->get_old_age_time()) {
+        collector->UpdateFlowAgeTimeInSecs(age_time);
+        resp->set_new_age_time(age_time);
+    } else {
+        resp->set_new_age_time(resp->get_old_age_time());
     }
     resp->set_context(context());
     resp->set_more(false);
