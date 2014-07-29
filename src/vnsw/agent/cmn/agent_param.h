@@ -86,9 +86,13 @@ public:
     const std::string &config_file() const { return config_file_; }
     const std::string &program_name() const { return program_name_;}
     const std::string log_file() const { return log_file_; }
+    const int log_files_count() const { return log_files_count_; }
+    const long log_file_size() const { return log_file_size_; }
     bool log_local() const { return log_local_; }
     const std::string &log_level() const { return log_level_; }
     const std::string &log_category() const { return log_category_; }
+    const bool use_syslog() const { return use_syslog_; }
+    const std::string syslog_facility() const { return syslog_facility_; }
     const std::vector<std::string> collector_server_list() const {
         return collector_server_list_;
     }
@@ -211,9 +215,14 @@ private:
     std::string config_file_;
     std::string program_name_;
     std::string log_file_;
+    int log_files_count_;
+    long log_file_size_;
+
     bool log_local_;
     std::string log_level_;
     std::string log_category_;
+    bool use_syslog_;
+    std::string syslog_facility_;
     std::vector<std::string> collector_server_list_;
     uint16_t http_server_port_;
     std::string host_name_;
