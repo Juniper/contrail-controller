@@ -1324,7 +1324,7 @@ CompositeNH::KeyPtr CompositeNH::GetDBRequestKey() const {
 
 void CompositeNH::Delete(const DBRequest* req) {
     component_nh_list_.clear();
-    nh_list_populated_ = true;
+    nh_list_populated_ = false;
 }
 
 void CompositeNH::CreateComponentNH(Agent *agent,

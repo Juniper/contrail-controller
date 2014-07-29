@@ -1167,7 +1167,7 @@ public:
     }
 
     size_t ComponentNHCount() const {
-        return component_nh_key_list_.size();
+        return component_nh_list_.size();
     }
     uint32_t ActiveComponentNHCount() const {
         uint32_t idx = 0;
