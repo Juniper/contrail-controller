@@ -634,7 +634,7 @@ TEST_F(XmppIfmapTest, Connection) {
     if (sconnection) {
         sconnection->Shutdown();
     }
-    TASK_UTIL_EXPECT_EQ(xmpp_server_->ConnectionsCount(), 0);
+    TASK_UTIL_EXPECT_EQ(xmpp_server_->ConnectionCount(), 0);
     EXPECT_TRUE(xmpp_server_->FindConnection(client_name) == NULL);
 }
 
@@ -762,7 +762,7 @@ TEST_F(XmppIfmapTest, CheckClientGraphCleanupTest) {
     if (sconnection) {
         sconnection->Shutdown();
     }
-    TASK_UTIL_EXPECT_EQ(xmpp_server_->ConnectionsCount(), 0);
+    TASK_UTIL_EXPECT_EQ(xmpp_server_->ConnectionCount(), 0);
     EXPECT_TRUE(xmpp_server_->FindConnection(client_name) == NULL);
 }
 
@@ -834,7 +834,7 @@ TEST_F(XmppIfmapTest, DeleteProperty) {
     if (sconnection) {
         sconnection->Shutdown();
     }
-    TASK_UTIL_EXPECT_EQ(xmpp_server_->ConnectionsCount(), 0);
+    TASK_UTIL_EXPECT_EQ(xmpp_server_->ConnectionCount(), 0);
     EXPECT_TRUE(xmpp_server_->FindConnection(client_name) == NULL);
 }
 
@@ -945,7 +945,7 @@ TEST_F(XmppIfmapTest, VrVmSubUnsub) {
     if (sconnection) {
         sconnection->Shutdown();
     }
-    TASK_UTIL_EXPECT_EQ(xmpp_server_->ConnectionsCount(), 0);
+    TASK_UTIL_EXPECT_EQ(xmpp_server_->ConnectionCount(), 0);
     EXPECT_TRUE(xmpp_server_->FindConnection(client_name) == NULL);
 }
 
@@ -1098,7 +1098,7 @@ TEST_F(XmppIfmapTest, VrVmSubUnsubTwice) {
     if (sconnection) {
         sconnection->Shutdown();
     }
-    TASK_UTIL_EXPECT_EQ(xmpp_server_->ConnectionsCount(), 0);
+    TASK_UTIL_EXPECT_EQ(xmpp_server_->ConnectionCount(), 0);
     EXPECT_TRUE(xmpp_server_->FindConnection(client_name) == NULL);
 }
 
@@ -1246,7 +1246,7 @@ TEST_F(XmppIfmapTest, VrVmSubThrice) {
     if (sconnection) {
         sconnection->Shutdown();
     }
-    TASK_UTIL_EXPECT_EQ(xmpp_server_->ConnectionsCount(), 0);
+    TASK_UTIL_EXPECT_EQ(xmpp_server_->ConnectionCount(), 0);
     EXPECT_TRUE(xmpp_server_->FindConnection(client_name) == NULL);
 }
 
@@ -1388,7 +1388,7 @@ TEST_F(XmppIfmapTest, VrVmUnsubThrice) {
     if (sconnection) {
         sconnection->Shutdown();
     }
-    TASK_UTIL_EXPECT_EQ(xmpp_server_->ConnectionsCount(), 0);
+    TASK_UTIL_EXPECT_EQ(xmpp_server_->ConnectionCount(), 0);
     EXPECT_TRUE(xmpp_server_->FindConnection(client_name) == NULL);
 }
 
@@ -1494,7 +1494,7 @@ TEST_F(XmppIfmapTest, VrVmSubConnClose) {
     if (sconnection) {
         sconnection->Shutdown();
     }
-    TASK_UTIL_EXPECT_EQ(xmpp_server_->ConnectionsCount(), 0);
+    TASK_UTIL_EXPECT_EQ(xmpp_server_->ConnectionCount(), 0);
     EXPECT_TRUE(xmpp_server_->FindConnection(client_name) == NULL);
 }
 
@@ -1611,7 +1611,7 @@ TEST_F(XmppIfmapTest, RegBeforeConfig) {
     if (sconnection) {
         sconnection->Shutdown();
     }
-    TASK_UTIL_EXPECT_EQ(xmpp_server_->ConnectionsCount(), 0);
+    TASK_UTIL_EXPECT_EQ(xmpp_server_->ConnectionCount(), 0);
     EXPECT_TRUE(xmpp_server_->FindConnection(client_name) == NULL);
 }
 
@@ -1691,7 +1691,7 @@ TEST_F(XmppIfmapTest, Cli1Vn1Vm3Add) {
     if (sconnection) {
         sconnection->Shutdown();
     }
-    TASK_UTIL_EXPECT_EQ(xmpp_server_->ConnectionsCount(), 0);
+    TASK_UTIL_EXPECT_EQ(xmpp_server_->ConnectionCount(), 0);
     EXPECT_TRUE(xmpp_server_->FindConnection(client_name) == NULL);
 }
 
@@ -1771,7 +1771,7 @@ TEST_F(XmppIfmapTest, Cli1Vn2Np1Add) {
     if (sconnection) {
         sconnection->Shutdown();
     }
-    TASK_UTIL_EXPECT_EQ(xmpp_server_->ConnectionsCount(), 0);
+    TASK_UTIL_EXPECT_EQ(xmpp_server_->ConnectionCount(), 0);
     EXPECT_TRUE(xmpp_server_->FindConnection(client_name) == NULL);
 }
 
@@ -1850,7 +1850,7 @@ TEST_F(XmppIfmapTest, Cli1Vn2Np2Add) {
     if (sconnection) {
         sconnection->Shutdown();
     }
-    TASK_UTIL_EXPECT_EQ(xmpp_server_->ConnectionsCount(), 0);
+    TASK_UTIL_EXPECT_EQ(xmpp_server_->ConnectionCount(), 0);
     EXPECT_TRUE(xmpp_server_->FindConnection(client_name) == NULL);
 }
 
@@ -1968,7 +1968,7 @@ TEST_F(XmppIfmapTest, Cli2Vn2Np2Add) {
     if (sconnection) {
         sconnection->Shutdown();
     }
-    TASK_UTIL_EXPECT_EQ(xmpp_server_->ConnectionsCount(), 0);
+    TASK_UTIL_EXPECT_EQ(xmpp_server_->ConnectionCount(), 0);
 
     EXPECT_TRUE(xmpp_server_->FindConnection(cli_name1) == NULL);
     EXPECT_TRUE(xmpp_server_->FindConnection(cli_name2) == NULL);
@@ -2088,7 +2088,7 @@ TEST_F(XmppIfmapTest, Cli2Vn2Vm2Add) {
     if (sconnection) {
         sconnection->Shutdown();
     }
-    TASK_UTIL_EXPECT_EQ(xmpp_server_->ConnectionsCount(), 0);
+    TASK_UTIL_EXPECT_EQ(xmpp_server_->ConnectionCount(), 0);
 
     EXPECT_TRUE(xmpp_server_->FindConnection(cli_name1) == NULL);
     EXPECT_TRUE(xmpp_server_->FindConnection(cli_name2) == NULL);
@@ -2224,7 +2224,7 @@ TEST_F(XmppIfmapTest, Cli2Vn3Vm6Np2Add) {
     if (sconnection) {
         sconnection->Shutdown();
     }
-    TASK_UTIL_EXPECT_EQ(xmpp_server_->ConnectionsCount(), 0);
+    TASK_UTIL_EXPECT_EQ(xmpp_server_->ConnectionCount(), 0);
 
     EXPECT_TRUE(xmpp_server_->FindConnection(cli_name1) == NULL);
     EXPECT_TRUE(xmpp_server_->FindConnection(cli_name2) == NULL);
@@ -2381,7 +2381,7 @@ TEST_F(XmppIfmapTest, CfgSubUnsub) {
     if (sconnection) {
         sconnection->Shutdown();
     }
-    TASK_UTIL_EXPECT_EQ(xmpp_server_->ConnectionsCount(), 0);
+    TASK_UTIL_EXPECT_EQ(xmpp_server_->ConnectionCount(), 0);
     EXPECT_TRUE(xmpp_server_->FindConnection(client_name) == NULL);
 }
 
@@ -2556,7 +2556,7 @@ TEST_F(XmppIfmapTest, CfgAdd_Reg_CfgDel_Unreg) {
     if (sconnection) {
         sconnection->Shutdown();
     }
-    TASK_UTIL_EXPECT_EQ(xmpp_server_->ConnectionsCount(), 0);
+    TASK_UTIL_EXPECT_EQ(xmpp_server_->ConnectionCount(), 0);
     EXPECT_TRUE(xmpp_server_->FindConnection(client_name) == NULL);
 }
 
@@ -2745,7 +2745,7 @@ TEST_F(XmppIfmapTest, Reg_CfgAdd_CfgDel_Unreg) {
     if (sconnection) {
         sconnection->Shutdown();
     }
-    TASK_UTIL_EXPECT_EQ(xmpp_server_->ConnectionsCount(), 0);
+    TASK_UTIL_EXPECT_EQ(xmpp_server_->ConnectionCount(), 0);
     EXPECT_TRUE(xmpp_server_->FindConnection(client_name) == NULL);
 }
 
@@ -2925,7 +2925,7 @@ TEST_F(XmppIfmapTest, Reg_CfgAdd_Unreg_CfgDel) {
     if (sconnection) {
         sconnection->Shutdown();
     }
-    TASK_UTIL_EXPECT_EQ(xmpp_server_->ConnectionsCount(), 0);
+    TASK_UTIL_EXPECT_EQ(xmpp_server_->ConnectionCount(), 0);
     EXPECT_TRUE(xmpp_server_->FindConnection(client_name) == NULL);
 }
 
@@ -3116,7 +3116,7 @@ TEST_F(XmppIfmapTest, Reg_CfgAdd_Unreg_Close) {
     if (sconnection) {
         sconnection->Shutdown();
     }
-    TASK_UTIL_EXPECT_EQ(xmpp_server_->ConnectionsCount(), 0);
+    TASK_UTIL_EXPECT_EQ(xmpp_server_->ConnectionCount(), 0);
     EXPECT_TRUE(xmpp_server_->FindConnection(client_name) == NULL);
 }
 
@@ -3362,7 +3362,7 @@ TEST_F(XmppIfmapTest, CheckIFMapObjectSeqInList) {
     if (sconnection) {
         sconnection->Shutdown();
     }
-    TASK_UTIL_EXPECT_EQ(xmpp_server_->ConnectionsCount(), 0);
+    TASK_UTIL_EXPECT_EQ(xmpp_server_->ConnectionCount(), 0);
     EXPECT_TRUE(xmpp_server_->FindConnection(client_name) == NULL);
 }
 
@@ -3400,7 +3400,7 @@ TEST_F(XmppIfmapTest, ReadyNotready) {
     if (sconnection) {
         sconnection->Shutdown();
     }
-    TASK_UTIL_EXPECT_EQ(xmpp_server_->ConnectionsCount(), 0);
+    TASK_UTIL_EXPECT_EQ(xmpp_server_->ConnectionCount(), 0);
     EXPECT_TRUE(xmpp_server_->FindConnection(client_name) == NULL);
 }
 
@@ -3526,7 +3526,7 @@ TEST_F(XmppIfmapTest, Bug788) {
     if (sconnection) {
         sconnection->Shutdown();
     }
-    TASK_UTIL_EXPECT_EQ(xmpp_server_->ConnectionsCount(), 0);
+    TASK_UTIL_EXPECT_EQ(xmpp_server_->ConnectionCount(), 0);
     EXPECT_TRUE(xmpp_server_->FindConnection(client_name) == NULL);
 }
 
