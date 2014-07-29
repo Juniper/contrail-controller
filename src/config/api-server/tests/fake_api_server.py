@@ -10,7 +10,9 @@ import argparse
 #cgitb.enable(format='text')
 from flexmock import flexmock, Mock
 
-from cfgm_common.test_utils import *
+import sys
+sys.path.append("../common/tests")
+from test_utils import *
 import test_common
 
 logger = logging.getLogger(__name__)

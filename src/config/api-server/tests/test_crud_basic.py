@@ -28,11 +28,13 @@ import kombu
 
 from vnc_api.vnc_api import *
 from vnc_api.common import exceptions as vnc_exceptions
-from cfgm_common.test_utils import *
 import vnc_api.gen.vnc_api_test_gen
 from vnc_api.gen.resource_test import *
 
+sys.path.append('../common/tests')
+from test_utils import *
 import test_common
+import test_case
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.DEBUG)
@@ -496,7 +498,7 @@ class TestRefUpdate(object):
 # end class TestRefUpdate
 
 
-class TestListUpdate(test_common.TestCase):
+class TestListUpdate(test_case.ApiServerTestCase):
     def test_policy_create_w_rules(self):
         proj_fixt = self.useFixture(ProjectTestFixtureGen(self._vnc_lib))
 
@@ -580,21 +582,7 @@ class TestListUpdate(test_common.TestCase):
 
 # end class TestListUpdate
 
-class TestVncCfgApiServer(test_common.TestCase):
-    def _create_test_objects(self, count=1):
-        ret_objs = []
-        for i in range(count):
-            obj_name = self.id() + '-vn-' + str(i)
-            obj = VirtualNetwork(obj_name)
-            self.addDetail('creating-object', content.text_content(obj_name))
-            self._vnc_lib.virtual_network_create(obj)
-            ret_objs.append(obj)
-
-        return ret_objs
-
-    def _create_test_object(self):
-        return self._create_test_objects()[0]
-
+class TestVncCfgApiServer(test_case.ApiServerTestCase):
     def test_fq_name_to_id_http_post(self):
         test_obj = self._create_test_object()
         test_uuid = self._vnc_lib.fq_name_to_id('virtual-network', test_obj.get_fq_name())
