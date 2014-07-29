@@ -1115,6 +1115,12 @@ class SvcMonitor(object):
                 "Error: Instance IP not allocated for %s %s"
                 % (vm_name, proj_obj.name))
             return
+        si_props = si_obj.get_service_instance_properties()
+        max_instances = si_props.get_scale_out().get_max_instances()
+        if max_instances > 1:
+            iip_obj.set_instance_ip_mode(u'active-active');
+        else:
+            iip_obj.set_instance_ip_mode(u'active-standby');
         iip_obj.add_virtual_machine_interface(vmi_obj)
         self._vnc_lib.instance_ip_update(iip_obj)
 
