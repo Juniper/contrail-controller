@@ -155,6 +155,7 @@ void NextHop::FillObjectLog(AgentLogEvent::type event,
     info.set_type(type_str);
     info.set_policy(policy_str);
     info.set_valid(valid_str);
+    info.set_id(id_);
 }
 
 void NextHop::FillObjectLogIntf(const Interface *intf, 
@@ -1191,6 +1192,7 @@ void CompositeNH::SendObjectLog(AgentLogEvent::type event) const {
             continue;
         }
         const NextHop *nh = comp_nh->nh();
+        component_nh_info.set_component_nh_id(nh->id());
         switch(nh->GetType()) {
         case TUNNEL: {
             const TunnelNH *tun_nh = static_cast<const TunnelNH *>(nh);
@@ -1224,7 +1226,7 @@ void CompositeNH::SendObjectLog(AgentLogEvent::type event) const {
             const CompositeNH *cnh = static_cast<const CompositeNH *>(nh);
             std::stringstream str;
             str << "Composite; Type: " << cnh->composite_nh_type() <<
-                " comp_nh_count" << cnh->ComponentNHCount();
+                   " comp_nh_count" << cnh->ComponentNHCount();
             component_nh_info.set_type(str.str());
             break;
         }
