@@ -134,6 +134,7 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
         <xsd:element name="subnet" type="SubnetType"/>
         <xsd:element name="virtual-network" type="xsd:string" />
         <xsd:element name="security-group" type="xsd:string" />
+        <xsd:element name="network-policy" type="xsd:string"/>
     </xsd:choice>
 </xsd:complexType>
 
