@@ -33,7 +33,6 @@
 #include <base/task_trigger.h>
 #include <oper/namespace_manager.h>
 
-OperDB *OperDB::singleton_ = NULL;
 SandeshTraceBufferPtr OperDBTraceBuf(SandeshTraceBufferCreate("Oper DB", 5000));
 
 void OperDB::CreateDBTables(DB *db) {
@@ -168,12 +167,9 @@ OperDB::OperDB(Agent *agent)
           namespace_manager_(
               AgentObjectFactory::Create<NamespaceManager>(
                   agent->event_manager())) {
-    assert(singleton_ == NULL);
-    singleton_ = this;
 }
 
 OperDB::~OperDB() {
-    singleton_ = NULL;
 }
 
 void OperDB::Shutdown() {

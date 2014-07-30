@@ -257,6 +257,8 @@ void IFMapDependencyManager::SetObject(IFMapNode *node, DBEntry *entry) {
     } else {
         state->set_object(entry);
     }
+    tracker_->NodeEvent(node);
+    trigger_->Set();
 }
 
 /*
