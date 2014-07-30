@@ -2596,8 +2596,7 @@ class DBInterface(object):
         return self._ipam_vnc_to_neutron(ipam_obj)
     #end ipam_read
 
-    def ipam_update(self, ipam_id, ipam):
-        ipam_q = ipam['ipam']
+    def ipam_update(self, ipam_id, ipam_q):
         ipam_q['id'] = ipam_id
         ipam_obj = self._ipam_neutron_to_vnc(ipam_q, UPDATE)
         self._vnc_lib.network_ipam_update(ipam_obj)
