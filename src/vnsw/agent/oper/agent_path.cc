@@ -114,7 +114,12 @@ bool AgentPath::RebakeAllTunnelNHinCompositeNH(const AgentRoute *sync_route) {
 
     CompositeNH *new_composite_nh = NULL;
     new_composite_nh = cnh->ChangeTunnelType(agent, new_tunnel_type);
-    return ChangeNH(agent, new_composite_nh);
+    if (ChangeNH(agent, new_composite_nh)) {
+        //Update composite NH key list to reflect new type
+        composite_nh_key_->ChangeTunnelType(new_tunnel_type);
+        return true;
+    }
+    return false;
 }
 
 bool AgentPath::UpdateNHPolicy(Agent *agent) {

@@ -1134,6 +1134,24 @@ NextHop *CompositeNHKey::AllocEntry() const {
                            component_nh_key_list_, vrf);
 }
 
+void CompositeNHKey::ChangeTunnelType(TunnelType::Type tunnel_type) {
+    ComponentNHKeyList::iterator it = component_nh_key_list_.begin();
+    for (;it != component_nh_key_list_.end(); it++) {
+        if ((*it) == NULL) {
+            continue;
+        }
+        if ((*it)->nh_key()->GetType() == NextHop::TUNNEL) {
+            TunnelNHKey *tunnel_nh_key =
+                static_cast<TunnelNHKey *>((*it)->nh_key()->Clone());
+            tunnel_nh_key->set_tunnel_type(tunnel_type);
+            std::auto_ptr<const NextHopKey> nh_key(tunnel_nh_key);
+            ComponentNHKeyPtr new_tunnel_nh(new ComponentNHKey((*it)->label(),
+                                                               nh_key));
+            (*it) = new_tunnel_nh;
+        }
+    }
+}
+
 bool CompositeNH::Change(const DBRequest* req) {
     if (nh_list_populated_ == true) {
         //Any change in component nh list would result in

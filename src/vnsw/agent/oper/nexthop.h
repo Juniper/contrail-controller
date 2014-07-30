@@ -1107,6 +1107,7 @@ public:
     void Reorder(Agent *agent, uint32_t label, const NextHop *nh);
     void CreateTunnelNH(Agent *agent);
     void CreateTunnelNHReq(Agent *agent);
+    void ChangeTunnelType(TunnelType::Type tunnel_type);
 private:
     friend class CompositeNH;
     void ExpandLocalCompositeNH(Agent *agent);
