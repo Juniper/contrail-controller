@@ -314,6 +314,7 @@ TaskScheduler::~TaskScheduler() {
     return;
 }
 
+// Initialize the task scheduler.
 void TaskScheduler::Initialize() {
     assert(singleton_.get() == NULL);
     singleton_.reset(new TaskScheduler());
