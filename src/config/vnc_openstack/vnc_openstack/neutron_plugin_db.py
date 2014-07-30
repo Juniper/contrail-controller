@@ -3111,6 +3111,11 @@ class DBInterface(object):
 
             port_id = port['id']
 
+        else:
+            msg = _('Either port or subnet must be specified')
+            exc_info = {'type': 'BadRequest', 'message': msg}
+            bottle.abort(400, json.dumps(exc_info))
+
         self._set_snat_routing_table(router_obj, subnet['network_id'])
         vmi_obj = self._vnc_lib.virtual_machine_interface_read(id=port_id)
         router_obj.add_virtual_machine_interface(vmi_obj)
