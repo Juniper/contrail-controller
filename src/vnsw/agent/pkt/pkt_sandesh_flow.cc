@@ -25,6 +25,9 @@ using boost::system::error_code;
     data.set_action(fe->match_p().action_info.action);                      \
     std::vector<ActionStr> action_str_l;                                    \
     SetActionStr(fe->match_p().action_info, action_str_l);                  \
+    if ((fe->match_p().action_info.action & TrafficAction::DROP_FLAGS) != 0) {\
+        data.set_drop_reason(GetFlowDropReason(fe));                        \
+    }                                                                       \
     data.set_action_str(action_str_l);                                      \
     std::vector<MirrorActionSpec>::const_iterator mait;                     \
     std::vector<MirrorInfo> mirror_l;                                       \
@@ -56,7 +59,10 @@ using boost::system::error_code;
                     integerToString(UTCUsecToPTime(fe->stats().setup_time)));       \
     data.set_refcount(fe->GetRefCount());                                   \
     data.set_implicit_deny(fe->ImplicitDenyFlow() ? "yes" : "no");          \
-    data.set_short_flow(fe->is_flags_set(FlowEntry::ShortFlow) ? "yes" : "no");     \
+    data.set_short_flow(                                                    \
+            fe->is_flags_set(FlowEntry::ShortFlow) ?                        \
+            string("yes (") + GetShortFlowReason(fe->short_flow_reason()) + \
+            ")": "no");                                                     \
     data.set_local_flow(fe->is_flags_set(FlowEntry::LocalFlow) ? "yes" : "no");     \
     if (fe->is_flags_set(FlowEntry::LocalFlow)) {                           \
         data.set_egress_uuid(UuidToString(fe->egress_uuid()));              \
@@ -83,6 +89,58 @@ using boost::system::error_code;
 const std::string PktSandeshFlow::start_key = "0:0:0:0:0.0.0.0:0.0.0.0";
 
 ////////////////////////////////////////////////////////////////////////////////
+
+static const char * GetShortFlowReason(uint16_t reason) {
+    switch (reason) {
+    case FlowEntry::SHORT_UNAVIALABLE_INTERFACE:
+        return "Interface unavialable";
+    case FlowEntry::SHORT_IPV4_FWD_DIS:
+        return "Ipv4 forwarding disabled";
+    case FlowEntry::SHORT_UNAVIALABLE_VRF:
+        return "VRF unavailable";
+    case FlowEntry::SHORT_NO_SRC_ROUTE:
+        return "No Source route";
+    case FlowEntry::SHORT_NO_DST_ROUTE:
+        return "No Destination route";
+    case FlowEntry::SHORT_AUDIT_ENTRY:
+        return "Audit Entry";
+    case FlowEntry::SHORT_VRF_CHANGE:
+        return "VRF Change";
+    case FlowEntry::SHORT_NO_REVERSE_FLOW:
+        return "No Reverse flow";
+    case FlowEntry::SHORT_REVERSE_FLOW_CHANGE:
+        return "Reverse flow change";
+    case FlowEntry::SHORT_NAT_CHANGE:
+        return "NAT Changed";
+    case FlowEntry::SHORT_FLOW_LIMIT:
+        return "Flow Limit Reached";
+    case FlowEntry::SHORT_LINKLOCAL_SRC_NAT:
+        return "Linklocal source NAT failed";
+    default:
+        break;
+    }
+    return "Unknown";
+}
+
+static const char * GetFlowDropReason(FlowEntry *fe) {
+    switch (fe->data().drop_reason) {
+    case FlowEntry::DROP_POLICY:
+        return "Interface unavialable";
+    case FlowEntry::DROP_OUT_POLICY:
+        return "Ipv4 forwarding disabled";
+    case FlowEntry::DROP_SG:
+        return "VRF unavailable";
+    case FlowEntry::DROP_OUT_SG:
+        return "No Source route";
+    case FlowEntry::DROP_REVERSE_SG:
+        return "No Destination route";
+    case FlowEntry::DROP_REVERSE_OUT_SG:
+        return "Audit Entry";
+    default:
+        break;
+    }
+    return GetShortFlowReason(fe->data().drop_reason);;
+}
 
 static void SetOneAclInfo(FlowAclInfo *policy, uint32_t action,
                           const MatchAclParamsList &acl_list)  {

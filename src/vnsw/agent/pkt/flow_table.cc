@@ -94,7 +94,8 @@ static void SetAclListAceId(const AclDBEntry *acl, const std::list<MatchAclParam
 
 FlowEntry::FlowEntry(const FlowKey &k) : 
     key_(k), data_(), stats_(), flow_handle_(kInvalidFlowHandle),
-    ksync_entry_(NULL), deleted_(false), flags_(0), linklocal_src_port_(),
+    ksync_entry_(NULL), deleted_(false), flags_(0), short_flow_reason_(SHORT_UNKNOWN),
+    linklocal_src_port_(),
     linklocal_src_port_fd_(PktFlowInfo::kLinkLocalInvalidFd) {
     flow_uuid_ = FlowTable::rand_gen_(); 
     egress_uuid_ = FlowTable::rand_gen_(); 
@@ -219,6 +220,23 @@ bool FlowEntry::ActionRecompute() {
     if (ShouldDrop(action)) {
         action = (action & ~TrafficAction::DROP_FLAGS & ~TrafficAction::PASS_FLAGS);
         action |= (1 << TrafficAction::DROP);
+        if (is_flags_set(FlowEntry::ShortFlow)) {
+            data_.drop_reason = short_flow_reason_;
+        } else if (ShouldDrop(data_.match_p.policy_action)) {
+            data_.drop_reason = DROP_POLICY;
+        } else if (ShouldDrop(data_.match_p.out_policy_action)){
+            data_.drop_reason = DROP_OUT_POLICY;
+        } else if (ShouldDrop(data_.match_p.sg_action)){
+            data_.drop_reason = DROP_SG;
+        } else if (ShouldDrop(data_.match_p.out_sg_action)){
+            data_.drop_reason = DROP_OUT_SG;
+        } else if (ShouldDrop(data_.match_p.reverse_sg_action)){
+            data_.drop_reason = DROP_REVERSE_SG;
+        } else if (ShouldDrop(data_.match_p.reverse_out_sg_action)){
+            data_.drop_reason = DROP_REVERSE_OUT_SG;
+        } else {
+            data_.drop_reason = DROP_UNKNOWN;
+        }
     }
 
     if (action & (1 << TrafficAction::TRAP)) {
@@ -468,10 +486,10 @@ void FlowEntry::SetVrfAssignEntry() {
     }
     if (data_.vrf_assign_evaluated && vrf_assigned_name !=
         data_.match_p.action_info.vrf_translate_action_.vrf_name()) {
-        MakeShortFlow();
+        MakeShortFlow(SHORT_VRF_CHANGE);
     }
     if (acl_assigned_vrf_index() == 0) {
-        MakeShortFlow();
+        MakeShortFlow(SHORT_VRF_CHANGE);
     }
     data_.vrf_assign_evaluated = true;
 }
@@ -781,10 +799,15 @@ void FlowEntry::UpdateKSync() {
     }
 }
 
-void FlowEntry::MakeShortFlow() {
-    set_flags(FlowEntry::ShortFlow);
-    if (reverse_flow_entry_) {
+void FlowEntry::MakeShortFlow(FlowShortReason reason) {
+    if (!is_flags_set(FlowEntry::ShortFlow)) {
+        set_flags(FlowEntry::ShortFlow);
+        short_flow_reason_ = reason;
+    }
+    if (reverse_flow_entry_ &&
+        !reverse_flow_entry_->is_flags_set(FlowEntry::ShortFlow)) {
         reverse_flow_entry_->set_flags(FlowEntry::ShortFlow);
+        reverse_flow_entry_->short_flow_reason_ = reason;
     }
 }
 
@@ -875,27 +898,27 @@ void FlowTable::UpdateReverseFlow(FlowEntry *flow, FlowEntry *rflow) {
     }
 
     if (flow_rev && (flow_rev->reverse_flow_entry() == NULL)) {
-        flow_rev->MakeShortFlow();
-        flow->MakeShortFlow();
+        flow_rev->MakeShortFlow(FlowEntry::SHORT_NO_REVERSE_FLOW);
+        flow->MakeShortFlow(FlowEntry::SHORT_REVERSE_FLOW_CHANGE);
     }
 
     if (rflow_rev && (rflow_rev->reverse_flow_entry() == NULL)) {
-        rflow_rev->MakeShortFlow();
-        flow->MakeShortFlow();
+        rflow_rev->MakeShortFlow(FlowEntry::SHORT_NO_REVERSE_FLOW);
+        flow->MakeShortFlow(FlowEntry::SHORT_REVERSE_FLOW_CHANGE);
     }
 
     if (flow->reverse_flow_entry() == NULL) {
-        flow->MakeShortFlow();
+        flow->MakeShortFlow(FlowEntry::SHORT_NO_REVERSE_FLOW);
     }
 
     if (rflow && rflow->reverse_flow_entry() == NULL) {
-        rflow->MakeShortFlow();
+        rflow->MakeShortFlow(FlowEntry::SHORT_NO_REVERSE_FLOW);
     }
 
     if (rflow) {
         if (flow->is_flags_set(FlowEntry::ShortFlow) ||
             rflow->is_flags_set(FlowEntry::ShortFlow)) {
-            flow->MakeShortFlow();
+            flow->MakeShortFlow(FlowEntry::SHORT_REVERSE_FLOW_CHANGE);
         }
         if (flow->is_flags_set(FlowEntry::Multicast)) {
             rflow->set_flags(FlowEntry::Multicast);
@@ -1154,7 +1177,7 @@ bool FlowEntry::InitFlowCmn(const PktFlowInfo *info, const PktControlInfo *ctrl,
                             const PktControlInfo *rev_ctrl) {
     if (stats_.last_modified_time) {
         if (is_flags_set(FlowEntry::NatFlow) != info->nat_done) {
-            MakeShortFlow();
+            MakeShortFlow(SHORT_NAT_CHANGE);
             return false;
         }
         stats_.last_modified_time = UTCTimestampUsec();
@@ -1175,8 +1198,10 @@ bool FlowEntry::InitFlowCmn(const PktFlowInfo *info, const PktControlInfo *ctrl,
     }
     if (info->short_flow) {
         set_flags(FlowEntry::ShortFlow);
+        short_flow_reason_ = info->short_flow_reason;
     } else {
         reset_flags(FlowEntry::ShortFlow);
+        short_flow_reason_ = SHORT_UNKNOWN;
     }
     if (info->local_flow) {
         set_flags(FlowEntry::LocalFlow);
@@ -1305,6 +1330,7 @@ void FlowEntry::InitRevFlow(const PktFlowInfo *info,
 void FlowEntry::InitAuditFlow(uint32_t flow_idx) {
     flow_handle_ = flow_idx;
     set_flags(FlowEntry::ShortFlow);
+    short_flow_reason_ = SHORT_AUDIT_ENTRY;
     data_.source_vn = *FlowHandler::UnknownVn();
     data_.dest_vn = *FlowHandler::UnknownVn();
     SecurityGroupList empty_sg_id_l;

@@ -245,7 +245,7 @@ struct FlowData {
         vrf(VrfEntry::kInvalidIndex),
         mirror_vrf(VrfEntry::kInvalidIndex), dest_vrf(),
         component_nh_idx((uint32_t)CompositeNH::kInvalidComponentNHIdx),
-        nh_state_(NULL), source_plen(0), dest_plen(0),
+        nh_state_(NULL), source_plen(0), dest_plen(0), drop_reason(0),
         vrf_assign_evaluated(false) {}
 
     std::string source_vn;
@@ -271,11 +271,40 @@ struct FlowData {
     NhStatePtr nh_state_;
     uint8_t source_plen;
     uint8_t dest_plen;
+    uint16_t drop_reason;
     bool vrf_assign_evaluated;
 };
 
 class FlowEntry {
     public:
+    enum FlowShortReason {
+        SHORT_UNKNOWN = 0,
+        SHORT_UNAVIALABLE_INTERFACE,
+        SHORT_IPV4_FWD_DIS,
+        SHORT_UNAVIALABLE_VRF,
+        SHORT_NO_SRC_ROUTE,
+        SHORT_NO_DST_ROUTE,
+        SHORT_AUDIT_ENTRY,
+        SHORT_VRF_CHANGE,
+        SHORT_NO_REVERSE_FLOW,
+        SHORT_REVERSE_FLOW_CHANGE,
+        SHORT_NAT_CHANGE,
+        SHORT_FLOW_LIMIT,
+        SHORT_LINKLOCAL_SRC_NAT,
+        SHORT_FAILED_VROUTER_INSTALL,
+        SHORT_MAX
+    };
+
+    enum FlowDropReason {
+        DROP_UNKNOWN = 0,
+        DROP_POLICY = SHORT_MAX,
+        DROP_OUT_POLICY,
+        DROP_SG,
+        DROP_OUT_SG,
+        DROP_REVERSE_SG,
+        DROP_REVERSE_OUT_SG
+    };
+
     enum FlowPolicyState {
         NOT_EVALUATED,
         IMPLICIT_ALLOW, /* Due to No Acl rules */
@@ -322,7 +351,7 @@ class FlowEntry {
     bool ActionRecompute();
     void UpdateKSync();
     int GetRefCount() { return refcount_; }
-    void MakeShortFlow();
+    void MakeShortFlow(FlowShortReason reason);
     const FlowStats &stats() const { return stats_;}
     const FlowKey &key() const { return key_;}
     FlowData &data() { return data_;}
@@ -395,6 +424,7 @@ class FlowEntry {
     void UpdateFipStatsInfo(uint32_t fip, uint32_t id);
     const std::string &sg_rule_uuid() const { return sg_rule_uuid_; }
     const std::string &nw_ace_uuid() const { return nw_ace_uuid_; }
+    uint16_t short_flow_reason() const { return short_flow_reason_; }
 private:
     friend class FlowTable;
     friend class FlowStatsCollector;
@@ -416,6 +446,7 @@ private:
     static tbb::atomic<int> alloc_count_;
     bool deleted_;
     uint32_t flags_;
+    uint16_t short_flow_reason_;
     // linklocal port - used as nat src port, agent locally binds to this port
     uint16_t linklocal_src_port_;
     // fd of the socket used to locally bind in case of linklocal

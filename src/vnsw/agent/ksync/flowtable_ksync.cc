@@ -38,13 +38,57 @@
 #include <services/icmp_error_proto.h>
 #include <uve/stats_collector.h>
 
+static uint16_t GetDropReason(uint16_t dr) {
+    switch (dr) {
+    case FlowEntry::SHORT_UNAVIALABLE_INTERFACE:
+        return VR_FLOW_DR_UNAVIALABLE_INTF;
+    case FlowEntry::SHORT_IPV4_FWD_DIS:
+        return VR_FLOW_DR_IPv4_FWD_DIS;
+    case FlowEntry::SHORT_UNAVIALABLE_VRF:
+        return VR_FLOW_DR_UNAVAILABLE_VRF;
+    case FlowEntry::SHORT_NO_SRC_ROUTE:
+        return VR_FLOW_DR_NO_SRC_ROUTE;
+    case FlowEntry::SHORT_NO_DST_ROUTE:
+        return VR_FLOW_DR_NO_DST_ROUTE;
+    case FlowEntry::SHORT_AUDIT_ENTRY:
+        return VR_FLOW_DR_AUDIT_ENTRY;
+    case FlowEntry::SHORT_VRF_CHANGE:
+        return VR_FLOW_DR_VRF_CHANGE;
+    case FlowEntry::SHORT_NO_REVERSE_FLOW:
+        return VR_FLOW_DR_NO_REVERSE_FLOW;
+    case FlowEntry::SHORT_REVERSE_FLOW_CHANGE:
+        return VR_FLOW_DR_REVERSE_FLOW_CHANGE;
+    case FlowEntry::SHORT_NAT_CHANGE:
+        return VR_FLOW_DR_NAT_CHANGE;
+    case FlowEntry::SHORT_FLOW_LIMIT:
+        return VR_FLOW_DR_FLOW_LIMIT;
+    case FlowEntry::SHORT_LINKLOCAL_SRC_NAT:
+        return VR_FLOW_DR_LINKLOCAL_SRC_NAT;
+    case FlowEntry::DROP_POLICY:
+        return VR_FLOW_DR_POLICY;
+    case FlowEntry::DROP_OUT_POLICY:
+        return VR_FLOW_DR_OUT_POLICY;
+    case FlowEntry::DROP_SG:
+        return VR_FLOW_DR_SG;
+    case FlowEntry::DROP_OUT_SG:
+        return VR_FLOW_DR_OUT_SG;
+    case FlowEntry::DROP_REVERSE_SG:
+        return VR_FLOW_DR_REVERSE_SG;
+    case FlowEntry::DROP_REVERSE_OUT_SG:
+        return VR_FLOW_DR_REVERSE_OUT_SG;
+    default:
+        break;
+    }
+    return VR_FLOW_DR_UNKNOWN;
+}
+
 FlowTableKSyncEntry::FlowTableKSyncEntry(FlowTableKSyncObject *obj, 
                                          FlowEntryPtr fe, uint32_t hash_id)
     : flow_entry_(fe), hash_id_(hash_id), 
     old_reverse_flow_id_(FlowEntry::kInvalidFlowHandle), old_action_(0), 
     old_component_nh_idx_(0xFFFF), old_first_mirror_index_(0xFFFF), 
-    old_second_mirror_index_(0xFFFF), trap_flow_(false), ecmp_(false), nh_(NULL),
-    ksync_obj_(obj) {
+    old_second_mirror_index_(0xFFFF), trap_flow_(false), old_drop_reason_(0),
+    ecmp_(false), nh_(NULL), ksync_obj_(obj) {
 }
 
 FlowTableKSyncEntry::~FlowTableKSyncEntry() {
@@ -94,6 +138,7 @@ int FlowTableKSyncEntry::Encode(sandesh_op::type op, char *buf, int buf_len) {
     int encode_len;
     int error;
     uint16_t action = 0;
+    uint16_t drop_reason = VR_FLOW_DR_UNKNOWN;
     FlowEntry *rev_flow = flow_entry_->reverse_flow_entry();
 
     //If action is NAT and reverse flow entry is not valid
@@ -131,6 +176,7 @@ int FlowTableKSyncEntry::Encode(sandesh_op::type op, char *buf, int buf_len) {
         
         if ((fe_action) & (1 << TrafficAction::DROP)) {
             action = VR_FLOW_ACTION_DROP;
+            drop_reason = GetDropReason(flow_entry_->data().drop_reason);
         }
 
         if (action == VR_FLOW_ACTION_FORWARD &&
@@ -245,6 +291,7 @@ int FlowTableKSyncEntry::Encode(sandesh_op::type op, char *buf, int buf_len) {
 
         req.set_fr_flags(flags);
         req.set_fr_action(action);
+        req.set_fr_drop_reason(drop_reason);
     }
 
     encode_len = req.WriteBinary((uint8_t *)buf, buf_len, &error);
@@ -272,6 +319,10 @@ bool FlowTableKSyncEntry::Sync() {
         changed = true;
     }
 
+    if (flow_entry_->data().drop_reason != old_drop_reason_) {
+        old_drop_reason_ = flow_entry_->data().drop_reason;
+        changed = true;
+    }
     if (flow_entry_->data().component_nh_idx != old_component_nh_idx_) {
         old_component_nh_idx_ = flow_entry_->data().component_nh_idx;
         changed = true;
