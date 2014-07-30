@@ -2100,6 +2100,14 @@ void NextHop::SetNHSandeshData(NhSandeshData &data) const {
     data.set_ref_count(GetRefCount());
 }
 
+NextHop *NextHopTable::FindNextHop(size_t index) {
+    NextHop *nh = index_table_.At(index);
+    if (nh && nh->IsDeleted() != true) {
+        return nh;
+    }
+    return NULL;
+}
+
 bool NextHop::DBEntrySandesh(Sandesh *sresp, std::string &name) const {
     NhListResp *resp = static_cast<NhListResp *>(sresp);
 
