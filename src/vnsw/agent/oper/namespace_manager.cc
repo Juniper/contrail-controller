@@ -4,6 +4,7 @@
 
 #include "oper/namespace_manager.h"
 
+#include <boost/uuid/random_generator.hpp>
 #include <boost/bind.hpp>
 #include <boost/functional/hash.hpp>
 #include <sys/wait.h>
@@ -101,7 +102,7 @@ void NamespaceManager::SigChlgEventHandler(NamespaceManagerChildEvent event) {
 }
 
 void NamespaceManager::OnErrorEventHandler(NamespaceManagerChildEvent event) {
-    ServiceInstance *svc_instance = GetSvcInstance(event.task);
+    ServiceInstance *svc_instance = GetSvcInstance(event.task_uuid);
     if (!svc_instance) {
        return;
     }
@@ -168,7 +169,7 @@ NamespaceState *NamespaceManager::GetState(ServiceInstance *svc_instance) const 
 }
 
 NamespaceState *NamespaceManager::GetState(NamespaceTask* task) const {
-    ServiceInstance* svc_instance = GetSvcInstance(task);
+    ServiceInstance* svc_instance = GetSvcInstance(task->uuid());
     if (svc_instance) {
         NamespaceState *state = GetState(svc_instance);
         return state;
@@ -282,9 +283,10 @@ void NamespaceManager::ScheduleNextTask(NamespaceTaskQueue *task_queue) {
     }
 }
 
-ServiceInstance *NamespaceManager::GetSvcInstance(NamespaceTask *task) const {
-    std::map<NamespaceTask *, ServiceInstance*>::const_iterator iter =
-                    task_svc_instances_.find(task);
+ServiceInstance *NamespaceManager::GetSvcInstance(
+    const boost::uuids::uuid &uuid) const {
+    std::map<boost::uuids::uuid, ServiceInstance*>::const_iterator iter =
+                    task_svc_instances_.find(uuid);
     if (iter != task_svc_instances_.end()) {
         return iter->second;
     }
@@ -293,14 +295,15 @@ ServiceInstance *NamespaceManager::GetSvcInstance(NamespaceTask *task) const {
 
 void NamespaceManager::RegisterSvcInstance(NamespaceTask *task,
                                            ServiceInstance *svc_instance) {
-    task_svc_instances_.insert(std::make_pair(task, svc_instance));
+    task_svc_instances_.insert(std::make_pair(task->uuid(), svc_instance));
 }
 
 ServiceInstance *NamespaceManager::UnregisterSvcInstance(NamespaceTask *task) {
-    for (std::map<NamespaceTask *, ServiceInstance*>::iterator iter =
+    const boost::uuids::uuid uuid = task->uuid();
+    for (std::map<boost::uuids::uuid, ServiceInstance*>::iterator iter =
                     task_svc_instances_.begin();
          iter != task_svc_instances_.end(); ++iter) {
-        if (task == iter->first) {
+        if (uuid == iter->first) {
             ServiceInstance *svc_instance = iter->second;
             task_svc_instances_.erase(iter);
             return svc_instance;
@@ -311,7 +314,7 @@ ServiceInstance *NamespaceManager::UnregisterSvcInstance(NamespaceTask *task) {
 }
 
 void NamespaceManager::UnregisterSvcInstance(ServiceInstance *svc_instance) {
-    std::map<NamespaceTask *, ServiceInstance*>::iterator iter =
+    std::map<boost::uuids::uuid, ServiceInstance*>::iterator iter =
         task_svc_instances_.begin();
     while(iter != task_svc_instances_.end()) {
         if (svc_instance == iter->second) {
@@ -359,12 +362,12 @@ void NamespaceManager::StartNetNS(ServiceInstance *svc_instance,
     LOG(DEBUG, "NetNS run command queued: " << task->cmd());
 }
 
-void NamespaceManager::OnError(NamespaceTask *task,
+void NamespaceManager::OnError(const boost::uuids::uuid &uuid,
                                const std::string errors) {
 
     NamespaceManagerChildEvent event;
     event.type = OnErrorEvent;
-    event.task = task;
+    event.task_uuid = uuid;
     event.errors = errors;
 
     work_queue_.Enqueue(event);
@@ -491,6 +494,8 @@ void NamespaceState::Clear() {
 NamespaceTask::NamespaceTask(const std::string &cmd, int cmd_type, EventManager *evm) :
         cmd_(cmd), errors_(*(evm->io_service())), is_running_(false),
         pid_(0), cmd_type_(cmd_type), start_time_(0) {
+        boost::uuids::random_generator gen;
+        uuid_ = gen();
 }
 
 void NamespaceTask::ReadErrors(const boost::system::error_code &ec,
@@ -508,7 +513,7 @@ void NamespaceTask::ReadErrors(const boost::system::error_code &ec,
             LOG(ERROR, "NetNS run errors: " << std::endl << errors);
 
             if (!on_error_cb_.empty()) {
-                on_error_cb_(this, errors);
+                on_error_cb_(uuid_, errors);
             }
         }
         errors_data_.clear();
