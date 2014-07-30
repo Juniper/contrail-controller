@@ -342,7 +342,8 @@ void TestAgentInit::Start() {
     if (params_->log_file() == "") {
         LoggingInit();
     } else {
-        LoggingInit(params_->log_file());
+        LoggingInit(params_->log_file(), 1000000, 3, false, std::string(),
+                    std::string());
     }
 
     params_->LogConfig();
