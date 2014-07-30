@@ -14,6 +14,22 @@
 #include "cfg/cfg_init.h"
 #include "oper/operdb_init.h"
 
+/*
+ * TODO: remove these includes (used by for AgentTable::Clear())
+ */
+#include "filter/acl.h"
+#include "oper/interface.h"
+#include "oper/mirror_table.h"
+#include "oper/mpls.h"
+#include "oper/nexthop.h"
+#include "oper/sg.h"
+#include "oper/vm.h"
+#include "oper/vn.h"
+#include "oper/vrf.h"
+#include "oper/vrf_assign.h"
+#include "oper/vxlan.h"
+
+
 using boost::uuids::uuid;
 
 static std::string uuid_to_string(const uuid &uuid) {
@@ -37,41 +53,55 @@ static void UuidTypeSet(const uuid &uuid, autogen::UuidType *idpair) {
 
 class ServiceInstanceIntegrationTest : public ::testing::Test {
   protected:
-    ServiceInstanceIntegrationTest() {
-        agent_.reset(new Agent);
+    ServiceInstanceIntegrationTest()
+            : agent_(new Agent),
+              agent_config_(new AgentConfig(agent_.get())) {
+        agent_->set_cfg(agent_config_.get());
+        oper_db_.reset(new OperDB(agent_.get()));
+        agent_->set_oper_db(oper_db_.get());
     }
 
     virtual void SetUp() {
-        AgentConfig *config = new AgentConfig(agent_.get());
-        agent_->set_cfg(config);
-        OperDB *oper_db = new OperDB(agent_.get());
-        agent_->set_oper_db(oper_db);
-
         DB *db = agent_->db();
-        config->CreateDBTables(db);
-        oper_db->CreateDBTables(db);
-        config->RegisterDBClients(db);
-        oper_db->RegisterDBClients();
-        config->Init();
-        oper_db->Init();
+        agent_config_->CreateDBTables(db);
+        oper_db_->CreateDBTables(db);
+        agent_config_->RegisterDBClients(db);
+        oper_db_->RegisterDBClients();
+        agent_config_->Init();
+        oper_db_->Init();
 
         MessageInit();
+    }
+
+    /*
+     * TODO: Move code to OperDB::Shutdown.
+     */
+    void DBClear() {
+        agent_->interface_table()->Clear();
+        agent_->nexthop_table()->Clear();
+        agent_->vrf_table()->Clear();
+        agent_->vn_table()->Clear();
+        agent_->sg_table()->Clear();
+        agent_->vm_table()->Clear();
+        agent_->mpls_table()->Clear();
+        agent_->acl_table()->Clear();
+        agent_->mirror_table()->Clear();
+        agent_->vrf_assign_table()->Clear();
+        agent_->vxlan_table()->Clear();
+        agent_->service_instance_table()->Clear();
     }
 
     virtual void TearDown() {
         task_util::WaitForIdle();
 
         agent_->oper_db()->Shutdown();
+        DBClear();
         agent_->cfg()->Shutdown();
         task_util::WaitForIdle();
 
         DB *database = agent_->db();
         db_util::Clear(database);
         task_util::WaitForIdle();
-
-        OperDB *oper = agent_->oper_db();
-        agent_->set_oper_db(NULL);
-        delete oper;
 
         /**
          * The factory create method for ifmap link table takes the
@@ -137,7 +167,8 @@ class ServiceInstanceIntegrationTest : public ::testing::Test {
         meta.append_attribute("type") = metadata.c_str();
     }
 
-    void EncodeServiceInstance(const uuid &uuid, const std::string &name) {
+    void EncodeServiceInstance(const uuid &uuid, const std::string &name,
+                               bool has_inside_interface) {
         autogen::IdPermsType id;
         id.Clear();
         UuidTypeSet(uuid, &id.uuid);
@@ -146,7 +177,9 @@ class ServiceInstanceIntegrationTest : public ::testing::Test {
 
         autogen::ServiceInstanceType svc_properties;
         svc_properties.Clear();
-        svc_properties.left_virtual_network = "vnet-left";
+        if (has_inside_interface) {
+            svc_properties.left_virtual_network = "vnet-left";
+        }
         svc_properties.right_virtual_network = "vnet-right";
         svc_instance.SetProperty("service-instance-properties",
                                  &svc_properties);
@@ -156,7 +189,8 @@ class ServiceInstanceIntegrationTest : public ::testing::Test {
     }
 
     void ConnectServiceTemplate(const std::string &si_name,
-                                const std::string &tmpl_name) {
+                                const std::string &tmpl_name,
+                                const std::string &service_type) {
         boost::uuids::random_generator gen;
         autogen::IdPermsType id;
         id.Clear();
@@ -167,7 +201,7 @@ class ServiceInstanceIntegrationTest : public ::testing::Test {
 
         autogen::ServiceTemplateType props;
         props.Clear();
-        props.service_type = "source-nat";
+        props.service_type = service_type;
         props.service_virtualization_type = "network-namespace";
         svc_template.SetProperty("service-template-properties", &props);
 
@@ -337,8 +371,32 @@ class ServiceInstanceIntegrationTest : public ::testing::Test {
         return vmi_id;
     }
 
+    uuid ConnectLoadbalancerPool(const std::string &si_name,
+                                 const std::string &pool_name) {
+        boost::uuids::random_generator gen;
+        uuid pool_id = gen();
+        autogen::IdPermsType id;
+        id.Clear();
+        UuidTypeSet(pool_id, &id.uuid);
+
+        autogen::LoadbalancerPool pool;
+        pool.SetProperty("id-perms", &id);
+
+        pugi::xml_node update = config_.append_child("update");
+        EncodeNode(&update, "loadbalancer-pool", pool_name, &pool);
+
+        update = config_.append_child("update");
+        EncodeLink(&update,
+                   "loadbalancer-pool", pool_name,
+                   "service-instance", si_name,
+                   "loadbalancer-pool-service-instance");
+        return pool_id;
+    }
+
   protected:
     std::auto_ptr<Agent> agent_;
+    std::auto_ptr<AgentConfig> agent_config_;
+    std::auto_ptr<OperDB> oper_db_;
     pugi::xml_document doc_;
     pugi::xml_node config_;
 };
@@ -357,7 +415,7 @@ TEST_F(ServiceInstanceIntegrationTest, Config) {
     const std::string mac_left = GetRandomMac();
     const std::string mac_right = GetRandomMac();
 
-    EncodeServiceInstance(svc_id, "test-1");
+    EncodeServiceInstance(svc_id, "test-1", true);
     IFMapAgentParser *parser = agent_->ifmap_parser();
     parser->ConfigParse(config_, 1);
     task_util::WaitForIdle();
@@ -371,7 +429,7 @@ TEST_F(ServiceInstanceIntegrationTest, Config) {
     ASSERT_TRUE(svc_instance != NULL);
 
     MessageInit();
-    ConnectServiceTemplate("test-1", "tmpl-1");
+    ConnectServiceTemplate("test-1", "tmpl-1", "source-nat");
     parser->ConfigParse(config_, 1);
     task_util::WaitForIdle();
 
@@ -425,8 +483,9 @@ TEST_F(ServiceInstanceIntegrationTest, MultipleInstances) {
         MessageInit();
         std::stringstream name_gen;
         name_gen << "instance-" << i;
-        EncodeServiceInstance(svc_id, name_gen.str());
-        ConnectServiceTemplate(name_gen.str(), "nat-netns-template");
+        EncodeServiceInstance(svc_id, name_gen.str(), true);
+        ConnectServiceTemplate(name_gen.str(), "nat-netns-template",
+                               "source-nat");
 
         vm_ids.push_back(
             ConnectVirtualMachine(name_gen.str()));
@@ -491,9 +550,9 @@ TEST_F(ServiceInstanceIntegrationTest, MultipleInstances) {
 TEST_F(ServiceInstanceIntegrationTest, RemoveLinks) {
     boost::uuids::random_generator gen;
     uuid svc_id = gen();
-    EncodeServiceInstance(svc_id, "test-3");
+    EncodeServiceInstance(svc_id, "test-3", true);
 
-    ConnectServiceTemplate("test-3", "tmpl-1");
+    ConnectServiceTemplate("test-3", "tmpl-1", "source-nat");
 
     const std::string ip_left = GetRandomIp();
     const std::string ip_right = GetRandomIp();
@@ -559,9 +618,9 @@ TEST_F(ServiceInstanceIntegrationTest, RemoveLinks) {
 TEST_F(ServiceInstanceIntegrationTest, Delete) {
     boost::uuids::random_generator gen;
     uuid svc_id = gen();
-    EncodeServiceInstance(svc_id, "test-4");
+    EncodeServiceInstance(svc_id, "test-4", true);
 
-    ConnectServiceTemplate("test-4", "tmpl-1");
+    ConnectServiceTemplate("test-4", "tmpl-1", "source-nat");
 
     const std::string ip_left = GetRandomIp();
     const std::string ip_right = GetRandomIp();
@@ -603,6 +662,34 @@ TEST_F(ServiceInstanceIntegrationTest, Delete) {
 
     DBEntry *entry = si_table->Find(&key, true);
     EXPECT_TRUE(entry == NULL);
+}
+
+TEST_F(ServiceInstanceIntegrationTest, Loadbalancer) {
+    boost::uuids::random_generator gen;
+    uuid svc_id = gen();
+
+    const std::string ip_right = GetRandomIp();
+    const std::string mac_right = GetRandomMac();
+
+    EncodeServiceInstance(svc_id, "loadbalancer-1", false);
+    ConnectServiceTemplate("loadbalancer-1", "tmpl-1", "loadbalancer");
+
+    ConnectVirtualMachine("loadbalancer-1");
+    ConnectVirtualMachineInterface("loadbalancer-1", "right", mac_right,
+                                   ip_right);
+    ConnectLoadbalancerPool("loadbalancer-1", "pool-1");
+    IFMapAgentParser *parser = agent_->ifmap_parser();
+    parser->ConfigParse(config_, 1);
+    task_util::WaitForIdle();
+
+    ServiceInstanceTable *si_table = agent_->service_instance_table();
+    EXPECT_EQ(1, si_table->Size());
+
+    ServiceInstanceKey key(svc_id);
+    ServiceInstance *svc_instance =
+            static_cast<ServiceInstance *>(si_table->Find(&key, true));
+    ASSERT_TRUE(svc_instance != NULL);
+    EXPECT_TRUE(svc_instance->IsUsable());
 }
 
 static void SetUp() {

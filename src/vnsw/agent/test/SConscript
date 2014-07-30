@@ -49,7 +49,7 @@ test_vn = AgentEnv.MakeTestCmd(env, 'test_vn', agent_suite)
 test_vm = AgentEnv.MakeTestCmd(env, 'test_vm', agent_suite)
 test_peer_del = AgentEnv.MakeTestCmd(env, 'test_peer_del', agent_suite)
 test_vmport_cfg = AgentEnv.MakeTestCmd(env, 'test_vmport_cfg', flaky_agent_suite)
-test_fip_cfg = AgentEnv.MakeTestCmd(env, 'test_fip_cfg', agent_suite)
+test_fip_cfg = AgentEnv.MakeTestCmd(env, 'test_fip_cfg', flaky_agent_suite)
 test_stats = AgentEnv.MakeTestCmd(env, 'test_stats', flaky_agent_suite)
 test_route = AgentEnv.MakeTestCmd(env, 'test_route', flaky_agent_suite)
 test_l2route = AgentEnv.MakeTestCmd(env, 'test_l2route', agent_suite)
@@ -93,7 +93,7 @@ test_agent_route_walker = AgentEnv.MakeTestCmd(env, 'test_agent_route_walker',
 test_xmpp_hv = AgentEnv.MakeTestCmd(env, 'test_xmpp_hv', flaky_agent_suite)
 test_scale_walk = AgentEnv.MakeTestCmd(env, 'test_scale_walk', flaky_agent_suite)
 service_instance_test = AgentEnv.MakeTestCmd(env, 'service_instance_test',
-                                             flaky_agent_suite)
+                                             agent_suite)
 
 flaky_test = env.TestSuite('agent-flaky-test', flaky_agent_suite)
 env.Alias('controller/src/vnsw/agent:flaky_test', flaky_test)
