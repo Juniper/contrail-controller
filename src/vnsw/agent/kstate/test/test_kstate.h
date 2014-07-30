@@ -63,6 +63,7 @@ public:
                 }
             }
         }
+        more_context_ = NULL;
     }
 
     void PrintIfResp(KInterfaceResp *r) {
@@ -132,6 +133,7 @@ public:
                 }
             }
         }
+        more_context_ = NULL;
     }
 
     void PrintNHResp(KNHResp *r) {
@@ -200,6 +202,7 @@ public:
                 }
             }
         }
+        more_context_ = NULL;
     }
 
     void PrintMplsResp(KMplsResp *r) {
@@ -267,6 +270,7 @@ public:
                 }
             }
         }
+        more_context_ = NULL;
     }
 
     void PrintMirrorResp(KMirrorResp *r) {
