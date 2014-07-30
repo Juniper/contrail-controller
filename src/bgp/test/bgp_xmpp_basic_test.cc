@@ -18,26 +18,6 @@
 using boost::system::error_code;
 using namespace std;
 
-class XmppStateMachineTest : public XmppStateMachine {
-public:
-    explicit XmppStateMachineTest(XmppConnection *connection, bool active)
-        : XmppStateMachine(connection, active) {
-    }
-    ~XmppStateMachineTest() { }
-
-    void StartConnectTimer(int seconds) {
-        connect_timer_->Start(10,
-            boost::bind(&XmppStateMachine::ConnectTimerExpired, this),
-            boost::bind(&XmppStateMachine::TimerErrorHandler, this, _1, _2));
-    }
-
-    void StartOpenTimer(int seconds) {
-        open_timer_->Start(10,
-            boost::bind(&XmppStateMachine::OpenTimerExpired, this),
-            boost::bind(&XmppStateMachine::TimerErrorHandler, this, _1, _2));
-    }
-};
-
 static const char *bgp_config_template = "\
 <config>\
     <bgp-router name=\'X\'>\

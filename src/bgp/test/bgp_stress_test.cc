@@ -232,18 +232,6 @@ void StateMachineTest::StartIdleHoldTimer() {
             boost::bind(&StateMachine::TimerErrorHanlder, this, _1, _2));
 }
 
-void XmppStateMachineTest::StartConnectTimer(int seconds) {
-    connect_timer_->Start(10,
-        boost::bind(&XmppStateMachine::ConnectTimerExpired, this),
-        boost::bind(&XmppStateMachine::TimerErrorHandler, this, _1, _2));
-}
-
-void XmppStateMachineTest::StartOpenTimer(int seconds) {
-    open_timer_->Start(10,
-        boost::bind(&XmppStateMachine::OpenTimerExpired, this),
-        boost::bind(&XmppStateMachine::TimerErrorHandler, this, _1, _2));
-}
-
 static string GetRouterName(int router_id) {
     return "A" + boost::lexical_cast<string>(router_id);
 }

@@ -13,6 +13,7 @@
 #include <boost/foreach.hpp>
 #include <boost/lexical_cast.hpp>
 #include <boost/assign/list_of.hpp>
+#include <pugixml/pugixml.hpp>
 
 #include "base/test/task_test_util.h"
 #include "bgp/bgp_config.h"
@@ -42,11 +43,11 @@
 #include "ifmap/test/ifmap_test_util.h"
 #include "io/event_manager.h"
 #include "io/test/event_manager_test.h"
-#include <pugixml/pugixml.hpp>
 #include "schema/bgp_schema_types.h"
 #include "schema/vnc_cfg_types.h"
 #include "testing/gunit.h"
 #include "xmpp/xmpp_client.h"
+#include "xmpp/xmpp_factory.h"
 #include "xmpp/xmpp_init.h"
 #include "xmpp/xmpp_server.h"
 
@@ -59,54 +60,6 @@ using namespace test;
 
 #define VERIFY_EQ(expected, actual) \
     TASK_UTIL_EXPECT_EQ(expected, actual)
-
-class BgpXmppChannelMock : public BgpXmppChannel {
-public:
-    BgpXmppChannelMock(XmppChannel *channel, BgpServer *server, 
-            BgpXmppChannelManager *manager) : 
-        BgpXmppChannel(channel, server, manager), count_(0) {
-            bgp_policy_ = RibExportPolicy(BgpProto::XMPP,
-                                          RibExportPolicy::XMPP, -1, 0);
-    }
-
-    virtual void ReceiveUpdate(const XmppStanza::XmppMessage *msg) {
-        count_ ++;
-        BgpXmppChannel::ReceiveUpdate(msg);
-    }
-
-    size_t Count() const { return count_; }
-    void ResetCount() { count_ = 0; }
-    virtual ~BgpXmppChannelMock() { }
-
-private:
-    size_t count_;
-};
-
-class BgpXmppChannelManagerMock : public BgpXmppChannelManager {
-public:
-    BgpXmppChannelManagerMock(XmppServer *x, BgpServer *b) :
-        BgpXmppChannelManager(x, b), count(0), channels(0) { }
-
-    virtual void XmppHandleChannelEvent(XmppChannel *channel,
-                                        xmps::PeerState state) {
-         count++;
-         BgpXmppChannelManager::XmppHandleChannelEvent(channel, state);
-    }
-
-    virtual BgpXmppChannel *CreateChannel(XmppChannel *channel) {
-        channel_[channels] = new BgpXmppChannelMock(channel, bgp_server_, this);
-        channels++;
-        return channel_[channels-1];
-    }
-
-    int Count() {
-        return count;
-    }
-    int count;
-    int channels;
-    BgpXmppChannelMock *channel_[2];
-};
-
 
 static const char *config_update= "\
 <config>\
@@ -198,7 +151,9 @@ static const char *config_mx_vrf = "\
 
 class RTargetPeerTest : public ::testing::Test {
 protected:
-    RTargetPeerTest() : thread_(&evm_) { }
+    RTargetPeerTest()
+        : thread_(&evm_), cn1_xmpp_server_(NULL), cn2_xmpp_server_(NULL) {
+    }
 
     virtual void SetUp() {
         IFMapServerParser *parser = IFMapServerParser::GetInstance("schema");
@@ -231,16 +186,16 @@ protected:
         LOG(DEBUG, "Created MX at port: " << mx_->session_manager()->GetPort());
 
         bgp_channel_manager_cn1_.reset(
-            new BgpXmppChannelManagerMock(cn1_xmpp_server_, cn1_.get()));
-
+            new BgpXmppChannelManager(cn1_xmpp_server_, cn1_.get()));
         bgp_channel_manager_cn2_.reset(
-            new BgpXmppChannelManagerMock(cn2_xmpp_server_, cn2_.get()));
+            new BgpXmppChannelManager(cn2_xmpp_server_, cn2_.get()));
 
         task_util::WaitForIdle();
 
         thread_.Start();
         Configure();
         task_util::WaitForIdle();
+
         // Create XMPP Agent on compute node 1 connected to XMPP server 
         // Control-node-1
         agent_a_1_.reset(new test::NetworkAgentMock(&evm_, "agent-a", 
@@ -265,33 +220,7 @@ protected:
                                                     cn2_xmpp_server_->GetPort(),
                                                     "127.0.0.2"));
 
-        TASK_UTIL_EXPECT_TRUE(agent_a_1_->IsEstablished());
-        TASK_UTIL_EXPECT_TRUE(agent_b_1_->IsEstablished());
-        TASK_UTIL_EXPECT_TRUE(agent_a_2_->IsEstablished());
-        TASK_UTIL_EXPECT_TRUE(agent_b_2_->IsEstablished());
-        TASK_UTIL_EXPECT_EQ(2, bgp_channel_manager_cn1_->NumUpPeer());
-        TASK_UTIL_EXPECT_EQ(2, bgp_channel_manager_cn2_->NumUpPeer());
-
-        agent_a_1_->Subscribe("blue-i1", 1); 
-        agent_a_2_->Subscribe("blue-i1", 1); 
-        agent_b_1_->Subscribe("blue-i1", 1); 
-        agent_b_2_->Subscribe("blue-i1", 1); 
-
-        agent_a_1_->Subscribe("red", 3); 
-        agent_a_2_->Subscribe("red", 3); 
-        agent_b_1_->Subscribe("red", 3); 
-        agent_b_2_->Subscribe("red", 3); 
-
-        agent_a_1_->Subscribe("purple", 4); 
-        agent_a_2_->Subscribe("purple", 4); 
-        agent_b_1_->Subscribe("purple", 4); 
-        agent_b_2_->Subscribe("purple", 4); 
-
-        agent_a_1_->Subscribe("red-i2", 5); 
-        agent_a_2_->Subscribe("red-i2", 5); 
-        agent_b_1_->Subscribe("red-i2", 5); 
-        agent_b_2_->Subscribe("red-i2", 5); 
-        task_util::WaitForIdle();
+        BringupAgents();
     }
 
     virtual void TearDown() {
@@ -319,7 +248,6 @@ protected:
         task_util::WaitForIdle();
 
         bgp_channel_manager_cn1_.reset();
-
         bgp_channel_manager_cn2_.reset();
 
         TcpServerManager::DeleteServer(cn1_xmpp_server_);
@@ -340,6 +268,36 @@ protected:
         task_util::WaitForIdle();
     }
 
+    void BringupAgents() {
+        TASK_UTIL_EXPECT_TRUE(agent_a_1_->IsEstablished());
+        TASK_UTIL_EXPECT_TRUE(agent_b_1_->IsEstablished());
+        TASK_UTIL_EXPECT_TRUE(agent_a_2_->IsEstablished());
+        TASK_UTIL_EXPECT_TRUE(agent_b_2_->IsEstablished());
+        TASK_UTIL_EXPECT_EQ(2, bgp_channel_manager_cn1_->NumUpPeer());
+        TASK_UTIL_EXPECT_EQ(2, bgp_channel_manager_cn2_->NumUpPeer());
+
+        agent_a_1_->Subscribe("blue-i1", 1);
+        agent_a_2_->Subscribe("blue-i1", 1);
+        agent_b_1_->Subscribe("blue-i1", 1);
+        agent_b_2_->Subscribe("blue-i1", 1);
+
+        agent_a_1_->Subscribe("red", 3);
+        agent_a_2_->Subscribe("red", 3);
+        agent_b_1_->Subscribe("red", 3);
+        agent_b_2_->Subscribe("red", 3);
+
+        agent_a_1_->Subscribe("purple", 4);
+        agent_a_2_->Subscribe("purple", 4);
+        agent_b_1_->Subscribe("purple", 4);
+        agent_b_2_->Subscribe("purple", 4);
+
+        agent_a_1_->Subscribe("red-i2", 5);
+        agent_a_2_->Subscribe("red-i2", 5);
+        agent_b_1_->Subscribe("red-i2", 5);
+        agent_b_2_->Subscribe("red-i2", 5);
+
+        task_util::WaitForIdle();
+    }
 
     void IFMapCleanUp() {
         IFMapServerParser::GetInstance("vnc_cfg")->MetadataClear("vnc_cfg");
@@ -651,8 +609,8 @@ protected:
     boost::scoped_ptr<test::NetworkAgentMock> agent_b_1_;
     boost::scoped_ptr<test::NetworkAgentMock> agent_a_2_;
     boost::scoped_ptr<test::NetworkAgentMock> agent_b_2_;
-    boost::scoped_ptr<BgpXmppChannelManagerMock> bgp_channel_manager_cn1_;
-    boost::scoped_ptr<BgpXmppChannelManagerMock> bgp_channel_manager_cn2_;
+    boost::scoped_ptr<BgpXmppChannelManager> bgp_channel_manager_cn1_;
+    boost::scoped_ptr<BgpXmppChannelManager> bgp_channel_manager_cn2_;
     static int validate_done_;
 };
 int RTargetPeerTest::validate_done_;
@@ -664,6 +622,8 @@ class TestEnvironment : public ::testing::Environment {
 static void SetUp() {
     ControlNode::SetDefaultSchedulingPolicy();
     BgpServerTest::GlobalSetUp();
+    XmppObjectFactory::Register<XmppStateMachine>(
+        boost::factory<XmppStateMachineTest *>());
 }
 
 static void TearDown() {
@@ -999,7 +959,14 @@ TEST_F(RTargetPeerTest, ASNUpdate) {
     VERIFY_EQ(5, RTargetRouteCount(cn1_.get()));
     VERIFY_EQ(5, RTargetRouteCount(cn2_.get()));
 
-    UpdateASN();    
+    UpdateASN();
+    task_util::WaitForIdle();
+
+    BringupAgents();
+    agent_a_1_->Subscribe("blue", 2);
+    agent_b_1_->Subscribe("blue", 2);
+    agent_a_2_->Subscribe("blue", 2);
+    agent_b_2_->Subscribe("blue", 2);
 
     TASK_UTIL_WAIT_EQ_NO_MSG(RTargetRouteLookup(cn1_.get(), "64512:target:64496:1"),
                              NULL, 1000, 10000, 

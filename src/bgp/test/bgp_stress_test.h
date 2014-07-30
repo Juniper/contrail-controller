@@ -192,17 +192,6 @@ public:
     void StartIdleHoldTimer();
 };
 
-class XmppStateMachineTest : public XmppStateMachine {
-public:
-    explicit XmppStateMachineTest(XmppConnection *connection, bool active)
-        : XmppStateMachine(connection, active) {
-    }
-    ~XmppStateMachineTest() { }
-
-    void StartConnectTimer(int seconds);
-    void StartOpenTimer(int seconds);
-};
-
 class BgpXmppChannelManagerMock : public BgpXmppChannelManager {
 public:
     BgpXmppChannelManagerMock(XmppServerTest *x, BgpServer *b);

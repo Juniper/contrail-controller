@@ -215,6 +215,26 @@ private:
     PeerByUuidMap peers_by_uuid_;
 };
 
+class XmppStateMachineTest : public XmppStateMachine {
+public:
+    explicit XmppStateMachineTest(XmppConnection *connection, bool active)
+        : XmppStateMachine(connection, active) {
+    }
+    ~XmppStateMachineTest() { }
+
+    void StartConnectTimer(int seconds) {
+        connect_timer_->Start(10,
+            boost::bind(&XmppStateMachine::ConnectTimerExpired, this),
+            boost::bind(&XmppStateMachine::TimerErrorHandler, this, _1, _2));
+    }
+
+    void StartOpenTimer(int seconds) {
+        open_timer_->Start(10,
+            boost::bind(&XmppStateMachine::OpenTimerExpired, this),
+            boost::bind(&XmppStateMachine::TimerErrorHandler, this, _1, _2));
+    }
+};
+
 #define BGP_WAIT_FOR_PEER_STATE(peer, state)                                   \
     TASK_UTIL_WAIT_EQ(state, (peer)->GetState(), task_util_wait_time(),        \
                       task_util_retry_count(), "Peer State")
