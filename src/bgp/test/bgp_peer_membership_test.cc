@@ -48,9 +48,7 @@ public:
         return true;
     }
 
-    virtual IPeerDebugStats *peer_stats() { return NULL; }
-    virtual bool IsReady() const { return true; }
-    virtual bool IsXmppPeer() const { return false; }
+    virtual bool IsReady() const { return false; }
 
     BgpProto::BgpPeerType PeerType() const {
         return BgpProto::IBGP;
@@ -352,6 +350,8 @@ TEST_F(PeerMembershipMgrTest, MultiplePeersSingleTable) {
     mgr->Register(peers_[0], red_tbl_, peers_[2]->GetRibExportPolicy(), -1);
     mgr->Register(peers_[2], red_tbl_, peers_[2]->GetRibExportPolicy(), -1);
     mgr->Register(peers_[1], red_tbl_, peers_[1]->GetRibExportPolicy(), -1);
+    task_util::WaitForIdle();
+    TASK_UTIL_EXPECT_TRUE(size() == 3);
     mgr->Unregister(peers_[1], red_tbl_);
     mgr->Unregister(peers_[0], red_tbl_);
     mgr->Unregister(peers_[2], red_tbl_);
@@ -388,6 +388,12 @@ TEST_F(PeerMembershipMgrTest, PeerDeleteWithPendingMembershipRequestPending) {
 
     // Register to inet.
     mgr->Register(peers_[0], inet_tbl_, peers_[0]->GetRibExportPolicy(), -1);
+    task_util::WaitForIdle();
+
+    //
+    // Make sure that the membership manager queue is not empty
+    //
+    TASK_UTIL_EXPECT_FALSE(server_->membership_mgr()->IsQueueEmpty());
 
     //
     // Trigger peer deletion
@@ -417,11 +423,12 @@ TEST_F(PeerMembershipMgrTest, PeerDeleteWithPendingMembershipRequestPending) {
     //
     static_cast<PeerRibMembershipManagerTest *>(
         server_->membership_mgr())->SetQueueDisable(false);
+    task_util::WaitForIdle();
     TASK_UTIL_EXPECT_TRUE(server_->membership_mgr()->IsQueueEmpty());
 
     //
     // Make sure that the peer is deleted, after the membership queue is
-    // processes
+    // processed
     //
     TASK_UTIL_EXPECT_EQ(static_cast<BgpTestPeer *>(NULL),
         server_->FindPeer(BgpConfigManager::kMasterInstance, peer_names_[0]));
@@ -485,11 +492,12 @@ TEST_F(PeerMembershipMgrTest, PeerDeleteWithDBRequestPending) {
     // Enable db queue processing
     //
     partition->SetQueueDisable(false);
+    task_util::WaitForIdle();
     TASK_UTIL_EXPECT_TRUE(partition->IsDBQueueEmpty());
 
     //
     // Make sure that the peer is deleted, after the membership queue is
-    // processes
+    // processed
     //
     TASK_UTIL_EXPECT_EQ(static_cast<BgpTestPeer *>(NULL),
         server_->FindPeer(BgpConfigManager::kMasterInstance, peer_names_[0]));
@@ -498,8 +506,8 @@ TEST_F(PeerMembershipMgrTest, PeerDeleteWithDBRequestPending) {
 static void SetUp() {
     bgp_log_test::init();
     ControlNode::SetDefaultSchedulingPolicy();
-
-    BgpObjectFactory::Register<BgpPeer>(boost::factory<BgpTestPeer *>());
+    BgpObjectFactory::Register<BgpPeer>(
+        boost::factory<BgpTestPeer *>());
     BgpObjectFactory::Register<PeerRibMembershipManager>(
         boost::factory<PeerRibMembershipManagerTest *>());
 }
