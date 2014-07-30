@@ -13,4 +13,4 @@
 host=review.opencontrail.org
 port=29418
 project=Juniper/contrail-controller.git
-defaultbranch=master
+defaultbranch=R1.10
