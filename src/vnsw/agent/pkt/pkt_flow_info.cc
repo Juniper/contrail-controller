@@ -1147,6 +1147,7 @@ void PktFlowInfo::RewritePktInfo(uint32_t flow_index) {
     pkt->sport = key.src_port;
     pkt->dport = key.dst_port;
     pkt->agent_hdr.vrf = flow->data().vrf;
+    pkt->agent_hdr.nh = key.nh;
     //Flow transition from Non ECMP to ECMP, use index 0
     if (flow->data().component_nh_idx == CompositeNH::kInvalidComponentNHIdx) {
         out_component_nh_idx = 0;

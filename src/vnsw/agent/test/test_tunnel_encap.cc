@@ -51,8 +51,10 @@ public:
     TunnelEncapTest() : default_tunnel_type_(TunnelType::MPLS_GRE) { 
         vrf_name_ = "vrf1";
         server1_ip_ = Ip4Address::from_string("10.1.1.11");
+        server2_ip_ = Ip4Address::from_string("10.1.1.12");
         local_vm_ip_ = Ip4Address::from_string("1.1.1.10");
         remote_vm_ip_ = Ip4Address::from_string("1.1.1.11");
+        remote_ecmp_vm_ip_ = Ip4Address::from_string("1.1.1.12");
         local_vm_mac_ = (struct ether_addr *)malloc(sizeof(struct ether_addr));
         remote_vm_mac_ = (struct ether_addr *)malloc(sizeof(struct ether_addr));
         memcpy (local_vm_mac_, ether_aton("00:00:01:01:01:10"), 
@@ -124,6 +126,7 @@ public:
 
     void AddRemoteVmRoute(TunnelType::TypeBmap l3_bmap, 
                           TunnelType::TypeBmap l2_bmap) {
+
         Inet4TunnelRouteAdd(Agent::GetInstance()->local_peer(), 
                             vrf_name_, remote_vm_ip_, 32, server1_ip_,
                             l3_bmap, 1000, vrf_name_,
@@ -132,6 +135,28 @@ public:
 
         Layer2TunnelRouteAdd(Agent::GetInstance()->local_peer(), vrf_name_,
                              l2_bmap, server1_ip_, 2000, *remote_vm_mac_, remote_vm_ip_, 32);
+        client->WaitForIdle();
+
+        //Add an ecmp route
+        ComponentNHKeyPtr nh_data1(new ComponentNHKey(20, agent->fabric_vrf_name(),
+                                                      agent->router_id(),
+                                                      server1_ip_,
+                                                      false,
+                                                      TunnelType::DefaultType()));
+        ComponentNHKeyPtr nh_data2(new ComponentNHKey(20, agent->fabric_vrf_name(),
+                                                      agent->router_id(),
+                                                      server2_ip_,
+                                                      false,
+                                                      TunnelType::DefaultType()));
+        ComponentNHKeyList comp_nh_list1;
+        comp_nh_list1.push_back(nh_data1);
+        comp_nh_list1.push_back(nh_data2);
+
+        SecurityGroupList sg_id_list;
+        EcmpTunnelRouteAdd(agent->local_peer(), vrf_name_,
+                           remote_ecmp_vm_ip_, 32,
+                           comp_nh_list1, false, "vn1",
+                           sg_id_list, PathPreference());
         client->WaitForIdle();
 
         TunnelOlist olist_map;
@@ -160,6 +185,11 @@ public:
                                          vrf_name_,
                                          *remote_vm_mac_, NULL);
         client->WaitForIdle();
+        agent->fabric_inet4_unicast_table()->
+            DeleteReq(agent->local_peer(), vrf_name_,
+                      remote_ecmp_vm_ip_, 32, NULL);
+        client->WaitForIdle();
+
         DelArp("8.8.8.8", "00:00:08:08:08:08", 
                Agent::GetInstance()->fabric_interface_name().c_str());
         client->WaitForIdle();
@@ -208,7 +238,27 @@ public:
                 const TunnelNH *tnh = static_cast<const TunnelNH *>(nh);
                 ASSERT_TRUE(type == tnh->GetTunnelType().GetType());
             }
-        } 
+        }
+
+        route = RouteGet(vrf_name_, remote_ecmp_vm_ip_, 32);
+        for(Route::PathList::iterator it = route->GetPathList().begin();
+            it != route->GetPathList().end(); it++) {
+            const AgentPath *path =
+                static_cast<const AgentPath *>(it.operator->());
+            const NextHop *nh = path->nexthop(agent);
+            ASSERT_TRUE(nh->GetType() == NextHop::COMPOSITE);
+            if (nh->GetType() == NextHop::COMPOSITE) {
+                const CompositeNH *comp_nh =
+                    static_cast<const CompositeNH *>(nh);
+                for (ComponentNHList::const_iterator it =
+                     comp_nh->begin(); it != comp_nh->end();
+                     it++) {
+                    const TunnelNH *tnh =
+                        static_cast<const TunnelNH *>((*it)->nh());
+                    ASSERT_TRUE(type == tnh->GetTunnelType().GetType());
+                }
+            }
+        }
     }
 
     void VerifyLayer2UnicastRoutes(TunnelType::Type type) {
@@ -268,6 +318,8 @@ public:
     Ip4Address  local_vm_ip_;
     Ip4Address  remote_vm_ip_;
     Ip4Address  server1_ip_;
+    Ip4Address  server2_ip_;
+    Ip4Address  remote_ecmp_vm_ip_;
     struct ether_addr *local_vm_mac_;
     struct ether_addr *remote_vm_mac_;
     static TunnelType::Type type_;
