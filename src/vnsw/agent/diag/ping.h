@@ -10,10 +10,10 @@
 class DiagTable;
 class Ping: public DiagEntry {
 public:
-    static const uint32_t KPingUdpHdr = sizeof(ethhdr) + 
-        sizeof(iphdr) + sizeof(udphdr) + IPC_HDR_LEN;
-    static const uint32_t KPingTcpHdr = sizeof(ethhdr) + 
-        sizeof(iphdr) + sizeof(tcphdr) + IPC_HDR_LEN;
+    static const uint32_t KPingUdpHdr = sizeof(ether_header) +
+        sizeof(ip) + sizeof(udphdr) + IPC_HDR_LEN;
+    static const uint32_t KPingTcpHdr = sizeof(ether_header) +
+        sizeof(ip) + sizeof(tcphdr) + IPC_HDR_LEN;
     Ping(const PingReq *pr,DiagTable *diag_table);
     virtual ~Ping();
     virtual void SendRequest();
@@ -40,3 +40,4 @@ private:
     uint32_t  pkt_lost_count_;
 };
 #endif
+

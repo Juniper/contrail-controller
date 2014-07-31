@@ -6,11 +6,13 @@
 #define vnsw_agent_test_init_h
 
 #include <sys/socket.h>
-#include <linux/netlink.h>
 #include <net/if.h>
+#if defined(__linux__)
+#include <linux/netlink.h>
 #include <linux/if_tun.h>
 #include <linux/if_packet.h>
 #include <netinet/ether.h>
+#endif
 #include <pthread.h>
 
 #include <fstream>

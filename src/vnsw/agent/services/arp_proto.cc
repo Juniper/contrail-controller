@@ -29,7 +29,7 @@ ArpProto::ArpProto(Agent *agent, boost::asio::io_service &io,
     max_retries_(kMaxRetries), retry_timeout_(kRetryTimeout),
     aging_timeout_(kAgingTimeout) {
 
-    memset(ip_fabric_interface_mac_, 0, ETH_ALEN);
+    memset(ip_fabric_interface_mac_, 0, ETHER_ADDR_LEN);
     vrf_table_listener_id_ = agent->vrf_table()->Register(
                              boost::bind(&ArpProto::VrfNotify, this, _1, _2));
     interface_table_listener_id_ = agent->interface_table()->Register(
@@ -132,10 +132,16 @@ void ArpProto::InterfaceNotify(DBEntryBase *entry) {
             set_ip_fabric_interface(itf);
             set_ip_fabric_interface_index(itf->id());
             if (run_with_vrouter_) {
+#if defined(__linux__)
                 set_ip_fabric_interface_mac((char *)itf->mac().ether_addr_octet);
+#elif defined(__FreeBSD__)
+                set_ip_fabric_interface_mac((char *)itf->mac().octet);
+#else
+#error "Unsupported patform"
+#endif
             } else {
-                char mac[ETH_ALEN];
-                memset(mac, 0, ETH_ALEN);
+                char mac[ETHER_ADDR_LEN];
+                memset(mac, 0, ETHER_ADDR_LEN);
                 set_ip_fabric_interface_mac(mac);
             }
         }

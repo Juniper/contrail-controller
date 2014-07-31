@@ -3,6 +3,9 @@
  */
 
 #include <arpa/inet.h>
+#if defined(__FreeBSD__)
+#include <sys/types.h>
+#endif
 #include <netinet/in.h>
 #include <netinet/ip.h>
 #include <netinet/tcp.h>
@@ -144,7 +147,7 @@ TEST_F(TestVnswIf, intf_delete) {
 
 // Validate that link-local address is added back if route deleted from kernel
 TEST_F(TestVnswIf, host_route_del) {
-    uint32_t count = vnswif_->netlink_ll_add_count();
+    uint32_t count = vnswif_->ll_add_count();
     VnswInterfaceListener::Event *event = 
         new VnswInterfaceListener::Event(VnswInterfaceListener::Event::DEL_ROUTE,
                                          vnet1_->mdata_ip_addr(), 32, "",
@@ -153,7 +156,7 @@ TEST_F(TestVnswIf, host_route_del) {
                                          0);
     vnswif_->Enqueue(event);
     client->WaitForIdle();
-    WAIT_FOR(1000, 100, (vnswif_->netlink_ll_add_count() > count));
+    WAIT_FOR(1000, 100, (vnswif_->ll_add_count() > count));
 }
 
 // On link flap of vhost, all link-local must be written again
@@ -165,14 +168,14 @@ TEST_F(TestVnswIf, vhost_link_flap) {
     InterfaceEvent(true, agent_->vhost_interface_name(), 0);
 
     // bring up link of vhost0
-    uint32_t count = vnswif_->netlink_ll_add_count();
+    uint32_t count = vnswif_->ll_add_count();
 
     // Set link-state up
     InterfaceEvent(true, agent_->vhost_interface_name(),
                    (IFF_UP|IFF_RUNNING));
 
     // Ensure routes are synced to host
-    WAIT_FOR(1000, 100, (vnswif_->netlink_ll_add_count() >= (count + 2)));
+    WAIT_FOR(1000, 100, (vnswif_->ll_add_count() >= (count + 2)));
 
     InterfaceEvent(false, agent_->vhost_interface_name(), 0);
     ResetSeen(agent_->vhost_interface_name());
@@ -363,12 +366,12 @@ TEST_F(TestVnswIf, linklocal_1) {
     EXPECT_TRUE(vnswif_->IsValidLinkLocalAddress(vnet1_->mdata_ip_addr()));
     EXPECT_TRUE(vnswif_->IsValidLinkLocalAddress(vnet2_->mdata_ip_addr()));
 
-    uint32_t count = vnswif_->netlink_ll_add_count();
+    uint32_t count = vnswif_->ll_add_count();
     // Delete mdata-ip. agent should add it again
     RouteEvent(false, "vnet1", vnet1_->mdata_ip_addr(), 32, 
                VnswInterfaceListener::kVnswRtmProto);
     client->WaitForIdle();
-    WAIT_FOR(1000, 100, (vnswif_->netlink_ll_add_count() >= (count + 1)));
+    WAIT_FOR(1000, 100, (vnswif_->ll_add_count() >= (count + 1)));
 }
 
 // Agent deletes a link-local route from kernel if its not valid address
@@ -376,12 +379,12 @@ TEST_F(TestVnswIf, linklocal_2) {
     EXPECT_TRUE(vnswif_->IsValidLinkLocalAddress(vnet1_->mdata_ip_addr()));
     EXPECT_TRUE(vnswif_->IsValidLinkLocalAddress(vnet2_->mdata_ip_addr()));
 
-    uint32_t count = vnswif_->netlink_ll_del_count();
+    uint32_t count = vnswif_->ll_del_count();
     // Add a dummy route with kVnswRtmProto as protocol. Agent should delete it
     RouteEvent(true, "vnet1", Ip4Address::from_string("169.254.1.1"), 32, 
                VnswInterfaceListener::kVnswRtmProto);
     client->WaitForIdle();
-    WAIT_FOR(1000, 100, (vnswif_->netlink_ll_del_count() >= (count + 1)));
+    WAIT_FOR(1000, 100, (vnswif_->ll_del_count() >= (count + 1)));
 }
 
 int main(int argc, char *argv[]) {

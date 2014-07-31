@@ -27,6 +27,10 @@
 #include "vr_types.h"
 #include "vr_defs.h"
 #include "vr_nexthop.h"
+#if defined(__FreeBSD__)
+#include "vr_os.h"
+#include "nl_util.h"
+#endif
 
 RouteKSyncEntry::RouteKSyncEntry(RouteKSyncObject* obj, 
                                  const RouteKSyncEntry *entry, 
@@ -261,8 +265,15 @@ int RouteKSyncEntry::Encode(sandesh_op::type op, uint8_t replace_plen,
     } else {
         encoder.set_rtr_family(AF_BRIDGE);
         //TODO add support for mac
+#if defined(__linux__)
         std::vector<int8_t> mac(mac_.ether_addr_octet, 
                                 &mac_.ether_addr_octet[ETHER_ADDR_LEN]);
+#elif defined(__FreeBSD__)
+        std::vector<int8_t> mac(mac_.octet, 
+                                &mac_.octet[ETHER_ADDR_LEN]);
+#else
+#error "Unsupported platform"
+#endif
         encoder.set_rtr_mac(mac);
     }
 

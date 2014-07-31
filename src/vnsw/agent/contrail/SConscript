@@ -2,6 +2,7 @@
 # Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
 #
 
+import sys
 import re
 import time
 import subprocess
@@ -31,9 +32,13 @@ buildinfo_dep_libs = [
     '#build/lib/libpugixml.a',
     '#build/lib/libsandesh.a',
     '#build/lib/libsandeshflow.a', 
-    '#build/lib/libsandeshvns.a',
-    '#build/lib/libtbb_debug.so.2'
+    '#build/lib/libsandeshvns.a'
 ]
+
+if sys.platform.startswith('freebsd'):
+    buildinfo_dep_libs.append('#build/lib/libtbb_debug.so')
+elif sys.platform.startswith('linux'):
+    buildinfo_dep_libs.append('#build/lib/libtbb_debug.so.2')
 
 def MapBuildCmnLib(list):
     return map(lambda x: File('../../../' + x).abspath, list)
