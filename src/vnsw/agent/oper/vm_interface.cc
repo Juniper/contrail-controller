@@ -2,7 +2,9 @@
  * Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
  */
 
+#if defined(__linux__)
 #include <netinet/ether.h>
+#endif
 #include <boost/uuid/uuid_io.hpp>
 
 #include "base/logging.h"
@@ -322,7 +324,11 @@ static void BuildVrfAndServiceVlanInfo(Agent *agent,
                 << rule.service_chain_address << " : " << vrf_node->name());
 
             ether_addr smac;
+#if defined(__linux__)
             memcpy(smac.ether_addr_octet, agent->vrrp_mac(), ETHER_ADDR_LEN);
+#elif defined(__FreeBSD__)
+            memcpy(smac.octet, agent->vrrp_mac(), ETHER_ADDR_LEN);
+#endif
             ether_addr dmac = *ether_aton(Agent::BcastMac().c_str());
             if (rule.src_mac != Agent::NullString()) {
                 smac = *ether_aton(rule.src_mac.c_str());
@@ -1161,7 +1167,13 @@ void VmInterface::GetOsParams(Agent *agent) {
     }
 
     os_index_ = Interface::kInvalidIndex;
+#if defined(__linux__)
     memcpy(mac_.ether_addr_octet, agent->vrrp_mac(), ETHER_ADDR_LEN);
+#elif defined(__FreeBSD__)
+    memcpy(mac_.octet, agent->vrrp_mac(), ETHER_ADDR_LEN);
+#else
+#error "Unsupported platform"
+#endif
     os_oper_state_ = true;
 }
 

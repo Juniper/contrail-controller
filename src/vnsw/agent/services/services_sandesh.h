@@ -44,10 +44,18 @@ private:
 
     void FillPktData(PktTrace::Pkt &pkt, PktData &resp);
     void FillVrouterHdr(PktTrace::Pkt &pkt, VrouterHdr &resp);
-    void FillMacHdr(ethhdr *eth, MacHdr &resp);
     void FillArpHdr(ether_arp *arp, ArpHdr &resp);
+#if defined(__linux__)
+    void FillMacHdr(ethhdr *eth, MacHdr &resp);
     void FillIpv4Hdr(iphdr *ip, Ipv4Hdr &resp);
     void FillIcmpv4Hdr(icmphdr *icmp, Icmpv4Hdr &resp);
+#elif defined(__FreeBSD__)
+    void FillMacHdr(ether_header *eth, MacHdr &resp);
+    void FillIpv4Hdr(ip *ip, Ipv4Hdr &resp);
+    void FillIcmpv4Hdr(icmp *icmp, Icmpv4Hdr &resp);
+#else
+#error "Unsupported platform"
+#endif
     void FillUdpHdr(udphdr *udp, UdpHdr &resp);
     void FillDhcpOptions(DhcpOptions *opt, std::string &resp, std::string &other, int32_t len);
     void FillDhcpv4Hdr(dhcphdr *dhcp, Dhcpv4Hdr &resp, int32_t len);

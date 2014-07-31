@@ -4,8 +4,8 @@
 
 # -*- mode: python; -*-
 # services directory
-
 import sys
+
 if sys.platform == 'darwin':
     Return()
 

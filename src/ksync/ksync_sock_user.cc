@@ -2,12 +2,7 @@
  * Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
  */
 
-#include <asm/types.h>
-#include <sys/socket.h>
-#include <linux/netlink.h>
-#include <linux/rtnetlink.h>
-#include <linux/genetlink.h>
-#include <linux/sockios.h>
+#include "vr_os.h"
 
 #include <boost/bind.hpp>
 
@@ -482,7 +477,6 @@ void KSyncSockTypeMap::Decoder(char *data, SandeshContext *ctxt) {
         LOG(ERROR, "Netlink unknown message type : " << nlh->nlmsg_type);
         assert(0);
     }
-    
 }
 
 bool KSyncSockTypeMap::Validate(char *data) {

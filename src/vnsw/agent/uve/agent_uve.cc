@@ -7,7 +7,6 @@
 #include <cmn/agent_cmn.h>
 #include <oper/interface_common.h>
 #include <oper/interface.h>
-#include <asm/types.h>
 
 #include "vr_genetlink.h"
 #include "nl_util.h"

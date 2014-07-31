@@ -3,9 +3,12 @@
  */
 
 #include "testing/gunit.h"
-
-#include <netinet/if_ether.h>
 #include <netinet/in.h>
+#if defined(__FreeBSD__)
+#include <sys/socket.h>
+#include <netinet/ip.h>
+#endif
+#include <netinet/if_ether.h>
 #include <netinet/ip_icmp.h>
 #include <boost/uuid/string_generator.hpp>
 #include <boost/scoped_array.hpp>
@@ -118,6 +121,7 @@ public:
         boost::scoped_array<uint8_t> buf(new uint8_t[len]);
         memset(buf.get(), 0, len);
 
+#if defined(__linux__)
         ethhdr *eth = (ethhdr *)buf.get();
         eth->h_dest[5] = 1;
         eth->h_source[5] = 2;
@@ -162,6 +166,54 @@ public:
 
         ip->tot_len = htons(len + sizeof(iphdr));
         len += sizeof(iphdr) + sizeof(ethhdr) + IPC_HDR_LEN;
+#elif defined(__FreeBSD__)
+        ether_header *eth = (ether_header *)buf.get();
+        eth->ether_dhost[5] = 1;
+        eth->ether_shost[5] = 2;
+        eth->ether_type = htons(ETHERTYPE_IP);
+
+        agent_hdr *agent = (agent_hdr *)(eth + 1);
+        agent->hdr_ifindex = htons(ifindex);
+        agent->hdr_vrf = htons(0);
+        agent->hdr_cmd = htons(AGENT_TRAP_NEXTHOP);
+
+        eth = (ether_header *) (agent + 1);
+        memcpy(eth->ether_dhost, dest_mac, ETHER_ADDR_LEN);
+        memcpy(eth->ether_shost, src_mac, ETHER_ADDR_LEN);
+        eth->ether_type = htons(ETHERTYPE_IP);
+
+        struct ip *ip = (struct ip *) (eth + 1);
+        ip->ip_hl = 5;
+        ip->ip_v = 4;
+        ip->ip_tos = 0;
+        ip->ip_id = 0;
+        ip->ip_off = 0;
+        ip->ip_ttl = 16;
+        ip->ip_p = IPPROTO_ICMP;
+        ip->ip_sum = 0;
+        ip->ip_src.s_addr = 0;
+        ip->ip_dst.s_addr = htonl(dest_ip);
+
+        icmp *icmp = (struct icmp *) (ip + 1);
+        if (error == TYPE_ERROR)
+            icmp->icmp_type = ICMP_ECHOREPLY;
+        else
+            icmp->icmp_type = ICMP_ECHO;
+        icmp->icmp_code = 0;
+        icmp->icmp_cksum = 0;
+        icmp->icmp_id = 0x1234;
+        icmp->icmp_seq = icmp_seq_++;
+        if (error == CHECKSUM_ERROR)
+            icmp->icmp_cksum = 0;
+        else
+            icmp->icmp_cksum = IpUtils::IPChecksum((uint16_t *)icmp, 64);
+        len = 64;
+
+        ip->ip_len = htons(len + sizeof(ip));
+        len += sizeof(ip) + sizeof(ether_header) + IPC_HDR_LEN;
+#else
+#error "Unsupported platform"
+#endif
         TestTapInterface *tap = (TestTapInterface *)
             (Agent::GetInstance()->pkt()->pkt_handler()->tap_interface());
         tap->GetTestPktHandler()->TestPktSend(buf.get(), len);

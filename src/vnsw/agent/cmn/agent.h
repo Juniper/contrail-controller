@@ -5,9 +5,10 @@
 #ifndef vnsw_agent_hpp
 #define vnsw_agent_hpp
 
+#include <net/ethernet.h>
+
 #include <vector>
 #include <stdint.h>
-#include <netinet/ether.h>
 #include <boost/intrusive_ptr.hpp>
 #include <cmn/agent_cmn.h>
 
