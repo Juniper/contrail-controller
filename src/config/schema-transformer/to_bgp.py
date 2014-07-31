@@ -2149,7 +2149,12 @@ class VirtualMachineInterfaceST(DictST):
         if self.service_interface_type not in ['left', 'right']:
             return network_set
         vm_name = self.name.split(':')[0]
-        vm_obj = _vnc_lib.virtual_machine_read(fq_name=[vm_name])
+        try:
+            vm_obj = _vnc_lib.virtual_machine_read(fq_name=[vm_name])
+        except NoIdError:
+            _sandesh._logger.debug("NoIdError while reading virtual machine " +
+                                   vm_name)
+            return network_set
         vm_si_refs = vm_obj.get_service_instance_refs()
         if not vm_si_refs:
             return network_set
