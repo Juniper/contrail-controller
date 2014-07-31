@@ -453,7 +453,29 @@ bool ServiceInstance::DBEntrySandesh(Sandesh *sresp, std::string &name) const {
         state_data.set_errors(state->errors());
         state_data.set_pid(state->pid());
         state_data.set_status(state->status());
-        state_data.set_status_type(state->status_type());
+
+        switch (state->status_type()) {
+            case NamespaceState::Error:
+                state_data.set_status_type("Error");
+                break;
+            case NamespaceState::Started:
+                state_data.set_status_type("Started");
+                break;
+            case NamespaceState::Starting:
+                state_data.set_status_type("Starting");
+                break;
+            case NamespaceState::Stopped:
+                state_data.set_status_type("Stopped");
+                break;
+            case NamespaceState::Stopping:
+                state_data.set_status_type("Stopping");
+                break;
+            case NamespaceState::Timeout:
+                state_data.set_status_type("Timeout");
+                break;
+            default:
+                state_data.set_status_type("");
+        }
 
         data.set_ns_state(state_data);
     }
