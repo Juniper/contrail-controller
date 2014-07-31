@@ -2109,7 +2109,7 @@ class DBInterface(object):
             port_q_dict['device_id'] = port_obj.parent_name
         elif port_obj.get_virtual_machine_refs() is not None:
             port_q_dict['device_id'] = \
-                port_obj.get_virtual_machine_refs()[0]['uuid']
+                port_obj.get_virtual_machine_refs()[0]['to'][-1]
             port_q_dict['device_owner'] = ''
         else:
             port_q_dict['device_id'] = ''
