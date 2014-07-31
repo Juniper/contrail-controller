@@ -2737,6 +2737,10 @@ class SchemaTransformer(object):
         network_name = idents['virtual-network']
         ipam_name = idents['network-ipam']
         virtual_network = VirtualNetworkST.locate(network_name)
+        if virtual_network is None:
+            _sandesh._logger.debug("Cannot read virtual network %s",
+                                   network_name)
+            return
         subnet = VnSubnetsType()
         subnet.build(meta)
         virtual_network.ipams[ipam_name] = subnet
