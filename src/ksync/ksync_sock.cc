@@ -2,12 +2,17 @@
  * Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
  */
 
+#if defined(__linux__)
 #include <asm/types.h>
 #include <sys/socket.h>
 #include <linux/netlink.h>
 #include <linux/rtnetlink.h>
 #include <linux/genetlink.h>
 #include <linux/sockios.h>
+#elif defined(__FreeBSD__)
+#include "vr_os.h"
+#endif
+#include "base/os.h"
 
 #include <boost/bind.hpp>
 
@@ -36,7 +41,15 @@ using namespace boost::asio;
 
 /* Note SO_RCVBUFFORCE is supported only for linux version 2.6.14 and above */
 typedef boost::asio::detail::socket_option::integer<SOL_SOCKET,
+/*
+#if defined(__linux__)
+*/
         SO_RCVBUFFORCE> ReceiveBuffForceSize;
+/*
+#else
+        SO_RCVBUF> ReceiveBuffForceSize;
+#endif
+*/
 
 int KSyncSock::vnsw_netlink_family_id_;
 AgentSandeshContext *KSyncSock::agent_sandesh_ctx_;
@@ -44,10 +57,10 @@ std::vector<KSyncSock *> KSyncSock::sock_table_;
 pid_t KSyncSock::pid_;
 tbb::atomic<bool> KSyncSock::shutdown_;
 
-const char* IoContext::io_wq_names[IoContext::MAX_WORK_QUEUES] = 
+const char* IoContext::io_wq_names[IoContext::MAX_WORK_QUEUES] =
                                                 {"Agent::KSync", "Agent::Uve"};
 
-KSyncSockNetlink::KSyncSockNetlink(boost::asio::io_service &ios, int protocol) 
+KSyncSockNetlink::KSyncSockNetlink(boost::asio::io_service &ios, int protocol)
     : sock_(ios, protocol) {
     ReceiveBuffForceSize set_rcv_buf;
     set_rcv_buf = KSYNC_SOCK_RECV_BUFF_SIZE;
@@ -77,7 +90,7 @@ bool KSyncSockNetlink::IsMoreData(char *data) {
 
 void KSyncSockNetlink::Decoder(char *data, SandeshContext *ctxt) {
     struct nlmsghdr *nlh = (struct nlmsghdr *)data;
-    //LOG(DEBUG, "Kernel Data: msg_type " << nlh->nlmsg_type << " seq no " 
+    //LOG(DEBUG, "Kernel Data: msg_type " << nlh->nlmsg_type << " seq no "
     //                << nlh->nlmsg_seq << " len " << nlh->nlmsg_len);
     if (nlh->nlmsg_type == GetNetlinkFamilyId()) {
         struct genlmsghdr *genlh = (struct genlmsghdr *)
@@ -88,11 +101,11 @@ void KSyncSockNetlink::Decoder(char *data, SandeshContext *ctxt) {
         if (genlh->cmd == SANDESH_REQUEST) {
             struct nlattr * attr = (struct nlattr *)(data + NLMSG_HDRLEN
                                                      + GENL_HDRLEN);
-            int decode_buf_len = total_len - (NLMSG_HDRLEN + GENL_HDRLEN + 
+            int decode_buf_len = total_len - (NLMSG_HDRLEN + GENL_HDRLEN +
                                               NLA_HDRLEN);
             int err = 0;
             if (attr->nla_type == NL_ATTR_VR_MESSAGE_PROTOCOL) {
-                decode_buf = (uint8_t *)(data + NLMSG_HDRLEN + 
+                decode_buf = (uint8_t *)(data + NLMSG_HDRLEN +
                                          GENL_HDRLEN + NLA_HDRLEN);
                 while(decode_buf_len > (NLA_ALIGNTO - 1)) {
                     decode_len = Sandesh::ReceiveBinaryMsgOne(decode_buf, decode_buf_len, &err,
@@ -116,13 +129,12 @@ void KSyncSockNetlink::Decoder(char *data, SandeshContext *ctxt) {
         LOG(ERROR, "Netlink unknown message type : " << nlh->nlmsg_type);
         assert(0);
     }
-    
 }
 
 bool KSyncSockNetlink::Validate(char *data) {
     struct nlmsghdr *nlh = (struct nlmsghdr *)data;
     if (nlh->nlmsg_type == NLMSG_ERROR) {
-        LOG(ERROR, "Ignoring Netlink error for seqno " << nlh->nlmsg_seq 
+        LOG(ERROR, "Ignoring Netlink error for seqno " << nlh->nlmsg_seq
                         << " len " << nlh->nlmsg_len);
         assert(0);
         return true;
@@ -204,7 +216,7 @@ void KSyncSockNetlink::Receive(mutable_buffers_1 buf) {
     sock_.receive(buf);
     struct nlmsghdr *nlh = buffer_cast<struct nlmsghdr *>(buf);
     if (nlh->nlmsg_type == NLMSG_ERROR) {
-        LOG(ERROR, "Netlink error for seqno " << nlh->nlmsg_seq 
+        LOG(ERROR, "Netlink error for seqno " << nlh->nlmsg_seq
                 << " len " << nlh->nlmsg_len);
         assert(0);
     }
@@ -291,7 +303,7 @@ KSyncSock::KSyncSock() : tx_count_(0), err_count_(0), run_sync_mode_(true) {
     for(int i = 0; i < IoContext::MAX_WORK_QUEUES; i++) {
         receive_work_queue[i] = new WorkQueue<char *>(TaskScheduler::GetInstance()->
                              GetTaskId(IoContext::io_wq_names[i]), 0,
-                             boost::bind(&KSyncSock::ProcessKernelData, this, 
+                             boost::bind(&KSyncSock::ProcessKernelData, this,
                                          _1));
     }
     async_send_queue_ = new WorkQueue<IoContext *>(TaskScheduler::GetInstance()->
@@ -371,7 +383,7 @@ void KSyncSock::Shutdown() {
 void KSyncSock::ReadHandler(const boost::system::error_code& error,
                             size_t bytes_transferred) {
     if (error) {
-        LOG(ERROR, "Error reading from Ksync sock. Error : " << 
+        LOG(ERROR, "Error reading from Ksync sock. Error : " <<
             boost::system::system_error(error).what());
         if (shutdown_ == false) {
             assert(0);
@@ -441,7 +453,7 @@ bool KSyncSock::ProcessKernelData(char *data) {
     delete[] data;
     return true;
 }
-    
+
 // Write handler registered with boost::asio
 void KSyncSock::WriteHandler(const boost::system::error_code& error,
                              size_t bytes_transferred) {
@@ -478,8 +490,8 @@ bool KSyncSock::BlockingRecv() {
         ctxt->SetErrno(0);
         Decoder(data, ctxt);
         if (ctxt->GetErrno() != 0) {
-            KSYNC_ERROR(VRouterError, "VRouter operation failed. Error <", 
-                        ctxt->GetErrno(), ":", strerror(ctxt->GetErrno()), 
+            KSYNC_ERROR(VRouterError, "VRouter operation failed. Error <",
+                        ctxt->GetErrno(), ":", strerror(ctxt->GetErrno()),
                         ">. Object <", "N/A", ">. State <", "N/A",
                         ">. Message number :", 0);
             ret = true;
@@ -528,8 +540,8 @@ bool KSyncSock::SendAsyncImpl(IoContext *ioc) {
 KSyncIoContext::KSyncIoContext(KSyncEntry *sync_entry, int msg_len,
                                char *msg, uint32_t seqno,
                                KSyncEntry::KSyncEvent event) :
-    IoContext(msg, msg_len, seqno, KSyncSock::GetAgentSandeshContext()), 
-        entry_(sync_entry), event_(event) { 
+    IoContext(msg, msg_len, seqno, KSyncSock::GetAgentSandeshContext()),
+        entry_(sync_entry), event_(event) {
 }
 
 void KSyncIoContext::Handler() {
@@ -540,3 +552,4 @@ void KSyncIoContext::Handler() {
 void KSyncIoContext::ErrorHandler(int err) {
     entry_->ErrorHandler(err, GetSeqno());
 }
+

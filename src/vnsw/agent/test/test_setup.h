@@ -8,6 +8,8 @@
 
 #include "base/logging.h"
 #include "testing/gunit.h"
+#include "net/bsdudp.h"
+#include "net/bsdtcp.h"
 
 #include <boost/uuid/uuid.hpp>
 #include <boost/uuid/string_generator.hpp>

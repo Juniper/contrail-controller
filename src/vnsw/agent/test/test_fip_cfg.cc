@@ -2,22 +2,7 @@
  * Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
  */
 
-#include <cfg/cfg_interface.h>
-#include <cfg/cfg_init.h>
-#include <oper/operdb_init.h>
-#include <controller/controller_init.h>
-#include <pkt/pkt_init.h>
-#include <services/services_init.h>
-#include <ksync/ksync_init.h>
 #include <cmn/agent_cmn.h>
-#include <base/task.h>
-#include <io/event_manager.h>
-#include <base/util.h>
-#include <ifmap/ifmap_agent_parser.h>
-#include <ifmap/ifmap_agent_table.h>
-#include <oper/vn.h>
-#include <oper/vm.h>
-#include <oper/interface_common.h>
 #include "vr_types.h"
 
 #include "testing/gunit.h"

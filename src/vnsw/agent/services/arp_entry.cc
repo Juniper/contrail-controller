@@ -11,7 +11,7 @@ ArpEntry::ArpEntry(boost::asio::io_service &io, ArpHandler *handler,
                    ArpKey &key, State state)
     : key_(key), state_(state), retry_count_(0), handler_(handler),
       arp_timer_(NULL) {
-    memset(mac_address_, 0, ETH_ALEN);
+    memset(mac_address_, 0, ETHER_ADDR_LEN);
     arp_timer_ = TimerManager::CreateTimer(io, "Arp Entry timer",
                  TaskScheduler::GetInstance()->GetTaskId("Agent::Services"),
                  PktHandler::ARP);
@@ -154,7 +154,13 @@ void ArpEntry::AddArpRoute(bool resolved) {
                                          FindActiveEntry(&nh_key));
 
     struct ether_addr mac;
+#if defined(__linux__)
     memcpy(mac.ether_addr_octet, mac_address_, ETH_ALEN);
+#elif defined(__FreeBSD__)
+    memcpy(mac.octet, mac_address_, ETHER_ADDR_LEN);
+#else
+#error "Unsupported platform"
+#endif
     if (arp_nh && arp_nh->GetResolveState() && 
         memcmp(&mac, arp_nh->GetMac(), sizeof(mac)) == 0) {
         // MAC address unchanged, ignore
@@ -185,7 +191,13 @@ bool ArpEntry::DeleteArpRoute() {
         return true;
 
     struct ether_addr mac;
+#if defined(__linux__)
     memcpy(mac.ether_addr_octet, mac_address_, ETH_ALEN);
+#elif defined(__FreeBSD__)
+    memcpy(mac.octet, mac_address_, ETHER_ADDR_LEN);
+#else
+#error "Unsupported platform"
+#endif
     stringstream mac_string;
     mac_string << ether_ntoa((struct ether_addr *)&mac);
     ARP_TRACE(Trace, "Delete", ip.to_string(), vrf_name, mac_string.str());

@@ -39,9 +39,15 @@ public:
     InterfaceKSyncEntry(InterfaceKSyncObject *obj, const Interface *intf);
     virtual ~InterfaceKSyncEntry();
 
-	const uint8_t *mac() const { 
+    const uint8_t *mac() const { 
         if (parent_.get() == NULL) {
+#if defined(__linux__)
             return mac_.ether_addr_octet;
+#elif defined(__FreeBSD__)
+            return mac_.octet;
+#else
+#error "Unsupported platform"
+#endif
         } else {
             const InterfaceKSyncEntry *parent = 
                         static_cast<const InterfaceKSyncEntry *>(parent_.get());

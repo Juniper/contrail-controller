@@ -2,12 +2,6 @@
  * Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
  */
 
-#include <sys/socket.h>
-#include <linux/netlink.h>
-#include <net/if.h>
-#include <linux/if_tun.h>
-#include <linux/if_packet.h>
-
 #include "testing/gunit.h"
 
 #include <boost/uuid/string_generator.hpp>

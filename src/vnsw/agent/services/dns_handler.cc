@@ -1,7 +1,8 @@
 /*
  * Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
  */
-
+#include <sys/types.h>
+#include <net/bsdudp.h>
 #include "vr_defs.h"
 #include "oper/interface_common.h"
 #include "services/dns_proto.h"
@@ -45,7 +46,7 @@ bool DnsHandler::Run() {
        default:
             return HandleRequest();
     }
-}    
+}
 
 bool DnsHandler::HandleRequest() {
     DnsProto *dns_proto = agent()->GetDnsProto();
@@ -54,25 +55,25 @@ bool DnsHandler::HandleRequest() {
     uint16_t ret = DNS_ERR_NO_ERROR;
     const Interface *itf =
         agent()->interface_table()->FindInterface(GetInterfaceIndex());
-    if (!itf || (itf->type() != Interface::VM_INTERFACE) || 
+    if (!itf || (itf->type() != Interface::VM_INTERFACE) ||
         dns_->flags.req) {
         dns_proto->IncrStatsDrop();
         DNS_BIND_TRACE(DnsBindError, "Received Invalid DNS request - dropping"
-                       << "; itf = " << itf << "; flags.req = " 
-                       << dns_->flags.req << "; src addr = " 
-                       << pkt_info_->ip->saddr <<";");
+                       << "; itf = " << itf << "; flags.req = "
+                       << dns_->flags.req << "; src addr = "
+                       << pkt_info_->ip->ip_src.s_addr <<";");
         return true;
     }
 
     const VmInterface *vmitf = static_cast<const VmInterface *>(itf);
     if (!vmitf->ipv4_forwarding()) {
-        DNS_BIND_TRACE(DnsBindError, "DNS request on VM port with disabled" 
+        DNS_BIND_TRACE(DnsBindError, "DNS request on VM port with disabled"
                        "ipv4 service: " << itf);
         dns_proto->IncrStatsDrop();
         return true;
     }
     // Handle requests (req == 0), queries (op code == 0), updates, non auth
-    if ((dns_->flags.op && dns_->flags.op != DNS_OPCODE_UPDATE) || 
+    if ((dns_->flags.op && dns_->flags.op != DNS_OPCODE_UPDATE) ||
         (dns_->flags.cd)) {
         DNS_BIND_TRACE(DnsBindError, "Unimplemented DNS request"
                        << "; flags.op = " << dns_->flags.op << "; flags.cd = "
@@ -81,7 +82,7 @@ bool DnsHandler::HandleRequest() {
         goto error;
     }
 
-    if (!vmitf->vn() || 
+    if (!vmitf->vn() ||
         !vmitf->vn()->GetIpamData(vmitf->ip_addr(), &ipam_name_,
                                           &ipam_type_)) {
         DNS_BIND_TRACE(DnsBindError, "Unable to find Ipam data; interface = "
@@ -125,7 +126,7 @@ bool DnsHandler::HandleDefaultDnsRequest(const VmInterface *vmitf) {
     DnsProto *dns_proto = agent()->GetDnsProto();
     rkey_ = new QueryKey(vmitf, dns_->xid);
     if (dns_proto->IsVmRequestDuplicate(rkey_)) {
-        DNS_BIND_TRACE(DnsBindTrace, 
+        DNS_BIND_TRACE(DnsBindTrace,
                        "Retry DNS query from VM - dropping; interface = "
                        << vmitf->vm_name() << " xid = " << dns_->xid);
         dns_proto->IncrStatsRetransmitReq();
@@ -136,19 +137,19 @@ bool DnsHandler::HandleDefaultDnsRequest(const VmInterface *vmitf) {
     dns_resp_size_ = BindUtil::ParseDnsQuery((uint8_t *)dns_, items_);
     resp_ptr_ = (uint8_t *)dns_ + dns_resp_size_;
     action_ = DnsHandler::DNS_QUERY;
-    BindUtil::BuildDnsHeader(dns_, ntohs(dns_->xid), DNS_QUERY_RESPONSE, 
-                             DNS_OPCODE_QUERY, 0, 1, DNS_ERR_NO_ERROR, 
+    BindUtil::BuildDnsHeader(dns_, ntohs(dns_->xid), DNS_QUERY_RESPONSE,
+                             DNS_OPCODE_QUERY, 0, 1, DNS_ERR_NO_ERROR,
                              ntohs(dns_->ques_rrcount));
     ResolveAllLinkLocalRequests();
     for (DnsItems::iterator it = items_.begin(); it != items_.end(); ++it) {
-        ResolveHandler resolv_handler = 
+        ResolveHandler resolv_handler =
             boost::bind(&DnsHandler::DefaultDnsResolveHandler, this, _1, _2, it);
 
         boost_udp::resolver *resolv = new boost_udp::resolver(io_);
         switch(it->type) {
             case DNS_A_RECORD:
                 resolv->async_resolve(
-                        boost_udp::resolver::query(boost_udp::v4(), 
+                        boost_udp::resolver::query(boost_udp::v4(),
                         it->name, "domain"), resolv_handler);
                 break;
 
@@ -157,7 +158,7 @@ bool DnsHandler::HandleDefaultDnsRequest(const VmInterface *vmitf) {
                 if (!BindUtil::GetAddrFromPtrName(it->name, addr)) {
                     DNS_BIND_TRACE(DnsBindError, "Default DNS request:"
                                    " interface = " << vmitf->vm_name() <<
-                                   " Ignoring invalid IP in PTR type : " + 
+                                   " Ignoring invalid IP in PTR type : " +
                                    it->name);
                     delete resolv;
                     continue;
@@ -177,7 +178,7 @@ bool DnsHandler::HandleDefaultDnsRequest(const VmInterface *vmitf) {
             default:
                 DNS_BIND_TRACE(DnsBindError, "Default DNS request:"
                                " interface = " << vmitf->vm_name() <<
-                               " Ignoring unsupported type : " << 
+                               " Ignoring unsupported type : " <<
                                it->type);
                 continue;
         }
@@ -186,7 +187,7 @@ bool DnsHandler::HandleDefaultDnsRequest(const VmInterface *vmitf) {
     }
 
     DNS_BIND_TRACE(DnsBindTrace, "Default DNS query received; "
-                   "interface = " << vmitf->vm_name() << " xid = " << 
+                   "interface = " << vmitf->vm_name() << " xid = " <<
                    dns_->xid << "; " << DnsItemsToString(items_) << ";");
     if (pend_req_)
         return false;
@@ -217,10 +218,10 @@ void DnsHandler::DefaultDnsResolveHandler(const boost::system::error_code &error
                 boost_udp::resolver::iterator end;
                 while (it != end) {
                     boost_udp::endpoint ep = *it;
-                    if (ep.address().is_v4() && 
+                    if (ep.address().is_v4() &&
                         !ep.address().to_v4().is_unspecified())
                         item->data = ep.address().to_v4().to_string();
-                    else {     
+                    else {
                         dns_->flags.ret = DNS_ERR_SERVER_FAIL;
                         resolved = false;
                     }
@@ -232,10 +233,10 @@ void DnsHandler::DefaultDnsResolveHandler(const boost::system::error_code &error
                 boost_udp::resolver::iterator end;
                 while (it != end) {
                     boost_udp::endpoint ep = *it;
-                    if (ep.address().is_v6() && 
+                    if (ep.address().is_v6() &&
                         !ep.address().to_v6().is_unspecified())
                         item->data = ep.address().to_v6().to_string();
-                    else {     
+                    else {
                         dns_->flags.ret = DNS_ERR_SERVER_FAIL;
                         resolved = false;
                     }
@@ -263,7 +264,7 @@ void DnsHandler::DefaultDnsResolveHandler(const boost::system::error_code &error
 void DnsHandler::DefaultDnsSendResponse() {
     agent()->GetDnsProto()->DelVmRequest(rkey_);
     if (dns_->flags.ret) {
-        DNS_BIND_TRACE(DnsBindError, "Query failed : " << 
+        DNS_BIND_TRACE(DnsBindError, "Query failed : " <<
                        BindUtil::DnsResponseCode(dns_->flags.ret) <<
                        "; xid = " << dns_->xid << "; " <<
                        DnsItemsToString(items_) << ";" <<
@@ -280,9 +281,9 @@ bool DnsHandler::HandleVirtualDnsRequest(const VmInterface *vmitf) {
     rkey_ = new QueryKey(vmitf, dns_->xid);
     DnsProto *dns_proto = agent()->GetDnsProto();
     if (dns_proto->IsVmRequestDuplicate(rkey_)) {
-        DNS_BIND_TRACE(DnsBindTrace, 
+        DNS_BIND_TRACE(DnsBindTrace,
                        "Retry DNS query from VM - dropping; interface = " <<
-                       vmitf->vm_name() << " xid = " << dns_->xid << "; " << 
+                       vmitf->vm_name() << " xid = " << dns_->xid << "; " <<
                        DnsItemsToString(items_) << ";" <<
                        DnsItemsToString(linklocal_items_) << "; ");
         dns_proto->IncrStatsRetransmitReq();
@@ -298,8 +299,8 @@ bool DnsHandler::HandleVirtualDnsRequest(const VmInterface *vmitf) {
         case DNS_OPCODE_QUERY: {
             dns_resp_size_ = BindUtil::ParseDnsQuery((uint8_t *)dns_, items_);
             resp_ptr_ = (uint8_t *)dns_ + dns_resp_size_;
-            BindUtil::BuildDnsHeader(dns_, ntohs(dns_->xid), DNS_QUERY_RESPONSE, 
-                                     DNS_OPCODE_QUERY, 0, 1, ret, 
+            BindUtil::BuildDnsHeader(dns_, ntohs(dns_->xid), DNS_QUERY_RESPONSE,
+                                     DNS_OPCODE_QUERY, 0, 1, ret,
                                      ntohs(dns_->ques_rrcount));
             // Check for linklocal service name resolution
             ResolveAllLinkLocalRequests();
@@ -321,7 +322,7 @@ bool DnsHandler::HandleVirtualDnsRequest(const VmInterface *vmitf) {
             if (vdns_type_.dynamic_records_from_client) {
                 DnsUpdateData *update_data = new DnsUpdateData();
                 DnsProto::DnsUpdateIpc *update =
-                    new DnsProto::DnsUpdateIpc(DnsAgentXmpp::Update, 
+                    new DnsProto::DnsUpdateIpc(DnsAgentXmpp::Update,
                                                update_data, vmitf, false);
                 if (BindUtil::ParseDnsUpdate((uint8_t *)dns_, *update_data)) {
                     update_data->virtual_dns = ipam_type_.ipam_dns_server.
@@ -337,7 +338,7 @@ bool DnsHandler::HandleVirtualDnsRequest(const VmInterface *vmitf) {
                 "update for " << DnsItemsToString(items_) << ";");
                 ret = DNS_ERR_NOT_AUTH;
             }
-            BindUtil::BuildDnsHeader(dns_, ntohs(dns_->xid), DNS_QUERY_RESPONSE, 
+            BindUtil::BuildDnsHeader(dns_, ntohs(dns_->xid), DNS_QUERY_RESPONSE,
                                      DNS_OPCODE_UPDATE, 0, 1, ret,
                                      ntohs(dns_->ques_rrcount));
             SendDnsResponse();
@@ -361,7 +362,7 @@ bool DnsHandler::SendDnsQuery() {
     bool in_progress = dns_proto->IsDnsQueryInProgress(xid_);
     if (in_progress) {
         if (retries_ >= dns_proto->max_retries()) {
-            DNS_BIND_TRACE(DnsBindTrace, 
+            DNS_BIND_TRACE(DnsBindTrace,
                            "Max retries reached for query; xid = " << xid_ <<
                            "; " << DnsItemsToString(items_) << ";");
             goto cleanup;
@@ -372,16 +373,16 @@ bool DnsHandler::SendDnsQuery() {
     }
 
     pkt = new uint8_t[BindResolver::max_pkt_size];
-    len = BindUtil::BuildDnsQuery(pkt, xid_, 
+    len = BindUtil::BuildDnsQuery(pkt, xid_,
           ipam_type_.ipam_dns_server.virtual_dns_server_name, items_);
     if (BindResolver::Resolver()->DnsSend(pkt, agent()->dns_xmpp_server_index(),
                                           len)) {
-        DNS_BIND_TRACE(DnsBindTrace, "DNS query sent to server; xid = " << 
+        DNS_BIND_TRACE(DnsBindTrace, "DNS query sent to server; xid = " <<
                        xid_ << "; " << DnsItemsToString(items_) << ";");
         timer_->Start(dns_proto->timeout(),
                       boost::bind(&DnsHandler::TimerExpiry, this, xid_));
         return true;
-    } 
+    }
 
 cleanup:
     dns_proto->IncrStatsDrop();
@@ -514,7 +515,7 @@ bool DnsHandler::HandleBindResponse() {
             case DnsHandler::DNS_QUERY:
                 handler->Resolve(flags, ques, ans, auth, add);
                 if (flags.ret) {
-                    DNS_BIND_TRACE(DnsBindError, "Query failed : " << 
+                    DNS_BIND_TRACE(DnsBindError, "Query failed : " <<
                                    BindUtil::DnsResponseCode(flags.ret) <<
                                    "; xid = " << xid << "; " <<
                                    DnsItemsToString(items_) << ";" <<
@@ -527,7 +528,7 @@ bool DnsHandler::HandleBindResponse() {
                 break;
 
             default:
-                DNS_BIND_TRACE(DnsBindTrace, 
+                DNS_BIND_TRACE(DnsBindTrace,
                                "Received invalid BIND response: xid = " << xid);
                 break;
         }
@@ -535,7 +536,7 @@ bool DnsHandler::HandleBindResponse() {
         dns_proto->DelVmRequest(handler->rkey_);
         delete handler;
     } else
-        DNS_BIND_TRACE(DnsBindError, "Invalid xid " << xid << 
+        DNS_BIND_TRACE(DnsBindError, "Invalid xid " << xid <<
                        "received from DNS server - dropping");
 
     delete ipc;
@@ -591,7 +592,7 @@ bool DnsHandler::HandleModifyVdns() {
         if (!ipc->itf && ipc->new_vdns == ipc->old_vdns)
             continue;
 
-        for (DnsItems::iterator item = (*it)->xmpp_data->items.begin(); 
+        for (DnsItems::iterator item = (*it)->xmpp_data->items.begin();
              item != (*it)->xmpp_data->items.end(); ++item) {
             // in case of delete, set the class to NONE and ttl to 0
             (*item).eclass = DNS_CLASS_NONE;
@@ -632,7 +633,7 @@ bool DnsHandler::UpdateAll() {
         static_cast<DnsProto::DnsUpdateAllIpc *>(pkt_info_->ipc);
     const DnsProto::DnsUpdateSet &update_set =
         agent()->GetDnsProto()->update_set();
-    for (DnsProto::DnsUpdateSet::const_iterator it = update_set.begin(); 
+    for (DnsProto::DnsUpdateSet::const_iterator it = update_set.begin();
          it != update_set.end(); ++it) {
         SendXmppUpdate(ipc->channel, (*it)->xmpp_data);
     }
@@ -641,7 +642,7 @@ bool DnsHandler::UpdateAll() {
     return true;
 }
 
-void DnsHandler::SendXmppUpdate(AgentDnsXmppChannel *channel, 
+void DnsHandler::SendXmppUpdate(AgentDnsXmppChannel *channel,
                                 DnsUpdateData *xmpp_data) {
     if (channel) {
         // Split the request in case we have more data items
@@ -664,13 +665,13 @@ void DnsHandler::SendXmppUpdate(AgentDnsXmppChannel *channel,
             uint8_t *data = new uint8_t[DnsAgentXmpp::max_dns_xmpp_msg_len];
             xid_ = agent()->GetDnsProto()->GetTransId();
             std::size_t len = 0;
-            if ((len = DnsAgentXmpp::DnsAgentXmppEncode(channel->GetXmppChannel(), 
+            if ((len = DnsAgentXmpp::DnsAgentXmppEncode(channel->GetXmppChannel(),
                                                         DnsAgentXmpp::Update,
-                                                        xid_, 0, xmpp_data, 
+                                                        xid_, 0, xmpp_data,
                                                         data)) > 0) {
                 channel->SendMsg(data, len);
             }
-            else 
+            else
                 delete [] data;
 
             done.splice(done.end(), xmpp_data->items, xmpp_data->items.begin(),
@@ -680,7 +681,7 @@ void DnsHandler::SendXmppUpdate(AgentDnsXmppChannel *channel,
     }
 }
 
-void 
+void
 DnsHandler::Resolve(dns_flags flags, const DnsItems &ques, DnsItems &ans,
                     DnsItems &auth, DnsItems &add) {
     for (DnsItems::iterator it = ans.begin(); it != ans.end(); ++it) {
@@ -726,20 +727,26 @@ DnsHandler::Resolve(dns_flags flags, const DnsItems &ques, DnsItems &ans,
 }
 
 void DnsHandler::SendDnsResponse() {
-    in_addr_t src_ip = pkt_info_->ip->daddr;
-    in_addr_t dest_ip = pkt_info_->ip->saddr;
-    unsigned char dest_mac[ETH_ALEN];
-    memcpy(dest_mac, pkt_info_->eth->h_source, ETH_ALEN);
+    in_addr_t src_ip = pkt_info_->ip->ip_dst.s_addr;
+    in_addr_t dest_ip = pkt_info_->ip->ip_src.s_addr;
+    unsigned char dest_mac[ETHER_ADDR_LEN];
+    memcpy(dest_mac, pkt_info_->eth->ether_shost, ETHER_ADDR_LEN);
 
     // fill in the response
     dns_resp_size_ += sizeof(udphdr);
-    UdpHdr(dns_resp_size_, src_ip, DNS_SERVER_PORT, 
-           dest_ip, ntohs(pkt_info_->transp.udp->source));
-    dns_resp_size_ += sizeof(iphdr);
+    UdpHdr(dns_resp_size_, src_ip, DNS_SERVER_PORT,
+           dest_ip, ntohs(pkt_info_->transp.udp->uh_sport));
+    dns_resp_size_ += sizeof(ip);
     IpHdr(dns_resp_size_, src_ip, dest_ip, IPPROTO_UDP);
+#if defined(__linux__)
     EthHdr(agent()->vhost_interface()->mac().ether_addr_octet, dest_mac,
            IP_PROTOCOL);
-    dns_resp_size_ += sizeof(ethhdr);
+#elif defined(__FreeBSD__)
+    EthHdr(agent()->vhost_interface()->mac().octet, dest_mac,
+           IP_PROTOCOL);
+#endif
+
+    dns_resp_size_ += sizeof(ether_header);
 
     PacketInterfaceKey key(nil_uuid(), agent()->pkt_interface_name());
     Interface *pkt_itf = static_cast<Interface *>
@@ -763,7 +770,7 @@ void DnsHandler::UpdateQueryNames() {
     }
 }
 
-// In case we added domain name to the queries, the response to the VM 
+// In case we added domain name to the queries, the response to the VM
 // should not have the domain name. Update the offsets in the DnsItems
 // accordingly.
 void DnsHandler::UpdateOffsets(DnsItem &item, bool name_update_required) {
@@ -792,7 +799,7 @@ void DnsHandler::UpdateOffsets(DnsItem &item, bool name_update_required) {
 
 void DnsHandler::UpdateGWAddress(DnsItem &item) {
     boost::system::error_code ec;
-    if (item.type == DNS_A_RECORD && 
+    if (item.type == DNS_A_RECORD &&
         (item.data == agent()->dns_server(0) ||
          item.data == agent()->dns_server(1))) {
         boost::asio::ip::address_v4 addr(pkt_info_->ip_daddr);
@@ -807,7 +814,7 @@ void DnsHandler::Update(InterTaskMsg *msg) {
     DnsProto::DnsUpdateIpc *update_req = dns_proto->FindUpdateRequest(update);
     if (update_req) {
         DnsUpdateData *data = update_req->xmpp_data;
-        for (DnsItems::iterator item = update->xmpp_data->items.begin(); 
+        for (DnsItems::iterator item = update->xmpp_data->items.begin();
              item != update->xmpp_data->items.end();) {
             if ((*item).IsDelete()) {
                 if (!data->DelItem(*item))
@@ -847,14 +854,14 @@ void DnsHandler::DelUpdate(InterTaskMsg *msg) {
     DnsProto *dns_proto = agent()->GetDnsProto();
     DnsProto::DnsUpdateIpc *update_req = dns_proto->FindUpdateRequest(update);
     while (update_req) {
-        for (DnsItems::iterator item = update_req->xmpp_data->items.begin(); 
+        for (DnsItems::iterator item = update_req->xmpp_data->items.begin();
              item != update_req->xmpp_data->items.end(); ++item) {
             // in case of delete, set the class to NONE and ttl to 0
             (*item).eclass = DNS_CLASS_NONE;
             (*item).ttl = 0;
         }
         for (int i = 0; i < MAX_XMPP_SERVERS; i++) {
-            AgentDnsXmppChannel *channel = 
+            AgentDnsXmppChannel *channel =
                         agent()->dns_xmpp_channel(i);
             SendXmppUpdate(channel, update_req->xmpp_data);
         }

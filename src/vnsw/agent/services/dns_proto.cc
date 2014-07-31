@@ -2,6 +2,9 @@
  * Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
  */
 
+#if defined(__FreeBSD__)
+#include <sys/types.h>
+#endif
 #include "oper/interface_common.h"
 #include "services/dns_proto.h"
 #include "bind/bind_resolver.h"
@@ -387,7 +390,7 @@ bool DnsProto::MoveVDnsEntry(const VmInterface *vmitf,
     return true;
 }
 
-bool DnsProto::GetVdnsData(const VnEntry *vn, const Ip4Address &vm_addr, 
+bool DnsProto::GetVdnsData(const VnEntry *vn, const Ip4Address &vm_addr,
                            std::string &vdns_name,
                            autogen::VirtualDnsType &vdns_type) {
     if (!vn)
@@ -469,7 +472,7 @@ void DnsProto::SendDnsUpdateIpc(AgentDnsXmppChannel *channel) {
     agent_->pkt()->pkt_handler()->SendMessage(PktHandler::DNS, ipc);
 }
 
-void DnsProto::AddDnsQuery(uint16_t xid, DnsHandler *handler) { 
+void DnsProto::AddDnsQuery(uint16_t xid, DnsHandler *handler) {
     dns_query_map_.insert(DnsBindQueryPair(xid, handler));
 }
 

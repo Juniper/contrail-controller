@@ -4,6 +4,8 @@
 
 #pragma once
 
+#include "net/bsdtcp.h"
+#include "net/bsdudp.h"
 #include <boost/asio/io_service.hpp>
 #include <tbb/spin_mutex.h>
 

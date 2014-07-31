@@ -6,13 +6,15 @@
 #define vnsw_agent_test_init_h
 
 #include <sys/socket.h>
-#include <linux/netlink.h>
 #include <net/if.h>
+#if defined(__linux__)
 #include <linux/if_tun.h>
 #include <linux/if_packet.h>
 #include <netinet/ether.h>
+#endif
 #include <pthread.h>
 
+#include <cmn/agent_cmn.h>
 #include <fstream>
 #include <stdio.h>
 #include <stdlib.h>
@@ -28,7 +30,6 @@
 
 #include "xmpp/xmpp_channel.h"
 
-#include <cmn/agent_cmn.h>
 #include <cfg/cfg_init.h>
 #include <cfg/cfg_interface.h>
 #include <cfg/cfg_listener.h>

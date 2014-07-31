@@ -8,7 +8,6 @@
 #include "uve/test/vn_uve_table_test.h"
 
 #define MAX_TESTNAME_LEN 80
-
 using namespace std;
 
 Peer *bgp_peer_;
@@ -806,11 +805,17 @@ bool DBTableFind(const string &table_name) {
 }
 
 void DeleteTap(int fd) {
+#if defined(__linux__)
     if (ioctl(fd, TUNSETPERSIST, 0) < 0) {
         LOG(ERROR, "Error <" << errno << ": " << strerror(errno) <<
             "> making tap interface persistent");
         assert(0);
     }
+#elif defined(__FreeBSD__)
+/* TODO: FreeBSD code is missing here */
+#else
+#error "Unsupported platform"
+#endif
 }
 
 void DeleteTapIntf(const int fd[], int count) {
@@ -820,7 +825,8 @@ void DeleteTapIntf(const int fd[], int count) {
 }
 
 int CreateTap(const char *name) {
-    int fd;
+    int fd = -1;
+#if defined(__linux__)
     struct ifreq ifr;
 
     if ((fd = open(TUN_INTF_CLONE_DEV, O_RDWR)) < 0) {
@@ -843,6 +849,11 @@ int CreateTap(const char *name) {
             "> making tap interface persistent");
         assert(0);
     }
+#elif defined(__FreeBSD__)
+/* TODO: FreeBSD code is missing here */
+#else
+#error "Unsupported platform"
+#endif
     return fd;
 }
 
@@ -860,6 +871,7 @@ void CreateTapInterfaces(const char *name, int count, int *fd) {
     int raw;
     struct ifreq ifr;
 
+#if defined(__linux__)
     for (int i = 0; i < count; i++) {
         snprintf(ifname, IF_NAMESIZE, "%s%d", name, i);
         fd[i] = CreateTap(ifname);
@@ -904,6 +916,11 @@ void CreateTapInterfaces(const char *name, int count, int *fd) {
                 assert(0);
         }
     }
+#elif defined(__FreeBSD__)
+/* TODO: FreeBSD code is missing here */
+#else
+#error "Unsupported platform"
+#endif
 
 }
 

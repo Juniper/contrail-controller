@@ -9,8 +9,9 @@
 #include <sys/socket.h>
 #include <net/ethernet.h>
 #include <net/address.h>
+#if defined(__linux__)
 #include <netinet/ether.h>
-
+#endif
 #include <base/lifetime.h>
 #include <base/patricia.h>
 #include <base/task_annotations.h>
