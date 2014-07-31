@@ -132,6 +132,9 @@ class RouterInterfaceNotFound(exceptions.NotFound):
     message = _("Router %(router_id)s does not have "
                 "an interface with id %(port_id)s")
 
+class RouterAlreadyHasInterfaceOnSubnet(exceptions.InUse):
+    message = _("Router %(router_id)s already has a port "
+                "on subnet %(subnet_id)s")
 
 class RouterInterfaceNotFoundForSubnet(exceptions.NotFound):
     message = _("Router %(router_id)s has no interface "
@@ -3045,7 +3048,10 @@ class DBInterface(object):
             for p in rports:
                 for ip in p['fixed_ips']:
                     if ip['subnet_id'] == subnet_id:
-                        self._raise_contrail_exception(409, RouterInUse(router_id=rtr_uuid))
+                        self._raise_contrail_exception(
+                            409, RouterAlreadyHasInterfaceOnSubnet(
+                                     router_id=router_id,
+                                     subnet_id=subnet_id))
                     sub_id = ip['subnet_id']
                     subnet = self.subnet_read(sub_id)
                     cidr = subnet['cidr']
