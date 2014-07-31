@@ -734,14 +734,14 @@ class SvcMonitor(object):
         try:
             vmi_obj = self._vnc_lib.virtual_machine_interface_read(
                 fq_name_str=vmi_fq_str)
+            vm_obj = self._vnc_lib.virtual_machine_read(
+                fq_name_str=vmi_obj.parent_name)
             vn_obj = self._vnc_lib.virtual_network_read(
                 fq_name_str=vn_fq_str)
         except NoIdError:
             return
 
         # check if this is a service vm
-        vm_obj = self._vnc_lib.virtual_machine_read(
-            fq_name_str=vmi_obj.parent_name)
         si_list = vm_obj.get_service_instance_refs()
         if si_list:
             fq_name = si_list[0]['to']
