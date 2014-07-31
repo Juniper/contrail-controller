@@ -2,7 +2,7 @@
 
 subdirs = ['boost', 'gperftools', 'gunit', 'http_parser', 'log4cplus', 'tbb',
            'hiredis', 'thrift', 'pugixml', 'curl-7.24.0', 'libxml2', 
-           'rapidjson', 'bind']
+           'rapidjson', 'bind', 'icu']
 
 for dir in subdirs:
     SConscript(dirs = dir, variant_dir = '#/build/third_party/' + dir)

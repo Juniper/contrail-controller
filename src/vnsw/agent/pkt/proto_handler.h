@@ -35,11 +35,13 @@ public:
 
     void Send(uint16_t, uint16_t, uint16_t, uint16_t, PktHandler::PktModuleName);
 
-    uint16_t EthHdr(char *buff, uint8_t len, const unsigned char *src,
-                    const unsigned char *dest, const uint16_t proto,
+    uint16_t EthHdr(char *buff, uint8_t len, const MacAddress &src,
+                    const MacAddress &dest, const uint16_t proto,
                     uint16_t vlan_id);
-    void EthHdr(const unsigned char *, const unsigned char *,
+
+    void EthHdr(const MacAddress &, const MacAddress &,
                     const uint16_t);
+
     void VlanHdr(uint8_t *ptr, uint16_t tci);
     void IpHdr(uint16_t, in_addr_t, in_addr_t, uint8_t);
     uint16_t IpHdr(char *, uint16_t, uint16_t, in_addr_t, in_addr_t, uint8_t);

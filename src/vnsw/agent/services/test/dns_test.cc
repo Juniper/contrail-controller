@@ -3,8 +3,7 @@
  */
 
 #include "testing/gunit.h"
-
-#include <netinet/if_ether.h>
+#include <net/ethernet.h>
 #include <boost/uuid/string_generator.hpp>
 #include <base/logging.h>
 
@@ -36,8 +35,8 @@
 #define BUF_SIZE 8192
 char src_mac[MAC_LEN] = { 0x00, 0x01, 0x02, 0x03, 0x04, 0x05 };
 char dest_mac[MAC_LEN] = { 0x00, 0x11, 0x12, 0x13, 0x14, 0x15 };
-ulong src_ip = 1234;
-ulong dest_ip = 5678;
+unsigned long src_ip = 1234;
+unsigned long dest_ip = 5678;
 short ifindex = 1;
 
 #define MAX_ITEMS 5
@@ -216,37 +215,37 @@ public:
         uint8_t *buf  = new uint8_t[len];
         memset(buf, 0, len);
 
-        ethhdr *eth = (ethhdr *)buf;
-        eth->h_dest[5] = 1;
-        eth->h_source[5] = 2;
-        eth->h_proto = htons(0x800);
+        ether_header *eth = (ether_header *)buf;
+        eth->ether_dhost[5] = 1;
+        eth->ether_shost[5] = 2;
+        eth->ether_type = htons(ETHERTYPE_IP);
 
         agent_hdr *agent = (agent_hdr *)(eth + 1);
         agent->hdr_ifindex = htons(itf_index);
         agent->hdr_vrf = htons(0);
         agent->hdr_cmd = htons(AGENT_TRAP_NEXTHOP);
 
-        eth = (ethhdr *) (agent + 1);
-        memcpy(eth->h_dest, dest_mac, MAC_LEN);
-        memcpy(eth->h_source, src_mac, MAC_LEN);
-        eth->h_proto = htons(0x800);
+        eth = (ether_header *) (agent + 1);
+        memcpy(eth->ether_dhost, dest_mac, ETHER_ADDR_LEN);
+        memcpy(eth->ether_shost, src_mac, ETHER_ADDR_LEN);
+        eth->ether_type = htons(ETHERTYPE_IP);
 
-        iphdr *ip = (iphdr *) (eth + 1);
-        ip->ihl = 5;
-        ip->version = 4;
-        ip->tos = 0;
-        ip->id = 0;
-        ip->frag_off = 0;
-        ip->ttl = 16;
-        ip->protocol = IPPROTO_UDP;
-        ip->check = 0;
-        ip->saddr = htonl(src_ip);
-        ip->daddr = htonl(dest_ip);
+        ip *ip = (struct ip *) (eth + 1);
+        ip->ip_hl = 5;
+        ip->ip_v = 4;
+        ip->ip_tos = 0;
+        ip->ip_id = 0;
+        ip->ip_off = 0;
+        ip->ip_ttl = 16;
+        ip->ip_p = IPPROTO_UDP;
+        ip->ip_sum = 0;
+        ip->ip_src.s_addr = htonl(src_ip);
+        ip->ip_dst.s_addr = htonl(dest_ip);
 
         udphdr *udp = (udphdr *) (ip + 1);
-        udp->source = htons(DNS_CLIENT_PORT);
-        udp->dest = htons(DNS_SERVER_PORT);
-        udp->check = 0;
+        udp->uh_sport = htons(DNS_CLIENT_PORT);
+        udp->uh_dport = htons(DNS_SERVER_PORT);
+        udp->uh_sum = 0;
 
         dnshdr *dns = (dnshdr *) (udp + 1);
         if (type == DNS_OPCODE_QUERY) {
@@ -260,9 +259,10 @@ public:
             assert(0);
 
         len += sizeof(udphdr);
-        udp->len = htons(len);
-        ip->tot_len = htons(len + sizeof(iphdr));
-        len += sizeof(iphdr) + sizeof(ethhdr) + IPC_HDR_LEN;
+        udp->uh_ulen = htons(len);
+        ip->ip_len = htons(len + sizeof(ip));
+        len += sizeof(ip) + sizeof(ether_header) + IPC_HDR_LEN;
+
         TestTapInterface *tap = (TestTapInterface *)
             (Agent::GetInstance()->pkt()->pkt_handler()->tap_interface());
         tap->GetTestPktHandler()->TestPktSend(buf, len);

@@ -1,31 +1,10 @@
 /*
  * Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
  */
-
-#include <net/address.h>
-#include <base/logging.h>
+#include "net/bsdtcp.h"
 #include <testing/gunit.h>
 
-#include <boost/uuid/uuid.hpp>
-#include <boost/uuid/string_generator.hpp>
-#include <boost/uuid/uuid_io.hpp>
-#include <pugixml/pugixml.hpp>
-
-#include <db/db_entry.h>
-#include <db/db_table.h>
-#include <db/db_table_partition.h>
-#include <io/event_manager.h>
-
 #include <test_cmn_util.h>
-#include <cfg/cfg_init.h>
-
-#include <oper/operdb_init.h>
-#include <oper/mirror_table.h>
-#include <filter/packet_header.h>
-#include <filter/acl.h>
-#include <filter/acl_entry_spec.h>
-
-#include <pkt/pkt_init.h>
 
 using namespace std;
 

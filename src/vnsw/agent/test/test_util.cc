@@ -8,7 +8,6 @@
 #include "uve/test/vn_uve_table_test.h"
 
 #define MAX_TESTNAME_LEN 80
-
 using namespace std;
 
 Peer *bgp_peer_;
@@ -806,11 +805,17 @@ bool DBTableFind(const string &table_name) {
 }
 
 void DeleteTap(int fd) {
+#if defined(__linux__)
     if (ioctl(fd, TUNSETPERSIST, 0) < 0) {
         LOG(ERROR, "Error <" << errno << ": " << strerror(errno) <<
             "> making tap interface persistent");
         assert(0);
     }
+#elif defined(__FreeBSD__)
+/* TODO: FreeBSD code is missing here */
+#else
+#error "Unsupported platform"
+#endif
 }
 
 void DeleteTapIntf(const int fd[], int count) {
@@ -820,7 +825,8 @@ void DeleteTapIntf(const int fd[], int count) {
 }
 
 int CreateTap(const char *name) {
-    int fd;
+    int fd = -1;
+#if defined(__linux__)
     struct ifreq ifr;
 
     if ((fd = open(TUN_INTF_CLONE_DEV, O_RDWR)) < 0) {
@@ -843,6 +849,11 @@ int CreateTap(const char *name) {
             "> making tap interface persistent");
         assert(0);
     }
+#elif defined(__FreeBSD__)
+/* TODO: FreeBSD code is missing here */
+#else
+#error "Unsupported platform"
+#endif
     return fd;
 }
 
@@ -860,6 +871,7 @@ void CreateTapInterfaces(const char *name, int count, int *fd) {
     int raw;
     struct ifreq ifr;
 
+#if defined(__linux__)
     for (int i = 0; i < count; i++) {
         snprintf(ifname, IF_NAMESIZE, "%s%d", name, i);
         fd[i] = CreateTap(ifname);
@@ -904,6 +916,11 @@ void CreateTapInterfaces(const char *name, int count, int *fd) {
                 assert(0);
         }
     }
+#elif defined(__FreeBSD__)
+/* TODO: FreeBSD code is missing here */
+#else
+#error "Unsupported platform"
+#endif
 
 }
 
@@ -1069,7 +1086,7 @@ bool L2RouteFind(const string &vrf_name, const struct ether_addr &mac) {
         return false;
 
     Layer2RouteKey key(Agent::GetInstance()->local_vm_peer(), vrf_name, mac);
-    Layer2RouteEntry *route = 
+    Layer2RouteEntry *route =
         static_cast<Layer2RouteEntry *>
         (static_cast<Layer2AgentRouteTable *>(vrf->
              GetLayer2RouteTable())->FindActiveEntry(&key));
@@ -1291,7 +1308,8 @@ bool AddArp(const char *ip, const char *mac_str, const char *ifname) {
     intf = static_cast<Interface *>(Agent::GetInstance()->interface_table()->FindActiveEntry(&key));
     boost::system::error_code ec;
     Inet4UnicastAgentRouteTable::ArpRoute(DBRequest::DB_ENTRY_ADD_CHANGE,
-                              Ip4Address::from_string(ip, ec), mac, 
+                              Ip4Address::from_string(ip, ec),
+                              MacAddress(mac),
                               Agent::GetInstance()->fabric_vrf_name(),
                               *intf, true, 32);
 
@@ -1304,9 +1322,9 @@ bool DelArp(const string &ip, const char *mac_str, const string &ifname) {
     PhysicalInterfaceKey key(ifname);
     intf = static_cast<Interface *>(Agent::GetInstance()->interface_table()->FindActiveEntry(&key));
     boost::system::error_code ec;
-    Inet4UnicastAgentRouteTable::ArpRoute(DBRequest::DB_ENTRY_DELETE, 
+    Inet4UnicastAgentRouteTable::ArpRoute(DBRequest::DB_ENTRY_DELETE,
                               Ip4Address::from_string(ip, ec),
-                              mac, Agent::GetInstance()->fabric_vrf_name(), *intf, false, 32);
+                              MacAddress(mac), Agent::GetInstance()->fabric_vrf_name(), *intf, false, 32);
     return true;
 }
 

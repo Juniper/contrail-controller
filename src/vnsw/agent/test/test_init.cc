@@ -2,6 +2,9 @@
  * Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
  */
 
+#include "base/compiler.h"
+#include "net/bsdtcp.h"
+#include "net/bsdudp.h"
 #include "test/test_init.h"
 #include "oper/mirror_table.h"
 #include "vgw/cfg_vgw.h"

@@ -725,12 +725,12 @@ void VrouterUveEntry::SendVrouterUve() {
 string VrouterUveEntry::GetMacAddress(const ether_addr &mac) const {
     stringstream ss;
     ss << setbase(16) << setfill('0') << setw(2) 
-      << static_cast<unsigned int>(mac.ether_addr_octet[0])
-      << static_cast<unsigned int>(mac.ether_addr_octet[1])
-      << static_cast<unsigned int>(mac.ether_addr_octet[2])
-      << static_cast<unsigned int>(mac.ether_addr_octet[3])
-      << static_cast<unsigned int>(mac.ether_addr_octet[4])
-      << static_cast<unsigned int>(mac.ether_addr_octet[5]);
+      << static_cast<unsigned int>(((uint8_t *)&mac)[0])
+      << static_cast<unsigned int>(((uint8_t *)&mac)[1])
+      << static_cast<unsigned int>(((uint8_t *)&mac)[2])
+      << static_cast<unsigned int>(((uint8_t *)&mac)[3])
+      << static_cast<unsigned int>(((uint8_t *)&mac)[4])
+      << static_cast<unsigned int>(((uint8_t *)&mac)[5]);
     return ss.str();
 }
 

@@ -3,6 +3,10 @@
  */
 
 #include "testing/gunit.h"
+#include "net/bsdtcp.h"
+#include "net/bsdudp.h"
+#include <sys/socket.h>
+#include <netinet/in.h>
 #include <netinet/if_ether.h>
 #include <base/logging.h>
 #include <io/event_manager.h>
@@ -89,11 +93,11 @@ public:
         memcpy(buf, msg, length);
 
         // Change the agent header
-        ethhdr *eth = (ethhdr *)buf;
-        unsigned char mac[ETH_ALEN];
-        memcpy(mac, eth->h_dest, ETH_ALEN);
-        memcpy(eth->h_dest, eth->h_source, ETH_ALEN);
-        memcpy(eth->h_source, mac, ETH_ALEN);
+        ether_header *eth = (ether_header *)buf;
+        MacAddress mac(eth->ether_dhost);
+        MacAddress(eth->ether_shost).ToArray(eth->ether_dhost,
+                   sizeof(eth->ether_dhost));
+        mac.ToArray(eth->ether_shost, sizeof(eth->ether_shost));
 
         agent_hdr *agent = (agent_hdr *)(eth + 1);
         int intf_id = ntohs(agent->hdr_ifindex);
@@ -114,11 +118,11 @@ public:
         agent->hdr_cmd = htons(AGENT_TRAP_DIAG);
         agent->hdr_cmd_param = htonl(ntohs(agent->hdr_ifindex));
 
-        const unsigned char smac[] = {0x00, 0x25, 0x90, 0xc4, 0x82, 0x2c};
-        const unsigned char dmac[] = {0x02, 0xce, 0xa0, 0x6c, 0x96, 0x34};
-        eth = (ethhdr *) (agent + 1);
-        memcpy(eth->h_dest, dmac, ETH_ALEN);
-        memcpy(eth->h_source, smac, ETH_ALEN);
+        const MacAddress smac(0x00, 0x25, 0x90, 0xc4, 0x82, 0x2c);
+        const MacAddress dmac(0x02, 0xce, 0xa0, 0x6c, 0x96, 0x34);
+        eth = (ether_header *) (agent + 1);
+        dmac.ToArray(eth->ether_dhost, sizeof(eth->ether_dhost));
+        smac.ToArray(eth->ether_shost, sizeof(eth->ether_shost));
 
         // send the recieved packet back
         tap_->GetTestPktHandler()->TestPktSend(buf, length);
@@ -222,7 +226,7 @@ TEST_F(DiagTest, DiagReqTest) {
     EXPECT_TRUE(count() == 3);
 
     client->Reset();
-    DeleteVmportEnv(input, 2, 1, 0); 
+    DeleteVmportEnv(input, 2, 1, 0);
     client->WaitForIdle();
 }
 

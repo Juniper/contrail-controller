@@ -9,6 +9,7 @@
 #include <boost/bind.hpp>
 #include <boost/function.hpp>
 #include <boost/asio.hpp>
+#include <net/ethernet.h>
 
 // Tap Interface handler to read or write to the "pkt0" interface.
 // Packets reads from the tap are given to the registered callback.
@@ -16,7 +17,7 @@
 class TapInterface {
 public:
     static const uint32_t kMaxPacketSize = 9060;
-    typedef boost::function<void(uint8_t*, std::size_t, std::size_t)> 
+    typedef boost::function<void(uint8_t*, std::size_t, std::size_t)>
         PktReadCallback;
 
     TapInterface(Agent *agent, const std::string &name,
@@ -26,7 +27,7 @@ public:
     void IoShutdown();
 
     int tap_fd() const { return tap_fd_; }
-    const unsigned char *mac_address() const { return mac_address_; }
+    const MacAddress &mac_address() const { return mac_address_; }
     virtual void SetupTap();
     virtual void AsyncWrite(uint8_t *buf, std::size_t len);
 
@@ -43,7 +44,7 @@ protected:
     std::string name_;
     uint8_t *read_buf_;
     PktReadCallback pkt_handler_;
-    unsigned char mac_address_[ETH_ALEN];
+    MacAddress mac_address_;
     boost::asio::posix::stream_descriptor input_;
     DISALLOW_COPY_AND_ASSIGN(TapInterface);
 };

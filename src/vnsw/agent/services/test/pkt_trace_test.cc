@@ -3,9 +3,10 @@
  */
 
 #include "testing/gunit.h"
-
-#include <netinet/if_ether.h>
 #include <netinet/in.h>
+#include <sys/socket.h>
+#include <netinet/ip.h>
+#include <netinet/if_ether.h>
 #include <netinet/ip_icmp.h>
 #include <boost/uuid/string_generator.hpp>
 #include <boost/scoped_array.hpp>
@@ -85,14 +86,14 @@ public:
         }
     }
 
-    uint32_t GetItfCount() { 
+    uint32_t GetItfCount() {
         tbb::mutex::scoped_lock lock(mutex_);
-        return itf_count_; 
+        return itf_count_;
     }
 
-    std::size_t GetItfId(int index) { 
+    std::size_t GetItfId(int index) {
         tbb::mutex::scoped_lock lock(mutex_);
-        return itf_id_[index]; 
+        return itf_id_[index];
     }
 
     void CheckSandeshResponse(Sandesh *sandesh, int count) {
@@ -118,50 +119,50 @@ public:
         boost::scoped_array<uint8_t> buf(new uint8_t[len]);
         memset(buf.get(), 0, len);
 
-        ethhdr *eth = (ethhdr *)buf.get();
-        eth->h_dest[5] = 1;
-        eth->h_source[5] = 2;
-        eth->h_proto = htons(0x800);
+        ether_header *eth = (ether_header *)buf.get();
+        eth->ether_dhost[5] = 1;
+        eth->ether_shost[5] = 2;
+        eth->ether_type = htons(ETHERTYPE_IP);
 
         agent_hdr *agent = (agent_hdr *)(eth + 1);
         agent->hdr_ifindex = htons(ifindex);
         agent->hdr_vrf = htons(0);
         agent->hdr_cmd = htons(AGENT_TRAP_NEXTHOP);
 
-        eth = (ethhdr *) (agent + 1);
-        memcpy(eth->h_dest, dest_mac, MAC_LEN);
-        memcpy(eth->h_source, src_mac, MAC_LEN);
-        eth->h_proto = htons(0x800);
+        eth = (ether_header *) (agent + 1);
+        memcpy(eth->ether_dhost, dest_mac, ETHER_ADDR_LEN);
+        memcpy(eth->ether_shost, src_mac, ETHER_ADDR_LEN);
+        eth->ether_type = htons(ETHERTYPE_IP);
 
-        iphdr *ip = (iphdr *) (eth + 1);
-        ip->ihl = 5;
-        ip->version = 4;
-        ip->tos = 0;
-        ip->id = 0;
-        ip->frag_off = 0;
-        ip->ttl = 16;
-        ip->protocol = IPPROTO_ICMP;
-        ip->check = 0;
-        ip->saddr = 0;
-        ip->daddr = htonl(dest_ip);
+        struct ip *ip = (struct ip *) (eth + 1);
+        ip->ip_hl = 5;
+        ip->ip_v = 4;
+        ip->ip_tos = 0;
+        ip->ip_id = 0;
+        ip->ip_off = 0;
+        ip->ip_ttl = 16;
+        ip->ip_p = IPPROTO_ICMP;
+        ip->ip_sum = 0;
+        ip->ip_src.s_addr = 0;
+        ip->ip_dst.s_addr = htonl(dest_ip);
 
-        icmphdr *icmp = (icmphdr *) (ip + 1);
+        icmp *icmp = (struct icmp *) (ip + 1);
         if (error == TYPE_ERROR)
-            icmp->type = ICMP_ECHOREPLY;
+            icmp->icmp_type = ICMP_ECHOREPLY;
         else
-            icmp->type = ICMP_ECHO;
-        icmp->code = 0;
-        icmp->checksum = 0;
-        icmp->un.echo.id = 0x1234;
-        icmp->un.echo.sequence = icmp_seq_++;
+            icmp->icmp_type = ICMP_ECHO;
+        icmp->icmp_code = 0;
+        icmp->icmp_cksum = 0;
+        icmp->icmp_id = 0x1234;
+        icmp->icmp_seq = icmp_seq_++;
         if (error == CHECKSUM_ERROR)
-            icmp->checksum = 0;
+            icmp->icmp_cksum = 0;
         else
-            icmp->checksum = IpUtils::IPChecksum((uint16_t *)icmp, 64);
+            icmp->icmp_cksum = IpUtils::IPChecksum((uint16_t *)icmp, 64);
         len = 64;
 
-        ip->tot_len = htons(len + sizeof(iphdr));
-        len += sizeof(iphdr) + sizeof(ethhdr) + IPC_HDR_LEN;
+        ip->ip_len = htons(len + sizeof(ip));
+        len += sizeof(ip) + sizeof(ether_header) + IPC_HDR_LEN;
         TestTapInterface *tap = (TestTapInterface *)
             (Agent::GetInstance()->pkt()->pkt_handler()->tap_interface());
         tap->GetTestPktHandler()->TestPktSend(buf.get(), len);
@@ -197,10 +198,10 @@ TEST_F(PktTraceTest, TraceTest) {
         {"7.8.9.0", 24, "7.8.9.12", true},
     };
 
-    CreateVmportEnv(input, 2, 0); 
+    CreateVmportEnv(input, 2, 0);
     client->WaitForIdle();
     client->Reset();
-    AddIPAM("vn1", ipam_info, 2); 
+    AddIPAM("vn1", ipam_info, 2);
     client->WaitForIdle();
 
     ClearAllInfo *clear_req1 = new ClearAllInfo();

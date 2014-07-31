@@ -79,12 +79,20 @@ for xlib in boost_libs:
         jam_libs += ' '
     jam_libs += '--with-' + xlib
 
+# Fix for libicu on FreeBSD. We have to use self-compiled libicu and not the one
+# from the system to ensure the same C++ ABI is used by all libs the Agent
+# is linked against.
+if sys.platform.startswith('freebsd'):
+    icu_path_opt = '-sICU_PATH=' + Dir('#/build').abspath
+else:
+    icu_path_opt = ''
 
 #
 # Use '--cxxflags=-option' to pass options to the compiler
 #
 build_cmd = ('(cd ' + Dir(vpath).abspath + '; ' +
              Dir('.').abspath + '/tools/bjam ' +
+             icu_path_opt + ' ' +
              '-j' + str(cpu_count) + ' ' +
              '--build-dir=' + Dir('.').abspath + ' ' +
              '--prefix=' + Dir('#/build').abspath + ' ' +

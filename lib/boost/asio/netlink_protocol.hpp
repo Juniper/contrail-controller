@@ -53,7 +53,13 @@ public:
   /// Obtain an identifier for the protocol family.
   int family() const
   {
+#if defined(__linux__)
     return AF_NETLINK;
+#elif defined(__FreeBSD__)
+    return AF_VENDOR00;
+#else
+#error "Unsupported platform"
+#endif
   }
 
   /// The NETLINK domain socket type.

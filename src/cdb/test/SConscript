@@ -8,7 +8,6 @@ Import('BuildEnv')
 
 env = BuildEnv.Clone()
 cflags = env['CCFLAGS']
-cflags.remove('-Werror')
 env['CCFLAGS'] = cflags
 
 cdb_lib = env['TOP'] + '/cdb'

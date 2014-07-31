@@ -8,8 +8,10 @@
 #include <string>
 #include <string.h>
 #include <map>
-#ifndef __APPLE__
+#if defined(__linux__)
 #include <byteswap.h>
+#elif defined(__FreeBSD__)
+#include <sys/endian.h>
 #endif
 
 #ifdef __LITTLE_ENDIAN__

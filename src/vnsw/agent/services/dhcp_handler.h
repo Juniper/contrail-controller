@@ -10,7 +10,7 @@
 
 #define DHCP_PKT_SIZE                 1024
 
-// Magic cookie for DHCP Options 
+// Magic cookie for DHCP Options
 #define DHCP_OPTIONS_COOKIE "\143\202\123\143"
 
 // Supported DHCP options
@@ -72,7 +72,7 @@ struct dhcphdr {
      uint8_t  op;
      uint8_t  htype;
      uint8_t  hlen;
-     uint8_t  hops;  // # of relay agent hops 
+     uint8_t  hops;  // # of relay agent hops
      uint32_t xid;
      uint16_t secs;
      uint16_t flags;
@@ -87,9 +87,9 @@ struct dhcphdr {
 };
 
 struct ConfigRecord {
-    ConfigRecord() : ip_addr(0), subnet_mask(0), bcast_addr(0), gw_addr(0), 
+    ConfigRecord() : ip_addr(0), subnet_mask(0), bcast_addr(0), gw_addr(0),
                      dns_addr(0), ifindex(0), plen(0), lease_time(-1) {
-        memset(mac_addr, 0, ETH_ALEN);
+        mac_addr = MacAddress();
     }
 
     uint32_t ip_addr;
@@ -97,8 +97,8 @@ struct ConfigRecord {
     uint32_t bcast_addr;
     uint32_t gw_addr;
     uint32_t dns_addr;
-    uint8_t  mac_addr[ETH_ALEN];
-    uint16_t ifindex;  // maps to VNid, VMid, itf
+    struct ether_addr mac_addr;
+    uint16_t ifindex;
     uint32_t plen;
     uint32_t lease_time;
 };
@@ -106,7 +106,7 @@ struct ConfigRecord {
 struct DhcpOptions {
     void WriteData(uint8_t c, uint8_t l, const void *d, uint16_t &optlen) {
         code = c;
-        len = l; 
+        len = l;
         memcpy(data, (uint8_t *)d, l);
         optlen += 2 + l;
     }
@@ -135,7 +135,7 @@ struct DhcpOptions {
 class DhcpHandler : public ProtoHandler {
 public:
     struct ConfigRecord {
-        ConfigRecord() : ip_addr(0), subnet_mask(0), bcast_addr(0), gw_addr(0), 
+        ConfigRecord() : ip_addr(0), subnet_mask(0), bcast_addr(0), gw_addr(0),
                          dns_addr(0), plen(0), lease_time(-1) {
         }
 
@@ -152,17 +152,17 @@ public:
 
     struct DhcpRequestData {
         DhcpRequestData() : xid(-1), flags(0), ip_addr(0) {
-            memset(mac_addr, 0, ETH_ALEN);
+            mac_addr = MacAddress();
         }
         void UpdateData(uint32_t id, uint16_t fl, uint8_t *mac) {
             xid = id;
             flags = fl;
-            memcpy(mac_addr, mac, ETH_ALEN);
+            mac_addr = MacAddress(mac);
         }
 
         uint32_t  xid;
         uint16_t  flags;
-        uint8_t   mac_addr[ETH_ALEN];
+        struct ether_addr mac_addr;
         in_addr_t ip_addr;
     };
 
@@ -190,7 +190,7 @@ private:
     uint16_t AddConfigDhcpOptions(uint16_t opt_len, bool &domain_name_added,
                                   bool &dns_server_added);
     uint16_t AddClasslessRouteOption(uint16_t opt_len);
-    uint16_t FillDhcpResponse(unsigned char *dest_mac,
+    uint16_t FillDhcpResponse(MacAddress &dest_mac,
                               in_addr_t src_ip, in_addr_t dest_ip,
                               in_addr_t siaddr, in_addr_t yiaddr);
     void SendDhcpResponse();
