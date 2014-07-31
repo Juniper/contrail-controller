@@ -972,7 +972,12 @@ class SvcMonitor(object):
     def _novaclient_get(self, proj_name):
         client = self._nova.get(proj_name)
         if client is not None:
-            return client
+            try:
+                # check if token is still valid
+                client.authenticate()
+                return client
+            except nc_exc.Unauthorized:
+                pass
 
         self._nova[proj_name] = nc.Client(
             '2', username=self._args.admin_user, project_id=proj_name,
