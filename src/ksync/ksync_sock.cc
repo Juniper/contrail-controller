@@ -2,12 +2,16 @@
  * Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
  */
 
+#if defined(__linux__)
 #include <asm/types.h>
 #include <sys/socket.h>
 #include <linux/netlink.h>
 #include <linux/rtnetlink.h>
 #include <linux/genetlink.h>
 #include <linux/sockios.h>
+#elif defined(__FreeBSD__)
+#include "vr_os.h"
+#endif
 
 #include <boost/bind.hpp>
 
@@ -36,7 +40,11 @@ using namespace boost::asio;
 
 /* Note SO_RCVBUFFORCE is supported only for linux version 2.6.14 and above */
 typedef boost::asio::detail::socket_option::integer<SOL_SOCKET,
+#if defined(__linux__)
         SO_RCVBUFFORCE> ReceiveBuffForceSize;
+#else 
+        SO_RCVBUF> ReceiveBuffForceSize;
+#endif
 
 int KSyncSock::vnsw_netlink_family_id_;
 AgentSandeshContext *KSyncSock::agent_sandesh_ctx_;
@@ -116,7 +124,6 @@ void KSyncSockNetlink::Decoder(char *data, SandeshContext *ctxt) {
         LOG(ERROR, "Netlink unknown message type : " << nlh->nlmsg_type);
         assert(0);
     }
-    
 }
 
 bool KSyncSockNetlink::Validate(char *data) {
@@ -540,3 +547,4 @@ void KSyncIoContext::Handler() {
 void KSyncIoContext::ErrorHandler(int err) {
     entry_->ErrorHandler(err, GetSeqno());
 }
+

@@ -22,7 +22,7 @@
 
 namespace local = boost::asio::local;
 
-class VnswInterfaceListener {
+class VnswInterfaceListenerBase {
 public:
     static const int kVnswRtmProto = 109;
     static const uint32_t kMaxBufferSize = 4096;
@@ -98,12 +98,13 @@ private:
         Ip4Address addr_;
     };
 
+protected:
     typedef std::map<string, HostInterfaceEntry *> HostInterfaceTable;
     typedef std::set<Ip4Address> LinkLocalAddressTable;
 
 public:
-    VnswInterfaceListener(Agent *agent);
-    virtual ~VnswInterfaceListener();
+    VnswInterfaceListenerBase(Agent *agent);
+    virtual ~VnswInterfaceListenerBase();
     
     void Init();
     void Shutdown();
@@ -112,22 +113,24 @@ public:
     uint32_t GetHostInterfaceCount() const {
         return host_interface_table_.size();
     }
+
     HostInterfaceEntry *GetHostInterfaceEntry(const std::string &name);
-    uint32_t netlink_ll_add_count() const { return netlink_ll_add_count_; }
-    uint32_t netlink_ll_del_count() const { return netlink_ll_del_count_; }
+
     uint32_t vhost_update_count() const { return vhost_update_count_; }
-private:
+
+protected:
     friend class TestVnswIf;
     void InterfaceNotify(DBTablePartBase *part, DBEntryBase *e);
 
-    void CreateSocket();
-    void InitNetlinkScan(uint32_t type, uint32_t seqno);
-    int NlMsgDecode(struct nlmsghdr *nl, std::size_t len, uint32_t seq_no);
-    void ReadHandler(const boost::system::error_code &, std::size_t length);
-    void RegisterAsyncHandler();
+// Pure firtuals to be implemented by derivative class
+    virtual int CreateSocket() = 0;
+    virtual void SyncCurrentState() = 0;
+    virtual void RegisterAsyncReadHandler() = 0;
+    virtual void UpdateLinkLocalRoute(const Ip4Address &addr, bool del_rt) = 0;
+
     bool ProcessEvent(Event *re);
 
-    void UpdateLinkLocalRoute(const Ip4Address &addr, bool del_rt);
+    void UpdateLinkLocalRouteAndCount(const Ip4Address &addr, bool del_rt);
     void LinkLocalRouteFromLinkLocalEvent(Event *event);
     void LinkLocalRouteFromRouteEvent(Event *event);
     void AddLinkLocalRoutes();
@@ -158,11 +161,27 @@ private:
     LinkLocalAddressTable ll_addr_table_;
     HostInterfaceTable host_interface_table_;
     WorkQueue<Event *> *revent_queue_;
-    uint32_t netlink_ll_add_count_;
-    uint32_t netlink_ll_del_count_;
-    uint32_t vhost_update_count_;
 
-    DISALLOW_COPY_AND_ASSIGN(VnswInterfaceListener);
+    uint32_t vhost_update_count_;
+    uint32_t ll_add_count_;
+    uint32_t ll_del_count_;
+
+public:
+    uint32_t ll_add_count() const { return ll_add_count_; }
+    uint32_t ll_del_count() const { return ll_del_count_; }
+
+
+    DISALLOW_COPY_AND_ASSIGN(VnswInterfaceListenerBase);
 };
+
+#if defined(__linux__)
+#include <ksync/linux_vnswif_listener.h>
+typedef VnswInterfaceListenerLinux VnswInterfaceListener;
+#elif defined(__FreeBSD__)
+#include <ksync/freebsd_vnswif_listener.h>
+typedef VnswInterfaceListenerFreeBSD VnswInterfaceListener;
+#else
+#error "Unsupported platform"
+#endif
 
 #endif

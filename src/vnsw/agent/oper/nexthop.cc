@@ -364,7 +364,13 @@ void ArpNH::SendObjectLog(AgentLogEvent::type event) const {
     const Ip4Address *ip = GetIp();
     info.set_dest_ip(ip->to_string());
 
+#if defined(__linux__)
     const unsigned char *m = GetMac()->ether_addr_octet;
+#elif defined(__FreeBSD__)
+    const unsigned char *m = GetMac()->octet;
+#else
+#error "Unsupported platform"
+#endif
     FillObjectLogMac(m, info);
 
     OPER_TRACE(NextHop, info);
@@ -440,12 +446,23 @@ bool InterfaceNH::Change(const DBRequest *req) {
         ret = true;
     }
     if (is_multicastNH()) {
+#if defined(__linux__)
         dmac_.ether_addr_octet[0] = 0xFF;
         dmac_.ether_addr_octet[1] = 0xFF;
         dmac_.ether_addr_octet[2] = 0xFF;
         dmac_.ether_addr_octet[3] = 0xFF;
         dmac_.ether_addr_octet[4] = 0xFF;
         dmac_.ether_addr_octet[5] = 0xFF;
+#elif defined(__FreeBSD__)
+        dmac_.octet[0] = 0xFF;
+        dmac_.octet[1] = 0xFF;
+        dmac_.octet[2] = 0xFF;
+        dmac_.octet[3] = 0xFF;
+        dmac_.octet[4] = 0xFF;
+        dmac_.octet[5] = 0xFF;
+#else
+#error "Unsupported platform"
+#endif
     }
 
     return ret;
@@ -531,7 +548,13 @@ void InterfaceNH::CreateInetInterfaceNextHop(const string &ifname,
 
     struct ether_addr mac;
     memset(&mac, 0, sizeof(mac));
+#if defined(__linux__)
     mac.ether_addr_octet[ETHER_ADDR_LEN-1] = 1;
+#elif defined(__FreeBSD__)
+    mac.octet[ETHER_ADDR_LEN-1] = 1;
+#else
+#error "Unsupported platform"
+#endif
     InterfaceNHData *data = new InterfaceNHData(vrf_name, mac);
     req.data.reset(data);
     NextHopTable::GetInstance()->Process(req);
@@ -554,7 +577,13 @@ void InterfaceNH::CreatePacketInterfaceNh(const string &ifname) {
     DBRequest req(DBRequest::DB_ENTRY_ADD_CHANGE);
     struct ether_addr mac;
     memset(&mac, 0, sizeof(mac));
+#if defined(__linux__)
     mac.ether_addr_octet[ETHER_ADDR_LEN-1] = 1;
+#elif defined(__FreeBSD__)
+    mac.octet[ETHER_ADDR_LEN-1] = 1;
+#else
+#error "Unsupported platform"
+#endif
     req.key.reset(new InterfaceNHKey(new PacketInterfaceKey(nil_uuid(), ifname),
                                      false, InterfaceNHFlags::INET4));
     req.data.reset(new InterfaceNHData(Agent::GetInstance()->fabric_vrf_name(),
@@ -582,7 +611,13 @@ void InterfaceNH::SendObjectLog(AgentLogEvent::type event) const {
     const Interface *intf = GetInterface();
     FillObjectLogIntf(intf, info);
 
+#if defined(__linux__)
     const unsigned char *m = GetDMac().ether_addr_octet;
+#elif defined(__FreeBSD__)
+    const unsigned char *m = GetDMac().octet;
+#else
+#error "Unsupported platform"
+#endif
     FillObjectLogMac(m, info);
 
     OPER_TRACE(NextHop, info);
@@ -1110,7 +1145,14 @@ void VlanNH::SendObjectLog(AgentLogEvent::type event) const {
     const Interface *intf = GetInterface();
     FillObjectLogIntf(intf, info);
 
+#if defined(__linux__)
     const unsigned char *m = GetDMac().ether_addr_octet;
+#elif defined(__FreeBSD__)
+    const unsigned char *m = GetDMac().octet;
+#else
+#error "Unsuppoprted platform"
+#endif
+
     FillObjectLogMac(m, info);
 
     info.set_vlan_tag((short int)GetVlanTag());
@@ -2001,7 +2043,13 @@ void NextHop::SetNHSandeshData(NhSandeshData &data) const {
                 break;
             }
             data.set_itf(arp->GetInterface()->name());
+#if defined(__linux__)
             const unsigned char *m = arp->GetMac()->ether_addr_octet;
+#elif defined(__FreeBSD__)
+            const unsigned char *m = arp->GetMac()->octet;
+#else
+#error "Unsupported platform"
+#endif
             char mstr[32];
             snprintf(mstr, 32, "%x:%x:%x:%x:%x:%x", 
                      m[0], m[1], m[2], m[3], m[4], m[5]);
@@ -2019,7 +2067,13 @@ void NextHop::SetNHSandeshData(NhSandeshData &data) const {
             data.set_type("interface");
             const InterfaceNH *itf = static_cast<const InterfaceNH *>(this);
             data.set_itf(itf->GetInterface()->name());
+#if defined(__linux__)
             const unsigned char *m = itf->GetDMac().ether_addr_octet;
+#elif defined(__FreeBSD__)
+            const unsigned char *m = itf->GetDMac().octet;
+#else
+#error "Unsupported platform"
+#endif
             char mstr[32];
             snprintf(mstr, 32, "%x:%x:%x:%x:%x:%x", 
                      m[0], m[1], m[2], m[3], m[4], m[5]);
@@ -2043,7 +2097,13 @@ void NextHop::SetNHSandeshData(NhSandeshData &data) const {
                                   (tun->GetRt()->GetActiveNextHop());
                 if (nh->GetType() == NextHop::ARP) {
                     const ArpNH *arp_nh = static_cast<const ArpNH *>(nh);
+#if defined(__linux__)
                     const unsigned char *m = arp_nh->GetMac()->ether_addr_octet;
+#elif defined(__FreeBSD__)
+                    const unsigned char *m = arp_nh->GetMac()->octet;
+#else
+#error "Unsupported platform"
+#endif
                     char mstr[32];
                     snprintf(mstr, 32, "%x:%x:%x:%x:%x:%x", 
                             m[0], m[1], m[2], m[3], m[4], m[5]);
@@ -2067,7 +2127,13 @@ void NextHop::SetNHSandeshData(NhSandeshData &data) const {
                 if (nh->GetType() == NextHop::ARP) {
                     const ArpNH *arp_nh = static_cast<const ArpNH *>(nh);
                     (mir_nh->GetRt()->GetActiveNextHop());
+#if defined(__linux__)
                     const unsigned char *m = arp_nh->GetMac()->ether_addr_octet;
+#elif defined(__FreeBSD__)
+                    const unsigned char *m = arp_nh->GetMac()->octet;
+#else
+#error "Unsupported platform"
+#endif
                     char mstr[32];
                     snprintf(mstr, 32, "%x:%x:%x:%x:%x:%x", 
                             m[0], m[1], m[2], m[3], m[4], m[5]);
@@ -2091,7 +2157,13 @@ void NextHop::SetNHSandeshData(NhSandeshData &data) const {
             const VlanNH *itf = static_cast<const VlanNH *>(this);
             data.set_itf(itf->GetInterface()->name());
             data.set_vlan_tag(itf->GetVlanTag());
+#if defined(__linux__)
             const unsigned char *m = itf->GetDMac().ether_addr_octet;
+#elif defined(__FreeBSD__)
+            const unsigned char *m = itf->GetDMac().octet;
+#else
+#error "Unsupported platform"
+#endif
             char mstr[32];
             snprintf(mstr, 32, "%x:%x:%x:%x:%x:%x",
                     m[0], m[1], m[2], m[3], m[4], m[5]);

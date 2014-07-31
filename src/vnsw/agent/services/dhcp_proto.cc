@@ -27,13 +27,14 @@ DhcpProto::DhcpProto(Agent *agent, boost::asio::io_service &io,
     if (ec) {
         DHCP_TRACE(Error, "Error creating DHCP socket : " << ec);
     }
-        
-    memset(ip_fabric_interface_mac_, 0, ETH_ALEN);
+
+    memset(ip_fabric_interface_mac_, 0, ETHER_ADDR_LEN);
+
     iid_ = agent->interface_table()->Register(
                   boost::bind(&DhcpProto::ItfNotify, this, _2));
 
     // For DHCP requests coming from VMs in default VRF, when the IP received
-    // from Nova is 0, DHCP module acts DHCP relay and relays the request onto 
+    // from Nova is 0, DHCP module acts DHCP relay and relays the request onto
     // the fabric VRF. Vrouter sends responses for these to vhost0 interface.
     // We listen on DHCP server port to receive these responses (check option 82
     // header to decide that it is a response for a relayed request) and send
@@ -42,7 +43,7 @@ DhcpProto::DhcpProto(Agent *agent, boost::asio::io_service &io,
 }
 
 DhcpProto::~DhcpProto() {
-    boost::system::error_code ec; 
+    boost::system::error_code ec;
     dhcp_server_socket_.shutdown(udp::socket::shutdown_both, ec);
     if (ec) {
         DHCP_TRACE(Error, "Error shutting down DHCP socket : " << ec);
@@ -50,7 +51,7 @@ DhcpProto::~DhcpProto() {
     dhcp_server_socket_.close (ec);
     if (ec) {
         DHCP_TRACE(Error, "Error closing DHCP socket : " << ec);
-    }  
+    }
     agent_->interface_table()->Unregister(iid_);
     if (dhcp_server_read_buf_) delete [] dhcp_server_read_buf_;
 }
@@ -73,10 +74,10 @@ void DhcpProto::ReadHandler(const boost::system::error_code &error,
         DHCP_TRACE(Error, "Error reading packet <" + error.message() + ">");
         if (error == boost::system::errc::operation_canceled) {
             return;
-        }   
+        }
         delete [] dhcp_server_read_buf_;
         dhcp_server_read_buf_ = NULL;
-    }   
+    }
 
     AsyncRead();
 }
@@ -94,21 +95,30 @@ ProtoHandler *DhcpProto::AllocProtoHandler(boost::shared_ptr<PktInfo> info,
 void DhcpProto::ItfNotify(DBEntryBase *entry) {
     Interface *itf = static_cast<Interface *>(entry);
     if (entry->IsDeleted()) {
-        if (itf->type() == Interface::PHYSICAL && 
+        if (itf->type() == Interface::PHYSICAL &&
             itf->name() == agent_->fabric_interface_name()) {
             set_ip_fabric_interface(NULL);
             set_ip_fabric_interface_index(-1);
         }
     } else {
-        if (itf->type() == Interface::PHYSICAL && 
+        if (itf->type() == Interface::PHYSICAL &&
             itf->name() == agent_->fabric_interface_name()) {
             set_ip_fabric_interface(itf);
             set_ip_fabric_interface_index(itf->id());
             if (run_with_vrouter_) {
+#if defined(__linux__)
                 set_ip_fabric_interface_mac((char *)itf->mac().ether_addr_octet);
             } else {
                 char mac[ETH_ALEN];
                 memset(mac, 0, ETH_ALEN);
+#elif defined(__FreeBSD__)
+                set_ip_fabric_interface_mac((char *)itf->mac().octet);
+            } else {
+                char mac[ETHER_ADDR_LEN];
+                memset(mac, 0, ETHER_ADDR_LEN);
+#else
+#error "Unsupported platform"
+#endif
                 set_ip_fabric_interface_mac(mac);
             }
         }

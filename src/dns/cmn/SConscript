@@ -20,7 +20,7 @@ buildinfo_dep_libs = ['../../dns/cfg/libdns_cfg.a', '../../dns/mgr/libmgr.a', '.
                       '../../../lib/libboost_regex.a', '../../../lib/libboost_program_options.a', '../../dns/uve/libdns_uve.a',
                       '../../../lib/libboost_system.a', '../../../lib/liblog4cplus.a']
 
-if sys.platform != 'darwin':
+if sys.platform != 'darwin' and not sys.platform.startswith('freebsd'):
     buildinfo_dep_libs += [ '../../../lib/libtbb_debug.so.2' ]
 
 cmn_sources = ['dns.cc', 'dns_options.cc']

@@ -8,6 +8,7 @@
 #include <string>
 #include <vector>
 #include <set>
+#include <sys/types.h>
 #include <net/ethernet.h>
 #include <sandesh/sandesh_types.h>
 #include <sandesh/sandesh_constants.h>

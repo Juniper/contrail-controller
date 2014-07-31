@@ -3,6 +3,8 @@
  */
 
 #include "testing/gunit.h"
+#include <sys/socket.h>
+#include <netinet/in.h>
 #include <netinet/if_ether.h>
 #include <base/logging.h>
 #include <io/event_manager.h>
@@ -89,11 +91,11 @@ public:
         memcpy(buf, msg, length);
 
         // Change the agent header
-        ethhdr *eth = (ethhdr *)buf;
-        unsigned char mac[ETH_ALEN];
-        memcpy(mac, eth->h_dest, ETH_ALEN);
-        memcpy(eth->h_dest, eth->h_source, ETH_ALEN);
-        memcpy(eth->h_source, mac, ETH_ALEN);
+        unsigned char mac[ETHER_ADDR_LEN];
+        ether_header *eth = (ether_header *)buf;
+        memcpy(mac, eth->ether_dhost, ETHER_ADDR_LEN);
+        memcpy(eth->ether_dhost, eth->ether_shost, ETHER_ADDR_LEN);
+        memcpy(eth->ether_shost, mac, ETHER_ADDR_LEN);
 
         agent_hdr *agent = (agent_hdr *)(eth + 1);
         int intf_id = ntohs(agent->hdr_ifindex);
@@ -116,9 +118,9 @@ public:
 
         const unsigned char smac[] = {0x00, 0x25, 0x90, 0xc4, 0x82, 0x2c};
         const unsigned char dmac[] = {0x02, 0xce, 0xa0, 0x6c, 0x96, 0x34};
-        eth = (ethhdr *) (agent + 1);
-        memcpy(eth->h_dest, dmac, ETH_ALEN);
-        memcpy(eth->h_source, smac, ETH_ALEN);
+        eth = (ether_header *) (agent + 1);
+        memcpy(eth->ether_dhost, dmac, ETHER_ADDR_LEN);
+        memcpy(eth->ether_shost, smac, ETHER_ADDR_LEN);
 
         // send the recieved packet back
         tap_->GetTestPktHandler()->TestPktSend(buf, length);

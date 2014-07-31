@@ -95,7 +95,7 @@ TEST_F(PktParseTest, InvalidAgentHdr_1) {
     uint8_t *ptr(new uint8_t[pkt->GetBuffLen()]);
     memcpy(ptr, pkt->GetBuff(), pkt->GetBuffLen());
     Agent::GetInstance()->pkt()->pkt_handler()->
-        HandleRcvPkt(ptr, (sizeof(ethhdr) + sizeof(agent_hdr)),
+        HandleRcvPkt(ptr, (sizeof(ether_header) + sizeof(agent_hdr)),
                      pkt->GetBuffLen());
 
     client->WaitForIdle();

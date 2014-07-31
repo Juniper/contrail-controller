@@ -678,7 +678,13 @@ static bool ValidateInterface(bool test_mode, const std::string &ifname) {
     struct ifreq ifr;
     memset(&ifr, 0, sizeof(ifr));
     strncpy(ifr.ifr_name, ifname.c_str(), IF_NAMESIZE);
+#if defined(__linux__)
     int err = ioctl(fd, SIOCGIFHWADDR, (void *)&ifr);
+#elif defined(__FreeBSD__)
+    int err = ioctl(fd, SIOCGIFADDR, (void *)&ifr);
+#else
+#error "Unsupported platform"
+#endif
     close (fd);
 
     if (err < 0) {

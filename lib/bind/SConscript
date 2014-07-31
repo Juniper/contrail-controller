@@ -1,11 +1,20 @@
 # -*- mode: python; -*-
+import sys
 
 vpath = '#/third_party/bind-9.9.2-P1/'
 env = DefaultEnvironment()
 
 config_opts = '--prefix=' + str(Dir('#/build')) + ' --enable-threads' + ' --enable-fixed-rrset'
-cmd = ('(cd ' + Dir('.').abspath + '; ' + str(Dir(vpath)) +
-       '/configure' + ' ' + config_opts + '; make clean; make; make install)')
+
+if sys.platform.startswith('freebsd'):
+    # TODO(md): There is a known bug with gsskrb5 linking on FreeBSD and libgss
+    # has to be disabled for now.
+    config_opts += ' --without-gssapi'
+    cmd = ('(cd ' + Dir('.').abspath + '; ' + str(Dir(vpath)) +
+          '/configure' + ' ' + config_opts + '; gmake clean; gmake; gmake install)')
+else:
+    cmd = ('(cd ' + Dir('.').abspath + '; ' + str(Dir(vpath)) +
+          '/configure' + ' ' + config_opts + '; make clean; make; make install)')
 
 products = [ str(File('#/build/lib/librndc' + env['LIBSUFFIX'])),
              str(File('#/build/lib/libisc' + env['LIBSUFFIX'])),
