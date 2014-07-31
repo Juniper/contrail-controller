@@ -20,36 +20,6 @@
 
 using namespace std;
 
-//
-// Fire state machine timers faster and reduce possible delay in this test
-//
-class StateMachineTest : public StateMachine {
-public:
-    explicit StateMachineTest(BgpPeer *peer) : StateMachine(peer) { }
-    ~StateMachineTest() { }
-
-    void StartConnectTimer(int seconds) {
-        connect_timer_->Start(10,
-            boost::bind(&StateMachine::ConnectTimerExpired, this),
-            boost::bind(&StateMachine::TimerErrorHanlder, this, _1, _2));
-    }
-
-    void StartOpenTimer(int seconds) {
-        open_timer_->Start(10,
-            boost::bind(&StateMachine::OpenTimerExpired, this),
-            boost::bind(&StateMachine::TimerErrorHanlder, this, _1, _2));
-    }
-
-    void StartIdleHoldTimer() {
-        if (idle_hold_time_ <= 0)
-            return;
-
-        idle_hold_timer_->Start(10,
-            boost::bind(&StateMachine::IdleHoldTimerExpired, this),
-            boost::bind(&StateMachine::TimerErrorHanlder, this, _1, _2));
-    }
-};
-
 class BgpXmppChannelMock : public BgpXmppChannel {
 public:
     BgpXmppChannelMock(XmppChannel *channel, BgpServer *server, 

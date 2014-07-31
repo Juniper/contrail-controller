@@ -33,6 +33,12 @@ CleanupTimer::CleanupTimer(Agent *agent, const std::string &timer_name,
                                   GetTaskId("db::DBTable"), 0);
 }
 
+CleanupTimer::~CleanupTimer() {
+    //Delete timer
+    if (cleanup_timer_)
+        TimerManager::DeleteTimer(cleanup_timer_);
+}
+
 bool CleanupTimer::Cancel() {
     CONTROLLER_TRACE(Timer, "Cleanup ", timer_name(), "");
     agent_xmpp_channel_ = NULL;
@@ -152,5 +158,8 @@ uint64_t ConfigCleanupTimer::GetTimerExtensionValue(AgentXmppChannel *ch) {
 }
 
 void ConfigCleanupTimer::TimerExpirationDone() {
-    agent_->ifmap_stale_cleaner()->StaleTimeout();
+    uint64_t seq =  agent_->ifmap_xmpp_channel(agent_->
+            ifmap_active_xmpp_server_index())->GetSeqNumber();
+
+    agent_->ifmap_stale_cleaner()->StaleTimeout(seq);
 }

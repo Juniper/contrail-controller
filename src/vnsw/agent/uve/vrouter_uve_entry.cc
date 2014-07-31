@@ -22,11 +22,10 @@
 using namespace std;
 
 VrouterUveEntry::VrouterUveEntry(Agent *agent)
-    : prev_stats_(), bandwidth_count_(0), agent_(agent), phy_intf_set_(), 
-      vn_listener_id_(DBTableBase::kInvalidId),
-      vm_listener_id_(DBTableBase::kInvalidId), 
-      intf_listener_id_(DBTableBase::kInvalidId), 
-      prev_vrouter_(), port_bitmap_() {
+    : prev_stats_(), bandwidth_count_(0), cpu_stats_count_(0), port_bitmap_(),
+      agent_(agent), phy_intf_set_(), vn_listener_id_(DBTableBase::kInvalidId),
+      vm_listener_id_(DBTableBase::kInvalidId),
+      intf_listener_id_(DBTableBase::kInvalidId), prev_vrouter_() {
     start_time_ = UTCTimestampUsec();
 }
 
@@ -292,7 +291,6 @@ void VrouterUveEntry::BuildAndSendComputeCpuStateMsg(const CpuLoadInfo &info) {
 bool VrouterUveEntry::SendVrouterMsg() {
     static bool first = true;
     bool change = false;
-    static uint8_t cpu_stats_count = 0;
     VrouterStatsAgent stats;
 
     SendVrouterUve();
@@ -380,8 +378,8 @@ bool VrouterUveEntry::SendVrouterMsg() {
         change = true;
     }
 
-    cpu_stats_count++;
-    if ((cpu_stats_count % 6) == 0) {
+    cpu_stats_count_++;
+    if ((cpu_stats_count_ % 6) == 0) {
         static bool cpu_first = true; 
         CpuLoadInfo cpu_load_info;
         CpuLoadData::FillCpuInfo(cpu_load_info, true);
@@ -402,7 +400,7 @@ bool VrouterUveEntry::SendVrouterMsg() {
         //Stats oracle interface for cpu and mem stats. Needs to be sent
         //always regardless of whether the stats have changed since last send
         BuildAndSendComputeCpuStateMsg(cpu_load_info);
-        cpu_stats_count = 0;
+        cpu_stats_count_ = 0;
     }
     vector<AgentIfStats> phy_if_list;
     BuildPhysicalInterfaceList(phy_if_list);
@@ -532,6 +530,7 @@ void VrouterUveEntry::BuildAgentConfig(VrouterAgent &vrouter_agent) {
     vrouter_agent.set_log_file(param->log_file());
     vrouter_agent.set_config_file(param->config_file());
     vrouter_agent.set_log_local(param->log_local());
+    vrouter_agent.set_log_flow(param->log_flow());
     vrouter_agent.set_log_category(param->log_category());
     vrouter_agent.set_log_level(param->log_level());
     vrouter_agent.set_sandesh_http_port(param->http_server_port());
@@ -722,16 +721,8 @@ void VrouterUveEntry::SendVrouterUve() {
     }
 }
 
-string VrouterUveEntry::GetMacAddress(const ether_addr &mac) const {
-    stringstream ss;
-    ss << setbase(16) << setfill('0') << setw(2) 
-      << static_cast<unsigned int>(mac.ether_addr_octet[0])
-      << static_cast<unsigned int>(mac.ether_addr_octet[1])
-      << static_cast<unsigned int>(mac.ether_addr_octet[2])
-      << static_cast<unsigned int>(mac.ether_addr_octet[3])
-      << static_cast<unsigned int>(mac.ether_addr_octet[4])
-      << static_cast<unsigned int>(mac.ether_addr_octet[5]);
-    return ss.str();
+string VrouterUveEntry::GetMacAddress(const MacAddress &mac) const {
+    return mac.ToString();
 }
 
 uint8_t VrouterUveEntry::CalculateBandwitdh(uint64_t bytes, int speed_mbps, 

@@ -70,16 +70,18 @@ private:
 template <typename QueueEntryT>
 struct WorkQueueDelete {
     template <typename QueueT>
-    void operator()(QueueT &) {}
+    void operator()(QueueT &, bool) {}
 };
 
 template <typename QueueEntryT>
 struct WorkQueueDelete<QueueEntryT *> {
     template <typename QueueT>
-    void operator()(QueueT &q) {
-        for (typename QueueT::iterator iter = q.unsafe_begin();
-             iter != q.unsafe_end(); ++iter) {
-            delete *iter;
+    void operator()(QueueT &q, bool delete_entry) {
+        QueueEntryT *entry;
+        while (q.try_pop(entry)) {
+            if (delete_entry) {
+                delete entry;
+            }
         }
     }
 };
@@ -124,30 +126,47 @@ public:
         drops_(0),
         max_iterations_(max_iterations),
         size_(size),
-        bounded_(false) {
+        bounded_(false),
+        shutdown_scheduled_(false),
+        delete_entries_on_shutdown_(true) {
         count_ = 0;
     }
 
     // Concurrency - should be called from a task whose policy
     // assures that the dequeue task - QueueTaskRunner is not running
     // concurrently
-    void Shutdown() {
-        ResetHighWaterMark();
-        ResetLowWaterMark();
-        WorkQueueDelete<QueueEntryT> deleter;
-        deleter(queue_);
-        queue_.clear();
-        // Cancel QueueTaskRunner from the scheduler
+    void Shutdown(bool delete_entries = true) {
         tbb::mutex::scoped_lock lock(mutex_);
-        assert(!deleted_);
-        if (running_) {
-            running_ = false;
-            assert(current_runner_);
-            TaskScheduler *scheduler = TaskScheduler::GetInstance(); 
-            scheduler->Cancel(current_runner_);
-            current_runner_ = NULL;
+        ShutdownLocked(delete_entries);
+    }
+
+    // Concurrency - can be called from any context
+    // Schedule shutdown of the WorkQueue, shutdown may happen asynchronously
+    // or in the caller's context also
+    void ScheduleShutdown(bool delete_entries = true) {
+        tbb::mutex::scoped_lock lock(mutex_);
+        if (shutdown_scheduled_) {
+            return;
         }
-        deleted_ = true; 
+        shutdown_scheduled_ = true;
+        delete_entries_on_shutdown_ = delete_entries;
+
+        // Cancel QueueTaskRunner
+        if (running_) {
+            assert(current_runner_);
+            TaskScheduler *scheduler = TaskScheduler::GetInstance();
+            TaskScheduler::CancelReturnCode cancel_code =
+                scheduler->Cancel(current_runner_);
+            if (cancel_code == TaskScheduler::CANCELLED) {
+                running_ = false;
+                current_runner_ = NULL;
+                ShutdownLocked(delete_entries);
+            } else {
+                assert(cancel_code == TaskScheduler::QUEUED);
+            }
+        } else {
+            ShutdownLocked(delete_entries);
+        }
     }
 
     ~WorkQueue() {
@@ -237,10 +256,7 @@ public:
 
     void MayBeStartRunner() {
         tbb::mutex::scoped_lock lock(mutex_);
-        if (running_ || queue_.empty() || disabled_ || deleted_) {
-            return;
-        }
-        if (!start_runner_.empty() && !start_runner_()) {
+        if (running_ || queue_.empty() || deleted_ || RunnerAbortLocked()) {
             return;
         }
         running_ = true;
@@ -293,7 +309,7 @@ public:
         }
     }
 
-    bool IsQueueEmpty() {
+    bool IsQueueEmpty() const {
         return queue_.empty();
     }
 
@@ -314,6 +330,27 @@ public:
     }
 
 private:
+    void ShutdownLocked(bool delete_entries) {
+        // Cancel QueueTaskRunner from the scheduler
+        assert(!deleted_);
+        if (running_) {
+            running_ = false;
+            assert(current_runner_);
+            TaskScheduler *scheduler = TaskScheduler::GetInstance();
+            TaskScheduler::CancelReturnCode cancel_code =
+                scheduler->Cancel(current_runner_);
+            assert(cancel_code == TaskScheduler::CANCELLED);
+            current_runner_ = NULL;
+        }
+        ResetHighWaterMark();
+        ResetLowWaterMark();
+        WorkQueueDelete<QueueEntryT> deleter;
+        deleter(queue_, delete_entries);
+        queue_.clear();
+        count_ = 0;
+        deleted_ = true;
+    }
+
     void ProcessWaterMarks(std::vector<WaterMarkInfo> &wm,
                            size_t count) {
         // Are we crossing any water marks ?
@@ -357,19 +394,27 @@ private:
         return false;
     }
 
+    bool RunnerAbortLocked() {
+        return (disabled_ || shutdown_scheduled_ ||
+                (!start_runner_.empty() && !start_runner_()));
+    }
+
     bool RunnerAbort() {
-        return (disabled_ || (!start_runner_.empty() && !start_runner_()));
+        tbb::mutex::scoped_lock lock(mutex_);
+        return RunnerAbortLocked();
     }
 
     bool RunnerDone() {
         tbb::mutex::scoped_lock lock(mutex_);
         bool done = false;
-        if (disabled_ || queue_.empty() ||
-            (!start_runner_.empty() && !start_runner_())) {
+        if (queue_.empty() || RunnerAbortLocked()) {
             done = true;
             OnExit(done);
             current_runner_ = NULL;
             running_ = false;
+            if (shutdown_scheduled_) {
+                ShutdownLocked(delete_entries_on_shutdown_);
+            }
         } else {
             OnExit(done);
             running_ = true;
@@ -397,12 +442,15 @@ private:
     size_t max_iterations_;
     size_t size_;
     bool bounded_;
+    bool shutdown_scheduled_;
+    bool delete_entries_on_shutdown_;
     std::vector<WaterMarkInfo> high_water_; // When queue count goes above
     std::vector<WaterMarkInfo> low_water_; // When queue count goes below 
     tbb::spin_rw_mutex hwater_mutex_;
     tbb::spin_rw_mutex lwater_mutex_;
 
     friend class QueueTaskTest;
+    friend class QueueTaskShutdownTest;
     friend class QueueTaskRunner<QueueEntryT, WorkQueue<QueueEntryT> >;
 
     DISALLOW_COPY_AND_ASSIGN(WorkQueue);

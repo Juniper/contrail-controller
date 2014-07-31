@@ -18,7 +18,7 @@ libdbtest = env.Library('dbtest', ['db_test_util.cc'])
 env.Alias('src/db:libdbtest', libdbtest)
 
 env.Prepend(LIBS = ['db', 'dbtest', 'gunit', 'task_test', 'io', 'sandesh',
-                    'sandeshvns', 'connection_info', 'io', 'base', 
+                    'sandeshvns', 'process_info', 'io', 'base', 
                     'http', 'http_parser', 'curl',
                     'pugixml', 'boost_program_options'])
 

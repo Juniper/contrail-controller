@@ -29,26 +29,34 @@ LifetimeActor::~LifetimeActor() {
 //
 // Concurrency: called in the context of any Task or the main thread.
 //
-// Used to trigger delete for a managed object and it's dependents.
-//
-// Walk the list of dependent LifetimeRefs and cascade the delete.  A mutex is
-// used to ensure that the dependent list does not change while we are walking
-// through it.
-//
-// Also enqueue a delete event for this actor to the Lifetime Manager.
+// Used to trigger delete for managed object and it's dependents. Enqueue
+// this actor to the Lifetime Manager. Propagation of the delete operation
+// to dependents happens in the context of the LifetimeManager's Task.
 //
 void LifetimeActor::Delete() {
     if (deleted_.fetch_and_store(true)) {
         return;
     }
-    tbb::mutex::scoped_lock lock(mutex_);
     delete_time_stamp_usecs_ = UTCTimestampUsec();
+    manager_->Enqueue(this);
+}
+
+//
+// Concurrency: called in the context of the LifetimeManager's Task.
+//
+// Used to propagate delete for a managed object to it's dependents.
+//
+// Walk the list of dependent LifetimeRefs and propagate the delete. A mutex is
+// used to ensure that the dependent list does not change while we are walking
+// through it.
+//
+void LifetimeActor::PropagateDelete() {
+    assert(deleted_);
+    tbb::mutex::scoped_lock lock(mutex_);
     for (Dependents::iterator iter = dependents_.begin();
          iter != dependents_.end(); ++iter) {
         iter->Delete();
     }
-    refcount_++;
-    manager_->EnqueueNoIncrement(this);
 }
 
 //
@@ -150,14 +158,21 @@ bool LifetimeActor::ReferenceDecrementAndTest()  {
             MayDelete());
 }
 
-LifetimeManager::LifetimeManager(int task_id, TaskEntryCallback on_entry_cb)
-        : queue_(task_id, 0,
-                 boost::bind(&LifetimeManager::DeleteExecutor, this, _1)) {
-    queue_.SetEntryCallback(on_entry_cb);
+LifetimeManager::LifetimeManager(int task_id)
+    : defer_count_(0),
+      queue_(task_id, 0,
+        boost::bind(&LifetimeManager::DeleteExecutor, this, _1)) {
 }
 
 LifetimeManager::~LifetimeManager() {
     queue_.Shutdown();
+}
+
+//
+// Disable/Enable the WorkQueue - testing only.
+//
+void LifetimeManager::SetQueueDisable(bool disabled) {
+    queue_.set_disable(disabled);
 }
 
 //
@@ -181,15 +196,28 @@ void LifetimeManager::EnqueueNoIncrement(LifetimeActor *actor) {
 //
 // Concurrency: called in the context of the LifetimeManager's Task.
 //
-// Ask the managed object to shut itself i.e. take care of cleaning up any
-// state that's not represented as an explicit LifetimeRef dependent. Then
-// go ahead and destroy the object if all conditions are satisfied.
+// If this is the first time that the delete actor is being processed, we
+// propagate the delete to it's dependents and ask the managed object to
+// shut itself i.e. take care of cleaning up any state not represented as
+// an explicit LifetimeRef dependent.
+//
+// If global conditions for object destruction are not satisfied, enqueue
+// the delete actor again and defer processing of the queue.  Do not bump
+// up the refcount in this case.
+// Else go ahead and destroy the object if all conditions are satisfied.
 //
 bool LifetimeManager::DeleteExecutor(LifetimeActorRef actor_ref) {
     LifetimeActor *actor = actor_ref.actor;
+    assert(actor->IsDeleted());
     if (!actor->shutdown_invoked()) {
+        actor->PropagateDelete();
         actor->Shutdown();
         actor->set_shutdown_invoked();
+    }
+    if (!MayDestroy()) {
+        EnqueueNoIncrement(actor);
+        defer_count_++;
+        return false;
     }
     if (actor->ReferenceDecrementAndTest()) {
         actor->DeleteComplete();

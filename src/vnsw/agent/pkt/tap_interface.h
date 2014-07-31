@@ -6,17 +6,27 @@
 #define vnsw_agent_pkt_tap_intf_hpp
 
 #include <string>
+#if defined(__linux__)
+#include <linux/if_ether.h>
+#endif
 #include <boost/bind.hpp>
 #include <boost/function.hpp>
 #include <boost/asio.hpp>
+#include <net/ethernet.h>
+
+#include <cmn/agent.h>
+#include <pkt/packet_buffer.h>
+#include "vr_defs.h"
 
 // Tap Interface handler to read or write to the "pkt0" interface.
 // Packets reads from the tap are given to the registered callback.
-// Write to the tap interface using AsyncWrite.
+// Write to the tap interface using Send().
 class TapInterface {
 public:
+    static const uint32_t kAgentHdrLen =
+        (sizeof(ether_header) + sizeof(struct agent_hdr));
     static const uint32_t kMaxPacketSize = 9060;
-    typedef boost::function<void(uint8_t*, std::size_t, std::size_t)> 
+    typedef boost::function<void(uint8_t*, std::size_t, std::size_t)>
         PktReadCallback;
 
     TapInterface(Agent *agent, const std::string &name,
@@ -26,24 +36,33 @@ public:
     void IoShutdown();
 
     int tap_fd() const { return tap_fd_; }
-    const unsigned char *mac_address() const { return mac_address_; }
+    const MacAddress &mac_address() const { return mac_address_; }
     virtual void SetupTap();
-    virtual void AsyncWrite(uint8_t *buf, std::size_t len);
+
+    void WritePacketBufferHandler
+        (const boost::system::error_code &error, std::size_t length,
+         PacketBufferPtr pkt, uint8_t *buff);
+    virtual void Send(const AgentHdr &hdr, PacketBufferPtr pkt);
+
+    void Encode(uint8_t *buff, const AgentHdr &hdr);
+    virtual uint32_t EncapHeaderLen() const {
+        return kAgentHdrLen;
+    }
 
 protected:
     void SetupAsio();
     void SetupTap(const std::string& name);
     void AsyncRead();
     void ReadHandler(const boost::system::error_code &err, std::size_t length);
-    void WriteHandler(const boost::system::error_code &err, std::size_t length,
-		              uint8_t *buf);
+    virtual void Send(const std::vector<boost::asio::const_buffer> &buff_list,
+                      PacketBufferPtr pkt, uint8_t *agent_hdr_buff);
 
     int tap_fd_;
     Agent *agent_;
     std::string name_;
     uint8_t *read_buf_;
     PktReadCallback pkt_handler_;
-    unsigned char mac_address_[ETH_ALEN];
+    MacAddress mac_address_;
     boost::asio::posix::stream_descriptor input_;
     DISALLOW_COPY_AND_ASSIGN(TapInterface);
 };

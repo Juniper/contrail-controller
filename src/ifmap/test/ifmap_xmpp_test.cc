@@ -8,6 +8,7 @@
 #include "base/logging.h"
 #include "base/bitset.h"
 #include "base/task.h"
+#include "base/timer_impl.h"
 #include "base/test/task_test_util.h"
 #include "bgp/bgp_server.h"
 #include "control-node/control_node.h"
@@ -95,6 +96,12 @@ public:
         channel->RegisterReceive(xmps::CONFIG, 
                                  boost::bind(&XmppVnswMockPeer::ReceiveUpdate,
                                              this, _1));
+    }
+
+    void UnRegisterWithXmpp() {
+        XmppChannel *channel = FindChannel(XMPP_CONTROL_SERV);
+        assert(channel);
+        channel->UnRegisterReceive(xmps::CONFIG);
     }
 
     bool IsEstablished() {
@@ -333,7 +340,9 @@ protected:
     XmppIfmapTest()
          : ifmap_server_(&db_, &graph_, evm_.io_service()),
            exporter_(ifmap_server_.exporter()),
-           parser_(NULL) {
+           parser_(NULL),
+           xmpp_server_(NULL),
+           vm_uuid_mapper_(NULL) {
     }
 
     virtual void SetUp() {
@@ -430,15 +439,16 @@ protected:
             return;
         }
         bool is_expired = false;
-        boost::asio::monotonic_deadline_timer timer(*evm_.io_service());
-        timer.expires_from_now(boost::posix_time::seconds(timeout));
+        TimerImpl timer(*evm_.io_service());
+        boost::system::error_code ec;
+        timer.expires_from_now(timeout * 1000, ec);
         timer.async_wait(boost::bind(&XmppIfmapTest::on_timeout, 
                          boost::asio::placeholders::error, &is_expired));
         while (!is_expired) {
             evm_.RunOnce();
             task_util::WaitForIdle();
             if ((condition)()) {
-                timer.cancel();
+                timer.cancel(ec);
                 break;
             }
         }
@@ -624,6 +634,7 @@ TEST_F(XmppIfmapTest, Connection) {
     // verify ifmap_server client cleanup
     EXPECT_EQ(true, IsIFMapClientUnregistered(&ifmap_server_, client_name));
 
+    vnsw_client->UnRegisterWithXmpp();
     vnsw_client->Shutdown();
     task_util::WaitForIdle();
     TcpServerManager::DeleteServer(vnsw_client);
@@ -692,6 +703,7 @@ TEST_F(XmppIfmapTest, CheckClientGraphCleanupTest) {
     // interest and advertised must be false since the client is gone
     CheckClientBits(client_name, cli_index, false, false);
 
+    vnsw_client->UnRegisterWithXmpp();
     vnsw_client->Shutdown();
     task_util::WaitForIdle();
     TcpServerManager::DeleteServer(vnsw_client);
@@ -752,6 +764,7 @@ TEST_F(XmppIfmapTest, CheckClientGraphCleanupTest) {
     // interest and advertised must be false since the client is gone
     CheckClientBits(vnsw_client->name(), cli_index, false, false);
 
+    vnsw_client->UnRegisterWithXmpp();
     vnsw_client->Shutdown();
     task_util::WaitForIdle();
     TcpServerManager::DeleteServer(vnsw_client);
@@ -824,6 +837,7 @@ TEST_F(XmppIfmapTest, DeleteProperty) {
     // interest and advertised must be false since the client is gone
     CheckClientBits(vnsw_client->name(), cli_index, false, false);
 
+    vnsw_client->UnRegisterWithXmpp();
     vnsw_client->Shutdown();
     task_util::WaitForIdle();
     TcpServerManager::DeleteServer(vnsw_client);
@@ -935,6 +949,7 @@ TEST_F(XmppIfmapTest, VrVmSubUnsub) {
     // interest and advertised must be false since the client is gone
     CheckClientBits(vnsw_client->name(), cli_index, false, false);
 
+    vnsw_client->UnRegisterWithXmpp();
     vnsw_client->Shutdown();
     task_util::WaitForIdle();
     TcpServerManager::DeleteServer(vnsw_client);
@@ -1088,6 +1103,7 @@ TEST_F(XmppIfmapTest, VrVmSubUnsubTwice) {
     // interest and advertised must be false since the client is gone
     CheckClientBits(vnsw_client->name(), cli_index, false, false);
 
+    vnsw_client->UnRegisterWithXmpp();
     vnsw_client->Shutdown();
     task_util::WaitForIdle();
     TcpServerManager::DeleteServer(vnsw_client);
@@ -1236,6 +1252,7 @@ TEST_F(XmppIfmapTest, VrVmSubThrice) {
     // interest and advertised must be false since the client is gone
     CheckClientBits(vnsw_client->name(), cli_index, false, false);
 
+    vnsw_client->UnRegisterWithXmpp();
     vnsw_client->Shutdown();
     task_util::WaitForIdle();
     TcpServerManager::DeleteServer(vnsw_client);
@@ -1378,6 +1395,7 @@ TEST_F(XmppIfmapTest, VrVmUnsubThrice) {
     // Interest and advertised must be false since the client is gone
     CheckClientBits(vnsw_client->name(), cli_index, false, false);
 
+    vnsw_client->UnRegisterWithXmpp();
     vnsw_client->Shutdown();
     task_util::WaitForIdle();
     TcpServerManager::DeleteServer(vnsw_client);
@@ -1484,6 +1502,7 @@ TEST_F(XmppIfmapTest, VrVmSubConnClose) {
     // Interest and advertised must be false since the client is gone
     CheckClientBits(vnsw_client->name(), cli_index, false, false);
 
+    vnsw_client->UnRegisterWithXmpp();
     vnsw_client->Shutdown();
     task_util::WaitForIdle();
     TcpServerManager::DeleteServer(vnsw_client);
@@ -1601,6 +1620,7 @@ TEST_F(XmppIfmapTest, RegBeforeConfig) {
     // Interest and advertised must be false since the client is gone
     CheckClientBits(vnsw_client->name(), cli_index, false, false);
 
+    vnsw_client->UnRegisterWithXmpp();
     vnsw_client->Shutdown();
     task_util::WaitForIdle();
     TcpServerManager::DeleteServer(vnsw_client);
@@ -1681,6 +1701,7 @@ TEST_F(XmppIfmapTest, Cli1Vn1Vm3Add) {
         "controller/src/ifmap/testdata/cli1_vn1_vm3_add.master_output");
     EXPECT_EQ(true, bresult);
 
+    vnsw_client->UnRegisterWithXmpp();
     vnsw_client->Shutdown();
     task_util::WaitForIdle();
     TcpServerManager::DeleteServer(vnsw_client);
@@ -1761,6 +1782,7 @@ TEST_F(XmppIfmapTest, Cli1Vn2Np1Add) {
         "controller/src/ifmap/testdata/cli1_vn2_np1_add.master_output");
     EXPECT_EQ(true, bresult);
 
+    vnsw_client->UnRegisterWithXmpp();
     vnsw_client->Shutdown();
     task_util::WaitForIdle();
     TcpServerManager::DeleteServer(vnsw_client);
@@ -1840,6 +1862,7 @@ TEST_F(XmppIfmapTest, Cli1Vn2Np2Add) {
         "controller/src/ifmap/testdata/cli1_vn2_np2_add.master_output");
     EXPECT_EQ(true, bresult);
 
+    vnsw_client->UnRegisterWithXmpp();
     vnsw_client->Shutdown();
     task_util::WaitForIdle();
     TcpServerManager::DeleteServer(vnsw_client);
@@ -1950,10 +1973,12 @@ TEST_F(XmppIfmapTest, Cli2Vn2Np2Add) {
         "controller/src/ifmap/testdata/cli2_vn2_np2_add_a1s28.master_output");
     EXPECT_EQ(true, bresult);
 
+    vnsw_cli1->UnRegisterWithXmpp();
     vnsw_cli1->Shutdown();
     task_util::WaitForIdle();
     TcpServerManager::DeleteServer(vnsw_cli1);
     vnsw_cli1 = NULL;
+    vnsw_cli2->UnRegisterWithXmpp();
     vnsw_cli2->Shutdown();
     task_util::WaitForIdle();
     TcpServerManager::DeleteServer(vnsw_cli2);
@@ -2070,10 +2095,12 @@ TEST_F(XmppIfmapTest, Cli2Vn2Vm2Add) {
         "controller/src/ifmap/testdata/cli2_vn2_vm2_add_a1s28.master_output");
     EXPECT_EQ(true, bresult);
 
+    vnsw_cli1->UnRegisterWithXmpp();
     vnsw_cli1->Shutdown();
     task_util::WaitForIdle();
     TcpServerManager::DeleteServer(vnsw_cli1);
     vnsw_cli1 = NULL;
+    vnsw_cli2->UnRegisterWithXmpp();
     vnsw_cli2->Shutdown();
     task_util::WaitForIdle();
     TcpServerManager::DeleteServer(vnsw_cli2);
@@ -2206,10 +2233,12 @@ TEST_F(XmppIfmapTest, Cli2Vn3Vm6Np2Add) {
       "controller/src/ifmap/testdata/cli2_vn3_vm6_np2_add_a1s28.master_output");
     EXPECT_EQ(true, bresult);
 
+    vnsw_cli1->UnRegisterWithXmpp();
     vnsw_cli1->Shutdown();
     task_util::WaitForIdle();
     TcpServerManager::DeleteServer(vnsw_cli1);
     vnsw_cli1 = NULL;
+    vnsw_cli2->UnRegisterWithXmpp();
     vnsw_cli2->Shutdown();
     task_util::WaitForIdle();
     TcpServerManager::DeleteServer(vnsw_cli2);
@@ -2371,6 +2400,7 @@ TEST_F(XmppIfmapTest, CfgSubUnsub) {
     // interest and advertised must be false since the client is gone
     CheckClientBits(vnsw_client->name(), cli_index, false, false);
 
+    vnsw_client->UnRegisterWithXmpp();
     vnsw_client->Shutdown();
     task_util::WaitForIdle();
     TcpServerManager::DeleteServer(vnsw_client);
@@ -2546,6 +2576,7 @@ TEST_F(XmppIfmapTest, CfgAdd_Reg_CfgDel_Unreg) {
     // Verify ifmap_server client cleanup
     EXPECT_EQ(true, IsIFMapClientUnregistered(&ifmap_server_, client_name));
 
+    vnsw_client->UnRegisterWithXmpp();
     vnsw_client->Shutdown();
     task_util::WaitForIdle();
     TcpServerManager::DeleteServer(vnsw_client);
@@ -2735,6 +2766,7 @@ TEST_F(XmppIfmapTest, Reg_CfgAdd_CfgDel_Unreg) {
     // Verify ifmap_server client cleanup
     EXPECT_EQ(true, IsIFMapClientUnregistered(&ifmap_server_, client_name));
 
+    vnsw_client->UnRegisterWithXmpp();
     vnsw_client->Shutdown();
     task_util::WaitForIdle();
     TcpServerManager::DeleteServer(vnsw_client);
@@ -2915,6 +2947,7 @@ TEST_F(XmppIfmapTest, Reg_CfgAdd_Unreg_CfgDel) {
     // Verify ifmap_server client cleanup
     EXPECT_EQ(true, IsIFMapClientUnregistered(&ifmap_server_, client_name));
 
+    vnsw_client->UnRegisterWithXmpp();
     vnsw_client->Shutdown();
     task_util::WaitForIdle();
     TcpServerManager::DeleteServer(vnsw_client);
@@ -3106,6 +3139,7 @@ TEST_F(XmppIfmapTest, Reg_CfgAdd_Unreg_Close) {
     // Verify ifmap_server client cleanup
     EXPECT_EQ(true, IsIFMapClientUnregistered(&ifmap_server_, client_name));
 
+    vnsw_client->UnRegisterWithXmpp();
     vnsw_client->Shutdown();
     task_util::WaitForIdle();
     TcpServerManager::DeleteServer(vnsw_client);
@@ -3352,6 +3386,7 @@ TEST_F(XmppIfmapTest, CheckIFMapObjectSeqInList) {
     // Verify ifmap_server client cleanup
     EXPECT_EQ(true, IsIFMapClientUnregistered(&ifmap_server_, client_name));
 
+    vnsw_client->UnRegisterWithXmpp();
     vnsw_client->Shutdown();
     task_util::WaitForIdle();
     TcpServerManager::DeleteServer(vnsw_client);
@@ -3387,6 +3422,7 @@ TEST_F(XmppIfmapTest, ReadyNotready) {
     // Give a chance to others to run
     usleep(1000);
 
+    vnsw_client->UnRegisterWithXmpp();
     vnsw_client->Shutdown();
     task_util::WaitForIdle();
     TcpServerManager::DeleteServer(vnsw_client);
@@ -3516,6 +3552,7 @@ TEST_F(XmppIfmapTest, Bug788) {
     // Give a chance for the xmpp channel to get deleted
     usleep(1000);
 
+    vnsw_client->UnRegisterWithXmpp();
     vnsw_client->Shutdown();
     task_util::WaitForIdle();
     TcpServerManager::DeleteServer(vnsw_client);
@@ -3588,6 +3625,7 @@ TEST_F(XmppIfmapTest, SpuriousVrSub) {
     // Give a chance for the xmpp channel to get deleted
     usleep(1000);
 
+    vnsw_client->UnRegisterWithXmpp();
     vnsw_client->Shutdown();
     task_util::WaitForIdle();
     TcpServerManager::DeleteServer(vnsw_client);
@@ -3653,6 +3691,7 @@ TEST_F(XmppIfmapTest, VmSubUnsubWithNoVrSub) {
     // Give a chance for the xmpp channel to get deleted
     usleep(1000);
 
+    vnsw_client->UnRegisterWithXmpp();
     vnsw_client->Shutdown();
     task_util::WaitForIdle();
     TcpServerManager::DeleteServer(vnsw_client);
@@ -3717,6 +3756,7 @@ TEST_F(XmppIfmapTest, ConfigVrsubVrUnsub) {
     // Give a chance for the xmpp channel to get deleted
     usleep(1000);
 
+    vnsw_client->UnRegisterWithXmpp();
     vnsw_client->Shutdown();
     task_util::WaitForIdle();
     TcpServerManager::DeleteServer(vnsw_client);
@@ -3782,6 +3822,7 @@ TEST_F(XmppIfmapTest, VrsubConfigVrunsub) {
     // Give a chance for the xmpp channel to get deleted
     usleep(1000);
 
+    vnsw_client->UnRegisterWithXmpp();
     vnsw_client->Shutdown();
     task_util::WaitForIdle();
     TcpServerManager::DeleteServer(vnsw_client);
@@ -3856,6 +3897,7 @@ TEST_F(XmppIfmapTest, ConfignopropVrsub) {
     // Give a chance for the xmpp channel to get deleted
     usleep(1000);
 
+    vnsw_client->UnRegisterWithXmpp();
     vnsw_client->Shutdown();
     task_util::WaitForIdle();
     TcpServerManager::DeleteServer(vnsw_client);
@@ -3931,6 +3973,150 @@ TEST_F(XmppIfmapTest, VrsubConfignoprop) {
     // Give a chance for the xmpp channel to get deleted
     usleep(1000);
 
+    vnsw_client->UnRegisterWithXmpp();
+    vnsw_client->Shutdown();
+    task_util::WaitForIdle();
+    TcpServerManager::DeleteServer(vnsw_client);
+    vnsw_client = NULL;
+
+    // Delete xmpp-channel explicitly
+    XmppConnection *sconnection = xmpp_server_->FindConnection(client_name);
+    if (sconnection) {
+        sconnection->Shutdown();
+    }
+
+    TASK_UTIL_EXPECT_TRUE(xmpp_server_->FindConnection(client_name) == NULL);
+}
+
+TEST_F(XmppIfmapTest, NodePropertyChanges) {
+    string client_name("vr1");
+
+    // Create the mock client
+    XmppVnswMockPeer *vnsw_client =
+        new XmppVnswMockPeer(&evm_, xmpp_server_->GetPort(), client_name,
+                string("127.0.0.1"), string("/tmp/NodePropChanges.output"));
+    TASK_UTIL_EXPECT_EQ(true, vnsw_client->IsEstablished());
+
+    vnsw_client->RegisterWithXmpp();
+    TASK_UTIL_EXPECT_TRUE(ServerIsEstablished(xmpp_server_, client_name)
+                          == true);
+    // verify ifmap_server client is not created until config subscribe
+    TASK_UTIL_EXPECT_TRUE(ifmap_server_.FindClient(client_name) == NULL);
+    // No config messages sent until config subscribe
+    TASK_UTIL_EXPECT_EQ(0, vnsw_client->Count());
+
+    // Read the ifmap data from file
+    string content(FileRead(
+        "controller/src/ifmap/testdata/vr_gsc_config_no_prop.xml"));
+    assert(content.size() != 0);
+
+    // Give the read file to the parser
+    parser_->Receive(&db_, content.data(), content.size(), 0);
+    task_util::WaitForIdle();
+
+    // subscribe to config
+    vnsw_client->SendConfigSubscribe();
+    usleep(1000);
+    TASK_UTIL_EXPECT_TRUE(ifmap_server_.FindClient(client_name) != NULL);
+
+    TASK_UTIL_EXPECT_TRUE(TableLookup("virtual-router", client_name) != NULL);
+    IFMapNode *vrnode = TableLookup("virtual-router", client_name);
+    EXPECT_TRUE(vrnode != NULL);
+    usleep(1000);
+    TASK_UTIL_EXPECT_EQ(vnsw_client->Count(), 1);
+
+    // Add the 'id-perms' property
+    content = (FileRead("controller/src/ifmap/testdata/vr_with_1prop.xml"));
+    assert(content.size() != 0);
+    parser_->Receive(&db_, content.data(), content.size(), 0);
+    task_util::WaitForIdle();
+    // Checks. Only 'id-perms' should be set.
+    vrnode = TableLookup("virtual-router", client_name);
+    ASSERT_TRUE(vrnode != NULL);
+    EXPECT_TRUE(vrnode->Find(IFMapOrigin(IFMapOrigin::MAP_SERVER)) != NULL);
+    IFMapObject *obj = vrnode->Find(IFMapOrigin(IFMapOrigin::MAP_SERVER));
+    ASSERT_TRUE(obj != NULL);
+    autogen::VirtualRouter *vr = dynamic_cast<autogen::VirtualRouter *>(obj);
+    ASSERT_TRUE(vr !=NULL);
+    EXPECT_TRUE(vr->IsPropertySet(autogen::VirtualRouter::ID_PERMS));
+    EXPECT_FALSE(vr->IsPropertySet(autogen::VirtualRouter::DISPLAY_NAME));
+    EXPECT_FALSE(vr->IsPropertySet(autogen::VirtualRouter::IP_ADDRESS));
+    TASK_UTIL_EXPECT_EQ(vnsw_client->Count(), 2);
+
+    // Add 'id-perms' and 'display-name' to the vrnode
+    content = (FileRead("controller/src/ifmap/testdata/vr_with_2prop.xml"));
+    assert(content.size() != 0);
+    parser_->Receive(&db_, content.data(), content.size(), 0);
+    task_util::WaitForIdle();
+    // Checks. 'id-perms' and 'display-name' should be set.
+    vrnode = TableLookup("virtual-router", client_name);
+    ASSERT_TRUE(vrnode != NULL);
+    EXPECT_TRUE(vrnode->Find(IFMapOrigin(IFMapOrigin::MAP_SERVER)) != NULL);
+    obj = vrnode->Find(IFMapOrigin(IFMapOrigin::MAP_SERVER));
+    ASSERT_TRUE(obj != NULL);
+    vr = dynamic_cast<autogen::VirtualRouter *>(obj);
+    ASSERT_TRUE(vr !=NULL);
+    EXPECT_TRUE(vr->IsPropertySet(autogen::VirtualRouter::ID_PERMS));
+    EXPECT_TRUE(vr->IsPropertySet(autogen::VirtualRouter::DISPLAY_NAME));
+    EXPECT_FALSE(vr->IsPropertySet(autogen::VirtualRouter::IP_ADDRESS));
+    TASK_UTIL_EXPECT_EQ(vnsw_client->Count(), 3);
+
+    // Remove 'display-name' from the vrnode
+    content = (FileRead("controller/src/ifmap/testdata/vr_del_1prop.xml"));
+    assert(content.size() != 0);
+    parser_->Receive(&db_, content.data(), content.size(), 0);
+    task_util::WaitForIdle();
+    // Checks. Only 'id-perms' should be set.
+    vrnode = TableLookup("virtual-router", client_name);
+    ASSERT_TRUE(vrnode != NULL);
+    EXPECT_TRUE(vrnode->Find(IFMapOrigin(IFMapOrigin::MAP_SERVER)) != NULL);
+    obj = vrnode->Find(IFMapOrigin(IFMapOrigin::MAP_SERVER));
+    ASSERT_TRUE(obj != NULL);
+    vr = dynamic_cast<autogen::VirtualRouter *>(obj);
+    ASSERT_TRUE(vr !=NULL);
+    EXPECT_TRUE(vr->IsPropertySet(autogen::VirtualRouter::ID_PERMS));
+    EXPECT_FALSE(vr->IsPropertySet(autogen::VirtualRouter::DISPLAY_NAME));
+    EXPECT_FALSE(vr->IsPropertySet(autogen::VirtualRouter::IP_ADDRESS));
+    TASK_UTIL_EXPECT_EQ(vnsw_client->Count(), 4);
+
+    // Add 'id-perms' and 'display-name' to the vrnode
+    content = (FileRead("controller/src/ifmap/testdata/vr_with_2prop.xml"));
+    assert(content.size() != 0);
+    parser_->Receive(&db_, content.data(), content.size(), 0);
+    task_util::WaitForIdle();
+    // Checks. 'id-perms' and 'display-name' should be set.
+    vrnode = TableLookup("virtual-router", client_name);
+    ASSERT_TRUE(vrnode != NULL);
+    EXPECT_TRUE(vrnode->Find(IFMapOrigin(IFMapOrigin::MAP_SERVER)) != NULL);
+    obj = vrnode->Find(IFMapOrigin(IFMapOrigin::MAP_SERVER));
+    ASSERT_TRUE(obj != NULL);
+    vr = dynamic_cast<autogen::VirtualRouter *>(obj);
+    ASSERT_TRUE(vr !=NULL);
+    EXPECT_TRUE(vr->IsPropertySet(autogen::VirtualRouter::ID_PERMS));
+    EXPECT_TRUE(vr->IsPropertySet(autogen::VirtualRouter::DISPLAY_NAME));
+    EXPECT_FALSE(vr->IsPropertySet(autogen::VirtualRouter::IP_ADDRESS));
+    TASK_UTIL_EXPECT_EQ(vnsw_client->Count(), 5);
+
+    // Remove both properties from the vrnode
+    content = (FileRead("controller/src/ifmap/testdata/vr_del_2prop.xml"));
+    assert(content.size() != 0);
+    parser_->Receive(&db_, content.data(), content.size(), 0);
+    task_util::WaitForIdle();
+    // Checks. The node should exist since it has a neighbor. But, the object
+    // should be gone since all the properties are gone.
+    vrnode = TableLookup("virtual-router", client_name);
+    ASSERT_TRUE(vrnode != NULL);
+    TASK_UTIL_ASSERT_TRUE(vrnode->GetObject() == NULL);
+    TASK_UTIL_EXPECT_EQ(vnsw_client->Count(), 6);
+
+    // Client close generates a TcpClose event on server
+    ConfigUpdate(vnsw_client, new XmppConfigData());
+    TASK_UTIL_EXPECT_EQ(ifmap_server_.GetClientMapSize(), 0);
+
+    // Give a chance for the xmpp channel to get deleted
+    usleep(1000);
+
+    vnsw_client->UnRegisterWithXmpp();
     vnsw_client->Shutdown();
     task_util::WaitForIdle();
     TcpServerManager::DeleteServer(vnsw_client);

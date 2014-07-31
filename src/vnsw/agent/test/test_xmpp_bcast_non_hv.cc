@@ -10,8 +10,10 @@ int main(int argc, char **argv) {
     int ret = RUN_ALL_TESTS();
 
     Agent::GetInstance()->event_manager()->Shutdown();
-    AsioStop();
-    TaskScheduler::GetInstance()->Terminate();
+    TestShutdown();
+    delete client;
+    //AsioStop();
+    //TaskScheduler::GetInstance()->Terminate();
     return ret;
 }
 

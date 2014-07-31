@@ -13,41 +13,55 @@ class OriginVnTest : public ::testing::Test {
 };
 
 TEST_F(OriginVnTest, ByteArray_1) {
-    OriginVn::bytes_type data =
-	    { { 0x80, 0x71, 0xff, 0x84, 0x01, 0x02, 0x03, 0x04 } };
+    OriginVn::bytes_type data = {
+        { 0x80, 0x71, 0xff, 0x84, 0x01, 0x02, 0x03, 0x04 }
+    };
     OriginVn origin_vn(data);
     EXPECT_FALSE(origin_vn.IsNull());
+    EXPECT_EQ(65412, origin_vn.as_number());
+    EXPECT_EQ(16909060, origin_vn.vn_index());
     EXPECT_EQ("originvn:65412:16909060", origin_vn.ToString());
 }
 
 TEST_F(OriginVnTest, ByteArray_2) {
-    OriginVn::bytes_type data =
-	    { { 0x80, 0x71, 0xff, 0x84, 0x04, 0x03, 0x02, 0x01 } };
+    OriginVn::bytes_type data = {
+        { 0x80, 0x71, 0xff, 0x84, 0x04, 0x03, 0x02, 0x01 }
+    };
     OriginVn origin_vn(data);
     EXPECT_FALSE(origin_vn.IsNull());
+    EXPECT_EQ(65412, origin_vn.as_number());
+    EXPECT_EQ(67305985, origin_vn.vn_index());
     EXPECT_EQ("originvn:65412:67305985", origin_vn.ToString());
 }
 
 TEST_F(OriginVnTest, ByteArray_3) {
-    OriginVn::bytes_type data =
-	    { { 0x80, 0x71, 0xff, 0x84, 0x00, 0x00, 0x00, 0x00 } };
+    OriginVn::bytes_type data = {
+        { 0x80, 0x71, 0xff, 0x84, 0x00, 0x00, 0x00, 0x00 }
+    };
     OriginVn origin_vn(data);
     EXPECT_FALSE(origin_vn.IsNull());
+    EXPECT_EQ(65412, origin_vn.as_number());
+    EXPECT_EQ(0, origin_vn.vn_index());
     EXPECT_EQ("originvn:65412:0", origin_vn.ToString());
 }
 
 TEST_F(OriginVnTest, ByteArray_4) {
-    OriginVn::bytes_type data =
-	    { { 0x80, 0x71, 0xff, 0x84, 0xFF, 0xFF, 0xFF, 0xFF } };
+    OriginVn::bytes_type data = {
+        { 0x80, 0x71, 0xff, 0x84, 0x7F, 0xFF, 0xFF, 0xFF }
+    };
     OriginVn origin_vn(data);
     EXPECT_FALSE(origin_vn.IsNull());
-    EXPECT_EQ("originvn:65412:4294967295", origin_vn.ToString());
+    EXPECT_EQ(65412, origin_vn.as_number());
+    EXPECT_EQ(2147483647, origin_vn.vn_index());
+    EXPECT_EQ("originvn:65412:2147483647", origin_vn.ToString());
 }
 
 TEST_F(OriginVnTest, FromString_1) {
     boost::system::error_code ec;
     OriginVn origin_vn = OriginVn::FromString("originvn:65412:16909060", &ec);
     EXPECT_EQ(0, ec.value());
+    EXPECT_EQ(65412, origin_vn.as_number());
+    EXPECT_EQ(16909060, origin_vn.vn_index());
     EXPECT_EQ("originvn:65412:16909060", origin_vn.ToString());
 }
 
@@ -55,6 +69,8 @@ TEST_F(OriginVnTest, FromString_2) {
     boost::system::error_code ec;
     OriginVn origin_vn = OriginVn::FromString("originvn:65412:67305985", &ec);
     EXPECT_EQ(0, ec.value());
+    EXPECT_EQ(65412, origin_vn.as_number());
+    EXPECT_EQ(67305985, origin_vn.vn_index());
     EXPECT_EQ("originvn:65412:67305985", origin_vn.ToString());
 }
 
@@ -62,14 +78,18 @@ TEST_F(OriginVnTest, FromString_3) {
     boost::system::error_code ec;
     OriginVn origin_vn = OriginVn::FromString("originvn:65412:0", &ec);
     EXPECT_EQ(0, ec.value());
+    EXPECT_EQ(65412, origin_vn.as_number());
+    EXPECT_EQ(0, origin_vn.vn_index());
     EXPECT_EQ("originvn:65412:0", origin_vn.ToString());
 }
 
 TEST_F(OriginVnTest, FromString_4) {
     boost::system::error_code ec;
-    OriginVn origin_vn = OriginVn::FromString("originvn:65412:4294967295", &ec);
+    OriginVn origin_vn = OriginVn::FromString("originvn:65412:2147483647", &ec);
     EXPECT_EQ(0, ec.value());
-    EXPECT_EQ("originvn:65412:4294967295", origin_vn.ToString());
+    EXPECT_EQ(65412, origin_vn.as_number());
+    EXPECT_EQ(2147483647, origin_vn.vn_index());
+    EXPECT_EQ("originvn:65412:2147483647", origin_vn.ToString());
 }
 
 // Does not contain a colon.

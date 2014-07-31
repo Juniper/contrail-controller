@@ -16,7 +16,6 @@ TaskScheduler       *scheduler;
 static TableA *table_a_;
 static TableB *table_b_;
 static TableC *table_c_;
-//DBTable *TableC::table_c_;
 DB *db_;
 
 void RouterIdDepInit(Agent *agent) {
@@ -220,6 +219,9 @@ tbb::atomic<long> ClientA::del_notification;
 tbb::atomic<long> ClientB::adc_notification;
 tbb::atomic<long> ClientB::del_notification;
 
+std::auto_ptr<ClientA> client_a;
+std::auto_ptr<ClientB> client_b;
+
 void init_db_tables() {
     TableA::Register();
     TableB::Register();
@@ -233,8 +235,8 @@ void create_db_tables(DB *db) {
 }
 
 void init_db_clients(DB *db) {
-    ClientA *client_a = new ClientA();
-    ClientB *client_b = new ClientB();
+    client_a.reset(new ClientA());
+    client_b.reset(new ClientB());
 
     client_a->Init(db);
     client_b->Init(db);
@@ -441,10 +443,10 @@ TEST_F(DBTest, TestRef_NoRef_0) {
     EXPECT_TRUE(ValidateB(1, 0, 1, 1, 1, 1));
 }
 
-void AddEnqueueTableC(DBTable *table, int id, EntryA *a) {
+void AddEnqueueTableC(DBTable *table, int id, int id_a) {
     DBRequest req;
     req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
-    req.key.reset(new EntryCKey(id, a));
+    req.key.reset(new EntryCKey(id, id_a));
     req.data.reset(NULL);
     table->Enqueue(&req);
 }
@@ -456,11 +458,10 @@ TEST_F(DBTest, TestRef_RemoveQ_1) {
     AddEnqueue(table_a_, 1, 1, 1);
     WaitForIdle();
 
-    EntryA *entry = FindA(1);
     EXPECT_TRUE(FindA(1) != NULL);
 
     // Add reference to entry
-    AddEnqueueTableC(table_c_, 1, entry);
+    AddEnqueueTableC(table_c_, 1, 1);
     WaitForIdle();
 
     // Delete entry. Its not freed since it has reference
@@ -469,13 +470,15 @@ TEST_F(DBTest, TestRef_RemoveQ_1) {
     EXPECT_TRUE(FindA(1, true) != NULL);
 
     // Remove reference. entry goes to RemoveQ
-    AddEnqueueTableC(table_c_, 1, NULL);
+    AddEnqueueTableC(table_c_, 1, 0);
 
     // Renew entry
     AddEnqueue(table_a_, 1, 1, 1);
+    WaitForIdle();
+    FindA(1);
 
     // Add reference to entry again
-    AddEnqueueTableC(table_c_, 1, entry);
+    AddEnqueueTableC(table_c_, 1, 1);
 
     // Delete the entry. Entry will still be in removeq
     DelEnqueue(table_a_, 1, 1, 1);
@@ -491,10 +494,10 @@ TEST_F(DBTest, TestRef_RemoveQ_2) {
     AddEnqueue(table_a_, 1, 1, 1);
     WaitForIdle();
 
-    EntryA *entry = FindA(1);
+    FindA(1);
     EXPECT_TRUE(FindA(1) != NULL);
 
-    AddEnqueueTableC(table_c_, 1, entry);
+    AddEnqueueTableC(table_c_, 1, 1);
     WaitForIdle();
 
     DelEnqueue(table_a_, 1, 1, 1);
@@ -502,7 +505,7 @@ TEST_F(DBTest, TestRef_RemoveQ_2) {
     EXPECT_TRUE(FindA(1, true) != NULL);
 
     // Enqueue request to table-b. It will remove 
-    AddEnqueueTableC(table_c_, 1, NULL);
+    AddEnqueueTableC(table_c_, 1, 0);
     for (int i = 0; i < 40; i++) {
         DelEnqueue(table_a_, 1, 1, 1);
     }
@@ -522,6 +525,8 @@ int main(int argc, char *argv[]) {
     init_db_clients(db_);
 
     int ret = RUN_ALL_TESTS();
+    Sandesh::Uninit();
     scheduler->Terminate();
+    delete db_;
     return ret;
 }

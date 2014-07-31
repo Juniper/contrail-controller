@@ -12,6 +12,15 @@ class KSyncLinuxPortEntry;
 class KSyncLinuxFdbObject;
 class KSyncLinuxFdbEntry;
 
+/**************************************************************************
+ * KSyncLinuxVxlan provides implementation of KSyncVxlan for Linux Kernel
+ * Implements following classes,
+ * - KSyncLinuxBridgeObject: Implements KSyncVxlanBridgeObject for Linux kernel
+ * - KSyncLinuxPortObject: Implements KSyncVxlanPortObject for Linux Kernel
+ * - KSyncLinuxFdbObject: Implements KSyncVxlanRouteObject for Linux Kernel
+ *
+ * Invokes Linux commands to program the kernel
+ **************************************************************************/
 class KSyncLinuxVxlan : public KSyncVxlan {
 public:
     KSyncLinuxVxlan(Agent *agent);

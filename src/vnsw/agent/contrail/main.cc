@@ -56,13 +56,11 @@ bool GetBuildInfo(std::string &build_info_str) {
     return MiscUtils::GetBuildInfo(MiscUtils::Agent, BuildInfo, build_info_str);
 }
 
-void FactoryInit() {
-    AgentObjectFactory::Register<AgentUve>(boost::factory<AgentUve *>());
-    AgentObjectFactory::Register<KSync>(boost::factory<KSync *>());
-}
-
 int main(int argc, char *argv[]) {
-    uint16_t http_server_port = ContrailPorts::HttpPortAgent;
+    uint16_t http_server_port = ContrailPorts::HttpPortAgent();
+    // Initialize the agent-init control class
+    ContrailAgentInit init;
+    Agent *agent = init.agent();
 
     opt::options_description desc("Command line options");
     desc.add_options()
@@ -104,6 +102,7 @@ int main(int argc, char *argv[]) {
         ("DEFAULT.use_syslog", "Enable logging to syslog")
         ("DEFAULT.syslog_facility", opt::value<string>()->default_value("LOG_LOCAL0"),
          "Syslog facility to receive log lines")
+        ("DEFAULT.log_flow", "Enable local logging of flow sandesh messages")
         ("DEFAULT.tunnel_type", opt::value<string>()->default_value("MPLSoGRE"),
          "Tunnel Encapsulation type <MPLSoGRE|MPLSoUDP|VXLAN>")
         ("DISCOVERY.server", opt::value<string>(), 
@@ -179,30 +178,20 @@ int main(int argc, char *argv[]) {
         }
     }
 
-    FactoryInit();
-
     string build_info;
     GetBuildInfo(build_info);
     MiscUtils::LogVersionInfo(build_info, Category::VROUTER);
 
-    // Create agent 
-    Agent agent;
-
     // Read agent parameters from config file and arguments
-    AgentParam param(&agent);
-    param.Init(init_file, argv[0], var_map);
-
-    // Initialize the agent-init control class
-    ContrailAgentInit init;
-    init.Init(&param, &agent, var_map);
-
-    // Copy config into agent
-    agent.CopyConfig(&param);
+    init.ProcessOptions(init_file, argv[0], var_map);
 
     // kick start initialization
-    init.Start();
+    int ret = 0;
+    if ((ret = init.Start()) != 0) {
+        return ret;
+    }
 
-    Agent::GetInstance()->event_manager()->RunWithExceptionHandling();
+    agent->event_manager()->RunWithExceptionHandling();
 
     return 0;
 }

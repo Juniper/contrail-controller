@@ -65,6 +65,7 @@ const std::map<FlowEntry::FlowPolicyState, const char*>
 
 boost::uuids::random_generator FlowTable::rand_gen_ = boost::uuids::random_generator();
 tbb::atomic<int> FlowEntry::alloc_count_;
+SecurityGroupList FlowTable::default_sg_list_;
 
 static bool ShouldDrop(uint32_t action) {
     if ((action & TrafficAction::DROP_FLAGS) || (action & TrafficAction::IMPLICIT_DENY_FLAGS))
@@ -103,6 +104,39 @@ FlowEntry::FlowEntry(const FlowKey &k) :
     nw_ace_uuid_ = FlowPolicyStateStr.at(NOT_EVALUATED);
     sg_rule_uuid_= FlowPolicyStateStr.at(NOT_EVALUATED);
     alloc_count_.fetch_and_increment();
+}
+
+void FlowEntry::GetSourceRouteInfo(const Inet4UnicastRouteEntry *rt) {
+    const AgentPath *path = NULL;
+    if (rt) {
+        path = rt->GetActivePath();
+    }
+    if (path == NULL) {
+        data_.source_vn = FlowHandler::UnknownVn();
+        data_.source_sg_id_l = FlowTable::default_sg_list();
+        data_.source_plen = 0;
+    } else {
+        data_.source_vn = path->dest_vn_name();
+        data_.source_sg_id_l = path->sg_list();
+        data_.source_plen = rt->plen();
+    }
+}
+
+void FlowEntry::GetDestRouteInfo(const Inet4UnicastRouteEntry *rt) {
+    const AgentPath *path = NULL;
+    if (rt) {
+        path = rt->GetActivePath();
+    }
+
+    if (path == NULL) {
+        data_.dest_vn = FlowHandler::UnknownVn();
+        data_.dest_sg_id_l = FlowTable::default_sg_list();
+        data_.dest_plen = 0;
+    } else {
+        data_.dest_vn = path->dest_vn_name();
+        data_.dest_sg_id_l = path->sg_list();
+        data_.dest_plen = rt->plen();
+    }
 }
 
 uint32_t FlowEntry::MatchAcl(const PacketHeader &hdr,
@@ -794,8 +828,29 @@ void FlowEntry::UpdateKSync() {
         FlowTableKSyncEntry key(ksync_obj, this, flow_handle_);
         ksync_entry_ =
             static_cast<FlowTableKSyncEntry *>(ksync_obj->Create(&key));
+        if (deleted_) {
+            /*
+             * Create and delete a KSync Entry when update ksync entry is
+             * triggered for a deleted flow entry.
+             * This happens when Reverse flow deleted  is deleted before
+             * getting an ACK from vrouter.
+             */
+            ksync_obj->Delete(ksync_entry_);
+            ksync_entry_ = NULL;
+        }
     } else {
-        ksync_obj->Change(ksync_entry_);    
+        if (flow_handle_ != ksync_entry_->hash_id()) {
+            /*
+             * if flow handle changes delete the previous record from
+             * vrouter and install new
+             */
+            ksync_obj->Delete(ksync_entry_);
+            FlowTableKSyncEntry key(ksync_obj, this, flow_handle_);
+            ksync_entry_ =
+                static_cast<FlowTableKSyncEntry *>(ksync_obj->Create(&key));
+        } else {
+            ksync_obj->Change(ksync_entry_);
+        }
     }
 }
 
@@ -875,6 +930,26 @@ void FlowTable::Add(FlowEntry *flow, FlowEntry *rflow) {
     AddFlowInfo(flow);
 }
 
+bool FlowTable::ValidFlowMove(const FlowEntry *new_flow,
+                              const FlowEntry *old_flow) const {
+    if (!new_flow || !old_flow) {
+        return false;
+    }
+
+    if (new_flow->is_flags_set(FlowEntry::EcmpFlow) == false) {
+        return false;
+    }
+
+     if (new_flow->data().flow_source_vrf == old_flow->data().flow_source_vrf &&
+         new_flow->key().src.ipv4 == old_flow->key().src.ipv4 &&
+         new_flow->data().source_plen == old_flow->data().source_plen) {
+         //Check if both flow originate from same source route
+         return true;
+     }
+
+     return false;
+}
+
 void FlowTable::UpdateReverseFlow(FlowEntry *flow, FlowEntry *rflow) {
     FlowEntry *flow_rev = flow->reverse_flow_entry();
     FlowEntry *rflow_rev = NULL;
@@ -899,12 +974,16 @@ void FlowTable::UpdateReverseFlow(FlowEntry *flow, FlowEntry *rflow) {
 
     if (flow_rev && (flow_rev->reverse_flow_entry() == NULL)) {
         flow_rev->MakeShortFlow(FlowEntry::SHORT_NO_REVERSE_FLOW);
-        flow->MakeShortFlow(FlowEntry::SHORT_REVERSE_FLOW_CHANGE);
+        if (ValidFlowMove(rflow, flow_rev)== false) {
+            flow->MakeShortFlow(FlowEntry::SHORT_REVERSE_FLOW_CHANGE);
+        }
     }
 
     if (rflow_rev && (rflow_rev->reverse_flow_entry() == NULL)) {
         rflow_rev->MakeShortFlow(FlowEntry::SHORT_NO_REVERSE_FLOW);
-        flow->MakeShortFlow(FlowEntry::SHORT_REVERSE_FLOW_CHANGE);
+        if (ValidFlowMove(flow, rflow_rev) == false) {
+            flow->MakeShortFlow(FlowEntry::SHORT_REVERSE_FLOW_CHANGE);
+        }
     }
 
     if (flow->reverse_flow_entry() == NULL) {
@@ -931,6 +1010,13 @@ void FlowEntry::UpdateFipStatsInfo(uint32_t fip, uint32_t id) {
     stats_.fip_vm_port_id = id;
 }
 
+void FlowEntry::set_flow_handle(uint32_t flow_handle) {
+    /* trigger update KSync on flow handle change */
+    if (flow_handle_ != flow_handle) {
+        flow_handle_ = flow_handle;
+        UpdateKSync();
+    }
+}
 void FlowEntry::FillFlowInfo(FlowInfo &info) {
     info.set_flow_index(flow_handle_);
     info.set_source_ip(key_.src.ipv4);
@@ -1014,6 +1100,7 @@ void FlowEntry::FillFlowInfo(FlowInfo &info) {
     if (is_flags_set(FlowEntry::Trap)) {
         info.set_trap(true);
     }
+    info.set_vrf_assign(acl_assigned_vrf());
 }
 
 bool FlowEntry::FlowSrcMatch(const RouteFlowKey &rkey) const {
@@ -1254,10 +1341,7 @@ void FlowEntry::InitFwdFlow(const PktFlowInfo *info, const PktInfo *pkt,
     if (ctrl->rt_ != NULL) {
         SetRpfNH(ctrl->rt_);
     }
-    data_.source_vn = *(info->source_vn);
-    data_.dest_vn = *(info->dest_vn);
-    data_.source_sg_id_l = *(info->source_sg_id_l);
-    data_.dest_sg_id_l = *(info->dest_sg_id_l);
+
     data_.flow_source_vrf = info->flow_source_vrf;
     data_.flow_dest_vrf = info->flow_dest_vrf;
     data_.dest_vrf = info->dest_vrf;
@@ -1270,14 +1354,15 @@ void FlowEntry::InitFwdFlow(const PktFlowInfo *info, const PktInfo *pkt,
     }
     data_.component_nh_idx = info->out_component_nh_idx;
     reset_flags(FlowEntry::Trap);
-    data_.source_plen = info->source_plen;
-    data_.dest_plen = info->dest_plen;
     if (ctrl->rt_ && ctrl->rt_->is_multicast()) {
         set_flags(FlowEntry::Multicast);
     }
     if (rev_ctrl->rt_ && rev_ctrl->rt_->is_multicast()) {
         set_flags(FlowEntry::Multicast);
     }
+
+    GetSourceRouteInfo(ctrl->rt_);
+    GetDestRouteInfo(rev_ctrl->rt_);
 }
 
 void FlowEntry::InitRevFlow(const PktFlowInfo *info,
@@ -1304,10 +1389,7 @@ void FlowEntry::InitRevFlow(const PktFlowInfo *info,
     if (ctrl->rt_ != NULL) {
         SetRpfNH(ctrl->rt_);
     }
-    data_.source_vn = *(info->dest_vn);
-    data_.dest_vn = *(info->source_vn);
-    data_.source_sg_id_l = *(info->dest_sg_id_l);
-    data_.dest_sg_id_l = *(info->source_sg_id_l);
+
     data_.flow_source_vrf = info->flow_dest_vrf;
     data_.flow_dest_vrf = info->flow_source_vrf;
     data_.dest_vrf = info->nat_dest_vrf;
@@ -1323,19 +1405,19 @@ void FlowEntry::InitRevFlow(const PktFlowInfo *info,
     } else {
         reset_flags(FlowEntry::Trap);
     }
-    data_.source_plen = info->dest_plen;
-    data_.dest_plen = info->source_plen;
+
+    GetSourceRouteInfo(ctrl->rt_);
+    GetDestRouteInfo(rev_ctrl->rt_);
 }
 
 void FlowEntry::InitAuditFlow(uint32_t flow_idx) {
     flow_handle_ = flow_idx;
     set_flags(FlowEntry::ShortFlow);
     short_flow_reason_ = SHORT_AUDIT_ENTRY;
-    data_.source_vn = *FlowHandler::UnknownVn();
-    data_.dest_vn = *FlowHandler::UnknownVn();
-    SecurityGroupList empty_sg_id_l;
-    data_.source_sg_id_l = empty_sg_id_l;
-    data_.dest_sg_id_l = empty_sg_id_l;
+    data_.source_vn = FlowHandler::UnknownVn();
+    data_.dest_vn = FlowHandler::UnknownVn();
+    data_.source_sg_id_l = FlowTable::default_sg_list();
+    data_.dest_sg_id_l = FlowTable::default_sg_list();
 }
 
 FlowEntry *FlowTable::Allocate(const FlowKey &key) {
@@ -1922,6 +2004,25 @@ void FlowTable::ResyncRouteFlows(RouteFlowKey &key, SecurityGroupList &sg_l)
                        + " ip:"
                        + Ip4Address(key.ip.ipv4).to_string());
         }
+        //Update SG id for reverse flow
+        //So that SG match rules can be applied on the
+        //latest sg id of forward and reverse flow
+        FlowEntry *rev_flow = fe->reverse_flow_entry();
+        if (rev_flow && rev_flow->FlowSrcMatch(key)) {
+            rev_flow->set_source_sg_id_l(sg_l);
+        } else if (rev_flow && rev_flow->FlowDestMatch(key)) {
+            rev_flow->set_dest_sg_id_l(sg_l);
+        }
+
+        //SG id for a reverse flow is updated
+        //Reevaluate forward flow
+        if (fe->is_flags_set(FlowEntry::ReverseFlow)) {
+            FlowEntry *fwd_flow = fe->reverse_flow_entry();
+            if (fwd_flow) {
+                ResyncAFlow(fwd_flow);
+                AddFlowInfo(fwd_flow);
+            }
+        }
         ResyncAFlow(fe);
         AddFlowInfo(fe);
         FlowInfo flow_info;
@@ -2289,6 +2390,14 @@ void FlowTable::AddVmFlowInfo(FlowEntry *fe) {
 }
 
 void FlowTable::AddVmFlowInfo(FlowEntry *fe, const VmEntry *vm) {
+    if (fe->is_flags_set(FlowEntry::ShortFlow)) {
+        // do not include short flows
+        // this is done so that we allow atleast the minimum allowed flows
+        // for a VM; Otherwise, in a continuous flow scenario, all flows
+        // become short and we dont allow any flows to a VM.
+        return;
+    }
+
     bool update = false;
     VmFlowTree::iterator it;
     it = vm_flow_tree_.find(vm);

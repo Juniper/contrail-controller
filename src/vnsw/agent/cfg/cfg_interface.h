@@ -10,32 +10,15 @@
 
 #include <cmn/agent_cmn.h>
 
-struct CfgIntKey : public DBRequestKey {
-    CfgIntKey(const boost::uuids::uuid id) : id_(id) {};
-    boost::uuids::uuid id_;
-};
-
-struct CfgIntData : public DBRequestData {
-    CfgIntData() {};
-    virtual ~CfgIntData() {};
-    void Init(const boost::uuids::uuid &vm_id, const boost::uuids::uuid &vn_id,
-              const boost::uuids::uuid &vm_project_id,
-              const std::string &tname, const IpAddress &ip,
-              const std::string &mac, const std::string &vm_name,
-              uint16_t vlan_id, const int32_t version);
-    boost::uuids::uuid vm_id_;
-    boost::uuids::uuid vn_id_;
-    boost::uuids::uuid vm_project_id_;
-    std::string tap_name_;
-    IpAddress ip_addr_;
-    std::string mac_addr_;
-    std::string vm_name_;
-    uint16_t vlan_id_;
-    int32_t version_;
-};
-
+class CfgIntData;
 class CfgIntEntry : public DBEntry {
 public:
+
+    enum CfgIntType {
+        CfgIntVMPort,
+        CfgIntNameSpacePort,
+    };
+
     CfgIntEntry();
     CfgIntEntry(const boost::uuids::uuid &id);
     virtual  ~CfgIntEntry();
@@ -53,9 +36,11 @@ public:
     const std::string &GetMacAddr() const {return mac_addr_;};
     const std::string &vm_name() const {return vm_name_;};
     uint16_t vlan_id() const {return vlan_id_;};
+    CfgIntType port_type() const {return port_type_;};
     const int32_t &GetVersion() const {return version_;};
     void SetVersion(int32_t version) {version_ = version;};
     std::string ToString() const;
+    static std::string CfgIntTypeToString(CfgIntType);
 
 private:
     boost::uuids::uuid port_id_;
@@ -67,8 +52,37 @@ private:
     std::string mac_addr_;
     std::string vm_name_;
     uint16_t vlan_id_;
+    CfgIntType port_type_;
     int32_t version_;
 };
+
+struct CfgIntKey : public DBRequestKey {
+    CfgIntKey(const boost::uuids::uuid id) : id_(id) {};
+    boost::uuids::uuid id_;
+};
+
+struct CfgIntData : public DBRequestData {
+
+
+    CfgIntData() {};
+    virtual ~CfgIntData() {};
+    void Init(const boost::uuids::uuid &vm_id, const boost::uuids::uuid &vn_id,
+              const boost::uuids::uuid &vm_project_id,
+              const std::string &tname, const IpAddress &ip,
+              const std::string &mac, const std::string &vm_name,
+              uint16_t vlan_id, const CfgIntEntry::CfgIntType port_type, const int32_t version);
+    boost::uuids::uuid vm_id_;
+    boost::uuids::uuid vn_id_;
+    boost::uuids::uuid vm_project_id_;
+    std::string tap_name_;
+    IpAddress ip_addr_;
+    std::string mac_addr_;
+    std::string vm_name_;
+    uint16_t vlan_id_;
+    CfgIntEntry::CfgIntType port_type_;
+    int32_t version_;
+};
+
 
 class CfgIntTable : public DBTable {
 public:

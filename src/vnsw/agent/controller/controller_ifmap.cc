@@ -46,6 +46,7 @@ uint64_t AgentIfMapXmppChannel::NewSeqNumber() {
         return ++seq_number_;
     }
 
+    CONTROLLER_TRACE(IFMapSeqTrace, GetSeqNumber(), seq_number_, "New Config Seq Num");
     return  seq_number_;
 }
 

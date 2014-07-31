@@ -12,7 +12,7 @@ def MapBuildDir(list):
 
 env = BuildEnv.Clone()
 
-env.AppendUnique(CCFLAGS='-fno-exceptions')
+env.CppDisableExceptions()
 
 # Generate the source files
 SandeshGenFiles  = env.SandeshGenCpp('bgp_peer.sandesh')
@@ -40,6 +40,7 @@ libbgp = env.Library('bgp',
                       'bgp_debug.cc',
                       'bgp_export.cc',
                       'bgp_factory.cc',
+                      'bgp_lifetime.cc',
                       'bgp_log.cc',
                       'bgp_message_builder.cc',
                       'bgp_multicast.cc',

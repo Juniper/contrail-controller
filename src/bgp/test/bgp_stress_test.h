@@ -182,16 +182,6 @@ public:
     void StartStaleTimer();
 };
 
-class StateMachineTest : public StateMachine {
-public:
-    explicit StateMachineTest(BgpPeer *peer) : StateMachine(peer) { }
-    ~StateMachineTest() { }
-
-    void StartConnectTimer(int seconds);
-    void StartOpenTimer(int seconds);
-    void StartIdleHoldTimer();
-};
-
 class BgpXmppChannelManagerMock : public BgpXmppChannelManager {
 public:
     BgpXmppChannelManagerMock(XmppServerTest *x, BgpServer *b);

@@ -16,7 +16,7 @@ env = BuildEnv.Clone()
 ##########################################################################
 # Build CCFLAGS
 ##########################################################################
-env.AppendUnique(CCFLAGS='-fno-exceptions')
+env.CppDisableExceptions()
 
 ##########################################################################
 # Build CPPPATH
@@ -28,7 +28,7 @@ env.Prepend(CPPPATH = env['TOP_INCLUDE'] + '/thrift')
 def AddTopDir(list):
     return map(lambda x: Dir(env['TOP'] + '/' + x).abspath, list)
 
-env.Prepend(CPPPATH = AddTopDir([
+cpppath = [
     '',
     'base/sandesh',
     'dns',
@@ -41,8 +41,16 @@ env.Prepend(CPPPATH = AddTopDir([
     'vnsw/agent/cmn',
     'vnsw/agent/uve',
     'vnsw/agent/openstack',
-    'vrouter/sandesh'
-]))
+    'vrouter/sandesh',
+]
+
+if sys.platform.startswith('linux'):
+    cpppath.append('vnsw/agent/ksync/linux')
+elif sys.platform.startswith('freebsd'):
+    cpppath.append('vnsw/agent/ksync/freebsd')
+
+env.Prepend(CPPPATH = AddTopDir(cpppath))
+
 
 ##########################################################################
 # Build LIBPATH
@@ -69,6 +77,7 @@ env.Append(LIBPATH = MapBuildDir([
     'vnsw/agent/controller',
     'vnsw/agent/diag',
     'vnsw/agent/filter',
+    'vnsw/agent/init',
     'vnsw/agent/kstate', 
     'vnsw/agent/ksync',
     'vnsw/agent/openstack',
@@ -114,7 +123,7 @@ env.Prepend(LIBS = [
     'cpuinfo',
     'io',
     'sandesh',
-    'connection_info',
+    'process_info',
     'http',
     'http_parser',
     'base',
@@ -155,6 +164,8 @@ def MakeLinkCmd(list):
 env.Prepend(LINKFLAGS = [ '-Wl,--whole-archive', '-rdynamic'] + 
                           MakeLinkCmd(AGENT_MULTIPATH_LIBS) +
                         ['-Wl,--no-whole-archive'])
+# Prefer linking against the self-built libraries over the system ones
+env.AppendENVPath('LD_RUN_PATH', '#/build/lib')
 
 ##########################################################################
 # Build AgentEnv variables used by sub-directores
@@ -163,6 +174,7 @@ AgentEnv = env.Clone()
 
 # Contrail agent libraries
 AgentEnv.AppendUnique(CONTRAIL_LIBS = [
+    'contrail_init_common',
     'agent_services',
     'diag',
     'pkt',
@@ -178,13 +190,17 @@ AgentEnv.AppendUnique(CONTRAIL_LIBS = [
 AgentEnv.AppendUnique(TEST_CMN_LIBS_PRE = [
     'agent_test',
     'ifmap_test',
+    'task_test',
     'control_node_mock',
     'gunit',
 ])
 
 AgentEnv.AppendUnique(TEST_CMN_LIBS_POST = [ 'agent_test_buildinfo' ])
 AgentEnv.AppendUnique(TEST_CMN_CPPPATH = [env['TOP'] + '/vnsw/agent/test'])
-AgentEnv.AppendUnique(TEST_CMN_LIBPATH = [env['TOP'] + '/vnsw/agent/test'])
+AgentEnv.AppendUnique(TEST_CMN_LIBPATH = [
+    env['TOP'] + '/base/test',
+    env['TOP'] + '/vnsw/agent/test',
+])
 AgentEnv.AppendUnique(TEST_CMN_CCFLAGS = [
     '-Wno-return-type',
     '-Wno-unused-function'
@@ -269,6 +285,7 @@ subdirs = [
     'controller',
     'diag',
     'filter',
+    'init',
     'kstate',
     'ksync',
     'openstack',
@@ -287,8 +304,10 @@ for dir in subdirs:
 env.SConscript('contrail/SConscript', exports=['AgentEnv', 'BuildEnv'],
                duplicate=0)
 
-env.SConscript('vxlan_agent/SConscript', exports=['AgentEnv', 'BuildEnv'],
-               duplicate=0)
+# TODO(md): Currently not supported on FreeBSD
+if not sys.platform.startswith('freebsd'):
+    env.SConscript('vxlan_agent/SConscript', exports=['AgentEnv', 'BuildEnv'],
+                   duplicate=0)
 
 ##########################################################################
 # Utility functions
@@ -403,9 +422,9 @@ def run_ut(target, source, env):
 
 
 
-#run_ut = env.Command(Dir('run_ut'), '', run_ut)
-#env.AlwaysBuild(run_ut)
-#env.Alias('agent:run_ut', run_ut)
+run_ut = env.Command(Dir('run_ut'), '', run_ut)
+env.AlwaysBuild(run_ut)
+env.Alias('agent:run_ut', run_ut)
 
 # Local Variables:
 # mode: python

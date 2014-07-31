@@ -21,6 +21,7 @@
 #include "bgp/bgp_session_manager.h"
 #include "bgp/bgp_xmpp_channel.h"
 #include "bgp/community.h"
+#include "bgp/bgp_factory.h"
 #include "bgp/inet/inet_table.h"
 #include "bgp/l3vpn/inetvpn_route.h"
 #include "bgp/l3vpn/inetvpn_table.h"
@@ -44,6 +45,7 @@
 #include "schema/vnc_cfg_types.h"
 #include "testing/gunit.h"
 #include "xmpp/xmpp_client.h"
+#include "xmpp/xmpp_factory.h"
 #include "xmpp/xmpp_init.h"
 #include "xmpp/xmpp_server.h"
 
@@ -52,54 +54,6 @@ using boost::assign::list_of;
 using boost::assign::map_list_of;
 using namespace pugi;
 using namespace test;
-
-class BgpXmppChannelMock : public BgpXmppChannel {
-public:
-    BgpXmppChannelMock(XmppChannel *channel, BgpServer *server, 
-            BgpXmppChannelManager *manager) : 
-        BgpXmppChannel(channel, server, manager), count_(0) {
-            bgp_policy_ = RibExportPolicy(BgpProto::XMPP,
-                                          RibExportPolicy::XMPP, -1, 0);
-    }
-
-    virtual void ReceiveUpdate(const XmppStanza::XmppMessage *msg) {
-        count_ ++;
-        BgpXmppChannel::ReceiveUpdate(msg);
-    }
-
-    size_t Count() const { return count_; }
-    void ResetCount() { count_ = 0; }
-    virtual ~BgpXmppChannelMock() { }
-
-private:
-    size_t count_;
-};
-
-class BgpXmppChannelManagerMock : public BgpXmppChannelManager {
-public:
-    BgpXmppChannelManagerMock(XmppServer *x, BgpServer *b) :
-        BgpXmppChannelManager(x, b), count(0), channels(0) { }
-
-    virtual void XmppHandleChannelEvent(XmppChannel *channel,
-                                        xmps::PeerState state) {
-         count++;
-         BgpXmppChannelManager::XmppHandleChannelEvent(channel, state);
-    }
-
-    virtual BgpXmppChannel *CreateChannel(XmppChannel *channel) {
-        channel_[channels] = new BgpXmppChannelMock(channel, bgp_server_, this);
-        channels++;
-        return channel_[channels-1];
-    }
-
-    int Count() {
-        return count;
-    }
-    int count;
-    int channels;
-    BgpXmppChannelMock *channel_[2];
-};
-
 
 static const char *config_control_node= "\
 <config>\
@@ -238,10 +192,9 @@ protected:
         }
 
         bgp_channel_manager_cn1_.reset(
-            new BgpXmppChannelManagerMock(cn1_xmpp_server_, cn1_.get()));
-
+            new BgpXmppChannelManager(cn1_xmpp_server_, cn1_.get()));
         bgp_channel_manager_cn2_.reset(
-            new BgpXmppChannelManagerMock(cn2_xmpp_server_, cn2_.get()));
+            new BgpXmppChannelManager(cn2_xmpp_server_, cn2_.get()));
 
         task_util::WaitForIdle();
 
@@ -331,7 +284,6 @@ protected:
         task_util::WaitForIdle();
 
         bgp_channel_manager_cn1_.reset();
-
         bgp_channel_manager_cn2_.reset();
 
         TcpServerManager::DeleteServer(cn1_xmpp_server_);
@@ -568,9 +520,11 @@ protected:
 
     bool MatchResult(BgpServerTest *server, string prefix, 
                      vector<PathVerify> verify) {
+        task_util::TaskSchedulerLock lock;
+
+        // Verify number of paths
         BgpRoute *svc_route = InetRouteLookup(server, "blue", prefix);
-        // Check for aggregated route count
-        if (svc_route->count() != verify.size()) {
+        if (!svc_route || svc_route->count() != verify.size()) {
             return false;
         }
         vector<PathVerify>::iterator vit;
@@ -735,8 +689,8 @@ protected:
     boost::scoped_ptr<test::NetworkAgentMock> agent_b_1_;
     boost::scoped_ptr<test::NetworkAgentMock> agent_a_2_;
     boost::scoped_ptr<test::NetworkAgentMock> agent_b_2_;
-    boost::scoped_ptr<BgpXmppChannelManagerMock> bgp_channel_manager_cn1_;
-    boost::scoped_ptr<BgpXmppChannelManagerMock> bgp_channel_manager_cn2_;
+    boost::scoped_ptr<BgpXmppChannelManager> bgp_channel_manager_cn1_;
+    boost::scoped_ptr<BgpXmppChannelManager> bgp_channel_manager_cn2_;
     const char *connected_table_;
     bool aggregate_enable_;
     bool mx_push_connected_;
@@ -1145,6 +1099,10 @@ class TestEnvironment : public ::testing::Environment {
 static void SetUp() {
     ControlNode::SetDefaultSchedulingPolicy();
     BgpServerTest::GlobalSetUp();
+    BgpObjectFactory::Register<StateMachine>(
+        boost::factory<StateMachineTest *>());
+    XmppObjectFactory::Register<XmppStateMachine>(
+        boost::factory<XmppStateMachineTest *>());
 }
 
 static void TearDown() {

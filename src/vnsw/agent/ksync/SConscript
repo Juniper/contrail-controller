@@ -16,7 +16,11 @@ SandeshGenFiles += env.SandeshGenCpp('../../../vrouter/sandesh/vr.sandesh')
 SandeshGenSrcs = env.ExtractCpp(SandeshGenFiles)
 sandesh_objs = AgentEnv.BuildExceptionCppObj(env, SandeshGenSrcs)
 
-except_files = [ 'vnswif_listener.cc' ]
+if sys.platform.startswith('linux'):
+    except_files = [ 'vnswif_listener_base.cc', 'linux/vnswif_listener.cc' ]
+elif sys.platform.startswith('freebsd'):
+    except_files = [ 'vnswif_listener_base.cc', 'freebsd/vnswif_listener.cc' ]
+
 except_objs = AgentEnv.BuildExceptionCcObj(env, except_files)
 
 libksync = env.Library('vnswksync',

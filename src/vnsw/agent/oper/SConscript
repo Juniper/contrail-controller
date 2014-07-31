@@ -8,6 +8,12 @@ import sys
 Import('AgentEnv')
 env = AgentEnv.Clone()
 
+except_env = env.Clone()
+cflags = except_env['CCFLAGS']
+if '-fno-exceptions' in cflags:
+   cflags.remove('-fno-exceptions')
+except_env.Replace(CCFLAGS=cflags)
+
 SandeshGenFiles = env.SandeshGenCpp('agent.sandesh')
 SandeshGenSrcs = env.ExtractCpp(SandeshGenFiles)
 sandesh_objs = AgentEnv.BuildExceptionCppObj(env, SandeshGenSrcs)
@@ -26,10 +32,13 @@ vnswoperdb = env.Library('vnswoperdb',
                           'inet4_unicast_route.cc',
                           'interface.cc',
                           'layer2_route.cc',
+			  'loadbalancer.cc',
+			  'loadbalancer_haproxy.cc',
+			  'loadbalancer_properties.cc',
                           'mirror_table.cc',
                           'mpls.cc',
                           'multicast.cc',
-                          'namespace_manager.cc',
+                          except_env.Object('namespace_manager.cc'),
                           'nexthop.cc',
                           'operdb_init.cc',
                           'path_preference.cc',

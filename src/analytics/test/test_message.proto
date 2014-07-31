@@ -5,10 +5,12 @@
 message TestMessageInner {
     required string tm_inner_name = 1;
     optional int32 tm_inner_status = 2;
+    optional int32 tm_inner_counter = 3;
 }
 
 message TestMessage {
     required string tm_name = 1;
     optional string tm_status = 2;
-    repeated TestMessageInner tm_inner = 3;
+    optional int32 tm_counter = 3;
+    repeated TestMessageInner tm_inner = 4;
 }

@@ -189,14 +189,14 @@ TEST_F(CfgTest, LinkTest) {
     for (DBGraphVertex::adjacency_iterator iter = TestFoo->begin(&graph_);
          iter != TestFoo->end(&graph_); ++iter) {
         TestBar = static_cast<IFMapNode *>(iter.operator->());
-    	EXPECT_EQ("testbar", TestBar->name());
+        EXPECT_EQ("testbar", TestBar->name());
     }
 
     //Ensure that there is link from Bar to foo as well
     for (DBGraphVertex::adjacency_iterator iter = TestBar->begin(&graph_);
          iter != TestBar->end(&graph_); ++iter) {
         TestFoo = static_cast<IFMapNode *>(iter.operator->());
-    	EXPECT_EQ("testfoo", TestFoo->name());
+        EXPECT_EQ("testfoo", TestFoo->name());
     }
 
 
@@ -328,22 +328,22 @@ TEST_F(CfgTest, LinkAttrTest) {
     for (DBGraphVertex::adjacency_iterator iter = TestA->begin(&graph_);
          iter != TestA->end(&graph_); ++iter) {
         TestAB = static_cast<IFMapNode *>(iter.operator->());
-    	EXPECT_EQ("testdata", TestAB->name());
+        EXPECT_EQ("testdata", TestAB->name());
     }
 
     //Ensure that there is link from B to ABData
     for (DBGraphVertex::adjacency_iterator iter = TestB->begin(&graph_);
          iter != TestB->end(&graph_); ++iter) {
         TestAB = static_cast<IFMapNode *>(iter.operator->());
-    	EXPECT_EQ("testdata", TestAB->name());
+        EXPECT_EQ("testdata", TestAB->name());
     }
 }
 
 TEST_F(CfgTest, NodeReaddTest) {
 
     char buff[1500];
-    sprintf(buff, 
-        "<update>\n"    
+    sprintf(buff,
+        "<update>\n"
         "   <node type=\"foo\">\n"
         "       <name>testfoo</name>\n"
         "   </node>\n"
@@ -398,19 +398,19 @@ TEST_F(CfgTest, NodeReaddTest) {
     for (DBGraphVertex::adjacency_iterator iter = TestFoo->begin(&graph_);
          iter != TestFoo->end(&graph_); ++iter) {
         TestBar = static_cast<IFMapNode *>(iter.operator->());
-    	EXPECT_EQ("testbar", TestBar->name());
+        EXPECT_EQ("testbar", TestBar->name());
     }
 
     //Ensure that there is link from Bar to Foo
     for (DBGraphVertex::adjacency_iterator iter = TestBar->begin(&graph_);
          iter != TestBar->end(&graph_); ++iter) {
         TestFoo = static_cast<IFMapNode *>(iter.operator->());
-    	EXPECT_EQ("testfoo", TestFoo->name());
+        EXPECT_EQ("testfoo", TestFoo->name());
     }
 
     //Delete the all config and readdd the same 
-    sprintf(buff, 
-        "<delete>\n"    
+    sprintf(buff,
+        "<delete>\n"
         "   <link>\n"
         "       <node type=\"foo\">\n"
         "           <name>testfoo</name>\n"
@@ -460,14 +460,14 @@ TEST_F(CfgTest, NodeReaddTest) {
     for (DBGraphVertex::adjacency_iterator iter = TestFoo->begin(&graph_);
          iter != TestFoo->end(&graph_); ++iter) {
         TestBar = static_cast<IFMapNode *>(iter.operator->());
-    	EXPECT_EQ("testbar", TestBar->name());
+        EXPECT_EQ("testbar", TestBar->name());
     }
 
     //Ensure that there is link from Bar to Foo
     for (DBGraphVertex::adjacency_iterator iter = TestBar->begin(&graph_);
          iter != TestBar->end(&graph_); ++iter) {
         TestFoo = static_cast<IFMapNode *>(iter.operator->());
-    	EXPECT_EQ("testfoo", TestFoo->name());
+        EXPECT_EQ("testfoo", TestFoo->name());
     }
     ftable->Unregister(fid);
     btable->Unregister(bid);
@@ -476,8 +476,8 @@ TEST_F(CfgTest, NodeReaddTest) {
 
 TEST_F(CfgTest, LinkReorderTest) {
     char buff[1500];
-    sprintf(buff, 
-        "<update>\n"    
+    sprintf(buff,
+        "<update>\n"
         "   <link>\n"
         "       <node type=\"foo\">\n"
         "           <name>testfoo</name>\n"
@@ -548,19 +548,19 @@ TEST_F(CfgTest, LinkReorderTest) {
     for (DBGraphVertex::adjacency_iterator iter = TestBar->begin(&graph_);
          iter != TestBar->end(&graph_); ++iter) {
         TestFoo = static_cast<IFMapNode *>(iter.operator->());
-    	EXPECT_EQ("testfoo", TestFoo->name());
+        EXPECT_EQ("testfoo", TestFoo->name());
     }
 
     //Ensure that there is link from Test to Foo
     for (DBGraphVertex::adjacency_iterator iter = TestTest->begin(&graph_);
          iter != TestBar->end(&graph_); ++iter) {
         TestFoo = static_cast<IFMapNode *>(iter.operator->());
-    	EXPECT_EQ("testfoo", TestFoo->name());
+        EXPECT_EQ("testfoo", TestFoo->name());
     }
 
     //Delete the all config and add one link with seq 0
-    sprintf(buff, 
-        "<delete>\n"    
+    sprintf(buff,
+        "<delete>\n"
         "   <link>\n"
         "       <node type=\"foo\">\n"
         "           <name>testfoo</name>\n"
@@ -646,7 +646,7 @@ TEST_F(CfgTest, LinkReorderTest) {
     for (DBGraphVertex::adjacency_iterator iter = TestFoo->begin(&graph_);
          iter != TestFoo->end(&graph_); ++iter) {
         TestTest = static_cast<IFMapNode *>(iter.operator->());
-    	EXPECT_EQ("testtest", TestTest->name());
+        EXPECT_EQ("testtest", TestTest->name());
     }
 
     cnt = 0;
@@ -657,11 +657,11 @@ TEST_F(CfgTest, LinkReorderTest) {
     EXPECT_EQ(cnt, 0);
 
     //Delete the old seq links
-    ltable->DestroyDefLink();
+    ltable->DestroyDefLink(1);
 
     //Delete all config
-    sprintf(buff, 
-        "<delete>\n"    
+    sprintf(buff,
+        "<delete>\n"
         "   <link>\n"
         "       <node type=\"foo\">\n"
         "           <name>testfoo</name>\n"
@@ -740,11 +740,11 @@ TEST_F(CfgTest, LinkReorderTest) {
     for (DBGraphVertex::adjacency_iterator iter = TestFoo->begin(&graph_);
          iter != TestFoo->end(&graph_); ++iter) {
         TestTest = static_cast<IFMapNode *>(iter.operator->());
-    	EXPECT_EQ("testtest", TestTest->name());
+        EXPECT_EQ("testtest", TestTest->name());
     }
 
-    sprintf(buff, 
-        "<delete>\n"    
+    sprintf(buff,
+        "<delete>\n"
         "   <link>\n"
         "       <node type=\"test\">\n"
         "           <name>testtest</name>\n"
@@ -868,7 +868,7 @@ TEST_F(CfgTest, LinkReorderTest) {
     WaitForIdle();
 
     //Delete unadded links
-    ltable->DestroyDefLink();
+    ltable->DestroyDefLink(1);
 }
 
 TEST_F(CfgTest, NodeDeleteLinkPendingTest) {
@@ -945,19 +945,19 @@ TEST_F(CfgTest, NodeDeleteLinkPendingTest) {
     for (DBGraphVertex::adjacency_iterator iter = TestBar->begin(&graph_);
          iter != TestBar->end(&graph_); ++iter) {
         TestFoo = static_cast<IFMapNode *>(iter.operator->());
-    	EXPECT_EQ("testfoo", TestFoo->name());
+        EXPECT_EQ("testfoo", TestFoo->name());
     }
 
     //Ensure that there is link from Test to Foo
     for (DBGraphVertex::adjacency_iterator iter = TestTest->begin(&graph_);
          iter != TestBar->end(&graph_); ++iter) {
         TestFoo = static_cast<IFMapNode *>(iter.operator->());
-    	EXPECT_EQ("testfoo", TestFoo->name());
+        EXPECT_EQ("testfoo", TestFoo->name());
     }
 
     //Now delete the node without deleting links
-    sprintf(buff, 
-        "<delete>\n"    
+    sprintf(buff,
+        "<delete>\n"
         "   <node type=\"foo\">\n"
         "       <name>testfoo</name>\n"
         "   </node>\n"
@@ -1032,19 +1032,19 @@ TEST_F(CfgTest, NodeDeleteLinkPendingTest) {
     for (DBGraphVertex::adjacency_iterator iter = TestBar->begin(&graph_);
          iter != TestBar->end(&graph_); ++iter) {
         TestFoo = static_cast<IFMapNode *>(iter.operator->());
-    	EXPECT_EQ("testfoo", TestFoo->name());
+        EXPECT_EQ("testfoo", TestFoo->name());
     }
 
     //Verify that there is link from Test to Foo
     for (DBGraphVertex::adjacency_iterator iter = TestTest->begin(&graph_);
          iter != TestBar->end(&graph_); ++iter) {
         TestFoo = static_cast<IFMapNode *>(iter.operator->());
-    	EXPECT_EQ("testfoo", TestFoo->name());
+        EXPECT_EQ("testfoo", TestFoo->name());
     }
 
     //Now delete the node without deleting links
-    sprintf(buff, 
-        "<delete>\n"    
+    sprintf(buff,
+        "<delete>\n"
         "   <node type=\"foo\">\n"
         "       <name>testfoo</name>\n"
         "   </node>\n"
@@ -1161,11 +1161,11 @@ TEST_F(CfgTest, NodeDeleteLinkPendingTest) {
     for (DBGraphVertex::adjacency_iterator iter = TestFoo->begin(&graph_);
          iter != TestFoo->end(&graph_); ++iter) {
         TestTest = static_cast<IFMapNode *>(iter.operator->());
-    	EXPECT_EQ("testtest", TestTest->name());
+        EXPECT_EQ("testtest", TestTest->name());
     }
 
     // cleanup ifmap DB.
-    sprintf(buff, 
+    sprintf(buff,
         "<delete>\n"
         "   <link>\n"
         "       <node type=\"foo\">\n"
@@ -1261,19 +1261,19 @@ TEST_F(CfgTest, NodeDelLinkAddDeferTest) {
     for (DBGraphVertex::adjacency_iterator iter = TestFoo->begin(&graph_);
          iter != TestFoo->end(&graph_); ++iter) {
         TestBar = static_cast<IFMapNode *>(iter.operator->());
-    	EXPECT_EQ("testbar", TestBar->name());
+        EXPECT_EQ("testbar", TestBar->name());
     }
 
     //Ensure that there is link from Bar to Foo
     for (DBGraphVertex::adjacency_iterator iter = TestBar->begin(&graph_);
          iter != TestBar->end(&graph_); ++iter) {
         TestFoo = static_cast<IFMapNode *>(iter.operator->());
-    	EXPECT_EQ("testfoo", TestFoo->name());
+        EXPECT_EQ("testfoo", TestFoo->name());
     }
 
     //Delete the all config and readdd the same 
-    sprintf(buff, 
-        "<delete>\n"    
+    sprintf(buff,
+        "<delete>\n"
         "   <link>\n"
         "       <node type=\"foo\">\n"
         "           <name>testfoo</name>\n"
@@ -1323,14 +1323,14 @@ TEST_F(CfgTest, NodeDelLinkAddDeferTest) {
     for (DBGraphVertex::adjacency_iterator iter = TestFoo->begin(&graph_);
          iter != TestFoo->end(&graph_); ++iter) {
         TestBar = static_cast<IFMapNode *>(iter.operator->());
-    	EXPECT_EQ("testbar", TestBar->name());
+        EXPECT_EQ("testbar", TestBar->name());
     }
 
     //Ensure that there is link from Bar to Foo
     for (DBGraphVertex::adjacency_iterator iter = TestBar->begin(&graph_);
          iter != TestBar->end(&graph_); ++iter) {
         TestFoo = static_cast<IFMapNode *>(iter.operator->());
-    	EXPECT_EQ("testfoo", TestFoo->name());
+        EXPECT_EQ("testfoo", TestFoo->name());
     }
     ftable->Unregister(fid);
     btable->Unregister(bid);
@@ -1339,8 +1339,8 @@ TEST_F(CfgTest, NodeDelLinkAddDeferTest) {
 
 TEST_F(CfgTest, LinkJumbleTest) {
     char buff[1500];
-    sprintf(buff, 
-        "<update>\n"    
+    sprintf(buff,
+        "<update>\n"
         "   <link>\n"
         "       <node type=\"foo\">\n"
         "           <name>testfoo</name>\n"
@@ -1402,12 +1402,12 @@ TEST_F(CfgTest, LinkJumbleTest) {
     for (DBGraphVertex::adjacency_iterator iter = TestTest->begin(&graph_);
          iter != TestBar->end(&graph_); ++iter) {
         TestFoo = static_cast<IFMapNode *>(iter.operator->());
-    	EXPECT_EQ("testfoo", TestFoo->name());
+        EXPECT_EQ("testfoo", TestFoo->name());
     }
 
     //Add Foo again
-    sprintf(buff, 
-        "<update>\n"    
+    sprintf(buff,
+        "<update>\n"
         "    <node type=\"foo\">\n"
         "        <name>testfoo</name>\n"
         "    </node>\n"
@@ -1448,7 +1448,7 @@ TEST_F(CfgTest, LinkJumbleTest) {
     ASSERT_TRUE(TestBar != NULL);
     EXPECT_EQ("testbar", TestBar->name());
     //Delete unadded links
-    ltable->DestroyDefLink();
+    ltable->DestroyDefLink(1);
 }
 
 TEST_F(CfgTest, LinkSeqTest) {
@@ -1541,6 +1541,447 @@ TEST_F(CfgTest, LinkSeqTest) {
         link_count++;
     }
     EXPECT_EQ(link_count, 1);
+}
+
+//Test to ensure the deferred links from new controller are not deleted
+//because of stale cleaner timer
+
+TEST_F(CfgTest, StaleTimeout) {
+    char buff[1500];
+    sprintf(buff,
+        "<update>\n"
+        "   <link>\n"
+        "       <node type=\"foo\">\n"
+        "           <name>testfoo</name>\n"
+        "       </node>\n"
+        "       <node type=\"bar\">\n"
+        "           <name>testbar</name>\n"
+        "       </node>\n"
+        "   </link>\n"
+        "   <link>\n"
+        "       <node type=\"foo\">\n"
+        "           <name>testfoo</name>\n"
+        "       </node>\n"
+        "       <node type=\"test\">\n"
+        "           <name>testtest</name>\n"
+        "       </node>\n"
+        "   </link>\n"
+        "   <node type=\"foo\">\n"
+        "       <name>testfoo</name>\n"
+        "   </node>\n"
+        "   <node type=\"bar\">\n"
+        "       <name>testbar</name>\n"
+        "   </node>\n"
+        "   <node type=\"test\">\n"
+        "       <name>testtest</name>\n"
+        "   </node>\n"
+        "</update>");
+
+    IFMapTable *ftable = IFMapTable::FindTable(&db_, "foo");
+    ASSERT_TRUE(ftable!=NULL);
+
+    IFMapTable *btable = IFMapTable::FindTable(&db_, "bar");
+    ASSERT_TRUE(btable!=NULL);
+
+    IFMapTable *ttable = IFMapTable::FindTable(&db_, "test");
+    ASSERT_TRUE(ttable!=NULL);
+
+    IFMapAgentLinkTable *ltable = static_cast<IFMapAgentLinkTable *>(
+            db_.FindTable(IFMAP_AGENT_LINK_DB_NAME));
+    ASSERT_TRUE(ltable!=NULL);
+
+    pugi::xml_parse_result result = xdoc_.load(buff);
+    EXPECT_TRUE(result);
+    parser_->ConfigParse(xdoc_, 0);
+    WaitForIdle();
+
+    //Ensure that both nodes are added fine along with attribute
+    IFMapNode *TestFoo = ftable->FindNode("testfoo");
+    ASSERT_TRUE(TestFoo !=NULL);
+    EXPECT_EQ("testfoo", TestFoo->name());
+
+    IFMapNode *TestBar = btable->FindNode("testbar");
+    ASSERT_TRUE(TestBar !=NULL);
+    EXPECT_EQ("testbar", TestBar->name());
+
+    IFMapNode *TestTest = ttable->FindNode("testtest");
+    ASSERT_TRUE(TestTest !=NULL);
+    EXPECT_EQ("testtest", TestTest->name());
+
+    //Ensure that there is Link from Foo to Bar
+    int cnt = 0;
+    for (DBGraphVertex::adjacency_iterator iter = TestFoo->begin(&graph_);
+         iter != TestFoo->end(&graph_); ++iter) {
+        cnt++;
+    }
+    EXPECT_EQ(cnt, 2);
+
+    //Ensure that there is link from Bar to Foo
+    for (DBGraphVertex::adjacency_iterator iter = TestBar->begin(&graph_);
+         iter != TestBar->end(&graph_); ++iter) {
+        TestFoo = static_cast<IFMapNode *>(iter.operator->());
+        EXPECT_EQ("testfoo", TestFoo->name());
+    }
+
+    //Ensure that there is link from Test to Foo
+    for (DBGraphVertex::adjacency_iterator iter = TestTest->begin(&graph_);
+         iter != TestBar->end(&graph_); ++iter) {
+        TestFoo = static_cast<IFMapNode *>(iter.operator->());
+        EXPECT_EQ("testfoo", TestFoo->name());
+    }
+
+    //Update the config with new sequnce number except Testnode and link
+    //from foo to test
+    sprintf(buff,
+        "<update>\n"
+        "   <link>\n"
+        "       <node type=\"foo\">\n"
+        "           <name>testfoo</name>\n"
+        "       </node>\n"
+        "       <node type=\"bar\">\n"
+        "           <name>testbar</name>\n"
+        "       </node>\n"
+        "   </link>\n"
+        "   <node type=\"foo\">\n"
+        "       <name>testfoo</name>\n"
+        "   </node>\n"
+        "   <node type=\"bar\">\n"
+        "       <name>testbar</name>\n"
+        "   </node>\n"
+        "</update>");
+
+    result = xdoc_.load(buff);
+    EXPECT_TRUE(result);
+    parser_->ConfigParse(xdoc_, 1);
+    WaitForIdle();
+
+    //Invoke the stale timeout
+    IFMapAgentStaleCleaner *cl = new IFMapAgentStaleCleaner(&db_, &graph_);
+    cl->StaleTimeout(1);
+    WaitForIdle();
+
+    //Ensure that both nodes are added fine along with attribute
+    TestFoo = ftable->FindNode("testfoo");
+    ASSERT_TRUE(TestFoo !=NULL);
+    EXPECT_EQ("testfoo", TestFoo->name());
+
+    TestBar = btable->FindNode("testbar");
+    ASSERT_TRUE(TestBar !=NULL);
+    EXPECT_EQ("testbar", TestBar->name());
+
+    TestTest = ttable->FindNode("testtest");
+    ASSERT_TRUE(TestTest ==NULL);
+
+    //Ensure that there is Link from Foo to Bar
+    cnt = 0;
+    for (DBGraphVertex::adjacency_iterator iter = TestFoo->begin(&graph_);
+         iter != TestFoo->end(&graph_); ++iter) {
+        cnt++;
+    }
+    EXPECT_EQ(cnt, 1);
+
+    //Ensure that there is link from Bar to Foo
+    for (DBGraphVertex::adjacency_iterator iter = TestBar->begin(&graph_);
+         iter != TestBar->end(&graph_); ++iter) {
+        TestFoo = static_cast<IFMapNode *>(iter.operator->());
+        EXPECT_EQ("testfoo", TestFoo->name());
+    }
+
+    delete cl;
+}
+
+TEST_F(CfgTest, StaleTimeoutDeferList) {
+    char buff[1500];
+    sprintf(buff,
+        "<update>\n"
+        "   <link>\n"
+        "       <node type=\"foo\">\n"
+        "           <name>testfoo</name>\n"
+        "       </node>\n"
+        "       <node type=\"bar\">\n"
+        "           <name>testbar</name>\n"
+        "       </node>\n"
+        "   </link>\n"
+        "   <link>\n"
+        "       <node type=\"foo\">\n"
+        "           <name>testfoo</name>\n"
+        "       </node>\n"
+        "       <node type=\"test\">\n"
+        "           <name>testtest</name>\n"
+        "       </node>\n"
+        "   </link>\n"
+        "   <node type=\"foo\">\n"
+        "       <name>testfoo</name>\n"
+        "   </node>\n"
+        "   <node type=\"bar\">\n"
+        "       <name>testbar</name>\n"
+        "   </node>\n"
+        "</update>");
+
+    IFMapTable *ftable = IFMapTable::FindTable(&db_, "foo");
+    ASSERT_TRUE(ftable!=NULL);
+
+    IFMapTable *btable = IFMapTable::FindTable(&db_, "bar");
+    ASSERT_TRUE(btable!=NULL);
+
+    IFMapTable *ttable = IFMapTable::FindTable(&db_, "test");
+    ASSERT_TRUE(ttable!=NULL);
+
+    IFMapAgentLinkTable *ltable = static_cast<IFMapAgentLinkTable *>(
+            db_.FindTable(IFMAP_AGENT_LINK_DB_NAME));
+    ASSERT_TRUE(ltable!=NULL);
+
+    pugi::xml_parse_result result = xdoc_.load(buff);
+    EXPECT_TRUE(result);
+    parser_->ConfigParse(xdoc_, 0);
+    WaitForIdle();
+
+    //Ensure that both nodes are added fine along with attribute
+    IFMapNode *TestFoo = ftable->FindNode("testfoo");
+    ASSERT_TRUE(TestFoo !=NULL);
+    EXPECT_EQ("testfoo", TestFoo->name());
+
+    IFMapNode *TestBar = btable->FindNode("testbar");
+    ASSERT_TRUE(TestBar !=NULL);
+    EXPECT_EQ("testbar", TestBar->name());
+
+    IFMapNode *TestTest = ttable->FindNode("testtest");
+    ASSERT_TRUE(TestTest ==NULL);
+
+    //Ensure that there is Link from Foo to Bar
+    int cnt = 0;
+    for (DBGraphVertex::adjacency_iterator iter = TestFoo->begin(&graph_);
+         iter != TestFoo->end(&graph_); ++iter) {
+        cnt++;
+    }
+    EXPECT_EQ(cnt, 1);
+
+    //Ensure that there is link from Bar to Foo
+    for (DBGraphVertex::adjacency_iterator iter = TestBar->begin(&graph_);
+         iter != TestBar->end(&graph_); ++iter) {
+        TestFoo = static_cast<IFMapNode *>(iter.operator->());
+        EXPECT_EQ("testfoo", TestFoo->name());
+    }
+
+    //Update the config with new sequnce number except Testnode and link
+    //from foo to test
+    sprintf(buff,
+        "<update>\n"
+        "   <link>\n"
+        "       <node type=\"foo\">\n"
+        "           <name>testfoo</name>\n"
+        "       </node>\n"
+        "       <node type=\"bar\">\n"
+        "           <name>testbar</name>\n"
+        "       </node>\n"
+        "   </link>\n"
+        "   <link>\n"
+        "       <node type=\"foo\">\n"
+        "           <name>testfoo</name>\n"
+        "       </node>\n"
+        "       <node type=\"test\">\n"
+        "           <name>testtest</name>\n"
+        "       </node>\n"
+        "   </link>\n"
+        "   <node type=\"foo\">\n"
+        "       <name>testfoo</name>\n"
+        "   </node>\n"
+        "   <node type=\"bar\">\n"
+        "       <name>testbar</name>\n"
+        "   </node>\n"
+        "</update>");
+
+    result = xdoc_.load(buff);
+    EXPECT_TRUE(result);
+    parser_->ConfigParse(xdoc_, 1);
+    WaitForIdle();
+
+    //Invoke the stale timeout
+    IFMapAgentStaleCleaner *cl = new IFMapAgentStaleCleaner(&db_, &graph_);
+    cl->StaleTimeout(1);
+    WaitForIdle();
+
+    //Ensure that both nodes are added fine along with attribute
+    TestFoo = ftable->FindNode("testfoo");
+    ASSERT_TRUE(TestFoo !=NULL);
+    EXPECT_EQ("testfoo", TestFoo->name());
+
+    TestBar = btable->FindNode("testbar");
+    ASSERT_TRUE(TestBar !=NULL);
+    EXPECT_EQ("testbar", TestBar->name());
+
+    TestTest = ttable->FindNode("testtest");
+    ASSERT_TRUE(TestTest ==NULL);
+
+    //Ensure that there is Link from Foo to Bar
+    cnt = 0;
+    for (DBGraphVertex::adjacency_iterator iter = TestFoo->begin(&graph_);
+         iter != TestFoo->end(&graph_); ++iter) {
+        cnt++;
+    }
+    EXPECT_EQ(cnt, 1);
+
+    //Ensure that there is link from Bar to Foo
+    for (DBGraphVertex::adjacency_iterator iter = TestBar->begin(&graph_);
+         iter != TestBar->end(&graph_); ++iter) {
+        TestFoo = static_cast<IFMapNode *>(iter.operator->());
+        EXPECT_EQ("testfoo", TestFoo->name());
+    }
+
+    //Now add the test node
+    sprintf(buff,
+        "<update>\n"
+        "   <node type=\"test\">\n"
+        "       <name>testtest</name>\n"
+        "   </node>\n"
+        "</update>");
+
+    result = xdoc_.load(buff);
+    EXPECT_TRUE(result);
+    parser_->ConfigParse(xdoc_, 1);
+    WaitForIdle();
+
+    TestTest = ttable->FindNode("testtest");
+    ASSERT_TRUE(TestTest !=NULL);
+    EXPECT_EQ("testtest", TestTest->name());
+
+    //Ensure that there is Link from Foo to Bar and test
+    cnt = 0;
+    for (DBGraphVertex::adjacency_iterator iter = TestFoo->begin(&graph_);
+         iter != TestFoo->end(&graph_); ++iter) {
+        cnt++;
+    }
+    EXPECT_EQ(cnt, 2);
+
+    //Ensure that there is link from Test to Foo
+    for (DBGraphVertex::adjacency_iterator iter = TestTest->begin(&graph_);
+         iter != TestTest->end(&graph_); ++iter) {
+        TestFoo = static_cast<IFMapNode *>(iter.operator->());
+        EXPECT_EQ("testfoo", TestFoo->name());
+    }
+#if 1
+
+    //Repeat the same with two hanging links
+    sprintf(buff,
+        "<update>\n"
+        "   <node type=\"foo\">\n"
+        "       <name>testfoo</name>\n"
+        "   </node>\n"
+        "</update>");
+
+    result = xdoc_.load(buff);
+    EXPECT_TRUE(result);
+    parser_->ConfigParse(xdoc_, 2);
+    WaitForIdle();
+
+    cl->StaleTimeout(2);
+    WaitForIdle();
+
+    //Ensure that Fo is not deleted
+    TestFoo = ftable->FindNode("testfoo");
+    ASSERT_TRUE(TestFoo !=NULL);
+    EXPECT_EQ("testfoo", TestFoo->name());
+
+    TestBar = btable->FindNode("testbar");
+    ASSERT_TRUE(TestBar==NULL);
+
+    TestTest = ttable->FindNode("testtest");
+    ASSERT_TRUE(TestTest ==NULL);
+
+    //Ensure that there is no link from Foo
+    cnt = 0;
+    for (DBGraphVertex::adjacency_iterator iter = TestFoo->begin(&graph_);
+         iter != TestFoo->end(&graph_); ++iter) {
+        cnt++;
+    }
+    EXPECT_EQ(cnt, 0);
+
+    sprintf(buff, 
+        "<update>\n"    
+        "   <link>\n"
+        "       <node type=\"foo\">\n"
+        "           <name>testfoo</name>\n"
+        "       </node>\n"
+        "       <node type=\"bar\">\n"
+        "           <name>testbar</name>\n"
+        "       </node>\n"
+        "   </link>\n"
+        "   <link>\n"
+        "       <node type=\"foo\">\n"
+        "           <name>testfoo</name>\n"
+        "       </node>\n"
+        "       <node type=\"test\">\n"
+        "           <name>testtest</name>\n"
+        "       </node>\n"
+        "   </link>\n"
+        "   <node type=\"foo\">\n"
+        "       <name>testfoo</name>\n"
+        "   </node>\n"
+        "   <node type=\"bar\">\n"
+        "       <name>testbar</name>\n"
+        "   </node>\n"
+        "</update>");
+
+    result = xdoc_.load(buff);
+    EXPECT_TRUE(result);
+    parser_->ConfigParse(xdoc_, 2);
+    WaitForIdle();
+
+    sprintf(buff, 
+        "<update>\n"    
+        "   <node type=\"foo\">\n"
+        "       <name>testfoo</name>\n"
+        "   </node>\n"
+        "   <node type=\"test\">\n"
+        "       <name>testtest</name>\n"
+        "   </node>\n"
+        "   <link>\n"
+        "       <node type=\"foo\">\n"
+        "           <name>testfoo</name>\n"
+        "       </node>\n"
+        "       <node type=\"test\">\n"
+        "           <name>testtest</name>\n"
+        "       </node>\n"
+        "   </link>\n"
+        "</update>");
+
+    result = xdoc_.load(buff);
+    EXPECT_TRUE(result);
+    parser_->ConfigParse(xdoc_, 3);
+    WaitForIdle();
+
+    cl->StaleTimeout(3);
+    WaitForIdle();
+
+    //Ensure that both nodes are added fine along with attribute
+    TestFoo = ftable->FindNode("testfoo");
+    ASSERT_TRUE(TestFoo !=NULL);
+    EXPECT_EQ("testfoo", TestFoo->name());
+
+    TestBar = btable->FindNode("testbar");
+    ASSERT_TRUE(TestBar ==NULL);
+
+    TestTest = ttable->FindNode("testtest");
+    ASSERT_TRUE(TestTest !=NULL);
+    EXPECT_EQ("testtest", TestTest->name());
+
+    //Ensure that there is Link from Foo toTest 
+    cnt = 0;
+    for (DBGraphVertex::adjacency_iterator iter = TestFoo->begin(&graph_);
+         iter != TestFoo->end(&graph_); ++iter) {
+        cnt++;
+    }
+    EXPECT_EQ(cnt, 1);
+
+    //Ensure that there is link from Bar to Foo
+    for (DBGraphVertex::adjacency_iterator iter = TestTest->begin(&graph_);
+         iter != TestTest->end(&graph_); ++iter) {
+        TestFoo = static_cast<IFMapNode *>(iter.operator->());
+        EXPECT_EQ("testfoo", TestFoo->name());
+    }
+#endif
+
+    delete cl;
 }
 
 int main(int argc, char **argv) {

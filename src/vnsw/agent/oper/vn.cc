@@ -320,6 +320,11 @@ bool VnTable::ChangeHandler(DBEntry *entry, const DBRequest *req) {
         ret = true;
     }
 
+    if (vn->admin_state_ != data->admin_state_) {
+        vn->admin_state_ = data->admin_state_;
+        ret = true;
+    }
+
     //Ignore IPAM changes if layer3 is not enabled
     if (!vn->ipv4_forwarding_) {
         data->ipam_.clear();
@@ -499,7 +504,8 @@ bool VnTable::IFNodeToReq(IFMapNode *node, DBRequest &req) {
         std::sort(vn_ipam.begin(), vn_ipam.end());
         data = new VnData(node->name(), acl_uuid, vrf_name, mirror_acl_uuid, 
                           mirror_cfg_acl_uuid, vn_ipam, vn_ipam_data,
-                          vxlan_id, vnid, layer2_forwarding, ipv4_forwarding);
+                          vxlan_id, vnid, layer2_forwarding, ipv4_forwarding,
+                          id_perms.enable);
     }
 
     req.key.reset(key);
@@ -511,8 +517,8 @@ bool VnTable::IFNodeToReq(IFMapNode *node, DBRequest &req) {
     }
     // Change to ACL referernce can result in change of Policy flag 
     // on interfaces. Find all interfaces on this VN and RESYNC them.
-    // This is also required to check changes to the enable_dhcp flag
-    // in the VN subnets (VN Ipam).
+    // This is also required to check changes to admin_state and to
+    // the enable_dhcp flag in the VN subnets (VN Ipam).
     // TODO: Check if there is change in VRF
     req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
     // Find link with VM-Port adjacency
@@ -546,12 +552,13 @@ void VnTable::AddVn(const uuid &vn_uuid, const string &name,
                     const uuid &acl_id, const string &vrf_name, 
                     const std::vector<VnIpam> &ipam,
                     const VnData::VnIpamDataMap &vn_ipam_data,
-                    int vxlan_id) {
+                    int vxlan_id, bool admin_state) {
     DBRequest req;
     VnKey *key = new VnKey(vn_uuid);
     VnData *data = new VnData(name, acl_id, vrf_name, nil_uuid(), 
                               nil_uuid(), ipam, vn_ipam_data,
-                              vxlan_id, vxlan_id, true, true);
+                              vxlan_id, vxlan_id, true, true,
+                              admin_state);
  
     req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
     req.key.reset(key);
@@ -801,6 +808,7 @@ bool VnEntry::DBEntrySandesh(Sandesh *sresp, std::string &name)  const {
         data.set_ipam_host_routes(vn_ipam_host_routes_list);
         data.set_ipv4_forwarding(Ipv4Forwarding());
         data.set_layer2_forwarding(layer2_forwarding());
+        data.set_admin_state(admin_state());
 
         std::vector<VnSandeshData> &list =
             const_cast<std::vector<VnSandeshData>&>(resp->get_vn_list());
@@ -876,6 +884,7 @@ void VnEntry::SendObjectLog(AgentLogEvent::type event) const {
     }
     info.set_layer2_forwarding(layer2_forwarding());
     info.set_ipv4_forwarding(Ipv4Forwarding());
+    info.set_admin_state(admin_state());
     VN_OBJECT_LOG_LOG("AgentVn", SandeshLevel::SYS_INFO, info);
 }
 
@@ -963,8 +972,4 @@ bool DomainConfig::GetVDns(const std::string &vdns,
 }
 
 DomainConfig::~DomainConfig() {
-    assert(ipam_config_.size() == 0);
-    assert(vdns_config_.size() == 0);
-    ipam_callback_.clear();
-    vdns_callback_.size();
 }

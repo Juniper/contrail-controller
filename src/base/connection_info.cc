@@ -8,7 +8,9 @@
 #include <boost/tuple/tuple_comparison.hpp>
 
 #include <base/connection_info.h>
-#include <base/sandesh/connection_info_constants.h>
+#include <base/sandesh/process_info_constants.h>
+
+namespace process {
 
 // ConnectionState
 boost::scoped_ptr<ConnectionState> ConnectionState::instance_;
@@ -31,7 +33,7 @@ void ConnectionState::Update(ConnectionType::type ctype,
     // Populate info
     ConnectionInfo info;
     info.set_type(
-        g_connection_info_constants.ConnectionTypeNames.find(ctype)->second);
+        g_process_info_constants.ConnectionTypeNames.find(ctype)->second);
     info.set_name(name);
     boost::system::error_code ec;
     std::string saddr(server.address().to_string(ec));
@@ -41,7 +43,7 @@ void ConnectionState::Update(ConnectionType::type ctype,
         (server_address);
     info.set_server_addrs(server_addrs);
     info.set_status(
-        g_connection_info_constants.ConnectionStatusNames.find(status)->second);
+        g_process_info_constants.ConnectionStatusNames.find(status)->second);
     info.set_description(message);
     // Lookup connection info map
     tbb::mutex::scoped_lock lock(mutex_);
@@ -73,3 +75,34 @@ std::vector<ConnectionInfo> ConnectionState::GetInfos() const {
     }
     return infos;
 }
+
+void GetProcessStateCb(const std::vector<ConnectionInfo> &cinfos,
+    ProcessState::type &state, std::string &message,
+    size_t expected_connections) {
+    // Determine if the number of connections is as expected.
+    size_t num_connections(cinfos.size());
+    if (num_connections != expected_connections) {
+        state = ProcessState::NON_FUNCTIONAL;
+        message = "Number of connections:" + integerToString(num_connections) +
+                  ", Expected: " + integerToString(expected_connections);
+        return;
+    }
+    std::string cup(g_process_info_constants.ConnectionStatusNames.
+                    find(ConnectionStatus::UP)->second);
+    // Iterate to determine process connectivity status
+    for (std::vector<ConnectionInfo>::const_iterator it = cinfos.begin();
+         it != cinfos.end(); it++) {
+        const ConnectionInfo &cinfo(*it);
+        const std::string &conn_status(cinfo.get_status());
+        if (conn_status != cup) {
+            state = ProcessState::NON_FUNCTIONAL;
+            message = cinfo.get_type() + ":" + cinfo.get_name();
+            return;
+        }
+    }
+    // All critical connections are in good condition.
+    state = ProcessState::FUNCTIONAL;
+    return;
+}
+
+} // namespace process

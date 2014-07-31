@@ -67,6 +67,9 @@ const string DNS_TABLE              = "ObjectDns"
 const string QUERY_TABLE_OBJECT     = "ObjectQueryTable"
 const string QUERY_QID_OBJECT       = "ObjectQueryQid"
 const string CONFIG_OBJECT_TABLE    = "ConfigObjectTable"
+const string POOL_TABLE             = "ObjectPoolTable"
+const string OSD_TABLE              = "ObjectOsdTable"
+const string DISK_TABLE            = "ObjectDiskTable"
 
 const string VN_DISPLAY_NAME        = "Virtual Network"
 const string VM_DISPLAY_NAME        = "Virtual Machine"
@@ -86,6 +89,9 @@ const string DNS_DISPLAY_NAME              = "DNS Node"
 const string QUERY_TABLE_DISPLAY_NAME      = "Query Object Table"
 const string QUERY_QID_DISPLAY_NAME        = "Query Object Qid"
 const string CONFIG_OBJECT_DISPLAY_NAME    = "Config Object Table"
+const string STORAGE_POOL_DISPLAY_NAME     = "Storage Pool"
+const string STORAGE_OSD_DISPLAY_NAME      = "Storage Device"
+const string STORAGE_DISK_DISPLAY_NAME     = "Storage RawDisk"
 
 const string SYSTEM_LOG             = "SystemLog"
 const string OBJECT_LOG             = "ObjectLog"
@@ -216,7 +222,10 @@ const map<string, string> UVE_MAP = {
     "generator" : GENERATOR_INFO_TABLE
     "config-node" : CONFIG_NODE_TABLE,
     "service-chain" : SERVICE_CHAIN,
-    "dns-node" : DNS_TABLE
+    "dns-node" : DNS_TABLE,
+    "storage-pool" : POOL_TABLE,
+    "storage-osd" : OSD_TABLE,
+    "storage-disk" : DISK_TABLE,
 }
 
 struct objtable_info {
@@ -296,6 +305,15 @@ const map<string, objtable_info> _OBJECT_TABLES = {
     QUERY_QID_OBJECT       : {
         'objtable_display_name' : QUERY_QID_DISPLAY_NAME
         'log_query_name'        : "analytics-query-id"
+    }
+    POOL_TABLE          : {
+        'objtable_display_name' : STORAGE_POOL_DISPLAY_NAME
+    }
+    OSD_TABLE          : {
+        'objtable_display_name' : STORAGE_OSD_DISPLAY_NAME
+    }
+    DISK_TABLE          : {
+        'objtable_display_name' : STORAGE_DISK_DISPLAY_NAME
     }
 }
 
@@ -415,6 +433,50 @@ const list<stat_table> _STAT_TABLES  = [
         ]
     },
     {
+      'display_name' : 'Storage Pool Info',
+      'stat_type' : 'ComputeStoragePool',
+      'stat_attr' : 'info_stats',
+      'obj_table' : POOL_TABLE,
+      'attributes': [
+          { 'name' : 'info_stats.reads',  'datatype' : 'int',    'index' : false},
+          { 'name' : 'info_stats.writes', 'datatype': 'int', 'index' : false},
+          { 'name' : 'info_stats.read_kbytes', 'datatype': 'int', 'index' : false},
+          { 'name' : 'info_stats.write_kbytes', 'datatype': 'int', 'index' : false},
+        ]
+    },
+    {
+      'display_name' : 'Storage Device Info',
+      'stat_type' : 'ComputeStorageOsd',
+      'stat_attr' : 'info_stats',
+      'obj_table' : OSD_TABLE,
+      'attributes': [
+          { 'name' : 'name',  'datatype' : 'string',  'index' : true},
+          { 'name' : 'uuid',  'datatype' : 'string',    'index' : true},
+          { 'name' : 'info_stats.reads',  'datatype' : 'int',    'index' : false},
+          { 'name' : 'info_stats.writes', 'datatype': 'int', 'index' : false},
+          { 'name' : 'info_stats.read_kbytes', 'datatype': 'int', 'index' : false},
+          { 'name' : 'info_stats.write_kbytes', 'datatype': 'int', 'index' : false},
+          { 'name' : 'info_stats.op_r_latency', 'datatype': 'int', 'index' : false},
+          { 'name' : 'info_stats.op_w_latency', 'datatype': 'int', 'index' : false},
+        ]
+    },
+    {
+      'display_name' : 'Storage Raw Device Info',
+      'stat_type' : 'ComputeStorageDisk',
+      'stat_attr' : 'info_stats',
+      'obj_table' : DISK_TABLE,
+      'attributes': [
+          { 'name' : 'name',  'datatype' : 'string',  'index' : true},
+          { 'name' : 'uuid',  'datatype' : 'string',    'index' : true},
+          { 'name' : 'info_stats.reads',  'datatype' : 'int',    'index' : false},
+          { 'name' : 'info_stats.writes', 'datatype': 'int', 'index' : false},
+          { 'name' : 'info_stats.read_kbytes', 'datatype': 'int', 'index' : false},
+          { 'name' : 'info_stats.write_kbytes', 'datatype': 'int', 'index' : false},
+          { 'name' : 'info_stats.iops', 'datatype': 'int', 'index' : false},
+          { 'name' : 'info_stats.bw', 'datatype': 'int', 'index' : false},
+        ]
+    },
+    {
       'display_name' : 'Sandesh Information',
       'stat_type' : 'SandeshMessageStat',
       'stat_attr' : 'msg_info',
@@ -519,6 +581,17 @@ const list<stat_table> _STAT_TABLES  = [
           { 'name' : 'stats.request_time', 'datatype' : 'int', 'index' : true},
           { 'name' : 'stats.rows_deleted', 'datatype' : 'int', 'index' : true},
           { 'name' : 'stats.duration',     'datatype' : 'int', 'index' : true},
+        ]
+    },
+    {
+      'display_name' : 'Database Usage Statistics',
+      'stat_type' : 'DatabaseUsageInfo'
+      'stat_attr' : 'database_usage_stats',
+      'obj_table' : DATABASE_INFO_TABLE,
+      'attributes': [
+          { 'name' : 'database_usage_stats.disk_space_used_1k',      'datatype' : 'int', 'index' : false},
+          { 'name' : 'database_usage_stats.disk_space_available_1k', 'datatype' : 'int', 'index' : false},
+          { 'name' : 'database_usage_stats.analytics_db_size_1k',    'datatype' : 'int', 'index' : false},
         ]
     },
 ]

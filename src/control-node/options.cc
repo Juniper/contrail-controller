@@ -39,7 +39,7 @@ bool Options::Parse(EventManager &evm, int argc, char *argv[]) {
 
 // Initialize control-node's command line option tags with appropriate default
 // values. Options can from a config file as well. By default, we read
-// options from /etc/contrail/control-node.conf
+// options from /etc/contrail/contrail-control.conf
 void Options::Initialize(EventManager &evm,
                          opt::options_description &cmdline_options) {
     boost::system::error_code error;
@@ -51,16 +51,16 @@ void Options::Initialize(EventManager &evm,
     // Command line only options.
     generic.add_options()
         ("conf_file", opt::value<string>()->default_value(
-                                            "/etc/contrail/control-node.conf"),
+                                            "/etc/contrail/contrail-control.conf"),
              "Configuration file")
          ("help", "help message")
         ("version", "Display version information")
     ;
 
-    uint16_t default_bgp_port = ContrailPorts::ControlBgp;
-    uint16_t default_http_server_port = ContrailPorts::HttpPortControl;
-    uint16_t default_xmpp_port = ContrailPorts::ControlXmpp;
-    uint16_t default_discovery_port = ContrailPorts::DiscoveryServerPort;
+    uint16_t default_bgp_port = ContrailPorts::ControlBgp();
+    uint16_t default_http_server_port = ContrailPorts::HttpPortControl();
+    uint16_t default_xmpp_port = ContrailPorts::ControlXmpp();
+    uint16_t default_discovery_port = ContrailPorts::DiscoveryServerPort();
 
     default_collector_server_list_.push_back("127.0.0.1:8086");
 

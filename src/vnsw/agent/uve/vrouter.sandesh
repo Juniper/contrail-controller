@@ -3,7 +3,7 @@
  */
 
 include "base/sandesh/cpuinfo.sandesh"
-include "base/sandesh/connection_info.sandesh"
+include "base/sandesh/process_info.sandesh"
 
 struct AgentXenConfig {
     1: string            xen_ll_port;
@@ -85,6 +85,7 @@ struct VrouterAgent {  // Agent info
    41: optional list<AgentVgwConfig> gateway_cfg_list;
    42: optional bool headless_mode_cfg;
    43: optional list<string> collector_server_list_cfg;
+   44: optional bool log_flow;
 }
 
 uve sandesh UveVrouterAgent {
@@ -183,7 +184,6 @@ struct VrouterStatsAgent {  // Agent stats
     45: optional u32 virt_mem (aggtype="stats")
     46: optional u32 used_sys_mem (aggtype="stats")
     47: optional double one_min_avg_cpuload (aggtype="stats")
-    48: optional list<cpuinfo.ProcessState>  process_state_list (aggtype="union")
 
         //Nexthop stats
     14: optional u32 nexthops; 
@@ -244,15 +244,16 @@ uve sandesh ComputeCpuStateTrace {
     1: ComputeCpuState data
 }
 
-struct VrouterAgentProcessStatus {
+struct NodeStatus {
     1: string name (key="ObjectVRouter")
     2: optional bool deleted
     3: optional string status
-    4: optional list<connection_info.ProcessConnectivityStatus> connection_status (aggtype="union")
-    5: optional string description
+    4: optional list<process_info.ProcessStatus> process_status (aggtype="union")
+    5: optional list<process_info.ProcessInfo> process_info (aggtype="union")
+    6: optional string description
 }
 
-uve sandesh VrouterAgentStatus {
-    1: VrouterAgentProcessStatus data
+uve sandesh NodeStatusUVE {
+    1: NodeStatus data
 }
 

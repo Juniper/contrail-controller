@@ -7,7 +7,7 @@ Import('DnsEnv')
 import sys
 
 env = DnsEnv.Clone()
-env.AppendUnique(CCFLAGS='-fno-exceptions')
+env.CppDisableExceptions()
 
 env.Append(CPPPATH = env['TOP'])
 env.Append(LIBPATH = ['#/' + Dir('..').path,
@@ -31,7 +31,7 @@ env.Prepend(LIBS = ['dbtest', 'ifmap_vnc', 'task_test',
                     'ifmap_test_util', 'ifmap_test_util_server',
                     'ifmap_server', 'ifmap_common',
                     'ifmapio', 'crypto', 'ssl',
-                    'sandesh', 'http', 'http_parser', 'connection_info',
+                    'sandesh', 'http', 'http_parser', 'process_info',
                     'db', 'sandeshvns', 'io', 'base', 'xml', 
                     'boost_regex', 'boost_program_options', 'gunit'])
 

@@ -106,15 +106,18 @@ private:
     DISALLOW_COPY_AND_ASSIGN(VlanTable);
 };
 
-class VlanKSyncEntry : public KSyncNetlinkDBEntry {
+class VlanKSyncEntry : public KSyncDBEntry {
 public:
     VlanKSyncEntry(const VlanKSyncEntry *entry) : 
-        KSyncNetlinkDBEntry(), tag_(entry->tag_) { };
+        KSyncDBEntry(), tag_(entry->tag_), no_ack_trigger_(true),
+        sync_pending_(false) { };
 
     VlanKSyncEntry(const Vlan *vlan) : 
-        KSyncNetlinkDBEntry(), tag_(vlan->GetTag()) { };
+        KSyncDBEntry(), tag_(vlan->GetTag()), no_ack_trigger_(true),
+        sync_pending_(false) { };
     VlanKSyncEntry(const uint16_t tag) :
-        KSyncNetlinkDBEntry(), tag_(tag) { };
+        KSyncDBEntry(), tag_(tag), no_ack_trigger_(true),
+        sync_pending_(false) { };
     virtual ~VlanKSyncEntry() {};
 
     virtual bool IsLess(const KSyncEntry &rhs) const {
@@ -123,18 +126,20 @@ public:
     }
     virtual std::string ToString() const {return "VLAN";};;
     virtual KSyncEntry *UnresolvedReference() {return NULL;};
-    virtual bool Sync(DBEntry *e) {return true;};
-    virtual int AddMsg(char *msg, int len) {
+    virtual bool Sync(DBEntry *e) {return sync_pending_;};
+    void set_no_ack_trigger(bool val) {no_ack_trigger_ = val;}
+    void set_sync_pending(bool val) {sync_pending_ = val;}
+    virtual bool Add() {
         add_count_++;
-        return 0;
+        return no_ack_trigger_;
     };
-    virtual int ChangeMsg(char *msg, int len) {
+    virtual bool Change() {
         change_count_++;
-        return 0;
+        return no_ack_trigger_;
     };
-    virtual int DeleteMsg(char *msg, int len) {
+    virtual bool Delete() {
         del_count_++;
-        return 0;
+        return no_ack_trigger_;
     };
     KSyncDBObject *GetObject();
 
@@ -151,6 +156,8 @@ public:
 
 private:
     uint16_t tag_;
+    bool     no_ack_trigger_;
+    bool     sync_pending_;
     static int add_count_;
     static int change_count_;
     static int del_count_;
@@ -322,6 +329,59 @@ TEST_F(DBKSyncTest, DuplicateDelete) {
 
     EXPECT_EQ(VlanKSyncEntry::GetAddCount(), 1);
     EXPECT_EQ(VlanKSyncEntry::GetDelCount(), 1);
+}
+
+TEST_F(DBKSyncTest, Del_Ack_Wait_to_Temp) {
+    DBRequest req;
+    req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
+    req.key.reset(new Vlan::VlanKey(10));
+    req.data.reset(NULL);
+    itbl->Enqueue(&req);
+
+    //Get a reference to vlan entry, to avoid deletion
+    //of ksync entry upon first request
+    task_util::WaitForIdle();
+    VlanKSyncEntry v(10);
+    KSyncEntry::KSyncEntryPtr ksync_vlan;
+
+    ksync_vlan = VlanKSyncObject::GetKSyncObject()->Find(&v);
+    VlanKSyncEntry *k_vlan = (VlanKSyncEntry *)ksync_vlan.get();
+    k_vlan->set_no_ack_trigger(false);
+    ksync_vlan = NULL;
+    req.oper = DBRequest::DB_ENTRY_DELETE;
+    req.key.reset(new Vlan::VlanKey(10));
+    req.data.reset(NULL);
+    itbl->Enqueue(&req);
+    task_util::WaitForIdle();
+    ksync_vlan = VlanKSyncObject::GetKSyncObject()->Find(&v);
+
+    EXPECT_EQ(ksync_vlan->GetState(), KSyncEntry::DEL_ACK_WAIT);
+    VlanKSyncObject::GetKSyncObject()->NetlinkAck(ksync_vlan.get(),
+                                                  KSyncEntry::DEL_ACK);
+    EXPECT_EQ(ksync_vlan->GetState(), KSyncEntry::TEMP);
+
+    k_vlan->set_no_ack_trigger(true);
+
+    req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
+    req.key.reset(new Vlan::VlanKey(10));
+    req.data.reset(NULL);
+    itbl->Enqueue(&req);
+    task_util::WaitForIdle();
+    EXPECT_EQ(ksync_vlan->GetState(), KSyncEntry::IN_SYNC);
+
+    req.oper = DBRequest::DB_ENTRY_DELETE;
+    req.key.reset(new Vlan::VlanKey(10));
+    req.data.reset(NULL);
+    itbl->Enqueue(&req);
+    task_util::WaitForIdle();
+
+    ksync_vlan = NULL;
+    task_util::WaitForIdle();
+    EXPECT_EQ(adc_notification, 2);
+    EXPECT_EQ(del_notification, 2);
+
+    EXPECT_EQ(VlanKSyncEntry::GetAddCount(), 2);
+    EXPECT_EQ(VlanKSyncEntry::GetDelCount(), 2);
 }
 
 int main(int argc, char **argv) {

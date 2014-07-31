@@ -12,71 +12,25 @@ AgentEnv.MakeTestEnv(env)
 pkt_test_suite = []
 pkt_flaky_test_suite = []
 
-test_pkt = AgentEnv.MakeTestCmd(env, 'test_pkt', pkt_test_suite)
+test_pkt = AgentEnv.MakeTestCmd(env, 'test_pkt', pkt_flaky_test_suite)
 test_pkt_flow_mock = AgentEnv.MakeTestCmd(env, 'test_pkt_flow_mock',
                                           pkt_flaky_test_suite)
 
-test_pkt_flow = AgentEnv.MakeTestCmdSrc(env, 'test_pkt_flow', 
-                                        [
-                                         'test_pkt_flow.cc'
-                                        ],
-                                        pkt_flaky_test_suite)
-
-test_rpf_flow = AgentEnv.MakeTestCmdSrc(env, 'test_rpf_flow',
-                                        [
-                                         'test_rpf_flow.cc'
-                                        ],
-                                        pkt_flaky_test_suite)
-
-test_pkt_parse = AgentEnv.MakeTestCmdSrc(env, 'test_pkt_parse',
-                                         [
-                                          'test_pkt_parse.cc'
-                                         ],
-                                         pkt_flaky_test_suite)
-
-test_flowtable = AgentEnv.MakeTestCmdSrc(env, 'test_flowtable',
-                                         [
-                                          'test_flowtable.cc'
-                                         ],
-                                         pkt_test_suite)
-
-test_pkt_fip = AgentEnv.MakeTestCmdSrc(env, 'test_pkt_fip',
-                                       ['test_pkt_fip.cc'],
-                                       pkt_flaky_test_suite)
-
-test_ecmp = AgentEnv.MakeTestCmdSrc(env, 'test_ecmp',
-                                    ['test_ecmp.cc'],
-                                    pkt_flaky_test_suite)
-
-test_flow_scale = AgentEnv.MakeTestCmdSrc(env, 'test_flow_scale', 
-                                          [
-                                           'test_flow_scale.cc'
-                                          ],
-                                          pkt_test_suite)
-
-test_sg_flow = AgentEnv.MakeTestCmdSrc(env, 'test_sg_flow', 
-                                       ['test_sg_flow.cc'],
-                                       pkt_test_suite)
-
-test_sg_tcp_flow = AgentEnv.MakeTestCmdSrc(env, 'test_sg_tcp_flow', 
-                                           [
-                                            'test_sg_tcp_flow.cc'
-                                           ],
-                                           pkt_test_suite)
-
-test_vrf_assign_acl = AgentEnv.MakeTestCmdSrc(env, 'test_vrf_assign_acl',
-                                              [
-                                               'test_vrf_assign_acl.cc'
-                                              ],
-                                              pkt_flaky_test_suite)
-
+test_pkt_flow = AgentEnv.MakeTestCmd(env, 'test_pkt_flow', pkt_flaky_test_suite)
+test_rpf_flow = AgentEnv.MakeTestCmd(env, 'test_rpf_flow', pkt_flaky_test_suite)
+test_pkt_parse = AgentEnv.MakeTestCmd(env, 'test_pkt_parse', pkt_flaky_test_suite)
+test_flowtable = AgentEnv.MakeTestCmd(env, 'test_flowtable', pkt_test_suite)
+test_pkt_fip = AgentEnv.MakeTestCmd(env, 'test_pkt_fip', pkt_flaky_test_suite)
+test_ecmp = AgentEnv.MakeTestCmd(env, 'test_ecmp', pkt_flaky_test_suite)
+test_flow_scale = AgentEnv.MakeTestCmd(env, 'test_flow_scale', pkt_flaky_test_suite)
+test_sg_flow = AgentEnv.MakeTestCmd(env, 'test_sg_flow', pkt_flaky_test_suite)
+test_sg_tcp_flow = AgentEnv.MakeTestCmd(env, 'test_sg_tcp_flow', pkt_flaky_test_suite)
+test_vrf_assign_acl = AgentEnv.MakeTestCmd(env, 'test_vrf_assign_acl',
+                                           pkt_flaky_test_suite)
 flaky_test = env.TestSuite('agent-flaky-test', pkt_flaky_test_suite)
 env.Alias('controller/src/vnsw/agent/pkt:flaky_test', flaky_test)
 
 test = env.TestSuite('agent-test', pkt_test_suite)
 env.Alias('agent:pkt', test)
 env.Alias('controller/src/vnsw/agent/pkt:test', test)
-
-test = env.TestSuite('agent-test', pkt_test_suite)
-env.Alias('agent:pkt', test)
 Return('pkt_test_suite')

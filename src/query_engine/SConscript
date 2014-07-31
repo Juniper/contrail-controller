@@ -28,7 +28,7 @@ env.Prepend(LIBS=[  'gendb',
                     'curl',
                     'thrift',
                     'hiredis',
-                    'connection_info',
+                    'process_info',
                     'io',
                     'base',
                     'sandeshvns',
@@ -68,16 +68,14 @@ RedisConn_obj = env.Object('redis_connection.o', '../analytics/redis_connection.
 
 # copied from analytics SConscript
 env_excep = env.Clone()
-while env_excep['CCFLAGS'].count('-fno-exceptions') > 0:
-        env_excep['CCFLAGS'].remove('-fno-exceptions')
+env_excep.CppEnableExceptions()
 
 env_noWerror = env.Clone()
 while env_noWerror['CCFLAGS'].count('-Werror') > 0:
     env_noWerror['CCFLAGS'].remove('-Werror')
 
 env_noWerror_excep = env_noWerror.Clone()
-while env_noWerror_excep['CCFLAGS'].count('-fno-exceptions') > 0:
-    env_noWerror_excep['CCFLAGS'].remove('-fno-exceptions')
+env_noWerror_excep.CppEnableExceptions()
 
 env.Install('', '../analytics/analytics.sandesh') 
 # Generate the source files
@@ -90,14 +88,9 @@ SandeshGenObjs = env.Object(SandeshGenSrcs)
 env['QE_SANDESH_GEN_OBJS'] = SandeshGenObjs
 
 buildinfo_dep_libs = [
-    '../../lib/libboost_program_options.a',
-    '../../lib/libboost_regex.a',
-    '../../lib/libboost_system.a', 
-    '../../lib/libcurl.a',
     '../../lib/libhiredis.a',
     '../../lib/libhttp.a',
     '../../lib/libhttp_parser.a',
-    '../../lib/liblog4cplus.a',
     '../../lib/libsandesh.a', 
     '../../lib/libsandeshvns.a', 
     '../../lib/libthrift.a', 
@@ -107,9 +100,6 @@ buildinfo_dep_libs = [
     '../gendb/libgendb.a',
     '../io/libio.a',
 ]
-
-if sys.platform != 'darwin':
-    buildinfo_dep_libs += [ '../../lib/libtbb_debug.so.2' ]
 
 qed_sources = [
     'QEOpServerProxy.cc',
@@ -174,6 +164,7 @@ env.Default(qed)
 
 test_suite = env.SConscript('test/SConscript', exports='QueryEnv', duplicate = 0)
 
+# Please update sandesh/common/vns.sandesh on process name change
 env.Alias('install',
         env.InstallAs(env['INSTALL_BIN'] + '/contrail-query-engine', qed))
 env.Alias('install', env.Install(env['INSTALL_CONF'],

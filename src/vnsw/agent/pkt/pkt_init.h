@@ -10,6 +10,7 @@
 class PktHandler;
 class FlowTable;
 class FlowProto;
+class PacketBufferManager;
 
 // Packet Module
 class PktModule {
@@ -26,6 +27,9 @@ public:
     Agent *agent() const { return agent_; }
     PktHandler *pkt_handler() { return pkt_handler_.get(); }
     FlowTable *flow_table() { return flow_table_.get(); }
+    PacketBufferManager *packet_buffer_manager() {
+        return packet_buffer_manager_.get();
+    }
 
     void CreateInterfaces();
 
@@ -34,6 +38,7 @@ private:
     boost::scoped_ptr<PktHandler> pkt_handler_;
     boost::scoped_ptr<FlowTable> flow_table_;
     boost::scoped_ptr<FlowProto> flow_proto_;
+    boost::scoped_ptr<PacketBufferManager> packet_buffer_manager_;
     DISALLOW_COPY_AND_ASSIGN(PktModule);
 };
 

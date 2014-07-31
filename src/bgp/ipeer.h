@@ -37,10 +37,18 @@ public:
     };
 
     struct ErrorStats {
-        ErrorStats() : update(0), open(0) {
+        ErrorStats()
+            : connect_error(0),
+              connect_timer(0),
+              hold_timer(0),
+              open_error(0),
+              update_error(0) {
         }
-        uint32_t update;
-        uint32_t open;
+        uint32_t connect_error;
+        uint32_t connect_timer;
+        uint32_t hold_timer;
+        uint32_t open_error;
+        uint32_t update_error;
     };
 
     struct UpdateStats {

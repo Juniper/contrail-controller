@@ -70,6 +70,11 @@ public:
 
         int ip_prefix_len_inside;
         int ip_prefix_len_outside;
+        // number of interfaces: 1 - outside; 2 - inside + outside.
+        int interface_count;
+
+        // loadbalancer-pool uuid
+        boost::uuids::uuid pool_id;
     };
 
     ServiceInstance();

@@ -107,7 +107,7 @@ protected:
             AddLocalVmRouteReq(agent_->local_peer(),
                                "default-project:vn1:vn1", ip1, 24, MakeUuid(3),
                                "default-project:vn2", 16, SecurityGroupList(),
-                               false, PathPreference());
+                               false, PathPreference(), Ip4Address(0));
         //Leak route for 1.1.1.0 to default-project:vn2:vn2 and
         //default-project:vn3:vn3
         Ip4Address ip2 = Ip4Address::from_string("1.1.1.0");
@@ -115,12 +115,12 @@ protected:
             AddLocalVmRouteReq(agent_->local_peer(),
                                "default-project:vn2:vn2", ip2, 24, MakeUuid(1),
                                "default-project:vn1", 16, SecurityGroupList(),
-                               false, PathPreference());
+                               false, PathPreference(), Ip4Address(0));
         agent_->fabric_inet4_unicast_table()->
             AddLocalVmRouteReq(agent_->local_peer(),
                                "default-project:vn3:vn3", ip2, 24, MakeUuid(1),
                                "default-project:vn1", 16, SecurityGroupList(),
-                               false, PathPreference());
+                               false, PathPreference(), Ip4Address(0));
         client->WaitForIdle();
     }
 
@@ -202,6 +202,11 @@ TEST_F(TestVrfAssignAclFlow, VrfAssignAcl3) {
         }
     };
     CreateFlow(flow, 1);
+    int nh_id = InterfaceTable::GetInstance()->FindInterface(VmPortGet(1)->id())->flow_key_nh()->id();
+    FlowEntry *fe = FlowGet(1, "1.1.1.1", "2.1.1.1", IPPROTO_TCP,
+                            10, 20, nh_id);
+    EXPECT_TRUE(fe != NULL && fe->is_flags_set(FlowEntry::ShortFlow) == true &&
+                fe->short_flow_reason() == FlowEntry::SHORT_VRF_CHANGE);
 }
 
 //Add a VRF translate ACL to send all ssh traffic to "2.1.1.1" 

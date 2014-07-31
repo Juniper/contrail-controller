@@ -147,21 +147,16 @@ void VmUveTable::InterfaceNotify(DBTablePartBase *partition, DBEntryBase *e) {
 
     VmUveInterfaceState *state = static_cast<VmUveInterfaceState *>
                       (e->GetState(partition->parent(), intf_listener_id_));
-    if (e->IsDeleted() || ((vm_port->ipv4_active() == false) &&
-                           (vm_port->l2_active() == false))) {
+    if (e->IsDeleted() || ((vm_port->vm() == NULL))) {
         if (state) {
-            if (e->IsDeleted() || ((state->ipv4_active_ == true) ||
-                                    (state->l2_active_ == true))) {
-                VmKey key(state->vm_uuid_);
-                const VmEntry *vm = static_cast<VmEntry *>(agent_->vm_table()
-                     ->FindActiveEntry(&key));
-                /* If vm is marked for delete or if vm is deleted, required
-                 * UVEs will be sent as part of Vm Delete Notification */
-                if (vm != NULL) {
-                    InterfaceDeleteHandler(vm, vm_port);
-                    state->ipv4_active_ = false;
-                    state->l2_active_ = false;
-                }
+            VmKey key(state->vm_uuid_);
+            const VmEntry *vm = static_cast<VmEntry *>(agent_->vm_table()
+                    ->FindActiveEntry(&key));
+            /* If vm is marked for delete or if vm is deleted, required
+             * UVEs will be sent as part of Vm Delete Notification */
+            if (vm != NULL) {
+                InterfaceDeleteHandler(vm, vm_port);
+                state->fip_list_.clear();
             }
             if (e->IsDeleted()) {
                 e->ClearState(partition->parent(), intf_listener_id_);
@@ -174,13 +169,9 @@ void VmUveTable::InterfaceNotify(DBTablePartBase *partition, DBEntryBase *e) {
 
         if (!state) {
             state = new VmUveInterfaceState(vm->GetUuid(), 
-                                            vm_port->ipv4_active(),
-                                            vm_port->l2_active(),
                                             vm_port->floating_ip_list().list_);
             e->SetState(partition->parent(), intf_listener_id_, state);
         } else {
-            state->ipv4_active_ = vm_port->ipv4_active();
-            state->l2_active_ = vm_port->l2_active();
             old_list = state->fip_list_;
             state->fip_list_ = vm_port->floating_ip_list().list_;
         }

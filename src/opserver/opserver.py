@@ -40,10 +40,8 @@ from pysandesh.sandesh_base import *
 from pysandesh.sandesh_session import SandeshWriter
 from pysandesh.gen_py.sandesh_trace.ttypes import SandeshTraceRequest
 from pysandesh.connection_info import ConnectionState
-from pysandesh.gen_py.connection_info.ttypes import ConnectionType,\
-    ConnectionStatus, ConnectivityStatus
-from pysandesh.gen_py.connection_info.constants import \
-    ConnectionStatusNames
+from pysandesh.gen_py.process_info.ttypes import ConnectionType,\
+    ConnectionStatus
 from sandesh_common.vns.ttypes import Module, NodeType
 from sandesh_common.vns.constants import ModuleNames, CategoryNames,\
      ModuleCategoryMap, Module2NodeType, NodeTypeNames, ModuleIds,\
@@ -332,9 +330,11 @@ class OpServer(object):
         * ``/analytics/query/<queryId>``
         * ``/analytics/query/<queryId>/chunk-final/<chunkId>``
         * ``/analytics/send-tracebuffer/<source>/<module>/<name>``
+        * ``/analytics/operation/analytics-data-start-time``
 
     The supported **POST** APIs are:
         * ``/analytics/query``:
+        * ``/analytics/operation/database-purge``:
     """
 
     def __new__(cls, *args, **kwargs):
@@ -379,6 +379,8 @@ class OpServer(object):
         bottle.route('/analytics/tables', 'GET', obj.tables_process)
         bottle.route('/analytics/operation/database-purge',
                      'POST', obj.process_purge_request)
+        bottle.route('/analytics/operation/analytics-data-start-time',
+                     'GET', obj._get_analytics_data_start_time)
         bottle.route('/analytics/table/<table>', 'GET', obj.table_process)
         bottle.route(
             '/analytics/table/<table>/schema', 'GET', obj.table_schema_process)
@@ -428,14 +430,6 @@ class OpServer(object):
         self.disc.publish(self._moduleid, data)
     # end
 
-    def _get_process_connectivity_status(self, conn_infos):
-        for conn_info in conn_infos:
-            if conn_info.status != ConnectionStatusNames[ConnectionStatus.UP]:
-                return (ConnectivityStatus.NON_FUNCTIONAL,
-                        conn_info.type + ':' + conn_info.name)
-        return (ConnectivityStatus.FUNCTIONAL, '')
-    #end _get_process_connectivity_status
-
     def __init__(self):
         self._args = None
         self._parse_args()
@@ -470,9 +464,10 @@ class OpServer(object):
             file=self._args.log_file,
             enable_syslog=self._args.use_syslog,
             syslog_facility=self._args.syslog_facility)
-        ConnectionState.init(sandesh_global, self._hostname, self._moduleid, 
-            self._instance_id, self._get_process_connectivity_status, 
-            AnalyticsProcessStatusUVE, AnalyticsProcessStatus) 
+        ConnectionState.init(sandesh_global, self._hostname, self._moduleid,
+            self._instance_id,
+            staticmethod(ConnectionState.get_process_state_cb),
+            NodeStatusUVE, NodeStatus)
         
         # Trace buffer list
         self.trace_buf = [
@@ -617,6 +612,8 @@ class OpServer(object):
         bottle.route('/analytics/tables', 'GET', self.tables_process)
         bottle.route('/analytics/operation/database-purge',
                      'POST', self.process_purge_request)
+        bottle.route('/analytics/operation/analytics-data-start-time',
+	             'GET', self._get_analytics_data_start_time)
         bottle.route('/analytics/table/<table>', 'GET', self.table_process)
         bottle.route('/analytics/table/<table>/schema',
                      'GET', self.table_schema_process)
@@ -809,7 +806,7 @@ class OpServer(object):
 
     def documentation_http_get(self, filename):
         return bottle.static_file(
-            filename, root='/usr/share/doc/python-vnc_opserver/html')
+            filename, root='/usr/share/doc/contrail-analytics-api/html')
     # end documentation_http_get
 
     def _http_get_common(self, request):
@@ -1520,6 +1517,12 @@ class OpServer(object):
         self._logger.info("purge_id %s purging DONE" % str(purge_id))
         self._db_purge_running = False
         #end db_purge_operation
+
+    def _get_analytics_data_start_time(self):
+        analytics_start_time = self._analytics_db._get_analytics_start_time()
+        response = {'analytics_data_start_time': analytics_start_time}
+        return bottle.HTTPResponse(json.dumps(response), 200, {'Content-type': 'application/json'})
+    # end _get_analytics_data_start_time
 
     def table_process(self, table):
         (ok, result) = self._get_common(bottle.request)

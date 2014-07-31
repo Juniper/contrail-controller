@@ -17,10 +17,10 @@
 using namespace std;
 using namespace boost::asio::ip;
 
-static uint16_t default_redis_port = ContrailPorts::RedisQueryPort;
-static uint16_t default_collector_port = ContrailPorts::CollectorPort;
-static uint16_t default_http_server_port = ContrailPorts::HttpPortQueryEngine;
-static uint16_t default_discovery_port = ContrailPorts::DiscoveryServerPort;
+static uint16_t default_redis_port = ContrailPorts::RedisQueryPort();
+static uint16_t default_collector_port = ContrailPorts::CollectorPort();
+static uint16_t default_http_server_port = ContrailPorts::HttpPortQueryEngine();
+static uint16_t default_discovery_port = ContrailPorts::DiscoveryServerPort();
 
 class OptionsTest : public ::testing::Test {
 protected:
@@ -60,7 +60,7 @@ TEST_F(OptionsTest, NoArguments) {
                      options_.collector_server_list());
     EXPECT_EQ(options_.redis_server(), "127.0.0.1");
     EXPECT_EQ(options_.redis_port(), default_redis_port);
-    EXPECT_EQ(options_.config_file(), "/etc/contrail/query-engine.conf");
+    EXPECT_EQ(options_.config_file(), "/etc/contrail/contrail-query-engine.conf");
     EXPECT_EQ(options_.discovery_server(), "");
     EXPECT_EQ(options_.discovery_port(), default_discovery_port);
     EXPECT_EQ(options_.hostname(), hostname_);
@@ -84,7 +84,7 @@ TEST_F(OptionsTest, DefaultConfFile) {
     int argc = 2;
     char *argv[argc];
     char argv_0[] = "options_test";
-    char argv_1[] = "--conf_file=controller/src/analytics/query-engine.conf";
+    char argv_1[] = "--conf_file=controller/src/analytics/contrail-query-engine.conf";
     argv[0] = argv_0;
     argv[1] = argv_1;
 
@@ -97,7 +97,7 @@ TEST_F(OptionsTest, DefaultConfFile) {
     EXPECT_EQ(options_.redis_server(), "127.0.0.1");
     EXPECT_EQ(options_.redis_port(), default_redis_port);
     EXPECT_EQ(options_.config_file(),
-              "controller/src/analytics/query-engine.conf");
+              "controller/src/analytics/contrail-query-engine.conf");
     EXPECT_EQ(options_.discovery_server(), "");
     EXPECT_EQ(options_.discovery_port(), default_discovery_port);
     EXPECT_EQ(options_.hostname(), hostname_);
@@ -121,7 +121,7 @@ TEST_F(OptionsTest, OverrideStringFromCommandLine) {
     int argc = 3;
     char *argv[argc];
     char argv_0[] = "options_test";
-    char argv_1[] = "--conf_file=controller/src/analytics/query-engine.conf";
+    char argv_1[] = "--conf_file=controller/src/analytics/contrail-query-engine.conf";
     char argv_2[] = "--DEFAULT.log_file=test.log";
     argv[0] = argv_0;
     argv[1] = argv_1;
@@ -136,7 +136,7 @@ TEST_F(OptionsTest, OverrideStringFromCommandLine) {
     EXPECT_EQ(options_.redis_server(), "127.0.0.1");
     EXPECT_EQ(options_.redis_port(), default_redis_port);
     EXPECT_EQ(options_.config_file(),
-              "controller/src/analytics/query-engine.conf");
+              "controller/src/analytics/contrail-query-engine.conf");
     EXPECT_EQ(options_.discovery_server(), "");
     EXPECT_EQ(options_.discovery_port(), default_discovery_port);
     EXPECT_EQ(options_.hostname(), hostname_);
@@ -160,7 +160,7 @@ TEST_F(OptionsTest, OverrideBooleanFromCommandLine) {
     int argc = 3;
     char *argv[argc];
     char argv_0[] = "options_test";
-    char argv_1[] = "--conf_file=controller/src/analytics/query-engine.conf";
+    char argv_1[] = "--conf_file=controller/src/analytics/contrail-query-engine.conf";
     char argv_2[] = "--DEFAULT.test_mode";
     argv[0] = argv_0;
     argv[1] = argv_1;
@@ -175,7 +175,7 @@ TEST_F(OptionsTest, OverrideBooleanFromCommandLine) {
     EXPECT_EQ(options_.redis_server(), "127.0.0.1");
     EXPECT_EQ(options_.redis_port(), default_redis_port);
     EXPECT_EQ(options_.config_file(),
-              "controller/src/analytics/query-engine.conf");
+              "controller/src/analytics/contrail-query-engine.conf");
     EXPECT_EQ(options_.discovery_server(), "");
     EXPECT_EQ(options_.discovery_port(), default_discovery_port);
     EXPECT_EQ(options_.hostname(), hostname_);

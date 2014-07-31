@@ -52,12 +52,11 @@ except:
     from ordereddict import OrderedDict
 import jsonpickle
 from pysandesh.connection_info import ConnectionState
-from pysandesh.gen_py.connection_info.ttypes import ConnectionType,\
-    ConnectionStatus, ConnectivityStatus
-from pysandesh.gen_py.connection_info.constants import \
-    ConnectionStatusNames
-from cfgm_common.uve.cfgm_cpuinfo.ttypes import ConfigProcessStatusUVE, \
-    ConfigProcessStatus
+from pysandesh.gen_py.process_info.ttypes import ConnectionType, \
+    ConnectionStatus
+from cfgm_common.uve.cfgm_cpuinfo.ttypes import NodeStatusUVE, \
+    NodeStatus
+from cStringIO import StringIO
 
 _BGP_RTGT_MAX_ID = 1 << 24
 _BGP_RTGT_ALLOC_PATH = "/id/bgp/route-targets/"
@@ -171,6 +170,9 @@ def _access_control_list_update(acl_obj, name, obj, entries):
             _sandesh._logger.debug(
                 "HTTP error while updating acl %s for %s: %d, %s",
                 name, obj.get_fq_name_str(), he.status_code, he.content)
+        except NoIdError:
+            _sandesh._logger.debug("NoIdError while updating acl %s for %s",
+                                   name, obj.get_fq_name_str())
     return acl_obj
 # end _access_control_list_update
 
@@ -254,6 +256,7 @@ class VirtualNetworkST(DictST):
                     analyzer_vn_set |= policy.network_back_ref
                     policy.analyzer_vn_set.discard(name)
             del cls._dict[name]
+            vn.uve_send(deleted=True)
         return analyzer_vn_set
     # end delete
 
@@ -290,7 +293,7 @@ class VirtualNetworkST(DictST):
             ri.obj.add_route_target(new_rtgt_obj, inst_tgt_data)
             _vnc_lib.routing_instance_update(ri.obj)
             for (prefix, nexthop) in vn.route_table.items():
-                left_ri = vn._get_routing_instance_from_route(next_hop)
+                left_ri = vn._get_routing_instance_from_route(nexthop)
                 if left_ri is None:
                     continue
                 left_ri.update_route_target_list(
@@ -409,9 +412,10 @@ class VirtualNetworkST(DictST):
             try:
                 sc_ip_address = _vnc_lib.virtual_network_ip_alloc(
                     self.obj, count=1)[0]
-            except NoIdError:
+            except (NoIdError, RefsExistError) as e:
                 _sandesh._logger.debug(
-                    "NoIdError while allocating ip in network %s", self.name)
+                    "Error while allocating ip in network %s: %s", self.name,
+                    str(e))
                 return None
             self._sc_ip_cf.insert(sc_name, {'ip_address': sc_ip_address})
         return sc_ip_address
@@ -516,9 +520,11 @@ class VirtualNetworkST(DictST):
 
         alloc_new = False
         rinst_fq_name_str = '%s:%s' % (self.obj.get_fq_name_str(), rinst_name)
+        old_rtgt = None
         try:
             rtgt_num = int(self._rt_cf.get(rinst_fq_name_str)['rtgt_num'])
             if rtgt_num < common.BGP_RTGT_MIN_ID:
+                old_rtgt = rtgt_num
                 raise pycassa.NotFoundException
             rtgt_ri_fq_name_str = self._rt_allocator.read(rtgt_num)
             if (rtgt_ri_fq_name_str != rinst_fq_name_str):
@@ -563,6 +569,10 @@ class VirtualNetworkST(DictST):
 
         rinst = RoutingInstanceST(rinst_obj, service_chain, rt_key)
         self.rinst[rinst_name] = rinst
+
+        if old_rtgt:
+            rt_key = "target:%s:%d" % (self.get_autonomous_system(), old_rtgt)
+            _vnc_lib.route_target_delete(fq_name=[rt_key])
         return rinst
     # end locate_routing_instance
 
@@ -656,7 +666,7 @@ class VirtualNetworkST(DictST):
             ri_obj.update_route_target_list(rt_add, rt_del,
                                             import_export='export')
         for (prefix, nexthop) in self.route_table.items():
-            left_ri = self._get_routing_instance_from_route(next_hop)
+            left_ri = self._get_routing_instance_from_route(nexthop)
             if left_ri is not None:
                 left_ri.update_route_target_list(rt_add, rt_del,
                                                  import_export='import')
@@ -761,6 +771,7 @@ class VirtualNetworkST(DictST):
                 static_route.route_target.remove(self.get_route_target())
                 if static_route.route_target == []:
                     static_route_entries.delete_route(static_route)
+                left_ri.obj._pending_field_updates.add('static_route_entries')
                 _vnc_lib.routing_instance_update(left_ri.obj)
                 return
     # end delete_route
@@ -775,8 +786,8 @@ class VirtualNetworkST(DictST):
                 continue
             for route in route_table.routes or []:
                 if route.prefix in self.route_table:
-                    del stale[route.prefix]
-                    if route.next_hop == self.route_table[prefix]:
+                    stale.pop(route.prefix, None)
+                    if route.next_hop == self.route_table[route.prefix]:
                         continue
                     self.delete_route(route.prefix)
                 # end if route.prefix
@@ -787,12 +798,20 @@ class VirtualNetworkST(DictST):
             self.delete_route(prefix)
     # end update_route_table
 
-    def uve_send(self):
+    def uve_send(self, deleted=False):
         vn_trace = UveVirtualNetworkConfig(name=self.name,
                                            connected_networks=[],
                                            partially_connected_networks=[],
                                            routing_instance_list=[],
                                            total_acl_rules=0)
+
+        if deleted:
+            vn_trace.deleted = True
+            vn_msg = UveVirtualNetworkConfigTrace(data=vn_trace,
+                                                  sandesh=_sandesh)
+            vn_msg.send(sandesh=_sandesh)
+            return
+
         if self.acl:
             vn_trace.total_acl_rules += \
                 len(self.acl.get_access_control_list_entries().get_acl_rule())
@@ -909,20 +928,44 @@ class VirtualNetworkST(DictST):
         for saddr in saddr_list:
             saddr_match = copy.deepcopy(saddr)
             svn = saddr.virtual_network
+            spol = saddr.network_policy
             if svn == "local":
                 svn = self.name
                 saddr_match.virtual_network = self.name
             for daddr in daddr_list:
                 daddr_match = copy.deepcopy(daddr)
                 dvn = daddr.virtual_network
+                dpol = daddr.network_policy
                 if dvn == "local":
                     dvn = self.name
                     daddr_match.virtual_network = self.name
-
                 if dvn in [self.name, 'any']:
                     remote_network_name = svn
                 elif svn in [self.name, 'any']:
                     remote_network_name = dvn
+                elif not dvn and dpol:
+                    dp_obj = NetworkPolicyST.get(dpol)
+                    if self.name in dp_obj.networks_back_ref:
+                        remote_network_name = svn
+                        daddr_match.network_policy = None
+                        daddr_match.virtual_network = self.name
+                    else:
+                        _sandesh._logger.debug("network policy rule attached to %s"
+                                               "has src = %s, dst = %s. Ignored.",
+                                               self.name, svn or spol, dvn or dpol)
+                        continue
+
+                elif not svn and spol:
+                    sp_obj = NetworkPolicyST.get(spol)
+                    if self.name in sp_obj.networks_back_ref:
+                        remote_network_name = dvn
+                        daddr_match.network_policy = None
+                        saddr_match.virtual_network = self.name
+                    else:
+                        _sandesh._logger.debug("network policy rule attached to %s"
+                                               "has src = %s, dst = %s. Ignored.",
+                                               self.name, svn or spol, dvn or dpol)
+                        continue
                 else:
                     _sandesh._logger.debug("network policy rule attached to %s"
                                            "has svn = %s, dvn = %s. Ignored.",
@@ -972,28 +1015,55 @@ class VirtualNetworkST(DictST):
                             else:
                                 action.assign_routing_instance = None
 
+                        if saddr_match.network_policy:
+                            pol = NetworkPolicyST.get(saddr_match.network_policy)
+                            if not pol:
+                                _sandesh._logger.debug(
+                                    "Policy %s not found while applying policy "
+                                    "to network %s", saddr_match.network_policy,
+                                     self.name)
+                                continue
+                            sa_list = [AddressType(virtual_network=x)
+                                       for x in pol.networks_back_ref]
+                        else:
+                            sa_list = [saddr_match]
 
-                        match = MatchConditionType(arule_proto,
-                                                   saddr_match, sp,
-                                                   daddr_match, dp)
-                        acl = AclRuleType(match, action, rule_uuid)
-                        result_acl_rule_list.append(acl)
-                        if ((prule.direction == "<>") and
-                                (svn != dvn or sp != dp)):
-                            rmatch = MatchConditionType(arule_proto,
-                                                        daddr_match, dp,
-                                                        saddr_match, sp)
-                            raction = copy.deepcopy(action)
-                            if (service_list and dvn in [self.name, 'any']):
-                                    service_ri = self.get_service_name(sc_name,
-                                        service_list[-1])
-                                    raction.assign_routing_instance = \
-                                        self.name + ':' + service_ri
-                            else:
-                                raction.assign_routing_instance = None
+                        if daddr_match.network_policy:
+                            pol = NetworkPolicyST.get(daddr_match.network_policy)
+                            if not pol:
+                                _sandesh._logger.debug(
+                                    "Policy %s not found while applying policy "
+                                    "to network %s", daddr_match.network_policy,
+                                     self.name)
+                                continue
+                            da_list = [AddressType(virtual_network=x)
+                                       for x in pol.networks_back_ref]
+                        else:
+                            da_list = [daddr_match]
 
-                            acl = AclRuleType(rmatch, raction, rule_uuid)
-                            result_acl_rule_list.append(acl)
+                        for sa in sa_list:
+                            for da in da_list:
+                                match = MatchConditionType(arule_proto,
+                                                           sa, sp,
+                                                           da, dp)
+                                acl = AclRuleType(match, action, rule_uuid)
+                                result_acl_rule_list.append(acl)
+                                if ((prule.direction == "<>") and
+                                    (sa != da or sp != dp)):
+                                    rmatch = MatchConditionType(arule_proto,
+                                                                da, dp,
+                                                                sa, sp)
+                                    raction = copy.deepcopy(action)
+                                    if (service_list and dvn in [self.name, 'any']):
+                                        service_ri = self.get_service_name(
+                                            sc_name, service_list[-1])
+                                        raction.assign_routing_instance = \
+                                            self.name + ':' + service_ri
+                                    else:
+                                        raction.assign_routing_instance = None
+
+                                    acl = AclRuleType(rmatch, raction, rule_uuid)
+                                    result_acl_rule_list.append(acl)
                     # end for dp
                 # end for sp
             # end for daddr
@@ -1030,6 +1100,7 @@ class NetworkPolicyST(DictST):
         self.internal = False
         self.rules = []
         self.analyzer_vn_set = set()
+        self.policies = set()
     # end __init__
 
     @classmethod
@@ -1043,7 +1114,7 @@ class NetworkPolicyST(DictST):
         if entries is None:
             self.rules = []
         self.rules = entries.policy_rule
-        
+        self.policies = set()
         self.analyzer_vn_set = set()
         for prule in self.rules:
             if (prule.action_list and prule.action_list.mirror_to and
@@ -1052,6 +1123,9 @@ class NetworkPolicyST(DictST):
                     prule.action_list.mirror_to.analyzer_name)
                 if vn:
                     self.analyzer_vn_set.add(vn)
+            for addr in prule.src_addresses + prule.dst_addresses:
+                if addr.network_policy:
+                    self.policies.add(addr.network_policy)
         # end for prule
         
         network_set |= self.analyzer_vn_set
@@ -1133,6 +1207,7 @@ class SecurityGroupST(DictST):
         sg = cls._dict.get(name)
         if sg is None:
             return
+        sg.update_policy_entries(None)
         sg_id = sg.obj.get_security_group_id()
         if sg_id is not None:
             cls._sg_id_allocator.delete(sg.obj.get_security_group_id())
@@ -1470,7 +1545,8 @@ class ServiceChain(DictST):
             elif mode == "in-network-nat":
                 transparent = False
                 self.nat_service = True
-
+            else:
+                transparent = True
             _sandesh._logger.debug("service chain %s: creating %s chain",
                                    self.name, mode)
 
@@ -2357,6 +2433,7 @@ class VirtualMachineInterfaceST(DictST):
         if smode not in ['in-network', 'in-network-nat']:
             return
 
+        policy_rule_count = 0
         si_name = si_obj.get_fq_name_str()
         for policy_name in vn.policies:
             policy = NetworkPolicyST.get(policy_name)
@@ -2384,7 +2461,7 @@ class VirtualMachineInterfaceST(DictST):
                                                           prule.src_ports,
                                                           prule.dst_ports,
                                                           proto)
-                        if service_chain is None:
+                        if service_chain is None or not service_chain.created:
                             continue
                         ri_name = vn.obj.get_fq_name_str() + ':' + \
                             vn.get_service_name(service_chain.name, si_name)
@@ -2399,18 +2476,17 @@ class VirtualMachineInterfaceST(DictST):
                                     routing_instance=ri_name,
                                     ignore_acl=True)
                                 vrf_table.add_vrf_assign_rule(vrf_rule)
+                                policy_rule_count += 1
             # end for prule
-            try:
-                vmi_obj = _vnc_lib.virtual_machine_interface_read(
-                    fq_name_str=self.name)
-            except NoIdError:
-                _sandesh._logger.debug("NoIdError while reading virtual "
-                                       "machine interface: " + self.name)
-                return
-            if (jsonpickle.encode(vrf_table) !=
-                jsonpickle.encode(vmi_obj.get_vrf_assign_table())):
-                    vmi_obj.set_vrf_assign_table(vrf_table)
-                    _vnc_lib.virtual_machine_interface_update(vmi_obj)
+        # end for policy_name
+
+        if policy_rule_count == 0:
+            vrf_table = None
+        if (jsonpickle.encode(vrf_table) !=
+            jsonpickle.encode(vmi_obj.get_vrf_assign_table())):
+                vmi_obj.set_vrf_assign_table(vrf_table)
+                _vnc_lib.virtual_machine_interface_update(vmi_obj)
+
     # end recreate_vrf_assign_table
 # end VirtualMachineInterfaceST
 
@@ -2424,11 +2500,12 @@ class LogicalRouterST(DictST):
         self.virtual_networks = set()
         obj = _vnc_lib.logical_router_read(fq_name_str=name)
         rt_ref = obj.get_route_target_refs()
+        old_rt_key = None
         if rt_ref:
             rt_key = rt_ref[0]['to'][0]
             rtgt_num = int(rt_key.split(':')[-1])
             if rtgt_num < common.BGP_RTGT_MIN_ID:
-                _vnc_lib.route_target_delete(fq_name=[rt_key])
+                old_rt_key = rt_key
                 rt_ref = None
         if not rt_ref:
             rtgt_num = VirtualNetworkST._rt_allocator.alloc(name)
@@ -2438,6 +2515,8 @@ class LogicalRouterST(DictST):
             obj.set_route_target(rtgt_obj)
             _vnc_lib.logical_router_update(obj)
 
+        if old_rt_key:
+            _vnc_lib.route_target_delete(fq_name=[old_rt_key])
         self.route_target = rt_key
     # end __init__
 
@@ -2594,8 +2673,9 @@ class SchemaTransformer(object):
                                     enable_syslog=args.use_syslog,
                                     syslog_facility=args.syslog_facility)
         ConnectionState.init(_sandesh, hostname, module_name,
-                instance_id, self._get_process_connectivity_status,
-                ConfigProcessStatusUVE, ConfigProcessStatus)
+                instance_id,
+                staticmethod(ConnectionState.get_process_state_cb),
+                NodeStatusUVE, NodeStatus)
 
         # create cpu_info object to send periodic updates
         sysinfo_req = False
@@ -2604,14 +2684,6 @@ class SchemaTransformer(object):
         self._cpu_info = cpu_info
 
     # end __init__
-
-    def _get_process_connectivity_status(self, conn_infos):
-        for conn_info in conn_infos:
-            if conn_info.status != ConnectionStatusNames[ConnectionStatus.UP]:
-                return (ConnectivityStatus.NON_FUNCTIONAL,
-                        conn_info.type + ':' + conn_info.name)
-        return (ConnectivityStatus.FUNCTIONAL, '')
-    #end _get_process_connectivity_status
 
     def cleanup(self):
         # TODO cleanup sandesh context
@@ -2731,12 +2803,19 @@ class SchemaTransformer(object):
         vnp.build(meta)
         virtual_network.add_policy(policy_name, vnp)
         self.current_network_set |= policy.networks_back_ref
+        for pol in NetworkPolicyST.values():
+            if policy_name in pol.policies:
+                self.current_network_set |= pol.networks_back_ref
     # end add_virtual_network_network_policy
 
     def add_virtual_network_network_ipam(self, idents, meta):
         network_name = idents['virtual-network']
         ipam_name = idents['network-ipam']
         virtual_network = VirtualNetworkST.locate(network_name)
+        if virtual_network is None:
+            _sandesh._logger.debug("Cannot read virtual network %s",
+                                   network_name)
+            return
         subnet = VnSubnetsType()
         subnet.build(meta)
         virtual_network.ipams[ipam_name] = subnet
@@ -2799,6 +2878,15 @@ class SchemaTransformer(object):
         vn.set_route_target_list(rt_list)
         self.current_network_set.add(vn_name)
     # end add_route_target_list
+
+    def delete_route_target_list(self, idents, meta):
+        vn_name = idents['virtual-network']
+        vn = VirtualNetworkST.get(vn_name)
+        if vn:
+            rt_list = RouteTargetList()
+            vn.set_route_target_list(rt_list)
+            self.current_network_set.add(vn_name)
+    # end delete_route_target_list
 
     def add_bgp_router_parameters(self, idents, meta):
         router_name = idents['bgp-router']
@@ -2898,7 +2986,12 @@ class SchemaTransformer(object):
         if not si_props.auto_policy:
             self.delete_service_instance_properties(idents, meta)
             return
-        si = _vnc_lib.service_instance_read(fq_name_str=si_name)
+        try:
+            si = _vnc_lib.service_instance_read(fq_name_str=si_name)
+        except NoIdError:
+            _sandesh._logger.debug("NoIdError while reading service "
+                                   "instance %s", si_name)
+            return
         si_props = si.get_service_instance_properties()
         left_vn_str = svc_info.get_left_vn(si.get_parent_fq_name_str(),
                                            si_props.left_virtual_network)
@@ -3016,7 +3109,8 @@ class SchemaTransformer(object):
         vmi_name = idents['virtual-machine-interface']
 
         lr_obj = LogicalRouterST.locate(lr_name)
-        lr_obj.add_interface(vmi_name)
+        if lr_obj is not None:
+            lr_obj.add_interface(vmi_name)
     # end add_logical_router_interface
 
     def delete_logical_router_interface(self, idents, meta):
@@ -3198,12 +3292,6 @@ class SchemaTransformer(object):
                         net = VirtualNetworkST.get(net_name)
                         if net is not None:
                             virtual_network.add_connection(net_name)
-
-            for lr in LogicalRouterST.values():
-                if network_name in lr.virtual_networks:
-                    for vn_name in (lr.virtual_networks - set(network_name)):
-                        virtual_network.add_connection(vn_name)
-            # end for lr
 
             # Derive connectivity changes between VNs
             new_connections = virtual_network.expand_connections()
@@ -3422,10 +3510,17 @@ def launch_arc(transformer, ssrc_mapc):
         try:
             transformer.process_poll_result(result)
         except Exception as e:
+            string_buf = StringIO()
             cgitb.Hook(
+                file=string_buf,
                 format="text",
-                file=open('/var/log/contrail/schema.err',
-                          'a')).handle(sys.exc_info())
+                ).handle(sys.exc_info())
+            try:
+                with open('/var/log/contrail/schema.err', 'a') as err_file:
+                    err_file.write(string_buf.getvalue())
+            except IOError:
+                with open('./schema.err', 'a') as err_file:
+                    err_file.write(string_buf.getvalue())
             raise e
 # end launch_arc
 

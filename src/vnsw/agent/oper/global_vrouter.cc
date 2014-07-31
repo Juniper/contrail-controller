@@ -76,7 +76,8 @@ public:
     static const uint32_t kDnsTimeout = 15 * 60 * 1000; // fifteen minutes
 
     FabricDnsResolver(GlobalVrouter *vrouter, boost::asio::io_service &io)
-        : global_vrouter_(vrouter), io_(io) {
+        : request_count_(0), response_count_(0), global_vrouter_(vrouter),
+        io_(io) {
         // start timer to re-resolve the DNS names to IP addresses
         timer_ = TimerManager::CreateTimer(io_, "DnsHandlerTimer");
         timer_->Start(kDnsTimeout,
@@ -140,6 +141,10 @@ public:
         return false;
     }
 
+    uint64_t PendingRequests() const {
+        return request_count_ - response_count_;
+    }
+
 private:
     typedef std::map<std::string, std::vector<Ip4Address> > ResolveMap;
     typedef std::pair<std::string, std::vector<Ip4Address> > ResolvePair;
@@ -151,6 +156,7 @@ private:
             boost_udp::resolver::query(boost_udp::v4(), name, "domain"),
             boost::bind(&GlobalVrouter::FabricDnsResolver::ResolveHandler, this,
                         _1, _2, name, resolver));
+        request_count_++;
     }
 
     // called in asio context, handle resolve response 
@@ -173,12 +179,15 @@ private:
             }
             global_vrouter_->LinkLocalRouteUpdate(addr_it->second);
         }
+        response_count_++;
         delete resolver;
     }
 
     Timer *timer_;
     tbb::mutex mutex_;
     ResolveMap address_map_;
+    uint64_t request_count_;
+    uint64_t response_count_;
     GlobalVrouter *global_vrouter_;
     boost::asio::io_service &io_;
 };
@@ -192,7 +201,11 @@ public:
     LinkLocalRouteManager(GlobalVrouter *vrouter) 
         : global_vrouter_(vrouter), vn_id_(DBTableBase::kInvalidId) {}
 
-    virtual ~LinkLocalRouteManager() { DeleteDBClients(); }
+    virtual ~LinkLocalRouteManager() {
+        DeleteDBClients();
+        ipfabric_address_list_.clear();
+        linklocal_address_list_.clear();
+    }
 
     void CreateDBClients();
     void DeleteDBClients();
@@ -222,8 +235,13 @@ void GlobalVrouter::LinkLocalRouteManager::DeleteDBClients() {
 }
 
 void GlobalVrouter::LinkLocalRouteManager::AddArpRoute(const Ip4Address &srv) {
-    if (!ipfabric_address_list_.insert(srv).second)
+    std::set<Ip4Address>::iterator it;
+    std::pair<std::set<Ip4Address>::iterator, bool> ret;
+
+    ret = ipfabric_address_list_.insert(srv);
+    if (ret.second == false) {
         return;
+    }
 
     Inet4UnicastAgentRouteTable::CheckAndAddArpReq(global_vrouter_->oper_db()->
                                                    agent()->fabric_vrf_name(),
@@ -360,6 +378,10 @@ GlobalVrouter::GlobalVrouter(OperDB *oper)
 }
 
 GlobalVrouter::~GlobalVrouter() {
+}
+
+uint64_t GlobalVrouter::PendingFabricDnsRequests() const {
+    return fabric_dns_resolver_.get()->PendingRequests();
 }
 
 void GlobalVrouter::CreateDBClients() {

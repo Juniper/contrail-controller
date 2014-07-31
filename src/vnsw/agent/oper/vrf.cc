@@ -66,6 +66,9 @@ VrfEntry::~VrfEntry() {
         table->FreeVrfId(id_);
         table->VrfReuse(GetName());
     }
+    //Delete timer
+    if (delete_timeout_timer_)
+        TimerManager::DeleteTimer(delete_timeout_timer_);
 }
 
 bool VrfEntry::IsLess(const DBEntry &rhs) const {
@@ -511,9 +514,9 @@ public:
         AgentRoute *rt = static_cast<AgentRoute *>(e); 
         for(Route::PathList::const_iterator it = rt->GetPathList().begin();
             it != rt->GetPathList().end(); ) {
-            Route::PathList::const_iterator next = ++it;
             const AgentPath *path =
                 static_cast<const AgentPath *>(it.operator->());
+            Route::PathList::const_iterator next = ++it;
 
             DBRequest req(DBRequest::DB_ENTRY_DELETE);
             req.key = e->GetDBRequestKey();
@@ -527,9 +530,16 @@ public:
     }
 
     static void WalkDone(RouteDeleteWalker *walker) {
+        walker->agent()->vrf_table()->reset_shutdown_walk();
         delete walker;
+        walk_done_++;
     }
+
+    static uint32_t walk_start_;
+    static uint32_t walk_done_;
 };
+uint32_t RouteDeleteWalker::walk_start_;
+uint32_t RouteDeleteWalker::walk_done_;
 
 void VrfTable::DeleteRoutes() {
     assert(shutdown_walk_ == NULL);
@@ -537,6 +547,7 @@ void VrfTable::DeleteRoutes() {
     shutdown_walk_ = walker;
     walker->WalkDoneCallback
         (boost::bind(&RouteDeleteWalker::WalkDone, walker));
+    walker->walk_start_++;
     walker->StartVrfWalk();
 }
 

@@ -258,6 +258,9 @@ struct IFMapStateMachineInfo {
     3: string last_state_change_at;
     4: string last_event;
     5: string last_event_at;
+    6: u64 workq_enqueues;
+    7: u64 workq_dequeues;
+    8: u64 workq_length;
 }
 
 struct IFMapDSPeerInfoEntry {
@@ -343,14 +346,5 @@ struct IFMapNodeTableListShowEntry {
 
 response sandesh IFMapNodeTableListShowResp {
     1: list<IFMapNodeTableListShowEntry> table_list
-}
-
-request sandesh IFMapPeerServerSocketReadReq {
-    1: i32 bytes_to_read;
-}
-
-response sandesh IFMapPeerServerSocketReadResp {
-    1: i32 socket_bytes;
-    2: string socket_string;
 }
 

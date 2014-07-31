@@ -17,6 +17,12 @@ struct TrafficSeen;
 struct ActiveActiveState;
 class PathPreferenceModule;
 
+#define PATH_PREFERENCE_TRACE(...)                                   \
+do {                                                                      \
+   PathPreferenceTrace::TraceMsg(PathPreferenceTraceBuf, __FILE__, __LINE__,\
+                            ##__VA_ARGS__);                               \
+} while (false) \
+
 //Per Path state machine to determine preference of a path based on
 //traffic(GARP or flow from VM)
 class PathPreferenceSM:

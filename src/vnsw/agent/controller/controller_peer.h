@@ -26,7 +26,7 @@ class PathPreference;
 
 class AgentXmppChannel {
 public:
-    AgentXmppChannel(Agent *agent, XmppChannel *channel, 
+    AgentXmppChannel(Agent *agent,
                      const std::string &xmpp_server, 
                      const std::string &label_range, uint8_t xs_idx);
     virtual ~AgentXmppChannel();
@@ -94,6 +94,7 @@ public:
     // decommissioned peer and eventually gets destroyed.
     void CreateBgpPeer();
     void DeCommissionBgpPeer();
+    void RegisterXmppChannel(XmppChannel *channel);
 
     std::string controller_ifmap_xmpp_server() { return xmpp_server_; }
     uint8_t GetXmppServerIdx() { return xs_idx_; }

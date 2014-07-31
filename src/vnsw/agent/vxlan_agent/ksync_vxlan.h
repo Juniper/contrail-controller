@@ -16,7 +16,22 @@ class KSyncVxlanRouteEntry;
 class KSyncVxlanRouteTable;
 
 /**************************************************************************
- * Top level KSync Vxlan object
+ * KSync VxLan defines datamodel for port of agent to platforms supporting
+ * Linux Kernel like VxLan Bridges. Note, the code in this directory does not
+ * program the datapath and only creates tables according to the datamodel
+ * in Vxlan Linux Kernel.
+ *
+ * KSyncVxlan is the top level object. It drives creation of following
+ * objects,
+ *
+ * - KSyncVxlanBridgeObject : KSync Object for VxLan Bridges
+ * - KSyncVxlanPortObject : KSync Object for ports in VxLan Bridges
+ * - KSyncVxlanVrfObject : KSync Object for every VRF in agent oper-db. VRF
+ *   entries in turn will contain FDB tables that must be programmed to
+ *   Vxlan Bridges
+ *
+ * The classes defined in this directoy must be inherited according to the
+ * platform. Programming of dataplane should be done in the inherited class
  **************************************************************************/
 class KSyncVxlan {
 public:

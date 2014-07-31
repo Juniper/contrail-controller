@@ -5,11 +5,14 @@
 #ifndef vnsw_agent_hpp
 #define vnsw_agent_hpp
 
+#include <net/ethernet.h>
+
 #include <vector>
 #include <stdint.h>
-#include <netinet/ether.h>
 #include <boost/intrusive_ptr.hpp>
 #include <cmn/agent_cmn.h>
+#include <base/connection_info.h>
+#include "net/mac_address.h"
 
 class Agent;
 class AgentParam;
@@ -26,6 +29,8 @@ class AgentDBEntry;
 class XmppClient;
 class OperDB;
 class AgentRoute;
+class TaskScheduler;
+class AgentInit;
 
 class Interface;
 typedef boost::intrusive_ptr<Interface> InterfaceRef;
@@ -142,9 +147,9 @@ class Peer;
 class LifetimeManager;
 class DiagTable;
 class VNController;
-class ConnectionState;
 class AgentSignal;
 class ServiceInstanceTable;
+class LoadbalancerTable;
 class Agent;
 
 extern void RouterIdDepInit(Agent *agent);
@@ -185,8 +190,8 @@ public:
 
     static Agent *GetInstance() {return singleton_;}
     static const std::string &NullString() {return null_string_;};
-    static const uint8_t *vrrp_mac() {return vrrp_mac_;}
-    static const std::string &BcastMac() {return bcast_mac_;};
+    static const MacAddress &vrrp_mac() { return vrrp_mac_;}
+    static const MacAddress &BcastMac() {return bcast_mac_;};
     static const std::string &xmpp_dns_server_prefix() {
         return xmpp_dns_server_connection_name_prefix_;
     }
@@ -241,10 +246,10 @@ public:
     }
     
     AclTable *acl_table() const { return acl_table_;}
-    void set_acl_table(AclTable *table) { 
+    void set_acl_table(AclTable *table) {
         acl_table_ = table;
     }
-    
+
     MirrorTable *mirror_table() const { return mirror_table_;}
     void set_mirror_table(MirrorTable *table) {
         mirror_table_ = table;
@@ -256,10 +261,10 @@ public:
     }
 
     VxLanTable *vxlan_table() const { return vxlan_table_;}
-    void set_vxlan_table(VxLanTable *table) { 
+    void set_vxlan_table(VxLanTable *table) {
         vxlan_table_ = table;
     }
-    
+
     CfgIntTable *interface_config_table() const {return intf_cfg_table_;}
     void set_interface_config_table(CfgIntTable *table) {
         intf_cfg_table_ = table;
@@ -409,6 +414,15 @@ public:
        service_instance_table_= table;
    }
 
+    // Loadbalancer-pool
+   LoadbalancerTable *loadbalancer_table() const {
+       return loadbalancer_table_;
+   }
+
+   void set_loadbalancer_table(LoadbalancerTable *table) {
+       loadbalancer_table_ = table;
+   }
+
     // DNS XMPP Server
     const int8_t &dns_xmpp_server_index() const {return xs_dns_idx_;}
     void set_dns_xmpp_server_index(uint8_t xs_idx) {xs_dns_idx_ = xs_idx;}
@@ -452,29 +466,29 @@ public:
     /* Discovery Server, port, service-instances */
     const std::string &discovery_server() const {return dss_addr_;}
     const uint32_t discovery_server_port() {
-        return dss_port_; 
+        return dss_port_;
     }
     const int discovery_xmpp_server_instances() const {
         return dss_xs_instances_;
     }
 
     DiscoveryServiceClient *discovery_service_client() {
-        return ds_client_; 
+        return ds_client_;
     }
     void set_discovery_service_client(DiscoveryServiceClient *client) {
         ds_client_ = client;
     }
 
     // Multicast related
-    const std::string &multicast_label_range(uint8_t idx) { 
-        return label_range_[idx]; 
+    const std::string &multicast_label_range(uint8_t idx) {
+        return label_range_[idx];
     }
     void SetAgentMcastLabelRange(uint8_t idx) {
         std::stringstream str;
-        str << (MULTICAST_LABEL_RANGE_START + 
+        str << (MULTICAST_LABEL_RANGE_START +
                 (idx * MULTICAST_LABEL_BLOCK_SIZE)) << "-"
-            << (MULTICAST_LABEL_RANGE_START + 
-                ((idx + 1) * MULTICAST_LABEL_BLOCK_SIZE) - 1); 
+            << (MULTICAST_LABEL_RANGE_START +
+                ((idx + 1) * MULTICAST_LABEL_BLOCK_SIZE) - 1);
         label_range_[idx] = str.str();
     }
     void ResetAgentMcastLabelRange(uint8_t idx) {
@@ -503,7 +517,7 @@ public:
     }
 
     const std::string &pkt_interface_name() const {
-        return pkt_interface_name_; 
+        return pkt_interface_name_;
     }
     void set_pkt_interface_name(const std::string &name) {
         pkt_interface_name_ = name;
@@ -517,10 +531,10 @@ public:
     void set_vhost_interface(const Interface *interface) {
         vhost_interface_ = interface;
     }
-    ConnectionState* connection_state() const {
+    process::ConnectionState* connection_state() const {
         return connection_state_;
     }
-    void set_connection_state(ConnectionState* state) {
+    void set_connection_state(process::ConnectionState* state) {
         connection_state_ = state;
     }
     uint16_t metadata_server_port() const {return metadata_server_port_;}
@@ -552,7 +566,7 @@ public:
     const Peer *vgw_peer() const {return vgw_peer_.get();}
 
     // Agent Modules
-    AgentConfig *cfg() const; 
+    AgentConfig *cfg() const;
     void set_cfg(AgentConfig *cfg);
 
     CfgListener *cfg_listener() const;
@@ -599,7 +613,15 @@ public:
     }
 
     int sandesh_port() const { return sandesh_port_;}
+
     DB *db() const {return db_;}
+
+    TaskScheduler *task_scheduler() const { return task_scheduler_; }
+    void set_task_scheduler(TaskScheduler *t) { task_scheduler_ = t; }
+
+    AgentInit *agent_init() const { return agent_init_; }
+    void set_agent_init(AgentInit *init) { agent_init_ = init; }
+
     const std::string &fabric_interface_name() const {
         return ip_fabric_intf_name_;
     }
@@ -693,6 +715,8 @@ private:
 
     // DB handles
     DB *db_;
+    TaskScheduler *task_scheduler_;
+    AgentInit *agent_init_;
     InterfaceTable *intf_table_;
     NextHopTable *nh_table_;
     Inet4UnicastAgentRouteTable *uc_rt_table_;
@@ -708,12 +732,13 @@ private:
     VrfAssignTable *vrf_assign_table_;
     VxLanTable *vxlan_table_;
     ServiceInstanceTable *service_instance_table_;
+    LoadbalancerTable *loadbalancer_table_;
 
     // Mirror config table
     MirrorCfgTable *mirror_cfg_table_;
     // Interface Mirror config table
     IntfMirrorCfgTable *intf_mirror_cfg_table_;
-    
+
     // Config DB Table handles
     CfgIntTable *intf_cfg_table_;
 
@@ -762,7 +787,7 @@ private:
     VxLanNetworkIdentifierMode vxlan_network_identifier_mode_;
     bool headless_agent_mode_;
     const Interface *vhost_interface_;
-    ConnectionState* connection_state_;
+    process::ConnectionState* connection_state_;
     bool debug_;
     bool test_mode_;
     bool init_done_;
@@ -778,8 +803,8 @@ private:
     static const std::string fabric_vn_name_;
     static const std::string link_local_vrf_name_;
     static const std::string link_local_vn_name_;
-    static const uint8_t vrrp_mac_[ETHER_ADDR_LEN];
-    static const std::string bcast_mac_;
+    static const MacAddress vrrp_mac_;
+    static const MacAddress bcast_mac_;
     static const std::string xmpp_dns_server_connection_name_prefix_;
     static const std::string xmpp_control_node_connection_name_prefix_;
 };

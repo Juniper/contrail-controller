@@ -865,6 +865,7 @@ TEST_F(RouteTest, VlanNHRoute_1) {
     if (rt) {
         EXPECT_TRUE(rt->dest_vn_name() == "TestVn");
     }
+    EXPECT_TRUE(rt->GetActivePath()->tunnel_bmap() == TunnelType::MplsType());
 
     AddVmPortVrf("ser1", "2.2.2.1", 10);
     client->WaitForIdle();
@@ -955,7 +956,8 @@ TEST_F(RouteTest, RouteToDeletedNH_1) {
                                                             10,
                                                             SecurityGroupList(),
                                                             false,
-                                                            PathPreference());
+                                                            PathPreference(),
+                                                            Ip4Address(0));
     client->WaitForIdle();
 
     Inet4UnicastAgentRouteTable::DeleteReq(peer, "vrf1", addr, 32, NULL);
@@ -999,14 +1001,16 @@ TEST_F(RouteTest, RouteToDeletedNH_2) {
                                                             "Test", 10,
                                                             SecurityGroupList(),
                                                             false,
-                                                            PathPreference());
+                                                            PathPreference(),
+                                                            Ip4Address(0));
     agent_->fabric_inet4_unicast_table()->AddLocalVmRouteReq(peer2, "vrf1",
                                                             addr, 32,
                                                             MakeUuid(1),
                                                             "Test", 10,
                                                             SecurityGroupList(),
                                                             false,
-                                                            PathPreference());
+                                                            PathPreference(),
+                                                            Ip4Address(0));
     client->WaitForIdle();
 
     DelNode("access-control-list", "acl1");
@@ -1019,7 +1023,8 @@ TEST_F(RouteTest, RouteToDeletedNH_2) {
                                                             "Test", 10,
                                                             SecurityGroupList(),
                                                             false,
-                                                            PathPreference());
+                                                            PathPreference(),
+                                                            Ip4Address(0));
     client->WaitForIdle();
 
     Inet4UnicastAgentRouteTable::DeleteReq(peer1, "vrf1", addr, 32, NULL);
@@ -1057,7 +1062,8 @@ TEST_F(RouteTest, RouteToInactiveInterface) {
                                                             "Test", 10,
                                                             SecurityGroupList(),
                                                             false,
-                                                            PathPreference());
+                                                            PathPreference(),
+                                                            Ip4Address(0));
     client->WaitForIdle();
     DelVn("vn1");
     client->WaitForIdle();
@@ -1070,7 +1076,8 @@ TEST_F(RouteTest, RouteToInactiveInterface) {
                                                             "Test", 10,
                                                             SecurityGroupList(),
                                                             false,
-                                                            PathPreference());
+                                                            PathPreference(),
+                                                            Ip4Address(0));
     client->WaitForIdle();
 
     Inet4UnicastAgentRouteTable::DeleteReq(peer, "vrf1", addr, 32, NULL);
@@ -1272,6 +1279,166 @@ TEST_F(RouteTest, PathPreference) {
 
     DeleteVmportEnv(input, 2, true);
     client->WaitForIdle();
+}
+
+//If ecmp flag is removed from instance ip, verify that path gets removed from
+//ecmp peer path
+TEST_F(RouteTest, EcmpPathDelete) {
+    client->Reset();
+    struct PortInfo input[] = {
+        {"vnet3", 3, "1.1.1.1", "00:00:00:01:01:01", 3, 3},
+        {"vnet4", 4, "1.1.1.1", "00:00:00:01:01:01", 3, 4},
+    };
+
+    CreateVmportWithEcmp(input, 2);
+    client->WaitForIdle();
+
+    VmInterface *vnet3 = VmInterfaceGet(3);
+    VmInterface *vnet4 = VmInterfaceGet(4);
+
+    Ip4Address ip = Ip4Address::from_string("1.1.1.1");
+    Inet4UnicastRouteEntry *rt = RouteGet("vrf3", ip, 32);
+    EXPECT_TRUE(rt->GetActiveNextHop()->GetType() == NextHop::COMPOSITE);
+
+    CreateVmportEnv(input, 2);
+    client->WaitForIdle();
+    //One of the interface becomes active path
+    EXPECT_TRUE(rt->GetActiveNextHop()->GetType() == NextHop::INTERFACE);
+
+    CreateVmportWithEcmp(input, 2);
+    client->WaitForIdle();
+    EXPECT_TRUE(rt->GetActiveNextHop()->GetType() == NextHop::COMPOSITE);
+
+    DeleteVmportEnv(input, 2, true);
+    client->WaitForIdle();
+    EXPECT_TRUE(RouteGet("vrf3", ip, 32) == NULL);
+    //Make sure vrf and all routes are deleted
+    EXPECT_TRUE(VrfFind("vrf3", true) == false);
+}
+
+TEST_F(RouteTest, Enqueue_uc_route_add_on_deleted_vrf) {
+    struct PortInfo input[] = {
+        {"vnet1", 1, "1.1.1.10", "00:00:00:01:01:01", 1, 1},
+    };
+
+    client->Reset();
+    CreateVmportEnv(input, 1);
+    client->WaitForIdle();
+
+    VrfEntryRef vrf_ref = VrfGet(vrf_name_.c_str());
+    DeleteVmportEnv(input, 1, true);
+    client->WaitForIdle();
+    TaskScheduler::GetInstance()->Stop();
+    Inet4TunnelRouteAdd(NULL, vrf_name_, remote_vm_ip_, 32, server1_ip_,
+                        TunnelType::AllType(), MplsTable::kStartLabel,
+                        vrf_name_,
+                        SecurityGroupList(), PathPreference());
+    vrf_ref = NULL;
+    TaskScheduler::GetInstance()->Start();
+    client->WaitForIdle();
+}
+
+TEST_F(RouteTest, Enqueue_uc_route_del_on_deleted_vrf) {
+    struct PortInfo input[] = {
+        {"vnet1", 1, "1.1.1.10", "00:00:00:01:01:01", 1, 1},
+    };
+
+    client->Reset();
+    CreateVmportEnv(input, 1);
+    client->WaitForIdle();
+
+    VrfEntryRef vrf_ref = VrfGet(vrf_name_.c_str());
+    DeleteVmportEnv(input, 1, true);
+    client->WaitForIdle();
+    TaskScheduler::GetInstance()->Stop();
+    Inet4UnicastAgentRouteTable::DeleteReq(NULL, vrf_name_, remote_vm_ip_, 32,
+                                           NULL);
+    vrf_ref = NULL;
+    TaskScheduler::GetInstance()->Start();
+    client->WaitForIdle();
+}
+
+TEST_F(RouteTest, Enqueue_mc_route_add_on_deleted_vrf) {
+    struct PortInfo input[] = {
+        {"vnet1", 1, "1.1.1.10", "00:00:00:01:01:01", 1, 1},
+    };
+
+    client->Reset();
+    CreateVmportEnv(input, 1);
+    client->WaitForIdle();
+
+    VrfEntryRef vrf_ref = VrfGet(vrf_name_.c_str());
+    DeleteVmportEnv(input, 1, true);
+    client->WaitForIdle();
+    TaskScheduler::GetInstance()->Stop();
+    ComponentNHKeyList component_nh_key_list;
+    Inet4MulticastAgentRouteTable::AddMulticastRoute(vrf_name_, "vn1",
+                                   Ip4Address::from_string("0.0.0.0"),
+                                   Ip4Address::from_string("255.255.255.255"),
+                                   component_nh_key_list);
+
+    vrf_ref = NULL;
+    TaskScheduler::GetInstance()->Start();
+    client->WaitForIdle();
+}
+
+TEST_F(RouteTest, Enqueue_mc_route_del_on_deleted_vrf) {
+    struct PortInfo input[] = {
+        {"vnet1", 1, "1.1.1.10", "00:00:00:01:01:01", 1, 1},
+    };
+
+    client->Reset();
+    CreateVmportEnv(input, 1);
+    client->WaitForIdle();
+
+    VrfEntryRef vrf_ref = VrfGet(vrf_name_.c_str());
+    DeleteVmportEnv(input, 1, true);
+    client->WaitForIdle();
+    TaskScheduler::GetInstance()->Stop();
+    Inet4MulticastAgentRouteTable::DeleteMulticastRoute(vrf_name_,
+                                   Ip4Address::from_string("0.0.0.0"),
+                                   Ip4Address::from_string("255.255.255.255"));
+    vrf_ref = NULL;
+    TaskScheduler::GetInstance()->Start();
+    client->WaitForIdle();
+}
+
+TEST_F(RouteTest, SubnetGwForRoute_1) {
+    struct PortInfo input[] = {
+        {"vnet1", 1, "1.1.1.10", "00:00:00:01:01:01", 1, 1},
+    };
+
+    client->Reset();
+    CreateVmportEnv(input, 1);
+    client->WaitForIdle();
+
+    IpamInfo ipam_info[] = {
+        {"1.1.1.0", 24, "1.1.1.200", true},
+    };
+    AddIPAM("vn1", ipam_info, 1, NULL, "vdns1");
+    client->WaitForIdle();
+
+    //Check if the subnet gateway is set to 1.1.1.200 for a route
+    Ip4Address vm_ip = Ip4Address::from_string("1.1.1.10");
+    Inet4UnicastRouteEntry *rt = RouteGet("vrf1", vm_ip, 32);
+    Ip4Address subnet_gw_ip = Ip4Address::from_string("1.1.1.200");
+    EXPECT_TRUE(rt->GetActivePath()->subnet_gw_ip() == subnet_gw_ip);
+
+    //Update ipam to have different gw address
+    IpamInfo ipam_info2[] = {
+        {"1.1.1.0", 24, "1.1.1.201", true},
+    };
+    AddIPAM("vn1", ipam_info2, 1, NULL, "vdns1");
+    client->WaitForIdle();
+
+    subnet_gw_ip = Ip4Address::from_string("1.1.1.201");
+    EXPECT_TRUE(rt->GetActivePath()->subnet_gw_ip() == subnet_gw_ip);
+
+    DelIPAM("vn1", "vdns1");
+    DeleteVmportEnv(input, 1, true);
+    client->WaitForIdle();
+    //Make sure vrf and all routes are deleted
+    EXPECT_TRUE(VrfFind("vrf1", true) == false);
 }
 
 int main(int argc, char *argv[]) {

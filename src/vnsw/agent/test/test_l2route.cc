@@ -69,17 +69,13 @@ protected:
         server1_ip_ = Ip4Address::from_string("10.1.1.11");
         local_vm_ip_ = Ip4Address::from_string("1.1.1.10");
         remote_vm_ip_ = Ip4Address::from_string("1.1.1.11");
-        local_vm_mac_ = (struct ether_addr *)malloc(sizeof(struct ether_addr));
-        remote_vm_mac_ = (struct ether_addr *)malloc(sizeof(struct ether_addr));
-        memcpy (local_vm_mac_, ether_aton("00:00:01:01:01:10"), 
-                sizeof(struct ether_addr));
-        memcpy (remote_vm_mac_, ether_aton("00:00:01:01:01:11"), 
-                sizeof(struct ether_addr));
+        memcpy(&local_vm_mac_, ether_aton("00:00:01:01:01:10"),
+               sizeof(struct ether_addr));
+        memcpy(&remote_vm_mac_, ether_aton("00:00:01:01:01:11"),
+               sizeof(struct ether_addr));
     }
 
     ~RouteTest() {
-        free(local_vm_mac_);
-        free(remote_vm_mac_);
     }
 
     virtual void SetUp() {
@@ -145,8 +141,8 @@ protected:
     Ip4Address  vhost_ip_;
     Ip4Address  server1_ip_;
     Ip4Address  server2_ip_;
-    struct ether_addr *local_vm_mac_;
-    struct ether_addr *remote_vm_mac_;
+    struct ether_addr local_vm_mac_;
+    struct ether_addr remote_vm_mac_;
     static TunnelType::Type type_;
     Agent *agent_;
 };
@@ -190,8 +186,8 @@ TEST_F(RouteTest, LocalVmRoute_1) {
     EXPECT_TRUE(obj != NULL);
     EXPECT_TRUE(obj->Ipv4Forwarding() == false);
     EXPECT_TRUE(obj->layer2_forwarding() == true);
-    EXPECT_TRUE(L2RouteFind(vrf_name_, *local_vm_mac_));
-    Layer2RouteEntry *rt = L2RouteGet(vrf_name_, *local_vm_mac_);
+    EXPECT_TRUE(L2RouteFind(vrf_name_, local_vm_mac_));
+    Layer2RouteEntry *rt = L2RouteGet(vrf_name_, local_vm_mac_);
     EXPECT_TRUE(rt->GetActiveNextHop() != NULL);
     const NextHop *nh = rt->GetActiveNextHop();
     EXPECT_TRUE(rt->dest_vn_name() == "vn1");
@@ -208,7 +204,7 @@ TEST_F(RouteTest, LocalVmRoute_1) {
     client->WaitForIdle();
 
     int i = 0;
-    while(L2RouteFind(vrf_name_, *local_vm_mac_) == true && ++i < 25) {
+    while(L2RouteFind(vrf_name_, local_vm_mac_) == true && ++i < 25) {
         client->WaitForIdle();
     }
     EXPECT_FALSE(VmPortFind(input, 0));
@@ -227,8 +223,8 @@ TEST_F(RouteTest, LocalVmRoute_2) {
     client->WaitForIdle();
 
     EXPECT_TRUE(VmPortActive(input, 0));
-    EXPECT_TRUE(L2RouteFind(vrf_name_, *local_vm_mac_));
-    Layer2RouteEntry *rt = L2RouteGet(vrf_name_, *local_vm_mac_);
+    EXPECT_TRUE(L2RouteFind(vrf_name_, local_vm_mac_));
+    Layer2RouteEntry *rt = L2RouteGet(vrf_name_, local_vm_mac_);
     EXPECT_TRUE(rt->GetActiveNextHop() != NULL);
     const NextHop *nh = rt->GetActiveNextHop();
     EXPECT_TRUE(rt->dest_vn_name() == "vn1");
@@ -245,7 +241,7 @@ TEST_F(RouteTest, LocalVmRoute_2) {
     client->WaitForIdle();
 
     int i = 0;
-    while(L2RouteFind(vrf_name_, *local_vm_mac_) == true && ++i < 25) {
+    while(L2RouteFind(vrf_name_, local_vm_mac_) == true && ++i < 25) {
         client->WaitForIdle();
     }
     EXPECT_FALSE(VmPortFind(input, 0));
@@ -271,7 +267,7 @@ TEST_F(RouteTest, Mpls_sandesh_check_with_l2route) {
     EXPECT_TRUE(obj != NULL);
     EXPECT_TRUE(obj->Ipv4Forwarding() == false);
     EXPECT_TRUE(obj->layer2_forwarding() == true);
-    EXPECT_TRUE(L2RouteFind(vrf_name_, *local_vm_mac_));
+    EXPECT_TRUE(L2RouteFind(vrf_name_, local_vm_mac_));
 
     MplsReq *mpls_list_req = new MplsReq();
     std::vector<int> result = list_of(1);
@@ -285,7 +281,7 @@ TEST_F(RouteTest, Mpls_sandesh_check_with_l2route) {
     client->WaitForIdle();
 
     int i = 0;
-    while(L2RouteFind(vrf_name_, *local_vm_mac_) == true && ++i < 25) {
+    while(L2RouteFind(vrf_name_, local_vm_mac_) == true && ++i < 25) {
         client->WaitForIdle();
     }
     EXPECT_FALSE(VmPortFind(input, 0));
@@ -301,10 +297,10 @@ TEST_F(RouteTest, RemoteVmRoute_1) {
 
     TunnelType::TypeBmap bmap;
     bmap = 1 << TunnelType::MPLS_GRE;
-    AddRemoteVmRoute(remote_vm_mac_, server1_ip_, MplsTable::kStartLabel, bmap);
-    EXPECT_TRUE(L2RouteFind(vrf_name_, *remote_vm_mac_));
+    AddRemoteVmRoute(&remote_vm_mac_, server1_ip_, MplsTable::kStartLabel, bmap);
+    EXPECT_TRUE(L2RouteFind(vrf_name_, remote_vm_mac_));
 
-    Layer2RouteEntry *rt = L2RouteGet(vrf_name_, *remote_vm_mac_);
+    Layer2RouteEntry *rt = L2RouteGet(vrf_name_, remote_vm_mac_);
     EXPECT_TRUE(rt->GetMplsLabel() == MplsTable::kStartLabel);
 
     Layer2RouteReq *l2_req = new Layer2RouteReq();
@@ -322,7 +318,7 @@ TEST_F(RouteTest, RemoteVmRoute_1) {
     EXPECT_TRUE(tnh->GetTunnelType().GetType() == TunnelType::MPLS_GRE);
     EXPECT_TRUE(tnh->GetDip()->to_string() == server1_ip_.to_string());
 
-    DeleteRoute(agent_->local_peer(), vrf_name_, remote_vm_mac_);
+    DeleteRoute(agent_->local_peer(), vrf_name_, &remote_vm_mac_);
     client->WaitForIdle();
     DelEncapList();
     client->WaitForIdle();
@@ -343,7 +339,7 @@ TEST_F(RouteTest, RemoteVmRoute_VxLan_auto) {
     client->WaitForIdle();
 
     EXPECT_TRUE(VmPortActive(input, 0));
-    EXPECT_TRUE(L2RouteFind(vrf_name_, *local_vm_mac_));
+    EXPECT_TRUE(L2RouteFind(vrf_name_, local_vm_mac_));
 
     struct ether_addr *vxlan_vm_mac = ether_aton("00:00:01:01:01:10");
     Layer2RouteEntry *vnet1_rt = L2RouteGet(vrf_name_, *vxlan_vm_mac);
@@ -404,7 +400,7 @@ TEST_F(RouteTest, RemoteVmRoute_VxLan_config) {
     client->WaitForIdle();
 
     EXPECT_TRUE(VmPortActive(input, 0));
-    EXPECT_TRUE(L2RouteFind(vrf_name_, *local_vm_mac_));
+    EXPECT_TRUE(L2RouteFind(vrf_name_, local_vm_mac_));
 
     struct ether_addr *vxlan_vm_mac = ether_aton("00:00:01:01:01:10");
     Layer2RouteEntry *vnet1_rt = L2RouteGet(vrf_name_, *vxlan_vm_mac);
@@ -462,13 +458,13 @@ TEST_F(RouteTest, Layer2_route_key) {
     client->WaitForIdle();
 
     EXPECT_TRUE(VmPortL2Active(input, 0));
-    Layer2RouteEntry *vnet1_rt = L2RouteGet(vrf_name_, *local_vm_mac_);
-    Layer2RouteKey new_key(agent_->local_vm_peer(), "vrf2", *local_vm_mac_);
+    Layer2RouteEntry *vnet1_rt = L2RouteGet(vrf_name_, local_vm_mac_);
+    Layer2RouteKey new_key(agent_->local_vm_peer(), "vrf2", local_vm_mac_);
     vnet1_rt->SetKey(&new_key);
     EXPECT_TRUE(vnet1_rt->vrf()->GetName() == "vrf2");
     EXPECT_TRUE(new_key.ToString() == "0:0:1:1:1:10");
     Layer2RouteKey restore_key(agent_->local_vm_peer(), "vrf1", 
-                               *local_vm_mac_);
+                               local_vm_mac_);
     vnet1_rt->SetKey(&restore_key);
     EXPECT_TRUE(vnet1_rt->vrf()->GetName() == "vrf1");
     EXPECT_TRUE(restore_key.ToString() == "0:0:1:1:1:10");
@@ -505,7 +501,7 @@ TEST_F(RouteTest, Vxlan_basic) {
     client->WaitForIdle();
 
     EXPECT_TRUE(VmPortActive(input, 0));
-    EXPECT_TRUE(L2RouteFind(vrf_name_, *local_vm_mac_));
+    EXPECT_TRUE(L2RouteFind(vrf_name_, local_vm_mac_));
 
     struct ether_addr *vxlan_vm_mac = ether_aton("00:00:01:01:01:10");
     Layer2RouteEntry *vnet1_rt = L2RouteGet(vrf_name_, *vxlan_vm_mac);
@@ -548,13 +544,57 @@ TEST_F(RouteTest, vxlan_network_id_change_for_non_l2_interface) {
     EXPECT_TRUE(VmPortActive(input, 0));
     Inet4UnicastRouteEntry *rt1 = RouteGet(vrf_name_, local_vm_ip_, 32);
     WAIT_FOR(100, 1000, (RouteGet(vrf_name_, local_vm_ip_, 32) != NULL));
-    WAIT_FOR(100, 1000, (L2RouteGet(vrf_name_, *local_vm_mac_) != NULL));
+    WAIT_FOR(100, 1000, (L2RouteGet(vrf_name_, local_vm_mac_) != NULL));
 
     DeleteVmportEnv(input, 1, true);
     client->WaitForIdle();
 
-    WAIT_FOR(100, 1000, (L2RouteGet(vrf_name_, *local_vm_mac_) == NULL));
+    WAIT_FOR(100, 1000, (L2RouteGet(vrf_name_, local_vm_mac_) == NULL));
     EXPECT_FALSE(VmPortFind(input, 0));
+    client->WaitForIdle();
+}
+
+TEST_F(RouteTest, Enqueue_l2_route_add_on_deleted_vrf) {
+    struct PortInfo input[] = {
+        {"vnet1", 1, "1.1.1.10", "00:00:00:01:01:01", 1, 1},
+    };
+
+    client->Reset();
+    CreateVmportEnv(input, 1);
+    client->WaitForIdle();
+
+    VrfEntryRef vrf_ref = VrfGet(vrf_name_.c_str());
+    DeleteVmportEnv(input, 1, true);
+    client->WaitForIdle();
+    TaskScheduler::GetInstance()->Stop();
+    ComponentNHKeyList component_nh_key_list;
+    Layer2AgentRouteTable::AddRemoteVmRouteReq(agent_->local_vm_peer(),
+                                               vrf_name_, local_vm_mac_,
+                                               local_vm_ip_, 32, NULL);
+
+    vrf_ref = NULL;
+    TaskScheduler::GetInstance()->Start();
+    client->WaitForIdle();
+}
+
+TEST_F(RouteTest, Enqueue_l2_route_del_on_deleted_vrf) {
+    struct PortInfo input[] = {
+        {"vnet1", 1, "1.1.1.10", "00:00:00:01:01:01", 1, 1},
+    };
+
+    client->Reset();
+    CreateVmportEnv(input, 1);
+    client->WaitForIdle();
+
+    VrfEntryRef vrf_ref = VrfGet(vrf_name_.c_str());
+    DeleteVmportEnv(input, 1, true);
+    client->WaitForIdle();
+    TaskScheduler::GetInstance()->Stop();
+    Layer2AgentRouteTable::DeleteReq(agent_->local_vm_peer(), vrf_name_,
+                                     local_vm_mac_,
+                                     NULL);
+    vrf_ref = NULL;
+    TaskScheduler::GetInstance()->Start();
     client->WaitForIdle();
 }
 

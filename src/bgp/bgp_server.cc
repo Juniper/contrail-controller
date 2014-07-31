@@ -7,11 +7,11 @@
 #include <boost/assign.hpp>
 
 #include "base/logging.h"
-#include "base/lifetime.h"
 #include "base/task_annotations.h"
 #include "bgp/bgp_config.h"
 #include "bgp/bgp_condition_listener.h"
 #include "bgp/bgp_factory.h"
+#include "bgp/bgp_lifetime.h"
 #include "bgp/bgp_log.h"
 #include "bgp/bgp_peer.h"
 #include "bgp/bgp_peer_membership.h"
@@ -157,16 +157,20 @@ private:
 class BgpServer::DeleteActor : public LifetimeActor {
 public:
     DeleteActor(BgpServer *server)
-        : LifetimeActor(server->lifetime_manager()), server_(server) { }
+        : LifetimeActor(server->lifetime_manager()), server_(server) {
+    }
     virtual bool MayDelete() const {
-        return true;
+        CHECK_CONCURRENCY("bgp::Config");
+        return server_->session_manager()->IsQueueEmpty();
     }
     virtual void Shutdown() {
         CHECK_CONCURRENCY("bgp::Config");
+        server_->session_manager()->Shutdown();
     }
     virtual void Destroy() {
         CHECK_CONCURRENCY("bgp::Config");
         server_->config_manager()->Terminate();
+        server_->session_manager()->Terminate();
         TcpServerManager::DeleteServer(server_->session_manager());
         server_->session_mgr_ = NULL;
     }
@@ -175,34 +179,38 @@ private:
     BgpServer *server_;
 };
 
+bool BgpServer::IsDeleted() const {
+    return deleter_->IsDeleted();
+}
+
+void BgpServer::RetryDelete() {
+    if (!deleter_->IsDeleted())
+        return;
+    deleter_->RetryDelete();
+}
+
 bool BgpServer::IsReadyForDeletion() {
     CHECK_CONCURRENCY("bgp::Config");
 
-    //
-    // Check if the IPeer membership manager queue is empty
-    //
+    // Check if the IPeer membership manager queue is empty.
     if (!membership_mgr_->IsQueueEmpty()) {
         return false;
     }
 
-    // Check if the Service Chain Manager Work Queue is empty
+    // Check if the Service Chain Manager Work Queue is empty.
     if (!service_chain_mgr_->IsQueueEmpty()) {
         return false;
     }
 
-    //
-    // Check if the RTargetGroupManager has processed all rtarget route updates
-    // This is done to ensure that InterestedPeerList of rtgroup is updated
-    // before allowing the peer to get deleted
-    //
-    if (!rtarget_group_mgr_->IsRTargetRoutesProcessed()) {
+    // Check if the DB requests queue and change list is empty.
+    if (!db_.IsDBQueueEmpty()) {
         return false;
     }
 
-    //
-    // Check if the DB requests queue and change list is empty
-    //
-    if (!db_.IsDBQueueEmpty()) {
+    // Check if the RTargetGroupManager has processed all RTargetRoute updates.
+    // This is done to ensure that the InterestedPeerList of RtargetGroup gets
+    // updated before allowing the peer to get deleted.
+    if (!rtarget_group_mgr_->IsRTargetRoutesProcessed()) {
         return false;
     }
 
@@ -211,9 +219,8 @@ bool BgpServer::IsReadyForDeletion() {
 
 BgpServer::BgpServer(EventManager *evm)
     : autonomous_system_(0), bgp_identifier_(0), hold_time_(0),
-      lifetime_manager_(new LifetimeManager(
-          TaskScheduler::GetInstance()->GetTaskId("bgp::Config"),
-          boost::bind(&BgpServer::IsReadyForDeletion, this))),
+      lifetime_manager_(new BgpLifetimeManager(this,
+          TaskScheduler::GetInstance()->GetTaskId("bgp::Config"))),
       deleter_(new DeleteActor(this)),
       aspath_db_(new AsPathDB(this)),
       comm_db_(new CommunityDB(this)),
@@ -242,7 +249,6 @@ string BgpServer::ToString() const {
 }
 
 void BgpServer::Shutdown() {
-    session_mgr_->Shutdown();
     deleter_->Delete();
 }
 

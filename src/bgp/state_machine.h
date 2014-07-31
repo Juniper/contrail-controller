@@ -95,6 +95,7 @@ public:
     void Initialize();
     void Shutdown(int subcode);
     void SetAdminState(bool down);
+    bool IsQueueEmpty() const;
 
     template <typename Ev, int code> void OnIdle(const Ev &event);
     template <typename Ev> void OnIdleCease(const Ev &event);
@@ -148,9 +149,10 @@ public:
     void connect_attempts_clear() { attempts_ = 0; }
 
     int hold_time() const { return hold_time_; }
-    virtual int hold_time_msecs() const { return hold_time() * 1000; }
     void reset_hold_time();
     void set_hold_time(int hold_time);
+    virtual int keepalive_time_msecs() const { return hold_time_ * 1000 / 3; }
+
     int idle_hold_time() const { return idle_hold_time_; }
     void reset_idle_hold_time() { idle_hold_time_ = 0; }
     void set_idle_hold_time(int idle_hold_time) { 
@@ -158,7 +160,7 @@ public:
     }
 
     void set_state(State state);
-    State get_state() { return state_; }
+    State get_state() const { return state_; }
     const std::string last_state_change_at() const;
     void set_last_event(const std::string &event);
     const std::string &last_event() const { return last_event_; }
@@ -175,6 +177,7 @@ public:
 
 private:
     friend class StateMachineTest;
+    friend class StateMachineUnitTest;
 
     struct EventContainer {
         boost::intrusive_ptr<const sc::event_base> event;
@@ -195,6 +198,7 @@ private:
 
     template <typename Ev> bool Enqueue(const Ev &event);
     bool DequeueEvent(EventContainer ec);
+    void DequeueEventDone(bool done);
 
     WorkQueue<EventContainer> work_queue_;
     BgpPeer *peer_;

@@ -106,6 +106,7 @@ public:
     void DeleteSession(XmppSession *session);
     XmppSession *session() { return session_; }
     void set_state(xmsm::XmState state);
+    xmsm::XmState get_state() { return state_; }
 
     void connect_attempts_inc() { attempts_++; }
     void connect_attempts_clear() { attempts_ = 0; }

@@ -1,5 +1,4 @@
 #!/bin/bash
-
 set -eu
 
 function usage {
@@ -69,10 +68,11 @@ function process_options {
   done
 }
 
-tool_path=${tools_path:-$(pwd)}
+tools_path=${tools_path:-$(pwd)/../common/tests/}
+root_path=${root_path:-$(pwd)}
 venv_path=${venv_path:-$(pwd)}
 venv_dir=${venv_name:-.venv}
-with_venv=tools/with_venv.sh
+with_venv=${tools_path}/tools/with_venv.sh
 always_venv=0
 never_venv=0
 force=0
@@ -112,7 +112,7 @@ function run_tests {
     if [ "$testropts" = "" ] && [ "$testrargs" = "" ]; then
       # Default to running all tests if specific test is not
       # provided.
-      testrargs="discover ./vnc_openstack/tests"
+      testrargs="discover ./tests"
     fi
     ${wrapper} python -m testtools.run $testropts $testrargs
 
@@ -141,9 +141,9 @@ function run_tests {
   then
     # subunit-2to1 is present, testr subunit stream should be in version 2
     # format. Convert to version one before colorizing.
-    bash -c "${wrapper} $TESTRTESTS | ${wrapper} subunit-2to1 | ${wrapper} tools/colorizer.py"
+    bash -c "${wrapper} $TESTRTESTS | ${wrapper} subunit-2to1 | ${wrapper} ${tools_path}/tools/colorizer.py"
   else
-    bash -c "${wrapper} $TESTRTESTS | ${wrapper} tools/colorizer.py"
+    bash -c "${wrapper} $TESTRTESTS | ${wrapper} ${tools_path}/tools/colorizer.py"
   fi
   RESULT=$?
   set -e
@@ -191,21 +191,21 @@ then
   fi
   if [ $update -eq 1 ]; then
       echo "Updating virtualenv..."
-      python tools/install_venv.py $installvenvopts
+      env tools_path=${tools_path} root_path=${root_path} python ../common/tests/tools/install_venv.py $installvenvopts
   fi
   if [ -e ${venv} ]; then
     wrapper="${with_venv}"
   else
     if [ $always_venv -eq 1 ]; then
       # Automatically install the virtualenv
-      python tools/install_venv.py $installvenvopts
+      env tools_path=${tools_path} root_path=${root_path} python ../common/tests/tools/install_venv.py $installvenvopts
       wrapper="${with_venv}"
     else
       echo -e "No virtual environment found...create one? (Y/n) \c"
       read use_ve
       if [ "x$use_ve" = "xY" -o "x$use_ve" = "x" -o "x$use_ve" = "xy" ]; then
         # Install the virtualenv and run the test suite in it
-        python tools/install_venv.py $installvenvopts
+        env tools_path=${tools_path} root_path=${root_path} python ../common/tests/tools/install_venv.py $installvenvopts
         wrapper=${with_venv}
       fi
     fi

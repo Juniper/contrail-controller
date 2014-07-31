@@ -10,10 +10,7 @@ env = BuildEnv.Clone()
 
 except_env = BuildEnv.Clone()
 except_env.Append(CPPPATH = env['TOP'])
-cflags = except_env['CCFLAGS']
-if '-fno-exceptions' in cflags:
-    cflags.remove('-fno-exceptions')
-except_env.Replace(CCFLAGS = cflags)
+except_env.CppEnableExceptions()
 
 timer_env = BuildEnv.Clone()
 timer_env.AppendUnique(CCFLAGS='-DBOOST_CHRONO_HEADER_ONLY')
@@ -40,12 +37,12 @@ libcpuinfo = env.Library('cpuinfo', ['cpuinfo.cc'] + cpuinfo_sandesh_files_ + ta
 task = except_env.Object('task.o', 'task.cc')
 timer = timer_env.Object('timer.o', 'timer.cc')
 
-ConnInfoSandeshGenFiles = env.SandeshGenCpp('sandesh/connection_info.sandesh')
-ConnInfoSandeshGenSrcs = env.ExtractCpp(ConnInfoSandeshGenFiles)
+ProcessInfoSandeshGenFiles = env.SandeshGenCpp('sandesh/process_info.sandesh')
+ProcessInfoSandeshGenSrcs = env.ExtractCpp(ProcessInfoSandeshGenFiles)
 
-libconninfo = env.Library('connection_info',
+libprocessinfo = env.Library('process_info',
                           ['connection_info.cc'] +
-                          ConnInfoSandeshGenSrcs)
+                          ProcessInfoSandeshGenSrcs)
 
 VersionInfoSandeshGenFiles = env.SandeshGenCpp('sandesh/version.sandesh')
 VersionInfoSandeshGenSrcs = env.ExtractCpp(VersionInfoSandeshGenFiles)
@@ -54,6 +51,7 @@ env.Append(CPPPATH = env['TOP'])
 libbase = env.Library('base',
                       [VersionInfoSandeshGenSrcs +
                       ['backtrace.cc',
+                       'contrail_ports.cc',
                        'misc_utils.cc',
                        'bitset.cc',
                        'label_block.cc',

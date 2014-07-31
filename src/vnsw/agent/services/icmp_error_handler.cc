@@ -5,7 +5,6 @@
 #include <cmn/agent_cmn.h>
 #include <oper/interface_common.h>
 #include <oper/vn.h>
-
 #include <pkt/pkt_init.h>
 #include <pkt/flow_table.h>
 #include <services/icmp_error_proto.h>
@@ -21,7 +20,8 @@ IcmpErrorHandler::~IcmpErrorHandler() {
 }
 
 bool IcmpErrorHandler::ValidatePacket() {
-    if (pkt_info_->len < (IPC_HDR_LEN + sizeof(ethhdr) + sizeof(iphdr)))
+    if (pkt_info_->len < (EncapHeaderLen() + sizeof(struct ether_header) +
+        sizeof(struct ip)))
         return false;
     return true;
 }
@@ -34,7 +34,7 @@ bool IcmpErrorHandler::Run() {
 
     VmInterface *vm_itf = dynamic_cast<VmInterface *>
         (agent()->interface_table()->FindInterface(GetInterfaceIndex()));
-    if (vm_itf == NULL || vm_itf->ipv4_forwarding() == false || vm_itf->vn() == NULL) { 
+    if (vm_itf == NULL || vm_itf->ipv4_forwarding() == false || vm_itf->vn() == NULL) {
         proto_->increment_interface_errors();
         return true;
     }
@@ -45,25 +45,37 @@ bool IcmpErrorHandler::Run() {
 // Generate ICMP error
 bool IcmpErrorHandler::SendIcmpError(VmInterface *intf) {
     char data[ICMP_PAYLOAD_LEN];
-    uint16_t data_len = ntohs(pkt_info_->ip->tot_len);
+    uint16_t data_len = ntohs(pkt_info_->ip->ip_len);
     if (data_len > ICMP_PAYLOAD_LEN)
         data_len = ICMP_PAYLOAD_LEN;
     memcpy(data, pkt_info_->ip, data_len);
 
+    uint32_t src_ip = 0;
     FlowKey key;
-    if (proto_->FlowIndexToKey(pkt_info_->agent_hdr.flow_index, &key)
-        == false) {
-        proto_->increment_invalid_flow_index();
-        return true;
+    if (pkt_info_->agent_hdr.flow_index == (uint32_t)-1) {
+        // flow index is -1 for 255.255.255.255
+        if (pkt_info_->ip_daddr != 0xFFFFFFFF) {
+            proto_->increment_invalid_flow_index();
+            return true;
+        }
+        src_ip = pkt_info_->ip_saddr;
+    } else {
+        if (proto_->FlowIndexToKey(pkt_info_->agent_hdr.flow_index, &key)
+            == false) {
+            proto_->increment_invalid_flow_index();
+            return true;
+        }
+        src_ip = key.src.ipv4;
     }
 
     // Get IPAM to find default gateway
-    const VnIpam *ipam = intf->vn()->GetIpam(Ip4Address(key.src.ipv4));
+    const VnIpam *ipam = intf->vn()->GetIpam(Ip4Address(src_ip));
     if (ipam == NULL) {
         proto_->increment_interface_errors();
         return true;
     }
 
+    // Retain the agent-header before ethernet header
     uint16_t len = (char *)pkt_info_->eth - (char *)pkt_info_->pkt;
     uint16_t buf_len = pkt_info_->max_pkt_len;
 
@@ -71,39 +83,42 @@ bool IcmpErrorHandler::SendIcmpError(VmInterface *intf) {
     // EthHdr - IP Header - ICMP Header - User IP Packet(max 128 bytes)
     char *ptr = (char *)pkt_info_->pkt;
     len += EthHdr(ptr + len, buf_len - len,
-                  agent()->vhost_interface()->mac().ether_addr_octet,
-                  pkt_info_->eth->h_source, IP_PROTOCOL, intf->vlan_id());
+                  agent()->vhost_interface()->mac(),
+                  MacAddress(pkt_info_->eth->ether_shost), IP_PROTOCOL,
+                  intf->vlan_id());
 
-    uint16_t ip_len = sizeof(iphdr) + sizeof(icmphdr) + data_len;
+    uint16_t ip_len = sizeof(struct ip) + sizeof(struct icmp) + data_len;
     len += IpHdr(ptr + len, buf_len - len, ip_len, ipam->default_gw.to_ulong(),
-            htonl(key.src.ipv4), IPPROTO_ICMP);
+            htonl(src_ip), IPPROTO_ICMP);
 
     char *icmp = ptr + len;
-    len += IcmpHdr(ptr + len, buf_len - len, ICMP_DEST_UNREACH,
-                   ICMP_FRAG_NEEDED, 0, pkt_info_->agent_hdr.mtu);
+    len += IcmpHdr(ptr + len, buf_len - len, ICMP_UNREACH,
+                   ICMP_UNREACH_NEEDFRAG, 0, pkt_info_->agent_hdr.mtu);
 
-    // Its possible that user payload has gone thru NAT processing already.
-    // Restore the original fields from flow_key
-    iphdr *ip = (iphdr *)data;
-    uint16_t ip_hlen = ip->ihl * 4;
+    if (pkt_info_->agent_hdr.flow_index != (uint32_t)-1) {
+        // Its possible that user payload has gone thru NAT processing already.
+        // Restore the original fields from flow_key
+        struct ip *ip = (struct ip *)data;
+        uint16_t ip_hlen = ip->ip_hl * 4;
 
-    ip->saddr = htonl(key.src.ipv4);
-    ip->daddr = htonl(key.dst.ipv4);
-    ip->check = Csum((uint16_t *)data, ip_hlen, 0);
-    if (ip->protocol == IPPROTO_UDP) {
-        udphdr *udp = (udphdr *)(data + ip_hlen);
-        udp->source = ntohs(key.src_port);
-        udp->dest = ntohs(key.dst_port);
-    } else if (ip->protocol == IPPROTO_TCP) {
-        tcphdr *tcp = (tcphdr *)(data + ip_hlen);
-        tcp->source = ntohs(key.src_port);
-        tcp->dest = ntohs(key.dst_port);
+        ip->ip_src.s_addr = htonl(key.src.ipv4);
+        ip->ip_dst.s_addr = htonl(key.dst.ipv4);
+        ip->ip_sum = Csum((uint16_t *)data, ip_hlen, 0);
+        if (ip->ip_p == IPPROTO_UDP) {
+            udphdr *udp = (udphdr *)(data + ip_hlen);
+            udp->uh_sport = ntohs(key.src_port);
+            udp->uh_dport = ntohs(key.dst_port);
+        } else if (ip->ip_p == IPPROTO_TCP) {
+            tcphdr *tcp = (struct tcphdr *)(data + ip_hlen);
+            tcp->th_sport = ntohs(key.src_port);
+            tcp->th_dport = ntohs(key.dst_port);
+        }
     }
     memcpy(ptr + len, data, data_len);
     len += data_len;
-    IcmpChecksum(icmp, sizeof(icmphdr) + data_len);
+    IcmpChecksum(icmp, sizeof(struct icmp) + data_len);
 
-    Send(len, GetInterfaceIndex(), pkt_info_->vrf, AGENT_CMD_SWITCH,
+    Send(len, GetInterfaceIndex(), pkt_info_->vrf, AgentHdr::TX_SWITCH,
          PktHandler::ICMP);
     return true;
 }

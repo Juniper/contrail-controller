@@ -18,9 +18,9 @@ public:
 
 private:
     bool CheckPacket();
-    void SendResponse();
+    void SendResponse(VmInterface *vm_intf);
 
-    icmphdr *icmp_;
+    icmp *icmp_;
     uint16_t icmp_len_;
     DISALLOW_COPY_AND_ASSIGN(IcmpHandler);
 };

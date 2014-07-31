@@ -42,137 +42,54 @@
 
 #include "linux_vxlan_agent_init.h"
 
-/****************************************************************************
- * Cleanup routines on shutdown
-****************************************************************************/
-void LinuxVxlanAgentInit::Shutdown() {
+LinuxVxlanAgentInit::LinuxVxlanAgentInit() 
+    : ksync_vxlan_(NULL) {
+}
+
+LinuxVxlanAgentInit::~LinuxVxlanAgentInit() {
+    ksync_vxlan_.reset(NULL);
+}
+
+void LinuxVxlanAgentInit::ProcessOptions
+    (const std::string &config_file, const std::string &program_name,
+     const boost::program_options::variables_map &var_map) {
+
+    AgentInit::ProcessOptions(config_file, program_name, var_map);
+}
+
+int LinuxVxlanAgentInit::Start() {
+    return AgentInit::Start();
 }
 
 /****************************************************************************
  * Initialization routines
 ****************************************************************************/
-void LinuxVxlanAgentInit::InitLogging() {
-    Sandesh::SetLoggingParams(params_->log_local(),
-                              params_->log_category(),
-                              params_->log_level());
+void LinuxVxlanAgentInit::FactoryInit() {
 }
 
-// Connect to collector specified in config, if discovery server is not set
-void LinuxVxlanAgentInit::InitCollector() {
-    agent_->InitCollector();
-}
-
-// Create the basic modules for agent operation.
-// Optional modules or modules that have different implementation are created
-// by init module
 void LinuxVxlanAgentInit::CreateModules() {
-    agent_->set_cfg(new AgentConfig(agent_));
-    agent_->set_oper_db(new OperDB(agent_));
-    agent_->set_controller(new VNController(agent_));
-    ksync_vxlan_.reset(new KSyncLinuxVxlan(agent_));
-}
-
-void LinuxVxlanAgentInit::CreateDBTables() {
-    agent_->cfg()->CreateDBTables(agent_->db());
-    agent_->oper_db()->CreateDBTables(agent_->db());
+    ksync_vxlan_.reset(new KSyncLinuxVxlan(agent()));
 }
 
 void LinuxVxlanAgentInit::RegisterDBClients() {
-    agent_->cfg()->RegisterDBClients(agent_->db());
-    ksync_vxlan_->RegisterDBClients(agent_->db());
-}
-
-void LinuxVxlanAgentInit::InitPeers() {
-    agent_->InitPeers();
+    ksync_vxlan_->RegisterDBClients(agent()->db());
 }
 
 void LinuxVxlanAgentInit::InitModules() {
-    agent_->cfg()->Init();
-    agent_->oper_db()->Init();
     ksync_vxlan_->Init();
 }
 
-void LinuxVxlanAgentInit::CreateVrf() {
-    // Create the default VRF
-    VrfTable *vrf_table = agent_->vrf_table();
-
-    vrf_table->CreateStaticVrf(agent_->fabric_vrf_name());
-    VrfEntry *vrf = vrf_table->FindVrfFromName(agent_->fabric_vrf_name());
-    assert(vrf);
-
-    // Default VRF created; create nexthops
-
-    agent_->set_fabric_inet4_unicast_table(vrf->GetInet4UnicastRouteTable());
-    agent_->set_fabric_inet4_multicast_table
-        (vrf->GetInet4MulticastRouteTable());
-    agent_->set_fabric_l2_unicast_table(vrf->GetLayer2RouteTable());
+void LinuxVxlanAgentInit::ConnectToController() {
+    agent()->controller()->Connect();
 }
 
-void LinuxVxlanAgentInit::CreateNextHops() {
-    DiscardNH::Create();
-    ResolveNH::Create();
-
-    DiscardNHKey key;
-    NextHop *nh = static_cast<NextHop *>
-                (agent_->nexthop_table()->FindActiveEntry(&key));
-    agent_->nexthop_table()->set_discard_nh(nh);
+/****************************************************************************
+ * Shutdown routines
+ ****************************************************************************/
+void LinuxVxlanAgentInit::KSyncShutdown() {
+    ksync_vxlan_->Shutdown();
 }
 
-void LinuxVxlanAgentInit::CreateInterfaces() {
-}
-
-void LinuxVxlanAgentInit::InitDiscovery() {
-    agent_->cfg()->InitDiscovery();
-}
-
-void LinuxVxlanAgentInit::InitDone() {
-    RouterIdDepInit(agent_);
-    agent_->cfg()->InitDone();
-}
-
-void LinuxVxlanAgentInit::InitXenLinkLocalIntf() {
-    assert(0);
-}
-
-// Start init sequence
-bool LinuxVxlanAgentInit::Run() {
-    InitLogging();
-    InitCollector();
-    InitPeers();
-    CreateModules();
-    CreateDBTables();
-    RegisterDBClients();
-    InitModules();
-    CreateVrf();
-    CreateNextHops();
-    InitDiscovery();
-    CreateInterfaces();
-    InitDone();
-
-    init_done_ = true;
-    return true;
-}
-
-void LinuxVxlanAgentInit::Init(AgentParam *param, Agent *agent,
-                     const boost::program_options::variables_map &var_map) {
-    params_ = param;
-    agent_ = agent;
-}
-
-// Trigger inititlization in context of DBTable
-void LinuxVxlanAgentInit::Start() {
-    Module::type module = Module::VROUTER_AGENT;
-    string module_name = g_vns_constants.ModuleNames.find(module)->second;
-    LoggingInit(params_->log_file(), params_->log_files_count(),
-                params_->log_file_size(), params_->use_syslog(),
-                params_->syslog_facility(), module_name);
-
-    params_->LogConfig();
-    params_->Validate();
-
-    int task_id = TaskScheduler::GetInstance()->GetTaskId("db::DBTable");
-    trigger_.reset(new TaskTrigger(boost::bind(&LinuxVxlanAgentInit::Run, this),
-                                   task_id, 0));
-    trigger_->Set();
-    return;
+void LinuxVxlanAgentInit::WaitForIdle() {
+    sleep(5);
 }

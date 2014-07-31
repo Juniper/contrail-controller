@@ -55,12 +55,12 @@ Ping::CreateTcpPkt(Agent *agent) {
 
     //Update pointers to ethernet header, ip header and l4 header
     pkt_info->UpdateHeaderPtr();
-    pkt_handler->TcpHdr(htonl(sip_.to_ulong()), sport_,  htonl(dip_.to_ulong()), 
+    pkt_handler->TcpHdr(htonl(sip_.to_ulong()), sport_,  htonl(dip_.to_ulong()),
                         dport_, false, rand(), data_len_ + sizeof(tcphdr));
-    pkt_handler->IpHdr(data_len_ + sizeof(tcphdr) + sizeof(iphdr), 
-                       ntohl(sip_.to_ulong()), ntohl(dip_.to_ulong()), 
+    pkt_handler->IpHdr(data_len_ + sizeof(tcphdr) + sizeof(ip),
+                       ntohl(sip_.to_ulong()), ntohl(dip_.to_ulong()),
                        IPPROTO_TCP);
-    pkt_handler->EthHdr(agent->vhost_interface()->mac().ether_addr_octet,
+    pkt_handler->EthHdr(agent->vhost_interface()->mac(),
                         agent->vrrp_mac(), IP_PROTOCOL);
 
     return pkt_handler;
@@ -84,10 +84,10 @@ Ping::CreateUdpPkt(Agent *agent) {
     pkt_info->UpdateHeaderPtr();
     pkt_handler->UdpHdr(data_len_+ sizeof(udphdr), sip_.to_ulong(), sport_,
                         dip_.to_ulong(), dport_);
-    pkt_handler->IpHdr(data_len_ + sizeof(udphdr) + sizeof(iphdr), 
-                       ntohl(sip_.to_ulong()), ntohl(dip_.to_ulong()), 
+    pkt_handler->IpHdr(data_len_ + sizeof(udphdr) + sizeof(ip),
+                       ntohl(sip_.to_ulong()), ntohl(dip_.to_ulong()),
                        IPPROTO_UDP);
-    pkt_handler->EthHdr(agent->vhost_interface()->mac().ether_addr_octet,
+    pkt_handler->EthHdr(agent->vhost_interface()->mac(),
                         agent->vrrp_mac(), IP_PROTOCOL);
 
     return pkt_handler;
@@ -131,8 +131,8 @@ void Ping::SendRequest() {
     uint32_t vrf_id = diag_table_->agent()->vrf_table()->FindVrfFromName(vrf_name_)->vrf_id();
     //Send request out
     pkt_handler->SetDiagChkSum();
-    pkt_handler->Send(len_ - IPC_HDR_LEN, intf_id, vrf_id, 
-                      AGENT_CMD_ROUTE, PktHandler::DIAG);
+    pkt_handler->Send(len_ - TapInterface::kAgentHdrLen,
+                      intf_id, vrf_id, AgentHdr::TX_ROUTE, PktHandler::DIAG);
     delete pkt_handler;
     return;
 }

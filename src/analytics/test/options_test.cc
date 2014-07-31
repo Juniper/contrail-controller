@@ -17,10 +17,10 @@
 using namespace std;
 using namespace boost::asio::ip;
 
-static uint16_t default_redis_port = ContrailPorts::RedisUvePort;
-static uint16_t default_collector_port = ContrailPorts::CollectorPort;
-static uint16_t default_http_server_port = ContrailPorts::HttpPortCollector;
-static uint16_t default_discovery_port = ContrailPorts::DiscoveryServerPort;
+static uint16_t default_redis_port = ContrailPorts::RedisUvePort();
+static uint16_t default_collector_port = ContrailPorts::CollectorPort();
+static uint16_t default_http_server_port = ContrailPorts::HttpPortCollector();
+static uint16_t default_discovery_port = ContrailPorts::DiscoveryServerPort();
 
 class OptionsTest : public ::testing::Test {
 protected:
@@ -58,7 +58,7 @@ TEST_F(OptionsTest, NoArguments) {
     EXPECT_EQ(options_.redis_port(), default_redis_port);
     EXPECT_EQ(options_.collector_server(), "0.0.0.0");
     EXPECT_EQ(options_.collector_port(), default_collector_port);
-    EXPECT_EQ(options_.config_file(), "/etc/contrail/collector.conf");
+    EXPECT_EQ(options_.config_file(), "/etc/contrail/contrail-collector.conf");
     EXPECT_EQ(options_.discovery_server(), "");
     EXPECT_EQ(options_.discovery_port(), default_discovery_port);
     EXPECT_EQ(options_.hostname(), hostname_);
@@ -75,13 +75,15 @@ TEST_F(OptionsTest, NoArguments) {
     EXPECT_EQ(options_.syslog_port(), -1);
     EXPECT_EQ(options_.dup(), false);
     EXPECT_EQ(options_.test_mode(), false);
+    uint16_t protobuf_port(0);
+    EXPECT_FALSE(options_.collector_protobuf_port(&protobuf_port));
 }
 
 TEST_F(OptionsTest, DefaultConfFile) {
     int argc = 2;
     char *argv[argc];
     char argv_0[] = "options_test";
-    char argv_1[] = "--conf_file=controller/src/analytics/collector.conf";
+    char argv_1[] = "--conf_file=controller/src/analytics/contrail-collector.conf";
     argv[0] = argv_0;
     argv[1] = argv_1;
 
@@ -94,7 +96,7 @@ TEST_F(OptionsTest, DefaultConfFile) {
     EXPECT_EQ(options_.collector_server(), "0.0.0.0");
     EXPECT_EQ(options_.collector_port(), default_collector_port);
     EXPECT_EQ(options_.config_file(),
-              "controller/src/analytics/collector.conf");
+              "controller/src/analytics/contrail-collector.conf");
     EXPECT_EQ(options_.discovery_server(), "");
     EXPECT_EQ(options_.discovery_port(), default_discovery_port);
     EXPECT_EQ(options_.hostname(), hostname_);
@@ -111,13 +113,15 @@ TEST_F(OptionsTest, DefaultConfFile) {
     EXPECT_EQ(options_.syslog_port(), -1);
     EXPECT_EQ(options_.dup(), false);
     EXPECT_EQ(options_.test_mode(), false);
+    uint16_t protobuf_port(0);
+    EXPECT_FALSE(options_.collector_protobuf_port(&protobuf_port));
 }
 
 TEST_F(OptionsTest, OverrideStringFromCommandLine) {
     int argc = 3;
     char *argv[argc];
     char argv_0[] = "options_test";
-    char argv_1[] = "--conf_file=controller/src/analytics/collector.conf";
+    char argv_1[] = "--conf_file=controller/src/analytics/contrail-collector.conf";
     char argv_2[] = "--DEFAULT.log_file=test.log";
     argv[0] = argv_0;
     argv[1] = argv_1;
@@ -132,7 +136,7 @@ TEST_F(OptionsTest, OverrideStringFromCommandLine) {
     EXPECT_EQ(options_.collector_server(), "0.0.0.0");
     EXPECT_EQ(options_.collector_port(), default_collector_port);
     EXPECT_EQ(options_.config_file(),
-              "controller/src/analytics/collector.conf");
+              "controller/src/analytics/contrail-collector.conf");
     EXPECT_EQ(options_.discovery_server(), "");
     EXPECT_EQ(options_.discovery_port(), default_discovery_port);
     EXPECT_EQ(options_.hostname(), hostname_);
@@ -149,13 +153,15 @@ TEST_F(OptionsTest, OverrideStringFromCommandLine) {
     EXPECT_EQ(options_.syslog_port(), -1);
     EXPECT_EQ(options_.dup(), false);
     EXPECT_EQ(options_.test_mode(), false);
+    uint16_t protobuf_port(0);
+    EXPECT_FALSE(options_.collector_protobuf_port(&protobuf_port));
 }
 
 TEST_F(OptionsTest, OverrideBooleanFromCommandLine) {
     int argc = 3;
     char *argv[argc];
     char argv_0[] = "options_test";
-    char argv_1[] = "--conf_file=controller/src/analytics/collector.conf";
+    char argv_1[] = "--conf_file=controller/src/analytics/contrail-collector.conf";
     char argv_2[] = "--DEFAULT.test_mode";
     argv[0] = argv_0;
     argv[1] = argv_1;
@@ -170,7 +176,7 @@ TEST_F(OptionsTest, OverrideBooleanFromCommandLine) {
     EXPECT_EQ(options_.collector_server(), "0.0.0.0");
     EXPECT_EQ(options_.collector_port(), default_collector_port);
     EXPECT_EQ(options_.config_file(),
-              "controller/src/analytics/collector.conf");
+              "controller/src/analytics/contrail-collector.conf");
     EXPECT_EQ(options_.discovery_server(), "");
     EXPECT_EQ(options_.discovery_port(), default_discovery_port);
     EXPECT_EQ(options_.hostname(), hostname_);
@@ -187,6 +193,8 @@ TEST_F(OptionsTest, OverrideBooleanFromCommandLine) {
     EXPECT_EQ(options_.syslog_port(), -1);
     EXPECT_EQ(options_.dup(), false);
     EXPECT_EQ(options_.test_mode(), true); // Overridden from command line.
+    uint16_t protobuf_port(0);
+    EXPECT_FALSE(options_.collector_protobuf_port(&protobuf_port));
 }
 
 TEST_F(OptionsTest, CustomConfigFile) {
@@ -212,6 +220,7 @@ TEST_F(OptionsTest, CustomConfigFile) {
         "[COLLECTOR]\n"
         "port=100\n"
         "server=3.4.5.6\n"
+        "protobuf_port=3333\n"
         "\n"
         "[DISCOVERY]\n"
         "port=100\n"
@@ -265,6 +274,9 @@ TEST_F(OptionsTest, CustomConfigFile) {
     EXPECT_EQ(options_.syslog_port(), 101);
     EXPECT_EQ(options_.dup(), true);
     EXPECT_EQ(options_.test_mode(), true);
+    uint16_t protobuf_port(0);
+    EXPECT_TRUE(options_.collector_protobuf_port(&protobuf_port));
+    EXPECT_EQ(protobuf_port, 3333);
 }
 
 TEST_F(OptionsTest, CustomConfigFileAndOverrideFromCommandLine) {
@@ -291,6 +303,7 @@ TEST_F(OptionsTest, CustomConfigFileAndOverrideFromCommandLine) {
         "[COLLECTOR]\n"
         "port=100\n"
         "server=3.4.5.6\n"
+        "protobuf_port=3333\n"
         "\n"
         "[DISCOVERY]\n"
         "port=100\n"
@@ -306,7 +319,7 @@ TEST_F(OptionsTest, CustomConfigFileAndOverrideFromCommandLine) {
     config_file << config;
     config_file.close();
 
-    int argc = 8;
+    int argc = 9;
     char *argv[argc];
     char argv_0[] = "options_test";
     char argv_1[] = "--conf_file=./options_test_collector_config_file.conf";
@@ -316,6 +329,7 @@ TEST_F(OptionsTest, CustomConfigFileAndOverrideFromCommandLine) {
     char argv_5[] = "--DEFAULT.cassandra_server_list=11.10.10.1:100";
     char argv_6[] = "--DEFAULT.cassandra_server_list=21.20.20.2:200";
     char argv_7[] = "--DEFAULT.cassandra_server_list=31.30.30.3:300";
+    char argv_8[] = "--COLLECTOR.protobuf_port=3334";
     argv[0] = argv_0;
     argv[1] = argv_1;
     argv[2] = argv_2;
@@ -324,6 +338,7 @@ TEST_F(OptionsTest, CustomConfigFileAndOverrideFromCommandLine) {
     argv[5] = argv_5;
     argv[6] = argv_6;
     argv[7] = argv_7;
+    argv[8] = argv_8;
 
     options_.Parse(evm_, argc, argv);
 
@@ -355,6 +370,9 @@ TEST_F(OptionsTest, CustomConfigFileAndOverrideFromCommandLine) {
     EXPECT_EQ(options_.syslog_port(), 102);
     EXPECT_EQ(options_.dup(), true);
     EXPECT_EQ(options_.test_mode(), true);
+    uint16_t protobuf_port(0);
+    EXPECT_TRUE(options_.collector_protobuf_port(&protobuf_port));
+    EXPECT_EQ(protobuf_port, 3334);
 }
 
 TEST_F(OptionsTest, MultitokenVector) {

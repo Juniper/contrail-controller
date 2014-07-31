@@ -134,7 +134,7 @@ define dump_vrf_entries
 end
 
 define vn_entry_format
-    set $__vn = (VnEntry *)((size_t)($Xnode) - (size_t)&(VnEntry::node_))
+    set $__vn = (VnEntry *)((size_t)($Xnode) - (size_t)&(((VnEntry*)0)->node_))
     printf "%p    %-20s  %-20s\n", $__vn, $__vn->name_._M_dataplus._M_p,\
                                    $__vn->uuid_->data
 end
@@ -425,4 +425,26 @@ end
 
 define dump_ksync_vxlan_entries
     pksync_entries VxLanKSyncObject::singleton_ kvxlan_entry_format
+end
+
+
+document dump_service_instance_entries
+     Prints all service instance entries
+     Syntax: dump_service_instance_entries <table>: Prints all service instance entries
+end
+
+define service_instance_entry_format
+    set $__svi = (ServiceInstance *)((size_t)($Xnode) - (size_t)&(ServiceInstance::node_))
+    set $__prop = $__svi->properties_
+    printf "%p Uuid:%-20s ServiceType:%d VirtualisationType:%d VmiInside:%-20s VmiOutside:%-20s MacIn:%s MacOut:%s IpIn:%s IpOut:%s IpLenIn:%d IpLenOut:%d IfCount:%d LbPool:%-20s",
+       $__svi, $__prop.instance_id->data, $__prop.service_type, $__prop.virtualization_type, $__prop.vmi_inside->data, $__prop.vmi_outside->data, $__prop.mac_addr_inside, $__prop.mac_addr_outside,
+       $__prop.ip_addr_inside, $__prop.ip_addr_outside, $__prop.ip_prefix_len_inside, $__prop.ip_prefix_len_outside, $__prop.interface_count, $__prop.pool_id->data
+end
+
+define dump_service_instance_entries
+   if $argc != 1
+       help dump_service_instance_entries
+   else
+       pdb_table_entries $arg0 service_instance_entry_format
+   end
 end

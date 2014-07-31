@@ -1,61 +1,22 @@
 /*
  * Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
  */
-
-#include <stdio.h>
-#include <stdlib.h>
-#include <sys/time.h>
-#include <sys/resource.h>
-
-#include <boost/uuid/string_generator.hpp>
 #include <boost/program_options.hpp>
-#include <boost/asio/ip/address.hpp>
-#include <base/logging.h>
-#include <base/contrail_ports.h>
 
+#if defined(__FreeBSD__)
+#include <sys/resource.h>
+#endif
 #include "testing/gunit.h"
 #include "test/test_cmn_util.h"
 
-#include <pugixml/pugixml.hpp>
-
-#include <base/task.h>
-#include <io/event_manager.h>
-#include <sandesh/common/vns_types.h>
-#include <sandesh/common/vns_constants.h>
-#include <base/misc_utils.h>
 #include <base/test/task_test_util.h>
-#include <cmn/agent_cmn.h>
-
-#include <cfg/cfg_init.h>
-#include <cfg/cfg_mirror.h>
-#include <cfg/discovery_agent.h>
-
-#include <cmn/agent_param.h>
-
-#include <oper/operdb_init.h>
-#include <oper/vrf.h>
-#include <oper/multicast.h>
-#include <oper/mirror_table.h>
-#include <controller/controller_init.h>
-#include <controller/controller_vrf_export.h>
-#include <pkt/pkt_init.h>
-#include <services/services_init.h>
-#include <uve/agent_uve.h>
-#include <ksync/ksync_init.h>
-#include <kstate/kstate.h>
-#include <pkt/proto.h>
-#include <pkt/proto_handler.h>
-#include <diag/diag.h>
-#include <vgw/cfg_vgw.h>
-#include <vgw/vgw.h>
-#include <uve/agent_uve.h>
 
 namespace opt = boost::program_options;
 
 class FlowTest : public ::testing::Test {
 public:
     virtual void SetUp() {
-        uint16_t http_server_port = ContrailPorts::HttpPortAgent;
+        uint16_t http_server_port = ContrailPorts::HttpPortAgent();
 
         desc.add_options()
         ("help", "help message")
@@ -87,6 +48,7 @@ public:
         ("DEFAULT.log_level", opt::value<string>()->default_value("SYS_DEBUG"),
          "Severity level for local logging of sandesh messages")
         ("DEFAULT.log_local", "Enable local logging of sandesh messages")
+        ("DEFAULT.log_flow", "Enable logging of flow sandesh messages")
         ("DEFAULT.tunnel_type", opt::value<string>()->default_value("MPLSoGRE"),
          "Tunnel Encapsulation type <MPLSoGRE|MPLSoUDP|VXLAN>")
         ("DISCOVERY.server", opt::value<string>(), 
@@ -245,6 +207,7 @@ TEST_F(FlowTest, Agent_Param_1) {
                         (char *)"controller/src/vnsw/agent/cmn/test/cfg.ini",
         (char *) "--DEFAULT.collectors",     (char *)"1.1.1.1:1000",
         (char *) "--DEFAULT.log_local",
+        (char *) "--DEFAULT.log_flow",
         (char *) "--DEFAULT.log_level",     (char *)"SYS_DEBUG",
         (char *) "--DEFAULT.log_category",  (char *)"Test",
         (char *) "--DEFAULT.http_server_port", (char *)"8000",
@@ -265,6 +228,7 @@ TEST_F(FlowTest, Agent_Param_1) {
                var_map);
 
     EXPECT_TRUE(param.log_local());
+    EXPECT_TRUE(param.log_flow());
     EXPECT_STREQ(param.log_level().c_str(), "SYS_DEBUG");
     EXPECT_STREQ(param.log_category().c_str(), "Test");
     EXPECT_EQ(param.collector_server_list().size(), 1);
@@ -379,7 +343,7 @@ TEST_F(FlowTest, Default_Cmdline_arg1) {
  * command line args, and has NOT specified values in config file, then
  * verify that default value from command line args is picked up */
 TEST_F(FlowTest, Default_Cmdline_arg2) {
-    uint16_t http_server_port = ContrailPorts::HttpPortAgent;
+    uint16_t http_server_port = ContrailPorts::HttpPortAgent();
     uint16_t flow_timeout = Agent::kDefaultFlowCacheTimeout;
     AgentParam param(Agent::GetInstance());
     param.Init("controller/src/vnsw/agent/cmn/test/cfg-default2.ini", "test-param",

@@ -59,6 +59,16 @@ void VNController::XmppServerConnect() {
 
             XmppInit *xmpp = new XmppInit();
             XmppClient *client = new XmppClient(agent_->event_manager());
+            agent_->SetAgentMcastLabelRange(count);
+            // create bgp peer
+            AgentXmppChannel *bgp_peer = new AgentXmppChannel(agent_,
+                              agent_->controller_ifmap_xmpp_server(count),
+                              agent_->multicast_label_range(count),
+                              count);
+            client->RegisterConnectionEvent(xmps::BGP,
+               boost::bind(&AgentXmppChannel::HandleAgentXmppClientChannelEvent,
+                           bgp_peer, _2));
+
             XmppChannelConfig *xmpp_cfg = new XmppChannelConfig(true);
             xmpp_cfg->ToAddr = XmppInit::kControlNodeJID;
             boost::system::error_code ec;
@@ -78,16 +88,8 @@ void VNController::XmppServerConnect() {
             XmppChannel *channel = client->
                 FindChannel(XmppInit::kControlNodeJID);
             assert(channel);
+            bgp_peer->RegisterXmppChannel(channel);
 
-            agent_->SetAgentMcastLabelRange(count);
-            // create bgp peer
-            AgentXmppChannel *bgp_peer = new AgentXmppChannel(agent_, channel, 
-                                         agent_->controller_ifmap_xmpp_server(count), 
-                                         agent_->multicast_label_range(count),
-                                         count);
-            client->RegisterConnectionEvent(xmps::BGP,
-               boost::bind(&AgentXmppChannel::HandleAgentXmppClientChannelEvent,
-                           bgp_peer, _2));
             bgp_peer->UpdateConnectionInfo(channel->GetPeerState());
 
             // create ifmap peer
@@ -126,30 +128,32 @@ void VNController::DnsXmppServerConnect() {
             // create Xmpp channel with DNS server
             XmppInit *xmpp_dns = new XmppInit();
             XmppClient *client_dns = new XmppClient(agent_->event_manager());
-            XmppChannelConfig xmpp_cfg_dns(true);
-            xmpp_cfg_dns.ToAddr = XmppInit::kDnsNodeJID;
+            // create dns peer
+            AgentDnsXmppChannel *dns_peer = new AgentDnsXmppChannel(agent_,
+                                                agent_->dns_server(count),
+                                                count);
+            client_dns->RegisterConnectionEvent(xmps::DNS,
+                boost::bind(&AgentDnsXmppChannel::HandleXmppClientChannelEvent,
+                            dns_peer, _2));
+
+            XmppChannelConfig *xmpp_cfg_dns = new XmppChannelConfig(true);
+            //XmppChannelConfig xmpp_cfg_dns(true);
+            xmpp_cfg_dns->ToAddr = XmppInit::kDnsNodeJID;
             boost::system::error_code ec;
-            xmpp_cfg_dns.FromAddr = agent_->host_name() + "/dns";
-            xmpp_cfg_dns.NodeAddr = "";
-            xmpp_cfg_dns.endpoint.address(
+            xmpp_cfg_dns->FromAddr = agent_->host_name() + "/dns";
+            xmpp_cfg_dns->NodeAddr = "";
+            xmpp_cfg_dns->endpoint.address(
                      ip::address::from_string(agent_->dns_server(count), ec));
             assert(ec.value() == 0);
-            xmpp_cfg_dns.endpoint.port(ContrailPorts::DnsXmpp);
-            xmpp_dns->AddXmppChannelConfig(&xmpp_cfg_dns);
+            xmpp_cfg_dns->endpoint.port(ContrailPorts::DnsXmpp());
+            xmpp_dns->AddXmppChannelConfig(xmpp_cfg_dns);
             xmpp_dns->InitClient(client_dns);
 
             XmppChannel *channel_dns = client_dns->FindChannel(
                                                    XmppInit::kDnsNodeJID);
             assert(channel_dns);
+            dns_peer->RegisterXmppChannel(channel_dns);
 
-            // create dns peer
-            AgentDnsXmppChannel *dns_peer = new AgentDnsXmppChannel(agent_,
-                                                channel_dns,
-                                                agent_->dns_server(count),
-                                                count);
-            client_dns->RegisterConnectionEvent(xmps::DNS,
-                boost::bind(&AgentDnsXmppChannel::HandleXmppClientChannelEvent, 
-                            dns_peer, _2));
 
             dns_peer->UpdateConnectionInfo(channel_dns->GetPeerState());
             agent_->set_dns_xmpp_client(client_dns, count);
@@ -264,7 +268,7 @@ const string VNController::MakeConnectionPrefix(bool is_dns) const {
 void VNController::DeleteConnectionInfo(const std::string &addr, bool is_dns)
                                         const {
     const string &name_prefix = MakeConnectionPrefix(is_dns);
-    agent_->connection_state()->Delete(ConnectionType::XMPP,
+    agent_->connection_state()->Delete(process::ConnectionType::XMPP,
                                            name_prefix + addr);
 }
 

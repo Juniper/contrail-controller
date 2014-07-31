@@ -32,7 +32,7 @@ bool Options::Parse(EventManager &evm, int argc, char *argv[]) {
 
 // Initialize collector's command line option tags with appropriate default
 // values. Options can from a config file as well. By default, we read
-// options from /etc/contrail/collector.conf
+// options from /etc/contrail/contrail-collector.conf
 void Options::Initialize(EventManager &evm,
                          opt::options_description &cmdline_options) {
     boost::system::error_code error;
@@ -44,16 +44,18 @@ void Options::Initialize(EventManager &evm,
     // Command line only options.
     generic.add_options()
         ("conf_file", opt::value<string>()->default_value(
-                                            "/etc/contrail/collector.conf"),
+                                            "/etc/contrail/contrail-collector.conf"),
              "Configuration file")
          ("help", "help message")
         ("version", "Display version information")
     ;
 
-    uint16_t default_redis_port = ContrailPorts::RedisUvePort;
-    uint16_t default_collector_port = ContrailPorts::CollectorPort;
-    uint16_t default_http_server_port = ContrailPorts::HttpPortCollector;
-    uint16_t default_discovery_port = ContrailPorts::DiscoveryServerPort;
+    uint16_t default_redis_port = ContrailPorts::RedisUvePort();
+    uint16_t default_collector_port = ContrailPorts::CollectorPort();
+    uint16_t default_collector_protobuf_port =
+        ContrailPorts::CollectorProtobufPort();
+    uint16_t default_http_server_port = ContrailPorts::HttpPortCollector();
+    uint16_t default_discovery_port = ContrailPorts::DiscoveryServerPort();
 
     vector<string> default_cassandra_server_list;
     default_cassandra_server_list.push_back("127.0.0.1:9160");
@@ -67,6 +69,10 @@ void Options::Initialize(EventManager &evm,
         ("COLLECTOR.server",
              opt::value<string>()->default_value("0.0.0.0"),
              "IP address of sandesh collector server")
+        ("COLLECTOR.protobuf_port",
+            opt::value<uint16_t>()->default_value(
+                default_collector_protobuf_port),
+         "Listener port of Google Protocol Buffer collector server")
 
         ("DEFAULT.analytics_data_ttl",
              opt::value<int>()->default_value(ANALYTICS_DATA_TTL_DEFAULT),
@@ -142,6 +148,26 @@ void Options::GetOptValueImpl(
     }
 }
 
+template <typename ValueType>
+bool Options::GetOptValueIfNotDefaulted(
+    const boost::program_options::variables_map &var_map,
+    ValueType &var, std::string val) {
+    return GetOptValueIfNotDefaultedImpl(var_map, var, val,
+        static_cast<ValueType *>(0));
+}
+
+template <typename ValueType>
+bool Options::GetOptValueIfNotDefaultedImpl(
+    const boost::program_options::variables_map &var_map,
+    ValueType &var, std::string val, ValueType*) {
+    // Check if the value is present.
+    if (var_map.count(val) && !var_map[val].defaulted()) {
+        var = var_map[val].as<ValueType>();
+        return true;
+    }
+    return false;
+}
+
 template <typename ElementType>
 void Options::GetOptValueImpl(
     const boost::program_options::variables_map &var_map,
@@ -197,6 +223,12 @@ void Options::Process(int argc, char *argv[],
     // Retrieve the options.
     GetOptValue<uint16_t>(var_map, collector_port_, "COLLECTOR.port");
     GetOptValue<string>(var_map, collector_server_, "COLLECTOR.server");
+    if (GetOptValueIfNotDefaulted<uint16_t>(var_map, collector_protobuf_port_,
+            "COLLECTOR.protobuf_port")) {
+        collector_protobuf_port_configured_ = true;
+    } else {
+        collector_protobuf_port_configured_ = false;
+    }
     GetOptValue<int>(var_map, analytics_data_ttl_,
                      "DEFAULT.analytics_data_ttl");
 

@@ -3,9 +3,9 @@
  */
 
 #include <arpa/inet.h>
+#include <sys/types.h>
 #include <netinet/in.h>
 #include <netinet/ip.h>
-#include <netinet/tcp.h>
 #include <boost/uuid/string_generator.hpp>
 
 #include <io/event_manager.h>
@@ -80,7 +80,7 @@ static void MakeMplsPacket(PktGen *pkt, int ifindex, const char *out_sip,
                             const char *sip, const char *dip, 
                             int proto) {
     pkt->AddEthHdr("00:00:00:00:00:01", "00:00:00:00:00:02", 0x800);
-    pkt->AddAgentHdr(ifindex, AGENT_TRAP_FLOW_MISS);
+    pkt->AddAgentHdr(ifindex, AgentHdr::TRAP_FLOW_MISS);
     pkt->AddEthHdr("00:00:00:00:00:01", "00:00:00:00:00:02", 0x800);
     pkt->AddIpHdr(out_sip, out_dip, IPPROTO_GRE);
     pkt->AddGreHdr();

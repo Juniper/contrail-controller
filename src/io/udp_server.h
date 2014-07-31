@@ -10,6 +10,7 @@
 #include <boost/asio.hpp>
 #include <boost/intrusive_ptr.hpp>
 #include "io/event_manager.h"
+#include "io/server_manager.h"
 
 class UdpServer {
  public:
@@ -19,8 +20,6 @@ class UdpServer {
         SocketOpenFailed,
         SocketBindFailed,
     };
-    typedef boost::intrusive_ptr<UdpServer> UdpServerPtr;
-
     static const int kDefaultBufferSize = 4 * 1024;
 
     explicit UdpServer(EventManager *evm, int buffer_size = kDefaultBufferSize);
@@ -28,10 +27,9 @@ class UdpServer {
                        int buffer_size = kDefaultBufferSize);
     virtual ~UdpServer();
 
-    virtual void Initialize(unsigned short port);
-    virtual void Initialize(const std::string &ipaddress, unsigned short port);
-    virtual void Initialize(boost::asio::ip::udp::endpoint local_endpoint);
-    virtual void Reset();
+    virtual bool Initialize(unsigned short port);
+    virtual bool Initialize(const std::string &ipaddress, unsigned short port);
+    virtual bool Initialize(boost::asio::ip::udp::endpoint local_endpoint);
     virtual void Shutdown();
 
     virtual boost::asio::ip::udp::endpoint GetLocalEndPoint();
@@ -65,6 +63,8 @@ class UdpServer {
     virtual std::string ToString() { return name_; }
 
  private:
+    friend void intrusive_ptr_add_ref(UdpServer *server);
+    friend void intrusive_ptr_release(UdpServer *server);
     virtual void SetName(boost::asio::ip::udp::endpoint ep);
     void HandleReceiveInternal(
             boost::asio::const_buffer recv_buffer,
@@ -78,8 +78,31 @@ class UdpServer {
     std::string name_;
     boost::asio::ip::udp::endpoint remote_endpoint_;
     std::vector<u_int8_t *> pbuf_;
+    tbb::atomic<int> refcount_;
 
     DISALLOW_COPY_AND_ASSIGN(UdpServer);
+};
+
+typedef boost::intrusive_ptr<UdpServer> UdpServerPtr;
+
+inline void intrusive_ptr_add_ref(UdpServer *server) {
+    server->refcount_.fetch_and_increment();
+}
+
+inline void intrusive_ptr_release(UdpServer *server) {
+    int prev = server->refcount_.fetch_and_decrement();
+    if (prev == 1) {
+        delete server;
+    }
+}
+
+class UdpServerManager {
+public:
+    static void AddServer(UdpServer *server);
+    static void DeleteServer(UdpServer *server);
+
+private:
+    static ServerManager<UdpServer, UdpServerPtr> impl_;
 };
 
 #endif  // IO_UDP_SERVER_H_

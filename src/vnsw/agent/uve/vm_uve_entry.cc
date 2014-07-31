@@ -107,10 +107,17 @@ bool VmUveEntry::FrameInterfaceMsg(const VmInterface *vm_intf,
             fip_list.list_.begin();
         while(it != fip_list.list_.end()) {
             const VmInterface::FloatingIp &ip = *it;
-            VmFloatingIPAgent uve_fip;
-            uve_fip.set_ip_address(ip.floating_ip_.to_string());
-            uve_fip.set_virtual_network(ip.vn_.get()->GetName());
-            uve_fip_list.push_back(uve_fip);
+            /* Don't export FIP entry if it is not installed. When FIP entry
+             * is not installed it will have NULL VN pointer. We can receive
+             * notifications for VM interface with un-installed FIP entries
+             * when the VM interface is not "L3 Active".
+             */
+            if (ip.installed_) {
+                VmFloatingIPAgent uve_fip;
+                uve_fip.set_ip_address(ip.floating_ip_.to_string());
+                uve_fip.set_virtual_network(ip.vn_.get()->GetName());
+                uve_fip_list.push_back(uve_fip);
+            }
             it++;
         }
     }
@@ -351,8 +358,20 @@ void VmUveEntry::UpdateFloatingIpStats(const FipInfo &fip_info) {
     UveInterfaceEntryPtr entry(new UveInterfaceEntry(intf));
     InterfaceSet::iterator intf_it = interface_tree_.find(entry);
 
-    assert (intf_it != interface_tree_.end());
-    (*intf_it).get()->UpdateFloatingIpStats(fip_info);
+    /*
+     *  1. VM interface with floating-ip becomes active
+     *  2. Flow is created on this interface and interface floating ip info is
+     *     stored in flow record
+     *  3. VM Interface is disassociated from VM
+     *  4. VM Interface info is removed from interface_tree_ because of
+     *     disassociation
+     *  5. FlowStats collection task initiates export of flow stats
+     *  6. Since interface is absent in interface_tree_ we cannot update
+     *     stats in this case
+     */
+    if (intf_it != interface_tree_.end()) {
+        (*intf_it).get()->UpdateFloatingIpStats(fip_info);
+    }
 }
 
 void VmUveEntry::UveInterfaceEntry::UpdateFloatingIpStats

@@ -25,7 +25,7 @@ libxmpptest = env.Library('xmpptest',
                          ['xmpp_sample_peer.cc'])
 
 env.Prepend(LIBS = ['task_test', 'gunit', 'xmpp', 'xml', 'pugixml', 'sandesh', 
-                    'http', 'http_parser', 'curl', 'connection_info', 
+                    'http', 'http_parser', 'curl', 'process_info', 
                     'io', 'sandeshvns', 'base', 'peer_sandesh',
                     'boost_regex', 'xmpptest', 'control_node'])
 

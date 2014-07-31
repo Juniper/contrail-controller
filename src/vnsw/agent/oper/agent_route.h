@@ -9,8 +9,9 @@
 #include <sys/socket.h>
 #include <net/ethernet.h>
 #include <net/address.h>
+#if defined(__linux__)
 #include <netinet/ether.h>
-
+#endif
 #include <base/lifetime.h>
 #include <base/patricia.h>
 #include <base/task_annotations.h>
@@ -271,10 +272,11 @@ extern SandeshTraceBufferPtr AgentDBwalkTraceBuf;
     obj::TraceMsg(AgentDBwalkTraceBuf, __FILE__, __LINE__, ##__VA_ARGS__); \
 } while (0);
 
-#define AGENT_ROUTE_LOG(oper, route, vrf, peer)\
+#define GETPEERNAME(peer) (peer)? peer->GetName() : ""
+#define AGENT_ROUTE_LOG(oper, route, vrf, peer_name)\
 do {\
     AgentRouteLog::Send("Agent", SandeshLevel::SYS_INFO, __FILE__, __LINE__,\
-                   oper, route, vrf, (peer)? peer->GetName():" ");\
+                   oper, route, vrf, peer_name);\
 } while(false);\
 
 #endif

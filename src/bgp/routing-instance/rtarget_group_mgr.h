@@ -130,6 +130,11 @@ struct RtGroupMgrReq {
 // one db::DBTable task deletes an RtGroup while another db::DBTable task has
 // a pointer to it.
 //
+// A mutex is used to protect the RtGroupMap since LocateRtGroup/GetRtGroup
+// is called from multiple db::DBTable tasks concurrently. The same mutex is
+// also used to protect the RtGroupRemoveList as multiple db::DBTable tasks
+// can try to add RtGroups to the list concurrently.
+//
 // The RTargetGroupMgr needs to register as a listener for all VPN tables and
 // for bgp.rtarget.0. It keeps track of it's listener ids for the tables using
 // the RtGroupMgrTableStateList.  Note that it does not need to register for
@@ -174,16 +179,13 @@ struct RtGroupMgrReq {
 //
 // When a RTargetRoute in the RTargetRouteTriggerList is processed, we figure
 // out if InterestedPeerList has changed.  If so, the RouteTarget in question
-// is added to the RouteTargetTriggerList.  The RouteTargetTriggerList keeps
-// track of RouteTargets whose dependent BgpRoutes need to be re-evaluated. It
-// gets processed in the context of the bgp::RTFilter task.  Since we do not
-// allow more than 1 bgp::RTFilter task to run at the same time, this ensures
-// that the RouteTargetTriggerList is not modified while it's being processed.
-//
-// A mutex is used to protect the RtGroupMap since LocateRtGroup/GetRtGroup
-// is called from multiple db::DBTable tasks concurrently. The same mutex is
-// also used to protect the RtGroupRemoveList as multiple db::DBTable tasks
-// can try to add RtGroups to the list concurrently.
+// is added to all the RouteTargetTriggerLists, one per DBTable partition. The
+// RouteTargetTriggerList keeps track of RouteTargets whose dependent BgpRoutes
+// need to be re-evaluated.  It gets processed in the context of db::DBTable
+// task. All RouteTargetTriggerLists can be processed concurrently since they
+// work on different partitions.  As db::DBTable tasks are mutually exclusive
+// with the bgp::RTFilter task, it is guaranteed that a RouteTargetTriggerList
+// does not get modified while it's being processed.
 //
 class RTargetGroupMgr {
 public:
@@ -209,12 +211,14 @@ public:
     void Enqueue(RtGroupMgrReq *req);
     void Initialize();
     void ManagedDelete();
-    bool IsRTargetRoutesProcessed() { return rtarget_route_list_.empty(); }
+    bool IsRTargetRoutesProcessed() const {
+        return rtarget_route_list_.empty();
+    }
 
 private:
     static int rtfilter_task_id_;
 
-    friend class RTargetPeerTest;
+    friend class BgpXmppRTargetTest;
     void RTargetDepSync(DBTablePartBase *root, BgpRoute *rt, 
                         DBTableBase::ListenerId id, VpnRouteState *dbstate,
                         VpnRouteState::RTargetList &current);
@@ -224,21 +228,28 @@ private:
     void BuildRTargetDistributionGraph(BgpTable *table, RTargetRoute *rt, 
                                        DBTableBase::ListenerId id);
     BgpServer *server() { return server_; }
+
     bool ProcessRTargetRouteList();
-    void TriggerRTGroupDepWalk();
+    void DisableRTargetRouteProcessing();
+    void EnableRTargetRouteProcessing();
+    bool IsRTargetRouteOnList(RTargetRoute *rt) const;
+
     bool ProcessRouteTargetList(int part_id);
+    void AddRouteTargetToLists(const RouteTarget &rtarget);
+    void DisableRouteTargetProcessing();
+    void EnableRouteTargetProcessing();
+    bool IsRouteTargetOnList(const RouteTarget &rtarget) const;
+
+    bool ProcessRtGroupList();
+    void DisableRtGroupProcessing();
+    void EnableRtGroupProcessing();
+    bool IsRtGroupOnList(RtGroup *rtgroup) const;
+
     DBTableBase::ListenerId GetListenerId(BgpTable *table);
     void UnregisterTables();
-    bool RemoveRtGroups();
     bool VpnRouteNotify(DBTablePartBase *root, DBEntryBase *entry);
     bool RTargetRouteNotify(DBTablePartBase *root, DBEntryBase *entry);
     bool RequestHandler(RtGroupMgrReq *req);
-    void DisableRtargetRouteProcessing() {
-        rtarget_route_trigger_->set_disable();
-    }
-    void EnableRtargetRouteProcessing() {
-        rtarget_route_trigger_->set_enable();
-    }
 
     BgpServer *server_;
     tbb::mutex mutex_;
@@ -248,9 +259,7 @@ private:
     boost::scoped_ptr<TaskTrigger> remove_rtgroup_trigger_;
     std::vector<boost::shared_ptr<TaskTrigger> > rtarget_dep_triggers_;
     RTargetRouteTriggerList rtarget_route_list_;
-    tbb::atomic<long> num_dep_rt_triggers_;
-    RouteTargetTriggerList rtarget_trigger_list_;
-    RouteTargetTriggerList pending_rtarget_trigger_list_;
+    std::vector<RouteTargetTriggerList> rtarget_trigger_lists_;
     RtGroupRemoveList rtgroup_remove_list_;
     WorkQueue<RtGroupMgrReq *> *process_queue_;
     LifetimeRef<RTargetGroupMgr> master_instance_delete_ref_;

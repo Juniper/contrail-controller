@@ -10,7 +10,6 @@
 #include "base/logging.h"
 #include "base/task.h"
 #include "base/parse_object.h"
-#include <base/connection_info.h>
 #include "io/event_manager.h"
 
 #include "sandesh/sandesh_types.h"
@@ -18,58 +17,62 @@
 #include "sandesh/sandesh_session.h"
 
 #include "db_handler.h"
-#include "ruleeng.h" 
+#include "ruleeng.h"
+#include "protobuf_collector.h"
 
 using std::string;
 using boost::system::error_code;
 
 VizCollector::VizCollector(EventManager *evm, unsigned short listen_port,
-            std::vector<std::string> cassandra_ips,
-            std::vector<int> cassandra_ports,
-            const std::string redis_uve_ip, unsigned short redis_uve_port,
+            bool protobuf_collector_enabled,
+            unsigned short protobuf_listen_port,
+            const std::vector<std::string> &cassandra_ips,
+            const std::vector<int> &cassandra_ports,
+            const std::string &redis_uve_ip, unsigned short redis_uve_port,
             int syslog_port, bool dup, int analytics_ttl) :
-    evm_(evm),
+    db_initializer_(new DbHandlerInitializer(evm, DbGlobalName(dup), -1,
+        std::string("collector:DbIf"),
+        boost::bind(&VizCollector::DbInitializeCb, this),
+        cassandra_ips, cassandra_ports, analytics_ttl)),
     osp_(new OpServerProxy(evm, this, redis_uve_ip, redis_uve_port)),
-    db_handler_(new DbHandler(evm, boost::bind(&VizCollector::StartDbifReinit, this),
-                cassandra_ips, cassandra_ports, analytics_ttl, DbifGlobalName(dup))),
-    ruleeng_(new Ruleeng(db_handler_.get(), osp_.get())),
-    collector_(new Collector(evm, listen_port, db_handler_.get(), ruleeng_.get(),
-            cassandra_ips, cassandra_ports, analytics_ttl)),
-    syslog_listener_(new SyslogListeners (evm,
+    ruleeng_(new Ruleeng(db_initializer_->GetDbHandler(), osp_.get())),
+    collector_(new Collector(evm, listen_port, db_initializer_->GetDbHandler(),
+        ruleeng_.get(), cassandra_ips, cassandra_ports, analytics_ttl)),
+    syslog_listener_(new SyslogListeners(evm,
             boost::bind(&Ruleeng::rule_execute, ruleeng_.get(), _1, _2, _3),
-            db_handler_.get(), syslog_port)),
-    dbif_timer_(TimerManager::CreateTimer(
-            *evm_->io_service(), "Collector DbIf Timer",
-            TaskScheduler::GetInstance()->GetTaskId("collector::DbIf"))) {
+            db_initializer_->GetDbHandler(), syslog_port)) {
     error_code error;
     if (dup)
         name_ = boost::asio::ip::host_name(error) + "dup";
     else
         name_ = boost::asio::ip::host_name(error);
+    if (protobuf_collector_enabled) {
+        protobuf_collector_.reset(new ProtobufCollector(evm,
+            protobuf_listen_port, cassandra_ips, cassandra_ports,
+            analytics_ttl));
+    }
 }
 
 VizCollector::VizCollector(EventManager *evm, DbHandler *db_handler,
         Ruleeng *ruleeng, Collector *collector, OpServerProxy *osp) :
-    evm_(evm),
+    db_initializer_(new DbHandlerInitializer(evm, DbGlobalName(false), -1,
+        std::string("collector::DbIf"),
+        boost::bind(&VizCollector::DbInitializeCb, this),
+        db_handler)),
     osp_(osp),
-    db_handler_(db_handler),
     ruleeng_(ruleeng),
     collector_(collector),
     syslog_listener_(new SyslogListeners (evm,
             boost::bind(&Ruleeng::rule_execute, ruleeng, _1, _2, _3),
-            db_handler)),
-    dbif_timer_(TimerManager::CreateTimer(
-            *evm_->io_service(), "Collector DbIf Timer",
-            TaskScheduler::GetInstance()->GetTaskId("collector::DbIf"))) {
+            db_handler)) {
     error_code error;
     name_ = boost::asio::ip::host_name(error);
 }
 
 VizCollector::~VizCollector() {
-    TimerManager::DeleteTimer(dbif_timer_);
 }
 
-std::string VizCollector::DbifGlobalName(bool dup) {
+std::string VizCollector::DbGlobalName(bool dup) {
     std::string name;
     error_code error;
     if (dup)
@@ -112,61 +115,30 @@ void VizCollector::Shutdown() {
     }
     TcpServerManager::DeleteServer(collector_);
 
-    TimerManager::DeleteTimer(dbif_timer_);
-    dbif_timer_ = NULL;
+    syslog_listener_->Shutdown();
+    WaitForIdle();
 
-    syslog_listener_->Shutdown ();
-    TcpServerManager::DeleteServer(syslog_listener_); //delete syslog_listener_;
+    if (protobuf_collector_) {
+        protobuf_collector_->Shutdown();
+        WaitForIdle();
+    }
 
-    db_handler_->UnInit(true);
+    db_initializer_->Shutdown();
     LOG(DEBUG, __func__ << " viz_collector done");
 }
 
-bool VizCollector::DbifReinitTimerExpired() {
-    bool done = Init();
-    // Start the timer again if initialization is not done
-    return !done;
-}
-
-void VizCollector::DbifReinitTimerErrorHandler(string error_name,
-        string error_message) {
-    LOG(ERROR, __func__ << " " << error_name << " " << error_message);
-}
-
-void VizCollector::StartDbifReinitTimer() {
-    dbif_timer_->Start(DbifReinitTime * 1000,
-            boost::bind(&VizCollector::DbifReinitTimerExpired, this),
-            boost::bind(&VizCollector::DbifReinitTimerErrorHandler, this,
-                    _1, _2));
-}
-
-void VizCollector::StartDbifReinit() {
-    db_handler_->UnInit(-1);
-    StartDbifReinitTimer();
+void VizCollector::DbInitializeCb() {
+    ruleeng_->Init();
+    if (!syslog_listener_->IsRunning()) {
+        syslog_listener_->Start();
+        LOG(DEBUG, __func__ << " Initialization of syslog listener done!");
+    }
+    if (protobuf_collector_) {
+        protobuf_collector_->Initialize();
+    }
 }
 
 bool VizCollector::Init() {
-    boost::system::error_code ec;
-    boost::asio::ip::address db_addr(boost::asio::ip::address::from_string(
-        db_handler_->GetHost(), ec));
-    boost::asio::ip::tcp::endpoint db_endpoint(db_addr, db_handler_->GetPort());
-    if (!db_handler_->Init(true, -1)) {
-        // Update connection info
-        ConnectionState::GetInstance()->Update(ConnectionType::DATABASE,
-            std::string(), ConnectionStatus::DOWN, db_endpoint, std::string()); 
-        LOG(DEBUG, __func__ << " DB Handler initialization failed");
-        StartDbifReinit();
-        return false;
-    }
-    // Update connection info
-    ConnectionState::GetInstance()->Update(ConnectionType::DATABASE,
-        std::string(), ConnectionStatus::UP, db_endpoint, std::string()); 
-    ruleeng_->Init();
-    LOG(DEBUG, __func__ << " Initialization complete");
-    if (!syslog_listener_->IsRunning ()) {
-        syslog_listener_->Start ();
-        LOG(DEBUG, __func__ << " Initialization of syslog listener done!");
-    }
-    return true;
+    return db_initializer_->Initialize();
 }
 

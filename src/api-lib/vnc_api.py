@@ -1,6 +1,7 @@
 #
 # Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
 #
+import logging
 import requests
 from requests.exceptions import ConnectionError
 
@@ -9,6 +10,7 @@ import pprint
 import json
 import sys
 import time
+import __main__ as main
 
 import gen.resource_common
 from gen.resource_xsd import *
@@ -31,7 +33,12 @@ def CamelCase(input):
 
 
 def str_to_class(class_name):
-    return reduce(getattr, class_name.split("."), sys.modules[__name__])
+    try:
+        return reduce(getattr, class_name.split("."), sys.modules[__name__])
+    except Exception as e:
+        logger = logging.getLogger(__name__)
+        logger.warn("Exception: %s", str(e))
+        return None
 #end str_to_class
 
 
@@ -52,6 +59,7 @@ class VncApi(VncApiClientGen):
 
     _DEFAULT_HEADERS = {
         'Content-type': 'application/json; charset="UTF-8"',
+        'X-Contrail-Useragent': getattr(main, '__file__', ''),
     }
 
     _AUTHN_SUPPORTED_TYPES = ["keystone"]
@@ -72,7 +80,8 @@ class VncApi(VncApiClientGen):
     def __init__(self, username=None, password=None, tenant_name=None,
                  api_server_host='127.0.0.1', api_server_port='8082',
                  api_server_url=None, conf_file=None, user_info=None,
-                 auth_token=None):
+                 auth_token=None, auth_host=None, auth_port=None,
+                 auth_protocol = None, auth_url=None):
         # TODO allow for username/password to be present in creds file
 
         super(VncApi, self).__init__(self._obj_serializer_diff)
@@ -85,13 +94,17 @@ class VncApi(VncApiClientGen):
         self._authn_type = _read_cfg(cfg_parser, 'auth', 'AUTHN_TYPE',
                                      self._DEFAULT_AUTHN_TYPE)
         if self._authn_type == 'keystone':
-            self._authn_protocol = _read_cfg(cfg_parser, 'auth', 'AUTHN_PROTOCOL',
+            self._authn_protocol = auth_protocol or \
+                _read_cfg(cfg_parser, 'auth', 'AUTHN_PROTOCOL',
                                            self._DEFAULT_AUTHN_PROTOCOL)
-            self._authn_server = _read_cfg(cfg_parser, 'auth', 'AUTHN_SERVER',
+            self._authn_server = auth_host or \
+                _read_cfg(cfg_parser, 'auth', 'AUTHN_SERVER',
                                            self._DEFAULT_AUTHN_SERVER)
-            self._authn_port = _read_cfg(cfg_parser, 'auth', 'AUTHN_PORT',
+            self._authn_port = auth_port or \
+                _read_cfg(cfg_parser, 'auth', 'AUTHN_PORT',
                                          self._DEFAULT_AUTHN_PORT)
-            self._authn_url = _read_cfg(cfg_parser, 'auth', 'AUTHN_URL',
+            self._authn_url = auth_url or \
+                _read_cfg(cfg_parser, 'auth', 'AUTHN_URL',
                                         self._DEFAULT_AUTHN_URL)
             self._username = username or \
                 _read_cfg(cfg_parser, 'auth', 'AUTHN_USER',
@@ -259,10 +272,14 @@ class VncApi(VncApiClientGen):
             if link['link']['rel'] == 'collection':
                 class_name = "%s" % (CamelCase(link['link']['name']))
                 cls = str_to_class(class_name)
+                if not cls:
+                    continue
                 cls.create_uri = uri
             elif link['link']['rel'] == 'resource-base':
                 class_name = "%s" % (CamelCase(link['link']['name']))
                 cls = str_to_class(class_name)
+                if not cls:
+                    continue
                 resource_type = link['link']['name']
                 cls.resource_uri_base[resource_type] = uri
             elif link['link']['rel'] == 'action':
@@ -436,6 +453,9 @@ class VncApi(VncApiClientGen):
     def restore_config(self, create, resource, json_body):
         class_name = "%s" % (CamelCase(resource))
         cls = str_to_class(class_name)
+        if not cls:
+            return None
+
         if create:
             uri = cls.create_uri
             content = self._request_server(rest.OP_POST, uri, data=json_body)

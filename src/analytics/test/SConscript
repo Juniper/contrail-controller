@@ -20,8 +20,7 @@ while env_noWerror['CCFLAGS'].count('-Werror') > 0:
     env_noWerror['CCFLAGS'].remove('-Werror')
 
 env_noWerror_excep = env_noWerror.Clone()
-while env_noWerror_excep['CCFLAGS'].count('-fno-exceptions') > 0:
-    env_noWerror_excep['CCFLAGS'].remove('-fno-exceptions')
+env_noWerror_excep.CppEnableExceptions()
 
 SandeshGenFiles  = env.SandeshGenCpp('viz_collector_test.sandesh')
 SandeshGenFiles += env.SandeshGenCpp('vizd_test.sandesh')
@@ -121,14 +120,12 @@ env.Alias('src/analytics:options_test', options_test)
 #env.Alias('src/analytics:vizd_test', vizd_test)
 
 protobufEnv = env.Clone()
-protobufEnv.Append(LIBS=['protobuf'])
-protobufEnv.Append(LIBPATH=['/usr/lib/'])
-protobuf_test_gen_files = protobufEnv.ProtocGenCpp('self_describing_message_test.proto')
-protobuf_test_gen_files += protobufEnv.ProtocGenCpp('test_message.proto')
+protobuf_test_gen_files = protobufEnv.ProtocGenCpp('test_message.proto')
 protobuf_test_gen_srcs = protobufEnv.ExtractCpp(protobuf_test_gen_files)
 protobuf_test_desc_files = protobufEnv.ProtocGenDesc('test_message.proto')
 protobuf_test = protobufEnv.UnitTest('protobuf_test', protobuf_test_gen_srcs +
-      ['protobuf_test.cc'])
+      protobufEnv['ANALYTICS_PROTOBUF_GEN_OBJS'] +
+      ['protobuf_test.cc', '../protobuf_server.o', '../stat_walker.o'])
 env.Requires(protobuf_test, env['TOP'] + '/analytics/test/test_message.desc')
 protobufEnv.Alias('src/analytics:protobuf_test', protobuf_test)
 
@@ -138,6 +135,7 @@ test_suite = [
                db_handler_test,
                stat_walker_test,
                protobuf_test,
+               syslog_test,
              ]
 test = env.TestSuite('analytics-test', test_suite)
 
@@ -146,7 +144,7 @@ env.Alias('controller/src/analytics:test', [
     'controller/src/analytics/ruleparser:test',
 ])
 
-flaky_test_suite = [ syslog_test ]
+flaky_test_suite = [ ]
 flaky_test = env.TestSuite('analytics-flaky-test', flaky_test_suite)
 env.Alias('controller/src/analytics:flaky-test', flaky_test)
 

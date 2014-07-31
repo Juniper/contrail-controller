@@ -3,8 +3,7 @@
  */
 
 #include "testing/gunit.h"
-
-#include <netinet/if_ether.h>
+#include <net/ethernet.h>
 #include <boost/uuid/string_generator.hpp>
 #include <boost/scoped_array.hpp>
 #include <base/logging.h>
@@ -36,11 +35,12 @@
 #define BUF_SIZE 8192
 char src_mac[MAC_LEN] = { 0x00, 0x01, 0x02, 0x03, 0x04, 0x05 };
 char dest_mac[MAC_LEN] = { 0x00, 0x11, 0x12, 0x13, 0x14, 0x15 };
+#define DHCP_RESPONSE_STRING "Server : 1.1.1.200; Lease time : 4294967295; Subnet mask : 255.255.255.0; Broadcast : 1.1.1.255; Gateway : 1.1.1.200; Host Name : vm1; DNS : 1.1.1.200; Domain Name : test.contrail.juniper.net; "
 #define HOST_ROUTE_STRING "Host Routes : 10.1.1.0/24 -> 1.1.1.200;10.1.2.0/24 -> 1.1.1.200;150.25.75.0/24 -> 1.1.1.200;192.168.1.128/28 -> 1.1.1.200;"
 #define CHANGED_HOST_ROUTE_STRING "Host Routes : 150.2.2.0/24 -> 1.1.1.200;192.1.1.1/28 -> 1.1.1.200;"
-#define IPAM_DHCP_OPTIONS_STRING "DNS : 1.2.3.4; Domain Name : test.com; NTP : 3.2.14.5"
-#define SUBNET_DHCP_OPTIONS_STRING "DNS : 11.12.13.14; Domain Name : subnet.com; NTP : 13.12.14.15;"
-#define PORT_DHCP_OPTIONS_STRING "DNS : 21.22.23.24; Domain Name : interface.com; NTP : 23.22.24.25;"
+#define IPAM_DHCP_OPTIONS_STRING "DNS : 1.2.3.4; Domain Name : test.com; Time Server : 3.2.14.5"
+#define SUBNET_DHCP_OPTIONS_STRING "DNS : 11.12.13.14; Domain Name : subnet.com; Time Server : 3.2.14.5;"
+#define PORT_DHCP_OPTIONS_STRING "DNS : 21.22.23.24; Time Server : 13.12.14.15; Domain Name : test.com;"
 #define PORT_HOST_ROUTE_STRING "Host Routes : 99.2.3.0/24 -> 1.1.1.200;99.5.0.0/16 -> 1.1.1.200;"
 
 #define DHCP_CHECK(condition)                                                  \
@@ -85,9 +85,9 @@ public:
         }
     }
 
-    uint32_t GetItfCount() { 
+    uint32_t GetItfCount() {
         tbb::mutex::scoped_lock lock(mutex_);
-        return itf_count_; 
+        return itf_count_;
     }
 
     void WaitForItfUpdate(unsigned int expect_count) {
@@ -99,12 +99,12 @@ public:
         }
     }
 
-    std::size_t GetItfId(int index) { 
+    std::size_t GetItfId(int index) {
         tbb::mutex::scoped_lock lock(mutex_);
-        return itf_id_[index]; 
+        return itf_id_[index];
     }
 
-    std::size_t fabric_interface_id() { 
+    std::size_t fabric_interface_id() {
         PhysicalInterfaceKey key(Agent::GetInstance()->params()->eth_port().c_str());
         Interface *intf = static_cast<Interface *>
             (Agent::GetInstance()->interface_table()->FindActiveEntry(&key));
@@ -114,24 +114,37 @@ public:
             assert(0);
     }
 
-    void CheckSandeshResponse(Sandesh *sandesh, bool check_host_routes,
-                              const char *option_string,
-                              const char *dhcp_option_string) {
+    void CheckSandeshResponse(Sandesh *sandesh, bool check_dhcp_options,
+                              const char *host_routes_string,
+                              const char *dhcp_option_string,
+                              bool check_other_options,
+                              const char *other_option_string) {
         if (memcmp(sandesh->Name(), "DhcpPktSandesh",
                    strlen("DhcpPktSandesh")) == 0) {
             DhcpPktSandesh *dhcp_pkt = (DhcpPktSandesh *)sandesh;
-            if (check_host_routes) {
+            if (check_dhcp_options) {
                 DhcpPkt pkt = (dhcp_pkt->get_pkt_list())[3];
-                if (pkt.dhcp_hdr.dhcp_options.find(option_string) ==
+                if (strlen(host_routes_string) &&
+                    pkt.dhcp_hdr.dhcp_options.find(host_routes_string) ==
                     std::string::npos) {
                     assert(0);
                 }
-                if (pkt.dhcp_hdr.dhcp_options.find(dhcp_option_string) ==
+                if (strlen(dhcp_option_string) &&
+                    pkt.dhcp_hdr.dhcp_options.find(dhcp_option_string) ==
                     std::string::npos) {
                     assert(0);
                 }
                 // Also check that when host routes are specified, GW option is not sent
-                if (pkt.dhcp_hdr.dhcp_options.find("Gateway : ") !=
+                if (strlen(host_routes_string) &&
+                    pkt.dhcp_hdr.dhcp_options.find("Gateway : ") !=
+                    std::string::npos) {
+                    assert(0);
+                }
+            }
+            if (check_other_options) {
+                DhcpPkt pkt = (dhcp_pkt->get_pkt_list())[3];
+                if (strlen(other_option_string)  &&
+                    pkt.dhcp_hdr.other_options.find(other_option_string) ==
                     std::string::npos) {
                     assert(0);
                 }
@@ -165,7 +178,7 @@ public:
         dhcphdr *dhcp = (dhcphdr *) buf;
         dhcp->op = BOOT_REPLY;
         dhcp->htype = HW_TYPE_ETHERNET;
-        dhcp->hlen = ETH_ALEN;
+        dhcp->hlen = ETHER_ADDR_LEN;
         dhcp->hops = 0;
         dhcp->xid = 0x01020304;
         dhcp->secs = 0;
@@ -174,7 +187,7 @@ public:
         dhcp->yiaddr = htonl(yiaddr);
         dhcp->siaddr = 0;
         dhcp->giaddr = 0;
-        memcpy(dhcp->chaddr, src_mac, ETH_ALEN);
+        memcpy(dhcp->chaddr, src_mac, ETHER_ADDR_LEN);
         memset(dhcp->sname, 0, DHCP_NAME_LEN);
         memset(dhcp->file, 0, DHCP_FILE_LEN);
         len = DHCP_FIXED_LEN;
@@ -191,47 +204,47 @@ public:
         boost::scoped_array<uint8_t> buf(new uint8_t[len]);
         memset(buf.get(), 0, len);
 
-        ethhdr *eth = (ethhdr *)buf.get();
-        eth->h_dest[5] = 1;
-        eth->h_source[5] = 2;
-        eth->h_proto = htons(0x800);
+        ether_header *eth = (ether_header *)buf.get();
+        eth->ether_dhost[5] = 1;
+        eth->ether_shost[5] = 2;
+        eth->ether_type = htons(0x800);
 
         agent_hdr *agent = (agent_hdr *)(eth + 1);
         agent->hdr_ifindex = htons(ifindex);
         agent->hdr_vrf = htons(0);
-        agent->hdr_cmd = htons(AGENT_TRAP_NEXTHOP);
+        agent->hdr_cmd = htons(AgentHdr::TRAP_NEXTHOP);
 
-        eth = (ethhdr *) (agent + 1);
-        memcpy(eth->h_dest, dest_mac, MAC_LEN);
-        memcpy(eth->h_source, src_mac, MAC_LEN);
-        eth->h_proto = htons(0x800);
+        eth = (ether_header *) (agent + 1);
+        memcpy(eth->ether_dhost, dest_mac, ETHER_ADDR_LEN);
+        memcpy(eth->ether_shost, src_mac, ETHER_ADDR_LEN);
+        eth->ether_type = htons(ETHERTYPE_IP);
 
-        iphdr *ip = (iphdr *) (eth + 1);
-        ip->ihl = 5;
-        ip->version = 4;
-        ip->tos = 0;
-        ip->id = 0;
-        ip->frag_off = 0;
-        ip->ttl = 16;
-        ip->protocol = IPPROTO_UDP;
-        ip->check = 0;
+        ip *ip = (struct ip *) (eth + 1);
+        ip->ip_hl = 5;
+        ip->ip_v = 4;
+        ip->ip_tos = 0;
+        ip->ip_id = 0;
+        ip->ip_off = 0;
+        ip->ip_ttl = 16;
+        ip->ip_p = IPPROTO_UDP;
+        ip->ip_sum = 0;
         if (response) {
-            ip->saddr = inet_addr("1.2.3.254");
-            ip->daddr = 0;
+            ip->ip_src.s_addr = inet_addr("1.2.3.254");
+            ip->ip_dst.s_addr = 0;
         } else {
-            ip->saddr = 0;
-            ip->daddr = inet_addr("255.255.255.255");
+            ip->ip_src.s_addr = 0;
+            ip->ip_dst.s_addr = inet_addr("255.255.255.255");
         }
 
         udphdr *udp = (udphdr *) (ip + 1);
         if (response) {
-            udp->source = htons(DHCP_SERVER_PORT);
-            udp->dest = htons(DHCP_SERVER_PORT);
+            udp->uh_sport = htons(DHCP_SERVER_PORT);
+            udp->uh_dport = htons(DHCP_SERVER_PORT);
         } else {
-            udp->source = htons(DHCP_CLIENT_PORT);
-            udp->dest = htons(DHCP_SERVER_PORT);
+            udp->uh_sport = htons(DHCP_CLIENT_PORT);
+            udp->uh_dport = htons(DHCP_SERVER_PORT);
         }
-        udp->check = 0;
+        udp->uh_sum = 0;
 
         dhcphdr *dhcp = (dhcphdr *) (udp + 1);
         if (response) {
@@ -240,7 +253,7 @@ public:
             dhcp->op = BOOT_REQUEST;
         }
         dhcp->htype = HW_TYPE_ETHERNET;
-        dhcp->hlen = ETH_ALEN;
+        dhcp->hlen = ETHER_ADDR_LEN;
         dhcp->hops = 0;
         dhcp->xid = 0x01020304;
         dhcp->secs = 0;
@@ -249,7 +262,7 @@ public:
         dhcp->yiaddr = htonl(yiaddr);
         dhcp->siaddr = 0;
         dhcp->giaddr = 0;
-        memcpy(dhcp->chaddr, src_mac, ETH_ALEN);
+        memcpy(dhcp->chaddr, src_mac, ETHER_ADDR_LEN);
         memset(dhcp->sname, 0, DHCP_NAME_LEN);
         memset(dhcp->file, 0, DHCP_FILE_LEN);
         len = sizeof(udphdr) + DHCP_FIXED_LEN;
@@ -259,9 +272,9 @@ public:
             memcpy(dhcp->options, "1234", 4);
         }
 
-        udp->len = htons(len);
-        ip->tot_len = htons(len + sizeof(iphdr));
-        len += sizeof(iphdr) + sizeof(ethhdr) + IPC_HDR_LEN;
+        udp->uh_ulen = htons(len);
+        ip->ip_len = htons(len + sizeof(ip));
+        len += sizeof(*ip) + sizeof(ether_header) + TapInterface::kAgentHdrLen;
         TestTapInterface *tap = (TestTapInterface *)
             (Agent::GetInstance()->pkt()->pkt_handler()->tap_interface());
         tap->GetTestPktHandler()->TestPktSend(buf.get(), len);
@@ -407,15 +420,74 @@ public:
         EXPECT_EQ(1U, stats.acks);
 
         client->Reset();
-        DelIPAM("vn1", "vdns1"); 
+        DelIPAM("vn1", "vdns1");
         client->WaitForIdle();
-        DelVDNS("vdns1"); 
+        DelVDNS("vdns1");
         client->WaitForIdle();
 
         client->Reset();
-        DeleteVmportEnv(input, 2, 1, 0); 
+        DeleteVmportEnv(input, 2, 1, 0);
         client->WaitForIdle();
 
+        Agent::GetInstance()->GetDhcpProto()->ClearStats();
+    }
+
+    void DhcpOptionCategoryTest(char *vm_interface_attr,
+                                bool dhcp_string, const char *dhcp_option_string,
+                                bool other_string, const char *other_option_string) {
+        struct PortInfo input[] = {
+            {"vnet1", 1, "1.1.1.1", "00:00:00:01:01:01", 1, 1},
+        };
+        uint8_t options[] = {
+            DHCP_OPTION_MSG_TYPE,
+            DHCP_OPTION_HOST_NAME,
+            DHCP_OPTION_DOMAIN_NAME,
+            DHCP_OPTION_END
+        };
+        DhcpProto::DhcpStats stats;
+
+        IpamInfo ipam_info[] = {
+            {"1.2.3.128", 27, "1.2.3.129", true},
+            {"7.8.9.0", 24, "7.8.9.12", true},
+            {"1.1.1.0", 24, "1.1.1.200", true},
+        };
+
+        CreateVmportEnv(input, 1, 0, NULL, NULL, vm_interface_attr);
+        client->WaitForIdle();
+        client->Reset();
+        AddIPAM("vn1", ipam_info, 3);
+        client->WaitForIdle();
+
+        ClearPktTrace();
+        SendDhcp(GetItfId(0), 0x8000, DHCP_DISCOVER, options, 4);
+        SendDhcp(GetItfId(0), 0x8000, DHCP_REQUEST, options, 4);
+        int count = 0;
+        DHCP_CHECK (stats.acks < 1);
+        EXPECT_EQ(1U, stats.discover);
+        EXPECT_EQ(1U, stats.request);
+        EXPECT_EQ(1U, stats.offers);
+        EXPECT_EQ(1U, stats.acks);
+
+        DhcpInfo *sand = new DhcpInfo();
+        Sandesh::set_response_callback(boost::bind(
+            &DhcpTest::CheckSandeshResponse, this, _1,
+            dhcp_string, "", dhcp_option_string,
+            other_string, other_option_string));
+        sand->HandleRequest();
+        client->WaitForIdle();
+        sand->Release();
+
+        client->Reset();
+        DelIPAM("vn1", "vdns1");
+        client->WaitForIdle();
+        DelVDNS("vdns1");
+        client->WaitForIdle();
+
+        client->Reset();
+        DeleteVmportEnv(input, 1, 1, 0);
+        client->WaitForIdle();
+
+        ClearPktTrace();
         Agent::GetInstance()->GetDhcpProto()->ClearStats();
     }
 
@@ -507,7 +579,8 @@ TEST_F(DhcpTest, DhcpReqTest) {
 
     DhcpInfo *sand = new DhcpInfo();
     Sandesh::set_response_callback(
-        boost::bind(&DhcpTest::CheckSandeshResponse, this, _1, false, "", ""));
+        boost::bind(&DhcpTest::CheckSandeshResponse, this, _1,
+                    true, "", DHCP_RESPONSE_STRING, false, ""));
     sand->HandleRequest();
     client->WaitForIdle();
     sand->Release();
@@ -520,13 +593,13 @@ TEST_F(DhcpTest, DhcpReqTest) {
     all_sandesh->Release();
 
     client->Reset();
-    DelIPAM("vn1", "vdns1"); 
+    DelIPAM("vn1", "vdns1");
     client->WaitForIdle();
-    DelVDNS("vdns1"); 
+    DelVDNS("vdns1");
     client->WaitForIdle();
 
     client->Reset();
-    DeleteVmportEnv(input, 2, 1, 0); 
+    DeleteVmportEnv(input, 2, 1, 0);
     client->WaitForIdle();
 
     Agent::GetInstance()->GetDhcpProto()->ClearStats();
@@ -554,7 +627,7 @@ TEST_F(DhcpTest, DhcpOtherReqTest) {
     EXPECT_EQ(3U, stats.other);
 
     client->Reset();
-    DeleteVmportEnv(input, 1, 1, 0); 
+    DeleteVmportEnv(input, 1, 1, 0);
     client->WaitForIdle();
 
     Agent::GetInstance()->GetDhcpProto()->ClearStats();
@@ -581,7 +654,7 @@ TEST_F(DhcpTest, DhcpOptionTest) {
         {CLIENT_REQ_PREFIX, 24, CLIENT_REQ_GW, true},
     };
     char vdns_attr[] = "<virtual-DNS-data>\n <domain-name>test.domain</domain-name>\n <dynamic-records-from-client>true</dynamic-records-from-client>\n <record-order>fixed</record-order>\n <default-ttl-seconds>120</default-ttl-seconds>\n </virtual-DNS-data>\n";
-    char ipam_attr[] = 
+    char ipam_attr[] =
     "<network-ipam-mgmt>\
         <ipam-dns-method>virtual-dns-server</ipam-dns-method>\
         <ipam-dns-server>\
@@ -626,19 +699,20 @@ TEST_F(DhcpTest, DhcpOptionTest) {
 
     DhcpInfo *sand = new DhcpInfo();
     Sandesh::set_response_callback(boost::bind(&DhcpTest::CheckSandeshResponse,
-                                               this, _1, false, "", ""));
+                                               this, _1, false, "", "",
+                                               false, ""));
     sand->HandleRequest();
     client->WaitForIdle();
     sand->Release();
 
     client->Reset();
-    DelIPAM("vn1", "vdns1"); 
+    DelIPAM("vn1", "vdns1");
     client->WaitForIdle();
-    DelVDNS("vdns1"); 
+    DelVDNS("vdns1");
     client->WaitForIdle();
 
     client->Reset();
-    DeleteVmportEnv(input, 1, 1, 0); 
+    DeleteVmportEnv(input, 1, 1, 0);
     client->WaitForIdle();
 
     Agent::GetInstance()->GetDhcpProto()->ClearStats();
@@ -674,17 +748,18 @@ TEST_F(DhcpTest, DhcpNakTest) {
 
     DhcpInfo *sand = new DhcpInfo();
     Sandesh::set_response_callback(boost::bind(&DhcpTest::CheckSandeshResponse,
-                                               this, _1, false, "", ""));
+                                               this, _1, false, "", "",
+                                               false, ""));
     sand->HandleRequest();
     client->WaitForIdle();
     sand->Release();
 
     client->Reset();
-    DelIPAM("vn1"); 
+    DelIPAM("vn1");
     client->WaitForIdle();
 
     client->Reset();
-    DeleteVmportEnv(input, 1, 1, 0); 
+    DeleteVmportEnv(input, 1, 1, 0);
     client->WaitForIdle();
 
     Agent::GetInstance()->GetDhcpProto()->ClearStats();
@@ -744,11 +819,11 @@ TEST_F(DhcpTest, DhcpShortLeaseTest) {
     WaitForItfUpdate(0);
 
     client->Reset();
-    DelIPAM("vn1"); 
+    DelIPAM("vn1");
     client->WaitForIdle();
 
     client->Reset();
-    DeleteVmportEnv(input, 1, 1, 0); 
+    DeleteVmportEnv(input, 1, 1, 0);
     client->WaitForIdle();
 
     Agent::GetInstance()->GetDhcpProto()->ClearStats();
@@ -769,7 +844,7 @@ TEST_F(DhcpTest, DhcpTenantDnsTest) {
     IpamInfo ipam_info[] = {
         {"3.2.5.0", 24, "3.2.5.254", true},
     };
-    char ipam_attr[] = 
+    char ipam_attr[] =
     "<network-ipam-mgmt>\
         <ipam-dns-method>tenant-dns-server</ipam-dns-method>\
         <ipam-dns-server>\
@@ -811,11 +886,11 @@ TEST_F(DhcpTest, DhcpTenantDnsTest) {
     EXPECT_EQ(1U, stats.acks);
 
     client->Reset();
-    DelIPAM("vn1"); 
+    DelIPAM("vn1");
     client->WaitForIdle();
 
     client->Reset();
-    DeleteVmportEnv(input, 1, 1, 0); 
+    DeleteVmportEnv(input, 1, 1, 0);
     client->WaitForIdle();
 
     Agent::GetInstance()->GetDhcpProto()->ClearStats();
@@ -849,7 +924,7 @@ TEST_F(DhcpTest, DhcpFabricPortTest) {
 
     client->Reset();
     DeleteVmportEnv(input, 1, 1, 0, NULL,
-                    Agent::GetInstance()->fabric_vrf_name().c_str()); 
+                    Agent::GetInstance()->fabric_vrf_name().c_str());
     client->WaitForIdle();
 
     Agent::GetInstance()->GetDhcpProto()->ClearStats();
@@ -892,7 +967,7 @@ TEST_F(DhcpTest, DhcpZeroIpTest) {
 
     client->Reset();
     DeleteVmportEnv(input, 1, 1, 0, NULL,
-                    Agent::GetInstance()->fabric_vrf_name().c_str()); 
+                    Agent::GetInstance()->fabric_vrf_name().c_str());
     client->WaitForIdle();
 
     Agent::GetInstance()->GetDhcpProto()->ClearStats();
@@ -917,7 +992,7 @@ TEST_F(DhcpTest, IpamSpecificDhcpOptions) {
         {"1.1.1.0", 24, "1.1.1.200", true},
     };
     char vdns_attr[] = "<virtual-DNS-data>\n <domain-name>test.contrail.juniper.net</domain-name>\n <dynamic-records-from-client>true</dynamic-records-from-client>\n <record-order>fixed</record-order>\n <default-ttl-seconds>120</default-ttl-seconds>\n </virtual-DNS-data>\n";
-    char ipam_attr[] = 
+    char ipam_attr[] =
     "<network-ipam-mgmt>\
         <ipam-dns-method>virtual-dns-server</ipam-dns-method>\
         <ipam-dns-server><virtual-dns-server-name>vdns1</virtual-dns-server-name></ipam-dns-server>\
@@ -965,7 +1040,8 @@ TEST_F(DhcpTest, IpamSpecificDhcpOptions) {
     Sandesh::set_response_callback(boost::bind(&DhcpTest::CheckSandeshResponse,
                                                this, _1, true,
                                                HOST_ROUTE_STRING,
-                                               IPAM_DHCP_OPTIONS_STRING));
+                                               IPAM_DHCP_OPTIONS_STRING,
+                                               false, ""));
     sand->HandleRequest();
     client->WaitForIdle();
     sand->Release();
@@ -991,19 +1067,20 @@ TEST_F(DhcpTest, IpamSpecificDhcpOptions) {
     Sandesh::set_response_callback(boost::bind(&DhcpTest::CheckSandeshResponse,
                                                this, _1, true,
                                                CHANGED_HOST_ROUTE_STRING,
-                                               IPAM_DHCP_OPTIONS_STRING));
+                                               IPAM_DHCP_OPTIONS_STRING,
+                                               false, ""));
     new_sand->HandleRequest();
     client->WaitForIdle();
     new_sand->Release();
 
     client->Reset();
-    DelIPAM("vn1", "vdns1"); 
+    DelIPAM("vn1", "vdns1");
     client->WaitForIdle();
-    DelVDNS("vdns1"); 
+    DelVDNS("vdns1");
     client->WaitForIdle();
 
     client->Reset();
-    DeleteVmportEnv(input, 2, 1, 0); 
+    DeleteVmportEnv(input, 2, 1, 0);
     client->WaitForIdle();
 
     ClearPktTrace();
@@ -1030,7 +1107,7 @@ TEST_F(DhcpTest, SubnetSpecificDhcpOptions) {
         {"1.1.1.0", 24, "1.1.1.200", true},
     };
     char vdns_attr[] = "<virtual-DNS-data>\n <domain-name>test.contrail.juniper.net</domain-name>\n <dynamic-records-from-client>true</dynamic-records-from-client>\n <record-order>fixed</record-order>\n <default-ttl-seconds>120</default-ttl-seconds>\n </virtual-DNS-data>\n";
-    char ipam_attr[] = 
+    char ipam_attr[] =
     "<network-ipam-mgmt>\
         <ipam-dns-method>default-dns-server</ipam-dns-method>\
         <dhcp-option-list>\
@@ -1052,7 +1129,7 @@ TEST_F(DhcpTest, SubnetSpecificDhcpOptions) {
             <route><prefix>4.5.0.0/16</prefix> <next-hop /> <next-hop-type /></route>\
         </host-routes>\
     </network-ipam-mgmt>";
-    char add_subnet_tags[] = 
+    char add_subnet_tags[] =
     "<dhcp-option-list>\
         <dhcp-option>\
             <dhcp-option-name>6</dhcp-option-name>\
@@ -1062,11 +1139,8 @@ TEST_F(DhcpTest, SubnetSpecificDhcpOptions) {
             <dhcp-option-name>15</dhcp-option-name>\
             <dhcp-option-value>subnet.com</dhcp-option-value>\
         </dhcp-option>\
-        <dhcp-option>\
-            <dhcp-option-name>4</dhcp-option-name>\
-            <dhcp-option-value>13.12.14.15</dhcp-option-value>\
-        </dhcp-option>\
      </dhcp-option-list>";
+    // option 4 from ipam and other options from subnet should be used
 
     std::vector<std::string> vm_host_routes;
     vm_host_routes.push_back("10.1.1.0/24");
@@ -1096,19 +1170,20 @@ TEST_F(DhcpTest, SubnetSpecificDhcpOptions) {
     Sandesh::set_response_callback(boost::bind(&DhcpTest::CheckSandeshResponse,
                                                this, _1, true,
                                                HOST_ROUTE_STRING,
-                                               SUBNET_DHCP_OPTIONS_STRING));
+                                               SUBNET_DHCP_OPTIONS_STRING,
+                                               false, ""));
     sand->HandleRequest();
     client->WaitForIdle();
     sand->Release();
 
     client->Reset();
-    DelIPAM("vn1", "vdns1"); 
+    DelIPAM("vn1", "vdns1");
     client->WaitForIdle();
-    DelVDNS("vdns1"); 
+    DelVDNS("vdns1");
     client->WaitForIdle();
 
     client->Reset();
-    DeleteVmportEnv(input, 2, 1, 0); 
+    DeleteVmportEnv(input, 2, 1, 0);
     client->WaitForIdle();
 
     ClearPktTrace();
@@ -1134,7 +1209,7 @@ TEST_F(DhcpTest, PortSpecificDhcpOptions) {
         {"7.8.9.0", 24, "7.8.9.12", true},
         {"1.1.1.0", 24, "1.1.1.200", true},
     };
-    char ipam_attr[] = 
+    char ipam_attr[] =
     "<network-ipam-mgmt>\
         <ipam-dns-method>default-dns-server</ipam-dns-method>\
         <dhcp-option-list>\
@@ -1157,15 +1232,11 @@ TEST_F(DhcpTest, PortSpecificDhcpOptions) {
         </host-routes>\
     </network-ipam-mgmt>";
 
-    char add_subnet_tags[] = 
+    char add_subnet_tags[] =
     "<dhcp-option-list>\
         <dhcp-option>\
             <dhcp-option-name>6</dhcp-option-name>\
             <dhcp-option-value>11.12.13.14</dhcp-option-value>\
-        </dhcp-option>\
-        <dhcp-option>\
-            <dhcp-option-name>15</dhcp-option-name>\
-            <dhcp-option-value>subnet.com</dhcp-option-value>\
         </dhcp-option>\
         <dhcp-option>\
             <dhcp-option-name>4</dhcp-option-name>\
@@ -1173,25 +1244,19 @@ TEST_F(DhcpTest, PortSpecificDhcpOptions) {
         </dhcp-option>\
      </dhcp-option-list>";
 
-    char vm_interface_attr[] = 
+    char vm_interface_attr[] =
     "<virtual-machine-interface-dhcp-option-list>\
         <dhcp-option>\
             <dhcp-option-name>6</dhcp-option-name>\
             <dhcp-option-value>21.22.23.24</dhcp-option-value>\
-         </dhcp-option>\
-         <dhcp-option>\
-            <dhcp-option-name>15</dhcp-option-name>\
-            <dhcp-option-value>interface.com</dhcp-option-value>\
-         </dhcp-option>\
-         <dhcp-option>\
-            <dhcp-option-name>4</dhcp-option-name>\
-            <dhcp-option-value>23.22.24.25</dhcp-option-value>\
          </dhcp-option>\
      </virtual-machine-interface-dhcp-option-list>\
      <virtual-machine-interface-host-routes>\
          <route><prefix>99.2.3.0/24</prefix> <next-hop /> <next-hop-type /> </route>\
          <route><prefix>99.5.0.0/16</prefix> <next-hop /> <next-hop-type /> </route>\
     </virtual-machine-interface-host-routes>";
+    // option 6 from vm interface, option 4 from subnet and option 15
+    // from ipam should be used
 
     std::vector<std::string> vm_host_routes;
     vm_host_routes.push_back("10.1.1.0/24");
@@ -1219,19 +1284,20 @@ TEST_F(DhcpTest, PortSpecificDhcpOptions) {
     Sandesh::set_response_callback(boost::bind(&DhcpTest::CheckSandeshResponse,
                                                this, _1, true,
                                                PORT_HOST_ROUTE_STRING,
-                                               PORT_DHCP_OPTIONS_STRING));
+                                               PORT_DHCP_OPTIONS_STRING,
+                                               false, ""));
     sand->HandleRequest();
     client->WaitForIdle();
     sand->Release();
 
     client->Reset();
-    DelIPAM("vn1", "vdns1"); 
+    DelIPAM("vn1", "vdns1");
     client->WaitForIdle();
-    DelVDNS("vdns1"); 
+    DelVDNS("vdns1");
     client->WaitForIdle();
 
     client->Reset();
-    DeleteVmportEnv(input, 2, 1, 0); 
+    DeleteVmportEnv(input, 2, 1, 0);
     client->WaitForIdle();
 
     ClearPktTrace();
@@ -1244,6 +1310,333 @@ TEST_F(DhcpTest, DhcpEnableTestForward) {
 
 TEST_F(DhcpTest, DhcpEnableTestReverse) {
     DhcpEnableTest(false);
+}
+
+// Check dhcp options - different categories
+TEST_F(DhcpTest, NoDataOption) {
+    char vm_interface_attr[] =
+    "<virtual-machine-interface-dhcp-option-list>\
+        <dhcp-option>\
+            <dhcp-option-name>rapid-commit</dhcp-option-name>\
+            <dhcp-option-value></dhcp-option-value>\
+         </dhcp-option>\
+     </virtual-machine-interface-dhcp-option-list>";
+
+    #define OPTION_CATEGORY_NO_DATA "50 00"
+    DhcpOptionCategoryTest(vm_interface_attr, false, "", true,
+                           OPTION_CATEGORY_NO_DATA);
+}
+
+// Check dhcp options - different categories
+TEST_F(DhcpTest, BoolByteOption) {
+    // options that take bool value, byte value and byte array
+    char vm_interface_attr[] =
+    "<virtual-machine-interface-dhcp-option-list>\
+        <dhcp-option>\
+            <dhcp-option-name>ip-forwarding</dhcp-option-name>\
+            <dhcp-option-value>1</dhcp-option-value>\
+         </dhcp-option>\
+        <dhcp-option>\
+            <dhcp-option-name>default-ip-ttl</dhcp-option-name>\
+            <dhcp-option-value>125</dhcp-option-value>\
+         </dhcp-option>\
+        <dhcp-option>\
+            <dhcp-option-name>interface-id</dhcp-option-name>\
+            <dhcp-option-value>abcd</dhcp-option-value>\
+         </dhcp-option>\
+     </virtual-machine-interface-dhcp-option-list>";
+
+    #define OPTION_CATEGORY_BOOL_BYTE "13 01 01 17 01 7d 5e 04 61 62 63 64"
+    DhcpOptionCategoryTest(vm_interface_attr, false, "", true,
+                           OPTION_CATEGORY_BOOL_BYTE);
+}
+
+// Check dhcp options - error input
+TEST_F(DhcpTest, BoolByteOptionError) {
+    // options that take bool value, byte value and byte array
+    char vm_interface_attr[] =
+    "<virtual-machine-interface-dhcp-option-list>\
+        <dhcp-option>\
+            <dhcp-option-name>ip-forwarding</dhcp-option-name>\
+            <dhcp-option-value>0</dhcp-option-value>\
+         </dhcp-option>\
+        <dhcp-option>\
+            <dhcp-option-name>all-subnets-local</dhcp-option-name>\
+            <dhcp-option-value>test</dhcp-option-value>\
+         </dhcp-option>\
+        <dhcp-option>\
+            <dhcp-option-name>all-subnets-local</dhcp-option-name>\
+            <dhcp-option-value>300</dhcp-option-value>\
+         </dhcp-option>\
+        <dhcp-option>\
+            <dhcp-option-name>interface-id</dhcp-option-name>\
+            <dhcp-option-value></dhcp-option-value>\
+         </dhcp-option>\
+        <dhcp-option>\
+            <dhcp-option-name>default-ip-ttl</dhcp-option-name>\
+            <dhcp-option-value>32</dhcp-option-value>\
+         </dhcp-option>\
+     </virtual-machine-interface-dhcp-option-list>";
+
+    // all-subnets-local is not added as input is bad
+    // interface-id option is not added as there is no data
+    #define OPTION_CATEGORY_BOOL_BYTE_ERROR "13 01 00 17 01 20 "
+    DhcpOptionCategoryTest(vm_interface_attr, false, "", true,
+                           OPTION_CATEGORY_BOOL_BYTE_ERROR);
+}
+
+// Check dhcp options - use option code as dhcp-option-name
+TEST_F(DhcpTest, OptionCodeTest) {
+    // options that take bool value, byte value and byte array
+    char vm_interface_attr[] =
+    "<virtual-machine-interface-dhcp-option-list>\
+        <dhcp-option>\
+            <dhcp-option-name>19</dhcp-option-name>\
+            <dhcp-option-value>1</dhcp-option-value>\
+         </dhcp-option>\
+        <dhcp-option>\
+            <dhcp-option-name>23</dhcp-option-name>\
+            <dhcp-option-value>125</dhcp-option-value>\
+         </dhcp-option>\
+        <dhcp-option>\
+            <dhcp-option-name>94</dhcp-option-name>\
+            <dhcp-option-value>abcd</dhcp-option-value>\
+         </dhcp-option>\
+     </virtual-machine-interface-dhcp-option-list>";
+
+    DhcpOptionCategoryTest(vm_interface_attr, false, "", true,
+                           OPTION_CATEGORY_BOOL_BYTE);
+}
+
+// Check dhcp options - different categories
+TEST_F(DhcpTest, ByteStringOption) {
+    // options that take byte value followed by string
+    char vm_interface_attr[] =
+    "<virtual-machine-interface-dhcp-option-list>\
+        <dhcp-option>\
+            <dhcp-option-name>slp-service-scope</dhcp-option-name>\
+            <dhcp-option-value>10 value</dhcp-option-value>\
+         </dhcp-option>\
+        <dhcp-option>\
+            <dhcp-option-name>dhcp-vss</dhcp-option-name>\
+            <dhcp-option-value>test value</dhcp-option-value>\
+         </dhcp-option>\
+        <dhcp-option>\
+            <dhcp-option-name>dhcp-vss</dhcp-option-name>\
+            <dhcp-option-value></dhcp-option-value>\
+         </dhcp-option>\
+        <dhcp-option>\
+            <dhcp-option-name>dhcp-vss</dhcp-option-name>\
+            <dhcp-option-value>3000 wrongvalue</dhcp-option-value>\
+         </dhcp-option>\
+        <dhcp-option>\
+            <dhcp-option-name>dhcp-client-identifier</dhcp-option-name>\
+            <dhcp-option-value>20 abcd</dhcp-option-value>\
+         </dhcp-option>\
+     </virtual-machine-interface-dhcp-option-list>";
+
+    // dhcp-vss shouldnt be present as value was wrong
+    #define OPTION_CATEGORY_BYTE_STRING "4f 06 0a 76 61 6c 75 65 3d 05 14 61 62 63 64"
+    DhcpOptionCategoryTest(vm_interface_attr, false, "", true,
+                           OPTION_CATEGORY_BYTE_STRING);
+}
+
+// Check dhcp options - different categories
+TEST_F(DhcpTest, ByteIpOption) {
+    // options that take byte value followed by one or more IP addresses
+    char vm_interface_attr[] =
+    "<virtual-machine-interface-dhcp-option-list>\
+        <dhcp-option>\
+            <dhcp-option-name>slp-directory-agent</dhcp-option-name>\
+            <dhcp-option-value>test 1.2.3.4 5.6.7.8</dhcp-option-value>\
+         </dhcp-option>\
+        <dhcp-option>\
+            <dhcp-option-name>slp-directory-agent</dhcp-option-name>\
+            <dhcp-option-value>300 1.2.3.4</dhcp-option-value>\
+         </dhcp-option>\
+        <dhcp-option>\
+            <dhcp-option-name>slp-directory-agent</dhcp-option-name>\
+            <dhcp-option-value>1.2.3.4</dhcp-option-value>\
+         </dhcp-option>\
+        <dhcp-option>\
+            <dhcp-option-name>slp-directory-agent</dhcp-option-name>\
+            <dhcp-option-value>20 1.2.3.4 5.6.7.8</dhcp-option-value>\
+         </dhcp-option>\
+        <dhcp-option>\
+            <dhcp-option-name>slp-directory-agent</dhcp-option-name>\
+            <dhcp-option-value>30 9.8.6.5</dhcp-option-value>\
+         </dhcp-option>\
+     </virtual-machine-interface-dhcp-option-list>";
+
+    #define OPTION_CATEGORY_BYTE_IP "4e 09 14 01 02 03 04 05 06 07 08"
+    DhcpOptionCategoryTest(vm_interface_attr, false, "", true,
+                           OPTION_CATEGORY_BYTE_IP);
+}
+
+// Check dhcp options - different categories
+TEST_F(DhcpTest, StringOption) {
+    // options that take byte value followed by one or more IP addresses
+    char vm_interface_attr[] =
+    "<virtual-machine-interface-dhcp-option-list>\
+        <dhcp-option>\
+            <dhcp-option-name>host-name</dhcp-option-name>\
+            <dhcp-option-value>test-host</dhcp-option-value>\
+         </dhcp-option>\
+        <dhcp-option>\
+            <dhcp-option-name>domain-name</dhcp-option-name>\
+            <dhcp-option-value>test.com</dhcp-option-value>\
+         </dhcp-option>\
+     </virtual-machine-interface-dhcp-option-list>";
+
+    #define OPTION_CATEGORY_STRING "Host Name : test-host; Domain Name : test.com; "
+    DhcpOptionCategoryTest(vm_interface_attr, true, OPTION_CATEGORY_STRING,
+                           false, "");
+}
+
+// Check dhcp options - different categories
+TEST_F(DhcpTest, IntOption) {
+    // options that take integer values
+    char vm_interface_attr[] =
+    "<virtual-machine-interface-dhcp-option-list>\
+        <dhcp-option>\
+            <dhcp-option-name>arp-cache-timeout</dhcp-option-name>\
+            <dhcp-option-value>100000</dhcp-option-value>\
+         </dhcp-option>\
+        <dhcp-option>\
+            <dhcp-option-name>boot-size</dhcp-option-name>\
+            <dhcp-option-value>-1</dhcp-option-value>\
+         </dhcp-option>\
+        <dhcp-option>\
+            <dhcp-option-name>boot-size</dhcp-option-name>\
+            <dhcp-option-value>20 30</dhcp-option-value>\
+         </dhcp-option>\
+        <dhcp-option>\
+            <dhcp-option-name>max-dgram-reassembly</dhcp-option-name>\
+            <dhcp-option-value></dhcp-option-value>\
+         </dhcp-option>\
+        <dhcp-option>\
+            <dhcp-option-name>path-mtu-plateau-table</dhcp-option-name>\
+            <dhcp-option-value>error value 30 40</dhcp-option-value>\
+         </dhcp-option>\
+        <dhcp-option>\
+            <dhcp-option-name>path-mtu-plateau-table</dhcp-option-name>\
+            <dhcp-option-value>30 40 error value</dhcp-option-value>\
+         </dhcp-option>\
+        <dhcp-option>\
+            <dhcp-option-name>path-mtu-plateau-table</dhcp-option-name>\
+            <dhcp-option-value>20 30 40</dhcp-option-value>\
+         </dhcp-option>\
+     </virtual-machine-interface-dhcp-option-list>";
+
+    // boot-size, max-dgram-reassembly and initial two path-mtu-plateau-table are ignored (error)
+    #define OPTION_CATEGORY_INT "23 04 00 01 86 a0 0d 02 ff ff 19 06 00 14 00 1e 00 28 "
+    DhcpOptionCategoryTest(vm_interface_attr, false, "",
+                           true, OPTION_CATEGORY_INT);
+}
+
+// Check dhcp options - different categories
+TEST_F(DhcpTest, IpOption) {
+    // options that take integer values
+    char vm_interface_attr[] =
+    "<virtual-machine-interface-dhcp-option-list>\
+        <dhcp-option>\
+            <dhcp-option-name>swap-server</dhcp-option-name>\
+            <dhcp-option-value>2.3.4.5</dhcp-option-value>\
+         </dhcp-option>\
+        <dhcp-option>\
+            <dhcp-option-name>router-solicitation-address</dhcp-option-name>\
+            <dhcp-option-value>2.3.4.5 4.5.6.7 junk</dhcp-option-value>\
+         </dhcp-option>\
+        <dhcp-option>\
+            <dhcp-option-name>mobile-ip-home-agent</dhcp-option-name>\
+            <dhcp-option-value>10.0.1.2 10.1.2.3</dhcp-option-value>\
+         </dhcp-option>\
+        <dhcp-option>\
+            <dhcp-option-name>log-servers</dhcp-option-name>\
+            <dhcp-option-value>255.3.3.3</dhcp-option-value>\
+         </dhcp-option>\
+        <dhcp-option>\
+            <dhcp-option-name>slp-directory-agent</dhcp-option-name>\
+            <dhcp-option-value></dhcp-option-value>\
+         </dhcp-option>\
+        <dhcp-option>\
+            <dhcp-option-name>policy-filter</dhcp-option-name>\
+            <dhcp-option-value>8.3.2.0 8.3.2.1 3.4.5.6</dhcp-option-value>\
+         </dhcp-option>\
+        <dhcp-option>\
+            <dhcp-option-name>policy-filter</dhcp-option-name>\
+            <dhcp-option-value>8.3.2.0 8.3.2.1</dhcp-option-value>\
+         </dhcp-option>\
+        <dhcp-option>\
+            <dhcp-option-name>mobile-ip-home-agent</dhcp-option-name>\
+            <dhcp-option-value></dhcp-option-value>\
+         </dhcp-option>\
+     </virtual-machine-interface-dhcp-option-list>";
+
+    // router-solicitation-address is not added as it has to be only one IP
+    // slp-directory-agent is not added as it has to be atleast one IP
+    // first policy-filter is not added as it has to be multiples of two IPs
+    // second mobile-ip-home-agent is not added as it is repeated
+    #define OPTION_CATEGORY_IP "10 04 02 03 04 05 44 08 0a 00 01 02 0a 01 02 03 07 04 ff 03 03 03 15 08 08 03 02 00 08 03 02 01"
+    DhcpOptionCategoryTest(vm_interface_attr, false, "",
+                           true, OPTION_CATEGORY_IP);
+}
+
+// Check dhcp options - different categories
+TEST_F(DhcpTest, ClasslessOption) {
+    // options that take integer values
+    char vm_interface_attr[] =
+    "<virtual-machine-interface-dhcp-option-list>\
+        <dhcp-option>\
+            <dhcp-option-name>classless-static-routes</dhcp-option-name>\
+            <dhcp-option-value>10.1.2.0/24 1.2.3.4 20.20.20.0/24 20.20.20.1</dhcp-option-value>\
+         </dhcp-option>\
+     </virtual-machine-interface-dhcp-option-list>";
+
+    #define OPTION_CATEGORY_CLASSLESS "Host Routes : 10.1.2.0/24 -> 1.1.1.200;20.20.20.0/24 -> 1.1.1.200;"
+    DhcpOptionCategoryTest(vm_interface_attr, true, OPTION_CATEGORY_CLASSLESS,
+                           false, "");
+}
+
+// Check dhcp options - different categories
+TEST_F(DhcpTest, ClasslessOptionError) {
+    // options that take integer values
+    char vm_interface_attr[] =
+    "<virtual-machine-interface-dhcp-option-list>\
+        <dhcp-option>\
+            <dhcp-option-name>classless-static-routes</dhcp-option-name>\
+            <dhcp-option-value>10.1.2.0/24 1.2.3.4 abcd</dhcp-option-value>\
+         </dhcp-option>\
+        <dhcp-option>\
+            <dhcp-option-name>classless-static-routes</dhcp-option-name>\
+            <dhcp-option-value>20.20.20.0/24 20.20.20.1 abcd</dhcp-option-value>\
+         </dhcp-option>\
+     </virtual-machine-interface-dhcp-option-list>";
+
+    // second option is not added as it is repeated
+    #define OPTION_CATEGORY_CLASSLESS_ERROR "Host Routes : 10.1.2.0/24 -> 1.1.1.200;"
+    DhcpOptionCategoryTest(vm_interface_attr, true,
+                           OPTION_CATEGORY_CLASSLESS_ERROR, false, "");
+}
+
+// Check dhcp options - different categories
+TEST_F(DhcpTest, NameCompressionOption) {
+    // options that take integer values
+    char vm_interface_attr[] =
+    "<virtual-machine-interface-dhcp-option-list>\
+        <dhcp-option>\
+            <dhcp-option-name>domain-search</dhcp-option-name>\
+            <dhcp-option-value>test.juniper.net</dhcp-option-value>\
+         </dhcp-option>\
+        <dhcp-option>\
+            <dhcp-option-name>domain-search</dhcp-option-name>\
+            <dhcp-option-value></dhcp-option-value>\
+         </dhcp-option>\
+     </virtual-machine-interface-dhcp-option-list>";
+
+    #define OPTION_CATEGORY_COMPRESSED_NAME "77 12 04 74 65 73 74 07 6a 75 6e 69 70 65 72 03 6e 65 74 00 "
+    DhcpOptionCategoryTest(vm_interface_attr, false, "",
+                           true, OPTION_CATEGORY_COMPRESSED_NAME);
 }
 
 void RouterIdDepInit(Agent *agent) {

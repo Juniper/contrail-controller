@@ -10,6 +10,7 @@
 #include "base/task_annotations.h"
 #include "xmpp/xmpp_connection.h"
 #include "xmpp/xmpp_factory.h"
+#include "xmpp/xmpp_lifetime.h"
 #include "xmpp/xmpp_log.h"
 #include "xmpp/xmpp_session.h"
 
@@ -27,15 +28,19 @@ using boost::tie;
 class XmppServer::DeleteActor : public LifetimeActor {
 public:
     DeleteActor(XmppServer *server)
-        : LifetimeActor(server->lifetime_manager()), server_(server) { }
+        : LifetimeActor(server->lifetime_manager()), server_(server) {
+    }
     virtual bool MayDelete() const {
+        CHECK_CONCURRENCY("bgp::Config");
         return true;
     }
     virtual void Shutdown() {
         CHECK_CONCURRENCY("bgp::Config");
+        server_->SessionShutdown();
     }
     virtual void Destroy() {
         CHECK_CONCURRENCY("bgp::Config");
+        server_->Terminate();
     }
 
 private:
@@ -43,22 +48,24 @@ private:
 };
 
 XmppServer::XmppServer(EventManager *evm, const string &server_addr) 
-    : TcpServer(evm), lifetime_manager_(new LifetimeManager(
-        TaskScheduler::GetInstance()->GetTaskId("bgp::Config"))),
+    : TcpServer(evm),
+      lifetime_manager_(XmppObjectFactory::Create<XmppLifetimeManager>(
+          TaskScheduler::GetInstance()->GetTaskId("bgp::Config"))),
       deleter_(new DeleteActor(this)), 
+      server_addr_(server_addr),
+      log_uve_(false),
       work_queue_(TaskScheduler::GetInstance()->GetTaskId("bgp::Config"), 0,
           boost::bind(&XmppServer::DequeueConnection, this, _1)) {
-    server_addr_ = server_addr;
-    log_uve_ = false;
 }
 
 XmppServer::XmppServer(EventManager *evm) 
-    : TcpServer(evm), lifetime_manager_(new LifetimeManager(
-        TaskScheduler::GetInstance()->GetTaskId("bgp::Config"))),
+    : TcpServer(evm),
+      lifetime_manager_(new LifetimeManager(
+          TaskScheduler::GetInstance()->GetTaskId("bgp::Config"))),
       deleter_(new DeleteActor(this)), 
+      log_uve_(false),
       work_queue_(TaskScheduler::GetInstance()->GetTaskId("bgp::Config"), 0,
           boost::bind(&XmppServer::DequeueConnection, this, _1)) {
-    log_uve_ = false;
 }
 
 bool XmppServer::IsPeerCloseGraceful() {
@@ -84,13 +91,39 @@ XmppServer::~XmppServer() {
 bool XmppServer::Initialize(short port) {
     TcpServer::Initialize(port);
     log_uve_ = false;
-
     return true;
 }
 
 void XmppServer::Initialize(short port, bool logUVE) {
     TcpServer::Initialize(port);
     log_uve_ = logUVE;
+}
+
+//
+// Can be removed after Shutdown is renamed to ManagedDelete.
+//
+void XmppServer::SessionShutdown() {
+    TcpServer::Shutdown();
+}
+
+//
+// Trigger deletion of the XmppServer.
+//
+// A mutex is used to ensure that we do not create new XmppServerConnections
+// after this point.  Note that this routine and AcceptSession may be called
+// concurrently from 2 different threads in tests.
+//
+void XmppServer::Shutdown() {
+    tbb::mutex::scoped_lock lock(deletion_mutex_);
+    deleter_->Delete();
+}
+
+//
+// Called when the XmppServer delete actor is being destroyed.
+//
+void XmppServer::Terminate() {
+    ClearSessions();
+    work_queue_.Shutdown();
 }
 
 LifetimeActor *XmppServer::deleter() {
@@ -133,12 +166,6 @@ TcpSession *XmppServer::CreateSession() {
     }
 
     return session;
-}
-
-void XmppServer::Shutdown() {
-    TcpServer::Shutdown();
-    work_queue_.Shutdown();
-    deleter_->Delete();
 }
 
 size_t XmppServer::ConnectionEventCount() const {
@@ -206,11 +233,17 @@ TcpSession *XmppServer::AllocSession(Socket *socket) {
     return session;
 }
 
+//
 // Accept newly formed passive tcp session by creating necessary xmpp data
 // structures. We do so to make sure that if there is any error reported
 // over this tcp session, it can still be correctly handled, even though
 // the allocated xmpp data structures are not fully processed yet.
+//
 bool XmppServer::AcceptSession(TcpSession *tcp_session) {
+    tbb::mutex::scoped_lock lock(deletion_mutex_);
+    if (deleter_->IsDeleted())
+        return false;
+
     XmppSession *session = dynamic_cast<XmppSession *>(tcp_session);
     XmppServerConnection *connection = CreateConnection(session);
 
@@ -221,6 +254,7 @@ bool XmppServer::AcceptSession(TcpSession *tcp_session) {
     // set async_read_ready as false
     session->set_read_on_connect(false);
     connection->set_session(session);
+    connection->set_on_work_queue();
     work_queue_.Enqueue(connection);
     return true;
 }
@@ -253,9 +287,13 @@ void XmppServer::InsertConnection(XmppServerConnection *connection) {
     assert(result);
 }
 
+//
 // Create XmppConnnection and its associated data structures. This API is
 // only used to allocate data structures and initialize necessary fields.
-// However, the data structures are not populated to any maps yet.
+// The data structures are not populated to any maps in the XmppServer at
+// this point.  However, the newly created XmppServerConnection does add
+// itself as a dependent of the XmppServer via LifetimeManager linkage.
+//
 XmppServerConnection *XmppServer::CreateConnection(XmppSession *session) {
     XmppServerConnection  *connection;
     ip::tcp::endpoint remote_endpoint;
@@ -276,8 +314,22 @@ XmppServerConnection *XmppServer::CreateConnection(XmppSession *session) {
     return connection;
 }
 
+//
+// Handler for XmppServerConnections that are dequeued from the WorkQueue.
+//
+// Since the XmppServerConnections on the WorkQueue are dependents of the
+// XmppServer, we are guaranteed that the XmppServer won't get destroyed
+// before the WorkQueue is drained.  Hence we don't need to check for the
+// WorkQueue being empty in DeleteActor::MayDelete.
+//
 bool XmppServer::DequeueConnection(XmppServerConnection *connection) {
     CHECK_CONCURRENCY("bgp::Config"); 
+    connection->clear_on_work_queue();
+
+    if (connection->IsDeleted()) {
+        connection->RetryDelete();
+        return true;
+    }
 
     XmppSession *session = connection->session();
     connection->set_session(NULL);
@@ -329,6 +381,15 @@ bool XmppServer::DequeueConnection(XmppServerConnection *connection) {
     }
 
     return true;
+}
+
+
+size_t XmppServer::GetQueueSize() const {
+    return work_queue_.Length();
+}
+
+void XmppServer::SetQueueDisable(bool disabled) {
+    work_queue_.set_disable(disabled);
 }
 
 //

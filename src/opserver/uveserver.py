@@ -199,7 +199,6 @@ class UVEServer(object):
             redish = redis.StrictRedis(host=redis_uve[0],
                                        port=redis_uve[1], db=1)
             try:
-                empty = True
                 qmap = {}
                 for origs in redish.smembers("ORIGINS:" + key):
                     info = origs.rsplit(":", 1)
@@ -233,7 +232,6 @@ class UVEServer(object):
                             state[key][typ] = {}
 
                         if value[0] == '<':
-                            empty = False
                             snhdict = xmltodict.parse(value)
                             if snhdict[attr]['@type'] == 'list':
                                 if snhdict[attr]['list']['@size'] == '0':
@@ -300,7 +298,7 @@ class UVEServer(object):
                                 key][typ][attr][dsource])
                         state[key][typ][attr][dsource] = snhdict[attr]
                 
-                if not empty:
+                if len(qmap):
                     url = OpServerUtils.opserver_query_url(
                         self._local_redis_uve[0],
                         str(8081))

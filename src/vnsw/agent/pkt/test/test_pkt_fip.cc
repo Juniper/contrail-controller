@@ -16,13 +16,15 @@ void RouterIdDepInit(Agent *agent) {
 class FlowTest : public ::testing::Test {
     virtual void SetUp() {
         client->WaitForIdle();
-        EXPECT_EQ(0U, Agent::GetInstance()->pkt()->flow_table()->Size());
+        WAIT_FOR(1000, 100, 
+                 (0U == Agent::GetInstance()->pkt()->flow_table()->Size()));
     }
 
     virtual void TearDown() {
         client->EnqueueFlowFlush();
         client->WaitForIdle();
-        EXPECT_EQ(0U, Agent::GetInstance()->pkt()->flow_table()->Size());
+        WAIT_FOR(1000, 100, 
+                 (0U == Agent::GetInstance()->pkt()->flow_table()->Size()));
     }
 };
 
@@ -294,7 +296,7 @@ static void Setup() {
                                       vnet[3]->vn()->GetName(),
                                       vnet[3]->label(),
                                       SecurityGroupList(), 0,
-                                      PathPreference());
+                                      PathPreference(), Ip4Address(0));
     client->WaitForIdle();
     EXPECT_TRUE(RouteFind("default-project:vn2:vn2", addr, 32));
 
@@ -305,14 +307,6 @@ static void Setup() {
                         SecurityGroupList(), PathPreference());
     client->WaitForIdle();
     EXPECT_TRUE(RouteFind("default-project:vn2:vn2", addr, 24));
-
-    /* Add Remote /24 route of vrf3 to default-project:vn2:vn2 */
-    addr = Ip4Address::from_string("20.1.1.0");
-    Inet4TunnelRouteAdd(NULL, "vrf3", addr, 24, gw,
-                        TunnelType::AllType(), 8, "vn2",
-                        SecurityGroupList(), PathPreference());
-    client->WaitForIdle();
-    EXPECT_TRUE(RouteFind("vrf3", addr, 24));
 
     /* Add Remote VM route in vrf1 from default-project:vn2:vn2 */
     addr = Ip4Address::from_string("2.1.1.11");
@@ -339,6 +333,45 @@ static void Setup() {
     Agent::GetInstance()->uve()->flow_stats_collector()->UpdateFlowAgeTime(AGE_TIME);
     AddAllowAcl("acl1", 1);
     client->WaitForIdle();
+}
+
+void Teardown() {
+    int ret = true;
+    Ip4Address addr;
+
+    // Delete routes
+    DeleteRoute("vrf1", "2.1.1.11", 32);
+
+    DeleteRoute("default-project:vn2:vn2", "20.1.1.0", 24);
+
+    DeleteRoute("default-project:vn2:vn2", "2.1.1.10", 32);
+
+    DeleteRoute("vrf1", "1.1.1.10", 32);
+    client->WaitForIdle();
+
+    // Delete floating-ip
+    DelLink("floating-ip", "fip_3", "floating-ip-pool", "fip-pool2");
+    DelLink("floating-ip-pool", "fip-pool2", "virtual-network",
+            "default-project:vn3");
+    DelLink("floating-ip", "fip_2", "floating-ip-pool", "fip-pool1");
+    DelLink("floating-ip-pool", "fip-pool1", "virtual-network",
+            "default-project:vn2");
+    DelLink("virtual-machine-interface", "vnet1", "floating-ip", "fip1");
+    DelLink("floating-ip", "fip1", "floating-ip-pool", "fip-pool1");
+
+    DelFloatingIpPool("fip-pool1");
+    DelFloatingIp("fip1");
+    DelFloatingIp("fip_2");
+    DelFloatingIpPool("fip-pool2");
+    DelFloatingIp("fip_3");
+    client->WaitForIdle();
+
+    DeleteVmportEnv(input4, 1, true);
+    DeleteVmportFIpEnv(input3, 2, true, 3);
+    DeleteVmportFIpEnv(input2, 2, true, 2);
+    DeleteVmportEnv(input1, 2, true, 1);
+    DelNode("routing-instance", "vrf1");
+    DelNode("access-control-list", "acl1");
 }
 
 static bool NatValidateFlow(int flow_id, const char *vrf, const char *sip,
@@ -662,7 +695,23 @@ TEST_F(FlowTest, VmToServer_ecmp_to_nat) {
                   Ip4Address::from_string("0.0.0.0"), 0, NULL);
     client->WaitForIdle();
     client->WaitForIdle();
-    EXPECT_EQ(0U, Agent::GetInstance()->pkt()->flow_table()->Size());
+    WAIT_FOR(1000, 100,
+             (0U == Agent::GetInstance()->pkt()->flow_table()->Size()));
+}
+
+// Validate destination virtual-network name in flow-table
+TEST_F(FlowTest, FlowValidateDestVn_1) {
+    TxIpPacket(vnet[1]->id(), vnet_addr[1], vnet_addr[3], 1);
+    client->WaitForIdle();
+
+    FlowEntry *flow = FlowGet(vnet[1]->flow_key_nh()->id(),
+                              vnet_addr[1], vnet_addr[3], 1, 0, 0);
+    EXPECT_TRUE(flow != NULL);
+    if (flow == NULL)
+        return;
+
+    EXPECT_STREQ(flow->data().source_vn.c_str(), "default-project:vn2");
+    EXPECT_STREQ(flow->data().dest_vn.c_str(), "default-project:vn2");
 }
 
 // FloatingIP test for traffic from VM to local VM
@@ -813,7 +862,8 @@ TEST_F(FlowTest, FlowAging_1) {
     client->EnqueueFlowAge();
     client->WaitForIdle();
     //No change in flow-stats and aging time is up
-    EXPECT_EQ(0U, Agent::GetInstance()->pkt()->flow_table()->Size());
+    WAIT_FOR(1000, 1000,
+             (0U == Agent::GetInstance()->pkt()->flow_table()->Size()));
 
     TxIpPacket(vnet[1]->id(), vnet_addr[1], vnet_addr[3], 1, 1);
     client->WaitForIdle();
@@ -836,7 +886,8 @@ TEST_F(FlowTest, FlowAging_1) {
 
     client->WaitForIdle();
     //No change in stats. Flows should be aged by now
-    EXPECT_EQ(0U, Agent::GetInstance()->pkt()->flow_table()->Size());
+    WAIT_FOR(1000, 100,
+             (0U == Agent::GetInstance()->pkt()->flow_table()->Size()));
 }
 
 // Duplicate Nat-Flow test 
@@ -877,7 +928,8 @@ TEST_F(FlowTest, Nat2NonNat) {
     EXPECT_FALSE(vnet[1]->HasFloatingIp());
 
     // Deleting floating-ip will remove associated flows also
-    EXPECT_EQ(0U, Agent::GetInstance()->pkt()->flow_table()->Size());
+    WAIT_FOR(1000, 1000,
+             (0U == Agent::GetInstance()->pkt()->flow_table()->Size()));
 
     //Send the traffic again (to convert Nat-flow to Non-Nat flow)
     TxIpPacket(vnet[1]->id(), vnet_addr[1], vnet_addr[3], 1);
@@ -907,7 +959,8 @@ TEST_F(FlowTest, Nat2NonNat) {
     client->EnqueueFlowAge();
     client->WaitForIdle();
     //No change in stats. Flows should be aged by now
-    EXPECT_EQ(0U, Agent::GetInstance()->pkt()->flow_table()->Size());
+    WAIT_FOR(1000, 100,
+             (0U == Agent::GetInstance()->pkt()->flow_table()->Size()));
 
     AddLink("floating-ip-pool", "fip-pool1", "virtual-network",
             "default-project:vn2");
@@ -917,6 +970,13 @@ TEST_F(FlowTest, Nat2NonNat) {
 
 // Non-Nat to Nat flow conversion test for traffic from VM to local VM
 TEST_F(FlowTest, NonNat2Nat) {
+    Agent::GetInstance()->uve()->flow_stats_collector()->UpdateFlowAgeTime(FlowStatsCollector::FlowAgeTime);
+    Ip4Address addr = Ip4Address::from_string("2.1.1.1");
+    Ip4Address gw = Ip4Address::from_string("10.1.1.2");
+    Inet4TunnelRouteAdd(NULL, "vrf1", addr, 32, gw,
+                        TunnelType::AllType(), 8, "default-project:vn2",
+                        SecurityGroupList(), PathPreference());
+    client->WaitForIdle();
     DelLink("floating-ip-pool", "fip-pool1", "virtual-network",
             "default-project:vn2");
     DelLink("virtual-machine-interface", "vnet1", "floating-ip", "fip1");
@@ -928,7 +988,7 @@ TEST_F(FlowTest, NonNat2Nat) {
 
     EXPECT_TRUE(FlowGet(vnet[1]->vrf()->GetName().c_str(), vnet_addr[1], 
                         vnet_addr[3], 1, 0, 0, false, "vn1",
-                        unknown_vn_.c_str(), 1, false, false,
+                        "default-project:vn2", 1, true, false,
                         vnet[1]->flow_key_nh()->id()));
 
     //Add floating IP configuration
@@ -942,22 +1002,30 @@ TEST_F(FlowTest, NonNat2Nat) {
     TxIpPacket(vnet[1]->id(), vnet_addr[1], vnet_addr[3], 1);
     client->WaitForIdle();
 
-    EXPECT_TRUE(FlowGet(vnet[1]->vrf()->vrf_id(), vnet_addr[1],
-                        vnet_addr[3], 1, 0, 0, true, -1, -1,
-                        vnet[1]->flow_key_nh()->id()));
+    FlowEntry *fe = FlowGet(vnet[1]->vrf()->vrf_id(), vnet_addr[1],
+                            vnet_addr[3], 1, 0, 0,
+                            vnet[1]->flow_key_nh()->id());
+    EXPECT_TRUE(fe != NULL && fe->is_flags_set(FlowEntry::ShortFlow) == true &&
+                fe->short_flow_reason() == FlowEntry::SHORT_NAT_CHANGE);
 
-    EXPECT_TRUE(FlowGet(vnet[1]->vrf()->vrf_id(), vnet_addr[3],
-                        vnet_addr[1], 1, 0, 0, true, -1, -1,
-                        vnet[1]->flow_key_nh()->id()));
+    fe = FlowGet(vnet[1]->vrf()->vrf_id(), vnet_addr[3], vnet_addr[1],
+                 1, 0, 0, vnet[1]->flow_key_nh()->id());
+    EXPECT_TRUE(fe != NULL && fe->is_flags_set(FlowEntry::ShortFlow) == true &&
+                fe->short_flow_reason() == FlowEntry::SHORT_NAT_CHANGE);
 
-    EXPECT_TRUE(FlowGet(vnet[3]->vrf()->vrf_id(), vnet_addr[3],
-                        "2.1.1.100", 1, 0, 0, true, -1, -1,
-                        vnet[3]->flow_key_nh()->id()));
+    fe = FlowGet(vnet[3]->vrf()->vrf_id(), vnet_addr[3], "2.1.1.100",
+                 1, 0, 0, vnet[3]->flow_key_nh()->id());
+    EXPECT_TRUE(fe != NULL && fe->is_flags_set(FlowEntry::ShortFlow) == true &&
+                fe->short_flow_reason() == FlowEntry::SHORT_REVERSE_FLOW_CHANGE);
 
+    Agent::GetInstance()->uve()->flow_stats_collector()->UpdateFlowAgeTime(AGE_TIME);
     client->EnqueueFlowAge();
     client->WaitForIdle();
+    vnet_table[1]->DeleteReq(NULL, "vrf1", addr, 32, NULL);
+    client->WaitForIdle();
     //No change in stats. Flows should be aged by now
-    EXPECT_EQ(0U, Agent::GetInstance()->pkt()->flow_table()->Size());
+    WAIT_FOR(1000, 100,
+             (0U == Agent::GetInstance()->pkt()->flow_table()->Size()));
 }
 
 // Two floating-IPs for a given interface. Negative test-case
@@ -1019,15 +1087,16 @@ TEST_F(FlowTest, TwoFloatingIp) {
     }
 
     //Verfiy that flow creation for second floating IP as short-flow
-    EXPECT_TRUE(FlowGet(vnet[3]->vrf()->vrf_id(), vnet_addr[3],
-                        "2.1.1.100", 1, 0, 0, true, -1, -1,
-                        vnet[3]->flow_key_nh()->id()));
+    FlowEntry *fe = FlowGet(vnet[3]->vrf()->vrf_id(), vnet_addr[3], "2.1.1.100",
+                            1, 0, 0, vnet[3]->flow_key_nh()->id());
 
+    EXPECT_TRUE(fe != NULL && fe->is_flags_set(FlowEntry::ShortFlow) == true &&
+                fe->short_flow_reason() == FlowEntry::SHORT_NO_REVERSE_FLOW);
     //cleanup
     client->EnqueueFlowFlush();
     client->WaitForIdle(2);
-    WAIT_FOR(100, 1, (0U == Agent::GetInstance()->pkt()->flow_table()->Size()));
-    EXPECT_EQ(0U, Agent::GetInstance()->pkt()->flow_table()->Size());
+    WAIT_FOR(1000, 100, 
+             (0U == Agent::GetInstance()->pkt()->flow_table()->Size()));
 
     //Delete the second floating IP created by this test-case
     DelLink("floating-ip", "fip2", "floating-ip-pool", "fip-pool1");
@@ -1074,6 +1143,9 @@ TEST_F(FlowTest, FlowCleanup_on_intf_del_1) {
     client->WaitForIdle();
     RemoveMetadataService();
     client->WaitForIdle();
+
+    VmPortSetup(input4, 1, 0);
+    client->WaitForIdle();
 }
 
 TEST_F(FlowTest, FlowCleanup_on_intf_del_2) {
@@ -1119,6 +1191,9 @@ TEST_F(FlowTest, FlowCleanup_on_intf_del_2) {
                          nh_id));
     RemoveMetadataService();
     client->WaitForIdle();
+    DeleteVmportEnv(input, 1, true, 8);
+    DelNode("routing-instance", "vrf8");
+    client->WaitForIdle();
 }
 
 //Ping from floating IP to local interface route, 
@@ -1130,7 +1205,7 @@ TEST_F(FlowTest, FIP_traffic_to_leaked_routes) {
                                       vnet[5]->GetUuid(), 
                                       vnet[5]->vn()->GetName(),
                                       vnet[5]->label(), SecurityGroupList(), 0,
-                                      PathPreference());
+                                      PathPreference(), Ip4Address(0));
     client->WaitForIdle();
 
   // HTTP packet from VM to Server
@@ -1267,7 +1342,8 @@ TEST_F(FlowTest, Prefer_policy_over_fip_LPM_find) {
 
     // since policy leaked route should be preffered deleteing the route should
     // remove flow entries.
-    EXPECT_EQ(0U, Agent::GetInstance()->pkt()->flow_table()->Size());
+    WAIT_FOR(1000, 100,
+             (0U == Agent::GetInstance()->pkt()->flow_table()->Size()));
 }
 
 TEST_F(FlowTest, Prefer_fip2_over_fip1_lower_addr) {
@@ -1282,7 +1358,8 @@ TEST_F(FlowTest, Prefer_fip2_over_fip1_lower_addr) {
 
     // since fip2 route should be preffered removing association of fip2 should
     // remove flow entries.
-    EXPECT_EQ(0U, Agent::GetInstance()->pkt()->flow_table()->Size());
+    WAIT_FOR(1000, 100,
+             (0U == Agent::GetInstance()->pkt()->flow_table()->Size()));
 }
 
 TEST_F(FlowTest, Prefer_fip2_over_fip3_lower_addr) {
@@ -1305,7 +1382,8 @@ TEST_F(FlowTest, Prefer_fip2_over_fip3_lower_addr) {
 
     // since fip2 route should be preffered removing association of fip2 should
     // remove flow entries.
-    EXPECT_EQ(0U, Agent::GetInstance()->pkt()->flow_table()->Size());
+    WAIT_FOR(1000, 100,
+             (0U == Agent::GetInstance()->pkt()->flow_table()->Size()));
 }
 
 TEST_F(FlowTest, fip1_to_fip2_SNAT_DNAT) {
@@ -1327,18 +1405,20 @@ TEST_F(FlowTest, fip1_to_fip2_SNAT_DNAT) {
     DelLink("virtual-machine-interface", "vnet5", "floating-ip", "fip_2");
     client->WaitForIdle();
 
-    EXPECT_EQ(0U, Agent::GetInstance()->pkt()->flow_table()->Size());
+    WAIT_FOR(1000, 100,
+             (0U == Agent::GetInstance()->pkt()->flow_table()->Size()));
 }
 
 int main(int argc, char *argv[]) {
     GETUSERARGS();
     //client = TestInit(init_file, ksync_init, true, true, true, 100*1000);
     client = TestInit(init_file, ksync_init, true, true, true,
-                      AgentStatsCollector::AgentStatsInterval,
-                      FlowStatsCollector::FlowStatsInterval, true, false);
+                      AgentParam::kAgentStatsInterval,
+                      AgentParam::kFlowStatsInterval, true, false);
     Setup();
     int ret = RUN_ALL_TESTS();
     client->WaitForIdle();
+    Teardown();
     TestShutdown();
     delete client;
     return ret;

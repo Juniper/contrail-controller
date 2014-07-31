@@ -25,16 +25,17 @@ bool GetBuildInfo(std::string &build_info_str) {
 }
 
 int main(int argc, char *argv[]) {
-    uint16_t http_server_port = ContrailPorts::HttpPortAgent;
+    uint16_t http_server_port = ContrailPorts::HttpPortAgent();
 
-    // Create agent
-    Agent agent;
+    // Initialize the agent-init control class
+    LinuxVxlanAgentInit init;
+    Agent *agent = init.agent();
 
     opt::options_description desc("Command line options");
     desc.add_options()
         ("help", "help message")
         ("config_file",
-         opt::value<string>()->default_value(agent.config_file()),
+         opt::value<string>()->default_value(agent->config_file()),
          "Configuration file")
         ("version", "Display version information")
         ("COLLECTOR.server", opt::value<string>(),
@@ -58,7 +59,7 @@ int main(int argc, char *argv[]) {
         ("DEFAULT.log_category", opt::value<string>()->default_value("*"),
          "Category filter for local logging of sandesh messages")
         ("DEFAULT.log_file",
-         opt::value<string>()->default_value(agent.log_file()),
+         opt::value<string>()->default_value(agent->log_file()),
          "Filename for the logs to be written to")
         ("DEFAULT.log_level", opt::value<string>()->default_value("SYS_DEBUG"),
          "Severity level for local logging of sandesh messages")
@@ -136,22 +137,16 @@ int main(int argc, char *argv[]) {
     GetBuildInfo(build_info);
     MiscUtils::LogVersionInfo(build_info, Category::VROUTER);
 
-
     // Read agent parameters from config file and arguments
-    AgentParam param(&agent);
-    param.Init(init_file, argv[0], var_map);
-
-    // Initialize the agent-init control class
-    LinuxVxlanAgentInit init;
-    init.Init(&param, &agent, var_map);
-
-    // Copy config into agent
-    agent.CopyConfig(&param);
+    init.ProcessOptions(init_file, argv[0], var_map);
 
     // kick start initialization
-    init.Start();
+    int ret = 0;
+    if ((ret = init.Start()) != 0) {
+        return ret;
+    }
 
-    agent.event_manager()->RunWithExceptionHandling();
+    agent->event_manager()->RunWithExceptionHandling();
 
     return 0;
 }

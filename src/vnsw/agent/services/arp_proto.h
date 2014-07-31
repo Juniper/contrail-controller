@@ -39,7 +39,7 @@ public:
     struct ArpIpc : InterTaskMsg {
         ArpIpc(ArpProto::ArpMsgType msg, ArpKey &akey)
             : InterTaskMsg(msg), key(akey) {}
-        ArpIpc(ArpProto::ArpMsgType msg, in_addr_t ip, const VrfEntry *vrf) : 
+        ArpIpc(ArpProto::ArpMsgType msg, in_addr_t ip, const VrfEntry *vrf) :
             InterTaskMsg(msg), key(ip, vrf) {}
 
         ArpKey key;
@@ -48,10 +48,10 @@ public:
     struct ArpStats {
         ArpStats() { Reset(); }
         void Reset() {
-            arp_req = arp_replies = arp_gratuitous = 
+            arp_req = arp_replies = arp_gratuitous =
             resolved = max_retries_exceeded = errors = 0;
             arp_invalid_packets = arp_invalid_interface = arp_invalid_vrf =
-                arp_invalid_address = 0;
+                arp_invalid_address = vm_arp_req = 0;
         }
 
         uint32_t arp_req;
@@ -64,6 +64,7 @@ public:
         uint32_t arp_invalid_interface;
         uint32_t arp_invalid_vrf;
         uint32_t arp_invalid_address;
+        uint32_t vm_arp_req;
     };
 
     void Shutdown();
@@ -84,15 +85,19 @@ public:
     uint16_t ip_fabric_interface_index() const {
         return ip_fabric_interface_index_;
     }
-    const unsigned char *ip_fabric_interface_mac() const { 
+    const MacAddress &ip_fabric_interface_mac() const {
         return ip_fabric_interface_mac_;
     }
     void set_ip_fabric_interface(Interface *itf) { ip_fabric_interface_ = itf; }
     void set_ip_fabric_interface_index(uint16_t ind) {
         ip_fabric_interface_index_ = ind;
     }
-    void set_ip_fabric_interface_mac(char *mac) { 
-        memcpy(ip_fabric_interface_mac_, mac, ETH_ALEN);
+    void set_ip_fabric_interface_mac(const u_int8_t *mac) {
+        ip_fabric_interface_mac_ = mac;
+    }
+
+    void set_ip_fabric_interface_mac(const MacAddress &mac) {
+        ip_fabric_interface_mac_ = mac;
     }
 
     ArpEntry *gratuitous_arp_entry() const;
@@ -105,6 +110,7 @@ public:
     void IncrementStatsResolved() { arp_stats_.resolved++; }
     void IncrementStatsMaxRetries() { arp_stats_.max_retries_exceeded++; }
     void IncrementStatsErrors() { arp_stats_.errors++; }
+    void IncrementStatsVmArpReq() { arp_stats_.vm_arp_req++; }
     void IncrementStatsInvalidPackets() {
         IncrementStatsErrors();
         arp_stats_.arp_invalid_packets++;
@@ -130,29 +136,29 @@ public:
     void set_max_retries(uint16_t retries) { max_retries_ = retries; }
     void set_retry_timeout(uint32_t timeout) { retry_timeout_ = timeout; }
     void set_aging_timeout(uint32_t timeout) { aging_timeout_ = timeout; }
+    void SendArpIpc(ArpProto::ArpMsgType type,
+                    in_addr_t ip, const VrfEntry *vrf);
+    void ValidateAndClearVrfState(VrfEntry *vrf);
 
 private:
     void VrfNotify(DBTablePartBase *part, DBEntryBase *entry);
+    void NextHopNotify(DBEntryBase *entry);
     void InterfaceNotify(DBEntryBase *entry);
-    void NextHopNotify(DBEntryBase *e);
     void RouteUpdate(DBTablePartBase *part, DBEntryBase *entry);
-    void SendArpIpc(ArpProto::ArpMsgType type,
-                    in_addr_t ip, const VrfEntry *vrf);
     void SendArpIpc(ArpProto::ArpMsgType type, ArpKey &key);
     ArpProto::ArpIterator DeleteArpEntry(ArpProto::ArpIterator iter);
-    void ValidateAndClearVrfState(VrfEntry *vrf);
 
     ArpCache arp_cache_;
     ArpStats arp_stats_;
     bool run_with_vrouter_;
     uint16_t ip_fabric_interface_index_;
-    unsigned char ip_fabric_interface_mac_[ETH_ALEN];
+    MacAddress ip_fabric_interface_mac_;
     Interface *ip_fabric_interface_;
     ArpEntry *gratuitous_arp_entry_;
     DBTableBase::ListenerId vrf_table_listener_id_;
     DBTableBase::ListenerId interface_table_listener_id_;
     DBTableBase::ListenerId nexthop_table_listener_id_;
-    DBTableBase::ListenerId fabric_route_table_listener_;
+    std::map<std::string, DBTableBase::ListenerId> route_table_listener_;
 
     uint16_t max_retries_;
     uint32_t retry_timeout_;   // milli seconds
@@ -161,4 +167,24 @@ private:
     DISALLOW_COPY_AND_ASSIGN(ArpProto);
 };
 
+struct ArpVrfState : public DBState {
+public:
+    ArpVrfState(Agent *agent, ArpProto *proto, VrfEntry *vrf,
+                AgentRouteTable *table);
+    void RouteUpdate(DBTablePartBase *part, DBEntryBase *entry);
+    void ManagedDelete() { deleted = true;}
+    void SendArpRequestForVm(Inet4UnicastRouteEntry *route);
+    void Delete();
+    bool DeleteRouteState(DBTablePartBase *part, DBEntryBase *entry);
+    void WalkDone(DBTableBase *partition, ArpVrfState *state);
+
+    Agent *agent;
+    ArpProto *arp_proto;
+    VrfEntry *vrf;
+    AgentRouteTable *rt_table;
+    DBTableBase::ListenerId route_table_listener_id;
+    LifetimeRef<ArpVrfState> table_delete_ref;
+    bool deleted;
+    friend class ArpProto;
+};
 #endif // vnsw_agent_arp_proto_hpp

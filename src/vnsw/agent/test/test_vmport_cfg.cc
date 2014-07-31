@@ -93,7 +93,7 @@ TEST_F(CfgTest, AddDelExport) {
     IpAddress ip = Ip4Address::from_string("1.1.1.1", ec);
     data->Init(MakeUuid(1), MakeUuid(1), MakeUuid(kProjectUuid),
                "vnet1", ip, "00:00:00:01:01:01", "",
-               VmInterface::kInvalidVlanId, 0);
+               VmInterface::kInvalidVlanId, CfgIntEntry::CfgIntVMPort, 0);
 
     DBRequest req;
     req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
@@ -106,7 +106,7 @@ TEST_F(CfgTest, AddDelExport) {
     ip = Ip4Address::from_string("1.1.1.1", ec);
     data1->Init(MakeUuid(1), MakeUuid(1), MakeUuid(kProjectUuid),
                 "vnet1", ip, "00:00:00:01:01:01", "",
-                VmInterface::kInvalidVlanId, 0);
+                VmInterface::kInvalidVlanId, CfgIntEntry::CfgIntVMPort, 0);
     req.key.reset(key1);
     req.data.reset(data1);
     req.oper = DBRequest::DB_ENTRY_DELETE;

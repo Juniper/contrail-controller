@@ -25,31 +25,9 @@ bool FlowHandler::Run() {
     PktControlInfo out;
     PktFlowInfo info(pkt_info_, agent_->pkt()->flow_table());
 
-    SecurityGroupList empty_sg_id_l;
-    info.source_sg_id_l = &empty_sg_id_l;
-    info.dest_sg_id_l = &empty_sg_id_l;
-
     if (info.Process(pkt_info_.get(), &in, &out) == false) {
         info.short_flow = true;
     }
-
-    if (in.rt_) {
-        const AgentPath *path = in.rt_->GetActivePath();
-        info.source_sg_id_l = &(path->sg_list());
-        info.source_plen = in.rt_->plen();
-    }
-
-    if (out.rt_) {
-        const AgentPath *path = out.rt_->GetActivePath();
-        info.dest_sg_id_l = &(path->sg_list());
-        info.dest_plen = out.rt_->plen();
-    }
-
-    if (info.source_vn == NULL)
-        info.source_vn = FlowHandler::UnknownVn();
-
-    if (info.dest_vn == NULL)
-        info.dest_vn = FlowHandler::UnknownVn();
 
     if (in.intf_ && ((in.intf_->type() != Interface::VM_INTERFACE) &&
                      (in.intf_->type() != Interface::INET))) {

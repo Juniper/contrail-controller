@@ -10,7 +10,7 @@ import sys
 
 env = BuildEnv.Clone()
 
-env.AppendUnique(CCFLAGS='-fno-exceptions')
+env.CppDisableExceptions()
 
 env.Append(CPPPATH = [env['TOP'],
                       env['TOP'] + '/bgp',
@@ -59,10 +59,10 @@ env.Prepend(LIBS = ['control_test', 'bgptest', 'bgp', 'peer_sandesh',
                     'bgp_schema', 'control_node', 'dbtest',
                     'ifmap_vnc', 'task_test',
                     'ifmap_test_util', 'ifmap_test_util_server',
-		    'ifmap_server', 'ifmap_common',
+                    'ifmap_server', 'ifmap_common',
                     'ifmapio', 'ds', 'pugixml', 'httpc', 'curl',
                     'crypto', 'ssl', 'sandesh', 'http', 'http_parser',
-                    'db', 'sandeshvns', 'connection_info', 'io', 'base', 'gunit'])
+                    'db', 'sandeshvns', 'process_info', 'io', 'base', 'gunit'])
 
 
 if sys.platform == 'darwin':
@@ -103,10 +103,7 @@ if sys.platform != 'darwin':
     env.Append(LIBS=['rt'])
 
 except_env = env.Clone()
-cflags = except_env['CCFLAGS']
-if '-fno-exceptions' in cflags:
-    cflags.remove('-fno-exceptions')
-except_env.Replace(CCFLAGS = cflags)
+except_env.CppEnableExceptions()
 
 config_test_env = env.Clone()
 config_test_env.Append(LIBPATH = ['../../ifmap/test'])
@@ -162,7 +159,7 @@ env.Alias('src/bgp:bgp_peer_close_test', bgp_peer_close_test)
 
 bgp_peer_membership_test = env.UnitTest('bgp_peer_membership_test',
                                         ['bgp_peer_membership_test.cc'])
-env.Alias('src/bgp:bgp_membership_test', bgp_peer_membership_test)
+env.Alias('src/bgp:bgp_peer_membership_test', bgp_peer_membership_test)
 
 bgp_proto_test = env.UnitTest('bgp_proto_test',
                             ['bgp_proto_test.cc'])
@@ -232,6 +229,10 @@ bgp_xmpp_mcast_test = env.UnitTest('bgp_xmpp_mcast_test',
                                    ['bgp_xmpp_mcast_test.cc'])
 env.Alias('src/bgp:bgp_xmpp_mcast_test', bgp_xmpp_mcast_test)
 
+bgp_xmpp_rtarget_test = env.UnitTest('bgp_xmpp_rtarget_test', 
+                                     ['bgp_xmpp_rtarget_test.cc'])
+env.Alias('src/bgp:bgp_xmpp_rtarget_test', bgp_xmpp_rtarget_test)
+
 bgp_xmpp_test = env.UnitTest('bgp_xmpp_test',
                              ['bgp_xmpp_test.cc'])
 env.Alias('src/bgp:bgp_xmpp_test', bgp_xmpp_test)
@@ -299,16 +300,12 @@ xmpp_sess_toggle_test = env.UnitTest('xmpp_sess_toggle_test',
                              ['xmpp_sess_toggle_test.cc'])
 env.Alias('src/bgp:xmpp_sess_toggle_test', xmpp_sess_toggle_test)
 
-rtarget_peer_test = env.UnitTest('rtarget_peer_test', 
-                                 ['rtarget_peer_test.cc'])
-env.Alias('src/bgp:rtarget_peer_test', rtarget_peer_test)
-
-
 # All Tests
 test_suite = [
     bgp_attr_test,
     bgp_condition_listener_test,
     bgp_config_listener_test,
+    bgp_config_manager_test,
     bgp_config_test,
     bgp_export_nostate_test,
     bgp_export_rstate_test,
@@ -316,6 +313,7 @@ test_suite = [
     bgp_export_uplist_test,
     bgp_msg_builder_test,
     bgp_multicast_test,
+    bgp_peer_close_test,
     bgp_peer_membership_test,
     bgp_proto_test,
     bgp_ribout_updates_test,
@@ -326,18 +324,26 @@ test_suite = [
     bgp_table_test,
     bgp_update_rx_test,
     bgp_update_test,
+    bgp_xmpp_basic_test,
     bgp_xmpp_channel_test,
+    bgp_xmpp_deferq_test,
+    bgp_xmpp_inetvpn_test,
+    bgp_xmpp_rtarget_test,
     bgp_xmpp_test,
+    bgp_xmpp_wready_test,
     ribout_attributes_test,
     routepath_replicator_random_test,
     routepath_replicator_test,
     routing_instance_mgr_test,
     routing_instance_test,
+    rt_network_attr_test,
     scheduling_group_test,
     service_chain_test,
     show_route_test,
     state_machine_test,
     static_route_test,
+    svc_static_route_intergration_test,
+    xmpp_ecmp_test,
     xmpp_sess_toggle_test,
 ]
 
@@ -355,20 +361,10 @@ env.Alias('controller/src/bgp:test', [
 ])
 
 flaky_test_suite = [
-    bgp_config_manager_test,
-    bgp_peer_close_test,
-    bgp_xmpp_basic_test,
-    bgp_xmpp_deferq_test,
     bgp_xmpp_evpn_test,
-    rtarget_peer_test,
-    xmpp_ecmp_test,
     bgp_server_test,
     bgp_stress_test,
-    bgp_xmpp_inetvpn_test,
     bgp_xmpp_mcast_test,
-    bgp_xmpp_wready_test,
-    rt_network_attr_test,
-    svc_static_route_intergration_test,
 ]
 
 flaky_test = env.TestSuite('bgp-flaky-test', flaky_test_suite)
@@ -376,7 +372,6 @@ flaky_test = env.TestSuite('bgp-flaky-test', flaky_test_suite)
 env.Alias('controller/src/bgp:flaky-test', [
     flaky_test,
     'controller/src/bgp/l3vpn:flaky-test',
-    'controller/src/bgp/rtarget:flaky-test',
 ])
 
 env.Alias('controller/src/bgp:all-test', [
@@ -401,9 +396,9 @@ env.Alias('src/bgp:update_test', update_test)
 # Service Chain Related Tests
 sc_test_suite = [
     bgp_condition_listener_test,
+    bgp_xmpp_rtarget_test,
     routepath_replicator_random_test,
     routepath_replicator_test,
-    rtarget_peer_test,
     service_chain_test,
     static_route_test,
     svc_static_route_intergration_test,

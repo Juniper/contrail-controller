@@ -7,6 +7,8 @@
 
 #include <sys/socket.h>
 #include <netinet/in.h>
+#include <net/bsdtcp.h>
+#include <net/bsdudp.h>
 #include <arpa/inet.h>
 #include <net/address.h>
 

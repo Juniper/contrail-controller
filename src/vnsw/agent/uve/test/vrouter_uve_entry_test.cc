@@ -41,6 +41,14 @@ void VrouterUveEntryTest::clear_count() {
     vrouter_stats_msg_count_ = 0;
 }
 
+void VrouterUveEntryTest::ResetCpuStatsCount() {
+    cpu_stats_count_ = 0;
+}
+
+void VrouterUveEntryTest::ResetPortBitmap() {
+    port_bitmap_.Reset();
+}
+
 void VrouterUveEntryTest::DispatchComputeCpuStateMsg
                              (const ComputeCpuState &ccs) {
     compute_state_send_count_++;

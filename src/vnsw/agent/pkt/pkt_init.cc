@@ -11,6 +11,7 @@
 #include "pkt/proto_handler.h"
 #include "pkt/flow_proto.h"
 #include "pkt/flow_table.h"
+#include "pkt/packet_buffer.h"
 
 SandeshTraceBufferPtr PacketTraceBuf(SandeshTraceBufferCreate("Packet", 1000));
 
@@ -34,6 +35,8 @@ void PktModule::Init(bool run_with_vrouter) {
 
     flow_proto_.reset(new FlowProto(agent_, io));
     flow_proto_->Init();
+
+    packet_buffer_manager_.reset(new PacketBufferManager(this));
 }
 
 void PktModule::InitDone() {

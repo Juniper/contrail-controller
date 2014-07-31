@@ -359,7 +359,7 @@ class FlowEntry {
     const uuid &flow_uuid() const { return flow_uuid_; }
     const uuid &egress_uuid() const { return egress_uuid_; }
     uint32_t flow_handle() const { return flow_handle_; }
-    void set_flow_handle(uint32_t flow_handle) { flow_handle_ = flow_handle; }
+    void set_flow_handle(uint32_t flow_handle);
     FlowEntry * reverse_flow_entry() { return reverse_flow_entry_.get(); }
     const FlowEntry * reverse_flow_entry() const { return reverse_flow_entry_.get(); }
     void set_reverse_flow_entry(FlowEntry *reverse_flow_entry) {
@@ -433,6 +433,8 @@ private:
     bool SetRpfNH(const Inet4UnicastRouteEntry *rt);
     bool InitFlowCmn(const PktFlowInfo *info, const PktControlInfo *ctrl,
                      const PktControlInfo *rev_ctrl);
+    void GetSourceRouteInfo(const Inet4UnicastRouteEntry *rt);
+    void GetDestRouteInfo(const Inet4UnicastRouteEntry *rt);
 
     FlowKey key_;
     FlowData data_;
@@ -561,7 +563,9 @@ public:
 
     DBTableBase::ListenerId nh_listener_id();
     Inet4UnicastRouteEntry * GetUcRoute(const VrfEntry *entry, const Ip4Address &addr);
-
+    static const SecurityGroupList &default_sg_list() {return default_sg_list_;}
+    bool ValidFlowMove(const FlowEntry *new_flow,
+                       const FlowEntry *old_flow) const;
     friend class FlowStatsCollector;
     friend class PktSandeshFlow;
     friend class FetchFlowRecord;
@@ -569,6 +573,8 @@ public:
     friend class NhState;
     friend void intrusive_ptr_release(FlowEntry *fe);
 private:
+    static SecurityGroupList default_sg_list_;
+
     Agent *agent_;
     FlowEntryMap flow_entry_map_;
 

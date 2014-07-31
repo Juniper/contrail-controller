@@ -16,12 +16,13 @@
 #include "bgp/bgp_peer_types.h"
 #include "bgp/bgp_server.h"
 #include "bgp/bgp_peer_close.h"
+#include "bgp/state_machine.h"
 #include "bgp/routing-instance/peer_manager.h"
 #include "bgp/routing-instance/routing_instance.h"
-#include "xmpp/xmpp_server.h"
-
 #include "db/db.h"
 #include "db/db_graph.h"
+#include "xmpp/xmpp_lifetime.h"
+#include "xmpp/xmpp_server.h"
 
 class BgpPeerTest;
 
@@ -115,6 +116,62 @@ private:
     tbb::mutex mutex_;
 };
 
+class StateMachineTest : public StateMachine {
+public:
+    explicit StateMachineTest(BgpPeer *peer)
+        : StateMachine(peer) {
+    }
+    virtual ~StateMachineTest() { }
+
+    void StartConnectTimer(int seconds) {
+        connect_timer_->Start(10,
+            boost::bind(&StateMachine::ConnectTimerExpired, this),
+            boost::bind(&StateMachine::TimerErrorHanlder, this, _1, _2));
+    }
+
+    void StartOpenTimer(int seconds) {
+        open_timer_->Start(10,
+            boost::bind(&StateMachine::OpenTimerExpired, this),
+            boost::bind(&StateMachine::TimerErrorHanlder, this, _1, _2));
+    }
+
+    void StartIdleHoldTimer() {
+        if (idle_hold_time_ <= 0)
+            return;
+        idle_hold_timer_->Start(10,
+            boost::bind(&StateMachine::IdleHoldTimerExpired, this),
+            boost::bind(&StateMachine::TimerErrorHanlder, this, _1, _2));
+    }
+
+    void StartHoldTimer() {
+        if (hold_time_msecs_ <= 0) {
+            StateMachine::StartHoldTimer();
+            return;
+        }
+        hold_timer_->Start(30,
+            boost::bind(&StateMachine::HoldTimerExpired, this),
+            boost::bind(&StateMachine::TimerErrorHanlder, this, _1, _2));
+    }
+
+    static void set_hold_time_msecs(int hold_time_msecs) {
+        hold_time_msecs_ = hold_time_msecs;
+    }
+
+    virtual int keepalive_time_msecs() const {
+        if (keepalive_time_msecs_)
+            return keepalive_time_msecs_;
+        return StateMachine::keepalive_time_msecs();
+    }
+
+    static void set_keepalive_time_msecs(int keepalive_time_msecs) {
+        keepalive_time_msecs_ = keepalive_time_msecs;
+    }
+
+private:
+    static int hold_time_msecs_;
+    static int keepalive_time_msecs_;
+};
+
 class BgpServerTest : public BgpServer {
 public:
     BgpServerTest(EventManager *evm, const std::string &localname,
@@ -126,7 +183,8 @@ public:
                                 const std::string &uuid);
     BgpPeer *FindPeer(const char *routing_instance,
                       const std::string &peername);
-    void Shutdown();
+    void Shutdown(bool verify = true);
+    void VerifyShutdown() const;
 
     DB *config_db() { return config_db_.get(); }
     DBGraph *config_graph() { return config_graph_.get(); }
@@ -233,6 +291,27 @@ public:
             boost::bind(&XmppStateMachine::OpenTimerExpired, this),
             boost::bind(&XmppStateMachine::TimerErrorHandler, this, _1, _2));
     }
+};
+
+class XmppLifetimeManagerTest : public XmppLifetimeManager {
+public:
+    explicit XmppLifetimeManagerTest(int task_id)
+        : XmppLifetimeManager(task_id), destroy_not_ok_(false) {
+    }
+    virtual ~XmppLifetimeManagerTest() {
+    }
+
+    virtual bool MayDestroy() { return !destroy_not_ok_; }
+    virtual void SetQueueDisable(bool disabled) {
+        LifetimeManager::SetQueueDisable(disabled);
+    }
+
+    void set_destroy_not_ok(bool destroy_not_ok) {
+        destroy_not_ok_ = destroy_not_ok;
+    }
+
+private:
+    bool destroy_not_ok_;
 };
 
 #define BGP_WAIT_FOR_PEER_STATE(peer, state)                                   \

@@ -38,7 +38,7 @@ boost::random::uniform_int_distribution<> hundred(1,100);
 boost::random::uniform_int_distribution<> direction(0,1);
 
 string collector_server = "127.0.0.1";
-short collector_port = ContrailPorts::CollectorPort;
+short collector_port = ContrailPorts::CollectorPort();
 
 class VizCollectorTest : public ::testing::Test {
 public:

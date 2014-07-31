@@ -12,23 +12,32 @@
 #include "xml/xml_pugi.h"
 #include "bind/xmpp_dns_agent.h"
 
+using process::ConnectionState;
+using process::ConnectionType;
+using process::ConnectionStatus;
+
 AgentDnsXmppChannel::DnsMessageHandler AgentDnsXmppChannel::dns_message_handler_cb_;
 AgentDnsXmppChannel::DnsXmppEventHandler AgentDnsXmppChannel::dns_xmpp_event_handler_cb_;
 
-AgentDnsXmppChannel::AgentDnsXmppChannel(Agent *agent, XmppChannel *channel, 
-      std::string xmpp_server, uint8_t xs_idx) 
-    : channel_(channel), xmpp_server_(xmpp_server), xs_idx_(xs_idx), 
+AgentDnsXmppChannel::AgentDnsXmppChannel(Agent *agent,
+      std::string xmpp_server, uint8_t xs_idx)
+    : channel_(NULL), xmpp_server_(xmpp_server), xs_idx_(xs_idx),
     agent_(agent) {
-    if (channel_) {
-        channel_->RegisterReceive(xmps::DNS, 
-            boost::bind(&AgentDnsXmppChannel::ReceiveInternal, this, _1));
-    }
 }
 
 AgentDnsXmppChannel::~AgentDnsXmppChannel() {
     if (channel_) {
         channel_->UnRegisterReceive(xmps::DNS);
     }
+}
+
+void AgentDnsXmppChannel::RegisterXmppChannel(XmppChannel *channel) {
+    if (channel == NULL)
+        return;
+
+    channel_ = channel;
+    channel->RegisterReceive(xmps::DNS,
+            boost::bind(&AgentDnsXmppChannel::ReceiveInternal, this, _1));
 }
 
 bool AgentDnsXmppChannel::SendMsg(uint8_t *msg, std::size_t len) {

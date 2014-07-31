@@ -14,15 +14,10 @@ env = BuildEnv.Clone()
 
 sandesh_files = env.SConscript('sandesh/SConscript', exports='BuildEnv', duplicate = 0)
 
-env.AppendUnique(CCFLAGS='-fno-exceptions')
-
 except_env = env.Clone()
 except_env.Prepend(CPPPATH = Dir('.').abspath)
 
-cflags = except_env['CCFLAGS']
-if '-fno-exceptions' in cflags:
-    cflags.remove('-fno-exceptions')
-except_env.Replace(CCFLAGS = cflags)
+env.CppDisableExceptions()
 
 sandesh_files_ = []
 for src in sandesh_files:
@@ -34,17 +29,17 @@ xmpp_session = except_env.Object('xmpp_session.o', 'xmpp_session.cc')
 xmpp_init = except_env.Object('xmpp_init.o', 'xmpp_init.cc')
 
 libxmpp = env.Library('xmpp',
-
                      [
                       'xmpp_config.cc',
                       'xmpp_connection.cc',
                       'xmpp_factory.cc',
-                      xmpp_session,
+                      'xmpp_lifetime.cc',
+                      'xmpp_session',
                       'xmpp_state_machine.cc',
                       'xmpp_server.cc',
                       'xmpp_client.cc',
                       'xmpp_proto.cc',
-                      xmpp_init,
+                      'xmpp_init',
                       'xmpp_channel_mux.cc',
                       ] + sandesh_files_ )
 

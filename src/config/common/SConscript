@@ -3,6 +3,8 @@
 #
 # Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
 #
+import os
+
 Import('CfgmEnv')
 env = CfgmEnv.Clone()
 
@@ -26,9 +28,9 @@ local_sources = [
                   'rest.py',
                   'vnc_plugin_base.py',
                   'vnc_extensions.py',
+                  'importutils.py',
+                  'analytics_client.py',
                  ]
-
-
 local_sources_rules = []
 for file in local_sources:
     local_sources_rules.append(env.Install("cfgm_common", File(file).srcnode()))
@@ -38,20 +40,29 @@ ifmap_sources_rules = []
 for file in ifmap_sources:
     ifmap_sources_rules.append(env.Install("cfgm_common/", "#/third_party/ifmap-python-client/" + file))
 
+test_sources = [
+                'tests/__init__.py',
+                'tests/test_analytics_client.py',
+                'tests/test_importutils.py',
+                'tests/fake.py',
+               ]
+test_sources_rules = []
+for file in test_sources:
+    test_sources_rules.append(env.Install("cfgm_common/tests/", File(file).srcnode()))
+
 pkg = [env.SandeshGenPy('#controller/src/config/uve/service_instance.sandesh', 'cfgm_common/uve/', False),
        env.SandeshGenPy('#controller/src/config/uve/vnc_api.sandesh', 'cfgm_common/uve/', False),
        env.SandeshGenPy('#controller/src/config/uve/virtual_machine.sandesh', 'cfgm_common/uve/', False),
        env.SandeshGenPy('#controller/src/config/uve/virtual_network.sandesh', 'cfgm_common/uve/', False),
        env.SandeshGenPy('#controller/src/config/uve/acl.sandesh', 'cfgm_common/uve/', False),
-       env.SandeshGenPy('#controller/src/config/uve/vrouter.sandesh', 'cfgm_common/uve/', False),
        env.SandeshGenPy('#controller/src/config/uve/cfgm_cpuinfo.sandesh', 'cfgm_common/uve/', False),
 ]
 
 # Generate the sandesh cpuinfo from base
 cpu_info_pkg = env.SandeshGenPy('#controller/src/base/sandesh/cpuinfo.sandesh', 'cfgm_common/uve/cfgm_cpuinfo/', False)
-connection_info_pkg = env.SandeshGenPy('#controller/src/base/sandesh/connection_info.sandesh', 'cfgm_common/uve/cfgm_cpuinfo/', False)
+process_info_pkg = env.SandeshGenPy('#controller/src/base/sandesh/process_info.sandesh', 'cfgm_common/uve/cfgm_cpuinfo/', False)
 env.Depends(cpu_info_pkg, pkg)
-env.Depends(connection_info_pkg, pkg)
+env.Depends(process_info_pkg, pkg)
 
 rel_path = Dir('cfgm_common').path
 def BuildInfoAction(target, source, env):
@@ -63,9 +74,10 @@ sdist_depends = []
 sdist_depends.extend(setup_sources_rules)
 sdist_depends.extend(local_sources_rules)
 sdist_depends.extend(ifmap_sources_rules)
+sdist_depends.extend(test_sources_rules)
 sdist_depends.extend(pkg)
 sdist_depends.extend(cpu_info_pkg)
-sdist_depends.extend(connection_info_pkg)
+sdist_depends.extend(process_info_pkg)
 sdist_depends.extend(build_info_rules)
 
 # TODO: deprecate
@@ -74,6 +86,34 @@ sdist_gen = env.Command('dist/cfgm_common-0.1dev.tar.gz',
 
 env.Depends(sdist_gen, sdist_depends)
 env.Default(sdist_gen)
+
+def BuildPyTestSetup(env, target, source):
+    file = open(target[0].abspath, 'w')
+    file.write("[easy_install]\nfind_links =")
+    for pkg in source:
+        dependency = env.File(pkg)
+        file.write(" %s" % os.path.dirname(dependency.abspath))
+    file.write("\n")
+    file.close()
+    return
+
+def GeneratePyTestSetup(env, targets, source):
+    """
+    Generate a setup.cfg file that contains a list of directories
+    where dependent packages can be found. The fact that package directory
+    list is being given as a source automatically adds them as dependencies.
+    """
+    target = env.File('setup.cfg')
+    return env.Command(target=target, source=source, action=BuildPyTestSetup);
+
+env.Append(BUILDERS = {'PythonTestSetup': GeneratePyTestSetup})
+test_sources += env.PythonTestSetup(source=pkg)
+
+test = env.Command('test.log', test_sources,
+                   'python setup.py test',
+                   chdir=1)
+
+env.Alias('controller/src/config/common:test', test)
 
 if 'install' in BUILD_TARGETS:
     install_cmd = env.Command(None, 'setup.py',

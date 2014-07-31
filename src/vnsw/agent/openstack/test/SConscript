@@ -25,7 +25,7 @@ openstack_flaky_test_suite = []
 
 nova_info_server_test = AgentEnv.MakeTestCmdSrc(env, 'nova_info_server_test',
                                                 ['instance_service_test.cc'],
-                                                openstack_test_suite)
+                                                openstack_flaky_test_suite)
 nova_inc = AgentEnv.MakeTestCmdSrc(env, 'nova_inc',
                                    ['instance_service_client.cc'],
                                     openstack_flaky_test_suite)

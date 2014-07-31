@@ -25,7 +25,6 @@
 //exclusion with "db::DBTable"
 class AgentStatsCollector : public StatsCollector {
 public:
-    static const uint32_t AgentStatsInterval = (30 * 1000); // time in millisecs
     struct InterfaceStats {
         InterfaceStats()
             : name(""), speed(0), duplexity(0), in_pkts(0), in_bytes(0),
@@ -149,6 +148,7 @@ protected:
     boost::scoped_ptr<AgentStatsSandeshContext> intf_stats_sandesh_ctx_;
     boost::scoped_ptr<AgentStatsSandeshContext> vrf_stats_sandesh_ctx_;
     boost::scoped_ptr<AgentStatsSandeshContext> drop_stats_sandesh_ctx_;
+    VrfIdToVrfStatsTree vrf_stats_tree_;
 private:
     void VrfNotify(DBTablePartBase *partition, DBEntryBase *e);
     void InterfaceNotify(DBTablePartBase *part, DBEntryBase *e);
@@ -161,7 +161,6 @@ private:
     void DelInterfaceStatsEntry(const Interface *intf);
 
     InterfaceStatsTree if_stats_tree_;
-    VrfIdToVrfStatsTree vrf_stats_tree_;
     vr_drop_stats_req drop_stats_;
     DBTableBase::ListenerId vrf_listener_id_;
     DBTableBase::ListenerId intf_listener_id_;

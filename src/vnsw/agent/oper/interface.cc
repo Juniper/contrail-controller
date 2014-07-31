@@ -2,7 +2,6 @@
  * Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
  */
 
-#include <netinet/ether.h>
 #include <boost/uuid/uuid_io.hpp>
 #include <tbb/mutex.h>
 
@@ -32,6 +31,7 @@
 #include <sandesh/sandesh_trace.h>
 #include <sandesh/common/vns_types.h>
 #include <sandesh/common/vns_constants.h>
+#include "base/os.h"
 
 using namespace std;
 using namespace boost::uuids;
@@ -41,14 +41,14 @@ InterfaceTable *InterfaceTable::interface_table_;
 /////////////////////////////////////////////////////////////////////////////
 // Interface Table routines
 /////////////////////////////////////////////////////////////////////////////
-void InterfaceTable::Init(OperDB *oper) { 
+void InterfaceTable::Init(OperDB *oper) {
     operdb_ = oper;
     agent_ = oper->agent();
 }
 
 std::auto_ptr<DBEntry> InterfaceTable::AllocEntry(const DBRequestKey *k) const{
     const InterfaceKey *key = static_cast<const InterfaceKey *>(k);
-    
+
     return std::auto_ptr<DBEntry>(static_cast<DBEntry *>
                                   (key->AllocEntry(this)));
 }
@@ -193,7 +193,7 @@ bool InterfaceTable::L2VmInterfaceWalk(DBTablePartBase *partition,
         return true;
 
     const VnEntry *vn = vm_intf->vn();
-    if (vm_intf->layer2_forwarding() && 
+    if (vm_intf->layer2_forwarding() &&
         (vn->GetVxLanId() != vm_intf->vxlan_id())) {
         vm_intf->UpdateL2();
     }
@@ -210,9 +210,9 @@ void InterfaceTable::UpdateVxLanNetworkIdentifierMode() {
         walker->WalkCancel(walkid_);
     }
     walkid_ = walker->WalkTable(this, NULL,
-                      boost::bind(&InterfaceTable::L2VmInterfaceWalk, 
+                      boost::bind(&InterfaceTable::L2VmInterfaceWalk,
                                   this, _1, _2),
-                      boost::bind(&InterfaceTable::VmInterfaceWalkDone, 
+                      boost::bind(&InterfaceTable::VmInterfaceWalkDone,
                                   this, _1));
 }
 
@@ -222,13 +222,13 @@ void InterfaceTable::UpdateVxLanNetworkIdentifierMode() {
 Interface::Interface(Type type, const uuid &uuid, const string &name,
                      VrfEntry *vrf) :
     type_(type), uuid_(uuid), name_(name),
-    vrf_(vrf), label_(MplsTable::kInvalidLabel), 
+    vrf_(vrf), label_(MplsTable::kInvalidLabel),
     l2_label_(MplsTable::kInvalidLabel), ipv4_active_(true), l2_active_(true),
     id_(kInvalidIndex), dhcp_enabled_(true), dns_enabled_(true), mac_(),
-    os_index_(kInvalidIndex), admin_state_(true), test_oper_state_(true) { 
+    os_index_(kInvalidIndex), admin_state_(true), test_oper_state_(true) {
 }
 
-Interface::~Interface() { 
+Interface::~Interface() {
     if (id_ != kInvalidIndex) {
         static_cast<InterfaceTable *>(get_table())->FreeInterfaceId(id_);
     }
@@ -239,10 +239,11 @@ void Interface::GetOsParams(Agent *agent) {
         static int dummy_ifindex = 0;
         if (os_index_ == kInvalidIndex) {
             os_index_ = ++dummy_ifindex;
-            bzero(&mac_, sizeof(mac_));
-            mac_.ether_addr_octet[5] = os_index_;
+            mac_.Zero();
+            mac_.last_octet() = os_index_;
         }
         os_oper_state_ = test_oper_state_;
+
         return;
     }
 
@@ -274,7 +275,11 @@ void Interface::GetOsParams(Agent *agent) {
     }
     close(fd);
 
-    memcpy(mac_.ether_addr_octet, ifr.ifr_hwaddr.sa_data, ETHER_ADDR_LEN);
+#if defined(__linux__)
+    mac_ = ifr.ifr_hwaddr;
+#elif defined(__FreeBSD__)
+    mac_ = ifr.ifr_addr;
+#endif
     if (os_index_ == kInvalidIndex) {
         int idx = if_nametoindex(name_.c_str());
         if (idx)
@@ -282,7 +287,7 @@ void Interface::GetOsParams(Agent *agent) {
     }
 }
 
-void Interface::SetKey(const DBRequestKey *key) { 
+void Interface::SetKey(const DBRequestKey *key) {
     const InterfaceKey *k = static_cast<const InterfaceKey *>(key);
     type_ = k->type_;
     uuid_ = k->uuid_;
@@ -302,14 +307,14 @@ void InterfaceTable::set_update_floatingip_cb(UpdateFloatingIpFn fn) {
 }
 
 const InterfaceTable::UpdateFloatingIpFn &InterfaceTable::update_floatingip_cb()
-    const { 
+    const {
     return update_floatingip_cb_;
 }
 
 /////////////////////////////////////////////////////////////////////////////
 // Pkt Interface routines
 /////////////////////////////////////////////////////////////////////////////
-PacketInterface::PacketInterface(const std::string &name) : 
+PacketInterface::PacketInterface(const std::string &name) :
     Interface(Interface::PACKET, nil_uuid(), name, NULL) {
 }
 
@@ -607,6 +612,8 @@ void Interface::SetItfSandeshData(ItfSandeshData &data) const {
 
             if (vintf->vn() == NULL) {
                 common_reason += "vn-null ";
+            } else if (!vintf->vn()->admin_state()) {
+                common_reason += "vn-admin-down ";
             }
 
             if (vintf->vm() == NULL) {
@@ -640,9 +647,9 @@ void Interface::SetItfSandeshData(ItfSandeshData &data) const {
                 data.set_l2_active(reason);
             }
         }
-        
+
         std::vector<FloatingIpSandeshList> fip_list;
-        VmInterface::FloatingIpSet::const_iterator it = 
+        VmInterface::FloatingIpSet::const_iterator it =
             vintf->floating_ip_list().list_.begin();
         while (it != vintf->floating_ip_list().list_.end()) {
             const VmInterface::FloatingIp &ip = *it;
@@ -667,7 +674,7 @@ void Interface::SetItfSandeshData(ItfSandeshData &data) const {
 
         // Add Service VLAN list
         std::vector<ServiceVlanSandeshList> vlan_list;
-        VmInterface::ServiceVlanSet::const_iterator vlan_it = 
+        VmInterface::ServiceVlanSet::const_iterator vlan_it =
             vintf->service_vlan_list().list_.begin();
         while (vlan_it != vintf->service_vlan_list().list_.end()) {
             const VmInterface::ServiceVlan *vlan = vlan_it.operator->();

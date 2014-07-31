@@ -318,6 +318,9 @@ public:
 
     bool ProcessRequest(Request *request);
 
+    size_t get_connect_error();
+    uint32_t flap_count();
+
     boost::scoped_ptr<InstanceMgr<RouteEntry> > route_mgr_;
     boost::scoped_ptr<InstanceMgr<EnetRouteEntry> > enet_route_mgr_;
     boost::scoped_ptr<InstanceMgr<McastRouteEntry> > mcast_route_mgr_;

@@ -14,7 +14,8 @@ import logging
 import logging.handlers
 import Queue
 import ConfigParser
-from keystoneclient.v2_0 import client as keystone
+import keystoneclient.v2_0.client as keystone
+
 import cfgm_common
 try:
     from cfgm_common import vnc_plugin_base
@@ -33,41 +34,44 @@ Q_DELETE = 'delete'
 Q_MAX_ITEMS = 1000
 
 
-def get_keystone_opts(conf_sections):
-    auth_user = conf_sections.get('KEYSTONE', 'admin_user')
-    auth_passwd = conf_sections.get('KEYSTONE', 'admin_password')
-    admin_token = conf_sections.get('KEYSTONE', 'admin_token')
-    admin_tenant = conf_sections.get('KEYSTONE', 'admin_tenant_name')
+def fill_keystone_opts(obj, conf_sections):
+    obj._auth_user = conf_sections.get('KEYSTONE', 'admin_user')
+    obj._auth_passwd = conf_sections.get('KEYSTONE', 'admin_password')
+    obj._admin_token = conf_sections.get('KEYSTONE', 'admin_token')
+    obj._admin_tenant = conf_sections.get('KEYSTONE', 'admin_tenant_name')
     try:
-        keystone_sync_on_demand = conf_sections.getboolean('KEYSTONE',
+        obj._keystone_sync_on_demand = conf_sections.getboolean('KEYSTONE',
                                                'keystone_sync_on_demand')
     except ConfigParser.NoOptionError:
-        keystone_sync_on_demand = True
+        obj._keystone_sync_on_demand = True
 
     try:
-        auth_url = conf_sections.get('KEYSTONE', 'auth_url')
+        obj._insecure = conf_sections.getboolean('KEYSTONE', 'insecure')
+    except ConfigParser.NoOptionError:
+        obj._insecure = True
+
+    try:
+        obj._auth_url = conf_sections.get('KEYSTONE', 'auth_url')
     except ConfigParser.NoOptionError:
         # deprecated knobs - for backward compat
-        auth_proto = conf_sections.get('KEYSTONE', 'auth_protocol')
-        auth_host = conf_sections.get('KEYSTONE', 'auth_host')
-        auth_port = conf_sections.get('KEYSTONE', 'auth_port')
-        auth_url = "%s://%s:%s/v2.0" % (auth_proto, auth_host, auth_port)
+        obj._auth_proto = conf_sections.get('KEYSTONE', 'auth_protocol')
+        obj._auth_host = conf_sections.get('KEYSTONE', 'auth_host')
+        obj._auth_port = conf_sections.get('KEYSTONE', 'auth_port')
+        obj._auth_url = "%s://%s:%s/v2.0" % (obj._auth_proto, obj._auth_host,
+                                             obj._auth_port)
 
-    return (auth_user, auth_passwd, admin_token, admin_tenant, auth_url,
-            keystone_sync_on_demand)
 
 class OpenstackDriver(vnc_plugin_base.Resync):
     def __init__(self, api_server_ip, api_server_port, conf_sections):
-        self._vnc_api_ip = api_server_ip
+        if api_server_ip == '0.0.0.0':
+            self._vnc_api_ip = '127.0.0.1'
+        else:
+            self._vnc_api_ip = api_server_ip
+
         self._vnc_api_port = api_server_port
 
         self._config_sections = conf_sections
-        (self._auth_user,
-         self._auth_passwd,
-         self._admin_token,
-         self._admin_tenant,
-         self._auth_url,
-         self._keystone_sync_on_demand) = get_keystone_opts(conf_sections)
+        fill_keystone_opts(self, conf_sections)
 
         if 'v3' in self._auth_url.split('/')[-1]:
             self._get_keystone_conn = self._ksv3_get_conn
@@ -105,12 +109,19 @@ class OpenstackDriver(vnc_plugin_base.Resync):
         # logging
         self._log_file_name = '/var/log/contrail/vnc_openstack.err'
         self._tmp_file_name = '/var/log/contrail/vnc_openstack.tmp'
-        self._vnc_os_logger = logging.getLogger('MyLogger')
+        self._vnc_os_logger = logging.getLogger(__name__)
         self._vnc_os_logger.setLevel(logging.ERROR)
         # Add the log message handler to the logger
-        handler = logging.handlers.RotatingFileHandler(self._log_file_name,
-                                                       maxBytes=1024,
-                                                       backupCount=5)
+        try:
+            handler = logging.handlers.RotatingFileHandler(self._log_file_name,
+                                                           maxBytes=1024,
+                                                           backupCount=5)
+        except IOError:
+            self._log_file_name = './vnc_openstack.err'
+            self._tmp_file_name = './vnc_openstack.tmp'
+            handler = logging.handlers.RotatingFileHandler(self._log_file_name,
+                                                           maxBytes=1024,
+                                                           backupCount=5)
 
         self._vnc_os_logger.addHandler(handler)
         self.q = Queue.Queue(maxsize=Q_MAX_ITEMS)
@@ -136,12 +147,14 @@ class OpenstackDriver(vnc_plugin_base.Resync):
         if not self._ks:
             if self._admin_token:
                 self._ks = keystone.Client(token=self._admin_token,
-                                           endpoint=self._auth_url)
+                                           endpoint=self._auth_url,
+                                           insecure=self._insecure)
             else:
                 self._ks = keystone.Client(username=self._auth_user,
                                            password=self._auth_passwd,
                                            tenant_name=self._admin_tenant,
-                                           auth_url=self._auth_url)
+                                           auth_url=self._auth_url,
+                                           insecure=self._insecure)
     # end _ksv2_get_conn
 
     def _ksv2_projects_list(self):
@@ -156,8 +169,18 @@ class OpenstackDriver(vnc_plugin_base.Resync):
         self._get_keystone_conn()
         self._get_vnc_conn()
         ks_project = self._ks_project_get(id=id.replace('-', ''))
+        display_name = ks_project['name']
 
-        proj_obj = vnc_api.Project(ks_project['name'])
+        # if earlier project exists with same name but diff id,
+        # create with uniqified fq_name
+        fq_name = ['default-domain', display_name]
+        try:
+            old_id = self._vnc_lib.fq_name_to_id('project', fq_name)
+            proj_name = '%s-%s' %(display_name, str(uuid.uuid4()))
+        except vnc_api.NoIdError:
+            proj_name = display_name
+
+        proj_obj = vnc_api.Project(proj_name)
         proj_obj.uuid = id
         self._vnc_lib.project_create(proj_obj)
     # end _ksv2_sync_project_to_vnc
@@ -252,16 +275,26 @@ class OpenstackDriver(vnc_plugin_base.Resync):
         if id:
             ks_project = \
                 self._ks_project_get(id=id.replace('-', ''))
-            project_name = ks_project['name']
+            display_name = ks_project['name']
             project_id = id
         elif name:
             ks_project = \
                 self._ks_project_get(name=name)
             project_id = ks_project['id']
-            project_name = name
+            display_name = name
 
         domain_uuid = self._ksv3_domain_id_to_uuid(ks_project['domain_id'])
         dom_obj = self._vnc_lib.domain_read(id=domain_uuid)
+
+        # if earlier project exists with same name but diff id,
+        # create with uniqified fq_name
+        fq_name = dom_obj.get_fq_name() + [display_name]
+        try:
+            old_id = self._vnc_lib.fq_name_to_id('project', fq_name)
+            project_name = '%s-%s' %(display_name, str(uuid.uuid4()))
+        except vnc_api.NoIdError:
+            project_name = display_name
+        
         proj_obj = vnc_api.Project(project_name, parent_obj=dom_obj)
         proj_obj.uuid = project_id
         self._vnc_lib.project_create(proj_obj)
@@ -299,7 +332,18 @@ class OpenstackDriver(vnc_plugin_base.Resync):
         self._get_vnc_conn()
         ks_domain = \
             self._ks_domain_get(domain_id.replace('-', ''))
-        dom_obj = vnc_api.Domain(ks_domain['name'])
+        display_name = ks_domain['name']
+
+        # if earlier domain exists with same name but diff id,
+        # create with uniqified fq_name
+        fq_name = [display_name]
+        try:
+            old_id = self._vnc_lib.fq_name_to_id('domain', fq_name)
+            domain_name = '%s-%s' %(display_name, str(uuid.uuid4()))
+        except vnc_api.NoIdError:
+            domain_name = display_name
+ 
+        dom_obj = vnc_api.Domain(domain_name)
         dom_obj.uuid = domain_id
         self._vnc_lib.domain_create(dom_obj)
     # sync_domain_to_vnc
@@ -428,8 +472,12 @@ class OpenstackDriver(vnc_plugin_base.Resync):
                 if dom['fq_name'] == ['default-domain']:
                     self._vnc_default_domain_id = dom['uuid']
 
-            vnc_projects = self._vnc_lib.projects_list()['projects']
-            self._vnc_project_ids = set([proj['uuid'] for proj in vnc_projects])
+            vnc_all_projects = self._vnc_lib.projects_list()['projects']
+            # remove default-domain:default-project from audit list
+            default_proj_fq_name = ['default-domain', 'default-project']
+            vnc_project_ids = set([proj['uuid'] for proj in vnc_all_projects 
+                                 if proj['fq_name'] != default_proj_fq_name])
+            self._vnc_project_ids = vnc_project_ids
         except Exception as e:
             cgitb.Hook(
                 format="text",
@@ -476,9 +524,10 @@ class OpenstackDriver(vnc_plugin_base.Resync):
 
     def resync_domains_projects(self):
         # add asynchronously
-        gevent.spawn(self._resync_domains_projects_forever)
+        self._main_glet = gevent.spawn(self._resync_domains_projects_forever)
+        self._worker_glets = []
         for x in range(self._resync_number_workers):
-            gevent.spawn(self._resync_worker)
+            self._worker_glets.append(gevent.spawn(self._resync_worker))
     #end resync_domains_projects
 
     def _resync_worker(self):
@@ -515,15 +564,13 @@ class OpenstackDriver(vnc_plugin_base.Resync):
 
 class ResourceApiDriver(vnc_plugin_base.ResourceApi):
     def __init__(self, api_server_ip, api_server_port, conf_sections):
-        self._vnc_api_ip = api_server_ip
+        if api_server_ip == '0.0.0.0':
+            self._vnc_api_ip = '127.0.0.1'
+        else:
+            self._vnc_api_ip = api_server_ip
         self._vnc_api_port = api_server_port
         self._config_sections = conf_sections
-        (self._auth_user,
-         self._auth_passwd,
-         self._admin_token,
-         self._admin_tenant,
-         self._auth_url,
-         self._keystone_sync_on_demand) = get_keystone_opts(conf_sections)
+        fill_keystone_opts(self, conf_sections)
 
         self._vnc_lib = None
         self._openstack_drv = OpenstackDriver(api_server_ip, api_server_port, conf_sections)
@@ -624,6 +671,7 @@ class ResourceApiDriver(vnc_plugin_base.ResourceApi):
             # another api server has brought syncd it
             pass
         self._vnc_projects.add(id)
+
     # end pre_project_read
 
     def post_project_create(self, proj_dict):

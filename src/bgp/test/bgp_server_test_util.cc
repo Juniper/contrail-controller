@@ -32,6 +32,9 @@ using namespace boost::asio;
 using namespace boost;
 using namespace std;
 
+int StateMachineTest::hold_time_msecs_ = 0;
+int StateMachineTest::keepalive_time_msecs_ = 0;
+
 //
 // This is a static data structure that maps client tcp end points to configured
 // bgp peers. Using this, we can form multiple bgp peering sessions between
@@ -78,21 +81,17 @@ void BgpServerTest::PostShutdown() {
     config_db_->Clear();
 }
 
-void BgpServerTest::Shutdown() {
-
-    //
-    // Wait for all pending events to get processed
-    //
+void BgpServerTest::Shutdown(bool verify) {
     task_util::WaitForIdle();
-
     BgpServer::Shutdown();
+    if (verify)
+        VerifyShutdown();
+}
 
-    //
-    // Wait for server close process to complete
-    //
+void BgpServerTest::VerifyShutdown() const {
     task_util::WaitForIdle();
     TASK_UTIL_ASSERT_EQ(0, routing_instance_mgr()->count());
-    TASK_UTIL_ASSERT_EQ(static_cast<BgpSessionManager *>(NULL), session_mgr_);
+    TASK_UTIL_ASSERT_TRUE(session_mgr_ == NULL);
 }
 
 BgpServerTest::~BgpServerTest() {

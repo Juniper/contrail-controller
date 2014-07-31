@@ -8,15 +8,18 @@
 
 struct VncApiCommon {
     1: string identifier_uuid // object identifier
-    10: string object_type (key="ConfigObjectTable") // object type
-    2: string identifier_name (key="ConfigObjectTable") // object name
-    3: string url;             // The object URL
-    4: string operation;       // get/post/update/delete
-    5: optional string params;
-    6: optional string body;
-    7: optional string user;
-    8: optional string domain;
-    9: optional string error;
+    2: string object_type (key="ConfigObjectTable") // object type
+    3: string identifier_name (key="ConfigObjectTable") // object name
+    4: string url;             // The object URL
+    5: string operation;       // get/post/update/delete
+    6: string useragent;       // which program is doing operation
+    7: string remote_ip;       // which host is doing operation
+    8: optional string params;
+    9: optional string body;
+    10: optional string user;
+    11: optional string project;
+    12: optional string domain;
+    13: optional string error;
 }
 
 traceobject sandesh VncApiReadLog {

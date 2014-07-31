@@ -146,27 +146,6 @@ TcpSession *TcpServer::CreateSession() {
     return session;
 }
 
-void TcpServer::OnSessionClose(TcpSession *session) {
-    tbb::mutex::scoped_lock lock(mutex_);
-    // CloseSessions removes all the sessions from the map and calls close on
-    // each individually.
-    if (session_map_.empty()) {
-        return;
-    }
-    for (SessionMap::iterator iter =
-            session_map_.find(session->remote_endpoint());
-         iter != session_map_.end(); ++iter) {
-        if (iter->first != session->remote_endpoint()) {
-            break;
-        }
-        if (iter->second == session) {
-            session_map_.erase(iter);
-            return;
-        }
-    }
-    assert(false);
-}
-
 void TcpServer::DeleteSession(TcpSession *session) {
     // The caller will typically close the socket before deleting the
     // session.
@@ -179,6 +158,42 @@ void TcpServer::DeleteSession(TcpSession *session) {
             cond_var_.notify_all();
         }
     }
+}
+
+//
+// Insert into SessionMap.
+// Assumes that caller has the mutex.
+//
+void TcpServer::InsertSessionToMap(Endpoint remote, TcpSession *session) {
+    session_map_.insert(make_pair(remote, session));
+}
+
+//
+// Remove from SessionMap.
+// Assumes that caller has the mutex.
+// Return true if the session is found.
+//
+bool TcpServer::RemoveSessionFromMap(Endpoint remote, TcpSession *session) {
+    for (SessionMap::iterator iter = session_map_.find(remote);
+         iter != session_map_.end() && iter->first == remote; ++iter) {
+        if (iter->second == session) {
+            session_map_.erase(iter);
+            return true;
+        }
+    }
+    return false;
+}
+
+void TcpServer::OnSessionClose(TcpSession *session) {
+    tbb::mutex::scoped_lock lock(mutex_);
+
+    // CloseSessions closes and removes all the sessions from the map.
+    if (session_map_.empty()) {
+        return;
+    }
+
+    bool found = RemoveSessionFromMap(session->remote_endpoint(), session);
+    assert(found);
 }
 
 // This method ensures that the application code requested the session to be
@@ -266,6 +281,7 @@ void TcpServer::AcceptHandlerInternal(TcpServerPtr server,
     boost::system::error_code ec;
     TcpSessionPtr session;
     auto_ptr<Socket> socket;
+    bool need_close = false;
 
     if (error) {
         goto done;
@@ -298,24 +314,28 @@ void TcpServer::AcceptHandlerInternal(TcpServerPtr server,
     if (ec) {
         TCP_SESSION_LOG_ERROR(session, TCP_DIR_IN,
                               "Accept: Non-blocking error: " << ec.message());
+        need_close = true;
         goto done;
     }
 
     session->SessionEstablished(remote, TcpSession::PASSIVE);
-    TCP_SESSION_LOG_UT_DEBUG(session, TCP_DIR_IN,
-                             "Accepted session from "
-                                 << remote.address().to_string()
-                                 << ":" << remote.port());
-
     {
         tbb::mutex::scoped_lock lock(mutex_);
-        session_ref_.insert(session);
-        session_map_.insert(make_pair(remote, session.get()));
-    }
-
-    if (!AcceptSession(session.get())) {
-        DeleteSession(session.get());
-        goto done;
+        if (AcceptSession(session.get())) {
+            TCP_SESSION_LOG_UT_DEBUG(session, TCP_DIR_IN,
+                                     "Accepted session from "
+                                         << remote.address().to_string()
+                                         << ":" << remote.port());
+            session_ref_.insert(session);
+            InsertSessionToMap(remote, session.get());
+        } else {
+            TCP_SESSION_LOG_UT_DEBUG(session, TCP_DIR_IN,
+                                     "Rejected session from "
+                                         << remote.address().to_string()
+                                         << ":" << remote.port());
+            need_close = true;
+            goto done;
+        }
     }
 
     if (session->read_on_connect_) {
@@ -323,6 +343,9 @@ void TcpServer::AcceptHandlerInternal(TcpServerPtr server,
     }
 
 done:
+    if (need_close) {
+        session->CloseInternal(false, false);
+    }
     AsyncAccept();
 }
 
@@ -353,17 +376,16 @@ void TcpServer::ConnectHandler(TcpServerPtr server, TcpSessionPtr session,
         return;
     }
 
-    SessionMap::iterator loc;
     {
         tbb::mutex::scoped_lock lock(mutex_);
-        loc = session_map_.insert(make_pair(remote, session.get()));
+        InsertSessionToMap(remote, session.get());
     }
 
     // Connected verifies whether the session has been closed or is still
     // active.
     if (!session->Connected(remote)) {
         tbb::mutex::scoped_lock lock(mutex_);
-        session_map_.erase(loc);
+        RemoveSessionFromMap(remote, session.get());
         return;
     }
 }
@@ -412,23 +434,16 @@ void TcpServer::GetTxSocketStats(TcpServerSocketStats &socket_stats) const {
 //
 // TcpServerManager class routines
 //
-TcpServerManager::ServerSet TcpServerManager::server_ref_;
-tbb::mutex TcpServerManager::mutex_;
+ServerManager<TcpServer, TcpServerPtr> TcpServerManager::impl_;
 
-//
-// Add a server object to the data base, by creating an intrusive reference
-//
 void TcpServerManager::AddServer(TcpServer *server) {
-    tbb::mutex::scoped_lock lock(mutex_);
-    server_ref_.insert(TcpServerPtr(server));
+    impl_.AddServer(server);
 }
 
-//
-// Delete a server object from the data base, by removing the intrusive
-// reference. If any other objects has a reference to this server such as
-// boost::asio, the server object deletion is automatically deferred
-//
 void TcpServerManager::DeleteServer(TcpServer *server) {
-    tbb::mutex::scoped_lock lock(mutex_);
-    server_ref_.erase(TcpServerPtr(server));
+    impl_.DeleteServer(server);
+}
+
+size_t TcpServerManager::GetServerCount() {
+    return impl_.GetServerCount();
 }

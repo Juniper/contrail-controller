@@ -49,6 +49,7 @@ public:
         exit_callback_running_ = false;
         exit_callback_counter_ = 0;
         wm_callback_running_ = false;
+        shutdown_test_exit_callback_sleep_ = true;
     }
 
     virtual void SetUp() {
@@ -74,6 +75,9 @@ public:
     }
     bool IsWorkQueueCurrentRunner() {
         return work_queue_.current_runner_ != NULL;
+    }
+    bool IsWorkQueueShutdownScheduled() {
+        return work_queue_.shutdown_scheduled_;
     }
     void SetWorkQueueMaxIterations(size_t niterations) {
         work_queue_.max_iterations_ = niterations;
@@ -117,6 +121,14 @@ public:
         }
         exit_callback_running_ = false;
     }
+    void ShutdownTestExitCallback(bool done) {
+        exit_callback_running_ = true;
+        EXPECT_FALSE(done);
+        while (shutdown_test_exit_callback_sleep_) {
+            usleep(100000);
+        }
+        exit_callback_running_ = false;
+    }
 
     int wq_task_id_;
     WorkQueue<int> work_queue_;
@@ -125,6 +137,7 @@ public:
     tbb::atomic<int> exit_callback_counter_;
     tbb::atomic<bool> exit_callback_running_;
     tbb::atomic<bool> wm_callback_running_;
+    tbb::atomic<bool> shutdown_test_exit_callback_sleep_;
 };
 
 TEST_F(QueueTaskTest, StartRunnerBasic) {
@@ -411,6 +424,115 @@ TEST_F(QueueTaskTest, DisableEnableTest2) {
     EXPECT_EQ(100, work_queue_.NumEnqueues());
     EXPECT_EQ(100, work_queue_.NumDequeues());
     EXPECT_EQ(100, dequeues_);
+}
+
+TEST_F(QueueTaskTest, ScheduleShutdownTest) {
+    // Stop the scheduler
+    TaskScheduler *scheduler = TaskScheduler::GetInstance();
+    scheduler->Stop();
+    // Enqueue entries
+    for (int idx = 0; idx < 5; idx++) {
+        work_queue_.Enqueue(idx);
+    }
+    EXPECT_EQ(5, work_queue_.Length());
+    EXPECT_TRUE(IsWorkQueueRunning());
+    EXPECT_TRUE(IsWorkQueueCurrentRunner());
+    EXPECT_FALSE(IsWorkQueueShutdownScheduled());
+    // Shutdown the work queue (should happen in the same context)
+    work_queue_.ScheduleShutdown();
+    // Verify
+    EXPECT_EQ(0, work_queue_.Length());
+    EXPECT_FALSE(IsWorkQueueRunning());
+    EXPECT_FALSE(IsWorkQueueCurrentRunner());
+    EXPECT_TRUE(IsWorkQueueShutdownScheduled());
+    // Start the scheduler
+    scheduler->Start();
+}
+
+class QueueTaskShutdownTest : public ::testing::Test {
+public:
+    QueueTaskShutdownTest() :
+        wq_task_id_(TaskScheduler::GetInstance()->GetTaskId(
+                        "::test::QueueTaskShutdownTest")),
+        work_queue_(wq_task_id_, -1,
+                    boost::bind(&QueueTaskShutdownTest::DequeueCb, this, _1)) {
+        dequeue_cb_sleep_ = true;
+        dequeue_cb_running_ = false;
+    }
+
+    virtual void SetUp() {
+        TaskScheduler::GetInstance()->ClearTaskStats(wq_task_id_);
+    }
+
+    virtual void TearDown() {
+        TaskScheduler::GetInstance()->ClearTaskStats(wq_task_id_);
+    }
+
+    bool DequeueCb(int *entry) {
+        dequeue_cb_running_ = true;
+        while (dequeue_cb_sleep_) {
+            usleep(100000);
+        }
+        delete entry;
+        return true;
+    }
+
+    bool IsWorkQueueRunning() {
+        return work_queue_.running_;
+    }
+
+    bool IsWorkQueueCurrentRunner() {
+        return work_queue_.current_runner_ != NULL;
+    }
+
+    bool IsWorkQueueShutdownScheduled() {
+        return work_queue_.shutdown_scheduled_;
+    }
+
+    int wq_task_id_;
+    WorkQueue<int *> work_queue_;
+    tbb::atomic<bool> dequeue_cb_sleep_;
+    tbb::atomic<bool> dequeue_cb_running_;
+};
+
+template<>
+struct WorkQueueDelete<int *> {
+    template <typename QueueT>
+    void operator()(QueueT &q, bool delete_entry) {
+        EXPECT_FALSE(delete_entry);
+        int *idx;
+        while (q.try_pop(idx)) {
+            delete idx;
+        }
+    }
+};
+
+TEST_F(QueueTaskShutdownTest, ScheduleShutdown) {
+    // First disable the work queue
+    work_queue_.set_disable(true);
+    // Enqueue 2 entries
+    for (int idx = 0; idx < 2; idx++) {
+        work_queue_.Enqueue(new int(idx));
+    }
+    EXPECT_EQ(2, work_queue_.Length());
+    // Now enable
+    work_queue_.set_disable(false);
+    EXPECT_TRUE(IsWorkQueueRunning());
+    EXPECT_TRUE(IsWorkQueueCurrentRunner());
+    EXPECT_FALSE(IsWorkQueueShutdownScheduled());
+    TASK_UTIL_EXPECT_TRUE(dequeue_cb_running_);
+    // Shutdown the work queue (should happen in dequeue context)
+    work_queue_.ScheduleShutdown(false);
+    // Verify
+    EXPECT_EQ(1, work_queue_.Length());
+    EXPECT_TRUE(IsWorkQueueRunning());
+    EXPECT_TRUE(IsWorkQueueCurrentRunner());
+    EXPECT_TRUE(IsWorkQueueShutdownScheduled());
+    // Set bool to exit dequeue callback
+    dequeue_cb_sleep_ = false;
+    TASK_UTIL_EXPECT_FALSE(IsWorkQueueRunning());
+    TASK_UTIL_EXPECT_FALSE(IsWorkQueueCurrentRunner());
+    EXPECT_EQ(0, work_queue_.Length());
 }
 
 int main(int argc, char *argv[]) {

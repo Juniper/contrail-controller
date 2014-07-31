@@ -1,0 +1,68 @@
+/*
+ * Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
+ */
+
+struct PoolStats {
+    1: u64 reads;
+    2: u64 writes;
+    3: u64 read_kbytes;
+    4: u64 write_kbytes;
+}
+
+struct ComputeStoragePool {
+    1: string name (key="ObjectPoolTable")
+    2: optional bool                deleted
+    3: optional list<PoolStats> info_stats (tags="")
+}
+
+uve sandesh ComputeStoragePoolTrace {
+    1: ComputeStoragePool data
+}
+
+struct OsdStats {
+    1: u64 reads;
+    2: u64 writes;
+    3: u64 read_kbytes;
+    4: u64 write_kbytes;
+    5: u64 op_r_latency;
+    6: u64 op_w_latency;
+}
+
+struct ComputeStorageOsdState {
+    1: string status;
+}
+
+struct ComputeStorageOsd {
+    1: string name (key="ObjectOsdTable")
+    2: optional bool deleted
+    3: string uuid;
+    4: optional list<OsdStats> info_stats (tags="uuid")
+    5: optional ComputeStorageOsdState info_state
+}
+
+uve sandesh ComputeStorageOsdTrace {
+    1: ComputeStorageOsd data
+}
+
+struct DiskStats {
+    1: u64 reads;
+    2: u64 writes;
+    3: u64 read_kbytes;
+    4: u64 write_kbytes;
+    5: u64 iops;
+    6: u64 bw;
+}
+
+struct ComputeStorageDisk {
+    1: string name (key="ObjectDiskTable")
+    2: optional bool deleted
+    3: string uuid;
+    4: optional list<DiskStats> info_stats (tags="uuid")
+    5: optional string is_osd_disk;
+    6: optional u64 current_disk_usage;
+    7: optional list<string> list_of_curr_disks;
+}
+
+uve sandesh ComputeStorageDiskTrace {
+    1: ComputeStorageDisk data
+}

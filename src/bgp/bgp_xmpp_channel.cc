@@ -255,7 +255,8 @@ public:
     XmppPeer(BgpServer *server, BgpXmppChannel *channel)
         : server_(server),
           parent_(channel),
-          is_deleted_(false) {
+          is_deleted_(false),
+          send_ready_(true) {
         refcount_ = 0;
     }
 
@@ -323,7 +324,7 @@ private:
         if (!server_) return;
         SchedulingGroupManager *sg_mgr = server_->scheduling_group_manager();
         BGP_LOG_PEER(Event, this, SandeshLevel::SYS_DEBUG, BGP_LOG_FLAG_ALL,
-                     BGP_PEER_DIR_NA, "Sender is ready");
+                     BGP_PEER_DIR_NA, "Send ready");
         sg_mgr->SendReady(this);
         send_ready_ = true;
         XmppPeerInfoData peer_info;
@@ -359,6 +360,8 @@ bool BgpXmppChannel::XmppPeer::SendUpdate(const uint8_t *msg, size_t msgsize) {
         send_ready_ = channel->Send(msg, msgsize, xmps::BGP,
                 boost::bind(&BgpXmppChannel::XmppPeer::WriteReadyCb, this, _1));
         if (!send_ready_) {
+            BGP_LOG_PEER(Event, this, SandeshLevel::SYS_DEBUG, BGP_LOG_FLAG_ALL,
+                         BGP_PEER_DIR_NA, "Send blocked");
             XmppPeerInfoData peer_info;
             peer_info.set_name(ToUVEKey());
             peer_info.set_send_state("not in sync");
@@ -1354,13 +1357,11 @@ void BgpXmppChannel::DequeueRequest(const string &table_name,
         BgpAttrPtr attr =  data->attrs();
         RoutingInstance *rt_instance = table->routing_instance();
         assert(rt_instance);
-        ExtCommunity::ExtCommunityList origin_vn_list;
         OriginVn origin_vn(bgp_server_->autonomous_system(),
             rt_instance->virtual_network_index());
-        origin_vn_list.push_back(origin_vn.GetExtCommunity());
         ExtCommunityPtr ext_community =
             bgp_server_->extcomm_db()->ReplaceOriginVnAndLocate(
-                                attr->ext_community(), origin_vn_list);
+                attr->ext_community(), origin_vn.GetExtCommunity());
         BgpAttrPtr new_attr =
             bgp_server_->attr_db()->ReplaceExtCommunityAndLocate(
                 attr.get(), ext_community);

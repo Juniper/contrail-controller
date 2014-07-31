@@ -772,6 +772,12 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
 <!--#IFMAP-SEMANTICS-IDL
      Property('vrf-assign-table', 'virtual-machine-interface') -->
 
+<xsd:element name="virtual-machine-interface-device-owner"
+                                                type="xsd:string"/>
+<!--#IFMAP-SEMANTICS-IDL
+     Property('virtual-machine-interface-device-owner',
+             'virtual-machine-interface') -->
+
 <xsd:simpleType name="ServiceInterfaceType">
     <xsd:restriction base="xsd:string">
         <xsd:enumeration value="management"/>
@@ -868,7 +874,9 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
 <xsd:element name="instance-ip-mode" type="AddressMode"/>
 <!--#IFMAP-SEMANTICS-IDL 
      Property('instance-ip-mode', 'instance-ip') -->
-
+<xsd:element name="subnet-uuid" type="xsd:string"/>
+<!--#IFMAP-SEMANTICS-IDL 
+     Property('subnet-uuid', 'instance-ip') -->
 <xsd:element name="instance-ip-virtual-network"/>
 <!--#IFMAP-SEMANTICS-IDL 
      Link('instance-ip-virtual-network',
@@ -996,6 +1004,7 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
         <xsd:enumeration value='firewall'/>
         <xsd:enumeration value='analyzer'/>
         <xsd:enumeration value='source-nat'/>
+        <xsd:enumeration value='loadbalancer'/>
     </xsd:restriction>
 </xsd:simpleType>
 
@@ -1031,6 +1040,7 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
         <xsd:element name='flavor' type='xsd:string'/>
         <xsd:element name='ordered-interfaces' type='xsd:boolean' default='false'/>
         <xsd:element name='service-virtualization-type' type='ServiceVirtualizationType'/>
+        <xsd:element name='availability-zone-enable' type='xsd:boolean' default='false'/>
     </xsd:sequence>
 </xsd:complexType>
 
@@ -1137,6 +1147,7 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
      Property('interface-route-table-routes', 'interface-route-table') -->
 
 <xsd:element name="logical-router" type="ifmap:IdentityType"/>
+
 <xsd:element name="project-logical-router"/>
 <!--#IFMAP-SEMANTICS-IDL 
      Link('project-logical-router',

@@ -106,6 +106,7 @@ public:
     const std::string &dest_vn_name() const {return dest_vn_name_;}
     const SecurityGroupList &sg_list() const {return sg_list_;}
     bool is_subnet_discard() const {return is_subnet_discard_;}
+    const Ip4Address subnet_gw_ip() const { return subnet_gw_ip_;}
 
     uint32_t GetActiveLabel() const;
     TunnelType::Type GetTunnelType() const {
@@ -127,6 +128,9 @@ public:
     void set_server_ip(const Ip4Address &server_ip) {server_ip_ = server_ip;}
     void set_is_subnet_discard(bool discard) {
         is_subnet_discard_= discard;
+    }
+    void set_subnet_gw_ip(const Ip4Address &ip) {
+        subnet_gw_ip_ = ip;
     }
     void set_local_ecmp_mpls_label(MplsLabel *mpls);
     const MplsLabel* local_ecmp_mpls_label() const;
@@ -154,7 +158,8 @@ public:
     CompositeNHKey* composite_nh_key() {
         return composite_nh_key_.get();
     }
-    bool SetCompositeNH(Agent *agent, CompositeNHKey *nh, bool create);
+    bool ReorderCompositeNH(Agent *agent, CompositeNHKey *nh);
+    bool ChangeCompositeNH(Agent *agent, CompositeNHKey *nh);
 private:
     const Peer *peer_;
     // Nexthop for route. Not used for gateway routes
@@ -203,6 +208,11 @@ private:
     DependencyRef<AgentRoute, MplsLabel> local_ecmp_mpls_label_;
     //CompositeNH key for resync
     boost::scoped_ptr<CompositeNHKey> composite_nh_key_;
+    //Gateway address of the subnet this route belong to.
+    //This IP address gets used in sending arp query to the VM
+    //helping in deciding the priority during live migration and
+    //allowed address pair
+    Ip4Address subnet_gw_ip_;
     DISALLOW_COPY_AND_ASSIGN(AgentPath);
 };
 
@@ -221,12 +231,13 @@ public:
     LocalVmRoute(const VmInterfaceKey &intf, uint32_t mpls_label,
                  uint32_t vxlan_id, bool force_policy, const string &vn_name,
                  uint8_t flags, const SecurityGroupList &sg_list,
-                 const PathPreference &path_preference) :
+                 const PathPreference &path_preference,
+                 const Ip4Address &subnet_gw_ip) :
         AgentRouteData(false), intf_(intf), mpls_label_(mpls_label),
         vxlan_id_(vxlan_id), force_policy_(force_policy),
         dest_vn_name_(vn_name), proxy_arp_(true), sync_route_(false),
         flags_(flags), sg_list_(sg_list), tunnel_bmap_(TunnelType::MplsType()),
-        path_preference_(path_preference) {
+        path_preference_(path_preference), subnet_gw_ip_(subnet_gw_ip) {
     }
     virtual ~LocalVmRoute() { }
     void DisableProxyArp() {proxy_arp_ = false;}
@@ -251,6 +262,7 @@ private:
     SecurityGroupList sg_list_;
     TunnelType::TypeBmap tunnel_bmap_;
     PathPreference path_preference_;
+    Ip4Address subnet_gw_ip_;
     DISALLOW_COPY_AND_ASSIGN(LocalVmRoute);
 };
 
@@ -295,10 +307,10 @@ class VlanNhRoute : public AgentRouteData {
 public:
     VlanNhRoute(const VmInterfaceKey &intf, uint16_t tag, uint32_t label,
                 const string &dest_vn_name, const SecurityGroupList &sg_list,
-                const PathPreference &path_preference) :
+                const PathPreference &path_preference):
         AgentRouteData(false), intf_(intf), tag_(tag), label_(label),
         dest_vn_name_(dest_vn_name), sg_list_(sg_list),
-        path_preference_(path_preference) {
+        path_preference_(path_preference), tunnel_bmap_(TunnelType::MplsType()) {
     }
     virtual ~VlanNhRoute() { }
     virtual bool AddChangePath(Agent *agent, AgentPath *path);
@@ -311,6 +323,7 @@ private:
     std::string dest_vn_name_;
     SecurityGroupList sg_list_;
     PathPreference path_preference_;
+    TunnelType::TypeBmap tunnel_bmap_;
     DISALLOW_COPY_AND_ASSIGN(VlanNhRoute);
 };
 

@@ -16,10 +16,10 @@
 using namespace std;
 using namespace boost::asio::ip;
 
-static uint16_t default_bgp_port = ContrailPorts::ControlBgp;
-static uint16_t default_http_server_port = ContrailPorts::HttpPortControl;
-static uint16_t default_xmpp_port = ContrailPorts::ControlXmpp;
-static uint16_t default_discovery_port = ContrailPorts::DiscoveryServerPort;
+static uint16_t default_bgp_port = ContrailPorts::ControlBgp();
+static uint16_t default_http_server_port = ContrailPorts::HttpPortControl();
+static uint16_t default_xmpp_port = ContrailPorts::ControlXmpp();
+static uint16_t default_discovery_port = ContrailPorts::DiscoveryServerPort();
 
 class OptionsTest : public ::testing::Test {
 protected:
@@ -55,7 +55,7 @@ TEST_F(OptionsTest, NoArguments) {
     EXPECT_EQ(options_.bgp_port(), default_bgp_port);
     TASK_UTIL_EXPECT_VECTOR_EQ(default_collector_server_list_,
                      options_.collector_server_list());
-    EXPECT_EQ(options_.config_file(), "/etc/contrail/control-node.conf");
+    EXPECT_EQ(options_.config_file(), "/etc/contrail/contrail-control.conf");
     EXPECT_EQ(options_.discovery_server(), "");
     EXPECT_EQ(options_.discovery_port(), default_discovery_port);
     EXPECT_EQ(options_.hostname(), hostname_);
@@ -80,7 +80,7 @@ TEST_F(OptionsTest, DefaultConfFile) {
     int argc = 2;
     char *argv[argc];
     char argv_0[] = "options_test";
-    char argv_1[] = "--conf_file=controller/src/control-node/control-node.conf";
+    char argv_1[] = "--conf_file=controller/src/control-node/contrail-control.conf";
     argv[0] = argv_0;
     argv[1] = argv_1;
 
@@ -91,7 +91,7 @@ TEST_F(OptionsTest, DefaultConfFile) {
     TASK_UTIL_EXPECT_VECTOR_EQ(default_collector_server_list_,
                      options_.collector_server_list());
     EXPECT_EQ(options_.config_file(),
-              "controller/src/control-node/control-node.conf");
+              "controller/src/control-node/contrail-control.conf");
     EXPECT_EQ(options_.discovery_server(), "");
     EXPECT_EQ(options_.discovery_port(), default_discovery_port);
     EXPECT_EQ(options_.hostname(), hostname_);
@@ -116,7 +116,7 @@ TEST_F(OptionsTest, OverrideStringFromCommandLine) {
     int argc = 3;
     char *argv[argc];
     char argv_0[] = "options_test";
-    char argv_1[] = "--conf_file=controller/src/control-node/control-node.conf";
+    char argv_1[] = "--conf_file=controller/src/control-node/contrail-control.conf";
     char argv_2[] = "--DEFAULT.log_file=test.log";
     argv[0] = argv_0;
     argv[1] = argv_1;
@@ -129,7 +129,7 @@ TEST_F(OptionsTest, OverrideStringFromCommandLine) {
     TASK_UTIL_EXPECT_VECTOR_EQ(default_collector_server_list_,
                      options_.collector_server_list());
     EXPECT_EQ(options_.config_file(),
-              "controller/src/control-node/control-node.conf");
+              "controller/src/control-node/contrail-control.conf");
     EXPECT_EQ(options_.discovery_server(), "");
     EXPECT_EQ(options_.discovery_port(), default_discovery_port);
     EXPECT_EQ(options_.hostname(), hostname_);
@@ -154,7 +154,7 @@ TEST_F(OptionsTest, OverrideBooleanFromCommandLine) {
     int argc = 3;
     char *argv[argc];
     char argv_0[] = "options_test";
-    char argv_1[] = "--conf_file=controller/src/control-node/control-node.conf";
+    char argv_1[] = "--conf_file=controller/src/control-node/contrail-control.conf";
     char argv_2[] = "--DEFAULT.test_mode";
     argv[0] = argv_0;
     argv[1] = argv_1;
@@ -167,7 +167,7 @@ TEST_F(OptionsTest, OverrideBooleanFromCommandLine) {
     TASK_UTIL_EXPECT_VECTOR_EQ(default_collector_server_list_,
                      options_.collector_server_list());
     EXPECT_EQ(options_.config_file(),
-              "controller/src/control-node/control-node.conf");
+              "controller/src/control-node/contrail-control.conf");
     EXPECT_EQ(options_.discovery_server(), "");
     EXPECT_EQ(options_.discovery_port(), default_discovery_port);
     EXPECT_EQ(options_.hostname(), hostname_);

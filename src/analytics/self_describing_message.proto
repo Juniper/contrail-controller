@@ -1,0 +1,20 @@
+/*
+ * Copyright (c) 2014 Juniper Networks, Inc. All rights reserved.
+ */
+
+import "google/protobuf/descriptor.proto";
+
+message SelfDescribingMessage {
+  // Timestamp
+  required uint64 timestamp = 1;
+
+  // Set of .proto files which define the type.
+  required google.protobuf.FileDescriptorSet proto_files = 2;
+
+  // Name of the message type.  Must be defined by one of the files in
+  // proto_files.
+  required string type_name = 3;
+
+  // The message data.
+  required bytes message_data = 4;
+}

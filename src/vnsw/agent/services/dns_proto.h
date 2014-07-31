@@ -120,6 +120,7 @@ public:
         Ip4Address floating_ip_;
         const VmInterface *interface_;
         std::string vdns_name_;
+        std::string fip_name_;
     };
 
     typedef boost::shared_ptr<DnsFipEntry> DnsFipEntryPtr;

@@ -48,8 +48,10 @@ class NetnsManager(object):
     LEFT_DEV_PREFIX = 'int-'
     RIGH_DEV_PREFIX = 'gw-'
     TAP_PREFIX = 'veth'
+    PORT_TYPE = 'NameSpacePort'
 
-    def __init__(self, vm_uuid, nic_left, nic_right, root_helper='sudo'):
+    def __init__(self, vm_uuid, nic_left, nic_right, root_helper='sudo',
+            cfg_file=None, update=False):
         self.vm_uuid = vm_uuid
         self.namespace = self.NETNS_PREFIX + self.vm_uuid
         self.nic_left = nic_left
@@ -62,6 +64,8 @@ class NetnsManager(object):
         self.ip_ns = ip_lib.IPWrapper(root_helper=self.root_helper,
                                       namespace=self.namespace)
         self.vrouter_client = ContrailVRouterApi()
+        self.cfg_file = cfg_file
+        self.update = update
 
     def _get_tap_name(self, uuid_str):
             return (self.TAP_PREFIX + uuid_str)[:self.DEV_NAME_LEN]
@@ -103,6 +107,15 @@ class NetnsManager(object):
         self.ip_ns.netns.execute(['ip', 'rule', 'add', 'iif',
                                   str(self.nic_right['name']), 'table',
                                   self.SNAT_RT_TABLES_ID])
+
+    def set_lbaas(self):
+        if not self.ip_ns.netns.exists(self.namespace):
+            raise ValueError('Need to create the network namespace before set '
+                             'up the lbaas')
+        if (self.update is False):
+            pid_file = self.cfg_file + ".pid"
+            self.ip_ns.netns.execute(['haproxy', '-f', self.cfg_file, '-D',
+                                    '-p', pid_file])
 
     def destroy(self):
         if not self.ip_ns.netns.exists(self.namespace):
@@ -165,6 +178,7 @@ class NetnsManager(object):
 
     def _add_port_to_agent(self, nic, display_name=None):
         kwargs = {}
+        kwargs['port_type'] = self.PORT_TYPE
         kwargs['ip_address'] = str(nic['ip'].ip)
         if display_name:
             kwargs['display_name'] = display_name
@@ -253,6 +267,10 @@ class VRouterNetns(object):
             action="store_true",
             default=False,
             help=("Update a created namespace (do nothing for the moment)"))
+        create_parser.add_argument(
+            "--cfg-file",
+            default=None,
+            help=("config file for lbaas"))
         create_parser.set_defaults(func=self.create)
 
         destroy_parser = subparsers.add_parser('destroy')
@@ -301,7 +319,9 @@ class VRouterNetns(object):
             nic_right['ip'] = None
 
         netns_mgr = NetnsManager(netns_name, nic_left, nic_right,
-                                 root_helper=self.args.root_helper)
+                                 root_helper=self.args.root_helper,
+                                 cfg_file=self.args.cfg_file,
+                                 update=self.args.update)
 
         if netns_mgr.is_netns_already_exists():
             # If the netns already exists, destroy it to be sure to set it
@@ -313,7 +333,7 @@ class VRouterNetns(object):
         if self.args.service_type == self.SOURCE_NAT:
             netns_mgr.set_snat()
         elif self.args.service_type == self.LOAD_BALANCER:
-            raise NotImplementedError('I need to be implemented!')
+            netns_mgr.set_lbaas()
         else:
             msg = ('The %s service type is not supported' %
                    self.args.service_type)

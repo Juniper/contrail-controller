@@ -51,6 +51,8 @@ public:
     virtual ~Community() { }
     virtual void Remove();
     int CompareTo(const Community &rhs) const;
+    bool ContainsValue(uint32_t value) const;
+
     const std::vector<uint32_t> &communities() const { return communities_; }
 
     friend std::size_t hash_value(Community const &comm) {
@@ -144,6 +146,7 @@ public:
     virtual void Remove();
     int CompareTo(const ExtCommunity &rhs) const;
 
+    void Append(const ExtCommunityValue &value);
     void Append(const ExtCommunityList &list);
     bool ContainsOriginVn(const ExtCommunityValue &val) const;
     void RemoveRTarget();
@@ -259,8 +262,9 @@ public:
             const ExtCommunity::ExtCommunityList &export_list);
     ExtCommunityPtr ReplaceSGIDListAndLocate(const ExtCommunity *src,
             const ExtCommunity::ExtCommunityList &sgid_list);
+    ExtCommunityPtr RemoveOriginVnAndLocate(const ExtCommunity *src);
     ExtCommunityPtr ReplaceOriginVnAndLocate(const ExtCommunity *src,
-            const ExtCommunity::ExtCommunityList &origin_vn_list);
+            const ExtCommunity::ExtCommunityValue &origin_vn);
     ExtCommunityPtr ReplaceTunnelEncapsulationAndLocate(
             const ExtCommunity *src,
             const ExtCommunity::ExtCommunityList &tunnel_encaps);

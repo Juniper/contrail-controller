@@ -19,8 +19,8 @@ test_linklocal = AgentEnv.MakeTestCmd(env, 'test_linklocal', oper_flaky_test_sui
 test_inet_interface = AgentEnv.MakeTestCmd(env, 'test_inet_interface',
                                            oper_test_suite)
 test_fabric_interface = AgentEnv.MakeTestCmd(env, 'test_fabric_interface',
-                                             oper_test_suite)
-test_aap = AgentEnv.MakeTestCmd(env, 'test_aap', oper_test_suite)
+                                             oper_flaky_test_suite)
+test_aap = AgentEnv.MakeTestCmd(env, 'test_aap', oper_flaky_test_suite)
 
 env.Append(LIBPATH = [
         '../../../../base/test',
@@ -47,7 +47,19 @@ namespace_manager_test = env.UnitTest(
     'namespace_manager_test',
     ['namespace_manager_test.cc'])
 env.Alias('agent:namespace_manager_test', namespace_manager_test)
-oper_test_suite.append(namespace_manager_test)
+oper_flaky_test_suite.append(namespace_manager_test)
+
+loadbalancer_test = env.UnitTest(
+    'loadbalancer_test',
+    ['loadbalancer_test.cc'])
+env.Alias('agent:loadbalancer_test', loadbalancer_test)
+oper_flaky_test_suite.append(loadbalancer_test)
+
+loadbalancer_haproxy_test = env.UnitTest(
+    'loadbalancer_haproxy_test',
+    ['loadbalancer_haproxy_test.cc'])
+env.Alias('agent:loadbalancer_haproxy_test', loadbalancer_haproxy_test)
+oper_flaky_test_suite.append(loadbalancer_test)
 
 flaky_test = env.TestSuite('agent-flaky-test', oper_flaky_test_suite)
 env.Alias('controller/src/vnsw/agent/oper:flaky_test', flaky_test)

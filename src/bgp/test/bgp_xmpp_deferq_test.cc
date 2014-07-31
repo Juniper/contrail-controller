@@ -941,7 +941,7 @@ TEST_F(BgpXmppUnitTest, RegisterWithDeletedBgpTable2) {
 
     // The subscribe request should have been processed by the membership
     // manager and a response returned.  The membership manager will have
-    // no subscription state since the table was amrked deleted when the
+    // no subscription state since the table was marked deleted when the
     // subscribe was processed by it.
     TASK_UTIL_EXPECT_FALSE(
         PeerHasPendingMembershipRequests(bgp_channel_manager_->channel_));

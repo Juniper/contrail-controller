@@ -67,18 +67,18 @@ public:
 
     typedef boost::function<void(std::string &, boost::system::error_code &)> HttpCb;
 
-    int HttpPut(const std::string &put_string, std::string &path, HttpCb);
-    int HttpPut(const std::string &put_string, std::string &path,
+    int HttpPut(const std::string &put_string, const std::string &path, HttpCb);
+    int HttpPut(const std::string &put_string, const std::string &path,
                 bool header, bool timeout,
                 std::vector<std::string> &hdr_options, HttpCb cb);
-    int HttpPost(const std::string &post_string, std::string &path, HttpCb);
-    int HttpPost(const std::string &post_string, std::string &path,
+    int HttpPost(const std::string &post_string, const std::string &path, HttpCb);
+    int HttpPost(const std::string &post_string, const std::string &path,
                  bool header, bool timeout,
                  std::vector<std::string> &hdr_options, HttpCb cb);
-    int HttpGet(std::string &path, HttpCb);
-    int HttpGet(std::string &path, bool header, bool timeout,
+    int HttpGet(const std::string &path, HttpCb);
+    int HttpGet(const std::string &path, bool header, bool timeout,
                 std::vector<std::string> &hdr_options, HttpCb cb);
-    int HttpHead(std::string &path, bool header, bool timeout,
+    int HttpHead(const std::string &path, bool header, bool timeout,
                  std::vector<std::string> &hdr_options, HttpCb cb);
     int HttpDelete(const std::string &path, HttpCb);
     int HttpDelete(const std::string &path, bool header, bool timeout,

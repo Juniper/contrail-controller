@@ -2,12 +2,6 @@
  * Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
  */
 
-#include <sys/socket.h>
-#include <linux/netlink.h>
-#include <net/if.h>
-#include <linux/if_tun.h>
-#include <linux/if_packet.h>
-
 #include "testing/gunit.h"
 
 #include <boost/uuid/string_generator.hpp>
@@ -154,6 +148,29 @@ TEST_F(TestAap, Update) {
     AddAap("intf1", 1, v);
     EXPECT_FALSE(RouteFind("vrf1", ip1, 32));
     EXPECT_FALSE(RouteFind("vrf1", ip2, 32));
+}
+
+//Check if subnet gateway for allowed address pait route gets set properly
+TEST_F(TestAap, SubnetGw) {
+    Ip4Address ip1 = Ip4Address::from_string("10.10.10.10");
+    std::vector<Ip4Address> v;
+    v.push_back(ip1);
+
+    AddAap("intf1", 1, v);
+    EXPECT_TRUE(RouteFind("vrf1", ip1, 32));
+
+    IpamInfo ipam_info[] = {
+        {"10.10.10.0", 24, "10.10.10.200", true},
+    };
+    AddIPAM("vn1", ipam_info, 1, NULL, "vdns1");
+    client->WaitForIdle();
+
+    Ip4Address subnet_gw_ip = Ip4Address::from_string("10.10.10.200");
+    Inet4UnicastRouteEntry *rt = RouteGet("vrf1", ip1, 32);
+    EXPECT_TRUE(rt->GetActivePath()->subnet_gw_ip() == subnet_gw_ip);
+
+    DelIPAM("vn1", "vdns1");
+    client->WaitForIdle();
 }
 
 //Just add a local path, verify that sequence no gets initialized to 0

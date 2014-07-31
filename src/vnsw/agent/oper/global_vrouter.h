@@ -80,6 +80,7 @@ public:
     bool IsAddressInUse(const Ip4Address &ip) const;
     bool IsLinkLocalAddressInUse(const Ip4Address &ip) const;
 
+    uint64_t PendingFabricDnsRequests() const;
 private:
     class FabricDnsResolver;
     class LinkLocalRouteManager;

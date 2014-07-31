@@ -34,7 +34,20 @@ using namespace std;
 
 class RoutingInstanceModuleTest : public ::testing::Test {
 protected:
-    RoutingInstanceModuleTest() : server_(&evm_) {
+    RoutingInstanceModuleTest()
+        : server_(&evm_),
+          red_(NULL),
+          blue_(NULL),
+          purple_(NULL),
+          vpn_(NULL),
+          green_(NULL),
+          orange_(NULL),
+          red_l_(DBTableBase::kInvalidId),
+          blue_l_(DBTableBase::kInvalidId),
+          purple_l_(DBTableBase::kInvalidId),
+          vpn_l_(DBTableBase::kInvalidId),
+          green_l_(DBTableBase::kInvalidId),
+          orange_l_(DBTableBase::kInvalidId) {
     }
 
     virtual void SetUp() {
@@ -204,7 +217,7 @@ protected:
     DBTableBase::ListenerId green_l_;
     DBTableBase::ListenerId orange_l_;
 
-    std::map<DBTableBase *, int> notification_count_;
+    std::map<DBTableBase *, tbb::atomic<int> > notification_count_;
 };
 
 namespace {
@@ -235,6 +248,8 @@ TEST_F(RoutingInstanceModuleTest, Connection) {
     TASK_UTIL_EXPECT_EQ(red_table, red_);
     TASK_UTIL_EXPECT_EQ(purple_table, purple_);
 
+    ClearCounters();
+
     ///////////// RED.inet.0 Table //////////////////
     // Create a route prefix & Attr
     BgpAttrSpec red_attrs;
@@ -247,7 +262,6 @@ TEST_F(RoutingInstanceModuleTest, Connection) {
     redAddReq.data.reset(new InetTable::RequestData(red_attr, 0, 0));
     redAddReq.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
     red_->Enqueue(&redAddReq);
-         
     task_util::WaitForIdle();
 
     TASK_UTIL_EXPECT_EQ(1, notification_count_[red_]);
@@ -270,14 +284,11 @@ TEST_F(RoutingInstanceModuleTest, Connection) {
     blueAddReq.data.reset(new InetTable::RequestData(blue_attr, 0, 0));
     blueAddReq.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
     blue_->Enqueue(&blueAddReq);
-         
     task_util::WaitForIdle();
 
     TASK_UTIL_EXPECT_EQ(0, notification_count_[red_]);
     TASK_UTIL_EXPECT_EQ(0, notification_count_[purple_]);
     TASK_UTIL_EXPECT_EQ(1, notification_count_[blue_]);
-
-    ClearCounters();
 
     BGP_DEBUG_UT("Add bgp.l3vpn.0");
     ConcurrencyScope scope("bgp::Config");
@@ -298,9 +309,8 @@ TEST_F(RoutingInstanceModuleTest, Connection) {
     InetVpnTable *vpn_table = 
         static_cast<InetVpnTable *>(master->GetTable(Address::INETVPN));
     EXPECT_TRUE(vpn_table != NULL);
-
+    ClearCounters();
     scheduler->Start();
-
     task_util::WaitForIdle();
 
     TASK_UTIL_EXPECT_EQ(2, notification_count_[vpn_]);
@@ -383,8 +393,6 @@ TEST_F(RoutingInstanceModuleTest, Connection) {
     VerifyInetTable(purple_, "192.168.21.0/24");
     VerifyInetTable(blue_, "192.168.21.0/24");
 
-    ClearCounters();
-
     scheduler->Stop();
     green_cfg_.reset(BgpTestUtil::CreateBgpInstanceConfig("green",
             "target:1:2", "target:1:2"));
@@ -399,9 +407,8 @@ TEST_F(RoutingInstanceModuleTest, Connection) {
 
     green_l_ = green_->Register(boost::bind(&RoutingInstanceModuleTest_Connection_Test::TableListener,
                                         this, _1, _2));
-
+    ClearCounters();
     scheduler->Start();
-
     task_util::WaitForIdle();
 
     TASK_UTIL_EXPECT_EQ(0, notification_count_[red_]);
@@ -413,8 +420,6 @@ TEST_F(RoutingInstanceModuleTest, Connection) {
     VerifyInetTable(green_, "192.168.21.0/24");
     VerifyInetTable(green_, "192.168.22.0/24");
     VerifyInetTable(green_, "192.168.24.0/24");
-
-    ClearCounters();
 
     scheduler->Stop();
     orange_cfg_.reset(BgpTestUtil::CreateBgpInstanceConfig("orange",
@@ -431,9 +436,8 @@ TEST_F(RoutingInstanceModuleTest, Connection) {
     orange_l_ = 
         orange_->Register(boost::bind(&RoutingInstanceModuleTest_Connection_Test::TableListener,
                                         this, _1, _2));
-
+    ClearCounters();
     scheduler->Start();
-
     task_util::WaitForIdle();
 
     TASK_UTIL_EXPECT_EQ(0, notification_count_[red_]);
@@ -443,22 +447,18 @@ TEST_F(RoutingInstanceModuleTest, Connection) {
     TASK_UTIL_EXPECT_EQ(0, notification_count_[green_]);
     TASK_UTIL_EXPECT_EQ(4, notification_count_[orange_]);
 
-
     VerifyInetTable(orange_, "192.168.21.0/24");
     VerifyInetTable(orange_, "192.168.22.0/24");
     VerifyInetTable(orange_, "192.168.23.0/24");
     VerifyInetTable(orange_, "192.168.24.0/24");
-
-    ClearCounters();
 
     scheduler->Stop();
     BGP_DEBUG_UT("Update the import of orange");
     BgpTestUtil::UpdateBgpInstanceConfig(orange_cfg_.get(),
             "target:1:2", "target:1:2");
     server_.routing_instance_mgr()->UpdateRoutingInstance(orange_cfg_.get());
-
+    ClearCounters();
     scheduler->Start();
-
     task_util::WaitForIdle();
 
     TASK_UTIL_EXPECT_EQ(0, notification_count_[red_]);
@@ -470,16 +470,13 @@ TEST_F(RoutingInstanceModuleTest, Connection) {
 
     VerifyInetTable(orange_, "192.168.23.0/24", true);
 
-    ClearCounters();
-
     scheduler->Stop();
     BGP_DEBUG_UT("Update the import/export of Green");
     BgpTestUtil::UpdateBgpInstanceConfig(green_cfg_.get(),
             "target:1:2 target:1.2.3.4:1", "target:1:2 target:1.2.3.4:1");
     server_.routing_instance_mgr()->UpdateRoutingInstance(green_cfg_.get());
-
+    ClearCounters();
     scheduler->Start();
-
     task_util::WaitForIdle();
 
     TASK_UTIL_EXPECT_EQ(0, notification_count_[red_]);
@@ -491,15 +488,12 @@ TEST_F(RoutingInstanceModuleTest, Connection) {
 
     VerifyInetTable(green_, "192.168.23.0/24");
 
-    ClearCounters();
-
     scheduler->Stop();
     BGP_DEBUG_UT("Remove the import/export of Green");
     BgpTestUtil::UpdateBgpInstanceConfig(green_cfg_.get(), "", "");
     server_.routing_instance_mgr()->UpdateRoutingInstance(green_cfg_.get());
-
+    ClearCounters();
     scheduler->Start();
-
     task_util::WaitForIdle();
 
     TASK_UTIL_EXPECT_EQ(0, notification_count_[red_]);
@@ -513,7 +507,6 @@ TEST_F(RoutingInstanceModuleTest, Connection) {
     VerifyInetTable(green_, "192.168.22.0/24", true);
     VerifyInetTable(green_, "192.168.23.0/24", true);
     VerifyInetTable(green_, "192.168.24.0/24", true);
-
     ClearCounters();
 
     // Test Delete of route to Red

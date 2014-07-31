@@ -17,10 +17,15 @@
 #include "analytics/vizd_table_desc.h"
 #include "stats_select.h"
 #include "stats_query.h"
+#include <base/connection_info.h>
 
 using std::map;
 using std::string;
 using boost::assign::map_list_of;
+using boost::system::error_code;
+using process::ConnectionState;
+using process::ConnectionType;
+using process::ConnectionStatus;
 
 GenDb::GenDbIf* query_result_unit_t::dbif = NULL;
 int QueryEngine::max_slice_ = 100;
@@ -915,15 +920,16 @@ AnalyticsQuery::AnalyticsQuery(std::string qid, std::map<std::string,
     QE_TRACE(DEBUG, "Initializing database");
     dbif = dbif_.get();
 
+    boost::system::error_code ec;
     if (!dbif->Db_Init("qe::DbHandler", -1)) {
         QE_LOG(ERROR, "Database initialization failed");
         this->status_details = EIO;
     }
 
     if (!dbif->Db_SetTablespace(g_viz_constants.COLLECTOR_KEYSPACE)) {
-            QE_LOG(ERROR,  ": Create/Set KEYSPACE: " <<
-               g_viz_constants.COLLECTOR_KEYSPACE << " FAILED");
-            this->status_details = EIO;
+        QE_LOG(ERROR,  ": Create/Set KEYSPACE: " <<
+           g_viz_constants.COLLECTOR_KEYSPACE << " FAILED");
+        this->status_details = EIO;
     }   
     for (std::vector<GenDb::NewCf>::const_iterator it = vizd_tables.begin();
             it != vizd_tables.end(); it++) {
@@ -945,6 +951,18 @@ AnalyticsQuery::AnalyticsQuery(std::string qid, std::map<std::string,
             QE_LOG(ERROR, "Database initialization:Db_UseColumnfamily failed");
             this->status_details = EIO;
         }
+    }
+    boost::asio::ip::address db_addr(boost::asio::ip::address::from_string(
+        dbif->Db_GetHost(), ec));
+    boost::asio::ip::tcp::endpoint db_endpoint(db_addr, dbif->Db_GetPort());
+    if (this->status_details != 0) {
+        // Update connection info
+        ConnectionState::GetInstance()->Update(ConnectionType::DATABASE,
+            std::string(), ConnectionStatus::DOWN, db_endpoint, std::string());
+    } else {
+        // Update connection info
+        ConnectionState::GetInstance()->Update(ConnectionType::DATABASE,
+            std::string(), ConnectionStatus::UP, db_endpoint, std::string());
     }
     dbif->Db_SetInitDone(true);
     Init(dbif, qid, json_api_data, analytics_start_time);
@@ -1011,10 +1029,12 @@ QueryEngine::QueryEngine(EventManager *evm,
     QE_TRACE_NOQID(DEBUG, "Initializing database");
     GenDb::GenDbIf *db_if = dbif_.get();
 
+    boost::system::error_code ec;
     int retries = 0;
     bool retry = true;
     while (retry == true) {
         retry = false;
+
         if (!db_if->Db_Init("qe::DbHandler", -1)) {
             QE_LOG_NOQID(ERROR, "Database initialization failed");
             retry = true;
@@ -1050,6 +1070,12 @@ QueryEngine::QueryEngine(EventManager *evm,
         if (retry) {
             std::stringstream ss;
             ss << "initialization of database failed. retrying " << retries++ << " time";
+            // Update connection info
+            boost::asio::ip::address db_addr(boost::asio::ip::address::from_string(
+                db_if->Db_GetHost(), ec));
+            boost::asio::ip::tcp::endpoint db_endpoint(db_addr, db_if->Db_GetPort());
+            ConnectionState::GetInstance()->Update(ConnectionType::DATABASE,
+                std::string(), ConnectionStatus::DOWN, db_endpoint, std::string());
             Q_E_LOG_LOG("QeInit", SandeshLevel::SYS_WARN, ss.str());
             db_if->Db_Uninit("qe::DbHandler", -1);
             sleep(5);
@@ -1099,6 +1125,12 @@ QueryEngine::QueryEngine(EventManager *evm,
         }
     }
     dbif_->Db_SetInitDone(true);
+    // Update connection info
+    boost::asio::ip::address db_addr(boost::asio::ip::address::from_string(
+        db_if->Db_GetHost(), ec));
+    boost::asio::ip::tcp::endpoint db_endpoint(db_addr, db_if->Db_GetPort());
+    ConnectionState::GetInstance()->Update(ConnectionType::DATABASE,
+        std::string(), ConnectionStatus::UP, db_endpoint, std::string());
 }
 
 using std::vector;

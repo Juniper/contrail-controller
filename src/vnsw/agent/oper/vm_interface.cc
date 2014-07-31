@@ -2,7 +2,6 @@
  * Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
  */
 
-#include <netinet/ether.h>
 #include <boost/uuid/uuid_io.hpp>
 
 #include "base/logging.h"
@@ -52,7 +51,7 @@ VmInterface::VmInterface(const boost::uuids::uuid &uuid) :
     vlan_id_(kInvalidVlanId), parent_(NULL), oper_dhcp_options_(),
     sg_list_(), floating_ip_list_(), service_vlan_list_(),
     static_route_list_(), allowed_address_pair_list_(),
-    vrf_assign_rule_list_(), vrf_assign_acl_(NULL) {
+    vrf_assign_rule_list_(), vrf_assign_acl_(NULL), vm_ip_gw_addr_(0) {
     ipv4_active_ = false;
     l2_active_ = false;
 }
@@ -62,7 +61,7 @@ VmInterface::VmInterface(const boost::uuids::uuid &uuid,
                          const Ip4Address &addr, const std::string &mac,
                          const std::string &vm_name,
                          const boost::uuids::uuid &vm_project_uuid,
-                         uint16_t vlan_id, Interface *parent) : 
+                         uint16_t vlan_id, Interface *parent) :
     Interface(Interface::VM_INTERFACE, uuid, name, NULL), vm_(NULL),
     vn_(NULL), ip_addr_(addr), mdata_addr_(0), subnet_bcast_addr_(0),
     vm_mac_(mac), policy_enabled_(false), mirror_entry_(NULL),
@@ -138,7 +137,7 @@ static void BuildFloatingIpList(Agent *agent, VmInterfaceConfigData *data,
     }
 
     // Find VRF for the floating-ip. Following path in graphs leads to VRF
-    // virtual-machine-port <-> floating-ip <-> floating-ip-pool 
+    // virtual-machine-port <-> floating-ip <-> floating-ip-pool
     // <-> virtual-network <-> routing-instance
     IFMapAgentTable *fip_table = static_cast<IFMapAgentTable *>(node->table());
     DBGraph *fip_graph = fip_table->GetGraph();
@@ -153,21 +152,21 @@ static void BuildFloatingIpList(Agent *agent, VmInterfaceConfigData *data,
         }
 
         // Iterate thru links for floating-ip-pool looking for virtual-network
-        IFMapAgentTable *pool_table = 
+        IFMapAgentTable *pool_table =
             static_cast<IFMapAgentTable *> (pool_node->table());
         DBGraph *pool_graph = pool_table->GetGraph();
-        for (DBGraphVertex::adjacency_iterator pool_iter = 
+        for (DBGraphVertex::adjacency_iterator pool_iter =
              pool_node->begin(pool_graph);
              pool_iter != pool_node->end(pool_graph); ++pool_iter) {
 
-            IFMapNode *vn_node = 
+            IFMapNode *vn_node =
                 static_cast<IFMapNode *>(pool_iter.operator->());
             if (cfg_listener->SkipNode
                 (vn_node, agent->cfg()->cfg_vn_table())) {
                 continue;
             }
 
-            VirtualNetwork *cfg = static_cast <VirtualNetwork *> 
+            VirtualNetwork *cfg = static_cast <VirtualNetwork *>
                 (vn_node->GetObject());
             assert(cfg);
             autogen::IdPermsType id_perms = cfg->id_perms();
@@ -175,16 +174,16 @@ static void BuildFloatingIpList(Agent *agent, VmInterfaceConfigData *data,
             CfgUuidSet(id_perms.uuid.uuid_mslong, id_perms.uuid.uuid_lslong,
                        vn_uuid);
 
-            IFMapAgentTable *vn_table = 
+            IFMapAgentTable *vn_table =
                 static_cast<IFMapAgentTable *> (vn_node->table());
             DBGraph *vn_graph = vn_table->GetGraph();
-            // Iterate thru links for virtual-network looking for 
+            // Iterate thru links for virtual-network looking for
             // routing-instance
             for (DBGraphVertex::adjacency_iterator vn_iter =
                  vn_node->begin(vn_graph);
                  vn_iter != vn_node->end(vn_graph); ++vn_iter) {
 
-                IFMapNode *vrf_node = 
+                IFMapNode *vrf_node =
                     static_cast<IFMapNode *>(vn_iter.operator->());
                 if (cfg_listener->SkipNode
                     (vrf_node, agent->cfg()->cfg_vrf_table())){
@@ -207,7 +206,7 @@ static void BuildFloatingIpList(Agent *agent, VmInterfaceConfigData *data,
                 boost::system::error_code ec;
                 Ip4Address addr = Ip4Address::from_string(fip->address(), ec);
                 if (ec.value() != 0) {
-                    LOG(DEBUG, "Error decoding Floating IP address " 
+                    LOG(DEBUG, "Error decoding Floating IP address "
                         << fip->address());
                 } else {
                     data->floating_ip_list_.list_.insert
@@ -225,7 +224,7 @@ static void BuildFloatingIpList(Agent *agent, VmInterfaceConfigData *data,
 
 // Build list of static-routes on virtual-machine-interface
 static void BuildStaticRouteList(VmInterfaceConfigData *data, IFMapNode *node) {
-    InterfaceRouteTable *entry = 
+    InterfaceRouteTable *entry =
         static_cast<InterfaceRouteTable*>(node->GetObject());
     assert(entry);
 
@@ -273,7 +272,7 @@ static void BuildVrfAndServiceVlanInfo(Agent *agent,
                                        IFMapNode *node) {
 
     CfgListener *cfg_listener = agent->cfg_listener();
-    VirtualMachineInterfaceRoutingInstance *entry = 
+    VirtualMachineInterfaceRoutingInstance *entry =
         static_cast<VirtualMachineInterfaceRoutingInstance*>(node->GetObject());
     assert(entry);
 
@@ -284,7 +283,7 @@ static void BuildVrfAndServiceVlanInfo(Agent *agent,
     }
 
     // Find VRF by looking for link
-    // virtual-machine-interface-routing-instance <-> routing-instance 
+    // virtual-machine-interface-routing-instance <-> routing-instance
     IFMapAgentTable *table = static_cast<IFMapAgentTable *>(node->table());
     DBGraph *graph = table->GetGraph();
 
@@ -298,9 +297,9 @@ static void BuildVrfAndServiceVlanInfo(Agent *agent,
             continue;
         }
 
-        if (rule.vlan_tag == 0 && rule.protocol == "" 
+        if (rule.vlan_tag == 0 && rule.protocol == ""
             && rule.service_chain_address == "") {
-            LOG(DEBUG, "VRF for interface " << data->cfg_name_ << " set to <" 
+            LOG(DEBUG, "VRF for interface " << data->cfg_name_ << " set to <"
                 << vrf_node->name() << ">");
             data->vrf_name_ = vrf_node->name();
         } else {
@@ -308,7 +307,7 @@ static void BuildVrfAndServiceVlanInfo(Agent *agent,
             Ip4Address addr = Ip4Address::from_string
                 (rule.service_chain_address, ec);
             if (ec.value() != 0) {
-                LOG(DEBUG, "Error decoding Service VLAN IP address " 
+                LOG(DEBUG, "Error decoding Service VLAN IP address "
                     << rule.service_chain_address);
                 break;
             }
@@ -321,14 +320,13 @@ static void BuildVrfAndServiceVlanInfo(Agent *agent,
             LOG(DEBUG, "Add Service VLAN entry <" << rule.vlan_tag << " : "
                 << rule.service_chain_address << " : " << vrf_node->name());
 
-            ether_addr smac;
-            memcpy(smac.ether_addr_octet, agent->vrrp_mac(), ETHER_ADDR_LEN);
-            ether_addr dmac = *ether_aton(Agent::BcastMac().c_str());
+            MacAddress smac(agent->vrrp_mac());
+            MacAddress dmac(Agent::BcastMac());
             if (rule.src_mac != Agent::NullString()) {
-                smac = *ether_aton(rule.src_mac.c_str());
+                smac = MacAddress::FromString(rule.src_mac);
             }
             if (rule.src_mac != Agent::NullString()) {
-                dmac = *ether_aton(rule.dst_mac.c_str());
+                dmac = MacAddress::FromString(rule.dst_mac);
             }
             data->service_vlan_list_.list_.insert
                 (VmInterface::ServiceVlan(rule.vlan_tag, vrf_node->name(), addr,
@@ -380,7 +378,7 @@ static void ReadAnalyzerNameAndCreate(Agent *agent,
         if (mirror_to.udp_port) {
             dport = mirror_to.udp_port;
         } else {
-            dport = ContrailPorts::AnalyzerUdpPort;
+            dport = ContrailPorts::AnalyzerUdpPort();
         }
         agent->mirror_table()->AddMirrorEntry
             (mirror_to.analyzer_name, std::string(), agent->router_id(),
@@ -449,7 +447,7 @@ static void ReadDhcpEnable(Agent *agent, VmInterfaceConfigData *data,
     }
 }
 
-// Virtual Machine Interface is added or deleted into oper DB from Nova 
+// Virtual Machine Interface is added or deleted into oper DB from Nova
 // messages. The Config notify is used only to change interface.
 bool InterfaceTable::IFNodeToReq(IFMapNode *node, DBRequest &req) {
     // Get interface UUID
@@ -506,7 +504,7 @@ bool InterfaceTable::IFNodeToReq(IFMapNode *node, DBRequest &req) {
     // Walk Interface Graph to get VM, VN and FloatingIPList
     IFMapAgentTable *table = static_cast<IFMapAgentTable *>(node->table());
     for (DBGraphVertex::adjacency_iterator iter =
-         node->begin(table->GetGraph()); 
+         node->begin(table->GetGraph());
          iter != node->end(table->GetGraph()); ++iter) {
 
         IFMapNode *adj_node = static_cast<IFMapNode *>(iter.operator->());
@@ -539,7 +537,7 @@ bool InterfaceTable::IFNodeToReq(IFMapNode *node, DBRequest &req) {
             CfgUuidSet(id_perms.uuid.uuid_mslong,
                        id_perms.uuid.uuid_lslong, data->vn_uuid_);
             if (nova_entry->GetVnUuid() != data->vn_uuid_) {
-                IFMAP_ERROR(InterfaceConfiguration, 
+                IFMAP_ERROR(InterfaceConfiguration,
                             "Virtual-network UUID mismatch for interface:",
                             UuidToString(u),
                             "configuration VN uuid",
@@ -557,7 +555,7 @@ bool InterfaceTable::IFNodeToReq(IFMapNode *node, DBRequest &req) {
             CfgUuidSet(id_perms.uuid.uuid_mslong,
                        id_perms.uuid.uuid_lslong, data->vm_uuid_);
             if (nova_entry->GetVmUuid() != data->vm_uuid_) {
-                IFMAP_ERROR(InterfaceConfiguration, 
+                IFMAP_ERROR(InterfaceConfiguration,
                             "Virtual-machine UUID mismatch for interface:",
                             UuidToString(u),
                             "configuration VM UUID is",
@@ -612,10 +610,10 @@ void InterfaceTable::VmInterfaceVrfSync(IFMapNode *node) {
     if (agent_->cfg_listener()->SkipNode(node)) {
         return;
     }
-    // Walk the node to get neighbouring interface 
+    // Walk the node to get neighbouring interface
     IFMapAgentTable *table = static_cast<IFMapAgentTable *>(node->table());
     for (DBGraphVertex::adjacency_iterator iter =
-         node->begin(table->GetGraph()); 
+         node->begin(table->GetGraph());
          iter != node->end(table->GetGraph()); ++iter) {
 
         IFMapNode *adj_node = static_cast<IFMapNode *>(iter.operator->());
@@ -686,7 +684,7 @@ DBEntryBase::KeyPtr VmInterface::GetDBRequestKey() const {
     return DBEntryBase::KeyPtr(key);
 }
 
-const Peer *VmInterface::peer() const { 
+const Peer *VmInterface::peer() const {
     return peer_.get();
 }
 
@@ -798,7 +796,7 @@ bool VmInterface::CopyIpAddress(Ip4Address &addr) {
     return ret;
 }
 
-// Copies configuration from DB-Request data. The actual applying of 
+// Copies configuration from DB-Request data. The actual applying of
 // configuration, like adding/deleting routes must be done with ApplyConfig()
 bool VmInterface::CopyConfig(VmInterfaceConfigData *data, bool *sg_changed,
                              bool *ecmp_changed) {
@@ -1002,8 +1000,15 @@ void VmInterface::DeleteL3(bool old_ipv4_active, VrfEntry *old_vrf,
     DeleteL3NextHop(old_ipv4_active);
 }
 
+void VmInterface::UpdateVxLan() {
+    if (l2_active_ && (vxlan_id_ == 0)) {
+        vxlan_id_ = vn_.get() ? vn_->GetVxLanId() : 0;
+    }
+}
+
 void VmInterface::UpdateL2(bool old_l2_active, VrfEntry *old_vrf, int old_vxlan_id,
                            bool force_update, bool policy_change) {
+    UpdateVxLan();
     UpdateL2NextHop(old_l2_active);
     UpdateL2TunnelId(force_update, policy_change);
     UpdateL2InterfaceRoute(old_l2_active, force_update);
@@ -1020,8 +1025,8 @@ void VmInterface::DeleteL2(bool old_l2_active, VrfEntry *old_vrf) {
 }
 
 // Apply the latest configuration
-void VmInterface::ApplyConfig(bool old_ipv4_active, bool old_l2_active, bool old_policy, 
-                              VrfEntry *old_vrf, const Ip4Address &old_addr, 
+void VmInterface::ApplyConfig(bool old_ipv4_active, bool old_l2_active, bool old_policy,
+                              VrfEntry *old_vrf, const Ip4Address &old_addr,
                               int old_vxlan_id, bool old_need_linklocal_ip,
                               bool sg_changed, bool ecmp_mode_changed) {
     bool force_update = false;
@@ -1045,7 +1050,7 @@ void VmInterface::ApplyConfig(bool old_ipv4_active, bool old_l2_active, bool old
         UpdateL3Services(false, false);
     }
 
-    // Add/Del/Update L3 
+    // Add/Del/Update L3
     if (ipv4_active_ && ipv4_forwarding_) {
         UpdateL3(old_ipv4_active, old_vrf, old_addr, old_vxlan_id, force_update,
                  policy_change);
@@ -1053,9 +1058,9 @@ void VmInterface::ApplyConfig(bool old_ipv4_active, bool old_l2_active, bool old
         DeleteL3(old_ipv4_active, old_vrf, old_addr, old_need_linklocal_ip);
     }
 
-    // Add/Del/Update L2 
+    // Add/Del/Update L2
     if (l2_active_ && layer2_forwarding_) {
-        UpdateL2(old_l2_active, old_vrf, old_vxlan_id, 
+        UpdateL2(old_l2_active, old_vrf, old_vxlan_id,
                  force_update, policy_change);
     } else if (old_l2_active) {
         DeleteL2(old_l2_active, old_vrf);
@@ -1161,7 +1166,7 @@ void VmInterface::GetOsParams(Agent *agent) {
     }
 
     os_index_ = Interface::kInvalidIndex;
-    memcpy(mac_.ether_addr_octet, agent->vrrp_mac(), ETHER_ADDR_LEN);
+    mac_ = agent->vrrp_mac();
     os_oper_state_ = true;
 }
 
@@ -1181,6 +1186,10 @@ bool VmInterface::IsActive()  const {
     }
 
     if ((vn_.get() == NULL) || (vm_.get() == NULL) || (vrf_.get() == NULL)) { 
+        return false;
+    }
+
+    if (!vn_.get()->admin_state()) {
         return false;
     }
 
@@ -1385,7 +1394,8 @@ void VmInterface::UpdateMulticastNextHop(bool old_ipv4_active,
                                          bool old_l2_active) {
     if (L3Activated(old_ipv4_active) || L2Activated(old_l2_active)) {
         struct ether_addr *addrp = ether_aton(vm_mac_.c_str());
-        InterfaceNH::CreateMulticastVmInterfaceNH(GetUuid(), *addrp,
+        InterfaceNH::CreateMulticastVmInterfaceNH(GetUuid(),
+                                                  MacAddress(addrp),
                                                   vrf_->GetName());
     }
 }
@@ -1393,7 +1403,7 @@ void VmInterface::UpdateMulticastNextHop(bool old_ipv4_active,
 void VmInterface::UpdateL2NextHop(bool old_l2_active) {
     if (L2Activated(old_l2_active)) {
         struct ether_addr *addrp = ether_aton(vm_mac_.c_str());
-        InterfaceNH::CreateL2VmInterfaceNH(GetUuid(), *addrp, vrf_->GetName());
+        InterfaceNH::CreateL2VmInterfaceNH(GetUuid(), MacAddress(addrp), vrf_->GetName());
     }
 }
 
@@ -1403,7 +1413,7 @@ void VmInterface::UpdateL3NextHop(bool old_ipv4_active) {
         Agent *agent = table->agent();
 
         struct ether_addr *addrp = ether_aton(vm_mac_.c_str());
-        InterfaceNH::CreateL3VmInterfaceNH(GetUuid(), *addrp, vrf_->GetName());
+        InterfaceNH::CreateL3VmInterfaceNH(GetUuid(), MacAddress(addrp), vrf_->GetName());
         InterfaceNHKey key(new VmInterfaceKey(AgentKey::ADD_DEL_CHANGE,
                                               GetUuid(), ""), true,
                                               InterfaceNHFlags::INET4);
@@ -1435,10 +1445,17 @@ void VmInterface::UpdateL3InterfaceRoute(bool old_ipv4_active, bool force_update
                                          bool policy_change,
                                          VrfEntry * old_vrf,
                                          const Ip4Address &old_addr) {
+    const VnIpam *ipam = vn_->GetIpam(ip_addr_);
+    Ip4Address ip(0);
+    if (ipam) {
+        ip = ipam->default_gw;
+    }
+
     // If interface was already active earlier and there is no force_update or
     // policy_change, return
     if (old_ipv4_active == true && force_update == false
-        && policy_change == false && old_addr == ip_addr_) {
+        && policy_change == false && old_addr == ip_addr_ &&
+        vm_ip_gw_addr_ == ip) {
         return;
     }
 
@@ -1446,8 +1463,10 @@ void VmInterface::UpdateL3InterfaceRoute(bool old_ipv4_active, bool force_update
     if (ip_addr_.to_ulong() != 0 && vrf_.get() != NULL) {
         // Add route if old was inactive or force_update is set
         if (old_ipv4_active == false || force_update == true ||
-            old_addr != ip_addr_) {
-            AddRoute(vrf_->GetName(), ip_addr_, 32, policy_enabled_, ecmp_);
+            old_addr != ip_addr_ || vm_ip_gw_addr_ != ip) {
+            vm_ip_gw_addr_ = ip;
+            AddRoute(vrf_->GetName(), ip_addr_, 32, vn_->GetName(),
+                     policy_enabled_, ecmp_, vm_ip_gw_addr_);
         } else if (policy_change == true) {
             // If old-l3-active and there is change in policy, invoke RESYNC of
             // route to account for change in NH policy
@@ -1486,7 +1505,7 @@ void VmInterface::UpdateMetadataRoute(bool old_ipv4_active, VrfEntry *old_vrf) {
     Inet4UnicastAgentRouteTable::AddLocalVmRoute
         (agent->link_local_peer(), agent->fabric_vrf_name(), mdata_addr_,
          32, GetUuid(), vn_->GetName(), label_, SecurityGroupList(), true,
-         path_preference);
+         path_preference, Ip4Address(0));
 }
 
 // Delete meta-data route
@@ -1780,21 +1799,21 @@ void VmInterface::UpdateL2InterfaceRoute(bool old_l2_active, bool force_update) 
     assert(peer_.get());
     Layer2AgentRouteTable::AddLocalVmRoute(peer_.get(), GetUuid(),
                                            vn_->GetName(), vrf_name, l2_label_,
-                                           vxlan_id_, *addrp, ip_addr(), 32);
+                                           vxlan_id_, MacAddress(addrp), ip_addr(), 32);
 }
 
 void VmInterface::DeleteL2InterfaceRoute(bool old_l2_active, VrfEntry *old_vrf) {
     if (old_l2_active == false)
         return;
 
-    if ((vxlan_id_ != 0) && 
+    if ((vxlan_id_ != 0) &&
         (TunnelType::ComputeType(TunnelType::AllType()) == TunnelType::VXLAN)) {
         VxLanId::Delete(vxlan_id_);
         vxlan_id_ = 0;
     }
     struct ether_addr *addrp = ether_aton(vm_mac_.c_str());
     Layer2AgentRouteTable::Delete(peer_.get(), old_vrf->GetName(),
-                                  *addrp);
+                                  MacAddress(addrp));
 }
 
 // Copy the SG List for VM Interface. Used to add route for interface
@@ -1812,7 +1831,8 @@ void VmInterface::CopySgIdList(SecurityGroupList *sg_id_list) const {
 //Add a route for VM port
 //If ECMP route, add new composite NH and mpls label for same
 void VmInterface::AddRoute(const std::string &vrf_name, const Ip4Address &addr,
-                           uint32_t plen, bool policy, bool ecmp) {
+                           uint32_t plen, const std::string &dest_vn,
+                           bool policy, bool ecmp, const Ip4Address &gw_ip) {
     SecurityGroupList sg_id_list;
     CopySgIdList(&sg_id_list);
     PathPreference path_preference;
@@ -1820,11 +1840,12 @@ void VmInterface::AddRoute(const std::string &vrf_name, const Ip4Address &addr,
     if (ecmp) {
         path_preference.set_preference(PathPreference::HIGH);
     }
+
     Inet4UnicastAgentRouteTable::AddLocalVmRoute(peer_.get(), vrf_name, addr,
                                                  plen, GetUuid(),
-                                                 vn_->GetName(), label_,
+                                                 dest_vn, label_,
                                                  sg_id_list, false,
-                                                 path_preference);
+                                                 path_preference, gw_ip);
 
     return;
 }
@@ -1840,17 +1861,20 @@ void VmInterface::UpdateL3Services(bool dhcp, bool dns) {
     dns_enabled_ = dns;
 }
 
-// Find DHCP options applicable to the Interface, based on following hierarchy
-// 1. Configured at the interface level
-// 2. Configured at subnet level
-// 3. Configured at ipam level
-bool VmInterface::GetDhcpOptions(
+// DHCP options applicable to the Interface
+bool VmInterface::GetInterfaceDhcpOptions(
                   std::vector<autogen::DhcpOptionType> *options) const {
     if (oper_dhcp_options().are_dhcp_options_set()) {
         *options = oper_dhcp_options().dhcp_options();
         return true;
     }
 
+    return false;
+}
+
+// DHCP options applicable to the Subnet to which the interface belongs
+bool VmInterface::GetSubnetDhcpOptions(
+                  std::vector<autogen::DhcpOptionType> *options) const {
     if (vn()) {
         const std::vector<VnIpam> &vn_ipam = vn()->GetVnIpam();
         uint32_t index;
@@ -1864,7 +1888,15 @@ bool VmInterface::GetDhcpOptions(
             *options = vn_ipam[index].oper_dhcp_options.dhcp_options();
             return true;
         }
+    }
 
+    return false;
+}
+
+// DHCP options applicable to the Ipam to which the interface belongs
+bool VmInterface::GetIpamDhcpOptions(
+                  std::vector<autogen::DhcpOptionType> *options) const {
+    if (vn()) {
         std::string ipam_name;
         autogen::IpamType ipam_type;
         if (vn()->GetIpamData(ip_addr(), &ipam_name, &ipam_type)) {
@@ -1934,8 +1966,8 @@ void VmInterface::FloatingIp::Activate(VmInterface *interface,
         assert(vrf_.get());
     }
 
-    interface->AddRoute(vrf_.get()->GetName(), floating_ip_, 32, true,
-                        interface->ecmp());
+    interface->AddRoute(vrf_.get()->GetName(), floating_ip_, 32, vn_->GetName(),
+                        true, interface->ecmp(), Ip4Address(0));
     if (table->update_floatingip_cb().empty() == false) {
         table->update_floatingip_cb()(interface, vn_.get(), floating_ip_, false);
     }
@@ -1953,6 +1985,7 @@ void VmInterface::FloatingIp::DeActivate(VmInterface *interface) const {
     if (table->update_floatingip_cb().empty() == false) {
         table->update_floatingip_cb()(interface, vn_.get(), floating_ip_, true);
     }
+    vrf_ = NULL;
     installed_ = false;
 }
 
@@ -2021,8 +2054,9 @@ void VmInterface::StaticRoute::Activate(VmInterface *interface,
     if (installed_ == true && policy_change) {
         Inet4UnicastAgentRouteTable::ReEvaluatePaths(vrf_, addr_, plen_);
     } else if (installed_ == false || force_update) {
-        interface->AddRoute(vrf_, addr_, plen_, interface->policy_enabled(),
-                            interface->ecmp());
+        interface->AddRoute(vrf_, addr_, plen_, interface->vn_->GetName(),
+                            interface->policy_enabled(),
+                            interface->ecmp(), Ip4Address(0));
     }
 
     installed_ = true;
@@ -2051,13 +2085,13 @@ void VmInterface::StaticRouteList::Remove(StaticRouteSet::iterator &it) {
 //Allowed addresss pair route
 ///////////////////////////////////////////////////////////////////////////////
 VmInterface::AllowedAddressPair::AllowedAddressPair() :
-    ListEntry(), vrf_(""), addr_(0), plen_(0), ecmp_(false) {
+    ListEntry(), vrf_(""), addr_(0), plen_(0), ecmp_(false), gw_ip_(0) {
 }
 
 VmInterface::AllowedAddressPair::AllowedAddressPair(
     const AllowedAddressPair &rhs) : ListEntry(rhs.installed_,
     rhs.del_pending_), vrf_(rhs.vrf_), addr_(rhs.addr_), plen_(rhs.plen_),
-    ecmp_(rhs.ecmp_) {
+    ecmp_(rhs.ecmp_), gw_ip_(rhs.gw_ip_) {
 }
 
 VmInterface::AllowedAddressPair::AllowedAddressPair(const std::string &vrf,
@@ -2091,8 +2125,16 @@ bool VmInterface::AllowedAddressPair::IsLess(const AllowedAddressPair *rhs) cons
 void VmInterface::AllowedAddressPair::Activate(VmInterface *interface,
                                                bool force_update,
                                                bool policy_change) const {
-    if (installed_ && force_update == false && policy_change == false)
+    const VnIpam *ipam = interface->vn_->GetIpam(addr_);
+    Ip4Address ip(0);
+    if (ipam) {
+        ip = ipam->default_gw;
+    }
+
+    if (installed_ && force_update == false && policy_change == false &&
+        gw_ip_ == ip) {
         return;
+    }
 
     if (vrf_ != interface->vrf()->GetName()) {
         vrf_ = interface->vrf()->GetName();
@@ -2100,9 +2142,11 @@ void VmInterface::AllowedAddressPair::Activate(VmInterface *interface,
 
     if (installed_ == true && policy_change) {
         Inet4UnicastAgentRouteTable::ReEvaluatePaths(vrf_, addr_, plen_);
-    } else if (installed_ == false || force_update) {
-        interface->AddRoute(vrf_, addr_, plen_, interface->policy_enabled(),
-                            ecmp_);
+    } else if (installed_ == false || force_update || gw_ip_ != ip) {
+        gw_ip_ = ip;
+        interface->AddRoute(vrf_, addr_, plen_, interface->vn_->GetName(),
+                            interface->policy_enabled(),
+                            ecmp_, gw_ip_);
     }
 
     installed_ = true;
@@ -2204,8 +2248,8 @@ VmInterface::ServiceVlan::ServiceVlan(const ServiceVlan &rhs) :
 
 VmInterface::ServiceVlan::ServiceVlan(uint16_t tag, const std::string &vrf_name,
                                       const Ip4Address &addr, uint8_t plen,
-                                      const struct ether_addr &smac,
-                                      const struct ether_addr &dmac) :
+                                      const MacAddress &smac,
+                                      const MacAddress &dmac) :
     ListEntry(), tag_(tag), vrf_name_(vrf_name), addr_(addr), plen_(plen),
     smac_(smac), dmac_(dmac), vrf_(NULL), label_(MplsTable::kInvalidLabel)
     {
@@ -2257,6 +2301,7 @@ void VmInterface::ServiceVlan::DeActivate(VmInterface *interface) const {
         MplsLabel::Delete(label_);
         label_ = MplsTable::kInvalidLabel;
         VlanNH::Delete(interface->GetUuid(), tag_);
+        vrf_ = NULL;
     }
     installed_ = false;
     return;

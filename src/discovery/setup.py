@@ -21,7 +21,7 @@ setup(
     ],
     entry_points = {
         'console_scripts' : [
-            'discovery-server = discovery.disc_server:server_main',
+            'contrail-discovery = discovery.disc_server:server_main',
         ],
     },
  

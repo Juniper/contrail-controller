@@ -177,6 +177,21 @@ static void FindAndSetInterfaces(
     const autogen::ServiceInstanceType &si_properties =
             svc_instance->properties();
 
+    properties->interface_count = 0;
+    /*
+     * The outside virtual-network is always specified (by the
+     * process that creates the service-instance).
+     */
+    if (si_properties.right_virtual_network.length()) {
+        properties->interface_count += 1;
+    }
+    /*
+     * The inside virtual-network is optional for loadbalancer.
+     */
+    if (si_properties.left_virtual_network.length()) {
+        properties->interface_count += 1;
+    }
+
     /*
      * Lookup for VMI nodes
      */
@@ -264,6 +279,19 @@ static void FindAndSetTypes(DBGraph *graph, IFMapNode *si_node,
                 svc_template_props.service_virtualization_type);
 }
 
+static void FindAndSetLoadbalancer(DBGraph *graph, IFMapNode *node,
+                                   ServiceInstance::Properties *properties) {
+    for (DBGraphVertex::adjacency_iterator iter = node->begin(graph);
+         iter != node->end(graph); ++iter) {
+        IFMapNode *adj = static_cast<IFMapNode *>(iter.operator->());
+        if (IsNodeType(adj, "loadbalancer-pool")) {
+            autogen::LoadbalancerPool *pool =
+                    static_cast<autogen::LoadbalancerPool *>(adj->GetObject());
+            properties->pool_id = IdPermsGetUuid(pool->id_perms());
+        }
+    }
+}
+
 /*
  * ServiceInstance Properties
  */
@@ -279,6 +307,8 @@ void ServiceInstance::Properties::Clear() {
     ip_addr_outside.empty();
     ip_prefix_len_inside = -1;
     ip_prefix_len_outside = -1;
+    interface_count = 0;
+    pool_id = boost::uuids::nil_uuid();
 }
 
 template <typename Type>
@@ -330,6 +360,11 @@ int ServiceInstance::Properties::CompareTo(const Properties &rhs) const {
     if (cmp != 0) {
         return cmp;
     }
+    cmp = compare(interface_count, rhs.interface_count);
+    if (cmp != 0) {
+        return cmp;
+    }
+    cmp = compare(pool_id, rhs.pool_id);
     return cmp;
 }
 
@@ -369,18 +404,35 @@ std::string ServiceInstance::Properties::DiffString(
         ss << " pfx-outside: -" << ip_prefix_len_outside
            << " +" << rhs.ip_prefix_len_outside;
     }
-
+    if (compare(pool_id, rhs.pool_id)) {
+        ss << " pool_id: -" << pool_id << " +" << rhs.pool_id;
+    }
     return ss.str();
 }
 
 bool ServiceInstance::Properties::Usable() const {
-    return (!instance_id.is_nil() &&
-            !vmi_inside.is_nil() &&
-            !vmi_outside.is_nil() &&
-            !ip_addr_inside.empty() &&
-            !ip_addr_outside.empty() &&
-            !(ip_prefix_len_inside == -1) &&
-            !(ip_prefix_len_outside == -1));
+    bool common = (!instance_id.is_nil() &&
+                   !vmi_outside.is_nil() &&
+                   !ip_addr_outside.empty() &&
+                   (ip_prefix_len_outside >= 0));
+    if (!common) {
+        return false;
+    }
+
+    if (service_type == SourceNAT || interface_count == 2) {
+        bool inside = (!vmi_inside.is_nil() &&
+                       !ip_addr_inside.empty() &&
+                       (ip_prefix_len_inside >= 0));
+        if (!inside) {
+            return false;
+        }
+    }
+
+    if (service_type == LoadBalancer) {
+        return (!pool_id.is_nil());
+    }
+
+    return true;
 }
 
 const std::string &ServiceInstance::Properties::ServiceTypeString() const {
@@ -453,7 +505,29 @@ bool ServiceInstance::DBEntrySandesh(Sandesh *sresp, std::string &name) const {
         state_data.set_errors(state->errors());
         state_data.set_pid(state->pid());
         state_data.set_status(state->status());
-        state_data.set_status_type(state->status_type());
+
+        switch (state->status_type()) {
+            case NamespaceState::Error:
+                state_data.set_status_type("Error");
+                break;
+            case NamespaceState::Started:
+                state_data.set_status_type("Started");
+                break;
+            case NamespaceState::Starting:
+                state_data.set_status_type("Starting");
+                break;
+            case NamespaceState::Stopped:
+                state_data.set_status_type("Stopped");
+                break;
+            case NamespaceState::Stopping:
+                state_data.set_status_type("Stopping");
+                break;
+            case NamespaceState::Timeout:
+                state_data.set_status_type("Timeout");
+                break;
+            default:
+                state_data.set_status_type("");
+        }
 
         data.set_ns_state(state_data);
     }
@@ -497,6 +571,10 @@ void ServiceInstance::CalculateProperties(
     autogen::ServiceInstance *svc_instance =
                  static_cast<autogen::ServiceInstance *>(node_->GetObject());
     FindAndSetInterfaces(graph, vm_node, svc_instance, properties);
+
+    if (properties->service_type == LoadBalancer) {
+        FindAndSetLoadbalancer(graph, node_, properties);
+    }
 }
 
 void ServiceInstanceReq::HandleRequest() const {

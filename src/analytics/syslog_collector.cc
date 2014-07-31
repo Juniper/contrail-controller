@@ -64,9 +64,6 @@ class SyslogTcpSession : public TcpSession
 
     SyslogTcpSession (SyslogTcpListener *server, Socket *socket);
     virtual void OnRead (boost::asio::const_buffer buf);
-    void Parse (SyslogQueueEntry *sqe);
-  private:
-    SyslogTcpListener *listner_;
 };
 
 class TCPSyslogQueueEntry : public SyslogQueueEntry
@@ -130,8 +127,7 @@ class SyslogParser
 
         void Shutdown ()
         {
-            WaitForIdle (15); // wait for 15 sec..
-            work_queue_.Shutdown ();
+            work_queue_.ScheduleShutdown ();
             LOG(DEBUG, __func__ << " Syslog parser shutdown done");
         }
     protected:
@@ -571,8 +567,9 @@ void SyslogQueueEntry::free ()
 {
 }
 
-SyslogTcpListener::SyslogTcpListener (EventManager *evm):
-          TcpServer(evm), session_(NULL)
+SyslogTcpListener::SyslogTcpListener (EventManager *evm,
+    SyslogMsgReadFn read_cb):
+          TcpServer(evm), session_(NULL), read_cb_(read_cb)
 {
 }
 
@@ -592,7 +589,12 @@ void SyslogTcpListener::Start (std::string ipaddress, int port)
     LOG(DEBUG, __func__ << " Initialization of TCP syslog listener @" << port);
 }
 
-SyslogUDPListener::SyslogUDPListener (EventManager *evm): UdpServer (evm)
+void SyslogTcpListener::ReadMsg(SyslogQueueEntry *sqe) {
+    read_cb_(sqe);
+}
+
+SyslogUDPListener::SyslogUDPListener (EventManager *evm,
+    SyslogMsgReadFn read_cb): UdpServer (evm), read_cb_(read_cb)
 {
 }
 void SyslogUDPListener::Shutdown ()
@@ -618,14 +620,18 @@ void SyslogUDPListener::HandleReceive (
     // TODO: handle error
     UDPSyslogQueueEntry *sqe = new UDPSyslogQueueEntry (this, remote_endpoint,
             recv_buffer, bytes_transferred);
-    Parse (sqe);
+    read_cb_ (sqe);
 }
 
 
 SyslogListeners::SyslogListeners (EventManager *evm, VizCallback cb,
             DbHandler *db_handler, std::string ipaddress, int port):
-              SyslogUDPListener(evm), SyslogTcpListener(evm),
-              parser_(new SyslogParser (this)), port_(port),
+              parser_(new SyslogParser (this)),
+              udp_listener_(new SyslogUDPListener(evm,
+                            boost::bind(&SyslogParser::Parse, parser_.get(), _1))),
+              tcp_listener_(new SyslogTcpListener(evm,
+                            boost::bind(&SyslogParser::Parse, parser_.get(), _1))),
+              port_(port),
               ipaddress_(ipaddress), inited_(false), cb_(cb),
               db_handler_ (db_handler),
               builder_ (SandeshMessageBuilder::GetInstance(
@@ -635,8 +641,12 @@ SyslogListeners::SyslogListeners (EventManager *evm, VizCallback cb,
 
 SyslogListeners::SyslogListeners (EventManager *evm, VizCallback cb,
         DbHandler *db_handler, int port):
-          SyslogUDPListener(evm), SyslogTcpListener(evm),
-          parser_(new SyslogParser (this)), port_(port), ipaddress_(),
+          parser_(new SyslogParser (this)),
+          udp_listener_(new SyslogUDPListener(evm,
+                        boost::bind(&SyslogParser::Parse, parser_.get(), _1))),
+          tcp_listener_(new SyslogTcpListener(evm,
+                        boost::bind(&SyslogParser::Parse, parser_.get(), _1))),
+          port_(port), ipaddress_(),
           inited_(false), cb_(cb), db_handler_ (db_handler),
           builder_ (SandeshMessageBuilder::GetInstance(
               SandeshMessageBuilder::SYSLOG))
@@ -646,17 +656,12 @@ SyslogListeners::SyslogListeners (EventManager *evm, VizCallback cb,
 void SyslogListeners::Start ()
 {
     if (port_ >= 0) {
-        SyslogTcpListener::Start (ipaddress_, port_);
-        SyslogUDPListener::Start (ipaddress_, port_);
+        tcp_listener_->Start(ipaddress_, port_);
+        udp_listener_->Start(ipaddress_, port_);
         inited_ = true;
     } else {
         LOG(DEBUG, __func__ << " skip starting syslog listener port:" << port_);
     }
-}
-void SyslogListeners::Parse (SyslogQueueEntry *sqe)
-{
-    //LOG(DEBUG, __func__ << " syslog Parsing msg");
-    parser_->Parse (sqe);
 }
 bool SyslogListeners::IsRunning ()
 {
@@ -664,22 +669,24 @@ bool SyslogListeners::IsRunning ()
 }
 void SyslogListeners::Shutdown ()
 {
-    SyslogTcpListener::Shutdown ();
-    SyslogUDPListener::Shutdown ();
+    tcp_listener_->Shutdown ();
+    udp_listener_->Shutdown ();
     parser_->Shutdown ();
+    TcpServerManager::DeleteServer(tcp_listener_);
+    UdpServerManager::DeleteServer(udp_listener_);
     inited_ = false;
 }
 
 int
 SyslogListeners::GetTcpPort()
 {
-    return SyslogTcpListener::GetPort();
+    return tcp_listener_->GetPort();
 }
 
 int
 SyslogListeners::GetUdpPort()
 {
-    return SyslogUDPListener::GetLocalEndpointPort();
+    return udp_listener_->GetLocalEndpointPort();
 }
 
 void
@@ -693,13 +700,8 @@ UDPSyslogQueueEntry::free () {
     server_->DeallocateBuffer (b_);
 }
 SyslogTcpSession::SyslogTcpSession (SyslogTcpListener *server, Socket *socket) :
-      TcpSession(server, socket), listner_ (server) {
+      TcpSession(server, socket) {
           //set_observer(boost::bind(&SyslogTcpSession::OnEvent, this, _1, _2));
-}
-void
-SyslogTcpSession::Parse (SyslogQueueEntry *sqe)
-{
-  listner_->Parse (sqe);
 }
 void
 SyslogTcpSession::OnRead (boost::asio::const_buffer buf)
@@ -708,6 +710,7 @@ SyslogTcpSession::OnRead (boost::asio::const_buffer buf)
     // TODO: handle error
     TCPSyslogQueueEntry *sqe = new TCPSyslogQueueEntry (SyslogTcpSessionPtr (
         this), buf, socket ()->remote_endpoint(ec));
-    Parse (sqe);
+    SyslogTcpListener *sserver = dynamic_cast<SyslogTcpListener *>(server());
+    sserver->ReadMsg(sqe);
 }
 

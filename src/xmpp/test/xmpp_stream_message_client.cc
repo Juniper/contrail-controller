@@ -130,7 +130,7 @@ protected:
         TcpServerManager::DeleteServer(b_);
         b_ = NULL;
 
-        init_->Reset();
+        init_->Reset(true);
         evm_->Shutdown();
         if (thread_.get() != NULL) {
             thread_->Join();

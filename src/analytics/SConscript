@@ -11,7 +11,7 @@ import sys
 Import('BuildEnv')
 AnalyticsEnv = BuildEnv.Clone()
 if sys.platform != 'darwin':
-    AnalyticsEnv.AppendUnique(CCFLAGS='-fno-exceptions')
+    AnalyticsEnv.CppDisableExceptions()
 
 # get appropriate python lib
 import subprocess
@@ -42,12 +42,13 @@ AnalyticsEnv.Prepend(LIBS=['cpuinfo',
         'cdb',
         'ruleparser',
         'xml',
-        'connection_info',
+        'process_info',
         'base',
         'io',
         'sandeshvns',
         'pugixml',
         'hiredis',
+        'protobuf',
         'boost_filesystem',
         'boost_program_options'])
 
@@ -63,6 +64,7 @@ libs = MapBuildDir(['sandesh',
         'xml',
         'base',
         'io'])
+libs.extend('/usr/lib/')
 AnalyticsEnv.Append(LIBPATH=libs)
 
 includes = MapBuildDir(['http/client', 'discovery/client', 'gendb', 'cdb', 'analytics'])
@@ -74,8 +76,7 @@ AnalyticsEnv.Append(CPPPATH = ['#controller/src/gendb',
 
 
 AnalyticsEnv_excep = AnalyticsEnv.Clone()
-while AnalyticsEnv_excep['CCFLAGS'].count('-fno-exceptions') > 0:
-    AnalyticsEnv_excep['CCFLAGS'].remove('-fno-exceptions')
+AnalyticsEnv_excep.CppEnableExceptions()
 
 # Generate the source files
 SandeshGenPyFiles  = AnalyticsEnv.SandeshGenPy('viz.sandesh')
@@ -122,7 +123,8 @@ parser_util_obj = AnalyticsEnv_boost_no_unreach.Object('parser_util.o', 'parser_
 vizd_sources = ['viz_collector.cc', 'ruleeng.cc', 'collector.cc',
                 'vizd_table_desc.cc', 'viz_message.cc','generator.cc',
                 'redis_connection.cc', 'redis_processor_vizd.cc',
-                'options.cc', 'stat_walker.cc']
+                'options.cc', 'stat_walker.cc', 'protobuf_collector.cc',
+                'protobuf_server.cc']
 
 RedisLuaBuild(AnalyticsEnv, 'seqnum')
 RedisLuaBuild(AnalyticsEnv, 'delrequest')
@@ -131,10 +133,14 @@ RedisLuaBuild(AnalyticsEnv, 'uveupdate_st')
 RedisLuaBuild(AnalyticsEnv, 'uvedelete')
 RedisLuaBuild(AnalyticsEnv, 'flushuves')
 
+ProtobufGenFiles = AnalyticsEnv.ProtocGenCpp('self_describing_message.proto')
+ProtobufGenSrcs = AnalyticsEnv.ExtractCpp(ProtobufGenFiles)
+ProtobufGenObjs = AnalyticsEnv.Object(ProtobufGenSrcs)
+AnalyticsEnv['ANALYTICS_PROTOBUF_GEN_OBJS'] = ProtobufGenObjs
 
 AnalyticsEnv.GenerateBuildInfoCode(
     target=['buildinfo.h', 'buildinfo.cc'],
-    source = AnalyticsSandeshGenSrcs + vizd_sources +
+    source = AnalyticsSandeshGenSrcs + vizd_sources + ProtobufGenSrcs +
     ['OpServerProxy.cc',
      'db_handler.cc',
      parser_util_obj,
@@ -143,6 +149,7 @@ AnalyticsEnv.GenerateBuildInfoCode(
 
 vizd = AnalyticsEnv.Program(target = 'vizd',
         source = AnalyticsSandeshGenSrcs + vizd_sources +
+        ProtobufGenObjs +
         [main_obj,
         'buildinfo.cc',
         db_handler_obj,
@@ -197,6 +204,7 @@ if AnalyticsEnv.get('OPT') == 'coverage':
     for test in test_suite:
         AnalyticsEnv.Depends(test_coverage, test)
 
+# Please update sandesh/common/vns.sandesh on process name change
 AnalyticsEnv.Alias('install', AnalyticsEnv.InstallAs(
             AnalyticsEnv['INSTALL_BIN'] + '/contrail-collector', vizd))
 AnalyticsEnv.Alias('install', AnalyticsEnv.Install(

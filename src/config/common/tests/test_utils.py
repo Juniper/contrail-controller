@@ -2,8 +2,11 @@
 # Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
 #
 import gevent
+import gevent.queue
+import gevent.wsgi
 import os
 import sys
+import logging
 import pdb
 import json
 from pprint import pprint
@@ -20,17 +23,46 @@ except ImportError:
     from ordereddict import OrderedDict
 import pycassa
 import Queue
+from collections import deque
 import kombu
+import kazoo
+from kazoo.client import KazooState
 from copy import deepcopy
 from datetime import datetime
 from pycassa.util import *
-from vnc_api import *
+from vnc_api import vnc_api
 from novaclient import exceptions as nc_exc
 
 
 def stub(*args, **kwargs):
     pass
 
+class FakeApiConfigLog(object):
+    _all_logs = []
+    send = stub
+    def __init__(self, *args, **kwargs):
+        FakeApiConfigLog._all_logs.append(kwargs['api_log'])
+
+    @classmethod
+    def _print(cls):
+        for log in cls._all_logs:
+            x = copy.deepcopy(log.__dict__)
+            #body = x.pop('body')
+            #pprint(json.loads(body))
+            pprint(x)
+            print "\n"
+# class FakeApiConfigLog
+
+class FakeWSGIHandler(gevent.wsgi.WSGIHandler):
+    logger = logging.getLogger('FakeWSGIHandler')
+    logger.addHandler(logging.FileHandler('api_server.log'))
+    def __init__(self, socket, address, server):
+        super(FakeWSGIHandler, self).__init__(socket, address, server)
+        #server.log = open('api_server.log', 'a')
+        class LoggerWriter(object):
+            def write(self, message):
+                FakeWSGIHandler.logger.log(logging.INFO, message)
+        server.log = LoggerWriter()
 
 class CassandraCFs(object):
     _all_cfs = {}
@@ -46,7 +78,6 @@ class CassandraCFs(object):
     # end get_cf
 
 # end CassandraCFs
-
 
 class FakeCF(object):
 
@@ -100,7 +131,11 @@ class FakeCF(object):
         result = {}
         for key in keys:
             try:
-                result[key] = copy.deepcopy(self._rows[key])
+                result[key] = {}
+                for col_name in self._rows[key]:
+                    if column_start and column_start not in col_name:
+                        continue
+                    result[key][col_name] = copy.deepcopy(self._rows[key][col_name])
             except KeyError:
                 pass
 
@@ -187,18 +222,23 @@ class FakeNovaClient(object):
             vm = vnc_api.VirtualMachine(name)
             FakeNovaClient.vnc_lib.virtual_machine_create(vm)
             for network in nics:
-                vn = FakeNovaClient.vnc_lib.virtual_network_read(
-                    id=network['net-id'])
-                vmi = vnc_api.VirtualMachineInterface(vn.name, parent_obj=vm)
-                vmi.set_virtual_network(vn)
-                FakeNovaClient.vnc_lib.virtual_machine_interface_create(vmi)
+                if 'nic-id' in network:
+                    vn = FakeNovaClient.vnc_lib.virtual_network_read(
+                        id=network['net-id'])
+                    vmi = vnc_api.VirtualMachineInterface(vn.name, parent_obj=vm)
+                    vmi.set_virtual_network(vn)
+                    FakeNovaClient.vnc_lib.virtual_machine_interface_create(vmi)
 
-                ip_address = FakeNovaClient.vnc_lib.virtual_network_ip_alloc(
-                    vn, count=1)[0]
-                ip_obj = vnc_api.InstanceIp(ip_address, ip_address)
-                ip_obj.add_virtual_network(vn)
-                ip_obj.add_virtual_machine_interface(vmi)
-                FakeNovaClient.vnc_lib.instance_ip_create(ip_obj)
+                    ip_address = FakeNovaClient.vnc_lib.virtual_network_ip_alloc(
+                        vn, count=1)[0]
+                    ip_obj = vnc_api.InstanceIp(ip_address, ip_address)
+                    ip_obj.add_virtual_network(vn)
+                    ip_obj.add_virtual_machine_interface(vmi)
+                    FakeNovaClient.vnc_lib.instance_ip_create(ip_obj)
+                elif 'port-id' in network:
+                    vmi = FakeNovaClient.vnc_lib.virtual_machine_interface_read(id=network['port-id'])
+                    vmi.add_virtual_machine(vm)
+                    FakeNovaClient.vnc_lib.virtual_machine_interface_update(vmi)
             # end for network
             vm.id = vm.uuid
             vm.delete = FakeNovaClient.delete_vm.__get__(
@@ -222,7 +262,7 @@ class FakeNovaClient(object):
 
     @staticmethod
     def delete_vm(vm):
-        for if_ref in vm.get_virtual_machine_interfaces():
+        for if_ref in vm.get_virtual_machine_interfaces() or vm.get_virtual_machine_interface_back_refs():
             intf = FakeNovaClient.vnc_lib.virtual_machine_interface_read(
                 id=if_ref['uuid'])
             for ip_ref in intf.get_instance_ip_back_refs() or []:
@@ -254,7 +294,8 @@ class FakeIfmapClient(object):
     #                {'other': <Element identity at 0x2b3ee10>,
     #                 'meta': <Element metadata at 0x2b3e410>}}}
     _graph = {}
-    _subscribe_lists = [Queue.Queue()]
+    _published_messages = [] # all messages published so far
+    _subscribe_lists = [] # list of all subscribers indexed by session-id
     _PUBLISH_ENVELOPE = \
         """<?xml version="1.0" encoding="UTF-8"?> """\
         """<env:Envelope xmlns:"""\
@@ -276,6 +317,13 @@ class FakeIfmapClient(object):
         """xmlns:contrail="http://www.contrailsystems.com/vnc_cfg.xsd"> """\
         """<env:Body><ifmap:response> %(result)s """\
         """</ifmap:response></env:Body></env:Envelope>"""
+
+    @classmethod
+    def reset(cls):
+        cls._graph = {}
+        cls._published_messages = [] # all messages published so far
+        cls._subscribe_lists = [] # list of all subscribers indexed by session-id
+    # end reset
 
     @staticmethod
     def initialize(*args, **kwargs):
@@ -358,6 +406,12 @@ class FakeIfmapClient(object):
             subscribe_item = etree.Element('resultItem')
             subscribe_item.extend(deepcopy(del_root))
             link_info = cls._graph[from_name]['links'][link_key]
+            # generate id1, id2, meta for poll for the case where
+            # del of ident for all metas requested but we have a
+            # ref meta to another ident
+            if len(del_root) == 1 and 'other' in link_info:
+                to_ident_elem = link_info['other']
+                subscribe_item.append(to_ident_elem)
             subscribe_item.append(deepcopy(link_info['meta']))
             subscribe_result.append(subscribe_item)
             if 'other' in link_info:
@@ -405,6 +459,7 @@ class FakeIfmapClient(object):
                         % (etree.tostring(pub_root)))
                 poll_result.append(subscribe_result)
 
+            cls._published_messages.append(poll_result)
             for sl in cls._subscribe_lists:
                 if sl is not None:
                     sl.put(poll_result)
@@ -467,7 +522,10 @@ class FakeIfmapClient(object):
             return result_env
         elif method == 'subscribe':
             session_id = int(body._SubscribeRequest__session_id)
-            cls._subscribe_lists[session_id] = cls._subscribe_lists[0]
+            subscriber_queue = Queue.Queue()
+            for msg in cls._published_messages:
+                subscriber_queue.put(msg)
+            cls._subscribe_lists[session_id] = subscriber_queue
             result = etree.Element('subscribeReceived')
             result_env = cls._RSP_ENVELOPE % {'result': etree.tostring(result)}
             return result_env
@@ -492,7 +550,7 @@ class FakeKombu(object):
     # end Exchange
 
     class Queue(object):
-        _msg_obj_list = []
+        _sync_q = gevent.queue.Queue()
 
         class Message(object):
             def __init__(self, msg_dict):
@@ -521,29 +579,35 @@ class FakeKombu(object):
 
         def put(self, msg_dict, serializer):
             msg_obj = self.Message(msg_dict)
-            self._msg_obj_list.append(msg_obj)
+            self._sync_q.put(msg_obj)
         # end put
 
-        def dq_head(self):
-            return self._msg_obj_list.pop(0)
-        # end dq_head
+        def get(self):
+            rv = self._sync_q.get()
+            # In real systems, rabbitmq is little slow, hence add some wait to mimic
+            gevent.sleep(0.001)
+            return rv
+        # end get
+
     # end class Queue
 
     class Connection(object):
         class SimpleQueue(object):
+            _simple_queues = {}
             def __init__(self, q_obj):
-                self._q_obj = q_obj
-                self._q_add_event = gevent.event.Event()
+                if q_obj._name in self._simple_queues:
+                    self._q_obj = self._simple_queues[q_obj._name]._q_obj
+                else:
+                    self._simple_queues[q_obj._name] = self
+                    self._q_obj = q_obj
             # end __init__
 
             def put(self, *args, **kwargs):
                 self._q_obj.put(*args, **kwargs)
-                self._q_add_event.set()
             # end put
 
             def get(self, *args, **kwargs):
-                self._q_add_event.wait()
-                return self._q_obj.dq_head()
+                return self._q_obj.get()
             # end get
 
             def __enter__(self):
@@ -646,6 +710,62 @@ class FakeRedis(object):
 
 # end FakeRedis
 
+class FakeExtensionManager(object):
+    _entry_pt_to_classes = {}
+    class FakeExtObj(object):
+        def __init__(self, cls, *args, **kwargs):
+            self.obj = cls(*args, **kwargs)
+
+    def __init__(self, child, ep_name, **kwargs):
+        if ep_name not in self._entry_pt_to_classes:
+            return
+
+        classes = self._entry_pt_to_classes[ep_name]
+        self._ep_name = ep_name
+        self._ext_objs = []
+        for cls in classes:
+            ext_obj = FakeExtensionManager.FakeExtObj(cls, **kwargs) 
+            self._ext_objs.append(ext_obj)
+    # end __init__
+
+    def map(self, cb):
+        for ext_obj in self._ext_objs:
+            cb(ext_obj)
+
+    def map_method(self, method_name, *args, **kwargs):
+        for ext_obj in self._ext_objs:
+            method = getattr(ext_obj.obj, method_name, None)
+            if not method:
+                continue
+            method(*args, **kwargs)
+# end class FakeExtensionManager
+
+
+class FakeKeystoneClient(object):
+    class Tenants(object):
+        _tenants = {}
+        def add_tenant(self, id, name):
+            self.id = id
+            self.name = name
+            self._tenants[id] = self
+
+        def list(self):
+            return self._tenants.values()
+
+        def get(self, id):
+            return self._tenants[str(uuid.UUID(id))]
+
+    def __init__(self, *args, **kwargs):
+        self.tenants = FakeKeystoneClient.Tenants()
+        pass
+
+# end class FakeKeystoneClient
+
+fake_keystone_client = FakeKeystoneClient()
+def get_keystone_client(*args, **kwargs):
+    return fake_keystone_client
+
+
 
 def get_free_port():
     tmp_sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -676,6 +796,35 @@ def Fake_uuid_to_time(time_uuid_in_db):
     return ts
 # end of Fake_uuid_to_time
 
+class FakeKazooClient(object):
+    class Election(object):
+        __init__ = stub
+        def run(self, cb, func, *args, **kwargs):
+            cb(func, *args, **kwargs)
+
+    def __init__(self, *args, **kwargs):
+        self.add_listener = stub
+        self.start = stub
+        self._values = {}
+        self.state = KazooState.CONNECTED
+    # end __init__
+
+    def create(self, path, value='', *args, **kwargs):
+        self._values[path] = value
+    # end create
+
+    def delete(self, path, recursive=False):
+        if not recursive:
+            try:
+                del self._values[path]
+            except KeyError:
+                raise kazoo.exceptions.NoNodeError()
+        else:
+            for path_key in self._values.keys():
+                if path in path_key:
+                    del self._values[path_key]
+    # end delete
+
 class ZookeeperClientMock(object):
 
     def __init__(self, *args, **kwargs):
@@ -699,7 +848,10 @@ class ZookeeperClientMock(object):
     # end alloc_from_str
 
     def delete(self, path):
-        del self._values[path]
+        try:
+            del self._values[path]
+        except KeyError:
+            raise kazoo.exceptions.NoNodeError()
     # end delete
 
     def read(self, path):
@@ -726,11 +878,20 @@ class ZookeeperClientMock(object):
 
     def delete_node(self, path, recursive=False):
         if not recursive:
-            del self._values[path]
+            try:
+                del self._values[path]
+            except KeyError:
+                raise kazoo.exceptions.NoNodeError()
         else:
             for path_key in self._values.keys():
                 if path in path_key:
                     del self._values[path_key]
     # end delete_node
+
+    def master_election(self, path, pid, func, *args, **kwargs):
+        func(*args, **kwargs)
+    # end master_election
+
 # end Class ZookeeperClientMock
 
+  

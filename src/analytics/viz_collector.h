@@ -20,16 +20,18 @@
 #include "syslog_collector.h"
 
 class DbHandler;
+class DbHandlerInitializer;
 class Ruleeng;
+class ProtobufCollector;
 
 class VizCollector {
 public:
-    static const int DbifReinitTime = 10;
-
     VizCollector(EventManager *evm, unsigned short listen_port,
-            std::vector<std::string> cassandra_ips,
-            std::vector<int> cassandra_ports,
-            const std::string redis_uve_ip, unsigned short redis_uve_port,
+            bool protobuf_collector_enabled,
+            unsigned short protobuf_listen_port,
+            const std::vector<std::string> &cassandra_ips,
+            const std::vector<int> &cassandra_ports,
+            const std::string &redis_uve_ip, unsigned short redis_uve_port,
             int syslog_port, bool dup=false,
             int analytics_ttl=g_viz_constants.AnalyticsTTL);
     VizCollector(EventManager *evm, DbHandler *db_handler, Ruleeng *ruleeng,
@@ -41,10 +43,7 @@ public:
     void Shutdown();
     static void WaitForIdle();
 
-    DbHandler *GetDbHandler() const {
-        return db_handler_.get();
-    }
-    SyslogListeners *GetSyslogListener () const {
+    SyslogListeners *GetSyslogListener() const {
         return syslog_listener_;
     }
     Collector *GetCollector() const {
@@ -62,24 +61,16 @@ public:
     }
 
 private:
-    EventManager *evm_;
+    std::string DbGlobalName(bool dup=false);
+    void DbInitializeCb();
+
+    boost::scoped_ptr<DbHandlerInitializer> db_initializer_;
     boost::scoped_ptr<OpServerProxy> osp_;
-    boost::scoped_ptr<DbHandler> db_handler_;
     boost::scoped_ptr<Ruleeng> ruleeng_;
     Collector *collector_;
     SyslogListeners *syslog_listener_;
+    boost::scoped_ptr<ProtobufCollector> protobuf_collector_;
     std::string name_;
-
-    Timer *dbif_timer_;
-
-    void Ruleeng_Initialize(); 
-    void DbifReinit_fromdb();
-    bool DbifReinitTimerExpired();
-    void DbifReinitTimerErrorHandler(std::string error_name, std::string error_message);
-    void StartDbifReinitTimer();
-    void StartDbifReinit();
-
-    std::string DbifGlobalName(bool dup=false);
 
     DISALLOW_COPY_AND_ASSIGN(VizCollector);
 };

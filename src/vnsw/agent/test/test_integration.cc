@@ -76,6 +76,8 @@ using namespace Patricia;
     }                                           \
     if (vm.count("test-config")) {              \
         strncpy(test_file, vm["test-config"].as<string>().c_str(), (sizeof(test_file) - 1) ); \
+    } else {                                    \
+        strncpy(test_file, "controller/src/vnsw/agent/testdata/vnswad_test.xml", (sizeof(test_file) - 1));\
     }                                           \
     if (vm.count("config")) {                   \
         strncpy(init_file, vm["config"].as<string>().c_str(), (sizeof(init_file) - 1) ); \
@@ -197,6 +199,7 @@ xml_node FormNode (xml_node &input, xml_node &output, bool construct_only) {
             sprintf(str, "%016d", uuid);
             uuid_node.append_child("uuid-lslong").append_child(node_pcdata).set_value(str);
         }
+        id_perms.append_child("enable").append_child(node_pcdata).set_value("true");
         for (xml_node child = input.first_child(); child; child = child.next_sibling()) {
             if (child.type() == node_pcdata) continue;
             node.append_copy(child);
@@ -223,6 +226,20 @@ static string FileRead(const char *init_file) {
     string content ((istreambuf_iterator<char>(ifs) ),
             (istreambuf_iterator<char>() ));
     return content;
+}
+
+void FlushConfig() {
+    while(c_node_tree.Size() != 0) {
+        NodeEntry *node_entry = c_node_tree.GetNext(NULL);
+        if (c_node_tree.Remove(node_entry)) {
+            delete node_entry;
+        }
+    }
+    vector<GroupEntry *>::iterator it;
+    for (it = c_group_list.begin(); it != c_group_list.end(); it++) {
+        delete (*it);
+    }
+    c_group_list.clear();
 }
 
 void ReadGroupNode(xml_node &config, xml_node &parent, GroupEntry *g_parent) {
@@ -506,14 +523,15 @@ void NovaMsgProcess (xml_document &xdoc, pair<xml_node, GroupEntry *> node, bool
     DumpXmlNode(parent);
 
     CfgIntKey *key = new CfgIntKey(port_id);
-    CfgIntData *data = new CfgIntData();
 
     DBRequest req;
     if (create) {
+        CfgIntData *data = new CfgIntData();
         boost::system::error_code ec;
         IpAddress ip = Ip4Address::from_string(ipaddr, ec);
         data->Init(vm_id, vn_id, project_id, tap_intf, ip, mac, "",
-                   VmInterface::kInvalidVlanId, 0);
+                   VmInterface::kInvalidVlanId,
+                   CfgIntEntry::CfgIntVMPort, 0);
 
         req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
         req.key.reset(key);
@@ -663,6 +681,7 @@ int main(int argc, char **argv) {
 
     ReadInputFile(test_file);
     int ret = RUN_ALL_TESTS();
+    FlushConfig();
     TestShutdown();
     delete client;
     return ret;

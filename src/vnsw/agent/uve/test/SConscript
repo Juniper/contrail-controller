@@ -14,25 +14,15 @@ AgentEnv.MakeTestEnv(env)
 uve_test_suite=[]
 uve_flaky_test_suite=[]
 
-test_vm_uve = AgentEnv.MakeTestCmdSrc(env, 'test_vm_uve',
-                                      [
-                                       'test_vm_uve.cc'
-                                       ],
-                                       uve_test_suite)
+test_vm_uve = AgentEnv.MakeTestCmd(env, 'test_vm_uve', uve_test_suite)
 test_port_bitmap = AgentEnv.MakeTestCmd(env, 'test_port_bitmap', uve_test_suite)
-test_stats_mock =  AgentEnv.MakeTestCmd(env, 'test_stats_mock', uve_flaky_test_suite)
-test_uve = AgentEnv.MakeTestCmd(env, 'test_uve', uve_flaky_test_suite)
-
-test_vn_uve = AgentEnv.MakeTestCmdSrc(env, 'test_vn_uve', 
-                                      [
-                                       'test_vn_uve.cc'
-                                       ],
-                                       uve_flaky_test_suite)
-test_vrouter_uve = AgentEnv.MakeTestCmdSrc(env, 'test_vrouter_uve', 
-                                           [
-                                            'test_vrouter_uve.cc'
-                                           ],
-                                           uve_flaky_test_suite)
+test_stats_mock =  AgentEnv.MakeTestCmd(env, 'test_stats_mock',
+                                        uve_test_suite)
+test_uve = AgentEnv.MakeTestCmd(env, 'test_uve', uve_test_suite)
+test_vn_uve = AgentEnv.MakeTestCmd(env, 'test_vn_uve',
+                                   uve_test_suite)
+test_vrouter_uve = AgentEnv.MakeTestCmd(env, 'test_vrouter_uve',
+                                        uve_test_suite)
 
 flaky_test = env.TestSuite('agent-flaky-test', uve_flaky_test_suite)
 env.Alias('controller/src/vnsw/agent/uve:flaky_test', flaky_test)

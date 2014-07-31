@@ -43,11 +43,12 @@ env.Alias('controller/src/agent:test', [
     'controller/src/vnsw/agent/vgw:test',
 ])
 
-env.Alias('controller/src/agent:flaky_test', [
-    'controller/src/vnsw/agent/cmn:flaky_test',
-    'controller/src/vnsw/agent/diag:flaky_test',
+#Commented flaky-test are not having any flaky-test.
+env.Alias('controller/src/agent:flaky-test', [
+#    'controller/src/vnsw/agent/cmn:flaky_test',
+#    'controller/src/vnsw/agent/diag:flaky_test',
     'controller/src/vnsw/agent/filter:flaky_test',
-    'controller/src/vnsw/agent/init:flaky_test',
+#    'controller/src/vnsw/agent/init:flaky_test',
     'controller/src/vnsw/agent/kstate:flaky_test',
     'controller/src/vnsw/agent/ksync:flaky_test',
     'controller/src/vnsw/agent/openstack:flaky_test',
@@ -56,5 +57,5 @@ env.Alias('controller/src/agent:flaky_test', [
     'controller/src/vnsw/agent/services:flaky_test',
     'controller/src/vnsw/agent:flaky_test',
     'controller/src/vnsw/agent/uve:flaky_test',
-    'controller/src/vnsw/agent/vgw:flaky_test',
+#    'controller/src/vnsw/agent/vgw:flaky_test',
 ])

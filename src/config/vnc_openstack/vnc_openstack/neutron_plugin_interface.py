@@ -56,22 +56,20 @@ class NeutronPluginInterface(object):
             self._multi_tenancy = conf_sections.get('DEFAULTS', 'multi_tenancy')
         except ConfigParser.NoOptionError:
             self._multi_tenancy = False
-        self._vnc_lib = None
+        try:
+            self._list_optimization_enabled = \
+                conf_sections.get('DEFAULTS', 'list_optimization_enabled')
+        except ConfigParser.NoOptionError:
+            self._list_optimization_enabled = False
+
+        try:
+            self._sn_host_route = conf_sections.get('DEFAULTS',
+                                                    'apply_subnet_host_routes')
+        except ConfigParser.NoOptionError:
+            self._sn_host_route = False
+
         self._cfgdb = None
         self._cfgdb_map = {}
-
-    def _get_api_server_connection(self):
-        while True:
-            try:
-                self._vnc_lib = vnc_api.VncApi(
-                    api_server_host=self._vnc_api_ip,
-                    api_server_port=self._vnc_api_port,
-                    username=self._auth_user,
-                    password=self._auth_passwd,
-                    tenant_name=self._auth_tenant)
-                break
-            except requests.ConnectionError:
-                gevent.sleep(1)
 
     def _connect_to_db(self):
         """
@@ -81,19 +79,22 @@ class NeutronPluginInterface(object):
         if self._cfgdb is None:
             # Initialize connection to DB and add default entries
             exts_enabled = self._contrail_extensions_enabled
+            apply_sn_route = self._sn_host_route
             self._cfgdb = DBInterface(self._auth_user,
                                       self._auth_passwd,
                                       self._auth_tenant,
                                       self._vnc_api_ip,
                                       self._vnc_api_port,
-                                      contrail_extensions_enabled=exts_enabled)
+                                      contrail_extensions_enabled=exts_enabled,
+                                      list_optimization_enabled=\
+                                      self._list_optimization_enabled,
+                                      apply_subnet_host_routes=apply_sn_route)
             self._cfgdb.manager = self
     #end _connect_to_db
 
     def _get_user_cfgdb(self, context):
 
         self._connect_to_db()
-        self._get_api_server_connection()
 
         if not self._multi_tenancy:
             return self._cfgdb
@@ -103,7 +104,9 @@ class NeutronPluginInterface(object):
             self._cfgdb_map[user_id] = DBInterface(
                 self._auth_user, self._auth_passwd, self._auth_tenant,
                 self._vnc_api_ip, self._vnc_api_port,
-                user_info={'user_id': user_id, 'role': role})
+                user_info={'user_id': user_id, 'role': role},
+                list_optimization_enabled=self._list_optimization_enabled,
+                apply_subnet_host_routes=self._sn_host_route)
             self._cfgdb_map[user_id].manager = self
 
         return self._cfgdb_map[user_id]
@@ -379,7 +382,7 @@ class NeutronPluginInterface(object):
 
         try:
             cfgdb = self._get_user_cfgdb(context)
-            net_info = cfgdb.port_create(port['resource'])
+            net_info = cfgdb.port_create(context, port['resource'])
             return net_info
         except Exception as e:
             cgitb.Hook(format="text").handle(sys.exc_info())
@@ -715,7 +718,7 @@ class NeutronPluginInterface(object):
 
         try:
             cfgdb = self._get_user_cfgdb(context)
-            sg_rules_info = cfgdb.security_group_rule_list(filters)
+            sg_rules_info = cfgdb.security_group_rule_list(context, filters)
             return json.dumps(sg_rules_info)
         except Exception as e:
             cgitb.Hook(format="text").handle(sys.exc_info())
@@ -807,7 +810,7 @@ class NeutronPluginInterface(object):
 
         try:
             cfgdb = self._get_user_cfgdb(context)
-            routers_info = cfgdb.router_list(filters)
+            routers_info = cfgdb.router_list(context, filters)
             return json.dumps(routers_info)
         except Exception as e:
             cgitb.Hook(format="text").handle(sys.exc_info())
@@ -839,10 +842,10 @@ class NeutronPluginInterface(object):
             router_id = interface_info['id']
             if 'port_id' in interface_info['resource']:
                 port_id = interface_info['resource']['port_id']
-                return cfgdb.add_router_interface(router_id, port_id=port_id)
+                return cfgdb.add_router_interface(context, router_id, port_id=port_id)
             elif 'subnet_id' in interface_info['resource']:
                 subnet_id = interface_info['resource']['subnet_id']
-                return cfgdb.add_router_interface(router_id,
+                return cfgdb.add_router_interface(context, router_id,
                                                   subnet_id=subnet_id)
         except Exception as e:
             cgitb.Hook(format="text").handle(sys.exc_info())
@@ -958,7 +961,7 @@ class NeutronPluginInterface(object):
 
         try:
             cfgdb = self._get_user_cfgdb(context)
-            ipams_info = cfgdb.ipam_list(filters)
+            ipams_info = cfgdb.ipam_list(context, filters)
             return json.dumps(ipams_info)
         except Exception as e:
             cgitb.Hook(format="text").handle(sys.exc_info())
@@ -1067,7 +1070,7 @@ class NeutronPluginInterface(object):
 
         try:
             cfgdb = self._get_user_cfgdb(context)
-            policys_info = cfgdb.policy_list(filters)
+            policys_info = cfgdb.policy_list(context, filters)
             return json.dumps(policys_info)
         except Exception as e:
             cgitb.Hook(format="text").handle(sys.exc_info())

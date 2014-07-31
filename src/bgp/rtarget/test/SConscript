@@ -36,7 +36,7 @@ env.Prepend(LIBS = ['control_test', 'bgptest', 'bgp', 'peer_sandesh',
 		    'ifmap_server', 'ifmap_common',
                     'ifmapio', 'ds', 'pugixml', 'httpc', 'curl',
                     'crypto', 'ssl', 'sandesh', 'http', 'http_parser',
-                    'db', 'sandeshvns', 'io', 'connection_info', 'base', 'gunit'])
+                    'db', 'sandeshvns', 'io', 'process_info', 'base', 'gunit'])
 
 env.Append(LIBS = ['bgp_enet', 'bgp_ermvpn', 'bgp_evpn'])
 env.Append(LIBS = ['bgp_inet', 'bgp_l3vpn'])
@@ -92,13 +92,13 @@ env.Alias('src/bgp/rtarget:rtarget_prefix_test', rtarget_prefix_test)
 test_suite = [
     rtarget_address_test,
     rtarget_prefix_test,
+    rtarget_table_test,
 ]
 
 test = env.TestSuite('rtarget-test', test_suite)
 env.Alias('controller/src/bgp/rtarget:test', test)
 
 flaky_test_suite = [
-    rtarget_table_test,
 ]
 
 flaky_test = env.TestSuite('rtarget-flaky-test', flaky_test_suite)

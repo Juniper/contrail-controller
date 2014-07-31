@@ -18,6 +18,7 @@
 #include <tbb/atomic.h>
 
 #include "base/logging.h"
+#include "base/task_annotations.h"
 #include "bgp/bgp_log.h"
 #include "bgp/bgp_peer.h"
 #include "bgp/bgp_peer_types.h"
@@ -222,12 +223,17 @@ struct EvBgpHeaderError : sc::event<EvBgpHeaderError> {
 struct EvBgpOpen : sc::event<EvBgpOpen> {
     EvBgpOpen(BgpSession *session, const BgpProto::OpenMessage *msg)
         : session(session), msg(msg) {
-        BGP_LOG_PEER(Message, session->Peer(), SandeshLevel::SYS_DEBUG,
+        BGP_LOG_PEER(Message, session->Peer(), SandeshLevel::SYS_INFO,
             BGP_LOG_FLAG_SYSLOG, BGP_PEER_DIR_IN,
             "Open " << msg->ToString());
     }
     static const char *Name() {
         return "EvBgpOpen";
+    }
+    bool validate(StateMachine *state_machine) const {
+        return ((state_machine->peer()->session() == session) ||
+                (state_machine->active_session() == session) ||
+                (state_machine->passive_session() == session));
     }
 
     BgpSession *session;
@@ -258,9 +264,14 @@ struct EvBgpOpenError : sc::event<EvBgpOpenError> {
 
 struct EvBgpKeepalive : sc::event<EvBgpKeepalive> {
     EvBgpKeepalive(BgpSession *session) : session(session) {
-        BGP_LOG_PEER(Message, session->Peer(),
-                     session->Peer()->IsReady() ?
-                         Sandesh::LoggingUtLevel() : Sandesh::LoggingUtLevel(),
+        const StateMachine *state_machine = session->Peer()->state_machine();
+        SandeshLevel::type log_level;
+        if (state_machine->get_state() == StateMachine::ESTABLISHED) {
+            log_level = Sandesh::LoggingUtLevel();
+        } else {
+            log_level = SandeshLevel::SYS_INFO;
+        }
+        BGP_LOG_PEER(Message, session->Peer(), log_level,
                      BGP_LOG_FLAG_SYSLOG, BGP_PEER_DIR_IN, "Keepalive");
     }
     static const char *Name() {
@@ -585,7 +596,9 @@ struct Connect : sc::state<Connect, StateMachine> {
     // Get rid of the active session and go back to Active.
     sc::result react(const EvConnectTimerExpired &event) {
         StateMachine *state_machine = &context<StateMachine>();
+        BgpPeer *peer = state_machine->peer();
         state_machine->set_active_session(NULL);
+        peer->inc_connect_timer_expired();
         return transit<Active>();
     }
 
@@ -1076,7 +1089,6 @@ StateMachine::StateMachine(BgpPeer *peer)
         hold_time_(GetConfiguredHoldTime()),
         idle_hold_time_(0),
         attempts_(0),
-        deleted_(false),
         state_(IDLE) {
     initiate();
 }
@@ -1093,7 +1105,6 @@ void StateMachine::DeleteAllTimers() {
 // possible reference to the timers being deleted any more
 //
 StateMachine::~StateMachine() {
-    deleted_ = true;
     work_queue_.Shutdown();
     terminate();
     DeleteAllTimers();
@@ -1104,6 +1115,10 @@ void StateMachine::Initialize() {
 }
 
 void StateMachine::Shutdown(int subcode) {
+    if (peer_->IsDeleted()) {
+        work_queue_.SetExitCallback(
+            boost::bind(&StateMachine::DequeueEventDone, this, _1));
+    }
     Enqueue(fsm::EvStop(subcode));
 }
 
@@ -1117,6 +1132,10 @@ void StateMachine::SetAdminState(bool down) {
         reset_last_info();
         Enqueue(fsm::EvStart());
     }
+}
+
+bool StateMachine::IsQueueEmpty() const {
+    return work_queue_.IsQueueEmpty();
 }
 
 template <typename Ev, int code>
@@ -1349,10 +1368,7 @@ bool StateMachine::ProcessNotificationEvent(BgpSession *session) {
 }
 
 bool StateMachine::ConnectTimerExpired() {
-    if (!deleted_) {
-        Enqueue(fsm::EvConnectTimerExpired(connect_timer_));
-    }
-
+    Enqueue(fsm::EvConnectTimerExpired(connect_timer_));
     return false;
 }
 
@@ -1370,6 +1386,7 @@ bool StateMachine::HoldTimerExpired() {
         return true;
     }
     Enqueue(fsm::EvHoldTimerExpired(hold_timer_));
+    peer_->inc_hold_timer_expired();
     return false;
 }
 
@@ -1391,6 +1408,7 @@ void StateMachine::OnSessionEvent(
         break;
     case TcpSession::CONNECT_FAILED:
         Enqueue(fsm::EvTcpConnectFail(bgp_session));
+        peer_->inc_connect_error();
         break;
     case TcpSession::CLOSE:
         Enqueue(fsm::EvTcpClose(bgp_session));
@@ -1406,6 +1424,7 @@ void StateMachine::OnSessionEvent(
 // read on connect when we accept passive sessions.
 //
 bool StateMachine::PassiveOpen(BgpSession *session) {
+    CHECK_CONCURRENCY("bgp::Config");
     Enqueue(fsm::EvTcpPassiveOpen(session));
     session->set_observer(boost::bind(&StateMachine::OnSessionEvent,
         this, _1, _2));
@@ -1425,7 +1444,7 @@ void StateMachine::OnMessage(BgpSession *session, BgpProto::BgpMessage *msg) {
         peer->inc_rx_open();
         if (int subcode = open_msg->Validate(peer)) {
             Enqueue(fsm::EvBgpOpenError(session, subcode));
-            peer->inc_rx_open_error();
+            peer->inc_open_error();
         } else {
             Enqueue(fsm::EvBgpOpen(session, open_msg));
             msg = NULL;
@@ -1459,7 +1478,7 @@ void StateMachine::OnMessage(BgpSession *session, BgpProto::BgpMessage *msg) {
         int subcode;
         if (peer && (subcode = update->Validate(peer, data))) {
             Enqueue(fsm::EvBgpUpdateError(session, subcode, data));
-            peer->inc_rx_update_error();
+            peer->inc_update_error();
         } else {
             Enqueue(fsm::EvBgpUpdate(session, update));
             msg = NULL;
@@ -1549,9 +1568,6 @@ struct ValidateFn<Ev, true> {
 
 template <typename Ev>
 bool StateMachine::Enqueue(const Ev &event) {
-    if (deleted_)
-        return false;
-
     LogEvent(TYPE_NAME(event), "Enqueue");
     EventContainer ec;
     ec.event = event.intrusive_from_this();
@@ -1575,11 +1591,6 @@ void StateMachine::LogEvent(string event_name, string msg,
 }
 
 bool StateMachine::DequeueEvent(StateMachine::EventContainer ec) {
-    if (deleted_)
-        return true;
-
-    set_last_event(TYPE_NAME(*ec.event));
-
     const fsm::EvTcpDeleteSession *deferred_delete =
         dynamic_cast<const fsm::EvTcpDeleteSession *>(ec.event.get());
     if (deferred_delete != NULL) {
@@ -1589,6 +1600,7 @@ bool StateMachine::DequeueEvent(StateMachine::EventContainer ec) {
         return true;
     }
 
+    set_last_event(TYPE_NAME(*ec.event));
     if (ec.validate.empty() || ec.validate(this)) {
         LogEvent(TYPE_NAME(*ec.event), "Dequeue");
         process_event(*ec.event);
@@ -1598,6 +1610,10 @@ bool StateMachine::DequeueEvent(StateMachine::EventContainer ec) {
     ec.event.reset();
 
     return true;
+}
+
+void StateMachine::DequeueEventDone(bool done) {
+    peer_->RetryDelete();
 }
 
 void StateMachine::SetDataCollectionKey(BgpPeerInfo *peer_info) const {

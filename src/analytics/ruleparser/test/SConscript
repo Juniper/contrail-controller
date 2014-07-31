@@ -12,8 +12,7 @@ env = AnalyticsEnv.Clone()
 env.Append(LIBS=['gunit'])
 
 AnalyticsEnv_excep = env.Clone()
-while AnalyticsEnv_excep['CCFLAGS'].count('-fno-exceptions') > 0:
-    AnalyticsEnv_excep['CCFLAGS'].remove('-fno-exceptions')
+AnalyticsEnv_excep.CppEnableExceptions()
 
 ruleparser_test_obj = AnalyticsEnv_excep.Object(source="ruleparser_test.cc")
 ruleparser_test = env.UnitTest('ruleparser_test',

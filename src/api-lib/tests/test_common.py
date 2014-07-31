@@ -12,6 +12,7 @@ from flexmock import flexmock, Mock
 import requests
 import httpretty
 import json
+import logging
 
 sys.path.insert(0, '../../../../build/debug/api-lib/')
 sys.path.insert(0, '../../../../build/debug/config/api-server/')
@@ -49,6 +50,9 @@ class TestCase(testtools.TestCase, fixtures.TestWithFixtures):
         httpretty.register_uri(httpretty.GET, "http://127.0.0.1:8082/",
             body=json.dumps({'href': "http://127.0.0.1:8082", 'links':[]}))
 
+        self._logger = logging.getLogger(__name__)
+        logging.basicConfig()
+        self._logger.setLevel(logging.DEBUG)
         self._vnc_lib = vnc_api.VncApi()
     # end setUp
 

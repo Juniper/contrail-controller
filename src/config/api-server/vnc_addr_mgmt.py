@@ -8,6 +8,12 @@ from pprint import pformat
 from copy import deepcopy
 import json
 import cfgm_common.exceptions
+try:
+    #python2.7
+    from collections import OrderedDict
+except:
+    #python2.6
+    from ordereddict import OrderedDict
 
 class AddrMgmtError(Exception):
     pass
@@ -174,6 +180,7 @@ class Subnet(object):
                 gw_ip = IPAddress(gw)
             except AddrFormatError:
                 raise AddrMgmtInvalidGatewayIp(name, gw_ip)
+
         else:
             # reserve a gateway ip in subnet
             if addr_from_start:
@@ -239,6 +246,12 @@ class Subnet(object):
     def get_exclude(self):
         return self._exclude
     # end get_exclude
+
+    def is_ip_allocated(self, ipaddr):
+        ip = IPAddress(ipaddr)
+        addr = int(ip)
+        return self._db_conn.subnet_is_addr_allocated(self._name, addr)
+    # end is_ip_allocated
 
     def ip_alloc(self, ipaddr=None):
         req = None
@@ -327,7 +340,7 @@ class AddrMgmt(object):
         ipam_refs = vn_dict.get('network_ipam_refs', [])
 
         # gather all subnets, return dict keyed by name
-        subnet_dicts = {}
+        subnet_dicts = OrderedDict()
         for ipam_ref in ipam_refs:
             vnsn_data = ipam_ref['attr']
             ipam_subnets = vnsn_data['ipam_subnets']
@@ -418,8 +431,8 @@ class AddrMgmt(object):
         db_subnet_dicts = self._get_subnet_dicts(vn_fq_name, db_vn_dict)
         req_subnet_dicts = self._get_subnet_dicts(vn_fq_name, req_vn_dict)
 
-        db_subnet_names = set([sname for sname in db_subnet_dicts])
-        req_subnet_names = set([sname for sname in req_subnet_dicts])
+        db_subnet_names = set(db_subnet_dicts.keys())
+        req_subnet_names = set(req_subnet_dicts.keys())
 
         del_subnet_names = db_subnet_names - req_subnet_names
         add_subnet_names = req_subnet_names - db_subnet_names
@@ -521,21 +534,31 @@ class AddrMgmt(object):
     # end _vn_to_subnets
 
     def net_check_subnet_quota(self, db_vn_dict, req_vn_dict, db_conn):
+        subnets = self._vn_to_subnets(req_vn_dict)
+        if not subnets:
+            return True, ""
         proj_uuid = db_vn_dict['parent_uuid']
         (ok, proj_dict) = QuotaHelper.get_project_dict(proj_uuid, db_conn)
         if not ok:
-            return (False, (500, 'Internal error : ' + pformat(proj_dict)))
+            return (False, 'Internal error : ' + pformat(proj_dict))
 
         obj_type = 'subnet'
-        QuotaHelper.ensure_quota_project_present(obj_type, proj_uuid, proj_dict, db_conn)
-        subnets = self._vn_to_subnets(req_vn_dict)
-        if subnets:
-            quota_count = len(subnets)
-        else:
-            quota_count = 0
-        (ok, quota_limit) = QuotaHelper.check_quota_limit(proj_dict, obj_type, quota_count)
+        for network in proj_dict.get('virtual_networks', []):
+            if network['uuid'] == db_vn_dict['uuid']:
+                continue
+            ok, net_dict = db_conn.dbe_read('virtual-network', network)
+            if not ok:
+                continue
+            vn_subnets = self._vn_to_subnets(net_dict)
+            if not vn_subnets:
+                continue
+            subnets.extend(vn_subnets)
+
+        quota_count = len(subnets) - 1
+        (ok, quota_limit) = QuotaHelper.check_quota_limit(proj_dict, obj_type,
+                                                          quota_count)
         if not ok:
-            return (False, (403, pformat(db_vn_dict['fq_name']) + ' : ' + quota_limit))
+            return (False, pformat(db_vn_dict['fq_name']) + ' : ' + quota_limit)
 
         return True, ""
 
@@ -567,6 +590,50 @@ class AddrMgmt(object):
 
         return True, ""
     # end net_check_subnet_overlap
+
+    def net_check_subnet(self, db_vn_dict, req_vn_dict):
+        ipam_refs = req_vn_dict.get('network_ipam_refs', [])
+        for ipam_ref in ipam_refs:
+            vnsn_data = ipam_ref['attr']
+            ipam_subnets = vnsn_data['ipam_subnets']
+            for ipam_subnet in ipam_subnets:
+                subnet_dict = copy.deepcopy(ipam_subnet['subnet'])
+                prefix = subnet_dict['ip_prefix']
+                prefix_len = subnet_dict['ip_prefix_len']
+                network = IPNetwork('%s/%s' % (prefix, prefix_len))
+                subnet_name = subnet_dict['ip_prefix'] + '/' + str(
+                    subnet_dict['ip_prefix_len'])
+
+                # check allocation-pool
+                alloc_pools = ipam_subnet.get('allocation_pools', None)
+                for pool in alloc_pools or []:
+                    try:
+                        iprange = IPRange(pool['start'], pool['end'])
+                    except AddrFormatError:
+                        err_msg = "Invalid allocation Pool start:%s, end:%s in subnet:%s" \
+                            %(pool['start'], pool['end'], subnet_name)
+                        return False, err_msg
+                    if iprange not in network:
+                        err_msg = "allocation pool start:%s, end:%s out of cidr:%s" \
+                            %(pool['start'], pool['end'], subnet_name)
+                        return False, err_msg
+
+                # check gw
+                gw = ipam_subnet.get('default_gateway', None)
+                if gw is not None:
+                    try:
+                        gw_ip = IPAddress(gw)
+                    except AddrFormatError:
+                        err_msg = "Invalid gateway Ip address:%s" \
+                            %(gw)
+                        return False, err_msg
+                    if gw_ip < IPAddress(network.first + 1) or gw_ip > IPAddress(network.last - 1):
+                        err_msg = "gateway Ip %s out of cidr: %s" \
+                            %(gw, subnet_name)
+                        return False, err_msg
+                
+        return True, ""
+    # end net_check_subnet
 
     # check subnets associated with a virtual network, return error if
     # any subnet is being deleted and has backref to instance-ip/floating-ip
@@ -758,10 +825,16 @@ class AddrMgmt(object):
                 break
     # end ip_free_req
 
-    def ip_free_notify(self, ip_addr, vn_fq_name):
+    def is_ip_allocated(self, ip_addr, vn_fq_name, sub=None):
         vn_fq_name_str = ':'.join(vn_fq_name)
         subnet_dicts = self._get_subnet_dicts(vn_fq_name)
         for subnet_name in subnet_dicts:
+            if sub and sub != subnet_name:
+                continue
+
+            # if we have subnet_obj free it via instance method,
+            # updating inuse bitmask, else free it via class method
+            # and there is no inuse bitmask to worry about
             try:
                 subnet_obj = self._subnet_objs[vn_fq_name_str][subnet_name]
             except KeyError:
@@ -780,6 +853,15 @@ class AddrMgmt(object):
                                     addr_from_start = subnet_dict['addr_start'])
                 self._subnet_objs[vn_fq_name_str][subnet_name] = subnet_obj
 
+            if Subnet.ip_belongs_to(IPNetwork(subnet_name),
+                                    IPAddress(ip_addr)):
+                return subnet_obj.is_ip_allocated(IPAddress(ip_addr))
+    # end is_ip_allocated
+
+    def ip_free_notify(self, ip_addr, vn_fq_name):
+        vn_fq_name_str = ':'.join(vn_fq_name)
+        for subnet_name in self._subnet_objs[vn_fq_name_str]:
+            subnet_obj = self._subnet_objs[vn_fq_name_str][subnet_name]
             if Subnet.ip_belongs_to(IPNetwork(subnet_name),
                                     IPAddress(ip_addr)):
                 subnet_obj.ip_free(IPAddress(ip_addr))

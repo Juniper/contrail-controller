@@ -299,7 +299,7 @@ void AgentRouteTable::Input(DBTablePartition *part, DBClient *client,
 
     if (data && data->IsPeerValid() == false) {
         AGENT_ROUTE_LOG("Invalid/Inactive Peer ", key->ToString(), vrf_name(),
-                        key->peer());
+                        "");
         return;
     }
 
@@ -350,7 +350,7 @@ void AgentRouteTable::Input(DBTablePartition *part, DBClient *client,
                 OPER_TRACE(Route, rt_info);
                 route_added = true;
                 AGENT_ROUTE_LOG("Added route", rt->ToString(), vrf_name(),
-                                key->peer());
+                                GETPEERNAME(key->peer()));
             } else {
                 // RT present. Check if path is also present by peer
                 path = rt->FindPath(key->peer());
@@ -369,13 +369,20 @@ void AgentRouteTable::Input(DBTablePartition *part, DBClient *client,
             } else {
                 // Let path know of route change and update itself
                 path->set_is_stale(false);
+                bool ecmp = path->path_preference().ecmp();
                 notify = data->AddChangePath(agent_, path);
+                //If a path transition from ECMP to non ECMP
+                //remote the path from ecmp peer
+                if (ecmp && ecmp != path->path_preference().ecmp()) {
+                    rt->EcmpDeletePath(path);
+                }
+
                 RouteInfo rt_info;
 
                 rt->FillTrace(rt_info, AgentRoute::CHANGE_PATH, path);
                 OPER_TRACE(Route, rt_info);
                 AGENT_ROUTE_LOG("Path change", rt->ToString(), vrf_name(),
-                                key->peer());
+                                GETPEERNAME(key->peer()));
             }
 
             if (path->RouteNeedsSync()) 
@@ -388,10 +395,6 @@ void AgentRouteTable::Input(DBTablePartition *part, DBClient *client,
 
             // ECMP path are managed by route module. Update ECMP path with 
             // addition of new path
-            if (rt->EcmpAddPath(path)) {
-                notify = true;
-            }
-
             if (rt->EcmpAddPath(path)) {
                 notify = true;
             }

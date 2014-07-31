@@ -2,6 +2,7 @@
 # Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
 #
 
+import sys
 import re
 import time
 import subprocess
@@ -21,19 +22,18 @@ cflags.append('-fexceptions')
 buildinfo_dep_libs = [
     '#build/lib/libthrift.a',
     '#build/lib/libthriftasio.a',
-    '#build/lib/libboost_program_options.a',
-    '#build/lib/libboost_regex.a',
-    '#build/lib/libboost_system.a', 
-    '#build/lib/libcurl.a',
     '#build/lib/libhttp.a',
     '#build/lib/libhttp_parser.a', 
-    '#build/lib/liblog4cplus.a',
     '#build/lib/libpugixml.a',
     '#build/lib/libsandesh.a',
     '#build/lib/libsandeshflow.a', 
-    '#build/lib/libsandeshvns.a',
-    '#build/lib/libtbb_debug.so.2'
+    '#build/lib/libsandeshvns.a'
 ]
+
+if sys.platform.startswith('freebsd'):
+    buildinfo_dep_libs.append('#build/lib/libtbb_debug.so')
+elif sys.platform.startswith('linux'):
+    buildinfo_dep_libs.append('#build/lib/libtbb_debug.so.2')
 
 def MapBuildCmnLib(list):
     return map(lambda x: File('../../../' + x).abspath, list)
@@ -103,6 +103,7 @@ contrail_vrouter_agent = env.Program(target = 'contrail-vrouter-agent',
 env.Alias('agent:contrail-vrouter-agent', contrail_vrouter_agent)
 env.Default(contrail_vrouter_agent)
 
+# Please update sandesh/common/vns.sandesh on process name change
 env.Alias('install', env.Install(env['INSTALL_BIN'], contrail_vrouter_agent))
 env.Alias('install', env.Install(env['INSTALL_CONF'], 
           '../contrail-vrouter-agent.conf'))

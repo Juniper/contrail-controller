@@ -4,14 +4,12 @@
             "controller/src/analytics",
             "controller/src/bfd",
             "controller/src/cdb",
-            "controller/src/dns",
             "controller/src/opserver",
             "controller/src/query_engine"
         ],
         "scons_test_targets" : [
             "controller/src/analytics:test",
             "controller/src/bfd:test",
-            "controller/src/dns:test",
             "controller/src/query_engine:test"
         ],
         "misc_test_targets" : [ ]
@@ -28,12 +26,14 @@
         "source_directories" : [
             "controller/src/bgp",
             "controller/src/control-node",
+            "controller/src/dns",
             "controller/src/ifmap",
             "controller/src/xmpp"
         ],
         "scons_test_targets" : [
             "controller/src/bgp:test",
             "controller/src/control-node:test",
+            "controller/src/dns:test",
             "controller/src/ifmap:test",
             "controller/src/xmpp:test"
         ],
@@ -44,7 +44,9 @@
             "controller/src/ksync",
             "controller/src/vnsw"
         ],
-        "scons_test_targets" : [ ],
+        "scons_test_targets" : [
+            "controller/src/agent:test"
+        ],
         "misc_test_targets" : [ ]
     },
     "contrail-libs" : {
@@ -60,7 +62,10 @@
             "controller/src/routing-policy",
             "controller/src/sandesh",
             "controller/src/schema",
-            "controller/src/xml"
+            "controller/src/xml",
+            "tools/generateds",
+            "tools/sandesh/compiler",
+            "tools/sandesh/library"
         ],
         "scons_test_targets" : [
             "controller/src/base:test",
@@ -69,7 +74,8 @@
             "controller/src/gendb:test",
             "controller/src/io:test",
             "controller/src/net:test",
-            "controller/src/schema:test"
+            "controller/src/schema:test",
+            "sandesh:test"
         ],
         "misc_test_targets" : [
             "contrail-collector",

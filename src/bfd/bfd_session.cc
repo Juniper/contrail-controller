@@ -12,10 +12,38 @@
 #include <boost/random.hpp>
 #include <string>
 #include <algorithm>
+
 #include "base/logging.h"
 
 namespace BFD {
-bool BFDSession::SendTimerExpired() {
+
+Session::Session(Discriminator localDiscriminator,
+        boost::asio::ip::address remoteHost,
+        EventManager *evm,
+        const SessionConfig &config, Connection *communicator) :
+        localDiscriminator_(localDiscriminator),
+        remoteHost_(remoteHost),
+        sendTimer_(TimerManager::CreateTimer(*evm->io_service(),
+                                             "BFD TX timer")),
+        recvTimer_(TimerManager::CreateTimer(*evm->io_service(),
+                                             "BFD RX timeout")),
+        currentConfig_(config),
+        nextConfig_(config),
+        sm_(CreateStateMachine(evm)),
+        pollSequence_(false),
+        communicator_(communicator),
+        stopped_(false) {
+    ScheduleSendTimer();
+    ScheduleRecvDeadlineTimer();
+    sm_->SetCallback(boost::optional<StateMachine::ChangeCb>(
+        boost::bind(&Session::CallStateChangeCallbacks, this, _1)));
+}
+
+Session::~Session() {
+    Stop();
+}
+
+bool Session::SendTimerExpired() {
     LOG(DEBUG, __func__);
     tbb::mutex::scoped_lock lock(mutex_);
 
@@ -24,12 +52,11 @@ bool BFDSession::SendTimerExpired() {
     SendPacket(&packet);
 
     // Workaround: Timer code isn't re-entrant
-    this->sendTimer_->Reschedule(TxInterval().total_milliseconds());
+    this->sendTimer_->Reschedule(tx_interval().total_milliseconds());
     return true;
 }
 
-
-bool BFDSession::RecvTimerExpired() {
+bool Session::RecvTimerExpired() {
     LOG(DEBUG, __func__);
     tbb::mutex::scoped_lock lock(mutex_);
     sm_->ProcessTimeout();
@@ -37,86 +64,90 @@ bool BFDSession::RecvTimerExpired() {
     return false;
 }
 
-
-std::string BFDSession::toString() const {
+std::string Session::toString() const {
     tbb::mutex::scoped_lock lock(mutex_);
 
     std::ostringstream out;
     out << "RemoteHost: " << remoteHost_ << "\n";
     out << "LocalDiscriminator: 0x" << std::hex << localDiscriminator_ << "\n";
-    out << "RemoteDiscriminator: 0x" << std::hex << remoteSession_.discriminator << "\n";
-    out << "DesiredMinTxInterval: " << currentConfig_->desiredMinTxInterval << "\n";
-    out << "RequiredMinRxInterval: " << currentConfig_->requiredMinRxInterval << "\n";
+    out << "RemoteDiscriminator: 0x" << std::hex << remoteSession_.discriminator
+        << "\n";
+    out << "DesiredMinTxInterval: " << currentConfig_.desiredMinTxInterval
+        << "\n";
+    out << "RequiredMinRxInterval: " << currentConfig_.requiredMinRxInterval
+        << "\n";
     out << "RemoteMinRxInterval: " << remoteSession_.minRxInterval << "\n";
 
     return out.str();
 }
 
-void BFDSession::ScheduleSendTimer() {
-    TimeInterval ti = TxInterval();
+void Session::ScheduleSendTimer() {
+    TimeInterval ti = tx_interval();
     LOG(DEBUG, __func__ << " " << ti);
 
     sendTimer_->Start(ti.total_milliseconds(),
-                             boost::bind(&BFDSession::SendTimerExpired, this));
+                      boost::bind(&Session::SendTimerExpired, this));
 }
 
-void BFDSession::ScheduleRecvDeadlineTimer() {
-    TimeInterval ti = DetectionTime();
+void Session::ScheduleRecvDeadlineTimer() {
+    TimeInterval ti = detection_time();
     LOG(DEBUG, __func__ << ti);
 
     recvTimer_->Cancel();
     recvTimer_->Start(ti.total_milliseconds(),
-                             boost::bind(&BFDSession::RecvTimerExpired, this));
+                      boost::bind(&Session::RecvTimerExpired, this));
 }
 
-BFDState BFDSession::LocalState() {
+BFDState Session::local_state_non_locking() {
     return sm_->GetState();
 }
 
-//       If periodic BFD Control packets are already being sent (the remote
-//       system is not in Demand mode), the Poll Sequence MUST be performed by
-//       setting the Poll (P) bit on those scheduled periodic transmissions;
-//       additional packets MUST NOT be sent.
-void BFDSession::InitPollSequence() {
+BFDState Session::local_state() {
+    tbb::mutex::scoped_lock lock(mutex_);
+
+    return local_state_non_locking();
+}
+
+//  If periodic BFD Control packets are already being sent (the remote
+//  system is not in Demand mode), the Poll Sequence MUST be performed by
+//  setting the Poll (P) bit on those scheduled periodic transmissions;
+//  additional packets MUST NOT be sent.
+void Session::InitPollSequence() {
+    tbb::mutex::scoped_lock lock(mutex_);
+
     pollSequence_ = true;
-    if (LocalState() != kUp && LocalState() != kAdminDown) {
+    if (local_state_non_locking() != kUp &&
+        local_state_non_locking() != kAdminDown) {
         ControlPacket packet;
         PreparePacket(nextConfig_, &packet);
         SendPacket(&packet);
     }
 }
 
-void BFDSession::PreparePacket(const BFDSessionConfig *config, ControlPacket *packet) {
-    // move to ControlPacket constructor
-    packet->diagnostic = kNoDiagnostic;
-    packet->state = LocalState();
+void Session::PreparePacket(const SessionConfig &config,
+                            ControlPacket *packet) {
+
+    packet->state = local_state_non_locking();
     packet->poll = pollSequence_;
-    packet->final = false;
-    packet->control_plane_independent = false;
-    packet->authentication_present = false;
-    packet->demand = false;
-    packet->multipoint = false;
-    packet->detection_time_multiplier = config->detectionTimeMultiplier;
     packet->sender_discriminator = localDiscriminator_;
     packet->receiver_discriminator = remoteSession_.discriminator;
-    packet->desired_min_tx_interval = config->desiredMinTxInterval;
-    packet->required_min_rx_interval = config->requiredMinRxInterval;
-    packet->required_min_echo_rx_interval = boost::posix_time::microseconds(0);
-
-    packet->length = kMinimalPacketLength;
+    packet->detection_time_multiplier = config.detectionTimeMultiplier;
+    packet->desired_min_tx_interval = config.desiredMinTxInterval;
+    packet->required_min_rx_interval = config.requiredMinRxInterval;
 }
 
-ResultCode BFDSession::ProcessControlPacket(const ControlPacket *packet) {
+ResultCode Session::ProcessControlPacket(const ControlPacket *packet) {
     tbb::mutex::scoped_lock lock(mutex_);
 
     remoteSession_.discriminator = packet->sender_discriminator;
     if (remoteSession_.minRxInterval != packet->required_min_rx_interval) {
-        // TODO schedule from previous packet
+        // TODO(bfd) schedule timer based on previous packet
         ScheduleSendTimer();
         remoteSession_.minRxInterval = packet->required_min_rx_interval;
     }
     remoteSession_.minTxInterval = packet->desired_min_tx_interval;
     remoteSession_.detectionTimeMultiplier = packet->detection_time_multiplier;
+    remoteSession_.state = packet->state;
 
     sm_->ProcessRemoteState(packet->state);
 
@@ -133,28 +164,34 @@ ResultCode BFDSession::ProcessControlPacket(const ControlPacket *packet) {
         currentConfig_ = nextConfig_;
     }
 
-    if (LocalState() == kUp) {
+    if (local_state_non_locking() == kUp ||
+        local_state_non_locking() == kInit) {
         ScheduleRecvDeadlineTimer();
     }
 
     return kResultCode_Ok;
 }
 
-void BFDSession::SendPacket(const ControlPacket *packet) {
+void Session::SendPacket(const ControlPacket *packet) {
     communicator_->SendPacket(remoteHost_, packet);
 }
 
-TimeInterval BFDSession::DetectionTime() {
-    return std::max(currentConfig_->requiredMinRxInterval,
-            remoteSession_.minTxInterval) * remoteSession_.detectionTimeMultiplier;
+TimeInterval Session::detection_time() {
+    return std::max(currentConfig_.requiredMinRxInterval,
+                    remoteSession_.minTxInterval) *
+            remoteSession_.detectionTimeMultiplier;
 }
 
-TimeInterval BFDSession::TxInterval() {
+TimeInterval Session::tx_interval() {
     TimeInterval minInterval, maxInterval;
-    if (LocalState() == kUp) {
-        TimeInterval negotiatedInterval = std::max(currentConfig_->desiredMinTxInterval, remoteSession_.minRxInterval);
+
+    if (local_state_non_locking() == kUp) {
+        TimeInterval negotiatedInterval =
+                std::max(currentConfig_.desiredMinTxInterval,
+                         remoteSession_.minRxInterval);
+
         minInterval = negotiatedInterval * 3/4;
-        if (currentConfig_->detectionTimeMultiplier == 1)
+        if (currentConfig_.detectionTimeMultiplier == 1)
             maxInterval = negotiatedInterval * 9/10;
         else
             maxInterval = negotiatedInterval;
@@ -162,23 +199,69 @@ TimeInterval BFDSession::TxInterval() {
         minInterval = kIdleTxInterval * 3/4;
         maxInterval = kIdleTxInterval;
     }
-     boost::random::uniform_int_distribution<> dist(minInterval.total_microseconds(), maxInterval.total_microseconds());
-     return boost::posix_time::microseconds(dist(randomGen));
+    boost::random::uniform_int_distribution<>
+            dist(minInterval.total_microseconds(),
+                 maxInterval.total_microseconds());
+    return boost::posix_time::microseconds(dist(randomGen));
 }
 
-boost::asio::ip::address BFDSession::RemoteHost() {
+boost::asio::ip::address Session::remote_host() {
     tbb::mutex::scoped_lock lock(mutex_);
     return remoteHost_;
 }
 
-void BFDSession::Stop() {
+void Session::Stop() {
     tbb::mutex::scoped_lock lock(mutex_);
 
     if (stopped_ == false) {
         TimerManager::DeleteTimer(sendTimer_);
         TimerManager::DeleteTimer(recvTimer_);
         stopped_ = true;
+        sm_->SetCallback(boost::optional<StateMachine::ChangeCb>());
     }
+}
+
+SessionConfig Session::config() {
+    tbb::mutex::scoped_lock lock(mutex_);
+    return nextConfig_;
+}
+
+BFDRemoteSessionState Session::remote_state() {
+    tbb::mutex::scoped_lock lock(mutex_);
+    return remoteSession_;
+}
+
+Discriminator Session::local_discriminator() {
+    tbb::mutex::scoped_lock lock(mutex_);
+    return localDiscriminator_;
+}
+
+void Session::CallStateChangeCallbacks(const BFD::BFDState &new_state) {
+    for (Callbacks::const_iterator it = callbacks_.begin();
+         it != callbacks_.end(); ++it) {
+        it->second(new_state);
+    }
+}
+
+void Session::RegisterChangeCallback(ClientId client_id,
+                                     StateMachine::ChangeCb cb) {
+    tbb::mutex::scoped_lock lock(mutex_);
+    callbacks_[client_id] = cb;
+}
+
+void Session::UnregisterChangeCallback(ClientId client_id) {
+    tbb::mutex::scoped_lock lock(mutex_);
+    callbacks_.erase(client_id);
+}
+
+void Session::UpdateConfig(const SessionConfig& config) {
+    // TODO(bfd) implement UpdateConfig
+    LOG(ERROR, "Session::UpdateConfig not implemented");
+}
+
+int Session::reference_count() {
+    tbb::mutex::scoped_lock lock(mutex_);
+    return callbacks_.size();
 }
 
 }  // namespace BFD

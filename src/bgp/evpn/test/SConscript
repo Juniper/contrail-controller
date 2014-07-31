@@ -58,7 +58,7 @@ env.Prepend(LIBS = [
                     'curl',
                     'ifmap_server',
                     'ifmap_common',
-                    'connection_info',
+                    'process_info',
                     'base',
                     'db',
                     'gunit',

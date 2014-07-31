@@ -6,17 +6,14 @@
 Import('BuildEnv')
 
 env = BuildEnv.Clone()
-env.AppendUnique(CCFLAGS='-fno-exceptions')
+env.CppDisableExceptions()
 
 env.Append(CPPPATH = env['TOP'])
 env.Append(CPPPATH = env['TOP'] + '/discovery/client')
 env.Prepend(LIBS=['ds', 'sandesh', 'http', 'http_parser', 'curl', 'io', 'base'])
 
 except_env = BuildEnv.Clone()
-cflags = except_env['CCFLAGS']
-if '-fno-exceptions' in cflags:
-    cflags.remove('-fno-exceptions')
-except_env.Replace(CCFLAGS = cflags)
+except_env.CppEnableExceptions()
 except_env.Append(CPPPATH = env['TOP'])
 
 SandeshGenFiles = env.SandeshGenCpp('ifmap_server_show.sandesh')

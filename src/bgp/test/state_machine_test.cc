@@ -9,6 +9,7 @@
 #include <boost/foreach.hpp>
 
 #include "base/logging.h"
+#include "base/task_annotations.h"
 #include "base/test/task_test_util.h"
 #include "net/bgp_af.h"
 #include "bgp/bgp_config.h"
@@ -139,14 +140,14 @@ public:
     BgpSessionMock *duplicate_session() { return duplicate_session_; }
 
 private:
-    friend class StateMachineTest;
+    friend class StateMachineUnitTest;
     BgpSessionMock *active_session_, *passive_session_, *duplicate_session_;
     bool create_session_fail_;
 };
 
-class StateMachineTest : public ::testing::Test {
+class StateMachineUnitTest : public ::testing::Test {
 protected:
-    StateMachineTest() : server_(&evm_, "A"),
+    StateMachineUnitTest() : server_(&evm_, "A"),
         timer_(TimerManager::CreateTimer(*evm_.io_service(), "Dummy timer")) {
         session_mgr_ =
           static_cast<BgpSessionManagerMock *>(server_.session_manager());
@@ -166,7 +167,7 @@ protected:
         higher_id_ = Ip4Address::from_string("193.168.0.0", ec).to_ulong();
     }
 
-    ~StateMachineTest() {
+    ~StateMachineUnitTest() {
         task_util::WaitForIdle();
         server_.Shutdown();
         task_util::WaitForIdle();
@@ -205,7 +206,7 @@ protected:
 
     void RunToState(StateMachine::State state) {
         timer_->Start(15000,
-                     boost::bind(&StateMachineTest::DummyTimerHandler, this));
+            boost::bind(&StateMachineUnitTest::DummyTimerHandler, this));
         task_util::WaitForIdle();
         for (int count = 0; count < 100 && sm_->get_state() != state; count++) {
             evm_.RunOnce();
@@ -400,11 +401,13 @@ protected:
         sm_->FireOpenTimer();
     }
     void EvTcpPassiveOpen() {
+        ConcurrencyScope scope("bgp::Config");
         BgpSessionMock *session = session_mgr_->CreatePassiveSession();
         TcpSession::Endpoint endpoint;
         peer_->AcceptSession(session);
     }
     void EvTcpDuplicatePassiveOpen() {
+        ConcurrencyScope scope("bgp::Config");
         BgpSessionMock *session = session_mgr_->CreateDuplicateSession();
         TcpSession::Endpoint endpoint;
         peer_->AcceptSession(session);
@@ -501,14 +504,14 @@ struct EvGenComp {
     }
 };
 
-TEST_F(StateMachineTest, Matrix) {
+TEST_F(StateMachineUnitTest, Matrix) {
     boost::asio::io_service::work work(*evm_.io_service());
     typedef map<EvGen, StateMachine::State, EvGenComp> Transitions;
 
 #define TRANSITION(F, E) \
-    ((EvGen) boost::bind(&StateMachineTest_Matrix_Test::F, this), E)
+    ((EvGen) boost::bind(&StateMachineUnitTest_Matrix_Test::F, this), E)
 #define TRANSITION2(F, E) \
-    ((EvGen) boost::bind(&StateMachineTest_Matrix_Test::F, this, \
+    ((EvGen) boost::bind(&StateMachineUnitTest_Matrix_Test::F, this, \
             (BgpSessionMock *) NULL), E)
 
     Transitions idle = map_list_of
@@ -630,7 +633,7 @@ TEST_F(StateMachineTest, Matrix) {
 //
 // Simplest sequence of events to go to Established.
 //
-TEST_F(StateMachineTest, Basic) {
+TEST_F(StateMachineUnitTest, Basic) {
     GetToState(StateMachine::ACTIVE);
     EvConnectTimerExpired();
     VerifyState(StateMachine::CONNECT);
@@ -647,7 +650,7 @@ TEST_F(StateMachineTest, Basic) {
 //
 // Simulate EvTcpConnectFail and EvTcpClose.
 //
-TEST_F(StateMachineTest, ConnectionErrors) {
+TEST_F(StateMachineUnitTest, ConnectionErrors) {
     boost::asio::io_service::work work(*evm_.io_service());
     GetToState(StateMachine::CONNECT);
     EvTcpConnectFail();
@@ -666,7 +669,7 @@ TEST_F(StateMachineTest, ConnectionErrors) {
 // Simulate CreateSession failure and verify that we cycle through the
 // Connect and Active states till CreateSession eventually succeeds.
 //
-TEST_F(StateMachineTest, CreateSessionFail) {
+TEST_F(StateMachineUnitTest, CreateSessionFail) {
 
     // Mark CreateSession() to fail.
     session_mgr_->set_create_session_fail(true);
@@ -699,7 +702,7 @@ TEST_F(StateMachineTest, CreateSessionFail) {
 //
 // Verify that the connect time backs off as expected.
 //
-TEST_F(StateMachineTest, ConnectTimerBackoff) {
+TEST_F(StateMachineUnitTest, ConnectTimerBackoff) {
     GetToState(StateMachine::ACTIVE);
     for (int idx = 0; idx < 10; idx++) {
         int connect_time = sm_->GetConnectTime();
@@ -723,7 +726,7 @@ TEST_F(StateMachineTest, ConnectTimerBackoff) {
     VerifyState(StateMachine::OPENSENT);
 }
 
-class StateMachineIdleTest : public StateMachineTest {
+class StateMachineIdleTest : public StateMachineUnitTest {
 protected:
     virtual void SetUp() {
         GetToState(StateMachine::IDLE);
@@ -825,7 +828,7 @@ TEST_F(StateMachineIdleTest, TcpPassiveOpenThenConnectTimerExpiredThenBgpOpen) {
     TASK_UTIL_EXPECT_TRUE(session_mgr_->passive_session() == NULL);
 }
 
-class StateMachineActiveTest : public StateMachineTest {
+class StateMachineActiveTest : public StateMachineUnitTest {
 protected:
     virtual void SetUp() {
         GetToState(StateMachine::ACTIVE);
@@ -859,8 +862,10 @@ TEST_F(StateMachineActiveTest, TcpPassiveOpen) {
 // Other:     Original passive session should get closed and deleted, while
 //            the duplicate passive session becomes the new passive session.
 TEST_F(StateMachineActiveTest, DuplicateTcpPassiveOpen) {
+    TaskScheduler::GetInstance()->Stop();
     EvTcpPassiveOpen();
     EvTcpDuplicatePassiveOpen();
+    TaskScheduler::GetInstance()->Start();
     VerifyState(StateMachine::ACTIVE);
     TASK_UTIL_EXPECT_TRUE(!ConnectTimerRunning());
     TASK_UTIL_EXPECT_TRUE(OpenTimerRunning());
@@ -1019,7 +1024,7 @@ TEST_P(StateMachineActiveParamTest2, BgpHoldtimeNegotiation) {
 INSTANTIATE_TEST_CASE_P(One, StateMachineActiveParamTest2,
     ::testing::Combine(::testing::Bool(), ::testing::Bool()));
 
-class StateMachineConnectTest : public StateMachineTest {
+class StateMachineConnectTest : public StateMachineUnitTest {
 protected:
     virtual void SetUp() {
         GetToState(StateMachine::CONNECT);
@@ -1061,8 +1066,10 @@ TEST_F(StateMachineConnectTest, TcpPassiveOpen) {
 // Other:     Original passive session should get closed and deleted, while
 //            the duplicate passive session becomes the new passive session.
 TEST_F(StateMachineConnectTest, DuplicateTcpPassiveOpen) {
+    TaskScheduler::GetInstance()->Stop();
     EvTcpPassiveOpen();
     EvTcpDuplicatePassiveOpen();
+    TaskScheduler::GetInstance()->Start();
     VerifyState(StateMachine::CONNECT);
     TASK_UTIL_EXPECT_TRUE(OpenTimerRunning());
     TASK_UTIL_EXPECT_TRUE(sm_->passive_session() != NULL);
@@ -1395,7 +1402,7 @@ TEST_P(StateMachineConnectParamTest2, BgpHoldtimeNegotiation) {
 INSTANTIATE_TEST_CASE_P(One, StateMachineConnectParamTest2,
     ::testing::Combine(::testing::Bool(), ::testing::Bool()));
 
-class StateMachineOpenSentTest : public StateMachineTest {
+class StateMachineOpenSentTest : public StateMachineUnitTest {
 protected:
     virtual void SetUp() {
     }
@@ -1427,8 +1434,10 @@ TEST_F(StateMachineOpenSentTest, TcpPassiveOpen) {
 //            the duplicate passive session becomes the new passive session.
 TEST_F(StateMachineOpenSentTest, DuplicateTcpPassiveOpen1) {
     GetToState(StateMachine::OPENSENT);
+    TaskScheduler::GetInstance()->Stop();
     EvTcpPassiveOpen();
     EvTcpDuplicatePassiveOpen();
+    TaskScheduler::GetInstance()->Start();
     VerifyState(StateMachine::OPENSENT);
     TASK_UTIL_EXPECT_TRUE(OpenTimerRunning());
     TASK_UTIL_EXPECT_TRUE(sm_->active_session() != NULL);
@@ -1449,7 +1458,9 @@ TEST_F(StateMachineOpenSentTest, DuplicateTcpPassiveOpen2) {
     GetToState(StateMachine::ACTIVE);
     EvOpenTimerExpiredPassive();
     VerifyState(StateMachine::OPENSENT);
+    TaskScheduler::GetInstance()->Stop();
     EvTcpDuplicatePassiveOpen();
+    TaskScheduler::GetInstance()->Start();
     VerifyState(StateMachine::ACTIVE);
     TASK_UTIL_EXPECT_TRUE(OpenTimerRunning());
     TASK_UTIL_EXPECT_TRUE(!ConnectTimerRunning());
@@ -1471,7 +1482,9 @@ TEST_F(StateMachineOpenSentTest, DuplicateTcpPassiveOpen3) {
     GetToState(StateMachine::OPENSENT);
     EvOpenTimerExpiredPassive();
     VerifyState(StateMachine::OPENSENT);
+    TaskScheduler::GetInstance()->Stop();
     EvTcpDuplicatePassiveOpen();
+    TaskScheduler::GetInstance()->Start();
     VerifyState(StateMachine::OPENSENT);
     TASK_UTIL_EXPECT_TRUE(OpenTimerRunning());
     TASK_UTIL_EXPECT_TRUE(sm_->active_session() != NULL);
@@ -2307,7 +2320,7 @@ TEST_P(StateMachineOpenSentParamTest3, BgpHoldtimeNegotiation2) {
 INSTANTIATE_TEST_CASE_P(One, StateMachineOpenSentParamTest3,
     ::testing::Combine(::testing::Bool(), ::testing::Bool()));
 
-class StateMachineOpenConfirmTest : public StateMachineTest {
+class StateMachineOpenConfirmTest : public StateMachineUnitTest {
 protected:
     virtual void SetUp() {
     }
@@ -2430,7 +2443,10 @@ TEST_P(StateMachineOpenConfirmParamTest1, TcpPassiveOpen) {
     GetToState(StateMachine::ACTIVE);
     EvTcpPassiveOpen();
     EvBgpOpenCustom(session_mgr_->passive_session(), id_);
+    VerifyState(StateMachine::OPENCONFIRM);
+    TaskScheduler::GetInstance()->Stop();
     EvTcpDuplicatePassiveOpen();
+    TaskScheduler::GetInstance()->Start();
     VerifyState(StateMachine::OPENCONFIRM);
     VerifyDirection(BgpSessionMock::PASSIVE);
     TASK_UTIL_EXPECT_TRUE(session_mgr_->passive_session() != NULL);
@@ -2454,7 +2470,7 @@ INSTANTIATE_TEST_CASE_P(One, StateMachineOpenConfirmParamTest1,
     ::testing::Bool());
 
 
-class StateMachineEstablishedTest : public StateMachineTest {
+class StateMachineEstablishedTest : public StateMachineUnitTest {
 protected:
     virtual void SetUp() {
         GetToState(StateMachine::ESTABLISHED);
@@ -2479,13 +2495,24 @@ TEST_F(StateMachineEstablishedTest, TcpPassiveOpen) {
 }
 
 // Old State: Established
-// Event:     EvTcpPassiveOpen + EvBgpOpen
-// New State: Idle
+// Event:     EvTcpPassiveOpen + EvBgpOpen (on passive session)
+// New State: Established
 TEST_F(StateMachineEstablishedTest, TcpPassiveOpenThenBgpOpen) {
     TaskScheduler::GetInstance()->Stop();
     EvTcpPassiveOpen();
     BgpSessionMock *session = session_mgr_->passive_session();
     EvBgpOpenCustom(session, lower_id_);
+    TaskScheduler::GetInstance()->Start();
+    task_util::WaitForIdle();
+    VerifyState(StateMachine::ESTABLISHED);
+}
+
+// Old State: Established
+// Event:     EvBgpOpen (on active session)
+// New State: Idle
+TEST_F(StateMachineEstablishedTest, BgpOpen) {
+    TaskScheduler::GetInstance()->Stop();
+    EvBgpOpen(session_mgr_->active_session());
     TaskScheduler::GetInstance()->Start();
     task_util::WaitForIdle();
     VerifyState(StateMachine::IDLE);

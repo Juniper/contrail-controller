@@ -28,6 +28,7 @@
 #include <uve/test/vn_uve_table_test.h>
 #include <uve/test/vm_uve_table_test.h>
 #include "ksync/ksync_sock_user.h"
+#include "uve/test/test_uve_util.h"
 
 int vrf_array[] = {1, 2};
 
@@ -35,22 +36,6 @@ using namespace std;
 
 void RouterIdDepInit(Agent *agent) {
 }
-
-class AgentStatsCollectorTask : public Task {
-public:
-    AgentStatsCollectorTask(int count) : 
-        Task((TaskScheduler::GetInstance()->GetTaskId
-            ("Agent::StatsCollector")), StatsCollector::AgentStatsCollector),
-        count_(count) {
-    }
-    virtual bool Run() {
-        for (int i = 0; i < count_; i++)
-            Agent::GetInstance()->uve()->agent_stats_collector()->Run();
-        return true;
-    }
-private:
-    int count_;
-};
 
 class UveTest : public ::testing::Test {
 public:
@@ -60,11 +45,6 @@ public:
             sprintf(vrf_name, "vrf%d", vrf[i]);
             AddVrf(vrf_name);
         }
-    }
-    void EnqueueAgentStatsCollectorTask(int count) {
-        TaskScheduler *scheduler = TaskScheduler::GetInstance();
-        AgentStatsCollectorTask *task = new AgentStatsCollectorTask(count);
-        scheduler->Enqueue(task);
     }
 
     void SetAgentStatsIntervalReq(int interval) {
@@ -114,9 +94,6 @@ public:
         }
     }
 
-    static void TestTearDown() {
-    }
-
     static void CreateVmPorts(struct PortInfo *input, int count) {
         CreateVmportEnv(input, count);
     }
@@ -129,6 +106,7 @@ public:
     int error_responses_;
     int agent_stats_interval_;
     int flow_stats_interval_;
+    TestUveUtil util_;
 };
 
 TEST_F(UveTest, VmAddDelTest1) {
@@ -219,7 +197,6 @@ TEST_F(UveTest, VnAddDelTest1) {
     //One Vmport inactive
     EXPECT_TRUE(VmPortInactive(input, 0));
     WAIT_FOR(500, 1000, (vnut->GetVnUveInterfaceCount("vn1")) == 0U);
-    WAIT_FOR(500, 1000, (vmut->GetVmUveInterfaceCount("vm1")) == 0U);
 
     DelLink("virtual-network", "vn2", "virtual-machine-interface", "vnet2");
     DelLink("virtual-network", "vn2", "routing-instance", "vrf2");
@@ -229,7 +206,6 @@ TEST_F(UveTest, VnAddDelTest1) {
     //Second Vmport inactive
     EXPECT_TRUE(VmPortInactive(input, 1));
     WAIT_FOR(500, 1000, (vnut->GetVnUveInterfaceCount("vn2")) == 0U);
-    WAIT_FOR(500, 1000, (vmut->GetVmUveInterfaceCount("vm2")) == 0U);
 
     //Cleanup other things created by this test-case
     DeleteVmportEnv(input, 2, 1);
@@ -237,6 +213,8 @@ TEST_F(UveTest, VnAddDelTest1) {
     client->VmDelNotifyWait(2);
     client->PortDelNotifyWait(2);
 
+    WAIT_FOR(500, 1000, (vmut->GetVmUveInterfaceCount("vm1")) == 0U);
+    WAIT_FOR(500, 1000, (vmut->GetVmUveInterfaceCount("vm2")) == 0U);
     WAIT_FOR(500, 1000, (Agent::GetInstance()->interface_config_table()->Size() == 0));
     WAIT_FOR(500, 1000, (Agent::GetInstance()->vm_table()->Size() == 0));
     WAIT_FOR(500, 1000, (Agent::GetInstance()->vn_table()->Size() == 0));
@@ -346,9 +324,12 @@ TEST_F(UveTest, StatsCollectorTest) {
     AgentStatsCollectorTest *collector = static_cast<AgentStatsCollectorTest *>
         (Agent::GetInstance()->uve()->agent_stats_collector());
     collector->interface_stats_responses_ = 0;
-    EnqueueAgentStatsCollectorTask(1);
+    collector->vrf_stats_responses_ = 0;
+    collector->drop_stats_responses_ = 0;
+    util_.EnqueueAgentStatsCollectorTask(1);
     //Wait until agent_stats_collector() is run
     WAIT_FOR(100, 1000, (collector->interface_stats_responses_ >= 1));
+    client->WaitForIdle(3);
 
     EXPECT_EQ(0, collector->interface_stats_errors_);
     EXPECT_EQ(0, collector->vrf_stats_errors_);
@@ -364,18 +345,18 @@ TEST_F(UveTest, StatsCollectorTest) {
     collector->drop_stats_responses_ = 0;
 
     //Enqueue stats-collector-task
-    EnqueueAgentStatsCollectorTask(1);
+    util_.EnqueueAgentStatsCollectorTask(1);
 
     //Wait until agent_stats_collector() is run
     WAIT_FOR(100, 1000, (collector->interface_stats_responses_ >= 1));
 
     //Verify that Error handlers for agent_stats_collector is invoked.
-    EXPECT_EQ(1, collector->interface_stats_errors_);
-    EXPECT_EQ(1, collector->vrf_stats_errors_);
-    EXPECT_EQ(1, collector->drop_stats_errors_);
-    EXPECT_EQ(1, collector->interface_stats_responses_);
-    EXPECT_EQ(1, collector->vrf_stats_responses_);
-    EXPECT_EQ(1, collector->drop_stats_responses_);
+    WAIT_FOR(100, 1000, (collector->interface_stats_errors_ == 1));
+    WAIT_FOR(100, 1000, (collector->vrf_stats_errors_ == 1));
+    WAIT_FOR(100, 1000, (collector->drop_stats_errors_ == 1));
+    WAIT_FOR(100, 1000, (collector->interface_stats_responses_ == 1));
+    WAIT_FOR(100, 1000, (collector->vrf_stats_responses_ == 1));
+    WAIT_FOR(100, 1000, (collector->drop_stats_responses_ == 1));
 
     //Reset the error code in mock code
     KSyncSockTypeMap::set_error_code(0);
@@ -387,18 +368,18 @@ TEST_F(UveTest, StatsCollectorTest) {
     collector->drop_stats_errors_ = 0;
 
     //Enqueue stats-collector-task
-    EnqueueAgentStatsCollectorTask(1);
+    util_.EnqueueAgentStatsCollectorTask(1);
 
     //Wait until agent_stats_collector() is run
     WAIT_FOR(100, 1000, (collector->interface_stats_responses_ >= 1));
 
     //Verify that Error handlers for agent_stats_collector is NOT invoked.
-    EXPECT_EQ(0, collector->interface_stats_errors_);
-    EXPECT_EQ(0, collector->vrf_stats_errors_);
-    EXPECT_EQ(0, collector->drop_stats_errors_);
-    EXPECT_EQ(1, collector->interface_stats_responses_);
-    EXPECT_EQ(1, collector->vrf_stats_responses_);
-    EXPECT_EQ(1, collector->drop_stats_responses_);
+    WAIT_FOR(100, 1000, (collector->interface_stats_errors_ == 0));
+    WAIT_FOR(100, 1000, (collector->vrf_stats_errors_ == 0));
+    WAIT_FOR(100, 1000, (collector->drop_stats_errors_ == 0));
+    WAIT_FOR(100, 1000, (collector->interface_stats_responses_ == 1));
+    WAIT_FOR(100, 1000, (collector->vrf_stats_responses_ == 1));
+    WAIT_FOR(100, 1000, (collector->drop_stats_responses_ == 1));
 
     //cleanup
     collector->interface_stats_responses_ = 0;
@@ -466,9 +447,8 @@ int main(int argc, char **argv) {
     UveTest::TestSetup(vrf_array, 2);
 
     int ret = RUN_ALL_TESTS();
-    UveTest::TestTearDown();
-    Agent::GetInstance()->event_manager()->Shutdown();
-    AsioStop();
-    TaskScheduler::GetInstance()->Terminate();
+    client->WaitForIdle();
+    TestShutdown();
+    delete client;
     return ret;
 }

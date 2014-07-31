@@ -117,8 +117,6 @@ class TestDemo(testtools.TestCase, fixtures.TestWithFixtures):
     # end tearDown
 
     def test_demo(self):
-        import pdb
-        pdb.set_trace()
         self.useFixture(DemoFixture(self._vnc_lib))
     # end test_demo
 

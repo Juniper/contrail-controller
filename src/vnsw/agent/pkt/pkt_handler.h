@@ -6,10 +6,11 @@
 #define vnsw_agent_pkt_handler_hpp
 
 #include <net/if.h>
+#include <netinet/in.h>
 #include <netinet/if_ether.h>
 #include <netinet/ip.h>
-#include <netinet/tcp.h>
-#include <netinet/udp.h>
+#include "net/bsdudp.h"
+#include "net/bsdtcp.h"
 #include <netinet/ip_icmp.h>
 
 #include <tbb/atomic.h>
@@ -18,6 +19,9 @@
 #include <oper/mirror_table.h>
 #include <oper/nexthop.h>
 #include <pkt/pkt_trace.h>
+#include <pkt/packet_buffer.h>
+
+#include "vr_defs.h"
 
 #define DHCP_SERVER_PORT 67
 #define DHCP_CLIENT_PORT 68
@@ -25,12 +29,12 @@
 
 #define IPv4_ALEN           4
 #define MIN_ETH_PKT_LEN    64
-#define IPC_HDR_LEN        (sizeof(ethhdr) + sizeof(struct agent_hdr))
-#define IP_PROTOCOL        0x800  
-#define VLAN_PROTOCOL      0x8100       
+#define IP_PROTOCOL        0x800
+#define VLAN_PROTOCOL      0x8100
 
 struct agent_hdr;
 class TapInterface;
+class PacketBuffer;
 
 struct InterTaskMsg {
     InterTaskMsg(uint16_t command): cmd(command) {}
@@ -68,9 +72,32 @@ struct PktType {
 };
 
 struct AgentHdr {
+    // Packet commands between agent and vrouter. The values must be in-sync 
+    // with vrouter/include/vr_defs.h
+    enum PktCommand {
+        TX_SWITCH = AGENT_CMD_SWITCH,
+        TX_ROUTE = AGENT_CMD_ROUTE,
+        TRAP_ARP = AGENT_TRAP_ARP,
+        TRAP_L2_PROTOCOL = AGENT_TRAP_L2_PROTOCOLS,
+        TRAP_NEXTHOP = AGENT_TRAP_NEXTHOP,
+        TRAP_RESOLVE = AGENT_TRAP_RESOLVE,
+        TRAP_FLOW_MISS = AGENT_TRAP_FLOW_MISS,
+        TRAP_L3_PROTOCOLS = AGENT_TRAP_L3_PROTOCOLS,
+        TRAP_DIAG = AGENT_TRAP_DIAG,
+        TRAP_ECMP_RESOLVE = AGENT_TRAP_ECMP_RESOLVE,
+        TRAP_SOURCE_MISMATCH = AGENT_TRAP_SOURCE_MISMATCH,
+        TRAP_HANDLE_DF = AGENT_TRAP_HANDLE_DF,
+        INVALID = MAX_AGENT_HDR_COMMANDS
+    };
+
     AgentHdr() :
         ifindex(-1), vrf(-1), cmd(-1), cmd_param(-1), nh(-1), flow_index(0),
         mtu(0) {}
+
+    AgentHdr(uint16_t ifindex_p, uint16_t vrf_p, uint16_t cmd_p) :
+        ifindex(ifindex_p), vrf(vrf_p), cmd(cmd_p), cmd_param(-1), nh(-1),
+        flow_index(0), mtu(0) {}
+
     ~AgentHdr() {}
 
     // Fields from agent_hdr
@@ -118,13 +145,13 @@ struct PktInfo {
     TunnelInfo          tunnel;
 
     // Pointer to different headers in user packet
-    struct ethhdr       *eth;
+    struct ether_header *eth;
     struct ether_arp    *arp;
-    struct iphdr        *ip;
+    struct ip           *ip;
     union {
         struct tcphdr   *tcp;
         struct udphdr   *udp;
-        struct icmphdr  *icmp;
+        struct icmp     *icmp;
     } transp;
 
     PktInfo(uint8_t *msg, std::size_t msg_size, std::size_t max_size);
@@ -183,10 +210,10 @@ public:
 
     void Register(PktModuleName type, RcvQueueFunc cb);
 
-    const unsigned char *mac_address();
+    const MacAddress &mac_address();
     const TapInterface *tap_interface() { return tap_interface_.get(); }
 
-    void Send(uint8_t *msg, std::size_t len, PktModuleName mod);
+    void Send(const AgentHdr &hdr, PacketBufferPtr buff);
 
     // identify pkt type and send to the registered handler
     void HandleRcvPkt(uint8_t*, std::size_t, std::size_t);  
@@ -208,6 +235,7 @@ public:
         return pkt_trace_.at(mod).pkt_trace_size();
     }
 
+    uint32_t EncapHeaderLen() const;
 private:
     friend bool ::CallPktParse(PktInfo *pkt_info, uint8_t *ptr, int len);
 

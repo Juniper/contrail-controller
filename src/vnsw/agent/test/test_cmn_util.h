@@ -28,7 +28,7 @@ void AddLinkString(char *buff, int &len, const char *node_name1,
 void DelLinkString(char *buff, int &len, const char *node_name1,
                    const char *name1, const char *node_name2, const char *name2);
 void AddNodeString(char *buff, int &len, const char *node_name, const char *name,
-                   int id, const char *attr);
+                   int id, const char *attr, bool admin_state = true);
 void AddNodeString(char *buff, int &len, const char *node_name,
                    const char *name, int id);
 void AddNodeString(char *buff, int &len, const char *nodename, const char *name,
@@ -43,7 +43,8 @@ void AddLink(const char *node_name1, const char *name1, const char *node_name2,
 void DelLink(const char *node_name1, const char *name1, const char *node_name2,
              const char *name2);
 void AddNode(const char *node_name, const char *name, int id);
-void AddNode(const char *node_name, const char *name, int id, const char *attr);
+void AddNode(const char *node_name, const char *name, int id, const char *attr,
+             bool admin_state = true);
 void DelNode(const char *node_name, const char *name);
 void IntfSyncMsg(PortInfo *input, int id);
 void IntfCfgAdd(int intf_id, const string &name, const string ipaddr,
@@ -113,6 +114,8 @@ void VmDelReq(int id);
 void AclAddReq(int id);
 void AclDelReq(int id);
 void AclAddReq(int id, int ace_id, bool drop);
+void DeleteRoute(const char *vrf, const char *ip, uint8_t plen);
+void DeleteRoute(const char *vrf, const char *ip);
 bool RouteFind(const string &vrf_name, const Ip4Address &addr, int plen);
 bool RouteFind(const string &vrf_name, const string &addr, int plen);
 bool L2RouteFind(const string &vrf_name, const struct ether_addr &mac);
@@ -163,7 +166,7 @@ void AddVrf(const char *name, int id = 0);
 void DelVrf(const char *name);
 void ModifyForwardingModeVn(const string &name, int id, const string &fw_mode);
 void AddL2Vn(const char *name, int id);
-void AddVn(const char *name, int id);
+void AddVn(const char *name, int id, bool admin_state = true);
 void DelVn(const char *name);
 void AddPort(const char *name, int id, const char *attr = NULL);
 void AddPortByStatus(const char *name, int id, bool admin_status);
@@ -191,7 +194,6 @@ void DelVDNS(const char *vdns_name);
 void AddLinkLocalConfig(const TestLinkLocalService *services, int count);
 void DelLinkLocalConfig();
 void DeleteGlobalVrouterConfig();
-TestClient *StatsTestInit();
 void send_icmp(int fd, uint8_t smac, uint8_t dmac, uint32_t sip, uint32_t dip);
 bool FlowStats(FlowIp *input, int id, uint32_t bytes, uint32_t pkts);
 void DeleteVmportEnv(struct PortInfo *input, int count, int del_vn, int acl_id = 0,
@@ -201,14 +203,16 @@ void DeleteVmportFIpEnv(struct PortInfo *input, int count, int del_vn, int acl_i
 void CreateVmportEnvInternal(struct PortInfo *input, int count, int acl_id = 0,
                      const char *vn = NULL, const char *vrf = NULL, 
                      const char *vm_interface_attr = NULL, bool l2_vn = false,
-                     bool with_ip = false, bool ecmp = false);
+                     bool with_ip = false, bool ecmp = false,
+                     bool vn_admin_state = true);
 void CreateL2VmportEnv(struct PortInfo *input, int count, int acl_id = 0,
                      const char *vn = NULL, const char *vrf = NULL);
 void CreateVmportEnvWithoutIp(struct PortInfo *input, int count, int acl_id = 0,
                      const char *vn = NULL, const char *vrf = NULL);
 void CreateVmportEnv(struct PortInfo *input, int count, int acl_id = 0,
                      const char *vn = NULL, const char *vrf = NULL,
-                     const char *vm_interface_attr = NULL);
+                     const char *vm_interface_attr = NULL,
+                     bool vn_admin_state = true);
 void CreateVmportFIpEnv(struct PortInfo *input, int count, int acl_id = 0,
                      const char *vn = NULL, const char *vrf = NULL);
 void CreateVmportWithEcmp(struct PortInfo *input, int count, int acl_id = 0,
@@ -227,6 +231,8 @@ bool FlowGetNat(const string &vrf_name, const char *sip, const char *dip,
                 const char *nat_vrf, const char *nat_sip,
                 const char *nat_dip, uint16_t nat_sport, int16_t nat_dport,
                 int nh_id, int nat_nh_id);
+FlowEntry* FlowGet(int nh_id, std::string sip, std::string dip, uint8_t proto,
+                   uint16_t sport, uint16_t dport);
 bool FlowGet(const string &vrf_name, const char *sip, const char *dip,
              uint8_t proto, uint16_t sport, uint16_t dport, bool rflow,
              std::string svn, std::string dvn, uint32_t hash_id, 
@@ -298,6 +304,7 @@ void VxLanNetworkIdentifierMode(bool config);
 int MplsToVrfId(int label);
 void AddInterfaceRouteTable(const char *name, int id, TestIp4Prefix *addr, 
                            int count);
+void ShutdownAgentController(Agent *agent);
 
 class XmppChannelMock : public XmppChannel {
 public:

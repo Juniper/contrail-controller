@@ -121,7 +121,7 @@ void SandeshGenerator::StartDbifReinit() {
     if (disconnected_) {
         return;
     }
-    GetDbHandler()->UnInit(instance_);
+    GetDbHandler()->UnInitUnlocked(instance_);
     Start_Db_Connect_Timer();
 }
 

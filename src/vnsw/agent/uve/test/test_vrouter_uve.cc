@@ -48,21 +48,6 @@ void RouterIdDepInit(Agent *agent) {
 int hash_id;
 VmInterface *flow0, *flow1;
 
-class VRouterStatsCollectorTask : public Task {
-public:
-    VRouterStatsCollectorTask(int count) : 
-        Task((TaskScheduler::GetInstance()->GetTaskId("Agent::Uve")), 0), 
-        count_(count) {
-    }
-    virtual bool Run() {
-        for (int i = 0; i < count_; i++)
-            Agent::GetInstance()->uve()->vrouter_stats_collector()->Run();
-        return true;
-    }
-private:
-    int count_;
-};
-
 class UveVrouterUveTest : public ::testing::Test {
 public:
     static void TestSetup() {
@@ -85,13 +70,15 @@ public:
     }
 
     void FlowTearDown() {
-        FlushFlowTable();
+        client->EnqueueFlowFlush();
+        client->WaitForIdle(10);
         client->Reset();
         DeleteVmportEnv(input, 2, true, 1);
         client->WaitForIdle(3);
         client->PortDelNotifyWait(2);
         EXPECT_FALSE(VmPortFind(input, 0));
         EXPECT_FALSE(VmPortFind(input, 1));
+        EXPECT_EQ(0U, Agent::GetInstance()->pkt()->flow_table()->Size());
     }
 
     bool ValidateBmap(const std::vector<uint32_t> &smap, const std::vector<uint32_t> &dmap, 
@@ -118,11 +105,6 @@ public:
             ret = false;
         }
         return ret;
-    }
-    void EnqueueVRouterStatsCollectorTask(int count) {
-        TaskScheduler *scheduler = TaskScheduler::GetInstance();
-        VRouterStatsCollectorTask *task = new VRouterStatsCollectorTask(count);
-        scheduler->Enqueue(task);
     }
     bool BandwidthMatch(const vector<AgentIfBandwidth> &list, int in, int out) {
         if (0 == list.size()) {
@@ -282,24 +264,29 @@ TEST_F(UveVrouterUveTest, VmAddDel) {
     EXPECT_EQ(0U, uve.get_virtual_machine_list().size());
 
     util_.VmAdd(1);
+    client->WaitForIdle();
 
     EXPECT_EQ(1U, vr->vrouter_msg_count());
     EXPECT_EQ(1U, uve.get_virtual_machine_list().size());
 
     util_.VmAdd(2);
+    client->WaitForIdle();
 
     EXPECT_EQ(2U, vr->vrouter_msg_count());
     EXPECT_EQ(2U, uve.get_virtual_machine_list().size());
 
     util_.VmDelete(2);
+    client->WaitForIdle();
 
     EXPECT_EQ(3U, vr->vrouter_msg_count());
     EXPECT_EQ(1U, uve.get_virtual_machine_list().size());
 
     util_.VmDelete(1);
+    client->WaitForIdle();
 
     EXPECT_EQ(4U, vr->vrouter_msg_count());
     EXPECT_EQ(0U, uve.get_virtual_machine_list().size());
+    vr->clear_count();
 }
 
 TEST_F(UveVrouterUveTest, VnAddDel) {
@@ -312,24 +299,29 @@ TEST_F(UveVrouterUveTest, VnAddDel) {
     EXPECT_EQ(0U, uve.get_connected_networks().size());
 
     util_.VnAdd(1);
+    client->WaitForIdle();
 
     EXPECT_EQ(1U, vr->vrouter_msg_count());
     EXPECT_EQ(1U, uve.get_connected_networks().size());
 
     util_.VnAdd(2);
+    client->WaitForIdle();
 
     EXPECT_EQ(2U, vr->vrouter_msg_count());
     EXPECT_EQ(2U, uve.get_connected_networks().size());
 
     util_.VnDelete(2);
+    client->WaitForIdle();
 
     EXPECT_EQ(3U, vr->vrouter_msg_count());
     EXPECT_EQ(1U, uve.get_connected_networks().size());
 
     util_.VnDelete(1);
+    client->WaitForIdle();
 
     EXPECT_EQ(4U, vr->vrouter_msg_count());
     EXPECT_EQ(0U, uve.get_connected_networks().size());
+    vr->clear_count();
 }
 
 TEST_F(UveVrouterUveTest, ComputeCpuState_1) {
@@ -337,21 +329,23 @@ TEST_F(UveVrouterUveTest, ComputeCpuState_1) {
     VrouterUveEntryTest *vr = static_cast<VrouterUveEntryTest *>
         (Agent::GetInstance()->uve()->vrouter_uve_entry());
     vr->clear_count();
-    EnqueueVRouterStatsCollectorTask(1);
+    vr->ResetCpuStatsCount();
+    util_.EnqueueVRouterStatsCollectorTask(1);
     client->WaitForIdle();
     EXPECT_EQ(0U, vr->compute_state_send_count());
 
-    EnqueueVRouterStatsCollectorTask(5);
+    util_.EnqueueVRouterStatsCollectorTask(5);
     client->WaitForIdle();
     EXPECT_EQ(1U, vr->compute_state_send_count());
 
-    EnqueueVRouterStatsCollectorTask(1);
+    util_.EnqueueVRouterStatsCollectorTask(1);
     client->WaitForIdle();
     EXPECT_EQ(1U, vr->compute_state_send_count());
 
-    EnqueueVRouterStatsCollectorTask(5);
+    util_.EnqueueVRouterStatsCollectorTask(5);
     client->WaitForIdle();
     EXPECT_EQ(2U, vr->compute_state_send_count());
+    vr->clear_count();
 }
 
 TEST_F(UveVrouterUveTest, DropStatsAddChange) {
@@ -360,7 +354,7 @@ TEST_F(UveVrouterUveTest, DropStatsAddChange) {
     vr->clear_count();
 
     Agent::GetInstance()->uve()->vrouter_stats_collector()->run_counter_ = 0;
-    EnqueueVRouterStatsCollectorTask(1);
+    util_.EnqueueVRouterStatsCollectorTask(1);
     client->WaitForIdle();
     WAIT_FOR(10000, 500, (Agent::GetInstance()->uve()->vrouter_stats_collector()->run_counter_ >= 1));
 
@@ -368,6 +362,7 @@ TEST_F(UveVrouterUveTest, DropStatsAddChange) {
     const vr_drop_stats_req ds_null;
     const AgentDropStats ds = uve.get_drop_stats();
     EXPECT_TRUE(DropStatsEqual(ds, ds_null));
+    vr->clear_count();
 
     vr_drop_stats_req ds2;
     ds2.set_vds_discard(10);
@@ -384,7 +379,7 @@ TEST_F(UveVrouterUveTest, DropStatsAddChange) {
 
     //Trigger vrouter stats collection
     Agent::GetInstance()->uve()->vrouter_stats_collector()->run_counter_ = 0;
-    EnqueueVRouterStatsCollectorTask(1);
+    util_.EnqueueVRouterStatsCollectorTask(1);
     client->WaitForIdle();
     WAIT_FOR(10000, 500, (Agent::GetInstance()->uve()->vrouter_stats_collector()->run_counter_ >= 1));
 
@@ -404,7 +399,7 @@ TEST_F(UveVrouterUveTest, DropStatsAddChange) {
 
     //Trigger vrouter stats collection
     Agent::GetInstance()->uve()->vrouter_stats_collector()->run_counter_ = 0;
-    EnqueueVRouterStatsCollectorTask(1);
+    util_.EnqueueVRouterStatsCollectorTask(1);
     client->WaitForIdle();
     WAIT_FOR(10000, 500, (Agent::GetInstance()->uve()->vrouter_stats_collector()->run_counter_ >= 1));
 
@@ -413,12 +408,26 @@ TEST_F(UveVrouterUveTest, DropStatsAddChange) {
     const VrouterStatsAgent &uve3 = vr->last_sent_stats();
     const AgentDropStats ds4 = uve3.get_drop_stats();
     EXPECT_TRUE(DropStatsEqual(ds4, ds2));
+
+    //cleanup
+    vr->clear_count();
+    //Reset drop stats in mock kernel
+    KSyncSockTypeMap::SetDropStats(ds_null);
+    //Fetch drop-stats in agent_stats_collector by fetching null stats from
+    //mock kernel
+    Agent::GetInstance()->uve()->agent_stats_collector()->Run();
+    client->WaitForIdle();
 }
 
 TEST_F(UveVrouterUveTest, BandwidthTest_1) {
     VrouterUveEntryTest *vr = static_cast<VrouterUveEntryTest *>
         (Agent::GetInstance()->uve()->vrouter_uve_entry());
     vr->clear_count();
+    //Reset bandwidth counter which controls when bandwidth is updated
+    VrouterStatsAgent &uve = vr->prev_stats();
+    vr->set_bandwidth_count(0);
+    vector<AgentIfBandwidth> empty_list;
+    uve.set_phy_if_1min_usage(empty_list);
 
     PhysicalInterfaceKey key(Agent::GetInstance()->params()->eth_port());
     Interface *intf = static_cast<Interface *>
@@ -434,8 +443,18 @@ TEST_F(UveVrouterUveTest, BandwidthTest_1) {
     WAIT_FOR(100, 1000, (collector->interface_stats_responses_ >= 1));
 
     //Fetch the stats object from agent_stats_collector
-    AgentStatsCollector::InterfaceStats* stats = Agent::GetInstance()->uve()->agent_stats_collector()->GetInterfaceStats(intf);
+    AgentStatsCollector::InterfaceStats* stats = Agent::GetInstance()->uve()->
+        agent_stats_collector()->GetInterfaceStats(intf);
     EXPECT_TRUE((stats != NULL));
+
+    //Run Vrouter stats collector to update bandwidth
+    Agent::GetInstance()->uve()->vrouter_stats_collector()->run_counter_ = 0;
+    util_.EnqueueVRouterStatsCollectorTask(1);
+    client->WaitForIdle();
+    WAIT_FOR(10000, 500, (Agent::GetInstance()->uve()->vrouter_stats_collector()->run_counter_ >= 1));
+
+    EXPECT_EQ(0, uve.get_phy_if_1min_usage().size());
+    EXPECT_TRUE(BandwidthMatch(uve.get_phy_if_1min_usage(), 0, 0));
 
     //Update the stats object
     stats->speed = 1;
@@ -446,20 +465,26 @@ TEST_F(UveVrouterUveTest, BandwidthTest_1) {
 
     //Run Vrouter stats collector to update bandwidth
     Agent::GetInstance()->uve()->vrouter_stats_collector()->run_counter_ = 0;
-    EnqueueVRouterStatsCollectorTask(1);
+    util_.EnqueueVRouterStatsCollectorTask(1);
     client->WaitForIdle();
     WAIT_FOR(10000, 500, (Agent::GetInstance()->uve()->vrouter_stats_collector()->run_counter_ >= 1));
 
-    const VrouterStatsAgent &uve = vr->prev_stats();
-    EXPECT_TRUE(BandwidthMatch(uve.get_phy_if_1min_usage(), 0, 0));
+    if (vr->bandwidth_count() == 1) {
+        Agent::GetInstance()->uve()->vrouter_stats_collector()->run_counter_ = 0;
+        util_.EnqueueVRouterStatsCollectorTask(1);
+        client->WaitForIdle();
+        WAIT_FOR(10000, 500, (Agent::GetInstance()->uve()->vrouter_stats_collector()->
+                    run_counter_ >= 1));
+    }
 
-    //Run Vrouter stats collector to update bandwidth
-    Agent::GetInstance()->uve()->vrouter_stats_collector()->run_counter_ = 0;
-    EnqueueVRouterStatsCollectorTask(1);
-    client->WaitForIdle();
-    WAIT_FOR(10000, 500, (Agent::GetInstance()->uve()->vrouter_stats_collector()->run_counter_ >= 1));
-
+    EXPECT_EQ(2, vr->bandwidth_count());
+    EXPECT_EQ(1U, uve.get_phy_if_1min_usage().size());
     EXPECT_TRUE(BandwidthMatch(uve.get_phy_if_1min_usage(), 13, 100));
+    vr->clear_count();
+
+    //cleanup
+    stats->speed = stats->in_bytes = stats->out_bytes = stats->prev_in_bytes
+        = stats->prev_out_bytes = 0;
 }
 
 TEST_F(UveVrouterUveTest, BandwidthTest_2) {
@@ -482,8 +507,20 @@ TEST_F(UveVrouterUveTest, BandwidthTest_2) {
     WAIT_FOR(100, 1000, (collector->interface_stats_responses_ >= 1));
 
     //Fetch the stats object from agent_stats_collector
-    AgentStatsCollector::InterfaceStats* stats = Agent::GetInstance()->uve()->agent_stats_collector()->GetInterfaceStats(intf);
+    AgentStatsCollector::InterfaceStats* stats = Agent::GetInstance()->uve()->
+        agent_stats_collector()->GetInterfaceStats(intf);
     EXPECT_TRUE((stats != NULL));
+
+    //Reset bandwidth counter which controls when bandwidth is updated
+    vr->set_bandwidth_count(0);
+    vector<AgentIfBandwidth> empty_list;
+    uve.set_phy_if_5min_usage(empty_list);
+
+    Agent::GetInstance()->uve()->vrouter_stats_collector()->run_counter_ = 0;
+    util_.EnqueueVRouterStatsCollectorTask(1);
+    client->WaitForIdle();
+    WAIT_FOR(10000, 500, (Agent::GetInstance()->uve()->vrouter_stats_collector()->
+             run_counter_ >= 1));
 
     //Update the stats object
     stats->speed = 1;
@@ -494,32 +531,41 @@ TEST_F(UveVrouterUveTest, BandwidthTest_2) {
     stats->prev_5min_in_bytes = 0;
     stats->prev_5min_out_bytes = 0;
 
-    //Reset bandwidth counter which controls when bandwidth is updated
-    vr->set_bandwidth_count(0);
-    vector<AgentIfBandwidth> empty_list;
-    uve.set_phy_if_5min_usage(empty_list);
-
     //Run Vrouter stats collector to update bandwidth
     Agent::GetInstance()->uve()->vrouter_stats_collector()->run_counter_ = 0;
-    EnqueueVRouterStatsCollectorTask(9);
+    util_.EnqueueVRouterStatsCollectorTask(8);
     client->WaitForIdle();
-    WAIT_FOR(10000, 500, (Agent::GetInstance()->uve()->vrouter_stats_collector()->run_counter_ >= 9));
+    WAIT_FOR(10000, 500, (Agent::GetInstance()->uve()->vrouter_stats_collector()->
+             run_counter_ >= 8));
 
+    if (vr->bandwidth_count() == 8) {
+        Agent::GetInstance()->uve()->vrouter_stats_collector()->run_counter_ = 0;
+        util_.EnqueueVRouterStatsCollectorTask(1);
+        client->WaitForIdle();
+        WAIT_FOR(10000, 500, (Agent::GetInstance()->uve()->vrouter_stats_collector()->
+                    run_counter_ >= 1));
+    }
+
+    EXPECT_EQ(9, vr->bandwidth_count());
     //Verify the 5-min bandwidth usage
+    EXPECT_EQ(0, uve.get_phy_if_5min_usage().size());
     EXPECT_TRUE(BandwidthMatch(uve.get_phy_if_5min_usage(), 0, 0));
 
     //Run Vrouter stats collector again
+    vr->clear_count();
+    EXPECT_TRUE(stats->in_bytes != stats->prev_5min_in_bytes);
     Agent::GetInstance()->uve()->vrouter_stats_collector()->run_counter_ = 0;
-    EnqueueVRouterStatsCollectorTask(1);
+    util_.EnqueueVRouterStatsCollectorTask(1);
     client->WaitForIdle();
     WAIT_FOR(10000, 500, (Agent::GetInstance()->uve()->vrouter_stats_collector()->run_counter_ >= 1));
 
     //Verify the 5-min bandwidth usage
+    EXPECT_EQ(1U, uve.get_phy_if_5min_usage().size());
     EXPECT_TRUE(BandwidthMatch(uve.get_phy_if_5min_usage(), 2, 100));
 
     //Run Vrouter stats collector
     Agent::GetInstance()->uve()->vrouter_stats_collector()->run_counter_ = 0;
-    EnqueueVRouterStatsCollectorTask(9);
+    util_.EnqueueVRouterStatsCollectorTask(9);
     client->WaitForIdle();
     WAIT_FOR(10000, 500, (Agent::GetInstance()->uve()->vrouter_stats_collector()->run_counter_ >= 9));
 
@@ -528,12 +574,18 @@ TEST_F(UveVrouterUveTest, BandwidthTest_2) {
 
     //Run Vrouter stats collector again
     Agent::GetInstance()->uve()->vrouter_stats_collector()->run_counter_ = 0;
-    EnqueueVRouterStatsCollectorTask(1);
+    util_.EnqueueVRouterStatsCollectorTask(1);
     client->WaitForIdle();
     WAIT_FOR(10000, 500, (Agent::GetInstance()->uve()->vrouter_stats_collector()->run_counter_ >= 1));
 
     //Verify the 5-min bandwidth usage
     EXPECT_TRUE(BandwidthMatch(uve.get_phy_if_5min_usage(), 0, 0));
+
+    //cleanup
+    vr->clear_count();
+    stats->speed = stats->in_bytes = stats->out_bytes = stats->prev_in_bytes
+        = stats->prev_out_bytes = stats->prev_5min_in_bytes =
+        stats->prev_5min_out_bytes = 0;
 }
 
 TEST_F(UveVrouterUveTest, BandwidthTest_3) {
@@ -556,8 +608,20 @@ TEST_F(UveVrouterUveTest, BandwidthTest_3) {
     WAIT_FOR(100, 1000, (collector->interface_stats_responses_ >= 1));
 
     //Fetch the stats object from agent_stats_collector
-    AgentStatsCollector::InterfaceStats* stats = Agent::GetInstance()->uve()->agent_stats_collector()->GetInterfaceStats(intf);
+    AgentStatsCollector::InterfaceStats* stats = Agent::GetInstance()->uve()->
+        agent_stats_collector()->GetInterfaceStats(intf);
     EXPECT_TRUE((stats != NULL));
+
+    //Reset bandwidth counter which controls when bandwidth is updated
+    vr->set_bandwidth_count(0);
+    vector<AgentIfBandwidth> empty_list;
+    uve.set_phy_if_10min_usage(empty_list);
+
+    Agent::GetInstance()->uve()->vrouter_stats_collector()->run_counter_ = 0;
+    util_.EnqueueVRouterStatsCollectorTask(1);
+    client->WaitForIdle();
+    WAIT_FOR(10000, 500, (Agent::GetInstance()->uve()->vrouter_stats_collector()->
+             run_counter_ >= 1));
 
     //Update the stats object
     stats->speed = 1;
@@ -568,55 +632,74 @@ TEST_F(UveVrouterUveTest, BandwidthTest_3) {
     stats->prev_10min_in_bytes = 0;
     stats->prev_10min_out_bytes = 0;
 
-    //Reset bandwidth counter which controls when bandwidth is updated
-    vr->set_bandwidth_count(0);
-    vector<AgentIfBandwidth> empty_list;
-    uve.set_phy_if_10min_usage(empty_list);
-
     //Run Vrouter stats collector to update bandwidth
+    vr->set_bandwidth_count(1);
     Agent::GetInstance()->uve()->vrouter_stats_collector()->run_counter_ = 0;
-    EnqueueVRouterStatsCollectorTask(19);
+    util_.EnqueueVRouterStatsCollectorTask(18);
     client->WaitForIdle();
-    WAIT_FOR(10000, 500, (Agent::GetInstance()->uve()->vrouter_stats_collector()->run_counter_ >= 19));
+    WAIT_FOR(10000, 500, (Agent::GetInstance()->uve()->vrouter_stats_collector()->
+             run_counter_ >= 18));
+    if (vr->bandwidth_count() == 18) {
+        Agent::GetInstance()->uve()->vrouter_stats_collector()->run_counter_ = 0;
+        util_.EnqueueVRouterStatsCollectorTask(1);
+        client->WaitForIdle();
+        WAIT_FOR(10000, 500, (Agent::GetInstance()->uve()->vrouter_stats_collector()->
+                    run_counter_ >= 1));
+    }
 
     //Verify the 10-min bandwidth usage
+    EXPECT_EQ(19, vr->bandwidth_count());
+    EXPECT_EQ(0, uve.get_phy_if_10min_usage().size());
     EXPECT_TRUE(BandwidthMatch(uve.get_phy_if_10min_usage(), 0, 0));
 
     //Run Vrouter stats collector again
+    vr->clear_count();
+    EXPECT_TRUE(stats->in_bytes != stats->prev_10min_in_bytes);
     Agent::GetInstance()->uve()->vrouter_stats_collector()->run_counter_ = 0;
-    EnqueueVRouterStatsCollectorTask(1);
+    util_.EnqueueVRouterStatsCollectorTask(1);
     client->WaitForIdle();
-    WAIT_FOR(10000, 500, (Agent::GetInstance()->uve()->vrouter_stats_collector()->run_counter_ >= 1));
+    WAIT_FOR(10000, 500, (Agent::GetInstance()->uve()->vrouter_stats_collector()->
+             run_counter_ >= 1));
 
     //Verify the 10-min bandwidth usage
+    EXPECT_EQ(0, vr->bandwidth_count());
+    WAIT_FOR(10000, 500, (uve.get_phy_if_10min_usage().size() == 1));
     EXPECT_TRUE(BandwidthMatch(uve.get_phy_if_10min_usage(), 13, 100));
 
     //Run Vrouter stats collector
     Agent::GetInstance()->uve()->vrouter_stats_collector()->run_counter_ = 0;
-    EnqueueVRouterStatsCollectorTask(19);
+    util_.EnqueueVRouterStatsCollectorTask(19);
     client->WaitForIdle();
-    WAIT_FOR(10000, 500, (Agent::GetInstance()->uve()->vrouter_stats_collector()->run_counter_ >= 19));
+    WAIT_FOR(10000, 500, (Agent::GetInstance()->uve()->vrouter_stats_collector()->
+             run_counter_ >= 19));
 
     //Verify the 10-min bandwidth usage
+    EXPECT_EQ(1U, uve.get_phy_if_10min_usage().size());
     EXPECT_TRUE(BandwidthMatch(uve.get_phy_if_10min_usage(), 13, 100));
 
     //Run Vrouter stats collector again
     Agent::GetInstance()->uve()->vrouter_stats_collector()->run_counter_ = 0;
-    EnqueueVRouterStatsCollectorTask(1);
+    util_.EnqueueVRouterStatsCollectorTask(1);
     client->WaitForIdle();
-    WAIT_FOR(10000, 500, (Agent::GetInstance()->uve()->vrouter_stats_collector()->run_counter_ >= 1));
+    WAIT_FOR(10000, 500, (Agent::GetInstance()->uve()->vrouter_stats_collector()->
+             run_counter_ >= 1));
 
     //Verify the 10-min bandwidth usage
     EXPECT_TRUE(BandwidthMatch(uve.get_phy_if_10min_usage(), 0, 0));
+    vr->clear_count();
+    stats->speed = stats->in_bytes = stats->out_bytes = stats->prev_in_bytes
+        = stats->prev_out_bytes = stats->prev_10min_in_bytes =
+        stats->prev_10min_out_bytes = 0;
 }
 
 TEST_F(UveVrouterUveTest, ExceptionPktsChange) {
     VrouterUveEntryTest *vr = static_cast<VrouterUveEntryTest *>
         (Agent::GetInstance()->uve()->vrouter_uve_entry());
     vr->clear_count();
+    Agent::GetInstance()->stats()->Reset();
 
     Agent::GetInstance()->uve()->vrouter_stats_collector()->run_counter_ = 0;
-    EnqueueVRouterStatsCollectorTask(1);
+    util_.EnqueueVRouterStatsCollectorTask(1);
     client->WaitForIdle();
     WAIT_FOR(10000, 500, (Agent::GetInstance()->uve()->vrouter_stats_collector()->run_counter_ >= 1));
 
@@ -635,7 +718,7 @@ TEST_F(UveVrouterUveTest, ExceptionPktsChange) {
 
     //Run vrouter_stats_collector to update the UVE with updated exception stats
     Agent::GetInstance()->uve()->vrouter_stats_collector()->run_counter_ = 0;
-    EnqueueVRouterStatsCollectorTask(1);
+    util_.EnqueueVRouterStatsCollectorTask(1);
     client->WaitForIdle();
     WAIT_FOR(10000, 500, (Agent::GetInstance()->uve()->vrouter_stats_collector()->run_counter_ >= 1));
 
@@ -643,6 +726,8 @@ TEST_F(UveVrouterUveTest, ExceptionPktsChange) {
     EXPECT_EQ(3U, uve.get_exception_packets());
     EXPECT_EQ(1U, uve.get_exception_packets_dropped());
     EXPECT_EQ(2U, uve.get_exception_packets_allowed());
+    vr->clear_count();
+    Agent::GetInstance()->stats()->Reset();
 }
 
 //Flow creation using IP and TCP packets
@@ -650,19 +735,13 @@ TEST_F(UveVrouterUveTest, Bitmap_1) {
     VrouterUveEntryTest *vr = static_cast<VrouterUveEntryTest *>
         (Agent::GetInstance()->uve()->vrouter_uve_entry());
     vr->clear_count();
+    vr->ResetPortBitmap();
 
     FlowSetUp();
     TestFlow flow[] = {
         //Add a TCP forward and reverse flow
         {  TestFlowPkt(vm1_ip, vm2_ip, IPPROTO_TCP, 100, 200, 
                 "vrf5", flow0->id()),
-        {
-            new VerifyVn("vn5", "vn5"),
-            new VerifyVrf("vrf5", "vrf5")
-        }
-        },
-        {  TestFlowPkt(vm2_ip, vm1_ip, IPPROTO_TCP, 200, 100, 
-                "vrf5", flow1->id()),
         {
             new VerifyVn("vn5", "vn5"),
             new VerifyVrf("vrf5", "vrf5")
@@ -675,21 +754,15 @@ TEST_F(UveVrouterUveTest, Bitmap_1) {
             new VerifyVn("vn5", "vn5"),
             new VerifyVrf("vrf5", "vrf5")
         }
-        },
-        {  TestFlowPkt(vm2_ip, vm1_ip, IPPROTO_UDP, 200, 100, 
-                "vrf5", flow1->id()),
-        {
-            new VerifyVn("vn5", "vn5"),
-            new VerifyVrf("vrf5", "vrf5")
-        }
         }
     };
 
-    CreateFlow(flow, 4);
+    EXPECT_EQ(0, Agent::GetInstance()->pkt()->flow_table()->Size());
+    CreateFlow(flow, 2);
     EXPECT_EQ(4U, Agent::GetInstance()->pkt()->flow_table()->Size());
 
     Agent::GetInstance()->uve()->vrouter_stats_collector()->run_counter_ = 0;
-    EnqueueVRouterStatsCollectorTask(1);
+    util_.EnqueueVRouterStatsCollectorTask(1);
     client->WaitForIdle();
     WAIT_FOR(1000, 500, (Agent::GetInstance()->uve()->
                          vrouter_stats_collector()->run_counter_ >= 1));
@@ -712,13 +785,6 @@ TEST_F(UveVrouterUveTest, Bitmap_1) {
             new VerifyVrf("vrf5", "vrf5")
         }
         },
-        {  TestFlowPkt(vm2_ip, vm1_ip, IPPROTO_TCP, 2000, 1000, 
-                "vrf5", flow1->id()),
-        {
-            new VerifyVn("vn5", "vn5"),
-            new VerifyVrf("vrf5", "vrf5")
-        }
-        },
         //Add a UDP forward and reverse flow
         {  TestFlowPkt(vm1_ip, vm2_ip, IPPROTO_UDP, 1000, 2000, 
                 "vrf5", flow0->id()),
@@ -726,24 +792,19 @@ TEST_F(UveVrouterUveTest, Bitmap_1) {
             new VerifyVn("vn5", "vn5"),
             new VerifyVrf("vrf5", "vrf5")
         }
-        },
-        {  TestFlowPkt(vm2_ip, vm1_ip, IPPROTO_UDP, 2000, 1000, 
-                "vrf5", flow1->id()),
-        {
-            new VerifyVn("vn5", "vn5"),
-            new VerifyVrf("vrf5", "vrf5")
-        }
         }
     };
 
-    CreateFlow(flow2, 4);
+    Agent::GetInstance()->uve()->vrouter_stats_collector()->run_counter_ = 0;
+    vr->clear_count();
+    CreateFlow(flow2, 2);
     EXPECT_EQ(8U, Agent::GetInstance()->pkt()->flow_table()->Size());
 
-    Agent::GetInstance()->uve()->vrouter_stats_collector()->run_counter_ = 0;
-    EnqueueVRouterStatsCollectorTask(1);
+    util_.EnqueueVRouterStatsCollectorTask(1);
     client->WaitForIdle();
     WAIT_FOR(1000, 500, (Agent::GetInstance()->uve()->
                          vrouter_stats_collector()->run_counter_ >= 1));
+    WAIT_FOR(1000, 500, (vr->vrouter_stats_msg_count() == 1));
 
     const VrouterStatsAgent stats2 = vr->last_sent_stats();
     const std::vector<uint32_t> &tcp_smap2 = stats2.get_tcp_sport_bitmap();
@@ -754,6 +815,8 @@ TEST_F(UveVrouterUveTest, Bitmap_1) {
     EXPECT_TRUE(ValidateBmap(tcp_smap2, tcp_dmap2, 100, 200));
     EXPECT_TRUE(ValidateBmap(udp_smap2, udp_dmap2, 100, 200));
     FlowTearDown();
+    vr->clear_count();
+    vr->ResetPortBitmap();
 }
 
 /* Verifies agent configuration sent via vrouter UVE. */
@@ -761,42 +824,49 @@ TEST_F(UveVrouterUveTest, config_1) {
     VrouterUveEntryTest *vr = static_cast<VrouterUveEntryTest *>
         (Agent::GetInstance()->uve()->vrouter_uve_entry());
     vr->clear_count();
+    Agent::GetInstance()->uve()->vrouter_stats_collector()->run_counter_ = 0;
     if (!vr->first_uve_dispatched()) {
-        EnqueueVRouterStatsCollectorTask(1);
+        util_.EnqueueVRouterStatsCollectorTask(1);
         client->WaitForIdle();
+        WAIT_FOR(1000, 500, (Agent::GetInstance()->uve()->
+                 vrouter_stats_collector()->run_counter_ == 1));
+        WAIT_FOR(1000, 500, (vr->vrouter_msg_count() == 1));
+        EXPECT_TRUE(vr->first_uve_dispatched());
+        const VrouterAgent &uve = vr->first_vrouter_uve();
+
+        EXPECT_STREQ(uve.get_eth_name().c_str(), "vnet0");
+        EXPECT_STREQ(uve.get_vhost_cfg().get_name().c_str(), "vhost0");
+        EXPECT_STREQ(uve.get_vhost_cfg().get_ip().c_str(), "10.1.1.1");
+        EXPECT_STREQ(uve.get_vhost_cfg().get_gateway().c_str(), "10.1.1.254");
+        EXPECT_EQ(uve.get_vhost_cfg().get_ip_prefix_len(), 24);
+
+        EXPECT_STREQ(uve.get_tunnel_type().c_str(), "MPLSoGRE");
+        EXPECT_EQ(uve.get_flow_cache_timeout_cfg(), 0);
+
+        EXPECT_STREQ(uve.get_hypervisor().c_str(), "kvm");
+        EXPECT_STREQ(uve.get_ds_addr().c_str(), "0.0.0.0");
+        EXPECT_EQ(uve.get_ds_xs_instances(), 0);
+        EXPECT_STREQ(uve.get_control_ip().c_str(), "0.0.0.0");
+        EXPECT_EQ(uve.get_ll_max_system_flows_cfg(), 3);
+        EXPECT_EQ(uve.get_ll_max_vm_flows_cfg(), 2);
+        EXPECT_EQ(uve.get_max_vm_flows_cfg(), 100);
+        EXPECT_EQ(uve.get_dns_server_list_cfg().size(), 2);
+        EXPECT_EQ(uve.get_control_node_list_cfg().size(), 2);
+        EXPECT_EQ(uve.get_gateway_cfg_list().size(), 2);
+        vr->clear_count();
     }
-    EXPECT_TRUE(vr->first_uve_dispatched());
-    const VrouterAgent &uve = vr->first_vrouter_uve();
-    
-    EXPECT_STREQ(uve.get_eth_name().c_str(), "vnet0");
-    EXPECT_STREQ(uve.get_vhost_cfg().get_name().c_str(), "vhost0");
-    EXPECT_STREQ(uve.get_vhost_cfg().get_ip().c_str(), "10.1.1.1");
-    EXPECT_STREQ(uve.get_vhost_cfg().get_gateway().c_str(), "10.1.1.254");
-    EXPECT_EQ(uve.get_vhost_cfg().get_ip_prefix_len(), 24);
-
-    EXPECT_STREQ(uve.get_tunnel_type().c_str(), "MPLSoGRE");
-    EXPECT_EQ(uve.get_flow_cache_timeout_cfg(), 0);
-
-    EXPECT_STREQ(uve.get_hypervisor().c_str(), "kvm");
-    EXPECT_STREQ(uve.get_ds_addr().c_str(), "0.0.0.0");
-    EXPECT_EQ(uve.get_ds_xs_instances(), 0);
-    EXPECT_STREQ(uve.get_control_ip().c_str(), "0.0.0.0");
-    EXPECT_EQ(uve.get_ll_max_system_flows_cfg(), 3);
-    EXPECT_EQ(uve.get_ll_max_vm_flows_cfg(), 2);
-    EXPECT_EQ(uve.get_max_vm_flows_cfg(), 100);
-    EXPECT_EQ(uve.get_dns_server_list_cfg().size(), 2);
-    EXPECT_EQ(uve.get_control_node_list_cfg().size(), 2);
-    EXPECT_EQ(uve.get_gateway_cfg_list().size(), 2);
 }
 
 int main(int argc, char **argv) {
     GETUSERARGS();
-    client = TestInit("controller/src/vnsw/agent/uve/test/vnswa_cfg.ini", ksync_init);
+    client = TestInit("controller/src/vnsw/agent/uve/test/vnswa_cfg.ini", ksync_init,
+                      true, false, true, (10 * 60 * 1000), (10 * 60 * 1000),
+                      true, true, (10 * 60 * 1000));
 
     usleep(10000);
     int ret = RUN_ALL_TESTS();
-    Agent::GetInstance()->event_manager()->Shutdown();
-    AsioStop();
-    TaskScheduler::GetInstance()->Terminate();
+    client->WaitForIdle();
+    TestShutdown();
+    delete client;
     return ret;
 }

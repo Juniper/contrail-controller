@@ -280,15 +280,40 @@ static void SetInEcmpIndex(const PktInfo *pkt, PktFlowInfo *flow_info,
         return;
     }
 
+    Agent *agent = static_cast<AgentRouteTable *>(in->rt_->get_table())->agent();
+    //Get route for source IP route, which would be used to forward
+    //reverse flow traffic
+    const Inet4UnicastRouteEntry *rt;
+    FlowTable *ftable = agent->pkt()->flow_table();
+    if (flow_info->nat_done) {
+        VrfEntry *nat_vrf = NULL;
+        if (flow_info->fip_snat) {
+            nat_vrf = agent->vrf_table()->FindVrfFromId(flow_info->nat_vrf);
+        } else {
+            nat_vrf = agent->vrf_table()->FindVrfFromId(flow_info->nat_dest_vrf);
+        }
+        if (nat_vrf == NULL) {
+            return;
+        }
+        rt = ftable->GetUcRoute(nat_vrf, Ip4Address(flow_info->nat_ip_saddr));
+    } else {
+        if (out->vrf_ == NULL) {
+            return;
+        }
+        rt = ftable->GetUcRoute(out->vrf_, Ip4Address(pkt->ip_saddr));
+    }
+
+    if (rt == NULL) {
+        return;
+    }
+
     NextHop *component_nh_ptr = NULL;
     uint32_t label;
     //Frame key for component NH
     if (flow_info->ingress) {
         //Ingress flow
-        const VmInterface *vm_port = 
-            static_cast<const VmInterface *>(in->intf_);
-        const VrfEntry *vrf = 
-            Agent::GetInstance()->vrf_table()->FindVrfFromId(pkt->vrf);
+        const VmInterface *vm_port = static_cast<const VmInterface *>(in->intf_);
+        const VrfEntry *vrf = agent->vrf_table()->FindVrfFromId(pkt->vrf);
         if (vm_port->HasServiceVlan() && vm_port->vrf() != vrf) {
             //Packet came on service VRF
             label = vm_port->GetServiceVlanLabel(vrf);
@@ -297,27 +322,28 @@ static void SetInEcmpIndex(const PktInfo *pkt, PktFlowInfo *flow_info,
             VlanNHKey key(vm_port->GetUuid(), vlan);
             component_nh_ptr =
                 static_cast<NextHop *>
-                (Agent::GetInstance()->nexthop_table()->FindActiveEntry(&key));
+                (agent->nexthop_table()->FindActiveEntry(&key));
         } else {
-            InterfaceNHKey key(static_cast<InterfaceKey *>(vm_port->GetDBRequestKey().release()),
+            InterfaceNHKey key(static_cast<InterfaceKey *>
+                               (vm_port->GetDBRequestKey().release()),
                                false, InterfaceNHFlags::INET4);
             component_nh_ptr =
                 static_cast<NextHop *>
-                (Agent::GetInstance()->nexthop_table()->FindActiveEntry(&key));
+                (agent->nexthop_table()->FindActiveEntry(&key));
             label = vm_port->label();
         }
     } else {
         //Packet from fabric
         Ip4Address dest_ip(pkt->tunnel.ip_saddr);
-        TunnelNHKey key(Agent::GetInstance()->fabric_vrf_name(), 
-                        Agent::GetInstance()->router_id(), dest_ip,
-                        false, pkt->tunnel.type);
+        TunnelNHKey key(agent->fabric_vrf_name(), agent->router_id(),
+                        dest_ip, false, pkt->tunnel.type);
         //Get component NH pointer
         component_nh_ptr =
-            static_cast<NextHop *>(Agent::GetInstance()->nexthop_table()->FindActiveEntry(&key));
+            static_cast<NextHop *>
+            (agent->nexthop_table()->FindActiveEntry(&key));
         //Get Label to be used to reach destination server
         const CompositeNH *nh = 
-            static_cast<const CompositeNH *>(in->rt_->GetActiveNextHop());
+            static_cast<const CompositeNH *>(rt->GetActiveNextHop());
         label = nh->GetRemoteLabel(dest_ip);
     }
     ComponentNH component_nh(label, component_nh_ptr);
@@ -325,18 +351,16 @@ static void SetInEcmpIndex(const PktInfo *pkt, PktFlowInfo *flow_info,
     const NextHop *nh = NULL;
     if (out->intf_) {
         //Local destination, use active path
-        nh = in->rt_->GetActiveNextHop();
+        nh = rt->GetActiveNextHop();
     } else {
         //Destination on remote server
         //Choose local path, which will also pointed by MPLS label
-        if (in->rt_->FindPath(Agent::GetInstance()->ecmp_peer())) {
-            Agent *agent = static_cast<AgentRouteTable *>
-                (in->rt_->get_table())->agent();
-            nh = in->rt_->FindPath(agent->ecmp_peer())->nexthop(agent);
+        if (rt->FindPath(Agent::GetInstance()->ecmp_peer())) {
+            nh = rt->FindPath(agent->ecmp_peer())->nexthop(agent);
         } else {
             //Aggregarated routes may not have local path
             //Derive local path
-            nh = in->rt_->GetLocalNextHop();
+            nh = rt->GetLocalNextHop();
         }
     }
 
@@ -576,7 +600,6 @@ void PktFlowInfo::FloatingIpDNat(const PktInfo *pkt, PktControlInfo *in,
     }
     out->rt_ = ftable->GetUcRoute(it->vrf_.get(), Ip4Address(pkt->ip_daddr));
     out->vn_ = it->vn_.get();
-    dest_vn = &(it->vn_.get()->GetName());
     dest_vrf = out->intf_->vrf()->vrf_id();
 
     // Translate the Dest-IP
@@ -654,9 +677,6 @@ void PktFlowInfo::FloatingIpSNat(const PktInfo *pkt, PktControlInfo *in,
 
     //Populate in->vn, used for VRF translate ACL lookup
     in->vn_ = fip_it->vn_.get();
-    // Source-VN for policy processing is based on floating-ip VN
-    // Dest-VN will be based on out->rt_ and computed below
-    source_vn = &(fip_it->vn_.get()->GetName());
 
     // Floating-ip found. We will change src-ip to floating-ip. Recompute route
     // for new source-ip. All policy decisions will be based on this new route
@@ -748,17 +768,8 @@ void PktFlowInfo::VrfTranslate(const PktInfo *pkt, PktControlInfo *in,
         hdr.src_port = 0;
         hdr.dst_port = 0;
     }
-    if (source_vn != NULL) {
-        hdr.src_policy_id = source_vn;
-    } else {
-        hdr.src_policy_id = RouteToVn(in->rt_);
-    }
-
-    if (dest_vn != NULL) {
-        hdr.dst_policy_id = dest_vn;
-    } else {
-        hdr.dst_policy_id = RouteToVn(out->rt_);
-    }
+    hdr.src_policy_id = RouteToVn(in->rt_);
+    hdr.dst_policy_id = RouteToVn(out->rt_);
 
     if (in->rt_) {
         const AgentPath *path = in->rt_->GetActivePath();
@@ -896,7 +907,7 @@ void PktFlowInfo::EgressProcess(const PktInfo *pkt, PktControlInfo *in,
 
 bool PktFlowInfo::Process(const PktInfo *pkt, PktControlInfo *in,
                           PktControlInfo *out) {
-    if (pkt->agent_hdr.cmd == AGENT_TRAP_ECMP_RESOLVE) {
+    if (pkt->agent_hdr.cmd == AgentHdr::TRAP_ECMP_RESOLVE) {
         RewritePktInfo(pkt->agent_hdr.cmd_param);
     }
 
@@ -938,14 +949,6 @@ bool PktFlowInfo::Process(const PktInfo *pkt, PktControlInfo *in,
         IngressProcess(pkt, in, out);
     } else {
         EgressProcess(pkt, in, out);
-    }
-
-    if ((source_vn == NULL) && (in->rt_ != NULL)) {
-        source_vn = RouteToVn(in->rt_);
-    }
-
-    if ((dest_vn == NULL) && (out->rt_ != NULL)) {
-        dest_vn = RouteToVn(out->rt_);
     }
 
     if (in->rt_ == NULL) {

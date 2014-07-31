@@ -119,18 +119,18 @@ public:
         test_rcv_ep_.port(test_pkt_handler_->GetTestPktHandlerPort());
     }
 
-    // Send to Agent
-    void AsyncWrite(uint8_t *buf, std::size_t len) {
-        test_write_.async_send_to(
-            boost::asio::buffer(buf, len), test_rcv_ep_,
+    virtual void Send(const std::vector<boost::asio::const_buffer> &buff_list,
+                      PacketBufferPtr pkt, uint8_t *agent_hdr_buff) {
+        test_write_.async_send_to(buff_list, test_rcv_ep_,
             boost::bind(&TestTapInterface::WriteHandler, this,
                         boost::asio::placeholders::error,
-                        boost::asio::placeholders::bytes_transferred, buf));
+                        boost::asio::placeholders::bytes_transferred, pkt,
+                        agent_hdr_buff));
     }
 
 private:
     void WriteHandler(const boost::system::error_code &err, std::size_t length,
-		              uint8_t *buf) {
+		              PacketBufferPtr ptr, uint8_t *buf) {
         if (err) {
             LOG(ERROR, "Packet Test Tap Error <" << 
                 err.message() << "> sending packet");

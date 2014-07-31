@@ -39,10 +39,12 @@
 using namespace std;
 using namespace boost::asio::ip;
 namespace opt = boost::program_options;
+using process::ConnectionStateManager;
+using process::GetProcessStateCb;
 
 static TaskTrigger *collector_info_trigger;
 static Timer *collector_info_log_timer;
-static EventManager evm;
+static EventManager * a_evm = NULL; 
 
 bool CollectorInfoLogTimer() {
     collector_info_trigger->Set();
@@ -131,38 +133,6 @@ bool CollectorSummaryLogger(Collector *collector, const string & hostname,
     return true;
 }
 
-void CollectorGetConnectivityStatus(const std::vector<ConnectionInfo> &cinfos,
-    ConnectivityStatus::type &cstatus, std::string &message) {
-    // Determine if the number of connections is expected:
-    // 1. Collector client
-    // 2. Redis From
-    // 3. Redis To
-    // 4. Discovery Collector Publish
-    // 5. Database global
-    size_t num_conns(cinfos.size());
-    if (num_conns != 5) {
-        cstatus = ConnectivityStatus::NON_FUNCTIONAL;
-        message = "Number of connections:" + integerToString(num_conns) + 
-            ", Expected: 5";
-        return;
-    }   
-    std::string cdown(g_connection_info_constants.ConnectionStatusNames.
-        find(ConnectionStatus::DOWN)->second);
-    // Iterate to determine process connectivity status
-    for (std::vector<ConnectionInfo>::const_iterator it = cinfos.begin();
-         it != cinfos.end(); it++) {
-        const ConnectionInfo &cinfo(*it);
-        const std::string &conn_status(cinfo.get_status());
-        if (conn_status == cdown) {
-            cstatus = ConnectivityStatus::NON_FUNCTIONAL;
-            message = cinfo.get_type() + ":" + cinfo.get_name();
-            return;
-        }
-    }
-    cstatus = ConnectivityStatus::FUNCTIONAL;
-    return;  
-}
-
 bool CollectorInfoLogger(VizSandeshContext &ctx) {
     VizCollector *analytics = ctx.Analytics();
 
@@ -203,7 +173,7 @@ void CollectorShutdown() {
     shutdown_ = true;
 
     // Shutdown event manager first to stop all IO activities.
-    evm.Shutdown();
+    a_evm->Shutdown();
 }
 
 static void terminate(int param) {
@@ -223,21 +193,21 @@ static void ShutdownServers(VizCollector *viz_collector,
     // Shutdown discovery client first
     ShutdownDiscoveryClient(client);
 
+    Sandesh::Uninit();
+
     viz_collector->Shutdown();
 
     TimerManager::DeleteTimer(collector_info_log_timer);
     delete collector_info_trigger;
 
-    ConnectionStateManager<AnalyticsProcessStatusUVE, AnalyticsProcessStatus>::
+    ConnectionStateManager<NodeStatusUVE, NodeStatus>::
         GetInstance()->Shutdown();
-    VizCollector::WaitForIdle();
-    Sandesh::Uninit();
     VizCollector::WaitForIdle();
 }
 
 static bool OptionsParse(Options &options, int argc, char *argv[]) {
     try {
-        options.Parse(evm, argc, argv);
+        options.Parse(*a_evm, argc, argv);
         return true;
     } catch (boost::program_options::error &e) {
         cout << "Error " << e.what() << endl;
@@ -255,6 +225,8 @@ volatile int gdbhelper = 1;
 
 int main(int argc, char *argv[])
 {
+    a_evm = new EventManager();
+
     Options options;
 
     if (!OptionsParse(options, argc, argv)) {
@@ -298,9 +270,17 @@ int main(int argc, char *argv[])
          ostream_iterator<string>(css, " "));
     LOG(INFO, "COLLECTOR CASSANDRA SERVERS: " << css.str());
     LOG(INFO, "COLLECTOR SYSLOG LISTEN PORT: " << options.syslog_port());
+    uint16_t protobuf_port(0);
+    bool protobuf_server_enabled =
+        options.collector_protobuf_port(&protobuf_port);
+    if (protobuf_server_enabled) {
+        LOG(INFO, "COLLECTOR PROTOBUF LISTEN PORT: " << protobuf_port);
+    }
 
-    VizCollector analytics(&evm,
+    VizCollector analytics(a_evm,
             options.collector_port(),
+            protobuf_server_enabled,
+            protobuf_port,
             cassandra_ips,
             cassandra_ports,
             string("127.0.0.1"),
@@ -332,7 +312,7 @@ int main(int argc, char *argv[])
             analytics.name(),
             g_vns_constants.NodeTypeNames.find(node_type)->second,
             instance_id, 
-            &evm, "127.0.0.1", options.collector_port(),
+            a_evm, "127.0.0.1", options.collector_port(),
             options.http_server_port(), &vsc);
 
     Sandesh::SetLoggingParams(options.log_local(), options.log_category(),
@@ -353,7 +333,7 @@ int main(int argc, char *argv[])
         dss_ep.port(options.discovery_port());
         string sname = 
             g_vns_constants.ModuleNames.find(Module::COLLECTOR)->second;
-        ds_client = new DiscoveryServiceClient(&evm, dss_ep, sname);
+        ds_client = new DiscoveryServiceClient(a_evm, dss_ep, sname);
         ds_client->Init();
         Collector::SetDiscoveryServiceClient(ds_client);
 
@@ -369,21 +349,31 @@ int main(int argc, char *argv[])
     }
              
     CpuLoadData::Init();
-    ConnectionStateManager<AnalyticsProcessStatusUVE, AnalyticsProcessStatus>::
-        GetInstance()->Init(*evm.io_service(),
+    // Determine if the number of connections is expected:
+    // 1. Collector client
+    // 2. Redis From
+    // 3. Redis To
+    // 4. Discovery Collector Publish
+    // 5. Database global
+    // 6. Database protobuf if enabled
+    ConnectionStateManager<NodeStatusUVE, NodeStatus>::
+        GetInstance()->Init(*a_evm->io_service(),
             analytics.name(), module_id, instance_id,
-            boost::bind(&CollectorGetConnectivityStatus, _1, _2, _3));
+            boost::bind(&GetProcessStateCb, _1, _2, _3,
+            protobuf_server_enabled ? 6 : 5));
     collector_info_trigger =
         new TaskTrigger(boost::bind(&CollectorInfoLogger, vsc),
                     TaskScheduler::GetInstance()->GetTaskId("vizd::Stats"), 0);
-    collector_info_log_timer = TimerManager::CreateTimer(*evm.io_service(),
+    collector_info_log_timer = TimerManager::CreateTimer(*a_evm->io_service(),
         "Collector Info log timer",
         TaskScheduler::GetInstance()->GetTaskId("vizd::Stats"), 0);
     collector_info_log_timer->Start(5*1000, boost::bind(&CollectorInfoLogTimer), NULL);
     signal(SIGTERM, terminate);
-    evm.Run();
+    a_evm->Run();
 
     ShutdownServers(&analytics, ds_client);
+
+    delete a_evm;
 
     return 0;
 }

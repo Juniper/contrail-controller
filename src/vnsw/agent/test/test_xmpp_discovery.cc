@@ -7,41 +7,19 @@
 #include <base/logging.h>
 #include <boost/bind.hpp>
 #include <tbb/task.h>
-#include <base/task.h>
 #include "io/test/event_manager_test.h"
-#include <net/bgp_af.h>
 
 #include <cmn/agent_cmn.h>
 #include "base/test/task_test_util.h"
 
-#include "cfg/cfg_init.h"
-#include "cfg/cfg_interface.h"
-#include "oper/operdb_init.h"
-#include "controller/controller_init.h"
-#include "controller/controller_ifmap.h"
 #include "pkt/pkt_init.h"
 #include "services/services_init.h"
-#include "ksync/ksync_init.h"
-#include "oper/interface_common.h"
-#include "oper/nexthop.h"
-#include "route/route.h"
-#include "oper/vrf.h"
-#include "oper/mpls.h"
-#include "oper/vm.h"
-#include "oper/vn.h"
-#include "oper/peer.h"
-#include "openstack/instance_service_server.h"
 #include "test_cmn_util.h"
 #include "xmpp/xmpp_init.h"
 #include "xmpp/test/xmpp_test_util.h"
 #include "vr_types.h"
 
 #include "xml/xml_pugi.h"
-
-#include "controller/controller_peer.h" 
-#include "controller/controller_export.h" 
-#include "controller/controller_vrf_export.h" 
-#include "controller/controller_types.h" 
 
 using namespace pugi;
 
@@ -50,8 +28,8 @@ void RouterIdDepInit(Agent *agent) {
 
 class AgentBgpXmppPeerTest : public AgentXmppChannel {
 public:
-    AgentBgpXmppPeerTest(XmppChannel *channel, std::string xs, uint8_t xs_idx) :
-        AgentXmppChannel(Agent::GetInstance(), channel, xs, "0", xs_idx), 
+    AgentBgpXmppPeerTest(std::string xs, uint8_t xs_idx) :
+        AgentXmppChannel(Agent::GetInstance(), xs, "0", xs_idx),
         rx_count_(0), stop_scheduler_(false), rx_channel_event_queue_(
             TaskScheduler::GetInstance()->GetTaskId("xmpp::StateMachine"), 0,
             boost::bind(&AgentBgpXmppPeerTest::ProcessChannelEvent, this, _1)) {
@@ -154,13 +132,10 @@ protected:
 
         TaskScheduler::GetInstance()->Stop();
         Agent::GetInstance()->controller()->unicast_cleanup_timer().cleanup_timer_->Fire();
-        TaskScheduler::GetInstance()->Start();
-        client->WaitForIdle();
-        TaskScheduler::GetInstance()->Stop();
-        Agent::GetInstance()->controller()->unicast_cleanup_timer().cleanup_timer_->Fire();
         Agent::GetInstance()->controller()->multicast_cleanup_timer().cleanup_timer_->Fire();
         Agent::GetInstance()->controller()->config_cleanup_timer().cleanup_timer_->Fire();
         TaskScheduler::GetInstance()->Start();
+        client->WaitForIdle();
         Agent::GetInstance()->controller()->Cleanup();
         client->WaitForIdle();
 

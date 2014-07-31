@@ -170,6 +170,8 @@ public:
 
     void DeleteRoutes();
     void Shutdown();
+    void reset_shutdown_walk() { shutdown_walk_ = NULL; }
+    AgentRouteWalker *shutdown_walk() const { return shutdown_walk_; }
 private:
     friend class VrfEntry;
 

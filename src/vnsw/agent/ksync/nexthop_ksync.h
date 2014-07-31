@@ -23,14 +23,14 @@ class NHKSyncObject;
 
 class NHKSyncEntry : public KSyncNetlinkDBEntry {
 public:
-    NHKSyncEntry(NHKSyncObject *obj, const NHKSyncEntry *entry, 
+    NHKSyncEntry(NHKSyncObject *obj, const NHKSyncEntry *entry,
                  uint32_t index);
     NHKSyncEntry(NHKSyncObject *obj, const NextHop *nh);
     virtual ~NHKSyncEntry();
 
     const NextHop *nh() { return nh_; }
     NextHop::Type type() const {return type_;}
-    InterfaceKSyncEntry *interface() const { 
+    InterfaceKSyncEntry *interface() const {
         return static_cast<InterfaceKSyncEntry *>(interface_.get());
     }
     KSyncDBObject *GetObject();
@@ -76,8 +76,8 @@ private:
     struct in_addr dip_;
     uint16_t sport_;
     uint16_t dport_;
-    struct ether_addr smac_;
-    struct ether_addr dmac_;
+    MacAddress smac_;
+    MacAddress dmac_;
     bool valid_;
     bool policy_;
     bool is_mcast_nh_;

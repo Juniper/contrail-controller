@@ -22,9 +22,9 @@ env.Append(LIBPATH = env['TOP'] + '/http/client')
 
 env.Prepend(LIBS = ['ifmap_server', 'ifmapio', 'ds', 'xmpp', 'peer_sandesh',
                     'sandesh', 'http', 'http_parser', 'httpc', 'curl', 
-                    'sandeshvns', 'connection_info', 'io', 'control_node',
+                    'sandeshvns', 'process_info', 'io', 'control_node',
                     'ifmap_common', 'pugixml', 'xml', 'db', 'base', 'gunit',
-                    'crypto', 'ssl', 'boost_regex'])
+                    'crypto', 'ssl', 'boost_regex', 'boost_chrono'])
 
 if sys.platform != 'darwin':
     env.Append(LIBS = ['rt'])

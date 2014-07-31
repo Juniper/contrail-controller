@@ -67,6 +67,8 @@ public:
             }
             return true;
         }
+        friend inline std::ostream& operator<<(std::ostream& out,
+            const Var& value);
     };
 
     typedef std::map<std::string, std::string> RuleMap;
@@ -75,8 +77,8 @@ public:
     typedef std::map<std::string, std::pair<Var, AttribMap> > TagMap;
 
     DbHandler(EventManager *evm, GenDb::GenDbIf::DbErrorHandler err_handler,
-        std::vector<std::string> cassandra_ips,
-        std::vector<int> cassandra_ports, int analytics_ttl,
+        const std::vector<std::string> &cassandra_ips,
+        const std::vector<int> &cassandra_ports, int analytics_ttl,
         std::string name);
     DbHandler(GenDb::GenDbIf *dbif);
     virtual ~DbHandler();
@@ -84,6 +86,7 @@ public:
     bool DropMessage(const SandeshHeader &header, const VizMsg *vmsg);
     bool Init(bool initial, int instance);
     void UnInit(int instance);
+    void UnInitUnlocked(int instance);
 
     bool AllowMessageTableInsert(const SandeshHeader &header);
     bool MessageIndexTableInsert(const std::string& cfname,
@@ -142,6 +145,59 @@ private:
     mutable tbb::mutex smutex_;
 
     DISALLOW_COPY_AND_ASSIGN(DbHandler);
+};
+
+inline std::ostream& operator<<(std::ostream& out, const DbHandler::Var& value) {
+    switch (value.type) {
+      case DbHandler::STRING:
+	out << value.str;
+	break;
+      case DbHandler::UINT64:
+	out << value.num;
+	break;
+      case DbHandler::DOUBLE:
+	out << value.dbl;
+	break;
+      default:
+	out << "Invalid type: " << value.type;
+	break;
+    }
+    return out;
+}
+
+//
+// DbHandlerInitializer - Wrapper to perform DbHandler initialization
+//
+class DbHandlerInitializer {
+ public:
+    typedef boost::function<void(void)> InitializeDoneCb;
+    DbHandlerInitializer(EventManager *evm,
+        const std::string &db_name, int db_task_instance,
+        const std::string &timer_task_name, InitializeDoneCb callback,
+        const std::vector<std::string> &cassandra_ips,
+        const std::vector<int> &cassandra_ports, int analytics_ttl);
+    DbHandlerInitializer(EventManager *evm,
+        const std::string &db_name, int db_task_instance,
+        const std::string &timer_task_name, InitializeDoneCb callback,
+        DbHandler *db_handler);
+    virtual ~DbHandlerInitializer();
+    bool Initialize();
+    void Shutdown();
+    DbHandler* GetDbHandler() const;
+
+ private:
+    bool InitTimerExpired();
+    void InitTimerErrorHandler(std::string error_name,
+        std::string error_message);
+    void StartInitTimer();
+    void ScheduleInit();
+
+    static const int kInitRetryInterval = 10 * 1000; // in ms
+    const std::string db_name_;
+    const int db_task_instance_;
+    boost::scoped_ptr<DbHandler> db_handler_;
+    InitializeDoneCb callback_;
+    Timer *db_init_timer_;
 };
 
 /*

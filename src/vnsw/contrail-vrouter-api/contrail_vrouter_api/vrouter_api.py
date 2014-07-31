@@ -99,6 +99,12 @@ class ContrailVRouterApi(object):
         if 'vm_project_uuid' in kwargs:
             data.vm_project_uuid = self._uuid_string_to_hex(
                 kwargs['vm_project_uuid'])
+        if ('port_type' in kwargs and
+            kwargs['port_type'] in ttypes.PortTypes._NAMES_TO_VALUES.keys()):
+            data.port_type = \
+                ttypes.PortTypes._NAMES_TO_VALUES[kwargs['port_type']]
+        else:
+            data.port_type = ttypes.PortTypes.NovaVMPort
 
         data.validate()
 

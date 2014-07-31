@@ -104,12 +104,12 @@ void HttpConnection::set_session(HttpClientSession *session) {
         session->RegisterEventCb(event_cb_);
 }
 
-int HttpConnection::HttpGet(std::string &path, HttpCb cb) {
+int HttpConnection::HttpGet(const std::string &path, HttpCb cb) {
     std::vector<std::string> hdr_options;
     return HttpGet(path, false, true, hdr_options, cb);
 }
 
-int HttpConnection::HttpGet(std::string &path, bool header, bool timeout,
+int HttpConnection::HttpGet(const std::string &path, bool header, bool timeout,
                             std::vector<std::string> &hdr_options,
                             HttpCb cb) {
     const std::string body;
@@ -119,7 +119,7 @@ int HttpConnection::HttpGet(std::string &path, bool header, bool timeout,
     return 0;
 }
 
-int HttpConnection::HttpHead(std::string &path, bool header, bool timeout,
+int HttpConnection::HttpHead(const std::string &path, bool header, bool timeout,
                              std::vector<std::string> &hdr_options,
                              HttpCb cb) {
     const std::string body;
@@ -130,13 +130,13 @@ int HttpConnection::HttpHead(std::string &path, bool header, bool timeout,
 }
 
 int HttpConnection::HttpPut(const std::string &put_string,
-                            std::string &path,  HttpCb cb) {
+                            const std::string &path,  HttpCb cb) {
     std::vector<std::string> hdr_options;
     return HttpPut(put_string, path, false, true, hdr_options, cb);
 }
 
 int HttpConnection::HttpPut(const std::string &put_string,
-                            std::string &path, bool header, bool timeout,
+                            const std::string &path, bool header, bool timeout,
                             std::vector<std::string> &hdr_options,
                             HttpCb cb) {
     client()->ProcessEvent(boost::bind(&HttpConnection::HttpProcessInternal,
@@ -146,13 +146,13 @@ int HttpConnection::HttpPut(const std::string &put_string,
 }
 
 int HttpConnection::HttpPost(const std::string &post_string,
-                             std::string &path,  HttpCb cb) {
+                             const std::string &path,  HttpCb cb) {
     std::vector<std::string> hdr_options;
     return HttpPost(post_string, path, false, true, hdr_options, cb);
 }
 
 int HttpConnection::HttpPost(const std::string &post_string,
-                             std::string &path, bool header, bool timeout,
+                             const std::string &path, bool header, bool timeout,
                              std::vector<std::string> &hdr_options,
                              HttpCb cb) {
     client()->ProcessEvent(boost::bind(&HttpConnection::HttpProcessInternal,
@@ -324,6 +324,7 @@ TcpSession *HttpClient::CreateSession() {
     socket->open(boost::asio::ip::tcp::v4(), err);
 
     if (err) {
+        LOG(ERROR, "http socket open failed: " << err);
         return NULL;
     }
 

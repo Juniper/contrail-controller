@@ -168,7 +168,7 @@ public:
     void set_agent(Agent *agent) { agent_ = agent; }
     Agent *agent() const { return agent_; }
 
-    DBTableWalker *Flush();
+    void Flush(DBTableWalker *walker);
 private:
     AgentDBEntry *Find(const DBEntry *key);
     AgentDBEntry *Find(const DBRequestKey *key);

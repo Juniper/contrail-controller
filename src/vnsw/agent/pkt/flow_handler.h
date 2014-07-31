@@ -21,9 +21,9 @@ public:
 
     bool Run();
 
-    static const std::string *UnknownVn() { return &unknown_vn_; }
-    static const std::string *LinkLocalVn() {
-        return &Agent::GetInstance()->linklocal_vn_name();
+    static const std::string UnknownVn() { return unknown_vn_; }
+    static const std::string LinkLocalVn() {
+        return Agent::GetInstance()->linklocal_vn_name();
     }
 
 private:

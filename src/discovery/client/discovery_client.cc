@@ -23,6 +23,9 @@
 
 using namespace std; 
 namespace ip = boost::asio::ip;
+using process::ConnectionState;
+using process::ConnectionType;
+using process::ConnectionStatus;
 
 const char *DiscoveryServiceClient::XmppService = "xmpp-server";
 const char *DiscoveryServiceClient::CollectorService = "collector-server";
@@ -623,6 +626,12 @@ void DiscoveryServiceClient::SubscribeResponseHandler(std::string &xmls,
         if ((hdr->chksum_ == gen_chksum) || (ds_response.size() == 0)) {
             //Restart Subscribe Timer
             hdr->StartSubscribeTimer(ttl);
+            DISCOVERY_CLIENT_TRACE(DiscoveryClientMsg, "SubscribeResponseHandler",
+                                   serviceName, xmls);
+            // Update connection info
+            ConnectionState::GetInstance()->Update(ConnectionType::DISCOVERY,
+                serviceName, ConnectionStatus::UP, ds_endpoint_,
+                "SubscribeResponse");
             return; //No change in message, ignore
         }
 

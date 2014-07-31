@@ -164,7 +164,7 @@ class StaticRouteProvisioner(object):
         parser.set_defaults(**defaults)
 
         parser.add_argument(
-            "--prefix", help="IP Destination prefix to be updated in the Route")
+            "--prefix", help="IP Destination prefix to be updated in the Route", required=True)
         parser.add_argument(
             "--api_server_ip", help="IP address of api server")
         parser.add_argument("--api_server_port", help="Port of api server")
@@ -190,7 +190,8 @@ class StaticRouteProvisioner(object):
 
 
 def main(args_str=None):
-    StaticRouteProvisioner(args_str)
+    st=StaticRouteProvisioner(args_str)
+    #st.add_route()
 # end main
 
 if __name__ == "__main__":

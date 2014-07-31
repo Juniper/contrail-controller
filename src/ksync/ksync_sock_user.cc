@@ -2,12 +2,16 @@
  * Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
  */
 
+#if defined(__linux__)
 #include <asm/types.h>
 #include <sys/socket.h>
 #include <linux/netlink.h>
 #include <linux/rtnetlink.h>
 #include <linux/genetlink.h>
 #include <linux/sockios.h>
+#elif defined(__FreeBSD__)
+#include "vr_os.h"
+#endif
 
 #include <boost/bind.hpp>
 
@@ -482,7 +486,6 @@ void KSyncSockTypeMap::Decoder(char *data, SandeshContext *ctxt) {
         LOG(ERROR, "Netlink unknown message type : " << nlh->nlmsg_type);
         assert(0);
     }
-    
 }
 
 bool KSyncSockTypeMap::Validate(char *data) {
@@ -1007,7 +1010,9 @@ void MockDumpHandlerBase::SendDumpResponse(uint32_t seq_num, Sandesh *from_req) 
     unsigned int resp_code = 0;
 
     if (KSyncSockTypeMap::error_code()) {
-        KSyncSockTypeMap::SimulateResponse(seq_num, -KSyncSockTypeMap::error_code(), 0);
+        int ret_code = -KSyncSockTypeMap::error_code();
+        ret_code &= ~VR_MESSAGE_DUMP_INCOMPLETE;
+        KSyncSockTypeMap::SimulateResponse(seq_num, ret_code, 0);
         return;
     } 
     Sandesh *req = GetFirst(from_req);

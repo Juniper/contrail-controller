@@ -167,6 +167,7 @@ TEST_F(FlowRpfTest, Flow_rpf_failure_missing_route) {
     EXPECT_TRUE(fe != NULL);
     if (fe != NULL) {
         WAIT_FOR(1000, 500, (fe->is_flags_set(FlowEntry::ShortFlow) == true));
+        EXPECT_TRUE(fe->short_flow_reason() == FlowEntry::SHORT_NO_SRC_ROUTE);
         uint32_t fe_action = fe->match_p().action_info.action;
         EXPECT_TRUE(((fe_action) & (1 << TrafficAction::DROP)) != 0);
     }
@@ -205,6 +206,7 @@ TEST_F(FlowRpfTest, Flow_rpf_failure_subnet_discard_route) {
     EXPECT_TRUE(fe != NULL);
     if (fe != NULL) {
         WAIT_FOR(1000, 500, (fe->is_flags_set(FlowEntry::ShortFlow) == true));
+        EXPECT_TRUE(fe->short_flow_reason() == FlowEntry::SHORT_NO_SRC_ROUTE);
         uint32_t fe_action = fe->match_p().action_info.action;
         EXPECT_TRUE(((fe_action) & (1 << TrafficAction::DROP)) != 0);
     }

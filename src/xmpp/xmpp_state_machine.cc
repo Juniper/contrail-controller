@@ -187,8 +187,12 @@ struct Idle : public sc::state<Idle, XmppStateMachine> {
     Idle(my_context ctx) : my_base(ctx) {
         XmppStateMachine *state_machine = &context<XmppStateMachine>();
         SM_LOG(state_machine, "(Idle)");
+        bool flap = (state_machine->get_state() == ESTABLISHED);
         state_machine->set_state(IDLE);
         state_machine->SendConnectionInfo("Start", "Active");
+        if (flap) {
+            state_machine->connection()->increment_flap_count();
+        }
     }
 };
 
@@ -206,7 +210,11 @@ struct Active : public sc::state<Active, XmppStateMachine> {
     Active(my_context ctx) : my_base(ctx) {
         XmppStateMachine *state_machine = &context<XmppStateMachine>();
         SM_LOG(state_machine, "(Xmpp Active State)");
+        bool flap = (state_machine->get_state() == ESTABLISHED);
         state_machine->set_state(ACTIVE);
+        if (flap) {
+            state_machine->connection()->increment_flap_count();
+        }
         if (state_machine->IsActiveChannel() ) {
             SM_LOG(state_machine, "(Xmpp Start Connect Timer)");
             state_machine->StartConnectTimer(state_machine->GetConnectTime());
@@ -698,7 +706,11 @@ struct XmppStreamEstablished :
         SM_LOG(state_machine, "EvTcpClose in (Established) State");
         state_machine->SendConnectionInfo(event.Name());
         state_machine->ResetSession();
-        if (state_machine->IsActiveChannel()) return transit<Active>(); else return transit<Idle>();
+        if (state_machine->IsActiveChannel()) {
+            return transit<Active>();
+        } else {
+            return transit<Idle>();
+        }
     }
 
     sc::result react(const EvXmppKeepalive &event) {
@@ -806,7 +818,6 @@ void XmppStateMachine::ResetSession() {
     if (!connection) return;
 
     // Stop keepalives, transition to IDLE and notify registerd entities.
-    connection->increment_flap_count();
     connection->StopKeepAliveTimer();
     connection->ChannelMux()->HandleStateEvent(xmsm::IDLE);
     if (IsActiveChannel()) return;
@@ -1018,6 +1029,7 @@ void XmppStateMachine::OnSessionEvent(
                     "Event: Tcp Connect Fail ",
                     this->connection()->endpoint().address().to_string());
         Enqueue(xmsm::EvTcpConnectFail(static_cast<XmppSession *>(session)));
+        connection_->inc_connect_error();
         break;
     case TcpSession::CLOSE:
         XMPP_NOTICE(XmppEventLog, this->ChannelType(),

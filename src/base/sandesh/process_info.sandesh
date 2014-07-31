@@ -1,0 +1,81 @@
+/*
+ * Copyright (c) 2014 Juniper Networks, Inc. All rights reserved.
+ */
+
+namespace cpp process
+
+enum ConnectionType {
+    IFMAP,
+    XMPP,
+    COLLECTOR,
+    DATABASE,
+    REDIS,
+    ZOOKEEPER,
+    DISCOVERY,
+    APISERVER,
+}
+
+const map<ConnectionType, string> ConnectionTypeNames = {
+    ConnectionType.IFMAP : "IFMap",
+    ConnectionType.XMPP : "XMPP",
+    ConnectionType.COLLECTOR : "Collector",
+    ConnectionType.DATABASE : "Database",
+    ConnectionType.REDIS : "Redis",
+    ConnectionType.ZOOKEEPER : "Zookeeper",
+    ConnectionType.DISCOVERY : "Discovery",
+    ConnectionType.APISERVER : "ApiServer"
+}
+
+enum ConnectionStatus {
+    INIT,
+    DOWN,
+    UP,
+}
+
+const map<ConnectionStatus, string> ConnectionStatusNames = {
+    ConnectionStatus.INIT : "Initializing",
+    ConnectionStatus.DOWN : "Down",
+    ConnectionStatus.UP : "Up",
+}
+
+struct ConnectionInfo {
+    1: string type
+    2: string name
+    3: optional list<string> server_addrs
+    4: string status
+    5: optional string description
+}
+
+enum ProcessState {
+    FUNCTIONAL,
+    NON_FUNCTIONAL,
+}
+
+const map<ProcessState, string> ProcessStateNames = {
+    ProcessState.FUNCTIONAL : "Functional",
+    ProcessState.NON_FUNCTIONAL : "Non-Functional",
+}
+
+// Sent by the process
+struct ProcessStatus {
+    1: string module_id
+    2: string instance_id
+    3: string state
+    4: optional list<ConnectionInfo> connection_infos
+    5: optional string description
+}
+
+// Sent by the node manager
+struct ProcessInfo {
+    1: string                              process_name
+    2: string                              process_state
+    3: u32                                 start_count
+    4: u32                                 stop_count
+    5: u32                                 exit_count
+    // time when the process last entered running stage
+    6: optional string                     last_start_time
+    7: optional string                     last_stop_time
+    8: optional string                     last_exit_time
+    9: optional list<string>               core_file_list
+}
+

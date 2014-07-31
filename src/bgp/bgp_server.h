@@ -61,6 +61,9 @@ public:
     LifetimeManager *lifetime_manager() { return lifetime_manager_.get(); }
     BgpConfigManager *config_manager() { return config_mgr_.get(); }
     RoutingInstanceMgr *routing_instance_mgr() { return inst_mgr_.get(); }
+    const RoutingInstanceMgr *routing_instance_mgr() const {
+        return inst_mgr_.get();
+    }
     RTargetGroupMgr *rtarget_group_mgr() { return rtarget_group_mgr_.get(); }
     BgpConditionListener *condition_listener() { 
         return condition_listener_.get();
@@ -86,7 +89,10 @@ public:
     CommunityDB *comm_db() { return comm_db_.get(); }
     ExtCommunityDB *extcomm_db() { return extcomm_db_.get(); }
 
+    bool IsDeleted() const;
     bool IsReadyForDeletion();
+    void RetryDelete();
+
     DB *database() { return &db_; }
     const std::string &localname() const;
     as_t autonomous_system() const { return autonomous_system_; }

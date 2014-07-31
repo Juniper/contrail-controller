@@ -20,6 +20,7 @@
 #include "sandesh/sandesh.h"
 #include "schema/xmpp_multicast_types.h"
 #include "testing/gunit.h"
+#include "xmpp/xmpp_factory.h"
 #include "xmpp/xmpp_server.h"
 
 using namespace autogen;
@@ -27,84 +28,6 @@ using namespace boost::asio;
 using namespace boost::assign;
 using namespace std;
 using namespace test;
-
-//
-// Fire state machine timers faster and reduce possible delay in this test.
-//
-class StateMachineTest : public StateMachine {
-public:
-    explicit StateMachineTest(BgpPeer *peer) : StateMachine(peer) { }
-    ~StateMachineTest() { }
-
-    void StartConnectTimer(int seconds) {
-        connect_timer_->Start(10,
-            boost::bind(&StateMachine::ConnectTimerExpired, this),
-            boost::bind(&StateMachine::TimerErrorHanlder, this, _1, _2));
-    }
-
-    void StartOpenTimer(int seconds) {
-        open_timer_->Start(10,
-            boost::bind(&StateMachine::OpenTimerExpired, this),
-            boost::bind(&StateMachine::TimerErrorHanlder, this, _1, _2));
-    }
-
-    void StartIdleHoldTimer() {
-        if (idle_hold_time_ <= 0)
-            return;
-
-        idle_hold_timer_->Start(10,
-            boost::bind(&StateMachine::IdleHoldTimerExpired, this),
-            boost::bind(&StateMachine::TimerErrorHanlder, this, _1, _2));
-    }
-};
-
-class BgpXmppChannelMock : public BgpXmppChannel {
-public:
-    BgpXmppChannelMock(XmppChannel *channel, BgpServer *server, 
-        BgpXmppChannelManager *manager) :
-        BgpXmppChannel(channel, server, manager), count_(0) {
-        bgp_policy_ =
-            RibExportPolicy(BgpProto::XMPP, RibExportPolicy::XMPP, -1, 0);
-    }
-
-    virtual void ReceiveUpdate(const XmppStanza::XmppMessage *msg) {
-        count_ ++;
-        BgpXmppChannel::ReceiveUpdate(msg);
-    }
-
-    size_t Count() const { return count_; }
-    void ResetCount() { count_ = 0; }
-    virtual ~BgpXmppChannelMock() { }
-
-private:
-    size_t count_;
-};
-
-class BgpXmppChannelManagerMock : public BgpXmppChannelManager {
-public:
-    BgpXmppChannelManagerMock(XmppServer *x, BgpServer *b) :
-        BgpXmppChannelManager(x, b), count(0), channels(0) { }
-
-    virtual void XmppHandleChannelEvent(XmppChannel *channel,
-                                        xmps::PeerState state) {
-         count++;
-         BgpXmppChannelManager::XmppHandleChannelEvent(channel, state);
-    }
-
-    virtual BgpXmppChannel *CreateChannel(XmppChannel *channel) {
-        channel_[channels] = new BgpXmppChannelMock(channel, bgp_server_, this);
-        channels++;
-        return channel_[channels-1];
-    }
-
-    int Count() {
-        return count;
-    }
-    int count;
-    int channels;
-    BgpXmppChannelMock *channel_[3];
-};
-
 
 class BgpXmppMcastTest : public ::testing::Test {
 protected:
@@ -129,14 +52,14 @@ protected:
         validate_done_ = 1;
     }
 
-    BgpXmppMcastTest() : thread_(&evm_) { }
+    BgpXmppMcastTest() : thread_(&evm_), xs_x_(NULL) { }
 
     virtual void SetUp() {
         bs_x_.reset(new BgpServerTest(&evm_, "X"));
         xs_x_ = new XmppServer(&evm_, test::XmppDocumentMock::kControlNodeJID);
         bs_x_->session_manager()->Initialize(0);
         xs_x_->Initialize(0, false);
-        bcm_x_.reset(new BgpXmppChannelManagerMock(xs_x_, bs_x_.get()));
+        bcm_x_.reset(new BgpXmppChannelManager(xs_x_, bs_x_.get()));
 
         thread_.Start();
     }
@@ -276,7 +199,7 @@ protected:
     ServerThread thread_;
     BgpServerTestPtr bs_x_;
     XmppServer *xs_x_;
-    boost::scoped_ptr<BgpXmppChannelManagerMock> bcm_x_;
+    boost::scoped_ptr<BgpXmppChannelManager> bcm_x_;
     boost::shared_ptr<test::NetworkAgentMock> agent_xa_;
     boost::shared_ptr<test::NetworkAgentMock> agent_xb_;
     boost::shared_ptr<test::NetworkAgentMock> agent_xc_;
@@ -1143,7 +1066,7 @@ protected:
         xs_y_ = new XmppServer(&evm_, test::XmppDocumentMock::kControlNodeJID);
         bs_y_->session_manager()->Initialize(0);
         xs_y_->Initialize(0, false);
-        bcm_y_.reset(new BgpXmppChannelManagerMock(xs_y_, bs_y_.get()));
+        bcm_y_.reset(new BgpXmppChannelManager(xs_y_, bs_y_.get()));
 
         BgpXmppMcastTest::SetUp();
     }
@@ -1198,7 +1121,7 @@ protected:
 
     BgpServerTestPtr bs_y_;
     XmppServer *xs_y_;
-    boost::scoped_ptr<BgpXmppChannelManagerMock> bcm_y_;
+    boost::scoped_ptr<BgpXmppChannelManager> bcm_y_;
     boost::shared_ptr<test::NetworkAgentMock> agent_ya_;
     boost::shared_ptr<test::NetworkAgentMock> agent_yb_;
     boost::shared_ptr<test::NetworkAgentMock> agent_yc_;
@@ -2189,7 +2112,7 @@ protected:
         xs_z_ = new XmppServer(&evm_, test::XmppDocumentMock::kControlNodeJID);
         bs_z_->session_manager()->Initialize(0);
         xs_z_->Initialize(0, false);
-        bcm_z_.reset(new BgpXmppChannelManagerMock(xs_z_, bs_z_.get()));
+        bcm_z_.reset(new BgpXmppChannelManager(xs_z_, bs_z_.get()));
 
         BgpXmppMcast2ServerTestBase::SetUp();
     }
@@ -2244,7 +2167,7 @@ protected:
 
     BgpServerTestPtr bs_z_;
     XmppServer *xs_z_;
-    boost::scoped_ptr<BgpXmppChannelManagerMock> bcm_z_;
+    boost::scoped_ptr<BgpXmppChannelManager> bcm_z_;
     boost::shared_ptr<test::NetworkAgentMock> agent_za_;
     boost::shared_ptr<test::NetworkAgentMock> agent_zb_;
     boost::shared_ptr<test::NetworkAgentMock> agent_zc_;
@@ -3163,6 +3086,8 @@ static void SetUp() {
     BgpServerTest::GlobalSetUp();
     BgpObjectFactory::Register<StateMachine>(
         boost::factory<StateMachineTest *>());
+    XmppObjectFactory::Register<XmppStateMachine>(
+        boost::factory<XmppStateMachineTest *>());
 }
 
 static void TearDown() {

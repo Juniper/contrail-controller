@@ -65,7 +65,7 @@ bool ControllerEcmpRoute::AddChangePath(Agent *agent, AgentPath *path) {
     CompositeNHKey *comp_key = static_cast<CompositeNHKey *>(nh_req_.key.get());
     //Reorder the component NH list, and add a reference to local composite mpls
     //label if any
-    path->SetCompositeNH(agent, comp_key, false);
+    path->ReorderCompositeNH(agent, comp_key);
     return Inet4UnicastRouteEntry::ModifyEcmpPath(dest_addr_, plen_, vn_name_,
                                                   label_, local_ecmp_nh_,
                                                   vrf_name_, sg_list_,
@@ -186,7 +186,8 @@ ControllerLocalVmRoute::ControllerLocalVmRoute(const VmInterfaceKey &intf,
                                                uint64_t sequence_number,
                                                const AgentXmppChannel *channel) :
     LocalVmRoute(intf, mpls_label, vxlan_id, force_policy, vn_name, flags, sg_list,
-                 path_preference), sequence_number_(sequence_number), channel_(channel) { }
+                 path_preference, Ip4Address(0)),
+    sequence_number_(sequence_number), channel_(channel) { }
 
 bool ControllerLocalVmRoute::IsPeerValid() const {
     return CheckPeerValidity(channel_, sequence_number_);

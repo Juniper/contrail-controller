@@ -21,17 +21,14 @@ env.Append(LIBPATH = ['#/' + Dir('..').path,
                       '.'
                      ])
 
-env.Prepend(LIBS = ['bfd', 'gunit', 'io', 'sandesh', 'io', 'sandeshvns', 'connection_info', 'base', 'http',
+env.Prepend(LIBS = ['bfd', 'gunit', 'io', 'sandesh', 'io', 'sandeshvns', 'process_info', 'base', 'http',
                     'http_parser', 'curl', 'pugixml', 'boost_program_options', 'boost_thread'])
 
 if sys.platform != 'darwin':
     env.Append(LIBS=['rt'])
 
 except_env = env.Clone()
-cflags = except_env['CCFLAGS']
-if '-fno-exceptions' in cflags:
-    cflags.remove('-fno-exceptions')
-except_env.Replace(CCFLAGS = cflags)
+except_env.CppEnableExceptions()
 
 config_test_env = env.Clone()
 # config_test_env.Append(LIBPATH = ['../../ifmap/test'])

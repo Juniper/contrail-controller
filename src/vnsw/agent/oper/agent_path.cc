@@ -35,7 +35,7 @@ AgentPath::AgentPath(const Peer *peer, AgentRoute *rt):
     tunnel_type_(TunnelType::ComputeType(TunnelType::AllType())),
     vrf_name_(""), gw_ip_(0), unresolved_(true), is_stale_(false),
     is_subnet_discard_(false), dependant_rt_(rt), path_preference_(),
-    local_ecmp_mpls_label_(rt), composite_nh_key_(NULL) {
+    local_ecmp_mpls_label_(rt), composite_nh_key_(NULL), subnet_gw_ip_(0) {
 }
 
 AgentPath::~AgentPath() {
@@ -213,8 +213,11 @@ bool AgentPath::Sync(AgentRoute *sync_route) {
     //Check if there was a change in local ecmp composite nexthop
     if (nh_ && nh_->GetType() == NextHop::COMPOSITE &&
         composite_nh_key_.get() != NULL) {
-        if (SetCompositeNH(agent, composite_nh_key_.get(), true)) {
-            ret = true;
+        boost::scoped_ptr<CompositeNHKey> composite_nh_key(composite_nh_key_->Clone());
+        if (ReorderCompositeNH(agent, composite_nh_key.get())) {
+            if (ChangeCompositeNH(agent, composite_nh_key.get())) {
+                ret = true;
+            }
         }
     }
 
@@ -410,6 +413,15 @@ bool LocalVmRoute::AddChangePath(Agent *agent, AgentPath *path) {
         path->set_path_preference(path_preference_);
         ret = true;
     }
+    if (path->peer() && path->peer()->GetType() == Peer::BGP_PEER) {
+        //Copy entire path preference for BGP peer path,
+        //since allowed-address pair config doesn't modify
+        //preference on BGP path
+        if (path->path_preference() != path_preference_) {
+            path->set_path_preference(path_preference_);
+            ret = true;
+        }
+    }
 
     // When BGP path was added, the policy flag in BGP path was based on
     // interface config at that instance. If the policy flag changes in
@@ -426,6 +438,11 @@ bool LocalVmRoute::AddChangePath(Agent *agent, AgentPath *path) {
         new_policy = true;
     if (old_policy != new_policy) {
         sync_route_ = true;
+    }
+
+    if (path->subnet_gw_ip() != subnet_gw_ip_) {
+        path->set_subnet_gw_ip(subnet_gw_ip_);
+        ret = true;
     }
 
     path->set_unresolved(false);
@@ -469,6 +486,13 @@ bool VlanNhRoute::AddChangePath(Agent *agent, AgentPath *path) {
     //transition from active-active to active-backup struture
     if (path->path_preference().ecmp() != path_preference_.ecmp()) {
         path->set_path_preference(path_preference_);
+        ret = true;
+    }
+
+    path->set_tunnel_bmap(tunnel_bmap_);
+    TunnelType::Type tunnel_type = TunnelType::ComputeType(tunnel_bmap_);
+    if (tunnel_type != path->tunnel_type()) {
+        path->set_tunnel_type(tunnel_type);
         ret = true;
     }
 
@@ -551,6 +575,9 @@ bool MulticastRoute::AddChangePath(Agent *agent, AgentPath *path) {
 
 bool PathPreferenceData::AddChangePath(Agent *agent, AgentPath *path) {
     bool ret = false;
+    //ECMP flag will not be changed by path preference module,
+    //hence retain value in path
+    path_preference_.set_ecmp(path->path_preference().ecmp());
     if (path &&
         path->path_preference() != path_preference_) {
         path->set_path_preference(path_preference_);
@@ -639,6 +666,7 @@ void AgentRoute::FillTrace(RouteInfo &rt_info, Trace event,
         if (path->peer()) {
             rt_info.set_peer(path->peer()->GetName());
         }
+        rt_info.set_ecmp(path->path_preference().ecmp());
         const NextHop *nh = path->nexthop(agent);
         if (nh == NULL) {
             rt_info.set_nh_type("<NULL>");
@@ -746,9 +774,8 @@ const MplsLabel* AgentPath::local_ecmp_mpls_label() const {
     return local_ecmp_mpls_label_.get();
 }
 
-bool AgentPath::SetCompositeNH(Agent *agent,
-                               CompositeNHKey *composite_nh_key, bool create) {
-    bool ret = false;
+bool AgentPath::ReorderCompositeNH(Agent *agent,
+                                   CompositeNHKey *composite_nh_key) {
     //Find local composite mpls label, if present
     //This has to be done, before expanding component NH
     BOOST_FOREACH(ComponentNHKeyPtr component_nh_key,
@@ -781,22 +808,24 @@ bool AgentPath::SetCompositeNH(Agent *agent,
     //the new composite NH created should be A <NULL> C in that order,
     //irrespective of the order user passed it in
     composite_nh_key->Reorder(agent, label_, nexthop(agent));
-    //Create the nexthop
-    if (create) {
-        DBRequest nh_req(DBRequest::DB_ENTRY_ADD_CHANGE);
-        nh_req.key.reset(composite_nh_key->Clone());
-        nh_req.data.reset(new CompositeNHData());
-        agent->nexthop_table()->Process(nh_req);
-
-        NextHop *nh = static_cast<NextHop *>(agent->nexthop_table()->
-                FindActiveEntry(composite_nh_key));
-        assert(nh);
-
-        if (ChangeNH(agent, nh) == true) {
-            ret = true;
-        }
-    }
     //Copy the unchanged component NH list to path data
     set_composite_nh_key(comp_key);
-    return ret;
+    return true;
+}
+
+bool AgentPath::ChangeCompositeNH(Agent *agent,
+                                  CompositeNHKey *composite_nh_key) {
+    DBRequest nh_req(DBRequest::DB_ENTRY_ADD_CHANGE);
+    nh_req.key.reset(composite_nh_key->Clone());
+    nh_req.data.reset(new CompositeNHData());
+    agent->nexthop_table()->Process(nh_req);
+
+    NextHop *nh = static_cast<NextHop *>(agent->nexthop_table()->
+            FindActiveEntry(composite_nh_key));
+    assert(nh);
+
+    if (ChangeNH(agent, nh) == true) {
+        return true;
+    }
+    return false;
 }

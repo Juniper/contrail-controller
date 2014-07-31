@@ -10,6 +10,7 @@
 #include "base/logging.h"
 #include "base/task.h"
 #include "base/task_annotations.h"
+#include "base/timer_impl.h"
 
 #include <boost/asio/buffer.hpp>
 #include <boost/asio/detail/socket_option.hpp>
@@ -42,7 +43,7 @@
 #include <sandesh/request_pipeline.h>
 #include "bgp/bgp_sandesh.h"
 
-const int IFMapChannel::kSocketCloseTimeout = 2;
+const int IFMapChannel::kSocketCloseTimeout = 2 * 1000;
 const uint64_t IFMapChannel::kRetryConnectionMax = 2;
 
 using namespace boost::assign;
@@ -147,16 +148,18 @@ void IFMapChannel::set_connection_status(ConnectionStatus status) {
         connection_status_change_at_ = UTCTimestampUsec();
 
         // Update connection info
-        ConnectionState::GetInstance()->Update(ConnectionType::IFMAP,
-            "IFMapServer", connection_status_ == UP ? ::ConnectionStatus::UP :
-                                                      ::ConnectionStatus::DOWN,
+        process::ConnectionState::GetInstance()->Update(
+            process::ConnectionType::IFMAP,
+            "IFMapServer", connection_status_ == UP ? 
+            process::ConnectionStatus::UP :
+            process::ConnectionStatus::DOWN,
             endpoint_, "Connection with IFMap Server (irond)");
     }
 }
 
 // Will run in the context of the main task
 void IFMapChannel::CloseSockets(const boost::system::error_code& error,
-        boost::asio::monotonic_deadline_timer *socket_close_timer) {
+                                TimerImpl *socket_close_timer) {
     // operation_aborted is the only possible error. Since we are not going to
     // cancel this timer, we should never really get an error.
     if (error) {
@@ -224,10 +227,8 @@ void IFMapChannel::ReconnectPreparationInMainThr() {
     // in the main task context.
     // Create the timer on the heap so that we release all resources correctly
     // even when we are called multiple times.
-    boost::asio::monotonic_deadline_timer *socket_close_timer = 
-        new boost::asio::monotonic_deadline_timer(*manager_->io_service());
-    socket_close_timer->expires_from_now(
-        boost::posix_time::seconds(kSocketCloseTimeout), ec);
+    TimerImpl *socket_close_timer = new TimerImpl(*manager_->io_service());
+    socket_close_timer->expires_from_now(kSocketCloseTimeout, ec);
     socket_close_timer->async_wait(
         boost::bind(&IFMapChannel::CloseSockets, this,
                     boost::asio::placeholders::error, socket_close_timer));
@@ -570,8 +571,6 @@ int IFMapChannel::ReadPollResponse() {
 
     CHECK_CONCURRENCY("ifmap::StateMachine");
     // Append the new bytes read, if any, to the stringstream
-    IFMAP_PEER_DEBUG(IFMapServerConnection, "IFMapChannel::ReadPollResponse",
-                     GetSizeAsString(reply_.size(), " bytes in reply_. "));
     reply_ss_ << &reply_;
     std::string reply_str = reply_ss_.str();
     IFMAP_PEER_LOG_POLL_RESP(IFMapServerConnection,
@@ -629,8 +628,6 @@ void IFMapChannel::ProcResponse(const boost::system::error_code& error,
     reply_ss_.str(std::string());
     reply_ss_.clear();
 
-    IFMAP_PEER_DEBUG(IFMapServerConnection, "IFMapChannel::ProcResponse",
-                     GetSizeAsString(reply_.size(), " bytes in reply_. "));
     reply_ss_ << &reply_;
     std::string reply_str = reply_ss_.str();
 
@@ -860,6 +857,9 @@ static bool IFMapServerInfoHandleRequest(const Sandesh *sr,
     sm_info.set_last_state_change_at(sm->last_state_change_at());
     sm_info.set_last_event(sm->last_event());
     sm_info.set_last_event_at(sm->last_event_at());
+    sm_info.set_workq_enqueues(sm->WorkQueueEnqueues());
+    sm_info.set_workq_dequeues(sm->WorkQueueDequeues());
+    sm_info.set_workq_length(sm->WorkQueueLength());
 
     ifmap_manager->GetAllDSPeerInfo(&ds_peer_info);
 
@@ -891,63 +891,3 @@ void IFMapPeerServerInfoReq::HandleRequest() const {
     RequestPipeline rp(ps);
 }
 
-// START: temp instrumentation. Remove asap.
-string IFMapChannel::ArcSocketReadHandleRequest(int bytes_to_read,
-                                                size_t *bytes) {
-    if (temp_reply_str_.size()) {
-        *bytes = temp_reply_str_.size();
-    } else {
-        boost::system::error_code ec;
-        *bytes = boost::asio::read(*arc_socket_.get(), temp_reply_,
-                boost::asio::transfer_at_least(bytes_to_read), ec);
-        temp_reply_ss_ << &temp_reply_;
-        temp_reply_str_ = temp_reply_ss_.str();
-    }
-    return temp_reply_str_;
-}
-
-static bool IFMapSocketReadHandleRequest(const Sandesh *sr,
-                                         const RequestPipeline::PipeSpec ps,
-                                         int stage, int instNum,
-                                         RequestPipeline::InstData *data) {
-    const IFMapPeerServerSocketReadReq *request =
-        static_cast<const IFMapPeerServerSocketReadReq *>(ps.snhRequest_.get());
-    BgpSandeshContext *bsc = 
-        static_cast<BgpSandeshContext *>(request->client_context());
-
-    int bytes_to_read = request->get_bytes_to_read();
-
-    IFMapChannel *channel =
-        bsc->ifmap_server->get_ifmap_manager()->channel();
-    IFMapPeerServerSocketReadResp *response =
-        new IFMapPeerServerSocketReadResp();
-
-    size_t num_bytes = 0;
-    string socket_bytes_str = 
-        channel->ArcSocketReadHandleRequest(bytes_to_read, &num_bytes);
-
-    response->set_socket_bytes(num_bytes);
-    response->set_socket_string(socket_bytes_str);
-
-    response->set_context(request->context());
-    response->set_more(false);
-    response->Response();
-
-    // Return 'true' so that we are not called again
-    return true;
-}
-
-void IFMapPeerServerSocketReadReq::HandleRequest() const {
-    RequestPipeline::StageSpec s0;
-    TaskScheduler *scheduler = TaskScheduler::GetInstance();
-
-    s0.taskId_ = scheduler->GetTaskId("ifmap::StateMachine");
-    s0.cbFn_ = IFMapSocketReadHandleRequest;
-    s0.instances_.push_back(0);
-
-    RequestPipeline::PipeSpec ps(this);
-    ps.stages_= list_of(s0);
-    RequestPipeline rp(ps);
-}
-
-// END: temp instrumentation. Remove asap.

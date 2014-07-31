@@ -36,6 +36,12 @@ public:
         uint32_t update;
     };
 
+    struct ErrorStats {
+        ErrorStats() : connect_error(0) {
+        }
+        uint32_t connect_error;
+    };
+
     XmppConnection(TcpServer *server, const XmppChannelConfig *config);
     virtual ~XmppConnection();
 
@@ -173,6 +179,9 @@ public:
     void set_disable_read(bool disable_read) { disable_read_ = disable_read; }
     XmppStateMachine *state_machine();
 
+    void inc_connect_error();
+    size_t get_connect_error();
+
 protected:
     TcpServer *server_;
     const XmppStateMachine *state_machine() const;
@@ -205,6 +214,7 @@ private:
 
     ProtoStats stats_[2];
     void IncProtoStats(unsigned int type);
+    ErrorStats error_stats_;
 
     DISALLOW_COPY_AND_ASSIGN(XmppConnection);
 };
@@ -226,13 +236,18 @@ public:
     virtual void increment_flap_count();
     virtual const std::string last_flap_at() const;
 
+    bool duplicate() const { return duplicate_; }
     void set_duplicate() { duplicate_ = true; }
-    bool duplicate() { return duplicate_; }
+
+    bool on_work_queue() const { return on_work_queue_; }
+    void set_on_work_queue() { on_work_queue_ = true; }
+    void clear_on_work_queue() { on_work_queue_ = false; }
 
 private:
     class DeleteActor;
 
     bool duplicate_;
+    bool on_work_queue_;
     boost::scoped_ptr<DeleteActor> deleter_;
     LifetimeRef<XmppServerConnection> server_delete_ref_;
     XmppConnectionEndpoint *conn_endpoint_;
@@ -258,11 +273,11 @@ public:
 private:
     class DeleteActor;
 
-    boost::scoped_ptr<DeleteActor> deleter_;
-    LifetimeRef<XmppClientConnection> server_delete_ref_;
     std::string close_reason_;
     uint32_t flap_count_;
     uint64_t last_flap_;
+    boost::scoped_ptr<DeleteActor> deleter_;
+    LifetimeRef<XmppClientConnection> server_delete_ref_;
 };
 
 class XmppConnectionEndpoint {

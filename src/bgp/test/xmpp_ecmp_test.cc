@@ -10,6 +10,7 @@
 #include "base/logging.h"
 #include "base/util.h"
 #include "base/test/task_test_util.h"
+#include "bgp/bgp_factory.h"
 #include "bgp/test/bgp_server_test_util.h"
 #include "bgp/routing-instance/routing_instance.h"
 #include "control-node/control_node.h"
@@ -24,6 +25,7 @@
 #include "schema/bgp_schema_types.h"
 #include "schema/vnc_cfg_types.h"
 #include "testing/gunit.h"
+#include "xmpp/xmpp_factory.h"
 
 using namespace std;
 using namespace test;
@@ -46,8 +48,6 @@ protected:
     XmppEcmpTest()
         : node_a_(new test::ControlNodeTest(&evm_, "A")),
           node_b_(new test::ControlNodeTest(&evm_, "B")) {
-        // net_1_= "default-domain:b47d0eacc9c446eabc9b4eea3d6f6133:vn1:vn1";
-        // net_2_ = "default-domain:b47d0eacc9c446eabc9b4eea3d6f6133:vn2:vn2";
         net_1_= "red";
         net_2_ = "blue";
         inet_ = false;
@@ -625,7 +625,7 @@ void XmppEcmpTest::DeleteRoutesAndVerify(bool flap) {
     vector<test::NetworkAgentMock *> lbd =
         list_of(agent_b_.get())(agent_d_.get());
 
-    // Bringdown agent_a or agent_a's routes.
+    // Bring down agent_a or agent_a's routes.
     if (!flap) {
         if (inet_) {
             agent_a_->DeleteRoute(net_1_, "10.0.1.1/32", nexthops_a);
@@ -651,7 +651,7 @@ void XmppEcmpTest::DeleteRoutesAndVerify(bool flap) {
                         AddNextHops2(nexthops_b, nexthops_d));
     }
 
-    // Bringdown agent_b or agent_b's routes.
+    // Bring down agent_b or agent_b's routes.
     if (!flap) {
         if (inet_) {
             agent_b_->DeleteRoute(net_2_, "10.0.1.1/32", nexthops_b);
@@ -676,7 +676,7 @@ void XmppEcmpTest::DeleteRoutesAndVerify(bool flap) {
                         nexthops_d);
     }
 
-    // Bringdown agent_c or agent_c's routes.
+    // Bring down agent_c or agent_c's routes.
     if (!flap) {
         if (inet_) {
             agent_c_->DeleteRoute(net_1_, "10.0.1.1/32", nexthops_c);
@@ -700,7 +700,7 @@ void XmppEcmpTest::DeleteRoutesAndVerify(bool flap) {
                         nexthops_d);
     }
 
-    // Bringdown agent_d or agent_d's routes.
+    // Bring down agent_d or agent_d's routes.
     if (!flap) {
         if (inet_) {
             agent_d_->DeleteRoute(net_2_, "10.0.1.1/32", nexthops_d);
@@ -753,7 +753,7 @@ TEST_F(XmppEcmpTest, AgentDown) {
     DeleteRoutesAndVerify(true);
 }
 
-// After adding some routes with multiple next-hops, readvertise the same set
+// After adding some routes with multiple next-hops, re-advertise the same set
 // of routes with completely different set of next-hops.
 TEST_F(XmppEcmpTest, Inet_RemoveAllAndAddSomeNextHops) {
     SCOPED_TRACE(__FUNCTION__);
@@ -786,7 +786,7 @@ TEST_F(XmppEcmpTest, Inet_RemoveSomeNextHops) {
     UpdateRoutesAndVerify();
 }
 
-// Remove some next-hops and add sme new ones during readvertisement.
+// Remove some next-hops and add some new ones during re-advertisement.
 TEST_F(XmppEcmpTest, Inet_RemoveSomeAndAddSomeNextHops) {
     SCOPED_TRACE(__FUNCTION__);
     inet_ = true;
@@ -806,7 +806,7 @@ TEST_F(XmppEcmpTest, Inet_RemoveSomeAndAddSomeNextHops) {
 
 // Enet ecmp tests
 
-// After adding some routes with multiple next-hops, readvertise the same set
+// After adding some routes with multiple next-hops, re-advertise the same set
 // of routes with completely different set of next-hops.
 TEST_F(XmppEcmpTest, Enet_RemoveAllAndAddSomeNextHops) {
     SCOPED_TRACE(__FUNCTION__);
@@ -840,7 +840,7 @@ TEST_F(XmppEcmpTest, Enet_RemoveSomeNextHops) {
     UpdateRoutesAndVerify();
 }
 
-// Remove some next-hops and add sme new ones during readvertisement.
+// Remove some next-hops and add some new ones during re-advertisement.
 TEST_F(XmppEcmpTest, Enet_RemoveSomeAndAddSomeNextHops) {
     SCOPED_TRACE(__FUNCTION__);
     enet_ = true;
@@ -931,6 +931,10 @@ class TestEnvironment : public ::testing::Environment {
 static void SetUp() {
     ControlNode::SetDefaultSchedulingPolicy();
     BgpServerTest::GlobalSetUp();
+    BgpObjectFactory::Register<StateMachine>(
+        boost::factory<StateMachineTest *>());
+    XmppObjectFactory::Register<XmppStateMachine>(
+        boost::factory<XmppStateMachineTest *>());
 }
 
 static void TearDown() {

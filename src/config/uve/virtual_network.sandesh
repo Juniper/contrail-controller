@@ -6,36 +6,12 @@
 // Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
 //
 
-struct VncVnApiCommon {
-    1: string identifier_uuid; // object identifier
-    2: string identifier_name; // object name
-    3: string url;             // The object URL
-    4: string operation;       // get/post/update/delete
-    5: optional string params;
-    6: optional string body;
-    7: optional string user;
-    8: optional string domain;
-    9: optional string error;
-}
-
-objectlog sandesh VNLog {
-    1: string                 name (key="ObjectVNTable")
-    2: VncVnApiCommon         api_log
-}
-
-struct VnPolicy {
-    1: i32 vnp_major;
-    2: i32 vnp_minor;
-    3: string vnp_name (aggtype="listkey")
-}
-
 // This is the structure sent by an application to the Collector to represent
 // all or part of the Config state of the UVE on this app instance.
 //
 struct UveVirtualNetworkConfig {
     1: string                           name (key="ObjectVNTable")
     2: optional bool                    deleted
-    3: optional list<VnPolicy>          attached_policies;
     4: optional list<string>            connected_networks (aggtype="union")
     5: optional list<string>            partially_connected_networks (aggtype="union")
     6: optional list<string>            routing_instance_list (aggtype="union")

@@ -17,6 +17,7 @@ import datetime
 import logging
 import logging.handlers
 import time
+import re
 from opserver_util import OpServerUtils
 from sandesh_common.vns.ttypes import Module
 from sandesh_common.vns.constants import ModuleNames, NodeTypeNames
@@ -60,6 +61,7 @@ class LogQuerier(object):
                           --send-syslog
                           --syslog-server 127.0.0.1
                           --syslog-port 514
+                          --keywords comma,seperated,list
         """
         defaults = {
             'opserver_ip': '127.0.0.1',
@@ -112,6 +114,7 @@ class LogQuerier(object):
         parser.add_argument("--syslog-port", help="Port to send syslog to",
             type=int, default=514)
         parser.add_argument("--f", help="Tail logs from now", action="store_true")
+        parser.add_argument("--keywords", help="comma seperated list of keywords")
         self._args = parser.parse_args()
         return 0
     # end parse_args
@@ -137,7 +140,8 @@ class LogQuerier(object):
             self._args.opserver_port)
         where_msg = []
         where_obj = []
-        filter = []
+        and_filter = []
+        or_filter = []
         if self._args.source is not None:
             source_match = OpServerUtils.Match(name=VizConstants.SOURCE,
                                                value=self._args.source,
@@ -168,22 +172,22 @@ class LogQuerier(object):
             level_match = OpServerUtils.Match(
                 name=VizConstants.LEVEL,
                 value=SandeshLevel._NAMES_TO_VALUES[self._args.level],
-                op=OpServerUtils.MatchOp.GEQ)
-            filter.append(level_match.__dict__)
+                op=OpServerUtils.MatchOp.LEQ)
+            and_filter.append(level_match.__dict__)
 
         if self._args.node_type is not None:
             node_type_match = OpServerUtils.Match(
                 name=VizConstants.NODE_TYPE,
                 value=self._args.node_type,
                 op=OpServerUtils.MatchOp.EQUAL)
-            filter.append(node_type_match.__dict__)
+            and_filter.append(node_type_match.__dict__)
 
         if self._args.instance_id is not None:
             instance_id_match = OpServerUtils.Match(
                 name=VizConstants.INSTANCE_ID,
                 value=self._args.instance_id,
                 op=OpServerUtils.MatchOp.EQUAL)
-            filter.append(instance_id_match.__dict__)
+            and_filter.append(instance_id_match.__dict__)
 
         # Object logs :
         # --object-type <> : All logs for the particular object type
@@ -295,7 +299,7 @@ class LogQuerier(object):
                 value=str(
                     SandeshType.TRACE),
                 op=OpServerUtils.MatchOp.EQUAL)
-            filter.append(sandesh_type_filter.__dict__)
+            and_filter.append(sandesh_type_filter.__dict__)
         else:
             # Message Table Query
             table = VizConstants.COLLECTOR_GLOBAL_TABLE
@@ -307,7 +311,13 @@ class LogQuerier(object):
                     value=str(
                         SandeshType.SYSTEM),
                     op=OpServerUtils.MatchOp.EQUAL)
-                filter.append(sandesh_type_filter.__dict__)
+                or_filter.append(sandesh_type_filter.__dict__)
+                sandesh_type_filter = OpServerUtils.Match(
+                    name=VizConstants.SANDESH_TYPE,
+                    value=str(
+                        SandeshType.SYSLOG),
+                    op=OpServerUtils.MatchOp.EQUAL)
+                or_filter.append(sandesh_type_filter.__dict__)
 
             if len(where_msg):
                 where = [where_msg]
@@ -328,8 +338,23 @@ class LogQuerier(object):
                 VizConstants.INSTANCE_ID,
             ]
 
-        if len(filter) == 0:
-            filter = None
+        filter = None
+        if len(or_filter):
+            filter = [and_filter+[filt] for filt in or_filter]
+        elif len(and_filter):
+            filter = [and_filter]
+
+        if self._args.keywords is not None:
+            p = re.compile('\s*,\s*|\s+')
+            if where is None:
+                where = [[]]
+            for kwd in p.split(self._args.keywords):
+                message_type_match = OpServerUtils.Match(
+                    name=VizConstants.KEYWORD,
+                    value=kwd,
+                    op=OpServerUtils.MatchOp.EQUAL)
+                for wc in where:
+                    wc.append(message_type_match.__dict__)
 
         # Add sort by timestamp for non object value queries
         sort_op = None

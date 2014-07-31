@@ -48,6 +48,7 @@ static void Execute(const string &str) {
 }
 
 /****************************************************************************
+ * Implementation of KSyncLinuxBridgeEntry
  ****************************************************************************/
 KSyncLinuxBridgeEntry::KSyncLinuxBridgeEntry(KSyncLinuxBridgeObject *obj,
                                              const VxLanId *vxlan) :
@@ -98,10 +99,6 @@ bool KSyncLinuxBridgeEntry::Add() {
     return true;
 }
 
-bool KSyncLinuxBridgeEntry::Change() {
-    return true;
-}
-
 bool KSyncLinuxBridgeEntry::Delete() {
     std::stringstream s;
     s << "brctl delif " << name_ << " " << vxlan_port_name_;
@@ -118,6 +115,7 @@ bool KSyncLinuxBridgeEntry::Delete() {
 }
 
 /****************************************************************************
+ * Implementation of KSyncLinuxBridgeObject
  ****************************************************************************/
 KSyncLinuxBridgeObject::KSyncLinuxBridgeObject(KSyncLinuxVxlan *ksync) :
     KSyncVxlanBridgeObject(ksync) {
@@ -136,6 +134,7 @@ KSyncEntry *KSyncLinuxBridgeObject::DBToKSyncEntry(const DBEntry *e) {
 }
 
 /****************************************************************************
+ * Implementation of KSyncLinuxPortEntry
  ****************************************************************************/
 KSyncLinuxPortEntry::KSyncLinuxPortEntry(KSyncLinuxPortObject *obj,
                                          const Interface *interface) :
@@ -185,6 +184,7 @@ bool KSyncLinuxPortEntry::Delete() {
 }
 
 /****************************************************************************
+ * Implementation of KSyncLinuxPortObject
  ****************************************************************************/
 KSyncLinuxPortObject::KSyncLinuxPortObject(KSyncLinuxVxlan *ksync) :
     KSyncVxlanPortObject(ksync) {
@@ -214,6 +214,7 @@ KSyncEntry *KSyncLinuxPortObject::DBToKSyncEntry(const DBEntry *e) {
 }
 
 /****************************************************************************
+ * Implementation of KSyncLinuxFdbEntry
  ****************************************************************************/
 KSyncLinuxFdbEntry::KSyncLinuxFdbEntry(KSyncLinuxFdbObject *obj,
                                        const KSyncLinuxFdbEntry *entry) :
@@ -286,6 +287,7 @@ bool KSyncLinuxFdbEntry::Delete() {
 }
 
 /****************************************************************************
+ * Implementation of KSyncLinuxFdbObject
  ****************************************************************************/
 KSyncLinuxFdbObject::KSyncLinuxFdbObject(KSyncLinuxVrfObject *vrf,
                                          AgentRouteTable *rt_table) :
@@ -308,6 +310,7 @@ KSyncEntry *KSyncLinuxFdbObject::DBToKSyncEntry(const DBEntry *e) {
 }
 
 /****************************************************************************
+ * Implementation of KSyncLinuxVrfObject
  ****************************************************************************/
 KSyncLinuxVrfObject::KSyncLinuxVrfObject(KSyncLinuxVxlan *ksync) :
     KSyncVxlanVrfObject(ksync) {

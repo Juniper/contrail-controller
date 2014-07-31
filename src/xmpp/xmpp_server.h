@@ -38,14 +38,15 @@ public:
     void NotifyConnectionEvent(XmppChannelMux *, xmps::PeerState);
     size_t ConnectionEventCount() const;
 
-    void Shutdown();
-
     LifetimeManager *lifetime_manager();
     LifetimeActor *deleter();
 
     virtual TcpSession *CreateSession();
     virtual bool Initialize(short port);
     virtual void Initialize(short port, bool logUVE);
+    void SessionShutdown();
+    void Shutdown();
+    void Terminate();
 
     virtual XmppServerConnection *CreateConnection(XmppSession *session);
     virtual XmppServerConnection *FindConnection(Endpoint remote_endpoint);
@@ -72,26 +73,31 @@ protected:
 
 private:
     class DeleteActor;
-    friend class XmppStateMachineTest;
+    friend class BgpXmppBasicTest;
     friend class DeleteActor;
+    friend class XmppStateMachineTest;
 
     typedef std::map<Endpoint, XmppServerConnection *> ConnectionMap;
     typedef std::set<XmppServerConnection *> ConnectionSet;
     typedef std::map<Ip4Address, XmppConnectionEndpoint *> ConnectionEndpointMap;
     typedef std::map<xmps::PeerId, ConnectionEventCb> ConnectionEventCbMap;
 
+    bool DequeueConnection(XmppServerConnection *connection);
+    size_t GetQueueSize() const;
+    void SetQueueDisable(bool disabled);
+
     ConnectionMap connection_map_;
     ConnectionSet deleted_connection_set_;
     ConnectionEndpointMap connection_endpoint_map_;
     void *bgp_server_;
 
+    tbb::mutex deletion_mutex_;
     boost::scoped_ptr<LifetimeManager> lifetime_manager_;
     boost::scoped_ptr<DeleteActor> deleter_;
 
     ConnectionEventCbMap connection_event_map_;
-    std::string server_addr_; // xmpp server addr
+    std::string server_addr_;
     bool log_uve_;
-    bool DequeueConnection(XmppServerConnection *connection);
     WorkQueue<XmppServerConnection *> work_queue_;
 
     DISALLOW_COPY_AND_ASSIGN(XmppServer);

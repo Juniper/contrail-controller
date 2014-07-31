@@ -14,6 +14,7 @@
 #include <tbb/compat/condition_variable>
 
 #include "base/util.h"
+#include "io/server_manager.h"
 
 class EventManager;
 class TcpSession;
@@ -135,6 +136,9 @@ private:
     typedef std::set<TcpSessionPtr, TcpSessionPtrCmp> SessionSet;
     typedef std::multimap<Endpoint, TcpSession *> SessionMap;
 
+    void InsertSessionToMap(Endpoint remote, TcpSession *session);
+    bool RemoveSessionFromMap(Endpoint remote, TcpSession *session);
+
     // Called by the asio service.
     void AcceptHandlerInternal(TcpServerPtr server,
              const boost::system::error_code &error);
@@ -177,34 +181,14 @@ inline void intrusive_ptr_release(TcpServer *server) {
     }
 }
 
-//
-// TcpServerManager is the place holder for all the TcpServer objects
-// instantiated in the life time of a process
-//
-// TcpServer objects are help in ServerSet until all the cleanup is complete
-// and only then should they be deleted via DeleteServer() API
-//
-// Since TcpServer objects are also held by boost::asio routines, they are
-// protected using intrusive pointers
-// 
-// This is similar to how TcpSession objects are managed via TcpSessionPtr
-//
 class TcpServerManager {
 public:
     static void AddServer(TcpServer *server);
     static void DeleteServer(TcpServer *server);
+    static size_t GetServerCount();
 
 private:
-    struct TcpServerPtrCmp {
-        bool operator()(const TcpServerPtr &lhs,
-                        const TcpServerPtr &rhs) const {
-            return lhs.get() < rhs.get();
-        }
-    };
-    typedef std::set<TcpServerPtr, TcpServerPtrCmp> ServerSet;
-
-    static tbb::mutex mutex_;
-    static ServerSet server_ref_;
+    static ServerManager<TcpServer, TcpServerPtr> impl_;
 };
 
 #endif // __TCPSERVER_H__

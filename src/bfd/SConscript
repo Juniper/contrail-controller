@@ -16,9 +16,9 @@ env.Prepend(LIBS = ['io', 'base'])
 if sys.platform != 'darwin':
     env.Append(LIBS = ['rt'])
 
-source = ['bfd_state_machine.cc', 'bfd_control_packet.cc', 'bfd_session.cc', 'bfd_server.cc', 'bfd_udp_connection.cc']
+source = ['bfd_state_machine.cc', 'bfd_control_packet.cc', 'bfd_session.cc', 'bfd_server.cc', 'bfd_udp_connection.cc', 'bfd_common.cc']
 
 libbfd = env.Library('bfd', source)
 
 env.SConscript('test/SConscript', exports='BuildEnv', duplicate = 0)
-
+env.SConscript('rest_api/SConscript', exports='BuildEnv', duplicate = 0)

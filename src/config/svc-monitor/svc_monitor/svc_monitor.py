@@ -15,61 +15,31 @@ from cfgm_common.zkclient import ZookeeperClient
 import requests
 import ConfigParser
 import cgitb
-import logging
-import logging.handlers
 import argparse
 import socket
-import random
-import time
-import datetime
 
 import re
 import os
 
-import pycassa
-from pycassa.system_manager import *
+import logging
+import logging.handlers
 
 from cfgm_common.imid import *
-from cfgm_common import vnc_cpu_info
-
-from vnc_api.vnc_api import *
+from cfgm_common import importutils
+from cfgm_common import svc_info
 
 from pysandesh.sandesh_base import Sandesh
 from pysandesh.gen_py.sandesh.ttypes import SandeshLevel
-from cfgm_common.uve.service_instance.ttypes import *
-from sandesh_common.vns.ttypes import Module, NodeType
-from sandesh_common.vns.constants import ModuleNames, Module2NodeType, NodeTypeNames, INSTANCE_ID_DEFAULT
-from sandesh.svc_mon_introspect import ttypes as sandesh
+from pysandesh.gen_py.process_info.ttypes import ConnectionType, \
+    ConnectionStatus
 
-from pysandesh.connection_info import ConnectionState
-from pysandesh.gen_py.connection_info.ttypes import ConnectionType,\
-    ConnectionStatus, ConnectivityStatus
-from pysandesh.gen_py.connection_info.constants import \
-    ConnectionStatusNames
-from cfgm_common.uve.cfgm_cpuinfo.ttypes import ConfigProcessStatusUVE, \
-    ConfigProcessStatus
-
-# nova imports
-from novaclient import client as nc
-from novaclient import exceptions as nc_exc
+from vnc_api.vnc_api import *
 
 import discoveryclient.client as client
 
-_SVC_VN_MGMT = "svc-vn-mgmt"
-_SVC_VN_LEFT = "svc-vn-left"
-_SVC_VN_RIGHT = "svc-vn-right"
-_MGMT_STR = "management"
-_LEFT_STR = "left"
-_RIGHT_STR = "right"
-
-_SVC_VNS = {_MGMT_STR:  [_SVC_VN_MGMT,  '250.250.1.0/24'],
-            _LEFT_STR:  [_SVC_VN_LEFT,  '250.250.2.0/24'],
-            _RIGHT_STR: [_SVC_VN_RIGHT, '250.250.3.0/24']}
-
-_SNAT_SUBNET_CIDR = '100.64.0.0/29'
-
-_CHECK_SVC_VM_HEALTH_INTERVAL = 30
-_CHECK_CLEANUP_INTERVAL = 5
+from db import ServiceMonitorDB
+from logger import ServiceMonitorLogger
+from instance_manager import InstanceManager
 
 # zookeeper client connection
 _zookeeper_client = None
@@ -80,60 +50,44 @@ class SvcMonitor(object):
     data + methods used/referred to by ssrc and arc greenlets
     """
 
-    _KEYSPACE = 'svc_monitor_keyspace'
-    _SVC_VM_CF = 'svc_vm_table'
-    _SVC_SI_CF = 'svc_si_table'
-    _SVC_CLEANUP_CF = 'svc_cleanup_table'
-    _SERVICE_VIRTUALIZATION_TYPE = {'create':
-                                    {'virtual-machine': '_create_svc_instance_vm',
-                                     'network-namespace': '_create_svc_instance_netns'},
-                                    'delete':
-                                    {'virtual-machine': '_delete_svc_instance_vm',
-                                     'network-namespace': '_delete_svc_instance_netns'}}
-
-    def __init__(self, vnc_lib, args=None):
+    def __init__(self, args=None):
         self._args = args
 
-        if args.cluster_id:
-            self._keyspace = '%s_%s' %(args.cluster_id, SvcMonitor._KEYSPACE)
-        else:
-            self._keyspace = SvcMonitor._KEYSPACE
+        # create database and logger
+        self.db = ServiceMonitorDB(args)
 
-        # api server and cassandra init
-        self._vnc_lib = vnc_lib
-        self._cassandra_init()
-
-        # dictionary for nova
-        self._nova = {}
-
-        #initialize discovery client
+        # initialize discovery client
         self._disc = None
         if self._args.disc_server_ip and self._args.disc_server_port:
             self._disc = client.DiscoveryClient(self._args.disc_server_ip,
                                                 self._args.disc_server_port,
                                                 client_type='Service Monitor')
 
-        #sandesh init
-        self._sandesh = Sandesh()
-        sandesh.ServiceInstanceList.handle_request =\
-            self.sandesh_si_handle_request
-        module = Module.SVC_MONITOR
-        module_name = ModuleNames[module]
-        node_type = Module2NodeType[module]
-        node_type_name = NodeTypeNames[node_type]
-        instance_id = INSTANCE_ID_DEFAULT
-        hostname = socket.gethostname()
-        self._sandesh.init_generator(
-            module_name, hostname, node_type_name, instance_id,
-            self._args.collectors, 'svc_monitor_context',
-            int(self._args.http_server_port), ['cfgm_common', 'sandesh'],
-            self._disc)
-        self._sandesh.set_logging_params(enable_local_log=self._args.log_local,
-                                         category=self._args.log_category,
-                                         level=self._args.log_level,
-                                         file=self._args.log_file,
-                                         enable_syslog=self._args.use_syslog,
-                                         syslog_facility=self._args.syslog_facility)
+        # initialize logger
+        self.logger = ServiceMonitorLogger(self.db, self._disc, args)
+        self.db.add_logger(self.logger)
+
+        # rotating log file for catchall errors
+        self._err_file = '/var/log/contrail/svc-monitor.err'
+        self._tmp_file = '/var/log/contrail/svc-monitor.tmp'
+        try:
+            with open(self._err_file, 'a'):
+                pass
+            with open(self._tmp_file, 'a'):
+                pass
+        except IOError:
+            self._err_file = './svc-monitor.err'
+            self._tmp_file = './svc-monitor.tmp'
+        self._svc_err_logger = logging.getLogger('SvcErrLogger')
+        self._svc_err_logger.setLevel(logging.ERROR)
+        handler = logging.handlers.RotatingFileHandler(
+            self._err_file, maxBytes=64*1024, backupCount=2)
+        self._svc_err_logger.addHandler(handler)
+
+
+    def post_init(self, vnc_lib, args=None):
+        # api server
+        self._vnc_lib = vnc_lib
 
         # create default analyzer template
         self._create_default_template('analyzer-template', 'analyzer',
@@ -149,27 +103,30 @@ class SvcMonitor(object):
                                       svc_mode='in-network-nat',
                                       hypervisor_type='network-namespace',
                                       scaling=True)
+        # create default loadbalancer template
+        self._create_default_template('haproxy-loadbalancer-template', 'loadbalancer',
+                                      image_name='in-network',
+                                      hypervisor_type='network-namespace',
+                                      scaling=True)
 
-        # connection state init
-        ConnectionState.init(self._sandesh, hostname, module_name,
-                instance_id, self._get_process_connectivity_status,
-                ConfigProcessStatusUVE, ConfigProcessStatus)
+        # load vrouter scheduler
+        self.vrouter_scheduler = importutils.import_object(
+            self._args.si_netns_scheduler_driver,
+            self._vnc_lib,
+            self._args)
 
-        #create cpu_info object to send periodic updates
-        sysinfo_req = False
-        cpu_info = vnc_cpu_info.CpuInfo(
-            module_name, instance_id, sysinfo_req, self._sandesh, 60)
-        self._cpu_info = cpu_info
+        # load virtual machine instance manager
+        self.vm_manager = importutils.import_object(
+            'svc_monitor.instance_manager.VirtualMachineManager',
+            self._vnc_lib, self.db, self.logger,
+            self.vrouter_scheduler, self._args)
 
-        # logging
-        self._err_file = '/var/log/contrail/svc-monitor.err'
-        self._tmp_file = '/var/log/contrail/svc-monitor.tmp'
-        self._svc_err_logger = logging.getLogger('SvcErrLogger')
-        self._svc_err_logger.setLevel(logging.ERROR)
-        handler = logging.handlers.RotatingFileHandler(
-            self._err_file, maxBytes=64*1024, backupCount=2)
-        self._svc_err_logger.addHandler(handler)
-    # end __init__
+        # load network namespace instance manager
+        self.netns_manager = importutils.import_object(
+            'svc_monitor.instance_manager.NetworkNamespaceManager',
+            self._vnc_lib, self.db, self.logger,
+            self.vrouter_scheduler, self._args)
+
 
     # create service template
     def _create_default_template(self, st_name, svc_type, svc_mode=None,
@@ -178,13 +135,13 @@ class SvcMonitor(object):
         domain_name = 'default-domain'
         domain_fq_name = [domain_name]
         st_fq_name = [domain_name, st_name]
-        self._svc_syslog("Creating %s %s hypervisor %s" %
+        self.logger.log("Creating %s %s hypervisor %s" %
                          (domain_name, st_name, hypervisor_type))
 
         try:
             st_obj = self._vnc_lib.service_template_read(fq_name=st_fq_name)
             st_uuid = st_obj.uuid
-            self._svc_syslog("%s exists uuid %s" % (st_name, str(st_uuid)))
+            self.logger.log("%s exists uuid %s" % (st_name, str(st_uuid)))
             return
         except NoIdError:
             domain = self._vnc_lib.domain_read(fq_name=domain_fq_name)
@@ -220,474 +177,35 @@ class SvcMonitor(object):
         except Exception as e:
             print e
 
-        self._svc_syslog("%s created with uuid %s" % (st_name, str(st_uuid)))
+        self.logger.log("%s created with uuid %s" % (st_name, str(st_uuid)))
     #_create_default_analyzer_template
-
-    def _get_process_connectivity_status(self, conn_infos):
-        for conn_info in conn_infos:
-            if conn_info.status != ConnectionStatusNames[ConnectionStatus.UP]:
-                return (ConnectivityStatus.NON_FUNCTIONAL,
-                        conn_info.type + ':' + conn_info.name)
-        return (ConnectivityStatus.FUNCTIONAL, '')
-    #end _get_process_connectivity_status
 
     def cleanup(self):
         # TODO cleanup sandesh context
         pass
     # end cleanup
 
-    def _sandesh_populate_vn_info(self, si_info, sandesh_si):
-        for if_str in [_LEFT_STR, _RIGHT_STR, _MGMT_STR]:
-            if_set = set()
-            if_str_vn = if_str + '-vn'
-            if not if_str_vn in si_info.keys():
-                continue
-
-            vn_fq_str = str(si_info[if_str_vn])
-            vn_uuid = str(si_info[vn_fq_str])
-            vn_str = ("VN [%s : %s]" % (vn_fq_str, vn_uuid))
-            if_set.add(vn_str)
-
-            iip_uuid_str = if_str + '-iip-uuid'
-            if iip_uuid_str in si_info.keys():
-                vn_iip_uuid = str(si_info[iip_uuid_str])
-                iip_addr_str = if_str + '-iip-addr'
-                vn_iip_addr = str(si_info[iip_addr_str])
-                iip_str = ("IIP [%s : %s]" % (vn_iip_addr, vn_iip_uuid))
-                if_set.add(iip_str)
-
-            if if_str == _LEFT_STR:
-                sandesh_si.left_vn = list(if_set)
-            if if_str == _RIGHT_STR:
-                sandesh_si.right_vn = list(if_set)
-            if if_str == _MGMT_STR:
-                sandesh_si.management_vn = list(if_set)
-
-            si_info['done'] = True
-    # end _sandesh_populate_vn_info
-
-    def sandesh_si_handle_request(self, req):
-        si_resp = sandesh.ServiceInstanceListResp(si_names=[])
-        if req.si_name is None:
-            vm_list = list(self._svc_vm_cf.get_range())
-            si_list = list(self._svc_si_cf.get_range())
-
-            #walk all vms
-            for vm_uuid, si in vm_list:
-                if 'done' in si:
-                    continue
-
-                #collect all ecmp instances
-                sandesh_si = sandesh.ServiceInstance(name=si['si_fq_str'])
-                vm_set = set()
-                for key, val in vm_list:
-                    if val['si_fq_str'] != si['si_fq_str']:
-                        continue
-                    vm_str = ("%s: %s" % (val['instance_name'], key))
-                    vm_set.add(vm_str)
-                    val['done'] = True
-                sandesh_si.vm_list = list(vm_set)
-
-                #find the vn and iip iformation
-                for si_fq_str, si_info in si_list:
-                    if si_fq_str != si['si_fq_str']:
-                        continue
-                    self._sandesh_populate_vn_info(si_info, sandesh_si)
-                    si_info['done'] = True
-                si_resp.si_names.append(sandesh_si)
-
-            #walk all instances where vms are pending launch
-            for si_fq_str, si_info in si_list:
-                if 'done' in si_info.keys():
-                    continue
-                sandesh_si = sandesh.ServiceInstance(name=si_fq_str)
-                sandesh_si.vm_list = set()
-                sandesh_si.instance_name = ''
-                self._sandesh_populate_vn_info(si_info, sandesh_si)
-                si_resp.si_names.append(sandesh_si)
-
-        si_resp.response(req.context())
-    # end sandesh_si_handle_request
-
-    def _utc_timestamp_usec(self):
-        epoch = datetime.datetime.utcfromtimestamp(0)
-        now = datetime.datetime.utcnow()
-        delta = now - epoch
-        return (delta.microseconds +
-                (delta.seconds + delta.days * 24 * 3600) * 10 ** 6)
-    # end utc_timestamp_usec
-
-    def _uve_svc_instance(self, si_fq_name_str, status=None,
-                          vm_uuid=None, st_name=None):
-        svc_uve = UveSvcInstanceConfig(name=si_fq_name_str,
-                                       deleted=False, st_name=None,
-                                       vm_list=[], create_ts=None)
-
-        if st_name:
-            svc_uve.st_name = st_name
-        if vm_uuid:
-            svc_uve.vm_list.append(vm_uuid)
-        if status:
-            svc_uve.status = status
-            if status == 'CREATE':
-                svc_uve.create_ts = self._utc_timestamp_usec()
-            elif status == 'DELETE':
-                svc_uve.deleted = True
-
-        svc_log = UveSvcInstanceConfigTrace(
-            data=svc_uve, sandesh=self._sandesh)
-        svc_log.send(sandesh=self._sandesh)
-    # end uve_vm
-
-    def _svc_syslog(self, log_msg):
-        self._sandesh._logger.debug("%s", log_msg)
-        vn_log = sandesh.SvcMonitorLog(
-            log_msg=log_msg, sandesh=self._sandesh)
-        vn_log.send(sandesh=self._sandesh)
-    # end _svc_syslog
-
     def _get_proj_name_from_si_fq_str(self, si_fq_str):
         return si_fq_str.split(':')[1]
     # enf _get_si_fq_str_to_proj_name
-
-    def _get_vn_id(self, proj_obj, vn_fq_name_str,
-                   shared_vn_name=None,
-                   shared_vn_subnet=None):
-        vn_id = None
-
-        if vn_fq_name_str:
-            vn_fq_name = vn_fq_name_str.split(':')
-            # search for provided VN
-            try:
-                vn_id = self._vnc_lib.fq_name_to_id(
-                    'virtual-network', vn_fq_name)
-            except NoIdError:
-                self._svc_syslog("Error: vn_fq_name %s not found" % (vn_fq_name_str))
-        else:
-            # search or create shared VN
-            domain_name, proj_name = proj_obj.get_fq_name()
-            vn_fq_name = [domain_name, proj_name, shared_vn_name]
-            try:
-                vn_id = self._vnc_lib.fq_name_to_id(
-                    'virtual-network', vn_fq_name)
-            except NoIdError:
-                vn_id = self._create_svc_vn(shared_vn_name, shared_vn_subnet,
-                                            proj_obj)
-
-        return vn_id
-    # end _get_vn_id
 
     def _get_virtualization_type(self, st_props):
         return st_props.get_service_virtualization_type() or 'virtual-machine'
     # end _get_virtualization_type
 
-    def _create_svc_instance(self, st_obj, si_obj):
-        #check if all config received before launch
-        if not self._check_store_si_info(st_obj, si_obj):
-            return
-
-        st_props = st_obj.get_service_template_properties()
-        if st_props is None:
-            self._svc_syslog("Cannot find service template associated to "
-                             "service instance %s" % si_obj.get_fq_name_str())
-        virt_type = self._get_virtualization_type(st_props)
-        method_str = self._SERVICE_VIRTUALIZATION_TYPE['create'].get(virt_type,
-                                                                     None)
-        method = getattr(self, method_str)
-        if hasattr(method, '__call__'):
-            method(st_obj, si_obj)
-
-    def _create_svc_instance_netns(self, st_obj, si_obj):
+    def _check_svc_vm_exists(self, si_obj):
+        vm_back_refs = si_obj.get_virtual_machine_back_refs()
+        if not vm_back_refs:
+            return False
         si_props = si_obj.get_service_instance_properties()
-        si_if_list = si_props.get_interface_list()
-        st_props = st_obj.get_service_template_properties()
-        if st_props is None:
-            self._svc_syslog("Cannot find service template associated to "
-                             "service instance %s" % si_obj.get_fq_name_str())
-            return
-        if (st_props.get_service_type() != 'source-nat' and
-            self._get_virtualization_type(st_props) != 'network-namespace'):
-            self._svc_syslog("Only service type 'source-nat' is actually "
-                             "supported with 'network-namespace' service "
-                             "virtualization type")
-            return
-        st_if_list = st_props.get_interface_type()
-        if si_if_list and (len(si_if_list) != len(st_if_list)):
-            self._svc_syslog("Error: IF mismatch template %s instance %s" %
-                             (len(st_if_list), len(si_if_list)))
-            return
-
-        # check and create service virtual networks
-        nics = []
-        proj_fq_name = si_obj.get_parent_fq_name()
-        proj_obj = self._vnc_lib.project_read(fq_name=proj_fq_name)
-        for idx in range(0, len(st_if_list)):
-            nic = {}
-            st_if = st_if_list[idx]
-            itf_type = st_if.service_interface_type
-
-            # set vn id
-            if si_if_list and st_props.get_ordered_interfaces():
-                si_if = si_if_list[idx]
-                vn_fq_name_str = si_if.get_virtual_network()
-            else:
-                funcname = "get_" + itf_type + "_virtual_network"
-                func = getattr(si_props, funcname)
-                vn_fq_name_str = func()
-
-            if itf_type in _SVC_VNS:
-                if (itf_type == 'left' and
-                    st_props.get_service_type() == 'source-nat'):
-                    # Service instance SNAT NetNS use a dedicated network (non
-                    # shared vn)
-                    vn_name = 'svc_snat_%s' % si_obj.name
-                    vn_fq_name = proj_obj.get_fq_name() + [vn_name]
-                    try:
-                        vn_id = self._vnc_lib.fq_name_to_id('virtual-network',
-                                                            vn_fq_name)
-                    except NoIdError:
-                        vn_id = self._create_svc_vn(vn_name, _SNAT_SUBNET_CIDR,
-                                                    proj_obj)
-                    if (not vn_fq_name_str or
-                        vn_fq_name_str != ':'.join(vn_fq_name)):
-                        si_props.set_left_virtual_network(':'.join(vn_fq_name))
-                        si_obj.set_service_instance_properties(si_props)
-                        self._vnc_lib.service_instance_update(si_obj)
-                else:
-                    vn_id = self._get_vn_id(proj_obj, vn_fq_name_str,
-                                            _SVC_VNS[itf_type][0],
-                                            _SVC_VNS[itf_type][1])
-            else:
-                vn_id = self._get_vn_id(proj_obj, vn_fq_name_str)
-            if vn_id is None:
-                continue
-            nic['net-id'] = vn_id
-            nic['type'] = itf_type
-            nic['shared-ip'] = None
-            nic['static-route-enable'] = None
-            nic['static-routes'] = None
-            nics.append(nic)
-
-        # Create virtual machines, associate them to the service instance and
-        # schedule them to different virtual routers
-        max_instances = si_props.get_scale_out().get_max_instances()
-        vrs = [vr['fq_name'] for vr in
-               self._vnc_lib.virtual_routers_list()['virtual-routers']]
-        if not vrs:
-            self._svc_syslog("There is no virtual router available to schedule"
-                             "the network namespace instance")
-            return
-
-        for inst_count in range(0, max_instances):
-            # Schedule instance on a vrouter
-            try:
-                vr_fq_name_selected = random.choice(vrs)
-            except IndexError:
-                self._svc_syslog("Cannot find enough virtual routers to "
-                                 "schedule service instance %s. %d virtual "
-                                 "machines were created to instantiate the "
-                                 "service instance" %
-                                 (si_obj.name, inst_count))
-                break
-            vrs.remove(vr_fq_name_selected)
-            vr_obj_selected = self._vnc_lib.virtual_router_read(
-                fq_name=vr_fq_name_selected)
-
-            # Create a virtual machine
-            instance_name = si_obj.name + '_' + str(inst_count + 1)
-            vm_fq_name = proj_fq_name + [instance_name]
-            vm_obj = self._create_virtual_machine(vm_fq_name)
-            vm_obj.set_service_instance(si_obj)
-            self._vnc_lib.virtual_machine_update(vm_obj)
-
-            # Create virtual machine interfaces with an IP on networks
-            for nic in nics:
-                vmi_obj = self._create_svc_vm_port(nic, instance_name, st_obj,
-                                                   si_obj, proj_obj)
-                vmi_obj.set_virtual_machine(vm_obj)
-                self._vnc_lib.virtual_machine_interface_update(vmi_obj)
-
-            # Associate the instance onto the selected vrouter
-            vr_obj_selected.set_virtual_machine(vm_obj)
-            self._vnc_lib.virtual_router_update(vr_obj_selected)
-
-            # store vm, instance in cassandra; use for linking when VM is up
-            row_entry = {}
-            row_entry['si_fq_str'] = si_obj.get_fq_name_str()
-            row_entry['instance_name'] = instance_name
-            row_entry['instance_type'] = self._get_virtualization_type(st_props)
-            self._svc_vm_cf.insert(vm_obj.uuid, row_entry)
-
-            # uve trace
-            self._uve_svc_instance(si_obj.get_fq_name_str(),
-                                   status='CREATE', vm_uuid=vm_obj.uuid,
-                                   st_name=st_obj.get_fq_name_str())
-
-    def _create_virtual_machine(self, vm_fq_name):
-        try:
-            vm_obj = self._vnc_lib.virtual_machine_read(fq_name=vm_fq_name)
-        except NoIdError:
-            vm_obj = VirtualMachine(':'.join(vm_fq_name), fq_name=vm_fq_name)
-            self._vnc_lib.virtual_machine_create(vm_obj)
-            vm_obj = self._vnc_lib.virtual_machine_read(fq_name=vm_fq_name)
-        return vm_obj
-
-    def _create_svc_instance_vm(self, st_obj, si_obj):
-        #check if all config received before launch
-        if not self._check_store_si_info(st_obj, si_obj):
-            return
-
-        row_entry = {}
-        st_props = st_obj.get_service_template_properties()
-        if st_props is None:
-            return
-        st_if_list = st_props.get_interface_type()
-
-        flavor = st_props.get_flavor()
-        image_name = st_props.get_image_name()
-        if image_name is None:
-            self._svc_syslog("Error: Image name not present in %s" %
-                             (st_obj.name))
-            return
-
-        si_props = si_obj.get_service_instance_properties()
-        max_instances = si_props.get_scale_out().get_max_instances()
-        si_if_list = si_props.get_interface_list()
-        if si_if_list and (len(si_if_list) != len(st_if_list)):
-            self._svc_syslog("Error: IF mismatch template %s instance %s" %
-                             (len(st_if_list), len(si_if_list)))
-            return
-
-        # check and create service virtual networks
-        nics = []
-        proj_fq_name = si_obj.get_parent_fq_name()
-        proj_obj = self._vnc_lib.project_read(fq_name=proj_fq_name)
-        for idx in range(0, len(st_if_list)):
-            nic = {}
-            st_if = st_if_list[idx]
-            itf_type = st_if.service_interface_type
-
-            # set vn id
-            if si_if_list and st_props.get_ordered_interfaces():
-                si_if = si_if_list[idx]
-                vn_fq_name_str = si_if.get_virtual_network()
-            else:
-                funcname = "get_" + itf_type + "_virtual_network"
-                func = getattr(si_props, funcname)
-                vn_fq_name_str = func()
-
-            if itf_type in _SVC_VNS:
-                vn_id = self._get_vn_id(proj_obj, vn_fq_name_str,
-                                        _SVC_VNS[itf_type][0],
-                                        _SVC_VNS[itf_type][1])
-            else:
-                vn_id = self._get_vn_id(proj_obj, vn_fq_name_str)
-            if vn_id is None:
-                continue
-
-            # create port
-            nic['net-id'] = vn_id
-            nic['type'] = itf_type
-            nic['shared-ip'] = st_if.shared_ip
-            nic['static-route-enable'] = st_if.get_static_route_enable()
-            nic['static-routes'] = si_if.get_static_routes()
-
-            # add to nic list
-            nics.append(nic)
-
-        # create and launch vm
-        vm_refs = si_obj.get_virtual_machine_back_refs()
-        n_client = self._novaclient_get(proj_obj.name)
-        for inst_count in range(0, max_instances):
-            instance_name = si_obj.name + '_' + str(inst_count + 1)
-            exists = False
-            for vm_ref in vm_refs or []:
-                vm = n_client.servers.find(id=vm_ref['uuid'])
-                if vm.name == instance_name:
-                    exists = True
-                    break
-
-            if exists:
-                vm_uuid = vm_ref['uuid']
-            else:
-                vm = self._create_svc_vm(instance_name, image_name, nics,
-                                         flavor, st_obj, si_obj, proj_obj)
-                if vm is None:
-                    continue
-                vm_uuid = vm.id
-
-            # store vm, instance in cassandra; use for linking when VM is up
-            row_entry['si_fq_str'] = si_obj.get_fq_name_str()
-            row_entry['instance_name'] = instance_name
-            row_entry['instance_type'] = \
-                self._get_virtualization_type(st_props)
-            self._svc_vm_cf.insert(vm_uuid, row_entry)
-
-            # uve trace
-            self._uve_svc_instance(si_obj.get_fq_name_str(),
-                                   status='CREATE', vm_uuid=vm.id,
-                                   st_name=st_obj.get_fq_name_str())
-    # end _create_svc_instance_vm
-
-    def _delete_svc_instance(self, vm_uuid, proj_name, si_fq_str=None):
-        self._svc_syslog("Deleting VM %s %s" % (proj_name, vm_uuid))
-        found = True
-        try:
-            virt_type = self._svc_vm_cf.get(vm_uuid)['instance_type']
-            method_str = self._SERVICE_VIRTUALIZATION_TYPE['delete'].get(
-                virt_type, None)
-            method = getattr(self, method_str)
-            if hasattr(method, '__call__'):
-                method(vm_uuid, proj_name, si_fq_str=si_fq_str)
-        except (pycassa.NotFoundException, KeyError):
-            # remove from cleanup list
-            self._cleanup_cf.remove(vm_uuid)
-            found = False
-
-        # remove from launch table and queue into cleanup list
-        if found:
-            self._svc_vm_cf.remove(vm_uuid)
-            self._cleanup_cf.insert(
-                vm_uuid, {'proj_name': proj_name, 'type': 'vm'})
-            self._uve_svc_instance(si_fq_str, status='DELETE', vm_uuid=vm_uuid)
-
-    def _delete_svc_instance_netns(self, vm_uuid, proj_name, si_fq_str=None):
-        try:
-            vm_obj = self._vnc_lib.virtual_machine_read(id=vm_uuid)
-        except NoIdError:
-            raise KeyError
-        for vmi in vm_obj.get_virtual_machine_interface_back_refs() or []:
-            vmi_obj = self._vnc_lib.virtual_machine_interface_read(
-                id=vmi['uuid'])
-            for ip in vmi_obj.get_instance_ip_back_refs() or []:
-                self._vnc_lib.instance_ip_delete(id=ip['uuid'])
-            self._vnc_lib.virtual_machine_interface_delete(id=vmi['uuid'])
-        for vr in vm_obj.get_virtual_router_back_refs() or []:
-            vr_obj = self._vnc_lib.virtual_router_read(id=vr['uuid'])
-            vr_obj.del_virtual_machine(vm_obj)
-            self._vnc_lib.virtual_router_update(vr_obj)
-        self._vnc_lib.virtual_machine_delete(id=vm_obj.uuid)
-
-    def _delete_svc_instance_vm(self, vm_uuid, proj_name, si_fq_str=None):
-        try:
-            n_client = self._novaclient_get(proj_name)
-            vm = n_client.servers.find(id=vm_uuid)
-            vm.delete()
-        except nc_exc.NotFound:
-            raise KeyError
-    # end _delete_svc_instance_vm
-
-    def _restart_svc(self, vm_uuid, si_fq_str):
-        proj_name = self._get_proj_name_from_si_fq_str(si_fq_str)
-        self._delete_svc_instance(vm_uuid, proj_name, si_fq_str=si_fq_str)
-
-        si_obj = self._vnc_lib.service_instance_read(fq_name_str=si_fq_str)
-        st_list = si_obj.get_service_template_refs()
-        if st_list is not None:
-            fq_name = st_list[0]['to']
-            st_obj = self._vnc_lib.service_template_read(fq_name=fq_name)
-            self._create_svc_instance(st_obj, si_obj)
-    # end _restart_svc
+        if si_props.get_scale_out():
+            max_instances = si_props.get_scale_out().get_max_instances()
+        else:
+            max_instances = 1
+        if max_instances == len(vm_back_refs):
+            return True
+        return False
+    #end _check_svc_vm_exists
 
     def _check_store_si_info(self, st_obj, si_obj):
         config_complete = True
@@ -696,17 +214,17 @@ class SvcMonitor(object):
         si_props = si_obj.get_service_instance_properties()
         si_if_list = si_props.get_interface_list()
         if si_if_list and (len(si_if_list) != len(st_if_list)):
-            self._svc_syslog("Error: IF mismatch template %s instance %s" %
+            self.logger.log("Error: IF mismatch template %s instance %s" %
                              (len(st_if_list), len(si_if_list)))
             return
 
-        #read existing si_entry
-        try:
-            si_entry = self._svc_si_cf.get(si_obj.get_fq_name_str())
-        except Exception:
+        # read existing si_entry
+        si_entry = self.db.service_instance_get(si_obj.get_fq_name_str())
+        if not si_entry:
             si_entry = {}
+        si_entry['instance_type'] = self._get_virtualization_type(st_props)
 
-        #walk the interface list
+        # walk the interface list
         for idx in range(0, len(st_if_list)):
             st_if = st_if_list[idx]
             itf_type = st_if.service_interface_type
@@ -719,6 +237,7 @@ class SvcMonitor(object):
                 funcname = "get_" + itf_type + "_virtual_network"
                 func = getattr(si_props, funcname)
                 si_vn_str = func()
+
             if not si_vn_str:
                 continue
 
@@ -729,72 +248,112 @@ class SvcMonitor(object):
                 if vn_obj.uuid != si_entry.get(si_vn_str, None):
                     si_entry[si_vn_str] = vn_obj.uuid
             except NoIdError:
-                self._svc_syslog("Warn: VN %s add is pending" % si_vn_str)
+                self.logger.log("Warn: VN %s add is pending" % si_vn_str)
                 si_entry[si_vn_str] = 'pending'
                 config_complete = False
 
         if config_complete:
-            self._svc_syslog("SI %s info is complete" %
+            self.logger.log("SI %s info is complete" %
                              si_obj.get_fq_name_str())
         else:
-            self._svc_syslog("Warn: SI %s info is not complete" %
+            self.logger.log("Warn: SI %s info is not complete" %
                              si_obj.get_fq_name_str())
 
         #insert entry
-        self._svc_si_cf.insert(si_obj.get_fq_name_str(), si_entry)
+        self.db.service_instance_insert(si_obj.get_fq_name_str(), si_entry)
         return config_complete
     #end _check_store_si_info
 
+    def _restart_svc(self, vm_uuid, si_fq_str):
+        proj_name = self._get_proj_name_from_si_fq_str(si_fq_str)
+        self._delete_svc_instance(vm_uuid, proj_name, si_fq_str=si_fq_str)
+
+        # Wait the clean phase was completely done before recreate the SI
+        gevent.sleep(_CHECK_CLEANUP_INTERVAL + 1)
+
+        si_obj = self._vnc_lib.service_instance_read(fq_name_str=si_fq_str)
+        st_list = si_obj.get_service_template_refs()
+        if st_list is not None:
+            fq_name = st_list[0]['to']
+            st_obj = self._vnc_lib.service_template_read(fq_name=fq_name)
+            self._create_svc_instance(st_obj, si_obj)
+    # end _restart_svc
+
     def _delete_shared_vn(self, vn_uuid, proj_name):
         try:
-            self._svc_syslog("Deleting VN %s %s" % (proj_name, vn_uuid))
+            self.logger.log("Deleting VN %s %s" % (proj_name, vn_uuid))
             self._vnc_lib.virtual_network_delete(id=vn_uuid)
         except RefsExistError:
             self._svc_err_logger.error("Delete failed refs exist VN %s %s" %
                                        (proj_name, vn_uuid))
         except NoIdError:
             # remove from cleanup list
-            self._cleanup_cf.remove(vn_uuid)
+            self.db.cleanup_table_remove(vn_uuid)
     # end _delete_shared_vn
+
+    def _create_svc_instance(self, st_obj, si_obj):
+        #check if all config received before launch
+        if not self._check_store_si_info(st_obj, si_obj):
+            return
+
+        #check if VMs already exist
+        if self._check_svc_vm_exists(si_obj):
+            return
+
+        st_props = st_obj.get_service_template_properties()
+        if st_props is None:
+            self.logger.log("Cannot find service template associated to "
+                             "service instance %s" % si_obj.get_fq_name_str())
+        virt_type = self._get_virtualization_type(st_props)
+        if virt_type == 'virtual-machine':
+            self.vm_manager.create_service(st_obj, si_obj)
+        elif virt_type == 'network-namespace':
+            self.netns_manager.create_service(st_obj, si_obj)
+
+    def _delete_svc_instance(self, vm_uuid, proj_name, si_fq_str=None):
+        vm_entry = self.db.virtual_machine_get(vm_uuid)
+        if not vm_entry: 
+            self.db.cleanup_table_remove(vm_uuid)
+            return
+
+        self.logger.log("Deleting VM %s %s" % (proj_name, vm_uuid))
+        virt_type = vm_entry['instance_type']
+        if virt_type == 'virtual-machine':
+            self.vm_manager.delete_service(vm_uuid, proj_name)
+        elif virt_type == 'network-namespace':
+            self.netns_manager.delete_service(vm_uuid)
+
+        # remove from launch table and queue into cleanup list
+        self.db.virtual_machine_remove(vm_uuid)
+        self.db.cleanup_table_insert(
+            vm_uuid, {'proj_name': proj_name, 'type': 'vm'})
+        self.logger.uve_svc_instance(si_fq_str, status='DELETE', vm_uuid=vm_uuid)
 
     def _delmsg_project_service_instance(self, idents):
         proj_fq_str = idents['project']
         si_fq_str = idents['service-instance']
-        proj_obj = self._vnc_lib.project_read(fq_name_str=proj_fq_str)
 
-        # Service instance SNAT NetNS have a dedicated left network (non
-        # shared vn)
-        vn_name = 'svc_snat_%s' % si_fq_str.split(':')[2]
-        vn_fq_name = proj_obj.get_fq_name() + [vn_name]
-        try:
-            vn_uuid = self._vnc_lib.fq_name_to_id('virtual-network',
-                                                  vn_fq_name)
-            self._cleanup_cf.insert(vn_uuid,
-                                    {'proj_name': proj_obj.name,
-                                     'type': 'vn'})
-        except NoIdError:
-            pass
-
-        if proj_obj.get_service_instances() is not None:
+        si_info = self.db.service_instance_get(si_fq_str)
+        if not si_info:
             return
 
-        # no SIs left hence delete shared VNs
-        for vn_name in [_SVC_VN_MGMT, _SVC_VN_LEFT, _SVC_VN_RIGHT]:
-            domain_name, proj_name = proj_obj.get_fq_name()
-            vn_fq_name = [domain_name, proj_name, vn_name]
-            try:
-                vn_uuid = self._vnc_lib.fq_name_to_id(
-                    'virtual-network', vn_fq_name)
-                self._cleanup_cf.insert(
-                    vn_uuid, {'proj_name': proj_obj.name, 'type': 'vn'})
-            except Exception:
-                pass
+        virt_type = si_info['instance_type']
+        if virt_type == 'virtual-machine':
+            self.vm_manager.clean_resources(proj_fq_str, si_fq_str)
+        elif virt_type == 'network-namespace':
+            self.netns_manager.clean_resources(proj_fq_str, si_fq_str)
+
+        #delete si info
+        self.db.service_instance_remove(si_fq_str)
     # end _delmsg_project_service_instance
 
     def _delmsg_service_instance_service_template(self, idents):
         si_fq_str = idents['service-instance']
+        si_info = self.db.service_instance_get(si_fq_str)
+        if not si_info:
+            return
 
-        vm_list = list(self._svc_vm_cf.get_range())
+        vm_list = self.db.virtual_machine_list()
         for vm_uuid, si in vm_list:
             if si_fq_str != si['si_fq_str']:
                 continue
@@ -803,36 +362,25 @@ class SvcMonitor(object):
             self._delete_svc_instance(vm_uuid, proj_name, si_fq_str=si_fq_str)
 
             #insert shared instance IP uuids into cleanup list if present
-            try:
-                si_info = self._svc_si_cf.get(si_fq_str)
-                for itf_str in [_MGMT_STR, _LEFT_STR, _RIGHT_STR]:
-                    iip_uuid_str = itf_str + '-iip-uuid'
-                    if not iip_uuid_str in si_info:
-                        continue
-                    self._cleanup_cf.insert(
-                        si_info[iip_uuid_str], {'proj_name': proj_name,
-                                                'type': 'iip'})
-            except pycassa.NotFoundException:
-                pass
-
-        #delete si info
-        try:
-            self._svc_si_cf.remove(si_fq_str)
-        except pycassa.NotFoundException:
-            pass
+            for itf_str in svc_info.get_if_str_list():
+                iip_uuid_str = itf_str + '-iip-uuid'
+                if not iip_uuid_str in si_info:
+                    continue
+                self.db.cleanup_table_insert(
+                    si_info[iip_uuid_str], {'proj_name': proj_name,
+                                            'type': 'iip'})
     #end _delmsg_service_instance_service_template
 
     def _delmsg_virtual_machine_service_instance(self, idents):
         vm_uuid = idents['virtual-machine']
         si_fq_str = idents['service-instance']
         proj_name = self._get_proj_name_from_si_fq_str(si_fq_str)
-        vm_list = list(self._svc_vm_cf.get_range())
+        vm_list = self.db.virtual_machine_list()
         for vm_uuid, si in vm_list:
             if si_fq_str != si['si_fq_str']:
                 continue
 
             self._delete_svc_instance(vm_uuid, proj_name, si_fq_str=si_fq_str)
-
     # end _delmsg_service_instance_virtual_machine
 
     def _delmsg_virtual_machine_interface_route_table(self, idents):
@@ -845,49 +393,40 @@ class SvcMonitor(object):
             self._vnc_lib.interface_route_table_delete(id=rt_obj.uuid)
     # end _delmsg_virtual_machine_interface_route_table
 
-    def _addmsg_virtual_machine_interface_virtual_network(self, idents):
-        vmi_fq_str = idents['virtual-machine-interface']
-        vn_fq_str = idents['virtual-network']
+    def _addmsg_virtual_machine_interface_virtual_machine(self, idents):
+        vm_fq_str = idents['virtual-machine']
 
         try:
-            vmi_obj = self._vnc_lib.virtual_machine_interface_read(
-                fq_name_str=vmi_fq_str)
-            vn_obj = self._vnc_lib.virtual_network_read(
-                fq_name_str=vn_fq_str)
+            vm_obj = self._vnc_lib.virtual_machine_read(
+                fq_name_str=vm_fq_str)
         except NoIdError:
             return
 
         # check if this is a service vm
-        vm_id = get_vm_id_from_interface(vmi_obj)
-        if vm_id is None:
-            return
-        vm_obj = self._vnc_lib.virtual_machine_read(id=vm_id)
         si_list = vm_obj.get_service_instance_refs()
         if si_list:
-            fq_name = si_list[0]['to']
-            try:
-                si_obj = self._vnc_lib.service_instance_read(fq_name=fq_name)
-            except NoIdError:
-                return
-        else:
-            try:
-                svc_vm_cf_row = self._svc_vm_cf.get(vm_obj.uuid)
-                si_fq_str = svc_vm_cf_row['si_fq_str']
-                vm_obj.name = svc_vm_cf_row['instance_name']
-                si_obj = self._vnc_lib.service_instance_read(
-                    fq_name_str=si_fq_str)
-            except pycassa.NotFoundException:
-                return
-            except NoIdError:
-                proj_name = self._get_proj_name_from_si_fq_str(si_fq_str)
-                self._delete_svc_instance(vm_obj.uuid, proj_name,
-                                          si_fq_str=si_fq_str)
-                return
+            return
+
+        vm_info = self.db.virtual_machine_get(vm_obj.uuid)
+        if not vm_info:
+            return
+        si_fq_str = vm_info['si_fq_str']
+
+        try:
+            si_obj = self._vnc_lib.service_instance_read(
+                fq_name_str=si_fq_str)
+        except NoIdError:
+            proj_name = self._get_proj_name_from_si_fq_str(si_fq_str)
+            self._delete_svc_instance(vm_obj.uuid, proj_name,
+                                      si_fq_str=si_fq_str)
+            return
 
         # create service instance to service vm link
         vm_obj.add_service_instance(si_obj)
         self._vnc_lib.virtual_machine_update(vm_obj)
-    # end _addmsg_virtual_machine_interface_virtual_network
+        self.logger.log("Info: VM %s updated SI %s" %
+                         (vm_obj.get_fq_name_str(), si_fq_str))
+    # end _addmsg_virtual_machine_interface_virtual_machine
 
     def _addmsg_service_instance_service_template(self, idents):
         st_fq_str = idents['service-template']
@@ -921,9 +460,8 @@ class SvcMonitor(object):
     def _addmsg_project_virtual_network(self, idents):
         vn_fq_str = idents['virtual-network']
 
-        try:
-            si_list = list(self._svc_si_cf.get_range())
-        except pycassa.NotFoundException:
+        si_list = self.db.service_instance_list()
+        if not si_list:
             return
 
         for si_fq_str, si_info in si_list:
@@ -933,6 +471,9 @@ class SvcMonitor(object):
             try:
                 si_obj = self._vnc_lib.service_instance_read(
                     fq_name_str=si_fq_str)
+                if si_obj.get_virtual_machine_back_refs():
+                    continue
+
                 st_refs = si_obj.get_service_template_refs()
                 fq_name = st_refs[0]['to']
                 st_obj = self._vnc_lib.service_template_read(fq_name=fq_name)
@@ -962,25 +503,12 @@ class SvcMonitor(object):
                 except AttributeError:
                     pass
                 else:
-                    self._svc_syslog("%s with %s/%s"
+                    self.logger.log("%s with %s/%s"
                                      % (funcname, meta_name, idents))
                     func(idents)
             # end for meta
         # end for result_type
     # end process_poll_result
-
-    def _novaclient_get(self, proj_name):
-        client = self._nova.get(proj_name)
-        if client is not None:
-            return client
-
-        self._nova[proj_name] = nc.Client(
-            '2', username=self._args.admin_user, project_id=proj_name,
-            api_key=self._args.admin_password,
-            region_name=self._args.region_name, service_type='compute',
-            auth_url='http://' + self._args.auth_host + ':5000/v2.0')
-        return self._nova[proj_name]
-    # end _novaclient_get
 
     def _update_static_routes(self, si_obj):
         # get service instance interface list
@@ -1007,258 +535,6 @@ class SvcMonitor(object):
             except NoIdError:
                 pass
     # end _update_static_routes
-
-    def _get_default_security_group(self, vn_obj):
-        sg_fq_name = vn_obj.get_fq_name()[:-1]
-        sg_fq_name.append('default')
-        sg_obj = None
-        try:
-            sg_obj = self._vnc_lib.security_group_read(fq_name=sg_fq_name)
-        except Exception as e:
-            self._svc_syslog(
-                "Error: Security group default not found %s" % (proj_obj.name))
-        return sg_obj
-    #end _get_default_security_group
-
-    def _allocate_iip(self, proj_obj, vn_obj, iip_name):
-        try:
-            iip_obj = self._vnc_lib.instance_ip_read(fq_name=[iip_name])
-        except NoIdError:
-            iip_obj = None
-
-        # allocate ip
-        if not iip_obj:
-            try:
-                addr = self._vnc_lib.virtual_network_ip_alloc(vn_obj)
-            except Exception as e:
-                return iip_obj
-
-            iip_obj = InstanceIp(name=iip_name, instance_ip_address=addr[0])
-            iip_obj.add_virtual_network(vn_obj)
-            self._vnc_lib.instance_ip_create(iip_obj)
-
-        return iip_obj
-    #end _allocate_iip
-
-    def _set_static_routes(self, nic, vmi_obj, proj_obj, si_obj):
-        # set static routes
-        static_routes = nic['static-routes']
-        if not static_routes:
-            static_routes = {'route':[]}
-
-        try:
-            domain_name, proj_name = proj_obj.get_fq_name()
-            rt_name = si_obj.uuid + ' ' + nic['type']
-            rt_fq_name = [domain_name, proj_name, rt_name]
-            rt_obj = self._vnc_lib.interface_route_table_read(
-                fq_name=rt_fq_name)
-            rt_obj.set_interface_route_table_routes(static_routes)
-        except NoIdError:
-            proj_obj = self._vnc_lib.project_read(
-                fq_name=si_obj.get_parent_fq_name())
-            rt_obj = InterfaceRouteTable(
-                name=rt_name,
-                parent_obj=proj_obj,
-                interface_route_table_routes=static_routes)
-            self._vnc_lib.interface_route_table_create(rt_obj)
-
-        return rt_obj
-    #end _set_static_routes
-
-    def _create_svc_vm_port(self, nic, vm_name, st_obj, si_obj, proj_obj):
-        # get virtual network
-        try:
-            vn_obj = self._vnc_lib.virtual_network_read(id=nic['net-id'])
-        except NoIdError:
-            self._svc_syslog(
-                "Error: Virtual network %s not found for port create %s %s"
-                % (nic['net-id'], vm_name, proj_obj.name))
-            return
-
-        # create or find port
-        port_name = vm_name + '-' + nic['type']
-        domain_name, proj_name = proj_obj.get_fq_name()
-        port_fq_name = [domain_name, proj_name, port_name]
-        vmi_created = False
-        try:
-            vmi_obj = self._vnc_lib.virtual_machine_interface_read(fq_name=port_fq_name)
-        except NoIdError:
-            vmi_obj = VirtualMachineInterface(parent_obj=proj_obj, name=port_name)
-            vmi_created = True
-
-        # set vn, itf_type, sg and static routes
-        vmi_obj.set_virtual_network(vn_obj)
-        if_properties = VirtualMachineInterfacePropertiesType(nic['type'])
-        vmi_obj.set_virtual_machine_interface_properties(if_properties)
-        st_props = st_obj.get_service_template_properties()
-        if (st_props.service_mode in ['in-network', 'in-network-nat'] and
-            proj_name != 'default-project'):
-            sg_obj = self._get_default_security_group(vn_obj)
-            vmi_obj.set_security_group(sg_obj)
-        if nic['static-route-enable']:
-            rt_obj = self._set_static_routes(nic, vmi_obj, proj_obj, si_obj)
-            vmi_obj.set_interface_route_table(rt_obj)
-
-        if vmi_created:
-            self._vnc_lib.virtual_machine_interface_create(vmi_obj)
-        else:
-            self._vnc_lib.virtual_machine_interface_update(vmi_obj)
-
-        # set instance ip
-        if nic['shared-ip']:
-            iip_name = si_obj.name + '-' + nic['type']
-        else:
-            iip_name = vm_name + '-' + nic['type']
-        iip_obj = self._allocate_iip(proj_obj, vn_obj, iip_name)
-        if not iip_obj:
-            self._svc_syslog(
-                "Error: Instance IP not allocated for %s %s"
-                % (vm_name, proj_obj.name))
-            return
-        si_props = si_obj.get_service_instance_properties()
-        max_instances = si_props.get_scale_out().get_max_instances()
-        if max_instances > 1:
-            iip_obj.set_instance_ip_mode(u'active-active');
-        else:
-            iip_obj.set_instance_ip_mode(u'active-standby');
-        iip_obj.add_virtual_machine_interface(vmi_obj)
-        self._vnc_lib.instance_ip_update(iip_obj)
-
-        return vmi_obj
-    # end _create_svc_vm_port
-
-    def _create_svc_vm(self, vm_name, image_name, nics,
-                       flavor_name, st_obj, si_obj, proj_obj):
-        n_client = self._novaclient_get(proj_obj.name)
-        if flavor_name:
-            flavor = n_client.flavors.find(name=flavor_name)
-        else:
-            flavor = n_client.flavors.find(ram=4096)
-
-        image = ''
-        try:
-            image = n_client.images.find(name=image_name)
-        except nc_exc.NotFound:
-            self._svc_syslog(
-                "Error: Image %s not found in project %s"
-                % (image_name, proj_name))
-            return
-        except nc_exc.NoUniqueMatch:
-            self._svc_syslog(
-                "Error: Multiple images %s found in project %s"
-                % (image_name, proj_name))
-            return
-
-        # create port
-        nics_with_port = []
-        for nic in nics:
-            nic_with_port = {}
-            vmi_obj = self._create_svc_vm_port(nic, vm_name,
-                                               st_obj, si_obj, proj_obj)
-            nic_with_port['port-id'] = vmi_obj.get_uuid()
-            nics_with_port.append(nic_with_port)
-
-        # launch vm
-        self._svc_syslog('Launching VM : ' + vm_name)
-        nova_vm = n_client.servers.create(name=vm_name, image=image,
-                                          flavor=flavor, nics=nics_with_port)
-        nova_vm.get()
-        self._svc_syslog('Created VM : ' + str(nova_vm))
-        return nova_vm
-    # end _create_svc_vm
-
-    def _create_svc_vn(self, vn_name, vn_subnet, proj_obj):
-        self._svc_syslog(
-            "Creating network %s subnet %s" % (vn_name, vn_subnet))
-
-        vn_obj = VirtualNetwork(name=vn_name, parent_obj=proj_obj)
-        domain_name, project_name = proj_obj.get_fq_name()
-        ipam_fq_name = [domain_name, 'default-project', 'default-network-ipam']
-        ipam_obj = self._vnc_lib.network_ipam_read(fq_name=ipam_fq_name)
-        cidr = vn_subnet.split('/')
-        pfx = cidr[0]
-        pfx_len = int(cidr[1])
-        subnet_info = IpamSubnetType(subnet=SubnetType(pfx, pfx_len))
-        subnet_data = VnSubnetsType([subnet_info])
-        vn_obj.add_network_ipam(ipam_obj, subnet_data)
-        self._vnc_lib.virtual_network_create(vn_obj)
-
-        return vn_obj.uuid
-    # end _create_svc_vn
-
-    def _cassandra_init(self):
-        server_idx = 0
-        num_dbnodes = len(self._args.cassandra_server_list)
-        connected = False
-
-        # Update connection info
-        ConnectionState.update(conn_type = ConnectionType.DATABASE,
-            name = 'Database', status = ConnectionStatus.INIT,
-            message = '', server_addrs = self._args.cassandra_server_list)
-
-        while not connected:
-            try:
-                cass_server = self._args.cassandra_server_list[server_idx]
-                sys_mgr = SystemManager(cass_server)
-                connected = True
-            except Exception as e:
-                # Update connection info
-                ConnectionState.update(conn_type = ConnectionType.DATABASE,
-                    name = 'Database', status = ConnectionStatus.DOWN,
-                    message = '', server_addrs = [cass_server])
-                server_idx = (server_idx + 1) % num_dbnodes
-                time.sleep(3)
-
-
-        # Update connection info
-        ConnectionState.update(conn_type = ConnectionType.DATABASE,
-            name = 'Database', status = ConnectionStatus.UP,
-            message = '', server_addrs = self._args.cassandra_server_list)
-
-        if self._args.reset_config:
-            try:
-                sys_mgr.drop_keyspace(self._keyspace)
-            except pycassa.cassandra.ttypes.InvalidRequestException as e:
-                print "Warning! " + str(e)
-
-        try:
-            sys_mgr.create_keyspace(self._keyspace, SIMPLE_STRATEGY,
-                                    {'replication_factor': str(num_dbnodes)})
-        except pycassa.cassandra.ttypes.InvalidRequestException as e:
-            print "Warning! " + str(e)
-
-        column_families = [self._SVC_VM_CF,
-                           self._SVC_CLEANUP_CF,
-                           self._SVC_SI_CF]
-        for cf in column_families:
-            try:
-                sys_mgr.create_column_family(self._keyspace, cf)
-            except pycassa.cassandra.ttypes.InvalidRequestException as e:
-                print "Warning! " + str(e)
-
-        conn_pool = pycassa.ConnectionPool(self._keyspace,
-                                           self._args.cassandra_server_list,
-                                           max_overflow=10,
-                                           use_threadlocal=True,
-                                           prefill=True,
-                                           pool_size=10,
-                                           pool_timeout=30,
-                                           max_retries=-1,
-                                           timeout=0.5)
-
-        rd_consistency = pycassa.cassandra.ttypes.ConsistencyLevel.QUORUM
-        wr_consistency = pycassa.cassandra.ttypes.ConsistencyLevel.QUORUM
-        self._svc_vm_cf = pycassa.ColumnFamily(conn_pool, self._SVC_VM_CF,
-                                  read_consistency_level=rd_consistency,
-                                  write_consistency_level=wr_consistency)
-        self._svc_si_cf = pycassa.ColumnFamily(conn_pool, self._SVC_SI_CF,
-                                  read_consistency_level=rd_consistency,
-                                  write_consistency_level=wr_consistency)
-        self._cleanup_cf = pycassa.ColumnFamily(conn_pool,
-                                  self._SVC_CLEANUP_CF,
-                                  read_consistency_level=rd_consistency,
-                                  write_consistency_level=wr_consistency)
-    # end _cassandra_init
 
 # end class svc_monitor
 
@@ -1291,25 +567,30 @@ def launch_ssrc(monitor):
 
 def timer_callback(monitor):
     # check health of VMs
-    try:
-        vm_list = list(monitor._svc_vm_cf.get_range())
-    except Exception:
+    vm_list = monitor.db.virtual_machine_list()
+    if not vm_list:
         return
 
     for vm_uuid, si in vm_list:
         try:
-            virt_type = self._svc_vm_cf.get(vm_uuid)['instance_type']
             status = None
-            if virt_type == 'virtual-machine':
+            if si['instance_type'] == 'virtual-machine':
                 proj_name = monitor._get_proj_name_from_si_fq_str(si['si_fq_str'])
-                n_client = monitor._novaclient_get(proj_name)
-                status = n_client.servers.find(id=vm_uuid).status
-            # elif netns
-            # TODO: get netns status
-            if status.status == 'ERROR':
+                status = monitor.vm_manager.novaclient_oper('servers', 'find',
+                    proj_name, id=vm_uuid).status
+            elif si['instance_type'] == 'network-namespace':
+                try:
+                    if not monitor.vrouter_scheduler.vrouter_running(si['vrouter_name']):
+                        # The scheduled vrouter is down, re-create it
+                        status = 'ERROR'
+                except KeyError:
+                    # Cannot found the scheduled vrouter, re-create it
+                    status = 'ERROR'
+            if status and status == 'ERROR':
+                monitor.logger.log("The VM %s of SI %s is not running. "
+                                    "Re-create it." %
+                                    (vm_uuid, si['si_fq_str']))
                 monitor._restart_svc(vm_uuid, si['si_fq_str'])
-        except nc_exc.NotFound:
-            continue
         except Exception:
             continue
 # end timer_callback
@@ -1317,7 +598,7 @@ def timer_callback(monitor):
 
 def launch_timer(monitor):
     while True:
-        gevent.sleep(_CHECK_SVC_VM_HEALTH_INTERVAL)
+        gevent.sleep(svc_info.get_vm_health_interval())
         try:
             timer_callback(monitor)
         except Exception:
@@ -1326,9 +607,8 @@ def launch_timer(monitor):
 
 
 def cleanup_callback(monitor):
-    try:
-        delete_list = list(monitor._cleanup_cf.get_range())
-    except Exception:
+    delete_list = monitor.db.cleanup_table_list()
+    if not delete_list:
         return
 
     for uuid, info in delete_list or []:
@@ -1341,7 +621,7 @@ def cleanup_callback(monitor):
 
 def launch_cleanup(monitor):
     while True:
-        gevent.sleep(_CHECK_CLEANUP_INTERVAL)
+        gevent.sleep(svc_info.get_cleanup_interval())
         try:
             cleanup_callback(monitor)
         except Exception:
@@ -1427,6 +707,13 @@ def parse_args(args_str):
         'admin_password': 'password1',
         'admin_tenant_name': 'default-domain'
     }
+    schedops = {
+        'si_netns_scheduler_driver': \
+            'svc_monitor.scheduler.vrouter_scheduler.RandomScheduler',
+        'analytics_server_ip': '127.0.0.1',
+        'analytics_server_port': '8081',
+        'availability_zone': None,
+    }
 
     if args.conf_file:
         config = ConfigParser.SafeConfigParser()
@@ -1438,6 +725,8 @@ def parse_args(args_str):
                 secopts.update(dict(config.items("SECURITY")))
         if 'KEYSTONE' in config.sections():
             ksopts.update(dict(config.items("KEYSTONE")))
+        if 'SCHEDULER' in config.sections():
+            schedops.update(dict(config.items("SCHEDULER")))
 
     # Override with CLI options
     # Don't surpress add_help here so it will handle -h
@@ -1451,6 +740,7 @@ def parse_args(args_str):
     )
     defaults.update(secopts)
     defaults.update(ksopts)
+    defaults.update(schedops)
     parser.set_defaults(**defaults)
 
     parser.add_argument(
@@ -1514,17 +804,18 @@ def parse_args(args_str):
         args.collectors = args.collectors.split()
     if args.region_name and args.region_name.lower() == 'none':
         args.region_name = None
+    if args.availability_zone and args.availability_zone.lower() == 'none':
+        args.availability_zone = None
     return args
 # end parse_args
 
 
 def run_svc_monitor(args=None):
+    monitor = SvcMonitor(args)
+
     # Retry till API server is up
     connected = False
-    ConnectionState.update(conn_type = ConnectionType.APISERVER,
-        name = 'ApiServer', status = ConnectionStatus.INIT,
-        message = '', server_addrs = ['%s:%s' % (args.api_server_ip,
-                                                 args.api_server_port)])
+    monitor.logger.api_conn_status_update(ConnectionStatus.INIT)
 
     while not connected:
         try:
@@ -1532,25 +823,16 @@ def run_svc_monitor(args=None):
                 args.admin_user, args.admin_password, args.admin_tenant_name,
                 args.api_server_ip, args.api_server_port)
             connected = True
-            ConnectionState.update(conn_type = ConnectionType.APISERVER,
-                name = 'ApiServer', status = ConnectionStatus.UP,
-                message = '', server_addrs = ['%s:%s    ' % (args.api_server_ip,
-                                                         args.api_server_port)])
+            monitor.logger.api_conn_status_update(ConnectionStatus.UP)
         except requests.exceptions.ConnectionError as e:
-            # Update connection info
-            ConnectionState.update(conn_type = ConnectionType.APISERVER,
-                name = 'ApiServer', status = ConnectionStatus.DOWN,
-                message = str(e),
-                server_addrs = ['%s:%s' % (args.api_server_ip,
-                                           args.api_server_port)])
+            monitor.logger.api_conn_status_update(ConnectionStatus.DOWN, str(e))
             time.sleep(3)
         except ResourceExhaustionError:  # haproxy throws 503
             time.sleep(3)
         except ResourceExhaustionError: # haproxy throws 503
             time.sleep(3)
 
-
-    monitor = SvcMonitor(vnc_api, args)
+    monitor.post_init(vnc_api, args)
     ssrc_task = gevent.spawn(launch_ssrc, monitor)
     timer_task = gevent.spawn(launch_timer, monitor)
     cleanup_task = gevent.spawn(launch_cleanup, monitor)

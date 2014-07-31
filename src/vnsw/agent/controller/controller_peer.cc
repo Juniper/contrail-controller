@@ -33,21 +33,31 @@
 
 using namespace boost::asio;
 using namespace autogen;
+using process::ConnectionType;
+using process::ConnectionStatus;
+using process::ConnectionState;
  
-AgentXmppChannel::AgentXmppChannel(Agent *agent, XmppChannel *channel, 
+AgentXmppChannel::AgentXmppChannel(Agent *agent,
                                    const std::string &xmpp_server, 
                                    const std::string &label_range, 
                                    uint8_t xs_idx) 
-    : channel_(channel), xmpp_server_(xmpp_server), label_range_(label_range),
+    : channel_(NULL), xmpp_server_(xmpp_server), label_range_(label_range),
       xs_idx_(xs_idx), agent_(agent), unicast_sequence_number_(0) {
     bgp_peer_id_.reset();
-    channel_->RegisterReceive(xmps::BGP, 
-                              boost::bind(&AgentXmppChannel::ReceiveInternal, 
-                                          this, _1));
 }
 
 AgentXmppChannel::~AgentXmppChannel() {
     channel_->UnRegisterReceive(xmps::BGP);
+}
+
+void AgentXmppChannel::RegisterXmppChannel(XmppChannel *channel) {
+    if (channel == NULL)
+        return;
+
+    channel_ = channel;
+    channel->RegisterReceive(xmps::BGP,
+                              boost::bind(&AgentXmppChannel::ReceiveInternal,
+                                          this, _1));
 }
 
 std::string AgentXmppChannel::GetBgpPeerName() const {
@@ -1288,9 +1298,8 @@ bool AgentXmppChannel::ControllerSendSubscribe(AgentXmppChannel *peer,
     if (!peer) {
         return false;
     }      
-       
     CONTROLLER_TRACE(Trace, peer->GetBgpPeerName(), vrf->GetName(), 
-                     "Unsubscribe");
+                     subscribe ? "Subscribe" : "Unsubscribe");
     //Build the DOM tree
     auto_ptr<XmlBase> impl(XmppStanza::AllocXmppXmlImpl());
     XmlPugi *pugi = reinterpret_cast<XmlPugi *>(impl.get());
@@ -1672,6 +1681,10 @@ bool AgentXmppChannel::ControllerSendMcastRoute(AgentXmppChannel *peer,
 }
 
 void AgentXmppChannel::UpdateConnectionInfo(xmps::PeerState state) {
+
+    if (agent_->connection_state() == NULL)
+        return;
+
     boost::asio::ip::tcp::endpoint ep;
     boost::system::error_code ec;
     string last_state_name;

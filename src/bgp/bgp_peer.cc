@@ -96,8 +96,7 @@ class BgpPeer::PeerClose : public IPeerClose {
         //
         assert(!from_timer);
 
-        BgpServer *server = peer_->server_;
-        server->lifetime_manager()->Enqueue(peer_->deleter());
+        peer_->deleter()->RetryDelete();
         is_closed_ = true;
         return true;
     }
@@ -215,14 +214,19 @@ private:
 };
 
 class BgpPeer::DeleteActor : public LifetimeActor {
-  public:
+public:
     DeleteActor(BgpPeer *peer)
         : LifetimeActor(peer->server_->lifetime_manager()),
           peer_(peer) {
     }
 
     virtual bool MayDelete() const {
-        return peer_->peer_close_->IsClosed();
+        CHECK_CONCURRENCY("bgp::Config");
+        if (!peer_->peer_close_->IsClosed())
+            return false;
+        if (!peer_->state_machine_->IsQueueEmpty())
+            return false;
+        return true;
     }
 
     virtual void Shutdown() {
@@ -236,7 +240,7 @@ class BgpPeer::DeleteActor : public LifetimeActor {
         peer_->rtinstance_->peer_manager()->DestroyIPeer(peer_);
     }
 
-  private:
+private:
     BgpPeer *peer_;
 };
 
@@ -799,6 +803,8 @@ bool BgpPeer::SendUpdate(const uint8_t *msg, size_t msgsize) {
     peer_stats_->proto_stats_[1].update++;
     inc_tx_route_update();
     if (!send_ready_) {
+        BGP_LOG_PEER(Event, this, SandeshLevel::SYS_DEBUG, BGP_LOG_FLAG_ALL,
+                     BGP_PEER_DIR_NA, "Send blocked");
         BgpPeerInfoData peer_info;
         peer_info.set_name(ToUVEKey());
         peer_info.set_send_state("not in sync");
@@ -1187,11 +1193,11 @@ void BgpPeer::StartEndOfRibTimer() {
 }
 
 void BgpPeer::StartKeepaliveTimerUnlocked() {
-    int holdtime_msecs = state_machine_->hold_time_msecs();
-    if (holdtime_msecs <= 0)
+    int keepalive_time_msecs = state_machine_->keepalive_time_msecs();
+    if (keepalive_time_msecs <= 0)
         return;
 
-    keepalive_timer_->Start((holdtime_msecs/3),
+    keepalive_timer_->Start(keepalive_time_msecs,
         boost::bind(&BgpPeer::KeepaliveTimerExpired, this),
         boost::bind(&BgpPeer::KeepaliveTimerErrorHandler, this, _1, _2));
 }
@@ -1218,6 +1224,8 @@ bool BgpPeer::KeepaliveTimerRunning() {
 
 void BgpPeer::SetSendReady() {
     tbb::spin_mutex::scoped_lock lock(spin_mutex_);
+    BGP_LOG_PEER(Event, this, SandeshLevel::SYS_DEBUG, BGP_LOG_FLAG_ALL,
+                 BGP_PEER_DIR_NA, "Send ready");
     send_ready_ = true;
     if (session_ != NULL)
         StartKeepaliveTimerUnlocked();
@@ -1347,6 +1355,12 @@ void BgpPeer::ManagedDelete() {
     deleter_->Delete();
 }
  
+void BgpPeer::RetryDelete() {
+    if (!deleter_->IsDeleted())
+        return;
+    deleter_->RetryDelete();
+}
+
 void BgpPeer::SetDataCollectionKey(BgpPeerInfo *peer_info) const {
     if (rtinstance_) {
         peer_info->set_domain(rtinstance_->name());
@@ -1507,20 +1521,44 @@ void BgpPeer::inc_rx_route_unreach() {
     peer_stats_->update_stats_[0].unreach++;
 }
 
-void BgpPeer::inc_rx_open_error() {
-    peer_stats_->error_stats_.open++;
+void BgpPeer::inc_connect_error() {
+    peer_stats_->error_stats_.connect_error++;
 }
 
-void BgpPeer::inc_rx_update_error() {
-    peer_stats_->error_stats_.update++;
+void BgpPeer::inc_connect_timer_expired() {
+    peer_stats_->error_stats_.connect_timer++;
 }
 
-size_t BgpPeer::get_rx_open_error() {
-    return peer_stats_->error_stats_.open;
+void BgpPeer::inc_hold_timer_expired() {
+    peer_stats_->error_stats_.hold_timer++;
 }
 
-size_t BgpPeer::get_rx_update_error() {
-    return peer_stats_->error_stats_.update;
+void BgpPeer::inc_open_error() {
+    peer_stats_->error_stats_.open_error++;
+}
+
+void BgpPeer::inc_update_error() {
+    peer_stats_->error_stats_.update_error++;
+}
+
+size_t BgpPeer::get_connect_error() {
+    return peer_stats_->error_stats_.connect_error;
+}
+
+size_t BgpPeer::get_connect_timer_expired() {
+    return peer_stats_->error_stats_.connect_timer;
+}
+
+size_t BgpPeer::get_hold_timer_expired() {
+    return peer_stats_->error_stats_.hold_timer;
+}
+
+size_t BgpPeer::get_open_error() {
+    return peer_stats_->error_stats_.open_error;
+}
+
+size_t BgpPeer::get_update_error() {
+    return peer_stats_->error_stats_.update_error;
 }
 
 std::string BgpPeer::last_flap_at() const { 

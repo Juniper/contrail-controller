@@ -55,6 +55,7 @@ class Collector(object):
         self.listen_port = AnalyticsFixture.get_free_port()
         self.http_port = AnalyticsFixture.get_free_port()
         self.syslog_port = AnalyticsFixture.get_free_port()
+        self.protobuf_port = AnalyticsFixture.get_free_port()
         self.hostname = socket.gethostname()
         self._instance = None
         self._redis_uve = redis_uve
@@ -73,6 +74,10 @@ class Collector(object):
     def get_syslog_port(self):
         return self.syslog_port
     # end get_syslog_port
+
+    def get_protobuf_port(self):
+        return self.protobuf_port
+    # end get_protobuf_port
 
     def get_generator_id(self):
         return self._generator_id
@@ -94,6 +99,7 @@ class Collector(object):
             '--COLLECTOR.port', str(self.listen_port),
             '--DEFAULT.http_server_port', str(self.http_port),
             '--DEFAULT.syslog_port', str(self.syslog_port),
+            '--COLLECTOR.protobuf_port', str(self.protobuf_port),
             '--DEFAULT.log_file', self._log_file]
         if self._is_dup is True:
             args.append('--DEFAULT.dup')

@@ -2,6 +2,9 @@
  * Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
  */
 
+#if defined(__FreeBSD__)
+#include <sys/types.h>
+#endif
 #include "oper/interface_common.h"
 #include "services/dns_proto.h"
 #include "bind/bind_resolver.h"
@@ -85,6 +88,13 @@ void DnsProto::InterfaceNotify(DBEntryBase *entry) {
         all_vms_.erase(vmitf);
         DNS_BIND_TRACE(DnsBindTrace, "Vm Interface deleted : " <<
                        vmitf->vm_name());
+        // remove floating ip entries from fip list
+        const VmInterface::FloatingIpList &fip = vmitf->floating_ip_list();
+        for (VmInterface::FloatingIpSet::iterator it = fip.list_.begin(),
+             next = fip.list_.begin(); it != fip.list_.end(); it = next) {
+            ++next;
+            UpdateFloatingIp(vmitf, it->vn_.get(), it->floating_ip_, true);
+        }
     } else {
         autogen::VirtualDnsType vdns_type;
         std::string vdns_name;
@@ -113,9 +123,10 @@ void DnsProto::InterfaceNotify(DBEntryBase *entry) {
             const VmInterface::FloatingIpList &fip = vmitf->floating_ip_list();
             for (VmInterface::FloatingIpSet::iterator it = fip.list_.begin();
                  it != fip.list_.end(); ++it) {
-                if (it->vn_.get())
+                if (it->installed_) {
                     UpdateFloatingIp(vmitf, it->vn_.get(),
                                      it->floating_ip_, false);
+                }
             }
         }
     }
@@ -123,7 +134,23 @@ void DnsProto::InterfaceNotify(DBEntryBase *entry) {
 
 void DnsProto::VnNotify(DBEntryBase *entry) {
     const VnEntry *vn = static_cast<const VnEntry *>(entry);
-    if (vn->IsDeleted() || vn->GetVnIpam().size() == 0)
+    if (vn->IsDeleted()) {
+        // remove floating ip entries from this vn in floating ip list
+        Ip4Address ip_key(0);
+        DnsFipEntryPtr key(new DnsFipEntry(vn, ip_key, NULL));
+        DnsFipSet::iterator it = fip_list_.upper_bound(key);
+        while (it != fip_list_.end()) {
+            DnsFipEntry *entry = (*it).get();
+            if (entry->vn_ != vn) {
+                break;
+            }
+            ++it;
+            UpdateFloatingIp(entry->interface_, entry->vn_,
+                             entry->floating_ip_, true);
+        }
+        return;
+    }
+    if (vn->GetVnIpam().size() == 0)
         return;
     DNS_BIND_TRACE(DnsBindTrace, "Vn Notify : " << vn->GetName());
     for (VmDataMap::iterator it = all_vms_.begin(); it != all_vms_.end(); ++it) {
@@ -230,6 +257,7 @@ void DnsProto::CheckForFipUpdate(DnsFipEntry *entry, std::string &vdns_name,
         if (UpdateDnsEntry(entry->interface_, entry->vn_, fip_name,
                            vdns_name, entry->floating_ip_, true, false)) {
             entry->vdns_name_.assign(vdns_name);
+            entry->fip_name_ = fip_name;
         }
     } else if (entry->vdns_name_ != vdns_name) {
         if (MoveVDnsEntry(entry->interface_, vdns_name, entry->vdns_name_,
@@ -312,14 +340,13 @@ bool DnsProto::UpdateFloatingIp(const VmInterface *vmitf, const VnEntry *vn,
                             vdns_name, ip, is_floating, false))
             vdns_name = "";
         key.get()->vdns_name_ = vdns_name;
+        key.get()->fip_name_ = fip_name;
         fip_list_.insert(key);
     } else {
         if (is_deleted) {
             std::string fip_name;
-            if (!GetFipName(vmitf, vdns_type, ip, fip_name))
-                vdns_name = "";
-            UpdateDnsEntry(vmitf, vn, fip_name,
-                           vdns_name, ip, is_floating, true);
+            UpdateDnsEntry(vmitf, vn, (*it)->fip_name_,
+                           (*it)->vdns_name_, ip, is_floating, true);
             fip_list_.erase(key);
         } else {
             DnsFipEntry *entry = (*it).get();
@@ -387,7 +414,7 @@ bool DnsProto::MoveVDnsEntry(const VmInterface *vmitf,
     return true;
 }
 
-bool DnsProto::GetVdnsData(const VnEntry *vn, const Ip4Address &vm_addr, 
+bool DnsProto::GetVdnsData(const VnEntry *vn, const Ip4Address &vm_addr,
                            std::string &vdns_name,
                            autogen::VirtualDnsType &vdns_type) {
     if (!vn)
@@ -469,7 +496,7 @@ void DnsProto::SendDnsUpdateIpc(AgentDnsXmppChannel *channel) {
     agent_->pkt()->pkt_handler()->SendMessage(PktHandler::DNS, ipc);
 }
 
-void DnsProto::AddDnsQuery(uint16_t xid, DnsHandler *handler) { 
+void DnsProto::AddDnsQuery(uint16_t xid, DnsHandler *handler) {
     dns_query_map_.insert(DnsBindQueryPair(xid, handler));
 }
 

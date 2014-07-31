@@ -21,10 +21,8 @@
 using namespace std;
 using namespace boost::asio;
 
-static void MulticastTableEnqueue(Agent *agent, const string &vrf_name,
-                                  DBRequest *req) {
-    AgentRouteTable *table = 
-        agent->vrf_table()->GetInet4MulticastRouteTable(vrf_name);
+static void MulticastTableEnqueue(Agent *agent, DBRequest *req) {
+    AgentRouteTable *table = agent->fabric_inet4_multicast_table();
     if (table) {
         table->Enqueue(req);
     }
@@ -73,7 +71,7 @@ Inet4MulticastAgentRouteTable::AddMulticastRoute(const string &vrf_name,
     MulticastRoute *data = new MulticastRoute(vn_name, 0, nh_req);
     req.key.reset(rt_key);
     req.data.reset(data);
-    MulticastTableEnqueue(Agent::GetInstance(), vrf_name, &req);
+    MulticastTableEnqueue(Agent::GetInstance(), &req);
 } 
 
 void 
@@ -95,7 +93,7 @@ Inet4MulticastAgentRouteTable::AddVHostRecvRoute(const string &vm_vrf,
                          Agent::GetInstance()->fabric_vn_name());
     //data->SetMulticast(true);
     req.data.reset(data);
-    MulticastTableEnqueue(Agent::GetInstance(), vm_vrf, &req);
+    MulticastTableEnqueue(Agent::GetInstance(), &req);
 }
 
 void 
@@ -112,7 +110,7 @@ Inet4MulticastAgentRouteTable::DeleteMulticastRoute(const string &vrf_name,
 
     req.key.reset(rt_key);
     req.data.reset(NULL);
-    MulticastTableEnqueue(Agent::GetInstance(), vrf_name, &req);
+    MulticastTableEnqueue(Agent::GetInstance(), &req);
 }
 
 void Inet4MulticastAgentRouteTable::Delete(const string &vrf_name,

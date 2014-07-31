@@ -23,11 +23,12 @@ public:
         singleton_ = this;
     }
 
-    virtual ~AgentStats() { }
+    virtual ~AgentStats() {singleton_ = NULL;}
 
     static AgentStats *GetInstance() {return singleton_;}
     void Shutdown() { }
 
+    void Reset();
     void incr_xmpp_reconnects(uint8_t idx) {xmpp_reconnect_[idx]++;}
     uint16_t xmpp_reconnects(uint8_t idx) const {
         return xmpp_reconnect_[idx];

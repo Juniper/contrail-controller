@@ -19,10 +19,8 @@
 using namespace std;
 using namespace boost::asio;
 
-static void Layer2TableEnqueue(Agent *agent, const string &vrf_name,
-                               DBRequest *req) {
-    AgentRouteTable *table = 
-        agent->vrf_table()->GetLayer2RouteTable(vrf_name);
+static void Layer2TableEnqueue(Agent *agent, DBRequest *req) {
+    AgentRouteTable *table = agent->fabric_l2_unicast_table();
     if (table) {
         table->Enqueue(req);
     }
@@ -67,7 +65,7 @@ void Layer2AgentRouteTable::AddLocalVmRouteReq(const Peer *peer,
     req.key.reset(key);
     data->set_tunnel_bmap(TunnelType::AllType());
     req.data.reset(data);
-    Layer2TableEnqueue(Agent::GetInstance(), vrf_name, &req);
+    Layer2TableEnqueue(Agent::GetInstance(), &req);
 }
 
 void Layer2AgentRouteTable::AddLocalVmRouteReq(const Peer *peer,
@@ -86,7 +84,8 @@ void Layer2AgentRouteTable::AddLocalVmRouteReq(const Peer *peer,
     LocalVmRoute *data = new LocalVmRoute(intf_key, mpls_label, vxlan_id,
                                           false, vn_name,
                                           InterfaceNHFlags::LAYER2,
-                                          sg_list, path_preference);
+                                          sg_list, path_preference,
+                                          Ip4Address(0));
     AddLocalVmRouteReq(peer, vrf_name, mac, vm_ip, plen, data);
 }
 
@@ -112,7 +111,8 @@ void Layer2AgentRouteTable::AddLocalVmRoute(const Peer *peer,
     LocalVmRoute *data = new LocalVmRoute(intf_key, mpls_label, vxlan_id,
                                           false, vn_name,
                                           InterfaceNHFlags::LAYER2,
-                                          sg_list, path_preference);
+                                          sg_list, path_preference,
+                                          Ip4Address(0));
     data->set_tunnel_bmap(TunnelType::AllType());
     req.data.reset(data);
     Layer2TableProcess(Agent::GetInstance(), vrf_name, req);
@@ -143,7 +143,7 @@ void Layer2AgentRouteTable::AddLayer2BroadcastRoute(const string &vrf_name,
 
     MulticastRoute *data = new MulticastRoute(vn_name, vxlan_id, nh_req);
     req.data.reset(data);
-    Layer2TableEnqueue(Agent::GetInstance(), vrf_name, &req);
+    Layer2TableEnqueue(Agent::GetInstance(), &req);
 }
 
 
@@ -158,7 +158,7 @@ void Layer2AgentRouteTable::AddRemoteVmRouteReq(const Peer *peer,
     req.key.reset(key);
     req.data.reset(data);
 
-    Layer2TableEnqueue(Agent::GetInstance(), vrf_name, &req);
+    Layer2TableEnqueue(Agent::GetInstance(), &req);
 }
 
 void Layer2AgentRouteTable::DeleteReq(const Peer *peer, const string &vrf_name,
@@ -170,7 +170,7 @@ void Layer2AgentRouteTable::DeleteReq(const Peer *peer, const string &vrf_name,
     Layer2RouteKey *key = new Layer2RouteKey(peer, vrf_name, mac);
     req.key.reset(key);
     req.data.reset(data);
-    Layer2TableEnqueue(Agent::GetInstance(), vrf_name, &req);
+    Layer2TableEnqueue(Agent::GetInstance(), &req);
 }
 
 void Layer2AgentRouteTable::Delete(const Peer *peer, const string &vrf_name,
@@ -192,7 +192,7 @@ void Layer2AgentRouteTable::DeleteBroadcastReq(const string &vrf_name) {
         new Layer2RouteKey(Agent::GetInstance()->local_vm_peer(), vrf_name);
     req.key.reset(key);
     req.data.reset(NULL);
-    Layer2TableEnqueue(Agent::GetInstance(), vrf_name, &req);
+    Layer2TableEnqueue(Agent::GetInstance(), &req);
 }
 
 string Layer2RouteKey::ToString() const {

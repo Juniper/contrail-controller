@@ -6,13 +6,15 @@
 #define vnsw_agent_test_init_h
 
 #include <sys/socket.h>
-#include <linux/netlink.h>
 #include <net/if.h>
+#if defined(__linux__)
 #include <linux/if_tun.h>
 #include <linux/if_packet.h>
 #include <netinet/ether.h>
+#endif
 #include <pthread.h>
 
+#include <cmn/agent_cmn.h>
 #include <fstream>
 #include <stdio.h>
 #include <stdlib.h>
@@ -20,15 +22,15 @@
 #include <boost/format.hpp>
 #include <boost/uuid/string_generator.hpp>
 #include <boost/program_options.hpp>
-#include <pugixml/pugixml.hpp>
 #include <base/task.h>
 #include <base/task_trigger.h>
-#include <io/event_manager.h>
+#include <base/test/task_test_util.h>
 #include <base/util.h>
+#include <io/event_manager.h>
+#include <pugixml/pugixml.hpp>
 
 #include "xmpp/xmpp_channel.h"
 
-#include <cmn/agent_cmn.h>
 #include <cfg/cfg_init.h>
 #include <cfg/cfg_interface.h>
 #include <cfg/cfg_listener.h>
@@ -40,7 +42,7 @@
 #include <controller/controller_vrf_export.h>
 #include <services/services_init.h>
 #include <ksync/ksync_init.h>
-#include <ksync/vnswif_listener.h>
+#include "vnswif_listener.h"
 #include <ifmap/ifmap_agent_parser.h>
 #include <ifmap/ifmap_agent_table.h>
 #include <cmn/agent_param.h>
@@ -55,6 +57,7 @@
 #include <uve/agent_uve.h>
 #include <uve/flow_stats_collector.h>
 #include <uve/agent_stats_collector.h>
+#include <uve/vrouter_stats_collector.h>
 #include <uve/test/agent_stats_collector_test.h>
 #include "pkt_gen.h"
 #include "pkt/flow_table.h"
@@ -153,7 +156,8 @@ struct TestIp4Prefix {
 
 class TestClient {
 public:
-    TestClient(Agent *agent) : agent_(agent), param_(agent) {
+    TestClient(TestAgentInit *init) :
+        agent_init_(init), agent_(init->agent()), param_(init->agent_param()) {
         vn_notify_ = 0;
         vm_notify_ = 0;
         port_notify_ = 0;
@@ -171,7 +175,9 @@ public:
         shutdown_done_ = false;
         comp_nh_list_.clear();
     };
-    virtual ~TestClient() { };
+    virtual ~TestClient() {
+        agent_init_.reset();
+    }
 
     void VrfNotify(DBTablePartBase *partition, DBEntryBase *e) {
         vrf_notify_++;
@@ -235,18 +241,8 @@ public:
         cfg_notify_++;
     };
 
-    static void WaitForIdle(int wait_seconds = 1) {
-        static const int kTimeout = 1000;
-        int i;
-        int count = ((wait_seconds * 1000000) / kTimeout);
-        TaskScheduler *scheduler = TaskScheduler::GetInstance();
-        for (i = 0; i < count; i++) {
-            if (scheduler->IsEmpty()) {
-                break;
-            }
-            usleep(kTimeout);
-        }
-        EXPECT_GT(count, i);
+    static void WaitForIdle(int wait_seconds = 30) {
+        task_util::WaitForIdle(wait_seconds);
     }
 
     void VrfReset() {vrf_notify_ = 0;};
@@ -557,14 +553,9 @@ public:
         Agent::GetInstance()->mpls_table()->Register(boost::bind(&TestClient::MplsNotify, 
                                                    this, _1, _2));
     };
-    TestAgentInit *agent_init() { return &agent_init_; }
-    AgentParam *param() { return &param_; }
+    TestAgentInit *agent_init() { return agent_init_.get(); }
+    AgentParam *param() { return param_; }
     Agent *agent() { return agent_; }
-    void set_agent(Agent *agent) { agent_ = agent; }
-    void delete_agent() {
-        delete agent_;
-        agent_ = NULL;
-    }
 
     void Shutdown();
 
@@ -584,21 +575,22 @@ public:
     int nh_notify_;
     int mpls_notify_;
     std::vector<const NextHop *> comp_nh_list_;
+    std::auto_ptr<TestAgentInit> agent_init_;
     Agent *agent_;
-    TestAgentInit agent_init_;
-    AgentParam param_;
+    AgentParam *param_;
 };
 
 TestClient *TestInit(const char *init_file = NULL, bool ksync_init = false, 
                      bool pkt_init = true, bool services_init = true,
                      bool uve_init = true,
-                     int agent_stats_interval = AgentParam::AgentStatsInterval,
-                     int flow_stats_interval = FlowStatsCollector::FlowStatsInterval,
-                     bool asio = true, bool ksync_sync_mode = true);
+                     int agent_stats_interval = AgentParam::kAgentStatsInterval,
+                     int flow_stats_interval = AgentParam::kFlowStatsInterval,
+                     bool asio = true, bool ksync_sync_mode = true,
+                     int vrouter_stats_interval =
+                     AgentParam::kVrouterStatsInterval);
 
 TestClient *VGwInit(const string &init_file, bool ksync_init);
 void TestShutdown();
-TestClient *StatsTestInit();
 
 extern TestClient *client;
 

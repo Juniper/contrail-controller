@@ -15,8 +15,15 @@ sources = [
     'MANIFEST.in',
     'svc_monitor/__init__.py',
     'svc_monitor/svc_monitor.py',
+    'svc_monitor/instance_manager.py',
+    'svc_monitor/db.py',
+    'svc_monitor/logger.py',
+    'svc_monitor/scheduler/__init__.py',
+    'svc_monitor/scheduler/vrouter_scheduler.py',
     'svc_monitor/tests/__init__.py',
     'svc_monitor/tests/test_init.py',
+    'svc_monitor/tests/scheduler/__init__.py',
+    'svc_monitor/tests/scheduler/test_vrouter_schedulers.py',
 ]
 
 sources += env.SandeshGenPy('svc_mon_introspect.sandesh',

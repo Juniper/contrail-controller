@@ -13,6 +13,7 @@ monkey.patch_all()
 import ConfigParser
 import bottle
 import time
+import base64
 
 try:
     from keystoneclient.middleware import auth_token
@@ -21,22 +22,45 @@ except Exception:
 
 # Open port for access to API server for trouble shooting
 
+class LocalAuth(object):
 
-class AuthOpen(object):
-
-    def __init__(self, host, port, app):
-        self._http_host = host
-        self._http_port = port
+    def __init__(self, app, conf_info):
+        self._http_host = 'localhost'
+        self._http_port = conf_info['admin_port']
         self._http_app = bottle.Bottle()
         self._http_app.merge(app.routes)
         self._http_app.config.auth_open = True
+        self._conf_info = conf_info
+
+        # 2 decorators below due to change in api between bottle 0.11.6
+        # (which insists on global app) vs later (which need on specific
+        # app)
+        @self._http_app.hook('before_request')
+        @bottle.hook('before_request')
+        def local_auth_check(*args, **kwargs):
+            if bottle.request.app != self._http_app:
+                return
+            # expect header to have something like 'Basic YWJjOmRlZg=='
+            auth_hdr_val = bottle.request.environ.get('HTTP_AUTHORIZATION')
+            if not auth_hdr_val:
+                bottle.abort(401, 'HTTP_AUTHORIZATION header missing')
+            try:
+                auth_type, user_passwd = auth_hdr_val.split()
+            except Exception as e:
+                bottle.abort(401, 'Auth Exception: %s' %(str(e)))
+            enc_user_passwd = auth_hdr_val.split()[1]
+            user_passwd = base64.b64decode(enc_user_passwd)
+            user, passwd = user_passwd.split(':')
+            if (not self._conf_info.get('admin_user') == user or
+                not self._conf_info.get('admin_password') == passwd):
+                bottle.abort(401, 'Authentication check failed')
     # end __init__
 
     def start_http_server(self):
         self._http_app.run(
             host=self._http_host, port=self._http_port, server='gevent')
     # end start_http_server
-# end class AuthOpen
+# end class LocalAuth
 
 # Pre-auth filter
 
@@ -93,6 +117,7 @@ class AuthServiceKeystone(object):
             'admin_user': args.admin_user,
             'admin_password': args.admin_password,
             'admin_tenant_name': args.admin_tenant_name,
+            'admin_port': args.admin_port,
         }
         self._server_mgr = server_mgr
         self._auth_method = args.auth
@@ -159,8 +184,9 @@ class AuthServiceKeystone(object):
                 time.sleep(2)
 
         # open access for troubleshooting
-        self._open_app = AuthOpen('127.0.0.1', '8095', bottle.app())
-        gevent.spawn(self._open_app.start_http_server)
+        admin_port = self._conf_info['admin_port']
+        self._local_auth_app = LocalAuth(bottle.app(), self._conf_info)
+        gevent.spawn(self._local_auth_app.start_http_server)
 
         app = auth_middleware
 

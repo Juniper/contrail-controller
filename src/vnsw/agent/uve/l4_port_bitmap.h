@@ -31,6 +31,7 @@ struct L4PortBitmap {
         void AddPort(uint16_t port);
         bool Sync(std::vector<uint32_t> &bmap);
         void Encode(std::vector<uint32_t> &bmap);
+        void Reset();
     };
 
     L4PortBitmap();
@@ -38,6 +39,7 @@ struct L4PortBitmap {
 
     void AddPort(uint8_t proto, uint16_t sport, uint16_t dport);
     void Encode(PortBucketBitmap &bmap);
+    void Reset();
 
     PortBitmap tcp_sport_;
     PortBitmap tcp_dport_;

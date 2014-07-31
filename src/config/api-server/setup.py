@@ -1,15 +1,12 @@
 #
 # Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
 #
-from setuptools import setup
+from setuptools import setup, find_packages
 
 setup(
     name='vnc_cfg_api_server',
     version='0.1dev',
-    packages=[
-        'vnc_cfg_api_server',
-        'vnc_cfg_api_server.gen',
-    ],
+    packages=find_packages(),
     package_data={'': ['*.html', '*.css', '*.xml']},
     zip_safe=False,
     long_description="VNC Configuration API Server Implementation",
@@ -23,6 +20,7 @@ setup(
         'psutil>=0.4.1',
     ],
     entry_points = {
+        # Please update sandesh/common/vns.sandesh on process name change
         'console_scripts' : [
             'contrail-api = vnc_cfg_api_server.vnc_cfg_api_server:server_main',
         ],

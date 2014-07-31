@@ -85,17 +85,27 @@ InstanceServiceAsyncHandler::AddPort(const PortList& port_list) {
             vlan_id = port.vlan_id;
         }
 
+        uint32_t version = version_;
+        CfgIntEntry::CfgIntType port_type = CfgIntEntry::CfgIntVMPort;
+        if (port.__isset.port_type) {
+            if (port.port_type == PortTypes::NameSpacePort) {
+                version = 0;
+                port_type = CfgIntEntry::CfgIntNameSpacePort;
+            }
+        }
+
         cfg_int_data->Init(instance_id, vn_id, vm_project_id,
                            port.tap_name, ip,
                            port.mac_address,
-                           port.display_name, vlan_id, version_);
+                           port.display_name, vlan_id, port_type, version);
         req.data.reset(cfg_int_data);
         ctable->Enqueue(&req);
         CFG_TRACE(OpenstackAddPort, "Add", UuidToString(port_id),
                   UuidToString(instance_id), UuidToString(vn_id),
                   port.ip_address, port.tap_name, port.mac_address,
-                  port.display_name, port.hostname, port.host, version_,
-                  vlan_id, UuidToString(vm_project_id));
+                  port.display_name, port.hostname, port.host, version,
+                  vlan_id, UuidToString(vm_project_id),
+                  CfgIntEntry::CfgIntTypeToString(port_type));
     }
     return true;
 }
@@ -377,7 +387,7 @@ InstanceServiceAsyncHandler::AddLocalVmRoute(const std::string& ip_address,
     agent_->fabric_inet4_unicast_table()->
         AddLocalVmRouteReq(novaPeer_.get(), vrf, ip.to_v4(), 32, intf_uuid, 
                            "instance-service", mpls_label, SecurityGroupList(),
-                           false, PathPreference());
+                           false, PathPreference(), Ip4Address(0));
     return true;
 }
 
@@ -462,7 +472,7 @@ void InstanceInfoServiceServerInit(Agent *agent) {
     boost::shared_ptr<apache::thrift::async::TAsioServer> server(
         new apache::thrift::async::TAsioServer(
             *(agent->event_manager()->io_service()),
-            ContrailPorts::NovaVifVrouterAgentPort,
+            ContrailPorts::NovaVifVrouterAgentPort(),
             protocolFactory,
             protocolFactory,
             processor));
@@ -499,6 +509,8 @@ void AddPortReq::HandleRequest() const {
     string vm_name = get_vm_name();
     string tap_name = get_tap_name();
     uint16_t vlan_id = get_vlan_id();
+    int16_t port_type = get_port_type();
+    CfgIntEntry::CfgIntType intf_type;
 
     boost::system::error_code ec;
     IpAddress ip(IpAddress::from_string(get_ip_address(), ec));
@@ -537,10 +549,15 @@ void AddPortReq::HandleRequest() const {
     DBRequest req(DBRequest::DB_ENTRY_ADD_CHANGE);
     req.key.reset(new CfgIntKey(port_uuid));
     CfgIntData *cfg_int_data = new CfgIntData();
+    intf_type = CfgIntEntry::CfgIntVMPort;
+    if (port_type) {
+        intf_type = CfgIntEntry::CfgIntNameSpacePort;
+    }
+
     cfg_int_data->Init(instance_uuid, vn_uuid, vm_project_uuid,
                        tap_name, ip,
                        mac_address,
-                       vm_name, vlan_id, 0);
+                       vm_name, vlan_id, intf_type, 0);
     req.data.reset(cfg_int_data);
     req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
     ctable->Enqueue(&req);
@@ -642,6 +659,14 @@ bool InterfaceConfigStaleCleaner::CfgIntfWalk(DBTablePartBase *partition,
                                               DBEntryBase *entry,
                                               int32_t version) {
     const CfgIntEntry *cfg_intf = static_cast<const CfgIntEntry *>(entry);
+
+    if (cfg_intf->port_type() != CfgIntEntry::CfgIntVMPort) {
+        CFG_TRACE(IntfInfo, "CfgIntfStaleWalk Skipping the delete of "
+                "port type  " +
+                cfg_intf->CfgIntTypeToString(cfg_intf->port_type()));
+        return true;
+    }
+
     if (cfg_intf->GetVersion() < version) {
         CfgIntTable *ctable = Agent::GetInstance()->interface_config_table();
         DBRequest req;

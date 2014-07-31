@@ -18,6 +18,17 @@
 
 AgentStats *AgentStats::singleton_;
 
+void AgentStats::Reset() {
+    sandesh_reconnects_ = sandesh_in_msgs_ = sandesh_out_msgs_ = 0;
+    sandesh_http_sessions_ = nh_count_ = pkt_exceptions_ = 0;
+    pkt_invalid_agent_hdr_ = pkt_invalid_interface_ = 0;
+    pkt_no_handler_ = pkt_dropped_ = flow_created_ = 0;
+    flow_aged_ = flow_active_ = flow_drop_due_to_max_limit_ = 0;
+    flow_drop_due_to_linklocal_limit_ = ipc_in_msgs_ = 0;
+    ipc_out_msgs_ = in_tpkts_ = in_bytes_ = out_tpkts_ = 0;
+    out_bytes_ = 0;
+}
+
 void AgentStatsReq::HandleRequest() const {
     Agent *agent = Agent::GetInstance();
     AgentStats *stats = agent->stats();

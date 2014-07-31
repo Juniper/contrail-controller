@@ -22,7 +22,7 @@ env.Prepend(CPPPATH = env['TOP'] + '/http/client')
 
 env.Prepend(LIBS=['ifmap_vnc', 'ifmap_server', 'ifmap_common', 'net', 'ifmapio',
                   'xmpp', 'ds', 'sandeshvns', 'sandesh', 'peer_sandesh',
-                  'httpc', 'http', 'http_parser', 'curl', 'connection_info',
+                  'httpc', 'http', 'http_parser', 'curl', 'process_info',
                   'db', 'io', 'base', 'xml', 'pugixml', 'libxml2',
                   'boost_regex', 'boost_chrono', 'boost_program_options',
                   'crypto', 'ssl',
@@ -48,11 +48,12 @@ dnsd = env.Program(target = 'dnsd', source = ['main.cc'])
 env.Alias('src/dns:dnsd', dnsd)
 env.Default(dnsd)
 
+# Please update sandesh/common/vns.sandesh on process name change
 env.Alias('install', env.Install(env['INSTALL_BIN'], dnsd))
 env.Alias('install', env.Install(env['INSTALL_CONF'] + '/dns', 'dns.conf'))
 
 DnsEnv = env.Clone()
-DnsEnv.AppendUnique(CCFLAGS='-fno-exceptions')
+DnsEnv.CppDisableExceptions()
 Export('DnsEnv')
 
 subdirs = [

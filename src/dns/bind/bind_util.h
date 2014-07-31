@@ -274,6 +274,8 @@ public:
     static uint16_t DnsType(const std::string &tp);
     static std::string DnsType(uint16_t tp);
     static const std::string &DnsResponseCode(uint16_t code);
+    static uint8_t *AddName(uint8_t *ptr, const std::string &addr,
+                            uint16_t plen, uint16_t offset, uint16_t &length);
     static int ParseDnsQuery(uint8_t *buf, DnsItems &items);
     static void ParseDnsQuery(uint8_t *buf, uint16_t &xid, dns_flags &flags,
                               DnsItems &ques, DnsItems &ans,
@@ -350,8 +352,6 @@ private:
 
         return ptr;
     }
-    static uint8_t *AddName(uint8_t *ptr, const std::string &addr, 
-                            uint16_t plen, uint16_t offset, uint16_t &length);
     static uint8_t *AddData(uint8_t *ptr, const DnsItem &item, 
                             uint16_t &length);
     static uint8_t *AddAdditionalSection(uint8_t *ptr, const std::string name, 

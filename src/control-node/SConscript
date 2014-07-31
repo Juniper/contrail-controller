@@ -33,10 +33,10 @@ for file in setup_sources:
 control_node_pkg  = env.SandeshGenPy('sandesh/control_node.sandesh', 'control_node/', False)
 cpu_info_pkg = env.SandeshGenPy('#controller/src/base/sandesh/cpuinfo.sandesh', 'control_node/control_node/', False)
 ifmap_pkg = env.SandeshGenPy('#controller/src/ifmap/ifmap_server_show.sandesh', 'control_node/control_node/', False)
-conn_info_pkg = env.SandeshGenPy('#controller/src/base/sandesh/connection_info.sandesh', 'control_node/control_node/', False)
+process_info_pkg = env.SandeshGenPy('#controller/src/base/sandesh/process_info.sandesh', 'control_node/control_node/', False)
 env.Depends(cpu_info_pkg, control_node_pkg)
 env.Depends(ifmap_pkg, control_node_pkg)
-env.Depends(conn_info_pkg, control_node_pkg)
+env.Depends(process_info_pkg, control_node_pkg)
 
 rel_path = Dir('control_node').path
 def BuildInfoAction(target, source, env):
@@ -49,7 +49,7 @@ sdist_depends.extend(setup_sources_rules)
 sdist_depends.extend(control_node_pkg)
 sdist_depends.extend(cpu_info_pkg)
 sdist_depends.extend(ifmap_pkg)
-sdist_depends.extend(conn_info_pkg)
+sdist_depends.extend(process_info_pkg)
 sdist_depends.extend(build_info_rules)
 sdist_gen = env.Command('dist', 'setup.py', 'python setup.py sdist', chdir=1)
 
@@ -92,7 +92,7 @@ env.Prepend(LIBS=['bgp',
                   'http_parser',
                   'curl',
                   'db',
-                  'connection_info',
+                  'process_info',
                   'io',
                   'base',
                   'cpuinfo',
@@ -176,13 +176,9 @@ buildinfo_dep_libs = ['../bgp/libbgp.a', '../schema/libbgp_schema.a', '../schema
                       '../bgp/rtarget/librtarget.a', '../bgp/security_group/libsecurity_group.a', '../schema/libifmap_vnc.a', 
                       '../ifmap/libifmap_server.a', '../ifmap/libifmap_common.a', '../route/libroute.a', '../net/libnet.a', 
                       '../../lib/libifmapio.a', '../xmpp/libxmpp.a', '../xml/libxml.a', '../../lib/libsandeshvns.a', 
-                      '../../lib/libsandesh.a', '../../lib/libhttp.a', '../../lib/libhttp_parser.a', '../../lib/libcurl.a', 
-                      '../db/libdb.a', '../io/libio.a', '../base/libbase.a', '../base/libcpuinfo.a', '../../lib/libpugixml.a', 
-                      '../../lib/libxml2.a', '../../lib/libboost_regex.a', '../../lib/libboost_program_options.a', 
-                      '../../lib/libboost_filesystem.a', '../../lib/libboost_system.a', '../../lib/liblog4cplus.a']
-
-if sys.platform != 'darwin':
-    buildinfo_dep_libs += [ '../../lib/libtbb_debug.so.2' ]
+                      '../../lib/libsandesh.a', '../../lib/libhttp.a', '../../lib/libhttp_parser.a',
+                      '../db/libdb.a', '../io/libio.a', '../base/libbase.a', '../base/libcpuinfo.a', '../../lib/libpugixml.a',
+		      ]
 
 env.GenerateBuildInfoCode(
 	target = ['buildinfo.h', 'buildinfo.cc'],
@@ -190,7 +186,7 @@ env.GenerateBuildInfoCode(
 		['main.cc', 'options.cc', 'sandesh/control_node_sandesh.cc'],
 	path = Dir('.').path)
 
-ctrlnode = env.Program(target = 'control-node',
+ctrlnode = env.Program(target = 'contrail-control',
                        source = ['buildinfo.cc',
                                  'main.cc',
                                  'options.cc',
@@ -211,5 +207,6 @@ env.Alias('control-node', ctrlnode)
 
 env.SConscript('test/SConscript', exports='BuildEnv', duplicate = 0)
 
+# Please update sandesh/common/vns.sandesh on process name change
 env.Alias('install', env.Install(env['INSTALL_BIN'], ctrlnode))
-env.Alias('install', env.Install(env['INSTALL_CONF'], 'control-node.conf'))
+env.Alias('install', env.Install(env['INSTALL_CONF'], 'contrail-control.conf'))

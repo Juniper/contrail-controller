@@ -15,7 +15,7 @@ using namespace boost::asio;
 void DnsAgentXmppManager::Init() {
     uint32_t port = Dns::GetXmppServerPort();
     if (!port)
-        port = ContrailPorts::DnsXmpp;
+        port = ContrailPorts::DnsXmpp();
 
     XmppInit *init = new XmppInit();
     XmppServer *server = new XmppServer(Dns::GetEventManager());

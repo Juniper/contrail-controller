@@ -83,11 +83,15 @@ void IFMapDependencyManager::Initialize() {
 
     static const char *ifmap_types[] = {
         "instance-ip",
+        "loadbalancer-healthmonitor",
+        "loadbalancer-member",
+        "loadbalancer-pool",
         "service-instance",
         "service-template",
+        "virtual-ip",
         "virtual-machine",
         "virtual-machine-interface",
-        "virtual-network-network-ipam"
+        "virtual-network-network-ipam",
     };
 
     // Link table
@@ -114,6 +118,7 @@ void IFMapDependencyManager::Initialize() {
     IFMapDependencyTracker::NodeEventPolicy *policy = tracker_->policy_map();
 
     ReactionMap react_si = map_list_of<string, PropagateList>
+            ("loadbalancer-pool-service-instance", list_of("self"))
             ("service-instance-service-template", list_of("self"))
             ("virtual-machine-service-instance", list_of("self"))
             ("self", list_of("self"));
@@ -156,6 +161,25 @@ void IFMapDependencyManager::Initialize() {
     ReactionMap react_ipam = map_list_of<string, PropagateList>
             ("virtual-network-network-ipam", list_of("nil"));
     policy->insert(make_pair("network-ipam", react_ipam));
+
+    ReactionMap react_lb_pool = map_list_of<string, PropagateList>
+            ("loadbalancer-pool-loadbalancer-healthmonitor", list_of("self"))
+            ("loadbalancer-pool-loadbalancer-member", list_of("self"))
+            ("self", list_of("self")("loadbalancer-pool-service-instance"))
+            ("virtual-ip-loadbalancer-pool", list_of("self"));
+    policy->insert(make_pair("loadbalancer-pool", react_lb_pool));
+
+    ReactionMap react_lb_vip = map_list_of<string, PropagateList>
+            ("self", list_of("virtual-ip-loadbalancer-pool"));
+    policy->insert(make_pair("virtual-ip", react_lb_vip));
+
+    ReactionMap react_lb_member = map_list_of<string, PropagateList>
+            ("self", list_of("loadbalancer-pool-loadbalancer-member"));
+    policy->insert(make_pair("loadbalancer-member", react_lb_member));
+
+    ReactionMap react_lb_healthmon = map_list_of<string, PropagateList>
+            ("self", list_of("loadbalancer-pool-loadbalancer-healthmonitor"));
+    policy->insert(make_pair("loadbalancer-healthmonitor", react_lb_healthmon));
 }
 
 void IFMapDependencyManager::Terminate() {

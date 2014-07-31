@@ -56,23 +56,11 @@ public:
         local_vm_ip_1_ = Ip4Address::from_string("1.1.1.10");
         local_vm_ip_2_ = Ip4Address::from_string("2.2.2.20");
         remote_vm_ip_ = Ip4Address::from_string("1.1.1.11");
-        local_vm_mac_1_ = (struct ether_addr *)malloc(sizeof(struct ether_addr));
-        local_vm_mac_2_ = (struct ether_addr *)malloc(sizeof(struct ether_addr));
-        remote_vm_mac_ = (struct ether_addr *)malloc(sizeof(struct ether_addr));
-        memcpy (local_vm_mac_1_, ether_aton("00:00:01:01:01:10"), 
-                sizeof(struct ether_addr));
-        memcpy (local_vm_mac_2_, ether_aton("00:00:02:02:02:20"), 
-                sizeof(struct ether_addr));
-        memcpy (remote_vm_mac_, ether_aton("00:00:01:01:01:11"), 
-                sizeof(struct ether_addr));
         route_notifications_ = 0;
         vrf_notifications_ = vrf_notifications_count_ = 0;
         total_rt_vrf_walk_done_ = 0;
     };
     ~AgentRouteWalkerTest() { 
-        free(local_vm_mac_1_);
-        free(local_vm_mac_2_);
-        free(remote_vm_mac_);
     }
 
     void SetupEnvironment(int num_vrfs) {
@@ -202,9 +190,6 @@ public:
     Ip4Address  local_vm_ip_2_;
     Ip4Address  remote_vm_ip_;
     Ip4Address  server_ip_;
-    struct ether_addr *local_vm_mac_1_;
-    struct ether_addr *local_vm_mac_2_;
-    struct ether_addr *remote_vm_mac_;
     static TunnelType::Type type_;
     uint32_t route_notifications_;
     uint32_t vrf_notifications_;

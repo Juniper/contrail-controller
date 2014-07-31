@@ -26,7 +26,7 @@ env.Prepend(LIBS=['nova_ins', 'nova_ins_thrift',
                   'xml', 'pugixml', 'route',
                   'bgp_schema', 'ifmap_vnc', 'ifmap_agent', 'ifmap_common', 
                   'sandeshflow', 'sandesh', 'httpc', 'http', 'http_parser', 'curl',
-                  'connection_info', 'db', 'base', 'task_test', 'io', 'sandeshvns', 'net', 
+                  'process_info', 'db', 'base', 'task_test', 'io', 'sandeshvns', 'net', 
                   'gunit', 'boost_regex', 'boost_filesystem',
                   'bind_interface', 'cpuinfo', 'pugixml'])
 

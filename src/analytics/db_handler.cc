@@ -14,6 +14,7 @@
 
 #include <base/logging.h>
 #include <io/event_manager.h>
+#include <base/connection_info.h>
 #include <sandesh/sandesh_types.h>
 #include <sandesh/sandesh.h>
 #include <sandesh/sandesh_message_builder.h>
@@ -40,11 +41,14 @@ using std::pair;
 using std::string;
 using boost::system::error_code;
 using namespace pugi;
+using process::ConnectionState;
+using process::ConnectionType;
+using process::ConnectionStatus;
 
 DbHandler::DbHandler(EventManager *evm,
         GenDb::GenDbIf::DbErrorHandler err_handler,
-        std::vector<std::string> cassandra_ips,
-        std::vector<int> cassandra_ports,
+        const std::vector<std::string> &cassandra_ips,
+        const std::vector<int> &cassandra_ports,
         int analytics_ttl, std::string name) :
     dbif_(GenDb::GenDbIf::GenDbIfImpl(err_handler,
           cassandra_ips, cassandra_ports, analytics_ttl*3600, name, false)),
@@ -159,6 +163,13 @@ bool DbHandler::CreateTables() {
 
 void DbHandler::UnInit(int instance) {
     dbif_->Db_Uninit("analytics::DbHandler", instance);
+    dbif_->Db_SetInitDone(false);
+}
+
+// The caller *SHOULD* ensure that UnInit() is not called from another
+// task that can be executed in parallel.
+void DbHandler::UnInitUnlocked(int instance) {
+    dbif_->Db_UninitUnlocked("analytics::DbHandler", instance);
     dbif_->Db_SetInitDone(false);
 }
 
@@ -1117,4 +1128,98 @@ bool DbHandler::FlowTableInsert(const pugi::xml_node &parent,
        }
     }
     return true;
+}
+
+DbHandlerInitializer::DbHandlerInitializer(EventManager *evm,
+    const std::string &db_name, int db_task_instance,
+    const std::string &timer_task_name,
+    DbHandlerInitializer::InitializeDoneCb callback,
+    const std::vector<std::string> &cassandra_ips,
+    const std::vector<int> &cassandra_ports, int analytics_ttl) :
+    db_name_(db_name),
+    db_task_instance_(db_task_instance),
+    db_handler_(new DbHandler(evm,
+        boost::bind(&DbHandlerInitializer::ScheduleInit, this),
+        cassandra_ips, cassandra_ports, analytics_ttl, db_name)),
+    callback_(callback),
+    db_init_timer_(TimerManager::CreateTimer(*evm->io_service(),
+        db_name + " Db Init Timer",
+        TaskScheduler::GetInstance()->GetTaskId(timer_task_name))) {
+}
+
+DbHandlerInitializer::DbHandlerInitializer(EventManager *evm,
+    const std::string &db_name, int db_task_instance,
+    const std::string &timer_task_name,
+    DbHandlerInitializer::InitializeDoneCb callback, DbHandler *db_handler) :
+    db_name_(db_name),
+    db_task_instance_(db_task_instance),
+    db_handler_(db_handler),
+    callback_(callback),
+    db_init_timer_(TimerManager::CreateTimer(*evm->io_service(),
+        db_name + " Db Init Timer",
+        TaskScheduler::GetInstance()->GetTaskId(timer_task_name))) {
+}
+
+DbHandlerInitializer::~DbHandlerInitializer() {
+}
+
+bool DbHandlerInitializer::Initialize() {
+    boost::system::error_code ec;
+    if (!db_handler_->Init(true, db_task_instance_)) {
+        // Update connection info
+        boost::asio::ip::address db_addr(boost::asio::ip::address::from_string(
+            db_handler_->GetHost(), ec));
+        boost::asio::ip::tcp::endpoint db_endpoint(db_addr, db_handler_->GetPort());
+        ConnectionState::GetInstance()->Update(ConnectionType::DATABASE,
+            db_name_, ConnectionStatus::DOWN, db_endpoint, std::string());
+        LOG(DEBUG, db_name_ << ": Db Initialization FAILED");
+        ScheduleInit();
+        return false;
+    }
+    // Update connection info
+    boost::asio::ip::address db_addr(boost::asio::ip::address::from_string(
+        db_handler_->GetHost(), ec));
+    boost::asio::ip::tcp::endpoint db_endpoint(db_addr, db_handler_->GetPort());
+    ConnectionState::GetInstance()->Update(ConnectionType::DATABASE,
+        db_name_, ConnectionStatus::UP, db_endpoint, std::string());
+
+    if (callback_) {
+       callback_();
+    }
+
+    LOG(DEBUG, db_name_ << ": Db Initialization DONE");
+    return true;
+}
+
+DbHandler* DbHandlerInitializer::GetDbHandler() const {
+    return db_handler_.get();
+}
+
+void DbHandlerInitializer::Shutdown() {
+    TimerManager::DeleteTimer(db_init_timer_);
+    db_init_timer_ = NULL;
+    db_handler_->UnInit(true);
+}
+
+bool DbHandlerInitializer::InitTimerExpired() {
+    // Start the timer again if initialization is not done
+    bool done = Initialize();
+    return !done;
+}
+
+void DbHandlerInitializer::InitTimerErrorHandler(string error_name,
+    string error_message) {
+    LOG(ERROR, db_name_ << ": " << error_name << " " << error_message);
+}
+
+void DbHandlerInitializer::StartInitTimer() {
+    db_init_timer_->Start(kInitRetryInterval,
+        boost::bind(&DbHandlerInitializer::InitTimerExpired, this),
+        boost::bind(&DbHandlerInitializer::InitTimerErrorHandler, this,
+                    _1, _2));
+}
+
+void DbHandlerInitializer::ScheduleInit() {
+    db_handler_->UnInitUnlocked(db_task_instance_);
+    StartInitTimer();
 }

@@ -51,6 +51,7 @@ public:
     }
     static const std::map<BuildModule, std::string> BuildModuleNames;
     typedef std::multimap<std::time_t, std::string> FileMMap;
+    static const std::string ContrailVersionCmd;
     static const std::string CoreFileDir;
     static const int MaxCoreFiles;
 

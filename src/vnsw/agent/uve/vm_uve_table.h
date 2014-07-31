@@ -32,14 +32,10 @@
 class VmUveTable {
 public:
     struct VmUveInterfaceState :public DBState {
-        VmUveInterfaceState(const boost::uuids::uuid u, bool ipv4_active, 
-                            bool l2_active,
+        VmUveInterfaceState(const boost::uuids::uuid u,
                             const VmInterface::FloatingIpSet &fip_l)
-            : vm_uuid_(u), ipv4_active_(ipv4_active), l2_active_(l2_active),
-              fip_list_(fip_l) {}
+            : vm_uuid_(u), fip_list_(fip_l) {}
         boost::uuids::uuid vm_uuid_;
-        bool ipv4_active_;
-        bool l2_active_;
         VmInterface::FloatingIpSet fip_list_;
     };
 

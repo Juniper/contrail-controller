@@ -17,6 +17,7 @@ from gevent.coros import BoundedSemaphore
 
 import uuid
 
+LOG_DIR = '/var/log/contrail/'
 
 class IndexAllocator(object):
 
@@ -176,9 +177,9 @@ class ZookeeperClient(object):
         logger = logging.getLogger(module)
         logger.setLevel(logging.INFO)
         try:
-            handler = logging.handlers.RotatingFileHandler('/var/log/contrail/' + module + '-zk.log', maxBytes=10*1024*1024, backupCount=5)
+            handler = logging.handlers.RotatingFileHandler(LOG_DIR + module + '-zk.log', maxBytes=10*1024*1024, backupCount=5)
         except IOError:
-            print "Cannot open log file in /var/log/contrail/"
+            print "Cannot open log file in %s" %(LOG_DIR)
         else:
             log_format = logging.Formatter('%(asctime)s [%(name)s]: %(message)s', datefmt='%m/%d/%Y %I:%M:%S %p')
             handler.setFormatter(log_format)
@@ -312,7 +313,7 @@ class ZookeeperClient(object):
 
     def _sandesh_connection_info_update(self, status, message):
         from pysandesh.connection_info import ConnectionState
-        from pysandesh.gen_py.connection_info.ttypes import ConnectionStatus, \
+        from pysandesh.gen_py.process_info.ttypes import ConnectionStatus, \
             ConnectionType
         ConnectionState.update(conn_type = ConnectionType.ZOOKEEPER,
                 name = 'Zookeeper', status = getattr(ConnectionStatus, status),

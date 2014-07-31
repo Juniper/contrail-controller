@@ -212,26 +212,6 @@ PeerCloseManagerTest::~PeerCloseManagerTest() {
 void PeerCloseManagerTest::StartStaleTimer() {
 }
 
-void StateMachineTest:: StartConnectTimer(int seconds) {
-    connect_timer_->Start(100,
-            boost::bind(&StateMachine::ConnectTimerExpired, this),
-            boost::bind(&StateMachine::TimerErrorHanlder, this, _1, _2));
-}
-
-void StateMachineTest::StartOpenTimer(int seconds) {
-    open_timer_->Start(100,
-            boost::bind(&StateMachine::OpenTimerExpired, this),
-            boost::bind(&StateMachine::TimerErrorHanlder, this, _1, _2));
-}
-
-void StateMachineTest::StartIdleHoldTimer() {
-    if (idle_hold_time_ <= 0) return;
-
-    idle_hold_timer_->Start(100,
-            boost::bind(&StateMachine::IdleHoldTimerExpired, this),
-            boost::bind(&StateMachine::TimerErrorHanlder, this, _1, _2));
-}
-
 static string GetRouterName(int router_id) {
     return "A" + boost::lexical_cast<string>(router_id);
 }

@@ -36,20 +36,6 @@ response sandesh CpuLoadInfoResp {
     1: CpuLoadInfo cpu_info;
 }
 
-// This struct stores process current state and restart counts
-struct ProcessState {
-    1: string                              process_name
-    2: string                              process_state
-    3: u32                                 start_count 
-    4: u32                                 stop_count 
-    5: u32                                 exit_count 
-    // time when the process last entered running stage
-    6: optional string                     last_start_time
-    7: optional list<string>               core_file_list
-    8: optional string                     last_stop_time
-    9: optional string                     last_exit_time
-}
-
 struct ProcessCpuInfo {
     1: string                              module_id
     2: string                              inst_id

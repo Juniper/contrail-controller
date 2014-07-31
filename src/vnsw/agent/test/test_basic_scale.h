@@ -5,7 +5,8 @@
 #include "testing/gunit.h"
 
 #include <pugixml/pugixml.hpp>
-
+#include "net/bsdudp.h"
+#include "net/bsdtcp.h"
 #include <net/bgp_af.h>
 #include "io/test/event_manager_test.h"
 #include "test_cmn_util.h"
@@ -114,9 +115,9 @@ void InitXmppServers() {
 
 class AgentBgpXmppPeerTest : public AgentXmppChannel {
 public:
-    AgentBgpXmppPeerTest(XmppChannel *channel, std::string xs, 
+    AgentBgpXmppPeerTest(std::string xs,
                          std::string lr, uint8_t xs_idx) :
-        AgentXmppChannel(Agent::GetInstance(), channel, xs, lr, xs_idx), 
+        AgentXmppChannel(Agent::GetInstance(), xs, lr, xs_idx),
         rx_count_(0), rx_channel_event_queue_(
             TaskScheduler::GetInstance()->GetTaskId("xmpp::StateMachine"), 0,
             boost::bind(&AgentBgpXmppPeerTest::ProcessChannelEvent, this, _1)) {
@@ -609,9 +610,10 @@ protected:
             xc[i]->ConfigUpdate(xmppc_cfg[i]);
             cchannel[i] = xc[i]->FindChannel(XmppInit::kControlNodeJID);
             //New bgp peer from agent
-            bgp_peer[i].reset(new AgentBgpXmppPeerTest(cchannel[i],
+            bgp_peer[i].reset(new AgentBgpXmppPeerTest(
                                   Agent::GetInstance()->controller_ifmap_xmpp_server(i),
                                   Agent::GetInstance()->multicast_label_range(i), i));
+            bgp_peer[i].get()->RegisterXmppChannel(cchannel[i]);
             xc[i]->RegisterConnectionEvent(xmps::BGP,
                            boost::bind(&AgentBgpXmppPeerTest::HandleXmppChannelEvent, 
                                        bgp_peer[i].get(), _2));

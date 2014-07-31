@@ -17,6 +17,8 @@ UdpServer::UdpServer(boost::asio::io_service *io_service, int buffer_size):
     buffer_size_(buffer_size),
     state_(Uninitialized),
     evm_(NULL) {
+    refcount_ = 0;
+    UdpServerManager::AddServer(this);
 }
 
 UdpServer::UdpServer(EventManager *evm, int buffer_size):
@@ -24,6 +26,8 @@ UdpServer::UdpServer(EventManager *evm, int buffer_size):
     buffer_size_(buffer_size),
     state_(Uninitialized),
     evm_(evm) {
+    refcount_ = 0;
+    UdpServerManager::AddServer(this);
 }
 
 void UdpServer::SetName(udp::endpoint ep) {
@@ -34,14 +38,16 @@ void UdpServer::SetName(udp::endpoint ep) {
 }
 
 UdpServer::~UdpServer() {
+    assert(state_ == Uninitialized || state_ == SocketOpenFailed ||
+           state_ == SocketBindFailed);
+    assert(pbuf_.empty());
+}
+
+void UdpServer::Shutdown() {
     while (!pbuf_.empty()) {
         delete[] pbuf_.back();
         pbuf_.pop_back();
     }
-    Reset();
-}
-
-void UdpServer::Reset() {
     if (state_ == OK && socket_.is_open()) {
         boost::system::error_code ec;
         socket_.shutdown(udp::socket::shutdown_both, ec);
@@ -58,30 +64,30 @@ void UdpServer::Reset() {
     }
 }
 
-void UdpServer::Shutdown() {
-    Reset();
-}
-
-void UdpServer::Initialize(const std::string &ipaddress, unsigned short port) {
+bool UdpServer::Initialize(const std::string &ipaddress, unsigned short port) {
     boost::system::error_code error;
     boost::asio::ip::address ip = boost::asio::ip::address::from_string(
                 ipaddress, error);
     if (!error) {
         udp::endpoint local_endpoint = udp::endpoint(ip, port);
-        Initialize(local_endpoint);
+        return Initialize(local_endpoint);
+    } else {
+        TCP_SERVER_LOG_ERROR(this, TCP_DIR_NA, "IP address conversion: "
+            << ipaddress << ": " << error);
+        return false;
     }
 }
 
-void UdpServer::Initialize(unsigned short port) {
+bool UdpServer::Initialize(unsigned short port) {
     udp::endpoint local_endpoint = udp::endpoint(udp::v4(), port);
-    Initialize(local_endpoint);
+    return Initialize(local_endpoint);
 }
 
-void UdpServer::Initialize(udp::endpoint local_endpoint) {
+bool UdpServer::Initialize(udp::endpoint local_endpoint) {
     if (GetServerState() != Uninitialized) {
         TCP_SERVER_LOG_ERROR(this, TCP_DIR_NA, "udp socket in wrong state "
             << state_);
-        return;
+        return false;
     }
     boost::system::error_code error;
     socket_.open(udp::v4(), error);
@@ -89,18 +95,18 @@ void UdpServer::Initialize(udp::endpoint local_endpoint) {
         TCP_SERVER_LOG_ERROR(this, TCP_DIR_NA, "udp socket open: " <<
             error.message());
         state_ = SocketOpenFailed;
-        return;
+        return false;
     }
     socket_.bind(local_endpoint, error);
     if (error) {
         TCP_SERVER_LOG_ERROR(this, TCP_DIR_NA, "udp socket bind: "
             << error.message() << ":" << socket_.local_endpoint(error));
         state_ = SocketBindFailed;
-        return;
+        return false;
     }
     SetName(local_endpoint);
     state_ = OK;
-    // StartReceive();
+    return true;
 }
 
 udp::endpoint UdpServer::GetLocalEndPoint() {
@@ -130,10 +136,10 @@ void UdpServer::DeallocateBuffer(boost::asio::const_buffer &buffer) {
 void UdpServer::StartSend(udp::endpoint ep, std::size_t bytes_to_send,
     mutable_buffer buffer) {
     if (state_ == OK) {
-        boost::asio::const_buffer  b(buffer_cast<const uint8_t*>(buffer),
+        boost::asio::const_buffer b(buffer_cast<const uint8_t*>(buffer),
                                         buffer_size(buffer));
         socket_.async_send_to(mutable_buffers_1(buffer), ep,
-            boost::bind(&UdpServer::HandleSend, this, b, ep,
+            boost::bind(&UdpServer::HandleSend, UdpServerPtr(this), b, ep,
               boost::asio::placeholders::bytes_transferred,
               boost::asio::placeholders::error));
     } else {
@@ -144,12 +150,13 @@ void UdpServer::StartSend(udp::endpoint ep, std::size_t bytes_to_send,
 
 void UdpServer::StartReceive() {
     if (state_ == OK) {
-        mutable_buffer             b = AllocateBuffer();
-        boost::asio::const_buffer  buffer(buffer_cast<const uint8_t*>(b),
+        mutable_buffer b = AllocateBuffer();
+        boost::asio::const_buffer buffer(buffer_cast<const uint8_t*>(b),
                                         buffer_size(b));
         socket_.async_receive_from(mutable_buffers_1(b),
             remote_endpoint_, boost::bind(&UdpServer::HandleReceiveInternal,
-            this, buffer, boost::asio::placeholders::bytes_transferred,
+            UdpServerPtr(this), buffer,
+            boost::asio::placeholders::bytes_transferred,
             boost::asio::placeholders::error));
     } else {
         TCP_SERVER_LOG_ERROR(this, TCP_DIR_NA,
@@ -204,4 +211,17 @@ int UdpServer::GetLocalEndpointPort() {
     if (error.value())
         return -1;
     return ep.port();
+}
+
+//
+// UdpServerManager class routines
+//
+ServerManager<UdpServer, UdpServerPtr> UdpServerManager::impl_;
+
+void UdpServerManager::AddServer(UdpServer *server) {
+    impl_.AddServer(server);
+}
+
+void UdpServerManager::DeleteServer(UdpServer *server) {
+    impl_.DeleteServer(server);
 }
