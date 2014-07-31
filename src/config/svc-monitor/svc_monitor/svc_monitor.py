@@ -552,6 +552,7 @@ class SvcMonitor(object):
 
         si_props = si_obj.get_service_instance_properties()
         max_instances = si_props.get_scale_out().get_max_instances()
+        avail_zone = si_props.get_availability_zone()
         si_if_list = si_props.get_interface_list()
         if si_if_list and (len(si_if_list) != len(st_if_list)):
             self._svc_syslog("Error: IF mismatch template %s instance %s" %
@@ -611,7 +612,8 @@ class SvcMonitor(object):
                 vm_uuid = vm_ref['uuid']
             else:
                 vm = self._create_svc_vm(instance_name, image_name, nics,
-                                         flavor, st_obj, si_obj, proj_obj)
+                                         flavor, st_obj, si_obj, proj_obj,
+                                         avail_zone)
                 if vm is None:
                     continue
                 vm_uuid = vm.id
@@ -1128,7 +1130,7 @@ class SvcMonitor(object):
     # end _create_svc_vm_port
 
     def _create_svc_vm(self, vm_name, image_name, nics,
-                       flavor_name, st_obj, si_obj, proj_obj):
+                       flavor_name, st_obj, si_obj, proj_obj, avail_zone):
         n_client = self._novaclient_get(proj_obj.name)
         if flavor_name:
             flavor = n_client.flavors.find(name=flavor_name)
@@ -1161,7 +1163,8 @@ class SvcMonitor(object):
         # launch vm
         self._svc_syslog('Launching VM : ' + vm_name)
         nova_vm = n_client.servers.create(name=vm_name, image=image,
-                                          flavor=flavor, nics=nics_with_port)
+                                          flavor=flavor, nics=nics_with_port,
+                                          availability_zone=avail_zone)
         nova_vm.get()
         self._svc_syslog('Created VM : ' + str(nova_vm))
         return nova_vm
