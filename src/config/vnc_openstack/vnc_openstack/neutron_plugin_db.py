@@ -3100,7 +3100,10 @@ class DBInterface(object):
             for p in rports:
                 for ip in p['fixed_ips']:
                     if ip['subnet_id'] == subnet_id:
-                        self._raise_contrail_exception(409, RouterInUse(router_id=rtr_uuid))
+                       msg = (_("Router %s already has a port "
+                                "on subnet %s") % (router_id, subnet_id))
+                       self._raise_contrail_exception(400, 
+                           exceptions.BadRequest(resource='router', msg=msg))
                     sub_id = ip['subnet_id']
                     subnet = self.subnet_read(sub_id)
                     cidr = subnet['cidr']
