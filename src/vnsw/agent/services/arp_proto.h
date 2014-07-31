@@ -84,15 +84,18 @@ public:
     uint16_t ip_fabric_interface_index() const {
         return ip_fabric_interface_index_;
     }
-    const unsigned char *ip_fabric_interface_mac() const { 
-        return ip_fabric_interface_mac_;
+    const struct ether_addr *ip_fabric_interface_mac() const { 
+        return &ip_fabric_interface_mac_;
     }
     void set_ip_fabric_interface(Interface *itf) { ip_fabric_interface_ = itf; }
     void set_ip_fabric_interface_index(uint16_t ind) {
         ip_fabric_interface_index_ = ind;
     }
     void set_ip_fabric_interface_mac(char *mac) { 
-        memcpy(ip_fabric_interface_mac_, mac, ETH_ALEN);
+        memcpy(&ip_fabric_interface_mac_, mac, ETHER_ADDR_LEN);
+    }
+    void set_ip_fabric_interface_mac(struct ether_addr *mac) { 
+        memcpy(&ip_fabric_interface_mac_, mac, ETHER_ADDR_LEN);
     }
 
     ArpEntry *gratuitous_arp_entry() const;
@@ -146,7 +149,7 @@ private:
     ArpStats arp_stats_;
     bool run_with_vrouter_;
     uint16_t ip_fabric_interface_index_;
-    unsigned char ip_fabric_interface_mac_[ETH_ALEN];
+    struct ether_addr ip_fabric_interface_mac_;
     Interface *ip_fabric_interface_;
     ArpEntry *gratuitous_arp_entry_;
     DBTableBase::ListenerId vrf_table_listener_id_;

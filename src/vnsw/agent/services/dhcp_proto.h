@@ -74,7 +74,7 @@ public:
         return ip_fabric_interface_mac_;
     }
     void set_ip_fabric_interface_mac(char *mac) {
-        memcpy(ip_fabric_interface_mac_, mac, ETH_ALEN);
+        memcpy(ip_fabric_interface_mac_, mac, ETHER_ADDR_LEN);
     }
 
     void IncrStatsDiscover() { stats_.discover++; }
@@ -99,7 +99,7 @@ private:
     bool run_with_vrouter_;
     Interface *ip_fabric_interface_;
     uint16_t ip_fabric_interface_index_;
-    unsigned char ip_fabric_interface_mac_[ETH_ALEN];
+    unsigned char ip_fabric_interface_mac_[ETHER_ADDR_LEN];
     DBTableBase::ListenerId iid_;
     DhcpStats stats_;
 

@@ -39,13 +39,13 @@ bool ArpHandler::HandlePacket() {
     ArpProto *arp_proto = agent()->GetArpProto();
     uint16_t arp_cmd;
     if (pkt_info_->ip) {
-        arp_tpa_ = ntohl(pkt_info_->ip->daddr);
+        arp_tpa_ = ntohl(pkt_info_->ip->ip_dst.s_addr);
         arp_cmd = ARPOP_REQUEST;
     } else if (pkt_info_->arp) {
         arp_ = pkt_info_->arp;
-        if ((ntohs(arp_->ea_hdr.ar_hrd) != ARPHRD_ETHER) || 
-            (ntohs(arp_->ea_hdr.ar_pro) != 0x800) ||
-            (arp_->ea_hdr.ar_hln != ETH_ALEN) || 
+        if ((ntohs(arp_->ea_hdr.ar_hrd) != ARPHRD_ETHER) ||
+            (ntohs(arp_->ea_hdr.ar_pro) != ETHERTYPE_IP) ||
+            (arp_->ea_hdr.ar_hln != ETHER_ADDR_LEN) ||
             (arp_->ea_hdr.ar_pln != IPv4_ALEN)) {
             arp_proto->IncrementStatsInvalidPackets();
             ARP_TRACE(Error, "Received Invalid ARP packet");
@@ -265,11 +265,30 @@ void ArpHandler::EntryDelete(ArpKey &key) {
     }
 }
 
+/*
 uint16_t ArpHandler::ArpHdr(const unsigned char *smac, in_addr_t sip, 
          const unsigned char *tmac, in_addr_t tip, uint16_t op) {
+*/
+uint16_t ArpHandler::ArpHdr(const struct ether_addr *smac, in_addr_t sip, 
+         const unsigned char *tmac, in_addr_t tip, uint16_t op) {
+    return ArpHdr(smac, sip, (const struct ether_addr *)tmac, tip, op);
+}
+uint16_t ArpHandler::ArpHdr(const unsigned char *smac, in_addr_t sip, 
+         const struct ether_addr *tmac, in_addr_t tip, uint16_t op) {
+    return ArpHdr((const struct ether_addr *)smac, sip, tmac, tip, op);
+}
+
+uint16_t ArpHandler::ArpHdr(const unsigned char *smac, in_addr_t sip, 
+         const unsigned char *tmac, in_addr_t tip, uint16_t op) {
+    return ArpHdr((const struct ether_addr *)smac, sip, 
+                  (const struct ether_addr *)tmac, tip, op);
+}
+
+uint16_t ArpHandler::ArpHdr(const struct ether_addr *smac, in_addr_t sip, 
+         const struct ether_addr *tmac, in_addr_t tip, uint16_t op) {
     arp_->ea_hdr.ar_hrd = htons(ARPHRD_ETHER);
     arp_->ea_hdr.ar_pro = htons(0x800);
-    arp_->ea_hdr.ar_hln = ETH_ALEN;
+    arp_->ea_hdr.ar_hln = ETHER_ADDR_LEN;
     arp_->ea_hdr.ar_pln = IPv4_ALEN;
     arp_->ea_hdr.ar_op = htons(op);
     memcpy(arp_->arp_sha, smac, ETHER_ADDR_LEN);
@@ -284,10 +303,29 @@ uint16_t ArpHandler::ArpHdr(const unsigned char *smac, in_addr_t sip,
 void ArpHandler::SendArp(uint16_t op, const unsigned char *smac, in_addr_t sip, 
                          const unsigned char *tmac, in_addr_t tip, 
                          uint16_t itf, uint16_t vrf) {
+    SendArp(op, (const struct ether_addr *)smac, sip,
+            (const struct ether_addr *)tmac, tip, itf, vrf);
+}
+
+void ArpHandler::SendArp(uint16_t op, const struct ether_addr *smac,
+                         in_addr_t sip, const unsigned char *tmac,
+                         in_addr_t tip, uint16_t itf, uint16_t vrf) {
+    SendArp(op, smac, sip, (const struct ether_addr *)tmac, tip, itf, vrf);
+}
+
+void ArpHandler::SendArp(uint16_t op, const unsigned char *smac, in_addr_t sip, 
+                         const struct ether_addr *tmac, in_addr_t tip, 
+                         uint16_t itf, uint16_t vrf) {
+    SendArp(op, (const struct ether_addr *)smac, sip, tmac, tip, itf, vrf);
+}
+
+void ArpHandler::SendArp(uint16_t op, const struct ether_addr *smac,
+                         in_addr_t sip, const struct ether_addr *tmac,
+                         in_addr_t tip, uint16_t itf, uint16_t vrf) {
     pkt_info_->pkt = new uint8_t[MIN_ETH_PKT_LEN + IPC_HDR_LEN];
     uint8_t *buf = pkt_info_->pkt;
     memset(buf, 0, MIN_ETH_PKT_LEN + IPC_HDR_LEN);
-    pkt_info_->eth = (ethhdr *) (buf + sizeof(ethhdr) + sizeof(agent_hdr));
+    pkt_info_->eth = (ether_header *) (buf + sizeof(ether_header) + sizeof(agent_hdr));
     arp_ = pkt_info_->arp = (ether_arp *) (pkt_info_->eth + 1);
     arp_tpa_ = tip;
 
@@ -295,5 +333,6 @@ void ArpHandler::SendArp(uint16_t op, const unsigned char *smac, in_addr_t sip,
     ArpHdr(smac, sip, tmac, tip, op);
     EthHdr(smac, bcast_mac, 0x806);
 
-    Send(sizeof(ethhdr) + sizeof(ether_arp), itf, vrf, AGENT_CMD_SWITCH, PktHandler::ARP);
+    Send(sizeof(ether_header) + sizeof(ether_arp), itf, vrf, AGENT_CMD_SWITCH, PktHandler::ARP);
 }
+

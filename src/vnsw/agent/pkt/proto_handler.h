@@ -35,11 +35,34 @@ public:
 
     void Send(uint16_t, uint16_t, uint16_t, uint16_t, PktHandler::PktModuleName);
 
+    uint16_t EthHdr(char *buff, uint8_t len, const struct ether_addr *src,
+                    const struct ether_addr *dest, const uint16_t proto,
+                    uint16_t vlan_id);
+
+    uint16_t EthHdr(char *buff, uint8_t len, const struct ether_addr *src,
+                    const unsigned char *dest, const uint16_t proto,
+                    uint16_t vlan_id);
+
+    uint16_t EthHdr(char *buff, uint8_t len, const unsigned char *src,
+                    const struct ether_addr *dest, const uint16_t proto,
+                    uint16_t vlan_id);
+
     uint16_t EthHdr(char *buff, uint8_t len, const unsigned char *src,
                     const unsigned char *dest, const uint16_t proto,
                     uint16_t vlan_id);
+
+    void EthHdr(const struct ether_addr *, const struct ether_addr *,
+                    const uint16_t);
+
+    void EthHdr(const struct ether_addr *, const unsigned char *,
+                    const uint16_t);
+
+    void EthHdr(const unsigned char *, const struct ether_addr *,
+                    const uint16_t);
+
     void EthHdr(const unsigned char *, const unsigned char *,
                     const uint16_t);
+
     void VlanHdr(uint8_t *ptr, uint16_t tci);
     void IpHdr(uint16_t, in_addr_t, in_addr_t, uint8_t);
     uint16_t IpHdr(char *, uint16_t, uint16_t, in_addr_t, in_addr_t, uint8_t);

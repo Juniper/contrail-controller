@@ -5,11 +5,11 @@
 #ifndef vnsw_agent_test_pkt_gen_h
 #define vnsw_agent_test_pkt_gen_h
 
+
 #include <netinet/ip.h>
-#include <netinet/tcp.h>
-#include <netinet/udp.h>
-#include <netinet/ether.h>
-#include <linux/if_ether.h>
+#include "net/bsdtcp.h"
+#include "net/bsdudp.h"
+#include <net/ethernet.h>
 #include <netinet/ip_icmp.h>
 
 #include <pkt/pkt_handler.h>
@@ -24,21 +24,21 @@
 #define ARPHRD_ETHER    1
 
 struct icmp_packet {
-    struct ethhdr eth;
-    struct iphdr  ip; 
-    struct icmphdr icmp;
+    struct ether_header eth;
+    struct ip  ip;
+    struct icmp icmp;
 } __attribute__((packed));
 
 struct tcp_packet {
-    struct ethhdr eth;
-    struct iphdr  ip; 
+    struct ether_header eth;
+    struct ip  ip;
     struct tcphdr tcp;
     char   payload[TCP_PAYLOAD_SIZE];
 }__attribute__((packed));
 
 struct udp_packet {
-    struct ethhdr eth;
-    struct iphdr  ip; 
+    struct ether_header eth;
+    struct ip  ip;
     struct udphdr udp;
     uint8_t payload[];
 }__attribute__((packed));
@@ -77,29 +77,30 @@ public:
                          const char *smac, uint16_t proto) {
     }
 
-    static void IpInit(struct iphdr *ip, uint8_t proto, uint16_t len, uint32_t sip, uint32_t dip) {
-        ip->saddr = htonl(sip);
-        ip->daddr = htonl(dip);
-        ip->version = 4;
-        ip->ihl = 5;
-        ip->tos = 0;
-        ip->id = htons(10); //taking a random value
-        ip->tot_len = htons(len);
-        ip->frag_off = 0;
-        ip->ttl = 255;
-        ip->protocol = proto;
-        ip->check = htons(IPChecksum((uint16_t *)ip, sizeof(struct iphdr)));
+    static void IpInit(struct ip *ip, uint8_t proto, uint16_t len, uint32_t sip, uint32_t dip) {
+        ip->ip_src.s_addr = htonl(sip);
+        ip->ip_dst.s_addr = htonl(dip);
+        ip->ip_v = 4;
+        ip->ip_hl = 5;
+        ip->ip_tos = 0;
+        ip->ip_id = htons(10); //taking a random value
+        ip->ip_len = htons(len);
+        ip->ip_off = 0;
+        ip->ip_ttl = 255;
+        ip->ip_p = proto;
+        ip->ip_sum = htons(IPChecksum((uint16_t *)ip, sizeof(struct ip)));
     }
 
-    static void EthInit(ethhdr *eth, unsigned short proto) {
-        eth->h_proto = proto;
-        eth->h_dest[5] = 5;   
-        eth->h_source[5] = 4;
+    static void EthInit(ether_header *eth, unsigned short proto) {
+        eth->ether_type = proto;
+        eth->ether_dhost[5] = 5;
+        eth->ether_shost[5] = 4;
     }
-    static void EthInit(ethhdr *eth, uint8_t *smac, uint8_t *dmac, unsigned short proto) {
-        eth->h_proto = htons(proto);
-        memcpy(eth->h_dest, dmac, 6);
-        memcpy(eth->h_source, smac, 6);
+
+    static void EthInit(ether_header *eth, uint8_t *smac, uint8_t *dmac, unsigned short proto) {
+        eth->ether_type = htons(proto);
+        memcpy(eth->ether_dhost, dmac, 6);
+        memcpy(eth->ether_shost, smac, 6);
     }
 };
 
@@ -110,29 +111,22 @@ public:
         Init(sp, dp);
         len = sizeof(pkt.ip) + sizeof(pkt.tcp) + sizeof(pkt.payload);
         IpUtils::IpInit(&pkt.ip, IPPROTO_TCP, len, sip, dip);
-        IpUtils::EthInit(&pkt.eth, ETH_P_IP);
+        IpUtils::EthInit(&pkt.eth, ETHERTYPE_IP);
     }
     unsigned char *GetPacket() const { return (unsigned char *)&pkt; } 
 private:
     void Init(uint16_t sport, uint16_t dport) {
-        pkt.tcp.source = htons(sport);
-        pkt.tcp.dest = htons(dport);
-        pkt.tcp.seq = htonl(1);
-        pkt.tcp.ack_seq = htonl(0);
+        pkt.tcp.th_sport = htons(sport);
+        pkt.tcp.th_dport = htons(dport);
+        pkt.tcp.th_seq = htonl(1);
+        pkt.tcp.th_ack = htonl(0);
 
-        pkt.tcp.doff = 5;
-        pkt.tcp.fin = 0;
-        pkt.tcp.syn = 0;
-        pkt.tcp.rst = 0;
-        pkt.tcp.psh= 0;
-        pkt.tcp.ack = 0;
-        pkt.tcp.urg = 0;
-        pkt.tcp.res1 = 0;
-        pkt.tcp.res2 = 0;
+        pkt.tcp.th_off = 5;
+        pkt.tcp.th_flags = 0;
 
-        pkt.tcp.window = htons(0);
-        pkt.tcp.check = htons(0);
-        pkt.tcp.urg_ptr = htons(0);
+        pkt.tcp.th_win = htons(0);
+        pkt.tcp.th_sum = htons(0);
+        pkt.tcp.th_urp = htons(0);
     }
     struct tcp_packet pkt;
 };
@@ -144,16 +138,15 @@ public:
         Init(sp, dp);
         len = sizeof(pkt.ip) + sizeof(pkt.udp) + sizeof(pkt.payload);
         IpUtils::IpInit(&pkt.ip, IPPROTO_UDP, len, sip, dip);
-        IpUtils::EthInit(&pkt.eth, ETH_P_IP);
+        IpUtils::EthInit(&pkt.eth, ETHERTYPE_IP);
     }
     unsigned char *GetPacket() const { return (unsigned char *)&pkt; } 
 private:
     void Init(uint16_t sport, uint16_t dport) {
-        pkt.udp.source = htons(sport);
-        pkt.udp.dest = htons(dport);
-        pkt.udp.len = htons(sizeof(pkt.payload));
-        pkt.udp.check = htons(0); //ignoring checksum for now.
-        
+        pkt.udp.uh_sport = htons(sport);
+        pkt.udp.uh_dport = htons(dport);
+        pkt.udp.uh_ulen = htons(sizeof(pkt.payload));
+        pkt.udp.uh_sum = htons(0); //ignoring checksum for now.
     }
     struct udp_packet pkt;
 };
@@ -163,7 +156,7 @@ public:
     ArpPacket(uint16_t arpop, uint8_t smac, uint32_t sip, uint32_t tip) {
         memset(&pkt, 0, sizeof(struct ether_arp));
         pkt.ea_hdr.ar_hrd = ARPHRD_ETHER;
-        pkt.ea_hdr.ar_pro = ETH_P_IP;
+        pkt.ea_hdr.ar_pro = ETHERTYPE_IP;
         pkt.ea_hdr.ar_hln = 6;
         pkt.ea_hdr.ar_pln = 4;
         pkt.ea_hdr.ar_op = arpop;
@@ -184,12 +177,12 @@ public:
         uint16_t len;
         len = sizeof(pkt.ip) + sizeof(pkt.icmp);
         IpUtils::IpInit(&(pkt.ip), IPPROTO_ICMP, len, sip, dip);
-        IpUtils::EthInit(&(pkt.eth), smac, dmac, ETH_P_IP);
-        pkt.icmp.type = ICMP_ECHO; 
-        pkt.icmp.code = 0;
-        pkt.icmp.checksum = IpUtils::IPChecksum((uint16_t *)&pkt.icmp, sizeof(icmp_packet));
-        pkt.icmp.un.echo.id = 0;
-        pkt.icmp.un.echo.sequence = 0; 
+        IpUtils::EthInit(&(pkt.eth), smac, dmac, ETHERTYPE_IP);
+        pkt.icmp.icmp_type = ICMP_ECHO;
+        pkt.icmp.icmp_code = 0;
+        pkt.icmp.icmp_cksum = IpUtils::IPChecksum((uint16_t *)&pkt.icmp, sizeof(icmp_packet));
+        pkt.icmp.icmp_hun.ih_idseq.icd_id = 0;
+        pkt.icmp.icmp_hun.ih_idseq.icd_seq = 0;
     }
     unsigned char *GetPacket() const { return (unsigned char *)&pkt; } 
 private:
@@ -203,48 +196,50 @@ public:
     virtual ~PktGen() {};
 
     void AddEthHdr(const char *dmac, const char *smac, uint16_t proto) {
-        struct ethhdr *eth = (struct ethhdr *)(buff + len);
+        struct ether_header *eth = (struct ether_header*)(buff + len);
 
-        memcpy(eth->h_dest, ether_aton(dmac), sizeof(ether_addr));
-        memcpy(eth->h_source, ether_aton(smac), sizeof(ether_addr));
-        eth->h_proto = htons(proto);
-        len += sizeof(ethhdr);
+        memcpy(eth->ether_dhost, ether_aton(dmac), sizeof(ether_addr));
+        memcpy(eth->ether_shost, ether_aton(smac), sizeof(ether_addr));
+        eth->ether_type = htons(proto);
+        len += sizeof(ether_header);
     };
 
     void AddIpHdr(const char *sip, const char *dip, uint16_t proto) {
-        struct iphdr *ip = (struct iphdr *)(buff + len);
+        struct ip *ip = (struct ip *)(buff + len);
 
-        ip->ihl = 5;
-        ip->version = 4;
-        ip->tot_len = 100;
-        ip->saddr = inet_addr(sip);
-        ip->daddr = inet_addr(dip);
-        ip->protocol = proto;
-        len += sizeof(iphdr);
+        ip->ip_hl = 5;
+        ip->ip_v = 4;
+        ip->ip_len = 100;
+        ip->ip_src.s_addr = inet_addr(sip);
+        ip->ip_dst.s_addr = inet_addr(dip);
+        ip->ip_p = proto;
+        len += sizeof(struct ip);
     };
 
     void AddUdpHdr(uint16_t sport, uint16_t dport, int plen) {
         struct udphdr *udp = (struct udphdr *)(buff + len);
-        udp->dest = htons(dport);
-        udp->source = htons(sport);
+        udp->uh_dport = htons(dport);
+        udp->uh_sport = htons(sport);
         len += sizeof(udphdr) + len;
     };
 
     void AddTcpHdr(uint16_t sport, uint16_t dport, bool syn, bool fin, bool ack,
                    int plen) {
         struct tcphdr *tcp = (struct tcphdr *)(buff + len);
-        tcp->dest = htons(dport);
-        tcp->source = htons(sport);
-        tcp->fin = fin;
-        tcp->syn = syn;
-        tcp->ack = ack;
+        tcp->th_dport = htons(dport);
+        tcp->th_sport  = htons(sport);
+		
+        tcp->th_flags = ~(TH_FIN | TH_SYN | TH_ACK) | \
+                        ((fin != 0 ? TH_FIN : 0) |    \
+                        (syn != 0 ? TH_SYN : 0) |     \
+                        (ack != 0 ? TH_ACK : 0));
         len += sizeof(tcphdr) + len;
     };
 
     void AddIcmpHdr() {
-        struct icmphdr *icmp = (struct icmphdr *)(buff + len);
-        icmp->type = 0;
-        icmp->un.echo.id = 0;
+        struct icmp *icmp = (struct icmp *)(buff + len);
+        icmp->icmp_type = 0;
+        icmp->icmp_hun.ih_idseq.icd_id = 0;
         len += sizeof(icmphdr) + len;
     };
 

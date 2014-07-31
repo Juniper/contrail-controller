@@ -3,6 +3,9 @@
  *   */
 
 #include <map>
+#include <sys/types.h>
+#include "net/bsdudp.h"
+#include "net/bsdtcp.h"
 #include "vr_defs.h"
 #include "base/timer.h"
 #include "cmn/agent_cmn.h"
@@ -20,7 +23,7 @@ void DiagPktHandler::SetReply() {
 }
 
 void DiagPktHandler::SetDiagChkSum() {
-    pkt_info_->ip->check = 0xffff;
+    pkt_info_->ip->ip_sum = 0xffff;
 }
 
 void DiagPktHandler::Reply() {
@@ -68,32 +71,32 @@ bool DiagPktHandler::Run() {
     return true;
 }
 
-void DiagPktHandler::TcpHdr(in_addr_t src, uint16_t sport, in_addr_t dst, 
+void DiagPktHandler::TcpHdr(in_addr_t src, uint16_t sport, in_addr_t dst,
                             uint16_t dport, bool is_syn, uint32_t seq_no,
                             uint16_t len) {
     struct tcphdr *tcp = pkt_info_->transp.tcp;
-    tcp->source = htons(sport);
-    tcp->dest = htons(dport);
+    tcp->th_sport = htons(sport);
+    tcp->th_dport = htons(dport);
 
     if (is_syn) {
-        tcp->syn = 1;
-        tcp->ack = 0;
+	tcp->th_flags |= TH_SYN;
+	tcp->th_flags &= ~TH_ACK;
     } else {
         //If not sync, by default we are sending an ack
-        tcp->ack = 1;
-        tcp->syn = 0;
+	tcp->th_flags |= TH_ACK;
+	tcp->th_flags &= ~TH_SYN;
     }
 
-    tcp->seq = htons(seq_no);
-    tcp->ack_seq = htons(seq_no + 1);
+    tcp->th_seq = htons(seq_no);
+    tcp->th_ack = htons(seq_no + 1);
     //Just a random number;
-    tcp->window = htons(1000);
-    tcp->doff = 5;
-    tcp->check = 0;
-    tcp->check = TcpCsum(src, dst, len, tcp);
+    tcp->th_win = htons(1000);
+    tcp->th_off = 5;
+    tcp->th_sum = 0;
+    tcp->th_sum = TcpCsum(src, dst, len, tcp);
 }
 
-uint16_t DiagPktHandler::TcpCsum(in_addr_t src, in_addr_t dest, uint16_t len, 
+uint16_t DiagPktHandler::TcpCsum(in_addr_t src, in_addr_t dest, uint16_t len,
                                  tcphdr *tcp) {
     uint32_t sum = 0;
     PseudoTcpHdr phdr(src, dest, htons(len));
@@ -104,27 +107,26 @@ uint16_t DiagPktHandler::TcpCsum(in_addr_t src, in_addr_t dest, uint16_t len,
 void DiagPktHandler::SwapL4() {
     if (pkt_info_->ip_proto == IPPROTO_TCP) {
         tcphdr *tcp = pkt_info_->transp.tcp;
-        TcpHdr(htonl(pkt_info_->ip_daddr), ntohs(tcp->dest), 
-               htonl(pkt_info_->ip_saddr), ntohs(tcp->source), 
-               false, ntohs(tcp->ack_seq), 
-               ntohs(pkt_info_->ip->tot_len) - sizeof(iphdr));
-
+        TcpHdr(htonl(pkt_info_->ip_daddr), ntohs(tcp->th_dport),
+               htonl(pkt_info_->ip_saddr), ntohs(tcp->th_sport),
+               false, ntohs(tcp->th_ack),
+               ntohs(pkt_info_->ip->ip_len) - sizeof(ip));
     } else if(pkt_info_->ip_proto == IPPROTO_UDP) {
         udphdr *udp = pkt_info_->transp.udp;
-        UdpHdr(ntohs(udp->len), pkt_info_->ip_daddr, ntohs(udp->dest),
-               pkt_info_->ip_saddr, ntohs(udp->source));
+        UdpHdr(ntohs(udp->uh_ulen), pkt_info_->ip_daddr, ntohs(udp->uh_dport),
+               pkt_info_->ip_saddr, ntohs(udp->uh_sport));
     }
 }
 
 void DiagPktHandler::SwapIpHdr() {
     //IpHdr expects IP address to be in network format
-    iphdr *ip = pkt_info_->ip;
-    IpHdr(ntohs(ip->tot_len), ip->daddr, ip->saddr, ip->protocol);
+    ip *ip = pkt_info_->ip;
+    IpHdr(ntohs(ip->ip_len), ip->ip_dst.s_addr, ip->ip_src.s_addr, ip->ip_p);
 }
 
 void DiagPktHandler::SwapEthHdr() {
-    ethhdr *eth = pkt_info_->eth;
-    EthHdr(eth->h_dest, eth->h_source, ntohs(eth->h_proto));
+    ether_header *eth = pkt_info_->eth;
+    EthHdr(eth->ether_dhost, eth->ether_shost, ntohs(eth->ether_type));
 }
 
 void DiagPktHandler::Swap() {
@@ -132,3 +134,4 @@ void DiagPktHandler::Swap() {
     SwapIpHdr();
     SwapEthHdr();
 }
+

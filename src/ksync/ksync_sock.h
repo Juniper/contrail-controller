@@ -6,11 +6,13 @@
 #define ctrlplane_ksync_sock_h 
 
 #include <vector>
+#if defined(__linux__)
 #include <linux/rtnetlink.h>
-#include <boost/asio.hpp>
-#include <boost/asio/buffer.hpp>
+#endif
 #include <boost/asio/netlink_protocol.hpp>
 #include <boost/asio/netlink_endpoint.hpp>
+#include <boost/asio.hpp>
+#include <boost/asio/buffer.hpp>
 #include <tbb/atomic.h>
 #include <tbb/mutex.h>
 #include <base/queue_task.h>

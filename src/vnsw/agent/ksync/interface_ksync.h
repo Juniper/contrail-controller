@@ -39,9 +39,9 @@ public:
     InterfaceKSyncEntry(InterfaceKSyncObject *obj, const Interface *intf);
     virtual ~InterfaceKSyncEntry();
 
-	const uint8_t *mac() const { 
+    const uint8_t *mac() const { 
         if (parent_.get() == NULL) {
-            return mac_.ether_addr_octet;
+            return (const uint8_t *)&mac_;
         } else {
             const InterfaceKSyncEntry *parent = 
                         static_cast<const InterfaceKSyncEntry *>(parent_.get());

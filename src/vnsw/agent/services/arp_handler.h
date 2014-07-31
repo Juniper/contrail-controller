@@ -19,8 +19,21 @@ public:
     virtual ~ArpHandler();
 
     bool Run();
-    void SendArp(uint16_t op, const unsigned char *smac, in_addr_t sip, 
+
+    void SendArp(uint16_t op, unsigned const char *smac, in_addr_t sip, 
                  unsigned const char *tmac, in_addr_t tip, 
+                 uint16_t itf, uint16_t vrf);
+
+    void SendArp(uint16_t op, const struct ether_addr *smac, in_addr_t sip, 
+                 unsigned const char *tmac, in_addr_t tip, 
+                 uint16_t itf, uint16_t vrf);
+
+    void SendArp(uint16_t op, unsigned const char *smac, in_addr_t sip, 
+                 const struct ether_addr *tmac, in_addr_t tip, 
+                 uint16_t itf, uint16_t vrf);
+
+    void SendArp(uint16_t op, const struct ether_addr *smac, in_addr_t sip, 
+                 const struct ether_addr *tmac, in_addr_t tip, 
                  uint16_t itf, uint16_t vrf);
 
 private:
@@ -29,7 +42,12 @@ private:
     void EntryDelete(ArpKey &key);
     uint16_t ArpHdr(const unsigned char *, in_addr_t, const unsigned char *, 
                     in_addr_t, uint16_t);
-
+    uint16_t ArpHdr(const struct ether_addr *, in_addr_t, 
+                    const unsigned char *, in_addr_t, uint16_t);
+    uint16_t ArpHdr(const unsigned char *, in_addr_t, 
+                    const struct ether_addr *, in_addr_t, uint16_t);
+    uint16_t ArpHdr(const struct ether_addr *, in_addr_t, 
+                    const struct ether_addr *, in_addr_t, uint16_t);
     ether_arp *arp_;
     in_addr_t arp_tpa_;
 

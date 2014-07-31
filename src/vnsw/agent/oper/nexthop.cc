@@ -364,7 +364,7 @@ void ArpNH::SendObjectLog(AgentLogEvent::type event) const {
     const Ip4Address *ip = GetIp();
     info.set_dest_ip(ip->to_string());
 
-    const unsigned char *m = GetMac()->ether_addr_octet;
+    const unsigned char *m = (const unsigned char *)GetMac();
     FillObjectLogMac(m, info);
 
     OPER_TRACE(NextHop, info);
@@ -440,12 +440,7 @@ bool InterfaceNH::Change(const DBRequest *req) {
         ret = true;
     }
     if (is_multicastNH()) {
-        dmac_.ether_addr_octet[0] = 0xFF;
-        dmac_.ether_addr_octet[1] = 0xFF;
-        dmac_.ether_addr_octet[2] = 0xFF;
-        dmac_.ether_addr_octet[3] = 0xFF;
-        dmac_.ether_addr_octet[4] = 0xFF;
-        dmac_.ether_addr_octet[5] = 0xFF;
+        memset(&dmac_, 0xFF, ETHER_ADDR_LEN);
     }
 
     return ret;
@@ -531,7 +526,8 @@ void InterfaceNH::CreateInetInterfaceNextHop(const string &ifname,
 
     struct ether_addr mac;
     memset(&mac, 0, sizeof(mac));
-    mac.ether_addr_octet[ETHER_ADDR_LEN-1] = 1;
+    ((uint8_t *)&mac)[ETHER_ADDR_LEN - 1] = 1;
+
     InterfaceNHData *data = new InterfaceNHData(vrf_name, mac);
     req.data.reset(data);
     NextHopTable::GetInstance()->Process(req);
@@ -554,7 +550,7 @@ void InterfaceNH::CreatePacketInterfaceNh(const string &ifname) {
     DBRequest req(DBRequest::DB_ENTRY_ADD_CHANGE);
     struct ether_addr mac;
     memset(&mac, 0, sizeof(mac));
-    mac.ether_addr_octet[ETHER_ADDR_LEN-1] = 1;
+    ((uint8_t *)&mac)[ETHER_ADDR_LEN - 1] = 1;
     req.key.reset(new InterfaceNHKey(new PacketInterfaceKey(nil_uuid(), ifname),
                                      false, InterfaceNHFlags::INET4));
     req.data.reset(new InterfaceNHData(Agent::GetInstance()->fabric_vrf_name(),
@@ -582,7 +578,7 @@ void InterfaceNH::SendObjectLog(AgentLogEvent::type event) const {
     const Interface *intf = GetInterface();
     FillObjectLogIntf(intf, info);
 
-    const unsigned char *m = GetDMac().ether_addr_octet;
+    const unsigned char *m = (const unsigned char *)&GetDMac();
     FillObjectLogMac(m, info);
 
     OPER_TRACE(NextHop, info);
@@ -1110,7 +1106,7 @@ void VlanNH::SendObjectLog(AgentLogEvent::type event) const {
     const Interface *intf = GetInterface();
     FillObjectLogIntf(intf, info);
 
-    const unsigned char *m = GetDMac().ether_addr_octet;
+    const unsigned char *m = (const unsigned char *)&GetDMac();
     FillObjectLogMac(m, info);
 
     info.set_vlan_tag((short int)GetVlanTag());
@@ -2001,7 +1997,7 @@ void NextHop::SetNHSandeshData(NhSandeshData &data) const {
                 break;
             }
             data.set_itf(arp->GetInterface()->name());
-            const unsigned char *m = arp->GetMac()->ether_addr_octet;
+            const unsigned char *m = (const unsigned char *)arp->GetMac();
             char mstr[32];
             snprintf(mstr, 32, "%x:%x:%x:%x:%x:%x", 
                      m[0], m[1], m[2], m[3], m[4], m[5]);
@@ -2019,7 +2015,7 @@ void NextHop::SetNHSandeshData(NhSandeshData &data) const {
             data.set_type("interface");
             const InterfaceNH *itf = static_cast<const InterfaceNH *>(this);
             data.set_itf(itf->GetInterface()->name());
-            const unsigned char *m = itf->GetDMac().ether_addr_octet;
+            const unsigned char *m = (const unsigned char *)&itf->GetDMac();
             char mstr[32];
             snprintf(mstr, 32, "%x:%x:%x:%x:%x:%x", 
                      m[0], m[1], m[2], m[3], m[4], m[5]);
@@ -2043,7 +2039,7 @@ void NextHop::SetNHSandeshData(NhSandeshData &data) const {
                                   (tun->GetRt()->GetActiveNextHop());
                 if (nh->GetType() == NextHop::ARP) {
                     const ArpNH *arp_nh = static_cast<const ArpNH *>(nh);
-                    const unsigned char *m = arp_nh->GetMac()->ether_addr_octet;
+                    const unsigned char *m = (const unsigned char *)arp_nh->GetMac();
                     char mstr[32];
                     snprintf(mstr, 32, "%x:%x:%x:%x:%x:%x", 
                             m[0], m[1], m[2], m[3], m[4], m[5]);
@@ -2067,7 +2063,7 @@ void NextHop::SetNHSandeshData(NhSandeshData &data) const {
                 if (nh->GetType() == NextHop::ARP) {
                     const ArpNH *arp_nh = static_cast<const ArpNH *>(nh);
                     (mir_nh->GetRt()->GetActiveNextHop());
-                    const unsigned char *m = arp_nh->GetMac()->ether_addr_octet;
+                    const unsigned char *m = (const unsigned char *)arp_nh->GetMac();
                     char mstr[32];
                     snprintf(mstr, 32, "%x:%x:%x:%x:%x:%x", 
                             m[0], m[1], m[2], m[3], m[4], m[5]);
@@ -2091,7 +2087,7 @@ void NextHop::SetNHSandeshData(NhSandeshData &data) const {
             const VlanNH *itf = static_cast<const VlanNH *>(this);
             data.set_itf(itf->GetInterface()->name());
             data.set_vlan_tag(itf->GetVlanTag());
-            const unsigned char *m = itf->GetDMac().ether_addr_octet;
+            const unsigned char *m = (const unsigned char *)&itf->GetDMac();
             char mstr[32];
             snprintf(mstr, 32, "%x:%x:%x:%x:%x:%x",
                     m[0], m[1], m[2], m[3], m[4], m[5]);

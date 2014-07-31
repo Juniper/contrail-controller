@@ -2,7 +2,6 @@
  * Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
  */
 
-#include <netinet/ether.h>
 #include <boost/uuid/uuid_io.hpp>
 #include <tbb/mutex.h>
 
@@ -32,6 +31,7 @@
 #include <sandesh/sandesh_trace.h>
 #include <sandesh/common/vns_types.h>
 #include <sandesh/common/vns_constants.h>
+#include "base/os.h"
 
 using namespace std;
 using namespace boost::uuids;
@@ -240,9 +240,10 @@ void Interface::GetOsParams(Agent *agent) {
         if (os_index_ == kInvalidIndex) {
             os_index_ = ++dummy_ifindex;
             bzero(&mac_, sizeof(mac_));
-            mac_.ether_addr_octet[5] = os_index_;
+            ((uint8_t *)&mac_)[ETHER_ADDR_LEN - 1] = os_index_;
         }
         os_oper_state_ = test_oper_state_;
+
         return;
     }
 
@@ -274,7 +275,11 @@ void Interface::GetOsParams(Agent *agent) {
     }
     close(fd);
 
-    memcpy(mac_.ether_addr_octet, ifr.ifr_hwaddr.sa_data, ETHER_ADDR_LEN);
+#if defined(__linux__)
+    memcpy(&mac_, ifr.ifr_hwaddr.sa_data, ETHER_ADDR_LEN);
+#elif defined(__FreeBSD__)
+    memcpy(&mac_, ifr.ifr_addr.sa_data, ETHER_ADDR_LEN);
+#endif
     if (os_index_ == kInvalidIndex) {
         int idx = if_nametoindex(name_.c_str());
         if (idx)

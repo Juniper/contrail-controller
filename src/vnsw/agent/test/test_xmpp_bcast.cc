@@ -1,6 +1,9 @@
 /*
  * Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
  */
+#include <sys/types.h>
+#include "net/bsdudp.h"
+#include "net/bsdtcp.h"
 #include "testing/gunit.h"
 
 #include <pugixml/pugixml.hpp>

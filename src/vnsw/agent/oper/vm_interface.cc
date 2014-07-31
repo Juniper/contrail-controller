@@ -2,7 +2,6 @@
  * Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
  */
 
-#include <netinet/ether.h>
 #include <boost/uuid/uuid_io.hpp>
 
 #include "base/logging.h"
@@ -322,7 +321,7 @@ static void BuildVrfAndServiceVlanInfo(Agent *agent,
                 << rule.service_chain_address << " : " << vrf_node->name());
 
             ether_addr smac;
-            memcpy(smac.ether_addr_octet, agent->vrrp_mac(), ETHER_ADDR_LEN);
+            memcpy(&smac, agent->vrrp_mac(), ETHER_ADDR_LEN);
             ether_addr dmac = *ether_aton(Agent::BcastMac().c_str());
             if (rule.src_mac != Agent::NullString()) {
                 smac = *ether_aton(rule.src_mac.c_str());
@@ -1161,7 +1160,7 @@ void VmInterface::GetOsParams(Agent *agent) {
     }
 
     os_index_ = Interface::kInvalidIndex;
-    memcpy(mac_.ether_addr_octet, agent->vrrp_mac(), ETHER_ADDR_LEN);
+    memcpy(&mac_, agent->vrrp_mac(), ETHER_ADDR_LEN);
     os_oper_state_ = true;
 }
 

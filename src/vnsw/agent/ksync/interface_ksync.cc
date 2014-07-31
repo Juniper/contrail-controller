@@ -6,7 +6,9 @@
 #include <string.h>
 
 #include <net/if.h>
+#if defined(__linux__)
 #include <linux/if_tun.h>
+#endif
 
 #include <boost/asio.hpp>
 #include <db/db_entry.h>
@@ -258,20 +260,20 @@ bool InterfaceKSyncEntry::Sync(DBEntry *e) {
 
     case Interface::PHYSICAL: 
     {
-        memcpy(smac, intf->mac().ether_addr_octet, ETHER_ADDR_LEN);
+        memcpy(smac, &intf->mac(), ETHER_ADDR_LEN);
         PhysicalInterface *phy_intf = static_cast<PhysicalInterface *>(intf);
         persistent_ = phy_intf->persistent();
         break;
     }
     case Interface::INET:
-        memcpy(smac, intf->mac().ether_addr_octet, ETHER_ADDR_LEN);
+        memcpy(smac, &intf->mac(), ETHER_ADDR_LEN);
         break;
     default:
         assert(0);
     }
 
     if (memcmp(smac, mac(), ETHER_ADDR_LEN)) {
-        memcpy(mac_.ether_addr_octet, smac, ETHER_ADDR_LEN);
+        memcpy(&mac_, smac, ETHER_ADDR_LEN);
         ret = true;
     }
 

@@ -10,7 +10,7 @@
 
 #define DHCP_PKT_SIZE                 1024
 
-// Magic cookie for DHCP Options 
+// Magic cookie for DHCP Options
 #define DHCP_OPTIONS_COOKIE "\143\202\123\143"
 
 // Supported DHCP options
@@ -72,7 +72,7 @@ struct dhcphdr {
      uint8_t  op;
      uint8_t  htype;
      uint8_t  hlen;
-     uint8_t  hops;  // # of relay agent hops 
+     uint8_t  hops;  // # of relay agent hops
      uint32_t xid;
      uint16_t secs;
      uint16_t flags;
@@ -87,9 +87,9 @@ struct dhcphdr {
 };
 
 struct ConfigRecord {
-    ConfigRecord() : ip_addr(0), subnet_mask(0), bcast_addr(0), gw_addr(0), 
+    ConfigRecord() : ip_addr(0), subnet_mask(0), bcast_addr(0), gw_addr(0),
                      dns_addr(0), ifindex(0), plen(0), lease_time(-1) {
-        memset(mac_addr, 0, ETH_ALEN);
+        memset(mac_addr, 0, ETHER_ADDR_LEN);
     }
 
     uint32_t ip_addr;
@@ -97,7 +97,7 @@ struct ConfigRecord {
     uint32_t bcast_addr;
     uint32_t gw_addr;
     uint32_t dns_addr;
-    uint8_t  mac_addr[ETH_ALEN];
+    uint8_t  mac_addr[ETHER_ADDR_LEN];
     uint16_t ifindex;  // maps to VNid, VMid, itf
     uint32_t plen;
     uint32_t lease_time;
@@ -106,7 +106,7 @@ struct ConfigRecord {
 struct DhcpOptions {
     void WriteData(uint8_t c, uint8_t l, const void *d, uint16_t &optlen) {
         code = c;
-        len = l; 
+        len = l;
         memcpy(data, (uint8_t *)d, l);
         optlen += 2 + l;
     }
@@ -135,7 +135,7 @@ struct DhcpOptions {
 class DhcpHandler : public ProtoHandler {
 public:
     struct ConfigRecord {
-        ConfigRecord() : ip_addr(0), subnet_mask(0), bcast_addr(0), gw_addr(0), 
+        ConfigRecord() : ip_addr(0), subnet_mask(0), bcast_addr(0), gw_addr(0),
                          dns_addr(0), plen(0), lease_time(-1) {
         }
 
@@ -152,17 +152,17 @@ public:
 
     struct DhcpRequestData {
         DhcpRequestData() : xid(-1), flags(0), ip_addr(0) {
-            memset(mac_addr, 0, ETH_ALEN);
+            memset(mac_addr, 0, ETHER_ADDR_LEN);
         }
         void UpdateData(uint32_t id, uint16_t fl, uint8_t *mac) {
             xid = id;
             flags = fl;
-            memcpy(mac_addr, mac, ETH_ALEN);
+            memcpy(mac_addr, mac, ETHER_ADDR_LEN);
         }
 
         uint32_t  xid;
         uint16_t  flags;
-        uint8_t   mac_addr[ETH_ALEN];
+        uint8_t   mac_addr[ETHER_ADDR_LEN];
         in_addr_t ip_addr;
     };
 

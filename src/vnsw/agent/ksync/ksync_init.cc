@@ -5,13 +5,19 @@
 #include <boost/asio.hpp>
 #include <boost/bind.hpp>
 
+#if defined(__linux__)
 #include <linux/netlink.h>
 #include <linux/rtnetlink.h>
 #include <linux/genetlink.h>
 #include <linux/if_ether.h>
+#include <netinet/ether.h>
+#elif defined(__FreeBSD__)
+#include <sys/socket.h>
+#include <sys/ioctl.h>
+#include "vr_os.h"
+#endif
 
 #include <net/if.h>
-#include <netinet/ether.h>
 
 #include <io/event_manager.h>
 #include <db/db_entry.h>
@@ -92,7 +98,6 @@ void KSync::NetlinkInit() {
     KSyncSockNetlink::Init(io, DB::PartitionCount(), NETLINK_GENERIC);
     KSyncSock::SetAgentSandeshContext(new KSyncSandeshContext(
                                             flowtable_ksync_obj_.get()));
-
     GenericNetlinkInit();
 }
 
@@ -148,6 +153,7 @@ void KSync::VnswInterfaceListenerInit() {
 }
 
 void KSync::CreateVhostIntf() {
+#if defined(__linux__)
     struct  nl_client *cl;
 
     assert((cl = nl_register_client()) != NULL);
@@ -169,9 +175,24 @@ void KSync::CreateVhostIntf() {
     assert((resp = nl_parse_reply(cl)) != NULL);
     assert(resp->nl_type == NL_MSG_TYPE_ERROR);
     nl_free_client(cl);
+#elif defined(__FreeBSD__)
+    struct ifreq ifr;
+    memset(&ifr, 0, sizeof(ifr));
+    ifr.ifr_flags = IFF_UP;
+
+    int s = socket(PF_LOCAL, SOCK_DGRAM, 0);
+    assert(s > 0);
+
+    strncpy(ifr.ifr_name, agent_->vhost_interface_name().c_str(),
+        sizeof(ifr.ifr_name));
+
+    assert(ioctl(s, SIOCSIFFLAGS, &ifr) != -1);
+    close(s);
+#endif
 }
 
 void KSync::UpdateVhostMac() {
+#if defined(__linux__)
     struct  nl_client *cl;
 
     assert((cl = nl_register_client()) != NULL);
@@ -197,6 +218,27 @@ void KSync::UpdateVhostMac() {
     assert((resp = nl_parse_reply(cl)) != NULL);
     assert(resp->nl_type == NL_MSG_TYPE_ERROR);
     nl_free_client(cl);
+#elif defined(__FreeBSD__)
+    struct ifreq ifr;
+    memset(&ifr, 0, sizeof(ifr));
+
+    int s = socket(PF_LOCAL, SOCK_DGRAM, 0);
+    assert(s >= 0);
+
+    strncpy(ifr.ifr_name, agent_->vhost_interface_name().c_str(),
+            sizeof(ifr.ifr_name));
+
+    PhysicalInterfaceKey key(agent_->fabric_interface_name());
+    Interface *eth = static_cast<Interface *>
+        (agent_->interface_table()->FindActiveEntry(&key));
+    memcpy(ifr.ifr_addr.sa_data, eth->mac().octet, ETHER_ADDR_LEN);
+
+    ifr.ifr_addr.sa_len = ETHER_ADDR_LEN;
+
+    assert(ioctl(s, SIOCSIFLLADDR, &ifr) != -1);
+
+    close(s);
+#endif
 }
 
 void KSync::Shutdown() {

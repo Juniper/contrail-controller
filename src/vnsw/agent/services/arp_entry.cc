@@ -11,7 +11,7 @@ ArpEntry::ArpEntry(boost::asio::io_service &io, ArpHandler *handler,
                    ArpKey &key, State state)
     : key_(key), state_(state), retry_count_(0), handler_(handler),
       arp_timer_(NULL) {
-    memset(mac_address_, 0, ETH_ALEN);
+    memset(mac_address_, 0, ETHER_ADDR_LEN);
     arp_timer_ = TimerManager::CreateTimer(io, "Arp Entry timer",
                  TaskScheduler::GetInstance()->GetTaskId("Agent::Services"),
                  PktHandler::ARP);
@@ -127,14 +127,15 @@ void ArpEntry::SendArpRequest() {
     Agent *agent = handler_->agent();
     ArpProto *arp_proto = agent->GetArpProto();
     uint16_t itf_index = arp_proto->ip_fabric_interface_index();
-    const unsigned char *smac = arp_proto->ip_fabric_interface_mac();
     Ip4Address ip = agent->router_id();
 
     VrfEntry *vrf =
         agent->vrf_table()->FindVrfFromName(agent->fabric_vrf_name());
     if (vrf) {
-        handler_->SendArp(ARPOP_REQUEST, smac, ip.to_ulong(), 
-                          zero_mac, key_.ip, itf_index, vrf->vrf_id());
+        handler_->SendArp(ARPOP_REQUEST,
+                          arp_proto->ip_fabric_interface_mac(),
+                          ip.to_ulong(), zero_mac, key_.ip, itf_index,
+                          vrf->vrf_id());
     }
 
     StartTimer(arp_proto->retry_timeout(), ArpProto::RETRY_TIMER_EXPIRED);
@@ -154,7 +155,7 @@ void ArpEntry::AddArpRoute(bool resolved) {
                                          FindActiveEntry(&nh_key));
 
     struct ether_addr mac;
-    memcpy(mac.ether_addr_octet, mac_address_, ETH_ALEN);
+    memcpy(&mac, mac_address_, sizeof(mac));
     if (arp_nh && arp_nh->GetResolveState() && 
         memcmp(&mac, arp_nh->GetMac(), sizeof(mac)) == 0) {
         // MAC address unchanged, ignore
@@ -185,7 +186,7 @@ bool ArpEntry::DeleteArpRoute() {
         return true;
 
     struct ether_addr mac;
-    memcpy(mac.ether_addr_octet, mac_address_, ETH_ALEN);
+    memcpy(&mac, mac_address_, sizeof(mac));
     stringstream mac_string;
     mac_string << ether_ntoa((struct ether_addr *)&mac);
     ARP_TRACE(Trace, "Delete", ip.to_string(), vrf_name, mac_string.str());

@@ -6,10 +6,11 @@
 #define vnsw_agent_pkt_handler_hpp
 
 #include <net/if.h>
+#include <netinet/in.h>
 #include <netinet/if_ether.h>
 #include <netinet/ip.h>
-#include <netinet/tcp.h>
-#include <netinet/udp.h>
+#include "net/bsdudp.h"
+#include "net/bsdtcp.h"
 #include <netinet/ip_icmp.h>
 
 #include <tbb/atomic.h>
@@ -25,7 +26,7 @@
 
 #define IPv4_ALEN           4
 #define MIN_ETH_PKT_LEN    64
-#define IPC_HDR_LEN        (sizeof(ethhdr) + sizeof(struct agent_hdr))
+#define IPC_HDR_LEN        (sizeof(struct ether_header) + sizeof(struct agent_hdr))
 #define IP_PROTOCOL        0x800  
 #define VLAN_PROTOCOL      0x8100       
 
@@ -118,13 +119,13 @@ struct PktInfo {
     TunnelInfo          tunnel;
 
     // Pointer to different headers in user packet
-    struct ethhdr       *eth;
+    struct ether_header *eth;
     struct ether_arp    *arp;
-    struct iphdr        *ip;
+    struct ip           *ip;
     union {
         struct tcphdr   *tcp;
         struct udphdr   *udp;
-        struct icmphdr  *icmp;
+        struct icmp     *icmp;
     } transp;
 
     PktInfo(uint8_t *msg, std::size_t msg_size, std::size_t max_size);
