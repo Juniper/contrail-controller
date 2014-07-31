@@ -1941,7 +1941,7 @@ class DBInterface(object):
             port_obj.set_virtual_network(net_obj)
             if ('mac_address' in port_q and port_q['mac_address']):
                 mac_addrs_obj = MacAddressesType()
-                mac_addrs_obj.set_mac_address(port_q['mac_address'])
+                mac_addrs_obj.set_mac_address([port_q['mac_address']])
                 port_obj.set_virtual_machine_interface_mac_addresses(mac_addrs_obj)
             port_obj.set_security_group_list([])
             if ('security_groups' not in port_q or
