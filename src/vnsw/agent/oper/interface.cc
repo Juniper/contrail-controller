@@ -2,7 +2,9 @@
  * Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
  */
 
+#if defined(__linux__)
 #include <netinet/ether.h>
+#endif
 #include <boost/uuid/uuid_io.hpp>
 #include <tbb/mutex.h>
 
@@ -240,9 +242,14 @@ void Interface::GetOsParams(Agent *agent) {
         if (os_index_ == kInvalidIndex) {
             os_index_ = ++dummy_ifindex;
             bzero(&mac_, sizeof(mac_));
+#if defined(__linux__)
             mac_.ether_addr_octet[5] = os_index_;
+#elif defined(__FreeBSD__)
+            mac_.octet[5] = os_index_;
+#endif
         }
         os_oper_state_ = test_oper_state_;
+
         return;
     }
 
@@ -251,7 +258,13 @@ void Interface::GetOsParams(Agent *agent) {
     strncpy(ifr.ifr_name, name_.c_str(), IF_NAMESIZE);
     int fd = socket(AF_LOCAL, SOCK_STREAM, 0);
     assert(fd >= 0);
+#if defined(__linux__)
     if (ioctl(fd, SIOCGIFHWADDR, (void *)&ifr) < 0) {
+#elif defined(__FreeBSD__)
+    if (ioctl(fd, SIOCGIFADDR, (void *)&ifr) < 0) {
+#else
+#error "Unsupported platform"
+#endif
         LOG(ERROR, "Error <" << errno << ": " << strerror(errno) << 
             "> querying mac-address for interface <" << name_ << ">");
         os_oper_state_ = false;
@@ -274,7 +287,11 @@ void Interface::GetOsParams(Agent *agent) {
     }
     close(fd);
 
+#if defined(__linux__)
     memcpy(mac_.ether_addr_octet, ifr.ifr_hwaddr.sa_data, ETHER_ADDR_LEN);
+#elif defined(__FreeBSD__)
+    memcpy(mac_.octet, ifr.ifr_addr.sa_data, ETHER_ADDR_LEN);
+#endif
     if (os_index_ == kInvalidIndex) {
         int idx = if_nametoindex(name_.c_str());
         if (idx)

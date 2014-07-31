@@ -1,8 +1,9 @@
 /*
  * Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
  */
-
+#if defined(__linux__)
 #include <netinet/ether.h>
+#endif
 #include <boost/uuid/uuid_io.hpp>
 
 #include "base/logging.h"

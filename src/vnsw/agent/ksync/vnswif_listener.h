@@ -122,7 +122,29 @@ private:
 
     void CreateSocket();
     void InitNetlinkScan(uint32_t type, uint32_t seqno);
+#if defined (__linux__)
     int NlMsgDecode(struct nlmsghdr *nl, std::size_t len, uint32_t seq_no);
+#elif defined(__FreeBSD__)
+    const string RTMTypeToString(int type);
+    unsigned int
+    RTMGetAddresses(const char *in, size_t *size, unsigned int af,
+        struct rt_addresses *rta);
+    Event *
+    RTMProcess(const struct rt_msghdr *rtm, size_t size);
+    Event *
+    RTMProcess(const struct ifa_msghdr *rtm, size_t size);
+    Event *
+    RTMProcess(const struct if_msghdr *rtm, size_t size);
+    int RTMDecode(const struct rt_msghdr_common *rtm, size_t len,
+		uint32_t seq_no);
+    int RTMProcessBuffer(const void *buffer, size_t size);
+    int RTCreateSocket(int fib);
+    int RTInitRoutes(int fib);
+    int RTInitIfAndAddr();
+    int Getfib();
+    void *SysctlDump(int *mib, int mib_len, size_t *ret_len, int *ret_code);
+    int NetmaskLen(int mask);
+#endif
     void ReadHandler(const boost::system::error_code &, std::size_t length);
     void RegisterAsyncHandler();
     bool ProcessEvent(Event *re);
@@ -154,6 +176,9 @@ private:
     DBTableBase::ListenerId intf_listener_id_;
     int seqno_;
     bool vhost_intf_up_;
+#if defined(__FreeBSD__)
+    int pid_;
+#endif
 
     LinkLocalAddressTable ll_addr_table_;
     HostInterfaceTable host_interface_table_;

@@ -20,7 +20,13 @@ void DiagPktHandler::SetReply() {
 }
 
 void DiagPktHandler::SetDiagChkSum() {
+#if defined(__linux__)
     pkt_info_->ip->check = 0xffff;
+#elif defined(__FreeBSD__)
+    pkt_info_->ip->ip_sum = 0xffff;
+#else
+#error "Unsupported platform"
+#endif
 }
 
 void DiagPktHandler::Reply() {
@@ -72,6 +78,7 @@ void DiagPktHandler::TcpHdr(in_addr_t src, uint16_t sport, in_addr_t dst,
                             uint16_t dport, bool is_syn, uint32_t seq_no,
                             uint16_t len) {
     struct tcphdr *tcp = pkt_info_->transp.tcp;
+#if defined(__linux__)
     tcp->source = htons(sport);
     tcp->dest = htons(dport);
 
@@ -91,6 +98,29 @@ void DiagPktHandler::TcpHdr(in_addr_t src, uint16_t sport, in_addr_t dst,
     tcp->doff = 5;
     tcp->check = 0;
     tcp->check = TcpCsum(src, dst, len, tcp);
+#elif defined(__FreeBSD__)
+    tcp->th_sport = htons(sport);
+    tcp->th_dport = htons(dport);
+
+    if (is_syn) {
+	tcp->th_flags |= TH_SYN;
+	tcp->th_flags &= ~TH_ACK;
+    } else {
+        //If not sync, by default we are sending an ack
+	tcp->th_flags |= TH_ACK;
+	tcp->th_flags &= ~TH_SYN;
+    }
+
+    tcp->th_seq = htons(seq_no);
+    tcp->th_ack = htons(seq_no + 1);
+    //Just a random number;
+    tcp->th_win = htons(1000);
+    tcp->th_off = 5;
+    tcp->th_sum = 0;
+    tcp->th_sum = TcpCsum(src, dst, len, tcp);
+#else
+#error "Unsupported platform"
+#endif
 }
 
 uint16_t DiagPktHandler::TcpCsum(in_addr_t src, in_addr_t dest, uint16_t len, 
@@ -104,27 +134,57 @@ uint16_t DiagPktHandler::TcpCsum(in_addr_t src, in_addr_t dest, uint16_t len,
 void DiagPktHandler::SwapL4() {
     if (pkt_info_->ip_proto == IPPROTO_TCP) {
         tcphdr *tcp = pkt_info_->transp.tcp;
+#if defined(__linux__)
         TcpHdr(htonl(pkt_info_->ip_daddr), ntohs(tcp->dest), 
                htonl(pkt_info_->ip_saddr), ntohs(tcp->source), 
                false, ntohs(tcp->ack_seq), 
                ntohs(pkt_info_->ip->tot_len) - sizeof(iphdr));
-
+#elif defined(__FreeBSD__)
+        TcpHdr(htonl(pkt_info_->ip_daddr), ntohs(tcp->th_dport), 
+               htonl(pkt_info_->ip_saddr), ntohs(tcp->th_sport), 
+               false, ntohs(tcp->th_ack), 
+               ntohs(pkt_info_->ip->ip_len) - sizeof(ip));
+#else
+#error "Unsupported platform"
+#endif
     } else if(pkt_info_->ip_proto == IPPROTO_UDP) {
         udphdr *udp = pkt_info_->transp.udp;
+#if defined(__linux__)
         UdpHdr(ntohs(udp->len), pkt_info_->ip_daddr, ntohs(udp->dest),
                pkt_info_->ip_saddr, ntohs(udp->source));
     }
+#elif defined(__FreeBSD__)
+        UdpHdr(ntohs(udp->uh_ulen), pkt_info_->ip_daddr, ntohs(udp->uh_dport),
+               pkt_info_->ip_saddr, ntohs(udp->uh_sport));
+    }
+#else
+#error "Unsupported platform"
+#endif
 }
 
 void DiagPktHandler::SwapIpHdr() {
     //IpHdr expects IP address to be in network format
+#if defined(__linux__)
     iphdr *ip = pkt_info_->ip;
     IpHdr(ntohs(ip->tot_len), ip->daddr, ip->saddr, ip->protocol);
+#elif defined(__FreeBSD__)
+    ip *ip = pkt_info_->ip;
+    IpHdr(ntohs(ip->ip_len), ip->ip_dst.s_addr, ip->ip_src.s_addr, ip->ip_p);
+#else
+#error "Unsupported platform"
+#endif
 }
 
 void DiagPktHandler::SwapEthHdr() {
+#if defined(__linux__)
     ethhdr *eth = pkt_info_->eth;
     EthHdr(eth->h_dest, eth->h_source, ntohs(eth->h_proto));
+#elif defined(__FreeBSD__)
+    ether_header *eth = pkt_info_->eth;
+    EthHdr(eth->ether_dhost, eth->ether_shost, ntohs(eth->ether_type));
+#else
+#error "Unsupported platform"
+#endif
 }
 
 void DiagPktHandler::Swap() {

@@ -10,7 +10,10 @@ vpath = '#/third_party/tbb40_20111130oss'
 env = DefaultEnvironment()
 
 #make =  env['ENV']['DEVELOPER_BIN_DIR'] + '/make'
-make = 'make'
+if sys.platform.startswith('freebsd'):
+    make = 'gmake'
+else:
+    make = 'make'
 
 cmd = make + ' -f ' + '$SOURCE'
 
@@ -41,7 +44,7 @@ targets = MapPrefix('#/' + Dir('.').path + '/' + tbb_build_prefix,
 
 version = '2'
 
-if sys.platform != 'darwin':
+if sys.platform != 'darwin' and not sys.platform.startswith('freebsd'):
     impl = []
     for tgt in targets:
         dot2 = tgt + '.' + version

@@ -725,12 +725,23 @@ void VrouterUveEntry::SendVrouterUve() {
 string VrouterUveEntry::GetMacAddress(const ether_addr &mac) const {
     stringstream ss;
     ss << setbase(16) << setfill('0') << setw(2) 
+#if defined(__linux__)
       << static_cast<unsigned int>(mac.ether_addr_octet[0])
       << static_cast<unsigned int>(mac.ether_addr_octet[1])
       << static_cast<unsigned int>(mac.ether_addr_octet[2])
       << static_cast<unsigned int>(mac.ether_addr_octet[3])
       << static_cast<unsigned int>(mac.ether_addr_octet[4])
       << static_cast<unsigned int>(mac.ether_addr_octet[5]);
+#elif defined(__FreeBSD__)
+      << static_cast<unsigned int>(mac.octet[0])
+      << static_cast<unsigned int>(mac.octet[1])
+      << static_cast<unsigned int>(mac.octet[2])
+      << static_cast<unsigned int>(mac.octet[3])
+      << static_cast<unsigned int>(mac.octet[4])
+      << static_cast<unsigned int>(mac.octet[5]);
+#else
+#error "Unsupported platform"
+#endif
     return ss.str();
 }
 

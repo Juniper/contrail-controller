@@ -4,6 +4,11 @@
 
 #include "testing/gunit.h"
 
+#if defined(__FreeBSD__)
+#include <sys/types.h>
+#include <sys/socket.h>
+#include <netinet/in.h>
+#endif
 #include <netinet/if_ether.h>
 #include <boost/uuid/string_generator.hpp>
 #include <base/logging.h>
@@ -38,7 +43,7 @@ short req_ifindex = 1, reply_ifindex = 1;
 char src_mac[MAC_LEN] = { 0x00, 0x01, 0x02, 0x03, 0x04, 0x05 };
 char dest_mac[MAC_LEN] = { 0x00, 0x01, 0x02, 0x03, 0x04, 0x05 };
 unsigned char mac[MAC_LEN] = { 0x00, 0x05, 0x07, 0x09, 0x0a, 0x0b };
-ulong src_ip, dest_ip, target_ip, gw_ip, bcast_ip, static_ip;
+unsigned long src_ip, dest_ip, target_ip, gw_ip, bcast_ip, static_ip;
 
 class ArpTest : public ::testing::Test {
 public:
@@ -64,6 +69,7 @@ public:
     }
 
     void SendArpReq(short ifindex, short vrf, uint32_t sip, uint32_t tip) {
+#if defined(__linux__)
         int len = 2 * sizeof(ethhdr) + sizeof(agent_hdr) +
                   sizeof(ether_arp);
         uint8_t *ptr(new uint8_t[len]);
@@ -93,6 +99,39 @@ public:
         arp->ea_hdr.ar_op = htons(ARPOP_REQUEST);
         memcpy(arp->arp_sha, src_mac, ETH_ALEN);
 
+#elif defined(__FreeBSD__)
+        int len = 2 * sizeof(ether_header) + sizeof(agent_hdr) +
+                  sizeof(ether_arp);
+        uint8_t *ptr(new uint8_t[len]);
+        uint8_t *buf  = ptr;
+        memset(buf, 0, len);
+
+        ether_header *eth = (ether_header *)buf;
+        eth->ether_dhost[5] = 1;
+        eth->ether_shost[5] = 2;
+        eth->ether_type = htons(ETHERTYPE_IP);
+
+        agent_hdr *agent = (agent_hdr *)(eth + 1);
+        agent->hdr_ifindex = htons(ifindex);
+        agent->hdr_vrf = htons(vrf);
+        agent->hdr_cmd = htons(AGENT_TRAP_RESOLVE);
+
+        eth = (ether_header *) (agent + 1);
+        memcpy(eth->ether_dhost, dest_mac, ETHER_ADDR_LEN);
+        memcpy(eth->ether_shost, src_mac, ETHER_ADDR_LEN);
+        eth->ether_type = htons(ETHERTYPE_ARP);
+
+        ether_arp *arp = (ether_arp *) (eth + 1);
+        arp->ea_hdr.ar_hrd = htons(ARPHRD_ETHER);
+        arp->ea_hdr.ar_pro = htons(ETHERTYPE_IP);
+        arp->ea_hdr.ar_hln = 6;
+        arp->ea_hdr.ar_pln = 4;
+        arp->ea_hdr.ar_op = htons(ARPOP_REQUEST);
+        memcpy(arp->arp_sha, src_mac, ETHER_ADDR_LEN);
+
+#else
+#error "Unsupported platform"
+#endif
         sip = htonl(sip);
         memcpy(arp->arp_spa, &sip, sizeof(in_addr_t));
         tip = htonl(tip);
@@ -105,6 +144,7 @@ public:
     }
 
     void SendArpReply(short ifindex, short vrf, uint32_t sip, uint32_t tip) {
+#if defined(__linux__)
         int len = 2 * sizeof(ethhdr) + sizeof(agent_hdr) + sizeof(ether_arp);
         uint8_t *ptr(new uint8_t[len]);
         uint8_t *buf  = ptr;
@@ -125,14 +165,38 @@ public:
         memcpy(eth->h_source, dest_mac, MAC_LEN);
         eth->h_proto = htons(0x806);
 
+#elif defined(__FreeBSD__)
+        int len = 2 * sizeof(ether_header) + sizeof(agent_hdr) + sizeof(ether_arp);
+        uint8_t *ptr(new uint8_t[len]);
+        uint8_t *buf  = ptr;
+        memset(buf, 0, len);
+
+        ether_header *eth = (ether_header *)buf;
+        eth->ether_dhost[5] = 2;
+        eth->ether_shost[5] = 1;
+        eth->ether_type = htons(ETHERTYPE_IP);
+
+        agent_hdr *agent = (agent_hdr *)(eth + 1);
+        agent->hdr_ifindex = htons(ifindex);
+        agent->hdr_vrf = htons(vrf);
+        agent->hdr_cmd = htons(AGENT_TRAP_ARP);
+
+        eth = (ether_header *) (agent + 1);
+        memcpy(eth->ether_dhost, src_mac, ETHER_ADDR_LEN);
+        memcpy(eth->ether_shost, dest_mac, ETHER_ADDR_LEN);
+        eth->ether_type = htons(ETHERTYPE_ARP);
+
+#else
+#error "Unsupported platform"
+#endif
         ether_arp *arp = (ether_arp *) (eth + 1);
         arp->ea_hdr.ar_hrd = htons(ARPHRD_ETHER);
-        arp->ea_hdr.ar_pro = htons(0x800);
+        arp->ea_hdr.ar_pro = htons(ETHERTYPE_IP);
         arp->ea_hdr.ar_hln = 6;
         arp->ea_hdr.ar_pln = 4;
         arp->ea_hdr.ar_op = htons(ARPOP_REPLY);
-        memcpy(arp->arp_tha, src_mac, ETH_ALEN);
-        memcpy(arp->arp_sha, dest_mac, ETH_ALEN);
+        memcpy(arp->arp_tha, src_mac, ETHER_ADDR_LEN);
+        memcpy(arp->arp_sha, dest_mac, ETHER_ADDR_LEN);
 
         sip = htonl(sip);
         tip = htonl(tip);

@@ -6,6 +6,7 @@
 #include <netinet/in.h>
 #include <netinet/tcp.h>
 #include <netinet/udp.h>
+#include <netinet/ip.h>
 #include <netinet/ip_icmp.h>
 
 #include "cmn/agent_cmn.h"
@@ -202,13 +203,26 @@ uint8_t *PktHandler::ParseAgentHdr(PktInfo *pkt_info) {
     // Format of packet trapped is,
     // OUTER_ETH - AGENT_HDR - PAYLOAD
     // Enusure sanity of the packet
+#if defined(__linux__)
     if (pkt_info->len < (sizeof(ethhdr) + sizeof(agent_hdr) + sizeof(ethhdr))) {
+#elif defined(__FreeBSD__)
+    if (pkt_info->len < (sizeof(ether_header) + sizeof(agent_hdr) + sizeof(ether_header))) {
+#else
+#error "Unsupported platform"
+#endif
         return NULL;
     }
 
     // packet comes with (outer) eth header, agent_hdr, actual eth packet
+#if defined(__linux__)
     pkt_info->eth = (ethhdr *) pkt_info->pkt;
     uint8_t *pkt = ((uint8_t *)pkt_info->eth) + sizeof(ethhdr);
+#elif defined(__FreeBSD__)
+    pkt_info->eth = (ether_header *) pkt_info->pkt;
+    uint8_t *pkt = ((uint8_t *)pkt_info->eth) + sizeof(ether_header);
+#else
+#error "Unsupported platform"
+#endif
 
     // Decode agent_hdr
     agent_hdr *agent = (agent_hdr *) pkt;
@@ -226,27 +240,51 @@ uint8_t *PktHandler::ParseAgentHdr(PktInfo *pkt_info) {
 }
 
 void PktHandler::SetOuterIp(PktInfo *pkt_info, uint8_t *pkt) {
+#if defined(__linux__)
     iphdr *ip_hdr = (iphdr *)pkt;
     pkt_info->tunnel.ip_saddr = ntohl(ip_hdr->saddr);
     pkt_info->tunnel.ip_daddr = ntohl(ip_hdr->daddr);
+#elif defined(__FreeBSD__)
+    ip *ip_hdr = (ip *)pkt;
+    pkt_info->tunnel.ip_saddr = ntohl(ip_hdr->ip_src.s_addr);
+    pkt_info->tunnel.ip_daddr = ntohl(ip_hdr->ip_dst.s_addr);
+#else
+#error "Unsupported platform"
+#endif
 }
 
 uint8_t *PktHandler::ParseIpPacket(PktInfo *pkt_info,
                                    PktType::Type &pkt_type, uint8_t *pkt) {
+#if defined(__linux__)
     pkt_info->ip = (iphdr *) pkt;
     pkt_info->ip_saddr = ntohl(pkt_info->ip->saddr);
     pkt_info->ip_daddr = ntohl(pkt_info->ip->daddr);
     pkt_info->ip_proto = pkt_info->ip->protocol;
     pkt += (pkt_info->ip->ihl << 2);
+#elif defined(__FreeBSD__)
+    pkt_info->ip = (ip *) pkt;
+    pkt_info->ip_saddr = ntohl(pkt_info->ip->ip_src.s_addr);
+    pkt_info->ip_daddr = ntohl(pkt_info->ip->ip_dst.s_addr);
+    pkt_info->ip_proto = pkt_info->ip->ip_p;
+    pkt += (pkt_info->ip->ip_hl << 2);
+#else
+#error "Unsupported platform"
+#endif
 
     switch (pkt_info->ip_proto) {
     case IPPROTO_UDP : {
         pkt_info->transp.udp = (udphdr *) pkt;
         pkt += sizeof(udphdr);
         pkt_info->data = pkt;
-
+#if defined(__linux__)
         pkt_info->dport = ntohs(pkt_info->transp.udp->dest);
         pkt_info->sport = ntohs(pkt_info->transp.udp->source);
+#elif defined(__FreeBSD__)
+        pkt_info->dport = ntohs(pkt_info->transp.udp->uh_dport);
+        pkt_info->sport = ntohs(pkt_info->transp.udp->uh_sport);
+#else
+#error "Unsuppoted platform"
+#endif
         pkt_type = PktType::UDP;
         break;
     }
@@ -256,23 +294,40 @@ uint8_t *PktHandler::ParseIpPacket(PktInfo *pkt_info,
         pkt += sizeof(tcphdr);
         pkt_info->data = pkt;
 
+#if defined(__linux__)
         pkt_info->dport = ntohs(pkt_info->transp.tcp->dest);
         pkt_info->sport = ntohs(pkt_info->transp.tcp->source);
         pkt_info->tcp_ack = pkt_info->transp.tcp->ack;
+#elif defined(__FreeBSD__)
+        pkt_info->dport = ntohs(pkt_info->transp.tcp->th_dport);
+        pkt_info->sport = ntohs(pkt_info->transp.tcp->th_sport);
+        pkt_info->tcp_ack = ntohl(pkt_info->transp.tcp->th_ack);
+#else
+#error "Unsupported platform"
+#endif
         pkt_type = PktType::TCP;
         break;
     }
 
     case IPPROTO_ICMP: {
-        pkt_info->transp.icmp = (icmphdr *) pkt;
         pkt_type = PktType::ICMP;
-
+        pkt_info->transp.icmp = (icmphdr *)pkt;
+#if defined(__linux__)
         icmphdr *icmp = (icmphdr *)pkt;
 
         pkt_info->dport = htons(icmp->type);
         if (icmp->type == ICMP_ECHO || icmp->type == ICMP_ECHOREPLY) {
-            pkt_info->dport = ICMP_ECHOREPLY;
             pkt_info->sport = htons(icmp->un.echo.id);
+#elif defined(__FreeBSD__)
+        struct icmp *icmp = (struct icmp *)pkt;
+
+        pkt_info->dport = htons(icmp->icmp_type);
+        if (icmp->icmp_type == ICMP_ECHO || icmp->icmp_type == ICMP_ECHOREPLY) {
+            pkt_info->sport = htons(icmp->icmp_hun.ih_idseq.icd_id);
+#else
+#error "Unsupported platform"
+#endif
+            pkt_info->dport = ICMP_ECHOREPLY;
         } else {
             pkt_info->sport = 0;
         }
@@ -316,13 +371,32 @@ int PktHandler::ParseMPLSoUDP(PktInfo *pkt_info, uint8_t *pkt) {
 uint8_t *PktHandler::ParseUserPkt(PktInfo *pkt_info, Interface *intf,
                                   PktType::Type &pkt_type, uint8_t *pkt) {
     // get to the actual packet header
+#if defined(__linux__)
     pkt_info->eth = (ethhdr *) pkt;
     pkt_info->ether_type = ntohs(pkt_info->eth->h_proto);
+#elif defined(__FreeBSD__)
+    pkt_info->eth = (ether_header *) pkt;
+    pkt_info->ether_type = ntohs(pkt_info->eth->ether_type);
+#else
+#error "Unsupported platform"
+#endif
 
     if (pkt_info->ether_type == VLAN_PROTOCOL) {
+#if defined(__linux__)
         pkt = ((uint8_t *)pkt_info->eth) + sizeof(ethhdr) + 4;
+#elif defined(__FreeBSD__)
+        pkt = ((uint8_t *)pkt_info->eth) + sizeof(ether_header) + 4;
+#else
+#error "Unsupported platform"
+#endif
     } else {
+#if defined(__linux__)
         pkt = ((uint8_t *)pkt_info->eth) + sizeof(ethhdr);
+#elif defined(__FreeBSD__)
+        pkt = ((uint8_t *)pkt_info->eth) + sizeof(ether_header);
+#else
+#error "Unsupported platform"
+#endif
     }
 
     // Parse payload
@@ -495,8 +569,15 @@ PktInfo::~PktInfo() {
 const AgentHdr &PktInfo::GetAgentHdr() const {return agent_hdr;};
 
 void PktInfo::UpdateHeaderPtr() {
+#if defined(__linux__)
     eth = (struct ethhdr *)(pkt + IPC_HDR_LEN);
     ip = (struct iphdr *)(eth + 1);
+#elif defined(__FreeBSD__)
+    eth = (struct ether_header *)(pkt + IPC_HDR_LEN);
+    ip = (struct ip *)(eth + 1);
+#else
+#error "Unsupported platform"
+#endif
     transp.tcp = (struct tcphdr *)(ip + 1);
 }
 

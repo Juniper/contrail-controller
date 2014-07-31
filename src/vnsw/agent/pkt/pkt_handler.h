@@ -6,6 +6,7 @@
 #define vnsw_agent_pkt_handler_hpp
 
 #include <net/if.h>
+#include <netinet/in.h>
 #include <netinet/if_ether.h>
 #include <netinet/ip.h>
 #include <netinet/tcp.h>
@@ -25,7 +26,13 @@
 
 #define IPv4_ALEN           4
 #define MIN_ETH_PKT_LEN    64
+#if defined(__linux__)
 #define IPC_HDR_LEN        (sizeof(ethhdr) + sizeof(struct agent_hdr))
+#elif defined(__FreeBSD__)
+#define IPC_HDR_LEN        (sizeof(struct ether_header) + sizeof(struct agent_hdr))
+#else
+#error "Unsupported platform"
+#endif
 #define IP_PROTOCOL        0x800  
 #define VLAN_PROTOCOL      0x8100       
 
@@ -118,9 +125,21 @@ struct PktInfo {
     TunnelInfo          tunnel;
 
     // Pointer to different headers in user packet
+#if defined(__linux__)
     struct ethhdr       *eth;
+#elif defined(__FreeBSD__)
+    struct ether_header *eth;
+#else
+#error "Unsupported platform"
+#endif
     struct ether_arp    *arp;
+#if defined(__linux__)
     struct iphdr        *ip;
+#elif defined(__FreeBSD__)
+    struct ip           *ip;
+#else
+#error "Unsupported platform"
+#endif
     union {
         struct tcphdr   *tcp;
         struct udphdr   *udp;

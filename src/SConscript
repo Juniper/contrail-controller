@@ -51,7 +51,7 @@ common = DefaultEnvironment().Clone()
 
 common.Append(LIBPATH = libpath)
 common.Prepend(LIBS = libs)
-common.Append(CCFLAGS = '-Wall -Werror -Wsign-compare')
+common.Append(CCFLAGS = '-Wall -Wsign-compare -Werror')
 if not sys.platform.startswith('darwin'):
     if platform.system().startswith('Linux'):
        if not platform.linux_distribution()[0].startswith('XenServer'):

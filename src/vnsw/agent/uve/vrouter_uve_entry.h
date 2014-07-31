@@ -5,6 +5,9 @@
 #ifndef vnsw_agent_vrouter_uve_entry_h
 #define vnsw_agent_vrouter_uve_entry_h
 
+#if defined(__FreeBSD__)
+#include <sys/types.h>
+#endif
 #include <string>
 #include <vector>
 #include <set>

@@ -3,6 +3,9 @@
  */
 
 #include <arpa/inet.h>
+#if defined(__FreeBSD__)
+#include <sys/types.h>
+#endif
 #include <netinet/in.h>
 #include <netinet/ip.h>
 #include <netinet/tcp.h>

@@ -43,7 +43,11 @@ public:
   /// Default constructor.
   basic_endpoint() {
       memset(&impl_, 0, sizeof(impl_));
+#if defined(__linux__)
       sa.nl_family = AF_NETLINK;
+#elif defined(__FreeBSD__)
+      sa.sa_family = AF_VENDOR00;
+#endif
   }
 
   data_type *data() {
@@ -55,7 +59,11 @@ public:
   }
 
   std::size_t size() const {
+#if defined(__linux__)
       return sizeof(struct sockaddr_nl);
+#else
+      return sizeof(sa);
+#endif
   }
 
   /// The protocol associated with the endpoint.
@@ -67,7 +75,11 @@ private:
   // The underlying NETLINK domain endpoint.
   union {
       data_type impl_;
+#if defined(__linux__)
       struct sockaddr_nl sa;
+#elif defined(__FreeBSD__)
+      struct sockaddr sa;
+#endif
   };
 };
 

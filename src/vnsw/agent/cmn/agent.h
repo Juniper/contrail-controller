@@ -5,9 +5,16 @@
 #ifndef vnsw_agent_hpp
 #define vnsw_agent_hpp
 
+#if defined(__linux__)
+#include <netinet/ether.h>
+#elif defined(__FreeBSD__)
+#include <net/ethernet.h>
+#else
+#error "Unsupported platform"
+#endif
+
 #include <vector>
 #include <stdint.h>
-#include <netinet/ether.h>
 #include <boost/intrusive_ptr.hpp>
 #include <cmn/agent_cmn.h>
 

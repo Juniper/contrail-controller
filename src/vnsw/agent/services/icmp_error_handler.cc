@@ -21,8 +21,16 @@ IcmpErrorHandler::~IcmpErrorHandler() {
 }
 
 bool IcmpErrorHandler::ValidatePacket() {
+#if defined(__linux__)
     if (pkt_info_->len < (IPC_HDR_LEN + sizeof(ethhdr) + sizeof(iphdr)))
         return false;
+#elif defined(__FreeBSD__)
+    if (pkt_info_->len < (IPC_HDR_LEN + sizeof(struct ether_header) +
+        sizeof(struct ip)))
+        return false;
+#else
+#error "Unsupported platform"
+#endif
     return true;
 }
 
@@ -45,7 +53,13 @@ bool IcmpErrorHandler::Run() {
 // Generate ICMP error
 bool IcmpErrorHandler::SendIcmpError(VmInterface *intf) {
     char data[ICMP_PAYLOAD_LEN];
+#if defined(__linux__)
     uint16_t data_len = ntohs(pkt_info_->ip->tot_len);
+#elif defined(__FreeBSD__)
+    uint16_t data_len = ntohs(pkt_info_->ip->ip_len);
+#else
+#error "Unsupported platform"
+#endif
     if (data_len > ICMP_PAYLOAD_LEN)
         data_len = ICMP_PAYLOAD_LEN;
     memcpy(data, pkt_info_->ip, data_len);
@@ -70,6 +84,7 @@ bool IcmpErrorHandler::SendIcmpError(VmInterface *intf) {
     // Form ICMP Packet with following
     // EthHdr - IP Header - ICMP Header - User IP Packet(max 128 bytes)
     char *ptr = (char *)pkt_info_->pkt;
+#if defined(__linux__)
     len += EthHdr(ptr + len, buf_len - len,
                   agent()->vhost_interface()->mac().ether_addr_octet,
                   pkt_info_->eth->h_source, IP_PROTOCOL, intf->vlan_id());
@@ -102,6 +117,44 @@ bool IcmpErrorHandler::SendIcmpError(VmInterface *intf) {
     memcpy(ptr + len, data, data_len);
     len += data_len;
     IcmpChecksum(icmp, sizeof(icmphdr) + data_len);
+#elif defined(__FreeBSD__)
+    len += EthHdr(ptr + len, buf_len - len,
+                  agent()->vhost_interface()->mac().octet,
+                  pkt_info_->eth->ether_shost, IP_PROTOCOL,
+                  intf->vlan_id());
+
+    uint16_t ip_len = sizeof(struct ip) + sizeof(struct icmp) + data_len;
+    len += IpHdr(ptr + len, buf_len - len, ip_len,
+                 ipam->default_gw.to_ulong(), htonl(key.src.ipv4),
+                 IPPROTO_ICMP);
+
+    char *icmp = ptr + len;
+    len += IcmpHdr(ptr + len, buf_len - len, ICMP_UNREACH,
+                   ICMP_UNREACH_NEEDFRAG, 0, pkt_info_->agent_hdr.mtu);
+
+    // Its possible that user payload has gone thru NAT processing already.
+    // Restore the original fields from flow_key
+    struct ip *ip = (struct ip *)data;
+    uint16_t ip_hlen = ip->ip_hl * 4;
+
+    ip->ip_src.s_addr = htonl(key.src.ipv4);
+    ip->ip_dst.s_addr = htonl(key.dst.ipv4);
+    ip->ip_sum = Csum((uint16_t *)data, ip_hlen, 0);
+    if (ip->ip_p == IPPROTO_UDP) {
+        udphdr *udp = (udphdr *)(data + ip_hlen);
+        udp->uh_sport = ntohs(key.src_port);
+        udp->uh_dport = ntohs(key.dst_port);
+    } else if (ip->ip_p == IPPROTO_TCP) {
+        tcphdr *tcp = (struct tcphdr *)(data + ip_hlen);
+        tcp->th_sport = ntohs(key.src_port);
+        tcp->th_dport = ntohs(key.dst_port);
+    }
+    memcpy(ptr + len, data, data_len);
+    len += data_len;
+    IcmpChecksum(icmp, sizeof(struct icmp) + data_len);
+#else
+#error "Unsupported platform"
+#endif
 
     Send(len, GetInterfaceIndex(), pkt_info_->vrf, AGENT_CMD_SWITCH,
          PktHandler::ICMP);

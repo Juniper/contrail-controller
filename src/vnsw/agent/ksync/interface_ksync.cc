@@ -6,7 +6,9 @@
 #include <string.h>
 
 #include <net/if.h>
+#if defined(__linux__)
 #include <linux/if_tun.h>
+#endif
 
 #include <boost/asio.hpp>
 #include <db/db_entry.h>
@@ -258,20 +260,38 @@ bool InterfaceKSyncEntry::Sync(DBEntry *e) {
 
     case Interface::PHYSICAL: 
     {
+#if defined(__linux__)
         memcpy(smac, intf->mac().ether_addr_octet, ETHER_ADDR_LEN);
+#elif defined(__FreeBSD__)
+        memcpy(smac, intf->mac().octet, ETHER_ADDR_LEN);
+#else
+#error "Unsupported platform"
+#endif
         PhysicalInterface *phy_intf = static_cast<PhysicalInterface *>(intf);
         persistent_ = phy_intf->persistent();
         break;
     }
     case Interface::INET:
+#if defined(__linux__)
         memcpy(smac, intf->mac().ether_addr_octet, ETHER_ADDR_LEN);
+#elif defined(__FreeBSD__)
+        memcpy(smac, intf->mac().octet, ETHER_ADDR_LEN);
+#else
+#error "Unsupported platform"
+#endif
         break;
     default:
         assert(0);
     }
 
     if (memcmp(smac, mac(), ETHER_ADDR_LEN)) {
+#if defined(__linux__)
         memcpy(mac_.ether_addr_octet, smac, ETHER_ADDR_LEN);
+#elif defined(__FreeBSD__)
+        memcpy(mac_.octet, smac, ETHER_ADDR_LEN);
+#else
+#error "Unsupported platform"
+#endif
         ret = true;
     }
 
