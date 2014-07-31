@@ -99,7 +99,7 @@ public:
     void GetUIInfo(IFMapServerInfoUI *server_info);
 
 private:
-    static const int kStaleCleanupTimeout = 5000; // milliseconds
+    static const int kStaleCleanupTimeout = 60000; // milliseconds
     friend class IFMapServerTest;
     friend class IFMapRestartTest;
     friend class ShowIFMapXmppClientInfo;
