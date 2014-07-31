@@ -16,6 +16,7 @@
 #include "bgp/bgp_peer_types.h"
 #include "bgp/bgp_server.h"
 #include "bgp/bgp_peer_close.h"
+#include "bgp/state_machine.h"
 #include "bgp/routing-instance/peer_manager.h"
 #include "bgp/routing-instance/routing_instance.h"
 #include "xmpp/xmpp_server.h"
@@ -113,6 +114,47 @@ public:
 
 private:
     tbb::mutex mutex_;
+};
+
+class StateMachineTest : public StateMachine {
+public:
+    explicit StateMachineTest(BgpPeer *peer)
+        : StateMachine(peer) {
+    }
+    virtual ~StateMachineTest() { }
+
+    void StartConnectTimer(int seconds) {
+        connect_timer_->Start(10,
+            boost::bind(&StateMachine::ConnectTimerExpired, this),
+            boost::bind(&StateMachine::TimerErrorHanlder, this, _1, _2));
+    }
+
+    void StartOpenTimer(int seconds) {
+        open_timer_->Start(10,
+            boost::bind(&StateMachine::OpenTimerExpired, this),
+            boost::bind(&StateMachine::TimerErrorHanlder, this, _1, _2));
+    }
+
+    void StartIdleHoldTimer() {
+        if (idle_hold_time_ <= 0)
+            return;
+        idle_hold_timer_->Start(10,
+            boost::bind(&StateMachine::IdleHoldTimerExpired, this),
+            boost::bind(&StateMachine::TimerErrorHanlder, this, _1, _2));
+    }
+
+    virtual int hold_time_msecs() const {
+        if (hold_time_msecs_)
+            return hold_time_msecs_;
+        return StateMachine::hold_time_msecs();
+    }
+
+    static void set_hold_time_msecs(int hold_time_msecs) {
+        hold_time_msecs_ = hold_time_msecs;
+    }
+
+private:
+    static int hold_time_msecs_;
 };
 
 class BgpServerTest : public BgpServer {

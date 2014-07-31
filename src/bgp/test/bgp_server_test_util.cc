@@ -32,6 +32,8 @@ using namespace boost::asio;
 using namespace boost;
 using namespace std;
 
+int StateMachineTest::hold_time_msecs_ = 0;
+
 //
 // This is a static data structure that maps client tcp end points to configured
 // bgp peers. Using this, we can form multiple bgp peering sessions between

@@ -22,6 +22,7 @@
 #include "bgp/bgp_session_manager.h"
 #include "bgp/bgp_xmpp_channel.h"
 #include "bgp/community.h"
+#include "bgp/bgp_factory.h"
 #include "bgp/inet/inet_table.h"
 #include "bgp/l3vpn/inetvpn_route.h"
 #include "bgp/l3vpn/inetvpn_table.h"
@@ -624,6 +625,8 @@ static void SetUp() {
     BgpServerTest::GlobalSetUp();
     XmppObjectFactory::Register<XmppStateMachine>(
         boost::factory<XmppStateMachineTest *>());
+    BgpObjectFactory::Register<StateMachine>(
+        boost::factory<StateMachineTest *>());
 }
 
 static void TearDown() {
