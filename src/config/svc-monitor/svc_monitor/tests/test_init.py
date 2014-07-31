@@ -19,6 +19,7 @@ class Arguments(object):
         self.log_file = '/var/log/contrail/svc_monitor.log'
         self.use_syslog = False
         self.syslog_facility = Sandesh._DEFAULT_SYSLOG_FACILITY
+        self.cluster_id = None
 
 class SvcMonitorInitTest(unittest.TestCase):
     def setUp(self):
