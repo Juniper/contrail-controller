@@ -3228,12 +3228,8 @@ class DBInterface(object):
 
         if port_ids:
             fip_objs = self._floatingip_list(back_ref_id=port_ids)
-            for fip_obj in fip_objs:
-                ret_list.append(self._floatingip_vnc_to_neutron(fip_obj))
         elif proj_ids:
             fip_objs = self._floatingip_list(back_ref_id=proj_ids)
-            for fip_obj in fip_objs:
-                ret_list.append(self._floatingip_vnc_to_neutron(fip_obj))
         else:
             fip_objs = self._floatingip_list()
 
