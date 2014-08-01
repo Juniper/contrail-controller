@@ -171,6 +171,9 @@ def _access_control_list_update(acl_obj, name, obj, entries):
             _sandesh._logger.debug(
                 "HTTP error while updating acl %s for %s: %d, %s",
                 name, obj.get_fq_name_str(), he.status_code, he.content)
+        except NoIdError:
+            _sandesh._logger.debug("NoIdError while updating acl %s for %s",
+                                   name, obj.get_fq_name_str())
     return acl_obj
 # end _access_control_list_update
 
@@ -2902,7 +2905,12 @@ class SchemaTransformer(object):
         if not si_props.auto_policy:
             self.delete_service_instance_properties(idents, meta)
             return
-        si = _vnc_lib.service_instance_read(fq_name_str=si_name)
+        try:
+            si = _vnc_lib.service_instance_read(fq_name_str=si_name)
+        except NoIdError:
+            _sandesh._logger.debug("NoIdError while reading service "
+                                   "instance %s", si_name)
+            return
         si_props = si.get_service_instance_properties()
         left_vn_str = svc_info.get_left_vn(si.get_parent_fq_name_str(),
                                            si_props.left_virtual_network)
