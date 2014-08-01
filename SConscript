@@ -24,7 +24,7 @@ env.Alias('controller/test', [
 ])
 
 env.Alias('controller/flaky-test', [
-    'controller/src/agent:test',
+#   'controller/src/agent:flaky-test',
     'controller/src/analytics:flaky-test',
     'controller/src/base:flaky-test',
     'controller/src/bfd:flaky-test',
