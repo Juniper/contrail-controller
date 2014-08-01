@@ -1274,6 +1274,93 @@ TEST_F(RouteTest, PathPreference) {
     client->WaitForIdle();
 }
 
+TEST_F(RouteTest, Enqueue_uc_route_add_on_deleted_vrf) {
+    struct PortInfo input[] = {
+        {"vnet1", 1, "1.1.1.10", "00:00:00:01:01:01", 1, 1},
+    };
+
+    client->Reset();
+    CreateVmportEnv(input, 1);
+    client->WaitForIdle();
+
+    VrfEntryRef vrf_ref = VrfGet(vrf_name_.c_str());
+    DeleteVmportEnv(input, 1, true);
+    client->WaitForIdle();
+    TaskScheduler::GetInstance()->Stop();
+    Inet4TunnelRouteAdd(NULL, vrf_name_, remote_vm_ip_, 32, server1_ip_,
+                        TunnelType::AllType(), MplsTable::kStartLabel,
+                        vrf_name_,
+                        SecurityGroupList(), PathPreference());
+    vrf_ref = NULL;
+    TaskScheduler::GetInstance()->Start();
+    client->WaitForIdle();
+}
+
+TEST_F(RouteTest, Enqueue_uc_route_del_on_deleted_vrf) {
+    struct PortInfo input[] = {
+        {"vnet1", 1, "1.1.1.10", "00:00:00:01:01:01", 1, 1},
+    };
+
+    client->Reset();
+    CreateVmportEnv(input, 1);
+    client->WaitForIdle();
+
+    VrfEntryRef vrf_ref = VrfGet(vrf_name_.c_str());
+    DeleteVmportEnv(input, 1, true);
+    client->WaitForIdle();
+    TaskScheduler::GetInstance()->Stop();
+    Inet4UnicastAgentRouteTable::DeleteReq(NULL, vrf_name_, remote_vm_ip_, 32,
+                                           NULL);
+    vrf_ref = NULL;
+    TaskScheduler::GetInstance()->Start();
+    client->WaitForIdle();
+}
+
+TEST_F(RouteTest, Enqueue_mc_route_add_on_deleted_vrf) {
+    struct PortInfo input[] = {
+        {"vnet1", 1, "1.1.1.10", "00:00:00:01:01:01", 1, 1},
+    };
+
+    client->Reset();
+    CreateVmportEnv(input, 1);
+    client->WaitForIdle();
+
+    VrfEntryRef vrf_ref = VrfGet(vrf_name_.c_str());
+    DeleteVmportEnv(input, 1, true);
+    client->WaitForIdle();
+    TaskScheduler::GetInstance()->Stop();
+    ComponentNHKeyList component_nh_key_list;
+    Inet4MulticastAgentRouteTable::AddMulticastRoute(vrf_name_, "vn1",
+                                   Ip4Address::from_string("0.0.0.0"),
+                                   Ip4Address::from_string("255.255.255.255"),
+                                   component_nh_key_list);
+
+    vrf_ref = NULL;
+    TaskScheduler::GetInstance()->Start();
+    client->WaitForIdle();
+}
+
+TEST_F(RouteTest, Enqueue_mc_route_del_on_deleted_vrf) {
+    struct PortInfo input[] = {
+        {"vnet1", 1, "1.1.1.10", "00:00:00:01:01:01", 1, 1},
+    };
+
+    client->Reset();
+    CreateVmportEnv(input, 1);
+    client->WaitForIdle();
+
+    VrfEntryRef vrf_ref = VrfGet(vrf_name_.c_str());
+    DeleteVmportEnv(input, 1, true);
+    client->WaitForIdle();
+    TaskScheduler::GetInstance()->Stop();
+    Inet4MulticastAgentRouteTable::DeleteMulticastRoute(vrf_name_,
+                                   Ip4Address::from_string("0.0.0.0"),
+                                   Ip4Address::from_string("255.255.255.255"));
+    vrf_ref = NULL;
+    TaskScheduler::GetInstance()->Start();
+    client->WaitForIdle();
+}
+
 int main(int argc, char *argv[]) {
     ::testing::InitGoogleTest(&argc, argv);
     GETUSERARGS();
