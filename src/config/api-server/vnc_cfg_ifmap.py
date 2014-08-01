@@ -16,6 +16,7 @@ import time
 from pprint import pformat
 
 from lxml import etree, objectify
+import cgitb
 import StringIO
 import re
 
@@ -1060,8 +1061,6 @@ class VncKombuClient(object):
         if self._rabbit_vhost == "__NONE__":
             return
         self._db_client_mgr.wait_for_resync_done()
-        obj_upd_exchange = kombu.Exchange('object-update-xchg', 'fanout',
-                                          durable=False)
 
         with self._conn.SimpleQueue(self._update_queue_obj) as queue:
             while True:
@@ -1084,7 +1083,10 @@ class VncKombuClient(object):
                     elif oper_info['oper'] == 'DELETE':
                         self._dbe_delete_notification(oper_info)
                 except Exception as e:
-                    print "Exception in _dbe_oper_subscribe: " + str(e)
+                    string_buf = cStringIO.StringIO()
+                    cgitb.Hook(file=string_buf, format="text").handle(sys.exc_info())
+                    logger.error("Exception in _dbe_oper_subscribe :\n%s" %(string_buf.getvalue()))
+                    self._db_client_mgr.config_log_error(string_buf.getvalue())
                 finally:
                     try:
                         message.ack()
@@ -1104,15 +1106,19 @@ class VncKombuClient(object):
     def _dbe_create_notification(self, obj_info):
         obj_dict = obj_info['obj_dict']
 
-        r_class = self._db_client_mgr.get_resource_class(obj_info['type'])
-        if r_class:
-            r_class.dbe_create_notification(obj_info, obj_dict)
-
-        method_name = obj_info['type'].replace('-', '_')
-        method = getattr(self._ifmap_db, "_ifmap_%s_create" % (method_name))
-        (ok, result) = method(obj_info, obj_dict)
-        if not ok:
-            raise Exception(result)
+        try:
+            r_class = self._db_client_mgr.get_resource_class(obj_info['type'])
+            if r_class:
+                r_class.dbe_create_notification(obj_info, obj_dict)
+        except:
+            self._db_client_mgr.config_log_error("Failed to invoke type specific dbe_create_notification")
+            raise
+        finally:
+            method_name = obj_info['type'].replace('-', '_')
+            method = getattr(self._ifmap_db, "_ifmap_%s_create" % (method_name))
+            (ok, result) = method(obj_info, obj_dict)
+            if not ok:
+                raise Exception(result)
     #end _dbe_create_notification
 
     def dbe_update_publish(self, obj_type, obj_ids):
@@ -1122,23 +1128,27 @@ class VncKombuClient(object):
     # end dbe_update_publish
 
     def _dbe_update_notification(self, obj_info):
-        r_class = self._db_client_mgr.get_resource_class(obj_info['type'])
-        if r_class:
-            r_class.dbe_update_notification(obj_info)
-
-        ifmap_id = self._db_client_mgr.uuid_to_ifmap_id(obj_info['type'],
-                                                        obj_info['uuid'])
-
         (ok, result) = self._db_client_mgr.dbe_read(obj_info['type'], obj_info)
         if not ok:
             raise Exception(result)
+
         new_obj_dict = result
 
-        method_name = obj_info['type'].replace('-', '_')
-        method = getattr(self._ifmap_db, "_ifmap_%s_update" % (method_name))
-        (ok, ifmap_result) = method(ifmap_id, new_obj_dict)
-        if not ok:
-            raise Exception(ifmap_result)
+        try:
+            r_class = self._db_client_mgr.get_resource_class(obj_info['type'])
+            if r_class:
+                r_class.dbe_update_notification(obj_info)
+        except:
+            self._db_client_mgr.config_log_error("Failed to invoke type specific dbe_update_notification")
+            raise
+        finally:
+            ifmap_id = self._db_client_mgr.uuid_to_ifmap_id(obj_info['type'],
+                                                            obj_info['uuid'])
+            method_name = obj_info['type'].replace('-', '_')
+            method = getattr(self._ifmap_db, "_ifmap_%s_update" % (method_name))
+            (ok, ifmap_result) = method(ifmap_id, new_obj_dict)
+            if not ok:
+                raise Exception(ifmap_result)
     #end _dbe_update_notification
 
     def dbe_delete_publish(self, obj_type, obj_ids, obj_dict):
@@ -1153,15 +1163,19 @@ class VncKombuClient(object):
         db_client_mgr = self._db_client_mgr
         db_client_mgr._cassandra_db.cache_uuid_to_fq_name_del(obj_dict['uuid'])
 
-        r_class = self._db_client_mgr.get_resource_class(obj_info['type'])
-        if r_class:
-            r_class.dbe_delete_notification(obj_info, obj_dict)
-
-        method_name = obj_info['type'].replace('-', '_')
-        method = getattr(self._ifmap_db, "_ifmap_%s_delete" % (method_name))
-        (ok, ifmap_result) = method(obj_info)
-        if not ok:
-            raise Exception(ifmap_result)
+        try:
+            r_class = self._db_client_mgr.get_resource_class(obj_info['type'])
+            if r_class:
+                r_class.dbe_delete_notification(obj_info, obj_dict)
+        except:
+            db_client_mgr.config_log_error("Failed to invoke type specific dbe_delete_notification")
+            raise
+        finally:
+            method_name = obj_info['type'].replace('-', '_')
+            method = getattr(self._ifmap_db, "_ifmap_%s_delete" % (method_name))
+            (ok, ifmap_result) = method(obj_info)
+            if not ok:
+                raise Exception(ifmap_result)
     #end _dbe_delete_notification
 
 # end class VncKombuClient
