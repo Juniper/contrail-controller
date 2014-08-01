@@ -284,17 +284,20 @@ class SvcMonitor(object):
                     continue
 
                 #collect all ecmp instances
-                sandesh_si = sandesh.ServiceInstance(name=si['si_fq_str'])
-                vm_set = set()
+                sandesh_si = sandesh.ServiceInstance(
+                    name=si['si_fq_str'], si_type=si['instance_type'])
+                vm_list = []
                 for key, val in vm_list:
                     if val['si_fq_str'] != si['si_fq_str']:
                         continue
                     vm_str = ("%s: %s" % (val['instance_name'], key))
-                    vm_set.add(vm_str)
+                    vm = sandesh.ServiceInstanceVM(
+                        name=vm_str, vr_name=val.get('vrouter_name', ''))
+                    vm_list.append(vm)
                     val['done'] = True
-                sandesh_si.vm_list = list(vm_set)
+                sandesh_si.vm_list = list(vm_list)
 
-                #find the vn and iip iformation
+                #find the vn and iip information
                 for si_fq_str, si_info in si_list:
                     if si_fq_str != si['si_fq_str']:
                         continue
@@ -306,8 +309,9 @@ class SvcMonitor(object):
             for si_fq_str, si_info in si_list:
                 if 'done' in si_info.keys():
                     continue
-                sandesh_si = sandesh.ServiceInstance(name=si_fq_str)
-                sandesh_si.vm_list = set()
+                sandesh_si = sandesh.ServiceInstance(
+                    name=si_fq_str, si_type=si_info['instance_type'])
+                sandesh_si.vm_list = []
                 sandesh_si.instance_name = ''
                 self._sandesh_populate_vn_info(si_info, sandesh_si)
                 si_resp.si_names.append(sandesh_si)
@@ -766,6 +770,7 @@ class SvcMonitor(object):
                              si_obj.get_fq_name_str())
 
         #insert entry
+        si_entry['instance_type'] = self._get_virtualization_type(st_props)
         self._svc_si_cf.insert(si_obj.get_fq_name_str(), si_entry)
         return config_complete
     #end _check_store_si_info
