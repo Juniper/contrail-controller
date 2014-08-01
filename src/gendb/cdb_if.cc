@@ -587,7 +587,7 @@ public:
         }
         TaskScheduler *scheduler = TaskScheduler::GetInstance();
         cdbif_->cdbq_.reset(new CdbIfQueue(
-            scheduler->GetTaskId(task_id_), task_instance_,
+            scheduler->GetTaskId(task_id_), cdbif_->task_instance_,
             boost::bind(&CdbIf::Db_AsyncAddColumn, cdbif_, _1)));
         cdbif_->cdbq_->SetStartRunnerFunc(
             boost::bind(&CdbIf::Db_IsInitDone, cdbif_));
@@ -624,6 +624,7 @@ CdbIf::CdbIf(DbErrorHandler errhandler,
     cassandra_ttl_(ttl),
     only_sync_(only_sync),
     task_instance_(-1),
+    prev_task_instance_(-1),
     task_instance_initialized_(false) {
     db_init_done_ = false;
 }
@@ -634,6 +635,7 @@ CdbIf::CdbIf() :
     cassandra_ttl_(-1), 
     only_sync_(false), 
     task_instance_(-1),
+    prev_task_instance_(-1),
     task_instance_initialized_(false) {
     db_init_done_ = false;
 }
@@ -682,11 +684,19 @@ bool CdbIf::Db_Init(std::string task_id, int task_instance) {
         // Start init task with previous task instance to ensure
         // task exclusion with dequeue and exit callback task
         // when calling shutdown
-        init_task_ = new InitTask(task_id, task_instance_, this);
+        prev_task_instance_ = task_instance_;
+        task_instance_ = task_instance;
+        init_task_ = new InitTask(task_id, prev_task_instance_, this);
         TaskScheduler *scheduler = TaskScheduler::GetInstance();
         scheduler->Enqueue(init_task_);
+        CDBIF_LOG(INFO, "Initialization Task Created: " <<
+            prev_task_instance_ << " -> " << task_instance_);
+    } else {
+        prev_task_instance_ = task_instance_;
+        task_instance_ = task_instance;
+        CDBIF_LOG(INFO, "Initialization Task Present: " <<
+            prev_task_instance_ << " -> " << task_instance_);
     }
-    task_instance_ = task_instance;
     return true;
 }
 
