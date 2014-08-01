@@ -122,34 +122,13 @@ public:
     // may be called from any thread.
     virtual void Delete();
 
-    virtual void RetryDelete();
-
-    // called to check dependencies.
-    virtual bool MayDelete() const = 0;
-
-    // called under the manager thread in order to remove the object state.
-    // may be called multiple times.
-    virtual void Shutdown();
-
-    // called immediately before the object is destroyed.
-    virtual void DeleteComplete();
-
-    // must be called under a specific thread.
-    virtual void Destroy() = 0;
+    void RetryDelete();
 
     // Prevent/Resume deletion of object - for testing only.
     void PauseDelete();
     void ResumeDelete();
 
     bool IsDeleted() const { return deleted_; }
-
-    // Decrement the reference count and test whether the object can be
-    // destroyed
-    void ReferenceIncrement();
-    bool ReferenceDecrementAndTest();
-
-    bool shutdown_invoked() { return shutdown_invoked_; }
-    void set_shutdown_invoked() { shutdown_invoked_ = true; }
 
     const uint64_t create_time_stamp_usecs() const {
         return create_time_stamp_usecs_;
@@ -161,11 +140,31 @@ public:
 private:
     typedef DependencyList<LifetimeRefBase, LifetimeActor> Dependents;
     friend class DependencyRef<LifetimeRefBase, LifetimeActor>;
+    friend class LifetimeManager;
 
+    // Called to check dependencies.
+    virtual bool MayDelete() const = 0;
+
+    // Called under the manager thread in order to remove the object state.
+    virtual void Shutdown();
+
+    // Called immediately before the object is destroyed.
+    virtual void DeleteComplete();
+
+    // Must be called under a specific Task.
+    virtual void Destroy() = 0;
+
+    void PropagateDelete();
     void DependencyAdd(DependencyRef<LifetimeRefBase, LifetimeActor> *node);
     void DependencyRemove(DependencyRef<LifetimeRefBase, LifetimeActor> *node);
-    tbb::mutex mutex_;
 
+    void ReferenceIncrement();
+    bool ReferenceDecrementAndTest();
+
+    bool shutdown_invoked() { return shutdown_invoked_; }
+    void set_shutdown_invoked() { shutdown_invoked_ = true; }
+
+    tbb::mutex mutex_;
     LifetimeManager *manager_;
     tbb::atomic<bool> deleted_;
     int refcount_;
@@ -174,6 +173,7 @@ private:
     uint64_t create_time_stamp_usecs_;
     uint64_t delete_time_stamp_usecs_;
     Dependents dependents_;
+
     DISALLOW_COPY_AND_ASSIGN(LifetimeActor);
 };
 
@@ -185,9 +185,18 @@ private:
 //
 class LifetimeManager {
 public:
-    typedef boost::function<bool ()> TaskEntryCallback;
-    LifetimeManager(int task_id, TaskEntryCallback on_entry_cb = 0);
+    LifetimeManager(int task_id);
     ~LifetimeManager();
+
+    // Return the number of times work queue task executions were deferred.
+    size_t GetQueueDeferCount() { return defer_count_; }
+
+private:
+    friend class LifetimeActor;
+
+    struct LifetimeActorRef {
+        LifetimeActor *actor;
+    };
 
     // Enqueue Delete event.
     void Enqueue(LifetimeActor *actor);
@@ -196,18 +205,15 @@ public:
     // incremented the reference count.
     void EnqueueNoIncrement(LifetimeActor *actor);
 
-
-    // Return the number of times work queue task executions were deferred.
-    size_t GetQueueDeferCount() { return queue_.on_entry_defer_count(); }
-
-private:
-    struct LifetimeActorRef {
-        LifetimeActor *actor;
-    };
+    // Check if global (not per-actor) conditions for destruction are
+    // satisfied.  Should be over-ridden by derived class if required.
+    virtual bool MayDestroy() { return true; }
 
     bool DeleteExecutor(LifetimeActorRef actor_ref);
 
+    int defer_count_;
     WorkQueue<LifetimeActorRef> queue_;
+
     DISALLOW_COPY_AND_ASSIGN(LifetimeManager);
 };
 

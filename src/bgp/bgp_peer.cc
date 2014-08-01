@@ -96,8 +96,7 @@ class BgpPeer::PeerClose : public IPeerClose {
         //
         assert(!from_timer);
 
-        BgpServer *server = peer_->server_;
-        server->lifetime_manager()->Enqueue(peer_->deleter());
+        peer_->deleter()->RetryDelete();
         is_closed_ = true;
         return true;
     }

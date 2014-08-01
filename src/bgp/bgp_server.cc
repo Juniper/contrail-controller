@@ -7,11 +7,11 @@
 #include <boost/assign.hpp>
 
 #include "base/logging.h"
-#include "base/lifetime.h"
 #include "base/task_annotations.h"
 #include "bgp/bgp_config.h"
 #include "bgp/bgp_condition_listener.h"
 #include "bgp/bgp_factory.h"
+#include "bgp/bgp_lifetime.h"
 #include "bgp/bgp_log.h"
 #include "bgp/bgp_peer.h"
 #include "bgp/bgp_peer_membership.h"
@@ -211,9 +211,8 @@ bool BgpServer::IsReadyForDeletion() {
 
 BgpServer::BgpServer(EventManager *evm)
     : autonomous_system_(0), bgp_identifier_(0), hold_time_(0),
-      lifetime_manager_(new LifetimeManager(
-          TaskScheduler::GetInstance()->GetTaskId("bgp::Config"),
-          boost::bind(&BgpServer::IsReadyForDeletion, this))),
+      lifetime_manager_(new BgpLifetimeManager(this,
+          TaskScheduler::GetInstance()->GetTaskId("bgp::Config"))),
       deleter_(new DeleteActor(this)),
       aspath_db_(new AsPathDB(this)),
       comm_db_(new CommunityDB(this)),
