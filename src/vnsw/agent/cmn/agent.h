@@ -671,7 +671,7 @@ private:
     PktModule *pkt_;
     ServicesModule *services_;
     VirtualGateway *vgw_;
-    OperDB *oper_db_;
+    std::auto_ptr<OperDB> oper_db_;
     DiagTable *diag_table_;
     VNController *controller_;
 

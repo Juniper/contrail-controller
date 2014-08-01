@@ -461,13 +461,13 @@ void Agent::set_vgw(VirtualGateway *vgw) {
 }
 
 OperDB *Agent::oper_db() const {
-    return oper_db_;
+    return oper_db_.get();
 }
 
 void Agent::set_oper_db(OperDB *oper_db) {
-    oper_db_ = oper_db;
+    oper_db_.reset(oper_db);
 }
 
 DomainConfig *Agent::domain_config_table() const {
-    return oper_db_->domain_config_table();
+    return oper_db_.get()->domain_config_table();
 }
