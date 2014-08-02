@@ -271,6 +271,7 @@ private:
     int cassandra_ttl_;
     bool only_sync_;
     int task_instance_;
+    int prev_task_instance_;
     bool task_instance_initialized_;
     typedef std::vector<org::apache::cassandra::Mutation> MutationList;
     typedef std::map<std::string, MutationList> CFMutationMap;
