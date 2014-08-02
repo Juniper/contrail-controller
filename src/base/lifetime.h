@@ -186,7 +186,7 @@ private:
 class LifetimeManager {
 public:
     LifetimeManager(int task_id);
-    ~LifetimeManager();
+    virtual ~LifetimeManager();
 
     // Return the number of times work queue task executions were deferred.
     size_t GetQueueDeferCount() { return defer_count_; }

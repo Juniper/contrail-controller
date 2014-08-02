@@ -204,6 +204,7 @@ void NamespaceManager::Terminate() {
 
         delete task_queue;
     }
+    work_queue_.Shutdown();
 }
 
 void NamespaceManager::Enqueue(NamespaceTask *task,

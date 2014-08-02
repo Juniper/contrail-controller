@@ -1045,6 +1045,22 @@ void AclAddReq(int id, int ace_id, bool drop) {
     usleep(1000);
 }
 
+void DeleteRoute(const char *vrf, const char *ip) {
+    Ip4Address addr = Ip4Address::from_string(ip);
+    Agent::GetInstance()->fabric_inet4_unicast_table()->DeleteReq(NULL,
+                                            vrf, addr, 32, NULL);
+    client->WaitForIdle();
+    WAIT_FOR(1000, 1, (RouteFind(vrf, addr, 32) == false));
+}
+
+void DeleteRoute(const char *vrf, const char *ip, uint8_t plen) {
+    Ip4Address addr = Ip4Address::from_string(ip);
+    Agent::GetInstance()->fabric_inet4_unicast_table()->DeleteReq(NULL,
+                                            vrf, addr, plen, NULL);
+    client->WaitForIdle();
+    WAIT_FOR(1000, 1, (RouteFind(vrf, addr, 32) == false));
+}
+
 bool RouteFind(const string &vrf_name, const Ip4Address &addr, int plen) {
     VrfEntry *vrf = Agent::GetInstance()->vrf_table()->FindVrfFromName(vrf_name);
     if (vrf == NULL)
@@ -1940,8 +1956,9 @@ void DeleteVmportEnv(struct PortInfo *input, int count, int del_vn, int acl_id,
                 }
             }
 
+            // Ignore duplicate deletes
             if (j < i) {
-                break;
+                continue;
             }
             if (vn)
                 sprintf(vn_name, "%s", vn);
