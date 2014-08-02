@@ -378,17 +378,14 @@ class SvcMonitor(object):
     # end _get_virtualization_type
 
     def _check_svc_vm_exists(self, si_obj):
-        proj_fq_name = si_obj.get_fq_name()[:-1]
+        vm_back_refs = si_obj.get_virtual_machine_back_refs()
+        if not vm_back_refs:
+            return False
         si_props = si_obj.get_service_instance_properties()
         max_instances = si_props.get_scale_out().get_max_instances()
-        for inst_count in range(0, max_instances):
-            instance_name = si_obj.name + '_' + str(inst_count + 1)
-            vm_fq_name = proj_fq_name + [instance_name]
-            try:
-                vm_obj = self._vnc_lib.virtual_machine_read(fq_name=vm_fq_name)
-            except NoIdError:
-                return False
-        return True
+        if max_instances == len(vm_back_refs):
+            return True
+        return False
     #end _check_svc_vm_exists
 
     def _create_svc_instance(self, st_obj, si_obj):
@@ -490,9 +487,15 @@ class SvcMonitor(object):
         for inst_count in range(0, max_instances):
             # Create a virtual machine
             instance_name = si_obj.name + '_' + str(inst_count + 1)
-            vm_fq_name = proj_fq_name + [instance_name]
-            vm_obj = self._create_virtual_machine(vm_fq_name)
-            self._svc_syslog("Info: VM %s created" % (instance_name))
+            vm_name = "__".join(proj_fq_name + [instance_name])
+            try:
+                vm_obj = self._vnc_lib.virtual_machine_read(fq_name=[vm_name])
+                self._svc_syslog("Info: VM %s already exists" % (vm_name))
+            except NoIdError:
+                vm_obj = VirtualMachine(vm_name)
+                self._vnc_lib.virtual_machine_create(vm_obj)
+                self._svc_syslog("Info: VM %s created" % (vm_name))
+
             vm_obj.set_service_instance(si_obj)
             self._vnc_lib.virtual_machine_update(vm_obj)
             self._svc_syslog("Info: VM %s updated with SI %s" %
@@ -530,15 +533,6 @@ class SvcMonitor(object):
             self._uve_svc_instance(si_obj.get_fq_name_str(),
                                    status='CREATE', vm_uuid=vm_obj.uuid,
                                    st_name=st_obj.get_fq_name_str())
-
-    def _create_virtual_machine(self, vm_fq_name):
-        try:
-            vm_obj = self._vnc_lib.virtual_machine_read(fq_name=vm_fq_name)
-        except NoIdError:
-            vm_obj = VirtualMachine(':'.join(vm_fq_name), fq_name=vm_fq_name)
-            self._vnc_lib.virtual_machine_create(vm_obj)
-            vm_obj = self._vnc_lib.virtual_machine_read(fq_name=vm_fq_name)
-        return vm_obj
 
     def _create_svc_instance_vm(self, st_obj, si_obj):
         #check if all config received before launch
@@ -605,19 +599,19 @@ class SvcMonitor(object):
             nics.append(nic)
 
         # create and launch vm
-        vm_refs = si_obj.get_virtual_machine_back_refs()
+        vm_back_refs = si_obj.get_virtual_machine_back_refs()
         for inst_count in range(0, max_instances):
             instance_name = si_obj.name + '_' + str(inst_count + 1)
             exists = False
-            for vm_ref in vm_refs or []:
+            for vm_back_ref in vm_back_refs or []:
                 vm = self._novaclient_oper('servers', 'find', proj_obj.name,
-                                           id=vm_ref['uuid'])
+                                           id=vm_back_ref['uuid'])
                 if vm.name == instance_name:
                     exists = True
                     break
 
             if exists:
-                vm_uuid = vm_ref['uuid']
+                vm_uuid = vm_back_ref['uuid']
             else:
                 vm = self._create_svc_vm(instance_name, image_name, nics,
                                          flavor, st_obj, si_obj, proj_obj,
