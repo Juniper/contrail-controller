@@ -192,6 +192,7 @@ void OperDB::Shutdown() {
     agent_->service_instance_table()->Clear();
 #endif
     domain_config_.reset(NULL);
+    route_preference_module_->Shutdown();
 }
 
 void OperDB::DeleteRoutes() {

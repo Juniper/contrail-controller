@@ -32,7 +32,7 @@ test_pkt_parse = AgentEnv.MakeTestCmdSrc(env, 'test_pkt_parse',
                                          [
                                           'test_pkt_parse.cc'
                                          ],
-                                         pkt_flaky_test_suite)
+                                         pkt_test_suite)
 
 test_flowtable = AgentEnv.MakeTestCmdSrc(env, 'test_flowtable',
                                          [
@@ -42,7 +42,7 @@ test_flowtable = AgentEnv.MakeTestCmdSrc(env, 'test_flowtable',
 
 test_pkt_fip = AgentEnv.MakeTestCmdSrc(env, 'test_pkt_fip',
                                        ['test_pkt_fip.cc'],
-                                       pkt_flaky_test_suite)
+                                       pkt_test_suite)
 
 test_ecmp = AgentEnv.MakeTestCmdSrc(env, 'test_ecmp',
                                     ['test_ecmp.cc'],
