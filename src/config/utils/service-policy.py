@@ -70,7 +70,7 @@ class ServicePolicyCmd(object):
             print "Error: Unable to read the config file %s" % args.conf_file
             sys.exit(-1)
 
-        global_defaults.update(dict(config.items("DEFAULTS")))
+        global_defaults.update(dict(config.items("DEFAULT")))
 
         # Override with CLI options
         # Don't surpress add_help here so it will handle -h

@@ -83,7 +83,7 @@ class VrouterProvisioner(object):
         if args.conf_file:
             config = ConfigParser.SafeConfigParser()
             config.read([args.conf_file])
-            defaults.update(dict(config.items("DEFAULTS")))
+            defaults.update(dict(config.items("DEFAULT")))
             if 'KEYSTONE' in config.sections():
                 ksopts.update(dict(config.items("KEYSTONE")))
 

@@ -78,7 +78,7 @@ class ControlProvisioner(object):
         if args.conf_file:
             config = ConfigParser.SafeConfigParser()
             config.read([args.conf_file])
-            defaults.update(dict(config.items("DEFAULTS")))
+            defaults.update(dict(config.items("DEFAULT")))
 
         # Override with CLI options
         # Don't surpress add_help here so it will handle -h

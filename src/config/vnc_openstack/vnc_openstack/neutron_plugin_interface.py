@@ -53,7 +53,7 @@ class NeutronPluginInterface(object):
         self._contrail_extensions_enabled = exts_enabled
 
         try:
-            self._multi_tenancy = conf_sections.get('DEFAULTS', 'multi_tenancy')
+            self._multi_tenancy = conf_sections.get('DEFAULT', 'multi_tenancy')
         except ConfigParser.NoOptionError:
             self._multi_tenancy = False
         self._vnc_lib = None

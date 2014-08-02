@@ -693,10 +693,10 @@ class VncApiServer(VncApiServerGen):
         if args.conf_file:
             config = ConfigParser.SafeConfigParser({'admin_token': None})
             config.read([args.conf_file])
-            defaults.update(dict(config.items("DEFAULTS")))
-            if 'multi_tenancy' in config.options('DEFAULTS'):
+            defaults.update(dict(config.items("DEFAULT")))
+            if 'multi_tenancy' in config.options('DEFAULT'):
                 defaults['multi_tenancy'] = config.getboolean(
-                    'DEFAULTS', 'multi_tenancy')
+                    'DEFAULT', 'multi_tenancy')
             if 'SECURITY' in config.sections() and\
                     'use_certs' in config.options('SECURITY'):
                 if config.getboolean('SECURITY', 'use_certs'):
