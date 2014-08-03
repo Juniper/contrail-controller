@@ -32,6 +32,7 @@ public:
 
     IoContext *AllocateIoContext(char* buf, uint32_t buf_len,
                                  StatsType type, uint32_t seq);
+    void Test_DeleteVrfStatsEntry(int vrf_id);
     int interface_stats_responses_;
     int vrf_stats_responses_;
     int drop_stats_responses_;

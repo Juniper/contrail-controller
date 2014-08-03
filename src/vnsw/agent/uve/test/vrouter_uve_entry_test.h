@@ -11,6 +11,8 @@ class VrouterUveEntryTest : public VrouterUveEntry {
 public:
     VrouterUveEntryTest(Agent *agent);
     virtual ~VrouterUveEntryTest();
+    void ResetCpuStatsCount();
+    void ResetPortBitmap();
     bool first_uve_dispatched() const {
         return first_uve_dispatched_;
     }
