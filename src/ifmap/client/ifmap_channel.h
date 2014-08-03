@@ -173,8 +173,8 @@ public:
                                      const std::string &port);
 
 private:
-    // 75 seconds i.e. 60 + (3*5)s
-    static const int kSessionKeepaliveIdleTime = 60; // in seconds
+    // 45 seconds i.e. 30 + (3*5)s
+    static const int kSessionKeepaliveIdleTime = 30; // in seconds
     static const int kSessionKeepaliveInterval = 3; // in seconds
     static const int kSessionKeepaliveProbes = 5; // count
 
