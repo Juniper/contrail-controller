@@ -2357,6 +2357,7 @@ class VirtualMachineInterfaceST(DictST):
         if smode not in ['in-network', 'in-network-nat']:
             return
 
+        policy_rule_count = 0
         si_name = si_obj.get_fq_name_str()
         for policy_name in vn.policies:
             policy = NetworkPolicyST.get(policy_name)
@@ -2384,7 +2385,7 @@ class VirtualMachineInterfaceST(DictST):
                                                           prule.src_ports,
                                                           prule.dst_ports,
                                                           proto)
-                        if service_chain is None:
+                        if service_chain is None or not service_chain.created:
                             continue
                         ri_name = vn.obj.get_fq_name_str() + ':' + \
                             vn.get_service_name(service_chain.name, si_name)
@@ -2399,13 +2400,17 @@ class VirtualMachineInterfaceST(DictST):
                                     routing_instance=ri_name,
                                     ignore_acl=True)
                                 vrf_table.add_vrf_assign_rule(vrf_rule)
+                                policy_rule_count += 1
             # end for prule
-            vmi_obj = _vnc_lib.virtual_machine_interface_read(
-                fq_name_str=self.name)
-            if (jsonpickle.encode(vrf_table) !=
-                jsonpickle.encode(vmi_obj.get_vrf_assign_table())):
-                    vmi_obj.set_vrf_assign_table(vrf_table)
-                    _vnc_lib.virtual_machine_interface_update(vmi_obj)
+        # end for policy_name
+
+        if policy_rule_count == 0:
+            vrf_table = None
+        if (jsonpickle.encode(vrf_table) !=
+            jsonpickle.encode(vmi_obj.get_vrf_assign_table())):
+                vmi_obj.set_vrf_assign_table(vrf_table)
+                _vnc_lib.virtual_machine_interface_update(vmi_obj)
+
     # end recreate_vrf_assign_table
 # end VirtualMachineInterfaceST
 
@@ -2732,6 +2737,10 @@ class SchemaTransformer(object):
         network_name = idents['virtual-network']
         ipam_name = idents['network-ipam']
         virtual_network = VirtualNetworkST.locate(network_name)
+        if virtual_network is None:
+            _sandesh._logger.debug("Cannot read virtual network %s",
+                                   network_name)
+            return
         subnet = VnSubnetsType()
         subnet.build(meta)
         virtual_network.ipams[ipam_name] = subnet

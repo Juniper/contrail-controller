@@ -2104,7 +2104,7 @@ class DBInterface(object):
             port_q_dict['device_id'] = port_obj.parent_name
         elif port_obj.get_virtual_machine_refs() is not None:
             port_q_dict['device_id'] = \
-                port_obj.get_virtual_machine_refs()[0]['uuid']
+                port_obj.get_virtual_machine_refs()[0]['to'][-1]
             port_q_dict['device_owner'] = ''
         else:
             port_q_dict['device_id'] = ''
@@ -3041,6 +3041,11 @@ class DBInterface(object):
 
             port_id = port['id']
 
+        else:
+            msg = _('Either port or subnet must be specified')
+            exc_info = {'type': 'BadRequest', 'message': msg}
+            bottle.abort(400, json.dumps(exc_info))
+
         self._set_snat_routing_table(router_obj, subnet['network_id'])
         vmi_obj = self._vnc_lib.virtual_machine_interface_read(id=port_id)
         router_obj.add_virtual_machine_interface(vmi_obj)
@@ -3154,12 +3159,8 @@ class DBInterface(object):
 
         if port_ids:
             fip_objs = self._floatingip_list(back_ref_id=port_ids)
-            for fip_obj in fip_objs:
-                ret_list.append(self._floatingip_vnc_to_neutron(fip_obj))
         elif proj_ids:
             fip_objs = self._floatingip_list(back_ref_id=proj_ids)
-            for fip_obj in fip_objs:
-                ret_list.append(self._floatingip_vnc_to_neutron(fip_obj))
         else:
             fip_objs = self._floatingip_list()
 
@@ -3373,6 +3374,7 @@ class DBInterface(object):
             for fip_back_ref in fip_back_refs:
                 self.floatingip_update(fip_back_ref['uuid'], {'port_id': None})
 
+        tenant_id = self._get_obj_tenant_id('port', port_id)
         self._virtual_machine_interface_delete(port_id=port_id)
 
         # delete instance if this was the last port
@@ -3388,9 +3390,7 @@ class DBInterface(object):
 
         # update cache on successful deletion
         try:
-            tenant_id = self._get_obj_tenant_id('port', port_id)
-            self._db_cache['q_tenant_port_count'][tenant_id] = \
-                self._db_cache['q_tenant_port_count'][tenant_id] - 1
+            self._db_cache['q_tenant_port_count'][tenant_id] -= 1
         except KeyError:
             pass
 
