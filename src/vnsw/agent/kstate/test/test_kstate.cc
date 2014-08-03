@@ -271,11 +271,19 @@ TEST_F(KStateTest, NHGetTest) {
     LOG(DEBUG, "nh count " << nh_count);
 
     CreatePorts(0, nh_count, 0);
+    int count = 0;
     //Two interface nexthops get created for each interface (with and without policy)
-    for (int i = 0; i < (MAX_TEST_FD * 2); i++) {
-        TestNHKState::Init(nh_count + i);
-        client->WaitForIdle();
-        client->KStateResponseWait(1);
+    for (int i = 0; count < (MAX_TEST_FD * 2); i++) {
+        uint32_t nh_id = nh_count + i;
+        /* Check whether nexthop-index is valid by checking it in oper db before doing
+         * Get from mock kernel */
+        NextHop *nh = Agent::GetInstance()->nexthop_table()->FindNextHop(nh_id);
+        if (nh) {
+            TestNHKState::Init(nh_id);
+            client->WaitForIdle();
+            client->KStateResponseWait(1);
+            count++;
+        }
     }
     DeletePorts();
 }
