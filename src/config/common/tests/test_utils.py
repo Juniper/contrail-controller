@@ -100,7 +100,11 @@ class FakeCF(object):
         result = {}
         for key in keys:
             try:
-                result[key] = copy.deepcopy(self._rows[key])
+                result[key] = {}
+                for col_name in self._rows[key]:
+                    if column_start and column_start not in col_name:
+                        continue
+                    result[key][col_name] = copy.deepcopy(self._rows[key][col_name])
             except KeyError:
                 pass
 
