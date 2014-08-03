@@ -29,7 +29,7 @@ env.Alias('controller/flaky-test', [
     'controller/src/base:flaky-test',
     'controller/src/bfd:flaky-test',
     'controller/src/bgp:flaky-test',
-    'controller/src/config:test',
+#   'controller/src/config:test',
     'controller/src/db:flaky-test',
     'controller/src/dns:flaky-test',
     'controller/src/gendb:flaky-test',
