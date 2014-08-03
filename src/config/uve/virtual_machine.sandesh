@@ -6,23 +6,6 @@
 // Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
 //
 
-struct VncVmApiCommon {
-    1: string identifier_uuid; // object identifier
-    2: string identifier_name; // object name
-    3: string url;             // The object URL
-    4: string operation;       // get/post/update/delete
-    5: optional string params;
-    6: optional string body;
-    7: optional string user;
-    8: optional string domain;
-    9: optional string error;
-}
-
-objectlog sandesh VMLog {
-    1: string                 name (key="ObjectVMTable")
-    2: VncVmApiCommon         api_log
-}
-
 struct VmInterfaceConfig {
     1: string name 
     2: optional string ip_address;
