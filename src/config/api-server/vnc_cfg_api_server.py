@@ -53,10 +53,8 @@ from vnc_cfg_ifmap import VncDbClient
 
 from cfgm_common.uve.vnc_api.ttypes import VncApiCommon, VncApiReadLog,\
     VncApiConfigLog, VncApiError
-from cfgm_common.uve.virtual_machine.ttypes import VMLog
 from cfgm_common.uve.virtual_network.ttypes import UveVirtualNetworkConfig,\
-    UveVirtualNetworkConfigTrace, VnPolicy, VNLog
-from cfgm_common.uve.vrouter.ttypes import VRLog
+    UveVirtualNetworkConfigTrace
 from sandesh_common.vns.ttypes import Module, NodeType
 from sandesh_common.vns.constants import ModuleNames, Module2NodeType, NodeTypeNames, INSTANCE_ID_DEFAULT
 from provision_defaults import Provision
@@ -999,26 +997,12 @@ class VncApiServer(VncApiServerGen):
                             operation, err_str):
         apiConfig = VncApiCommon(identifier_uuid=str(id))
         apiConfig.operation = operation
-        apiConfig.object_type = obj_type
+        apiConfig.object_type = obj_type.replace('-', '_')
         apiConfig.identifier_name = fq_name_str
         if err_str:
             apiConfig.error = "%s:%s" % (obj_type, err_str)
-        uveLog = None
 
-        if obj_type == "virtual_machine" or obj_type == "virtual-machine":
-            log = VMLog(api_log=apiConfig, sandesh=self._sandesh)
-        elif obj_type == "virtual_network" or obj_type == "virtual-network":
-            vn_log = UveVirtualNetworkConfig(name=str(id))
-            uveLog = UveVirtualNetworkConfigTrace(
-                data=vn_log, sandesh=self._sandesh)
-            log = VNLog(api_log=apiConfig, sandesh=self._sandesh)
-        elif obj_type == "virtual_router" or obj_type == "virtual-router":
-            log = VRLog(api_log=apiConfig, sandesh=self._sandesh)
-        else:
-            log = VncApiConfigLog(api_log=apiConfig, sandesh=self._sandesh)
-
-        if uveLog:
-            uveLog.send(sandesh=self._sandesh)
+        log = VncApiConfigLog(api_log=apiConfig, sandesh=self._sandesh)
         log.send(sandesh=self._sandesh)
     # end config_object_error
 
@@ -1097,30 +1081,12 @@ class VncApiServer(VncApiServerGen):
             apiConfig.identifier_uuid = obj_uuid
             # TODO should be from x-auth-token
             apiConfig.user = ''
-            apiConfig.object_type = obj_type
+            apiConfig.object_type = obj_type.replace('-', '_')
             apiConfig.identifier_name = fq_name_str
             apiConfig.body = str(request.json)
-            uveLog = None
 
-            if ((obj_type == "virtual_machine") or
-                    (obj_type == "virtual-machine")):
-                log = VMLog(api_log=apiConfig, sandesh=self._sandesh)
-            elif ((obj_type == "virtual_network") or
-                  (obj_type == "virtual-network")):
-                vn_log = UveVirtualNetworkConfig(name=fq_name_str)
-                self.add_virtual_network_refs(vn_log, obj_dict)
-                uveLog = UveVirtualNetworkConfigTrace(data=vn_log,
-                                                      sandesh=self._sandesh)
-                log = VNLog(api_log=apiConfig, sandesh=self._sandesh)
-            elif ((obj_type == "virtual_router") or
-                  (obj_type == "virtual-router")):
-                log = VRLog(api_log=apiConfig, sandesh=self._sandesh)
-            else:
-                log = VncApiConfigLog(api_log=apiConfig,
-                                      sandesh=self._sandesh)
-
-            if uveLog:
-                uveLog.send(sandesh=self._sandesh)
+            log = VncApiConfigLog(api_log=apiConfig,
+                    sandesh=self._sandesh)
             log.send(sandesh=self._sandesh)
 
         # TODO check api + resource perms etc.
@@ -1152,25 +1118,9 @@ class VncApiServer(VncApiServerGen):
         apiConfig.url = request.url
         uuid_str = str(uuid)
         apiConfig.identifier_uuid = uuid_str
-        apiConfig.object_type = obj_type
+        apiConfig.object_type = obj_type.replace('-', '_')
         apiConfig.identifier_name = fq_name_str
-        uveLog = None
-
-        if obj_type == "virtual_machine" or obj_type == "virtual-machine":
-            log = VMLog(api_log=apiConfig, sandesh=self._sandesh)
-        elif obj_type == "virtual_network" or obj_type == "virtual-network":
-            vn_log = UveVirtualNetworkConfig(name=fq_name_str)
-            vn_log.deleted = True
-            uveLog = UveVirtualNetworkConfigTrace(data=vn_log,
-                                                  sandesh=self._sandesh)
-            log = VNLog(api_log=apiConfig, sandesh=self._sandesh)
-        elif obj_type == "virtual_router" or obj_type == "virtual-router":
-            log = VRLog(api_log=apiConfig, sandesh=self._sandesh)
-        else:
-            log = VncApiConfigLog(api_log=apiConfig, sandesh=self._sandesh)
-
-        if uveLog:
-            uveLog.send(sandesh=self._sandesh)
+        log = VncApiConfigLog(api_log=apiConfig, sandesh=self._sandesh)
         log.send(sandesh=self._sandesh)
 
         # TODO check api + resource perms etc.
@@ -1232,7 +1182,8 @@ class VncApiServer(VncApiServerGen):
         apiConfig.object_type = obj_type
         apiConfig.operation = 'post'
         apiConfig.url = request.url
-        apiConfig.object_type = obj_type
+        apiConfig.object_type = obj_type.replace('-', '_')
+        apiConfig.identifier_name = fq_name_str
         apiConfig.body = str(request.json)
         if uuid_in_req:
             try:
@@ -1245,24 +1196,8 @@ class VncApiServer(VncApiServerGen):
             apiConfig.identifier_uuid = uuid_in_req
         # TODO should be from x-auth-token
         apiConfig.user = ''
-        uveLog = None
 
-        if obj_type == "virtual_machine" or obj_type == "virtual-machine":
-            log = VMLog(api_log=apiConfig, sandesh=self._sandesh)
-        elif obj_type == "virtual_network" or obj_type == "virtual-network":
-            vn_log = UveVirtualNetworkConfig(name=fq_name_str,
-                                             attached_policies=[])
-            self.add_virtual_network_refs(vn_log, obj_dict)
-            uveLog = UveVirtualNetworkConfigTrace(data=vn_log,
-                                                  sandesh=self._sandesh)
-            log = VNLog(api_log=apiConfig, sandesh=self._sandesh)
-        elif obj_type == "virtual_router" or obj_type == "virtual-router":
-            log = VRLog(api_log=apiConfig, sandesh=self._sandesh)
-        else:
-            log = VncApiConfigLog(api_log=apiConfig, sandesh=self._sandesh)
-
-        if uveLog:
-            uveLog.send(sandesh=self._sandesh)
+        log = VncApiConfigLog(api_log=apiConfig, sandesh=self._sandesh)
         log.send(sandesh=self._sandesh)
 
         return (True, uuid_in_req)
