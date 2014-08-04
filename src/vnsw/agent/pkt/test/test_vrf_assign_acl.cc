@@ -202,6 +202,11 @@ TEST_F(TestVrfAssignAclFlow, VrfAssignAcl3) {
         }
     };
     CreateFlow(flow, 1);
+    int nh_id = InterfaceTable::GetInstance()->FindInterface(VmPortGet(1)->id())->flow_key_nh()->id();
+    FlowEntry *fe = FlowGet(1, "1.1.1.1", "2.1.1.1", IPPROTO_TCP,
+                            10, 20, nh_id);
+    EXPECT_TRUE(fe != NULL && fe->is_flags_set(FlowEntry::ShortFlow) == true &&
+                fe->short_flow_reason() == FlowEntry::SHORT_VRF_CHANGE);
 }
 
 //Add a VRF translate ACL to send all ssh traffic to "2.1.1.1" 

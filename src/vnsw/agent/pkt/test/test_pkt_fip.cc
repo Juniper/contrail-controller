@@ -955,6 +955,13 @@ TEST_F(FlowTest, Nat2NonNat) {
 
 // Non-Nat to Nat flow conversion test for traffic from VM to local VM
 TEST_F(FlowTest, NonNat2Nat) {
+    Agent::GetInstance()->uve()->flow_stats_collector()->UpdateFlowAgeTime(FlowStatsCollector::FlowAgeTime);
+    Ip4Address addr = Ip4Address::from_string("2.1.1.1");
+    Ip4Address gw = Ip4Address::from_string("10.1.1.2");
+    Inet4TunnelRouteAdd(NULL, "vrf1", addr, 32, gw,
+                        TunnelType::AllType(), 8, "default-project:vn2",
+                        SecurityGroupList(), PathPreference());
+    client->WaitForIdle();
     DelLink("floating-ip-pool", "fip-pool1", "virtual-network",
             "default-project:vn2");
     DelLink("virtual-machine-interface", "vnet1", "floating-ip", "fip1");
@@ -966,7 +973,7 @@ TEST_F(FlowTest, NonNat2Nat) {
 
     EXPECT_TRUE(FlowGet(vnet[1]->vrf()->GetName().c_str(), vnet_addr[1], 
                         vnet_addr[3], 1, 0, 0, false, "vn1",
-                        unknown_vn_.c_str(), 1, false, false,
+                        "default-project:vn2", 1, true, false,
                         vnet[1]->flow_key_nh()->id()));
 
     //Add floating IP configuration
@@ -980,19 +987,26 @@ TEST_F(FlowTest, NonNat2Nat) {
     TxIpPacket(vnet[1]->id(), vnet_addr[1], vnet_addr[3], 1);
     client->WaitForIdle();
 
-    EXPECT_TRUE(FlowGet(vnet[1]->vrf()->vrf_id(), vnet_addr[1],
-                        vnet_addr[3], 1, 0, 0, true, -1, -1,
-                        vnet[1]->flow_key_nh()->id()));
+    FlowEntry *fe = FlowGet(vnet[1]->vrf()->vrf_id(), vnet_addr[1],
+                            vnet_addr[3], 1, 0, 0,
+                            vnet[1]->flow_key_nh()->id());
+    EXPECT_TRUE(fe != NULL && fe->is_flags_set(FlowEntry::ShortFlow) == true &&
+                fe->short_flow_reason() == FlowEntry::SHORT_NAT_CHANGE);
 
-    EXPECT_TRUE(FlowGet(vnet[1]->vrf()->vrf_id(), vnet_addr[3],
-                        vnet_addr[1], 1, 0, 0, true, -1, -1,
-                        vnet[1]->flow_key_nh()->id()));
+    fe = FlowGet(vnet[1]->vrf()->vrf_id(), vnet_addr[3], vnet_addr[1],
+                 1, 0, 0, vnet[1]->flow_key_nh()->id());
+    EXPECT_TRUE(fe != NULL && fe->is_flags_set(FlowEntry::ShortFlow) == true &&
+                fe->short_flow_reason() == FlowEntry::SHORT_NAT_CHANGE);
 
-    EXPECT_TRUE(FlowGet(vnet[3]->vrf()->vrf_id(), vnet_addr[3],
-                        "2.1.1.100", 1, 0, 0, true, -1, -1,
-                        vnet[3]->flow_key_nh()->id()));
+    fe = FlowGet(vnet[3]->vrf()->vrf_id(), vnet_addr[3], "2.1.1.100",
+                 1, 0, 0, vnet[3]->flow_key_nh()->id());
+    EXPECT_TRUE(fe != NULL && fe->is_flags_set(FlowEntry::ShortFlow) == true &&
+                fe->short_flow_reason() == FlowEntry::SHORT_REVERSE_FLOW_CHANGE);
 
+    Agent::GetInstance()->uve()->flow_stats_collector()->UpdateFlowAgeTime(AGE_TIME);
     client->EnqueueFlowAge();
+    client->WaitForIdle();
+    vnet_table[1]->DeleteReq(NULL, "vrf1", addr, 32, NULL);
     client->WaitForIdle();
     //No change in stats. Flows should be aged by now
     WAIT_FOR(1000, 100,
@@ -1058,10 +1072,11 @@ TEST_F(FlowTest, TwoFloatingIp) {
     }
 
     //Verfiy that flow creation for second floating IP as short-flow
-    EXPECT_TRUE(FlowGet(vnet[3]->vrf()->vrf_id(), vnet_addr[3],
-                        "2.1.1.100", 1, 0, 0, true, -1, -1,
-                        vnet[3]->flow_key_nh()->id()));
+    FlowEntry *fe = FlowGet(vnet[3]->vrf()->vrf_id(), vnet_addr[3], "2.1.1.100",
+                            1, 0, 0, vnet[3]->flow_key_nh()->id());
 
+    EXPECT_TRUE(fe != NULL && fe->is_flags_set(FlowEntry::ShortFlow) == true &&
+                fe->short_flow_reason() == FlowEntry::SHORT_NO_REVERSE_FLOW);
     //cleanup
     client->EnqueueFlowFlush();
     client->WaitForIdle(2);
