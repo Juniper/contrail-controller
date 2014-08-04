@@ -434,25 +434,14 @@ void TcpServer::GetTxSocketStats(TcpServerSocketStats &socket_stats) const {
 //
 // TcpServerManager class routines
 //
-TcpServerManager::ServerSet TcpServerManager::server_ref_;
-tbb::mutex TcpServerManager::mutex_;
+ServerManager<TcpServer, TcpServerPtr> TcpServerManager::impl_;
 
-//
-// Add a server object to the data base, by creating an intrusive reference
-//
 void TcpServerManager::AddServer(TcpServer *server) {
-    tbb::mutex::scoped_lock lock(mutex_);
-    server_ref_.insert(TcpServerPtr(server));
+    impl_.AddServer(server);
 }
 
-//
-// Delete a server object from the data base, by removing the intrusive
-// reference. If any other objects has a reference to this server such as
-// boost::asio, the server object deletion is automatically deferred
-//
 void TcpServerManager::DeleteServer(TcpServer *server) {
-    tbb::mutex::scoped_lock lock(mutex_);
-    server_ref_.erase(TcpServerPtr(server));
+    impl_.DeleteServer(server);
 }
 
 //
