@@ -1922,6 +1922,19 @@ void FlowTable::ResyncRouteFlows(RouteFlowKey &key, SecurityGroupList &sg_l)
                        + " ip:"
                        + Ip4Address(key.ip.ipv4).to_string());
         }
+        //Update SG id for reverse flow
+        FlowEntry *rev_flow = fe->reverse_flow_entry();
+        if (rev_flow->FlowSrcMatch(key)) {
+            rev_flow->set_source_sg_id_l(sg_l);
+        } else if (rev_flow->FlowDestMatch(key)) {
+            rev_flow->set_dest_sg_id_l(sg_l);
+        } else {
+            FLOW_TRACE(Err, rev_flow->flow_handle(),
+                       "Not found route key, vrf:"
+                       + integerToString(key.vrf)
+                       + " ip:"
+                       + Ip4Address(key.ip.ipv4).to_string());
+        }
         ResyncAFlow(fe);
         AddFlowInfo(fe);
         FlowInfo flow_info;
