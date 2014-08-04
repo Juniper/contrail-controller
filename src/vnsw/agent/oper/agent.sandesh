@@ -831,6 +831,7 @@ struct ComponentNHLogInfo {
     2: i32    label; 
     3: optional string intf_name;
     4: optional string server_ip;
+    5: i32 component_nh_id;
 }
 
 struct NextHopObjectLogInfo {
@@ -851,6 +852,7 @@ struct NextHopObjectLogInfo {
     15: optional string mac;   //ArpNH MAC/VLAN NH DMAC/INTF NH DMAC
     16: optional list<ComponentNHLogInfo> nh_list;
     17: optional string tunnel_type;   // Tunnel type : MPLSoGRE, MPLSoUDP, ...
+    18: i32 id;
 }
 
 struct VxLanObjectLogInfo {
