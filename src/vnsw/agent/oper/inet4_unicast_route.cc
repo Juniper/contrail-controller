@@ -76,10 +76,8 @@ Inet4UnicastAgentRouteTable::FindResolveRoute(const string &vrf_name,
     return rt_table->FindResolveRoute(ip);
 }
 
-static void UnicastTableEnqueue(Agent *agent, const string &vrf_name, 
-                                DBRequest *req) {
-    AgentRouteTable *table = 
-        agent->vrf_table()->GetInet4UnicastRouteTable(vrf_name);
+static void UnicastTableEnqueue(Agent *agent, DBRequest *req) {
+    AgentRouteTable *table = agent->fabric_inet4_unicast_table();
     if (table) {
         table->Enqueue(req);
     }
@@ -104,7 +102,7 @@ void Inet4UnicastAgentRouteTable::ReEvaluatePaths(const string &vrf_name,
     rt_key->sub_op_ = AgentKey::RESYNC;
     rt_req.key.reset(rt_key);
     rt_req.data.reset(NULL);
-    UnicastTableEnqueue(Agent::GetInstance(), vrf_name, &rt_req);
+    UnicastTableEnqueue(Agent::GetInstance(), &rt_req);
 }
 
 /////////////////////////////////////////////////////////////////////////////
@@ -659,7 +657,7 @@ Inet4UnicastAgentRouteTable::DeleteReq(const Peer *peer, const string &vrf_name,
     DBRequest req(DBRequest::DB_ENTRY_DELETE);
     req.key.reset(new Inet4UnicastRouteKey(peer, vrf_name, addr, plen));
     req.data.reset(data);
-    UnicastTableEnqueue(Agent::GetInstance(), vrf_name, &req);
+    UnicastTableEnqueue(Agent::GetInstance(), &req);
 }
 
 // Inline delete request
@@ -688,7 +686,7 @@ Inet4UnicastAgentRouteTable::AddHostRoute(const string &vrf_name,
     HostRoute *data = new HostRoute(intf_key, dest_vn_name);
     req.data.reset(data);
 
-    UnicastTableEnqueue(agent, vrf_name, &req);
+    UnicastTableEnqueue(agent, &req);
 }
 
 // Create Route with VLAN NH
@@ -701,7 +699,7 @@ Inet4UnicastAgentRouteTable::AddVlanNHRouteReq(const Peer *peer,
     DBRequest req(DBRequest::DB_ENTRY_ADD_CHANGE);
     req.key.reset(new Inet4UnicastRouteKey(peer, vm_vrf, addr, plen));
     req.data.reset(data);
-    UnicastTableEnqueue(Agent::GetInstance(), vm_vrf, &req);
+    UnicastTableEnqueue(Agent::GetInstance(), &req);
 }
 
 void
@@ -756,7 +754,7 @@ Inet4UnicastAgentRouteTable::AddLocalVmRouteReq(const Peer *peer,
 
     req.data.reset(data);
 
-    UnicastTableEnqueue(Agent::GetInstance(), vm_vrf, &req);
+    UnicastTableEnqueue(Agent::GetInstance(), &req);
 }
 
 void
@@ -829,7 +827,7 @@ Inet4UnicastAgentRouteTable::AddSubnetBroadcastRoute(const Peer *peer,
 
     MulticastRoute *data = new MulticastRoute(vn_name, 0, nh_req);
     req.data.reset(data);
-    UnicastTableEnqueue(Agent::GetInstance(), vrf_name, &req);
+    UnicastTableEnqueue(Agent::GetInstance(), &req);
 }
 
 void 
@@ -841,7 +839,7 @@ Inet4UnicastAgentRouteTable::AddRemoteVmRouteReq(const Peer *peer,
     DBRequest req(DBRequest::DB_ENTRY_ADD_CHANGE);
     req.key.reset(new Inet4UnicastRouteKey(peer, vm_vrf, vm_addr, plen));
     req.data.reset(data);
-    UnicastTableEnqueue(Agent::GetInstance(), vm_vrf, &req);
+    UnicastTableEnqueue(Agent::GetInstance(), &req);
 }
  
 void 
@@ -858,7 +856,7 @@ Inet4UnicastAgentRouteTable::AddArpReq(const string &vrf_name,
     rt_req.key.reset(new Inet4UnicastRouteKey(agent->local_peer(),
                                               vrf_name, ip, 32));
     rt_req.data.reset(new Inet4UnicastArpRoute(vrf_name, ip));
-    UnicastTableEnqueue(agent, vrf_name, &rt_req);
+    UnicastTableEnqueue(agent, &rt_req);
 }
                                 
 void 
@@ -913,7 +911,7 @@ Inet4UnicastAgentRouteTable::ArpRoute(DBRequest::DBOperation op,
  
     rt_req.key.reset(rt_key);
     rt_req.data.reset(data);
-    UnicastTableEnqueue(agent, vrf_name, &rt_req);
+    UnicastTableEnqueue(agent, &rt_req);
 }
 
 void
@@ -938,7 +936,7 @@ void Inet4UnicastAgentRouteTable::AddResolveRoute(const string &vrf_name,
     req.key.reset(new Inet4UnicastRouteKey(agent->local_peer(), vrf_name, ip,
                                            plen));
     req.data.reset(new ResolveRoute());
-    UnicastTableEnqueue(agent, vrf_name, &req);
+    UnicastTableEnqueue(agent, &req);
 }
 
 // Create Route for a interface NH.
@@ -966,7 +964,7 @@ void Inet4UnicastAgentRouteTable::AddInetInterfaceRouteReq(const Peer *peer,
     req.key.reset(new Inet4UnicastRouteKey(peer, vm_vrf, addr, plen));
     req.data.reset(data);
 
-    UnicastTableEnqueue(Agent::GetInstance(), vm_vrf, &req);
+    UnicastTableEnqueue(Agent::GetInstance(), &req);
 }
 
 static void AddVHostRecvRouteInternal(DBRequest *req, const Peer *peer,
@@ -1003,7 +1001,7 @@ void Inet4UnicastAgentRouteTable::AddVHostRecvRouteReq
     AddVHostRecvRouteInternal(&req, peer, vrf, interface, addr, plen,
                               vn_name, policy);
     static_cast<ReceiveRoute *>(req.data.get())->EnableProxyArp();
-    UnicastTableEnqueue(Agent::GetInstance(), vrf, &req);
+    UnicastTableEnqueue(Agent::GetInstance(), &req);
 }
 
 void 
@@ -1031,7 +1029,7 @@ void Inet4UnicastAgentRouteTable::AddDropRoute(const string &vm_vrf,
                                            GetIp4SubnetAddress(addr, plen),
                                            plen));
     req.data.reset(new DropRoute(vn_name, is_subnet_discard));
-    UnicastTableEnqueue(agent, vm_vrf, &req);
+    UnicastTableEnqueue(agent, &req);
 }
 
 void Inet4UnicastAgentRouteTable::DelVHostSubnetRecvRoute(const string &vm_vrf,
@@ -1069,5 +1067,5 @@ Inet4UnicastAgentRouteTable::AddGatewayRouteReq(const string &vrf_name,
                                                 const string &vn_name) {
     DBRequest req;
     AddGatewayRouteInternal(&req, vrf_name, dst_addr, plen, gw_ip, vn_name);
-    UnicastTableEnqueue(Agent::GetInstance(), vrf_name, &req);
+    UnicastTableEnqueue(Agent::GetInstance(), &req);
 }
