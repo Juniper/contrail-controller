@@ -51,7 +51,7 @@ UDPConnectionManager::UDPRecvServer::UDPRecvServer(EventManager *evm, int recvPo
                 LOG(DEBUG, "Bind UDPCommunicator to localport: " << localPort);
                 Initialize(localPort);
                 if (GetServerState() != OK) {
-                    Reset();
+                    Shutdown();
                 }
             }
             if (GetServerState() != OK) {
@@ -74,25 +74,28 @@ UDPConnectionManager::UDPRecvServer::UDPRecvServer(EventManager *evm, int recvPo
 
 
      UDPConnectionManager::UDPConnectionManager(EventManager *evm,  int recvPort, int remotePort)
-               : udpRecv_(evm, recvPort), udpSend_(evm, remotePort) {
-        if (udpRecv_.GetServerState() != UDPRecvServer::OK)
+               : udpRecv_(new BFD::UDPConnectionManager::UDPRecvServer(evm, recvPort)), 
+                 udpSend_(new BFD::UDPConnectionManager::UDPCommunicator(evm, remotePort)) {
+        if (udpRecv_->GetServerState() != UDPRecvServer::OK)
             LOG(ERROR, "Unable to listen on port " << recvPort);
         else
-            udpRecv_.StartReceive();
+            udpRecv_->StartReceive();
     }
 
      void UDPConnectionManager::SendPacket(const boost::asio::ip::address &dstAddr, const ControlPacket *packet) {
         LOG(DEBUG, __func__);
-        udpSend_.SendPacket(dstAddr, packet);
+        udpSend_->SendPacket(dstAddr, packet);
     }
 
     void UDPConnectionManager::RegisterCallback(RecvCallback callback) {
-        udpRecv_.RegisterCallback(callback);
+        udpRecv_->RegisterCallback(callback);
     }
 
     UDPConnectionManager::~UDPConnectionManager() {
-        udpRecv_.Shutdown();
-        udpSend_.Shutdown();
+        udpRecv_->Shutdown();
+        udpSend_->Shutdown();
+        UdpServerManager::DeleteServer(udpRecv_);
+        UdpServerManager::DeleteServer(udpSend_);
     }
 
 }  // namespace BFD

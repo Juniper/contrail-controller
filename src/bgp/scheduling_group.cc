@@ -1185,7 +1185,8 @@ bool SchedulingGroup::CheckInvariants() const {
 //
 template<>
 struct WorkQueueDelete<IPeerUpdate *> {
-    void operator()(WorkQueue<IPeerUpdate *>::Queue &queue) { }
+    void operator()(WorkQueue<IPeerUpdate *>::Queue &queue,
+                    bool delete_entry) { }
 };
 
 //

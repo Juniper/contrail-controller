@@ -138,6 +138,7 @@ test_suite = [
                db_handler_test,
                stat_walker_test,
                protobuf_test,
+               syslog_test,
              ]
 test = env.TestSuite('analytics-test', test_suite)
 
@@ -146,7 +147,7 @@ env.Alias('controller/src/analytics:test', [
     'controller/src/analytics/ruleparser:test',
 ])
 
-flaky_test_suite = [ syslog_test ]
+flaky_test_suite = [ ]
 flaky_test = env.TestSuite('analytics-flaky-test', flaky_test_suite)
 env.Alias('controller/src/analytics:flaky-test', flaky_test)
 

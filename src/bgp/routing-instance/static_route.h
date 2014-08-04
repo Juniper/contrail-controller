@@ -12,10 +12,28 @@
 #include "bgp/inet/inet_route.h"
 #include "schema/bgp_schema_types.h"
 
-struct StaticRouteRequest;
 class StaticRoute;
 
 typedef ConditionMatchPtr StaticRoutePtr;
+
+struct StaticRouteRequest {
+    enum RequestType {
+        NEXTHOP_ADD_CHG,
+        NEXTHOP_DELETE,
+        DELETE_STATIC_ROUTE_DONE
+    };
+
+    StaticRouteRequest(RequestType type, BgpTable *table, BgpRoute *route,
+                        StaticRoutePtr info)
+        : type_(type), table_(table), rt_(route), info_(info) {
+    }
+
+    RequestType type_;
+    BgpTable    *table_;
+    BgpRoute    *rt_;
+    StaticRoutePtr info_;
+    DISALLOW_COPY_AND_ASSIGN(StaticRouteRequest);
+};
 
 class StaticRouteMgr {
 public:
