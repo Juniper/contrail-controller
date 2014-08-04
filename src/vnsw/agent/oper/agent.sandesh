@@ -800,6 +800,7 @@ struct RouteInfo {
     7: optional string dest_server_vrf;
     8: optional string intf;
     9: optional string mac;
+   10: bool ecmp;
 }
 
 traceobject sandesh OperInterface {

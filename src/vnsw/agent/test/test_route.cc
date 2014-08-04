@@ -1274,6 +1274,35 @@ TEST_F(RouteTest, PathPreference) {
     client->WaitForIdle();
 }
 
+//If ecmp flag is removed from instance ip, verify that path gets removed from
+//ecmp peer path
+TEST_F(RouteTest, EcmpPathDelete) {
+    client->Reset();
+    struct PortInfo input[] = {
+        {"vnet3", 3, "1.1.1.1", "00:00:00:01:01:01", 3, 3},
+        {"vnet4", 4, "1.1.1.1", "00:00:00:01:01:01", 3, 4},
+    };
+
+    CreateVmportWithEcmp(input, 2);
+    client->WaitForIdle();
+
+    VmInterface *vnet3 = VmInterfaceGet(3);
+    VmInterface *vnet4 = VmInterfaceGet(4);
+
+    Ip4Address ip = Ip4Address::from_string("1.1.1.1");
+    Inet4UnicastRouteEntry *rt = RouteGet("vrf3", ip, 32);
+    EXPECT_TRUE(rt->GetActiveNextHop()->GetType() == NextHop::COMPOSITE);
+
+    CreateVmportEnv(input, 2);
+    client->WaitForIdle();
+
+    DeleteVmportEnv(input, 2, true);
+    client->WaitForIdle();
+    EXPECT_TRUE(RouteGet("vrf3", ip, 32) == NULL);
+    //Make sure vrf and all routes are deleted
+    EXPECT_TRUE(VrfFind("vrf3", true) == NULL);
+}
+
 TEST_F(RouteTest, Enqueue_uc_route_add_on_deleted_vrf) {
     struct PortInfo input[] = {
         {"vnet1", 1, "1.1.1.10", "00:00:00:01:01:01", 1, 1},
