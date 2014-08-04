@@ -26,12 +26,12 @@ from vnc_api.vnc_api import VirtualRouter, VirtualMachine
 
 
 RUNNING_VROUTER_UVES_STATUS = {
-    "VrouterAgentProcessStatus": {
-        "connection_status": [
+    "NodeStatus": {
+        "process_status": [
             {
                 "instance_id": "0",
                 "module_id": "VRouterAgent",
-                "status": "Functional",
+                "state": "Functional",
                 "connection_infos": [
                     {
                         "server_addrs": [
@@ -59,12 +59,12 @@ RUNNING_VROUTER_UVES_STATUS = {
 }
 
 NON_RUNNING_VROUTER_UVES_STATUS_1 = {
-    "VrouterAgentProcessStatus": {
-        "connection_status": [
+    "NodeStatus": {
+        "process_status": [
             {
                 "instance_id": "2",
                 "module_id": "VRouterAgent",
-                "status": "Functional",
+                "state": "Functional",
                 "connection_infos": [
                     {
                         "server_addrs": [
@@ -92,12 +92,12 @@ NON_RUNNING_VROUTER_UVES_STATUS_1 = {
 }
 
 NON_RUNNING_VROUTER_UVES_STATUS_2 = {
-    "VrouterAgentProcessStatus": {
-        "connection_status": [
+    "NodeStatus": {
+        "process_status": [
             {
                 "instance_id": "0",
                 "module_id": "FakeModuleID",
-                "status": "Functional",
+                "state": "Functional",
                 "connection_infos": [
                     {
                         "server_addrs": [
@@ -125,12 +125,12 @@ NON_RUNNING_VROUTER_UVES_STATUS_2 = {
 }
 
 NON_RUNNING_VROUTER_UVES_STATUS_3 = {
-    "VrouterAgentProcessStatus": {
-        "connection_status": [
+    "NodeStatus": {
+        "process_status": [
             {
                 "instance_id": "0",
                 "module_id": "VRouterAgent",
-                "status": "Non-functional",
+                "state": "Non-functional",
                 "connection_infos": [
                     {
                         "server_addrs": [
