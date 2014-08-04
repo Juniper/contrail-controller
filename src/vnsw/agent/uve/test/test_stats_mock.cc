@@ -103,6 +103,19 @@ public:
         Agent::GetInstance()->uve()->flow_stats_collector()->UpdateFlowAgeTime(1000000 * 60 * 10);
 
     }
+    static void TestTeardown() {
+        client->Reset();
+        DeleteVmportEnv(input, 2, 1);
+        client->WaitForIdle(10);
+        client->VnDelNotifyWait(1);
+        client->PortDelNotifyWait(2);
+
+        client->Reset();
+        DeleteVmportEnv(stats_if, 2, 1);
+        client->WaitForIdle(10);
+        client->VnDelNotifyWait(1);
+        client->PortDelNotifyWait(2);
+    }
 };
 
 TEST_F(StatsTestMock, FlowStatsTest) {
@@ -113,11 +126,20 @@ TEST_F(StatsTestMock, FlowStatsTest) {
     EXPECT_TRUE(FlowGet("vrf5", "1.1.1.1", "1.1.1.2", 0, 0, 0, false,
                         "vn5", "vn5", hash_id++, flow0->flow_key_nh()->id()));
 
+    VrfEntry *vrf = Agent::GetInstance()->vrf_table()->FindVrfFromName("vrf5");
+    EXPECT_TRUE(vrf != NULL);
+    FlowEntry *f1 = FlowGet(vrf->vrf_id(), "1.1.1.1", "1.1.1.2", 0, 0, 0,
+                            flow0->flow_key_nh()->id());
+    EXPECT_TRUE(f1 != NULL);
+    FlowEntry *f1_rev = f1->reverse_flow_entry();
+    EXPECT_TRUE(f1_rev != NULL);
+
     //Create flow in reverse direction and make sure it is linked to previous flow
-    TxIpPacketUtil(flow1->id(), "1.1.1.2", "1.1.1.1", 0, hash_id);
+    TxIpPacketUtil(flow1->id(), "1.1.1.2", "1.1.1.1", 0, f1_rev->flow_handle());
     client->WaitForIdle(10);
-    EXPECT_TRUE(FlowGet("vrf5", "1.1.1.2", "1.1.1.1", 0, 0, 0, true, 
-                        "vn5", "vn5", hash_id++, flow1->flow_key_nh()->id(),
+    EXPECT_TRUE(FlowGet("vrf5", "1.1.1.2", "1.1.1.1", 0, 0, 0, true,
+                        "vn5", "vn5", f1_rev->flow_handle(),
+                        flow1->flow_key_nh()->id(),
                         flow0->flow_key_nh()->id()));
 
     //Flow creation using TCP packet
@@ -126,13 +148,19 @@ TEST_F(StatsTestMock, FlowStatsTest) {
     client->WaitForIdle(10);
     EXPECT_TRUE(FlowGet("vrf5", "1.1.1.1", "1.1.1.2", 6, 1000, 200, false,
                         "vn5", "vn5", hash_id++, flow0->flow_key_nh()->id()));
+    FlowEntry *f2 = FlowGet(vrf->vrf_id(), "1.1.1.1", "1.1.1.2", 6, 1000, 200,
+                            flow0->flow_key_nh()->id());
+    EXPECT_TRUE(f2 != NULL);
+    FlowEntry *f2_rev = f2->reverse_flow_entry();
+    EXPECT_TRUE(f2_rev != NULL);
 
     //Create flow in reverse direction and make sure it is linked to previous flow
-    TxTcpPacketUtil(flow1->id(), "1.1.1.2", "1.1.1.1",
-                200, 1000, hash_id);
+    TxTcpPacketUtil(flow1->id(), "1.1.1.2", "1.1.1.1", 200, 1000,
+                    f2_rev->flow_handle());
     client->WaitForIdle(10);
     EXPECT_TRUE(FlowGet("vrf5", "1.1.1.2", "1.1.1.1", 6, 200, 1000, true, 
-                        "vn5", "vn5", hash_id++, flow1->flow_key_nh()->id(),
+                        "vn5", "vn5", f2_rev->flow_handle(),
+                        flow1->flow_key_nh()->id(),
                         flow0->flow_key_nh()->id()));
 
     //Verify flow count
@@ -153,9 +181,9 @@ TEST_F(StatsTestMock, FlowStatsTest) {
 
     //Change the stats
     KSyncSockTypeMap::IncrFlowStats(1, 1, 30);
+    KSyncSockTypeMap::IncrFlowStats(f1_rev->flow_handle(), 1, 30);
     KSyncSockTypeMap::IncrFlowStats(2, 1, 30);
-    KSyncSockTypeMap::IncrFlowStats(3, 1, 30);
-    KSyncSockTypeMap::IncrFlowStats(4, 1, 30);
+    KSyncSockTypeMap::IncrFlowStats(f2_rev->flow_handle(), 1, 30);
 
     //Invoke FlowStatsCollector to update the stats
     Agent::GetInstance()->uve()->flow_stats_collector()->Run();
@@ -183,13 +211,22 @@ TEST_F(StatsTestMock, FlowStatsOverflowTest) {
     client->WaitForIdle(10);
     EXPECT_TRUE(FlowGet("vrf5", "1.1.1.1", "1.1.1.2", 6, 1000, 200, false,
                         "vn5", "vn5", hash_id++, flow0->flow_key_nh()->id()));
+    VrfEntry *vrf = Agent::GetInstance()->vrf_table()->FindVrfFromName("vrf5");
+    EXPECT_TRUE(vrf != NULL);
+    FlowEntry *f1 = FlowGet(vrf->vrf_id(), "1.1.1.1", "1.1.1.2", 6, 1000, 200,
+                            flow0->flow_key_nh()->id());
+    EXPECT_TRUE(f1 != NULL);
+    FlowEntry *f1_rev = f1->reverse_flow_entry();
+    EXPECT_TRUE(f1_rev != NULL);
+
 
     //Create flow in reverse direction and make sure it is linked to previous flow
-    TxTcpPacketUtil(flow1->id(), "1.1.1.2", "1.1.1.1",
-                200, 1000, hash_id);
+    TxTcpPacketUtil(flow1->id(), "1.1.1.2", "1.1.1.1", 200, 1000,
+                    f1_rev->flow_handle());
     client->WaitForIdle(10);
     EXPECT_TRUE(FlowGet("vrf5", "1.1.1.2", "1.1.1.1", 6, 200, 1000, true, 
-                        "vn5", "vn5", hash_id++, flow1->flow_key_nh()->id(),
+                        "vn5", "vn5", f1_rev->flow_handle(),
+                        flow1->flow_key_nh()->id(),
                         flow0->flow_key_nh()->id()));
 
     //Verify flow count
@@ -207,10 +244,10 @@ TEST_F(StatsTestMock, FlowStatsOverflowTest) {
     /* Verify overflow counter of vrouter-Test1 */
     //Decrement the stats so that they become 0
     KSyncSockTypeMap::IncrFlowStats(1, -1, -30);
-    KSyncSockTypeMap::IncrFlowStats(2, -1, -30);
+    KSyncSockTypeMap::IncrFlowStats(f1_rev->flow_handle(), -1, -30);
 
     KSyncSockTypeMap::SetOFlowStats(1, 1, 1);
-    KSyncSockTypeMap::SetOFlowStats(2, 1, 1);
+    KSyncSockTypeMap::SetOFlowStats(f1_rev->flow_handle(), 1, 1);
 
     //Invoke FlowStatsCollector to update the stats
     Agent::GetInstance()->uve()->flow_stats_collector()->Run();
@@ -225,7 +262,7 @@ TEST_F(StatsTestMock, FlowStatsOverflowTest) {
 
     /* Verify overflow counter of vrouter-Test2 */
     KSyncSockTypeMap::IncrFlowStats(1, 1, 0x10);
-    KSyncSockTypeMap::IncrFlowStats(2, 1, 0x10);
+    KSyncSockTypeMap::IncrFlowStats(f1_rev->flow_handle(), 1, 0x10);
 
     //Invoke FlowStatsCollector to update the stats
     Agent::GetInstance()->uve()->flow_stats_collector()->Run();
@@ -240,7 +277,7 @@ TEST_F(StatsTestMock, FlowStatsOverflowTest) {
 
     /* Verify overflow counter of vrouter-Test3 */
     KSyncSockTypeMap::SetOFlowStats(1, 2, 3);
-    KSyncSockTypeMap::SetOFlowStats(2, 4, 5);
+    KSyncSockTypeMap::SetOFlowStats(f1_rev->flow_handle(), 4, 5);
 
     //Invoke FlowStatsCollector to update the stats
     Agent::GetInstance()->uve()->flow_stats_collector()->Run();
@@ -255,10 +292,10 @@ TEST_F(StatsTestMock, FlowStatsOverflowTest) {
 
     /* Verify overflow counter of vrouter-Test4 */
     KSyncSockTypeMap::IncrFlowStats(1, 1, 0x10);
-    KSyncSockTypeMap::IncrFlowStats(2, 1, 0x10);
+    KSyncSockTypeMap::IncrFlowStats(f1_rev->flow_handle(), 1, 0x10);
 
     KSyncSockTypeMap::SetOFlowStats(1, 0xA, 0xB);
-    KSyncSockTypeMap::SetOFlowStats(2, 0xC, 0xD);
+    KSyncSockTypeMap::SetOFlowStats(f1_rev->flow_handle(), 0xC, 0xD);
 
     //Invoke FlowStatsCollector to update the stats
     Agent::GetInstance()->uve()->flow_stats_collector()->Run();
@@ -274,7 +311,7 @@ TEST_F(StatsTestMock, FlowStatsOverflowTest) {
     /* Verify overflow counter of agent-Test1 */
     //Decrement flow stats
     KSyncSockTypeMap::IncrFlowStats(1, -1, -0x10);
-    KSyncSockTypeMap::IncrFlowStats(2, -1, -0x10);
+    KSyncSockTypeMap::IncrFlowStats(f1_rev->flow_handle(), -1, -0x10);
 
     //Invoke FlowStatsCollector to update the stats
     Agent::GetInstance()->uve()->flow_stats_collector()->Run();
@@ -289,7 +326,7 @@ TEST_F(StatsTestMock, FlowStatsOverflowTest) {
 
     /* Verify overflow counter of agent-Test2 */
     KSyncSockTypeMap::IncrFlowStats(1, 1, 0x10);
-    KSyncSockTypeMap::IncrFlowStats(2, 1, 0x10);
+    KSyncSockTypeMap::IncrFlowStats(f1_rev->flow_handle(), 1, 0x10);
 
     //Invoke FlowStatsCollector to update the stats
     Agent::GetInstance()->uve()->flow_stats_collector()->Run();
@@ -304,7 +341,7 @@ TEST_F(StatsTestMock, FlowStatsOverflowTest) {
 
     /* Verify overflow counter of agent-Test3 */
     KSyncSockTypeMap::SetOFlowStats(1, 0xA1, 0xB1);
-    KSyncSockTypeMap::SetOFlowStats(2, 0xC1, 0xD1);
+    KSyncSockTypeMap::SetOFlowStats(f1_rev->flow_handle(), 0xC1, 0xD1);
 
     //Invoke FlowStatsCollector to update the stats
     Agent::GetInstance()->uve()->flow_stats_collector()->Run();
@@ -319,7 +356,7 @@ TEST_F(StatsTestMock, FlowStatsOverflowTest) {
 
     //cleanup
     KSyncSockTypeMap::SetOFlowStats(1, 0, 0);
-    KSyncSockTypeMap::SetOFlowStats(2, 0, 0);
+    KSyncSockTypeMap::SetOFlowStats(f1_rev->flow_handle(), 0, 0);
     client->EnqueueFlowFlush();
     client->WaitForIdle(10);
     WAIT_FOR(100, 10000, (Agent::GetInstance()->pkt()->flow_table()->Size() == 0U));
@@ -334,12 +371,21 @@ TEST_F(StatsTestMock, FlowStatsOverflow_AgeTest) {
     EXPECT_TRUE(FlowGet("vrf5", "1.1.1.1", "1.1.1.2", 6, 1000, 200, false,
                         "vn5", "vn5", hash_id++, flow0->flow_key_nh()->id()));
 
+    VrfEntry *vrf = Agent::GetInstance()->vrf_table()->FindVrfFromName("vrf5");
+    EXPECT_TRUE(vrf != NULL);
+    FlowEntry *f1 = FlowGet(vrf->vrf_id(), "1.1.1.1", "1.1.1.2", 6, 1000, 200,
+                            flow0->flow_key_nh()->id());
+    EXPECT_TRUE(f1 != NULL);
+    FlowEntry *f1_rev = f1->reverse_flow_entry();
+    EXPECT_TRUE(f1_rev != NULL);
+
     //Create flow in reverse direction and make sure it is linked to previous flow
-    TxTcpPacketUtil(flow1->id(), "1.1.1.2", "1.1.1.1",
-                200, 1000, hash_id);
+    TxTcpPacketUtil(flow1->id(), "1.1.1.2", "1.1.1.1", 200, 1000,
+                    f1_rev->flow_handle());
     client->WaitForIdle(10);
     EXPECT_TRUE(FlowGet("vrf5", "1.1.1.2", "1.1.1.1", 6, 200, 1000, true,
-                        "vn5", "vn5", hash_id++, flow1->flow_key_nh()->id(),
+                        "vn5", "vn5", f1_rev->flow_handle(),
+                        flow1->flow_key_nh()->id(),
                         flow0->flow_key_nh()->id()));
 
     //Verify flow count
@@ -357,7 +403,7 @@ TEST_F(StatsTestMock, FlowStatsOverflow_AgeTest) {
     /* Verify overflow counter of agent */
     //Decrement the stats so that they become 0
     KSyncSockTypeMap::IncrFlowStats(1, -1, -30);
-    KSyncSockTypeMap::IncrFlowStats(2, -1, -30);
+    KSyncSockTypeMap::IncrFlowStats(f1_rev->flow_handle(), -1, -30);
 
     //Invoke FlowStatsCollector to update the stats
     Agent::GetInstance()->uve()->flow_stats_collector()->Run();
@@ -395,11 +441,21 @@ TEST_F(StatsTestMock, DeletedFlowStatsTest) {
     client->WaitForIdle(10);
     EXPECT_TRUE(FlowGet("vrf5", "1.1.1.1", "1.1.1.2", 0, 0, 0, false, 
                         "vn5", "vn5", hash_id++, flow0->flow_key_nh()->id()));
+
+    VrfEntry *vrf = Agent::GetInstance()->vrf_table()->FindVrfFromName("vrf5");
+    EXPECT_TRUE(vrf != NULL);
+    FlowEntry *f1 = FlowGet(vrf->vrf_id(), "1.1.1.1", "1.1.1.2", 0, 0, 0,
+                            flow0->flow_key_nh()->id());
+    EXPECT_TRUE(f1 != NULL);
+    FlowEntry *f1_rev = f1->reverse_flow_entry();
+    EXPECT_TRUE(f1_rev != NULL);
+
     //Create flow in reverse direction and make sure it is linked to previous flow
-    TxIpPacketUtil(flow1->id(), "1.1.1.2", "1.1.1.1", 0, hash_id);
+    TxIpPacketUtil(flow1->id(), "1.1.1.2", "1.1.1.1", 0, f1_rev->flow_handle());
     client->WaitForIdle(10);
     EXPECT_TRUE(FlowGet("vrf5", "1.1.1.2", "1.1.1.1", 0, 0, 0, true, 
-                        "vn5", "vn5", hash_id++, flow1->flow_key_nh()->id(),
+                        "vn5", "vn5", f1_rev->flow_handle(),
+                        flow1->flow_key_nh()->id(),
                         flow0->flow_key_nh()->id()));
 
     //Flow creation using TCP packet
@@ -408,13 +464,19 @@ TEST_F(StatsTestMock, DeletedFlowStatsTest) {
     client->WaitForIdle(10);
     EXPECT_TRUE(FlowGet("vrf5", "1.1.1.1", "1.1.1.2", 6, 1000, 200, false,
                         "vn5", "vn5", hash_id++, flow0->flow_key_nh()->id()));
+    FlowEntry *f2 = FlowGet(vrf->vrf_id(), "1.1.1.1", "1.1.1.2", 6, 1000, 200,
+                            flow0->flow_key_nh()->id());
+    EXPECT_TRUE(f2 != NULL);
+    FlowEntry *f2_rev = f2->reverse_flow_entry();
+    EXPECT_TRUE(f2_rev != NULL);
 
     //Create flow in reverse direction and make sure it is linked to previous flow
-    TxTcpPacketUtil(flow1->id(), "1.1.1.2", "1.1.1.1",
-                200, 1000, hash_id);
+    TxTcpPacketUtil(flow1->id(), "1.1.1.2", "1.1.1.1", 200, 1000,
+                    f2_rev->flow_handle());
     client->WaitForIdle(10);
     EXPECT_TRUE(FlowGet("vrf5", "1.1.1.2", "1.1.1.1", 6, 200, 1000, true, 
-                        "vn5", "vn5", hash_id++, flow1->flow_key_nh()->id(),
+                        "vn5", "vn5", f2_rev->flow_handle(),
+                        flow1->flow_key_nh()->id(),
                         flow0->flow_key_nh()->id()));
 
     //Verify flow count
@@ -433,25 +495,15 @@ TEST_F(StatsTestMock, DeletedFlowStatsTest) {
     EXPECT_TRUE(FlowStatsMatch("vrf5", "1.1.1.2", "1.1.1.1", 6, 200, 1000, 1, 30,
                                flow1->flow_key_nh()->id()));
 
-    VrfEntry *vrf = Agent::GetInstance()->vrf_table()->FindVrfFromName("vrf5");
-    EXPECT_TRUE(vrf != NULL);
-    if (vrf == NULL)
-        return;
-
-    FlowEntry* one = FlowGet(vrf->vrf_id(), "1.1.1.1", "1.1.1.2", 0, 0, 0,
-                             flow0->flow_key_nh()->id());
-    FlowEntry* two = FlowGet(vrf->vrf_id(), "1.1.1.2", "1.1.1.1", 0, 0, 0,
-                             flow1->flow_key_nh()->id());
-
     //Mark the flow entries as deleted
-    one->set_deleted(true);
-    two->set_deleted(true);
+    f1->set_deleted(true);
+    f1_rev->set_deleted(true);
 
     //Change the stats
     KSyncSockTypeMap::IncrFlowStats(1, 1, 30);
+    KSyncSockTypeMap::IncrFlowStats(f1_rev->flow_handle(), 1, 30);
     KSyncSockTypeMap::IncrFlowStats(2, 1, 30);
-    KSyncSockTypeMap::IncrFlowStats(3, 1, 30);
-    KSyncSockTypeMap::IncrFlowStats(4, 1, 30);
+    KSyncSockTypeMap::IncrFlowStats(f2_rev->flow_handle(), 1, 30);
 
     //Invoke FlowStatsCollector to update the stats
     Agent::GetInstance()->uve()->flow_stats_collector()->Run();
@@ -469,8 +521,8 @@ TEST_F(StatsTestMock, DeletedFlowStatsTest) {
                                flow1->flow_key_nh()->id()));
 
     //Remove the deleted flag, so that the cleanup can happen
-    one->set_deleted(false);
-    two->set_deleted(false);
+    f1->set_deleted(false);
+    f1_rev->set_deleted(false);
 
     //cleanup
     client->EnqueueFlowFlush();
@@ -526,13 +578,22 @@ TEST_F(StatsTestMock, InterVnStatsTest) {
     InterVnStatsMatch("vn5", "vn5", 1, 30, true); //outgoing stats
     InterVnStatsMatch("vn5", "vn5", 1, 30, false); //Incoming stats
 
+    VrfEntry *vrf = Agent::GetInstance()->vrf_table()->FindVrfFromName("vrf5");
+    EXPECT_TRUE(vrf != NULL);
+    FlowEntry *f1 = FlowGet(vrf->vrf_id(), "1.1.1.1", "1.1.1.2", 6, 30, 40,
+                            flow0->flow_key_nh()->id());
+    EXPECT_TRUE(f1 != NULL);
+    FlowEntry *f1_rev = f1->reverse_flow_entry();
+    EXPECT_TRUE(f1_rev != NULL);
+
     //Create flow in reverse direction and make sure it is linked to previous flow
-    TxTcpPacketUtil(flow1->id(), "1.1.1.2", "1.1.1.1",
-                    40, 30, hash_id);
+    TxTcpPacketUtil(flow1->id(), "1.1.1.2", "1.1.1.1", 40, 30,
+                    f1_rev->flow_handle());
     client->WaitForIdle(10);
     client->WaitForIdle(10);
     EXPECT_TRUE(FlowGet("vrf5", "1.1.1.2", "1.1.1.1", 6, 40, 30, true, 
-                        "vn5", "vn5", hash_id++, flow1->flow_key_nh()->id(),
+                        "vn5", "vn5", f1_rev->flow_handle(),
+                        flow1->flow_key_nh()->id(),
                         flow0->flow_key_nh()->id()));
 
     //Invoke FlowStatsCollector to update the stats
@@ -549,7 +610,7 @@ TEST_F(StatsTestMock, InterVnStatsTest) {
     //(2) Inter-VN stats updation when flow stats are updated
     //Change the stats
     KSyncSockTypeMap::IncrFlowStats(1, 1, 30);
-    KSyncSockTypeMap::IncrFlowStats(2, 1, 30);
+    KSyncSockTypeMap::IncrFlowStats(f1_rev->flow_handle(), 1, 30);
     client->WaitForIdle(10);
 
     //Invoke FlowStatsCollector to update the stats
@@ -726,6 +787,15 @@ TEST_F(StatsTestMock, VrfStatsTest) {
     client->WaitForIdle();
     WAIT_FOR(100, 10000, (VrfFind("vrf42")== false));
     EXPECT_FALSE(DBTableFind("vrf42.uc.route.0"));
+
+    //Remove vrf stats object from agent
+    collector->Test_DeleteVrfStatsEntry(vrf41_id);
+    collector->Test_DeleteVrfStatsEntry(vrf42_id);
+
+    //Remove vrf stats object from mock Kernel
+    KSyncSockTypeMap::VrfStatsDelete(vrf41_id);
+    KSyncSockTypeMap::VrfStatsDelete(vrf42_id);
+
 }
 
 TEST_F(StatsTestMock, VnStatsTest) {
@@ -778,11 +848,10 @@ int main(int argc, char *argv[]) {
     StatsTestMock::TestSetup();
 
     ret = RUN_ALL_TESTS();
-
-    Agent::GetInstance()->event_manager()->Shutdown();
-    AsioStop();
-    cout << "Return test result:" << ret << endl;
-    TaskScheduler::GetInstance()->Terminate();
+    StatsTestMock::TestTeardown();
+    client->WaitForIdle();
+    TestShutdown();
+    delete client;
     return ret;
 }
 

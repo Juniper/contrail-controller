@@ -114,9 +114,6 @@ public:
         }
     }
 
-    static void TestTearDown() {
-    }
-
     static void CreateVmPorts(struct PortInfo *input, int count) {
         CreateVmportEnv(input, count);
     }
@@ -346,9 +343,12 @@ TEST_F(UveTest, StatsCollectorTest) {
     AgentStatsCollectorTest *collector = static_cast<AgentStatsCollectorTest *>
         (Agent::GetInstance()->uve()->agent_stats_collector());
     collector->interface_stats_responses_ = 0;
+    collector->vrf_stats_responses_ = 0;
+    collector->drop_stats_responses_ = 0;
     EnqueueAgentStatsCollectorTask(1);
     //Wait until agent_stats_collector() is run
     WAIT_FOR(100, 1000, (collector->interface_stats_responses_ >= 1));
+    client->WaitForIdle(3);
 
     EXPECT_EQ(0, collector->interface_stats_errors_);
     EXPECT_EQ(0, collector->vrf_stats_errors_);
@@ -466,9 +466,8 @@ int main(int argc, char **argv) {
     UveTest::TestSetup(vrf_array, 2);
 
     int ret = RUN_ALL_TESTS();
-    UveTest::TestTearDown();
-    Agent::GetInstance()->event_manager()->Shutdown();
-    AsioStop();
-    TaskScheduler::GetInstance()->Terminate();
+    client->WaitForIdle();
+    TestShutdown();
+    delete client;
     return ret;
 }

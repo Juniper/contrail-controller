@@ -1007,7 +1007,9 @@ void MockDumpHandlerBase::SendDumpResponse(uint32_t seq_num, Sandesh *from_req) 
     unsigned int resp_code = 0;
 
     if (KSyncSockTypeMap::error_code()) {
-        KSyncSockTypeMap::SimulateResponse(seq_num, -KSyncSockTypeMap::error_code(), 0);
+        int ret_code = -KSyncSockTypeMap::error_code();
+        ret_code &= ~VR_MESSAGE_DUMP_INCOMPLETE;
+        KSyncSockTypeMap::SimulateResponse(seq_num, ret_code, 0);
         return;
     } 
     Sandesh *req = GetFirst(from_req);

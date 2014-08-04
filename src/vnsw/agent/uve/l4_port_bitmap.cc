@@ -35,6 +35,22 @@ L4PortBitmap::L4PortBitmap()
 L4PortBitmap::~L4PortBitmap() {
 }
 
+void L4PortBitmap::Reset() {
+    tcp_sport_.Reset();
+    tcp_dport_.Reset();
+    udp_sport_.Reset();
+    udp_dport_.Reset();
+}
+
+void L4PortBitmap::PortBitmap::Reset() {
+    for (int i = 0; i < L4PortBitmap::kBmapCount; i++) {
+        bitmap_[i] = bitmap_old_[i] = 0;
+    }
+    for (int i = 0; i < L4PortBitmap::kBucketCount; i++) {
+        counts_[i] = 0;
+    }
+}
+
 void L4PortBitmap::PortBitmap::AddPort(uint16_t port) {
     int idx = port / kBucketCount;
     counts_[idx]++;
