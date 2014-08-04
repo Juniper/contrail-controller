@@ -9,6 +9,7 @@ import pprint
 import json
 import sys
 import time
+import __main__ as main
 
 import gen.resource_common
 from gen.resource_xsd import *
@@ -52,6 +53,7 @@ class VncApi(VncApiClientGen):
 
     _DEFAULT_HEADERS = {
         'Content-type': 'application/json; charset="UTF-8"',
+        'X-Contrail-Useragent': getattr(main, '__file__', ''),
     }
 
     _AUTHN_SUPPORTED_TYPES = ["keystone"]
