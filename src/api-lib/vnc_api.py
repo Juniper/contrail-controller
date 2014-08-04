@@ -74,7 +74,8 @@ class VncApi(VncApiClientGen):
     def __init__(self, username=None, password=None, tenant_name=None,
                  api_server_host='127.0.0.1', api_server_port='8082',
                  api_server_url=None, conf_file=None, user_info=None,
-                 auth_token=None):
+                 auth_token=None, auth_host=None, auth_port=None,
+                 auth_protocol = None, auth_url=None):
         # TODO allow for username/password to be present in creds file
 
         super(VncApi, self).__init__(self._obj_serializer_diff)
@@ -87,13 +88,17 @@ class VncApi(VncApiClientGen):
         self._authn_type = _read_cfg(cfg_parser, 'auth', 'AUTHN_TYPE',
                                      self._DEFAULT_AUTHN_TYPE)
         if self._authn_type == 'keystone':
-            self._authn_protocol = _read_cfg(cfg_parser, 'auth', 'AUTHN_PROTOCOL',
+            self._authn_protocol = auth_protocol or \
+                _read_cfg(cfg_parser, 'auth', 'AUTHN_PROTOCOL',
                                            self._DEFAULT_AUTHN_PROTOCOL)
-            self._authn_server = _read_cfg(cfg_parser, 'auth', 'AUTHN_SERVER',
+            self._authn_server = auth_host or \
+                _read_cfg(cfg_parser, 'auth', 'AUTHN_SERVER',
                                            self._DEFAULT_AUTHN_SERVER)
-            self._authn_port = _read_cfg(cfg_parser, 'auth', 'AUTHN_PORT',
+            self._authn_port = auth_port or \
+                _read_cfg(cfg_parser, 'auth', 'AUTHN_PORT',
                                          self._DEFAULT_AUTHN_PORT)
-            self._authn_url = _read_cfg(cfg_parser, 'auth', 'AUTHN_URL',
+            self._authn_url = auth_url or \
+                _read_cfg(cfg_parser, 'auth', 'AUTHN_URL',
                                         self._DEFAULT_AUTHN_URL)
             self._username = username or \
                 _read_cfg(cfg_parser, 'auth', 'AUTHN_USER',
