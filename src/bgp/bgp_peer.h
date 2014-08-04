@@ -161,6 +161,7 @@ public:
     virtual IPeerClose *peer_close();
     virtual IPeerDebugStats *peer_stats();
     void ManagedDelete();
+    void RetryDelete();
     LifetimeActor *deleter();
     void Initialize();
 
@@ -184,10 +185,16 @@ public:
     size_t get_rx_notification();
     size_t get_tr_keepalive();
 
-    void inc_rx_open_error();
-    void inc_rx_update_error();
-    size_t get_rx_open_error();
-    size_t get_rx_update_error();
+    void inc_connect_error();
+    void inc_connect_timer_expired();
+    void inc_hold_timer_expired();
+    void inc_open_error();
+    void inc_update_error();
+    size_t get_connect_error();
+    size_t get_connect_timer_expired();
+    size_t get_hold_timer_expired();
+    size_t get_open_error();
+    size_t get_update_error();
 
     static void FillBgpNeighborDebugState(BgpNeighborResp &resp, const IPeerDebugStats *peer);
 

@@ -27,7 +27,15 @@ using namespace std;
 class BgpSessionManagerCustom : public BgpSessionManager {
 public:
     BgpSessionManagerCustom(EventManager *evm, BgpServer *server)
-        : BgpSessionManager(evm, server), create_session_fail_(false) {
+        : BgpSessionManager(evm, server),
+          connect_session_fail_(false),
+          create_session_fail_(false) {
+    }
+
+    void Connect(TcpSession *session, Endpoint remote) {
+        if (connect_session_fail_)
+            return;
+        BgpSessionManager::Connect(session, remote);
     }
 
     virtual TcpSession *CreateSession() {
@@ -36,9 +44,11 @@ public:
         return BgpSessionManager::CreateSession();
     }
 
+    void set_connect_session_fail(bool flag) { connect_session_fail_ = flag; }
     void set_create_session_fail(bool flag) { create_session_fail_ = flag; }
 
 private:
+    bool connect_session_fail_;
     bool create_session_fail_;
 };
 
@@ -95,6 +105,8 @@ protected:
         a_->Shutdown();
         b_->Shutdown();
         task_util::WaitForIdle();
+        TASK_UTIL_EXPECT_EQ(0, TcpServerManager::GetServerCount());
+
         evm_->Shutdown();
         if (thread_.get() != NULL) {
             thread_->Join();
@@ -124,6 +136,14 @@ protected:
         session_manager->set_socket_open_failure(flag);
     }
 
+    size_t GetSessionQueueSize(BgpSessionManager *session_manager) {
+        return session_manager->GetQueueSize();
+    }
+
+    void SetSessionQueueDisable(BgpSessionManager *session_manager, bool flag) {
+        session_manager->SetQueueDisable(flag);
+    }
+
     void SetupPeers(int peer_count, unsigned short port_a,
                     unsigned short port_b, bool verify_keepalives,
                     uint16_t as_num1 = BgpConfigManager::kDefaultAutonomousSystem,
@@ -138,10 +158,15 @@ protected:
                     uint16_t hold_time2 = StateMachine::kHoldTime);
     void SetupPeers(BgpServerTest *server, int peer_count,
                     unsigned short port_a, unsigned short port_b,
-                    bool verify_keepalives, as_t as_num1, as_t as_num2,
-                    string peer_address1, string peer_address2,
-                    string bgp_identifier1, string bgp_identifier2,
-                    vector<string> families1, vector<string> families2,
+                    bool verify_keepalives,
+                    uint16_t as_num1 = BgpConfigManager::kDefaultAutonomousSystem,
+                    uint16_t as_num2 = BgpConfigManager::kDefaultAutonomousSystem,
+                    string peer_address1 = "127.0.0.1",
+                    string peer_address2 = "127.0.0.1",
+                    string bgp_identifier1 = "192.168.0.10",
+                    string bgp_identifier2 = "192.168.0.11",
+                    vector<string> families1 = vector<string>(),
+                    vector<string> families2 = vector<string>(),
                     bool delete_config = false);
     void VerifyPeers(int peer_count, int verify_keepalives_count = 0,
                      uint16_t as_num1 = BgpConfigManager::kDefaultAutonomousSystem,
@@ -346,21 +371,21 @@ static void ResumeDelete(LifetimeActor *actor) {
 }
 
 TEST_F(BgpServerUnitTest, Connection) {
-    StateMachineTest::set_hold_time_msecs(30);
+    StateMachineTest::set_keepalive_time_msecs(10);
     BgpPeerTest::verbose_name(true);
     SetupPeers(3, a_->session_manager()->GetPort(),
                b_->session_manager()->GetPort(), true);
     VerifyPeers(3, 2);
-    StateMachineTest::set_hold_time_msecs(0);
+    StateMachineTest::set_keepalive_time_msecs(0);
 }
 
 TEST_F(BgpServerUnitTest, LotsOfKeepAlives) {
-    StateMachineTest::set_hold_time_msecs(30);
+    StateMachineTest::set_keepalive_time_msecs(10);
     BgpPeerTest::verbose_name(true);
     SetupPeers(3, a_->session_manager()->GetPort(),
                b_->session_manager()->GetPort(), true);
-    VerifyPeers(3, 50);
-    StateMachineTest::set_hold_time_msecs(0);
+    VerifyPeers(3, 30);
+    StateMachineTest::set_keepalive_time_msecs(0);
 }
 
 TEST_F(BgpServerUnitTest, ChangeAsNumber1) {
@@ -857,7 +882,7 @@ TEST_F(BgpServerUnitTest, AdminDown) {
         string uuid = BgpConfigParser::session_uuid("A", "B", j + 1);
         BgpPeer *peer_b = b_->FindPeerByUuid(BgpConfigManager::kMasterInstance,
                                              uuid);
-        TASK_UTIL_EXPECT_TRUE(peer_b->get_rx_notification() >= 5);
+        TASK_UTIL_EXPECT_TRUE(peer_b->get_rx_notification() >= 3);
     }
 
     //
@@ -873,7 +898,7 @@ TEST_F(BgpServerUnitTest, AdminDown) {
     //
     // Make sure that the sessions come up
     //
-    VerifyPeers(peer_count, 0);
+    VerifyPeers(peer_count);
 }
 
 //
@@ -1212,8 +1237,8 @@ TEST_F(BgpServerUnitTest, AddressFamilyNegotiation7) {
                                              uuid);
         BgpPeer *peer_b = b_->FindPeerByUuid(BgpConfigManager::kMasterInstance,
                                              uuid);
-        TASK_UTIL_EXPECT_TRUE((peer_a->get_rx_open_error() >= 1) ||
-                              (peer_b->get_rx_open_error() >= 1));
+        TASK_UTIL_EXPECT_TRUE((peer_a->get_open_error() >= 1) ||
+                              (peer_b->get_open_error() >= 1));
         TASK_UTIL_EXPECT_NE(peer_a->GetState(), StateMachine::ESTABLISHED);
         TASK_UTIL_EXPECT_NE(peer_b->GetState(), StateMachine::ESTABLISHED);
     }
@@ -1244,8 +1269,8 @@ TEST_F(BgpServerUnitTest, AddressFamilyNegotiation8) {
                                              uuid);
         BgpPeer *peer_b = b_->FindPeerByUuid(BgpConfigManager::kMasterInstance,
                                              uuid);
-        TASK_UTIL_EXPECT_TRUE((peer_a->get_rx_open_error() >= 1) ||
-                              (peer_b->get_rx_open_error() >= 1));
+        TASK_UTIL_EXPECT_TRUE((peer_a->get_open_error() >= 1) ||
+                              (peer_b->get_open_error() >= 1));
         TASK_UTIL_EXPECT_NE(peer_a->GetState(), StateMachine::ESTABLISHED);
         TASK_UTIL_EXPECT_NE(peer_b->GetState(), StateMachine::ESTABLISHED);
     }
@@ -1350,8 +1375,97 @@ TEST_F(BgpServerUnitTest, MissingPeerConfig) {
         string uuid = BgpConfigParser::session_uuid("A", "B", j + 1);
         BgpPeer *peer_a = a_->FindPeerByUuid(BgpConfigManager::kMasterInstance,
                                              uuid);
-        TASK_UTIL_EXPECT_TRUE(peer_a->get_rx_notification() > 5);
+        TASK_UTIL_EXPECT_TRUE(peer_a->get_rx_notification() >= 3);
         TASK_UTIL_EXPECT_NE(peer_a->GetState(), StateMachine::ESTABLISHED);
+    }
+}
+
+// Apply bgp neighbor configuration on only one side of the session, disable
+// session queue processing on the other side and verify that the first side
+// gets stuck in OpenSent.
+TEST_F(BgpServerUnitTest, DisableSessionQueue1) {
+    int peer_count = 3;
+
+    SetSessionQueueDisable(b_session_manager_, true);
+
+    BgpPeerTest::verbose_name(true);
+    SetupPeers(a_.get(), peer_count, a_->session_manager()->GetPort(),
+               b_->session_manager()->GetPort(), false);
+
+    TASK_UTIL_EXPECT_TRUE(GetSessionQueueSize(b_session_manager_) == 3);
+    for (int j = 0; j < peer_count; j++) {
+        string uuid = BgpConfigParser::session_uuid("A", "B", j + 1);
+        BgpPeer *peer_a = a_->FindPeerByUuid(BgpConfigManager::kMasterInstance,
+                                             uuid);
+        TASK_UTIL_EXPECT_EQ(peer_a->GetState(), StateMachine::OPENSENT);
+    }
+
+    SetSessionQueueDisable(b_session_manager_, false);
+}
+
+// Apply bgp neighbor configuration on only one side of the session, disable
+// session queue processing on the other side, use very small hold timer and
+// verify that the first side keeps sees the hold timer expiring.
+TEST_F(BgpServerUnitTest, DisableSessionQueue2) {
+    int peer_count = 3;
+
+    SetSessionQueueDisable(b_session_manager_, true);
+    StateMachineTest::set_hold_time_msecs(30);
+
+    BgpPeerTest::verbose_name(true);
+    SetupPeers(a_.get(), peer_count, a_->session_manager()->GetPort(),
+               b_->session_manager()->GetPort(), false);
+
+    TASK_UTIL_EXPECT_TRUE(GetSessionQueueSize(b_session_manager_) == 3);
+    for (int j = 0; j < peer_count; j++) {
+        string uuid = BgpConfigParser::session_uuid("A", "B", j + 1);
+        BgpPeer *peer_a = a_->FindPeerByUuid(BgpConfigManager::kMasterInstance,
+                                             uuid);
+        TASK_UTIL_EXPECT_EQ(peer_a->GetState(), StateMachine::OPENSENT);
+    }
+
+    StateMachineTest::set_hold_time_msecs(0);
+    SetSessionQueueDisable(b_session_manager_, false);
+}
+
+// Apply bgp neighbor configuration on only one side of the session, close
+// the listen socket on the other side and verify that the first side gets
+// connect errors.
+TEST_F(BgpServerUnitTest, ConnectError) {
+    int peer_count = 3;
+
+    int port_a = a_->session_manager()->GetPort();
+    int port_b = b_->session_manager()->GetPort();
+    b_session_manager_->Shutdown();
+
+    BgpPeerTest::verbose_name(true);
+    SetupPeers(a_.get(), peer_count, port_a, port_b, false);
+
+    for (int j = 0; j < peer_count; j++) {
+        string uuid = BgpConfigParser::session_uuid("A", "B", j + 1);
+        BgpPeer *peer_a = a_->FindPeerByUuid(BgpConfigManager::kMasterInstance,
+                                             uuid);
+        TASK_UTIL_EXPECT_TRUE(peer_a->get_connect_error() >= 3);
+    }
+}
+
+// Apply bgp neighbor configuration on only one side of the session, make
+// it's attempts to connect fail and verify it gets connect timeouts.
+TEST_F(BgpServerUnitTest, ConnectTimerExpired) {
+    int peer_count = 1;
+
+    int port_a = a_->session_manager()->GetPort();
+    int port_b = b_->session_manager()->GetPort();
+    a_session_manager_->set_connect_session_fail(true);
+
+    BgpPeerTest::verbose_name(true);
+    SetupPeers(a_.get(), peer_count, port_a, port_b, false);
+
+    for (int j = 0; j < peer_count; j++) {
+        string uuid = BgpConfigParser::session_uuid("A", "B", j + 1);
+        BgpPeer *peer_a = a_->FindPeerByUuid(BgpConfigManager::kMasterInstance,
+                                             uuid);
+        TASK_UTIL_EXPECT_TRUE(peer_a->get_connect_timer_expired() >= 3);
     }
 }
 
@@ -1411,7 +1525,7 @@ TEST_F(BgpServerUnitTest, DeleteInProgress) {
         string uuid = BgpConfigParser::session_uuid("A", "B", j + 1);
         BgpPeer *peer_b = b_->FindPeerByUuid(BgpConfigManager::kMasterInstance,
                                              uuid);
-        TASK_UTIL_EXPECT_TRUE(peer_b->get_rx_notification() >= 5);
+        TASK_UTIL_EXPECT_TRUE(peer_b->get_rx_notification() >= 3);
     }
 
     //
@@ -1464,7 +1578,7 @@ TEST_F(BgpServerUnitTest, CloseInProgress) {
         string uuid = BgpConfigParser::session_uuid("A", "B", j + 1);
         BgpPeer *peer_b = b_->FindPeerByUuid(BgpConfigManager::kMasterInstance,
                                              uuid);
-        TASK_UTIL_EXPECT_TRUE(peer_b->get_rx_notification() >= 5);
+        TASK_UTIL_EXPECT_TRUE(peer_b->get_rx_notification() >= 3);
     }
 
     //
@@ -1570,7 +1684,7 @@ TEST_F(BgpServerUnitTest, CloseDeferred) {
         BgpPeer *peer_b = b_->FindPeerByUuid(BgpConfigManager::kMasterInstance,
                                              uuid);
         TASK_UTIL_EXPECT_TRUE(
-            peer_b->get_rx_notification() >= b_rx_notification[j] + 5);
+            peer_b->get_rx_notification() >= b_rx_notification[j] + 3);
     }
 
     //
@@ -1609,11 +1723,11 @@ TEST_F(BgpServerUnitTest, CreateSessionFail) {
         BgpPeer *peer_a = a_->FindPeerByUuid(BgpConfigManager::kMasterInstance,
                                              uuid);
         const StateMachine *sm_a = GetPeerStateMachine(peer_a);
-        TASK_UTIL_EXPECT_TRUE(sm_a->connect_attempts() >= 5);
+        TASK_UTIL_EXPECT_TRUE(sm_a->connect_attempts() >= 3);
         BgpPeer *peer_b = b_->FindPeerByUuid(BgpConfigManager::kMasterInstance,
                                              uuid);
         const StateMachine *sm_b = GetPeerStateMachine(peer_b);
-        TASK_UTIL_EXPECT_TRUE(sm_b->connect_attempts() >= 5);
+        TASK_UTIL_EXPECT_TRUE(sm_b->connect_attempts() >= 3);
     }
 
     //
@@ -1653,11 +1767,11 @@ TEST_F(BgpServerUnitTest, SocketOpenFail) {
         BgpPeer *peer_a = a_->FindPeerByUuid(BgpConfigManager::kMasterInstance,
                                              uuid);
         const StateMachine *sm_a = GetPeerStateMachine(peer_a);
-        TASK_UTIL_EXPECT_TRUE(sm_a->connect_attempts() >= 5);
+        TASK_UTIL_EXPECT_TRUE(sm_a->connect_attempts() >= 3);
         BgpPeer *peer_b = b_->FindPeerByUuid(BgpConfigManager::kMasterInstance,
                                              uuid);
         const StateMachine *sm_b = GetPeerStateMachine(peer_b);
-        TASK_UTIL_EXPECT_TRUE(sm_b->connect_attempts() >= 5);
+        TASK_UTIL_EXPECT_TRUE(sm_b->connect_attempts() >= 3);
     }
 
     //
@@ -1948,12 +2062,12 @@ TEST_F(BgpServerUnitTest, ClearNeighbor4) {
 }
 
 TEST_F(BgpServerUnitTest, ShowBgpServer) {
-    StateMachineTest::set_hold_time_msecs(30);
+    StateMachineTest::set_keepalive_time_msecs(10);
     BgpPeerTest::verbose_name(true);
     SetupPeers(3,a_->session_manager()->GetPort(),
                b_->session_manager()->GetPort(), true);
-    VerifyPeers(3, 50);
-    StateMachineTest::set_hold_time_msecs(0);
+    VerifyPeers(3, 3);
+    StateMachineTest::set_keepalive_time_msecs(0);
 
     BgpSandeshContext sandesh_context;
     ShowBgpServerReq *show_req;
@@ -1979,6 +2093,7 @@ TEST_F(BgpServerUnitTest, ShowBgpServer) {
     show_req->Release();
     task_util::WaitForIdle();
     TASK_UTIL_EXPECT_TRUE(validate_done_);
+    StateMachineTest::set_keepalive_time_msecs(0);
 }
 
 TEST_F(BgpServerUnitTest, BasicAdvertiseWithdraw) {

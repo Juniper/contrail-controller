@@ -2479,13 +2479,24 @@ TEST_F(StateMachineEstablishedTest, TcpPassiveOpen) {
 }
 
 // Old State: Established
-// Event:     EvTcpPassiveOpen + EvBgpOpen
-// New State: Idle
+// Event:     EvTcpPassiveOpen + EvBgpOpen (on passive session)
+// New State: Established
 TEST_F(StateMachineEstablishedTest, TcpPassiveOpenThenBgpOpen) {
     TaskScheduler::GetInstance()->Stop();
     EvTcpPassiveOpen();
     BgpSessionMock *session = session_mgr_->passive_session();
     EvBgpOpenCustom(session, lower_id_);
+    TaskScheduler::GetInstance()->Start();
+    task_util::WaitForIdle();
+    VerifyState(StateMachine::ESTABLISHED);
+}
+
+// Old State: Established
+// Event:     EvBgpOpen (on active session)
+// New State: Idle
+TEST_F(StateMachineEstablishedTest, BgpOpen) {
+    TaskScheduler::GetInstance()->Stop();
+    EvBgpOpen(session_mgr_->active_session());
     TaskScheduler::GetInstance()->Start();
     task_util::WaitForIdle();
     VerifyState(StateMachine::IDLE);

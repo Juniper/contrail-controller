@@ -167,6 +167,7 @@ public:
     virtual void Destroy() {
         CHECK_CONCURRENCY("bgp::Config");
         server_->config_manager()->Terminate();
+        server_->session_manager()->Terminate();
         TcpServerManager::DeleteServer(server_->session_manager());
         server_->session_mgr_ = NULL;
     }
@@ -178,31 +179,25 @@ private:
 bool BgpServer::IsReadyForDeletion() {
     CHECK_CONCURRENCY("bgp::Config");
 
-    //
-    // Check if the IPeer membership manager queue is empty
-    //
+    // Check if the IPeer membership manager queue is empty.
     if (!membership_mgr_->IsQueueEmpty()) {
         return false;
     }
 
-    // Check if the Service Chain Manager Work Queue is empty
+    // Check if the Service Chain Manager Work Queue is empty.
     if (!service_chain_mgr_->IsQueueEmpty()) {
         return false;
     }
 
-    //
-    // Check if the RTargetGroupManager has processed all rtarget route updates
-    // This is done to ensure that InterestedPeerList of rtgroup is updated
-    // before allowing the peer to get deleted
-    //
-    if (!rtarget_group_mgr_->IsRTargetRoutesProcessed()) {
+    // Check if the DB requests queue and change list is empty.
+    if (!db_.IsDBQueueEmpty()) {
         return false;
     }
 
-    //
-    // Check if the DB requests queue and change list is empty
-    //
-    if (!db_.IsDBQueueEmpty()) {
+    // Check if the RTargetGroupManager has processed all RTargetRoute updates.
+    // This is done to ensure that the InterestedPeerList of RtargetGroup gets
+    // updated before allowing the peer to get deleted.
+    if (!rtarget_group_mgr_->IsRTargetRoutesProcessed()) {
         return false;
     }
 
