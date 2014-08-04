@@ -3018,7 +3018,8 @@ class SchemaTransformer(object):
         vmi_name = idents['virtual-machine-interface']
 
         lr_obj = LogicalRouterST.locate(lr_name)
-        lr_obj.add_interface(vmi_name)
+        if lr_obj is not None:
+            lr_obj.add_interface(vmi_name)
     # end add_logical_router_interface
 
     def delete_logical_router_interface(self, idents, meta):
