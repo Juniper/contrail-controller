@@ -776,8 +776,8 @@ class VirtualNetworkST(DictST):
                 continue
             for route in route_table.routes or []:
                 if route.prefix in self.route_table:
-                    del stale[route.prefix]
-                    if route.next_hop == self.route_table[prefix]:
+                    stale.pop(route.prefix, None)
+                    if route.next_hop == self.route_table[route.prefix]:
                         continue
                     self.delete_route(route.prefix)
                 # end if route.prefix
