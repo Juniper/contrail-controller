@@ -1447,7 +1447,8 @@ void VmInterface::UpdateL3InterfaceRoute(bool old_ipv4_active, bool force_update
         // Add route if old was inactive or force_update is set
         if (old_ipv4_active == false || force_update == true ||
             old_addr != ip_addr_) {
-            AddRoute(vrf_->GetName(), ip_addr_, 32, policy_enabled_, ecmp_);
+            AddRoute(vrf_->GetName(), ip_addr_, 32, vn_->GetName(),
+                     policy_enabled_, ecmp_);
         } else if (policy_change == true) {
             // If old-l3-active and there is change in policy, invoke RESYNC of
             // route to account for change in NH policy
@@ -1812,7 +1813,8 @@ void VmInterface::CopySgIdList(SecurityGroupList *sg_id_list) const {
 //Add a route for VM port
 //If ECMP route, add new composite NH and mpls label for same
 void VmInterface::AddRoute(const std::string &vrf_name, const Ip4Address &addr,
-                           uint32_t plen, bool policy, bool ecmp) {
+                           uint32_t plen, const std::string &dest_vn,
+                           bool policy, bool ecmp) {
     SecurityGroupList sg_id_list;
     CopySgIdList(&sg_id_list);
     PathPreference path_preference;
@@ -1822,7 +1824,7 @@ void VmInterface::AddRoute(const std::string &vrf_name, const Ip4Address &addr,
     }
     Inet4UnicastAgentRouteTable::AddLocalVmRoute(peer_.get(), vrf_name, addr,
                                                  plen, GetUuid(),
-                                                 vn_->GetName(), label_,
+                                                 dest_vn, label_,
                                                  sg_id_list, false,
                                                  path_preference);
 
@@ -1934,8 +1936,8 @@ void VmInterface::FloatingIp::Activate(VmInterface *interface,
         assert(vrf_.get());
     }
 
-    interface->AddRoute(vrf_.get()->GetName(), floating_ip_, 32, true,
-                        interface->ecmp());
+    interface->AddRoute(vrf_.get()->GetName(), floating_ip_, 32, vn_->GetName(),
+                        true, interface->ecmp());
     if (table->update_floatingip_cb().empty() == false) {
         table->update_floatingip_cb()(interface, vn_.get(), floating_ip_, false);
     }
@@ -2021,7 +2023,8 @@ void VmInterface::StaticRoute::Activate(VmInterface *interface,
     if (installed_ == true && policy_change) {
         Inet4UnicastAgentRouteTable::ReEvaluatePaths(vrf_, addr_, plen_);
     } else if (installed_ == false || force_update) {
-        interface->AddRoute(vrf_, addr_, plen_, interface->policy_enabled(),
+        interface->AddRoute(vrf_, addr_, plen_, interface->vn_->GetName(),
+                            interface->policy_enabled(),
                             interface->ecmp());
     }
 
@@ -2101,7 +2104,8 @@ void VmInterface::AllowedAddressPair::Activate(VmInterface *interface,
     if (installed_ == true && policy_change) {
         Inet4UnicastAgentRouteTable::ReEvaluatePaths(vrf_, addr_, plen_);
     } else if (installed_ == false || force_update) {
-        interface->AddRoute(vrf_, addr_, plen_, interface->policy_enabled(),
+        interface->AddRoute(vrf_, addr_, plen_, interface->vn_->GetName(),
+                            interface->policy_enabled(),
                             ecmp_);
     }
 
