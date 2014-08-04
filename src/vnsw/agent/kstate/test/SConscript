@@ -15,8 +15,7 @@ kstate_flaky_test_suite = []
 test_kstate = AgentEnv.MakeTestCmd(env, 'test_kstate', kstate_test_suite)
 test_sandesh_kstate = AgentEnv.MakeTestCmdSrc(env, 'test_sandesh_kstate',
                                               [
-                                               'test_sandesh_kstate.cc',
-                                               '../../pkt/test/test_pkt_util.o'
+                                               'test_sandesh_kstate.cc'
                                               ],
                                               kstate_test_suite)
 

@@ -1365,6 +1365,7 @@ TEST_F(CfgTest, EcmpNH_13) {
     req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
     key = new CompositeNHKey(Composite::ECMP, true,
                              comp_nh_list, "vrf1");
+    ((CompositeNHKey *)key)->CreateTunnelNHReq(agent_);
     req.key.reset(key);
     req.data.reset(NULL);
     NextHopTable::GetInstance()->Enqueue(&req);

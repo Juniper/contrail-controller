@@ -187,7 +187,7 @@ class LifetimeManager {
 public:
     typedef boost::function<bool ()> TaskEntryCallback;
     LifetimeManager(int task_id, TaskEntryCallback on_entry_cb = 0);
-    ~LifetimeManager();
+    virtual ~LifetimeManager();
 
     // Enqueue Delete event.
     void Enqueue(LifetimeActor *actor);

@@ -552,6 +552,7 @@ int main(int argc, char **argv) {
 
     int ret = RUN_ALL_TESTS();
 
+    client_service.reset();
     client_evm->Shutdown();
     client_thread->Join();
     delete client_evm;

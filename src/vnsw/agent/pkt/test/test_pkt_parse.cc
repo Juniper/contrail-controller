@@ -53,13 +53,13 @@ bool CallPktParse(PktInfo *pkt_info, uint8_t *ptr, int len) {
     return true;
 }
 
-static void SetupIntf() {
-    struct PortInfo input[] = {
-        {"vnet1", 1, "1.1.1.1", "00:00:00:01:01:01", 1, 1},
-        {"vnet2", 2, "1.1.1.2", "00:00:00:01:01:02", 1, 2},
-        {"vnet3", 3, "2.1.1.1", "00:00:00:02:01:01", 2, 3},
-    };
+struct PortInfo input[] = {
+    {"vnet1", 1, "1.1.1.1", "00:00:00:01:01:01", 1, 1},
+    {"vnet2", 2, "1.1.1.2", "00:00:00:01:01:02", 1, 2},
+    {"vnet3", 3, "2.1.1.1", "00:00:00:02:01:01", 2, 3},
+};
 
+static void Setup() {
     client->Reset();
     CreateVmportEnv(input, 3, 1);
     client->WaitForIdle();
@@ -70,6 +70,12 @@ static void SetupIntf() {
     EXPECT_TRUE(VmPortPolicyEnable(input, 0));
     EXPECT_TRUE(VmPortPolicyEnable(input, 1));
     EXPECT_TRUE(VmPortPolicyEnable(input, 2));
+}
+
+static void Teardown() {
+    client->Reset();
+    DeleteVmportEnv(input, 3, true, 1);
+    client->WaitForIdle();
 }
 
 TEST_F(PktParseTest, Stats_1) {
@@ -87,7 +93,7 @@ TEST_F(PktParseTest, InvalidAgentHdr_1) {
     unsigned int err_count = AgentStats::GetInstance()->pkt_invalid_agent_hdr();
     VmInterface *vnet1 = VmInterfaceGet(1);
 
-    PktGen *pkt = new PktGen();
+    std::auto_ptr<PktGen> pkt(new PktGen());
     pkt->AddEthHdr("00:00:00:00:00:01", "00:00:00:00:00:02", 0x800);
     pkt->AddAgentHdr(vnet1->id(), 0);
     pkt->AddEthHdr("00:00:00:00:00:01", "00:00:00:00:00:02", 0x800);
@@ -121,7 +127,7 @@ TEST_F(PktParseTest, Arp_1) {
     uint32_t arp_count = GetPktModuleCount(PktHandler::ARP);
     VmInterface *vnet1 = VmInterfaceGet(1);
 
-    PktGen *pkt = new PktGen();
+    std::auto_ptr<PktGen> pkt(new PktGen());
     pkt->AddEthHdr("00:00:00:00:00:01", "00:00:00:00:00:02", 0x800);
     pkt->AddAgentHdr(vnet1->id(), 0);
     pkt->AddEthHdr("00:00:00:00:00:01", "00:00:00:00:00:02", 0x806);
@@ -143,7 +149,7 @@ TEST_F(PktParseTest, NonIp_On_Vnet_1) {
     VmInterface *vnet1 = VmInterfaceGet(1);
 
     // Packet with VLAN header 0x8100
-    PktGen *pkt1 = new PktGen();
+    std::auto_ptr<PktGen> pkt1(new PktGen());
     pkt1->AddEthHdr("00:00:00:00:00:01", "00:00:00:00:00:02", 0x800);
     pkt1->AddAgentHdr(vnet1->id(), 0);
     pkt1->AddEthHdr("00:00:00:00:00:01", "00:00:00:00:00:02", 0x8100);
@@ -153,7 +159,7 @@ TEST_F(PktParseTest, NonIp_On_Vnet_1) {
         HandleRcvPkt(ptr1, pkt1->GetBuffLen() + 64, pkt1->GetBuffLen() + 64);
 
     // Packet with VLAN header 0x88a8
-    PktGen *pkt2 = new PktGen();
+    std::auto_ptr<PktGen> pkt2(new PktGen());
     pkt2->AddEthHdr("00:00:00:00:00:01", "00:00:00:00:00:02", 0x800);
     pkt2->AddAgentHdr(vnet1->id(), 0);
     pkt2->AddEthHdr("00:00:00:00:00:01", "00:00:00:00:00:02", 0x88a8);
@@ -163,7 +169,7 @@ TEST_F(PktParseTest, NonIp_On_Vnet_1) {
         HandleRcvPkt(ptr2, pkt2->GetBuffLen() + 64, pkt2->GetBuffLen() + 64);
 
     // Packet with VLAN header 0x9100
-    PktGen *pkt3 = new PktGen();
+    std::auto_ptr<PktGen> pkt3(new PktGen());
     pkt3->AddEthHdr("00:00:00:00:00:01", "00:00:00:00:00:02", 0x800);
     pkt3->AddAgentHdr(vnet1->id(), 0);
     pkt3->AddEthHdr("00:00:00:00:00:01", "00:00:00:00:00:02", 0x9100);
@@ -173,7 +179,7 @@ TEST_F(PktParseTest, NonIp_On_Vnet_1) {
         HandleRcvPkt(ptr3, pkt3->GetBuffLen() + 64, pkt3->GetBuffLen() + 64);
 
     // Packet with ether-type 0x100
-    PktGen *pkt4 = new PktGen();
+    std::auto_ptr<PktGen> pkt4(new PktGen());
     pkt4->AddEthHdr("00:00:00:00:00:01", "00:00:00:00:00:02", 0x800);
     pkt4->AddAgentHdr(vnet1->id(), 0);
     pkt4->AddEthHdr("00:00:00:00:00:01", "00:00:00:00:00:02", 0x100);
@@ -193,7 +199,7 @@ TEST_F(PktParseTest, NonIp_On_Eth_1) {
     PhysicalInterface *eth = EthInterfaceGet("vnet0");
 
     // Packet with VLAN header 0x8100
-    PktGen *pkt1 = new PktGen();
+    std::auto_ptr<PktGen> pkt1(new PktGen());
     pkt1->AddEthHdr("00:00:00:00:00:01", "00:00:00:00:00:02", 0x800);
     pkt1->AddAgentHdr(eth->id(), 0);
     pkt1->AddEthHdr("00:00:00:00:00:01", "00:00:00:00:00:02", 0x8100);
@@ -203,7 +209,7 @@ TEST_F(PktParseTest, NonIp_On_Eth_1) {
         HandleRcvPkt(ptr1, pkt1->GetBuffLen() + 64, pkt1->GetBuffLen() + 64);
 
     // Packet with VLAN header 0x88a8
-    PktGen *pkt2 = new PktGen();
+    std::auto_ptr<PktGen> pkt2(new PktGen());
     pkt2->AddEthHdr("00:00:00:00:00:01", "00:00:00:00:00:02", 0x800);
     pkt2->AddAgentHdr(eth->id(), 0);
     pkt2->AddEthHdr("00:00:00:00:00:01", "00:00:00:00:00:02", 0x88a8);
@@ -213,7 +219,7 @@ TEST_F(PktParseTest, NonIp_On_Eth_1) {
         HandleRcvPkt(ptr2, pkt2->GetBuffLen() + 64, pkt2->GetBuffLen() + 64);
 
     // Packet with VLAN header 0x9100
-    PktGen *pkt3 = new PktGen();
+    std::auto_ptr<PktGen> pkt3(new PktGen());
     pkt3->AddEthHdr("00:00:00:00:00:01", "00:00:00:00:00:02", 0x800);
     pkt3->AddAgentHdr(eth->id(), 0);
     pkt3->AddEthHdr("00:00:00:00:00:01", "00:00:00:00:00:02", 0x9100);
@@ -223,7 +229,7 @@ TEST_F(PktParseTest, NonIp_On_Eth_1) {
         HandleRcvPkt(ptr3, pkt3->GetBuffLen() + 64, pkt3->GetBuffLen() + 64);
 
     // Packet with ether-type 0x100
-    PktGen *pkt4 = new PktGen();
+    std::auto_ptr<PktGen> pkt4(new PktGen());
     pkt4->AddEthHdr("00:00:00:00:00:01", "00:00:00:00:00:02", 0x800);
     pkt4->AddAgentHdr(eth->id(), 0);
     pkt4->AddEthHdr("00:00:00:00:00:01", "00:00:00:00:00:02", 0x100);
@@ -315,141 +321,150 @@ static bool ValidateIpPktInfo(PktInfo *pkt_info, const char *sip,
 
 TEST_F(PktParseTest, IP_On_Vnet_1) {
     VmInterface *vnet1 = VmInterfaceGet(1);
-    PktGen *pkt = new PktGen();
-    PktInfo pkt_info(NULL, 0, 0);
+    std::auto_ptr<PktGen> pkt(new PktGen());
 
     pkt->Reset();
-    MakeIpPacket(pkt, vnet1->id(), "1.1.1.1", "1.1.1.2", 1, 1, -1);
-    TestPkt(&pkt_info, pkt);
+    MakeIpPacket(pkt.get(), vnet1->id(), "1.1.1.1", "1.1.1.2", 1, 1, -1);
+    PktInfo pkt_info1(NULL, 0, 0);
+    TestPkt(&pkt_info1, pkt.get());
     client->WaitForIdle();
-    EXPECT_TRUE(ValidateIpPktInfo(&pkt_info, "1.1.1.1", "1.1.1.2", 1, 0, 0));
+    EXPECT_TRUE(ValidateIpPktInfo(&pkt_info1, "1.1.1.1", "1.1.1.2", 1, 0, 0));
 
     pkt->Reset();
-    MakeUdpPacket(pkt, vnet1->id(), "1.1.1.1", "1.1.1.2", 1, 2, 2, -1);
-    TestPkt(&pkt_info, pkt);
+    MakeUdpPacket(pkt.get(), vnet1->id(), "1.1.1.1", "1.1.1.2", 1, 2, 2, -1);
+    PktInfo pkt_info2(NULL, 0, 0);
+    TestPkt(&pkt_info2, pkt.get());
     client->WaitForIdle();
-    EXPECT_TRUE(ValidateIpPktInfo(&pkt_info, "1.1.1.1", "1.1.1.2", IPPROTO_UDP, 
+    EXPECT_TRUE(ValidateIpPktInfo(&pkt_info2, "1.1.1.1", "1.1.1.2", IPPROTO_UDP,
                                   1, 2));
 
     pkt->Reset();
-    MakeTcpPacket(pkt, vnet1->id(), "1.1.1.1", "1.1.1.2", 1, 2, false, 3, -1);
-    TestPkt(&pkt_info, pkt);
+    MakeTcpPacket(pkt.get(), vnet1->id(), "1.1.1.1", "1.1.1.2", 1, 2, false, 3, -1);
+    PktInfo pkt_info3(NULL, 0, 0);
+    TestPkt(&pkt_info3, pkt.get());
     client->WaitForIdle();
-    EXPECT_TRUE(ValidateIpPktInfo(&pkt_info, "1.1.1.1", "1.1.1.2", IPPROTO_TCP, 
+    EXPECT_TRUE(ValidateIpPktInfo(&pkt_info3, "1.1.1.1", "1.1.1.2", IPPROTO_TCP, 
                                   1, 2));
 }
 
 TEST_F(PktParseTest, IP_On_Eth_1) {
     PhysicalInterface *eth = EthInterfaceGet("vnet0");
-    PktGen *pkt = new PktGen();
-    PktInfo pkt_info(NULL, 0, 0);
+    std::auto_ptr<PktGen> pkt(new PktGen());
 
     pkt->Reset();
-    MakeIpPacket(pkt, eth->id(), "1.1.1.1", "1.1.1.2", 1, 1, -1);
-    TestPkt(&pkt_info, pkt);
+    MakeIpPacket(pkt.get(), eth->id(), "1.1.1.1", "1.1.1.2", 1, 1, -1);
+    PktInfo pkt_info1(NULL, 0, 0);
+    TestPkt(&pkt_info1, pkt.get());
     client->WaitForIdle();
-    EXPECT_EQ(pkt_info.type, PktType::INVALID);
+    EXPECT_EQ(pkt_info1.type, PktType::INVALID);
 
     pkt->Reset();
-    MakeUdpPacket(pkt, eth->id(), "1.1.1.1", "1.1.1.2", 1, 2, 2, -1);
-    TestPkt(&pkt_info, pkt);
+    MakeUdpPacket(pkt.get(), eth->id(), "1.1.1.1", "1.1.1.2", 1, 2, 2, -1);
+    PktInfo pkt_info2(NULL, 0, 0);
+    TestPkt(&pkt_info2, pkt.get());
     client->WaitForIdle();
-    EXPECT_EQ(pkt_info.type, PktType::INVALID);
+    EXPECT_EQ(pkt_info2.type, PktType::INVALID);
 
     pkt->Reset();
-    MakeTcpPacket(pkt, eth->id(), "1.1.1.1", "1.1.1.2", 1, 2, false, 3, -1);
-    TestPkt(&pkt_info, pkt);
+    MakeTcpPacket(pkt.get(), eth->id(), "1.1.1.1", "1.1.1.2", 1, 2, false, 3, -1);
+    PktInfo pkt_info3(NULL, 0, 0);
+    TestPkt(&pkt_info3, pkt.get());
     client->WaitForIdle();
-    EXPECT_EQ(pkt_info.type, PktType::INVALID);
+    EXPECT_EQ(pkt_info3.type, PktType::INVALID);
 }
 
 TEST_F(PktParseTest, GRE_On_Vnet_1) {
     VmInterface *vnet1 = VmInterfaceGet(1);
-    PktGen *pkt = new PktGen();
-    PktInfo pkt_info(NULL, 0, 0);
+    std::auto_ptr<PktGen> pkt(new PktGen());
 
     pkt->Reset();
-    MakeIpMplsPacket(pkt, vnet1->id(), "1.1.1.1", "1.1.1.2", 1,
+    MakeIpMplsPacket(pkt.get(), vnet1->id(), "1.1.1.1", "1.1.1.2", 1,
                      "10.10.10.10", "11.11.11.11", 1, 1);
-    TestPkt(&pkt_info, pkt);
+    PktInfo pkt_info1(NULL, 0, 0);
+    TestPkt(&pkt_info1, pkt.get());
     client->WaitForIdle();
-    EXPECT_EQ(pkt_info.type, PktType::IPV4);
-    EXPECT_EQ(pkt_info.tunnel.label, 0xFFFFFFFF);
+    EXPECT_EQ(pkt_info1.type, PktType::IPV4);
+    EXPECT_EQ(pkt_info1.tunnel.label, 0xFFFFFFFF);
 
     pkt->Reset();
-    MakeUdpMplsPacket(pkt, vnet1->id(), "1.1.1.1", "1.1.1.2", 1,
+    MakeUdpMplsPacket(pkt.get(), vnet1->id(), "1.1.1.1", "1.1.1.2", 1,
                       "10.10.10.10", "11.11.11.11", 1, 2, 2);
-    TestPkt(&pkt_info, pkt);
+    PktInfo pkt_info2(NULL, 0, 0);
+    TestPkt(&pkt_info2, pkt.get());
     client->WaitForIdle();
-    EXPECT_TRUE(ValidateIpPktInfo(&pkt_info, "1.1.1.1", "1.1.1.2", 47, 0, 0));
-    EXPECT_EQ(pkt_info.tunnel.label, 0xFFFFFFFF);
+    EXPECT_TRUE(ValidateIpPktInfo(&pkt_info2, "1.1.1.1", "1.1.1.2", 47, 0, 0));
+    EXPECT_EQ(pkt_info2.tunnel.label, 0xFFFFFFFF);
 
     pkt->Reset();
-    MakeUdpMplsPacket(pkt, vnet1->id(), "1.1.1.1", "1.1.1.2", 1,
+    MakeUdpMplsPacket(pkt.get(), vnet1->id(), "1.1.1.1", "1.1.1.2", 1,
                       "10.10.10.10", "11.11.11.11", 1, 2, 3);
-    TestPkt(&pkt_info, pkt);
+    PktInfo pkt_info3(NULL, 0, 0);
+    TestPkt(&pkt_info3, pkt.get());
     client->WaitForIdle();
-    EXPECT_TRUE(ValidateIpPktInfo(&pkt_info, "1.1.1.1", "1.1.1.2", 47, 0, 0));
-    EXPECT_EQ(pkt_info.tunnel.label, 0xFFFFFFFF);
+    EXPECT_TRUE(ValidateIpPktInfo(&pkt_info3, "1.1.1.1", "1.1.1.2", 47, 0, 0));
+    EXPECT_EQ(pkt_info3.tunnel.label, 0xFFFFFFFF);
 }
 
 TEST_F(PktParseTest, GRE_On_Enet_1) {
     PhysicalInterface *eth = EthInterfaceGet("vnet0");
     VmInterface *vnet1 = VmInterfaceGet(1);
-    PktGen *pkt = new PktGen();
-    PktInfo pkt_info(NULL, 0, 0);
+    std::auto_ptr<PktGen> pkt(new PktGen());
 
     pkt->Reset();
-    MakeIpMplsPacket(pkt, eth->id(), "1.1.1.1", "10.1.1.1",
+    MakeIpMplsPacket(pkt.get(), eth->id(), "1.1.1.1", "10.1.1.1",
                      vnet1->label(), "10.10.10.10", "11.11.11.11", 1, 1);
-    TestPkt(&pkt_info, pkt);
+    PktInfo pkt_info1(NULL, 0, 0);
+    TestPkt(&pkt_info1, pkt.get());
     client->WaitForIdle();
-    EXPECT_TRUE(ValidateIpPktInfo(&pkt_info, "10.10.10.10", "11.11.11.11", 1, 0, 0));
-    EXPECT_EQ(pkt_info.tunnel.label, vnet1->label());
+    EXPECT_TRUE(ValidateIpPktInfo(&pkt_info1, "10.10.10.10", "11.11.11.11", 1, 0, 0));
+    EXPECT_EQ(pkt_info1.tunnel.label, vnet1->label());
 
     pkt->Reset();
-    MakeUdpMplsPacket(pkt, eth->id(), "1.1.1.1", "10.1.1.1",
+    MakeUdpMplsPacket(pkt.get(), eth->id(), "1.1.1.1", "10.1.1.1",
                       vnet1->label(), "10.10.10.10", "11.11.11.11", 1, 2, 1);
-    TestPkt(&pkt_info, pkt);
+    PktInfo pkt_info2(NULL, 0, 0);
+    TestPkt(&pkt_info2, pkt.get());
     client->WaitForIdle();
-    EXPECT_TRUE(ValidateIpPktInfo(&pkt_info, "10.10.10.10", "11.11.11.11",
+    EXPECT_TRUE(ValidateIpPktInfo(&pkt_info2, "10.10.10.10", "11.11.11.11",
                                   IPPROTO_UDP, 1, 2));
-    EXPECT_EQ(pkt_info.tunnel.label, vnet1->label());
+    EXPECT_EQ(pkt_info2.tunnel.label, vnet1->label());
 
     pkt->Reset();
-    MakeTcpMplsPacket(pkt, eth->id(), "1.1.1.1", "10.1.1.1",
+    MakeTcpMplsPacket(pkt.get(), eth->id(), "1.1.1.1", "10.1.1.1",
                       vnet1->label(), "10.10.10.10", "11.11.11.11", 1, 2, 
                       false, 1);
-    TestPkt(&pkt_info, pkt);
+    PktInfo pkt_info3(NULL, 0, 0);
+    TestPkt(&pkt_info3, pkt.get());
     client->WaitForIdle();
-    EXPECT_TRUE(ValidateIpPktInfo(&pkt_info, "10.10.10.10", "11.11.11.11",
+    EXPECT_TRUE(ValidateIpPktInfo(&pkt_info3, "10.10.10.10", "11.11.11.11",
                                   IPPROTO_TCP, 1, 2));
-    EXPECT_EQ(pkt_info.tunnel.label, vnet1->label());
+    EXPECT_EQ(pkt_info3.tunnel.label, vnet1->label());
 }
 
 TEST_F(PktParseTest, Invalid_GRE_On_Enet_1) {
     PhysicalInterface *eth = EthInterfaceGet("vnet0");
     VmInterface *vnet1 = VmInterfaceGet(1);
-    PktGen *pkt = new PktGen();
-    PktInfo pkt_info(NULL, 0, 0);
+    std::auto_ptr<PktGen> pkt(new PktGen());
 
     // Invalid Label
     pkt->Reset();
-    MakeIpMplsPacket(pkt, eth->id(), "1.1.1.1", "10.1.1.1",
+    MakeIpMplsPacket(pkt.get(), eth->id(), "1.1.1.1", "10.1.1.1",
                      1000, "10.10.10.10", "11.11.11.11", 1, 1);
-    TestPkt(&pkt_info, pkt);
+    PktInfo pkt_info1(NULL, 0, 0);
+    TestPkt(&pkt_info1, pkt.get());
     client->WaitForIdle();
-    EXPECT_TRUE(pkt_info.ip != NULL);
-    EXPECT_EQ(pkt_info.type, PktType::INVALID);
+    EXPECT_TRUE(pkt_info1.ip != NULL);
+    EXPECT_EQ(pkt_info1.type, PktType::INVALID);
 
     // Invalid IP-DA
     pkt->Reset();
-    MakeUdpMplsPacket(pkt, eth->id(), "1.1.1.1", "10.1.1.2",
+    MakeUdpMplsPacket(pkt.get(), eth->id(), "1.1.1.1", "10.1.1.2",
                       vnet1->label(), "10.10.10.10", "11.11.11.11", 1, 2, 1);
-    TestPkt(&pkt_info, pkt);
+    PktInfo pkt_info2(NULL, 0, 0);
+    TestPkt(&pkt_info2, pkt.get());
     client->WaitForIdle();
-    EXPECT_EQ(pkt_info.type, PktType::INVALID);
-    EXPECT_EQ(pkt_info.tunnel.label, 0xFFFFFFFF);
+    EXPECT_EQ(pkt_info2.type, PktType::INVALID);
+    EXPECT_EQ(pkt_info2.tunnel.label, 0xFFFFFFFF);
 
     // Invalid Protocol in GRE header
     pkt->Reset();
@@ -460,10 +475,11 @@ TEST_F(PktParseTest, Invalid_GRE_On_Enet_1) {
     pkt->AddGreHdr(0x800);
     pkt->AddMplsHdr(vnet1->label(), true);
     pkt->AddIpHdr("1.1.1.1", "2.2.2.2", 1);
-    TestPkt(&pkt_info, pkt);
+    PktInfo pkt_info3(NULL, 0, 0);
+    TestPkt(&pkt_info3, pkt.get());
     client->WaitForIdle();
-    EXPECT_EQ(pkt_info.type, PktType::INVALID);
-    EXPECT_EQ(pkt_info.tunnel.label, 0xFFFFFFFF);
+    EXPECT_EQ(pkt_info3.type, PktType::INVALID);
+    EXPECT_EQ(pkt_info3.tunnel.label, 0xFFFFFFFF);
 
     // Pkt with MPLS Label stack
     pkt->Reset();
@@ -475,10 +491,11 @@ TEST_F(PktParseTest, Invalid_GRE_On_Enet_1) {
     pkt->AddMplsHdr(vnet1->label(), false);
     pkt->AddMplsHdr(vnet1->label(), true);
     pkt->AddIpHdr("1.1.1.1", "2.2.2.2", 1);
-    TestPkt(&pkt_info, pkt);
+    PktInfo pkt_info4(NULL, 0, 0);
+    TestPkt(&pkt_info4, pkt.get());
     client->WaitForIdle();
-    EXPECT_TRUE(pkt_info.ip != NULL);
-    EXPECT_EQ(pkt_info.type, PktType::INVALID);
+    EXPECT_TRUE(pkt_info4.ip != NULL);
+    EXPECT_EQ(pkt_info4.type, PktType::INVALID);
 }
 
 int main(int argc, char *argv[]) {
@@ -486,11 +503,12 @@ int main(int argc, char *argv[]) {
 
     ksync_init = false;
     client = TestInit(init_file, ksync_init, true, true, true);
-    SetupIntf();
+    Setup();
     Agent::GetInstance()->set_router_id(Ip4Address::from_string("10.1.1.1"));
 
     int ret = RUN_ALL_TESTS();
     client->WaitForIdle();
+    Teardown();
     TestShutdown();
     delete client;
     return ret;

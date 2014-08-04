@@ -94,8 +94,8 @@ void TestAgentInit::CreateModules() {
     stats_.reset(new AgentStats(agent_));
     agent_->set_stats(stats_.get());
 
-    agent_->set_oper_db(new OperDB(agent_));
-
+    oper_.reset(new OperDB(agent_));
+    agent_->set_oper_db(oper_.get());
 
     uve_.reset(AgentObjectFactory::Create<AgentUve>
                (agent_, AgentUve::kBandwidthInterval));

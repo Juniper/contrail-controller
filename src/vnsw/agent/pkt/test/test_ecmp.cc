@@ -904,8 +904,9 @@ TEST_F(EcmpTest, ServiceVlanTest_4) {
     Inet4UnicastRouteEntry *rt = RouteGet("service-vrf1", service_vm_ip, 32);
     EXPECT_TRUE(rt != NULL);
 
-    CompositeNHKey *composite_nh_key = static_cast<CompositeNHKey *>(
-        rt->GetActiveNextHop()->GetDBRequestKey().release());
+    DBEntryBase::KeyPtr key_ref = rt->GetActiveNextHop()->GetDBRequestKey();
+    CompositeNHKey *composite_nh_key = static_cast<CompositeNHKey *>
+        (key_ref.get());
     ComponentNHKeyPtr comp_nh_data(new ComponentNHKey(rt->GetMplsLabel(),
         Composite::ECMP, true, composite_nh_key->component_nh_key_list(),
         "service-vrf1"));
@@ -1051,8 +1052,9 @@ TEST_F(EcmpTest, ServiceVlanTest_5) {
     Inet4UnicastRouteEntry *rt = RouteGet("service-vrf1", service_vm_ip, 32);
     EXPECT_TRUE(rt != NULL);
 
-    CompositeNHKey *composite_nh_key = static_cast<CompositeNHKey *>(
-        rt->GetActiveNextHop()->GetDBRequestKey().release());
+    DBEntryBase::KeyPtr key_ref = rt->GetActiveNextHop()->GetDBRequestKey();
+    CompositeNHKey *composite_nh_key = static_cast<CompositeNHKey *>
+        (key_ref.get());
     ComponentNHKeyPtr comp_nh_data(new ComponentNHKey(rt->GetMplsLabel(),
         Composite::ECMP, true, composite_nh_key->component_nh_key_list(),
         "service-vrf1"));
@@ -1191,8 +1193,9 @@ TEST_F(EcmpTest, ServiceVlanTest_6) {
     EXPECT_TRUE(rt != NULL);
     uint32_t mpls_label = rt->GetMplsLabel();
 
-    CompositeNHKey *composite_nh_key = static_cast<CompositeNHKey *>(
-        rt->GetActiveNextHop()->GetDBRequestKey().release());
+    DBEntryBase::KeyPtr key_ref = rt->GetActiveNextHop()->GetDBRequestKey();
+    CompositeNHKey *composite_nh_key = static_cast<CompositeNHKey *>
+        (key_ref.get());
     ComponentNHKeyPtr comp_nh_data(new ComponentNHKey(rt->GetMplsLabel(),
         Composite::ECMP, true, composite_nh_key->component_nh_key_list(),
         "service-vrf1"));

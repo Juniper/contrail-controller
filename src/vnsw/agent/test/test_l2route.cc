@@ -558,6 +558,50 @@ TEST_F(RouteTest, vxlan_network_id_change_for_non_l2_interface) {
     client->WaitForIdle();
 }
 
+TEST_F(RouteTest, Enqueue_l2_route_add_on_deleted_vrf) {
+    struct PortInfo input[] = {
+        {"vnet1", 1, "1.1.1.10", "00:00:00:01:01:01", 1, 1},
+    };
+
+    client->Reset();
+    CreateVmportEnv(input, 1);
+    client->WaitForIdle();
+
+    VrfEntryRef vrf_ref = VrfGet(vrf_name_.c_str());
+    DeleteVmportEnv(input, 1, true);
+    client->WaitForIdle();
+    TaskScheduler::GetInstance()->Stop();
+    ComponentNHKeyList component_nh_key_list;
+    Layer2AgentRouteTable::AddRemoteVmRouteReq(agent_->local_vm_peer(),
+                                               vrf_name_, *local_vm_mac_,
+                                               local_vm_ip_, 32, NULL);
+
+    vrf_ref = NULL;
+    TaskScheduler::GetInstance()->Start();
+    client->WaitForIdle();
+}
+
+TEST_F(RouteTest, Enqueue_l2_route_del_on_deleted_vrf) {
+    struct PortInfo input[] = {
+        {"vnet1", 1, "1.1.1.10", "00:00:00:01:01:01", 1, 1},
+    };
+
+    client->Reset();
+    CreateVmportEnv(input, 1);
+    client->WaitForIdle();
+
+    VrfEntryRef vrf_ref = VrfGet(vrf_name_.c_str());
+    DeleteVmportEnv(input, 1, true);
+    client->WaitForIdle();
+    TaskScheduler::GetInstance()->Stop();
+    Layer2AgentRouteTable::DeleteReq(agent_->local_vm_peer(), vrf_name_,
+                                     *local_vm_mac_,
+                                     NULL);
+    vrf_ref = NULL;
+    TaskScheduler::GetInstance()->Start();
+    client->WaitForIdle();
+}
+
 int main(int argc, char *argv[]) {
     ::testing::InitGoogleTest(&argc, argv);
     GETUSERARGS();
