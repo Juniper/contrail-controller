@@ -98,3 +98,11 @@ void DropStatsIoContextTest::ErrorHandler(int err) {
         (ctx->collector());
     collector->drop_stats_errors_++;
 }
+
+void AgentStatsCollectorTest::Test_DeleteVrfStatsEntry(int vrf_id) {
+    VrfIdToVrfStatsTree::iterator it;
+    it = vrf_stats_tree_.find(vrf_id);
+    if (it != vrf_stats_tree_.end()) {
+        vrf_stats_tree_.erase(it);
+    }
+}
