@@ -576,7 +576,6 @@ void PktFlowInfo::FloatingIpDNat(const PktInfo *pkt, PktControlInfo *in,
     }
     out->rt_ = ftable->GetUcRoute(it->vrf_.get(), Ip4Address(pkt->ip_daddr));
     out->vn_ = it->vn_.get();
-    dest_vn = &(it->vn_.get()->GetName());
     dest_vrf = out->intf_->vrf()->vrf_id();
 
     // Translate the Dest-IP
@@ -654,9 +653,6 @@ void PktFlowInfo::FloatingIpSNat(const PktInfo *pkt, PktControlInfo *in,
 
     //Populate in->vn, used for VRF translate ACL lookup
     in->vn_ = fip_it->vn_.get();
-    // Source-VN for policy processing is based on floating-ip VN
-    // Dest-VN will be based on out->rt_ and computed below
-    source_vn = &(fip_it->vn_.get()->GetName());
 
     // Floating-ip found. We will change src-ip to floating-ip. Recompute route
     // for new source-ip. All policy decisions will be based on this new route
@@ -748,17 +744,8 @@ void PktFlowInfo::VrfTranslate(const PktInfo *pkt, PktControlInfo *in,
         hdr.src_port = 0;
         hdr.dst_port = 0;
     }
-    if (source_vn != NULL) {
-        hdr.src_policy_id = source_vn;
-    } else {
-        hdr.src_policy_id = RouteToVn(in->rt_);
-    }
-
-    if (dest_vn != NULL) {
-        hdr.dst_policy_id = dest_vn;
-    } else {
-        hdr.dst_policy_id = RouteToVn(out->rt_);
-    }
+    hdr.src_policy_id = RouteToVn(in->rt_);
+    hdr.dst_policy_id = RouteToVn(out->rt_);
 
     if (in->rt_) {
         const AgentPath *path = in->rt_->GetActivePath();
@@ -938,14 +925,6 @@ bool PktFlowInfo::Process(const PktInfo *pkt, PktControlInfo *in,
         IngressProcess(pkt, in, out);
     } else {
         EgressProcess(pkt, in, out);
-    }
-
-    if ((source_vn == NULL) && (in->rt_ != NULL)) {
-        source_vn = RouteToVn(in->rt_);
-    }
-
-    if ((dest_vn == NULL) && (out->rt_ != NULL)) {
-        dest_vn = RouteToVn(out->rt_);
     }
 
     if (in->rt_ == NULL) {

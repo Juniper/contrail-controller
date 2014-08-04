@@ -575,8 +575,8 @@ TEST_F(StatsTestMock, InterVnStatsTest) {
     WAIT_FOR(100, 10000, (Agent::GetInstance()->pkt()->flow_table()->Size() == 2U));
 
     //Verify Inter-Vn stats
-    InterVnStatsMatch("vn5", (*FlowHandler::UnknownVn()).c_str(), 1, 30, true); //outgoing stats
-    InterVnStatsMatch((*FlowHandler::UnknownVn()).c_str(), "vn5", 1, 30, false); //Incoming stats
+    InterVnStatsMatch("vn5", (FlowHandler::UnknownVn()).c_str(), 1, 30, true); //outgoing stats
+    InterVnStatsMatch((FlowHandler::UnknownVn()).c_str(), "vn5", 1, 30, false); //Incoming stats
 
     //clean-up. Flush flow table
     client->EnqueueFlowFlush();

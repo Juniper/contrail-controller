@@ -35,18 +35,15 @@ class PktFlowInfo {
 public:
     static const int kLinkLocalInvalidFd = -1;
 
-    PktFlowInfo(boost::shared_ptr<PktInfo> info, FlowTable *ftable): 
-        pkt(info), flow_table(ftable), source_vn(NULL), dest_vn(NULL),
-        flow_source_vrf(-1), flow_dest_vrf(-1), source_sg_id_l(NULL),
-        dest_sg_id_l(NULL), nat_done(false), nat_ip_saddr(0),
-        nat_ip_daddr(0), nat_sport(0), nat_dport(0), nat_vrf(0),
-        nat_dest_vrf(0), dest_vrf(0), acl(NULL), ingress(false),
-        short_flow(false), local_flow(false), linklocal_flow(false),
-        tcp_ack(false), linklocal_bind_local_port(false),
-        linklocal_src_port_fd(kLinkLocalInvalidFd),
-        ecmp(false), in_component_nh_idx(-1), out_component_nh_idx(-1),
-        trap_rev_flow(false), source_plen(0), dest_plen(0), fip_snat(false),
-        fip_dnat(false), snat_fip(0), short_flow_reason(0) {
+    PktFlowInfo(boost::shared_ptr<PktInfo> info, FlowTable *ftable):
+        pkt(info), flow_table(ftable), flow_source_vrf(-1), flow_dest_vrf(-1),
+        nat_done(false), nat_ip_saddr(0), nat_ip_daddr(0), nat_sport(0),
+        nat_dport(0), nat_vrf(0), nat_dest_vrf(0), dest_vrf(0), acl(NULL),
+        ingress(false), short_flow(false), local_flow(false),
+        linklocal_flow(false), tcp_ack(false), linklocal_bind_local_port(false),
+        linklocal_src_port_fd(kLinkLocalInvalidFd), ecmp(false),
+        in_component_nh_idx(-1), out_component_nh_idx(-1), trap_rev_flow(false),
+        fip_snat(false), fip_dnat(false), snat_fip(0), short_flow_reason(0) {
     }
 
     static bool ComputeDirection(const Interface *intf);
@@ -83,12 +80,8 @@ public:
     boost::shared_ptr<PktInfo> pkt;
     FlowTable *flow_table;
 
-    const std::string   *source_vn;
-    const std::string   *dest_vn;
     uint32_t            flow_source_vrf;
     uint32_t            flow_dest_vrf;
-    const SecurityGroupList *source_sg_id_l;
-    const SecurityGroupList *dest_sg_id_l;
 
     // NAT addresses
     bool                nat_done;
@@ -122,8 +115,6 @@ public:
     uint32_t            in_component_nh_idx;
     uint32_t            out_component_nh_idx;
     bool                trap_rev_flow;
-    uint8_t             source_plen;
-    uint8_t             dest_plen;
 
     // Following fields are required for FIP stats accounting
     bool                fip_snat;

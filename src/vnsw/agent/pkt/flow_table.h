@@ -433,6 +433,8 @@ private:
     bool SetRpfNH(const Inet4UnicastRouteEntry *rt);
     bool InitFlowCmn(const PktFlowInfo *info, const PktControlInfo *ctrl,
                      const PktControlInfo *rev_ctrl);
+    void GetSourceRouteInfo(const Inet4UnicastRouteEntry *rt);
+    void GetDestRouteInfo(const Inet4UnicastRouteEntry *rt);
 
     FlowKey key_;
     FlowData data_;
@@ -561,6 +563,7 @@ public:
 
     DBTableBase::ListenerId nh_listener_id();
     Inet4UnicastRouteEntry * GetUcRoute(const VrfEntry *entry, const Ip4Address &addr);
+    static const SecurityGroupList &default_sg_list() {return default_sg_list_;}
 
     friend class FlowStatsCollector;
     friend class PktSandeshFlow;
@@ -569,6 +572,8 @@ public:
     friend class NhState;
     friend void intrusive_ptr_release(FlowEntry *fe);
 private:
+    static SecurityGroupList default_sg_list_;
+
     Agent *agent_;
     FlowEntryMap flow_entry_map_;
 
