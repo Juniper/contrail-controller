@@ -1974,6 +1974,19 @@ class DBInterface(object):
             id_perms.enable = port_q['admin_state_up']
             port_obj.set_id_perms(id_perms)
 
+        if ('extra_dhcp_opts' in port_q):
+            dhcp_options = []
+            if port_q['extra_dhcp_opts']:
+                for option_pair in port_q['extra_dhcp_opts']:
+                    option = \
+                       DhcpOptionType(dhcp_option_name=option_pair['opt_name'],
+                                    dhcp_option_value=option_pair['opt_value'])
+                    dhcp_options.append(option)
+            if dhcp_options:
+                olist = DhcpOptionsListType(dhcp_options)
+                port_obj.set_virtual_machine_interface_dhcp_option_list(olist)
+            else:
+                port_obj.set_virtual_machine_interface_dhcp_option_list(None)
 
         if (addr_pair.ADDRESS_PAIRS in port_q and
            port_q[addr_pair.ADDRESS_PAIRS]):
@@ -2047,6 +2060,15 @@ class DBInterface(object):
         mac_refs = port_obj.get_virtual_machine_interface_mac_addresses()
         if mac_refs:
             port_q_dict['mac_address'] = mac_refs.mac_address[0]
+
+        dhcp_options_list = port_obj.get_virtual_machine_interface_dhcp_option_list()
+        if dhcp_options_list and dhcp_options_list.dhcp_option:
+            dhcp_options = []
+            for dhcp_option in dhcp_options_list.dhcp_option:
+                pair = {"opt_value": dhcp_option.dhcp_option_value,
+                        "opt_name": dhcp_option.dhcp_option_name}
+                dhcp_options.append(pair)
+            port_q_dict['extra_dhcp_opts'] = dhcp_options
 
         allowed_address_pairs = port_obj.get_virtual_machine_interface_allowed_address_pairs()
         if allowed_address_pairs and allowed_address_pairs.allowed_address_pair:
