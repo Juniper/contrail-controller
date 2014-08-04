@@ -296,7 +296,7 @@ CdbIf::CdbIfStats::Errors operator-(const CdbIf::CdbIfStats::Errors &a,
 template<>
 struct WorkQueueDelete<CdbIf::CdbIfColList> {
     template <typename QueueT>
-    void operator()(QueueT &q) {
+    void operator()(QueueT &q, bool delete_entry) {
         CdbIf::CdbIfColList colList;
         while (q.try_pop(colList)) {    
             delete colList.gendb_cl;

@@ -30,14 +30,14 @@ class UDPConnectionManager :  public Connection {
         void HandleReceive(boost::asio::const_buffer &recv_buffer,
                 boost::asio::ip::udp::endpoint remote_endpoint, std::size_t bytes_transferred,
                 const boost::system::error_code& error);
-    } udpRecv_;
+    } *udpRecv_;
 
     class UDPCommunicator : public UdpServer {
         const int remotePort_;
      public:
         UDPCommunicator(EventManager *evm, int remotePort);
         virtual void SendPacket(const boost::asio::ip::address &dstAddr, const ControlPacket *packet);
-    } udpSend_;  // TODO multiple instances to randomize udp source port
+    } *udpSend_;  // TODO multiple instances to randomize udp source port
 
  public:
     UDPConnectionManager(EventManager *evm,  int recvPort = kRecvPortDefault, int remotePort = kRecvPortDefault);
