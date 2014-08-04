@@ -28,7 +28,7 @@ void AddLinkString(char *buff, int &len, const char *node_name1,
 void DelLinkString(char *buff, int &len, const char *node_name1,
                    const char *name1, const char *node_name2, const char *name2);
 void AddNodeString(char *buff, int &len, const char *node_name, const char *name,
-                   int id, const char *attr);
+                   int id, const char *attr, bool admin_state = true);
 void AddNodeString(char *buff, int &len, const char *node_name,
                    const char *name, int id);
 void AddNodeString(char *buff, int &len, const char *nodename, const char *name,
@@ -43,7 +43,8 @@ void AddLink(const char *node_name1, const char *name1, const char *node_name2,
 void DelLink(const char *node_name1, const char *name1, const char *node_name2,
              const char *name2);
 void AddNode(const char *node_name, const char *name, int id);
-void AddNode(const char *node_name, const char *name, int id, const char *attr);
+void AddNode(const char *node_name, const char *name, int id, const char *attr,
+             bool admin_state = true);
 void DelNode(const char *node_name, const char *name);
 void IntfSyncMsg(PortInfo *input, int id);
 void IntfCfgAdd(int intf_id, const string &name, const string ipaddr,
@@ -163,7 +164,7 @@ void AddVrf(const char *name, int id = 0);
 void DelVrf(const char *name);
 void ModifyForwardingModeVn(const string &name, int id, const string &fw_mode);
 void AddL2Vn(const char *name, int id);
-void AddVn(const char *name, int id);
+void AddVn(const char *name, int id, bool admin_state = true);
 void DelVn(const char *name);
 void AddPort(const char *name, int id, const char *attr = NULL);
 void AddPortByStatus(const char *name, int id, bool admin_status);
@@ -201,14 +202,16 @@ void DeleteVmportFIpEnv(struct PortInfo *input, int count, int del_vn, int acl_i
 void CreateVmportEnvInternal(struct PortInfo *input, int count, int acl_id = 0,
                      const char *vn = NULL, const char *vrf = NULL, 
                      const char *vm_interface_attr = NULL, bool l2_vn = false,
-                     bool with_ip = false, bool ecmp = false);
+                     bool with_ip = false, bool ecmp = false,
+                     bool vn_admin_state = true);
 void CreateL2VmportEnv(struct PortInfo *input, int count, int acl_id = 0,
                      const char *vn = NULL, const char *vrf = NULL);
 void CreateVmportEnvWithoutIp(struct PortInfo *input, int count, int acl_id = 0,
                      const char *vn = NULL, const char *vrf = NULL);
 void CreateVmportEnv(struct PortInfo *input, int count, int acl_id = 0,
                      const char *vn = NULL, const char *vrf = NULL,
-                     const char *vm_interface_attr = NULL);
+                     const char *vm_interface_attr = NULL,
+                     bool vn_admin_state = true);
 void CreateVmportFIpEnv(struct PortInfo *input, int count, int acl_id = 0,
                      const char *vn = NULL, const char *vrf = NULL);
 void CreateVmportWithEcmp(struct PortInfo *input, int count, int acl_id = 0,

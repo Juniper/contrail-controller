@@ -89,12 +89,12 @@ struct VnData : public AgentData {
            const uuid &mirror_acl_id, const uuid &mc_acl_id, 
            const std::vector<VnIpam> &ipam, const VnIpamDataMap &vn_ipam_data,
            int vxlan_id, int vnid, bool layer2_forwarding,
-           bool ipv4_forwarding) :
+           bool ipv4_forwarding, bool admin_state) :
                 AgentData(), name_(name), vrf_name_(vrf_name), acl_id_(acl_id),
                 mirror_acl_id_(mirror_acl_id), mirror_cfg_acl_id_(mc_acl_id),
                 ipam_(ipam), vn_ipam_data_(vn_ipam_data), vxlan_id_(vxlan_id),
                 vnid_(vnid), layer2_forwarding_(layer2_forwarding), 
-                ipv4_forwarding_(ipv4_forwarding) {  
+                ipv4_forwarding_(ipv4_forwarding), admin_state_(admin_state) {
     };
     virtual ~VnData() { };
 
@@ -109,12 +109,13 @@ struct VnData : public AgentData {
     int vnid_;
     bool layer2_forwarding_;
     bool ipv4_forwarding_;
+    bool admin_state_;
 };
 
 class VnEntry : AgentRefCount<VnEntry>, public AgentDBEntry {
 public:
     VnEntry(uuid id) : uuid_(id), vxlan_id_(0), vnid_(0), layer2_forwarding_(true), 
-    ipv4_forwarding_(true) { };
+    ipv4_forwarding_(true), admin_state_(true) { };
     virtual ~VnEntry() { };
 
     virtual bool IsLess(const DBEntry &rhs) const;
@@ -152,8 +153,9 @@ public:
 
     const VxLanId *vxlan_id_ref() const {return vxlan_id_ref_.get();}
     const VxLanId *vxlan_id() const {return vxlan_id_ref_.get();}
-    bool layer2_forwarding() const {return layer2_forwarding_;};
-    bool Ipv4Forwarding() const {return ipv4_forwarding_;};
+    bool layer2_forwarding() const {return layer2_forwarding_;}
+    bool Ipv4Forwarding() const {return ipv4_forwarding_;}
+    bool admin_state() const {return admin_state_;}
 
     AgentDBTable *DBToTable() const;
     uint32_t GetRefCount() const {
@@ -179,6 +181,7 @@ private:
     int vnid_;
     bool layer2_forwarding_;
     bool ipv4_forwarding_;
+    bool admin_state_;
     VxLanIdRef vxlan_id_ref_;
     DISALLOW_COPY_AND_ASSIGN(VnEntry);
 };
@@ -205,7 +208,8 @@ public:
 
     void AddVn(const uuid &vn_uuid, const string &name, const uuid &acl_id,
                const string &vrf_name, const std::vector<VnIpam> &ipam,
-               const VnData::VnIpamDataMap &vn_ipam_data, int vxlan_id);
+               const VnData::VnIpamDataMap &vn_ipam_data, int vxlan_id,
+               bool admin_state);
     void DelVn(const uuid &vn_uuid);
     void UpdateVxLanNetworkIdentifierMode();
     bool VnEntryWalk(DBTablePartBase *partition, DBEntryBase *entry);

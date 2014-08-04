@@ -607,6 +607,8 @@ void Interface::SetItfSandeshData(ItfSandeshData &data) const {
 
             if (vintf->vn() == NULL) {
                 common_reason += "vn-null ";
+            } else if (!vintf->vn()->admin_state()) {
+                common_reason += "vn-admin-down ";
             }
 
             if (vintf->vm() == NULL) {
