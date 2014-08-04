@@ -461,7 +461,8 @@ class OpServer(object):
             enable_syslog=self._args.use_syslog,
             syslog_facility=self._args.syslog_facility)
         ConnectionState.init(sandesh_global, self._hostname, self._moduleid,
-            self._instance_id, ConnectionState.get_process_state_cb,
+            self._instance_id,
+            staticmethod(ConnectionState.get_process_state_cb),
             NodeStatusUVE, NodeStatus)
         
         # Trace buffer list
