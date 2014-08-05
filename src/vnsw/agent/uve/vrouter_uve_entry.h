@@ -61,6 +61,8 @@ public:
 protected:
     VrouterStatsAgent prev_stats_;
     uint8_t bandwidth_count_;
+    uint8_t cpu_stats_count_;
+    L4PortBitmap port_bitmap_;
 private:
     //The following Dispatch functions are not made const function because
     //in derived class they need to be non-const
@@ -97,7 +99,6 @@ private:
     DBTableBase::ListenerId vm_listener_id_;
     DBTableBase::ListenerId intf_listener_id_;
     VrouterAgent prev_vrouter_;
-    L4PortBitmap port_bitmap_;
     uint64_t start_time_;
     DISALLOW_COPY_AND_ASSIGN(VrouterUveEntry);
 };

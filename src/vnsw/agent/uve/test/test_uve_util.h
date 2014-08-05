@@ -23,6 +23,7 @@ public:
 
         sprintf(vn_name, "vn%d", id);
         uint32_t vn_count = Agent::GetInstance()->vn_table()->Size();
+        client->WaitForIdle(10);
         client->Reset();
         DelNode("virtual-network", vn_name);
         EXPECT_TRUE(client->VnNotifyWait(1));
