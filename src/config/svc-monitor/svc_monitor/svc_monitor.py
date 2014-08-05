@@ -124,7 +124,7 @@ class SvcMonitor(object):
         self._sandesh.init_generator(
             module_name, hostname, node_type_name, instance_id,
             self._args.collectors, 'svc_monitor_context',
-            int(self._args.http_server_port), ['cfgm_common', 'sandesh'],
+            int(self._args.http_server_port), ['cfgm_common', 'svc_monitor.sandesh'],
             self._disc)
         self._sandesh.set_logging_params(enable_local_log=self._args.log_local,
                                          category=self._args.log_category,
