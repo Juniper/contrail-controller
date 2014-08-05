@@ -44,7 +44,7 @@ using process::GetProcessStateCb;
 
 static TaskTrigger *collector_info_trigger;
 static Timer *collector_info_log_timer;
-static EventManager evm;
+static EventManager * a_evm = NULL; 
 
 bool CollectorInfoLogTimer() {
     collector_info_trigger->Set();
@@ -173,7 +173,7 @@ void CollectorShutdown() {
     shutdown_ = true;
 
     // Shutdown event manager first to stop all IO activities.
-    evm.Shutdown();
+    a_evm->Shutdown();
 }
 
 static void terminate(int param) {
@@ -193,6 +193,8 @@ static void ShutdownServers(VizCollector *viz_collector,
     // Shutdown discovery client first
     ShutdownDiscoveryClient(client);
 
+    Sandesh::Uninit();
+
     viz_collector->Shutdown();
 
     TimerManager::DeleteTimer(collector_info_log_timer);
@@ -201,13 +203,11 @@ static void ShutdownServers(VizCollector *viz_collector,
     ConnectionStateManager<NodeStatusUVE, NodeStatus>::
         GetInstance()->Shutdown();
     VizCollector::WaitForIdle();
-    Sandesh::Uninit();
-    VizCollector::WaitForIdle();
 }
 
 static bool OptionsParse(Options &options, int argc, char *argv[]) {
     try {
-        options.Parse(evm, argc, argv);
+        options.Parse(*a_evm, argc, argv);
         return true;
     } catch (boost::program_options::error &e) {
         cout << "Error " << e.what() << endl;
@@ -225,6 +225,8 @@ volatile int gdbhelper = 1;
 
 int main(int argc, char *argv[])
 {
+    a_evm = new EventManager();
+
     Options options;
 
     if (!OptionsParse(options, argc, argv)) {
@@ -270,7 +272,7 @@ int main(int argc, char *argv[])
     LOG(INFO, "COLLECTOR CASSANDRA SERVERS: " << css.str());
     LOG(INFO, "COLLECTOR SYSLOG LISTEN PORT: " << options.syslog_port());
 
-    VizCollector analytics(&evm,
+    VizCollector analytics(a_evm,
             options.collector_port(),
             cassandra_ips,
             cassandra_ports,
@@ -305,7 +307,7 @@ int main(int argc, char *argv[])
             analytics.name(),
             g_vns_constants.NodeTypeNames.find(node_type)->second,
             instance_id, 
-            &evm, "127.0.0.1", options.collector_port(),
+            a_evm, "127.0.0.1", options.collector_port(),
             options.http_server_port(), &vsc);
 
     Sandesh::SetLoggingParams(options.log_local(), options.log_category(),
@@ -326,7 +328,7 @@ int main(int argc, char *argv[])
         dss_ep.port(options.discovery_port());
         string sname = 
             g_vns_constants.ModuleNames.find(Module::COLLECTOR)->second;
-        ds_client = new DiscoveryServiceClient(&evm, dss_ep, sname);
+        ds_client = new DiscoveryServiceClient(a_evm, dss_ep, sname);
         ds_client->Init();
         Collector::SetDiscoveryServiceClient(ds_client);
 
@@ -349,20 +351,22 @@ int main(int argc, char *argv[])
     // 4. Discovery Collector Publish
     // 5. Database global
     ConnectionStateManager<NodeStatusUVE, NodeStatus>::
-        GetInstance()->Init(*evm.io_service(),
+        GetInstance()->Init(*a_evm->io_service(),
             analytics.name(), module_id, instance_id,
             boost::bind(&GetProcessStateCb, _1, _2, _3, 5));
     collector_info_trigger =
         new TaskTrigger(boost::bind(&CollectorInfoLogger, vsc),
                     TaskScheduler::GetInstance()->GetTaskId("vizd::Stats"), 0);
-    collector_info_log_timer = TimerManager::CreateTimer(*evm.io_service(),
+    collector_info_log_timer = TimerManager::CreateTimer(*a_evm->io_service(),
         "Collector Info log timer",
         TaskScheduler::GetInstance()->GetTaskId("vizd::Stats"), 0);
     collector_info_log_timer->Start(5*1000, boost::bind(&CollectorInfoLogTimer), NULL);
     signal(SIGTERM, terminate);
-    evm.Run();
+    a_evm->Run();
 
     ShutdownServers(&analytics, ds_client);
+
+    delete a_evm;
 
     return 0;
 }
