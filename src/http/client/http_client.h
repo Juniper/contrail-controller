@@ -35,6 +35,7 @@ class HttpClientSession : public TcpSession {
 public:
     typedef boost::function<void(HttpClientSession *session,
                                  TcpSession::Event event)> SessionEventCb;
+    typedef boost::intrusive_ptr<TcpSession> TcpSessionPtr;
 
     HttpClientSession(HttpClient *client, Socket *socket);
     virtual ~HttpClientSession() { assert(delete_called_ != 0xdeadbeaf); delete_called_ = 0xdeadbeaf; }
@@ -47,6 +48,7 @@ public:
 
 private:
     void OnEvent(TcpSession *session, Event event);
+    void OnEventInternal(TcpSessionPtr session, Event event);
     HttpConnection *connection_;
     uint32_t delete_called_;
     tbb::mutex mutex_;

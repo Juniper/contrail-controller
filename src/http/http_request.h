@@ -8,6 +8,7 @@
 #include <map>
 #include <string>
 
+#include "io/tcp_session.h"
 #include "http_parser/http_parser.h"
 
 class HttpRequest {
@@ -25,16 +26,19 @@ public:
     void PushHeader(const std::string &key, const std::string &value) {
 	headers_.insert(make_pair(key, value));
     }
+    void SetEvent(enum TcpSession::Event event) { event_ = event; }
 
     std::string ToString() const;
 
     std::string UrlPath() const;
     std::string UrlQuery() const;
     const HeaderMap & Headers() const { return headers_; }
+    TcpSession::Event Event() const { return event_; }
 private:
     http_method method_;
     std::string url_;
     HeaderMap headers_;
+    TcpSession::Event event_; // used when the request indicates an event
 };
 
 #endif
