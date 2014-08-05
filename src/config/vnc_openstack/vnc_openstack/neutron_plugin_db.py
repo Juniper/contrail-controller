@@ -2112,7 +2112,6 @@ class DBInterface(object):
             port_q_dict['security_groups'].append(sg_ref['uuid'])
 
         port_q_dict['admin_state_up'] = port_obj.get_id_perms().enable
-        port_q_dict['status'] = constants.PORT_STATUS_ACTIVE
 
         # port can be router interface or vm interface
         # for perf read logical_router_back_ref only when we have to
@@ -2132,6 +2131,10 @@ class DBInterface(object):
             port_q_dict['device_id'] = ''
             port_q_dict['device_owner'] = ''
 
+        if port_q_dict['device_id']:
+            port_q_dict['status'] = constants.PORT_STATUS_ACTIVE
+        else:
+            port_q_dict['status'] = constants.PORT_STATUS_DOWN
 
         return port_q_dict
     #end _port_vnc_to_neutron
@@ -2327,8 +2330,8 @@ class DBInterface(object):
         net_id = subnet_q['network_id']
         net_obj = self._virtual_network_read(net_id=net_id)
 
-        ipam_fq_name = subnet_q.get('contrail:ipam_fq_name', '')
-        if ipam_fq_name != '':
+        ipam_fq_name = subnet_q.get('contrail:ipam_fq_name')
+        if ipam_fq_name:
             domain_name, project_name, ipam_name = ipam_fq_name
 
             domain_obj = Domain(domain_name)
