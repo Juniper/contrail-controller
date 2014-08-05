@@ -1,4 +1,9 @@
 mock
+kazoo
+bitarray
+geventhttpclient
+psutil
+bottle
 vnc_api         # move this back to requirements.txt
 cfgm_common     # move this back to requirements.txt
 sandesh_common  # move this back to requirements.txt
