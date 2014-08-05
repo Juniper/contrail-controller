@@ -316,7 +316,6 @@ test_suite = [
     bgp_export_uplist_test,
     bgp_msg_builder_test,
     bgp_multicast_test,
-    bgp_peer_membership_test,
     bgp_proto_test,
     bgp_ribout_updates_test,
     bgp_route_test,
@@ -357,6 +356,7 @@ env.Alias('controller/src/bgp:test', [
 flaky_test_suite = [
     bgp_config_manager_test,
     bgp_peer_close_test,
+    bgp_peer_membership_test,
     bgp_xmpp_basic_test,
     bgp_xmpp_deferq_test,
     bgp_xmpp_evpn_test,
