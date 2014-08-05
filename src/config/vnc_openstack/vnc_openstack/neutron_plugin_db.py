@@ -1545,7 +1545,8 @@ class DBInterface(object):
             net_q_dict['shared'] = True
         else:
             net_q_dict['shared'] = False
-        net_q_dict['status'] = constants.NET_STATUS_ACTIVE
+        net_q_dict['status'] = (constants.NET_STATUS_ACTIVE if id_perms.enable
+                                else constants.NET_STATUS_DOWN)
         if net_obj.router_external:
             net_q_dict['router:external'] = True
         else:
