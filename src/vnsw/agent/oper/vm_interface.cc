@@ -1184,6 +1184,10 @@ bool VmInterface::IsActive()  const {
         return false;
     }
 
+    if (!vn_.get()->admin_state()) {
+        return false;
+    }
+
     if (vlan_id_ != VmInterface::kInvalidVlanId) {
        return true;
     }
