@@ -108,14 +108,21 @@ void VmStat::ExecCmd(std::string cmd, DoneCb cb) {
 void VmStat::ReadCpuStat() {
     std::string tmp;
     //Typical output from command
-    //Total:
-    //    cpu_time         16754.635764199 seconds
+    //Id:             1
+    //Name:           instance-00000001
+    //UUID:           90cb7351-d2dc-4d8d-a216-2f460be183b6
+    //OS Type:        hvm
+    //State:          running
+    //CPU(s):         1
+    //CPU time:       13.4s
+    //Max memory:     2097152 KiB
 
-    //Get Total cpu stats
+    //Get 'CPU time' from the output
     double cpu_stat = 0;
+    std::string cpu_stat_str;
     while (data_ >> tmp) {
-        if (tmp == "cpu_time") {
-            data_ >> cpu_stat;
+        if (tmp == "time:") {
+            data_ >> cpu_stat_str;
             break;
         }
     }
@@ -124,6 +131,14 @@ void VmStat::ReadCpuStat() {
     if (num_of_cpu == 0) {
         GetVcpuStat();
         return;
+    }
+
+    //Remove the last character from 'cpu_stat_str'
+    if (cpu_stat_str.size() >= 2) {
+        cpu_stat_str.erase(cpu_stat_str.size() - 1);
+        //Convert string to double
+        stringstream ss(cpu_stat_str);
+        ss >> cpu_stat;
     }
 
     time_t now;
@@ -253,7 +268,7 @@ bool VmStat::BuildVmStatsMsg(VirtualMachineStats *uve) {
 
 void VmStat::GetCpuStat() {
     std::ostringstream cmd;
-    cmd << "virsh cpu-stats " << agent_->GetUuidStr(vm_uuid_) << " --total";
+    cmd << "virsh dominfo " << agent_->GetUuidStr(vm_uuid_);
     ExecCmd(cmd.str(), boost::bind(&VmStat::ReadCpuStat, this));
 }
 
@@ -331,7 +346,8 @@ void VmStat::ReadPid() {
 
 void VmStat::GetPid() {
     std::ostringstream cmd;
-    cmd << "ps -eo pid,cmd | grep " << agent_->GetUuidStr(vm_uuid_);
+    cmd << "ps -eo pid,cmd | grep " << agent_->GetUuidStr(vm_uuid_)
+        << " | grep instance-";
     ExecCmd(cmd.str(), boost::bind(&VmStat::ReadPid, this));
 }
 
