@@ -335,7 +335,7 @@ class VncApiServer(VncApiServerGen):
                                      self._args.collectors, 
                                      'vnc_api_server_context',
                                      int(self._args.http_server_port),
-                                     ['cfgm_common', 'sandesh'], self._disc)
+                                     ['cfgm_common'], self._disc)
         self._sandesh.trace_buffer_create(name="VncCfgTraceBuf", size=1000)
         self._sandesh.set_logging_params(
             enable_local_log=self._args.log_local,
