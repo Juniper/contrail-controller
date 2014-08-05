@@ -314,7 +314,7 @@ class SvcMonitor(object):
     # end utc_timestamp_usec
 
     def _uve_svc_instance(self, si_fq_name_str, status=None,
-                          vm_uuid=None, st_name=None):
+                          vm_uuid=None, st_name=None, vr_name=None):
         svc_uve = UveSvcInstanceConfig(name=si_fq_name_str,
                                        deleted=False, st_name=None,
                                        vm_list=[], create_ts=None)
@@ -322,7 +322,8 @@ class SvcMonitor(object):
         if st_name:
             svc_uve.st_name = st_name
         if vm_uuid:
-            svc_uve.vm_list.append(vm_uuid)
+            svc_uve_vm = UveSvcInstanceVMConfig(uuid=vm_uuid, vr_name=vr_name)
+            svc_uve.vm_list.append(svc_uve_vm)
         if status:
             svc_uve.status = status
             if status == 'CREATE':
@@ -532,7 +533,8 @@ class SvcMonitor(object):
             # uve trace
             self._uve_svc_instance(si_obj.get_fq_name_str(),
                                    status='CREATE', vm_uuid=vm_obj.uuid,
-                                   st_name=st_obj.get_fq_name_str())
+                                   st_name=st_obj.get_fq_name_str(),
+                                   vr_name=chosen_vr_fq_name)
 
     def _create_svc_instance_vm(self, st_obj, si_obj):
         #check if all config received before launch
