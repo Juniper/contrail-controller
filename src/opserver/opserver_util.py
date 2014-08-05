@@ -161,7 +161,7 @@ class OpServerUtils(object):
             pre = False
 
         try:
-            if int(pkg_resources.get_distribution("requests").version[0]) == 1:
+            if int(pkg_resources.get_distribution("requests").version[0]) != 0:
                 response = requests.post(url, stream=stm,
                                          data=params,
                                          headers=hdrs)
@@ -183,7 +183,7 @@ class OpServerUtils(object):
     def get_url_http(url):
         data = {}
         try:
-            if int(pkg_resources.get_distribution("requests").version[0]) == 1:
+            if int(pkg_resources.get_distribution("requests").version[0]) != 0:
                 data = requests.get(url, stream=True)
             else:
                 data = requests.get(url, prefetch=False)
