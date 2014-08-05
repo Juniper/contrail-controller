@@ -114,8 +114,8 @@ class ServiceTemplateCmd(object):
 
         list_parser = subparsers.add_parser('list')
         list_parser.set_defaults(func=self.list_st)
-
         self._args = parser.parse_args(remaining_argv)
+        
     # end _parse_args
 
     # create service template
@@ -137,7 +137,7 @@ class ServiceTemplateCmd(object):
             svc_properties.set_flavor(self._args.flavor)
         svc_properties.set_service_scaling(True)
         svc_properties.set_service_type(self._args.svc_type)
-        svc_properties.set_service_virtualization_type(self._args.svc_virt_type)
+        svc_properties.set_service_virtualisation_type(self._args.svc_virt_type)
 
         # set interface list
         for itf in self._if_list:

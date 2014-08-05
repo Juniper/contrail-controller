@@ -102,7 +102,6 @@ class ServicePolicyCmd(object):
         delete_parser.add_argument(
             "--proj_name", help="name of project [default: demo]")
         delete_parser.set_defaults(func=self.delete_policy)
-
         self._args = parser.parse_args(remaining_argv)
     # end _parse_args
 

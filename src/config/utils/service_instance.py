@@ -5,7 +5,6 @@
 import os
 import sys
 import errno
-import pprint
 import subprocess
 import time
 import argparse
@@ -131,9 +130,6 @@ class ServiceInstanceCmd(object):
             "--proj_name", help="name of project [default: demo]")
         delete_parser.set_defaults(func=self.delete_si)
 
-        list_parser = subparsers.add_parser('list')
-        list_parser.set_defaults(func=self.list_si)
-
         self._args = parser.parse_args(remaining_argv)
     # end _parse_args
 
@@ -192,7 +188,7 @@ class ServiceInstanceCmd(object):
                 return
         else:
             self._mgmt_vn_fq_name = []
-
+            
 
         # create si
         print "Creating service instance %s" % (self._args.instance_name)
@@ -233,19 +229,11 @@ class ServiceInstanceCmd(object):
             return
     # delete_si
 
-    def list_si(self):
-        print "List service instances"
-        instances = self._vnc_lib.service_instances_list()
-        pprint.pprint(instances)
-    # list_si
-
-
 # end class ServiceInstanceCmd
 
 
 def main(args_str=None):
     si = ServiceInstanceCmd(args_str)
-    si._args.func()
 # end main
 
 if __name__ == "__main__":

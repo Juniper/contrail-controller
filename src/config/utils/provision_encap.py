@@ -102,20 +102,18 @@ class EncapsulationProvision(object):
         parser.set_defaults(**defaults)
 
         parser.add_argument(
-            "--api_server_ip", help="IP address of api server")
-        parser.add_argument("--api_server_port", help="Port of api server")
+            "--api_server_ip", help="IP address of api server", required=True)
+        parser.add_argument("--api_server_port", help="Port of api server", required=True )
         parser.add_argument(
-            "--encap_priority", help="List of Encapsulation priority")
+            "--encap_priority", help="List of Encapsulation priority", required=True)
         parser.add_argument(
-            "--vxlan_vn_id_mode", help="Virtual Network id type to be used")
+            "--vxlan_vn_id_mode", help="Virtual Network id type to be used", required=True)
         parser.add_argument(
-            "--oper", default='add', help="Provision operation to be done(add or delete)")
-        parser.add_argument(
-            "--admin_tenant_name", help="Keystone tenant of the admin user")
+            "--oper", default='add',help="Provision operation to be done(add or delete)", required=True)
 	parser.add_argument(
-            "--admin_user", help="Name of keystone admin user")
+            "--admin_user", help="Name of keystone admin user", required=True)
         parser.add_argument(
-            "--admin_password", help="Password of keystone admin user")
+            "--admin_password", help="Password of keystone admin user", required=True)
 
         self._args = parser.parse_args(remaining_argv)
         if not self._args.encap_priority:
