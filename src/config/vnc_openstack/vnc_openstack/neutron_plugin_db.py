@@ -2551,7 +2551,11 @@ class DBInterface(object):
             net_objs = self._network_list_shared()
             all_net_objs.extend(net_objs)
 
+        ret_dict = {}
         for net_obj in all_net_objs:
+            if net_obj.uuid in ret_dict:
+                continue
+            ret_dict[net_obj.uuid] = 1
             ipam_refs = net_obj.get_network_ipam_refs()
             if ipam_refs:
                 for ipam_ref in ipam_refs:
