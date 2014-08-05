@@ -2016,6 +2016,37 @@ class DBInterface(object):
         return port_obj
     #end _port_neutron_to_vnc
 
+    def _is_snat_service_instance(self, si_obj):
+        st_refs = si_obj.get_service_template_refs()
+        st_obj = self._vnc_lib.service_template_read(id=st_refs[0]['uuid'])
+        st_props = st_obj.get_service_template_properties()
+        if st_props.get_service_type() == 'source-nat':
+            return True
+
+        return False
+    #end _is_snat_service_instance
+
+    def _gw_port_vnc_to_neutron(self, port_obj, net_obj):
+        try:
+            vm_refs = port_obj.get_virtual_machine_refs()
+            vm_obj = self._vnc_lib.virtual_machine_read(id=vm_refs[0]['uuid'])
+            si_refs = vm_obj.get_service_instance_refs()
+            if si_refs:
+                si_obj = self._vnc_lib.service_instance_read(id=si_refs[0]['uuid'])
+                if not self._is_snat_service_instance(si_obj):
+                    return
+
+                si_props = si_obj.get_service_instance_properties()
+                if si_props:
+                    vn_fq_name = si_props.get_right_virtual_network()
+                    if vn_fq_name == ':'.join(net_obj.fq_name):
+                        router_refs = net_obj.get_logical_router_back_refs()
+                        if router_refs:
+                            return router_refs[0]['uuid']
+        except NoIdError:
+            pass
+    #end _gw_port_vnc_to_neutron
+
     def _port_vnc_to_neutron(self, port_obj, port_req_memo=None):
         port_q_dict = {}
         extra_dict = {}
@@ -2128,9 +2159,14 @@ class DBInterface(object):
             port_q_dict['device_owner'] = ''
             port_q_dict['device_id'] = port_obj.parent_name
         elif port_obj.get_virtual_machine_refs() is not None:
-            port_q_dict['device_id'] = \
-                port_obj.get_virtual_machine_refs()[0]['to'][-1]
-            port_q_dict['device_owner'] = ''
+            router_id = self._gw_port_vnc_to_neutron(port_obj, net_obj)
+            if router_id:
+                port_q_dict['device_id'] = router_id
+                port_q_dict['device_owner'] = constants.DEVICE_OWNER_ROUTER_GW
+            else:
+                port_q_dict['device_id'] = \
+                    port_obj.get_virtual_machine_refs()[0]['to'][-1]
+                port_q_dict['device_owner'] = ''
         else:
             port_q_dict['device_id'] = ''
             port_q_dict['device_owner'] = ''
