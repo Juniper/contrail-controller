@@ -58,12 +58,12 @@ class DelVirtualDns(object):
             )
         parser.set_defaults(**defaults)
 
-        parser.add_argument("--fq_name", help = "Fully qualified Virtual DNS Name")
-        parser.add_argument("--api_server_ip", help = "IP address of api server")
-        parser.add_argument("--api_server_port", help = "Port of api server")
-        parser.add_argument("--admin_user", help = "Name of keystone admin user")
-        parser.add_argument("--admin_password", help = "Password of keystone admin user")
-        parser.add_argument("--admin_tenant_name", help = "Tenamt name for keystone admin user")
+        parser.add_argument("--fq_name", help = "Fully qualified Virtual DNS Name", required=True)
+        parser.add_argument("--api_server_ip", help = "IP address of api server", required=True)
+        parser.add_argument("--api_server_port", help = "Port of api server", required=True)
+        parser.add_argument("--admin_user", help = "Name of keystone admin user", required=True)
+        parser.add_argument("--admin_password", help = "Password of keystone admin user", required=True)
+        parser.add_argument("--admin_tenant_name", help = "Tenamt name for keystone admin user", required=True)
     
         self._args = parser.parse_args(remaining_argv)
 
