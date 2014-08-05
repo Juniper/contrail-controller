@@ -3294,9 +3294,14 @@ class DBInterface(object):
             for fixed_ip in port_q['fixed_ips'] or []:
                 if 'ip_address' in fixed_ip:
                     ip_addr = fixed_ip['ip_address']
-                    if self._ip_addr_in_net_id(ip_addr, net_id):
-                        self._raise_contrail_exception(409, exceptions.IpAddressInUse(net_id=net_id,
-                                                        ip_address=ip_addr))
+                    # allow duplicate instance-ip objects for ports owned by
+                    # routers since it uses gateway ip as address
+                    if (port_q['device_owner'] !=
+                        constants.DEVICE_OWNER_ROUTER_INTF and
+                        self._ip_addr_in_net_id(ip_addr, net_id)):
+                           self._raise_contrail_exception(
+                               409, exceptions.IpAddressInUse(net_id=net_id,
+                               ip_address=ip_addr))
                     req_ip_addrs.append(ip_addr)
 
         # create the object
