@@ -336,6 +336,77 @@ public:
         delete tmp_xmpp_channel;
     }
 
+    void FloatingIPSetup() {
+        client->WaitForIdle();
+        AddVm("vm1", 1);
+        AddVn("vn1", 1);
+        AddVn("default-project:vn2", 2);
+        AddVrf("vrf1");
+        AddVrf("default-project:vn2:vn2");
+        AddPort("vnet1", 1);
+        AddLink("virtual-network", "vn1", "routing-instance", "vrf1");
+        AddLink("virtual-network", "default-project:vn2",
+                "routing-instance", "default-project:vn2:vn2");
+        AddFloatingIpPool("fip-pool2", 2);
+        AddFloatingIp("fip1", 2, "2.2.2.100");
+        AddLink("floating-ip-pool", "fip-pool2", "virtual-network",
+                "default-project:vn2");
+        AddLink("floating-ip", "fip1", "floating-ip-pool", "fip-pool2");
+
+        // Add vm-port interface to vrf link
+        AddVmPortVrf("vmvrf1", "", 0);
+        AddLink("virtual-machine-interface-routing-instance", "vmvrf1",
+                "routing-instance", "vrf1");
+        AddLink("virtual-machine-interface-routing-instance", "vmvrf1",
+            "virtual-machine-interface", "vnet1");
+        client->WaitForIdle();
+
+        client->WaitForIdle();
+        EXPECT_TRUE(VmFind(1));
+        EXPECT_TRUE(VnFind(1));
+        EXPECT_TRUE(VnFind(2));
+        EXPECT_TRUE(VrfFind("vrf1"));
+        EXPECT_TRUE(VrfFind("default-project:vn2:vn2"));
+        client->WaitForIdle();
+    }
+
+    void FloatingIPTearDown(bool delete_fip_vn) {
+        DelLink("virtual-network", "vn1", "routing-instance", "vrf1");
+        DelLink("virtual-network", "default-project:vn2", "routing-instance",
+                "default-project:vn2:vn2");
+        DelLink("floating-ip-pool", "fip-pool2", "virtual-network",
+                "default-project:vn2");
+        DelLink("floating-ip", "fip1", "floating-ip-pool", "fip-pool2");
+        client->WaitForIdle();
+
+        DelFloatingIp("fip1");
+        DelFloatingIpPool("fip-pool2");
+        client->WaitForIdle();
+
+        // Delete virtual-machine-interface to vrf link attribute
+        DelLink("virtual-machine-interface-routing-instance", "vmvrf1",
+                "routing-instance", "vrf1");
+        DelLink("virtual-machine-interface-routing-instance", "vmvrf1",
+                "virtual-machine-interface", "vnet1");
+        DelNode("virtual-machine-interface-routing-instance", "vmvrf1");
+        client->WaitForIdle();
+
+        DelPort("vnet1");
+        DelVn("vn1");
+        if (delete_fip_vn)
+            DelVn("default-project:vn2");
+        DelVrf("vrf1");
+        DelVrf("default-project:vn2:vn2");
+        DelVm("vm1");
+        client->WaitForIdle();
+
+        EXPECT_FALSE(VrfFind("vrf1"));
+        EXPECT_FALSE(VrfFind("default-project:vn2:vn2"));
+        EXPECT_FALSE(VnFind(1));
+        if (delete_fip_vn)
+            EXPECT_FALSE(VnFind(2));
+        EXPECT_FALSE(VmFind(1));
+    }
 private:
     DBTableBase::ListenerId rid_;
     uint32_t itf_id_;
@@ -884,6 +955,123 @@ TEST_F(DnsTest, DnsDropTest) {
     IntfCfgDel(input, 0);
     WaitForItfUpdate(0);
     Agent::GetInstance()->GetDnsProto()->ClearStats();
+}
+
+// Check that floating ip entries are created in dns floating ip list
+TEST_F(DnsTest, DnsFloatingIp) {
+    FloatingIPSetup();
+    struct PortInfo input[] = {
+        {"vnet1", 1, "1.1.1.1", "00:00:00:01:01:01", 1, 1},
+    };
+
+    AddPort(input[0].name, input[0].intf_id);
+    AddLink("virtual-network", "vn1", "virtual-machine-interface", "vnet1");
+    AddLink("virtual-machine", "vm1", "virtual-machine-interface", "vnet1");
+    AddInstanceIp("instance0", input[0].vm_id, input[0].addr);
+    AddLink("virtual-machine-interface", input[0].name,
+            "instance-ip", "instance0");
+    client->WaitForIdle();
+
+    AddLink("virtual-machine-interface", "vnet1", "floating-ip", "fip1");
+    client->WaitForIdle();
+
+    IntfCfgAdd(input, 0);
+    client->WaitForIdle();
+
+    // Port Active since VRF and VM already added
+    EXPECT_TRUE(VmPortActive(input, 0));
+    EXPECT_TRUE(VmPortFloatingIpCount(1, 1));
+    EXPECT_TRUE(RouteFind("vrf1", Ip4Address::from_string("1.1.1.1"), 32));
+    EXPECT_TRUE(RouteFind("default-project:vn2:vn2", Ip4Address::from_string("2.2.2.100"), 32));
+
+    // Check DNS entries for floating ips
+    DnsProto *dns_proto = Agent::GetInstance()->GetDnsProto();
+    const DnsProto::DnsFipSet &fip_set = dns_proto->fip_list();
+    EXPECT_TRUE(fip_set.size() == 1);
+    DnsProto::DnsFipSet::const_iterator fip_it = fip_set.begin();
+    EXPECT_TRUE((*fip_it)->floating_ip_.to_string() == "2.2.2.100");
+
+    // Cleanup
+    LOG(DEBUG, "Doing cleanup");
+
+    IntfCfgDel(input, 0);
+    client->WaitForIdle();
+
+    EXPECT_FALSE(VmPortFind(input, 0));
+    client->WaitForIdle();
+
+    // Delete links
+    DelLink("virtual-network", "vn1", "virtual-machine-interface", "vnet1");
+    DelLink("virtual-machine", "vm1", "virtual-machine-interface", "vnet1");
+    DelLink("virtual-machine-interface", "vnet1", "floating-ip", "fip1");
+    DelLink("instance-ip", "instance0", "virtual-machine-interface", "vnet1");
+    client->WaitForIdle();
+
+    // Check DNS entries for floating ips are cleared
+    const DnsProto::DnsFipSet &fip_set_new = dns_proto->fip_list();
+    EXPECT_TRUE(fip_set_new.size() == 0);
+
+    FloatingIPTearDown(true);
+}
+
+// Check that floating ip entries are deleted when vn is deleted without fip de-association
+TEST_F(DnsTest, DnsFloatingIp_VnDelWithoutFipDeAssoc) {
+    FloatingIPSetup();
+    struct PortInfo input[] = {
+        {"vnet1", 1, "1.1.1.1", "00:00:00:01:01:01", 1, 1},
+    };
+
+    AddPort(input[0].name, input[0].intf_id);
+    AddLink("virtual-network", "vn1", "virtual-machine-interface", "vnet1");
+    AddLink("virtual-machine", "vm1", "virtual-machine-interface", "vnet1");
+    AddInstanceIp("instance0", input[0].vm_id, input[0].addr);
+    AddLink("virtual-machine-interface", input[0].name,
+            "instance-ip", "instance0");
+    client->WaitForIdle();
+
+    AddLink("virtual-machine-interface", "vnet1", "floating-ip", "fip1");
+    client->WaitForIdle();
+
+    IntfCfgAdd(input, 0);
+    client->WaitForIdle();
+
+    // Port Active since VRF and VM already added
+    EXPECT_TRUE(VmPortActive(input, 0));
+    EXPECT_TRUE(VmPortFloatingIpCount(1, 1));
+    EXPECT_TRUE(RouteFind("vrf1", Ip4Address::from_string("1.1.1.1"), 32));
+    EXPECT_TRUE(RouteFind("default-project:vn2:vn2", Ip4Address::from_string("2.2.2.100"), 32));
+
+    // Check DNS entries for floating ips
+    DnsProto *dns_proto = Agent::GetInstance()->GetDnsProto();
+    const DnsProto::DnsFipSet &fip_set = dns_proto->fip_list();
+    EXPECT_TRUE(fip_set.size() == 1);
+    DnsProto::DnsFipSet::const_iterator fip_it = fip_set.begin();
+    EXPECT_TRUE((*fip_it)->floating_ip_.to_string() == "2.2.2.100");
+
+    // Cleanup
+    LOG(DEBUG, "Doing cleanup");
+
+    // Delete links
+    // DelLink("virtual-network", "vn1", "virtual-machine-interface", "vnet1");
+    // DelLink("virtual-machine", "vm1", "virtual-machine-interface", "vnet1");
+    // DelLink("virtual-machine-interface", "vnet1", "floating-ip", "fip1");
+    // DelLink("instance-ip", "instance0", "virtual-machine-interface", "vnet1");
+    // client->WaitForIdle();
+
+    DelVn("default-project:vn2");
+    client->WaitForIdle();
+    EXPECT_FALSE(VnFind(2));
+
+    // Check DNS entries for floating ips are cleared
+    const DnsProto::DnsFipSet &fip_set_new = dns_proto->fip_list();
+    EXPECT_TRUE(fip_set_new.size() == 0);
+
+    FloatingIPTearDown(false);
+    IntfCfgDel(input, 0);
+    client->WaitForIdle();
+
+    EXPECT_FALSE(VmPortFind(input, 0));
+    client->WaitForIdle();
 }
 
 void RouterIdDepInit(Agent *agent) {
