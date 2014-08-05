@@ -61,9 +61,9 @@ pkg = [env.SandeshGenPy('#controller/src/config/uve/service_instance.sandesh', '
 
 # Generate the sandesh cpuinfo from base
 cpu_info_pkg = env.SandeshGenPy('#controller/src/base/sandesh/cpuinfo.sandesh', 'cfgm_common/uve/cfgm_cpuinfo/', False)
-connection_info_pkg = env.SandeshGenPy('#controller/src/base/sandesh/connection_info.sandesh', 'cfgm_common/uve/cfgm_cpuinfo/', False)
+process_info_pkg = env.SandeshGenPy('#controller/src/base/sandesh/process_info.sandesh', 'cfgm_common/uve/cfgm_cpuinfo/', False)
 env.Depends(cpu_info_pkg, pkg)
-env.Depends(connection_info_pkg, pkg)
+env.Depends(process_info_pkg, pkg)
 
 rel_path = Dir('cfgm_common').path
 def BuildInfoAction(target, source, env):
@@ -78,7 +78,7 @@ sdist_depends.extend(ifmap_sources_rules)
 sdist_depends.extend(test_sources_rules)
 sdist_depends.extend(pkg)
 sdist_depends.extend(cpu_info_pkg)
-sdist_depends.extend(connection_info_pkg)
+sdist_depends.extend(process_info_pkg)
 sdist_depends.extend(build_info_rules)
 
 # TODO: deprecate

@@ -31,6 +31,9 @@ using std::string;
 using boost::shared_ptr;
 using boost::assign::list_of;
 using boost::system::error_code;
+using process::ConnectionState;
+using process::ConnectionType;
+using process::ConnectionStatus;
 
 class OpServerProxy::OpServerImpl {
     public:

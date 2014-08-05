@@ -22,6 +22,9 @@
 
 using std::string;
 using boost::system::error_code;
+using process::ConnectionState;
+using process::ConnectionType;
+using process::ConnectionStatus;
 
 VizCollector::VizCollector(EventManager *evm, unsigned short listen_port,
             std::vector<std::string> cassandra_ips,

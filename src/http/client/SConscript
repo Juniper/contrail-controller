@@ -32,7 +32,7 @@ env.Append(LIBPATH = ['#/' + Dir('..').path,
                      ])
 
 env.Append(LIBS = ['task_test', 'gunit', 'base', 'httpc', 'sandesh', 'http', 
-                   'http_parser', 'connection_info', 'curl', 'io', 
+                   'http_parser', 'process_info', 'curl', 'io', 
                    'sandeshvns', 'base', 'pugixml'])
 
 if sys.platform != 'darwin':
