@@ -49,7 +49,7 @@ class ContrailConfigCmd(object):
 
         global_defaults = {}
 
-        args.conf_file = '/etc/contrail/api_server.conf'
+        args.conf_file = '/etc/contrail/contrail-api.conf'
         if args.conf_file:
             config = ConfigParser.SafeConfigParser()
             config.read([args.conf_file])
