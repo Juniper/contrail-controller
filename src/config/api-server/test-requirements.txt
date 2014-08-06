@@ -1,3 +1,4 @@
+ipdb
 python-subunit
 testrepository
 flexmock

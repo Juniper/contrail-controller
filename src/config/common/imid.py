@@ -8,7 +8,7 @@ import uuid
 import re
 import StringIO
 from lxml import etree
-from ifmap.client import client, namespaces
+from cfgm_common.ifmap.client import client
 from ifmap.request import NewSessionRequest, RenewSessionRequest, \
     EndSessionRequest, PublishRequest, SearchRequest, \
     SubscribeRequest, PurgeRequest, PollRequest

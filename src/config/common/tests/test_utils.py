@@ -2,6 +2,7 @@
 # Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
 #
 import gevent
+import gevent.queue
 import os
 import sys
 import pdb
@@ -20,7 +21,10 @@ except ImportError:
     from ordereddict import OrderedDict
 import pycassa
 import Queue
+from collections import deque
 import kombu
+import kazoo
+from kazoo.client import KazooState
 from copy import deepcopy
 from datetime import datetime
 from pycassa.util import *
@@ -258,7 +262,8 @@ class FakeIfmapClient(object):
     #                {'other': <Element identity at 0x2b3ee10>,
     #                 'meta': <Element metadata at 0x2b3e410>}}}
     _graph = {}
-    _subscribe_lists = [Queue.Queue()]
+    _published_messages = [] # all messages published so far
+    _subscribe_lists = [] # list of all subscribers indexed by session-id
     _PUBLISH_ENVELOPE = \
         """<?xml version="1.0" encoding="UTF-8"?> """\
         """<env:Envelope xmlns:"""\
@@ -409,6 +414,7 @@ class FakeIfmapClient(object):
                         % (etree.tostring(pub_root)))
                 poll_result.append(subscribe_result)
 
+            cls._published_messages.append(poll_result)
             for sl in cls._subscribe_lists:
                 if sl is not None:
                     sl.put(poll_result)
@@ -471,7 +477,10 @@ class FakeIfmapClient(object):
             return result_env
         elif method == 'subscribe':
             session_id = int(body._SubscribeRequest__session_id)
-            cls._subscribe_lists[session_id] = cls._subscribe_lists[0]
+            subscriber_queue = Queue.Queue()
+            for msg in cls._published_messages:
+                subscriber_queue.put(msg)
+            cls._subscribe_lists[session_id] = subscriber_queue
             result = etree.Element('subscribeReceived')
             result_env = cls._RSP_ENVELOPE % {'result': etree.tostring(result)}
             return result_env
@@ -496,7 +505,7 @@ class FakeKombu(object):
     # end Exchange
 
     class Queue(object):
-        _msg_obj_list = []
+        _sync_q = gevent.queue.Queue()
 
         class Message(object):
             def __init__(self, msg_dict):
@@ -525,29 +534,32 @@ class FakeKombu(object):
 
         def put(self, msg_dict, serializer):
             msg_obj = self.Message(msg_dict)
-            self._msg_obj_list.append(msg_obj)
+            self._sync_q.put(msg_obj)
         # end put
 
-        def dq_head(self):
-            return self._msg_obj_list.pop(0)
-        # end dq_head
+        def get(self):
+            return self._sync_q.get()
+        # end get
+
     # end class Queue
 
     class Connection(object):
         class SimpleQueue(object):
+            _simple_queues = {}
             def __init__(self, q_obj):
-                self._q_obj = q_obj
-                self._q_add_event = gevent.event.Event()
+                if q_obj._name in self._simple_queues:
+                    self._q_obj = self._simple_queues[q_obj._name]._q_obj
+                else:
+                    self._simple_queues[q_obj._name] = self
+                    self._q_obj = q_obj
             # end __init__
 
             def put(self, *args, **kwargs):
                 self._q_obj.put(*args, **kwargs)
-                self._q_add_event.set()
             # end put
 
             def get(self, *args, **kwargs):
-                self._q_add_event.wait()
-                return self._q_obj.dq_head()
+                return self._q_obj.get()
             # end get
 
             def __enter__(self):
@@ -680,6 +692,35 @@ def Fake_uuid_to_time(time_uuid_in_db):
     return ts
 # end of Fake_uuid_to_time
 
+class FakeKazooClient(object):
+    class Election(object):
+        __init__ = stub
+        def run(self, cb, func, *args, **kwargs):
+            cb(func, *args, **kwargs)
+
+    def __init__(self, *args, **kwargs):
+        self.add_listener = stub
+        self.start = stub
+        self._values = {}
+        self.state = KazooState.CONNECTED
+    # end __init__
+
+    def create(self, path, value='', *args, **kwargs):
+        self._values[path] = value
+    # end create
+
+    def delete(self, path, recursive=False):
+        if not recursive:
+            try:
+                del self._values[path]
+            except KeyError:
+                raise kazoo.exceptions.NoNodeError()
+        else:
+            for path_key in self._values.keys():
+                if path in path_key:
+                    del self._values[path_key]
+    # end delete
+
 class ZookeeperClientMock(object):
 
     def __init__(self, *args, **kwargs):
@@ -703,7 +744,10 @@ class ZookeeperClientMock(object):
     # end alloc_from_str
 
     def delete(self, path):
-        del self._values[path]
+        try:
+            del self._values[path]
+        except KeyError:
+            raise kazoo.exceptions.NoNodeError()
     # end delete
 
     def read(self, path):
@@ -730,11 +774,20 @@ class ZookeeperClientMock(object):
 
     def delete_node(self, path, recursive=False):
         if not recursive:
-            del self._values[path]
+            try:
+                del self._values[path]
+            except KeyError:
+                raise kazoo.exceptions.NoNodeError()
         else:
             for path_key in self._values.keys():
                 if path in path_key:
                     del self._values[path_key]
     # end delete_node
+
+    def master_election(self, path, pid, func, *args, **kwargs):
+        func(*args, **kwargs)
+    # end master_election
+
 # end Class ZookeeperClientMock
 
+  

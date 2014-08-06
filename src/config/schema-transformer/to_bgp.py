@@ -3436,10 +3436,13 @@ def launch_arc(transformer, ssrc_mapc):
         try:
             transformer.process_poll_result(result)
         except Exception as e:
+            try:
+                err_file = open('/var/log/contrail/schema.err', 'a')
+            except IOError:
+                err_file = open('./schema.err', 'a')
             cgitb.Hook(
                 format="text",
-                file=open('/var/log/contrail/schema.err',
-                          'a')).handle(sys.exc_info())
+                file=err_file).handle(sys.exc_info())
             raise e
 # end launch_arc
 
