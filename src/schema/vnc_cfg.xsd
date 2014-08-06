@@ -867,7 +867,9 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
 <xsd:element name="instance-ip-mode" type="AddressMode"/>
 <!--#IFMAP-SEMANTICS-IDL 
      Property('instance-ip-mode', 'instance-ip') -->
-
+<xsd:element name="subnet-uuid" type="xsd:string"/>
+<!--#IFMAP-SEMANTICS-IDL
+     Property('subnet-uuid', 'instance-ip') -->
 <xsd:element name="instance-ip-virtual-network"/>
 <!--#IFMAP-SEMANTICS-IDL 
      Link('instance-ip-virtual-network',
