@@ -44,6 +44,14 @@ class NeutronPluginInterface(object):
         self._auth_user = conf_sections.get('KEYSTONE', 'admin_user')
         self._auth_passwd = conf_sections.get('KEYSTONE', 'admin_password')
         self._auth_tenant = conf_sections.get('KEYSTONE', 'admin_tenant_name')
+
+        try:
+            exts_enabled = conf_sections.getboolean('NEUTRON',
+                'contrail_extensions_enabled')
+        except (ConfigParser.NoSectionError, ConfigParser.NoOptionError):
+            exts_enabled = True
+        self._contrail_extensions_enabled = exts_enabled
+
         try:
             self._multi_tenancy = conf_sections.get('DEFAULTS', 'multi_tenancy')
         except ConfigParser.NoOptionError:
@@ -72,11 +80,13 @@ class NeutronPluginInterface(object):
         """
         if self._cfgdb is None:
             # Initialize connection to DB and add default entries
+            exts_enabled = self._contrail_extensions_enabled
             self._cfgdb = DBInterface(self._auth_user,
                                       self._auth_passwd,
                                       self._auth_tenant,
                                       self._vnc_api_ip,
-                                      self._vnc_api_port)
+                                      self._vnc_api_port,
+                                      contrail_extensions_enabled=exts_enabled)
             self._cfgdb.manager = self
     #end _connect_to_db
 
@@ -101,7 +111,7 @@ class NeutronPluginInterface(object):
     def _get_requests_data(self):
         ctype = bottle.request.headers['content-type']
         try:
-            if ctype == 'application/json':
+            if 'application/json' in ctype:
                 req = bottle.request.json
                 return req['context'], req['data']
         except Exception as e:
