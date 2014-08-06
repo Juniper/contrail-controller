@@ -246,6 +246,12 @@ class Subnet(object):
         return self._exclude
     # end get_exclude
 
+    def is_ip_allocated(self, ipaddr):
+        ip = IPAddress(ipaddr)
+        addr = int(ip)
+        return self._db_conn.subnet_is_addr_allocated(self._name, addr)
+    # end is_ip_allocated
+
     def ip_alloc(self, ipaddr=None):
         req = None
         if ipaddr:
@@ -763,6 +769,39 @@ class AddrMgmt(object):
                 subnet_obj.ip_free(IPAddress(ip_addr))
                 break
     # end ip_free_req
+
+    def is_ip_allocated(self, ip_addr, vn_fq_name, sub=None):
+        vn_fq_name_str = ':'.join(vn_fq_name)
+        subnet_dicts = self._get_subnet_dicts(vn_fq_name)
+        for subnet_name in subnet_dicts:
+            if sub and sub != subnet_name:
+                continue
+
+            # if we have subnet_obj free it via instance method,
+            # updating inuse bitmask, else free it via class method
+            # and there is no inuse bitmask to worry about
+            try:
+                subnet_obj = self._subnet_objs[vn_fq_name_str][subnet_name]
+            except KeyError:
+                if vn_fq_name_str not in self._subnet_objs:
+                    self._subnet_objs[vn_fq_name_str] = {}
+
+                subnet_dict = subnet_dicts[subnet_name]
+                subnet_obj = Subnet('%s:%s' % (vn_fq_name_str,
+                                               subnet_name),
+                                    subnet_dict['ip_prefix'],
+                                    subnet_dict['ip_prefix_len'],
+                                    gw=subnet_dict['gw'],
+                                    enable_dhcp=subnet_dict['enable_dhcp'],
+                                    dns_nameservers=subnet_dict['dns_nameservers'],
+                                    alloc_pool_list=subnet_dict['allocation_pools'],
+                                    addr_from_start = subnet_dict['addr_start'])
+                self._subnet_objs[vn_fq_name_str][subnet_name] = subnet_obj
+
+            if Subnet.ip_belongs_to(IPNetwork(subnet_name),
+                                    IPAddress(ip_addr)):
+                return subnet_obj.is_ip_allocated(IPAddress(ip_addr))
+    # end is_ip_allocated
 
     def ip_free_notify(self, ip_addr, vn_fq_name):
         vn_fq_name_str = ':'.join(vn_fq_name)
