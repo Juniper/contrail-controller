@@ -1581,15 +1581,19 @@ class DBInterface(object):
     #end _network_vnc_to_neutron
 
     def _subnet_neutron_to_vnc(self, subnet_q):
-        cidr = subnet_q['cidr'].split('/')
-        pfx = cidr[0]
-        pfx_len = int(cidr[1])
+        cidr = IPNetwork(subnet_q['cidr'])
+        pfx = str(cidr.network)
+        pfx_len = int(cidr.prefixlen)
+        if cidr.version != 4:
+            exc_info = {'type': 'BadRequest',
+                        'message': "Bad subnet request: IPv6 is not supported"}
+            bottle.abort(400, json.dumps(exc_info))
+
         if 'gateway_ip' in subnet_q:
             default_gw = subnet_q['gateway_ip']
         else:
             # Assigned first+1 from cidr
-            network = IPNetwork('%s/%s' % (pfx, pfx_len))
-            default_gw = str(IPAddress(network.first + 1))
+            default_gw = str(IPAddress(cidr.first + 1))
 
         if 'allocation_pools' in subnet_q:
             alloc_pools = subnet_q['allocation_pools']
