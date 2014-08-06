@@ -89,6 +89,7 @@ struct VnSandeshData {
     8: list<VnIpamHostRoutes> ipam_host_routes;
     9: bool layer2_forwarding;
     10: bool ipv4_forwarding;
+    11: bool admin_state;
 }
 
 struct SgSandeshData {
@@ -755,6 +756,7 @@ struct VnObjectLogInfo {
     8: optional list <VnObjectLogIpam> ipam_list;
     9: optional bool ipv4_forwarding;
    10: optional bool layer2_forwarding;
+   11: optional bool admin_state;
 }
 
 objectlog sandesh VnObjectLog {

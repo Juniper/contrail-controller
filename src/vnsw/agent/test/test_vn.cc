@@ -553,6 +553,84 @@ TEST_F(CfgTest, vn_forwarding_mode_changed_2) {
     client->WaitForIdle();
 }
 
+// check that setting vn admin state to false makes the vm ports inactive
+TEST_F(CfgTest, vn_admin_state_1) {
+    struct PortInfo input[] = {
+        {"vnet1", 1, "1.1.1.10", "00:00:01:01:01:10", 1, 1},
+        {"vnet2", 2, "2.2.2.20", "00:00:02:02:02:20", 1, 2},
+    };
+
+    IpamInfo ipam_info[] = {
+        {"1.1.1.0", 24, "1.1.1.200", true},
+        {"2.2.2.0", 24, "2.2.2.200", true},
+    };
+
+    client->Reset();
+    // vm admin_state is set to true in the call below
+    CreateVmportEnv(input, 2);
+    client->WaitForIdle();
+    AddIPAM("vn1", ipam_info, 2);
+    client->WaitForIdle();
+    EXPECT_TRUE(VmPortActive(input, 0));
+    EXPECT_TRUE(VmPortActive(input, 1));
+
+    // set the vm admin_state to false and check that vms are inactive
+    CreateVmportEnv(input, 2, 0, NULL, NULL, NULL, false);
+    client->WaitForIdle();
+    EXPECT_FALSE(VmPortActive(input, 0));
+    EXPECT_FALSE(VmPortActive(input, 1));
+
+    CreateVmportEnv(input, 2);
+    client->WaitForIdle();
+    EXPECT_TRUE(VmPortActive(input, 0));
+    EXPECT_TRUE(VmPortActive(input, 1));
+
+    client->Reset();
+    DelIPAM("vn1");
+    client->WaitForIdle();
+    DeleteVmportEnv(input, 2, true);
+    client->WaitForIdle();
+}
+
+// check that setting vn admin state to false makes the vm ports inactive
+TEST_F(CfgTest, vn_admin_state_2) {
+    struct PortInfo input[] = {
+        {"vnet1", 1, "1.1.1.10", "00:00:01:01:01:10", 1, 1},
+        {"vnet2", 2, "2.2.2.20", "00:00:02:02:02:20", 1, 2},
+    };
+
+    IpamInfo ipam_info[] = {
+        {"1.1.1.0", 24, "1.1.1.200", true},
+        {"2.2.2.0", 24, "2.2.2.200", true},
+    };
+
+    client->Reset();
+    // vm admin_state is set to false in the call below
+    CreateVmportEnv(input, 2, 0, NULL, NULL, NULL, false);
+    client->WaitForIdle();
+    AddIPAM("vn1", ipam_info, 2);
+    client->WaitForIdle();
+    EXPECT_FALSE(VmPortActive(input, 0));
+    EXPECT_FALSE(VmPortActive(input, 1));
+
+    // set the vm admin_state to false and check that vms are inactive
+    CreateVmportEnv(input, 2);
+    client->WaitForIdle();
+    EXPECT_TRUE(VmPortActive(input, 0));
+    EXPECT_TRUE(VmPortActive(input, 1));
+
+    CreateVmportEnv(input, 2, 0, NULL, NULL, NULL, false);
+    client->WaitForIdle();
+    EXPECT_FALSE(VmPortActive(input, 0));
+    EXPECT_FALSE(VmPortActive(input, 1));
+
+    client->Reset();
+    DelIPAM("vn1");
+    client->WaitForIdle();
+    DeleteVmportEnv(input, 2, true);
+    client->WaitForIdle();
+}
+
 TEST_F(CfgTest, change_in_gateway) {
     //Send control node message on subnet bcast after family has changed to L2
     client->Reset();
