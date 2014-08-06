@@ -94,3 +94,37 @@ def get_active_preference():
 
 def get_standby_preference():
     return _STANDBY_LOCAL_PREFERENCE
+
+def get_service_instance_interface(vnc_lib, si_obj, type):
+    st_refs = si_obj.get_service_template_refs()
+    if not st_refs:  
+        return None
+
+    st_obj = vnc_lib.service_template_read(id=st_refs[0]['uuid'])
+    if not st_obj:  
+        return None
+
+    st_props = st_obj.get_service_template_properties()
+    if not st_props:
+        return None
+
+    st_if_list = st_props.get_interface_type()
+    for idx in range(0, len(st_if_list)):
+        st_if = st_if_list[idx]
+        itf_type = st_if.service_interface_type
+        if itf_type == type:
+            break
+    else:
+        return None
+
+    si_props = si_obj.get_service_instance_properties()
+    if not si_props:
+        return None
+
+    si_if_list = si_props.get_interface_list()
+    try:
+        si_if = si_if_list[idx]
+    except IndexError:
+        return None 
+
+    return si_if
