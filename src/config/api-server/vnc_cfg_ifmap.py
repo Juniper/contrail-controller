@@ -1232,6 +1232,11 @@ class VncZkClient(object):
         return self._subnet_allocators.get(subnet)
     # end _get_subnet_allocator
 
+    def subnet_is_addr_allocated(self, subnet, addr):
+        allocator = self._get_subnet_allocator(subnet)
+        return allocator.read(addr)
+    # end subnet_is_addr_allocated
+
     def subnet_alloc_req(self, subnet, addr=None):
         allocator = self._get_subnet_allocator(subnet)
         try:
@@ -1598,6 +1603,10 @@ class VncDbClient(object):
     def useragent_kv_delete(self, key):
         return self._cassandra_db.useragent_kv_delete(key)
     # end useragent_kv_delete
+
+    def subnet_is_addr_allocated(self, subnet, addr):
+        return self._zk_db.subnet_is_addr_allocated(subnet, addr)
+    # end subnet_is_addr_allocated
 
     def subnet_alloc_req(self, subnet, addr=None):
         return self._zk_db.subnet_alloc_req(subnet, addr)
