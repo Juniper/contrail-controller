@@ -699,6 +699,21 @@ TEST_F(FlowTest, VmToServer_ecmp_to_nat) {
              (0U == Agent::GetInstance()->pkt()->flow_table()->Size()));
 }
 
+// Validate destination virtual-network name in flow-table
+TEST_F(FlowTest, FlowValidateDestVn_1) {
+    TxIpPacket(vnet[1]->id(), vnet_addr[1], vnet_addr[3], 1);
+    client->WaitForIdle();
+
+    FlowEntry *flow = FlowGet(vnet[1]->flow_key_nh()->id(),
+                              vnet_addr[1], vnet_addr[3], 1, 0, 0);
+    EXPECT_TRUE(flow != NULL);
+    if (flow == NULL)
+        return;
+
+    EXPECT_STREQ(flow->data().source_vn.c_str(), "default-project:vn2");
+    EXPECT_STREQ(flow->data().dest_vn.c_str(), "default-project:vn2");
+}
+
 // FloatingIP test for traffic from VM to local VM
 TEST_F(FlowTest, FipVmToLocalVm_1) {
     TxIpPacket(vnet[1]->id(), vnet_addr[1], vnet_addr[3], 1);

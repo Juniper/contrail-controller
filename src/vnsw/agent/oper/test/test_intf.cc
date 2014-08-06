@@ -921,6 +921,12 @@ TEST_F(IntfTest, VmPortFloatingIp_1) {
     EXPECT_TRUE(VmPortFloatingIpCount(1, 1));
     EXPECT_TRUE(VmPortPolicyEnable(1));
     EXPECT_TRUE(RouteFind("vrf2", "2.2.2.2", 32));
+    Inet4UnicastRouteEntry *rt =
+        RouteGet("vrf1", Ip4Address::from_string("2.2.2.2"), 32);
+    if (rt) {
+        EXPECT_STREQ(rt->GetActivePath()->dest_vn_name().c_str(), "vn2");
+    }
+
     DoInterfaceSandesh("");
     client->WaitForIdle();
 

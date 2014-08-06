@@ -381,7 +381,8 @@ private:
     bool PolicyEnabled() const;
     void UpdateL3Services(bool dhcp, bool dns);
     void AddRoute(const std::string &vrf_name, const Ip4Address &ip,
-                  uint32_t plen, bool policy, bool ecmp);
+                  uint32_t plen, const std::string &vn_name, bool policy,
+                  bool ecmp);
     void DeleteRoute(const std::string &vrf_name, const Ip4Address &ip,
                      uint32_t plen);
     void ServiceVlanAdd(ServiceVlan &entry);

@@ -229,6 +229,8 @@ bool FlowGetNat(const string &vrf_name, const char *sip, const char *dip,
                 const char *nat_vrf, const char *nat_sip,
                 const char *nat_dip, uint16_t nat_sport, int16_t nat_dport,
                 int nh_id, int nat_nh_id);
+FlowEntry* FlowGet(int nh_id, std::string sip, std::string dip, uint8_t proto,
+                   uint16_t sport, uint16_t dport);
 bool FlowGet(const string &vrf_name, const char *sip, const char *dip,
              uint8_t proto, uint16_t sport, uint16_t dport, bool rflow,
              std::string svn, std::string dvn, uint32_t hash_id, 

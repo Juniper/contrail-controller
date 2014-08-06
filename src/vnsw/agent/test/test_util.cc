@@ -2295,6 +2295,11 @@ FlowEntry* FlowGet(int vrf_id, std::string sip, std::string dip, uint8_t proto,
     return entry;
 }
 
+FlowEntry* FlowGet(int nh_id, std::string sip, std::string dip, uint8_t proto,
+                   uint16_t sport, uint16_t dport) {
+    return FlowGet(0, sip, dip, proto, sport, dport, nh_id);
+}
+
 bool FlowGet(int vrf_id, const char *sip, const char *dip, uint8_t proto, 
              uint16_t sport, uint16_t dport, bool short_flow, int hash_id,
              int reverse_hash_id, int nh_id, int reverse_nh_id) {
