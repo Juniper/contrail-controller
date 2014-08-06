@@ -394,9 +394,12 @@ class DBInterface(object):
             # Seed the cache and return
             if q_type == 'port':
                 port_obj = self._virtual_machine_interface_read(obj_uuid)
-                net_id = port_obj.get_virtual_network_refs()[0]['uuid']
-                # recurse up type-hierarchy
-                tenant_id = self._get_obj_tenant_id('network', net_id)
+                if port_obj.parent_type != "project":
+                    net_id = port_obj.get_virtual_network_refs()[0]['uuid']
+                    # recurse up type-hierarchy
+                    tenant_id = self._get_obj_tenant_id('network', net_id)
+                else:
+                    tenant_id = port_obj.parent_uuid.replace('-', '')
                 self._set_obj_tenant_id(obj_uuid, tenant_id)
                 return tenant_id
 
@@ -2053,7 +2056,10 @@ class DBInterface(object):
             subnets_info = self._virtual_network_to_subnets(net_obj)
             port_req_memo['subnets'][net_id] = subnets_info
 
-        proj_id = net_obj.parent_uuid.replace('-', '')
+        if port_obj.parent_type != "project":
+            proj_id = net_obj.parent_uuid.replace('-', '')
+        else:
+            proj_id = port_obj.parent_uuid.replace('-', '')
         self._set_obj_tenant_id(port_obj.uuid, proj_id)
 
         port_q_dict['tenant_id'] = proj_id
@@ -3291,7 +3297,7 @@ class DBInterface(object):
     def port_create(self, port_q):
         net_id = port_q['network_id']
         net_obj = self._network_read(net_id)
-        proj_id = net_obj.parent_uuid
+        proj_id = str(uuid.UUID(port_q['tenant_id']))
 
         # initialize port object
         port_obj = self._port_neutron_to_vnc(port_q, net_obj, CREATE)
