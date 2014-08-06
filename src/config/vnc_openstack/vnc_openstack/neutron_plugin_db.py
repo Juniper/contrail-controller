@@ -1810,6 +1810,29 @@ class DBInterface(object):
         return rtr_obj
     #end _router_neutron_to_vnc
 
+    def _get_external_gateway_info(self, rtr_obj):
+        si_refs = rtr_obj.get_service_instance_refs()
+        if not si_refs:
+            return None
+
+        try:
+            si_obj = self._vnc_lib.service_instance_read(id=si_refs[0]['uuid'])
+        except NoIdError:
+            return None
+
+        si_props = si_obj.get_service_instance_properties()
+        if not si_props:
+            return None
+
+        vn_fq_name = si_props.get_right_virtual_network()
+        try:
+            fq_name = vn_fq_name.split(':')
+            net_obj = self._virtual_network_read(fq_name=fq_name)
+        except NoIdError:
+            return None
+
+        return net_obj.uuid
+
     def _router_vnc_to_neutron(self, rtr_obj, rtr_repr='SHOW'):
         rtr_q_dict = {}
         extra_dict = {}
@@ -1825,11 +1848,10 @@ class DBInterface(object):
         rtr_q_dict['shared'] = False
         rtr_q_dict['status'] = constants.NET_STATUS_ACTIVE
         rtr_q_dict['gw_port_id'] = None
-        rtr_q_dict['external_gateway_info'] = None
-        vn_refs = rtr_obj.get_virtual_network_refs()
-        if vn_refs:
-            rtr_q_dict['external_gateway_info'] = {'network_id':
-                                                   vn_refs[0]['uuid']}
+
+        ext_net_uuid = self._get_external_gateway_info(rtr_obj)
+        rtr_q_dict['external_gateway_info'] = ext_net_uuid
+
         if self._contrail_extensions_enabled:
             rtr_q_dict.update(extra_dict)
         return rtr_q_dict
@@ -2017,6 +2039,28 @@ class DBInterface(object):
         return port_obj
     #end _port_neutron_to_vnc
 
+    def _gw_port_vnc_to_neutron(self, port_obj):
+        vm_refs = port_obj.get_virtual_machine_refs()
+        try:
+            vm_obj = self._vnc_lib.virtual_machine_read(id=vm_refs[0]['uuid'])
+        except NoIdError:
+            return None
+
+        si_refs = vm_obj.get_service_instance_refs()
+        if not si_refs:
+            return None
+
+        try:
+            si_obj = self._vnc_lib.service_instance_read(id=si_refs[0]['uuid'])
+        except NoIdError:
+            return None
+
+        rtr_back_refs = si_obj.get_logical_router_back_refs()
+        if not rtr_back_refs:
+            return None
+        return rtr_back_refs[0]['uuid']
+    #end _gw_port_vnc_to_neutron
+
     def _port_vnc_to_neutron(self, port_obj, port_req_memo=None):
         port_q_dict = {}
         extra_dict = {}
@@ -2128,9 +2172,14 @@ class DBInterface(object):
             port_q_dict['device_owner'] = ''
             port_q_dict['device_id'] = port_obj.parent_name
         elif port_obj.get_virtual_machine_refs() is not None:
-            port_q_dict['device_id'] = \
-                port_obj.get_virtual_machine_refs()[0]['to'][-1]
-            port_q_dict['device_owner'] = ''
+            rtr_uuid = self._gw_port_vnc_to_neutron(port_obj)
+            if rtr_uuid:
+                port_q_dict['device_id'] = rtr_uuid
+                port_q_dict['device_owner'] = constants.DEVICE_OWNER_ROUTER_GW
+            else:
+                port_q_dict['device_id'] = \
+                    port_obj.get_virtual_machine_refs()[0]['uuid']
+                port_q_dict['device_owner'] = ''
         else:
             port_q_dict['device_id'] = ''
             port_q_dict['device_owner'] = ''
@@ -2747,7 +2796,7 @@ class DBInterface(object):
 
     def _router_add_gateway(self, router_q, rtr_obj):
         ext_gateway = router_q.get('external_gateway_info', None)
-        old_ext_gateway = rtr_obj.get_virtual_network_refs()
+        old_ext_gateway = self._get_external_gateway_info(rtr_obj)
         if ext_gateway or old_ext_gateway:
             network_id = ext_gateway.get('network_id', None)
             if network_id:
@@ -2841,7 +2890,7 @@ class DBInterface(object):
             self._vnc_lib.virtual_network_update(net_obj)
 
         # Add logical gateway virtual network
-        router_obj.set_virtual_network(ext_net_obj)
+        router_obj.set_service_instance(si_obj)
         self._vnc_lib.logical_router_update(router_obj)
 
     def _router_clear_external_gateway(self, router_obj):
@@ -2879,13 +2928,13 @@ class DBInterface(object):
                 self._vnc_lib.virtual_network_update(net_obj)
             self._vnc_lib.route_table_delete(id=rt_obj.uuid)
 
+        # Clear logical gateway virtual network
+        router_obj.set_service_instance_list([])
+        self._vnc_lib.logical_router_update(router_obj)
+
         # Delete service instance
         if si_obj:
             self._vnc_lib.service_instance_delete(id=si_uuid)
-
-        # Clear logical gateway virtual network
-        router_obj.set_virtual_network_list([])
-        self._vnc_lib.logical_router_update(router_obj)
 
     def _set_snat_routing_table(self, router_obj, network_id):
         project_obj = self._project_read(proj_id=router_obj.parent_uuid)
