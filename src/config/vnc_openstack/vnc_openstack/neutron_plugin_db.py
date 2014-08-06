@@ -171,6 +171,10 @@ class RouterExternalGatewayInUseByFloatingIp(exceptions.InUse):
                 "gateway to external network %(net_id)s is required by one or "
                 "more floating IPs.")
 
+# Allowed Address Pair
+class AddressPairMatchesPortFixedIPAndMac(exceptions.InvalidInput):
+    message = _("Port's Fixed IP and Mac Address match an address pair entry.")
+
 class DBInterface(object):
     """
     An instance of this class forwards requests to vnc cfg api (web)server
@@ -1990,29 +1994,50 @@ class DBInterface(object):
             else:
                 port_obj.set_virtual_machine_interface_dhcp_option_list(None)
 
-        if ('allowed_address_pairs' in port_q and
-           port_q['allowed_address_pairs']):
-            aaps = AllowedAddressPairs()
+        if ('allowed_address_pairs' in port_q):
             aap_array = []
-            for address_pair in port_q['allowed_address_pairs']:
-                mode = u'active-active';
-                if 'mac_address' not in address_pair:
-                    mode = u'active-standby';
-                    mac_refs = port_obj.get_virtual_machine_interface_mac_addresses()
-                    if mac_refs:
-                        address_pair['mac_address'] = mac_refs.mac_address[0]
+            if port_q['allowed_address_pairs']:
+                for address_pair in port_q['allowed_address_pairs']:
+                    mac_refs = \
+                        port_obj.get_virtual_machine_interface_mac_addresses()
+                    mode = u'active-active';
+                    if 'mac_address' not in address_pair:
+                        mode = u'active-standby';
+                        if mac_refs:
+                            address_pair['mac_address'] = mac_refs.mac_address[0]
 
-                cidr = address_pair['ip_address'].split('/')
-                if len(cidr) == 1:
-                    subnet=SubnetType(cidr[0], 32);
-                elif len(cidr) == 2:
-                    subnet=SubnetType(cidr[0], int(cidr[1]));
-                else:
-                    raise exceptions.BadRequest(resource='port', msg="Invalid address pair argument")
-                aap = AllowedAddressPair(subnet, address_pair['mac_address'], mode)
-                aap_array.append(aap)
-            aaps.set_allowed_address_pair(aap_array)
-            port_obj.set_virtual_machine_interface_allowed_address_pairs(aaps)
+                    cidr = address_pair['ip_address'].split('/')
+                    if len(cidr) == 1:
+                        subnet=SubnetType(cidr[0], 32);
+                    elif len(cidr) == 2:
+                        subnet=SubnetType(cidr[0], int(cidr[1]));
+                    else:
+                        self._raise_contrail_exception(400,
+                               exceptions.BadRequest(resource='port',
+                                         msg='Invalid address pair argument'))
+                    ip_back_refs = port_obj.get_instance_ip_back_refs()
+                    if ip_back_refs:
+                        for ip_back_ref in ip_back_refs:
+                            iip_uuid = ip_back_ref['uuid']
+                            try:
+                                ip_obj = self._instance_ip_read(instance_ip_id=\
+                                                            ip_back_ref['uuid'])
+                            except NoIdError:
+                                continue
+                            ip_addr = ip_obj.get_instance_ip_address()
+                            if ((ip_addr == address_pair['ip_address']) and
+                                (mac_refs.mac_address[0] == address_pair['mac_address'])):
+                                self._raise_contrail_exception(400,
+                                       AddressPairMatchesPortFixedIPAndMac())
+                    aap = AllowedAddressPair(subnet,
+                                             address_pair['mac_address'], mode)
+                    aap_array.append(aap)
+            if aap_array:
+                aaps = AllowedAddressPairs()
+                aaps.set_allowed_address_pair(aap_array)
+                port_obj.set_virtual_machine_interface_allowed_address_pairs(aaps)
+            else:
+                port_obj.set_virtual_machine_interface_allowed_address_pairs(None)
 
         return port_obj
     #end _port_neutron_to_vnc
