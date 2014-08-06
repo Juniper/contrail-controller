@@ -387,7 +387,15 @@ class SvcMonitor(object):
             return False
         si_props = si_obj.get_service_instance_properties()
         max_instances = si_props.get_scale_out().get_max_instances()
-        if max_instances == len(vm_back_refs):
+
+        need_reschedule = False
+        for vm_uuid, si in list(self._svc_vm_cf.get_range()):
+            if (si['si_fq_str'] == si_obj.get_fq_name_str()
+                and not si.has_key('vrouter_name')):
+                need_reschedule = True
+                break
+
+        if max_instances == len(vm_back_refs) and not need_reschedule:
             return True
         return False
     #end _check_svc_vm_exists
@@ -395,10 +403,6 @@ class SvcMonitor(object):
     def _create_svc_instance(self, st_obj, si_obj):
         #check if all config received before launch
         if not self._check_store_si_info(st_obj, si_obj):
-            return
-
-        #check if VMs already exist
-        if self._check_svc_vm_exists(si_obj):
             return
 
         st_props = st_obj.get_service_template_properties()
@@ -413,6 +417,11 @@ class SvcMonitor(object):
             method(st_obj, si_obj)
 
     def _create_svc_instance_netns(self, st_obj, si_obj):
+        #check if VMs already exist
+        if self._check_svc_vm_exists(si_obj):
+            self._svc_syslog("SI (%s) VMs already exist and scheduled. "
+                             "Nothing to do.", si_obj.get_fq_name_str())
+            return
         si_props = si_obj.get_service_instance_properties()
         si_if_list = si_props.get_interface_list()
         st_props = st_obj.get_service_template_properties()
@@ -1334,6 +1343,8 @@ def timer_callback(monitor):
                 try:
                     if not monitor.vrouter_scheduler.vrouter_running(si['vrouter_name']):
                         # The scheduled vrouter is down, re-create it
+                        si.pop('vrouter_name')
+                        self._svc_vm_cf.insert(vm_uuid, si)
                         status = 'ERROR'
                 except KeyError:
                     # Cannot found the scheduled vrouter, re-create it
