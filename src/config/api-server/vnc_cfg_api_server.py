@@ -345,7 +345,8 @@ class VncApiServer(VncApiServerGen):
             enable_syslog=self._args.use_syslog,
             syslog_facility=self._args.syslog_facility)
         ConnectionState.init(self._sandesh, hostname, module_name,
-                instance_id, ConnectionState.get_process_state_cb,
+                instance_id,
+                staticmethod(ConnectionState.get_process_state_cb),
                 NodeStatusUVE, NodeStatus)
 
         # Load extensions
