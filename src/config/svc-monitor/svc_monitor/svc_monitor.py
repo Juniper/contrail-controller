@@ -492,14 +492,15 @@ class SvcMonitor(object):
         for inst_count in range(0, max_instances):
             # Create a virtual machine
             instance_name = si_obj.name + '_' + str(inst_count + 1)
-            vm_name = "__".join(proj_fq_name + [instance_name])
+            vm_fq_name = proj_fq_name + [instance_name]
             try:
-                vm_obj = self._vnc_lib.virtual_machine_read(fq_name=[vm_name])
-                self._svc_syslog("Info: VM %s already exists" % (vm_name))
+                vm_obj = self._vnc_lib.virtual_machine_read(fq_name=vm_fq_name)
+                self._svc_syslog("Info: VM %s already exists" %
+                                 (instance_name))
             except NoIdError:
-                vm_obj = VirtualMachine(vm_name)
+                vm_obj = VirtualMachine(instance_name, parent_obj=proj_obj)
                 self._vnc_lib.virtual_machine_create(vm_obj)
-                self._svc_syslog("Info: VM %s created" % (vm_name))
+                self._svc_syslog("Info: VM %s created" % (instance_name))
 
             vm_obj.set_service_instance(si_obj)
             self._vnc_lib.virtual_machine_update(vm_obj)
