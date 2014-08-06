@@ -288,7 +288,7 @@ class VirtualNetworkST(DictST):
             ri.obj.add_route_target(new_rtgt_obj, inst_tgt_data)
             _vnc_lib.routing_instance_update(ri.obj)
             for (prefix, nexthop) in vn.route_table.items():
-                left_ri = vn._get_routing_instance_from_route(next_hop)
+                left_ri = vn._get_routing_instance_from_route(nexthop)
                 if left_ri is None:
                     continue
                 left_ri.update_route_target_list(
@@ -654,7 +654,7 @@ class VirtualNetworkST(DictST):
             ri_obj.update_route_target_list(rt_add, rt_del,
                                             import_export='export')
         for (prefix, nexthop) in self.route_table.items():
-            left_ri = self._get_routing_instance_from_route(next_hop)
+            left_ri = self._get_routing_instance_from_route(nexthop)
             if left_ri is not None:
                 left_ri.update_route_target_list(rt_add, rt_del,
                                                  import_export='import')
