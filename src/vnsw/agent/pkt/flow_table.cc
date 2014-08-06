@@ -65,6 +65,7 @@ const std::map<FlowEntry::FlowPolicyState, const char*>
 
 boost::uuids::random_generator FlowTable::rand_gen_ = boost::uuids::random_generator();
 tbb::atomic<int> FlowEntry::alloc_count_;
+SecurityGroupList FlowTable::default_sg_list_;
 
 static bool ShouldDrop(uint32_t action) {
     if ((action & TrafficAction::DROP_FLAGS) || (action & TrafficAction::IMPLICIT_DENY_FLAGS))
@@ -103,6 +104,39 @@ FlowEntry::FlowEntry(const FlowKey &k) :
     nw_ace_uuid_ = FlowPolicyStateStr.at(NOT_EVALUATED);
     sg_rule_uuid_= FlowPolicyStateStr.at(NOT_EVALUATED);
     alloc_count_.fetch_and_increment();
+}
+
+void FlowEntry::GetSourceRouteInfo(const Inet4UnicastRouteEntry *rt) {
+    const AgentPath *path = NULL;
+    if (rt) {
+        path = rt->GetActivePath();
+    }
+    if (path == NULL) {
+        data_.source_vn = FlowHandler::UnknownVn();
+        data_.source_sg_id_l = FlowTable::default_sg_list();
+        data_.source_plen = 0;
+    } else {
+        data_.source_vn = path->dest_vn_name();
+        data_.source_sg_id_l = path->sg_list();
+        data_.source_plen = rt->plen();
+    }
+}
+
+void FlowEntry::GetDestRouteInfo(const Inet4UnicastRouteEntry *rt) {
+    const AgentPath *path = NULL;
+    if (rt) {
+        path = rt->GetActivePath();
+    }
+
+    if (path == NULL) {
+        data_.dest_vn = FlowHandler::UnknownVn();
+        data_.dest_sg_id_l = FlowTable::default_sg_list();
+        data_.dest_plen = 0;
+    } else {
+        data_.dest_vn = path->dest_vn_name();
+        data_.dest_sg_id_l = path->sg_list();
+        data_.dest_plen = rt->plen();
+    }
 }
 
 uint32_t FlowEntry::MatchAcl(const PacketHeader &hdr,
@@ -1254,10 +1288,7 @@ void FlowEntry::InitFwdFlow(const PktFlowInfo *info, const PktInfo *pkt,
     if (ctrl->rt_ != NULL) {
         SetRpfNH(ctrl->rt_);
     }
-    data_.source_vn = *(info->source_vn);
-    data_.dest_vn = *(info->dest_vn);
-    data_.source_sg_id_l = *(info->source_sg_id_l);
-    data_.dest_sg_id_l = *(info->dest_sg_id_l);
+
     data_.flow_source_vrf = info->flow_source_vrf;
     data_.flow_dest_vrf = info->flow_dest_vrf;
     data_.dest_vrf = info->dest_vrf;
@@ -1270,14 +1301,15 @@ void FlowEntry::InitFwdFlow(const PktFlowInfo *info, const PktInfo *pkt,
     }
     data_.component_nh_idx = info->out_component_nh_idx;
     reset_flags(FlowEntry::Trap);
-    data_.source_plen = info->source_plen;
-    data_.dest_plen = info->dest_plen;
     if (ctrl->rt_ && ctrl->rt_->is_multicast()) {
         set_flags(FlowEntry::Multicast);
     }
     if (rev_ctrl->rt_ && rev_ctrl->rt_->is_multicast()) {
         set_flags(FlowEntry::Multicast);
     }
+
+    GetSourceRouteInfo(ctrl->rt_);
+    GetDestRouteInfo(rev_ctrl->rt_);
 }
 
 void FlowEntry::InitRevFlow(const PktFlowInfo *info,
@@ -1304,10 +1336,7 @@ void FlowEntry::InitRevFlow(const PktFlowInfo *info,
     if (ctrl->rt_ != NULL) {
         SetRpfNH(ctrl->rt_);
     }
-    data_.source_vn = *(info->dest_vn);
-    data_.dest_vn = *(info->source_vn);
-    data_.source_sg_id_l = *(info->dest_sg_id_l);
-    data_.dest_sg_id_l = *(info->source_sg_id_l);
+
     data_.flow_source_vrf = info->flow_dest_vrf;
     data_.flow_dest_vrf = info->flow_source_vrf;
     data_.dest_vrf = info->nat_dest_vrf;
@@ -1323,19 +1352,19 @@ void FlowEntry::InitRevFlow(const PktFlowInfo *info,
     } else {
         reset_flags(FlowEntry::Trap);
     }
-    data_.source_plen = info->dest_plen;
-    data_.dest_plen = info->source_plen;
+
+    GetSourceRouteInfo(ctrl->rt_);
+    GetDestRouteInfo(rev_ctrl->rt_);
 }
 
 void FlowEntry::InitAuditFlow(uint32_t flow_idx) {
     flow_handle_ = flow_idx;
     set_flags(FlowEntry::ShortFlow);
     short_flow_reason_ = SHORT_AUDIT_ENTRY;
-    data_.source_vn = *FlowHandler::UnknownVn();
-    data_.dest_vn = *FlowHandler::UnknownVn();
-    SecurityGroupList empty_sg_id_l;
-    data_.source_sg_id_l = empty_sg_id_l;
-    data_.dest_sg_id_l = empty_sg_id_l;
+    data_.source_vn = FlowHandler::UnknownVn();
+    data_.dest_vn = FlowHandler::UnknownVn();
+    data_.source_sg_id_l = FlowTable::default_sg_list();
+    data_.dest_sg_id_l = FlowTable::default_sg_list();
 }
 
 FlowEntry *FlowTable::Allocate(const FlowKey &key) {

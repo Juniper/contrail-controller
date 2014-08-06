@@ -241,11 +241,6 @@ public:
         boost::shared_ptr<PktInfo> pkt_info(new PktInfo(NULL, 0, 0));
         PktFlowInfo info(pkt_info, Agent::GetInstance()->pkt()->flow_table());
         PktInfo *pkt = pkt_info.get();
-        info.source_vn = t->svn_;
-        info.dest_vn = t->dvn_;
-        SecurityGroupList empty_sg_id_l;
-        info.source_sg_id_l = &empty_sg_id_l;
-        info.dest_sg_id_l = &empty_sg_id_l;
 
         PktControlInfo ctrl;
         ctrl.vn_ = VnGet(t->vn_);

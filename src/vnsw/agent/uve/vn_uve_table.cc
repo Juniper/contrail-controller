@@ -23,8 +23,8 @@ void VnUveTable::RegisterDBClients() {
     InterfaceTable *intf_table = agent_->interface_table();
     intf_listener_id_ = intf_table->Register
                   (boost::bind(&VnUveTable::InterfaceNotify, this, _1, _2));
-    Add(*FlowHandler::UnknownVn());
-    Add(*FlowHandler::LinkLocalVn());
+    Add(FlowHandler::UnknownVn());
+    Add(FlowHandler::LinkLocalVn());
 }
 
 void VnUveTable::Shutdown(void) {
@@ -51,7 +51,7 @@ bool VnUveTable::SendUnresolvedVnMsg(const string &vn_name,
 
     AgentStatsCollector *collector = agent_->uve()->agent_stats_collector();
     /* Send Nameless VrfStats as part of Unknown VN */
-    if (vn_name.compare(*FlowHandler::UnknownVn()) == 0) {
+    if (vn_name.compare(FlowHandler::UnknownVn()) == 0) {
         changed = entry->FillVrfStats(collector->GetNamelessVrfId(), uve);
     }
 
@@ -68,10 +68,10 @@ void VnUveTable::SendVnStats(bool only_vrf_stats) {
         ++it;
     }
     UveVirtualNetworkAgent uve1, uve2;
-    if (SendUnresolvedVnMsg(*FlowHandler::UnknownVn(), uve1)) {
+    if (SendUnresolvedVnMsg(FlowHandler::UnknownVn(), uve1)) {
         DispatchVnMsg(uve1);
     }
-    if (SendUnresolvedVnMsg(*FlowHandler::LinkLocalVn(), uve1)) {
+    if (SendUnresolvedVnMsg(FlowHandler::LinkLocalVn(), uve1)) {
         DispatchVnMsg(uve2);
     }
 }
@@ -301,9 +301,9 @@ void VnUveTable::UpdateInterVnStats(const FlowEntry *fe, uint64_t bytes,
     string src_vn = fe->data().source_vn, dst_vn = fe->data().dest_vn;
 
     if (!fe->data().source_vn.length())
-        src_vn = *FlowHandler::UnknownVn();
+        src_vn = FlowHandler::UnknownVn();
     if (!fe->data().dest_vn.length())
-        dst_vn = *FlowHandler::UnknownVn();
+        dst_vn = FlowHandler::UnknownVn();
 
     /* When packet is going from src_vn to dst_vn it should be interpreted 
      * as ingress to vrouter and hence in-stats for src_vn w.r.t. dst_vn

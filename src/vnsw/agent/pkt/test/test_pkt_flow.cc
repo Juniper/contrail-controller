@@ -257,13 +257,6 @@ public:
             flow_info->nat_done = false;
         }
         pkt->agent_hdr.cmd_param = hash_id;
-        flow_info->source_vn = &svn;
-        flow_info->dest_vn = &dvn;
-
-        SecurityGroupList empty_sg_id_l;
-        flow_info->source_sg_id_l = &empty_sg_id_l;
-        flow_info->dest_sg_id_l = &empty_sg_id_l;
-
         PktControlInfo in;
         PktControlInfo out;
 
