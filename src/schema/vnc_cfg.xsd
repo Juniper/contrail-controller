@@ -1176,6 +1176,11 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
      Link('logical-router-gateway',
           'logical-router', 'virtual-network', ['ref']) -->
 
+<xsd:element name="logical-router-service-instance"/>
+<!--#IFMAP-SEMANTICS-IDL
+     Link('logical-router-service-instance',
+          'logical-router', 'service-instance', ['ref']) -->
+
 <!-- Neutron extensions -->
 <xsd:include schemaLocation='loadbalancer.xsd'/>
 
