@@ -106,7 +106,7 @@ class InstallVenv(object):
             pass
 
     def pip_install(self, *args):
-        self.run_command(['tools/with_venv.sh',
+        self.run_command(['%stools/with_venv.sh' %(os.environ.get('tools_path', '')),
                          'pip', 'install', '--upgrade'] + list(args),
                          redirect_output=False)
 
