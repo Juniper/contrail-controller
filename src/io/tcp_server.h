@@ -135,6 +135,9 @@ private:
     typedef std::set<TcpSessionPtr, TcpSessionPtrCmp> SessionSet;
     typedef std::multimap<Endpoint, TcpSession *> SessionMap;
 
+    void InsertSessionToMap(Endpoint remote, TcpSession *session);
+    bool RemoveSessionFromMap(Endpoint remote, TcpSession *session);
+
     // Called by the asio service.
     void AcceptHandlerInternal(TcpServerPtr server,
              const boost::system::error_code &error);
@@ -193,6 +196,7 @@ class TcpServerManager {
 public:
     static void AddServer(TcpServer *server);
     static void DeleteServer(TcpServer *server);
+    static size_t GetServerCount();
 
 private:
     struct TcpServerPtrCmp {

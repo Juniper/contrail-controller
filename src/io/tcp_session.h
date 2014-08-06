@@ -164,7 +164,7 @@ private:
                                   const boost::system::error_code &error);
 
     void ReleaseBufferLocked(Buffer buffer);
-    void CloseInternal(bool callObserver);
+    void CloseInternal(bool call_observer, bool notify_server = true);
     void SetEstablished(Endpoint remote, Direction dir);
 
     tbb::mutex &mutex() { return mutex_; }

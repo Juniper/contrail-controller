@@ -201,7 +201,7 @@ void TcpSession::ConnectFailed() {
 }
 
 // Requires: lock must not be held
-void TcpSession::CloseInternal(bool callObserver) {
+void TcpSession::CloseInternal(bool call_observer, bool notify_server) {
     tbb::mutex::scoped_lock lock(mutex_);
 
     if (socket_.get() != NULL && !closed_) {
@@ -219,14 +219,16 @@ void TcpSession::CloseInternal(bool callObserver) {
     TcpSessionPtr session = TcpSessionPtr(this);
     lock.release();
 
-    {
+    if (call_observer) {
         tbb::mutex::scoped_lock obs_lock(obs_mutex_);
-        if (callObserver == true && observer_) {
+        if (observer_) {
             observer_(this, CLOSE);
         }
     }
 
-    server_->OnSessionClose(this);
+    if (notify_server) {
+        server_->OnSessionClose(this);
+    }
 }
 
 void TcpSession::Close() {
