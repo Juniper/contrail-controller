@@ -8,6 +8,12 @@ from pprint import pformat
 from copy import deepcopy
 import json
 import cfgm_common.exceptions
+try:
+    #python2.7
+    from collections import OrderedDict
+except:
+    #python2.6
+    from ordereddict import OrderedDict
 
 class AddrMgmtError(Exception):
     pass
@@ -327,7 +333,7 @@ class AddrMgmt(object):
         ipam_refs = vn_dict.get('network_ipam_refs', [])
 
         # gather all subnets, return dict keyed by name
-        subnet_dicts = {}
+        subnet_dicts = OrderedDict()
         for ipam_ref in ipam_refs:
             vnsn_data = ipam_ref['attr']
             ipam_subnets = vnsn_data['ipam_subnets']
@@ -418,8 +424,8 @@ class AddrMgmt(object):
         db_subnet_dicts = self._get_subnet_dicts(vn_fq_name, db_vn_dict)
         req_subnet_dicts = self._get_subnet_dicts(vn_fq_name, req_vn_dict)
 
-        db_subnet_names = set([sname for sname in db_subnet_dicts])
-        req_subnet_names = set([sname for sname in req_subnet_dicts])
+        db_subnet_names = set(db_subnet_dicts.keys())
+        req_subnet_names = set(req_subnet_dicts.keys())
 
         del_subnet_names = db_subnet_names - req_subnet_names
         add_subnet_names = req_subnet_names - db_subnet_names
