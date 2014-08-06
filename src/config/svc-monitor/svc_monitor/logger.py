@@ -149,8 +149,8 @@ class ServiceMonitorLogger(object):
                 (delta.seconds + delta.days * 24 * 3600) * 10 ** 6)
 
 
-    def _uve_svc_instance(self, si_fq_name_str, status=None,
-                          vm_uuid=None, st_name=None):
+    def uve_svc_instance(self, si_fq_name_str, status=None,
+                         vm_uuid=None, st_name=None, vr_name=None):
         svc_uve = UveSvcInstanceConfig(name=si_fq_name_str,
                                        deleted=False, st_name=None,
                                        vm_list=[], create_ts=None)
@@ -158,7 +158,8 @@ class ServiceMonitorLogger(object):
         if st_name:
             svc_uve.st_name = st_name
         if vm_uuid:
-            svc_uve.vm_list.append(vm_uuid)
+            svc_uve_vm = UveSvcInstanceVMConfig(uuid=vm_uuid, vr_name=vr_name)
+            svc_uve.vm_list.append(svc_uve_vm)
         if status:
             svc_uve.status = status
             if status == 'CREATE':
