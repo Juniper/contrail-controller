@@ -56,6 +56,13 @@ class NeutronPluginInterface(object):
             self._multi_tenancy = conf_sections.get('DEFAULTS', 'multi_tenancy')
         except ConfigParser.NoOptionError:
             self._multi_tenancy = False
+
+        try:
+            self._sn_host_route = conf_sections.get('DEFAULTS',
+                                                    'apply_subnet_host_routes')
+        except ConfigParser.NoOptionError:
+            self._sn_host_route = False
+        
         self._vnc_lib = None
         self._cfgdb = None
         self._cfgdb_map = {}
@@ -81,12 +88,14 @@ class NeutronPluginInterface(object):
         if self._cfgdb is None:
             # Initialize connection to DB and add default entries
             exts_enabled = self._contrail_extensions_enabled
+            apply_sn_route = self._sn_host_route
             self._cfgdb = DBInterface(self._auth_user,
                                       self._auth_passwd,
                                       self._auth_tenant,
                                       self._vnc_api_ip,
                                       self._vnc_api_port,
-                                      contrail_extensions_enabled=exts_enabled)
+                                      contrail_extensions_enabled=exts_enabled,
+                                      apply_subnet_host_routes=apply_sn_route)
             self._cfgdb.manager = self
     #end _connect_to_db
 
@@ -103,7 +112,8 @@ class NeutronPluginInterface(object):
             self._cfgdb_map[user_id] = DBInterface(
                 self._auth_user, self._auth_passwd, self._auth_tenant,
                 self._vnc_api_ip, self._vnc_api_port,
-                user_info={'user_id': user_id, 'role': role})
+                user_info={'user_id': user_id, 'role': role},
+                apply_subnet_host_routes=self._sn_host_route)
             self._cfgdb_map[user_id].manager = self
 
         return self._cfgdb_map[user_id]
