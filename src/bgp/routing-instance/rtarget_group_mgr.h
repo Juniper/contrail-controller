@@ -209,7 +209,9 @@ public:
     void Enqueue(RtGroupMgrReq *req);
     void Initialize();
     void ManagedDelete();
-    bool IsRTargetRoutesProcessed() { return rtarget_route_list_.empty(); }
+    bool IsRTargetRoutesProcessed() const {
+        return rtarget_route_list_.empty();
+    }
 
 private:
     static int rtfilter_task_id_;

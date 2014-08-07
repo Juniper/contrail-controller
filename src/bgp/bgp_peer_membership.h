@@ -223,7 +223,7 @@ public:
 
     void FillPeerMembershipInfo(const IPeer *peer, BgpNeighborResp &resp);
     IPeerRib *IPeerRibFind(IPeer *ipeer, BgpTable *table);
-    bool IsQueueEmpty() { return event_queue_->IsQueueEmpty(); }
+    bool IsQueueEmpty() const { return event_queue_->IsQueueEmpty(); }
     void FillRegisteredTable(IPeer *peer, std::vector<std::string> &list);
 
 private:

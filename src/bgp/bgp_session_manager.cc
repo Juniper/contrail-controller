@@ -21,12 +21,28 @@ BgpSessionManager::BgpSessionManager(EventManager *evm, BgpServer *server)
 }
 
 BgpSessionManager::~BgpSessionManager() {
-    TcpServer::ClearSessions();
 }
 
 bool BgpSessionManager::Initialize(short port) {
     TcpServer::Initialize(port);
     return true;
+}
+
+//
+// Called when the BgpServer is being destroyed.
+//
+// BgpSessionManager needs to make sure that a passive session does not get
+// accepted after ClearSessions has been called.  It keeps track of this by
+// resetting server_ to NULL.
+//
+// The WorkQueue needs to be shutdown as the last step to ensure that all
+// entries get deleted. Note that there's no need to call DeleteSession on
+// the sessions in the WorkQueue since ClearSessions does the same thing.
+//
+void BgpSessionManager::Terminate() {
+    server_ = NULL;
+    ClearSessions();
+    session_queue_.Shutdown();
 }
 
 TcpSession *BgpSessionManager::CreateSession() {
@@ -45,6 +61,8 @@ TcpSession *BgpSessionManager::CreateSession() {
 }
 
 TcpSession *BgpSessionManager::AllocSession(Socket *socket) {
+    if (!server_)
+        return NULL;
     TcpSession *session = new BgpSession(this, socket);
     return session;
 }
@@ -65,6 +83,8 @@ BgpPeer *BgpSessionManager::FindPeer(ip::tcp::endpoint remote_endpoint) {
 }
 
 bool BgpSessionManager::AcceptSession(TcpSession *tcp_session) {
+    if (!server_)
+        return false;
     BgpSession *session = dynamic_cast<BgpSession *>(tcp_session);
     session->set_read_on_connect(false);
     session_queue_.Enqueue(session);
@@ -105,4 +125,12 @@ bool BgpSessionManager::ProcessSession(BgpSession *session) {
 
     peer->AcceptSession(session);
     return true;
+}
+
+size_t BgpSessionManager::GetQueueSize() const {
+    return session_queue_.Length();
+}
+
+void BgpSessionManager::SetQueueDisable(bool disabled) {
+    session_queue_.set_disable(disabled);
 }

@@ -143,18 +143,33 @@ public:
             boost::bind(&StateMachine::TimerErrorHanlder, this, _1, _2));
     }
 
-    virtual int hold_time_msecs() const {
-        if (hold_time_msecs_)
-            return hold_time_msecs_;
-        return StateMachine::hold_time_msecs();
+    void StartHoldTimer() {
+        if (hold_time_msecs_ <= 0) {
+            StateMachine::StartHoldTimer();
+            return;
+        }
+        hold_timer_->Start(30,
+            boost::bind(&StateMachine::HoldTimerExpired, this),
+            boost::bind(&StateMachine::TimerErrorHanlder, this, _1, _2));
     }
 
     static void set_hold_time_msecs(int hold_time_msecs) {
         hold_time_msecs_ = hold_time_msecs;
     }
 
+    virtual int keepalive_time_msecs() const {
+        if (keepalive_time_msecs_)
+            return keepalive_time_msecs_;
+        return StateMachine::keepalive_time_msecs();
+    }
+
+    static void set_keepalive_time_msecs(int keepalive_time_msecs) {
+        keepalive_time_msecs_ = keepalive_time_msecs;
+    }
+
 private:
     static int hold_time_msecs_;
+    static int keepalive_time_msecs_;
 };
 
 class BgpServerTest : public BgpServer {

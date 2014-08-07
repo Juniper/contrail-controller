@@ -103,7 +103,7 @@ public:
         return db_partition_id_;
     }
 
-    bool IsDBQueueEmpty() {
+    bool IsDBQueueEmpty() const {
         return (request_queue_.empty() && change_list_.empty());
     }
 
@@ -122,7 +122,7 @@ private:
     DISALLOW_COPY_AND_ASSIGN(WorkQueue);
 };
 
-bool DBPartition::IsDBQueueEmpty() {
+bool DBPartition::IsDBQueueEmpty() const {
     return work_queue_->IsDBQueueEmpty();
 }
 

@@ -51,6 +51,10 @@ DBPartition *DB::GetPartition(int index) {
     return partitions_[index];
 }
 
+const DBPartition *DB::GetPartition(int index) const {
+    return partitions_[index];
+}
+
 DBTableBase *DB::FindTable(const string &name) {
     TableMap::iterator loc = tables_.find(name);
     if (loc != tables_.end()) {
@@ -70,7 +74,7 @@ void DB::RemoveTable(DBTableBase *tbl_base) {
     tables_.erase(tbl_base->name());
 }
 
-bool DB::IsDBQueueEmpty() {
+bool DB::IsDBQueueEmpty() const {
     for (int i = 0; i < PartitionCount(); i++) {
         if (!GetPartition(i)->IsDBQueueEmpty()) return false;
     }

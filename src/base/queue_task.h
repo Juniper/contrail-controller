@@ -293,7 +293,7 @@ public:
         }
     }
 
-    bool IsQueueEmpty() {
+    bool IsQueueEmpty() const {
         return queue_.empty();
     }
 
