@@ -36,7 +36,7 @@ protected:
 private:
     friend class BgpServerUnitTest;
 
-    BgpPeer *FindPeer(boost::asio::ip::tcp::endpoint remote_endpoint);
+    BgpPeer *FindPeer(Endpoint remote);
     bool ProcessSession(BgpSession *session);
     size_t GetQueueSize() const;
     void SetQueueDisable(bool disabled);

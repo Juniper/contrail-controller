@@ -176,6 +176,10 @@ private:
     BgpServer *server_;
 };
 
+bool BgpServer::IsDeleted() const {
+    return deleter_->IsDeleted();
+}
+
 bool BgpServer::IsReadyForDeletion() {
     CHECK_CONCURRENCY("bgp::Config");
 

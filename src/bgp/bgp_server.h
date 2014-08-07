@@ -86,6 +86,7 @@ public:
     CommunityDB *comm_db() { return comm_db_.get(); }
     ExtCommunityDB *extcomm_db() { return extcomm_db_.get(); }
 
+    bool IsDeleted() const;
     bool IsReadyForDeletion();
     DB *database() { return &db_; }
     const std::string &localname() const;
