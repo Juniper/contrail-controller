@@ -3376,7 +3376,8 @@ class DBInterface(object):
                 for iip_id in created_iip_ids:
                     self._instance_ip_delete(instance_ip_id=iip_id)
                 self._virtual_machine_interface_delete(port_id=port_id)
-                self._raise_contrail_exception(503, exceptions.ResourceExhausted())
+                self._raise_contrail_exception(
+                    409, exceptions.IpAddressGenerationFailure(net_id=net_id))
 
         # TODO below reads back default parent name, fix it
         port_obj = self._virtual_machine_interface_read(port_id=port_id,
@@ -3465,7 +3466,8 @@ class DBInterface(object):
                     # ResourceExhaustionError, resources are not available
                     for iip_id in created_iip_ids:
                         self._instance_ip_delete(instance_ip_id=iip_id)
-                    self._raise_contrail_exception(503, exceptions.ResourceExhausted())
+                    self._raise_contrail_exception(
+                        409, exceptions.IpAddressGenerationFailure(net_id=net_id))
 
                 port_obj = self._virtual_machine_interface_read(port_id=port_id,
                                          fields=['instance_ip_back_refs'])
