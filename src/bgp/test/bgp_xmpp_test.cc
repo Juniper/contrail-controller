@@ -2,50 +2,23 @@
  * Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
  */
 
-#include <unistd.h>
 #include <fstream>
-#include <sstream>
-#include <boost/algorithm/string.hpp>
 #include <boost/assign/list_of.hpp>
 #include <boost/bind.hpp>
 
-#include <pugixml/pugixml.hpp>
-
-#include "base/util.h"
 #include "base/test/task_test_util.h"
-
-#include "sandesh/sandesh_types.h"
-#include "sandesh/sandesh.h"
-
-#include "bgp/bgp_attr.h"
-#include "bgp/bgp_config.h"
 #include "bgp/bgp_config_parser.h"
-#include "bgp/bgp_path.h"
-#include "bgp/bgp_peer_membership.h"
-#include "bgp/bgp_peer_types.h"
-#include "bgp/bgp_proto.h"
+#include "bgp/bgp_factory.h"
 #include "bgp/bgp_sandesh.h"
-#include "bgp/bgp_server.h"
 #include "bgp/bgp_session_manager.h"
 #include "bgp/bgp_xmpp_channel.h"
-#include "bgp/inet/inet_table.h"
-#include "bgp/routing-instance/routing_instance.h"
 #include "bgp/test/bgp_server_test_util.h"
 #include "control-node/control_node.h"
 #include "io/test/event_manager_test.h"
-
-#include "schema/xmpp_unicast_types.h"
-
-#include "xmpp/xmpp_client.h"
-#include "xmpp/xmpp_init.h"
-#include "xmpp/xmpp_server.h"
-#include "xmpp/xmpp_state_machine.h"
-
-#include "xml/xml_pugi.h"
-
 #include "testing/gunit.h"
+#include "xmpp/xmpp_client.h"
+#include "xmpp/xmpp_factory.h"
 
-using namespace autogen;
 using namespace boost::asio;
 using namespace boost::assign;
 using namespace std;
@@ -99,10 +72,6 @@ public:
     BgpXmppChannelManagerMock(XmppServer *x, BgpServer *b) :
         BgpXmppChannelManager(x, b), count_(0), channel_(NULL) { }
 
-    // virtual ~BgpXmppChannelManagerMock() {
-        // delete channel_;
-    // }
-
     virtual void XmppHandleChannelEvent(XmppChannel *channel,
                                         xmps::PeerState state) {
          BgpXmppChannelManager::XmppHandleChannelEvent(channel, state);
@@ -131,7 +100,13 @@ protected:
     static bool validate_done_;
     static const char *config_tmpl;
 
-    BgpXmppUnitTest() : thread_(&evm_) { }
+    BgpXmppUnitTest()
+        : thread_(&evm_),
+          xs_a_(NULL),
+          xc_a_(NULL),
+          bgp_channel_manager_(NULL),
+          xmpp_cchannel_(NULL) {
+    }
 
     string FileRead(const string &filename) {
         ifstream file(filename.c_str());
@@ -143,7 +118,7 @@ protected:
     virtual void SetUp() {
         a_.reset(new BgpServerTest(&evm_, "A"));
         b_.reset(new BgpServerTest(&evm_, "B"));
-        xs_a_ = new XmppServer(&evm_, XMPP_CONTROL_SERV);
+        xs_a_ = new XmppServerTest(&evm_, XMPP_CONTROL_SERV);
         xc_a_ = new XmppClient(&evm_);
 
         a_->session_manager()->Initialize(0);
@@ -164,9 +139,7 @@ protected:
         b_->Shutdown();
         task_util::WaitForIdle();
 
-        //
         // Delete the channel first
-        //
         delete xmpp_cchannel_;
         task_util::WaitForIdle();
         xmpp_cchannel_ = NULL;
@@ -177,17 +150,12 @@ protected:
         xc_a_->Shutdown();
         task_util::WaitForIdle();
 
-        //
         // Now delete the channel manager
-        //
         delete bgp_channel_manager_;
         bgp_channel_manager_ = NULL;
         task_util::WaitForIdle();
 
-
-        //
         // Finally delete the xmpp servers
-        //
         TcpServerManager::DeleteServer(xs_a_);
         xs_a_ = NULL;
         TcpServerManager::DeleteServer(xc_a_);
@@ -246,6 +214,7 @@ protected:
             }
         }
         cout << "*******************************************************"<<endl;
+        cout << endl;
         validate_done_ = true;
     }
 
@@ -270,6 +239,7 @@ protected:
             }
         }
         cout << "*******************************************************"<<endl;
+        cout << endl;
         validate_done_ = true;
     }
 
@@ -290,6 +260,7 @@ protected:
             }
         }
         cout << "*******************************************************"<<endl;
+        cout << endl;
         validate_done_ = true;
     }
 
@@ -305,6 +276,7 @@ protected:
         cout << "TX: calls=" << tx_stats.calls << " bytes=" << tx_stats.bytes
              << " average bytes=" << tx_stats.average_bytes << endl;
         cout << "****************************************************" << endl;
+        cout << endl;
 
         EXPECT_NE(0, rx_stats.calls);
         EXPECT_NE(0, rx_stats.bytes);
@@ -317,9 +289,9 @@ protected:
 
     EventManager evm_;
     ServerThread thread_;
-    auto_ptr<BgpServerTest> a_;
-    auto_ptr<BgpServerTest> b_;
-    XmppServer *xs_a_;
+    BgpServerTestPtr a_;
+    BgpServerTestPtr b_;
+    XmppServerTest *xs_a_;
     XmppClient *xc_a_;
     BgpXmppChannelManagerMock *bgp_channel_manager_;
     XmppVnswBgpMockChannel *xmpp_cchannel_;
@@ -450,6 +422,9 @@ TEST_F(BgpXmppUnitTest, Connection) {
     BgpSandeshContext sandesh_context;
     sandesh_context.bgp_server = a_.get();
     sandesh_context.xmpp_peer_manager = bgp_channel_manager_;
+
+    // show instance
+    cout << "ValidateRoutingInstanceResponse:" << endl;
     Sandesh::set_client_context(&sandesh_context);
     std::vector<size_t> result = list_of(5)(3)(3); // inet, ermvpn, enet
     Sandesh::set_response_callback(boost::bind(ValidateRoutingInstanceResponse,
@@ -460,6 +435,8 @@ TEST_F(BgpXmppUnitTest, Connection) {
     req->Release();
     WAIT_EQ(true, validate_done_);
 
+    // show neighbor
+    cout << "ValidateNeighborResponse:" << endl;
     result = list_of(2)(7); // inet, ermvpn, enet
     Sandesh::set_response_callback(boost::bind(ValidateNeighborResponse,
                                    _1, result));
@@ -469,7 +446,8 @@ TEST_F(BgpXmppUnitTest, Connection) {
     nbr_req->Release();
     WAIT_EQ(true, validate_done_);
 
-    //show route
+    // show route
+    cout << "ValidateShowRouteResponse:" << endl;
     result = list_of(1)(1)(1)(1);
     Sandesh::set_response_callback(boost::bind(ValidateShowRouteResponse, _1,
                                    result));
@@ -479,8 +457,9 @@ TEST_F(BgpXmppUnitTest, Connection) {
     show_req->Release();
     task_util::WaitForIdle();
     WAIT_EQ(true, validate_done_);
-   
-    //show route for a table
+
+    // show route for a table
+    cout << "ValidateShowRouteResponse for bgp.l3vpn.0:" << endl;
     result = list_of(1);
     Sandesh::set_response_callback(boost::bind(ValidateShowRouteResponse, _1,
                                    result));
@@ -492,7 +471,8 @@ TEST_F(BgpXmppUnitTest, Connection) {
     task_util::WaitForIdle();
     WAIT_EQ(true, validate_done_);
 
-    //show route for a routing instance
+    // show route for a routing instance
+    cout << "ValidateRoutingInstanceResponse for __default__:" << endl;
     result = list_of(1)(1);
     Sandesh::set_response_callback(boost::bind(ValidateShowRouteResponse, _1,
                                    result));
@@ -544,7 +524,8 @@ TEST_F(BgpXmppUnitTest, Connection) {
     WAIT_EQ(8, bgp_channel_manager_->channel_->Count());
     BGP_DEBUG_UT("Received unsubscribe message 3 at Server \n ");
 
-    //show route
+    // show route
+    cout << "ValidateShowRouteResponse for empty tables:" << endl;
     result.resize(0);
     ShowRouteReq *show_req2 = new ShowRouteReq;
     Sandesh::set_response_callback(boost::bind(ValidateShowRouteResponse, _1,
@@ -639,6 +620,10 @@ class TestEnvironment : public ::testing::Environment {
 static void SetUp() {
     ControlNode::SetDefaultSchedulingPolicy();
     BgpServerTest::GlobalSetUp();
+    BgpObjectFactory::Register<StateMachine>(
+        boost::factory<StateMachineTest *>());
+    XmppObjectFactory::Register<XmppStateMachine>(
+        boost::factory<XmppStateMachineTest *>());
 }
 
 static void TearDown() {
