@@ -58,7 +58,7 @@ TEST_F(OptionsTest, NoArguments) {
     EXPECT_EQ(options_.redis_port(), default_redis_port);
     EXPECT_EQ(options_.collector_server(), "0.0.0.0");
     EXPECT_EQ(options_.collector_port(), default_collector_port);
-    EXPECT_EQ(options_.config_file(), "/etc/contrail/collector.conf");
+    EXPECT_EQ(options_.config_file(), "/etc/contrail/contrail-collector.conf");
     EXPECT_EQ(options_.discovery_server(), "");
     EXPECT_EQ(options_.discovery_port(), default_discovery_port);
     EXPECT_EQ(options_.hostname(), hostname_);
@@ -81,7 +81,7 @@ TEST_F(OptionsTest, DefaultConfFile) {
     int argc = 2;
     char *argv[argc];
     char argv_0[] = "options_test";
-    char argv_1[] = "--conf_file=controller/src/analytics/collector.conf";
+    char argv_1[] = "--conf_file=controller/src/analytics/contrail-collector.conf";
     argv[0] = argv_0;
     argv[1] = argv_1;
 
@@ -94,7 +94,7 @@ TEST_F(OptionsTest, DefaultConfFile) {
     EXPECT_EQ(options_.collector_server(), "0.0.0.0");
     EXPECT_EQ(options_.collector_port(), default_collector_port);
     EXPECT_EQ(options_.config_file(),
-              "controller/src/analytics/collector.conf");
+              "controller/src/analytics/contrail-collector.conf");
     EXPECT_EQ(options_.discovery_server(), "");
     EXPECT_EQ(options_.discovery_port(), default_discovery_port);
     EXPECT_EQ(options_.hostname(), hostname_);
@@ -117,7 +117,7 @@ TEST_F(OptionsTest, OverrideStringFromCommandLine) {
     int argc = 3;
     char *argv[argc];
     char argv_0[] = "options_test";
-    char argv_1[] = "--conf_file=controller/src/analytics/collector.conf";
+    char argv_1[] = "--conf_file=controller/src/analytics/contrail-collector.conf";
     char argv_2[] = "--DEFAULT.log_file=test.log";
     argv[0] = argv_0;
     argv[1] = argv_1;
@@ -132,7 +132,7 @@ TEST_F(OptionsTest, OverrideStringFromCommandLine) {
     EXPECT_EQ(options_.collector_server(), "0.0.0.0");
     EXPECT_EQ(options_.collector_port(), default_collector_port);
     EXPECT_EQ(options_.config_file(),
-              "controller/src/analytics/collector.conf");
+              "controller/src/analytics/contrail-collector.conf");
     EXPECT_EQ(options_.discovery_server(), "");
     EXPECT_EQ(options_.discovery_port(), default_discovery_port);
     EXPECT_EQ(options_.hostname(), hostname_);
@@ -155,7 +155,7 @@ TEST_F(OptionsTest, OverrideBooleanFromCommandLine) {
     int argc = 3;
     char *argv[argc];
     char argv_0[] = "options_test";
-    char argv_1[] = "--conf_file=controller/src/analytics/collector.conf";
+    char argv_1[] = "--conf_file=controller/src/analytics/contrail-collector.conf";
     char argv_2[] = "--DEFAULT.test_mode";
     argv[0] = argv_0;
     argv[1] = argv_1;
@@ -170,7 +170,7 @@ TEST_F(OptionsTest, OverrideBooleanFromCommandLine) {
     EXPECT_EQ(options_.collector_server(), "0.0.0.0");
     EXPECT_EQ(options_.collector_port(), default_collector_port);
     EXPECT_EQ(options_.config_file(),
-              "controller/src/analytics/collector.conf");
+              "controller/src/analytics/contrail-collector.conf");
     EXPECT_EQ(options_.discovery_server(), "");
     EXPECT_EQ(options_.discovery_port(), default_discovery_port);
     EXPECT_EQ(options_.hostname(), hostname_);

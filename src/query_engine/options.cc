@@ -32,7 +32,7 @@ bool Options::Parse(EventManager &evm, int argc, char *argv[]) {
 
 // Initialize query-engine's command line option tags with appropriate default
 // values. Options can from a config file as well. By default, we read
-// options from /etc/contrail/query-engine.conf
+// options from /etc/contrail/contrail-query-engine.conf
 void Options::Initialize(EventManager &evm,
                          opt::options_description &cmdline_options) {
     boost::system::error_code error;
@@ -44,7 +44,7 @@ void Options::Initialize(EventManager &evm,
     // Command line only options.
     generic.add_options()
         ("conf_file", opt::value<string>()->default_value(
-                                            "/etc/contrail/query-engine.conf"),
+                                            "/etc/contrail/contrail-query-engine.conf"),
              "Configuration file")
          ("help", "help message")
         ("version", "Display version information")
