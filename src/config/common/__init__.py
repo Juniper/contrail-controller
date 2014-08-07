@@ -15,3 +15,12 @@ def obj_to_json(obj):
 def json_to_obj(obj):
     pass
 #end json_to_obj
+
+def ignore_exceptions(func):
+    def wrapper(*args, **kwargs):
+        try:
+            return func(*args, **kwargs)
+        except Exception as e:
+            return None
+    return wrapper
+# end ignore_exceptions

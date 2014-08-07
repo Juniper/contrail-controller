@@ -19,10 +19,10 @@ import cfgm_common.ifmap.response as ifmap_response
 import kombu
 import discoveryclient.client as disc_client
 from cfgm_common.zkclient import ZookeeperClient
+from cfgm_common.uve.vnc_api.ttypes import VncApiConfigLog, VncApiError
+from cfgm_common import imid
 
 from test_utils import *
-sys.path.insert(0, '../../../../build/debug/api-lib/vnc_api')
-sys.path.insert(0, '../../../../distro/openstack/')
 import bottle
 bottle.catchall=False
 
@@ -35,6 +35,9 @@ def lineno():
 
 
 # import from package for non-api server test or directly from file
+sys.path.insert(0, '../../../../build/debug/api-lib/vnc_api')
+sys.path.insert(0, '../../../../distro/openstack/')
+sys.path.append('../../../../build/debug/config/api-server/vnc_cfg_api_server')
 import vnc_cfg_api_server
 if not hasattr(vnc_cfg_api_server, 'main'):
     from vnc_cfg_api_server import vnc_cfg_api_server
@@ -130,6 +133,8 @@ class TestCase(testtools.TestCase, fixtures.TestWithFixtures):
         'Content-type': 'application/json; charset="UTF-8"',
     }
     def __init__(self, *args, **kwargs):
+        self._logger = logging.getLogger(__name__)
+        self._assert_till_max_tries = 30
         self._config_knobs = [
             ('DEFAULTS', '', ''),
             ]
@@ -204,6 +209,39 @@ class TestCase(testtools.TestCase, fixtures.TestWithFixtures):
 
     def _create_test_object(self):
         return self._create_test_objects()[0]
+
+    def ifmap_has_ident(self, obj=None, id=None):
+        if obj:
+            _type = obj.get_type()
+            _fq_name = obj.get_fq_name()
+        if id:
+            _type = self._vnc_lib.id_to_fq_name_type(id)
+            _fq_name = self._vnc_lib.id_to_fq_name(id)
+
+        ifmap_id = imid.get_ifmap_id_from_fq_name(_type, _fq_name)
+        if ifmap_id in FakeIfmapClient._graph:
+            return True
+
+        return False
+
+    def assertTill(self, expr_or_cb, *cb_args, **cb_kwargs):
+        tries = 0
+        while True:
+            if callable(expr_or_cb):
+                ret = expr_or_cb(*cb_args, **cb_kwargs)
+            else:
+                ret = eval(expr_or_cb)
+
+            if ret:
+                break
+
+            tries = tries + 1
+            if tries >= self._assert_till_max_tries:
+                raise Exception('Max retries')
+
+            self._logger.warn('Retrying at ' + str(inspect.stack()[1]))
+            gevent.sleep(2)
+
 
     def setUp(self):
         super(TestCase, self).setUp()
