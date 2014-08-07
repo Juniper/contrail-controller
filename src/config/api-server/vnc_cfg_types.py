@@ -86,10 +86,12 @@ class FloatingIpServer(FloatingIpServerGen):
                 return (False, (403, pformat(obj_dict['fq_name']) + ' : ' + quota_limit))
 
         vn_fq_name = obj_dict['fq_name'][:-2]
-        req_ip = obj_dict.get("floating_ip_address", None)
+        req_ip = obj_dict.get("floating_ip_address")
+        if req_ip and cls.addr_mgmt.is_ip_allocated(req_ip, vn_fq_name):
+            return (False, (403, 'Ip address already in use'))
         try:
-            fip_addr = cls.addr_mgmt.ip_alloc_req(
-                vn_fq_name, asked_ip_addr=req_ip)
+            fip_addr = cls.addr_mgmt.ip_alloc_req(vn_fq_name,
+                                                  asked_ip_addr=req_ip)
         except Exception as e:
             return (False, (500, str(e)))
         obj_dict['floating_ip_address'] = fip_addr
