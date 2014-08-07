@@ -1558,8 +1558,12 @@ class DBInterface(object):
 
             net_policy_refs = net_obj.get_network_policy_refs()
             if net_policy_refs:
+                sorted_refs = sorted(
+                    net_policy_refs,
+                    key=lambda t:(t['attr'].sequence.major,
+                                  t['attr'].sequence.minor))
                 extra_dict['contrail:policys'] = \
-                    [np_ref['to'] for np_ref in net_policy_refs]
+                    [np_ref['to'] for np_ref in sorted_refs]
 
         rt_refs = net_obj.get_route_table_refs()
         if rt_refs:
