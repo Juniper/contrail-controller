@@ -3747,7 +3747,7 @@ class DBInterface(object):
                 if not self._filters_is_present(filters, 'id', sg_obj.uuid):
                     continue
                 if not self._filters_is_present(filters, 'name',
-                                                sg_obj.get_display_name()):
+                                                sg_obj.get_display_name() or sg_obj.name):
                     continue
                 sg_info = self._security_group_vnc_to_neutron(sg_obj)
                 ret_list.append(sg_info)
