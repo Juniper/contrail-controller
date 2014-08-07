@@ -8,16 +8,20 @@
 
 include "base/sandesh/process_info.sandesh"
 
+struct DatabaseUsageStats {
+    1: u64                                 disk_space_used_1k
+    2: u64                                 disk_space_available_1k
+    3: u64                                 analytics_db_size_1k
+}
+
 struct DatabaseUsageInfo {
     1: string                              name (key="ObjectDatabaseInfo")
     2: optional bool                       deleted
-    3: u64                                 disk_space_used
-    4: u64                                 disk_space_available
-    5: u64                                 analytics_db_size
+    3: optional list<DatabaseUsageStats>   du_stats (tags=".disk_space_used_1k, .disk_space_available_1k, .disk_space_available_1k")
 }
 
 //DatabaseUsageStat uve will be sent by Database-nodemgr
-uve sandesh DatabaseUsageStat {
+uve sandesh DatabaseUsage {
     1: DatabaseUsageInfo                   data
 }
 
