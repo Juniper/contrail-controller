@@ -52,6 +52,7 @@ from bottle import request
 import vnc_cfg_types
 from vnc_cfg_ifmap import VncDbClient
 
+from cfgm_common import ignore_exceptions
 from cfgm_common.uve.vnc_api.ttypes import VncApiCommon, VncApiReadLog,\
     VncApiConfigLog, VncApiError
 from cfgm_common.uve.virtual_network.ttypes import UveVirtualNetworkConfig,\
@@ -82,6 +83,8 @@ import netifaces
 from pysandesh.connection_info import ConnectionState
 from cfgm_common.uve.cfgm_cpuinfo.ttypes import NodeStatusUVE, \
     NodeStatus
+
+from sandesh.traces.ttypes import RestApiTrace
 
 _WEB_HOST = '0.0.0.0'
 _WEB_PORT = 8082
@@ -214,7 +217,10 @@ class VncApiServer(VncApiServerGen):
         self._parse_args(args_str)
 
         # set python logging level from logging_level cmdline arg
-        logging.basicConfig(level = getattr(logging, self._args.logging_level))
+        if not self._args.logging_conf:
+            logging.basicConfig(level = getattr(logging, self._args.logging_level))
+        else:
+            logging.config.fileConfig(self._args.logging_conf)
 
         self._base_url = "http://%s:%s" % (self._args.listen_ip_addr,
                                            self._args.listen_port)
@@ -338,6 +344,12 @@ class VncApiServer(VncApiServerGen):
                                      int(self._args.http_server_port),
                                      ['cfgm_common'], self._disc)
         self._sandesh.trace_buffer_create(name="VncCfgTraceBuf", size=1000)
+        self._sandesh.trace_buffer_create(name="RestApiTraceBuf", size=1000)
+        self._sandesh.trace_buffer_create(name="DBRequestTraceBuf", size=1000)
+        self._sandesh.trace_buffer_create(name="MessageBusNotifyTraceBuf",
+                                          size=1000)
+        self._sandesh.trace_buffer_create(name="IfmapTraceBuf", size=1000)
+
         self._sandesh.set_logging_params(
             enable_local_log=self._args.log_local,
             category=self._args.log_category,
@@ -396,12 +408,52 @@ class VncApiServer(VncApiServerGen):
 
     # end __init__
 
+    @ignore_exceptions
+    def _generate_rest_api_request_trace(self):
+        method = bottle.request.method.upper()
+        if method == 'GET':
+            return None
+
+        req_id = bottle.request.headers.get('X-Request-Id',
+                                            'req-%s' %(str(uuid.uuid4())))
+        gevent.getcurrent().trace_request_id = req_id
+        url = bottle.request.url
+        if method == 'DELETE':
+            req_data = ''
+        else:
+            try:
+                req_data = json.dumps(bottle.request.json)
+            except Exception as e:
+                req_data = '%s: Invalid request body' %(e)
+        rest_trace = RestApiTrace(request_id=req_id)
+        rest_trace.url = url
+        rest_trace.method = method
+        rest_trace.request_data = req_data
+        return rest_trace
+    # end _generate_rest_api_request_trace
+
+    @ignore_exceptions
+    def _generate_rest_api_response_trace(self, rest_trace, response):
+        if not rest_trace:
+            return
+
+        rest_trace.status = bottle.response.status
+        rest_trace.response_body = json.dumps(response)
+        rest_trace.trace_msg(name='RestApiTraceBuf', sandesh=self._sandesh)
+    # end _generate_rest_api_response_trace
+
     # Public Methods
     def route(self, uri, method, handler):
         def handler_trap_exception(*args, **kwargs):
+            trace = self._generate_rest_api_request_trace()
             try:
-                return handler(*args, **kwargs)
+                response = handler(*args, **kwargs)
+                self._generate_rest_api_response_trace(trace, response)
+                return response
             except Exception as e:
+                if trace:
+                    trace.trace_msg(name='RestApiTraceBuf',
+                        sandesh=self._sandesh)
                 # don't log details of bottle.abort i.e handled error cases
                 if not isinstance(e, bottle.HTTPError):
                     string_buf = StringIO()
@@ -413,7 +465,7 @@ class VncApiServer(VncApiServerGen):
                     logger.error("Exception in REST api handler:\n%s" %(err_msg))
                     self.config_log_error(err_msg)
 
-                raise e
+                raise
 
         bottle.route(uri, method, handler_trap_exception)
     # end route
@@ -540,8 +592,13 @@ class VncApiServer(VncApiServerGen):
 
     def id_to_fq_name_http_post(self):
         self._post_common(bottle.request, None, None)
-        fq_name = self._db_conn.uuid_to_fq_name(bottle.request.json['uuid'])
-        obj_type = self._db_conn.uuid_to_obj_type(bottle.request.json['uuid'])
+        try:
+            obj_uuid = bottle.request.json['uuid']
+            fq_name = self._db_conn.uuid_to_fq_name(obj_uuid)
+        except NoIdError:
+            bottle.abort(404, 'UUID ' + obj_uuid + ' not found')
+
+        obj_type = self._db_conn.uuid_to_obj_type(obj_uuid)
         return {'fq_name': fq_name, 'type': obj_type}
     # end id_to_fq_name_http_post
 
@@ -632,6 +689,7 @@ class VncApiServer(VncApiServerGen):
                                          --log_local
                                          --log_level SYS_DEBUG
                                          --logging_level DEBUG
+                                         --logging_conf <logger-conf-file>
                                          --log_category test
                                          --log_file <stdout>
                                          --use_syslog
@@ -670,6 +728,7 @@ class VncApiServer(VncApiServerGen):
             'use_syslog': False,
             'syslog_facility': Sandesh._DEFAULT_SYSLOG_FACILITY,
             'logging_level': 'WARN',
+            'logging_conf': '',
             'multi_tenancy': False,
             'disc_server_ip': None,
             'disc_server_port': '5998',
@@ -795,6 +854,9 @@ class VncApiServer(VncApiServerGen):
             "--logging_level",
             help=("Log level for python logging: DEBUG, INFO, WARN, ERROR default: %s"
                   % defaults['logging_level']))
+        parser.add_argument(
+            "--logging_conf",
+            help=("Optional logging configuration file, default: None"))
         parser.add_argument(
             "--log_category",
             help="Category filter for local logging of sandesh messages")
