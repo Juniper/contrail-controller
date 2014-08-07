@@ -521,18 +521,22 @@ void IFMapAgentLinkTable::EvalDefLink(IFMapTable::RequestKey *key) {
     RemoveDefListEntry(&link_def_map_, link_defmap_it, NULL);
 }
 
-void IFMapAgentLinkTable::DestroyDefLink() {
+void IFMapAgentLinkTable::DestroyDefLink(uint64_t seq) {
     std::list<IFMapTable::RequestKey> *ent;
+    std::list<IFMapTable::RequestKey>::iterator it, list_entry;
     IFMapAgentLinkTable::LinkDefMap::iterator dlist_it;
 
     for(dlist_it = link_def_map_.begin(); 
         dlist_it != link_def_map_.end(); dlist_it++) {
         ent = dlist_it->second;
-        ent->clear();
-        delete ent;
-    }
+        for(it = ent->begin(); it != ent->end();) {
+            list_entry = it++;
 
-    link_def_map_.clear();
+            // If link seq is older, dont consider the link.
+            if ((*list_entry).id_seq_num < seq)
+                RemoveDefListEntry(&link_def_map_, dlist_it, &list_entry);
+        }
+    }
 }
 
 //Stale Cleaner functionality
@@ -598,7 +602,7 @@ public:
         //Handle deferred list 
         IFMapAgentLinkTable *table = static_cast<IFMapAgentLinkTable *>(
                     db_->FindTable(IFMAP_AGENT_LINK_DB_NAME));
-        table->DestroyDefLink();
+        table->DestroyDefLink(seq_);
 
         return true;
     }
@@ -612,13 +616,12 @@ private:
 IFMapAgentStaleCleaner::~IFMapAgentStaleCleaner() {
 }
 
-IFMapAgentStaleCleaner::IFMapAgentStaleCleaner(DB *db, DBGraph *graph, 
-        boost::asio::io_service &io_service) : 
+IFMapAgentStaleCleaner::IFMapAgentStaleCleaner(DB *db, DBGraph *graph) :
         db_(db), graph_(graph) {
-
 }
 
-bool IFMapAgentStaleCleaner::StaleTimeout() {
+bool IFMapAgentStaleCleaner::StaleTimeout(uint64_t seq) {
+    seq_ = seq;
     IFMapAgentStaleCleanerWorker *cleaner = new IFMapAgentStaleCleanerWorker(db_, graph_, seq_);
     TaskScheduler *sch = TaskScheduler::GetInstance();
     sch->Enqueue(cleaner);
