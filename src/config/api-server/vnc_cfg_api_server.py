@@ -1240,6 +1240,8 @@ class VncApiServer(VncApiServerGen):
                 vn_fq_name, subnet, count)
         except vnc_addr_mgmt.AddrMgmtSubnetUndefined as e:
             bottle.abort(404, str(e))
+        except vnc_addr_mgmt.AddrMgmtSubnetExhausted as e:
+            bottle.abort(409, str(e))
 
         return result
     # end vn_ip_alloc_http_post
