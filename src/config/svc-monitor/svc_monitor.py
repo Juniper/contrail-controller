@@ -478,12 +478,12 @@ class SvcMonitor(object):
 
         # create and launch vm
         vm_refs = si_obj.get_virtual_machine_back_refs()
-        n_client = self._novaclient_get(proj_obj.name)
         for inst_count in range(0, max_instances):
             instance_name = si_obj.name + '_' + str(inst_count + 1)
             exists = False
             for vm_ref in vm_refs or []:
-                vm = n_client.servers.find(id=vm_ref['uuid'])
+                vm = self._novaclient_oper('servers', 'find', proj_obj.name,
+                                           id=vm_ref['uuid'])
                 if vm.name == instance_name:
                     exists = True
                     break
@@ -512,8 +512,8 @@ class SvcMonitor(object):
         found = True
         try:
             self._svc_syslog("Deleting VM %s %s" % (proj_name, vm_uuid))
-            n_client = self._novaclient_get(proj_name)
-            vm = n_client.servers.find(id=vm_uuid)
+            vm = self._novaclient_oper('servers', 'find', proj_name,
+                                       id=vm_uuid)
             vm.delete()
             self._uve_svc_instance(
                 si_fq_str, status='DELETE', vm_uuid=vm_uuid)
@@ -848,10 +848,12 @@ class SvcMonitor(object):
         # end for result_type
     # end process_poll_result
 
-    def _novaclient_get(self, proj_name):
-        client = self._nova.get(proj_name)
-        if client is not None:
-            return client
+    def _novaclient_get(self, proj_name, reauthenticate=False):
+        # return cache copy when reauthenticate is not requested
+        if not reauthenticate:
+            client = self._nova.get(proj_name)
+            if client is not None:
+                return client
 
         self._nova[proj_name] = nc.Client(
             '2', username=self._args.admin_user, project_id=proj_name,
@@ -860,6 +862,18 @@ class SvcMonitor(object):
             auth_url='http://' + self._args.auth_host + ':5000/v2.0')
         return self._nova[proj_name]
     # end _novaclient_get
+
+    def _novaclient_oper(self, resource, oper, proj_name, **kwargs):
+        n_client = self._novaclient_get(proj_name)
+        try:
+            resource_obj = getattr(n_client, resource)
+            oper_func = getattr(resource_obj, oper)
+            return oper_func(**kwargs)
+        except nc_exc.Unauthorized:
+            n_client = self._novaclient_get(proj_name, True)
+            oper_func = getattr(n_client, oper)
+            return oper_func(**kwargs)
+    # end _novaclient_oper
 
     def _update_static_routes(self, si_obj):
         # get service instance interface list
@@ -889,15 +903,17 @@ class SvcMonitor(object):
 
     def _create_svc_vm(self, vm_name, image_name, nics,
                        proj_name, flavor_name):
-        n_client = self._novaclient_get(proj_name)
         if flavor_name:
-            flavor = n_client.flavors.find(name=flavor_name)
+            flavor = self._novaclient_oper('flavors', 'find', proj_name,
+                                           name=flavor_name)
         else:
-            flavor = n_client.flavors.find(ram=4096)
+            flavor = self._novaclient_oper('flavors', 'find', proj_name,
+                                           ram=4096)
 
         image = ''
         try:
-            image = n_client.images.find(name=image_name)
+            image = self._novaclient_oper('images', 'find', proj_name,
+                                          name=image_name)
         except nc_exc.NotFound:
             self._svc_syslog(
                 "Error: Image %s not found in project %s"
@@ -911,8 +927,9 @@ class SvcMonitor(object):
 
         # launch vm
         self._svc_syslog('Launching VM : ' + vm_name)
-        nova_vm = n_client.servers.create(name=vm_name, image=image,
-                                          flavor=flavor, nics=nics)
+        nova_vm = self._novaclient_oper('servers', 'create', proj_name,
+                                        name=vm_name, image=image,
+                                        flavor=flavor, nics=nics)
         nova_vm.get()
         self._svc_syslog('Created VM : ' + str(nova_vm))
         return nova_vm
@@ -1023,8 +1040,8 @@ def timer_callback(monitor):
     for vm_uuid, si in vm_list:
         try:
             proj_name = monitor._get_proj_name_from_si_fq_str(si['si_fq_str'])
-            n_client = monitor._novaclient_get(proj_name)
-            server = n_client.servers.find(id=vm_uuid)
+            status = monitor._novaclient_oper('servers', 'find', proj_name,
+                                              id=vm_uuid)
         except nc_exc.NotFound:
             continue
         except Exception:
