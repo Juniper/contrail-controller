@@ -101,23 +101,23 @@ class VrouterProvisioner(object):
         parser.set_defaults(**defaults)
 
         parser.add_argument(
-            "--host_name", help="hostname name of compute-node")
-        parser.add_argument("--host_ip", help="IP address of compute-node")
+            "--host_name", help="hostname name of compute-node", required=True)
+        parser.add_argument("--host_ip", help="IP address of compute-node", required=True)
         parser.add_argument(
             "--control_names",
-            help="List of control-node names compute node connects to")
+            help="List of control-node names compute node connects to", required=True)
         parser.add_argument(
-            "--api_server_ip", help="IP address of api server")
-        parser.add_argument("--api_server_port", help="Port of api server")
+            "--api_server_ip", help="IP address of api server", required=True)
+        parser.add_argument("--api_server_port", help="Port of api server", required=True)
         parser.add_argument(
             "--oper", default='add',
             help="Provision operation to be done(add or del)")
         parser.add_argument(
-            "--admin_user", help="Name of keystone admin user")
+            "--admin_user", help="Name of keystone admin user", required=True)
         parser.add_argument(
-            "--admin_password", help="Password of keystone admin user")
+            "--admin_password", help="Password of keystone admin user", required=True)
         parser.add_argument(
-            "--admin_tenant_name", help="Tenamt name for keystone admin user")
+            "--admin_tenant_name", help="Tenamt name for keystone admin user", required=True)
 
         self._args = parser.parse_args(remaining_argv)
 
