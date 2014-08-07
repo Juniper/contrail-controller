@@ -1392,20 +1392,33 @@ TEST_F(BgpServerUnitTest, DisableSessionQueue1) {
     SetupPeers(a_.get(), peer_count, a_->session_manager()->GetPort(),
                b_->session_manager()->GetPort(), false);
 
-    TASK_UTIL_EXPECT_TRUE(GetSessionQueueSize(b_session_manager_) == 3);
     for (int j = 0; j < peer_count; j++) {
         string uuid = BgpConfigParser::session_uuid("A", "B", j + 1);
         BgpPeer *peer_a = a_->FindPeerByUuid(BgpConfigManager::kMasterInstance,
                                              uuid);
         TASK_UTIL_EXPECT_EQ(peer_a->GetState(), StateMachine::OPENSENT);
+        TASK_UTIL_EXPECT_EQ(0, peer_a->get_hold_timer_expired());
     }
+    TASK_UTIL_EXPECT_TRUE(GetSessionQueueSize(b_session_manager_) >= 3);
+    size_t queue_size = GetSessionQueueSize(b_session_manager_);
+
+    usleep(50000);
+
+    for (int j = 0; j < peer_count; j++) {
+        string uuid = BgpConfigParser::session_uuid("A", "B", j + 1);
+        BgpPeer *peer_a = a_->FindPeerByUuid(BgpConfigManager::kMasterInstance,
+                                             uuid);
+        TASK_UTIL_EXPECT_EQ(peer_a->GetState(), StateMachine::OPENSENT);
+        TASK_UTIL_EXPECT_EQ(0, peer_a->get_hold_timer_expired());
+    }
+    TASK_UTIL_EXPECT_EQ(queue_size, GetSessionQueueSize(b_session_manager_));
 
     SetSessionQueueDisable(b_session_manager_, false);
 }
 
 // Apply bgp neighbor configuration on only one side of the session, disable
 // session queue processing on the other side, use very small hold timer and
-// verify that the first side keeps sees the hold timer expiring.
+// verify that the first side sees the hold timer expiring repeatedly.
 TEST_F(BgpServerUnitTest, DisableSessionQueue2) {
     int peer_count = 3;
 
@@ -1416,16 +1429,80 @@ TEST_F(BgpServerUnitTest, DisableSessionQueue2) {
     SetupPeers(a_.get(), peer_count, a_->session_manager()->GetPort(),
                b_->session_manager()->GetPort(), false);
 
-    TASK_UTIL_EXPECT_TRUE(GetSessionQueueSize(b_session_manager_) == 3);
     for (int j = 0; j < peer_count; j++) {
         string uuid = BgpConfigParser::session_uuid("A", "B", j + 1);
         BgpPeer *peer_a = a_->FindPeerByUuid(BgpConfigManager::kMasterInstance,
                                              uuid);
-        TASK_UTIL_EXPECT_EQ(peer_a->GetState(), StateMachine::OPENSENT);
+        TASK_UTIL_EXPECT_TRUE(peer_a->get_hold_timer_expired() >= 3);
+    }
+
+    usleep(100000);
+
+    for (int j = 0; j < peer_count; j++) {
+        string uuid = BgpConfigParser::session_uuid("A", "B", j + 1);
+        BgpPeer *peer_a = a_->FindPeerByUuid(BgpConfigManager::kMasterInstance,
+                                             uuid);
+        TASK_UTIL_EXPECT_TRUE(peer_a->get_hold_timer_expired() >= 6);
     }
 
     StateMachineTest::set_hold_time_msecs(0);
     SetSessionQueueDisable(b_session_manager_, false);
+}
+
+//
+// Apply bgp neighbor configuration on only one side of the session, disable
+// session queue processing on the other side, use very small hold timer and
+// verify that the first side sees the hold timer expiring repeatedly.
+//
+// Then trigger deletion of the server and verify that the session queue is
+// still non-empty.  Finally, enable session queue processing and make sure
+// that the server gets deleted.
+//
+TEST_F(BgpServerUnitTest, DisableSessionQueue3) {
+    int peer_count = 3;
+
+    SetSessionQueueDisable(b_session_manager_, true);
+    StateMachineTest::set_hold_time_msecs(30);
+
+    BgpPeerTest::verbose_name(true);
+    SetupPeers(a_.get(), peer_count, a_->session_manager()->GetPort(),
+               b_->session_manager()->GetPort(), false);
+
+    for (int j = 0; j < peer_count; j++) {
+        string uuid = BgpConfigParser::session_uuid("A", "B", j + 1);
+        BgpPeer *peer_a = a_->FindPeerByUuid(BgpConfigManager::kMasterInstance,
+                                             uuid);
+        TASK_UTIL_EXPECT_TRUE(peer_a->get_hold_timer_expired() >= 3);
+    }
+
+    vector<size_t> a_connect_error(peer_count);
+    for (int j = 0; j < peer_count; j++) {
+        string uuid = BgpConfigParser::session_uuid("A", "B", j + 1);
+        BgpPeer *peer_a = a_->FindPeerByUuid(BgpConfigManager::kMasterInstance,
+                                             uuid);
+        a_connect_error[j] = peer_a->get_connect_error();
+    }
+
+    b_->Shutdown(false);
+    usleep(50000);
+    TASK_UTIL_EXPECT_TRUE(b_->session_manager() != NULL);
+    size_t queue_size = GetSessionQueueSize(b_->session_manager());
+    TASK_UTIL_EXPECT_NE(0, queue_size);
+
+    usleep(50000);
+    TASK_UTIL_EXPECT_EQ(queue_size, GetSessionQueueSize(b_->session_manager()));
+
+    StateMachineTest::set_hold_time_msecs(0);
+    SetSessionQueueDisable(b_session_manager_, false);
+    b_->VerifyShutdown();
+
+    for (int j = 0; j < peer_count; j++) {
+        string uuid = BgpConfigParser::session_uuid("A", "B", j + 1);
+        BgpPeer *peer_a = a_->FindPeerByUuid(BgpConfigManager::kMasterInstance,
+                                             uuid);
+        TASK_UTIL_EXPECT_TRUE(
+            peer_a->get_connect_error() >= a_connect_error[j] + 3);
+    }
 }
 
 // Apply bgp neighbor configuration on only one side of the session, close
@@ -1436,7 +1513,7 @@ TEST_F(BgpServerUnitTest, ConnectError) {
 
     int port_a = a_->session_manager()->GetPort();
     int port_b = b_->session_manager()->GetPort();
-    b_session_manager_->Shutdown();
+    b_session_manager_->TcpServer::Shutdown();
 
     BgpPeerTest::verbose_name(true);
     SetupPeers(a_.get(), peer_count, port_a, port_b, false);

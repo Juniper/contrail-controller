@@ -183,6 +183,12 @@ bool BgpServer::IsDeleted() const {
     return deleter_->IsDeleted();
 }
 
+void BgpServer::RetryDelete() {
+    if (!deleter_->IsDeleted())
+        return;
+    deleter_->RetryDelete();
+}
+
 bool BgpServer::IsReadyForDeletion() {
     CHECK_CONCURRENCY("bgp::Config");
 

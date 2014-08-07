@@ -183,7 +183,8 @@ public:
                                 const std::string &uuid);
     BgpPeer *FindPeer(const char *routing_instance,
                       const std::string &peername);
-    void Shutdown();
+    void Shutdown(bool verify = true);
+    void VerifyShutdown() const;
 
     DB *config_db() { return config_db_.get(); }
     DBGraph *config_graph() { return config_graph_.get(); }

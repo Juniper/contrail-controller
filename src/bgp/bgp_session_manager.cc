@@ -23,9 +23,24 @@ BgpSessionManager::BgpSessionManager(EventManager *evm, BgpServer *server)
 BgpSessionManager::~BgpSessionManager() {
 }
 
+//
+// Start listening at the given port.
+//
 bool BgpSessionManager::Initialize(short port) {
-    TcpServer::Initialize(port);
-    return true;
+    return TcpServer::Initialize(port);
+}
+
+//
+// Called from BgpServer::DeleteActor's Shutdown method.
+// Shutdown the TcpServer.
+// Register an exit callback to the WorkQueue so that we can ask BgpServer
+// to retry deletion when the WorkQueue becomes empty.
+//
+void BgpSessionManager::Shutdown() {
+    CHECK_CONCURRENCY("bgp::Config");
+    TcpServer::Shutdown();
+    session_queue_.SetExitCallback(
+        boost::bind(&BgpSessionManager::ProcessSessionDone, this, _1));
 }
 
 //
@@ -36,6 +51,7 @@ bool BgpSessionManager::Initialize(short port) {
 // the sessions in the WorkQueue since ClearSessions does the same thing.
 //
 void BgpSessionManager::Terminate() {
+    CHECK_CONCURRENCY("bgp::Config");
     server_ = NULL;
     ClearSessions();
     session_queue_.Shutdown();
@@ -55,6 +71,9 @@ BgpPeer *BgpSessionManager::FindPeer(Endpoint remote) {
     return NULL;
 }
 
+//
+// Create an active BgpSession.
+//
 TcpSession *BgpSessionManager::CreateSession() {
     TcpSession *session = TcpServer::CreateSession();
     Socket *socket = session->socket();
@@ -70,6 +89,10 @@ TcpSession *BgpSessionManager::CreateSession() {
     return session;
 }
 
+//
+// Allocate a new BgpSession.
+// Called via CreateSession or when the TcpServer accepts a passive session.
+//
 TcpSession *BgpSessionManager::AllocSession(Socket *socket) {
     TcpSession *session = new BgpSession(this, socket);
     return session;
@@ -139,6 +162,13 @@ bool BgpSessionManager::ProcessSession(BgpSession *session) {
 
     peer->AcceptSession(session);
     return true;
+}
+
+//
+// Exit callback for the WorkQueue.
+//
+void BgpSessionManager::ProcessSessionDone(bool done) {
+    server_->RetryDelete();
 }
 
 size_t BgpSessionManager::GetQueueSize() const {
