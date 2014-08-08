@@ -1178,6 +1178,10 @@ class VncApiServer(VncApiServerGen):
 
         uuid_in_req = obj_dict.get('uuid', None)
 
+        # Set the display name
+        if 'display_name' not in obj_dict:
+            obj_dict['display_name'] = obj_dict['fq_name'][-1]
+
         fq_name_str = ":".join(obj_dict['fq_name'])
         apiConfig = VncApiCommon(identifier_name=fq_name_str)
         apiConfig.object_type = obj_type
