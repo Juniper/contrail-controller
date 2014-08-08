@@ -87,6 +87,7 @@ public:
     const std::string &program_name() const { return program_name_;}
     const std::string log_file() const { return log_file_; }
     bool log_local() const { return log_local_; }
+    bool log_flow() const { return log_flow_; }
     const std::string &log_level() const { return log_level_; }
     const std::string &log_category() const { return log_category_; }
     const std::vector<std::string> collector_server_list() const {
@@ -212,6 +213,7 @@ private:
     std::string program_name_;
     std::string log_file_;
     bool log_local_;
+    bool log_flow_;
     std::string log_level_;
     std::string log_category_;
     std::vector<std::string> collector_server_list_;
