@@ -196,7 +196,7 @@ class ServiceMonitorDB(object):
        self._svc_si_cf = pycassa.ColumnFamily(conn_pool, self._SVC_SI_CF,
                                  read_consistency_level=rd_consistency,
                                  write_consistency_level=wr_consistency)
-       self._cleanup_cf = pycassa.ColumnFamily(conn_pool,
+       self._svc_cleanup_cf = pycassa.ColumnFamily(conn_pool,
                                  self._SVC_CLEANUP_CF,
                                  read_consistency_level=rd_consistency,
                                  write_consistency_level=wr_consistency)
