@@ -407,9 +407,10 @@ class VirtualNetworkST(DictST):
             try:
                 sc_ip_address = _vnc_lib.virtual_network_ip_alloc(
                     self.obj, count=1)[0]
-            except NoIdError:
+            except (NoIdError, RefsExistError) as e:
                 _sandesh._logger.debug(
-                    "NoIdError while allocating ip in network %s", self.name)
+                    "Error while allocating ip in network %s: %s", self.name,
+                    str(e))
                 return None
             self._sc_ip_cf.insert(sc_name, {'ip_address': sc_ip_address})
         return sc_ip_address
