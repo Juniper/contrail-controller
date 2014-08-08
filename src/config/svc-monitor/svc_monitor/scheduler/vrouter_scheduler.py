@@ -73,7 +73,7 @@ class VRouterScheduler(object):
     def vrouter_running(self, vrouter_name):
         """Check if a vrouter agent is up and running."""
         path = "/analytics/uves/vrouter/"
-        fqdn_uuid = "%s?cfilt=VrouterAgentProcessStatus" % vrouter_name
+        fqdn_uuid = "%s?cfilt=NodeStatus" % vrouter_name
 
         try:
             vrouter_status = self._analytics.request(path, fqdn_uuid)
@@ -83,13 +83,11 @@ class VRouterScheduler(object):
         if not vrouter_status:
             return False
 
-        for process in vrouter_status['VrouterAgentProcessStatus']\
-            ['connection_status']:
+        for process in vrouter_status['NodeStatus']['process_status']:
             if (process['module_id'] == 'VRouterAgent' and
                 int(process['instance_id']) == 0 and
-                process['status'] == 'Functional'):
+                process['state'] == 'Functional'):
                 return True
-
         return False
 
     def _bind_vrouter(self, vm_uuid, vr_fq_name):
