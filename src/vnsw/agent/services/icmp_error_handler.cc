@@ -64,6 +64,7 @@ bool IcmpErrorHandler::SendIcmpError(VmInterface *intf) {
         return true;
     }
 
+    // Retain the agent-header before ethernet header
     uint16_t len = (char *)pkt_info_->eth - (char *)pkt_info_->pkt;
     uint16_t buf_len = pkt_info_->max_pkt_len;
 
