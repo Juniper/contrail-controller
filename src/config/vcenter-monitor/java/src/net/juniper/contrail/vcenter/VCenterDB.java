@@ -95,7 +95,7 @@ public class VCenterDB {
         return null;
     }
     
-    private static int getVlanId(String dvPgName, DVPortSetting portSetting) {
+    private static short getVlanId(String dvPgName, DVPortSetting portSetting) {
         if (portSetting instanceof VMwareDVSPortSetting) {
             VMwareDVSPortSetting vPortSetting = 
                     (VMwareDVSPortSetting) portSetting;
@@ -104,7 +104,7 @@ public class VCenterDB {
             if (vlanSpec instanceof VmwareDistributedVirtualSwitchPvlanSpec) {
                 VmwareDistributedVirtualSwitchPvlanSpec pvlanSpec = 
                         (VmwareDistributedVirtualSwitchPvlanSpec) vlanSpec;
-                return pvlanSpec.getPvlanId();
+                return (short)pvlanSpec.getPvlanId();
             } else {
                 s_logger.error("dvPg: " + dvPgName + 
                         " port setting: " +  vPortSetting + 
@@ -357,6 +357,7 @@ public class VCenterDB {
         SortedMap<String, VmwareVirtualNetworkInfo> vnInfos =
                 new TreeMap<String, VmwareVirtualNetworkInfo>();
         for (DistributedVirtualPortgroup dvPg : dvPgs) {
+            s_logger.info("dvPg: " + dvPg.getName());
             // Extract dvPg configuration info and port setting
             DVPortgroupConfigInfo configInfo = dvPg.getConfig();
             DVPortSetting portSetting = configInfo.getDefaultPortConfig();
@@ -367,14 +368,16 @@ public class VCenterDB {
             // Find associated IP Pool
             IpPool ipPool = getIpPool(dvPg, ipPools);
             if (ipPool == null) {
+                s_logger.info("no ip pool is associated to dvPg: " + dvPg.getName());
                 continue;
             }
             byte[] vnKeyBytes = dvPg.getKey().getBytes();
             String vnUuid = UUID.nameUUIDFromBytes(vnKeyBytes).toString();
             String vnName = dvPg.getName();
+            s_logger.info("VN name: " + vnName);
             IpPoolIpPoolConfigInfo ipConfigInfo = ipPool.getIpv4Config();
             // Find associated VLAN Id
-            int vlanId = getVlanId(dvPg.getName(), portSetting);
+            short vlanId = getVlanId(dvPg.getName(), portSetting);
             // Populate associated VMs
             SortedMap<String, VmwareVirtualMachineInfo> vmInfo = 
                     populateVirtualMachineInfo(dvPg);

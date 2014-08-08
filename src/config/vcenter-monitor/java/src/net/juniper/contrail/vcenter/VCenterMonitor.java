@@ -5,10 +5,13 @@
 package net.juniper.contrail.vcenter;
 
 import java.io.IOException;
+import java.io.File;
+import java.io.FileInputStream;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.SortedMap;
 import java.util.Iterator;
+import java.util.Properties;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
@@ -69,13 +72,13 @@ class VmwareVirtualMachineInfo {
 
 class VmwareVirtualNetworkInfo {
     private String name;
-    private int vlanId;
+    private short vlanId;
     private SortedMap<String, VmwareVirtualMachineInfo> vmInfo;
     private String subnetAddress;
     private String subnetMask;
     private String gatewayAddress;
     
-    public VmwareVirtualNetworkInfo(String name, int vlanId,
+    public VmwareVirtualNetworkInfo(String name, short vlanId,
             SortedMap<String, VmwareVirtualMachineInfo> vmInfo,
             String subnetAddress, String subnetMask, String gatewayAddress) {
         this.name = name;
@@ -94,11 +97,11 @@ class VmwareVirtualNetworkInfo {
         this.name = name;
     }
 
-    public int getVlanId() {
+    public short getVlanId() {
         return vlanId;
     }
 
-    public void setVlanId(int vlanId) {
+    public void setVlanId(short vlanId) {
         this.vlanId = vlanId;
     }
 
@@ -218,23 +221,24 @@ class VCenterMonitorTask implements Runnable {
         SortedMap<String, VncVirtualMachineInfo> vncVmInfos =
                 vncNetworkInfo.getVmInfo();
         Iterator<Entry<String, VmwareVirtualMachineInfo>> vmwareIter = 
-                vmwareVmInfos.entrySet().iterator();
+                (vmwareVmInfos != null ? vmwareVmInfos.entrySet().iterator() : null);
         Iterator<Entry<String, VncVirtualMachineInfo>> vncIter =
-                vncVmInfos.entrySet().iterator();
-        
-        Map.Entry<String, VmwareVirtualMachineInfo> vmwareItem =
-                (Entry<String, VmwareVirtualMachineInfo>)
-                (vmwareIter.hasNext() ? vmwareIter.next() : null);
-        Map.Entry<String, VncVirtualMachineInfo> vncItem =
-                (Entry<String, VncVirtualMachineInfo>)
-                (vncIter.hasNext() ? vncIter.next() : null);
+                (vncVmInfos != null ? vncVmInfos.entrySet().iterator() : null);
+        s_logger.info("VMs vmware size: " + ((vmwareVmInfos != null) ? vmwareVmInfos.size():0) + ", vnc size: " + 
+                                                                 ((vncVmInfos != null) ? vncVmInfos.size():0));
+        Map.Entry<String, VmwareVirtualMachineInfo> vmwareItem = null;
+        if (vmwareIter != null && vmwareIter.hasNext()) {
+                vmwareItem = (Entry<String, VmwareVirtualMachineInfo>)vmwareIter.next();
+        } 
+        Map.Entry<String, VncVirtualMachineInfo> vncItem = null;
+        if (vncIter != null && vncIter.hasNext()) {
+                vncItem = (Entry<String, VncVirtualMachineInfo>)vncIter.next();
+        }
         
         while (vmwareItem != null && vncItem != null) {
             // Do Vmware and Vnc virtual machines match?
             String vmwareVmUuid = vmwareItem.getKey();
             String vncVmUuid = vncItem.getKey();
-            s_logger.info("Comparing Vnc virtual machine: " + vncVmUuid +
-                    " and VCenter virtual machine: " + vmwareVmUuid);
             if (!vmwareVmUuid.equals(vncVmUuid)) {
                 // Delete Vnc virtual machine
                 vncDB.DeleteVirtualMachine(vncItem.getValue());
@@ -254,7 +258,7 @@ class VCenterMonitorTask implements Runnable {
                     vmwareVmInfo.getMacAddress(),
                     vmwareVmInfo.getName(),
                     vmwareVmInfo.getVrouterIpAddress(),
-                    vmwareVmInfo.getHostName());
+                    vmwareVmInfo.getHostName(), vmwareNetworkInfo.getVlanId());
             vmwareItem = vmwareIter.hasNext() ? vmwareIter.next() : null;
         }
         while (vncItem != null) {
@@ -270,17 +274,22 @@ class VCenterMonitorTask implements Runnable {
                 vcenterDB.populateVirtualNetworkInfo();
         SortedMap<String, VncVirtualNetworkInfo> vncVirtualNetworkInfos =
                 vncDB.populateVirtualNetworkInfo();
+        s_logger.info("VNs vmware size: " + vmwareVirtualNetworkInfos.size() + ", vnc size: " + vncVirtualNetworkInfos.size());
         Iterator<Entry<String, VmwareVirtualNetworkInfo>> vmwareIter = 
                 vmwareVirtualNetworkInfos.entrySet().iterator();
-        Iterator<Entry<String, VncVirtualNetworkInfo>> vncIter = 
-                vncVirtualNetworkInfos.entrySet().iterator();
+        Iterator<Entry<String, VncVirtualNetworkInfo>> vncIter = null;
+        if (vncVirtualNetworkInfos != null && vncVirtualNetworkInfos.size() > 0 && vncVirtualNetworkInfos.entrySet() != null) {
+                vncIter = vncVirtualNetworkInfos.entrySet().iterator();
+        }
         
         Map.Entry<String, VmwareVirtualNetworkInfo> vmwareItem = 
-                (Entry<String, VmwareVirtualNetworkInfo>) 
-                (vmwareIter.hasNext() ? vmwareIter.next() : null);
-        Map.Entry<String, VncVirtualNetworkInfo> vncItem = 
-                (Entry<String, VncVirtualNetworkInfo>) 
+                (Entry<String, VmwareVirtualNetworkInfo>)vmwareIter.next();
+        Map.Entry<String, VncVirtualNetworkInfo> vncItem = null;
+        if (vncIter != null) { 
+                vncItem = (Entry<String, VncVirtualNetworkInfo>) 
                 (vncIter.hasNext() ? vncIter.next() : null);
+        }
+
 
         while (vmwareItem != null && vncItem != null) {
             // Do Vmware and Vnc networks match?
@@ -308,8 +317,9 @@ class VCenterMonitorTask implements Runnable {
             String subnetMask = vnInfo.getSubnetMask();
             String gatewayAddr = vnInfo.getGatewayAddress();
             String vmwareVnName = vnInfo.getName();
+            short vlanId = vnInfo.getVlanId();
             vncDB.CreateVirtualNetwork(vmwareVnUuid, vmwareVnName, subnetAddr,
-                    subnetMask, gatewayAddr, vmInfos);
+                    subnetMask, gatewayAddr, vlanId, vmInfos);
             vmwareItem = vmwareIter.hasNext() ? vmwareIter.next() : null;
         }
         while (vncItem != null) {
@@ -324,7 +334,7 @@ class VCenterMonitorTask implements Runnable {
         try {
             syncVirtualNetworks();
         } catch (Exception e) {
-            // TODO Auto-generated catch block
+            s_logger.error("Error while syncVirtualNetworks: " + e); 
             e.printStackTrace();
         }
     }
@@ -363,18 +373,56 @@ class ExecutorServiceShutdownThread extends Thread {
 public class VCenterMonitor {
     private static ScheduledExecutorService scheduledTaskExecutor = 
             Executors.newScheduledThreadPool(1);
+    private static Logger s_logger = Logger.getLogger(VCenterMonitor.class);
+    private static String _configurationFile = "vcenter_monitor.properties";
+    private static String _vcenterURL = "https://10.84.24.111/sdk";
+    private static String _vcenterUsername = "admin";
+    private static String _vcenterPassword = "Contrail123!";
+    private static String _apiServerAddress = "10.84.13.23";
+    private static int _apiServerPort = 8082;
     
+    private static boolean configure() {
+
+        File configFile = new File(_configurationFile);
+        FileInputStream fileStream = null;
+        try {
+            String hostname = null;
+            int port = 0;
+            if (configFile == null) {
+                return false;
+            } else {
+                final Properties configProps = new Properties();
+                fileStream = new FileInputStream(configFile);
+                configProps.load(fileStream);
+
+                _vcenterURL = configProps.getProperty("vcenter.url");
+                _vcenterUsername = configProps.getProperty("vcenter.username");
+                _vcenterPassword = configProps.getProperty("vcenter.password");
+                _apiServerAddress = configProps.getProperty("api.hostname");
+                String portStr = configProps.getProperty("api.port");
+                if (portStr != null && portStr.length() > 0) {
+                    _apiServerPort = Integer.parseInt(portStr);
+                }
+            }
+        } catch (IOException ex) {
+            s_logger.warn("Unable to read " + _configurationFile, ex);
+        } catch (Exception ex) {
+            s_logger.debug("Exception in configure: " + ex);
+            ex.printStackTrace();
+        } finally {
+            //IOUtils.closeQuietly(fileStream);
+        }
+        return true;
+    }
+
     public static void main(String[] args) throws Exception {
         BasicConfigurator.configure();
-        final String vcenterURL = "https://10.84.24.111/sdk";
-        final String vcenterUsername = "admin";
-        final String vcenterPassword = "Contrail123!";
-        final String apiServerAddress = "10.84.13.23";
-        final int apiServerPort = 8082;
+        configure();
+        s_logger.debug("Config params  vcenter url: " + _vcenterURL + ", _vcenterUsername: " + _vcenterUsername + ", api server: " + _apiServerAddress);
         // Launch the periodic VCenterMonitorTask
-        VCenterMonitorTask monitorTask = new VCenterMonitorTask(vcenterURL, 
-                vcenterUsername, vcenterPassword, apiServerAddress,
-                apiServerPort);
+        VCenterMonitorTask monitorTask = new VCenterMonitorTask(_vcenterURL, 
+                _vcenterUsername, _vcenterPassword, _apiServerAddress,
+                _apiServerPort);
         scheduledTaskExecutor.scheduleWithFixedDelay(monitorTask, 0, 30,
                 TimeUnit.SECONDS);
         Runtime.getRuntime().addShutdownHook(

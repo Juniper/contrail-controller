@@ -18,6 +18,7 @@ struct Port {
     9:optional string host; 
    10:optional tuuid vm_project_id; 
    11:optional i16 vlan_id; 
+   12:optional i16 isolated_vlan_id; 
 }
 
 typedef list<Port> PortList

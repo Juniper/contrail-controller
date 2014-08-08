@@ -7,6 +7,7 @@ package net.juniper.contrail.vcenter;
 import java.io.IOException;
 import java.net.InetAddress;
 import java.util.Map;
+import java.util.HashMap;
 import java.util.TreeMap;
 import java.util.List;
 import java.util.SortedMap;
@@ -32,15 +33,17 @@ import net.juniper.contrail.contrail_vrouter_api.ContrailVRouterApi;
 public class VncDB {
     private static final Logger s_logger = 
             Logger.getLogger(VncDB.class);
-    private static final int vrouterApiPort = 5059;
+    private static final int vrouterApiPort = 9090;
     private final String apiServerAddress;
     private final int apiServerPort;
+    private HashMap<String, ContrailVRouterApi> vrouterApiMap;
     
     private ApiConnector apiConnector;
     
     public VncDB(String apiServerAddress, int apiServerPort) {
         this.apiServerAddress = apiServerAddress;
         this.apiServerPort = apiServerPort;
+        vrouterApiMap = new HashMap<String, ContrailVRouterApi>();
     }
     
     public void Initialize() {
@@ -85,9 +88,13 @@ public class VncDB {
                     " delete notification NOT sent");
             return;
         }
-        ContrailVRouterApi vrouterApi = new ContrailVRouterApi(
-                InetAddress.getByName(vrouterIpAddress), 
-                vrouterApiPort, true);
+        ContrailVRouterApi vrouterApi = vrouterApiMap.get(vrouterIpAddress);
+        if (vrouterApi == null) {
+            vrouterApi = new ContrailVRouterApi(
+                    InetAddress.getByName(vrouterIpAddress), 
+                    vrouterApiPort, false);
+            vrouterApiMap.put(vrouterIpAddress, vrouterApi);
+        }
         vrouterApi.DeletePort(UUID.fromString(vmInterfaceUuid));
     }
 
@@ -132,9 +139,13 @@ public class VncDB {
                         " delete notification NOT sent");
                 continue;
             }
-            ContrailVRouterApi vrouterApi = new ContrailVRouterApi(
-                    InetAddress.getByName(vrouterIpAddress), 
-                    vrouterApiPort, true);
+            ContrailVRouterApi vrouterApi = vrouterApiMap.get(vrouterIpAddress);
+            if (vrouterApi == null) {
+                vrouterApi = new ContrailVRouterApi(
+                        InetAddress.getByName(vrouterIpAddress), 
+                        vrouterApiPort, false);
+                vrouterApiMap.put(vrouterIpAddress, vrouterApi);
+            }
             vrouterApi.DeletePort(UUID.fromString(vmInterfaceUuid));
         }
         apiConnector.delete(VirtualMachine.class, vmUuid);
@@ -143,7 +154,9 @@ public class VncDB {
     
     public void CreateVirtualMachine(String vnUuid, String vmUuid,
             String macAddress, String vmName, String vrouterIpAddress,
-            String hostName) throws IOException {
+            String hostName, short vlanId) throws IOException {
+        short primaryVlanId = 1000;
+        s_logger.info("CreateVirtualMachine : " + vmUuid + ", vrouterIpAddress: " + vrouterIpAddress + ", vlan: " + vlanId);
         VirtualNetwork network = (VirtualNetwork) apiConnector.findById(
                 VirtualNetwork.class, vnUuid);
         apiConnector.read(network);
@@ -156,7 +169,7 @@ public class VncDB {
             vm.setDisplayName(vrouterIpAddress);
         }
         apiConnector.create(vm);
-        s_logger.info("Create virtual machine: " + vmName);
+        apiConnector.read(vm);
         // Virtual machine interface
         VirtualMachineInterface vmInterface = new VirtualMachineInterface();
         vmInterface.setParent(vm);
@@ -173,13 +186,14 @@ public class VncDB {
                 ": " + vmInterfaceUuid);
         // Instance Ip
         InstanceIp instanceIp = new InstanceIp();
+        instanceIp.setParent(vm);
         String instanceIpName = "ip-" + vmName;
         instanceIp.setName(instanceIpName);
         instanceIp.setVirtualNetwork(network);
         instanceIp.setVirtualMachineInterface(vmInterface);
         apiConnector.create(instanceIp);
         // Read back to get assigned IP address
-        instanceIp = (InstanceIp) apiConnector.findByFQN(InstanceIp.class,
+        instanceIp = (InstanceIp) apiConnector.find(InstanceIp.class, vm, 
                 instanceIpName);
         apiConnector.read(instanceIp);
         String vmIpAddress = instanceIp.getAddress();
@@ -191,20 +205,31 @@ public class VncDB {
                 + " create notification NOT sent");
             return;
         }
-        ContrailVRouterApi vrouterApi = new ContrailVRouterApi(
-                InetAddress.getByName(vrouterIpAddress), 
-                vrouterApiPort, true);
-        vrouterApi.AddPort(UUID.fromString(vmInterfaceUuid),
-                UUID.fromString(vmUuid), vmInterfaceName,
-                InetAddress.getByName(vmIpAddress),
-                Utils.parseMacAddress(macAddress),
-                UUID.fromString(vnUuid)); 
+        try {
+            ContrailVRouterApi vrouterApi = vrouterApiMap.get(vrouterIpAddress);
+            if (vrouterApi == null) {
+                   vrouterApi = new ContrailVRouterApi(
+                         InetAddress.getByName(vrouterIpAddress), 
+                         vrouterApiPort, false);
+                   vrouterApiMap.put(vrouterIpAddress, vrouterApi);
+            }
+            vrouterApi.AddPort(UUID.fromString(vmInterfaceUuid),
+                                         UUID.fromString(vmUuid), vmInterfaceName,
+                                         InetAddress.getByName(vmIpAddress),
+                                         Utils.parseMacAddress(macAddress),
+                                         UUID.fromString(vnUuid), vlanId, primaryVlanId);
+            s_logger.debug("VRouterAPi Add Port success - port name: " + vmInterfaceName);
+        }catch(Throwable e) {
+            s_logger.error("Exception : " + e);
+            e.printStackTrace();
+        }
     }
     
     public void CreateVirtualNetwork(String vnUuid, String vnName,
-            String subnetAddr, String subnetMask, String gatewayAddr,
+            String subnetAddr, String subnetMask, String gatewayAddr, short vlanId,
             SortedMap<String, VmwareVirtualMachineInfo> vmMapInfos) throws
             IOException {
+        s_logger.info("Create VN: " + vnUuid + ", vnName: " + vnName);
         VirtualNetwork vn = new VirtualNetwork();
         vn.setName(vnName);
         vn.setUuid(vnUuid);
@@ -216,12 +241,13 @@ public class VncDB {
         String cidr = subnetUtils.getInfo().getCidrSignature();
         VnSubnetsType subnet = new VnSubnetsType();
         String[] addr_pair = cidr.split("\\/");
-        subnet.addIpamSubnets(new SubnetType(addr_pair[0], 
+        /*subnet.addIpamSubnets(new SubnetType(addr_pair[0], 
                 Integer.parseInt(addr_pair[1])), gatewayAddr,
-                UUID.randomUUID().toString());
+                UUID.randomUUID().toString());*/
+        subnet.addIpamSubnets(new VnSubnetsType.IpamSubnetType(new SubnetType(addr_pair[0], Integer.parseInt(addr_pair[1])), gatewayAddr, UUID.randomUUID().toString(), false, null, null, false, null, null, vn.getName() + "-subnet"));
+
         vn.setNetworkIpam(ipam, subnet);
         apiConnector.create(vn); 
-        s_logger.info("Create virtual network: " + vnName);
         for (Map.Entry<String, VmwareVirtualMachineInfo> vmMapInfo :
             vmMapInfos.entrySet()) {
             String vmUuid = vmMapInfo.getKey();
@@ -231,7 +257,7 @@ public class VncDB {
             String vrouterIpAddr = vmInfo.getVrouterIpAddress();
             String hostName = vmInfo.getHostName();
             CreateVirtualMachine(vnUuid, vmUuid, macAddress, vmName,
-                    vrouterIpAddr, hostName);
+                    vrouterIpAddr, hostName, vlanId);
         }  
     }
     
@@ -265,10 +291,16 @@ public class VncDB {
     
     @SuppressWarnings("unchecked")
     public SortedMap<String, VncVirtualNetworkInfo> populateVirtualNetworkInfo() 
-        throws IOException {
+        throws Exception {
         // Extract list of virtual networks
-        List<VirtualNetwork> networks = (List<VirtualNetwork>) 
+        List<VirtualNetwork> networks = null;
+        try {
+        networks = (List<VirtualNetwork>) 
                 apiConnector.list(VirtualNetwork.class, null);
+        } catch (Exception ex) {
+            s_logger.error("Exception in api.list: " + ex);
+            ex.printStackTrace();
+        }
         if (networks == null || networks.size() == 0) {
             s_logger.info("NO virtual networks FOUND");
             return null;
