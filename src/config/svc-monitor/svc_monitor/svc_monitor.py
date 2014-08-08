@@ -536,10 +536,15 @@ class SvcMonitor(object):
             self._svc_vm_cf.insert(vm_obj.uuid, row_entry)
 
             # uve trace
-            self._uve_svc_instance(si_obj.get_fq_name_str(),
-                                   status='CREATE', vm_uuid=vm_obj.uuid,
-                                   st_name=st_obj.get_fq_name_str(),
-                                   vr_name=':'.join(chosen_vr_fq_name))
+            if chosen_vr_fq_name:
+                self._uve_svc_instance(si_obj.get_fq_name_str(),
+                                       status='CREATE', vm_uuid=vm_obj.uuid,
+                                       st_name=st_obj.get_fq_name_str(),
+                                       vr_name=':'.join(chosen_vr_fq_name))
+            else:
+                self._uve_svc_instance(si_obj.get_fq_name_str(),
+                                       status='CREATE', vm_uuid=vm_obj.uuid,
+                                       st_name=st_obj.get_fq_name_str())
 
     def _create_svc_instance_vm(self, st_obj, si_obj):
         #check if all config received before launch
