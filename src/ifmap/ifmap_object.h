@@ -85,7 +85,7 @@ public:
     IFMapIdentifier();
     explicit IFMapIdentifier(int property_count);
 
-    virtual bool SetProperty(const std::string &attr_key,
+    virtual void SetProperty(const std::string &attr_key,
                              AutogenProperty *data) = 0;
     virtual void ClearProperty(const std::string &attr_key) = 0;
 

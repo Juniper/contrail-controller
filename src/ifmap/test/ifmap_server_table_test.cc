@@ -43,7 +43,7 @@ public:
     }
     virtual void EncodeUpdate(pugi::xml_node *parent) const {
     }
-    virtual bool SetProperty(const string &attr_key,
+    virtual void SetProperty(const string &attr_key,
                              AutogenProperty *data) {
         if (attr_key == "attr") {
             const TenantAttrData *dp =
@@ -51,7 +51,6 @@ public:
             attr_ = dp->data;
             attr_set_ = true;
         }
-        return true;
     }
     virtual void ClearProperty(const string &attr_key) {
         if (attr_key == "attr") {
@@ -81,9 +80,9 @@ public:
     }
     virtual void EncodeUpdate(pugi::xml_node *parent) const {
     }
-    virtual bool SetProperty(const string &attr_key,
+    virtual void SetProperty(const string &attr_key,
                             AutogenProperty *data) {
-        return true;
+        return;
     }
     virtual void ClearProperty(const string &attr_key) {
     }
@@ -103,9 +102,9 @@ public:
     }
     virtual void EncodeUpdate(pugi::xml_node *parent) const {
     }
-    virtual bool SetProperty(const string &attr_key,
+    virtual void SetProperty(const string &attr_key,
                              AutogenProperty *data) {
-        return true;
+        return;
     }
     virtual void ClearProperty(const string &attr_key) {
     }
@@ -125,9 +124,9 @@ public:
     }
     virtual void EncodeUpdate(pugi::xml_node *parent) const {
     }
-    virtual bool SetProperty(const string &attr_key,
+    virtual void SetProperty(const string &attr_key,
                             AutogenProperty *data) {
-        return true;
+        return;
     }
     virtual void ClearProperty(const string &attr_key) {
     }
