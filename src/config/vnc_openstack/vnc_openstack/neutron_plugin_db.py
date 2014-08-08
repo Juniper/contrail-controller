@@ -571,7 +571,12 @@ class DBInterface(object):
     #end _virtual_network_read
 
     def _virtual_network_update(self, net_obj):
-        self._vnc_lib.virtual_network_update(net_obj)
+        try:
+            self._vnc_lib.virtual_network_update(net_obj)
+        except PermissionDenied as e:
+            exc_info = {'type': 'BadRequest', 'message': str(e)}
+            bottle.abort(400, json.dumps(exc_info))
+
         # read back to get subnet gw allocated by api-server
         fq_name_str = json.dumps(net_obj.get_fq_name())
 
