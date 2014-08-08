@@ -1018,6 +1018,7 @@ void XmppStateMachine::OnSessionEvent(
                     "Event: Tcp Connect Fail ",
                     this->connection()->endpoint().address().to_string());
         Enqueue(xmsm::EvTcpConnectFail(static_cast<XmppSession *>(session)));
+        connection_->inc_connect_error();
         break;
     case TcpSession::CLOSE:
         XMPP_NOTICE(XmppEventLog, this->ChannelType(),

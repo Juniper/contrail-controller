@@ -301,6 +301,14 @@ void XmppConnection::IncProtoStats(unsigned int type) {
     }
 }
 
+void XmppConnection::inc_connect_error() {
+    error_stats_.connect_error++;
+}
+
+size_t XmppConnection::get_connect_error() {
+    return error_stats_.connect_error;
+}
+
 void XmppConnection::ReceiveMsg(XmppSession *session, const string &msg) {
     XmppStanza::XmppMessage *minfo = XmppDecode(msg);
 
@@ -390,11 +398,17 @@ public:
     }
 
     virtual bool MayDelete() const {
-        return parent_->MayDelete();
+        return (!parent_->on_work_queue() && parent_->MayDelete());
     }
 
     virtual void Shutdown() {
         CHECK_CONCURRENCY("bgp::Config");
+
+        // If the connection is still on the WorkQueue, simply add it to the
+        // ConnectionSet.  It won't be on the ConnectionMap.
+        if (parent_->on_work_queue()) {
+            server_->InsertDeletedConnection(parent_);
+        }
 
         // If the connection was rejected as duplicate, it will already be in
         // the ConnectionSet. Non-duplicate connections need to be moved from
@@ -403,7 +417,7 @@ public:
         // the XmppServer connection count doesn't temporarily become 0. This
         // is friendly to tests that wait for the XmppServer connection count
         // to become 0.
-        if (!parent_->duplicate()) {
+        else if (!parent_->duplicate()) {
             server_->InsertDeletedConnection(parent_);
             server_->RemoveConnection(parent_);
         }
@@ -443,6 +457,7 @@ XmppServerConnection::XmppServerConnection(XmppServer *server,
     const XmppChannelConfig *config)
     : XmppConnection(server, config), 
       duplicate_(false),
+      on_work_queue_(false),
       deleter_(new DeleteActor(server, this)),
       server_delete_ref_(this, server->deleter()) {
     assert(!config->ClientOnly());
@@ -564,6 +579,7 @@ private:
 XmppClientConnection::XmppClientConnection(XmppClient *server,
     const XmppChannelConfig *config)
     : XmppConnection(server, config), 
+      flap_count_(0),
       deleter_(new DeleteActor(server, this)),
       server_delete_ref_(this, server->deleter()) {
     assert(config->ClientOnly());
