@@ -280,23 +280,25 @@ class VirtualMachineInterfaceServer(VirtualMachineInterfaceServerGen):
             if not vn_fq_name:
                 return (False, (500, 'Internal error : ' + pformat(vn_dict)))
             vn_uuid = db_conn.fq_name_to_uuid('virtual-network', vn_fq_name)
-        (ok, vn_dict) = QuotaHelper.get_objtype_dict(vn_uuid, 'virtual-network', db_conn)
-        if not ok:
-            return (False, (500, 'Internal error : ' + pformat(vn_dict)))
 
-        if vn_dict['parent_type'] == 'project':
-            proj_uuid = vn_dict['parent_uuid']
-            (ok, proj_dict) = QuotaHelper.get_project_dict(proj_uuid, db_conn)
+        if not obj_dict['excluded_from_quota']:
+            (ok, vn_dict) = QuotaHelper.get_objtype_dict(vn_uuid, 'virtual-network', db_conn)
             if not ok:
-                return (False, (500, 'Internal error : ' + pformat(proj_dict)))
+                return (False, (500, 'Internal error : ' + pformat(vn_dict)))
 
-            obj_type = 'virtual-machine-interface'
-            QuotaHelper.ensure_quota_project_present(obj_type, proj_uuid, proj_dict, db_conn)
-            if 'virtual_machine_interfaces' in proj_dict:
-                quota_count = len(proj_dict['virtual_machine_interfaces'])
-                (ok, quota_limit) = QuotaHelper.check_quota_limit(proj_dict, obj_type, quota_count)
+            if vn_dict['parent_type'] == 'project':
+                proj_uuid = vn_dict['parent_uuid']
+                (ok, proj_dict) = QuotaHelper.get_project_dict(proj_uuid, db_conn)
                 if not ok:
-                    return (False, (403, pformat(obj_dict['fq_name']) + ' : ' + quota_limit))
+                    return (False, (500, 'Internal error : ' + pformat(proj_dict)))
+
+                obj_type = 'virtual-machine-interface'
+                QuotaHelper.ensure_quota_project_present(obj_type, proj_uuid, proj_dict, db_conn)
+                if 'virtual_machine_interfaces' in proj_dict:
+                    quota_count = len(proj_dict['virtual_machine_interfaces'])
+                    (ok, quota_limit) = QuotaHelper.check_quota_limit(proj_dict, obj_type, quota_count)
+                    if not ok:
+                        return (False, (403, pformat(obj_dict['fq_name']) + ' : ' + quota_limit))
 
         inmac = None
         if 'virtual_machine_interface_mac_addresses' in obj_dict:
@@ -353,17 +355,18 @@ class VirtualNetworkServer(VirtualNetworkServerGen):
         except cfgm_common.exceptions.NoIdError:
             return (False, (500, 'No Project ID error : ' + proj_uuid))
 
-        (ok, proj_dict) = QuotaHelper.get_project_dict(proj_uuid, db_conn)
-        if not ok:
-            return (False, (500, 'Internal error : ' + pformat(proj_dict)))
-
-        obj_type = 'virtual-network'
-        QuotaHelper.ensure_quota_project_present(obj_type, proj_uuid, proj_dict, db_conn)
-        if 'virtual_networks' in proj_dict:
-            quota_count = len(proj_dict['virtual_networks'])
-            (ok, quota_limit) = QuotaHelper.check_quota_limit(proj_dict, obj_type, quota_count)
+        if not obj_dict['excluded_from_quota']:
+            (ok, proj_dict) = QuotaHelper.get_project_dict(proj_uuid, db_conn)
             if not ok:
-                return (False, (403, pformat(obj_dict['fq_name']) + ' : ' + quota_limit))
+                return (False, (500, 'Internal error : ' + pformat(proj_dict)))
+
+            obj_type = 'virtual-network'
+            QuotaHelper.ensure_quota_project_present(obj_type, proj_uuid, proj_dict, db_conn)
+            if 'virtual_networks' in proj_dict:
+                quota_count = len(proj_dict['virtual_networks'])
+                (ok, quota_limit) = QuotaHelper.check_quota_limit(proj_dict, obj_type, quota_count)
+                if not ok:
+                    return (False, (403, pformat(obj_dict['fq_name']) + ' : ' + quota_limit))
 
         (ok, error) =  cls._check_route_targets(obj_dict, db_conn)
         if not ok:

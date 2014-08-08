@@ -806,7 +806,7 @@ class DBInterface(object):
         return resp_dict['floating-ip-pools']
     #end _fip_pool_list_network
 
-    def _port_list(self, net_objs, port_objs, iip_objs):
+    def _port_list(self, net_objs, port_objs, iip_objs, is_admin=False):
         ret_q_ports = []
 
         memo_req = {'networks': {},
@@ -824,13 +824,16 @@ class DBInterface(object):
             memo_req['instance-ips'][iip_obj.uuid] = iip_obj
 
         for port_obj in port_objs:
+            visibility = port_obj.get_visibility()
+            if visibility == 'admin' and not is_admin:
+                continue
             port_info = self._port_vnc_to_neutron(port_obj, memo_req)
             ret_q_ports.append(port_info)
 
         return ret_q_ports
     #end _port_list
 
-    def _port_list_network(self, network_ids, count=False):
+    def _port_list_network(self, network_ids, count=False, is_admin=False):
         ret_list = []
         net_objs = self._virtual_network_list(obj_uuids=network_ids,
                          fields=['virtual_machine_interface_back_refs'],
@@ -842,11 +845,11 @@ class DBInterface(object):
         port_objs = self._virtual_machine_interface_list(back_ref_id=net_ids)
         iip_objs = self._instance_ip_list(back_ref_id=net_ids)
 
-        return self._port_list(net_objs, port_objs, iip_objs)
+        return self._port_list(net_objs, port_objs, iip_objs, is_admin=is_admin)
     #end _port_list_network
 
     # find port ids on a given project
-    def _port_list_project(self, project_id, count=False):
+    def _port_list_project(self, project_id, count=False, is_admin=False):
         if self._list_optimization_enabled:
             port_objs = self._virtual_machine_interface_list(parent_id=project_id,
                                                              fields=['instance_ip_back_refs'])
@@ -876,7 +879,7 @@ class DBInterface(object):
             net_ids = [net_obj.uuid for net_obj in net_objs]
             port_objs = self._virtual_machine_interface_list(back_ref_id=net_ids)
             iip_objs = self._instance_ip_list(back_ref_id=net_ids)
-            return self._port_list(net_objs, port_objs, iip_objs)
+            return self._port_list(net_objs, port_objs, iip_objs, is_admin=is_admin)
     #end _port_list_project
 
     # Returns True if
@@ -2190,6 +2193,10 @@ class DBInterface(object):
             if not self._filters_is_present(filters, 'shared',
                                             is_shared):
                 continue
+            visibility = net_obj.get_visibility()
+            if (visibility and visibility == 'admin' and 
+                context and not context['is_admin']):
+                continue
             try:
                 net_info = self._network_vnc_to_neutron(net_obj,
                                                         net_repr='LIST')
@@ -3347,7 +3354,8 @@ class DBInterface(object):
                 port_net_objs = port_net_gevent.value
 
                 ret_q_ports = self._port_list(port_net_objs, all_port_objs,
-                                              port_iip_objs)
+                                              port_iip_objs, 
+                                              is_admin=context.get('is_admin', False))
 
             elif 'tenant_id' in filters:
                 all_project_ids = self._validate_project_ids(context,
@@ -3367,7 +3375,8 @@ class DBInterface(object):
                 ret_q_ports = self._port_list_project(proj_id)
 
             if 'network_id' in filters:
-                ret_q_ports = self._port_list_network(filters['network_id'])
+                ret_q_ports = self._port_list_network(filters['network_id'],
+                                                      is_admin=context['is_admin'])
 
             # prune phase
             ret_list = []

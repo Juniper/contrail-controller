@@ -1172,6 +1172,22 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
      Link('logical-router-gateway',
           'logical-router', 'virtual-network', ['ref']) -->
 
+<xsd:simpleType name="VisibilityType" default="all">
+    <xsd:restriction base="xsd:string">
+        <xsd:enumeration value="all"/>
+        <xsd:enumeration value="admin"/>
+    </xsd:restriction>
+</xsd:simpleType>
+
+<xsd:element name="visibility" type="VisibilityType"/>
+<!--#IFMAP-SEMANTICS-IDL 
+     Property('visibility', 'all') -->
+
+<xsd:element name="excluded_from_quota" type="xsd::boolean" default="false"/>
+<!--#IFMAP-SEMANTICS-IDL 
+     Property('excluded_from_quota', 'all') -->
+
+
 <!-- Neutron extensions -->
 <xsd:include schemaLocation='loadbalancer.xsd'/>
 
