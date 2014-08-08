@@ -104,6 +104,7 @@ int main(int argc, char *argv[]) {
         ("DEFAULT.use_syslog", "Enable logging to syslog")
         ("DEFAULT.syslog_facility", opt::value<string>()->default_value("LOG_LOCAL0"),
          "Syslog facility to receive log lines")
+        ("DEFAULT.log_flow", "Enable local logging of flow sandesh messages")
         ("DEFAULT.tunnel_type", opt::value<string>()->default_value("MPLSoGRE"),
          "Tunnel Encapsulation type <MPLSoGRE|MPLSoUDP|VXLAN>")
         ("DISCOVERY.server", opt::value<string>(), 
