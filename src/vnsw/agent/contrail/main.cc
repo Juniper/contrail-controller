@@ -97,6 +97,7 @@ int main(int argc, char *argv[]) {
         ("DEFAULT.log_level", opt::value<string>()->default_value("SYS_DEBUG"),
          "Severity level for local logging of sandesh messages")
         ("DEFAULT.log_local", "Enable local logging of sandesh messages")
+        ("DEFAULT.log_flow", "Enable local logging of flow sandesh messages")
         ("DEFAULT.tunnel_type", opt::value<string>()->default_value("MPLSoGRE"),
          "Tunnel Encapsulation type <MPLSoGRE|MPLSoUDP|VXLAN>")
         ("DISCOVERY.server", opt::value<string>(), 

@@ -61,7 +61,9 @@ void ContrailAgentInit::InitVmwareInterface() {
 void ContrailAgentInit::InitLogging() {
     Sandesh::SetLoggingParams(params_->log_local(),
                               params_->log_category(),
-                              params_->log_level());
+                              params_->log_level(),
+                              false,
+                              params_->log_flow());
 }
 
 // Connect to collector specified in config, if discovery server is not set
