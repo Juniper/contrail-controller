@@ -25,6 +25,7 @@ public:
 
     virtual TcpSession *CreateSession();
     virtual bool Initialize(short port);
+    void Shutdown();
     void Terminate();
     bool IsQueueEmpty() const { return session_queue_.IsQueueEmpty(); }
 
@@ -39,6 +40,7 @@ private:
 
     BgpPeer *FindPeer(Endpoint remote);
     bool ProcessSession(BgpSession *session);
+    void ProcessSessionDone(bool done);
     size_t GetQueueSize() const;
     void SetQueueDisable(bool disabled);
 
