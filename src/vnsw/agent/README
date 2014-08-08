@@ -26,21 +26,23 @@ Agent contains following modules,
     - Services
     - KSync
 
-The contrail-vxlan-agent is port of contrail-vrouter-agent on platforms
-supporting vxlan bridges. The diagram below gives overview of different
-modules invovlved
+Agent by itself is not a program or daemon. Based on the platform, daemons are
+built using the modules given above. The contrail-vxlan-agent is port of
+contrail-vrouter-agent on platforms supporting vxlan bridges.
 
-+-----------------------------------------------------------+                      
-|                                                           |                      
-|                                      +----------------+   |  Thrift IPC            
-|      +-------------------------------|Instance Service|<---------                 
-|      |                               +----------------+   |                      
-|   Add/Del Port                                            |                      
-|      |                               +----------------+   |   +-------------+        
-|      |                         +---->| Vrouter KSync  |------>|Vrouter      |        
-|      |                         |     +------^---------+   |   +-------------+        
+The diagram below gives overview of different modules invovlved
+
++-----------------------------------------------------------+
+|                                                           |
+|                                      +----------------+   |  Thrift IPC
+|      +-------------------------------|Instance Service|<---------
+|      |                               +----------------+   |
+|   Add/Del Port                                            |
+|      |                               +----------------+   |   +-------------+
+|      |                         +---->| Vrouter KSync  |------>|Vrouter      |
+|      |                         |     +------^---------+   |   +-------------+
 |      |                         |            |             |   Netlink msgs
-|      |                         |            |             |   
+|      |                         |            |             |
 |      |                         |     +------+---------+   |
 |      |                         +---->| Flow           |   |
 |      |                         |     +----------------+   |
@@ -53,24 +55,24 @@ modules invovlved
 | |Config  |---->| Oper-DB |-----+                          |
 | +----^---+     +-----^---+     |                          |
 |      |               |         |                          |  IFMap msgs on
-|      |               |         |                          |  XMPP Channel                 
-|   IFMap           Routes       |    +----------------+    |  +-------------+            
-|      |               |         |--->| Controller     |<----->|Control Node |            
-|      |               |         |    +--+------+---^--+    |  +-------------+            
-|      |               |         |       |      |   |       |                             
-|      |               +---------|-------+      |   |       |                             
-|      +-------------------------|--------------+   |       |                             
-|                                |                  |       |                             
-|                                |     +------------+---+   |                      
-|                                +---->| Discovery      |   |                      
-|                                      +------------+---+   |                      
-|                                                   |       |                      
-|                                                   |       |
-|                                      +------------V--+    |
-|                                      | UVE           |    |                             
+|      |               |         |                          |  XMPP Channel
+|   IFMap           Routes       |    +----------------+    |  +-------------+
+|      |               |         |--->| Controller     |<----->|Control Node |
+|      |               |         |    +--+------+---^--+    |  +-------------+
+|      |               |         |       |      |   |       |
+|      |               +---------|-------+      |   |       |
+|      +-------------------------|--------------+   |       |
+|                                |                  |       |
+|                                |     +------------+---+   |  +-------------+
+|                                |     | Discovery      |<---->| Analytics   |
+|                                |     +------------+---+   |  +-------------+
+|                                |                  |       |       ^
+|                                |                  |       |       |
+|                                |     +------------V--+    |       |
+|                                |---->| UVE           |<-----------+
 |                                      +---------------+    |
-|                AGENT                                      |                             
-+-----------------------------------------------------------+                             
+|                AGENT                                      |
++-----------------------------------------------------------+
 
 
 Config :
