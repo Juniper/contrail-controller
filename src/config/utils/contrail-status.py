@@ -7,27 +7,30 @@ from optparse import OptionParser
 import subprocess
 import os
 import glob
-import platform
+
+try:
+    subprocess.check_call(["dpkg-vendor", "--derives-from", "debian"])
+    distribution = 'debian'
+except:
+    distribution = 'centos'
 
 def service_installed(svc):
-    (dist, x, y) = platform.dist()
-    if dist == 'Ubuntu':
+    if distribution == 'debian':
         cmd = 'initctl show-config ' + svc
-    elif dist == 'centos':
+    else:
         cmd = 'chkconfig --list ' + svc
     with open(os.devnull, "w") as fnull:
         return not subprocess.call(cmd.split(), stdout=fnull, stderr=fnull)
 
 def service_bootstatus(svc):
-    (dist, x, y) = platform.dist()
-    if dist == 'Ubuntu':
+    if distribution == 'debian':
         cmd = 'initctl show-config ' + svc
         cmdout = subprocess.Popen(cmd.split(), stdout=subprocess.PIPE).communicate()[0]
         if cmdout.find('  start on') != -1:
             return ''
         else:
             return ' (disabled on boot)'
-    elif dist == 'centos':
+    else:
         cmd = 'chkconfig ' + svc
         with open(os.devnull, "w") as fnull:
             if not subprocess.call(cmd.split(), stdout=fnull, stderr=fnull):
@@ -91,10 +94,9 @@ def supervisor_status(nodetype):
         check_supervisor_svc(9008)
 
 def package_installed(pkg):
-    (dist, x, y) = platform.dist()
-    if dist == 'Ubuntu':
+    if distribution == 'debian':
         cmd = "dpkg -l " + pkg
-    elif dist == 'centos':
+    else:
         cmd = "rpm -q " + pkg
     with open(os.devnull, "w") as fnull:
         return (not subprocess.call(cmd.split(), stdout=fnull, stderr=fnull))
