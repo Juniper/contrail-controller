@@ -26,6 +26,7 @@ public:
     virtual TcpSession *CreateSession();
     virtual bool Initialize(short port);
     void Terminate();
+    bool IsQueueEmpty() const { return session_queue_.IsQueueEmpty(); }
 
     BgpServer *server() { return server_; }
 
@@ -36,7 +37,7 @@ protected:
 private:
     friend class BgpServerUnitTest;
 
-    BgpPeer *FindPeer(boost::asio::ip::tcp::endpoint remote_endpoint);
+    BgpPeer *FindPeer(Endpoint remote);
     bool ProcessSession(BgpSession *session);
     size_t GetQueueSize() const;
     void SetQueueDisable(bool disabled);

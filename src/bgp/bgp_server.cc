@@ -157,12 +157,15 @@ private:
 class BgpServer::DeleteActor : public LifetimeActor {
 public:
     DeleteActor(BgpServer *server)
-        : LifetimeActor(server->lifetime_manager()), server_(server) { }
+        : LifetimeActor(server->lifetime_manager()), server_(server) {
+    }
     virtual bool MayDelete() const {
-        return true;
+        CHECK_CONCURRENCY("bgp::Config");
+        return server_->session_manager()->IsQueueEmpty();
     }
     virtual void Shutdown() {
         CHECK_CONCURRENCY("bgp::Config");
+        server_->session_manager()->Shutdown();
     }
     virtual void Destroy() {
         CHECK_CONCURRENCY("bgp::Config");
@@ -175,6 +178,10 @@ public:
 private:
     BgpServer *server_;
 };
+
+bool BgpServer::IsDeleted() const {
+    return deleter_->IsDeleted();
+}
 
 bool BgpServer::IsReadyForDeletion() {
     CHECK_CONCURRENCY("bgp::Config");
@@ -236,7 +243,6 @@ string BgpServer::ToString() const {
 }
 
 void BgpServer::Shutdown() {
-    session_mgr_->Shutdown();
     deleter_->Delete();
 }
 
