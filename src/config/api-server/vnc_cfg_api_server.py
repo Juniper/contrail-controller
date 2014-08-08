@@ -1086,7 +1086,7 @@ class VncApiServer(VncApiServerGen):
                     log_msg = 'UUID mismatch from %s:%s' \
                         % (request.environ['REMOTE_ADDR'],
                            request.environ['HTTP_USER_AGENT'])
-                    self.config_object_error(request,
+                    self.config_object_error(
                         obj_uuid, fq_name_str, obj_type, 'put', log_msg)
                     self._db_conn.set_uuid(obj_type, obj_dict,
                                            uuid.UUID(obj_uuid),
