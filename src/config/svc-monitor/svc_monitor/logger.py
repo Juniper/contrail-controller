@@ -7,6 +7,7 @@
 Service monitor logger
 """
 
+import datetime
 import socket
 
 from cfgm_common import vnc_cpu_info
@@ -24,6 +25,10 @@ from pysandesh.gen_py.process_info.ttypes import ConnectionType, \
     ConnectionStatus
 from cfgm_common.uve.cfgm_cpuinfo.ttypes import NodeStatusUVE, \
     NodeStatus
+
+_MGMT_STR = "management"
+_LEFT_STR = "left"
+_RIGHT_STR = "right"
 
 
 class ServiceMonitorLogger(object):
@@ -44,7 +49,8 @@ class ServiceMonitorLogger(object):
 
         # connection state init
         ConnectionState.init(self._sandesh, self._hostname, self._module_name,
-            self._instance_id, ConnectionState.get_process_state_cb,
+            self._instance_id,
+            staticmethod(ConnectionState.get_process_state_cb),
             NodeStatusUVE, NodeStatus)
 
         #create cpu_info object to send periodic updates
@@ -149,8 +155,8 @@ class ServiceMonitorLogger(object):
                 (delta.seconds + delta.days * 24 * 3600) * 10 ** 6)
 
 
-    def _uve_svc_instance(self, si_fq_name_str, status=None,
-                          vm_uuid=None, st_name=None):
+    def uve_svc_instance(self, si_fq_name_str, status=None,
+                         vm_uuid=None, st_name=None, vr_name=None):
         svc_uve = UveSvcInstanceConfig(name=si_fq_name_str,
                                        deleted=False, st_name=None,
                                        vm_list=[], create_ts=None)
@@ -159,6 +165,9 @@ class ServiceMonitorLogger(object):
             svc_uve.st_name = st_name
         if vm_uuid:
             svc_uve.vm_list.append(vm_uuid)
+            #TODO
+            #svc_uve_vm = UveSvcInstanceVMConfig(uuid=vm_uuid, vr_name=vr_name)
+            #svc_uve.vm_list.append(svc_uve_vm)
         if status:
             svc_uve.status = status
             if status == 'CREATE':
@@ -179,7 +188,7 @@ class ServiceMonitorLogger(object):
         sandesh_instance.init_generator(
             self._module_name, self._hostname, self._node_type_name, 
             self._instance_id, self._args.collectors, 'svc_monitor_context',
-            int(self._args.http_server_port), ['cfgm_common', 'sandesh'],
+            int(self._args.http_server_port), ['cfgm_common', 'svc_monitor.sandesh'],
             discovery)
         sandesh_instance.set_logging_params(
             enable_local_log=self._args.log_local,
