@@ -128,19 +128,29 @@ TEST_F(BgpXmppBasicTest, ClearAllConnections) {
     TASK_UTIL_EXPECT_TRUE(agent_b_->IsEstablished());
     TASK_UTIL_EXPECT_TRUE(agent_c_->IsEstablished());
 
-    int flap_a = GetXmppConnectionFlapCount(agent_a_->localaddr());
-    int flap_b = GetXmppConnectionFlapCount(agent_b_->localaddr());
-    int flap_c = GetXmppConnectionFlapCount(agent_c_->localaddr());
+    int client_flap_a = agent_a_->flap_count();
+    int client_flap_b = agent_b_->flap_count();
+    int client_flap_c = agent_c_->flap_count();
 
+    int server_flap_a = GetXmppConnectionFlapCount(agent_a_->localaddr());
+    int server_flap_b = GetXmppConnectionFlapCount(agent_b_->localaddr());
+    int server_flap_c = GetXmppConnectionFlapCount(agent_c_->localaddr());
+
+    TaskScheduler::GetInstance()->Stop();
     xs_x_->ClearAllConnections();
+    TaskScheduler::GetInstance()->Start();
     task_util::WaitForIdle();
 
+    TASK_UTIL_EXPECT_TRUE(agent_a_->flap_count() > client_flap_a);
+    TASK_UTIL_EXPECT_TRUE(agent_b_->flap_count() > client_flap_b);
+    TASK_UTIL_EXPECT_TRUE(agent_c_->flap_count() > client_flap_c);
+
     TASK_UTIL_EXPECT_TRUE(
-        GetXmppConnectionFlapCount(agent_a_->localaddr()) > flap_a);
+        GetXmppConnectionFlapCount(agent_a_->localaddr()) > server_flap_a);
     TASK_UTIL_EXPECT_TRUE(
-        GetXmppConnectionFlapCount(agent_b_->localaddr()) > flap_b);
+        GetXmppConnectionFlapCount(agent_b_->localaddr()) > server_flap_b);
     TASK_UTIL_EXPECT_TRUE(
-        GetXmppConnectionFlapCount(agent_c_->localaddr()) > flap_c);
+        GetXmppConnectionFlapCount(agent_c_->localaddr()) > server_flap_c);
 
     TASK_UTIL_EXPECT_TRUE(agent_a_->IsEstablished());
     TASK_UTIL_EXPECT_TRUE(agent_b_->IsEstablished());
@@ -153,19 +163,29 @@ TEST_F(BgpXmppBasicTest, ClearConnection) {
     TASK_UTIL_EXPECT_TRUE(agent_b_->IsEstablished());
     TASK_UTIL_EXPECT_TRUE(agent_c_->IsEstablished());
 
-    int flap_a = GetXmppConnectionFlapCount(agent_a_->localaddr());
-    int flap_b = GetXmppConnectionFlapCount(agent_b_->localaddr());
-    int flap_c = GetXmppConnectionFlapCount(agent_c_->localaddr());
+    int client_flap_a = agent_a_->flap_count();
+    int client_flap_b = agent_b_->flap_count();
+    int client_flap_c = agent_c_->flap_count();
 
+    int server_flap_a = GetXmppConnectionFlapCount(agent_a_->localaddr());
+    int server_flap_b = GetXmppConnectionFlapCount(agent_b_->localaddr());
+    int server_flap_c = GetXmppConnectionFlapCount(agent_c_->localaddr());
+
+    TaskScheduler::GetInstance()->Stop();
     EXPECT_TRUE(xs_x_->ClearConnection("agent-b"));
+    TaskScheduler::GetInstance()->Start();
     task_util::WaitForIdle();
 
+    TASK_UTIL_EXPECT_TRUE(agent_b_->flap_count() > client_flap_b);
+    TASK_UTIL_EXPECT_TRUE(agent_a_->flap_count() == client_flap_a);
+    TASK_UTIL_EXPECT_TRUE(agent_c_->flap_count() == client_flap_c);
+
     TASK_UTIL_EXPECT_TRUE(
-        GetXmppConnectionFlapCount(agent_b_->localaddr()) > flap_b);
+        GetXmppConnectionFlapCount(agent_b_->localaddr()) > server_flap_b);
     TASK_UTIL_EXPECT_TRUE(
-        GetXmppConnectionFlapCount(agent_a_->localaddr()) == flap_a);
+        GetXmppConnectionFlapCount(agent_a_->localaddr()) == server_flap_a);
     TASK_UTIL_EXPECT_TRUE(
-        GetXmppConnectionFlapCount(agent_c_->localaddr()) == flap_c);
+        GetXmppConnectionFlapCount(agent_c_->localaddr()) == server_flap_c);
 
     TASK_UTIL_EXPECT_TRUE(agent_a_->IsEstablished());
     TASK_UTIL_EXPECT_TRUE(agent_b_->IsEstablished());
@@ -178,11 +198,32 @@ TEST_F(BgpXmppBasicTest, ClearNonExistentConnection) {
     TASK_UTIL_EXPECT_TRUE(agent_b_->IsEstablished());
     TASK_UTIL_EXPECT_TRUE(agent_c_->IsEstablished());
 
+    int client_flap_a = agent_a_->flap_count();
+    int client_flap_b = agent_b_->flap_count();
+    int client_flap_c = agent_c_->flap_count();
+
+    int server_flap_a = GetXmppConnectionFlapCount(agent_a_->localaddr());
+    int server_flap_b = GetXmppConnectionFlapCount(agent_b_->localaddr());
+    int server_flap_c = GetXmppConnectionFlapCount(agent_c_->localaddr());
+
+    TaskScheduler::GetInstance()->Stop();
     EXPECT_FALSE(xs_x_->ClearConnection("agent-bx"));
     EXPECT_FALSE(xs_x_->ClearConnection("agent-"));
     EXPECT_FALSE(xs_x_->ClearConnection("all"));
     EXPECT_FALSE(xs_x_->ClearConnection("*"));
+    TaskScheduler::GetInstance()->Start();
     task_util::WaitForIdle();
+
+    TASK_UTIL_EXPECT_TRUE(agent_a_->flap_count() == client_flap_a);
+    TASK_UTIL_EXPECT_TRUE(agent_b_->flap_count() == client_flap_b);
+    TASK_UTIL_EXPECT_TRUE(agent_c_->flap_count() == client_flap_c);
+
+    TASK_UTIL_EXPECT_TRUE(
+        GetXmppConnectionFlapCount(agent_a_->localaddr()) == server_flap_a);
+    TASK_UTIL_EXPECT_TRUE(
+        GetXmppConnectionFlapCount(agent_b_->localaddr()) == server_flap_b);
+    TASK_UTIL_EXPECT_TRUE(
+        GetXmppConnectionFlapCount(agent_c_->localaddr()) == server_flap_c);
 
     TASK_UTIL_EXPECT_TRUE(agent_a_->IsEstablished());
     TASK_UTIL_EXPECT_TRUE(agent_b_->IsEstablished());
@@ -199,20 +240,28 @@ TEST_F(BgpXmppBasicTest, ChangeAsNumber) {
     TASK_UTIL_EXPECT_TRUE(agent_b_->IsEstablished());
     TASK_UTIL_EXPECT_TRUE(agent_c_->IsEstablished());
 
-    int flap_a = GetXmppConnectionFlapCount(agent_a_->localaddr());
-    int flap_b = GetXmppConnectionFlapCount(agent_b_->localaddr());
-    int flap_c = GetXmppConnectionFlapCount(agent_c_->localaddr());
+    int client_flap_a = agent_a_->flap_count();
+    int client_flap_b = agent_b_->flap_count();
+    int client_flap_c = agent_c_->flap_count();
+
+    int server_flap_a = GetXmppConnectionFlapCount(agent_a_->localaddr());
+    int server_flap_b = GetXmppConnectionFlapCount(agent_b_->localaddr());
+    int server_flap_c = GetXmppConnectionFlapCount(agent_c_->localaddr());
 
     Configure(bgp_config_template, 64513);
     task_util::WaitForIdle();
     TASK_UTIL_EXPECT_EQ(64513, bs_x_->autonomous_system());
 
+    TASK_UTIL_EXPECT_TRUE(agent_a_->flap_count() > client_flap_a);
+    TASK_UTIL_EXPECT_TRUE(agent_b_->flap_count() > client_flap_b);
+    TASK_UTIL_EXPECT_TRUE(agent_c_->flap_count() > client_flap_c);
+
     TASK_UTIL_EXPECT_TRUE(
-        GetXmppConnectionFlapCount(agent_a_->localaddr()) > flap_a);
+        GetXmppConnectionFlapCount(agent_a_->localaddr()) > server_flap_a);
     TASK_UTIL_EXPECT_TRUE(
-        GetXmppConnectionFlapCount(agent_b_->localaddr()) > flap_b);
+        GetXmppConnectionFlapCount(agent_b_->localaddr()) > server_flap_b);
     TASK_UTIL_EXPECT_TRUE(
-        GetXmppConnectionFlapCount(agent_c_->localaddr()) > flap_c);
+        GetXmppConnectionFlapCount(agent_c_->localaddr()) > server_flap_c);
 
     TASK_UTIL_EXPECT_TRUE(agent_a_->IsEstablished());
     TASK_UTIL_EXPECT_TRUE(agent_b_->IsEstablished());
