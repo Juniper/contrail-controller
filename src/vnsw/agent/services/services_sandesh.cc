@@ -394,9 +394,9 @@ void ServicesSandesh::FillDhcpOptions(DhcpOptions *opt, std::string &resp,
                     resp += FillOptionIp(get_val(opt->data), "DNS : ");
                 break;
 
-            case DHCP_OPTION_NTP:
+            case DHCP_OPTION_TIME_SERVER:
                 if (len >= (2 + opt->len))
-                    resp += FillOptionIp(get_val(opt->data), "NTP : ");
+                    resp += FillOptionIp(get_val(opt->data), "Time Server : ");
                 break;
 
             case DHCP_OPTION_SERVER_IDENTIFIER:
