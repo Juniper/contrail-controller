@@ -97,6 +97,12 @@ public:
                                              this, _1));
     }
 
+    void UnRegisterWithXmpp() {
+        XmppChannel *channel = FindChannel(XMPP_CONTROL_SERV);
+        assert(channel);
+        channel->UnRegisterReceive(xmps::CONFIG);
+    }
+
     bool IsEstablished() {
         XmppConnection *cconnection = FindConnection(XMPP_CONTROL_SERV);
         if (cconnection == NULL) {
@@ -333,7 +339,9 @@ protected:
     XmppIfmapTest()
          : ifmap_server_(&db_, &graph_, evm_.io_service()),
            exporter_(ifmap_server_.exporter()),
-           parser_(NULL) {
+           parser_(NULL),
+           xmpp_server_(NULL),
+           vm_uuid_mapper_(NULL) {
     }
 
     virtual void SetUp() {
@@ -624,6 +632,7 @@ TEST_F(XmppIfmapTest, Connection) {
     // verify ifmap_server client cleanup
     EXPECT_EQ(true, IsIFMapClientUnregistered(&ifmap_server_, client_name));
 
+    vnsw_client->UnRegisterWithXmpp();
     vnsw_client->Shutdown();
     task_util::WaitForIdle();
     TcpServerManager::DeleteServer(vnsw_client);
@@ -692,6 +701,7 @@ TEST_F(XmppIfmapTest, CheckClientGraphCleanupTest) {
     // interest and advertised must be false since the client is gone
     CheckClientBits(client_name, cli_index, false, false);
 
+    vnsw_client->UnRegisterWithXmpp();
     vnsw_client->Shutdown();
     task_util::WaitForIdle();
     TcpServerManager::DeleteServer(vnsw_client);
@@ -752,6 +762,7 @@ TEST_F(XmppIfmapTest, CheckClientGraphCleanupTest) {
     // interest and advertised must be false since the client is gone
     CheckClientBits(vnsw_client->name(), cli_index, false, false);
 
+    vnsw_client->UnRegisterWithXmpp();
     vnsw_client->Shutdown();
     task_util::WaitForIdle();
     TcpServerManager::DeleteServer(vnsw_client);
@@ -824,6 +835,7 @@ TEST_F(XmppIfmapTest, DeleteProperty) {
     // interest and advertised must be false since the client is gone
     CheckClientBits(vnsw_client->name(), cli_index, false, false);
 
+    vnsw_client->UnRegisterWithXmpp();
     vnsw_client->Shutdown();
     task_util::WaitForIdle();
     TcpServerManager::DeleteServer(vnsw_client);
@@ -935,6 +947,7 @@ TEST_F(XmppIfmapTest, VrVmSubUnsub) {
     // interest and advertised must be false since the client is gone
     CheckClientBits(vnsw_client->name(), cli_index, false, false);
 
+    vnsw_client->UnRegisterWithXmpp();
     vnsw_client->Shutdown();
     task_util::WaitForIdle();
     TcpServerManager::DeleteServer(vnsw_client);
@@ -1088,6 +1101,7 @@ TEST_F(XmppIfmapTest, VrVmSubUnsubTwice) {
     // interest and advertised must be false since the client is gone
     CheckClientBits(vnsw_client->name(), cli_index, false, false);
 
+    vnsw_client->UnRegisterWithXmpp();
     vnsw_client->Shutdown();
     task_util::WaitForIdle();
     TcpServerManager::DeleteServer(vnsw_client);
@@ -1236,6 +1250,7 @@ TEST_F(XmppIfmapTest, VrVmSubThrice) {
     // interest and advertised must be false since the client is gone
     CheckClientBits(vnsw_client->name(), cli_index, false, false);
 
+    vnsw_client->UnRegisterWithXmpp();
     vnsw_client->Shutdown();
     task_util::WaitForIdle();
     TcpServerManager::DeleteServer(vnsw_client);
@@ -1378,6 +1393,7 @@ TEST_F(XmppIfmapTest, VrVmUnsubThrice) {
     // Interest and advertised must be false since the client is gone
     CheckClientBits(vnsw_client->name(), cli_index, false, false);
 
+    vnsw_client->UnRegisterWithXmpp();
     vnsw_client->Shutdown();
     task_util::WaitForIdle();
     TcpServerManager::DeleteServer(vnsw_client);
@@ -1484,6 +1500,7 @@ TEST_F(XmppIfmapTest, VrVmSubConnClose) {
     // Interest and advertised must be false since the client is gone
     CheckClientBits(vnsw_client->name(), cli_index, false, false);
 
+    vnsw_client->UnRegisterWithXmpp();
     vnsw_client->Shutdown();
     task_util::WaitForIdle();
     TcpServerManager::DeleteServer(vnsw_client);
@@ -1601,6 +1618,7 @@ TEST_F(XmppIfmapTest, RegBeforeConfig) {
     // Interest and advertised must be false since the client is gone
     CheckClientBits(vnsw_client->name(), cli_index, false, false);
 
+    vnsw_client->UnRegisterWithXmpp();
     vnsw_client->Shutdown();
     task_util::WaitForIdle();
     TcpServerManager::DeleteServer(vnsw_client);
@@ -1681,6 +1699,7 @@ TEST_F(XmppIfmapTest, Cli1Vn1Vm3Add) {
         "controller/src/ifmap/testdata/cli1_vn1_vm3_add.master_output");
     EXPECT_EQ(true, bresult);
 
+    vnsw_client->UnRegisterWithXmpp();
     vnsw_client->Shutdown();
     task_util::WaitForIdle();
     TcpServerManager::DeleteServer(vnsw_client);
@@ -1761,6 +1780,7 @@ TEST_F(XmppIfmapTest, Cli1Vn2Np1Add) {
         "controller/src/ifmap/testdata/cli1_vn2_np1_add.master_output");
     EXPECT_EQ(true, bresult);
 
+    vnsw_client->UnRegisterWithXmpp();
     vnsw_client->Shutdown();
     task_util::WaitForIdle();
     TcpServerManager::DeleteServer(vnsw_client);
@@ -1840,6 +1860,7 @@ TEST_F(XmppIfmapTest, Cli1Vn2Np2Add) {
         "controller/src/ifmap/testdata/cli1_vn2_np2_add.master_output");
     EXPECT_EQ(true, bresult);
 
+    vnsw_client->UnRegisterWithXmpp();
     vnsw_client->Shutdown();
     task_util::WaitForIdle();
     TcpServerManager::DeleteServer(vnsw_client);
@@ -1950,10 +1971,12 @@ TEST_F(XmppIfmapTest, Cli2Vn2Np2Add) {
         "controller/src/ifmap/testdata/cli2_vn2_np2_add_a1s28.master_output");
     EXPECT_EQ(true, bresult);
 
+    vnsw_cli1->UnRegisterWithXmpp();
     vnsw_cli1->Shutdown();
     task_util::WaitForIdle();
     TcpServerManager::DeleteServer(vnsw_cli1);
     vnsw_cli1 = NULL;
+    vnsw_cli2->UnRegisterWithXmpp();
     vnsw_cli2->Shutdown();
     task_util::WaitForIdle();
     TcpServerManager::DeleteServer(vnsw_cli2);
@@ -2070,10 +2093,12 @@ TEST_F(XmppIfmapTest, Cli2Vn2Vm2Add) {
         "controller/src/ifmap/testdata/cli2_vn2_vm2_add_a1s28.master_output");
     EXPECT_EQ(true, bresult);
 
+    vnsw_cli1->UnRegisterWithXmpp();
     vnsw_cli1->Shutdown();
     task_util::WaitForIdle();
     TcpServerManager::DeleteServer(vnsw_cli1);
     vnsw_cli1 = NULL;
+    vnsw_cli2->UnRegisterWithXmpp();
     vnsw_cli2->Shutdown();
     task_util::WaitForIdle();
     TcpServerManager::DeleteServer(vnsw_cli2);
@@ -2206,10 +2231,12 @@ TEST_F(XmppIfmapTest, Cli2Vn3Vm6Np2Add) {
       "controller/src/ifmap/testdata/cli2_vn3_vm6_np2_add_a1s28.master_output");
     EXPECT_EQ(true, bresult);
 
+    vnsw_cli1->UnRegisterWithXmpp();
     vnsw_cli1->Shutdown();
     task_util::WaitForIdle();
     TcpServerManager::DeleteServer(vnsw_cli1);
     vnsw_cli1 = NULL;
+    vnsw_cli2->UnRegisterWithXmpp();
     vnsw_cli2->Shutdown();
     task_util::WaitForIdle();
     TcpServerManager::DeleteServer(vnsw_cli2);
@@ -2371,6 +2398,7 @@ TEST_F(XmppIfmapTest, CfgSubUnsub) {
     // interest and advertised must be false since the client is gone
     CheckClientBits(vnsw_client->name(), cli_index, false, false);
 
+    vnsw_client->UnRegisterWithXmpp();
     vnsw_client->Shutdown();
     task_util::WaitForIdle();
     TcpServerManager::DeleteServer(vnsw_client);
@@ -2546,6 +2574,7 @@ TEST_F(XmppIfmapTest, CfgAdd_Reg_CfgDel_Unreg) {
     // Verify ifmap_server client cleanup
     EXPECT_EQ(true, IsIFMapClientUnregistered(&ifmap_server_, client_name));
 
+    vnsw_client->UnRegisterWithXmpp();
     vnsw_client->Shutdown();
     task_util::WaitForIdle();
     TcpServerManager::DeleteServer(vnsw_client);
@@ -2735,6 +2764,7 @@ TEST_F(XmppIfmapTest, Reg_CfgAdd_CfgDel_Unreg) {
     // Verify ifmap_server client cleanup
     EXPECT_EQ(true, IsIFMapClientUnregistered(&ifmap_server_, client_name));
 
+    vnsw_client->UnRegisterWithXmpp();
     vnsw_client->Shutdown();
     task_util::WaitForIdle();
     TcpServerManager::DeleteServer(vnsw_client);
@@ -2915,6 +2945,7 @@ TEST_F(XmppIfmapTest, Reg_CfgAdd_Unreg_CfgDel) {
     // Verify ifmap_server client cleanup
     EXPECT_EQ(true, IsIFMapClientUnregistered(&ifmap_server_, client_name));
 
+    vnsw_client->UnRegisterWithXmpp();
     vnsw_client->Shutdown();
     task_util::WaitForIdle();
     TcpServerManager::DeleteServer(vnsw_client);
@@ -3106,6 +3137,7 @@ TEST_F(XmppIfmapTest, Reg_CfgAdd_Unreg_Close) {
     // Verify ifmap_server client cleanup
     EXPECT_EQ(true, IsIFMapClientUnregistered(&ifmap_server_, client_name));
 
+    vnsw_client->UnRegisterWithXmpp();
     vnsw_client->Shutdown();
     task_util::WaitForIdle();
     TcpServerManager::DeleteServer(vnsw_client);
@@ -3352,6 +3384,7 @@ TEST_F(XmppIfmapTest, CheckIFMapObjectSeqInList) {
     // Verify ifmap_server client cleanup
     EXPECT_EQ(true, IsIFMapClientUnregistered(&ifmap_server_, client_name));
 
+    vnsw_client->UnRegisterWithXmpp();
     vnsw_client->Shutdown();
     task_util::WaitForIdle();
     TcpServerManager::DeleteServer(vnsw_client);
@@ -3387,6 +3420,7 @@ TEST_F(XmppIfmapTest, ReadyNotready) {
     // Give a chance to others to run
     usleep(1000);
 
+    vnsw_client->UnRegisterWithXmpp();
     vnsw_client->Shutdown();
     task_util::WaitForIdle();
     TcpServerManager::DeleteServer(vnsw_client);
@@ -3516,6 +3550,7 @@ TEST_F(XmppIfmapTest, Bug788) {
     // Give a chance for the xmpp channel to get deleted
     usleep(1000);
 
+    vnsw_client->UnRegisterWithXmpp();
     vnsw_client->Shutdown();
     task_util::WaitForIdle();
     TcpServerManager::DeleteServer(vnsw_client);
@@ -3588,6 +3623,7 @@ TEST_F(XmppIfmapTest, SpuriousVrSub) {
     // Give a chance for the xmpp channel to get deleted
     usleep(1000);
 
+    vnsw_client->UnRegisterWithXmpp();
     vnsw_client->Shutdown();
     task_util::WaitForIdle();
     TcpServerManager::DeleteServer(vnsw_client);
@@ -3653,6 +3689,7 @@ TEST_F(XmppIfmapTest, VmSubUnsubWithNoVrSub) {
     // Give a chance for the xmpp channel to get deleted
     usleep(1000);
 
+    vnsw_client->UnRegisterWithXmpp();
     vnsw_client->Shutdown();
     task_util::WaitForIdle();
     TcpServerManager::DeleteServer(vnsw_client);
@@ -3717,6 +3754,7 @@ TEST_F(XmppIfmapTest, ConfigVrsubVrUnsub) {
     // Give a chance for the xmpp channel to get deleted
     usleep(1000);
 
+    vnsw_client->UnRegisterWithXmpp();
     vnsw_client->Shutdown();
     task_util::WaitForIdle();
     TcpServerManager::DeleteServer(vnsw_client);
@@ -3782,6 +3820,7 @@ TEST_F(XmppIfmapTest, VrsubConfigVrunsub) {
     // Give a chance for the xmpp channel to get deleted
     usleep(1000);
 
+    vnsw_client->UnRegisterWithXmpp();
     vnsw_client->Shutdown();
     task_util::WaitForIdle();
     TcpServerManager::DeleteServer(vnsw_client);
@@ -3856,6 +3895,7 @@ TEST_F(XmppIfmapTest, ConfignopropVrsub) {
     // Give a chance for the xmpp channel to get deleted
     usleep(1000);
 
+    vnsw_client->UnRegisterWithXmpp();
     vnsw_client->Shutdown();
     task_util::WaitForIdle();
     TcpServerManager::DeleteServer(vnsw_client);
@@ -3931,6 +3971,7 @@ TEST_F(XmppIfmapTest, VrsubConfignoprop) {
     // Give a chance for the xmpp channel to get deleted
     usleep(1000);
 
+    vnsw_client->UnRegisterWithXmpp();
     vnsw_client->Shutdown();
     task_util::WaitForIdle();
     TcpServerManager::DeleteServer(vnsw_client);
