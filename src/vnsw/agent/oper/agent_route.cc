@@ -299,7 +299,7 @@ void AgentRouteTable::Input(DBTablePartition *part, DBClient *client,
 
     if (data && data->IsPeerValid() == false) {
         AGENT_ROUTE_LOG("Invalid/Inactive Peer ", key->ToString(), vrf_name(),
-                        key->peer());
+                        "None");
         return;
     }
 
