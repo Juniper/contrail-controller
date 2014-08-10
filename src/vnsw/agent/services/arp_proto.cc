@@ -52,9 +52,9 @@ ProtoHandler *ArpProto::AllocProtoHandler(boost::shared_ptr<PktInfo> info,
 
 void ArpProto::VrfNotify(DBTablePartBase *part, DBEntryBase *entry) {
     VrfEntry *vrf = static_cast<VrfEntry *>(entry);
-    DBState *state;
+    ArpVrfState *state;
 
-    state = static_cast<DBState *>(entry->GetState(part->parent(),
+    state = static_cast<ArpVrfState *>(entry->GetState(part->parent(),
                                                    vrf_table_listener_id_));
     if (entry->IsDeleted()) {
         if (state) {
@@ -66,48 +66,126 @@ void ArpProto::VrfNotify(DBTablePartBase *part, DBEntryBase *entry) {
                 } else
                     it++;
             }
-            vrf->GetInet4UnicastRouteTable()->
-                Unregister(fabric_route_table_listener_);
-            ValidateAndClearVrfState(vrf);
+            state->Delete();
         }
         return;
     }
 
-    if (!state && vrf->GetName() == agent_->fabric_vrf_name()) {
-        state = new DBState;
-        fabric_route_table_listener_ = vrf->
+    if (!state){
+        state = new ArpVrfState(agent_, this, vrf,
+                                vrf->GetInet4UnicastRouteTable());
+        state->route_table_listener_id = vrf->
             GetInet4UnicastRouteTable()->
-            Register(boost::bind(&ArpProto::RouteUpdate, this,  _1, _2));
+            Register(boost::bind(&ArpVrfState::RouteUpdate, state,  _1, _2));
         entry->SetState(part->parent(), vrf_table_listener_id_, state);
     }
 }
 
-void ArpProto::RouteUpdate(DBTablePartBase *part, DBEntryBase *entry) {
+//Send ARP request on interface in Active-BackUp mode
+//So that preference of route can be incremented if the VM replies to ARP
+void ArpVrfState::SendArpRequestForVm(Inet4UnicastRouteEntry *route) {
+    for (Route::PathList::const_iterator it = route->GetPathList().begin();
+            it != route->GetPathList().end(); it++) {
+        const AgentPath *path = static_cast<const AgentPath *>(it.operator->());
+        if (path->peer() &&
+            path->peer()->GetType() == Peer::LOCAL_VM_PORT_PEER) {
+            if (path->subnet_gw_ip() == Ip4Address(0)) {
+                return;
+            }
+            const NextHop *nh = path->nexthop(agent);
+            if (nh->GetType() != NextHop::INTERFACE) {
+                continue;
+            }
+
+            const InterfaceNH *intf_nh =
+                static_cast<const  InterfaceNH *>(nh);
+            const Interface *intf =
+                static_cast<const Interface *>(intf_nh->GetInterface());
+            if (intf->type() != Interface::VM_INTERFACE) {
+                //Ignore non vm interface nexthop
+                continue;
+            }
+
+            uint32_t intf_id = intf->id();
+            bool wait_for_traffic = path->path_preference().wait_for_traffic();
+            if (wait_for_traffic == false) {
+                continue;
+            }
+            boost::shared_ptr<PktInfo> pkt(new PktInfo(NULL, 0, 0));
+            ArpHandler arp_handler(agent, pkt,
+                                   *(agent->event_manager()->io_service()));
+
+            const unsigned char zero_mac[] = {0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
+            const unsigned char *smac = agent->vrrp_mac();
+            arp_handler.SendArp(ARPOP_REQUEST, smac,
+                                path->subnet_gw_ip().to_ulong(),
+                                zero_mac, route->addr().to_ulong(),
+                                intf_id, route->vrf_id());
+            arp_proto->IncrementStatsVmArpReq();
+        }
+    }
+}
+
+void ArpVrfState::RouteUpdate(DBTablePartBase *part, DBEntryBase *entry) {
     Inet4UnicastRouteEntry *route = static_cast<Inet4UnicastRouteEntry *>(entry);
+
     DBState *state =
         static_cast<DBState *>
-        (entry->GetState(part->parent(), fabric_route_table_listener_));
+        (entry->GetState(part->parent(), route_table_listener_id));
 
-    if (entry->IsDeleted()) {
+    if (entry->IsDeleted() || deleted) {
         if (state) {
-            if (gratuitous_arp_entry() && gratuitous_arp_entry()->key().ip ==
-                                        route->addr().to_ulong()) {
-                del_gratuitous_arp_entry();
+            if (arp_proto->gratuitous_arp_entry() &&
+                arp_proto->gratuitous_arp_entry()->key().ip ==
+                    route->addr().to_ulong()) {
+                arp_proto->del_gratuitous_arp_entry();
             }
-            entry->ClearState(part->parent(), fabric_route_table_listener_);
+            entry->ClearState(part->parent(), route_table_listener_id);
             delete state;
         }
         return;
     }
 
-    if (!state && route->GetActiveNextHop()->GetType() == NextHop::RECEIVE) {
+    if (!state && route->vrf()->GetName() == agent->fabric_vrf_name() &&
+        route->GetActiveNextHop()->GetType() == NextHop::RECEIVE) {
         state = new DBState;
-        entry->SetState(part->parent(), fabric_route_table_listener_, state);
-        del_gratuitous_arp_entry();
+        entry->SetState(part->parent(), route_table_listener_id, state);
+        arp_proto->del_gratuitous_arp_entry();
         //Send Grat ARP
-        SendArpIpc(ArpProto::ARP_SEND_GRATUITOUS, 
-                   route->addr().to_ulong(), route->vrf());
+        arp_proto->SendArpIpc(ArpProto::ARP_SEND_GRATUITOUS,
+                          route->addr().to_ulong(), route->vrf());
     }
+
+    //Check if there is a local VM path, if yes send a
+    //ARP request, to trigger route preference state machine
+    SendArpRequestForVm(route);
+}
+
+bool ArpVrfState::DeleteRouteState(DBTablePartBase *part, DBEntryBase *entry) {
+    RouteUpdate(part, entry);
+    return true;
+}
+
+void ArpVrfState::Delete() {
+    deleted = true;
+    DBTableWalker *walker = agent->db()->GetWalker();
+    walker->WalkTable(rt_table, NULL,
+            boost::bind(&ArpVrfState::DeleteRouteState, this, _1, _2),
+            boost::bind(&ArpVrfState::WalkDone, this, _1, this));
+}
+
+void ArpVrfState::WalkDone(DBTableBase *partition, ArpVrfState *state) {
+    arp_proto->ValidateAndClearVrfState(vrf);
+    state->rt_table->Unregister(route_table_listener_id);
+    state->table_delete_ref.Reset(NULL);
+    delete state;
+}
+
+ArpVrfState::ArpVrfState(Agent *agent_ptr, ArpProto *proto, VrfEntry *vrf_entry,
+                         AgentRouteTable *table):
+    agent(agent_ptr), arp_proto(proto), vrf(vrf_entry), rt_table(table),
+    route_table_listener_id(DBTableBase::kInvalidId),
+    table_delete_ref(this, table->deleter()), deleted(false) {
 }
 
 void ArpProto::InterfaceNotify(DBEntryBase *entry) {
@@ -244,6 +322,5 @@ void ArpProto::ValidateAndClearVrfState(VrfEntry *vrf) {
     if (state) {
         vrf->ClearState(vrf->get_table_partition()->parent(),
                         vrf_table_listener_id_);
-        delete state;
     }
 }

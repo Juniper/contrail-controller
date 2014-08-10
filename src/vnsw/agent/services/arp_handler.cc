@@ -146,7 +146,16 @@ bool ArpHandler::HandlePacket() {
 
         case ARPOP_REPLY:  {
             arp_proto->IncrementStatsArpReplies();
-            if (entry) {
+            if (itf->type() == Interface::VM_INTERFACE) {
+                uint32_t ip;
+                memcpy(&ip, arp_->arp_spa, sizeof(ip));
+                ip = ntohl(ip);
+                //Enqueue a request to trigger state machine
+                agent()->oper_db()->route_preference_module()->
+                    EnqueueTrafficSeen(Ip4Address(ip), 32, itf->id(),
+                                       vrf->vrf_id());
+                return true;
+            } else if(entry) {
                 entry->HandleArpReply(arp_->arp_sha);
                 return true;
             } else {
@@ -170,9 +179,8 @@ bool ArpHandler::HandlePacket() {
                 agent()->oper_db()->route_preference_module()->
                     EnqueueTrafficSeen(Ip4Address(ip), 32, itf->id(),
                                        vrf->vrf_id());
-            }
-
-            if (entry) {
+                return true;
+            } else if (entry) {
                 entry->HandleArpReply(arp_->arp_sha);
                 return true;
             } else {

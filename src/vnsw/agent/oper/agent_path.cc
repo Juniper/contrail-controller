@@ -35,7 +35,7 @@ AgentPath::AgentPath(const Peer *peer, AgentRoute *rt):
     tunnel_type_(TunnelType::ComputeType(TunnelType::AllType())),
     vrf_name_(""), gw_ip_(0), unresolved_(true), is_stale_(false),
     is_subnet_discard_(false), dependant_rt_(rt), path_preference_(),
-    local_ecmp_mpls_label_(rt), composite_nh_key_(NULL) {
+    local_ecmp_mpls_label_(rt), composite_nh_key_(NULL), subnet_gw_ip_(0) {
 }
 
 AgentPath::~AgentPath() {
@@ -410,6 +410,15 @@ bool LocalVmRoute::AddChangePath(Agent *agent, AgentPath *path) {
         path->set_path_preference(path_preference_);
         ret = true;
     }
+    if (path->peer() && path->peer()->GetType() == Peer::BGP_PEER) {
+        //Copy entire path preference for BGP peer path,
+        //since allowed-address pair config doesn't modify
+        //preference on BGP path
+        if (path->path_preference() != path_preference_) {
+            path->set_path_preference(path_preference_);
+            ret = true;
+        }
+    }
 
     // When BGP path was added, the policy flag in BGP path was based on
     // interface config at that instance. If the policy flag changes in
@@ -426,6 +435,11 @@ bool LocalVmRoute::AddChangePath(Agent *agent, AgentPath *path) {
         new_policy = true;
     if (old_policy != new_policy) {
         sync_route_ = true;
+    }
+
+    if (path->subnet_gw_ip() != subnet_gw_ip_) {
+        path->set_subnet_gw_ip(subnet_gw_ip_);
+        ret = true;
     }
 
     path->set_unresolved(false);
