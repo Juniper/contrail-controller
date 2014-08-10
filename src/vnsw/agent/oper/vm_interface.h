@@ -157,6 +157,7 @@ public:
         Ip4Address  addr_;
         uint32_t    plen_;
         bool        ecmp_;
+        mutable Ip4Address  gw_ip_;
     };
     typedef std::set<AllowedAddressPair, AllowedAddressPair>
         AllowedAddressPairSet;
@@ -382,7 +383,7 @@ private:
     void UpdateL3Services(bool dhcp, bool dns);
     void AddRoute(const std::string &vrf_name, const Ip4Address &ip,
                   uint32_t plen, const std::string &vn_name, bool policy,
-                  bool ecmp);
+                  bool ecmp, const Ip4Address &gw_ip);
     void DeleteRoute(const std::string &vrf_name, const Ip4Address &ip,
                      uint32_t plen);
     void ServiceVlanAdd(ServiceVlan &entry);
@@ -502,6 +503,7 @@ private:
     std::auto_ptr<LocalVmPortPeer> peer_;
     VrfAssignRuleList vrf_assign_rule_list_;
     AclDBEntryRef vrf_assign_acl_;
+    Ip4Address vm_ip_gw_addr_;
     DISALLOW_COPY_AND_ASSIGN(VmInterface);
 };
 

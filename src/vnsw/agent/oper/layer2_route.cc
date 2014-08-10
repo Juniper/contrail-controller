@@ -84,7 +84,8 @@ void Layer2AgentRouteTable::AddLocalVmRouteReq(const Peer *peer,
     LocalVmRoute *data = new LocalVmRoute(intf_key, mpls_label, vxlan_id,
                                           false, vn_name,
                                           InterfaceNHFlags::LAYER2,
-                                          sg_list, path_preference);
+                                          sg_list, path_preference,
+                                          Ip4Address(0));
     AddLocalVmRouteReq(peer, vrf_name, mac, vm_ip, plen, data);
 }
 
@@ -110,7 +111,8 @@ void Layer2AgentRouteTable::AddLocalVmRoute(const Peer *peer,
     LocalVmRoute *data = new LocalVmRoute(intf_key, mpls_label, vxlan_id,
                                           false, vn_name,
                                           InterfaceNHFlags::LAYER2,
-                                          sg_list, path_preference);
+                                          sg_list, path_preference,
+                                          Ip4Address(0));
     data->set_tunnel_bmap(TunnelType::AllType());
     req.data.reset(data);
     Layer2TableProcess(Agent::GetInstance(), vrf_name, req);

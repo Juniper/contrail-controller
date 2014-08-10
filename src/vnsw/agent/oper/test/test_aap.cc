@@ -156,6 +156,29 @@ TEST_F(TestAap, Update) {
     EXPECT_FALSE(RouteFind("vrf1", ip2, 32));
 }
 
+//Check if subnet gateway for allowed address pait route gets set properly
+TEST_F(TestAap, SubnetGw) {
+    Ip4Address ip1 = Ip4Address::from_string("10.10.10.10");
+    std::vector<Ip4Address> v;
+    v.push_back(ip1);
+
+    AddAap("intf1", 1, v);
+    EXPECT_TRUE(RouteFind("vrf1", ip1, 32));
+
+    IpamInfo ipam_info[] = {
+        {"10.10.10.0", 24, "10.10.10.200", true},
+    };
+    AddIPAM("vn1", ipam_info, 1, NULL, "vdns1");
+    client->WaitForIdle();
+
+    Ip4Address subnet_gw_ip = Ip4Address::from_string("10.10.10.200");
+    Inet4UnicastRouteEntry *rt = RouteGet("vrf1", ip1, 32);
+    EXPECT_TRUE(rt->GetActivePath()->subnet_gw_ip() == subnet_gw_ip);
+
+    DelIPAM("vn1", "vdns1");
+    client->WaitForIdle();
+}
+
 //Just add a local path, verify that sequence no gets initialized to 0
 TEST_F(TestAap, StateMachine_1) {
     Ip4Address ip = Ip4Address::from_string("1.1.1.1");

@@ -51,7 +51,7 @@ public:
             arp_req = arp_replies = arp_gratuitous = 
             resolved = max_retries_exceeded = errors = 0;
             arp_invalid_packets = arp_invalid_interface = arp_invalid_vrf =
-                arp_invalid_address = 0;
+                arp_invalid_address = vm_arp_req = 0;
         }
 
         uint32_t arp_req;
@@ -64,6 +64,7 @@ public:
         uint32_t arp_invalid_interface;
         uint32_t arp_invalid_vrf;
         uint32_t arp_invalid_address;
+        uint32_t vm_arp_req;
     };
 
     void Shutdown();
@@ -105,6 +106,7 @@ public:
     void IncrementStatsResolved() { arp_stats_.resolved++; }
     void IncrementStatsMaxRetries() { arp_stats_.max_retries_exceeded++; }
     void IncrementStatsErrors() { arp_stats_.errors++; }
+    void IncrementStatsVmArpReq() { arp_stats_.vm_arp_req++; }
     void IncrementStatsInvalidPackets() {
         IncrementStatsErrors();
         arp_stats_.arp_invalid_packets++;
@@ -130,14 +132,14 @@ public:
     void set_max_retries(uint16_t retries) { max_retries_ = retries; }
     void set_retry_timeout(uint32_t timeout) { retry_timeout_ = timeout; }
     void set_aging_timeout(uint32_t timeout) { aging_timeout_ = timeout; }
+    void SendArpIpc(ArpProto::ArpMsgType type,
+                    in_addr_t ip, const VrfEntry *vrf);
 
 private:
     void VrfNotify(DBTablePartBase *part, DBEntryBase *entry);
+    void NextHopNotify(DBEntryBase *entry);
     void InterfaceNotify(DBEntryBase *entry);
-    void NextHopNotify(DBEntryBase *e);
     void RouteUpdate(DBTablePartBase *part, DBEntryBase *entry);
-    void SendArpIpc(ArpProto::ArpMsgType type,
-                    in_addr_t ip, const VrfEntry *vrf);
     void SendArpIpc(ArpProto::ArpMsgType type, ArpKey &key);
     ArpProto::ArpIterator DeleteArpEntry(ArpProto::ArpIterator iter);
     void ValidateAndClearVrfState(VrfEntry *vrf);
@@ -152,7 +154,7 @@ private:
     DBTableBase::ListenerId vrf_table_listener_id_;
     DBTableBase::ListenerId interface_table_listener_id_;
     DBTableBase::ListenerId nexthop_table_listener_id_;
-    DBTableBase::ListenerId fabric_route_table_listener_;
+    std::map<std::string, DBTableBase::ListenerId> route_table_listener_;
 
     uint16_t max_retries_;
     uint32_t retry_timeout_;   // milli seconds
@@ -161,4 +163,22 @@ private:
     DISALLOW_COPY_AND_ASSIGN(ArpProto);
 };
 
+struct ArpVrfState : public DBState {
+public:
+    ArpVrfState(Agent *agent, ArpProto *proto, AgentRouteTable *table);
+    void RouteUpdate(DBTablePartBase *part, DBEntryBase *entry);
+    void ManagedDelete() { deleted = true;}
+    void SendArpRequestForVm(Inet4UnicastRouteEntry *route);
+    void Delete();
+    bool DeleteRouteState(DBTablePartBase *part, DBEntryBase *entry);
+    void WalkDone(DBTableBase *partition, ArpVrfState *state);
+
+    Agent *agent;
+    ArpProto *arp_proto;
+    AgentRouteTable *rt_table;
+    DBTableBase::ListenerId route_table_listener_id;
+    LifetimeRef<ArpVrfState> table_delete_ref;
+    bool deleted;
+    friend class ArpProto;
+};
 #endif // vnsw_agent_arp_proto_hpp
