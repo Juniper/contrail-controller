@@ -318,6 +318,8 @@ public:
 
     bool ProcessRequest(Request *request);
 
+    size_t get_connect_error();
+
     boost::scoped_ptr<InstanceMgr<RouteEntry> > route_mgr_;
     boost::scoped_ptr<InstanceMgr<EnetRouteEntry> > enet_route_mgr_;
     boost::scoped_ptr<InstanceMgr<McastRouteEntry> > mcast_route_mgr_;

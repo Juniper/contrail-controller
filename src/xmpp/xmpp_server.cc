@@ -253,6 +253,7 @@ bool XmppServer::AcceptSession(TcpSession *tcp_session) {
     // set async_read_ready as false
     session->set_read_on_connect(false);
     connection->set_session(session);
+    connection->set_on_work_queue();
     work_queue_.Enqueue(connection);
     return true;
 }
@@ -322,6 +323,12 @@ XmppServerConnection *XmppServer::CreateConnection(XmppSession *session) {
 //
 bool XmppServer::DequeueConnection(XmppServerConnection *connection) {
     CHECK_CONCURRENCY("bgp::Config"); 
+    connection->clear_on_work_queue();
+
+    if (connection->IsDeleted()) {
+        connection->RetryDelete();
+        return true;
+    }
 
     XmppSession *session = connection->session();
     connection->set_session(NULL);
@@ -373,6 +380,15 @@ bool XmppServer::DequeueConnection(XmppServerConnection *connection) {
     }
 
     return true;
+}
+
+
+size_t XmppServer::GetQueueSize() const {
+    return work_queue_.Length();
+}
+
+void XmppServer::SetQueueDisable(bool disabled) {
+    work_queue_.set_disable(disabled);
 }
 
 //

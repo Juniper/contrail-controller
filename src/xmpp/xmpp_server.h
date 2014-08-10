@@ -73,8 +73,9 @@ protected:
 
 private:
     class DeleteActor;
-    friend class XmppStateMachineTest;
+    friend class BgpXmppBasicTest;
     friend class DeleteActor;
+    friend class XmppStateMachineTest;
 
     typedef std::map<Endpoint, XmppServerConnection *> ConnectionMap;
     typedef std::set<XmppServerConnection *> ConnectionSet;
@@ -82,6 +83,8 @@ private:
     typedef std::map<xmps::PeerId, ConnectionEventCb> ConnectionEventCbMap;
 
     bool DequeueConnection(XmppServerConnection *connection);
+    size_t GetQueueSize() const;
+    void SetQueueDisable(bool disabled);
 
     ConnectionMap connection_map_;
     ConnectionSet deleted_connection_set_;

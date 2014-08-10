@@ -634,6 +634,12 @@ void NetworkAgentMock::SessionUp() {
         connection->SetAdminState(false);
 }
 
+size_t NetworkAgentMock::get_connect_error() {
+    XmppConnection *connection =
+        client_->FindConnection("network-control@contrailsystems.com");
+    return (connection ? connection->get_connect_error() : 0);
+}
+
 //
 // Process requests and run them off bgp::Config exclusive task
 //
