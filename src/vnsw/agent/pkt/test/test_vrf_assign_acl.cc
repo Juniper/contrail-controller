@@ -107,7 +107,7 @@ protected:
             AddLocalVmRouteReq(agent_->local_peer(),
                                "default-project:vn1:vn1", ip1, 24, MakeUuid(3),
                                "default-project:vn2", 16, SecurityGroupList(),
-                               false, PathPreference());
+                               false, PathPreference(), Ip4Address(0));
         //Leak route for 1.1.1.0 to default-project:vn2:vn2 and
         //default-project:vn3:vn3
         Ip4Address ip2 = Ip4Address::from_string("1.1.1.0");
@@ -115,12 +115,12 @@ protected:
             AddLocalVmRouteReq(agent_->local_peer(),
                                "default-project:vn2:vn2", ip2, 24, MakeUuid(1),
                                "default-project:vn1", 16, SecurityGroupList(),
-                               false, PathPreference());
+                               false, PathPreference(), Ip4Address(0));
         agent_->fabric_inet4_unicast_table()->
             AddLocalVmRouteReq(agent_->local_peer(),
                                "default-project:vn3:vn3", ip2, 24, MakeUuid(1),
                                "default-project:vn1", 16, SecurityGroupList(),
-                               false, PathPreference());
+                               false, PathPreference(), Ip4Address(0));
         client->WaitForIdle();
     }
 
