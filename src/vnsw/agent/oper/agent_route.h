@@ -271,10 +271,11 @@ extern SandeshTraceBufferPtr AgentDBwalkTraceBuf;
     obj::TraceMsg(AgentDBwalkTraceBuf, __FILE__, __LINE__, ##__VA_ARGS__); \
 } while (0);
 
-#define AGENT_ROUTE_LOG(oper, route, vrf, peer)\
+#define GETPEERNAME(peer) (peer) ? peer->GetName() : ""
+#define AGENT_ROUTE_LOG(oper, route, vrf, peer_name)\
 do {\
     AgentRouteLog::Send("Agent", SandeshLevel::SYS_INFO, __FILE__, __LINE__,\
-                   oper, route, vrf, (peer)? peer->GetName():" ");\
+                   oper, route, vrf, peer_name);\
 } while(false);\
 
 #endif

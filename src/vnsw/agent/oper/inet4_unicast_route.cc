@@ -278,7 +278,7 @@ AgentPath *Inet4UnicastRouteEntry::AllocateEcmpPath(Agent *agent,
     FillTrace(rt_info, AgentRoute::CHANGE_PATH, path);
     OPER_TRACE(Route, rt_info);
     AGENT_ROUTE_LOG("Path change", ToString(), vrf()->GetName(),
-                    agent->ecmp_peer());
+                    GETPEERNAME(agent->ecmp_peer()));
 
     return path;
 }
@@ -431,7 +431,7 @@ void Inet4UnicastRouteEntry::AppendEcmpPath(Agent *agent,
     FillTrace(rt_info, AgentRoute::CHANGE_PATH, path);
     OPER_TRACE(Route, rt_info);
     AGENT_ROUTE_LOG("Path change", ToString(), vrf()->GetName(),
-                    agent->ecmp_peer());
+                    GETPEERNAME(agent->ecmp_peer()));
 }
 
 void Inet4UnicastRouteEntry::DeleteComponentNH(Agent *agent,
@@ -471,7 +471,7 @@ void Inet4UnicastRouteEntry::DeleteComponentNH(Agent *agent,
     FillTrace(rt_info, AgentRoute::CHANGE_PATH, path);
     OPER_TRACE(Route, rt_info);
     AGENT_ROUTE_LOG("Path change", ToString(), vrf()->GetName(),
-                    agent->ecmp_peer());
+                    GETPEERNAME(agent->ecmp_peer()));
 }
 
 const NextHop* Inet4UnicastRouteEntry::GetLocalNextHop() const {
