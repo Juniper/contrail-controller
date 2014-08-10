@@ -296,7 +296,7 @@ static void Setup() {
                                       vnet[3]->vn()->GetName(),
                                       vnet[3]->label(),
                                       SecurityGroupList(), 0,
-                                      PathPreference());
+                                      PathPreference(), Ip4Address(0));
     client->WaitForIdle();
     EXPECT_TRUE(RouteFind("default-project:vn2:vn2", addr, 32));
 
@@ -1190,7 +1190,7 @@ TEST_F(FlowTest, FIP_traffic_to_leaked_routes) {
                                       vnet[5]->GetUuid(), 
                                       vnet[5]->vn()->GetName(),
                                       vnet[5]->label(), SecurityGroupList(), 0,
-                                      PathPreference());
+                                      PathPreference(), Ip4Address(0));
     client->WaitForIdle();
 
   // HTTP packet from VM to Server

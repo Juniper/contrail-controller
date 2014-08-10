@@ -174,14 +174,16 @@ public:
                             uint32_t label,
                             const SecurityGroupList &sg_list,
                             bool force_policy,
-                            const PathPreference &path_preference);
+                            const PathPreference &path_preference,
+                            const Ip4Address &subnet_gw_ip);
     static void AddLocalVmRoute(const Peer *peer, const string &vm_vrf,
                                 const Ip4Address &addr, uint8_t plen,
                                 const uuid &intf_uuid, const string &vn_name,
                                 uint32_t label, 
                                 const SecurityGroupList &sg_list,
                                 bool force_policy,
-                                const PathPreference &path_preference);
+                                const PathPreference &path_preference,
+                                const Ip4Address &subnet_gw_ip);
     static void AddRemoteVmRouteReq(const Peer *peer, const string &vm_vrf,
                                     const Ip4Address &vm_addr,uint8_t plen,
                                     AgentRouteData *data);
