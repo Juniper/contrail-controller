@@ -551,6 +551,9 @@ bool MulticastRoute::AddChangePath(Agent *agent, AgentPath *path) {
 
 bool PathPreferenceData::AddChangePath(Agent *agent, AgentPath *path) {
     bool ret = false;
+    //ECMP flag will not be changed by path preference module,
+    //hence retain value in path
+    path_preference_.set_ecmp(path->path_preference().ecmp());
     if (path &&
         path->path_preference() != path_preference_) {
         path->set_path_preference(path_preference_);
@@ -639,6 +642,7 @@ void AgentRoute::FillTrace(RouteInfo &rt_info, Trace event,
         if (path->peer()) {
             rt_info.set_peer(path->peer()->GetName());
         }
+        rt_info.set_ecmp(path->path_preference().ecmp());
         const NextHop *nh = path->nexthop(agent);
         if (nh == NULL) {
             rt_info.set_nh_type("<NULL>");

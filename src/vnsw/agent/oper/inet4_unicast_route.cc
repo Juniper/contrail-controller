@@ -291,8 +291,7 @@ bool Inet4UnicastRouteEntry::EcmpDeletePath(AgentPath *path) {
         return false;
     }
 
-    if (path->peer()->GetType() != Peer::LOCAL_VM_PORT_PEER ||
-        path->path_preference().ecmp() == false) {
+    if (path->peer()->GetType() != Peer::LOCAL_VM_PORT_PEER) {
         return false;
     }
 
@@ -308,7 +307,8 @@ bool Inet4UnicastRouteEntry::EcmpDeletePath(AgentPath *path) {
             static_cast<const AgentPath *>(it.operator->());
 
         if (it_path->peer() &&
-            it_path->peer()->GetType() == Peer::LOCAL_VM_PORT_PEER)
+            it_path->peer()->GetType() == Peer::LOCAL_VM_PORT_PEER &&
+            it_path != path)
             count++;
     }
 
@@ -316,7 +316,9 @@ bool Inet4UnicastRouteEntry::EcmpDeletePath(AgentPath *path) {
     // Sanity check. When more than one LOCAL_VM_PORT_PEER, ECMP must be present
     if (count >= 1) {
         ecmp = FindPath(agent->ecmp_peer());
-        assert(ecmp != NULL);
+        if (ecmp == NULL) {
+            return false;
+        }
     }
 
     if (count == 1 && ecmp) {
