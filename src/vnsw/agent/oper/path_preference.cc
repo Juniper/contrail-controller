@@ -16,6 +16,8 @@
 namespace sc = boost::statechart;
 namespace mpl = boost::mpl;
 
+SandeshTraceBufferPtr PathPreferenceTraceBuf(
+        SandeshTraceBufferCreate("PathPreference", 5000));
 struct EvStart : sc::event<EvStart> {
     EvStart() {
     }
@@ -84,11 +86,11 @@ struct WaitForTraffic : sc::state<WaitForTraffic, PathPreferenceSM> {
 
     WaitForTraffic(my_context ctx) : my_base(ctx) {
         PathPreferenceSM *state_machine = &context<PathPreferenceSM>();
-        state_machine->Log("Wait For Traffic");
         if (state_machine->wait_for_traffic() == false) {
             state_machine->set_wait_for_traffic(true);
             state_machine->set_preference(PathPreference::LOW);
             state_machine->EnqueuePathChange();
+            state_machine->Log("Wait For Traffic");
         }
     }
 
@@ -250,10 +252,8 @@ void PathPreferenceSM::Process() {
 }
 
 void PathPreferenceSM::Log(std::string state) {
-    LOG(ERROR, "Vrf: " << rt_->vrf()->GetName()
-        << "Route " << rt_->GetAddressString()
-        << "Sequence: " << sequence() << "Preference " << preference()
-        << "State :" << state);
+    PATH_PREFERENCE_TRACE(rt_->vrf()->GetName(), rt_->GetAddressString(),
+                          preference(), sequence(), state);
 }
 
 void PathPreferenceSM::EnqueuePathChange() {
@@ -446,12 +446,6 @@ PathPreferenceState::~PathPreferenceState() {
 }
 
 void PathPreferenceState::Process() {
-     AgentPath *local_path = rt_->FindLocalVmPortPath();
-     //No local path
-     if (!local_path) {
-         return;
-     }
-
      //Set all the path as not seen, eventually when path is seen
      //flag would be set appropriatly
      PeerPathPreferenceMap::iterator path_preference_it =
@@ -466,6 +460,9 @@ void PathPreferenceState::Process() {
           it != rt_->GetPathList().end(); ++it) {
          const AgentPath *path =
              static_cast<const AgentPath *>(it.operator->());
+         if (path->peer() == NULL) {
+             continue;
+         }
          if (path->peer()->GetType() != Peer::LOCAL_VM_PORT_PEER) {
              continue;
          }
