@@ -377,7 +377,7 @@ InstanceServiceAsyncHandler::AddLocalVmRoute(const std::string& ip_address,
     agent_->fabric_inet4_unicast_table()->
         AddLocalVmRouteReq(novaPeer_.get(), vrf, ip.to_v4(), 32, intf_uuid, 
                            "instance-service", mpls_label, SecurityGroupList(),
-                           false, PathPreference());
+                           false, PathPreference(), Ip4Address(0));
     return true;
 }
 
