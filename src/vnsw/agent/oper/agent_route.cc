@@ -369,7 +369,14 @@ void AgentRouteTable::Input(DBTablePartition *part, DBClient *client,
             } else {
                 // Let path know of route change and update itself
                 path->set_is_stale(false);
+                bool ecmp = path->path_preference().ecmp();
                 notify = data->AddChangePath(agent_, path);
+                //If a path transition from ECMP to non ECMP
+                //remote the path from ecmp peer
+                if (ecmp && ecmp != path->path_preference().ecmp()) {
+                    rt->EcmpDeletePath(path);
+                }
+
                 RouteInfo rt_info;
 
                 rt->FillTrace(rt_info, AgentRoute::CHANGE_PATH, path);
@@ -388,10 +395,6 @@ void AgentRouteTable::Input(DBTablePartition *part, DBClient *client,
 
             // ECMP path are managed by route module. Update ECMP path with 
             // addition of new path
-            if (rt->EcmpAddPath(path)) {
-                notify = true;
-            }
-
             if (rt->EcmpAddPath(path)) {
                 notify = true;
             }
