@@ -353,10 +353,13 @@ static ExtCommunityPtr UpdateExtCommunity(BgpServer *server,
     if (!ext_community)
         return ExtCommunityPtr(NULL);
 
-    // Nothing to do if we already have the OriginVn community.
+    // Nothing to do if we already have the OriginVn community with our AS.
     BOOST_FOREACH(const ExtCommunity::ExtCommunityValue &comm,
                   ext_community->communities()) {
         if (!ExtCommunity::is_origin_vn(comm))
+            continue;
+        OriginVn origin_vn(comm);
+        if (origin_vn.as_number() != server->autonomous_system())
             continue;
         return ExtCommunityPtr(ext_community);
     }
@@ -366,8 +369,12 @@ static ExtCommunityPtr UpdateExtCommunity(BgpServer *server,
         server->routing_instance_mgr()->GetVnIndexByExtCommunity(ext_community);
     if (vn_index) {
         OriginVn origin_vn(server->autonomous_system(), vn_index);
-        extcomm_ptr = server->extcomm_db()->AppendAndLocate(
+        extcomm_ptr = server->extcomm_db()->ReplaceOriginVnAndLocate(
             ext_community, origin_vn.GetExtCommunity());
+        return extcomm_ptr;
+    } else {
+        extcomm_ptr = server->extcomm_db()->RemoveOriginVnAndLocate(
+            ext_community);
         return extcomm_ptr;
     }
 
@@ -487,11 +494,9 @@ bool RoutePathReplicator::BgpTableListener(DBTablePartBase *root,
                 dest_rtinstance->HasExportTarget(ext_community)) {
                 int dest_vn_index = dest_rtinstance->virtual_network_index();
                 OriginVn origin_vn(server_->autonomous_system(), dest_vn_index);
-                ExtCommunity::ExtCommunityList origin_vn_list;
-                origin_vn_list.push_back(origin_vn.GetExtCommunity());
                 new_extcomm_ptr =
                         server_->extcomm_db()->ReplaceOriginVnAndLocate(
-                                extcomm_ptr.get(), origin_vn_list);
+                                extcomm_ptr.get(), origin_vn.GetExtCommunity());
             }
 
             BgpRoute *replicated = dest->RouteReplicate(

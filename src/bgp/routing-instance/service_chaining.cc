@@ -269,11 +269,9 @@ void ServiceChain::AddServiceChainRoute(Ip4Prefix prefix, InetRoute *orig_route,
         service_chain_route->ClearDelete();
     }
 
-    ExtCommunity::ExtCommunityList origin_vn_list;
     int vn_index = dest_routing_instance()->virtual_network_index();
     BgpServer *server = dest_routing_instance()->server();
     OriginVn origin_vn(server->autonomous_system(), vn_index);
-    origin_vn_list.push_back(origin_vn.GetExtCommunity());
 
     ExtCommunity::ExtCommunityList sgid_list;
     if (orig_route) {
@@ -328,7 +326,7 @@ void ServiceChain::AddServiceChainRoute(Ip4Prefix prefix, InetRoute *orig_route,
         // Replace the OriginVn with the value from the original route
         // or the value associated with the dest routing instance.
         new_ext_community = extcomm_db->ReplaceOriginVnAndLocate(
-            new_ext_community.get(), origin_vn_list);
+            new_ext_community.get(), origin_vn.GetExtCommunity());
 
         BgpAttrPtr new_attr = attr_db->ReplaceExtCommunityAndLocate(
             attr, new_ext_community);

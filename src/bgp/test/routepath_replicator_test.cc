@@ -9,11 +9,14 @@
 
 #include "base/test/task_test_util.h"
 #include "bgp/bgp_config.h"
+#include "bgp/bgp_config_parser.h"
 #include "bgp/bgp_log.h"
 #include "bgp/inet/inet_table.h"
 #include "bgp/l3vpn/inetvpn_route.h"
 #include "bgp/l3vpn/inetvpn_table.h"
+#include "bgp/origin-vn/origin_vn.h"
 #include "bgp/routing-instance/routing_instance.h"
+#include "bgp/test/bgp_server_test_util.h"
 #include "bgp/test/bgp_test_util.h"
 #include "control-node/control_node.h"
 #include "db/db_graph.h"
@@ -81,10 +84,19 @@ private:
 #define VERIFY_EQ(expected, actual) \
     TASK_UTIL_EXPECT_EQ(expected, actual)
 
+static const char *bgp_server_config = "\
+<config>\
+    <bgp-router name=\'localhost\'>\
+        <identifier>192.168.0.100</identifier>\
+        <address>192.168.0.100</address>\
+        <autonomous-system>64496</autonomous-system>\
+    </bgp-router>\
+</config>\
+";
+
 class ReplicationTest : public ::testing::Test {
 protected:
-    ReplicationTest()
-        : bgp_server_(new BgpServer(&evm_)) {
+    ReplicationTest() : bgp_server_(new BgpServer(&evm_)) {
         IFMapLinkTable_Init(&config_db_, &config_graph_);
         vnc_cfg_Server_ModuleInit(&config_db_, &config_graph_);
         bgp_schema_Server_ModuleInit(&config_db_, &config_graph_);
@@ -99,6 +111,9 @@ protected:
         bgp_schema_ParserInit(parser);
         bgp_server_->config_manager()->Initialize(&config_db_, &config_graph_,
                                                   "localhost");
+        BgpConfigParser bgp_parser(&config_db_);
+        bgp_parser.Parse(bgp_server_config);
+        task_util::WaitForIdle();
     }
 
     virtual void TearDown() {
@@ -175,7 +190,8 @@ protected:
     }
 
     void AddVPNRouteWithTarget(IPeer *peer, const string &prefix, int localpref,
-                               const string &target) {
+                               const string &target,
+                               string origin_vn_str = string()) {
         BgpAttrSpec attr_spec;
         boost::scoped_ptr<BgpAttrLocalPref> local_pref(
                                 new BgpAttrLocalPref(localpref));
@@ -187,6 +203,11 @@ protected:
             tgt.GetExtCommunity();
         uint64_t value = get_value(extcomm.data(), extcomm.size());
         commspec->communities.push_back(value);
+
+        if (!origin_vn_str.empty()) {
+            OriginVn origin_vn = OriginVn::FromString(origin_vn_str);
+            commspec->communities.push_back(origin_vn.GetExtCommunityValue());
+        }
         attr_spec.push_back(commspec.get());
         AddVPNRouteCommon(peer, prefix, attr_spec);
         task_util::WaitForIdle();
@@ -337,6 +358,15 @@ protected:
         return target_list;
     }
 
+    int GetInstanceOriginVnIndex(const string &instance) {
+        TASK_UTIL_EXPECT_NE(static_cast<RoutingInstance *>(NULL),
+            bgp_server_->routing_instance_mgr()->GetRoutingInstance(instance));
+        RoutingInstance *rti =
+            bgp_server_->routing_instance_mgr()->GetRoutingInstance(instance);
+        TASK_UTIL_EXPECT_NE(0, rti->virtual_network_index());
+        return rti->virtual_network_index();
+    }
+
     void AddInstanceRouteTarget(const string &instance, const string &target) {
         TASK_UTIL_EXPECT_NE(static_cast<RoutingInstance *>(NULL),
             bgp_server_->routing_instance_mgr()->GetRoutingInstance(instance));
@@ -353,6 +383,21 @@ protected:
             "routing-instance", instance,
             "route-target", target, "instance-target");
         task_util::WaitForIdle();
+    }
+
+    int GetOriginVnIndexFromRoute(const BgpPath *path) {
+        const ExtCommunity *ext_comm = path->GetAttr()->ext_community();
+        assert(ext_comm);
+        BOOST_FOREACH(const ExtCommunity::ExtCommunityValue &comm,
+                      ext_comm->communities()) {
+            if (!ExtCommunity::is_origin_vn(comm))
+                continue;
+            OriginVn origin_vn(comm);
+            if (origin_vn.as_number() != 64496)
+                continue;
+            return origin_vn.vn_index();
+        }
+        return 0;
     }
 
     EventManager evm_;
@@ -755,7 +800,7 @@ TEST_F(ReplicationTest, WithLocalRoute) {
     VERIFY_EQ(0, RouteCount("green"));
 }
 
-TEST_F(ReplicationTest, ResurectInetRoute) {
+TEST_F(ReplicationTest, ResurrectInetRoute) {
     // Imported VPN route becomes secondary after inet route is added.
     vector<string> instance_names = list_of("blue")("red")("green");
     multimap<string, string> connections = map_list_of("blue", "red");
@@ -769,7 +814,7 @@ TEST_F(ReplicationTest, ResurectInetRoute) {
         new BgpPeerMock(Ip4Address::from_string("192.168.0.2", ec)));
 
     // VPN route with same RD as exported inet route
-    AddVPNRoute(peers_[0], "0.0.0.0:1:10.0.1.1/32", 80, list_of("blue"));
+    AddVPNRoute(peers_[0], "192.168.0.100:1:10.0.1.1/32", 80, list_of("blue"));
     task_util::WaitForIdle();
 
     // Imported in both blue and red.
@@ -785,7 +830,7 @@ TEST_F(ReplicationTest, ResurectInetRoute) {
     //
     // Update local-pref inorder to make the path ecmp eligible
     //
-    AddVPNRoute(peers_[0], "0.0.0.0:1:10.0.1.1/32", 100, list_of("blue"));
+    AddVPNRoute(peers_[0], "192.168.0.100:1:10.0.1.1/32", 100, list_of("blue"));
 
     // Two paths.. One replicated from bgp.l3vpn.0 from peer[0]
     // other one from blue.inet.0 from peer[1]
@@ -798,7 +843,7 @@ TEST_F(ReplicationTest, ResurectInetRoute) {
     BgpRoute *rt_current = InetRouteLookup("blue", "10.0.1.1/32");
     VERIFY_EQ(peers_[0], rt_current->BestPath()->GetPeer());
 
-    DeleteVPNRoute(peers_[0], "0.0.0.0:1:10.0.1.1/32");
+    DeleteVPNRoute(peers_[0], "192.168.0.100:1:10.0.1.1/32");
     task_util::WaitForIdle();
 
     VERIFY_EQ(0, RouteCount("blue"));
@@ -882,14 +927,14 @@ TEST_F(ReplicationTest, ResurrectVPNRoute) {
         new BgpPeerMock(Ip4Address::from_string("192.168.0.2", ec)));
 
     // VPN route with same RD as exported inet route
-    AddVPNRoute(peers_[0], "0.0.0.0:1:10.0.1.1/32", 100, list_of("blue"));
+    AddVPNRoute(peers_[0], "192.168.0.100:1:10.0.1.1/32", 100, list_of("blue"));
     task_util::WaitForIdle();
 
     // The inet route is secondary and thus should not be exported.
     AddInetRoute(peers_[1], "blue", "10.0.1.1/32", 80);
     task_util::WaitForIdle();
 
-    BgpRoute *rt_vpn = VPNRouteLookup("0.0.0.0:1:10.0.1.1/32");
+    BgpRoute *rt_vpn = VPNRouteLookup("192.168.0.100:1:10.0.1.1/32");
     VERIFY_EQ(1, rt_vpn->count());
     VERIFY_EQ(peers_[0], rt_vpn->BestPath()->GetPeer());
 
@@ -901,9 +946,9 @@ TEST_F(ReplicationTest, ResurrectVPNRoute) {
 
     // Delete the VPN route. This causes the inet route to be exported to
     // the l3vpn table.
-    DeleteVPNRoute(peers_[0], "0.0.0.0:1:10.0.1.1/32");
+    DeleteVPNRoute(peers_[0], "192.168.0.100:1:10.0.1.1/32");
     task_util::WaitForIdle();
-    rt_vpn = VPNRouteLookup("0.0.0.0:1:10.0.1.1/32");
+    rt_vpn = VPNRouteLookup("192.168.0.100:1:10.0.1.1/32");
     VERIFY_EQ(peers_[1], rt_vpn->BestPath()->GetPeer());
 
     // Delete the INET route
@@ -1692,6 +1737,167 @@ TEST_F(ReplicationTest, UpdateInstanceRouteTargets8) {
     VERIFY_EQ(0, RouteCount("red"));
     TASK_UTIL_EXPECT_TRUE(InetRouteLookup("red", "10.0.1.1/32") == NULL);
     TASK_UTIL_EXPECT_TRUE(VPNRouteLookup("192.168.0.1:1:10.0.1.1/32") == NULL);
+}
+
+TEST_F(ReplicationTest, OriginVn1) {
+    vector<string> instance_names = list_of("blue")("red");
+    multimap<string, string> connections = map_list_of("blue", "red");
+    NetworkConfig(instance_names, connections);
+    task_util::WaitForIdle();
+    TASK_UTIL_EXPECT_NE(0, GetInstanceOriginVnIndex("blue"));
+    int blue_vn_idx = GetInstanceOriginVnIndex("blue");
+
+    boost::system::error_code ec;
+    peers_.push_back(
+        new BgpPeerMock(Ip4Address::from_string("192.168.0.1", ec)));
+
+    // Add VPN route with target "blue".
+    AddVPNRoute(peers_[0], "192.168.0.1:1:10.0.1.1/32", 100, list_of("blue"));
+    task_util::WaitForIdle();
+
+    // Imported in both blue and red.
+    VERIFY_EQ(1, RouteCount("blue"));
+    TASK_UTIL_EXPECT_TRUE(InetRouteLookup("blue", "10.0.1.1/32") != NULL);
+    VERIFY_EQ(1, RouteCount("red"));
+    TASK_UTIL_EXPECT_TRUE(InetRouteLookup("red", "10.0.1.1/32") != NULL);
+
+    // Verify OriginVn for routes in blue and red.
+    BgpRoute *rt;
+    rt = InetRouteLookup("blue", "10.0.1.1/32");
+    VERIFY_EQ(blue_vn_idx, GetOriginVnIndexFromRoute(rt->BestPath()));
+    rt = InetRouteLookup("red", "10.0.1.1/32");
+    VERIFY_EQ(blue_vn_idx, GetOriginVnIndexFromRoute(rt->BestPath()));
+
+    // Delete VPN route.
+    DeleteVPNRoute(peers_[0], "192.168.0.1:1:10.0.1.1/32");
+    task_util::WaitForIdle();
+    VERIFY_EQ(0, RouteCount("blue"));
+    VERIFY_EQ(0, RouteCount("red"));
+}
+
+TEST_F(ReplicationTest, OriginVn2) {
+    vector<string> instance_names = list_of("blue")("red");
+    multimap<string, string> connections = map_list_of("blue", "red");
+    NetworkConfig(instance_names, connections);
+    task_util::WaitForIdle();
+    TASK_UTIL_EXPECT_NE(0, GetInstanceOriginVnIndex("blue"));
+    int blue_vn_idx = GetInstanceOriginVnIndex("blue");
+
+    // Add another target to blue instance.
+    AddInstanceRouteTarget("blue", "target:64496:101");
+    TASK_UTIL_EXPECT_EQ(2, GetInstanceRouteTargetList("blue").size());
+
+    boost::system::error_code ec;
+    peers_.push_back(
+        new BgpPeerMock(Ip4Address::from_string("192.168.0.1", ec)));
+
+    // Add VPN route with target 101.
+    AddVPNRouteWithTarget(peers_[0], "192.168.0.1:1:10.0.1.1/32", 100,
+        "target:64496:101");
+    task_util::WaitForIdle();
+
+    // Imported in both blue and red.
+    VERIFY_EQ(1, RouteCount("blue"));
+    TASK_UTIL_EXPECT_TRUE(InetRouteLookup("blue", "10.0.1.1/32") != NULL);
+    VERIFY_EQ(1, RouteCount("red"));
+    TASK_UTIL_EXPECT_TRUE(InetRouteLookup("red", "10.0.1.1/32") != NULL);
+
+    // Verify OriginVn for routes in blue and red.
+    BgpRoute *rt;
+    rt = InetRouteLookup("blue", "10.0.1.1/32");
+    VERIFY_EQ(blue_vn_idx, GetOriginVnIndexFromRoute(rt->BestPath()));
+    rt = InetRouteLookup("red", "10.0.1.1/32");
+    VERIFY_EQ(blue_vn_idx, GetOriginVnIndexFromRoute(rt->BestPath()));
+
+    // Delete VPN route.
+    DeleteVPNRoute(peers_[0], "192.168.0.1:1:10.0.1.1/32");
+    task_util::WaitForIdle();
+    VERIFY_EQ(0, RouteCount("blue"));
+    VERIFY_EQ(0, RouteCount("red"));
+}
+
+TEST_F(ReplicationTest, OriginVn3) {
+    vector<string> instance_names = list_of("blue")("red");
+    multimap<string, string> connections = map_list_of("blue", "red");
+    NetworkConfig(instance_names, connections);
+    task_util::WaitForIdle();
+    TASK_UTIL_EXPECT_NE(0, GetInstanceOriginVnIndex("blue"));
+    int blue_vn_idx = GetInstanceOriginVnIndex("blue");
+
+    // Add another target to blue instance.
+    AddInstanceRouteTarget("blue", "target:64496:101");
+    TASK_UTIL_EXPECT_EQ(2, GetInstanceRouteTargetList("blue").size());
+
+    boost::system::error_code ec;
+    peers_.push_back(
+        new BgpPeerMock(Ip4Address::from_string("192.168.0.1", ec)));
+
+    // Add VPN route with target "blue".
+    AddVPNRouteWithTarget(peers_[0], "192.168.0.1:1:10.0.1.1/32", 100,
+        "target:64496:101", "originvn:64496:1001");
+    task_util::WaitForIdle();
+
+    // Imported in both blue and red.
+    VERIFY_EQ(1, RouteCount("blue"));
+    TASK_UTIL_EXPECT_TRUE(InetRouteLookup("blue", "10.0.1.1/32") != NULL);
+    VERIFY_EQ(1, RouteCount("red"));
+    TASK_UTIL_EXPECT_TRUE(InetRouteLookup("red", "10.0.1.1/32") != NULL);
+
+    // Verify OriginVn for routes in blue and red.
+    // OriginVn from the VPN route is used since it has our ASN.
+    BgpRoute *rt;
+    rt = InetRouteLookup("blue", "10.0.1.1/32");
+    VERIFY_EQ(1001, GetOriginVnIndexFromRoute(rt->BestPath()));
+    rt = InetRouteLookup("red", "10.0.1.1/32");
+    VERIFY_EQ(1001, GetOriginVnIndexFromRoute(rt->BestPath()));
+
+    // Delete VPN route.
+    DeleteVPNRoute(peers_[0], "192.168.0.1:1:10.0.1.1/32");
+    task_util::WaitForIdle();
+    VERIFY_EQ(0, RouteCount("blue"));
+    VERIFY_EQ(0, RouteCount("red"));
+}
+
+TEST_F(ReplicationTest, OriginVn4) {
+    vector<string> instance_names = list_of("blue")("red");
+    multimap<string, string> connections = map_list_of("blue", "red");
+    NetworkConfig(instance_names, connections);
+    task_util::WaitForIdle();
+    TASK_UTIL_EXPECT_NE(0, GetInstanceOriginVnIndex("blue"));
+    int blue_vn_idx = GetInstanceOriginVnIndex("blue");
+
+    // Add another target to blue instance.
+    AddInstanceRouteTarget("blue", "target:64496:101");
+    TASK_UTIL_EXPECT_EQ(2, GetInstanceRouteTargetList("blue").size());
+
+    boost::system::error_code ec;
+    peers_.push_back(
+        new BgpPeerMock(Ip4Address::from_string("192.168.0.1", ec)));
+
+    // Add VPN route with target "blue".
+    AddVPNRouteWithTarget(peers_[0], "192.168.0.1:1:10.0.1.1/32", 100,
+        "target:64496:101", "originvn:65596:1001");
+    task_util::WaitForIdle();
+
+    // Imported in both blue and red.
+    VERIFY_EQ(1, RouteCount("blue"));
+    TASK_UTIL_EXPECT_TRUE(InetRouteLookup("blue", "10.0.1.1/32") != NULL);
+    VERIFY_EQ(1, RouteCount("red"));
+    TASK_UTIL_EXPECT_TRUE(InetRouteLookup("red", "10.0.1.1/32") != NULL);
+
+    // Verify OriginVn for routes in blue and red.
+    // OriginVn from the VPN route is ignored since it doesn't have our ASN.
+    BgpRoute *rt;
+    rt = InetRouteLookup("blue", "10.0.1.1/32");
+    VERIFY_EQ(blue_vn_idx, GetOriginVnIndexFromRoute(rt->BestPath()));
+    rt = InetRouteLookup("red", "10.0.1.1/32");
+    VERIFY_EQ(blue_vn_idx, GetOriginVnIndexFromRoute(rt->BestPath()));
+
+    // Delete VPN route.
+    DeleteVPNRoute(peers_[0], "192.168.0.1:1:10.0.1.1/32");
+    task_util::WaitForIdle();
+    VERIFY_EQ(0, RouteCount("blue"));
+    VERIFY_EQ(0, RouteCount("red"));
 }
 
 class TestEnvironment : public ::testing::Environment {

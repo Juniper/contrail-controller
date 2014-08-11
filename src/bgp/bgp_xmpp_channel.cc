@@ -1354,13 +1354,11 @@ void BgpXmppChannel::DequeueRequest(const string &table_name,
         BgpAttrPtr attr =  data->attrs();
         RoutingInstance *rt_instance = table->routing_instance();
         assert(rt_instance);
-        ExtCommunity::ExtCommunityList origin_vn_list;
         OriginVn origin_vn(bgp_server_->autonomous_system(),
             rt_instance->virtual_network_index());
-        origin_vn_list.push_back(origin_vn.GetExtCommunity());
         ExtCommunityPtr ext_community =
             bgp_server_->extcomm_db()->ReplaceOriginVnAndLocate(
-                                attr->ext_community(), origin_vn_list);
+                attr->ext_community(), origin_vn.GetExtCommunity());
         BgpAttrPtr new_attr =
             bgp_server_->attr_db()->ReplaceExtCommunityAndLocate(
                 attr.get(), ext_community);
