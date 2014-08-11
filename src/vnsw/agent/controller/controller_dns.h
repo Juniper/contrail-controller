@@ -27,7 +27,7 @@ public:
                                  VmInterface const*, bool)> DnsMessageHandler;
     typedef boost::function<void(AgentDnsXmppChannel*)> DnsXmppEventHandler;
 
-    explicit AgentDnsXmppChannel(Agent *agent, XmppChannel *channel, 
+    explicit AgentDnsXmppChannel(Agent *agent,
                                  std::string xmpp_server, uint8_t xs_idx);
     virtual ~AgentDnsXmppChannel();
 
@@ -43,6 +43,8 @@ public:
     static void set_dns_message_handler_cb(DnsMessageHandler cb);
     static void set_dns_xmpp_event_handler_cb(DnsXmppEventHandler cb);
     Agent *agent() const {return agent_;}
+    void RegisterXmppChannel(XmppChannel *channel);
+
 protected:
     virtual void WriteReadyCb(uint8_t *msg, 
                               const boost::system::error_code &ec);
