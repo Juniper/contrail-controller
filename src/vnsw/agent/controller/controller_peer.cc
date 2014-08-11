@@ -37,20 +37,27 @@ using process::ConnectionType;
 using process::ConnectionStatus;
 using process::ConnectionState;
  
-AgentXmppChannel::AgentXmppChannel(Agent *agent, XmppChannel *channel, 
+AgentXmppChannel::AgentXmppChannel(Agent *agent,
                                    const std::string &xmpp_server, 
                                    const std::string &label_range, 
                                    uint8_t xs_idx) 
-    : channel_(channel), xmpp_server_(xmpp_server), label_range_(label_range),
+    : channel_(NULL), xmpp_server_(xmpp_server), label_range_(label_range),
       xs_idx_(xs_idx), agent_(agent), unicast_sequence_number_(0) {
     bgp_peer_id_.reset();
-    channel_->RegisterReceive(xmps::BGP, 
-                              boost::bind(&AgentXmppChannel::ReceiveInternal, 
-                                          this, _1));
 }
 
 AgentXmppChannel::~AgentXmppChannel() {
     channel_->UnRegisterReceive(xmps::BGP);
+}
+
+void AgentXmppChannel::RegisterXmppChannel(XmppChannel *channel) {
+    if (channel == NULL)
+        return;
+
+    channel_ = channel;
+    channel->RegisterReceive(xmps::BGP,
+                              boost::bind(&AgentXmppChannel::ReceiveInternal,
+                                          this, _1));
 }
 
 std::string AgentXmppChannel::GetBgpPeerName() const {

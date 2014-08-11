@@ -2858,8 +2858,9 @@ BgpPeer *CreateBgpPeer(const Ip4Address &addr, std::string name) {
     AgentXmppChannel *channel;
     Agent::GetInstance()->set_controller_ifmap_xmpp_server(addr.to_string(), 0);
     
-    channel = new AgentXmppChannel(Agent::GetInstance(), xmpp_channel, 
+    channel = new AgentXmppChannel(Agent::GetInstance(),
                                    "XMPP Server", "", 0);
+    channel->RegisterXmppChannel(xmpp_channel);
     AgentXmppChannel::HandleAgentXmppClientChannelEvent(channel, xmps::READY);
     client->WaitForIdle();
     return channel->bgp_peer_id();
