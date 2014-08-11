@@ -530,7 +530,7 @@ TEST_F(ArpTest, ArpReqOnVmInterface) {
     WAIT_FOR(500, 1000, (agent->vn_table()->Size() == 1));
     WAIT_FOR(500, 1000, (VrfFind("vrf1") == true));
     client->WaitForIdle();
-    EXPECT_TRUE(agent->GetArpProto()->GetStats().arp_req == 0);
+    EXPECT_TRUE(agent->GetArpProto()->GetStats().vm_arp_req == 0);
 
     IpamInfo ipam_info[] = {
         {"1.1.1.0", 24, "1.1.1.200", true},
