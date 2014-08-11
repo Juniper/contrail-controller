@@ -3291,10 +3291,13 @@ class DBInterface(object):
             exc_info = {'type': 'BadRequest', 'message': msg}
             bottle.abort(400, json.dumps(exc_info))
         try:
+            net_id = fip_q['floating_network_id']
             fip_uuid = self._vnc_lib.floating_ip_create(fip_obj)
         except Exception as e:
             self._raise_contrail_exception(409,
                    exceptions.IpAddressGenerationFailure(net_id=fip_q['floating_network_id']))
+        except:
+            self._raise_contrail_exception(400, exceptions.ExternalIpAddressExhausted(net_id=net_id))
         fip_obj = self._vnc_lib.floating_ip_read(id=fip_uuid)
 
         return self._floatingip_vnc_to_neutron(fip_obj)
