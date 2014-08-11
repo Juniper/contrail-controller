@@ -622,13 +622,19 @@ class DBInterface(object):
 
     def _virtual_machine_interface_read(self, port_id=None, fq_name=None,
                                         fields=None):
+        back_ref_fields = ['logical_router_back_refs', 'instance_ip_back_refs', 'floating_ip_back_refs']
+        if fields:
+            n_extra_fields = list(set(fields + back_ref_fields))
+        else:
+            n_extra_fields = back_ref_fields
+
         if port_id:
             try:
                 # return self._db_cache['vnc_ports'][port_id]
                 raise KeyError
             except KeyError:
                 port_obj = self._vnc_lib.virtual_machine_interface_read(
-                    id=port_id, fields=fields)
+                    id=port_id, fields=n_extra_fields)
                 fq_name_str = json.dumps(port_obj.get_fq_name())
                 self._db_cache['vnc_ports'][port_id] = port_obj
                 self._db_cache['vnc_ports'][fq_name_str] = port_obj
@@ -641,7 +647,7 @@ class DBInterface(object):
                 raise KeyError
             except KeyError:
                 port_obj = self._vnc_lib.virtual_machine_interface_read(
-                    fq_name=fq_name, fields=fields)
+                    fq_name=fq_name, fields=n_extra_fields)
                 self._db_cache['vnc_ports'][fq_name_str] = port_obj
                 self._db_cache['vnc_ports'][port_obj.uuid] = port_obj
                 return port_obj
@@ -676,12 +682,17 @@ class DBInterface(object):
 
     def _virtual_machine_interface_list(self, parent_id=None, back_ref_id=None,
                                         obj_uuids=None, fields=None):
+        back_ref_fields = ['logical_router_back_refs', 'instance_ip_back_refs', 'floating_ip_back_refs']
+        if fields:
+            n_extra_fields = list(set(fields + back_ref_fields))
+        else:
+            n_extra_fields = back_ref_fields
         vmi_objs = self._vnc_lib.virtual_machine_interfaces_list(
                                                      parent_id=parent_id,
                                                      back_ref_id=back_ref_id,
                                                      obj_uuids=obj_uuids,
                                                      detail=True,
-                                                     fields=fields)
+                                                     fields=n_extra_fields)
         return vmi_objs
     #end _virtual_machine_interface_list
 
@@ -1024,8 +1035,7 @@ class DBInterface(object):
             return ret_list
 
         net_ids = [net_obj.uuid for net_obj in net_objs]
-        port_objs = self._virtual_machine_interface_list(back_ref_id=net_ids,
-                                          fields=['instance_ip_back_refs'])
+        port_objs = self._virtual_machine_interface_list(back_ref_id=net_ids)
         iip_objs = self._instance_ip_list(back_ref_id=net_ids)
 
         return self._port_list(net_objs, port_objs, iip_objs)
@@ -1052,8 +1062,7 @@ class DBInterface(object):
             return ret_val
 
         net_ids = [net_obj.uuid for net_obj in net_objs]
-        port_objs = self._virtual_machine_interface_list(back_ref_id=net_ids,
-                                          fields=['instance_ip_back_refs'])
+        port_objs = self._virtual_machine_interface_list(back_ref_id=net_ids)
         iip_objs = self._instance_ip_list(back_ref_id=net_ids)
 
         ret_val = self._port_list(net_objs, port_objs, iip_objs)
@@ -1968,10 +1977,7 @@ class DBInterface(object):
                 sg_obj = SecurityGroup("default", proj_obj)
                 port_obj.add_security_group(sg_obj)
         else:  # READ/UPDATE/DELETE
-            port_obj = self._virtual_machine_interface_read(
-                port_id=port_q['id'], fields=['instance_ip_back_refs',
-                                              'floating_ip_back_refs',
-                                              'logical_router_back_refs'])
+            port_obj = self._virtual_machine_interface_read(port_id=port_q['id'])
 
         if 'name' in port_q and port_q['name']:
             port_obj.display_name = port_q['name']
@@ -2131,7 +2137,7 @@ class DBInterface(object):
             port_q_dict['allowed_address_pairs'] = address_pairs
 
         port_q_dict['fixed_ips'] = []
-        ip_back_refs = port_obj.get_instance_ip_back_refs()
+        ip_back_refs = getattr(port_obj, 'instance_ip_back_refs', None)
         if ip_back_refs:
             for ip_back_ref in ip_back_refs:
                 iip_uuid = ip_back_ref['uuid']
@@ -2166,7 +2172,7 @@ class DBInterface(object):
         # port can be router interface or vm interface
         # for perf read logical_router_back_ref only when we have to
         port_parent_name = port_obj.parent_name
-        router_refs = port_obj.get_logical_router_back_refs()
+        router_refs = getattr(port_obj, 'logical_router_back_refs', None)
         if router_refs is not None:
             port_q_dict['device_owner'] = constants.DEVICE_OWNER_ROUTER_INTF
             port_q_dict['device_id'] = router_refs[0]['uuid']
@@ -3397,8 +3403,7 @@ class DBInterface(object):
                     409, exceptions.IpAddressGenerationFailure(net_id=net_id))
 
         # TODO below reads back default parent name, fix it
-        port_obj = self._virtual_machine_interface_read(port_id=port_id,
-                                 fields=['instance_ip_back_refs'])
+        port_obj = self._virtual_machine_interface_read(port_id=port_id)
 
         ret_port_q = self._port_vnc_to_neutron(port_obj)
         #self._db_cache['q_ports'][port_id] = ret_port_q
@@ -3581,11 +3586,9 @@ class DBInterface(object):
                 # read all VMI and IIP in detail one-shot
                 if self._list_optimization_enabled:
                     all_port_gevent = gevent.spawn(self._virtual_machine_interface_list,
-                                                   parent_id=project_id,
-                                                   fields=['instance_ip_back_refs'])
+                                                   parent_id=project_id)
                 else:
-                    all_port_gevent = gevent.spawn(self._virtual_machine_interface_list,
-                                                   fields=['instance_ip_back_refs'])
+                    all_port_gevent = gevent.spawn(self._virtual_machine_interface_list)
                 port_iip_gevent = gevent.spawn(self._instance_ip_list)
                 port_net_gevent = gevent.spawn(self._virtual_network_list,
                                                parent_id=project_id,
@@ -3636,8 +3639,7 @@ class DBInterface(object):
                 # TODO optimize
                 port_objs = self._virtual_machine_interface_list(
                                               parent_id=dev_id,
-                                              back_ref_id=dev_id,
-                                              fields=['instance_ip_back_refs'])
+                                              back_ref_id=dev_id)
                 if not port_objs:
                     raise NoIdError(None)
                 for port_obj in port_objs:
