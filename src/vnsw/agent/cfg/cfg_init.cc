@@ -92,8 +92,7 @@ void AgentConfig::CreateDBTables(DB *db) {
     IFMapAgentLinkTable_Init(db, cfg_graph_.get());
     agent_->set_ifmap_parser(cfg_parser_.get());
     IFMapAgentStaleCleaner *cl = 
-        new IFMapAgentStaleCleaner(db, cfg_graph_.get(),
-                                   *(agent_->event_manager()->io_service()));
+        new IFMapAgentStaleCleaner(db, cfg_graph_.get());
     agent_->set_ifmap_stale_cleaner(cl);
 
     IFMapAgentSandeshInit(db);
