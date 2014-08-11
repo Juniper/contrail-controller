@@ -536,7 +536,7 @@ class AddrMgmt(object):
         proj_uuid = db_vn_dict['parent_uuid']
         (ok, proj_dict) = QuotaHelper.get_project_dict(proj_uuid, db_conn)
         if not ok:
-            return (False, (500, 'Internal error : ' + pformat(proj_dict)))
+            return (False, 'Internal error : ' + pformat(proj_dict))
 
         obj_type = 'subnet'
         QuotaHelper.ensure_quota_project_present(obj_type, proj_uuid, proj_dict, db_conn)
@@ -547,7 +547,7 @@ class AddrMgmt(object):
             quota_count = 0
         (ok, quota_limit) = QuotaHelper.check_quota_limit(proj_dict, obj_type, quota_count)
         if not ok:
-            return (False, (403, pformat(db_vn_dict['fq_name']) + ' : ' + quota_limit))
+            return (False, pformat(db_vn_dict['fq_name']) + ' : ' + quota_limit)
 
         return True, ""
 
