@@ -92,7 +92,8 @@ public:
         Agent::GetInstance()->fabric_inet4_unicast_table()->
             AddLocalVmRouteReq(NULL, vrf, addr, 32, intf->GetUuid(),
                                intf->vn()->GetName(), label,
-                               SecurityGroupList(), false, PathPreference());
+                               SecurityGroupList(), false, PathPreference(),
+                               Ip4Address(0));
         client->WaitForIdle();
         EXPECT_TRUE(RouteFind(vrf, addr, 32));
     }

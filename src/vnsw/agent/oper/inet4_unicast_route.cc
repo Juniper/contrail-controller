@@ -770,12 +770,13 @@ Inet4UnicastAgentRouteTable::AddLocalVmRouteReq(const Peer *peer,
                                                 const SecurityGroupList &sg_list,
                                                 bool force_policy,
                                                 const PathPreference
-                                                &path_preference) {
+                                                &path_preference,
+                                                const Ip4Address &subnet_gw_ip) {
     VmInterfaceKey intf_key(AgentKey::ADD_DEL_CHANGE, intf_uuid, "");
     LocalVmRoute *data = new LocalVmRoute(intf_key, label,
                                     VxLanTable::kInvalidvxlan_id, force_policy,
                                     vn_name, InterfaceNHFlags::INET4, sg_list,
-                                    path_preference);
+                                    path_preference, subnet_gw_ip);
 
     AddLocalVmRouteReq(peer, vm_vrf, addr, plen, data);
 }
@@ -793,7 +794,8 @@ Inet4UnicastAgentRouteTable::AddLocalVmRoute(const Peer *peer,
                                              const SecurityGroupList &sg_list,
                                              bool force_policy,
                                              const PathPreference
-                                             &path_preference) {
+                                             &path_preference,
+                                             const Ip4Address &subnet_gw_ip) {
     DBRequest req(DBRequest::DB_ENTRY_ADD_CHANGE);
     req.key.reset(new Inet4UnicastRouteKey(peer, vm_vrf, addr, plen));
 
@@ -801,7 +803,7 @@ Inet4UnicastAgentRouteTable::AddLocalVmRoute(const Peer *peer,
     req.data.reset(new LocalVmRoute(intf_key, label, VxLanTable::kInvalidvxlan_id,
                                     force_policy, vn_name,
                                     InterfaceNHFlags::INET4, sg_list,
-                                    path_preference));
+                                    path_preference, subnet_gw_ip));
     UnicastTableProcess(Agent::GetInstance(), vm_vrf, req);
 }
 

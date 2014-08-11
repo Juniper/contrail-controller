@@ -517,6 +517,46 @@ TEST_F(ArpTest, ArpItfDeleteTest) {
 }
 #endif
 
+//Test to verify sending of ARP request on new interface addition
+TEST_F(ArpTest, ArpReqOnVmInterface) {
+    Agent *agent = Agent::GetInstance();
+    agent->GetArpProto()->ClearStats();
+    client->WaitForIdle();
+    struct PortInfo input[] = {
+        {"vnet1", 1, "1.1.1.1", "00:00:00:00:00:01", 1, 1},
+    };
+    CreateVmportEnv(input, 1);
+    WAIT_FOR(500, 1000, (agent->vm_table()->Size() == 1));
+    WAIT_FOR(500, 1000, (agent->vn_table()->Size() == 1));
+    WAIT_FOR(500, 1000, (VrfFind("vrf1") == true));
+    client->WaitForIdle();
+    EXPECT_TRUE(agent->GetArpProto()->GetStats().vm_arp_req == 0);
+
+    IpamInfo ipam_info[] = {
+        {"1.1.1.0", 24, "1.1.1.200", true},
+    };
+    AddIPAM("vn1", ipam_info, 1, NULL, "vdns1");
+    client->WaitForIdle();
+    WAIT_FOR(500, 1000, (agent->GetArpProto()->GetStats().vm_arp_req == 1));
+
+    agent->GetArpProto()->ClearStats();
+    DelIPAM("vn1", "vdns1");
+    client->WaitForIdle();
+    EXPECT_TRUE(agent->GetArpProto()->GetStats().vm_arp_req == 0);
+
+    //Readd IPAM
+    AddIPAM("vn1", ipam_info, 1, NULL, "vdns1");
+    client->WaitForIdle();
+    WAIT_FOR(500, 1000, (agent->GetArpProto()->GetStats().vm_arp_req == 1));
+
+    DelIPAM("vn1", "vdns1");
+    DeleteVmportEnv(input, 1, true);
+    client->WaitForIdle();
+    WAIT_FOR(500, 1000, (agent->vm_table()->Size() == 0));
+    WAIT_FOR(500, 1000, (agent->vn_table()->Size() == 0));
+    WAIT_FOR(500, 1000, (VrfFind("vrf1") == false));
+}
+
 void RouterIdDepInit(Agent *agent) {
 }
 
