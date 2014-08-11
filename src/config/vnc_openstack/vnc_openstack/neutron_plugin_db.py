@@ -825,11 +825,11 @@ class DBInterface(object):
 
     def _security_group_entries_list_sg(self, sg_id):
         try:
-            sg_uuid = str(uuid.UUID(project_id))
+            sg_uuid = str(uuid.UUID(sg_id))
         except Exception:
             print "Error in converting SG uuid %s" % (sg_id)
 
-        resp_dict = self._vnc_lib.security_groups_list(parent_id=project_uuid)
+        resp_dict = self._vnc_lib.security_groups_list(obj_uuids=[sg_uuid])
 
         return resp_dict['security-groups']
     #end _security_group_entries_list_sg
