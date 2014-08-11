@@ -169,6 +169,13 @@ LifetimeManager::~LifetimeManager() {
 }
 
 //
+// Disable/Enable the WorkQueue - testing only.
+//
+void LifetimeManager::SetQueueDisable(bool disabled) {
+    queue_.set_disable(disabled);
+}
+
+//
 // Concurrency: called in the context of any Task or the main thread.
 //
 // Enqueue a delete event for the actor.

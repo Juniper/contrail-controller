@@ -192,6 +192,9 @@ public:
     // Return the number of times work queue task executions were deferred.
     size_t GetQueueDeferCount() { return defer_count_; }
 
+protected:
+    virtual void SetQueueDisable(bool disabled);
+
 private:
     friend class LifetimeActor;
 

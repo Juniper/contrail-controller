@@ -19,10 +19,10 @@
 #include "bgp/state_machine.h"
 #include "bgp/routing-instance/peer_manager.h"
 #include "bgp/routing-instance/routing_instance.h"
-#include "xmpp/xmpp_server.h"
-
 #include "db/db.h"
 #include "db/db_graph.h"
+#include "xmpp/xmpp_lifetime.h"
+#include "xmpp/xmpp_server.h"
 
 class BgpPeerTest;
 
@@ -291,6 +291,27 @@ public:
             boost::bind(&XmppStateMachine::OpenTimerExpired, this),
             boost::bind(&XmppStateMachine::TimerErrorHandler, this, _1, _2));
     }
+};
+
+class XmppLifetimeManagerTest : public XmppLifetimeManager {
+public:
+    explicit XmppLifetimeManagerTest(int task_id)
+        : XmppLifetimeManager(task_id), destroy_not_ok_(false) {
+    }
+    virtual ~XmppLifetimeManagerTest() {
+    }
+
+    virtual bool MayDestroy() { return !destroy_not_ok_; }
+    virtual void SetQueueDisable(bool disabled) {
+        LifetimeManager::SetQueueDisable(disabled);
+    }
+
+    void set_destroy_not_ok(bool destroy_not_ok) {
+        destroy_not_ok_ = destroy_not_ok;
+    }
+
+private:
+    bool destroy_not_ok_;
 };
 
 #define BGP_WAIT_FOR_PEER_STATE(peer, state)                                   \
