@@ -114,9 +114,9 @@ void InitXmppServers() {
 
 class AgentBgpXmppPeerTest : public AgentXmppChannel {
 public:
-    AgentBgpXmppPeerTest(XmppChannel *channel, std::string xs, 
+    AgentBgpXmppPeerTest(std::string xs,
                          std::string lr, uint8_t xs_idx) :
-        AgentXmppChannel(Agent::GetInstance(), channel, xs, lr, xs_idx), 
+        AgentXmppChannel(Agent::GetInstance(), xs, lr, xs_idx),
         rx_count_(0), rx_channel_event_queue_(
             TaskScheduler::GetInstance()->GetTaskId("xmpp::StateMachine"), 0,
             boost::bind(&AgentBgpXmppPeerTest::ProcessChannelEvent, this, _1)) {
@@ -609,9 +609,10 @@ protected:
             xc[i]->ConfigUpdate(xmppc_cfg[i]);
             cchannel[i] = xc[i]->FindChannel(XmppInit::kControlNodeJID);
             //New bgp peer from agent
-            bgp_peer[i].reset(new AgentBgpXmppPeerTest(cchannel[i],
+            bgp_peer[i].reset(new AgentBgpXmppPeerTest(
                                   Agent::GetInstance()->controller_ifmap_xmpp_server(i),
                                   Agent::GetInstance()->multicast_label_range(i), i));
+            bgp_peer[i].get()->RegisterXmppChannel(cchannel[i]);
             xc[i]->RegisterConnectionEvent(xmps::BGP,
                            boost::bind(&AgentBgpXmppPeerTest::HandleXmppChannelEvent, 
                                        bgp_peer[i].get(), _2));

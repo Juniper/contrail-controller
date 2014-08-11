@@ -51,8 +51,8 @@ void RouterIdDepInit(Agent *agent) {
 
 class AgentBgpXmppPeerTest : public AgentXmppChannel {
 public:
-    AgentBgpXmppPeerTest(XmppChannel *channel, std::string xs, uint8_t xs_idx) :
-        AgentXmppChannel(Agent::GetInstance(), channel, xs, "0", xs_idx), 
+    AgentBgpXmppPeerTest(std::string xs, uint8_t xs_idx) :
+        AgentXmppChannel(Agent::GetInstance(), xs, "0", xs_idx),
         rx_count_(0), stop_scheduler_(false), rx_channel_event_queue_(
             TaskScheduler::GetInstance()->GetTaskId("xmpp::StateMachine"), 0,
             boost::bind(&AgentBgpXmppPeerTest::ProcessChannelEvent, this, _1)) {
@@ -401,8 +401,9 @@ protected:
 	// client connection
 	cchannel = xc->FindChannel(XmppInit::kControlNodeJID);
 	//Create agent bgp peer
-        bgp_peer.reset(new AgentBgpXmppPeerTest(cchannel,
-                       Agent::GetInstance()->controller_ifmap_xmpp_server(0), 0));
+    bgp_peer.reset(new AgentBgpXmppPeerTest(
+                   Agent::GetInstance()->controller_ifmap_xmpp_server(0), 0));
+    bgp_peer.get()->RegisterXmppChannel(cchannel);
 	xc->RegisterConnectionEvent(xmps::BGP,
 	    boost::bind(&AgentBgpXmppPeerTest::HandleXmppChannelEvent, 
 			bgp_peer.get(), _2));
