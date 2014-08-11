@@ -2066,6 +2066,16 @@ class DBInterface(object):
             else:
                 port_obj.set_virtual_machine_interface_allowed_address_pairs(None)
 
+        if 'fixed_ips' in port_q:
+            net_id = port_q['network_id']
+            for fixed_ip in port_q.get('fixed_ips', []):
+                if 'ip_address' in fixed_ip:
+                    ip_addr = fixed_ip['ip_address']
+                    if self._ip_addr_in_net_id(ip_addr, net_id):
+                        self._raise_contrail_exception(
+                            409, exceptions.IpAddressInUse(net_id=net_id,
+                                                           ip_address=ip_addr))
+
         return port_obj
     #end _port_neutron_to_vnc
 
@@ -3348,6 +3358,46 @@ class DBInterface(object):
                                 self._instance_ip_list(back_ref_id=[net_id])]
         return ip_addr in net_ip_list
 
+    def _create_instance_ip(self, net_obj, port_obj, ip_addr=None):
+        ip_name = str(uuid.uuid4())
+        ip_obj = InstanceIp(name=ip_name)
+        ip_obj.uuid = ip_name
+        ip_obj.set_virtual_machine_interface(port_obj)
+        ip_obj.set_virtual_network(net_obj)
+        if ip_addr:
+            ip_obj.set_instance_ip_address(ip_addr)
+
+        ip_id = self._instance_ip_create(ip_obj)
+        return ip_id
+    # end _create_instance_ip
+
+    def _port_create_instance_ip(self, net_obj, port_obj, port_q):
+        created_iip_ids = []
+        fixed_ips = port_q.get('fixed_ips')
+        if fixed_ips is None:
+            return
+        for fixed_ip in fixed_ips:
+            try:
+                ip_addr = fixed_ip.get('ip_address')
+                subnet_id = fixed_ip.get('subnet_id')
+                if not ip_addr and 'subnet_id' in fixed_ip:
+                    subnet_key = self._subnet_vnc_read_mapping(id=subnet_id)
+                    ip_addr = self._vnc_lib.virtual_network_ip_alloc(net_obj,
+                                            subnet=subnet_key.split()[1])[0]
+
+                ip_id = self._create_instance_ip(net_obj, port_obj, ip_addr)
+                created_iip_ids.append(ip_id)
+            except Exception as e:
+                # Resources are not available
+                for iip_id in created_iip_ids:
+                    self._instance_ip_delete(instance_ip_id=iip_id)
+                self._raise_contrail_exception(409,
+                    exceptions.IpAddressGenerationFailure(net_id=net_obj.uuid))
+        for iip in getattr(port_obj, 'instance_ip_back_refs', []):
+            if iip['uuid'] not in created_iip_ids:
+                iip_obj = self._instance_ip_delete(instance_ip_id=iip['uuid'])
+    # end _port_create_instance_ip
+
     # port api handlers
     def port_create(self, port_q):
         net_id = port_q['network_id']
@@ -3357,59 +3407,16 @@ class DBInterface(object):
         # initialize port object
         port_obj = self._port_neutron_to_vnc(port_q, net_obj, CREATE)
 
-        # if ip address passed then use it
-        req_ip_addrs = []
-        if 'fixed_ips' in port_q:
-            for fixed_ip in port_q['fixed_ips'] or []:
-                if 'ip_address' in fixed_ip:
-                    ip_addr = fixed_ip['ip_address']
-                    # allow duplicate instance-ip objects for ports owned by
-                    # routers since it uses gateway ip as address
-                    if (port_q['device_owner'] !=
-                        constants.DEVICE_OWNER_ROUTER_INTF and
-                        self._ip_addr_in_net_id(ip_addr, net_id)):
-                           self._raise_contrail_exception(
-                               409, exceptions.IpAddressInUse(net_id=net_id,
-                               ip_address=ip_addr))
-                    req_ip_addrs.append(ip_addr)
-
         # create the object
         port_id = self._resource_create('virtual_machine_interface', port_obj)
-
-        # initialize ip object
-        if net_obj.get_network_ipam_refs():
-            def _create_instance_ip(port_obj, ip_addr=None):
-                ip_name = str(uuid.uuid4())
-                ip_obj = InstanceIp(name=ip_name)
-                ip_obj.uuid = ip_name
-                ip_obj.set_virtual_machine_interface(port_obj)
-                ip_obj.set_virtual_network(net_obj)
-                if ip_addr:
-                    ip_obj.set_instance_ip_address(ip_addr)
-
-                ip_id = self._instance_ip_create(ip_obj)
-                return ip_id
-
-            created_iip_ids = []
-            try:
-                if req_ip_addrs:
-                    for req_ip in req_ip_addrs:
-                        created_iip_ids.append(_create_instance_ip(port_obj, req_ip))
-                else:
-                    _create_instance_ip(port_obj)
-            except Exception as e:
-                # ResourceExhaustionError, resources are not available
-                for iip_id in created_iip_ids:
-                    self._instance_ip_delete(instance_ip_id=iip_id)
-                self._virtual_machine_interface_delete(port_id=port_id)
-                self._raise_contrail_exception(
-                    409, exceptions.IpAddressGenerationFailure(net_id=net_id))
-
+        if 'fixed_ips' in port_q:
+            self._port_create_instance_ip(net_obj, port_obj, port_q)
+        else:
+            self._port_create_instance_ip(net_obj, port_obj,
+                                          {'fixed_ips':[{'ip_address': None}]})
         # TODO below reads back default parent name, fix it
         port_obj = self._virtual_machine_interface_read(port_id=port_id)
-
         ret_port_q = self._port_vnc_to_neutron(port_obj)
-        #self._db_cache['q_ports'][port_id] = ret_port_q
         self._set_obj_tenant_id(port_id, proj_id)
 
         # update cache on successful creation
@@ -3444,60 +3451,11 @@ class DBInterface(object):
         port_q['id'] = port_id
         port_obj = self._port_neutron_to_vnc(port_q, None, UPDATE)
         net_id = port_obj.get_virtual_network_refs()[0]['uuid']
-        fixed_ips = port_q.get('fixed_ips', [])
-        for fixed_ip in fixed_ips:
-            if 'ip_address' in fixed_ip:
-                ip_addr = fixed_ip['ip_address']
-                if self._ip_addr_in_net_id(ip_addr, net_id):
-                    self._raise_contrail_exception(409, exceptions.IpAddressInUse(net_id=net_id,
-                                                    ip_address=ip_addr))
-                req_ip_addrs.append(ip_addr)
-            elif 'subnet_id' in fixed_ip:
-                req_ip_subnets.append(fixed_ip['subnet_id'])
-
+        net_obj = self._network_read(net_id)
         self._virtual_machine_interface_update(port_obj)
-
-        if req_ip_addrs or req_ip_subnets:
-            net_obj = self._network_read(net_id)
-            # initialize ip object
-            if net_obj.get_network_ipam_refs():
-                def _create_instance_ip(port_obj, ip_addr=None):
-                    ip_name = str(uuid.uuid4())
-                    ip_obj = InstanceIp(name=ip_name)
-                    ip_obj.uuid = ip_name
-                    ip_obj.set_virtual_machine_interface(port_obj)
-                    ip_obj.set_virtual_network(net_obj)
-                    if ip_addr:
-                        ip_obj.set_instance_ip_address(ip_addr)
-
-                    ip_id = self._instance_ip_create(ip_obj)
-                    return ip_id
-
-                created_iip_ids = []
-                try:
-                    for subnet_id in req_ip_subnets:
-                        subnet_key = self._subnet_vnc_read_mapping(id=subnet_id)
-                        ip_addr = self._vnc_lib.virtual_network_ip_alloc(net_obj,
-                                                subnet=subnet_key.split()[1])
-                        req_ip_addrs.extend(ip_addr)
-
-                    for iip in port_obj.get_instance_ip_back_refs():
-                        iip_obj = self._instance_ip_delete(instance_ip_id=iip['uuid'])
-
-                    for new_ip in req_ip_addrs:
-                        created_iip_ids.append(_create_instance_ip(port_obj, new_ip))
-
-                except Exception as e:
-                    # ResourceExhaustionError, resources are not available
-                    for iip_id in created_iip_ids:
-                        self._instance_ip_delete(instance_ip_id=iip_id)
-                    self._raise_contrail_exception(
-                        409, exceptions.IpAddressGenerationFailure(net_id=net_id))
-
-                port_obj = self._virtual_machine_interface_read(port_id=port_id,
-                                         fields=['instance_ip_back_refs'])
-
+        self._port_create_instance_ip(net_obj, port_obj, port_q)
         ret_port_q = self._port_vnc_to_neutron(port_obj)
+        port_obj = self._virtual_machine_interface_read(port_id=port_id)
         self._db_cache['q_ports'][port_id] = ret_port_q
 
         return ret_port_q
