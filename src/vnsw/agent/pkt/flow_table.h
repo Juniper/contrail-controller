@@ -530,6 +530,8 @@ public:
 
     DBTableBase::ListenerId nh_listener_id();
     Inet4UnicastRouteEntry * GetUcRoute(const VrfEntry *entry, const Ip4Address &addr);
+    bool ValidFlowMove(const FlowEntry *new_flow,
+                       const FlowEntry *old_flow) const;
 
     friend class FlowStatsCollector;
     friend class PktSandeshFlow;
