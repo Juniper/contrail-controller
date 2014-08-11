@@ -42,7 +42,7 @@ static const char *bgp_config_template = "\
 //
 class BgpXmppBasicTest : public ::testing::Test {
 protected:
-    BgpXmppBasicTest() : thread_(&evm_), xs_x_(NULL) { }
+    BgpXmppBasicTest() : thread_(&evm_), xs_x_(NULL), xltm_x_(NULL) { }
 
     virtual void SetUp() {
         bs_x_.reset(new BgpServerTest(&evm_, "X"));
@@ -53,6 +53,9 @@ protected:
         xs_x_->Initialize(0, false);
         LOG(DEBUG, "Created XMPP server at port: " <<
             xs_x_->GetPort());
+        xltm_x_ =
+            dynamic_cast<XmppLifetimeManagerTest *>(xs_x_->lifetime_manager());
+        assert(xltm_x_ != NULL);
         cm_x_.reset(new BgpXmppChannelManager(xs_x_, bs_x_.get()));
         thread_.Start();
     }
@@ -112,10 +115,19 @@ protected:
         xs->SetQueueDisable(flag);
     }
 
+    void SetLifetimeManagerDestroyDisable(bool disabled) {
+        xltm_x_->set_destroy_not_ok(disabled);
+    }
+
+    void SetLifetimeManagerQueueDisable(bool disabled) {
+        xltm_x_->SetQueueDisable(disabled);
+    }
+
     EventManager evm_;
     ServerThread thread_;
     BgpServerTestPtr bs_x_;
     XmppServer *xs_x_;
+    XmppLifetimeManagerTest *xltm_x_;
     test::NetworkAgentMockPtr agent_a_;
     test::NetworkAgentMockPtr agent_b_;
     test::NetworkAgentMockPtr agent_c_;
@@ -424,6 +436,75 @@ TEST_F(BgpXmppBasicTest, DisableConnectionQueue3) {
     TASK_UTIL_EXPECT_FALSE(xs_x_->deleter()->HasDependents());
 }
 
+TEST_F(BgpXmppBasicTest, DisableConnectionDestroy) {
+
+    // Create and bring up agents.
+    CreateAgents();
+    TASK_UTIL_EXPECT_TRUE(agent_a_->IsEstablished());
+    TASK_UTIL_EXPECT_TRUE(agent_b_->IsEstablished());
+    TASK_UTIL_EXPECT_TRUE(agent_c_->IsEstablished());
+    TASK_UTIL_EXPECT_EQ(3, xs_x_->ConnectionCount());
+
+    // Disable destroy of xmpp managed objects.
+    SetLifetimeManagerDestroyDisable(true);
+
+    // Clear all connections.
+    TaskScheduler::GetInstance()->Stop();
+    xs_x_->ClearAllConnections();
+    TaskScheduler::GetInstance()->Start();
+
+    // Verify that the connection count goes up.  The still to be destroyed
+    // connections should be in the set, but new connections should come up.
+    TASK_UTIL_EXPECT_TRUE(xs_x_->ConnectionCount() >= 6);
+    TASK_UTIL_EXPECT_TRUE(agent_a_->IsEstablished());
+    TASK_UTIL_EXPECT_TRUE(agent_b_->IsEstablished());
+    TASK_UTIL_EXPECT_TRUE(agent_c_->IsEstablished());
+
+    // Enable destroy of xmpp managed objects.
+    SetLifetimeManagerDestroyDisable(false);
+
+    // Verify that there are no connections waiting to be destroyed.
+    TASK_UTIL_EXPECT_EQ(3, xs_x_->ConnectionCount());
+    TASK_UTIL_EXPECT_TRUE(agent_a_->IsEstablished());
+    TASK_UTIL_EXPECT_TRUE(agent_b_->IsEstablished());
+    TASK_UTIL_EXPECT_TRUE(agent_c_->IsEstablished());
+}
+
+TEST_F(BgpXmppBasicTest, DisableConnectionShutdown) {
+
+    // Create and bring up agents.
+    CreateAgents();
+    TASK_UTIL_EXPECT_TRUE(agent_a_->IsEstablished());
+    TASK_UTIL_EXPECT_TRUE(agent_b_->IsEstablished());
+    TASK_UTIL_EXPECT_TRUE(agent_c_->IsEstablished());
+    TASK_UTIL_EXPECT_EQ(3, xs_x_->ConnectionCount());
+
+    // Disable xmpp lifetime manager queue processing.
+    SetLifetimeManagerQueueDisable(true);
+
+    // Clear all connections.
+    TaskScheduler::GetInstance()->Stop();
+    xs_x_->ClearAllConnections();
+    TaskScheduler::GetInstance()->Start();
+
+    // Verify that the connection count goes up.  The still to be shutdown
+    // connections should be in the map, and should prevent new connections
+    // from the same endpoint.
+    TASK_UTIL_EXPECT_TRUE(xs_x_->ConnectionCount() >= 9);
+    TASK_UTIL_EXPECT_FALSE(agent_a_->IsEstablished());
+    TASK_UTIL_EXPECT_FALSE(agent_b_->IsEstablished());
+    TASK_UTIL_EXPECT_FALSE(agent_c_->IsEstablished());
+
+    // Enable xmpp lifetime manager queue processing.
+    SetLifetimeManagerQueueDisable(false);
+
+    // Verify that there are no connections waiting to be shutdown.
+    TASK_UTIL_EXPECT_EQ(3, xs_x_->ConnectionCount());
+    TASK_UTIL_EXPECT_TRUE(agent_a_->IsEstablished());
+    TASK_UTIL_EXPECT_TRUE(agent_b_->IsEstablished());
+    TASK_UTIL_EXPECT_TRUE(agent_c_->IsEstablished());
+}
+
 class TestEnvironment : public ::testing::Environment {
     virtual ~TestEnvironment() { }
     virtual void SetUp() {
@@ -435,6 +516,8 @@ class TestEnvironment : public ::testing::Environment {
 static void SetUp() {
     ControlNode::SetDefaultSchedulingPolicy();
     BgpServerTest::GlobalSetUp();
+    XmppObjectFactory::Register<XmppLifetimeManager>(
+        boost::factory<XmppLifetimeManagerTest *>());
     XmppObjectFactory::Register<XmppStateMachine>(
         boost::factory<XmppStateMachineTest *>());
 }

@@ -10,6 +10,7 @@
 #include "base/task_annotations.h"
 #include "xmpp/xmpp_connection.h"
 #include "xmpp/xmpp_factory.h"
+#include "xmpp/xmpp_lifetime.h"
 #include "xmpp/xmpp_log.h"
 #include "xmpp/xmpp_session.h"
 
@@ -48,7 +49,7 @@ private:
 
 XmppServer::XmppServer(EventManager *evm, const string &server_addr) 
     : TcpServer(evm),
-      lifetime_manager_(new LifetimeManager(
+      lifetime_manager_(XmppObjectFactory::Create<XmppLifetimeManager>(
           TaskScheduler::GetInstance()->GetTaskId("bgp::Config"))),
       deleter_(new DeleteActor(this)), 
       server_addr_(server_addr),
