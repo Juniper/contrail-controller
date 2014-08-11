@@ -909,6 +909,26 @@ void FlowTable::Add(FlowEntry *flow, FlowEntry *rflow) {
     AddFlowInfo(flow);
 }
 
+bool FlowTable::ValidFlowMove(const FlowEntry *new_flow,
+                              const FlowEntry *old_flow) const {
+    if (!new_flow || !old_flow) {
+        return false;
+    }
+
+    if (new_flow->is_flags_set(FlowEntry::EcmpFlow) == false) {
+        return false;
+    }
+
+     if (new_flow->data().flow_source_vrf == old_flow->data().flow_source_vrf &&
+         new_flow->key().src.ipv4 == old_flow->key().src.ipv4 &&
+         new_flow->data().source_plen == old_flow->data().source_plen) {
+         //Check if both flow originate from same source route
+         return true;
+     }
+
+     return false;
+}
+
 void FlowTable::UpdateReverseFlow(FlowEntry *flow, FlowEntry *rflow) {
     FlowEntry *flow_rev = flow->reverse_flow_entry();
     FlowEntry *rflow_rev = NULL;
@@ -933,12 +953,16 @@ void FlowTable::UpdateReverseFlow(FlowEntry *flow, FlowEntry *rflow) {
 
     if (flow_rev && (flow_rev->reverse_flow_entry() == NULL)) {
         flow_rev->MakeShortFlow(FlowEntry::SHORT_NO_REVERSE_FLOW);
-        flow->MakeShortFlow(FlowEntry::SHORT_REVERSE_FLOW_CHANGE);
+        if (ValidFlowMove(rflow, flow_rev)== false) {
+            flow->MakeShortFlow(FlowEntry::SHORT_REVERSE_FLOW_CHANGE);
+        }
     }
 
     if (rflow_rev && (rflow_rev->reverse_flow_entry() == NULL)) {
         rflow_rev->MakeShortFlow(FlowEntry::SHORT_NO_REVERSE_FLOW);
-        flow->MakeShortFlow(FlowEntry::SHORT_REVERSE_FLOW_CHANGE);
+        if (ValidFlowMove(flow, rflow_rev) == false) {
+            flow->MakeShortFlow(FlowEntry::SHORT_REVERSE_FLOW_CHANGE);
+        }
     }
 
     if (flow->reverse_flow_entry() == NULL) {
@@ -1048,6 +1072,7 @@ void FlowEntry::FillFlowInfo(FlowInfo &info) {
     if (is_flags_set(FlowEntry::Trap)) {
         info.set_trap(true);
     }
+    info.set_vrf_assign(acl_assigned_vrf());
 }
 
 bool FlowEntry::FlowSrcMatch(const RouteFlowKey &rkey) const {
