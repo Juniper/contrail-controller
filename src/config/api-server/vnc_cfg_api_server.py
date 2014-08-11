@@ -1129,7 +1129,7 @@ class VncApiServer(VncApiServerGen):
         fq_name_str = ":".join(self._db_conn.uuid_to_fq_name(uuid))
         apiConfig = VncApiCommon()
         apiConfig.object_type=obj_type.replace('-', '_')
-        apiConfig.identifier_name=fq_name_str,
+        apiConfig.identifier_name=fq_name_str
         apiConfig.identifier_uuid = uuid
         apiConfig.operation = 'delete'
         self._set_api_audit_info(apiConfig)
