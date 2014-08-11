@@ -2131,30 +2131,29 @@ class DBInterface(object):
             port_q_dict['allowed_address_pairs'] = address_pairs
 
         port_q_dict['fixed_ips'] = []
-        ip_back_refs = port_obj.get_instance_ip_back_refs()
-        if ip_back_refs:
-            for ip_back_ref in ip_back_refs:
-                iip_uuid = ip_back_ref['uuid']
-                # fetch it from request context cache/memo if there
+        ip_back_refs = getattr(port_obj, 'instance_ip_back_refs', None) or []
+        for ip_back_ref in ip_back_refs:
+            iip_uuid = ip_back_ref['uuid']
+            # fetch it from request context cache/memo if there
+            try:
+                ip_obj = port_req_memo['instance-ips'][iip_uuid]
+            except KeyError:
                 try:
-                    ip_obj = port_req_memo['instance-ips'][iip_uuid]
-                except KeyError:
-                    try:
-                        ip_obj = self._instance_ip_read(
-                            instance_ip_id=ip_back_ref['uuid'])
-                    except NoIdError:
-                        continue
+                    ip_obj = self._instance_ip_read(
+                        instance_ip_id=ip_back_ref['uuid'])
+                except NoIdError:
+                    continue
 
-                ip_addr = ip_obj.get_instance_ip_address()
+            ip_addr = ip_obj.get_instance_ip_address()
 
-                ip_q_dict = {}
-                ip_q_dict['port_id'] = port_obj.uuid
-                ip_q_dict['ip_address'] = ip_addr
-                ip_q_dict['subnet_id'] = self._ip_address_to_subnet_id(ip_addr,
-                                                                       net_obj)
-                ip_q_dict['net_id'] = net_id
+            ip_q_dict = {}
+            ip_q_dict['port_id'] = port_obj.uuid
+            ip_q_dict['ip_address'] = ip_addr
+            ip_q_dict['subnet_id'] = self._ip_address_to_subnet_id(ip_addr,
+                                                                   net_obj)
+            ip_q_dict['net_id'] = net_id
 
-                port_q_dict['fixed_ips'].append(ip_q_dict)
+            port_q_dict['fixed_ips'].append(ip_q_dict)
 
         port_q_dict['security_groups'] = []
         sg_refs = port_obj.get_security_group_refs()
