@@ -92,6 +92,8 @@ class FloatingIpServer(FloatingIpServerGen):
         try:
             fip_addr = cls.addr_mgmt.ip_alloc_req(vn_fq_name,
                                                   asked_ip_addr=req_ip)
+        except AddrMgmtSubnetUndefined as e:
+            retuen (False, (404, str(e)))
         except Exception as e:
             return (False, (500, str(e)))
         obj_dict['floating_ip_address'] = fip_addr

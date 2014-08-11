@@ -148,6 +148,10 @@ class FloatingIPNotFound(exceptions.NotFound):
     message = _("Floating IP %(floatingip_id)s could not be found")
 
 
+class SubnetNotDefined(exceptions.BadRequest):
+    message = _("Subnet not defined for network %(net_id)")
+
+
 class ExternalGatewayForFloatingIPNotFound(exceptions.NotFound):
     message = _("External network %(external_network_id)s is not reachable "
                 "from subnet %(subnet_id)s.  Therefore, cannot associate "
@@ -3255,7 +3259,13 @@ class DBInterface(object):
                     'network.') % (fip_q['floating_network_id'])
             exc_info = {'type': 'BadRequest', 'message': msg}
             bottle.abort(400, json.dumps(exc_info))
-        fip_uuid = self._vnc_lib.floating_ip_create(fip_obj)
+        try:
+            net_id = fip_q['floating_network_id']
+            fip_uuid = self._vnc_lib.floating_ip_create(fip_obj)
+        except NoIdError:
+            self._raise_contrail_exception(400, SubnetNotDefined(net_id=net_id))
+        except:
+            self._raise_contrail_exception(400, exceptions.ExternalIpAddressExhausted(net_id=net_id))
         fip_obj = self._vnc_lib.floating_ip_read(id=fip_uuid)
 
         return self._floatingip_vnc_to_neutron(fip_obj)
