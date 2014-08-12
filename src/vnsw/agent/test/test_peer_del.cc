@@ -80,10 +80,12 @@ TEST_F(AgentPeerDelete, peer_test_1) {
     XmppChannelMock xmpp_channel;
     Agent::GetInstance()->set_controller_ifmap_xmpp_server("0.0.0.1", 0);
     Agent::GetInstance()->set_controller_ifmap_xmpp_server("0.0.0.2", 1);
-    channel1 = new AgentXmppChannel(Agent::GetInstance(), &xmpp_channel, 
+    channel1 = new AgentXmppChannel(Agent::GetInstance(),
                                    "XMPP Server 1", "", 0);
-    channel2 = new AgentXmppChannel(Agent::GetInstance(), &xmpp_channel, 
+    channel1->RegisterXmppChannel(&xmpp_channel);
+    channel2 = new AgentXmppChannel(Agent::GetInstance(),
                                    "XMPP Server 2", "", 1);
+    channel2->RegisterXmppChannel(&xmpp_channel);
     AgentXmppChannel::HandleAgentXmppClientChannelEvent(channel1,
                                                         xmps::READY);
     AgentXmppChannel::HandleAgentXmppClientChannelEvent(channel2,
@@ -167,10 +169,12 @@ TEST_F(AgentPeerDelete, DeletePeerOnDeletedVrf) {
     AgentXmppChannel *channel2;
     Agent::GetInstance()->set_controller_ifmap_xmpp_server("0.0.0.1", 0);
     Agent::GetInstance()->set_controller_ifmap_xmpp_server("0.0.0.2", 1);
-    channel1 = new AgentXmppChannel(Agent::GetInstance(), &xmpp_channel, 
+    channel1 = new AgentXmppChannel(Agent::GetInstance(),
                                    "XMPP Server 1", "", 0);
-    channel2 = new AgentXmppChannel(Agent::GetInstance(), &xmpp_channel, 
+    channel1->RegisterXmppChannel(&xmpp_channel);
+    channel2 = new AgentXmppChannel(Agent::GetInstance(),
                                    "XMPP Server 2", "", 1);
+    channel2->RegisterXmppChannel(&xmpp_channel);
     AgentXmppChannel::HandleAgentXmppClientChannelEvent(channel1,
                                                         xmps::READY);
     AgentXmppChannel::HandleAgentXmppClientChannelEvent(channel2,
