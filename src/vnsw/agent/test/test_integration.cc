@@ -76,6 +76,8 @@ using namespace Patricia;
     }                                           \
     if (vm.count("test-config")) {              \
         strncpy(test_file, vm["test-config"].as<string>().c_str(), (sizeof(test_file) - 1) ); \
+    } else {                                    \
+        strncpy(test_file, "controller/src/vnsw/agent/testdata/vnswad_test.xml", (sizeof(test_file) - 1));\
     }                                           \
     if (vm.count("config")) {                   \
         strncpy(init_file, vm["config"].as<string>().c_str(), (sizeof(init_file) - 1) ); \
@@ -197,6 +199,7 @@ xml_node FormNode (xml_node &input, xml_node &output, bool construct_only) {
             sprintf(str, "%016d", uuid);
             uuid_node.append_child("uuid-lslong").append_child(node_pcdata).set_value(str);
         }
+        id_perms.append_child("enable").append_child(node_pcdata).set_value("true");
         for (xml_node child = input.first_child(); child; child = child.next_sibling()) {
             if (child.type() == node_pcdata) continue;
             node.append_copy(child);
