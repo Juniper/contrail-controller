@@ -26,6 +26,7 @@ import logging.handlers
 
 from cfgm_common.imid import *
 from cfgm_common import importutils
+from cfgm_common import svc_info
 
 from pysandesh.sandesh_base import Sandesh
 from pysandesh.gen_py.sandesh.ttypes import SandeshLevel
@@ -39,20 +40,6 @@ import discoveryclient.client as client
 from db import ServiceMonitorDB
 from logger import ServiceMonitorLogger
 from instance_manager import InstanceManager
-
-_SVC_VN_MGMT = "svc-vn-mgmt"
-_SVC_VN_LEFT = "svc-vn-left"
-_SVC_VN_RIGHT = "svc-vn-right"
-_MGMT_STR = "management"
-_LEFT_STR = "left"
-_RIGHT_STR = "right"
-
-_SVC_VNS = {_MGMT_STR:  [_SVC_VN_MGMT,  '250.250.1.0/24'],
-            _LEFT_STR:  [_SVC_VN_LEFT,  '250.250.2.0/24'],
-            _RIGHT_STR: [_SVC_VN_RIGHT, '250.250.3.0/24']}
-
-_CHECK_SVC_VM_HEALTH_INTERVAL = 30
-_CHECK_CLEANUP_INTERVAL = 5
 
 # zookeeper client connection
 _zookeeper_client = None
@@ -215,12 +202,13 @@ class SvcMonitor(object):
                              (len(st_if_list), len(si_if_list)))
             return
 
-        #read existing si_entry
+        # read existing si_entry
         si_entry = self.db.service_instance_get(si_obj.get_fq_name_str())
         if not si_entry:
             si_entry = {}
+        si_entry['instance_type'] = self._get_virtualization_type(st_props)
 
-        #walk the interface list
+        # walk the interface list
         for idx in range(0, len(st_if_list)):
             st_if = st_if_list[idx]
             itf_type = st_if.service_interface_type
@@ -233,10 +221,10 @@ class SvcMonitor(object):
                 funcname = "get_" + itf_type + "_virtual_network"
                 func = getattr(si_props, funcname)
                 si_vn_str = func()
+
             if not si_vn_str:
                 continue
 
-            si_entry[itf_type + '-vn'] = si_vn_str
             try:
                 vn_obj = self._vnc_lib.virtual_network_read(
                     fq_name_str=si_vn_str)
@@ -346,9 +334,8 @@ class SvcMonitor(object):
             return
 
         # no SIs left hence delete shared VNs
-        for vn_name in [_SVC_VN_MGMT, _SVC_VN_LEFT, _SVC_VN_RIGHT]:
-            domain_name, proj_name = proj_obj.get_fq_name()
-            vn_fq_name = [domain_name, proj_name, vn_name]
+        for vn_name in svc_info.get_shared_vn_list():
+            vn_fq_name = proj_obj.get_fq_name() + [vn_name]
             try:
                 vn_uuid = self._vnc_lib.fq_name_to_id(
                     'virtual-network', vn_fq_name)
@@ -373,7 +360,7 @@ class SvcMonitor(object):
             self._delete_svc_instance(vm_uuid, proj_name, si_fq_str=si_fq_str)
 
             #insert shared instance IP uuids into cleanup list if present
-            for itf_str in [_MGMT_STR, _LEFT_STR, _RIGHT_STR]:
+            for itf_str in svc_info.get_if_str_list():
                 iip_uuid_str = itf_str + '-iip-uuid'
                 if not iip_uuid_str in si_info:
                     continue
@@ -612,7 +599,7 @@ def timer_callback(monitor):
 
 def launch_timer(monitor):
     while True:
-        gevent.sleep(_CHECK_SVC_VM_HEALTH_INTERVAL)
+        gevent.sleep(svc_info.get_vm_health_interval())
         try:
             timer_callback(monitor)
         except Exception:
@@ -635,7 +622,7 @@ def cleanup_callback(monitor):
 
 def launch_cleanup(monitor):
     while True:
-        gevent.sleep(_CHECK_CLEANUP_INTERVAL)
+        gevent.sleep(svc_info.get_cleanup_interval())
         try:
             cleanup_callback(monitor)
         except Exception:

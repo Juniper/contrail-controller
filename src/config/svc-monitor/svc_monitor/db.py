@@ -191,12 +191,11 @@ class ServiceMonitorDB(object):
        rd_consistency = pycassa.cassandra.ttypes.ConsistencyLevel.QUORUM
        wr_consistency = pycassa.cassandra.ttypes.ConsistencyLevel.QUORUM
        self._svc_vm_cf = pycassa.ColumnFamily(conn_pool, self._SVC_VM_CF,
-                                 read_consistency_level=rd_consistency,
-                                 write_consistency_level=wr_consistency)
+           read_consistency_level=rd_consistency,
+           write_consistency_level=wr_consistency)
        self._svc_si_cf = pycassa.ColumnFamily(conn_pool, self._SVC_SI_CF,
-                                 read_consistency_level=rd_consistency,
-                                 write_consistency_level=wr_consistency)
+           read_consistency_level=rd_consistency,
+           write_consistency_level=wr_consistency)
        self._svc_cleanup_cf = pycassa.ColumnFamily(conn_pool,
-                                 self._SVC_CLEANUP_CF,
-                                 read_consistency_level=rd_consistency,
-                                 write_consistency_level=wr_consistency)
+           self._SVC_CLEANUP_CF, read_consistency_level=rd_consistency,
+           write_consistency_level=wr_consistency)

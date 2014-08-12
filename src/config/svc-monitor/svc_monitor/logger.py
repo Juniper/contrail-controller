@@ -10,6 +10,7 @@ Service monitor logger
 import datetime
 import socket
 
+from cfgm_common import svc_info
 from cfgm_common import vnc_cpu_info
 from cfgm_common.uve.service_instance.ttypes import *
 
@@ -25,10 +26,6 @@ from pysandesh.gen_py.process_info.ttypes import ConnectionType, \
     ConnectionStatus
 from cfgm_common.uve.cfgm_cpuinfo.ttypes import NodeStatusUVE, \
     NodeStatus
-
-_MGMT_STR = "management"
-_LEFT_STR = "left"
-_RIGHT_STR = "right"
 
 
 class ServiceMonitorLogger(object):
@@ -122,7 +119,7 @@ class ServiceMonitorLogger(object):
 
 
     def _sandesh_populate_vn_info(self, si_info, sandesh_si):
-        for if_str in [_LEFT_STR, _RIGHT_STR, _MGMT_STR]:
+        for if_str in svc_info.get_if_str_list():
             if_set = set()
             if_str_vn = if_str + '-vn'
             if not if_str_vn in si_info.keys():
@@ -141,11 +138,11 @@ class ServiceMonitorLogger(object):
                 iip_str = ("IIP [%s : %s]" % (vn_iip_addr, vn_iip_uuid))
                 if_set.add(iip_str)
 
-            if if_str == _LEFT_STR:
+            if if_str == svc_info.get_left_if_str():
                 sandesh_si.left_vn = list(if_set)
-            if if_str == _RIGHT_STR:
+            if if_str == svc_info.get_right_if_str():
                 sandesh_si.right_vn = list(if_set)
-            if if_str == _MGMT_STR:
+            if if_str == svc_info.get_management_if_str():
                 sandesh_si.management_vn = list(if_set)
 
             si_info['done'] = True
