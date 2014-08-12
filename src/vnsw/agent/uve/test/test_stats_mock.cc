@@ -105,10 +105,11 @@ public:
     }
     static void TestTeardown() {
         client->Reset();
-        DeleteVmportEnv(input, 2, 1);
+        DeleteVmportEnv(input, 2, 1, 1);
         client->WaitForIdle(10);
         client->VnDelNotifyWait(1);
         client->PortDelNotifyWait(2);
+        EXPECT_TRUE(client->AclNotifyWait(1));
 
         client->Reset();
         DeleteVmportEnv(stats_if, 2, 1);
@@ -848,8 +849,9 @@ int main(int argc, char *argv[]) {
     StatsTestMock::TestSetup();
 
     ret = RUN_ALL_TESTS();
+    client->WaitForIdle(3);
     StatsTestMock::TestTeardown();
-    client->WaitForIdle();
+    client->WaitForIdle(3);
     TestShutdown();
     delete client;
     return ret;

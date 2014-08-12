@@ -20,7 +20,6 @@ class FlowStatsCollector : public StatsCollector {
 public:
     static const uint64_t FlowAgeTime = 1000000 * 180;
     static const uint32_t FlowCountPerPass = 200;
-    static const uint32_t FlowStatsInterval = (1000); // time in milliseconds
     static const uint32_t FlowStatsMinInterval = (100); // time in milliseconds
     static const uint32_t MaxFlows= (256 * 1024); // time in milliseconds
 

@@ -29,6 +29,7 @@ public:
     uint64_t bandwidth_intvl() const { return bandwidth_intvl_; } 
     VnUveTable* vn_uve_table() const { return vn_uve_table_.get(); }
     VmUveTable* vm_uve_table() const { return vm_uve_table_.get(); }
+    Agent* agent() const { return agent_; }
     VrouterUveEntry* vrouter_uve_entry() const { 
         return vrouter_uve_entry_.get();
     }

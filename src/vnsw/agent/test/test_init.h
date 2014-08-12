@@ -55,6 +55,7 @@
 #include <uve/agent_uve.h>
 #include <uve/flow_stats_collector.h>
 #include <uve/agent_stats_collector.h>
+#include <uve/vrouter_stats_collector.h>
 #include <uve/test/agent_stats_collector_test.h>
 #include "pkt_gen.h"
 #include "pkt/flow_table.h"
@@ -592,13 +593,14 @@ public:
 TestClient *TestInit(const char *init_file = NULL, bool ksync_init = false, 
                      bool pkt_init = true, bool services_init = true,
                      bool uve_init = true,
-                     int agent_stats_interval = AgentParam::AgentStatsInterval,
-                     int flow_stats_interval = FlowStatsCollector::FlowStatsInterval,
-                     bool asio = true, bool ksync_sync_mode = true);
+                     int agent_stats_interval = AgentParam::kAgentStatsInterval,
+                     int flow_stats_interval = AgentParam::kFlowStatsInterval,
+                     bool asio = true, bool ksync_sync_mode = true,
+                     int vrouter_stats_interval =
+                     AgentParam::kVrouterStatsInterval);
 
 TestClient *VGwInit(const string &init_file, bool ksync_init);
 void TestShutdown();
-TestClient *StatsTestInit();
 
 extern TestClient *client;
 

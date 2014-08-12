@@ -16,8 +16,9 @@ class VirtualGatewayConfigTable;
 // arguments
 class AgentParam  {
 public:
-    static const uint32_t AgentStatsInterval = (30 * 1000); // time in millisecs
-    static const uint32_t FlowStatsInterval = (1000); // time in milliseconds
+    static const uint32_t kAgentStatsInterval = (30 * 1000); // time in millisecs
+    static const uint32_t kFlowStatsInterval = (1000); // time in milliseconds
+    static const uint32_t kVrouterStatsInterval = (30 * 1000); //time-millisecs
 
     // Hypervisor mode we are working on
     enum Mode {
@@ -100,8 +101,10 @@ public:
     const std::string &host_name() const { return host_name_; }
     int agent_stats_interval() const { return agent_stats_interval_; }
     int flow_stats_interval() const { return flow_stats_interval_; }
+    int vrouter_stats_interval() const { return vrouter_stats_interval_; }
     void set_agent_stats_interval(int val) { agent_stats_interval_ = val; }
     void set_flow_stats_interval(int val) { flow_stats_interval_ = val; }
+    void set_vrouter_stats_interval(int val) { vrouter_stats_interval_ = val; }
     VirtualGatewayConfigTable *vgw_config_table() const { 
         return vgw_config_table_.get();
     }
@@ -228,6 +231,7 @@ private:
     std::string host_name_;
     int agent_stats_interval_;
     int flow_stats_interval_;
+    int vrouter_stats_interval_;
     std::string vmware_physical_port_;
     bool test_mode_;
     bool debug_;

@@ -36,6 +36,9 @@ public:
     VrouterStatsAgent &prev_stats() {
         return prev_stats_;
     }
+    int bandwidth_count() const {
+        return bandwidth_count_;
+    };
     void set_bandwidth_count(uint8_t ctr) { bandwidth_count_ = ctr; }
     void clear_count();
     void DispatchVrouterMsg(const VrouterAgent &uve);

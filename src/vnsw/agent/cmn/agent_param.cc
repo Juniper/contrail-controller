@@ -809,8 +809,9 @@ AgentParam::AgentParam(Agent *agent) :
         log_file_(), log_local_(false), log_level_(),
         log_category_(), use_syslog_(false),
         collector_server_list_(), http_server_port_(), host_name_(),
-        agent_stats_interval_(AgentStatsInterval),
-        flow_stats_interval_(FlowStatsInterval),
+        agent_stats_interval_(kAgentStatsInterval),
+        flow_stats_interval_(kFlowStatsInterval),
+        vrouter_stats_interval_(kVrouterStatsInterval),
         vmware_physical_port_(""), test_mode_(false), debug_(false), tree_(),
         headless_mode_(false), si_netns_command_(), si_netns_workers_(0),
         si_netns_timeout_(0) {
