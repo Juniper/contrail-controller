@@ -1019,8 +1019,10 @@ uint16_t DhcpHandler::AddIpOption(uint32_t option, uint16_t opt_len,
         opt_len = AddDnsServers(opt, opt_len);
     } else if (option == DHCP_OPTION_ROUTER) {
         // Add our gw as well
-        if (config_.gw_addr)
-            opt->AppendData(4, &config_.gw_addr, &opt_len);
+        if (config_.gw_addr) {
+            uint32_t gw = htonl(config_.gw_addr);
+            opt->AppendData(4, &gw, &opt_len);
+        }
         set_flag(RouterAdded);
     }
 
@@ -1095,7 +1097,8 @@ uint16_t DhcpHandler::AddDnsServers(DhcpOptions *opt, uint16_t opt_len) {
         ipam_type_.ipam_dns_method == "virtual-dns-server" ||
         ipam_type_.ipam_dns_method == "") {
         if (config_.dns_addr) {
-            opt->AppendData(4, &config_.dns_addr, &opt_len);
+            uint32_t dns_addr = htonl(config_.dns_addr);
+            opt->AppendData(4, &dns_addr, &opt_len);
         }
     } else if (ipam_type_.ipam_dns_method == "tenant-dns-server") {
         for (unsigned int i = 0; i < ipam_type_.ipam_dns_server.
