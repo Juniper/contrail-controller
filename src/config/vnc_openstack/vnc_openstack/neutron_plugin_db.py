@@ -539,6 +539,9 @@ class DBInterface(object):
             obj.name += '-' + obj.uuid
             obj.fq_name[-1] += '-' + obj.uuid
             obj_uuid = getattr(self._vnc_lib, resource_type + '_create')(obj)
+        except PermissionDenied as e:
+            exc_info = {'type': 'BadRequest', 'message': str(e)}
+            bottle.abort(400, json.dumps(exc_info))
 
         return obj_uuid
     #end _resource_create
