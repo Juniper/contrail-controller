@@ -61,22 +61,8 @@ class NeutronPluginInterface(object):
                 conf_sections.get('DEFAULTS', 'list_optimization_enabled')
         except ConfigParser.NoOptionError:
             self._list_optimization_enabled = False
-        self._vnc_lib = None
         self._cfgdb = None
         self._cfgdb_map = {}
-
-    def _get_api_server_connection(self):
-        while True:
-            try:
-                self._vnc_lib = vnc_api.VncApi(
-                    api_server_host=self._vnc_api_ip,
-                    api_server_port=self._vnc_api_port,
-                    username=self._auth_user,
-                    password=self._auth_passwd,
-                    tenant_name=self._auth_tenant)
-                break
-            except requests.ConnectionError:
-                gevent.sleep(1)
 
     def _connect_to_db(self):
         """
@@ -100,7 +86,6 @@ class NeutronPluginInterface(object):
     def _get_user_cfgdb(self, context):
 
         self._connect_to_db()
-        self._get_api_server_connection()
 
         if not self._multi_tenancy:
             return self._cfgdb
