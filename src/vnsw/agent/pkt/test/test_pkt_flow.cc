@@ -171,7 +171,8 @@ public:
     }
 
     static bool KFlowHoldAdd(uint32_t hash_id, int vrf, const char *sip, 
-                             const char *dip, int proto, int sport, int dport) {
+                             const char *dip, int proto, int sport, int dport,
+                             int nh_id) {
         FlowTableKSyncObject *ksync_obj = 
             Agent::GetInstance()->ksync()->flowtable_ksync_obj();
         if (hash_id >= ksync_obj->flow_table_entries_count()) {
@@ -191,6 +192,7 @@ public:
         req.set_fr_flow_sport(htons(sport));
         req.set_fr_flow_dport(htons(dport));
         req.set_fr_flow_vrf(vrf);
+        req.set_fr_flow_nh_id(nh_id);
 
         vr_flow->fe_action = VR_FLOW_ACTION_HOLD;
         KSyncSockTypeMap::SetFlowEntry(&req, true);
@@ -971,6 +973,11 @@ TEST_F(FlowTest, ShortFlow_1) {
     };
 
     CreateFlow(flow, 1);
+    int nh_id = InterfaceTable::GetInstance()->FindInterface(flow0->id())->flow_key_nh()->id();
+    FlowEntry *fe = FlowGet(1, vm1_ip, "115.115.115.115", 1,
+                            0, 0, nh_id);
+    EXPECT_TRUE(fe != NULL && fe->is_flags_set(FlowEntry::ShortFlow) == true &&
+                fe->short_flow_reason() == FlowEntry::SHORT_NO_DST_ROUTE);
 }
 
 TEST_F(FlowTest, FlowAge_1) {
@@ -1713,10 +1720,13 @@ TEST_F(FlowTest, TwoNatFlow) {
 
 TEST_F(FlowTest, FlowAudit) {
     KFlowPurgeHold();
-    EXPECT_TRUE(KFlowHoldAdd(1, 1, "1.1.1.1", "2.2.2.2", 1, 0, 0));
-    EXPECT_TRUE(KFlowHoldAdd(2, 1, "2.2.2.2", "3.3.3.3", 1, 0, 0));
+    EXPECT_TRUE(KFlowHoldAdd(1, 1, "1.1.1.1", "2.2.2.2", 1, 0, 0, 0));
+    EXPECT_TRUE(KFlowHoldAdd(2, 1, "2.2.2.2", "3.3.3.3", 1, 0, 0, 0));
     RunFlowAudit();
     EXPECT_TRUE(FlowTableWait(2));
+    FlowEntry *fe = FlowGet(1, "1.1.1.1", "2.2.2.2", 1, 0, 0, 0);
+    EXPECT_TRUE(fe != NULL && fe->is_flags_set(FlowEntry::ShortFlow) == true &&
+                fe->short_flow_reason() == FlowEntry::SHORT_AUDIT_ENTRY);
     client->EnqueueFlowAge();
     client->WaitForIdle();
     WAIT_FOR(1000, 1000, (agent()->pkt()->flow_table()->Size() == 0U));
@@ -1736,7 +1746,7 @@ TEST_F(FlowTest, FlowAudit) {
     CreateFlow(flow, 1);
 
     EXPECT_TRUE(FlowTableWait(2));
-    EXPECT_TRUE(KFlowHoldAdd(10, 1, "1.1.1.1", "2.2.2.2", 1, 0, 0));
+    EXPECT_TRUE(KFlowHoldAdd(10, 1, "1.1.1.1", "2.2.2.2", 1, 0, 0, 0));
     RunFlowAudit();
     client->EnqueueFlowAge();
     client->WaitForIdle();
@@ -1848,7 +1858,8 @@ TEST_F(FlowTest, FlowOnDeletedVrf) {
     //Flow find should fail as interface is delete marked
     FlowEntry *fe = FlowGet(vrf_id, "11.1.1.3", vm1_ip,
                             IPPROTO_TCP, 30, 40, 0);
-    EXPECT_TRUE(fe != NULL && fe->is_flags_set(FlowEntry::ShortFlow) == true);
+    EXPECT_TRUE(fe != NULL && fe->is_flags_set(FlowEntry::ShortFlow) == true &&
+                fe->short_flow_reason() == FlowEntry::SHORT_UNAVIALABLE_INTERFACE);
     DeleteVmportEnv(input, 1, false);
     client->WaitForIdle();
 }
@@ -1978,6 +1989,7 @@ TEST_F(FlowTest, Flow_return_error) {
     client->WaitForIdle();
     if (fe != NULL) {
         WAIT_FOR(1000, 500, (fe->is_flags_set(FlowEntry::ShortFlow) == true));
+        EXPECT_TRUE(fe->short_flow_reason() == FlowEntry::SHORT_FAILED_VROUTER_INSTALL);
     }
 
     client->EnqueueFlowAge();
@@ -1999,6 +2011,7 @@ TEST_F(FlowTest, Flow_return_error) {
     client->WaitForIdle();
     if (fe != NULL) {
         WAIT_FOR(1000, 500, (fe->is_flags_set(FlowEntry::ShortFlow) == true));
+        EXPECT_TRUE(fe->short_flow_reason() == FlowEntry::SHORT_FAILED_VROUTER_INSTALL);
     }
 
     client->EnqueueFlowAge();
@@ -2271,6 +2284,7 @@ TEST_F(FlowTest, LinkLocalFlow_Fail1) {
                             GetFlowKeyNH(input[0].intf_id)));
         if (i == 2) {
             EXPECT_TRUE(fe->is_flags_set(FlowEntry::ShortFlow));
+            EXPECT_TRUE(fe->short_flow_reason() == FlowEntry::SHORT_LINKLOCAL_SRC_NAT);
             EXPECT_EQ(linklocal_src_port[i], 0);
         }
     }
@@ -2364,6 +2378,7 @@ TEST_F(FlowTest, LinkLocalFlow_Fail2) {
                                 GetFlowKeyNH(input[1].intf_id)));
         if (i == 3) {
             EXPECT_TRUE(fe->is_flags_set(FlowEntry::ShortFlow));
+            EXPECT_TRUE(fe->short_flow_reason() == FlowEntry::SHORT_LINKLOCAL_SRC_NAT);
             EXPECT_EQ(linklocal_src_port[i], 0);
         }
     }
@@ -2443,7 +2458,12 @@ TEST_F(FlowTest, FlowLimit_1) {
 
     CreateFlow(flow, 4);
     client->WaitForIdle();
+    int nh_id = InterfaceTable::GetInstance()->FindInterface(flow3->id())->flow_key_nh()->id();
     EXPECT_EQ(4U, Agent::GetInstance()->pkt()->flow_table()->Size());
+    FlowEntry *fe = FlowGet(VrfGet("vrf3")->vrf_id(), vm4_ip, vm1_ip,
+                            IPPROTO_TCP, 300, 200, nh_id);
+    EXPECT_TRUE(fe != NULL && fe->is_flags_set(FlowEntry::ShortFlow) == true &&
+                fe->short_flow_reason() == FlowEntry::SHORT_FLOW_LIMIT);
     EXPECT_TRUE(agent()->stats()->flow_drop_due_to_max_limit() > 0);
 
     //1. Remove remote VM routes
