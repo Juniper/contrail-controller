@@ -2796,6 +2796,15 @@ class SchemaTransformer(object):
         self.current_network_set.add(vn_name)
     # end add_route_target_list
 
+    def delete_route_target_list(self, idents, meta):
+        vn_name = idents['virtual-network']
+        vn = VirtualNetworkST.get(vn_name)
+        if vn:
+            rt_list = RouteTargetList()
+            vn.set_route_target_list(rt_list)
+            self.current_network_set.add(vn_name)
+    # end delete_route_target_list
+
     def add_bgp_router_parameters(self, idents, meta):
         router_name = idents['bgp-router']
         router_params = BgpRouterParams()
