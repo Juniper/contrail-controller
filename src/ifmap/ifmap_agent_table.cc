@@ -258,11 +258,17 @@ void IFMapAgentTable::Input(DBTablePartition *partition, DBClient *client,
 
     IFMapNode *node = EntryLookup(key);
     if (table->pre_filter_) {
+        DBRequest::DBOperation old_oper = request->oper;
         if (table->pre_filter_(table, node, request) == false) {
             IFMAP_AGENT_TRACE(Trace, key->id_seq_num,
                     "Node " + key->id_name + " neglected as filter"
                     + "suppressed");
             return;
+        }
+        if ((old_oper != DBRequest::DB_ENTRY_DELETE) &&
+                (request->oper == DBRequest::DB_ENTRY_DELETE)) {
+            IFMAP_AGENT_TRACE(Trace, key->id_seq_num,
+                    "Node " + key->id_name + "ID_PERMS Null");
         }
     }
 
@@ -537,6 +543,8 @@ void IFMapAgentLinkTable::DestroyDefLink(uint64_t seq) {
             if ((*list_entry).id_seq_num < seq) {
                 if (RemoveDefListEntry(&link_def_map_, temp,
                             &list_entry) == true) {
+                    //The list has been deleted. Move to the next map
+                    //entry
                     break;
                 }
             }
