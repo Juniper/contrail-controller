@@ -107,10 +107,17 @@ bool VmUveEntry::FrameInterfaceMsg(const VmInterface *vm_intf,
             fip_list.list_.begin();
         while(it != fip_list.list_.end()) {
             const VmInterface::FloatingIp &ip = *it;
-            VmFloatingIPAgent uve_fip;
-            uve_fip.set_ip_address(ip.floating_ip_.to_string());
-            uve_fip.set_virtual_network(ip.vn_.get()->GetName());
-            uve_fip_list.push_back(uve_fip);
+            /* Don't export FIP entry if it is not installed. When FIP entry
+             * is not installed it will have NULL VN pointer. We can receive
+             * notifications for VM interface with un-installed FIP entries
+             * when the VM interface is not "L3 Active".
+             */
+            if (ip.installed_) {
+                VmFloatingIPAgent uve_fip;
+                uve_fip.set_ip_address(ip.floating_ip_.to_string());
+                uve_fip.set_virtual_network(ip.vn_.get()->GetName());
+                uve_fip_list.push_back(uve_fip);
+            }
             it++;
         }
     }
