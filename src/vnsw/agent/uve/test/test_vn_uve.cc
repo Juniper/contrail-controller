@@ -109,8 +109,6 @@ public:
         assert(flow0);
         flow1 = VmInterfaceGet(input[1].intf_id);
         assert(flow1);
-        // TODO Create xmpp channel and attach bgp peer
-        //peer_ = CreateBgpPeer(Ip4Address(1), "BGP Peer 1");
     }
 
     void FlowTearDown() {
@@ -123,8 +121,6 @@ public:
         EXPECT_FALSE(VmPortFind(input, 0));
         EXPECT_FALSE(VmPortFind(input, 1));
         EXPECT_EQ(0U, Agent::GetInstance()->pkt()->flow_table()->Size());
-        // TODO Create xmpp channel and attach bgp peer
-        // DeleteBgpPeer(peer_);
     }
 
     void AclAdd(int id) {
@@ -931,6 +927,8 @@ TEST_F(UveVnUveTest, LinkLocalVn_Xen) {
     EXPECT_EQ(1U, vnut->delete_count());
 
     //other cleanup
+    DelLink("virtual-machine-interface", input[0].name,
+            "instance-ip", "instance0");
     DelLink("virtual-machine", "vm1", "virtual-machine-interface", "vnet1");
     client->WaitForIdle();
     EXPECT_TRUE(VmPortInactive(input, 0));

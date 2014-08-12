@@ -13,7 +13,6 @@
 //Runs in the context of "Agent::Uve" which has exclusion with "db::DBTable"
 class VrouterStatsCollector : public StatsCollector {
 public:
-    static const uint32_t VrouterStatsInterval = (30 * 1000); //time-millisecs
     VrouterStatsCollector(boost::asio::io_service &io, AgentUve *uve);
     virtual ~VrouterStatsCollector();
 

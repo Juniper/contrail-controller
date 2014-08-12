@@ -25,7 +25,6 @@
 //exclusion with "db::DBTable"
 class AgentStatsCollector : public StatsCollector {
 public:
-    static const uint32_t AgentStatsInterval = (30 * 1000); // time in millisecs
     struct InterfaceStats {
         InterfaceStats()
             : name(""), speed(0), duplexity(0), in_pkts(0), in_bytes(0),

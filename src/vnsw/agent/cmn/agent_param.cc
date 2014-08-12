@@ -811,6 +811,7 @@ AgentParam::AgentParam(Agent *agent) :
         collector_server_list_(), http_server_port_(), host_name_(),
         agent_stats_interval_(AgentStatsInterval),
         flow_stats_interval_(FlowStatsInterval),
+        vrouter_stats_interval_(VrouterStatsInterval),
         vmware_physical_port_(""), test_mode_(false), debug_(false), tree_(),
         headless_mode_(false), si_netns_command_(), si_netns_workers_(0),
         si_netns_timeout_(0) {
