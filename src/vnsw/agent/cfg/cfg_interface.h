@@ -22,7 +22,7 @@ struct CfgIntData : public DBRequestData {
               const boost::uuids::uuid &vm_project_id,
               const std::string &tname, const IpAddress &ip,
               const std::string &mac, const std::string &vm_name,
-              uint16_t vlan_id, const int32_t version);
+              uint16_t vlan_id, const uint16_t port_type, const int32_t version);
     boost::uuids::uuid vm_id_;
     boost::uuids::uuid vn_id_;
     boost::uuids::uuid vm_project_id_;
@@ -31,6 +31,7 @@ struct CfgIntData : public DBRequestData {
     std::string mac_addr_;
     std::string vm_name_;
     uint16_t vlan_id_;
+    uint16_t port_type_;
     int32_t version_;
 };
 
@@ -53,6 +54,7 @@ public:
     const std::string &GetMacAddr() const {return mac_addr_;};
     const std::string &vm_name() const {return vm_name_;};
     uint16_t vlan_id() const {return vlan_id_;};
+    uint16_t port_type() const {return port_type_;};
     const int32_t &GetVersion() const {return version_;};
     void SetVersion(int32_t version) {version_ = version;};
     std::string ToString() const;
@@ -67,6 +69,7 @@ private:
     std::string mac_addr_;
     std::string vm_name_;
     uint16_t vlan_id_;
+    uint16_t port_type_;
     int32_t version_;
 };
 

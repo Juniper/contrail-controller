@@ -85,17 +85,26 @@ InstanceServiceAsyncHandler::AddPort(const PortList& port_list) {
             vlan_id = port.vlan_id;
         }
 
+        uint32_t version = version_;
+        uint16_t port_type = PortTypes::Tap;
+        if (port.__isset.port_type) {
+            port_type = port.port_type;
+            if (port_type == PortTypes::Eth) {
+                version = 0;
+            }
+        }
+
         cfg_int_data->Init(instance_id, vn_id, vm_project_id,
                            port.tap_name, ip,
                            port.mac_address,
-                           port.display_name, vlan_id, version_);
+                           port.display_name, vlan_id, port_type, version);
         req.data.reset(cfg_int_data);
         ctable->Enqueue(&req);
         CFG_TRACE(OpenstackAddPort, "Add", UuidToString(port_id),
                   UuidToString(instance_id), UuidToString(vn_id),
                   port.ip_address, port.tap_name, port.mac_address,
-                  port.display_name, port.hostname, port.host, version_,
-                  vlan_id, UuidToString(vm_project_id));
+                  port.display_name, port.hostname, port.host, version,
+                  vlan_id, UuidToString(vm_project_id), port_type);
     }
     return true;
 }
@@ -499,6 +508,7 @@ void AddPortReq::HandleRequest() const {
     string vm_name = get_vm_name();
     string tap_name = get_tap_name();
     uint16_t vlan_id = get_vlan_id();
+    uint16_t port_type = get_port_type();
 
     boost::system::error_code ec;
     IpAddress ip(IpAddress::from_string(get_ip_address(), ec));
@@ -540,7 +550,7 @@ void AddPortReq::HandleRequest() const {
     cfg_int_data->Init(instance_uuid, vn_uuid, vm_project_uuid,
                        tap_name, ip,
                        mac_address,
-                       vm_name, vlan_id, 0);
+                       vm_name, vlan_id, port_type, 0);
     req.data.reset(cfg_int_data);
     req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
     ctable->Enqueue(&req);
@@ -642,6 +652,10 @@ bool InterfaceConfigStaleCleaner::CfgIntfWalk(DBTablePartBase *partition,
                                               DBEntryBase *entry,
                                               int32_t version) {
     const CfgIntEntry *cfg_intf = static_cast<const CfgIntEntry *>(entry);
+
+    if (cfg_intf->port_type() != PortTypes::Tap)
+        return true;
+
     if (cfg_intf->GetVersion() < version) {
         CfgIntTable *ctable = Agent::GetInstance()->interface_config_table();
         DBRequest req;
