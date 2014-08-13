@@ -90,6 +90,14 @@ void ExtCommunity::Append(const ExtCommunityList &list) {
     communities_.erase(it, communities_.end());
 }
 
+void ExtCommunity::Append(const ExtCommunityValue &value) {
+    communities_.push_back(value);
+    std::sort(communities_.begin(), communities_.end());
+    ExtCommunityList::iterator it =
+        std::unique(communities_.begin(), communities_.end());
+    communities_.erase(it, communities_.end());
+}
+
 bool ExtCommunity::ContainsOriginVn(const ExtCommunityValue &val) const {
     for (ExtCommunityList::const_iterator it = communities_.begin();
          it != communities_.end(); ++it) {
@@ -226,9 +234,8 @@ ExtCommunityPtr ExtCommunityDB::ReplaceSGIDListAndLocate(const ExtCommunity *src
     return Locate(clone);
 }
 
-ExtCommunityPtr ExtCommunityDB::ReplaceOriginVnAndLocate(
-        const ExtCommunity *src,
-        const ExtCommunity::ExtCommunityList &origin_vn_list) {
+ExtCommunityPtr ExtCommunityDB::RemoveOriginVnAndLocate(
+        const ExtCommunity *src) {
     ExtCommunity *clone;
     if (src) {
         clone = new ExtCommunity(*src);
@@ -237,7 +244,21 @@ ExtCommunityPtr ExtCommunityDB::ReplaceOriginVnAndLocate(
     }
 
     clone->RemoveOriginVn();
-    clone->Append(origin_vn_list);
+    return Locate(clone);
+}
+
+ExtCommunityPtr ExtCommunityDB::ReplaceOriginVnAndLocate(
+        const ExtCommunity *src,
+        const ExtCommunity::ExtCommunityValue &origin_vn) {
+    ExtCommunity *clone;
+    if (src) {
+        clone = new ExtCommunity(*src);
+    } else {
+        clone = new ExtCommunity(this);
+    }
+
+    clone->RemoveOriginVn();
+    clone->Append(origin_vn);
     return Locate(clone);
 }
 

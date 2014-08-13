@@ -144,6 +144,7 @@ public:
     virtual void Remove();
     int CompareTo(const ExtCommunity &rhs) const;
 
+    void Append(const ExtCommunityValue &value);
     void Append(const ExtCommunityList &list);
     bool ContainsOriginVn(const ExtCommunityValue &val) const;
     void RemoveRTarget();
@@ -259,8 +260,9 @@ public:
             const ExtCommunity::ExtCommunityList &export_list);
     ExtCommunityPtr ReplaceSGIDListAndLocate(const ExtCommunity *src,
             const ExtCommunity::ExtCommunityList &sgid_list);
+    ExtCommunityPtr RemoveOriginVnAndLocate(const ExtCommunity *src);
     ExtCommunityPtr ReplaceOriginVnAndLocate(const ExtCommunity *src,
-            const ExtCommunity::ExtCommunityList &origin_vn_list);
+            const ExtCommunity::ExtCommunityValue &origin_vn);
     ExtCommunityPtr ReplaceTunnelEncapsulationAndLocate(
             const ExtCommunity *src,
             const ExtCommunity::ExtCommunityList &tunnel_encaps);
