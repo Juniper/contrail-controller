@@ -861,7 +861,7 @@ class VncApiServer(VncApiServerGen):
                 api_server_port=self._args.listen_port,
                 conf_sections=conf_sections)
         except Exception as e:
-            pass
+            logger.error("Exception in loading of extensions:\n%s" %(str(e)))
     # end _load_extensions
 
     def _db_connect(self, reset_config):
