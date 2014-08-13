@@ -51,6 +51,8 @@ public:
     virtual ~Community() { }
     virtual void Remove();
     int CompareTo(const Community &rhs) const;
+    bool ContainsValue(uint32_t value) const;
+
     const std::vector<uint32_t> &communities() const { return communities_; }
 
     friend std::size_t hash_value(Community const &comm) {
