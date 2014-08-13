@@ -33,7 +33,7 @@ public class ContrailVRouterApi {
     private final InetAddress rpc_address;
     private final int rpc_port;
     private Map<UUID, Port> ports;
-    private InstanceService.Client client;
+    private InstanceService.Iface client;
     private boolean oneShot;
 
     public ContrailVRouterApi(InetAddress ip, int port, boolean oneShot) {
@@ -66,7 +66,7 @@ public class ContrailVRouterApi {
         return sb.toString();
     }
 
-    InstanceService.Client CreateRpcClient() {
+    InstanceService.Iface CreateRpcClient() {
         TSocket socket = new TSocket(rpc_address.getHostAddress(), rpc_port);
         TTransport transport = new TFramedTransport(socket);
         try {
@@ -77,9 +77,9 @@ public class ContrailVRouterApi {
             return null;
         }
         TProtocol protocol = new TBinaryProtocol(transport);
-        InstanceService.Client client = ReconnectingThriftClient.wrap(
+        InstanceService.Iface iface = (InstanceService.Iface)ReconnectingThriftClient.wrap(
                 new InstanceService.Client(protocol));
-        return client;
+        return iface;
     }
 
     private boolean CreateAndResynchronizeRpcClient() {
@@ -139,10 +139,12 @@ public class ContrailVRouterApi {
      * @param network_uuid     UUID of the associated virtual network
      */
     public void AddPort(UUID vif_uuid, UUID vm_uuid, String interface_name,
-            InetAddress interface_ip, byte[] mac_address, UUID network_uuid) {
+            InetAddress interface_ip, byte[] mac_address, UUID network_uuid, short vlanId, short primaryVlanId) {
         Port aport = new Port(UUIDToArray(vif_uuid), UUIDToArray(vm_uuid),
                 interface_name, interface_ip.getHostAddress(),
                 UUIDToArray(network_uuid), MacAddressToString(mac_address));
+        aport.setVlan_id(primaryVlanId);
+        aport.setIsolated_vlan_id(vlanId);
         ports.put(vif_uuid, aport);
         if (client == null) {
             if (!CreateAndResynchronizeRpcClient()) {

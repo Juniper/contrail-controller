@@ -25,6 +25,7 @@ struct Port {
    11:optional i16 vlan_id; 
    12:optional i16 port_type;
    13:optional string ip6_address;
+   14:optional i16 isolated_vlan_id; 
 }
 
 typedef list<Port> PortList

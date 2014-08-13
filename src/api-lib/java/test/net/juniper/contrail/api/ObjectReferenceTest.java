@@ -46,8 +46,8 @@ public class ObjectReferenceTest extends TestCase {
         NetworkIpam ipam = new NetworkIpam();
         ipam.setName("testipam");
         VnSubnetsType subnets = new VnSubnetsType();
-        subnets.addIpamSubnets(new VnSubnetsType.IpamSubnetType(new SubnetType("192.168.0.0", 24), "192.168.0.254", UUID.randomUUID().toString()));
-        vn.addNetworkIpam(ipam, subnets);
+        subnets.addIpamSubnets(new VnSubnetsType.IpamSubnetType(new SubnetType("192.168.0.0", 24), "192.168.0.254", UUID.randomUUID().toString(), false, null, null, false, null, null, vn.getName() + "-subnet"));
+        vn.setNetworkIpam(ipam, subnets);
         String jsdata = ApiSerializer.serializeObject("virtual-network", vn);
         assertNotSame(jsdata, -1, jsdata.indexOf("192.168.0.0"));
         

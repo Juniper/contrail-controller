@@ -201,9 +201,8 @@ public class ApiTestCommon {
         }
 
         VnSubnetsType subnet = new VnSubnetsType();
-        subnet.addIpamSubnets(new SubnetType("10.0.1.0", 24), "10.0.1.254", UUID.randomUUID().toString());
-
-        net.addNetworkIpam(ipam, subnet);
+        subnet.addIpamSubnets(new VnSubnetsType.IpamSubnetType(new SubnetType("10.0.1.0", 24), "10.0.1.254", UUID.randomUUID().toString(), false, null, null, false, null, null, net.getName() + "-subnet"));
+        net.setNetworkIpam(ipam, subnet);
 
         VirtualMachine vm = new VirtualMachine();
         vm.setName("aa01");
