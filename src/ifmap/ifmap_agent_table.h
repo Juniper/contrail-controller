@@ -85,9 +85,9 @@ public:
     static DBTable *CreateTable(DB *db, const std::string &name,
                                      DBGraph *graph);
     void EvalDefLink(IFMapTable::RequestKey *key);
-    void RemoveDefListEntry(LinkDefMap *map, LinkDefMap::iterator &map_it,
+    bool RemoveDefListEntry(LinkDefMap *map, LinkDefMap::iterator &map_it,
                             std::list<IFMapTable::RequestKey>::iterator *list_it);
-    void DestroyDefLink();
+    void DestroyDefLink(uint64_t);
     const LinkDefMap &GetLinkDefMap() const {
         return link_def_map_;
     }
@@ -104,11 +104,11 @@ private:
 
 class IFMapAgentStaleCleaner {
 public:
-    IFMapAgentStaleCleaner(DB *db, DBGraph *graph, boost::asio::io_service &io_service);
+    IFMapAgentStaleCleaner(DB *db, DBGraph *graph);
     ~IFMapAgentStaleCleaner();
     class IFMapAgentStaleCleanerWorker;
     void Clear();
-    bool StaleTimeout();
+    bool StaleTimeout(uint64_t);
 
 private:
     DB *db_;
