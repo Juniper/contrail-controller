@@ -516,7 +516,8 @@ void NovaMsgProcess (xml_document &xdoc, pair<xml_node, GroupEntry *> node, bool
         boost::system::error_code ec;
         IpAddress ip = Ip4Address::from_string(ipaddr, ec);
         data->Init(vm_id, vn_id, project_id, tap_intf, ip, mac, "",
-                   VmInterface::kInvalidVlanId, 0);
+                   VmInterface::kInvalidVlanId,
+                   CfgIntEntry::CfgIntVMPort, 0);
 
         req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
         req.key.reset(key);
