@@ -824,6 +824,9 @@ class SecurityGroupServer(SecurityGroupServerGen):
             (ok, quota_limit) = QuotaHelper.check_quota_limit(proj_dict, obj_type, quota_count)
             if not ok:
                 return (False, (403, pformat(obj_dict['fq_name']) + ' : ' + quota_limit))
+
+        _check_policy_rule_uuid(obj_dict.get('security_group_entries'))
+
         return True, ""
     # end http_post_collection
 
@@ -845,6 +848,8 @@ class SecurityGroupServer(SecurityGroupServerGen):
                 (ok, quota_limit) = QuotaHelper.check_quota_limit(proj_dict, obj_type, quota_count)
                 if not ok:
                     return (False, (403, pformat(fq_name) + ' : ' + quota_limit))
+
+        _check_policy_rule_uuid(obj_dict.get('security_group_entries'))
         return True, ""
     # end http_put
 
