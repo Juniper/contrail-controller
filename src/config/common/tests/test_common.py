@@ -25,6 +25,14 @@ sys.path.insert(0, '../../../../distro/openstack/')
 import bottle
 bottle.catchall=False
 
+import inspect
+
+def lineno():
+    """Returns the current line number in our program."""
+    return inspect.currentframe().f_back.f_lineno
+# end lineno
+
+
 # import from package for non-api server test or directly from file
 import vnc_cfg_api_server
 if not hasattr(vnc_cfg_api_server, 'main'):
@@ -43,14 +51,37 @@ def launch_api_server(listen_ip, listen_port, http_server_port):
     vnc_cfg_api_server.main(args_str)
 #end launch_api_server
 
+def launch_svc_monitor(api_server_ip, api_server_port):
+    import svc_monitor
+    if not hasattr(svc_monitor, 'main'):
+        from svc_monitor import svc_monitor
+
+    args_str = ""
+    args_str = args_str + "--api_server_ip %s " % (api_server_ip)
+    args_str = args_str + "--api_server_port %s " % (api_server_port)
+    args_str = args_str + "--ifmap_username api-server "
+    args_str = args_str + "--ifmap_password api-server "
+    args_str = args_str + "--cassandra_server_list 0.0.0.0:9160"
+
+    svc_monitor.main(args_str)
+# end launch_svc_monitor
+
+def launch_schema_transformer(api_server_ip, api_server_port):
+    try:
+        import to_bgp
+    except ImportError:
+        from schema_transformer import to_bgp
+    args_str = ""
+    args_str = args_str + "--api_server_ip %s " % (api_server_ip)
+    args_str = args_str + "--api_server_port %s " % (api_server_port)
+    args_str = args_str + "--cassandra_server_list 0.0.0.0:9160"
+    to_bgp.main(args_str)
+# end launch_schema_transformer
 
 def setup_flexmock():
     flexmock(ifmap_client.client, __init__=FakeIfmapClient.initialize,
              call=FakeIfmapClient.call,
              call_async_result=FakeIfmapClient.call_async_result)
-    flexmock(ifmap_response.Response, __init__=stub, element=stub)
-    flexmock(ifmap_response.newSessionResult, get_session_id=stub)
-    flexmock(ifmap_response.newSessionResult, get_publisher_id=stub)
 
     flexmock(pycassa.system_manager.Connection, __init__=stub)
     flexmock(pycassa.system_manager.SystemManager, create_keyspace=stub,
@@ -61,7 +92,8 @@ def setup_flexmock():
 
     flexmock(disc_client.DiscoveryClient, __init__=stub)
     flexmock(disc_client.DiscoveryClient, publish_obj=stub)
-    flexmock(ZookeeperClient, __new__=ZookeeperClientMock)
+    flexmock(kazoo.client.KazooClient, __new__=FakeKazooClient)
+    flexmock(kazoo.handlers.gevent.SequentialGeventHandler, __init__=stub)
 
     flexmock(kombu.Connection, __new__=FakeKombu.Connection)
     flexmock(kombu.Exchange, __new__=FakeKombu.Exchange)
@@ -83,7 +115,7 @@ class TestCase(testtools.TestCase, fixtures.TestWithFixtures):
         self.addDetail('Requesting: ', content.text_content(request_str))
 
     def _http_get(self, uri, query_params=None):
-        url = "http://%s:%s%s" % (self._web_host, self._web_port, uri)
+        url = "http://%s:%s%s" % (self._api_server_ip, self._api_server_port, uri)
         self._add_request_detail('GET', url, headers=self._HTTP_HEADERS,
                                  query_params=query_params)
         response = self._api_server_session.get(url, headers=self._HTTP_HEADERS,
@@ -97,7 +129,7 @@ class TestCase(testtools.TestCase, fixtures.TestWithFixtures):
     #end _http_get
 
     def _http_post(self, uri, body):
-        url = "http://%s:%s%s" % (self._web_host, self._web_port, uri)
+        url = "http://%s:%s%s" % (self._api_server_ip, self._api_server_port, uri)
         self._add_request_detail('POST', url, headers=self._HTTP_HEADERS, body=body)
         response = self._api_server_session.post(url, data=body,
                                                  headers=self._HTTP_HEADERS)
@@ -108,7 +140,7 @@ class TestCase(testtools.TestCase, fixtures.TestWithFixtures):
     #end _http_post
 
     def _http_delete(self, uri, body):
-        url = "http://%s:%s%s" % (self._web_host, self._web_port, uri)
+        url = "http://%s:%s%s" % (self._api_server_ip, self._api_server_port, uri)
         self._add_request_detail('DELETE', url, headers=self._HTTP_HEADERS, body=body)
         response = self._api_server_session.delete(url, data=body,
                                                    headers=self._HTTP_HEADERS)
@@ -119,7 +151,7 @@ class TestCase(testtools.TestCase, fixtures.TestWithFixtures):
     #end _http_delete
 
     def _http_put(self, uri, body, headers):
-        url = "http://%s:%s%s" % (self._web_host, self._web_port, uri)
+        url = "http://%s:%s%s" % (self._api_server_ip, self._api_server_port, uri)
         self._add_request_detail('PUT', url, headers=self._HTTP_HEADERS, body=body)
         response = self._api_server_session.put(url, data=body,
                                                 headers=self._HTTP_HEADERS)
@@ -151,22 +183,18 @@ class TestCase(testtools.TestCase, fixtures.TestWithFixtures):
         cov_handle.start()
         setup_flexmock()
 
-        api_server_ip = socket.gethostbyname(socket.gethostname())
-        api_server_port = get_free_port()
+        self._api_server_ip = socket.gethostbyname(socket.gethostname())
+        self._api_server_port = get_free_port()
         http_server_port = get_free_port()
-        self._web_host = api_server_ip
-        self._web_port = api_server_port
         self._api_svr_greenlet = gevent.spawn(launch_api_server,
-                                     api_server_ip, api_server_port,
+                                     self._api_server_ip, self._api_server_port,
                                      http_server_port)
-        block_till_port_listened(api_server_ip, api_server_port)
-        extra_env = {'HTTP_HOST':'%s%s' %(api_server_ip,
-                                          api_server_port)}
+        block_till_port_listened(self._api_server_ip, self._api_server_port)
+        extra_env = {'HTTP_HOST':'%s%s' %(self._api_server_ip,
+                                          self._api_server_port)}
         self._api_svr_app = TestApp(bottle.app(), extra_environ=extra_env)
-        #FakeRequestsSession._api_svr_app = self._api_svr_app
-        
-        self._vnc_lib = VncApi('u', 'p', api_server_host=api_server_ip,
-                               api_server_port=api_server_port)
+        self._vnc_lib = VncApi('u', 'p', api_server_host=self._api_server_ip,
+                               api_server_port=self._api_server_port)
 
         self._api_server_session = requests.Session()
         adapter = requests.adapters.HTTPAdapter()
@@ -182,4 +210,9 @@ class TestCase(testtools.TestCase, fixtures.TestWithFixtures):
         cov_handle.report(file=open('covreport.txt', 'w'))
         super(TestCase, self).tearDown()
     # end tearDown
+
+    def get_obj_imid(self, obj):
+        return 'contrail:%s:%s' %(obj._type, obj.get_fq_name_str())
+    # end get_obj_imid
+
 # end TestCase
