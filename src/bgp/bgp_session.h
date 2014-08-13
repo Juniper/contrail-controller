@@ -54,7 +54,7 @@ protected:
 
 private:
     virtual void ReceiveMsg(const u_int8_t *msg, size_t size) {
-        return peer_->ReceiveMsg(this, msg, size);
+        peer_->ReceiveMsg(this, msg, size);
     }
     virtual void WriteReady(const boost::system::error_code &error);
 

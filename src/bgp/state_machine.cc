@@ -18,6 +18,7 @@
 #include <tbb/atomic.h>
 
 #include "base/logging.h"
+#include "base/task_annotations.h"
 #include "bgp/bgp_log.h"
 #include "bgp/bgp_peer.h"
 #include "bgp/bgp_peer_types.h"
@@ -1418,6 +1419,7 @@ void StateMachine::OnSessionEvent(
 // read on connect when we accept passive sessions.
 //
 bool StateMachine::PassiveOpen(BgpSession *session) {
+    CHECK_CONCURRENCY("bgp::Config");
     Enqueue(fsm::EvTcpPassiveOpen(session));
     session->set_observer(boost::bind(&StateMachine::OnSessionEvent,
         this, _1, _2));

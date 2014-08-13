@@ -9,6 +9,7 @@
 #include <boost/foreach.hpp>
 
 #include "base/logging.h"
+#include "base/task_annotations.h"
 #include "base/test/task_test_util.h"
 #include "net/bgp_af.h"
 #include "bgp/bgp_config.h"
@@ -400,11 +401,13 @@ protected:
         sm_->FireOpenTimer();
     }
     void EvTcpPassiveOpen() {
+        ConcurrencyScope scope("bgp::Config");
         BgpSessionMock *session = session_mgr_->CreatePassiveSession();
         TcpSession::Endpoint endpoint;
         peer_->AcceptSession(session);
     }
     void EvTcpDuplicatePassiveOpen() {
+        ConcurrencyScope scope("bgp::Config");
         BgpSessionMock *session = session_mgr_->CreateDuplicateSession();
         TcpSession::Endpoint endpoint;
         peer_->AcceptSession(session);
@@ -859,8 +862,10 @@ TEST_F(StateMachineActiveTest, TcpPassiveOpen) {
 // Other:     Original passive session should get closed and deleted, while
 //            the duplicate passive session becomes the new passive session.
 TEST_F(StateMachineActiveTest, DuplicateTcpPassiveOpen) {
+    TaskScheduler::GetInstance()->Stop();
     EvTcpPassiveOpen();
     EvTcpDuplicatePassiveOpen();
+    TaskScheduler::GetInstance()->Start();
     VerifyState(StateMachine::ACTIVE);
     TASK_UTIL_EXPECT_TRUE(!ConnectTimerRunning());
     TASK_UTIL_EXPECT_TRUE(OpenTimerRunning());
@@ -1061,8 +1066,10 @@ TEST_F(StateMachineConnectTest, TcpPassiveOpen) {
 // Other:     Original passive session should get closed and deleted, while
 //            the duplicate passive session becomes the new passive session.
 TEST_F(StateMachineConnectTest, DuplicateTcpPassiveOpen) {
+    TaskScheduler::GetInstance()->Stop();
     EvTcpPassiveOpen();
     EvTcpDuplicatePassiveOpen();
+    TaskScheduler::GetInstance()->Start();
     VerifyState(StateMachine::CONNECT);
     TASK_UTIL_EXPECT_TRUE(OpenTimerRunning());
     TASK_UTIL_EXPECT_TRUE(sm_->passive_session() != NULL);
@@ -1427,8 +1434,10 @@ TEST_F(StateMachineOpenSentTest, TcpPassiveOpen) {
 //            the duplicate passive session becomes the new passive session.
 TEST_F(StateMachineOpenSentTest, DuplicateTcpPassiveOpen1) {
     GetToState(StateMachine::OPENSENT);
+    TaskScheduler::GetInstance()->Stop();
     EvTcpPassiveOpen();
     EvTcpDuplicatePassiveOpen();
+    TaskScheduler::GetInstance()->Start();
     VerifyState(StateMachine::OPENSENT);
     TASK_UTIL_EXPECT_TRUE(OpenTimerRunning());
     TASK_UTIL_EXPECT_TRUE(sm_->active_session() != NULL);
@@ -1449,7 +1458,9 @@ TEST_F(StateMachineOpenSentTest, DuplicateTcpPassiveOpen2) {
     GetToState(StateMachine::ACTIVE);
     EvOpenTimerExpiredPassive();
     VerifyState(StateMachine::OPENSENT);
+    TaskScheduler::GetInstance()->Stop();
     EvTcpDuplicatePassiveOpen();
+    TaskScheduler::GetInstance()->Start();
     VerifyState(StateMachine::ACTIVE);
     TASK_UTIL_EXPECT_TRUE(OpenTimerRunning());
     TASK_UTIL_EXPECT_TRUE(!ConnectTimerRunning());
@@ -1471,7 +1482,9 @@ TEST_F(StateMachineOpenSentTest, DuplicateTcpPassiveOpen3) {
     GetToState(StateMachine::OPENSENT);
     EvOpenTimerExpiredPassive();
     VerifyState(StateMachine::OPENSENT);
+    TaskScheduler::GetInstance()->Stop();
     EvTcpDuplicatePassiveOpen();
+    TaskScheduler::GetInstance()->Start();
     VerifyState(StateMachine::OPENSENT);
     TASK_UTIL_EXPECT_TRUE(OpenTimerRunning());
     TASK_UTIL_EXPECT_TRUE(sm_->active_session() != NULL);
@@ -2430,7 +2443,10 @@ TEST_P(StateMachineOpenConfirmParamTest1, TcpPassiveOpen) {
     GetToState(StateMachine::ACTIVE);
     EvTcpPassiveOpen();
     EvBgpOpenCustom(session_mgr_->passive_session(), id_);
+    VerifyState(StateMachine::OPENCONFIRM);
+    TaskScheduler::GetInstance()->Stop();
     EvTcpDuplicatePassiveOpen();
+    TaskScheduler::GetInstance()->Start();
     VerifyState(StateMachine::OPENCONFIRM);
     VerifyDirection(BgpSessionMock::PASSIVE);
     TASK_UTIL_EXPECT_TRUE(session_mgr_->passive_session() != NULL);
