@@ -4,6 +4,7 @@
 import sys
 
 import logging
+import tempfile
 from pprint import pformat
 import coverage
 import fixtures
@@ -40,17 +41,40 @@ import vnc_cfg_api_server
 if not hasattr(vnc_cfg_api_server, 'main'):
     from vnc_cfg_api_server import vnc_cfg_api_server
 
-def launch_api_server(listen_ip, listen_port, http_server_port):
+
+def generate_conf_file_contents(conf_sections):
+    cfg_parser = ConfigParser.RawConfigParser()
+    for (section, var, val) in conf_sections:
+        try:
+            cfg_parser.add_section(section)
+        except ConfigParser.DuplicateSectionError:
+            pass
+        if not var:
+            continue
+        if val == '':
+            cfg_parser.set(section, var, 'empty')
+        else:
+            cfg_parser.set(section, var, val)
+
+    return cfg_parser
+# end generate_conf_file_contents
+
+def launch_api_server(listen_ip, listen_port, http_server_port, conf_sections):
     args_str = ""
     args_str = args_str + "--listen_ip_addr %s " % (listen_ip)
     args_str = args_str + "--listen_port %s " % (listen_port)
     args_str = args_str + "--http_server_port %s " % (http_server_port)
-    args_str = args_str + "--cassandra_server_list 0.0.0.0:9160"
+    args_str = args_str + "--cassandra_server_list 0.0.0.0:9160 "
 
     import cgitb
     cgitb.enable(format='text')
 
-    vnc_cfg_api_server.main(args_str)
+    with tempfile.NamedTemporaryFile() as temp:
+        cfg_parser = generate_conf_file_contents(conf_sections)
+        cfg_parser.write(temp)
+        temp.flush()
+        args_str = args_str + "--conf_file %s " %(temp.name)
+        vnc_cfg_api_server.main(args_str)
 #end launch_api_server
 
 def launch_svc_monitor(api_server_ip, api_server_port):
@@ -111,6 +135,12 @@ class TestCase(testtools.TestCase, fixtures.TestWithFixtures):
     _HTTP_HEADERS =  {
         'Content-type': 'application/json; charset="UTF-8"',
     }
+    def __init__(self, *args, **kwargs):
+        self._config_knobs = [
+            ('DEFAULTS', '', ''),
+            ]
+        super(TestCase, self).__init__(*args, **kwargs)
+
     def _add_request_detail(self, op, url, headers=None, query_params=None,
                          body=None):
         request_str = ' URL: ' + pformat(url) + \
@@ -194,7 +224,7 @@ class TestCase(testtools.TestCase, fixtures.TestWithFixtures):
         http_server_port = get_free_port()
         self._api_svr_greenlet = gevent.spawn(launch_api_server,
                                      self._api_server_ip, self._api_server_port,
-                                     http_server_port)
+                                     http_server_port, self._config_knobs)
         block_till_port_listened(self._api_server_ip, self._api_server_port)
         extra_env = {'HTTP_HOST':'%s%s' %(self._api_server_ip,
                                           self._api_server_port)}
@@ -213,6 +243,8 @@ class TestCase(testtools.TestCase, fixtures.TestWithFixtures):
 
     def tearDown(self):
         self._api_svr_greenlet.kill()
+        self._api_server._db_conn._msgbus._dbe_publish_greenlet.kill()
+        self._api_server._db_conn._msgbus._dbe_oper_subscribe_greenlet.kill()
         cov_handle.stop()
         cov_handle.report(file=open('covreport.txt', 'w'))
         super(TestCase, self).tearDown()

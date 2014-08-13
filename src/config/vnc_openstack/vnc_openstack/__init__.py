@@ -14,7 +14,7 @@ import logging
 import logging.handlers
 import Queue
 import ConfigParser
-from keystoneclient.v2_0 import client as keystone
+import keystoneclient.v2_0.client as keystone
 import cfgm_common
 try:
     from cfgm_common import vnc_plugin_base
@@ -105,12 +105,19 @@ class OpenstackDriver(vnc_plugin_base.Resync):
         # logging
         self._log_file_name = '/var/log/contrail/vnc_openstack.err'
         self._tmp_file_name = '/var/log/contrail/vnc_openstack.tmp'
-        self._vnc_os_logger = logging.getLogger('MyLogger')
+        self._vnc_os_logger = logging.getLogger(__name__)
         self._vnc_os_logger.setLevel(logging.ERROR)
         # Add the log message handler to the logger
-        handler = logging.handlers.RotatingFileHandler(self._log_file_name,
-                                                       maxBytes=1024,
-                                                       backupCount=5)
+        try:
+            handler = logging.handlers.RotatingFileHandler(self._log_file_name,
+                                                           maxBytes=1024,
+                                                           backupCount=5)
+        except IOError:
+            self._log_file_name = './vnc_openstack.err'
+            self._tmp_file_name = './vnc_openstack.tmp'
+            handler = logging.handlers.RotatingFileHandler(self._log_file_name,
+                                                           maxBytes=1024,
+                                                           backupCount=5)
 
         self._vnc_os_logger.addHandler(handler)
         self.q = Queue.Queue(maxsize=Q_MAX_ITEMS)
@@ -156,8 +163,18 @@ class OpenstackDriver(vnc_plugin_base.Resync):
         self._get_keystone_conn()
         self._get_vnc_conn()
         ks_project = self._ks_project_get(id=id.replace('-', ''))
+        display_name = ks_project['name']
 
-        proj_obj = vnc_api.Project(ks_project['name'])
+        # if earlier project exists with same name but diff id,
+        # create with uniqified fq_name
+        fq_name = ['default-domain', display_name]
+        try:
+            old_id = self._vnc_lib.fq_name_to_id('project', fq_name)
+            proj_name = '%s-%s' %(display_name, str(uuid.uuid4()))
+        except vnc_api.NoIdError:
+            proj_name = display_name
+
+        proj_obj = vnc_api.Project(proj_name)
         proj_obj.uuid = id
         self._vnc_lib.project_create(proj_obj)
     # end _ksv2_sync_project_to_vnc
@@ -252,16 +269,26 @@ class OpenstackDriver(vnc_plugin_base.Resync):
         if id:
             ks_project = \
                 self._ks_project_get(id=id.replace('-', ''))
-            project_name = ks_project['name']
+            display_name = ks_project['name']
             project_id = id
         elif name:
             ks_project = \
                 self._ks_project_get(name=name)
             project_id = ks_project['id']
-            project_name = name
+            display_name = name
 
         domain_uuid = self._ksv3_domain_id_to_uuid(ks_project['domain_id'])
         dom_obj = self._vnc_lib.domain_read(id=domain_uuid)
+
+        # if earlier project exists with same name but diff id,
+        # create with uniqified fq_name
+        fq_name = dom_obj.get_fq_name() + [display_name]
+        try:
+            old_id = self._vnc_lib.fq_name_to_id('project', fq_name)
+            project_name = '%s-%s' %(display_name, str(uuid.uuid4()))
+        except vnc_api.NoIdError:
+            project_name = display_name
+        
         proj_obj = vnc_api.Project(project_name, parent_obj=dom_obj)
         proj_obj.uuid = project_id
         self._vnc_lib.project_create(proj_obj)
@@ -299,7 +326,18 @@ class OpenstackDriver(vnc_plugin_base.Resync):
         self._get_vnc_conn()
         ks_domain = \
             self._ks_domain_get(domain_id.replace('-', ''))
-        dom_obj = vnc_api.Domain(ks_domain['name'])
+        display_name = ks_domain['name']
+
+        # if earlier domain exists with same name but diff id,
+        # create with uniqified fq_name
+        fq_name = [display_name]
+        try:
+            old_id = self._vnc_lib.fq_name_to_id('domain', fq_name)
+            domain_name = '%s-%s' %(display_name, str(uuid.uuid4()))
+        except vnc_api.NoIdError:
+            domain_name = display_name
+ 
+        dom_obj = vnc_api.Domain(domain_name)
         dom_obj.uuid = domain_id
         self._vnc_lib.domain_create(dom_obj)
     # sync_domain_to_vnc
@@ -476,9 +514,10 @@ class OpenstackDriver(vnc_plugin_base.Resync):
 
     def resync_domains_projects(self):
         # add asynchronously
-        gevent.spawn(self._resync_domains_projects_forever)
+        self._main_glet = gevent.spawn(self._resync_domains_projects_forever)
+        self._worker_glets = []
         for x in range(self._resync_number_workers):
-            gevent.spawn(self._resync_worker)
+            self._worker_glets.append(gevent.spawn(self._resync_worker))
     #end resync_domains_projects
 
     def _resync_worker(self):
