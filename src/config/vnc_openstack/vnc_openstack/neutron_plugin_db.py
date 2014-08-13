@@ -2027,9 +2027,8 @@ class DBInterface(object):
                 for address_pair in port_q['allowed_address_pairs']:
                     mac_refs = \
                         port_obj.get_virtual_machine_interface_mac_addresses()
-                    mode = u'active-active';
+                    mode = u'active-standby';
                     if 'mac_address' not in address_pair:
-                        mode = u'active-standby';
                         if mac_refs:
                             address_pair['mac_address'] = mac_refs.mac_address[0]
 
