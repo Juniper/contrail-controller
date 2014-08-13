@@ -50,27 +50,51 @@ InterfaceKSyncEntry::InterfaceKSyncEntry(InterfaceKSyncObject *obj,
     layer3_forwarding_(entry->layer3_forwarding_),
     ksync_obj_(obj), l2_active_(false),
     layer2_forwarding_(entry->layer2_forwarding_),
-    mac_(entry->mac_), smac_(entry->smac_),
+    mac_(entry->mac_),
+    smac_(entry->smac_),
     mirror_direction_(entry->mirror_direction_),
-    network_id_(entry->network_id_), os_index_(Interface::kInvalidIndex),
-    parent_(entry->parent_), policy_enabled_(entry->policy_enabled_),
-    sub_type_(entry->sub_type_), type_(entry->type_), vlan_id_(entry->vlan_id_),
-    vrf_id_(entry->vrf_id_), persistent_(entry->persistent_),
+    network_id_(entry->network_id_),
+    os_index_(Interface::kInvalidIndex),
+    parent_(entry->parent_),
+    policy_enabled_(entry->policy_enabled_),
+    sub_type_(entry->sub_type_),
+    type_(entry->type_),
+    rx_vlan_id_(entry->rx_vlan_id_),
+    tx_vlan_id_(entry->tx_vlan_id_),
+    vrf_id_(entry->vrf_id_),
+    persistent_(entry->persistent_),
     xconnect_(entry->xconnect_) {
 }
 
 InterfaceKSyncEntry::InterfaceKSyncEntry(InterfaceKSyncObject *obj,
                                          const Interface *intf) :
-    KSyncNetlinkDBEntry(kInvalidIndex), analyzer_name_(),
-    dhcp_enable_(true), fd_(-1), flow_key_nh_id_(0),
-    has_service_vlan_(false), interface_id_(intf->id()),
-    interface_name_(intf->name()), ip_(0), ipv4_active_(false),
-    layer3_forwarding_(true), ksync_obj_(obj), l2_active_(false),                
-    layer2_forwarding_(true), mac_(), smac_(),
-    mirror_direction_(Interface::UNKNOWN), os_index_(intf->os_index()), 
-    parent_(NULL), policy_enabled_(false), sub_type_(InetInterface::VHOST),
-    type_(intf->type()), vlan_id_(VmInterface::kInvalidVlanId),
-    vrf_id_(intf->vrf_id()), persistent_(false), xconnect_(NULL) {
+    KSyncNetlinkDBEntry(kInvalidIndex),
+    analyzer_name_(),
+    dhcp_enable_(true),
+    fd_(-1),
+    flow_key_nh_id_(0),
+    has_service_vlan_(false),
+    interface_id_(intf->id()),
+    interface_name_(intf->name()),
+    ip_(0),
+    ipv4_active_(false),
+    layer3_forwarding_(true),
+    ksync_obj_(obj),
+    l2_active_(false),                
+    layer2_forwarding_(true),
+    mac_(),
+    smac_(),
+    mirror_direction_(Interface::UNKNOWN),
+    os_index_(intf->os_index()), 
+    parent_(NULL),
+    policy_enabled_(false),
+    sub_type_(InetInterface::VHOST),
+    type_(intf->type()),
+    rx_vlan_id_(VmInterface::kInvalidVlanId),
+    tx_vlan_id_(VmInterface::kInvalidVlanId),
+    vrf_id_(intf->vrf_id()),
+    persistent_(false),
+    xconnect_(NULL) {
 
     if (intf->flow_key_nh()) {
         flow_key_nh_id_ = intf->flow_key_nh()->id();
@@ -83,7 +107,8 @@ InterfaceKSyncEntry::InterfaceKSyncEntry(InterfaceKSyncObject *obj,
             ip_ = vmitf->ip_addr().to_ulong();
         }
         network_id_ = vmitf->vxlan_id();
-        vlan_id_ = vmitf->vlan_id();
+        rx_vlan_id_ = vmitf->rx_vlan_id();
+        tx_vlan_id_ = vmitf->tx_vlan_id();
         if (vmitf->parent()) {
             InterfaceKSyncEntry tmp(ksync_obj_, vmitf->parent());
             parent_ = ksync_obj_->GetReference(&tmp);
@@ -281,7 +306,8 @@ bool InterfaceKSyncEntry::Sync(DBEntry *e) {
     MacAddress smac;
     if (intf->type() == Interface::VM_INTERFACE &&
         ksync_obj_->ksync()->agent()->isVmwareVcenterMode()) {
-        smac = intf->mac();
+        const VmInterface *vm_intf = static_cast<const VmInterface *>(intf);
+        smac = MacAddress(vm_intf->vm_mac());
     }
 
     if (smac != smac_) {
@@ -319,7 +345,7 @@ KSyncEntry *InterfaceKSyncEntry::UnresolvedReference() {
         return NULL;
     }
 
-    if (vlan_id_ == VmInterface::kInvalidVlanId)
+    if (rx_vlan_id_ == VmInterface::kInvalidVlanId)
         return NULL;
 
     if (parent_.get() && !parent_->IsResolved()) {
@@ -346,7 +372,7 @@ int InterfaceKSyncEntry::Encode(sandesh_op::type op, char *buf, int buf_len) {
     int encode_len, error;
 
     // Dont send message if interface index not known
-    if (IsValidOsIndex(os_index_, type_, vlan_id_) == false) {
+    if (IsValidOsIndex(os_index_, type_, rx_vlan_id_) == false) {
         return 0;
     }
 
@@ -361,12 +387,13 @@ int InterfaceKSyncEntry::Encode(sandesh_op::type op, char *buf, int buf_len) {
             flags |= VIF_FLAG_L2_ENABLED;
         }
         MacAddress mac;
-        if (vlan_id_ == VmInterface::kInvalidVlanId) {
+        if (rx_vlan_id_ == VmInterface::kInvalidVlanId) {
             mac = ksync_obj_->ksync()->agent()->vrrp_mac();
             encoder.set_vifr_type(VIF_TYPE_VIRTUAL);
         } else {
             encoder.set_vifr_type(VIF_TYPE_VIRTUAL_VLAN);
-            encoder.set_vifr_vlan_id(vlan_id_);
+            encoder.set_vifr_vlan_id(rx_vlan_id_);
+            encoder.set_vifr_ovlan_id(tx_vlan_id_);
             InterfaceKSyncEntry *parent =
                 (static_cast<InterfaceKSyncEntry *> (parent_.get()));
             encoder.set_vifr_parent_vif_idx(parent->interface_id());

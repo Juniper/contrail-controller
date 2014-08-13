@@ -973,6 +973,9 @@ AgentParam::AgentParam(Agent *agent, bool enable_flow_options,
              "IP Address and prefix or the link local port in ip/prefix format")
             ("HYPERVISOR.vmware_physical_port", opt::value<string>(),
              "Physical port used to connect to VMs in VMWare environment")
+            ("HYPERVISOR.vmware_mode",
+             opt::value<string>()->default_value("esxi_neutron"), 
+             "VMWare mode <esxi_neutron|vcenter>")
             ;
         options_.add(hypervisor);
     }

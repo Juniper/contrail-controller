@@ -17,19 +17,6 @@ void RouterIdDepInit(Agent *agent) {
 class VmwareTest : public ::testing::Test {
 public:
     virtual void SetUp() {
-        uint16_t http_server_port = ContrailPorts::HttpPortAgent;
-
-        desc.add_options()
-        ("help", "help message")
-        ("HYPERVISOR.type", opt::value<string>()->default_value("kvm"), 
-         "Type of hypervisor <kvm|xen|vmware>")
-        ("HYPERVISOR.vmware_physical_port", opt::value<string>(),
-         "Physical port used to connect to VMs in VMWare environment")
-        ("HYPERVISOR.vmware_mode",
-         opt::value<string>()->default_value("esxi_neutron"), 
-         "VMWare mode <esxi_neutron|vcenter>")
-            ;
-
         agent = Agent::GetInstance();
         param = agent->params();
 
@@ -106,7 +93,8 @@ TEST_F(VmwareTest, VmwareVmPort_1) {
     if (intf == NULL)
         return;
 
-    EXPECT_TRUE(intf->vlan_id() == 1);
+    EXPECT_TRUE(intf->rx_vlan_id() == 1);
+    EXPECT_TRUE(intf->tx_vlan_id() == 1);
     EXPECT_TRUE(intf->parent() != NULL);
 
     DeleteVmportEnv(input1, 1, true);
@@ -118,24 +106,25 @@ TEST_F(VmwareTest, VmwareVmPort_1) {
 // Validate the vmware mode parameters
 TEST_F(VmwareTest, VmwareMode_1) {
     AgentParam param(Agent::GetInstance());
-    param.Init("controller/src/vnsw/agent/cmn/test/cfg-vmware.ini",
-               "test-param", var_map);
+    param.Init("controller/src/vnsw/agent/init/test/cfg-vmware.ini",
+               "test-param");
+
     EXPECT_EQ(param.mode(), AgentParam::MODE_VMWARE);
     EXPECT_EQ(param.vmware_mode(), AgentParam::ESXI_NEUTRON);
 }
 
 TEST_F(VmwareTest, VmwareMode_2) {
     AgentParam param(Agent::GetInstance());
-    param.Init("controller/src/vnsw/agent/cmn/test/cfg-vmware-1.ini",
-               "test-param", var_map);
+    param.Init("controller/src/vnsw/agent/init/test/cfg-vmware-1.ini",
+               "test-param");
     EXPECT_EQ(param.mode(), AgentParam::MODE_VMWARE);
     EXPECT_EQ(param.vmware_mode(), AgentParam::ESXI_NEUTRON);
 }
 
 TEST_F(VmwareTest, VmwareMode_3) {
     AgentParam param(Agent::GetInstance());
-    param.Init("controller/src/vnsw/agent/cmn/test/cfg-vmware-2.ini",
-               "test-param", var_map);
+    param.Init("controller/src/vnsw/agent/init/test/cfg-vmware-2.ini",
+               "test-param");
     EXPECT_EQ(param.mode(), AgentParam::MODE_VMWARE);
     EXPECT_EQ(param.vmware_mode(), AgentParam::VCENTER);
 }
@@ -148,18 +137,10 @@ TEST_F(VmwareTest, VmwareMode_4) {
         (char *) "--HYPERVISOR.vmware_mode", (char *)"esxi_neutron"
     };
 
-    try {
-        opt::store(opt::parse_command_line(argc, argv, desc), var_map);
-        opt::notify(var_map);
-    } catch (...) {
-        cout << "Invalid arguments. ";
-        cout << desc << endl;
-        exit(0);
-    }
-
     AgentParam param(Agent::GetInstance());
-    param.Init("controller/src/vnsw/agent/cmn/test/cfg-vmware-2.ini",
-               "test-param", var_map);
+    param.ParseArguments(argc, argv);
+    param.Init("controller/src/vnsw/agent/init/test/cfg-vmware-2.ini",
+               "test-param");
     EXPECT_EQ(param.mode(), AgentParam::MODE_VMWARE);
     EXPECT_EQ(param.vmware_mode(), AgentParam::ESXI_NEUTRON);
 }
@@ -172,18 +153,10 @@ TEST_F(VmwareTest, VmwareMode_5) {
         (char *) "--HYPERVISOR.vmware_mode", (char *)"vcenter"
     };
 
-    try {
-        opt::store(opt::parse_command_line(argc, argv, desc), var_map);
-        opt::notify(var_map);
-    } catch (...) {
-        cout << "Invalid arguments. ";
-        cout << desc << endl;
-        exit(0);
-    }
-
     AgentParam param(Agent::GetInstance());
-    param.Init("controller/src/vnsw/agent/cmn/test/cfg-vmware-1.ini",
-               "test-param", var_map);
+    param.ParseArguments(argc, argv);
+    param.Init("controller/src/vnsw/agent/init/test/cfg-vmware-1.ini",
+               "test-param");
     EXPECT_EQ(param.mode(), AgentParam::MODE_VMWARE);
     EXPECT_EQ(param.vmware_mode(), AgentParam::VCENTER);
 }
