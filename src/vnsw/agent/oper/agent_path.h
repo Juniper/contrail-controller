@@ -158,7 +158,8 @@ public:
     CompositeNHKey* composite_nh_key() {
         return composite_nh_key_.get();
     }
-    bool SetCompositeNH(Agent *agent, CompositeNHKey *nh, bool create);
+    bool ReorderCompositeNH(Agent *agent, CompositeNHKey *nh);
+    bool ChangeCompositeNH(Agent *agent, CompositeNHKey *nh);
 private:
     const Peer *peer_;
     // Nexthop for route. Not used for gateway routes

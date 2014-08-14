@@ -213,8 +213,11 @@ bool AgentPath::Sync(AgentRoute *sync_route) {
     //Check if there was a change in local ecmp composite nexthop
     if (nh_ && nh_->GetType() == NextHop::COMPOSITE &&
         composite_nh_key_.get() != NULL) {
-        if (SetCompositeNH(agent, composite_nh_key_.get(), true)) {
-            ret = true;
+        boost::scoped_ptr<CompositeNHKey> composite_nh_key(composite_nh_key_->Clone());
+        if (ReorderCompositeNH(agent, composite_nh_key.get())) {
+            if (ChangeCompositeNH(agent, composite_nh_key.get())) {
+                ret = true;
+            }
         }
     }
 
@@ -764,9 +767,8 @@ const MplsLabel* AgentPath::local_ecmp_mpls_label() const {
     return local_ecmp_mpls_label_.get();
 }
 
-bool AgentPath::SetCompositeNH(Agent *agent,
-                               CompositeNHKey *composite_nh_key, bool create) {
-    bool ret = false;
+bool AgentPath::ReorderCompositeNH(Agent *agent,
+                                   CompositeNHKey *composite_nh_key) {
     //Find local composite mpls label, if present
     //This has to be done, before expanding component NH
     BOOST_FOREACH(ComponentNHKeyPtr component_nh_key,
@@ -799,22 +801,24 @@ bool AgentPath::SetCompositeNH(Agent *agent,
     //the new composite NH created should be A <NULL> C in that order,
     //irrespective of the order user passed it in
     composite_nh_key->Reorder(agent, label_, nexthop(agent));
-    //Create the nexthop
-    if (create) {
-        DBRequest nh_req(DBRequest::DB_ENTRY_ADD_CHANGE);
-        nh_req.key.reset(composite_nh_key->Clone());
-        nh_req.data.reset(new CompositeNHData());
-        agent->nexthop_table()->Process(nh_req);
-
-        NextHop *nh = static_cast<NextHop *>(agent->nexthop_table()->
-                FindActiveEntry(composite_nh_key));
-        assert(nh);
-
-        if (ChangeNH(agent, nh) == true) {
-            ret = true;
-        }
-    }
     //Copy the unchanged component NH list to path data
     set_composite_nh_key(comp_key);
-    return ret;
+    return true;
+}
+
+bool AgentPath::ChangeCompositeNH(Agent *agent,
+                                  CompositeNHKey *composite_nh_key) {
+    DBRequest nh_req(DBRequest::DB_ENTRY_ADD_CHANGE);
+    nh_req.key.reset(composite_nh_key->Clone());
+    nh_req.data.reset(new CompositeNHData());
+    agent->nexthop_table()->Process(nh_req);
+
+    NextHop *nh = static_cast<NextHop *>(agent->nexthop_table()->
+            FindActiveEntry(composite_nh_key));
+    assert(nh);
+
+    if (ChangeNH(agent, nh) == true) {
+        return true;
+    }
+    return false;
 }
