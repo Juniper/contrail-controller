@@ -19,6 +19,22 @@ class STTestCase(test_common.TestCase):
         self._st_greenlet.kill()
         super(STTestCase, self).tearDown()
 
+    def create_virtual_network(self, vn_name, vn_subnet):
+        vn_obj = VirtualNetwork(name=vn_name)
+        ipam_fq_name = [
+            'default-domain', 'default-project', 'default-network-ipam']
+        ipam_obj = self._vnc_lib.network_ipam_read(fq_name=ipam_fq_name)
+        cidr = vn_subnet.split('/')
+        pfx = cidr[0]
+        pfx_len = int(cidr[1])
+        subnet_info = IpamSubnetType(subnet=SubnetType(pfx, pfx_len))
+        subnet_data = VnSubnetsType([subnet_info])
+        vn_obj.add_network_ipam(ipam_obj, subnet_data)
+        self._vnc_lib.virtual_network_create(vn_obj)
+        vn_obj.clear_pending_updates()
+        return vn_obj
+    # end create_virtual_network
+
     def create_network_policy(self, vn1, vn2, service_list=None, service_mode=None):
         addr1 = AddressType(virtual_network=vn1.get_fq_name_str())
         addr2 = AddressType(virtual_network=vn2.get_fq_name_str())
