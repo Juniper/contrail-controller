@@ -1069,6 +1069,10 @@ void VmInterface::ApplyConfig(bool old_ipv4_active, bool old_l2_active, bool old
         }
     }
 
+    if (l2_active_ && (vxlan_id_ == 0)) {
+        vxlan_id_ = vn_.get() ? vn_->GetVxLanId() : 0;
+    }
+
     if (old_ipv4_active != ipv4_active_) {
         if (ipv4_active_) {
             SendTrace(ACTIVATED_IPV4);
