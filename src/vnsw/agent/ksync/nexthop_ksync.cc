@@ -503,6 +503,7 @@ bool NHKSyncEntry::Sync(DBEntry *e) {
     }
 
     case NextHop::COMPOSITE: {
+        ret = true;
         CompositeNH *comp_nh = static_cast<CompositeNH *>(e);
         component_nh_list_.clear();
         ComponentNHList::const_iterator component_nh_it =
