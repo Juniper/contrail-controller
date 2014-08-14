@@ -228,6 +228,20 @@ static string FileRead(const char *init_file) {
     return content;
 }
 
+void FlushConfig() {
+    while(c_node_tree.Size() != 0) {
+        NodeEntry *node_entry = c_node_tree.GetNext(NULL);
+        if (c_node_tree.Remove(node_entry)) {
+            delete node_entry;
+        }
+    }
+    vector<GroupEntry *>::iterator it;
+    for (it = c_group_list.begin(); it != c_group_list.end(); it++) {
+        delete (*it);
+    }
+    c_group_list.clear();
+}
+
 void ReadGroupNode(xml_node &config, xml_node &parent, GroupEntry *g_parent) {
     for (xml_node node = config.first_child(); node; node = node.next_sibling()) {
         xml_node new_config;
@@ -509,10 +523,10 @@ void NovaMsgProcess (xml_document &xdoc, pair<xml_node, GroupEntry *> node, bool
     DumpXmlNode(parent);
 
     CfgIntKey *key = new CfgIntKey(port_id);
-    CfgIntData *data = new CfgIntData();
 
     DBRequest req;
     if (create) {
+        CfgIntData *data = new CfgIntData();
         boost::system::error_code ec;
         IpAddress ip = Ip4Address::from_string(ipaddr, ec);
         data->Init(vm_id, vn_id, project_id, tap_intf, ip, mac, "",
@@ -666,6 +680,7 @@ int main(int argc, char **argv) {
 
     ReadInputFile(test_file);
     int ret = RUN_ALL_TESTS();
+    FlushConfig();
     TestShutdown();
     delete client;
     return ret;
