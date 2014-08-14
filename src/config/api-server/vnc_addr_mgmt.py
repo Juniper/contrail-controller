@@ -533,19 +533,27 @@ class AddrMgmt(object):
     # end _vn_to_subnets
 
     def net_check_subnet_quota(self, db_vn_dict, req_vn_dict, db_conn):
+        subnets = self._vn_to_subnets(req_vn_dict)
+        if not subnets:
+            return True, ""
         proj_uuid = db_vn_dict['parent_uuid']
         (ok, proj_dict) = QuotaHelper.get_project_dict(proj_uuid, db_conn)
         if not ok:
             return (False, 'Internal error : ' + pformat(proj_dict))
 
         obj_type = 'subnet'
-        QuotaHelper.ensure_quota_project_present(obj_type, proj_uuid, proj_dict, db_conn)
-        subnets = self._vn_to_subnets(req_vn_dict)
-        if subnets:
-            quota_count = len(subnets)
-        else:
-            quota_count = 0
-        (ok, quota_limit) = QuotaHelper.check_quota_limit(proj_dict, obj_type, quota_count)
+        QuotaHelper.ensure_quota_project_present(obj_type, proj_uuid,
+                                                 proj_dict, db_conn)
+        for network in proj_dict.get('virtual_networks', []):
+            if network['uuid'] == db_vn_dict['uuid']:
+                continue
+            ok, net_dict = db_conn.dbe_read('virtual-network', network)
+            if not ok:
+                continue
+            subnets.extend(self._vn_to_subnets(net_dict))
+        quota_count = len(subnets) - 1
+        (ok, quota_limit) = QuotaHelper.check_quota_limit(proj_dict, obj_type,
+                                                          quota_count)
         if not ok:
             return (False, pformat(db_vn_dict['fq_name']) + ' : ' + quota_limit)
 
