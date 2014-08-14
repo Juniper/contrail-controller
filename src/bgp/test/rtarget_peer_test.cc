@@ -2,87 +2,50 @@
  * Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
  */
 
-#include "bgp/routing-instance/routing_instance.h"
-#include "bgp/routing-instance/routepath_replicator.h"
-#include "bgp/routing-instance/rtarget_group_mgr.h"
-
-#include <fstream>
-#include <list>
-#include <algorithm>
-
-#include <boost/foreach.hpp>
-#include <boost/lexical_cast.hpp>
 #include <boost/assign/list_of.hpp>
-#include <pugixml/pugixml.hpp>
 
 #include "base/test/task_test_util.h"
-#include "bgp/bgp_config.h"
-#include "bgp/bgp_log.h"
+#include "bgp/bgp_factory.h"
 #include "bgp/bgp_sandesh.h"
 #include "bgp/bgp_session_manager.h"
 #include "bgp/bgp_xmpp_channel.h"
-#include "bgp/community.h"
-#include "bgp/bgp_factory.h"
 #include "bgp/inet/inet_table.h"
-#include "bgp/l3vpn/inetvpn_route.h"
-#include "bgp/l3vpn/inetvpn_table.h"
-#include "bgp/origin-vn/origin_vn.h"
-#include "bgp/routing-instance/rtarget_group_types.h"
-#include "bgp/rtarget/rtarget_prefix.h"
+#include "bgp/routing-instance/rtarget_group_mgr.h"
 #include "bgp/rtarget/rtarget_table.h"
-#include "bgp/security_group/security_group.h"
-#include "bgp/tunnel_encap/tunnel_encap.h"
 #include "bgp/test/bgp_server_test_util.h"
 #include "bgp/test/bgp_test_util.h"
 #include "control-node/control_node.h"
 #include "control-node/test/network_agent_mock.h"
-#include "db/db_graph.h"
-#include "db/test/db_test_util.h"
-#include "ifmap/ifmap_link_table.h"
 #include "ifmap/ifmap_server_parser.h"
-#include "ifmap/ifmap_table.h"
 #include "ifmap/test/ifmap_test_util.h"
-#include "io/event_manager.h"
 #include "io/test/event_manager_test.h"
-#include "schema/bgp_schema_types.h"
-#include "schema/vnc_cfg_types.h"
 #include "testing/gunit.h"
-#include "xmpp/xmpp_client.h"
 #include "xmpp/xmpp_factory.h"
-#include "xmpp/xmpp_init.h"
-#include "xmpp/xmpp_server.h"
 
 using namespace std;
 using boost::assign::list_of;
 using boost::assign::map_list_of;
 using boost::system::error_code;
-using namespace pugi;
-using namespace test;
-
-#define VERIFY_EQ(expected, actual) \
-    TASK_UTIL_EXPECT_EQ(expected, actual)
 
 static const char *config_update= "\
 <config>\
-    <routing-instance name='default-domain:default-project:ip-fabric:__default__'>\
     <bgp-router name=\'CN1\'>\
-        <autonomous-system>64510</autonomous-system>\
+        <autonomous-system>64497</autonomous-system>\
     </bgp-router>\
     <bgp-router name=\'CN2\'>\
-        <autonomous-system>64510</autonomous-system>\
+        <autonomous-system>64497</autonomous-system>\
     </bgp-router>\
     <bgp-router name=\'MX\'>\
-        <autonomous-system>64510</autonomous-system>\
+        <autonomous-system>64497</autonomous-system>\
     </bgp-router>\
-    </routing-instance>\
 </config>\
 ";
+
 static const char *config_control_node= "\
 <config>\
-    <routing-instance name='default-domain:default-project:ip-fabric:__default__'>\
     <bgp-router name=\'CN1\'>\
         <identifier>192.168.0.1</identifier>\
-        <autonomous-system>64512</autonomous-system>\
+        <autonomous-system>64496</autonomous-system>\
         <address>127.0.0.1</address>\
         <port>%d</port>\
         <address-families>\
@@ -104,7 +67,7 @@ static const char *config_control_node= "\
     </bgp-router>\
     <bgp-router name=\'CN2\'>\
         <identifier>192.168.0.2</identifier>\
-        <autonomous-system>64512</autonomous-system>\
+        <autonomous-system>64496</autonomous-system>\
         <address>127.0.0.1</address>\
         <port>%d</port>\
         <address-families>\
@@ -120,7 +83,7 @@ static const char *config_control_node= "\
     </bgp-router>\
     <bgp-router name=\'MX\'>\
         <identifier>192.168.0.3</identifier>\
-        <autonomous-system>64512</autonomous-system>\
+        <autonomous-system>64496</autonomous-system>\
         <address>127.0.0.1</address>\
         <port>%d</port>\
         <address-families>\
@@ -128,7 +91,6 @@ static const char *config_control_node= "\
             <family>route-target</family>\
         </address-families>\
     </bgp-router>\
-    </routing-instance>\
 </config>\
 ";
 
@@ -167,7 +129,7 @@ protected:
             cn1_->session_manager()->GetPort());
 
         cn1_xmpp_server_ = 
-            new XmppServer(&evm_, test::XmppDocumentMock::kControlNodeJID);
+            new XmppServerTest(&evm_, test::XmppDocumentMock::kControlNodeJID);
         cn1_xmpp_server_->Initialize(0, false);
         LOG(DEBUG, "Created XMPP server at port: " <<
             cn1_xmpp_server_->GetPort());
@@ -178,10 +140,11 @@ protected:
             cn2_->session_manager()->GetPort());
 
         cn2_xmpp_server_ = 
-            new XmppServer(&evm_, test::XmppDocumentMock::kControlNodeJID);
+            new XmppServerTest(&evm_, test::XmppDocumentMock::kControlNodeJID);
         cn2_xmpp_server_->Initialize(0, false);
         LOG(DEBUG, "Created XMPP server at port: " <<
             cn2_xmpp_server_->GetPort());
+
         mx_.reset(new BgpServerTest(&evm_, "MX"));
         mx_->session_manager()->Initialize(0);
         LOG(DEBUG, "Created MX at port: " << mx_->session_manager()->GetPort());
@@ -216,7 +179,8 @@ protected:
                                                     "127.0.0.2"));
 
 
-        // Create XMPP Agent on compute node 2 connected to XMPP server Control-node-2 
+        // Create XMPP Agent on compute node 2 connected to XMPP server
+        // Control-node-2
         agent_b_2_.reset(new test::NetworkAgentMock(&evm_, "agent-b", 
                                                     cn2_xmpp_server_->GetPort(),
                                                     "127.0.0.2"));
@@ -362,6 +326,22 @@ protected:
         task_util::WaitForIdle();
     }
 
+    void UnconfigureBgpPeering(BgpServerTest *server1, BgpServerTest *server2) {
+        string master_instance(BgpConfigManager::kMasterInstance);
+        string router1 = master_instance + ":" + server1->localname();
+        string router2 = master_instance + ":" + server2->localname();
+
+        ifmap_test_util::IFMapMsgUnlink(server1->config_db(),
+            "bgp-router", router1, "bgp-router", router2, "bgp-peering");
+        ifmap_test_util::IFMapMsgUnlink(server2->config_db(),
+            "bgp-router", router1, "bgp-router", router2, "bgp-peering");
+
+        ifmap_test_util::IFMapMsgUnlink(server1->config_db(),
+            "bgp-router", router2, "bgp-router", router1, "bgp-peering");
+        ifmap_test_util::IFMapMsgUnlink(server2->config_db(),
+            "bgp-router", router2, "bgp-router", router1, "bgp-peering");
+    }
+
     void VerifyNetworkConfig(BgpServerTest *server, 
                              const vector<string> &instance_names) {
         for (vector<string>::const_iterator iter = instance_names.begin();
@@ -453,27 +433,24 @@ protected:
         return rt;
     }
 
-    BgpRoute *InetRouteLookup(BgpServerTest *server, const string &instance_name,
-                              const string &prefix) {
-        BgpTable *table = static_cast<BgpTable *>(
-            server->database()->FindTable(instance_name + ".inet.0"));
-        EXPECT_TRUE(table != NULL);
-        if (table == NULL) {
-            return NULL;
-        }
-        error_code error;
-        Ip4Prefix nlri = Ip4Prefix::FromString(prefix, &error);
-        EXPECT_FALSE(error);
-        InetTable::RequestKey key(nlri, NULL);
-        BgpRoute *rt = static_cast<BgpRoute *>(table->Find(&key));
-        return rt;
+    void VerifyRTargetRouteExists(BgpServerTest *server,
+        const string &prefix) {
+        TASK_UTIL_WAIT_NE_NO_MSG(RTargetRouteLookup(server, prefix),
+            NULL, 1000, 10000, "Wait for rtarget route " << prefix);
+    }
+
+    void VerifyRTargetRouteNoExists(BgpServerTest *server,
+        const string &prefix) {
+        TASK_UTIL_WAIT_EQ_NO_MSG(RTargetRouteLookup(server, prefix),
+            NULL, 1000, 10000,
+            "Wait for rtarget route " << prefix << " to go away");
     }
 
     void AddInetRoute(BgpServerTest *server, IPeer *peer, 
                       const string &instance_name,
-                      const string &prefix, int localpref, 
-                      string nexthop="7.8.9.1", 
-                      uint32_t flags=0, int label=303) {
+                      const string &prefix, int localpref = 100,
+                      string nexthop = "7.8.9.1",
+                      uint32_t flags = 0, int label = 303) {
         error_code error;
         Ip4Prefix nlri = Ip4Prefix::FromString(prefix, &error);
         EXPECT_FALSE(error);
@@ -486,9 +463,9 @@ protected:
             local_pref(new BgpAttrLocalPref(localpref));
         attr_spec.push_back(local_pref.get());
 
-        IpAddress chain_addr = Ip4Address::from_string(nexthop, error);
+        IpAddress nhaddr = Ip4Address::from_string(nexthop, error);
         boost::scoped_ptr<BgpAttrNextHop> 
-            nexthop_attr(new BgpAttrNextHop(chain_addr.to_v4().to_ulong()));
+            nexthop_attr(new BgpAttrNextHop(nhaddr.to_v4().to_ulong()));
         attr_spec.push_back(nexthop_attr.get());
 
 
@@ -520,7 +497,36 @@ protected:
         table->Enqueue(&request);
     }
 
-    vector<string> GetExportRouteTargetList(BgpServerTest *server, const string &instance) {
+    BgpRoute *InetRouteLookup(BgpServerTest *server, const string &instance_name,
+        const string &prefix) {
+        BgpTable *table = static_cast<BgpTable *>(
+            server->database()->FindTable(instance_name + ".inet.0"));
+        EXPECT_TRUE(table != NULL);
+        error_code error;
+        Ip4Prefix nlri = Ip4Prefix::FromString(prefix, &error);
+        EXPECT_FALSE(error);
+        InetTable::RequestKey key(nlri, NULL);
+        BgpRoute *rt = static_cast<BgpRoute *>(table->Find(&key));
+        return rt;
+    }
+
+    void VerifyInetRouteExists(BgpServerTest *server, const string &instance,
+        const string &prefix) {
+        TASK_UTIL_WAIT_NE_NO_MSG(InetRouteLookup(server, instance, prefix),
+            NULL, 1000, 10000,
+            "Wait for route " << prefix << " in " << instance);
+    }
+
+    void VerifyInetRouteNoExists(BgpServerTest *server, const string &instance,
+        const string &prefix) {
+        TASK_UTIL_WAIT_EQ_NO_MSG(InetRouteLookup(server, instance, prefix),
+            NULL, 1000, 10000,
+            "Wait for route " << prefix << " in " << instance " to go away");
+    }
+
+
+    vector<string> GetExportRouteTargetList(BgpServerTest *server,
+        const string &instance) {
         TASK_UTIL_EXPECT_NE(static_cast<RoutingInstance *>(NULL),
             server->routing_instance_mgr()->GetRoutingInstance(instance));
         RoutingInstance *rti =
@@ -533,7 +539,13 @@ protected:
         return target_list;
     }
 
-    vector<string> GetImportRouteTargetList(BgpServerTest *server, const string &instance) {
+    size_t GetExportRouteTargetListSize(BgpServerTest *server,
+        const string &instance) {
+        return GetExportRouteTargetList(server, instance).size();
+    }
+
+    vector<string> GetImportRouteTargetList(BgpServerTest *server,
+        const string &instance) {
         TASK_UTIL_EXPECT_NE(static_cast<RoutingInstance *>(NULL),
             server->routing_instance_mgr()->GetRoutingInstance(instance));
         RoutingInstance *rti =
@@ -546,7 +558,10 @@ protected:
         return target_list;
     }
 
-
+    size_t GetImportRouteTargetListSize(BgpServerTest *server,
+        const string &instance) {
+        return GetImportRouteTargetList(server, instance).size();
+    }
 
     void RemoveConnection(BgpServerTest *server, string src, string tgt) {
         ifmap_test_util::IFMapMsgUnlink(server->config_db(),
@@ -604,8 +619,8 @@ protected:
     auto_ptr<BgpServerTest> cn1_;
     auto_ptr<BgpServerTest> cn2_;
     auto_ptr<BgpServerTest> mx_;
-    XmppServer *cn1_xmpp_server_;
-    XmppServer *cn2_xmpp_server_;
+    XmppServerTest *cn1_xmpp_server_;
+    XmppServerTest *cn2_xmpp_server_;
     boost::scoped_ptr<test::NetworkAgentMock> agent_a_1_;
     boost::scoped_ptr<test::NetworkAgentMock> agent_b_1_;
     boost::scoped_ptr<test::NetworkAgentMock> agent_a_2_;
@@ -615,6 +630,415 @@ protected:
     static int validate_done_;
 };
 int RTargetPeerTest::validate_done_;
+
+TEST_F(RTargetPeerTest, BasicRouteAddDelete) {
+    AddInetRoute(mx_.get(), NULL, "blue", "1.1.2.3/32");
+
+    AddRouteTarget(mx_.get(), "blue", "target:64496:1");
+
+    VerifyInetRouteExists(mx_.get(), "blue", "1.1.2.3/32");
+    VerifyInetRouteNoExists(cn1_.get(), "blue", "1.1.2.3/32");
+    VerifyInetRouteNoExists(cn2_.get(), "blue", "1.1.2.3/32");
+
+    agent_a_1_->Subscribe("blue", 2); 
+    agent_b_1_->Subscribe("blue", 2); 
+    agent_a_2_->Subscribe("blue", 2); 
+    agent_b_2_->Subscribe("blue", 2); 
+
+    VerifyInetRouteExists(mx_.get(), "blue", "1.1.2.3/32");
+    VerifyInetRouteExists(cn1_.get(), "blue", "1.1.2.3/32");
+    VerifyInetRouteExists(cn2_.get(), "blue", "1.1.2.3/32");
+
+    DeleteInetRoute(mx_.get(), NULL, "blue", "1.1.2.3/32");
+
+    VerifyInetRouteNoExists(mx_.get(), "blue", "1.1.2.3/32");
+    VerifyInetRouteNoExists(cn1_.get(), "blue", "1.1.2.3/32");
+    VerifyInetRouteNoExists(cn2_.get(), "blue", "1.1.2.3/32");
+
+    agent_a_1_->Unsubscribe("blue");
+    agent_b_1_->Unsubscribe("blue");
+    agent_a_2_->Unsubscribe("blue");
+    agent_b_2_->Unsubscribe("blue");
+}
+
+TEST_F(RTargetPeerTest, BasicSubscribeUnsubscribe) {
+    AddInetRoute(mx_.get(), NULL, "blue", "1.1.2.3/32");
+
+    AddRouteTarget(mx_.get(), "blue", "target:64496:1");
+
+    VerifyInetRouteExists(mx_.get(), "blue", "1.1.2.3/32");
+    VerifyInetRouteNoExists(cn1_.get(), "blue", "1.1.2.3/32");
+    VerifyInetRouteNoExists(cn2_.get(), "blue", "1.1.2.3/32");
+
+    agent_a_1_->Subscribe("blue", 2); 
+    agent_b_1_->Subscribe("blue", 2); 
+
+    VerifyInetRouteExists(mx_.get(), "blue", "1.1.2.3/32");
+    VerifyInetRouteExists(cn1_.get(), "blue", "1.1.2.3/32");
+    VerifyInetRouteNoExists(cn2_.get(), "blue", "1.1.2.3/32");
+
+    agent_a_2_->Subscribe("blue", 2); 
+    agent_b_2_->Subscribe("blue", 2); 
+
+    VerifyInetRouteExists(mx_.get(), "blue", "1.1.2.3/32");
+    VerifyInetRouteExists(cn1_.get(), "blue", "1.1.2.3/32");
+    VerifyInetRouteExists(cn2_.get(), "blue", "1.1.2.3/32");
+
+    agent_a_1_->Unsubscribe("blue");
+    agent_b_1_->Unsubscribe("blue");
+
+    VerifyInetRouteExists(mx_.get(), "blue", "1.1.2.3/32");
+    VerifyInetRouteNoExists(cn1_.get(), "blue", "1.1.2.3/32");
+    VerifyInetRouteExists(cn2_.get(), "blue", "1.1.2.3/32");
+
+    agent_a_2_->Unsubscribe("blue");
+    agent_b_2_->Unsubscribe("blue");
+
+    VerifyInetRouteExists(mx_.get(), "blue", "1.1.2.3/32");
+    VerifyInetRouteNoExists(cn1_.get(), "blue", "1.1.2.3/32");
+    VerifyInetRouteNoExists(cn2_.get(), "blue", "1.1.2.3/32");
+
+    DeleteInetRoute(mx_.get(), NULL, "blue", "1.1.2.3/32");
+}
+
+TEST_F(RTargetPeerTest, AddRTargetToRoute) {
+    AddInetRoute(mx_.get(), NULL, "blue", "1.1.2.3/32", 100);
+    AddRouteTarget(mx_.get(), "blue", "target:64496:1");
+    task_util::WaitForIdle();
+
+    agent_a_1_->Subscribe("blue", 2); 
+    agent_b_1_->Subscribe("blue", 2); 
+    agent_a_2_->Subscribe("blue", 2); 
+    agent_b_2_->Subscribe("blue", 2); 
+
+    VerifyInetRouteExists(mx_.get(), "blue", "1.1.2.3/32");
+    VerifyInetRouteExists(cn1_.get(), "blue", "1.1.2.3/32");
+    VerifyInetRouteExists(cn2_.get(), "blue", "1.1.2.3/32");
+
+    RemoveRouteTarget(mx_.get(), "blue", "target:64496:1");
+    task_util::WaitForIdle();
+
+    VerifyInetRouteExists(mx_.get(), "blue", "1.1.2.3/32");
+    VerifyInetRouteNoExists(cn1_.get(), "blue", "1.1.2.3/32");
+    VerifyInetRouteNoExists(cn2_.get(), "blue", "1.1.2.3/32");
+
+    agent_a_1_->Unsubscribe("blue");
+    agent_b_1_->Unsubscribe("blue");
+    agent_a_2_->Unsubscribe("blue");
+    agent_b_2_->Unsubscribe("blue");
+
+    DeleteInetRoute(mx_.get(), NULL, "blue", "1.1.2.3/32");
+}
+
+TEST_F(RTargetPeerTest, AddRTargetToInstance) {
+    AddInetRoute(mx_.get(), NULL, "blue", "1.1.2.3/32", 100);
+    task_util::WaitForIdle();
+
+    agent_a_1_->Subscribe("blue", 2); 
+    agent_b_1_->Subscribe("blue", 2); 
+    agent_a_2_->Subscribe("blue", 2); 
+    agent_b_2_->Subscribe("blue", 2); 
+
+    VerifyInetRouteExists(mx_.get(), "blue", "1.1.2.3/32");
+    VerifyInetRouteNoExists(cn1_.get(), "blue", "1.1.2.3/32");
+    VerifyInetRouteNoExists(cn2_.get(), "blue", "1.1.2.3/32");
+
+    AddRouteTarget(cn1_.get(), "blue", "target:1:4");
+    task_util::WaitForIdle();
+    VerifyInetRouteExists(mx_.get(), "blue", "1.1.2.3/32");
+    VerifyInetRouteExists(cn1_.get(), "blue", "1.1.2.3/32");
+    VerifyInetRouteNoExists(cn2_.get(), "blue", "1.1.2.3/32");
+
+    AddRouteTarget(cn2_.get(), "blue", "target:1:4");
+    task_util::WaitForIdle();
+
+    VerifyInetRouteExists(mx_.get(), "blue", "1.1.2.3/32");
+    VerifyInetRouteExists(cn1_.get(), "blue", "1.1.2.3/32");
+    VerifyInetRouteExists(cn2_.get(), "blue", "1.1.2.3/32");
+
+    RemoveRouteTarget(cn1_.get(), "blue", "target:1:4");
+    task_util::WaitForIdle();
+
+    VerifyInetRouteExists(mx_.get(), "blue", "1.1.2.3/32");
+    VerifyInetRouteNoExists(cn1_.get(), "blue", "1.1.2.3/32");
+    VerifyInetRouteExists(cn2_.get(), "blue", "1.1.2.3/32");
+
+    RemoveRouteTarget(cn2_.get(), "blue", "target:1:4");
+    task_util::WaitForIdle();
+
+    VerifyInetRouteExists(mx_.get(), "blue", "1.1.2.3/32");
+    VerifyInetRouteNoExists(cn1_.get(), "blue", "1.1.2.3/32");
+    VerifyInetRouteNoExists(cn2_.get(), "blue", "1.1.2.3/32");
+
+    agent_a_1_->Unsubscribe("blue");
+    agent_b_1_->Unsubscribe("blue");
+    agent_a_2_->Unsubscribe("blue");
+    agent_b_2_->Unsubscribe("blue");
+
+    DeleteInetRoute(mx_.get(), NULL, "blue", "1.1.2.3/32");
+}
+
+TEST_F(RTargetPeerTest, HTTPIntrospect) {
+    AddInetRoute(mx_.get(), NULL, "blue", "1.1.2.3/32", 100);
+    AddRouteTarget(mx_.get(), "blue", "target:64496:1");
+
+    agent_a_1_->Subscribe("blue", 2); 
+    agent_b_1_->Subscribe("blue", 2); 
+    agent_a_2_->Subscribe("blue", 2); 
+    agent_b_2_->Subscribe("blue", 2); 
+
+    VerifyInetRouteExists(mx_.get(), "blue", "1.1.2.3/32");
+    VerifyInetRouteExists(cn1_.get(), "blue", "1.1.2.3/32");
+    VerifyInetRouteExists(cn2_.get(), "blue", "1.1.2.3/32");
+
+    std::vector<string> result = list_of("target:1:4")("target:64496:1")
+     ("target:64496:2")("target:64496:3")("target:64496:4")("target:64496:5");
+    VerifyRtGroupSandesh(mx_.get(), result);
+    VerifyRtGroupSandesh(cn1_.get(), result);
+    VerifyRtGroupSandesh(cn2_.get(), result);
+
+    DeleteInetRoute(mx_.get(), NULL, "blue", "1.1.2.3/32");
+
+    agent_a_1_->Unsubscribe("blue");
+    agent_b_1_->Unsubscribe("blue");
+    agent_a_2_->Unsubscribe("blue");
+    agent_b_2_->Unsubscribe("blue");
+}
+
+TEST_F(RTargetPeerTest, BulkRouteAdd) {
+    AddInetRoute(mx_.get(), NULL, "blue", "1.1.2.3/32", 100);
+    AddRouteTarget(mx_.get(), "blue", "target:64496:1");
+
+    agent_a_1_->Subscribe("blue", 2); 
+    agent_b_1_->Subscribe("blue", 2); 
+    agent_a_2_->Subscribe("blue", 2); 
+    agent_b_2_->Subscribe("blue", 2); 
+
+    VerifyInetRouteExists(mx_.get(), "blue", "1.1.2.3/32");
+    VerifyInetRouteExists(cn1_.get(), "blue", "1.1.2.3/32");
+    VerifyInetRouteExists(cn2_.get(), "blue", "1.1.2.3/32");
+
+    std::vector<BgpServerTest *> to_play = list_of(cn1_.get())(cn2_.get())(mx_.get());
+    for (std::vector<BgpServerTest *>::iterator sit = to_play.begin(); sit != to_play.end(); sit++) {
+        std::vector<string> to_add = list_of("target:1:400")("target:64496:100")
+            ("target:64496:200")("target:64496:300")("target:64496:400")("target:64496:500");
+        for (std::vector<string>::iterator it = to_add.begin(); it != to_add.end(); it++) {
+            AddRouteTarget(*sit, "blue", *it);
+        }
+
+        for (std::vector<string>::iterator it = to_add.begin(); it != to_add.end(); it++) {
+            RemoveRouteTarget(*sit, "blue", *it);
+        }
+    }
+
+    agent_a_1_->Unsubscribe("blue");
+    agent_b_1_->Unsubscribe("blue");
+    agent_a_2_->Unsubscribe("blue");
+    agent_b_2_->Unsubscribe("blue");
+
+    DeleteInetRoute(mx_.get(), NULL, "blue", "1.1.2.3/32");
+}
+
+TEST_F(RTargetPeerTest, DuplicateUnsubscribe) {
+    agent_a_1_->Subscribe("blue", 2); 
+    agent_a_1_->Unsubscribe("blue");
+    agent_a_1_->Unsubscribe("blue");
+}
+
+TEST_F(RTargetPeerTest, ASNUpdate) {
+    VerifyRTargetRouteNoExists(cn1_.get(), "64496:target:64496:1");
+    VerifyRTargetRouteNoExists(cn2_.get(), "64496:target:64496:1");
+    TASK_UTIL_EXPECT_EQ(4, RTargetRouteCount(cn1_.get()));
+    TASK_UTIL_EXPECT_EQ(4, RTargetRouteCount(cn2_.get()));
+
+    agent_a_1_->Subscribe("blue", 2); 
+    agent_b_1_->Subscribe("blue", 2); 
+    agent_a_2_->Subscribe("blue", 2); 
+    agent_b_2_->Subscribe("blue", 2); 
+
+    VerifyRTargetRouteExists(cn1_.get(), "64496:target:64496:1");
+    VerifyRTargetRouteExists(cn2_.get(), "64496:target:64496:1");
+    TASK_UTIL_EXPECT_EQ(5, RTargetRouteCount(cn1_.get()));
+    TASK_UTIL_EXPECT_EQ(5, RTargetRouteCount(cn2_.get()));
+
+    UpdateASN();
+    task_util::WaitForIdle();
+
+    BringupAgents();
+    agent_a_1_->Subscribe("blue", 2);
+    agent_b_1_->Subscribe("blue", 2);
+    agent_a_2_->Subscribe("blue", 2);
+    agent_b_2_->Subscribe("blue", 2);
+
+    VerifyRTargetRouteNoExists(cn1_.get(), "64496:target:64496:1");
+    VerifyRTargetRouteNoExists(cn2_.get(), "64496:target:64496:1");
+    VerifyRTargetRouteExists(cn1_.get(), "64497:target:64496:1");
+    VerifyRTargetRouteExists(cn2_.get(), "64497:target:64496:1");
+    TASK_UTIL_EXPECT_EQ(5, RTargetRouteCount(cn1_.get()));
+    TASK_UTIL_EXPECT_EQ(5, RTargetRouteCount(cn2_.get()));
+
+    agent_a_1_->Unsubscribe("blue");
+    agent_b_1_->Unsubscribe("blue");
+    agent_a_2_->Unsubscribe("blue");
+    agent_b_2_->Unsubscribe("blue");
+
+    TASK_UTIL_EXPECT_EQ(4, RTargetRouteCount(cn1_.get()));
+    TASK_UTIL_EXPECT_EQ(4, RTargetRouteCount(cn2_.get()));
+    VerifyRTargetRouteNoExists(cn1_.get(), "64496:target:64496:1");
+    VerifyRTargetRouteNoExists(cn2_.get(), "64496:target:64496:1");
+    VerifyRTargetRouteNoExists(cn1_.get(), "64497:target:64496:1");
+    VerifyRTargetRouteNoExists(cn2_.get(), "64497:target:64496:1");
+}
+
+//
+// Test to validate the defer logic of peer deletion.
+// Peer will not be deleted till RTGroupManager stops referring to it
+// in InterestedPeers list
+//
+TEST_F(RTargetPeerTest, DeletedPeer) {
+    // CN1 & CN2 removes all rtarget routes
+    agent_a_2_->Unsubscribe("blue-i1");
+    agent_b_2_->Unsubscribe("blue-i1");
+    agent_a_2_->Unsubscribe("red-i2");
+    agent_b_2_->Unsubscribe("red-i2");
+    agent_a_2_->Unsubscribe("red");
+    agent_b_2_->Unsubscribe("red");
+    agent_a_2_->Unsubscribe("purple");
+    agent_b_2_->Unsubscribe("purple");
+    agent_a_1_->Unsubscribe("blue-i1");
+    agent_b_1_->Unsubscribe("blue-i1");
+    agent_a_1_->Unsubscribe("red-i2");
+    agent_b_1_->Unsubscribe("red-i2");
+    agent_a_1_->Unsubscribe("red");
+    agent_b_1_->Unsubscribe("red");
+    agent_a_1_->Unsubscribe("purple");
+    agent_b_1_->Unsubscribe("purple");
+
+    TASK_UTIL_EXPECT_EQ(0, RTargetRouteCount(cn2_.get()));
+    TASK_UTIL_EXPECT_EQ(0, RTargetRouteCount(cn1_.get()));
+
+    // CN1 generates rtarget route for blue import rt
+    agent_a_1_->Subscribe("blue", 2);
+    agent_b_1_->Subscribe("blue", 2);
+
+    VerifyRTargetRouteExists(cn1_.get(), "64496:target:64496:1");
+    VerifyRTargetRouteExists(cn2_.get(), "64496:target:64496:1");
+    TASK_UTIL_EXPECT_EQ(1, RTargetRouteCount(cn1_.get()));
+    TASK_UTIL_EXPECT_EQ(1, RTargetRouteCount(cn2_.get()));
+
+    // Stop the RTGroupMgr processing of RTargetRoute notification
+    DisableRtargetRouteProcessing(cn2_.get());
+
+    size_t count = cn2_->lifetime_manager()->GetQueueDeferCount();
+
+    // Delete the bgp peering from both CNs.
+    UnconfigureBgpPeering(cn1_.get(), cn2_.get());
+
+    // Wait for the peer to go down in CN2
+    TASK_UTIL_EXPECT_EQ_MSG(1, cn2_->NumUpPeer(),
+                            "Wait for control-node peer to go down");
+
+    // Route on CN2 will not be deleted due to DBState from RTargetGroupMgr
+    VerifyRTargetRouteExists(cn2_.get(), "64496:target:64496:1");
+
+    // Ensure that the path from CN1 is deleted
+    BgpRoute *rt_route = RTargetRouteLookup(cn2_.get(), "64496:target:64496:1");
+    TASK_UTIL_EXPECT_EQ(rt_route->count(), 0);
+
+    // Make sure that lifetime manager does not delete this peer as there is
+    // a reference to the peer from RTargetGroupMgr's work queue.
+    TASK_UTIL_EXPECT_TRUE(
+        cn2_->lifetime_manager()->GetQueueDeferCount() > count);
+
+    // Enable the RTGroupMgr processing
+    EnableRtargetRouteProcessing(cn2_.get());
+
+    // Verify both RTargetGroupMgr's are empty.
+    TASK_UTIL_EXPECT_TRUE(cn1_->rtarget_group_mgr()->IsRTargetRoutesProcessed());
+    TASK_UTIL_EXPECT_TRUE(cn2_->rtarget_group_mgr()->IsRTargetRoutesProcessed());
+    VerifyAllPeerUp(cn2_.get(), 1);
+
+    // Route on CN2 should be deleted now.
+    VerifyRTargetRouteNoExists(cn2_.get(), "64496:target:64496:1");
+}
+
+TEST_F(RTargetPeerTest, SameRTInMultipleVRF) {
+    agent_a_1_->Subscribe("blue", 2);
+    agent_b_1_->Subscribe("blue", 2);
+    agent_a_2_->Subscribe("blue", 2);
+    agent_b_2_->Subscribe("blue", 2);
+
+    TASK_UTIL_EXPECT_EQ(1, GetExportRouteTargetListSize(cn1_.get(), "blue"));
+    TASK_UTIL_EXPECT_EQ(1, GetExportRouteTargetListSize(cn1_.get(), "blue-i1"));
+    TASK_UTIL_EXPECT_EQ(1, GetExportRouteTargetListSize(cn2_.get(), "blue"));
+    TASK_UTIL_EXPECT_EQ(1, GetExportRouteTargetListSize(cn2_.get(), "blue-i1"));
+
+    AddRouteTarget(cn1_.get(), "blue", "target:1:99");
+    AddRouteTarget(cn2_.get(), "blue", "target:1:99");
+    AddRouteTarget(cn1_.get(), "blue-i1", "target:1:99");
+    AddRouteTarget(cn2_.get(), "blue-i1", "target:1:99");
+
+    TASK_UTIL_EXPECT_EQ(2, GetExportRouteTargetListSize(cn1_.get(), "blue"));
+    TASK_UTIL_EXPECT_EQ(2, GetExportRouteTargetListSize(cn1_.get(), "blue-i1"));
+    TASK_UTIL_EXPECT_EQ(2, GetExportRouteTargetListSize(cn2_.get(), "blue"));
+    TASK_UTIL_EXPECT_EQ(2, GetExportRouteTargetListSize(cn2_.get(), "blue-i1"));
+
+    VerifyRTargetRouteExists(cn1_.get(), "64496:target:1:99");
+    VerifyRTargetRouteExists(cn2_.get(), "64496:target:1:99");
+
+    RemoveRouteTarget(cn1_.get(), "blue", "target:1:99");
+    RemoveRouteTarget(cn2_.get(), "blue", "target:1:99");
+
+    TASK_UTIL_EXPECT_EQ(1, GetExportRouteTargetListSize(cn1_.get(), "blue"));
+    TASK_UTIL_EXPECT_EQ(2, GetExportRouteTargetListSize(cn1_.get(), "blue-i1"));
+    TASK_UTIL_EXPECT_EQ(1, GetExportRouteTargetListSize(cn2_.get(), "blue"));
+    TASK_UTIL_EXPECT_EQ(2, GetExportRouteTargetListSize(cn2_.get(), "blue-i1"));
+
+    VerifyRTargetRouteExists(cn1_.get(), "64496:target:1:99");
+    VerifyRTargetRouteExists(cn2_.get(), "64496:target:1:99");
+
+    agent_a_1_->Unsubscribe("blue");
+    agent_a_2_->Unsubscribe("blue");
+    agent_b_1_->Unsubscribe("blue");
+    agent_b_2_->Unsubscribe("blue");
+
+    RemoveRouteTarget(cn1_.get(), "blue-i1", "target:1:99");
+    RemoveRouteTarget(cn2_.get(), "blue-i1", "target:1:99");
+
+    VerifyRTargetRouteNoExists(cn1_.get(), "64496:target:1:99");
+    VerifyRTargetRouteNoExists(cn2_.get(), "64496:target:1:99");
+}
+
+TEST_F(RTargetPeerTest, ConnectedVRF) {
+    // RED and PURPLE are connected
+    AddRouteTarget(cn1_.get(), "red", "target:1:99");
+    AddRouteTarget(cn2_.get(), "red", "target:1:99");
+
+    TASK_UTIL_EXPECT_EQ(3, GetImportRouteTargetListSize(cn1_.get(), "red"));
+    TASK_UTIL_EXPECT_EQ(3, GetImportRouteTargetListSize(cn2_.get(), "red"));
+    TASK_UTIL_EXPECT_EQ(3, GetImportRouteTargetListSize(cn1_.get(), "purple"));
+    TASK_UTIL_EXPECT_EQ(3, GetImportRouteTargetListSize(cn2_.get(), "purple"));
+
+    RemoveConnection(cn1_.get(), "red", "purple");
+    RemoveConnection(cn2_.get(), "red", "purple");
+
+    TASK_UTIL_EXPECT_EQ(2, GetImportRouteTargetListSize(cn1_.get(), "red"));
+    TASK_UTIL_EXPECT_EQ(2, GetImportRouteTargetListSize(cn2_.get(), "red"));
+    TASK_UTIL_EXPECT_EQ(1, GetImportRouteTargetListSize(cn1_.get(), "purple"));
+    TASK_UTIL_EXPECT_EQ(1, GetImportRouteTargetListSize(cn2_.get(), "purple"));
+    VerifyRTargetRouteExists(cn1_.get(), "64496:target:1:99");
+    VerifyRTargetRouteExists(cn2_.get(), "64496:target:1:99");
+
+    AddConnection(cn1_.get(), "red", "purple");
+    AddConnection(cn2_.get(), "red", "purple");
+
+    TASK_UTIL_EXPECT_EQ(3, GetImportRouteTargetListSize(cn1_.get(), "red"));
+    TASK_UTIL_EXPECT_EQ(3, GetImportRouteTargetListSize(cn2_.get(), "red"));
+    TASK_UTIL_EXPECT_EQ(3, GetImportRouteTargetListSize(cn1_.get(), "purple"));
+    TASK_UTIL_EXPECT_EQ(3, GetImportRouteTargetListSize(cn2_.get(), "purple"));
+    VerifyRTargetRouteExists(cn1_.get(), "64496:target:1:99");
+    VerifyRTargetRouteExists(cn2_.get(), "64496:target:1:99");
+}
 
 class TestEnvironment : public ::testing::Environment {
     virtual ~TestEnvironment() { }
@@ -634,576 +1058,6 @@ static void TearDown() {
     TaskScheduler *scheduler = TaskScheduler::GetInstance();
     scheduler->Terminate();
 }
-
-TEST_F(RTargetPeerTest, basic_route_add_delete) {
-    AddInetRoute(mx_.get(), NULL, "blue", "1.1.2.3/32", 100);
-
-    AddRouteTarget(mx_.get(), "blue", "target:64496:1");
-
-    TASK_UTIL_WAIT_NE_NO_MSG(InetRouteLookup(mx_.get(), "blue", "1.1.2.3/32"),
-                             NULL, 1000, 10000, 
-                             "Wait for route in blue..");
-    TASK_UTIL_WAIT_EQ_NO_MSG(InetRouteLookup(cn1_.get(), "blue", "1.1.2.3/32"),
-                             NULL, 1000, 10000, 
-                             "Wait for route in blue..");
-    TASK_UTIL_WAIT_EQ_NO_MSG(InetRouteLookup(cn2_.get(), "blue", "1.1.2.3/32"),
-                             NULL, 1000, 10000, 
-                             "Wait for route in blue..");
-
-    agent_a_1_->Subscribe("blue", 2); 
-    agent_b_1_->Subscribe("blue", 2); 
-    agent_a_2_->Subscribe("blue", 2); 
-    agent_b_2_->Subscribe("blue", 2); 
-
-    TASK_UTIL_WAIT_NE_NO_MSG(InetRouteLookup(mx_.get(), "blue", "1.1.2.3/32"),
-                             NULL, 1000, 10000, 
-                             "Wait for route in blue..");
-    TASK_UTIL_WAIT_NE_NO_MSG(InetRouteLookup(cn1_.get(), "blue", "1.1.2.3/32"),
-                             NULL, 1000, 10000, 
-                             "Wait for route in blue..");
-    TASK_UTIL_WAIT_NE_NO_MSG(InetRouteLookup(cn2_.get(), "blue", "1.1.2.3/32"),
-                             NULL, 1000, 10000, 
-                             "Wait for route in blue..");
-
-    DeleteInetRoute(mx_.get(), NULL, "blue", "1.1.2.3/32");
-
-
-    TASK_UTIL_WAIT_EQ_NO_MSG(InetRouteLookup(mx_.get(), "blue", "1.1.2.3/32"),
-                             NULL, 1000, 10000, 
-                             "Wait for route in blue..");
-    TASK_UTIL_WAIT_EQ_NO_MSG(InetRouteLookup(cn1_.get(), "blue", "1.1.2.3/32"),
-                             NULL, 1000, 10000, 
-                             "Wait for route in blue..");
-    TASK_UTIL_WAIT_EQ_NO_MSG(InetRouteLookup(cn2_.get(), "blue", "1.1.2.3/32"),
-                             NULL, 1000, 10000, 
-                             "Wait for route in blue..");
-
-    agent_a_1_->Unsubscribe("blue", -1, false); 
-    agent_b_1_->Unsubscribe("blue", -1, false); 
-    agent_a_2_->Unsubscribe("blue", -1, false); 
-    agent_b_2_->Unsubscribe("blue", -1, false); 
-}
-
-TEST_F(RTargetPeerTest, basic_sub_unsub) {
-    AddInetRoute(mx_.get(), NULL, "blue", "1.1.2.3/32", 100);
-
-    AddRouteTarget(mx_.get(), "blue", "target:64496:1");
-
-    TASK_UTIL_WAIT_NE_NO_MSG(InetRouteLookup(mx_.get(), "blue", "1.1.2.3/32"),
-                             NULL, 1000, 10000, 
-                             "Wait for route in blue..");
-    TASK_UTIL_WAIT_EQ_NO_MSG(InetRouteLookup(cn1_.get(), "blue", "1.1.2.3/32"),
-                             NULL, 1000, 10000, 
-                             "Wait for route in blue..");
-    TASK_UTIL_WAIT_EQ_NO_MSG(InetRouteLookup(cn2_.get(), "blue", "1.1.2.3/32"),
-                             NULL, 1000, 10000, 
-                             "Wait for route in blue..");
-
-    agent_a_1_->Subscribe("blue", 2); 
-    agent_b_1_->Subscribe("blue", 2); 
-    TASK_UTIL_WAIT_NE_NO_MSG(InetRouteLookup(mx_.get(), "blue", "1.1.2.3/32"),
-                             NULL, 1000, 10000, 
-                             "Wait for route in blue..");
-    TASK_UTIL_WAIT_NE_NO_MSG(InetRouteLookup(cn1_.get(), "blue", "1.1.2.3/32"),
-                             NULL, 1000, 10000, 
-                             "Wait for route in blue..");
-    TASK_UTIL_WAIT_EQ_NO_MSG(InetRouteLookup(cn2_.get(), "blue", "1.1.2.3/32"),
-                             NULL, 1000, 10000, 
-                             "Wait for route in blue..");
-
-    agent_a_2_->Subscribe("blue", 2); 
-    agent_b_2_->Subscribe("blue", 2); 
-    TASK_UTIL_WAIT_NE_NO_MSG(InetRouteLookup(mx_.get(), "blue", "1.1.2.3/32"),
-                             NULL, 1000, 10000, 
-                             "Wait for route in blue..");
-    TASK_UTIL_WAIT_NE_NO_MSG(InetRouteLookup(cn1_.get(), "blue", "1.1.2.3/32"),
-                             NULL, 1000, 10000, 
-                             "Wait for route in blue..");
-    TASK_UTIL_WAIT_NE_NO_MSG(InetRouteLookup(cn2_.get(), "blue", "1.1.2.3/32"),
-                             NULL, 1000, 10000, 
-                             "Wait for route in blue..");
-
-    agent_a_1_->Unsubscribe("blue", -1, false); 
-    agent_b_1_->Unsubscribe("blue", -1, false); 
-    TASK_UTIL_WAIT_NE_NO_MSG(InetRouteLookup(mx_.get(), "blue", "1.1.2.3/32"),
-                             NULL, 1000, 10000, 
-                             "Wait for route in blue..");
-    TASK_UTIL_WAIT_EQ_NO_MSG(InetRouteLookup(cn1_.get(), "blue", "1.1.2.3/32"),
-                             NULL, 1000, 10000, 
-                             "Wait for route in blue..");
-    TASK_UTIL_WAIT_NE_NO_MSG(InetRouteLookup(cn2_.get(), "blue", "1.1.2.3/32"),
-                             NULL, 1000, 10000, 
-                             "Wait for route in blue..");
-
-
-    agent_a_2_->Unsubscribe("blue", -1, false); 
-    agent_b_2_->Unsubscribe("blue", -1, false); 
-    TASK_UTIL_WAIT_NE_NO_MSG(InetRouteLookup(mx_.get(), "blue", "1.1.2.3/32"),
-                             NULL, 1000, 10000, 
-                             "Wait for route in blue..");
-    TASK_UTIL_WAIT_EQ_NO_MSG(InetRouteLookup(cn1_.get(), "blue", "1.1.2.3/32"),
-                             NULL, 1000, 10000, 
-                             "Wait for route in blue..");
-    TASK_UTIL_WAIT_EQ_NO_MSG(InetRouteLookup(cn2_.get(), "blue", "1.1.2.3/32"),
-                             NULL, 1000, 10000, 
-                             "Wait for route in blue..");
-
-    DeleteInetRoute(mx_.get(), NULL, "blue", "1.1.2.3/32");
-}
-
-TEST_F(RTargetPeerTest, AddRTargetToRoute) {
-    AddInetRoute(mx_.get(), NULL, "blue", "1.1.2.3/32", 100);
-    AddRouteTarget(mx_.get(), "blue", "target:64496:1");
-    task_util::WaitForIdle();
-
-    agent_a_1_->Subscribe("blue", 2); 
-    agent_b_1_->Subscribe("blue", 2); 
-    agent_a_2_->Subscribe("blue", 2); 
-    agent_b_2_->Subscribe("blue", 2); 
-
-    TASK_UTIL_WAIT_NE_NO_MSG(InetRouteLookup(mx_.get(), "blue", "1.1.2.3/32"),
-                             NULL, 1000, 10000, 
-                             "Wait for route in blue..");
-    TASK_UTIL_WAIT_NE_NO_MSG(InetRouteLookup(cn1_.get(), "blue", "1.1.2.3/32"),
-                             NULL, 1000, 10000, 
-                             "Wait for route in blue..");
-    TASK_UTIL_WAIT_NE_NO_MSG(InetRouteLookup(cn2_.get(), "blue", "1.1.2.3/32"),
-                             NULL, 1000, 10000, 
-                             "Wait for route in blue..");
-
-    RemoveRouteTarget(mx_.get(), "blue", "target:64496:1");
-    task_util::WaitForIdle();
-    TASK_UTIL_WAIT_NE_NO_MSG(InetRouteLookup(mx_.get(), "blue", "1.1.2.3/32"),
-                             NULL, 1000, 10000, 
-                             "Wait for route in blue..");
-    TASK_UTIL_WAIT_EQ_NO_MSG(InetRouteLookup(cn1_.get(), "blue", "1.1.2.3/32"),
-                             NULL, 1000, 10000, 
-                             "Wait for route in blue..");
-    TASK_UTIL_WAIT_EQ_NO_MSG(InetRouteLookup(cn2_.get(), "blue", "1.1.2.3/32"),
-                             NULL, 1000, 10000, 
-                             "Wait for route in blue..");
-
-    agent_a_1_->Unsubscribe("blue", -1, false); 
-    agent_b_1_->Unsubscribe("blue", -1, false); 
-    agent_a_2_->Unsubscribe("blue", -1, false); 
-    agent_b_2_->Unsubscribe("blue", -1, false); 
-
-    DeleteInetRoute(mx_.get(), NULL, "blue", "1.1.2.3/32");
-}
-
-TEST_F(RTargetPeerTest, AddRTargetToInstance) {
-    AddInetRoute(mx_.get(), NULL, "blue", "1.1.2.3/32", 100);
-    task_util::WaitForIdle();
-
-    agent_a_1_->Subscribe("blue", 2); 
-    agent_b_1_->Subscribe("blue", 2); 
-    agent_a_2_->Subscribe("blue", 2); 
-    agent_b_2_->Subscribe("blue", 2); 
-
-    TASK_UTIL_WAIT_NE_NO_MSG(InetRouteLookup(mx_.get(), "blue", "1.1.2.3/32"),
-                             NULL, 1000, 10000, 
-                             "Wait for route in blue..");
-    TASK_UTIL_WAIT_EQ_NO_MSG(InetRouteLookup(cn1_.get(), "blue", "1.1.2.3/32"),
-                             NULL, 1000, 10000, 
-                             "Wait for route in blue..");
-    TASK_UTIL_WAIT_EQ_NO_MSG(InetRouteLookup(cn2_.get(), "blue", "1.1.2.3/32"),
-                             NULL, 1000, 10000, 
-                             "Wait for route in blue..");
-
-    AddRouteTarget(cn1_.get(), "blue", "target:1:4");
-    task_util::WaitForIdle();
-    TASK_UTIL_WAIT_NE_NO_MSG(InetRouteLookup(mx_.get(), "blue", "1.1.2.3/32"),
-                             NULL, 1000, 10000, 
-                             "Wait for route in blue..");
-    TASK_UTIL_WAIT_NE_NO_MSG(InetRouteLookup(cn1_.get(), "blue", "1.1.2.3/32"),
-                             NULL, 1000, 10000, 
-                             "Wait for route in blue..");
-    TASK_UTIL_WAIT_EQ_NO_MSG(InetRouteLookup(cn2_.get(), "blue", "1.1.2.3/32"),
-                             NULL, 1000, 10000, 
-                             "Wait for route in blue..");
-    AddRouteTarget(cn2_.get(), "blue", "target:1:4");
-    task_util::WaitForIdle();
-    TASK_UTIL_WAIT_NE_NO_MSG(InetRouteLookup(mx_.get(), "blue", "1.1.2.3/32"),
-                             NULL, 1000, 10000, 
-                             "Wait for route in blue..");
-    TASK_UTIL_WAIT_NE_NO_MSG(InetRouteLookup(cn1_.get(), "blue", "1.1.2.3/32"),
-                             NULL, 1000, 10000, 
-                             "Wait for route in blue..");
-    TASK_UTIL_WAIT_NE_NO_MSG(InetRouteLookup(cn2_.get(), "blue", "1.1.2.3/32"),
-                             NULL, 1000, 10000, 
-                             "Wait for route in blue..");
-    RemoveRouteTarget(cn1_.get(), "blue", "target:1:4");
-    TASK_UTIL_WAIT_NE_NO_MSG(InetRouteLookup(mx_.get(), "blue", "1.1.2.3/32"),
-                             NULL, 1000, 10000, 
-                             "Wait for route in blue..");
-    TASK_UTIL_WAIT_EQ_NO_MSG(InetRouteLookup(cn1_.get(), "blue", "1.1.2.3/32"),
-                             NULL, 1000, 10000, 
-                             "Wait for route in blue..");
-    TASK_UTIL_WAIT_NE_NO_MSG(InetRouteLookup(cn2_.get(), "blue", "1.1.2.3/32"),
-                             NULL, 1000, 10000, 
-                             "Wait for route in blue..");
-
-    RemoveRouteTarget(cn2_.get(), "blue", "target:1:4");
-    TASK_UTIL_WAIT_NE_NO_MSG(InetRouteLookup(mx_.get(), "blue", "1.1.2.3/32"),
-                             NULL, 1000, 10000, 
-                             "Wait for route in blue..");
-    TASK_UTIL_WAIT_EQ_NO_MSG(InetRouteLookup(cn1_.get(), "blue", "1.1.2.3/32"),
-                             NULL, 1000, 10000, 
-                             "Wait for route in blue..");
-    TASK_UTIL_WAIT_EQ_NO_MSG(InetRouteLookup(cn2_.get(), "blue", "1.1.2.3/32"),
-                             NULL, 1000, 10000, 
-                             "Wait for route in blue..");
-
-    agent_a_1_->Unsubscribe("blue", -1, false); 
-    agent_b_1_->Unsubscribe("blue", -1, false); 
-    agent_a_2_->Unsubscribe("blue", -1, false); 
-    agent_b_2_->Unsubscribe("blue", -1, false); 
-
-    DeleteInetRoute(mx_.get(), NULL, "blue", "1.1.2.3/32");
-}
-
-
-TEST_F(RTargetPeerTest, HTTPIntro) {
-    AddInetRoute(mx_.get(), NULL, "blue", "1.1.2.3/32", 100);
-    AddRouteTarget(mx_.get(), "blue", "target:64496:1");
-    agent_a_1_->Subscribe("blue", 2); 
-    agent_b_1_->Subscribe("blue", 2); 
-    agent_a_2_->Subscribe("blue", 2); 
-    agent_b_2_->Subscribe("blue", 2); 
-
-    TASK_UTIL_WAIT_NE_NO_MSG(InetRouteLookup(mx_.get(), "blue", "1.1.2.3/32"),
-                             NULL, 1000, 10000, 
-                             "Wait for route in blue..");
-    TASK_UTIL_WAIT_NE_NO_MSG(InetRouteLookup(cn1_.get(), "blue", "1.1.2.3/32"),
-                             NULL, 1000, 10000, 
-                             "Wait for route in blue..");
-    TASK_UTIL_WAIT_NE_NO_MSG(InetRouteLookup(cn2_.get(), "blue", "1.1.2.3/32"),
-                             NULL, 1000, 10000, 
-                             "Wait for route in blue..");
-
-    std::vector<string> result = list_of("target:1:4")("target:64496:1")
-     ("target:64496:2")("target:64496:3")("target:64496:4")("target:64496:5");
-    VerifyRtGroupSandesh(mx_.get(), result);
-    VerifyRtGroupSandesh(cn1_.get(), result);
-    VerifyRtGroupSandesh(cn2_.get(), result);
-
-    DeleteInetRoute(mx_.get(), NULL, "blue", "1.1.2.3/32");
-    agent_a_1_->Unsubscribe("blue", -1, false); 
-    agent_b_1_->Unsubscribe("blue", -1, false); 
-    agent_a_2_->Unsubscribe("blue", -1, false); 
-    agent_b_2_->Unsubscribe("blue", -1, false); 
-
-}
-
-TEST_F(RTargetPeerTest, BulkAddRt) {
-    AddInetRoute(mx_.get(), NULL, "blue", "1.1.2.3/32", 100);
-    AddRouteTarget(mx_.get(), "blue", "target:64496:1");
-    agent_a_1_->Subscribe("blue", 2); 
-    agent_b_1_->Subscribe("blue", 2); 
-    agent_a_2_->Subscribe("blue", 2); 
-    agent_b_2_->Subscribe("blue", 2); 
-
-    TASK_UTIL_WAIT_NE_NO_MSG(InetRouteLookup(mx_.get(), "blue", "1.1.2.3/32"),
-                             NULL, 1000, 10000, 
-                             "Wait for route in blue..");
-    TASK_UTIL_WAIT_NE_NO_MSG(InetRouteLookup(cn1_.get(), "blue", "1.1.2.3/32"),
-                             NULL, 1000, 10000, 
-                             "Wait for route in blue..");
-    TASK_UTIL_WAIT_NE_NO_MSG(InetRouteLookup(cn2_.get(), "blue", "1.1.2.3/32"),
-                             NULL, 1000, 10000, 
-                             "Wait for route in blue..");
-
-    std::vector<BgpServerTest *> to_play = list_of(cn1_.get())(cn2_.get())(mx_.get());
-    for (std::vector<BgpServerTest *>::iterator sit = to_play.begin(); sit != to_play.end(); sit++) {
-        std::vector<string> to_add = list_of("target:1:400")("target:64496:100")
-            ("target:64496:200")("target:64496:300")("target:64496:400")("target:64496:500");
-        for (std::vector<string>::iterator it = to_add.begin(); it != to_add.end(); it++) {
-            AddRouteTarget(*sit, "blue", *it);
-        }
-
-        for (std::vector<string>::iterator it = to_add.begin(); it != to_add.end(); it++) {
-            RemoveRouteTarget(*sit, "blue", *it);
-        }
-    }
-
-    agent_a_1_->Unsubscribe("blue", -1, false); 
-    agent_b_1_->Unsubscribe("blue", -1, false); 
-    agent_a_2_->Unsubscribe("blue", -1, false); 
-    agent_b_2_->Unsubscribe("blue", -1, false); 
-
-    DeleteInetRoute(mx_.get(), NULL, "blue", "1.1.2.3/32");
-}
-
-TEST_F(RTargetPeerTest, DuplicateUnsubscribe) {
-    agent_a_1_->Subscribe("blue", 2); 
-    agent_a_1_->Unsubscribe("blue", -1, false); 
-    agent_a_1_->Unsubscribe("blue", -1, false); 
-}
-
-TEST_F(RTargetPeerTest, ASNUpdate) {
-    TASK_UTIL_WAIT_EQ_NO_MSG(RTargetRouteLookup(cn1_.get(), "64512:target:64496:1"),
-                             NULL, 1000, 10000, 
-                             "Wait for route in rtarget table..");
-    TASK_UTIL_WAIT_EQ_NO_MSG(RTargetRouteLookup(cn2_.get(), "64512:target:64496:1"),
-                             NULL, 1000, 10000, 
-                             "Wait for route in rtarget table..");
-    VERIFY_EQ(4, RTargetRouteCount(cn1_.get()));
-    VERIFY_EQ(4, RTargetRouteCount(cn2_.get()));
-    agent_a_1_->Subscribe("blue", 2); 
-    agent_b_1_->Subscribe("blue", 2); 
-    agent_a_2_->Subscribe("blue", 2); 
-    agent_b_2_->Subscribe("blue", 2); 
-    TASK_UTIL_WAIT_NE_NO_MSG(RTargetRouteLookup(cn1_.get(), "64512:target:64496:1"),
-                             NULL, 1000, 10000, 
-                             "Wait for route in rtarget table..");
-    TASK_UTIL_WAIT_NE_NO_MSG(RTargetRouteLookup(cn2_.get(), "64512:target:64496:1"),
-                             NULL, 1000, 10000, 
-                             "Wait for route in rtarget table..");
-    VERIFY_EQ(5, RTargetRouteCount(cn1_.get()));
-    VERIFY_EQ(5, RTargetRouteCount(cn2_.get()));
-
-    UpdateASN();
-    task_util::WaitForIdle();
-
-    BringupAgents();
-    agent_a_1_->Subscribe("blue", 2);
-    agent_b_1_->Subscribe("blue", 2);
-    agent_a_2_->Subscribe("blue", 2);
-    agent_b_2_->Subscribe("blue", 2);
-
-    TASK_UTIL_WAIT_EQ_NO_MSG(RTargetRouteLookup(cn1_.get(), "64512:target:64496:1"),
-                             NULL, 1000, 10000, 
-                             "Wait for route in rtarget table..");
-    TASK_UTIL_WAIT_EQ_NO_MSG(RTargetRouteLookup(cn2_.get(), "64512:target:64496:1"),
-                             NULL, 1000, 10000, 
-                             "Wait for route in rtarget table..");
-
-    TASK_UTIL_WAIT_NE_NO_MSG(RTargetRouteLookup(cn1_.get(), "64510:target:64496:1"),
-                             NULL, 1000, 10000, 
-                             "Wait for route in rtarget table..");
-    TASK_UTIL_WAIT_NE_NO_MSG(RTargetRouteLookup(cn2_.get(), "64510:target:64496:1"),
-                             NULL, 1000, 10000, 
-                             "Wait for route in rtarget table..");
-
-    VERIFY_EQ(5, RTargetRouteCount(cn1_.get()));
-    VERIFY_EQ(5, RTargetRouteCount(cn2_.get()));
-
-    agent_a_1_->Unsubscribe("blue", -1, false); 
-    agent_b_1_->Unsubscribe("blue", -1, false); 
-    agent_a_2_->Unsubscribe("blue", -1, false); 
-    agent_b_2_->Unsubscribe("blue", -1, false); 
-
-    VERIFY_EQ(4, RTargetRouteCount(cn1_.get()));
-    VERIFY_EQ(4, RTargetRouteCount(cn2_.get()));
-
-    TASK_UTIL_WAIT_EQ_NO_MSG(RTargetRouteLookup(cn1_.get(), "64510:target:64496:1"),
-                             NULL, 1000, 10000, 
-                             "Wait for route in rtarget table..");
-    TASK_UTIL_WAIT_EQ_NO_MSG(RTargetRouteLookup(cn2_.get(), "64510:target:64496:1"),
-                             NULL, 1000, 10000, 
-                             "Wait for route in rtarget table..");
-    TASK_UTIL_WAIT_EQ_NO_MSG(RTargetRouteLookup(cn1_.get(), "64512:target:64496:1"),
-                             NULL, 1000, 10000, 
-                             "Wait for route in rtarget table..");
-    TASK_UTIL_WAIT_EQ_NO_MSG(RTargetRouteLookup(cn2_.get(), "64512:target:64496:1"),
-                             NULL, 1000, 10000, 
-                             "Wait for route in rtarget table..");
-}
-
-//
-// Test to validate the defer logic of peer deletion.
-// Peer will not be deleted till RTGroupManager stops referring to it
-// in InterestedPeers list
-//
-TEST_F(RTargetPeerTest, DeletedPeer) {
-    // CN1 & CN2 removes all rtarget routes
-    agent_a_2_->Unsubscribe("blue-i1", -1, false);
-    agent_b_2_->Unsubscribe("blue-i1", -1, false);
-    agent_a_2_->Unsubscribe("red-i2", -1, false);
-    agent_b_2_->Unsubscribe("red-i2", -1, false);
-    agent_a_2_->Unsubscribe("red", -1, false);
-    agent_b_2_->Unsubscribe("red", -1, false);
-    agent_a_2_->Unsubscribe("purple", -1, false);
-    agent_b_2_->Unsubscribe("purple", -1, false);
-    agent_a_1_->Unsubscribe("blue-i1", -1, false);
-    agent_b_1_->Unsubscribe("blue-i1", -1, false);
-    agent_a_1_->Unsubscribe("red-i2", -1, false);
-    agent_b_1_->Unsubscribe("red-i2", -1, false);
-    agent_a_1_->Unsubscribe("red", -1, false);
-    agent_b_1_->Unsubscribe("red", -1, false);
-    agent_a_1_->Unsubscribe("purple", -1, false);
-    agent_b_1_->Unsubscribe("purple", -1, false);
-
-    VERIFY_EQ(0, RTargetRouteCount(cn2_.get()));
-    VERIFY_EQ(0, RTargetRouteCount(cn1_.get()));
-
-    // CN1 generates rtarget route for blue import rt
-    agent_a_1_->Subscribe("blue", 2);
-    agent_b_1_->Subscribe("blue", 2);
-
-    TASK_UTIL_WAIT_NE_NO_MSG(RTargetRouteLookup(cn1_.get(),
-                             "64512:target:64496:1"),
-                             NULL, 1000, 10000,
-                             "Wait for route in rtarget table..");
-    TASK_UTIL_WAIT_NE_NO_MSG(RTargetRouteLookup(cn2_.get(),
-                             "64512:target:64496:1"),
-                             NULL, 1000, 10000,
-                             "Wait for route in rtarget table..");
-
-    VERIFY_EQ(1, RTargetRouteCount(cn1_.get()));
-    VERIFY_EQ(1, RTargetRouteCount(cn2_.get()));
-
-    // Stop the RTGroupMgr processing of RTargetRoute notification
-    DisableRtargetRouteProcessing(cn2_.get());
-
-    size_t count = cn2_->lifetime_manager()->GetQueueDeferCount();
-
-    // Delete the peer from both CNs
-    ifmap_test_util::IFMapMsgUnlink(cn1_->config_db(),
-      "bgp-router", "default-domain:default-project:ip-fabric:__default__:CN1",
-      "bgp-router", "default-domain:default-project:ip-fabric:__default__:CN2",
-      "bgp-peering");
-    ifmap_test_util::IFMapMsgUnlink(cn2_->config_db(),
-      "bgp-router", "default-domain:default-project:ip-fabric:__default__:CN1",
-      "bgp-router", "default-domain:default-project:ip-fabric:__default__:CN2",
-      "bgp-peering");
-
-    ifmap_test_util::IFMapMsgUnlink(cn1_->config_db(),
-      "bgp-router", "default-domain:default-project:ip-fabric:__default__:CN2",
-      "bgp-router", "default-domain:default-project:ip-fabric:__default__:CN1",
-      "bgp-peering");
-    ifmap_test_util::IFMapMsgUnlink(cn2_->config_db(),
-      "bgp-router", "default-domain:default-project:ip-fabric:__default__:CN2",
-      "bgp-router", "default-domain:default-project:ip-fabric:__default__:CN1",
-      "bgp-peering");
-
-    // Wait for the peer to go down in CN2
-    TASK_UTIL_EXPECT_EQ_MSG(1, cn2_->NumUpPeer(),
-                            "Wait for control-node peer to go down");
-
-    // Route on CN2 will not be deleted due to DBState from RTGroupMgr
-    TASK_UTIL_WAIT_NE_NO_MSG(RTargetRouteLookup(cn2_.get(),
-                             "64512:target:64496:1"),
-                             NULL, 1000, 10000,
-                             "Wait for route in rtarget table..");
-    BgpRoute *rt_route = RTargetRouteLookup(cn2_.get(), "64512:target:64496:1");
-    // Ensure that the path from CN1 is deleted
-    VERIFY_EQ(rt_route->count(), 0);
-
-    //
-    // Make sure that life time manager does not delete this peer as there is
-    // a reference to the peer from membership manager's queue
-    //
-    TASK_UTIL_EXPECT_TRUE(
-        cn2_->lifetime_manager()->GetQueueDeferCount() > count);
-
-    // Enable the RTGroupMgr processing
-    EnableRtargetRouteProcessing(cn2_.get());
-
-    TASK_UTIL_EXPECT_TRUE(cn1_->rtarget_group_mgr()->IsRTargetRoutesProcessed());
-    TASK_UTIL_EXPECT_TRUE(cn2_->rtarget_group_mgr()->IsRTargetRoutesProcessed());
-    TASK_UTIL_WAIT_EQ_NO_MSG(RTargetRouteLookup(cn2_.get(),
-                             "64512:target:64496:1"),
-                             NULL, 1000, 10000,
-                             "Wait for route in rtarget table..");
-    VerifyAllPeerUp(cn2_.get(), 1);
-}
-
-TEST_F(RTargetPeerTest, SameRTInMultipleVRF) {
-    agent_a_1_->Subscribe("blue", 2);
-    agent_b_1_->Subscribe("blue", 2);
-    agent_a_2_->Subscribe("blue", 2);
-    agent_b_2_->Subscribe("blue", 2);
-
-    TASK_UTIL_EXPECT_EQ(1, GetExportRouteTargetList(cn1_.get(), "blue").size());
-    TASK_UTIL_EXPECT_EQ(1, GetExportRouteTargetList(cn1_.get(), "blue-i1").size());
-    TASK_UTIL_EXPECT_EQ(1, GetExportRouteTargetList(cn2_.get(), "blue").size());
-    TASK_UTIL_EXPECT_EQ(1, GetExportRouteTargetList(cn2_.get(), "blue-i1").size());
-
-    AddRouteTarget(cn1_.get(), "blue", "target:1:99");
-    AddRouteTarget(cn2_.get(), "blue", "target:1:99");
-    AddRouteTarget(cn1_.get(), "blue-i1", "target:1:99");
-    AddRouteTarget(cn2_.get(), "blue-i1", "target:1:99");
-
-    TASK_UTIL_EXPECT_EQ(2, GetExportRouteTargetList(cn1_.get(), "blue").size());
-    TASK_UTIL_EXPECT_EQ(2, GetExportRouteTargetList(cn1_.get(), "blue-i1").size());
-    TASK_UTIL_EXPECT_EQ(2, GetExportRouteTargetList(cn2_.get(), "blue").size());
-    TASK_UTIL_EXPECT_EQ(2, GetExportRouteTargetList(cn2_.get(), "blue-i1").size());
-
-    TASK_UTIL_WAIT_NE_NO_MSG(RTargetRouteLookup(cn1_.get(), "64512:target:1:99"),
-                             NULL, 1000, 10000,
-                             "Wait for route in rtarget table..");
-    TASK_UTIL_WAIT_NE_NO_MSG(RTargetRouteLookup(cn2_.get(), "64512:target:1:99"),
-                             NULL, 1000, 10000,
-                             "Wait for route in rtarget table..");
-
-    RemoveRouteTarget(cn1_.get(), "blue", "target:1:99");
-    RemoveRouteTarget(cn2_.get(), "blue", "target:1:99");
-    TASK_UTIL_EXPECT_EQ(1, GetExportRouteTargetList(cn1_.get(), "blue").size());
-    TASK_UTIL_EXPECT_EQ(2, GetExportRouteTargetList(cn1_.get(), "blue-i1").size());
-    TASK_UTIL_EXPECT_EQ(1, GetExportRouteTargetList(cn2_.get(), "blue").size());
-    TASK_UTIL_EXPECT_EQ(2, GetExportRouteTargetList(cn2_.get(), "blue-i1").size());
-
-    TASK_UTIL_WAIT_NE_NO_MSG(RTargetRouteLookup(cn1_.get(), "64512:target:1:99"),
-                             NULL, 1000, 10000,
-                             "Wait for route in rtarget table..");
-    TASK_UTIL_WAIT_NE_NO_MSG(RTargetRouteLookup(cn2_.get(), "64512:target:1:99"),
-                             NULL, 1000, 10000,
-                             "Wait for route in rtarget table..");
-    agent_a_1_->Unsubscribe("blue", -1, false);
-    agent_a_2_->Unsubscribe("blue", -1, false);
-    agent_b_1_->Unsubscribe("blue", -1, false);
-    agent_b_2_->Unsubscribe("blue", -1, false);
-
-    RemoveRouteTarget(cn1_.get(), "blue-i1", "target:1:99");
-    RemoveRouteTarget(cn2_.get(), "blue-i1", "target:1:99");
-    TASK_UTIL_WAIT_EQ_NO_MSG(RTargetRouteLookup(cn1_.get(), "64512:target:1:99"),
-                             NULL, 1000, 10000,
-                             "Wait for route in rtarget table..");
-    TASK_UTIL_WAIT_EQ_NO_MSG(RTargetRouteLookup(cn2_.get(), "64512:target:1:99"),
-                             NULL, 1000, 10000,
-                             "Wait for route in rtarget table..");
-}
-
-TEST_F(RTargetPeerTest, ConnectedVRF) {
-    // RED and PURPLE are connected
-    AddRouteTarget(cn1_.get(), "red", "target:1:99");
-    AddRouteTarget(cn2_.get(), "red", "target:1:99");
-
-    TASK_UTIL_EXPECT_EQ(3, GetImportRouteTargetList(cn1_.get(), "red").size());
-    TASK_UTIL_EXPECT_EQ(3, GetImportRouteTargetList(cn2_.get(), "red").size());
-    TASK_UTIL_EXPECT_EQ(3, GetImportRouteTargetList(cn1_.get(), "purple").size());
-    TASK_UTIL_EXPECT_EQ(3, GetImportRouteTargetList(cn2_.get(), "purple").size());
-
-    RemoveConnection(cn1_.get(), "red", "purple");
-    RemoveConnection(cn2_.get(), "red", "purple");
-    TASK_UTIL_EXPECT_EQ(2, GetImportRouteTargetList(cn1_.get(), "red").size());
-    TASK_UTIL_EXPECT_EQ(2, GetImportRouteTargetList(cn2_.get(), "red").size());
-    TASK_UTIL_EXPECT_EQ(1, GetImportRouteTargetList(cn1_.get(), "purple").size());
-    TASK_UTIL_EXPECT_EQ(1, GetImportRouteTargetList(cn2_.get(), "purple").size());
-
-    TASK_UTIL_WAIT_NE_NO_MSG(RTargetRouteLookup(cn1_.get(), "64512:target:1:99"),
-                             NULL, 1000, 10000,
-                             "Wait for route in rtarget table..");
-    TASK_UTIL_WAIT_NE_NO_MSG(RTargetRouteLookup(cn2_.get(), "64512:target:1:99"),
-                             NULL, 1000, 10000,
-                             "Wait for route in rtarget table..");
-
-    AddConnection(cn1_.get(), "red", "purple");
-    AddConnection(cn2_.get(), "red", "purple");
-    TASK_UTIL_EXPECT_EQ(3, GetImportRouteTargetList(cn1_.get(), "red").size());
-    TASK_UTIL_EXPECT_EQ(3, GetImportRouteTargetList(cn2_.get(), "red").size());
-    TASK_UTIL_EXPECT_EQ(3, GetImportRouteTargetList(cn1_.get(), "purple").size());
-    TASK_UTIL_EXPECT_EQ(3, GetImportRouteTargetList(cn2_.get(), "purple").size());
-
-    TASK_UTIL_WAIT_NE_NO_MSG(RTargetRouteLookup(cn1_.get(), "64512:target:1:99"),
-                             NULL, 1000, 10000,
-                             "Wait for route in rtarget table..");
-    TASK_UTIL_WAIT_NE_NO_MSG(RTargetRouteLookup(cn2_.get(), "64512:target:1:99"),
-                             NULL, 1000, 10000,
-                             "Wait for route in rtarget table..");
-}
-
 
 int main(int argc, char **argv) {
     bgp_log_test::init();
