@@ -17,10 +17,10 @@
 using namespace std;
 using namespace boost::asio::ip;
 
-static uint16_t default_redis_port = ContrailPorts::RedisQueryPort;
-static uint16_t default_collector_port = ContrailPorts::CollectorPort;
-static uint16_t default_http_server_port = ContrailPorts::HttpPortQueryEngine;
-static uint16_t default_discovery_port = ContrailPorts::DiscoveryServerPort;
+static uint16_t default_redis_port = ContrailPorts::RedisQueryPort();
+static uint16_t default_collector_port = ContrailPorts::CollectorPort();
+static uint16_t default_http_server_port = ContrailPorts::HttpPortQueryEngine();
+static uint16_t default_discovery_port = ContrailPorts::DiscoveryServerPort();
 
 class OptionsTest : public ::testing::Test {
 protected:

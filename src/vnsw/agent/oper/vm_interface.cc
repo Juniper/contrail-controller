@@ -380,7 +380,7 @@ static void ReadAnalyzerNameAndCreate(Agent *agent,
         if (mirror_to.udp_port) {
             dport = mirror_to.udp_port;
         } else {
-            dport = ContrailPorts::AnalyzerUdpPort;
+            dport = ContrailPorts::AnalyzerUdpPort();
         }
         agent->mirror_table()->AddMirrorEntry
             (mirror_to.analyzer_name, std::string(), agent->router_id(),
