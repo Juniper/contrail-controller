@@ -62,7 +62,7 @@ void FactoryInit() {
 }
 
 int main(int argc, char *argv[]) {
-    uint16_t http_server_port = ContrailPorts::HttpPortAgent;
+    uint16_t http_server_port = ContrailPorts::HttpPortAgent();
 
     opt::options_description desc("Command line options");
     desc.add_options()
