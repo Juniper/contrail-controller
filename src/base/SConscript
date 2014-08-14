@@ -54,6 +54,7 @@ env.Append(CPPPATH = env['TOP'])
 libbase = env.Library('base',
                       [VersionInfoSandeshGenSrcs +
                       ['backtrace.cc',
+                       'contrail_ports.cc',
                        'misc_utils.cc',
                        'bitset.cc',
                        'label_block.cc',
