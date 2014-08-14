@@ -346,7 +346,7 @@ void AgentParam::ParseDefaultSection() {
 
     if (!GetValueFromTree<uint16_t>(http_server_port_, 
                                     "DEFAULT.http_server_port")) {
-        http_server_port_ = ContrailPorts::HttpPortAgent;
+        http_server_port_ = ContrailPorts::HttpPortAgent();
     }
 
     GetValueFromTree<string>(tunnel_type_, "DEFAULT.tunnel_type");
@@ -813,8 +813,8 @@ void AgentParam::set_test_mode(bool mode) {
 AgentParam::AgentParam(Agent *agent) :
         vhost_(), eth_port_(), xmpp_instance_count_(), xmpp_server_1_(),
         xmpp_server_2_(), dns_server_1_(), dns_server_2_(),
-        dns_port_1_(ContrailPorts::DnsServerPort),
-        dns_port_2_(ContrailPorts::DnsServerPort),
+        dns_port_1_(ContrailPorts::DnsServerPort()),
+        dns_port_2_(ContrailPorts::DnsServerPort()),
         dss_server_(), mgmt_ip_(), mode_(MODE_KVM), xen_ll_(),
         tunnel_type_(), metadata_shared_secret_(), max_vm_flows_(),
         linklocal_system_flows_(), linklocal_vm_flows_(),

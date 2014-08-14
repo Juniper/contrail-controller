@@ -25,7 +25,7 @@ bool GetBuildInfo(std::string &build_info_str) {
 }
 
 int main(int argc, char *argv[]) {
-    uint16_t http_server_port = ContrailPorts::HttpPortAgent;
+    uint16_t http_server_port = ContrailPorts::HttpPortAgent();
 
     // Create agent
     Agent agent;
