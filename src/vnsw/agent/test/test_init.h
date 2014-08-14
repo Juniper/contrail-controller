@@ -20,11 +20,12 @@
 #include <boost/format.hpp>
 #include <boost/uuid/string_generator.hpp>
 #include <boost/program_options.hpp>
-#include <pugixml/pugixml.hpp>
 #include <base/task.h>
 #include <base/task_trigger.h>
-#include <io/event_manager.h>
+#include <base/test/task_test_util.h>
 #include <base/util.h>
+#include <io/event_manager.h>
+#include <pugixml/pugixml.hpp>
 
 #include "xmpp/xmpp_channel.h"
 
@@ -235,18 +236,8 @@ public:
         cfg_notify_++;
     };
 
-    static void WaitForIdle(int wait_seconds = 1) {
-        static const int kTimeout = 1000;
-        int i;
-        int count = ((wait_seconds * 1000000) / kTimeout);
-        TaskScheduler *scheduler = TaskScheduler::GetInstance();
-        for (i = 0; i < count; i++) {
-            if (scheduler->IsEmpty()) {
-                break;
-            }
-            usleep(kTimeout);
-        }
-        EXPECT_GT(count, i);
+    static void WaitForIdle(int wait_seconds = 30) {
+        task_util::WaitForIdle(wait_seconds);
     }
 
     void VrfReset() {vrf_notify_ = 0;};

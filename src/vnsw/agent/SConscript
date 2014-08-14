@@ -258,6 +258,9 @@ AgentEnv.AddMethod(BuildExceptionCppObjFn, 'BuildExceptionCppObj')
 AgentEnv.AddMethod(BuildExceptionCcObjFn, 'BuildExceptionCcObj')
 AgentEnv.AddMethod(RemoveExceptionFlagFn, 'RemoveExceptionFlag')
 
+AgentEnv.Append(LIBPATH = env['TOP'] + '/base/test')
+AgentEnv.Append(LIBS = ['task_test'])
+
 Export('AgentEnv')
 
 ##########################################################################
