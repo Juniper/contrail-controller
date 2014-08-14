@@ -1002,8 +1002,15 @@ void VmInterface::DeleteL3(bool old_ipv4_active, VrfEntry *old_vrf,
     DeleteL3NextHop(old_ipv4_active);
 }
 
+void VmInterface::UpdateVxLan() {
+    if (l2_active_ && (vxlan_id_ == 0)) {
+        vxlan_id_ = vn_.get() ? vn_->GetVxLanId() : 0;
+    }
+}
+
 void VmInterface::UpdateL2(bool old_l2_active, VrfEntry *old_vrf, int old_vxlan_id,
                            bool force_update, bool policy_change) {
+    UpdateVxLan();
     UpdateL2NextHop(old_l2_active);
     UpdateL2TunnelId(force_update, policy_change);
     UpdateL2InterfaceRoute(old_l2_active, force_update);
@@ -1067,6 +1074,10 @@ void VmInterface::ApplyConfig(bool old_ipv4_active, bool old_l2_active, bool old
         } else {
             SendTrace(DEACTIVATED_L2);
         }
+    }
+
+    if (l2_active_ && (vxlan_id_ == 0)) {
+        vxlan_id_ = vn_.get() ? vn_->GetVxLanId() : 0;
     }
 
     if (old_ipv4_active != ipv4_active_) {
