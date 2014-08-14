@@ -64,6 +64,7 @@
             "controller/src/sandesh",
             "controller/src/schema",
             "controller/src/xml",
+            "tools/generateds",
             "tools/sandesh/compiler",
             "tools/sandesh/library"
         ],
