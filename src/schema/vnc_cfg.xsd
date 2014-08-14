@@ -1005,6 +1005,7 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
     <xsd:all>
         <xsd:element name='max-instances' type='xsd:integer' default='1'/>
         <xsd:element name='auto-scale' type='xsd:boolean' default='false'/>
+        <xsd:element name="ha-mode" type="AddressMode"/>
     </xsd:all>
 </xsd:complexType>
 
