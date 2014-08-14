@@ -417,7 +417,7 @@ class DiscoveryServer():
                 'ts_created': int(time.time()),
                 'prov_state': 'new',
                 'remote': bottle.request.environ.get('REMOTE_ADDR'),
-                'sequence': service_type+sig
+                'sequence': int(time.time()),
             }
             self._db_conn.insert_service(service_type, sig, entry)
 
