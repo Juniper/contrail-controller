@@ -1154,19 +1154,6 @@ void CompositeNHKey::ChangeTunnelType(TunnelType::Type tunnel_type) {
 }
 
 bool CompositeNH::Change(const DBRequest* req) {
-    if (nh_list_populated_ == true) {
-        //Any change in component nh list would result in
-        //different composite nexthop
-        //Hence if a compoiste NH is already filled,
-        //there is not change
-        return false;
-    }
-
-    //Populate component NH list
-    //Component NH list may be populated
-    //in below scenario
-    //1> Creation of composite NH
-    //2> Renewal of composite NH
     ComponentNHList component_nh_list;
     ComponentNHKeyList::const_iterator it = component_nh_key_list_.begin();
     for (;it != component_nh_key_list_.end(); it++) {
@@ -1177,19 +1164,59 @@ bool CompositeNH::Change(const DBRequest* req) {
             continue;
         }
 
-        //One of the component NH may be marked for
-        //delete, hence find entries which are delete marked
         const NextHop *nh = static_cast<const NextHop *>
-            (NextHopTable::GetInstance()->Find((*it)->nh_key(), true));
-        assert(nh);
+            (NextHopTable::GetInstance()->FindActiveEntry((*it)->nh_key()));
         if (nh) {
             ComponentNHPtr nh_key(new ComponentNH((*it)->label(), nh));
             component_nh_list.push_back(nh_key);
+        } else {
+            //Nexthop not active
+            //Insert a empty entry
+            ComponentNHPtr nh_key;
+            nh_key.reset();
+            component_nh_list.push_back(nh_key);
         }
     }
-    nh_list_populated_ = true;
+
+    bool changed = false;
+    //Check if new list and old list are same
+    ComponentNHList::const_iterator new_comp_nh_it =
+        component_nh_list.begin();
+    ComponentNHList::const_iterator old_comp_nh_it =
+       component_nh_list_.begin();
+    for(;new_comp_nh_it != component_nh_list.end() &&
+         old_comp_nh_it != component_nh_list_.end();
+         new_comp_nh_it++, old_comp_nh_it++) {
+        //Check if both component NH are NULL
+        if ((*old_comp_nh_it) == NULL &&
+            (*new_comp_nh_it) == NULL) {
+            continue;
+        }
+
+        //check if one of the component NH is NULL
+        if ((*old_comp_nh_it) == NULL || (*new_comp_nh_it) == NULL) {
+            changed = true;
+            break;
+        }
+
+        //Check if component NH are same
+        if ((**old_comp_nh_it) == (**new_comp_nh_it)) {
+            continue;
+        }
+
+        changed = true;
+        break;
+    }
+
+    if (new_comp_nh_it == component_nh_list.end() &&
+        old_comp_nh_it == component_nh_list_.end()) {
+        changed = false;
+    } else {
+        changed = true;
+    }
+
     component_nh_list_ = component_nh_list;
-    return true;
+    return changed;
 }
 
 void CompositeNH::SendObjectLog(AgentLogEvent::type event) const {
@@ -1344,7 +1371,6 @@ CompositeNH::KeyPtr CompositeNH::GetDBRequestKey() const {
 
 void CompositeNH::Delete(const DBRequest* req) {
     component_nh_list_.clear();
-    nh_list_populated_ = false;
 }
 
 void CompositeNH::CreateComponentNH(Agent *agent,
