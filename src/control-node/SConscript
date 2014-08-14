@@ -211,5 +211,6 @@ env.Alias('control-node', ctrlnode)
 
 env.SConscript('test/SConscript', exports='BuildEnv', duplicate = 0)
 
+# Please update sandesh/common/vns.sandesh on process name change
 env.Alias('install', env.Install(env['INSTALL_BIN'], ctrlnode))
 env.Alias('install', env.Install(env['INSTALL_CONF'], 'contrail-control.conf'))
