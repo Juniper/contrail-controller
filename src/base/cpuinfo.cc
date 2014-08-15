@@ -22,14 +22,6 @@
 
 using namespace boost;
 
-static void LoadAvg(CpuLoad &load) {
-    double averages[3];
-    getloadavg(averages, 3);
-    load.one_min_avg = averages[0];
-    load.five_min_avg = averages[1];
-    load.fifteen_min_avg = averages[2];
-}
-
 static uint32_t NumCpus() {
     static uint32_t count = 0;
 
@@ -53,6 +45,17 @@ static uint32_t NumCpus() {
         it!=string_find_iterator(); ++it, count++);
     return count;
 #endif
+}
+
+static void LoadAvg(CpuLoad &load) {
+    double averages[3];
+    uint32_t num_cpus = NumCpus();
+    getloadavg(averages, 3);
+    if (num_cpus > 0) {
+        load.one_min_avg = averages[0]/num_cpus;
+        load.five_min_avg = averages[1]/num_cpus;
+        load.fifteen_min_avg = averages[2]/num_cpus;
+    }
 }
 
 static void ProcessMemInfo(ProcessMemInfo &info) {
