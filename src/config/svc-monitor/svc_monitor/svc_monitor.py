@@ -70,6 +70,14 @@ class SvcMonitor(object):
         # rotating log file for catchall errors
         self._err_file = '/var/log/contrail/svc-monitor.err'
         self._tmp_file = '/var/log/contrail/svc-monitor.tmp'
+        try:
+            with open(self._err_file, 'a'):
+                pass
+            with open(self._tmp_file, 'a'):
+                pass
+        except IOError:
+            self._err_file = './svc-monitor.err'
+            self._tmp_file = './svc-monitor.tmp'
         self._svc_err_logger = logging.getLogger('SvcErrLogger')
         self._svc_err_logger.setLevel(logging.ERROR)
         handler = logging.handlers.RotatingFileHandler(

@@ -9,13 +9,13 @@ from vnc_api.vnc_api import *
 class STTestCase(test_common.TestCase):
     def setUp(self):
         super(STTestCase, self).setUp()
-        #self._svc_mon_greenlet = gevent.spawn(test_common.launch_svc_monitor,
-        #    self._api_server_ip, self._api_server_port)
+        self._svc_mon_greenlet = gevent.spawn(test_common.launch_svc_monitor,
+            self._api_server_ip, self._api_server_port)
         self._st_greenlet = gevent.spawn(test_common.launch_schema_transformer,
             self._api_server_ip, self._api_server_port)
 
     def tearDown(self):
-        #self._svc_mon_greenlet.kill()
+        self._svc_mon_greenlet.kill()
         self._st_greenlet.kill()
         super(STTestCase, self).tearDown()
 
@@ -56,8 +56,8 @@ class STTestCase(test_common.TestCase):
                 scale_out = ServiceScaleOutType()
                 if service_mode == 'in-network':
                     si_props = ServiceInstanceType(
-                        auto_policy=True, left_virtual_network=vn1.name,
-                        right_virtual_network=vn2.name, scale_out=scale_out)
+                        auto_policy=True, left_virtual_network=vn1.get_fq_name_str(),
+                        right_virtual_network=vn2.get_fq_name_str(), scale_out=scale_out)
                 else:
                     si_props = ServiceInstanceType(scale_out=scale_out)
                 service_instance = ServiceInstance(
@@ -75,11 +75,13 @@ class STTestCase(test_common.TestCase):
                                action_list=action_list)
         pentry = PolicyEntriesType([prule])
         np = NetworkPolicy("policy1", network_policy_entries=pentry)
+        if service_mode == 'in-network':
+            return np
         self._vnc_lib.network_policy_create(np)
         return np
     # end create_network_policy
 
-    def delete_network_policy(self, policy):
+    def delete_network_policy(self, policy, auto_policy=False):
         action_list = policy.network_policy_entries.policy_rule[0].action_list
         if action_list:
             for service in action_list.apply_service or []:
@@ -90,5 +92,6 @@ class STTestCase(test_common.TestCase):
                 self._vnc_lib.service_template_delete(id=st.uuid)
             # end for service
         # if action_list
-        self._vnc_lib.network_policy_delete(id=policy.uuid)
+        if not auto_policy:
+            self._vnc_lib.network_policy_delete(id=policy.uuid)
     # end delete_network_policy(policy)

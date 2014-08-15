@@ -56,6 +56,7 @@ from pysandesh.gen_py.process_info.ttypes import ConnectionType, \
     ConnectionStatus
 from cfgm_common.uve.cfgm_cpuinfo.ttypes import NodeStatusUVE, \
     NodeStatus
+from cStringIO import StringIO
 
 _BGP_RTGT_MAX_ID = 1 << 24
 _BGP_RTGT_ALLOC_PATH = "/id/bgp/route-targets/"
@@ -763,6 +764,7 @@ class VirtualNetworkST(DictST):
                 static_route.route_target.remove(self.get_route_target())
                 if static_route.route_target == []:
                     static_route_entries.delete_route(static_route)
+                left_ri.obj._pending_field_updates.add('static_route_entries')
                 _vnc_lib.routing_instance_update(left_ri.obj)
                 return
     # end delete_route
@@ -1472,7 +1474,8 @@ class ServiceChain(DictST):
             elif mode == "in-network-nat":
                 transparent = False
                 self.nat_service = True
-
+            else:
+                transparent = True
             _sandesh._logger.debug("service chain %s: creating %s chain",
                                    self.name, mode)
 
@@ -3436,13 +3439,17 @@ def launch_arc(transformer, ssrc_mapc):
         try:
             transformer.process_poll_result(result)
         except Exception as e:
-            try:
-                err_file = open('/var/log/contrail/schema.err', 'a')
-            except IOError:
-                err_file = open('./schema.err', 'a')
+            string_buf = StringIO()
             cgitb.Hook(
+                file=string_buf,
                 format="text",
-                file=err_file).handle(sys.exc_info())
+                ).handle(sys.exc_info())
+            try:
+                with open('/var/log/contrail/schema.err', 'a') as err_file:
+                    err_file.write(string_buf.getvalue())
+            except IOError:
+                with open('./schema.err', 'a') as err_file:
+                    err_file.write(string_buf.getvalue())
             raise e
 # end launch_arc
 
