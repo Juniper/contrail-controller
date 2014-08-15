@@ -2,10 +2,13 @@
  * Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
  */
 
-#ifndef __BGP_STATE_MACHINE_H__
-#define __BGP_STATE_MACHINE_H__
+#ifndef SRC_BGP_STATE_MACHINE_H_
+#define SRC_BGP_STATE_MACHINE_H_
 
 #include <boost/statechart/state_machine.hpp>
+
+#include <string>
+#include <utility>
 
 #include "base/queue_task.h"
 #include "base/timer.h"
@@ -89,7 +92,7 @@ public:
         ESTABLISHED = 5
     };
 
-    StateMachine(BgpPeer *peer);
+    explicit StateMachine(BgpPeer *peer);
     ~StateMachine();
 
     void Initialize();
@@ -155,8 +158,8 @@ public:
 
     int idle_hold_time() const { return idle_hold_time_; }
     void reset_idle_hold_time() { idle_hold_time_ = 0; }
-    void set_idle_hold_time(int idle_hold_time) { 
-        idle_hold_time_ = idle_hold_time; 
+    void set_idle_hold_time(int idle_hold_time) {
+        idle_hold_time_ = idle_hold_time;
     }
 
     void set_state(State state);
@@ -211,6 +214,7 @@ private:
     int hold_time_;
     int idle_hold_time_;
     int attempts_;
+    unsigned int seed_;
     bool deleted_;
     State state_;
     State last_state_;
@@ -229,4 +233,4 @@ private:
 
 std::ostream &operator<<(std::ostream &out, const StateMachine::State &state);
 
-#endif
+#endif  // SRC_BGP_STATE_MACHINE_H_
