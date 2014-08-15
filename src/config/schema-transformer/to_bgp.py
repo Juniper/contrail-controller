@@ -763,6 +763,7 @@ class VirtualNetworkST(DictST):
                 static_route.route_target.remove(self.get_route_target())
                 if static_route.route_target == []:
                     static_route_entries.delete_route(static_route)
+                left_ri.obj._pending_field_updates.add('static_route_entries')
                 _vnc_lib.routing_instance_update(left_ri.obj)
                 return
     # end delete_route
@@ -1472,7 +1473,8 @@ class ServiceChain(DictST):
             elif mode == "in-network-nat":
                 transparent = False
                 self.nat_service = True
-
+            else:
+                transparent = True
             _sandesh._logger.debug("service chain %s: creating %s chain",
                                    self.name, mode)
 
