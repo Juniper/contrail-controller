@@ -265,7 +265,8 @@ class InstanceManager(object):
             nic['type'] = itf_type
             nic['shared-ip'] = st_if.shared_ip
             nic['static-route-enable'] = st_if.get_static_route_enable()
-            nic['static-routes'] = si_if.get_static_routes()
+            if si_if:
+                nic['static-routes'] = si_if.get_static_routes()
             nics.append(nic)
 
         return nics

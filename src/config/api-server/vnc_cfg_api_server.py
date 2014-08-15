@@ -510,6 +510,18 @@ class VncApiServer(VncApiServerGen):
             id = self._db_conn.ref_update(obj_type, obj_uuid, ref_type, ref_uuid, {'attr': attr}, operation)
         except NoIdError:
             bottle.abort(404, 'uuid ' + obj_uuid + ' not found')
+        apiConfig = VncApiCommon()
+        apiConfig.object_type = obj_type.replace('-', '_')
+        fq_name = self._db_conn.uuid_to_fq_name(obj_uuid)
+        apiConfig.identifier_name=':'.join(fq_name)
+        apiConfig.identifier_uuid = obj_uuid
+        apiConfig.operation = 'ref-update'
+        apiConfig.body = str(request.json)
+
+        self._set_api_audit_info(apiConfig)
+        log = VncApiConfigLog(api_log=apiConfig, sandesh=self._sandesh)
+        log.send(sandesh=self._sandesh)
+
         return {'uuid': id}
     # end ref_update_id_http_post
 
