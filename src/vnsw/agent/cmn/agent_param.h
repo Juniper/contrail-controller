@@ -90,6 +90,7 @@ public:
     const int log_files_count() const { return log_files_count_; }
     const long log_file_size() const { return log_file_size_; }
     bool log_local() const { return log_local_; }
+    bool log_flow() const { return log_flow_; }
     const std::string &log_level() const { return log_level_; }
     const std::string &log_category() const { return log_category_; }
     const bool use_syslog() const { return use_syslog_; }
@@ -222,6 +223,7 @@ private:
     long log_file_size_;
 
     bool log_local_;
+    bool log_flow_;
     std::string log_level_;
     std::string log_category_;
     bool use_syslog_;

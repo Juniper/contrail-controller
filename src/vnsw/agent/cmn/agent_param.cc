@@ -399,6 +399,16 @@ void AgentParam::ParseDefaultSection() {
     if (!GetValueFromTree<string>(syslog_facility_, "DEFAULT.syslog_facility")) {
         syslog_facility_ = "LOG_LOCAL0";
     }
+
+    unsigned int log_flow = 0;
+    if (opt_uint = tree_.get_optional<unsigned int>("DEFAULT.log_flow")) {
+        log_flow = opt_uint.get();
+    }
+    if (log_flow) {
+        log_flow_ = true;
+    } else {
+        log_flow_ = false;
+    }
 }
 
 void AgentParam::ParseMetadataProxy() { 
@@ -521,6 +531,9 @@ void AgentParam::ParseDefaultSectionArguments
     }
     if (var_map.count("DEFAULT.debug")) {
         debug_ = true;
+    }
+    if (var_map.count("DEFAULT.log_flow")) {
+         log_flow_ = true;
     }
 }
 
@@ -806,7 +819,7 @@ AgentParam::AgentParam(Agent *agent) :
         tunnel_type_(), metadata_shared_secret_(), max_vm_flows_(),
         linklocal_system_flows_(), linklocal_vm_flows_(),
         flow_cache_timeout_(), config_file_(), program_name_(),
-        log_file_(), log_local_(false), log_level_(),
+        log_file_(), log_local_(false), log_flow_(false), log_level_(),
         log_category_(), use_syslog_(false),
         collector_server_list_(), http_server_port_(), host_name_(),
         agent_stats_interval_(kAgentStatsInterval),

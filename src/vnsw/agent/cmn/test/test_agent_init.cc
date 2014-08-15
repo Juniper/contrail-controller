@@ -87,6 +87,7 @@ public:
         ("DEFAULT.log_level", opt::value<string>()->default_value("SYS_DEBUG"),
          "Severity level for local logging of sandesh messages")
         ("DEFAULT.log_local", "Enable local logging of sandesh messages")
+        ("DEFAULT.log_flow", "Enable logging of flow sandesh messages")
         ("DEFAULT.tunnel_type", opt::value<string>()->default_value("MPLSoGRE"),
          "Tunnel Encapsulation type <MPLSoGRE|MPLSoUDP|VXLAN>")
         ("DISCOVERY.server", opt::value<string>(), 
@@ -245,6 +246,7 @@ TEST_F(FlowTest, Agent_Param_1) {
                         (char *)"controller/src/vnsw/agent/cmn/test/cfg.ini",
         (char *) "--DEFAULT.collectors",     (char *)"1.1.1.1:1000",
         (char *) "--DEFAULT.log_local",
+        (char *) "--DEFAULT.log_flow",
         (char *) "--DEFAULT.log_level",     (char *)"SYS_DEBUG",
         (char *) "--DEFAULT.log_category",  (char *)"Test",
         (char *) "--DEFAULT.http_server_port", (char *)"8000",
@@ -265,6 +267,7 @@ TEST_F(FlowTest, Agent_Param_1) {
                var_map);
 
     EXPECT_TRUE(param.log_local());
+    EXPECT_TRUE(param.log_flow());
     EXPECT_STREQ(param.log_level().c_str(), "SYS_DEBUG");
     EXPECT_STREQ(param.log_category().c_str(), "Test");
     EXPECT_EQ(param.collector_server_list().size(), 1);

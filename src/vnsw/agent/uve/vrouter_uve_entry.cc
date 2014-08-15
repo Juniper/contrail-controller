@@ -530,6 +530,7 @@ void VrouterUveEntry::BuildAgentConfig(VrouterAgent &vrouter_agent) {
     vrouter_agent.set_log_file(param->log_file());
     vrouter_agent.set_config_file(param->config_file());
     vrouter_agent.set_log_local(param->log_local());
+    vrouter_agent.set_log_flow(param->log_flow());
     vrouter_agent.set_log_category(param->log_category());
     vrouter_agent.set_log_level(param->log_level());
     vrouter_agent.set_sandesh_http_port(param->http_server_port());
