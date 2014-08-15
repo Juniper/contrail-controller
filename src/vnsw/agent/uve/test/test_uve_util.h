@@ -18,6 +18,18 @@ public:
         EXPECT_EQ((vn_count + 1), Agent::GetInstance()->vn_table()->Size());
     }
 
+    void L2VnAdd(int id) {
+        char vn_name[80];
+
+        sprintf(vn_name, "vn%d", id);
+        uint32_t vn_count = Agent::GetInstance()->vn_table()->Size();
+        client->Reset();
+        AddL2Vn(vn_name, id);
+        EXPECT_TRUE(client->VnNotifyWait(1));
+        EXPECT_TRUE(VnFind(id));
+        EXPECT_EQ((vn_count + 1), Agent::GetInstance()->vn_table()->Size());
+    }
+
     void VnDelete(int id) {
         char vn_name[80];
 
