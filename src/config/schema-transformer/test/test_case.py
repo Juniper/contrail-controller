@@ -1,0 +1,78 @@
+import sys
+sys.path.append("../common/tests")
+from test_utils import *
+import test_common
+sys.path.insert(0, '../../../../build/debug/config/schema-transformer/')
+
+from vnc_api.vnc_api import *
+
+class STTestCase(test_common.TestCase):
+    def setUp(self):
+        super(STTestCase, self).setUp()
+        #self._svc_mon_greenlet = gevent.spawn(test_common.launch_svc_monitor,
+        #    self._api_server_ip, self._api_server_port)
+        self._st_greenlet = gevent.spawn(test_common.launch_schema_transformer,
+            self._api_server_ip, self._api_server_port)
+
+    def tearDown(self):
+        #self._svc_mon_greenlet.kill()
+        self._st_greenlet.kill()
+        super(STTestCase, self).tearDown()
+
+    def create_network_policy(self, vn1, vn2, service_list=None, service_mode=None):
+        addr1 = AddressType(virtual_network=vn1.get_fq_name_str())
+        addr2 = AddressType(virtual_network=vn2.get_fq_name_str())
+        port = PortType(-1, 0)
+        action = "pass"
+        action_list = ActionListType(simple_action=action)
+        if service_list:
+            service_name_list = []
+            for service in service_list:
+                sti = [ServiceTemplateInterfaceType(
+                    'left'), ServiceTemplateInterfaceType('right')]
+                st_prop = ServiceTemplateType(
+                    image_name='junk',
+                    service_mode=service_mode, interface_type=sti)
+                service_template = ServiceTemplate(
+                    name=service + 'template',
+                    service_template_properties=st_prop)
+                self._vnc_lib.service_template_create(service_template)
+                scale_out = ServiceScaleOutType()
+                if service_mode == 'in-network':
+                    si_props = ServiceInstanceType(
+                        auto_policy=True, left_virtual_network=vn1.name,
+                        right_virtual_network=vn2.name, scale_out=scale_out)
+                else:
+                    si_props = ServiceInstanceType(scale_out=scale_out)
+                service_instance = ServiceInstance(
+                    name=service, service_instance_properties=si_props)
+                self._vnc_lib.service_instance_create(service_instance)
+                service_instance.add_service_template(service_template)
+                self._vnc_lib.service_instance_update(service_instance)
+                service_name_list.append(service_instance.get_fq_name_str())
+     
+            action_list = ActionListType(apply_service=service_name_list)
+            action = None
+        prule = PolicyRuleType(direction="<>", protocol="any",
+                               src_addresses=[addr1], dst_addresses=[addr2],
+                               src_ports=[port], dst_ports=[port],
+                               action_list=action_list)
+        pentry = PolicyEntriesType([prule])
+        np = NetworkPolicy("policy1", network_policy_entries=pentry)
+        self._vnc_lib.network_policy_create(np)
+        return np
+    # end create_network_policy
+
+    def delete_network_policy(self, policy):
+        action_list = policy.network_policy_entries.policy_rule[0].action_list
+        if action_list:
+            for service in action_list.apply_service or []:
+                si = self._vnc_lib.service_instance_read(fq_name_str=service)
+                st_ref = si.get_service_template_refs()
+                st = self._vnc_lib.service_template_read(id=st_ref[0]['uuid'])
+                self._vnc_lib.service_instance_delete(id=si.uuid)
+                self._vnc_lib.service_template_delete(id=st.uuid)
+            # end for service
+        # if action_list
+        self._vnc_lib.network_policy_delete(id=policy.uuid)
+    # end delete_network_policy(policy)

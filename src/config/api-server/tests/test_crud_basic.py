@@ -15,7 +15,7 @@ cgitb.enable(format='text')
 
 import fixtures
 import testtools
-from testtools.matchers import Equals, MismatchError
+from testtools.matchers import Equals, MismatchError, Not, Contains
 from testtools import content, content_type, ExpectedException
 import unittest
 import re
@@ -581,6 +581,12 @@ class TestListUpdate(test_case.ApiServerTestCase):
     # end test_policy_create_wo_rules
 
 # end class TestListUpdate
+
+class TestCrud(test_case.ApiServerTestCase):
+    def test_create(self):
+        test_obj = self._create_test_object()
+        ident_name = self.get_obj_imid(test_obj)
+        self.assertThat(FakeIfmapClient._graph, Contains(ident_name))
 
 class TestVncCfgApiServer(test_case.ApiServerTestCase):
     def test_fq_name_to_id_http_post(self):

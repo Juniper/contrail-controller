@@ -52,8 +52,8 @@ def print_help(venv, root):
 def main(argv):
     root = os.path.dirname(os.path.dirname(os.path.realpath(__file__)))
 
-    if os.environ.get('tools_path'):
-        root = os.environ['tools_path']
+    if os.environ.get('root_path'):
+        root = os.environ['root_path']
     venv = os.path.join(root, '.venv')
     if os.environ.get('venv'):
         venv = os.environ['venv']
