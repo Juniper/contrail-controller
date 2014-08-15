@@ -26,7 +26,8 @@ void CfgIntData::Init (const uuid& vm_id, const uuid& vn_id,
                        const std::string& tname, const IpAddress& ip,
                        const std::string& mac,
                        const std::string& vm_name,
-                       uint16_t vlan_id, const int32_t version) {
+                       uint16_t vlan_id, const CfgIntEntry::CfgIntType port_type,
+                       const int32_t version) {
     vm_id_ = vm_id;
     vn_id_ = vn_id;
     vm_project_id_ = vm_project_id;
@@ -35,6 +36,7 @@ void CfgIntData::Init (const uuid& vm_id, const uuid& vn_id,
     mac_addr_ = mac;
     vm_name_ = vm_name;
     vlan_id_ = vlan_id;
+    port_type_ = port_type;
     version_ = version;
 }
 
@@ -48,6 +50,7 @@ void CfgIntEntry::Init(const CfgIntData& int_data) {
     vm_name_ = int_data.vm_name_;
     vlan_id_ = int_data.vlan_id_;
     vm_project_id_ = int_data.vm_project_id_;
+    port_type_ = int_data.port_type_;
     version_ = int_data.version_;
 }
 
@@ -68,6 +71,14 @@ void CfgIntEntry::SetKey(const DBRequestKey *key) {
 
 std::string CfgIntEntry::ToString() const {
     return "Interface Configuration";
+}
+
+std::string CfgIntEntry::CfgIntTypeToString(CfgIntEntry::CfgIntType type) {
+    if (type == CfgIntEntry::CfgIntVMPort)
+        return "CfgIntVMPort";
+    if (type == CfgIntEntry::CfgIntNameSpacePort)
+        return "CfgIntNameSpacePort";
+    return "CfgIntInvalid";
 }
 
 // CfgIntTable methods
@@ -103,7 +114,8 @@ DBEntry *CfgIntTable::Add(const DBRequest *req) {
               UuidToString(cfg_int->GetVnUuid()),
               cfg_int->ip_addr().to_string(), "ADD", 
               cfg_int->GetVersion(), cfg_int->vlan_id(),
-              UuidToString(cfg_int->vm_project_uuid()));
+              UuidToString(cfg_int->vm_project_uuid()),
+              cfg_int->CfgIntTypeToString(cfg_int->port_type()));
     return cfg_int;
 }
 
@@ -115,7 +127,8 @@ void CfgIntTable::Delete(DBEntry *entry, const DBRequest *req) {
               UuidToString(cfg->GetVnUuid()),
               cfg->ip_addr().to_string(), "DELETE",
               cfg->GetVersion(), cfg->vlan_id(),
-              UuidToString(cfg->vm_project_uuid()));
+              UuidToString(cfg->vm_project_uuid()),
+              cfg->CfgIntTypeToString(cfg->port_type()));
 
     CfgVnPortKey vn_port_key(cfg->GetVnUuid(), cfg->GetUuid());
     CfgVnPortTree::iterator it = uuid_tree_.find(vn_port_key);
