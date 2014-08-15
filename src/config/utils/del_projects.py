@@ -1,3 +1,4 @@
+#!/usr/bin/python
 #
 # Copyright (c) 2014 Juniper Networks, Inc. All rights reserved.
 #
@@ -43,11 +44,11 @@ class DeleteProjects(object):
         args, remaining_argv = conf_parser.parse_known_args(args_str.split())
 
         parser.add_argument("--ip", type=str,
-                             help = "IP Address of the controller")
+                             help = "IP Address of the controller", required=True)
         parser.add_argument("--port", type=str,
-                             help = "Port of the controller")
+                             help = "Port of the controller", required=True)
         parser.add_argument('--proj', type=str,
-                             help='The project name to delete')
+                             help='The project name to delete', required=True)
 
         self._args = parser.parse_args(remaining_argv)
 
