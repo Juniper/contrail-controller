@@ -1413,8 +1413,8 @@ int main(int argc, char *argv[]) {
     GETUSERARGS();
     //client = TestInit(init_file, ksync_init, true, true, true, 100*1000);
     client = TestInit(init_file, ksync_init, true, true, true,
-                      AgentStatsCollector::AgentStatsInterval,
-                      FlowStatsCollector::FlowStatsInterval, true, false);
+                      AgentParam::kAgentStatsInterval,
+                      AgentParam::kFlowStatsInterval, true, false);
     Setup();
     int ret = RUN_ALL_TESTS();
     client->WaitForIdle();

@@ -54,7 +54,8 @@ void WaitForInitDone(Agent *agent) {
 TestClient *TestInit(const char *init_file, bool ksync_init, bool pkt_init,
                      bool services_init, bool uve_init,
                      int agent_stats_interval, int flow_stats_interval,
-                     bool asio, bool ksync_sync_mode) {
+                     bool asio, bool ksync_sync_mode,
+                     int vrouter_stats_interval) {
     if (TaskScheduler::GetInstance() == NULL) {
         TaskScheduler::Initialize();
     }
@@ -69,6 +70,7 @@ TestClient *TestInit(const char *init_file, bool ksync_init, bool pkt_init,
     param->Init(init_file, "test", var_map);
     param->set_agent_stats_interval(agent_stats_interval);
     param->set_flow_stats_interval(flow_stats_interval);
+    param->set_vrouter_stats_interval(vrouter_stats_interval);
 
     // Initialize the agent-init control class
     int sandesh_port = 0;
@@ -120,60 +122,6 @@ TestClient *TestInit(const char *init_file, bool ksync_init, bool pkt_init,
              Agent::GetInstance()->fabric_vrf_name(), "vhost0",
              Agent::GetInstance()->router_id(), 32, "", false);
     }
-
-    return client;
-}
-
-TestClient *StatsTestInit() {
-    if (TaskScheduler::GetInstance() == NULL) {
-        TaskScheduler::Initialize();
-    }
-    Agent *agent = new Agent();
-    TestClient *client = new TestClient(agent);
-    AgentParam *param = client->param();
-    TestAgentInit *init = client->agent_init();
-
-    // Read agent parameters from config file and arguments
-    opt::variables_map var_map;
-    param->Init("controller/src/vnsw/agent/test/vnswa_cfg.ini", "test", var_map);
-
-    // Initialize the agent-init control class
-    int sandesh_port = 0;
-    Sandesh::InitGeneratorTest("VNSWAgent", "Agent", "Test", "Test",
-                               Agent::GetInstance()->event_manager(),
-                               sandesh_port, NULL);
-
-    InitTestFactory();
-    init->Init(param, agent, var_map);
-    init->set_ksync_enable(true);
-    init->set_packet_enable(true);
-    init->set_services_enable(true);
-    init->set_create_vhost(false);
-    init->set_uve_enable(false);
-    init->set_vgw_enable(false);
-    init->set_router_id_dep_enable(false);
-    param->set_test_mode(true);
-
-    // Initialize agent and kick start initialization
-    agent->CopyConfig(param);
-    init->Start();
-
-    WaitForInitDone(agent);
-
-    AsioRun();
-
-    sleep(1);
-    Agent::GetInstance()->set_vhost_interface_name("vhost0");
-    InetInterface::CreateReq(Agent::GetInstance()->interface_table(),
-                             "vhost0", InetInterface::VHOST,
-                             Agent::GetInstance()->fabric_vrf_name(),
-                             Ip4Address(0), 0, Ip4Address(0), param->eth_port(), "");
-
-    boost::system::error_code ec;
-    Agent::GetInstance()->set_router_id(Ip4Address::from_string("10.1.1.1", ec));
-
-    // Wait for host and vhost interface creation
-    client->WaitForIdle();
 
     return client;
 }

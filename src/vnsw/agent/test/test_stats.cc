@@ -41,8 +41,8 @@ TEST_F(StatsTest, IntfStatsTest) {
 
     /* Wait for stats-collector task to be run */
 
-    cout << "sleep for: " << ((AgentParam::AgentStatsInterval + 1)*1000) << endl;
-    usleep((AgentParam::AgentStatsInterval + 1)*1000);
+    cout << "sleep for: " << ((AgentParam::kAgentStatsInterval + 1)*1000) << endl;
+    usleep((AgentParam::kAgentStatsInterval + 1)*1000);
 
     /* Verify that interface stats query succeeds 
      * These should return the present value of stats
@@ -56,7 +56,7 @@ TEST_F(StatsTest, IntfStatsTest) {
     client->WaitForIdle();
 
     /* Wait for stats-collector task to be run */
-    usleep((AgentParam::AgentStatsInterval + 1)*1000);
+    usleep((AgentParam::kAgentStatsInterval + 1)*1000);
 
     /* Verify interface stats */
     EXPECT_TRUE(VmPortStats(input, 0, (bytes0 + 42), (pkts0 + 1)));
@@ -68,7 +68,7 @@ TEST_F(StatsTest, IntfStatsTest) {
     client->WaitForIdle();
 
     /* Wait for stats-collector task to be run */
-    usleep((AgentParam::AgentStatsInterval + 1)*1000);
+    usleep((AgentParam::kAgentStatsInterval + 1)*1000);
     client->WaitForIdle();
 
     /* Verify updated interface stats */
