@@ -11,9 +11,10 @@ import test_common
 import test_case
 
 from vnc_api.vnc_api import *
+import to_bgp
 
 class TestPolicy(test_case.STTestCase):
-    def test_basic_policy(self):
+    def _test_basic_policy(self):
         vn1_name = 'vn1'
         vn2_name = 'vn2'
         vn1_obj = VirtualNetwork(vn1_name)
@@ -110,7 +111,7 @@ class TestPolicy(test_case.STTestCase):
 
     # end test_basic_policy
 
-    def test_service_policy(self):
+    def _test_service_policy(self):
         # create  vn1
         vn1_obj = VirtualNetwork('vn1')
         ipam_obj = NetworkIpam('ipam1')
@@ -137,7 +138,6 @@ class TestPolicy(test_case.STTestCase):
         vn2_obj.set_network_policy(np, vnp)
         self._vnc_lib.virtual_network_update(vn1_obj)
         self._vnc_lib.virtual_network_update(vn2_obj)
-        #import pdb; pdb.set_trace()
         while True:
             gevent.sleep(2)
             try:
@@ -149,23 +149,20 @@ class TestPolicy(test_case.STTestCase):
                 continue
             ri_refs = ri.get_routing_instance_refs()
             if ri_refs:
+                sc = [x for x in to_bgp.ServiceChain]
+                sc_ri_name = 'service-'+sc[0]+'-default-domain_default-project_s1'
                 self.assertEqual(
                     ri_refs[0]['to'],
-                    [u'default-domain', u'default-project', u'vn1',
-                     u'service-default-domain_default-project_vn1-default'
-                     '-domain_default-project_vn2-default'
-                     '-domain_default-project_s1'])
+                    [u'default-domain', u'default-project', u'vn1', sc_ri_name])
                 break
             print "retrying ... ", test_common.lineno()
         # end while True
 
         while True:
             try:
+                test_common.FakeApiConfigLog._print()
                 ri = self._vnc_lib.routing_instance_read(
-                    fq_name=[u'default-domain', u'default-project', u'vn2',
-                             u'service-default-domain_default'
-                             '-project_vn2-default-domain_default'
-                             '-project_vn1-default-domain_default-project_s1'])
+                    fq_name=[u'default-domain', u'default-project', u'vn2', sc_ri_name])
             except NoIdError:
                 gevent.sleep(2)
                 print "retrying ... ", test_common.lineno()
@@ -180,7 +177,7 @@ class TestPolicy(test_case.STTestCase):
                     print "retrying ... ", test_common.lineno()
                     gevent.sleep(2)
                     continue
-                self.assertEqual(sci.prefix[0], '10.0.0.1/24')
+                self.assertEqual(sci.prefix[0], '10.0.0.0/24')
                 break
             print "retrying ... ", test_common.lineno()
             gevent.sleep(2)
@@ -231,8 +228,7 @@ class TestPolicy(test_case.STTestCase):
 
 
 #class TestRouteTable(test_case.STTestCase):
-    def _test_add_delete_route(self):
-        import pdb; pdb.set_trace()
+    def test_add_delete_route(self):
         lvn = self.create_virtual_network("lvn", "10.0.0.0/24")
         rvn = self.create_virtual_network("rvn", "20.0.0.0/24")
         np = self.create_network_policy(lvn, rvn, ["s1"], "in-network")
@@ -253,11 +249,14 @@ class TestPolicy(test_case.STTestCase):
             gevent.sleep(2)
             lvn = self._vnc_lib.virtual_network_read(id=lvn.uuid)
             try:
+                sc = [x for x in to_bgp.ServiceChain]
+                if len(sc) == 0:
+                    print "retrying ... ", test_common.lineno()
+                    continue
+
+                sc_ri_name = 'service-'+sc[0]+'-default-domain_default-project_s1'
                 lri = self._vnc_lib.routing_instance_read(
-                    fq_name=['default-domain', 'default-project', 'lvn',
-                             'service-default-domain_default-'
-                             'project_lvn-default-domain_default'
-                             '-project_rvn-default-domain_default-project_s1'])
+                    fq_name=['default-domain', 'default-project', 'lvn', sc_ri_name])
                 sr = lri.get_static_route_entries()
                 if sr is None:
                     print "retrying ... ", test_common.lineno()
@@ -274,12 +273,8 @@ class TestPolicy(test_case.STTestCase):
                     fq_name=[
                         'default-domain', 'default-project', 'vn100', 'vn100'])
                 rt100 = ri100.get_route_target_refs()[0]['to']
-                ri = self._vnc_lib.routing_instance_read(
-                    fq_name=[
-                        'default-domain', 'default-project', 'lvn', 'lvn'])
-                rt_refs = ri.get_route_target_refs()
                 found = False
-                for rt_ref in ri.get_route_target_refs() or []:
+                for rt_ref in lri.get_route_target_refs() or []:
                     if rt100 == rt_ref['to']:
                         found = True
                         break
@@ -296,10 +291,7 @@ class TestPolicy(test_case.STTestCase):
 
         while 1:
             lri = self._vnc_lib.routing_instance_read(
-                fq_name=['default-domain', 'default-project', 'lvn',
-                         'service-default-domain_default-project_lvn-default'
-                         '-domain_default-project_rvn-default-domain_default'
-                         '-project_s1'])
+                fq_name=['default-domain', 'default-project', 'lvn', sc_ri_name])
             sr = lri.get_static_route_entries()
             if sr and sr.route:
                 gevent.sleep(2)
@@ -317,7 +309,7 @@ class TestPolicy(test_case.STTestCase):
 
         self._vnc_lib.virtual_network_delete(
             fq_name=['default-domain', 'default-project', 'vn100'])
-        self.delete_network_policy(np)
+        self.delete_network_policy(np, auto_policy=True)
         gevent.sleep(2)
         self._vnc_lib.virtual_network_delete(
             fq_name=['default-domain', 'default-project', 'lvn'])

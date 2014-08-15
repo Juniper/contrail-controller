@@ -26,6 +26,8 @@ import bottle
 bottle.catchall=False
 
 import inspect
+import novaclient
+import novaclient.client
 
 def lineno():
     """Returns the current line number in our program."""
@@ -79,6 +81,7 @@ def launch_schema_transformer(api_server_ip, api_server_port):
 # end launch_schema_transformer
 
 def setup_flexmock():
+    flexmock(novaclient.client, Client=FakeNovaClient.initialize)
     flexmock(ifmap_client.client, __init__=FakeIfmapClient.initialize,
              call=FakeIfmapClient.call,
              call_async_result=FakeIfmapClient.call_async_result)
@@ -98,6 +101,9 @@ def setup_flexmock():
     flexmock(kombu.Connection, __new__=FakeKombu.Connection)
     flexmock(kombu.Exchange, __new__=FakeKombu.Exchange)
     flexmock(kombu.Queue, __new__=FakeKombu.Queue)
+
+    from cfgm_common.uve.vnc_api.ttypes import VncApiConfigLog, VncApiError
+    flexmock(VncApiConfigLog, __new__=FakeApiConfigLog)
 #end setup_flexmock
 
 cov_handle = None
@@ -196,6 +202,7 @@ class TestCase(testtools.TestCase, fixtures.TestWithFixtures):
         self._vnc_lib = VncApi('u', 'p', api_server_host=self._api_server_ip,
                                api_server_port=self._api_server_port)
 
+        FakeNovaClient.vnc_lib = self._vnc_lib
         self._api_server_session = requests.Session()
         adapter = requests.adapters.HTTPAdapter()
         self._api_server_session.mount("http://", adapter)
