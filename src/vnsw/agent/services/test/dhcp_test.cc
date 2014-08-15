@@ -36,6 +36,7 @@
 #define BUF_SIZE 8192
 char src_mac[MAC_LEN] = { 0x00, 0x01, 0x02, 0x03, 0x04, 0x05 };
 char dest_mac[MAC_LEN] = { 0x00, 0x11, 0x12, 0x13, 0x14, 0x15 };
+#define DHCP_RESPONSE_STRING "Server : 1.1.1.200; Lease time : 4294967295; Subnet mask : 255.255.255.0; Broadcast : 1.1.1.255; Gateway : 1.1.1.200; Host Name : vm1; DNS : 1.1.1.200; Domain Name : test.contrail.juniper.net; "
 #define HOST_ROUTE_STRING "Host Routes : 10.1.1.0/24 -> 1.1.1.200;10.1.2.0/24 -> 1.1.1.200;150.25.75.0/24 -> 1.1.1.200;192.168.1.128/28 -> 1.1.1.200;"
 #define CHANGED_HOST_ROUTE_STRING "Host Routes : 150.2.2.0/24 -> 1.1.1.200;192.1.1.1/28 -> 1.1.1.200;"
 #define IPAM_DHCP_OPTIONS_STRING "DNS : 1.2.3.4; Domain Name : test.com; Time Server : 3.2.14.5"
@@ -580,7 +581,7 @@ TEST_F(DhcpTest, DhcpReqTest) {
     DhcpInfo *sand = new DhcpInfo();
     Sandesh::set_response_callback(
         boost::bind(&DhcpTest::CheckSandeshResponse, this, _1,
-                    false, "", "", false, ""));
+                    true, "", DHCP_RESPONSE_STRING, false, ""));
     sand->HandleRequest();
     client->WaitForIdle();
     sand->Release();
