@@ -185,6 +185,7 @@ struct FlowInfo {
    28: optional list<u32> source_sg_id_l;
    29: optional list<u32> dest_sg_id_l;
    30: u16 nh_id;
+   31: optional string vrf_assign;
 }
 
 traceobject sandesh FlowTrace {

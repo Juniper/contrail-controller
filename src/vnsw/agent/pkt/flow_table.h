@@ -564,7 +564,8 @@ public:
     DBTableBase::ListenerId nh_listener_id();
     Inet4UnicastRouteEntry * GetUcRoute(const VrfEntry *entry, const Ip4Address &addr);
     static const SecurityGroupList &default_sg_list() {return default_sg_list_;}
-
+    bool ValidFlowMove(const FlowEntry *new_flow,
+                       const FlowEntry *old_flow) const;
     friend class FlowStatsCollector;
     friend class PktSandeshFlow;
     friend class FetchFlowRecord;
