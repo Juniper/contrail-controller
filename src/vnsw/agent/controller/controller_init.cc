@@ -60,6 +60,7 @@ void VNController::XmppServerConnect() {
             XmppInit *xmpp = new XmppInit();
             XmppClient *client = new XmppClient(agent_->event_manager());
             // create bgp peer
+            agent_->SetAgentMcastLabelRange(count);
             AgentXmppChannel *bgp_peer = new AgentXmppChannel(agent_,
                               agent_->controller_ifmap_xmpp_server(count),
                               agent_->multicast_label_range(count),
@@ -89,7 +90,6 @@ void VNController::XmppServerConnect() {
             assert(channel);
             bgp_peer->RegisterXmppChannel(channel);
 
-            agent_->SetAgentMcastLabelRange(count);
             bgp_peer->UpdateConnectionInfo(channel->GetPeerState());
 
             // create ifmap peer
