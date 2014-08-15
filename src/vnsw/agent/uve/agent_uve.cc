@@ -126,14 +126,14 @@ void AgentUve::VrouterAgentProcessState
             ", Expected: " + integerToString(expected_conns);
         return;
     }
-    std::string cdown(g_process_info_constants.ConnectionStatusNames.
-        find(ConnectionStatus::DOWN)->second);
+    std::string cup(g_process_info_constants.ConnectionStatusNames.
+        find(ConnectionStatus::UP)->second);
     // Iterate to determine process connectivity status
     for (std::vector<ConnectionInfo>::const_iterator it = cinfos.begin();
          it != cinfos.end(); it++) {
         const ConnectionInfo &cinfo(*it);
         const std::string &conn_status(cinfo.get_status());
-        if (conn_status == cdown) {
+        if (conn_status != cup) {
             if (cinfo.get_name().compare(0, 13,
                 agent_->xmpp_control_node_prefix()) == 0) {
                 down_control_nodes++;
