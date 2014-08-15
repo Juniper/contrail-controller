@@ -28,13 +28,28 @@ from kazoo.client import KazooState
 from copy import deepcopy
 from datetime import datetime
 from pycassa.util import *
-from vnc_api import *
+from vnc_api import vnc_api
 from novaclient import exceptions as nc_exc
 
 
 def stub(*args, **kwargs):
     pass
 
+class FakeApiConfigLog(object):
+    _all_logs = []
+    send = stub
+    def __init__(self, *args, **kwargs):
+        FakeApiConfigLog._all_logs.append(kwargs['api_log'])
+
+    @classmethod
+    def _print(cls):
+        for log in cls._all_logs:
+            x = copy.deepcopy(log.__dict__)
+            #body = x.pop('body')
+            #pprint(json.loads(body))
+            pprint(x)
+            print "\n"
+# class FakeApiConfigLog
 
 class CassandraCFs(object):
     _all_cfs = {}
@@ -50,7 +65,6 @@ class CassandraCFs(object):
     # end get_cf
 
 # end CassandraCFs
-
 
 class FakeCF(object):
 
@@ -195,18 +209,23 @@ class FakeNovaClient(object):
             vm = vnc_api.VirtualMachine(name)
             FakeNovaClient.vnc_lib.virtual_machine_create(vm)
             for network in nics:
-                vn = FakeNovaClient.vnc_lib.virtual_network_read(
-                    id=network['net-id'])
-                vmi = vnc_api.VirtualMachineInterface(vn.name, parent_obj=vm)
-                vmi.set_virtual_network(vn)
-                FakeNovaClient.vnc_lib.virtual_machine_interface_create(vmi)
+                if 'nic-id' in network:
+                    vn = FakeNovaClient.vnc_lib.virtual_network_read(
+                        id=network['net-id'])
+                    vmi = vnc_api.VirtualMachineInterface(vn.name, parent_obj=vm)
+                    vmi.set_virtual_network(vn)
+                    FakeNovaClient.vnc_lib.virtual_machine_interface_create(vmi)
 
-                ip_address = FakeNovaClient.vnc_lib.virtual_network_ip_alloc(
-                    vn, count=1)[0]
-                ip_obj = vnc_api.InstanceIp(ip_address, ip_address)
-                ip_obj.add_virtual_network(vn)
-                ip_obj.add_virtual_machine_interface(vmi)
-                FakeNovaClient.vnc_lib.instance_ip_create(ip_obj)
+                    ip_address = FakeNovaClient.vnc_lib.virtual_network_ip_alloc(
+                        vn, count=1)[0]
+                    ip_obj = vnc_api.InstanceIp(ip_address, ip_address)
+                    ip_obj.add_virtual_network(vn)
+                    ip_obj.add_virtual_machine_interface(vmi)
+                    FakeNovaClient.vnc_lib.instance_ip_create(ip_obj)
+                elif 'port-id' in network:
+                    vmi = FakeNovaClient.vnc_lib.virtual_machine_interface_read(id=network['port-id'])
+                    vmi.add_virtual_machine(vm)
+                    FakeNovaClient.vnc_lib.virtual_machine_interface_update(vmi)
             # end for network
             vm.id = vm.uuid
             vm.delete = FakeNovaClient.delete_vm.__get__(
@@ -230,7 +249,7 @@ class FakeNovaClient(object):
 
     @staticmethod
     def delete_vm(vm):
-        for if_ref in vm.get_virtual_machine_interfaces():
+        for if_ref in vm.get_virtual_machine_interfaces() or vm.get_virtual_machine_interface_back_refs():
             intf = FakeNovaClient.vnc_lib.virtual_machine_interface_read(
                 id=if_ref['uuid'])
             for ip_ref in intf.get_instance_ip_back_refs() or []:
@@ -367,6 +386,12 @@ class FakeIfmapClient(object):
             subscribe_item = etree.Element('resultItem')
             subscribe_item.extend(deepcopy(del_root))
             link_info = cls._graph[from_name]['links'][link_key]
+            # generate id1, id2, meta for poll for the case where
+            # del of ident for all metas requested but we have a
+            # ref meta to another ident
+            if len(del_root) == 1 and 'other' in link_info:
+                to_ident_elem = link_info['other']
+                subscribe_item.append(to_ident_elem)
             subscribe_item.append(deepcopy(link_info['meta']))
             subscribe_result.append(subscribe_item)
             if 'other' in link_info:
