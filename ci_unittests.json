@@ -73,8 +73,7 @@
             "controller/src/gendb:test",
             "controller/src/io:test",
             "controller/src/net:test",
-            "controller/src/schema:test",
-            "sandesh:test"
+            "controller/src/schema:test"
         ],
         "misc_test_targets" : [
             "contrail-collector",
