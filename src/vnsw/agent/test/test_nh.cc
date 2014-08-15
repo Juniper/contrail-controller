@@ -1437,6 +1437,211 @@ TEST_F(CfgTest, EcmpNH_14) {
     EXPECT_FALSE(VrfFind("vrf1", true));
 }
 
+//Create a remote route with ECMP component NH in order A,B and C
+//Enqueue change for the same route in different order of composite NH
+//verify that nexthop doesnt change
+TEST_F(CfgTest, EcmpNH_15) {
+    AddVrf("vrf2");
+    client->WaitForIdle();
+
+    Ip4Address remote_vm_ip = Ip4Address::from_string("1.1.1.1");
+    Ip4Address remote_server_ip1 = Ip4Address::from_string("10.10.10.100");
+    Ip4Address remote_server_ip2 = Ip4Address::from_string("10.10.10.101");
+    Ip4Address remote_server_ip3 = Ip4Address::from_string("10.10.10.102");
+    //Create component NH list
+    //Transition remote VM route to ECMP route
+    ComponentNHKeyPtr nh_data1(new ComponentNHKey(15, agent_->fabric_vrf_name(),
+                                                  agent_->router_id(),
+                                                  remote_server_ip1,
+                                                  false,
+                                                  TunnelType::DefaultType()));
+    ComponentNHKeyPtr nh_data2(new ComponentNHKey(20,
+                                                  agent_->fabric_vrf_name(),
+                                                  agent_->router_id(),
+                                                  remote_server_ip2,
+                                                  false,
+                                                  TunnelType::DefaultType()));
+    ComponentNHKeyPtr nh_data3(new ComponentNHKey(25,
+                                                  agent_->fabric_vrf_name(),
+                                                  agent_->router_id(),
+                                                  remote_server_ip3,
+                                                  false,
+                                                  TunnelType::DefaultType()));
+
+    ComponentNHKeyList comp_nh_list;
+    //Insert new NH first and then existing route NH
+    comp_nh_list.push_back(nh_data1);
+    comp_nh_list.push_back(nh_data2);
+    comp_nh_list.push_back(nh_data3);
+
+    SecurityGroupList sg_list;
+    EcmpTunnelRouteAdd(NULL, "vrf2", remote_vm_ip, 32,
+                        comp_nh_list, -1, "vn2", sg_list, PathPreference());
+    client->WaitForIdle();
+    Inet4UnicastRouteEntry *rt = RouteGet("vrf2", remote_vm_ip, 32);
+    EXPECT_TRUE(rt != NULL);
+    const NextHop *nh = rt->GetActiveNextHop();
+    EXPECT_TRUE(nh->GetType() == NextHop::COMPOSITE);
+
+    const CompositeNH *comp_nh = static_cast<const CompositeNH *>(nh);
+    EXPECT_TRUE(comp_nh->ComponentNHCount() == 3);
+
+    //Verify all the component NH have right label and nexthop
+    ComponentNHList::const_iterator component_nh_it =
+        comp_nh->begin();
+    const TunnelNH *tun_nh1 = static_cast<const TunnelNH *>
+        ((*component_nh_it)->nh());
+    EXPECT_TRUE(*tun_nh1->GetDip() == remote_server_ip1);
+    EXPECT_TRUE((*component_nh_it)->label() == 15);
+
+    component_nh_it++;
+    tun_nh1 = static_cast<const TunnelNH *>((*component_nh_it)->nh());
+    EXPECT_TRUE(*tun_nh1->GetDip() == remote_server_ip2);
+    EXPECT_TRUE((*component_nh_it)->label() == 20);
+
+    component_nh_it++;
+    tun_nh1 = static_cast<const TunnelNH *>((*component_nh_it)->nh());
+    EXPECT_TRUE(*tun_nh1->GetDip() == remote_server_ip3);
+    EXPECT_TRUE((*component_nh_it)->label() == 25);
+
+    //Enqueue route change in different order
+    comp_nh_list.clear();
+    comp_nh_list.push_back(nh_data2);
+    comp_nh_list.push_back(nh_data3);
+    comp_nh_list.push_back(nh_data1);
+
+    EcmpTunnelRouteAdd(NULL, "vrf2", remote_vm_ip, 32,
+                        comp_nh_list, -1, "vn2", sg_list, PathPreference());
+    client->WaitForIdle();
+    rt = RouteGet("vrf2", remote_vm_ip, 32);
+    EXPECT_TRUE(rt != NULL);
+    nh = rt->GetActiveNextHop();
+    EXPECT_TRUE(nh->GetType() == NextHop::COMPOSITE);
+
+    comp_nh = static_cast<const CompositeNH *>(nh);
+    EXPECT_TRUE(comp_nh->ComponentNHCount() == 3);
+
+    //Verify all the component NH have right label and nexthop
+    component_nh_it = comp_nh->begin();
+    tun_nh1 = static_cast<const TunnelNH *>((*component_nh_it)->nh());
+    EXPECT_TRUE(*tun_nh1->GetDip() == remote_server_ip1);
+    EXPECT_TRUE((*component_nh_it)->label() == 15);
+
+    component_nh_it++;
+    tun_nh1 = static_cast<const TunnelNH *>((*component_nh_it)->nh());
+    EXPECT_TRUE(*tun_nh1->GetDip() == remote_server_ip2);
+    EXPECT_TRUE((*component_nh_it)->label() == 20);
+
+    component_nh_it++;
+    tun_nh1 = static_cast<const TunnelNH *>((*component_nh_it)->nh());
+    EXPECT_TRUE(*tun_nh1->GetDip() == remote_server_ip3);
+    EXPECT_TRUE((*component_nh_it)->label() == 25);
+
+    comp_nh_list.clear();
+    comp_nh_list.push_back(nh_data3);
+    comp_nh_list.push_back(nh_data2);
+    comp_nh_list.push_back(nh_data1);
+
+    EcmpTunnelRouteAdd(NULL, "vrf2", remote_vm_ip, 32,
+                        comp_nh_list, -1, "vn2", sg_list, PathPreference());
+    client->WaitForIdle();
+    rt = RouteGet("vrf2", remote_vm_ip, 32);
+    EXPECT_TRUE(rt != NULL);
+    nh = rt->GetActiveNextHop();
+    EXPECT_TRUE(nh->GetType() == NextHop::COMPOSITE);
+
+    comp_nh = static_cast<const CompositeNH *>(nh);
+    EXPECT_TRUE(comp_nh->ComponentNHCount() == 3);
+
+    //Verify all the component NH have right label and nexthop
+    component_nh_it = comp_nh->begin();
+    tun_nh1 = static_cast<const TunnelNH *>((*component_nh_it)->nh());
+    EXPECT_TRUE(*tun_nh1->GetDip() == remote_server_ip1);
+    EXPECT_TRUE((*component_nh_it)->label() == 15);
+
+    component_nh_it++;
+    tun_nh1 = static_cast<const TunnelNH *>((*component_nh_it)->nh());
+    EXPECT_TRUE(*tun_nh1->GetDip() == remote_server_ip2);
+    EXPECT_TRUE((*component_nh_it)->label() == 20);
+
+    component_nh_it++;
+    tun_nh1 = static_cast<const TunnelNH *>((*component_nh_it)->nh());
+    EXPECT_TRUE(*tun_nh1->GetDip() == remote_server_ip3);
+    EXPECT_TRUE((*component_nh_it)->label() == 25);
+
+    agent_->fabric_inet4_unicast_table()->DeleteReq(NULL, "vrf2",
+                                                    remote_vm_ip, 32, NULL);
+    DelVrf("vrf2");
+    WAIT_FOR(100, 1000, (VrfFind("vrf2") == false));
+    client->WaitForIdle();
+    EXPECT_FALSE(VrfFind("vrf2"));
+}
+
+//Create a composite NH with one interface NH which is not present
+//Add the interface, trigger route change and verify that component NH
+//list get populated
+TEST_F(CfgTest, EcmpNH_16) {
+    AddVrf("vrf2");
+    client->WaitForIdle();
+    Ip4Address remote_vm_ip = Ip4Address::from_string("1.1.1.1");
+    //Transition remote VM route to ECMP route
+    ComponentNHKeyPtr nh_data1(new ComponentNHKey(15, MakeUuid(1),
+                                                  InterfaceNHFlags::INET4));
+    ComponentNHKeyList comp_nh_list;
+    //Insert new NH first and then existing route NH
+    comp_nh_list.push_back(nh_data1);
+    SecurityGroupList sg_list;
+    EcmpTunnelRouteAdd(NULL, "vrf2", remote_vm_ip, 32,
+                        comp_nh_list, -1, "vn2", sg_list, PathPreference());
+    client->WaitForIdle();
+
+    //Nexthop is not found, hence component NH count is 0
+    Inet4UnicastRouteEntry *rt = RouteGet("vrf2", remote_vm_ip, 32);
+    EXPECT_TRUE(rt != NULL);
+    const NextHop *nh = rt->GetActiveNextHop();
+    EXPECT_TRUE(nh->GetType() == NextHop::COMPOSITE);
+
+    const CompositeNH *comp_nh = static_cast<const CompositeNH *>(nh);
+    EXPECT_TRUE(comp_nh->ComponentNHCount() == 1);
+    //Verify all the component NH have right label and nexthop
+    ComponentNHList::const_iterator component_nh_it =
+        comp_nh->begin();
+    EXPECT_TRUE(*component_nh_it == NULL);
+
+    //Add interface
+    struct PortInfo input[] = {
+        {"vnet1", 1, "1.1.1.1", "00:00:00:01:01:01", 1, 1},
+    };
+    CreateVmportEnv(input, 1);
+    client->WaitForIdle();
+
+    client->NextHopReset();
+    EcmpTunnelRouteAdd(NULL, "vrf2", remote_vm_ip, 32,
+            comp_nh_list, -1, "vn2", sg_list, PathPreference());
+    client->WaitForIdle();
+
+    EXPECT_TRUE(client->CompositeNHWait(1));
+    //Nexthop is not found, hence component NH count is 0
+    rt = RouteGet("vrf2", remote_vm_ip, 32);
+    EXPECT_TRUE(rt != NULL);
+    nh = rt->GetActiveNextHop();
+    EXPECT_TRUE(nh->GetType() == NextHop::COMPOSITE);
+    comp_nh = static_cast<const CompositeNH *>(nh);
+    EXPECT_TRUE(comp_nh->ComponentNHCount() == 1);
+    component_nh_it = comp_nh->begin();
+    EXPECT_TRUE(*component_nh_it != NULL);
+    EXPECT_TRUE((*component_nh_it)->nh()->GetType() == NextHop::INTERFACE);
+
+    DeleteVmportEnv(input, 1, true);
+    agent_->fabric_inet4_unicast_table()->DeleteReq(NULL, "vrf2",
+            remote_vm_ip, 32, NULL);
+    DelVrf("vrf2");
+    WAIT_FOR(100, 1000, (VrfFind("vrf2") == false));
+    WAIT_FOR(100, 1000, (VrfFind("vrf1") == false));
+    client->WaitForIdle();
+    EXPECT_FALSE(VrfFind("vrf2"));
+}
+
 TEST_F(CfgTest, TunnelType_1) {
     AddEncapList("MPLSoGRE", NULL, NULL);
     client->WaitForIdle();

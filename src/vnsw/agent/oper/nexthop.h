@@ -1145,8 +1145,7 @@ public:
     CompositeNH(COMPOSITETYPE type, bool policy,
         const ComponentNHKeyList &component_nh_key_list, VrfEntry *vrf):
         NextHop(COMPOSITE, policy), composite_nh_type_(type),
-        component_nh_key_list_(component_nh_key_list), vrf_(vrf),
-        nh_list_populated_(false) {
+        component_nh_key_list_(component_nh_key_list), vrf_(vrf) {
     }
 
     virtual ~CompositeNH() { };
@@ -1242,7 +1241,6 @@ private:
     ComponentNHKeyList component_nh_key_list_;
     ComponentNHList component_nh_list_;
     VrfEntryRef vrf_;
-    bool nh_list_populated_; //specifies if nexthop list is populated or not
     DISALLOW_COPY_AND_ASSIGN(CompositeNH);
 };
 
