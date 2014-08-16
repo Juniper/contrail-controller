@@ -71,6 +71,7 @@ class DiscoveryServer():
             'policy_fi': 0,
             'db_upd_hb': 0,
             'throttle_subs':0,
+            '503': 0,
         }
         self._ts_use = 1
         self.short_ttl_map = {}
@@ -328,6 +329,7 @@ class DiscoveryServer():
             try:
                 return func(*args,**kwargs)
             except disc_exceptions.ServiceUnavailable:
+                self._debug['503'] += 1
                 bottle.abort(503, 'Service Unavailable')
             except Exception as e:
                 raise
@@ -417,7 +419,7 @@ class DiscoveryServer():
                 'ts_created': int(time.time()),
                 'prov_state': 'new',
                 'remote': bottle.request.environ.get('REMOTE_ADDR'),
-                'sequence': int(time.time()),
+                'sequence': str(int(time.time())) + socket.gethostname(),
             }
             self._db_conn.insert_service(service_type, sig, entry)
 
