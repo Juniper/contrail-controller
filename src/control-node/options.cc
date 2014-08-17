@@ -57,10 +57,10 @@ void Options::Initialize(EventManager &evm,
         ("version", "Display version information")
     ;
 
-    uint16_t default_bgp_port = ContrailPorts::ControlBgp;
-    uint16_t default_http_server_port = ContrailPorts::HttpPortControl;
-    uint16_t default_xmpp_port = ContrailPorts::ControlXmpp;
-    uint16_t default_discovery_port = ContrailPorts::DiscoveryServerPort;
+    uint16_t default_bgp_port = ContrailPorts::ControlBgp();
+    uint16_t default_http_server_port = ContrailPorts::HttpPortControl();
+    uint16_t default_xmpp_port = ContrailPorts::ControlXmpp();
+    uint16_t default_discovery_port = ContrailPorts::DiscoveryServerPort();
 
     default_collector_server_list_.push_back("127.0.0.1:8086");
 

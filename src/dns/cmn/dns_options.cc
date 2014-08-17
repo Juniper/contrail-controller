@@ -49,9 +49,9 @@ void Options::Initialize(EventManager &evm,
         ("version", "Display version information")
     ;
 
-    uint16_t default_dns_server_port = ContrailPorts::DnsServerPort;
-    uint16_t default_http_server_port = ContrailPorts::HttpPortDns;
-    uint16_t default_discovery_port = ContrailPorts::DiscoveryServerPort;
+    uint16_t default_dns_server_port = ContrailPorts::DnsServerPort();
+    uint16_t default_http_server_port = ContrailPorts::HttpPortDns();
+    uint16_t default_discovery_port = ContrailPorts::DiscoveryServerPort();
 
     default_collector_server_list_.push_back("127.0.0.1:8086");
 

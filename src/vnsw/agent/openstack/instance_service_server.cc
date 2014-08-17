@@ -462,7 +462,7 @@ void InstanceInfoServiceServerInit(Agent *agent) {
     boost::shared_ptr<apache::thrift::async::TAsioServer> server(
         new apache::thrift::async::TAsioServer(
             *(agent->event_manager()->io_service()),
-            ContrailPorts::NovaVifVrouterAgentPort,
+            ContrailPorts::NovaVifVrouterAgentPort(),
             protocolFactory,
             protocolFactory,
             processor));

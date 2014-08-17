@@ -16,10 +16,10 @@
 using namespace std;
 using namespace boost::asio::ip;
 
-static uint16_t default_bgp_port = ContrailPorts::ControlBgp;
-static uint16_t default_http_server_port = ContrailPorts::HttpPortControl;
-static uint16_t default_xmpp_port = ContrailPorts::ControlXmpp;
-static uint16_t default_discovery_port = ContrailPorts::DiscoveryServerPort;
+static uint16_t default_bgp_port = ContrailPorts::ControlBgp();
+static uint16_t default_http_server_port = ContrailPorts::HttpPortControl();
+static uint16_t default_xmpp_port = ContrailPorts::ControlXmpp();
+static uint16_t default_discovery_port = ContrailPorts::DiscoveryServerPort();
 
 class OptionsTest : public ::testing::Test {
 protected:

@@ -50,10 +50,10 @@ void Options::Initialize(EventManager &evm,
         ("version", "Display version information")
     ;
 
-    uint16_t default_redis_port = ContrailPorts::RedisUvePort;
-    uint16_t default_collector_port = ContrailPorts::CollectorPort;
-    uint16_t default_http_server_port = ContrailPorts::HttpPortCollector;
-    uint16_t default_discovery_port = ContrailPorts::DiscoveryServerPort;
+    uint16_t default_redis_port = ContrailPorts::RedisUvePort();
+    uint16_t default_collector_port = ContrailPorts::CollectorPort();
+    uint16_t default_http_server_port = ContrailPorts::HttpPortCollector();
+    uint16_t default_discovery_port = ContrailPorts::DiscoveryServerPort();
 
     vector<string> default_cassandra_server_list;
     default_cassandra_server_list.push_back("127.0.0.1:9160");
