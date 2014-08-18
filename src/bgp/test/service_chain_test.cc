@@ -93,7 +93,10 @@ private:
 class ServiceChainTest : public ::testing::Test {
 protected:
     ServiceChainTest()
-        : bgp_server_(new BgpServer(&evm_)) {
+        : bgp_server_(new BgpServer(&evm_)),
+          ri_mgr_(NULL),
+          connected_table_(NULL),
+          connected_rt_is_inetvpn_(false) {
         IFMapLinkTable_Init(&config_db_, &config_graph_);
         bgp_schema_Server_ModuleInit(&config_db_, &config_graph_);
         vnc_cfg_Server_ModuleInit(&config_db_, &config_graph_);
@@ -150,6 +153,7 @@ protected:
     }
     void AddInetRoute(IPeer *peer, const string &instance_name,
                       const string &prefix, int localpref, 
+                      std::vector<uint32_t> commlist = std::vector<uint32_t>(),
                       std::vector<uint32_t> sglist = std::vector<uint32_t>(),
                       std::set<string> encap = std::set<string>(),
                       string nexthop="7.8.9.1", 
@@ -171,6 +175,12 @@ protected:
                 new BgpAttrNextHop(chain_addr.to_v4().to_ulong()));
         attr_spec.push_back(nexthop_attr.get());
 
+        CommunitySpec comm;
+        if (!commlist.empty()) {
+            comm.communities = commlist;
+            attr_spec.push_back(&comm);
+        }
+
         ExtCommunitySpec ext_comm;
         for(std::vector<uint32_t>::iterator it = sglist.begin(); 
             it != sglist.end(); it++) {
@@ -186,7 +196,6 @@ protected:
         TASK_UTIL_EXPECT_NE(0, rti->virtual_network_index());
         OriginVn origin_vn(0, rti->virtual_network_index());
         ext_comm.communities.push_back(origin_vn.GetExtCommunityValue());
-
         attr_spec.push_back(&ext_comm);
 
         BgpAttrPtr attr = bgp_server_->attr_db()->Locate(attr_spec);
@@ -257,7 +266,7 @@ protected:
         RouteTarget target = *(rtinstance->GetExportList().begin());
         uint64_t extcomm_value = get_value(target.GetExtCommunity().begin(), 8);
         ExtCommunitySpec extcomm_spec;
-	    extcomm_spec.communities.push_back(extcomm_value);
+        extcomm_spec.communities.push_back(extcomm_value);
         for(std::vector<uint32_t>::iterator it = sglist.begin(); 
             it != sglist.end(); it++) {
             SecurityGroup sgid(0, *it);
@@ -272,7 +281,6 @@ protected:
         TASK_UTIL_EXPECT_NE(0, rti->virtual_network_index());
         OriginVn origin_vn(0, rti->virtual_network_index());
         extcomm_spec.communities.push_back(origin_vn.GetExtCommunityValue());
- 
         attr_spec.push_back(&extcomm_spec);
 
         BgpAttrPtr attr = bgp_server_->attr_db()->Locate(attr_spec);
@@ -377,8 +385,8 @@ protected:
             AddInetVpnRoute(peer, connected_table_, prefix,
                     localpref, sglist, encap, nexthop, flags, label);
         } else {
-            AddInetRoute(peer, connected_table_, prefix,
-                    localpref, sglist, encap, nexthop, flags, label);
+            AddInetRoute(peer, connected_table_, prefix, localpref,
+                vector<uint32_t>(), sglist, encap, nexthop, flags, label);
         }
     }
 
@@ -2131,6 +2139,79 @@ TEST_P(ServiceChainParamTest, ExtConnectRoute) {
 
 //
 // 1. Create Service Chain with 192.168.1.0/24 as vn subnet
+// 2. Add MX leaked route 10.1.1.0/24
+// 3. Add connected route
+// 4. Verify that ext connect route 10.1.1.0/24 is added
+// 5. Change ext connected route to have NO_ADVERTISE community
+// 6. Verify that ext connect route is removed
+// 7. Change ext connected route to not have NO_ADVERTISE community
+// 8. Verify that ext connect route 10.1.1.0/24 is added
+//
+TEST_P(ServiceChainParamTest, ExtConnectRouteNoAdvertiseCommunity) {
+    vector<string> instance_names = list_of("blue")("blue-i1")("red-i2")("red");
+    multimap<string, string> connections =
+        map_list_of("blue", "blue-i1") ("red-i2", "red");
+    NetworkConfig(instance_names, connections);
+    VerifyNetworkConfig(instance_names);
+
+    std::auto_ptr<autogen::ServiceChainInfo> params =
+        GetChainConfig("controller/src/bgp/testdata/service_chain_1.xml");
+
+    // Service Chain Info
+    ifmap_test_util::IFMapMsgPropertyAdd(&config_db_, "routing-instance",
+                                         "blue-i1",
+                                         "service-chain-information",
+                                         params.release(),
+                                         0);
+    task_util::WaitForIdle();
+
+    // Add Ext connect route
+    AddInetRoute(NULL, "red", "10.1.1.0/24", 100);
+    task_util::WaitForIdle();
+
+    // Add Connected
+    AddConnectedRoute(NULL, "1.1.2.3/32", 100, "2.3.4.5");
+    task_util::WaitForIdle();
+
+    // Check for ExtConnect route
+    TASK_UTIL_WAIT_NE_NO_MSG(InetRouteLookup("blue", "10.1.1.0/24"),
+                             NULL, 1000, 10000,
+                             "Wait for ExtConnect route in blue..");
+
+    // Change Ext connect route to have NO_ADVERTISE community
+    std::vector<uint32_t> commlist = list_of(Community::NoAdvertise);
+    AddInetRoute(NULL, "red", "10.1.1.0/24", 100, commlist);
+    task_util::WaitForIdle();
+
+    // Check for ExtConnect route
+    TASK_UTIL_WAIT_EQ_NO_MSG(InetRouteLookup("blue", "10.1.1.0/24"),
+                             NULL, 1000, 10000,
+                             "Wait for Ext connect route in blue..");
+
+    // Change Ext connect route to not have NO_ADVERTISE community
+    AddInetRoute(NULL, "red", "10.1.1.0/24", 100);
+    task_util::WaitForIdle();
+
+    // Check for ExtConnect route
+    TASK_UTIL_WAIT_NE_NO_MSG(InetRouteLookup("blue", "10.1.1.0/24"),
+                             NULL, 1000, 10000,
+                             "Wait for ExtConnect route in blue..");
+
+    BgpRoute *ext_rt = InetRouteLookup("blue", "10.1.1.0/24");
+    const BgpPath *ext_path = ext_rt->BestPath();
+    EXPECT_EQ("2.3.4.5", BgpPath::PathIdString(ext_path->GetPathId()));
+    BgpAttrPtr attr = ext_path->GetAttr();
+    EXPECT_EQ(attr->nexthop().to_v4().to_string(), "2.3.4.5");
+    EXPECT_EQ(GetOriginVnFromRoute(ext_path), "red");
+
+    // Delete ExtRoute and connected route
+    DeleteInetRoute(NULL, "red", "10.1.1.0/24");
+    DeleteConnectedRoute(NULL, "1.1.2.3/32");
+    task_util::WaitForIdle();
+}
+
+//
+// 1. Create Service Chain with 192.168.1.0/24 as vn subnet
 // 2. Add connected route
 // 3. Add VM route 192.168.1.1/32
 // 4. Add MX leaked route 10.1.1.0/24
@@ -2824,7 +2905,8 @@ TEST_P(ServiceChainParamTest, ServiceChainRouteSGID) {
     std::vector<uint32_t> sgid_list_ext = list_of(13)(14)(15)(16);
 
     // Add Ext connect route
-    AddInetRoute(NULL, "red", "10.1.1.0/24", 100, sgid_list_ext);
+    AddInetRoute(NULL, "red", "10.1.1.0/24", 100, vector<uint32_t>(),
+        sgid_list_ext);
     task_util::WaitForIdle();
 
     // Add Connected
@@ -2833,10 +2915,12 @@ TEST_P(ServiceChainParamTest, ServiceChainRouteSGID) {
     task_util::WaitForIdle();
 
     // Add more specific
-    AddInetRoute(NULL, "red", "192.168.1.1/32", 100, sgid_list_more_specific_1);
+    AddInetRoute(NULL, "red", "192.168.1.1/32", 100, vector<uint32_t>(),
+        sgid_list_more_specific_1);
     task_util::WaitForIdle();
 
-    AddInetRoute(NULL, "red", "192.168.1.2/32", 100, sgid_list_more_specific_2);
+    AddInetRoute(NULL, "red", "192.168.1.2/32", 100, vector<uint32_t>(),
+        sgid_list_more_specific_2);
     task_util::WaitForIdle();
 
     // Check for More specific routes leaked in src rtinstance
@@ -2930,7 +3014,8 @@ TEST_P(ServiceChainParamTest, ServiceChainRouteUpdateSGID) {
     std::vector<uint32_t> sgid_list_ext = list_of(13)(14)(15)(16);
 
     // Add Ext connect route
-    AddInetRoute(NULL, "red", "10.1.1.0/24", 100, sgid_list_ext);
+    AddInetRoute(NULL, "red", "10.1.1.0/24", 100, vector<uint32_t>(),
+        sgid_list_ext);
     task_util::WaitForIdle();
 
     // Add Connected
@@ -2939,10 +3024,12 @@ TEST_P(ServiceChainParamTest, ServiceChainRouteUpdateSGID) {
     task_util::WaitForIdle();
 
     // Add more specific
-    AddInetRoute(NULL, "red", "192.168.1.1/32", 100, sgid_list_more_specific_1);
+    AddInetRoute(NULL, "red", "192.168.1.1/32", 100, vector<uint32_t>(),
+        sgid_list_more_specific_1);
     task_util::WaitForIdle();
 
-    AddInetRoute(NULL, "red", "192.168.1.2/32", 100, sgid_list_more_specific_2);
+    AddInetRoute(NULL, "red", "192.168.1.2/32", 100, vector<uint32_t>(),
+        sgid_list_more_specific_2);
     task_util::WaitForIdle();
 
     // Check for More specific routes leaked in src rtinstance
@@ -2998,7 +3085,8 @@ TEST_P(ServiceChainParamTest, ServiceChainRouteUpdateSGID) {
     EXPECT_EQ(GetOriginVnFromRoute(ext_path), "red");
 
     // Update Ext connect route with different SGID list
-    AddInetRoute(NULL, "red", "10.1.1.0/24", 100, sgid_list_more_specific_1);
+    AddInetRoute(NULL, "red", "10.1.1.0/24", 100, vector<uint32_t>(),
+        sgid_list_more_specific_1);
     task_util::WaitForIdle();
 
     // Add Connected
@@ -3007,10 +3095,12 @@ TEST_P(ServiceChainParamTest, ServiceChainRouteUpdateSGID) {
     task_util::WaitForIdle();
 
     // Add more specific
-    AddInetRoute(NULL, "red", "192.168.1.1/32", 100, sgid_list_ext);
+    AddInetRoute(NULL, "red", "192.168.1.1/32", 100, vector<uint32_t>(),
+        sgid_list_ext);
     task_util::WaitForIdle();
 
-    AddInetRoute(NULL, "red", "192.168.1.2/32", 100, sgid_list_connected);
+    AddInetRoute(NULL, "red", "192.168.1.2/32", 100, vector<uint32_t>(),
+        sgid_list_connected);
     task_util::WaitForIdle();
 
     // Check for More specific routes leaked in src rtinstance
@@ -3091,7 +3181,8 @@ TEST_P(ServiceChainParamTest, ValidateTunnelEncapAggregate) {
 
     set<string> encap_more_specific = list_of("udp");
     // Add More specific
-    AddInetRoute(NULL, "red", "192.168.1.1/32", 100, vector<uint32_t>(), encap_more_specific);
+    AddInetRoute(NULL, "red", "192.168.1.1/32", 100, vector<uint32_t>(),
+        vector<uint32_t>(), encap_more_specific);
     task_util::WaitForIdle();
 
     set<string> encap = list_of("vxlan");
@@ -3163,7 +3254,8 @@ TEST_P(ServiceChainParamTest, ValidateTunnelEncapExtRoute) {
 
     // Add Ext connect route
     set<string> encap_ext = list_of("vxlan");
-    AddInetRoute(NULL, "red", "10.1.1.0/24", 100, vector<uint32_t>(), encap_ext);
+    AddInetRoute(NULL, "red", "10.1.1.0/24", 100, vector<uint32_t>(),
+        vector<uint32_t>(), encap_ext);
     task_util::WaitForIdle();
 
     // Add Connected
