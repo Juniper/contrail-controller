@@ -36,7 +36,7 @@ LineParser::ParseDoc(Iterator start, Iterator end) {
     qi::rule<Iterator, std::string(), ascii::space_type> num =
         lexeme[ +(char_(L'0', L'1')) ];
     qi::rule<Iterator, std::string(), ascii::space_type> word =
-        lexeme[ +(char_ - ' ' - ':') ];
+        lexeme[ +(char_ - ' ' - ':' - ',') ];
     qi::rule<Iterator, std::string(), ascii::space_type> word2 =
         '\'' >> lexeme[ +(char_ - '\'') ] >> '\'';
     qi::rule<Iterator, std::string(), ascii::space_type> word3 =
