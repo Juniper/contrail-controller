@@ -2071,7 +2071,8 @@ class DBInterface(object):
                 port_obj.set_virtual_machine_interface_allowed_address_pairs(None)
 
         if 'fixed_ips' in port_q:
-            net_id = port_q['network_id']
+            net_id = (port_q.get('network_id') or
+                      port_obj.get_virtual_network_refs()[0]['uuid'])
             for fixed_ip in port_q.get('fixed_ips', []):
                 if 'ip_address' in fixed_ip:
                     ip_addr = fixed_ip['ip_address']
