@@ -699,6 +699,7 @@ class VncApiServer(VncApiServerGen):
             'admin_user': '',
             'admin_password': '',
             'admin_tenant_name': '',
+            'insecure': True
         }
 
         config = None

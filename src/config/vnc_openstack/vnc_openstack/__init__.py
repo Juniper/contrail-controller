@@ -33,41 +33,44 @@ Q_DELETE = 'delete'
 Q_MAX_ITEMS = 1000
 
 
-def get_keystone_opts(conf_sections):
-    auth_user = conf_sections.get('KEYSTONE', 'admin_user')
-    auth_passwd = conf_sections.get('KEYSTONE', 'admin_password')
-    admin_token = conf_sections.get('KEYSTONE', 'admin_token')
-    admin_tenant = conf_sections.get('KEYSTONE', 'admin_tenant_name')
+def fill_keystone_opts(obj, conf_sections):
+    obj._auth_user = conf_sections.get('KEYSTONE', 'admin_user')
+    obj._auth_passwd = conf_sections.get('KEYSTONE', 'admin_password')
+    obj._admin_token = conf_sections.get('KEYSTONE', 'admin_token')
+    obj._admin_tenant = conf_sections.get('KEYSTONE', 'admin_tenant_name')
     try:
-        keystone_sync_on_demand = conf_sections.getboolean('KEYSTONE',
+        obj._keystone_sync_on_demand = conf_sections.getboolean('KEYSTONE',
                                                'keystone_sync_on_demand')
     except ConfigParser.NoOptionError:
-        keystone_sync_on_demand = True
+        obj._keystone_sync_on_demand = True
 
     try:
-        auth_url = conf_sections.get('KEYSTONE', 'auth_url')
+        obj._insecure = conf_sections.getboolean('KEYSTONE', 'insecure')
+    except NoOptionError as e:
+        obj._insecure = True
+
+    try:
+        obj._auth_url = conf_sections.get('KEYSTONE', 'auth_url')
     except ConfigParser.NoOptionError:
         # deprecated knobs - for backward compat
-        auth_proto = conf_sections.get('KEYSTONE', 'auth_protocol')
-        auth_host = conf_sections.get('KEYSTONE', 'auth_host')
-        auth_port = conf_sections.get('KEYSTONE', 'auth_port')
-        auth_url = "%s://%s:%s/v2.0" % (auth_proto, auth_host, auth_port)
+        obj._auth_proto = conf_sections.get('KEYSTONE', 'auth_protocol')
+        obj._auth_host = conf_sections.get('KEYSTONE', 'auth_host')
+        obj._auth_port = conf_sections.get('KEYSTONE', 'auth_port')
+        obj._auth_url = "%s://%s:%s/v2.0" % (obj._auth_proto, obj._auth_host,
+                                             obj._auth_port)
 
-    return (auth_user, auth_passwd, admin_token, admin_tenant, auth_url,
-            keystone_sync_on_demand)
 
 class OpenstackDriver(vnc_plugin_base.Resync):
     def __init__(self, api_server_ip, api_server_port, conf_sections):
-        self._vnc_api_ip = api_server_ip
+        if api_server_ip == '0.0.0.0':
+            self._vnc_api_ip = '127.0.0.1'
+        else:
+            self._vnc_api_ip = api_server_ip
+
         self._vnc_api_port = api_server_port
 
         self._config_sections = conf_sections
-        (self._auth_user,
-         self._auth_passwd,
-         self._admin_token,
-         self._admin_tenant,
-         self._auth_url,
-         self._keystone_sync_on_demand) = get_keystone_opts(conf_sections)
+        fill_keystone_opts(self, conf_sections)
 
         if 'v3' in self._auth_url.split('/')[-1]:
             self._get_keystone_conn = self._ksv3_get_conn
@@ -143,12 +146,14 @@ class OpenstackDriver(vnc_plugin_base.Resync):
         if not self._ks:
             if self._admin_token:
                 self._ks = keystone.Client(token=self._admin_token,
-                                           endpoint=self._auth_url)
+                                           endpoint=self._auth_url,
+                                           insecure=self._insecure)
             else:
                 self._ks = keystone.Client(username=self._auth_user,
                                            password=self._auth_passwd,
                                            tenant_name=self._admin_tenant,
-                                           auth_url=self._auth_url)
+                                           auth_url=self._auth_url,
+                                           insecure=self._insecure)
     # end _ksv2_get_conn
 
     def _ksv2_projects_list(self):
@@ -554,15 +559,13 @@ class OpenstackDriver(vnc_plugin_base.Resync):
 
 class ResourceApiDriver(vnc_plugin_base.ResourceApi):
     def __init__(self, api_server_ip, api_server_port, conf_sections):
-        self._vnc_api_ip = api_server_ip
+        if api_server_ip == '0.0.0.0':
+            self._vnc_api_ip = '127.0.0.1'
+        else:
+            self._vnc_api_ip = api_server_ip
         self._vnc_api_port = api_server_port
         self._config_sections = conf_sections
-        (self._auth_user,
-         self._auth_passwd,
-         self._admin_token,
-         self._admin_tenant,
-         self._auth_url,
-         self._keystone_sync_on_demand) = get_keystone_opts(conf_sections)
+        fill_keystone_opts(self, conf_sections)
 
         self._vnc_lib = None
         self._openstack_drv = OpenstackDriver(api_server_ip, api_server_port, conf_sections)
