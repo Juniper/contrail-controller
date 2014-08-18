@@ -330,9 +330,11 @@ class OpServer(object):
         * ``/analytics/query/<queryId>``
         * ``/analytics/query/<queryId>/chunk-final/<chunkId>``
         * ``/analytics/send-tracebuffer/<source>/<module>/<name>``
+        * ``/analytics/operation/analytics-data-start-time``
 
     The supported **POST** APIs are:
         * ``/analytics/query``:
+        * ``/analytics/operation/database-purge``:
     """
 
     def __new__(cls, *args, **kwargs):
@@ -377,6 +379,8 @@ class OpServer(object):
         bottle.route('/analytics/tables', 'GET', obj.tables_process)
         bottle.route('/analytics/operation/database-purge',
                      'POST', obj.process_purge_request)
+        bottle.route('/analytics/operation/analytics-data-start-time',
+                     'GET', obj._get_analytics_data_start_time)
         bottle.route('/analytics/table/<table>', 'GET', obj.table_process)
         bottle.route(
             '/analytics/table/<table>/schema', 'GET', obj.table_schema_process)
@@ -608,6 +612,8 @@ class OpServer(object):
         bottle.route('/analytics/tables', 'GET', self.tables_process)
         bottle.route('/analytics/operation/database-purge',
                      'POST', self.process_purge_request)
+        bottle.route('/analytics/operation/analytics-data-start-time',
+	             'GET', self._get_analytics_data_start_time)
         bottle.route('/analytics/table/<table>', 'GET', self.table_process)
         bottle.route('/analytics/table/<table>/schema',
                      'GET', self.table_schema_process)
@@ -1511,6 +1517,12 @@ class OpServer(object):
         self._logger.info("purge_id %s purging DONE" % str(purge_id))
         self._db_purge_running = False
         #end db_purge_operation
+
+    def _get_analytics_data_start_time(self):
+        analytics_start_time = self._analytics_db._get_analytics_start_time()
+        response = {'analytics_data_start_time': analytics_start_time}
+        return bottle.HTTPResponse(json.dumps(response), 200, {'Content-type': 'application/json'})
+    # end _get_analytics_data_start_time
 
     def table_process(self, table):
         (ok, result) = self._get_common(bottle.request)
