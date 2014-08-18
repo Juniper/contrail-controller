@@ -772,6 +772,12 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
 <!--#IFMAP-SEMANTICS-IDL
      Property('vrf-assign-table', 'virtual-machine-interface') -->
 
+<xsd:element name="virtual-machine-interface-device-owner"
+                                                type="xsd:string"/>
+<!--#IFMAP-SEMANTICS-IDL
+     Property('virtual-machine-interface-device-owner',
+             'virtual-machine-interface') -->
+
 <xsd:simpleType name="ServiceInterfaceType">
     <xsd:restriction base="xsd:string">
         <xsd:enumeration value="management"/>
@@ -1137,6 +1143,7 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
      Property('interface-route-table-routes', 'interface-route-table') -->
 
 <xsd:element name="logical-router" type="ifmap:IdentityType"/>
+
 <xsd:element name="project-logical-router"/>
 <!--#IFMAP-SEMANTICS-IDL 
      Link('project-logical-router',
