@@ -1404,8 +1404,10 @@ class DBInterface(object):
                 addr.get_security_group() != 'local':
                 remote_sg = addr.get_security_group()
                 try:
-                    remote_sg_obj = self._vnc_lib.security_group_read(
-                        fq_name_str=remote_sg)
+                    if remote_sg != ':'.join(sg_obj.get_fq_name()):
+                        remote_sg_obj = self._vnc_lib.security_group_read(fq_name_str=remote_sg)
+                    else:
+                        remote_sg_obj = sg_obj
                     remote_sg_uuid = remote_sg_obj.uuid
                 except NoIdError:
                     pass
