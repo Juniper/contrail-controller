@@ -398,6 +398,11 @@ class VirtualNetworkServer(VirtualNetworkServerGen):
         if not read_ok:
             return (False, (500, read_result))
 
+        (ok, result) = cls.addr_mgmt.net_check_gw_within_subnet(read_result,
+                                                                obj_dict)
+        if not ok:
+            return (ok, (409, result))
+
         (ok, result) = cls.addr_mgmt.net_check_subnet_quota(read_result,
                                                             obj_dict, db_conn)
         if not ok:
