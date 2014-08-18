@@ -118,6 +118,7 @@ void IFMapDependencyManager::Initialize() {
     IFMapDependencyTracker::NodeEventPolicy *policy = tracker_->policy_map();
 
     ReactionMap react_si = map_list_of<string, PropagateList>
+            ("loadbalancer-pool-service-instance", list_of("self"))
             ("service-instance-service-template", list_of("self"))
             ("virtual-machine-service-instance", list_of("self"))
             ("self", list_of("self"));
@@ -164,7 +165,7 @@ void IFMapDependencyManager::Initialize() {
     ReactionMap react_lb_pool = map_list_of<string, PropagateList>
             ("loadbalancer-pool-loadbalancer-healthmonitor", list_of("self"))
             ("loadbalancer-pool-loadbalancer-member", list_of("self"))
-            ("self", list_of("self"))
+            ("self", list_of("self")("loadbalancer-pool-service-instance"))
             ("virtual-ip-loadbalancer-pool", list_of("self"));
     policy->insert(make_pair("loadbalancer-pool", react_lb_pool));
 
