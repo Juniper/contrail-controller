@@ -97,18 +97,18 @@ class VncProvisioner(object):
         parser.set_defaults(**defaults)
 
         parser.add_argument(
-            "--public_vn_name", help="Colon separated fully qualified name")
+            "--public_vn_name", help="Colon separated fully qualified name", required=True)
         parser.add_argument(
-            "--floating_ip_pool_name", help="Name of the floating IP pool")
+            "--floating_ip_pool_name", help="Name of the floating IP pool", required=True)
         parser.add_argument(
-            "--api_server_ip", help="IP address of api server")
-        parser.add_argument("--api_server_port", help="Port of api server")
+            "--api_server_ip", help="IP address of api server", required=True)
+        parser.add_argument("--api_server_port", help="Port of api server", required=True)
         parser.add_argument(
-            "--admin_user", help="Name of keystone admin user")
+            "--admin_user", help="Name of keystone admin user", required=True)
         parser.add_argument(
-            "--admin_password", help="Password of keystone admin user")
+            "--admin_password", help="Password of keystone admin user", required=True)
         parser.add_argument(
-            "--admin_tenant_name", help="Tenamt name for keystone admin user")
+            "--admin_tenant_name", help="Tenamt name for keystone admin user", required=True)
 
         self._args = parser.parse_args(remaining_argv)
 

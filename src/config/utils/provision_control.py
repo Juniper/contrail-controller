@@ -96,10 +96,10 @@ class ControlProvisioner(object):
             "--host_name", help="hostname name of control-node")
         parser.add_argument("--host_ip", help="IP address of control-node")
         parser.add_argument(
-            "--router_asn", help="AS Number the control-node is in")
+            "--router_asn", help="AS Number the control-node is in", required=True)
         parser.add_argument(
-            "--api_server_ip", help="IP address of api server")
-        parser.add_argument("--api_server_port", help="Port of api server")
+            "--api_server_ip", help="IP address of api server", required=True)
+        parser.add_argument("--api_server_port", help="Port of api server", required=True)
         parser.add_argument(
             "--oper", 
             help="Provision operation to be done(add or del)")
