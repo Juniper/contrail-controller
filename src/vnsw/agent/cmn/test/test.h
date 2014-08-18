@@ -176,13 +176,13 @@ private:
 };
 
 /////////////////////////////////////////////////////////////////////////////
-// EntryB and TableB implementation
+// EntryC and TableC implementation
 /////////////////////////////////////////////////////////////////////////////
 struct EntryCKey : public AgentKey {
-    EntryCKey() : AgentKey(), id_(0), a_(NULL) { };
-    EntryCKey(int id, EntryA *a) : AgentKey(), id_(id), a_(a) { };
+    EntryCKey() : AgentKey(), id_(0), id_a_(0) { };
+    EntryCKey(int id, int id_a) : AgentKey(), id_(id), id_a_(id_a) { };
     int id_;
-    EntryA *a_;
+    int id_a_;
 };
 
 class TableC : public AgentDBTable {
@@ -201,13 +201,22 @@ public:
     virtual DBEntry *Add(const DBRequest *req) {
         EntryCKey *key = static_cast<EntryCKey *>(req->key.get());
         EntryA *entry = new EntryA(key->id_);
-        ref = key->a_;
+
+        TableA *table_a =
+            static_cast<TableA *>(database()->FindTable("db.tablea.0"));
+        EntryKey key_a(key->id_a_);
+        ref = static_cast<EntryA *>(table_a->FindActiveEntry(&key_a));
+
         return entry;
     }
 
     virtual bool OnChange(DBEntry *entry, const DBRequest *req) {
         EntryCKey *key = static_cast<EntryCKey *>(req->key.get());
-        ref = key->a_;
+
+        TableA *table_a =
+            static_cast<TableA *>(database()->FindTable("db.tablea.0"));
+        EntryKey key_a(key->id_a_);
+        ref = static_cast<EntryA *>(table_a->FindActiveEntry(&key_a));
 
         return true;
     }

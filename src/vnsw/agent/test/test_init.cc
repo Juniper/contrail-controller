@@ -224,8 +224,14 @@ void TestClient::Shutdown() {
     Agent::GetInstance()->db()->ClearFactoryRegistry();
 }
 
+static bool DeleteRoutes(TestAgentInit *init) {
+    init->DeleteRoutes();
+    return true;
+}
+
 void TestShutdown() {
     TestAgentInit *init = client->agent_init();
+    Agent *agent = Agent::GetInstance();
     client->WaitForIdle();
 
     init->IoShutdown();
@@ -234,8 +240,14 @@ void TestShutdown() {
     init->FlushFlows();
     client->WaitForIdle();
 
-    init->DeleteRoutes();
+    TaskScheduler *scheduler = TaskScheduler::GetInstance();
+    std::auto_ptr<TaskTrigger> trigger
+        (new TaskTrigger(boost::bind(&DeleteRoutes, init),
+                         scheduler->GetTaskId("db::DBTable"), 0));
+    trigger->Set();
     client->WaitForIdle();
+
+    WAIT_FOR(1000, 1000, (agent->vrf_table()->shutdown_walk() == NULL));
 
     if (Agent::GetInstance()->vgw()) {
         Agent::GetInstance()->vgw()->Shutdown();

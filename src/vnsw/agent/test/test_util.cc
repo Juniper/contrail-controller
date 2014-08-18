@@ -374,7 +374,7 @@ void IntfCfgAdd(int intf_id, const string &name, const string ipaddr,
     req.key.reset(key);
     req.data.reset(data);
     Agent::GetInstance()->interface_config_table()->Enqueue(&req);
-    usleep(1000);
+    client->WaitForIdle();
 }
 
 void IntfCfgAdd(int intf_id, const string &name, const string ipaddr,
