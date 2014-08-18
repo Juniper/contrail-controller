@@ -157,26 +157,38 @@ bool DbHandler::CreateTables() {
     return true;
 }
 
-void DbHandler::UnInit(int instance) {
-    dbif_->Db_Uninit("analytics::DbHandler", instance);
+void DbHandler::UnInit(int task_id, int instance) {
+    dbif_->Db_Uninit(task_id, instance);
     dbif_->Db_SetInitDone(false);
 }
 
-bool DbHandler::Init(bool initial, int instance) {
+void DbHandler::UnInit(int instance) {
+    int task_id =
+        TaskScheduler::GetInstance()->GetTaskId("analytics::DbHandler");
+    UnInit(task_id, instance);
+}
+
+bool DbHandler::Init(bool initial, int task_id, int instance) {
     if (initial) {
-        return Initialize(instance);
+        return Initialize(task_id, instance);
     } else {
-        return Setup(instance);
+        return Setup(task_id, instance);
     }
 }
 
-bool DbHandler::Initialize(int instance) {
+bool DbHandler::Init(bool initial, int instance) {
+    int task_id =
+        TaskScheduler::GetInstance()->GetTaskId("analytics::DbHandler");
+    return Init(initial, task_id, instance);
+}
+
+bool DbHandler::Initialize(int task_id, int instance) {
     DB_LOG(DEBUG, "Initializing..");
 
     /* init of vizd table structures */
     init_vizd_tables();
 
-    if (!dbif_->Db_Init("analytics::DbHandler", instance)) {
+    if (!dbif_->Db_Init(task_id, instance)) {
         DB_LOG(ERROR, "Connection to DB FAILED");
         return false;
     }
@@ -198,10 +210,9 @@ bool DbHandler::Initialize(int instance) {
     return true;
 }
 
-bool DbHandler::Setup(int instance) {
+bool DbHandler::Setup(int task_id, int instance) {
     DB_LOG(DEBUG, "Setup..");
-    if (!dbif_->Db_Init("analytics::DbHandler", 
-                       instance)) {
+    if (!dbif_->Db_Init(task_id, instance)) {
         DB_LOG(ERROR, "Connection to DB FAILED");
         return false;
     }

@@ -83,7 +83,9 @@ public:
 
     bool DropMessage(const SandeshHeader &header, const VizMsg *vmsg);
     bool Init(bool initial, int instance);
+    bool Init(bool initial, int task_id, int instance);
     void UnInit(int instance);
+    void UnInit(int task_id, int instance);
 
     bool AllowMessageTableInsert(const SandeshHeader &header);
     bool MessageIndexTableInsert(const std::string& cfname,
@@ -122,8 +124,8 @@ public:
 private:
     bool CreateTables();
     void SetDropLevel(size_t queue_count, SandeshLevel::type level);
-    bool Setup(int instance);
-    bool Initialize(int instance);
+    bool Setup(int task_id, int instance);
+    bool Initialize(int task_id, int instance);
     bool StatTableWrite(uint32_t t2,
         const std::string& statName, const std::string& statAttr,
         const std::pair<std::string,DbHandler::Var>& ptag,

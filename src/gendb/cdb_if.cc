@@ -546,9 +546,8 @@ CdbIf::CdbIfTypeMapDef CdbIf::CdbIfTypeMap =
 
 class CdbIf::CleanupTask : public Task {
 public:
-    CleanupTask(std::string task_id, int task_instance, CdbIf *cdbif) :
-        Task(TaskScheduler::GetInstance()->GetTaskId(task_id),
-             task_instance),
+    CleanupTask(int task_id, int task_instance, CdbIf *cdbif) :
+        Task(task_id, task_instance),
         cdbif_(cdbif) {
     }
 
@@ -572,9 +571,8 @@ private:
 
 class CdbIf::InitTask : public Task {
 public:
-    InitTask(std::string task_id, int task_instance, CdbIf *cdbif) :
-        Task(TaskScheduler::GetInstance()->GetTaskId(task_id),
-             task_instance),
+    InitTask(int task_id, int task_instance, CdbIf *cdbif) :
+        Task(task_id, task_instance),
         task_id_(task_id),
         task_instance_(task_instance),
         cdbif_(cdbif) {
@@ -587,7 +585,7 @@ public:
         }
         TaskScheduler *scheduler = TaskScheduler::GetInstance();
         cdbif_->cdbq_.reset(new CdbIfQueue(
-            scheduler->GetTaskId(task_id_), cdbif_->task_instance_,
+            task_id_, cdbif_->task_instance_,
             boost::bind(&CdbIf::Db_AsyncAddColumn, cdbif_, _1)));
         cdbif_->cdbq_->SetStartRunnerFunc(
             boost::bind(&CdbIf::Db_IsInitDone, cdbif_));
@@ -604,7 +602,7 @@ public:
     }
 
 private:
-    std::string task_id_;
+    int task_id_;
     int task_instance_;
     CdbIf *cdbif_;
 };
@@ -664,7 +662,7 @@ void CdbIf::Db_SetInitDone(bool init_done) {
     db_init_done_ = init_done;
 }
 
-bool CdbIf::Db_Init(std::string task_id, int task_instance) {
+bool CdbIf::Db_Init(int task_id, int task_instance) {
     std::ostringstream ostr;
     ostr << task_id << ":" << task_instance;
     std::string errstr(ostr.str());
@@ -700,7 +698,7 @@ bool CdbIf::Db_Init(std::string task_id, int task_instance) {
     return true;
 }
 
-void CdbIf::Db_Uninit(std::string task_id, int task_instance) {
+void CdbIf::Db_Uninit(int task_id, int task_instance) {
     std::ostringstream ostr;
     ostr << task_id << ":" << task_instance;
     std::string errstr(ostr.str());

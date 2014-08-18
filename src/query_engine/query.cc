@@ -915,7 +915,8 @@ AnalyticsQuery::AnalyticsQuery(std::string qid, std::map<std::string,
     QE_TRACE(DEBUG, "Initializing database");
     dbif = dbif_.get();
 
-    if (!dbif->Db_Init("qe::DbHandler", -1)) {
+    if (!dbif->Db_Init(
+            TaskScheduler::GetInstance()->GetTaskId("qe::DbHandler"), -1)) {
         QE_LOG(ERROR, "Database initialization failed");
         this->status_details = EIO;
     }
@@ -1015,7 +1016,8 @@ QueryEngine::QueryEngine(EventManager *evm,
     bool retry = true;
     while (retry == true) {
         retry = false;
-        if (!db_if->Db_Init("qe::DbHandler", -1)) {
+        if (!db_if->Db_Init(
+                TaskScheduler::GetInstance()->GetTaskId("qe::DbHandler"), -1)) {
             QE_LOG_NOQID(ERROR, "Database initialization failed");
             retry = true;
         }
@@ -1051,7 +1053,8 @@ QueryEngine::QueryEngine(EventManager *evm,
             std::stringstream ss;
             ss << "initialization of database failed. retrying " << retries++ << " time";
             Q_E_LOG_LOG("QeInit", SandeshLevel::SYS_WARN, ss.str());
-            db_if->Db_Uninit("qe::DbHandler", -1);
+            db_if->Db_Uninit(
+                TaskScheduler::GetInstance()->GetTaskId("qe::DbHandler"), -1);
             sleep(5);
         }
     }

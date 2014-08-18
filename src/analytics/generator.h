@@ -95,6 +95,7 @@ private:
 
     void set_state_machine(SandeshStateMachine *state_machine) {
         state_machine_ = state_machine;
+        instance_ = state_machine->task_instance();
         // Update state machine
         state_machine_->SetGeneratorKey(name_);
     }
@@ -123,6 +124,7 @@ private:
     const std::string source_;
     const std::string module_;
     const std::string name_;
+    int task_id_;
     int instance_;
 
     Timer *db_connect_timer_;

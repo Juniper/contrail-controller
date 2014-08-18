@@ -89,7 +89,8 @@ SandeshGenerator::SandeshGenerator(Collector * const collector, VizSession *sess
         source_(source),
         module_(module),
         name_(source + ":" + node_type_ + ":" + module + ":" + instance_id_),
-        instance_(session->GetSessionInstance()),
+        task_id_(state_machine->task_id()),
+        instance_(state_machine->task_instance()),
         db_connect_timer_(NULL),
         db_handler_(new DbHandler(
             collector->event_manager(), boost::bind(
@@ -107,12 +108,11 @@ SandeshGenerator::SandeshGenerator(Collector * const collector, VizSession *sess
 
 SandeshGenerator::~SandeshGenerator() {
     Delete_Db_Connect_Timer();
-    GetDbHandler()->UnInit(instance_);
+    GetDbHandler()->UnInit(task_id_, instance_);
 }
 
 void SandeshGenerator::set_session(VizSession *session) {
     viz_session_ = session;
-    instance_ = session->GetSessionInstance();
     session->set_generator(this);
 }
 
@@ -121,7 +121,7 @@ void SandeshGenerator::StartDbifReinit() {
     if (disconnected_) {
         return;
     }
-    GetDbHandler()->UnInit(instance_);
+    GetDbHandler()->UnInit(task_id_, instance_);
     Start_Db_Connect_Timer();
 }
 
@@ -141,8 +141,7 @@ void SandeshGenerator::Create_Db_Connect_Timer() {
     db_connect_timer_ = TimerManager::CreateTimer(
         *collector_->event_manager()->io_service(),
         "SandeshGenerator db connect timer: " + name_,
-        TaskScheduler::GetInstance()->GetTaskId(Collector::kDbTask),
-        instance_);
+        task_id_, instance_);
 }
 
 void SandeshGenerator::Start_Db_Connect_Timer() {
@@ -162,12 +161,12 @@ void SandeshGenerator::Delete_Db_Connect_Timer() {
 
 void SandeshGenerator::Db_Connection_Uninit() {
     GetDbHandler()->ResetDbQueueWaterMarkInfo();
-    GetDbHandler()->UnInit(instance_);
+    GetDbHandler()->UnInit(task_id_, instance_);
     Delete_Db_Connect_Timer();
 }
 
 bool SandeshGenerator::Db_Connection_Init() {
-    if (!GetDbHandler()->Init(false, instance_)) {
+    if (!GetDbHandler()->Init(false, task_id_, instance_)) {
         GENERATOR_LOG(ERROR, ": Database setup FAILED");
         return false;
     }
