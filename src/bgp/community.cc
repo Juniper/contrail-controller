@@ -48,6 +48,14 @@ void Community::Remove() {
     comm_db_->Delete(this);
 }
 
+bool Community::ContainsValue(uint32_t value) const {
+    BOOST_FOREACH(uint32_t community, communities_) {
+        if (community == value)
+            return true;
+    }
+    return false;
+}
+
 CommunityDB::CommunityDB(BgpServer *server) {
 }
 

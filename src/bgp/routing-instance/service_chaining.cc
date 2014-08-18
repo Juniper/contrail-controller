@@ -121,10 +121,14 @@ bool ServiceChain::Match(BgpServer *server, BgpTable *table,
         } else {
             // External connecting routes
             if (!deleted) {
-                if (route->BestPath() == NULL || 
-                    !route->BestPath()->IsFeasible()) {
+                if (!route->BestPath() || !route->BestPath()->IsFeasible()) {
                     deleted = true;
                 } else {
+                    const BgpAttr *attr = route->BestPath()->GetAttr();
+                    const Community *comm = attr ? attr->community() : NULL;
+                    if (comm && comm->ContainsValue(Community::NoAdvertise))
+                        deleted = true;
+
                     int vn_index = GetOriginVnIndex(route);
                     if (!vn_index || dest_->virtual_network_index() != vn_index)
                         deleted = true;
