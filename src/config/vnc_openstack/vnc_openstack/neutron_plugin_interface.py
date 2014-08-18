@@ -372,7 +372,7 @@ class NeutronPluginInterface(object):
 
         try:
             cfgdb = self._get_user_cfgdb(context)
-            net_info = cfgdb.port_create(port['resource'])
+            net_info = cfgdb.port_create(context, port['resource'])
             return net_info
         except Exception as e:
             cgitb.Hook(format="text").handle(sys.exc_info())
@@ -832,10 +832,10 @@ class NeutronPluginInterface(object):
             router_id = interface_info['id']
             if 'port_id' in interface_info['resource']:
                 port_id = interface_info['resource']['port_id']
-                return cfgdb.add_router_interface(router_id, port_id=port_id)
+                return cfgdb.add_router_interface(context, router_id, port_id=port_id)
             elif 'subnet_id' in interface_info['resource']:
                 subnet_id = interface_info['resource']['subnet_id']
-                return cfgdb.add_router_interface(router_id,
+                return cfgdb.add_router_interface(context, router_id,
                                                   subnet_id=subnet_id)
         except Exception as e:
             cgitb.Hook(format="text").handle(sys.exc_info())
