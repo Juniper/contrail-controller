@@ -63,6 +63,8 @@ public:
         DeleteVmportEnv(input, 2, true, 1);
         client->WaitForIdle();
         EXPECT_EQ(0, vnswif_->GetHostInterfaceCount());
+        WAIT_FOR(1000, 100, (VmPortFindRetDel(1) == false));
+        WAIT_FOR(1000, 100, (VmPortFindRetDel(2) == false));
     }
 
     void SetSeen(const string &ifname, bool oper) {
