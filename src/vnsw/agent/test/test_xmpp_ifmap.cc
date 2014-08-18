@@ -42,6 +42,8 @@
 #include "controller/controller_ifmap.h" 
 
 using namespace pugi;
+const char *init_file_local;
+bool ksync_init_local;
 
 void RouterIdDepInit(Agent *agent) {
 
@@ -52,10 +54,11 @@ void RouterIdDepInit(Agent *agent) {
 
 class ControlNodeMockIFMapXmppPeer {
 public:
-    ControlNodeMockIFMapXmppPeer(XmppChannel *channel) : channel_ (channel), rx_count_(0) {
+    ControlNodeMockIFMapXmppPeer(XmppChannel *channel) :
+        channel_ (channel), rx_count_(0) {
         channel->RegisterReceive(xmps::CONFIG,
-                                 boost::bind(&ControlNodeMockIFMapXmppPeer::ReceiveUpdate,
-                                 this, _1));
+                 boost::bind(&ControlNodeMockIFMapXmppPeer::ReceiveUpdate,
+                             this, _1));
     }
 
     void ReceiveUpdate(const XmppStanza::XmppMessage *msg) {
@@ -75,34 +78,74 @@ public:
     }
 
     size_t Count() const { return rx_count_; }
-    virtual ~ControlNodeMockIFMapXmppPeer() { }
+    virtual ~ControlNodeMockIFMapXmppPeer() {
+        channel_->UnRegisterReceive(xmps::CONFIG);
+        channel_ = NULL;
+    }
 private:
     XmppChannel *channel_;
     size_t rx_count_;
 };
 
 
-class AgentIFMapXmppUnitTest : public ::testing::Test { 
+class AgentIFMapXmppUnitTest : public ::testing::Test {
 protected:
     virtual void SetUp() {
-        Agent::GetInstance()->set_event_manager(&evm_);
-        thread_ = new ServerThread(Agent::GetInstance()->event_manager());
+        client = TestInit(init_file_local, ksync_init_local);
+        Agent::GetInstance()->set_controller_ifmap_xmpp_server("127.0.0.1", 0);
+
+        //Agent::GetInstance()->set_event_manager(&evm_);
+        //thread_ = new ServerThread(Agent::GetInstance()->event_manager());
+        thread_ = new ServerThread(&evm_);
         RouterIdDepInit(Agent::GetInstance());
-        xs.reset(new XmppServer(Agent::GetInstance()->event_manager(), XmppInit::kControlNodeJID));
+        xs = new XmppServer(&evm_,
+                            XmppInit::kControlNodeJID);
+        //xs.reset(new XmppServer(Agent::GetInstance()->event_manager(), XmppInit::kControlNodeJID));
 
         xs->Initialize(XMPP_SERVER_PORT, false);
+        client->WaitForIdle();
         thread_->Start();
+        client->WaitForIdle();
         XmppConnectionSetUp();
+        client->WaitForIdle();
+        AddArp("10.1.1.254", "0a:0b:0c:0d:0e:0f",
+               Agent::GetInstance()->fabric_interface_name().c_str());
     }
 
     virtual void TearDown() {
+        XmppClient *xc = Agent::GetInstance()->controller_ifmap_xmpp_client(0);
+        XmppClient *xc_dns = Agent::GetInstance()->dns_xmpp_client(0);
+        xc->ConfigUpdate(new XmppConfigData());
+        xc_dns->ConfigUpdate(new XmppConfigData());
+
+        mock_ifmap_peer.reset();
+        client->WaitForIdle();
+
         xs->Shutdown();
         client->WaitForIdle();
+
         Agent::GetInstance()->controller()->DisConnect();
         client->WaitForIdle();
-        Agent::GetInstance()->event_manager()->Shutdown();
+        ShutdownAgentController(Agent::GetInstance());
+
+        TcpServerManager::DeleteServer(xs);
+        TcpServerManager::DeleteServer(Agent::GetInstance()->controller_ifmap_xmpp_client(0));
+        TcpServerManager::DeleteServer(Agent::GetInstance()->dns_xmpp_client(0));
+        xs = NULL;
+        client->WaitForIdle();
+
+        //Agent::GetInstance()->event_manager()->Shutdown();
+        evm_.Shutdown();
         client->WaitForIdle();
         thread_->Join();
+        client->WaitForIdle();
+
+        DelArp("10.1.1.254", "0a:0b:0c:0d:0e:0f",
+               Agent::GetInstance()->fabric_interface_name().c_str());
+        TestShutdown();
+        client->WaitForIdle();
+        delete client;
+        delete thread_;
     }
 
     void NovaIntfAdd(int id, const char *name, const char *addr,
@@ -123,12 +166,26 @@ protected:
         usleep(1000);
     }
 
+    void NovaIntfDel(int id) {
+        CfgIntKey *key = new CfgIntKey(MakeUuid(id));
+
+        DBRequest req;
+        req.oper = DBRequest::DB_ENTRY_DELETE;
+        req.key.reset(key);
+        req.data.reset(NULL);
+        Agent::GetInstance()->interface_config_table()->Enqueue(&req);
+        usleep(1000);
+    }
+
     XmppChannelConfig *CreateXmppChannelCfg(const char *address, int port,
-                                            const string &from, const string &to,
+                                            const char *local_address,
+                                            const string &from,
+                                            const string &to,
                                             bool isclient) {
         XmppChannelConfig *cfg = new XmppChannelConfig(isclient);
-        cfg->endpoint.address(boost::asio::ip::address::from_string("127.0.0.1"));
+        cfg->endpoint.address(boost::asio::ip::address::from_string(address));
         cfg->endpoint.port(port);
+        cfg->local_endpoint.address(boost::asio::ip::address::from_string(local_address));
         cfg->ToAddr = to;
         cfg->FromAddr = from;
         return cfg;
@@ -151,7 +208,10 @@ protected:
         str += "/";
         str += XmppInit::kConfigPeer;
         msg.append_attribute("from") = str.c_str();
-        msg.append_attribute("to") = (XmppInit::kFqnPrependAgentNodeJID +  boost::asio::ip::host_name()).c_str(); 
+        string to_str(boost::asio::ip::host_name());
+        to_str += "/";
+        to_str += XmppInit::kConfigPeer;
+        msg.append_attribute("to") = to_str.c_str();
 
         xml_node node = msg.append_child("config");
         if (update == true) {
@@ -187,10 +247,20 @@ protected:
         cfg->EncodeUpdate(&tmp);
     }
 
+    void ClearCfgNodeMessage(xml_node &node, string type, string name, int uuid, IFMapIdentifier *cfg) {
+
+        xml_node tmp = node.append_child("node");
+        tmp.append_attribute("type") = type.c_str();
+        tmp.append_child("name").text().set(name.c_str());
+
+        cfg->ClearProperty("id-perms");
+        cfg->EncodeUpdate(&tmp);
+    }
+
     void XmppConnectionSetUp() {
         // server connection
         WAIT_FOR(100, 10000,
-            ((sconnection = xs->FindConnection(XmppInit::kFqnPrependAgentNodeJID + 
+            ((sconnection = xs->FindConnection(
               boost::asio::ip::host_name())) != NULL));
 
         //Create control-node bgp mock peer 
@@ -203,7 +273,8 @@ protected:
 
     XmppConfigData *xmpps_cfg;
 
-    auto_ptr<XmppServer> xs;
+    XmppServer *xs;
+    //auto_ptr<XmppServer> xs;
 
     XmppConnection *sconnection;
 
@@ -211,6 +282,11 @@ protected:
 };
 
 namespace {
+
+TEST_F(AgentIFMapXmppUnitTest, Test_setup_teardown) {
+    //Verify call of setup and teardown
+}
+
 TEST_F(AgentIFMapXmppUnitTest, vntest) {
     IFMapNode *node;
     xml_document xdoc;
@@ -222,7 +298,8 @@ TEST_F(AgentIFMapXmppUnitTest, vntest) {
 
     // "virtual-network" "update" message
     autogen::VirtualNetwork *vn = new autogen::VirtualNetwork();
-    BuildCfgNodeMessage(xitems, "virtual-network", "vn1", 1, static_cast <IFMapIdentifier *> (vn));
+    BuildCfgNodeMessage(xitems, "virtual-network", "vn1", 1, static_cast
+                        <IFMapIdentifier *> (vn));
     SendDocument(xdoc, mock_ifmap_peer.get());
     client->WaitForIdle();
 
@@ -230,11 +307,22 @@ TEST_F(AgentIFMapXmppUnitTest, vntest) {
     IFMapTable::RequestKey *req_key = new IFMapTable::RequestKey;
     req_key->id_type = "virtual-network";
     req_key->id_name = "vn1";
-    WAIT_FOR(100, 10000, ((node = IFMapAgentTable::TableEntryLookup(Agent::GetInstance()->db(), req_key)) != NULL));
+    WAIT_FOR(100, 10000, ((node = IFMapAgentTable::TableEntryLookup(
+                           Agent::GetInstance()->db(), req_key)) != NULL));
     EXPECT_EQ(node->name(), "vn1");
 
     //Lookup in oper db
     EXPECT_TRUE(VnFind(1));
+
+    //Delete node
+    xml_document del_xdoc;
+    xitems = MessageHeader(&del_xdoc, false);
+    BuildCfgNodeMessage(xitems, "virtual-network", "vn1", 1, static_cast
+                        <IFMapIdentifier *> (vn));
+    SendDocument(del_xdoc, mock_ifmap_peer.get());
+    WAIT_FOR(1000, 10000, (VnFind(1) == false));
+    delete req_key;
+    delete vn;
 }
 
 TEST_F(AgentIFMapXmppUnitTest, vmtest) {
@@ -261,7 +349,16 @@ TEST_F(AgentIFMapXmppUnitTest, vmtest) {
 
     //Lookup in oper db
     EXPECT_TRUE(VmFind(1));
+
+    xml_document del_xdoc;
+    xitems = MessageHeader(&del_xdoc, false);
+    BuildCfgNodeMessage(xitems,"virtual-machine", "vm1", 1, static_cast <IFMapIdentifier *> (vm));
+    SendDocument(del_xdoc, mock_ifmap_peer.get());
+    WAIT_FOR(1000, 10000, (VmFind(1) == false));
+    delete vm;
+    delete req_key;
 }
+
 TEST_F(AgentIFMapXmppUnitTest, vn_vm_vrf_test) {
     IFMapNode *node;
     xml_document xdoc;
@@ -348,21 +445,25 @@ TEST_F(AgentIFMapXmppUnitTest, vn_vm_vrf_test) {
     WAIT_FOR(100, 10000, (oper_vn->GetVrf() != false));
     oper_vrf = VrfGet("vrf2");
     EXPECT_TRUE((oper_vrf != NULL));
+
+    NovaIntfDel(4);
+    //Send the iq message
+    SendDocument(xdoc, mock_ifmap_peer.get());
+    client->WaitForIdle();
+    delete vn;
+    delete ri;
+    delete vm;
+    delete vmi;
+    delete req_key;
 }
 
 }
 
 int main(int argc, char **argv) {
     GETUSERARGS();
-    client = TestInit(init_file, ksync_init);
-    Agent::GetInstance()->set_controller_ifmap_xmpp_server("127.0.0.1", 0);
-    Agent::GetInstance()->set_headless_agent_mode(HEADLESS_MODE);
+    init_file_local = init_file;
+    ksync_init_local = ksync_init;
 
     int ret = RUN_ALL_TESTS();
-    client->WaitForIdle();
-    TestShutdown();
-    delete client;
     return ret;
 }
-
-

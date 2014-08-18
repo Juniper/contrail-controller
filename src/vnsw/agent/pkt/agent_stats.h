@@ -23,7 +23,7 @@ public:
         singleton_ = this;
     }
 
-    virtual ~AgentStats() { }
+    virtual ~AgentStats() {singleton_ = NULL;}
 
     static AgentStats *GetInstance() {return singleton_;}
     void Shutdown() { }

@@ -154,13 +154,7 @@ protected:
         xs_s->Shutdown();
         client->WaitForIdle();
 
-        TaskScheduler::GetInstance()->Stop();
-        Agent::GetInstance()->controller()->unicast_cleanup_timer().cleanup_timer_->Fire();
-        TaskScheduler::GetInstance()->Start();
-        client->WaitForIdle();
-        Agent::GetInstance()->controller()->Cleanup();
-        client->WaitForIdle();
-
+        ShutdownAgentController(Agent::GetInstance());
         TcpServerManager::DeleteServer(xs_p);
         TcpServerManager::DeleteServer(xs_s);
         TcpServerManager::DeleteServer(xc_p);

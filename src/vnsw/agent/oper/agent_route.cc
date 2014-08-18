@@ -299,7 +299,7 @@ void AgentRouteTable::Input(DBTablePartition *part, DBClient *client,
 
     if (data && data->IsPeerValid() == false) {
         AGENT_ROUTE_LOG("Invalid/Inactive Peer ", key->ToString(), vrf_name(),
-                        key->peer());
+                        "");
         return;
     }
 
@@ -350,7 +350,7 @@ void AgentRouteTable::Input(DBTablePartition *part, DBClient *client,
                 OPER_TRACE(Route, rt_info);
                 route_added = true;
                 AGENT_ROUTE_LOG("Added route", rt->ToString(), vrf_name(),
-                                key->peer());
+                                GETPEERNAME(key->peer()));
             } else {
                 // RT present. Check if path is also present by peer
                 path = rt->FindPath(key->peer());
@@ -382,7 +382,7 @@ void AgentRouteTable::Input(DBTablePartition *part, DBClient *client,
                 rt->FillTrace(rt_info, AgentRoute::CHANGE_PATH, path);
                 OPER_TRACE(Route, rt_info);
                 AGENT_ROUTE_LOG("Path change", rt->ToString(), vrf_name(),
-                                key->peer());
+                                GETPEERNAME(key->peer()));
             }
 
             if (path->RouteNeedsSync()) 

@@ -147,6 +147,7 @@ protected:
     virtual void SetUp() {
         xs = new XmppServer(&evm_, XmppInit::kControlNodeJID);
         xc = new XmppClient(&evm_);
+        Agent::GetInstance()->set_controller_ifmap_xmpp_server("127.0.0.1", 0);
         xmpp_init = new XmppInit();
 
         xs->Initialize(0, false);
@@ -155,25 +156,19 @@ protected:
     }
 
     virtual void TearDown() {
-        ASSERT_TRUE(agent_->controller_xmpp_channel(0) != NULL);
-
         xs->Shutdown();
         bgp_peer.reset(); 
         client->WaitForIdle();
+        Agent::GetInstance()->set_controller_xmpp_channel(NULL, 0);
+        agent_->set_controller_ifmap_xmpp_client(NULL, 0);
+        agent_->set_controller_ifmap_xmpp_init(NULL, 0);
         xc->Shutdown();
         client->WaitForIdle();
 
-        agent_->set_controller_ifmap_xmpp_client(NULL, 0);
-        agent_->set_controller_ifmap_xmpp_init(NULL, 0);
-        TaskScheduler::GetInstance()->Stop();
-        Agent::GetInstance()->controller()->unicast_cleanup_timer().cleanup_timer_->Fire();
-        TaskScheduler::GetInstance()->Start();
-        client->WaitForIdle();
-        Agent::GetInstance()->controller()->Cleanup();
-        client->WaitForIdle();
-
+        ShutdownAgentController(Agent::GetInstance());
         TcpServerManager::DeleteServer(xs);
         TcpServerManager::DeleteServer(xc);
+        delete xmpp_init;
         evm_.Shutdown();
         thread_.Join();
         client->WaitForIdle();
@@ -1332,6 +1327,13 @@ TEST_F(AgentXmppUnitTest, TransparentSISgList) {
     const SecurityGroupList sglist = rt2->GetActivePath()->sg_list();
     EXPECT_TRUE(sglist.size() == 2);
 
+    //Cleanup
+    DelLink("virtual-machine-interface-routing-instance", "ser1",
+            "routing-instance", "vrf2");
+    DelLink("virtual-machine-interface-routing-instance", "ser1",
+            "virtual-machine-interface", "vnet1");
+    DelVmPortVrf("ser1");
+    client->WaitForIdle();
     //Delete vm-port and route entry in vrf1
     DelVrf("vrf2");
     DelVn("vn2");

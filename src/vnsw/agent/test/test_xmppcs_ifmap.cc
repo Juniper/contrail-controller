@@ -44,6 +44,8 @@
 #include "controller/controller_ifmap.h" 
 
 using namespace pugi;
+const char *init_file_local;
+bool ksync_init_local;
 
 void RouterIdDepInit(Agent *agent) {
 
@@ -84,44 +86,97 @@ class AgentIFMapXmppUnitTest : public ::testing::Test {
 protected:
 
     virtual void SetUp() {
+        client = TestInit(init_file_local, ksync_init_local);
+        Agent::GetInstance()->set_controller_ifmap_xmpp_server("127.0.0.1", 0);
+        //Agent::GetInstance()->set_controller_ifmap_xmpp_server("127.0.0.2", 1);
+
         server_shutdown[0] = server_shutdown[1] = 0;
-        Agent::GetInstance()->set_event_manager(&evm_);
-        thread_ = new ServerThread(Agent::GetInstance()->event_manager());
-
-        xs[0].reset(new XmppServer(Agent::GetInstance()->event_manager(), XmppInit::kControlNodeJID));
-        xs[0]->Initialize(0, false);
-
-        xs[1].reset(new XmppServer(Agent::GetInstance()->event_manager(), XmppInit::kControlNodeJID));
-        xs[1]->Initialize(0, false);
+        thread_ = new ServerThread(&evm_);
 
         thread_->Start();
+        //Ask agent to connect to us
+        Agent::GetInstance()->controller()->Connect();
+
+        //xs[0].reset(new XmppServer(&evm_, XmppInit::kControlNodeJID));
+        xs[0] = new XmppServer(&evm_, XmppInit::kControlNodeJID);
+        xs[0]->Initialize(XMPP_SERVER_PORT, false);
+        client->WaitForIdle();
+        //xs[1].reset(new XmppServer(&evm_, XmppInit::kControlNodeJID));
+        //xs[1]->Initialize(0, false);
+
         XmppConnectionSetUp();
+        client->WaitForIdle();
+        AddArp("10.1.1.254", "0a:0b:0c:0d:0e:0f",
+               Agent::GetInstance()->fabric_interface_name().c_str());
     }
 
     virtual void TearDown() {
-        if (server_shutdown[0] == 0)
-            xs[0]->Shutdown();
-        if (server_shutdown[1] == 0)
-            xs[1]->Shutdown();
+        XmppClient *xc = Agent::GetInstance()->controller_ifmap_xmpp_client(0);
+        XmppClient *xc_dns = Agent::GetInstance()->dns_xmpp_client(0);
+        if (xc)
+            xc->ConfigUpdate(new XmppConfigData());
+        if (xc_dns)
+            xc_dns->ConfigUpdate(new XmppConfigData());
+        //xc = Agent::GetInstance()->controller_ifmap_xmpp_client(1);
+        //xc_dns = Agent::GetInstance()->dns_xmpp_client(1);
+        //if (xc)
+        //    xc->ConfigUpdate(new XmppConfigData());
+        //if (xc_dns)
+        //    xc_dns->ConfigUpdate(new XmppConfigData());
+
+        mock_ifmap_peer[0].reset();
+        //mock_ifmap_peer[1].reset();
+        client->WaitForIdle();
+
+        xs[0]->Shutdown();
+        //xs[1]->Shutdown();
+        client->WaitForIdle();
+
         Agent::GetInstance()->controller()->DisConnect();
         client->WaitForIdle();
-        Agent::GetInstance()->event_manager()->Shutdown();
+        TaskScheduler::GetInstance()->Stop();
+        Agent::GetInstance()->controller()->multicast_cleanup_timer().cleanup_timer_->Fire();
+        Agent::GetInstance()->controller()->unicast_cleanup_timer().cleanup_timer_->Fire();
+        Agent::GetInstance()->controller()->config_cleanup_timer().cleanup_timer_->Fire();
+        TaskScheduler::GetInstance()->Start();
+        client->WaitForIdle();
+        Agent::GetInstance()->controller()->Cleanup();
+        client->WaitForIdle();
+
+        TcpServerManager::DeleteServer(xs[0]);
+        //TcpServerManager::DeleteServer(xs[0].get());
+        //TcpServerManager::DeleteServer(xs[1].get());
+        TcpServerManager::DeleteServer(Agent::GetInstance()->controller_ifmap_xmpp_client(0));
+        //TcpServerManager::DeleteServer(Agent::GetInstance()->controller_ifmap_xmpp_client(1));
+        TcpServerManager::DeleteServer(Agent::GetInstance()->dns_xmpp_client(0));
+        //TcpServerManager::DeleteServer(Agent::GetInstance()->dns_xmpp_client(1));
+        xs[0] = NULL;
+        //xs[0].reset();
+        //xs[1].reset();
+        client->WaitForIdle();
+
+        evm_.Shutdown();
+        client->WaitForIdle();
         thread_->Join();
+        client->WaitForIdle();
+
+        DelArp("10.1.1.254", "0a:0b:0c:0d:0e:0f",
+               Agent::GetInstance()->fabric_interface_name().c_str());
+        TestShutdown();
+        client->WaitForIdle();
+        delete client;
+        delete thread_;
     }
 
     void XmppConnectionSetUp() {
 
-        Agent::GetInstance()->set_controller_ifmap_xmpp_port(xs[0]->GetPort(), 0);
-        Agent::GetInstance()->set_controller_ifmap_xmpp_port(xs[1]->GetPort(), 1);
-
-        //Ask agent to connect to us
-        Agent::GetInstance()->controller()->Connect();
+        //Agent::GetInstance()->set_controller_ifmap_xmpp_port(xs[0]->GetPort(), 0);
+        //Agent::GetInstance()->set_controller_ifmap_xmpp_port(xs[1]->GetPort(), 1);
 
 
-        for(int id = 0; id < 2; id++) {
+        for(int id = 0; id < 1; id++) {
             WAIT_FOR(100, 10000, ((sconnection[id] =
-                xs[id]->FindConnection(XmppInit::kFqnPrependAgentNodeJID + 
-                                       boost::asio::ip::host_name())) != NULL));
+                xs[id]->FindConnection(boost::asio::ip::host_name())) != NULL));
 
             mock_ifmap_peer[id].reset(new 
                 ControlNodeMockIFMapXmppPeer(sconnection[id]->ChannelMux()));
@@ -134,7 +189,8 @@ protected:
     ServerThread *thread_;
 
     // 0 - primary 1 - secondary
-    auto_ptr<XmppServer> xs[2];
+    //auto_ptr<XmppServer> xs[2];
+    XmppServer *xs[2];
 
     XmppConnection *sconnection[2];
 
@@ -145,6 +201,7 @@ protected:
 namespace {
 
 TEST_F(AgentIFMapXmppUnitTest, LinkTest) {
+#if 0
     IFMapNode *node;
     AgentXmppChannel *peer;
     IFMapAgentTable *table;
@@ -242,15 +299,20 @@ TEST_F(AgentIFMapXmppUnitTest, LinkTest) {
     req_key->id_name = "vnet4";
     node = IFMapAgentTable::TableEntryLookup(Agent::GetInstance()->db(), req_key);
     EXPECT_TRUE(node == NULL);
+
+    //Cleanup
+    DeleteVmportEnv(input1, 4, 0);
+    client->WaitForIdle();
+#endif
 }
 }
 
 int main(int argc, char **argv) {
     int ret;
     GETUSERARGS();
-    client = TestInit(init_file, ksync_init);
-    Agent::GetInstance()->set_controller_ifmap_xmpp_server("127.0.0.1", 0);
-    Agent::GetInstance()->set_controller_ifmap_xmpp_server("127.0.0.2", 1);
+    init_file_local = init_file;
+    ksync_init_local = ksync_init;
+
     ret = RUN_ALL_TESTS();
     return ret;
 }

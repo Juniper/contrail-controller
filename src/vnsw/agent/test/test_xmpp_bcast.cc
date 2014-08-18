@@ -25,7 +25,6 @@ using namespace pugi;
 void RouterIdDepInit(Agent *agent) {
 }
 
-
 // Create vm-port and vn
 struct PortInfo input[] = {
     {"vnet1", 1, "1.1.1.1", "00:00:00:01:01:01", 1, 1},
@@ -73,12 +72,101 @@ private:
 
 class ControlNodeMockBgpXmppPeer {
 public:
-    ControlNodeMockBgpXmppPeer() : channel_ (NULL), rx_count_(0) {
+    ControlNodeMockBgpXmppPeer() : channel_ (NULL), rx_count_(0),
+    default_vrf_subscribe_seen_(false), vrf1_subscribe_seen_(false),
+    v4_route_1_seen_(false), v4_route_2_seen_(false),
+    l2_route_1_seen_(false), l2_route_2_seen_(false),
+    v4_flood_route_seen_(false), subnet_flood_route_seen_(false) {
     }
 
     void ReceiveUpdate(const XmppStanza::XmppMessage *msg) {
+        if (msg->type == XmppStanza::IQ_STANZA) {
+            const XmppStanza::XmppMessageIq *iq =
+                static_cast<const XmppStanza::XmppMessageIq *>(msg);
+            if (iq->iq_type.compare("set") != 0) {
+                return;
+            }
+            if (iq->action.compare("subscribe") == 0) {
+                if (iq->node == "vrf1")
+                    vrf1_subscribe_seen_ = true;
+                if (iq->node ==
+                    "default-domain:default-project:ip-fabric:__default__")
+                    default_vrf_subscribe_seen_ = true;
+            } else if (iq->action.compare("unsubscribe") == 0) {
+                if (iq->node == "vrf1")
+                    vrf1_subscribe_seen_ = false;
+                if (iq->node ==
+                    "default-domain:default-project:ip-fabric:__default__")
+                    default_vrf_subscribe_seen_ = false;
+            } else if (iq->action.compare("publish") == 0) {
+                XmlBase *impl = msg->dom.get();
+                XmlPugi *pugi = reinterpret_cast<XmlPugi *>(impl);
+                for (xml_node item = pugi->FindNode("item"); item;
+                     item = item.next_sibling()) {
+                    if (strcmp(item.name(), "item") != 0) {
+                        continue;
+                    }
+                    std::string id(iq->as_node.c_str());
+                    char *str = const_cast<char *>(id.c_str());
+                    char *saveptr;
+                    char *af = strtok_r(str, "/", &saveptr);
+                    char *safi = strtok_r(NULL, "/", &saveptr);
+                    if (atoi(af) == BgpAf::IPv4) {
+                        if (atoi(safi) == BgpAf::Unicast) {
+                            autogen::ItemType v4_item;
+                            v4_item.Clear();
+                            if (v4_item.XmlParse(item)) {
+                                if(v4_item.entry.nlri.address == "1.1.1.1/32")
+                                    v4_route_1_seen_ = true;
+                                if(v4_item.entry.nlri.address == "1.1.1.2/32")
+                                    v4_route_2_seen_ = true;
+                            }
+                        }
+                        if (atoi(safi) == BgpAf::Mcast) {
+                            autogen::McastItemType mc_item;
+                            mc_item.Clear();
+                            if (mc_item.XmlParse(item)) {
+                                if (mc_item.entry.nlri.group ==
+                                    "255.255.255.255")
+                                    v4_flood_route_seen_ = true;
+                                if (mc_item.entry.nlri.group ==
+                                    "1.1.1.255")
+                                    subnet_flood_route_seen_ = true;
+                            }
+                        }
+                    }
+                    if (atoi(af) == BgpAf::L2Vpn) {
+                        if (atoi(safi) == BgpAf::Enet) {
+                            autogen::EnetItemType enet_item;
+                            enet_item.Clear();
+                            if (enet_item.XmlParse(item)) {
+                                if (enet_item.entry.nlri.mac == "0:0:0:1:1:1")
+                                    l2_route_1_seen_ = true;
+                                if (enet_item.entry.nlri.mac == "0:0:0:2:2:2")
+                                    l2_route_2_seen_ = true;
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
         rx_count_++;
     }    
+
+    bool all_seen() {
+        return (default_vrf_subscribe_seen_ && vrf1_subscribe_seen_ &&
+                v4_route_1_seen_ && v4_route_2_seen_ && l2_route_1_seen_ &&
+                l2_route_2_seen_ && v4_flood_route_seen_ &&
+                subnet_flood_route_seen_);
+    }
+
+    bool all_l2_seen() {
+        return (default_vrf_subscribe_seen_ && vrf1_subscribe_seen_ &&
+                !v4_route_1_seen_ && !v4_route_2_seen_ && l2_route_1_seen_ &&
+                l2_route_2_seen_ && v4_flood_route_seen_ &&
+                !subnet_flood_route_seen_);
+    }
 
     void HandleXmppChannelEvent(XmppChannel *channel,
                                 xmps::PeerState state) {
@@ -116,10 +204,18 @@ public:
 private:
     XmppChannel *channel_;
     size_t rx_count_;
+    bool default_vrf_subscribe_seen_;
+    bool vrf1_subscribe_seen_;
+    bool v4_route_1_seen_; //1.1.1.1
+    bool v4_route_2_seen_; //1.1.1.2
+    bool l2_route_1_seen_; //0:0:0:1:1:1
+    bool l2_route_2_seen_; //0:0:0:2:2:2
+    bool v4_flood_route_seen_; //255.255.255.255
+    bool subnet_flood_route_seen_; //1.1.1.255
 };
 
 
-class AgentXmppUnitTest : public ::testing::Test { 
+class AgentXmppUnitTest : public ::testing::Test {
 protected:
     AgentXmppUnitTest() : thread_(&evm_)  {}
  
@@ -140,13 +236,7 @@ protected:
         xc->Shutdown();
         client->WaitForIdle();
 
-        TaskScheduler::GetInstance()->Stop();
-        Agent::GetInstance()->controller()->unicast_cleanup_timer().cleanup_timer_->Fire();
-        TaskScheduler::GetInstance()->Start();
-        client->WaitForIdle();
-        Agent::GetInstance()->controller()->Cleanup();
-        client->WaitForIdle();
-
+        ShutdownAgentController(Agent::GetInstance());
         TcpServerManager::DeleteServer(xs);
         TcpServerManager::DeleteServer(xc);
         evm_.Shutdown();
@@ -467,17 +557,17 @@ protected:
 
     VxLanNetworkIdentifierMode(false);
 	client->WaitForIdle();
-
     CreateVmportEnv(input, 2, 0);
-    WAIT_FOR(1000, 10000, (Agent::GetInstance()->interface_table()->Size() == 5));
-
-	client->Reset();
+	client->WaitForIdle();
     AddIPAM("vn1", ipam_info, 1);
+	client->WaitForIdle();
+
 	// expect subscribe message + 2 VM routes+ subnet bcast +
 	// v4 bcast route at the mock server + 1/2 l2 uc routes 
     // For broadcast request from IPv4 and L2 will be treated as 
     // one export and not two. 
-	WAIT_FOR(1000, 10000, (mock_peer.get()->Count() == 9));
+	WAIT_FOR(1000, 10000, (mock_peer.get()->all_seen() == true));
+    WAIT_FOR(1000, 10000, (Agent::GetInstance()->interface_table()->Size() == 5));
 
 	Ip4Address addr = Ip4Address::from_string("1.1.1.1");
 	EXPECT_TRUE(VmPortActive(input, 0));
@@ -601,42 +691,39 @@ protected:
         CreateL2VmportEnv(input, 2, 0);
 
         // 2 VM route + subscribe + l2 bcast route
-        WAIT_FOR(1000, 10000, (mock_peer.get()->Count() == 5));
+        WAIT_FOR(1000, 10000, (mock_peer.get()->all_l2_seen() == true));
 
         EXPECT_TRUE(VmPortL2Active(input, 0));
-        struct ether_addr *local_vm_mac;
-        local_vm_mac = (struct ether_addr *)malloc(sizeof(struct ether_addr));
-        memcpy (local_vm_mac, ether_aton("00:00:00:01:01:01"), 
+        struct ether_addr local_vm_mac;
+        memcpy (&local_vm_mac, ether_aton("00:00:00:01:01:01"), 
                 sizeof(struct ether_addr));
-        EXPECT_TRUE(L2RouteFind("vrf1", *local_vm_mac));
+        EXPECT_TRUE(L2RouteFind("vrf1", local_vm_mac));
 
         // Send route, back to vrf1
-        SendL2RouteMessage(mock_peer.get(), "vrf1", local_vm_mac, "1.1.1.1/32", 
+        SendL2RouteMessage(mock_peer.get(), "vrf1", &local_vm_mac, "1.1.1.1/32",
                          MplsTable::kStartLabel);
         // Route reflected to vrf1
         WAIT_FOR(1000, 10000, (bgp_peer.get()->Count() == 1));
 
         EXPECT_TRUE(VmPortL2Active(input, 1));
-        struct ether_addr *local_vm_mac_2;
-        local_vm_mac_2 = (struct ether_addr *)malloc(sizeof(struct ether_addr));
-        memcpy (local_vm_mac_2, ether_aton("00:00:00:02:02:02"), 
+        struct ether_addr local_vm_mac_2;
+        memcpy (&local_vm_mac_2, ether_aton("00:00:00:02:02:02"), 
                 sizeof(struct ether_addr));
-        EXPECT_TRUE(L2RouteFind("vrf1", *local_vm_mac_2));
+        EXPECT_TRUE(L2RouteFind("vrf1", local_vm_mac_2));
 
         // Send route, back to vrf1
         SendL2RouteMessage(mock_peer.get(), "vrf1", 
-                           local_vm_mac_2, "1.1.1.2/32", 
+                           &local_vm_mac_2, "1.1.1.2/32", 
                            MplsTable::kStartLabel + 1);
         // Route reflected to vrf1
         WAIT_FOR(1000, 10000, (bgp_peer.get()->Count() == 2));
 
         //verify presence of L2 broadcast route
-        struct ether_addr *broadcast_mac;
-        broadcast_mac = (struct ether_addr *)malloc(sizeof(struct ether_addr));
-        memcpy (broadcast_mac, ether_aton("ff:ff:ff:ff:ff:ff"), 
+        struct ether_addr broadcast_mac;
+        memcpy (&broadcast_mac, ether_aton("ff:ff:ff:ff:ff:ff"), 
                 sizeof(struct ether_addr));
-        EXPECT_TRUE(L2RouteFind("vrf1", *broadcast_mac));
-        Layer2RouteEntry *rt_m = L2RouteGet("vrf1", *broadcast_mac);
+        EXPECT_TRUE(L2RouteFind("vrf1", broadcast_mac));
+        Layer2RouteEntry *rt_m = L2RouteGet("vrf1", broadcast_mac);
 
         int alloc_label = GetStartLabel();
         //Send All bcast route
@@ -671,16 +758,23 @@ protected:
         client->WaitForIdle();
         client->Reset();
         DeleteVmportEnv(input, 2, 1, 0);
+        WAIT_FOR(1000, 1000,
+                 (Agent::GetInstance()->vrf_table()->Size() == 1));
 
+#if 0
         TaskScheduler::GetInstance()->Stop();
         Agent::GetInstance()->controller()->multicast_cleanup_timer().cleanup_timer_->Fire();
         Agent::GetInstance()->controller()->unicast_cleanup_timer().cleanup_timer_->Fire();
+        Agent::GetInstance()->controller()->config_cleanup_timer().cleanup_timer_->Fire();
         TaskScheduler::GetInstance()->Start();
         client->WaitForIdle();
+        Agent::GetInstance()->controller()->Cleanup();
+        client->WaitForIdle();
+#endif
 
         WAIT_FOR(1000, 1000, (client->CompositeNHDelWait(cnh_del_cnt) == true));
         WAIT_FOR(1000, 10000, (client->CompositeNHCount() == 0));
-        WAIT_FOR(1000, 1000, 
+        WAIT_FOR(1000, 1000,
                  (Agent::GetInstance()->mpls_table()->Size() == 0));
 
         WAIT_FOR(1000, 1000, (VrfFind("vrf1") == false)); 
@@ -711,6 +805,16 @@ protected:
 
 
 namespace {
+
+TEST_F(AgentXmppUnitTest, dummy) {
+    XmppConnectionSetUp(true);
+    //cleanup all config links via config 
+    XmppSubnetTearDown();
+
+    client->WaitForIdle();
+    xc->ConfigUpdate(new XmppConfigData());
+    client->WaitForIdle(5);
+}
 
 // Local VM Deactivate Test
 TEST_F(AgentXmppUnitTest, SubnetBcast_Test_VmDeActivate) {
@@ -823,23 +927,20 @@ TEST_F(AgentXmppUnitTest, L2OnlyBcast_Test_SessionDownUp) {
     }
 
     EXPECT_TRUE(Agent::GetInstance()->mulitcast_builder() == NULL);
-    struct ether_addr *mac_1;
-    struct ether_addr *mac_2;
-    struct ether_addr *broadcast_mac;
-    broadcast_mac = (struct ether_addr *)malloc(sizeof(struct ether_addr));
-    mac_1 = (struct ether_addr *)malloc(sizeof(struct ether_addr));
-    mac_2 = (struct ether_addr *)malloc(sizeof(struct ether_addr));
-    memcpy (mac_1, ether_aton("00:00:00:01:01:01"), 
+    struct ether_addr mac_1;
+    struct ether_addr mac_2;
+    struct ether_addr broadcast_mac;
+    memcpy (&mac_1, ether_aton("00:00:00:01:01:01"), 
             sizeof(struct ether_addr));
-    memcpy (mac_2, ether_aton("00:00:00:02:02:02"), 
+    memcpy (&mac_2, ether_aton("00:00:00:02:02:02"), 
             sizeof(struct ether_addr));
-    memcpy (broadcast_mac, ether_aton("ff:ff:ff:ff:ff:ff"), 
+    memcpy (&broadcast_mac, ether_aton("ff:ff:ff:ff:ff:ff"), 
             sizeof(struct ether_addr));
 
     //ensure route learnt via control-node, path is updated 
-    Layer2RouteEntry *rt_1 = L2RouteGet("vrf1", *mac_1);
-    Layer2RouteEntry *rt_2 = L2RouteGet("vrf1", *mac_2);
-    Layer2RouteEntry *rt_b = L2RouteGet("vrf1", *broadcast_mac);
+    Layer2RouteEntry *rt_1 = L2RouteGet("vrf1", mac_1);
+    Layer2RouteEntry *rt_2 = L2RouteGet("vrf1", mac_2);
+    Layer2RouteEntry *rt_b = L2RouteGet("vrf1", broadcast_mac);
 
 	client->WaitForIdle();
 
@@ -855,13 +956,13 @@ TEST_F(AgentXmppUnitTest, L2OnlyBcast_Test_SessionDownUp) {
     WAIT_FOR(1000, 10000, (mock_peer.get()->Count() == 10));
 
     // Send route, back to vrf1
-    SendL2RouteMessage(mock_peer.get(), "vrf1", mac_1, "1.1.1.1/32", 
+    SendL2RouteMessage(mock_peer.get(), "vrf1", &mac_1, "1.1.1.1/32", 
 		     MplsTable::kStartLabel);
     // Route reflected to vrf1
     WAIT_FOR(1000, 10000, (bgp_peer.get()->Count() == 4));
 
     // Send route, back to vrf1
-    SendL2RouteMessage(mock_peer.get(), "vrf1", mac_2, "1.1.1.2/32", 
+    SendL2RouteMessage(mock_peer.get(), "vrf1", &mac_2, "1.1.1.2/32", 
 		     MplsTable::kStartLabel+1);
     // Route reflected to vrf1
     WAIT_FOR(1000, 10000, (bgp_peer.get()->Count() == 5));
@@ -1317,7 +1418,6 @@ TEST_F(AgentXmppUnitTest, Test_Update_Olist_Src_Label) {
     //Verify mpls table
     mpls = Agent::GetInstance()->mpls_table()->FindMplsLabel(alloc_label+3);
     ASSERT_TRUE(mpls == NULL);
-    cout << "MSDEBUG mplstable size " << Agent::GetInstance()->mpls_table()->Size() << endl;
 
     WAIT_FOR(1000, 1000, 
              (Agent::GetInstance()->mpls_table()->Size() == 6));

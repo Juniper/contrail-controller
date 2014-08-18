@@ -97,6 +97,7 @@ public:
         assert(mirror_map.size() == 0);
         assert(vrf_assign_tree.size() == 0);
         assert(vxlan_map.size() == 0);
+        singleton_ = NULL;
     }
 
     typedef std::map<int, vr_nexthop_req> ksync_map_nh;

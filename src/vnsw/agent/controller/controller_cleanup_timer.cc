@@ -33,6 +33,12 @@ CleanupTimer::CleanupTimer(Agent *agent, const std::string &timer_name,
                                   GetTaskId("db::DBTable"), 0);
 }
 
+CleanupTimer::~CleanupTimer() {
+    //Delete timer
+    if (cleanup_timer_)
+        TimerManager::DeleteTimer(cleanup_timer_);
+}
+
 bool CleanupTimer::Cancel() {
     CONTROLLER_TRACE(Timer, "Cleanup ", timer_name(), "");
     agent_xmpp_channel_ = NULL;

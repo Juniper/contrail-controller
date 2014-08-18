@@ -66,6 +66,9 @@ VrfEntry::~VrfEntry() {
         table->FreeVrfId(id_);
         table->VrfReuse(GetName());
     }
+    //Delete timer
+    if (delete_timeout_timer_)
+        TimerManager::DeleteTimer(delete_timeout_timer_);
 }
 
 bool VrfEntry::IsLess(const DBEntry &rhs) const {

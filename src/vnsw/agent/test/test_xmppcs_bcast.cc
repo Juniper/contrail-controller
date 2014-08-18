@@ -161,13 +161,7 @@ protected:
         xc_s->Shutdown();
         client->WaitForIdle();
 
-        TaskScheduler::GetInstance()->Stop();
-        Agent::GetInstance()->controller()->unicast_cleanup_timer().cleanup_timer_->Fire();
-        TaskScheduler::GetInstance()->Start();
-        client->WaitForIdle();
-        Agent::GetInstance()->controller()->Cleanup();
-        client->WaitForIdle();
- 
+        ShutdownAgentController(Agent::GetInstance()); 
         mock_peer.reset();
         mock_peer_s.reset();
 
@@ -504,10 +498,12 @@ protected:
 	SendBcastRouteMessage(mock_peer_s.get(), "vrf1",
 			      "1.1.1.255", alloc_label,  
                               "127.0.0.4", alloc_label+10);
+    client->WaitForIdle();
+
 	// Bcast Route with updated olist 
 	WAIT_FOR(1000, 10000, (bgp_peer_s.get()->Count() == 3));
-
-	NextHop *nh = const_cast<NextHop *>(rt->GetActiveNextHop());
+    WAIT_FOR(1000, 10000, (client->CompositeNHCount() == 4));
+    NextHop *nh = const_cast<NextHop *>(rt->GetActiveNextHop());
 	CompositeNH *cnh = static_cast<CompositeNH *>(nh);
         MulticastGroupObject *obj;
 	ASSERT_TRUE(nh != NULL);
@@ -532,16 +528,18 @@ protected:
 	SendBcastRouteMessage(mock_peer_s.get(), "vrf1",
 			      "255.255.255.255", alloc_label+1,  
                               "127.0.0.4", alloc_label + 11);
+    client->WaitForIdle();
+
 	// Bcast Route with updated olist
 	WAIT_FOR(1000, 10000, (bgp_peer_s.get()->Count() == 4));
-
+    WAIT_FOR(1000, 10000, (client->CompositeNHCount() == 6));
 	nh = const_cast<NextHop *>(rt_m->GetActiveNextHop());
 	ASSERT_TRUE(nh != NULL);
 	ASSERT_TRUE(nh->GetType() == NextHop::COMPOSITE);
 	cnh = static_cast<CompositeNH *>(nh);
 	obj = MulticastHandler::GetInstance()->FindGroupObject("vrf1", addr);
 	WAIT_FOR(1000, 1000, (obj->GetSourceMPLSLabel() != 0));
-    ASSERT_TRUE(cnh->ComponentNHCount() == 3);
+    WAIT_FOR(1000, 10000, (cnh->ComponentNHCount() == 3));
 
 	//Verify mpls table
 	WAIT_FOR(1000, 1000, (Agent::GetInstance()->mpls_table()->

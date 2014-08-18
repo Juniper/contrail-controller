@@ -215,13 +215,28 @@ void TestClient::Shutdown() {
     agent_init_.Shutdown();
     Agent::GetInstance()->uve()->Shutdown();
     KSyncTest *ksync = static_cast<KSyncTest *>(Agent::GetInstance()->ksync());
-    ksync->NetlinkShutdownTest();
-    Agent::GetInstance()->ksync()->Shutdown();
+    if (ksync)
+        ksync->Shutdown();
     Agent::GetInstance()->pkt()->Shutdown();  
     MulticastHandler::Shutdown();
     //Agent::GetInstance()->oper_db()->Shutdown();
     Agent::GetInstance()->db()->Clear();
     Agent::GetInstance()->db()->ClearFactoryRegistry();
+}
+
+void ShutdownAgentController(Agent *agent) {
+    TaskScheduler::GetInstance()->Stop();
+    agent->controller()->multicast_cleanup_timer().cleanup_timer_->Fire();
+    agent->controller()->unicast_cleanup_timer().cleanup_timer_->Fire();
+    agent->controller()->config_cleanup_timer().cleanup_timer_->Fire();
+    TaskScheduler::GetInstance()->Start();
+    client->WaitForIdle();
+    agent->controller()->Cleanup();
+    client->WaitForIdle();
+    agent->set_controller_ifmap_xmpp_client(NULL, 0);
+    agent->set_controller_ifmap_xmpp_init(NULL, 0);
+    agent->set_controller_ifmap_xmpp_client(NULL, 1);
+    agent->set_controller_ifmap_xmpp_init(NULL, 1);
 }
 
 void TestShutdown() {

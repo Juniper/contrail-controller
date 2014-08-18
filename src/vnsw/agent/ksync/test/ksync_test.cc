@@ -49,6 +49,11 @@ void KSyncTest::Init(bool create_vhost) {
     NetlinkInitTest();
 }
 
+void KSyncTest::Shutdown() {
+    flowtable_ksync_obj_.get()->Shutdown();
+    NetlinkShutdownTest();
+}
+
 void KSyncTest::RegisterDBClients(DB *db) {
     KSyncObjectManager::Init();
     interface_ksync_obj_.get()->RegisterDBClients();

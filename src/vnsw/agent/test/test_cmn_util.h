@@ -304,6 +304,7 @@ void VxLanNetworkIdentifierMode(bool config);
 int MplsToVrfId(int label);
 void AddInterfaceRouteTable(const char *name, int id, TestIp4Prefix *addr, 
                            int count);
+void ShutdownAgentController(Agent *agent);
 
 class XmppChannelMock : public XmppChannel {
 public:

@@ -29,7 +29,7 @@ class AgentXmppChannel;
 struct CleanupTimer {
     CleanupTimer(Agent *agent, const std::string &timer_name, 
                  uint32_t default_stale_timer_interval);
-    virtual ~CleanupTimer() { }
+    virtual ~CleanupTimer();
 
     void Start(AgentXmppChannel *agent_xmpp_channel);
     bool Cancel();

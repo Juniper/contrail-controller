@@ -126,16 +126,17 @@ void VNController::DnsXmppServerConnect() {
             // create Xmpp channel with DNS server
             XmppInit *xmpp_dns = new XmppInit();
             XmppClient *client_dns = new XmppClient(agent_->event_manager());
-            XmppChannelConfig xmpp_cfg_dns(true);
-            xmpp_cfg_dns.ToAddr = XmppInit::kDnsNodeJID;
+            XmppChannelConfig *xmpp_cfg_dns = new XmppChannelConfig(true);
+            //XmppChannelConfig xmpp_cfg_dns(true);
+            xmpp_cfg_dns->ToAddr = XmppInit::kDnsNodeJID;
             boost::system::error_code ec;
-            xmpp_cfg_dns.FromAddr = agent_->host_name() + "/dns";
-            xmpp_cfg_dns.NodeAddr = "";
-            xmpp_cfg_dns.endpoint.address(
+            xmpp_cfg_dns->FromAddr = agent_->host_name() + "/dns";
+            xmpp_cfg_dns->NodeAddr = "";
+            xmpp_cfg_dns->endpoint.address(
                      ip::address::from_string(agent_->dns_server(count), ec));
             assert(ec.value() == 0);
-            xmpp_cfg_dns.endpoint.port(ContrailPorts::DnsXmpp);
-            xmpp_dns->AddXmppChannelConfig(&xmpp_cfg_dns);
+            xmpp_cfg_dns->endpoint.port(ContrailPorts::DnsXmpp);
+            xmpp_dns->AddXmppChannelConfig(xmpp_cfg_dns);
             xmpp_dns->InitClient(client_dns);
 
             XmppChannel *channel_dns = client_dns->FindChannel(

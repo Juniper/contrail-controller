@@ -1291,9 +1291,8 @@ bool AgentXmppChannel::ControllerSendSubscribe(AgentXmppChannel *peer,
     if (!peer) {
         return false;
     }      
-       
     CONTROLLER_TRACE(Trace, peer->GetBgpPeerName(), vrf->GetName(), 
-                     "Unsubscribe");
+                     subscribe ? "Subscribe" : "Unsubscribe");
     //Build the DOM tree
     auto_ptr<XmlBase> impl(XmppStanza::AllocXmppXmlImpl());
     XmlPugi *pugi = reinterpret_cast<XmlPugi *>(impl.get());
