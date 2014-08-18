@@ -14,7 +14,7 @@ from vnc_api.vnc_api import *
 import to_bgp
 
 class TestPolicy(test_case.STTestCase):
-    def _test_basic_policy(self):
+    def test_basic_policy(self):
         vn1_name = 'vn1'
         vn2_name = 'vn2'
         vn1_obj = VirtualNetwork(vn1_name)
@@ -111,7 +111,7 @@ class TestPolicy(test_case.STTestCase):
 
     # end test_basic_policy
 
-    def _test_service_policy(self):
+    def test_service_policy(self):
         # create  vn1
         vn1_obj = VirtualNetwork('vn1')
         ipam_obj = NetworkIpam('ipam1')

@@ -305,6 +305,13 @@ class FakeIfmapClient(object):
         """<env:Body><ifmap:response> %(result)s """\
         """</ifmap:response></env:Body></env:Envelope>"""
 
+    @classmethod
+    def reset(cls):
+        cls._graph = {}
+        cls._published_messages = [] # all messages published so far
+        cls._subscribe_lists = [] # list of all subscribers indexed by session-id
+    # end reset
+
     @staticmethod
     def initialize(*args, **kwargs):
         pass
