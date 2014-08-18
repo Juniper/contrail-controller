@@ -180,6 +180,7 @@ class Subnet(object):
                 gw_ip = IPAddress(gw)
             except AddrFormatError:
                 raise AddrMgmtInvalidGatewayIp(name, gw_ip)
+
         else:
             # reserve a gateway ip in subnet
             if addr_from_start:
@@ -585,6 +586,28 @@ class AddrMgmt(object):
             err_msg = "Overlapping addresses between requested and existing: "
             return False, err_msg + str(overlap_set)
 
+        return True, ""
+    # end net_check_subnet_overlap
+
+    def net_check_gw_within_subnet(self, db_vn_dict, req_vn_dict):
+        ipam_refs = req_vn_dict.get('network_ipam_refs', [])
+        for ipam_ref in ipam_refs:
+            vnsn_data = ipam_ref['attr']
+            ipam_subnets = vnsn_data['ipam_subnets']
+            for ipam_subnet in ipam_subnets:
+                subnet_dict = copy.deepcopy(ipam_subnet['subnet'])
+                gw = ipam_subnet.get('default_gateway', None)
+                if gw is not None:
+                    gw_ip = IPAddress(gw)
+                    prefix = subnet_dict['ip_prefix']
+                    prefix_len = subnet_dict['ip_prefix_len']
+                    network = IPNetwork('%s/%s' % (prefix, prefix_len))
+                    if gw_ip < IPAddress(network.first + 1) or gw_ip > IPAddress(network.last - 1):
+                        subnet_name = subnet_dict['ip_prefix'] + '/' + str(
+                            subnet_dict['ip_prefix_len'])
+                        err_msg = " Gateway IP is out of cidr: "
+                        return False, gw + err_msg + subnet_name
+                
         return True, ""
     # end net_check_subnet_overlap
 
