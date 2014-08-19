@@ -191,7 +191,23 @@ void NamespaceManager::InitSigHandler(AgentSignal *signal) {
         boost::bind(&NamespaceManager::HandleSigChild, this, _1, _2, _3, _4));
 }
 
+void NamespaceManager::StateClear() {
+    DBTablePartition *partition = static_cast<DBTablePartition *>(
+        si_table_->GetTablePartition(0));
+
+    DBEntryBase *next = NULL;
+    for (DBEntryBase *entry = partition->GetFirst(); entry; entry = next) {
+        DBState *state = entry->GetState(si_table_, listener_id_);
+        if (state != NULL) {
+            entry->ClearState(si_table_, listener_id_);
+            delete state;
+        }
+        next = partition->GetNext(entry);
+    }
+}
+
 void NamespaceManager::Terminate() {
+    StateClear();
     si_table_->Unregister(listener_id_);
 
     NamespaceTaskQueue *task_queue;

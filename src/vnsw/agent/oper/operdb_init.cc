@@ -177,6 +177,9 @@ void OperDB::Shutdown() {
     dependency_manager_->Terminate();
     global_vrouter_.reset();
 
+    route_preference_module_->Shutdown();
+    multicast_->Shutdown();
+    multicast_->Terminate();
 #if 0
     agent_->interface_table()->Clear();
     agent_->nexthop_table()->Clear();
@@ -191,7 +194,6 @@ void OperDB::Shutdown() {
     agent_->vxlan_table()->Clear();
     agent_->service_instance_table()->Clear();
 #endif
-    domain_config_.reset(NULL);
     route_preference_module_->Shutdown();
 }
 

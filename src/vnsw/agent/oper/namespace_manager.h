@@ -112,6 +112,11 @@ class NamespaceManager {
     void OnTaskTimeoutEventHandler(NamespaceManagerChildEvent event);
 
     /*
+     * Clear all the state entries. Used only at process shutdown.
+     */
+    void StateClear();
+
+    /*
      * Event observer for changes in the "db.service-instance.0" table.
      */
     void EventObserver(DBTablePartBase *db_part, DBEntryBase *entry);
