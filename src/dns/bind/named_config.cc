@@ -124,7 +124,7 @@ void NamedConfig::UpdateNamedConf(const VirtualDnsConfig *updated_vdns) {
     // TODO: convert this to a call to rndc library
     std::stringstream str;
     str << "/usr/bin/rndc -c /etc/contrail/dns/rndc.conf -p ";
-    str << ContrailPorts::DnsRndc;
+    str << ContrailPorts::DnsRndc();
     str << " reconfig";
     int res = system(str.str().c_str());
     if (res) {
@@ -166,7 +166,7 @@ void NamedConfig::WriteRndcConfig() {
 
 
     file_ << "controls {" << endl;
-    file_ << "    inet 127.0.0.1 port "<< ContrailPorts::DnsRndc << endl;
+    file_ << "    inet 127.0.0.1 port "<< ContrailPorts::DnsRndc() << endl;
     file_ << "    allow { 127.0.0.1; }  keys { \"rndc-key\"; };" << endl;
     file_ << "};" << endl << endl;
 }

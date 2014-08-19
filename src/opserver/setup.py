@@ -29,6 +29,7 @@ setup(
         'psutil>=0.4.1'
     ],
     entry_points = {
+        # Please update sandesh/common/vns.sandesh on process name change
         'console_scripts' : [
             'contrail-analytics-api = opserver.opserver:main',
             'contrail-logs = opserver.log:main',

@@ -296,7 +296,7 @@ class GeneratorFixture(fixtures.Fixture):
         if type(vm_uves) is not list:
             vm_uves = [vm_uves]
         for uve in vm_uves:
-            if uve['data']['UveVirtualMachineAgent']['name'] == vm_id:
+            if uve['name'] == vm_id:
                 return uve
         return None
     # end find_vm_entry
@@ -327,7 +327,7 @@ class GeneratorFixture(fixtures.Fixture):
     def verify_vm_uve_cache(self, vm_id, delete=False):
         try:
             vg = VerificationGenerator('127.0.0.1', self._http_port)
-            vm_uves = vg.get_uve('UveVirtualMachineAgentTrace')
+            vm_uves = vg.get_uve('UveVirtualMachineAgent')
         except Exception as e:
             self._logger.info('Failed to get vm uves: %s' % (e))
             return False
@@ -341,13 +341,13 @@ class GeneratorFixture(fixtures.Fixture):
                 return False
             if delete is True:
                 try:
-                    return vm_uve['data']['UveVirtualMachineAgent']['deleted'] \
+                    return vm_uve['deleted'] \
                                     == 'true'
                 except:
                     return False
             else:
                 try:
-                    return vm_uve['data']['UveVirtualMachineAgent']['deleted'] \
+                    return vm_uve['deleted'] \
                                    == 'false'
                 except:
                     return True

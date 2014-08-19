@@ -55,7 +55,7 @@ namespace opt = boost::program_options;
 class FlowTest : public ::testing::Test {
 public:
     virtual void SetUp() {
-        uint16_t http_server_port = ContrailPorts::HttpPortAgent;
+        uint16_t http_server_port = ContrailPorts::HttpPortAgent();
 
         desc.add_options()
         ("help", "help message")
@@ -382,7 +382,7 @@ TEST_F(FlowTest, Default_Cmdline_arg1) {
  * command line args, and has NOT specified values in config file, then
  * verify that default value from command line args is picked up */
 TEST_F(FlowTest, Default_Cmdline_arg2) {
-    uint16_t http_server_port = ContrailPorts::HttpPortAgent;
+    uint16_t http_server_port = ContrailPorts::HttpPortAgent();
     uint16_t flow_timeout = Agent::kDefaultFlowCacheTimeout;
     AgentParam param(Agent::GetInstance());
     param.Init("controller/src/vnsw/agent/cmn/test/cfg-default2.ini", "test-param",
