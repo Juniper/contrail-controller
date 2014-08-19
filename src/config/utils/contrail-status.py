@@ -120,7 +120,7 @@ class IntrospectUtil(object):
             if self._debug:
                 print 'URL: %s : Socket Connection error : %s' % (url, str(e))
             return None
-        except requests.Timeout, te:
+        except (requests.Timeout, socket.timeout) as te:
             if self._debug:
                 print 'URL: %s : Timeout error : %s' % (url, str(te))
             return None
@@ -199,7 +199,7 @@ def get_http_server_port_from_conf(svc_name, debug):
     else:
         data = StringIO('\n'.join(line.strip() for line in fp))
     # Parse conf file
-    parser = ConfigParser.SafeConfigParser(allow_no_value=True)
+    parser = ConfigParser.SafeConfigParser()
     try:
         parser.readfp(data)
     except ConfigParser.ParsingError as e:
@@ -212,7 +212,8 @@ def get_http_server_port_from_conf(svc_name, debug):
     # DEFAULTS.http_server_port (for python daemons)
     try:
         http_server_port = parser.getint('DEFAULT', 'http_server_port')
-    except (ConfigParser.NoOptionError, ConfigParser.NoSectionError) as de:
+    except (ConfigParser.NoOptionError, ConfigParser.NoSectionError, \
+            ValueError) as de:
         try:
             http_server_port = parser.getint('DEFAULTS', 'http_server_port')
         except (ConfigParser.NoOptionError, ConfigParser.NoSectionError) as dse:
@@ -286,7 +287,7 @@ def check_svc_status(server_port, debug):
                     svc_uve_status = get_svc_uve_status(svc_name, debug)
                     if svc_uve_status and svc_uve_status == 'Non-Functional':
                         svc_status = 'initializing'
-                print '{:<30}{:<20}'.format(svc_name, svc_status)
+                print '{0:<30}{1:<20}'.format(svc_name, svc_status)
         print
 
 def check_status(svc_name, debug):
