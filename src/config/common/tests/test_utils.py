@@ -570,7 +570,10 @@ class FakeKombu(object):
         # end put
 
         def get(self):
-            return self._sync_q.get()
+            rv = self._sync_q.get()
+            # In real systems, rabbitmq is little slow, hence add some wait to mimic
+            gevent.sleep(0.001)
+            return rv
         # end get
 
     # end class Queue

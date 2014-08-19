@@ -369,6 +369,14 @@ class VncIfmapClient(VncIfmapClientGen):
                    self._id_to_metas[self_imid][meta_name] = [{'meta':m,
                                                                'id': id2}]
 
+                if id2 not in self._id_to_metas:
+                    self._id_to_metas[id2] = {}
+                if meta_name in self._id_to_metas[id2]:
+                   self._id_to_metas[id2][meta_name].append({'meta':m,
+                                                             'id': self_imid})
+                else:
+                   self._id_to_metas[id2][meta_name] = [{'meta':m,
+                                                         'id': self_imid}]
         if self.accumulator is not None:
             self.accumulator.append(requests)
             self.accumulated_request_len += len(requests)
