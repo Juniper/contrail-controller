@@ -996,6 +996,7 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
         <xsd:enumeration value='firewall'/>
         <xsd:enumeration value='analyzer'/>
         <xsd:enumeration value='source-nat'/>
+        <xsd:enumeration value='loadbalancer'/>
     </xsd:restriction>
 </xsd:simpleType>
 
