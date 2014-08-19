@@ -99,14 +99,14 @@ class ForwardingModeSetup(object):
         parser.set_defaults(**defaults)
 
         parser.add_argument(
-            "--vn_name", help="VN Name")
+            "--vn_name", help="VN Name", required=True)
         parser.add_argument(
-            "--project_fq_name", help="Fully qualified name of the Project")
+            "--project_fq_name", help="Fully qualified name of the Project", required=True)
         parser.add_argument(
-            "--vxlan_id", help="VxLan ID")
-        parser.add_argument("--api_server_port", help="Port of api server")
+            "--vxlan_id", help="VxLan ID", required=True)
+        parser.add_argument("--api_server_port", help="Port of api server", required=True)
         parser.add_argument(
-            "--forwarding_mode", help="l2_l3 or l2 only")
+            "--forwarding_mode", help="l2_l3 or l2 only", required=True)
 
         self._args = parser.parse_args(remaining_argv)
     # end _parse_args
