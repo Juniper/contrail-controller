@@ -84,6 +84,7 @@ public:
     bool DropMessage(const SandeshHeader &header, const VizMsg *vmsg);
     bool Init(bool initial, int instance);
     void UnInit(int instance);
+    void UnInitUnlocked(int instance);
 
     bool AllowMessageTableInsert(const SandeshHeader &header);
     bool MessageIndexTableInsert(const std::string& cfname,
