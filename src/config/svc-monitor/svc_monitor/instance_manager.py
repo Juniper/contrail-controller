@@ -246,6 +246,7 @@ class InstanceManager(object):
             if si_if_list and st_props.get_ordered_interfaces():
                 si_if = si_if_list[idx]
                 vn_fq_name_str = si_if.get_virtual_network()
+                nic['static-routes'] = si_if.get_static_routes()
             else:
                 funcname = "get_" + itf_type + "_virtual_network"
                 func = getattr(si_props, funcname)
@@ -265,8 +266,6 @@ class InstanceManager(object):
             nic['type'] = itf_type
             nic['shared-ip'] = st_if.shared_ip
             nic['static-route-enable'] = st_if.get_static_route_enable()
-            if si_if:
-                nic['static-routes'] = si_if.get_static_routes()
             nics.append(nic)
 
         return nics
@@ -430,6 +429,7 @@ class NetworkNamespaceManager(InstanceManager):
         for inst_count in range(0, max_instances):
             # Create a virtual machine
             instance_name = si_obj.name + '_' + str(inst_count + 1)
+            proj_fq_name = si_obj.get_parent_fq_name()
             vm_name = "__".join(proj_fq_name + [instance_name])
             try:
                 vm_obj = self._vnc_lib.virtual_machine_read(fq_name=[vm_name])
