@@ -579,6 +579,9 @@ class DBInterface(object):
         except PermissionDenied as e:
             exc_info = {'type': 'BadRequest', 'message': str(e)}
             bottle.abort(400, json.dumps(exc_info))
+        except RefsExistError as e:
+            self._raise_contrail_exception(400, exceptions.BadRequest(
+                resource='network', msg=str(e)))
 
         # read back to get subnet gw allocated by api-server
         fq_name_str = json.dumps(net_obj.get_fq_name())
