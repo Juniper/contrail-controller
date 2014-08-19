@@ -681,6 +681,10 @@ bool CdbIf::Db_Init(std::string task_id, int task_instance) {
         task_instance_initialized_ = true;
     }
     if (!init_task_) {
+        // Create InitTask only if cdbq_ is NULL.
+        if (cdbq_.get()) {
+            return true;
+        }
         // Start init task with previous task instance to ensure
         // task exclusion with dequeue and exit callback task
         // when calling shutdown
@@ -701,12 +705,7 @@ bool CdbIf::Db_Init(std::string task_id, int task_instance) {
 }
 
 void CdbIf::Db_Uninit(std::string task_id, int task_instance) {
-    std::ostringstream ostr;
-    ostr << task_id << ":" << task_instance;
-    std::string errstr(ostr.str());
-    CDBIF_BEGIN_TRY {
-        transport_->close();
-    } CDBIF_END_TRY_LOG(errstr)
+    Db_Reset(task_id, task_instance);
     if (only_sync_) {
         return;
     }
@@ -716,6 +715,16 @@ void CdbIf::Db_Uninit(std::string task_id, int task_instance) {
         TaskScheduler *scheduler = TaskScheduler::GetInstance();
         scheduler->Enqueue(cleanup_task_);
     }
+}
+
+void CdbIf::Db_Reset(std::string task_id, int task_instance) {
+    std::ostringstream ostr;
+    ostr << task_id << ":" << task_instance;
+    std::string errstr(ostr.str());
+    CDBIF_BEGIN_TRY {
+        transport_->close();
+    } CDBIF_END_TRY_LOG(errstr)
+    cdbq_->ResetQueue();
 }
 
 std::string CdbIf::Db_GetHost() const {

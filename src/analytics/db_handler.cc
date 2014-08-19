@@ -157,6 +157,11 @@ bool DbHandler::CreateTables() {
     return true;
 }
 
+void DbHandler::Reset(int instance) {
+    dbif_->Db_Reset("analytics::DbHandler", instance);
+    dbif_->Db_SetInitDone(false);
+}
+
 void DbHandler::UnInit(int instance) {
     dbif_->Db_Uninit("analytics::DbHandler", instance);
     dbif_->Db_SetInitDone(false);

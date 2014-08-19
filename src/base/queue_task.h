@@ -150,6 +150,10 @@ public:
         deleted_ = true; 
     }
 
+    void ResetQueue() {
+        queue_.clear();
+    }
+
     ~WorkQueue() {
         tbb::mutex::scoped_lock lock(mutex_);
         // Shutdown() needs to be called before deleting
