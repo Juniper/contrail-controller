@@ -13,8 +13,8 @@ AgentEnv.MakeTestEnv(env)
 vgw_test_suite = []
 vgw_flaky_test_suite = []
 
-test_vgw = AgentEnv.MakeTestCmd(env, 'test_vgw', vgw_test_suite)
-test_dynamic_vgw = AgentEnv.MakeTestCmd(env, 'test_dynamic_vgw', vgw_test_suite)
+test_vgw = AgentEnv.MakeTestCmd(env, 'test_vgw', vgw_flaky_test_suite)
+test_dynamic_vgw = AgentEnv.MakeTestCmd(env, 'test_dynamic_vgw', vgw_flaky_test_suite)
 
 flaky_test = env.TestSuite('agent-flaky-test', vgw_flaky_test_suite)
 env.Alias('controller/src/vnsw/agent/uve:flaky_test', flaky_test)
