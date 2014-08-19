@@ -306,7 +306,7 @@ TEST_F(NovaInfoClientServerTest, StaleTimer) {
     EXPECT_EQ(cfg_entry1->GetVersion(), 1);
     EXPECT_EQ(cfg_entry1->port_type(), CfgIntEntry::CfgIntVMPort);
 
-    InterfaceConfigStaleCleaner *st = new InterfaceConfigStaleCleaner(Agent::GetInstance());
+    std::auto_ptr<InterfaceConfigStaleCleaner> st(new InterfaceConfigStaleCleaner(Agent::GetInstance()));
     st->OnInterfaceConfigStaleTimeout(2);
 
     TASK_UTIL_EXPECT_EQ(1, Agent::GetInstance()->interface_config_table()->Size());
