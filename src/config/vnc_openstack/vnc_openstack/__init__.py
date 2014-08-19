@@ -46,7 +46,7 @@ def fill_keystone_opts(obj, conf_sections):
 
     try:
         obj._insecure = conf_sections.getboolean('KEYSTONE', 'insecure')
-    except NoOptionError as e:
+    except ConfigParser.NoOptionError:
         obj._insecure = True
 
     try:
