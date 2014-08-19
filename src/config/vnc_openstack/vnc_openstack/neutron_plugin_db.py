@@ -1891,7 +1891,6 @@ class DBInterface(object):
                 # retrieve a floating ip pool from a private network.
                 self._raise_contrail_exception(404, Exception(
                     "Network %s doesn't provide a floatingip pool", net_id))
-            fq_name = self._fip_pool_list_network(net_id)[0]['fq_name']
             fip_pool_obj = self._vnc_lib.floating_ip_pool_read(fq_name=fq_name)
             fip_name = str(uuid.uuid4())
             fip_obj = FloatingIp(fip_name, fip_pool_obj)
