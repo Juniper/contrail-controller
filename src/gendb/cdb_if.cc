@@ -664,7 +664,7 @@ void CdbIf::Db_SetInitDone(bool init_done) {
     db_init_done_ = init_done;
 }
 
-bool CdbIf::Db_Init(std::string task_id, int task_instance) {
+bool CdbIf::Db_Init(const std::string& task_id, int task_instance) {
     std::ostringstream ostr;
     ostr << task_id << ":" << task_instance;
     std::string errstr(ostr.str());
@@ -700,7 +700,7 @@ bool CdbIf::Db_Init(std::string task_id, int task_instance) {
     return true;
 }
 
-void CdbIf::Db_Uninit(std::string task_id, int task_instance) {
+void CdbIf::Db_UninitUnlocked(const std::string& task_id, int task_instance) {
     std::ostringstream ostr;
     ostr << task_id << ":" << task_instance;
     std::string errstr(ostr.str());
@@ -710,12 +710,16 @@ void CdbIf::Db_Uninit(std::string task_id, int task_instance) {
     if (only_sync_) {
         return;
     }
-    tbb::mutex::scoped_lock lock(cdbq_mutex_);
     if (!cleanup_task_) {
         cleanup_task_ = new CleanupTask(task_id, task_instance, this);
         TaskScheduler *scheduler = TaskScheduler::GetInstance();
         scheduler->Enqueue(cleanup_task_);
     }
+}
+
+void CdbIf::Db_Uninit(const std::string& task_id, int task_instance) {
+    tbb::mutex::scoped_lock lock(cdbq_mutex_);
+    Db_UninitUnlocked(task_id, task_instance);
 }
 
 std::string CdbIf::Db_GetHost() const {

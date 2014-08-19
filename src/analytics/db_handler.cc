@@ -162,6 +162,13 @@ void DbHandler::UnInit(int instance) {
     dbif_->Db_SetInitDone(false);
 }
 
+// The caller *SHOULD* ensure that UnInit() is not called from another
+// task that can be executed in parallel.
+void DbHandler::UnInitUnlocked(int instance) {
+    dbif_->Db_UninitUnlocked("analytics::DbHandler", instance);
+    dbif_->Db_SetInitDone(false);
+}
+
 bool DbHandler::Init(bool initial, int instance) {
     if (initial) {
         return Initialize(instance);
