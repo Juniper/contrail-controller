@@ -48,6 +48,7 @@ class NetnsManager(object):
     LEFT_DEV_PREFIX = 'int-'
     RIGH_DEV_PREFIX = 'gw-'
     TAP_PREFIX = 'veth'
+    PORT_TYPE = 'NameSpacePort'
 
     def __init__(self, vm_uuid, nic_left, nic_right, root_helper='sudo'):
         self.vm_uuid = vm_uuid
@@ -165,6 +166,7 @@ class NetnsManager(object):
 
     def _add_port_to_agent(self, nic, display_name=None):
         kwargs = {}
+        kwargs['port_type'] = self.PORT_TYPE
         kwargs['ip_address'] = str(nic['ip'].ip)
         if display_name:
             kwargs['display_name'] = display_name
