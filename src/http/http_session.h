@@ -26,20 +26,17 @@ class HttpSession: public TcpSession {
 
     static bool SendSession(std::string const& s,
             const u_int8_t *data, size_t size, size_t *sent) {
-        tbb::mutex::scoped_lock lock(mutex_);
         HttpSession* hs = GetSession(s);
         if (!hs) return false;
         return hs->Send(data, size, sent);
     }
     static std::string get_client_context(std::string const& s) {
-        tbb::mutex::scoped_lock lock(mutex_);
         HttpSession* hs = GetSession(s);
         if (!hs) return "";
         return hs->get_client_context();
     }
     static bool set_client_context(std::string const& s,
             const std::string& ctx) {
-        tbb::mutex::scoped_lock lock(mutex_);
         HttpSession* hs = GetSession(s);
         if (!hs) return false;
         hs->set_client_context(ctx);
@@ -71,6 +68,7 @@ class HttpSession: public TcpSession {
         return context_map_;
     }
     static HttpSession* GetSession(std::string const& s) {
+        tbb::mutex::scoped_lock lock(mutex_);
         map_type::iterator it = GetMap()->find(s);
         if (it == GetMap()->end()) {
             return 0;
