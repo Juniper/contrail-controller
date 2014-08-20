@@ -922,20 +922,44 @@ class VirtualNetworkST(DictST):
         for saddr in saddr_list:
             saddr_match = copy.deepcopy(saddr)
             svn = saddr.virtual_network
+            spol = saddr.network_policy
             if svn == "local":
                 svn = self.name
                 saddr_match.virtual_network = self.name
             for daddr in daddr_list:
                 daddr_match = copy.deepcopy(daddr)
                 dvn = daddr.virtual_network
+                dpol = daddr.network_policy
                 if dvn == "local":
                     dvn = self.name
                     daddr_match.virtual_network = self.name
-
                 if dvn in [self.name, 'any']:
                     remote_network_name = svn
                 elif svn in [self.name, 'any']:
                     remote_network_name = dvn
+                elif not dvn and dpol:
+                    dp_obj = NetworkPolicyST.get(dpol)
+                    if self.name in dp_obj.networks_back_ref:
+                        remote_network_name = svn
+                        daddr_match.network_policy = None
+                        daddr_match.virtual_network = self.name
+                    else:
+                        _sandesh._logger.debug("network policy rule attached to %s"
+                                               "has src = %s, dst = %s. Ignored.",
+                                               self.name, svn or spol, dvn or dpol)
+                        continue
+
+                elif not svn and spol:
+                    sp_obj = NetworkPolicyST.get(spol)
+                    if self.name in sp_obj.networks_back_ref:
+                        remote_network_name = dvn
+                        daddr_match.network_policy = None
+                        saddr_match.virtual_network = self.name
+                    else:
+                        _sandesh._logger.debug("network policy rule attached to %s"
+                                               "has src = %s, dst = %s. Ignored.",
+                                               self.name, svn or spol, dvn or dpol)
+                        continue
                 else:
                     _sandesh._logger.debug("network policy rule attached to %s"
                                            "has svn = %s, dvn = %s. Ignored.",
@@ -985,28 +1009,55 @@ class VirtualNetworkST(DictST):
                             else:
                                 action.assign_routing_instance = None
 
+                        if saddr_match.virtual_network:
+                            sa_list = [saddr_match.virtual_network]
+                        elif saddr_match.network_policy:
+                            pol = NetworkPolicyST.get(saddr_match.network_policy)
+                            if not pol:
+                                _sandesh._logger.debug(
+                                    "Policy %s not found while applying policy "
+                                    "to network %s", sadr_match.network_policy,
+                                     self.name)
+                                continue
+                            sa_list = pol.networks_back_ref
 
-                        match = MatchConditionType(arule_proto,
-                                                   saddr_match, sp,
-                                                   daddr_match, dp)
-                        acl = AclRuleType(match, action, rule_uuid)
-                        result_acl_rule_list.append(acl)
-                        if ((prule.direction == "<>") and
-                                (svn != dvn or sp != dp)):
-                            rmatch = MatchConditionType(arule_proto,
-                                                        daddr_match, dp,
-                                                        saddr_match, sp)
-                            raction = copy.deepcopy(action)
-                            if (service_list and dvn in [self.name, 'any']):
-                                    service_ri = self.get_service_name(sc_name,
-                                        service_list[-1])
-                                    raction.assign_routing_instance = \
-                                        self.name + ':' + service_ri
-                            else:
-                                raction.assign_routing_instance = None
+                        if daddr_match.virtual_network:
+                            da_list = [daddr_match.virtual_network]
+                        elif daddr_match.network_policy:
+                            pol = NetworkPolicyST.get(daddr_match.network_policy)
+                            if not pol:
+                                _sandesh._logger.debug(
+                                    "Policy %s not found while applying policy "
+                                    "to network %s", dadr_match.network_policy,
+                                     self.name)
+                                continue
+                            da_list = pol.networks_back_ref
 
-                            acl = AclRuleType(rmatch, raction, rule_uuid)
-                            result_acl_rule_list.append(acl)
+                        for sa in sa_list:
+                            sa1 = AddressType(virtual_network=sa)
+                            for da in da_list:
+                                da1 = AddressType(virtual_network=da)
+                                match = MatchConditionType(arule_proto,
+                                                           sa1, sp,
+                                                           da1, dp)
+                                acl = AclRuleType(match, action, rule_uuid)
+                                result_acl_rule_list.append(acl)
+                                if ((prule.direction == "<>") and
+                                    (sa != da or sp != dp)):
+                                    rmatch = MatchConditionType(arule_proto,
+                                                                da1, dp,
+                                                                sa1, sp)
+                                    raction = copy.deepcopy(action)
+                                    if (service_list and dvn in [self.name, 'any']):
+                                        service_ri = self.get_service_name(
+                                            sc_name, service_list[-1])
+                                        raction.assign_routing_instance = \
+                                            self.name + ':' + service_ri
+                                    else:
+                                        raction.assign_routing_instance = None
+
+                                    acl = AclRuleType(rmatch, raction, rule_uuid)
+                                    result_acl_rule_list.append(acl)
                     # end for dp
                 # end for sp
             # end for daddr
@@ -1043,6 +1094,7 @@ class NetworkPolicyST(DictST):
         self.internal = False
         self.rules = []
         self.analyzer_vn_set = set()
+        self.policies = set()
     # end __init__
 
     @classmethod
@@ -1056,7 +1108,7 @@ class NetworkPolicyST(DictST):
         if entries is None:
             self.rules = []
         self.rules = entries.policy_rule
-        
+        self.policies = set()
         self.analyzer_vn_set = set()
         for prule in self.rules:
             if (prule.action_list and prule.action_list.mirror_to and
@@ -1065,6 +1117,9 @@ class NetworkPolicyST(DictST):
                     prule.action_list.mirror_to.analyzer_name)
                 if vn:
                     self.analyzer_vn_set.add(vn)
+            for addr in prule.src_addresses + prule.dst_addresses:
+                if addr.network_policy:
+                    self.policies.add(addr.network_policy)
         # end for prule
         
         network_set |= self.analyzer_vn_set
@@ -2738,6 +2793,9 @@ class SchemaTransformer(object):
         vnp.build(meta)
         virtual_network.add_policy(policy_name, vnp)
         self.current_network_set |= policy.networks_back_ref
+        for pol in NetworkPolicyST.values():
+            if policy_name in pol.policies:
+                self.current_network_set |= pol.networks_back_ref
     # end add_virtual_network_network_policy
 
     def add_virtual_network_network_ipam(self, idents, meta):
