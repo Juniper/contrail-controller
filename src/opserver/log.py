@@ -17,6 +17,7 @@ import datetime
 import logging
 import logging.handlers
 import time
+import re
 from opserver_util import OpServerUtils
 from sandesh_common.vns.ttypes import Module
 from sandesh_common.vns.constants import ModuleNames, NodeTypeNames
@@ -60,6 +61,7 @@ class LogQuerier(object):
                           --send-syslog
                           --syslog-server 127.0.0.1
                           --syslog-port 514
+                          --keywords comma,seperated,list
         """
         defaults = {
             'opserver_ip': '127.0.0.1',
@@ -112,6 +114,7 @@ class LogQuerier(object):
         parser.add_argument("--syslog-port", help="Port to send syslog to",
             type=int, default=514)
         parser.add_argument("--f", help="Tail logs from now", action="store_true")
+        parser.add_argument("--keywords", help="comma seperated list of keywords")
         self._args = parser.parse_args()
         return 0
     # end parse_args
@@ -336,6 +339,18 @@ class LogQuerier(object):
 
         if len(filter) == 0:
             filter = None
+
+        if self._args.keywords is not None:
+            p = re.compile('\s*,\s*|\s+')
+            if where is None:
+                where = [[]]
+            for kwd in p.split(self._args.keywords):
+                message_type_match = OpServerUtils.Match(
+                    name=VizConstants.KEYWORD,
+                    value=kwd,
+                    op=OpServerUtils.MatchOp.EQUAL)
+                for wc in where:
+                    wc.append(message_type_match.__dict__)
 
         # Add sort by timestamp for non object value queries
         sort_op = None
