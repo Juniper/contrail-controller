@@ -818,11 +818,15 @@ class DBInterface(object):
     #end _network_list_project
 
     # find router ids on a given project
-    def _router_list_project(self, project_id):
-        try:
-            project_uuid = str(uuid.UUID(project_id))
-        except Exception:
-            print "Error in converting uuid %s" % (project_id)
+    def _router_list_project(self, project_id=None):
+        if project_id:
+            try:
+                project_uuid = str(uuid.UUID(project_id))
+            except Exception:
+                print "Error in converting uuid %s" % (project_id)
+                project_uuid = None
+        else:
+            project_uuid = None
 
         resp_dict = self._vnc_lib.logical_routers_list(parent_id=project_uuid)
 
@@ -2378,15 +2382,7 @@ class DBInterface(object):
                     ret_dict[net.uuid] = net_info
         else:
             # read all networks in all projects
-            dom_projects = self._project_list_domain(None)
-            project_uuids = [proj['uuid'] for proj in dom_projects]
-
-            for proj_id in project_uuids:
-                if not filters or 'router:external' not in filters:
-                    all_net_objs.extend(self._network_list_project(proj_id))
-
-            if not filters or 'router:external' in filters:
-                all_net_objs.extend(self._network_list_router_external())
+            all_net_objs.extend(self._virtual_network_list(detail=True))
 
         # prune phase
         for net_obj in all_net_objs:
@@ -3119,14 +3115,8 @@ class DBInterface(object):
                     pass
         else:
             # read all routers in all projects
-            dom_projects = self._project_list_domain(None)
-            for project in dom_projects:
-                proj_id = project['uuid']
-                if filters and 'router:external' in filters:
-                    all_rtrs.append(self._fip_pool_ref_routers(proj_id))
-                else:
-                    project_rtrs = self._router_list_project(proj_id)
-                    all_rtrs.append(project_rtrs)
+             project_rtrs = self._router_list_project()
+             all_rtrs.append(project_rtrs)
 
         # prune phase
         for project_rtrs in all_rtrs:
