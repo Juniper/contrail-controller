@@ -45,14 +45,14 @@ env.Library('agent_test', test_lib_srcs)
 agent_suite = []
 flaky_agent_suite = []
 
-test_vn = AgentEnv.MakeTestCmd(env, 'test_vn', agent_suite)
-test_vm = AgentEnv.MakeTestCmd(env, 'test_vm', agent_suite)
-test_peer_del = AgentEnv.MakeTestCmd(env, 'test_peer_del', agent_suite)
+test_vn = AgentEnv.MakeTestCmd(env, 'test_vn', flaky_agent_suite)
+test_vm = AgentEnv.MakeTestCmd(env, 'test_vm', flaky_agent_suite)
+test_peer_del = AgentEnv.MakeTestCmd(env, 'test_peer_del', flaky_agent_suite)
 test_vmport_cfg = AgentEnv.MakeTestCmd(env, 'test_vmport_cfg', flaky_agent_suite)
 test_fip_cfg = AgentEnv.MakeTestCmd(env, 'test_fip_cfg', flaky_agent_suite)
 test_route = AgentEnv.MakeTestCmd(env, 'test_route', flaky_agent_suite)
-test_l2route = AgentEnv.MakeTestCmd(env, 'test_l2route', agent_suite)
-test_cfg = AgentEnv.MakeTestCmd(env, 'test_cfg', agent_suite)
+test_l2route = AgentEnv.MakeTestCmd(env, 'test_l2route', flaky_agent_suite)
+test_cfg = AgentEnv.MakeTestCmd(env, 'test_cfg', flaky_agent_suite)
 test_xmpp_hv2 = AgentEnv.MakeTestCmd(env, 'test_xmpp_hv2', flaky_agent_suite)
 test_xmpp_non_hv = AgentEnv.MakeTestCmd(env, 'test_xmpp_non_hv', flaky_agent_suite)
 test_xmppcs_hv = AgentEnv.MakeTestCmd(env, 'test_xmppcs_hv', flaky_agent_suite)
@@ -65,11 +65,11 @@ test_xmpp_discovery = AgentEnv.MakeTestCmd(env, 'test_xmpp_discovery', flaky_age
 #test_bgp = AgentEnv.MakeTestCmd(env, 'test_bgp', flaky_agent_suite)
 test_vrf = AgentEnv.MakeTestCmd(env, 'test_vrf', flaky_agent_suite)
 test_vhost_ip_change = AgentEnv.MakeTestCmd(env, 'test_vhost_ip_change',
-                                        agent_suite)
-test_mirror = AgentEnv.MakeTestCmd(env, 'test_mirror', agent_suite)
-test_nh = AgentEnv.MakeTestCmd(env, 'test_nh', agent_suite)
-test_dummy = AgentEnv.MakeTestCmd(env, 'test_dummy', agent_suite)
-test_multicast = AgentEnv.MakeTestCmd(env, 'test_multicast', agent_suite)
+                                        flaky_agent_suite)
+test_mirror = AgentEnv.MakeTestCmd(env, 'test_mirror', flaky_agent_suite)
+test_nh = AgentEnv.MakeTestCmd(env, 'test_nh', flaky_agent_suite)
+test_dummy = AgentEnv.MakeTestCmd(env, 'test_dummy', flaky_agent_suite)
+test_multicast = AgentEnv.MakeTestCmd(env, 'test_multicast', flaky_agent_suite)
 test_xmpp_bcast_hv = AgentEnv.MakeTestCmd(env, 'test_xmpp_bcast_hv',
                                           flaky_agent_suite)
 test_xmpp_bcast_non_hv = AgentEnv.MakeTestCmd(env, 'test_xmpp_bcast_non_hv',
@@ -78,15 +78,15 @@ test_xmppcs_bcast_hv = AgentEnv.MakeTestCmd(env, 'test_xmppcs_bcast_hv',
                                             flaky_agent_suite)
 test_xmppcs_bcast_non_hv = AgentEnv.MakeTestCmd(env,'test_xmppcs_bcast_non_hv',
                                                 flaky_agent_suite)
-test_integration = AgentEnv.MakeTestCmd(env, 'test_integration', agent_suite)
+test_integration = AgentEnv.MakeTestCmd(env, 'test_integration', flaky_agent_suite)
 test_service_chain_cfg = AgentEnv.MakeTestCmd(env, 'test_service_chain_cfg',
-                                              agent_suite)
-test_cfg_listener = AgentEnv.MakeTestCmd(env, 'test_cfg_listener', agent_suite)
+                                              flaky_agent_suite)
+test_cfg_listener = AgentEnv.MakeTestCmd(env, 'test_cfg_listener', flaky_agent_suite)
 test_route_mock = AgentEnv.MakeTestCmd(env, 'test_route_mock', flaky_agent_suite)
 test_global_vrouter_config = AgentEnv.MakeTestCmd(env,
                                                  'test_global_vrouter_config',
-                                                  agent_suite)
-test_tunnel_encap = AgentEnv.MakeTestCmd(env, 'test_tunnel_encap', agent_suite)
+                                                  flaky_agent_suite)
+test_tunnel_encap = AgentEnv.MakeTestCmd(env, 'test_tunnel_encap', flaky_agent_suite)
 test_agent_route_walker = AgentEnv.MakeTestCmd(env, 'test_agent_route_walker',
                                                flaky_agent_suite)
 test_xmpp_hv = AgentEnv.MakeTestCmd(env, 'test_xmpp_hv', flaky_agent_suite)
