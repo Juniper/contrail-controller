@@ -5,6 +5,7 @@ import test_common
 sys.path.insert(0, '../../../../build/debug/config/schema-transformer/')
 
 from vnc_api.vnc_api import *
+import uuid
 
 class STTestCase(test_common.TestCase):
     def setUp(self):
@@ -74,7 +75,7 @@ class STTestCase(test_common.TestCase):
                                src_ports=[port], dst_ports=[port],
                                action_list=action_list)
         pentry = PolicyEntriesType([prule])
-        np = NetworkPolicy("policy1", network_policy_entries=pentry)
+        np = NetworkPolicy(str(uuid.uuid4()), network_policy_entries=pentry)
         if service_mode == 'in-network':
             return np
         self._vnc_lib.network_policy_create(np)
