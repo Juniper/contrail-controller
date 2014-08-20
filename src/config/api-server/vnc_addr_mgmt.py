@@ -589,27 +589,49 @@ class AddrMgmt(object):
         return True, ""
     # end net_check_subnet_overlap
 
-    def net_check_gw_within_subnet(self, db_vn_dict, req_vn_dict):
+    def net_check_subnet(self, db_vn_dict, req_vn_dict):
         ipam_refs = req_vn_dict.get('network_ipam_refs', [])
         for ipam_ref in ipam_refs:
             vnsn_data = ipam_ref['attr']
             ipam_subnets = vnsn_data['ipam_subnets']
             for ipam_subnet in ipam_subnets:
                 subnet_dict = copy.deepcopy(ipam_subnet['subnet'])
+                prefix = subnet_dict['ip_prefix']
+                prefix_len = subnet_dict['ip_prefix_len']
+                network = IPNetwork('%s/%s' % (prefix, prefix_len))
+                subnet_name = subnet_dict['ip_prefix'] + '/' + str(
+                    subnet_dict['ip_prefix_len'])
+
+                # check allocation-pool
+                alloc_pools = ipam_subnet.get('allocation_pools', None)
+                for pool in alloc_pools or []:
+                    try:
+                        iprange = IPRange(pool['start'], pool['end'])
+                    except AddrFormatError:
+                        err_msg = "Invalid allocation Pool start:%s, end:%s in subnet:%s" \
+                            %(pool['start'], pool['end'], subnet_name)
+                        return False, err_msg
+                    if iprange not in network:
+                        err_msg = "allocation pool start:%s, end:%s out of cidr:%s" \
+                            %(pool['start'], pool['end'], subnet_name)
+                        return False, err_msg
+
+                # check gw
                 gw = ipam_subnet.get('default_gateway', None)
                 if gw is not None:
-                    gw_ip = IPAddress(gw)
-                    prefix = subnet_dict['ip_prefix']
-                    prefix_len = subnet_dict['ip_prefix_len']
-                    network = IPNetwork('%s/%s' % (prefix, prefix_len))
+                    try:
+                        gw_ip = IPAddress(gw)
+                    except AddrFormatError:
+                        err_msg = "Invalid gateway Ip address:%s" \
+                            %(gw)
+                        return False, err_msg
                     if gw_ip < IPAddress(network.first + 1) or gw_ip > IPAddress(network.last - 1):
-                        subnet_name = subnet_dict['ip_prefix'] + '/' + str(
-                            subnet_dict['ip_prefix_len'])
-                        err_msg = " Gateway IP is out of cidr: "
-                        return False, gw + err_msg + subnet_name
+                        err_msg = "gateway Ip %s out of cidr: %s" \
+                            %(gw, subnet_name)
+                        return False, err_msg
                 
         return True, ""
-    # end net_check_subnet_overlap
+    # end net_check_subnet
 
     # check subnets associated with a virtual network, return error if
     # any subnet is being deleted and has backref to instance-ip/floating-ip
