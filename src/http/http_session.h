@@ -26,21 +26,18 @@ class HttpSession: public TcpSession {
 
     static bool SendSession(std::string const& s,
             const u_int8_t *data, size_t size, size_t *sent) {
-        tbb::mutex::scoped_lock lock(mutex_);
-        HttpSession* hs = GetSession(s);
+        HttpSessionPtr hs = GetSession(s);
         if (!hs) return false;
         return hs->Send(data, size, sent);
     }
     static std::string get_client_context(std::string const& s) {
-        tbb::mutex::scoped_lock lock(mutex_);
-        HttpSession* hs = GetSession(s);
+        HttpSessionPtr hs = GetSession(s);
         if (!hs) return "";
         return hs->get_client_context();
     }
     static bool set_client_context(std::string const& s,
             const std::string& ctx) {
-        tbb::mutex::scoped_lock lock(mutex_);
-        HttpSession* hs = GetSession(s);
+        HttpSessionPtr hs = GetSession(s);
         if (!hs) return false;
         hs->set_client_context(ctx);
         return true;
@@ -58,8 +55,8 @@ class HttpSession: public TcpSession {
   private:
     class RequestBuilder;
     class RequestHandler;
-    typedef std::map<std::string, HttpSession*> map_type;
     typedef boost::intrusive_ptr<HttpSession> HttpSessionPtr;
+    typedef std::map<std::string, HttpSessionPtr> map_type;
 
     void OnSessionEvent(TcpSession *session,
             enum TcpSession::Event event);
@@ -70,7 +67,8 @@ class HttpSession: public TcpSession {
         }
         return context_map_;
     }
-    static HttpSession* GetSession(std::string const& s) {
+    static HttpSessionPtr GetSession(std::string const& s) {
+        tbb::mutex::scoped_lock lock(map_mutex_);
         map_type::iterator it = GetMap()->find(s);
         if (it == GetMap()->end()) {
             return 0;
@@ -88,7 +86,7 @@ class HttpSession: public TcpSession {
 
     static int req_handler_task_id_;
     static map_type* context_map_;
-    static tbb::mutex mutex_;
+    static tbb::mutex map_mutex_;
     static tbb::atomic<long> task_count_;
 
     DISALLOW_COPY_AND_ASSIGN(HttpSession);
