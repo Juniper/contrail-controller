@@ -2004,6 +2004,9 @@ class DBInterface(object):
                     exc_info = {'type': 'BadRequest', 'message': str(e)}
                     bottle.abort(400, json.dumps(exc_info))
 
+        if 'device_owner' in port_q:
+            port_obj.set_virtual_machine_interface_device_owner(port_q.get('device_owner'))
+
         if 'security_groups' in port_q:
             port_obj.set_security_group_list([])
             for sg_id in port_q.get('security_groups') or []:
@@ -2196,19 +2199,17 @@ class DBInterface(object):
         port_parent_name = port_obj.parent_name
         router_refs = getattr(port_obj, 'logical_router_back_refs', None)
         if router_refs is not None:
-            port_q_dict['device_owner'] = constants.DEVICE_OWNER_ROUTER_INTF
             port_q_dict['device_id'] = router_refs[0]['uuid']
         elif port_obj.parent_type == 'virtual-machine':
-            port_q_dict['device_owner'] = ''
             port_q_dict['device_id'] = port_obj.parent_name
         elif port_obj.get_virtual_machine_refs() is not None:
             port_q_dict['device_id'] = \
                 port_obj.get_virtual_machine_refs()[0]['to'][-1]
-            port_q_dict['device_owner'] = ''
         else:
             port_q_dict['device_id'] = ''
-            port_q_dict['device_owner'] = ''
 
+        port_q_dict['device_owner'] = \
+                port_obj.get_virtual_machine_interface_device_owner();
         if port_q_dict['device_id']:
             port_q_dict['status'] = constants.PORT_STATUS_ACTIVE
         else:
