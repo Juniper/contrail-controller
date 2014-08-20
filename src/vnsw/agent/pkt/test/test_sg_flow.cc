@@ -367,6 +367,10 @@ static bool VmPortSetup(struct PortInfo *input, int count, int aclid) {
 }
 
 bool Init() {
+    boost::system::error_code ec;
+    bgp_peer_ = CreateBgpPeer(Ip4Address::from_string("0.0.0.1", ec),
+                              "xmpp channel");
+
     if (VmPortSetup(input1, 2, 0) == false)
         return false;
 
@@ -385,6 +389,8 @@ void Shutdown() {
     EXPECT_FALSE(VmPortFind(input1, 1));
     EXPECT_FALSE(VmPortFind(input2, 0));
     EXPECT_FALSE(VmPortFind(input2, 1));
+    DeleteBgpPeer(bgp_peer_);
+    client->WaitForIdle();
 }
 
 class SgTest : public ::testing::Test {
@@ -405,7 +411,6 @@ class SgTest : public ::testing::Test {
         client->WaitForIdle();
         char acl_name[1024];
         uint16_t max_len = sizeof(acl_name) - 1;
-
 
         EXPECT_EQ(0U, Agent::GetInstance()->pkt()->flow_table()->Size());
         DelLink("virtual-machine-interface", "vnet1", "security-group", "sg1");
@@ -517,6 +522,131 @@ TEST_F(SgTest, Fwd_Sg_Change_1) {
     EXPECT_TRUE(FlowDelete(vnet[1]->vrf()->GetName(), vnet_addr[1],
                            vnet_addr[2], 1, 0, 0,
                            vnet[1]->flow_key_nh()->id()));
+}
+
+//Delete SG ACL for forward flow, and verify that action gets updated
+TEST_F(SgTest, Fwd_Sg_Change_2) {
+    DelLink("virtual-machine-interface", "vnet1", "security-group", "sg1");
+    AddSgEntry("sg2", "ag2", 20, 1, "pass", 2, 2, BIDIRECTION);
+    AddLink("virtual-machine-interface", "vnet1", "security-group", "sg2");
+    AddLink("virtual-machine-interface", "vnet2", "security-group", "sg2");
+    client->WaitForIdle();
+
+    //Reflect route from bgp
+    SecurityGroupList sg_list;
+    sg_list.push_back(2);
+    Ip4Address vm_ip = Ip4Address::from_string("1.1.1.1");
+    const VmInterface *vm_intf = static_cast<const VmInterface *>
+        (VmPortGet(1));
+    Agent::GetInstance()->fabric_inet4_unicast_table()->
+        AddLocalVmRouteReq(bgp_peer_, "vrf1", vm_ip, 32,
+                vm_intf->GetUuid(), "vn1", vm_intf->label(),
+                sg_list, false, PathPreference(), Ip4Address(0));
+    client->WaitForIdle();
+
+    //Packet egress from vnet2, so that its the first entry in flow route map
+    TxIpPacket(vnet[1]->id(), vnet_addr[1], vnet_addr[2], 1);
+    client->WaitForIdle();
+
+    EXPECT_TRUE(ValidateAction(vnet[1]->vrf()->vrf_id(), vnet_addr[1],
+                               vnet_addr[2], 1, 0, 0, TrafficAction::PASS,
+                               vnet[1]->flow_key_nh()->id()));
+
+    //Delete SG ACL associated with vnet1
+    DelLink("virtual-machine-interface", "vnet1", "security-group", "sg2");
+    client->WaitForIdle();
+    Agent::GetInstance()->fabric_inet4_unicast_table()->
+        AddLocalVmRouteReq(bgp_peer_, "vrf1", vm_ip, 32,
+                vm_intf->GetUuid(), "vn1", vm_intf->label(),
+                SecurityGroupList(), false, PathPreference(), Ip4Address(0));
+    client->WaitForIdle();
+
+    FlowEntry *fe = FlowGet(vnet[1]->vrf()->vrf_id(), vnet_addr[1],
+                            vnet_addr[2], 1, 0, 0, vnet[1]->flow_key_nh()->id());
+    EXPECT_TRUE((fe->data().match_p.action_info.action &
+                (1 << TrafficAction::DROP)) != 0);
+    EXPECT_TRUE((fe->data().match_p.action_info.action &
+                (1 << TrafficAction::IMPLICIT_DENY)) != 0);
+    FlowEntry *reverse_flow = fe->reverse_flow_entry();
+    EXPECT_TRUE((reverse_flow->data().match_p.action_info.action &
+                (1 << TrafficAction::DROP)) != 0);
+    EXPECT_TRUE((reverse_flow->data().match_p.action_info.action &
+                (1 << TrafficAction::IMPLICIT_DENY)) != 0);
+
+    EXPECT_TRUE(FlowDelete(vnet[1]->vrf()->GetName(), vnet_addr[1],
+                           vnet_addr[2], 1, 0, 0,
+                           vnet[1]->flow_key_nh()->id()));
+    DelLink("virtual-machine-interface", "vnet1", "security-group", "sg2");
+    DelLink("virtual-machine-interface", "vnet2", "security-group", "sg2");
+    DelSgAclLink("sg2", "ag2");
+    DelSgAcl("ag2");
+    DelNode("security-group", "sg2");
+    Agent::GetInstance()->fabric_inet4_unicast_table()->DeleteReq(
+            bgp_peer_, "vrf1", vm_ip, 32, NULL);
+    client->WaitForIdle();
+}
+
+//Add sg ACL for destination intf, flow initially gets created
+//with deny action
+//Update source interface also with same SG verify flow action
+//gets set to pass
+TEST_F(SgTest, Fwd_Sg_Change_3) {
+    DelLink("virtual-machine-interface", "vnet1", "security-group", "sg1");
+    AddSgEntry("sg2", "ag2", 20, 1, "pass", 2, 2, BIDIRECTION);
+    AddLink("virtual-machine-interface", "vnet2", "security-group", "sg2");
+    client->WaitForIdle();
+
+    //Reflect route from bgp
+    SecurityGroupList sg_list;
+    sg_list.push_back(2);
+    Ip4Address vm_ip = Ip4Address::from_string("1.1.1.1");
+    const VmInterface *vm_intf = static_cast<const VmInterface *>
+        (VmPortGet(1));
+    Agent::GetInstance()->fabric_inet4_unicast_table()->
+        AddLocalVmRouteReq(bgp_peer_, "vrf1", vm_ip, 32,
+                vm_intf->GetUuid(), "vn1", vm_intf->label(),
+                SecurityGroupList(), false, PathPreference(), Ip4Address(0));
+    client->WaitForIdle();
+
+    TxIpPacket(vnet[1]->id(), vnet_addr[1], vnet_addr[2], 1);
+    client->WaitForIdle();
+
+    FlowEntry *fe = FlowGet(vnet[1]->vrf()->vrf_id(), vnet_addr[1],
+                            vnet_addr[2], 1, 0, 0, vnet[1]->flow_key_nh()->id());
+    EXPECT_TRUE((fe->data().match_p.action_info.action &
+                (1 << TrafficAction::DROP)) != 0);
+    EXPECT_TRUE((fe->data().match_p.action_info.action &
+                (1 << TrafficAction::IMPLICIT_DENY)) != 0);
+    FlowEntry *reverse_flow = fe->reverse_flow_entry();
+    EXPECT_TRUE((reverse_flow->data().match_p.action_info.action &
+                (1 << TrafficAction::DROP)) != 0);
+    EXPECT_TRUE((reverse_flow->data().match_p.action_info.action &
+                (1 << TrafficAction::IMPLICIT_DENY)) != 0);
+
+    //Add SG ACL associated to vnet1
+    AddLink("virtual-machine-interface", "vnet1", "security-group", "sg2");
+    client->WaitForIdle();
+    Agent::GetInstance()->fabric_inet4_unicast_table()->
+        AddLocalVmRouteReq(bgp_peer_, "vrf1", vm_ip, 32,
+                vm_intf->GetUuid(), "vn1", vm_intf->label(),
+                sg_list, false, PathPreference(), Ip4Address(0));
+    client->WaitForIdle();
+
+    EXPECT_TRUE(ValidateAction(vnet[1]->vrf()->vrf_id(), vnet_addr[1],
+                               vnet_addr[2], 1, 0, 0, TrafficAction::PASS,
+                               vnet[1]->flow_key_nh()->id()));
+
+    EXPECT_TRUE(FlowDelete(vnet[1]->vrf()->GetName(), vnet_addr[1],
+                           vnet_addr[2], 1, 0, 0,
+                           vnet[1]->flow_key_nh()->id()));
+    DelLink("virtual-machine-interface", "vnet1", "security-group", "sg2");
+    DelLink("virtual-machine-interface", "vnet2", "security-group", "sg2");
+    DelSgAclLink("sg2", "ag2");
+    DelSgAcl("ag2");
+    DelNode("security-group", "sg2");
+    Agent::GetInstance()->fabric_inet4_unicast_table()->DeleteReq(
+            bgp_peer_, "vrf1", vm_ip, 32, NULL);
+    client->WaitForIdle();
 }
 
 // Delete SG from interface
