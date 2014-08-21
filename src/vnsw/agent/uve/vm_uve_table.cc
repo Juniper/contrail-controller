@@ -163,6 +163,7 @@ void VmUveTable::InterfaceNotify(DBTablePartBase *partition, DBEntryBase *e) {
                     state->l2_active_ = false;
                 }
             }
+            state->fip_list_ = vm_port->floating_ip_list().list_;
             if (e->IsDeleted()) {
                 e->ClearState(partition->parent(), intf_listener_id_);
                 delete state;
