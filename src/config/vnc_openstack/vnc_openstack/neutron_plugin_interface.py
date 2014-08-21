@@ -13,7 +13,10 @@ import sys
 import string
 import ConfigParser
 
+from cfgm_common.exceptions import RefsExistError
 from vnc_api import vnc_api
+
+from neutron.common import exceptions
 from neutron_plugin_db import DBInterface
 
 
@@ -109,6 +112,10 @@ class NeutronPluginInterface(object):
                 return req['context'], req['data']
         except Exception as e:
             bottle.abort(400, 'Unable to parse request data')
+
+    def _raise_contrail_exception(self, code, exc):
+        exc_info = {'message': str(exc)}
+        bottle.abort(code, json.dumps(exc_info))
 
     # Network API Handling
     def plugin_get_network(self, context, network):
@@ -266,6 +273,9 @@ class NeutronPluginInterface(object):
             cfgdb = self._get_user_cfgdb(context)
             subnet_info = cfgdb.subnet_create(subnet['resource'])
             return self._make_subnet_dict(subnet_info)
+        except RefsExistError as e:
+            self._raise_contrail_exception(400, exceptions.BadRequest(
+                resource='subnet', msg=str(e)))
         except Exception as e:
             cgitb.Hook(format="text").handle(sys.exc_info())
             raise e
@@ -680,6 +690,9 @@ class NeutronPluginInterface(object):
             cfgdb = self._get_user_cfgdb(context)
             sg_rule_info = cfgdb.security_group_rule_create(sg_rule['resource'])
             return sg_rule_info
+        except RefsExistError as e:
+            self._raise_contrail_exception(400, exceptions.BadRequest(
+                resource='security_group_rule', msg=str(e)))
         except Exception as e:
             cgitb.Hook(format="text").handle(sys.exc_info())
             raise e
@@ -758,6 +771,9 @@ class NeutronPluginInterface(object):
             cfgdb = self._get_user_cfgdb(context)
             router_info = cfgdb.router_create(router['resource'])
             return router_info
+        except RefsExistError as e:
+            self._raise_contrail_exception(400, exceptions.BadRequest(
+                resource='router', msg=str(e)))
         except Exception as e:
             cgitb.Hook(format="text").handle(sys.exc_info())
             raise e
@@ -909,6 +925,9 @@ class NeutronPluginInterface(object):
             cfgdb = self._get_user_cfgdb(context)
             ipam_info = cfgdb.ipam_create(ipam['resource'])
             return ipam_info
+        except RefsExistError as e:
+            self._raise_contrail_exception(400, exceptions.BadRequest(
+                resource='ipam', msg=str(e)))
         except Exception as e:
             cgitb.Hook(format="text").handle(sys.exc_info())
             raise e
@@ -1018,6 +1037,9 @@ class NeutronPluginInterface(object):
             cfgdb = self._get_user_cfgdb(context)
             pol_info = cfgdb.policy_create(policy['resource'])
             return pol_info
+        except RefsExistError as e:
+            self._raise_contrail_exception(400, exceptions.BadRequest(
+                resource='policy', msg=str(e)))
         except Exception as e:
             cgitb.Hook(format="text").handle(sys.exc_info())
             raise e
@@ -1126,6 +1148,9 @@ class NeutronPluginInterface(object):
             cfgdb = self._get_user_cfgdb(context)
             rt_info = cfgdb.route_table_create(route_table['resource'])
             return rt_info
+        except RefsExistError as e:
+            self._raise_contrail_exception(400, exceptions.BadRequest(
+                resource='route_table', msg=str(e)))
         except Exception as e:
             cgitb.Hook(format="text").handle(sys.exc_info())
             raise e
@@ -1234,6 +1259,9 @@ class NeutronPluginInterface(object):
             cfgdb = self._get_user_cfgdb(context)
             si_info = cfgdb.svc_instance_create(svc_instance['resource'])
             return si_info
+        except RefsExistError as e:
+            self._raise_contrail_exception(400, exceptions.BadRequest(
+                resource='svc_instance', msg=str(e)))
         except Exception as e:
             cgitb.Hook(format="text").handle(sys.exc_info())
             raise e
