@@ -708,7 +708,7 @@ class NeutronPluginInterface(object):
 
         try:
             cfgdb = self._get_user_cfgdb(context)
-            sg_rules_info = cfgdb.security_group_rule_list(filters)
+            sg_rules_info = cfgdb.security_group_rule_list(context, filters)
             return json.dumps(sg_rules_info)
         except Exception as e:
             cgitb.Hook(format="text").handle(sys.exc_info())
@@ -800,7 +800,7 @@ class NeutronPluginInterface(object):
 
         try:
             cfgdb = self._get_user_cfgdb(context)
-            routers_info = cfgdb.router_list(filters)
+            routers_info = cfgdb.router_list(context, filters)
             return json.dumps(routers_info)
         except Exception as e:
             cgitb.Hook(format="text").handle(sys.exc_info())
@@ -951,7 +951,7 @@ class NeutronPluginInterface(object):
 
         try:
             cfgdb = self._get_user_cfgdb(context)
-            ipams_info = cfgdb.ipam_list(filters)
+            ipams_info = cfgdb.ipam_list(context, filters)
             return json.dumps(ipams_info)
         except Exception as e:
             cgitb.Hook(format="text").handle(sys.exc_info())
@@ -1060,7 +1060,7 @@ class NeutronPluginInterface(object):
 
         try:
             cfgdb = self._get_user_cfgdb(context)
-            policys_info = cfgdb.policy_list(filters)
+            policys_info = cfgdb.policy_list(context, filters)
             return json.dumps(policys_info)
         except Exception as e:
             cgitb.Hook(format="text").handle(sys.exc_info())
