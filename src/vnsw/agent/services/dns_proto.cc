@@ -86,14 +86,11 @@ void DnsProto::InterfaceNotify(DBEntryBase *entry) {
         DNS_BIND_TRACE(DnsBindTrace, "Vm Interface deleted : " <<
                        vmitf->vm_name());
         // remove floating ip entries from fip list
-        if (vmitf->vn()) {
-            const VmInterface::FloatingIpList &fip = vmitf->floating_ip_list();
-            for (VmInterface::FloatingIpSet::iterator it = fip.list_.begin(),
-                 next = fip.list_.begin(); it != fip.list_.end(); it = next) {
-                ++next;
-                UpdateFloatingIp(vmitf, it->vn_.get(),
-                                 it->floating_ip_, true);
-            }
+        const VmInterface::FloatingIpList &fip = vmitf->floating_ip_list();
+        for (VmInterface::FloatingIpSet::iterator it = fip.list_.begin(),
+             next = fip.list_.begin(); it != fip.list_.end(); it = next) {
+            ++next;
+            UpdateFloatingIp(vmitf, it->vn_.get(), it->floating_ip_, true);
         }
     } else {
         autogen::VirtualDnsType vdns_type;
@@ -123,8 +120,10 @@ void DnsProto::InterfaceNotify(DBEntryBase *entry) {
             const VmInterface::FloatingIpList &fip = vmitf->floating_ip_list();
             for (VmInterface::FloatingIpSet::iterator it = fip.list_.begin();
                  it != fip.list_.end(); ++it) {
-                UpdateFloatingIp(vmitf, it->vn_.get(),
-                                 it->floating_ip_, false);
+                if (it->installed_) {
+                    UpdateFloatingIp(vmitf, it->vn_.get(),
+                                     it->floating_ip_, false);
+                }
             }
         }
     }
@@ -255,6 +254,7 @@ void DnsProto::CheckForFipUpdate(DnsFipEntry *entry, std::string &vdns_name,
         if (UpdateDnsEntry(entry->interface_, entry->vn_, fip_name,
                            vdns_name, entry->floating_ip_, true, false)) {
             entry->vdns_name_.assign(vdns_name);
+            entry->fip_name_ = fip_name;
         }
     } else if (entry->vdns_name_ != vdns_name) {
         if (MoveVDnsEntry(entry->interface_, vdns_name, entry->vdns_name_,
@@ -337,14 +337,13 @@ bool DnsProto::UpdateFloatingIp(const VmInterface *vmitf, const VnEntry *vn,
                             vdns_name, ip, is_floating, false))
             vdns_name = "";
         key.get()->vdns_name_ = vdns_name;
+        key.get()->fip_name_ = fip_name;
         fip_list_.insert(key);
     } else {
         if (is_deleted) {
             std::string fip_name;
-            if (!GetFipName(vmitf, vdns_type, ip, fip_name))
-                vdns_name = "";
-            UpdateDnsEntry(vmitf, vn, fip_name,
-                           vdns_name, ip, is_floating, true);
+            UpdateDnsEntry(vmitf, vn, (*it)->fip_name_,
+                           (*it)->vdns_name_, ip, is_floating, true);
             fip_list_.erase(key);
         } else {
             DnsFipEntry *entry = (*it).get();
