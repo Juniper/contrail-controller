@@ -133,8 +133,10 @@ public:
     virtual ~GenDbIf() {}
 
     // Init/Uninit
-    virtual bool Db_Init(std::string task_id, int task_instance) = 0;
-    virtual void Db_Uninit(std::string task_id, int task_instance) = 0;
+    virtual bool Db_Init(const std::string& task_id, int task_instance) = 0;
+    virtual void Db_Uninit(const std::string& task_id, int task_instance) = 0;
+    virtual void Db_UninitUnlocked(const std::string& task_id,
+        int task_instance) = 0;
     virtual void Db_SetInitDone(bool init_done) = 0;
     // Tablespace 
     virtual bool Db_AddTablespace(const std::string& tablespace,
