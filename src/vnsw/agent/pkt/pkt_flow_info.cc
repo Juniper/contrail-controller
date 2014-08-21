@@ -929,6 +929,8 @@ bool PktFlowInfo::Process(const PktInfo *pkt, PktControlInfo *in,
     if (in->intf_ == NULL || in->intf_->ipv4_active() == false) {
         in->intf_ = NULL;
         LogError(pkt, "Invalid or Inactive ifindex");
+        short_flow = true;
+        short_flow_reason = FlowEntry::SHORT_UNAVIALABLE_INTERFACE;
         return false;
     }
 
@@ -937,6 +939,8 @@ bool PktFlowInfo::Process(const PktInfo *pkt, PktControlInfo *in,
             static_cast<const VmInterface *>(in->intf_);
         if (!vm_intf->ipv4_forwarding()) {
             LogError(pkt, "ipv4 service not enabled for ifindex");
+            short_flow = true;
+            short_flow_reason = FlowEntry::SHORT_IPV4_FWD_DIS;
             return false;
         }
     }
@@ -945,6 +949,8 @@ bool PktFlowInfo::Process(const PktInfo *pkt, PktControlInfo *in,
     if (in->vrf_ == NULL || !in->vrf_->IsActive()) {
         in->vrf_ = NULL;
         LogError(pkt, "Invalid or Inactive VRF");
+        short_flow = true;
+        short_flow_reason = FlowEntry::SHORT_UNAVIALABLE_VRF;
         return false;
     }
 
@@ -968,11 +974,15 @@ bool PktFlowInfo::Process(const PktInfo *pkt, PktControlInfo *in,
 
     if (in->rt_ == NULL) {
         LogError(pkt, "Flow : No route for Src-IP");
+        short_flow = true;
+        short_flow_reason = FlowEntry::SHORT_NO_SRC_ROUTE;
         return false;
     }
 
     if (out->rt_ == NULL) {
         LogError(pkt, "Flow : No route for Dst-IP");
+        short_flow = true;
+        short_flow_reason = FlowEntry::SHORT_NO_DST_ROUTE;
         return false;
     }
 
@@ -1013,6 +1023,7 @@ void PktFlowInfo::Add(const PktInfo *pkt, PktControlInfo *in,
          (flow_table->VmFlowCount(out->vm_) + 2) > flow_table->max_vm_flows())) {
         flow_table->agent()->stats()->incr_flow_drop_due_to_max_limit();
         short_flow = true;
+        short_flow_reason = FlowEntry::SHORT_FLOW_LIMIT;
     }
 
     if (!short_flow && linklocal_bind_local_port &&
@@ -1021,6 +1032,7 @@ void PktFlowInfo::Add(const PktInfo *pkt, PktControlInfo *in,
         if (!nat_sport) {
             flow_table->agent()->stats()->incr_flow_drop_due_to_max_limit();
             short_flow = true;
+            short_flow_reason = FlowEntry::SHORT_LINKLOCAL_SRC_NAT;
         }
     }
     
