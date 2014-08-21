@@ -233,6 +233,7 @@ class SvcMonitor(object):
             if not si_vn_str:
                 continue
 
+            si_entry[itf_type + '-vn'] = si_vn_str
             try:
                 vn_obj = self._vnc_lib.virtual_network_read(
                     fq_name_str=si_vn_str)
