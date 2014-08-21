@@ -806,7 +806,7 @@ class OpServer(object):
 
     def documentation_http_get(self, filename):
         return bottle.static_file(
-            filename, root='/usr/share/doc/python-vnc_opserver/html')
+            filename, root='/usr/share/doc/python-contrail-analytics-api/html')
     # end documentation_http_get
 
     def _http_get_common(self, request):
