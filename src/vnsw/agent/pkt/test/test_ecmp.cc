@@ -688,6 +688,94 @@ TEST_F(EcmpTest, EcmpTest_11) {
     EXPECT_FALSE(VrfFind("vrf9"));
 }
 
+TEST_F(EcmpTest, EcmpTest_12) {
+    struct PortInfo input1[] = {
+        {"vnet9", 9, "9.1.1.1", "00:00:00:01:01:01", 9, 9},
+    };
+    CreateVmportWithEcmp(input1, 1);
+    client->WaitForIdle();
+
+    VmInterface *intf = static_cast<VmInterface *>(VmPortGet(9));
+    uint32_t label = intf->label();
+
+    AddVn("default-project:vn10", 10);
+    AddVrf("default-project:vn10:vn10", 10);
+    AddLink("virtual-network", "default-project:vn10",
+            "routing-instance", "default-project:vn10:vn10");
+    AddFloatingIpPool("fip-pool9", 10);
+    AddFloatingIp("fip9", 10, "10.10.10.2");
+    AddLink("floating-ip", "fip9", "floating-ip-pool", "fip-pool9");
+    AddLink("floating-ip-pool", "fip-pool9", "virtual-network",
+            "default-project:vn10");
+    AddLink("virtual-machine-interface", "vnet9", "floating-ip", "fip9");
+    client->WaitForIdle();
+
+    Ip4Address gw_rt = Ip4Address::from_string("0.0.0.0");
+    Ip4Address remote_server_ip1 = Ip4Address::from_string("10.10.10.100");
+    Ip4Address remote_server_ip2 = Ip4Address::from_string("10.10.10.101");
+    Agent *agent = Agent::GetInstance();
+    ComponentNHKeyPtr nh_data1(new ComponentNHKey(30, agent->fabric_vrf_name(),
+                                                  agent->router_id(),
+                                                  remote_server_ip1,
+                                                  false,
+                                                  TunnelType::DefaultType()));
+    ComponentNHKeyPtr nh_data2(new ComponentNHKey(20, agent->fabric_vrf_name(),
+                                                  agent->router_id(),
+                                                  remote_server_ip2,
+                                                  false,
+                                                  TunnelType::DefaultType()));
+    ComponentNHKeyList comp_nh_list;
+    comp_nh_list.push_back(nh_data1);
+    comp_nh_list.push_back(nh_data2);
+    EcmpTunnelRouteAdd(bgp_peer, "default-project:vn10:vn10", gw_rt, 0,
+                       comp_nh_list, -1, "default-project:vn10",
+                       SecurityGroupList(), PathPreference());
+    client->WaitForIdle();
+
+    TxIpPacket(VmPortGetId(9), "9.1.1.1", "10.1.1.1", 1);
+    client->WaitForIdle();
+    FlowEntry *entry;
+    entry = FlowGet(VrfGet("default-project:vn10:vn10")->vrf_id(),
+                    "9.1.1.1", "10.1.1.1", 1, 0, 0, GetFlowKeyNH(9));
+    EXPECT_TRUE(entry != NULL);
+    EXPECT_TRUE(entry->data().component_nh_idx !=
+                CompositeNH::kInvalidComponentNHIdx);
+    EXPECT_TRUE(entry->is_flags_set(FlowEntry::ShortFlow) == false);
+
+    uint32_t reverse_index = entry->reverse_flow_entry()->flow_handle();
+    if (entry->data().component_nh_idx == 0) {
+        TxIpMplsPacket(eth_intf_id_, "10.10.10.101",
+                       agent->router_id().to_string().c_str(),
+                       label, "10.1.1.1", "10.10.10.2", 1, reverse_index);
+        client->WaitForIdle();
+        EXPECT_TRUE(entry->data().component_nh_idx == 1);
+    } else {
+        TxIpMplsPacket(eth_intf_id_, "10.10.10.100",
+                       agent->router_id().to_string().c_str(),
+                       label, "10.1.1.1", "10.10.10.2", 1, reverse_index);
+        client->WaitForIdle();
+        EXPECT_TRUE(entry->data().component_nh_idx == 0);
+    }
+
+    DeleteVmportEnv(input1, 1, true);
+    DeleteRemoteRoute("default-project:vn10:vn10", "0.0.0.0", 0);
+    DelLink("floating-ip", "fip9", "floating-ip-pool", "fip-pool9");
+    DelLink("floating-ip-pool", "fip-pool9",
+            "virtual-network", "default-project:vn10");
+    DelLink("virtual-machine-interface", "vnet9", "floating-ip", "fip9");
+    DelFloatingIp("fip9");
+    DelFloatingIpPool("fip-pool9");
+    client->WaitForIdle();
+    DelVrf("default-project:vn10:vn10");
+    DelVn("default-project:vn10");
+    client->WaitForIdle();
+    WAIT_FOR(100, 1000, VrfFind("default-project:vn10:vn10", true) == false);
+    //DeleteVmportEnv(input1, 1, true);
+    client->WaitForIdle();
+    EXPECT_TRUE(Agent::GetInstance()->pkt()->flow_table()->Size() == 0);
+    EXPECT_FALSE(VrfFind("vrf9", true));
+}
+
 TEST_F(EcmpTest, EcmpReEval_1) {
     TxIpPacket(VmPortGetId(1), "1.1.1.1", "2.1.1.1", 1);
     client->WaitForIdle();
