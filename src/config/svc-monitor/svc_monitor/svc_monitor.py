@@ -103,6 +103,11 @@ class SvcMonitor(object):
                                       svc_mode='in-network-nat',
                                       hypervisor_type='network-namespace',
                                       scaling=True)
+        # create default loadbalancer template
+        self._create_default_template('haproxy-loadbalancer-template', 'loadbalancer',
+                                      image_name='in-network',
+                                      hypervisor_type='network-namespace',
+                                      scaling=True)
 
         # load vrouter scheduler
         self.vrouter_scheduler = importutils.import_object(
@@ -193,7 +198,10 @@ class SvcMonitor(object):
         if not vm_back_refs:
             return False
         si_props = si_obj.get_service_instance_properties()
-        max_instances = si_props.get_scale_out().get_max_instances()
+        if si_props.get_scale_out():
+            max_instances = si_props.get_scale_out().get_max_instances()
+        else:
+            max_instances = 1
         if max_instances == len(vm_back_refs):
             return True
         return False

@@ -1168,4 +1168,8 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
 <!--#IFMAP-SEMANTICS-IDL
      Link('logical-router-gateway',
           'logical-router', 'virtual-network', ['ref']) -->
+
+<!-- Neutron extensions -->
+<xsd:include schemaLocation='loadbalancer.xsd'/>
+
 </xsd:schema>
