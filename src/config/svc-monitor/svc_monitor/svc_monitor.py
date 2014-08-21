@@ -729,6 +729,7 @@ def parse_args(args_str):
             'svc_monitor.scheduler.vrouter_scheduler.RandomScheduler',
         'analytics_server_ip': '127.0.0.1',
         'analytics_server_port': '8081',
+        'availability_zone': None,
     }
 
     if args.conf_file:
@@ -820,6 +821,8 @@ def parse_args(args_str):
         args.collectors = args.collectors.split()
     if args.region_name and args.region_name.lower() == 'none':
         args.region_name = None
+    if args.availability_zone and args.availability_zone.lower() == 'none':
+        args.availability_zone = None
     return args
 # end parse_args
 
