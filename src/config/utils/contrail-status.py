@@ -9,6 +9,7 @@ import os
 import glob
 import platform
 import ConfigParser
+import socket
 import requests
 from StringIO import StringIO
 from lxml import etree
@@ -120,7 +121,7 @@ class IntrospectUtil(object):
             if self._debug:
                 print 'URL: %s : Socket Connection error : %s' % (url, str(e))
             return None
-        except requests.Timeout, te:
+        except (requests.Timeout, socket.timeout) as te:
             if self._debug:
                 print 'URL: %s : Timeout error : %s' % (url, str(te))
             return None
