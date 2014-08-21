@@ -140,7 +140,8 @@ class LogQuerier(object):
             self._args.opserver_port)
         where_msg = []
         where_obj = []
-        filter = []
+        and_filter = []
+        or_filter = []
         if self._args.source is not None:
             source_match = OpServerUtils.Match(name=VizConstants.SOURCE,
                                                value=self._args.source,
@@ -171,22 +172,22 @@ class LogQuerier(object):
             level_match = OpServerUtils.Match(
                 name=VizConstants.LEVEL,
                 value=SandeshLevel._NAMES_TO_VALUES[self._args.level],
-                op=OpServerUtils.MatchOp.GEQ)
-            filter.append(level_match.__dict__)
+                op=OpServerUtils.MatchOp.LEQ)
+            and_filter.append(level_match.__dict__)
 
         if self._args.node_type is not None:
             node_type_match = OpServerUtils.Match(
                 name=VizConstants.NODE_TYPE,
                 value=self._args.node_type,
                 op=OpServerUtils.MatchOp.EQUAL)
-            filter.append(node_type_match.__dict__)
+            and_filter.append(node_type_match.__dict__)
 
         if self._args.instance_id is not None:
             instance_id_match = OpServerUtils.Match(
                 name=VizConstants.INSTANCE_ID,
                 value=self._args.instance_id,
                 op=OpServerUtils.MatchOp.EQUAL)
-            filter.append(instance_id_match.__dict__)
+            and_filter.append(instance_id_match.__dict__)
 
         # Object logs :
         # --object-type <> : All logs for the particular object type
@@ -298,7 +299,7 @@ class LogQuerier(object):
                 value=str(
                     SandeshType.TRACE),
                 op=OpServerUtils.MatchOp.EQUAL)
-            filter.append(sandesh_type_filter.__dict__)
+            and_filter.append(sandesh_type_filter.__dict__)
         else:
             # Message Table Query
             table = VizConstants.COLLECTOR_GLOBAL_TABLE
@@ -310,13 +311,13 @@ class LogQuerier(object):
                     value=str(
                         SandeshType.SYSTEM),
                     op=OpServerUtils.MatchOp.EQUAL)
-                filter.append([sandesh_type_filter.__dict__])
+                or_filter.append(sandesh_type_filter.__dict__)
                 sandesh_type_filter = OpServerUtils.Match(
                     name=VizConstants.SANDESH_TYPE,
                     value=str(
                         SandeshType.SYSLOG),
                     op=OpServerUtils.MatchOp.EQUAL)
-                filter.append([sandesh_type_filter.__dict__])
+                or_filter.append(sandesh_type_filter.__dict__)
 
             if len(where_msg):
                 where = [where_msg]
@@ -337,8 +338,11 @@ class LogQuerier(object):
                 VizConstants.INSTANCE_ID,
             ]
 
-        if len(filter) == 0:
-            filter = None
+        filter = None
+        if len(or_filter):
+            filter = [and_filter+[filt] for filt in or_filter]
+        elif len(and_filter):
+            filter = [and_filter]
 
         if self._args.keywords is not None:
             p = re.compile('\s*,\s*|\s+')
