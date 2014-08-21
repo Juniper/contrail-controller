@@ -177,6 +177,21 @@ static void FindAndSetInterfaces(
     const autogen::ServiceInstanceType &si_properties =
             svc_instance->properties();
 
+    properties->interface_count = 0;
+    /*
+     * The outside virtual-network is always specified (by the
+     * process that creates the service-instance).
+     */
+    if (si_properties.right_virtual_network.length()) {
+        properties->interface_count += 1;
+    }
+    /*
+     * The inside virtual-network is optional for loadbalancer.
+     */
+    if (si_properties.left_virtual_network.length()) {
+        properties->interface_count += 1;
+    }
+
     /*
      * Lookup for VMI nodes
      */
@@ -264,6 +279,19 @@ static void FindAndSetTypes(DBGraph *graph, IFMapNode *si_node,
                 svc_template_props.service_virtualization_type);
 }
 
+static void FindAndSetLoadbalancer(DBGraph *graph, IFMapNode *node,
+                                   ServiceInstance::Properties *properties) {
+    for (DBGraphVertex::adjacency_iterator iter = node->begin(graph);
+         iter != node->end(graph); ++iter) {
+        IFMapNode *adj = static_cast<IFMapNode *>(iter.operator->());
+        if (IsNodeType(adj, "loadbalancer-pool")) {
+            autogen::LoadbalancerPool *pool =
+                    static_cast<autogen::LoadbalancerPool *>(adj->GetObject());
+            properties->pool_id = IdPermsGetUuid(pool->id_perms());
+        }
+    }
+}
+
 /*
  * ServiceInstance Properties
  */
@@ -279,6 +307,8 @@ void ServiceInstance::Properties::Clear() {
     ip_addr_outside.empty();
     ip_prefix_len_inside = -1;
     ip_prefix_len_outside = -1;
+    interface_count = 0;
+    pool_id = boost::uuids::nil_uuid();
 }
 
 template <typename Type>
@@ -330,7 +360,79 @@ int ServiceInstance::Properties::CompareTo(const Properties &rhs) const {
     if (cmp != 0) {
         return cmp;
     }
+    cmp = compare(interface_count, rhs.interface_count);
+    if (cmp != 0) {
+        return cmp;
+    }
+    cmp = compare(pool_id, rhs.pool_id);
     return cmp;
+}
+
+std::string ServiceInstance::Properties::DiffString(
+    const Properties &rhs) const {
+    std::stringstream ss;
+
+    if (compare(service_type, rhs.service_type)) {
+        ss << " type: -" << service_type << " +" << rhs.service_type;
+    }
+    if (compare(virtualization_type, rhs.virtualization_type)) {
+        ss << " virtualization: -" << virtualization_type
+           << " +" << rhs.virtualization_type;
+    }
+    if (compare(instance_id, rhs.instance_id)) {
+        ss << " id: -" << instance_id << " +" << rhs.instance_id;
+    }
+    if (compare(vmi_inside, rhs.vmi_inside)) {
+        ss << " vmi-inside: -" << vmi_inside << " +" << rhs.vmi_inside;
+    }
+    if (compare(vmi_outside, rhs.vmi_outside)) {
+        ss << " vmi-outside: -" << vmi_outside << " +" << rhs.vmi_outside;
+    }
+    if (compare(ip_addr_inside, rhs.ip_addr_inside)) {
+        ss << " ip-inside: -" << ip_addr_inside
+           << " +" << rhs.ip_addr_inside;
+    }
+    if (compare(ip_addr_outside, rhs.ip_addr_outside)) {
+        ss << " ip-outside: -" << ip_addr_outside
+           << " +" << rhs.ip_addr_outside;
+    }
+    if (compare(ip_prefix_len_inside, rhs.ip_prefix_len_inside)) {
+        ss << " pfx-inside: -" << ip_prefix_len_inside
+           << " +" << rhs.ip_prefix_len_inside;
+    }
+    if (compare(ip_prefix_len_outside, rhs.ip_prefix_len_outside)) {
+        ss << " pfx-outside: -" << ip_prefix_len_outside
+           << " +" << rhs.ip_prefix_len_outside;
+    }
+    if (compare(pool_id, rhs.pool_id)) {
+        ss << " pool_id: -" << pool_id << " +" << rhs.pool_id;
+    }
+    return ss.str();
+}
+
+bool ServiceInstance::Properties::Usable() const {
+    bool common = (!instance_id.is_nil() &&
+                   !vmi_outside.is_nil() &&
+                   !ip_addr_outside.empty() &&
+                   (ip_prefix_len_outside >= 0));
+    if (!common) {
+        return false;
+    }
+
+    if (service_type == SourceNAT || interface_count == 2) {
+        bool inside = (!vmi_inside.is_nil() &&
+                       !ip_addr_inside.empty() &&
+                       (ip_prefix_len_inside >= 0));
+        if (!inside) {
+            return false;
+        }
+    }
+
+    if (service_type == LoadBalancer) {
+        return (!pool_id.is_nil());
+    }
+
+    return true;
 }
 
 const std::string &ServiceInstance::Properties::ServiceTypeString() const {
@@ -417,14 +519,9 @@ bool ServiceInstance::DBEntrySandesh(Sandesh *sresp, std::string &name) const {
 }
 
 bool ServiceInstance::IsUsable() const {
-    return (!properties_.instance_id.is_nil() &&
-            !properties_.vmi_inside.is_nil() &&
-            !properties_.vmi_outside.is_nil() &&
-            !properties_.ip_addr_inside.empty() &&
-            !properties_.ip_addr_outside.empty() &&
-            !(properties_.ip_prefix_len_inside == -1) &&
-            !(properties_.ip_prefix_len_outside == -1));
+    return properties_.Usable();
 }
+
 
 void ServiceInstance::CalculateProperties(
     DBGraph *graph, Properties *properties) {
@@ -452,6 +549,10 @@ void ServiceInstance::CalculateProperties(
     autogen::ServiceInstance *svc_instance =
                  static_cast<autogen::ServiceInstance *>(node_->GetObject());
     FindAndSetInterfaces(graph, vm_node, svc_instance, properties);
+
+    if (properties->service_type == LoadBalancer) {
+        FindAndSetLoadbalancer(graph, node_, properties);
+    }
 }
 
 void ServiceInstanceReq::HandleRequest() const {
@@ -553,6 +654,10 @@ void ServiceInstanceTable::ChangeEventHandler(DBEntry *entry) {
     svc_instance->CalculateProperties(graph_, &properties);
 
     if (properties.CompareTo(svc_instance->properties()) != 0) {
+        if (svc_instance->properties().Usable() != properties.Usable()) {
+            LOG(DEBUG, "service-instance properties change"
+                << svc_instance->properties().DiffString(properties));
+        }
         DBRequest request;
         request.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
         request.key = svc_instance->GetDBRequestKey();

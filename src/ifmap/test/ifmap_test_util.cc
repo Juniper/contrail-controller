@@ -34,26 +34,6 @@ void IFMapMsgNodeDelete(DB *db, const string &type, const string &id) {
     tbl->Enqueue(request.get());
 }
 
-void IFMapMsgPropertyAdd(DB *db, const string &type, const string &id,
-                         const string &metadata, AutogenProperty *content,
-                         uint64_t sequence_number) {
-    auto_ptr<DBRequest> request(new DBRequest());
-    request->oper = DBRequest::DB_ENTRY_ADD_CHANGE;
-    IFMapPropertyCommon(request.get(), type, id, metadata, content,
-                        sequence_number);
-    IFMapTable *tbl = IFMapTable::FindTable(db, type);
-    tbl->Enqueue(request.get());
-}
-
-void IFMapMsgPropertyDelete(DB *db, const string &type, const string &id,
-                            const string &metadata) {
-    auto_ptr<DBRequest> request(new DBRequest());
-    request->oper = DBRequest::DB_ENTRY_DELETE;
-    IFMapPropertyCommon(request.get(), type, id, metadata, NULL, 0);
-    IFMapTable *tbl = IFMapTable::FindTable(db, type);
-    tbl->Enqueue(request.get());
-}
-
 IFMapNode *IFMapNodeLookup(DB *db, const string &type, const string &name) {
     IFMapTable *table = IFMapTable::FindTable(db, type);
     if (table == NULL) {

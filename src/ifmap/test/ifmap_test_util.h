@@ -7,6 +7,7 @@
 
 #include <stdint.h>
 #include <string>
+#include <map>
 class DB;
 class DBGraph;
 class IFMapNode;
@@ -39,6 +40,9 @@ void IFMapMsgNodeAdd(DB *db, const std::string &type, const std::string &id,
 
 void IFMapMsgNodeDelete(DB *db, const std::string &type, const std::string &id);
 
+/*
+ * PropertyAdd/Delete are APIs only available on the ifmap server tables.
+ */
 void IFMapPropertyCommon(DBRequest *request, const std::string &type,
                          const std::string &id, const std::string &metadata,
                          AutogenProperty *content, uint64_t sequence_number);
@@ -49,6 +53,17 @@ void IFMapMsgPropertyAdd(DB *db, const std::string &type, const std::string &id,
 
 void IFMapMsgPropertyDelete(DB *db, const std::string &type,
                             const std::string &id, const std::string &metadata);
+
+/*
+ * IFMapMsgPropertySet (ifmap agent tables only).
+ * Enqueues an ADD/CHANGE message to the specified table.
+ * It assumes that id is an string representing an UUID.
+ */
+void IFMapMsgPropertySet(DB *db,
+                         const std::string &type,
+                         const std::string &id,
+                         const std::map<std::string, AutogenProperty *> &pmap,
+                         uint64_t sequence_number);
 
 IFMapNode *IFMapNodeLookup(DB *db, const std::string &type,
                            const std::string &name);
