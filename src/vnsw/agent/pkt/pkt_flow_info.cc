@@ -286,8 +286,12 @@ static void SetInEcmpIndex(const PktInfo *pkt, PktFlowInfo *flow_info,
     const Inet4UnicastRouteEntry *rt;
     FlowTable *ftable = agent->pkt()->flow_table();
     if (flow_info->nat_done) {
-        VrfEntry *nat_vrf =
-            agent->vrf_table()->FindVrfFromId(flow_info->nat_vrf);
+        VrfEntry *nat_vrf = NULL;
+        if (flow_info->fip_snat) {
+            nat_vrf = agent->vrf_table()->FindVrfFromId(flow_info->nat_vrf);
+        } else {
+            nat_vrf = agent->vrf_table()->FindVrfFromId(flow_info->nat_dest_vrf);
+        }
         if (nat_vrf == NULL) {
             return;
         }
@@ -300,7 +304,7 @@ static void SetInEcmpIndex(const PktInfo *pkt, PktFlowInfo *flow_info,
     }
 
     if (rt == NULL) {
-        assert(0);
+        return;
     }
 
     NextHop *component_nh_ptr = NULL;
