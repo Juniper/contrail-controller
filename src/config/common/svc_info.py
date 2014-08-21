@@ -22,6 +22,7 @@ _VM_INSTANCE_TYPE = 'virtual-machine'
 _NETNS_INSTANCE_TYPE = 'network-namespace'
 
 _SNAT_SVC_TYPE = 'source-nat'
+_LB_SVC_TYPE = 'loadbalancer'
 
 def get_left_vn(parent_str, vn):
     if vn is None:
@@ -102,6 +103,9 @@ def get_netns_instance_type():
 
 def get_snat_service_type():
     return _SNAT_SVC_TYPE
+
+def get_lb_service_type():
+    return _LB_SVC_TYPE
 
 def get_vm_health_interval():
     return _CHECK_SVC_VM_HEALTH_INTERVAL
