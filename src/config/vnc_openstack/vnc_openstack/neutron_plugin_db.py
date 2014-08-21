@@ -533,7 +533,11 @@ class DBInterface(object):
     #end _security_group_delete
 
     def _svc_instance_create(self, si_obj):
-        si_uuid = self._vnc_lib.service_instance_create(si_obj)
+        try:
+            si_uuid = self._vnc_lib.service_instance_create(si_obj)
+        except RefsExistError as e:
+            self._raise_contrail_exception(400, exceptions.BadRequest(
+                resource='svc_instance', msg=str(e)))
         st_fq_name = ['default-domain', 'nat-template']
         st_obj = self._vnc_lib.service_template_read(fq_name=st_fq_name)
         si_obj.set_service_template(st_obj)
@@ -2713,8 +2717,11 @@ class DBInterface(object):
         #self._ensure_project_exists(ipam_q['tenant_id'])
 
         ipam_obj = self._ipam_neutron_to_vnc(ipam_q, CREATE)
-        ipam_uuid = self._vnc_lib.network_ipam_create(ipam_obj)
-
+        try:
+            ipam_uuid = self._vnc_lib.network_ipam_create(ipam_obj)
+        except RefsExistError as e:
+            self._raise_contrail_exception(400, exceptions.BadRequest(
+                resource='ipam', msg=str(e)))
         return self._ipam_vnc_to_neutron(ipam_obj)
     #end ipam_create
 
@@ -2784,8 +2791,11 @@ class DBInterface(object):
         #self._ensure_project_exists(policy_q['tenant_id'])
 
         policy_obj = self._policy_neutron_to_vnc(policy_q, CREATE)
-        policy_uuid = self._vnc_lib.network_policy_create(policy_obj)
-
+        try:
+            policy_uuid = self._vnc_lib.network_policy_create(policy_obj)
+        except RefsExistError as e:
+            self._raise_contrail_exception(400, exceptions.BadRequest(
+                resource='policy', msg=str(e)))
         return self._policy_vnc_to_neutron(policy_obj)
     #end policy_create
 
@@ -3884,7 +3894,11 @@ class DBInterface(object):
     #route table api handlers
     def route_table_create(self, rt_q):
         rt_obj = self._route_table_neutron_to_vnc(rt_q, CREATE)
-        rt_uuid = self._route_table_create(rt_obj)
+        try:
+            rt_uuid = self._route_table_create(rt_obj)
+        except RefsExistError as e:
+            self._raise_contrail_exception(400, exceptions.BadRequest(
+                resource='route_table', msg=str(e)))
         ret_rt_q = self._route_table_vnc_to_neutron(rt_obj)
         return ret_rt_q
     #end security_group_create
