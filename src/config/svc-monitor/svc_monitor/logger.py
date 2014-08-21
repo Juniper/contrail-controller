@@ -18,7 +18,8 @@ from pysandesh.sandesh_base import Sandesh
 from pysandesh.gen_py.sandesh.ttypes import SandeshLevel
 
 from sandesh_common.vns.ttypes import Module, NodeType
-from sandesh_common.vns.constants import ModuleNames, Module2NodeType, NodeTypeNames, INSTANCE_ID_DEFAULT
+from sandesh_common.vns.constants import ModuleNames, \
+    Module2NodeType, NodeTypeNames, INSTANCE_ID_DEFAULT
 from sandesh.svc_mon_introspect import ttypes as sandesh
 
 from pysandesh.connection_info import ConnectionState
@@ -52,10 +53,9 @@ class ServiceMonitorLogger(object):
 
         #create cpu_info object to send periodic updates
         sysinfo_req = False
-        cpu_info = vnc_cpu_info.CpuInfo(self._module_name, 
+        cpu_info = vnc_cpu_info.CpuInfo(self._module_name,
             self._instance_id, sysinfo_req, self._sandesh, 60)
         self._cpu_info = cpu_info
-
 
     def log(self, log_msg):
         self._sandesh._logger.debug("%s", log_msg)
@@ -63,13 +63,11 @@ class ServiceMonitorLogger(object):
             log_msg=log_msg, sandesh=self._sandesh)
         vn_log.send(sandesh=self._sandesh)
 
-    
     def api_conn_status_update(self, status, msg=None):
         ConnectionState.update(conn_type=ConnectionType.APISERVER,
             name='ApiServer', status=status, message=msg,
             server_addrs=['%s:%s' % (self._args.api_server_ip,
                                      self._args.api_server_port)])
-
 
     def sandesh_si_handle_request(self, req):
         si_resp = sandesh.ServiceInstanceListResp(si_names=[])
@@ -117,7 +115,6 @@ class ServiceMonitorLogger(object):
 
         si_resp.response(req.context())
 
-
     def _sandesh_populate_vn_info(self, si_info, sandesh_si):
         for if_str in svc_info.get_if_str_list():
             if_set = set()
@@ -147,14 +144,12 @@ class ServiceMonitorLogger(object):
 
             si_info['done'] = True
 
-
     def _utc_timestamp_usec(self):
         epoch = datetime.datetime.utcfromtimestamp(0)
         now = datetime.datetime.utcnow()
         delta = now - epoch
         return (delta.microseconds +
                 (delta.seconds + delta.days * 24 * 3600) * 10 ** 6)
-
 
     def uve_svc_instance(self, si_fq_name_str, status=None,
                          vm_uuid=None, st_name=None, vr_name=None):
@@ -178,16 +173,16 @@ class ServiceMonitorLogger(object):
             data=svc_uve, sandesh=self._sandesh)
         svc_log.send(sandesh=self._sandesh)
 
-
     # init sandesh
     def _sandesh_init(self, discovery):
         sandesh_instance = Sandesh()
         sandesh.ServiceInstanceList.handle_request =\
             self.sandesh_si_handle_request
         sandesh_instance.init_generator(
-            self._module_name, self._hostname, self._node_type_name, 
+            self._module_name, self._hostname, self._node_type_name,
             self._instance_id, self._args.collectors, 'svc_monitor_context',
-            int(self._args.http_server_port), ['cfgm_common', 'svc_monitor.sandesh'],
+            int(self._args.http_server_port),
+            ['cfgm_common', 'svc_monitor.sandesh'],
             discovery)
         sandesh_instance.set_logging_params(
             enable_local_log=self._args.log_local,

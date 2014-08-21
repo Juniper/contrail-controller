@@ -83,7 +83,7 @@ class InstanceManager(object):
         # set static routes
         static_routes = nic['static-routes']
         if not static_routes:
-            static_routes = {'route':[]}
+            static_routes = {'route': []}
 
         try:
             domain_name, proj_name = proj_obj.get_fq_name()
@@ -121,9 +121,11 @@ class InstanceManager(object):
         port_fq_name = proj_fq_name + [port_name]
         vmi_created = False
         try:
-            vmi_obj = self._vnc_lib.virtual_machine_interface_read(fq_name=port_fq_name)
+            vmi_obj = self._vnc_lib.virtual_machine_interface_read(
+                fq_name=port_fq_name)
         except NoIdError:
-            vmi_obj = VirtualMachineInterface(parent_obj=proj_obj, name=port_name)
+            vmi_obj = VirtualMachineInterface(parent_obj=proj_obj,
+                                              name=port_name)
             vmi_created = True
 
         # set vn, itf_type, sg and static routes
@@ -160,9 +162,9 @@ class InstanceManager(object):
         si_props = si_obj.get_service_instance_properties()
         max_instances = si_props.get_scale_out().get_max_instances()
         if max_instances > 1:
-            iip_obj.set_instance_ip_mode(u'active-active');
+            iip_obj.set_instance_ip_mode(u'active-active')
         else:
-            iip_obj.set_instance_ip_mode(u'active-standby');
+            iip_obj.set_instance_ip_mode(u'active-standby')
         iip_obj.add_virtual_machine_interface(vmi_obj)
         self._vnc_lib.instance_ip_update(iip_obj)
 
@@ -336,9 +338,15 @@ class VirtualMachineManager(InstanceManager):
         # populate nic information
         nics = self._get_nic_info(si_obj, si_props, st_props)
 
+        # get availability zone
+        avail_zone = None
+        if st_props.get_availability_zone_enable():
+            avail_zone = si_props.get_availability_zone()
+        elif self._args.availability_zone:
+            avail_zone = self._args.availability_zone
+
         # create and launch vm
         vm_back_refs = si_obj.get_virtual_machine_back_refs()
-        avail_zone = si_props.get_availability_zone()
         proj_name = si_obj.get_parent_fq_name()[-1]
         max_instances = si_props.get_scale_out().get_max_instances()
         for inst_count in range(0, max_instances):

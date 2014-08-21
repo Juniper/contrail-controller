@@ -44,6 +44,7 @@ from instance_manager import InstanceManager
 # zookeeper client connection
 _zookeeper_client = None
 
+
 class SvcMonitor(object):
 
     """
@@ -81,9 +82,8 @@ class SvcMonitor(object):
         self._svc_err_logger = logging.getLogger('SvcErrLogger')
         self._svc_err_logger.setLevel(logging.ERROR)
         handler = logging.handlers.RotatingFileHandler(
-            self._err_file, maxBytes=64*1024, backupCount=2)
+            self._err_file, maxBytes=64 * 1024, backupCount=2)
         self._svc_err_logger.addHandler(handler)
-
 
     def post_init(self, vnc_lib, args=None):
         # api server
@@ -121,7 +121,6 @@ class SvcMonitor(object):
             'svc_monitor.instance_manager.NetworkNamespaceManager',
             self._vnc_lib, self.db, self.logger,
             self.vrouter_scheduler, self._args)
-
 
     # create service template
     def _create_default_template(self, st_name, svc_type, svc_mode=None,
@@ -305,7 +304,7 @@ class SvcMonitor(object):
         self.logger.log("Deleting VM %s %s" % (proj_name, vm_uuid))
         found = True
         vm_entry = self.db.virtual_machine_get(vm_uuid)
-        if not vm_entry: 
+        if not vm_entry:
             self.db.cleanup_table_remove(vm_uuid)
             return
 
@@ -319,7 +318,8 @@ class SvcMonitor(object):
         self.db.virtual_machine_remove(vm_uuid)
         self.db.cleanup_table_insert(
             vm_uuid, {'proj_name': proj_name, 'type': 'vm'})
-        self.logger.uve_svc_instance(si_fq_str, status='DELETE', vm_uuid=vm_uuid)
+        self.logger.uve_svc_instance(si_fq_str, status='DELETE',
+                                     vm_uuid=vm_uuid)
 
     def _delmsg_project_service_instance(self, idents):
         proj_fq_str = idents['project']
@@ -530,7 +530,7 @@ class SvcMonitor(object):
             si_if = si_if_list[idx]
             static_routes = si_if.get_static_routes()
             if not static_routes:
-                static_routes = {'route':[]}
+                static_routes = {'route': []}
 
             # update static routes
             try:
@@ -551,7 +551,7 @@ class SvcMonitor(object):
 def launch_arc(monitor, ssrc_mapc):
     arc_mapc = arc_initialize(monitor._args, ssrc_mapc)
     while True:
-        # If not connected to zookeeper Pause the operations 
+        # If not connected to zookeeper Pause the operations
         if not _zookeeper_client.is_connected():
             time.sleep(1)
             continue
@@ -584,12 +584,14 @@ def timer_callback(monitor):
         try:
             status = None
             if si['instance_type'] == 'virtual-machine':
-                proj_name = monitor._get_proj_name_from_si_fq_str(si['si_fq_str'])
+                proj_name = monitor._get_proj_name_from_si_fq_str(
+                    si['si_fq_str'])
                 status = monitor.vm_manager.novaclient_oper('servers', 'find',
                     proj_name, id=vm_uuid).status
             elif si['instance_type'] == 'network-namespace':
                 try:
-                    if not monitor.vrouter_scheduler.vrouter_running(si['vrouter_name']):
+                    if not monitor.vrouter_scheduler.vrouter_running(
+                            si['vrouter_name']):
                         # The scheduled vrouter is down, re-create it
                         status = 'ERROR'
                 except KeyError:
@@ -721,6 +723,7 @@ def parse_args(args_str):
             'svc_monitor.scheduler.vrouter_scheduler.RandomScheduler',
         'analytics_server_ip': '127.0.0.1',
         'analytics_server_port': '8081',
+        'availability_zone': None,
     }
 
     if args.conf_file:
@@ -812,6 +815,8 @@ def parse_args(args_str):
         args.collectors = args.collectors.split()
     if args.region_name and args.region_name.lower() == 'none':
         args.region_name = None
+    if args.availability_zone and args.availability_zone.lower() == 'none':
+        args.availability_zone = None
     return args
 # end parse_args
 
@@ -831,11 +836,12 @@ def run_svc_monitor(args=None):
             connected = True
             monitor.logger.api_conn_status_update(ConnectionStatus.UP)
         except requests.exceptions.ConnectionError as e:
-            monitor.logger.api_conn_status_update(ConnectionStatus.DOWN, str(e))
+            monitor.logger.api_conn_status_update(
+                ConnectionStatus.DOWN, str(e))
+            time.sleep(3)
+        except ResourceExhaustionError:   # haproxy throws 503
             time.sleep(3)
         except ResourceExhaustionError:  # haproxy throws 503
-            time.sleep(3)
-        except ResourceExhaustionError: # haproxy throws 503
             time.sleep(3)
 
     monitor.post_init(vnc_api, args)
@@ -858,10 +864,12 @@ def main(args_str=None):
         client_pfx = ''
         zk_path_pfx = ''
 
-    _zookeeper_client = ZookeeperClient(client_pfx+"svc-monitor", args.zk_server_ip)
-    _zookeeper_client.master_election(zk_path_pfx+"/svc-monitor", os.getpid(),
-                                  run_svc_monitor, args)
+    _zookeeper_client = ZookeeperClient(client_pfx + "svc-monitor",
+                                        args.zk_server_ip)
+    _zookeeper_client.master_election(zk_path_pfx + "/svc-monitor",
+                                      os.getpid(), run_svc_monitor, args)
 # end main
+
 
 def server_main():
     cgitb.enable(format='text')
