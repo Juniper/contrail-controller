@@ -85,7 +85,7 @@ test_cfg_listener = AgentEnv.MakeTestCmd(env, 'test_cfg_listener', flaky_agent_s
 test_route_mock = AgentEnv.MakeTestCmd(env, 'test_route_mock', flaky_agent_suite)
 test_global_vrouter_config = AgentEnv.MakeTestCmd(env,
                                                  'test_global_vrouter_config',
-                                                  flaky_agent_suite)
+                                                  agent_suite)
 test_tunnel_encap = AgentEnv.MakeTestCmd(env, 'test_tunnel_encap', flaky_agent_suite)
 test_agent_route_walker = AgentEnv.MakeTestCmd(env, 'test_agent_route_walker',
                                                flaky_agent_suite)
