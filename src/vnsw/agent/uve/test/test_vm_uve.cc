@@ -1074,7 +1074,9 @@ TEST_F(UveVmUveTest, VmUVE_Name_1) {
 
 int main(int argc, char **argv) {
     GETUSERARGS();
-    client = TestInit(init_file, ksync_init);
+    client = TestInit(init_file, ksync_init, true, false, true,
+                      (10 * 60 * 1000), (10 * 60 * 1000), true, true,
+                      (10 * 60 * 1000));
 
     usleep(10000);
     int ret = RUN_ALL_TESTS();
