@@ -336,9 +336,15 @@ class VirtualMachineManager(InstanceManager):
         # populate nic information
         nics = self._get_nic_info(si_obj, si_props, st_props)
 
+        # get availability zone
+        avail_zone = None
+        if st_props.get_availability_zone_enable():
+            avail_zone = si_props.get_availability_zone()
+        else if self._args.availability_zone:
+            avail_zone = self._args.availability_zone
+
         # create and launch vm
         vm_back_refs = si_obj.get_virtual_machine_back_refs()
-        avail_zone = si_props.get_availability_zone()
         proj_name = si_obj.get_parent_fq_name()[-1]
         max_instances = si_props.get_scale_out().get_max_instances()
         for inst_count in range(0, max_instances):
