@@ -865,6 +865,7 @@ TEST_F(RouteTest, VlanNHRoute_1) {
     if (rt) {
         EXPECT_TRUE(rt->dest_vn_name() == "TestVn");
     }
+    EXPECT_TRUE(rt->GetActivePath()->tunnel_bmap() == TunnelType::MplsType());
 
     AddVmPortVrf("ser1", "2.2.2.1", 10);
     client->WaitForIdle();
