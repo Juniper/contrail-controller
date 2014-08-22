@@ -158,7 +158,10 @@ class InstanceManager(object):
 
         # set active-standy flag for instance ip
         si_props = si_obj.get_service_instance_properties()
-        max_instances = si_props.get_scale_out().get_max_instances()
+        if si_props.get_scale_out():
+            max_instances = si_props.get_scale_out().get_max_instances()
+        else:
+            max_instances = 1
         if max_instances > 1:
             iip_obj.set_instance_ip_mode(u'active-active');
         else:
@@ -420,18 +423,23 @@ class NetworkNamespaceManager(InstanceManager):
             self.logger.log("Cannot find service template associated to "
                              "service instance %s" % si_obj.get_fq_name_str())
             return
+        '''TODO: add check for lb and snat. Need a new class to drive this
         if (st_props.get_service_type() != svc_info.get_snat_service_type()):
             self.logger.log("Only service type 'source-nat' is supported "
                              "with 'network-namespace' service "
                              "virtualization type")
             return
+        '''
 
         # populate nic information
         nics = self._get_nic_info(si_obj, si_props, st_props)
 
         # Create virtual machines, associate them to the service instance and
         # schedule them to different virtual routers
-        max_instances = si_props.get_scale_out().get_max_instances()
+        if si_props.get_scale_out():
+            max_instances = si_props.get_scale_out().get_max_instances()
+        else:
+            max_instances = 1
         for inst_count in range(0, max_instances):
             # Create a virtual machine
             instance_name = si_obj.name + '_' + str(inst_count + 1)
