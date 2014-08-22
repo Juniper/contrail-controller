@@ -46,9 +46,16 @@ class VRouterScheduler(object):
         """
         pass
 
-    def _get_candidates(self, si_uuid):
+    def _get_candidates(self, si_uuid, vm_uuid):
         """Return vrouter agents where a service instance virtual machine
-        could be scheduled."""
+        could be scheduled.
+
+        If a VM of a same service instance is already scheduled on the vrouter,
+        that vrouter is exclude from the candidates list.
+        If the VM is already scheduled on a running vrouter, only that vrouter
+        is return in the candidates list.
+        """
+
         vrs_fq_name = [vr['fq_name'] for vr in
                        self._vnc_lib.virtual_routers_list()['virtual-routers']
                        if self.vrouter_running(vr['fq_name'][-1])]
@@ -59,6 +66,8 @@ class VRouterScheduler(object):
                 vrs_fq_name.remove(vr_fq_name)
                 continue
             for vm_ref in vr_obj.get_virtual_machine_refs() or []:
+                if vm_uuid == vm_ref['uuid']:
+                    return [vr_fq_name]
                 try:
                     vm_obj = self._vnc_lib.virtual_machine_read(
                         id=vm_ref['uuid'])
@@ -103,9 +112,9 @@ class RandomScheduler(VRouterScheduler):
     instance."""
 
     def schedule(self, si_uuid, vm_uuid):
-        candidates = self._get_candidates(si_uuid)
+        candidates = self._get_candidates(si_uuid, vm_uuid)
         if not candidates:
             return
-        chosen_vrouter = random.choice(self._get_candidates(si_uuid))
+        chosen_vrouter = random.choice(candidates)
         self._bind_vrouter(vm_uuid, chosen_vrouter)
         return chosen_vrouter
