@@ -291,6 +291,19 @@ class DBInterface(object):
             request.body, {'Content-type': request.environ['CONTENT_TYPE']})
     #end _relay_request
 
+    def _validate_project_ids(self, context, project_ids):
+        if context and not context['is_admin']:
+            return [context['tenant']]
+    
+        return_project_ids = []
+        for project_id in project_ids:
+            try:
+                return_project_ids.append(str(uuid.UUID(project_id)))
+            except ValueError:
+                continue
+
+        return return_project_ids
+
     def _obj_to_dict(self, obj):
         return self._vnc_lib.obj_to_dict(obj)
     #end _obj_to_dict
@@ -2355,7 +2368,7 @@ class DBInterface(object):
                 _collect_without_prune(filters['id'])
             else:
                 # read all networks in project, and prune below
-                proj_ids = [str(uuid.UUID(id)) for id in filters['tenant_id']]
+                proj_ids = self._validate_project_ids(context, filters['tenant_id'])
                 for p_id in proj_ids:
                     all_net_objs.extend(self._network_list_project(p_id))
                 if 'router:external' in filters:
@@ -2728,13 +2741,14 @@ class DBInterface(object):
     #end ipam_delete
 
     # TODO request based on filter contents
-    def ipam_list(self, filters=None):
+    def ipam_list(self, context=None, filters=None):
         ret_list = []
 
         # collect phase
         all_ipams = []  # all ipams in all projects
         if filters and 'tenant_id' in filters:
-            project_ids = [str(uuid.UUID(id)) for id in filters['tenant_id']]
+            project_ids = self._validate_project_ids(context,
+                                                     filters['tenant_id'])
             for p_id in project_ids:
                 project_ipams = self._ipam_list_project(p_id)
                 all_ipams.append(project_ipams)
@@ -2759,7 +2773,7 @@ class DBInterface(object):
     #end ipam_list
 
     def ipam_count(self, filters=None):
-        ipam_info = self.ipam_list(filters)
+        ipam_info = self.ipam_list(filters=filters)
         return len(ipam_info)
     #end ipam_count
 
@@ -2798,13 +2812,14 @@ class DBInterface(object):
     #end policy_delete
 
     # TODO request based on filter contents
-    def policy_list(self, filters=None):
+    def policy_list(self, context=None, filters=None):
         ret_list = []
 
         # collect phase
         all_policys = []  # all policys in all projects
         if filters and 'tenant_id' in filters:
-            project_ids = [str(uuid.UUID(id)) for id in filters['tenant_id']]
+            project_ids = self._validate_project_ids(context,
+                                                     filters['tenant_id'])
             for p_id in project_ids:
                 project_policys = self._policy_list_project(p_id)
                 all_policys.append(project_policys)
@@ -2829,7 +2844,7 @@ class DBInterface(object):
     #end policy_list
 
     def policy_count(self, filters=None):
-        policy_info = self.policy_list(filters)
+        policy_info = self.policy_list(filters=filters)
         return len(policy_info)
     #end policy_count
 
@@ -3068,7 +3083,7 @@ class DBInterface(object):
     #end router_delete
 
     # TODO request based on filter contents
-    def router_list(self, filters=None):
+    def router_list(self, context=None, filters=None):
         ret_list = []
 
         if filters and 'shared' in filters:
@@ -3094,8 +3109,8 @@ class DBInterface(object):
                         pass
             else:
                 # read all routers in project, and prune below
-                project_ids = [str(uuid.UUID(id)) \
-                               for id in filters['tenant_id']]
+                project_ids = self._validate_project_ids(context,
+                                                         filters['tenant_id'])
                 for p_id in project_ids:
                     if 'router:external' in filters:
                         all_rtrs.append(self._fip_pool_ref_routers(p_id))
@@ -3144,7 +3159,7 @@ class DBInterface(object):
     #end router_list
 
     def router_count(self, filters=None):
-        rtrs_info = self.router_list(filters)
+        rtrs_info = self.router_list(filters=filters)
         return len(rtrs_info)
     #end router_count
 
@@ -3338,7 +3353,8 @@ class DBInterface(object):
         port_ids = None
         if filters:
             if 'tenant_id' in filters:
-                proj_ids = [str(uuid.UUID(id)) for id in filters['tenant_id']]
+                proj_ids = self._validate_project_ids(context,
+                                                      filters['tenant_id'])
             elif 'port_id' in filters:
                 port_ids = filters['port_id']
         else:  # no filters
@@ -3581,8 +3597,8 @@ class DBInterface(object):
                                               port_iip_objs)
 
             elif 'tenant_id' in filters:
-                all_project_ids = [str(uuid.UUID(id))
-                                   for id in filters['tenant_id']]
+                all_project_ids = self._validate_project_ids(context,
+                                                             filters['tenant_id'])
             elif 'name' in filters:
                 all_project_ids = [str(uuid.UUID(context['tenant']))]
             elif 'id' in filters:
@@ -3739,7 +3755,8 @@ class DBInterface(object):
             all_sgs.append(project_sgs)
         else: # admin context
             if filters and 'tenant_id' in filters:
-                project_ids = [str(uuid.UUID(id)) for id in filters['tenant_id']]
+                project_ids = self._validate_project_ids(context,
+                                                         filters['tenant_id'])
                 for p_id in project_ids:
                     project_sgs = self._security_group_list_project(p_id)
                     all_sgs.append(project_sgs)
@@ -3837,13 +3854,14 @@ class DBInterface(object):
         return sg_rules
     #end security_group_rules_read
 
-    def security_group_rule_list(self, filters=None):
+    def security_group_rule_list(self, context=None, filters=None):
         ret_list = []
 
         # collect phase
         all_sgs = []
         if filters and 'tenant_id' in filters:
-            project_ids = [str(uuid.UUID(id)) for id in filters['tenant_id']]
+            project_ids = self._validate_project_ids(context,
+                                                     filters['tenant_id'])
             for p_id in project_ids:
                 project_sgs = self._security_group_list_project(p_id)
                 all_sgs.append(project_sgs)
@@ -3898,7 +3916,8 @@ class DBInterface(object):
         # collect phase
         all_rts = []  # all rts in all projects
         if filters and 'tenant_id' in filters:
-            project_ids = [str(uuid.UUID(id)) for id in filters['tenant_id']]
+            project_ids = self._validate_project_ids(context,
+                                                     filters['tenant_id'])
             for p_id in project_ids:
                 project_rts = self._route_table_list_project(p_id)
                 all_rts.append(project_rts)
@@ -3957,7 +3976,8 @@ class DBInterface(object):
         # collect phase
         all_sis = []  # all sis in all projects
         if filters and 'tenant_id' in filters:
-            project_ids = [str(uuid.UUID(id)) for id in filters['tenant_id']]
+            project_ids = self._validate_project_ids(context,
+                                                     filters['tenant_id'])
             for p_id in project_ids:
                 project_sis = self._svc_instance_list_project(p_id)
                 all_sis.append(project_sis)
