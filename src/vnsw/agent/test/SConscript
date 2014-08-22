@@ -78,7 +78,7 @@ test_xmppcs_bcast_hv = AgentEnv.MakeTestCmd(env, 'test_xmppcs_bcast_hv',
                                             flaky_agent_suite)
 test_xmppcs_bcast_non_hv = AgentEnv.MakeTestCmd(env,'test_xmppcs_bcast_non_hv',
                                                 flaky_agent_suite)
-test_integration = AgentEnv.MakeTestCmd(env, 'test_integration', flaky_agent_suite)
+test_integration = AgentEnv.MakeTestCmd(env, 'test_integration', agent_suite)
 test_service_chain_cfg = AgentEnv.MakeTestCmd(env, 'test_service_chain_cfg',
                                               flaky_agent_suite)
 test_cfg_listener = AgentEnv.MakeTestCmd(env, 'test_cfg_listener', flaky_agent_suite)
