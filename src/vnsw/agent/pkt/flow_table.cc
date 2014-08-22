@@ -1000,6 +1000,13 @@ void FlowEntry::UpdateFipStatsInfo(uint32_t fip, uint32_t id) {
     stats_.fip_vm_port_id = id;
 }
 
+void FlowEntry::set_flow_handle(uint32_t flow_handle) {
+    /* trigger update KSync on flow handle change */
+    if (flow_handle_ != flow_handle) {
+        flow_handle_ = flow_handle;
+        UpdateKSync();
+    }
+}
 void FlowEntry::FillFlowInfo(FlowInfo &info) {
     info.set_flow_index(flow_handle_);
     info.set_source_ip(key_.src.ipv4);

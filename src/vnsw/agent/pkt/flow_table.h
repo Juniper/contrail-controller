@@ -359,7 +359,7 @@ class FlowEntry {
     const uuid &flow_uuid() const { return flow_uuid_; }
     const uuid &egress_uuid() const { return egress_uuid_; }
     uint32_t flow_handle() const { return flow_handle_; }
-    void set_flow_handle(uint32_t flow_handle) { flow_handle_ = flow_handle; }
+    void set_flow_handle(uint32_t flow_handle);
     FlowEntry * reverse_flow_entry() { return reverse_flow_entry_.get(); }
     const FlowEntry * reverse_flow_entry() const { return reverse_flow_entry_.get(); }
     void set_reverse_flow_entry(FlowEntry *reverse_flow_entry) {
