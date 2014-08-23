@@ -16,6 +16,7 @@
 #include "base/task_trigger.h"
 #include "base/timer.h"
 #include "io/event_manager.h"
+#include "base/connection_info.h"
 #include "QEOpServerProxy.h"
 #include <boost/bind.hpp>
 #include <boost/assign/list_of.hpp>
@@ -36,6 +37,9 @@ using boost::assign::list_of;
 using boost::system::error_code;
 using namespace boost::asio;
 using namespace std;
+using process::ConnectionStateManager;
+using process::GetProcessStateCb;
+
 // This is to force qed to wait for a gdbattach
 // before proceeding.
 // It will make it easier to debug qed during systest
@@ -249,6 +253,15 @@ main(int argc, char *argv[]) {
     (void) qe;
 
     CpuLoadData::Init();
+    // Determine if the number of connections is expected:
+    // 1. Collector client
+    // 2. Redis
+    // 3. Cassandra
+    ConnectionStateManager<NodeStatusUVE, NodeStatus>::
+        GetInstance()->Init(*evm.io_service(),
+            options.hostname(), module_name,
+            Sandesh::instance_id(),
+            boost::bind(&GetProcessStateCb, _1, _2, _3, 3));
     qe_info_trigger =
         new TaskTrigger(boost::bind(&QEInfoLogger, options.hostname()),
                     TaskScheduler::GetInstance()->GetTaskId("qe::Stats"), 0);
