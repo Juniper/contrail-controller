@@ -486,9 +486,15 @@ class NetworkNamespaceManager(InstanceManager):
             self.db.virtual_machine_insert(vm_obj.uuid, row_entry)
 
             # uve trace
-            self.logger.uve_svc_instance(si_obj.get_fq_name_str(),
-                status='CREATE', vm_uuid=vm_obj.uuid,
-                st_name=st_obj.get_fq_name_str())
+            if chosen_vr_fq_name:
+                self.logger.uve_svc_instance(si_obj.get_fq_name_str(),
+                    status='CREATE', vm_uuid=vm_obj.uuid,
+                    st_name=st_obj.get_fq_name_str(),
+                    vr_name=':'.join(chosen_vr_fq_name))
+            else:
+                self.logger.uve_svc_instance(si_obj.get_fq_name_str(),
+                    status='CREATE', vm_uuid=vm_obj.uuid,
+                    st_name=st_obj.get_fq_name_str())
 
     def delete_service(self, vm_uuid, proj_name=None):
         try:
