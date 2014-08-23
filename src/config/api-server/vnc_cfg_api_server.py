@@ -47,6 +47,7 @@ threading._DummyThread._Thread__stop = lambda x: 42
 CONFIG_VERSION = '1.0'
 
 import bottle
+from bottle import request
 
 import vnc_cfg_types
 from vnc_cfg_ifmap import VncDbClient
@@ -997,12 +998,14 @@ class VncApiServer(VncApiServerGen):
 
     def config_object_error(self, id, fq_name_str, obj_type,
                             operation, err_str):
-        apiConfig = VncApiCommon(identifier_uuid=str(id))
-        apiConfig.operation = operation
+        apiConfig = VncApiCommon()
         apiConfig.object_type = obj_type.replace('-', '_')
         apiConfig.identifier_name = fq_name_str
+        apiConfig.identifier_uuid = id
+        apiConfig.operation = operation
         if err_str:
             apiConfig.error = "%s:%s" % (obj_type, err_str)
+        self._set_api_audit_info(apiConfig)
 
         log = VncApiConfigLog(api_log=apiConfig, sandesh=self._sandesh)
         log.send(sandesh=self._sandesh)
@@ -1027,6 +1030,19 @@ class VncApiServer(VncApiServerGen):
                                  vnp_name=pol_name)
             vn_log.attached_policies.append(vn_policy)
     # end add_virtual_network_refs
+
+    def _set_api_audit_info(self, apiConfig):
+        apiConfig.url = request.url
+        apiConfig.remote_ip = request.headers.get('Host')
+        useragent = request.headers.get('X-Contrail-Useragent')
+        if not useragent:
+            useragent = request.headers.get('User-Agent')
+        apiConfig.useragent = useragent
+        apiConfig.user = request.headers.get('X-User-Name')
+        apiConfig.project = request.headers.get('X-Project-Name')
+        apiConfig.domain = request.headers.get('X-Domain-Name')
+        apiConfig.body = str(request.json)
+    # end _set_api_audit_info
 
     # uuid is parent's for collections
     def _http_get_common(self, request, uuid=None):
@@ -1071,22 +1087,18 @@ class VncApiServer(VncApiServerGen):
                     log_msg = 'UUID mismatch from %s:%s' \
                         % (request.environ['REMOTE_ADDR'],
                            request.environ['HTTP_USER_AGENT'])
-                    self.config_object_error(
+                    self.config_object_error(request,
                         obj_uuid, fq_name_str, obj_type, 'put', log_msg)
                     self._db_conn.set_uuid(obj_type, obj_dict,
                                            uuid.UUID(obj_uuid),
                                            persist=False)
 
             apiConfig = VncApiCommon()
-            apiConfig.operation = 'put'
-            apiConfig.url = request.url
-            apiConfig.identifier_uuid = obj_uuid
-            # TODO should be from x-auth-token
-            apiConfig.user = ''
             apiConfig.object_type = obj_type.replace('-', '_')
             apiConfig.identifier_name = fq_name_str
-            apiConfig.body = str(request.json)
-
+            apiConfig.identifier_uuid = obj_uuid
+            apiConfig.operation = 'put'
+            self._set_api_audit_info(apiConfig)
             log = VncApiConfigLog(api_log=apiConfig,
                     sandesh=self._sandesh)
             log.send(sandesh=self._sandesh)
@@ -1115,13 +1127,12 @@ class VncApiServer(VncApiServerGen):
             return (False, (500, err_str))
 
         fq_name_str = ":".join(self._db_conn.uuid_to_fq_name(uuid))
-        apiConfig = VncApiCommon(identifier_name=fq_name_str)
+        apiConfig = VncApiCommon()
+        apiConfig.object_type=obj_type.replace('-', '_')
+        apiConfig.identifier_name=fq_name_str,
+        apiConfig.identifier_uuid = uuid
         apiConfig.operation = 'delete'
-        apiConfig.url = request.url
-        uuid_str = str(uuid)
-        apiConfig.identifier_uuid = uuid_str
-        apiConfig.object_type = obj_type.replace('-', '_')
-        apiConfig.identifier_name = fq_name_str
+        self._set_api_audit_info(apiConfig)
         log = VncApiConfigLog(api_log=apiConfig, sandesh=self._sandesh)
         log.send(sandesh=self._sandesh)
 
@@ -1185,12 +1196,11 @@ class VncApiServer(VncApiServerGen):
             obj_dict['display_name'] = obj_dict['fq_name'][-1]
 
         fq_name_str = ":".join(obj_dict['fq_name'])
-        apiConfig = VncApiCommon(identifier_name=fq_name_str)
-        apiConfig.object_type = obj_type
-        apiConfig.operation = 'post'
-        apiConfig.url = request.url
+        apiConfig = VncApiCommon()
         apiConfig.object_type = obj_type.replace('-', '_')
-        apiConfig.identifier_name = fq_name_str
+        apiConfig.identifier_name=fq_name_str
+        apiConfig.identifier_uuid = uuid_in_req
+        apiConfig.operation = 'post'
         apiConfig.body = str(request.json)
         if uuid_in_req:
             try:
@@ -1201,9 +1211,8 @@ class VncApiServer(VncApiServerGen):
             except NoIdError:
                 pass
             apiConfig.identifier_uuid = uuid_in_req
-        # TODO should be from x-auth-token
-        apiConfig.user = ''
 
+        self._set_api_audit_info(apiConfig)
         log = VncApiConfigLog(api_log=apiConfig, sandesh=self._sandesh)
         log.send(sandesh=self._sandesh)
 
