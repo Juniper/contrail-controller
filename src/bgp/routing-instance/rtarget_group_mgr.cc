@@ -26,8 +26,9 @@ RTargetGroupMgr::RTargetGroupMgr(BgpServer *server) : server_(server),
            boost::bind(&RTargetGroupMgr::ProcessRTargetRouteList, this),
            TaskScheduler::GetInstance()->GetTaskId("bgp::RTFilter"), 0)),
     remove_rtgroup_trigger_(new TaskTrigger(
-           boost::bind(&RTargetGroupMgr::RemoveRtGroups, this),
+           boost::bind(&RTargetGroupMgr::ProcessRtGroupList, this),
            TaskScheduler::GetInstance()->GetTaskId("bgp::RTFilter"), 0)),
+    rtarget_trigger_lists_(DB::PartitionCount()),
     master_instance_delete_ref_(this, NULL) {
 
     if (rtfilter_task_id_ == -1) {
@@ -38,8 +39,6 @@ RTargetGroupMgr::RTargetGroupMgr(BgpServer *server) : server_(server),
    process_queue_ = 
         new WorkQueue<RtGroupMgrReq *>(rtfilter_task_id_, 0, 
              boost::bind(&RTargetGroupMgr::RequestHandler, this, _1));
-
-    num_dep_rt_triggers_ = 0;
 
     for (int i = 0; i < DB::PartitionCount(); i++) {
         rtarget_dep_triggers_.push_back(boost::shared_ptr<TaskTrigger>(new 
@@ -159,7 +158,7 @@ void RTargetGroupMgr::RTargetPeerSync(BgpTable *table, RTargetRoute *rt,
             assert(r.second);
             // Add Peer to RtGroup
             rtgroup->AddInterestedPeer(cur_it->first, rt);
-            pending_rtarget_trigger_list_.insert(rtarget);
+            AddRouteTargetToLists(rtarget);
             impacted_peers.insert(const_cast<BgpPeer *>(cur_it->first));
             cur_it++;
         } else if (*cur_it > *dbstate_it) {
@@ -167,7 +166,7 @@ void RTargetGroupMgr::RTargetPeerSync(BgpTable *table, RTargetRoute *rt,
             // Remove the Peer from RtGroup
             rtgroup->RemoveInterestedPeer(dbstate_it->first, rt);
             impacted_peers.insert(const_cast<BgpPeer *>(cur_it->first));
-            pending_rtarget_trigger_list_.insert(rtarget);
+            AddRouteTargetToLists(rtarget);
             // Remove from DBstate
             dbstate->GetMutableList()->erase(dbstate_it);
             dbstate_it = dbstate_next_it;
@@ -183,7 +182,7 @@ void RTargetGroupMgr::RTargetPeerSync(BgpTable *table, RTargetRoute *rt,
         // Add route to rtarget to route dep tree
         rtgroup->AddInterestedPeer(cur_it->first, rt);
         impacted_peers.insert(const_cast<BgpPeer *>(cur_it->first));
-        pending_rtarget_trigger_list_.insert(rtarget);
+        AddRouteTargetToLists(rtarget);
         assert(r.second);
     }
     for (dbstate_next_it = dbstate_it; 
@@ -193,7 +192,7 @@ void RTargetGroupMgr::RTargetPeerSync(BgpTable *table, RTargetRoute *rt,
         // Remove the route from rtarget to route dep tree
         rtgroup->RemoveInterestedPeer(dbstate_it->first, rt);
         impacted_peers.insert(const_cast<BgpPeer *>(dbstate_it->first));
-        pending_rtarget_trigger_list_.insert(rtarget);
+        AddRouteTargetToLists(rtarget);
         dbstate->GetMutableList()->erase(dbstate_it);
     }
 
@@ -249,26 +248,49 @@ void RTargetGroupMgr::BuildRTargetDistributionGraph(BgpTable *table,
 bool RTargetGroupMgr::ProcessRouteTargetList(int part_id) {
     CHECK_CONCURRENCY("db::DBTable");
 
-    for (RouteTargetTriggerList::iterator it = rtarget_trigger_list_.begin(); 
-         it != rtarget_trigger_list_.end(); it++) {
-        RtGroup *rtgroup = GetRtGroup(*it);
-        if (rtgroup) {
-            const RtGroup::RTargetDepRouteList &dep_rt_list = 
-                rtgroup->DepRouteList();
-            for (RtGroup::RouteList::const_iterator dep_rt_it = 
-                 dep_rt_list[part_id].begin(); 
-                 dep_rt_it != dep_rt_list[part_id].end(); dep_rt_it++) {
-                DBTablePartBase *dbpart = (*dep_rt_it)->get_table_partition();
-                dbpart->Notify(*dep_rt_it);
-            }
+    BOOST_FOREACH(const RouteTarget &rtarget, rtarget_trigger_lists_[part_id]) {
+        RtGroup *rtgroup = GetRtGroup(rtarget);
+        if (!rtgroup)
+            continue;
+        const RtGroup::RTargetDepRouteList &dep_rt_list =
+            rtgroup->DepRouteList();
+        BOOST_FOREACH(BgpRoute *route, dep_rt_list[part_id]) {
+            DBTablePartBase *dbpart = route->get_table_partition();
+            dbpart->Notify(route);
         }
     }
-    long num_dep_walkers = num_dep_rt_triggers_.fetch_and_decrement();
-    if (num_dep_walkers == 1) {
-        rtarget_trigger_list_.clear();
-        TriggerRTGroupDepWalk();
-    }
+
+    rtarget_trigger_lists_[part_id].clear();
     return true;
+}
+
+void RTargetGroupMgr::AddRouteTargetToLists(const RouteTarget &rtarget) {
+    for (int idx = 0; idx < DB::PartitionCount(); ++idx) {
+        rtarget_trigger_lists_[idx].insert(rtarget);
+        rtarget_dep_triggers_[idx]->Set();
+    }
+}
+
+void RTargetGroupMgr::DisableRouteTargetProcessing() {
+    for (int idx = 0; idx < DB::PartitionCount(); ++idx) {
+        rtarget_dep_triggers_[idx]->set_disable();
+    }
+}
+
+void RTargetGroupMgr::EnableRouteTargetProcessing() {
+    for (int idx = 0; idx < DB::PartitionCount(); ++idx) {
+        rtarget_dep_triggers_[idx]->set_enable();
+    }
+}
+
+bool RTargetGroupMgr::IsRouteTargetOnList(const RouteTarget &rtarget) const {
+    for (int idx = 0; idx < DB::PartitionCount(); ++idx) {
+        if (rtarget_trigger_lists_[idx].find(rtarget) !=
+            rtarget_trigger_lists_[idx].end()) {
+            return true;
+        }
+    }
+    return false;
 }
 
 bool RTargetGroupMgr::ProcessRTargetRouteList() {
@@ -283,27 +305,24 @@ bool RTargetGroupMgr::ProcessRTargetRouteList() {
     DBTableBase::ListenerId id = GetListenerId(table);
 
     for (RTargetRouteTriggerList::iterator it = rtarget_route_list_.begin(); 
-         it != rtarget_route_list_.end(); it++)
+         it != rtarget_route_list_.end(); it++) {
         BuildRTargetDistributionGraph(table, *it, id);
+    }
 
     rtarget_route_list_.clear();
-
-    TriggerRTGroupDepWalk();
     return true;
 }
 
-void RTargetGroupMgr::TriggerRTGroupDepWalk() {
-    CHECK_CONCURRENCY("bgp::RTFilter", "db::DBTable");
+void RTargetGroupMgr::DisableRTargetRouteProcessing() {
+    rtarget_route_trigger_->set_disable();
+}
 
-    if (pending_rtarget_trigger_list_.empty()) return;
-    if (num_dep_rt_triggers_) return;
+void RTargetGroupMgr::EnableRTargetRouteProcessing() {
+    rtarget_route_trigger_->set_enable();
+}
 
-    assert(rtarget_trigger_list_.empty());
-
-    rtarget_trigger_list_.swap(pending_rtarget_trigger_list_);
-    num_dep_rt_triggers_ = DB::PartitionCount();
-    for (int i = 0; i < DB::PartitionCount(); i++)
-        rtarget_dep_triggers_[i]->Set();
+bool RTargetGroupMgr::IsRTargetRouteOnList(RTargetRoute *rt) const {
+    return rtarget_route_list_.find(rt) != rtarget_route_list_.end();
 }
 
 void RTargetGroupMgr::Initialize() {
@@ -577,7 +596,7 @@ void RTargetGroupMgr::UnregisterTables() {
     }
 }
 
-bool RTargetGroupMgr::RemoveRtGroups() {
+bool RTargetGroupMgr::ProcessRtGroupList() {
     CHECK_CONCURRENCY("bgp::RTFilter");
     BOOST_FOREACH(RtGroup *rtgroup, rtgroup_remove_list_) {
         bool members_empty = true;
@@ -611,6 +630,18 @@ bool RTargetGroupMgr::RemoveRtGroups() {
     if (rtgroup_map_.empty()) UnregisterTables();
 
     return true;
+}
+
+void RTargetGroupMgr::DisableRtGroupProcessing() {
+    remove_rtgroup_trigger_->set_disable();
+}
+
+void RTargetGroupMgr::EnableRtGroupProcessing() {
+    remove_rtgroup_trigger_->set_enable();
+}
+
+bool RTargetGroupMgr::IsRtGroupOnList(RtGroup *rtgroup) const {
+    return rtgroup_remove_list_.find(rtgroup) != rtgroup_remove_list_.end();
 }
 
 RtGroupMgrTableState::RtGroupMgrTableState(BgpTable *table, 

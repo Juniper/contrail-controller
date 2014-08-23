@@ -355,12 +355,12 @@ protected:
         LOG(DEBUG, "All Peers are up: " << server->localname());
     }
 
-    void EnableRtargetRouteProcessing(BgpServerTest *server) {
-        server->rtarget_group_mgr()->EnableRtargetRouteProcessing();
+    void EnableRTargetRouteProcessing(BgpServerTest *server) {
+        server->rtarget_group_mgr()->EnableRTargetRouteProcessing();
     }
 
-    void DisableRtargetRouteProcessing(BgpServerTest *server) {
-        server->rtarget_group_mgr()->DisableRtargetRouteProcessing();
+    void DisableRTargetRouteProcessing(BgpServerTest *server) {
+        server->rtarget_group_mgr()->DisableRTargetRouteProcessing();
     }
 
     void Configure() {
@@ -1084,7 +1084,7 @@ TEST_F(RTargetPeerTest, DeletedPeer) {
     VERIFY_EQ(1, RTargetRouteCount(cn2_.get()));
 
     // Stop the RTGroupMgr processing of RTargetRoute notification
-    DisableRtargetRouteProcessing(cn2_.get());
+    DisableRTargetRouteProcessing(cn2_.get());
 
     size_t count = cn2_->lifetime_manager()->GetQueueDeferCount();
 
@@ -1128,7 +1128,7 @@ TEST_F(RTargetPeerTest, DeletedPeer) {
         cn2_->lifetime_manager()->GetQueueDeferCount() > count);
 
     // Enable the RTGroupMgr processing
-    EnableRtargetRouteProcessing(cn2_.get());
+    EnableRTargetRouteProcessing(cn2_.get());
 
     TASK_UTIL_EXPECT_TRUE(cn1_->rtarget_group_mgr()->IsRTargetRoutesProcessed());
     TASK_UTIL_EXPECT_TRUE(cn2_->rtarget_group_mgr()->IsRTargetRoutesProcessed());
