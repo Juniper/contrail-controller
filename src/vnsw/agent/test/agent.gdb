@@ -134,7 +134,7 @@ define dump_vrf_entries
 end
 
 define vn_entry_format
-    set $__vn = (VnEntry *)((size_t)($Xnode) - (size_t)&(VnEntry::node_))
+    set $__vn = (VnEntry *)((size_t)($Xnode) - (size_t)&(((VnEntry*)0)->node_))
     printf "%p    %-20s  %-20s\n", $__vn, $__vn->name_._M_dataplus._M_p,\
                                    $__vn->uuid_->data
 end
