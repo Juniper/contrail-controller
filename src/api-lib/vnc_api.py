@@ -1,6 +1,7 @@
 #
 # Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
 #
+import logging
 import requests
 from requests.exceptions import ConnectionError
 
@@ -31,7 +32,12 @@ def CamelCase(input):
 
 
 def str_to_class(class_name):
-    return reduce(getattr, class_name.split("."), sys.modules[__name__])
+    try:
+        return reduce(getattr, class_name.split("."), sys.modules[__name__])
+    except Exception as e:
+        logger = logging.getLogger(__name__)
+        logger.warn("Exception: %s", str(e))
+        return None
 #end str_to_class
 
 
@@ -264,10 +270,14 @@ class VncApi(VncApiClientGen):
             if link['link']['rel'] == 'collection':
                 class_name = "%s" % (CamelCase(link['link']['name']))
                 cls = str_to_class(class_name)
+                if not cls:
+                    continue
                 cls.create_uri = uri
             elif link['link']['rel'] == 'resource-base':
                 class_name = "%s" % (CamelCase(link['link']['name']))
                 cls = str_to_class(class_name)
+                if not cls:
+                    continue
                 resource_type = link['link']['name']
                 cls.resource_uri_base[resource_type] = uri
             elif link['link']['rel'] == 'action':
@@ -441,6 +451,9 @@ class VncApi(VncApiClientGen):
     def restore_config(self, create, resource, json_body):
         class_name = "%s" % (CamelCase(resource))
         cls = str_to_class(class_name)
+        if not cls:
+            return None
+
         if create:
             uri = cls.create_uri
             content = self._request_server(rest.OP_POST, uri, data=json_body)
