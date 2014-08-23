@@ -32,25 +32,6 @@
 using boost::system::error_code;
 using namespace boost::assign;
 
-struct StaticRouteRequest {
-    enum RequestType {
-        NEXTHOP_ADD_CHG,
-        NEXTHOP_DELETE,
-        DELETE_STATIC_ROUTE_DONE
-    };
-
-    StaticRouteRequest(RequestType type, BgpTable *table, BgpRoute *route,
-                        StaticRoutePtr info) 
-        : type_(type), table_(table), rt_(route), info_(info) {
-    }
-
-    RequestType type_;
-    BgpTable    *table_;
-    BgpRoute    *rt_;
-    StaticRoutePtr info_;
-    DISALLOW_COPY_AND_ASSIGN(StaticRouteRequest);
-};
-
 class StaticRouteState : public ConditionMatchState {
 public:
     StaticRouteState(StaticRoutePtr info) : info_(info) {

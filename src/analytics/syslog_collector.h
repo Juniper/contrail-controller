@@ -31,41 +31,42 @@ class SyslogQueueEntry
     virtual ~SyslogQueueEntry() {}
 };
 
+typedef boost::function<void(SyslogQueueEntry *)> SyslogMsgReadFn;
+
 class SyslogTcpSession;
 
 class SyslogTcpListener : public TcpServer
 {
     public:
-      explicit SyslogTcpListener (EventManager *evm);
+      SyslogTcpListener (EventManager *evm, SyslogMsgReadFn read_cb);
       virtual TcpSession *AllocSession(Socket *socket);
       virtual void Start (std::string ipaddress, int port);
       virtual void Shutdown ();
+      virtual void ReadMsg(SyslogQueueEntry *sqe);
 
-      virtual void Parse (SyslogQueueEntry *sqe) = 0;
     private:
       SyslogTcpSession *session_;
+      SyslogMsgReadFn read_cb_;
 };
 
 class SyslogUDPListener: public UdpServer
 {
     public:
-      SyslogUDPListener (EventManager *evm);
+      SyslogUDPListener (EventManager *evm, SyslogMsgReadFn read_cb);
       virtual void Start (std::string ipaddress, int port);
       virtual void Shutdown ();
-    protected:
-      virtual void Parse (SyslogQueueEntry *sqe) = 0;
-    private:
 
+    private:
       void HandleReceive (boost::asio::const_buffer &recv_buffer,
             boost::asio::ip::udp::endpoint remote_endpoint,
             std::size_t bytes_transferred,
             const boost::system::error_code& error);
+      SyslogMsgReadFn read_cb_;
 };
 
 class SyslogParser;
 
-class SyslogListeners : public SyslogUDPListener,
-    public SyslogTcpListener
+class SyslogListeners
 {
     public:
       static const int kDefaultSyslogPort = 514;
@@ -82,10 +83,10 @@ class SyslogListeners : public SyslogUDPListener,
       SandeshMessageBuilder *GetBuilder () const { return builder_; }
       int GetTcpPort();
       int GetUdpPort();
-    protected:
-      virtual void Parse (SyslogQueueEntry *sqe);
     private:
       boost::scoped_ptr<SyslogParser> parser_;
+      SyslogUDPListener *udp_listener_;
+      SyslogTcpListener *tcp_listener_;
       int           port_;
       std::string   ipaddress_;
       bool          inited_;
@@ -93,6 +94,5 @@ class SyslogListeners : public SyslogUDPListener,
       DbHandler    *db_handler_;
       SandeshMessageBuilder *builder_;
 };
-
 
 #endif // __SYSLOG_COLLECTOR_H__

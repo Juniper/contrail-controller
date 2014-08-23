@@ -146,15 +146,22 @@ class EchoServerTest : public ::testing::Test {
 
     virtual void SetUp() {
         evm_.reset(new EventManager());
-        server_.reset(new EchoServer(evm_.get()));
-        client_.reset(new EchoClient(evm_.get()->io_service()));
+        server_ = new EchoServer(evm_.get());
+        client_ = new EchoClient(evm_.get()->io_service());
         thread_.reset(new ServerThread(evm_.get()));
     }
 
     virtual void TearDown() {
-        server_->Reset();
-        client_->Reset();
+        task_util::WaitForIdle();
         evm_->Shutdown();
+        task_util::WaitForIdle();
+        client_->Shutdown();
+        task_util::WaitForIdle();
+        server_->Shutdown();
+        task_util::WaitForIdle();
+        UdpServerManager::DeleteServer(server_);
+        UdpServerManager::DeleteServer(client_);
+        task_util::WaitForIdle();
         if (thread_.get() != NULL) {
             thread_->Join();
         }
@@ -162,8 +169,8 @@ class EchoServerTest : public ::testing::Test {
     }
 
     std::auto_ptr<ServerThread> thread_;
-    std::auto_ptr<EchoServer> server_;
-    std::auto_ptr<EchoClient> client_;
+    EchoServer *server_;
+    EchoClient *client_;
     std::auto_ptr<EventManager> evm_;
 };
 
@@ -180,16 +187,17 @@ class EchoServerBranchTest : public ::testing::Test {
     }
     void TestCreation() {
         boost::asio::io_service io_service;
-        UdpServer s(&io_service);
-        mutable_buffer b = s.AllocateBuffer();
+        UdpServer *s = new UdpServer(&io_service);
+        mutable_buffer b = s->AllocateBuffer();
         boost::system::error_code ec;
         udp::endpoint ep(boost::asio::ip::address::from_string(
                         "127.0.0.1", ec), 5555);
-        s.StartSend(ep, (size_t)10, b);  // fail
-        s.StartReceive();
-        s.Initialize("127.0.0.1", 0);
-        s.Initialize(0);  // hit error path.. shd ret
-        s.Shutdown();
+        s->StartSend(ep, (size_t)10, b);  // fail
+        s->StartReceive();
+        s->Initialize("127.0.0.1", 0);
+        s->Initialize(0);  // hit error path.. shd ret
+        s->Shutdown();
+        UdpServerManager::DeleteServer(s);
         UDP_UT_LOG_DEBUG("UDP branch test Shutdown: " << _test_run);
     }
 
