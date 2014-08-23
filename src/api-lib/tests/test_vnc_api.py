@@ -4,7 +4,7 @@ import json
 import httpretty
 
 import testtools
-from testtools.matchers import Equals, MismatchError
+from testtools.matchers import Not, Equals, MismatchError
 from testtools import content, content_type, ExpectedException
 
 from cfgm_common import rest
@@ -53,4 +53,19 @@ class TestVncApi(test_common.TestCase):
         with ExpectedException(RuntimeError) as e:
             self._vnc_lib._request_server(rest.OP_GET, url=uri_with_auth)
     # end test_retry_after_auth_failure
+
+    def test_contrail_useragent_header(self):
+        
+        def _check_header(uri, headers=None, query_params=None):
+            useragent = headers['X-Contrail-Useragent']
+            self.assertThat(useragent, Not(Equals('')))
+            return (200, json.dumps({}))
+        
+        orig_http_get = self._vnc_lib._http_get
+        try:
+            self._vnc_lib._http_get = _check_header
+            self._vnc_lib._request_server(rest.OP_GET, url='/')
+        finally:
+            self._vnc_lib._http_get = orig_http_get
+    # end test_contrail_useragent_header
 # end class TestVncApi
