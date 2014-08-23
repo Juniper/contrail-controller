@@ -19,13 +19,15 @@ import pdb
 import re
 import argparse
 import ConfigParser
+import signal
+import syslog
 
 from stats_daemon.sandesh.storage.ttypes import *
 from pysandesh.sandesh_base import *
 from sandesh_common.vns.ttypes import Module, NodeType
 from sandesh_common.vns.constants import ModuleNames, NodeTypeNames,\
     Module2NodeType, INSTANCE_ID_DEFAULT
-from subprocess import Popen, PIPE
+from sandesh_common.vns.constants import *
 
 
 def usage():
@@ -85,6 +87,30 @@ class EventManager:
         return units
 
     '''
+        This function is a wrapper for subprocess call. Timeout functionality
+        is used to timeout after 3 seconds of no response from subprocess call
+        and the corresponding cmd will be logged into syslog
+    '''
+    def call_subprocess(self, cmd):
+        times = datetime.datetime.now()
+        p = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, shell=True)
+
+        while p.poll() is None:
+            time.sleep(0.1)
+            now = datetime.datetime.now()
+            diff = now - times
+            if diff.seconds > 3:
+                os.kill(p.pid, signal.SIGKILL)
+                os.waitpid(-1, os.WNOHANG)
+                syslog.syslog("command:" + cmd + " --> hanged")
+                return None
+        return p.stdout.read()
+
+    def call_send(self, send_inst):
+        # sys.stderr.write('sending UVE:' +str(send_inst))
+        send_inst.send()
+
+    '''
     This function reads the ceph rados statistics.
     Parses this statistics output and gets the read_cnt/read_bytes \
     write_cnt/write_bytes. ComputeStoragePool object created and all \
@@ -92,16 +118,10 @@ class EventManager:
     UVE send call invoked to send the ComputeStoragePool object
     '''
 
-    def call_subprocess(self, cmd):
-        res = subprocess.check_output(
-                  cmd, stderr=subprocess.STDOUT, shell=True)
-        return res
-
-    def call_send(self, send_inst):
-        send_inst.send()
-
     def create_and_send_pool_stats(self):
         res = self.call_subprocess('/usr/bin/rados df')
+        if res is None:
+            return
         arr = res.splitlines()
         for line in arr:
             if line != arr[0]:
@@ -132,6 +152,8 @@ class EventManager:
               "\\\"op_w_in_bytes\\\":|\\\"subop_w_in_bytes\\\":\""
         try:
             res1 = self.call_subprocess(cmd)
+            if res1 is None:
+                return 1
             arr1 = res1.splitlines()
             for line1 in arr1:
                 result = re.sub(
@@ -156,6 +178,7 @@ class EventManager:
                             line2[1].rstrip(",").strip(' '))
         except:
             pass
+        return 0
 
     def diff_read_kbytes(self, line, osd_stats, temp_osd_stats,
                          osd_prev_stats):
@@ -200,6 +223,8 @@ class EventManager:
               "\\\"op_w_in_bytes\\\":|\\\"subop_w_in_bytes\\\":\""
         try:
             res1 = self.call_subprocess(cmd)
+            if res1 is None:
+                return 1
             arr1 = res1.splitlines()
             for line1 in arr1:
                 result = re.sub(
@@ -224,6 +249,7 @@ class EventManager:
                             osd_stats, temp_osd_stats, osd_prev_stats)
         except:
             pass
+        return 0
 
 
     def compute_read_latency(self, arr, line, index, osd_stats):
@@ -254,6 +280,8 @@ class EventManager:
            "subop_w_latency\\\":\""
        try:
            res2 = self.call_subprocess(cmd2)
+           if res2 is None:
+               return 1
            arr2 = res2.splitlines()
            for index in range(len(arr2)):
            # replace multiple spaces
@@ -272,6 +300,7 @@ class EventManager:
                            line2[2], index, osd_stats)
        except:
            pass
+       return 0
 
 
     '''
@@ -282,13 +311,17 @@ class EventManager:
 
     def create_and_send_osd_stats(self):
         res = self.call_subprocess('ls /var/lib/ceph/osd')
+        if res is None:
+            return
         arr = res.splitlines()
         linecount = 0
         for line in arr:
             no_prev_osd = 0
             cmd = "cat /var/lib/ceph/osd/" + \
-                arr[linecount] + "/active"
+                    arr[linecount] + "/active"
             is_active = self.call_subprocess(cmd)
+            if is_active is None:
+                return
             #instantiate osd and its state
             cs_osd = ComputeStorageOsd()
             cs_osd_state = ComputeStorageOsdState()
@@ -315,6 +348,8 @@ class EventManager:
                 cmd = "ceph osd dump | grep " + \
                     osd_name + " | cut -d \" \" -f22"
                 uuid = self.call_subprocess(cmd)
+                if uuid is None:
+                    return
                 cs_osd.uuid = uuid.rstrip("\n")
                 osd_prev_stats = self.dict_of_osds.get(
                     cs_osd.uuid)
@@ -322,12 +357,17 @@ class EventManager:
                     ':' + osd_name
                 if osd_prev_stats is None:
                     no_prev_osd = 1
-                    self.populate_osd_total_stats(osd_name, osd_stats)
+                    rval = self.populate_osd_total_stats(osd_name, osd_stats)
                 else:
-                    self.populate_osd_diff_stats(osd_name, osd_stats,
-                                                 temp_osd_stats,
-                                                 osd_prev_stats)
-                    self.populate_osd_latency_stats(osd_name, osd_stats)
+                    rval = self.populate_osd_diff_stats(osd_name, osd_stats,
+                                                        temp_osd_stats,
+                                                        osd_prev_stats)
+                    if rval == 1:
+                        return
+                    rval = self.populate_osd_latency_stats(osd_name,
+                                                           osd_stats)
+                if rval == 1:
+                    return
             else:
                 cs_osd_state.status = "inactive"
             if no_prev_osd == 0:
@@ -372,15 +412,21 @@ class EventManager:
     def create_and_send_disk_stats(self):
         # iostat to get the raw disk list
         res = self.call_subprocess('iostat')
+        if res is None:
+            return
         disk_list = res.splitlines()
         # osd disk list to get the mapping of osd to
         # raw disk
         pattern = 'ceph-deploy disk list ' + \
             self._hostname
         res1 = self.call_subprocess(pattern)
+        if res1 is None:
+            return
         osd_list = res1.splitlines()
         # df used to get the free space of all disks
-        res1 = self.call_subprocess('df -h')
+        res1 = self.call_subprocess('df -hl')
+        if res1 is None:
+            return
         df_list = res1.splitlines()
         osd_map = []
         for line in osd_list:
@@ -430,6 +476,8 @@ class EventManager:
         # serial_num
         new_dict = dict()
         resp = self.call_subprocess('ls -l /dev/disk/by-id/')
+        if resp is None:
+            return
         arr_disks = resp.splitlines()
         for line in arr_disks[1:]:
             resp1 = line.split()
@@ -468,6 +516,8 @@ class EventManager:
                     int(float(arr1[3]))
                 cmd = "cat /sys/block/"+ arr1[0] +"/stat"
                 res = self.call_subprocess(cmd)
+                if res is None:
+                    return
                 arr = re.sub('\s+', ' ', res).strip().split()
                 disk_stats.reads = int(arr[0])
                 disk_stats.writes = int(arr[4])
@@ -493,10 +543,10 @@ class EventManager:
         self.create_and_send_disk_stats()
 
     def runforever(self, sandeshconn, test=False):
-        # sleep for 5 seconds
+        # sleep for 10 seconds
         # send pool/disk/osd information to db
         while 1:
-            gevent.sleep(5)
+            gevent.sleep(10)
             if (self.node_type == "storage-compute"):
                 self.send_process_state_db()
 
@@ -557,6 +607,8 @@ def main(args_str=None):
     sys.stderr.write("Discovery ip: " + args.disc_server_ip + "\n")
     sys.stderr.write("Discovery port: " + str(args.disc_server_port) + "\n")
 
+    #syslog logging
+    syslog.openlog(logoption=syslog.LOG_PID)
     # create event manager
     prog = EventManager(args.node_type)
 
@@ -583,7 +635,7 @@ def main(args_str=None):
             instance_id,
             collector_addr,
             module_name,
-            8103,
+            HttpPortStorageStatsmgr,
             ['stats_daemon.sandesh.storage'],
             _disc)
     gevent.joinall([gevent.spawn(prog.runforever, sandesh_global)])

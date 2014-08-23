@@ -26,6 +26,7 @@ const string SERVICE_CONTROL_NODE_MGR = "contrail-control-nodemgr"
 const string SERVICE_ANALYTICS_NODE_MGR = "contrail-analytics-nodemgr"
 const string SERVICE_CONFIG_NODE_MGR = "contrail-config-nodemgr"
 const string SERVICE_DATABASE_NODE_MGR = "contrail-database-nodemgr"
+const string SERVICE_STORAGE_STATS_MGR = "contrail-storage-statsmgr"
 
 // Supervisor names
 const string SERVICE_ANALYTICS_SUPERVISOR = "supervisor-analytics"
@@ -41,6 +42,7 @@ const u16 HttpPortControlNodemgr = 8101
 const u16 HttpPortVRouterNodemgr = 8102
 const u16 HttpPortDatabaseNodemgr = 8103
 const u16 HttpPortAnalyticsNodemgr = 8104
+const u16 HttpPortStorageStatsmgr = 8105
 
 const u16 HttpPortControl = 8083
 const u16 HttpPortApiServer = 8084
@@ -93,6 +95,7 @@ const map<string, u16> ServiceHttpPortMap = {
     SERVICE_COMPUTE_NODE_MGR : HttpPortVRouterNodemgr,
     SERVICE_CONTROL_NODE_MGR : HttpPortControlNodemgr,
     SERVICE_DATABASE_NODE_MGR : HttpPortDatabaseNodemgr,
+    SERVICE_STORAGE_STATS_MGR : HttpPortStorageStatsmgr,
 }
 
 const map <string, u16> SupervisorPortMap = {
