@@ -1974,6 +1974,7 @@ void VmInterface::FloatingIp::DeActivate(VmInterface *interface) const {
     if (table->update_floatingip_cb().empty() == false) {
         table->update_floatingip_cb()(interface, vn_.get(), floating_ip_, true);
     }
+    vrf_ = NULL;
     installed_ = false;
 }
 
@@ -2287,6 +2288,7 @@ void VmInterface::ServiceVlan::DeActivate(VmInterface *interface) const {
         MplsLabel::Delete(label_);
         label_ = MplsTable::kInvalidLabel;
         VlanNH::Delete(interface->GetUuid(), tag_);
+        vrf_ = NULL;
     }
     installed_ = false;
     return;

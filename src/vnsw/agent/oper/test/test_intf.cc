@@ -1162,7 +1162,7 @@ TEST_F(IntfTest, VmPortFloatingIpDelete_1) {
     //verify that route and floating ip map gets cleaned up
     DelNode("virtual-machine-interface", input[0].name);
     client->WaitForIdle();
-    EXPECT_FALSE(RouteFind("vn2:vn2", floating_ip, 32));
+    EXPECT_FALSE(RouteFind("default-project:vn2:vn2", floating_ip, 32));
     EXPECT_TRUE(VmPortFloatingIpCount(1, 0));
 
     //Clean up
@@ -1182,7 +1182,102 @@ TEST_F(IntfTest, VmPortFloatingIpDelete_1) {
     DeleteVmportEnv(input, 1, true);
     client->WaitForIdle();
     EXPECT_FALSE(VrfFind("vrf1"));
-    EXPECT_FALSE(VrfFind("vn2:vn2"));
+    EXPECT_FALSE(VrfFind("default-project:vn2:vn2", true));
+}
+
+//Test to ensure reference to floating IP VRF is release upon
+//interface deactivation
+TEST_F(IntfTest, VmPortFloatingIpDelete_2) {
+    struct PortInfo input[] = {
+        {"vnet1", 1, "1.1.1.10", "00:00:00:01:01:01", 1, 1},
+    };
+
+    client->Reset();
+    CreateVmportEnv(input, 1);
+    client->WaitForIdle();
+    EXPECT_TRUE(VmPortActive(input, 0));
+
+    AddVn("default-project:vn2", 2);
+    AddVrf("default-project:vn2:vn2", 2);
+    AddLink("virtual-network", "default-project:vn2", "routing-instance",
+            "default-project:vn2:vn2");
+    client->WaitForIdle();
+    //Add floating IP for vnet1
+    AddFloatingIpPool("fip-pool1", 1);
+    AddFloatingIp("fip1", 1, "2.1.1.100");
+    AddLink("floating-ip", "fip1", "floating-ip-pool", "fip-pool1");
+    AddLink("floating-ip-pool", "fip-pool1", "virtual-network",
+            "default-project:vn2");
+    client->WaitForIdle();
+    AddLink("virtual-machine-interface", "vnet1", "floating-ip", "fip1");
+    client->WaitForIdle();
+    Ip4Address floating_ip = Ip4Address::from_string("2.1.1.100");
+    EXPECT_TRUE(RouteFind("default-project:vn2:vn2", floating_ip, 32));
+    EXPECT_TRUE(VmPortFloatingIpCount(1, 1));
+
+    //Delete link from vm to vm interface, forcing interface
+    //to deactivate verify that route for floating ip is deleted
+    //and the reference to vrf is released
+    DelLink("virtual-machine", "vm1", "virtual-machine-interface", "vnet1");
+    client->WaitForIdle();
+    EXPECT_FALSE(RouteFind("default-projec:vn2:vn2", floating_ip, 32));
+    EXPECT_TRUE(VmPortFloatingIpCount(1, 1));
+
+    //Delete floating IP and make sure reference to VRF is released
+    DelLink("virtual-network", "default-project:vn2", "routing-instance",
+            "default-project:vn2:vn2");
+    client->WaitForIdle();
+    DelLink("floating-ip", "fip1", "floating-ip-pool", "fip-pool1");
+    DelLink("floating-ip-pool", "fip-pool1",
+            "virtual-network", "default-project:vn2");
+    DelLink("virtual-machine-interface", "vnet1", "floating-ip", "fip1");
+    DelFloatingIp("fip1");
+    DelFloatingIpPool("fip-pool1");
+    client->WaitForIdle();
+    DelVrf("default-project:vn2:vn2");
+    client->WaitForIdle();
+    DelVn("default-project:vn2");
+    client->WaitForIdle();
+    WAIT_FOR(100, 1000, VrfFind("default-project:vn2:vn2", true) == false);
+
+    //Readd the config and activate the interface
+    //and make sure floating IP routes are added
+    AddVn("default-project:vn2", 2);
+    AddVrf("default-project:vn2:vn2", 2);
+    AddLink("virtual-network", "default-project:vn2", "routing-instance",
+            "default-project:vn2:vn2");
+    //Add floating IP for vnet1
+    AddFloatingIpPool("fip-pool1", 1);
+    AddFloatingIp("fip1", 1, "2.1.1.100");
+    AddLink("floating-ip", "fip1", "floating-ip-pool", "fip-pool1");
+    AddLink("floating-ip-pool", "fip-pool1", "virtual-network",
+            "default-project:vn2");
+    AddLink("virtual-machine", "vm1", "virtual-machine-interface", "vnet1");
+    client->WaitForIdle();
+    AddLink("virtual-machine-interface", "vnet1", "floating-ip", "fip1");
+    client->WaitForIdle();
+    EXPECT_TRUE(RouteFind("default-project:vn2:vn2", floating_ip, 32));
+    EXPECT_TRUE(VmPortFloatingIpCount(1, 1));
+
+    //Clean up the config
+    DelLink("virtual-network", "default-project:vn2", "routing-instance",
+            "default-project:vn2:vn2");
+    DelLink("floating-ip", "fip1", "floating-ip-pool", "fip-pool1");
+    DelLink("floating-ip-pool", "fip-pool1",
+            "virtual-network", "default-project:vn2");
+    DelLink("virtual-machine-interface", "vnet1", "floating-ip", "fip1");
+    DelFloatingIp("fip1");
+    DelFloatingIpPool("fip-pool1");
+    client->WaitForIdle();
+    DelLink("virtual-network", "vn2", "routing-instance",
+            "default-project:vn2:vn2");
+    DelVrf("default-project:vn2:vn2");
+    DelVn("default-project:vn2");
+    client->WaitForIdle();
+    EXPECT_FALSE(VrfFind("default-project:vn2:vn2", true));
+    DeleteVmportEnv(input, 1, true);
+    client->WaitForIdle();
+    EXPECT_FALSE(VrfFind("vrf1"));
 }
 
 //Delete the config node for interface, and verify interface NH are deleted
@@ -1545,6 +1640,91 @@ TEST_F(IntfTest, VmPortServiceVlanDelete_1) {
     client->WaitForIdle();
     EXPECT_FALSE(VrfFind("vrf1"));
     EXPECT_FALSE(VrfFind("vrf2"));
+}
+
+//Test to ensure refernce to service vrf is released upon interface
+//deactivation
+TEST_F(IntfTest, VmPortServiceVlanDelete_2) {
+    struct PortInfo input[] = {
+        {"vnet1", 1, "1.1.1.10", "00:00:00:01:01:01", 1, 1},
+    };
+
+    client->Reset();
+    CreateVmportEnv(input, 1);
+    client->WaitForIdle();
+    EXPECT_TRUE(VmPortActive(input, 0));
+
+    AddVn("vn2", 2);
+    AddVrf("vrf2", 2);
+    AddLink("virtual-network", "vn2", "routing-instance", "vrf2");
+    //Add service vlan for vnet1
+    client->WaitForIdle();
+    AddVmPortVrf("vmvrf1", "2.2.2.100", 10);
+    AddLink("virtual-machine-interface-routing-instance", "vmvrf1",
+            "routing-instance", "vrf2");
+    AddLink("virtual-machine-interface-routing-instance", "vmvrf1",
+            "virtual-machine-interface", "vnet1");
+
+    client->WaitForIdle();
+    Ip4Address service_ip = Ip4Address::from_string("2.2.2.100");
+    EXPECT_TRUE(RouteFind("vrf2", service_ip, 32));
+    EXPECT_TRUE(VmPortServiceVlanCount(1, 1));
+    DoInterfaceSandesh("");
+    client->WaitForIdle();
+
+    //Delete link from vm to vm interface, forcing interface
+    //to deactivate verify that route and
+    //service vlan map gets cleaned up
+    DelLink("virtual-machine", "vm1", "virtual-machine-interface", "vnet1");
+    client->WaitForIdle();
+    EXPECT_FALSE(VmPortActive(input, 0));
+    EXPECT_FALSE(RouteFind("vrf2", service_ip, 32));
+    EXPECT_TRUE(VmPortServiceVlanCount(1, 1));
+    DoInterfaceSandesh("");
+    client->WaitForIdle();
+
+    DelLink("virtual-machine-interface-routing-instance", "vmvrf1",
+            "routing-instance", "vrf2");
+    DelLink("virtual-machine-interface-routing-instance", "vmvrf1",
+            "virtual-machine-interface", "vnet1");
+    DelVmPortVrf("vmvrf1");
+    DelLink("virtual-network", "vn2", "routing-instance", "vrf2");
+    DelVrf("vrf2");
+    DelVn("vn2");
+    client->WaitForIdle();
+    EXPECT_FALSE(VrfFind("vrf2", true));
+
+    //Readd the configuration
+    AddVn("vn2", 2);
+    AddVrf("vrf2", 2);
+    AddLink("virtual-network", "vn2", "routing-instance", "vrf2");
+    //Add service vlan for vnet1
+    client->WaitForIdle();
+    AddVmPortVrf("vmvrf1", "2.2.2.100", 10);
+    AddLink("virtual-machine-interface-routing-instance", "vmvrf1",
+            "routing-instance", "vrf2");
+    AddLink("virtual-machine-interface-routing-instance", "vmvrf1",
+            "virtual-machine-interface", "vnet1");
+    AddLink("virtual-machine", "vm1", "virtual-machine-interface", "vnet1");
+    client->WaitForIdle();
+    EXPECT_TRUE(RouteFind("vrf2", service_ip, 32));
+    EXPECT_TRUE(VmPortServiceVlanCount(1, 1));
+    DoInterfaceSandesh("");
+    client->WaitForIdle();
+
+    DelLink("virtual-machine-interface-routing-instance", "vmvrf1",
+            "routing-instance", "vrf2");
+    DelLink("virtual-machine-interface-routing-instance", "vmvrf1",
+            "virtual-machine-interface", "vnet1");
+    DelVmPortVrf("vmvrf1");
+    DelLink("virtual-network", "vn2", "routing-instance", "vrf2");
+    DelVrf("vrf2");
+    DelVn("vn2");
+    client->WaitForIdle();
+    EXPECT_FALSE(VrfFind("vrf2", true));
+    DeleteVmportEnv(input, 1, true);
+    client->WaitForIdle();
+    EXPECT_FALSE(VrfFind("vrf1"));
 }
 
 TEST_F(IntfTest, VmPortServiceVlanAdd_1) {
