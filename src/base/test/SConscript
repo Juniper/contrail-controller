@@ -85,7 +85,6 @@ test_suite = [
     bitset_test,
     dependency_test,
     label_block_test,
-    queue_task_test,
     subset_test,
     patricia_test,
     task_annotations_test,
@@ -99,6 +98,7 @@ env.Alias('controller/src/base:test', test)
 
 flaky_test_suite = [
     proto_test,
+    queue_task_test,
 #   task_test,
     timer_test,
 ]
