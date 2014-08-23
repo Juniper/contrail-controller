@@ -551,7 +551,11 @@ class AddrMgmt(object):
             ok, net_dict = db_conn.dbe_read('virtual-network', network)
             if not ok:
                 continue
-            subnets.extend(self._vn_to_subnets(net_dict))
+            vn_subnets = self._vn_to_subnets(net_dict)
+            if not vn_subnets:
+                continue
+            subnets.extend(vn_subnets)
+
         quota_count = len(subnets) - 1
         (ok, quota_limit) = QuotaHelper.check_quota_limit(proj_dict, obj_type,
                                                           quota_count)
