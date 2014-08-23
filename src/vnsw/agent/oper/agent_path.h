@@ -307,10 +307,10 @@ class VlanNhRoute : public AgentRouteData {
 public:
     VlanNhRoute(const VmInterfaceKey &intf, uint16_t tag, uint32_t label,
                 const string &dest_vn_name, const SecurityGroupList &sg_list,
-                const PathPreference &path_preference) :
+                const PathPreference &path_preference):
         AgentRouteData(false), intf_(intf), tag_(tag), label_(label),
         dest_vn_name_(dest_vn_name), sg_list_(sg_list),
-        path_preference_(path_preference) {
+        path_preference_(path_preference), tunnel_bmap_(TunnelType::MplsType()) {
     }
     virtual ~VlanNhRoute() { }
     virtual bool AddChangePath(Agent *agent, AgentPath *path);
@@ -323,6 +323,7 @@ private:
     std::string dest_vn_name_;
     SecurityGroupList sg_list_;
     PathPreference path_preference_;
+    TunnelType::TypeBmap tunnel_bmap_;
     DISALLOW_COPY_AND_ASSIGN(VlanNhRoute);
 };
 
