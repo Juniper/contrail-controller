@@ -45,10 +45,10 @@ void IFMapAgentSandeshInit(DB *db);
 
 SandeshTraceBufferPtr CfgTraceBuf(SandeshTraceBufferCreate("Config", 100));
 
-AgentConfig::AgentConfig(Agent *agent) : agent_(agent) {
+AgentConfig::AgentConfig(Agent *agent)
+        : agent_(agent),
+          cfg_listener_(new CfgListener(agent->db())) {
     cfg_filter_ = std::auto_ptr<CfgFilter>(new CfgFilter(this));
-
-    cfg_listener_ = std::auto_ptr<CfgListener>(new CfgListener(this));
 
     cfg_graph_ = std::auto_ptr<DBGraph>(new DBGraph());
     cfg_interface_client_ = std::auto_ptr<InterfaceCfgClient>
