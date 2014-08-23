@@ -22,12 +22,16 @@
 #include "testing/gunit.h"
 #include "xmpp/xmpp_factory.h"
 
-using namespace std;
 using boost::assign::list_of;
 using boost::assign::map_list_of;
 using boost::system::error_code;
+using std::cout;
+using std::endl;
+using std::multimap;
+using std::string;
+using std::vector;
 
-static const char *config_update= "\
+static const char *config_update = "\
 <config>\
     <bgp-router name=\'CN1\'>\
         <autonomous-system>64497</autonomous-system>\
@@ -41,7 +45,7 @@ static const char *config_update= "\
 </config>\
 ";
 
-static const char *config_control_node= "\
+static const char *config_control_node = "\
 <config>\
     <bgp-router name=\'CN1\'>\
         <identifier>192.168.0.1</identifier>\
@@ -104,16 +108,23 @@ static const char *config_delete = "\
     </bgp-router>\
 </delete>\
 ";
+
 static const char *config_mx_vrf = "\
 <config>\
     <routing-instance name='blue'>\
-        <vrf-target>target:1:4</vrf-target>\
+        <vrf-target>target:1:1001</vrf-target>\
+    </routing-instance>\
+    <routing-instance name='pink'>\
+        <vrf-target>target:1:1002</vrf-target>\
     </routing-instance>\
 </config>\
 ";
 
 class RTargetPeerTest : public ::testing::Test {
 protected:
+    static const int kRouteCount = 8;
+    static const int kRtGroupCount = 8;
+
     RTargetPeerTest()
         : thread_(&evm_), cn1_xmpp_server_(NULL), cn2_xmpp_server_(NULL) {
     }
@@ -128,7 +139,7 @@ protected:
         LOG(DEBUG, "Created Control-Node 1 at port: " <<
             cn1_->session_manager()->GetPort());
 
-        cn1_xmpp_server_ = 
+        cn1_xmpp_server_ =
             new XmppServerTest(&evm_, test::XmppDocumentMock::kControlNodeJID);
         cn1_xmpp_server_->Initialize(0, false);
         LOG(DEBUG, "Created XMPP server at port: " <<
@@ -139,7 +150,7 @@ protected:
         LOG(DEBUG, "Created Control-Node 2 at port: " <<
             cn2_->session_manager()->GetPort());
 
-        cn2_xmpp_server_ = 
+        cn2_xmpp_server_ =
             new XmppServerTest(&evm_, test::XmppDocumentMock::kControlNodeJID);
         cn2_xmpp_server_->Initialize(0, false);
         LOG(DEBUG, "Created XMPP server at port: " <<
@@ -160,30 +171,22 @@ protected:
         Configure();
         task_util::WaitForIdle();
 
-        // Create XMPP Agent on compute node 1 connected to XMPP server 
-        // Control-node-1
-        agent_a_1_.reset(new test::NetworkAgentMock(&evm_, "agent-a", 
-                                                    cn1_xmpp_server_->GetPort(),
-                                                    "127.0.0.1"));
+        // Create XMPP Agent a1 connected to XMPP server CN1.
+        agent_a_1_.reset(new test::NetworkAgentMock(&evm_, "agent-a1",
+            cn1_xmpp_server_->GetPort(), "127.0.0.1"));
 
-        // Create XMPP Agent on compute node 1 connected to XMPP server 
-        // Control-node-2
-        agent_a_2_.reset(new test::NetworkAgentMock(&evm_, "agent-a", 
-                                                    cn2_xmpp_server_->GetPort(),
-                                                    "127.0.0.1"));
+        // Create XMPP Agent a2 connected to XMPP server CN2.
+        agent_a_2_.reset(new test::NetworkAgentMock(&evm_, "agent-a2",
+            cn2_xmpp_server_->GetPort(), "127.0.0.1"));
 
-        // Create XMPP Agent on compute node 2 connected to XMPP server 
-        // Control-node-1 
-        agent_b_1_.reset(new test::NetworkAgentMock(&evm_, "agent-b", 
-                                                    cn1_xmpp_server_->GetPort(),
-                                                    "127.0.0.2"));
+        // Create XMPP Agent b1 connected to XMPP server CN1.
+        agent_b_1_.reset(new test::NetworkAgentMock(&evm_, "agent-b1",
+            cn1_xmpp_server_->GetPort(), "127.0.0.2"));
 
 
-        // Create XMPP Agent on compute node 2 connected to XMPP server
-        // Control-node-2
-        agent_b_2_.reset(new test::NetworkAgentMock(&evm_, "agent-b", 
-                                                    cn2_xmpp_server_->GetPort(),
-                                                    "127.0.0.2"));
+        // Create XMPP Agent b2 connected to XMPP server CN2.
+        agent_b_2_.reset(new test::NetworkAgentMock(&evm_, "agent-b2",
+            cn2_xmpp_server_->GetPort(), "127.0.0.2"));
 
         BringupAgents();
     }
@@ -220,10 +223,10 @@ protected:
         TcpServerManager::DeleteServer(cn2_xmpp_server_);
         cn2_xmpp_server_ = NULL;
 
-        if (agent_a_1_) { agent_a_1_->Delete(); }
-        if (agent_b_1_) { agent_b_1_->Delete(); }
-        if (agent_a_2_) { agent_a_2_->Delete(); }
-        if (agent_b_2_) { agent_b_2_->Delete(); }
+        agent_a_1_->Delete();
+        agent_b_1_->Delete();
+        agent_a_2_->Delete();
+        agent_b_2_->Delete();
 
         IFMapCleanUp();
         task_util::WaitForIdle();
@@ -240,11 +243,19 @@ protected:
         TASK_UTIL_EXPECT_TRUE(agent_b_2_->IsEstablished());
         TASK_UTIL_EXPECT_EQ(2, bgp_channel_manager_cn1_->NumUpPeer());
         TASK_UTIL_EXPECT_EQ(2, bgp_channel_manager_cn2_->NumUpPeer());
+        task_util::WaitForIdle();
+    }
 
-        agent_a_1_->Subscribe("blue-i1", 1);
-        agent_a_2_->Subscribe("blue-i1", 1);
-        agent_b_1_->Subscribe("blue-i1", 1);
-        agent_b_2_->Subscribe("blue-i1", 1);
+    void SubscribeAgents() {
+        agent_a_1_->Subscribe("blue", 1);
+        agent_b_1_->Subscribe("blue", 1);
+        agent_a_2_->Subscribe("blue", 1);
+        agent_b_2_->Subscribe("blue", 1);
+
+        agent_a_1_->Subscribe("pink", 2);
+        agent_a_2_->Subscribe("pink", 2);
+        agent_b_1_->Subscribe("pink", 2);
+        agent_b_2_->Subscribe("pink", 2);
 
         agent_a_1_->Subscribe("red", 3);
         agent_a_2_->Subscribe("red", 3);
@@ -256,12 +267,24 @@ protected:
         agent_b_1_->Subscribe("purple", 4);
         agent_b_2_->Subscribe("purple", 4);
 
-        agent_a_1_->Subscribe("red-i2", 5);
-        agent_a_2_->Subscribe("red-i2", 5);
-        agent_b_1_->Subscribe("red-i2", 5);
-        agent_b_2_->Subscribe("red-i2", 5);
+        agent_a_1_->Subscribe("yellow", 5);
+        agent_a_2_->Subscribe("yellow", 5);
+        agent_b_1_->Subscribe("yellow", 5);
+        agent_b_2_->Subscribe("yellow", 5);
+    }
 
-        task_util::WaitForIdle();
+    void SubscribeAgents(const string &network, int id) {
+        agent_a_1_->Subscribe(network, id);
+        agent_b_1_->Subscribe(network, id);
+        agent_a_2_->Subscribe(network, id);
+        agent_b_2_->Subscribe(network, id);
+    }
+
+    void UnsubscribeAgents(const string &network) {
+        agent_a_1_->Unsubscribe(network, -1);
+        agent_b_1_->Unsubscribe(network, -1);
+        agent_a_2_->Unsubscribe(network, -1);
+        agent_b_2_->Unsubscribe(network, -1);
     }
 
     void IFMapCleanUp() {
@@ -276,14 +299,6 @@ protected:
                                 "Wait for all peers to come up");
 
         LOG(DEBUG, "All Peers are up: " << server->localname());
-    }
-
-    void EnableRtargetRouteProcessing(BgpServerTest *server) {
-        server->rtarget_group_mgr()->EnableRtargetRouteProcessing();
-    }
-
-    void DisableRtargetRouteProcessing(BgpServerTest *server) {
-        server->rtarget_group_mgr()->DisableRtargetRouteProcessing();
     }
 
     void Configure() {
@@ -303,20 +318,21 @@ protected:
         VerifyAllPeerUp(cn2_.get(), 2);
         VerifyAllPeerUp(mx_.get(), 2);
 
-        vector<string> instance_names = 
-            list_of("blue")("blue-i1")("red-i2")("red")("purple");
-        multimap<string, string> connections = 
-            map_list_of("red", "purple");
+        vector<string> instance_names =
+            list_of("blue")("pink")("red")("purple")("yellow");
+        multimap<string, string> connections;
         NetworkConfig(instance_names, connections);
 
         VerifyNetworkConfig(cn1_.get(), instance_names);
         VerifyNetworkConfig(cn2_.get(), instance_names);
 
         mx_->Configure(config_mx_vrf);
+        TASK_UTIL_EXPECT_EQ(1, GetExportRouteTargetListSize(mx_.get(), "blue"));
+        TASK_UTIL_EXPECT_EQ(1, GetExportRouteTargetListSize(mx_.get(), "pink"));
     }
 
     void NetworkConfig(const vector<string> &instance_names,
-                       const multimap<string, string> &connections) {
+        const multimap<string, string> &connections) {
         string netconf(
             bgp_util::NetworkConfigGenerate(instance_names, connections));
         IFMapServerParser *parser = IFMapServerParser::GetInstance("schema");
@@ -342,14 +358,14 @@ protected:
             "bgp-router", router2, "bgp-router", router1, "bgp-peering");
     }
 
-    void VerifyNetworkConfig(BgpServerTest *server, 
-                             const vector<string> &instance_names) {
+    void VerifyNetworkConfig(BgpServerTest *server,
+        const vector<string> &instance_names) {
         for (vector<string>::const_iterator iter = instance_names.begin();
              iter != instance_names.end(); ++iter) {
             TASK_UTIL_WAIT_NE_NO_MSG(
                      server->routing_instance_mgr()->GetRoutingInstance(*iter),
                      NULL, 1000, 10000, "Wait for routing instance..");
-            const RoutingInstance *rti = 
+            const RoutingInstance *rti =
                 server->routing_instance_mgr()->GetRoutingInstance(*iter);
             TASK_UTIL_WAIT_NE_NO_MSG(rti->virtual_network_index(),
                 0, 1000, 10000, "Wait for vn index..");
@@ -374,6 +390,70 @@ protected:
         VerifyAllPeerUp(cn1_.get(), 2);
         VerifyAllPeerUp(cn2_.get(), 2);
         VerifyAllPeerUp(mx_.get(), 2);
+    }
+
+    void DisableRTargetRouteProcessing(BgpServerTest *server) {
+        server->rtarget_group_mgr()->DisableRTargetRouteProcessing();
+    }
+
+    void EnableRTargetRouteProcessing(BgpServerTest *server) {
+        server->rtarget_group_mgr()->EnableRTargetRouteProcessing();
+    }
+
+    bool IsRTargetRouteOnList(BgpServer *server, RTargetRoute *rt) const {
+        task_util::WaitForIdle();
+        return server->rtarget_group_mgr()->IsRTargetRouteOnList(rt);
+    }
+
+    void DisableRtGroupProcessing(BgpServerTest *server) {
+        task_util::WaitForIdle();
+        server->rtarget_group_mgr()->DisableRtGroupProcessing();
+    }
+
+    void EnableRtGroupProcessing(BgpServerTest *server) {
+        task_util::WaitForIdle();
+        server->rtarget_group_mgr()->EnableRtGroupProcessing();
+    }
+
+    bool IsRtGroupOnList(BgpServer *server, RtGroup *rtgroup) const {
+        task_util::WaitForIdle();
+        return server->rtarget_group_mgr()->IsRtGroupOnList(rtgroup);
+    }
+
+    RtGroup *RtGroupLookup(BgpServer *server, const string group) {
+        task_util::WaitForIdle();
+        RouteTarget rtarget = RouteTarget::FromString(group);
+        return server->rtarget_group_mgr()->GetRtGroup(rtarget);
+    }
+
+    RtGroup *VerifyRtGroupExists(BgpServer *server, const string group) {
+        task_util::WaitForIdle();
+        TASK_UTIL_WAIT_NE_NO_MSG(RtGroupLookup(server, group),
+            NULL, 1000, 10000, "Wait for RtGroup " << group);
+        return RtGroupLookup(server, group);
+    }
+
+    void VerifyRtGroupNoExists(BgpServer *server, const string group) {
+        task_util::WaitForIdle();
+        TASK_UTIL_WAIT_EQ_NO_MSG(RtGroupLookup(server, group),
+            NULL, 1000, 10000, "Wait for RtGroup " << group << "to go away");
+    }
+
+    void DisableRouteTargetProcessing(BgpServer *server) {
+        task_util::WaitForIdle();
+        server->rtarget_group_mgr()->DisableRouteTargetProcessing();
+    }
+
+    void EnableRouteTargetProcessing(BgpServer *server) {
+        task_util::WaitForIdle();
+        server->rtarget_group_mgr()->EnableRouteTargetProcessing();
+    }
+
+    bool IsRouteTargetOnList(BgpServer *server,
+        const string &rtarget_str) const {
+        task_util::WaitForIdle();
+        RouteTarget rtarget = RouteTarget::FromString(rtarget_str);
+        return server->rtarget_group_mgr()->IsRouteTargetOnList(rtarget);
     }
 
     int RouteCount(BgpServerTest *server, const string &instance_name) const {
@@ -406,6 +486,8 @@ protected:
                                       "routing-instance", name,
                                       "route-target", target,
                                       "instance-target");
+        if (TaskScheduler::GetInstance()->GetRunStatus())
+            task_util::WaitForIdle();
     }
 
     void RemoveRouteTarget(BgpServerTest *server, string name, string target) {
@@ -416,9 +498,12 @@ protected:
                                       "routing-instance", name,
                                       "route-target", target,
                                       "instance-target");
+        if (TaskScheduler::GetInstance()->GetRunStatus())
+            task_util::WaitForIdle();
     }
 
-    BgpRoute *RTargetRouteLookup(BgpServerTest *server, const string &prefix) {
+    RTargetRoute *RTargetRouteLookup(BgpServerTest *server,
+        const string &prefix) {
         BgpTable *table = static_cast<BgpTable *>(
             server->database()->FindTable("bgp.rtarget.0"));
         EXPECT_TRUE(table != NULL);
@@ -429,28 +514,29 @@ protected:
         RTargetPrefix nlri = RTargetPrefix::FromString(prefix, &error);
         EXPECT_FALSE(error);
         RTargetTable::RequestKey key(nlri, NULL);
-        BgpRoute *rt = static_cast<BgpRoute *>(table->Find(&key));
+        RTargetRoute *rt = static_cast<RTargetRoute *>(table->Find(&key));
         return rt;
     }
 
-    void VerifyRTargetRouteExists(BgpServerTest *server,
+    RTargetRoute *VerifyRTargetRouteExists(BgpServerTest *server,
         const string &prefix) {
         TASK_UTIL_WAIT_NE_NO_MSG(RTargetRouteLookup(server, prefix),
             NULL, 1000, 10000, "Wait for rtarget route " << prefix);
+        return RTargetRouteLookup(server, prefix);
     }
 
     void VerifyRTargetRouteNoExists(BgpServerTest *server,
         const string &prefix) {
+        task_util::WaitForIdle();
         TASK_UTIL_WAIT_EQ_NO_MSG(RTargetRouteLookup(server, prefix),
             NULL, 1000, 10000,
             "Wait for rtarget route " << prefix << " to go away");
     }
 
-    void AddInetRoute(BgpServerTest *server, IPeer *peer, 
-                      const string &instance_name,
-                      const string &prefix, int localpref = 100,
-                      string nexthop = "7.8.9.1",
-                      uint32_t flags = 0, int label = 303) {
+    void AddInetRoute(BgpServerTest *server, IPeer *peer,
+        const string &instance_name, const string &prefix,
+        int localpref = 100, string nexthop = "7.8.9.1",
+        uint32_t flags = 0, int label = 303) {
         error_code error;
         Ip4Prefix nlri = Ip4Prefix::FromString(prefix, &error);
         EXPECT_FALSE(error);
@@ -459,12 +545,12 @@ protected:
         request.key.reset(new InetTable::RequestKey(nlri, peer));
 
         BgpAttrSpec attr_spec;
-        boost::scoped_ptr<BgpAttrLocalPref> 
+        boost::scoped_ptr<BgpAttrLocalPref>
             local_pref(new BgpAttrLocalPref(localpref));
         attr_spec.push_back(local_pref.get());
 
         IpAddress nhaddr = Ip4Address::from_string(nexthop, error);
-        boost::scoped_ptr<BgpAttrNextHop> 
+        boost::scoped_ptr<BgpAttrNextHop>
             nexthop_attr(new BgpAttrNextHop(nhaddr.to_v4().to_ulong()));
         attr_spec.push_back(nexthop_attr.get());
 
@@ -478,9 +564,8 @@ protected:
         table->Enqueue(&request);
     }
 
-    void DeleteInetRoute(BgpServerTest *server, IPeer *peer, 
-                         const string &instance_name,
-                         const string &prefix) {
+    void DeleteInetRoute(BgpServerTest *server, IPeer *peer,
+        const string &instance_name, const string &prefix) {
         error_code error;
         Ip4Prefix nlri = Ip4Prefix::FromString(prefix, &error);
         EXPECT_FALSE(error);
@@ -489,16 +574,17 @@ protected:
         request.oper = DBRequest::DB_ENTRY_DELETE;
         request.key.reset(new InetTable::RequestKey(nlri, peer));
 
-        std::string table_name = instance_name + ".inet.0";
-        BgpTable *table = 
+        string table_name = instance_name + ".inet.0";
+        BgpTable *table =
             static_cast<BgpTable *>(server->database()->FindTable(table_name));
         ASSERT_TRUE(table != NULL);
 
         table->Enqueue(&request);
     }
 
-    BgpRoute *InetRouteLookup(BgpServerTest *server, const string &instance_name,
-        const string &prefix) {
+    BgpRoute *InetRouteLookup(BgpServerTest *server,
+        const string &instance_name, const string &prefix) {
+        task_util::WaitForIdle();
         BgpTable *table = static_cast<BgpTable *>(
             server->database()->FindTable(instance_name + ".inet.0"));
         EXPECT_TRUE(table != NULL);
@@ -512,6 +598,7 @@ protected:
 
     void VerifyInetRouteExists(BgpServerTest *server, const string &instance,
         const string &prefix) {
+        task_util::WaitForIdle();
         TASK_UTIL_WAIT_NE_NO_MSG(InetRouteLookup(server, instance, prefix),
             NULL, 1000, 10000,
             "Wait for route " << prefix << " in " << instance);
@@ -519,6 +606,7 @@ protected:
 
     void VerifyInetRouteNoExists(BgpServerTest *server, const string &instance,
         const string &prefix) {
+        task_util::WaitForIdle();
         TASK_UTIL_WAIT_EQ_NO_MSG(InetRouteLookup(server, instance, prefix),
             NULL, 1000, 10000,
             "Wait for route " << prefix << " in " << instance " to go away");
@@ -532,6 +620,7 @@ protected:
         RoutingInstance *rti =
             server->routing_instance_mgr()->GetRoutingInstance(instance);
         vector<string> target_list;
+        task_util::WaitForIdle();
         BOOST_FOREACH(RouteTarget tgt, rti->GetExportList()) {
             target_list.push_back(tgt.ToString());
         }
@@ -541,6 +630,7 @@ protected:
 
     size_t GetExportRouteTargetListSize(BgpServerTest *server,
         const string &instance) {
+        task_util::WaitForIdle();
         return GetExportRouteTargetList(server, instance).size();
     }
 
@@ -551,6 +641,7 @@ protected:
         RoutingInstance *rti =
             server->routing_instance_mgr()->GetRoutingInstance(instance);
         vector<string> target_list;
+        task_util::WaitForIdle();
         BOOST_FOREACH(RouteTarget tgt, rti->GetImportList()) {
             target_list.push_back(tgt.ToString());
         }
@@ -560,6 +651,7 @@ protected:
 
     size_t GetImportRouteTargetListSize(BgpServerTest *server,
         const string &instance) {
+        task_util::WaitForIdle();
         return GetImportRouteTargetList(server, instance).size();
     }
 
@@ -568,7 +660,6 @@ protected:
                                         "routing-instance", src,
                                         "routing-instance", tgt,
                                         "connection");
-
         task_util::WaitForIdle();
     }
 
@@ -581,32 +672,32 @@ protected:
     }
 
 
-    static void ValidateRTGroupResponse(Sandesh *sandesh, 
-                                        std::vector<string> &result) {
+    static void ValidateRTGroupResponse(Sandesh *sandesh,
+        const vector<string> &result) {
         ShowRtGroupResp *resp =
                 dynamic_cast<ShowRtGroupResp *>(sandesh);
         TASK_UTIL_EXPECT_NE((ShowRtGroupResp *)NULL, resp);
 
         TASK_UTIL_EXPECT_EQ(result.size(), resp->get_rtgroup_list().size());
-        cout << "*******************************************************"<<endl;
+        cout << "*****************************************************" << endl;
         int i = 0;
         BOOST_FOREACH(const ShowRtGroupInfo &info, resp->get_rtgroup_list()) {
             TASK_UTIL_EXPECT_EQ(info.get_rtarget(), result[i]);
             cout << info.log() << endl;
             i++;
         }
-        cout << "*******************************************************"<<endl;
+        cout << "*****************************************************" << endl;
 
         validate_done_ = 1;
     }
 
-    void VerifyRtGroupSandesh(BgpServerTest *server, std::vector<string> result) {
+    void VerifyRtGroupSandesh(BgpServerTest *server, vector<string> result) {
         BgpSandeshContext sandesh_context;
         sandesh_context.bgp_server = server;
         sandesh_context.xmpp_peer_manager = NULL;
         Sandesh::set_client_context(&sandesh_context);
-        Sandesh::set_response_callback(boost::bind(ValidateRTGroupResponse, _1, 
-                                                   result));
+        Sandesh::set_response_callback(
+            boost::bind(ValidateRTGroupResponse, _1, result));
         ShowRtGroupReq *req = new ShowRtGroupReq;
         validate_done_ = 0;
         req->HandleRequest();
@@ -616,9 +707,9 @@ protected:
 
     EventManager evm_;
     ServerThread thread_;
-    auto_ptr<BgpServerTest> cn1_;
-    auto_ptr<BgpServerTest> cn2_;
-    auto_ptr<BgpServerTest> mx_;
+    boost::scoped_ptr<BgpServerTest> cn1_;
+    boost::scoped_ptr<BgpServerTest> cn2_;
+    boost::scoped_ptr<BgpServerTest> mx_;
     XmppServerTest *cn1_xmpp_server_;
     XmppServerTest *cn2_xmpp_server_;
     boost::scoped_ptr<test::NetworkAgentMock> agent_a_1_;
@@ -629,261 +720,894 @@ protected:
     boost::scoped_ptr<BgpXmppChannelManager> bgp_channel_manager_cn2_;
     static int validate_done_;
 };
+
 int RTargetPeerTest::validate_done_;
 
-TEST_F(RTargetPeerTest, BasicRouteAddDelete) {
-    AddInetRoute(mx_.get(), NULL, "blue", "1.1.2.3/32");
-
-    AddRouteTarget(mx_.get(), "blue", "target:64496:1");
-
-    VerifyInetRouteExists(mx_.get(), "blue", "1.1.2.3/32");
-    VerifyInetRouteNoExists(cn1_.get(), "blue", "1.1.2.3/32");
-    VerifyInetRouteNoExists(cn2_.get(), "blue", "1.1.2.3/32");
-
-    agent_a_1_->Subscribe("blue", 2); 
-    agent_b_1_->Subscribe("blue", 2); 
-    agent_a_2_->Subscribe("blue", 2); 
-    agent_b_2_->Subscribe("blue", 2); 
-
-    VerifyInetRouteExists(mx_.get(), "blue", "1.1.2.3/32");
-    VerifyInetRouteExists(cn1_.get(), "blue", "1.1.2.3/32");
-    VerifyInetRouteExists(cn2_.get(), "blue", "1.1.2.3/32");
-
-    DeleteInetRoute(mx_.get(), NULL, "blue", "1.1.2.3/32");
-
-    VerifyInetRouteNoExists(mx_.get(), "blue", "1.1.2.3/32");
-    VerifyInetRouteNoExists(cn1_.get(), "blue", "1.1.2.3/32");
-    VerifyInetRouteNoExists(cn2_.get(), "blue", "1.1.2.3/32");
-
-    agent_a_1_->Unsubscribe("blue");
-    agent_b_1_->Unsubscribe("blue");
-    agent_a_2_->Unsubscribe("blue");
-    agent_b_2_->Unsubscribe("blue");
+static string BuildPrefix(int idx = 1) {
+    string prefix = string("10.1.1.") + integerToString(idx) + "/32";
+    return prefix;
 }
 
-TEST_F(RTargetPeerTest, BasicSubscribeUnsubscribe) {
-    AddInetRoute(mx_.get(), NULL, "blue", "1.1.2.3/32");
-
-    AddRouteTarget(mx_.get(), "blue", "target:64496:1");
-
-    VerifyInetRouteExists(mx_.get(), "blue", "1.1.2.3/32");
-    VerifyInetRouteNoExists(cn1_.get(), "blue", "1.1.2.3/32");
-    VerifyInetRouteNoExists(cn2_.get(), "blue", "1.1.2.3/32");
-
-    agent_a_1_->Subscribe("blue", 2); 
-    agent_b_1_->Subscribe("blue", 2); 
-
-    VerifyInetRouteExists(mx_.get(), "blue", "1.1.2.3/32");
-    VerifyInetRouteExists(cn1_.get(), "blue", "1.1.2.3/32");
-    VerifyInetRouteNoExists(cn2_.get(), "blue", "1.1.2.3/32");
-
-    agent_a_2_->Subscribe("blue", 2); 
-    agent_b_2_->Subscribe("blue", 2); 
-
-    VerifyInetRouteExists(mx_.get(), "blue", "1.1.2.3/32");
-    VerifyInetRouteExists(cn1_.get(), "blue", "1.1.2.3/32");
-    VerifyInetRouteExists(cn2_.get(), "blue", "1.1.2.3/32");
-
-    agent_a_1_->Unsubscribe("blue");
-    agent_b_1_->Unsubscribe("blue");
-
-    VerifyInetRouteExists(mx_.get(), "blue", "1.1.2.3/32");
-    VerifyInetRouteNoExists(cn1_.get(), "blue", "1.1.2.3/32");
-    VerifyInetRouteExists(cn2_.get(), "blue", "1.1.2.3/32");
-
-    agent_a_2_->Unsubscribe("blue");
-    agent_b_2_->Unsubscribe("blue");
-
-    VerifyInetRouteExists(mx_.get(), "blue", "1.1.2.3/32");
-    VerifyInetRouteNoExists(cn1_.get(), "blue", "1.1.2.3/32");
-    VerifyInetRouteNoExists(cn2_.get(), "blue", "1.1.2.3/32");
-
-    DeleteInetRoute(mx_.get(), NULL, "blue", "1.1.2.3/32");
+//
+// Add and Delete RtGroup due to trigger from RoutePathReplicator.
+//
+TEST_F(RTargetPeerTest, AddDeleteRtGroup1) {
+    AddRouteTarget(mx_.get(), "blue", "target:1:99");
+    VerifyRtGroupExists(mx_.get(), "target:1:99");
+    RemoveRouteTarget(mx_.get(), "blue", "target:1:99");
+    VerifyRtGroupNoExists(mx_.get(), "target:1:99");
 }
 
-TEST_F(RTargetPeerTest, AddRTargetToRoute) {
-    AddInetRoute(mx_.get(), NULL, "blue", "1.1.2.3/32", 100);
+//
+// Add and Delete RtGroup due to trigger from VPN route.
+//
+TEST_F(RTargetPeerTest, AddDeleteRtGroup2) {
+    SubscribeAgents("blue", 1);
+    AddInetRoute(mx_.get(), NULL, "blue", BuildPrefix());
+
+    AddRouteTarget(mx_.get(), "blue", "target:1:99");
+    AddRouteTarget(cn1_.get(), "blue", "target:1:99");
+    AddRouteTarget(cn2_.get(), "blue", "target:1:99");
+    VerifyRtGroupExists(cn1_.get(), "target:1:1001");
+    VerifyRtGroupExists(cn2_.get(), "target:1:1001");
+
+    RemoveRouteTarget(mx_.get(), "blue", "target:1:99");
+    RemoveRouteTarget(cn1_.get(), "blue", "target:1:99");
+    VerifyRtGroupNoExists(cn1_.get(), "target:1:1001");
+    VerifyRtGroupNoExists(cn2_.get(), "target:1:1001");
+
+    DeleteInetRoute(mx_.get(), NULL, "blue", BuildPrefix());
+}
+
+//
+// Add and Delete RtGroup due to trigger from RTargetRoute.
+//
+TEST_F(RTargetPeerTest, AddDeleteRtGroup3) {
+    SubscribeAgents("blue", 1);
+
+    AddRouteTarget(cn1_.get(), "blue", "target:1:99");
+    AddRouteTarget(cn2_.get(), "blue", "target:1:99");
+    VerifyRtGroupExists(mx_.get(), "target:1:99");
+
+    RemoveRouteTarget(cn1_.get(), "blue", "target:1:99");
+    RemoveRouteTarget(cn2_.get(), "blue", "target:1:99");
+    VerifyRtGroupNoExists(mx_.get(), "target:1:99");
+}
+
+//
+// Add and Delete multiple RtGroups due to trigger from RoutePathReplicator.
+//
+TEST_F(RTargetPeerTest, AddDeleteMultipleRtGroup1) {
+    for (int idx = 1; idx <= kRtGroupCount; ++idx) {
+        string rtarget_str = string("target:1:90") + integerToString(idx);
+        AddRouteTarget(mx_.get(), "blue", rtarget_str);
+    }
+
+    for (int idx = 1; idx <= kRtGroupCount; ++idx) {
+        string rtarget_str = string("target:1:90") + integerToString(idx);
+        VerifyRtGroupExists(mx_.get(), rtarget_str);
+    }
+
+    for (int idx = 1; idx <= kRtGroupCount; ++idx) {
+        string rtarget_str = string("target:1:90") + integerToString(idx);
+        RemoveRouteTarget(mx_.get(), "blue", rtarget_str);
+    }
+
+    for (int idx = 1; idx <= kRtGroupCount; ++idx) {
+        string rtarget_str = string("target:1:90") + integerToString(idx);
+        VerifyRtGroupNoExists(mx_.get(), rtarget_str);
+    }
+}
+
+//
+// Add and Delete multiple RtGroups due to trigger from VPN route.
+//
+TEST_F(RTargetPeerTest, AddDeleteMultipleRtGroup2) {
+    SubscribeAgents("blue", 1);
+    AddInetRoute(mx_.get(), NULL, "blue", BuildPrefix());
     AddRouteTarget(mx_.get(), "blue", "target:64496:1");
-    task_util::WaitForIdle();
 
-    agent_a_1_->Subscribe("blue", 2); 
-    agent_b_1_->Subscribe("blue", 2); 
-    agent_a_2_->Subscribe("blue", 2); 
-    agent_b_2_->Subscribe("blue", 2); 
+    for (int idx = 1; idx <= kRtGroupCount; ++idx) {
+        string rtarget_str = string("target:1:90") + integerToString(idx);
+        AddRouteTarget(mx_.get(), "blue", rtarget_str);
+    }
 
-    VerifyInetRouteExists(mx_.get(), "blue", "1.1.2.3/32");
-    VerifyInetRouteExists(cn1_.get(), "blue", "1.1.2.3/32");
-    VerifyInetRouteExists(cn2_.get(), "blue", "1.1.2.3/32");
+    for (int idx = 1; idx <= kRtGroupCount; ++idx) {
+        string rtarget_str = string("target:1:90") + integerToString(idx);
+        VerifyRtGroupExists(cn1_.get(), rtarget_str);
+        VerifyRtGroupExists(cn2_.get(), rtarget_str);
+    }
+
+    for (int idx = 1; idx <= kRtGroupCount; ++idx) {
+        string rtarget_str = string("target:1:90") + integerToString(idx);
+        RemoveRouteTarget(mx_.get(), "blue", rtarget_str);
+    }
+
+    for (int idx = 1; idx <= kRtGroupCount; ++idx) {
+        string rtarget_str = string("target:1:90") + integerToString(idx);
+        VerifyRtGroupNoExists(cn1_.get(), rtarget_str);
+        VerifyRtGroupNoExists(cn2_.get(), rtarget_str);
+    }
+
+    DeleteInetRoute(mx_.get(), NULL, "blue", BuildPrefix());
+}
+
+//
+// Add and Delete multiple RtGroups due to trigger from RTargetRoute.
+//
+TEST_F(RTargetPeerTest, AddDeleteMultipleRtGroup3) {
+    SubscribeAgents("blue", 1);
+
+    for (int idx = 1; idx <= kRtGroupCount; ++idx) {
+        string rtarget_str = string("target:1:90") + integerToString(idx);
+        AddRouteTarget(cn1_.get(), "blue", rtarget_str);
+        AddRouteTarget(cn2_.get(), "blue", rtarget_str);
+    }
+
+    for (int idx = 1; idx <= kRtGroupCount; ++idx) {
+        string rtarget_str = string("target:1:90") + integerToString(idx);
+        VerifyRtGroupExists(mx_.get(), rtarget_str);
+    }
+
+    for (int idx = 1; idx <= kRtGroupCount; ++idx) {
+        string rtarget_str = string("target:1:90") + integerToString(idx);
+        RemoveRouteTarget(cn1_.get(), "blue", rtarget_str);
+        RemoveRouteTarget(cn2_.get(), "blue", rtarget_str);
+    }
+
+    for (int idx = 1; idx <= kRtGroupCount; ++idx) {
+        string rtarget_str = string("target:1:90") + integerToString(idx);
+        VerifyRtGroupNoExists(mx_.get(), rtarget_str);
+    }
+}
+
+//
+// Add, Delete and Add RtGroup due to trigger from RoutePathReplicator.
+// RtGroup list processing is disabled after initial add.
+//
+TEST_F(RTargetPeerTest, ResurrectRtGroup1) {
+    AddRouteTarget(mx_.get(), "blue", "target:1:99");
+    TASK_UTIL_EXPECT_EQ(2, GetExportRouteTargetListSize(mx_.get(), "blue"));
+    RtGroup *rtgroup1 = VerifyRtGroupExists(mx_.get(), "target:1:99");
+    TASK_UTIL_EXPECT_FALSE(IsRtGroupOnList(mx_.get(), rtgroup1));
+
+    DisableRtGroupProcessing(mx_.get());
+
+    RemoveRouteTarget(mx_.get(), "blue", "target:1:99");
+    TASK_UTIL_EXPECT_EQ(1, GetExportRouteTargetListSize(mx_.get(), "blue"));
+    RtGroup *rtgroup2 = VerifyRtGroupExists(mx_.get(), "target:1:99");
+    TASK_UTIL_EXPECT_TRUE(rtgroup1 == rtgroup2);
+    TASK_UTIL_EXPECT_TRUE(IsRtGroupOnList(mx_.get(), rtgroup2));
+
+    AddRouteTarget(mx_.get(), "blue", "target:1:99");
+    TASK_UTIL_EXPECT_EQ(2, GetExportRouteTargetListSize(mx_.get(), "blue"));
+    RtGroup *rtgroup3 = VerifyRtGroupExists(mx_.get(), "target:1:99");
+    TASK_UTIL_EXPECT_TRUE(rtgroup1 == rtgroup3);
+    TASK_UTIL_EXPECT_TRUE(IsRtGroupOnList(mx_.get(), rtgroup3));
+
+    EnableRtGroupProcessing(mx_.get());
+    RtGroup *rtgroup4 = VerifyRtGroupExists(mx_.get(), "target:1:99");
+    TASK_UTIL_EXPECT_TRUE(rtgroup1 == rtgroup4);
+    TASK_UTIL_EXPECT_FALSE(IsRtGroupOnList(mx_.get(), rtgroup4));
+}
+
+//
+// Add, Delete and Add RtGroup due to trigger from VPN route.
+// RtGroup list processing is disabled after initial add.
+//
+TEST_F(RTargetPeerTest, ResurrectRtGroup2) {
+    agent_a_1_->Subscribe("blue", 1);
+    AddInetRoute(mx_.get(), NULL, "blue", BuildPrefix());
+
+    AddRouteTarget(mx_.get(), "blue", "target:1:99");
+    AddRouteTarget(cn1_.get(), "blue", "target:1:99");
+    VerifyInetRouteExists(cn1_.get(), "blue", BuildPrefix());
+    RtGroup *rtgroup1 = VerifyRtGroupExists(cn1_.get(), "target:1:1001");
+    TASK_UTIL_EXPECT_FALSE(IsRtGroupOnList(cn1_.get(), rtgroup1));
+
+    DisableRtGroupProcessing(cn1_.get());
+
+    DeleteInetRoute(mx_.get(), NULL, "blue", BuildPrefix());
+    VerifyInetRouteNoExists(cn1_.get(), "blue", BuildPrefix());
+    RtGroup *rtgroup2 = VerifyRtGroupExists(cn1_.get(), "target:1:1001");
+    TASK_UTIL_EXPECT_TRUE(rtgroup1 == rtgroup2);
+    TASK_UTIL_EXPECT_TRUE(IsRtGroupOnList(cn1_.get(), rtgroup2));
+
+    AddInetRoute(mx_.get(), NULL, "blue", BuildPrefix());
+    VerifyInetRouteExists(cn1_.get(), "blue", BuildPrefix());
+    RtGroup *rtgroup3 = VerifyRtGroupExists(cn1_.get(), "target:1:1001");
+    TASK_UTIL_EXPECT_TRUE(rtgroup1 == rtgroup3);
+    TASK_UTIL_EXPECT_TRUE(IsRtGroupOnList(cn1_.get(), rtgroup3));
+
+    EnableRtGroupProcessing(cn1_.get());
+    VerifyInetRouteExists(cn1_.get(), "blue", BuildPrefix());
+    RtGroup *rtgroup4 = VerifyRtGroupExists(cn1_.get(), "target:1:1001");
+    TASK_UTIL_EXPECT_TRUE(rtgroup1 == rtgroup4);
+    TASK_UTIL_EXPECT_FALSE(IsRtGroupOnList(cn1_.get(), rtgroup4));
+
+    DeleteInetRoute(mx_.get(), NULL, "blue", BuildPrefix());
+}
+
+//
+// Add, Delete and Add RtGroup due to trigger from RTargetRoute.
+// RtGroup list processing is disabled after initial add.
+//
+TEST_F(RTargetPeerTest, ResurrectRtGroup3) {
+    agent_a_1_->Subscribe("blue", 1);
+
+    AddRouteTarget(cn1_.get(), "blue", "target:1:99");
+    VerifyRTargetRouteExists(mx_.get(), "64496:target:1:99");
+    RtGroup *rtgroup1 = VerifyRtGroupExists(mx_.get(), "target:1:99");
+    TASK_UTIL_EXPECT_FALSE(IsRtGroupOnList(mx_.get(), rtgroup1));
+
+    DisableRtGroupProcessing(mx_.get());
+
+    RemoveRouteTarget(cn1_.get(), "blue", "target:1:99");
+    VerifyRTargetRouteNoExists(mx_.get(), "64496:target:1:99");
+    RtGroup *rtgroup2 = VerifyRtGroupExists(mx_.get(), "target:1:99");
+    TASK_UTIL_EXPECT_TRUE(rtgroup1 == rtgroup2);
+    TASK_UTIL_EXPECT_TRUE(IsRtGroupOnList(mx_.get(), rtgroup2));
+
+    AddRouteTarget(cn1_.get(), "blue", "target:1:99");
+    VerifyRTargetRouteExists(mx_.get(), "64496:target:1:99");
+    RtGroup *rtgroup3 = VerifyRtGroupExists(mx_.get(), "target:1:99");
+    TASK_UTIL_EXPECT_TRUE(rtgroup1 == rtgroup3);
+    TASK_UTIL_EXPECT_TRUE(IsRtGroupOnList(mx_.get(), rtgroup3));
+
+    EnableRtGroupProcessing(mx_.get());
+    VerifyRTargetRouteExists(mx_.get(), "64496:target:1:99");
+    RtGroup *rtgroup4 = VerifyRtGroupExists(mx_.get(), "target:1:99");
+    TASK_UTIL_EXPECT_TRUE(rtgroup1 == rtgroup4);
+    TASK_UTIL_EXPECT_FALSE(IsRtGroupOnList(mx_.get(), rtgroup4));
+}
+
+//
+// Add and Delete route from MX and verify it's updated on CNs.
+//
+TEST_F(RTargetPeerTest, AddDeleteRoute) {
+    AddRouteTarget(mx_.get(), "blue", "target:64496:1");
+    TASK_UTIL_EXPECT_EQ(2, GetExportRouteTargetListSize(mx_.get(), "blue"));
+
+    AddInetRoute(mx_.get(), NULL, "blue", BuildPrefix());
+
+    VerifyInetRouteExists(mx_.get(), "blue", BuildPrefix());
+    VerifyInetRouteNoExists(cn1_.get(), "blue", BuildPrefix());
+    VerifyInetRouteNoExists(cn2_.get(), "blue", BuildPrefix());
+
+    SubscribeAgents("blue", 1);
+
+    VerifyInetRouteExists(mx_.get(), "blue", BuildPrefix());
+    VerifyInetRouteExists(cn1_.get(), "blue", BuildPrefix());
+    VerifyInetRouteExists(cn2_.get(), "blue", BuildPrefix());
+
+    DeleteInetRoute(mx_.get(), NULL, "blue", BuildPrefix());
+
+    VerifyInetRouteNoExists(mx_.get(), "blue", BuildPrefix());
+    VerifyInetRouteNoExists(cn1_.get(), "blue", BuildPrefix());
+    VerifyInetRouteNoExists(cn2_.get(), "blue", BuildPrefix());
+}
+
+//
+// Add and Delete multiple routes from MX and verify they are updated on CNs.
+//
+TEST_F(RTargetPeerTest, AddDeleteMultipleRoute) {
+    AddRouteTarget(mx_.get(), "blue", "target:64496:1");
+    TASK_UTIL_EXPECT_EQ(2, GetExportRouteTargetListSize(mx_.get(), "blue"));
+
+    for (int idx = 1; idx <= kRouteCount; ++idx) {
+        AddInetRoute(mx_.get(), NULL, "blue", BuildPrefix(idx));
+    }
+
+    for (int idx = 1; idx <= kRouteCount; ++idx) {
+        VerifyInetRouteExists(mx_.get(), "blue", BuildPrefix(idx));
+        VerifyInetRouteNoExists(cn1_.get(), "blue", BuildPrefix(idx));
+        VerifyInetRouteNoExists(cn2_.get(), "blue", BuildPrefix(idx));
+    }
+
+    SubscribeAgents("blue", 1);
+
+    for (int idx = 1; idx <= kRouteCount; ++idx) {
+        VerifyInetRouteExists(mx_.get(), "blue", BuildPrefix(idx));
+        VerifyInetRouteExists(cn1_.get(), "blue", BuildPrefix(idx));
+        VerifyInetRouteExists(cn2_.get(), "blue", BuildPrefix(idx));
+    }
+
+    for (int idx = 1; idx <= kRouteCount; ++idx) {
+        DeleteInetRoute(mx_.get(), NULL, "blue", BuildPrefix(idx));
+    }
+
+    for (int idx = 1; idx <= kRouteCount; ++idx) {
+        VerifyInetRouteNoExists(mx_.get(), "blue", BuildPrefix(idx));
+        VerifyInetRouteNoExists(cn1_.get(), "blue", BuildPrefix(idx));
+        VerifyInetRouteNoExists(cn2_.get(), "blue", BuildPrefix(idx));
+    }
+}
+
+//
+// Add and Delete route with multiple RTs on MX and verify it's imported into
+// appropriate VRFs on CNs.
+// CN1 and CN2 use different RTs to import the route.
+// Agents on CN1 and CN2 subscribe to the VRFs after the RTs are added to the
+// VRFs.
+// Route is added after the agents subscribe to the VRFs.
+//
+TEST_F(RTargetPeerTest, AddDeleteRouteWithMultipleTargets1) {
+    AddRouteTarget(mx_.get(), "blue", "target:1:2001");
+    TASK_UTIL_EXPECT_EQ(2, GetExportRouteTargetListSize(mx_.get(), "blue"));
+
+    AddRouteTarget(cn1_.get(), "blue", "target:1:1001");
+    TASK_UTIL_EXPECT_EQ(2, GetExportRouteTargetListSize(cn1_.get(), "blue"));
+    AddRouteTarget(cn2_.get(), "blue", "target:1:2001");
+    TASK_UTIL_EXPECT_EQ(2, GetExportRouteTargetListSize(cn2_.get(), "blue"));
+
+    SubscribeAgents("blue", 1);
+
+    AddInetRoute(mx_.get(), NULL, "blue", BuildPrefix());
+
+    VerifyInetRouteExists(mx_.get(), "blue", BuildPrefix());
+    VerifyInetRouteExists(cn1_.get(), "blue", BuildPrefix());
+    VerifyInetRouteExists(cn2_.get(), "blue", BuildPrefix());
+
+    DeleteInetRoute(mx_.get(), NULL, "blue", BuildPrefix());
+
+    VerifyInetRouteNoExists(mx_.get(), "blue", BuildPrefix());
+    VerifyInetRouteNoExists(cn1_.get(), "blue", BuildPrefix());
+    VerifyInetRouteNoExists(cn2_.get(), "blue", BuildPrefix());
+}
+
+//
+// Add and Delete route with multiple RTs on MX and verify it's imported into
+// appropriate VRFs on CNs.
+// CN1 and CN2 use different RTs to import the route.
+// Agents on CN1 and CN2 subscribe to the VRFs before the RTs are added to the
+// VRFs.
+// Route is added after the agents subscribe to the VRFs.
+//
+TEST_F(RTargetPeerTest, AddDeleteRouteWithMultipleTargets2) {
+    AddRouteTarget(mx_.get(), "blue", "target:1:2001");
+    TASK_UTIL_EXPECT_EQ(2, GetExportRouteTargetListSize(mx_.get(), "blue"));
+
+    SubscribeAgents("blue", 1);
+    AddInetRoute(mx_.get(), NULL, "blue", BuildPrefix());
+
+    VerifyInetRouteExists(mx_.get(), "blue", BuildPrefix());
+    VerifyInetRouteNoExists(cn1_.get(), "blue", BuildPrefix());
+    VerifyInetRouteNoExists(cn2_.get(), "blue", BuildPrefix());
+
+    AddRouteTarget(cn1_.get(), "blue", "target:1:1001");
+    TASK_UTIL_EXPECT_EQ(2, GetExportRouteTargetListSize(cn1_.get(), "blue"));
+    AddRouteTarget(cn2_.get(), "blue", "target:1:2001");
+    TASK_UTIL_EXPECT_EQ(2, GetExportRouteTargetListSize(cn2_.get(), "blue"));
+
+    VerifyInetRouteExists(mx_.get(), "blue", BuildPrefix());
+    VerifyInetRouteExists(cn1_.get(), "blue", BuildPrefix());
+    VerifyInetRouteExists(cn2_.get(), "blue", BuildPrefix());
+
+    RemoveRouteTarget(cn1_.get(), "blue", "target:1:1001");
+    TASK_UTIL_EXPECT_EQ(1, GetExportRouteTargetListSize(cn1_.get(), "blue"));
+    RemoveRouteTarget(cn2_.get(), "blue", "target:1:2001");
+    TASK_UTIL_EXPECT_EQ(1, GetExportRouteTargetListSize(cn2_.get(), "blue"));
+
+    VerifyInetRouteExists(mx_.get(), "blue", BuildPrefix());
+    VerifyInetRouteNoExists(cn1_.get(), "blue", BuildPrefix());
+    VerifyInetRouteNoExists(cn2_.get(), "blue", BuildPrefix());
+
+    DeleteInetRoute(mx_.get(), NULL, "blue", BuildPrefix());
+}
+
+//
+// Add and Delete route with multiple RTs on MX and verify it's imported into
+// appropriate VRFs on CNs.
+// CN1 and CN2 use different RTs to import the route.
+// Agents on CN1 and CN2 subscribe to the VRFs before the RTs are added to the
+// VRFs.
+// Route is added before the agents subscribe to the VRFs.
+//
+TEST_F(RTargetPeerTest, AddDeleteRouteWithMultipleTargets3) {
+    AddRouteTarget(mx_.get(), "blue", "target:1:2001");
+    TASK_UTIL_EXPECT_EQ(2, GetExportRouteTargetListSize(mx_.get(), "blue"));
+    AddRouteTarget(cn1_.get(), "blue", "target:1:1001");
+    TASK_UTIL_EXPECT_EQ(2, GetExportRouteTargetListSize(cn1_.get(), "blue"));
+    AddRouteTarget(cn2_.get(), "blue", "target:1:2001");
+    TASK_UTIL_EXPECT_EQ(2, GetExportRouteTargetListSize(cn2_.get(), "blue"));
+
+    AddInetRoute(mx_.get(), NULL, "blue", BuildPrefix());
+
+    VerifyInetRouteExists(mx_.get(), "blue", BuildPrefix());
+    VerifyInetRouteNoExists(cn1_.get(), "blue", BuildPrefix());
+    VerifyInetRouteNoExists(cn2_.get(), "blue", BuildPrefix());
+
+    SubscribeAgents("blue", 1);
+
+    VerifyInetRouteExists(mx_.get(), "blue", BuildPrefix());
+    VerifyInetRouteExists(cn1_.get(), "blue", BuildPrefix());
+    VerifyInetRouteExists(cn2_.get(), "blue", BuildPrefix());
+
+    DeleteInetRoute(mx_.get(), NULL, "blue", BuildPrefix());
+}
+
+//
+// Subscribe and Unsubscribe from agents should trigger advertisement and
+// withdrawal of RTargetRoutes from CNs and hence advertisement/withdrawal
+// of VPN route from MX.
+//
+TEST_F(RTargetPeerTest, SubscribeUnsubscribe1) {
+    AddRouteTarget(mx_.get(), "blue", "target:64496:1");
+    TASK_UTIL_EXPECT_EQ(2, GetExportRouteTargetListSize(mx_.get(), "blue"));
+
+    AddInetRoute(mx_.get(), NULL, "blue", BuildPrefix());
+
+    VerifyInetRouteExists(mx_.get(), "blue", BuildPrefix());
+    VerifyInetRouteNoExists(cn1_.get(), "blue", BuildPrefix());
+    VerifyInetRouteNoExists(cn2_.get(), "blue", BuildPrefix());
+    VerifyRTargetRouteNoExists(mx_.get(), "64496:target:64496:1");
+
+    agent_a_1_->Subscribe("blue", 1);
+
+    VerifyInetRouteExists(mx_.get(), "blue", BuildPrefix());
+    VerifyInetRouteExists(cn1_.get(), "blue", BuildPrefix());
+    VerifyInetRouteNoExists(cn2_.get(), "blue", BuildPrefix());
+    VerifyRTargetRouteExists(mx_.get(), "64496:target:64496:1");
+
+    agent_a_2_->Subscribe("blue", 1);
+
+    VerifyInetRouteExists(mx_.get(), "blue", BuildPrefix());
+    VerifyInetRouteExists(cn1_.get(), "blue", BuildPrefix());
+    VerifyInetRouteExists(cn2_.get(), "blue", BuildPrefix());
+    VerifyRTargetRouteExists(mx_.get(), "64496:target:64496:1");
+
+    agent_a_1_->Unsubscribe("blue", -1);
+
+    VerifyInetRouteExists(mx_.get(), "blue", BuildPrefix());
+    VerifyInetRouteNoExists(cn1_.get(), "blue", BuildPrefix());
+    VerifyInetRouteExists(cn2_.get(), "blue", BuildPrefix());
+    VerifyRTargetRouteExists(mx_.get(), "64496:target:64496:1");
+
+    agent_a_2_->Unsubscribe("blue", -1);
+
+    VerifyInetRouteExists(mx_.get(), "blue", BuildPrefix());
+    VerifyInetRouteNoExists(cn1_.get(), "blue", BuildPrefix());
+    VerifyInetRouteNoExists(cn2_.get(), "blue", BuildPrefix());
+    VerifyRTargetRouteNoExists(mx_.get(), "64496:target:64496:1");
+
+    DeleteInetRoute(mx_.get(), NULL, "blue", BuildPrefix());
+}
+
+//
+// Subscribe and Unsubscribe from agents should trigger advertisement and
+// withdrawal of RTargetRoutes from CNs and hence advertisement/withdrawal
+// of VPN route from MX.
+// RTargetRoute must be withdrawn only when the last agent has unsubscribed.
+//
+TEST_F(RTargetPeerTest, SubscribeUnsubscribe2) {
+    AddRouteTarget(mx_.get(), "blue", "target:64496:1");
+    TASK_UTIL_EXPECT_EQ(2, GetExportRouteTargetListSize(mx_.get(), "blue"));
+
+    AddInetRoute(mx_.get(), NULL, "blue", BuildPrefix());
+
+    VerifyInetRouteExists(mx_.get(), "blue", BuildPrefix());
+    VerifyInetRouteNoExists(cn1_.get(), "blue", BuildPrefix());
+    VerifyRTargetRouteNoExists(mx_.get(), "64496:target:64496:1");
+
+    SubscribeAgents("blue", 1);
+    SubscribeAgents("blue", 1);
+
+    VerifyInetRouteExists(mx_.get(), "blue", BuildPrefix());
+    VerifyInetRouteExists(cn1_.get(), "blue", BuildPrefix());
+    VerifyInetRouteExists(cn2_.get(), "blue", BuildPrefix());
+    VerifyRTargetRouteExists(mx_.get(), "64496:target:64496:1");
+
+    agent_a_1_->Unsubscribe("blue", -1);
+    agent_a_2_->Unsubscribe("blue", -1);
+
+    VerifyInetRouteExists(mx_.get(), "blue", BuildPrefix());
+    VerifyInetRouteExists(cn1_.get(), "blue", BuildPrefix());
+    VerifyInetRouteExists(cn2_.get(), "blue", BuildPrefix());
+    VerifyRTargetRouteExists(mx_.get(), "64496:target:64496:1");
+
+    agent_b_1_->Unsubscribe("blue", -1);
+    agent_b_2_->Unsubscribe("blue", -1);
+
+    VerifyInetRouteExists(mx_.get(), "blue", BuildPrefix());
+    VerifyInetRouteNoExists(cn1_.get(), "blue", BuildPrefix());
+    VerifyInetRouteNoExists(cn2_.get(), "blue", BuildPrefix());
+    VerifyRTargetRouteNoExists(mx_.get(), "64496:target:64496:1");
+
+    DeleteInetRoute(mx_.get(), NULL, "blue", BuildPrefix());
+}
+
+//
+// Duplicate unsubscribe should not cause any problem.
+//
+TEST_F(RTargetPeerTest, DuplicateUnsubscribe) {
+    SubscribeAgents("blue", 1);
+    UnsubscribeAgents("blue");
+    UnsubscribeAgents("blue");
+}
+
+//
+// Subscribe and Unsubscribe from agents should trigger advertisement and
+// withdrawal of RTargetRoutes from CNs and hence advertisement/withdrawal
+// of all VPN route from MX.
+// RTargetRoute must be withdrawn only when the last agent has unsubscribed.
+//
+TEST_F(RTargetPeerTest, SubscribeUnsubscribeMultipleRoute) {
+    AddRouteTarget(mx_.get(), "blue", "target:64496:1");
+    TASK_UTIL_EXPECT_EQ(2, GetExportRouteTargetListSize(mx_.get(), "blue"));
+
+    for (int idx = 1; idx <= kRouteCount; ++idx) {
+        AddInetRoute(mx_.get(), NULL, "blue", BuildPrefix(idx));
+    }
+
+    for (int idx = 1; idx <= kRouteCount; ++idx) {
+        VerifyInetRouteExists(mx_.get(), "blue", BuildPrefix(idx));
+        VerifyInetRouteNoExists(cn1_.get(), "blue", BuildPrefix(idx));
+        VerifyInetRouteNoExists(cn2_.get(), "blue", BuildPrefix(idx));
+    }
+
+    agent_a_1_->Subscribe("blue", 1);
+    agent_b_1_->Subscribe("blue", 1);
+
+    for (int idx = 1; idx <= kRouteCount; ++idx) {
+        VerifyInetRouteExists(mx_.get(), "blue", BuildPrefix(idx));
+        VerifyInetRouteExists(cn1_.get(), "blue", BuildPrefix(idx));
+        VerifyInetRouteNoExists(cn2_.get(), "blue", BuildPrefix(idx));
+    }
+
+    agent_a_2_->Subscribe("blue", 1);
+    agent_b_2_->Subscribe("blue", 1);
+
+    for (int idx = 1; idx <= kRouteCount; ++idx) {
+        VerifyInetRouteExists(mx_.get(), "blue", BuildPrefix(idx));
+        VerifyInetRouteExists(cn1_.get(), "blue", BuildPrefix(idx));
+        VerifyInetRouteExists(cn2_.get(), "blue", BuildPrefix(idx));
+    }
+
+    agent_a_1_->Unsubscribe("blue", -1);
+    agent_b_1_->Unsubscribe("blue", -1);
+
+    for (int idx = 1; idx <= kRouteCount; ++idx) {
+        VerifyInetRouteExists(mx_.get(), "blue", BuildPrefix(idx));
+        VerifyInetRouteNoExists(cn1_.get(), "blue", BuildPrefix(idx));
+        VerifyInetRouteExists(cn2_.get(), "blue", BuildPrefix(idx));
+    }
+
+    agent_a_2_->Unsubscribe("blue", -1);
+    agent_b_2_->Unsubscribe("blue", -1);
+
+    for (int idx = 1; idx <= kRouteCount; ++idx) {
+        VerifyInetRouteExists(mx_.get(), "blue", BuildPrefix(idx));
+        VerifyInetRouteNoExists(cn1_.get(), "blue", BuildPrefix(idx));
+        VerifyInetRouteNoExists(cn2_.get(), "blue", BuildPrefix(idx));
+    }
+
+    for (int idx = 1; idx <= kRouteCount; ++idx) {
+        DeleteInetRoute(mx_.get(), NULL, "blue", BuildPrefix(idx));
+    }
+}
+
+//
+// Add and Delete RT to route advertised from MX.
+// That should cause the route to get imported/un-imported from VRFs on CNs.
+// The 2 CNs use the same RT for the VRF.
+//
+TEST_F(RTargetPeerTest, AddDeleteRTargetToRoute1) {
+    AddInetRoute(mx_.get(), NULL, "blue", BuildPrefix());
+
+    SubscribeAgents("blue", 1);
+
+    VerifyInetRouteExists(mx_.get(), "blue", BuildPrefix());
+    VerifyInetRouteNoExists(cn1_.get(), "blue", BuildPrefix());
+    VerifyInetRouteNoExists(cn2_.get(), "blue", BuildPrefix());
+
+    AddRouteTarget(mx_.get(), "blue", "target:64496:1");
+    TASK_UTIL_EXPECT_EQ(2, GetExportRouteTargetListSize(mx_.get(), "blue"));
+
+    VerifyInetRouteExists(mx_.get(), "blue", BuildPrefix());
+    VerifyInetRouteExists(cn1_.get(), "blue", BuildPrefix());
+    VerifyInetRouteExists(cn2_.get(), "blue", BuildPrefix());
 
     RemoveRouteTarget(mx_.get(), "blue", "target:64496:1");
     task_util::WaitForIdle();
 
-    VerifyInetRouteExists(mx_.get(), "blue", "1.1.2.3/32");
-    VerifyInetRouteNoExists(cn1_.get(), "blue", "1.1.2.3/32");
-    VerifyInetRouteNoExists(cn2_.get(), "blue", "1.1.2.3/32");
+    VerifyInetRouteExists(mx_.get(), "blue", BuildPrefix());
+    VerifyInetRouteNoExists(cn1_.get(), "blue", BuildPrefix());
+    VerifyInetRouteNoExists(cn2_.get(), "blue", BuildPrefix());
 
-    agent_a_1_->Unsubscribe("blue");
-    agent_b_1_->Unsubscribe("blue");
-    agent_a_2_->Unsubscribe("blue");
-    agent_b_2_->Unsubscribe("blue");
-
-    DeleteInetRoute(mx_.get(), NULL, "blue", "1.1.2.3/32");
+    DeleteInetRoute(mx_.get(), NULL, "blue", BuildPrefix());
 }
 
-TEST_F(RTargetPeerTest, AddRTargetToInstance) {
-    AddInetRoute(mx_.get(), NULL, "blue", "1.1.2.3/32", 100);
+//
+// Add and Delete RTs to route advertised from MX.
+// That should cause the route to get imported/unimported to/from VRFs on CNs.
+// The 2 CNs use different RTs for the VRF.
+//
+TEST_F(RTargetPeerTest, AddDeleteRTargetToRoute2) {
+    AddInetRoute(mx_.get(), NULL, "blue", BuildPrefix());
+
+    AddRouteTarget(cn1_.get(), "blue", "target:1:101");
+    TASK_UTIL_EXPECT_EQ(2, GetExportRouteTargetListSize(cn1_.get(), "blue"));
+    AddRouteTarget(cn2_.get(), "blue", "target:2:101");
+    TASK_UTIL_EXPECT_EQ(2, GetExportRouteTargetListSize(cn2_.get(), "blue"));
+
+    SubscribeAgents("blue", 1);
+
+    VerifyInetRouteExists(mx_.get(), "blue", BuildPrefix());
+    VerifyInetRouteNoExists(cn1_.get(), "blue", BuildPrefix());
+    VerifyInetRouteNoExists(cn2_.get(), "blue", BuildPrefix());
+
+    AddRouteTarget(mx_.get(), "blue", "target:1:101");
+    TASK_UTIL_EXPECT_EQ(2, GetExportRouteTargetListSize(mx_.get(), "blue"));
+
+    VerifyInetRouteExists(mx_.get(), "blue", BuildPrefix());
+    VerifyInetRouteExists(cn1_.get(), "blue", BuildPrefix());
+    VerifyInetRouteNoExists(cn2_.get(), "blue", BuildPrefix());
+
+    AddRouteTarget(mx_.get(), "blue", "target:2:101");
+    TASK_UTIL_EXPECT_EQ(3, GetExportRouteTargetListSize(mx_.get(), "blue"));
+
+    VerifyInetRouteExists(mx_.get(), "blue", BuildPrefix());
+    VerifyInetRouteExists(cn1_.get(), "blue", BuildPrefix());
+    VerifyInetRouteExists(cn2_.get(), "blue", BuildPrefix());
+
+    RemoveRouteTarget(mx_.get(), "blue", "target:1:101");
     task_util::WaitForIdle();
 
-    agent_a_1_->Subscribe("blue", 2); 
-    agent_b_1_->Subscribe("blue", 2); 
-    agent_a_2_->Subscribe("blue", 2); 
-    agent_b_2_->Subscribe("blue", 2); 
+    VerifyInetRouteExists(mx_.get(), "blue", BuildPrefix());
+    VerifyInetRouteNoExists(cn1_.get(), "blue", BuildPrefix());
+    VerifyInetRouteExists(cn2_.get(), "blue", BuildPrefix());
 
-    VerifyInetRouteExists(mx_.get(), "blue", "1.1.2.3/32");
-    VerifyInetRouteNoExists(cn1_.get(), "blue", "1.1.2.3/32");
-    VerifyInetRouteNoExists(cn2_.get(), "blue", "1.1.2.3/32");
-
-    AddRouteTarget(cn1_.get(), "blue", "target:1:4");
-    task_util::WaitForIdle();
-    VerifyInetRouteExists(mx_.get(), "blue", "1.1.2.3/32");
-    VerifyInetRouteExists(cn1_.get(), "blue", "1.1.2.3/32");
-    VerifyInetRouteNoExists(cn2_.get(), "blue", "1.1.2.3/32");
-
-    AddRouteTarget(cn2_.get(), "blue", "target:1:4");
+    RemoveRouteTarget(mx_.get(), "blue", "target:2:101");
     task_util::WaitForIdle();
 
-    VerifyInetRouteExists(mx_.get(), "blue", "1.1.2.3/32");
-    VerifyInetRouteExists(cn1_.get(), "blue", "1.1.2.3/32");
-    VerifyInetRouteExists(cn2_.get(), "blue", "1.1.2.3/32");
+    VerifyInetRouteExists(mx_.get(), "blue", BuildPrefix());
+    VerifyInetRouteNoExists(cn1_.get(), "blue", BuildPrefix());
+    VerifyInetRouteNoExists(cn2_.get(), "blue", BuildPrefix());
 
-    RemoveRouteTarget(cn1_.get(), "blue", "target:1:4");
-    task_util::WaitForIdle();
-
-    VerifyInetRouteExists(mx_.get(), "blue", "1.1.2.3/32");
-    VerifyInetRouteNoExists(cn1_.get(), "blue", "1.1.2.3/32");
-    VerifyInetRouteExists(cn2_.get(), "blue", "1.1.2.3/32");
-
-    RemoveRouteTarget(cn2_.get(), "blue", "target:1:4");
-    task_util::WaitForIdle();
-
-    VerifyInetRouteExists(mx_.get(), "blue", "1.1.2.3/32");
-    VerifyInetRouteNoExists(cn1_.get(), "blue", "1.1.2.3/32");
-    VerifyInetRouteNoExists(cn2_.get(), "blue", "1.1.2.3/32");
-
-    agent_a_1_->Unsubscribe("blue");
-    agent_b_1_->Unsubscribe("blue");
-    agent_a_2_->Unsubscribe("blue");
-    agent_b_2_->Unsubscribe("blue");
-
-    DeleteInetRoute(mx_.get(), NULL, "blue", "1.1.2.3/32");
+    DeleteInetRoute(mx_.get(), NULL, "blue", BuildPrefix());
 }
 
+//
+// Add and Delete RTs to route advertised from MX.
+// Add one RT and delete another RT in one shot.
+// That should cause the route to get imported/unimported to/from VRFs on CNs.
+// The 2 CNs use different RTs for the VRF.
+//
+TEST_F(RTargetPeerTest, AddDeleteRTargetToRoute3) {
+    AddInetRoute(mx_.get(), NULL, "blue", BuildPrefix());
+
+    AddRouteTarget(cn1_.get(), "blue", "target:1:101");
+    TASK_UTIL_EXPECT_EQ(2, GetExportRouteTargetListSize(cn1_.get(), "blue"));
+    AddRouteTarget(cn2_.get(), "blue", "target:2:101");
+    TASK_UTIL_EXPECT_EQ(2, GetExportRouteTargetListSize(cn2_.get(), "blue"));
+
+    SubscribeAgents("blue", 1);
+
+    VerifyInetRouteExists(mx_.get(), "blue", BuildPrefix());
+    VerifyInetRouteNoExists(cn1_.get(), "blue", BuildPrefix());
+    VerifyInetRouteNoExists(cn2_.get(), "blue", BuildPrefix());
+
+    AddRouteTarget(mx_.get(), "blue", "target:1:101");
+    TASK_UTIL_EXPECT_EQ(2, GetExportRouteTargetListSize(mx_.get(), "blue"));
+
+    VerifyInetRouteExists(mx_.get(), "blue", BuildPrefix());
+    VerifyInetRouteExists(cn1_.get(), "blue", BuildPrefix());
+    VerifyInetRouteNoExists(cn2_.get(), "blue", BuildPrefix());
+
+    TaskScheduler::GetInstance()->Stop();
+    RemoveRouteTarget(mx_.get(), "blue", "target:1:101");
+    AddRouteTarget(mx_.get(), "blue", "target:2:101");
+    TaskScheduler::GetInstance()->Start();
+    TASK_UTIL_EXPECT_EQ(2, GetExportRouteTargetListSize(mx_.get(), "blue"));
+
+    VerifyInetRouteExists(mx_.get(), "blue", BuildPrefix());
+    VerifyInetRouteNoExists(cn1_.get(), "blue", BuildPrefix());
+    VerifyInetRouteExists(cn2_.get(), "blue", BuildPrefix());
+
+    DeleteInetRoute(mx_.get(), NULL, "blue", BuildPrefix());
+}
+
+TEST_F(RTargetPeerTest, AddDeleteRTargetToInstance) {
+    AddInetRoute(mx_.get(), NULL, "blue", BuildPrefix());
+
+    SubscribeAgents("blue", 1);
+
+    VerifyInetRouteExists(mx_.get(), "blue", BuildPrefix());
+    VerifyInetRouteNoExists(cn1_.get(), "blue", BuildPrefix());
+    VerifyInetRouteNoExists(cn2_.get(), "blue", BuildPrefix());
+
+    AddRouteTarget(cn1_.get(), "blue", "target:1:1001");
+    task_util::WaitForIdle();
+
+    VerifyInetRouteExists(mx_.get(), "blue", BuildPrefix());
+    VerifyInetRouteExists(cn1_.get(), "blue", BuildPrefix());
+    VerifyInetRouteNoExists(cn2_.get(), "blue", BuildPrefix());
+
+    AddRouteTarget(cn2_.get(), "blue", "target:1:1001");
+    task_util::WaitForIdle();
+
+    VerifyInetRouteExists(mx_.get(), "blue", BuildPrefix());
+    VerifyInetRouteExists(cn1_.get(), "blue", BuildPrefix());
+    VerifyInetRouteExists(cn2_.get(), "blue", BuildPrefix());
+
+    RemoveRouteTarget(cn1_.get(), "blue", "target:1:1001");
+    task_util::WaitForIdle();
+
+    VerifyInetRouteExists(mx_.get(), "blue", BuildPrefix());
+    VerifyInetRouteNoExists(cn1_.get(), "blue", BuildPrefix());
+    VerifyInetRouteExists(cn2_.get(), "blue", BuildPrefix());
+
+    RemoveRouteTarget(cn2_.get(), "blue", "target:1:1001");
+    task_util::WaitForIdle();
+
+    VerifyInetRouteExists(mx_.get(), "blue", BuildPrefix());
+    VerifyInetRouteNoExists(cn1_.get(), "blue", BuildPrefix());
+    VerifyInetRouteNoExists(cn2_.get(), "blue", BuildPrefix());
+
+    DeleteInetRoute(mx_.get(), NULL, "blue", BuildPrefix());
+}
+
+//
+// Add and Delete RT to VRFs on one CN.
+// That should cause the corresponding RouteTarget routes to get advertised
+// and withdrawn.
+//
+TEST_F(RTargetPeerTest, AddDeleteRTargetToInstance1) {
+    SubscribeAgents("blue", 1);
+
+    AddRouteTarget(cn1_.get(), "blue", "target:1:101");
+    TASK_UTIL_EXPECT_EQ(2, GetExportRouteTargetListSize(cn1_.get(), "blue"));
+    TASK_UTIL_EXPECT_EQ(2, GetImportRouteTargetListSize(cn1_.get(), "blue"));
+    VerifyRTargetRouteExists(mx_.get(), "64496:target:1:101");
+
+    RemoveRouteTarget(cn1_.get(), "blue", "target:1:101");
+    TASK_UTIL_EXPECT_EQ(1, GetExportRouteTargetListSize(cn1_.get(), "blue"));
+    TASK_UTIL_EXPECT_EQ(1, GetImportRouteTargetListSize(cn1_.get(), "blue"));
+    VerifyRTargetRouteNoExists(mx_.get(), "64496:target:1:101");
+}
+
+//
+// Add and Delete multiple RTs to VRFs on one CN.
+// That should cause the corresponding RouteTarget routes to get advertised
+// and withdrawn.
+//
+TEST_F(RTargetPeerTest, AddDeleteRTargetToInstance2) {
+    SubscribeAgents("blue", 1);
+
+    AddRouteTarget(cn1_.get(), "blue", "target:1:101");
+    VerifyRTargetRouteExists(mx_.get(), "64496:target:1:101");
+    VerifyRTargetRouteNoExists(mx_.get(), "64496:target:1:102");
+
+    AddRouteTarget(cn1_.get(), "blue", "target:1:102");
+    VerifyRTargetRouteExists(mx_.get(), "64496:target:1:101");
+    VerifyRTargetRouteExists(mx_.get(), "64496:target:1:102");
+
+    RemoveRouteTarget(cn1_.get(), "blue", "target:1:101");
+    VerifyRTargetRouteNoExists(mx_.get(), "64496:target:1:101");
+    VerifyRTargetRouteExists(mx_.get(), "64496:target:1:102");
+
+    RemoveRouteTarget(cn1_.get(), "blue", "target:1:102");
+    VerifyRTargetRouteNoExists(mx_.get(), "64496:target:1:101");
+    VerifyRTargetRouteNoExists(mx_.get(), "64496:target:1:102");
+}
+
+//
+// Add and Delete multiple RTs to VRFs on one CN.
+// That should cause the corresponding RouteTarget routes to get advertised
+// and withdrawn.
+// Add one RT and delete another RT in one shot.
+//
+TEST_F(RTargetPeerTest, AddDeleteRTargetToInstance3) {
+    SubscribeAgents("blue", 1);
+
+    AddRouteTarget(cn1_.get(), "blue", "target:1:101");
+    VerifyRTargetRouteExists(mx_.get(), "64496:target:1:101");
+    VerifyRTargetRouteNoExists(mx_.get(), "64496:target:1:102");
+
+    TaskScheduler::GetInstance()->Stop();
+    RemoveRouteTarget(cn1_.get(), "blue", "target:1:101");
+    AddRouteTarget(cn1_.get(), "blue", "target:1:102");
+    TaskScheduler::GetInstance()->Start();
+
+    VerifyRTargetRouteNoExists(mx_.get(), "64496:target:1:101");
+    VerifyRTargetRouteExists(mx_.get(), "64496:target:1:102");
+
+    RemoveRouteTarget(cn1_.get(), "blue", "target:1:102");
+    VerifyRTargetRouteNoExists(mx_.get(), "64496:target:1:101");
+    VerifyRTargetRouteNoExists(mx_.get(), "64496:target:1:102");
+}
+
+//
+// HTTP Introspect for RTGroups.
+//
 TEST_F(RTargetPeerTest, HTTPIntrospect) {
-    AddInetRoute(mx_.get(), NULL, "blue", "1.1.2.3/32", 100);
+    SubscribeAgents();
+    AddInetRoute(mx_.get(), NULL, "blue", BuildPrefix());
+    AddInetRoute(mx_.get(), NULL, "pink", BuildPrefix());
     AddRouteTarget(mx_.get(), "blue", "target:64496:1");
+    AddRouteTarget(mx_.get(), "pink", "target:64496:2");
 
-    agent_a_1_->Subscribe("blue", 2); 
-    agent_b_1_->Subscribe("blue", 2); 
-    agent_a_2_->Subscribe("blue", 2); 
-    agent_b_2_->Subscribe("blue", 2); 
+    VerifyInetRouteExists(mx_.get(), "blue", BuildPrefix());
+    VerifyInetRouteExists(mx_.get(), "pink", BuildPrefix());
+    VerifyInetRouteExists(cn1_.get(), "blue", BuildPrefix());
+    VerifyInetRouteExists(cn1_.get(), "pink", BuildPrefix());
+    VerifyInetRouteExists(cn2_.get(), "blue", BuildPrefix());
+    VerifyInetRouteExists(cn2_.get(), "pink", BuildPrefix());
 
-    VerifyInetRouteExists(mx_.get(), "blue", "1.1.2.3/32");
-    VerifyInetRouteExists(cn1_.get(), "blue", "1.1.2.3/32");
-    VerifyInetRouteExists(cn2_.get(), "blue", "1.1.2.3/32");
-
-    std::vector<string> result = list_of("target:1:4")("target:64496:1")
-     ("target:64496:2")("target:64496:3")("target:64496:4")("target:64496:5");
+    vector<string> result = list_of("target:1:1001")("target:1:1002")
+        ("target:64496:1")("target:64496:2")("target:64496:3")
+        ("target:64496:4")("target:64496:5");
     VerifyRtGroupSandesh(mx_.get(), result);
     VerifyRtGroupSandesh(cn1_.get(), result);
     VerifyRtGroupSandesh(cn2_.get(), result);
 
-    DeleteInetRoute(mx_.get(), NULL, "blue", "1.1.2.3/32");
-
-    agent_a_1_->Unsubscribe("blue");
-    agent_b_1_->Unsubscribe("blue");
-    agent_a_2_->Unsubscribe("blue");
-    agent_b_2_->Unsubscribe("blue");
+    DeleteInetRoute(mx_.get(), NULL, "blue", BuildPrefix());
+    DeleteInetRoute(mx_.get(), NULL, "pink", BuildPrefix());
 }
 
 TEST_F(RTargetPeerTest, BulkRouteAdd) {
-    AddInetRoute(mx_.get(), NULL, "blue", "1.1.2.3/32", 100);
+    AddInetRoute(mx_.get(), NULL, "blue", BuildPrefix());
     AddRouteTarget(mx_.get(), "blue", "target:64496:1");
 
-    agent_a_1_->Subscribe("blue", 2); 
-    agent_b_1_->Subscribe("blue", 2); 
-    agent_a_2_->Subscribe("blue", 2); 
-    agent_b_2_->Subscribe("blue", 2); 
+    SubscribeAgents("blue", 1);
 
-    VerifyInetRouteExists(mx_.get(), "blue", "1.1.2.3/32");
-    VerifyInetRouteExists(cn1_.get(), "blue", "1.1.2.3/32");
-    VerifyInetRouteExists(cn2_.get(), "blue", "1.1.2.3/32");
+    VerifyInetRouteExists(mx_.get(), "blue", BuildPrefix());
+    VerifyInetRouteExists(cn1_.get(), "blue", BuildPrefix());
+    VerifyInetRouteExists(cn2_.get(), "blue", BuildPrefix());
 
-    std::vector<BgpServerTest *> to_play = list_of(cn1_.get())(cn2_.get())(mx_.get());
-    for (std::vector<BgpServerTest *>::iterator sit = to_play.begin(); sit != to_play.end(); sit++) {
-        std::vector<string> to_add = list_of("target:1:400")("target:64496:100")
-            ("target:64496:200")("target:64496:300")("target:64496:400")("target:64496:500");
-        for (std::vector<string>::iterator it = to_add.begin(); it != to_add.end(); it++) {
-            AddRouteTarget(*sit, "blue", *it);
+    vector<BgpServerTest *> server_list =
+        list_of(cn1_.get())(cn2_.get())(mx_.get());
+    vector<string> rtarget_str_list = list_of("target:1:400")
+        ("target:64496:100")("target:64496:200")("target:64496:300")
+        ("target:64496:400")("target:64496:500")("target:64496:600");
+
+    BOOST_FOREACH(BgpServerTest *server, server_list) {
+        BOOST_FOREACH(const string &rtarget_str, rtarget_str_list) {
+            AddRouteTarget(server, "blue", rtarget_str);
         }
-
-        for (std::vector<string>::iterator it = to_add.begin(); it != to_add.end(); it++) {
-            RemoveRouteTarget(*sit, "blue", *it);
+        task_util::WaitForIdle();
+        BOOST_FOREACH(const string &rtarget_str, rtarget_str_list) {
+            RemoveRouteTarget(server, "blue", rtarget_str);
         }
     }
 
-    agent_a_1_->Unsubscribe("blue");
-    agent_b_1_->Unsubscribe("blue");
-    agent_a_2_->Unsubscribe("blue");
-    agent_b_2_->Unsubscribe("blue");
-
-    DeleteInetRoute(mx_.get(), NULL, "blue", "1.1.2.3/32");
+    DeleteInetRoute(mx_.get(), NULL, "blue", BuildPrefix());
 }
 
-TEST_F(RTargetPeerTest, DuplicateUnsubscribe) {
-    agent_a_1_->Subscribe("blue", 2); 
-    agent_a_1_->Unsubscribe("blue");
-    agent_a_1_->Unsubscribe("blue");
-}
-
+//
+// Update ASN on CNs and make sure that the ASN in the RTargetRoute prefix
+// is updated.
+//
 TEST_F(RTargetPeerTest, ASNUpdate) {
     VerifyRTargetRouteNoExists(cn1_.get(), "64496:target:64496:1");
     VerifyRTargetRouteNoExists(cn2_.get(), "64496:target:64496:1");
-    TASK_UTIL_EXPECT_EQ(4, RTargetRouteCount(cn1_.get()));
-    TASK_UTIL_EXPECT_EQ(4, RTargetRouteCount(cn2_.get()));
+    TASK_UTIL_EXPECT_EQ(0, RTargetRouteCount(cn1_.get()));
+    TASK_UTIL_EXPECT_EQ(0, RTargetRouteCount(cn2_.get()));
 
-    agent_a_1_->Subscribe("blue", 2); 
-    agent_b_1_->Subscribe("blue", 2); 
-    agent_a_2_->Subscribe("blue", 2); 
-    agent_b_2_->Subscribe("blue", 2); 
+    SubscribeAgents("blue", 1);
 
     VerifyRTargetRouteExists(cn1_.get(), "64496:target:64496:1");
     VerifyRTargetRouteExists(cn2_.get(), "64496:target:64496:1");
-    TASK_UTIL_EXPECT_EQ(5, RTargetRouteCount(cn1_.get()));
-    TASK_UTIL_EXPECT_EQ(5, RTargetRouteCount(cn2_.get()));
+    TASK_UTIL_EXPECT_EQ(1, RTargetRouteCount(cn1_.get()));
+    TASK_UTIL_EXPECT_EQ(1, RTargetRouteCount(cn2_.get()));
 
     UpdateASN();
     task_util::WaitForIdle();
-
     BringupAgents();
-    agent_a_1_->Subscribe("blue", 2);
-    agent_b_1_->Subscribe("blue", 2);
-    agent_a_2_->Subscribe("blue", 2);
-    agent_b_2_->Subscribe("blue", 2);
+
+    SubscribeAgents("blue", 1);
 
     VerifyRTargetRouteNoExists(cn1_.get(), "64496:target:64496:1");
     VerifyRTargetRouteNoExists(cn2_.get(), "64496:target:64496:1");
     VerifyRTargetRouteExists(cn1_.get(), "64497:target:64496:1");
     VerifyRTargetRouteExists(cn2_.get(), "64497:target:64496:1");
-    TASK_UTIL_EXPECT_EQ(5, RTargetRouteCount(cn1_.get()));
-    TASK_UTIL_EXPECT_EQ(5, RTargetRouteCount(cn2_.get()));
+    TASK_UTIL_EXPECT_EQ(1, RTargetRouteCount(cn1_.get()));
+    TASK_UTIL_EXPECT_EQ(1, RTargetRouteCount(cn2_.get()));
 
-    agent_a_1_->Unsubscribe("blue");
-    agent_b_1_->Unsubscribe("blue");
-    agent_a_2_->Unsubscribe("blue");
-    agent_b_2_->Unsubscribe("blue");
+    UnsubscribeAgents("blue");
 
-    TASK_UTIL_EXPECT_EQ(4, RTargetRouteCount(cn1_.get()));
-    TASK_UTIL_EXPECT_EQ(4, RTargetRouteCount(cn2_.get()));
+    TASK_UTIL_EXPECT_EQ(0, RTargetRouteCount(cn1_.get()));
+    TASK_UTIL_EXPECT_EQ(0, RTargetRouteCount(cn2_.get()));
     VerifyRTargetRouteNoExists(cn1_.get(), "64496:target:64496:1");
     VerifyRTargetRouteNoExists(cn2_.get(), "64496:target:64496:1");
     VerifyRTargetRouteNoExists(cn1_.get(), "64497:target:64496:1");
@@ -891,43 +1615,25 @@ TEST_F(RTargetPeerTest, ASNUpdate) {
 }
 
 //
-// Test to validate the defer logic of peer deletion.
-// Peer will not be deleted till RTGroupManager stops referring to it
-// in InterestedPeers list
+// Validate defer logic of BgpPeer deletion.
+// BgpPeer will not be deleted till RTargetGroupManager stops referring to it
+// in InterestedPeers list.
 //
 TEST_F(RTargetPeerTest, DeletedPeer) {
-    // CN1 & CN2 removes all rtarget routes
-    agent_a_2_->Unsubscribe("blue-i1");
-    agent_b_2_->Unsubscribe("blue-i1");
-    agent_a_2_->Unsubscribe("red-i2");
-    agent_b_2_->Unsubscribe("red-i2");
-    agent_a_2_->Unsubscribe("red");
-    agent_b_2_->Unsubscribe("red");
-    agent_a_2_->Unsubscribe("purple");
-    agent_b_2_->Unsubscribe("purple");
-    agent_a_1_->Unsubscribe("blue-i1");
-    agent_b_1_->Unsubscribe("blue-i1");
-    agent_a_1_->Unsubscribe("red-i2");
-    agent_b_1_->Unsubscribe("red-i2");
-    agent_a_1_->Unsubscribe("red");
-    agent_b_1_->Unsubscribe("red");
-    agent_a_1_->Unsubscribe("purple");
-    agent_b_1_->Unsubscribe("purple");
-
     TASK_UTIL_EXPECT_EQ(0, RTargetRouteCount(cn2_.get()));
     TASK_UTIL_EXPECT_EQ(0, RTargetRouteCount(cn1_.get()));
 
     // CN1 generates rtarget route for blue import rt
-    agent_a_1_->Subscribe("blue", 2);
-    agent_b_1_->Subscribe("blue", 2);
+    agent_a_1_->Subscribe("blue", 1);
+    agent_b_1_->Subscribe("blue", 1);
 
     VerifyRTargetRouteExists(cn1_.get(), "64496:target:64496:1");
     VerifyRTargetRouteExists(cn2_.get(), "64496:target:64496:1");
     TASK_UTIL_EXPECT_EQ(1, RTargetRouteCount(cn1_.get()));
     TASK_UTIL_EXPECT_EQ(1, RTargetRouteCount(cn2_.get()));
 
-    // Stop the RTGroupMgr processing of RTargetRoute notification
-    DisableRtargetRouteProcessing(cn2_.get());
+    // Stop the RTGroupMgr processing of RTargetRoute list.
+    DisableRTargetRouteProcessing(cn2_.get());
 
     size_t count = cn2_->lifetime_manager()->GetQueueDeferCount();
 
@@ -950,38 +1656,43 @@ TEST_F(RTargetPeerTest, DeletedPeer) {
     TASK_UTIL_EXPECT_TRUE(
         cn2_->lifetime_manager()->GetQueueDeferCount() > count);
 
-    // Enable the RTGroupMgr processing
-    EnableRtargetRouteProcessing(cn2_.get());
+    // Enable the RTGroupMgr processing of RTargetRoute list.
+    EnableRTargetRouteProcessing(cn2_.get());
 
     // Verify both RTargetGroupMgr's are empty.
-    TASK_UTIL_EXPECT_TRUE(cn1_->rtarget_group_mgr()->IsRTargetRoutesProcessed());
-    TASK_UTIL_EXPECT_TRUE(cn2_->rtarget_group_mgr()->IsRTargetRoutesProcessed());
+    TASK_UTIL_EXPECT_TRUE(
+        cn1_->rtarget_group_mgr()->IsRTargetRoutesProcessed());
+    TASK_UTIL_EXPECT_TRUE(
+        cn2_->rtarget_group_mgr()->IsRTargetRoutesProcessed());
     VerifyAllPeerUp(cn2_.get(), 1);
 
     // Route on CN2 should be deleted now.
     VerifyRTargetRouteNoExists(cn2_.get(), "64496:target:64496:1");
 }
 
-TEST_F(RTargetPeerTest, SameRTInMultipleVRF) {
-    agent_a_1_->Subscribe("blue", 2);
-    agent_b_1_->Subscribe("blue", 2);
-    agent_a_2_->Subscribe("blue", 2);
-    agent_b_2_->Subscribe("blue", 2);
+//
+// CNs have multiple VRFs with the same RT.
+// The RTargetRoute should not be withdrawn till the RT is removed from all
+// VRFs.
+//
+TEST_F(RTargetPeerTest, SameTargetInMultipleInstances1) {
+    SubscribeAgents("blue", 1);
+    SubscribeAgents("pink", 2);
 
     TASK_UTIL_EXPECT_EQ(1, GetExportRouteTargetListSize(cn1_.get(), "blue"));
-    TASK_UTIL_EXPECT_EQ(1, GetExportRouteTargetListSize(cn1_.get(), "blue-i1"));
+    TASK_UTIL_EXPECT_EQ(1, GetExportRouteTargetListSize(cn1_.get(), "pink"));
     TASK_UTIL_EXPECT_EQ(1, GetExportRouteTargetListSize(cn2_.get(), "blue"));
-    TASK_UTIL_EXPECT_EQ(1, GetExportRouteTargetListSize(cn2_.get(), "blue-i1"));
+    TASK_UTIL_EXPECT_EQ(1, GetExportRouteTargetListSize(cn2_.get(), "pink"));
 
     AddRouteTarget(cn1_.get(), "blue", "target:1:99");
     AddRouteTarget(cn2_.get(), "blue", "target:1:99");
-    AddRouteTarget(cn1_.get(), "blue-i1", "target:1:99");
-    AddRouteTarget(cn2_.get(), "blue-i1", "target:1:99");
+    AddRouteTarget(cn1_.get(), "pink", "target:1:99");
+    AddRouteTarget(cn2_.get(), "pink", "target:1:99");
 
     TASK_UTIL_EXPECT_EQ(2, GetExportRouteTargetListSize(cn1_.get(), "blue"));
-    TASK_UTIL_EXPECT_EQ(2, GetExportRouteTargetListSize(cn1_.get(), "blue-i1"));
+    TASK_UTIL_EXPECT_EQ(2, GetExportRouteTargetListSize(cn1_.get(), "pink"));
     TASK_UTIL_EXPECT_EQ(2, GetExportRouteTargetListSize(cn2_.get(), "blue"));
-    TASK_UTIL_EXPECT_EQ(2, GetExportRouteTargetListSize(cn2_.get(), "blue-i1"));
+    TASK_UTIL_EXPECT_EQ(2, GetExportRouteTargetListSize(cn2_.get(), "pink"));
 
     VerifyRTargetRouteExists(cn1_.get(), "64496:target:1:99");
     VerifyRTargetRouteExists(cn2_.get(), "64496:target:1:99");
@@ -990,27 +1701,85 @@ TEST_F(RTargetPeerTest, SameRTInMultipleVRF) {
     RemoveRouteTarget(cn2_.get(), "blue", "target:1:99");
 
     TASK_UTIL_EXPECT_EQ(1, GetExportRouteTargetListSize(cn1_.get(), "blue"));
-    TASK_UTIL_EXPECT_EQ(2, GetExportRouteTargetListSize(cn1_.get(), "blue-i1"));
+    TASK_UTIL_EXPECT_EQ(2, GetExportRouteTargetListSize(cn1_.get(), "pink"));
     TASK_UTIL_EXPECT_EQ(1, GetExportRouteTargetListSize(cn2_.get(), "blue"));
-    TASK_UTIL_EXPECT_EQ(2, GetExportRouteTargetListSize(cn2_.get(), "blue-i1"));
+    TASK_UTIL_EXPECT_EQ(2, GetExportRouteTargetListSize(cn2_.get(), "pink"));
+    task_util::WaitForIdle();
 
     VerifyRTargetRouteExists(cn1_.get(), "64496:target:1:99");
     VerifyRTargetRouteExists(cn2_.get(), "64496:target:1:99");
 
-    agent_a_1_->Unsubscribe("blue");
-    agent_a_2_->Unsubscribe("blue");
-    agent_b_1_->Unsubscribe("blue");
-    agent_b_2_->Unsubscribe("blue");
-
-    RemoveRouteTarget(cn1_.get(), "blue-i1", "target:1:99");
-    RemoveRouteTarget(cn2_.get(), "blue-i1", "target:1:99");
+    RemoveRouteTarget(cn1_.get(), "pink", "target:1:99");
+    RemoveRouteTarget(cn2_.get(), "pink", "target:1:99");
 
     VerifyRTargetRouteNoExists(cn1_.get(), "64496:target:1:99");
     VerifyRTargetRouteNoExists(cn2_.get(), "64496:target:1:99");
 }
 
-TEST_F(RTargetPeerTest, ConnectedVRF) {
-    // RED and PURPLE are connected
+//
+// CNs have multiple VRFs with the same RT.
+// The RTargetRoute should not be withdrawn is the RT is not removed from
+// all VRFs.
+// The RTargetRoute should be withdrawn if all agents unsubscribe from VRF.
+//
+TEST_F(RTargetPeerTest, SameTargetInMultipleInstances2) {
+    SubscribeAgents("blue", 1);
+    SubscribeAgents("pink", 2);
+
+    TASK_UTIL_EXPECT_EQ(1, GetExportRouteTargetListSize(cn1_.get(), "blue"));
+    TASK_UTIL_EXPECT_EQ(1, GetExportRouteTargetListSize(cn1_.get(), "pink"));
+    TASK_UTIL_EXPECT_EQ(1, GetExportRouteTargetListSize(cn2_.get(), "blue"));
+    TASK_UTIL_EXPECT_EQ(1, GetExportRouteTargetListSize(cn2_.get(), "pink"));
+
+    AddRouteTarget(cn1_.get(), "blue", "target:1:99");
+    AddRouteTarget(cn2_.get(), "blue", "target:1:99");
+    AddRouteTarget(cn1_.get(), "pink", "target:1:99");
+    AddRouteTarget(cn2_.get(), "pink", "target:1:99");
+
+    TASK_UTIL_EXPECT_EQ(2, GetExportRouteTargetListSize(cn1_.get(), "blue"));
+    TASK_UTIL_EXPECT_EQ(2, GetExportRouteTargetListSize(cn1_.get(), "pink"));
+    TASK_UTIL_EXPECT_EQ(2, GetExportRouteTargetListSize(cn2_.get(), "blue"));
+    TASK_UTIL_EXPECT_EQ(2, GetExportRouteTargetListSize(cn2_.get(), "pink"));
+
+    VerifyRTargetRouteExists(cn1_.get(), "64496:target:1:99");
+    VerifyRTargetRouteExists(cn2_.get(), "64496:target:1:99");
+
+    RemoveRouteTarget(cn1_.get(), "blue", "target:1:99");
+    RemoveRouteTarget(cn2_.get(), "blue", "target:1:99");
+
+    TASK_UTIL_EXPECT_EQ(1, GetExportRouteTargetListSize(cn1_.get(), "blue"));
+    TASK_UTIL_EXPECT_EQ(2, GetExportRouteTargetListSize(cn1_.get(), "pink"));
+    TASK_UTIL_EXPECT_EQ(1, GetExportRouteTargetListSize(cn2_.get(), "blue"));
+    TASK_UTIL_EXPECT_EQ(2, GetExportRouteTargetListSize(cn2_.get(), "pink"));
+    task_util::WaitForIdle();
+
+    VerifyRTargetRouteExists(cn1_.get(), "64496:target:1:99");
+    VerifyRTargetRouteExists(cn2_.get(), "64496:target:1:99");
+
+    UnsubscribeAgents("pink");
+
+    VerifyRTargetRouteNoExists(cn1_.get(), "64496:target:1:99");
+    VerifyRTargetRouteNoExists(cn2_.get(), "64496:target:1:99");
+}
+
+//
+// Two VRFs are connected to each other and CNs have agents that subscribe to
+// both VRFs.
+// One VRF has an extra RT added to it.
+// If connection between the VRFs is removed, the RtargetRoute for the extra
+// RT should not be withdrawn since it's still in the import list of one VRF.
+//
+TEST_F(RTargetPeerTest, ConnectedInstances1) {
+    SubscribeAgents();
+    AddConnection(cn1_.get(), "red", "purple");
+    AddConnection(cn2_.get(), "red", "purple");
+    task_util::WaitForIdle();
+
+    TASK_UTIL_EXPECT_EQ(2, GetImportRouteTargetListSize(cn1_.get(), "red"));
+    TASK_UTIL_EXPECT_EQ(2, GetImportRouteTargetListSize(cn2_.get(), "red"));
+    TASK_UTIL_EXPECT_EQ(2, GetImportRouteTargetListSize(cn1_.get(), "purple"));
+    TASK_UTIL_EXPECT_EQ(2, GetImportRouteTargetListSize(cn2_.get(), "purple"));
+
     AddRouteTarget(cn1_.get(), "red", "target:1:99");
     AddRouteTarget(cn2_.get(), "red", "target:1:99");
 
@@ -1018,6 +1787,8 @@ TEST_F(RTargetPeerTest, ConnectedVRF) {
     TASK_UTIL_EXPECT_EQ(3, GetImportRouteTargetListSize(cn2_.get(), "red"));
     TASK_UTIL_EXPECT_EQ(3, GetImportRouteTargetListSize(cn1_.get(), "purple"));
     TASK_UTIL_EXPECT_EQ(3, GetImportRouteTargetListSize(cn2_.get(), "purple"));
+    VerifyRTargetRouteExists(cn1_.get(), "64496:target:1:99");
+    VerifyRTargetRouteExists(cn2_.get(), "64496:target:1:99");
 
     RemoveConnection(cn1_.get(), "red", "purple");
     RemoveConnection(cn2_.get(), "red", "purple");
@@ -1038,6 +1809,581 @@ TEST_F(RTargetPeerTest, ConnectedVRF) {
     TASK_UTIL_EXPECT_EQ(3, GetImportRouteTargetListSize(cn2_.get(), "purple"));
     VerifyRTargetRouteExists(cn1_.get(), "64496:target:1:99");
     VerifyRTargetRouteExists(cn2_.get(), "64496:target:1:99");
+}
+
+//
+// Two VRFs are connected to each other and CNs have agents that subscribe to
+// both VRFs.
+// If all agents unsubscribe from one VRF, RTargetRoute for that VRFs RT must
+// not be withdrawn since it still in the import list of the other VRF.
+//
+TEST_F(RTargetPeerTest, ConnectedInstances2) {
+    SubscribeAgents();
+    AddConnection(cn1_.get(), "red", "purple");
+    AddConnection(cn2_.get(), "red", "purple");
+    task_util::WaitForIdle();
+
+    TASK_UTIL_EXPECT_EQ(2, GetImportRouteTargetListSize(cn1_.get(), "red"));
+    TASK_UTIL_EXPECT_EQ(2, GetImportRouteTargetListSize(cn2_.get(), "red"));
+    TASK_UTIL_EXPECT_EQ(2, GetImportRouteTargetListSize(cn1_.get(), "purple"));
+    TASK_UTIL_EXPECT_EQ(2, GetImportRouteTargetListSize(cn2_.get(), "purple"));
+
+    VerifyRTargetRouteExists(cn1_.get(), "64496:target:64496:3");
+    VerifyRTargetRouteExists(cn1_.get(), "64496:target:64496:4");
+    VerifyRTargetRouteExists(cn2_.get(), "64496:target:64496:3");
+    VerifyRTargetRouteExists(cn2_.get(), "64496:target:64496:4");
+
+    UnsubscribeAgents("purple");
+    task_util::WaitForIdle();
+
+    VerifyRTargetRouteExists(cn1_.get(), "64496:target:64496:3");
+    VerifyRTargetRouteExists(cn1_.get(), "64496:target:64496:4");
+    VerifyRTargetRouteExists(cn2_.get(), "64496:target:64496:3");
+    VerifyRTargetRouteExists(cn2_.get(), "64496:target:64496:4");
+}
+
+//
+// Disable RTargetRoute processing on MX and verify that a new RTargetRoute
+// advertised by CN remains on the trigger list.  Routes with that RT are
+// sent to the CN only after processing is enabled.
+// There is 1 CN which sends the RTargetRoute.
+//
+TEST_F(RTargetPeerTest, DisableEnableRTargetRouteProcessing1) {
+    SubscribeAgents("blue", 1);
+
+    for (int idx = 1; idx <= kRouteCount; ++idx) {
+        AddInetRoute(mx_.get(), NULL, "blue", BuildPrefix(idx));
+    }
+
+    for (int idx = 1; idx <= kRouteCount; ++idx) {
+        VerifyInetRouteExists(mx_.get(), "blue", BuildPrefix(idx));
+    }
+
+    DisableRTargetRouteProcessing(mx_.get());
+
+    AddRouteTarget(cn1_.get(), "blue", "target:1:1001");
+    RTargetRoute *rt1 =
+        VerifyRTargetRouteExists(mx_.get(), "64496:target:1:1001");
+    TASK_UTIL_EXPECT_TRUE(IsRTargetRouteOnList(mx_.get(), rt1));
+
+    for (int idx = 1; idx <= kRouteCount; ++idx) {
+        VerifyInetRouteNoExists(cn1_.get(), "blue", BuildPrefix(idx));
+    }
+
+    EnableRTargetRouteProcessing(mx_.get());
+
+    RTargetRoute *rt2 =
+        VerifyRTargetRouteExists(mx_.get(), "64496:target:1:1001");
+    TASK_UTIL_EXPECT_FALSE(IsRTargetRouteOnList(mx_.get(), rt2));
+    for (int idx = 1; idx <= kRouteCount; ++idx) {
+        VerifyInetRouteExists(cn1_.get(), "blue", BuildPrefix(idx));
+    }
+
+    for (int idx = 1; idx <= kRouteCount; ++idx) {
+        DeleteInetRoute(mx_.get(), NULL, "blue", BuildPrefix(idx));
+    }
+}
+
+//
+// Disable RTargetRoute processing on MX and verify that a new RTargetRoute
+// advertised by CN remains on the trigger list.  Routes with that RT are
+// sent to the CN only after processing is enabled.
+// There are 2 CNs which send the RTargetRoute.
+//
+TEST_F(RTargetPeerTest, DisableEnableRTargetRouteProcessing2) {
+    SubscribeAgents("blue", 1);
+
+    for (int idx = 1; idx <= kRouteCount; ++idx) {
+        AddInetRoute(mx_.get(), NULL, "blue", BuildPrefix(idx));
+    }
+
+    for (int idx = 1; idx <= kRouteCount; ++idx) {
+        VerifyInetRouteExists(mx_.get(), "blue", BuildPrefix(idx));
+    }
+
+    DisableRTargetRouteProcessing(mx_.get());
+
+    AddRouteTarget(cn1_.get(), "blue", "target:1:1001");
+    RTargetRoute *rt1 =
+        VerifyRTargetRouteExists(mx_.get(), "64496:target:1:1001");
+    TASK_UTIL_EXPECT_TRUE(IsRTargetRouteOnList(mx_.get(), rt1));
+
+    AddRouteTarget(cn2_.get(), "blue", "target:1:1001");
+    RTargetRoute *rt2 =
+        VerifyRTargetRouteExists(mx_.get(), "64496:target:1:1001");
+    TASK_UTIL_EXPECT_TRUE(IsRTargetRouteOnList(mx_.get(), rt2));
+
+    for (int idx = 1; idx <= kRouteCount; ++idx) {
+        VerifyInetRouteNoExists(cn1_.get(), "blue", BuildPrefix(idx));
+        VerifyInetRouteNoExists(cn2_.get(), "blue", BuildPrefix(idx));
+    }
+
+    EnableRTargetRouteProcessing(mx_.get());
+
+    RTargetRoute *rt3 =
+        VerifyRTargetRouteExists(mx_.get(), "64496:target:1:1001");
+    TASK_UTIL_EXPECT_FALSE(IsRTargetRouteOnList(mx_.get(), rt3));
+    for (int idx = 1; idx <= kRouteCount; ++idx) {
+        VerifyInetRouteExists(cn1_.get(), "blue", BuildPrefix(idx));
+        VerifyInetRouteExists(cn2_.get(), "blue", BuildPrefix(idx));
+    }
+
+    for (int idx = 1; idx <= kRouteCount; ++idx) {
+        DeleteInetRoute(mx_.get(), NULL, "blue", BuildPrefix(idx));
+    }
+}
+
+//
+// Disable RTargetRoute processing on MX and verify that a new RTargetRoute
+// advertised by CN remains on the trigger list.  Routes with that RT are
+// sent to the CN only after processing is enabled.
+// There are 2 CNs which send the RTargetRoute.
+// Processing is disabled and enabled separately when the CNs advertise the
+// RTargetRoute i.e. the RTargetRoute needs to be processed twice on the MX.
+//
+TEST_F(RTargetPeerTest, DisableEnableRTargetRouteProcessing3) {
+    SubscribeAgents("blue", 1);
+
+    for (int idx = 1; idx <= kRouteCount; ++idx) {
+        AddInetRoute(mx_.get(), NULL, "blue", BuildPrefix(idx));
+    }
+
+    for (int idx = 1; idx <= kRouteCount; ++idx) {
+        VerifyInetRouteExists(mx_.get(), "blue", BuildPrefix(idx));
+    }
+
+    DisableRTargetRouteProcessing(mx_.get());
+
+    AddRouteTarget(cn1_.get(), "blue", "target:1:1001");
+    RTargetRoute *rt1 =
+        VerifyRTargetRouteExists(mx_.get(), "64496:target:1:1001");
+    TASK_UTIL_EXPECT_TRUE(IsRTargetRouteOnList(mx_.get(), rt1));
+
+    EnableRTargetRouteProcessing(mx_.get());
+
+    RTargetRoute *rt2 =
+        VerifyRTargetRouteExists(mx_.get(), "64496:target:1:1001");
+    TASK_UTIL_EXPECT_FALSE(IsRTargetRouteOnList(mx_.get(), rt2));
+    for (int idx = 1; idx <= kRouteCount; ++idx) {
+        VerifyInetRouteExists(cn1_.get(), "blue", BuildPrefix(idx));
+        VerifyInetRouteNoExists(cn2_.get(), "blue", BuildPrefix(idx));
+    }
+
+    DisableRTargetRouteProcessing(mx_.get());
+
+    AddRouteTarget(cn2_.get(), "blue", "target:1:1001");
+    RTargetRoute *rt3 =
+        VerifyRTargetRouteExists(mx_.get(), "64496:target:1:1001");
+    TASK_UTIL_EXPECT_TRUE(IsRTargetRouteOnList(mx_.get(), rt3));
+
+    EnableRTargetRouteProcessing(mx_.get());
+
+    RTargetRoute *rt4 =
+        VerifyRTargetRouteExists(mx_.get(), "64496:target:1:1001");
+    TASK_UTIL_EXPECT_FALSE(IsRTargetRouteOnList(mx_.get(), rt4));
+    for (int idx = 1; idx <= kRouteCount; ++idx) {
+        VerifyInetRouteExists(cn1_.get(), "blue", BuildPrefix(idx));
+        VerifyInetRouteExists(cn2_.get(), "blue", BuildPrefix(idx));
+    }
+
+    for (int idx = 1; idx <= kRouteCount; ++idx) {
+        DeleteInetRoute(mx_.get(), NULL, "blue", BuildPrefix(idx));
+    }
+}
+
+//
+// Disable RTargetRoute processing on MX and verify that new RTargetRoutes
+// advertised by CN remain on the trigger list.  Routes with those RTs are
+// sent to the CN only after processing is enabled.
+// There is 1 CN which sends 2 RTargetRoutes, one per VRF.
+//
+TEST_F(RTargetPeerTest, DisableEnableRTargetRouteProcessing4) {
+    SubscribeAgents("blue", 1);
+    SubscribeAgents("pink", 2);
+
+    for (int idx = 1; idx <= kRouteCount; ++idx) {
+        AddInetRoute(mx_.get(), NULL, "blue", BuildPrefix(idx));
+        AddInetRoute(mx_.get(), NULL, "pink", BuildPrefix(idx));
+    }
+
+    for (int idx = 1; idx <= kRouteCount; ++idx) {
+        VerifyInetRouteExists(mx_.get(), "blue", BuildPrefix(idx));
+        VerifyInetRouteExists(mx_.get(), "pink", BuildPrefix(idx));
+    }
+
+    DisableRTargetRouteProcessing(mx_.get());
+
+    AddRouteTarget(cn1_.get(), "blue", "target:1:1001");
+    RTargetRoute *rt1 =
+        VerifyRTargetRouteExists(mx_.get(), "64496:target:1:1001");
+    TASK_UTIL_EXPECT_TRUE(IsRTargetRouteOnList(mx_.get(), rt1));
+
+    AddRouteTarget(cn1_.get(), "pink", "target:1:1002");
+    RTargetRoute *rt2 =
+        VerifyRTargetRouteExists(mx_.get(), "64496:target:1:1002");
+    TASK_UTIL_EXPECT_TRUE(IsRTargetRouteOnList(mx_.get(), rt2));
+
+    for (int idx = 1; idx <= kRouteCount; ++idx) {
+        VerifyInetRouteNoExists(cn1_.get(), "blue", BuildPrefix(idx));
+        VerifyInetRouteNoExists(cn1_.get(), "pink", BuildPrefix(idx));
+    }
+
+    EnableRTargetRouteProcessing(mx_.get());
+
+    RTargetRoute *rt3 =
+        VerifyRTargetRouteExists(mx_.get(), "64496:target:1:1001");
+    TASK_UTIL_EXPECT_FALSE(IsRTargetRouteOnList(mx_.get(), rt3));
+    RTargetRoute *rt4 =
+        VerifyRTargetRouteExists(mx_.get(), "64496:target:1:1002");
+    TASK_UTIL_EXPECT_FALSE(IsRTargetRouteOnList(mx_.get(), rt4));
+
+    for (int idx = 1; idx <= kRouteCount; ++idx) {
+        VerifyInetRouteExists(cn1_.get(), "blue", BuildPrefix(idx));
+        VerifyInetRouteExists(cn1_.get(), "pink", BuildPrefix(idx));
+    }
+
+    for (int idx = 1; idx <= kRouteCount; ++idx) {
+        DeleteInetRoute(mx_.get(), NULL, "blue", BuildPrefix(idx));
+        DeleteInetRoute(mx_.get(), NULL, "pink", BuildPrefix(idx));
+    }
+}
+
+//
+// Disable RTargetRoute processing on MX and verify that new RTargetRoutes
+// advertised by CNs remain on the trigger list.  Routes with those RTs are
+// sent to the CNs only after processing is enabled.
+// There are 2 CNs which send 1 RTargetRoute each.
+//
+TEST_F(RTargetPeerTest, DisableEnableRTargetRouteProcessing5) {
+    SubscribeAgents("blue", 1);
+    SubscribeAgents("pink", 2);
+
+    for (int idx = 1; idx <= kRouteCount; ++idx) {
+        AddInetRoute(mx_.get(), NULL, "blue", BuildPrefix(idx));
+        AddInetRoute(mx_.get(), NULL, "pink", BuildPrefix(idx));
+    }
+
+    for (int idx = 1; idx <= kRouteCount; ++idx) {
+        VerifyInetRouteExists(mx_.get(), "blue", BuildPrefix(idx));
+        VerifyInetRouteExists(mx_.get(), "pink", BuildPrefix(idx));
+    }
+
+    DisableRTargetRouteProcessing(mx_.get());
+
+    AddRouteTarget(cn1_.get(), "blue", "target:1:1001");
+    RTargetRoute *rt1 =
+        VerifyRTargetRouteExists(mx_.get(), "64496:target:1:1001");
+    TASK_UTIL_EXPECT_TRUE(IsRTargetRouteOnList(mx_.get(), rt1));
+
+    AddRouteTarget(cn2_.get(), "pink", "target:1:1002");
+    RTargetRoute *rt2 =
+        VerifyRTargetRouteExists(mx_.get(), "64496:target:1:1002");
+    TASK_UTIL_EXPECT_TRUE(IsRTargetRouteOnList(mx_.get(), rt2));
+
+    for (int idx = 1; idx <= kRouteCount; ++idx) {
+        VerifyInetRouteNoExists(cn1_.get(), "blue", BuildPrefix(idx));
+        VerifyInetRouteNoExists(cn2_.get(), "pink", BuildPrefix(idx));
+    }
+
+    EnableRTargetRouteProcessing(mx_.get());
+
+    RTargetRoute *rt3 =
+        VerifyRTargetRouteExists(mx_.get(), "64496:target:1:1001");
+    TASK_UTIL_EXPECT_FALSE(IsRTargetRouteOnList(mx_.get(), rt3));
+    RTargetRoute *rt4 =
+        VerifyRTargetRouteExists(mx_.get(), "64496:target:1:1002");
+    TASK_UTIL_EXPECT_FALSE(IsRTargetRouteOnList(mx_.get(), rt4));
+
+    for (int idx = 1; idx <= kRouteCount; ++idx) {
+        VerifyInetRouteExists(cn1_.get(), "blue", BuildPrefix(idx));
+        VerifyInetRouteExists(cn2_.get(), "pink", BuildPrefix(idx));
+    }
+
+    for (int idx = 1; idx <= kRouteCount; ++idx) {
+        DeleteInetRoute(mx_.get(), NULL, "blue", BuildPrefix(idx));
+        DeleteInetRoute(mx_.get(), NULL, "pink", BuildPrefix(idx));
+    }
+}
+
+//
+// Disable RouteTarget processing on MX and verify that the RT corresponding
+// to the RTargetRoute advertised by CN remains on the trigger lists.  Routes
+// with that RT are sent to the CN only after processing is enabled.
+// There is 1 CN which sends the RTargetRoute.
+//
+TEST_F(RTargetPeerTest, DisableEnableRouteTargetProcessing1) {
+    SubscribeAgents("blue", 1);
+
+    for (int idx = 1; idx <= kRouteCount; ++idx) {
+        AddInetRoute(mx_.get(), NULL, "blue", BuildPrefix(idx));
+    }
+
+    for (int idx = 1; idx <= kRouteCount; ++idx) {
+        VerifyInetRouteExists(mx_.get(), "blue", BuildPrefix(idx));
+    }
+
+    DisableRouteTargetProcessing(mx_.get());
+
+    AddRouteTarget(cn1_.get(), "blue", "target:1:1001");
+    TASK_UTIL_EXPECT_EQ(2, GetExportRouteTargetListSize(cn1_.get(), "blue"));
+    TASK_UTIL_EXPECT_TRUE(IsRouteTargetOnList(mx_.get(), "target:1:1001"));
+
+    for (int idx = 1; idx <= kRouteCount; ++idx) {
+        VerifyInetRouteNoExists(cn1_.get(), "blue", BuildPrefix(idx));
+    }
+
+    EnableRouteTargetProcessing(mx_.get());
+
+    TASK_UTIL_EXPECT_FALSE(IsRouteTargetOnList(mx_.get(), "target:1:1001"));
+    for (int idx = 1; idx <= kRouteCount; ++idx) {
+        VerifyInetRouteExists(cn1_.get(), "blue", BuildPrefix(idx));
+    }
+
+    for (int idx = 1; idx <= kRouteCount; ++idx) {
+        DeleteInetRoute(mx_.get(), NULL, "blue", BuildPrefix(idx));
+    }
+}
+
+//
+// Disable RouteTarget processing on MX and verify that the RT corresponding
+// to the RTargetRoute advertised by CNs remains on the trigger lists. Routes
+// with that RT are sent to the CN only after processing is enabled.
+// There are 2 CNs which send the RTargetRoute.
+//
+TEST_F(RTargetPeerTest, DisableEnableRouteTargetProcessing2) {
+    SubscribeAgents("blue", 1);
+
+    for (int idx = 1; idx <= kRouteCount; ++idx) {
+        AddInetRoute(mx_.get(), NULL, "blue", BuildPrefix(idx));
+    }
+
+    for (int idx = 1; idx <= kRouteCount; ++idx) {
+        VerifyInetRouteExists(mx_.get(), "blue", BuildPrefix(idx));
+    }
+
+    DisableRouteTargetProcessing(mx_.get());
+
+    AddRouteTarget(cn1_.get(), "blue", "target:1:1001");
+    TASK_UTIL_EXPECT_EQ(2, GetExportRouteTargetListSize(cn1_.get(), "blue"));
+    TASK_UTIL_EXPECT_TRUE(IsRouteTargetOnList(mx_.get(), "target:1:1001"));
+
+    AddRouteTarget(cn2_.get(), "blue", "target:1:1001");
+    TASK_UTIL_EXPECT_EQ(2, GetExportRouteTargetListSize(cn2_.get(), "blue"));
+    TASK_UTIL_EXPECT_TRUE(IsRouteTargetOnList(mx_.get(), "target:1:1001"));
+
+    for (int idx = 1; idx <= kRouteCount; ++idx) {
+        VerifyInetRouteNoExists(cn1_.get(), "blue", BuildPrefix(idx));
+        VerifyInetRouteNoExists(cn2_.get(), "blue", BuildPrefix(idx));
+    }
+
+    EnableRouteTargetProcessing(mx_.get());
+
+    TASK_UTIL_EXPECT_FALSE(IsRouteTargetOnList(mx_.get(), "target:1:1001"));
+    for (int idx = 1; idx <= kRouteCount; ++idx) {
+        VerifyInetRouteExists(cn1_.get(), "blue", BuildPrefix(idx));
+        VerifyInetRouteExists(cn2_.get(), "blue", BuildPrefix(idx));
+    }
+
+    for (int idx = 1; idx <= kRouteCount; ++idx) {
+        DeleteInetRoute(mx_.get(), NULL, "blue", BuildPrefix(idx));
+    }
+}
+
+//
+// Disable RouteTarget processing on MX and verify that the RT corresponding
+// to the RTargetRoute advertised by CNs remains on the trigger lists. Routes
+// with that RT are sent to the CN only after processing is enabled.
+// There are 2 CNs which send the RTargetRoute.
+// Processing is disabled and enabled separately when the CNs advertise the
+// RTargetRoute i.e. the RouteTarget needs to be processed twice on the MX
+// for all partitions.
+//
+TEST_F(RTargetPeerTest, DisableEnableRouteTargetProcessing3) {
+    SubscribeAgents("blue", 1);
+
+    for (int idx = 1; idx <= kRouteCount; ++idx) {
+        AddInetRoute(mx_.get(), NULL, "blue", BuildPrefix(idx));
+    }
+
+    for (int idx = 1; idx <= kRouteCount; ++idx) {
+        VerifyInetRouteExists(mx_.get(), "blue", BuildPrefix(idx));
+    }
+
+    DisableRouteTargetProcessing(mx_.get());
+
+    AddRouteTarget(cn1_.get(), "blue", "target:1:1001");
+    TASK_UTIL_EXPECT_EQ(2, GetExportRouteTargetListSize(cn1_.get(), "blue"));
+    TASK_UTIL_EXPECT_TRUE(IsRouteTargetOnList(mx_.get(), "target:1:1001"));
+
+    EnableRouteTargetProcessing(mx_.get());
+
+    TASK_UTIL_EXPECT_FALSE(IsRouteTargetOnList(mx_.get(), "target:1:1001"));
+    for (int idx = 1; idx <= kRouteCount; ++idx) {
+        VerifyInetRouteExists(cn1_.get(), "blue", BuildPrefix(idx));
+        VerifyInetRouteNoExists(cn2_.get(), "blue", BuildPrefix(idx));
+    }
+
+    DisableRouteTargetProcessing(mx_.get());
+
+    AddRouteTarget(cn2_.get(), "blue", "target:1:1001");
+    TASK_UTIL_EXPECT_EQ(2, GetExportRouteTargetListSize(cn2_.get(), "blue"));
+    TASK_UTIL_EXPECT_TRUE(IsRouteTargetOnList(mx_.get(), "target:1:1001"));
+
+    for (int idx = 1; idx <= kRouteCount; ++idx) {
+        VerifyInetRouteExists(cn1_.get(), "blue", BuildPrefix(idx));
+        VerifyInetRouteNoExists(cn2_.get(), "blue", BuildPrefix(idx));
+    }
+
+    EnableRouteTargetProcessing(mx_.get());
+
+    TASK_UTIL_EXPECT_FALSE(IsRouteTargetOnList(mx_.get(), "target:1:1001"));
+    for (int idx = 1; idx <= kRouteCount; ++idx) {
+        VerifyInetRouteExists(cn1_.get(), "blue", BuildPrefix(idx));
+        VerifyInetRouteExists(cn2_.get(), "blue", BuildPrefix(idx));
+    }
+
+    for (int idx = 1; idx <= kRouteCount; ++idx) {
+        DeleteInetRoute(mx_.get(), NULL, "blue", BuildPrefix(idx));
+    }
+}
+
+//
+// Disable RouteTarget processing on MX and verify that the RTs corresponding
+// to the RTargetRoutes advertised by CN remain on the trigger lists. Routes
+// with those RTs are sent to the CN only after processing is enabled.
+// There is 1 CN which sends 2 RTargetRoutes, one per VRF.
+//
+TEST_F(RTargetPeerTest, DisableEnableRouteTargetProcessing4) {
+    SubscribeAgents("blue", 1);
+    SubscribeAgents("pink", 1);
+
+    for (int idx = 1; idx <= kRouteCount; ++idx) {
+        AddInetRoute(mx_.get(), NULL, "blue", BuildPrefix(idx));
+        AddInetRoute(mx_.get(), NULL, "pink", BuildPrefix(idx));
+    }
+
+    for (int idx = 1; idx <= kRouteCount; ++idx) {
+        VerifyInetRouteExists(mx_.get(), "blue", BuildPrefix(idx));
+        VerifyInetRouteExists(mx_.get(), "pink", BuildPrefix(idx));
+    }
+
+    DisableRouteTargetProcessing(mx_.get());
+
+    AddRouteTarget(cn1_.get(), "blue", "target:1:1001");
+    TASK_UTIL_EXPECT_EQ(2, GetExportRouteTargetListSize(cn1_.get(), "blue"));
+    TASK_UTIL_EXPECT_TRUE(IsRouteTargetOnList(mx_.get(), "target:1:1001"));
+
+    AddRouteTarget(cn1_.get(), "pink", "target:1:1002");
+    TASK_UTIL_EXPECT_EQ(2, GetExportRouteTargetListSize(cn1_.get(), "pink"));
+    TASK_UTIL_EXPECT_TRUE(IsRouteTargetOnList(mx_.get(), "target:1:1002"));
+
+    for (int idx = 1; idx <= kRouteCount; ++idx) {
+        VerifyInetRouteNoExists(cn1_.get(), "blue", BuildPrefix(idx));
+        VerifyInetRouteNoExists(cn1_.get(), "pink", BuildPrefix(idx));
+    }
+
+    EnableRouteTargetProcessing(mx_.get());
+
+    TASK_UTIL_EXPECT_FALSE(IsRouteTargetOnList(mx_.get(), "target:1:1001"));
+    TASK_UTIL_EXPECT_FALSE(IsRouteTargetOnList(mx_.get(), "target:2:1002"));
+    for (int idx = 1; idx <= kRouteCount; ++idx) {
+        VerifyInetRouteExists(cn1_.get(), "blue", BuildPrefix(idx));
+        VerifyInetRouteExists(cn1_.get(), "pink", BuildPrefix(idx));
+    }
+
+    for (int idx = 1; idx <= kRouteCount; ++idx) {
+        DeleteInetRoute(mx_.get(), NULL, "blue", BuildPrefix(idx));
+        DeleteInetRoute(mx_.get(), NULL, "pink", BuildPrefix(idx));
+    }
+}
+
+//
+// Disable RouteTarget processing on MX and verify that the RTs corresponding
+// to the RTargetRoutes advertised by CNs remain on the trigger lists. Routes
+// with those RTs are sent to the CNs only after processing is enabled.
+// There are 2 CNs which send 1 RTargetRoute each.
+//
+TEST_F(RTargetPeerTest, DisableEnableRouteTargetProcessing5) {
+    SubscribeAgents("blue", 1);
+    SubscribeAgents("pink", 1);
+
+    for (int idx = 1; idx <= kRouteCount; ++idx) {
+        AddInetRoute(mx_.get(), NULL, "blue", BuildPrefix(idx));
+        AddInetRoute(mx_.get(), NULL, "pink", BuildPrefix(idx));
+    }
+
+    for (int idx = 1; idx <= kRouteCount; ++idx) {
+        VerifyInetRouteExists(mx_.get(), "blue", BuildPrefix(idx));
+        VerifyInetRouteExists(mx_.get(), "pink", BuildPrefix(idx));
+    }
+
+    DisableRouteTargetProcessing(mx_.get());
+
+    AddRouteTarget(cn1_.get(), "blue", "target:1:1001");
+    TASK_UTIL_EXPECT_EQ(2, GetExportRouteTargetListSize(cn1_.get(), "blue"));
+    TASK_UTIL_EXPECT_TRUE(IsRouteTargetOnList(mx_.get(), "target:1:1001"));
+
+    AddRouteTarget(cn2_.get(), "pink", "target:1:1002");
+    TASK_UTIL_EXPECT_EQ(2, GetExportRouteTargetListSize(cn2_.get(), "pink"));
+    TASK_UTIL_EXPECT_TRUE(IsRouteTargetOnList(mx_.get(), "target:1:1002"));
+
+    for (int idx = 1; idx <= kRouteCount; ++idx) {
+        VerifyInetRouteNoExists(cn1_.get(), "blue", BuildPrefix(idx));
+        VerifyInetRouteNoExists(cn2_.get(), "pink", BuildPrefix(idx));
+    }
+
+    EnableRouteTargetProcessing(mx_.get());
+
+    TASK_UTIL_EXPECT_FALSE(IsRouteTargetOnList(mx_.get(), "target:1:1001"));
+    TASK_UTIL_EXPECT_FALSE(IsRouteTargetOnList(mx_.get(), "target:2:1002"));
+    for (int idx = 1; idx <= kRouteCount; ++idx) {
+        VerifyInetRouteExists(cn1_.get(), "blue", BuildPrefix(idx));
+        VerifyInetRouteExists(cn2_.get(), "pink", BuildPrefix(idx));
+    }
+
+    for (int idx = 1; idx <= kRouteCount; ++idx) {
+        DeleteInetRoute(mx_.get(), NULL, "blue", BuildPrefix(idx));
+        DeleteInetRoute(mx_.get(), NULL, "pink", BuildPrefix(idx));
+    }
+}
+
+//
+// Disable RouteTarget processing on MX and verify that there are no issues
+// even if the RtGroup corresponding to the RouteTarget has been deleted by
+// the time processing is enabled.
+//
+TEST_F(RTargetPeerTest, DisableEnableRouteTargetProcessing6) {
+    SubscribeAgents("blue", 1);
+
+    AddRouteTarget(mx_.get(), "blue", "target:1:99");
+    AddRouteTarget(cn1_.get(), "blue", "target:1:99");
+
+    for (int idx = 1; idx <= kRouteCount; ++idx) {
+        AddInetRoute(mx_.get(), NULL, "blue", BuildPrefix(idx));
+    }
+    for (int idx = 1; idx <= kRouteCount; ++idx) {
+        VerifyInetRouteExists(mx_.get(), "blue", BuildPrefix(idx));
+        VerifyInetRouteExists(cn1_.get(), "blue", BuildPrefix(idx));
+    }
+
+    DisableRouteTargetProcessing(mx_.get());
+
+    RemoveRouteTarget(cn1_.get(), "blue", "target:1:99");
+    TASK_UTIL_EXPECT_TRUE(IsRouteTargetOnList(mx_.get(), "target:1:99"));
+
+    RemoveRouteTarget(mx_.get(), "blue", "target:1:99");
+    for (int idx = 1; idx <= kRouteCount; ++idx) {
+        DeleteInetRoute(mx_.get(), NULL, "blue", BuildPrefix(idx));
+    }
+    for (int idx = 1; idx <= kRouteCount; ++idx) {
+        VerifyInetRouteNoExists(mx_.get(), "blue", BuildPrefix(idx));
+        VerifyInetRouteNoExists(cn1_.get(), "blue", BuildPrefix(idx));
+    }
+    TASK_UTIL_EXPECT_TRUE(IsRouteTargetOnList(mx_.get(), "target:1:99"));
+    VerifyRtGroupNoExists(mx_.get(), "target:1:99");
+
+    EnableRouteTargetProcessing(mx_.get());
+    TASK_UTIL_EXPECT_FALSE(IsRouteTargetOnList(mx_.get(), "target:1:99"));
 }
 
 class TestEnvironment : public ::testing::Environment {
