@@ -312,7 +312,7 @@ def supervisor_status(nodetype, debug):
         check_status('supervisor-analytics', debug)
     elif nodetype == 'database':
         print "== Contrail Database =="
-        check_status('supervisord-contrail-database', debug)
+        check_status('supervisor-database', debug)
     elif nodetype == 'webui':
         print "== Contrail Web UI =="
         check_status('supervisor-webui', debug)
