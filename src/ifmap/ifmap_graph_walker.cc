@@ -306,13 +306,13 @@ void IFMapGraphWalker::AddLinksToWhitelist() {
     traversal_white_list_->include_edge.insert(
         "source=security-group,target=access-control-list");
     traversal_white_list_->include_edge.insert(
-        "source=loadbalancer-pool,target=service-instance");
+        "source=service-instance,target=loadbalancer-pool");
     traversal_white_list_->include_edge.insert(
         "source=loadbalancer-pool,target=loadbalancer-healthmonitor");
     traversal_white_list_->include_edge.insert(
-        "source=virtual-ip,target=loadbalancer-pool");
+        "source=loadbalancer-pool,target=virtual-ip");
     traversal_white_list_->include_edge.insert(
-        "source=virtual-ip,target=virtual-machine-interface");
+        "source=loadbalancer-pool,target=loadbalancer-member");
 
     // Manually add required links not picked by the
     // IFMapGraphTraversalFilterCalculator
