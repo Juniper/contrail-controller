@@ -79,7 +79,6 @@ void KSyncSandeshContext::FlowMsgHandler(vr_flow_req *r) {
                        << " proto = " << (int)key.protocol
                        << " flow_handle = " << (int) r->get_fr_index());
             if (entry && (int)entry->flow_handle() == r->get_fr_index()) {
-                entry->set_flow_handle(FlowEntry::kInvalidFlowHandle);
                 entry->MakeShortFlow(FlowEntry::SHORT_FAILED_VROUTER_INSTALL);
             }
             return;
