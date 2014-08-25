@@ -378,6 +378,10 @@ void NamespaceManager::StartNetNS(ServiceInstance *svc_instance,
     cmd_str << props.ip_prefix_len_outside;
     cmd_str << " --vmi-left-mac " << props.mac_addr_inside;
     cmd_str << " --vmi-right-mac " << props.mac_addr_outside;
+    if (props.service_type == ServiceInstance::LoadBalancer) {
+        cmd_str << " --cfg-file " << loadbalancer_config_path_ <<
+            props.pool_id << "/etc/haproxy/haproxy.cfg";
+    }
 
     if (update) {
         cmd_str << " --update";
@@ -518,10 +522,12 @@ void NamespaceManager::LoadbalancerObserver(
         boost::system::error_code error;
         boost::filesystem::path dir(pathgen.str());
         if (!boost::filesystem::exists(dir, error)) {
+#if 0
             if (error) {
                 LOG(ERROR, error.message());
                 return;
             }
+#endif
             boost::filesystem::create_directories(dir, error);
             if (error) {
                 LOG(ERROR, error.message());
