@@ -3443,7 +3443,7 @@ class DBInterface(object):
         port_id = self._resource_create('virtual_machine_interface', port_obj)
         if 'fixed_ips' in port_q:
             self._port_create_instance_ip(net_obj, port_obj, port_q)
-        else:
+        elif net_obj.get_network_ipam_refs():
             self._port_create_instance_ip(net_obj, port_obj,
                                           {'fixed_ips':[{'ip_address': None}]})
         # TODO below reads back default parent name, fix it
