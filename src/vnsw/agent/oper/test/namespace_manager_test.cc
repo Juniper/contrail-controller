@@ -81,7 +81,8 @@ protected:
         agent_signal_->Initialize();
 
         boost::uuids::random_generator gen;
-        instance_id_ = gen();
+        pool_id_ = gen();
+
     }
 
     virtual void TearDown() {
@@ -145,8 +146,34 @@ protected:
             "virtual-ip-loadbalancer-pool");
     }
 
+
+   Loadbalancer *GetLoadbalancer() {
+        LoadbalancerKey key(pool_id_);
+        return static_cast<Loadbalancer *>(
+            lb_table_->Find(&key, true));
+    }
+
+    void AddLoadbalancerMember(const boost::uuids::uuid &pool_id,
+                               const char *ip_address, int port) {
+        boost::uuids::random_generator gen;
+        boost::uuids::uuid member_id = gen();
+        map<string, AutogenProperty *> pmap;
+        autogen::LoadbalancerMemberType attr;
+        attr.address = ip_address;
+        attr.protocol_port = port;
+        pmap.insert(make_pair("loadbalancer-member-properties", &attr));
+        ifmap_test_util::IFMapMsgPropertySet(
+            &database_, "loadbalancer-member", UuidToString(member_id),
+            pmap, 0);
+
+        ifmap_test_util::IFMapMsgLink(
+            &database_, "loadbalancer-pool", UuidToString(pool_id),
+            "loadbalancer-member", UuidToString(member_id),
+            "loadbalancer-pool-loadbalancer-member");
+    }
+
+
     boost::uuids::uuid AddLoadbalancer() {
-        string name("default-domain:domain-project:lb-pool");
 
         map<string, AutogenProperty *> pmap;
         autogen::LoadbalancerPoolType pool_attr;
@@ -154,22 +181,27 @@ protected:
         pool_attr.loadbalancer_method = "ROUND_ROBIN";
         pmap.insert(make_pair("loadbalancer-pool-properties", &pool_attr));
         ifmap_test_util::IFMapMsgPropertySet(
-            &database_, "loadbalancer-pool", name, pmap, 0);
+            &database_, "loadbalancer-pool", UuidToString(pool_id_), pmap, 0);
 
-        AddLoadbalancerVip(name);
+        AddLoadbalancerVip(UuidToString(pool_id_));
 
         task_util::WaitForIdle();
         IFMapTable *table = IFMapTable::FindTable(&database_,
                                                   "loadbalancer-pool");
-        IFMapNode *node = table->FindNode(name);
+        IFMapNode *node = table->FindNode(UuidToString((pool_id_)));
         if (node == NULL) {
             return boost::uuids::nil_uuid();
         }
+
+       AddLoadbalancerMember(pool_id_, "127.0.0.1", 80);
+       AddLoadbalancerMember(pool_id_, "127.0.0.2", 80);
+
         DBRequest request;
         lb_table_->IFNodeToReq(node, request);
         lb_table_->Enqueue(&request);
-        task_util::WaitForIdle();
 
+       task_util::WaitForIdle();
+       Loadbalancer *loadbalancer = GetLoadbalancer();
         autogen::LoadbalancerPool *lb_object =
                 static_cast<autogen::LoadbalancerPool *>(node->GetObject());
         const autogen::IdPermsType &id = lb_object->id_perms();
@@ -254,7 +286,7 @@ protected:
         prop.Clear();
         prop.virtualization_type = ServiceInstance::NetworkNamespace;
         boost::uuids::random_generator gen;
-        prop.instance_id = instance_id_;
+        prop.instance_id = pool_id_;
         prop.vmi_inside = gen();
         prop.vmi_outside = gen();
         prop.ip_addr_inside = "10.0.0.1";
@@ -284,7 +316,7 @@ protected:
     AgentSignal *agent_signal_;
     ServiceInstanceTable *si_table_;
     LoadbalancerTable *lb_table_;
-    boost::uuids::uuid instance_id_;
+    boost::uuids::uuid pool_id_;
 };
 
 TEST_F(NamespaceManagerTest, ExecTrue) {
@@ -487,13 +519,15 @@ TEST_F(NamespaceManagerTest, Usable) {
     task_util::WaitForIdle();
 }
 
+
 TEST_F(NamespaceManagerTest, LoadbalancerConfig) {
     ns_manager_->Initialize(&database_, agent_signal_, "/bin/true", 1, 10);
     boost::uuids::uuid lbid = AddLoadbalancer();
     task_util::WaitForIdle();
+    task_util::WaitForIdle();
     stringstream pathgen;
     pathgen << loadbalancer_config_path() << lbid
-            << "/etc/haproxy/haproxy.conf";
+            << "/etc/haproxy/haproxy.cfg";
     boost::filesystem::path config(pathgen.str());
     EXPECT_TRUE(boost::filesystem::exists(config));
 }
