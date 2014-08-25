@@ -31,25 +31,11 @@ using std::multimap;
 using std::string;
 using std::vector;
 
-static const char *config_update = "\
-<config>\
-    <bgp-router name=\'CN1\'>\
-        <autonomous-system>64497</autonomous-system>\
-    </bgp-router>\
-    <bgp-router name=\'CN2\'>\
-        <autonomous-system>64497</autonomous-system>\
-    </bgp-router>\
-    <bgp-router name=\'MX\'>\
-        <autonomous-system>64497</autonomous-system>\
-    </bgp-router>\
-</config>\
-";
-
-static const char *config_control_node = "\
+static const char *config_template = "\
 <config>\
     <bgp-router name=\'CN1\'>\
         <identifier>192.168.0.1</identifier>\
-        <autonomous-system>64496</autonomous-system>\
+        <autonomous-system>%d</autonomous-system>\
         <address>127.0.0.1</address>\
         <port>%d</port>\
         <address-families>\
@@ -71,7 +57,7 @@ static const char *config_control_node = "\
     </bgp-router>\
     <bgp-router name=\'CN2\'>\
         <identifier>192.168.0.2</identifier>\
-        <autonomous-system>64496</autonomous-system>\
+        <autonomous-system>%d</autonomous-system>\
         <address>127.0.0.1</address>\
         <port>%d</port>\
         <address-families>\
@@ -87,7 +73,7 @@ static const char *config_control_node = "\
     </bgp-router>\
     <bgp-router name=\'MX\'>\
         <identifier>192.168.0.3</identifier>\
-        <autonomous-system>64496</autonomous-system>\
+        <autonomous-system>%d</autonomous-system>\
         <address>127.0.0.1</address>\
         <port>%d</port>\
         <address-families>\
@@ -303,10 +289,10 @@ protected:
 
     void Configure() {
         char config[4096];
-        snprintf(config, sizeof(config), config_control_node,
-                 cn1_->session_manager()->GetPort(),
-                 cn2_->session_manager()->GetPort(),
-                 mx_->session_manager()->GetPort());
+        snprintf(config, sizeof(config), config_template,
+                 64496, cn1_->session_manager()->GetPort(),
+                 64496, cn2_->session_manager()->GetPort(),
+                 64496, mx_->session_manager()->GetPort());
         cn1_->Configure(config);
         task_util::WaitForIdle();
         cn2_->Configure(config);
@@ -378,14 +364,21 @@ protected:
         cn1_->Configure(config);
         cn2_->Configure(config);
         mx_->Configure(config);
+        task_util::WaitForIdle();
     }
 
     void UpdateASN() {
         char config[4096];
-        snprintf(config, sizeof(config), "%s", config_update);
+        snprintf(config, sizeof(config), config_template,
+                 64497, cn1_->session_manager()->GetPort(),
+                 64497, cn2_->session_manager()->GetPort(),
+                 64497, mx_->session_manager()->GetPort());
         cn1_->Configure(config);
+        task_util::WaitForIdle();
         cn2_->Configure(config);
+        task_util::WaitForIdle();
         mx_->Configure(config);
+        task_util::WaitForIdle();
 
         VerifyAllPeerUp(cn1_.get(), 2);
         VerifyAllPeerUp(cn2_.get(), 2);
@@ -1599,19 +1592,25 @@ TEST_F(RTargetPeerTest, ASNUpdate) {
 
     VerifyRTargetRouteNoExists(cn1_.get(), "64496:target:64496:1");
     VerifyRTargetRouteNoExists(cn2_.get(), "64496:target:64496:1");
+    VerifyRTargetRouteNoExists(mx_.get(), "64496:target:64496:1");
     VerifyRTargetRouteExists(cn1_.get(), "64497:target:64496:1");
     VerifyRTargetRouteExists(cn2_.get(), "64497:target:64496:1");
+    VerifyRTargetRouteExists(mx_.get(), "64497:target:64496:1");
     TASK_UTIL_EXPECT_EQ(1, RTargetRouteCount(cn1_.get()));
     TASK_UTIL_EXPECT_EQ(1, RTargetRouteCount(cn2_.get()));
+    TASK_UTIL_EXPECT_EQ(1, RTargetRouteCount(mx_.get()));
 
     UnsubscribeAgents("blue");
 
     TASK_UTIL_EXPECT_EQ(0, RTargetRouteCount(cn1_.get()));
     TASK_UTIL_EXPECT_EQ(0, RTargetRouteCount(cn2_.get()));
+    TASK_UTIL_EXPECT_EQ(0, RTargetRouteCount(mx_.get()));
     VerifyRTargetRouteNoExists(cn1_.get(), "64496:target:64496:1");
     VerifyRTargetRouteNoExists(cn2_.get(), "64496:target:64496:1");
+    VerifyRTargetRouteNoExists(mx_.get(), "64496:target:64496:1");
     VerifyRTargetRouteNoExists(cn1_.get(), "64497:target:64496:1");
     VerifyRTargetRouteNoExists(cn2_.get(), "64497:target:64496:1");
+    VerifyRTargetRouteNoExists(mx_.get(), "64497:target:64496:1");
 }
 
 //
