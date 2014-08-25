@@ -193,20 +193,6 @@ class SvcMonitor(object):
         return st_props.get_service_virtualization_type() or 'virtual-machine'
     # end _get_virtualization_type
 
-    def _check_svc_vm_exists(self, si_obj):
-        vm_back_refs = si_obj.get_virtual_machine_back_refs()
-        if not vm_back_refs:
-            return False
-        si_props = si_obj.get_service_instance_properties()
-        if si_props.get_scale_out():
-            max_instances = si_props.get_scale_out().get_max_instances()
-        else:
-            max_instances = 1
-        if max_instances == len(vm_back_refs):
-            return True
-        return False
-    #end _check_svc_vm_exists
-
     def _check_store_si_info(self, st_obj, si_obj):
         config_complete = True
         st_props = st_obj.get_service_template_properties()
@@ -266,7 +252,11 @@ class SvcMonitor(object):
 
     def _restart_svc(self, vm_uuid, si_fq_str):
         proj_name = self._get_proj_name_from_si_fq_str(si_fq_str)
-        self._delete_svc_instance(vm_uuid, proj_name, si_fq_str=si_fq_str)
+        vm_entry = self.db.virtual_machine_get(vm_uuid)
+        if not vm_entry: 
+            return
+        self._delete_svc_instance(vm_uuid, proj_name, si_fq_str=si_fq_str,
+                                  virt_type = vm_entry['instance_type'])
 
         # Wait the clean phase was completely done before recreate the SI
         gevent.sleep(_CHECK_CLEANUP_INTERVAL + 1)
@@ -296,10 +286,6 @@ class SvcMonitor(object):
         if not self._check_store_si_info(st_obj, si_obj):
             return
 
-        #check if VMs already exist
-        if self._check_svc_vm_exists(si_obj):
-            return
-
         st_props = st_obj.get_service_template_properties()
         if st_props is None:
             self.logger.log("Cannot find service template associated to "
@@ -310,24 +296,23 @@ class SvcMonitor(object):
         elif virt_type == 'network-namespace':
             self.netns_manager.create_service(st_obj, si_obj)
 
-    def _delete_svc_instance(self, vm_uuid, proj_name, si_fq_str=None):
+    def _delete_svc_instance(self, vm_uuid, proj_name,
+                             si_fq_str=None, virt_type=None):
         self.logger.log("Deleting VM %s %s" % (proj_name, vm_uuid))
-        found = True
-        vm_entry = self.db.virtual_machine_get(vm_uuid)
-        if not vm_entry: 
+
+        try:
+            if virt_type == svc_info.get_vm_instance_type():
+                self.vm_manager.delete_service(vm_uuid, proj_name)
+            elif virt_type == svc_info.get_netns_instance_type():
+                self.netns_manager.delete_service(vm_uuid)
+        except KeyError:
             self.db.cleanup_table_remove(vm_uuid)
             return
-
-        virt_type = vm_entry['instance_type']
-        if virt_type == 'virtual-machine':
-            self.vm_manager.delete_service(vm_uuid, proj_name)
-        elif virt_type == 'network-namespace':
-            self.netns_manager.delete_service(vm_uuid)
 
         # remove from launch table and queue into cleanup list
         self.db.virtual_machine_remove(vm_uuid)
         self.db.cleanup_table_insert(
-            vm_uuid, {'proj_name': proj_name, 'type': 'vm'})
+            vm_uuid, {'proj_name': proj_name, 'type': virt_type})
         self.logger.uve_svc_instance(si_fq_str, status='DELETE', vm_uuid=vm_uuid)
 
     def _delmsg_project_service_instance(self, idents):
@@ -374,7 +359,8 @@ class SvcMonitor(object):
                 continue
 
             proj_name = self._get_proj_name_from_si_fq_str(si_fq_str)
-            self._delete_svc_instance(vm_uuid, proj_name, si_fq_str=si_fq_str)
+            self._delete_svc_instance(vm_uuid, proj_name, si_fq_str=si_fq_str,
+                                      virt_type=si['instance_type'])
 
             #insert shared instance IP uuids into cleanup list if present
             for itf_str in svc_info.get_if_str_list():
@@ -393,12 +379,12 @@ class SvcMonitor(object):
         vm_uuid = idents['virtual-machine']
         si_fq_str = idents['service-instance']
         proj_name = self._get_proj_name_from_si_fq_str(si_fq_str)
-        vm_list = self.db.virtual_machine_list()
-        for vm_uuid, si in vm_list:
-            if si_fq_str != si['si_fq_str']:
-                continue
-
-            self._delete_svc_instance(vm_uuid, proj_name, si_fq_str=si_fq_str)
+        vm_info = self.db.virtual_machine_get(vm_uuid)
+        if vm_info:
+            self._delete_svc_instance(vm_uuid, proj_name,
+                                      si_fq_str=vm_info['si_fq_str'],
+                                      virt_type=vm_info['instance_type'])
+        return
     # end _delmsg_service_instance_virtual_machine
 
     def _delmsg_virtual_machine_interface_route_table(self, idents):
@@ -436,7 +422,8 @@ class SvcMonitor(object):
         except NoIdError:
             proj_name = self._get_proj_name_from_si_fq_str(si_fq_str)
             self._delete_svc_instance(vm_obj.uuid, proj_name,
-                                      si_fq_str=si_fq_str)
+                                      si_fq_str=si_fq_str,
+                                      virt_type=vm_info['instance_type'])
             return
 
         # create service instance to service vm link
@@ -630,8 +617,10 @@ def cleanup_callback(monitor):
         return
 
     for uuid, info in delete_list or []:
-        if info['type'] == 'vm':
-            monitor._delete_svc_instance(uuid, info['proj_name'])
+        if info['type'] == svc_info.get_vm_instance_type() or \
+                info['type'] == svc_info.get_netns_instance_type():
+            monitor._delete_svc_instance(uuid, info['proj_name'],
+                                         virt_type=info['type'])
         elif info['type'] == 'vn':
             monitor._delete_shared_vn(uuid, info['proj_name'])
 # end cleanup_callback
