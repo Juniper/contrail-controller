@@ -309,6 +309,7 @@ test_suite = [
     bgp_attr_test,
     bgp_condition_listener_test,
     bgp_config_listener_test,
+    bgp_config_manager_test,
     bgp_config_test,
     bgp_export_nostate_test,
     bgp_export_rstate_test,
@@ -316,6 +317,7 @@ test_suite = [
     bgp_export_uplist_test,
     bgp_msg_builder_test,
     bgp_multicast_test,
+    bgp_peer_close_test,
     bgp_proto_test,
     bgp_ribout_updates_test,
     bgp_route_test,
@@ -326,7 +328,10 @@ test_suite = [
     bgp_update_rx_test,
     bgp_update_test,
     bgp_xmpp_channel_test,
+    bgp_xmpp_deferq_test,
+    bgp_xmpp_inetvpn_test,
     bgp_xmpp_test,
+    bgp_xmpp_wready_test,
     ribout_attributes_test,
     routepath_replicator_random_test,
     routepath_replicator_test,
@@ -337,6 +342,7 @@ test_suite = [
     show_route_test,
     state_machine_test,
     static_route_test,
+    xmpp_ecmp_test,
     xmpp_sess_toggle_test,
 ]
 
@@ -354,19 +360,13 @@ env.Alias('controller/src/bgp:test', [
 ])
 
 flaky_test_suite = [
-    bgp_config_manager_test,
-    bgp_peer_close_test,
     bgp_peer_membership_test,
     bgp_xmpp_basic_test,
-    bgp_xmpp_deferq_test,
     bgp_xmpp_evpn_test,
     rtarget_peer_test,
-    xmpp_ecmp_test,
     bgp_server_test,
     bgp_stress_test,
-    bgp_xmpp_inetvpn_test,
     bgp_xmpp_mcast_test,
-    bgp_xmpp_wready_test,
     rt_network_attr_test,
     svc_static_route_intergration_test,
 ]
