@@ -256,6 +256,7 @@ class VirtualNetworkST(DictST):
                     analyzer_vn_set |= policy.network_back_ref
                     policy.analyzer_vn_set.discard(name)
             del cls._dict[name]
+            vn.uve_send(deleted=True)
         return analyzer_vn_set
     # end delete
 
@@ -791,12 +792,20 @@ class VirtualNetworkST(DictST):
             self.delete_route(prefix)
     # end update_route_table
 
-    def uve_send(self):
+    def uve_send(self, deleted=False):
         vn_trace = UveVirtualNetworkConfig(name=self.name,
                                            connected_networks=[],
                                            partially_connected_networks=[],
                                            routing_instance_list=[],
                                            total_acl_rules=0)
+
+        if deleted:
+            vn_trace.deleted = True
+            vn_msg = UveVirtualNetworkConfigTrace(data=vn_trace,
+                                                  sandesh=_sandesh)
+            vn_msg.send(sandesh=_sandesh)
+            return
+
         if self.acl:
             vn_trace.total_acl_rules += \
                 len(self.acl.get_access_control_list_entries().get_acl_rule())
