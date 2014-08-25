@@ -16,6 +16,7 @@
 
 class DB;
 class EventManager;
+class LoadbalancerHaproxy;
 class NamespaceState;
 class NamespaceTask;
 class NamespaceTaskQueue;
@@ -121,9 +122,16 @@ class NamespaceManager {
      */
     void EventObserver(DBTablePartBase *db_part, DBEntryBase *entry);
 
+    /*
+     * Event observer for changes in the "db.loadbalancer.0" table.
+     */
+    void LoadbalancerObserver(DBTablePartBase *db_part, DBEntryBase *entry);
+
     EventManager *evm_;
     DBTableBase *si_table_;
-    DBTableBase::ListenerId listener_id_;
+    DBTableBase::ListenerId si_listener_;
+    DBTableBase *lb_table_;
+    DBTableBase::ListenerId lb_listener_;
     std::string netns_cmd_;
     int netns_timeout_;
     WorkQueue<NamespaceManagerChildEvent> work_queue_;
@@ -131,6 +139,10 @@ class NamespaceManager {
     std::vector<NamespaceTaskQueue *> task_queues_;
     std::map<boost::uuids::uuid, ServiceInstance *> task_svc_instances_;
     std::map<std::string, int> last_cmd_types_;
+    std::string loadbalancer_config_path_;
+    std::auto_ptr<LoadbalancerHaproxy> haproxy_;
+
+    DISALLOW_COPY_AND_ASSIGN(NamespaceManager);
 };
 
 class NamespaceState : public DBState {
