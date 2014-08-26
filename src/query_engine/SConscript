@@ -88,11 +88,9 @@ SandeshGenObjs = env.Object(SandeshGenSrcs)
 env['QE_SANDESH_GEN_OBJS'] = SandeshGenObjs
 
 buildinfo_dep_libs = [
-    '../../lib/libcurl.a',
     '../../lib/libhiredis.a',
     '../../lib/libhttp.a',
     '../../lib/libhttp_parser.a',
-    '../../lib/liblog4cplus.a',
     '../../lib/libsandesh.a', 
     '../../lib/libsandeshvns.a', 
     '../../lib/libthrift.a', 
@@ -102,9 +100,6 @@ buildinfo_dep_libs = [
     '../gendb/libgendb.a',
     '../io/libio.a',
 ]
-
-if sys.platform != 'darwin':
-    buildinfo_dep_libs += [ '../../lib/libtbb_debug.so.2' ]
 
 qed_sources = [
     'QEOpServerProxy.cc',

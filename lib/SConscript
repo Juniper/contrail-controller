@@ -3,23 +3,23 @@ import platform
 
 subdirs = [
     'bind',
-    'curl-7.24.0',
-    'gperftools',
+    'gunit',
     'hiredis',
     'http_parser',
-    'libxml2', 
-    'log4cplus',
     'pugixml',
     'rapidjson',
-    'tbb',
     'thrift',
-    'gunit',
 ]
 
 (distname, version, _) = platform.dist()
 if distname != 'Ubuntu' or float(version) < 14.04:
     subdirs += [
         'boost',
+        'curl-7.24.0',
+        'gperftools',
+        'libxml2', 
+        'log4cplus',
+        'tbb',
     ]
 
 for dir in subdirs:
