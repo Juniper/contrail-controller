@@ -26,8 +26,7 @@ env.Append(LEXFLAGS = lexflags)
 env.CXXFile(target = 'ruleparserl.cc', source = 'ruleparserl.ll')
 
 env_excep = env.Clone()
-while env_excep['CCFLAGS'].count('-fno-exceptions') > 0:
-    env_excep['CCFLAGS'].remove('-fno-exceptions')
+env_excep.CppEnableExceptions()
 
 env_nocov = env.Clone()
 while env_nocov['CCFLAGS'].count('--coverage') > 0:
