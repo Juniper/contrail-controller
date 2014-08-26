@@ -527,7 +527,9 @@ class NetworkNamespaceManager(InstanceManager):
             vn_id = self._create_svc_vn(vn_name, snat_cidr, proj_obj)
 
         if vn_fq_name_str != ':'.join(vn_fq_name):
-            si_props.set_left_virtual_network(':'.join(vn_fq_name))
+            left_if = ServiceInstanceInterfaceType(
+                virtual_network=':'.join(vn_fq_name))
+            si_props.insert_interface_list(0, left_if)
             si_obj.set_service_instance_properties(si_props)
             self._vnc_lib.service_instance_update(si_obj)
             self.logger.log("Info: SI %s updated with left vn %s" %
