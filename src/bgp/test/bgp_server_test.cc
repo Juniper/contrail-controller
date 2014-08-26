@@ -1400,7 +1400,6 @@ TEST_F(BgpServerUnitTest, DisableSessionQueue1) {
         TASK_UTIL_EXPECT_EQ(0, peer_a->get_hold_timer_expired());
     }
     TASK_UTIL_EXPECT_TRUE(GetSessionQueueSize(b_session_manager_) >= 3);
-    size_t queue_size = GetSessionQueueSize(b_session_manager_);
 
     usleep(50000);
 
@@ -1411,7 +1410,6 @@ TEST_F(BgpServerUnitTest, DisableSessionQueue1) {
         TASK_UTIL_EXPECT_EQ(peer_a->GetState(), StateMachine::OPENSENT);
         TASK_UTIL_EXPECT_EQ(0, peer_a->get_hold_timer_expired());
     }
-    TASK_UTIL_EXPECT_EQ(queue_size, GetSessionQueueSize(b_session_manager_));
 
     SetSessionQueueDisable(b_session_manager_, false);
 }
