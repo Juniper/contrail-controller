@@ -28,6 +28,7 @@
 #include <uve/test/vn_uve_table_test.h>
 #include <uve/test/vm_uve_table_test.h>
 #include "ksync/ksync_sock_user.h"
+#include "uve/test/test_uve_util.h"
 
 int vrf_array[] = {1, 2};
 
@@ -35,22 +36,6 @@ using namespace std;
 
 void RouterIdDepInit(Agent *agent) {
 }
-
-class AgentStatsCollectorTask : public Task {
-public:
-    AgentStatsCollectorTask(int count) : 
-        Task((TaskScheduler::GetInstance()->GetTaskId
-            ("Agent::StatsCollector")), StatsCollector::AgentStatsCollector),
-        count_(count) {
-    }
-    virtual bool Run() {
-        for (int i = 0; i < count_; i++)
-            Agent::GetInstance()->uve()->agent_stats_collector()->Run();
-        return true;
-    }
-private:
-    int count_;
-};
 
 class UveTest : public ::testing::Test {
 public:
@@ -60,11 +45,6 @@ public:
             sprintf(vrf_name, "vrf%d", vrf[i]);
             AddVrf(vrf_name);
         }
-    }
-    void EnqueueAgentStatsCollectorTask(int count) {
-        TaskScheduler *scheduler = TaskScheduler::GetInstance();
-        AgentStatsCollectorTask *task = new AgentStatsCollectorTask(count);
-        scheduler->Enqueue(task);
     }
 
     void SetAgentStatsIntervalReq(int interval) {
@@ -126,6 +106,7 @@ public:
     int error_responses_;
     int agent_stats_interval_;
     int flow_stats_interval_;
+    TestUveUtil util_;
 };
 
 TEST_F(UveTest, VmAddDelTest1) {
@@ -345,7 +326,7 @@ TEST_F(UveTest, StatsCollectorTest) {
     collector->interface_stats_responses_ = 0;
     collector->vrf_stats_responses_ = 0;
     collector->drop_stats_responses_ = 0;
-    EnqueueAgentStatsCollectorTask(1);
+    util_.EnqueueAgentStatsCollectorTask(1);
     //Wait until agent_stats_collector() is run
     WAIT_FOR(100, 1000, (collector->interface_stats_responses_ >= 1));
     client->WaitForIdle(3);
@@ -364,7 +345,7 @@ TEST_F(UveTest, StatsCollectorTest) {
     collector->drop_stats_responses_ = 0;
 
     //Enqueue stats-collector-task
-    EnqueueAgentStatsCollectorTask(1);
+    util_.EnqueueAgentStatsCollectorTask(1);
 
     //Wait until agent_stats_collector() is run
     WAIT_FOR(100, 1000, (collector->interface_stats_responses_ >= 1));
@@ -387,7 +368,7 @@ TEST_F(UveTest, StatsCollectorTest) {
     collector->drop_stats_errors_ = 0;
 
     //Enqueue stats-collector-task
-    EnqueueAgentStatsCollectorTask(1);
+    util_.EnqueueAgentStatsCollectorTask(1);
 
     //Wait until agent_stats_collector() is run
     WAIT_FOR(100, 1000, (collector->interface_stats_responses_ >= 1));
