@@ -14,15 +14,10 @@ env = BuildEnv.Clone()
 
 sandesh_files = env.SConscript('sandesh/SConscript', exports='BuildEnv', duplicate = 0)
 
-env.AppendUnique(CCFLAGS='-fno-exceptions')
-
 except_env = env.Clone()
 except_env.Prepend(CPPPATH = Dir('.').abspath)
 
-cflags = except_env['CCFLAGS']
-if '-fno-exceptions' in cflags:
-    cflags.remove('-fno-exceptions')
-except_env.Replace(CCFLAGS = cflags)
+env.CppDisableExceptions()
 
 sandesh_files_ = []
 for src in sandesh_files:

@@ -53,7 +53,7 @@ env.Alias('install', env.Install(env['INSTALL_BIN'], dnsd))
 env.Alias('install', env.Install(env['INSTALL_CONF'] + '/dns', 'dns.conf'))
 
 DnsEnv = env.Clone()
-DnsEnv.AppendUnique(CCFLAGS='-fno-exceptions')
+DnsEnv.CppDisableExceptions()
 Export('DnsEnv')
 
 subdirs = [
