@@ -40,6 +40,10 @@ public:
         timer_.async_wait(handler);
     }
 
+    void cancel(boost::system::error_code &ec) {
+        timer_.cancel(ec);
+    }
+
 private:
     TimerType timer_;
 };

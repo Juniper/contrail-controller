@@ -5,7 +5,6 @@
 #ifndef __IFMAP_STATE_MACHINE_H__
 #define __IFMAP_STATE_MACHINE_H__
 
-#include <boost/asio/monotonic_deadline_timer.hpp>
 #include <boost/statechart/state_machine.hpp>
 
 #include "base/queue_task.h"
@@ -14,6 +13,7 @@ namespace sc = boost::statechart;
 
 class IFMapChannel;
 class IFMapManager;
+class TimerImpl;
 
 namespace ifsm {
 struct EvStart;
@@ -142,11 +142,11 @@ private:
     }
 
     IFMapManager *manager_;
-    boost::asio::monotonic_deadline_timer connect_timer_;
+    std::auto_ptr<TimerImpl> connect_timer_;
     int ssrc_connect_attempts_;
     int arc_connect_attempts_;
     // used to limit the wait time for a response
-    boost::asio::monotonic_deadline_timer response_timer_;
+    std::auto_ptr<TimerImpl> response_timer_;
     // how many times we timed out waiting for a response
     int response_timer_expired_count_;
     WorkQueue<boost::intrusive_ptr<const sc::event_base> > work_queue_;
