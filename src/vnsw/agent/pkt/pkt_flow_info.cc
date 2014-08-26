@@ -689,9 +689,7 @@ void PktFlowInfo::FloatingIpSNat(const PktInfo *pkt, PktControlInfo *in,
         return;
     }
 
-    if (in->rt_ && out->rt_) {
-        VrfTranslate(pkt, in, out);
-    }
+    VrfTranslate(pkt, in, out);
     // Compute out-intf and ECMP info from out-route
     if (RouteToOutInfo(out->rt_, pkt, this, in, out) == false) {
         return;
@@ -775,13 +773,17 @@ void PktFlowInfo::VrfTranslate(const PktInfo *pkt, PktControlInfo *in,
     if (source_vn != NULL) {
         hdr.src_policy_id = source_vn;
     } else {
-        hdr.src_policy_id = RouteToVn(in->rt_);
+        if (in->rt_) {
+            hdr.src_policy_id = RouteToVn(in->rt_);
+        }
     }
 
     if (dest_vn != NULL) {
         hdr.dst_policy_id = dest_vn;
     } else {
-        hdr.dst_policy_id = RouteToVn(out->rt_);
+        if (out->rt_) {
+            hdr.dst_policy_id = RouteToVn(out->rt_);
+        }
     }
 
     if (in->rt_) {
@@ -834,9 +836,7 @@ void PktFlowInfo::IngressProcess(const PktInfo *pkt, PktControlInfo *in,
     //exact same route with different nexthop, hence if both ingress
     //route and egress route are present in native vrf, acl match condition
     //can be applied
-    if (in->rt_ && out->rt_) {
-        VrfTranslate(pkt, in, out);
-    }
+    VrfTranslate(pkt, in, out);
 
     if (out->rt_) {
         // Compute out-intf and ECMP info from out-route
@@ -903,9 +903,7 @@ void PktFlowInfo::EgressProcess(const PktInfo *pkt, PktControlInfo *in,
     }
 
     //Apply vrf translate ACL to get ingress route
-    if (in->rt_ && out->rt_) {
-        VrfTranslate(pkt, in, out);
-    }
+    VrfTranslate(pkt, in, out);
 
     if (RouteAllowNatLookup(out->rt_)) {
         // If interface has floating IP, check if destination is one of the
