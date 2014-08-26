@@ -20,6 +20,7 @@
 #include "base/logging.h"
 #include "base/task.h"
 #include "base/task_annotations.h"
+#include "base/timer_impl.h"
 
 #include "ifmap_channel.h"
 #include "ifmap/ifmap_log.h"
@@ -668,9 +669,11 @@ struct PollResponseWait :
 }  // namespace ifsm
 
 IFMapStateMachine::IFMapStateMachine(IFMapManager *manager)
-    : manager_(manager), connect_timer_(*manager->io_service()),
+    : manager_(manager),
+      connect_timer_(new TimerImpl(*manager->io_service())),
       ssrc_connect_attempts_(0), arc_connect_attempts_(0),
-      response_timer_(*manager->io_service()), response_timer_expired_count_(0),
+      response_timer_(new TimerImpl(*manager->io_service())),
+      response_timer_expired_count_(0),
       work_queue_(TaskScheduler::GetInstance()->GetTaskId(
                   "ifmap::StateMachine"),
                   0, boost::bind(&IFMapStateMachine::DequeueEvent, this, _1)),
@@ -703,9 +706,8 @@ void IFMapStateMachine::StartConnectTimer(int milliseconds) {
     IFMAP_SM_DEBUG(IFMapSmStartTimerMessage, milliseconds/1000,
                    "second connect timer started.");
     error_code ec;
-    connect_timer_.expires_from_now(
-        boost::posix_time::milliseconds(milliseconds), ec);
-    connect_timer_.async_wait(
+    connect_timer_->expires_from_now(milliseconds, ec);
+    connect_timer_->async_wait(
         boost::bind(&IFMapStateMachine::ConnectTimerExpired, this,
                     boost::asio::placeholders::error));
 }
@@ -713,7 +715,7 @@ void IFMapStateMachine::StartConnectTimer(int milliseconds) {
 void IFMapStateMachine::StopConnectTimer() {
     IFMAP_SM_DEBUG(IFMapSmCancelTimerMessage, "Cancelling connect timer.");
     error_code ec;
-    connect_timer_.cancel(ec);
+    connect_timer_->cancel(ec);
 }
 
 // current state: ConnectTimerWait
@@ -731,9 +733,8 @@ void IFMapStateMachine::StartResponseTimer() {
     IFMAP_SM_DEBUG(IFMapSmStartTimerMessage, response_wait_interval_ms_/1000,
                    "second response timer started.");
     error_code ec;
-    response_timer_.expires_from_now(
-        boost::posix_time::milliseconds(response_wait_interval_ms_), ec);
-    response_timer_.async_wait(
+    response_timer_->expires_from_now(response_wait_interval_ms_, ec);
+    response_timer_->async_wait(
         boost::bind(&IFMapStateMachine::ResponseTimerExpired, this,
                     boost::asio::placeholders::error));
 }
@@ -741,7 +742,7 @@ void IFMapStateMachine::StartResponseTimer() {
 void IFMapStateMachine::StopResponseTimer() {
     IFMAP_SM_DEBUG(IFMapSmCancelTimerMessage, "Cancelling Response timer.");
     error_code ec;
-    response_timer_.cancel(ec);
+    response_timer_->cancel(ec);
 }
 
 // current state: SsrcConnect or SsrcSslHandshake or NewSessionResponseWait

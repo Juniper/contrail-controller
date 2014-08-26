@@ -10,6 +10,7 @@
 #include "base/logging.h"
 #include "base/task.h"
 #include "base/task_annotations.h"
+#include "base/timer_impl.h"
 
 #include <boost/asio/buffer.hpp>
 #include <boost/asio/detail/socket_option.hpp>
@@ -42,7 +43,7 @@
 #include <sandesh/request_pipeline.h>
 #include "bgp/bgp_sandesh.h"
 
-const int IFMapChannel::kSocketCloseTimeout = 2;
+const int IFMapChannel::kSocketCloseTimeout = 2 * 1000;
 const uint64_t IFMapChannel::kRetryConnectionMax = 2;
 
 using namespace boost::assign;
@@ -158,7 +159,7 @@ void IFMapChannel::set_connection_status(ConnectionStatus status) {
 
 // Will run in the context of the main task
 void IFMapChannel::CloseSockets(const boost::system::error_code& error,
-        boost::asio::monotonic_deadline_timer *socket_close_timer) {
+        TimerImpl *socket_close_timer) {
     // operation_aborted is the only possible error. Since we are not going to
     // cancel this timer, we should never really get an error.
     if (error) {
@@ -226,10 +227,9 @@ void IFMapChannel::ReconnectPreparationInMainThr() {
     // in the main task context.
     // Create the timer on the heap so that we release all resources correctly
     // even when we are called multiple times.
-    boost::asio::monotonic_deadline_timer *socket_close_timer = 
-        new boost::asio::monotonic_deadline_timer(*manager_->io_service());
-    socket_close_timer->expires_from_now(
-        boost::posix_time::seconds(kSocketCloseTimeout), ec);
+    TimerImpl *socket_close_timer = 
+        new TimerImpl(*manager_->io_service());
+    socket_close_timer->expires_from_now(kSocketCloseTimeout, ec);
     socket_close_timer->async_wait(
         boost::bind(&IFMapChannel::CloseSockets, this,
                     boost::asio::placeholders::error, socket_close_timer));

@@ -8,6 +8,7 @@
 #include "base/logging.h"
 #include "base/bitset.h"
 #include "base/task.h"
+#include "base/timer_impl.h"
 #include "base/test/task_test_util.h"
 #include "bgp/bgp_server.h"
 #include "control-node/control_node.h"
@@ -438,15 +439,16 @@ protected:
             return;
         }
         bool is_expired = false;
-        boost::asio::monotonic_deadline_timer timer(*evm_.io_service());
-        timer.expires_from_now(boost::posix_time::seconds(timeout));
+        TimerImpl timer(*evm_.io_service());
+        boost::system::error_code ec;
+        timer.expires_from_now(timeout * 1000, ec);
         timer.async_wait(boost::bind(&XmppIfmapTest::on_timeout, 
                          boost::asio::placeholders::error, &is_expired));
         while (!is_expired) {
             evm_.RunOnce();
             task_util::WaitForIdle();
             if ((condition)()) {
-                timer.cancel();
+                timer.cancel(ec);
                 break;
             }
         }
