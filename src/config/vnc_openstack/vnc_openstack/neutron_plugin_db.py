@@ -2906,10 +2906,16 @@ class DBInterface(object):
             si_created = True
         #TODO(ethuleau): For the fail-over SNAT set scale out to 2
         si_prop_obj = ServiceInstanceType(
-            right_virtual_network=ext_net_obj.get_fq_name_str(),
             scale_out=ServiceScaleOutType(max_instances=1,
                                           auto_scale=True),
             auto_policy=True)
+
+        # set right interface in order of [left, right] to match template
+        left_if = ServiceInstanceInterfaceType()
+        right_if = ServiceInstanceInterfaceType(
+            virtual_network=ext_net_obj.get_fq_name_str())
+        si_prop_obj.set_interface_list([left_if, right_if])
+
         si_obj.set_service_instance_properties(si_prop_obj)
         si_obj.set_service_template(st_obj)
         if si_created:
