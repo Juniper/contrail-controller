@@ -6,6 +6,7 @@
 #define vnsw_linux_vlan_agent_init_hpp
 
 #include <boost/program_options.hpp>
+#include <init/agent_init.h>
 
 class Agent;
 class AgentParam;
@@ -13,45 +14,29 @@ class KSyncVxlan;
 
 // The class to drive agent initialization.
 // Defines control parameters used to enable/disable agent features
-class LinuxVxlanAgentInit {
+class LinuxVxlanAgentInit : public AgentInit {
 public:
-    LinuxVxlanAgentInit() :
-        agent_(NULL), params_(NULL), init_done_(false), trigger_(),
-        ksync_vxlan_(NULL) {
-    }
+    LinuxVxlanAgentInit();
+    ~LinuxVxlanAgentInit();
 
-    ~LinuxVxlanAgentInit() {
-        trigger_->Reset();
-        ksync_vxlan_.reset(NULL);
-    }
+    void ProcessOptions(const std::string &config_file,
+                        const std::string &program_name,
+                        const boost::program_options::variables_map &var_map);
 
-    bool Run();
-    void Start();
-    void Shutdown();
+    int Start();
 
-    void InitLogging();
-    void InitCollector();
+    // Initialization virtual methods
+    void FactoryInit();
     void CreateModules();
-    void CreateDBTables();
     void RegisterDBClients();
     void InitModules();
-    void InitPeers();
-    void CreateVrf();
-    void CreateNextHops();
-    void CreateInterfaces();
-    void InitDiscovery();
-    void InitDone();
-    void InitXenLinkLocalIntf();
+    void ConnectToController();
 
-    void Init(AgentParam *param, Agent *agent,
-              const boost::program_options::variables_map &var_map);
+    // Shutdown virtual methods
+    void KSyncShutdown();
+    void WaitForIdle();
 
-    bool init_done() const { return init_done_; }
 private:
-    Agent *agent_;
-    AgentParam *params_;
-    bool init_done_;
-    std::auto_ptr<TaskTrigger> trigger_;
     std::auto_ptr<KSyncVxlan> ksync_vxlan_;
     DISALLOW_COPY_AND_ASSIGN(LinuxVxlanAgentInit);
 };

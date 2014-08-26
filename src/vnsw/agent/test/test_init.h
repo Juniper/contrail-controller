@@ -155,7 +155,8 @@ struct TestIp4Prefix {
 
 class TestClient {
 public:
-    TestClient(Agent *agent) : agent_(agent), param_(agent) {
+    TestClient(TestAgentInit *init) :
+        agent_init_(init), agent_(init->agent()), param_(init->agent_param()) {
         vn_notify_ = 0;
         vm_notify_ = 0;
         port_notify_ = 0;
@@ -173,7 +174,9 @@ public:
         shutdown_done_ = false;
         comp_nh_list_.clear();
     };
-    virtual ~TestClient() { };
+    virtual ~TestClient() {
+        agent_init_.reset();
+    }
 
     void VrfNotify(DBTablePartBase *partition, DBEntryBase *e) {
         vrf_notify_++;
@@ -549,14 +552,9 @@ public:
         Agent::GetInstance()->mpls_table()->Register(boost::bind(&TestClient::MplsNotify, 
                                                    this, _1, _2));
     };
-    TestAgentInit *agent_init() { return &agent_init_; }
-    AgentParam *param() { return &param_; }
+    TestAgentInit *agent_init() { return agent_init_.get(); }
+    AgentParam *param() { return param_; }
     Agent *agent() { return agent_; }
-    void set_agent(Agent *agent) { agent_ = agent; }
-    void delete_agent() {
-        delete agent_;
-        agent_ = NULL;
-    }
 
     void Shutdown();
 
@@ -576,9 +574,9 @@ public:
     int nh_notify_;
     int mpls_notify_;
     std::vector<const NextHop *> comp_nh_list_;
+    std::auto_ptr<TestAgentInit> agent_init_;
     Agent *agent_;
-    TestAgentInit agent_init_;
-    AgentParam param_;
+    AgentParam *param_;
 };
 
 TestClient *TestInit(const char *init_file = NULL, bool ksync_init = false, 

@@ -6,6 +6,7 @@
 #define vnsw_contrail_agent_init_hpp
 
 #include <boost/program_options.hpp>
+#include <init/contrail_init_common.h>
 
 class Agent;
 class AgentParam;
@@ -15,39 +16,29 @@ class PktModule;
 
 // The class to drive agent initialization. 
 // Defines control parameters used to enable/disable agent features
-class ContrailAgentInit {
+class ContrailAgentInit : public ContrailInitCommon {
 public:
     ContrailAgentInit();
     virtual ~ContrailAgentInit();
 
-    bool Run();
-    void Start();
-    void Shutdown();
+    void ProcessOptions(const std::string &config_file,
+                        const std::string &program_name,
+                        const boost::program_options::variables_map &var_map);
 
-    void InitLogging();
-    void InitCollector();
+    // Initialization virtual methods
+    void FactoryInit();
     void CreateModules();
-    void CreateDBTables();
-    void RegisterDBClients();
-    void InitModules();
-    void InitPeers();
-    void CreateVrf();
-    void CreateNextHops();
-    void CreateInterfaces();
-    void InitDiscovery();
-    void InitDone();
-    void InitVmwareInterface();
+    void ConnectToController();
 
-    void Init(AgentParam *param, Agent *agent,
-              const boost::program_options::variables_map &var_map);
+    // Shutdown virtual methods
+    void KSyncShutdown();
+    void UveShutdown();
+    void WaitForIdle();
 
 private:
-    Agent *agent_;
-    AgentParam *params_;
-    std::auto_ptr<TaskTrigger> trigger_;
-    std::auto_ptr<DiagTable> diag_table_;
-    std::auto_ptr<ServicesModule> services_;
-    std::auto_ptr<PktModule> pkt_;
+    std::auto_ptr<KSync> ksync_;
+    std::auto_ptr<AgentUve> uve_;
+
     DISALLOW_COPY_AND_ASSIGN(ContrailAgentInit);
 };
 

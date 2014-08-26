@@ -703,27 +703,27 @@ static bool ValidateInterface(bool test_mode, const std::string &ifname) {
     return true;
 }
 
-void AgentParam::Validate() {
+int AgentParam::Validate() {
     // Validate vhost interface name
     if (vhost_.name_ == "") {
         LOG(ERROR, "Configuration error. vhost interface name not specified");
-        exit(EINVAL);
+        return (EINVAL);
     }
 
     // Check if interface is already present
     if (ValidateInterface(test_mode_, vhost_.name_) == false) {
-        exit(ENODEV);
+        return (ENODEV);
     }
 
     // Validate ethernet port
     if (eth_port_ == "") {
         LOG(ERROR, "Configuration error. eth_port not specified");
-        exit(EINVAL);
+        return (EINVAL);
     }
 
     // Check if interface is already present
     if (ValidateInterface(test_mode_, eth_port_) == false) {
-        exit(ENODEV);
+        return (ENODEV);
     }
 
     // Validate physical port used in vmware
@@ -731,14 +731,15 @@ void AgentParam::Validate() {
         if (vmware_physical_port_ == "") {
             LOG(ERROR, "Configuration error. Physical port connecting to "
                 "virtual-machines not specified");
-            exit(EINVAL);
+            return (EINVAL);
         }
 
         if (ValidateInterface(test_mode_, vmware_physical_port_) == false) {
-            exit(ENODEV);
+            return (ENODEV);
         }
     }
 
+    return 0;
 }
 
 void AgentParam::InitVhostAndXenLLPrefix() {

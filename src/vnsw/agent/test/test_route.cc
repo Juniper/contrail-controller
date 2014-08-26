@@ -1313,7 +1313,7 @@ TEST_F(RouteTest, EcmpPathDelete) {
     client->WaitForIdle();
     EXPECT_TRUE(RouteGet("vrf3", ip, 32) == NULL);
     //Make sure vrf and all routes are deleted
-    EXPECT_TRUE(VrfFind("vrf3", true) == NULL);
+    EXPECT_TRUE(VrfFind("vrf3", true) == false);
 }
 
 TEST_F(RouteTest, Enqueue_uc_route_add_on_deleted_vrf) {
@@ -1438,7 +1438,7 @@ TEST_F(RouteTest, SubnetGwForRoute_1) {
     DeleteVmportEnv(input, 1, true);
     client->WaitForIdle();
     //Make sure vrf and all routes are deleted
-    EXPECT_TRUE(VrfFind("vrf1", true) == NULL);
+    EXPECT_TRUE(VrfFind("vrf1", true) == false);
 }
 
 int main(int argc, char *argv[]) {

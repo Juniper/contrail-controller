@@ -27,6 +27,8 @@ class AgentDBEntry;
 class XmppClient;
 class OperDB;
 class AgentRoute;
+class TaskScheduler;
+class AgentInit;
 
 class Interface;
 typedef boost::intrusive_ptr<Interface> InterfaceRef;
@@ -145,7 +147,6 @@ class DiagTable;
 class VNController;
 class AgentSignal;
 class ServiceInstanceTable;
-class Agent;
 
 extern void RouterIdDepInit(Agent *agent);
 
@@ -599,7 +600,15 @@ public:
     }
 
     int sandesh_port() const { return sandesh_port_;}
+
     DB *db() const {return db_;}
+
+    TaskScheduler *task_scheduler() const { return task_scheduler_; }
+    void set_task_scheduler(TaskScheduler *t) { task_scheduler_ = t; }
+
+    AgentInit *agent_init() const { return agent_init_; }
+    void set_agent_init(AgentInit *init) { agent_init_ = init; }
+
     const std::string &fabric_interface_name() const {
         return ip_fabric_intf_name_;
     }
@@ -693,6 +702,8 @@ private:
 
     // DB handles
     DB *db_;
+    TaskScheduler *task_scheduler_;
+    AgentInit *agent_init_;
     InterfaceTable *intf_table_;
     NextHopTable *nh_table_;
     Inet4UnicastAgentRouteTable *uc_rt_table_;

@@ -156,8 +156,7 @@ static bool FlushNotify(DBTablePartBase *partition, DBEntryBase *e) {
 static void FlushWalkDone(DBTableBase *table) {
 }
 
-DBTableWalker *AgentDBTable::Flush() {
-    DBTableWalker *walker = new DBTableWalker();
-    walker->WalkTable(this, NULL, FlushNotify, FlushWalkDone);
-    return walker;
+void AgentDBTable::Flush(DBTableWalker *walker) {
+    walker->WalkTable(this, NULL, FlushNotify,
+                      boost::bind(FlushWalkDone, _1));
 }

@@ -123,7 +123,7 @@ public:
               const std::string &program_name,
               const boost::program_options::variables_map &var_map);
 
-    void Validate();
+    int Validate();
     void LogConfig() const;
     void InitVhostAndXenLLPrefix();
     void set_test_mode(bool mode);
