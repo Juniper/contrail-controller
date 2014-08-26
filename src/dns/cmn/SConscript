@@ -17,8 +17,8 @@ buildinfo_dep_libs = ['../../dns/cfg/libdns_cfg.a', '../../dns/mgr/libmgr.a', '.
                       '../../../lib/libsandesh.a', '../../../lib/libhttp.a', '../../../lib/libhttp_parser.a', 
                       '../../../lib/libcurl.a', '../../db/libdb.a', '../../io/libio.a', '../../base/libbase.a', 
                       '../../xml/libxml.a', '../../../lib/libpugixml.a', '../../../lib/libxml2.a', 
-                      '../../../lib/libboost_regex.a', '../../../lib/libboost_program_options.a', '../../dns/uve/libdns_uve.a',
-                      '../../../lib/libboost_system.a', '../../../lib/liblog4cplus.a']
+                      '../../dns/uve/libdns_uve.a',
+                      '../../../lib/liblog4cplus.a']
 
 if sys.platform != 'darwin':
     buildinfo_dep_libs += [ '../../../lib/libtbb_debug.so.2' ]

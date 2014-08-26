@@ -90,9 +90,6 @@ SandeshGenObjs = env.Object(SandeshGenSrcs)
 env['QE_SANDESH_GEN_OBJS'] = SandeshGenObjs
 
 buildinfo_dep_libs = [
-    '../../lib/libboost_program_options.a',
-    '../../lib/libboost_regex.a',
-    '../../lib/libboost_system.a', 
     '../../lib/libcurl.a',
     '../../lib/libhiredis.a',
     '../../lib/libhttp.a',
