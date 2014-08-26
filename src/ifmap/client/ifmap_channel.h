@@ -7,7 +7,6 @@
 
 #include <boost/asio/io_service.hpp>
 #include <boost/asio/ip/tcp.hpp>
-#include <boost/asio/monotonic_deadline_timer.hpp>
 #include <boost/asio/strand.hpp>
 
 #ifdef __clang__
@@ -26,7 +25,7 @@
 
 class IFMapStateMachine;
 class IFMapManager;
-class Timer;
+class TimerImpl;
 class IFMapPeerTimedoutEntries;
 
 class IFMapChannel {
@@ -197,7 +196,7 @@ private:
     SslStream *GetSocket(ResponseState response_state);
     ProcCompleteMsgCb GetCallback(ResponseState response_state);
     void CloseSockets(const boost::system::error_code& error,
-                     boost::asio::monotonic_deadline_timer *socket_close_timer);
+                      TimerImpl *socket_close_timer);
     void SetArcSocketOptions();
     std::string timeout_to_string(uint64_t timeout);
     void set_connection_status(ConnectionStatus status);
