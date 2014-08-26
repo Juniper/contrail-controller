@@ -798,6 +798,7 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
     <xsd:all>
         <xsd:element name='service-interface-type' type="ServiceInterfaceType"/>
         <xsd:element name='interface-mirror'  type="InterfaceMirrorType"/>
+        <xsd:element name="local-preference" type="xsd:integer" default='0'/>
     </xsd:all>
 </xsd:complexType>
 
