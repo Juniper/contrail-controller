@@ -2286,6 +2286,7 @@ class DBInterface(object):
     def network_update(self, net_id, network_q):
         net_obj = self._virtual_network_read(net_id=net_id)
         router_external = net_obj.get_router_external()
+        shared = net_obj.get_is_shared()
         network_q['id'] = net_id
         net_obj = self._network_neutron_to_vnc(network_q, UPDATE)
         if net_obj.router_external and not router_external:
@@ -2301,6 +2302,13 @@ class DBInterface(object):
                         self._floating_ip_pool_delete(fip_pool_id=pool_id)
                     except RefsExistError:
                         self._raise_contrail_exception(409, exceptions.NetworkInUse(net_id=net_id))
+        if shared and not net_obj.is_shared:
+            for vmi in net_obj.get_virtual_machine_interface_back_refs() or []:
+                vmi_obj = self._virtual_machine_interface_read(port_id=vmi['uuid'])
+                if (vmi_obj.parent_type == 'project' and
+                    vmi_obj.parent_uuid != net_obj.parent_uuid):
+                    self._raise_contrail_exception(
+                        409, exceptions.InvalidSharedSetting(network=net_obj.display_name))
         self._virtual_network_update(net_obj)
 
         ret_network_q = self._network_vnc_to_neutron(net_obj, net_repr='SHOW')
