@@ -1,4 +1,5 @@
 # -*- mode: python; -*-
+import platform
 
 default = DefaultEnvironment()
 env = default.Clone()
@@ -30,7 +31,10 @@ lib = env.Library('hiredis',
                    boostasio_obj,
                    'base64.cpp']
                   )
-env.Depends(lib, '#/build/include/boost')
+
+(distname, version, _) = platform.dist()
+if distname != 'Ubuntu' or float(version) < 14.04:
+    env.Depends(lib, '#/build/include/boost')
 
 env.Install('#/build/lib/', 'libhiredis.a')
 env.Install('#/build/include/hiredis', hiredis_path + '/hiredis.h')

@@ -21,9 +21,6 @@ cflags.append('-fexceptions')
 buildinfo_dep_libs = [
     '#build/lib/libthrift.a',
     '#build/lib/libthriftasio.a',
-    '#build/lib/libboost_program_options.a',
-    '#build/lib/libboost_regex.a',
-    '#build/lib/libboost_system.a', 
     '#build/lib/libcurl.a',
     '#build/lib/libhttp.a',
     '#build/lib/libhttp_parser.a', 
