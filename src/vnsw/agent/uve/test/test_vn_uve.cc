@@ -49,27 +49,10 @@ VmInterface *flow1;
 void RouterIdDepInit(Agent *agent) {
 }
 
-class FlowStatsCollectorTask : public Task {
-public:
-    FlowStatsCollectorTask() :
-        Task((TaskScheduler::GetInstance()->GetTaskId("Agent::StatsCollector")),
-                StatsCollector::FlowStatsCollector) {
-    }
-    virtual bool Run() {
-        Agent::GetInstance()->uve()->flow_stats_collector()->Run();
-    }
-};
-
 class UveVnUveTest : public ::testing::Test {
 public:
     UveVnUveTest() : util_(), peer_(NULL) {
     }
-    void EnqueueFlowStatsCollectorTask() {
-        TaskScheduler *scheduler = TaskScheduler::GetInstance();
-        FlowStatsCollectorTask *task = new FlowStatsCollectorTask();
-        scheduler->Enqueue(task);
-    }
-
     bool InterVnStatsMatch(const string &svn, const string &dvn, uint32_t pkts,
                            uint32_t bytes, bool out) {
         VnUveTableTest *vut = static_cast<VnUveTableTest *>
@@ -164,6 +147,7 @@ TEST_F(UveVnUveTest, VnAddDel_1) {
         (Agent::GetInstance()->uve()->vn_uve_table());
     //Add VN
     util_.VnAdd(1);
+    client->WaitForIdle();
     EXPECT_EQ(1U, vnut->send_count());
 
     UveVirtualNetworkAgent *uve1 =  vnut->VnUveObject("vn1");
@@ -188,6 +172,7 @@ TEST_F(UveVnUveTest, VnIntfAddDel_1) {
         (Agent::GetInstance()->uve()->vn_uve_table());
     //Add VN
     util_.VnAdd(input[0].vn_id);
+    client->WaitForIdle();
     EXPECT_EQ(1U, vnut->send_count());
 
     UveVirtualNetworkAgent *uve1 =  vnut->VnUveObject("vn1");
@@ -283,6 +268,7 @@ TEST_F(UveVnUveTest, VnChange_1) {
         (Agent::GetInstance()->uve()->vn_uve_table());
     //Add VN
     util_.VnAdd(1);
+    client->WaitForIdle();
     EXPECT_EQ(1U, vnut->send_count());
 
     UveVirtualNetworkAgent *uve1 =  vnut->VnUveObject("vn1");
@@ -792,6 +778,7 @@ TEST_F(UveVnUveTest, VnVrfAssoDisassoc_1) {
         (Agent::GetInstance()->uve()->vn_uve_table());
     //Add VN
     util_.VnAdd(input[0].vn_id);
+    client->WaitForIdle();
     EXPECT_EQ(1U, vnut->send_count());
 
     //Trigger send of VN stats
@@ -854,6 +841,7 @@ TEST_F(UveVnUveTest, LinkLocalVn_Xen) {
         (agent->uve()->vn_uve_table());
     //Add VN
     util_.VnAddByName(agent->linklocal_vn_name().c_str(), input[0].vn_id);
+    client->WaitForIdle();
     EXPECT_EQ(1U, vnut->send_count());
 
     UveVirtualNetworkAgent *uve1 =  vnut->VnUveObject(agent->linklocal_vn_name());
@@ -1032,7 +1020,7 @@ TEST_F(UveVnUveTest, InterVnStats_1) {
     EXPECT_EQ(4U, Agent::GetInstance()->pkt()->flow_table()->Size());
 
     //Invoke FlowStatsCollector to update the stats
-    EnqueueFlowStatsCollectorTask();
+    util_.EnqueueFlowStatsCollectorTask();
     client->WaitForIdle(10);
 
     //Verify Inter-Vn stats
@@ -1064,7 +1052,7 @@ TEST_F(UveVnUveTest, InterVnStats_1) {
     client->WaitForIdle(10);
 
     //Invoke FlowStatsCollector to update the stats
-    EnqueueFlowStatsCollectorTask();
+    util_.EnqueueFlowStatsCollectorTask();
     client->WaitForIdle(10);
 
     //Verify Inter-Vn stats
