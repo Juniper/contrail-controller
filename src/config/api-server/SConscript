@@ -78,7 +78,6 @@ doc_sources_rules = SConscript(dirs=['doc'], exports = 'CfgmEnv')
 sdist_depends = [generated_rule, generateds_rule, cfixture_rule]
 sdist_depends.extend(setup_sources_rules)
 sdist_depends.extend(local_sources_rules)
-sdist_depends.extend(doc_sources_rules)
 
 # TODO: deprecate
 sdist_gen = env.Command('dist', 'setup.py', 'python setup.py sdist', chdir=1)
