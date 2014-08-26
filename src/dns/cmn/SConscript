@@ -33,10 +33,7 @@ env.GenerateBuildInfoCode(
 
 env.Depends('dns.o', 'buildinfo.cc')
 except_env = DnsEnv.Clone()
-cflags = except_env['CCFLAGS']
-if '-fno-exceptions' in cflags:
-    cflags.remove('-fno-exceptions')
-    except_env.Replace(CCFLAGS = cflags)
+except_env.CppEnableExceptions()
 
 sandesh_objs = []
 for src in SandeshGenSrcs:

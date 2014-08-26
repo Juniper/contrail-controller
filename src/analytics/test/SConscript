@@ -20,8 +20,7 @@ while env_noWerror['CCFLAGS'].count('-Werror') > 0:
     env_noWerror['CCFLAGS'].remove('-Werror')
 
 env_noWerror_excep = env_noWerror.Clone()
-while env_noWerror_excep['CCFLAGS'].count('-fno-exceptions') > 0:
-    env_noWerror_excep['CCFLAGS'].remove('-fno-exceptions')
+env_noWerror_excep.CppEnableExceptions()
 
 SandeshGenFiles  = env.SandeshGenCpp('viz_collector_test.sandesh')
 SandeshGenFiles += env.SandeshGenCpp('vizd_test.sandesh')
