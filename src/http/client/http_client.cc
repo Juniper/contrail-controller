@@ -324,6 +324,7 @@ TcpSession *HttpClient::CreateSession() {
     socket->open(boost::asio::ip::tcp::v4(), err);
 
     if (err) {
+        LOG(ERROR, "http socket open failed: " << err);
         return NULL;
     }
 

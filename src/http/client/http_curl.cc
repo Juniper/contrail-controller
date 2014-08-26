@@ -300,10 +300,12 @@ static curl_socket_t opensocket(void *data,
   if (purpose == CURLSOCKTYPE_IPCXN && address->family == AF_INET)
   {
       HttpClientSession *session = conn->CreateSession();
-      sockfd = session->socket()->native_handle();
-      socket_map.insert(std::pair<curl_socket_t, HttpClientSession *>(sockfd, 
-                  static_cast<HttpClientSession *>(session)));
-      conn->set_session(session);
+      if (session) {
+          sockfd = session->socket()->native_handle();
+          socket_map.insert(std::pair<curl_socket_t, HttpClientSession *>(
+                  sockfd, static_cast<HttpClientSession *>(session)));
+          conn->set_session(session);
+      }
   }
 
 
