@@ -131,6 +131,35 @@ class DictST(object):
 
 # end DictST
 
+def get_si_vns(si_obj, si_props):
+    left_vn = None
+    right_vn = None
+
+    st_refs = si_obj.get_service_template_refs()
+    uuid = st_refs[0]['uuid']
+    st_obj = _vnc_lib.service_template_read(id=uuid)
+    st_props = st_obj.get_service_template_properties()
+    if st_props.get_ordered_interfaces():
+        st_if_list = st_props.get_interface_type()
+        si_if_list = si_props.get_interface_list()
+        for idx in range(0, len(st_if_list)):
+            st_if = st_if_list[idx]
+            si_if = si_if_list[idx]
+            if st_if.get_service_interface_type() == 'left':
+                left_vn = si_if.get_virtual_network()
+            elif st_if.get_service_interface_type() == 'right':
+                right_vn = si_if.get_virtual_network()
+    else:
+        left_vn = si_props.get_left_virtual_network()
+        right_vn = si_props.get_right_virtual_network()
+    
+    if left_vn == "":
+        left_vn = parent_str + ':' + svc_info.get_left_vn_name()
+    if right_vn == "":
+        right_vn = parent_str + ':' + svc_info.get_right_vn_name()
+
+    return left_vn, right_vn
+# end get_si_vns
 
 def _access_control_list_update(acl_obj, name, obj, entries):
     if acl_obj is None:
@@ -685,10 +714,7 @@ class VirtualNetworkST(DictST):
             _sandesh._logger.debug("%s: route table next hop must be service "
                                    "instance with auto policy", self.name)
             return None
-        left_vn_str = svc_info.get_left_vn(si.get_parent_fq_name_str(),
-            si_props.left_virtual_network)
-        right_vn_str = svc_info.get_right_vn(si.get_parent_fq_name_str(),
-            si_props.right_virtual_network)
+        left_vn_str, right_vn_str = get_si_vns(si, si_props)
         if (not left_vn_str or not right_vn_str):
             _sandesh._logger.debug("%s: route table next hop service instance "
                                    "must have left and right virtual networks",
@@ -2914,10 +2940,7 @@ class SchemaTransformer(object):
             return
         si = _vnc_lib.service_instance_read(fq_name_str=si_name)
         si_props = si.get_service_instance_properties()
-        left_vn_str = svc_info.get_left_vn(si.get_parent_fq_name_str(),
-                                           si_props.left_virtual_network)
-        right_vn_str = svc_info.get_right_vn(si.get_parent_fq_name_str(),
-                                             si_props.right_virtual_network)
+        left_vn_str, right_vn_str = get_si_vns(si, si_props)
         if (not left_vn_str or not right_vn_str):
             _sandesh._logger.debug(
                 "%s: route table next hop service instance must "

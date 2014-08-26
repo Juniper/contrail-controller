@@ -177,20 +177,14 @@ static void FindAndSetInterfaces(
     const autogen::ServiceInstanceType &si_properties =
             svc_instance->properties();
 
-    properties->interface_count = 0;
     /*
      * The outside virtual-network is always specified (by the
      * process that creates the service-instance).
-     */
-    if (si_properties.right_virtual_network.length()) {
-        properties->interface_count += 1;
-    }
-    /*
      * The inside virtual-network is optional for loadbalancer.
      */
-    if (si_properties.left_virtual_network.length()) {
-        properties->interface_count += 1;
-    }
+    properties->interface_count = si_properties.interface_list.size();
+    std::string left_netname = si_properties.interface_list[0].virtual_network;
+    std::string right_netname = si_properties.interface_list[1].virtual_network;
 
     /*
      * Lookup for VMI nodes
@@ -211,11 +205,11 @@ static void FindAndSetInterfaces(
         }
 
         std::string netname = vn_node->name();
-        if (netname == si_properties.left_virtual_network) {
+        if (netname == left_netname) {
             properties->vmi_inside = IdPermsGetUuid(vmi->id_perms());
             properties->mac_addr_inside = vmi->mac_addresses().at(0);
             properties->ip_addr_inside = FindInterfaceIp(graph, adj);
-        } else if (netname == si_properties.right_virtual_network) {
+        } else if (netname == right_netname) {
             properties->vmi_outside = IdPermsGetUuid(vmi->id_perms());
             properties->mac_addr_outside = vmi->mac_addresses().at(0);
             properties->ip_addr_outside = FindInterfaceIp(graph, adj);
@@ -231,11 +225,11 @@ static void FindAndSetInterfaces(
         const autogen::VnSubnetsType &subnets = ipam->data();
         for (unsigned int i = 0; i < subnets.ipam_subnets.size(); ++i) {
             int prefix_len = subnets.ipam_subnets[i].subnet.ip_prefix_len;
-            if (netname == si_properties.left_virtual_network &&
+            if (netname == left_netname &&
                 SubNetContainsIpv4(subnets.ipam_subnets[i],
                         properties->ip_addr_inside)) {
                 properties->ip_prefix_len_inside = prefix_len;
-            } else if (netname == si_properties.right_virtual_network &&
+            } else if (netname == right_netname &&
                        SubNetContainsIpv4(subnets.ipam_subnets[i],
                                 properties->ip_addr_outside)) {
                 properties->ip_prefix_len_outside = prefix_len;
