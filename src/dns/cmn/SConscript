@@ -15,13 +15,10 @@ buildinfo_dep_libs = ['../../dns/cfg/libdns_cfg.a', '../../dns/mgr/libmgr.a', '.
                       '../../schema/libifmap_vnc.a', '../../ifmap/libifmap_server.a', '../../ifmap/libifmap_common.a', 
                       '../../net/libnet.a', '../../../lib/libifmapio.a', '../../xmpp/libxmpp.a', '../../../lib/libsandeshvns.a',
                       '../../../lib/libsandesh.a', '../../../lib/libhttp.a', '../../../lib/libhttp_parser.a', 
-                      '../../../lib/libcurl.a', '../../db/libdb.a', '../../io/libio.a', '../../base/libbase.a', 
-                      '../../xml/libxml.a', '../../../lib/libpugixml.a', '../../../lib/libxml2.a', 
-                      '../../dns/uve/libdns_uve.a',
-                      '../../../lib/liblog4cplus.a']
-
-if sys.platform != 'darwin':
-    buildinfo_dep_libs += [ '../../../lib/libtbb_debug.so.2' ]
+                      '../../db/libdb.a', '../../io/libio.a', '../../base/libbase.a', 
+                      '../../xml/libxml.a', '../../../lib/libpugixml.a',
+                      '../../dns/uve/libdns_uve.a'
+                  ]
 
 cmn_sources = ['dns.cc', 'dns_options.cc']
 
