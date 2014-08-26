@@ -54,6 +54,10 @@ public:
     RouteAttributes(uint32_t lpref, uint32_t seq)
         : local_pref(lpref), sequence(seq), sgids(std::vector<int>()) {
     }
+    RouteAttributes(uint32_t lpref)
+        : local_pref(lpref), sequence(kDefaultSequence),
+          sgids(std::vector<int>()) {
+    }
     RouteAttributes(const std::vector<int> &sg)
         : local_pref(kDefaultLocalPref), sequence(kDefaultSequence),
           sgids(sg) {
@@ -71,6 +75,10 @@ public:
 
 struct NextHop {
     NextHop() : label_(0) { }
+    NextHop(std::string address) :
+            address_(address), label_(0) {
+        tunnel_encapsulations_.push_back("gre");
+    }
     NextHop(std::string address, uint32_t label, std::string tun1 = "gre") :
             address_(address), label_(label) {
         if (tun1 == "all") {
@@ -130,13 +138,12 @@ public:
     static const char *kPubSubNS;
 
     XmppDocumentMock(const std::string &hostname);
-    pugi::xml_document *RouteAddXmlDoc(const std::string &network, 
-                                       const std::string &prefix,
-                                       NextHops nexthops = NextHops(),
-                                       int local_pref = 0);
+    pugi::xml_document *RouteAddXmlDoc(const std::string &network,
+        const std::string &prefix,
+        const NextHops &nexthops = NextHops(),
+        const RouteAttributes &attributes = RouteAttributes());
     pugi::xml_document *RouteDeleteXmlDoc(const std::string &network, 
-                                          const std::string &prefix,
-                                          NextHops nexthops = NextHops());
+        const std::string &prefix);
 
     pugi::xml_document *Inet6RouteAddXmlDoc(const std::string &network,
         const std::string &prefix, NextHops nexthops, 
@@ -182,8 +189,9 @@ private:
             const std::string &prefix, Oper oper, NextHops nexthops,
             const RouteAttributes &attributes);
     pugi::xml_document *RouteAddDeleteXmlDoc(const std::string &network,
-            const std::string &prefix, bool add, NextHops nexthop,
-            int local_pref = 0);
+            const std::string &prefix, bool add,
+            const NextHops &nexthop = NextHops(),
+            const RouteAttributes &attributes = RouteAttributes());
     pugi::xml_document *RouteEnetAddDeleteXmlDoc(const std::string &network,
             const std::string &prefix, NextHops nexthop,
             const RouteParams *params, bool add);
@@ -314,13 +322,11 @@ public:
 
     void AddRoute(const std::string &network, const std::string &prefix,
                   const std::string nexthop = "", int local_pref = 0);
-    void DeleteRoute(const std::string &network, const std::string &prefix,
-                     const std::string nexthop = "");
-
     void AddRoute(const std::string &network, const std::string &prefix,
-                  NextHops nexthops, int local_pref = 0);
-    void DeleteRoute(const std::string &network, const std::string &prefix,
-                  NextHops nexthops);
+                  const NextHops &nexthops, int local_pref = 0);
+    void AddRoute(const std::string &network, const std::string &prefix,
+                  const NextHops &nexthops, const RouteAttributes &attributes);
+    void DeleteRoute(const std::string &network, const std::string &prefix);
 
     void AddInet6Route(const std::string &network, const std::string &prefix,
         const NextHops &nexthops,

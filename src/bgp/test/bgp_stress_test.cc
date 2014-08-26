@@ -1675,8 +1675,7 @@ void BgpStressTest::DeleteXmppRoute(int instance_id, int agent_id,
     mcast_prefix = task_util::Ip4PrefixIncrement(mcast_prefix, route_id);
 
     xmpp_agents_[agent_id]->DeleteRoute(GetInstanceName(instance_id),
-                                        prefix.ToString(),
-                                        GetAgentNexthop(agent_id, route_id));
+                                        prefix.ToString());
     xmpp_agents_[agent_id]->DeleteMcastRoute(GetInstanceName(instance_id),
                         "1/8/" + mcast_prefix.ip4_addr().to_string() +
                         "," + prefix.ToString());

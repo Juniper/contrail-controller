@@ -6,9 +6,11 @@
 
 #include "base/parse_object.h"
 #include <stdio.h>
-using namespace std;
 
-SecurityGroup::SecurityGroup(int asn, uint32_t sgid) {
+using std::copy;
+using std::string;
+
+SecurityGroup::SecurityGroup(as_t asn, uint32_t sgid) {
     data_[0] = 0x80;
     data_[1] = 0x04;
     put_value(&data_[2], 2, asn);
@@ -19,18 +21,30 @@ SecurityGroup::SecurityGroup(const bytes_type &data) {
     copy(data.begin(), data.end(), data_.begin());
 }
 
+as_t SecurityGroup::as_number() const {
+    if (data_[0] == 0x80 && data_[1] == 0x04) {
+        as_t as_number = get_value(&data_[2], 2);
+        return as_number;
+    }
+    return 0;
+}
+
 uint32_t SecurityGroup::security_group_id() const {
-    uint8_t data[SecurityGroup::kSize];
-    copy(data_.begin(), data_.end(), &data[0]);
-    if (data[0] == 0x80 && data[1] == 0x04) {
-        uint32_t num = get_value(data + 4, 4);
+    if (data_[0] == 0x80 && data_[1] == 0x04) {
+        uint32_t num = get_value(&data_[4], 4);
         return num;
     }
     return 0;
 }
 
-std::string SecurityGroup::ToString() {
+bool SecurityGroup::IsGlobal() const {
+    uint32_t sgid = security_group_id();
+    return (sgid >= kMinGlobalId && sgid <= kMaxGlobalId);
+}
+
+string SecurityGroup::ToString() {
     char temp[50];
-    snprintf(temp, sizeof(temp), "security group: %d", security_group_id());
-    return std::string(temp);
+    snprintf(temp, sizeof(temp), "secgroup:%u:%u",
+        as_number(), security_group_id());
+    return string(temp);
 }
