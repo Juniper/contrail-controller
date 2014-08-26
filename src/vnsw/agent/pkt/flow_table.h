@@ -69,7 +69,7 @@ struct RouteFlowKey {
     static int32_t GetPrefix(uint32_t ip, uint8_t plen) {
         //Mask prefix
         uint8_t host = 32;
-        uint32_t mask = (0xFFFFFFFF << (host - plen));
+        uint32_t mask = ~((1UL << (host - plen)) - 1);
         return (ip & mask);
     }
 

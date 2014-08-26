@@ -101,13 +101,6 @@ protected:
         EXPECT_TRUE(VmPortActive(6));
         client->WaitForIdle();
 
-        //Leak route for 2.1.1.0 to default-project:vn1:vn1
-        Ip4Address ip1 = Ip4Address::from_string("2.1.1.0");
-        agent_->fabric_inet4_unicast_table()->
-            AddLocalVmRouteReq(agent_->local_peer(),
-                               "default-project:vn1:vn1", ip1, 24, MakeUuid(3),
-                               "default-project:vn2", 16, SecurityGroupList(),
-                               false, PathPreference(), Ip4Address(0));
         //Leak route for 1.1.1.0 to default-project:vn2:vn2 and
         //default-project:vn3:vn3
         Ip4Address ip2 = Ip4Address::from_string("1.1.1.0");
@@ -191,6 +184,13 @@ TEST_F(TestVrfAssignAclFlow, VrfAssignAcl2) {
 //Add an VRF translate ACL to send all ssh traffic to "2.1.1.1" via VN4
 //which is not present, make sure flow is marked as short flow
 TEST_F(TestVrfAssignAclFlow, VrfAssignAcl3) {
+    //Leak route for 2.1.1.0 to default-project:vn1:vn1
+    Ip4Address ip1 = Ip4Address::from_string("2.1.1.0");
+    agent_->fabric_inet4_unicast_table()->
+        AddLocalVmRouteReq(agent_->local_peer(),
+                           "default-project:vn1:vn1", ip1, 24, MakeUuid(3),
+                           "default-project:vn2", 16, SecurityGroupList(),
+                           false, PathPreference(), Ip4Address(0));
     AddAddressVrfAssignAcl("intf1", 1, "1.1.1.0", "2.1.1.0", 6, 1, 65535,
                            1, 65535, "vrf4", "yes");
     TestFlow flow[] = {
@@ -327,6 +327,15 @@ TEST_F(TestVrfAssignAclFlow, FloatingIp) {
     CreateVmportEnv(input, 1);
     client->WaitForIdle();
 
+    //Leak route for 2.1.1.0 to default-project:vn1:vn1
+    Ip4Address ip1 = Ip4Address::from_string("2.1.1.0");
+    agent_->fabric_inet4_unicast_table()->
+        AddLocalVmRouteReq(agent_->local_peer(),
+                           "default-project:vn1:vn1", ip1, 24, MakeUuid(3),
+                           "default-project:vn2", 16, SecurityGroupList(),
+                           false, PathPreference(), Ip4Address(0));
+    client->WaitForIdle();
+ 
     //Add an ACL, such that for traffic from vn4:vn4 to default-project:vn2,
     //route lookup happens in internal VRF
     //(assume default-project:vn3 in test case)
