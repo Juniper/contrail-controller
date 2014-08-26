@@ -2207,11 +2207,9 @@ class DBInterface(object):
                 ip_addr = ip_obj.get_instance_ip_address()
 
                 ip_q_dict = {}
-                ip_q_dict['port_id'] = port_obj.uuid
                 ip_q_dict['ip_address'] = ip_addr
                 ip_q_dict['subnet_id'] = self._ip_address_to_subnet_id(ip_addr,
                                                                        net_obj)
-                ip_q_dict['net_id'] = net_id
 
                 port_q_dict['fixed_ips'].append(ip_q_dict)
 
