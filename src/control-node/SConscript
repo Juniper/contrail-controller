@@ -176,13 +176,9 @@ buildinfo_dep_libs = ['../bgp/libbgp.a', '../schema/libbgp_schema.a', '../schema
                       '../bgp/rtarget/librtarget.a', '../bgp/security_group/libsecurity_group.a', '../schema/libifmap_vnc.a', 
                       '../ifmap/libifmap_server.a', '../ifmap/libifmap_common.a', '../route/libroute.a', '../net/libnet.a', 
                       '../../lib/libifmapio.a', '../xmpp/libxmpp.a', '../xml/libxml.a', '../../lib/libsandeshvns.a', 
-                      '../../lib/libsandesh.a', '../../lib/libhttp.a', '../../lib/libhttp_parser.a', '../../lib/libcurl.a', 
-                      '../db/libdb.a', '../io/libio.a', '../base/libbase.a', '../base/libcpuinfo.a', '../../lib/libpugixml.a', 
-                      '../../lib/libxml2.a',
-		      '../../lib/liblog4cplus.a']
-
-if sys.platform != 'darwin':
-    buildinfo_dep_libs += [ '../../lib/libtbb_debug.so.2' ]
+                      '../../lib/libsandesh.a', '../../lib/libhttp.a', '../../lib/libhttp_parser.a',
+                      '../db/libdb.a', '../io/libio.a', '../base/libbase.a', '../base/libcpuinfo.a', '../../lib/libpugixml.a',
+		      ]
 
 env.GenerateBuildInfoCode(
 	target = ['buildinfo.h', 'buildinfo.cc'],

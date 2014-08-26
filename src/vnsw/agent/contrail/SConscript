@@ -21,15 +21,12 @@ cflags.append('-fexceptions')
 buildinfo_dep_libs = [
     '#build/lib/libthrift.a',
     '#build/lib/libthriftasio.a',
-    '#build/lib/libcurl.a',
     '#build/lib/libhttp.a',
     '#build/lib/libhttp_parser.a', 
-    '#build/lib/liblog4cplus.a',
     '#build/lib/libpugixml.a',
     '#build/lib/libsandesh.a',
     '#build/lib/libsandeshflow.a', 
     '#build/lib/libsandeshvns.a',
-    '#build/lib/libtbb_debug.so.2'
 ]
 
 def MapBuildCmnLib(list):
