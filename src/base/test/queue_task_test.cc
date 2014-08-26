@@ -508,11 +508,15 @@ struct WorkQueueDelete<int *> {
 };
 
 TEST_F(QueueTaskShutdownTest, ScheduleShutdown) {
+    // First disable the work queue
+    work_queue_.set_disable(true);
     // Enqueue 2 entries
     for (int idx = 0; idx < 2; idx++) {
         work_queue_.Enqueue(new int(idx));
     }
     EXPECT_EQ(2, work_queue_.Length());
+    // Now enable
+    work_queue_.set_disable(false);
     EXPECT_TRUE(IsWorkQueueRunning());
     EXPECT_TRUE(IsWorkQueueCurrentRunner());
     EXPECT_FALSE(IsWorkQueueShutdownScheduled());

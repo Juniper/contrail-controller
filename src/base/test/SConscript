@@ -91,6 +91,7 @@ test_suite = [
     factory_test,
     trace_test,
     util_test,
+    queue_task_test,
     ]
 
 test = env.TestSuite('base-test', test_suite)
@@ -98,7 +99,6 @@ env.Alias('controller/src/base:test', test)
 
 flaky_test_suite = [
     proto_test,
-    queue_task_test,
 #   task_test,
     timer_test,
 ]
