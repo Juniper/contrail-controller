@@ -218,7 +218,7 @@ public:
 private:
     static int rtfilter_task_id_;
 
-    friend class RTargetPeerTest;
+    friend class BgpXmppRTargetTest;
     void RTargetDepSync(DBTablePartBase *root, BgpRoute *rt, 
                         DBTableBase::ListenerId id, VpnRouteState *dbstate,
                         VpnRouteState::RTargetList &current);
