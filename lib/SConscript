@@ -1,8 +1,26 @@
 # -*- mode: python; -*-
+import platform
 
-subdirs = ['boost', 'gperftools', 'gunit', 'http_parser', 'log4cplus', 'tbb',
-           'hiredis', 'thrift', 'pugixml', 'curl-7.24.0', 'libxml2', 
-           'rapidjson', 'bind']
+subdirs = [
+    'bind',
+    'curl-7.24.0',
+    'gperftools',
+    'hiredis',
+    'http_parser',
+    'libxml2', 
+    'log4cplus',
+    'pugixml',
+    'rapidjson',
+    'tbb',
+    'thrift',
+    'gunit',
+]
+
+(distname, version, _) = platform.dist()
+if distname != 'Ubuntu' or float(version) < 14.04:
+    subdirs += [
+        'boost',
+    ]
 
 for dir in subdirs:
     SConscript(dirs = dir, variant_dir = '#/build/third_party/' + dir)

@@ -28,10 +28,7 @@ if sys.platform != 'darwin':
     env.Append(LIBS=['rt'])
 
 except_env = env.Clone()
-cflags = except_env['CCFLAGS']
-if '-fno-exceptions' in cflags:
-    cflags.remove('-fno-exceptions')
-except_env.Replace(CCFLAGS = cflags)
+except_env.CppEnableExceptions()
 
 config_test_env = env.Clone()
 # config_test_env.Append(LIBPATH = ['../../ifmap/test'])
