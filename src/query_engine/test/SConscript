@@ -20,8 +20,7 @@ while env_noWerror['CCFLAGS'].count('-Werror') > 0:
     env_noWerror['CCFLAGS'].remove('-Werror')
 
 env_noWerror_excep = env_noWerror.Clone()
-while env_noWerror_excep['CCFLAGS'].count('-fno-exceptions') > 0:
-    env_noWerror_excep['CCFLAGS'].remove('-fno-exceptions')
+env_noWerror_excep.CppEnableExceptions()
 
 RedisConn_obj = env.Object('redis_connection.o', '../../analytics/redis_connection.cc')
 Analytics_obj = env.Object('vizd_table_desc.o', '../../analytics/vizd_table_desc.cc')

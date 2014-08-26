@@ -13,10 +13,7 @@ env.Append(CPPPATH = env['TOP'] + '/vnsw/agent')
 env.Append(CPPPATH = env['TOP'] + '/sandesh')
 env.Append(CPPPATH = env['TOP'] + '/ksync')
 
-cflags = env['CCFLAGS']
-if '-fno-exceptions' in cflags:
-    cflags.remove('-fno-exceptions')
-    env.Replace(CCFLAGS = cflags)
+env.CppEnableExceptions()
 
 # Generate the source files
 SandeshGenFiles = env.SandeshGenCpp('ksync.sandesh')
