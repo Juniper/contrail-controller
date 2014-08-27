@@ -475,7 +475,7 @@ TEST_F(DBTest, TestRef_RemoveQ_1) {
     // Renew entry
     AddEnqueue(table_a_, 1, 1, 1);
     WaitForIdle();
-    EntryA *entry = FindA(1);
+    FindA(1);
 
     // Add reference to entry again
     AddEnqueueTableC(table_c_, 1, 1);
@@ -494,7 +494,7 @@ TEST_F(DBTest, TestRef_RemoveQ_2) {
     AddEnqueue(table_a_, 1, 1, 1);
     WaitForIdle();
 
-    EntryA *entry = FindA(1);
+    FindA(1);
     EXPECT_TRUE(FindA(1) != NULL);
 
     AddEnqueueTableC(table_c_, 1, 1);
