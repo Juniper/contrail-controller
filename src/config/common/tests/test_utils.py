@@ -662,6 +662,62 @@ class FakeRedis(object):
 
 # end FakeRedis
 
+class FakeExtensionManager(object):
+    _entry_pt_to_classes = {}
+    class FakeExtObj(object):
+        def __init__(self, cls, *args, **kwargs):
+            self.obj = cls(*args, **kwargs)
+
+    def __init__(self, child, ep_name, **kwargs):
+        if ep_name not in self._entry_pt_to_classes:
+            return
+
+        classes = self._entry_pt_to_classes[ep_name]
+        self._ep_name = ep_name
+        self._ext_objs = []
+        for cls in classes:
+            ext_obj = FakeExtensionManager.FakeExtObj(cls, **kwargs) 
+            self._ext_objs.append(ext_obj)
+    # end __init__
+
+    def map(self, cb):
+        for ext_obj in self._ext_objs:
+            cb(ext_obj)
+
+    def map_method(self, method_name, *args, **kwargs):
+        for ext_obj in self._ext_objs:
+            method = getattr(ext_obj.obj, method_name, None)
+            if not method:
+                continue
+            method(*args, **kwargs)
+# end class FakeExtensionManager
+
+
+class FakeKeystoneClient(object):
+    class Tenants(object):
+        _tenants = {}
+        def add_tenant(self, id, name):
+            self.id = id
+            self.name = name
+            self._tenants[id] = self
+
+        def list(self):
+            return self._tenants.values()
+
+        def get(self, id):
+            return self._tenants[str(uuid.UUID(id))]
+
+    def __init__(self, *args, **kwargs):
+        self.tenants = FakeKeystoneClient.Tenants()
+        pass
+
+# end class FakeKeystoneClient
+
+fake_keystone_client = FakeKeystoneClient()
+def get_keystone_client(*args, **kwargs):
+    return fake_keystone_client
+
+
 
 def get_free_port():
     tmp_sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)

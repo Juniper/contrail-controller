@@ -25,6 +25,7 @@ from lxml import etree
 import inspect
 import pycassa
 import kombu
+import requests
 
 from vnc_api.vnc_api import *
 from vnc_api.common import exceptions as vnc_exceptions
@@ -702,6 +703,56 @@ class TestVncCfgApiServer(test_case.ApiServerTestCase):
         finally:
             api_server._db_conn._cassandra_db._cassandra_virtual_network_read = orig_vn_read
 # end class TestVncCfgApiServer
+
+class TestLocalAuth(test_case.ApiServerTestCase):
+    def __init__(self, *args, **kwargs):
+        super(TestLocalAuth, self).__init__(*args, **kwargs)
+        self._config_knobs.extend([('DEFAULTS', 'auth', 'keystone'),
+                                   ('DEFAULTS', 'multi_tenancy', True),
+                                   ('KEYSTONE', 'admin_user', 'foo'),
+                                   ('KEYSTONE', 'admin_password', 'bar'),])
+
+    def setup_flexmock(self):
+        from keystoneclient.middleware import auth_token
+        class FakeAuthProtocol(object):
+            def __init__(self, app, *args, **kwargs):
+                self._app = app
+            # end __init__
+            def __call__(self, env, start_response):
+                return self._app(env, start_response)
+            # end __call__
+            def get_admin_token(self):
+                return None
+            # end get_admin_token
+        # end class FakeAuthProtocol
+        test_common.setup_extra_flexmock([(auth_token, 'AuthProtocol', FakeAuthProtocol)])
+    # end setup_flexmock
+
+    def setUp(self):
+        self.setup_flexmock()
+        super(TestLocalAuth, self).setUp()
+    # end setUp
+
+    def test_local_auth_on_8095(self):
+        from requests.auth import HTTPBasicAuth
+        admin_port = self._api_server._args.admin_port
+
+        # equivalent to curl -u foo:bar http://localhost:8095/virtual-networks
+        logger.info("Positive case")
+        url = 'http://localhost:%s/virtual-networks' %(admin_port)
+        resp = requests.get(url, auth=HTTPBasicAuth('foo', 'bar'))
+        self.assertThat(resp.status_code, Equals(200))
+
+        logger.info("Negative case without header")
+        resp = requests.get(url)
+        self.assertThat(resp.status_code, Equals(401))
+        self.assertThat(resp.text, Contains('HTTP_AUTHORIZATION header missing'))
+
+        logger.info("Negative case with wrong creds")
+        resp = requests.get(url, auth=HTTPBasicAuth('bar', 'foo'))
+        self.assertThat(resp.status_code, Equals(401))
+
+# end class TestLocalAuth
 
 if __name__ == '__main__':
     ch = logging.StreamHandler()
