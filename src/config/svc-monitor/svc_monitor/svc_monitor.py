@@ -161,7 +161,7 @@ class SvcMonitor(object):
         if svc_type == 'analyzer':
             if_list = [['left', False]]
         elif hypervisor_type == 'network-namespace':
-            if_list = [['left', False], ['right', False]]
+            if_list = [['left', True], ['right', True]]
         else:
             if_list = [
                 ['management', False], ['left', False], ['right', False]]
