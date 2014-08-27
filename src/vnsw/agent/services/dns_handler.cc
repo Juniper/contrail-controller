@@ -895,18 +895,35 @@ bool DnsHandler::TimerExpiry(uint16_t xid) {
 void DnsHandler::GetDomainName(const VmInterface *vm_itf,
                                std::string *domain_name) const {
     std::vector<autogen::DhcpOptionType> options;
-    if (!vm_itf->GetDhcpOptions(&options))
-        return;
+    if (vm_itf->GetInterfaceDhcpOptions(&options)) {
+        if (GetDomainNameFromDhcp(options, domain_name))
+            return;
+    }
 
+    if (vm_itf->GetSubnetDhcpOptions(&options)) {
+        if (GetDomainNameFromDhcp(options, domain_name))
+            return;
+    }
+
+    if (vm_itf->GetIpamDhcpOptions(&options)) {
+        if (GetDomainNameFromDhcp(options, domain_name))
+            return;
+    }
+}
+
+bool DnsHandler::GetDomainNameFromDhcp(
+                    std::vector<autogen::DhcpOptionType> &options,
+                    std::string *domain_name) const {
     for (unsigned int i = 0; i < options.size(); ++i) {
         uint32_t option_type;
         std::stringstream str(options[i].dhcp_option_name);
         str >> option_type;
         if (option_type == DHCP_OPTION_DOMAIN_NAME) {
             *domain_name = options[i].dhcp_option_value;
-            return;
+            return true;
         }
     }
+    return false;
 }
 
 // remove domain name suffix from given name, if present
