@@ -2933,6 +2933,7 @@ class DBInterface(object):
         right_if = ServiceInstanceInterfaceType(
             virtual_network=ext_net_obj.get_fq_name_str())
         si_prop_obj.set_interface_list([left_if, right_if])
+        si_prop_obj.set_ha_mode('active-standby')
 
         si_obj.set_service_instance_properties(si_prop_obj)
         si_obj.set_service_template(st_obj)
