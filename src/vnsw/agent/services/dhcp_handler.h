@@ -5,6 +5,7 @@
 #ifndef vnsw_agent_dhcp_handler_hpp
 #define vnsw_agent_dhcp_handler_hpp
 
+#include <bitset>
 #include "pkt/proto_handler.h"
 #include "vnc_cfg_types.h"
 
@@ -286,12 +287,11 @@ public:
         NameCompression // data is name compressed (rfc1035)
     };
 
-    enum DhcpFlags {
-        RouterAdded = 1 << 0,
-        HostNameAdded = 1 << 1,
-        DnsServerAdded = 1 << 2,
-        DomainNameAdded = 1 << 3,
-        ClasslessRouteAdded = 1 << 4,
+    enum DhcpOptionLevel {
+        Invalid,
+        InterfaceLevel,
+        SubnetLevel,
+        IpamLevel
     };
 
     struct ConfigRecord {
@@ -374,6 +374,9 @@ private:
     void ReadClasslessRoute(uint32_t option, uint16_t opt_len,
                             const std::string &input);
     uint16_t AddConfigDhcpOptions(uint16_t opt_len);
+    uint16_t AddDhcpOptions(uint16_t opt_len,
+                            std::vector<autogen::DhcpOptionType> &options,
+                            DhcpOptionLevel level);
     uint16_t AddClasslessRouteOption(uint16_t opt_len);
     uint16_t FillDhcpResponse(unsigned char *dest_mac,
                               in_addr_t src_ip, in_addr_t dest_ip,
@@ -382,8 +385,8 @@ private:
     void UpdateStats();
     DhcpOptionCategory OptionCategory(uint32_t option) const;
     uint32_t OptionCode(const std::string &option) const;
-    bool is_flag_set(const DhcpFlags &flag) const { return (flags_ & flag); }
-    void set_flag(uint32_t flag) { flags_ |= flag; }
+    bool is_flag_set(uint8_t flag) const { return flags_[flag]; }
+    void set_flag(uint8_t flag) { flags_.set(flag); }
     DhcpOptions *GetNextOptionPtr(uint16_t optlen) {
         return reinterpret_cast<DhcpOptions *>(dhcp_->options + optlen);
     }
@@ -393,10 +396,11 @@ private:
     uint32_t vm_itf_index_;
     uint8_t msg_type_;
     uint8_t out_msg_type_;
-    // DhcpFlags to indicate whether these options are added to the response or not
-    uint32_t flags_;
+    // bitset to indicate whether these options are added to the response or not
+    std::bitset<256> flags_;
     // parse and store the host routes coming in config
     std::vector<OperDhcpOptions::Subnet> host_routes_;
+    DhcpOptionLevel host_routes_level_;
 
     std::string nak_msg_;
     ConfigRecord config_;
