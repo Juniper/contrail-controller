@@ -180,13 +180,17 @@ AgentEnv.AppendUnique(CONTRAIL_LIBS = [
 AgentEnv.AppendUnique(TEST_CMN_LIBS_PRE = [
     'agent_test',
     'ifmap_test',
+    'task_test',
     'control_node_mock',
     'gunit',
 ])
 
 AgentEnv.AppendUnique(TEST_CMN_LIBS_POST = [ 'agent_test_buildinfo' ])
 AgentEnv.AppendUnique(TEST_CMN_CPPPATH = [env['TOP'] + '/vnsw/agent/test'])
-AgentEnv.AppendUnique(TEST_CMN_LIBPATH = [env['TOP'] + '/vnsw/agent/test'])
+AgentEnv.AppendUnique(TEST_CMN_LIBPATH = [
+    env['TOP'] + '/base/test',
+    env['TOP'] + '/vnsw/agent/test',
+])
 AgentEnv.AppendUnique(TEST_CMN_CCFLAGS = [
     '-Wno-return-type',
     '-Wno-unused-function'
@@ -259,9 +263,6 @@ AgentEnv.AddMethod(MakeTestCmdWithSrcFn, 'MakeTestCmdSrc')
 AgentEnv.AddMethod(BuildExceptionCppObjFn, 'BuildExceptionCppObj')
 AgentEnv.AddMethod(BuildExceptionCcObjFn, 'BuildExceptionCcObj')
 AgentEnv.AddMethod(RemoveExceptionFlagFn, 'RemoveExceptionFlag')
-
-AgentEnv.Append(LIBPATH = env['TOP'] + '/base/test')
-AgentEnv.Append(LIBS = ['task_test'])
 
 Export('AgentEnv')
 
