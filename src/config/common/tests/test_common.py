@@ -19,6 +19,7 @@ import cfgm_common.ifmap.response as ifmap_response
 import kombu
 import discoveryclient.client as disc_client
 from cfgm_common.zkclient import ZookeeperClient
+from cfgm_common.uve.vnc_api.ttypes import VncApiConfigLog, VncApiError
 
 from test_utils import *
 sys.path.insert(0, '../../../../build/debug/api-lib/vnc_api')
@@ -59,11 +60,13 @@ def generate_conf_file_contents(conf_sections):
     return cfg_parser
 # end generate_conf_file_contents
 
-def launch_api_server(listen_ip, listen_port, http_server_port, conf_sections):
+def launch_api_server(listen_ip, listen_port, http_server_port, admin_port,
+                      conf_sections):
     args_str = ""
     args_str = args_str + "--listen_ip_addr %s " % (listen_ip)
     args_str = args_str + "--listen_port %s " % (listen_port)
     args_str = args_str + "--http_server_port %s " % (http_server_port)
+    args_str = args_str + "--admin_port %s " % (admin_port)
     args_str = args_str + "--cassandra_server_list 0.0.0.0:9160 "
 
     import cgitb
@@ -104,7 +107,13 @@ def launch_schema_transformer(api_server_ip, api_server_port):
     to_bgp.main(args_str)
 # end launch_schema_transformer
 
-def setup_flexmock():
+def setup_extra_flexmock(mocks):
+    for (cls, method_name, val) in mocks:
+        kwargs = {method_name: val}
+        flexmock(cls, **kwargs)
+# end setup_extra_flexmock
+
+def setup_common_flexmock():
     flexmock(novaclient.client, Client=FakeNovaClient.initialize)
     flexmock(ifmap_client.client, __init__=FakeIfmapClient.initialize,
              call=FakeIfmapClient.call,
@@ -126,9 +135,8 @@ def setup_flexmock():
     flexmock(kombu.Exchange, __new__=FakeKombu.Exchange)
     flexmock(kombu.Queue, __new__=FakeKombu.Queue)
 
-    from cfgm_common.uve.vnc_api.ttypes import VncApiConfigLog, VncApiError
     flexmock(VncApiConfigLog, __new__=FakeApiConfigLog)
-#end setup_flexmock
+#end setup_common_flexmock
 
 cov_handle = None
 class TestCase(testtools.TestCase, fixtures.TestWithFixtures):
@@ -217,14 +225,16 @@ class TestCase(testtools.TestCase, fixtures.TestWithFixtures):
         if not cov_handle:
             cov_handle = coverage.coverage(source=['./'], omit=['.venv/*'])
         cov_handle.start()
-        setup_flexmock()
+        setup_common_flexmock()
 
         self._api_server_ip = socket.gethostbyname(socket.gethostname())
         self._api_server_port = get_free_port()
         http_server_port = get_free_port()
+        self._api_admin_port = get_free_port()
         self._api_svr_greenlet = gevent.spawn(launch_api_server,
                                      self._api_server_ip, self._api_server_port,
-                                     http_server_port, self._config_knobs)
+                                     http_server_port, self._api_admin_port,
+                                     self._config_knobs)
         block_till_port_listened(self._api_server_ip, self._api_server_port)
         extra_env = {'HTTP_HOST':'%s%s' %(self._api_server_ip,
                                           self._api_server_port)}
