@@ -68,6 +68,7 @@ import cfgm_common
 from cfgm_common.rest import LinkObject
 from cfgm_common.exceptions import *
 from cfgm_common.vnc_extensions import ExtensionManager, ApiHookManager
+import gen.resource_xsd
 import vnc_addr_mgmt
 import vnc_auth
 import vnc_auth_keystone
@@ -644,6 +645,7 @@ class VncApiServer(VncApiServerGen):
                                          [--auth keystone]
                                          [--ifmap_server_loc
                                           /home/contrail/source/ifmap-server/]
+                                         [--default_encoding ascii ]
         '''
 
         # Source any specified config/ini file
@@ -723,6 +725,9 @@ class VncApiServer(VncApiServerGen):
                             QuotaHelper.default_quota[str(k)] = int(v)
                     except ValueError:
                         pass
+            if 'default_encoding' in config.options('DEFAULTS'):
+                default_encoding = config.get('DEFAULTS', 'default_encoding')
+                gen.resource_xsd.ExternalEncoding = default_encoding
 
         # Override with CLI options
         # Don't surpress add_help here so it will handle -h
