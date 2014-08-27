@@ -1861,17 +1861,20 @@ void VmInterface::UpdateL3Services(bool dhcp, bool dns) {
     dns_enabled_ = dns;
 }
 
-// Find DHCP options applicable to the Interface, based on following hierarchy
-// 1. Configured at the interface level
-// 2. Configured at subnet level
-// 3. Configured at ipam level
-bool VmInterface::GetDhcpOptions(
+// DHCP options applicable to the Interface
+bool VmInterface::GetInterfaceDhcpOptions(
                   std::vector<autogen::DhcpOptionType> *options) const {
     if (oper_dhcp_options().are_dhcp_options_set()) {
         *options = oper_dhcp_options().dhcp_options();
         return true;
     }
 
+    return false;
+}
+
+// DHCP options applicable to the Subnet to which the interface belongs
+bool VmInterface::GetSubnetDhcpOptions(
+                  std::vector<autogen::DhcpOptionType> *options) const {
     if (vn()) {
         const std::vector<VnIpam> &vn_ipam = vn()->GetVnIpam();
         uint32_t index;
@@ -1885,7 +1888,15 @@ bool VmInterface::GetDhcpOptions(
             *options = vn_ipam[index].oper_dhcp_options.dhcp_options();
             return true;
         }
+    }
 
+    return false;
+}
+
+// DHCP options applicable to the Ipam to which the interface belongs
+bool VmInterface::GetIpamDhcpOptions(
+                  std::vector<autogen::DhcpOptionType> *options) const {
+    if (vn()) {
         std::string ipam_name;
         autogen::IpamType ipam_type;
         if (vn()->GetIpamData(ip_addr(), &ipam_name, &ipam_type)) {
