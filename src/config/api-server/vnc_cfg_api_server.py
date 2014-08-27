@@ -89,6 +89,7 @@ from sandesh.traces.ttypes import RestApiTrace
 
 _WEB_HOST = '0.0.0.0'
 _WEB_PORT = 8082
+_ADMIN_PORT = 8095
 
 _ACTION_RESOURCES = [
     {'uri': '/ref-update', 'link_name': 'ref-update',
@@ -695,6 +696,7 @@ class VncApiServer(VncApiServerGen):
                                          --http_server_port 8090
                                          --listen_ip_addr 127.0.0.1
                                          --listen_port 8082
+                                         --admin_port 8095
                                          --log_local
                                          --log_level SYS_DEBUG
                                          --logging_level DEBUG
@@ -727,6 +729,7 @@ class VncApiServer(VncApiServerGen):
             'wipe_config': False,
             'listen_ip_addr': _WEB_HOST,
             'listen_port': _WEB_PORT,
+            'admin_port': _ADMIN_PORT,
             'ifmap_server_ip': '127.0.0.1',
             'ifmap_server_port': "8443",
             'collectors': None,
@@ -847,6 +850,10 @@ class VncApiServer(VncApiServerGen):
         parser.add_argument(
             "--listen_port",
             help="Port to provide service on, default %s" % (_WEB_PORT))
+        parser.add_argument(
+            "--admin_port",
+            help="Port with local auth for admin access, default %s"
+                  % (_ADMIN_PORT))
         parser.add_argument(
             "--collectors",
             help="List of VNC collectors in ip:port format",
