@@ -1011,7 +1011,8 @@ class VncApiServer(VncApiServerGen):
     def config_object_error(self, id, fq_name_str, obj_type,
                             operation, err_str):
         apiConfig = VncApiCommon()
-        apiConfig.object_type = obj_type.replace('-', '_')
+        if object_type is not None:
+            apiConfig.object_type = obj_type.replace('-', '_')
         apiConfig.identifier_name = fq_name_str
         apiConfig.identifier_uuid = id
         apiConfig.operation = operation
