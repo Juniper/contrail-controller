@@ -32,7 +32,7 @@ const string SERVICE_ANALYTICS_SUPERVISOR = "supervisor-analytics"
 const string SERVICE_CONTROL_SUPERVISOR = "supervisor-control"
 const string SERVICE_CONFIG_SUPERVISOR = "supervisor-config"
 const string SERVICE_COMPUTE_SUPERVISOR = "supervisor-vrouter"
-const string SERVICE_DATABASE_SUPERVISOR = "supervisord-contrail-database"
+const string SERVICE_DATABASE_SUPERVISOR = "supervisor-database"
 const string SERVICE_WEBUI_SUPERVISOR = "supervisor-webui"
 
 // Http Server (Introspect) Ports
