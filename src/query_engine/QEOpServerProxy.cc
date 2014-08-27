@@ -23,6 +23,7 @@
 #include "query.h"
 #include "analytics_types.h"
 #include "stats_select.h"
+#include <base/connection_info.h>
 
 using std::list;
 using std::string;
@@ -37,6 +38,9 @@ using boost::scoped_ptr;
 using std::pair;
 using std::auto_ptr;
 using std::make_pair;
+using process::ConnectionState;
+using process::ConnectionType;
+using process::ConnectionStatus;
 
 extern RedisAsyncConnection * rac_alloc(EventManager *, const std::string & ,unsigned short,
 RedisAsyncConnection::ClientConnectCbFn ,
@@ -754,6 +758,9 @@ public:
 
     void ConnUp(uint8_t cnum) {
         QE_LOG_NOQID(DEBUG, "ConnUp.. UP " << cnum);
+        ConnectionState::GetInstance()->Update(ConnectionType::REDIS,
+                "Query", ConnectionStatus::UP, conns_[cnum]->Endpoint(),
+                std::string());
         qosp_->evm_->io_service()->post(
                 boost::bind(&QEOpServerImpl::ConnUpPostProcess,
                         this, cnum));
@@ -762,6 +769,9 @@ public:
     void ConnDown(uint8_t cnum) {
         QE_LOG_NOQID(DEBUG, "ConnDown.. DOWN.. Reconnect.." << cnum);
         connState_[cnum] = false;
+        ConnectionState::GetInstance()->Update(ConnectionType::REDIS,
+                "Query", ConnectionStatus::DOWN, conns_[cnum]->Endpoint(),
+                std::string());
         qosp_->evm_->io_service()->post(boost::bind(&RedisAsyncConnection::RAC_Connect,
             conns_[cnum].get()));
     }

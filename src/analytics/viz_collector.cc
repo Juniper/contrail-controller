@@ -150,11 +150,11 @@ void VizCollector::StartDbifReinit() {
 
 bool VizCollector::Init() {
     boost::system::error_code ec;
-    boost::asio::ip::address db_addr(boost::asio::ip::address::from_string(
-        db_handler_->GetHost(), ec));
-    boost::asio::ip::tcp::endpoint db_endpoint(db_addr, db_handler_->GetPort());
     if (!db_handler_->Init(true, -1)) {
         // Update connection info
+        boost::asio::ip::address db_addr(boost::asio::ip::address::from_string(
+            db_handler_->GetHost(), ec));
+        boost::asio::ip::tcp::endpoint db_endpoint(db_addr, db_handler_->GetPort());
         ConnectionState::GetInstance()->Update(ConnectionType::DATABASE,
             std::string(), ConnectionStatus::DOWN, db_endpoint, std::string()); 
         LOG(DEBUG, __func__ << " DB Handler initialization failed");
@@ -162,6 +162,9 @@ bool VizCollector::Init() {
         return false;
     }
     // Update connection info
+    boost::asio::ip::address db_addr(boost::asio::ip::address::from_string(
+        db_handler_->GetHost(), ec));
+    boost::asio::ip::tcp::endpoint db_endpoint(db_addr, db_handler_->GetPort());
     ConnectionState::GetInstance()->Update(ConnectionType::DATABASE,
         std::string(), ConnectionStatus::UP, db_endpoint, std::string()); 
     ruleeng_->Init();
