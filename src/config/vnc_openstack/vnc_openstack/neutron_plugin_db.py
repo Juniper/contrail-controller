@@ -3248,6 +3248,9 @@ class DBInterface(object):
 
         self._set_snat_routing_table(router_obj, subnet['network_id'])
         vmi_obj = self._vnc_lib.virtual_machine_interface_read(id=port_id)
+        vmi_obj.set_virtual_machine_interface_device_owner(
+            constants.DEVICE_OWNER_ROUTER_INTF)
+        vmi_obj = self._vnc_lib.virtual_machine_interface_update(vmi_obj)
         router_obj.add_virtual_machine_interface(vmi_obj)
         self._logical_router_update(router_obj)
         info = {'id': router_id,
