@@ -26,6 +26,7 @@ import subprocess
 import netaddr
 from bitarray import bitarray
 
+from cfgm_common import ignore_exceptions
 from cfgm_common.ifmap.client import client, namespaces
 from cfgm_common.ifmap.request import NewSessionRequest, RenewSessionRequest,\
     EndSessionRequest, PublishRequest, SearchRequest, SubscribeRequest,\
@@ -67,8 +68,30 @@ from pysandesh.connection_info import ConnectionState
 from pysandesh.gen_py.process_info.ttypes import ConnectionStatus, \
     ConnectionType
 
+from sandesh.traces.ttypes import DBRequestTrace, MessageBusNotifyTrace, \
+    IfmapTrace
+
 import logging
 logger = logging.getLogger(__name__)
+
+@ignore_exceptions
+def get_trace_id():
+    try:
+        req_id = gevent.getcurrent().trace_request_id
+    except Exception:
+        req_id = 'req-%s' %(str(uuid.uuid4()))
+        gevent.getcurrent().trace_request_id = req_id
+
+    return req_id
+# end get_trace_id
+
+@ignore_exceptions
+def trace_msg(trace_obj, trace_name, sandesh_hdl, error_msg=None):
+    if trace_obj:
+        if error_msg:
+            trace_obj.error = error_msg
+        trace_obj.trace_msg(name=trace_name, sandesh=sandesh_hdl)
+# end trace_msg
 
 class VncIfmapClient(VncIfmapClientGen):
 
@@ -98,6 +121,7 @@ class VncIfmapClient(VncIfmapClientGen):
         }
 
         self._db_client_mgr = db_client_mgr
+        self._sandesh = db_client_mgr._sandesh
 
         ConnectionState.update(conn_type = ConnectionType.IFMAP,
             name = 'IfMap', status = ConnectionStatus.INIT, message = '',
@@ -226,17 +250,48 @@ class VncIfmapClient(VncIfmapClientGen):
             'ifmap-server', ifmap_srv_ip, ifmap_srv_port)
     # end _launch_mapserver
 
+    @ignore_exceptions
+    def _generate_ifmap_trace(self, oper, body):
+        req_id = get_trace_id()
+        ifmap_trace = IfmapTrace(request_id=req_id)
+        ifmap_trace.operation = oper
+        ifmap_trace.body = body
+
+        return ifmap_trace
+    # end _generate_ifmap_trace
+
+    def _publish_with_trace(self, oper, oper_body, async):
+        trace = self._generate_ifmap_trace(oper, oper_body)
+        if async:
+            method = getattr(self._mapclient, 'call_async_result')
+        else:
+            method = getattr(self._mapclient, 'call')
+
+        try:
+            sess_id = self._mapclient.get_session_id()
+            method('publish', PublishRequest(sess_id, oper_body))
+            trace_msg(trace, 'IfmapTraceBuf', self._sandesh)
+        except Exception as e:
+            trace_msg(trace, 'IfmapTraceBuf', self._sandesh, error_msg=str(e))
+            log_str = 'Failed to publish %s body %s to ifmap: %s' %(oper,
+                oper_body, str(e))
+            logger.error(log_str)
+            self._db_client_mgr.config_log_error(log_str)
+            raise
+    # end _publish_with_trace
+
     def _delete_id_self_meta(self, self_imid, meta_name):
         mapclient = self._mapclient
 
-        pubreq = PublishRequest(mapclient.get_session_id(),
-                                str(PublishDeleteOperation(
-                                    id1=str(Identity(
-                                            name=self_imid,
-                                            type="other",
-                                            other_type="extended")),
-                                    filter=meta_name)))
-        result = mapclient.call('publish', pubreq)
+        del_str = str(PublishDeleteOperation(
+                          id1=str(Identity(
+                                  name=self_imid,
+                                  type="other",
+                                  other_type="extended")),
+                          filter=meta_name))
+
+        self._publish_with_trace('delete', del_str, async=False)
+
         # del meta from cache and del id if this was last meta
         if meta_name:
             prop_name = meta_name.replace('contrail:', '')
@@ -250,18 +305,18 @@ class VncIfmapClient(VncIfmapClientGen):
     def _delete_id_pair_meta(self, id1, id2, metadata):
         mapclient = self._mapclient
 
-        pubreq = PublishRequest(mapclient.get_session_id(),
-                                str(PublishDeleteOperation(
-                                    id1=str(Identity(
-                                            name=id1,
-                                            type="other",
-                                            other_type="extended")),
-                                    id2=str(Identity(
-                                            name=id2,
-                                            type="other",
-                                            other_type="extended")),
-                                    filter=metadata)))
-        result = mapclient.call('publish', pubreq)
+        del_str = str(PublishDeleteOperation(
+                      id1=str(Identity(
+                              name=id1,
+                              type="other",
+                              other_type="extended")),
+                      id2=str(Identity(
+                              name=id2,
+                              type="other",
+                              other_type="extended")),
+                      filter=metadata))
+
+        self._publish_with_trace('delete', del_str, async=False)
 
         # del meta,id2 from cache and del id if this was last meta
         def _id_to_metas_delete(id1, id2, meta_name):
@@ -384,13 +439,12 @@ class VncIfmapClient(VncIfmapClientGen):
                 upd_str = \
                     ''.join(''.join(request) for request in \
                         self._ifmap_db.accumulator)
-                mapclient.call_async_result('publish',
-                            PublishRequest(mapclient.get_session_id(), upd_str))
+                self._publish_with_trace('update', upd_str, async=True)
                 self.accumulator = []
                 self.accumulated_request_len = 0
         else:
-            mapclient.call_async_result('publish',
-                PublishRequest(mapclient.get_session_id(), ''.join(requests)))
+            upd_str = ''.join(requests)
+            self._publish_with_trace('update', upd_str, async=True)
     # end _publish_update
 
     def _search(self, start_id, match_meta=None, result_meta=None,
@@ -1013,6 +1067,7 @@ class VncKombuClient(object):
 
     def __init__(self, db_client_mgr, rabbit_ip, rabbit_port, ifmap_db, rabbit_user, rabbit_password, rabbit_vhost):
         self._db_client_mgr = db_client_mgr
+        self._sandesh = db_client_mgr._sandesh
         self._ifmap_db = ifmap_db
         self._rabbit_ip = rabbit_ip
         self._rabbit_port = rabbit_port
@@ -1068,6 +1123,19 @@ class VncKombuClient(object):
         return self._publish_queue.qsize()
     # end dbe_oper_publish_pending
 
+    @ignore_exceptions
+    def _generate_msgbus_notify_trace(self, oper_info):
+        req_id = oper_info.get('request-id',
+            'req-%s' %(str(uuid.uuid4())))
+        gevent.getcurrent().trace_request_id = req_id
+
+        notify_trace = MessageBusNotifyTrace(request_id=req_id)
+        notify_trace.operation = oper_info.get('oper', '')
+        notify_trace.body = json.dumps(oper_info)
+
+        return notify_trace
+    # end _generate_msgbus_notify_trace
+
     def _dbe_oper_subscribe(self):
         if self._rabbit_vhost == "__NONE__":
             return
@@ -1078,14 +1146,18 @@ class VncKombuClient(object):
                 try:
                     message = queue.get()
                 except Exception as e:
-                    logger.info("Disconnected from rabbitmq. Reinitializing connection: %s" % str(e))
+                    logger.warn("Disconnected from rabbitmq. Reinitializing connection: %s" % str(e))
                     self._init_server_conn(self._rabbit_ip, self._rabbit_port, self._rabbit_user, self._rabbit_password, self._rabbit_vhost)
                     # never reached
                     continue
 
+                trace = None
                 try:
                     oper_info = message.payload
-                    print "\nNotification Message: %s\n" %(pformat(oper_info))
+
+                    if logger.isEnabledFor(logging.DEBUG):
+                        logger.debug("\nNotification Message: %s\n" %(pformat(oper_info)))
+                    trace = self._generate_msgbus_notify_trace(oper_info)
 
                     if oper_info['oper'] == 'CREATE':
                         self._dbe_create_notification(oper_info)
@@ -1093,23 +1165,32 @@ class VncKombuClient(object):
                         self._dbe_update_notification(oper_info)
                     elif oper_info['oper'] == 'DELETE':
                         self._dbe_delete_notification(oper_info)
+
+                    trace_msg(trace, 'MessageBusNotifyTraceBuf', self._sandesh)
                 except Exception as e:
                     string_buf = cStringIO.StringIO()
                     cgitb.Hook(file=string_buf, format="text").handle(sys.exc_info())
-                    logger.error("Exception in _dbe_oper_subscribe :\n%s" %(string_buf.getvalue()))
+                    errmsg = string_buf.getvalue()
+                    logger.error("Exception in _dbe_oper_subscribe :\n%s" %(errmsg))
                     self._db_client_mgr.config_log_error(string_buf.getvalue())
+                    trace_msg(trace, name='MessageBusNotifyTraceBuf',
+                              sandesh=self._sandesh, error_msg=errmsg)
                 finally:
                     try:
                         message.ack()
                     except Exception as e:
-                        logger.info("Disconnected from rabbitmq. Reinitializing connection: %s" % str(e))
+                        logger.warn("Disconnected from rabbitmq. Reinitializing connection: %s" % str(e))
                         self._init_server_conn(self._rabbit_ip, self._rabbit_port, self._rabbit_user, self._rabbit_password, self._rabbit_vhost)
                         # never reached
 
     #end _dbe_oper_subscribe
 
     def dbe_create_publish(self, obj_type, obj_ids, obj_dict):
-        oper_info = {'oper': 'CREATE', 'type': obj_type, 'obj_dict': obj_dict}
+        req_id = get_trace_id()
+        oper_info = {'request-id': req_id,
+                     'oper': 'CREATE',
+                     'type': obj_type,
+                     'obj_dict': obj_dict}
         oper_info.update(obj_ids)
         self._obj_update_q_put(oper_info)
     # end dbe_create_publish
@@ -1121,8 +1202,9 @@ class VncKombuClient(object):
             r_class = self._db_client_mgr.get_resource_class(obj_info['type'])
             if r_class:
                 r_class.dbe_create_notification(obj_info, obj_dict)
-        except:
-            self._db_client_mgr.config_log_error("Failed to invoke type specific dbe_create_notification")
+        except Exception as e:
+            err_msg = "Failed to invoke type specific dbe_create_notification %s" %(str(e))
+            self._db_client_mgr.config_log_error(err_msg)
             raise
         finally:
             method_name = obj_info['type'].replace('-', '_')
@@ -1297,6 +1379,7 @@ class VncDbClient(object):
                  zk_server_ip=None, db_prefix=''):
 
         self._api_svr_mgr = api_svr_mgr
+        self._sandesh = api_svr_mgr._sandesh
 
         # certificate auth
         ssl_options = None
@@ -1474,6 +1557,19 @@ class VncDbClient(object):
             return {'uuid': obj_uuid, 'type': obj_type, 'error': str(e)}
     # end _dbe_read
 
+    @ignore_exceptions
+    def _generate_db_request_trace(self, oper, obj_type, obj_ids, obj_dict):
+        req_id = get_trace_id()
+
+        body = dict(obj_dict)
+        body['type'] = obj_type
+        body.update(obj_ids)
+        db_trace = DBRequestTrace(request_id=req_id)
+        db_trace.operation = oper
+        db_trace.body = json.dumps(body)
+        return db_trace
+    # end _generate_db_request_trace
+
     # Public Methods
     # Returns created ifmap_id
     def dbe_alloc(self, obj_type, obj_dict, uuid_requested=None):
@@ -1502,8 +1598,27 @@ class VncDbClient(object):
         return (True, obj_ids)
     # end dbe_alloc
 
+    def dbe_trace(oper):
+        def wrapper1(func):
+            def wrapper2(self, obj_type, obj_ids, obj_dict):
+                trace = self._generate_db_request_trace(oper, obj_type,
+                                                        obj_ids, obj_dict)
+                try:
+                    ret = func(self, obj_type, obj_ids, obj_dict)
+                    trace_msg(trace, 'DBRequestTraceBuf',
+                              self._sandesh)
+                    return ret
+                except Exception as e:
+                    trace_msg(trace, 'DBRequestTraceBuf',
+                              self._sandesh, error_msg=str(e))
+                    raise
+
+            return wrapper2
+        return wrapper1
+    # dbe_trace
+
+    @dbe_trace('create')
     def dbe_create(self, obj_type, obj_ids, obj_dict):
-        #self._cassandra_db.uuid_create(obj_type, obj_ids, obj_dict)
         method_name = obj_type.replace('-', '_')
         method = getattr(
             self._cassandra_db, "_cassandra_%s_create" % (method_name))
@@ -1551,6 +1666,7 @@ class VncDbClient(object):
             return (False, str(e))
     # end dbe_is_latest
 
+    @dbe_trace('update')
     def dbe_update(self, obj_type, obj_ids, new_obj_dict):
         method_name = obj_type.replace('-', '_')
         method = getattr(self._cassandra_db,
@@ -1575,6 +1691,7 @@ class VncDbClient(object):
         return (ok, cassandra_result)
     # end dbe_list
 
+    @dbe_trace('delete')
     def dbe_delete(self, obj_type, obj_ids, obj_dict):
         method_name = obj_type.replace('-', '_')
         method = getattr(
