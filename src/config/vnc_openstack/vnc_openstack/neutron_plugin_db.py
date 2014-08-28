@@ -1672,9 +1672,10 @@ class DBInterface(object):
         dhcp_option_list = None
         if 'dns_nameservers' in subnet_q and subnet_q['dns_nameservers']:
             dhcp_options=[]
-            for dns_server in subnet_q['dns_nameservers']:
+            dns_servers=" ".join(subnet_q['dns_nameservers'])
+            if dns_servers:
                 dhcp_options.append(DhcpOptionType(dhcp_option_name='6',
-                                                   dhcp_option_value=dns_server))
+                                                   dhcp_option_value=dns_servers))
             if dhcp_options:
                 dhcp_option_list = DhcpOptionsListType(dhcp_options)
 
@@ -1755,9 +1756,11 @@ class DBInterface(object):
         if dhcp_option_list:
             for dhcp_option in dhcp_option_list.dhcp_option:
                 if dhcp_option.get_dhcp_option_name() == '6':
-                    nameserver_entry = {'address': dhcp_option.get_dhcp_option_value(),
-                                        'subnet_id': sn_id}
-                    nameserver_dict_list.append(nameserver_entry)
+                    dns_servers = dhcp_option.get_dhcp_option_value().split()
+                    for dns_server in dns_servers:
+                        nameserver_entry = {'address': dns_server,
+                                            'subnet_id': sn_id}
+                        nameserver_dict_list.append(nameserver_entry)
         sn_q_dict['dns_nameservers'] = nameserver_dict_list
 
         host_route_dict_list = list()
@@ -2573,9 +2576,10 @@ class DBInterface(object):
                     if 'dns_nameservers' in subnet_q:
                         if subnet_q['dns_nameservers'] != None:
                             dhcp_options=[]
-                            for dns_server in subnet_q['dns_nameservers']:
+                            dns_servers=" ".join(subnet_q['dns_nameservers'])
+                            if dns_servers:
                                 dhcp_options.append(DhcpOptionType(dhcp_option_name='6',
-                                                                   dhcp_option_value=dns_server))
+                                                                   dhcp_option_value=dns_servers))
                             if dhcp_options:
                                 subnet_vnc.set_dhcp_option_list(DhcpOptionsListType(dhcp_options))
                             else:
