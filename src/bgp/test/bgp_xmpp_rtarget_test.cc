@@ -106,12 +106,12 @@ static const char *config_mx_vrf = "\
 </config>\
 ";
 
-class RTargetPeerTest : public ::testing::Test {
+class BgpXmppRTargetTest : public ::testing::Test {
 protected:
     static const int kRouteCount = 8;
     static const int kRtGroupCount = 8;
 
-    RTargetPeerTest()
+    BgpXmppRTargetTest()
         : thread_(&evm_), cn1_xmpp_server_(NULL), cn2_xmpp_server_(NULL) {
     }
 
@@ -714,7 +714,7 @@ protected:
     static int validate_done_;
 };
 
-int RTargetPeerTest::validate_done_;
+int BgpXmppRTargetTest::validate_done_;
 
 static string BuildPrefix(int idx = 1) {
     string prefix = string("10.1.1.") + integerToString(idx) + "/32";
@@ -724,7 +724,7 @@ static string BuildPrefix(int idx = 1) {
 //
 // Add and Delete RtGroup due to trigger from RoutePathReplicator.
 //
-TEST_F(RTargetPeerTest, AddDeleteRtGroup1) {
+TEST_F(BgpXmppRTargetTest, AddDeleteRtGroup1) {
     AddRouteTarget(mx_.get(), "blue", "target:1:99");
     VerifyRtGroupExists(mx_.get(), "target:1:99");
     RemoveRouteTarget(mx_.get(), "blue", "target:1:99");
@@ -734,7 +734,7 @@ TEST_F(RTargetPeerTest, AddDeleteRtGroup1) {
 //
 // Add and Delete RtGroup due to trigger from VPN route.
 //
-TEST_F(RTargetPeerTest, AddDeleteRtGroup2) {
+TEST_F(BgpXmppRTargetTest, AddDeleteRtGroup2) {
     SubscribeAgents("blue", 1);
     AddInetRoute(mx_.get(), NULL, "blue", BuildPrefix());
 
@@ -755,7 +755,7 @@ TEST_F(RTargetPeerTest, AddDeleteRtGroup2) {
 //
 // Add and Delete RtGroup due to trigger from RTargetRoute.
 //
-TEST_F(RTargetPeerTest, AddDeleteRtGroup3) {
+TEST_F(BgpXmppRTargetTest, AddDeleteRtGroup3) {
     SubscribeAgents("blue", 1);
 
     AddRouteTarget(cn1_.get(), "blue", "target:1:99");
@@ -770,7 +770,7 @@ TEST_F(RTargetPeerTest, AddDeleteRtGroup3) {
 //
 // Add and Delete multiple RtGroups due to trigger from RoutePathReplicator.
 //
-TEST_F(RTargetPeerTest, AddDeleteMultipleRtGroup1) {
+TEST_F(BgpXmppRTargetTest, AddDeleteMultipleRtGroup1) {
     for (int idx = 1; idx <= kRtGroupCount; ++idx) {
         string rtarget_str = string("target:1:90") + integerToString(idx);
         AddRouteTarget(mx_.get(), "blue", rtarget_str);
@@ -795,7 +795,7 @@ TEST_F(RTargetPeerTest, AddDeleteMultipleRtGroup1) {
 //
 // Add and Delete multiple RtGroups due to trigger from VPN route.
 //
-TEST_F(RTargetPeerTest, AddDeleteMultipleRtGroup2) {
+TEST_F(BgpXmppRTargetTest, AddDeleteMultipleRtGroup2) {
     SubscribeAgents("blue", 1);
     AddInetRoute(mx_.get(), NULL, "blue", BuildPrefix());
     AddRouteTarget(mx_.get(), "blue", "target:64496:1");
@@ -828,7 +828,7 @@ TEST_F(RTargetPeerTest, AddDeleteMultipleRtGroup2) {
 //
 // Add and Delete multiple RtGroups due to trigger from RTargetRoute.
 //
-TEST_F(RTargetPeerTest, AddDeleteMultipleRtGroup3) {
+TEST_F(BgpXmppRTargetTest, AddDeleteMultipleRtGroup3) {
     SubscribeAgents("blue", 1);
 
     for (int idx = 1; idx <= kRtGroupCount; ++idx) {
@@ -858,7 +858,7 @@ TEST_F(RTargetPeerTest, AddDeleteMultipleRtGroup3) {
 // Add, Delete and Add RtGroup due to trigger from RoutePathReplicator.
 // RtGroup list processing is disabled after initial add.
 //
-TEST_F(RTargetPeerTest, ResurrectRtGroup1) {
+TEST_F(BgpXmppRTargetTest, ResurrectRtGroup1) {
     AddRouteTarget(mx_.get(), "blue", "target:1:99");
     TASK_UTIL_EXPECT_EQ(2, GetExportRouteTargetListSize(mx_.get(), "blue"));
     RtGroup *rtgroup1 = VerifyRtGroupExists(mx_.get(), "target:1:99");
@@ -888,7 +888,7 @@ TEST_F(RTargetPeerTest, ResurrectRtGroup1) {
 // Add, Delete and Add RtGroup due to trigger from VPN route.
 // RtGroup list processing is disabled after initial add.
 //
-TEST_F(RTargetPeerTest, ResurrectRtGroup2) {
+TEST_F(BgpXmppRTargetTest, ResurrectRtGroup2) {
     agent_a_1_->Subscribe("blue", 1);
     AddInetRoute(mx_.get(), NULL, "blue", BuildPrefix());
 
@@ -925,7 +925,7 @@ TEST_F(RTargetPeerTest, ResurrectRtGroup2) {
 // Add, Delete and Add RtGroup due to trigger from RTargetRoute.
 // RtGroup list processing is disabled after initial add.
 //
-TEST_F(RTargetPeerTest, ResurrectRtGroup3) {
+TEST_F(BgpXmppRTargetTest, ResurrectRtGroup3) {
     agent_a_1_->Subscribe("blue", 1);
 
     AddRouteTarget(cn1_.get(), "blue", "target:1:99");
@@ -957,7 +957,7 @@ TEST_F(RTargetPeerTest, ResurrectRtGroup3) {
 //
 // Add and Delete route from MX and verify it's updated on CNs.
 //
-TEST_F(RTargetPeerTest, AddDeleteRoute) {
+TEST_F(BgpXmppRTargetTest, AddDeleteRoute) {
     AddRouteTarget(mx_.get(), "blue", "target:64496:1");
     TASK_UTIL_EXPECT_EQ(2, GetExportRouteTargetListSize(mx_.get(), "blue"));
 
@@ -983,7 +983,7 @@ TEST_F(RTargetPeerTest, AddDeleteRoute) {
 //
 // Add and Delete multiple routes from MX and verify they are updated on CNs.
 //
-TEST_F(RTargetPeerTest, AddDeleteMultipleRoute) {
+TEST_F(BgpXmppRTargetTest, AddDeleteMultipleRoute) {
     AddRouteTarget(mx_.get(), "blue", "target:64496:1");
     TASK_UTIL_EXPECT_EQ(2, GetExportRouteTargetListSize(mx_.get(), "blue"));
 
@@ -1024,7 +1024,7 @@ TEST_F(RTargetPeerTest, AddDeleteMultipleRoute) {
 // VRFs.
 // Route is added after the agents subscribe to the VRFs.
 //
-TEST_F(RTargetPeerTest, AddDeleteRouteWithMultipleTargets1) {
+TEST_F(BgpXmppRTargetTest, AddDeleteRouteWithMultipleTargets1) {
     AddRouteTarget(mx_.get(), "blue", "target:1:2001");
     TASK_UTIL_EXPECT_EQ(2, GetExportRouteTargetListSize(mx_.get(), "blue"));
 
@@ -1056,7 +1056,7 @@ TEST_F(RTargetPeerTest, AddDeleteRouteWithMultipleTargets1) {
 // VRFs.
 // Route is added after the agents subscribe to the VRFs.
 //
-TEST_F(RTargetPeerTest, AddDeleteRouteWithMultipleTargets2) {
+TEST_F(BgpXmppRTargetTest, AddDeleteRouteWithMultipleTargets2) {
     AddRouteTarget(mx_.get(), "blue", "target:1:2001");
     TASK_UTIL_EXPECT_EQ(2, GetExportRouteTargetListSize(mx_.get(), "blue"));
 
@@ -1096,7 +1096,7 @@ TEST_F(RTargetPeerTest, AddDeleteRouteWithMultipleTargets2) {
 // VRFs.
 // Route is added before the agents subscribe to the VRFs.
 //
-TEST_F(RTargetPeerTest, AddDeleteRouteWithMultipleTargets3) {
+TEST_F(BgpXmppRTargetTest, AddDeleteRouteWithMultipleTargets3) {
     AddRouteTarget(mx_.get(), "blue", "target:1:2001");
     TASK_UTIL_EXPECT_EQ(2, GetExportRouteTargetListSize(mx_.get(), "blue"));
     AddRouteTarget(cn1_.get(), "blue", "target:1:1001");
@@ -1124,7 +1124,7 @@ TEST_F(RTargetPeerTest, AddDeleteRouteWithMultipleTargets3) {
 // withdrawal of RTargetRoutes from CNs and hence advertisement/withdrawal
 // of VPN route from MX.
 //
-TEST_F(RTargetPeerTest, SubscribeUnsubscribe1) {
+TEST_F(BgpXmppRTargetTest, SubscribeUnsubscribe1) {
     AddRouteTarget(mx_.get(), "blue", "target:64496:1");
     TASK_UTIL_EXPECT_EQ(2, GetExportRouteTargetListSize(mx_.get(), "blue"));
 
@@ -1172,7 +1172,7 @@ TEST_F(RTargetPeerTest, SubscribeUnsubscribe1) {
 // of VPN route from MX.
 // RTargetRoute must be withdrawn only when the last agent has unsubscribed.
 //
-TEST_F(RTargetPeerTest, SubscribeUnsubscribe2) {
+TEST_F(BgpXmppRTargetTest, SubscribeUnsubscribe2) {
     AddRouteTarget(mx_.get(), "blue", "target:64496:1");
     TASK_UTIL_EXPECT_EQ(2, GetExportRouteTargetListSize(mx_.get(), "blue"));
 
@@ -1212,7 +1212,7 @@ TEST_F(RTargetPeerTest, SubscribeUnsubscribe2) {
 //
 // Duplicate unsubscribe should not cause any problem.
 //
-TEST_F(RTargetPeerTest, DuplicateUnsubscribe) {
+TEST_F(BgpXmppRTargetTest, DuplicateUnsubscribe) {
     SubscribeAgents("blue", 1);
     UnsubscribeAgents("blue");
     UnsubscribeAgents("blue");
@@ -1224,7 +1224,7 @@ TEST_F(RTargetPeerTest, DuplicateUnsubscribe) {
 // of all VPN route from MX.
 // RTargetRoute must be withdrawn only when the last agent has unsubscribed.
 //
-TEST_F(RTargetPeerTest, SubscribeUnsubscribeMultipleRoute) {
+TEST_F(BgpXmppRTargetTest, SubscribeUnsubscribeMultipleRoute) {
     AddRouteTarget(mx_.get(), "blue", "target:64496:1");
     TASK_UTIL_EXPECT_EQ(2, GetExportRouteTargetListSize(mx_.get(), "blue"));
 
@@ -1284,7 +1284,7 @@ TEST_F(RTargetPeerTest, SubscribeUnsubscribeMultipleRoute) {
 // That should cause the route to get imported/un-imported from VRFs on CNs.
 // The 2 CNs use the same RT for the VRF.
 //
-TEST_F(RTargetPeerTest, AddDeleteRTargetToRoute1) {
+TEST_F(BgpXmppRTargetTest, AddDeleteRTargetToRoute1) {
     AddInetRoute(mx_.get(), NULL, "blue", BuildPrefix());
 
     SubscribeAgents("blue", 1);
@@ -1315,7 +1315,7 @@ TEST_F(RTargetPeerTest, AddDeleteRTargetToRoute1) {
 // That should cause the route to get imported/unimported to/from VRFs on CNs.
 // The 2 CNs use different RTs for the VRF.
 //
-TEST_F(RTargetPeerTest, AddDeleteRTargetToRoute2) {
+TEST_F(BgpXmppRTargetTest, AddDeleteRTargetToRoute2) {
     AddInetRoute(mx_.get(), NULL, "blue", BuildPrefix());
 
     AddRouteTarget(cn1_.get(), "blue", "target:1:101");
@@ -1366,7 +1366,7 @@ TEST_F(RTargetPeerTest, AddDeleteRTargetToRoute2) {
 // That should cause the route to get imported/unimported to/from VRFs on CNs.
 // The 2 CNs use different RTs for the VRF.
 //
-TEST_F(RTargetPeerTest, AddDeleteRTargetToRoute3) {
+TEST_F(BgpXmppRTargetTest, AddDeleteRTargetToRoute3) {
     AddInetRoute(mx_.get(), NULL, "blue", BuildPrefix());
 
     AddRouteTarget(cn1_.get(), "blue", "target:1:101");
@@ -1400,7 +1400,7 @@ TEST_F(RTargetPeerTest, AddDeleteRTargetToRoute3) {
     DeleteInetRoute(mx_.get(), NULL, "blue", BuildPrefix());
 }
 
-TEST_F(RTargetPeerTest, AddDeleteRTargetToInstance) {
+TEST_F(BgpXmppRTargetTest, AddDeleteRTargetToInstance) {
     AddInetRoute(mx_.get(), NULL, "blue", BuildPrefix());
 
     SubscribeAgents("blue", 1);
@@ -1445,7 +1445,7 @@ TEST_F(RTargetPeerTest, AddDeleteRTargetToInstance) {
 // That should cause the corresponding RouteTarget routes to get advertised
 // and withdrawn.
 //
-TEST_F(RTargetPeerTest, AddDeleteRTargetToInstance1) {
+TEST_F(BgpXmppRTargetTest, AddDeleteRTargetToInstance1) {
     SubscribeAgents("blue", 1);
 
     AddRouteTarget(cn1_.get(), "blue", "target:1:101");
@@ -1464,7 +1464,7 @@ TEST_F(RTargetPeerTest, AddDeleteRTargetToInstance1) {
 // That should cause the corresponding RouteTarget routes to get advertised
 // and withdrawn.
 //
-TEST_F(RTargetPeerTest, AddDeleteRTargetToInstance2) {
+TEST_F(BgpXmppRTargetTest, AddDeleteRTargetToInstance2) {
     SubscribeAgents("blue", 1);
 
     AddRouteTarget(cn1_.get(), "blue", "target:1:101");
@@ -1490,7 +1490,7 @@ TEST_F(RTargetPeerTest, AddDeleteRTargetToInstance2) {
 // and withdrawn.
 // Add one RT and delete another RT in one shot.
 //
-TEST_F(RTargetPeerTest, AddDeleteRTargetToInstance3) {
+TEST_F(BgpXmppRTargetTest, AddDeleteRTargetToInstance3) {
     SubscribeAgents("blue", 1);
 
     AddRouteTarget(cn1_.get(), "blue", "target:1:101");
@@ -1513,7 +1513,7 @@ TEST_F(RTargetPeerTest, AddDeleteRTargetToInstance3) {
 //
 // HTTP Introspect for RTGroups.
 //
-TEST_F(RTargetPeerTest, HTTPIntrospect) {
+TEST_F(BgpXmppRTargetTest, HTTPIntrospect) {
     SubscribeAgents();
     AddInetRoute(mx_.get(), NULL, "blue", BuildPrefix());
     AddInetRoute(mx_.get(), NULL, "pink", BuildPrefix());
@@ -1538,7 +1538,7 @@ TEST_F(RTargetPeerTest, HTTPIntrospect) {
     DeleteInetRoute(mx_.get(), NULL, "pink", BuildPrefix());
 }
 
-TEST_F(RTargetPeerTest, BulkRouteAdd) {
+TEST_F(BgpXmppRTargetTest, BulkRouteAdd) {
     AddInetRoute(mx_.get(), NULL, "blue", BuildPrefix());
     AddRouteTarget(mx_.get(), "blue", "target:64496:1");
 
@@ -1571,7 +1571,7 @@ TEST_F(RTargetPeerTest, BulkRouteAdd) {
 // Update ASN on CNs and make sure that the ASN in the RTargetRoute prefix
 // is updated.
 //
-TEST_F(RTargetPeerTest, ASNUpdate) {
+TEST_F(BgpXmppRTargetTest, ASNUpdate) {
     VerifyRTargetRouteNoExists(cn1_.get(), "64496:target:64496:1");
     VerifyRTargetRouteNoExists(cn2_.get(), "64496:target:64496:1");
     TASK_UTIL_EXPECT_EQ(0, RTargetRouteCount(cn1_.get()));
@@ -1618,7 +1618,7 @@ TEST_F(RTargetPeerTest, ASNUpdate) {
 // BgpPeer will not be deleted till RTargetGroupManager stops referring to it
 // in InterestedPeers list.
 //
-TEST_F(RTargetPeerTest, DeletedPeer) {
+TEST_F(BgpXmppRTargetTest, DeletedPeer) {
     TASK_UTIL_EXPECT_EQ(0, RTargetRouteCount(cn2_.get()));
     TASK_UTIL_EXPECT_EQ(0, RTargetRouteCount(cn1_.get()));
 
@@ -1674,7 +1674,7 @@ TEST_F(RTargetPeerTest, DeletedPeer) {
 // The RTargetRoute should not be withdrawn till the RT is removed from all
 // VRFs.
 //
-TEST_F(RTargetPeerTest, SameTargetInMultipleInstances1) {
+TEST_F(BgpXmppRTargetTest, SameTargetInMultipleInstances1) {
     SubscribeAgents("blue", 1);
     SubscribeAgents("pink", 2);
 
@@ -1721,7 +1721,7 @@ TEST_F(RTargetPeerTest, SameTargetInMultipleInstances1) {
 // all VRFs.
 // The RTargetRoute should be withdrawn if all agents unsubscribe from VRF.
 //
-TEST_F(RTargetPeerTest, SameTargetInMultipleInstances2) {
+TEST_F(BgpXmppRTargetTest, SameTargetInMultipleInstances2) {
     SubscribeAgents("blue", 1);
     SubscribeAgents("pink", 2);
 
@@ -1768,7 +1768,7 @@ TEST_F(RTargetPeerTest, SameTargetInMultipleInstances2) {
 // If connection between the VRFs is removed, the RtargetRoute for the extra
 // RT should not be withdrawn since it's still in the import list of one VRF.
 //
-TEST_F(RTargetPeerTest, ConnectedInstances1) {
+TEST_F(BgpXmppRTargetTest, ConnectedInstances1) {
     SubscribeAgents();
     AddConnection(cn1_.get(), "red", "purple");
     AddConnection(cn2_.get(), "red", "purple");
@@ -1816,7 +1816,7 @@ TEST_F(RTargetPeerTest, ConnectedInstances1) {
 // If all agents unsubscribe from one VRF, RTargetRoute for that VRFs RT must
 // not be withdrawn since it still in the import list of the other VRF.
 //
-TEST_F(RTargetPeerTest, ConnectedInstances2) {
+TEST_F(BgpXmppRTargetTest, ConnectedInstances2) {
     SubscribeAgents();
     AddConnection(cn1_.get(), "red", "purple");
     AddConnection(cn2_.get(), "red", "purple");
@@ -1847,7 +1847,7 @@ TEST_F(RTargetPeerTest, ConnectedInstances2) {
 // sent to the CN only after processing is enabled.
 // There is 1 CN which sends the RTargetRoute.
 //
-TEST_F(RTargetPeerTest, DisableEnableRTargetRouteProcessing1) {
+TEST_F(BgpXmppRTargetTest, DisableEnableRTargetRouteProcessing1) {
     SubscribeAgents("blue", 1);
 
     for (int idx = 1; idx <= kRouteCount; ++idx) {
@@ -1889,7 +1889,7 @@ TEST_F(RTargetPeerTest, DisableEnableRTargetRouteProcessing1) {
 // sent to the CN only after processing is enabled.
 // There are 2 CNs which send the RTargetRoute.
 //
-TEST_F(RTargetPeerTest, DisableEnableRTargetRouteProcessing2) {
+TEST_F(BgpXmppRTargetTest, DisableEnableRTargetRouteProcessing2) {
     SubscribeAgents("blue", 1);
 
     for (int idx = 1; idx <= kRouteCount; ++idx) {
@@ -1940,7 +1940,7 @@ TEST_F(RTargetPeerTest, DisableEnableRTargetRouteProcessing2) {
 // Processing is disabled and enabled separately when the CNs advertise the
 // RTargetRoute i.e. the RTargetRoute needs to be processed twice on the MX.
 //
-TEST_F(RTargetPeerTest, DisableEnableRTargetRouteProcessing3) {
+TEST_F(BgpXmppRTargetTest, DisableEnableRTargetRouteProcessing3) {
     SubscribeAgents("blue", 1);
 
     for (int idx = 1; idx <= kRouteCount; ++idx) {
@@ -1996,7 +1996,7 @@ TEST_F(RTargetPeerTest, DisableEnableRTargetRouteProcessing3) {
 // sent to the CN only after processing is enabled.
 // There is 1 CN which sends 2 RTargetRoutes, one per VRF.
 //
-TEST_F(RTargetPeerTest, DisableEnableRTargetRouteProcessing4) {
+TEST_F(BgpXmppRTargetTest, DisableEnableRTargetRouteProcessing4) {
     SubscribeAgents("blue", 1);
     SubscribeAgents("pink", 2);
 
@@ -2053,7 +2053,7 @@ TEST_F(RTargetPeerTest, DisableEnableRTargetRouteProcessing4) {
 // sent to the CNs only after processing is enabled.
 // There are 2 CNs which send 1 RTargetRoute each.
 //
-TEST_F(RTargetPeerTest, DisableEnableRTargetRouteProcessing5) {
+TEST_F(BgpXmppRTargetTest, DisableEnableRTargetRouteProcessing5) {
     SubscribeAgents("blue", 1);
     SubscribeAgents("pink", 2);
 
@@ -2110,7 +2110,7 @@ TEST_F(RTargetPeerTest, DisableEnableRTargetRouteProcessing5) {
 // with that RT are sent to the CN only after processing is enabled.
 // There is 1 CN which sends the RTargetRoute.
 //
-TEST_F(RTargetPeerTest, DisableEnableRouteTargetProcessing1) {
+TEST_F(BgpXmppRTargetTest, DisableEnableRouteTargetProcessing1) {
     SubscribeAgents("blue", 1);
 
     for (int idx = 1; idx <= kRouteCount; ++idx) {
@@ -2149,7 +2149,7 @@ TEST_F(RTargetPeerTest, DisableEnableRouteTargetProcessing1) {
 // with that RT are sent to the CN only after processing is enabled.
 // There are 2 CNs which send the RTargetRoute.
 //
-TEST_F(RTargetPeerTest, DisableEnableRouteTargetProcessing2) {
+TEST_F(BgpXmppRTargetTest, DisableEnableRouteTargetProcessing2) {
     SubscribeAgents("blue", 1);
 
     for (int idx = 1; idx <= kRouteCount; ++idx) {
@@ -2197,7 +2197,7 @@ TEST_F(RTargetPeerTest, DisableEnableRouteTargetProcessing2) {
 // RTargetRoute i.e. the RouteTarget needs to be processed twice on the MX
 // for all partitions.
 //
-TEST_F(RTargetPeerTest, DisableEnableRouteTargetProcessing3) {
+TEST_F(BgpXmppRTargetTest, DisableEnableRouteTargetProcessing3) {
     SubscribeAgents("blue", 1);
 
     for (int idx = 1; idx <= kRouteCount; ++idx) {
@@ -2252,7 +2252,7 @@ TEST_F(RTargetPeerTest, DisableEnableRouteTargetProcessing3) {
 // with those RTs are sent to the CN only after processing is enabled.
 // There is 1 CN which sends 2 RTargetRoutes, one per VRF.
 //
-TEST_F(RTargetPeerTest, DisableEnableRouteTargetProcessing4) {
+TEST_F(BgpXmppRTargetTest, DisableEnableRouteTargetProcessing4) {
     SubscribeAgents("blue", 1);
     SubscribeAgents("pink", 1);
 
@@ -2302,7 +2302,7 @@ TEST_F(RTargetPeerTest, DisableEnableRouteTargetProcessing4) {
 // with those RTs are sent to the CNs only after processing is enabled.
 // There are 2 CNs which send 1 RTargetRoute each.
 //
-TEST_F(RTargetPeerTest, DisableEnableRouteTargetProcessing5) {
+TEST_F(BgpXmppRTargetTest, DisableEnableRouteTargetProcessing5) {
     SubscribeAgents("blue", 1);
     SubscribeAgents("pink", 1);
 
@@ -2351,7 +2351,7 @@ TEST_F(RTargetPeerTest, DisableEnableRouteTargetProcessing5) {
 // even if the RtGroup corresponding to the RouteTarget has been deleted by
 // the time processing is enabled.
 //
-TEST_F(RTargetPeerTest, DisableEnableRouteTargetProcessing6) {
+TEST_F(BgpXmppRTargetTest, DisableEnableRouteTargetProcessing6) {
     SubscribeAgents("blue", 1);
 
     AddRouteTarget(mx_.get(), "blue", "target:1:99");
