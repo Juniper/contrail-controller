@@ -14,6 +14,7 @@ import time
 import errno
 import re
 import copy
+import uuid
 from lxml import etree
 try:
     from collections import OrderedDict

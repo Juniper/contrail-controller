@@ -3,6 +3,7 @@ sys.path.append('../common/tests')
 import uuid
 import json
 from flexmock import flexmock, Mock
+from testtools.matchers import Equals, Contains, Not
 import stevedore.extension
 from test_utils import *
 from test_common import TestCase, setup_extra_flexmock
@@ -41,6 +42,12 @@ class VncOpenstackTestCase(TestCase):
         setup_extra_flexmock([(stevedore.extension.ExtensionManager, '__new__', FakeExtensionManager)])
         super(VncOpenstackTestCase, self).setUp()
     # end setUp
+
+    def tearDown(self):
+        with open('vnc_openstack.err') as f:
+            self.assertThat(len(f.read()), Equals(0),
+                            "Error log in vnc_openstack.err")
+        super(VncOpenstackTestCase, self).tearDown()
 # end class VncOpenstackTestCase
 
 class NeutronBackendTestCase(VncOpenstackTestCase):
