@@ -471,8 +471,12 @@ class OpenstackDriver(vnc_plugin_base.Resync):
                 if dom['fq_name'] == ['default-domain']:
                     self._vnc_default_domain_id = dom['uuid']
 
-            vnc_projects = self._vnc_lib.projects_list()['projects']
-            self._vnc_project_ids = set([proj['uuid'] for proj in vnc_projects])
+            vnc_all_projects = self._vnc_lib.projects_list()['projects']
+            # remove default-domain:default-project from audit list
+            default_proj_fq_name = ['default-domain', 'default-project']
+            vnc_project_ids = set([proj['uuid'] for proj in vnc_all_projects 
+                                 if proj['fq_name'] != default_proj_fq_name])
+            self._vnc_project_ids = vnc_project_ids
         except Exception as e:
             cgitb.Hook(
                 format="text",
