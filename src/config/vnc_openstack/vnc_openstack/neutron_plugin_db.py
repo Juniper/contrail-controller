@@ -31,10 +31,9 @@ READ = 2
 UPDATE = 3
 DELETE = 4
 
-IP_PROTOCOL_MAP = {constants.PROTO_NAME_TCP: constants.PROTO_NUM_TCP,
-                   constants.PROTO_NAME_UDP: constants.PROTO_NUM_UDP,
-                   constants.PROTO_NAME_ICMP: constants.PROTO_NUM_ICMP,
-                   constants.PROTO_NAME_ICMP_V6: constants.PROTO_NUM_ICMP_V6}
+IP_PROTOCOL_MAP = {constants.PROTO_NUM_TCP: constants.PROTO_NAME_TCP,
+                   constants.PROTO_NUM_UDP: constants.PROTO_NAME_UDP,
+                   constants.PROTO_NUM_ICMP: constants.PROTO_NAME_ICMP}
 
 # SNAT defines
 SNAT_SERVICE_TEMPLATE_FQ_NAME = ['default-domain', 'netns-snat-template']
@@ -3499,10 +3498,24 @@ class DBInterface(object):
         return ret_list
     #end security_group_list
 
-    def _get_ip_proto_number(self, protocol):
-        if protocol is None:
+    def _convert_protocol(self, value):
+        if value is None:
             return
-        return IP_PROTOCOL_MAP.get(protocol, protocol)
+        try:
+            val = int(value)
+            #TODO(ethuleau): support all protocol numbers
+            if val >= 0 and val <= 255 and IP_PROTOCOL_MAP.has_key(val):
+                return IP_PROTOCOL_MAP[val]
+            raise self._raise_contrail_exception(400, SecurityGroupRuleInvalidProtocol(
+                protocol=value, values=IP_PROTOCOL_MAP.values()))
+        except (ValueError, TypeError):
+            if value.lower() in IP_PROTOCOL_MAP.values():
+                return value.lower()
+            raise self._raise_contrail_exception(400, SecurityGroupRuleInvalidProtocol(
+                protocol=value, values=IP_PROTOCOL_MAP.values()))
+        except AttributeError:
+            raise self._raise_contrail_exception(400, SecurityGroupRuleInvalidProtocol(
+                protocol=value, values=IP_PROTOCOL_MAP.values()))
 
     def _validate_port_range(self, rule):
         """Check that port_range is valid."""
@@ -3511,14 +3524,14 @@ class DBInterface(object):
             return
         if not rule['protocol']:
             self._raise_contrail_exception(400, SecurityGroupProtocolRequiredWithPorts())
-        ip_proto = self._get_ip_proto_number(rule['protocol'])
-        if ip_proto in [constants.PROTO_NUM_TCP, constants.PROTO_NUM_UDP]:
+        rule['protocol'] = self._convert_protocol(rule['protocol'])
+        if rule['protocol'] in [constants.PROTO_NUM_TCP, constants.PROTO_NUM_UDP]:
             if (rule['port_range_min'] is not None and
                 rule['port_range_min'] <= rule['port_range_max']):
                 pass
             else:
                 self._raise_contrail_exception(400, SecurityGroupInvalidPortRange())
-        elif ip_proto == constants.PROTO_NUM_ICMP:
+        elif rule['protocol'] == constants.PROTO_NUM_ICMP:
             for attr, field in [('port_range_min', 'type'),
                                 ('port_range_max', 'code')]:
                 if rule[attr] > 255:
