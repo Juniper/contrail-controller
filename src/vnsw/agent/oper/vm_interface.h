@@ -373,7 +373,12 @@ public:
     void UpdateL2();
     const AclDBEntry* vrf_assign_acl() const { return vrf_assign_acl_.get();}
     bool WaitForTraffic() const;
-    bool GetDhcpOptions(std::vector<autogen::DhcpOptionType> *options) const;
+    bool GetInterfaceDhcpOptions(
+            std::vector<autogen::DhcpOptionType> *options) const;
+    bool GetSubnetDhcpOptions(
+            std::vector<autogen::DhcpOptionType> *options) const;
+    bool GetIpamDhcpOptions(
+            std::vector<autogen::DhcpOptionType> *options) const;
     const Peer *peer() const;
 private:
     bool IsActive() const;

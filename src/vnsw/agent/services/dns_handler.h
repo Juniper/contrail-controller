@@ -82,6 +82,8 @@ private:
     void DelUpdate(InterTaskMsg *msg);
     void UpdateStats();
     void GetDomainName(const VmInterface *vm_itf, std::string *domain_name) const;
+    bool GetDomainNameFromDhcp(std::vector<autogen::DhcpOptionType> &options,
+                               std::string *domain_name) const;
     void GetBaseName(const std::string &name, std::string *base) const;
     std::string DnsItemsToString(DnsItems &items) const;
 
