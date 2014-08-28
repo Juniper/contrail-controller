@@ -306,34 +306,8 @@ static void SetInEcmpIndex(const PktInfo *pkt, PktFlowInfo *flow_info,
         //TODO::ECMP for v6
     }
     Agent *agent = static_cast<AgentRouteTable *>(in->rt_->get_table())->agent();
-    //Get route for source IP route, which would be used to forward
-    //reverse flow traffic
-    const Inet4UnicastRouteEntry *rt;
-    FlowTable *ftable = agent->pkt()->flow_table();
-    if (flow_info->nat_done) {
-        VrfEntry *nat_vrf = NULL;
-        if (flow_info->fip_snat) {
-            nat_vrf = agent->vrf_table()->FindVrfFromId(flow_info->nat_vrf);
-        } else {
-            nat_vrf = agent->vrf_table()->FindVrfFromId(flow_info->nat_dest_vrf);
-        }
-        if (nat_vrf == NULL) {
-            return;
-        }
-        rt = static_cast<Inet4UnicastRouteEntry *>
-            (ftable->GetUcRoute(nat_vrf, Ip4Address(flow_info->nat_ip_saddr.to_v4())));
-    } else {
-        if (out->vrf_ == NULL) {
-            return;
-        }
-        rt = static_cast<Inet4UnicastRouteEntry *>
-            (ftable->GetUcRoute(out->vrf_, Ip4Address(pkt->ip_saddr.to_v4())));
-    }
-
-    if (rt == NULL) {
-        return;
-    }
-
+    const Inet4UnicastRouteEntry *rt =
+        static_cast<const Inet4UnicastRouteEntry *>(in->rt_);
     NextHop *component_nh_ptr = NULL;
     uint32_t label;
     //Frame key for component NH
