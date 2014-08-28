@@ -4,16 +4,12 @@
 
 # -*- mode: python; -*-
 
-import os
 import sys
-
 Import('AgentEnv')
 env = AgentEnv.Clone()
 
-except_files = [ 'agent_param.cc' ]
-except_objs = AgentEnv.BuildExceptionCcObj(env, except_files)
+sources = [ 'agent_init.cc' ]
+libvnswinit = env.Library('vnswinit', sources)
 
-libvnswinit = env.Library('vnswinit', except_objs)
-
-env.SConscript('test/SConscript', exports='AgentEnv', duplicate = 0)
-env.Alias('controller/src/vnsw/agent/cmn:flaky_test', flaky_test)
+sources = [ 'agent_init.cc', 'contrail_init_common.cc' ]
+libcontrail_init_common = env.Library('contrail_init_common', sources)

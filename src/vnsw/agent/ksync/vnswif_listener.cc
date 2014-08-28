@@ -21,6 +21,7 @@
 #include <ksync/ksync_index.h>
 #include <ksync/interface_ksync.h>
 #include <ksync/vnswif_listener.h>
+#include <init/agent_init.h>
 
 extern void RouterIdDepInit(Agent *agent);
 
@@ -437,7 +438,7 @@ void VnswInterfaceListener::HandleAddressEvent(const Event *event) {
                              agent_->vhost_default_gateway(),
                              Agent::NullString(), agent_->fabric_vrf_name());
     if (dep_init_reqd)
-        RouterIdDepInit(agent_);
+        agent_->agent_init()->ConnectToControllerBase();
 }
 
 /****************************************************************************

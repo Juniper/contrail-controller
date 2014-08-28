@@ -69,6 +69,7 @@ env.Append(LIBPATH = MapBuildDir([
     'vnsw/agent/controller',
     'vnsw/agent/diag',
     'vnsw/agent/filter',
+    'vnsw/agent/init',
     'vnsw/agent/kstate', 
     'vnsw/agent/ksync',
     'vnsw/agent/openstack',
@@ -163,6 +164,7 @@ AgentEnv = env.Clone()
 
 # Contrail agent libraries
 AgentEnv.AppendUnique(CONTRAIL_LIBS = [
+    'contrail_init_common',
     'agent_services',
     'diag',
     'pkt',
@@ -272,6 +274,7 @@ subdirs = [
     'controller',
     'diag',
     'filter',
+    'init',
     'kstate',
     'ksync',
     'openstack',
