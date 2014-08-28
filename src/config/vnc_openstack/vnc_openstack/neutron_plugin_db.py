@@ -2163,8 +2163,8 @@ class DBInterface(object):
             if not self._filters_is_present(filters, 'contrail:fq_name',
                                             net_fq_name):
                 continue
-            if not self._filters_is_present(filters, 'name',
-                                            net_obj.get_display_name()):
+            if not self._filters_is_present(
+                filters, 'name', net_obj.get_display_name() or net_obj.name):
                 continue
             if net_obj.is_shared == None:
                 is_shared = False
@@ -2895,9 +2895,9 @@ class DBInterface(object):
                                                 proj_rtr_fq_name):
                     continue
                 try:
-                    rtr_obj = self._logical_router_read(proj_rtr['uuid'])
-                    rtr_name = rtr_obj.get_display_name()
-                    if not self._filters_is_present(filters, 'name', rtr_name):
+                    if not self._filters_is_present(
+                        filters, 'name',
+                        rtr_obj.get_display_name() or rtr_obj.name):
                         continue
                     rtr_info = self._router_vnc_to_neutron(rtr_obj,
                                                            rtr_repr='LIST')
