@@ -64,26 +64,48 @@ struct PortInfo tap3[] = {
 
 int hash_id;
 
+class SetupTask;
+
+FlowEntry *FlowInit(TestFlowKey *t) {
+    FlowKey key;
+    t->InitFlowKey(&key);
+    FlowEntry *flow = Agent::GetInstance()->pkt()->flow_table()->Allocate(key);
+
+    boost::shared_ptr<PktInfo> pkt_info(new PktInfo(NULL, 0, 0));
+    PktFlowInfo info(pkt_info, Agent::GetInstance()->pkt()->flow_table());
+    PktInfo *pkt = pkt_info.get();
+
+    PktControlInfo ctrl;
+    ctrl.vn_ = VnGet(t->vn_);
+    ctrl.intf_ = VmPortGet(t->ifindex_);
+    ctrl.vm_ = VmGet(t->vm_);
+
+    flow->InitFwdFlow(&info, pkt, &ctrl, &ctrl);
+    return flow;
+}
+
+static void FlowAdd(FlowEntry *fwd, FlowEntry *rev) {
+    Agent::GetInstance()->pkt()->flow_table()->Add(fwd, rev);
+}
+
 class FlowTableTest : public ::testing::Test {
 public:
     bool FlowTableWait(int count) {
-        int i = 1000;
+        int i = 300000;
         while (i > 0) {
             i--;
             if (Agent::GetInstance()->pkt()->flow_table()->Size() == (size_t) count) {
-                break;
+                return true;
             }
             client->WaitForIdle();
-            usleep(1);
+            usleep(100);
         }
         return (Agent::GetInstance()->pkt()->flow_table()->Size() == (size_t) count);
     }
 
     void FlushFlowTable() {
         client->EnqueueFlowFlush();
-        client->WaitForIdle();
-        WAIT_FOR(1000, 100, 
-                 (0U == Agent::GetInstance()->pkt()->flow_table()->Size()));
+        EXPECT_TRUE(FlowTableWait(0));
     }
 
     void CreateLocalRoute(const char *vrf, const char *ip,
@@ -234,29 +256,6 @@ public:
         client->WaitForIdle();
     }
 
-    FlowEntry *FlowInit(TestFlowKey *t) {
-        FlowKey key;
-        t->InitFlowKey(&key);
-        FlowEntry *flow = Agent::GetInstance()->pkt()->flow_table()->Allocate(key);
-
-        boost::shared_ptr<PktInfo> pkt_info(new PktInfo(NULL, 0, 0));
-        PktFlowInfo info(pkt_info, Agent::GetInstance()->pkt()->flow_table());
-        PktInfo *pkt = pkt_info.get();
-
-        PktControlInfo ctrl;
-        ctrl.vn_ = VnGet(t->vn_);
-        ctrl.intf_ = VmPortGet(t->ifindex_);
-        ctrl.vm_ = VmGet(t->vm_);
-
-        flow->InitFwdFlow(&info, pkt, &ctrl, &ctrl);
-        return flow;
-    }
-
-    static void FlowAdd(FlowEntry *fwd, FlowEntry *rev) {
-        Agent::GetInstance()->pkt()->flow_table()->Add(fwd, rev);
-        client->WaitForIdle();
-    }
-
     static void TestSetup(bool ksync_init) {
         ksync_init_ = ksync_init;
         if (ksync_init_) {
@@ -336,35 +335,7 @@ public:
     static std::string eth_itf;
 
 protected:
-    virtual void SetUp() {
-        WAIT_FOR(1000, 100,
-                 (0U == Agent::GetInstance()->pkt()->flow_table()->Size()));
-        //Reset flow age
-        client->EnqueueFlowAge();
-        client->WaitForIdle();
-
-        key1 = new TestFlowKey(1, "1.1.1.1", "1.1.1.2", 1, 0, 0, svn_name,
-                               dvn_name, 1, 1, 1, GetFlowKeyNH(1));
-        flow1 = FlowInit(key1);
-        flow1->set_flags(FlowEntry::LocalFlow);
-
-        key1_r = new TestFlowKey(1, "1.1.1.2", "1.1.1.1", 1, 0, 0, dvn_name,
-                                 svn_name, 2, 1, 2, GetFlowKeyNH(2));
-        flow1_r = FlowInit(key1_r);
-        flow1_r->set_flags(FlowEntry::LocalFlow);
-        FlowAdd(flow1, flow1_r);
-
-        key2 = new TestFlowKey(1, "1.1.1.1", "1.1.1.3", 1, 0, 0, svn_name,
-                               dvn_name, 1, 1, 1, GetFlowKeyNH(1));
-        flow2 = FlowInit(key2);
-        flow2->reset_flags(FlowEntry::LocalFlow);
-
-        key2_r = new TestFlowKey(1, "1.1.1.3", "1.1.1.1", 1, 0, 0, dvn_name,
-                                 svn_name, 2, 1, 2, GetFlowKeyNH(2));
-        flow2_r = FlowInit(key2_r);
-        flow2_r->reset_flags(FlowEntry::LocalFlow);
-        FlowAdd(flow2, flow2_r);
-    }
+    virtual void SetUp();
 
     virtual void TearDown() {
         FlushFlowTable();
@@ -385,7 +356,61 @@ protected:
 
     TestFlowKey *key2_r;
     FlowEntry *flow2_r;
+    friend class SetupTask;
 };
+
+class SetupTask : public Task {
+    public:
+        SetupTask(FlowTableTest *test) : Task((TaskScheduler::GetInstance()->GetTaskId("Agent::FlowHandler")), 0), test_(test) {
+        }
+        virtual bool Run() {
+            test_->flow1 = FlowInit(test_->key1);
+            test_->flow1->set_flags(FlowEntry::LocalFlow);
+
+            test_->flow1_r = FlowInit(test_->key1_r);
+            test_->flow1_r->set_flags(FlowEntry::LocalFlow);
+            FlowAdd(test_->flow1, test_->flow1_r);
+
+            test_->flow2 = FlowInit(test_->key2);
+            test_->flow2->reset_flags(FlowEntry::LocalFlow);
+
+            test_->flow2_r = FlowInit(test_->key2_r);
+            test_->flow2_r->reset_flags(FlowEntry::LocalFlow);
+            FlowAdd(test_->flow2, test_->flow2_r);
+            return true;
+        }
+    private:
+        FlowTableTest *test_;
+};
+
+
+void
+FlowTableTest::SetUp() {
+    WAIT_FOR(1000, 100,
+            (0U == Agent::GetInstance()->pkt()->flow_table()->Size()));
+    //Reset flow age
+    client->EnqueueFlowAge();
+    client->WaitForIdle();
+
+    key1 = new TestFlowKey(1, "1.1.1.1", "1.1.1.2", 1, 0, 0, svn_name,
+            dvn_name, 1, 1, 1, GetFlowKeyNH(1));
+
+    key1_r = new TestFlowKey(1, "1.1.1.2", "1.1.1.1", 1, 0, 0, dvn_name,
+            svn_name, 2, 1, 2, GetFlowKeyNH(2));
+
+    key2 = new TestFlowKey(1, "1.1.1.1", "1.1.1.3", 1, 0, 0, svn_name,
+            dvn_name, 1, 1, 1, GetFlowKeyNH(1));
+
+    key2_r = new TestFlowKey(1, "1.1.1.3", "1.1.1.1", 1, 0, 0, dvn_name,
+            svn_name, 2, 1, 2, GetFlowKeyNH(2));
+
+    TaskScheduler *scheduler = TaskScheduler::GetInstance();
+    SetupTask * task = new SetupTask(this);
+    scheduler->Enqueue(task);
+
+    client->WaitForIdle();
+    client->WaitForIdle();
+}
 
 bool FlowTableTest::ksync_init_;
 int FlowTableTest::fd_table[MAX_VNET];

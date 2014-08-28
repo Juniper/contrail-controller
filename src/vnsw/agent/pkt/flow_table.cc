@@ -828,6 +828,10 @@ void FlowEntry::UpdateKSync() {
         FlowTableKSyncEntry key(ksync_obj, this, flow_handle_);
         ksync_entry_ =
             static_cast<FlowTableKSyncEntry *>(ksync_obj->Create(&key));
+        if (deleted_) {
+            ksync_obj->Delete(ksync_entry_);
+            ksync_entry_ = NULL;
+        }
     } else {
         if (flow_handle_ != ksync_entry_->hash_id()) {
             /*
