@@ -1201,6 +1201,7 @@ class SecurityGroupST(DictST):
         sg = cls._dict.get(name)
         if sg is None:
             return
+        sg.update_policy_entries(None)
         sg_id = sg.obj.get_security_group_id()
         if sg_id is not None:
             cls._sg_id_allocator.delete(sg.obj.get_security_group_id())
