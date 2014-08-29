@@ -154,7 +154,7 @@ protected:
         task_util::WaitForIdle();
 
         thread_.Start();
-        Configure();
+        Configure(64496, 64496, 64496);
         task_util::WaitForIdle();
 
         // Create XMPP Agent a1 connected to XMPP server CN1.
@@ -287,12 +287,12 @@ protected:
         LOG(DEBUG, "All Peers are up: " << server->localname());
     }
 
-    void Configure() {
+    void Configure(int cn1_asn, int cn2_asn, int mx_asn) {
         char config[4096];
         snprintf(config, sizeof(config), config_template,
-                 64496, cn1_->session_manager()->GetPort(),
-                 64496, cn2_->session_manager()->GetPort(),
-                 64496, mx_->session_manager()->GetPort());
+                 cn1_asn, cn1_->session_manager()->GetPort(),
+                 cn2_asn, cn2_->session_manager()->GetPort(),
+                 mx_asn, mx_->session_manager()->GetPort());
         cn1_->Configure(config);
         task_util::WaitForIdle();
         cn2_->Configure(config);
@@ -589,12 +589,13 @@ protected:
         return rt;
     }
 
-    void VerifyInetRouteExists(BgpServerTest *server, const string &instance,
-        const string &prefix) {
+    BgpRoute *VerifyInetRouteExists(BgpServerTest *server,
+        const string &instance, const string &prefix) {
         task_util::WaitForIdle();
         TASK_UTIL_WAIT_NE_NO_MSG(InetRouteLookup(server, instance, prefix),
             NULL, 1000, 10000,
             "Wait for route " << prefix << " in " << instance);
+        return InetRouteLookup(server, instance, prefix);
     }
 
     void VerifyInetRouteNoExists(BgpServerTest *server, const string &instance,
@@ -1511,6 +1512,173 @@ TEST_F(BgpXmppRTargetTest, AddDeleteRTargetToInstance3) {
 }
 
 //
+// Add and Delete different RTargetRoutes for the same RT from a peer.
+// VPN routes with the RT should be advertised to the peer if there's one or
+// more RTargetRoutes received from it.
+// Add two RTargetRoutes, then delete them one at a time.
+//
+TEST_F(BgpXmppRTargetTest, AddDeleteRTargetRoute1) {
+    Unconfigure();
+    task_util::WaitForIdle();
+    Configure(64496, 64497, 64498);
+    UnconfigureBgpPeering(mx_.get(), cn2_.get());
+    task_util::WaitForIdle();
+    SubscribeAgents("blue", 1);
+
+    AddInetRoute(mx_.get(), NULL, "blue", BuildPrefix());
+    AddRouteTarget(cn1_.get(), "blue", "target:1:1001");
+    AddRouteTarget(cn2_.get(), "blue", "target:1:1001");
+
+    VerifyRTargetRouteExists(mx_.get(), "64496:target:1:1001");
+    VerifyRTargetRouteExists(mx_.get(), "64497:target:1:1001");
+
+    VerifyInetRouteExists(cn1_.get(), "blue", BuildPrefix());
+    VerifyInetRouteExists(cn2_.get(), "blue", BuildPrefix());
+
+    RemoveRouteTarget(cn1_.get(), "blue", "target:1:1001");
+
+    VerifyRTargetRouteNoExists(mx_.get(), "64496:target:1:1001");
+    VerifyRTargetRouteExists(mx_.get(), "64497:target:1:1001");
+
+    VerifyInetRouteNoExists(cn1_.get(), "blue", BuildPrefix());
+    VerifyInetRouteExists(cn2_.get(), "blue", BuildPrefix());
+
+    RemoveRouteTarget(cn2_.get(), "blue", "target:1:1001");
+
+    VerifyRTargetRouteNoExists(mx_.get(), "64496:target:1:1001");
+    VerifyRTargetRouteNoExists(mx_.get(), "64497:target:1:1001");
+
+    VerifyInetRouteNoExists(cn1_.get(), "blue", BuildPrefix());
+    VerifyInetRouteNoExists(cn2_.get(), "blue", BuildPrefix());
+
+    DeleteInetRoute(mx_.get(), NULL, "blue", BuildPrefix());
+}
+
+//
+// Add and Delete different RTargetRoutes for the same RT from a peer.
+// VPN routes with the RT should be advertised to the peer if there's one or
+// more RTargetRoutes received from it.
+// Add two RTargetRoutes one at a time, then delete them.
+//
+TEST_F(BgpXmppRTargetTest, AddDeleteRTargetRoute2) {
+    Unconfigure();
+    task_util::WaitForIdle();
+    Configure(64496, 64497, 64498);
+    UnconfigureBgpPeering(mx_.get(), cn2_.get());
+    task_util::WaitForIdle();
+    SubscribeAgents("blue", 1);
+
+    AddInetRoute(mx_.get(), NULL, "blue", BuildPrefix());
+    AddRouteTarget(cn2_.get(), "blue", "target:1:1001");
+
+    VerifyRTargetRouteNoExists(mx_.get(), "64496:target:1:1001");
+    VerifyRTargetRouteExists(mx_.get(), "64497:target:1:1001");
+
+    VerifyInetRouteNoExists(cn1_.get(), "blue", BuildPrefix());
+    VerifyInetRouteExists(cn2_.get(), "blue", BuildPrefix());
+
+    AddRouteTarget(cn1_.get(), "blue", "target:1:1001");
+
+    VerifyRTargetRouteExists(mx_.get(), "64496:target:1:1001");
+    VerifyRTargetRouteExists(mx_.get(), "64497:target:1:1001");
+
+    VerifyInetRouteExists(cn1_.get(), "blue", BuildPrefix());
+    VerifyInetRouteExists(cn2_.get(), "blue", BuildPrefix());
+
+    RemoveRouteTarget(cn1_.get(), "blue", "target:1:1001");
+    RemoveRouteTarget(cn2_.get(), "blue", "target:1:1001");
+
+    VerifyRTargetRouteNoExists(mx_.get(), "64496:target:1:1001");
+    VerifyRTargetRouteNoExists(mx_.get(), "64497:target:1:1001");
+
+    VerifyInetRouteNoExists(cn1_.get(), "blue", BuildPrefix());
+    VerifyInetRouteNoExists(cn2_.get(), "blue", BuildPrefix());
+
+    DeleteInetRoute(mx_.get(), NULL, "blue", BuildPrefix());
+}
+
+//
+// Add and Delete different RTargetRoutes for the same RT from a peer.
+// VPN routes with the RT should be advertised to the peer if there's one or
+// more RTargetRoutes received from it.
+// Add one RTargetRoute, then delete it and add a different one.
+//
+TEST_F(BgpXmppRTargetTest, AddDeleteRTargetRoute3) {
+    Unconfigure();
+    task_util::WaitForIdle();
+    Configure(64496, 64497, 64498);
+    UnconfigureBgpPeering(mx_.get(), cn2_.get());
+    task_util::WaitForIdle();
+    SubscribeAgents("blue", 1);
+
+    AddInetRoute(mx_.get(), NULL, "blue", BuildPrefix());
+    AddRouteTarget(cn2_.get(), "blue", "target:1:1001");
+
+    VerifyRTargetRouteNoExists(mx_.get(), "64496:target:1:1001");
+    VerifyRTargetRouteExists(mx_.get(), "64497:target:1:1001");
+
+    VerifyInetRouteNoExists(cn1_.get(), "blue", BuildPrefix());
+    VerifyInetRouteExists(cn2_.get(), "blue", BuildPrefix());
+
+    RemoveRouteTarget(cn2_.get(), "blue", "target:1:1001");
+    AddRouteTarget(cn1_.get(), "blue", "target:1:1001");
+
+    VerifyRTargetRouteExists(mx_.get(), "64496:target:1:1001");
+    VerifyRTargetRouteNoExists(mx_.get(), "64497:target:1:1001");
+
+    VerifyInetRouteExists(cn1_.get(), "blue", BuildPrefix());
+    VerifyInetRouteNoExists(cn2_.get(), "blue", BuildPrefix());
+
+    DeleteInetRoute(mx_.get(), NULL, "blue", BuildPrefix());
+}
+
+//
+// Add and Delete different RTargetRoutes for the same RT from a peer.
+// VPN routes with the RT should be advertised to the peer if there's one or
+// more RTargetRoutes received from it.
+// Add one RTargetRoute, then delete it and add a different one in one shot.
+//
+TEST_F(BgpXmppRTargetTest, AddDeleteRTargetRoute4) {
+    Unconfigure();
+    task_util::WaitForIdle();
+    Configure(64496, 64497, 64498);
+    UnconfigureBgpPeering(mx_.get(), cn2_.get());
+    task_util::WaitForIdle();
+    SubscribeAgents("blue", 1);
+
+    AddInetRoute(mx_.get(), NULL, "blue", BuildPrefix());
+    AddRouteTarget(cn2_.get(), "blue", "target:1:1001");
+
+    VerifyRTargetRouteNoExists(mx_.get(), "64496:target:1:1001");
+    VerifyRTargetRouteExists(mx_.get(), "64497:target:1:1001");
+
+    VerifyInetRouteNoExists(cn1_.get(), "blue", BuildPrefix());
+    VerifyInetRouteExists(cn2_.get(), "blue", BuildPrefix());
+
+    DisableRTargetRouteProcessing(mx_.get());
+
+    RemoveRouteTarget(cn2_.get(), "blue", "target:1:1001");
+    AddRouteTarget(cn1_.get(), "blue", "target:1:1001");
+
+    RTargetRoute *rtgt_rt1 =
+        VerifyRTargetRouteExists(mx_.get(), "64496:target:1:1001");
+    TASK_UTIL_EXPECT_TRUE(IsRTargetRouteOnList(mx_.get(), rtgt_rt1));
+    RTargetRoute *rtgt_rt2 =
+        VerifyRTargetRouteExists(mx_.get(), "64497:target:1:1001");
+    TASK_UTIL_EXPECT_TRUE(IsRTargetRouteOnList(mx_.get(), rtgt_rt2));
+
+    EnableRTargetRouteProcessing(mx_.get());
+
+    VerifyRTargetRouteExists(mx_.get(), "64496:target:1:1001");
+    VerifyRTargetRouteNoExists(mx_.get(), "64497:target:1:1001");
+
+    VerifyInetRouteExists(cn1_.get(), "blue", BuildPrefix());
+    VerifyInetRouteNoExists(cn2_.get(), "blue", BuildPrefix());
+
+    DeleteInetRoute(mx_.get(), NULL, "blue", BuildPrefix());
+}
+
+//
 // HTTP Introspect for RTGroups.
 //
 TEST_F(BgpXmppRTargetTest, HTTPIntrospect) {
@@ -2383,6 +2551,143 @@ TEST_F(BgpXmppRTargetTest, DisableEnableRouteTargetProcessing6) {
 
     EnableRouteTargetProcessing(mx_.get());
     TASK_UTIL_EXPECT_FALSE(IsRouteTargetOnList(mx_.get(), "target:1:99"));
+}
+
+//
+// If a RTargetRoute is received from EBGP peers that are in same AS, VPN
+// routes should be sent only to the peer that sent the best path for the
+// RTargetRoute i.e. the one with the lowest router id. The other peer will
+// receive the VPN route via IBGP.
+//
+TEST_F(BgpXmppRTargetTest, PathSelection1) {
+    Unconfigure();
+    task_util::WaitForIdle();
+    Configure(64496, 64496, 64497);
+    SubscribeAgents("blue", 1);
+    task_util::WaitForIdle();
+
+    AddRouteTarget(cn1_.get(), "blue", "target:1:1001");
+    AddRouteTarget(cn2_.get(), "blue", "target:1:1001");
+
+    RTargetRoute *rtgt_rt =
+        VerifyRTargetRouteExists(mx_.get(), "64496:target:1:1001");
+    TASK_UTIL_EXPECT_EQ(2, rtgt_rt->count());
+
+    AddInetRoute(mx_.get(), NULL, "blue", BuildPrefix());
+
+    BgpRoute *rt1 = VerifyInetRouteExists(cn1_.get(), "blue", BuildPrefix());
+    uint32_t mx_id = mx_->bgp_identifier();
+    TASK_UTIL_EXPECT_EQ(mx_id, rt1->BestPath()->GetPeer()->bgp_identifier());
+    BgpRoute *rt2 = VerifyInetRouteExists(cn2_.get(), "blue", BuildPrefix());
+    uint32_t cn1_id = cn1_->bgp_identifier();
+    TASK_UTIL_EXPECT_EQ(cn1_id, rt2->BestPath()->GetPeer()->bgp_identifier());
+
+    DeleteInetRoute(mx_.get(), NULL, "blue", BuildPrefix());
+}
+
+//
+// If different RTargetRoutes for same RouteTarget are received from different
+// EBGP peers, VPN routes should be sent to each peer.
+//
+TEST_F(BgpXmppRTargetTest, PathSelection2) {
+    Unconfigure();
+    task_util::WaitForIdle();
+    Configure(64496, 64497, 64498);
+    UnconfigureBgpPeering(cn1_.get(), cn2_.get());
+    SubscribeAgents("blue", 1);
+    task_util::WaitForIdle();
+
+    AddRouteTarget(cn1_.get(), "blue", "target:1:1001");
+    AddRouteTarget(cn2_.get(), "blue", "target:1:1001");
+    task_util::WaitForIdle();
+
+    VerifyRTargetRouteExists(mx_.get(), "64496:target:1:1001");
+    VerifyRTargetRouteExists(mx_.get(), "64497:target:1:1001");
+
+    AddInetRoute(mx_.get(), NULL, "blue", BuildPrefix());
+
+    VerifyInetRouteExists(cn1_.get(), "blue", BuildPrefix());
+    VerifyInetRouteExists(cn2_.get(), "blue", BuildPrefix());
+
+    DeleteInetRoute(mx_.get(), NULL, "blue", BuildPrefix());
+}
+
+//
+// If RTargetRoute is received from an EBGP peer and an IBGP peer, VPN routes
+// should be sent only to the EBGP peer.
+//
+TEST_F(BgpXmppRTargetTest, PathSelection3) {
+    Unconfigure();
+    task_util::WaitForIdle();
+    Configure(64496, 64497, 64497);
+    agent_a_1_->Subscribe("blue", 1);
+
+    AddRouteTarget(cn1_.get(), "blue", "target:1:1001");
+    AddRouteTarget(cn2_.get(), "blue", "target:1:1001");
+    task_util::WaitForIdle();
+
+    RTargetRoute *rtgt_rt =
+        VerifyRTargetRouteExists(mx_.get(), "64496:target:1:1001");
+    TASK_UTIL_EXPECT_EQ(2, rtgt_rt->count());
+
+    AddInetRoute(mx_.get(), NULL, "blue", BuildPrefix());
+
+    VerifyInetRouteExists(cn1_.get(), "blue", BuildPrefix());
+    VerifyInetRouteNoExists(cn2_.get(), "blue", BuildPrefix());
+
+    DeleteInetRoute(mx_.get(), NULL, "blue", BuildPrefix());
+}
+
+//
+//
+// If different RTargetRoutes for same RouteTarget are received from different
+// EBGP and IBGP peers, VPN routes should be sent to each peer.
+//
+TEST_F(BgpXmppRTargetTest, PathSelection4) {
+    Unconfigure();
+    task_util::WaitForIdle();
+    Configure(64496, 64497, 64497);
+    UnconfigureBgpPeering(cn1_.get(), cn2_.get());
+
+    AddRouteTarget(cn1_.get(), "blue", "target:1:1001");
+    AddRouteTarget(cn2_.get(), "blue", "target:1:1001");
+    SubscribeAgents("blue", 1);
+    task_util::WaitForIdle();
+
+    VerifyRTargetRouteExists(mx_.get(), "64496:target:1:1001");
+    VerifyRTargetRouteExists(mx_.get(), "64497:target:1:1001");
+
+    AddInetRoute(mx_.get(), NULL, "blue", BuildPrefix());
+
+    VerifyInetRouteExists(cn1_.get(), "blue", BuildPrefix());
+    VerifyInetRouteExists(cn2_.get(), "blue", BuildPrefix());
+
+    DeleteInetRoute(mx_.get(), NULL, "blue", BuildPrefix());
+}
+
+//
+// Propagation of RTargetRoutes and VPN routes across multiple ASes.
+//
+TEST_F(BgpXmppRTargetTest, PathSelection5) {
+    Unconfigure();
+    task_util::WaitForIdle();
+    Configure(64496, 64497, 64498);
+    UnconfigureBgpPeering(mx_.get(), cn2_.get());
+    task_util::WaitForIdle();
+    SubscribeAgents("blue", 1);
+
+    AddRouteTarget(cn1_.get(), "blue", "target:1:1001");
+    AddRouteTarget(cn2_.get(), "blue", "target:1:1001");
+
+    VerifyRTargetRouteExists(mx_.get(), "64496:target:1:1001");
+    VerifyRTargetRouteExists(mx_.get(), "64497:target:1:1001");
+
+    AddInetRoute(mx_.get(), NULL, "blue", BuildPrefix());
+
+    VerifyInetRouteExists(cn1_.get(), "blue", BuildPrefix());
+    VerifyInetRouteExists(cn2_.get(), "blue", BuildPrefix());
+
+    DeleteInetRoute(mx_.get(), NULL, "blue", BuildPrefix());
 }
 
 class TestEnvironment : public ::testing::Environment {
