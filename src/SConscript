@@ -61,9 +61,6 @@ common.Append(CPPPATH = include)
 
 BuildEnv = common.Clone()
 
-# Disable exceptions
-# BuildEnv.Append(CCFLAGS = '-fno-exceptions')
-
 if sys.platform.startswith('linux'):
     BuildEnv.Append(CCFLAGS = ['-DLINUX'])
 elif sys.platform.startswith('darwin'):
