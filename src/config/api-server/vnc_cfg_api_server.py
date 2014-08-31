@@ -552,7 +552,27 @@ class VncApiServer(VncApiServerGen):
                 fq_name = self._db_conn.uuid_to_fq_name(obj_uuid)
             except NoIdError:
                 bottle.abort(404, 'UUID ' + obj_uuid + ' not found')
-            obj_dict = {ref_type+'_refs': [{'to':ref_fq_name, 'uuid': ref_uuid, 'attr':attr}]}
+            (read_ok, read_result) = self._db_conn.dbe_read(obj_type, request.json)
+            if not read_ok:
+                (code, msg) = read_result
+                self.config_object_error(obj_uuid, None, obj_type, 'ref_update', msg)
+                bottle.abort(code, msg)
+
+            obj_dict = read_result
+            if operation == 'ADD':
+                if ref_type+'_refs' not in obj_dict:
+                    obj_dict[ref_type+'_refs'] = []
+                obj_dict[ref_type+'_refs'].append({'to':ref_fq_name, 'uuid': ref_uuid, 'attr':attr})
+            elif operation == 'DELETE':
+                for old_ref in obj_dict.get(ref_type+'_refs', []):
+                    if old_ref['to'] == ref_fq_name or old_ref['uuid'] == ref_uuid:
+                        obj_dict[ref_type+'_refs'].remove(old_ref)
+                        break
+            else:
+                msg = 'Unknown operation ' + operation
+                self.config_object_error(obj_uuid, None, obj_type, 'ref_update', msg)
+                bottle.abort(409, msg)
+
             (ok, put_result) = r_class.http_put(obj_uuid, fq_name, obj_dict, self._db_conn)
             if not ok:
                 (code, msg) = put_result
