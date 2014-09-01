@@ -50,15 +50,26 @@ bool IcmpErrorHandler::SendIcmpError(VmInterface *intf) {
         data_len = ICMP_PAYLOAD_LEN;
     memcpy(data, pkt_info_->ip, data_len);
 
+    uint32_t src_ip = 0;
     FlowKey key;
-    if (proto_->FlowIndexToKey(pkt_info_->agent_hdr.flow_index, &key)
-        == false) {
-        proto_->increment_invalid_flow_index();
-        return true;
+    if (pkt_info_->agent_hdr.flow_index == (uint32_t)-1) {
+        // flow index is -1 for 255.255.255.255
+        if (pkt_info_->ip_daddr != 0xFFFFFFFF) {
+            proto_->increment_invalid_flow_index();
+            return true;
+        }
+        src_ip = pkt_info_->ip_saddr;
+    } else {
+        if (proto_->FlowIndexToKey(pkt_info_->agent_hdr.flow_index, &key)
+            == false) {
+            proto_->increment_invalid_flow_index();
+            return true;
+        }
+        src_ip = key.src.ipv4;
     }
 
     // Get IPAM to find default gateway
-    const VnIpam *ipam = intf->vn()->GetIpam(Ip4Address(key.src.ipv4));
+    const VnIpam *ipam = intf->vn()->GetIpam(Ip4Address(src_ip));
     if (ipam == NULL) {
         proto_->increment_interface_errors();
         return true;
@@ -77,28 +88,30 @@ bool IcmpErrorHandler::SendIcmpError(VmInterface *intf) {
 
     uint16_t ip_len = sizeof(iphdr) + sizeof(icmphdr) + data_len;
     len += IpHdr(ptr + len, buf_len - len, ip_len, ipam->default_gw.to_ulong(),
-            htonl(key.src.ipv4), IPPROTO_ICMP);
+            htonl(src_ip), IPPROTO_ICMP);
 
     char *icmp = ptr + len;
     len += IcmpHdr(ptr + len, buf_len - len, ICMP_DEST_UNREACH,
                    ICMP_FRAG_NEEDED, 0, pkt_info_->agent_hdr.mtu);
 
-    // Its possible that user payload has gone thru NAT processing already.
-    // Restore the original fields from flow_key
-    iphdr *ip = (iphdr *)data;
-    uint16_t ip_hlen = ip->ihl * 4;
+    if (pkt_info_->agent_hdr.flow_index != (uint32_t)-1) {
+        // Its possible that user payload has gone thru NAT processing already.
+        // Restore the original fields from flow_key
+        iphdr *ip = (iphdr *)data;
+        uint16_t ip_hlen = ip->ihl * 4;
 
-    ip->saddr = htonl(key.src.ipv4);
-    ip->daddr = htonl(key.dst.ipv4);
-    ip->check = Csum((uint16_t *)data, ip_hlen, 0);
-    if (ip->protocol == IPPROTO_UDP) {
-        udphdr *udp = (udphdr *)(data + ip_hlen);
-        udp->source = ntohs(key.src_port);
-        udp->dest = ntohs(key.dst_port);
-    } else if (ip->protocol == IPPROTO_TCP) {
-        tcphdr *tcp = (tcphdr *)(data + ip_hlen);
-        tcp->source = ntohs(key.src_port);
-        tcp->dest = ntohs(key.dst_port);
+        ip->saddr = htonl(key.src.ipv4);
+        ip->daddr = htonl(key.dst.ipv4);
+        ip->check = Csum((uint16_t *)data, ip_hlen, 0);
+        if (ip->protocol == IPPROTO_UDP) {
+            udphdr *udp = (udphdr *)(data + ip_hlen);
+            udp->source = ntohs(key.src_port);
+            udp->dest = ntohs(key.dst_port);
+        } else if (ip->protocol == IPPROTO_TCP) {
+            tcphdr *tcp = (tcphdr *)(data + ip_hlen);
+            tcp->source = ntohs(key.src_port);
+            tcp->dest = ntohs(key.dst_port);
+        }
     }
     memcpy(ptr + len, data, data_len);
     len += data_len;
