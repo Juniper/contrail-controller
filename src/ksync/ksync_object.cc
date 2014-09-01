@@ -984,8 +984,11 @@ void KSyncObject::NotifyEvent(KSyncEntry *entry, KSyncEntry::KSyncEvent event) {
         BackRefReEval(entry);
     }
 
-    if (state == KSyncEntry::FREE_WAIT) {
+    if (state == KSyncEntry::FREE_WAIT || state == KSyncEntry::TEMP) {
         CleanupOnDel(entry);
+    }
+
+    if (state == KSyncEntry::FREE_WAIT) {
         intrusive_ptr_release(entry);
         FreeInd(entry, entry->GetIndex());
     }
