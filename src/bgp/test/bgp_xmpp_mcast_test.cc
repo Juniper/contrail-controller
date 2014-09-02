@@ -54,6 +54,15 @@ protected:
 
     BgpXmppMcastTest() : thread_(&evm_), xs_x_(NULL) { }
 
+    struct SchedulerLock {
+        SchedulerLock() {
+            TaskScheduler::GetInstance()->Stop();
+        }
+        ~SchedulerLock() {
+            TaskScheduler::GetInstance()->Start();
+        }
+    };
+
     virtual void SetUp() {
         bs_x_.reset(new BgpServerTest(&evm_, "X"));
         xs_x_ = new XmppServer(&evm_, test::XmppDocumentMock::kControlNodeJID);
@@ -125,6 +134,7 @@ protected:
 
     int ExtractLabel(boost::shared_ptr<const test::NetworkAgentMock> agent,
         const string &net, const string &prefix) {
+        SchedulerLock lock;
         const NetworkAgentMock::McastRouteEntry *rt =
             agent->McastRouteLookup(net, prefix);
         return (rt ? rt->entry.nlri.source_label : 0);
@@ -141,6 +151,7 @@ protected:
     bool CheckOListElem(boost::shared_ptr<const test::NetworkAgentMock> agent,
         const string &net, const string &prefix, size_t olist_size,
         const string &address, int label, const string &encap) {
+        SchedulerLock lock;
         const NetworkAgentMock::McastRouteEntry *rt =
             agent->McastRouteLookup(net, prefix);
         if (olist_size == 0 && rt != NULL)
