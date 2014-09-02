@@ -233,6 +233,9 @@ void AgentRouteTable::DeletePathFromPeer(DBTablePartBase *part,
         rt->SquashStalePaths(NULL);
     }
 
+    //Recompute paths after deletion of peer path.
+    rt->ReComputePaths(path, true);
+
     // Delete route if no more paths 
     if (rt->GetActivePath() == NULL) {
         RouteInfo rt_info_del;
@@ -374,7 +377,7 @@ void AgentRouteTable::Input(DBTablePartition *part, DBClient *client,
                 //If a path transition from ECMP to non ECMP
                 //remote the path from ecmp peer
                 if (ecmp && ecmp != path->path_preference().ecmp()) {
-                    rt->EcmpDeletePath(path);
+                    rt->ReComputePaths(path, true);
                 }
 
                 RouteInfo rt_info;
@@ -393,9 +396,9 @@ void AgentRouteTable::Input(DBTablePartition *part, DBClient *client,
                 EvaluateUnresolvedNH();
             }
 
-            // ECMP path are managed by route module. Update ECMP path with 
-            // addition of new path
-            if (rt->EcmpAddPath(path)) {
+            //Used for routes which have use more than one peer information
+            //to compute the nexthops.
+            if (rt->ReComputePaths(path, false)) {
                 notify = true;
             }
         } else {
@@ -466,7 +469,7 @@ VrfEntry *AgentRouteTable::vrf_entry() const {
     return vrf_entry_.get();
 }
 
-uint32_t AgentRoute::GetMplsLabel() const { 
+uint32_t AgentRoute::GetActiveLabel() const {
     return GetActivePath()->label();
 };
 
@@ -496,9 +499,6 @@ void AgentRoute::InsertPath(const AgentPath *path) {
 void AgentRoute::RemovePathInternal(AgentPath *path) {
     remove(path);
     path->clear_sg_list();
-    // ECMP path are managed by route module. Update ECMP path with this path
-    // delete
-    EcmpDeletePath(path);
 }
 
 void AgentRoute::RemovePath(AgentPath *path) {
@@ -518,6 +518,7 @@ AgentPath *AgentRoute::FindLocalVmPortPath() const {
         }
         if (path->peer()->GetType() == Peer::ECMP_PEER ||
             path->peer()->GetType() == Peer::VGW_PEER ||
+            path->peer()->GetType() == Peer::MULTICAST_PEER ||
             path->peer()->GetType() == Peer::LOCAL_VM_PORT_PEER) {
             return const_cast<AgentPath *>(path);
         }
@@ -586,23 +587,6 @@ bool AgentRoute::CanDissociate() const {
         const CompositeNH *cnh = static_cast<const CompositeNH *>(nh);
         if (cnh && cnh->ComponentNHCount() == 0) 
             return true;
-        if (GetTableType() == Agent::LAYER2) {
-            const MulticastGroupObject *obj = 
-                MulticastHandler::GetInstance()->
-                FindFloodGroupObject(vrf()->GetName());
-            if (obj) {
-                can_dissociate &= !obj->Ipv4Forwarding();
-            }
-        }
-
-        if (GetTableType() == Agent::INET4_MULTICAST) {
-            const MulticastGroupObject *obj = 
-                MulticastHandler::GetInstance()->
-                FindFloodGroupObject(vrf()->GetName());
-            if (obj) {
-                can_dissociate &= !obj->layer2_forwarding();
-            }
-        }
     }
     return can_dissociate;
 }

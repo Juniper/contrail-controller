@@ -551,6 +551,9 @@ public:
     const Peer *link_local_peer() const {return linklocal_peer_.get();}
     const Peer *ecmp_peer() const {return ecmp_peer_.get();}
     const Peer *vgw_peer() const {return vgw_peer_.get();}
+    const Peer *multicast_peer() const {return multicast_peer_.get();}
+    const Peer *multicast_tree_builder_peer() const {
+        return multicast_tree_builder_peer_.get();}
 
     // Agent Modules
     AgentConfig *cfg() const; 
@@ -625,6 +628,9 @@ public:
 
     bool headless_agent_mode() const {return headless_agent_mode_;}
     void set_headless_agent_mode(bool mode) {headless_agent_mode_ = mode;}
+
+    bool simulate_evpn_tor() const {return simulate_evpn_tor_;}
+    void set_simulate_evpn_tor(bool mode) {simulate_evpn_tor_ = mode;}
 
     IFMapAgentParser *ifmap_parser() const {return ifmap_parser_;}
     void set_ifmap_parser(IFMapAgentParser *parser) {
@@ -759,6 +765,8 @@ private:
     std::auto_ptr<Peer> linklocal_peer_;
     std::auto_ptr<Peer> ecmp_peer_;
     std::auto_ptr<Peer> vgw_peer_;
+    std::auto_ptr<Peer> multicast_peer_;
+    std::auto_ptr<Peer> multicast_tree_builder_peer_;
 
     std::auto_ptr<AgentSignal> agent_signal_;
 
@@ -777,6 +785,7 @@ private:
     bool debug_;
     bool test_mode_;
     bool init_done_;
+    bool simulate_evpn_tor_;
 
     // Flow information
     uint32_t flow_table_size_;

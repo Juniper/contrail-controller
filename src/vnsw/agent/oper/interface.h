@@ -291,7 +291,8 @@ public:
     OperDB *operdb() const { return operdb_; }
 
 private:
-    bool L2VmInterfaceWalk(DBTablePartBase *partition, DBEntryBase *entry);
+    bool L2VmInterfaceWalk(DBTablePartBase *partition,
+                           DBEntryBase *entry);
     void VmInterfaceWalkDone(DBTableBase *partition);
 
     static InterfaceTable *interface_table_;
