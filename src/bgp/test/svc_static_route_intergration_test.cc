@@ -520,9 +520,11 @@ protected:
 
     bool MatchResult(BgpServerTest *server, string prefix, 
                      vector<PathVerify> verify) {
+        task_util::TaskSchedulerLock lock;
+
+        // Verify number of paths
         BgpRoute *svc_route = InetRouteLookup(server, "blue", prefix);
-        // Check for aggregated route count
-        if (svc_route->count() != verify.size()) {
+        if (!svc_route || svc_route->count() != verify.size()) {
             return false;
         }
         vector<PathVerify>::iterator vit;
