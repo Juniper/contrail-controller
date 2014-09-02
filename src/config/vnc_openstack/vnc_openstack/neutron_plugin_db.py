@@ -2115,9 +2115,24 @@ class DBInterface(object):
         if 'fixed_ips' in port_q:
             net_id = (port_q.get('network_id') or
                       port_obj.get_virtual_network_refs()[0]['uuid'])
+            port_obj_ips = None
             for fixed_ip in port_q.get('fixed_ips', []):
                 if 'ip_address' in fixed_ip:
+                    # read instance ip addrs on port only once
+                    if port_obj_ips == None:
+                        port_obj_ips = []
+                        ip_back_refs = getattr(port_obj, 'instance_ip_back_refs', None)
+                        if ip_back_refs:
+                            for ip_back_ref in ip_back_refs:
+                                try:
+                                    ip_obj = self._instance_ip_read(
+                                        instance_ip_id=ip_back_ref['uuid'])
+                                except NoIdError:
+                                    continue
+                            port_obj_ips.append(ip_obj.get_instance_ip_address())
                     ip_addr = fixed_ip['ip_address']
+                    if ip_addr in port_obj_ips:
+                        continue
                     if self._ip_addr_in_net_id(ip_addr, net_id):
                         self._raise_contrail_exception(
                             409, exceptions.IpAddressInUse(net_id=net_id,
