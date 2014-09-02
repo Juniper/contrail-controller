@@ -554,8 +554,10 @@ void TaskScheduler::Print() {
     }
 }
 
-// Returns true if there are no tasks enqueued and/or running
-bool TaskScheduler::IsEmpty() {
+// Returns true if there are no tasks enqueued and/or running.
+// If running_only is true, enqueued tasks are ignored i.e. return true if
+// there are no running tasks.
+bool TaskScheduler::IsEmpty(bool running_only) {
     TaskGroup *group;
 
     tbb::mutex::scoped_lock lock(mutex_);
@@ -565,7 +567,10 @@ bool TaskScheduler::IsEmpty() {
         if ((group = *it) == NULL) {
             continue;
         }
-        if (group->TaskRunCount() || (false == group->IsWaitQEmpty())) {
+        if (group->TaskRunCount()) {
+            return false;
+        }
+        if ((false == running_only) && (false == group->IsWaitQEmpty())) {
             return false;
         }
     }
