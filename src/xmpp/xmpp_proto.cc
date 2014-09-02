@@ -164,18 +164,18 @@ int XmppProto::EncodeOpen(uint8_t *buf, string &to, string &from) {
 }
 
 XmppStanza::XmppMessage *XmppProto::Decode(const string &ts) {
-    XmlBase *impl = XmppStanza::AllocXmppXmlImpl();
-    if (impl == NULL) {
+    auto_ptr<XmlBase> impl(XmppStanza::AllocXmppXmlImpl());
+    if (impl.get() == NULL) {
         return NULL;
     }
 
-    XmppStanza::XmppMessage *msg = DecodeInternal(ts, impl);
+    XmppStanza::XmppMessage *msg = DecodeInternal(ts, impl.get());
     if (!msg) {
         return NULL;
     }
 
-    // keep the dom
-    msg->dom.reset(impl);
+    // transfer ownership
+    msg->dom = impl;
 
     return msg;
 }
