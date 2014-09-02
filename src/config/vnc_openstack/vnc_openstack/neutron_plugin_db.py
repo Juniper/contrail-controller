@@ -1417,7 +1417,11 @@ class DBInterface(object):
             exc_info = {'type': 'BadRequest',
                         'message': "Bad subnet request: IPv6 is not supported"}
             bottle.abort(400, json.dumps(exc_info))
-
+        elif cidr.version != int(subnet_q['ip_version']):
+            msg = _("cidr '%s' does not match the ip_version '%s'") \
+                    %(subnet_q['cidr'], subnet_q['ip_version'])
+            self._raise_contrail_exception(400, exceptions.InvalidInput(
+                error_message=msg))
         if 'gateway_ip' in subnet_q:
             default_gw = subnet_q['gateway_ip']
         else:
