@@ -60,10 +60,12 @@ XmppInit::~XmppInit() {
     }
 }
 
-void XmppInit::Reset() {
+void XmppInit::Reset(bool keep_config) {
     g_server_ = NULL;
     g_client_ = NULL;
-    cfg_ = NULL;
+    if (!keep_config) {
+        cfg_ = NULL;
+    }
 }
 
 void XmppInit::InitClient(XmppClient *client) {

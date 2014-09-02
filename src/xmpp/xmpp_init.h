@@ -27,7 +27,7 @@ public:
     static const char *kFqnPrependAgentNodeJID;
     XmppInit();
     ~XmppInit();
-    void Reset();
+    void Reset(bool keep_config = false);
     void InitClient(XmppClient *);
     void InitServer(XmppServer *, int port, bool logUVE);
 
