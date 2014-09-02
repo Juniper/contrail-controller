@@ -67,7 +67,7 @@ private:
     static StrTypeToIntMap InitServiceTypeMap() {
         StrTypeToIntMap types;
         types.insert(StrTypeToIntPair("source-nat", ServiceInstance::SourceNAT));
-        types.insert(StrTypeToIntPair("load-balancer", ServiceInstance::LoadBalancer));
+        types.insert(StrTypeToIntPair("loadbalancer", ServiceInstance::LoadBalancer));
 
         return types;
     };
