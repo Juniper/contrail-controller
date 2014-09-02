@@ -2494,11 +2494,12 @@ class LogicalRouterST(DictST):
         self.virtual_networks = set()
         obj = _vnc_lib.logical_router_read(fq_name_str=name)
         rt_ref = obj.get_route_target_refs()
+        old_rt_key = None
         if rt_ref:
             rt_key = rt_ref[0]['to'][0]
             rtgt_num = int(rt_key.split(':')[-1])
             if rtgt_num < common.BGP_RTGT_MIN_ID:
-                _vnc_lib.route_target_delete(fq_name=[rt_key])
+                old_rt_key = rt_key
                 rt_ref = None
         if not rt_ref:
             rtgt_num = VirtualNetworkST._rt_allocator.alloc(name)
@@ -2508,6 +2509,8 @@ class LogicalRouterST(DictST):
             obj.set_route_target(rtgt_obj)
             _vnc_lib.logical_router_update(obj)
 
+        if old_rt_key:
+            _vnc_lib.route_target_delete(fq_name=[old_rt_key])
         self.route_target = rt_key
     # end __init__
 
