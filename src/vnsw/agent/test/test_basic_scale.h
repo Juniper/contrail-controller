@@ -264,8 +264,8 @@ public:
         SendDocument(xdoc);
     }
 
-    void SendL2RouteMessage(std::string vrf, std::string mac_string, std::string address, int label, 
-                            const char *vn = "vn1", bool is_vxlan = false) {
+    void SendL2FloodRouteMessage(std::string vrf, std::string mac_string, std::string address,
+                                 int label, const char *vn = "vn1", bool is_vxlan = false) {
         xml_document xdoc;
         xml_node xitems = L2MessageHeader(&xdoc, vrf);
 
@@ -280,6 +280,57 @@ public:
             item_nexthop.tunnel_encapsulation_list.tunnel_encapsulation.push_back("udp");
         }
 
+        autogen::EnetNextHopType item_nexthop_1;
+        item_nexthop_1.af = 1;
+        item_nexthop_1.address = Agent::GetInstance()->router_id().to_string();
+        item_nexthop_1.label = label + 1;
+        if (is_vxlan) {
+            item_nexthop_1.tunnel_encapsulation_list.tunnel_encapsulation.push_back("vxlan");
+        } else {
+            item_nexthop_1.tunnel_encapsulation_list.tunnel_encapsulation.push_back("gre");
+            item_nexthop_1.tunnel_encapsulation_list.tunnel_encapsulation.push_back("udp");
+        }
+
+        autogen::EnetItemType item;
+        item.entry.nlri.af = 25;
+        item.entry.nlri.safi = 242;
+        item.entry.nlri.mac = mac_string.c_str();
+        item.entry.nlri.address = address.c_str();
+
+        item.entry.olist.next_hop.push_back(item_nexthop);
+        item.entry.olist.next_hop.push_back(item_nexthop_1);
+
+        xml_node node = xitems.append_child("item");
+        stringstream ss;
+        ss << mac_string.c_str() << "," << address.c_str();
+        string node_str(ss.str());
+        node.append_attribute("id") = node_str.c_str();
+        item.Encode(&node);
+
+        SendDocument(xdoc);
+    }
+
+    void SendL2RouteMessage(std::string vrf, std::string mac_string, std::string address, int label, 
+                            const char *vn = "vn1", bool is_vxlan = false) {
+        if (mac_string == "ff:ff:ff:ff:ff:ff") {
+            SendL2FloodRouteMessage(vrf, mac_string, address, label, vn, is_vxlan);
+            return;
+        }
+
+        xml_document xdoc;
+        xml_node xitems = L2MessageHeader(&xdoc, vrf);
+
+        autogen::EnetNextHopType item_nexthop;
+        item_nexthop.af = 1;
+        item_nexthop.address = Agent::GetInstance()->router_id().to_string();
+        item_nexthop.label = label;
+        if (is_vxlan) {
+            item_nexthop.tunnel_encapsulation_list.tunnel_encapsulation.push_back("vxlan");
+        } else {
+            item_nexthop.tunnel_encapsulation_list.tunnel_encapsulation.push_back("gre");
+            item_nexthop.tunnel_encapsulation_list.tunnel_encapsulation.push_back("udp");
+        }
+        
         autogen::EnetItemType item;
         item.entry.nlri.af = 25;
         item.entry.nlri.safi = 242;
@@ -290,7 +341,7 @@ public:
 
         xml_node node = xitems.append_child("item");
         stringstream ss;
-        ss << mac_string.c_str() << "," << address.c_str(); 
+        ss << mac_string.c_str() << "," << address.c_str();
         string node_str(ss.str());
         node.append_attribute("id") = node_str.c_str();
         item.Encode(&node);

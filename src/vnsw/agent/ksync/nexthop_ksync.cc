@@ -601,11 +601,11 @@ int NHKSyncEntry::Encode(sandesh_op::type op, char *buf, int buf_len) {
             encoder.set_nhr_tun_sip(0);
             encoder.set_nhr_tun_dip(0);
             if (is_layer2_) {
-                flags |= 0x0004;
+                flags |= NH_FLAG_ENCAP_L2;
                 encoder.set_nhr_family(AF_BRIDGE);
             }
             if (is_mcast_nh_) {
-                flags |= 0x0020;
+                flags |= NH_FLAG_MCAST;
                 encoder.set_nhr_flags(flags);
             } 
             break;
@@ -680,6 +680,15 @@ int NHKSyncEntry::Encode(sandesh_op::type op, char *buf, int buf_len) {
             encoder.set_nhr_encap_family(ETH_P_ARP);
             /* Proto encode in Network byte order */
             switch (comp_type_) {
+            case Composite::L2INTERFACE:
+            case Composite::L3INTERFACE: {
+                flags |= NH_FLAG_COMPOSITE_ENCAP;
+                break;
+            }
+            case Composite::EVPN: {
+                flags |= NH_FLAG_COMPOSITE_EVPN;
+                break;
+            }
             case Composite::FABRIC: {
                 flags |= NH_FLAG_COMPOSITE_FABRIC;
                 break;

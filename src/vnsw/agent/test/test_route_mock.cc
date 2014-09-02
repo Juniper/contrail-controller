@@ -343,7 +343,7 @@ TEST_F(RouteTest, BgpEcmpRouteTest_3) {
     WAIT_FOR(100, 10000, rt->GetActiveNextHop()->GetType() == NextHop::TUNNEL);
     tun_nh = static_cast<const TunnelNH *>(rt->GetActiveNextHop());
     EXPECT_TRUE((*(tun_nh->GetDip())).to_string() == "11.11.11.11");
-    EXPECT_TRUE(rt->GetMplsLabel() == 17);
+    EXPECT_TRUE(rt->GetActiveLabel() == 17);
 
     DelVrf("vrf1");
     DelVn("vn1");

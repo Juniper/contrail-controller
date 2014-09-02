@@ -1317,7 +1317,8 @@ TEST_F(IntfTest, IntfActivateDeactivate_1) {
     InterfaceNHKey unicast_policy_nh_key(intf_key2, true, InterfaceNHFlags::INET4);
     EXPECT_FALSE(FindNH(&unicast_policy_nh_key));
 
-    InterfaceNHKey multicast_nh_key(intf_key3, false, InterfaceNHFlags::MULTICAST);
+    InterfaceNHKey multicast_nh_key(intf_key3, false, InterfaceNHFlags::MULTICAST |
+                                    InterfaceNHFlags::INET4);
     EXPECT_FALSE(FindNH(&multicast_nh_key));
 
     InterfaceNHKey layer2_nh_key(intf_key4, false, InterfaceNHFlags::LAYER2);
@@ -1368,7 +1369,8 @@ TEST_F(IntfTest, IntfActivateDeactivate_2) {
 
     InterfaceNHKey unicast_nh_key(intf_key1, false, InterfaceNHFlags::INET4);
     InterfaceNHKey unicast_policy_nh_key(intf_key2, true, InterfaceNHFlags::INET4);
-    InterfaceNHKey multicast_nh_key(intf_key3, false, InterfaceNHFlags::MULTICAST);
+    InterfaceNHKey multicast_nh_key(intf_key3, false, InterfaceNHFlags::MULTICAST |
+                                    InterfaceNHFlags::INET4);
     InterfaceNHKey layer2_nh_key(intf_key4, false, InterfaceNHFlags::LAYER2);
     InterfaceNHKey layer2_policy_nh_key(intf_key5, true, InterfaceNHFlags::LAYER2);
 
@@ -1434,7 +1436,8 @@ TEST_F(IntfTest, IntfActivateDeactivate_3) {
 
     InterfaceNHKey unicast_nh_key(intf_key1, false, InterfaceNHFlags::INET4);
     InterfaceNHKey unicast_policy_nh_key(intf_key2, true, InterfaceNHFlags::INET4);
-    InterfaceNHKey multicast_nh_key(intf_key3, false, InterfaceNHFlags::MULTICAST);
+    InterfaceNHKey multicast_nh_key(intf_key3, false, InterfaceNHFlags::MULTICAST |
+                                    InterfaceNHFlags::INET4);
     InterfaceNHKey layer2_nh_key(intf_key4, false, InterfaceNHFlags::LAYER2);
     InterfaceNHKey layer2_policy_nh_key(intf_key5, true, InterfaceNHFlags::LAYER2);
 
@@ -1499,7 +1502,8 @@ TEST_F(IntfTest, IntfActivateDeactivate_4) {
 
     InterfaceNHKey unicast_nh_key(intf_key1, false, InterfaceNHFlags::INET4);
     InterfaceNHKey unicast_policy_nh_key(intf_key2, true, InterfaceNHFlags::INET4);
-    InterfaceNHKey multicast_nh_key(intf_key3, false, InterfaceNHFlags::MULTICAST);
+    InterfaceNHKey multicast_nh_key(intf_key3, false, InterfaceNHFlags::MULTICAST |
+                                    InterfaceNHFlags::INET4);
     InterfaceNHKey layer2_nh_key(intf_key4, false, InterfaceNHFlags::LAYER2);
     InterfaceNHKey layer2_policy_nh_key(intf_key5, true, InterfaceNHFlags::LAYER2);
 
@@ -1563,7 +1567,8 @@ TEST_F(IntfTest, IntfActivateDeactivate_5) {
 
     InterfaceNHKey unicast_nh_key(intf_key1, false, InterfaceNHFlags::INET4);
     InterfaceNHKey unicast_policy_nh_key(intf_key2, true, InterfaceNHFlags::INET4);
-    InterfaceNHKey multicast_nh_key(intf_key3, false, InterfaceNHFlags::MULTICAST);
+    InterfaceNHKey multicast_nh_key(intf_key3, false, InterfaceNHFlags::MULTICAST |
+                                    InterfaceNHFlags::INET4);
     InterfaceNHKey layer2_nh_key(intf_key4, false, InterfaceNHFlags::LAYER2);
     InterfaceNHKey layer2_policy_nh_key(intf_key5, true, InterfaceNHFlags::LAYER2);
 

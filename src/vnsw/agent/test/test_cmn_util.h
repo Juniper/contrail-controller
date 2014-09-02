@@ -292,7 +292,7 @@ void AddActiveActiveInstanceIp(const char *name, int id, const char* addr);
 void DelInstanceIp(const char *name);
 extern Peer *bgp_peer_;
 bool FindMplsLabel(MplsLabel::Type type, uint32_t label);
-MplsLabel *GetMplsLabel(MplsLabel::Type type, uint32_t label);
+MplsLabel *GetActiveLabel(MplsLabel::Type type, uint32_t label);
 uint32_t GetFlowKeyNH(int id);
 uint32_t GetFlowKeyNH(char *name);
 bool FindNH(NextHopKey *key);

@@ -39,7 +39,7 @@ static int ServiceVlanGetLabel(const string &vrf, const string &addr) {
         return false;
     }
 
-    return rt->GetMplsLabel();
+    return rt->GetActiveLabel();
 }
 
 static bool ValidateServiceVlan(int ifid, const string &vrf, const string &addr,
@@ -52,7 +52,7 @@ static bool ValidateServiceVlan(int ifid, const string &vrf, const string &addr,
         return false;
     }
 
-    int label = rt->GetMplsLabel();
+    int label = rt->GetActiveLabel();
     MplsLabel *mpls = Agent::GetInstance()->mpls_table()->FindMplsLabel(label);
     EXPECT_TRUE(mpls != NULL);
     if (mpls == NULL) {

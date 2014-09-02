@@ -9,6 +9,7 @@
 #include "test_cmn_util.h"
 #include "vr_types.h"
 #include "oper/vn.h"
+#include "oper/tunnel_nh.h"
 
 #include <boost/assign/list_of.hpp>
 
@@ -59,20 +60,10 @@ void DoMulticastSandesh(int vrf_id) {
 void WaitForRouteDelete(Ip4Address grp, std::string vrf_name, bool mcast)
 {
     client->WaitForIdle();
-    while (1) {
-        AgentRoute *rt;
-        if (mcast) {
-            rt = MCRouteGet(vrf_name, grp);
-        } else {
-            rt = RouteGet(vrf_name, grp, 32);
-        }
-
-        if (rt == NULL) {
-            break;
-        }
-        client->WaitForIdle();
-        usleep(100);
-    }
+    if (mcast)
+        WAIT_FOR(1000, 1000, (MCRouteGet(vrf_name, grp) == NULL));
+    else
+        WAIT_FOR(1000, 1000, (RouteGet(vrf_name, grp, 32) == NULL));
 }
 
 TEST_F(MulticastTest, Mcast_basic) {
@@ -197,12 +188,10 @@ TEST_F(MulticastTest, McastSubnet_1) {
     EXPECT_TRUE(cnh->GetType() == NextHop::COMPOSITE);
     mcobj = MulticastHandler::GetInstance()->FindGroupObject("vrf1",
                                               addr);
-    ASSERT_TRUE(mcobj->GetSourceMPLSLabel() == 1111);
 	MplsLabel *mpls = 
 	    agent_->mpls_table()->FindMplsLabel(1111);
 	ASSERT_TRUE(mpls == NULL);
     ASSERT_TRUE((mcobj->GetLocalOlist()).size() == 2);
-    ASSERT_TRUE((mcobj->GetTunnelOlist()).size() == 1);
 
     TunnelOlist olist_map1;
     olist_map1.push_back(OlistTunnelEntry(7777, 
@@ -225,11 +214,9 @@ TEST_F(MulticastTest, McastSubnet_1) {
     cnh = static_cast<CompositeNH *>(nh);
     ASSERT_TRUE(nh != NULL);
     mcobj = MulticastHandler::GetInstance()->FindGroupObject("vrf1", addr);
-    ASSERT_TRUE(mcobj->GetSourceMPLSLabel() == 2222);
 	mpls = agent_->mpls_table()->FindMplsLabel(2222);
 	ASSERT_TRUE(mpls == NULL);
     ASSERT_TRUE((mcobj->GetLocalOlist()).size() == 1);
-    ASSERT_TRUE((mcobj->GetTunnelOlist()).size() == 3);
 
     client->WaitForIdle();
     TunnelOlist olist_map2;
@@ -251,11 +238,9 @@ TEST_F(MulticastTest, McastSubnet_1) {
     nh = const_cast<NextHop *>(rt->GetActiveNextHop());
     ASSERT_TRUE(nh != NULL);
     mcobj = MulticastHandler::GetInstance()->FindGroupObject("vrf1", addr);
-    ASSERT_TRUE(mcobj->GetSourceMPLSLabel() == 2222);
 	mpls = agent_->mpls_table()->FindMplsLabel(2222);
 	ASSERT_TRUE(mpls == NULL);
     ASSERT_TRUE((mcobj->GetLocalOlist()).size() == 1);
-    ASSERT_TRUE((mcobj->GetTunnelOlist()).size() == 2);
 
     memset(buf, 0, BUF_SIZE);
     AddXmlHdr(buf, len);
@@ -366,19 +351,17 @@ TEST_F(MulticastTest, L2Broadcast_1) {
     nh = const_cast<NextHop *>(rt->GetActiveNextHop());
     cnh = static_cast<CompositeNH *>(nh);
     mcobj = MulticastHandler::GetInstance()->FindGroupObject("vrf1", addr);
-    ASSERT_TRUE(mcobj->GetSourceMPLSLabel() == 1111);
     WAIT_FOR(1000, 1000, FindMplsLabel(MplsLabel::MCAST_NH, 1111));
-	MplsLabel *mpls = GetMplsLabel(MplsLabel::MCAST_NH, 1111);; 
+	MplsLabel *mpls = GetActiveLabel(MplsLabel::MCAST_NH, 1111);
     ASSERT_TRUE((mcobj->GetLocalOlist()).size() == 3);
-    ASSERT_TRUE((mcobj->GetTunnelOlist()).size() == 1);
-    EXPECT_TRUE(cnh->ComponentNHCount() == 4);
+    EXPECT_TRUE(cnh->ComponentNHCount() == 2);
     EXPECT_TRUE(cnh->composite_nh_type() == Composite::L3COMP);
     DoMulticastSandesh(1);
 
     Layer2RouteEntry *l2_rt = L2RouteGet("vrf1", *ether_aton("FF:FF:FF:FF:FF:FF"));
     NextHop *l2_nh = const_cast<NextHop *>(l2_rt->GetActiveNextHop());
     CompositeNH *l2_cnh = static_cast<CompositeNH *>(l2_nh);
-    EXPECT_TRUE(l2_cnh->ComponentNHCount() == 4);
+    EXPECT_TRUE(l2_cnh->ComponentNHCount() == 2);
     EXPECT_TRUE(l2_cnh->composite_nh_type() == Composite::L2COMP);
 
     EXPECT_TRUE(cnh->GetNH(0) == l2_cnh->GetNH(0));
@@ -388,7 +371,8 @@ TEST_F(MulticastTest, L2Broadcast_1) {
         const InterfaceNH *l2_comp_nh = 
             static_cast<const InterfaceNH *>(l2_cnh->Get(i)->nh());
         EXPECT_TRUE(l3_comp_nh->GetFlags() == 
-                    (InterfaceNHFlags::MULTICAST));
+                    (InterfaceNHFlags::MULTICAST |
+                     InterfaceNHFlags::INET4));
         EXPECT_TRUE(l2_comp_nh->GetFlags() == InterfaceNHFlags::LAYER2);
         EXPECT_TRUE(l3_comp_nh->GetIfUuid() == l2_comp_nh->GetIfUuid());
     }
@@ -398,6 +382,25 @@ TEST_F(MulticastTest, L2Broadcast_1) {
     EXPECT_TRUE(fabric_cnh->composite_nh_type() == Composite::FABRIC);
     EXPECT_TRUE(fabric_cnh->ComponentNHCount() == 1);
     EXPECT_TRUE(fabric_cnh->Get(0)->label() == 2000);
+
+    const CompositeNH *l3_intf_cnh = static_cast<const CompositeNH *>(cnh->GetNH(1));
+    EXPECT_TRUE(l3_intf_cnh->composite_nh_type() == Composite::L3INTERFACE);
+    EXPECT_TRUE(l3_intf_cnh->ComponentNHCount() == 3);
+
+    const CompositeNH *l2_intf_cnh = static_cast<const CompositeNH *>(l2_cnh->GetNH(2));
+    EXPECT_TRUE(l2_intf_cnh->composite_nh_type() == Composite::L2INTERFACE);
+    EXPECT_TRUE(l2_intf_cnh->ComponentNHCount() == 3);
+
+    for (uint8_t i = 0; i < l3_intf_cnh->ComponentNHCount(); i++) {
+        const InterfaceNH *l3_intf_nh = 
+            static_cast<const InterfaceNH *>(l3_intf_cnh->GetNH(i));
+        const InterfaceNH *l2_intf_nh = 
+            static_cast<const InterfaceNH *>(l2_intf_cnh->GetNH(i));
+        EXPECT_TRUE(l3_intf_nh->GetFlags() == 
+                    (InterfaceNHFlags::MULTICAST | InterfaceNHFlags::INET4));
+        EXPECT_TRUE(l2_intf_nh->GetFlags() == InterfaceNHFlags::LAYER2);
+        EXPECT_TRUE(l3_intf_nh->GetIfUuid() == l2_intf_nh->GetIfUuid());
+    }
 
     const CompositeNH *mpls_cnh = 
         static_cast<const CompositeNH *>(mpls->nexthop());
@@ -484,12 +487,10 @@ TEST_F(MulticastTest, McastSubnet_DeleteRouteOnVRFDeleteofVN) {
     nh = rt->GetActiveNextHop();
     cnh = static_cast<const CompositeNH *>(nh);
     mcobj = MulticastHandler::GetInstance()->FindGroupObject("vrf1", addr);
-    ASSERT_TRUE(mcobj->GetSourceMPLSLabel() == 1111);
 	MplsLabel *mpls = 
 	    agent_->mpls_table()->FindMplsLabel(1111);
 	ASSERT_TRUE(mpls == NULL);
     ASSERT_TRUE((mcobj->GetLocalOlist()).size() == 1);
-    ASSERT_TRUE((mcobj->GetTunnelOlist()).size() == 1);
 
     DelArp("8.8.8.8", "00:00:08:08:08:08", 
            agent_->fabric_interface_name().c_str());
@@ -559,12 +560,10 @@ TEST_F(MulticastTest, McastSubnet_DeleteRouteOnIPAMDeleteofVN) {
     cnh = static_cast<CompositeNH *>(nh);
     EXPECT_TRUE(cnh->GetType() == NextHop::COMPOSITE);
     mcobj = MulticastHandler::GetInstance()->FindGroupObject("vrf1", addr);
-    ASSERT_TRUE(mcobj->GetSourceMPLSLabel() == 1111);
 	MplsLabel *mpls = 
 	    agent_->mpls_table()->FindMplsLabel(1111);
 	ASSERT_TRUE(mpls == NULL);
     ASSERT_TRUE((mcobj->GetLocalOlist()).size() == 1);
-    ASSERT_TRUE((mcobj->GetTunnelOlist()).size() == 1);
 
     DelLink("virtual-network", "vn1", "virtual-network-network-ipam", 
             "default-network-ipam,vn1");
@@ -843,7 +842,6 @@ TEST_F(MulticastTest, subnet_bcast_ipv4_vn_delete) {
     //Change the vn forwarding mode to l2-only
     MulticastGroupObject *mcobj = MulticastHandler::GetInstance()->
         FindGroupObject("vrf1", IpAddress::from_string("11.1.1.255").to_v4());
-    EXPECT_TRUE(mcobj->Ipv4Forwarding() == true);
     EXPECT_TRUE(mcobj->layer2_forwarding() == false);
     //Del VN
     VnDelReq(1);
@@ -859,8 +857,6 @@ TEST_F(MulticastTest, subnet_bcast_ipv4_vn_delete) {
                                           IpAddress::from_string("0.0.0.0").to_v4(),
                                           1111, olist_map);
     client->WaitForIdle();
-    EXPECT_TRUE(mcobj->GetSourceMPLSLabel() == 0);
-    EXPECT_TRUE(mcobj->GetTunnelOlist().size() == 0);
 
     //Restore and cleanup
     client->Reset();
@@ -903,7 +899,6 @@ TEST_F(MulticastTest, subnet_bcast_ipv4_vn_ipam_change) {
     //Change the vn forwarding mode to l2-only
     MulticastGroupObject *mcobj = MulticastHandler::GetInstance()->
         FindGroupObject("vrf1", IpAddress::from_string("11.1.1.255").to_v4());
-    EXPECT_TRUE(mcobj->Ipv4Forwarding() == true);
     EXPECT_TRUE(mcobj->layer2_forwarding() == false);
     //Change IPAM
     AddIPAM("vn1", ipam_info_2, 2);
@@ -919,8 +914,6 @@ TEST_F(MulticastTest, subnet_bcast_ipv4_vn_ipam_change) {
                                           IpAddress::from_string("0.0.0.0").to_v4(),
                                           1111, olist_map);
     client->WaitForIdle();
-    EXPECT_TRUE(mcobj->GetSourceMPLSLabel() == 0);
-    EXPECT_TRUE(mcobj->GetTunnelOlist().size() == 0);
 
     //Restore and cleanup
     client->Reset();
@@ -958,7 +951,6 @@ TEST_F(MulticastTest, subnet_bcast_ipv4_vn_vrf_link_delete) {
     //Change the vn forwarding mode to l2-only
     MulticastGroupObject *mcobj = MulticastHandler::GetInstance()->
         FindGroupObject("vrf1", IpAddress::from_string("11.1.1.255").to_v4());
-    EXPECT_TRUE(mcobj->Ipv4Forwarding() == true);
     EXPECT_TRUE(mcobj->layer2_forwarding() == false);
     //VRF delete for VN
     DelLink("virtual-network", "vn1", "routing-instance", "vrf1");
@@ -974,8 +966,6 @@ TEST_F(MulticastTest, subnet_bcast_ipv4_vn_vrf_link_delete) {
                                           IpAddress::from_string("0.0.0.0").to_v4(),
                                           1111, olist_map);
     client->WaitForIdle();
-    EXPECT_TRUE(mcobj->GetSourceMPLSLabel() == 0);
-    EXPECT_TRUE(mcobj->GetTunnelOlist().size() == 0);
 
     //Restore and cleanup
     client->Reset();
@@ -1016,7 +1006,6 @@ TEST_F(MulticastTest, subnet_bcast_add_l2l3vn_and_l2vn) {
 
     MulticastGroupObject *mcobj = MulticastHandler::GetInstance()->
         FindGroupObject("vrf1", IpAddress::from_string("11.1.1.255").to_v4());
-    EXPECT_TRUE(mcobj->Ipv4Forwarding() == true);
     EXPECT_TRUE(mcobj->layer2_forwarding() == false);
     client->WaitForIdle();
 
@@ -1038,8 +1027,6 @@ TEST_F(MulticastTest, subnet_bcast_add_l2l3vn_and_l2vn) {
                                           IpAddress::from_string("0.0.0.0").to_v4(),
                                           1111, olist_map);
     client->WaitForIdle();
-    EXPECT_TRUE(mcobj->GetSourceMPLSLabel() == 1111);
-    EXPECT_TRUE(mcobj->GetTunnelOlist().size() == 1);
 
     //Restore and cleanup
     DelLink("virtual-network", "vn2", "routing-instance", "vrf2");
@@ -1051,6 +1038,249 @@ TEST_F(MulticastTest, subnet_bcast_add_l2l3vn_and_l2vn) {
     DelVn("vn2");
     DelVrf("vrf2");
     WAIT_FOR(1000, 1000, (VrfFind("vrf1") == false));
+}
+
+TEST_F(MulticastTest, evpn_flood_l2l3_mode) {
+    client->Reset();
+    struct PortInfo input[] = {
+        {"vnet1", 1, "1.1.1.1", "00:00:00:01:01:01", 1, 1},
+        {"vnet2", 2, "1.1.1.2", "00:00:00:02:02:02", 1, 2},
+    };
+
+    IpamInfo ipam_info[] = {
+        {"1.1.1.0", 24, "1.1.1.200"},
+    };
+
+    client->Reset();
+    VxLanNetworkIdentifierMode(false);
+    client->WaitForIdle();
+    CreateVmportEnv(input, 2, 0);
+    client->WaitForIdle();
+
+    client->Reset();
+    AddIPAM("vn1", ipam_info, 1);
+    client->WaitForIdle();
+
+    client->Reset();
+
+    NextHop *nh;
+    CompositeNH *cnh;
+    MulticastGroupObject *mcobj;
+
+	WAIT_FOR(1000, 1000, (VmPortActive(input, 0) == true));
+	WAIT_FOR(1000, 1000, (VmPortActive(input, 1) == true));
+
+    WAIT_FOR(1000, 1000, MCRouteFind("vrf1", "255.255.255.255"));
+    EXPECT_TRUE(L2RouteFind("vrf1", *ether_aton("FF:FF:FF:FF:FF:FF")));
+
+    TunnelOlist olist_map;
+    olist_map.push_back(OlistTunnelEntry(2000, 
+                                         IpAddress::from_string("8.8.8.8").to_v4(),
+                                         TunnelType::AllType()));
+    MulticastHandler::ModifyFabricMembers("vrf1",
+                                          IpAddress::from_string("255.255.255.255").to_v4(),
+                                          IpAddress::from_string("0.0.0.0").to_v4(),
+                                          1111, olist_map);
+    client->WaitForIdle();
+
+    AddArp("8.8.8.8", "00:00:08:08:08:08", 
+           Agent::GetInstance()->fabric_interface_name().c_str());
+    client->WaitForIdle();
+
+    TunnelOlist evpn_olist_map;
+    evpn_olist_map.push_back(OlistTunnelEntry(1000, 
+                                              IpAddress::from_string("8.8.8.8").to_v4(),
+                                              TunnelType::MplsType()));
+    MulticastHandler::ModifyEvpnMembers("vrf1",
+                                        evpn_olist_map);
+    client->WaitForIdle();
+
+    MulticastHandler::ModifyEvpnMembers("vrf1",
+                                        evpn_olist_map);
+    client->WaitForIdle();
+
+    Inet4MulticastRouteEntry *rt = 
+        MCRouteGet("vrf1", "255.255.255.255");
+    nh = const_cast<NextHop *>(rt->GetActiveNextHop());
+    cnh = static_cast<CompositeNH *>(nh);
+    mcobj = MulticastHandler::GetInstance()->FindGroupObject("vrf1",
+                     IpAddress::from_string("255.255.255.255").to_v4());
+    uint32_t evpn_flood_label = mcobj->evpn_mpls_label();
+    ASSERT_TRUE(evpn_flood_label != 0);
+    ASSERT_TRUE((mcobj->GetLocalOlist()).size() == 2);
+
+    EXPECT_TRUE(cnh->ComponentNHCount() == 2);
+    EXPECT_TRUE(cnh->composite_nh_type() == Composite::L3COMP);
+
+    DoMulticastSandesh(1);
+
+    Layer2RouteEntry *l2_rt = L2RouteGet("vrf1", *ether_aton("FF:FF:FF:FF:FF:FF"));
+    NextHop *l2_nh = const_cast<NextHop *>(l2_rt->GetActiveNextHop());
+    CompositeNH *l2_cnh = static_cast<CompositeNH *>(l2_nh);
+    EXPECT_TRUE(l2_cnh->ComponentNHCount() == 3);
+    EXPECT_TRUE(l2_cnh->composite_nh_type() == Composite::L2COMP);
+
+    EXPECT_TRUE(cnh->GetNH(0) == l2_cnh->GetNH(0));
+    const CompositeNH *fabric_cnh = static_cast<const CompositeNH *>(cnh->GetNH(0));
+    EXPECT_TRUE(fabric_cnh->composite_nh_type() == Composite::FABRIC);
+    EXPECT_TRUE(fabric_cnh->ComponentNHCount() == 1);
+    EXPECT_TRUE(fabric_cnh->Get(0)->label() == 2000);
+
+    const CompositeNH *evpn_cnh = static_cast<const CompositeNH *>(l2_cnh->GetNH(1));
+    EXPECT_TRUE(evpn_cnh->composite_nh_type() == Composite::EVPN);
+    EXPECT_TRUE(evpn_cnh->ComponentNHCount() == 1);
+    EXPECT_TRUE(evpn_cnh->Get(0)->label() == 1000);
+    const TunnelNH *evpn_tunnel_nh = 
+        static_cast<const TunnelNH *>(evpn_cnh->GetNH(0));
+    EXPECT_TRUE(evpn_tunnel_nh->GetTunnelType().GetType() == TunnelType::MPLS_GRE);
+    EXPECT_TRUE(evpn_tunnel_nh->GetDip()->to_string() == 
+                IpAddress::from_string("8.8.8.8").to_v4().to_string());
+
+    const CompositeNH *l3_intf_cnh = static_cast<const CompositeNH *>(cnh->GetNH(1));
+    EXPECT_TRUE(l3_intf_cnh->composite_nh_type() == Composite::L3INTERFACE);
+    EXPECT_TRUE(l3_intf_cnh->ComponentNHCount() == 2);
+
+    const CompositeNH *l2_intf_cnh = static_cast<const CompositeNH *>(l2_cnh->GetNH(2));
+    EXPECT_TRUE(l2_intf_cnh->composite_nh_type() == Composite::L2INTERFACE);
+    EXPECT_TRUE(l2_intf_cnh->ComponentNHCount() == 2);
+
+    for (uint8_t i = 0; i < l3_intf_cnh->ComponentNHCount(); i++) {
+        const InterfaceNH *l3_intf_nh = 
+            static_cast<const InterfaceNH *>(l3_intf_cnh->GetNH(i));
+        const InterfaceNH *l2_intf_nh = 
+            static_cast<const InterfaceNH *>(l2_intf_cnh->GetNH(i));
+        EXPECT_TRUE(l3_intf_nh->GetFlags() == 
+                    (InterfaceNHFlags::MULTICAST | InterfaceNHFlags::INET4));
+        EXPECT_TRUE(l2_intf_nh->GetFlags() == InterfaceNHFlags::LAYER2);
+        EXPECT_TRUE(l3_intf_nh->GetIfUuid() == l2_intf_nh->GetIfUuid());
+    }
+
+    //Verify EVPN mpls label NH points to l2_intf_cnh above
+    MplsLabel *evpn_label = Agent::GetInstance()->mpls_table()->
+        FindMplsLabel(evpn_flood_label);
+    const NextHop *evpn_label_nh = evpn_label->nexthop();
+    ASSERT_TRUE(evpn_label_nh == l2_cnh);
+
+    DoMulticastSandesh(1);
+    DoMulticastSandesh(2);
+    DoMulticastSandesh(3);
+
+    IntfCfgDel(input, 0);
+    client->WaitForIdle();
+    IntfCfgDel(input, 1);
+    client->WaitForIdle();
+
+    client->Reset();
+    DelIPAM("vn1"); 
+    client->WaitForIdle();
+
+    client->Reset();
+    DeleteVmportEnv(input, 2, 1, 0);
+    client->WaitForIdle();
+
+    DelArp("8.8.8.8", "00:00:08:08:08:08", 
+           agent_->fabric_interface_name().c_str());
+    client->WaitForIdle();
+    WaitForRouteDelete(IpAddress::from_string("255.255.255.255").to_v4(),
+                       "vrf1", true);
+    client->WaitForIdle();
+}
+
+TEST_F(MulticastTest, evpn_flood_l2_mode) {
+    struct PortInfo input[] = {
+        {"vnet1", 1, "1.1.1.10", "00:00:01:01:01:10", 1, 1},
+    };
+
+    AddL2Vn("vn1", 1);
+    AddVrf("vrf1");
+    AddLink("virtual-network", "vn1", "routing-instance", "vrf1");
+    client->WaitForIdle();
+    client->Reset();
+    CreateL2VmportEnv(input, 1);
+    client->WaitForIdle();
+
+	WAIT_FOR(1000, 1000, (VmPortL2Active(input, 0) == true));
+    WAIT_FOR(1000, 1000, L2RouteFind("vrf1", *ether_aton("FF:FF:FF:FF:FF:FF")));
+    EXPECT_FALSE(MCRouteFind("vrf1", "255.255.255.255"));
+
+    TunnelOlist olist_map;
+    olist_map.push_back(OlistTunnelEntry(2000, 
+                                         IpAddress::from_string("8.8.8.8").to_v4(),
+                                         TunnelType::AllType()));
+    MulticastHandler::ModifyFabricMembers("vrf1",
+                                          IpAddress::from_string("255.255.255.255").to_v4(),
+                                          IpAddress::from_string("0.0.0.0").to_v4(),
+                                          1111, olist_map);
+    client->WaitForIdle();
+
+    AddArp("8.8.8.8", "00:00:08:08:08:08", 
+           Agent::GetInstance()->fabric_interface_name().c_str());
+    client->WaitForIdle();
+
+    TunnelOlist evpn_olist_map;
+    evpn_olist_map.push_back(OlistTunnelEntry(1000, 
+                                              IpAddress::from_string("8.8.8.8").to_v4(),
+                                              TunnelType::MplsType()));
+    //Do it for non existent object, to catch any crashes
+    MulticastHandler::ModifyEvpnMembers("vrf1",
+                                        evpn_olist_map);
+    client->WaitForIdle();
+
+    MulticastHandler::ModifyEvpnMembers("vrf1",
+                                        evpn_olist_map);
+    client->WaitForIdle();
+
+    MulticastGroupObject *mcobj = 
+        MulticastHandler::GetInstance()->FindFloodGroupObject("vrf1");
+
+    uint32_t evpn_flood_label = mcobj->evpn_mpls_label();
+    ASSERT_TRUE(evpn_flood_label != 0);
+    ASSERT_TRUE((mcobj->GetLocalOlist()).size() == 1);
+
+    Layer2RouteEntry *l2_rt = L2RouteGet("vrf1", *ether_aton("FF:FF:FF:FF:FF:FF"));
+    NextHop *l2_nh = const_cast<NextHop *>(l2_rt->GetActiveNextHop());
+    CompositeNH *l2_cnh = static_cast<CompositeNH *>(l2_nh);
+    EXPECT_TRUE(l2_cnh->ComponentNHCount() == 3);
+    EXPECT_TRUE(l2_cnh->composite_nh_type() == Composite::L2COMP);
+
+    const CompositeNH *fabric_cnh = static_cast<const CompositeNH *>(l2_cnh->GetNH(0));
+    EXPECT_TRUE(fabric_cnh->composite_nh_type() == Composite::FABRIC);
+    EXPECT_TRUE(fabric_cnh->ComponentNHCount() == 1);
+    EXPECT_TRUE(fabric_cnh->Get(0)->label() == 2000);
+
+    const CompositeNH *evpn_cnh = static_cast<const CompositeNH *>(l2_cnh->GetNH(1));
+    EXPECT_TRUE(evpn_cnh->composite_nh_type() == Composite::EVPN);
+    EXPECT_TRUE(evpn_cnh->ComponentNHCount() == 1);
+    EXPECT_TRUE(evpn_cnh->Get(0)->label() == 1000);
+    const TunnelNH *evpn_tunnel_nh = 
+        static_cast<const TunnelNH *>(evpn_cnh->GetNH(0));
+    EXPECT_TRUE(evpn_tunnel_nh->GetTunnelType().GetType() == TunnelType::MPLS_GRE);
+    EXPECT_TRUE(evpn_tunnel_nh->GetDip()->to_string() == 
+                IpAddress::from_string("8.8.8.8").to_v4().to_string());
+
+    const CompositeNH *l2_intf_cnh = static_cast<const CompositeNH *>(l2_cnh->GetNH(2));
+    EXPECT_TRUE(l2_intf_cnh->composite_nh_type() == Composite::L2INTERFACE);
+    EXPECT_TRUE(l2_intf_cnh->ComponentNHCount() == 1);
+
+    //Verify EVPN mpls label NH points to l2_intf_cnh above
+    MplsLabel *evpn_label = Agent::GetInstance()->mpls_table()->
+        FindMplsLabel(evpn_flood_label);
+    const NextHop *evpn_label_nh = evpn_label->nexthop();
+    ASSERT_TRUE(evpn_label_nh == l2_cnh);
+
+    DoMulticastSandesh(1);
+    DoMulticastSandesh(2);
+
+    DeleteVmportEnv(input, 1, true);
+    client->WaitForIdle();
+
+    DelArp("8.8.8.8", "00:00:08:08:08:08", 
+           agent_->fabric_interface_name().c_str());
+    client->WaitForIdle();
+    WaitForRouteDelete(IpAddress::from_string("255.255.255.255").to_v4(),
+                       "vrf1", true);
+    EXPECT_FALSE(VmPortFind(input, 0));
+    client->WaitForIdle();
 }
 
 TEST_F(MulticastTest, change_in_gateway_of_subnet_noop) {

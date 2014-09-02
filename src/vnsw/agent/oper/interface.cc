@@ -1,6 +1,6 @@
 /*
  * Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
- */
+ sact*/
 
 #include <netinet/ether.h>
 #include <boost/uuid/uuid_io.hpp>
@@ -183,19 +183,23 @@ void InterfaceTable::VmPortToMetaDataIp(uint16_t index, uint32_t vrfid,
 }
 
 bool InterfaceTable::L2VmInterfaceWalk(DBTablePartBase *partition,
-                                     DBEntryBase *entry) {
+                                       DBEntryBase *entry) {
     Interface *intf = static_cast<Interface *>(entry);
     if ((intf->type() != Interface::VM_INTERFACE) || intf->IsDeleted())
         return true;
 
     VmInterface *vm_intf = static_cast<VmInterface *>(entry);
+    //In case VN passed is null it is tunnel mode change,
+    //else its vxlan id change for a VN.
     if (!vm_intf->l2_active())
         return true;
 
-    const VnEntry *vn = vm_intf->vn();
-    if (vm_intf->layer2_forwarding() && 
-        (vn->GetVxLanId() != vm_intf->vxlan_id())) {
-        vm_intf->UpdateL2();
+    if (vm_intf->layer2_forwarding()) { 
+        bool force_update = false;
+        if (vm_intf->vxlan_id() != vm_intf->vn()->GetVxLanId()) {
+            force_update = true;
+        }
+        vm_intf->UpdateL2(force_update);
     }
     return true;
 }

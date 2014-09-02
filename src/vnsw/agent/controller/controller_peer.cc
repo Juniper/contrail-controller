@@ -125,10 +125,19 @@ void AgentXmppChannel::ReceiveEvpnUpdate(XmlPugi *pugi) {
 
                 char *mac_str = 
                     strtok_r(const_cast<char *>(id.c_str()), "-", &saveptr);
-                //char *mac_str = strtok_r(NULL, ",", &saveptr);
+                if (strlen(saveptr) != 0) {
+                    mac_str = saveptr;
+                }
                 struct ether_addr mac = *ether_aton(mac_str);;
-                rt_table->DeleteReq(bgp_peer_id(), vrf_name, mac,
-                                    new ControllerVmRoute(bgp_peer_id()));
+                if (strcmp("ff:ff:ff:ff:ff:ff", mac_str) == 0) {
+                    TunnelOlist olist;
+                    MulticastHandler::ModifyEvpnMembers(bgp_peer_id(),
+                                                        vrf_name, olist,
+                             ControllerPeerPath::kInvalidPeerIdentifier);
+                } else {
+                    rt_table->DeleteReq(bgp_peer_id(), vrf_name, mac,
+                                        new ControllerVmRoute(bgp_peer_id()));
+                }
             }
         }
         return;
@@ -151,8 +160,7 @@ void AgentXmppChannel::ReceiveEvpnUpdate(XmlPugi *pugi) {
          iter != items->item.end(); iter++) {
         item = &*iter;
         if (item->entry.nlri.mac != "") {
-            struct ether_addr mac = *ether_aton((item->entry.nlri.mac).c_str());
-            AddEvpnRoute(vrf_name, mac, item);
+            AddEvpnRoute(vrf_name, item->entry.nlri.mac, item);
         } else {
             CONTROLLER_TRACE(Trace, GetBgpPeerName(), vrf_name,
                         "NLRI missing mac address for evpn, failed parsing");
@@ -266,9 +274,11 @@ void AgentXmppChannel::ReceiveMulticastUpdate(XmlPugi *pugi) {
                 }
 
                 //Retract with invalid identifier
-                MulticastHandler::ModifyFabricMembers(vrf, g_addr.to_v4(),
-                        s_addr.to_v4(), 0, olist, 
-                        ControllerPeerPath::kInvalidPeerIdentifier);
+                MulticastHandler::ModifyFabricMembers(agent_->
+                                              multicast_tree_builder_peer(),
+                                              vrf, g_addr.to_v4(),
+                                              s_addr.to_v4(), 0, olist, 
+                                  ControllerPeerPath::kInvalidPeerIdentifier);
             }
         }
         return;
@@ -342,9 +352,11 @@ void AgentXmppChannel::ReceiveMulticastUpdate(XmlPugi *pugi) {
             olist.push_back(OlistTunnelEntry(label, addr.to_v4(), encap)); 
         }
 
-        MulticastHandler::ModifyFabricMembers(vrf, g_addr.to_v4(),
-                s_addr.to_v4(), item->entry.nlri.source_label,
-                olist, agent_->controller()->multicast_sequence_number());
+        MulticastHandler::ModifyFabricMembers(
+                agent_->multicast_tree_builder_peer(),
+                vrf, g_addr.to_v4(), s_addr.to_v4(),
+                item->entry.nlri.source_label, olist,
+                agent_->controller()->multicast_sequence_number());
     }
 }
 
@@ -422,10 +434,45 @@ void AgentXmppChannel::AddEcmpRoute(string vrf_name, Ip4Address prefix_addr,
                                   prefix_addr, prefix_len, data);
 }
 
-void AgentXmppChannel::AddRemoteEvpnRoute(string vrf_name, 
-                                      struct ether_addr &mac, 
-                                      EnetItemType *item) {
+void AgentXmppChannel::AddMulticastEvpnRoute(string vrf_name, 
+                                             struct ether_addr &mac, 
+                                             EnetItemType *item) {
+    TunnelOlist olist;
+    for (uint32_t i = 0; i < item->entry.olist.next_hop.size(); i++) {
+        boost::system::error_code ec;
+        IpAddress addr = 
+            IpAddress::from_string(item->entry.olist.next_hop[i].address, 
+                                   ec);
+        if (ec.value() != 0) {
+            CONTROLLER_TRACE(Trace, GetBgpPeerName(), vrf_name,
+                             "Error parsing next-hop address");
+            return;
+        }
+
+        int label = item->entry.olist.next_hop[i].label;
+        TunnelType::TypeBmap encap = GetEnetTypeBitmap(item->
+                       entry.olist.next_hop[i].tunnel_encapsulation_list);
+        olist.push_back(OlistTunnelEntry(label, addr.to_v4(), encap)); 
+    }
+
+    CONTROLLER_TRACE(Trace, GetBgpPeerName(), "Composite",
+                     "add evpn multicast route");
+    MulticastHandler::ModifyEvpnMembers(bgp_peer_id(), vrf_name, olist,
+                                        agent_->controller()->
+                                        multicast_sequence_number());
+}
+
+void AgentXmppChannel::AddEvpnRoute(std::string vrf_name, 
+                                    std::string mac_str,
+                                    EnetItemType *item) {
     boost::system::error_code ec; 
+    struct ether_addr mac = *ether_aton((mac_str).c_str());
+
+    if (strcmp("ff:ff:ff:ff:ff:ff", mac_str.c_str()) == 0) {
+        AddMulticastEvpnRoute(vrf_name, mac, item);
+        return;
+    }
+
     string nexthop_addr = item->entry.next_hops.next_hop[0].address;
     uint32_t label = item->entry.next_hops.next_hop[0].label;
     TunnelType::TypeBmap encap = GetEnetTypeBitmap
@@ -663,17 +710,6 @@ void AgentXmppChannel::AddRemoteRoute(string vrf_name, Ip4Address prefix_addr,
             CONTROLLER_TRACE(Trace, GetBgpPeerName(), vrf_name,
                              "MPLS label points to invalid NH");
         }
-    }
-}
-
-void AgentXmppChannel::AddEvpnRoute(string vrf_name, 
-                                   struct ether_addr &mac, 
-                                   EnetItemType *item) {
-    if (item->entry.next_hops.next_hop.size() > 1) {
-        CONTROLLER_TRACE(Trace, GetBgpPeerName(), vrf_name,
-                         "Multiple NH in evpn not supported");
-    } else {
-        AddRemoteEvpnRoute(vrf_name, mac, item);
     }
 }
 
@@ -1457,11 +1493,27 @@ bool AgentXmppChannel::ControllerSendEvpnRoute(AgentXmppChannel *peer,
     size_t datalen_;
    
     if (!peer) return false;
+    assert (label != MplsTable::kInvalidLabel);
+
+    /*
+    if (route->is_multicast() && add_route && (peer->agent()->
+                              mulitcast_builder() != peer)) {
+        CONTROLLER_TRACE(Trace, peer->GetBgpPeerName(),
+                         route->vrf()->GetName(),
+                         "Peer not elected Multicast Tree Builder (EVPN)");
+        return false;
+    }
+    */
 
     //Build the DOM tree
     auto_ptr<XmlBase> impl(XmppStanza::AllocXmppXmlImpl());
     XmlPugi *pugi = reinterpret_cast<XmlPugi *>(impl.get());
 
+    if (route->is_multicast() && peer->agent()->simulate_evpn_tor()) {
+        item.entry.edge_replication_not_supported = true;
+    } else {
+        item.entry.edge_replication_not_supported = false;
+    }
     item.entry.nlri.af = BgpAf::L2Vpn; 
     item.entry.nlri.safi = BgpAf::Enet; 
     stringstream rstr;
@@ -1481,23 +1533,51 @@ bool AgentXmppChannel::ControllerSendEvpnRoute(AgentXmppChannel *peer,
     nh.address = rtr;
     nh.label = label;
 
+    item.entry.nlri.ethernet_tag = 0;
     TunnelType::Type tunnel_type = TunnelType::ComputeType(tunnel_bmap);
-    if (l2_route->GetActivePath()) {
-        tunnel_type = l2_route->GetActivePath()->tunnel_type();
+    const AgentPath *active_path = NULL;
+    if (l2_route->is_multicast()) {
+        active_path = l2_route->FindPath(peer->agent()->multicast_peer());
+    } else {
+        active_path = l2_route->FindLocalVmPortPath();
     }
-    if (tunnel_type != TunnelType::VXLAN) {
-        if (tunnel_bmap & TunnelType::GREType()) {
-            nh.tunnel_encapsulation_list.tunnel_encapsulation.push_back("gre");
-        }
-        if (tunnel_bmap & TunnelType::UDPType()) {
-            nh.tunnel_encapsulation_list.tunnel_encapsulation.push_back("udp");
+
+    if (active_path) {
+        tunnel_type = active_path->tunnel_type();
+    }
+    if (add_route) {
+        if (tunnel_type != TunnelType::VXLAN) {
+            if (tunnel_bmap & TunnelType::GREType()) {
+                nh.tunnel_encapsulation_list.tunnel_encapsulation.push_back("gre");
+            }
+            if (tunnel_bmap & TunnelType::UDPType()) {
+                nh.tunnel_encapsulation_list.tunnel_encapsulation.push_back("udp");
+            }
+        } else {
+            if (active_path) {
+                nh.label = active_path->vxlan_id();
+                item.entry.nlri.ethernet_tag = nh.label;
+            } else {
+                nh.label = 0;
+            }
+            nh.tunnel_encapsulation_list.tunnel_encapsulation.push_back("vxlan");
         }
     } else {
-        nh.tunnel_encapsulation_list.tunnel_encapsulation.push_back("vxlan");
+        item.entry.nlri.ethernet_tag = label;
     }
 
+    stringstream print_str;
+    print_str << "Sending EVPN route: ";
+    print_str << rstr.str();
+    print_str << " passed ";
+    print_str << label;
+    print_str << " calculated ";
+    print_str << nh.label;
+    print_str << " ethernet tag: ";
+    print_str << item.entry.nlri.ethernet_tag;
+    print_str << " associate " << add_route;
+    CONTROLLER_TRACE(Trace, "", "", print_str.str());
     item.entry.next_hops.next_hop.push_back(nh);
-
     //item.entry.version = 1; //TODO
     //item.entry.virtual_network = vn;
    
@@ -1519,8 +1599,8 @@ bool AgentXmppChannel::ControllerSendEvpnRoute(AgentXmppChannel *peer,
     pugi->AddChildNode("publish", "");
 
     stringstream ss_node;
-    ss_node << item.entry.nlri.af << "/" << item.entry.nlri.safi << "/" 
-        << route->GetAddressString() << "," << item.entry.nlri.address; 
+    ss_node << item.entry.nlri.af << "/" << item.entry.nlri.safi << "/"
+        << route->ToString() << "," << item.entry.nlri.address;
     std::string node_id(ss_node.str());
     pugi->AddAttribute("node", node_id);
     pugi->AddChildNode("item", "");
@@ -1569,7 +1649,8 @@ bool AgentXmppChannel::ControllerSendRoute(AgentXmppChannel *peer,
                                            &path_preference)
 {
     bool ret = false;
-    if (type == Agent::INET4_UNICAST) {
+    if ((type == Agent::INET4_UNICAST) &&
+        (peer->agent()->simulate_evpn_tor() == false)) {
         ret = AgentXmppChannel::ControllerSendV4UnicastRoute(peer, route, vn,
                                           sg_list, label, bmap, add_route,
                                           path_preference);

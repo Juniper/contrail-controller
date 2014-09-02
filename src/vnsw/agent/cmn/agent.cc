@@ -224,6 +224,7 @@ void Agent::CopyConfig(AgentParam *params) {
         TunnelType::SetDefaultType(TunnelType::MPLS_GRE);
 
     headless_agent_mode_ = params_->headless_mode();
+    simulate_evpn_tor_ = params->simulate_evpn_tor();
     debug_ = params_->debug();
     test_mode_ = params_->test_mode();
 }
@@ -329,6 +330,10 @@ void Agent::InitPeers() {
     linklocal_peer_.reset(new Peer(Peer::LINKLOCAL_PEER, LINKLOCAL_PEER_NAME));
     ecmp_peer_.reset(new Peer(Peer::ECMP_PEER, ECMP_PEER_NAME));
     vgw_peer_.reset(new Peer(Peer::VGW_PEER, VGW_PEER_NAME));
+    multicast_peer_.reset(new Peer(Peer::MULTICAST_PEER, MULTICAST_PEER_NAME));
+    multicast_tree_builder_peer_.reset(
+                                 new Peer(Peer::MULTICAST_FABRIC_TREE_BUILDER,
+                                          MULTICAST_FABRIC_TREE_BUILDER_NAME));
 }
 
 Agent::Agent() :
@@ -355,7 +360,7 @@ Agent::Agent() :
     ksync_sync_mode_(true), mgmt_ip_(""),
     vxlan_network_identifier_mode_(AUTOMATIC), headless_agent_mode_(false), 
     connection_state_(NULL), debug_(false), test_mode_(false),
-    init_done_(false) {
+    init_done_(false), simulate_evpn_tor_(false) {
 
     assert(singleton_ == NULL);
     singleton_ = this;

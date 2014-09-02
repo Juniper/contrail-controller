@@ -49,9 +49,12 @@ public:
                                 struct ether_addr &mac,
                                 const Ip4Address &vm_ip,
                                 uint32_t plen); 
-    static void AddLayer2BroadcastRoute(const string &vrf_name,
+    static void AddLayer2BroadcastRoute(const Peer *peer,
+                                        const string &vrf_name,
                                         const string &vn_name,
+                                        uint32_t label,
                                         int vxlan_id,
+                                        Composite::Type type,
                                         ComponentNHKeyList
                                         &component_nh_key_list);
     static void DeleteReq(const Peer *peer, const string &vrf_name,
@@ -59,7 +62,11 @@ public:
                           AgentRouteData *data);
     static void Delete(const Peer *peer, const string &vrf_name,
                        const struct ether_addr &mac);
-    static void DeleteBroadcastReq(const string &vrf_name);
+    static void DeleteBroadcastReq(const Peer *peer, const string &vrf_name);
+    static Layer2RouteEntry *FindRoute(const Agent *agent,
+                                       const string &vrf_name,
+                                       const struct ether_addr &mac);
+
 private:
     DBTableWalker::WalkId walkid_;
     DISALLOW_COPY_AND_ASSIGN(Layer2AgentRouteTable);
@@ -96,6 +103,8 @@ public:
         return Agent::LAYER2;
     }
     virtual bool DBEntrySandesh(Sandesh *sresp, bool stale) const;
+    virtual uint32_t GetActiveLabel() const;
+    virtual bool ReComputePaths(AgentPath *path, bool del);
 
     const struct ether_addr &GetAddress() const {return mac_;}
     const Ip4Address &GetVmIpAddress() const {return vm_ip_;}
@@ -112,7 +121,7 @@ class Layer2RouteKey : public AgentRouteKey {
 public:
     Layer2RouteKey(const Peer *peer, const string &vrf_name, 
                    const struct ether_addr &mac) :
-        AgentRouteKey(peer, vrf_name), dmac_(mac) {
+        AgentRouteKey(peer, vrf_name), dmac_(mac), plen_(0) {
     }
     Layer2RouteKey(const Peer *peer, const string &vrf_name, 
                    const struct ether_addr &mac, const Ip4Address &vm_ip,
@@ -120,7 +129,7 @@ public:
         AgentRouteKey(peer, vrf_name), dmac_(mac), vm_ip_(vm_ip), plen_(plen) {
     }
     Layer2RouteKey(const Peer *peer, const string &vrf_name) : 
-        AgentRouteKey(peer, vrf_name) { 
+        AgentRouteKey(peer, vrf_name), plen_(0) {
             dmac_ = *ether_aton("FF:FF:FF:FF:FF:FF");
     }
     virtual ~Layer2RouteKey() { }

@@ -452,10 +452,10 @@ protected:
 	client->WaitForIdle(5);
 
 	// expect subscribe message + 2 VM v4 routes + 2 VM l2 routes + subnet bcast +
-	// bcast route at the mock server
-	WAIT_FOR(1000, 10000, (mock_peer_s.get()->Count() == 9));
+	// bcast route at the mock server + evpn
+	WAIT_FOR(1000, 10000, (mock_peer_s.get()->Count() == 10));
 	// expect subscribe message + 2 VM v4 routes at the mock server +
-	// 2 VM l2 routes + subnet + bcast
+	// 2 VM l2 routes + subnet + bcast + evpn
 	WAIT_FOR(1000, 10000, (mock_peer.get()->Count() == 6));
 
 	Ip4Address addr = Ip4Address::from_string("1.1.1.1");
@@ -512,14 +512,16 @@ protected:
 	ASSERT_TRUE(nh->GetType() == NextHop::COMPOSITE);
 	obj = MulticastHandler::GetInstance()->FindGroupObject("vrf1", addr);
 	WAIT_FOR(1000, 1000, (obj->GetSourceMPLSLabel() != 0));
-    WAIT_FOR(1000, 10000, (cnh->ComponentNHCount() == 3));
+    WAIT_FOR(1000, 10000, (cnh->ComponentNHCount() == 2));
+    const CompositeNH *intf_cnh = static_cast<const CompositeNH *>(cnh->GetNH(1));
+    EXPECT_TRUE(intf_cnh->ComponentNHCount() == 2);
 
 	//Verify mpls table
 	MplsLabel *mpls = 
 	    Agent::GetInstance()->mpls_table()->FindMplsLabel(alloc_label);
 	ASSERT_TRUE(mpls == NULL);
-    WAIT_FOR(1000, 10000, (Agent::GetInstance()->mpls_table()->Size() == 5));
-	ASSERT_TRUE(Agent::GetInstance()->mpls_table()->Size() == 5);
+    WAIT_FOR(1000, 10000, (Agent::GetInstance()->mpls_table()->Size() == 6));
+	ASSERT_TRUE(Agent::GetInstance()->mpls_table()->Size() == 6);
 
 	// Verify presence of all broadcast route in mcast table
 	addr = Ip4Address::from_string("255.255.255.255");
@@ -541,12 +543,14 @@ protected:
 	cnh = static_cast<CompositeNH *>(nh);
 	obj = MulticastHandler::GetInstance()->FindGroupObject("vrf1", addr);
 	WAIT_FOR(1000, 1000, (obj->GetSourceMPLSLabel() != 0));
-    WAIT_FOR(1000, 10000, (cnh->ComponentNHCount() == 3));
+    ASSERT_TRUE(cnh->ComponentNHCount() == 3);
+    intf_cnh = static_cast<const CompositeNH *>(cnh->GetNH(1));
+    EXPECT_TRUE(intf_cnh->ComponentNHCount() == 2);
 
 	//Verify mpls table
 	WAIT_FOR(1000, 1000, (Agent::GetInstance()->mpls_table()->
                           FindMplsLabel(alloc_label+ 1) == NULL));
-	WAIT_FOR(1000, 1000, (Agent::GetInstance()->mpls_table()->Size() == 6));
+	WAIT_FOR(1000, 1000, (Agent::GetInstance()->mpls_table()->Size() == 7));
     }
 
     void XmppSubnetTearDown() {
@@ -611,11 +615,9 @@ TEST_F(AgentXmppUnitTest, SubnetBcast_Test_FailOver) {
     ASSERT_TRUE(nh != NULL);
     ASSERT_TRUE(nh->GetType() == NextHop::COMPOSITE);
     CompositeNH *cnh = static_cast<CompositeNH *>(nh);
-    if (Agent::GetInstance()->headless_agent_mode()) {
-        ASSERT_TRUE(cnh->ComponentNHCount() == 3);
-    } else {
-        ASSERT_TRUE(cnh->ComponentNHCount() == 2);
-    }
+    ASSERT_TRUE(cnh->ComponentNHCount() == 2);
+    const CompositeNH *intf_cnh = static_cast<const CompositeNH *>(cnh->GetNH(1));
+    EXPECT_TRUE(intf_cnh->ComponentNHCount() == 2);
 
     //ensure route learnt via control-node is cleaned/updated 
     addr = Ip4Address::from_string("255.255.255.255");
@@ -625,30 +627,22 @@ TEST_F(AgentXmppUnitTest, SubnetBcast_Test_FailOver) {
     ASSERT_TRUE(nh != NULL);
     ASSERT_TRUE(nh->GetType() == NextHop::COMPOSITE);
     cnh = static_cast<CompositeNH *>(nh);
-    if (Agent::GetInstance()->headless_agent_mode()) {
-        ASSERT_TRUE(cnh->ComponentNHCount() == 3);
-    } else {
-        ASSERT_TRUE(cnh->ComponentNHCount() == 2);
-    }
+    ASSERT_TRUE(cnh->ComponentNHCount() == 2);
+    intf_cnh = static_cast<const CompositeNH *>(cnh->GetNH(1));
+    EXPECT_TRUE(intf_cnh->ComponentNHCount() == 2);
 
     //Verify label deallocated from Mpls Table
     if (Agent::GetInstance()->headless_agent_mode()) {
-        EXPECT_TRUE(Agent::GetInstance()->mpls_table()->Size() == 6);
+        EXPECT_TRUE(Agent::GetInstance()->mpls_table()->Size() == 7);
     } else {
-        EXPECT_TRUE(Agent::GetInstance()->mpls_table()->Size() == 4);
+        EXPECT_TRUE(Agent::GetInstance()->mpls_table()->Size() == 5);
     }
     // headless
     //EXPECT_TRUE(Agent::GetInstance()->mpls_table()->Size() == 4);
 
     //expect subnet and all braodcast routes to newly elected
-    //multicast builder
-    if (Agent::GetInstance()->headless_agent_mode()) {
-        WAIT_FOR(1000, 10000, (mock_peer.get()->Count() == 9));
-    } else {
-        //3 notification for fabric member modification
-        //3 notification for same route, during walk
-        WAIT_FOR(1000, 10000, (mock_peer.get()->Count() == 12));
-    }
+    //multicast builder 
+    WAIT_FOR(1000, 10000, (mock_peer.get()->Count() == 10));
 
     //we could add olists from mock_peer due to
     //local-vms on another agent attached to mock_peer
@@ -667,16 +661,12 @@ TEST_F(AgentXmppUnitTest, SubnetBcast_Test_FailOver) {
     EXPECT_STREQ(ch->controller_ifmap_xmpp_server().c_str(), "127.0.0.1");
 
     //expect dissociate to the older peer, 127.0.0.2
-    if (Agent::GetInstance()->headless_agent_mode()) {
-        WAIT_FOR(1000, 10000, (mock_peer.get()->Count() == 12));
-    } else {
-        WAIT_FOR(1000, 10000, (mock_peer.get()->Count() == 15));
-    }
+    WAIT_FOR(1000, 10000, (mock_peer.get()->Count() == 14));
 
     //expect subscribe, 2VM routes, 
     //subnet and all braodcast routes to newly elected
     //multicast builder
-    WAIT_FOR(1000, 10000, (mock_peer_s.get()->Count() == 18));
+    WAIT_FOR(1000, 10000, (mock_peer_s.get()->Count() == 20));
 
     //bring-down non multicast builder
     bgp_peer.get()->AgentBgpXmppPeerTest::HandleXmppChannelEvent(xmps::NOT_READY);
@@ -692,7 +682,7 @@ TEST_F(AgentXmppUnitTest, SubnetBcast_Test_FailOver) {
 
     //expect no messages except config subscribe
     //control-node as 127.0.0.2 came up first
-    WAIT_FOR(1000, 10000, (mock_peer_s.get()->Count() == 18));
+    WAIT_FOR(1000, 10000, (mock_peer_s.get()->Count() == 20));
 
 
     //bring-up non multicast builder
@@ -708,11 +698,7 @@ TEST_F(AgentXmppUnitTest, SubnetBcast_Test_FailOver) {
     EXPECT_STREQ(ch->controller_ifmap_xmpp_server().c_str(), "127.0.0.1");
 
     //expect subscribe + 2VM routes
-    if (Agent::GetInstance()->headless_agent_mode()) {
-        WAIT_FOR(1000, 10000, (mock_peer.get()->Count() == 18));
-    } else {
-        WAIT_FOR(1000, 10000, (mock_peer.get()->Count() == 21));
-    }
+    WAIT_FOR(1000, 10000, (mock_peer.get()->Count() == 20));
 
     //cleanup all config links via config
     XmppSubnetTearDown();

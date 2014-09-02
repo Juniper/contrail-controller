@@ -436,6 +436,13 @@ void AgentParam::ParseHeadlessMode() {
     }
 }
 
+void AgentParam::ParseSimulateEvpnTor() {
+    if (!GetValueFromTree<bool>(simulate_evpn_tor_,
+                                "DEFAULT.simulate_evpn_tor")) {
+        simulate_evpn_tor_ = false;
+    }
+}
+
 void AgentParam::ParseServiceInstance() {
     GetValueFromTree<string>(si_netns_command_,
                              "SERVICE-INSTANCE.netns_command");
@@ -557,6 +564,11 @@ void AgentParam::ParseHeadlessModeArguments
     GetOptValue<bool>(var_map, headless_mode_, "DEFAULT.headless_mode");
 }
 
+void AgentParam::ParseSimulateEvpnTorArguments
+    (const boost::program_options::variables_map &var_map) {
+    GetOptValue<bool>(var_map, simulate_evpn_tor_, "DEFAULT.simulate_evpn_tor");
+}
+
 void AgentParam::ParseServiceInstanceArguments
     (const boost::program_options::variables_map &var_map) {
     GetOptValue<string>(var_map, si_netns_command_, "SERVICE-INSTANCE.netns_command");
@@ -604,6 +616,7 @@ void AgentParam::InitFromConfig() {
     ParseMetadataProxy();
     ParseFlows();
     ParseHeadlessMode();
+    ParseSimulateEvpnTor();
     ParseServiceInstance();
     cout << "Config file <" << config_file_ << "> parsing completed.\n";
     return;
@@ -623,6 +636,7 @@ void AgentParam::InitFromArguments
     ParseDefaultSectionArguments(var_map);
     ParseMetadataProxyArguments(var_map);
     ParseHeadlessModeArguments(var_map);
+    ParseSimulateEvpnTorArguments(var_map);
     ParseServiceInstanceArguments(var_map);
     return;
 }
@@ -786,6 +800,7 @@ void AgentParam::LogConfig() const {
     LOG(DEBUG, "Linklocal Max Vm Flows      : " << linklocal_vm_flows_);
     LOG(DEBUG, "Flow cache timeout          : " << flow_cache_timeout_);
     LOG(DEBUG, "Headless Mode               : " << headless_mode_);
+    LOG(DEBUG, "Simulate EVPN TOR           : " << simulate_evpn_tor_);
     LOG(DEBUG, "Service instance netns cmd  : " << si_netns_command_);
     LOG(DEBUG, "Service instance workers    : " << si_netns_workers_);
     LOG(DEBUG, "Service instance timeout    : " << si_netns_timeout_);
@@ -827,7 +842,8 @@ AgentParam::AgentParam(Agent *agent) :
         flow_stats_interval_(kFlowStatsInterval),
         vrouter_stats_interval_(kVrouterStatsInterval),
         vmware_physical_port_(""), test_mode_(false), debug_(false), tree_(),
-        headless_mode_(false), si_netns_command_(), si_netns_workers_(0),
+        headless_mode_(false), simulate_evpn_tor_(false),
+        si_netns_command_(), si_netns_workers_(0),
         si_netns_timeout_(0) {
     vgw_config_table_ = std::auto_ptr<VirtualGatewayConfigTable>
         (new VirtualGatewayConfigTable(agent));

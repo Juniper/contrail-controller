@@ -51,6 +51,22 @@ Layer2RouteKey::AllocRouteEntry(VrfEntry *vrf, bool is_multicast) const
     return static_cast<AgentRoute *>(entry);
 }
 
+Layer2RouteEntry *Layer2AgentRouteTable::FindRoute(const Agent *agent,
+                                                   const string &vrf_name,
+                                                   const struct ether_addr &mac)
+{
+    VrfEntry *vrf = agent->vrf_table()->FindVrfFromName(vrf_name);
+    if (vrf == NULL)
+        return false;
+
+    Layer2RouteKey key(agent->local_vm_peer(), vrf_name, mac);
+    Layer2RouteEntry *route = 
+        static_cast<Layer2RouteEntry *>
+        (static_cast<Layer2AgentRouteTable *>(vrf->
+                                              GetLayer2RouteTable())->FindActiveEntry(&key));
+    return route;
+}
+
 void Layer2AgentRouteTable::AddLocalVmRouteReq(const Peer *peer,
                                                const string &vrf_name,
                                                struct ether_addr &mac,
@@ -118,16 +134,19 @@ void Layer2AgentRouteTable::AddLocalVmRoute(const Peer *peer,
     Layer2TableProcess(Agent::GetInstance(), vrf_name, req);
 }
 
-void Layer2AgentRouteTable::AddLayer2BroadcastRoute(const string &vrf_name,
+void Layer2AgentRouteTable::AddLayer2BroadcastRoute(const Peer *peer,
+                                                    const string &vrf_name,
                                                     const string &vn_name,
+                                                    uint32_t label,
                                                     int vxlan_id,
+                                                    COMPOSITETYPE type,
                                                     ComponentNHKeyList
                                                     &component_nh_key_list) {
     DBRequest nh_req;
     NextHopKey *nh_key;
     CompositeNHData *nh_data;
 
-    nh_key = new CompositeNHKey(Composite::L2COMP, false, component_nh_key_list,
+    nh_key = new CompositeNHKey(type, false, component_nh_key_list,
                                 vrf_name);
     nh_req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
     nh_req.key.reset(nh_key);
@@ -137,12 +156,8 @@ void Layer2AgentRouteTable::AddLayer2BroadcastRoute(const string &vrf_name,
     DBRequest req;
     req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
 
-    Layer2RouteKey *key = 
-        new Layer2RouteKey(Agent::GetInstance()->local_vm_peer(), vrf_name);
-    req.key.reset(key);
-
-    MulticastRoute *data = new MulticastRoute(vn_name, vxlan_id, nh_req);
-    req.data.reset(data);
+    req.key.reset(new Layer2RouteKey(peer, vrf_name));
+    req.data.reset(new MulticastRoute(vn_name, label, vxlan_id, nh_req));
     Layer2TableEnqueue(Agent::GetInstance(), &req);
 }
 
@@ -184,12 +199,12 @@ void Layer2AgentRouteTable::Delete(const Peer *peer, const string &vrf_name,
     Layer2TableProcess(Agent::GetInstance(), vrf_name, req);
 }
 
-void Layer2AgentRouteTable::DeleteBroadcastReq(const string &vrf_name) {
+void Layer2AgentRouteTable::DeleteBroadcastReq(const Peer *peer,
+                                               const string &vrf_name) {
     DBRequest req;
     req.oper = DBRequest::DB_ENTRY_DELETE;
 
-    Layer2RouteKey *key = 
-        new Layer2RouteKey(Agent::GetInstance()->local_vm_peer(), vrf_name);
+    Layer2RouteKey *key = new Layer2RouteKey(peer, vrf_name);
     req.key.reset(key);
     req.data.reset(NULL);
     Layer2TableEnqueue(Agent::GetInstance(), &req);
@@ -199,6 +214,22 @@ string Layer2RouteKey::ToString() const {
     ostringstream str;
     str << (ether_ntoa ((struct ether_addr *)&dmac_));
     return str.str();
+}
+
+uint32_t Layer2RouteEntry::GetActiveLabel() const {
+    uint32_t label = 0;
+
+    if (is_multicast()) {
+        if (TunnelType::ComputeType(TunnelType::AllType()) ==
+            (1 << TunnelType::VXLAN)) {
+            label = GetActivePath()->vxlan_id();
+        } else {
+            label = GetActivePath()->label();
+        }
+    } else {
+        label = GetActivePath()->GetActiveLabel();
+    } 
+    return label;
 }
 
 string Layer2RouteEntry::ToString() const {
@@ -249,6 +280,13 @@ bool Layer2RouteEntry::DBEntrySandesh(Sandesh *sresp, bool stale) const {
         const_cast<std::vector<RouteL2SandeshData>&>(resp->get_route_list());
     list.push_back(data);
     return true;
+}
+
+bool Layer2RouteEntry::ReComputePaths(AgentPath *path, bool del) {
+    if (is_multicast()) {
+        return ReComputeMulticastPaths(path, del);
+    }
+    return false;
 }
 
 void Layer2RouteReq::HandleRequest() const {

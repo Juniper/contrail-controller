@@ -370,7 +370,7 @@ public:
     void AllocL2MplsLabel(bool force_update, bool policy_change);
     void DeleteL2MplsLabel();
     void AddL2Route();
-    void UpdateL2();
+    void UpdateL2(bool force_update);
     const AclDBEntry* vrf_assign_acl() const { return vrf_assign_acl_.get();}
     bool WaitForTraffic() const;
     bool GetInterfaceDhcpOptions(
