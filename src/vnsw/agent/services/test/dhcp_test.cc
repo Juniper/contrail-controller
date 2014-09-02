@@ -40,8 +40,8 @@ char dest_mac[MAC_LEN] = { 0x00, 0x11, 0x12, 0x13, 0x14, 0x15 };
 #define HOST_ROUTE_STRING "Host Routes : 10.1.1.0/24 -> 1.1.1.200;10.1.2.0/24 -> 1.1.1.200;150.25.75.0/24 -> 1.1.1.200;192.168.1.128/28 -> 1.1.1.200;"
 #define CHANGED_HOST_ROUTE_STRING "Host Routes : 150.2.2.0/24 -> 1.1.1.200;192.1.1.1/28 -> 1.1.1.200;"
 #define IPAM_DHCP_OPTIONS_STRING "DNS : 1.2.3.4; Domain Name : test.com; Time Server : 3.2.14.5"
-#define SUBNET_DHCP_OPTIONS_STRING "DNS : 11.12.13.14; Domain Name : subnet.com; Time Server : 13.12.14.15;"
-#define PORT_DHCP_OPTIONS_STRING "DNS : 21.22.23.24; Domain Name : interface.com; Time Server : 23.22.24.25;"
+#define SUBNET_DHCP_OPTIONS_STRING "DNS : 11.12.13.14; Domain Name : subnet.com; Time Server : 3.2.14.5;"
+#define PORT_DHCP_OPTIONS_STRING "DNS : 21.22.23.24; Time Server : 13.12.14.15; Domain Name : test.com;"
 #define PORT_HOST_ROUTE_STRING "Host Routes : 99.2.3.0/24 -> 1.1.1.200;99.5.0.0/16 -> 1.1.1.200;"
 
 #define DHCP_CHECK(condition)                                                  \
@@ -1140,11 +1140,8 @@ TEST_F(DhcpTest, SubnetSpecificDhcpOptions) {
             <dhcp-option-name>15</dhcp-option-name>\
             <dhcp-option-value>subnet.com</dhcp-option-value>\
         </dhcp-option>\
-        <dhcp-option>\
-            <dhcp-option-name>4</dhcp-option-name>\
-            <dhcp-option-value>13.12.14.15</dhcp-option-value>\
-        </dhcp-option>\
      </dhcp-option-list>";
+    // option 4 from ipam and other options from subnet should be used
 
     std::vector<std::string> vm_host_routes;
     vm_host_routes.push_back("10.1.1.0/24");
@@ -1243,10 +1240,6 @@ TEST_F(DhcpTest, PortSpecificDhcpOptions) {
             <dhcp-option-value>11.12.13.14</dhcp-option-value>\
         </dhcp-option>\
         <dhcp-option>\
-            <dhcp-option-name>15</dhcp-option-name>\
-            <dhcp-option-value>subnet.com</dhcp-option-value>\
-        </dhcp-option>\
-        <dhcp-option>\
             <dhcp-option-name>4</dhcp-option-name>\
             <dhcp-option-value>13.12.14.15</dhcp-option-value>\
         </dhcp-option>\
@@ -1258,19 +1251,13 @@ TEST_F(DhcpTest, PortSpecificDhcpOptions) {
             <dhcp-option-name>6</dhcp-option-name>\
             <dhcp-option-value>21.22.23.24</dhcp-option-value>\
          </dhcp-option>\
-         <dhcp-option>\
-            <dhcp-option-name>15</dhcp-option-name>\
-            <dhcp-option-value>interface.com</dhcp-option-value>\
-         </dhcp-option>\
-         <dhcp-option>\
-            <dhcp-option-name>4</dhcp-option-name>\
-            <dhcp-option-value>23.22.24.25</dhcp-option-value>\
-         </dhcp-option>\
      </virtual-machine-interface-dhcp-option-list>\
      <virtual-machine-interface-host-routes>\
          <route><prefix>99.2.3.0/24</prefix> <next-hop /> <next-hop-type /> </route>\
          <route><prefix>99.5.0.0/16</prefix> <next-hop /> <next-hop-type /> </route>\
     </virtual-machine-interface-host-routes>";
+    // option 6 from vm interface, option 4 from subnet and option 15
+    // from ipam should be used
 
     std::vector<std::string> vm_host_routes;
     vm_host_routes.push_back("10.1.1.0/24");
@@ -1462,10 +1449,6 @@ TEST_F(DhcpTest, ByteIpOption) {
     "<virtual-machine-interface-dhcp-option-list>\
         <dhcp-option>\
             <dhcp-option-name>slp-directory-agent</dhcp-option-name>\
-            <dhcp-option-value>20 1.2.3.4 5.6.7.8</dhcp-option-value>\
-         </dhcp-option>\
-        <dhcp-option>\
-            <dhcp-option-name>slp-directory-agent</dhcp-option-name>\
             <dhcp-option-value>test 1.2.3.4 5.6.7.8</dhcp-option-value>\
          </dhcp-option>\
         <dhcp-option>\
@@ -1478,11 +1461,15 @@ TEST_F(DhcpTest, ByteIpOption) {
          </dhcp-option>\
         <dhcp-option>\
             <dhcp-option-name>slp-directory-agent</dhcp-option-name>\
+            <dhcp-option-value>20 1.2.3.4 5.6.7.8</dhcp-option-value>\
+         </dhcp-option>\
+        <dhcp-option>\
+            <dhcp-option-name>slp-directory-agent</dhcp-option-name>\
             <dhcp-option-value>30 9.8.6.5</dhcp-option-value>\
          </dhcp-option>\
      </virtual-machine-interface-dhcp-option-list>";
 
-    #define OPTION_CATEGORY_BYTE_IP "4e 09 14 01 02 03 04 05 06 07 08 4e 05 1e 09 08 06 05"
+    #define OPTION_CATEGORY_BYTE_IP "4e 09 14 01 02 03 04 05 06 07 08"
     DhcpOptionCategoryTest(vm_interface_attr, false, "", true,
                            OPTION_CATEGORY_BYTE_IP);
 }
@@ -1589,9 +1576,9 @@ TEST_F(DhcpTest, IpOption) {
 
     // router-solicitation-address is not added as it has to be only one IP
     // slp-directory-agent is not added as it has to be atleast one IP
-    // first policy-filter is not added as it has to be only one IP
-    // second mobile-ip-home-agent is added as it has to be zero or more IPs
-    #define OPTION_CATEGORY_IP "10 04 02 03 04 05 44 08 0a 00 01 02 0a 01 02 03 07 04 ff 03 03 03 15 08 08 03 02 00 08 03 02 01 44 00"
+    // first policy-filter is not added as it has to be multiples of two IPs
+    // second mobile-ip-home-agent is not added as it is repeated
+    #define OPTION_CATEGORY_IP "10 04 02 03 04 05 44 08 0a 00 01 02 0a 01 02 03 07 04 ff 03 03 03 15 08 08 03 02 00 08 03 02 01"
     DhcpOptionCategoryTest(vm_interface_attr, false, "",
                            true, OPTION_CATEGORY_IP);
 }
@@ -1627,9 +1614,10 @@ TEST_F(DhcpTest, ClasslessOptionError) {
          </dhcp-option>\
      </virtual-machine-interface-dhcp-option-list>";
 
-    #define OPTION_CATEGORY_CLASSLESS "Host Routes : 10.1.2.0/24 -> 1.1.1.200;20.20.20.0/24 -> 1.1.1.200;"
-    DhcpOptionCategoryTest(vm_interface_attr, true, OPTION_CATEGORY_CLASSLESS,
-                           false, "");
+    // second option is not added as it is repeated
+    #define OPTION_CATEGORY_CLASSLESS_ERROR "Host Routes : 10.1.2.0/24 -> 1.1.1.200;"
+    DhcpOptionCategoryTest(vm_interface_attr, true,
+                           OPTION_CATEGORY_CLASSLESS_ERROR, false, "");
 }
 
 // Check dhcp options - different categories

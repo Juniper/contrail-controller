@@ -323,7 +323,8 @@ Dhcpv4CategoryMap g_dhcpv4_category_map =
 DhcpHandler::DhcpHandler(Agent *agent, boost::shared_ptr<PktInfo> info,
                          boost::asio::io_service &io)
         : ProtoHandler(agent, info, io), vm_itf_(NULL), vm_itf_index_(-1),
-          msg_type_(DHCP_UNKNOWN), out_msg_type_(DHCP_UNKNOWN), flags_(0),
+          msg_type_(DHCP_UNKNOWN), out_msg_type_(DHCP_UNKNOWN), flags_(),
+          host_routes_level_(Invalid),
           nak_msg_("cannot assign requested address") {
     ipam_type_.ipam_dns_method = "none";
 };
@@ -1023,7 +1024,6 @@ uint16_t DhcpHandler::AddIpOption(uint32_t option, uint16_t opt_len,
             uint32_t gw = htonl(config_.gw_addr);
             opt->AppendData(4, &gw, &opt_len);
         }
-        set_flag(RouterAdded);
     }
 
     // check that atleast min_count IP addresses are added
@@ -1108,22 +1108,18 @@ uint16_t DhcpHandler::AddDnsServers(DhcpOptions *opt, uint16_t opt_len) {
                             tenant_dns_server_address.ip_address[i]);
         }
     }
-    if (opt->len)
-        set_flag(DnsServerAdded);
     return opt_len;
 }
 
-// Add an domain name from IPAM to the option
+// Add domain name from IPAM to the option
 uint16_t DhcpHandler::AddDomainNameOption(DhcpOptions *opt, uint16_t opt_len) {
     if (ipam_type_.ipam_dns_method == "virtual-dns-server") {
-        if (!is_flag_set(DomainNameAdded) && config_.domain_name_.size()) {
+        if (config_.domain_name_.size()) {
             opt->WriteData(DHCP_OPTION_DOMAIN_NAME, 0, NULL, &opt_len);
             opt->AppendData(config_.domain_name_.size(),
                             config_.domain_name_.c_str(), &opt_len);
         }
     }
-    if (opt->len)
-        set_flag(DomainNameAdded);
     return opt_len;
 }
 
@@ -1151,16 +1147,28 @@ void DhcpHandler::ReadClasslessRoute(uint32_t option, uint16_t opt_len,
     }
 }
 
-// Add the DHCP options coming via config. Config priority is
-// 1) options at VM interface level
-// 2) options at subnet level
-// 3) options at IPAM level
-// Add the options defined at the highest level in priority
+// Add the option defined at the highest level in priority
+// Take all options defined at VM interface level, take those from subnet which
+// are not configured at interface, then take those from ipam which are not
+// configured at interface or subnet.
 uint16_t DhcpHandler::AddConfigDhcpOptions(uint16_t opt_len) {
     std::vector<autogen::DhcpOptionType> options;
-    if (!vm_itf_->GetDhcpOptions(&options))
-        return opt_len;
+    if (vm_itf_->GetInterfaceDhcpOptions(&options))
+        opt_len = AddDhcpOptions(opt_len, options, InterfaceLevel);
 
+    if (vm_itf_->GetSubnetDhcpOptions(&options))
+        opt_len = AddDhcpOptions(opt_len, options, SubnetLevel);
+
+    if (vm_itf_->GetIpamDhcpOptions(&options))
+        opt_len = AddDhcpOptions(opt_len, options, IpamLevel);
+
+    return opt_len;
+}
+
+uint16_t DhcpHandler::AddDhcpOptions(
+                        uint16_t opt_len,
+                        std::vector<autogen::DhcpOptionType> &options,
+                        DhcpOptionLevel level) {
     for (unsigned int i = 0; i < options.size(); ++i) {
         // if the option name is a number, use it as DHCP code
         // otherwise, use it as option name
@@ -1178,6 +1186,11 @@ uint16_t DhcpHandler::AddConfigDhcpOptions(uint16_t opt_len) {
             }
         }
 
+        // if option is already set in the response (from higher level), ignore
+        if (is_flag_set(option))
+            continue;
+
+        uint16_t old_opt_len = opt_len;
         DhcpOptionCategory category = OptionCategory(option);
 
         switch(category) {
@@ -1210,15 +1223,6 @@ uint16_t DhcpHandler::AddConfigDhcpOptions(uint16_t opt_len) {
                 break;
 
             case String:
-                if (option == DHCP_OPTION_DOMAIN_NAME) {
-                    // allow only one domain name option in a DHCP response
-                    if (is_flag_set(DomainNameAdded)) break;
-                    else set_flag(DomainNameAdded);
-                } else if (option == DHCP_OPTION_HOST_NAME) {
-                    // allow only one host name option in a DHCP response
-                    if (is_flag_set(HostNameAdded)) break;
-                    else set_flag(HostNameAdded);
-                }
                 opt_len = AddStringOption(option, opt_len,
                                           options[i].dhcp_option_value);
                 break;
@@ -1264,6 +1268,12 @@ uint16_t DhcpHandler::AddConfigDhcpOptions(uint16_t opt_len) {
             case ClasslessRoute:
                 ReadClasslessRoute(option, opt_len,
                                    options[i].dhcp_option_value);
+                if (host_routes_.size()) {
+                    // set flag & level for classless route so that we dont
+                    // update these at other level (subnet or ipam)
+                    set_flag(DHCP_OPTION_CLASSLESS_ROUTE);
+                    host_routes_level_ = level;
+                }
                 break;
 
             case NameCompression:
@@ -1276,6 +1286,9 @@ uint16_t DhcpHandler::AddConfigDhcpOptions(uint16_t opt_len) {
                            options[i].dhcp_option_name);
                 break;
         }
+
+        if (opt_len != old_opt_len)
+            set_flag(option);
     }
 
     return opt_len;
@@ -1299,8 +1312,7 @@ uint16_t DhcpHandler::AddClasslessRouteOption(uint16_t opt_len) {
             break;
         }
         // Host routes from port specific DHCP options (neutron configuration)
-        if (vm_itf_->oper_dhcp_options().are_dhcp_options_set() &&
-            host_routes_.size()) {
+        if (host_routes_level_ == InterfaceLevel && host_routes_.size()) {
             host_routes.swap(host_routes_);
             break;
         }
@@ -1322,8 +1334,7 @@ uint16_t DhcpHandler::AddClasslessRouteOption(uint16_t opt_len) {
                     break;
                 }
                 // Host route options from subnet level DHCP options
-                if (vn_ipam[index].oper_dhcp_options.are_dhcp_options_set() &&
-                    host_routes_.size()) {
+                if (host_routes_level_ == SubnetLevel && host_routes_.size()) {
                     host_routes.swap(host_routes_);
                     break;
                 }
@@ -1375,7 +1386,7 @@ uint16_t DhcpHandler::AddClasslessRouteOption(uint16_t opt_len) {
         }
         opt->len = len;
         opt_len += 2 + len;
-        set_flag(ClasslessRouteAdded);
+        set_flag(DHCP_OPTION_CLASSLESS_ROUTE);
     }
     return opt_len;
 }
@@ -1435,25 +1446,26 @@ uint16_t DhcpHandler::DhcpHdr(in_addr_t yiaddr, in_addr_t siaddr) {
         // Add classless route option
         opt_len = AddClasslessRouteOption(opt_len);
 
-        if (!is_flag_set(ClasslessRouteAdded) &&
-            !is_flag_set(RouterAdded) && config_.gw_addr) {
+        if (!is_flag_set(DHCP_OPTION_CLASSLESS_ROUTE) &&
+            !is_flag_set(DHCP_OPTION_ROUTER) && config_.gw_addr) {
             opt = GetNextOptionPtr(opt_len);
             opt->WriteWord(DHCP_OPTION_ROUTER, config_.gw_addr, &opt_len);
         }
 
-        if (!is_flag_set(HostNameAdded) && config_.client_name_.size()) {
+        if (!is_flag_set(DHCP_OPTION_HOST_NAME) &&
+            config_.client_name_.size()) {
             opt = GetNextOptionPtr(opt_len);
             opt->WriteData(DHCP_OPTION_HOST_NAME, config_.client_name_.size(),
                            config_.client_name_.c_str(), &opt_len);
         }
 
-        if (!is_flag_set(DnsServerAdded)) {
+        if (!is_flag_set(DHCP_OPTION_DNS)) {
             opt = GetNextOptionPtr(opt_len);
             opt->WriteData(DHCP_OPTION_DNS, 0, NULL, &opt_len);
             opt_len = AddDnsServers(opt, opt_len);
         }
 
-        if (!is_flag_set(DomainNameAdded)) {
+        if (!is_flag_set(DHCP_OPTION_DOMAIN_NAME)) {
             opt = GetNextOptionPtr(opt_len);
             opt_len = AddDomainNameOption(opt, opt_len);
         }
