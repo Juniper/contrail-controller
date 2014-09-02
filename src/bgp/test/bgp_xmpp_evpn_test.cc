@@ -8,8 +8,6 @@
 #include "bgp/bgp_factory.h"
 #include "bgp/bgp_session_manager.h"
 #include "bgp/bgp_xmpp_channel.h"
-#include "bgp/enet/enet_route.h"
-#include "bgp/enet/enet_table.h"
 #include "bgp/test/bgp_server_test_util.h"
 #include "control-node/control_node.h"
 #include "control-node/test/network_agent_mock.h"
@@ -45,26 +43,18 @@ private:
 class BgpXmppChannelManagerMock : public BgpXmppChannelManager {
 public:
     BgpXmppChannelManagerMock(XmppServer *x, BgpServer *b) :
-        BgpXmppChannelManager(x, b), count(0), channels(0) { }
+        BgpXmppChannelManager(x, b) { }
 
     virtual void XmppHandleChannelEvent(XmppChannel *channel,
                                         xmps::PeerState state) {
-         count++;
          BgpXmppChannelManager::XmppHandleChannelEvent(channel, state);
     }
 
     virtual BgpXmppChannel *CreateChannel(XmppChannel *channel) {
-        channel_[channels] = new BgpXmppChannelMock(channel, bgp_server_, this);
-        channels++;
-        return channel_[channels-1];
+        BgpXmppChannel *mock_channel =
+            new BgpXmppChannelMock(channel, bgp_server_, this);
+        return mock_channel;
     }
-
-    int Count() {
-        return count;
-    }
-    int count;
-    int channels;
-    BgpXmppChannelMock *channel_[2];
 };
 
 static const autogen::EnetItemType *VerifyRouteUpdated(

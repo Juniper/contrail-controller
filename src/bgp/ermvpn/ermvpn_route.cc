@@ -267,8 +267,8 @@ void ErmVpnRoute::SetKey(const DBRequestKey *reqkey) {
     prefix_ = key->prefix;
 }
 
-void ErmVpnRoute::BuildProtoPrefix(
-    BgpProtoPrefix *prefix, uint32_t label) const {
+void ErmVpnRoute::BuildProtoPrefix(BgpProtoPrefix *prefix,
+    const BgpAttr *attr, uint32_t label) const {
     prefix_.BuildProtoPrefix(prefix);
 }
 

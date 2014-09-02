@@ -96,7 +96,9 @@ void InetRoute::SetKey(const DBRequestKey *reqkey) {
     prefix_ = key->prefix;
 }
 
-void InetRoute::BuildProtoPrefix(BgpProtoPrefix *prefix, uint32_t label) const {
+void InetRoute::BuildProtoPrefix(BgpProtoPrefix *prefix,
+                                 const BgpAttr *attr,
+                                 uint32_t label) const {
     prefix->prefixlen = prefix_.prefixlen();
     prefix->prefix.clear();
     const Ip4Address::bytes_type &addr_bytes = prefix_.ip4_addr().to_bytes();

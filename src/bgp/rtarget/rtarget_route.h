@@ -27,7 +27,9 @@ public:
 
     virtual KeyPtr GetDBRequestKey() const;
     virtual void SetKey(const DBRequestKey *reqkey);
-    virtual void BuildProtoPrefix(BgpProtoPrefix *prefix, uint32_t label) const;
+    virtual void BuildProtoPrefix(BgpProtoPrefix *prefix,
+                                  const BgpAttr *attr = NULL,
+                                  uint32_t label = 0) const;
     virtual void BuildBgpProtoNextHop(std::vector<uint8_t> &nh, 
                                       IpAddress nexthop) const;
 

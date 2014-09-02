@@ -48,7 +48,8 @@ public:
     virtual std::string ToXmppIdString() const { return ToString(); }
 
     virtual void BuildProtoPrefix(BgpProtoPrefix *prefix,
-                                  uint32_t label) const = 0;
+                                  const BgpAttr *attr = NULL,
+                                  uint32_t label = 0) const = 0;
     virtual void BuildBgpProtoNextHop(std::vector<uint8_t> &nh,
                                       IpAddress nexthop) const = 0;
 

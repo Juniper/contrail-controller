@@ -535,7 +535,7 @@ TEST_F(ErmVpnTableLocalTest, ReplicateRouteFromVPN1) {
     DelRoute(master_, repr1.str());
     task_util::WaitForIdle();
     VerifyRouteNoExists(master_, repr1.str());
-    TASK_UTIL_EXPECT_EQ(0, blue_->Size());
+    TASK_UTIL_EXPECT_EQ(0, master_->Size());
     VerifyRouteNoExists(blue_, repr2.str());
     TASK_UTIL_EXPECT_EQ(0, blue_->Size());
 }

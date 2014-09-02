@@ -12,12 +12,22 @@
 
 using namespace std;
 
+static const uint8_t broadcast_address_bytes[] = {
+    0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF
+};
+
+const MacAddress MacAddress::kBroadcastAddress(broadcast_address_bytes);
+
 MacAddress::MacAddress() {
     memset(data_, 0, kSize);
 }
 
 MacAddress::MacAddress(const uint8_t *data) {
     memcpy(data_, data, kSize);
+}
+
+bool MacAddress::IsBroadcast() const {
+    return CompareTo(MacAddress::kBroadcastAddress) == 0;
 }
 
 string MacAddress::ToString() const {

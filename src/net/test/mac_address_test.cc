@@ -12,6 +12,13 @@ using namespace std;
 class MacAddressTest : public ::testing::Test {
 };
 
+TEST_F(MacAddressTest, Broadcast) {
+    EXPECT_TRUE(MacAddress::kBroadcastAddress.IsBroadcast());
+    uint8_t data[] = { 0xff, 0xff, 0xff, 0xff, 0xff, 0xff };
+    MacAddress mac(data);
+    EXPECT_TRUE(mac.IsBroadcast());
+}
+
 TEST_F(MacAddressTest, ByteArray) {
     uint8_t data[] = { 0x01, 0x02, 0x03, 0x04, 0x05, 0x06 };
     MacAddress mac(data);
