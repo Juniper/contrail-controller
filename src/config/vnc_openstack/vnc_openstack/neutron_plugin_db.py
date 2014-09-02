@@ -2913,6 +2913,7 @@ class DBInterface(object):
                                                 proj_rtr_fq_name):
                     continue
                 try:
+                    rtr_obj = self._logical_router_read(proj_rtr['uuid'])
                     if not self._filters_is_present(
                         filters, 'name',
                         rtr_obj.get_display_name() or rtr_obj.name):
