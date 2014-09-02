@@ -71,7 +71,6 @@ class DiscoveryServer():
             'policy_fi': 0,
             'db_upd_hb': 0,
             'throttle_subs':0,
-            '503': 0,
         }
         self._ts_use = 1
         self.short_ttl_map = {}
@@ -329,7 +328,6 @@ class DiscoveryServer():
             try:
                 return func(*args,**kwargs)
             except disc_exceptions.ServiceUnavailable:
-                self._debug['503'] += 1
                 bottle.abort(503, 'Service Unavailable')
             except Exception as e:
                 raise
