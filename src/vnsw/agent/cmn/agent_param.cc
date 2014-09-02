@@ -377,19 +377,15 @@ void AgentParam::ParseDefaultSection() {
         log_category_ = "*";
     }
 
-    unsigned int log_local = 0, debug_logging = 0;
-    if (opt_uint = tree_.get_optional<unsigned int>("DEFAULT.log_local")) {
-        log_local = opt_uint.get();
-    }
-    if (log_local) {
+    if (optional<bool> log_local_opt =
+        tree_.get_optional<bool>("DEFAULT.log_local")) {
         log_local_ = true;
     } else {
         log_local_ = false;
     }
-    if (opt_uint = tree_.get_optional<unsigned int>("DEFAULT.log_local")) {
-        debug_logging = opt_uint.get();
-    }
-    if (debug_logging) {
+
+    if (optional<bool> debug_opt =
+        tree_.get_optional<bool>("DEFAULT.debug")) {
         debug_ = true;
     } else {
         debug_ = false;
@@ -400,11 +396,8 @@ void AgentParam::ParseDefaultSection() {
         syslog_facility_ = "LOG_LOCAL0";
     }
 
-    unsigned int log_flow = 0;
-    if (opt_uint = tree_.get_optional<unsigned int>("DEFAULT.log_flow")) {
-        log_flow = opt_uint.get();
-    }
-    if (log_flow) {
+    if (optional<bool> log_flow_opt =
+        tree_.get_optional<bool>("DEFAULT.log_flow")) {
         log_flow_ = true;
     } else {
         log_flow_ = false;
