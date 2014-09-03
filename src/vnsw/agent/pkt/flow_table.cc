@@ -1258,6 +1258,15 @@ bool FlowEntry::SetRpfNH(const Inet4UnicastRouteEntry *rt) {
         }
     }
 
+    //If a transistion from non-ecmp to ecmp occurs trap forward flow
+    //such that ecmp index of reverse flow is set.
+    if (data_.nh_state_ && nh) {
+        if (data_.nh_state_->nh()->GetType() != NextHop::COMPOSITE &&
+            nh->GetType() == NextHop::COMPOSITE) {
+            set_flags(FlowEntry::Trap);
+        }
+    }
+
     if (data_.nh_state_ != nh_state) {
         data_.nh_state_ = nh_state;
         return true;

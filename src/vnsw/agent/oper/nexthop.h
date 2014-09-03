@@ -1236,6 +1236,7 @@ public:
        return component_nh_list_[idx].get();
    }
    CompositeNH* ChangeTunnelType(Agent *agent, TunnelType::Type type) const;
+   const NextHop *GetLocalNextHop() const;
 private:
     void CreateComponentNH(Agent *agent, TunnelType::Type type) const;
     void ChangeComponentNHKeyTunnelType(ComponentNHKeyList &component_nh_list,
