@@ -2485,6 +2485,36 @@ TEST_F(IntfTest, Intf_l2mode_deactivate_activat_via_os_state) {
     EXPECT_FALSE(VmPortFind(1));
 }
 
+TEST_F(IntfTest, InstanceIpDelete) {
+    struct PortInfo input1[] = {
+        {"vnet8", 8, "8.1.1.1", "00:00:00:01:01:01", 1, 1}
+    };
+
+    client->Reset();
+    CreateVmportWithEcmp(input1, 1);
+    client->WaitForIdle();
+    EXPECT_TRUE(VmPortActive(input1, 0));
+    EXPECT_TRUE(VmPortFind(8));
+    client->Reset();
+
+    //Delete the link to instance ip and check that
+    //interface still has ecmp mode set
+    DelLink("virtual-machine-interface", input1[0].name, "instance-ip",
+             "instance1");
+    client->WaitForIdle();
+    EXPECT_TRUE(VmPortActive(input1, 0));
+    const VmInterface *vm_intf = static_cast<const VmInterface *>(VmPortGet(8));
+    EXPECT_TRUE(vm_intf->ecmp() == true);
+
+    DeleteVmportEnv(input1, 1, true);
+    client->WaitForIdle();
+    EXPECT_FALSE(VmPortFind(8));
+    VmInterfaceKey key(AgentKey::ADD_DEL_CHANGE, MakeUuid(8), "");
+    WAIT_FOR(100, 1000, (Agent::GetInstance()->interface_table()->Find(&key, true)
+                == NULL));
+    client->Reset();
+}
+
 int main(int argc, char **argv) {
     GETUSERARGS();
 

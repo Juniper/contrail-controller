@@ -2099,9 +2099,9 @@ TEST_F(EcmpTest,ServiceVlanTest_8) {
         EXPECT_TRUE(entry->data().vrf == service_vrf_id);
         //Packet destined to remote server, vrf has to be service vrf
         EXPECT_TRUE(entry->data().dest_vrf == service_vrf_id);
-
         EXPECT_TRUE(entry->data().source_vn == "vn10");
         EXPECT_TRUE(entry->data().dest_vn == "vn11");
+        EXPECT_TRUE(entry->data().nh_state_->nh()->GetType() == NextHop::VLAN);
 
         FlowEntry *rev_entry = entry->reverse_flow_entry();
         EXPECT_TRUE(entry->data().component_nh_idx ==
@@ -2126,6 +2126,48 @@ TEST_F(EcmpTest,ServiceVlanTest_8) {
     EXPECT_TRUE(Agent::GetInstance()->pkt()->flow_table()->Size() == 0);
     EXPECT_FALSE(VrfFind("vrf13"));
     EXPECT_FALSE(VrfFind("service-vrf1"));
+}
+
+TEST_F(EcmpTest, TrapFlag) {
+    AddRemoteVmRoute("vrf2", "10.1.1.1", 32, "vn2");
+    TxIpPacket(VmPortGetId(1), "1.1.1.1", "10.1.1.1", 1);
+    client->WaitForIdle();
+
+    FlowEntry *entry = FlowGet(VrfGet("vrf2")->vrf_id(),
+            "1.1.1.1", "10.1.1.1", 1, 0, 0, GetFlowKeyNH(1));
+    EXPECT_TRUE(entry != NULL);
+    EXPECT_TRUE(entry->data().component_nh_idx ==
+            CompositeNH::kInvalidComponentNHIdx);
+
+    //Reverse flow is no ECMP
+    FlowEntry *rev_entry = entry->reverse_flow_entry();
+    EXPECT_TRUE(rev_entry->data().component_nh_idx ==
+            CompositeNH::kInvalidComponentNHIdx);
+
+    ComponentNHKeyList local_comp_nh;
+    AddRemoteEcmpRoute("vrf2", "10.1.1.1", 32, "vn2", 2, local_comp_nh);
+    client->WaitForIdle();
+    EXPECT_TRUE(rev_entry->is_flags_set(FlowEntry::Trap) == true);
+
+    TxIpPacket(VmPortGetId(1), "1.1.1.1", "10.1.1.1", 1);
+    client->WaitForIdle();
+
+    entry = FlowGet(VrfGet("vrf2")->vrf_id(),
+            "1.1.1.1", "10.1.1.1", 1, 0, 0, GetFlowKeyNH(1));
+    EXPECT_TRUE(entry != NULL);
+    EXPECT_TRUE(entry->data().component_nh_idx !=
+            CompositeNH::kInvalidComponentNHIdx);
+
+    //Reverse flow is no ECMP
+    rev_entry = entry->reverse_flow_entry();
+    EXPECT_TRUE(rev_entry->data().component_nh_idx ==
+                CompositeNH::kInvalidComponentNHIdx);
+    EXPECT_TRUE(rev_entry->is_flags_set(FlowEntry::Trap) == false);
+    Ip4Address remote_vm = Ip4Address::from_string("10.1.1.1");
+    Agent::GetInstance()->fabric_inet4_unicast_table()->DeleteReq(NULL, "vrf2",
+                                                                  remote_vm,
+                                                                  32, NULL);
+    client->WaitForIdle();
 }
 
 int main(int argc, char *argv[]) {
