@@ -3537,8 +3537,8 @@ class DBInterface(object):
         net_obj = self._network_read(net_id)
         self._virtual_machine_interface_update(port_obj)
         self._port_create_instance_ip(net_obj, port_obj, port_q)
-        ret_port_q = self._port_vnc_to_neutron(port_obj)
         port_obj = self._virtual_machine_interface_read(port_id=port_id)
+        ret_port_q = self._port_vnc_to_neutron(port_obj)
         self._db_cache['q_ports'][port_id] = ret_port_q
 
         return ret_port_q
