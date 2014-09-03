@@ -7,6 +7,7 @@
 
 #include "base/logging.h"
 #include "base/task_annotations.h"
+#include "base/timer_impl.h"
 #include "base/test/task_test_util.h"
 #include "db/db.h"
 #include "db/db_graph.h"
@@ -107,8 +108,9 @@ protected:
 
     void EventWaitMs(int ms_timeout) {
         bool is_expired = false;
-        boost::asio::monotonic_deadline_timer timer(*(evm_.io_service()));
-        timer.expires_from_now(boost::posix_time::milliseconds(ms_timeout));
+        boost::system::error_code ec;
+        TimerImpl timer(*(evm_.io_service()));
+        timer.expires_from_now(ms_timeout, ec);
         timer.async_wait(boost::bind(&IFMapStateMachineTest::on_timeout,
                          boost::asio::placeholders::error, &is_expired));
         while (!is_expired) {
