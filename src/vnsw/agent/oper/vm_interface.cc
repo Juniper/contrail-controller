@@ -764,7 +764,6 @@ void VmInterface::Add() {
 void VmInterface::Delete() {
     VmInterfaceConfigData data;
     Resync(&data);
-
     InterfaceTable *table = static_cast<InterfaceTable *>(get_table());
     table->DeleteDhcpSnoopEntry(name_);
 }
@@ -964,7 +963,7 @@ bool VmInterface::CopyConfig(VmInterfaceConfigData *data, bool *sg_changed,
         ret = true;
      }
 
-    if (ecmp_ != data->ecmp_) {
+    if (data->addr_ != Ip4Address(0) && ecmp_ != data->ecmp_) {
         ecmp_ = data->ecmp_;
         *ecmp_changed = true;
     }
