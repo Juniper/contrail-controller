@@ -358,8 +358,20 @@ void VmUveEntry::UpdateFloatingIpStats(const FipInfo &fip_info) {
     UveInterfaceEntryPtr entry(new UveInterfaceEntry(intf));
     InterfaceSet::iterator intf_it = interface_tree_.find(entry);
 
-    assert (intf_it != interface_tree_.end());
-    (*intf_it).get()->UpdateFloatingIpStats(fip_info);
+    /*
+     *  1. VM interface with floating-ip becomes active
+     *  2. Flow is created on this interface and interface floating ip info is
+     *     stored in flow record
+     *  3. VM Interface becomes inactive
+     *  4. VM Interface info is removed from interface_tree_ as it becomes
+     *     inactive
+     *  5. FlowStats collection task initiates export of flow stats
+     *  6. Since interface is absent in interface_tree_ we cannot update
+     *     stats in this case
+     */
+    if (intf_it != interface_tree_.end()) {
+        (*intf_it).get()->UpdateFloatingIpStats(fip_info);
+    }
 }
 
 void VmUveEntry::UveInterfaceEntry::UpdateFloatingIpStats
