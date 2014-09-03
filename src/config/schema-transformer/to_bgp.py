@@ -520,9 +520,11 @@ class VirtualNetworkST(DictST):
 
         alloc_new = False
         rinst_fq_name_str = '%s:%s' % (self.obj.get_fq_name_str(), rinst_name)
+        old_rtgt = None
         try:
             rtgt_num = int(self._rt_cf.get(rinst_fq_name_str)['rtgt_num'])
             if rtgt_num < common.BGP_RTGT_MIN_ID:
+                old_rtgt = rtgt_num
                 raise pycassa.NotFoundException
             rtgt_ri_fq_name_str = self._rt_allocator.read(rtgt_num)
             if (rtgt_ri_fq_name_str != rinst_fq_name_str):
@@ -567,6 +569,10 @@ class VirtualNetworkST(DictST):
 
         rinst = RoutingInstanceST(rinst_obj, service_chain, rt_key)
         self.rinst[rinst_name] = rinst
+
+        if old_rtgt:
+            rt_key = "target:%s:%d" % (self.get_autonomous_system(), old_rtgt)
+            _vnc_lib.route_target_delete(fq_name=[rt_key])
         return rinst
     # end locate_routing_instance
 
@@ -2494,11 +2500,12 @@ class LogicalRouterST(DictST):
         self.virtual_networks = set()
         obj = _vnc_lib.logical_router_read(fq_name_str=name)
         rt_ref = obj.get_route_target_refs()
+        old_rt_key = None
         if rt_ref:
             rt_key = rt_ref[0]['to'][0]
             rtgt_num = int(rt_key.split(':')[-1])
             if rtgt_num < common.BGP_RTGT_MIN_ID:
-                _vnc_lib.route_target_delete(fq_name=[rt_key])
+                old_rt_key = rt_key
                 rt_ref = None
         if not rt_ref:
             rtgt_num = VirtualNetworkST._rt_allocator.alloc(name)
@@ -2508,6 +2515,8 @@ class LogicalRouterST(DictST):
             obj.set_route_target(rtgt_obj)
             _vnc_lib.logical_router_update(obj)
 
+        if old_rt_key:
+            _vnc_lib.route_target_delete(fq_name=[old_rt_key])
         self.route_target = rt_key
     # end __init__
 
