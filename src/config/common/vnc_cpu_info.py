@@ -90,9 +90,9 @@ class CpuInfo(object):
 
                 # Retrieve build_info from package/rpm and cache it
                 if self._curr_build_info is None:
-                    command = "contrail-version contrail-config | awk '{print $2, $3}'"
+                    command = "contrail-version contrail-config | grep 'contrail-config'"
                     version = os.popen(command).read()
-                    rpm_version, build_num = version.split()
+                    _, rpm_version, build_num = version.split()
                     self._new_build_info = build_info + '"build-id" : "' + \
                         rpm_version + '", "build-number" : "' + \
                         build_num + '"}]}'
