@@ -4,11 +4,12 @@
 
 #include "base/logging.h"
 
+#include <sys/types.h>
+#include <unistd.h>
 #include <log4cplus/helpers/pointer.h>
 #include <log4cplus/configurator.h>
 #include <log4cplus/fileappender.h>
 #include <log4cplus/syslogappender.h>
-#include <log4cplus/internal/env.h>
 
 #include <boost/format.hpp>
 #include <boost/algorithm/string/predicate.hpp>
@@ -64,8 +65,8 @@ void LoggingInit(const std::string &filename, long maxFileSize, int maxBackupInd
     logger.getAllAppenders().at(0)->setLayout(layout_ptr);
 
     if (useSyslog) {
-        std::string syslogident = boost::str(boost::format("%1%[%2%]")
-                                      % ident % internal::get_process_id());
+        std::string syslogident = boost::str(
+            boost::format("%1%[%2%]") % ident % getpid());
         props.setProperty(LOG4CPLUS_TEXT("facility"),
                           boost::starts_with(syslogFacility, "LOG_")
                         ? syslogFacility.substr(4)
