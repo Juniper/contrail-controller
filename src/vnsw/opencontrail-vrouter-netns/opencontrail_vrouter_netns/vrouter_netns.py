@@ -199,7 +199,7 @@ class VRouterNetns(object):
     """
 
     SOURCE_NAT = 'source-nat'
-    LOAD_BALANCER = 'load-balancer'
+    LOAD_BALANCER = 'loadbalancer'
     SERVICE_TYPES = [SOURCE_NAT, LOAD_BALANCER]
 
     def __init__(self, args_str=None):
