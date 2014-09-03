@@ -3297,12 +3297,6 @@ class SchemaTransformer(object):
                         if net is not None:
                             virtual_network.add_connection(net_name)
 
-            for lr in LogicalRouterST.values():
-                if network_name in lr.virtual_networks:
-                    for vn_name in (lr.virtual_networks - set(network_name)):
-                        virtual_network.add_connection(vn_name)
-            # end for lr
-
             # Derive connectivity changes between VNs
             new_connections = virtual_network.expand_connections()
             for network in old_virtual_network_connections - new_connections:
