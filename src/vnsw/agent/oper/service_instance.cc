@@ -139,6 +139,7 @@ static IFMapNode *FindNetwork(DBGraph *graph, IFMapNode *vmi_node) {
     return NULL;
 }
 
+
 static std::string FindInterfaceIp(DBGraph *graph, IFMapNode *vmi_node) {
     for (DBGraphVertex::adjacency_iterator iter = vmi_node->begin(graph);
              iter != vmi_node->end(graph); ++iter) {
@@ -184,7 +185,10 @@ static void FindAndSetInterfaces(
      */
     properties->interface_count = si_properties.interface_list.size();
     std::string left_netname = si_properties.interface_list[0].virtual_network;
-    std::string right_netname = si_properties.interface_list[1].virtual_network;
+    std::string right_netname = "None";
+    if (properties->interface_count == 2) {
+        right_netname = si_properties.interface_list[1].virtual_network;
+    }
 
     /*
      * Lookup for VMI nodes
@@ -358,7 +362,12 @@ int ServiceInstance::Properties::CompareTo(const Properties &rhs) const {
     if (cmp != 0) {
         return cmp;
     }
+
     cmp = compare(pool_id, rhs.pool_id);
+    if (cmp == 0) {
+        if (!pool_id.is_nil())
+            return !cmp;
+    }
     return cmp;
 }
 
@@ -406,18 +415,18 @@ std::string ServiceInstance::Properties::DiffString(
 
 bool ServiceInstance::Properties::Usable() const {
     bool common = (!instance_id.is_nil() &&
-                   !vmi_outside.is_nil() &&
-                   !ip_addr_outside.empty() &&
-                   (ip_prefix_len_outside >= 0));
+                   !vmi_inside.is_nil() &&
+                   !ip_addr_inside.empty() &&
+                   (ip_prefix_len_inside >= 0));
     if (!common) {
         return false;
     }
 
     if (service_type == SourceNAT || interface_count == 2) {
-        bool inside = (!vmi_inside.is_nil() &&
-                       !ip_addr_inside.empty() &&
-                       (ip_prefix_len_inside >= 0));
-        if (!inside) {
+        bool outside = (!vmi_outside.is_nil() &&
+                       !ip_addr_outside.empty() &&
+                       (ip_prefix_len_outside >= 0));
+        if (!outside) {
             return false;
         }
     }

@@ -105,7 +105,7 @@ class SvcMonitor(object):
                                       scaling=True)
         # create default loadbalancer template
         self._create_default_template('haproxy-loadbalancer-template', 'loadbalancer',
-                                      image_name='in-network',
+                                      svc_mode='in-network-nat',
                                       hypervisor_type='network-namespace',
                                       scaling=True)
 
@@ -161,7 +161,7 @@ class SvcMonitor(object):
         if svc_type == 'analyzer':
             if_list = [['left', False]]
         elif hypervisor_type == 'network-namespace':
-            if_list = [['left', False], ['right', False]]
+            if_list = [['right', True], ['left', True]]
         else:
             if_list = [
                 ['management', False], ['left', False], ['right', False]]
@@ -199,7 +199,9 @@ class SvcMonitor(object):
         st_if_list = st_props.get_interface_type()
         si_props = si_obj.get_service_instance_properties()
         si_if_list = si_props.get_interface_list()
-        if si_if_list and (len(si_if_list) != len(st_if_list)):
+        # for lb relax the check because vip and pool could be in same net
+        if (st_props.get_service_type() != svc_info.get_lb_service_type()) \
+                and si_if_list and (len(si_if_list) != len(st_if_list)):
             self.logger.log("Error: IF mismatch template %s instance %s" %
                              (len(st_if_list), len(si_if_list)))
             return
@@ -209,6 +211,7 @@ class SvcMonitor(object):
         if not si_entry:
             si_entry = {}
         si_entry['instance_type'] = self._get_virtualization_type(st_props)
+        si_entry['uuid'] = si_obj.uuid
 
         # walk the interface list
         for idx in range(0, len(st_if_list)):
@@ -217,7 +220,10 @@ class SvcMonitor(object):
 
             si_if = None
             if si_if_list and st_props.get_ordered_interfaces():
-                si_if = si_if_list[idx]
+                try:
+                    si_if = si_if_list[idx]
+                except IndexError:
+                    continue
                 si_vn_str = si_if.get_virtual_network()
             else:
                 funcname = "get_" + itf_type + "_virtual_network"
@@ -250,17 +256,7 @@ class SvcMonitor(object):
         return config_complete
     #end _check_store_si_info
 
-    def _restart_svc(self, vm_uuid, si_fq_str):
-        proj_name = self._get_proj_name_from_si_fq_str(si_fq_str)
-        vm_entry = self.db.virtual_machine_get(vm_uuid)
-        if not vm_entry: 
-            return
-        self._delete_svc_instance(vm_uuid, proj_name, si_fq_str=si_fq_str,
-                                  virt_type = vm_entry['instance_type'])
-
-        # Wait the clean phase was completely done before recreate the SI
-        gevent.sleep(_CHECK_CLEANUP_INTERVAL + 1)
-
+    def _restart_svc(self, si_fq_str):
         si_obj = self._vnc_lib.service_instance_read(fq_name_str=si_fq_str)
         st_list = si_obj.get_service_template_refs()
         if st_list is not None:
@@ -314,6 +310,21 @@ class SvcMonitor(object):
         self.db.cleanup_table_insert(
             vm_uuid, {'proj_name': proj_name, 'type': virt_type})
         self.logger.uve_svc_instance(si_fq_str, status='DELETE', vm_uuid=vm_uuid)
+
+    def _check_si_status(self, si_fq_name_str, si_info):
+        try:
+            si_obj = self._vnc_lib.service_instance_read(id=si_info['uuid'])
+        except NoIdError:
+            self.db.service_instance_remove(si_fq_name_str)
+            return 'ACTIVE'
+
+        if si_info['instance_type'] == 'virtual-machine':
+            proj_name = self._get_proj_name_from_si_fq_str(si_fq_str_str)
+            status = self.vm_manager.check_service(proj_name, si_obj)
+        elif si_info['instance_type'] == 'network-namespace':
+            status = self.netns_manager.check_service(si_obj)
+
+        return status 
 
     def _delmsg_project_service_instance(self, idents):
         proj_fq_str = idents['project']
@@ -560,46 +571,22 @@ def launch_arc(monitor, ssrc_mapc):
                 time.sleep(3)
             else:
                 cgitb_error_log(monitor)
-#end launch_arc
-
 
 def launch_ssrc(monitor):
     ssrc_mapc = ssrc_initialize(monitor._args)
     arc_glet = gevent.spawn(launch_arc, monitor, ssrc_mapc)
     arc_glet.join()
-# end launch_ssrc
-
 
 def timer_callback(monitor):
-    # check health of VMs
-    vm_list = monitor.db.virtual_machine_list()
-    if not vm_list:
+    si_list = monitor.db.service_instance_list()
+    if not si_list:
         return
 
-    for vm_uuid, si in vm_list:
-        try:
-            status = None
-            if si['instance_type'] == 'virtual-machine':
-                proj_name = monitor._get_proj_name_from_si_fq_str(si['si_fq_str'])
-                status = monitor.vm_manager.novaclient_oper('servers', 'find',
-                    proj_name, id=vm_uuid).status
-            elif si['instance_type'] == 'network-namespace':
-                try:
-                    if not monitor.vrouter_scheduler.vrouter_running(si['vrouter_name']):
-                        # The scheduled vrouter is down, re-create it
-                        status = 'ERROR'
-                except KeyError:
-                    # Cannot found the scheduled vrouter, re-create it
-                    status = 'ERROR'
-            if status and status == 'ERROR':
-                monitor.logger.log("The VM %s of SI %s is not running. "
-                                    "Re-create it." %
-                                    (vm_uuid, si['si_fq_str']))
-                monitor._restart_svc(vm_uuid, si['si_fq_str'])
-        except Exception:
-            continue
-# end timer_callback
-
+    for si_fq_name_str, si_info in si_list:
+        status = monitor._check_si_status(si_fq_name_str, si_info)
+        if status == 'ERROR':
+            monitor.logger.log("Relaunch SI %s" % (si_fq_name_str))
+            monitor._restart_svc(si_fq_name_str)
 
 def launch_timer(monitor):
     while True:
@@ -608,8 +595,6 @@ def launch_timer(monitor):
             timer_callback(monitor)
         except Exception:
             cgitb_error_log(monitor)
-#end launch_timer
-
 
 def cleanup_callback(monitor):
     delete_list = monitor.db.cleanup_table_list()
@@ -623,8 +608,6 @@ def cleanup_callback(monitor):
                                          virt_type=info['type'])
         elif info['type'] == 'vn':
             monitor._delete_shared_vn(uuid, info['proj_name'])
-# end cleanup_callback
-
 
 def launch_cleanup(monitor):
     while True:
@@ -633,16 +616,12 @@ def launch_cleanup(monitor):
             cleanup_callback(monitor)
         except Exception:
             cgitb_error_log(monitor)
-#end launch_cleanup
-
 
 def cgitb_error_log(monitor):
     cgitb.Hook(format="text",
                file=open(monitor._tmp_file, 'w')).handle(sys.exc_info())
     fhandle = open(monitor._tmp_file)
     monitor._svc_err_logger.error("%s" % fhandle.read())
-#end cgitb_error_log
-
 
 def parse_args(args_str):
     '''

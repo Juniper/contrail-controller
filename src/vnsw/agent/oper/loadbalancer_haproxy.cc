@@ -118,6 +118,15 @@ void LoadbalancerHaproxy::GenerateBackend(
     *out << string(4, ' ')
          << "balance " << BalanceMap(pool.loadbalancer_method) << endl;
 
+
+    int timeout = 0, max_retries = 0;
+    if (props.healthmonitors().size()) {
+        const autogen::LoadbalancerHealthmonitorType &hm =
+            props.healthmonitors().begin()->second;
+        timeout = hm.timeout * 1000; //In milliseconds
+        max_retries = hm.max_retries;
+    }
+
     for (LoadbalancerProperties::MemberMap::const_iterator iter =
                  props.members().begin();
          iter != props.members().end(); ++iter) {
@@ -126,6 +135,10 @@ void LoadbalancerHaproxy::GenerateBackend(
              << "server " << iter->first << " " << member.address
              << ":" << member.protocol_port
              << " weight " << member.weight;
+        if (timeout) {
+            *out << " check inter " << timeout << " rise 1 fall "
+                 << max_retries;
+        }
         *out << endl;
     }
 }

@@ -63,6 +63,7 @@ struct ItfSandeshData {
    31: string admin_state;
    32: i32 flow_key_idx;
    33: optional list<StaticRouteSandesh> allowed_address_pair_list;
+   34: i32 local_preference;
 }
 
 struct VnIpamData {
