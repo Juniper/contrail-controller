@@ -70,7 +70,8 @@ void IFMapMsgUnlink(DB *db, const string &lhs, const string &lid,
 }
 
 void IFMapNodeCommon(IFMapTable *table, DBRequest *request, const string &type,
-                     const string &id, uint64_t sequence_number) {
+                     const string &id, uint64_t sequence_number,
+                     const string &metadata, AutogenProperty *in_content) {
     IFMapTable::RequestKey *key = new IFMapTable::RequestKey();
     request->key.reset(key);
     key->id_type = type;
