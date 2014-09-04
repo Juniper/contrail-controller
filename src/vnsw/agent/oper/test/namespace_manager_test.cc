@@ -72,10 +72,10 @@ protected:
             database_.CreateTable("db.service-instance.0"));
         si_table_->Initialize(&graph_, dependency_manager_.get());
 
-        DB::RegisterFactory("db.loadbalancer.0",
+        DB::RegisterFactory("db.loadbalancer-pool.0",
                             &LoadbalancerTable::CreateTable);
         lb_table_ = static_cast<LoadbalancerTable *>(
-            database_.CreateTable("db.loadbalancer.0"));
+            database_.CreateTable("db.loadbalancer-pool.0"));
         lb_table_->Initialize(&graph_, dependency_manager_.get());
 
         agent_signal_->Initialize();
