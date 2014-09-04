@@ -144,12 +144,16 @@ class InstanceManager(object):
         else:
             self._vnc_lib.virtual_machine_interface_update(vmi_obj)
 
-        # set instance ip
-        if nic['shared-ip']:
+        # instance ip
+        if 'iip-id' in nic:
+            iip_obj = self._vnc_lib.instance_ip_read(id=nic['iip-id'])
+        elif nic['shared-ip']:
             iip_name = si_obj.name + '-' + nic['type']
+            iip_obj = self._allocate_iip(proj_obj, vn_obj, iip_name)
         else:
             iip_name = vm_name + '-' + nic['type']
-        iip_obj = self._allocate_iip(proj_obj, vn_obj, iip_name)
+            iip_obj = self._allocate_iip(proj_obj, vn_obj, iip_name)
+
         if not iip_obj:
             self.logger.log(
                 "Error: Instance IP not allocated for %s %s"
@@ -260,6 +264,11 @@ class InstanceManager(object):
                      svc_info.get_snat_service_type())):
                 vn_id = self._create_snat_vn(proj_obj, si_obj,
                                              si_props, vn_fq_name_str)
+            elif (itf_type == svc_info.get_right_if_str() and
+                    (st_props.get_service_type() ==
+                     svc_info.get_lb_service_type())):
+                iip_id, vn_id = self._get_vip_vmi_iip(si_obj)
+                nic['iip-id'] = iip_id
             else:
                 vn_id = self._get_vn_id(proj_obj, vn_fq_name_str, itf_type)
             if vn_id is None:
@@ -536,3 +545,19 @@ class NetworkNamespaceManager(InstanceManager):
                              (si_obj.get_fq_name_str(), vn_fq_name_str))
 
         return vn_id
+
+    def _get_vip_vmi_iip(self, si_obj):
+        try:
+            pool_back_refs = si_obj.get_loadbalancer_pool_back_refs()
+            pool_obj = self._vnc_lib.loadbalancer_pool_read(
+                id=pool_back_refs[0]['uuid'])
+            vip_back_refs = pool_obj.get_virtual_ip_back_refs()
+            vip_obj = self._vnc_lib.virtual_ip_read(id=vip_back_refs[0]['uuid'])
+            vmi_refs = vip_obj.get_virtual_machine_interface_refs()
+            vmi_obj = self._vnc_lib.virtual_machine_interface_read(
+                id=vmi_refs[0]['uuid'])
+            iip_back_refs = vmi_obj.get_instance_ip_back_refs()
+            vn_refs = vmi_obj.get_virtual_network_refs()
+            return iip_back_refs[0]['uuid'], vn_refs[0]['uuid']
+        except NoIdError:
+            return None, None
