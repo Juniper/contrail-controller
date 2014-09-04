@@ -223,7 +223,7 @@ struct EvBgpHeaderError : sc::event<EvBgpHeaderError> {
 struct EvBgpOpen : sc::event<EvBgpOpen> {
     EvBgpOpen(BgpSession *session, const BgpProto::OpenMessage *msg)
         : session(session), msg(msg) {
-        BGP_LOG_PEER(Message, session->Peer(), SandeshLevel::SYS_DEBUG,
+        BGP_LOG_PEER(Message, session->Peer(), SandeshLevel::SYS_INFO,
             BGP_LOG_FLAG_SYSLOG, BGP_PEER_DIR_IN,
             "Open " << msg->ToString());
     }
@@ -264,9 +264,14 @@ struct EvBgpOpenError : sc::event<EvBgpOpenError> {
 
 struct EvBgpKeepalive : sc::event<EvBgpKeepalive> {
     EvBgpKeepalive(BgpSession *session) : session(session) {
-        BGP_LOG_PEER(Message, session->Peer(),
-                     session->Peer()->IsReady() ?
-                         Sandesh::LoggingUtLevel() : Sandesh::LoggingUtLevel(),
+        const StateMachine *state_machine = session->Peer()->state_machine();
+        SandeshLevel::type log_level;
+        if (state_machine->get_state() == StateMachine::ESTABLISHED) {
+            log_level = Sandesh::LoggingUtLevel();
+        } else {
+            log_level = SandeshLevel::SYS_INFO;
+        }
+        BGP_LOG_PEER(Message, session->Peer(), log_level,
                      BGP_LOG_FLAG_SYSLOG, BGP_PEER_DIR_IN, "Keepalive");
     }
     static const char *Name() {

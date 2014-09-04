@@ -160,7 +160,7 @@ public:
     }
 
     void set_state(State state);
-    State get_state() { return state_; }
+    State get_state() const { return state_; }
     const std::string last_state_change_at() const;
     void set_last_event(const std::string &event);
     const std::string &last_event() const { return last_event_; }
