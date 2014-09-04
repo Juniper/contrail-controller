@@ -45,7 +45,7 @@ static int CompareMonitor(
     const autogen::LoadbalancerHealthmonitorType &lhs,
     const autogen::LoadbalancerHealthmonitorType &rhs) {
     COMPARE_PROPERTY(admin_state);
-    COMPARE_PROPERTY(type_);
+    COMPARE_PROPERTY(monitor_type);
     COMPARE_PROPERTY(delay);
     COMPARE_PROPERTY(timeout);
     COMPARE_PROPERTY(max_retries);

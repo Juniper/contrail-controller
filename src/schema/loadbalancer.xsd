@@ -115,7 +115,7 @@
 <xsd:complexType name='LoadbalancerHealthmonitorType'>
     <xsd:sequence>
         <xsd:element name='admin-state' type='xsd:boolean' default='true'/>
-        <xsd:element name='type' type='HealthmonitorType'/>
+        <xsd:element name='monitor-type' type='HealthmonitorType'/>
         <xsd:element name='delay' type='xsd:integer'/>
         <xsd:element name='timeout' type='xsd:integer'/>
         <xsd:element name='max-retries' type='xsd:integer'/>

@@ -489,6 +489,15 @@ bool InterfaceTable::IFNodeToReq(IFMapNode *node, DBRequest &req) {
 
     VmInterfaceConfigData *data;
     data = new VmInterfaceConfigData();
+
+    //Extract the local preference
+    if (cfg->IsPropertySet(VirtualMachineInterface::PROPERTIES)) {
+        autogen::VirtualMachineInterfacePropertiesType prop = cfg->properties();
+        if (prop.local_preference != VmInterface::LOW) {
+            data->local_preference_ = VmInterface::HIGH;
+        }
+    }
+
     ReadAnalyzerNameAndCreate(agent_, cfg, *data);
 
     // Fill DHCP option data
@@ -711,12 +720,14 @@ bool VmInterface::Resync(VmInterfaceData *data) {
     bool old_need_linklocal_ip = need_linklocal_ip_;
     bool sg_changed = false;
     bool ecmp_changed = false;
+    bool local_pref_changed = false;
 
     if (data) {
         if (data->type_ == VmInterfaceData::CONFIG) {
             VmInterfaceConfigData *cfg = static_cast<VmInterfaceConfigData *>
                 (data);
-            ret = CopyConfig(cfg, &sg_changed, &ecmp_changed);
+            ret = CopyConfig(cfg, &sg_changed, &ecmp_changed,
+                    &local_pref_changed);
         } else if (data->type_ == VmInterfaceData::IP_ADDR) {
             VmInterfaceIpAddressData *addr =
                 static_cast<VmInterfaceIpAddressData *> (data);
@@ -752,7 +763,7 @@ bool VmInterface::Resync(VmInterfaceData *data) {
     // Apply config based on old and new values
     ApplyConfig(old_ipv4_active, old_l2_active, old_policy, old_vrf.get(), 
                 old_addr, old_vxlan_id, old_need_linklocal_ip, sg_changed,
-                ecmp_changed);
+                ecmp_changed, local_pref_changed);
 
     return ret;
 }
@@ -800,9 +811,10 @@ bool VmInterface::CopyIpAddress(Ip4Address &addr) {
 // Copies configuration from DB-Request data. The actual applying of 
 // configuration, like adding/deleting routes must be done with ApplyConfig()
 bool VmInterface::CopyConfig(VmInterfaceConfigData *data, bool *sg_changed,
-                             bool *ecmp_changed) {
+                             bool *ecmp_changed, bool *local_pref_changed) {
     bool ret = false;
     InterfaceTable *table = static_cast<InterfaceTable *>(get_table());
+
 
     VmEntry *vm = table->FindVmRef(data->vm_uuid_);
     if (vm_.get() != vm) {
@@ -850,6 +862,12 @@ bool VmInterface::CopyConfig(VmInterfaceConfigData *data, bool *sg_changed,
     int vxlan_id = vn ? vn->GetVxLanId() : 0;
     if (vxlan_id_ != vxlan_id) {
         vxlan_id_ = vxlan_id;
+        ret = true;
+    }
+
+    if (local_preference_ != data->local_preference_) {
+        local_preference_ = data->local_preference_;
+        *local_pref_changed = true;
         ret = true;
     }
 
@@ -1029,9 +1047,10 @@ void VmInterface::DeleteL2(bool old_l2_active, VrfEntry *old_vrf) {
 void VmInterface::ApplyConfig(bool old_ipv4_active, bool old_l2_active, bool old_policy, 
                               VrfEntry *old_vrf, const Ip4Address &old_addr, 
                               int old_vxlan_id, bool old_need_linklocal_ip,
-                              bool sg_changed, bool ecmp_mode_changed) {
+                              bool sg_changed, bool ecmp_mode_changed,
+                              bool local_pref_changed) {
     bool force_update = false;
-    if (sg_changed || ecmp_mode_changed) {
+    if (sg_changed || ecmp_mode_changed || local_pref_changed) {
         force_update = true;
     }
 
@@ -1130,7 +1149,7 @@ bool VmInterface::ResyncIpAddress(const VmInterfaceIpAddressData *data) {
 
     ipv4_active_ = IsL3Active();
     ApplyConfig(old_ipv4_active, l2_active_, policy_enabled_, vrf_.get(), old_addr,
-                vxlan_id_, need_linklocal_ip_, false, false);
+                vxlan_id_, need_linklocal_ip_, false, false, false);
     return ret;
 }
 
@@ -1152,7 +1171,7 @@ bool VmInterface::ResyncOsOperState(const VmInterfaceOsOperStateData *data) {
         ret = true;
 
     ApplyConfig(old_ipv4_active, l2_active_, policy_enabled_, vrf_.get(),
-                ip_addr_, vxlan_id_, need_linklocal_ip_, false, false);
+                ip_addr_, vxlan_id_, need_linklocal_ip_, false, false, false);
     return ret;
 }
 
@@ -1837,7 +1856,13 @@ void VmInterface::AddRoute(const std::string &vrf_name, const Ip4Address &addr,
     CopySgIdList(&sg_id_list);
     PathPreference path_preference;
     path_preference.set_ecmp(ecmp);
-    if (ecmp) {
+    if (!ecmp) {
+        PathPreference::Preference pref = PathPreference::LOW;
+        if (local_preference_ == HIGH) {
+            pref = PathPreference::HIGH;
+        }
+        path_preference.set_preference(pref);
+    } else {
         path_preference.set_preference(PathPreference::HIGH);
     }
     Inet4UnicastAgentRouteTable::AddLocalVmRoute(peer_.get(), vrf_name, addr,

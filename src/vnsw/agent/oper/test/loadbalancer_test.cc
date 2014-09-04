@@ -32,10 +32,10 @@ class LoadbalancerTest : public ::testing::Test {
     }
 
     virtual void SetUp() {
-        DB::RegisterFactory("db.loadbalancer.0",
+        DB::RegisterFactory("db.loadbalancer-pool.0",
                             &LoadbalancerTable::CreateTable);
         loadbalancer_table_ = static_cast<LoadbalancerTable *>(
-            database_.CreateTable("db.loadbalancer.0"));
+            database_.CreateTable("db.loadbalancer-pool.0"));
         loadbalancer_table_->Initialize(&graph_, manager_.get());
 
         IFMapAgentLinkTable_Init(&database_, &graph_);
