@@ -24,7 +24,7 @@ public:
         HIGH = 200
     };
     PathPreference(): sequence_(0), preference_(LOW),
-        wait_for_traffic_(true), ecmp_(false) {}
+        wait_for_traffic_(true), ecmp_(false), static_preference_(false) {}
     PathPreference(uint32_t sequence, Preference preference,
         bool wait_for_traffic, bool ecmp): sequence_(sequence),
         preference_(preference), wait_for_traffic_(wait_for_traffic),
@@ -37,6 +37,11 @@ public:
     bool ecmp() const {
         return ecmp_;
     }
+
+    bool static_preference() const {
+        return static_preference_;
+    }
+
     void set_sequence(uint32_t sequence) {
         sequence_ = sequence;
     }
@@ -48,6 +53,10 @@ public:
     }
     void set_ecmp(bool ecmp) {
         ecmp_ = ecmp;
+    }
+
+    void set_static_preference(bool static_pref) {
+        static_preference_ = static_pref;
     }
 
     bool operator!=(const PathPreference &rhs) const {
@@ -71,6 +80,7 @@ private:
     Preference preference_;
     bool wait_for_traffic_;
     bool ecmp_;
+    bool static_preference_;
 };
 
 //Route data to change preference and sequence number of path
