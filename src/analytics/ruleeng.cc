@@ -341,7 +341,7 @@ bool Ruleeng::handle_uve_publish(const pugi::xml_node& parent,
                 } 
                 
                 StatWalker sw(boost::bind(&DbHandler::StatTableInsert, db,
-                    ts, object.name(), _1, _2, _3) ,m1);
+                    _1, _2, _3, _4, _5), ts, object.name(), m1);
  
                 for (pugi::xml_node elem = subs.first_child(); elem;
                         elem = elem.next_sibling()) {

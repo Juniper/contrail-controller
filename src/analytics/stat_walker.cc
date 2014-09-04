@@ -127,7 +127,7 @@ StatWalker::Pop(void) {
         attribs.insert(make_pair(fi->first, fi->second.first));
         attribs.insert(fi->second.second.begin(), fi->second.second.end());
     }
-    fn_(prename, attribs_tag, attribs);
+    fn_(timestamp_, stat_name_, prename, attribs_tag, attribs);
     nodes_.pop_back();
 }
 

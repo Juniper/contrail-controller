@@ -38,7 +38,8 @@ void UdpServer::SetName(udp::endpoint ep) {
 }
 
 UdpServer::~UdpServer() {
-    assert(state_ == Uninitialized);
+    assert(state_ == Uninitialized || state_ == SocketOpenFailed ||
+           state_ == SocketBindFailed);
     assert(pbuf_.empty());
 }
 
@@ -63,26 +64,30 @@ void UdpServer::Shutdown() {
     }
 }
 
-void UdpServer::Initialize(const std::string &ipaddress, unsigned short port) {
+bool UdpServer::Initialize(const std::string &ipaddress, unsigned short port) {
     boost::system::error_code error;
     boost::asio::ip::address ip = boost::asio::ip::address::from_string(
                 ipaddress, error);
     if (!error) {
         udp::endpoint local_endpoint = udp::endpoint(ip, port);
-        Initialize(local_endpoint);
+        return Initialize(local_endpoint);
+    } else {
+        TCP_SERVER_LOG_ERROR(this, TCP_DIR_NA, "IP address conversion: "
+            << ipaddress << ": " << error);
+        return false;
     }
 }
 
-void UdpServer::Initialize(unsigned short port) {
+bool UdpServer::Initialize(unsigned short port) {
     udp::endpoint local_endpoint = udp::endpoint(udp::v4(), port);
-    Initialize(local_endpoint);
+    return Initialize(local_endpoint);
 }
 
-void UdpServer::Initialize(udp::endpoint local_endpoint) {
+bool UdpServer::Initialize(udp::endpoint local_endpoint) {
     if (GetServerState() != Uninitialized) {
         TCP_SERVER_LOG_ERROR(this, TCP_DIR_NA, "udp socket in wrong state "
             << state_);
-        return;
+        return false;
     }
     boost::system::error_code error;
     socket_.open(udp::v4(), error);
@@ -90,18 +95,18 @@ void UdpServer::Initialize(udp::endpoint local_endpoint) {
         TCP_SERVER_LOG_ERROR(this, TCP_DIR_NA, "udp socket open: " <<
             error.message());
         state_ = SocketOpenFailed;
-        return;
+        return false;
     }
     socket_.bind(local_endpoint, error);
     if (error) {
         TCP_SERVER_LOG_ERROR(this, TCP_DIR_NA, "udp socket bind: "
             << error.message() << ":" << socket_.local_endpoint(error));
         state_ = SocketBindFailed;
-        return;
+        return false;
     }
     SetName(local_endpoint);
     state_ = OK;
-    // StartReceive();
+    return true;
 }
 
 udp::endpoint UdpServer::GetLocalEndPoint() {

@@ -48,6 +48,7 @@ AnalyticsEnv.Prepend(LIBS=['cpuinfo',
         'sandeshvns',
         'pugixml',
         'hiredis',
+        'protobuf',
         'boost_filesystem',
         'boost_program_options'])
 
@@ -63,6 +64,7 @@ libs = MapBuildDir(['sandesh',
         'xml',
         'base',
         'io'])
+libs.extend('/usr/lib/')
 AnalyticsEnv.Append(LIBPATH=libs)
 
 includes = MapBuildDir(['http/client', 'discovery/client', 'gendb', 'cdb', 'analytics'])
@@ -121,7 +123,8 @@ parser_util_obj = AnalyticsEnv_boost_no_unreach.Object('parser_util.o', 'parser_
 vizd_sources = ['viz_collector.cc', 'ruleeng.cc', 'collector.cc',
                 'vizd_table_desc.cc', 'viz_message.cc','generator.cc',
                 'redis_connection.cc', 'redis_processor_vizd.cc',
-                'options.cc', 'stat_walker.cc']
+                'options.cc', 'stat_walker.cc', 'protobuf_collector.cc',
+                'protobuf_server.cc']
 
 RedisLuaBuild(AnalyticsEnv, 'seqnum')
 RedisLuaBuild(AnalyticsEnv, 'delrequest')
@@ -130,10 +133,14 @@ RedisLuaBuild(AnalyticsEnv, 'uveupdate_st')
 RedisLuaBuild(AnalyticsEnv, 'uvedelete')
 RedisLuaBuild(AnalyticsEnv, 'flushuves')
 
+ProtobufGenFiles = AnalyticsEnv.ProtocGenCpp('self_describing_message.proto')
+ProtobufGenSrcs = AnalyticsEnv.ExtractCpp(ProtobufGenFiles)
+ProtobufGenObjs = AnalyticsEnv.Object(ProtobufGenSrcs)
+AnalyticsEnv['ANALYTICS_PROTOBUF_GEN_OBJS'] = ProtobufGenObjs
 
 AnalyticsEnv.GenerateBuildInfoCode(
     target=['buildinfo.h', 'buildinfo.cc'],
-    source = AnalyticsSandeshGenSrcs + vizd_sources +
+    source = AnalyticsSandeshGenSrcs + vizd_sources + ProtobufGenSrcs +
     ['OpServerProxy.cc',
      'db_handler.cc',
      parser_util_obj,
@@ -142,6 +149,7 @@ AnalyticsEnv.GenerateBuildInfoCode(
 
 vizd = AnalyticsEnv.Program(target = 'vizd',
         source = AnalyticsSandeshGenSrcs + vizd_sources +
+        ProtobufGenObjs +
         [main_obj,
         'buildinfo.cc',
         db_handler_obj,
