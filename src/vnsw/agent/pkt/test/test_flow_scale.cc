@@ -19,7 +19,7 @@ public:
     virtual void SetUp() {
         CreateVmportEnv(input, 1);
         client->WaitForIdle();
-        EXPECT_TRUE(VmPortActive(input, 0));
+        WAIT_FOR(10000, 1000, VmPortActive(input, 0));
 
         vnet = VmInterfaceGet(1);
         strcpy(vnet_addr, vnet->ip_addr().to_string().c_str());
@@ -70,7 +70,7 @@ TEST_F(FlowTest, FlowScaling_1) {
     }
 
     count = count * 2;
-    WAIT_FOR(count, 10000,
+    WAIT_FOR(count * 10, 10000,
              (count == flow_count + (int) Agent::GetInstance()->pkt()->flow_table()->Size()));
 }
 
