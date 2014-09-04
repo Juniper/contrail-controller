@@ -548,13 +548,31 @@ void PathPreferenceVrfState::Notify(DBTablePartBase *partition,
     PathPreferenceState *state =
         static_cast<PathPreferenceState *>(e->GetState(rt_table_, id_));
     if (e->IsDeleted()) {
-        e->ClearState(rt_table_, id_);
-        delete state;
+        if (state) {
+            e->ClearState(rt_table_, id_);
+            delete state;
+        }
         return;
     }
 
     Inet4UnicastRouteEntry *rt =
                 static_cast<Inet4UnicastRouteEntry *>(e);
+
+    for (Route::PathList::iterator it = rt->GetPathList().begin();
+          it != rt->GetPathList().end(); ++it) {
+        const AgentPath *path =
+             static_cast<const AgentPath *>(it.operator->());
+        if (path->peer() == NULL) {
+            continue;
+        }
+        if (path->peer()->GetType() != Peer::LOCAL_VM_PORT_PEER) {
+            continue;
+        }
+        if (path->path_preference().static_preference() == true) {
+            return;
+        }
+    }
+
     if (!state) {
         state = new PathPreferenceState(agent_, rt);
     }
@@ -636,6 +654,14 @@ void PathPreferenceModule::EnqueueTrafficSeen(Ip4Address ip, uint32_t plen,
     }
 
     const VmInterface *vm_intf = static_cast<const VmInterface *>(intf);
+
+
+    //If the local preference is set by config, we dont identify Active
+    //node dynamically
+    if (vm_intf->local_preference() != VmInterface::INVALID) {
+        return;
+    }
+
     const VrfEntry *vrf = agent_->vrf_table()->FindVrfFromId(vrf_index);
     if (vrf == NULL) {
         return;

@@ -9,6 +9,7 @@
 #include <boost/uuid/random_generator.hpp>
 
 #include "base/test/task_test_util.h"
+#include "base/logging.h"
 #include "db/db_graph.h"
 #include "db/test/db_test_util.h"
 #include "ifmap/ifmap_agent_table.h"
@@ -72,16 +73,14 @@ protected:
             database_.CreateTable("db.service-instance.0"));
         si_table_->Initialize(&graph_, dependency_manager_.get());
 
-        DB::RegisterFactory("db.loadbalancer.0",
+        DB::RegisterFactory("db.loadbalancer-pool.0",
                             &LoadbalancerTable::CreateTable);
         lb_table_ = static_cast<LoadbalancerTable *>(
-            database_.CreateTable("db.loadbalancer.0"));
+            database_.CreateTable("db.loadbalancer-pool.0"));
         lb_table_->Initialize(&graph_, dependency_manager_.get());
 
         agent_signal_->Initialize();
 
-        boost::uuids::random_generator gen;
-        pool_id_ = gen();
 
     }
 
@@ -130,7 +129,7 @@ protected:
     }
 
     void AddLoadbalancerVip(const string &pool_name) {
-        string vip_name("f47ac10b-58cc-4372-a567-0e02b2c3d479");
+        string vip_name("vip" + pool_name);
         autogen::VirtualIpType vip_attr;
         vip_attr.protocol = "HTTP";
         vip_attr.protocol_port = 80;
@@ -147,13 +146,13 @@ protected:
     }
 
 
-   Loadbalancer *GetLoadbalancer() {
-        LoadbalancerKey key(pool_id_);
+   Loadbalancer *GetLoadbalancer(boost::uuids::uuid pool_id) {
+        LoadbalancerKey key(pool_id);
         return static_cast<Loadbalancer *>(
             lb_table_->Find(&key, true));
     }
 
-    void AddLoadbalancerMember(const boost::uuids::uuid &pool_id,
+    void AddLoadbalancerMember(std::string &pool_name,
                                const char *ip_address, int port) {
         boost::uuids::random_generator gen;
         boost::uuids::uuid member_id = gen();
@@ -167,13 +166,13 @@ protected:
             pmap, 0);
 
         ifmap_test_util::IFMapMsgLink(
-            &database_, "loadbalancer-pool", UuidToString(pool_id),
+            &database_, "loadbalancer-pool", pool_name,
             "loadbalancer-member", UuidToString(member_id),
             "loadbalancer-pool-loadbalancer-member");
     }
 
 
-    boost::uuids::uuid AddLoadbalancer() {
+    boost::uuids::uuid AddLoadbalancer(std::string pool_name) {
 
         map<string, AutogenProperty *> pmap;
         autogen::LoadbalancerPoolType pool_attr;
@@ -181,27 +180,26 @@ protected:
         pool_attr.loadbalancer_method = "ROUND_ROBIN";
         pmap.insert(make_pair("loadbalancer-pool-properties", &pool_attr));
         ifmap_test_util::IFMapMsgPropertySet(
-            &database_, "loadbalancer-pool", UuidToString(pool_id_), pmap, 0);
+            &database_, "loadbalancer-pool", pool_name, pmap, 0);
 
-        AddLoadbalancerVip(UuidToString(pool_id_));
+        AddLoadbalancerVip(pool_name);
 
         task_util::WaitForIdle();
         IFMapTable *table = IFMapTable::FindTable(&database_,
                                                   "loadbalancer-pool");
-        IFMapNode *node = table->FindNode(UuidToString((pool_id_)));
+        IFMapNode *node = table->FindNode(pool_name);
         if (node == NULL) {
             return boost::uuids::nil_uuid();
         }
 
-       AddLoadbalancerMember(pool_id_, "127.0.0.1", 80);
-       AddLoadbalancerMember(pool_id_, "127.0.0.2", 80);
+       AddLoadbalancerMember(pool_name, "127.0.0.1", 80);
+       AddLoadbalancerMember(pool_name, "127.0.0.2", 80);
 
         DBRequest request;
         lb_table_->IFNodeToReq(node, request);
         lb_table_->Enqueue(&request);
 
        task_util::WaitForIdle();
-       Loadbalancer *loadbalancer = GetLoadbalancer();
         autogen::LoadbalancerPool *lb_object =
                 static_cast<autogen::LoadbalancerPool *>(node->GetObject());
         const autogen::IdPermsType &id = lb_object->id_perms();
@@ -286,7 +284,7 @@ protected:
         prop.Clear();
         prop.virtualization_type = ServiceInstance::NetworkNamespace;
         boost::uuids::random_generator gen;
-        prop.instance_id = pool_id_;
+        prop.instance_id = svc_instance->uuid();
         prop.vmi_inside = gen();
         prop.vmi_outside = gen();
         prop.ip_addr_inside = "10.0.0.1";
@@ -316,7 +314,6 @@ protected:
     AgentSignal *agent_signal_;
     ServiceInstanceTable *si_table_;
     LoadbalancerTable *lb_table_;
-    boost::uuids::uuid pool_id_;
 };
 
 TEST_F(NamespaceManagerTest, ExecTrue) {
@@ -519,17 +516,49 @@ TEST_F(NamespaceManagerTest, Usable) {
     task_util::WaitForIdle();
 }
 
-
 TEST_F(NamespaceManagerTest, LoadbalancerConfig) {
     ns_manager_->Initialize(&database_, agent_signal_, "/bin/true", 1, 10);
-    boost::uuids::uuid lbid = AddLoadbalancer();
+
+    boost::uuids::random_generator gen;
+    std::string pool_name(UuidToString(gen()));
+
+    boost::uuids::uuid lbid = AddLoadbalancer(pool_name);
     task_util::WaitForIdle();
+
+    AddServiceInstance("/bin/true");
+    ifmap_test_util::IFMapMsgLink(
+            &database_, "loadbalancer-pool", pool_name,
+            "service-instance", "/bin/true",
+            "loadbalancer-pool-service-instance");
     task_util::WaitForIdle();
+
     stringstream pathgen;
     pathgen << loadbalancer_config_path() << lbid
             << "/etc/haproxy/haproxy.cfg";
     boost::filesystem::path config(pathgen.str());
+    std::time_t old_time =
+        boost::filesystem::last_write_time(pathgen.str());
     EXPECT_TRUE(boost::filesystem::exists(config));
+
+    lbid = AddLoadbalancer(UuidToString(gen()));
+    pathgen.str("");
+    pathgen.clear();
+    pathgen << loadbalancer_config_path() << lbid
+            << "/etc/haproxy/haproxy.cfg";
+    boost::filesystem::path config1(pathgen.str());
+
+    //Make sure that both files exists
+    EXPECT_TRUE(boost::filesystem::exists(config1));
+    EXPECT_TRUE(boost::filesystem::exists(config));
+    task_util::WaitForIdle();
+
+    //Lets add a new member to Pool and verify that config file is
+    //updated
+    AddLoadbalancerMember(pool_name, "127.0.0.3", 80);
+    task_util::WaitForIdle();
+    std::time_t new_time =
+        boost::filesystem::last_write_time(pathgen.str());
+    EXPECT_TRUE(old_time <= new_time);
 }
 
 static void SetUp() {

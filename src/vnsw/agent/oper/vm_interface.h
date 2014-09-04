@@ -246,6 +246,12 @@ public:
         SERVICE_CHANGE,
     };
 
+    enum Preference {
+        INVALID = 0,
+        LOW     = 100,
+        HIGH    = 200
+    };
+
     VmInterface(const boost::uuids::uuid &uuid);
     VmInterface(const boost::uuids::uuid &uuid, const std::string &name,
                 const Ip4Address &addr, const std::string &mac,
@@ -287,6 +293,7 @@ public:
     const boost::uuids::uuid &vm_project_uuid() const { return vm_project_uuid_; }
     const std::string &cfg_name() const { return cfg_name_; }
     uint16_t vlan_id() const { return vlan_id_; }
+    Preference local_preference() const { return local_preference_; }
     const Interface *parent() const { return parent_.get(); }
     bool ecmp() const { return ecmp_;}
     const OperDhcpOptions &oper_dhcp_options() const { return oper_dhcp_options_; }
@@ -405,11 +412,12 @@ private:
     bool ResyncConfig(VmInterfaceConfigData *data);
     bool CopyIpAddress(Ip4Address &addr);
     bool CopyConfig(VmInterfaceConfigData *data, bool *sg_changed,
-                    bool *ecmp_changed);
+                    bool *ecmp_changed, bool *local_pref_changed);
     void ApplyConfig(bool old_ipv4_active,bool old_l2_active,  bool old_policy, 
                      VrfEntry *old_vrf, const Ip4Address &old_addr, 
                      int old_vxlan_id, bool old_need_linklocal_ip,
-                     bool sg_changed, bool ecmp_changed);
+                     bool sg_changed, bool ecmp_changed,
+                     bool local_pref_changed);
 
     void UpdateL3(bool old_ipv4_active, VrfEntry *old_vrf,
                   const Ip4Address &old_addr, int old_vxlan_id,
@@ -494,6 +502,7 @@ private:
     // VLAN Tag and the parent interface when VLAN is enabled
     uint16_t vlan_id_;
     InterfaceRef parent_;
+    Preference local_preference_;
     // DHCP options defined for the interface
     OperDhcpOptions oper_dhcp_options_;
 
@@ -612,7 +621,8 @@ struct VmInterfaceConfigData : public VmInterfaceData {
         vm_uuid_(), vm_name_(), vn_uuid_(), vrf_name_(""), fabric_port_(true),
         need_linklocal_ip_(false), layer2_forwarding_(true),
         ipv4_forwarding_(true), mirror_enable_(false), ecmp_(false),
-        dhcp_enable_(true), analyzer_name_(""), oper_dhcp_options_(),
+        dhcp_enable_(true), analyzer_name_(""),
+        local_preference_(VmInterface::INVALID), oper_dhcp_options_(),
         mirror_direction_(Interface::UNKNOWN), sg_list_(),
         floating_ip_list_(), service_vlan_list_(), static_route_list_(),
         allowed_address_pair_list_() {
@@ -625,7 +635,7 @@ struct VmInterfaceConfigData : public VmInterfaceData {
         fabric_port_(true), need_linklocal_ip_(false), 
         layer2_forwarding_(true), ipv4_forwarding_(true),
         mirror_enable_(false), ecmp_(false), dhcp_enable_(true),
-        analyzer_name_(""), oper_dhcp_options_(), 
+        analyzer_name_(""), local_preference_(VmInterface::INVALID), oper_dhcp_options_(),
         mirror_direction_(Interface::UNKNOWN), sg_list_(),
         floating_ip_list_(), service_vlan_list_(), static_route_list_(),
         allowed_address_pair_list_(){
@@ -653,6 +663,7 @@ struct VmInterfaceConfigData : public VmInterfaceData {
     bool dhcp_enable_; // is DHCP enabled for the interface (from subnet config)
     bool admin_state_;
     std::string analyzer_name_;
+    VmInterface::Preference local_preference_;
     OperDhcpOptions oper_dhcp_options_;
     Interface::MirrorDirection mirror_direction_;
     VmInterface::SecurityGroupEntryList sg_list_;

@@ -37,22 +37,19 @@ void NamespaceManager::Initialize(DB *database, AgentSignal *signal,
                                   const std::string &netns_cmd,
                                   const int netns_workers,
                                   const int netns_timeout) {
-    si_table_ = database->FindTable("db.service-instance.0");
-    assert(si_table_);
-
     if (signal) {
         InitSigHandler(signal);
     }
 
+    lb_table_ = database->FindTable("db.loadbalancer-pool.0");
+    assert(lb_table_);
+    lb_listener_ = lb_table_->Register(
+        boost::bind(&NamespaceManager::LoadbalancerObserver, this, _1, _2));
+
+    si_table_ = database->FindTable("db.service-instance.0");
+    assert(si_table_);
     si_listener_ = si_table_->Register(
         boost::bind(&NamespaceManager::EventObserver, this, _1, _2));
-
-    lb_table_ = database->FindTable("db.loadbalancer.0");
-    if (lb_table_ != NULL) {
-        lb_listener_ = lb_table_->Register(
-            boost::bind(&NamespaceManager::LoadbalancerObserver,
-                        this, _1, _2));
-    }
 
     netns_cmd_ = netns_cmd;
     if (netns_cmd_.length() == 0) {
@@ -372,12 +369,21 @@ void NamespaceManager::StartNetNS(ServiceInstance *svc_instance,
     cmd_str << " " << UuidToString(props.instance_id);
     cmd_str << " " << UuidToString(props.vmi_inside);
     cmd_str << " " << UuidToString(props.vmi_outside);
+
     cmd_str << " --vmi-left-ip " << props.ip_addr_inside << "/";
     cmd_str << props.ip_prefix_len_inside;
-    cmd_str << " --vmi-right-ip " << props.ip_addr_outside << "/";
-    cmd_str << props.ip_prefix_len_outside;
+    if (props.ip_prefix_len_outside != -1)  {
+        cmd_str << " --vmi-right-ip " << props.ip_addr_outside << "/";
+        cmd_str << props.ip_prefix_len_outside;
+    } else {
+        cmd_str << " --vmi-right-ip 0.0.0.0/0";
+    }
     cmd_str << " --vmi-left-mac " << props.mac_addr_inside;
-    cmd_str << " --vmi-right-mac " << props.mac_addr_outside;
+    if (!props.mac_addr_outside.empty()) {
+        cmd_str << " --vmi-right-mac " << props.mac_addr_outside;
+    } else {
+        cmd_str << " --vmi-right-mac 00:00:00:00:00:00";
+    }
     if (props.service_type == ServiceInstance::LoadBalancer) {
         cmd_str << " --cfg-file " << loadbalancer_config_path_ <<
             props.pool_id << "/etc/haproxy/haproxy.cfg";
@@ -430,6 +436,10 @@ void NamespaceManager::StopNetNS(ServiceInstance *svc_instance,
     cmd_str << " " << UuidToString(props.instance_id);
     cmd_str << " " << UuidToString(props.vmi_inside);
     cmd_str << " " << UuidToString(props.vmi_outside);
+    if (props.service_type == ServiceInstance::LoadBalancer) {
+        cmd_str << " --cfg-file " << loadbalancer_config_path_ <<
+            props.pool_id << "/etc/haproxy/haproxy.cfg";
+    }
 
     NamespaceTask *task = new NamespaceTask(cmd_str.str(), Stop, evm_);
     boost::uuids::uuid uuid = svc_instance->properties().instance_id;
@@ -517,9 +527,9 @@ void NamespaceManager::LoadbalancerObserver(
     std::stringstream pathgen;
     pathgen << loadbalancer_config_path_ << loadbalancer->uuid();
 
+    boost::system::error_code error;
     if (!loadbalancer->IsDeleted() && loadbalancer->properties() != NULL) {
         pathgen << "/etc/haproxy";
-        boost::system::error_code error;
         boost::filesystem::path dir(pathgen.str());
         if (!boost::filesystem::exists(dir, error)) {
 #if 0
@@ -538,7 +548,11 @@ void NamespaceManager::LoadbalancerObserver(
         haproxy_->GenerateConfig(pathgen.str(), loadbalancer->uuid(),
                                  *loadbalancer->properties());
     } else {
-        // TODO: remove files when the loadbalancer is deleted.
+         boost::filesystem::remove(pathgen.str(), error);
+         if (error) {
+             LOG(ERROR, error.message());
+             return;
+         }
     }
 }
 
@@ -622,7 +636,6 @@ pid_t NamespaceTask::Run() {
     if (pipe(err) < 0) {
         return -1;
     }
-
     /*
      * temporarily block SIGCHLD signals
      */
@@ -630,7 +643,6 @@ pid_t NamespaceTask::Run() {
     sigset_t orig_mask;
     sigemptyset (&mask);
     sigaddset (&mask, SIGCHLD);
-
     if (sigprocmask(SIG_BLOCK, &mask, &orig_mask) < 0) {
         LOG(ERROR, "NetNS error: sigprocmask, " << strerror(errno));
     }
@@ -649,7 +661,6 @@ pid_t NamespaceTask::Run() {
 
         _exit(127);
     }
-
     if (sigprocmask(SIG_SETMASK, &orig_mask, NULL) < 0) {
         LOG(ERROR, "NetNS error: sigprocmask, " << strerror(errno));
     }
