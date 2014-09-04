@@ -22,8 +22,9 @@
 
 class CdbIf : public GenDb::GenDbIf {
 public:
-    CdbIf(DbErrorHandler, std::vector<std::string>, std::vector<int>,
-        int ttl, std::string name, bool only_sync);
+    CdbIf(DbErrorHandler, const std::vector<std::string>&,
+        const std::vector<int>&, int ttl, std::string name,
+        bool only_sync);
     CdbIf();
     ~CdbIf();
     // Init/Uninit

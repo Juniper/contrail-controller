@@ -136,6 +136,10 @@ const uint16_t ContrailPorts::CollectorPort() {
     return VnsPorts().CollectorPort;
 }
 
+const uint16_t ContrailPorts::CollectorProtobufPort() {
+    return VnsPorts().CollectorProtobufPort;
+}
+
 const uint16_t ContrailPorts::DnsXmpp() {
     return VnsPorts().DnsXmppPort;
 }

@@ -270,9 +270,17 @@ int main(int argc, char *argv[])
          ostream_iterator<string>(css, " "));
     LOG(INFO, "COLLECTOR CASSANDRA SERVERS: " << css.str());
     LOG(INFO, "COLLECTOR SYSLOG LISTEN PORT: " << options.syslog_port());
+    uint16_t protobuf_port;
+    bool protobuf_server_enabled =
+        options.collector_protobuf_port(&protobuf_port);
+    if (protobuf_server_enabled) {
+        LOG(INFO, "COLLECTOR PROTOBUF LISTEN PORT: " << protobuf_port);
+    }
 
     VizCollector analytics(a_evm,
             options.collector_port(),
+            protobuf_server_enabled,
+            protobuf_port,
             cassandra_ips,
             cassandra_ports,
             string("127.0.0.1"),
