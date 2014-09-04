@@ -46,7 +46,8 @@ void IFMapMsgUnlink(DB *db, const string &lhs, const string &lid,
 }
 
 void IFMapNodeCommon(IFMapTable *table, DBRequest *request, const string &type,
-                     const string &id, uint64_t sequence_number) {
+                     const string &id, uint64_t sequence_number, 
+                     const string &metadata, AutogenProperty *content) {
     IFMapTable::RequestKey *key = new IFMapTable::RequestKey();
     request->key.reset(key);
     key->id_type = type;
@@ -56,6 +57,10 @@ void IFMapNodeCommon(IFMapTable *table, DBRequest *request, const string &type,
     IFMapServerTable::RequestData *data = new IFMapServerTable::RequestData();
     request->data.reset(data);
     data->origin.set_origin(IFMapOrigin::MAP_SERVER);
+    if (content != NULL) {
+        data->metadata = metadata;
+        data->content.reset(content);
+    }
 }
 
 void IFMapPropertyCommon(DBRequest *request, const string &type,

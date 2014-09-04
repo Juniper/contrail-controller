@@ -107,6 +107,20 @@ protected:
         ifmap_test_util::IFMapMsgUnlink(&db_, ltype, lid, rtype, rid, metadata);
     }
 
+    void IFMapMsgNodeAdd(const string &type, const string &id,
+                         uint64_t sequence_number, const string &metadata,
+                         AutogenProperty *content) {
+        ifmap_test_util::IFMapMsgNodeAdd(&db_, type, id, sequence_number,
+                                         metadata, content);
+    }
+
+    void IFMapMsgNodeDelete(const string &type, const string &id,
+                         uint64_t sequence_number, const string &metadata,
+                         AutogenProperty *content) {
+        ifmap_test_util::IFMapMsgNodeDelete(&db_, type, id, sequence_number,
+                                         metadata, content);
+    }
+
     IFMapNode *TableLookup(const string &type, const string &name) {
         IFMapTable *tbl = IFMapTable::FindTable(&db_, type);
         if (tbl == NULL) {
@@ -529,6 +543,179 @@ TEST_F(IFMapExporterTest, CrcChecks) {
     ASSERT_TRUE(crc_idperms1 == crc_idperms3);
     ASSERT_TRUE(crc_np_vec_complex1 == crc_np_vec_complex3);
     ASSERT_TRUE(crc_vm_vec_simple1 == crc_vm_vec_simple3);
+}
+
+TEST_F(IFMapExporterTest, ChangePropertiesIncrementally) {
+    server_.SetSender(new IFMapUpdateSenderMock(&server_));
+    TestClient c1("vr-test");
+    server_.ClientRegister(&c1);
+
+    IFMapMsgLink("domain", "project", "user1", "vnc");
+    IFMapMsgLink("project", "virtual-network", "vnc", "blue");
+    IFMapMsgLink("project", "virtual-network", "vnc", "red");
+    IFMapMsgLink("virtual-machine", "virtual-machine-interface", 
+                 "vm_x", "vm_x:veth0");
+    IFMapMsgLink("virtual-machine-interface", "virtual-network", 
+                 "vm_x:veth0", "blue");
+    IFMapMsgLink("virtual-router", "virtual-machine", "vr-test", "vm_x");
+    task_util::WaitForIdle();
+
+    // Check that c1's advertise bit is set
+    TASK_UTIL_EXPECT_TRUE(TableLookup("virtual-router", "vr-test") != NULL);
+    IFMapNode *vrnode = TableLookup("virtual-router", "vr-test");
+    TASK_UTIL_EXPECT_TRUE(exporter_->NodeStateLookup(vrnode) != NULL);
+    IFMapNodeState *state = exporter_->NodeStateLookup(vrnode);
+    TASK_UTIL_EXPECT_TRUE(state->GetUpdate(IFMapListEntry::UPDATE) != NULL);
+    IFMapUpdate *update = state->GetUpdate(IFMapListEntry::UPDATE);
+    ASSERT_TRUE(update != NULL);
+    EXPECT_TRUE(update->advertise().test(c1.index()));
+    IFMapState::crc32type crc0 = state->crc();
+    ProcessQueue();
+    EXPECT_TRUE(state->GetUpdate(IFMapListEntry::UPDATE) == NULL);
+ 
+    // Add the 'id-perms' property
+    autogen::IdPermsType *prop1 = new autogen::IdPermsType();
+    IFMapMsgNodeAdd("virtual-router", "vr-test", 1, "id-perms", prop1);
+    task_util::WaitForIdle();
+    state = exporter_->NodeStateLookup(vrnode);
+    TASK_UTIL_EXPECT_TRUE(state->GetUpdate(IFMapListEntry::UPDATE) != NULL);
+    update = state->GetUpdate(IFMapListEntry::UPDATE);
+    EXPECT_TRUE(update->advertise().test(c1.index()));
+    IFMapState::crc32type crc1 = state->crc();
+    ProcessQueue();
+    EXPECT_TRUE(state->GetUpdate(IFMapListEntry::UPDATE) == NULL);
+    // Checks. Only 'id-perms' should be set.
+    vrnode = TableLookup("virtual-router", "vr-test");
+    ASSERT_TRUE(vrnode != NULL);
+    TASK_UTIL_EXPECT_TRUE(
+        vrnode->Find(IFMapOrigin(IFMapOrigin::MAP_SERVER)) != NULL);
+    IFMapObject *obj = vrnode->Find(IFMapOrigin(IFMapOrigin::MAP_SERVER));
+    ASSERT_TRUE(obj != NULL);
+    autogen::VirtualRouter *vrobj = dynamic_cast<autogen::VirtualRouter *>(obj);
+    ASSERT_TRUE(vrobj != NULL);
+    EXPECT_TRUE(vrobj->IsPropertySet(autogen::VirtualRouter::ID_PERMS));
+    EXPECT_FALSE(vrobj->IsPropertySet(autogen::VirtualRouter::DISPLAY_NAME));
+    EXPECT_FALSE(vrobj->IsPropertySet(autogen::VirtualRouter::IP_ADDRESS));
+    ASSERT_TRUE(crc0 != crc1);
+
+    // Add the 'display-name' property
+    autogen::VirtualRouter::StringProperty *prop2 =
+        new autogen::VirtualRouter::StringProperty();
+    prop2->data = "myDisplayName";
+    IFMapMsgNodeAdd("virtual-router", "vr-test", 1, "display-name", prop2);
+    task_util::WaitForIdle();
+    state = exporter_->NodeStateLookup(vrnode);
+    TASK_UTIL_EXPECT_TRUE(state->GetUpdate(IFMapListEntry::UPDATE) != NULL);
+    update = state->GetUpdate(IFMapListEntry::UPDATE);
+    EXPECT_TRUE(update->advertise().test(c1.index()));
+    IFMapState::crc32type crc2 = state->crc();
+    ProcessQueue();
+    EXPECT_TRUE(state->GetUpdate(IFMapListEntry::UPDATE) == NULL);
+    // Checks. 'id-perms' and 'display-name' should be set.
+    vrnode = TableLookup("virtual-router", "vr-test");
+    ASSERT_TRUE(vrnode != NULL);
+    EXPECT_TRUE(vrnode->Find(IFMapOrigin(IFMapOrigin::MAP_SERVER)) != NULL);
+    obj = vrnode->Find(IFMapOrigin(IFMapOrigin::MAP_SERVER));
+    ASSERT_TRUE(obj != NULL);
+    vrobj = dynamic_cast<autogen::VirtualRouter *>(obj);
+    ASSERT_TRUE(vrobj != NULL);
+    EXPECT_TRUE(vrobj->IsPropertySet(autogen::VirtualRouter::ID_PERMS));
+    EXPECT_TRUE(vrobj->IsPropertySet(autogen::VirtualRouter::DISPLAY_NAME));
+    EXPECT_FALSE(vrobj->IsPropertySet(autogen::VirtualRouter::IP_ADDRESS));
+    ASSERT_TRUE(crc1 != crc2);
+
+    // Remove the 'display-name' property
+    prop2 = new autogen::VirtualRouter::StringProperty();
+    prop2->data = "myDisplayName";
+    IFMapMsgNodeDelete("virtual-router", "vr-test", 1, "display-name", prop2);
+    task_util::WaitForIdle();
+    TASK_UTIL_EXPECT_TRUE(state->GetUpdate(IFMapListEntry::UPDATE) != NULL);
+    update = state->GetUpdate(IFMapListEntry::UPDATE);
+    EXPECT_TRUE(update->advertise().test(c1.index()));
+    IFMapState::crc32type crc3 = state->crc();
+    ProcessQueue();
+    EXPECT_TRUE(state->GetUpdate(IFMapListEntry::UPDATE) == NULL);
+    // Checks. Only 'id-perms' should be set.
+    vrnode = TableLookup("virtual-router", "vr-test");
+    ASSERT_TRUE(vrnode != NULL);
+    EXPECT_TRUE(vrnode->Find(IFMapOrigin(IFMapOrigin::MAP_SERVER)) != NULL);
+    obj = vrnode->Find(IFMapOrigin(IFMapOrigin::MAP_SERVER));
+    ASSERT_TRUE(obj != NULL);
+    vrobj = dynamic_cast<autogen::VirtualRouter *>(obj);
+    ASSERT_TRUE(vrobj != NULL);
+    EXPECT_TRUE(vrobj->IsPropertySet(autogen::VirtualRouter::ID_PERMS));
+    EXPECT_FALSE(vrobj->IsPropertySet(autogen::VirtualRouter::DISPLAY_NAME));
+    EXPECT_FALSE(vrobj->IsPropertySet(autogen::VirtualRouter::IP_ADDRESS));
+    ASSERT_TRUE(crc2 != crc3);
+    ASSERT_TRUE(crc1 == crc3);
+
+    // Add the 'display-name' property again
+    prop2 = new autogen::VirtualRouter::StringProperty();
+    prop2->data = "myDisplayName";
+    IFMapMsgNodeAdd("virtual-router", "vr-test", 1, "display-name", prop2);
+    task_util::WaitForIdle();
+    TASK_UTIL_EXPECT_TRUE(state->GetUpdate(IFMapListEntry::UPDATE) != NULL);
+    update = state->GetUpdate(IFMapListEntry::UPDATE);
+    EXPECT_TRUE(update->advertise().test(c1.index()));
+    IFMapState::crc32type crc4 = state->crc();
+    ProcessQueue();
+    EXPECT_TRUE(state->GetUpdate(IFMapListEntry::UPDATE) == NULL);
+    // Checks. 'id-perms' and 'display-name' should be set.
+    vrnode = TableLookup("virtual-router", "vr-test");
+    ASSERT_TRUE(vrnode != NULL);
+    EXPECT_TRUE(vrnode->Find(IFMapOrigin(IFMapOrigin::MAP_SERVER)) != NULL);
+    obj = vrnode->Find(IFMapOrigin(IFMapOrigin::MAP_SERVER));
+    ASSERT_TRUE(obj != NULL);
+    vrobj = dynamic_cast<autogen::VirtualRouter *>(obj);
+    ASSERT_TRUE(vrobj != NULL);
+    EXPECT_TRUE(vrobj->IsPropertySet(autogen::VirtualRouter::ID_PERMS));
+    EXPECT_TRUE(vrobj->IsPropertySet(autogen::VirtualRouter::DISPLAY_NAME));
+    EXPECT_FALSE(vrobj->IsPropertySet(autogen::VirtualRouter::IP_ADDRESS));
+    ASSERT_TRUE(crc3 != crc4);
+    ASSERT_TRUE(crc2 == crc4);
+
+    // Remove the 'id-perms' property
+    prop1 = new autogen::IdPermsType();
+    IFMapMsgNodeDelete("virtual-router", "vr-test", 1, "id-perms", prop1);
+    task_util::WaitForIdle();
+    TASK_UTIL_EXPECT_TRUE(state->GetUpdate(IFMapListEntry::UPDATE) != NULL);
+    update = state->GetUpdate(IFMapListEntry::UPDATE);
+    EXPECT_TRUE(update->advertise().test(c1.index()));
+    IFMapState::crc32type crc5 = state->crc();
+    ProcessQueue();
+    EXPECT_TRUE(state->GetUpdate(IFMapListEntry::UPDATE) == NULL);
+    // Checks. Only 'display-name' should be set.
+    vrnode = TableLookup("virtual-router", "vr-test");
+    ASSERT_TRUE(vrnode != NULL);
+    EXPECT_TRUE(vrnode->Find(IFMapOrigin(IFMapOrigin::MAP_SERVER)) != NULL);
+    obj = vrnode->Find(IFMapOrigin(IFMapOrigin::MAP_SERVER));
+    ASSERT_TRUE(obj != NULL);
+    vrobj = dynamic_cast<autogen::VirtualRouter *>(obj);
+    ASSERT_TRUE(vrobj != NULL);
+    EXPECT_FALSE(vrobj->IsPropertySet(autogen::VirtualRouter::ID_PERMS));
+    EXPECT_TRUE(vrobj->IsPropertySet(autogen::VirtualRouter::DISPLAY_NAME));
+    EXPECT_FALSE(vrobj->IsPropertySet(autogen::VirtualRouter::IP_ADDRESS));
+    ASSERT_TRUE(crc4 != crc5);
+
+    // Remove the 'display-name' property
+    prop2 = new autogen::VirtualRouter::StringProperty();
+    prop2->data = "myDisplayName";
+    IFMapMsgNodeDelete("virtual-router", "vr-test", 1, "display-name", prop2);
+    task_util::WaitForIdle();
+    TASK_UTIL_EXPECT_TRUE(state->GetUpdate(IFMapListEntry::UPDATE) != NULL);
+    update = state->GetUpdate(IFMapListEntry::UPDATE);
+    EXPECT_TRUE(update->advertise().test(c1.index()));
+    IFMapState::crc32type crc6 = state->crc();
+    ProcessQueue();
+    EXPECT_TRUE(state->GetUpdate(IFMapListEntry::UPDATE) == NULL);
+    // Checks. The node should exist since it has a neighbor. But, the object
+    // should be gone since all the properties are gone.
+    vrnode = TableLookup("virtual-router", "vr-test");
+    ASSERT_TRUE(vrnode != NULL);
+    TASK_UTIL_EXPECT_TRUE(
+            vrnode->Find(IFMapOrigin(IFMapOrigin::MAP_SERVER)) == NULL);
+    ASSERT_TRUE(crc5 != crc6);
+    ASSERT_TRUE(crc0 == crc6);
 }
 
 int main(int argc, char **argv) {

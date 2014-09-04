@@ -33,12 +33,18 @@ void IFMapMsgUnlink(DB *db, const std::string &ltype, const std::string &lid,
 
 void IFMapNodeCommon(IFMapTable *table, DBRequest *request,
                      const std::string &type, const std::string &id,
-                     uint64_t sequence_number);
+                     uint64_t sequence_number, const std::string &metadata = "",
+                     AutogenProperty *content = NULL);
 
 void IFMapMsgNodeAdd(DB *db, const std::string &type, const std::string &id,
-                     uint64_t sequence_number = 0);
+                     uint64_t sequence_number = 0,
+                     const std::string &metadata = "",
+                     AutogenProperty *content = NULL);
 
-void IFMapMsgNodeDelete(DB *db, const std::string &type, const std::string &id);
+void IFMapMsgNodeDelete(DB *db, const std::string &type, const std::string &id,
+                        uint64_t sequence_number = 0,
+                        const std::string &metadata = "",
+                        AutogenProperty *content = NULL);
 
 /*
  * PropertyAdd/Delete are APIs only available on the ifmap server tables.
