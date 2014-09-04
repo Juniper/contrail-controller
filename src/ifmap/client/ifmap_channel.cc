@@ -571,8 +571,6 @@ int IFMapChannel::ReadPollResponse() {
 
     CHECK_CONCURRENCY("ifmap::StateMachine");
     // Append the new bytes read, if any, to the stringstream
-    IFMAP_PEER_DEBUG(IFMapServerConnection, "IFMapChannel::ReadPollResponse",
-                     GetSizeAsString(reply_.size(), " bytes in reply_. "));
     reply_ss_ << &reply_;
     std::string reply_str = reply_ss_.str();
     IFMAP_PEER_LOG_POLL_RESP(IFMapServerConnection,
@@ -892,63 +890,3 @@ void IFMapPeerServerInfoReq::HandleRequest() const {
     RequestPipeline rp(ps);
 }
 
-// START: temp instrumentation. Remove asap.
-string IFMapChannel::ArcSocketReadHandleRequest(int bytes_to_read,
-                                                size_t *bytes) {
-    if (temp_reply_str_.size()) {
-        *bytes = temp_reply_str_.size();
-    } else {
-        boost::system::error_code ec;
-        *bytes = boost::asio::read(*arc_socket_.get(), temp_reply_,
-                boost::asio::transfer_at_least(bytes_to_read), ec);
-        temp_reply_ss_ << &temp_reply_;
-        temp_reply_str_ = temp_reply_ss_.str();
-    }
-    return temp_reply_str_;
-}
-
-static bool IFMapSocketReadHandleRequest(const Sandesh *sr,
-                                         const RequestPipeline::PipeSpec ps,
-                                         int stage, int instNum,
-                                         RequestPipeline::InstData *data) {
-    const IFMapPeerServerSocketReadReq *request =
-        static_cast<const IFMapPeerServerSocketReadReq *>(ps.snhRequest_.get());
-    BgpSandeshContext *bsc = 
-        static_cast<BgpSandeshContext *>(request->client_context());
-
-    int bytes_to_read = request->get_bytes_to_read();
-
-    IFMapChannel *channel =
-        bsc->ifmap_server->get_ifmap_manager()->channel();
-    IFMapPeerServerSocketReadResp *response =
-        new IFMapPeerServerSocketReadResp();
-
-    size_t num_bytes = 0;
-    string socket_bytes_str = 
-        channel->ArcSocketReadHandleRequest(bytes_to_read, &num_bytes);
-
-    response->set_socket_bytes(num_bytes);
-    response->set_socket_string(socket_bytes_str);
-
-    response->set_context(request->context());
-    response->set_more(false);
-    response->Response();
-
-    // Return 'true' so that we are not called again
-    return true;
-}
-
-void IFMapPeerServerSocketReadReq::HandleRequest() const {
-    RequestPipeline::StageSpec s0;
-    TaskScheduler *scheduler = TaskScheduler::GetInstance();
-
-    s0.taskId_ = scheduler->GetTaskId("ifmap::StateMachine");
-    s0.cbFn_ = IFMapSocketReadHandleRequest;
-    s0.instances_.push_back(0);
-
-    RequestPipeline::PipeSpec ps(this);
-    ps.stages_= list_of(s0);
-    RequestPipeline rp(ps);
-}
-
-// END: temp instrumentation. Remove asap.
