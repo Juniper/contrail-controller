@@ -16,6 +16,7 @@ python-novaclient
 kombu
 netifaces
 stevedore
+testscenarios
 ../../../../third_party/ifmap-python-client
 ../../../../distro/third_party/kazoo
 ../../../../build/debug/config/common/dist/cfgm_common-0.1dev.tar.gz
