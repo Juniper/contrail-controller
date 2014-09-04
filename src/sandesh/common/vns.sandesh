@@ -98,15 +98,6 @@ const map<string, u16> ServiceHttpPortMap = {
     SERVICE_STORAGE_STATS_MGR : HttpPortStorageStatsmgr,
 }
 
-const map <string, u16> SupervisorPortMap = {
-    SERVICE_ANALYTICS_SUPERVISOR : AnalyticsSupervisorPort,
-    SERVICE_CONFIG_SUPERVISOR : ConfigSupervisorPort,
-    SERVICE_CONTROL_SUPERVISOR : ControlSupervisorPort,
-    SERVICE_COMPUTE_SUPERVISOR : VRouterSupervisorPort,
-    SERVICE_DATABASE_SUPERVISOR : DatabaseSupervisorPort,
-    SERVICE_WEBUI_SUPERVISOR : WebuiSupervisorPort,
-}
-
 enum Module {
     CONTROL_NODE,
     VROUTER_AGENT,

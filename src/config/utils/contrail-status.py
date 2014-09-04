@@ -13,8 +13,7 @@ import socket
 import requests
 from StringIO import StringIO
 from lxml import etree
-from sandesh_common.vns.constants import ServiceHttpPortMap, \
-    SupervisorPortMap
+from sandesh_common.vns.constants import ServiceHttpPortMap
 
 try:
     subprocess.check_call(["dpkg-vendor", "--derives-from", "debian"])
@@ -268,8 +267,8 @@ def get_svc_uve_status(svc_name, debug):
         return None
     return process_status_info[0]['state']
 
-def check_svc_status(server_port, debug):
-    cmd = 'supervisorctl -s http://localhost:' + str(server_port) + ' status'
+def check_svc_status(service_name, debug):
+    cmd = 'supervisorctl -s unix:///tmp/' + service_name.replace('-', 'd_') + '.sock' + ' status'
     cmdout = subprocess.Popen(cmd.split(), stdout=subprocess.PIPE).communicate()[0]
     if cmdout.find('refused connection') == -1:
         cmdout = cmdout.replace('   RUNNING', 'active')
@@ -277,7 +276,7 @@ def check_svc_status(server_port, debug):
         cmdout = cmdout.replace('   FATAL', 'failed')
         cmdoutlist = cmdout.split('\n')
         if debug:
-            print '%s: %s' % (str(server_port), cmdoutlist)
+            print '%s: %s' % (str(service_name), cmdoutlist)
         for supervisor_svc_info_cmdout in cmdoutlist:
             supervisor_svc_info = supervisor_svc_info_cmdout.split()
             if len(supervisor_svc_info) >= 2:
@@ -293,9 +292,7 @@ def check_svc_status(server_port, debug):
 
 def check_status(svc_name, debug):
     check_svc(svc_name)
-    if svc_name in SupervisorPortMap:
-        svc_sup_port = SupervisorPortMap[svc_name]
-        check_svc_status(svc_sup_port, debug)
+    check_svc_status(svc_name, debug)
 
 def supervisor_status(nodetype, debug):
     if nodetype == 'compute':
