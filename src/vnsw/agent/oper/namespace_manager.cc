@@ -4,6 +4,7 @@
 
 #include "oper/namespace_manager.h"
 
+#include <boost/filesystem.hpp>
 #include <boost/uuid/random_generator.hpp>
 #include <boost/bind.hpp>
 #include <boost/functional/hash.hpp>
@@ -11,15 +12,26 @@
 #include "db/db.h"
 #include "io/event_manager.h"
 #include "oper/service_instance.h"
+#include "oper/loadbalancer.h"
+#include "oper/loadbalancer_haproxy.h"
+#include "oper/loadbalancer_properties.h"
 #include "cmn/agent_signal.h"
 
 using boost::uuids::uuid;
 
+static const char loadbalancer_config_path_default[] =
+        "/var/lib/contrail/loadbalancer/";
+
 NamespaceManager::NamespaceManager(EventManager *evm)
         : evm_(evm), si_table_(NULL),
-          listener_id_(DBTableBase::kInvalidId), netns_timeout_(),
+          si_listener_(DBTableBase::kInvalidId),
+          lb_table_(NULL),
+          lb_listener_(DBTableBase::kInvalidId),
+          netns_timeout_(-1),
           work_queue_(TaskScheduler::GetInstance()->GetTaskId("db::DBTable"), 0,
-                      boost::bind(&NamespaceManager::DequeueEvent, this, _1)) {
+                      boost::bind(&NamespaceManager::DequeueEvent, this, _1)),
+          loadbalancer_config_path_(loadbalancer_config_path_default),
+          haproxy_(new LoadbalancerHaproxy()) {
 }
 
 void NamespaceManager::Initialize(DB *database, AgentSignal *signal,
@@ -33,8 +45,15 @@ void NamespaceManager::Initialize(DB *database, AgentSignal *signal,
         InitSigHandler(signal);
     }
 
-    listener_id_ = si_table_->Register(
+    si_listener_ = si_table_->Register(
         boost::bind(&NamespaceManager::EventObserver, this, _1, _2));
+
+    lb_table_ = database->FindTable("db.loadbalancer.0");
+    if (lb_table_ != NULL) {
+        lb_listener_ = lb_table_->Register(
+            boost::bind(&NamespaceManager::LoadbalancerObserver,
+                        this, _1, _2));
+    }
 
     netns_cmd_ = netns_cmd;
     if (netns_cmd_.length() == 0) {
@@ -165,7 +184,7 @@ void NamespaceManager::HandleSigChild(const boost::system::error_code &error,
 
 NamespaceState *NamespaceManager::GetState(ServiceInstance *svc_instance) const {
     return static_cast<NamespaceState *>(
-        svc_instance->GetState(si_table_, listener_id_));
+        svc_instance->GetState(si_table_, si_listener_));
 }
 
 NamespaceState *NamespaceManager::GetState(NamespaceTask* task) const {
@@ -179,11 +198,11 @@ NamespaceState *NamespaceManager::GetState(NamespaceTask* task) const {
 
 void NamespaceManager::SetState(ServiceInstance *svc_instance,
                                 NamespaceState *state) {
-    svc_instance->SetState(si_table_, listener_id_, state);
+    svc_instance->SetState(si_table_, si_listener_, state);
 }
 
 void NamespaceManager::ClearState(ServiceInstance *svc_instance) {
-    svc_instance->ClearState(si_table_, listener_id_);
+    svc_instance->ClearState(si_table_, si_listener_);
 }
 
 void NamespaceManager::InitSigHandler(AgentSignal *signal) {
@@ -197,9 +216,9 @@ void NamespaceManager::StateClear() {
 
     DBEntryBase *next = NULL;
     for (DBEntryBase *entry = partition->GetFirst(); entry; entry = next) {
-        DBState *state = entry->GetState(si_table_, listener_id_);
+        DBState *state = entry->GetState(si_table_, si_listener_);
         if (state != NULL) {
-            entry->ClearState(si_table_, listener_id_);
+            entry->ClearState(si_table_, si_listener_);
             delete state;
         }
         next = partition->GetNext(entry);
@@ -208,7 +227,7 @@ void NamespaceManager::StateClear() {
 
 void NamespaceManager::Terminate() {
     StateClear();
-    si_table_->Unregister(listener_id_);
+    si_table_->Unregister(si_listener_);
 
     NamespaceTaskQueue *task_queue;
     for (std::vector<NamespaceTaskQueue *>::iterator iter = task_queues_.begin();
@@ -362,6 +381,10 @@ void NamespaceManager::StartNetNS(ServiceInstance *svc_instance,
     cmd_str << props.ip_prefix_len_outside;
     cmd_str << " --vmi-left-mac " << props.mac_addr_inside;
     cmd_str << " --vmi-right-mac " << props.mac_addr_outside;
+    if (props.service_type == ServiceInstance::LoadBalancer) {
+        cmd_str << " --cfg-file " << loadbalancer_config_path_ <<
+            props.pool_id << "/etc/haproxy/haproxy.cfg";
+    }
 
     if (update) {
         cmd_str << " --update";
@@ -488,6 +511,37 @@ void NamespaceManager::EventObserver(
                 SetLastCmdType(svc_instance, Start);
             }
         }
+    }
+}
+
+void NamespaceManager::LoadbalancerObserver(
+    DBTablePartBase *db_part, DBEntryBase *entry) {
+    Loadbalancer *loadbalancer = static_cast<Loadbalancer *>(entry);
+    std::stringstream pathgen;
+    pathgen << loadbalancer_config_path_ << loadbalancer->uuid();
+
+    if (!loadbalancer->IsDeleted() && loadbalancer->properties() != NULL) {
+        pathgen << "/etc/haproxy";
+        boost::system::error_code error;
+        boost::filesystem::path dir(pathgen.str());
+        if (!boost::filesystem::exists(dir, error)) {
+#if 0
+            if (error) {
+                LOG(ERROR, error.message());
+                return;
+            }
+#endif
+            boost::filesystem::create_directories(dir, error);
+            if (error) {
+                LOG(ERROR, error.message());
+                return;
+            }
+        }
+        pathgen << "/haproxy.cfg";
+        haproxy_->GenerateConfig(pathgen.str(), loadbalancer->uuid(),
+                                 *loadbalancer->properties());
+    } else {
+        // TODO: remove files when the loadbalancer is deleted.
     }
 }
 

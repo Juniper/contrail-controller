@@ -6,6 +6,7 @@
 #include <string>
 #include <ostream>
 #include <boost/uuid/uuid.hpp>
+#include "base/util.h"
 
 class LoadbalancerProperties;
 
@@ -36,4 +37,6 @@ private:
     std::map<std::string, std::string> balance_map_;
     std::string protocol_default_;
     std::string balance_default_;
+
+    DISALLOW_COPY_AND_ASSIGN(LoadbalancerHaproxy);
 };
