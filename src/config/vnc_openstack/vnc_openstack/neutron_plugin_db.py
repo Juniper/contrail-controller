@@ -3659,12 +3659,11 @@ class DBInterface(object):
 
                 ip_id = self._create_instance_ip(net_obj, port_obj, ip_addr)
                 created_iip_ids.append(ip_id)
-            except Exception as e:
+            except vnc_exc.HttpError as e:
                 # Resources are not available
                 for iip_id in created_iip_ids:
                     self._instance_ip_delete(instance_ip_id=iip_id)
-                self._raise_contrail_exception(409,
-                    exceptions.IpAddressGenerationFailure(net_id=net_obj.uuid))
+                raise e
         for iip in getattr(port_obj, 'instance_ip_back_refs', []):
             if iip['uuid'] not in created_iip_ids:
                 iip_obj = self._instance_ip_delete(instance_ip_id=iip['uuid'])
@@ -3682,11 +3681,17 @@ class DBInterface(object):
 
         # create the object
         port_id = self._resource_create('virtual_machine_interface', port_obj)
-        if 'fixed_ips' in port_q:
-            self._port_create_instance_ip(net_obj, port_obj, port_q)
-        elif net_obj.get_network_ipam_refs():
-            self._port_create_instance_ip(net_obj, port_obj,
-                                          {'fixed_ips':[{'ip_address': None}]})
+        try:
+            if 'fixed_ips' in port_q:
+                self._port_create_instance_ip(net_obj, port_obj, port_q)
+            elif net_obj.get_network_ipam_refs():
+                self._port_create_instance_ip(net_obj, port_obj,
+                                        {'fixed_ips':[{'ip_address': None}]})
+        except vnc_exc.HttpError:
+            # failure in creating the instance ip. Roll back
+            self._virtual_machine_interface_delete(port_id=port_id)
+            self._raise_contrail_exception(409,
+                exceptions.IpAddressGenerationFailure(net_id=net_obj.uuid)) 
         # TODO below reads back default parent name, fix it
         port_obj = self._virtual_machine_interface_read(port_id=port_id)
         ret_port_q = self._port_vnc_to_neutron(port_obj)
@@ -3732,7 +3737,11 @@ class DBInterface(object):
         net_id = port_obj.get_virtual_network_refs()[0]['uuid']
         net_obj = self._network_read(net_id)
         self._virtual_machine_interface_update(port_obj)
-        self._port_create_instance_ip(net_obj, port_obj, port_q)
+        try:
+            self._port_create_instance_ip(net_obj, port_obj, port_q)
+        except vnc_exc.HttpError:
+            self._raise_contrail_exception(409,
+                exceptions.IpAddressGenerationFailure(net_id=net_obj.uuid))
         port_obj = self._virtual_machine_interface_read(port_id=port_id)
         ret_port_q = self._port_vnc_to_neutron(port_obj)
         self._db_cache['q_ports'][port_id] = ret_port_q
