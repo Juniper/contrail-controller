@@ -393,7 +393,7 @@ TEST_F(UveVmUveTest, VmIntfAddDel_1) {
     EXPECT_TRUE(vm != NULL);
     UveVirtualMachineAgent *uve1 =  vmut->VmUveObject(vm);
     EXPECT_TRUE(uve1 != NULL);
-    EXPECT_EQ(2U, vmut->send_count());
+    EXPECT_EQ(3U, vmut->send_count());
     EXPECT_EQ(1U, uve1->get_interface_list().size()); 
 
     //Verify interface UUID
@@ -414,8 +414,8 @@ TEST_F(UveVmUveTest, VmIntfAddDel_1) {
     EXPECT_TRUE(VmPortInactive(input, 0));
 
     //Verify UVE 
-    EXPECT_EQ(3U, vmut->send_count());
-    EXPECT_EQ(0U, uve1->get_interface_list().size()); 
+    EXPECT_EQ(4U, vmut->send_count());
+    EXPECT_EQ(1U, uve1->get_interface_list().size());
 
     //Activate the interface again
     AddLink("virtual-machine-interface-routing-instance", "vnet1",
@@ -425,7 +425,7 @@ TEST_F(UveVmUveTest, VmIntfAddDel_1) {
     client->WaitForIdle();
 
     //Verify UVE 
-    EXPECT_EQ(4U, vmut->send_count());
+    EXPECT_EQ(5U, vmut->send_count());
     EXPECT_EQ(1U, uve1->get_interface_list().size()); 
 
     // Delete virtual-machine-interface to vrf link attribute
@@ -439,15 +439,14 @@ TEST_F(UveVmUveTest, VmIntfAddDel_1) {
     EXPECT_TRUE(VmPortInactive(input, 0));
 
     //Verify UVE 
-    EXPECT_EQ(5U, vmut->send_count());
-    EXPECT_EQ(0U, uve1->get_interface_list().size()); 
+    EXPECT_EQ(6U, vmut->send_count());
+    EXPECT_EQ(1U, uve1->get_interface_list().size());
 
     //other cleanup
     util_.VnDelete(input[0].vn_id);
     DelLink("virtual-machine", "vm1", "virtual-machine-interface", "vnet1");
     DelLink("virtual-network", "vn1", "virtual-machine-interface", "vnet1");
     client->WaitForIdle();
-    EXPECT_TRUE(VmPortInactive(input, 0));
 
     DelLink("virtual-machine-interface", input[0].name,
             "instance-ip", "instance0");
@@ -529,14 +528,14 @@ TEST_F(UveVmUveTest, VmIntfAddDel_2) {
     EXPECT_TRUE(vm != NULL);
     UveVirtualMachineAgent *uve1 =  vmut->VmUveObject(vm);
     EXPECT_TRUE(uve1 != NULL);
-    EXPECT_EQ(2U, vmut->send_count());
+    EXPECT_EQ(3U, vmut->send_count());
     EXPECT_EQ(1U, uve1->get_interface_list().size()); 
 
     //Disassociate VM from VMI and delete the VM
     DelLink("virtual-machine", "vm1", "virtual-machine-interface", "vnet1");
     util_.VmDelete(input[0].vm_id);
     client->WaitForIdle();
-    EXPECT_TRUE((vmut->send_count() >= 3U));
+    EXPECT_TRUE((vmut->send_count() >= 4U));
     
     //Add the VM back and re-associate it with same VMI
     util_.VmAdd(input[0].vm_id);
@@ -564,7 +563,7 @@ TEST_F(UveVmUveTest, VmIntfAddDel_2) {
     uve1 =  vmut->VmUveObject(vm);
     EXPECT_TRUE(uve1 != NULL);
     EXPECT_TRUE((vmut->send_count() >= 6U));
-    EXPECT_EQ(0U, uve1->get_interface_list().size()); 
+    EXPECT_EQ(1U, uve1->get_interface_list().size());
 
     //Activate the interface again
     AddLink("virtual-machine-interface-routing-instance", "vnet1",
@@ -575,7 +574,7 @@ TEST_F(UveVmUveTest, VmIntfAddDel_2) {
 
     //Verify UVE 
     EXPECT_TRUE((vmut->send_count() >= 7U));
-    EXPECT_EQ(1U, uve1->get_interface_list().size()); 
+    EXPECT_EQ(1U, uve1->get_interface_list().size());
 
     // Delete virtual-machine-interface to vrf link attribute
     DelLink("virtual-machine-interface-routing-instance", "vnet1",
@@ -589,7 +588,7 @@ TEST_F(UveVmUveTest, VmIntfAddDel_2) {
 
     //Verify UVE 
     EXPECT_TRUE((vmut->send_count() >= 8U));
-    EXPECT_EQ(0U, uve1->get_interface_list().size()); 
+    EXPECT_EQ(1U, uve1->get_interface_list().size());
 
     //other cleanup
     util_.VnDelete(input[0].vn_id);

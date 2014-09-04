@@ -362,9 +362,9 @@ void VmUveEntry::UpdateFloatingIpStats(const FipInfo &fip_info) {
      *  1. VM interface with floating-ip becomes active
      *  2. Flow is created on this interface and interface floating ip info is
      *     stored in flow record
-     *  3. VM Interface becomes inactive
-     *  4. VM Interface info is removed from interface_tree_ as it becomes
-     *     inactive
+     *  3. VM Interface is disassociated from VM
+     *  4. VM Interface info is removed from interface_tree_ because of
+     *     disassociation
      *  5. FlowStats collection task initiates export of flow stats
      *  6. Since interface is absent in interface_tree_ we cannot update
      *     stats in this case

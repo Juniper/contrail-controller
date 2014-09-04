@@ -197,7 +197,6 @@ TEST_F(UveTest, VnAddDelTest1) {
     //One Vmport inactive
     EXPECT_TRUE(VmPortInactive(input, 0));
     WAIT_FOR(500, 1000, (vnut->GetVnUveInterfaceCount("vn1")) == 0U);
-    WAIT_FOR(500, 1000, (vmut->GetVmUveInterfaceCount("vm1")) == 0U);
 
     DelLink("virtual-network", "vn2", "virtual-machine-interface", "vnet2");
     DelLink("virtual-network", "vn2", "routing-instance", "vrf2");
@@ -207,7 +206,6 @@ TEST_F(UveTest, VnAddDelTest1) {
     //Second Vmport inactive
     EXPECT_TRUE(VmPortInactive(input, 1));
     WAIT_FOR(500, 1000, (vnut->GetVnUveInterfaceCount("vn2")) == 0U);
-    WAIT_FOR(500, 1000, (vmut->GetVmUveInterfaceCount("vm2")) == 0U);
 
     //Cleanup other things created by this test-case
     DeleteVmportEnv(input, 2, 1);
@@ -215,6 +213,8 @@ TEST_F(UveTest, VnAddDelTest1) {
     client->VmDelNotifyWait(2);
     client->PortDelNotifyWait(2);
 
+    WAIT_FOR(500, 1000, (vmut->GetVmUveInterfaceCount("vm1")) == 0U);
+    WAIT_FOR(500, 1000, (vmut->GetVmUveInterfaceCount("vm2")) == 0U);
     WAIT_FOR(500, 1000, (Agent::GetInstance()->interface_config_table()->Size() == 0));
     WAIT_FOR(500, 1000, (Agent::GetInstance()->vm_table()->Size() == 0));
     WAIT_FOR(500, 1000, (Agent::GetInstance()->vn_table()->Size() == 0));
