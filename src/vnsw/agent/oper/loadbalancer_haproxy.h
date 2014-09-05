@@ -13,6 +13,7 @@ class LoadbalancerProperties;
 class LoadbalancerHaproxy {
 public:
     LoadbalancerHaproxy();
+    virtual ~LoadbalancerHaproxy();
 
     void GenerateConfig(const std::string &filename,
                         const boost::uuids::uuid &pool_id,
