@@ -66,6 +66,7 @@ class NamespaceManager {
     static const int kWorkersDefault = 1;
 
     NamespaceManager(EventManager *evm);
+    ~NamespaceManager();
 
     void Initialize(DB *database, AgentSignal *signal,
                     const std::string &netns_cmd, const int netns_workers,
