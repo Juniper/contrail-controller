@@ -43,8 +43,9 @@ class ForwardingModeSetup(object):
                 vni_obj_properties = vni_obj.get_virtual_network_properties()
                 if (vxlan_id is not None):
                     vni_obj_properties.set_vxlan_network_identifier(int(vxlan_id))
-                #if (forwarding_mode is not None):
-                #    vni_obj_properties.set_forwarding_mode(forwarding_mode)
+                if (forwarding_mode is not None):
+                    vni_obj_properties.set_forwarding_mode(forwarding_mode)
+                vni_obj.set_virtual_network_properties(vni_obj_properties)
                 self._vnc_lib.virtual_network_update(vni_obj)
                 found = True
 
