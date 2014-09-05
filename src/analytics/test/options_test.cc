@@ -75,6 +75,8 @@ TEST_F(OptionsTest, NoArguments) {
     EXPECT_EQ(options_.syslog_port(), -1);
     EXPECT_EQ(options_.dup(), false);
     EXPECT_EQ(options_.test_mode(), false);
+    uint16_t protobuf_port(0);
+    EXPECT_FALSE(options_.collector_protobuf_port(&protobuf_port));
 }
 
 TEST_F(OptionsTest, DefaultConfFile) {
@@ -111,6 +113,8 @@ TEST_F(OptionsTest, DefaultConfFile) {
     EXPECT_EQ(options_.syslog_port(), -1);
     EXPECT_EQ(options_.dup(), false);
     EXPECT_EQ(options_.test_mode(), false);
+    uint16_t protobuf_port(0);
+    EXPECT_FALSE(options_.collector_protobuf_port(&protobuf_port));
 }
 
 TEST_F(OptionsTest, OverrideStringFromCommandLine) {
@@ -149,6 +153,8 @@ TEST_F(OptionsTest, OverrideStringFromCommandLine) {
     EXPECT_EQ(options_.syslog_port(), -1);
     EXPECT_EQ(options_.dup(), false);
     EXPECT_EQ(options_.test_mode(), false);
+    uint16_t protobuf_port(0);
+    EXPECT_FALSE(options_.collector_protobuf_port(&protobuf_port));
 }
 
 TEST_F(OptionsTest, OverrideBooleanFromCommandLine) {
@@ -187,6 +193,8 @@ TEST_F(OptionsTest, OverrideBooleanFromCommandLine) {
     EXPECT_EQ(options_.syslog_port(), -1);
     EXPECT_EQ(options_.dup(), false);
     EXPECT_EQ(options_.test_mode(), true); // Overridden from command line.
+    uint16_t protobuf_port(0);
+    EXPECT_FALSE(options_.collector_protobuf_port(&protobuf_port));
 }
 
 TEST_F(OptionsTest, CustomConfigFile) {
@@ -212,6 +220,7 @@ TEST_F(OptionsTest, CustomConfigFile) {
         "[COLLECTOR]\n"
         "port=100\n"
         "server=3.4.5.6\n"
+        "protobuf_port=3333\n"
         "\n"
         "[DISCOVERY]\n"
         "port=100\n"
@@ -265,6 +274,9 @@ TEST_F(OptionsTest, CustomConfigFile) {
     EXPECT_EQ(options_.syslog_port(), 101);
     EXPECT_EQ(options_.dup(), true);
     EXPECT_EQ(options_.test_mode(), true);
+    uint16_t protobuf_port(0);
+    EXPECT_TRUE(options_.collector_protobuf_port(&protobuf_port));
+    EXPECT_EQ(protobuf_port, 3333);
 }
 
 TEST_F(OptionsTest, CustomConfigFileAndOverrideFromCommandLine) {
@@ -291,6 +303,7 @@ TEST_F(OptionsTest, CustomConfigFileAndOverrideFromCommandLine) {
         "[COLLECTOR]\n"
         "port=100\n"
         "server=3.4.5.6\n"
+        "protobuf_port=3333\n"
         "\n"
         "[DISCOVERY]\n"
         "port=100\n"
@@ -306,7 +319,7 @@ TEST_F(OptionsTest, CustomConfigFileAndOverrideFromCommandLine) {
     config_file << config;
     config_file.close();
 
-    int argc = 8;
+    int argc = 9;
     char *argv[argc];
     char argv_0[] = "options_test";
     char argv_1[] = "--conf_file=./options_test_collector_config_file.conf";
@@ -316,6 +329,7 @@ TEST_F(OptionsTest, CustomConfigFileAndOverrideFromCommandLine) {
     char argv_5[] = "--DEFAULT.cassandra_server_list=11.10.10.1:100";
     char argv_6[] = "--DEFAULT.cassandra_server_list=21.20.20.2:200";
     char argv_7[] = "--DEFAULT.cassandra_server_list=31.30.30.3:300";
+    char argv_8[] = "--COLLECTOR.protobuf_port=3334";
     argv[0] = argv_0;
     argv[1] = argv_1;
     argv[2] = argv_2;
@@ -324,6 +338,7 @@ TEST_F(OptionsTest, CustomConfigFileAndOverrideFromCommandLine) {
     argv[5] = argv_5;
     argv[6] = argv_6;
     argv[7] = argv_7;
+    argv[8] = argv_8;
 
     options_.Parse(evm_, argc, argv);
 
@@ -355,6 +370,9 @@ TEST_F(OptionsTest, CustomConfigFileAndOverrideFromCommandLine) {
     EXPECT_EQ(options_.syslog_port(), 102);
     EXPECT_EQ(options_.dup(), true);
     EXPECT_EQ(options_.test_mode(), true);
+    uint16_t protobuf_port(0);
+    EXPECT_TRUE(options_.collector_protobuf_port(&protobuf_port));
+    EXPECT_EQ(protobuf_port, 3334);
 }
 
 TEST_F(OptionsTest, MultitokenVector) {
