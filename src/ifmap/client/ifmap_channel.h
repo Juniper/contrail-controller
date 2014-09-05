@@ -159,9 +159,6 @@ public:
 
     void GetTimedoutEntries(IFMapPeerTimedoutEntries *entries);
 
-    // temp instrumentation. Remove asap.
-    std::string ArcSocketReadHandleRequest(int bytes_to_read, size_t *bytes);
-
     const std::string &get_host() { return host_; }
     const std::string &get_port() { return port_; }
     void SetHostPort(const std::string &host, const std::string &port) {
@@ -239,15 +236,11 @@ private:
     boost::asio::ip::tcp::endpoint endpoint_;
     TimedoutMap timedout_map_;
 
-    // temp instrumentation. Remove asap.
     std::string GetSizeAsString(size_t stream_sz, std::string log) {
         std::ostringstream ss;
         ss << stream_sz << log;
         return ss.str();
     }
-    boost::asio::streambuf temp_reply_;
-    std::ostringstream temp_reply_ss_;
-    std::string temp_reply_str_;
 };
 
 #endif /* __IFMAP_CHANNEL_H__ */

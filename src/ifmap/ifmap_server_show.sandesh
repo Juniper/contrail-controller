@@ -345,12 +345,3 @@ response sandesh IFMapNodeTableListShowResp {
     1: list<IFMapNodeTableListShowEntry> table_list
 }
 
-request sandesh IFMapPeerServerSocketReadReq {
-    1: i32 bytes_to_read;
-}
-
-response sandesh IFMapPeerServerSocketReadResp {
-    1: i32 socket_bytes;
-    2: string socket_string;
-}
-
