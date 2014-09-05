@@ -147,6 +147,8 @@ class DiagTable;
 class VNController;
 class AgentSignal;
 class ServiceInstanceTable;
+class LoadbalancerTable;
+class Agent;
 
 extern void RouterIdDepInit(Agent *agent);
 
@@ -408,6 +410,15 @@ public:
 
    void set_service_instance_table(ServiceInstanceTable *table) {
        service_instance_table_= table;
+   }
+
+    // Loadbalancer-pool
+   LoadbalancerTable *loadbalancer_table() const {
+       return loadbalancer_table_;
+   }
+
+   void set_loadbalancer_table(LoadbalancerTable *table) {
+       loadbalancer_table_ = table;
    }
 
     // DNS XMPP Server
@@ -719,6 +730,7 @@ private:
     VrfAssignTable *vrf_assign_table_;
     VxLanTable *vxlan_table_;
     ServiceInstanceTable *service_instance_table_;
+    LoadbalancerTable *loadbalancer_table_;
 
     // Mirror config table
     MirrorCfgTable *mirror_cfg_table_;

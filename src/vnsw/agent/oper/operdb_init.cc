@@ -32,6 +32,7 @@
 #include <oper/ifmap_dependency_manager.h>
 #include <base/task_trigger.h>
 #include <oper/namespace_manager.h>
+#include <oper/loadbalancer.h>
 
 SandeshTraceBufferPtr OperDBTraceBuf(SandeshTraceBufferCreate("Oper DB", 5000));
 
@@ -54,6 +55,8 @@ void OperDB::CreateDBTables(DB *db) {
     DB::RegisterFactory("db.vxlan.0", &VxLanTable::CreateTable);
     DB::RegisterFactory("db.service-instance.0",
                         &ServiceInstanceTable::CreateTable);
+    DB::RegisterFactory("db.loadbalancer-pool.0",
+                        &LoadbalancerTable::CreateTable);
 
     InterfaceTable *intf_table;
     intf_table = static_cast<InterfaceTable *>(db->CreateTable("db.interface.0"));
@@ -136,6 +139,12 @@ void OperDB::CreateDBTables(DB *db) {
             db->CreateTable("db.service-instance.0"));
     agent_->set_service_instance_table(si_table);
     si_table->Initialize(agent_->cfg()->cfg_graph(), dependency_manager_.get());
+
+    LoadbalancerTable *lb_table =
+        static_cast<LoadbalancerTable *>(db->CreateTable("db.loadbalancer-pool.0"));
+    agent_->set_loadbalancer_table(lb_table);
+    lb_table->Initialize(agent_->cfg()->cfg_graph(),
+            dependency_manager_.get());
 }
 
 void OperDB::Init() {

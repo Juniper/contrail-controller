@@ -48,7 +48,7 @@ void NamespaceManager::Initialize(DB *database, AgentSignal *signal,
     si_listener_ = si_table_->Register(
         boost::bind(&NamespaceManager::EventObserver, this, _1, _2));
 
-    lb_table_ = database->FindTable("db.loadbalancer.0");
+    lb_table_ = database->FindTable("db.loadbalancer-pool.0");
     if (lb_table_ != NULL) {
         lb_listener_ = lb_table_->Register(
             boost::bind(&NamespaceManager::LoadbalancerObserver,
@@ -627,7 +627,6 @@ pid_t NamespaceTask::Run() {
     if (pipe(err) < 0) {
         return -1;
     }
-
     /*
      * temporarily block SIGCHLD signals
      */
@@ -635,7 +634,6 @@ pid_t NamespaceTask::Run() {
     sigset_t orig_mask;
     sigemptyset (&mask);
     sigaddset (&mask, SIGCHLD);
-
     if (sigprocmask(SIG_BLOCK, &mask, &orig_mask) < 0) {
         LOG(ERROR, "NetNS error: sigprocmask, " << strerror(errno));
     }
@@ -654,7 +652,6 @@ pid_t NamespaceTask::Run() {
 
         _exit(127);
     }
-
     if (sigprocmask(SIG_SETMASK, &orig_mask, NULL) < 0) {
         LOG(ERROR, "NetNS error: sigprocmask, " << strerror(errno));
     }
