@@ -74,6 +74,7 @@ const u16 WebConsolePort = 8080
 const u16 OpServerPort = 8081
 const u16 ApiServerPort = 8082
 const u16 CollectorPort = 8086
+const u16 CollectorProtobufPort = 3333
 const u16 DnsXmppPort = 8093
 const u16 DnsRndcPort = 8094
 const u16 ApiServerOpenPort = 8095

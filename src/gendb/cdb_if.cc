@@ -610,8 +610,8 @@ private:
 };
 
 CdbIf::CdbIf(DbErrorHandler errhandler,
-        std::vector<std::string> cassandra_ips,
-        std::vector<int> cassandra_ports, int ttl,
+        const std::vector<std::string> &cassandra_ips,
+        const std::vector<int> &cassandra_ports, int ttl,
         std::string name, bool only_sync) :
     socket_(new TSocketPool(cassandra_ips, cassandra_ports)),
     transport_(new TFramedTransport(socket_)),

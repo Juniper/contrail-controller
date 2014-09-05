@@ -27,9 +27,9 @@ class UdpServer {
                        int buffer_size = kDefaultBufferSize);
     virtual ~UdpServer();
 
-    virtual void Initialize(unsigned short port);
-    virtual void Initialize(const std::string &ipaddress, unsigned short port);
-    virtual void Initialize(boost::asio::ip::udp::endpoint local_endpoint);
+    virtual bool Initialize(unsigned short port);
+    virtual bool Initialize(const std::string &ipaddress, unsigned short port);
+    virtual bool Initialize(boost::asio::ip::udp::endpoint local_endpoint);
     virtual void Shutdown();
 
     virtual boost::asio::ip::udp::endpoint GetLocalEndPoint();

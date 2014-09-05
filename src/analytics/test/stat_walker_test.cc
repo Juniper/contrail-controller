@@ -30,7 +30,9 @@ public:
         }
     }
 
-    void Cb(const std::string& statAttr,
+    void Cb(const uint64_t &timestamp,
+            const std::string& statName,
+            const std::string& statAttr,
             const DbHandler::TagMap & attribs_tag,
             const DbHandler::AttribMap & attribs) {
         bool is_match = false;
@@ -78,7 +80,7 @@ public:
 };
 
 TEST_F(StatWalkerTest, Simple) {
-
+    string statName = string("Simple");
     vector<ArgSet> av1;
     ArgSet a1;
     a1.statAttr = string("virt");
@@ -102,14 +104,14 @@ TEST_F(StatWalkerTest, Simple) {
     m1.insert(make_pair(string("Source"), h2));
 
     StatWalker::TagMap m2;
-    StatWalker sw(boost::bind(&StatCbTester::Cb, &ct, _1, _2, _3) ,m1); 
+    StatWalker sw(boost::bind(&StatCbTester::Cb, &ct, _1, _2, _3, _4, _5), 0, statName, m1);
     DbHandler::AttribMap attribs = map_list_of("mem", DbHandler::Var((uint64_t)1000000));
     sw.Push("virt", m2, attribs);
     sw.Pop(); 
 }
 
 TEST_F(StatWalkerTest, SingleTag) {
-
+    string statName = string("SingleTag");
     vector<ArgSet> av1;
     ArgSet a1;
     a1.statAttr = string("virt");
@@ -135,7 +137,7 @@ TEST_F(StatWalkerTest, SingleTag) {
     m1.insert(make_pair(string("Source"), h2));
 
     StatWalker::TagMap m2;
-    StatWalker sw(boost::bind(&StatCbTester::Cb, &ct, _1, _2, _3) ,m1); 
+    StatWalker sw(boost::bind(&StatCbTester::Cb, &ct, _1, _2, _3, _4, _5), 0, statName, m1);
     DbHandler::AttribMap attribs = map_list_of(
         "mem", DbHandler::Var((uint64_t)1000000))(
         "bank", string("bank1"));
@@ -147,7 +149,7 @@ TEST_F(StatWalkerTest, SingleTag) {
 }
 
 TEST_F(StatWalkerTest, DoubleTag) {
-
+    string statName = string("DoubleTag");
     vector<ArgSet> av1;
     ArgSet a1;
     a1.statAttr = string("virt");
@@ -175,7 +177,7 @@ TEST_F(StatWalkerTest, DoubleTag) {
     m1.insert(make_pair(string("Source"), h2));
 
     StatWalker::TagMap m2;
-    StatWalker sw(boost::bind(&StatCbTester::Cb, &ct, _1, _2, _3) ,m1); 
+    StatWalker sw(boost::bind(&StatCbTester::Cb, &ct, _1, _2, _3, _4, _5), 0, statName, m1);
     DbHandler::AttribMap attribs = map_list_of(
         "mem", DbHandler::Var((uint64_t)1000000))(
         "bank", string("bank1"));
@@ -186,6 +188,7 @@ TEST_F(StatWalkerTest, DoubleTag) {
     sw.Push("virt", m2, attribs);
     sw.Pop(); 
 }
+
 int main(int argc, char **argv) {
     LoggingInit();
     ::testing::InitGoogleTest(&argc, argv);

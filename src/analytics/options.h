@@ -18,6 +18,12 @@ public:
     }
     const std::string collector_server() const { return collector_server_; }
     const uint16_t collector_port() const { return collector_port_; };
+    bool collector_protobuf_port(uint16_t *collector_protobuf_port) const {
+        if (collector_protobuf_port_configured_) {
+            *collector_protobuf_port = collector_protobuf_port_;
+        }
+        return collector_protobuf_port_configured_;
+    }
     const std::string config_file() const { return config_file_; };
     const std::string discovery_server() const { return discovery_server_; }
     const uint16_t discovery_port() const { return discovery_port_; }
@@ -41,7 +47,15 @@ public:
     const bool test_mode() const { return test_mode_; }
 
 private:
-
+    template <typename ValueType>
+    bool GetOptValueIfNotDefaulted(
+        const boost::program_options::variables_map &var_map,
+        ValueType &var, std::string val);
+    // Implementation overloads
+    template <typename ValueType>
+    bool GetOptValueIfNotDefaultedImpl(
+        const boost::program_options::variables_map &var_map,
+        ValueType &var, std::string val, ValueType*);
     template <typename ValueType>
     void GetOptValue(const boost::program_options::variables_map &var_map,
                      ValueType &var, std::string val);
@@ -60,6 +74,8 @@ private:
 
     std::string collector_server_;
     uint16_t collector_port_;
+    uint16_t collector_protobuf_port_;
+    bool collector_protobuf_port_configured_;
     std::string config_file_;
     std::string discovery_server_;
     uint16_t discovery_port_;
