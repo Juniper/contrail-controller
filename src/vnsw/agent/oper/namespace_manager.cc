@@ -34,6 +34,9 @@ NamespaceManager::NamespaceManager(EventManager *evm)
           haproxy_(new LoadbalancerHaproxy()) {
 }
 
+NamespaceManager::~NamespaceManager() {
+}
+
 void NamespaceManager::Initialize(DB *database, AgentSignal *signal,
                                   const std::string &netns_cmd,
                                   const int netns_workers,

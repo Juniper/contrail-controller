@@ -27,6 +27,9 @@ LoadbalancerHaproxy::LoadbalancerHaproxy()
             ("SOURCE_IP", "source");
 }
 
+LoadbalancerHaproxy::~LoadbalancerHaproxy() {
+}
+
 const string &LoadbalancerHaproxy::ProtocolMap(const string &proto) const {
     map<string, string>::const_iterator loc = protocol_map_.find(proto);
     if (loc == protocol_map_.end()) {

@@ -156,6 +156,7 @@ void VmUveTable::InterfaceNotify(DBTablePartBase *partition, DBEntryBase *e) {
              * UVEs will be sent as part of Vm Delete Notification */
             if (vm != NULL) {
                 InterfaceDeleteHandler(vm, vm_port);
+                state->fip_list_.clear();
             }
             if (e->IsDeleted()) {
                 e->ClearState(partition->parent(), intf_listener_id_);
