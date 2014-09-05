@@ -933,15 +933,11 @@ void IFMapStateMachine::OnStart(const ifsm::EvStart &event) {
 }
 
 void IFMapStateMachine::EnqueueEvent(const sc::event_base &event) {
-    IFMAP_SM_DEBUG(IFMapSmEventMessage, "Enqueuing", TYPE_NAME(event),
-                   "in state", StateName());
     work_queue_.Enqueue(event.intrusive_from_this());
 }
 
 bool IFMapStateMachine::DequeueEvent(
         boost::intrusive_ptr<const sc::event_base>& event) {
-    IFMAP_SM_DEBUG(IFMapSmEventMessage, "Processing", TYPE_NAME(*event),
-                   "in state", StateName());
     set_last_event(TYPE_NAME(*event));
     process_event(*event);
     event.reset();

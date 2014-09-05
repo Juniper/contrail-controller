@@ -132,6 +132,9 @@ public:
     void set_response_wait_interval_ms(int ms) {
         response_wait_interval_ms_ = ms;
     }
+    size_t WorkQueueEnqueues() const { return work_queue_.NumEnqueues(); }
+    size_t WorkQueueDequeues() const { return work_queue_.NumDequeues(); }
+    size_t WorkQueueLength() const { return work_queue_.Length(); }
 
 private:
     void EnqueueEvent(const sc::event_base &ev);
