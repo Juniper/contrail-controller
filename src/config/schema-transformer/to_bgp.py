@@ -1037,7 +1037,7 @@ class VirtualNetworkST(DictST):
                             if not pol:
                                 _sandesh._logger.debug(
                                     "Policy %s not found while applying policy "
-                                    "to network %s", sadr_match.network_policy,
+                                    "to network %s", saddr_match.network_policy,
                                      self.name)
                                 continue
                             sa_list = pol.networks_back_ref
@@ -1049,7 +1049,7 @@ class VirtualNetworkST(DictST):
                             if not pol:
                                 _sandesh._logger.debug(
                                     "Policy %s not found while applying policy "
-                                    "to network %s", dadr_match.network_policy,
+                                    "to network %s", daddr_match.network_policy,
                                      self.name)
                                 continue
                             da_list = pol.networks_back_ref
