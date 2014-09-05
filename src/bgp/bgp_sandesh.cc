@@ -315,6 +315,73 @@ void ShowRouteReq::HandleRequest() const {
     RequestPipeline rp(ps);
 }
 
+class ShowRouteSummaryHandler {
+public:
+    static bool CallbackS1(const Sandesh *sr,
+            const RequestPipeline::PipeSpec ps,
+            int stage, int instNum,
+            RequestPipeline::InstData *data);
+};
+
+bool ShowRouteSummaryHandler::CallbackS1(const Sandesh *sr,
+            const RequestPipeline::PipeSpec ps,
+            int stage, int instNum,
+            RequestPipeline::InstData *data) {
+    const ShowRouteSummaryReq *req = static_cast<const ShowRouteSummaryReq *>(ps.snhRequest_.get());
+    BgpSandeshContext *bsc = static_cast<BgpSandeshContext *>(req->client_context());
+    RoutingInstanceMgr *rim = bsc->bgp_server->routing_instance_mgr();
+
+    vector<ShowRouteTableSummary> table_list;
+    for (RoutingInstanceMgr::NameIterator i = rim->name_begin();
+         i != rim->name_end(); ++i) {
+        for (RoutingInstance::RouteTableList::const_iterator j =
+             i->second->GetTables().begin();
+             j != i->second->GetTables().end(); ++j) {
+            BgpTable *table = j->second;
+            if (table->Size() == 0)
+                continue;
+            ShowRouteTableSummary srt;
+            srt.set_routing_table_name(table->name());
+            srt.set_deleted(table->IsDeleted());
+            srt.prefixes = table->Size();
+            srt.primary_paths = table->GetPrimaryPathCount();
+            srt.secondary_paths = table->GetSecondaryPathCount();
+            srt.infeasible_paths = table->GetInfeasiblePathCount();
+            srt.paths = srt.primary_paths + srt.secondary_paths;
+            srt.set_walk_requests(
+                table->database()->GetWalker()->walk_request_count());
+            srt.set_walk_completes(
+                table->database()->GetWalker()->walk_complete_count());
+            srt.set_walk_cancels(
+                table->database()->GetWalker()->walk_cancel_count());
+            size_t markers;
+            srt.set_pending_updates(table->GetPendingRiboutsCount(markers));
+            srt.set_markers(markers);
+            table_list.push_back(srt);
+        }
+    }
+
+    ShowRouteSummaryResp *resp = new ShowRouteSummaryResp;
+    resp->set_tables(table_list);
+    resp->set_context(req->context());
+    resp->Response();
+    return true;
+}
+
+// handler for 'show route summary'
+void ShowRouteSummaryReq::HandleRequest() const {
+    RequestPipeline::PipeSpec ps(this);
+
+    RequestPipeline::StageSpec s1;
+    TaskScheduler *scheduler = TaskScheduler::GetInstance();
+    s1.taskId_ = scheduler->GetTaskId("bgp::ShowCommand");
+    s1.cbFn_ = ShowRouteSummaryHandler::CallbackS1;
+    s1.instances_.push_back(0);
+
+    ps.stages_= list_of(s1);
+    RequestPipeline rp(ps);
+}
+
 class ShowNeighborHandler {
 public:
     struct ShowNeighborData : public RequestPipeline::InstData {
