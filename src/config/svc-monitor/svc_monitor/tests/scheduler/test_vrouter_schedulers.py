@@ -229,7 +229,8 @@ class TestRandomScheduler(unittest.TestCase):
         self.vnc_mock.virtual_machine_read.side_effect = [vm_obj_1, vm_obj_2]
 
         expected_result = [["default-global-system-config", "vrouter1"]]
-        self.assertEqual(self.scheduler._get_candidates('fake_si_uuid'),
+        self.assertEqual(self.scheduler._get_candidates('fake_si_uuid', 
+                                                        'fake_uuid'),
                          expected_result)
 
     def test_vrouter_running(self):
