@@ -1317,6 +1317,7 @@ class VncZkClient(object):
     # end create_subnet_allocator
 
     def delete_subnet_allocator(self, subnet):
+        self._subnet_allocators.pop(subnet, None)
         IndexAllocator.delete_all(self._zk_client,
                                   self._subnet_path+'/'+subnet+'/')
     # end delete_subnet_allocator
