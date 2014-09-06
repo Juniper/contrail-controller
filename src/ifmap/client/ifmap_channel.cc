@@ -859,6 +859,9 @@ static bool IFMapServerInfoHandleRequest(const Sandesh *sr,
     sm_info.set_last_state_change_at(sm->last_state_change_at());
     sm_info.set_last_event(sm->last_event());
     sm_info.set_last_event_at(sm->last_event_at());
+    sm_info.set_workq_enqueues(sm->WorkQueueEnqueues());
+    sm_info.set_workq_dequeues(sm->WorkQueueDequeues());
+    sm_info.set_workq_length(sm->WorkQueueLength());
 
     ifmap_manager->GetAllDSPeerInfo(&ds_peer_info);
 

@@ -258,6 +258,9 @@ struct IFMapStateMachineInfo {
     3: string last_state_change_at;
     4: string last_event;
     5: string last_event_at;
+    6: u64 workq_enqueues;
+    7: u64 workq_dequeues;
+    8: u64 workq_length;
 }
 
 struct IFMapDSPeerInfoEntry {
