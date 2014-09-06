@@ -355,10 +355,12 @@ int main(int argc, char *argv[])
     // 3. Redis To
     // 4. Discovery Collector Publish
     // 5. Database global
+    // 6. Database protobuf if enabled
     ConnectionStateManager<NodeStatusUVE, NodeStatus>::
         GetInstance()->Init(*a_evm->io_service(),
             analytics.name(), module_id, instance_id,
-            boost::bind(&GetProcessStateCb, _1, _2, _3, 5));
+            boost::bind(&GetProcessStateCb, _1, _2, _3,
+            protobuf_server_enabled ? 6 : 5));
     collector_info_trigger =
         new TaskTrigger(boost::bind(&CollectorInfoLogger, vsc),
                     TaskScheduler::GetInstance()->GetTaskId("vizd::Stats"), 0);
