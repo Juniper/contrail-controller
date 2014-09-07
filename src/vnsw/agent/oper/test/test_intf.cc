@@ -2491,6 +2491,37 @@ TEST_F(IntfTest, Intf_l2mode_deactivate_activat_via_os_state) {
     EXPECT_FALSE(VmPortFind(1));
 }
 
+TEST_F(IntfTest, MetadataRoute_1) {
+    struct PortInfo input1[] = {
+        {"vnet8", 8, "8.1.1.1", "00:00:00:01:01:01", 1, 1}
+    };
+    client->Reset();
+    CreateVmportEnv(input1, 1);
+    client->WaitForIdle();
+    EXPECT_TRUE(VmPortActive(input1, 0));
+    EXPECT_TRUE(VmPortFind(8));
+    client->Reset();
+
+    VmInterface *intf = static_cast<VmInterface *>(VmPortGet(8));
+    Inet4UnicastRouteEntry *rt = RouteGet(agent->fabric_vrf_name(),
+                                          intf->mdata_ip_addr(), 32);
+    EXPECT_TRUE(rt != NULL);
+    const AgentPath *path = rt->GetActivePath();
+    EXPECT_TRUE(path->peer()->GetType() == Peer::LINKLOCAL_PEER);
+
+    AddArp(intf->mdata_ip_addr().to_string().c_str(), "00:00:00:00:00:01",
+           agent->fabric_interface_name().c_str());
+    path = rt->GetActivePath();
+    EXPECT_TRUE(path->peer()->GetType() == Peer::LINKLOCAL_PEER);
+
+    DelArp(intf->mdata_ip_addr().to_string(), "00:00:00:00:00:01",
+           agent->fabric_interface_name().c_str());
+
+    DeleteVmportEnv(input1, 1, true);
+    client->WaitForIdle();
+    EXPECT_FALSE(VmPortFind(8));
+}
+
 int main(int argc, char **argv) {
     GETUSERARGS();
 
