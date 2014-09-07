@@ -205,7 +205,7 @@ class FakeNovaClient(object):
     class servers:
 
         @staticmethod
-        def create(name, image, flavor, nics):
+        def create(name, image, flavor, nics, availability_zone):
             vm = vnc_api.VirtualMachine(name)
             FakeNovaClient.vnc_lib.virtual_machine_create(vm)
             for network in nics:
