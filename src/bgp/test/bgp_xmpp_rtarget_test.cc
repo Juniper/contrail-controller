@@ -232,6 +232,21 @@ protected:
         task_util::WaitForIdle();
     }
 
+    void BringdownAgents() {
+        agent_a_1_->SessionDown();
+        agent_a_2_->SessionDown();
+        agent_b_1_->SessionDown();
+        agent_b_2_->SessionDown();
+        task_util::WaitForIdle();
+        TASK_UTIL_EXPECT_FALSE(agent_a_1_->IsEstablished());
+        TASK_UTIL_EXPECT_FALSE(agent_b_1_->IsEstablished());
+        TASK_UTIL_EXPECT_FALSE(agent_a_2_->IsEstablished());
+        TASK_UTIL_EXPECT_FALSE(agent_b_2_->IsEstablished());
+        TASK_UTIL_EXPECT_EQ(0, bgp_channel_manager_cn1_->NumUpPeer());
+        TASK_UTIL_EXPECT_EQ(0, bgp_channel_manager_cn2_->NumUpPeer());
+        task_util::WaitForIdle();
+    }
+
     void SubscribeAgents() {
         agent_a_1_->Subscribe("blue", 1);
         agent_b_1_->Subscribe("blue", 1);
@@ -1211,6 +1226,79 @@ TEST_F(BgpXmppRTargetTest, SubscribeUnsubscribe2) {
 }
 
 //
+// SessionDown from agents should trigger withdrawal of RTargetRoutes from
+// CNs and hence withdrawal of VPN route from MX.
+//
+TEST_F(BgpXmppRTargetTest, SubscribeThenSessionDown1) {
+    AddRouteTarget(mx_.get(), "blue", "target:64496:1");
+    TASK_UTIL_EXPECT_EQ(2, GetExportRouteTargetListSize(mx_.get(), "blue"));
+
+    AddInetRoute(mx_.get(), NULL, "blue", BuildPrefix());
+
+    agent_a_1_->Subscribe("blue", 1);
+    agent_a_2_->Subscribe("blue", 1);
+
+    VerifyInetRouteExists(mx_.get(), "blue", BuildPrefix());
+    VerifyInetRouteExists(cn1_.get(), "blue", BuildPrefix());
+    VerifyInetRouteExists(cn2_.get(), "blue", BuildPrefix());
+    VerifyRTargetRouteExists(mx_.get(), "64496:target:64496:1");
+
+    agent_a_1_->SessionDown();
+
+    VerifyInetRouteExists(mx_.get(), "blue", BuildPrefix());
+    VerifyInetRouteNoExists(cn1_.get(), "blue", BuildPrefix());
+    VerifyInetRouteExists(cn2_.get(), "blue", BuildPrefix());
+    VerifyRTargetRouteExists(mx_.get(), "64496:target:64496:1");
+
+    agent_a_2_->SessionDown();
+
+    VerifyInetRouteExists(mx_.get(), "blue", BuildPrefix());
+    VerifyInetRouteNoExists(cn1_.get(), "blue", BuildPrefix());
+    VerifyInetRouteNoExists(cn2_.get(), "blue", BuildPrefix());
+    VerifyRTargetRouteNoExists(mx_.get(), "64496:target:64496:1");
+
+    DeleteInetRoute(mx_.get(), NULL, "blue", BuildPrefix());
+}
+
+//
+// SessionDown from agents should trigger withdrawal of RTargetRoutes from
+// CNs and hence withdrawal of VPN route from MX.
+// RTargetRoute must be withdrawn only when the last agent's session is down.
+//
+TEST_F(BgpXmppRTargetTest, SubscribeThenSessionDown2) {
+    AddRouteTarget(mx_.get(), "blue", "target:64496:1");
+    TASK_UTIL_EXPECT_EQ(2, GetExportRouteTargetListSize(mx_.get(), "blue"));
+
+    AddInetRoute(mx_.get(), NULL, "blue", BuildPrefix());
+
+    SubscribeAgents("blue", 1);
+    SubscribeAgents("blue", 1);
+
+    VerifyInetRouteExists(mx_.get(), "blue", BuildPrefix());
+    VerifyInetRouteExists(cn1_.get(), "blue", BuildPrefix());
+    VerifyInetRouteExists(cn2_.get(), "blue", BuildPrefix());
+    VerifyRTargetRouteExists(mx_.get(), "64496:target:64496:1");
+
+    agent_a_1_->SessionDown();
+    agent_a_2_->SessionDown();
+
+    VerifyInetRouteExists(mx_.get(), "blue", BuildPrefix());
+    VerifyInetRouteExists(cn1_.get(), "blue", BuildPrefix());
+    VerifyInetRouteExists(cn2_.get(), "blue", BuildPrefix());
+    VerifyRTargetRouteExists(mx_.get(), "64496:target:64496:1");
+
+    agent_b_1_->SessionDown();
+    agent_b_2_->SessionDown();
+
+    VerifyInetRouteExists(mx_.get(), "blue", BuildPrefix());
+    VerifyInetRouteNoExists(cn1_.get(), "blue", BuildPrefix());
+    VerifyInetRouteNoExists(cn2_.get(), "blue", BuildPrefix());
+    VerifyRTargetRouteNoExists(mx_.get(), "64496:target:64496:1");
+
+    DeleteInetRoute(mx_.get(), NULL, "blue", BuildPrefix());
+}
+
+//
 // Duplicate unsubscribe should not cause any problem.
 //
 TEST_F(BgpXmppRTargetTest, DuplicateUnsubscribe) {
@@ -2007,6 +2095,37 @@ TEST_F(BgpXmppRTargetTest, ConnectedInstances2) {
     VerifyRTargetRouteExists(cn1_.get(), "64496:target:64496:4");
     VerifyRTargetRouteExists(cn2_.get(), "64496:target:64496:3");
     VerifyRTargetRouteExists(cn2_.get(), "64496:target:64496:4");
+}
+
+//
+// Two VRFs are connected to each other and CNs have agents that subscribe
+// to both VRFs.
+// If all agents' sessions go down, RTargetRoute for both VRFs RT must be
+// withdrawn.
+//
+TEST_F(BgpXmppRTargetTest, ConnectedInstances3) {
+    SubscribeAgents();
+    AddConnection(cn1_.get(), "red", "purple");
+    AddConnection(cn2_.get(), "red", "purple");
+    task_util::WaitForIdle();
+
+    TASK_UTIL_EXPECT_EQ(2, GetImportRouteTargetListSize(cn1_.get(), "red"));
+    TASK_UTIL_EXPECT_EQ(2, GetImportRouteTargetListSize(cn2_.get(), "red"));
+    TASK_UTIL_EXPECT_EQ(2, GetImportRouteTargetListSize(cn1_.get(), "purple"));
+    TASK_UTIL_EXPECT_EQ(2, GetImportRouteTargetListSize(cn2_.get(), "purple"));
+
+    VerifyRTargetRouteExists(cn1_.get(), "64496:target:64496:3");
+    VerifyRTargetRouteExists(cn1_.get(), "64496:target:64496:4");
+    VerifyRTargetRouteExists(cn2_.get(), "64496:target:64496:3");
+    VerifyRTargetRouteExists(cn2_.get(), "64496:target:64496:4");
+
+    BringdownAgents();
+    task_util::WaitForIdle();
+
+    VerifyRTargetRouteNoExists(cn1_.get(), "64496:target:64496:3");
+    VerifyRTargetRouteNoExists(cn1_.get(), "64496:target:64496:4");
+    VerifyRTargetRouteNoExists(cn2_.get(), "64496:target:64496:3");
+    VerifyRTargetRouteNoExists(cn2_.get(), "64496:target:64496:4");
 }
 
 //
