@@ -21,7 +21,7 @@ namespace task_util {
 // Use environment variable WAIT_FOR_IDLE to tune the value appropriately
 // based on the test load and the running environment (pprof, valgrind, etc.)
 //
-void WaitForIdle(long wait_seconds) {
+void WaitForIdle(long wait_seconds, bool running_only) {
     static const long kTimeoutUsecs = 1000;
     static long envWaitTime;
 
@@ -37,12 +37,12 @@ void WaitForIdle(long wait_seconds) {
 
     TaskScheduler *scheduler = TaskScheduler::GetInstance();
     for (long i = 0; i < ((wait_seconds * 1000000)/kTimeoutUsecs); i++) {
-        if (scheduler->IsEmpty()) {
+        if (scheduler->IsEmpty(running_only)) {
             return;
         }
         usleep(kTimeoutUsecs);
     }
-    EXPECT_TRUE(scheduler->IsEmpty());
+    EXPECT_TRUE(scheduler->IsEmpty(running_only));
 }
 
 static void TimeoutHandler(const boost::system::error_code &error) {
@@ -98,6 +98,15 @@ void TaskSchedulerStop() {
 }
 
 void TaskSchedulerStart() {
+    TaskScheduler::GetInstance()->Start();
+}
+
+TaskSchedulerLock::TaskSchedulerLock() {
+    TaskScheduler::GetInstance()->Stop();
+    WaitForIdle(30, true);
+}
+
+TaskSchedulerLock::~TaskSchedulerLock() {
     TaskScheduler::GetInstance()->Start();
 }
 
