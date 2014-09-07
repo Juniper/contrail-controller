@@ -6,18 +6,9 @@ coverage
 webtest
 pyaml
 python-keystoneclient
-../../../../third_party/ifmap-python-client
 ../../../../distro/third_party/kazoo
-#target for make contrail
-../../../../build/production/config/common/dist/cfgm_common-0.1dev.tar.gz
-../../../../build/production/api-lib/dist/vnc_api-0.1dev.tar.gz
-../../../../build/production/discovery/client/dist/discoveryclient-0.1dev.tar.gz
-../../../../build/production/tools/sandesh/library/python/dist/sandesh-0.1dev.tar.gz
-../../../../build/production/sandesh/common/dist/sandesh-common-0.1dev.tar.gz
-
-#target for scons
-#../../../../build/debug/config/common/dist/cfgm_common-0.1dev.tar.gz
-#../../../../build/debug/api-lib/dist/vnc_api-0.1dev.tar.gz
-#../../../../build/debug/discovery/client/dist/discoveryclient-0.1dev.tar.gz
-#../../../../build/debug/tools/sandesh/library/python/dist/sandesh-0.1dev.tar.gz
-#../../../../build/debug/sandesh/common/dist/sandesh-common-0.1dev.tar.gz
+../common/dist/cfgm_common-0.1dev.tar.gz
+../../api-lib/dist/vnc_api-0.1dev.tar.gz
+../../discovery/client/dist/discoveryclient-0.1dev.tar.gz
+../../tools/sandesh/library/python/dist/sandesh-0.1dev.tar.gz
+../../sandesh/common/dist/sandesh-common-0.1dev.tar.gz

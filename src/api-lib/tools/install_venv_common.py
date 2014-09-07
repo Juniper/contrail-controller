@@ -106,8 +106,11 @@ class InstallVenv(object):
             pass
 
     def pip_install(self, *args):
+        tdir = '/tmp/cache/%s/config_test' %(os.environ.get('USER', 'pip'))
         self.run_command(['tools/with_venv.sh',
-                         'pip', 'install', '--upgrade'] + list(args),
+                         'python', '.venv/bin/pip', 'install', 
+                         '--download-cache=%s' %(tdir),
+                         '--upgrade'] + list(args),
                          redirect_output=False)
 
     def install_dependencies(self):
