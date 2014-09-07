@@ -13,7 +13,11 @@ from netaddr import *
 sys.path.append("../common/tests")
 import test_common
 
-from vnc_addr_mgmt import *
+try:
+    from vnc_addr_mgmt import *
+except ImportError:
+    from vnc_cfg_api_server.vnc_addr_mgmt import *
+
 from vnc_api.gen.resource_common import *
 from vnc_api.gen.resource_xsd import *
 
