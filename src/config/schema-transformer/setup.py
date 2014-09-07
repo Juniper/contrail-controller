@@ -1,15 +1,23 @@
 #
 # Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
 #
-from setuptools import setup
+from setuptools import setup, find_packages, Command
+import os
+
+class RunTestsCommand(Command):
+    description = "Test command to run testr in virtualenv"
+    user_options = []
+    def initialize_options(self):
+        self.cwd = None
+    def finalize_options(self):
+        self.cwd = os.getcwd()
+    def run(self):
+        os.system('./run_tests.sh -V')
 
 setup(
     name='schema_transformer',
     version='0.1dev',
-    packages=['schema_transformer',
-              'schema_transformer.sandesh',
-              'schema_transformer.sandesh.st_introspect',
-              ],
+    packages=find_packages(),
     package_data={'': ['*.html', '*.css', '*.xml']},
     zip_safe=False,
     long_description="VNC Configuration Schema Transformer",
@@ -22,5 +30,8 @@ setup(
     },
     install_requires=[
         'jsonpickle'
-    ]
+    ],
+    cmdclass={
+       'run_tests': RunTestsCommand,
+    },
 )

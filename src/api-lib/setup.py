@@ -9,9 +9,9 @@ class RunTestsCommand(Command):
     description = "Test command to run testr in virtualenv"
     user_options = []
     def initialize_options(self):
-        self.cwd = None
+        pass
     def finalize_options(self):
-        self.cwd = os.getcwd()
+        pass
     def run(self):
         os.system('./run_tests.sh -V')
 

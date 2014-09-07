@@ -9,6 +9,11 @@ env = CfgmEnv.Clone()
 setup_sources = [
            'setup.py',
            'MANIFEST.in',
+           'run_tests.sh',
+           'requirements.txt',
+           'test-requirements.txt',
+           '.testr.conf',
+           'test',
           ]
 
 
@@ -53,3 +58,18 @@ env.Alias('install', env.InstallAs( env['INSTALL_INITD'] +
     '/contrail-schema', 'contrail-schema.initd.supervisord'))
 env.Alias('install', env.Install(env['INSTALL_CONF']+ 
     '/supervisord_config_files', 'contrail-schema.ini'))
+
+test_cmd = env.Command(None, 'setup.py',
+          'python setup.py run_tests',
+          chdir=Dir('.'))
+
+test_depends = ['/config/common/dist',
+                '/api-lib/dist/',
+                '/discovery/client/dist',
+                '/tools/sandesh/library/python/dist/',
+                '/sandesh/common/dist',
+                '/config/api-server/dist',]
+env.Depends(test_cmd, [env['TOP']+x for x in test_depends])
+
+env.Alias('flaky-test', test_cmd)
+env.Alias('controller/src/config/schema-transformer:flaky-test', test_cmd)
