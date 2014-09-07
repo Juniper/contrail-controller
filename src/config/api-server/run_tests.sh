@@ -191,21 +191,21 @@ then
   fi
   if [ $update -eq 1 ]; then
       echo "Updating virtualenv..."
-      env tools_path=${tools_path} root_path=${root_path} python ../common/tests/tools/install_venv.py $installvenvopts
+      env tools_path=${tools_path} root_path=${root_path} python ${tools_path}/tools/install_venv.py $installvenvopts
   fi
   if [ -e ${venv} ]; then
     wrapper="${with_venv}"
   else
     if [ $always_venv -eq 1 ]; then
       # Automatically install the virtualenv
-      env tools_path=${tools_path} root_path=${root_path} python ../common/tests/tools/install_venv.py $installvenvopts
+      env tools_path=${tools_path} root_path=${root_path} python ${tools_path}/tools/install_venv.py $installvenvopts
       wrapper="${with_venv}"
     else
       echo -e "No virtual environment found...create one? (Y/n) \c"
       read use_ve
       if [ "x$use_ve" = "xY" -o "x$use_ve" = "x" -o "x$use_ve" = "xy" ]; then
         # Install the virtualenv and run the test suite in it
-        env tools_path=${tools_path} root_path=${root_path} python ../common/tests/tools/install_venv.py $installvenvopts
+        env tools_path=${tools_path} root_path=${root_path} python ${tools_path}/tools/install_venv.py $installvenvopts
         wrapper=${with_venv}
       fi
     fi

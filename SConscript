@@ -38,6 +38,9 @@ env.Alias('controller/flaky-test', [
     'controller/src/ifmap:flaky-test',
     'controller/src/io:flaky-test',
     'controller/src/xmpp:flaky-test',
+    'controller/src/api-lib:flaky-test',
+    'controller/src/config/api-server:flaky-test',
+    'controller/src/config/schema-transformer:flaky-test',
 ])
 
 env.Alias('test', [ 'controller/test' ])
