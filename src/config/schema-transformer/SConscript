@@ -9,6 +9,11 @@ env = CfgmEnv.Clone()
 setup_sources = [
            'setup.py',
            'MANIFEST.in',
+           'run_tests.sh',
+           'requirements.txt',
+           'test-requirements.txt',
+           '.testr.conf',
+           'test',
           ]
 
 
@@ -48,3 +53,17 @@ if 'install' in BUILD_TARGETS:
     env.Alias('install', install_cmd)
 
 env.Alias('install', env.Install(env['INSTALL_CONF'], 'contrail-schema.conf'))
+
+test_cmd = env.Command(None, 'setup.py',
+          'python setup.py run_tests',
+          chdir=Dir('.'))
+
+test_depends = ['/config/common/dist',
+                '/api-lib/dist/',
+                '/discovery/client/dist',
+                '/tools/sandesh/library/python/dist/',
+                '/sandesh/common/dist',
+                '/config/api-server/dist',]
+env.Depends(test_cmd, [env['TOP']+x for x in test_depends])
+
+env.Alias('test', test_cmd)
