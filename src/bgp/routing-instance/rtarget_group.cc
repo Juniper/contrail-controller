@@ -89,17 +89,6 @@ const RtGroup::InterestedPeerList &RtGroup::PeerList() const {
     return peer_list_;
 }
 
-bool RtGroup::IsPeerInterested(const BgpPeer *peer) const {
-    return (peer_list_.find(peer) != peer_list_.end());
-}
-
-void RtGroup::GetInterestedPeers(std::set<const BgpPeer *> &peer_set) const {
-    for (RtGroup::InterestedPeerList::const_iterator it = peer_list_.begin(); 
-         it != peer_list_.end(); it++) {
-        peer_set.insert(it->first);
-    }
-}
-
 const RtGroupInterestedPeerSet& RtGroup::GetInterestedPeers() const {
     return interested_peers_;
 }
