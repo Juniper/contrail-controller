@@ -3,12 +3,19 @@
 #
 # Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
 #
+import os
+
 Import('CfgmEnv')
 env = CfgmEnv.Clone()
 
 setup_sources = [
            'setup.py',
            'MANIFEST.in',
+           'run_tests.sh',
+           'requirements.txt',
+           'test-requirements.txt',
+           '.testr.conf',
+           'test',
           ]
 
 
@@ -53,3 +60,27 @@ env.Alias('install', env.InstallAs( env['INSTALL_INITD'] +
     '/contrail-schema', 'contrail-schema.initd.supervisord'))
 env.Alias('install', env.Install(env['INSTALL_CONF']+ 
     '/supervisord_config_files', 'contrail-schema.ini'))
+
+buildspace_link = os.environ.get('CONTRAIL_REPO')
+if buildspace_link:
+    # in CI environment shebang limit exceeds for python
+    # in easy_install/pip, reach to it via symlink
+    top_path = buildspace_link + '/' + Dir('.').path
+    top_dir = Dir(top_path)
+else:
+    top_dir = Dir('.')
+
+test_cmd = env.Command('test.log', 'setup.py',
+          'python setup.py run_tests 2>&1 | tee test.log',
+          chdir=top_dir)
+
+test_depends = ['/config/common/dist',
+                '/api-lib/dist/',
+                '/discovery/client/dist',
+                '/tools/sandesh/library/python/dist/',
+                '/sandesh/common/dist',
+                '/config/api-server/dist',]
+env.Depends(test_cmd, [env['TOP']+x for x in test_depends])
+
+env.Alias('flaky-test', test_cmd)
+env.Alias('controller/src/config/schema-transformer:flaky-test', test_cmd)
