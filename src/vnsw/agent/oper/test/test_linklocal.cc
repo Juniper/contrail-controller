@@ -59,8 +59,19 @@ public:
     int sandesh_response_count() { return response_count_; }
     void ClearSandeshResponseCount() { response_count_ = 0; }
 
+    virtual void SetUp() {
+        agent_ = Agent::GetInstance();
+    }
+
+    virtual void TearDown() {
+        WAIT_FOR(10000, 100,
+                 (agent_->oper_db()->global_vrouter()->PendingFabricDnsRequests()
+                  == 0));
+    }
+
 private:
     int response_count_;
+    Agent *agent_;
 };
 
 TEST_F(LinkLocalTest, LinkLocalReqTest) {
