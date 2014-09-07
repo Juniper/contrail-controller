@@ -1,6 +1,8 @@
 #
 # Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
 #
+import os
+
 Import('BuildEnv')
 env = BuildEnv.Clone()
 
@@ -38,6 +40,12 @@ generated_rule = env.Command(generated_files,
 
 setup_sources = [
            'setup.py',
+           '.testr.conf',
+           'run_tests.sh',
+           'tools',
+           'tests',
+           'requirements.txt',
+           'test-requirements.txt',
           ]
 
 setup_sources_rules = []
@@ -92,3 +100,21 @@ if 'install' in BUILD_TARGETS:
    env.Alias('install', install_cmd)
 
 env.Alias('install', env.Install(env['INSTALL_CONF'], 'vnc_api_lib.ini'))
+
+buildspace_link = os.environ.get('CONTRAIL_REPO')
+if buildspace_link:
+    # in CI environment shebang limit exceeds for python
+    # in easy_install/pip, reach to it via symlink
+    top_path = buildspace_link + '/' + Dir('.').path
+    top_dir = Dir(top_path)
+else:
+    top_dir = Dir('.')
+test_cmd = env.Command(None, 'setup.py',
+          'python setup.py run_tests',
+          chdir=top_dir)
+
+test_depends = ['/config/common/',]
+env.Depends(test_cmd, [env['TOP']+x for x in test_depends])
+
+env.Alias('flaky-test', test_cmd)
+env.Alias('controller/src/api-lib:flaky-test', test_cmd)
