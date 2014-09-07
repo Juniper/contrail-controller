@@ -1015,9 +1015,7 @@ class VirtualNetworkST(DictST):
                             else:
                                 action.assign_routing_instance = None
 
-                        if saddr_match.virtual_network:
-                            sa_list = [saddr_match.virtual_network]
-                        elif saddr_match.network_policy:
+                        if saddr_match.network_policy:
                             pol = NetworkPolicyST.get(saddr_match.network_policy)
                             if not pol:
                                 _sandesh._logger.debug(
@@ -1025,11 +1023,12 @@ class VirtualNetworkST(DictST):
                                     "to network %s", saddr_match.network_policy,
                                      self.name)
                                 continue
-                            sa_list = pol.networks_back_ref
+                            sa_list = [AddressType(virtual_network=x)
+                                       for x in pol.networks_back_ref]
+                        else:
+                            sa_list = [saddr_match]
 
-                        if daddr_match.virtual_network:
-                            da_list = [daddr_match.virtual_network]
-                        elif daddr_match.network_policy:
+                        if daddr_match.network_policy:
                             pol = NetworkPolicyST.get(daddr_match.network_policy)
                             if not pol:
                                 _sandesh._logger.debug(
@@ -1037,22 +1036,23 @@ class VirtualNetworkST(DictST):
                                     "to network %s", daddr_match.network_policy,
                                      self.name)
                                 continue
-                            da_list = pol.networks_back_ref
+                            da_list = [AddressType(virtual_network=x)
+                                       for x in pol.networks_back_ref]
+                        else:
+                            da_list = [daddr_match]
 
                         for sa in sa_list:
-                            sa1 = AddressType(virtual_network=sa)
                             for da in da_list:
-                                da1 = AddressType(virtual_network=da)
                                 match = MatchConditionType(arule_proto,
-                                                           sa1, sp,
-                                                           da1, dp)
+                                                           sa, sp,
+                                                           da, dp)
                                 acl = AclRuleType(match, action, rule_uuid)
                                 result_acl_rule_list.append(acl)
                                 if ((prule.direction == "<>") and
                                     (sa != da or sp != dp)):
                                     rmatch = MatchConditionType(arule_proto,
-                                                                da1, dp,
-                                                                sa1, sp)
+                                                                da, dp,
+                                                                sa, sp)
                                     raction = copy.deepcopy(action)
                                     if (service_list and dvn in [self.name, 'any']):
                                         service_ri = self.get_service_name(
