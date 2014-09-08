@@ -9,7 +9,7 @@
 
 extern void MakeIpPacket(PktGen *pkt, int ifindex, const char *sip,
 			 const char *dip, int proto, int hash_id, 
-             int cmd = AGENT_TRAP_FLOW_MISS, int vrf = -1);
+             int cmd = AgentHdr::TRAP_FLOW_MISS, int vrf = -1);
 
 extern void TxIpPacket(int ifindex, const char *sip, const char *dip, 
 			  int proto, int hash_id = 1, int vrf = -1);

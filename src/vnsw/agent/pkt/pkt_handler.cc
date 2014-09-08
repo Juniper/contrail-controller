@@ -79,6 +79,10 @@ const unsigned char *PktHandler::mac_address() {
     return tap_interface_->mac_address();
 }
 
+uint32_t PktHandler::EncapHeaderLen() const {
+    return tap_interface_->EncapHeaderLen();
+}
+
 void PktHandler::CreateInterfaces(const std::string &if_name) {
     PacketInterface::Create(agent_->interface_table(), if_name);
 }
@@ -135,8 +139,8 @@ void PktHandler::HandleRcvPkt(uint8_t *ptr, std::size_t len,
     }
 
     // Packets needing flow
-    if ((pkt_info->GetAgentHdr().cmd == AGENT_TRAP_FLOW_MISS ||
-         pkt_info->GetAgentHdr().cmd == AGENT_TRAP_ECMP_RESOLVE) && 
+    if ((pkt_info->GetAgentHdr().cmd == AgentHdr::TRAP_FLOW_MISS ||
+         pkt_info->GetAgentHdr().cmd == AgentHdr::TRAP_ECMP_RESOLVE) && 
         pkt_info->ip) {
         mod = FLOW;
         goto enqueue;
@@ -159,7 +163,7 @@ void PktHandler::HandleRcvPkt(uint8_t *ptr, std::size_t len,
     }
 
     // Look for IP packets that need ARP resolution
-    if (pkt_info->ip && pkt_info->GetAgentHdr().cmd == AGENT_TRAP_RESOLVE) {
+    if (pkt_info->ip && pkt_info->GetAgentHdr().cmd == AgentHdr::TRAP_RESOLVE) {
         mod = ARP;
         goto enqueue;
     }
@@ -170,12 +174,12 @@ void PktHandler::HandleRcvPkt(uint8_t *ptr, std::size_t len,
     }
 
     if (pkt_info->ip &&
-        pkt_info->GetAgentHdr().cmd == AGENT_TRAP_HANDLE_DF) {
+        pkt_info->GetAgentHdr().cmd == AgentHdr::TRAP_HANDLE_DF) {
         mod = ICMP_ERROR;
         goto enqueue;
     }
 
-    if (pkt_info->GetAgentHdr().cmd == AGENT_TRAP_DIAG && pkt_info->ip) {
+    if (pkt_info->GetAgentHdr().cmd == AgentHdr::TRAP_DIAG && pkt_info->ip) {
         mod = DIAG;
         goto enqueue;
     }
@@ -217,7 +221,7 @@ uint8_t *PktHandler::ParseAgentHdr(PktInfo *pkt_info) {
     pkt_info->agent_hdr.cmd = ntohs(agent->hdr_cmd);
     pkt_info->agent_hdr.cmd_param = ntohl(agent->hdr_cmd_param);
     pkt_info->agent_hdr.nh = ntohl(agent->hdr_cmd_param_1);
-    if (pkt_info->agent_hdr.cmd == AGENT_TRAP_HANDLE_DF) {
+    if (pkt_info->agent_hdr.cmd == AgentHdr::TRAP_HANDLE_DF) {
         pkt_info->agent_hdr.mtu = ntohl(agent->hdr_cmd_param);
         pkt_info->agent_hdr.flow_index = ntohl(agent->hdr_cmd_param_1);
     }
@@ -495,7 +499,7 @@ PktInfo::~PktInfo() {
 const AgentHdr &PktInfo::GetAgentHdr() const {return agent_hdr;};
 
 void PktInfo::UpdateHeaderPtr() {
-    eth = (struct ethhdr *)(pkt + IPC_HDR_LEN);
+    eth = (struct ethhdr *)(pkt + TapInterface::kAgentHdrLen);
     ip = (struct iphdr *)(eth + 1);
     transp.tcp = (struct tcphdr *)(ip + 1);
 }

@@ -19,13 +19,14 @@
 #include <oper/nexthop.h>
 #include <pkt/pkt_trace.h>
 
+#include "vr_defs.h"
+
 #define DHCP_SERVER_PORT 67
 #define DHCP_CLIENT_PORT 68
 #define DNS_SERVER_PORT 53
 
 #define IPv4_ALEN           4
 #define MIN_ETH_PKT_LEN    64
-#define IPC_HDR_LEN        (sizeof(ethhdr) + sizeof(struct agent_hdr))
 #define IP_PROTOCOL        0x800  
 #define VLAN_PROTOCOL      0x8100       
 
@@ -68,6 +69,24 @@ struct PktType {
 };
 
 struct AgentHdr {
+    // Packet commands between agent and vrouter. The values must be in-sync 
+    // with vrouter/include/vr_defs.h
+    enum PktCommand {
+        TX_SWITCH = AGENT_CMD_SWITCH,
+        TX_ROUTE = AGENT_CMD_ROUTE,
+        TRAP_ARP = AGENT_TRAP_ARP,
+        TRAP_L2_PROTOCOL = AGENT_TRAP_L2_PROTOCOLS,
+        TRAP_NEXTHOP = AGENT_TRAP_NEXTHOP,
+        TRAP_RESOLVE = AGENT_TRAP_RESOLVE,
+        TRAP_FLOW_MISS = AGENT_TRAP_FLOW_MISS,
+        TRAP_L3_PROTOCOLS = AGENT_TRAP_L3_PROTOCOLS,
+        TRAP_DIAG = AGENT_TRAP_DIAG,
+        TRAP_ECMP_RESOLVE = AGENT_TRAP_ECMP_RESOLVE,
+        TRAP_SOURCE_MISMATCH = AGENT_TRAP_SOURCE_MISMATCH,
+        TRAP_HANDLE_DF = AGENT_TRAP_HANDLE_DF,
+        INVALID = MAX_AGENT_HDR_COMMANDS
+    };
+
     AgentHdr() :
         ifindex(-1), vrf(-1), cmd(-1), cmd_param(-1), nh(-1), flow_index(0),
         mtu(0) {}
@@ -208,6 +227,7 @@ public:
         return pkt_trace_.at(mod).pkt_trace_size();
     }
 
+    uint32_t EncapHeaderLen() const;
 private:
     friend bool ::CallPktParse(PktInfo *pkt_info, uint8_t *ptr, int len);
 

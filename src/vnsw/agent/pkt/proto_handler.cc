@@ -15,6 +15,10 @@ ProtoHandler::ProtoHandler(Agent *agent, boost::shared_ptr<PktInfo> info,
 ProtoHandler::~ProtoHandler() { 
 }
 
+uint32_t ProtoHandler::EncapHeaderLen() const {
+    return agent_->pkt()->pkt_handler()->EncapHeaderLen();
+}
+
 // send packet to the pkt0 interface
 void ProtoHandler::Send(uint16_t len, uint16_t itf, uint16_t vrf, 
                         uint16_t cmd, PktHandler::PktModuleName mod) {
@@ -30,7 +34,7 @@ void ProtoHandler::Send(uint16_t len, uint16_t itf, uint16_t vrf,
     agent->hdr_ifindex = htons(itf);
     agent->hdr_vrf = htons(vrf);
     agent->hdr_cmd = htons(cmd);
-    len += IPC_HDR_LEN;
+    len += EncapHeaderLen();
 
     if (agent_->pkt()->pkt_handler()) {
         agent_->pkt()->pkt_handler()->Send(pkt_info_->pkt, len, mod);

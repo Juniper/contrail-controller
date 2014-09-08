@@ -26,7 +26,7 @@ static void TxIpPacket(int ifindex, const char *sip, const char *dip,
 			  int proto, int hash_id) {
     PktGen *pkt = new PktGen();
     pkt->AddEthHdr("00:00:00:00:00:01", "00:00:00:00:00:02", 0x800);
-    pkt->AddAgentHdr(ifindex, AGENT_TRAP_FLOW_MISS, hash_id);
+    pkt->AddAgentHdr(ifindex, AgentHdr::TRAP_FLOW_MISS, hash_id);
     pkt->AddEthHdr("00:00:00:00:00:01", "00:00:00:00:00:02", 0x800);
     pkt->AddIpHdr(sip, dip, proto);
     

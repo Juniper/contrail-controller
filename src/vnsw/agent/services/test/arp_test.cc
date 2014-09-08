@@ -78,7 +78,7 @@ public:
         agent_hdr *agent = (agent_hdr *)(eth + 1);
         agent->hdr_ifindex = htons(ifindex);
         agent->hdr_vrf = htons(vrf);
-        agent->hdr_cmd = htons(AGENT_TRAP_RESOLVE);
+        agent->hdr_cmd = htons(AgentHdr::TRAP_RESOLVE);
 
         eth = (ethhdr *) (agent + 1);
         memcpy(eth->h_dest, dest_mac, MAC_LEN);
@@ -118,7 +118,7 @@ public:
         agent_hdr *agent = (agent_hdr *)(eth + 1);
         agent->hdr_ifindex = htons(ifindex);
         agent->hdr_vrf = htons(vrf);
-        agent->hdr_cmd = htons(AGENT_TRAP_ARP);
+        agent->hdr_cmd = htons(AgentHdr::TRAP_ARP);
 
         eth = (ethhdr *) (agent + 1);
         memcpy(eth->h_dest, src_mac, MAC_LEN);
@@ -149,7 +149,7 @@ public:
                          int proto) {
         PktGen *pkt = new PktGen();
         pkt->AddEthHdr("00:00:00:00:00:01", "00:00:00:00:00:02", 0x800);
-        pkt->AddAgentHdr(ifindex, AGENT_TRAP_RESOLVE);
+        pkt->AddAgentHdr(ifindex, AgentHdr::TRAP_RESOLVE);
         pkt->AddEthHdr("00:00:00:00:00:01", "00:00:00:00:00:02", 0x800);
         pkt->AddIpHdr(sip, dip, proto);
 

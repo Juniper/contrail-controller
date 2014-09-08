@@ -292,9 +292,9 @@ uint16_t ArpHandler::ArpHdr(const unsigned char *smac, in_addr_t sip,
 void ArpHandler::SendArp(uint16_t op, const unsigned char *smac, in_addr_t sip, 
                          const unsigned char *tmac, in_addr_t tip, 
                          uint16_t itf, uint16_t vrf) {
-    pkt_info_->pkt = new uint8_t[MIN_ETH_PKT_LEN + IPC_HDR_LEN];
+    pkt_info_->pkt = new uint8_t[MIN_ETH_PKT_LEN + EncapHeaderLen()];
     uint8_t *buf = pkt_info_->pkt;
-    memset(buf, 0, MIN_ETH_PKT_LEN + IPC_HDR_LEN);
+    memset(buf, 0, MIN_ETH_PKT_LEN + EncapHeaderLen());
     pkt_info_->eth = (ethhdr *) (buf + sizeof(ethhdr) + sizeof(agent_hdr));
     arp_ = pkt_info_->arp = (ether_arp *) (pkt_info_->eth + 1);
     arp_tpa_ = tip;
@@ -303,5 +303,5 @@ void ArpHandler::SendArp(uint16_t op, const unsigned char *smac, in_addr_t sip,
     ArpHdr(smac, sip, tmac, tip, op);
     EthHdr(smac, bcast_mac, 0x806);
 
-    Send(sizeof(ethhdr) + sizeof(ether_arp), itf, vrf, AGENT_CMD_SWITCH, PktHandler::ARP);
+    Send(sizeof(ethhdr) + sizeof(ether_arp), itf, vrf, AgentHdr::TX_SWITCH, PktHandler::ARP);
 }

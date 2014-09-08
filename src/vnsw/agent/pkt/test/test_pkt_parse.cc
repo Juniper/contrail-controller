@@ -469,7 +469,7 @@ TEST_F(PktParseTest, Invalid_GRE_On_Enet_1) {
     // Invalid Protocol in GRE header
     pkt->Reset();
     pkt->AddEthHdr("00:00:00:00:00:01", "00:00:00:00:00:02", 0x800);
-    pkt->AddAgentHdr(eth->id(), AGENT_TRAP_FLOW_MISS);
+    pkt->AddAgentHdr(eth->id(), AgentHdr::TRAP_FLOW_MISS);
     pkt->AddEthHdr("00:00:00:00:00:01", "00:00:00:00:00:02", 0x800);
     pkt->AddIpHdr("1.1.1.1", "10.1.1.1", IPPROTO_GRE);
     pkt->AddGreHdr(0x800);
@@ -484,7 +484,7 @@ TEST_F(PktParseTest, Invalid_GRE_On_Enet_1) {
     // Pkt with MPLS Label stack
     pkt->Reset();
     pkt->AddEthHdr("00:00:00:00:00:01", "00:00:00:00:00:02", 0x800);
-    pkt->AddAgentHdr(eth->id(), AGENT_TRAP_FLOW_MISS);
+    pkt->AddAgentHdr(eth->id(), AgentHdr::TRAP_FLOW_MISS);
     pkt->AddEthHdr("00:00:00:00:00:01", "00:00:00:00:00:02", 0x800);
     pkt->AddIpHdr("1.1.1.1", "10.1.1.1", IPPROTO_GRE);
     pkt->AddGreHdr();

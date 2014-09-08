@@ -2617,7 +2617,7 @@ PktGen *TxTcpPacketUtil(int ifindex, const char *sip, const char *dip,
                         int sport, int dport, uint32_t hash_idx) {
     PktGen *pkt = new PktGen();
     pkt->AddEthHdr("00:00:00:00:00:01", "00:00:00:00:00:02", 0x800);
-    pkt->AddAgentHdr(ifindex, AGENT_TRAP_FLOW_MISS, hash_idx);
+    pkt->AddAgentHdr(ifindex, AgentHdr::TRAP_FLOW_MISS, hash_idx);
     pkt->AddEthHdr("00:00:00:00:00:01", "00:00:00:00:00:02", 0x800);
     pkt->AddIpHdr(sip, dip, IPPROTO_TCP);
     pkt->AddTcpHdr(sport, dport, false, false, false, 64);
@@ -2635,7 +2635,7 @@ PktGen *TxIpPacketUtil(int ifindex, const char *sip, const char *dip,
                        int proto, int hash_id) {
     PktGen *pkt = new PktGen();
     pkt->AddEthHdr("00:00:00:00:00:01", "00:00:00:00:00:02", 0x800);
-    pkt->AddAgentHdr(ifindex, AGENT_TRAP_FLOW_MISS, hash_id);
+    pkt->AddAgentHdr(ifindex, AgentHdr::TRAP_FLOW_MISS, hash_id);
     pkt->AddEthHdr("00:00:00:00:00:01", "00:00:00:00:00:02", 0x800);
     pkt->AddIpHdr(sip, dip, proto);
     if (proto == 1)
@@ -2685,7 +2685,7 @@ PktGen *TxMplsPacketUtil(int ifindex, const char *out_sip,
                             int proto, int hash_idx) {
     PktGen *pkt = new PktGen();
     pkt->AddEthHdr("00:00:00:00:00:01", "00:00:00:00:00:02", 0x800);
-    pkt->AddAgentHdr(ifindex, AGENT_TRAP_FLOW_MISS, hash_idx, MplsToVrfId(label),
+    pkt->AddAgentHdr(ifindex, AgentHdr::TRAP_FLOW_MISS, hash_idx, MplsToVrfId(label),
                      label);
     pkt->AddEthHdr("00:00:00:00:00:01", "00:00:00:00:00:02", 0x800);
     pkt->AddIpHdr(out_sip, out_dip, IPPROTO_GRE);
@@ -2711,7 +2711,7 @@ PktGen *TxMplsTcpPacketUtil(int ifindex, const char *out_sip,
                             int sport, int dport, int hash_idx) {
     PktGen *pkt = new PktGen();
     pkt->AddEthHdr("00:00:00:00:00:01", "00:00:00:00:00:02", 0x800);
-    pkt->AddAgentHdr(ifindex, AGENT_TRAP_FLOW_MISS, hash_idx, MplsToVrfId(label),
+    pkt->AddAgentHdr(ifindex, AgentHdr::TRAP_FLOW_MISS, hash_idx, MplsToVrfId(label),
                      label);
     pkt->AddEthHdr("00:00:00:00:00:01", "00:00:00:00:00:02", 0x800);
     pkt->AddIpHdr(out_sip, out_dip, IPPROTO_GRE);

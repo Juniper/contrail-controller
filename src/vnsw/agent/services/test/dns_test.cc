@@ -224,7 +224,7 @@ public:
         agent_hdr *agent = (agent_hdr *)(eth + 1);
         agent->hdr_ifindex = htons(itf_index);
         agent->hdr_vrf = htons(0);
-        agent->hdr_cmd = htons(AGENT_TRAP_NEXTHOP);
+        agent->hdr_cmd = htons(AgentHdr::TRAP_NEXTHOP);
 
         eth = (ethhdr *) (agent + 1);
         memcpy(eth->h_dest, dest_mac, MAC_LEN);
@@ -262,7 +262,7 @@ public:
         len += sizeof(udphdr);
         udp->len = htons(len);
         ip->tot_len = htons(len + sizeof(iphdr));
-        len += sizeof(iphdr) + sizeof(ethhdr) + IPC_HDR_LEN;
+        len += sizeof(iphdr) + sizeof(ethhdr) + TapInterface::kAgentHdrLen;
         TestTapInterface *tap = (TestTapInterface *)
             (Agent::GetInstance()->pkt()->pkt_handler()->tap_interface());
         tap->GetTestPktHandler()->TestPktSend(buf, len);

@@ -10,11 +10,17 @@
 #include <boost/function.hpp>
 #include <boost/asio.hpp>
 
+#include "vr_types.h"
+#include "vr_defs.h"
+#include "vr_mpls.h"
+
 // Tap Interface handler to read or write to the "pkt0" interface.
 // Packets reads from the tap are given to the registered callback.
 // Write to the tap interface using AsyncWrite.
 class TapInterface {
 public:
+    static const uint32_t kAgentHdrLen =
+        (sizeof(ether_header) + sizeof(struct agent_hdr));
     static const uint32_t kMaxPacketSize = 9060;
     typedef boost::function<void(uint8_t*, std::size_t, std::size_t)> 
         PktReadCallback;
@@ -29,6 +35,10 @@ public:
     const unsigned char *mac_address() const { return mac_address_; }
     virtual void SetupTap();
     virtual void AsyncWrite(uint8_t *buf, std::size_t len);
+
+    virtual uint32_t EncapHeaderLen() const {
+        return kAgentHdrLen;
+    }
 
 protected:
     void SetupAsio();
