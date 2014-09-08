@@ -2507,6 +2507,94 @@ TEST_F(FlowTest, FlowLimit_1) {
     Agent::GetInstance()->pkt()->flow_table()->set_max_vm_flows(vm_flows);
 }
 
+// Check that flow limit per VM doesnt include the short flows in the system
+TEST_F(FlowTest, FlowLimit_2) {
+    Agent::GetInstance()->set_router_id(Ip4Address::from_string(vhost_ip_addr));
+    uint32_t vm_flows = Agent::GetInstance()->pkt()->flow_table()->max_vm_flows();
+    Agent::GetInstance()->pkt()->flow_table()->set_max_vm_flows(3);
+
+    TestFlow short_flow[] = {
+        //Send an ICMP flow from remote VM in vn3 to local VM in vn5
+        {
+            TestFlowPkt(vm1_ip, "115.115.115.115", 1, 0, 0, "vrf5",
+                    flow0->id()),
+            {
+                new ShortFlow()
+            }
+        }
+    };
+    CreateFlow(short_flow, 1);
+    EXPECT_EQ(2U, Agent::GetInstance()->pkt()->flow_table()->Size());
+    int nh_id = InterfaceTable::GetInstance()->FindInterface(flow0->id())->flow_key_nh()->id();
+    FlowEntry *fe = FlowGet(1, vm1_ip, "115.115.115.115", 1,
+                            0, 0, nh_id);
+    EXPECT_TRUE(fe != NULL && fe->is_flags_set(FlowEntry::ShortFlow) == true &&
+                fe->short_flow_reason() == FlowEntry::SHORT_NO_DST_ROUTE);
+
+    /* Add Local VM route of vrf3 to vrf5 */
+    CreateLocalRoute("vrf5", vm4_ip, flow3, 19);
+    /* Add Local VM route of vrf5 to vrf3 */
+    CreateLocalRoute("vrf3", vm1_ip, flow0, 16);
+
+    TestFlow flow[] = {
+        //Send a TCP packet from local VM in vn5 to local VM in vn3
+        {
+            TestFlowPkt(vm1_ip, vm4_ip, IPPROTO_TCP, 100, 101, "vrf5",
+                    flow0->id()),
+            {
+                new VerifyVn("vn5", "vn3"),
+            }
+        },
+        //Send an TCP packet from local VM in vn3 to local VM in vn5
+        {
+            TestFlowPkt(vm4_ip, vm1_ip, IPPROTO_TCP, 101, 100, "vrf3",
+                    flow3->id()),
+            {
+                new VerifyVn("vn3", "vn5"),
+            }
+        },
+        //Send a TCP packet from local VM in vn5 to local VM in vn3
+        {
+            TestFlowPkt(vm1_ip, vm4_ip, IPPROTO_TCP, 200, 300, "vrf5",
+                    flow0->id()),
+            {
+                new VerifyVn("vn5", "vn3"),
+            }
+        },
+        //Send an TCP packet from local VM in vn3 to local VM in vn5
+        {
+            TestFlowPkt(vm4_ip, vm1_ip, IPPROTO_TCP, 300, 200, "vrf3",
+                    flow3->id()),
+            {
+                new VerifyVn("vn3", "vn5"),
+            }
+        }
+    };
+
+    CreateFlow(flow, 4);
+    client->WaitForIdle();
+    EXPECT_EQ(6U, Agent::GetInstance()->pkt()->flow_table()->Size());
+    nh_id = InterfaceTable::GetInstance()->FindInterface(flow3->id())->flow_key_nh()->id();
+    fe = FlowGet(VrfGet("vrf3")->vrf_id(), vm4_ip, vm1_ip,
+                 IPPROTO_TCP, 300, 200, nh_id);
+    EXPECT_TRUE(fe != NULL && fe->is_flags_set(FlowEntry::ShortFlow) == true &&
+                fe->short_flow_reason() == FlowEntry::SHORT_FLOW_LIMIT);
+    fe = FlowGet(VrfGet("vrf3")->vrf_id(), vm4_ip, vm1_ip,
+                 IPPROTO_TCP, 101, 100, nh_id);
+    EXPECT_TRUE(fe != NULL && fe->is_flags_set(FlowEntry::ShortFlow) == false);
+    nh_id = InterfaceTable::GetInstance()->FindInterface(flow0->id())->flow_key_nh()->id();
+    fe = FlowGet(VrfGet("vrf5")->vrf_id(), vm1_ip, vm4_ip,
+                 IPPROTO_TCP, 100, 101, nh_id);
+    EXPECT_TRUE(fe != NULL && fe->is_flags_set(FlowEntry::ShortFlow) == false);
+
+    //1. Remove remote VM routes
+    DeleteRoute("vrf5", vm4_ip);
+    DeleteRoute("vrf3", vm1_ip);
+    client->WaitForIdle();
+    client->WaitForIdle();
+    Agent::GetInstance()->pkt()->flow_table()->set_max_vm_flows(vm_flows);
+}
+
 TEST_F(FlowTest, Flow_introspect_delete_all) {
     EXPECT_EQ(0U, agent()->pkt()->flow_table()->Size());
 

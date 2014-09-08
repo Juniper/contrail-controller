@@ -2390,6 +2390,14 @@ void FlowTable::AddVmFlowInfo(FlowEntry *fe) {
 }
 
 void FlowTable::AddVmFlowInfo(FlowEntry *fe, const VmEntry *vm) {
+    if (fe->is_flags_set(FlowEntry::ShortFlow)) {
+        // do not include short flows
+        // this is done so that we allow atleast the minimum allowed flows
+        // for a VM; Otherwise, in a continuous flow scenario, all flows
+        // become short and we dont allow any flows to a VM.
+        return;
+    }
+
     bool update = false;
     VmFlowTree::iterator it;
     it = vm_flow_tree_.find(vm);
