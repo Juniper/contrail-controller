@@ -3,8 +3,10 @@
 #
 import gevent
 import gevent.queue
+import gevent.wsgi
 import os
 import sys
+import logging
 import pdb
 import json
 from pprint import pprint
@@ -50,6 +52,17 @@ class FakeApiConfigLog(object):
             pprint(x)
             print "\n"
 # class FakeApiConfigLog
+
+class FakeWSGIHandler(gevent.wsgi.WSGIHandler):
+    logger = logging.getLogger('FakeWSGIHandler')
+    logger.addHandler(logging.FileHandler('api_server.log'))
+    def __init__(self, socket, address, server):
+        super(FakeWSGIHandler, self).__init__(socket, address, server)
+        #server.log = open('api_server.log', 'a')
+        class LoggerWriter(object):
+            def write(self, message):
+                FakeWSGIHandler.logger.log(logging.INFO, message)
+        server.log = LoggerWriter()
 
 class CassandraCFs(object):
     _all_cfs = {}

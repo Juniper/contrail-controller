@@ -18,7 +18,7 @@ import cfgm_common.ifmap.client as ifmap_client
 import cfgm_common.ifmap.response as ifmap_response
 import kombu
 import discoveryclient.client as disc_client
-from cfgm_common.zkclient import ZookeeperClient
+import cfgm_common.zkclient
 from cfgm_common.uve.vnc_api.ttypes import VncApiConfigLog, VncApiError
 from cfgm_common import imid
 
@@ -29,6 +29,8 @@ bottle.catchall=False
 import inspect
 import novaclient
 import novaclient.client
+
+import gevent.wsgi
 
 def lineno():
     """Returns the current line number in our program."""
@@ -62,6 +64,40 @@ def generate_conf_file_contents(conf_sections):
     return cfg_parser
 # end generate_conf_file_contents
 
+def generate_logconf_file_contents():
+    cfg_parser = ConfigParser.RawConfigParser()
+
+    cfg_parser.add_section('formatters')
+    cfg_parser.add_section('formatter_simple')
+    cfg_parser.set('formatters', 'keys', 'simple')
+    cfg_parser.set('formatter_simple', 'format', '%(name)s:%(levelname)s: %(message)s')
+
+    cfg_parser.add_section('handlers')
+    cfg_parser.add_section('handler_console')
+    cfg_parser.add_section('handler_api_server_file')
+    cfg_parser.set('handlers', 'keys', 'console,api_server_file')
+    cfg_parser.set('handler_console', 'class', 'StreamHandler')
+    cfg_parser.set('handler_console', 'level', 'WARN')
+    cfg_parser.set('handler_console', 'args', '[]')
+    cfg_parser.set('handler_console', 'formatter', 'simple')
+    cfg_parser.set('handler_api_server_file', 'class', 'FileHandler')
+    cfg_parser.set('handler_api_server_file', 'level', 'INFO')
+    cfg_parser.set('handler_api_server_file', 'formatter', 'simple')
+    cfg_parser.set('handler_api_server_file', 'args', "('api_server.log',)")
+
+    cfg_parser.add_section('loggers')
+    cfg_parser.add_section('logger_root')
+    cfg_parser.add_section('logger_FakeWSGIHandler')
+    cfg_parser.set('loggers', 'keys', 'root,FakeWSGIHandler')
+    cfg_parser.set('logger_root', 'level', 'WARN')
+    cfg_parser.set('logger_root', 'handlers', 'console')
+    cfg_parser.set('logger_FakeWSGIHandler', 'level', 'INFO')
+    cfg_parser.set('logger_FakeWSGIHandler', 'qualname', 'FakeWSGIHandler')
+    cfg_parser.set('logger_FakeWSGIHandler', 'handlers', 'api_server_file')
+
+    return cfg_parser
+# end generate_logconf_file_contents
+
 def launch_api_server(listen_ip, listen_port, http_server_port, admin_port,
                       conf_sections):
     args_str = ""
@@ -70,15 +106,22 @@ def launch_api_server(listen_ip, listen_port, http_server_port, admin_port,
     args_str = args_str + "--http_server_port %s " % (http_server_port)
     args_str = args_str + "--admin_port %s " % (admin_port)
     args_str = args_str + "--cassandra_server_list 0.0.0.0:9160 "
+    args_str = args_str + "--log_file api_server_sandesh.log "
 
     import cgitb
     cgitb.enable(format='text')
 
-    with tempfile.NamedTemporaryFile() as temp:
+    with tempfile.NamedTemporaryFile() as conf, tempfile.NamedTemporaryFile() as logconf:
         cfg_parser = generate_conf_file_contents(conf_sections)
-        cfg_parser.write(temp)
-        temp.flush()
-        args_str = args_str + "--conf_file %s " %(temp.name)
+        cfg_parser.write(conf)
+        conf.flush()
+
+        cfg_parser = generate_logconf_file_contents()
+        cfg_parser.write(logconf)
+        logconf.flush()
+
+        args_str = args_str + "--conf_file %s " %(conf.name)
+        args_str = args_str + "--logging_conf %s " %(logconf.name)
         vnc_cfg_api_server.main(args_str)
 #end launch_api_server
 
@@ -92,7 +135,8 @@ def launch_svc_monitor(api_server_ip, api_server_port):
     args_str = args_str + "--api_server_port %s " % (api_server_port)
     args_str = args_str + "--ifmap_username api-server "
     args_str = args_str + "--ifmap_password api-server "
-    args_str = args_str + "--cassandra_server_list 0.0.0.0:9160"
+    args_str = args_str + "--cassandra_server_list 0.0.0.0:9160 "
+    args_str = args_str + "--log_file svc_monitor.log "
 
     svc_monitor.main(args_str)
 # end launch_svc_monitor
@@ -105,7 +149,8 @@ def launch_schema_transformer(api_server_ip, api_server_port):
     args_str = ""
     args_str = args_str + "--api_server_ip %s " % (api_server_ip)
     args_str = args_str + "--api_server_port %s " % (api_server_port)
-    args_str = args_str + "--cassandra_server_list 0.0.0.0:9160"
+    args_str = args_str + "--cassandra_server_list 0.0.0.0:9160 "
+    args_str = args_str + "--log_file schema_transformer.log "
     to_bgp.main(args_str)
 # end launch_schema_transformer
 
@@ -262,6 +307,9 @@ class TestCase(testtools.TestCase, fixtures.TestWithFixtures):
         if not cov_handle:
             cov_handle = coverage.coverage(source=['./'], omit=['.venv/*'])
         cov_handle.start()
+
+        cfgm_common.zkclient.LOG_DIR = './'
+        gevent.wsgi.WSGIServer.handler_class = FakeWSGIHandler
         setup_common_flexmock()
 
         self._api_server_ip = socket.gethostbyname(socket.gethostname())
