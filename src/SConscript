@@ -38,9 +38,6 @@ subdirs = [
 if sys.platform != 'darwin':
     subdirs += ['ksync']
 
-if sys.platform != 'darwin':
-    subdirs += ['docs']
-
 include = ['#/controller/src', '#/build/include', '#controller/lib']
 
 libpath = ['#/build/lib']

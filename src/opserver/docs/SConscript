@@ -3,18 +3,19 @@
 #
 
 # -*- mode: python; -*-
+import sys
+Import('OpEnv')
+env = OpEnv.Clone()
 
-Import('BuildEnv')
-env = BuildEnv.Clone()
+vpath = '#controller/src/opserver/docs'
 
-vpath = '#controller/src/docs/opserver'
-
-build_dir = str(Dir('.').abspath)+'/doc'
+build_dir = str(Dir('.').abspath + '/contrail-analytics-api')
 build_dir_doctrees = build_dir+'/doctrees'
 build_dir_html = build_dir+'/html'
 
 cmd = ('(sphinx-build -b html -d ' + build_dir_doctrees + ' ' + str(Dir(vpath).abspath) + ' ' + build_dir_html + ')')
+docs = env.Command('contrail-analytics-api', str(Dir(vpath)), cmd)
 
-docs = env.Command('doc', str(Dir(vpath)), cmd)
+env.Alias('install', env.Install(env['INSTALL_DOC'], docs))
 
 env.AlwaysBuild(docs)
