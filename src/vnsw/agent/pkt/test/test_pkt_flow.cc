@@ -3496,9 +3496,8 @@ int main(int argc, char *argv[]) {
 
     FlowTest::TestSetup(ksync_init);
     int ret = RUN_ALL_TESTS();
-    usleep(1000);
-    Agent::GetInstance()->event_manager()->Shutdown();
-    AsioStop();
-    TaskScheduler::GetInstance()->Terminate();
+    client->WaitForIdle();
+    TestShutdown();
+    delete client;
     return ret;
 }
