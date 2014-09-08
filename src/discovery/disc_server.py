@@ -35,6 +35,7 @@ from disc_utils import *
 import disc_consts
 import disc_exceptions
 import output
+import discoveryclient.client as discovery_client
 
 # sandesh
 from pysandesh.sandesh_base import *
@@ -176,10 +177,13 @@ class DiscoveryServer():
         node_type = Module2NodeType[module]
         node_type_name = NodeTypeNames[node_type]
         instance_id = self._args.worker_id
+        disc_client = discovery_client.DiscoveryClient(
+            '127.0.0.1', self._args.listen_port,
+            ModuleNames[Module.DISCOVERY_SERVICE])
         self._sandesh.init_generator(
             module_name, socket.gethostname(), node_type_name, instance_id,
             self._args.collectors, 'discovery_context', 
-            int(self._args.http_server_port), ['sandesh'])
+            int(self._args.http_server_port), ['sandesh'], disc_client)
         self._sandesh.set_logging_params(enable_local_log=self._args.log_local,
                                          category=self._args.log_category,
                                          level=self._args.log_level,
@@ -936,7 +940,7 @@ def parse_args(args_str):
         'ttl_short': 0,
         'hc_interval': disc_consts.HC_INTERVAL,
         'hc_max_miss': disc_consts.HC_MAX_MISS,
-        'collectors': '127.0.0.1:8086',
+        'collectors': None,
         'http_server_port': '5997',
         'log_local': False,
         'log_level': SandeshLevel.SYS_DEBUG,
