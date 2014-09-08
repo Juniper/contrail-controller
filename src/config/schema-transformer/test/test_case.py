@@ -12,8 +12,10 @@ class STTestCase(test_common.TestCase):
         super(STTestCase, self).setUp()
         self._svc_mon_greenlet = gevent.spawn(test_common.launch_svc_monitor,
             self._api_server_ip, self._api_server_port)
+        self._svc_mon_greenlet.name = 'service_monitor'
         self._st_greenlet = gevent.spawn(test_common.launch_schema_transformer,
             self._api_server_ip, self._api_server_port)
+        self._st_greenlet.name = 'schema_transformer'
 
     def tearDown(self):
         self._svc_mon_greenlet.kill()
