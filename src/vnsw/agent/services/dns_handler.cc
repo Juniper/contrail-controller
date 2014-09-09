@@ -747,7 +747,7 @@ void DnsHandler::SendDnsResponse() {
     if (pkt_itf) {
         UpdateStats();
         Send(dns_resp_size_, pkt_info_->GetAgentHdr().ifindex, pkt_info_->vrf,
-             AGENT_CMD_SWITCH, PktHandler::DNS);
+             AgentHdr::TX_SWITCH, PktHandler::DNS);
     } else {
         agent()->GetDnsProto()->IncrStatsDrop();
     }

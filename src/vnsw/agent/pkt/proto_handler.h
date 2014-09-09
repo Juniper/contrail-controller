@@ -62,6 +62,7 @@ public:
     uint16_t GetLength() const { return pkt_info_->len; }
     uint32_t GetCmdParam() const { return pkt_info_->GetAgentHdr().cmd_param; }
 
+    uint32_t EncapHeaderLen() const;
 protected:
     Agent   *agent_;
     boost::shared_ptr<PktInfo> pkt_info_;

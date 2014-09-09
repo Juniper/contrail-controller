@@ -111,7 +111,7 @@ public:
             delete [] buf;
             return;
         }
-        agent->hdr_cmd = htons(AGENT_TRAP_DIAG);
+        agent->hdr_cmd = htons(AgentHdr::TRAP_DIAG);
         agent->hdr_cmd_param = htonl(ntohs(agent->hdr_ifindex));
 
         const unsigned char smac[] = {0x00, 0x25, 0x90, 0xc4, 0x82, 0x2c};

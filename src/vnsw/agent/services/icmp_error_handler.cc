@@ -21,7 +21,7 @@ IcmpErrorHandler::~IcmpErrorHandler() {
 }
 
 bool IcmpErrorHandler::ValidatePacket() {
-    if (pkt_info_->len < (IPC_HDR_LEN + sizeof(ethhdr) + sizeof(iphdr)))
+    if (pkt_info_->len < (EncapHeaderLen() + sizeof(ethhdr) + sizeof(iphdr)))
         return false;
     return true;
 }
@@ -117,7 +117,7 @@ bool IcmpErrorHandler::SendIcmpError(VmInterface *intf) {
     len += data_len;
     IcmpChecksum(icmp, sizeof(icmphdr) + data_len);
 
-    Send(len, GetInterfaceIndex(), pkt_info_->vrf, AGENT_CMD_SWITCH,
+    Send(len, GetInterfaceIndex(), pkt_info_->vrf, AgentHdr::TX_SWITCH,
          PktHandler::ICMP);
     return true;
 }

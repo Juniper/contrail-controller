@@ -907,7 +907,7 @@ void PktFlowInfo::EgressProcess(const PktInfo *pkt, PktControlInfo *in,
 
 bool PktFlowInfo::Process(const PktInfo *pkt, PktControlInfo *in,
                           PktControlInfo *out) {
-    if (pkt->agent_hdr.cmd == AGENT_TRAP_ECMP_RESOLVE) {
+    if (pkt->agent_hdr.cmd == AgentHdr::TRAP_ECMP_RESOLVE) {
         RewritePktInfo(pkt->agent_hdr.cmd_param);
     }
 

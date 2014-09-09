@@ -373,7 +373,7 @@ bool DhcpHandler::HandleVmRequest() {
     }
 
     // options length = pkt length - size of headers
-    int16_t options_len = pkt_info_->len - IPC_HDR_LEN - sizeof(ethhdr) 
+    int16_t options_len = pkt_info_->len - EncapHeaderLen() - sizeof(ethhdr) 
                           - sizeof(iphdr) - sizeof(udphdr) - DHCP_FIXED_LEN;
     if (!ReadOptions(options_len))
         return true;
@@ -688,7 +688,7 @@ bool DhcpHandler::CreateRelayPacket() {
     memcpy((uint8_t *)dhcp, (uint8_t *)dhcp_, DHCP_FIXED_LEN);
     memcpy(dhcp->options, DHCP_OPTIONS_COOKIE, 4);
 
-    int16_t opt_rem_len = in_pkt_info.len - IPC_HDR_LEN - sizeof(ethhdr) 
+    int16_t opt_rem_len = in_pkt_info.len - EncapHeaderLen() - sizeof(ethhdr) 
                           - sizeof(iphdr) - sizeof(udphdr) - DHCP_FIXED_LEN - 4;
     uint16_t opt_len = 4;
     DhcpOptions *read_opt = (DhcpOptions *)(dhcp_->options + 4);
@@ -817,7 +817,7 @@ void DhcpHandler::RelayRequestToFabric() {
     CreateRelayPacket();
     DhcpProto *dhcp_proto = agent()->GetDhcpProto();
     Send(pkt_info_->len, dhcp_proto->ip_fabric_interface_index(),
-         pkt_info_->vrf, AGENT_CMD_SWITCH, PktHandler::DHCP);
+         pkt_info_->vrf, AgentHdr::TX_SWITCH, PktHandler::DHCP);
     dhcp_proto->IncrStatsRelayReqs();
 }
 
@@ -840,7 +840,7 @@ void DhcpHandler::RelayResponseFromFabric() {
     }
 
     Send(pkt_info_->len, vm_itf_index_,
-         pkt_info_->vrf, AGENT_CMD_SWITCH, PktHandler::DHCP);
+         pkt_info_->vrf, AgentHdr::TX_SWITCH, PktHandler::DHCP);
     agent()->GetDhcpProto()->IncrStatsRelayResps();
 }
 
@@ -1481,16 +1481,16 @@ uint16_t DhcpHandler::DhcpHdr(in_addr_t yiaddr, in_addr_t siaddr) {
 uint16_t DhcpHandler::FillDhcpResponse(unsigned char *dest_mac,
                                        in_addr_t src_ip, in_addr_t dest_ip,
                                        in_addr_t siaddr, in_addr_t yiaddr) {
-    pkt_info_->eth = (ethhdr *)(pkt_info_->pkt + IPC_HDR_LEN);
+    pkt_info_->eth = (ethhdr *)(pkt_info_->pkt + EncapHeaderLen());
     EthHdr(agent()->pkt()->pkt_handler()->mac_address(), dest_mac, 0x800);
     uint16_t header_len = sizeof(ethhdr);
     if (vm_itf_->vlan_id() != VmInterface::kInvalidVlanId) {
         // cfi and priority are zero
-        VlanHdr(pkt_info_->pkt + IPC_HDR_LEN + 12, vm_itf_->vlan_id());
+        VlanHdr(pkt_info_->pkt + EncapHeaderLen() + 12, vm_itf_->vlan_id());
         header_len += sizeof(vlanhdr);
     }
 
-    pkt_info_->ip = (iphdr *)(pkt_info_->pkt + IPC_HDR_LEN + header_len);
+    pkt_info_->ip = (iphdr *)(pkt_info_->pkt + EncapHeaderLen() + header_len);
     pkt_info_->transp.udp = (udphdr *)(pkt_info_->ip + 1);
     dhcphdr *dhcp = (dhcphdr *)(pkt_info_->transp.udp + 1);
     dhcp_ = dhcp;
@@ -1537,7 +1537,7 @@ void DhcpHandler::SendDhcpResponse() {
 
     uint16_t len = FillDhcpResponse(dest_mac, src_ip, dest_ip, siaddr, yiaddr);
     Send(len, GetInterfaceIndex(), pkt_info_->vrf,
-         AGENT_CMD_SWITCH, PktHandler::DHCP);
+         AgentHdr::TX_SWITCH, PktHandler::DHCP);
 }
 
 void DhcpHandler::UpdateStats() {
