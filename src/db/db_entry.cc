@@ -45,6 +45,20 @@ const DBState *DBEntryBase::GetState(const DBTableBase *tbl_base,
     return NULL;
 }
 
+//
+// Concurrency: called from arbitrary task.
+//
+// Evaluate concurrency issues with DBTablePartBase::RunNotify when making
+// changes to this method.  We expect that either this method or RunNotify
+// is responsible for removing the DBEntryBase when they run concurrently,
+// assuming the DBEntryBase is eligible for removal.  The dbstate_mutex in
+// in DBTablePartBase is used for synchronization.
+//
+// Remove DBState on this DBEntryBase for the given listener and enqueue
+// for removal if appropriate.
+// Note that the entry cannot be removed from DBTablePartBase here since
+// this method may be called from an arbitrary Task.
+//
 void DBEntryBase::ClearState(DBTableBase *tbl_base, ListenerId listener) {
     DBTablePartBase *tpart = tbl_base->GetTablePartition(this);
     tbb::mutex::scoped_lock lock(tpart->dbstate_mutex());

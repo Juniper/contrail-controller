@@ -28,24 +28,37 @@ void DBTablePartBase::Notify(DBEntryBase *entry) {
     }
 }
 
-// concurrency: called from DBPartition task.
+//
+// Concurrency: called from db::DBTable task.
+//
+// Evaluate concurrency issues with DBEntryBase::ClearState when making
+// changes to this method. We expect that either this method or ClearState
+// is responsible for removing the DBEntryBase when they run concurrently,
+// assuming the DBEntryBase is eligible for removal. The dbstate_mutex is
+// used for synchronization.
+//
 bool DBTablePartBase::RunNotify() {
     for (int i = 0; ((i < kMaxIterations) && !change_list_.empty()); ++i) {
         DBEntryBase *entry = &change_list_.front();
         change_list_.pop_front();
 
         parent()->RunNotify(this, entry);
+        entry->clear_onlist();
 
         // If the entry is marked deleted and all DBStates are removed
         // and it's not already on the remove queue, it can be removed
         // from the tree right away.
+        //
+        // Note that IsOnRemoveQ must be called after is_state_empty as
+        // synchronization with DBEntryBase::ClearState happens via the
+        // call to is_state_empty, and ClearState can set the OnRemoveQ
+        // bit in the entry.
         if (entry->IsDeleted() && entry->is_state_empty(this) &&
             !entry->IsOnRemoveQ()) {
             Remove(entry);
-        } else {
-            entry->clear_onlist();
         }
     }
+
     if (!change_list_.empty()) {
         DB *db = parent()->database();
         DBPartition *partition = db->GetPartition(index_);
