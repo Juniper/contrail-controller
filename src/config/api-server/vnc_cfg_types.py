@@ -77,7 +77,6 @@ class FloatingIpServer(FloatingIpServerGen):
             return (False, (500, 'Internal error : ' + pformat(proj_dict)))
 
         obj_type = 'floating-ip'
-        QuotaHelper.ensure_quota_project_present(obj_type, proj_uuid, proj_dict, db_conn)
 
         if 'floating_ip_back_refs' in proj_dict:
             quota_count = len(proj_dict['floating_ip_back_refs'])
@@ -256,7 +255,6 @@ class LogicalRouterServer(LogicalRouterServerGen):
             return (False, (500, 'Internal error : ' + pformat(proj_dict)))
 
         obj_type = 'logical-router'
-        QuotaHelper.ensure_quota_project_present(obj_type, proj_uuid, proj_dict, db_conn)
         if 'logical_routers' in proj_dict:
             quota_count = len(proj_dict['logical_routers'])
             (ok, quota_limit) = QuotaHelper.check_quota_limit(proj_dict, obj_type, quota_count)
@@ -280,23 +278,21 @@ class VirtualMachineInterfaceServer(VirtualMachineInterfaceServerGen):
             if not vn_fq_name:
                 return (False, (500, 'Internal error : ' + pformat(vn_dict)))
             vn_uuid = db_conn.fq_name_to_uuid('virtual-network', vn_fq_name)
-        (ok, vn_dict) = QuotaHelper.get_objtype_dict(vn_uuid, 'virtual-network', db_conn)
+        (ok, vn_dict) = db_conn.dbe_read('virtual-network', {'uuid':vn_uuid})
         if not ok:
             return (False, (500, 'Internal error : ' + pformat(vn_dict)))
 
-        if vn_dict['parent_type'] == 'project':
-            proj_uuid = vn_dict['parent_uuid']
-            (ok, proj_dict) = QuotaHelper.get_project_dict(proj_uuid, db_conn)
-            if not ok:
-                return (False, (500, 'Internal error : ' + pformat(proj_dict)))
+        proj_uuid = obj_dict['parent_uuid']
+        (ok, proj_dict) = QuotaHelper.get_project_dict(proj_uuid, db_conn)
+        if not ok:
+            return (False, (500, 'Internal error : ' + pformat(proj_dict)))
 
-            obj_type = 'virtual-machine-interface'
-            QuotaHelper.ensure_quota_project_present(obj_type, proj_uuid, proj_dict, db_conn)
-            if 'virtual_machine_interfaces' in proj_dict:
-                quota_count = len(proj_dict['virtual_machine_interfaces'])
-                (ok, quota_limit) = QuotaHelper.check_quota_limit(proj_dict, obj_type, quota_count)
-                if not ok:
-                    return (False, (403, pformat(obj_dict['fq_name']) + ' : ' + quota_limit))
+        obj_type = 'virtual-machine-interface'
+        if 'virtual_machine_interfaces' in proj_dict:
+            quota_count = len(proj_dict['virtual_machine_interfaces'])
+            (ok, quota_limit) = QuotaHelper.check_quota_limit(proj_dict, obj_type, quota_count)
+            if not ok:
+                return (False, (403, pformat(obj_dict['fq_name']) + ' : ' + quota_limit))
 
         inmac = None
         if 'virtual_machine_interface_mac_addresses' in obj_dict:
@@ -358,7 +354,6 @@ class VirtualNetworkServer(VirtualNetworkServerGen):
             return (False, (500, 'Internal error : ' + pformat(proj_dict)))
 
         obj_type = 'virtual-network'
-        QuotaHelper.ensure_quota_project_present(obj_type, proj_uuid, proj_dict, db_conn)
         if 'virtual_networks' in proj_dict:
             quota_count = len(proj_dict['virtual_networks'])
             (ok, quota_limit) = QuotaHelper.check_quota_limit(proj_dict, obj_type, quota_count)
@@ -822,7 +817,6 @@ class SecurityGroupServer(SecurityGroupServerGen):
             return (False, (500, 'Internal error : ' + pformat(proj_dict)))
 
         obj_type = 'security-group'
-        QuotaHelper.ensure_quota_project_present(obj_type, proj_uuid, proj_dict, db_conn)
         if 'security_groups' in proj_dict:
             quota_count = len(proj_dict['security_groups'])
             (ok, quota_limit) = QuotaHelper.check_quota_limit(proj_dict, obj_type, quota_count)
@@ -836,22 +830,19 @@ class SecurityGroupServer(SecurityGroupServerGen):
 
     @classmethod
     def http_put(cls, id, fq_name, obj_dict, db_conn):
-        (ok, sec_dict) = QuotaHelper.get_objtype_dict(obj_dict['uuid'], 'security-group', db_conn)
+        (ok, sec_dict) = db_conn.dbe_read('security-group', obj_dict)
         if not ok:
-            return (False, (500, 'Bad Security Group error : ' + pformat(proj_dict)))
+            return (False, (500, 'Bad Security Group error : ' + pformat(sec_dict)))
+        (ok, proj_dict) = QuotaHelper.get_project_dict(sec_dict['parent_uuid'], db_conn)
+        if not ok:
+            return (False, (500, 'Bad Project error : ' + pformat(proj_dict)))
 
-        if sec_dict['parent_type'] == 'project':
-            (ok, proj_dict) = QuotaHelper.get_project_dict(sec_dict['parent_uuid'], db_conn)
+        obj_type = 'security-group-rule'
+        if 'security_group_entries' in obj_dict:
+            quota_count = len(obj_dict['security_group_entries']['policy_rule'])
+            (ok, quota_limit) = QuotaHelper.check_quota_limit(proj_dict, obj_type, quota_count)
             if not ok:
-                return (False, (500, 'Bad Project error : ' + pformat(proj_dict)))
-
-            obj_type = 'security-group-rule'
-            QuotaHelper.ensure_quota_project_present(obj_type, proj_dict['uuid'], proj_dict, db_conn)
-            if 'security_group_entries' in obj_dict:
-                quota_count = len(obj_dict['security_group_entries']['policy_rule'])
-                (ok, quota_limit) = QuotaHelper.check_quota_limit(proj_dict, obj_type, quota_count)
-                if not ok:
-                    return (False, (403, pformat(fq_name) + ' : ' + quota_limit))
+                return (False, (403, pformat(fq_name) + ' : ' + quota_limit))
 
         _check_policy_rule_uuid(obj_dict.get('security_group_entries'))
         return True, ""
@@ -875,7 +866,6 @@ class NetworkPolicyServer(NetworkPolicyServerGen):
             return (False, (500, 'Internal error : ' + pformat(proj_dict)))
 
         obj_type = 'network-policy'
-        QuotaHelper.ensure_quota_project_present(obj_type, proj_uuid, proj_dict, db_conn)
         if 'network-policys' in proj_dict:
             quota_count = len(proj_dict['network-policys'])
             (ok, quota_limit) = QuotaHelper.check_quota_limit(proj_dict, obj_type, quota_count)
