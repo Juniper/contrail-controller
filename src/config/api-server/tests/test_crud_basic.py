@@ -738,6 +738,24 @@ class TestVncCfgApiServer(test_case.ApiServerTestCase):
         print top_elem[0][0][-1].text
         self.assertThat(top_elem[0][0][-1].text, Contains('delete'))
         self.assertThat(top_elem[0][0][-1].text, Contains(test_obj.name))
+
+    def test_dup_create_with_same_uuid(self):
+        dom_name = self.id() + '-domain'
+        logger.info('Creating Domain %s', dom_name)
+        domain_obj = Domain(dom_name)
+        self._vnc_lib.domain_create(domain_obj)
+
+        project_name = self.id() + '-project'
+        logger.info('Creating Project %s', project_name)
+        orig_project_obj = Project(project_name, domain_obj)
+        self._vnc_lib.project_create(orig_project_obj)
+ 
+        logger.info('Creating Dup Project in default domain with same uuid')
+        dup_project_obj = Project(project_name)
+        dup_project_obj.uuid = orig_project_obj.uuid
+        with ExpectedException(RefsExistError) as e:
+            self._vnc_lib.project_create(dup_project_obj)
+
 # end class TestVncCfgApiServer
 
 class TestLocalAuth(test_case.ApiServerTestCase):
