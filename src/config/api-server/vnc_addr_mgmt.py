@@ -543,8 +543,6 @@ class AddrMgmt(object):
             return (False, 'Internal error : ' + pformat(proj_dict))
 
         obj_type = 'subnet'
-        QuotaHelper.ensure_quota_project_present(obj_type, proj_uuid,
-                                                 proj_dict, db_conn)
         for network in proj_dict.get('virtual_networks', []):
             if network['uuid'] == db_vn_dict['uuid']:
                 continue
