@@ -20,9 +20,7 @@
 #include <io/event_manager.h>
 #include <base/test/task_test_util.h>
 
-
 namespace BFD {
-
 class EventManagerThread {
     EventManager *evm;
     boost::thread thread;
@@ -56,17 +54,14 @@ class TestCommunicatorManager {
     }
 
     void sendPacket(const boost::asio::ip::address &srcAddr,
-            const boost::asio::ip::address &dstAddr, const ControlPacket *packet) {
+                    const boost::asio::ip::address &dstAddr, const ControlPacket *packet) {
         Servers::const_iterator it = servers.find(dstAddr);
-        if (it == servers.end()) {
-            LOG(INFO, "Unable to find host: " << dstAddr);
+        if (it == servers.end())
             return;
-        }
+
         ControlPacket *recvPacket = new ControlPacket(*packet);
         recvPacket->sender_host = srcAddr;
         recvPacket->length = kMinimalPacketLength;
-
-        LOG(INFO, __func__ <<  " Send packet from " << srcAddr << " to " << dstAddr << ": " << recvPacket->toString());
 
         io_service->post(boost::bind(&processPacketAndFree, it->second, recvPacket));
     }
@@ -86,14 +81,16 @@ class TestCommunicator : public Connection {
 
  public:
     TestCommunicator(TestCommunicatorManager *manager, const boost::asio::ip::address &hostAddr)
-          : manager_(manager), hostAddr_(hostAddr) {}
+      : manager_(manager), hostAddr_(hostAddr) {}
 
     virtual void SendPacket(const boost::asio::ip::address &dstAddr, const ControlPacket *packet) {
         manager_->sendPacket(hostAddr_, dstAddr, packet);
     }
 
-    virtual ~TestCommunicator() {}
+    virtual ~TestCommunicator() {
+    }
 };
+
 }  // namespace BFD
 
-#endif /* BFD_TEST_UTILS_H_ */
+#endif  // SRC_BFD_TEST_UTILS_H_

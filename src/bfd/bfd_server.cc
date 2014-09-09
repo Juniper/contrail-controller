@@ -1,6 +1,7 @@
 /*
  * Copyright (c) 2014 CodiLime, Inc. All rights reserved.
  */
+
 #include "bfd/bfd_server.h"
 #include "bfd/bfd_session.h"
 #include "bfd/bfd_connection.h"
@@ -8,27 +9,27 @@
 #include "bfd/bfd_state_machine.h"
 #include "bfd/bfd_common.h"
 
+#include <boost/foreach.hpp>
+
 #include "base/logging.h"
 #include "io/event_manager.h"
 
-boost::random::taus88 BFD::randomGen;
-
 namespace BFD {
 
-BFDSession* BFDServer::GetSession(const ControlPacket *packet) {
+Session* Server::GetSession(const ControlPacket *packet) {
     if (packet->receiver_discriminator)
-        return sessionManager_.SessionByDiscriminator(packet->receiver_discriminator);
-    else
-        return sessionManager_.SessionByAddress(packet->sender_host);
+        return session_manager_.SessionByDiscriminator(
+                packet->receiver_discriminator);
+    return session_manager_.SessionByAddress(
+            packet->sender_host);
 }
 
-BFDSession *BFDServer::sessionByAddress(const boost::asio::ip::address &address) {
+Session *Server::SessionByAddress(const boost::asio::ip::address &address) {
     tbb::mutex::scoped_lock lock(mutex_);
-    return sessionManager_.SessionByAddress(address);
+    return session_manager_.SessionByAddress(address);
 }
 
-ResultCode BFDServer::processControlPacket(const ControlPacket *packet) {
-    LOG(DEBUG, __func__ <<  " new packet: " << packet->toString() << " " << static_cast<void*>(this));
+ResultCode Server::ProcessControlPacket(const ControlPacket *packet) {
     tbb::mutex::scoped_lock lock(mutex_);
 
     ResultCode result;
@@ -37,10 +38,11 @@ ResultCode BFDServer::processControlPacket(const ControlPacket *packet) {
         LOG(ERROR, "Wrong packet: " << result);
         return result;
     }
-    BFDSession *session = NULL;
+    Session *session = NULL;
     session = GetSession(packet);
     if (session == NULL) {
-        LOG(ERROR, "Unknown session");
+        LOG(ERROR, "Unknown session: " << packet->sender_host << "/"
+                   << packet->receiver_discriminator);
         return kResultCode_UnknownSession;
     }
     LOG(DEBUG, "Found session: " << session->toString());
@@ -54,21 +56,33 @@ ResultCode BFDServer::processControlPacket(const ControlPacket *packet) {
     return kResultCode_Ok;
 }
 
-void BFDServer::createSession(const boost::asio::ip::address &remoteHost, const BFDSessionConfig *config,
-        Discriminator *assignedDiscriminator) {
+ResultCode Server::ConfigureSession(const boost::asio::ip::address &remoteHost,
+                                     const SessionConfig &config,
+                                     Discriminator *assignedDiscriminator) {
+    tbb::mutex::scoped_lock lock(mutex_);
+    return session_manager_.ConfigureSession(remoteHost, config,
+                                             communicator_,
+                                             assignedDiscriminator);
+}
+
+ResultCode Server::RemoveSessionReference(const boost::asio::ip::address
+                                          &remoteHost) {
     tbb::mutex::scoped_lock lock(mutex_);
 
-    sessionManager_.CreateOrUpdateSession(remoteHost, config, communicator_,  assignedDiscriminator);
+    return session_manager_.RemoveSessionReference(remoteHost);
 }
 
-BFDSession* BFDServer::SessionManager::SessionByDiscriminator(Discriminator discriminator) {
-    DiscriminatorSessionMap::const_iterator it = by_discriminator_.find(discriminator);
+Session* Server::SessionManager::SessionByDiscriminator(
+    Discriminator discriminator) {
+    DiscriminatorSessionMap::const_iterator it =
+            by_discriminator_.find(discriminator);
     if (it == by_discriminator_.end())
         return NULL;
-    else
-        return it->second;
+    return it->second;
 }
-BFDSession* BFDServer::SessionManager::SessionByAddress(const boost::asio::ip::address &address) {
+
+Session* Server::SessionManager::SessionByAddress(
+    const boost::asio::ip::address &address) {
     AddressSessionMap::const_iterator it = by_address_.find(address);
     if (it == by_address_.end())
         return NULL;
@@ -76,56 +90,81 @@ BFDSession* BFDServer::SessionManager::SessionByAddress(const boost::asio::ip::a
         return it->second;
 }
 
-ResultCode BFDServer::SessionManager::RemoveSession(Discriminator discriminator) {
-    DiscriminatorSessionMap::const_iterator it = by_discriminator_.find(discriminator);
-    if (it == by_discriminator_.end())
+ResultCode Server::SessionManager::RemoveSessionReference(
+    const boost::asio::ip::address &remoteHost) {
+
+    Session *session = SessionByAddress(remoteHost);
+    if (session == NULL) {
+        LOG(DEBUG, __PRETTY_FUNCTION__ << " No such session: " << remoteHost);
         return kResultCode_UnknownSession;
-    BFDSession *session = it->second;
-    by_discriminator_.erase(discriminator);
-    by_address_.erase(session->RemoteHost());
-    delete session;
+    }
+
+    if (!--refcounts_[session]) {
+        by_discriminator_.erase(session->local_discriminator());
+        by_address_.erase(session->remote_host());
+        delete session;
+    }
 
     return kResultCode_Ok;
 }
 
-ResultCode BFDServer::SessionManager::CreateOrUpdateSession(const boost::asio::ip::address &remoteHost,
-        const BFDSessionConfig *config,
-        Connection *communicator,
-        Discriminator *assignedDiscriminator) {
-    if (SessionByAddress(remoteHost))
-        // TODO update
-        return kResultCode_Ok;
+ResultCode Server::SessionManager::ConfigureSession(
+                const boost::asio::ip::address &remoteHost,
+                const SessionConfig &config,
+                Connection *communicator,
+                Discriminator *assignedDiscriminator) {
+    Session *session = SessionByAddress(remoteHost);
+    if (session) {
+        session->UpdateConfig(config);
+        refcounts_[session]++;
 
-    *assignedDiscriminator = GenerateUniqDiscriminator();
-    BFDSession *session = new BFDSession(*assignedDiscriminator, remoteHost, evm_, config, communicator);
+        LOG(INFO, __func__ << ": Reference count incremented: "
+                  << session->remote_host() << "/"
+                  << session->local_discriminator() << ","
+                  << refcounts_[session] << " refs");
+
+        return kResultCode_Ok;
+    }
+
+    *assignedDiscriminator = GenerateUniqueDiscriminator();
+    session = new Session(*assignedDiscriminator, remoteHost, evm_, config,
+                          communicator);
+
     by_discriminator_[*assignedDiscriminator] = session;
     by_address_[remoteHost] = session;
+    refcounts_[session] = 1;
+
+    LOG(INFO, __func__ << ": New session configured: " << remoteHost << "/"
+              << *assignedDiscriminator);
 
     return kResultCode_Ok;
 }
 
-class DiscriminatorGenerator {
-    tbb::atomic<Discriminator> next_;
+Discriminator Server::SessionManager::GenerateUniqueDiscriminator() {
+    class DiscriminatorGenerator {
+     public:
+        DiscriminatorGenerator() {
+            next_ = random()%0x1000000 + 1;
+        }
 
- public:
-    DiscriminatorGenerator() {
-        next_ = random()%0x1000000 + 1;
-    }
-    Discriminator Next() {
-        return next_.fetch_and_increment();
-    }
-};
+        Discriminator Next() {
+            return next_.fetch_and_increment();
+        }
 
-static DiscriminatorGenerator generator;
+     private:
+        tbb::atomic<Discriminator> next_;
+    };
 
-Discriminator BFDServer::SessionManager::GenerateUniqDiscriminator() {
+    static DiscriminatorGenerator generator;
+
     return generator.Next();
 }
 
-BFDServer::SessionManager::~SessionManager() {
-    for (DiscriminatorSessionMap::iterator it = by_discriminator_.begin(); it != by_discriminator_.end(); ++it)
+Server::SessionManager::~SessionManager() {
+    for (DiscriminatorSessionMap::iterator it = by_discriminator_.begin();
+         it != by_discriminator_.end(); ++it) {
+        it->second->Stop();
         delete it->second;
-    by_discriminator_.clear();
-    by_address_.clear();
+    }
 }
 }  // namespace BFD
