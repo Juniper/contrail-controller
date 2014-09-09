@@ -99,6 +99,17 @@ const map<string, u16> ServiceHttpPortMap = {
     SERVICE_STORAGE_STATS_MGR : HttpPortStorageStatsmgr,
 }
 
+const list<string> NodeUVEImplementedServices = [
+    SERVICE_VROUTER_AGENT,
+    SERVICE_CONTROL_NODE,
+    SERVICE_COLLECTOR,
+    SERVICE_QUERY_ENGINE,
+    SERVICE_OPSERVER,
+    SERVICE_API_SERVER,
+    SERVICE_SCHEMA_TRANSFORMER,
+    SERVICE_SVC_MONITOR,
+]
+
 enum Module {
     CONTROL_NODE,
     VROUTER_AGENT,
