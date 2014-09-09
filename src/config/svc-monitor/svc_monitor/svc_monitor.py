@@ -333,33 +333,16 @@ class SvcMonitor(object):
     def _delmsg_project_service_instance(self, idents):
         proj_fq_str = idents['project']
         si_fq_str = idents['service-instance']
-        proj_obj = self._vnc_lib.project_read(fq_name_str=proj_fq_str)
 
-        # Service instance SNAT NetNS have a dedicated left network (non
-        # shared vn)
-        vn_name = 'svc_snat_%s' % si_fq_str.split(':')[2]
-        vn_fq_name = proj_obj.get_fq_name() + [vn_name]
-        try:
-            vn_uuid = self._vnc_lib.fq_name_to_id('virtual-network',
-                                                  vn_fq_name)
-            self.db.cleanup_table_insert(
-                vn_uuid, {'proj_name': proj_obj.name, 'type': 'vn'})
-        except NoIdError:
-            pass
-
-        if proj_obj.get_service_instances() is not None:
+        si_info = self.db.service_instance_get(si_fq_str)
+        if not si_info:
             return
 
-        # no SIs left hence delete shared VNs
-        for vn_name in svc_info.get_shared_vn_list():
-            vn_fq_name = proj_obj.get_fq_name() + [vn_name]
-            try:
-                vn_uuid = self._vnc_lib.fq_name_to_id(
-                    'virtual-network', vn_fq_name)
-                self.db.cleanup_table_insert(
-                    vn_uuid, {'proj_name': proj_obj.name, 'type': 'vn'})
-            except Exception:
-                pass
+        virt_type = si_info['instance_type']
+        if virt_type == 'virtual-machine':
+            self.vm_manager.clean_resources(proj_fq_str, si_fq_str)
+        elif virt_type == 'network-namespace':
+            self.netns_manager.clean_resources(proj_fq_str, si_fq_str)
     # end _delmsg_project_service_instance
 
     def _delmsg_service_instance_service_template(self, idents):
