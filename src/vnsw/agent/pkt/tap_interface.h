@@ -6,17 +6,19 @@
 #define vnsw_agent_pkt_tap_intf_hpp
 
 #include <string>
+#include <net/ethernet.h>
+#include <linux/if_ether.h>
 #include <boost/bind.hpp>
 #include <boost/function.hpp>
 #include <boost/asio.hpp>
 
-#include "vr_types.h"
+#include <cmn/agent.h>
+#include <pkt/packet_buffer.h>
 #include "vr_defs.h"
-#include "vr_mpls.h"
 
 // Tap Interface handler to read or write to the "pkt0" interface.
 // Packets reads from the tap are given to the registered callback.
-// Write to the tap interface using AsyncWrite.
+// Write to the tap interface using Send().
 class TapInterface {
 public:
     static const uint32_t kAgentHdrLen =
@@ -34,8 +36,13 @@ public:
     int tap_fd() const { return tap_fd_; }
     const unsigned char *mac_address() const { return mac_address_; }
     virtual void SetupTap();
-    virtual void AsyncWrite(uint8_t *buf, std::size_t len);
 
+    void WritePacketBufferHandler
+        (const boost::system::error_code &error, std::size_t length,
+         PacketBufferPtr pkt, uint8_t *buff);
+    virtual void Send(const AgentHdr &hdr, PacketBufferPtr pkt);
+
+    void Encode(uint8_t *buff, const AgentHdr &hdr);
     virtual uint32_t EncapHeaderLen() const {
         return kAgentHdrLen;
     }
@@ -45,8 +52,8 @@ protected:
     void SetupTap(const std::string& name);
     void AsyncRead();
     void ReadHandler(const boost::system::error_code &err, std::size_t length);
-    void WriteHandler(const boost::system::error_code &err, std::size_t length,
-		              uint8_t *buf);
+    virtual void Send(const std::vector<boost::asio::const_buffer> &buff_list,
+                      PacketBufferPtr pkt, uint8_t *agent_hdr_buff);
 
     int tap_fd_;
     Agent *agent_;

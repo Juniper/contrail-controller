@@ -14,6 +14,8 @@
 #include <linux/if_tun.h>
 #include <linux/if_packet.h>
 
+#include <boost/asio.hpp>
+
 #include "base/logging.h"
 #include "cmn/agent_cmn.h"
 #include "tap_interface.h"
@@ -21,7 +23,8 @@
 #include "sandesh/sandesh.h"
 #include "sandesh/sandesh_trace.h"
 #include "pkt/pkt_types.h"
-#include "pkt_init.h"
+#include "pkt/pkt_handler.h"
+#include "pkt/pkt_init.h"
 
 #define TUN_INTF_CLONE_DEV "/dev/net/tun"
 
@@ -149,20 +152,51 @@ void TapInterface::SetupTap() {
     }
 }
 
-void TapInterface::AsyncWrite(uint8_t *buf, std::size_t len) {
-    input_.async_write_some(boost::asio::buffer(buf, len), 
-                            boost::bind(&TapInterface::WriteHandler, this,
-                                 boost::asio::placeholders::error,
-                                 boost::asio::placeholders::bytes_transferred,
-                                 buf));
+void TapInterface::Encode(uint8_t *buff, const AgentHdr &hdr) {
+    bzero(buff, sizeof(agent_hdr));
+
+    // Add outer ethernet header
+    struct ethhdr *eth = (ethhdr *)buff;
+    eth->h_source[ETH_ALEN-1] = 1;
+    eth->h_dest[ETH_ALEN-1] = 2;
+    eth->h_proto = htons(0x800);
+
+    // Fill agent_hdr
+    agent_hdr *vr_agent_hdr = (agent_hdr *) (eth + 1);
+
+    vr_agent_hdr->hdr_ifindex = htons(hdr.ifindex);
+    vr_agent_hdr->hdr_vrf = htons(hdr.vrf);
+    vr_agent_hdr->hdr_cmd = htons(hdr.cmd);
 }
 
-void TapInterface::WriteHandler(const boost::system::error_code &error,
-                                std::size_t length, uint8_t *buf) {
+void TapInterface::WritePacketBufferHandler
+    (const boost::system::error_code &error, std::size_t length,
+     PacketBufferPtr pkt, uint8_t *buff) {
     if (error)
         TAP_TRACE(Err, 
                   "Packet Tap Error <" + error.message() + "> sending packet");
-    delete [] buf;
+
+    delete [] buff;
+}
+
+void TapInterface::Send(const std::vector<boost::asio::const_buffer> &buff_list,
+                        PacketBufferPtr pkt, uint8_t *agent_hdr_buff) {
+    input_.async_write_some(buff_list,
+                            boost::bind(&TapInterface::WritePacketBufferHandler,
+                                        this,
+                                        boost::asio::placeholders::error,
+                                        boost::asio::placeholders::bytes_transferred,
+                                        pkt, agent_hdr_buff));
+}
+
+void TapInterface::Send(const AgentHdr &hdr, PacketBufferPtr pkt) {
+    std::vector<boost::asio::const_buffer> buff_list;
+    uint8_t *agent_hdr_buff = new uint8_t [EncapHeaderLen()];
+
+    Encode(agent_hdr_buff, hdr);
+    buff_list.push_back(boost::asio::buffer(agent_hdr_buff, EncapHeaderLen()));
+    buff_list.push_back(boost::asio::buffer(pkt->data(), pkt->data_len()));
+    Send(buff_list, pkt, agent_hdr_buff);
 }
 
 void TapInterface::ReadHandler(const boost::system::error_code &error,

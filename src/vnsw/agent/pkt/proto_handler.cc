@@ -5,6 +5,7 @@
 #include "vr_defs.h"
 #include "pkt/proto_handler.h"
 #include "pkt/pkt_init.h"
+#include "pkt/packet_buffer.h"
 
 ///////////////////////////////////////////////////////////////////////////////
 
@@ -22,27 +23,18 @@ uint32_t ProtoHandler::EncapHeaderLen() const {
 // send packet to the pkt0 interface
 void ProtoHandler::Send(uint16_t len, uint16_t itf, uint16_t vrf, 
                         uint16_t cmd, PktHandler::PktModuleName mod) {
-    // update the outer header
-    struct ethhdr *eth = (ethhdr *)pkt_info_->pkt;
-    std::string tmp_str((char *)eth->h_source, ETH_ALEN);
-    memcpy(eth->h_source, eth->h_dest, ETH_ALEN);
-    memcpy(eth->h_dest, tmp_str.data(), ETH_ALEN);
-    eth->h_proto = htons(0x800);
-
-    // add agent header
-    agent_hdr *agent = (agent_hdr *) (eth + 1);
-    agent->hdr_ifindex = htons(itf);
-    agent->hdr_vrf = htons(vrf);
-    agent->hdr_cmd = htons(cmd);
-    len += EncapHeaderLen();
-
-    if (agent_->pkt()->pkt_handler()) {
-        agent_->pkt()->pkt_handler()->Send(pkt_info_->pkt, len, mod);
-    } else {
-        delete [] pkt_info_->pkt;
+    // If pkt_info_->pkt is non-NULL, pkt is freed in destructor of pkt_info_
+    if (agent_->pkt()->pkt_handler() == NULL) {
+        return;
     }
 
+    uint16_t offset = (uint8_t *)pkt_info_->eth - pkt_info_->pkt;
+    PacketBufferPtr buff = agent_->pkt()->packet_buffer_manager()->Allocate
+        (mod, pkt_info_->pkt, len, offset, len, 0);
     pkt_info_->pkt = NULL;
+
+    AgentHdr hdr(itf, vrf, cmd);
+    agent_->pkt()->pkt_handler()->Send(hdr, buff);
 }
 
 uint16_t ProtoHandler::EthHdr(char *buff, uint8_t len, const unsigned char *src,
