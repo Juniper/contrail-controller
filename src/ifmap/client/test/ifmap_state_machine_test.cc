@@ -89,8 +89,8 @@ protected:
                         boost::system::system_category()),
             connect_failure_count_(0) {
         ifmap_manager_.SetChannel(mock_channel_);
-        ifmap_manager_.state_machine()->set_connect_wait_interval_ms(5);
-        ifmap_manager_.state_machine()->set_response_wait_interval_ms(30);
+        ifmap_manager_.state_machine()->set_max_connect_wait_interval_ms(5);
+        ifmap_manager_.state_machine()->set_max_response_wait_interval_ms(30);
     }
 
     void Start(const std::string &host, const std::string &port) {
@@ -324,7 +324,7 @@ TEST_F(IFMapStateMachineTest, ReadPollRespError) {
 TEST_F(IFMapStateMachineTest, SevenSsrcConnectErrors) {
 
     // Set the response time to a very high value so that we dont run into it.
-    state_machine()->set_response_wait_interval_ms(1000);
+    state_machine()->set_max_response_wait_interval_ms(1000);
 
     // 1 regular, 7 connect failures
     EXPECT_CALL(*mock_channel(), DoResolve())

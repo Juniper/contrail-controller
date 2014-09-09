@@ -628,8 +628,6 @@ void IFMapChannel::ProcResponse(const boost::system::error_code& error,
     reply_ss_.str(std::string());
     reply_ss_.clear();
 
-    IFMAP_PEER_DEBUG(IFMapServerConnection, "IFMapChannel::ProcResponse",
-                     GetSizeAsString(reply_.size(), " bytes in reply_. "));
     reply_ss_ << &reply_;
     std::string reply_str = reply_ss_.str();
 

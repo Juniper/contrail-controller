@@ -86,17 +86,9 @@ systemlog sandesh IFMapChannelUnregisterMessage {
     2: string client_name (key="ObjectVRouter")
 }
 
-systemlog sandesh IFMapSmStartTimerMessage {
+systemlog sandesh IFMapSmExpiredTimerMessage {
     1: u32 value
     2: string message
-}
-
-systemlog sandesh IFMapSmCancelTimerMessage {
-    1: string message
-}
-
-systemlog sandesh IFMapSmExpiredTimerMessage {
-    1: string message
 }
 
 systemlog sandesh IFMapSmTransitionMessage {
@@ -276,17 +268,9 @@ trace sandesh IFMapChannelUnregisterMessageTrace {
     2: string client_name (key="ObjectVRouter")
 }
 
-trace sandesh IFMapSmStartTimerMessageTrace {
+trace sandesh IFMapSmExpiredTimerMessageTrace {
     1: u32 value
     2: string message
-}
-
-trace sandesh IFMapSmCancelTimerMessageTrace {
-    1: string message
-}
-
-trace sandesh IFMapSmExpiredTimerMessageTrace {
-    1: string message
 }
 
 trace sandesh IFMapSmTransitionMessageTrace {
