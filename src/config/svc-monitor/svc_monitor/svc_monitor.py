@@ -422,7 +422,7 @@ class SvcMonitor(object):
 
         # check if this is a service vm
         si_list = vm_obj.get_service_instance_refs()
-        if si_list:
+        if not si_list:
             return
 
         vm_info = self.db.virtual_machine_get(vm_obj.uuid)
