@@ -1946,8 +1946,12 @@ class DBInterface(object):
             fip_obj = self._vnc_lib.floating_ip_read(id=fip_q['id'])
 
         if fip_q.get('port_id'):
-            port_obj = self._virtual_machine_interface_read(
-                port_id=fip_q['port_id'])
+            try:
+                port_obj = self._virtual_machine_interface_read(
+                    port_id=fip_q['port_id'])
+            except NoIdError:
+                self._raise_contrail_exception(
+                    404, exceptions.PortNotFound(port_id=fip_q['port_id']))
             fip_obj.set_virtual_machine_interface(port_obj)
         else:
             fip_obj.set_virtual_machine_interface_list([])
