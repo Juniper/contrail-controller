@@ -803,6 +803,8 @@ bool BgpPeer::SendUpdate(const uint8_t *msg, size_t msgsize) {
     peer_stats_->proto_stats_[1].update++;
     inc_tx_route_update();
     if (!send_ready_) {
+        BGP_LOG_PEER(Event, this, SandeshLevel::SYS_DEBUG, BGP_LOG_FLAG_ALL,
+                     BGP_PEER_DIR_NA, "Send blocked");
         BgpPeerInfoData peer_info;
         peer_info.set_name(ToUVEKey());
         peer_info.set_send_state("not in sync");
@@ -1222,6 +1224,8 @@ bool BgpPeer::KeepaliveTimerRunning() {
 
 void BgpPeer::SetSendReady() {
     tbb::spin_mutex::scoped_lock lock(spin_mutex_);
+    BGP_LOG_PEER(Event, this, SandeshLevel::SYS_DEBUG, BGP_LOG_FLAG_ALL,
+                 BGP_PEER_DIR_NA, "Send ready");
     send_ready_ = true;
     if (session_ != NULL)
         StartKeepaliveTimerUnlocked();

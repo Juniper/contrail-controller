@@ -135,16 +135,6 @@ do {                                                                       \
                           instance, _os.str());                            \
 } while (false)
 
-#define BGP_LOG_SCHEDULING_GROUP(peer, arg)                                \
-do {                                                                       \
-    if (LoggingDisabled()) break;                                          \
-    BGP_LOG_SERVER(peer, (BgpTable *) 0);                                  \
-    ostringstream _os;                                                     \
-    _os << arg;                                                            \
-    BGP_LOG_PEER_INTERNAL(SchedulingGroup, peer, SandeshLevel::SYS_DEBUG,  \
-                          BGP_LOG_FLAG_TRACE, BGP_PEER_DIR_NA, _os.str()); \
-} while (false)
-
 // Bgp Route specific logging macro
 #define BGP_LOG_ROUTE(table, peer, route, arg)                             \
 do {                                                                       \

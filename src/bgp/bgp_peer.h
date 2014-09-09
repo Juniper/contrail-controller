@@ -207,6 +207,9 @@ public:
     bool IsControlNode() const { return control_node_; }
     void RegisterToVpnTables(bool established);
 
+    StateMachine *state_machine() { return state_machine_.get(); }
+    const StateMachine *state_machine() const { return state_machine_.get(); }
+
 private:
     friend class BgpConfigTest;
     friend class BgpPeerTest;
@@ -239,7 +242,6 @@ private:
     void PostCloseRelease();
     void CustomClose();
 
-    StateMachine *state_machine() { return state_machine_.get(); }
     std::string BytesToHexString(const u_int8_t *msg, size_t size);
 
     BgpServer *server_;
