@@ -366,10 +366,7 @@ class DBInterface(object):
     def _virtual_network_update(self, net_obj):
         try:
             self._vnc_lib.virtual_network_update(net_obj)
-        except PermissionDenied as e:
-            exc_info = {'type': 'BadRequest', 'message': str(e)}
-            bottle.abort(400, json.dumps(exc_info))
-        except RefsExistError as e:
+        except (PermissionDenied, RefsExistError) as e:
             self._raise_contrail_exception(400, 'BadRequest',
                 resource='network', msg=str(e))
 
@@ -1292,9 +1289,8 @@ class DBInterface(object):
         pfx = str(cidr.network)
         pfx_len = int(cidr.prefixlen)
         if cidr.version != 4:
-            exc_info = {'type': 'BadRequest',
-                        'message': "Bad subnet request: IPv6 is not supported"}
-            bottle.abort(400, json.dumps(exc_info))
+            self._raise_contrail_exception(400, 'BadRequest',
+                resource='subnet', msg='IPv6 is not supported')
         elif cidr.version != int(subnet_q['ip_version']):
             msg = _("cidr '%s' does not match the ip_version '%s'") \
                     %(subnet_q['cidr'], subnet_q['ip_version'])
@@ -1676,8 +1672,8 @@ class DBInterface(object):
                     instance_obj = self._ensure_instance_exists(instance_name)
                     port_obj.set_virtual_machine(instance_obj)
                 except RefsExistError as e:
-                    exc_info = {'type': 'BadRequest', 'message': str(e)}
-                    bottle.abort(400, json.dumps(exc_info))
+                    self._raise_contrail_exception(400, 'BadRequest',
+                                                   resource='port', msg=str(e))
 
         if 'device_owner' in port_q:
             port_obj.set_virtual_machine_interface_device_owner(port_q.get('device_owner'))
@@ -2312,18 +2308,10 @@ class DBInterface(object):
                 if subnet_key == self._subnet_vnc_get_key(subnet, net_id):
                     existing_sn_id = self._subnet_vnc_read_mapping(key=subnet_key)
                     # duplicate !!
-                    data = {'subnet_cidr': subnet_q['cidr'],
-                            'sub_id': existing_sn_id}
-                    msg = (_("Cidr %(subnet_cidr)s "
-                             "overlaps with another subnet"
-                             "of subnet %(sub_id)s") % data)
-                    exc_info = {'type': 'BadRequest',
-                                'message': msg}
-                    bottle.abort(400, json.dumps(exc_info))
-                    subnet_info = self._subnet_vnc_to_neutron(subnet,
-                                                              net_obj,
-                                                              ipam_fq_name)
-                    return subnet_info
+                    msg = _("Cidr %s overlaps with another subnet of subnet %s"
+                            ) % (subnet_q['cidr'], existing_sn_id)
+                    self._raise_contrail_exception(400, 'BadRequest',
+                                                   resource='subnet', msg=msg)
             vnsn_data = net_ipam_ref['attr']
             vnsn_data.ipam_subnets.append(subnet_vnc)
             # TODO: Add 'ref_update' API that will set this field
@@ -2370,15 +2358,15 @@ class DBInterface(object):
     def subnet_update(self, subnet_id, subnet_q):
         if 'gateway_ip' in subnet_q:
             if subnet_q['gateway_ip'] != None:
-                exc_info = {'type': 'BadRequest',
-                            'message': "update of gateway is not supported"}
-                bottle.abort(400, json.dumps(exc_info))
+                self._raise_contrail_exception(
+                    400, 'BadRequest', resource='subnet',
+                    msg="update of gateway is not supported")
  
         if 'allocation_pools' in subnet_q:
             if subnet_q['allocation_pools'] != None:
-                exc_info = {'type': 'BadRequest',
-                            'message': "update of allocation_pools is not allowed"}
-                bottle.abort(400, json.dumps(exc_info))
+                self._raise_contrail_exception(
+                    400, 'BadRequest', resource='subnet',
+                    msg="update of allocation_pools is not allowed")
 
         subnet_key = self._subnet_vnc_read_mapping(id=subnet_id)
         net_id = subnet_key.split()[0]
@@ -2707,9 +2695,9 @@ class DBInterface(object):
                 try:
                     net_obj = self._virtual_network_read(net_id=network_id)
                     if not net_obj.get_router_external():
-                        exc_info = {'type': 'BadRequest',
-                                    'message': "Network %s is not a valid external network" % network_id}
-                        bottle.abort(400, json.dumps(exc_info))
+                        self._raise_contrail_exception(
+                            400, 'BadRequest', resource='router',
+                            msg="Network %s is not a valid external network" % network_id)
                 except NoIdError:
                     self._raise_contrail_exception(404, 'NetworkNotFound',
                                                    net_id=network_id)
@@ -2726,9 +2714,8 @@ class DBInterface(object):
             st_obj = self._vnc_lib.service_template_read(
                 fq_name=SNAT_SERVICE_TEMPLATE_FQ_NAME)
         except NoIdError:
-            msg = _("Unable to set or clear the default gateway")
-            exc_info = {'type': 'BadRequest', 'message': msg}
-            bottle.abort(400, json.dumps(exc_info))
+            self._raise_contrail_exception(400, 'BadRequest', resouce='router',
+                msg="Unable to set or clear the default gateway")
 
         # Get the service instance if it exists
         si_name = 'si_' + router_obj.uuid
@@ -3038,9 +3025,8 @@ class DBInterface(object):
                         msg = (_("Cidr %(subnet_cidr)s of subnet "
                                  "%(subnet_id)s overlaps with cidr %(cidr)s "
                                  "of subnet %(sub_id)s") % data)
-                        exc_info = {'type': 'BadRequest',
-                                    'message': msg}
-                        bottle.abort(400, json.dumps(exc_info))
+                        self._raise_contrail_exception(
+                            400, 'BadRequest', resource='router', msg=msg)
         except NoIdError:
             pass
 
@@ -3056,9 +3042,9 @@ class DBInterface(object):
                                                device_id=port['device_id'])
             fixed_ips = [ip for ip in port['fixed_ips']]
             if len(fixed_ips) != 1:
-                msg = _('Router port must have exactly one fixed IP')
-                exc_info = {'type': 'BadRequest', 'message': msg}
-                bottle.abort(400, json.dumps(exc_info))
+                self._raise_contrail_exception(
+                    400, 'BadRequest', resource='router',
+                    msg='Router port must have exactly one fixed IP')
             subnet_id = fixed_ips[0]['subnet_id']
             subnet = self.subnet_read(subnet_id)
             self._check_for_dup_router_subnet(router_id,
@@ -3069,9 +3055,9 @@ class DBInterface(object):
         elif subnet_id:
             subnet = self.subnet_read(subnet_id)
             if not subnet['gateway_ip']:
-                msg = _('Subnet for router interface must have a gateway IP')
-                exc_info = {'type': 'BadRequest', 'message': msg}
-                bottle.abort(400, json.dumps(exc_info))
+                self._raise_contrail_exception(
+                    400, 'BadRequest', resource='router',
+                    msg='Subnet for router interface must have a gateway IP')
             self._check_for_dup_router_subnet(router_id,
                                               subnet['network_id'],
                                               subnet_id,
@@ -3090,9 +3076,9 @@ class DBInterface(object):
             port_id = port['id']
 
         else:
-            msg = _('Either port or subnet must be specified')
-            exc_info = {'type': 'BadRequest', 'message': msg}
-            bottle.abort(400, json.dumps(exc_info))
+            self._raise_contrail_exception(
+                400, 'BadRequest', resource='router',
+                msg='Either port or subnet must be specified')
 
         self._set_snat_routing_table(router_obj, subnet['network_id'])
         vmi_obj = self._vnc_lib.virtual_machine_interface_read(id=port_id)
@@ -3138,8 +3124,8 @@ class DBInterface(object):
             else:
                 msg = _('Subnet %s not connected to router %s') % (subnet_id,
                                                                    router_id)
-                exc_info = {'type': 'BadRequest', 'message': msg}
-                bottle.abort(400, json.dumps(exc_info))
+                self._raise_contrail_exception(400, 'BadRequest',
+                                               resource='router', msg=msg)
 
         self._clear_snat_routing_table(router_obj, subnet['network_id'])
         port_obj = self._virtual_machine_interface_read(port_id)
@@ -3162,8 +3148,8 @@ class DBInterface(object):
             msg = _('Internal error when trying to create floating ip. '
                     'Please be sure the network %s is an external '
                     'network.') % (fip_q['floating_network_id'])
-            exc_info = {'type': 'BadRequest', 'message': msg}
-            bottle.abort(400, json.dumps(exc_info))
+            self._raise_contrail_exception(400, 'BadRequest',
+                                           resource='floatingip', msg=msg)
         try:
             fip_uuid = self._vnc_lib.floating_ip_create(fip_obj)
         except Exception as e:
