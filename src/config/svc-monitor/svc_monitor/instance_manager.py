@@ -47,6 +47,10 @@ class InstanceManager(object):
     def delete_service(self, vm_uuid, proj_name=None):
         pass
 
+    @abc.abstractmethod
+    def clean_resources(self, proj_fq_str, si_fq_str):
+        pass
+
     def _get_default_security_group(self, vn_obj):
         sg_fq_name = vn_obj.get_fq_name()[:-1]
         sg_fq_name.append('default')
@@ -190,6 +194,15 @@ class InstanceManager(object):
 
         return vn_obj.uuid
     # end _create_svc_vn
+
+    def _delete_svc_vn(self, vn_fq_name):
+        try:
+            vn_uuid = self._vnc_lib.fq_name_to_id('virtual-network',
+                                                  vn_fq_name)
+        except NoIdError:
+            return
+        self.db.cleanup_table_insert(
+            vn_uuid, {'proj_name': ':'.join(vn_fq_name[0:2]), 'type': 'vn'})
 
     def _get_vn_id(self, proj_obj, vn_fq_name_str, itf_type):
         vn_id = None
@@ -388,6 +401,17 @@ class VirtualMachineManager(InstanceManager):
         except nc_exc.NotFound:
             raise KeyError
 
+    def clean_resources(self, proj_fq_str, si_fq_str):
+        proj_obj = self._vnc_lib.project_read(fq_name_str=proj_fq_str)
+
+        # If project still contains SI, do not delete shared virtual networks
+        if proj_obj.get_service_instances() is not None:
+            return
+
+        # No SIs left hence delete shared VNs
+        for vn_name in svc_info.get_shared_vn_list():
+            self._delete_svc_vn(proj_obj.get_fq_name() + [vn_name])
+
     def _novaclient_get(self, proj_name, reauthenticate=False):
         # return cache copy when reauthenticate is not requested
         if not reauthenticate:
@@ -515,9 +539,18 @@ class NetworkNamespaceManager(InstanceManager):
                 (vm_obj.get_fq_name_str(), vr_obj.get_fq_name_str()))
         self._vnc_lib.virtual_machine_delete(id=vm_obj.uuid)
 
+    def clean_resources(self, proj_fq_str, si_fq_str):
+        proj_obj = self._vnc_lib.project_read(fq_name_str=proj_fq_str)
+
+        # Each service instance SNAT NetNS have a dedicated left network
+        vn_name = '%s_%s' % (svc_info.get_snat_left_network_prefix_name(),
+                             si_fq_str.split(':')[-1])
+        self._delete_svc_vn(proj_obj.get_fq_name() + [vn_name])
+
     def _create_snat_vn(self, proj_obj, si_obj, si_props, vn_fq_name_str):
         # SNAT NetNS use a dedicated network (non shared vn)
-        vn_name = 'svc-snat-%s' % si_obj.name
+        vn_name = '%s_%s' % (svc_info.get_snat_left_network_prefix_name(),
+                             si_obj.name)
         vn_fq_name = proj_obj.get_fq_name() + [vn_name]
         try:
             vn_id = self._vnc_lib.fq_name_to_id('virtual-network',
