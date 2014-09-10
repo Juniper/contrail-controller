@@ -162,6 +162,19 @@ class InstanceIpServer(InstanceIpServerGen):
             return True,  ""
 
         req_ip = obj_dict.get("instance_ip_address", None)
+
+        # If its an external network, check whether floating IP equivalent to
+        # requested fixed-IP is already reserved.
+        vn_id = {'uuid': db_conn.fq_name_to_uuid('virtual-network', vn_fq_name)}
+        (read_ok, vn_dict) = db_conn.dbe_read('virtual-network', vn_id)
+        if not read_ok:
+            return (False, (500, 'Internal error : ' + pformat(vn_dict)))
+
+        router_external = vn_dict.get('router_external', None)
+        if req_ip and router_external and \
+           cls.addr_mgmt.is_ip_allocated(req_ip, vn_fq_name):
+            return (False, (403, 'Ip address already in use'))
+
         try:
             ip_addr = cls.addr_mgmt.ip_alloc_req(
                 vn_fq_name, asked_ip_addr=req_ip)
