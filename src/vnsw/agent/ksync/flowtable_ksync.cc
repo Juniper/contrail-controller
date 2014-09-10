@@ -141,14 +141,6 @@ int FlowTableKSyncEntry::Encode(sandesh_op::type op, char *buf, int buf_len) {
     uint16_t drop_reason = VR_FLOW_DR_UNKNOWN;
     FlowEntry *rev_flow = flow_entry_->reverse_flow_entry();
 
-    //If action is NAT and reverse flow entry is not valid
-    //then we should wait for the reverse flow to be programmed
-    if ((flow_entry_->is_flags_set(FlowEntry::NatFlow) ||
-         flow_entry_->is_flags_set(FlowEntry::EcmpFlow)) &&
-        rev_flow && rev_flow->flow_handle() == FlowEntry::kInvalidFlowHandle) {
-        return 0;
-    }
-
     req.set_fr_op(flow_op::FLOW_SET);
     req.set_fr_rid(0);
     req.set_fr_index(hash_id_);
@@ -168,6 +160,14 @@ int FlowTableKSyncEntry::Encode(sandesh_op::type op, char *buf, int buf_len) {
         }
         req.set_fr_flags(0);
     } else {
+        //If action is NAT and reverse flow entry is not valid
+        //then we should wait for the reverse flow to be programmed
+        if ((flow_entry_->is_flags_set(FlowEntry::NatFlow) ||
+             flow_entry_->is_flags_set(FlowEntry::EcmpFlow)) &&
+            rev_flow && rev_flow->flow_handle() == FlowEntry::kInvalidFlowHandle) {
+            return 0;
+        }
+
         flags = VR_FLOW_FLAG_ACTIVE;
         uint32_t fe_action = flow_entry_->match_p().action_info.action;
         if ((fe_action) & (1 << TrafficAction::PASS)) {
