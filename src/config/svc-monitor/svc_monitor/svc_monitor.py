@@ -322,7 +322,7 @@ class SvcMonitor(object):
 
         # Service instance SNAT NetNS have a dedicated left network (non
         # shared vn)
-        vn_name = 'svc_snat_%s' % si_fq_str.split(':')[2]
+        vn_name = 'snat-si-left_%s' % si_fq_str.split(':')[2]
         vn_fq_name = proj_obj.get_fq_name() + [vn_name]
         try:
             vn_uuid = self._vnc_lib.fq_name_to_id('virtual-network',
