@@ -31,6 +31,7 @@ from vnc_api.vnc_api import *
 from vnc_api.common import exceptions as vnc_exceptions
 import vnc_api.gen.vnc_api_test_gen
 from vnc_api.gen.resource_test import *
+import cfgm_common
 
 sys.path.append('../common/tests')
 from test_utils import *
@@ -856,6 +857,7 @@ class TestVncCfgApiServer(test_case.ApiServerTestCase):
                     instance_ip_address=ip_allocated,
                     virtual_network_refs=[vn_fixt.getObj()]))
     # end test_floatingip_as_instanceip
+<<<<<<< HEAD
 
     def test_name_with_blacklist_char(self):
         vn_name = self.id()+'-vn<1>'
@@ -882,6 +884,8 @@ class TestVncCfgApiServer(test_case.ApiServerTestCase):
         self._vnc_lib.route_target_delete(id=rt_obj.uuid)
     # end test_name_with_blacklist_char
 
+=======
+>>>>>>> 4ad6d13... In an external network, even though a floatingIP is reserved, it can be created as an InstanceIP.
 # end class TestVncCfgApiServer
 
 class TestLocalAuth(test_case.ApiServerTestCase):
