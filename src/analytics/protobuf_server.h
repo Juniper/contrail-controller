@@ -5,6 +5,9 @@
 #ifndef ANALYTICS_PROTOBUF_SERVER_H_
 #define ANALYTICS_PROTOBUF_SERVER_H_
 
+#include <boost/system/error_code.hpp>
+#include <boost/asio/ip/udp.hpp>
+
 #include <analytics/stat_walker.h>
 
 namespace protobuf {
@@ -19,6 +22,8 @@ class ProtobufServer {
     virtual ~ProtobufServer();
     bool Initialize();
     void Shutdown();
+    boost::asio::ip::udp::endpoint GetLocalEndpoint(
+        boost::system::error_code *ec);
 
  private:
     class ProtobufServerImpl;

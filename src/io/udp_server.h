@@ -32,7 +32,6 @@ class UdpServer {
     virtual bool Initialize(boost::asio::ip::udp::endpoint local_endpoint);
     virtual void Shutdown();
 
-    virtual boost::asio::ip::udp::endpoint GetLocalEndPoint();
     // tx-rx
     void StartSend(boost::asio::ip::udp::endpoint ep, std::size_t bytes_to_send,
             boost::asio::mutable_buffer buffer);
@@ -77,6 +76,7 @@ class UdpServer {
     EventManager *evm_;
     std::string name_;
     boost::asio::ip::udp::endpoint remote_endpoint_;
+    tbb::mutex mutex_;
     std::vector<u_int8_t *> pbuf_;
     tbb::atomic<int> refcount_;
 

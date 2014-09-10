@@ -44,17 +44,15 @@ UdpServer::~UdpServer() {
 }
 
 void UdpServer::Shutdown() {
-    while (!pbuf_.empty()) {
-        delete[] pbuf_.back();
-        pbuf_.pop_back();
+    {
+        tbb::mutex::scoped_lock lock(mutex_);
+        while (!pbuf_.empty()) {
+            delete[] pbuf_.back();
+            pbuf_.pop_back();
+        }
     }
     if (state_ == OK && socket_.is_open()) {
         boost::system::error_code ec;
-        socket_.shutdown(udp::socket::shutdown_both, ec);
-        if (ec) {
-            TCP_SERVER_LOG_ERROR(this, TCP_DIR_NA,
-                "Error shutdown udp socket " << ec);
-        }
         socket_.close(ec);
         if (ec) {
             TCP_SERVER_LOG_ERROR(this, TCP_DIR_NA,
@@ -109,14 +107,12 @@ bool UdpServer::Initialize(udp::endpoint local_endpoint) {
     return true;
 }
 
-udp::endpoint UdpServer::GetLocalEndPoint() {
-    boost::system::error_code ec;
-    return socket_.local_endpoint(ec);
-}
-
 mutable_buffer UdpServer::AllocateBuffer(std::size_t s) {
     u_int8_t *p = new u_int8_t[s];
-    pbuf_.push_back(p);
+    {
+        tbb::mutex::scoped_lock lock(mutex_);
+        pbuf_.push_back(p);
+    }
     return mutable_buffer(p, s);
 }
 
@@ -126,10 +122,13 @@ mutable_buffer UdpServer::AllocateBuffer() {
 
 void UdpServer::DeallocateBuffer(boost::asio::const_buffer &buffer) {
     const u_int8_t *p = buffer_cast<const uint8_t *>(buffer);
-    std::vector<u_int8_t *>::iterator f = std::find(pbuf_.begin(),
-        pbuf_.end(), p);
-    if (f != pbuf_.end())
-        pbuf_.erase(f);
+    {
+        tbb::mutex::scoped_lock lock(mutex_);
+        std::vector<u_int8_t *>::iterator f = std::find(pbuf_.begin(),
+            pbuf_.end(), p);
+        if (f != pbuf_.end())
+            pbuf_.erase(f);
+    }
     delete[] p;
 }
 
