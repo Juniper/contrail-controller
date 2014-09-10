@@ -31,6 +31,7 @@ from vnc_api.vnc_api import *
 from vnc_api.common import exceptions as vnc_exceptions
 import vnc_api.gen.vnc_api_test_gen
 from vnc_api.gen.resource_test import *
+import cfgm_common
 
 sys.path.append('../common/tests')
 from test_utils import *
