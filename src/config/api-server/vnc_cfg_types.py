@@ -187,6 +187,14 @@ class InstanceIpServer(InstanceIpServerGen):
         sub = cls._get_subnet_name(vn_dict, subnet_uuid) if subnet_uuid else None
         if subnet_uuid and not sub:
             return (False, (404, "Subnet id " + subnet_uuid + " not found"))
+
+        # If its an external network, check whether floating IP equivalent to
+        # requested fixed-IP is already reserved.
+        router_external = vn_dict.get('router_external', None)
+        if req_ip and router_external and \
+           cls.addr_mgmt.is_ip_allocated(req_ip, vn_fq_name):
+            return (False, (403, 'Ip address already in use'))
+
         try:
             ip_addr = cls.addr_mgmt.ip_alloc_req(
                 vn_fq_name, sub=sub, asked_ip_addr=req_ip)
