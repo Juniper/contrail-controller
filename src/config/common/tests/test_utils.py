@@ -813,6 +813,10 @@ class FakeKazooClient(object):
         self._values[path] = value
     # end create
 
+    def get(self, path):
+        return self._values[path]
+    # end get
+
     def delete(self, path, recursive=False):
         if not recursive:
             try:
