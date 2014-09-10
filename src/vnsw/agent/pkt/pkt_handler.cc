@@ -21,6 +21,7 @@
 #include "pkt/pkt_types.h"
 #include "pkt/pkt_init.h"
 #include "pkt/agent_stats.h"
+#include "pkt/packet_buffer.h"
 
 #include "vr_types.h"
 #include "vr_defs.h"
@@ -88,12 +89,13 @@ void PktHandler::CreateInterfaces(const std::string &if_name) {
 }
 
 // Send packet to tap interface
-void PktHandler::Send(uint8_t *msg, std::size_t len, PktModuleName mod) {
-    stats_.PktSent(mod);
-    pkt_trace_.at(mod).AddPktTrace(PktTrace::Out, len, msg);
-    tap_interface_->AsyncWrite(msg, len);
+void PktHandler::Send(const AgentHdr &hdr, PacketBufferPtr buff) {
+    stats_.PktSent(PktHandler::PktModuleName(buff->module()));
+    pkt_trace_.at(buff->module()).AddPktTrace(PktTrace::Out, buff->data_len(),
+                                              buff->data(), &hdr);
+    tap_interface_->Send(hdr, buff);
 }
- 
+
 // Process the packet received from tap interface
 void PktHandler::HandleRcvPkt(uint8_t *ptr, std::size_t len,
                               std::size_t max_len) {
@@ -186,8 +188,10 @@ void PktHandler::HandleRcvPkt(uint8_t *ptr, std::size_t len,
 
 enqueue:
     stats_.PktRcvd(mod);
-    pkt_trace_.at(mod).AddPktTrace(PktTrace::In, 
-            pkt_info->len, pkt_info->pkt);
+    pkt_trace_.at(mod).AddPktTrace(PktTrace::In,
+                                   pkt_info->len - sizeof(agent_hdr),
+                                   pkt_info->pkt + sizeof(agent_hdr),
+                                   &pkt_info->agent_hdr);
 
     if (mod != INVALID) {
         if (!(enqueue_cb_.at(mod))(pkt_info)) {
@@ -515,3 +519,20 @@ std::size_t PktInfo::hash() const {
 }
 
 ///////////////////////////////////////////////////////////////////////////////
+void PktTrace::Pkt::Copy(Direction d, std::size_t l, uint8_t *msg,
+                         std::size_t pkt_trace_size, const AgentHdr *hdr) {
+    uint16_t hdr_len = sizeof(AgentHdr);
+    dir = d;
+    len = l + hdr_len;
+    memcpy(pkt, hdr, hdr_len);
+    memcpy(pkt + hdr_len, msg, std::min(l, (pkt_trace_size - hdr_len)));
+}
+
+void PktTrace::AddPktTrace(Direction dir, std::size_t len, uint8_t *msg,
+                           const AgentHdr *hdr) {
+    if (num_buffers_) {
+        end_ = (end_ + 1) % num_buffers_;
+        pkt_buffer_[end_].Copy(dir, len, msg, pkt_trace_size_, hdr);
+        count_ = std::min((count_ + 1), (uint32_t) num_buffers_);
+    }
+}

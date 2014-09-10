@@ -197,23 +197,23 @@ void ServicesSandesh::FillPktData(PktTrace::Pkt &pkt, PktData &resp) {
     resp.len = pkt.len;
 }
 
-void ServicesSandesh::FillVrouterHdr(PktTrace::Pkt &pkt, VrouterHdr &resp) {
+uint16_t ServicesSandesh::FillVrouterHdr(PktTrace::Pkt &pkt, VrouterHdr &resp) {
     boost::array<std::string, MAX_AGENT_HDR_COMMANDS> commands = 
            { { "switch", "route", "arp", "l2-protocol", "trap-nexthop",
                "trap-resolve", "trap-flow-miss", "trap-l3-protocol",
                "trap-diag", "trap-ecmp-resolve" } };
     uint8_t *ptr = pkt.pkt;
-    ptr += sizeof(ethhdr);   // skip the outer ethernet header
-    agent_hdr *hdr = reinterpret_cast<agent_hdr *>(ptr);
-    resp.ifindex = ntohs(hdr->hdr_ifindex);
-    resp.vrf = ntohs(hdr->hdr_vrf);
-    uint16_t cmd = ntohs(hdr->hdr_cmd);
+    AgentHdr *hdr = reinterpret_cast<AgentHdr *>(ptr);
+    resp.ifindex = ntohs(hdr->ifindex);
+    resp.vrf = ntohs(hdr->vrf);
+    uint16_t cmd = ntohs(hdr->cmd);
     if (cmd < MAX_AGENT_HDR_COMMANDS)
         resp.cmd = commands.at(cmd);
     else
         resp.cmd = "unknown";
-    resp.cmd_param = ntohl(hdr->hdr_cmd_param);
-    resp.nh = ntohl(hdr->hdr_cmd_param_1);
+    resp.cmd_param = ntohl(hdr->cmd_param);
+    resp.nh = ntohl(hdr->nh);
+    return sizeof(AgentHdr);
 }
 
 void ServicesSandesh::FillMacHdr(ethhdr *eth, MacHdr &resp) {
@@ -488,8 +488,8 @@ void ServicesSandesh::FillDnsHdr(dnshdr *dns, DnsHdr &resp, int32_t dnslen) {
 void ServicesSandesh::ArpPktTrace(PktTrace::Pkt &pkt, ArpPktSandesh *resp) {
     ArpPkt data;
     FillPktData(pkt, data.info);
-    FillVrouterHdr(pkt, data.agent_hdr);
-    uint8_t *ptr = pkt.pkt + sizeof(ethhdr) + sizeof(agent_hdr);
+    uint16_t hdr_len = FillVrouterHdr(pkt, data.agent_hdr);
+    uint8_t *ptr = pkt.pkt + hdr_len;
     FillMacHdr((ethhdr *)ptr, data.mac_hdr);
     ptr += sizeof(ethhdr);
     FillArpHdr((ether_arp *)ptr, data.arp_hdr);
@@ -501,8 +501,8 @@ void ServicesSandesh::ArpPktTrace(PktTrace::Pkt &pkt, ArpPktSandesh *resp) {
 void ServicesSandesh::DhcpPktTrace(PktTrace::Pkt &pkt, DhcpPktSandesh *resp) {
     DhcpPkt data;
     FillPktData(pkt, data.info);
-    FillVrouterHdr(pkt, data.agent_hdr);
-    uint8_t *ptr = pkt.pkt + sizeof(ethhdr) + sizeof(agent_hdr);
+    uint16_t hdr_len = FillVrouterHdr(pkt, data.agent_hdr);
+    uint8_t *ptr = pkt.pkt + hdr_len;
     FillMacHdr((ethhdr *)ptr, data.mac_hdr);
     ptr += sizeof(ethhdr);
     FillIpv4Hdr((iphdr *)ptr, data.ip_hdr);
@@ -523,8 +523,8 @@ void ServicesSandesh::DhcpPktTrace(PktTrace::Pkt &pkt, DhcpPktSandesh *resp) {
 void ServicesSandesh::DnsPktTrace(PktTrace::Pkt &pkt, DnsPktSandesh *resp) {
     DnsPkt data;
     FillPktData(pkt, data.info);
-    FillVrouterHdr(pkt, data.agent_hdr);
-    uint8_t *ptr = pkt.pkt + sizeof(ethhdr) + sizeof(agent_hdr);
+    uint16_t hdr_len = FillVrouterHdr(pkt, data.agent_hdr);
+    uint8_t *ptr = pkt.pkt + hdr_len;
     FillMacHdr((ethhdr *)ptr, data.mac_hdr);
     ptr += sizeof(ethhdr);
     FillIpv4Hdr((iphdr *)ptr, data.ip_hdr);
@@ -545,8 +545,8 @@ void ServicesSandesh::DnsPktTrace(PktTrace::Pkt &pkt, DnsPktSandesh *resp) {
 void ServicesSandesh::IcmpPktTrace(PktTrace::Pkt &pkt, IcmpPktSandesh *resp) {
     IcmpPkt data;
     FillPktData(pkt, data.info);
-    FillVrouterHdr(pkt, data.agent_hdr);
-    uint8_t *ptr = pkt.pkt + sizeof(ethhdr) + sizeof(agent_hdr);
+    uint16_t hdr_len = FillVrouterHdr(pkt, data.agent_hdr);
+    uint8_t *ptr = pkt.pkt + hdr_len;
     FillMacHdr((ethhdr *)ptr, data.mac_hdr);
     ptr += sizeof(ethhdr);
     FillIpv4Hdr((iphdr *)ptr, data.ip_hdr);
@@ -560,8 +560,8 @@ void ServicesSandesh::IcmpPktTrace(PktTrace::Pkt &pkt, IcmpPktSandesh *resp) {
 void ServicesSandesh::OtherPktTrace(PktTrace::Pkt &pkt, PktSandesh *resp) {
     PktDump data;
     FillPktData(pkt, data.info);
-    FillVrouterHdr(pkt, data.agent_hdr);
-    uint8_t *ptr = pkt.pkt + sizeof(ethhdr) + sizeof(agent_hdr);
+    uint16_t hdr_len = FillVrouterHdr(pkt, data.agent_hdr);
+    uint8_t *ptr = pkt.pkt + hdr_len;
     FillMacHdr((ethhdr *)ptr, data.mac_hdr);
     ptr += sizeof(ethhdr);
     PktHandler *pkt_handler = Agent::GetInstance()->pkt()->pkt_handler();
