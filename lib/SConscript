@@ -1,5 +1,6 @@
 # -*- mode: python; -*-
 import platform
+from distutils.version import LooseVersion
 
 subdirs = [
     'bind',
@@ -12,7 +13,14 @@ subdirs = [
 ]
 
 (distname, version, _) = platform.dist()
-if distname != 'Ubuntu' or float(version) < 14.04:
+if distname == 'Ubuntu' and LooseVersion(version) >= LooseVersion('14.04'):
+    pass
+elif distname == 'centos' and LooseVersion(version) >= LooseVersion('7.0'):
+    subdirs += [
+        'gperftools',
+        'log4cplus',
+    ]
+else:
     subdirs += [
         'boost',
         'curl-7.24.0',
