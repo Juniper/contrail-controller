@@ -1,0 +1,6 @@
+#!/usr/bin/env bash
+
+# chkconfig: 2345 11 01
+# description: Juniper Network Virtualization service offering
+
+supervisorctl -s unix:///tmp/supervisord_vrouter.sock ${1} `basename ${0}`

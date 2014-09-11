@@ -72,3 +72,9 @@ OpEnv.Alias("src/opserver:opserver", sdist_gen)
 OpEnv.SConscript('node_mgr/SConscript', exports='BuildEnv', duplicate = 0)
 OpEnv.Alias('install', OpEnv.Install(
             OpEnv['INSTALL_CONF'], 'contrail-analytics-api.conf'))
+OpEnv.Alias('install', OpEnv.InstallAs(
+            OpEnv['INSTALL_INITD'] + '/contrail-analytics-api',
+            'contrail-opserver.initd.supervisord'))
+OpEnv.Alias('install', OpEnv.Install(
+            OpEnv['INSTALL_CONF'] + '/supervisord_analytics_files',
+            'contrail-analytics-api.ini'))

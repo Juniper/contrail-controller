@@ -214,4 +214,13 @@ env.SConscript('test/SConscript', exports='BuildEnv', duplicate = 0)
 
 # Please update sandesh/common/vns.sandesh on process name change
 env.Alias('install', env.Install(env['INSTALL_BIN'], ctrlnode))
-env.Alias('install', env.Install(env['INSTALL_CONF'], 'contrail-control.conf'))
+env.Alias('install', env.Install(env['INSTALL_CONF'], 
+    'contrail-control.conf'))
+env.Alias('install', env.Install(env['INSTALL_CONF'], 
+    'supervisord_control.conf'))
+env.Alias('install', env.Install(env['INSTALL_CONF'] + 
+    '/supervisord_control_files', 'contrail-control.ini'))
+env.Alias('install', env.Install(env['INSTALL_CONF'] + 
+    '/supervisord_control_files', 'contrail-control.rules'))
+env.Alias('install', env.InstallAs(env['INSTALL_INITD'] + 
+    '/contrail-control', 'contrail-control.initd.supervisord'))
