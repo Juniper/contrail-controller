@@ -1,0 +1,9 @@
+{ "Rules": [
+    {"processname": "contrail-api", "process_state": "PROCESS_STATE_STOPPED", "action": "service supervisor-config restart"},
+    {"processname": "contrail-api", "process_state": "PROCESS_STATE_EXITED", "action": "service supervisor-config restart"},
+    {"processname": "contrail-api", "process_state": "PROCESS_STATE_FATAL", "action": "service supervisor-config restart"},
+    {"processname": "ifmap", "process_state": "PROCESS_STATE_STOPPED", "action": "service supervisor-config restart"},
+    {"processname": "ifmap", "process_state": "PROCESS_STATE_EXITED", "action": "service supervisor-config restart"},
+    {"processname": "ifmap", "process_state": "PROCESS_STATE_FATAL", "action": "service supervisor-config restart"}
+     ]
+}

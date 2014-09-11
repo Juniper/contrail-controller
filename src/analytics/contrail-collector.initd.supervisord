@@ -1,0 +1,6 @@
+#!/usr/bin/env bash
+
+# chkconfig: 2345 99 01
+# description: Juniper Network Virtualization Collector
+
+supervisorctl -s unix:///tmp/supervisord_analytics.sock ${1} `basename ${0}`

@@ -1,0 +1,7 @@
+{ "Rules": [
+        {"processname": "contrail-query-engine", "process_state": "PROCESS_STATE_FATAL", "action": "service contrail-analytics-api stop"},
+        {"processname": "contrail-collector", "process_state": "PROCESS_STATE_STOPPED", "action": "redis-cli -n 1 flushdb"},
+        {"processname": "contrail-collector", "process_state": "PROCESS_STATE_EXITED", "action": "redis-cli -n 1 flushdb"},
+        {"processname": "contrail-collector", "process_state": "PROCESS_STATE_FATAL", "action": "redis-cli -n 1 flushdb"}
+    ]
+}
