@@ -103,3 +103,12 @@ env.Default(contrail_vrouter_agent)
 env.Alias('install', env.Install(env['INSTALL_BIN'], contrail_vrouter_agent))
 env.Alias('install', env.Install(env['INSTALL_CONF'],
           '../contrail-vrouter-agent.conf'))
+env.Alias('install',
+        env.InstallAs(env['INSTALL_CONF'] + 
+        '/supervisord_vrouter_files/' + 'contrail-vrouter-agent.ini',
+        '../contrail-vrouter-agent.ini'))
+env.Alias('install',
+        env.InstallAs(env['INSTALL_INITD'] + '/contrail-vrouter-agent',
+        '../contrail-vrouter.initd.supervisord'))
+env.Alias('install', env.Install(env['INSTALL_CONF'], 
+    '../supervisord_vrouter.conf'))

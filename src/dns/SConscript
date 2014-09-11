@@ -51,6 +51,14 @@ env.Default(dnsd)
 # Please update sandesh/common/vns.sandesh on process name change
 env.Alias('install', env.Install(env['INSTALL_BIN'], dnsd))
 env.Alias('install', env.Install(env['INSTALL_CONF'] + '/dns', 'dns.conf'))
+env.Alias('install', env.Install(env['INSTALL_CONF'] + 
+    '/supervisord_control_files/', 'contrail-dns.ini'))
+env.Alias('install', env.Install(env['INSTALL_CONF'] + 
+    '/supervisord_control_files/', 'contrail-named.ini'))
+env.Alias('install', env.InstallAs(env['INSTALL_INITD'] + 
+    '/contrail-dns', 'contrail-dns.initd.supervisord'))
+env.Alias('install', env.InstallAs(env['INSTALL_INITD'] + 
+    '/contrail-named', 'contrail-named.initd.supervisord'))
 
 DnsEnv = env.Clone()
 DnsEnv.CppDisableExceptions()
