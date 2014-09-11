@@ -107,3 +107,8 @@ if env['OPT'] == 'coverage':
     test_coverage = env.Command(Dir('test_coverage'), '', code_coverage)
     env.AlwaysBuild(test_coverage)
     env.Alias('src/ifmap:test_coverage', test_coverage)
+env.Alias('install', env.InstallAs(
+            env['INSTALL_INITD'] + '/ifmap', 'ifmap.initd.supervisord'))
+env.Alias('install', 
+            env.Install(env['INSTALL_CONF']+ '/supervisord_config_files',
+            'ifmap.ini'))

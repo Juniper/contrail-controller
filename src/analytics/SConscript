@@ -211,3 +211,14 @@ AnalyticsEnv.Alias('install', AnalyticsEnv.InstallAs(
             AnalyticsEnv['INSTALL_BIN'] + '/contrail-collector', vizd))
 AnalyticsEnv.Alias('install', AnalyticsEnv.Install(
             AnalyticsEnv['INSTALL_CONF'], 'contrail-collector.conf'))
+AnalyticsEnv.Alias('install', AnalyticsEnv.InstallAs(
+            AnalyticsEnv['INSTALL_INITD'] + '/contrail-collector',
+            'contrail-collector.initd.supervisord'))
+AnalyticsEnv.Alias('install', AnalyticsEnv.Install(
+            AnalyticsEnv['INSTALL_CONF'], 'supervisord_analytics.conf'))
+AnalyticsEnv.Alias('install', AnalyticsEnv.Install(
+            AnalyticsEnv['INSTALL_CONF'] + 
+            '/supervisord_analytics_files', 'contrail-analytics.rules'))
+AnalyticsEnv.Alias('install', AnalyticsEnv.Install(
+            AnalyticsEnv['INSTALL_CONF'] + 
+            '/supervisord_analytics_files', 'contrail-collector.ini'))

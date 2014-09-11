@@ -105,3 +105,11 @@ if 'install' in BUILD_TARGETS:
     env.Alias('install', install_cmd)
 
 env.Alias('install', env.Install(env['INSTALL_CONF'], 'contrail-api.conf'))
+env.Alias('install', env.InstallAs(env['INSTALL_INITD'] + 
+    '/contrail-api', 'contrail-api.initd.supervisord'))
+env.Alias('install', env.Install(env['INSTALL_CONF'], 
+    'supervisord_config.conf'))
+env.Alias('install', env.Install(env['INSTALL_CONF']+ 
+    '/supervisord_config_files', 'contrail-api.ini'))
+env.Alias('install', env.Install(env['INSTALL_CONF']+ 
+    '/supervisord_config_files', 'contrail-config.rules'))
