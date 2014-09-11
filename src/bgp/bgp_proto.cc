@@ -12,6 +12,7 @@
 #include "bgp_server.h"
 #include "net/bgp_af.h"
 
+using boost::system::error_code;
 using namespace std;
 namespace mpl = boost::mpl;
 
@@ -105,6 +106,11 @@ int BgpProto::OpenMessage::Validate(BgpPeer *peer) const {
 const string BgpProto::OpenMessage::ToString() const {
     std::ostringstream os;
 
+    error_code ec;
+    os << "AS " << as_num;
+    os << ", Hold Time " << holdtime;
+    os << ", Identifier " << Ip4Address(identifier).to_string(ec);
+
     // Go through each OptParam in the OpenMessage.
     for (vector<OptParam *>::const_iterator param_it = opt_params.begin();
          param_it != opt_params.end(); ++param_it) {
@@ -116,21 +122,21 @@ const string BgpProto::OpenMessage::ToString() const {
         while (cap_it != param->capabilities.end()) {
             const Capability *cap = *cap_it;
 
-            os << "Code "<< Capability::CapabilityToString(cap->code);
+            os << ", Code " << Capability::CapabilityToString(cap->code);
 
             if (cap->code == Capability::MpExtension) {
                 const uint8_t *data = cap->capability.data();
                 uint16_t afi = get_value(data, 2);
                 uint8_t safi = get_value(data + 3, 1);
                 Address::Family family = BgpAf::AfiSafiToFamily(afi, safi);
-                os << " Family  " << Address::FamilyToString(family);
+                os << " Family " << Address::FamilyToString(family);
             }
 
-            if (++cap_it == param->capabilities.end()) break;
-            os << ", ";
+            if (++cap_it == param->capabilities.end())
+                break;
         }
-
     }
+
     return os.str();
 }
 
