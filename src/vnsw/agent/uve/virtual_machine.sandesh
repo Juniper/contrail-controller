@@ -38,6 +38,14 @@ struct VmInterfaceAgent {
    11: string uuid;
 }
 
+struct VmCpuStats {
+    1: double cpu_one_min_avg;
+    2: u64 vm_memory_quota;
+    3: u64 rss;
+    4: u64 virt_memory;
+    5: u64 peak_virt_memory;
+}
+
 struct UveVirtualMachineAgent {
     1: string                name (key="ObjectVMTable")
     2: optional bool         deleted
@@ -50,6 +58,7 @@ struct UveVirtualMachineAgent {
     11: optional list<u32>  tcp_sport_bitmap;
     12: optional list<u32>  tcp_dport_bitmap;
     13: optional list<VmFloatingIPStats> fip_stats_list;
+    14: optional VmCpuStats cpu_info;
 }
 
 uve sandesh UveVirtualMachineAgentTrace {
@@ -80,14 +89,6 @@ struct VmInterfaceStats {
     5: u64 out_bytes;
     6: u64 in_bw_usage;
     7: u64 out_bw_usage;
-}
-
-struct VmCpuStats {
-    1: double cpu_one_min_avg;
-    2: u64 vm_memory_quota;
-    3: u64 rss;
-    4: u64 virt_memory;
-    5: u64 peak_virt_memory;
 }
 
 struct VirtualMachineStats {
