@@ -52,6 +52,7 @@ import pycassa.cassandra.ttypes
 from pycassa.system_manager import *
 from datetime import datetime
 from pycassa.util import *
+from pycassa.pool import AllServersUnavailable
 
 import amqp.exceptions
 import kombu
@@ -587,8 +588,21 @@ class VncCassandraClient(VncCassandraClientGen):
             self._db_prefix = '%s_' %(db_prefix)
         else:
             self._db_prefix = ''
+        self._server_list = cass_srv_list
         self._cassandra_init(cass_srv_list)
     # end __init__
+
+    def _log_exceptions(self, func):
+        def wrapper(*args, **kwargs):
+            try:
+                return func(*args, **kwargs)
+            except AllServersUnavailable:
+                ConnectionState.update(conn_type = ConnectionType.DATABASE,
+                    name = 'Cassandra', status = ConnectionStatus.DOWN,
+                    message = '', server_addrs = self._server_list)
+                raise
+        return wrapper
+    # end _log_exceptions
 
     # Helper routines for cassandra
     def _cassandra_init(self, server_list):
@@ -599,6 +613,12 @@ class VncCassandraClient(VncCassandraClientGen):
             name = 'Cassandra', status = ConnectionStatus.INIT, message = '',
             server_addrs = server_list)
 
+        pycassa.ColumnFamily.get = self._log_exceptions(pycassa.ColumnFamily.get)
+        pycassa.ColumnFamily.xget = self._log_exceptions(pycassa.ColumnFamily.xget)
+        pycassa.ColumnFamily.get_range = self._log_exceptions(pycassa.ColumnFamily.get_range)
+        pycassa.ColumnFamily.insert = self._log_exceptions(pycassa.ColumnFamily.insert)
+        pycassa.ColumnFamily.remove = self._log_exceptions(pycassa.ColumnFamily.remove)
+        pycassa.batch.Mutator.send = self._log_exceptions(pycassa.batch.Mutator.send)
         uuid_ks_name = '%s%s' %(self._db_prefix, VncCassandraClient._UUID_KEYSPACE_NAME)
         obj_uuid_cf_info = (VncCassandraClient._OBJ_UUID_CF_NAME, None)
         obj_fq_name_cf_info = (VncCassandraClient._OBJ_FQ_NAME_CF_NAME, None)

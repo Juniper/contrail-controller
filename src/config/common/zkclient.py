@@ -318,7 +318,7 @@ class ZookeeperClient(object):
         ConnectionState.update(conn_type = ConnectionType.ZOOKEEPER,
                 name = 'Zookeeper', status = getattr(ConnectionStatus, status),
                 message = message,
-                server_addrs = [self._server_list])
+                server_addrs = self._server_list.split(','))
     # end _sandesh_connection_info_update
 
 # end class ZookeeperClient
