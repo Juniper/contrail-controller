@@ -372,6 +372,7 @@ void Teardown() {
     DeleteVmportEnv(input1, 2, true, 1);
     DelNode("routing-instance", "vrf1");
     DelNode("access-control-list", "acl1");
+    client->WaitForIdle();
 }
 
 static bool NatValidateFlow(int flow_id, const char *vrf, const char *sip,
