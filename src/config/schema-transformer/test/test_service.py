@@ -308,12 +308,34 @@ class TestPolicy(test_case.STTestCase):
             gevent.sleep(2)
         # end while True
 
+        vn3_obj.del_network_policy(np2)
+        self._vnc_lib.virtual_network_update(vn3_obj)
+
+        while True:
+            try:
+                acl = self._vnc_lib.access_control_list_read(
+                    fq_name=[u'default-domain', u'default-project',
+                             'vn1', 'vn1'])
+            except NoIdError:
+                gevent.sleep(2)
+                print "retrying ... ", test_common.lineno()
+                continue
+            found = False
+            for rule in acl.get_access_control_list_entries().get_acl_rule():
+                if rule.match_condition.dst_address.virtual_network == vn3_obj.get_fq_name_str():
+                    gevent.sleep(1)
+                    print "retrying ... ", test_common.lineno()
+                    found = True
+                    break
+            if not found:
+                break
+        # end while True
+
+
         vn1_obj.del_network_policy(np1)
         vn2_obj.del_network_policy(np2)
-        vn3_obj.del_network_policy(np2)
         self._vnc_lib.virtual_network_update(vn1_obj)
         self._vnc_lib.virtual_network_update(vn2_obj)
-        self._vnc_lib.virtual_network_update(vn3_obj)
         self.delete_network_policy(np1)
         self.delete_network_policy(np2)
         self._vnc_lib.virtual_network_delete(fq_name=vn1_obj.get_fq_name())

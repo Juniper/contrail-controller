@@ -8,7 +8,6 @@ webtest
 kazoo
 ncclient
 jsonpickle
-novaclient
 ../../../../third_party/ifmap-python-client
 ../../../../build/debug/config/common/dist/cfgm_common-0.1dev.tar.gz
 ../../../../build/debug/api-lib/dist/vnc_api-0.1dev.tar.gz
