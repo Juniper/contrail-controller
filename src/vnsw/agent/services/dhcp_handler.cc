@@ -2,6 +2,8 @@
  * Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
  */
 
+#include <sys/types.h>
+#include <net/ethernet.h>
 #include "vr_defs.h"
 #include "cmn/agent_cmn.h"
 #include "oper/route_common.h"
@@ -337,7 +339,7 @@ bool DhcpHandler::Run() {
        default:
             return HandleVmRequest();
     }
-}    
+}
 
 bool DhcpHandler::HandleVmRequest() {
     dhcp_ = (dhcphdr *) pkt_info_->data;
@@ -373,8 +375,10 @@ bool DhcpHandler::HandleVmRequest() {
     }
 
     // options length = pkt length - size of headers
-    int16_t options_len = pkt_info_->len - EncapHeaderLen() - sizeof(ethhdr) 
-                          - sizeof(iphdr) - sizeof(udphdr) - DHCP_FIXED_LEN;
+    int16_t options_len = pkt_info_->len - EncapHeaderLen() -
+                            sizeof(struct ether_header) -
+                            sizeof(struct ip) - sizeof(struct udphdr) -
+                            DHCP_FIXED_LEN;
     if (!ReadOptions(options_len))
         return true;
 
@@ -402,7 +406,7 @@ bool DhcpHandler::HandleVmRequest() {
 
         case DHCP_DECLINE:
             dhcp_proto->IncrStatsDecline();
-            DHCP_TRACE(Error, "DHCP Client declined the offer : vrf = " << 
+            DHCP_TRACE(Error, "DHCP Client declined the offer : vrf = " <<
                        pkt_info_->vrf << " ifindex = " << GetInterfaceIndex());
             return true;
 
@@ -425,8 +429,8 @@ bool DhcpHandler::HandleVmRequest() {
         UpdateDnsServer();
         SendDhcpResponse();
         Ip4Address ip(config_.ip_addr);
-        DHCP_TRACE(Trace, "DHCP response sent; message = " << 
-                   ServicesSandesh::DhcpMsgType(out_msg_type_) << 
+        DHCP_TRACE(Trace, "DHCP response sent; message = " <<
+                   ServicesSandesh::DhcpMsgType(out_msg_type_) <<
                    "; ip = " << ip.to_string());
     }
 
@@ -465,7 +469,7 @@ bool DhcpHandler::HandleDhcpFromFabric() {
 // read DHCP options in the incoming packet
 bool DhcpHandler::ReadOptions(int16_t opt_rem_len) {
     // verify magic cookie
-    if ((opt_rem_len < 4) || 
+    if ((opt_rem_len < 4) ||
         memcmp(dhcp_->options, DHCP_OPTIONS_COOKIE, 4)) {
         agent()->GetDhcpProto()->IncrStatsErrors();
         DHCP_TRACE(Error, "DHCP options cookie missing; vrf = " <<
@@ -540,7 +544,7 @@ bool DhcpHandler::FindLeaseData() {
     config_.client_name_ = vm_itf_->vm_name();
     if (vm_itf_->ipv4_active()) {
         if (vm_itf_->fabric_port()) {
-            Inet4UnicastRouteEntry *rt = 
+            Inet4UnicastRouteEntry *rt =
                 Inet4UnicastAgentRouteTable::FindResolveRoute(
                              vm_itf_->vrf()->GetName(), ip);
             if (rt) {
@@ -588,7 +592,7 @@ void DhcpHandler::UpdateDnsServer() {
     if (config_.lease_time != (uint32_t) -1)
         return;
 
-    if (!vm_itf_->vn() || 
+    if (!vm_itf_->vn() ||
         !vm_itf_->vn()->GetIpamData(vm_itf_->ip_addr(), &ipam_name_,
                                     &ipam_type_)) {
         DHCP_TRACE(Trace, "Ipam data not found; VM = " << vm_itf_->name());
@@ -602,9 +606,9 @@ void DhcpHandler::UpdateDnsServer() {
 
     if (config_.domain_name_.size() &&
         config_.domain_name_ != vdns_type_.domain_name) {
-        DHCP_TRACE(Trace, "Client domain " << config_.domain_name_ << 
-                   " doesnt match with configured domain " << 
-                   vdns_type_.domain_name << "; Client name = " << 
+        DHCP_TRACE(Trace, "Client domain " << config_.domain_name_ <<
+                   " doesnt match with configured domain " <<
+                   vdns_type_.domain_name << "; Client name = " <<
                    config_.client_name_);
     }
     std::size_t pos;
@@ -612,7 +616,7 @@ void DhcpHandler::UpdateDnsServer() {
         ((pos = config_.client_name_.find('.', 0)) != std::string::npos) &&
         (config_.client_name_.substr(pos + 1) != vdns_type_.domain_name)) {
         DHCP_TRACE(Trace, "Client domain doesnt match with configured domain "
-                   << vdns_type_.domain_name << "; Client name = " 
+                   << vdns_type_.domain_name << "; Client name = "
                    << config_.client_name_);
         config_.client_name_.replace(config_.client_name_.begin() + pos + 1,
                                      config_.client_name_.end(),
@@ -679,17 +683,17 @@ bool DhcpHandler::CreateRelayPacket() {
     pkt_info_->pkt = new uint8_t[DHCP_PKT_SIZE];
     memset(pkt_info_->pkt, 0, DHCP_PKT_SIZE);
     pkt_info_->vrf = in_pkt_info.vrf;
-    pkt_info_->eth =
-        (ethhdr *)(pkt_info_->pkt + sizeof(ethhdr) + sizeof(agent_hdr));
-    pkt_info_->ip = (iphdr *)(pkt_info_->eth + 1);
+    pkt_info_->eth = (ether_header *)(pkt_info_->pkt + sizeof(ether_header) +
+            sizeof(agent_hdr));
+    pkt_info_->ip = (ip *)(pkt_info_->eth + 1);
     pkt_info_->transp.udp = (udphdr *)(pkt_info_->ip + 1);
     dhcphdr *dhcp = (dhcphdr *)(pkt_info_->transp.udp + 1);
 
     memcpy((uint8_t *)dhcp, (uint8_t *)dhcp_, DHCP_FIXED_LEN);
     memcpy(dhcp->options, DHCP_OPTIONS_COOKIE, 4);
 
-    int16_t opt_rem_len = in_pkt_info.len - EncapHeaderLen() - sizeof(ethhdr) 
-                          - sizeof(iphdr) - sizeof(udphdr) - DHCP_FIXED_LEN - 4;
+    int16_t opt_rem_len = in_pkt_info.len - EncapHeaderLen() - sizeof(ether_header)
+                          - sizeof(struct ip) - sizeof(udphdr) - DHCP_FIXED_LEN - 4;
     uint16_t opt_len = 4;
     DhcpOptions *read_opt = (DhcpOptions *)(dhcp_->options + 4);
     DhcpOptions *write_opt = (DhcpOptions *)(dhcp->options + 4);
@@ -723,7 +727,6 @@ bool DhcpHandler::CreateRelayPacket() {
                 write_opt->WriteData(read_opt->code, read_opt->len, &read_opt->data, &opt_len);
                 write_opt = write_opt->GetNextOptionPtr();
                 break;
-
         }
         opt_rem_len -= (2 + read_opt->len);
         read_opt = read_opt->GetNextOptionPtr();
@@ -737,14 +740,17 @@ bool DhcpHandler::CreateRelayPacket() {
     write_opt->WriteByte(DHCP_OPTION_END, &opt_len);
     pkt_info_->len = DHCP_FIXED_LEN + opt_len + sizeof(udphdr);
 
-    UdpHdr(pkt_info_->len, in_pkt_info.ip->saddr, pkt_info_->sport,
-           in_pkt_info.ip->daddr, pkt_info_->dport);
-    pkt_info_->len += sizeof(iphdr);
+    UdpHdr(pkt_info_->len, in_pkt_info.ip->ip_src.s_addr, pkt_info_->sport,
+           in_pkt_info.ip->ip_dst.s_addr, pkt_info_->dport);
+    pkt_info_->len += sizeof(struct ip);
+
     IpHdr(pkt_info_->len, htonl(agent()->router_id().to_ulong()),
           0xFFFFFFFF, IPPROTO_UDP);
     EthHdr(agent()->GetDhcpProto()->ip_fabric_interface_mac(),
-           in_pkt_info.eth->h_dest, 0x800);
-    pkt_info_->len += sizeof(ethhdr);
+           MacAddress(in_pkt_info.eth->ether_dhost), ETHERTYPE_IP);
+    MacAddress tmp(in_pkt_info.eth->ether_dhost);
+    pkt_info_->len += sizeof(ether_header);
+
     return true;
 }
 
@@ -753,8 +759,9 @@ bool DhcpHandler::CreateRelayResponsePacket() {
     pkt_info_->pkt = new uint8_t[DHCP_PKT_SIZE];
     memset(pkt_info_->pkt, 0, DHCP_PKT_SIZE);
     pkt_info_->vrf = vm_itf_->vrf()->vrf_id();
-    pkt_info_->eth = (ethhdr *)(pkt_info_->pkt + sizeof(ethhdr) + sizeof(agent_hdr));
-    pkt_info_->ip = (iphdr *)(pkt_info_->eth + 1);
+    pkt_info_->eth = (struct ether_header *)(pkt_info_->pkt +
+        sizeof(struct ether_header) + sizeof(agent_hdr));
+    pkt_info_->ip = (struct ip *)(pkt_info_->eth + 1);
     pkt_info_->transp.udp = (udphdr *)(pkt_info_->ip + 1);
     dhcphdr *dhcp = (dhcphdr *)(pkt_info_->transp.udp + 1);
 
@@ -805,11 +812,12 @@ bool DhcpHandler::CreateRelayResponsePacket() {
 
     UdpHdr(pkt_info_->len, agent()->router_id().to_ulong(), pkt_info_->sport,
            0xFFFFFFFF, pkt_info_->dport);
-    pkt_info_->len += sizeof(iphdr);
+    pkt_info_->len += sizeof(struct ip);
     IpHdr(pkt_info_->len, htonl(agent()->router_id().to_ulong()),
           0xFFFFFFFF, IPPROTO_UDP);
-    EthHdr(agent()->pkt()->pkt_handler()->mac_address(), dhcp->chaddr, 0x800);
-    pkt_info_->len += sizeof(ethhdr);
+    EthHdr(agent()->pkt()->pkt_handler()->mac_address(),
+    MacAddress(dhcp->chaddr), 0x800);
+    pkt_info_->len += sizeof(ether_header);
     return true;
 }
 
@@ -1394,7 +1402,7 @@ uint16_t DhcpHandler::AddClasslessRouteOption(uint16_t opt_len) {
 uint16_t DhcpHandler::DhcpHdr(in_addr_t yiaddr, in_addr_t siaddr) {
     dhcp_->op = BOOT_REPLY;
     dhcp_->htype = HW_TYPE_ETHERNET;
-    dhcp_->hlen = ETH_ALEN;
+    dhcp_->hlen = ETHER_ADDR_LEN;
     dhcp_->hops = 0;
     dhcp_->xid = request_.xid;
     dhcp_->secs = 0;
@@ -1404,7 +1412,8 @@ uint16_t DhcpHandler::DhcpHdr(in_addr_t yiaddr, in_addr_t siaddr) {
     dhcp_->siaddr = siaddr;
     dhcp_->giaddr = 0;
     memset (dhcp_->chaddr, 0, DHCP_CHADDR_LEN);
-    memcpy(dhcp_->chaddr, request_.mac_addr, ETH_ALEN);
+    MacAddress(request_.mac_addr).ToArray(dhcp_->chaddr,
+               sizeof(dhcp_->chaddr));
     // not supporting dhcp_->sname, dhcp_->file for now
     memset(dhcp_->sname, '\0', DHCP_NAME_LEN);
     memset(dhcp_->file, '\0', DHCP_FILE_LEN);
@@ -1420,7 +1429,7 @@ uint16_t DhcpHandler::DhcpHdr(in_addr_t yiaddr, in_addr_t siaddr) {
 
     if (out_msg_type_ == DHCP_NAK) {
         opt = GetNextOptionPtr(opt_len);
-        opt->WriteData(DHCP_OPTION_MESSAGE, nak_msg_.size(), 
+        opt->WriteData(DHCP_OPTION_MESSAGE, nak_msg_.size(),
                        nak_msg_.data(), &opt_len);
     }
     else {
@@ -1478,19 +1487,22 @@ uint16_t DhcpHandler::DhcpHdr(in_addr_t yiaddr, in_addr_t siaddr) {
     return (DHCP_FIXED_LEN + opt_len);
 }
 
-uint16_t DhcpHandler::FillDhcpResponse(unsigned char *dest_mac,
+uint16_t DhcpHandler::FillDhcpResponse(MacAddress &dest_mac,
                                        in_addr_t src_ip, in_addr_t dest_ip,
                                        in_addr_t siaddr, in_addr_t yiaddr) {
-    pkt_info_->eth = (ethhdr *)(pkt_info_->pkt + EncapHeaderLen());
-    EthHdr(agent()->pkt()->pkt_handler()->mac_address(), dest_mac, 0x800);
-    uint16_t header_len = sizeof(ethhdr);
+
+    pkt_info_->eth = (ether_header *)(pkt_info_->pkt + EncapHeaderLen());
+    EthHdr(agent()->pkt()->pkt_handler()->mac_address(), dest_mac,
+           ETHERTYPE_IP);
+
+    uint16_t header_len = sizeof(ether_header);
+
     if (vm_itf_->vlan_id() != VmInterface::kInvalidVlanId) {
         // cfi and priority are zero
         VlanHdr(pkt_info_->pkt + EncapHeaderLen() + 12, vm_itf_->vlan_id());
         header_len += sizeof(vlanhdr);
     }
-
-    pkt_info_->ip = (iphdr *)(pkt_info_->pkt + EncapHeaderLen() + header_len);
+    pkt_info_->ip = (ip *)(pkt_info_->pkt + EncapHeaderLen() + header_len);
     pkt_info_->transp.udp = (udphdr *)(pkt_info_->ip + 1);
     dhcphdr *dhcp = (dhcphdr *)(pkt_info_->transp.udp + 1);
     dhcp_ = dhcp;
@@ -1498,7 +1510,9 @@ uint16_t DhcpHandler::FillDhcpResponse(unsigned char *dest_mac,
     uint16_t len = DhcpHdr(yiaddr, siaddr);
     len += sizeof(udphdr);
     UdpHdr(len, src_ip, DHCP_SERVER_PORT, dest_ip, DHCP_CLIENT_PORT);
-    len += sizeof(iphdr);
+
+    len += sizeof(struct ip);
+
     IpHdr(len, src_ip, dest_ip, IPPROTO_UDP);
 
     return len + header_len;
@@ -1511,7 +1525,8 @@ void DhcpHandler::SendDhcpResponse() {
     in_addr_t dest_ip = 0xFFFFFFFF;
     in_addr_t yiaddr = htonl(config_.ip_addr);
     in_addr_t siaddr = src_ip;
-    unsigned char dest_mac[ETH_ALEN] = { 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF };
+    MacAddress dest_mac;
+    dest_mac.Broadcast();
 
     // If requested IP address is not available, send NAK
     if ((msg_type_ == DHCP_REQUEST) && (request_.ip_addr) &&
@@ -1521,18 +1536,18 @@ void DhcpHandler::SendDhcpResponse() {
         siaddr = 0;
     }
 
-    // send a unicast response when responding to INFORM 
+    // send a unicast response when responding to INFORM
     // or when incoming giaddr is zero and ciaddr is set
     // or when incoming bcast flag is not set (with giaddr & ciaddr being zero)
     if ((msg_type_ == DHCP_INFORM) ||
-        (!dhcp_->giaddr && (dhcp_->ciaddr || 
+        (!dhcp_->giaddr && (dhcp_->ciaddr ||
                             !(request_.flags & DHCP_BCAST_FLAG)))) {
         dest_ip = yiaddr;
-        memcpy(dest_mac, dhcp_->chaddr, ETH_ALEN);
+        dest_mac = dhcp_->chaddr;
         if (msg_type_ == DHCP_INFORM)
             yiaddr = 0;
     }
-        
+
     UpdateStats();
 
     uint16_t len = FillDhcpResponse(dest_mac, src_ip, dest_ip, siaddr, yiaddr);
@@ -1543,7 +1558,7 @@ void DhcpHandler::SendDhcpResponse() {
 void DhcpHandler::UpdateStats() {
     DhcpProto *dhcp_proto = agent()->GetDhcpProto();
     (out_msg_type_ == DHCP_OFFER) ? dhcp_proto->IncrStatsOffers() :
-        ((out_msg_type_ == DHCP_ACK) ? dhcp_proto->IncrStatsAcks() : 
+        ((out_msg_type_ == DHCP_ACK) ? dhcp_proto->IncrStatsAcks() :
                                        dhcp_proto->IncrStatsNacks());
 }
 

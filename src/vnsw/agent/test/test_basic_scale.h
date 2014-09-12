@@ -5,7 +5,8 @@
 #include "testing/gunit.h"
 
 #include <pugixml/pugixml.hpp>
-
+#include "net/bsdudp.h"
+#include "net/bsdtcp.h"
 #include <net/bgp_af.h>
 #include "io/test/event_manager_test.h"
 #include "test_cmn_util.h"

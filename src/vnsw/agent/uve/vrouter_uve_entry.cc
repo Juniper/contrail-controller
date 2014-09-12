@@ -71,7 +71,7 @@ void VrouterUveEntry::VmWalkDone(DBTableBase *base, StringVectorPtr list) {
     DispatchVrouterMsg(vrouter_agent);
 }
 
-bool VrouterUveEntry::AppendVm(DBTablePartBase *part, DBEntryBase *entry, 
+bool VrouterUveEntry::AppendVm(DBTablePartBase *part, DBEntryBase *entry,
                                StringVectorPtr list) {
     VmEntry *vm = static_cast<VmEntry *>(entry);
 
@@ -121,7 +121,7 @@ void VrouterUveEntry::VnWalkDone(DBTableBase *base, StringVectorPtr list) {
     DispatchVrouterMsg(vrouter_agent);
 }
 
-bool VrouterUveEntry::AppendVn(DBTablePartBase *part, DBEntryBase *entry, 
+bool VrouterUveEntry::AppendVn(DBTablePartBase *part, DBEntryBase *entry,
                                StringVectorPtr list) {
     VnEntry *vn = static_cast<VnEntry *>(entry);
 
@@ -161,7 +161,7 @@ void VrouterUveEntry::VnNotify(DBTablePartBase *partition, DBEntryBase *e) {
     }
 }
 
-void VrouterUveEntry::InterfaceWalkDone(DBTableBase *base, 
+void VrouterUveEntry::InterfaceWalkDone(DBTableBase *base,
                                         StringVectorPtr if_list,
                                         StringVectorPtr err_if_list,
                                         StringVectorPtr nova_if_list) {
@@ -170,15 +170,15 @@ void VrouterUveEntry::InterfaceWalkDone(DBTableBase *base,
     vrouter_agent.set_interface_list(*(if_list.get()));
     vrouter_agent.set_error_intf_list(*(err_if_list.get()));
     vrouter_agent.set_no_config_intf_list(*(nova_if_list.get()));
-    vrouter_agent.set_total_interface_count((if_list.get()->size() + 
+    vrouter_agent.set_total_interface_count((if_list.get()->size() +
                                              nova_if_list.get()->size()));
-    vrouter_agent.set_down_interface_count((err_if_list.get()->size() + 
+    vrouter_agent.set_down_interface_count((err_if_list.get()->size() +
                                             nova_if_list.get()->size()));
     DispatchVrouterMsg(vrouter_agent);
 }
 
-bool VrouterUveEntry::AppendInterface(DBTablePartBase *part, 
-                                      DBEntryBase *entry, 
+bool VrouterUveEntry::AppendInterface(DBTablePartBase *part,
+                                      DBEntryBase *entry,
                                       StringVectorPtr intf_list,
                                       StringVectorPtr err_if_list,
                                       StringVectorPtr nova_if_list) {
@@ -209,11 +209,11 @@ void VrouterUveEntry::InterfaceNotifyHandler(const Interface *intf) {
     walker->WalkTable(agent_->interface_table(), NULL,
         boost::bind(&VrouterUveEntry::AppendInterface, this, _1, _2, intf_list,
                     err_if_list, nova_if_list),
-        boost::bind(&VrouterUveEntry::InterfaceWalkDone, this, _1, intf_list, 
+        boost::bind(&VrouterUveEntry::InterfaceWalkDone, this, _1, intf_list,
                     err_if_list, nova_if_list));
 }
 
-void VrouterUveEntry::InterfaceNotify(DBTablePartBase *partition, 
+void VrouterUveEntry::InterfaceNotify(DBTablePartBase *partition,
                                       DBEntryBase *e) {
     const Interface *intf = static_cast<const Interface *>(e);
     bool set_state = false, reset_state = false;
@@ -237,11 +237,11 @@ void VrouterUveEntry::InterfaceNotify(DBTablePartBase *partition,
                 InterfaceNotifyHandler(intf);
             }
         } else {
-            if (state && vm_port->ipv4_active() != state->vmport_ipv4_active_) { 
+            if (state && vm_port->ipv4_active() != state->vmport_ipv4_active_) {
                 InterfaceNotifyHandler(intf);
                 state->vmport_ipv4_active_ = vm_port->ipv4_active();
             }
-            if (state && vm_port->l2_active() != state->vmport_l2_active_) { 
+            if (state && vm_port->l2_active() != state->vmport_l2_active_) {
                 InterfaceNotifyHandler(intf);
                 state->vmport_l2_active_ = vm_port->l2_active();
             }
@@ -297,28 +297,28 @@ bool VrouterUveEntry::SendVrouterMsg() {
 
     stats.set_name(agent_->host_name());
 
-    if (prev_stats_.get_in_tpkts() != 
+    if (prev_stats_.get_in_tpkts() !=
         agent_->stats()->in_pkts() || first) {
         stats.set_in_tpkts(agent_->stats()->in_pkts());
         prev_stats_.set_in_tpkts(agent_->stats()->in_pkts());
         change = true;
     }
 
-    if (prev_stats_.get_in_bytes() != 
+    if (prev_stats_.get_in_bytes() !=
         agent_->stats()->in_bytes() || first) {
         stats.set_in_bytes(agent_->stats()->in_bytes());
         prev_stats_.set_in_bytes(agent_->stats()->in_bytes());
         change = true;
     }
 
-    if (prev_stats_.get_out_tpkts() != 
+    if (prev_stats_.get_out_tpkts() !=
         agent_->stats()->out_pkts() || first) {
         stats.set_out_tpkts(agent_->stats()->out_pkts());
         prev_stats_.set_out_tpkts(agent_->stats()->out_pkts());
         change = true;
     }
 
-    if (prev_stats_.get_out_bytes() != 
+    if (prev_stats_.get_out_bytes() !=
         agent_->stats()->out_bytes() || first) {
         stats.set_out_bytes(agent_->stats()->out_bytes());
         prev_stats_.set_out_bytes(agent_->stats()->out_bytes());
@@ -333,14 +333,14 @@ bool VrouterUveEntry::SendVrouterMsg() {
         change = true;
     }
 
-    if (prev_stats_.get_exception_packets() != 
+    if (prev_stats_.get_exception_packets() !=
         agent_->stats()->pkt_exceptions() || first) {
         stats.set_exception_packets(agent_->stats()->pkt_exceptions());
         prev_stats_.set_exception_packets(agent_->stats()->pkt_exceptions());
         change = true;
     }
 
-    if (prev_stats_.get_exception_packets_dropped() != 
+    if (prev_stats_.get_exception_packets_dropped() !=
             agent_->stats()->pkt_dropped() || first) {
         stats.set_exception_packets_dropped(agent_->stats()->pkt_dropped());
         prev_stats_.set_exception_packets_dropped(agent_->stats()->
@@ -356,7 +356,7 @@ bool VrouterUveEntry::SendVrouterMsg() {
         change = true;
     }
 
-    if (prev_stats_.get_total_flows() != 
+    if (prev_stats_.get_total_flows() !=
             agent_->stats()->flow_created() || first) {
         stats.set_total_flows(agent_->stats()->flow_created());
         prev_stats_.set_total_flows(agent_->stats()->
@@ -371,7 +371,7 @@ bool VrouterUveEntry::SendVrouterMsg() {
         change = true;
     }
 
-    if (prev_stats_.get_aged_flows() != 
+    if (prev_stats_.get_aged_flows() !=
             agent_->stats()->flow_aged() || first) {
         stats.set_aged_flows(agent_->stats()->flow_aged());
         prev_stats_.set_aged_flows(agent_->stats()->flow_aged());
@@ -380,7 +380,7 @@ bool VrouterUveEntry::SendVrouterMsg() {
 
     cpu_stats_count_++;
     if ((cpu_stats_count_ % 6) == 0) {
-        static bool cpu_first = true; 
+        static bool cpu_first = true;
         CpuLoadInfo cpu_load_info;
         CpuLoadData::FillCpuInfo(cpu_load_info, true);
         if (prev_stats_.get_cpu_info() != cpu_load_info || cpu_first) {
@@ -396,7 +396,7 @@ bool VrouterUveEntry::SendVrouterMsg() {
         stats.set_used_sys_mem(cpu_load_info.get_sys_mem_info().get_used());
         stats.set_one_min_avg_cpuload(
                 cpu_load_info.get_cpuload().get_one_min_avg());
-        
+
         //Stats oracle interface for cpu and mem stats. Needs to be sent
         //always regardless of whether the stats have changed since last send
         BuildAndSendComputeCpuStateMsg(cpu_load_info);
@@ -464,7 +464,7 @@ bool VrouterUveEntry::SendVrouterMsg() {
     InetInterfaceKey key(agent_->vhost_interface_name());
     const Interface *vhost = static_cast<const Interface *>
         (agent_->interface_table()->FindActiveEntry(&key));
-    const AgentStatsCollector::InterfaceStats *s = 
+    const AgentStatsCollector::InterfaceStats *s =
         agent_->uve()->agent_stats_collector()->GetInterfaceStats(vhost);
     if (s != NULL) {
         AgentIfStats vhost_stats;
@@ -506,10 +506,10 @@ bool VrouterUveEntry::SendVrouterMsg() {
 
 void VrouterUveEntry::SubnetToStringList
     (VirtualGatewayConfig::SubnetList &source_list, vector<string> &target_list) {
-    VirtualGatewayConfig::SubnetList::iterator subnet_it = 
+    VirtualGatewayConfig::SubnetList::iterator subnet_it =
         source_list.begin();
     while (subnet_it != source_list.end()) {
-        string subnet_str = subnet_it->ip_.to_string() + "/" + 
+        string subnet_str = subnet_it->ip_.to_string() + "/" +
             integerToString(subnet_it->plen_);
         target_list.push_back(subnet_str);
         ++subnet_it;
@@ -721,16 +721,8 @@ void VrouterUveEntry::SendVrouterUve() {
     }
 }
 
-string VrouterUveEntry::GetMacAddress(const ether_addr &mac) const {
-    stringstream ss;
-    ss << setbase(16) << setfill('0') << setw(2) 
-      << static_cast<unsigned int>(mac.ether_addr_octet[0])
-      << static_cast<unsigned int>(mac.ether_addr_octet[1])
-      << static_cast<unsigned int>(mac.ether_addr_octet[2])
-      << static_cast<unsigned int>(mac.ether_addr_octet[3])
-      << static_cast<unsigned int>(mac.ether_addr_octet[4])
-      << static_cast<unsigned int>(mac.ether_addr_octet[5]);
-    return ss.str();
+std::string VrouterUveEntry::GetMacAddress(const MacAddress &mac) const {
+    return mac.ToString();
 }
 
 uint8_t VrouterUveEntry::CalculateBandwitdh(uint64_t bytes, int speed_mbps, 
@@ -954,7 +946,7 @@ bool VrouterUveEntry::SetVrouterPortBitmap(VrouterStatsAgent &vr_stats) {
     return changed;
 }
 
-void VrouterUveEntry::UpdateBitmap(uint8_t proto, uint16_t sport, 
+void VrouterUveEntry::UpdateBitmap(uint8_t proto, uint16_t sport,
                                    uint16_t dport) {
     port_bitmap_.AddPort(proto, sport, dport);
 }

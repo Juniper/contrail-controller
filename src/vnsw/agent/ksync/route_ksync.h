@@ -26,15 +26,15 @@ class RouteKSyncObject;
 
 class RouteKSyncEntry : public KSyncNetlinkDBEntry {
 public:
-    RouteKSyncEntry(RouteKSyncObject* obj, const RouteKSyncEntry *entry, 
+    RouteKSyncEntry(RouteKSyncObject* obj, const RouteKSyncEntry *entry,
                     uint32_t index);
-    RouteKSyncEntry(RouteKSyncObject* obj, const AgentRoute *route); 
+    RouteKSyncEntry(RouteKSyncObject* obj, const AgentRoute *route);
     virtual ~RouteKSyncEntry();
 
     uint32_t prefix_len() const { return prefix_len_; }
     uint32_t label() const { return label_; }
     bool proxy_arp() const { return proxy_arp_; }
-    NHKSyncEntry* nh() const { 
+    NHKSyncEntry* nh() const {
         return static_cast<NHKSyncEntry *>(nh_.get());
     }
     void set_prefix_len(uint32_t len) { prefix_len_ = len; }
@@ -62,7 +62,7 @@ private:
     uint32_t vrf_id_;
     IpAddress addr_;
     IpAddress src_addr_;
-    struct ether_addr mac_;
+    MacAddress mac_;
     uint32_t prefix_len_;
     KSyncEntryPtr nh_;
     uint32_t label_;

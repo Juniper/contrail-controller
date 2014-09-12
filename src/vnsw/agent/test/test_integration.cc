@@ -342,7 +342,7 @@ void IntfExpectProcess (xml_node &parent, bool expect) {
          for (xml_node child = node.first_child(); child;
                  child = child.next_sibling()) {
              if (strcmp(child.name(), "mac") == 0) {
-                 EXPECT_TRUE(strcasecmp(child.child_value(), 
+                 EXPECT_TRUE(strcasecmp(child.child_value(),
                                         intf->get_mac().c_str()) == 0);
              } else if (strcmp(child.name(), "name") == 0) {
                  EXPECT_TRUE(strcmp(child.child_value(),

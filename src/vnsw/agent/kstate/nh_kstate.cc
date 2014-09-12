@@ -5,7 +5,7 @@
 #include "kstate.h"
 #include "nh_kstate.h"
 #include "vr_nexthop.h"
-#include <linux/if_ether.h>
+#include <net/ethernet.h>
 #include <iomanip>
 #include <sstream>
 
@@ -96,7 +96,7 @@ const string NHKState::FamilyToString(int nh_family) const {
 const string NHKState::EncapFamilyToString(int nh_family) const {
     unsigned family = nh_family;
     switch(family) {
-        case ETH_P_ARP:
+        case ETHERTYPE_ARP:
             return "ETH_P_ARP";
         case 0:
             return "NO_ENCAP";

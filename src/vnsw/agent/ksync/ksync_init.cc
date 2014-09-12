@@ -5,13 +5,19 @@
 #include <boost/asio.hpp>
 #include <boost/bind.hpp>
 
+#if defined(__linux__)
 #include <linux/netlink.h>
 #include <linux/rtnetlink.h>
 #include <linux/genetlink.h>
 #include <linux/if_ether.h>
+#include <netinet/ether.h>
+#elif defined(__FreeBSD__)
+#include <sys/socket.h>
+#include <sys/ioctl.h>
+#include "vr_os.h"
+#endif
 
 #include <net/if.h>
-#include <netinet/ether.h>
 
 #include <io/event_manager.h>
 #include <db/db_entry.h>
@@ -34,18 +40,17 @@
 #include "nl_util.h"
 #include "vhost.h"
 #include "vr_message.h"
-#include "vnswif_listener.h"
 
 #define	VNSW_GENETLINK_FAMILY_NAME  "vnsw"
 
-KSync::KSync(Agent *agent) 
-    : agent_(agent), interface_ksync_obj_(new InterfaceKSyncObject(this)), 
-      flowtable_ksync_obj_(new FlowTableKSyncObject(this)),  
+KSync::KSync(Agent *agent)
+    : agent_(agent), interface_ksync_obj_(new InterfaceKSyncObject(this)),
+      flowtable_ksync_obj_(new FlowTableKSyncObject(this)),
       mpls_ksync_obj_(new MplsKSyncObject(this)),
-      nh_ksync_obj_(new NHKSyncObject(this)), 
-      mirror_ksync_obj_(new MirrorKSyncObject(this)), 
-      vrf_ksync_obj_(new VrfKSyncObject(this)), 
-      vxlan_ksync_obj_(new VxLanKSyncObject(this)), 
+      nh_ksync_obj_(new NHKSyncObject(this)),
+      mirror_ksync_obj_(new MirrorKSyncObject(this)),
+      vrf_ksync_obj_(new VrfKSyncObject(this)),
+      vxlan_ksync_obj_(new VxLanKSyncObject(this)),
       vrf_assign_ksync_obj_(new VrfAssignKSyncObject(this)),
       interface_scanner_(new InterfaceKScan(agent)),
       vnsw_interface_listner_(new VnswInterfaceListener(agent)) {
@@ -92,7 +97,6 @@ void KSync::NetlinkInit() {
     KSyncSockNetlink::Init(io, DB::PartitionCount(), NETLINK_GENERIC);
     KSyncSock::SetAgentSandeshContext(new KSyncSandeshContext(
                                             flowtable_ksync_obj_.get()));
-
     GenericNetlinkInit();
 }
 
@@ -148,6 +152,7 @@ void KSync::VnswInterfaceListenerInit() {
 }
 
 void KSync::CreateVhostIntf() {
+#if defined(__linux__)
     struct  nl_client *cl;
 
     assert((cl = nl_register_client()) != NULL);
@@ -169,9 +174,24 @@ void KSync::CreateVhostIntf() {
     assert((resp = nl_parse_reply(cl)) != NULL);
     assert(resp->nl_type == NL_MSG_TYPE_ERROR);
     nl_free_client(cl);
+#elif defined(__FreeBSD__)
+    struct ifreq ifr;
+    memset(&ifr, 0, sizeof(ifr));
+    ifr.ifr_flags = IFF_UP;
+
+    int s = socket(PF_LOCAL, SOCK_DGRAM, 0);
+    assert(s > 0);
+
+    strncpy(ifr.ifr_name, agent_->vhost_interface_name().c_str(),
+        sizeof(ifr.ifr_name));
+
+    assert(ioctl(s, SIOCSIFFLAGS, &ifr) != -1);
+    close(s);
+#endif
 }
 
 void KSync::UpdateVhostMac() {
+#if defined(__linux__)
     struct  nl_client *cl;
 
     assert((cl = nl_register_client()) != NULL);
@@ -190,13 +210,34 @@ void KSync::UpdateVhostMac() {
     PhysicalInterfaceKey key(agent_->fabric_interface_name());
     Interface *eth = static_cast<Interface *>
         (agent_->interface_table()->FindActiveEntry(&key));
-    memcpy(ifm.if_mac, eth->mac().ether_addr_octet, ETHER_ADDR_LEN);
+    eth->mac().ToArray((u_int8_t *)ifm.if_mac, sizeof(ifm.if_mac));
     assert(nl_build_if_create_msg(cl, &ifm, 1) == 0);
     assert(nl_sendmsg(cl) > 0);
     assert(nl_recvmsg(cl) > 0);
     assert((resp = nl_parse_reply(cl)) != NULL);
     assert(resp->nl_type == NL_MSG_TYPE_ERROR);
     nl_free_client(cl);
+#elif defined(__FreeBSD__)
+    struct ifreq ifr;
+    memset(&ifr, 0, sizeof(ifr));
+
+    int s = socket(PF_LOCAL, SOCK_DGRAM, 0);
+    assert(s >= 0);
+
+    strncpy(ifr.ifr_name, agent_->vhost_interface_name().c_str(),
+            sizeof(ifr.ifr_name));
+
+    PhysicalInterfaceKey key(agent_->fabric_interface_name());
+    Interface *eth = static_cast<Interface *>
+        (agent_->interface_table()->FindActiveEntry(&key));
+    ifr.ifr_addr = eth->mac();
+
+    ifr.ifr_addr.sa_len = eth->mac()->size();
+
+    assert(ioctl(s, SIOCSIFLLADDR, &ifr) != -1);
+
+    close(s);
+#endif
 }
 
 void KSync::Shutdown() {
@@ -218,7 +259,7 @@ void KSync::Shutdown() {
 void GenericNetlinkInit() {
     struct nl_client    *cl;
     int    family;
-    
+
     assert((cl = nl_register_client()) != NULL);
     assert(nl_socket(cl, NETLINK_GENERIC) >= 0);
 

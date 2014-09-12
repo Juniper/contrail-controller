@@ -11,6 +11,7 @@
 #include <boost/bind.hpp>
 #include <boost/function.hpp>
 #include <boost/asio.hpp>
+#include <net/ethernet.h>
 
 #include <cmn/agent.h>
 #include <pkt/packet_buffer.h>
@@ -24,7 +25,7 @@ public:
     static const uint32_t kAgentHdrLen =
         (sizeof(ether_header) + sizeof(struct agent_hdr));
     static const uint32_t kMaxPacketSize = 9060;
-    typedef boost::function<void(uint8_t*, std::size_t, std::size_t)> 
+    typedef boost::function<void(uint8_t*, std::size_t, std::size_t)>
         PktReadCallback;
 
     TapInterface(Agent *agent, const std::string &name,
@@ -34,7 +35,7 @@ public:
     void IoShutdown();
 
     int tap_fd() const { return tap_fd_; }
-    const unsigned char *mac_address() const { return mac_address_; }
+    const MacAddress &mac_address() const { return mac_address_; }
     virtual void SetupTap();
 
     void WritePacketBufferHandler
@@ -60,7 +61,7 @@ protected:
     std::string name_;
     uint8_t *read_buf_;
     PktReadCallback pkt_handler_;
-    unsigned char mac_address_[ETH_ALEN];
+    MacAddress mac_address_;
     boost::asio::posix::stream_descriptor input_;
     DISALLOW_COPY_AND_ASSIGN(TapInterface);
 };

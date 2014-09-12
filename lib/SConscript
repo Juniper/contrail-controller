@@ -20,6 +20,7 @@ if distname != 'Ubuntu' or float(version) < 14.04:
         'libxml2', 
         'log4cplus',
         'tbb',
+        'icu',
     ]
 
 for dir in subdirs:
