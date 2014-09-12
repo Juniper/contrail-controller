@@ -412,14 +412,11 @@ void GlobalVrouter::GlobalVrouterConfig(IFMapNode *node) {
         oper_->agent()->set_vxlan_network_identifier_mode(
                         cfg_vxlan_network_identifier_mode);
         oper_->agent()->vn_table()->UpdateVxLanNetworkIdentifierMode();
-        oper_->agent()->interface_table()->
-                        UpdateVxLanNetworkIdentifierMode();
     }
 
     if (encap_changed) {
         AGENT_LOG(GlobalVrouterLog, "Rebake all routes for changed encap");
         agent_route_encap_update_walker_.get()->Update();
-        oper_->multicast()->ChangeTunnelType();
     }
 }
 

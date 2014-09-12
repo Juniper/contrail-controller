@@ -115,12 +115,12 @@ bool AgentRouteTable::DeleteAllBgpPath(DBTablePartBase *part,
     if (route && !route->IsDeleted()) {
         for(Route::PathList::iterator it = route->GetPathList().begin();
             it != route->GetPathList().end();) {
-            const AgentPath *path =
-                static_cast<const AgentPath *>(it.operator->());
+            AgentPath *path =
+                static_cast<AgentPath *>(it.operator->());
             const Peer *peer = path->peer();
             it++;
             if (peer && peer->GetType() == Peer::BGP_PEER) {
-                DeletePathFromPeer(part, route, path->peer());
+                DeletePathFromPeer(part, route, path);
             }
         }
     }
@@ -208,13 +208,11 @@ void AgentRouteTable::RemoveUnresolvedRoute(const AgentRoute *rt) {
 // LOCAL_VM peer path. But, controller-peer needs to know deletion of 
 // LOCAL_VM path to retract the route.  So, force notify deletion of any path.
 void AgentRouteTable::DeletePathFromPeer(DBTablePartBase *part,
-                                         AgentRoute *rt, const Peer *peer) {
+                                         AgentRoute *rt,
+                                         AgentPath *path) {
     if (rt == NULL) {
         return;
     }
-
-    // Find path for the peer
-    AgentPath *path = rt->FindPath(peer);
 
     RouteInfo rt_info;
     rt->FillTrace(rt_info, AgentRoute::DELETE_PATH, path);
@@ -224,6 +222,9 @@ void AgentRouteTable::DeletePathFromPeer(DBTablePartBase *part,
         return;
     }
 
+    const Peer *peer = path->peer();
+    //Recompute paths since one is going off before deleting.
+    rt->ReComputePathDeletion(path);
     // Remove path from the route
     rt->RemovePath(path);
     // Local path(non BGP type) is going away and so will route.
@@ -353,7 +354,7 @@ void AgentRouteTable::Input(DBTablePartition *part, DBClient *client,
                                 GETPEERNAME(key->peer()));
             } else {
                 // RT present. Check if path is also present by peer
-                path = rt->FindPath(key->peer());
+                path = rt->FindPathUsingKey(key);
             }
 
             // Allocate path if not yet present
@@ -374,7 +375,7 @@ void AgentRouteTable::Input(DBTablePartition *part, DBClient *client,
                 //If a path transition from ECMP to non ECMP
                 //remote the path from ecmp peer
                 if (ecmp && ecmp != path->path_preference().ecmp()) {
-                    rt->EcmpDeletePath(path);
+                    rt->ReComputePathDeletion(path);
                 }
 
                 RouteInfo rt_info;
@@ -393,9 +394,9 @@ void AgentRouteTable::Input(DBTablePartition *part, DBClient *client,
                 EvaluateUnresolvedNH();
             }
 
-            // ECMP path are managed by route module. Update ECMP path with 
-            // addition of new path
-            if (rt->EcmpAddPath(path)) {
+            //Used for routes which have use more than one peer information
+            //to compute the nexthops.
+            if (rt->ReComputePathAdd(path)) {
                 notify = true;
             }
         } else {
@@ -403,7 +404,8 @@ void AgentRouteTable::Input(DBTablePartition *part, DBClient *client,
         }
     } else if (req->oper == DBRequest::DB_ENTRY_DELETE) {
         assert (key->sub_op_ == AgentKey::ADD_DEL_CHANGE);
-        DeletePathFromPeer(part, rt, key->peer());
+        if (rt)
+            rt->DeletePath(key);
     } else {
         assert(0);
     }
@@ -466,7 +468,7 @@ VrfEntry *AgentRouteTable::vrf_entry() const {
     return vrf_entry_.get();
 }
 
-uint32_t AgentRoute::GetMplsLabel() const { 
+uint32_t AgentRoute::GetActiveLabel() const {
     return GetActivePath()->label();
 };
 
@@ -496,9 +498,6 @@ void AgentRoute::InsertPath(const AgentPath *path) {
 void AgentRoute::RemovePathInternal(AgentPath *path) {
     remove(path);
     path->clear_sg_list();
-    // ECMP path are managed by route module. Update ECMP path with this path
-    // delete
-    EcmpDeletePath(path);
 }
 
 void AgentRoute::RemovePath(AgentPath *path) {
@@ -523,6 +522,20 @@ AgentPath *AgentRoute::FindLocalVmPortPath() const {
         }
     }
     return NULL;
+}
+
+void AgentRoute::DeletePathInternal(AgentPath *path) {
+    AgentRouteTable *table = static_cast<AgentRouteTable *>(get_table());
+    table->DeletePathFromPeer(get_table_partition(), this, path);
+}
+
+void AgentRoute::DeletePath(const AgentRouteKey *key) {
+    AgentPath *peer_path = FindPath(key->peer());
+    DeletePathInternal(peer_path);
+}
+
+AgentPath *AgentRoute::FindPathUsingKey(const AgentRouteKey *key) {
+    return FindPath(key->peer());
 }
 
 AgentPath *AgentRoute::FindPath(const Peer *peer) const {
@@ -572,39 +585,6 @@ bool AgentRoute::IsRPFInvalid() const {
     }
 
     return path->is_subnet_discard();
-}
-
-// This is for handling shared tree across different multicast routes,
-// Unsubscribe shud be sent when all routes using tree are gone. Similarly
-// subscription should be sent only for first route.
-// Currently shared tree is only used for flood multicast.
-// TODO: Move this to controller code
-bool AgentRoute::CanDissociate() const {
-    bool can_dissociate = IsDeleted();
-    if (is_multicast()) {
-        const NextHop *nh = GetActiveNextHop();
-        const CompositeNH *cnh = static_cast<const CompositeNH *>(nh);
-        if (cnh && cnh->ComponentNHCount() == 0) 
-            return true;
-        if (GetTableType() == Agent::LAYER2) {
-            const MulticastGroupObject *obj = 
-                MulticastHandler::GetInstance()->
-                FindFloodGroupObject(vrf()->GetName());
-            if (obj) {
-                can_dissociate &= !obj->Ipv4Forwarding();
-            }
-        }
-
-        if (GetTableType() == Agent::INET4_MULTICAST) {
-            const MulticastGroupObject *obj = 
-                MulticastHandler::GetInstance()->
-                FindFloodGroupObject(vrf()->GetName());
-            if (obj) {
-                can_dissociate &= !obj->layer2_forwarding();
-            }
-        }
-    }
-    return can_dissociate;
 }
 
 // If a direct route has changed, invoke a change on tunnel NH dependent on it

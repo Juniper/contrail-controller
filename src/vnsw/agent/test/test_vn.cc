@@ -284,6 +284,7 @@ TEST_F(CfgTest, Global_vxlan_network_identifier_mode_config) {
     client->WaitForIdle();
     DelEncapList();
     client->WaitForIdle();
+    client->WaitForIdle();
 }
 
 TEST_F(CfgTest, Global_vxlan_network_identifier_mode_config_sandesh) {
@@ -335,6 +336,32 @@ TEST_F(CfgTest, Global_vxlan_network_identifier_mode_config_sandesh) {
     client->WaitForIdle();
 }
 
+TEST_F(CfgTest, vn_forwarding_mode_changed_0) {
+    struct PortInfo input[] = {
+        {"vnet1", 1, "1.1.1.10", "00:00:01:01:01:10", 1, 1},
+    };
+
+    IpamInfo ipam_info[] = {
+        {"1.1.1.0", 24, "1.1.1.200"},
+    };
+
+    client->Reset();
+    AddEncapList("VXLAN", "MPLSoGRE", "MPLSoUDP");
+    CreateVmportEnv(input, 1);
+    client->WaitForIdle();
+    EXPECT_TRUE(VmPortActive(input, 0));
+    AddIPAM("vn1", ipam_info, 1);
+    client->WaitForIdle();
+
+    client->Reset();
+    DelIPAM("vn1"); 
+    client->WaitForIdle();
+    DeleteVmportEnv(input, 1, true);
+    client->WaitForIdle();
+    DelEncapList();
+    client->WaitForIdle();
+}
+
 TEST_F(CfgTest, vn_forwarding_mode_changed_1) {
     struct PortInfo input[] = {
         {"vnet1", 1, "1.1.1.10", "00:00:01:01:01:10", 1, 1},
@@ -373,19 +400,13 @@ TEST_F(CfgTest, vn_forwarding_mode_changed_1) {
     EXPECT_TRUE(l2_uc_rt != NULL);
     EXPECT_TRUE(l2_flood_rt != NULL);
     EXPECT_TRUE(uc_rt != NULL);
-    EXPECT_TRUE(subnet_rt != NULL);
-    EXPECT_TRUE(flood_rt != NULL);
+    EXPECT_TRUE(subnet_rt == NULL);
+    EXPECT_TRUE(flood_rt == NULL);
     EXPECT_TRUE(l2_uc_rt->GetActiveNextHop()->GetType() == NextHop::INTERFACE);
     EXPECT_TRUE(uc_rt->GetActiveNextHop()->GetType() == NextHop::INTERFACE);
     EXPECT_TRUE(l2_flood_rt->GetActiveNextHop()->GetType() == NextHop::COMPOSITE);
-    EXPECT_TRUE(flood_rt->GetActiveNextHop()->GetType() == NextHop::COMPOSITE);
-    EXPECT_TRUE(subnet_rt->GetActiveNextHop()->GetType() == NextHop::COMPOSITE);
     cnh = ((CompositeNH *) l2_flood_rt->GetActiveNextHop());
     //Interface COMP
-    EXPECT_TRUE(cnh->ComponentNHCount() == 1);
-    cnh = ((CompositeNH *) flood_rt->GetActiveNextHop());
-    EXPECT_TRUE(cnh->ComponentNHCount() == 1);
-    cnh = ((CompositeNH *) subnet_rt->GetActiveNextHop());
     EXPECT_TRUE(cnh->ComponentNHCount() == 1);
 
     //Move to l2 mode
@@ -404,7 +425,7 @@ TEST_F(CfgTest, vn_forwarding_mode_changed_1) {
     EXPECT_TRUE(l2_uc_rt->GetActiveNextHop()->GetType() == NextHop::INTERFACE);
     EXPECT_TRUE(l2_flood_rt->GetActiveNextHop()->GetType() == NextHop::COMPOSITE);
     cnh = ((CompositeNH *) l2_flood_rt->GetActiveNextHop());
-    //Interface COMP
+    //Fabric COMP + Interface COMP + EVPN comp NH
     EXPECT_TRUE(cnh->ComponentNHCount() == 1);
 
     //Move to l2_l3 mode
@@ -418,19 +439,13 @@ TEST_F(CfgTest, vn_forwarding_mode_changed_1) {
     EXPECT_TRUE(l2_uc_rt != NULL);
     EXPECT_TRUE(l2_flood_rt != NULL);
     EXPECT_TRUE(uc_rt != NULL);
-    EXPECT_TRUE(subnet_rt != NULL);
-    EXPECT_TRUE(flood_rt != NULL);
+    EXPECT_TRUE(subnet_rt == NULL);
+    EXPECT_TRUE(flood_rt == NULL);
     EXPECT_TRUE(l2_uc_rt->GetActiveNextHop()->GetType() == NextHop::INTERFACE);
     EXPECT_TRUE(uc_rt->GetActiveNextHop()->GetType() == NextHop::INTERFACE);
     EXPECT_TRUE(l2_flood_rt->GetActiveNextHop()->GetType() == NextHop::COMPOSITE);
-    EXPECT_TRUE(flood_rt->GetActiveNextHop()->GetType() == NextHop::COMPOSITE);
-    EXPECT_TRUE(subnet_rt->GetActiveNextHop()->GetType() == NextHop::COMPOSITE);
     cnh = ((CompositeNH *) l2_flood_rt->GetActiveNextHop());
-    //Interface COMP
-    EXPECT_TRUE(cnh->ComponentNHCount() == 1);
-    cnh = ((CompositeNH *) flood_rt->GetActiveNextHop());
-    EXPECT_TRUE(cnh->ComponentNHCount() == 1);
-    cnh = ((CompositeNH *) subnet_rt->GetActiveNextHop());
+    //Fabric COMP + EVPN comp + Interface COMP
     EXPECT_TRUE(cnh->ComponentNHCount() == 1);
 
     client->Reset();
@@ -496,7 +511,7 @@ TEST_F(CfgTest, vn_forwarding_mode_changed_2) {
     EXPECT_TRUE(l2_uc_rt->GetActiveNextHop()->GetType() == NextHop::INTERFACE);
     EXPECT_TRUE(l2_flood_rt->GetActiveNextHop()->GetType() == NextHop::COMPOSITE);
     cnh = ((CompositeNH *) l2_flood_rt->GetActiveNextHop());
-    //Interface COMP nh
+    //Fabric COMP + EVPN comp + Interface COMP
     EXPECT_TRUE(cnh->ComponentNHCount() == 1);
 
     //Move to l2_l3 mode
@@ -510,19 +525,13 @@ TEST_F(CfgTest, vn_forwarding_mode_changed_2) {
     EXPECT_TRUE(l2_uc_rt != NULL);
     EXPECT_TRUE(l2_flood_rt != NULL);
     EXPECT_TRUE(uc_rt != NULL);
-    EXPECT_TRUE(subnet_rt != NULL);
-    EXPECT_TRUE(flood_rt != NULL);
+    EXPECT_TRUE(subnet_rt == NULL);
+    EXPECT_TRUE(flood_rt == NULL);
     EXPECT_TRUE(l2_uc_rt->GetActiveNextHop()->GetType() == NextHop::INTERFACE);
     EXPECT_TRUE(uc_rt->GetActiveNextHop()->GetType() == NextHop::INTERFACE);
     EXPECT_TRUE(l2_flood_rt->GetActiveNextHop()->GetType() == NextHop::COMPOSITE);
-    EXPECT_TRUE(flood_rt->GetActiveNextHop()->GetType() == NextHop::COMPOSITE);
-    EXPECT_TRUE(subnet_rt->GetActiveNextHop()->GetType() == NextHop::COMPOSITE);
     cnh = ((CompositeNH *) l2_flood_rt->GetActiveNextHop());
-    //Interface COMP
-    EXPECT_TRUE(cnh->ComponentNHCount() == 1);
-    cnh = ((CompositeNH *) flood_rt->GetActiveNextHop());
-    EXPECT_TRUE(cnh->ComponentNHCount() == 1);
-    cnh = ((CompositeNH *) subnet_rt->GetActiveNextHop());
+    //Fabric COMP + EVPN comp + Interface COMP
     EXPECT_TRUE(cnh->ComponentNHCount() == 1);
 
     //Move back to l2
@@ -541,7 +550,7 @@ TEST_F(CfgTest, vn_forwarding_mode_changed_2) {
     EXPECT_TRUE(l2_uc_rt->GetActiveNextHop()->GetType() == NextHop::INTERFACE);
     EXPECT_TRUE(l2_flood_rt->GetActiveNextHop()->GetType() == NextHop::COMPOSITE);
     cnh = ((CompositeNH *) l2_flood_rt->GetActiveNextHop());
-    //Interface COMP
+    //Fabric COMP + EVPN comp + Interface COMP
     EXPECT_TRUE(cnh->ComponentNHCount() == 1);
     client->Reset();
 
@@ -720,6 +729,7 @@ TEST_F(CfgTest, change_in_gatewaywith_no_vrf) {
     client->WaitForIdle();
     WAIT_FOR(1000, 1000, (VrfFind("vrf1") == false));
 }
+
 
 int main(int argc, char **argv) {
     GETUSERARGS();

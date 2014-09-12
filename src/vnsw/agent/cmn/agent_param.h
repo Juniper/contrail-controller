@@ -80,6 +80,7 @@ public:
     uint32_t linklocal_vm_flows() const { return linklocal_vm_flows_; }
     uint32_t flow_cache_timeout() const {return flow_cache_timeout_;}
     bool headless_mode() const {return headless_mode_;}
+    bool simulate_evpn_tor() const {return simulate_evpn_tor_;}
     std::string si_netns_command() const {return si_netns_command_;}
     const int si_netns_workers() const {return si_netns_workers_;}
     const int si_netns_timeout() const {return si_netns_timeout_;}
@@ -172,6 +173,7 @@ private:
     void ParseMetadataProxy();
     void ParseFlows();
     void ParseHeadlessMode();
+    void ParseSimulateEvpnTor();
     void ParseServiceInstance();
 
     void ParseCollectorArguments
@@ -240,6 +242,10 @@ private:
     boost::property_tree::ptree tree_;
     std::auto_ptr<VirtualGatewayConfigTable> vgw_config_table_;
     bool headless_mode_;
+    //Simulate EVPN TOR mode moves agent into L2 mode. This mode is required
+    //only for testing where MX and bare metal are simulated. VM on the
+    //simulated compute node behaves as bare metal.
+    bool simulate_evpn_tor_;
     std::string si_netns_command_;
     int si_netns_workers_;
     int si_netns_timeout_;

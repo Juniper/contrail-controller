@@ -18,6 +18,8 @@
 #define LINKLOCAL_PEER_NAME "LinkLocal"
 #define ECMP_PEER_NAME "Ecmp"
 #define VGW_PEER_NAME "Vgw"
+#define MULTICAST_PEER_NAME "Multicast"
+#define MULTICAST_FABRIC_TREE_BUILDER_NAME "MulticastTreeBuilder"
 
 class AgentXmppChannel;
 class ControllerRouteWalker;
@@ -28,6 +30,7 @@ public:
     typedef std::map<std::string, Peer *> PeerMap;
     typedef std::pair<std::string, Peer *> PeerPair;
     enum Type {
+        MULTICAST_PEER,
         BGP_PEER,
         LINKLOCAL_PEER,
         ECMP_PEER,
@@ -35,7 +38,8 @@ public:
         LOCAL_PEER,
         LOCAL_VM_PORT_PEER,
         NOVA_PEER,
-        VGW_PEER
+        VGW_PEER,
+        MULTICAST_FABRIC_TREE_BUILDER
     };
 
     Peer(Type type, const std::string &name);

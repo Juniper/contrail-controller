@@ -126,7 +126,7 @@ protected:
     void DeleteRoute(const Peer *peer, const std::string &vrf_name, 
                      struct ether_addr *remote_vm_mac) {
         Layer2AgentRouteTable::DeleteReq(peer, vrf_name_,
-            *remote_vm_mac, NULL);
+            *remote_vm_mac, 0, NULL);
         client->WaitForIdle();
         while (L2RouteFind(vrf_name, *remote_vm_mac) == true) {
             client->WaitForIdle();
@@ -184,14 +184,13 @@ TEST_F(RouteTest, LocalVmRoute_1) {
     MulticastGroupObject *obj = 
         MulticastHandler::GetInstance()->FindFloodGroupObject("vrf1");
     EXPECT_TRUE(obj != NULL);
-    EXPECT_TRUE(obj->Ipv4Forwarding() == false);
     EXPECT_TRUE(obj->layer2_forwarding() == true);
     EXPECT_TRUE(L2RouteFind(vrf_name_, local_vm_mac_));
     Layer2RouteEntry *rt = L2RouteGet(vrf_name_, local_vm_mac_);
     EXPECT_TRUE(rt->GetActiveNextHop() != NULL);
     const NextHop *nh = rt->GetActiveNextHop();
     EXPECT_TRUE(rt->dest_vn_name() == "vn1");
-    uint32_t label = rt->GetMplsLabel();
+    uint32_t label = rt->GetActiveLabel();
     MplsLabelKey key(MplsLabel::MCAST_NH, label);
     MplsLabel *mpls = 
         static_cast<MplsLabel *>(agent_->mpls_table()->Find(&key, true));
@@ -228,7 +227,7 @@ TEST_F(RouteTest, LocalVmRoute_2) {
     EXPECT_TRUE(rt->GetActiveNextHop() != NULL);
     const NextHop *nh = rt->GetActiveNextHop();
     EXPECT_TRUE(rt->dest_vn_name() == "vn1");
-    uint32_t label = rt->GetMplsLabel();
+    uint32_t label = rt->GetActiveLabel();
     MplsLabelKey key(MplsLabel::MCAST_NH, label);
     MplsLabel *mpls = 
         static_cast<MplsLabel *>(agent_->mpls_table()->Find(&key, true));
@@ -265,7 +264,6 @@ TEST_F(RouteTest, Mpls_sandesh_check_with_l2route) {
     MulticastGroupObject *obj = 
         MulticastHandler::GetInstance()->FindFloodGroupObject("vrf1");
     EXPECT_TRUE(obj != NULL);
-    EXPECT_TRUE(obj->Ipv4Forwarding() == false);
     EXPECT_TRUE(obj->layer2_forwarding() == true);
     EXPECT_TRUE(L2RouteFind(vrf_name_, local_vm_mac_));
 
@@ -301,7 +299,7 @@ TEST_F(RouteTest, RemoteVmRoute_1) {
     EXPECT_TRUE(L2RouteFind(vrf_name_, remote_vm_mac_));
 
     Layer2RouteEntry *rt = L2RouteGet(vrf_name_, remote_vm_mac_);
-    EXPECT_TRUE(rt->GetMplsLabel() == MplsTable::kStartLabel);
+    EXPECT_TRUE(rt->GetActiveLabel() == MplsTable::kStartLabel);
 
     Layer2RouteReq *l2_req = new Layer2RouteReq();
     std::vector<int> result = list_of(1);
@@ -459,12 +457,12 @@ TEST_F(RouteTest, Layer2_route_key) {
 
     EXPECT_TRUE(VmPortL2Active(input, 0));
     Layer2RouteEntry *vnet1_rt = L2RouteGet(vrf_name_, local_vm_mac_);
-    Layer2RouteKey new_key(agent_->local_vm_peer(), "vrf2", local_vm_mac_);
+    Layer2RouteKey new_key(agent_->local_vm_peer(), "vrf2", local_vm_mac_, 0);
     vnet1_rt->SetKey(&new_key);
     EXPECT_TRUE(vnet1_rt->vrf()->GetName() == "vrf2");
     EXPECT_TRUE(new_key.ToString() == "0:0:1:1:1:10");
     Layer2RouteKey restore_key(agent_->local_vm_peer(), "vrf1", 
-                               local_vm_mac_);
+                               local_vm_mac_, 0);
     vnet1_rt->SetKey(&restore_key);
     EXPECT_TRUE(vnet1_rt->vrf()->GetName() == "vrf1");
     EXPECT_TRUE(restore_key.ToString() == "0:0:1:1:1:10");
@@ -570,7 +568,7 @@ TEST_F(RouteTest, Enqueue_l2_route_add_on_deleted_vrf) {
     ComponentNHKeyList component_nh_key_list;
     Layer2AgentRouteTable::AddRemoteVmRouteReq(agent_->local_vm_peer(),
                                                vrf_name_, local_vm_mac_,
-                                               local_vm_ip_, 32, NULL);
+                                               local_vm_ip_, 0, 32, NULL);
 
     vrf_ref = NULL;
     TaskScheduler::GetInstance()->Start();
@@ -591,8 +589,7 @@ TEST_F(RouteTest, Enqueue_l2_route_del_on_deleted_vrf) {
     client->WaitForIdle();
     TaskScheduler::GetInstance()->Stop();
     Layer2AgentRouteTable::DeleteReq(agent_->local_vm_peer(), vrf_name_,
-                                     local_vm_mac_,
-                                     NULL);
+                                     local_vm_mac_, 0, NULL);
     vrf_ref = NULL;
     TaskScheduler::GetInstance()->Start();
     client->WaitForIdle();

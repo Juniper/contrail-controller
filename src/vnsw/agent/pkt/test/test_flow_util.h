@@ -19,7 +19,7 @@ public:
                 InterfaceTable::GetInstance()->
                 FindInterface(ifindex_)->flow_key_nh()->id();
         } else {
-            nh_id_ = GetMplsLabel(MplsLabel::VPORT_NH, mpls_)->nexthop()->id();
+            nh_id_ = GetActiveLabel(MplsLabel::VPORT_NH, mpls_)->nexthop()->id();
         }
     };
 
@@ -36,7 +36,7 @@ public:
                  InterfaceTable::GetInstance()->
                  FindInterface(ifindex_)->flow_key_nh()->id();
          } else {
-             nh_id_ = GetMplsLabel(MplsLabel::VPORT_NH, mpls_)->nexthop()->id();
+             nh_id_ = GetActiveLabel(MplsLabel::VPORT_NH, mpls_)->nexthop()->id();
          }
     };
 
@@ -53,7 +53,7 @@ public:
                 InterfaceTable::GetInstance()->
                 FindInterface(ifindex_)->flow_key_nh()->id();
         } else {
-            nh_id_ = GetMplsLabel(MplsLabel::VPORT_NH, mpls_)->nexthop()->id();
+            nh_id_ = GetActiveLabel(MplsLabel::VPORT_NH, mpls_)->nexthop()->id();
         }
     };
 
@@ -70,7 +70,7 @@ public:
                  InterfaceTable::GetInstance()->
                  FindInterface(ifindex_)->flow_key_nh()->id();
          } else {
-             nh_id_ = GetMplsLabel(MplsLabel::VPORT_NH, mpls_)->nexthop()->id();
+             nh_id_ = GetActiveLabel(MplsLabel::VPORT_NH, mpls_)->nexthop()->id();
          }
      };
 

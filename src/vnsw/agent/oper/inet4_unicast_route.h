@@ -25,6 +25,7 @@ public:
        return Agent::INET4_UNICAST;
     }
     virtual string ToString() const;
+    virtual AgentRouteKey *Clone() const;
 
     const Ip4Address &addr() const {return dip_;}
     const uint8_t &plen() const {return plen_;}
@@ -52,6 +53,8 @@ public:
     virtual Agent::RouteTableType GetTableType() const {
         return Agent::INET4_UNICAST;
     }
+    virtual bool ReComputePathDeletion(AgentPath *path);
+    virtual bool ReComputePathAdd(AgentPath *path);
     virtual bool EcmpAddPath(AgentPath *path);
     virtual bool EcmpDeletePath(AgentPath *path);
     void AppendEcmpPath(Agent *agent, AgentPath *path);
@@ -223,7 +226,7 @@ public:
                                         const Ip4Address &addr, uint8_t plen);
     static void AddDropRoute(const string &vm_vrf,
                              const Ip4Address &addr, uint8_t plen,
-                             const string &vn_name, bool is_subnet_discard);
+                             const string &vn_name);
     static void AddGatewayRoute(const string &vrf_name,
                                 const Ip4Address &dst_addr,uint8_t plen,
                                 const Ip4Address &gw_ip,
@@ -232,6 +235,9 @@ public:
                                    const Ip4Address &dst_addr,uint8_t plen,
                                    const Ip4Address &gw_ip,
                                    const std::string &vn_name);
+    void AddSubnetRoute(const string &vm_vrf, const Ip4Address &addr,
+                        uint8_t plen, const string &vn_name,
+                        uint32_t vxlan_id);
 
 private:
     Inet4RouteTree tree_;

@@ -159,11 +159,15 @@ public:
         olist_map.push_back(OlistTunnelEntry(3000, 
                             IpAddress::from_string("8.8.8.8").to_v4(),
                             TunnelType::MplsType()));
-        MulticastHandler::ModifyFabricMembers(vrf_name_,
+        MulticastHandler::ModifyFabricMembers(Agent::GetInstance()->
+                                              multicast_tree_builder_peer(),
+                            vrf_name_,
                             IpAddress::from_string("1.1.1.255").to_v4(),
                             IpAddress::from_string("0.0.0.0").to_v4(),
                             1111, olist_map);
-        MulticastHandler::ModifyFabricMembers(vrf_name_,
+        MulticastHandler::ModifyFabricMembers(Agent::GetInstance()->
+                                              multicast_tree_builder_peer(),
+                            vrf_name_,
                             IpAddress::from_string("255.255.255.255").to_v4(),
                             IpAddress::from_string("0.0.0.0").to_v4(),
                             1112, olist_map);
@@ -179,7 +183,7 @@ public:
         client->WaitForIdle();
         Layer2AgentRouteTable::DeleteReq(Agent::GetInstance()->local_peer(), 
                                          vrf_name_,
-                                         remote_vm_mac_, NULL);
+                                         remote_vm_mac_, 0, NULL);
         client->WaitForIdle();
         agent->fabric_inet4_unicast_table()->
             DeleteReq(agent->local_peer(), vrf_name_,
