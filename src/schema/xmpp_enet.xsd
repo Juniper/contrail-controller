@@ -26,6 +26,10 @@ xsd:targetNamespace="http://www.contrailsystems.com/xmpp-enet-cfg.xsd">
     <xsd:element name="tunnel-encapsulation-list" type="EnetTunnelEncapsulationListType"/>
 </xsd:complexType>
 
+<xsd:complexType name="EnetOlistType">
+    <xsd:element name="next-hop" type="EnetNextHopType" maxOccurs="unbounded"/>
+</xsd:complexType>
+
 <xsd:complexType name="EnetNextHopListType">
     <xsd:element name="next-hop" type="EnetNextHopType" maxOccurs="unbounded"/>
 </xsd:complexType>
@@ -33,6 +37,7 @@ xsd:targetNamespace="http://www.contrailsystems.com/xmpp-enet-cfg.xsd">
 <xsd:complexType name="EnetAddressType">
     <xsd:element name="af" type="xsd:integer"/>
     <xsd:element name="safi" type="xsd:integer"/>
+    <xsd:element name="ethernet-tag" type="xsd:integer"/>
     <xsd:element name="mac" type="xsd:string"/>
     <xsd:element name="address" type="xsd:string"/>
 </xsd:complexType>
@@ -41,7 +46,9 @@ xsd:targetNamespace="http://www.contrailsystems.com/xmpp-enet-cfg.xsd">
     <xsd:all>
         <xsd:element name="nlri" type="EnetAddressType"/>
         <xsd:element name="next-hops" type="EnetNextHopListType"/>
+        <xsd:element name="olist" type="EnetOlistType"/>
         <xsd:element name="virtual-network" type="xsd:string"/>
+        <xsd:element name="edge-replication-not-supported" type="xsd:boolean"/>
     </xsd:all>
 </xsd:complexType>
 

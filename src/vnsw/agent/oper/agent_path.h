@@ -249,6 +249,8 @@ public:
     void set_path_preference(const PathPreference &path_preference) {
         path_preference_ = path_preference;
     }
+    uint32_t vxlan_id() const {return vxlan_id_;}
+    uint32_t tunnel_bmap() const {return tunnel_bmap_;}
 
 private:
     VmInterfaceKey intf_;
@@ -329,21 +331,41 @@ private:
 
 class MulticastRoute : public AgentRouteData {
 public:
-    MulticastRoute(const string &vn_name,
+    MulticastRoute(const string &vn_name, uint32_t label,
                    int vxlan_id, DBRequest &nh_req):
     AgentRouteData(true), vn_name_(vn_name),
-    vxlan_id_(vxlan_id) {
+    label_(label), vxlan_id_(vxlan_id) {
         composite_nh_req_.Swap(&nh_req);
     }
     virtual ~MulticastRoute() { }
     virtual bool AddChangePath(Agent *agent, AgentPath *path);
     virtual std::string ToString() const {return "multicast";}
+    static bool CopyPathParameters(Agent *agent,
+                                   AgentPath *path,
+                                   const std::string &dest_vn_name,
+                                   bool unresolved,
+                                   uint32_t vxlan_id,
+                                   uint32_t label,
+                                   uint32_t tunnel_type,
+                                   bool is_subnet_discard,
+                                   NextHop *nh);
 
 private:
     string vn_name_;
-    int vxlan_id_;
+    uint32_t label_;
+    uint32_t vxlan_id_;
     DBRequest composite_nh_req_;
     DISALLOW_COPY_AND_ASSIGN(MulticastRoute);
+};
+
+class SubnetRoute : public MulticastRoute {
+public:
+    SubnetRoute(const string &vn_name, uint32_t vxlan_id, DBRequest &nh_req);
+    virtual ~SubnetRoute() {}
+    virtual string ToString() const {return "subnet route";}
+
+private:
+    DISALLOW_COPY_AND_ASSIGN(SubnetRoute);
 };
 
 class ReceiveRoute : public AgentRouteData {
@@ -404,15 +426,13 @@ private:
 
 class DropRoute : public AgentRouteData {
 public:
-    DropRoute(const std::string &vn_name, bool is_subnet_discard) :
-        AgentRouteData(false), vn_(vn_name),
-        is_subnet_discard_(is_subnet_discard){ }
+    DropRoute(const string &vn_name) :
+        AgentRouteData(false), vn_(vn_name) { }
     virtual ~DropRoute() { }
     virtual bool AddChangePath(Agent *agent, AgentPath *path);
     virtual std::string ToString() const {return "drop";}
 private:
     std::string vn_;
-    bool is_subnet_discard_;
     DISALLOW_COPY_AND_ASSIGN(DropRoute);
 };
 #endif // vnsw_agent_path_hpp

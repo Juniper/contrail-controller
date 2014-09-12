@@ -130,8 +130,8 @@ struct L2CompositeData {
     1: string type;
     2: optional string sip;
     3: optional string dip;
-    4: optional FabricCompositeData fabric_comp;  //Multicast sub nh list
-    5: optional list <McastData> mc_list;  //Multicast sub nh list
+    4: optional FabricCompositeData fabric_comp; //Multicast sub nh list
+    5: optional list <McastData> mc_list; //Multicast sub nh list
 }
 
 struct L3CompositeData {
@@ -139,7 +139,23 @@ struct L3CompositeData {
     2: optional string sip;
     3: optional string dip;
     4: optional FabricCompositeData fabric_comp;  //Multicast sub nh list
-    5: optional list <McastData> mc_list;  //Multicast sub nh list
+    5: optional list <McastData> mc_list; //Multicast sub nh list
+}
+
+struct MulticastCompositeData {
+    1: string type;
+    2: optional string sip;
+    3: optional string dip;
+    4: optional list <McastData> mc_list;  //Multicast sub nh list
+}
+
+struct MulticastFamilyCompositeData {
+    1: string type;
+    2: optional string sip;
+    3: optional string dip;
+    4: optional MulticastCompositeData fabric_comp;  //Multicast sub nh list
+    5: optional MulticastCompositeData evpn_comp;  //Multicast sub nh list
+    6: optional MulticastCompositeData interface_comp;  //Multicast sub nh list
 }
 
 struct NhSandeshData {
@@ -164,6 +180,8 @@ struct NhSandeshData {
    19: optional L2CompositeData l2_comp;  //Multicast sub nh list
    20: optional L3CompositeData l3_comp;  //Multicast sub nh list
    21: i32 nh_index;
+   22: optional MulticastCompositeData interface_comp;  //Multicast sub nh list
+   23: optional MulticastCompositeData evpn_comp;  //Multicast sub nh list
 }
 
 struct NamespaceStateSandeshData {

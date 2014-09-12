@@ -231,8 +231,11 @@ bool ControllerRouteWalker::RouteDelPeer(DBTablePartBase *partition,
                          route->ToString(), peer_->GetName());
     }
 
-    vrf->GetRouteTable(route->GetTableType())->DeletePathFromPeer(partition,
-                                                                  route, peer_);
+    AgentRouteKey *key = (static_cast<AgentRouteKey *>(route->
+                                      GetDBRequestKey().get()))->Clone();
+    key->set_peer(peer_);
+    route->DeletePath(key);
+    delete key;
     return true;
 }
 

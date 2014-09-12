@@ -179,11 +179,12 @@ bool RouteKSyncEntry::Sync(DBEntry *e) {
     NHKSyncObject *nh_object = ksync_obj_->ksync()->nh_ksync_obj();
     NHKSyncEntry *old_nh = nh();
 
-    const NextHop *tmp = route->GetActiveNextHop();
+    Agent *agent = ksync_obj_->ksync()->agent();
+    const NextHop *tmp = NULL;
+    tmp = route->GetActiveNextHop();
     if (tmp == NULL) {
         DiscardNHKey key;
-        tmp = static_cast<NextHop *>
-            (ksync_obj_->ksync()->agent()->nexthop_table()->
+        tmp = static_cast<NextHop *>(agent->nexthop_table()->
              FindActiveEntry(&key));
     }
     NHKSyncEntry nexthop(nh_object, tmp);
