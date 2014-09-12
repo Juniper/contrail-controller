@@ -756,6 +756,24 @@ class TestVncCfgApiServer(test_case.ApiServerTestCase):
         with ExpectedException(RefsExistError) as e:
             self._vnc_lib.project_create(dup_project_obj)
 
+    def test_put_on_wrong_type(self):
+        vn_name = self.id()+'-vn'
+        vn_obj = VirtualNetwork(vn_name)
+        self._add_detail('Creating network with name %s' %(vn_name))
+        self._vnc_lib.virtual_network_create(vn_obj)
+        listen_port = self._api_server._args.listen_port
+        uri = '/network-ipam/%s' %(vn_obj.uuid)
+        self._add_detail('Trying to update uuid as network-ipam, expecting 404')
+        code, msg = self._http_put(uri, json.dumps({'network-ipam': {'display_name': 'foobar'}}))
+        self.assertThat(code, Equals(404))
+
+        self._add_detail('Updating display_name as network, expecting success')
+        uri = '/virtual-network/%s' %(vn_obj.uuid)
+        code, msg = self._http_put(uri, json.dumps({'virtual-network': {'display_name': 'foobar'}}))
+        self.assertThat(code, Equals(200))
+        rb_obj = self._vnc_lib.virtual_network_read(id=vn_obj.uuid)
+        self.assertThat(rb_obj.display_name, Equals('foobar'))
+
 # end class TestVncCfgApiServer
 
 class TestLocalAuth(test_case.ApiServerTestCase):

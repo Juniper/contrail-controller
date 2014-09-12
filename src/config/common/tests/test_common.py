@@ -198,6 +198,10 @@ class TestCase(testtools.TestCase, fixtures.TestWithFixtures):
             ]
         super(TestCase, self).__init__(*args, **kwargs)
 
+    def _add_detail(self, detail_str):
+        frame = inspect.stack()[1]
+        self.addDetail('%s:%s ' %(frame[1],frame[2]), content.text_content(detail_str))
+
     def _add_request_detail(self, op, url, headers=None, query_params=None,
                          body=None):
         request_str = ' URL: ' + pformat(url) + \
@@ -205,7 +209,7 @@ class TestCase(testtools.TestCase, fixtures.TestWithFixtures):
                       ' Headers: ' + pformat(headers) + \
                       ' Query Params: ' + pformat(query_params) + \
                       ' Body: ' + pformat(body)
-        self.addDetail('Requesting: ', content.text_content(request_str))
+        self._add_detail('Requesting: ' + request_str)
 
     def _http_get(self, uri, query_params=None):
         url = "http://%s:%s%s" % (self._api_server_ip, self._api_server_port, uri)
@@ -215,9 +219,9 @@ class TestCase(testtools.TestCase, fixtures.TestWithFixtures):
                                                 params=query_params)
         response = self._api_server_session.get(url, headers = headers,
                                                 params = query_params)
-        self.addDetail('Received Response: ',
-                       content.text_content(pformat(response.status_code) +
-                                            pformat(response.text)))
+        self._add_detail('Received Response: ' +
+                         pformat(response.status_code) +
+                         pformat(response.text))
         return (response.status_code, response.text)
     #end _http_get
 
@@ -226,9 +230,9 @@ class TestCase(testtools.TestCase, fixtures.TestWithFixtures):
         self._add_request_detail('POST', url, headers=self._HTTP_HEADERS, body=body)
         response = self._api_server_session.post(url, data=body,
                                                  headers=self._HTTP_HEADERS)
-        self.addDetail('Received Response: ',
-                       content.text_content(pformat(response.status_code) +
-                                            pformat(response.text)))
+        self._add_detail('Received Response: ' +
+                         pformat(response.status_code) +
+                         pformat(response.text))
         return (response.status_code, response.text)
     #end _http_post
 
@@ -237,20 +241,20 @@ class TestCase(testtools.TestCase, fixtures.TestWithFixtures):
         self._add_request_detail('DELETE', url, headers=self._HTTP_HEADERS, body=body)
         response = self._api_server_session.delete(url, data=body,
                                                    headers=self._HTTP_HEADERS)
-        self.addDetail('Received Response: ',
-                       content.text_content(pformat(response.status_code) +
-                                            pformat(response.text)))
+        self._add_detail('Received Response: ' +
+                         pformat(response.status_code) +
+                         pformat(response.text))
         return (response.status_code, response.text)
     #end _http_delete
 
-    def _http_put(self, uri, body, headers):
+    def _http_put(self, uri, body):
         url = "http://%s:%s%s" % (self._api_server_ip, self._api_server_port, uri)
         self._add_request_detail('PUT', url, headers=self._HTTP_HEADERS, body=body)
         response = self._api_server_session.put(url, data=body,
                                                 headers=self._HTTP_HEADERS)
-        self.addDetail('Received Response: ',
-                       content.text_content(pformat(response.status_code) +
-                                            pformat(response.text)))
+        self._add_detail('Received Response: ' +
+                         pformat(response.status_code) +
+                         pformat(response.text))
         return (response.status_code, response.text)
     #end _http_put
 
@@ -259,7 +263,7 @@ class TestCase(testtools.TestCase, fixtures.TestWithFixtures):
         for i in range(count):
             obj_name = self.id() + '-vn-' + str(i)
             obj = VirtualNetwork(obj_name)
-            self.addDetail('creating-object', content.text_content(obj_name))
+            self._add_detail('creating-object ' + obj_name)
             self._vnc_lib.virtual_network_create(obj)
             ret_objs.append(obj)
 
