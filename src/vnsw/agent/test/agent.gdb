@@ -428,11 +428,6 @@ define dump_ksync_vxlan_entries
 end
 
 
-document dump_service_instance_entries
-     Prints all service instance entries
-     Syntax: dump_service_instance_entries <table>: Prints all service instance entries
-end
-
 define service_instance_entry_format
     set $__svi = (ServiceInstance *)((size_t)($Xnode) - (size_t)&(ServiceInstance::node_))
     set $__prop = $__svi->properties_
@@ -448,3 +443,9 @@ define dump_service_instance_entries
        pdb_table_entries $arg0 service_instance_entry_format
    end
 end
+
+document dump_service_instance_entries
+     Prints all service instance entries
+     Syntax: dump_service_instance_entries <table>: Prints all service instance entries
+end
+
