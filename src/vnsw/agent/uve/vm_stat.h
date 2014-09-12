@@ -33,6 +33,7 @@ public:
     void ProcessData();
 private:
     bool BuildVmStatsMsg(VirtualMachineStats *uve);
+    bool BuildVmMsg(UveVirtualMachineAgent *uve);
     void ReadCpuStat();
     void ReadVcpuStat();
     void ReadMemStat();

@@ -242,9 +242,20 @@ void VmStat::ReadMemStat() {
     data_.str(" ");
     data_.clear();
     //Send Stats
+    //We need to send same cpu info in two different UVEs
+    //(VirtualMachineStats and UveVirtualMachineAgent). One of them uses
+    //stats-oracle infra and other one does not use it. We need two because
+    //stats-oracle infra returns only SUM of cpu-info over a period of time
+    //and current value is returned using non-stats-oracle version. Using
+    //stats oracle infra we can still query the current value but it is not
+    //simple and hence we sending current value in separate UVE.
     VirtualMachineStats vm_agent;
     if (BuildVmStatsMsg(&vm_agent)) {
         agent_->uve()->vm_uve_table()->DispatchVmStatsMsg(vm_agent);
+    }
+    UveVirtualMachineAgent vm_msg;
+    if (BuildVmMsg(&vm_msg)) {
+        agent_->uve()->vm_uve_table()->DispatchVmMsg(vm_msg);
     }
     StartTimer();    
 }
@@ -262,6 +273,21 @@ bool VmStat::BuildVmStatsMsg(VirtualMachineStats *uve) {
 
     cpu_stats_list.push_back(stats);
     uve->set_cpu_stats(cpu_stats_list);
+
+    return true;
+}
+
+bool VmStat::BuildVmMsg(UveVirtualMachineAgent *uve) {
+    uve->set_name(UuidToString(vm_uuid_));
+
+    VmCpuStats stats;
+    stats.set_cpu_one_min_avg(cpu_usage_);
+    stats.set_vm_memory_quota(vm_memory_quota_);
+    stats.set_rss(mem_usage_);
+    stats.set_virt_memory(virt_memory_);
+    stats.set_peak_virt_memory(virt_memory_peak_);
+
+    uve->set_cpu_info(stats);
 
     return true;
 }
