@@ -20,6 +20,7 @@ public:
         virtual ~State() {};
 
         bool exported_;
+        bool evpn_exported_;
         bool force_chg_;
         Ip4Address server_;
         uint32_t label_;

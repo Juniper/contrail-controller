@@ -1003,8 +1003,10 @@ void VmInterface::DeleteL3(bool old_ipv4_active, VrfEntry *old_vrf,
 }
 
 void VmInterface::UpdateVxLan() {
-    if (l2_active_ && (vxlan_id_ == 0)) {
-        vxlan_id_ = vn_.get() ? vn_->GetVxLanId() : 0;
+    int new_vxlan_id = vn_.get() ? vn_->GetVxLanId() : 0;
+    if (l2_active_ && ((vxlan_id_ == 0) ||
+                       (vxlan_id_ != new_vxlan_id))) {
+        vxlan_id_ = new_vxlan_id;
     }
 }
 
@@ -1012,12 +1014,14 @@ void VmInterface::UpdateL2(bool old_l2_active, VrfEntry *old_vrf, int old_vxlan_
                            bool force_update, bool policy_change) {
     UpdateVxLan();
     UpdateL2NextHop(old_l2_active);
-    UpdateL2TunnelId(force_update, policy_change);
+    //Update label only if new entry is to be created, so
+    //no force update on same.
+    UpdateL2TunnelId(false, policy_change);
     UpdateL2InterfaceRoute(old_l2_active, force_update);
 }
 
-void VmInterface::UpdateL2() {
-    UpdateL2(l2_active_, vrf_.get(), vxlan_id_, false, false);
+void VmInterface::UpdateL2(bool force_update) {
+    UpdateL2(l2_active_, vrf_.get(), vxlan_id_, force_update, false);
 }
 
 void VmInterface::DeleteL2(bool old_l2_active, VrfEntry *old_vrf) {
@@ -1776,9 +1780,6 @@ void VmInterface::DeleteSecurityGroup() {
 void VmInterface::UpdateL2TunnelId(bool force_update, bool policy_change) {
     if (IsVxlanMode() == false) {
         AllocL2MplsLabel(force_update, policy_change);
-    } else {
-        // If we are using VXLAN, then free label if allocated
-        DeleteL2MplsLabel();
     }
 }
 
