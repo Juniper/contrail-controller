@@ -361,7 +361,7 @@ protected:
 
 class SetupTask : public Task {
     public:
-        SetupTask(FlowTableTest *test) : Task((TaskScheduler::GetInstance()->GetTaskId("Agent::FlowHandler")), 0), test_(test) {
+        SetupTask(FlowTableTest *test) : Task((TaskScheduler::GetInstance()->GetTaskId("Agent::FlowHandler")), -1), test_(test) {
         }
         virtual bool Run() {
             test_->flow1 = FlowInit(test_->key1);
