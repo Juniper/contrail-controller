@@ -17,8 +17,6 @@ SandeshGenSrcs = env.ExtractCpp(SandeshGenFiles)
  
 env.Prepend(CPPPATH = env['TOP'] + '/vnsw/dp/sandesh')
 
-exception_files = [ 'tap_interface.cc' ]
-exceptions_objs = AgentEnv.BuildExceptionCcObj(env, exception_files)
 sandesh_objs = AgentEnv.BuildExceptionCppObj(env, SandeshGenSrcs)
 
 pkt_srcs = [
@@ -37,7 +35,6 @@ pkt_srcs = [
 
 libservices = env.Library('pkt',
                  sandesh_objs +
-                 exceptions_objs +
                  pkt_srcs)
 
 env.SConscript('test/SConscript', exports='AgentEnv', duplicate = 0)

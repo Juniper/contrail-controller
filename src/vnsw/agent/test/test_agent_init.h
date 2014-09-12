@@ -7,6 +7,7 @@
 
 #include <boost/program_options.hpp>
 #include <init/contrail_init_common.h>
+#include <test/test_pkt0_interface.h>
 
 class Agent;
 class AgentParam;
@@ -31,9 +32,11 @@ public:
     void UveShutdown();
     void WaitForIdle();
 
+    TestPkt0Interface *pkt0() const { return pkt0_.get(); }
 private:
     std::auto_ptr<KSync> ksync_;
     std::auto_ptr<AgentUve> uve_;
+    std::auto_ptr<TestPkt0Interface> pkt0_;
 
     DISALLOW_COPY_AND_ASSIGN(TestAgentInit);
 };

@@ -7,14 +7,15 @@
 
 #include "diag/diag.h"
 #include "diag/diag_types.h"
-#include "pkt/tap_interface.h"
+#include "pkt/control_interface.h"
+
 class DiagTable;
 class Ping: public DiagEntry {
 public:
-    static const uint32_t KPingUdpHdr = sizeof(ethhdr) + 
-        sizeof(iphdr) + sizeof(udphdr) + TapInterface::kAgentHdrLen;
-    static const uint32_t KPingTcpHdr = sizeof(ethhdr) + 
-        sizeof(iphdr) + sizeof(tcphdr) + TapInterface::kAgentHdrLen;
+    static const uint32_t KPingUdpHdr = sizeof(ethhdr) + sizeof(iphdr) +
+        sizeof(udphdr);
+    static const uint32_t KPingTcpHdr = sizeof(ethhdr) + sizeof(iphdr) +
+        sizeof(tcphdr);
     Ping(const PingReq *pr,DiagTable *diag_table);
     virtual ~Ping();
     virtual void SendRequest();

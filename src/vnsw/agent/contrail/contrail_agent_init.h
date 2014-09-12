@@ -7,6 +7,7 @@
 
 #include <boost/program_options.hpp>
 #include <init/contrail_init_common.h>
+#include <contrail/pkt0_interface.h>
 
 class Agent;
 class AgentParam;
@@ -38,6 +39,7 @@ public:
 private:
     std::auto_ptr<KSync> ksync_;
     std::auto_ptr<AgentUve> uve_;
+    std::auto_ptr<Pkt0Interface> pkt0_;
 
     DISALLOW_COPY_AND_ASSIGN(ContrailAgentInit);
 };
