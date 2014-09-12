@@ -44,7 +44,7 @@ class EchoServer: public UdpServer {
 
             std::ostringstream s;
             boost::system::error_code e;
-            s << "Got [" << bytes_transferred << "]<" << GetLocalEndPoint()
+            s << "Got [" << bytes_transferred << "]<" << GetLocalEndpoint(&e)
               << "<-" << remote_endpoint << ">\"";
             {
                 const char *p = buffer_cast<const char *>(recv_buffer);
@@ -210,7 +210,9 @@ TEST_F(EchoServerTest, Basic) {
     task_util::WaitForIdle();
     thread_->Start();
     server_->StartReceive();
-    udp::endpoint server_endpoint = server_->GetLocalEndPoint();
+    boost::system::error_code ec;
+    udp::endpoint server_endpoint = server_->GetLocalEndpoint(&ec);
+    EXPECT_TRUE(ec == 0);
     UDP_UT_LOG_DEBUG("UDP Server: " << server_endpoint);
     int port = server_endpoint.port();
     ASSERT_LT(0, port);
@@ -218,7 +220,6 @@ TEST_F(EchoServerTest, Basic) {
 
     client_->Initialize(0);
 
-    boost::system::error_code ec;
     client_->Send("Test udp", udp::endpoint(
                 boost::asio::ip::address::from_string("127.0.0.1", ec), port));
     // Wait till client get resp

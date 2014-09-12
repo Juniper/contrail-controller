@@ -14,16 +14,22 @@
 #include <google/protobuf/dynamic_message.h>
 
 #include <base/logging.h>
+#include <base/test/task_test_util.h>
+#include <io/test/event_manager_test.h>
+#include <io/udp_server.h>
 
 #include "analytics/db_handler.h"
 #include "analytics/self_describing_message.pb.h"
 #include "analytics/protobuf_server_impl.h"
+#include "analytics/protobuf_server.h"
 #include "test_message.pb.h"
 
 using namespace ::google::protobuf;
 using boost::assign::map_list_of;
 
 static std::string d_desc_file_ = "build/debug/analytics/test/test_message.desc";
+
+namespace {
 
 class ProtobufReaderTest : public ::testing::Test {
 };
@@ -199,6 +205,7 @@ TEST_F(ProtobufReaderTest, Parse) {
     delete msg;
 }
 
+
 struct ArgSet {
     std::string statAttr;
     DbHandler::TagMap attribs_tag;
@@ -252,10 +259,7 @@ public:
     vector<bool> match_;
 };
 
-class ProtobufStatWalkerTest : public ::testing::Test {
-};
-
-TEST_F(ProtobufStatWalkerTest, Basic) {
+vector<ArgSet> PopulateTestMessageStatsInfo() {
     vector<ArgSet> av;
     ArgSet a1;
     a1.statAttr = string("TestMessage");
@@ -312,8 +316,14 @@ TEST_F(ProtobufStatWalkerTest, Basic) {
         make_pair(
             DbHandler::Var("TestMessageInner2"), sm)));
     av.push_back(a3);
+    return av;
+}
 
-    StatCbTester ct(av);
+class ProtobufStatWalkerTest : public ::testing::Test {
+};
+
+TEST_F(ProtobufStatWalkerTest, Basic) {
+    StatCbTester ct(PopulateTestMessageStatsInfo());
 
     // Create TestMessage and serialize it
     uint8_t data[512];
@@ -339,6 +349,111 @@ TEST_F(ProtobufStatWalkerTest, Basic) {
         boost::bind(&StatCbTester::Cb, &ct, _1, _2, _3, _4, _5));
     delete msg;
 }
+
+class ProtobufMockClient : public UdpServer {
+ public:
+    explicit ProtobufMockClient(EventManager *evm) :
+        UdpServer(evm),
+        tx_count_(0) {
+    }
+
+    void Send(const std::string &snd, boost::asio::ip::udp::endpoint to) {
+        boost::asio::mutable_buffer send = AllocateBuffer(snd.length());
+        char *p = boost::asio::buffer_cast<char *>(send);
+        std::copy(snd.begin(), snd.end(), p);
+        LOG(ERROR, "ProtobufMockClient sending to " << to);
+        StartSend(to, snd.length(), send);
+        snd_buf_ = snd;
+    }
+
+    void HandleSend(boost::asio::const_buffer send_buffer,
+                    boost::asio::ip::udp::endpoint remote_endpoint,
+                    std::size_t bytes_transferred,
+                    const boost::system::error_code& error) {
+        tx_count_ += 1;
+        LOG(ERROR, "ProtobufMockClient sent " << bytes_transferred
+            << " bytes, error(" << error << ")");
+    }
+
+    int GetTxPackets() { return tx_count_; }
+
+ private:
+    int tx_count_;
+    std::string snd_buf_;
+};
+
+class ProtobufServerTest : public ::testing::Test {
+ protected:
+    ProtobufServerTest() :
+        stats_tester_(PopulateTestMessageStatsInfo()) {
+    }
+
+    virtual void SetUp() {
+        for (int i = 0; i < stats_tester_.exp_.size(); i++) {
+            match_.push_back(true);
+        }
+        evm_.reset(new EventManager());
+        server_.reset(new protobuf::ProtobufServer(evm_.get(), 0,
+            boost::bind(&StatCbTester::Cb, &stats_tester_, _1, _2, _3,
+            _4, _5)));
+        client_ = new ProtobufMockClient(evm_.get());
+        thread_.reset(new ServerThread(evm_.get()));
+    }
+
+    virtual void TearDown() {
+        match_.clear();
+        task_util::WaitForIdle();
+        evm_->Shutdown();
+        task_util::WaitForIdle();
+        client_->Shutdown();
+        task_util::WaitForIdle();
+        server_->Shutdown();
+        task_util::WaitForIdle();
+        UdpServerManager::DeleteServer(client_);
+        task_util::WaitForIdle();
+        if (thread_.get() != NULL) {
+            thread_->Join();
+        }
+        task_util::WaitForIdle();
+    }
+
+    std::vector<bool> match_;
+    StatCbTester stats_tester_;
+    std::auto_ptr<ServerThread> thread_;
+    std::auto_ptr<protobuf::ProtobufServer> server_;
+    ProtobufMockClient *client_;
+    std::auto_ptr<EventManager> evm_;
+};
+
+TEST_F(ProtobufServerTest, Basic) {
+    EXPECT_TRUE(server_->Initialize());
+    task_util::WaitForIdle();
+    boost::system::error_code ec;
+    boost::asio::ip::udp::endpoint server_endpoint =
+        server_->GetLocalEndpoint(&ec);
+    EXPECT_TRUE(ec == 0);
+    LOG(ERROR, "ProtobufServer: " << server_endpoint);
+    thread_->Start();
+    client_->Initialize(0);
+    // Create TestMessage and serialize it
+    uint8_t data[512];
+    int serialized_data_size(0);
+    CreateAndSerializeTestMessage(data, sizeof(data),
+        &serialized_data_size);
+    // Create SelfDescribingMessageTest for TestMessage and serialize it
+    uint8_t sdm_data[512];
+    int serialized_sdm_data_size(0);
+    CreateAndSerializeSelfDescribingMessage(sdm_data,
+        sizeof(sdm_data), &serialized_sdm_data_size, d_desc_file_.c_str(),
+        data, serialized_data_size);
+    std::string snd(reinterpret_cast<const char *>(sdm_data),
+        serialized_sdm_data_size);
+    client_->Send(snd, server_endpoint);
+    TASK_UTIL_EXPECT_EQ(client_->GetTxPackets(), 1);
+    TASK_UTIL_EXPECT_VECTOR_EQ(stats_tester_.match_, match_);
+}
+
+}  // namespace
 
 int main(int argc, char **argv) {
     char *top_obj_dir = getenv("TOP_OBJECT_PATH");

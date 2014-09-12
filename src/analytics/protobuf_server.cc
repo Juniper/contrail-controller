@@ -227,6 +227,11 @@ class ProtobufServer::ProtobufServerImpl {
         udp_server_ = NULL;
     }
 
+    boost::asio::ip::udp::endpoint GetLocalEndpoint(
+        boost::system::error_code *ec) {
+        return udp_server_->GetLocalEndpoint(ec);
+    }
+
  private:
     //
     // ProtobufUdpServer
@@ -253,6 +258,7 @@ class ProtobufServer::ProtobufServerImpl {
                     << "for port " << port_);
                 exit(1);
             }
+            StartReceive();
             return true;
         }
 
@@ -279,6 +285,7 @@ class ProtobufServer::ProtobufServerImpl {
             protobuf::impl::ProcessProtobufMessage(*message, timestamp,
                 stat_db_callback_);
             delete message;
+            DeallocateBuffer(recv_buffer);
         }
 
      private:
@@ -310,6 +317,11 @@ bool ProtobufServer::Initialize() {
 
 void ProtobufServer::Shutdown() {
     impl_->Shutdown();
+}
+
+boost::asio::ip::udp::endpoint ProtobufServer::GetLocalEndpoint(
+    boost::system::error_code *ec) {
+    return impl_->GetLocalEndpoint(ec);
 }
 
 }  // namespace protobuf
