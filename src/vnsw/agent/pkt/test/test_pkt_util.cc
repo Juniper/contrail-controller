@@ -29,9 +29,8 @@ void TxIpPacket(int ifindex, const char *sip, const char *dip,
                  vrf);
     uint8_t *ptr(new uint8_t[pkt->GetBuffLen()]);
     memcpy(ptr, pkt->GetBuff(), pkt->GetBuffLen());
-    Agent::GetInstance()->pkt()->pkt_handler()->HandleRcvPkt(ptr,
-                                                             pkt->GetBuffLen(),
-                                                             pkt->GetBuffLen());
+    client->agent_init()->pkt0()->ProcessFlowPacket(ptr, pkt->GetBuffLen(),
+                                                    pkt->GetBuffLen());
     delete pkt;
 }
 
@@ -41,9 +40,8 @@ void TxIpPacketEcmp(int ifindex, const char *sip, const char *dip,
     MakeIpPacket(pkt, ifindex, sip, dip, proto, hash_id, AgentHdr::TRAP_ECMP_RESOLVE);
     uint8_t *ptr(new uint8_t[pkt->GetBuffLen()]);
     memcpy(ptr, pkt->GetBuff(), pkt->GetBuffLen());
-    Agent::GetInstance()->pkt()->pkt_handler()->HandleRcvPkt(ptr,
-                                                             pkt->GetBuffLen(),
-                                                             pkt->GetBuffLen());
+    client->agent_init()->pkt0()->ProcessFlowPacket(ptr, pkt->GetBuffLen(),
+                                                    pkt->GetBuffLen());
     delete pkt;
 }
 
@@ -63,9 +61,8 @@ void TxUdpPacket(int ifindex, const char *sip, const char *dip,
     MakeUdpPacket(pkt, ifindex, sip, dip, sport, dport, hash_id, vrf_id);
     uint8_t *ptr(new uint8_t[pkt->GetBuffLen()]);
     memcpy(ptr, pkt->GetBuff(), pkt->GetBuffLen());
-    Agent::GetInstance()->pkt()->pkt_handler()->HandleRcvPkt(ptr,
-                                                             pkt->GetBuffLen(),
-                                                             pkt->GetBuffLen());
+    client->agent_init()->pkt0()->ProcessFlowPacket(ptr, pkt->GetBuffLen(),
+                                                    pkt->GetBuffLen());
     delete pkt;
 }
 
@@ -87,9 +84,8 @@ void TxTcpPacket(int ifindex, const char *sip, const char *dip,
     MakeTcpPacket(pkt, ifindex, sip, dip, sport, dport, ack, hash_id, vrf_id);
     uint8_t *ptr(new uint8_t[pkt->GetBuffLen()]);
     memcpy(ptr, pkt->GetBuff(), pkt->GetBuffLen());
-    Agent::GetInstance()->pkt()->pkt_handler()->HandleRcvPkt(ptr,
-                                                             pkt->GetBuffLen(),
-                                                             pkt->GetBuffLen());
+    client->agent_init()->pkt0()->ProcessFlowPacket(ptr, pkt->GetBuffLen(),
+                                                    pkt->GetBuffLen());
     delete pkt;
 }
 
@@ -119,9 +115,8 @@ void TxIpMplsPacket(int ifindex, const char *out_sip,
                      hash_id);
     uint8_t *ptr(new uint8_t[pkt->GetBuffLen()]);
     memcpy(ptr, pkt->GetBuff(), pkt->GetBuffLen());
-    Agent::GetInstance()->pkt()->pkt_handler()->HandleRcvPkt(ptr,
-                                                             pkt->GetBuffLen(),
-                                                             pkt->GetBuffLen());
+    client->agent_init()->pkt0()->ProcessFlowPacket(ptr, pkt->GetBuffLen(),
+                                                    pkt->GetBuffLen());
     delete pkt;
 }
 
@@ -149,9 +144,8 @@ void TxUdpMplsPacket(int ifindex, const char *out_sip,
                       dport, hash_id);
     uint8_t *ptr(new uint8_t[pkt->GetBuffLen()]);
     memcpy(ptr, pkt->GetBuff(), pkt->GetBuffLen());
-    Agent::GetInstance()->pkt()->pkt_handler()->HandleRcvPkt(ptr,
-                                                             pkt->GetBuffLen(),
-                                                             pkt->GetBuffLen());
+    client->agent_init()->pkt0()->ProcessFlowPacket(ptr, pkt->GetBuffLen(),
+                                                    pkt->GetBuffLen());
     delete pkt;
 }
 
@@ -180,9 +174,8 @@ void TxTcpMplsPacket(int ifindex, const char *out_sip,
 
     uint8_t *ptr(new uint8_t[pkt->GetBuffLen()]);
     memcpy(ptr, pkt->GetBuff(), pkt->GetBuffLen());
-    Agent::GetInstance()->pkt()->pkt_handler()->HandleRcvPkt(ptr,
-                                                             pkt->GetBuffLen(),
-                                                             pkt->GetBuffLen());
+    client->agent_init()->pkt0()->ProcessFlowPacket(ptr, pkt->GetBuffLen(),
+                                                    pkt->GetBuffLen());
     delete pkt;
 }
 

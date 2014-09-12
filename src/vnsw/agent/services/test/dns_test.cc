@@ -14,11 +14,8 @@
 #include <controller/controller_init.h>
 #include <controller/controller_vrf_export.h>
 #include <pkt/pkt_init.h>
-#include <pkt/tap_interface.h>
-#include <pkt/test_tap_interface.h>
 #include <services/services_init.h>
 #include <ksync/ksync_init.h>
-// #include <openstack/instance_service_server.h>
 #include <oper/vrf.h>
 #include <pugixml/pugixml.hpp>
 #include <services/dns_proto.h>
@@ -262,10 +259,11 @@ public:
         len += sizeof(udphdr);
         udp->len = htons(len);
         ip->tot_len = htons(len + sizeof(iphdr));
-        len += sizeof(iphdr) + sizeof(ethhdr) + TapInterface::kAgentHdrLen;
-        TestTapInterface *tap = (TestTapInterface *)
-            (Agent::GetInstance()->pkt()->pkt_handler()->tap_interface());
-        tap->GetTestPktHandler()->TestPktSend(buf, len);
+
+        len += sizeof(iphdr) + sizeof(ethhdr) + Agent::GetInstance()->pkt()->pkt_handler()->EncapHeaderLen();
+        TestPkt0Interface *tap = (TestPkt0Interface *)
+                (Agent::GetInstance()->pkt()->control_interface());
+        tap->TxPacket(buf, len);
     }
 
     void SendDnsResp(int numQues, DnsItem *items, int numAuth, DnsItem *auth,

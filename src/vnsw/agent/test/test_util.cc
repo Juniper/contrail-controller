@@ -2624,9 +2624,8 @@ PktGen *TxTcpPacketUtil(int ifindex, const char *sip, const char *dip,
 
     uint8_t *ptr(new uint8_t[pkt->GetBuffLen()]);
     memcpy(ptr, pkt->GetBuff(), pkt->GetBuffLen());
-    Agent::GetInstance()->pkt()->pkt_handler()->HandleRcvPkt(ptr,
-                                                             pkt->GetBuffLen(),
-                                                             pkt->GetBuffLen());
+    client->agent_init()->pkt0()->ProcessFlowPacket(ptr, pkt->GetBuffLen(),
+                                                    pkt->GetBuffLen());
     delete pkt;
     return NULL;
 }
@@ -2643,9 +2642,8 @@ PktGen *TxIpPacketUtil(int ifindex, const char *sip, const char *dip,
 
     uint8_t *ptr(new uint8_t[pkt->GetBuffLen()]);
     memcpy(ptr, pkt->GetBuff(), pkt->GetBuffLen());
-    Agent::GetInstance()->pkt()->pkt_handler()->HandleRcvPkt(ptr,
-                                                             pkt->GetBuffLen(),
-                                                             pkt->GetBuffLen());
+    client->agent_init()->pkt0()->ProcessFlowPacket(ptr, pkt->GetBuffLen(),
+                                                    pkt->GetBuffLen());
     delete pkt;
     return NULL;
 }
@@ -2697,9 +2695,8 @@ PktGen *TxMplsPacketUtil(int ifindex, const char *out_sip,
 
     uint8_t *ptr(new uint8_t[pkt->GetBuffLen()]);
     memcpy(ptr, pkt->GetBuff(), pkt->GetBuffLen());
-    Agent::GetInstance()->pkt()->pkt_handler()->HandleRcvPkt(ptr,
-                                                             pkt->GetBuffLen(),
-                                                             pkt->GetBuffLen());
+    client->agent_init()->pkt0()->ProcessFlowPacket(ptr, pkt->GetBuffLen(),
+                                                    pkt->GetBuffLen());
     delete pkt;
 
     return NULL;
@@ -2722,9 +2719,8 @@ PktGen *TxMplsTcpPacketUtil(int ifindex, const char *out_sip,
 
     uint8_t *ptr(new uint8_t[pkt->GetBuffLen()]);
     memcpy(ptr, pkt->GetBuff(), pkt->GetBuffLen());
-    Agent::GetInstance()->pkt()->pkt_handler()->HandleRcvPkt(ptr,
-                                                             pkt->GetBuffLen(),
-                                                             pkt->GetBuffLen());
+    client->agent_init()->pkt0()->ProcessFlowPacket(ptr, pkt->GetBuffLen(),
+                                                    pkt->GetBuffLen());
     delete pkt;
     return NULL;
 }

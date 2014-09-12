@@ -13,8 +13,7 @@
 #include "oper/nexthop.h"
 #include "oper/route_common.h"
 #include "oper/vrf.h"
-#include "pkt/tap_interface.h"
-#include "pkt/test_tap_interface.h"
+#include "pkt/control_interface.h"
 #include "pkt/pkt_handler.h"
 #include "pkt/proto.h"
 #include "pkt/flow_table.h"
@@ -38,54 +37,25 @@ const std::size_t PktTrace::kPktMaxTraceSize;
 
 ////////////////////////////////////////////////////////////////////////////////
 
-PktHandler::PktHandler(Agent *agent, const std::string &if_name,
-                       boost::asio::io_service &io_serv, bool run_with_vrouter) 
-                      : stats_(), agent_(agent) {
+PktHandler::PktHandler(Agent *agent, PktModule *pkt_module) :
+    stats_(), agent_(agent), pkt_module_(pkt_module) {
     for (int i = 0; i < MAX_MODULES; ++i) {
         if (i == PktHandler::DHCP || i == PktHandler::DNS)
             pkt_trace_.at(i).set_pkt_trace_size(512);
         else
             pkt_trace_.at(i).set_pkt_trace_size(128);
     }
-
-    if (run_with_vrouter)
-        tap_interface_.reset(new TapInterface(agent, if_name, io_serv, 
-                             boost::bind(&PktHandler::HandleRcvPkt,
-                                         this, _1, _2, _3)));
-    else
-        tap_interface_.reset(new TestTapInterface(agent, "test", io_serv,
-                             boost::bind(&PktHandler::HandleRcvPkt,
-                                         this, _1, _2, _3)));
-    tap_interface_->Init();
 }
 
 PktHandler::~PktHandler() {
-}
-
-void PktHandler::Init() {
-}
-
-void PktHandler::IoShutdown() {
-    tap_interface_->IoShutdown();
-}
-
-void PktHandler::Shutdown() {
 }
 
 void PktHandler::Register(PktModuleName type, RcvQueueFunc cb) {
     enqueue_cb_.at(type) = cb;
 }
 
-const unsigned char *PktHandler::mac_address() {
-    return tap_interface_->mac_address();
-}
-
 uint32_t PktHandler::EncapHeaderLen() const {
-    return tap_interface_->EncapHeaderLen();
-}
-
-void PktHandler::CreateInterfaces(const std::string &if_name) {
-    PacketInterface::Create(agent_->interface_table(), if_name);
+    return agent_->pkt()->control_interface()->EncapsulationLength();
 }
 
 // Send packet to tap interface
@@ -93,30 +63,29 @@ void PktHandler::Send(const AgentHdr &hdr, PacketBufferPtr buff) {
     stats_.PktSent(PktHandler::PktModuleName(buff->module()));
     pkt_trace_.at(buff->module()).AddPktTrace(PktTrace::Out, buff->data_len(),
                                               buff->data(), &hdr);
-    tap_interface_->Send(hdr, buff);
+    if (agent_->pkt()->control_interface()->Send(hdr, buff) <= 0) {
+        PKT_TRACE(Err, "Error sending packet");
+    }
+
+    return;
 }
 
 // Process the packet received from tap interface
-void PktHandler::HandleRcvPkt(uint8_t *ptr, std::size_t len,
+void PktHandler::HandleRcvPkt(const AgentHdr &hdr, uint8_t *ptr,
+                              uint32_t data_offset, std::size_t data_len,
                               std::size_t max_len) {
-    boost::shared_ptr<PktInfo> pkt_info(new PktInfo(ptr, len, max_len));
+    boost::shared_ptr<PktInfo> pkt_info
+        (new PktInfo(ptr,(data_offset + data_len), max_len));
     PktType::Type pkt_type = PktType::INVALID;
     PktModuleName mod = INVALID;
     Interface *intf = NULL;
-    uint8_t *pkt;
+    uint8_t *pkt = ptr + data_offset;
 
+    pkt_info->agent_hdr = hdr;
     agent_->stats()->incr_pkt_exceptions();
-    if ((pkt = ParseAgentHdr(pkt_info.get())) == NULL) {
-        PKT_TRACE(Err, "Error parsing Agent Header");
-        agent_->stats()->incr_pkt_invalid_agent_hdr();
-        goto drop;
-    }
-
-    intf = agent_->interface_table()->FindInterface(pkt_info->GetAgentHdr().
-                                                      ifindex);
+    intf = agent_->interface_table()->FindInterface(hdr.ifindex);
     if (intf == NULL) {
-        PKT_TRACE(Err, "Invalid interface index <" <<
-                  pkt_info->GetAgentHdr().ifindex << ">");
+        PKT_TRACE(Err, "Invalid interface index <" << hdr.ifindex << ">");
         agent_->stats()->incr_pkt_invalid_interface();
         goto enqueue;
     }
@@ -125,7 +94,7 @@ void PktHandler::HandleRcvPkt(uint8_t *ptr, std::size_t len,
         VmInterface *vm_itf = static_cast<VmInterface *>(intf);
         if (!vm_itf->ipv4_forwarding()) {
             PKT_TRACE(Err, "ipv4 not enabled for interface index <" <<
-                      pkt_info->GetAgentHdr().ifindex << ">");
+                      hdr.ifindex << ">");
             agent_->stats()->incr_pkt_dropped();
             goto drop;
         }
@@ -141,9 +110,8 @@ void PktHandler::HandleRcvPkt(uint8_t *ptr, std::size_t len,
     }
 
     // Packets needing flow
-    if ((pkt_info->GetAgentHdr().cmd == AgentHdr::TRAP_FLOW_MISS ||
-         pkt_info->GetAgentHdr().cmd == AgentHdr::TRAP_ECMP_RESOLVE) && 
-        pkt_info->ip) {
+    if ((hdr.cmd == AgentHdr::TRAP_FLOW_MISS ||
+         hdr.cmd == AgentHdr::TRAP_ECMP_RESOLVE) && pkt_info->ip) {
         mod = FLOW;
         goto enqueue;
     }
@@ -165,7 +133,7 @@ void PktHandler::HandleRcvPkt(uint8_t *ptr, std::size_t len,
     }
 
     // Look for IP packets that need ARP resolution
-    if (pkt_info->ip && pkt_info->GetAgentHdr().cmd == AgentHdr::TRAP_RESOLVE) {
+    if (pkt_info->ip && hdr.cmd == AgentHdr::TRAP_RESOLVE) {
         mod = ARP;
         goto enqueue;
     }
@@ -175,13 +143,12 @@ void PktHandler::HandleRcvPkt(uint8_t *ptr, std::size_t len,
         goto enqueue;
     }
 
-    if (pkt_info->ip &&
-        pkt_info->GetAgentHdr().cmd == AgentHdr::TRAP_HANDLE_DF) {
+    if (pkt_info->ip && hdr.cmd == AgentHdr::TRAP_HANDLE_DF) {
         mod = ICMP_ERROR;
         goto enqueue;
     }
 
-    if (pkt_info->GetAgentHdr().cmd == AgentHdr::TRAP_DIAG && pkt_info->ip) {
+    if (hdr.cmd == AgentHdr::TRAP_DIAG && pkt_info->ip) {
         mod = DIAG;
         goto enqueue;
     }
@@ -204,33 +171,6 @@ enqueue:
 drop:
     agent_->stats()->incr_pkt_dropped();
     return;
-}
-
-uint8_t *PktHandler::ParseAgentHdr(PktInfo *pkt_info) {
-    // Format of packet trapped is,
-    // OUTER_ETH - AGENT_HDR - PAYLOAD
-    // Enusure sanity of the packet
-    if (pkt_info->len < (sizeof(ethhdr) + sizeof(agent_hdr) + sizeof(ethhdr))) {
-        return NULL;
-    }
-
-    // packet comes with (outer) eth header, agent_hdr, actual eth packet
-    pkt_info->eth = (ethhdr *) pkt_info->pkt;
-    uint8_t *pkt = ((uint8_t *)pkt_info->eth) + sizeof(ethhdr);
-
-    // Decode agent_hdr
-    agent_hdr *agent = (agent_hdr *) pkt;
-    pkt_info->agent_hdr.ifindex = ntohs(agent->hdr_ifindex);
-    pkt_info->agent_hdr.vrf = ntohs(agent->hdr_vrf);
-    pkt_info->agent_hdr.cmd = ntohs(agent->hdr_cmd);
-    pkt_info->agent_hdr.cmd_param = ntohl(agent->hdr_cmd_param);
-    pkt_info->agent_hdr.nh = ntohl(agent->hdr_cmd_param_1);
-    if (pkt_info->agent_hdr.cmd == AgentHdr::TRAP_HANDLE_DF) {
-        pkt_info->agent_hdr.mtu = ntohl(agent->hdr_cmd_param);
-        pkt_info->agent_hdr.flow_index = ntohl(agent->hdr_cmd_param_1);
-    }
-    pkt += sizeof(agent_hdr);
-    return pkt;
 }
 
 void PktHandler::SetOuterIp(PktInfo *pkt_info, uint8_t *pkt) {
@@ -503,7 +443,7 @@ PktInfo::~PktInfo() {
 const AgentHdr &PktInfo::GetAgentHdr() const {return agent_hdr;};
 
 void PktInfo::UpdateHeaderPtr() {
-    eth = (struct ethhdr *)(pkt + TapInterface::kAgentHdrLen);
+    eth = (struct ethhdr *)(pkt);
     ip = (struct iphdr *)(eth + 1);
     transp.tcp = (struct tcphdr *)(ip + 1);
 }

@@ -808,7 +808,8 @@ bool DhcpHandler::CreateRelayResponsePacket() {
     pkt_info_->len += sizeof(iphdr);
     IpHdr(pkt_info_->len, htonl(agent()->router_id().to_ulong()),
           0xFFFFFFFF, IPPROTO_UDP);
-    EthHdr(agent()->pkt()->pkt_handler()->mac_address(), dhcp->chaddr, 0x800);
+    EthHdr(agent()->vhost_interface()->mac().ether_addr_octet, dhcp->chaddr,
+           0x800);
     pkt_info_->len += sizeof(ethhdr);
     return true;
 }
@@ -1482,7 +1483,7 @@ uint16_t DhcpHandler::FillDhcpResponse(unsigned char *dest_mac,
                                        in_addr_t src_ip, in_addr_t dest_ip,
                                        in_addr_t siaddr, in_addr_t yiaddr) {
     pkt_info_->eth = (ethhdr *)(pkt_info_->pkt + EncapHeaderLen());
-    EthHdr(agent()->pkt()->pkt_handler()->mac_address(), dest_mac, 0x800);
+    EthHdr(agent()->vhost_interface()->mac().ether_addr_octet, dest_mac, 0x800);
     uint16_t header_len = sizeof(ethhdr);
     if (vm_itf_->vlan_id() != VmInterface::kInvalidVlanId) {
         // cfi and priority are zero
