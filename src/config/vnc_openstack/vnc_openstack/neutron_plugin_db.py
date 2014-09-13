@@ -1300,8 +1300,8 @@ class DBInterface(object):
             default_gw = subnet_q['gateway_ip']
             if default_gw == '0.0.0.0':
                 msg = _("Disable gateway is not supported")
-                self._raise_contrail_exception(400, exceptions.BadRequest(
-                    resource='subnet', msg=msg))
+                self._raise_contrail_exception(400, 'BadRequest',
+                    resource='subnet', msg=msg)
         else:
             # Assigned first+1 from cidr
             default_gw = str(IPAddress(cidr.first + 1))
