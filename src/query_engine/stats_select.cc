@@ -73,6 +73,8 @@ StatsSelect::Jsonify(const std::map<std::string, StatVal>&  uniks,
                 sname = string("SUM(") + it->first.second + string(")");
             } else if (it->first.first == QEOpServerProxy::COUNT) {
                 sname = string("COUNT(") + it->first.second + string(")");
+            } else if (it->first.first == QEOpServerProxy::CLASS) {
+                sname = string("CLASS(") + it->first.second + string(")");
             } else {
                 QE_ASSERT(0);
             }
@@ -129,6 +131,13 @@ QEOpServerProxy::AggOper StatsSelect::ParseAgg(
         return QEOpServerProxy::SUM;
     }
 
+    if (0 == vname.compare(0,5,string("CLASS"))) {
+        sfield = vname.substr(6);
+        int len = sfield.size();
+        sfield.erase(len-1);
+        return QEOpServerProxy::CLASS;
+    }
+
     return QEOpServerProxy::INVALID;
 }
 
@@ -177,7 +186,8 @@ void StatsSelect::Merge(const MapBufT& input, MapBufT& output) {
 StatsSelect::StatsSelect(AnalyticsQuery * m_query,
 		const std::vector<std::string> & select_fields) :
 			main_query(m_query), select_fields_(select_fields),
-			ts_period_(0), isT_(false), count_field_() {
+			ts_period_(0), isT_(false),
+                        isTC_(false), isTBC_(false), count_field_() {
 
     QE_ASSERT(main_query->is_stat_table_query());
     status_ = false;
@@ -185,7 +195,7 @@ StatsSelect::StatsSelect(AnalyticsQuery * m_query,
     for (size_t j=0; j<select_fields_.size(); j++) {
 
         if (select_fields_[j] == g_viz_constants.STAT_TIME_FIELD) {
-            if (ts_period_) {
+            if (ts_period_ || isTBC_) {
                 QE_LOG(INFO, "StatsSelect cannot accept both T and T="); 
                 return;
             }
@@ -195,7 +205,7 @@ StatsSelect::StatsSelect(AnalyticsQuery * m_query,
 
         } else if (select_fields_[j].substr(0, g_viz_constants.STAT_TIMEBIN_FIELD.size()) ==
                 g_viz_constants.STAT_TIMEBIN_FIELD) {
-            if (isT_) { 
+            if (isT_ || isTC_) { 
                 QE_LOG(INFO, "StatsSelect cannot accept both T and T="); 
                 return;
             }
@@ -214,7 +224,19 @@ StatsSelect::StatsSelect(AnalyticsQuery * m_query,
             if (main_query->stats().is_stat_table_static()) {
                 if (agg != QEOpServerProxy::COUNT) {
                     StatsQuery::column_t c = main_query->stats().get_column_desc(sfield);
-                    if (c.datatype == QEOpServerProxy::BLANK) {
+                    if (sfield == g_viz_constants.STAT_TIME_FIELD) {
+                        if (ts_period_ || isTBC_) { 
+                            QE_TRACE(DEBUG, "StatsSelect cannot aggregate " <<
+                                sfield << "with T=");
+                        }
+                        isTC_ = true;
+                    } else if (sfield == g_viz_constants.STAT_TIMEBIN_FIELD) {
+                        if (isT_ || isTC_) { 
+                            QE_TRACE(DEBUG, "StatsSelect cannot aggregate " <<
+                                sfield << " with T");
+                        }
+                        isTBC_ = true;
+                    } else if (c.datatype == QEOpServerProxy::BLANK) {
                         QE_TRACE(DEBUG, "StatsSelect unknown field " << select_fields_[j]);
                         return;
                     }
@@ -234,6 +256,9 @@ StatsSelect::StatsSelect(AnalyticsQuery * m_query,
             } else if (agg == QEOpServerProxy::SUM) {
                 sum_cols_.insert(sfield);
                 QE_TRACE(DEBUG, "StatsSelect SUM " << sfield);
+            } else if (agg == QEOpServerProxy::CLASS) {
+                class_cols_.insert(sfield);
+                QE_TRACE(DEBUG, "StatsSelect CLASS " << sfield);
             } else {
                 QE_ASSERT(0);
             }
@@ -402,10 +427,29 @@ bool StatsSelect::LoadRow(boost::uuids::uuid u,
         set<string>::const_iterator uit = sum_cols_.find(it->name);
         if (uit!=sum_cols_.end()) {
             pair<QEOpServerProxy::AggOper,string> aggkey(QEOpServerProxy::SUM,it->name);
-            narows.insert(make_pair(aggkey,  it->value)); 
+            narows.insert(make_pair(aggkey, it->value)); 
         }
     }
-
+    
+    for (std::set<std::string>::const_iterator ct = class_cols_.begin();
+            ct!=class_cols_.end(); ct++) {
+        pair<QEOpServerProxy::AggOper,string> aggkey(QEOpServerProxy::CLASS,*ct);
+        StatMap huniks;
+        for (vector<StatEntry>::const_iterator rit = row.begin();
+                rit != row.end(); rit++) {
+            if (rit->name != *ct) {
+                if (uniks.find(rit->name) != uniks.end()) {
+                    // For generating the hash, consider all attributes that 
+                    // are in the row, and that do not match the CLASS attribute,
+                    // and that are in non-aggregate attributes in the SELECT
+                    huniks[rit->name] = rit->value;
+                }
+            }
+        }
+        uint64_t hh = boost::hash_range(huniks.begin(), huniks.end());
+        narows.insert(make_pair(aggkey, hh));
+    }
+ 
     if (!count_field_.empty()) {
         pair<QEOpServerProxy::AggOper,string> aggkey(QEOpServerProxy::COUNT,count_field_);
         narows.insert(make_pair(aggkey, (uint64_t) 1));            

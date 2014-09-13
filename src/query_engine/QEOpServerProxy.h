@@ -75,6 +75,7 @@ public:
         INVALID = 0,
         SUM = 1,
         COUNT = 2,
+        CLASS = 3
     };
 
     // This is a map of aggregations for an output row

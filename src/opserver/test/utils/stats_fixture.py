@@ -65,7 +65,8 @@ class StatsFixture(fixtures.Fixture):
     # end verify_on_setup
 
     def send_test_stat(self,nm,l1,s1,i1,d1,s2="",i2=0,d2=0):
-        self._logger.info('Sending Test Stats tags %s, %i, %d' % (s1,i1, d1))
+        self._logger.info('Sending Test Stats %s, %s tags %s, %i, %d' % \
+            (nm,l1,s1,i1, d1))
         tstat = StatTest()
         tstat.s1 = s1
         tstat.s2 = s2
@@ -99,7 +100,8 @@ class StatsFixture(fixtures.Fixture):
     
     @retry(delay=1, tries=5)
     def verify_test_stat(self, table, stime, select_fields, where_clause, num, 
-                         check_rows = None, sort_fields=None, filt=None):
+                         check_rows = None, check_uniq = None, 
+                         sort_fields=None, filt=None):
         self._logger.info("verify_test_stat")
         vns = VerificationOpsSrv('127.0.0.1', self._opserver_port)
         res = vns.post_query(table, start_time=stime, end_time='now',
@@ -108,9 +110,20 @@ class StatsFixture(fixtures.Fixture):
                              sort_fields=sort_fields, 
                              filter=filt)
         self._logger.info('Recieved %s' % str(res))
+        self._logger.info("Found %d rows, expected %d" % (len(res),num))
         if (len(res) != num):
-            self._logger.info("Found %d rows, expected %d" % (len(res),num))
             return False
+        if check_uniq is not None:
+            for k,v in check_uniq.iteritems():
+                vs=set()
+                for row in res:
+                    if k in row:
+                        vs.add(row[k])
+                self._logger.info("Expected %d uniq values of %s, found %s" % \
+                    (v, k, str(vs)))
+                if len(vs) != v:
+                    return False
+
         if check_rows is None:
             return True
         self._logger.info('Checking against %s' % str(check_rows))
