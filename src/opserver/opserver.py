@@ -538,8 +538,16 @@ class OpServer(object):
             tln = stat_query_column(name=STAT_TIME_FIELD, datatype='int', index=False)
             scols.append(tln)
 
+            tcln = stat_query_column(name="CLASS(" + STAT_TIME_FIELD + ")", 
+                     datatype='int', index=False)
+            scols.append(tcln)
+
             teln = stat_query_column(name=STAT_TIMEBIN_FIELD, datatype='int', index=False)
             scols.append(teln)
+
+            tecln = stat_query_column(name="CLASS(" + STAT_TIMEBIN_FIELD+ ")", 
+                     datatype='int', index=False)
+            scols.append(tecln)
 
             uln = stat_query_column(name=STAT_UUID_FIELD, datatype='uuid', index=False)
             scols.append(uln)
@@ -557,6 +565,9 @@ class OpServer(object):
                     sln = stat_query_column(name= "SUM(" + aln.name + ")",
                             datatype=aln.datatype, index=False)
                     scols.append(sln)
+                    scln = stat_query_column(name= "CLASS(" + aln.name + ")",
+                            datatype=aln.datatype, index=False)
+                    scols.append(scln)
 
             if not isname: 
                 keyln = stat_query_column(name=STAT_OBJECTID_FIELD, datatype='string', index=True)

@@ -150,7 +150,14 @@ class StatsTest(testtools.TestCase, fixtures.TestWithFixtures):
             select_fields = [ "UUID", "st.s1", "st.i1", "st.d1" ],
             where_clause = 'st.i1|st.i2=2|1<6', num = 1, check_rows =
             [{ "st.s1":"samp3", "st.i1":2, "st.d1":2}]);
-            
+        
+        logging.info("Checking CLASS " + str(UTCTimestampUsec()))
+
+        assert generator_obj.verify_test_stat("StatTable.StatTestState.st","-2m",
+            select_fields = [ "T", "name", "l1", "CLASS(T)" ],
+            where_clause = 'name=*', num = 6, check_uniq = 
+            { "CLASS(T)":4 })
+         
         return True
     # end test_01_statprefix
 
@@ -162,7 +169,7 @@ class StatsTest(testtools.TestCase, fixtures.TestWithFixtures):
         Then it sends test stats to the collector
         and checks if they can be accessed from QE.
         '''
-        logging.info("*** test_00_basicsamples ***")
+        logging.info("*** test_02_overflowsamples ***")
         if StatsTest._check_skip_test() is True:
             return True
 
