@@ -203,7 +203,12 @@ done:
 static bool RouteCanDissociate(const AgentRoute *route) {
     bool can_dissociate = route->IsDeleted();
     if (route->is_multicast()) {
-        const NextHop *nh = route->GetActiveNextHop();
+        Agent *agent = static_cast<AgentRouteTable*>(route->get_table())->
+            agent();
+        const AgentPath *active_path = route->FindPath(agent->local_vm_peer());
+        if (active_path == NULL)
+            return true;
+        const NextHop *nh = active_path ? active_path->nexthop(agent) : NULL;
         const CompositeNH *cnh = static_cast<const CompositeNH *>(nh);
         if (cnh && cnh->ComponentNHCount() == 0)
             return true;
