@@ -60,13 +60,16 @@ void TestAgentInit::FactoryInit() {
 // by init module
 void TestAgentInit::CreateModules() {
     ContrailInitCommon::CreateModules();
+    pkt0_.reset(new TestPkt0Interface(agent(), "pkt0",
+                *agent()->event_manager()->io_service()));
+    agent()->pkt()->set_control_interface(pkt0_.get());
+
     uve_.reset(AgentObjectFactory::Create<AgentUve>
                (agent(), AgentUve::kBandwidthInterval));
     agent()->set_uve(uve_.get());
 
     ksync_.reset(AgentObjectFactory::Create<KSync>(agent()));
     agent()->set_ksync(ksync_.get());
-
 }
 
 /****************************************************************************

@@ -40,6 +40,11 @@ void ContrailAgentInit::FactoryInit() {
 
 void ContrailAgentInit::CreateModules() {
     ContrailInitCommon::CreateModules();
+
+    pkt0_.reset(new Pkt0Interface("pkt0",
+                                  agent()->event_manager()->io_service()));
+    agent()->pkt()->set_control_interface(pkt0_.get());
+
     uve_.reset(AgentObjectFactory::Create<AgentUve>
                (agent(), AgentUve::kBandwidthInterval));
     agent()->set_uve(uve_.get());

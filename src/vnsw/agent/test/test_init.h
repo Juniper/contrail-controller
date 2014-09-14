@@ -70,6 +70,7 @@
 #include <oper/agent_path.h>
 #include <controller/controller_route_path.h>
 
+#include "test/test_pkt0_interface.h"
 #include "test_agent_init.h"
 using namespace std;
 

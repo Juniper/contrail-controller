@@ -14,8 +14,6 @@
 #include <controller/controller_init.h>
 #include <controller/controller_vrf_export.h>
 #include <pkt/pkt_init.h>
-#include <pkt/tap_interface.h>
-#include <pkt/test_tap_interface.h>
 #include <services/services_init.h>
 #include <ksync/ksync_init.h>
 #include <openstack/instance_service_server.h>
@@ -98,10 +96,9 @@ public:
         tip = htonl(tip);
         memcpy(arp->arp_tpa, &tip, sizeof(in_addr_t));
 
-        TestTapInterface *tap = (TestTapInterface *)
-            (Agent::GetInstance()->pkt()->pkt_handler()->tap_interface());
-        tap->GetTestPktHandler()->TestPktSend(ptr, len);
-        delete [] ptr;
+        TestPkt0Interface *tap = (TestPkt0Interface *)
+                (Agent::GetInstance()->pkt()->control_interface());
+        tap->TxPacket(ptr, len);
     }
 
     void SendArpReply(short ifindex, short vrf, uint32_t sip, uint32_t tip) {
@@ -139,10 +136,9 @@ public:
         memcpy(arp->arp_spa, &tip, sizeof(in_addr_t));
         memcpy(arp->arp_tpa, &sip, sizeof(in_addr_t));
 
-        TestTapInterface *tap = (TestTapInterface *)
-            (Agent::GetInstance()->pkt()->pkt_handler()->tap_interface());
-        tap->GetTestPktHandler()->TestPktSend(ptr, len);
-        delete [] ptr;
+        TestPkt0Interface *tap = (TestPkt0Interface *)
+                (Agent::GetInstance()->pkt()->control_interface());
+        tap->TxPacket(ptr, len);
     }
     
     PktGen *SendIpPacket(int ifindex, const char *sip, const char *dip,
@@ -155,11 +151,11 @@ public:
 
         uint8_t *ptr(new uint8_t[pkt->GetBuffLen()]);
         memcpy(ptr, pkt->GetBuff(), pkt->GetBuffLen());
-        TestTapInterface *tap = (TestTapInterface *)
-            (Agent::GetInstance()->pkt()->pkt_handler()->tap_interface());
-        tap->GetTestPktHandler()->TestPktSend(ptr, pkt->GetBuffLen());
+
+        TestPkt0Interface *tap = (TestPkt0Interface *)
+                (Agent::GetInstance()->pkt()->control_interface());
+        tap->TxPacket(ptr, pkt->GetBuffLen());
         delete pkt;
-        delete [] ptr;
         return NULL;
     }
 

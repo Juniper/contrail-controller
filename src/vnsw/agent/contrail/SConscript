@@ -93,7 +93,8 @@ env.Prepend(LINKFLAGS = ['-Wl,--whole-archive', '-rdynamic', '-lkstate',
 contrail_vrouter_agent = env.Program(target = 'contrail-vrouter-agent',
                      source = ['buildinfo.cc',
                                'contrail_agent_init.cc',
-                               'main.cc'])
+                               'main.cc',
+                                'pkt0_interface.cc'])
 env.Alias('agent:contrail-vrouter-agent', contrail_vrouter_agent)
 env.Default(contrail_vrouter_agent)
 

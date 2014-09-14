@@ -4,7 +4,7 @@
 #include <string>
 #include <boost/shared_ptr.hpp>
 #include <pkt/packet_buffer.h>
-#include <pkt/tap_interface.h>
+#include <pkt/control_interface.h>
 
 PacketBufferManager::PacketBufferManager(PktModule *pkt_module) :
     alloc_(0), free_(0), pkt_module_(pkt_module) {
@@ -58,4 +58,12 @@ uint8_t *PacketBuffer::data() const {
 
 uint16_t PacketBuffer::data_len() const {
     return data_len_;
+}
+
+bool PacketBuffer::MoveOffset(uint16_t offset) {
+    if (offset > data_len_)
+        return false;
+    data_ += offset;
+    data_len_ -= offset;
+    return true;
 }
