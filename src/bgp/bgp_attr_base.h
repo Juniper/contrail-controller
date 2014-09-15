@@ -38,13 +38,16 @@ struct BgpAttribute : public ParseObject {
         MPReachNlri = 14,
         MPUnreachNlri = 15,
         ExtendedCommunities = 16,
+        PmsiTunnel = 22,
         McastEdgeDiscovery = 241,
         McastEdgeForwarding = 242,
     };
     enum Subcode {
         OList = 1,
         LabelBlock = 2,
-        SourceRd = 3
+        SourceRd = 3,
+        Esi = 4,
+        Params = 5
     };
 
     BgpAttribute() : code(0), subcode(0), flags(0) { }
@@ -61,13 +64,31 @@ struct BgpAttribute : public ParseObject {
     virtual void ToCanonical(BgpAttr *attr) { }
 };
 
+//
+// Canonical structure used to exchange a single NLRI prefix between the
+// common parser and the address family specific BGP code.
+//
+// ReadLabel and WriteLabel need a label offset because the label is at
+// different locations in different NLRI.
+//
+// The prefix length is in bits.
+// The type is relevant only for NLRI that have multiple route types e.g.
+// erm-vpn and e-vpn.
+//
 struct BgpProtoPrefix : public ParseObject {
+    static const size_t kLabelSize;
+
     BgpProtoPrefix();
+
+    uint32_t ReadLabel(size_t label_offset) const;
+    void WriteLabel(size_t label_offset, uint32_t label);
+
     std::vector<uint8_t> prefix;
     int prefixlen;
-    uint8_t type; // only applicable for evpn and ermvpn
+    uint8_t type;
 };
 
+//
 // Base class to manage BGP Path Attributes database. This class provides
 // thread safe access to the data base.
 //
@@ -76,6 +97,7 @@ struct BgpProtoPrefix : public ParseObject {
 //
 // Attribute contents must be hashable via hash_value() and hashed using
 // boost::hash_combine() to partition the attribute database.
+//
 template <class Type, class TypePtr, class TypeSpec, typename TypeCompare,
           class TypeDB>
 class BgpPathAttributeDB {

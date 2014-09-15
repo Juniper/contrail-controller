@@ -42,7 +42,7 @@ static inline uint64_t get_value(const uint8_t *data, int size) {
         value = data[0];
     } else if (size == 2) {
         value = get_short(data);
-    } else if ((size == 4) || (size == 8)) {
+    } else if (size <= 8) {
         value = 0;
         for (int i = 0; i < size; ++i) {
             if (i) value <<= 8;

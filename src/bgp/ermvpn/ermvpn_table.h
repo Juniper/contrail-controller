@@ -30,6 +30,7 @@ public:
     virtual std::auto_ptr<DBEntry> AllocEntryStr(const std::string &key) const;
 
     virtual Address::Family family() const { return Address::ERMVPN; }
+    bool IsDefault() const;
     virtual bool IsVpnTable() const { return IsDefault(); }
 
     virtual size_t Hash(const DBEntry *entry) const;
@@ -49,8 +50,6 @@ public:
     void DestroyTreeManager();
     McastTreeManager *GetTreeManager();
     virtual void set_routing_instance(RoutingInstance *rtinstance);
-
-    bool IsDefault() const;
 
 private:
     friend class BgpMulticastTest;

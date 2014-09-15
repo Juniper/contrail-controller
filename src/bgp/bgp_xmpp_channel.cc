@@ -23,9 +23,9 @@
 #include "bgp/bgp_ribout.h"
 #include "bgp/bgp_server.h"
 #include "bgp/inet/inet_table.h"
-#include "bgp/enet/enet_table.h"
 #include "bgp/extended-community/mac_mobility.h"
 #include "bgp/ermvpn/ermvpn_table.h"
+#include "bgp/evpn/evpn_table.h"
 #include "bgp/ipeer.h"
 #include "bgp/origin-vn/origin_vn.h"
 #include "bgp/routing-instance/routing_instance.h"
@@ -1133,16 +1133,17 @@ void BgpXmppChannel::ProcessEnetItem(string vrf_name,
         return;
     }
 
-    Ip4Prefix ip_prefix =
-        Ip4Prefix::FromString(item.entry.nlri.address, &error);
-    if (error) {
-        BGP_LOG_PEER_INSTANCE(Peer(), vrf_name, SandeshLevel::SYS_WARN,
-                                   BGP_LOG_FLAG_ALL,
-                                   "Bad address string: " <<
-                                   item.entry.nlri.address);
-        return;
+    Ip4Prefix ip_prefix;
+    if (!mac_addr.IsBroadcast()) {
+        ip_prefix = Ip4Prefix::FromString(item.entry.nlri.address, &error);
+        if (error || ip_prefix.prefixlen() != 32) {
+            BGP_LOG_PEER_INSTANCE(Peer(), vrf_name, SandeshLevel::SYS_WARN,
+                                       BGP_LOG_FLAG_ALL,
+                                       "Bad address string: " <<
+                                       item.entry.nlri.address);
+            return;
+        }
     }
-    EnetPrefix enet_prefix(mac_addr, ip_prefix);
 
     RoutingInstanceMgr *instance_mgr = bgp_server_->routing_instance_mgr();
     if (!instance_mgr) {
@@ -1157,10 +1158,10 @@ void BgpXmppChannel::ProcessEnetItem(string vrf_name,
     int instance_id = -1;
     BgpTable *table = NULL;
     if (rt_instance != NULL && !rt_instance->deleted()) {
-        table = rt_instance->GetTable(Address::ENET);
+        table = rt_instance->GetTable(Address::EVPN);
         if (table == NULL) {
             BGP_LOG_PEER_INSTANCE(Peer(), vrf_name, SandeshLevel::SYS_WARN,
-                                       BGP_LOG_FLAG_ALL, "Enet table not found");
+                                       BGP_LOG_FLAG_ALL, "Evpn table not found");
             return;
         }
 
@@ -1201,7 +1202,7 @@ void BgpXmppChannel::ProcessEnetItem(string vrf_name,
         } else {
             BGP_LOG_PEER_INSTANCE(Peer(), vrf_name,
                SandeshLevel::SYS_WARN, BGP_LOG_FLAG_ALL,
-               "Enet Route not processed as no subscription pending");
+               "Evpn Route not processed as no subscription pending");
             return;
         }
     }
@@ -1209,10 +1210,20 @@ void BgpXmppChannel::ProcessEnetItem(string vrf_name,
     if (instance_id == -1)
         instance_id = rt_instance->index();
 
-    EnetTable::RequestData::NextHops nexthops;
+    RouteDistinguisher rd;
+    if (mac_addr.IsBroadcast()) {
+        rd = RouteDistinguisher(peer_->bgp_identifier(), instance_id);
+    } else {
+        rd = RouteDistinguisher::null_rd;
+    }
+
+    uint32_t ethernet_tag = item.entry.nlri.ethernet_tag;
+    EvpnPrefix evpn_prefix(rd, ethernet_tag, mac_addr, ip_prefix.ip4_addr());
+
+    EvpnTable::RequestData::NextHops nexthops;
     DBRequest req;
     ExtCommunitySpec ext;
-    req.key.reset(new EnetTable::RequestKey(enet_prefix, peer_.get()));
+    req.key.reset(new EvpnTable::RequestKey(evpn_prefix, peer_.get()));
 
     IpAddress nh_address(Ip4Address(0));
     uint32_t label = 0;
@@ -1224,7 +1235,7 @@ void BgpXmppChannel::ProcessEnetItem(string vrf_name,
 
         if (!item.entry.next_hops.next_hop.empty()) {
             for (size_t i = 0; i < item.entry.next_hops.next_hop.size(); i++) {
-                EnetTable::RequestData::NextHop nexthop;
+                EvpnTable::RequestData::NextHop nexthop;
                 IpAddress nhop_address(Ip4Address(0));
 
                 if (!(XmppDecodeAddress(
@@ -1237,7 +1248,7 @@ void BgpXmppChannel::ProcessEnetItem(string vrf_name,
                                  item.entry.next_hops.next_hop[i].address <<
                                  " family:" <<
                                  item.entry.next_hops.next_hop[i].af <<
-                                 " for enet route");
+                                 " for evpn route");
                     return;
                 }
                 if (i == 0) {
@@ -1297,9 +1308,15 @@ void BgpXmppChannel::ProcessEnetItem(string vrf_name,
         if (!ext.communities.empty())
             attrs.push_back(&ext);
 
+        BgpAttrParams params_spec;
+        if (item.entry.edge_replication_not_supported) {
+            params_spec.params |= BgpAttrParams::EdgeReplicationNotSupported;
+            attrs.push_back(&params_spec);
+        }
+
         BgpAttrPtr attr = bgp_server_->attr_db()->Locate(attrs);
 
-        req.data.reset(new EnetTable::RequestData(attr, nexthops));
+        req.data.reset(new EvpnTable::RequestData(attr, nexthops));
         stats_[0].reach++;
     } else {
         req.oper = DBRequest::DB_ENTRY_DELETE;
@@ -1311,7 +1328,7 @@ void BgpXmppChannel::ProcessEnetItem(string vrf_name,
         DBRequest *request_entry = new DBRequest();
         request_entry->Swap(&req);
         std::string table_name =
-            RoutingInstance::GetTableNameFromVrf(vrf_name, Address::ENET);
+            RoutingInstance::GetTableNameFromVrf(vrf_name, Address::EVPN);
         defer_q_.insert(std::make_pair(std::make_pair(vrf_name, table_name),
                                        request_entry));
         return;
@@ -1321,7 +1338,7 @@ void BgpXmppChannel::ProcessEnetItem(string vrf_name,
 
     BGP_LOG_PEER_INSTANCE(Peer(), vrf_name,
             SandeshLevel::SYS_DEBUG, BGP_LOG_FLAG_TRACE,
-                               "Enet route " << item.entry.nlri.mac << ","
+                               "Evpn route " << item.entry.nlri.mac << ","
                                << item.entry.nlri.address
                                << " with next-hop " << nh_address
                                << " and label " << label
@@ -1632,12 +1649,7 @@ void BgpXmppChannel::ProcessDeferredSubscribeRequest(RoutingInstance *instance,
          it != rt_list.end(); ++it) {
 
         BgpTable *table = it->second;
-        if ((table->family() == Address::INETVPN) || 
-            (table->family() == Address::EVPN)    || 
-            (table->family() == Address::RTARGET))
-            continue;
-        if (instance->IsDefaultRoutingInstance() &&
-            table->family() == Address::ERMVPN)
+        if (table->IsVpnTable() || table->family() == Address::RTARGET)
             continue;
 
         RegisterTable(table, instance_id);
@@ -1717,12 +1729,7 @@ void BgpXmppChannel::ProcessSubscriptionRequest(
          it != rt_list.end(); ++it) {
 
         BgpTable *table = it->second;
-        if ((table->family() == Address::INETVPN) ||
-            (table->family() == Address::EVPN)    ||
-            (table->family() == Address::RTARGET))
-            continue;
-        if (rt_instance->IsDefaultRoutingInstance() &&
-            table->family() == Address::ERMVPN)
+        if (table->IsVpnTable() || table->family() == Address::RTARGET)
             continue;
 
         if (add_change) {

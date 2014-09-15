@@ -11,6 +11,9 @@ env.Append(LIBPATH = env['TOP'] + '/net')
 
 env.Prepend(LIBS = ['gunit', 'net'])
 
+esi_test = env.UnitTest('esi_test', ['esi_test.cc'])
+env.Alias('src/net:esi_test', esi_test)
+
 mac_address_test = env.UnitTest('mac_address_test', ['mac_address_test.cc'])
 env.Alias('src/net:mac_address_test', mac_address_test)
 
@@ -18,6 +21,7 @@ rd_test = env.UnitTest('rd_test', ['rd_test.cc'])
 env.Alias('src/net:rd_test', rd_test)
 
 test_suite = [
+    esi_test,
     mac_address_test,
     rd_test
 ]

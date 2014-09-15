@@ -33,11 +33,13 @@ libbgp = env.Library('bgp',
                      SandeshGenSrcs +
                      ['bgp_aspath.cc',
                       'bgp_attr.cc',
+                      'bgp_attr_base.cc',
                       'bgp_condition_listener.cc',
                       'bgp_config.cc',
                       'bgp_config_listener.cc',
                       'bgp_config_parser.cc',
                       'bgp_debug.cc',
+                      'bgp_evpn.cc',
                       'bgp_export.cc',
                       'bgp_factory.cc',
                       'bgp_lifetime.cc',
@@ -69,10 +71,8 @@ libbgp = env.Library('bgp',
                       'xmpp_message_builder.cc'
                       ])
 
-test_suite = env.SConscript('enet/SConscript', exports='BuildEnv',
+test_suite = env.SConscript('ermvpn/SConscript', exports='BuildEnv',
                             duplicate = 0)
-test_suite += env.SConscript('ermvpn/SConscript', exports='BuildEnv',
-                             duplicate = 0)
 test_suite += env.SConscript('evpn/SConscript', exports='BuildEnv',
                              duplicate = 0)
 env.SConscript('inet/SConscript', exports='BuildEnv', duplicate = 0)

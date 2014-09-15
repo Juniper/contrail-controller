@@ -27,6 +27,7 @@ void RTargetRoute::SetKey(const DBRequestKey *reqkey) {
 }
 
 void RTargetRoute::BuildProtoPrefix(BgpProtoPrefix *prefix,
+                                    const BgpAttr *attr,
                                     uint32_t label) const {
     prefix_.BuildProtoPrefix(prefix);
 }

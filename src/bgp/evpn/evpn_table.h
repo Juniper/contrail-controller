@@ -8,6 +8,8 @@
 #include "bgp/bgp_table.h"
 #include "bgp/evpn/evpn_route.h"
 
+class EvpnManager;
+
 class EvpnTable : public BgpTable {
 public:
     struct RequestKey : BgpTable::RequestKey {
@@ -25,7 +27,8 @@ public:
     virtual std::auto_ptr<DBEntry> AllocEntryStr(const std::string &key) const;
 
     virtual Address::Family family() const { return Address::EVPN; }
-    virtual bool IsVpnTable() const { return true; }
+    bool IsDefault() const;
+    virtual bool IsVpnTable() const { return IsDefault(); }
 
     virtual size_t Hash(const DBEntry *entry) const;
     virtual size_t Hash(const DBRequestKey *key) const;
@@ -34,7 +37,6 @@ public:
                                      BgpRoute *src_rt, const BgpPath *path, 
                                      ExtCommunityPtr ptr);
 
-
     virtual bool Export(RibOut *ribout, Route *route,
                         const RibPeerSet &peerset,
                         UpdateInfoSList &info_slist);
@@ -42,9 +44,15 @@ public:
     static size_t HashFunction(const EvpnPrefix &prefix);
     static DBTableBase *CreateTable(DB *db, const std::string &name);
 
+    void CreateEvpnManager();
+    void DestroyEvpnManager();
+    EvpnManager *GetEvpnManager();
+    virtual void set_routing_instance(RoutingInstance *rtinstance);
+
 private:
     virtual BgpRoute *TableFind(DBTablePartition *rtp,
                                 const DBRequestKey *prefix);
+    EvpnManager *evpn_manager_;
 
     DISALLOW_COPY_AND_ASSIGN(EvpnTable);
 };

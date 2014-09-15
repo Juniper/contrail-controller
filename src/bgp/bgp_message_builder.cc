@@ -48,6 +48,12 @@ void BgpMessage::StartReach(const RibOutAttr *roattr, const BgpRoute *route) {
         update.path_attributes.push_back(agg);
     }
 
+    if (!attr->originator_id().is_unspecified()) {
+        BgpAttrOriginatorId *originator_id =
+            new BgpAttrOriginatorId(attr->originator_id().to_ulong());
+        update.path_attributes.push_back(originator_id);
+    }
+
     if (attr->as_path()) {
         AsPathSpec *path = new AsPathSpec(attr->as_path()->path());
         update.path_attributes.push_back(path);
@@ -83,6 +89,12 @@ void BgpMessage::StartReach(const RibOutAttr *roattr, const BgpRoute *route) {
         update.path_attributes.push_back(ext_comm);
     }
 
+    if (attr->pmsi_tunnel()) {
+        PmsiTunnelSpec *pmsi_spec =
+            new PmsiTunnelSpec(attr->pmsi_tunnel()->pmsi_tunnel());
+        update.path_attributes.push_back(pmsi_spec);
+    }
+
     std::vector<uint8_t> nh;
 
     route->BuildBgpProtoNextHop(nh, attr->nexthop());
@@ -93,7 +105,7 @@ void BgpMessage::StartReach(const RibOutAttr *roattr, const BgpRoute *route) {
 
     if (route) {
         BgpProtoPrefix *prefix = new BgpProtoPrefix;
-        route->BuildProtoPrefix(prefix, roattr->label());
+        route->BuildProtoPrefix(prefix, attr, roattr->label());
         nlri->nlri.push_back(prefix);
         num_reach_route_++;
     }
@@ -112,7 +124,7 @@ void BgpMessage::StartUnreach(const BgpRoute *route) {
 
     if (route) {
         BgpProtoPrefix *prefix = new BgpProtoPrefix;
-        route->BuildProtoPrefix(prefix, 0);
+        route->BuildProtoPrefix(prefix);
         nlri->nlri.push_back(prefix);
         num_unreach_route_++;
     }
@@ -149,8 +161,11 @@ bool BgpMessage::AddRoute(const BgpRoute *route, const RibOutAttr *roattr) {
     nlri.afi = route->Afi();
     nlri.safi = route->Safi();
     BgpProtoPrefix *prefix = new BgpProtoPrefix;
-    uint32_t label = roattr ? roattr->label() : 0;
-    route->BuildProtoPrefix(prefix, label);
+    if (roattr) {
+        route->BuildProtoPrefix(prefix, roattr->attr(), roattr->label());
+    } else {
+        route->BuildProtoPrefix(prefix);
+    }
     nlri.nlri.push_back(prefix);
     if (roattr->IsReachable()) {
         num_reach_route_++;

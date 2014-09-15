@@ -1025,26 +1025,29 @@ void BgpPeer::ProcessUpdate(const BgpProto::Update *msg) {
 
         case Address::EVPN: {
             EvpnTable *table =
-              static_cast<EvpnTable *>(instance->GetTable(family));
+                static_cast<EvpnTable *>(instance->GetTable(family));
             assert(table);
 
             vector<BgpProtoPrefix *>::const_iterator it;
             for (it = nlri->nlri.begin(); it < nlri->nlri.end(); it++) {
-                if ((*it)->type != 2) {
-                    BGP_LOG_PEER(Message, this, SandeshLevel::SYS_WARN, BGP_LOG_FLAG_ALL,
-                                 BGP_PEER_DIR_IN,
-                                 "EVPN: Unsupported route type " << (*it)->type);
+                EvpnPrefix prefix;
+                BgpAttrPtr new_attr;
+                uint32_t label = 0;
+                int result = EvpnPrefix::FromProtoPrefix(server_, (**it),
+                    (oper == DBRequest::DB_ENTRY_ADD_CHANGE) ? attr.get() : NULL,
+                    &prefix, &new_attr, &label);
+                if (result) {
+                    BGP_LOG_PEER(Message, this, SandeshLevel::SYS_WARN,
+                        BGP_LOG_FLAG_ALL, BGP_PEER_DIR_IN,
+                        "NLRI parse error for EVPN route type " << (*it)->type);
                     continue;
                 }
-                size_t label_offset = EvpnPrefix::label_offset(**it);
-                uint32_t label = ((*it)->prefix[label_offset] << 16 |
-                                  (*it)->prefix[label_offset + 1] << 8 |
-                                  (*it)->prefix[label_offset + 2]) >> 4;
+
                 DBRequest req;
                 req.oper = oper;
                 if (oper == DBRequest::DB_ENTRY_ADD_CHANGE)
-                    req.data.reset(new EvpnTable::RequestData(attr, flags, label));
-                req.key.reset(new EvpnTable::RequestKey(EvpnPrefix(**it), this));
+                    req.data.reset(new EvpnTable::RequestData(new_attr, flags, label));
+                req.key.reset(new EvpnTable::RequestKey(prefix, this));
                 table->Enqueue(&req);
             }
             break;
@@ -1052,7 +1055,7 @@ void BgpPeer::ProcessUpdate(const BgpProto::Update *msg) {
 
         case Address::RTARGET: {
             RTargetTable *table =
-                static_cast<RTargetTable *>(instance->GetTable(Address::RTARGET));
+                static_cast<RTargetTable *>(instance->GetTable(family));
             assert(table);
             if (oper == DBRequest::DB_ENTRY_DELETE && nlri->nlri.empty()) {
                 // End-Of-RIB message

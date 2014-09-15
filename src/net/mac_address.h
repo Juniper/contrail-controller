@@ -10,9 +10,11 @@
 class MacAddress {
 public:
     static const int kSize = 6;
+    static const MacAddress kBroadcastAddress;
 
     MacAddress();
     explicit MacAddress(const uint8_t *data);
+    bool IsBroadcast() const;
 
     static MacAddress FromString(const std::string &str,
         boost::system::error_code *error = NULL);

@@ -45,7 +45,7 @@ class BgpProvisioner(object):
         if router_type == 'contrail':
             bgp_addr_fams = AddressFamilies(['route-target', 'inet-vpn', 'e-vpn', 'erm-vpn'])
         else:
-            bgp_addr_fams = AddressFamilies(['route-target', 'inet-vpn'])
+            bgp_addr_fams = AddressFamilies(['route-target', 'inet-vpn', 'e-vpn'])
         bgp_sess_attrs = [
             BgpSessionAttributes(address_families=bgp_addr_fams)]
         bgp_sessions = [BgpSession(attributes=bgp_sess_attrs)]

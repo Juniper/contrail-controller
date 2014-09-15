@@ -74,6 +74,11 @@ struct NextHop {
 
 typedef std::vector<NextHop> NextHops;
 
+struct RouteParams {
+    RouteParams() : edge_replication_not_supported(false) { };
+    bool edge_replication_not_supported;
+};
+
 class XmppDocumentMock {
 public:
     static const char *kControlNodeJID;
@@ -91,7 +96,8 @@ public:
                                           NextHops nexthops = NextHops());
     pugi::xml_document *RouteEnetAddXmlDoc(const std::string &network,
                                            const std::string &prefix,
-                                           NextHops nexthops = NextHops());
+                                           NextHops nexthops = NextHops(),
+                                           const RouteParams *params = NULL);
     pugi::xml_document *RouteEnetDeleteXmlDoc(const std::string &network,
                                               const std::string &prefix,
                                               NextHops nexthops = NextHops());
@@ -123,9 +129,8 @@ private:
             const std::string &prefix, bool add, NextHops nexthop,
             int local_pref = 0);
     pugi::xml_document *RouteEnetAddDeleteXmlDoc(const std::string &network,
-            const std::string &prefix, const std::string nexthop, bool add);
-    pugi::xml_document *RouteEnetAddDeleteXmlDoc(const std::string &network,
-            const std::string &prefix, NextHops nexthop, bool add);
+            const std::string &prefix, NextHops nexthop,
+            const RouteParams *params, bool add);
     pugi::xml_document *RouteMcastAddDeleteXmlDoc(const std::string &network,
             const std::string &sg, const std::string &nexthop,
             const std::string &label_range, const std::string &encap, bool add);
@@ -260,11 +265,12 @@ public:
     }
 
     void AddEnetRoute(const std::string &network, const std::string &prefix,
-                      const std::string nexthop = "");
+                      const std::string nexthop = "",
+                      const RouteParams *params = NULL);
     void DeleteEnetRoute(const std::string &network, const std::string &prefix,
                          const std::string nexthop = "");
     void AddEnetRoute(const std::string &network, const std::string &prefix,
-                      NextHops nexthops);
+                      NextHops nexthops, const RouteParams *params = NULL);
     void DeleteEnetRoute(const std::string &network, const std::string &prefix,
                          NextHops nexthops);
 

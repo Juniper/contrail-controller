@@ -7,6 +7,7 @@
 
 #include <map>
 #include <memory>
+
 #include <vector>
 
 #include <boost/ptr_container/ptr_vector.hpp>
@@ -51,7 +52,9 @@ public:
     int lensize() const;
     void set_size(size_t length);
     size_t size() const;
-    
+    void set_total_size();
+    size_t total_size() const;
+
     void SetError(int error, int subcode, std::string type, const uint8_t *data,
                   int data_size);
     const ParseErrorContext &error_context() { return error_context_; }
@@ -166,8 +169,8 @@ struct ElementBase {
     static const int kErrorCode = 0;
     static const int kErrorSubcode = 0;
     struct NullCtxInit {
-	void operator()(void *) {
-	}
+        void operator()(void *) {
+        }
     };
     struct NoMatch {
         bool match(const void *) {
@@ -222,7 +225,7 @@ public:
 
     template <typename T>
     static int Parse(const uint8_t *data, size_t size, ParseContext *context,
-		     T *obj) {
+                     T *obj) {
         typedef typename mpl::if_<
             mpl::greater<
                 mpl::int_<Derived::kSize>, mpl::int_<0> >,
@@ -247,11 +250,11 @@ public:
         }
 
         typedef typename Derived::ContextInit ctx_init_t;
-	ctx_init_t initializer;
-	initializer(obj);
+        ctx_init_t initializer;
+        initializer(obj);
 
-	detail::SequenceLengthSetter<typename Derived::SequenceLength, T> slen;
-	int res = slen(context, data, Derived::kSize, size, obj);
+        detail::SequenceLengthSetter<typename Derived::SequenceLength, T> slen;
+        int res = slen(context, data, Derived::kSize, size, obj);
         if (res < 0) {
             PROTO_DEBUG(TYPE_NAME(Derived) << ": error: Length Setter failed");
             context->SetError(Derived::kErrorCode, Derived::kErrorSubcode,
@@ -295,8 +298,8 @@ public:
 
         int element_size = size_value_t::get(msg);
         if (data == NULL) {
-	    context->advance(element_size);
-	    return element_size;
+            context->advance(element_size);
+            return element_size;
         }
         assert(element_size >= 0);
         if (size < (size_t) element_size) {
@@ -306,9 +309,9 @@ public:
         // Setter overrides SequenceLength. Do not register a sequence length
         // callback if the element has defined a Setter.
         typename mpl::if_<
-        	boost::is_same<typename Derived::Setter, void>,
-        	detail::SequenceLengthAddCallback<typename Derived::SequenceLength>,
-        	detail::SequenceLengthAddCallback<void> >::type slen;
+            boost::is_same<typename Derived::Setter, void>,
+            detail::SequenceLengthAddCallback<typename Derived::SequenceLength>,
+            detail::SequenceLengthAddCallback<void> >::type slen;
         slen(&ProtoElement::SequenceLengthWriteLen, context, data, element_size);
 
         detail::AddCallback<typename Derived::EncodingCallback> cbadd;
@@ -347,7 +350,7 @@ class ProtoChoice : public ChoiceBase {
 public:
     template <typename T>
     static int Parse(const uint8_t *data, size_t size, ParseContext *context,
-		     T *obj) {
+                     T *obj) {
         int advance = Derived::kSize;
         int value = -1;
 
@@ -364,10 +367,10 @@ public:
         context->advance(advance);
 
         typedef typename mpl::if_<
-        		boost::is_same<typename Derived::Setter, void>,
-        		ChoiceSetter<void, T>,
-        		ChoiceSetter<typename Derived::Setter, T>
-                >::type choice_setter_t;
+            boost::is_same<typename Derived::Setter, void>,
+            ChoiceSetter<void, T>,
+            ChoiceSetter<typename Derived::Setter, T>
+        >::type choice_setter_t;
 
         choice_setter_t setter;
         setter(obj, value);
@@ -401,24 +404,24 @@ private:
         ChoiceMatcher(const uint8_t *data, size_t size, int value,
                       ParseContext *context, T *obj, int *resultp)
             : data(data), size(size), value(value), context(context),
-	      obj(obj), resultp(resultp), found(false) {
+              obj(obj), resultp(resultp), found(false) {
         }
         template <typename U>
         void operator()(U x) {
             if (found) return;
             if (U::first::value != -1 && U::first::value != value) {
-		return;
-	    }
+                return;
+            }
             found = true;
             typedef detail::DescendentParser<Derived, typename U::second>
                 parser_t;
-	    *resultp = parser_t::Parse(data, size, context, obj);
+            *resultp = parser_t::Parse(data, size, context, obj);
         }
         const uint8_t *data;
         size_t size;
         int value;
         ParseContext *context;
-	T *obj;
+        T *obj;
         int *resultp;
         bool found;
     };
@@ -430,7 +433,7 @@ private:
         mpl::for_each<typename Derived::Choice>(match);
         return result;
     }
-    
+
     template <typename T>
     struct ChoiceEncoder {
         ChoiceEncoder(EncodeContext *context, const T *msg, uint8_t *data, int size,
@@ -477,7 +480,7 @@ private:
                     return EncoderTrue<U, T>()(opt, context, msg, data, size);
                 }
                 return 0;
-            }            
+            }
         };
         template <typename U>
         struct EncoderRunTime {
@@ -550,9 +553,9 @@ public:
     template <typename T>
     struct SequenceParser {
         SequenceParser(const uint8_t *data, size_t size, ParseContext *context,
-		       T *obj, int *resultp)
+            T *obj, int *resultp)
             : data(data), size(size), context(context), obj(obj),
-	    resultp(resultp) {
+              resultp(resultp) {
         }
 
         template <typename U>
@@ -562,33 +565,35 @@ public:
             }
             typedef detail::DescendentParser<Derived, U> parser_t;
             size_t prev_size = context->size();
-	    int result = parser_t::Parse(data, size, context, obj);
+            int result = parser_t::Parse(data, size, context, obj);
             if (result < 0) {
                 *resultp = result;
-            } else {
-                data += result;
-                size -= result;
-                context->advance(result);
-                *resultp += result;
+                return;
             }
 
+            data += result;
+            size -= result;
+            context->advance(result);
+            *resultp += result;
+
             if (context->size() != prev_size) {
-                // TODO: ensure that the size assigned by the descendent
-                // does not exceed the current size.
                 size = context->size();
+                context->set_total_size();
+            } else {
+                context->set_size(prev_size - result);
             }
         }
-        
+
         const uint8_t *data;
         size_t size;
         ParseContext *context;
-	T *obj;
+        T *obj;
         int *resultp;
     };
 
     template <typename T>
     static int Parse(const uint8_t *data, size_t size, ParseContext *context,
-		     T *obj) {
+                     T *obj) {
         int min = Derived::kMinOccurs;
         if (min == 0 && size == 0) {
             return 0;
@@ -644,7 +649,7 @@ public:
                 PROTO_DEBUG(TYPE_NAME(Derived) << ": error: sublen " << sublen);
                 return -1;
             }
-            if (sublen < (int)(context->size()+context->lensize())) {
+            if (sublen < (int)(context->size() + context->lensize())) {
                 PROTO_DEBUG(TYPE_NAME(Derived) << ": error: sublen " << sublen
                         << " < " << context->size() << "+" << context->lensize());
                 context->SetError(Derived::kErrorCode, Derived::kErrorSubcode,
@@ -675,7 +680,7 @@ public:
             SequenceEncoder<T> encoder(context, msg, data, size, &result);
             mpl::for_each<sequence_t>(encoder);
             return result;
-        }        
+        }
     };
 
     template <typename T>
@@ -710,7 +715,7 @@ public:
             return result;
         }
     };
-    
+
     template <typename T>
     static int Encode(EncodeContext *context, const T *msg, uint8_t *data,
                       size_t size) {
@@ -748,8 +753,8 @@ private:
     struct SequenceEncoder {
         SequenceEncoder(EncodeContext *context, const T *msg, uint8_t *data,
                         size_t size, int *resultp)
-	    : context(context), msg(msg), data(data), size(size),
-            resultp(resultp) {
+        : context(context), msg(msg), data(data), size(size),
+          resultp(resultp) {
         }
         template <typename U>
         void operator()(U element) {
@@ -767,6 +772,7 @@ private:
                 size -= res;
             }
         }
+
     private:
         EncodeContext *context;
         const T *msg;
@@ -774,7 +780,7 @@ private:
         size_t size;
         int *resultp;
     };
-    
+
     static void SequenceLengthWriteLen(EncodeContext *context, uint8_t *data,
                                        int offset, int arg) {
         int length = context->length() - Derived::kSize;

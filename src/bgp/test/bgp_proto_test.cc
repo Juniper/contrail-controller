@@ -166,6 +166,16 @@ private:
         msg->path_attributes.push_back(ext_community);
     }
 
+    static void AddPmsiTunnel(BgpProto::Update *msg) {
+        PmsiTunnelSpec *pmsispec = new PmsiTunnelSpec;
+        pmsispec->tunnel_flags = PmsiTunnelSpec::EdgeReplicationSupported;
+        pmsispec->tunnel_type = PmsiTunnelSpec::IngressReplication;
+        pmsispec->SetLabel(10000);
+        boost::system::error_code ec;
+        pmsispec->SetIdentifier(Ip4Address::from_string("10.1.1.1", ec));
+        msg->path_attributes.push_back(pmsispec);
+    }
+
     static void AddEdgeDiscovery(BgpProto::Update *msg) {
         EdgeDiscoverySpec *edspec = new EdgeDiscoverySpec;
         for (int i = rand() % 4; i > 0; i--) {
@@ -215,6 +225,7 @@ std::vector<BuildUpdateMessage::BuildUpdateParam> BuildUpdateMessage::build_para
             (std::make_pair(&BuildUpdateMessage::AddCommunity, 5))
             (std::make_pair(&BuildUpdateMessage::AddMpNlri, 5))
             (std::make_pair(&BuildUpdateMessage::AddExtCommunity, 5))
+            (std::make_pair(&BuildUpdateMessage::AddPmsiTunnel, 5))
             (std::make_pair(&BuildUpdateMessage::AddEdgeDiscovery, 5))
             (std::make_pair(&BuildUpdateMessage::AddEdgeForwarding, 5))
             (std::make_pair(&BuildUpdateMessage::AddUnknown, 5));

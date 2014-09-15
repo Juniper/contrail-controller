@@ -46,6 +46,12 @@ BgpPath::BgpPath(uint32_t path_id, PathSource src, const BgpAttrPtr ptr,
       flags_(flags), label_(label) {
 }
 
+BgpPath::BgpPath(PathSource src, const BgpAttrPtr ptr,
+        uint32_t flags, uint32_t label)
+    : peer_(NULL), path_id_(0), source_(src), attr_(ptr),
+      flags_(flags), label_(label) {
+}
+
 // True is better
 #define BOOL_COMPARE(CondA, CondB)   \
     do {                                \

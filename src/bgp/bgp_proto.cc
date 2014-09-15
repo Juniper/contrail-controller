@@ -582,28 +582,30 @@ public:
     typedef AttrSizeSet SizeSetter;
 };
 
-template<class Derived>
+template <class Derived>
 struct BgpContextSwap {
     Derived *operator()(const BgpAttribute *attr) {
         return new Derived(*attr);
     }
 };
 
-template<class C>
+template <class C>
 struct BgpAttributeVerifier {
     static bool Verifier(const C *obj, const uint8_t *data, size_t size,
                          ParseContext *context) {
         int pre = (obj->flags & BgpAttribute::ExtendedLength) ? 4 : 3;
-        if (C::kSize > 0 && (int)context->size() != C::kSize) {
+        if (C::kSize > 0 && (int) context->total_size() != C::kSize) {
+            int offset = pre + context->total_size() - context->size();
             context->SetError(BgpProto::Notification::UpdateMsgErr,
                     BgpProto::Notification::AttribLengthError,
-                    TYPE_NAME(C), data - pre, context->size() + pre);
+                    TYPE_NAME(C), data - offset, context->total_size() + pre);
             return false;
         }
         if ((obj->flags & BgpAttribute::FLAG_MASK) != C::kFlags) {
+            int offset = pre + context->total_size() - context->size();
             context->SetError(BgpProto::Notification::UpdateMsgErr,
                     BgpProto::Notification::AttribFlagsError,
-                    TYPE_NAME(C), data - pre, context->size() + pre);
+                    TYPE_NAME(C), data - offset, context->total_size() + pre);
             return false;
         }
         return true;
@@ -688,7 +690,7 @@ public:
     typedef Accessor<C, T, Member> Setter;
 };
 
-template<class C, int Size, typename T, T C::*M>
+template <class C, int Size, typename T, T C::*M>
 class BgpAttrTemplate :
     public ProtoSequence<BgpAttrTemplate<C, Size, T, M> > {
 public:
@@ -848,6 +850,32 @@ public:
     typedef BgpContextSwap<ExtCommunitySpec> ContextSwap;
     typedef mpl::list<BgpPathAttrLength,
                       BgpPathAttributeExtendedCommunityList> Sequence;
+};
+
+class BgpPathAttributePmsiTunnelIdentifier :
+    public ProtoElement<BgpPathAttributePmsiTunnelIdentifier> {
+public:
+    static const int kSize = -1;
+    static bool Verifier(const PmsiTunnelSpec *obj, const uint8_t *data,
+                         size_t size, ParseContext *context) {
+        return BgpAttributeVerifier<PmsiTunnelSpec>::Verifier(
+                obj, data, size, context);
+    }
+
+    typedef VectorAccessor<PmsiTunnelSpec, uint8_t,
+        &PmsiTunnelSpec::identifier> Setter;
+};
+
+class BgpPathAttributePmsiTunnel :
+    public ProtoSequence<BgpPathAttributePmsiTunnel> {
+public:
+    typedef PmsiTunnelSpec ContextType;
+    typedef BgpContextSwap<PmsiTunnelSpec> ContextSwap;
+    typedef mpl::list<BgpPathAttrLength,
+        BgpAttributeValue<1, PmsiTunnelSpec, uint8_t, &PmsiTunnelSpec::tunnel_flags>,
+        BgpAttributeValue<1, PmsiTunnelSpec, uint8_t, &PmsiTunnelSpec::tunnel_type>,
+        BgpAttributeValue<3, PmsiTunnelSpec, uint32_t, &PmsiTunnelSpec::label>,
+        BgpPathAttributePmsiTunnelIdentifier> Sequence;
 };
 
 class BgpPathAttributeDiscoveryEdgeAddressLen :
@@ -1350,6 +1378,9 @@ public:
                     BgpPathAttributeAtomicAggregate>,
           mpl::pair<mpl::int_<BgpAttribute::Aggregator>,
                     BgpPathAttributeAggregator>,
+          mpl::pair<mpl::int_<BgpAttribute::OriginatorId>,
+                    BgpAttrTemplate<BgpAttrOriginatorId, 4, uint32_t,
+                                    &BgpAttrOriginatorId::originator_id> >,
           mpl::pair<mpl::int_<BgpAttribute::AsPath>, BgpPathAttributeAsPath>,
           mpl::pair<mpl::int_<BgpAttribute::Communities>,
                     BgpPathAttributeCommunities>,
@@ -1359,6 +1390,8 @@ public:
                     BgpPathAttributeMpUnreachNlriSequence>,
           mpl::pair<mpl::int_<BgpAttribute::ExtendedCommunities>,
                     BgpPathAttributeExtendedCommunities>,
+          mpl::pair<mpl::int_<BgpAttribute::PmsiTunnel>,
+                    BgpPathAttributePmsiTunnel>,
           mpl::pair<mpl::int_<BgpAttribute::McastEdgeDiscovery>,
                     BgpPathAttributeEdgeDiscovery>,
           mpl::pair<mpl::int_<BgpAttribute::McastEdgeForwarding>,

@@ -110,7 +110,6 @@ if sys.platform != 'darwin':
 libs = MapBuildDir(['base',
                     'bgp',
                     'bgp/inet',
-                    'bgp/enet',
                     'bgp/ermvpn',
                     'bgp/evpn',
                     'bgp/extended-community',
@@ -140,7 +139,6 @@ env.Append(CPPPATH = env['TOP'] + '/io')
 
 lib_l3vpn = File('../bgp/l3vpn/libbgp_l3vpn.a')
 lib_inet = File('../bgp/inet/libbgp_inet.a')
-lib_enet = File('../bgp/enet/libbgp_enet.a')
 lib_ermvpn = File('../bgp/ermvpn/libbgp_ermvpn.a')
 lib_evpn = File('../bgp/evpn/libbgp_evpn.a')
 lib_rtarget = File('../bgp/rtarget/librtarget.a')
@@ -153,13 +151,12 @@ if sys.platform != 'darwin':
     env.Prepend(LINKFLAGS =
                      ['-Wl,--whole-archive',
                       '-lbgp_l3vpn', '-lbgp_inet',
-                      '-lbgp_enet', '-lbgp_ermvpn', '-lbgp_evpn', '-lextended_community', '-lrtarget',
+                      '-lbgp_evpn', '-lbgp_ermvpn', '-lextended_community', '-lrtarget',
                       '-lifmap_server', '-lcpuinfo',
                       '-Wl,--no-whole-archive'])
 else:
     env.Prepend(LINKFLAGS = ['-Wl,-force_load,' + lib_l3vpn.path])
     env.Prepend(LINKFLAGS = ['-Wl,-force_load,' + lib_inet.path])
-    env.Prepend(LINKFLAGS = ['-Wl,-force_load,' + lib_enet.path])
     env.Prepend(LINKFLAGS = ['-Wl,-force_load,' + lib_ermvpn.path])
     env.Prepend(LINKFLAGS = ['-Wl,-force_load,' + lib_evpn.path])
     env.Prepend(LINKFLAGS = ['-Wl,-force_load,' + lib_rtarget.path])
@@ -197,7 +194,6 @@ env.Default(ctrlnode)
 
 env.Depends(ctrlnode, lib_l3vpn)
 env.Depends(ctrlnode, lib_inet)
-env.Depends(ctrlnode, lib_enet)
 env.Depends(ctrlnode, lib_ermvpn)
 env.Depends(ctrlnode, lib_evpn)
 env.Depends(ctrlnode, lib_rtarget)

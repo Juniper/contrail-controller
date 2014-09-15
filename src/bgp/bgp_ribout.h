@@ -77,7 +77,7 @@ public:
     typedef std::vector<NextHop> NextHopList;
 
     RibOutAttr() : attr_out_(NULL) { }
-    RibOutAttr(const BgpAttr *attr, uint32_t label);
+    RibOutAttr(const BgpAttr *attr, uint32_t label, bool include_nh = true);
     RibOutAttr(BgpRoute *route, const BgpAttr *attr, bool is_xmpp);
 
     bool IsReachable() const { return attr_out_.get() != NULL; }
