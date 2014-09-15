@@ -201,12 +201,6 @@ void RTargetGroupMgr::RTargetPeerSync(BgpTable *table, RTargetRoute *rt,
         delete dbstate;
         RemoveRtGroup(rtarget);
     }
-    if (rtarget == RouteTarget::null_rtarget &&  !impacted_peers.empty()) {
-        BOOST_FOREACH(BgpPeer *bgppeer, impacted_peers) {
-            assert(bgppeer->GetIndex() >= 0);
-            bgppeer->RegisterToVpnTables(false);
-        }
-    }
 }
 
 void RTargetGroupMgr::BuildRTargetDistributionGraph(BgpTable *table, 
