@@ -7,6 +7,7 @@ from vnc_quota import *
 from pprint import pformat
 from copy import deepcopy
 import json
+import uuid
 import cfgm_common.exceptions
 try:
     #python2.7
@@ -389,6 +390,8 @@ class AddrMgmt(object):
                     self._subnet_objs[vn_fq_name_str][subnet_name] = \
                          subnet_obj
                     ipam_subnet['default_gateway'] = str(subnet_obj.gw_ip)
+                    if not ipam_subnet['subnet_uuid']:
+                        ipam_subnet['subnet_uuid'] = str(uuid.uuid4())
     # end _create_subnet_objs
 
     def net_create_req(self, obj_dict):
