@@ -125,17 +125,20 @@ void AgentXmppChannel::ReceiveEvpnUpdate(XmlPugi *pugi) {
 
                 char *mac_str = 
                     strtok_r(const_cast<char *>(id.c_str()), "-", &saveptr);
+                uint32_t ethernet_tag = 0;
                 if (strlen(saveptr) != 0) {
+                    ethernet_tag = atoi(mac_str);
                     mac_str = saveptr;
                 }
                 struct ether_addr mac = *ether_aton(mac_str);;
                 if (strcmp("ff:ff:ff:ff:ff:ff", mac_str) == 0) {
-                    TunnelOlist olist;
                     //Deletes the peer path for all boradcast and 
                     //traverses the subnet route in VRF to issue delete of peer
                     //for them as well.
+                    TunnelOlist olist;
                     MulticastHandler::ModifyEvpnMembers(bgp_peer_id(),
                                                         vrf_name, olist,
+                                                        ethernet_tag,
                              ControllerPeerPath::kInvalidPeerIdentifier);
                 } else {
                     rt_table->DeleteReq(bgp_peer_id(), vrf_name, mac, ethernet_tag,
@@ -1484,17 +1487,17 @@ bool AgentXmppChannel::ControllerSendV4UnicastRouteCommon(AgentRoute *route,
     return (SendUpdate(data_,datalen_));
 }
 
-bool AgentXmppChannel::ControllerSendEvpnRouteCommon(AgentRoute *route, 
-                                               std::string vn, 
-                                               uint32_t label,
-                                               uint32_t tunnel_bmap,
-                                               bool associate) {
+bool AgentXmppChannel::ControllerSendEvpnRouteCommon(AgentRoute *route,
+                                                     std::string vn,
+                                                     uint32_t label,
+                                                     uint32_t tunnel_bmap,
+                                                     bool associate) {
     static int id = 0;
     EnetItemType item;
     uint8_t data_[4096];
     size_t datalen_;
-   
-    assert (label != MplsTable::kInvalidLabel);
+
+    if (label == MplsTable::kInvalidLabel) return false;
 
     //Build the DOM tree
     auto_ptr<XmlBase> impl(XmppStanza::AllocXmppXmlImpl());
