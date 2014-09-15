@@ -399,9 +399,12 @@ bool Layer2RouteEntry::ReComputeMulticastPaths(AgentPath *path, bool del) {
     assert(nh);
     bool ret = MulticastRoute::CopyPathParameters(agent,
                                       multicast_peer_path,
-                                      local_peer_path->dest_vn_name(),
-                                      local_peer_path->unresolved(),
-                                      local_peer_path->vxlan_id(),
+                                      (local_peer_path ? local_peer_path->
+                                      dest_vn_name() : ""),
+                                      (local_peer_path ? local_peer_path->
+                                      unresolved() : false),
+                                      (local_peer_path ? local_peer_path->
+                                       vxlan_id() : 0),
                                       (fabric_peer_path ? fabric_peer_path->
                                        label() : 0),
                                       TunnelType::AllType(),
