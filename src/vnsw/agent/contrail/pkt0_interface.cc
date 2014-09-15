@@ -154,7 +154,8 @@ void Pkt0Interface::WriteHandler(const boost::system::error_code &error,
     delete [] buff;
 }
 
-int Pkt0Interface::Send(uint8_t *buff, uint16_t buff_len, PacketBufferPtr pkt) {
+int Pkt0Interface::Send(uint8_t *buff, uint16_t buff_len,
+                        const PacketBufferPtr &pkt) {
     std::vector<boost::asio::const_buffer> buff_list;
     buff_list.push_back(boost::asio::buffer(buff, buff_len));
     buff_list.push_back(boost::asio::buffer(pkt->data(), pkt->data_len()));

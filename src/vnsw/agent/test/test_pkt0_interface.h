@@ -112,7 +112,7 @@ public:
     }
 
     // Send from Agent
-    int Send(uint8_t *buff, uint16_t buff_len, PacketBufferPtr pkt) {
+    int Send(uint8_t *buff, uint16_t buff_len, const PacketBufferPtr &pkt) {
         std::vector<boost::asio::const_buffer> buff_list;
         buff_list.push_back(boost::asio::buffer(buff, buff_len));
         buff_list.push_back(boost::asio::buffer(pkt->data(), pkt->data_len()));

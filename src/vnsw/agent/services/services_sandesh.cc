@@ -204,15 +204,15 @@ uint16_t ServicesSandesh::FillVrouterHdr(PktTrace::Pkt &pkt, VrouterHdr &resp) {
                "trap-diag", "trap-ecmp-resolve" } };
     uint8_t *ptr = pkt.pkt;
     AgentHdr *hdr = reinterpret_cast<AgentHdr *>(ptr);
-    resp.ifindex = ntohs(hdr->ifindex);
-    resp.vrf = ntohs(hdr->vrf);
-    uint16_t cmd = ntohs(hdr->cmd);
+    resp.ifindex = hdr->ifindex;
+    resp.vrf = hdr->vrf;
+    uint16_t cmd = hdr->cmd;
     if (cmd < MAX_AGENT_HDR_COMMANDS)
         resp.cmd = commands.at(cmd);
     else
         resp.cmd = "unknown";
-    resp.cmd_param = ntohl(hdr->cmd_param);
-    resp.nh = ntohl(hdr->nh);
+    resp.cmd_param = hdr->cmd_param;
+    resp.nh = hdr->nh;
     return sizeof(AgentHdr);
 }
 
@@ -512,7 +512,7 @@ void ServicesSandesh::DhcpPktTrace(PktTrace::Pkt &pkt, DhcpPktSandesh *resp) {
     PktHandler *pkt_handler = Agent::GetInstance()->pkt()->pkt_handler();
     std::size_t trace_size = pkt_handler->PktTraceSize(PktHandler::DHCP);
     int32_t remaining = std::min(pkt.len, trace_size) - 
-                        (2 * sizeof(ethhdr) + sizeof(agent_hdr) + 
+                        (sizeof(ethhdr) +
                          data.ip_hdr.hdrlen * 4 + sizeof(udphdr));
     FillDhcpv4Hdr((dhcphdr *)ptr, data.dhcp_hdr, remaining);
     std::vector<DhcpPkt> &list =
@@ -534,7 +534,7 @@ void ServicesSandesh::DnsPktTrace(PktTrace::Pkt &pkt, DnsPktSandesh *resp) {
     PktHandler *pkt_handler = Agent::GetInstance()->pkt()->pkt_handler();
     std::size_t trace_size = pkt_handler->PktTraceSize(PktHandler::DNS);
     int32_t remaining = std::min(pkt.len, trace_size) - 
-                        (2 * sizeof(ethhdr) + sizeof(agent_hdr) + 
+                        (sizeof(ethhdr) +
                          data.ip_hdr.hdrlen * 4 + sizeof(udphdr));
     FillDnsHdr((dnshdr *)ptr, data.dns_hdr, remaining);
     std::vector<DnsPkt> &list =
@@ -566,8 +566,7 @@ void ServicesSandesh::OtherPktTrace(PktTrace::Pkt &pkt, PktSandesh *resp) {
     ptr += sizeof(ethhdr);
     PktHandler *pkt_handler = Agent::GetInstance()->pkt()->pkt_handler();
     std::size_t trace_size = pkt_handler->PktTraceSize(PktHandler::FLOW);
-    int32_t remaining = std::min(pkt.len, trace_size) - 
-                        (2 * sizeof(ethhdr) + sizeof(agent_hdr));
+    int32_t remaining = std::min(pkt.len, trace_size) - sizeof(ethhdr);
     PktToHexString(ptr, remaining, data.pkt);
     std::vector<PktDump> &list =
         const_cast<std::vector<PktDump>&>(resp->get_pkt_list());

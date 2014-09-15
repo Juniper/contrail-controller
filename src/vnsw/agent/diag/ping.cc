@@ -43,13 +43,13 @@ DiagPktHandler*
 Ping::CreateTcpPkt(Agent *agent) {
     //Allocate buffer to hold packet
     len_ = KPingTcpHdr + data_len_;
-    uint8_t *msg = new uint8_t[len_];
+    boost::shared_ptr<PktInfo> pkt_info(new PktInfo(agent, len_,
+                                                    PktHandler::DIAG, 0));
+    uint8_t *msg = pkt_info->packet_buffer()->data();
     memset(msg, 0, len_);
 
     AgentDiagPktData *ad = (AgentDiagPktData *)(msg + KPingTcpHdr);
     FillAgentHeader(ad);
-
-    boost::shared_ptr<PktInfo> pkt_info(new PktInfo(msg, len_, len_));
     DiagPktHandler *pkt_handler = new DiagPktHandler(diag_table_->agent(), pkt_info,
                                    *(diag_table_->agent()->event_manager())->io_service());
 
@@ -70,13 +70,14 @@ DiagPktHandler*
 Ping::CreateUdpPkt(Agent *agent) {
     //Allocate buffer to hold packet
     len_ = KPingUdpHdr + data_len_;
-    uint8_t *msg = new uint8_t[len_];
+    boost::shared_ptr<PktInfo> pkt_info(new PktInfo(agent, len_,
+                                                    PktHandler::DIAG, 0));
+    uint8_t *msg = pkt_info->packet_buffer()->data();
     memset(msg, 0, len_);
 
     AgentDiagPktData *ad = (AgentDiagPktData *)(msg + KPingUdpHdr);
     FillAgentHeader(ad);
 
-    boost::shared_ptr<PktInfo> pkt_info(new PktInfo(msg, len_, len_));
     DiagPktHandler *pkt_handler = new DiagPktHandler(diag_table_->agent(), pkt_info,
                                     *(diag_table_->agent()->event_manager())->io_service());
 
@@ -131,8 +132,8 @@ void Ping::SendRequest() {
     uint32_t vrf_id = diag_table_->agent()->vrf_table()->FindVrfFromName(vrf_name_)->vrf_id();
     //Send request out
     pkt_handler->SetDiagChkSum();
-    pkt_handler->Send(len_, intf_id, vrf_id, AgentHdr::TX_ROUTE,
-                      PktHandler::DIAG);
+    pkt_handler->pkt_info()->set_len(len_);
+    pkt_handler->Send(intf_id, vrf_id, AgentHdr::TX_ROUTE, PktHandler::DIAG);
     delete pkt_handler;
     return;
 }
