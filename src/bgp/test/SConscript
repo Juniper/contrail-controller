@@ -348,7 +348,6 @@ test_suite = [
     state_machine_test,
     static_route_test,
     svc_static_route_intergration_test,
-    xmpp_ecmp_test,
     xmpp_sess_toggle_test,
 ]
 
@@ -365,6 +364,7 @@ env.Alias('controller/src/bgp:test', [
 ])
 
 flaky_test_suite = [
+    xmpp_ecmp_test,
     bgp_xmpp_evpn_test,
     bgp_xmpp_evpn_mcast_test,
     bgp_server_test,
