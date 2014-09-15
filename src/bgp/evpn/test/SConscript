@@ -110,7 +110,7 @@ evpn_table_test = env.UnitTest('evpn_table_test', ['evpn_table_test.cc'])
 env.Alias('src/bgp/evpn:evpn_table_test', evpn_table_test)
 
 test_suite = [
-#    evpn_prefix_test,
+    evpn_prefix_test,
     evpn_route_test,
     evpn_table_test,
 ]
