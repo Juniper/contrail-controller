@@ -66,6 +66,7 @@ env.Prepend(LIBS = [
                     'net',
                     'route',
                     'xmpp',
+                    'bgp_inet',
                     'bgp_ermvpn',
                     'bgp_evpn',
                     'bgp_l3vpn',
