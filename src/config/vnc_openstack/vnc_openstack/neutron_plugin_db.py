@@ -1342,7 +1342,8 @@ class DBInterface(object):
                                     addr_from_start=True,
                                     dhcp_option_list=dhcp_option_list,
                                     host_routes=host_route_list,
-                                    subnet_name=sn_name)
+                                    subnet_name=sn_name,
+                                    subnet_uuid=str(uuid.uuid4()))
 
         return subnet_vnc
     #end _subnet_neutron_to_vnc
@@ -2327,7 +2328,7 @@ class DBInterface(object):
 
         # allocate an id to the subnet and store mapping with
         # api-server
-        subnet_id = str(uuid.uuid4())
+        subnet_id = subnet_vnc.subnet_uuid
         self._subnet_vnc_create_mapping(subnet_id, subnet_key)
 
         # Read in subnet from server to get updated values for gw etc.
@@ -3236,10 +3237,12 @@ class DBInterface(object):
                                 self._instance_ip_list(back_ref_id=[net_id])]
         return ip_addr in net_ip_list
 
-    def _create_instance_ip(self, net_obj, port_obj, ip_addr=None):
+    def _create_instance_ip(self, net_obj, port_obj, ip_addr=None, subnet_uuid=None):
         ip_name = str(uuid.uuid4())
         ip_obj = InstanceIp(name=ip_name)
         ip_obj.uuid = ip_name
+        if subnet_uuid:
+            ip_obj.set_subnet_uuid(subnet_uuid)
         ip_obj.set_virtual_machine_interface(port_obj)
         ip_obj.set_virtual_network(net_obj)
         if ip_addr:
@@ -3258,12 +3261,7 @@ class DBInterface(object):
             try:
                 ip_addr = fixed_ip.get('ip_address')
                 subnet_id = fixed_ip.get('subnet_id')
-                if not ip_addr and 'subnet_id' in fixed_ip:
-                    subnet_key = self._subnet_vnc_read_mapping(id=subnet_id)
-                    ip_addr = self._vnc_lib.virtual_network_ip_alloc(net_obj,
-                                            subnet=subnet_key.split()[1])[0]
-
-                ip_id = self._create_instance_ip(net_obj, port_obj, ip_addr)
+                ip_id = self._create_instance_ip(net_obj, port_obj, ip_addr, subnet_id)
                 created_iip_ids.append(ip_id)
             except vnc_exc.HttpError as e:
                 # Resources are not available
