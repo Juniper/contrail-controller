@@ -372,6 +372,59 @@ class TestNetAddrAlloc(object):
         pass
     # end test_ip_alloc_on_link_local
 
+    def test_alloc_with_subnet_id(self):
+        # This test cases validates Change-Id: Id19efca8e0061a7564673b9e27ec3ba48172b00f
+
+        ipam_fixt = self.useFixture(NetworkIpamTestFixtureGen(self._vnc_lib))
+
+        subnet_vnc = IpamSubnetType(subnet=SubnetType('1.1.1.0', 24), subnet_uuid=str(uuid.uuid4()))
+        vnsn_data = VnSubnetsType([subnet_vnc])
+        subnet_vnc_1 = IpamSubnetType(subnet=SubnetType('2.2.2.0', 24),
+                                    default_gateway='2.2.2.128',
+                                    subnet_uuid=str(uuid.uuid4()))
+        vnsn_data.add_ipam_subnets(subnet_vnc_1)
+        vn_fixt = self.useFixture(VirtualNetworkTestFixtureGen(self._vnc_lib,
+                  network_ipam_ref_infos=[(ipam_fixt.getObj(), vnsn_data)]))
+        vn_fixt.getObj().set_router_external(True)
+        self._vnc_lib.virtual_network_update(vn_fixt.getObj())
+
+        # This should be using the first subnet, ie 1.1.1.x
+        iip_fixt_1 = self.useFixture(
+            InstanceIpTestFixtureGen(
+                self._vnc_lib, 'iip1', auto_prop_val=False,
+                virtual_network_refs=[vn_fixt.getObj()]))
+        self.assertEqual(iip_fixt_1.getObj().instance_ip_address[:6], "1.1.1.")
+
+        # This should be using the first subnet since its uuid is used
+        iip_fixt_2 = self.useFixture(
+            InstanceIpTestFixtureGen(
+                self._vnc_lib, 'iip2', auto_prop_val=False,
+                subnet_uuid=subnet_vnc.subnet_uuid,
+                virtual_network_refs=[vn_fixt.getObj()]))
+        self.assertEqual(iip_fixt_2.getObj().instance_ip_address[:6], "1.1.1.")
+
+        # Since second subnet's uuid is used, we should get IP from that
+        iip_fixt_3 = self.useFixture(
+            InstanceIpTestFixtureGen(
+                self._vnc_lib, 'iip3', auto_prop_val=False,
+                subnet_uuid=subnet_vnc_1.subnet_uuid,
+                virtual_network_refs=[vn_fixt.getObj()]))
+        self.assertEqual(iip_fixt_3.getObj().instance_ip_address[:6], "2.2.2.")
+
+        # Mismatched UUID and IP address combination, should catch an exception
+        got_exception = False
+        try:
+            iip_fixt_4 = self.useFixture(
+                InstanceIpTestFixtureGen(
+                    self._vnc_lib, 'iip4', auto_prop_val=False,
+                    subnet_uuid=subnet_vnc_1.subnet_uuid,
+                    instance_ip_address='1.1.1.4',
+                    virtual_network_refs=[vn_fixt.getObj()]))
+        except cfgm_common.exceptions.HttpError as e:
+            got_exception = True
+        self.assertTrue(got_exception)
+    #end test_alloc_with_subnet_id
+
 # end class TestNetAddrAlloc
 
 

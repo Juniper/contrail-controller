@@ -154,6 +154,25 @@ class InstanceIpServer(InstanceIpServerGen):
     generate_default_instance = False
 
     @classmethod
+    def _get_subnet_name(cls, vn_dict, subnet_uuid):
+        ipam_refs = vn_dict.get('network_ipam_refs', [])
+        subnet_name = None
+        for ipam in ipam_refs:
+            ipam_subnets = ipam['attr'].get('ipam_subnets', [])
+            for subnet in ipam_subnets:
+                if subnet['subnet_uuid'] == subnet_uuid:
+                    subnet_dict = subnet['subnet']
+                    subnet_name = subnet_dict['ip_prefix'] + '/' + str(
+                                  subnet_dict['ip_prefix_len'])
+                    break
+            if subnet_name:
+                break
+
+        if not subnet_name:
+            return None
+        return subnet_name
+
+    @classmethod
     def http_post_collection(cls, tenant_name, obj_dict, db_conn):
         vn_fq_name = obj_dict['virtual_network_refs'][0]['to']
         if ((vn_fq_name == cfgm_common.IP_FABRIC_VN_FQ_NAME) or
@@ -162,9 +181,19 @@ class InstanceIpServer(InstanceIpServerGen):
             return True,  ""
 
         req_ip = obj_dict.get("instance_ip_address", None)
+
+        vn_id = {'uuid': db_conn.fq_name_to_uuid('virtual-network', vn_fq_name)}
+        (read_ok, vn_dict) = db_conn.dbe_read('virtual-network', vn_id)
+        if not read_ok:
+            return (False, (500, 'Internal error : ' + pformat(vn_dict)))
+
+        subnet_uuid = obj_dict.get('subnet_uuid', None)
+        sub = cls._get_subnet_name(vn_dict, subnet_uuid) if subnet_uuid else None
+        if subnet_uuid and not sub:
+            return (False, (404, "Subnet id " + subnet_uuid + " not found"))
         try:
             ip_addr = cls.addr_mgmt.ip_alloc_req(
-                vn_fq_name, asked_ip_addr=req_ip)
+                vn_fq_name, sub=sub, asked_ip_addr=req_ip)
         except Exception as e:
             return (False, (500, str(e)))
         obj_dict['instance_ip_address'] = ip_addr
