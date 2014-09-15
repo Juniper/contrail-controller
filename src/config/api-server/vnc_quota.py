@@ -18,9 +18,12 @@ class QuotaHelper(object):
     def get_quota_limit(cls, proj_dict, obj_type):
         quota = proj_dict.get('quota') or cls.default_quota
         quota_type = obj_type.replace('-','_')
-        return (quota.get(quota_type) or
-                cls.default_quota.get(quota_type) or
-                cls.default_quota['defaults'])
+        quota_limit = quota.get(quota_type)
+        if quota_limit is None:
+            quota_limit = cls.default_quota.get(quota_type)
+        if quota_limit is None:
+            quota_limit = cls.default_quota['defaults']
+        return quota_limit
 
     @classmethod
     def check_quota_limit(cls, proj_dict, obj_type, quota_count):
