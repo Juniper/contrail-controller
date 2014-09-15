@@ -87,14 +87,14 @@ class VRouterApiTest(unittest.TestCase):
         self._api._rpc_client_instance.return_value = mock_client
         vif_uuid = uuid.uuid1()
         network_uuid = uuid.uuid1()
-        project_uuid = uuid.uuid1()
+        project_id = uuid.uuid1().hex
         self._api.add_port(str(uuid.uuid1()), str(vif_uuid), 'tapX',
                            'aa:bb:cc:ee:ff:00',
                            network_uuid=str(network_uuid),
-                           vm_project_uuid=str(project_uuid))
+                           vm_project_id=project_id)
         self.assertTrue(mock_client.AddPort.called)
         port = self._api._ports[vif_uuid]
         self.assertEqual(self._api._uuid_to_hex(network_uuid),
                          port.vn_id)
-        self.assertEqual(self._api._uuid_to_hex(project_uuid),
-                         port.vm_project_uuid)
+        self.assertEqual(self._api._uuid_string_to_hex(project_id),
+                         port.vm_project_id)

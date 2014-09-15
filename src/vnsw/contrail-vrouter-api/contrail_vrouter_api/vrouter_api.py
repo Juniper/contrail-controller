@@ -96,9 +96,9 @@ class ContrailVRouterApi(object):
             data.display_name = kwargs['display_name']
         if 'hostname' in kwargs:
             data.hostname = kwargs['hostname']
-        if 'vm_project_uuid' in kwargs:
-            data.vm_project_uuid = self._uuid_string_to_hex(
-                kwargs['vm_project_uuid'])
+        if 'vm_project_id' in kwargs:
+            data.vm_project_id = self._uuid_string_to_hex(
+                kwargs['vm_project_id'])
         if ('port_type' in kwargs and
             kwargs['port_type'] in ttypes.PortTypes._NAMES_TO_VALUES.keys()):
             data.port_type = \
