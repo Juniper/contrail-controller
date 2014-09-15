@@ -61,7 +61,7 @@ Layer2RouteEntry *Layer2AgentRouteTable::FindRoute(const Agent *agent,
 {
     VrfEntry *vrf = agent->vrf_table()->FindVrfFromName(vrf_name);
     if (vrf == NULL)
-        return false;
+        return NULL;
 
     Layer2RouteKey key(agent->local_vm_peer(), vrf_name, mac, 0);
     Layer2RouteEntry *route =
