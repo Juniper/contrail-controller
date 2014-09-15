@@ -70,7 +70,7 @@ def BuildTest(env, testname, sources, prepend_libs, append_libs,
     return target
 
 BuildTest(env, 'ifmap_exporter_test', ['ifmap_exporter_test.cc'], [],
-          ['schema/ifmap_vnc', 'schema/bgp_schema'])
+          ['schema/ifmap_vnc', 'schema/bgp_schema'], flaky_test_suite)
 
 BuildTest(env, 'ifmap_graph_walker_test', ['ifmap_graph_walker_test.cc'], [],
           ['schema/ifmap_vnc', 'schema/bgp_schema'])
