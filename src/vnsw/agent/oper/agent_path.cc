@@ -103,7 +103,8 @@ bool AgentPath::RebakeAllTunnelNHinCompositeNH(const AgentRoute *sync_route) {
     //Compute new tunnel type
     TunnelType::Type new_tunnel_type;
     //Only MPLS types are supported for multicast
-    if (sync_route->is_multicast()) {
+    if ((sync_route->is_multicast()) && (peer_->GetType() ==
+                                         Peer::MULTICAST_FABRIC_TREE_BUILDER)) {
         new_tunnel_type = TunnelType::ComputeType(TunnelType::MplsType());
         if (new_tunnel_type == TunnelType::VXLAN) {
             new_tunnel_type = TunnelType::MPLS_GRE;
@@ -116,7 +117,8 @@ bool AgentPath::RebakeAllTunnelNHinCompositeNH(const AgentRoute *sync_route) {
     new_composite_nh = cnh->ChangeTunnelType(agent, new_tunnel_type);
     if (ChangeNH(agent, new_composite_nh)) {
         //Update composite NH key list to reflect new type
-        composite_nh_key_->ChangeTunnelType(new_tunnel_type);
+        if (composite_nh_key_)
+            composite_nh_key_->ChangeTunnelType(new_tunnel_type);
         return true;
     }
     return false;
@@ -170,6 +172,10 @@ bool AgentPath::UpdateTunnelType(Agent *agent, const AgentRoute *sync_route) {
     }
 
     tunnel_type_ = TunnelType::ComputeType(tunnel_bmap_);
+    if (tunnel_type_ == TunnelType::VXLAN &&
+        vxlan_id_ == VxLanTable::kInvalidvxlan_id) {
+        tunnel_type_ = TunnelType::ComputeType(TunnelType::MplsType());
+    }
     if (nh_.get() && nh_->GetType() == NextHop::TUNNEL) {
         DBRequest nh_req(DBRequest::DB_ENTRY_ADD_CHANGE);
         TunnelNHKey *tnh_key =
@@ -287,6 +293,7 @@ bool HostRoute::AddChangePath(Agent *agent, AgentPath *path) {
         ret = true;
     }
 
+    path->set_proxy_arp(true);
     path->set_unresolved(false);
     if (path->ChangeNH(agent, nh) == true)
         ret = true;
@@ -325,11 +332,6 @@ bool InetInterfaceRoute::AddChangePath(Agent *agent, AgentPath *path) {
 
 bool DropRoute::AddChangePath(Agent *agent, AgentPath *path) {
     bool ret = false;
-
-    if (path->is_subnet_discard() != is_subnet_discard_) {
-        path->set_is_subnet_discard(is_subnet_discard_);
-        ret = true;
-    }
 
     if (path->dest_vn_name() != vn_) {
         path->set_dest_vn_name(vn_);
@@ -553,24 +555,61 @@ bool ReceiveRoute::AddChangePath(Agent *agent, AgentPath *path) {
 
 bool MulticastRoute::AddChangePath(Agent *agent, AgentPath *path) {
     bool ret = false;
+    bool is_subnet_discard = false;
     NextHop *nh = NULL;
 
+    agent->nexthop_table()->Process(composite_nh_req_);
     nh = static_cast<NextHop *>(agent->nexthop_table()->
             FindActiveEntry(composite_nh_req_.key.get()));
-    if (nh == NULL) {
-        nh = static_cast<NextHop *>(agent->nexthop_table()->
-                            FindActiveEntry(composite_nh_req_.key.get()));
-    }
     assert(nh);
-    path->set_dest_vn_name(vn_name_);
-    path->set_unresolved(false);
-    path->set_vxlan_id(vxlan_id_);
-    ret = true;
-
-    if (path->ChangeNH(agent, nh) == true)
-        ret = true;
-
+    if (nh && (nh->GetType() == NextHop::COMPOSITE)) {
+        const CompositeNH *cnh = static_cast<const CompositeNH *>(nh);
+        if (cnh->composite_nh_type() == Composite::EVPN) {
+            is_subnet_discard = true;
+        }
+    }
+    ret = MulticastRoute::CopyPathParameters(agent,
+                                             path,
+                                             vn_name_,
+                                             false,
+                                             vxlan_id_,
+                                             label_,
+                                             TunnelType::AllType(),
+                                             is_subnet_discard,
+                                             nh);
     return ret;
+}
+
+bool MulticastRoute::CopyPathParameters(Agent *agent,
+                                        AgentPath *path,
+                                        const std::string &vn_name,
+                                        bool unresolved,
+                                        uint32_t vxlan_id,
+                                        uint32_t label,
+                                        uint32_t tunnel_type,
+                                        bool is_subnet_discard,
+                                        NextHop *nh) {
+    path->set_dest_vn_name(vn_name);
+    path->set_unresolved(unresolved);
+    path->set_vxlan_id(vxlan_id);
+    path->set_label(label);
+
+    //Setting of tunnel is only for simulated TOR.
+    path->set_tunnel_bmap(tunnel_type);
+    TunnelType::Type new_tunnel_type =
+        TunnelType::ComputeType(TunnelType::AllType());
+    if (new_tunnel_type == TunnelType::VXLAN &&
+        vxlan_id == VxLanTable::kInvalidvxlan_id) {
+        new_tunnel_type = TunnelType::ComputeType(TunnelType::MplsType());
+    }
+
+    if (path->tunnel_type() != new_tunnel_type) {
+        path->set_tunnel_type(new_tunnel_type);
+    }
+
+    path->ChangeNH(agent, nh);
+
+    return true;
 }
 
 bool PathPreferenceData::AddChangePath(Agent *agent, AgentPath *path) {
@@ -584,6 +623,13 @@ bool PathPreferenceData::AddChangePath(Agent *agent, AgentPath *path) {
         ret = true;
     }
     return ret;
+}
+
+// Subnet Route route data
+SubnetRoute::SubnetRoute(const string &vn_name,
+                         uint32_t vxlan_id, DBRequest &nh_req) :
+    MulticastRoute(vn_name, 0, vxlan_id, nh_req) {
+        is_multicast_ = false;
 }
 
 ///////////////////////////////////////////////
@@ -747,11 +793,8 @@ void AgentPath::SetSandeshData(PathSandeshData &pdata) const {
     }
 
     pdata.set_sg_list(sg_list());
-    if ((tunnel_type() == TunnelType::VXLAN)) {
-        pdata.set_vxlan_id(vxlan_id());
-    } else {
-        pdata.set_label(label());
-    }
+    pdata.set_vxlan_id(vxlan_id());
+    pdata.set_label(label());
     pdata.set_active_tunnel_type(
             TunnelType(tunnel_type()).ToString());
     pdata.set_supported_tunnel_type(

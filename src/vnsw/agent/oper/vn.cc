@@ -238,6 +238,8 @@ bool VnTable::VnEntryWalk(DBTablePartBase *partition, DBEntryBase *entry) {
 
 void VnTable::VnEntryWalkDone(DBTableBase *partition) {
     walkid_ = DBTableWalker::kInvalidWalkerId;
+    agent()->interface_table()->
+        UpdateVxLanNetworkIdentifierMode();
 }
 
 void VnTable::UpdateVxLanNetworkIdentifierMode() {
@@ -429,7 +431,8 @@ bool VnTable::IFNodeToReq(IFMapNode *node, DBRequest &req) {
     boost::uuids::uuid u;
     CfgUuidSet(id_perms.uuid.uuid_mslong, id_perms.uuid.uuid_lslong, u);
 
-    if (properties.forwarding_mode == "l2") {
+    if ((properties.forwarding_mode == "l2") ||
+        (Agent::GetInstance()->simulate_evpn_tor())) {
         ipv4_forwarding = false;
     }
     VnKey *key = new VnKey(u);
@@ -734,9 +737,8 @@ void VnTable::DelHostRouteForGw(VnEntry *vn, const VnIpam &ipam) {
 void VnTable::AddSubnetRoute(VnEntry *vn, VnIpam &ipam) {
     VrfEntry *vrf = vn->GetVrf();
     static_cast<Inet4UnicastAgentRouteTable *>(vrf->
-        GetInet4UnicastRouteTable())->AddDropRoute
-        (vrf->GetName(), ipam.GetSubnetAddress(), ipam.plen, vn->GetName(),
-         true);
+        GetInet4UnicastRouteTable())->AddSubnetRoute
+        (vrf->GetName(), ipam.GetSubnetAddress(), ipam.plen, vn->GetName(), 0);
 }
 
 // Del receive route for default gw

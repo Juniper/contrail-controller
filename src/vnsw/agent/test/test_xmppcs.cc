@@ -402,6 +402,7 @@ TEST_F(AgentXmppUnitTest, Connection) {
                 == Peer::LOCAL_VM_PORT_PEER);
 
     n++; n++; n++; n++; n++;
+    n++; // EVPN flood route notification
     n_s++; n_s++; n_s++;
     //expect subscribe vrf1 ,vm route at the mock server
     WAIT_FOR(1000, 10000, (mock_peer.get()->Count() == n));
@@ -463,6 +464,7 @@ TEST_F(AgentXmppUnitTest, Connection) {
     n++; n_s++;
     n++;
     n++;
+    n++; // EVPN flood route notification
     WAIT_FOR(1000, 10000, (mock_peer.get()->Count() == n));
     WAIT_FOR(1000, 10000, (mock_peer_s.get()->Count() == n_s));
 

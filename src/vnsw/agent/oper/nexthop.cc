@@ -494,11 +494,14 @@ void InterfaceNH::DeleteL2InterfaceNH(const uuid &intf_uuid) {
 void InterfaceNH::CreateMulticastVmInterfaceNH(const uuid &intf_uuid,
                                                const struct ether_addr &dmac,
                                                const string &vrf_name) {
-    AddInterfaceNH(intf_uuid, dmac, InterfaceNHFlags::MULTICAST, false, vrf_name);
+    AddInterfaceNH(intf_uuid, dmac, (InterfaceNHFlags::INET4 |
+                                     InterfaceNHFlags::MULTICAST), false,
+                   vrf_name);
 }
 
 void InterfaceNH::DeleteMulticastVmInterfaceNH(const uuid &intf_uuid) {
-    DeleteNH(intf_uuid, false, InterfaceNHFlags::MULTICAST);
+    DeleteNH(intf_uuid, false, (InterfaceNHFlags::MULTICAST |
+                                InterfaceNHFlags::INET4));
 }
 
 void InterfaceNH::DeleteNH(const uuid &intf_uuid, bool policy,
@@ -1940,6 +1943,17 @@ static void ExpandCompositeNextHop(const CompositeNH *comp_nh,
 {
     stringstream comp_str;
     switch (comp_nh->composite_nh_type()) {
+    case Composite::EVPN: {
+        comp_str << "evpn Composite"  << " sub nh count: "
+            << comp_nh->ComponentNHCount();
+        data.set_type(comp_str.str());
+        if (comp_nh->ComponentNHCount() == 0)
+            break;
+        std::vector<McastData> data_list;
+        FillComponentNextHop(comp_nh, data_list);
+        data.set_mc_list(data_list);
+        break;
+    }
     case Composite::FABRIC: {
         comp_str << "fabric Composite"  << " sub nh count: " 
             << comp_nh->ComponentNHCount();
@@ -1964,6 +1978,28 @@ static void ExpandCompositeNextHop(const CompositeNH *comp_nh,
     }
     case Composite::L2COMP: {
         comp_str << "L2 Composite"  << " sub nh count: " 
+            << comp_nh->ComponentNHCount();
+        data.set_type(comp_str.str());
+        if (comp_nh->ComponentNHCount() == 0)
+            break;
+        std::vector<McastData> data_list;
+        FillComponentNextHop(comp_nh, data_list);
+        data.set_mc_list(data_list);
+        break;
+    }
+    case Composite::L2INTERFACE: {
+        comp_str << "L2 interface Composite"  << " sub nh count: "
+            << comp_nh->ComponentNHCount();
+        data.set_type(comp_str.str());
+        if (comp_nh->ComponentNHCount() == 0)
+            break;
+        std::vector<McastData> data_list;
+        FillComponentNextHop(comp_nh, data_list);
+        data.set_mc_list(data_list);
+        break;
+    }
+    case Composite::L3INTERFACE: {
+        comp_str << "L3 interface Composite"  << " sub nh count: "
             << comp_nh->ComponentNHCount();
         data.set_type(comp_str.str());
         if (comp_nh->ComponentNHCount() == 0)
@@ -2170,4 +2206,3 @@ void NhListReq::HandleRequest() const {
     AgentNhSandesh *sand = new AgentNhSandesh(context());
     sand->DoSandesh();
 }
-

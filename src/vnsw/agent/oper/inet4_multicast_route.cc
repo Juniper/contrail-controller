@@ -11,6 +11,7 @@
 #include <oper/vrf.h>
 #include <oper/tunnel_nh.h>
 #include <oper/mpls.h>
+#include <oper/vxlan.h>
 #include <oper/mirror_table.h>
 #include <oper/multicast.h>
 #include <controller/controller_export.h>
@@ -68,7 +69,10 @@ Inet4MulticastAgentRouteTable::AddMulticastRoute(const string &vrf_name,
     Inet4MulticastRouteKey *rt_key = new Inet4MulticastRouteKey(vrf_name, 
                                                                 grp_addr, 
                                                                 src_addr);
-    MulticastRoute *data = new MulticastRoute(vn_name, 0, nh_req);
+    MulticastRoute *data = new MulticastRoute(vn_name,
+                                              MplsTable::kInvalidLabel,
+                                              VxLanTable::kInvalidvxlan_id,
+                                              nh_req);
     req.key.reset(rt_key);
     req.data.reset(data);
     MulticastTableEnqueue(Agent::GetInstance(), &req);
@@ -128,6 +132,10 @@ Inet4MulticastRouteKey::AllocRouteEntry(VrfEntry *vrf, bool is_multicast) const
     Inet4MulticastRouteEntry * entry = new Inet4MulticastRouteEntry(vrf, dip_,
                                                                     sip_);
     return static_cast<AgentRoute *>(entry);
+}
+
+AgentRouteKey *Inet4MulticastRouteKey::Clone() const {
+    return (new Inet4MulticastRouteKey(vrf_name_, dip_, sip_));
 }
 
 string Inet4MulticastRouteKey::ToString() const {
