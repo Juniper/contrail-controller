@@ -577,6 +577,7 @@ class ResourceApiDriver(vnc_plugin_base.ResourceApi):
         # Tracks which domains/projects have been sync'd from keystone to contrail api server
         self._vnc_domains = set()
         self._vnc_projects = set()
+        self._conn_glet = gevent.spawn(self._get_api_connection)
     # end __init__
 
     def _get_api_connection(self):
@@ -675,12 +676,10 @@ class ResourceApiDriver(vnc_plugin_base.ResourceApi):
     # end pre_project_read
 
     def post_project_create(self, proj_dict):
-        self._get_api_connection()
         self._create_default_security_group(proj_dict)
     # end post_create_project
 
     def pre_project_delete(self, proj_uuid):
-        self._get_api_connection()
         proj_obj = self._vnc_lib.project_read(id=proj_uuid)
         sec_groups = proj_obj.get_security_groups()
         for group in sec_groups or []:
