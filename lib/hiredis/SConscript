@@ -1,5 +1,4 @@
 # -*- mode: python; -*-
-import platform
 
 default = DefaultEnvironment()
 env = default.Clone()
@@ -32,8 +31,7 @@ lib = env.Library('hiredis',
                    'base64.cpp']
                   )
 
-(distname, version, _) = platform.dist()
-if distname != 'Ubuntu' or float(version) < 14.04:
+if not env.UseSystemBoost():
     env.Depends(lib, '#/build/include/boost')
 
 env.Install('#/build/lib/', 'libhiredis.a')
