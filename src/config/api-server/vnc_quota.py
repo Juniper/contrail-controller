@@ -49,7 +49,7 @@ class QuotaHelper(object):
     def get_quota_limit(proj_dict, obj_type):
         quota = proj_dict['quota']
         quota_type = obj_type.replace('-','_')
-        if quota_type in proj_dict['quota'].keys() and proj_dict['quota'][quota_type]:
+        if proj_dict['quota'].get(quota_type) is not None:
             return proj_dict['quota'][quota_type]
         return QuotaHelper.default_quota['default']
 
