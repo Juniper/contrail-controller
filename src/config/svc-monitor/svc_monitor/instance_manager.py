@@ -158,7 +158,10 @@ class InstanceManager(object):
             if_properties = vmi_obj.get_virtual_machine_interface_properties()
         except NoIdError:
             vmi_obj = VirtualMachineInterface(parent_obj=proj_obj, name=port_name)
-            vmi_create = True
+            if user_visible is not None:
+                id_perms = IdPermsType(enable=True, user_visible=user_visible)
+                vmi_obj.set_id_perms(id_perms)
+            vmi_created = True
 
         # set vn, itf_type, sg and static routes
         if vmi_obj.get_virtual_network_refs() is None:
@@ -244,6 +247,9 @@ class InstanceManager(object):
             "Creating network %s subnet %s" % (vn_name, vn_subnet))
 
         vn_obj = VirtualNetwork(name=vn_name, parent_obj=proj_obj)
+        if user_visible is not None:
+            id_perms = IdPermsType(enable=True, user_visible=user_visible)
+            vn_obj.set_id_perms(id_perms)
         domain_name, project_name = proj_obj.get_fq_name()
         ipam_fq_name = [domain_name, 'default-project', 'default-network-ipam']
         ipam_obj = self._vnc_lib.network_ipam_read(fq_name=ipam_fq_name)
@@ -764,7 +770,7 @@ class NetworkNamespaceManager(InstanceManager):
         except NoIdError:
             snat_cidr = svc_info.get_snat_left_subnet()
             vn_id = self._create_svc_vn(vn_name, snat_cidr, proj_obj,
-                                        user_visible=True)
+                                        user_visible=False)
 
         if vn_fq_name_str != ':'.join(vn_fq_name):
             left_if = ServiceInstanceInterfaceType(
