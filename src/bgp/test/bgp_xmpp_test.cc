@@ -426,7 +426,7 @@ TEST_F(BgpXmppUnitTest, Connection) {
     // show instance
     cout << "ValidateRoutingInstanceResponse:" << endl;
     Sandesh::set_client_context(&sandesh_context);
-    std::vector<size_t> result = list_of(5)(3)(3); // inet, ermvpn, enet
+    std::vector<size_t> result = list_of(6)(4)(4); // inet, ermvpn, enet, inet6
     Sandesh::set_response_callback(boost::bind(ValidateRoutingInstanceResponse,
                                    _1, result));
     ShowRoutingInstanceReq *req = new ShowRoutingInstanceReq;
@@ -437,7 +437,7 @@ TEST_F(BgpXmppUnitTest, Connection) {
 
     // show neighbor
     cout << "ValidateNeighborResponse:" << endl;
-    result = list_of(2)(7); // inet, ermvpn, enet
+    result = list_of(2)(9); // inet, ermvpn, enet, inet6
     Sandesh::set_response_callback(boost::bind(ValidateNeighborResponse,
                                    _1, result));
     BgpNeighborReq *nbr_req = new BgpNeighborReq;

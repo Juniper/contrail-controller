@@ -78,6 +78,8 @@ public:
             return evpn_replicator_.get();
         if (family == Address::ERMVPN)
             return ermvpn_replicator_.get();
+        if (family == Address::INET6VPN)
+            return inet6vpn_replicator_.get();
 
         assert(false);
         return NULL;
@@ -165,6 +167,7 @@ private:
     boost::scoped_ptr<RoutePathReplicator> inetvpn_replicator_;
     boost::scoped_ptr<RoutePathReplicator> ermvpn_replicator_;
     boost::scoped_ptr<RoutePathReplicator> evpn_replicator_;
+    boost::scoped_ptr<RoutePathReplicator> inet6vpn_replicator_;
     boost::scoped_ptr<ServiceChainMgr> service_chain_mgr_;
 
     // configuration

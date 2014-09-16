@@ -53,6 +53,8 @@ Address::Family BgpAf::AfiSafiToFamily(uint16_t afi, uint8_t safi) {
         return Address::INET;
     if (afi == BgpAf::IPv4 && safi == BgpAf::Vpn)
         return Address::INETVPN;
+    if (afi == BgpAf::IPv6 && safi == BgpAf::Vpn)
+        return Address::INET6VPN;
     if (afi == BgpAf::L2Vpn && safi == BgpAf::EVpn)
         return Address::EVPN;
     if (afi == BgpAf::IPv4 && safi == BgpAf::ErmVpn)
@@ -79,6 +81,9 @@ void BgpAf::FamilyToAfiSafi(Address::Family fmly, uint16_t &afi, uint8_t &safi) 
     } else if (fmly == Address::RTARGET) {
         afi = BgpAf::IPv4; 
         safi = BgpAf::RTarget;
+    } else if (fmly == Address::INET6VPN) {
+        afi = BgpAf::IPv6;
+        safi = BgpAf::Vpn;
     } else {
         assert(0);
     }

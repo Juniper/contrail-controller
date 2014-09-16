@@ -73,6 +73,7 @@ struct BgpNeighborResp {
     33: peer_info.PeerUpdateStats tx_update_stats;
     34: peer_info.PeerSocketStats rx_socket_stats;
     35: peer_info.PeerSocketStats tx_socket_stats;
+    42: peer_info.PeerRxErrorStats rx_error_stats;
 }
 
 response sandesh BgpNeighborListResp {

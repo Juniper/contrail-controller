@@ -294,7 +294,8 @@ public:
         static BgpProto::Notification *Decode(const uint8_t *data, size_t size);
     	static int EncodeData(Notification *msg, uint8_t *data, size_t size);
         virtual const std::string ToString() const;
-        const static std::string toString(BgpProto::Notification::Code code, int subcode);
+        const static std::string toString(BgpProto::Notification::Code code,
+                                          int subcode);
     };
 
     struct Keepalive : public BgpMessage {

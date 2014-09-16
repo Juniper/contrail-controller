@@ -34,6 +34,41 @@ class BgpXmppChannelManager;
 
 namespace test {
 
+enum TestErrorType {
+    ROUTE_AF_ERROR,
+    ROUTE_SAFI_ERROR,
+    XML_TOKEN_ERROR,
+};
+
+struct RouteAttributes {
+public:
+    static const int kDefaultLocalPref = 100;
+    static const int kDefaultSequence = 9999;
+    RouteAttributes()
+        : local_pref(kDefaultLocalPref), sequence(kDefaultSequence),
+          sgids(std::vector<int>()) {
+    }
+    RouteAttributes(uint32_t lpref, uint32_t seq, const std::vector<int> &sg)
+        : local_pref(lpref), sequence(seq), sgids(sg) {
+    }
+    RouteAttributes(uint32_t lpref, uint32_t seq)
+        : local_pref(lpref), sequence(seq), sgids(std::vector<int>()) {
+    }
+    RouteAttributes(const std::vector<int> &sg)
+        : local_pref(kDefaultLocalPref), sequence(kDefaultSequence),
+          sgids(sg) {
+    }
+    void SetSg(const std::vector<int> &sg) {
+        sgids = sg;
+    }
+    static int GetDefaultLocalPref() { return kDefaultLocalPref; }
+    static int GetDefaultSequence() { return kDefaultSequence; }
+
+    uint32_t local_pref;
+    uint32_t sequence;
+    std::vector<int> sgids;
+};
+
 struct NextHop {
     NextHop() : label_(0) { }
     NextHop(std::string address, uint32_t label, std::string tun1 = "gre") :
@@ -42,6 +77,9 @@ struct NextHop {
             tunnel_encapsulations_.push_back("gre");
             tunnel_encapsulations_.push_back("udp");
             tunnel_encapsulations_.push_back("vxlan");
+        } else if (tun1 == "all_ipv6") {
+            tunnel_encapsulations_.push_back("gre");
+            tunnel_encapsulations_.push_back("udp");
         } else {
             tunnel_encapsulations_.push_back(tun1);
         }
@@ -81,6 +119,11 @@ struct RouteParams {
 
 class XmppDocumentMock {
 public:
+    enum Oper {
+        ADD,
+        CHANGE,
+        DELETE,
+    };
     static const char *kControlNodeJID;
     static const char *kNetworkServiceJID;
     static const char *kConfigurationServiceJID;
@@ -94,6 +137,19 @@ public:
     pugi::xml_document *RouteDeleteXmlDoc(const std::string &network, 
                                           const std::string &prefix,
                                           NextHops nexthops = NextHops());
+
+    pugi::xml_document *Inet6RouteAddXmlDoc(const std::string &network,
+        const std::string &prefix, NextHops nexthops, 
+        const RouteAttributes &attributes);
+    pugi::xml_document *Inet6RouteChangeXmlDoc(const std::string &network,
+        const std::string &prefix, NextHops nexthops,
+        const RouteAttributes &attributes);
+    pugi::xml_document *Inet6RouteDeleteXmlDoc(const std::string &network,
+        const std::string &prefix, NextHops nexthops,
+        const RouteAttributes &attributes);
+    pugi::xml_document *Inet6RouteAddBogusXmlDoc(const std::string &network,
+        const std::string &prefix, NextHops nexthops, TestErrorType error_type);
+
     pugi::xml_document *RouteEnetAddXmlDoc(const std::string &network,
                                            const std::string &prefix,
                                            NextHops nexthops = NextHops(),
@@ -122,9 +178,9 @@ private:
     pugi::xml_node PubSubHeader(std::string type);
     pugi::xml_document *SubUnsubXmlDoc(
             const std::string &network, int id, bool sub, std::string type);
-    pugi::xml_document *RouteAddDeleteXmlDoc(const std::string &network,
-            const std::string &prefix, bool add, const std::string nexthop,
-            int local_pref = 0);
+    pugi::xml_document *Inet6RouteAddDeleteXmlDoc(const std::string &network,
+            const std::string &prefix, Oper oper, NextHops nexthops,
+            const RouteAttributes &attributes);
     pugi::xml_document *RouteAddDeleteXmlDoc(const std::string &network,
             const std::string &prefix, bool add, NextHops nexthop,
             int local_pref = 0);
@@ -148,6 +204,9 @@ private:
 public:
     typedef autogen::ItemType RouteEntry;
     typedef std::map<std::string, RouteEntry *> RouteTable;
+
+    typedef autogen::ItemType Inet6RouteEntry;
+    typedef std::map<std::string, Inet6RouteEntry *> Inet6RouteTable;
 
     typedef autogen::EnetItemType EnetRouteEntry;
     typedef std::map<std::string, EnetRouteEntry *> EnetRouteTable;
@@ -238,6 +297,21 @@ public:
         return route_mgr_->Lookup(network, prefix);
     }
 
+    void Inet6Subscribe(const std::string &network, int id = -1,
+                        bool wait_for_established = true) {
+        inet6_route_mgr_->Subscribe(network, id, wait_for_established);
+    }
+    void Inet6Unsubscribe(const std::string &network, int id = -1,
+                          bool wait_for_established = true) {
+        inet6_route_mgr_->Unsubscribe(network, id, wait_for_established);
+    }
+    int Inet6RouteCount(const std::string &network) const;
+    int Inet6RouteCount() const;
+    const RouteEntry *Inet6RouteLookup(const std::string &network,
+                                       const std::string &prefix) const {
+        return inet6_route_mgr_->Lookup(network, prefix);
+    }
+
     void AddRoute(const std::string &network, const std::string &prefix,
                   const std::string nexthop = "", int local_pref = 0);
     void DeleteRoute(const std::string &network, const std::string &prefix,
@@ -247,6 +321,19 @@ public:
                   NextHops nexthops, int local_pref = 0);
     void DeleteRoute(const std::string &network, const std::string &prefix,
                   NextHops nexthops);
+
+    void AddInet6Route(const std::string &network, const std::string &prefix,
+        const NextHops &nexthops,
+        const RouteAttributes &attributes = RouteAttributes());
+    void ChangeInet6Route(const std::string &network, const std::string &prefix,
+        const NextHops &nexthops,
+        const RouteAttributes &attributes = RouteAttributes());
+    void DeleteInet6Route(const std::string &network, const std::string &prefix,
+        const std::string &nexthop = "",
+        const RouteAttributes &attributes = RouteAttributes());
+    void AddBogusInet6Route(const std::string &network,
+        const std::string &prefix, const std::string &nexthop,
+        TestErrorType error_type);
 
     void EnetSubscribe(const std::string &network, int id = -1,
                        bool wait_for_established = true) {
@@ -328,6 +415,7 @@ public:
     uint32_t flap_count();
 
     boost::scoped_ptr<InstanceMgr<RouteEntry> > route_mgr_;
+    boost::scoped_ptr<InstanceMgr<Inet6RouteEntry> > inet6_route_mgr_;
     boost::scoped_ptr<InstanceMgr<EnetRouteEntry> > enet_route_mgr_;
     boost::scoped_ptr<InstanceMgr<McastRouteEntry> > mcast_route_mgr_;
     boost::scoped_ptr<InstanceMgr<VRouterEntry> > vrouter_mgr_;
