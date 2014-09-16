@@ -1,5 +1,7 @@
 # -*- mode: python; -*-
 
+import sys
+
 env = DefaultEnvironment()
 
 vpath = '#/third_party/gperftools-2.1'
@@ -9,8 +11,16 @@ vpath = '#/third_party/gperftools-2.1'
 config_opts = '--prefix=' + str(Dir('#/build'))
 config_opts += ' --enable-frame-pointers'
 # + ' enable_heap_checker=yes'
-cmd = ('(cd ' + Dir('.').abspath + '; ' + str(Dir(vpath)) +
-       '/configure' + ' ' + config_opts + '; make clean; make; make install)')
+#TODO: Either gpreftools should be taken in proper version or patch 
+#      should be applied via third_party repo, instead of this if
+#      adding LIBS for FreeBSD.
+if sys.platform.startswith("freebsd"):
+    cmd = ('(cd ' + Dir('.').abspath + '; LIBS=-lexecinfo ' + str(Dir(vpath)) +
+          '/configure' + ' ' + config_opts + '; make clean; make; make install)')
+else:
+    cmd = ('(cd ' + Dir('.').abspath + '; ' + str(Dir(vpath)) +
+          '/configure' + ' ' + config_opts + '; make clean; make; make install)')
+
 
 gperftools_make = env.Command('config.status', str(Dir(vpath)), cmd)
 
