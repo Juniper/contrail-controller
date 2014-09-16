@@ -11,21 +11,6 @@
 #include "net/address.h"
 #include "net/rd.h"
 
-class IpVpnAddress {
-public:
-    IpVpnAddress();
-
-    static IpVpnAddress FromString(const std::string &str,
-                                   boost::system::error_code *errorp = NULL);
-    std::string ToString() const;
-
-    RouteDistinguisher route_distinguisher() const { return rd_; }
-
-private:
-    RouteDistinguisher rd_;
-    IpAddress addr_;
-};
-
 class InetVpnPrefix {
 public:
     InetVpnPrefix();

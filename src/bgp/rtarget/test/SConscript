@@ -18,7 +18,8 @@ env.Append(LIBPATH = [env['TOP'] + '/base', env['TOP'] + '/base/test',
            env['TOP'] + '/bgp',
            env['TOP'] + '/bgp/ermvpn', env['TOP'] + '/bgp/evpn',
            env['TOP'] + '/bgp/extended-community',
-           env['TOP'] + '/bgp/inet', env['TOP'] + '/bgp/l3vpn',
+           env['TOP'] + '/bgp/inet', env['TOP'] + '/bgp/l3vpn', 
+           env['TOP'] + '/bgp/inet6', env['TOP'] + '/bgp/inet6vpn', 
            env['TOP'] + '/bgp/origin-vn', env['TOP'] + '/bgp/routing-instance',
            env['TOP'] + '/bgp/rtarget', env['TOP'] + '/bgp/security_group',
            env['TOP'] + '/bgp/test', env['TOP'] + '/bgp/tunnel_encap',
@@ -40,6 +41,7 @@ env.Prepend(LIBS = ['control_test', 'bgptest', 'bgp', 'peer_sandesh',
 
 env.Append(LIBS = ['bgp_ermvpn', 'bgp_evpn'])
 env.Append(LIBS = ['bgp_inet', 'bgp_l3vpn'])
+env.Append(LIBS = ['bgp_inet6', 'bgp_inet6vpn'])
 env.Append(LIBS = ['route', 'net', 'routing_instance', 'rtarget'])
 env.Append(LIBS = ['extended_community', 'origin_vn', 'security_group', 'tunnel_encap'])
 env.Append(LIBS = ['xmpp', 'xmpp_unicast', 
@@ -65,6 +67,8 @@ else:
                  '-lbgp_inet',
                  '-lbgp_ermvpn',
                  '-lbgp_evpn',
+                 '-lbgp_inet6',
+                 '-lbgp_inet6vpn',
                  '-lbgp_l3vpn',
                  '-lrtarget',
                  '-Wl,--no-whole-archive'])
