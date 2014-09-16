@@ -11,6 +11,9 @@
 #include <boost/intrusive_ptr.hpp>
 #include "io/event_manager.h"
 #include "io/server_manager.h"
+#include "io/io_utils.h"
+
+class SocketIOStats;
 
 class UdpServer {
  public:
@@ -34,17 +37,8 @@ class UdpServer {
 
     // tx-rx
     void StartSend(boost::asio::ip::udp::endpoint ep, std::size_t bytes_to_send,
-            boost::asio::mutable_buffer buffer);
-    virtual void HandleReceive(
-            boost::asio::const_buffer &recv_buffer,
-            boost::asio::ip::udp::endpoint remote_endpoint,
-            std::size_t bytes_transferred,
-            const boost::system::error_code& error);
+            boost::asio::const_buffer buffer);
     void StartReceive();
-    virtual void HandleSend(boost::asio::const_buffer send_buffer,
-            boost::asio::ip::udp::endpoint remote_endpoint,
-            std::size_t bytes_transferred,
-            const boost::system::error_code& error);
     // state
     ServerState GetServerState() { return state_; }
     boost::asio::ip::udp::endpoint GetLocalEndpoint(
@@ -55,13 +49,43 @@ class UdpServer {
     boost::asio::mutable_buffer AllocateBuffer();
     boost::asio::mutable_buffer AllocateBuffer(std::size_t s);
     void DeallocateBuffer(boost::asio::const_buffer &buffer);
+    // statistics
+    const io::SocketStats &GetSocketStats() const { return stats_; }
+    void GetRxSocketStats(SocketIOStats &socket_stats) const;
+    void GetTxSocketStats(SocketIOStats &socket_stats) const;
 
  protected:
     EventManager *event_manager() { return evm_; }
     virtual bool DisableSandeshLogMessages() { return false; }
     virtual std::string ToString() { return name_; }
+    virtual void HandleReceive(
+            boost::asio::const_buffer &recv_buffer,
+            boost::asio::ip::udp::endpoint remote_endpoint,
+            std::size_t bytes_transferred,
+            const boost::system::error_code& error);
+    virtual void OnRead(boost::asio::const_buffer &recv_buffer,
+        const boost::asio::ip::udp::endpoint &remote_endpoint);
+    virtual int reader_task_id() const {
+        return reader_task_id_;
+    }
+    // This function returns the instance to run ReaderTask.
+    // Returning Task::kTaskInstanceAny would allow multiple reader tasks to
+    // run in parallel.
+    // Derived class may override implementation if it expects that all the
+    // tasks of the reader to run in specific instance
+    // Note: Two tasks of same task ID and task instance can't run
+    //       at in parallel
+    // E.g. User can create task per remote endpoint to ensure that
+    //      there is one ReaderTask per remote endpoint
+    virtual int reader_task_instance(
+        const boost::asio::ip::udp::endpoint &remote_endpoint) const;
+    virtual void HandleSend(boost::asio::const_buffer send_buffer,
+            boost::asio::ip::udp::endpoint remote_endpoint,
+            std::size_t bytes_transferred,
+            const boost::system::error_code& error);
 
  private:
+    class Reader;
     friend void intrusive_ptr_add_ref(UdpServer *server);
     friend void intrusive_ptr_release(UdpServer *server);
     virtual void SetName(boost::asio::ip::udp::endpoint ep);
@@ -69,7 +93,12 @@ class UdpServer {
             boost::asio::const_buffer recv_buffer,
             std::size_t bytes_transferred,
             const boost::system::error_code& error);
+    void HandleSendInternal(boost::asio::const_buffer send_buffer,
+            boost::asio::ip::udp::endpoint remote_endpoint,
+            std::size_t bytes_transferred,
+            const boost::system::error_code& error);
 
+    static int reader_task_id_;
     boost::asio::ip::udp::socket socket_;
     int buffer_size_;
     ServerState state_;
@@ -79,6 +108,7 @@ class UdpServer {
     tbb::mutex mutex_;
     std::vector<u_int8_t *> pbuf_;
     tbb::atomic<int> refcount_;
+    io::SocketStats stats_;
 
     DISALLOW_COPY_AND_ASSIGN(UdpServer);
 };

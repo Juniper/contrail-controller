@@ -127,9 +127,9 @@ public:
 
     void AsyncReadStart();
 
-    const TcpServer::SocketStats &GetSocketStats() const { return stats_; }
-    void GetRxSocketStats(TcpServerSocketStats &socket_stats) const;
-    void GetTxSocketStats(TcpServerSocketStats &socket_stats) const;
+    const io::SocketStats &GetSocketStats() const { return stats_; }
+    void GetRxSocketStats(SocketIOStats &socket_stats) const;
+    void GetTxSocketStats(SocketIOStats &socket_stats) const;
 
 protected:
     virtual ~TcpSession();
@@ -201,7 +201,7 @@ private:
     tbb::mutex obs_mutex_;
     EventObserver observer_;
 
-    TcpServer::SocketStats stats_;
+    io::SocketStats stats_;
     boost::scoped_ptr<TcpMessageWriter> writer_;
 
     tbb::atomic<int> refcount_;

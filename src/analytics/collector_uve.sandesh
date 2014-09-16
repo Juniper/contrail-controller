@@ -70,8 +70,8 @@ struct ModuleServerState {
     7: optional u64                        db_queue_count (aggtype="stats" hbin="50")
     8: optional u64                        db_enqueues
     9: optional sandesh_uve.SandeshSessionStats session_stats
-    10: optional io.TcpServerSocketStats   session_rx_socket_stats
-    11: optional io.TcpServerSocketStats   session_tx_socket_stats
+    10: optional io.SocketIOStats          session_rx_socket_stats
+    11: optional io.SocketIOStats          session_tx_socket_stats
     12: optional sandesh_uve.SandeshGeneratorStats  sm_msg_stats
     13: optional string                    db_drop_level
     14: optional list<SandeshStats>        db_dropped_msg_stats
@@ -102,8 +102,8 @@ request sandesh ShowCollectorServerReq {
 }
 
 response sandesh ShowCollectorServerResp {
-    1: io.TcpServerSocketStats             rx_socket_stats
-    2: io.TcpServerSocketStats             tx_socket_stats
+    1: io.SocketIOStats                    rx_socket_stats
+    2: io.SocketIOStats                    tx_socket_stats
     3: list<GeneratorSummaryInfo>          generators
     4: CollectorStats                      stats
 }
@@ -122,8 +122,8 @@ struct CollectorState {
     5: optional string                     build_info
     6: optional list<string>               self_ip_list
     7: optional list<string>               core_files_list
-    8: optional io.TcpServerSocketStats    rx_socket_stats
-    9: optional io.TcpServerSocketStats    tx_socket_stats
+    8: optional io.SocketIOStats           rx_socket_stats
+    9: optional io.SocketIOStats           tx_socket_stats
 }
 
 uve sandesh CollectorInfo {

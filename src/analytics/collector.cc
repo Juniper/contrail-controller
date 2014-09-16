@@ -376,10 +376,10 @@ void Collector::GetGeneratorUVEInfo(vector<ModuleServerState> &genlist) {
         VizSession *session = gen->session();
         if (session) {
             ginfo.set_session_stats(session->GetStats());
-            TcpServerSocketStats rx_stats;
+            SocketIOStats rx_stats;
             session->GetRxSocketStats(rx_stats);
             ginfo.set_session_rx_socket_stats(rx_stats);
-            TcpServerSocketStats tx_stats;
+            SocketIOStats tx_stats;
             session->GetTxSocketStats(tx_stats);
             ginfo.set_session_tx_socket_stats(tx_stats);
         }
@@ -535,10 +535,10 @@ public:
             return true;
         }
         // Socket statistics
-        TcpServerSocketStats rx_socket_stats;
+        SocketIOStats rx_socket_stats;
         vsc->Analytics()->GetCollector()->GetRxSocketStats(rx_socket_stats);
         resp->set_rx_socket_stats(rx_socket_stats);
-        TcpServerSocketStats tx_socket_stats;
+        SocketIOStats tx_socket_stats;
         vsc->Analytics()->GetCollector()->GetTxSocketStats(tx_socket_stats);
         resp->set_tx_socket_stats(tx_socket_stats);
         // Collector statistics
