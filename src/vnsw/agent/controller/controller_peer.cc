@@ -1557,11 +1557,7 @@ bool AgentXmppChannel::ControllerSendEvpnRouteCommon(AgentRoute *route,
             nh.tunnel_encapsulation_list.tunnel_encapsulation.push_back("vxlan");
         }
     } else {
-        if (tunnel_type != TunnelType::VXLAN) {
-            item.entry.nlri.ethernet_tag = 0;
-        } else {
-            item.entry.nlri.ethernet_tag = label;
-        }
+        item.entry.nlri.ethernet_tag = label;
     }
 
     item.entry.next_hops.next_hop.push_back(nh);
