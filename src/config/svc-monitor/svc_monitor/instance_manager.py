@@ -517,7 +517,7 @@ class NetworkNamespaceManager(InstanceManager):
 
     def _create_snat_vn(self, proj_obj, si_obj, si_props, vn_fq_name_str):
         # SNAT NetNS use a dedicated network (non shared vn)
-        vn_name = 'svc-snat-%s' % si_obj.name
+        vn_name = 'snat-si-left_%s' % si_obj.name
         vn_fq_name = proj_obj.get_fq_name() + [vn_name]
         try:
             vn_id = self._vnc_lib.fq_name_to_id('virtual-network',
