@@ -170,12 +170,25 @@ static void FillRouteUpdateStats(IPeerDebugStats::UpdateStats &stats,
     rt_stats.unreach = stats.unreach;
 }
 
+static void FillRxErrorStats(IPeerDebugStats::RxErrorStats &src,
+                             PeerRxErrorStats &dest) {
+    dest.inet6_error_stats.bad_inet6_xml_token_count =
+        src.inet6_bad_xml_token_count;
+    dest.inet6_error_stats.bad_inet6_prefix_count =
+        src.inet6_bad_prefix_count;
+    dest.inet6_error_stats.bad_inet6_nexthop_count =
+        src.inet6_bad_nexthop_count;
+    dest.inet6_error_stats.bad_inet6_afi_safi_count =
+        src.inet6_bad_afi_safi_count;
+}
+
 static void FillPeerDebugStats(IPeerDebugStats *peer_state,
                           PeerStatsInfo &stats) {
     PeerProtoStats proto_stats_tx;
     PeerProtoStats proto_stats_rx;
     PeerUpdateStats rt_stats_rx;
     PeerUpdateStats rt_stats_tx;
+    PeerRxErrorStats dest_error_stats_rx;
 
     IPeerDebugStats::ProtoStats stats_rx;
     peer_state->GetRxProtoStats(stats_rx);
@@ -193,10 +206,15 @@ static void FillPeerDebugStats(IPeerDebugStats *peer_state,
     peer_state->GetTxRouteUpdateStats(update_stats_tx);
     FillRouteUpdateStats(update_stats_tx, rt_stats_tx);
 
+    IPeerDebugStats::RxErrorStats src_error_stats_rx;
+    peer_state->GetRxErrorStats(src_error_stats_rx);
+    FillRxErrorStats(src_error_stats_rx, dest_error_stats_rx);
+
     stats.set_rx_proto_stats(proto_stats_rx);
     stats.set_tx_proto_stats(proto_stats_tx);
     stats.set_rx_update_stats(rt_stats_rx);
     stats.set_tx_update_stats(rt_stats_tx);
+    stats.set_rx_error_stats(dest_error_stats_rx);
 }
 
 void FillXmppPeerStats(BgpServer *server, BgpXmppChannel *channel) {
