@@ -44,6 +44,8 @@ void OperDB::CreateDBTables(DB *db) {
     DB::RegisterFactory("mc.route.0",
                         &Inet4MulticastAgentRouteTable::CreateTable);
     DB::RegisterFactory("l2.route.0", &Layer2AgentRouteTable::CreateTable);
+    DB::RegisterFactory("uc.route6.0",
+                        &Inet6UnicastAgentRouteTable::CreateTable);
     DB::RegisterFactory("db.vrf.0", &VrfTable::CreateTable);
     DB::RegisterFactory("db.vn.0", &VnTable::CreateTable);
     DB::RegisterFactory("db.vm.0", &VmTable::CreateTable);

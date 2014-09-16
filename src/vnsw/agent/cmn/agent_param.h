@@ -30,7 +30,8 @@ public:
 
     struct PortInfo {
         PortInfo() : 
-            name_(""), vrf_(""), addr_(0), prefix_(0), plen_(0), gw_(0) {};
+            name_(""), vrf_(""), addr_(0), prefix_(0), plen_(0), gw_(0),
+            ip6addr_() {};
         ~PortInfo() { };
 
         std::string name_;
@@ -39,6 +40,7 @@ public:
         Ip4Address prefix_;
         int plen_;
         Ip4Address gw_;
+        Ip6Address ip6addr_;
     };
 
     AgentParam(Agent *agent);

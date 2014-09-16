@@ -201,7 +201,7 @@ TEST_F(AgentRouteWalkerTest, walk_all_routes_wih_no_vrf) {
     client->Reset();
     SetupEnvironment(0);
     StartVrfWalk();
-    VerifyNotifications(6, 1, 1, 3);
+    VerifyNotifications(6, 1, 1, Agent::ROUTE_TABLE_MAX);
     DeleteEnvironment(0);
 }
 
@@ -209,7 +209,7 @@ TEST_F(AgentRouteWalkerTest, walk_all_routes_wih_1_vrf) {
     client->Reset();
     SetupEnvironment(1);
     StartVrfWalk();
-    VerifyNotifications(11, 2, 1, 6);
+    VerifyNotifications(11, 2, 1, (Agent::ROUTE_TABLE_MAX * 2));
     DeleteEnvironment(1);
 }
 
@@ -217,7 +217,7 @@ TEST_F(AgentRouteWalkerTest, walk_all_routes_with_2_vrf) {
     client->Reset();
     SetupEnvironment(2);
     StartVrfWalk();
-    VerifyNotifications(16, 3, 1, 9);
+    VerifyNotifications(16, 3, 1, (Agent::ROUTE_TABLE_MAX * 3));
     DeleteEnvironment(2);
 }
 
@@ -225,7 +225,7 @@ TEST_F(AgentRouteWalkerTest, walk_all_routes_with_3_vrf) {
     client->Reset();
     SetupEnvironment(3);
     StartVrfWalk();
-    VerifyNotifications(21, 4, 1, 12);
+    VerifyNotifications(21, 4, 1, (Agent::ROUTE_TABLE_MAX * 4));
     DeleteEnvironment(3);
 }
 

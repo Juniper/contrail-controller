@@ -148,6 +148,7 @@ public:
                                     boost::asio::io_service &io);
     bool SendUpdateDnsEntry(const VmInterface *vmitf, const std::string &name,
                             const Ip4Address &ip, uint32_t plen,
+                            const Ip6Address &ip6, uint32_t plen6,
                             const std::string &vdns_name,
                             const autogen::VirtualDnsType &vdns_type,
                             bool is_floating, bool is_delete);
@@ -209,13 +210,15 @@ private:
     void ProcessNotify(std::string name, bool is_deleted, bool is_ipam);
     void CheckForUpdate(IpVdnsMap &ipvdns, const VmInterface *vmitf,
                         const VnEntry *vn, const Ip4Address &ip,
-                        std::string &vdns_name,
+                        const Ip6Address &ip6, std::string &vdns_name,
                         const autogen::VirtualDnsType &vdns_type);
     void CheckForFipUpdate(DnsFipEntry *entry, std::string &vdns_name,
                            const autogen::VirtualDnsType &vdns_type);
     bool UpdateDnsEntry(const VmInterface *vmitf, const VnEntry *vn,
                         const std::string &vm_name,
-                        const std::string &vdns_name, const Ip4Address &ip,
+                        const std::string &vdns_name,
+                        const Ip4Address &ip,
+                        const Ip6Address &ip6,
                         bool is_floating, bool is_deleted);
     bool MoveVDnsEntry(const VmInterface *vmitf,
                        std::string &new_vdns_name,

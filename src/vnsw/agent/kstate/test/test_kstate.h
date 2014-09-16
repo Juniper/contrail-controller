@@ -364,8 +364,9 @@ public:
 
     static void Init(bool verify, int count = 0) {
         vr_route_req req;
+        std::vector<int8_t> marker;
 
-        req.set_rtr_marker(0);
+        req.set_rtr_marker(marker);
         KRouteResp *resp = new KRouteResp();
 
         // The following object is deleted in KStateIoContext::Handler() 

@@ -155,7 +155,7 @@ protected:
         boost::system::error_code ec;
         IpAddress ip = Ip4Address::from_string(addr, ec);
         data->Init(nil_uuid(), nil_uuid(), nil_uuid(), name, ip.to_v4(),
-                   mac, "", VmInterface::kInvalidVlanId,
+                   Ip6Address(), mac, "", VmInterface::kInvalidVlanId,
                    CfgIntEntry::CfgIntVMPort, 0);
 
         DBRequest req;

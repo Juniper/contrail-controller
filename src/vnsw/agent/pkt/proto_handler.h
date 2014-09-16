@@ -43,7 +43,11 @@ public:
     void VlanHdr(uint8_t *ptr, uint16_t tci);
     void IpHdr(uint16_t, in_addr_t, in_addr_t, uint8_t);
     uint16_t IpHdr(char *, uint16_t, uint16_t, in_addr_t, in_addr_t, uint8_t);
+    void Ip6Hdr(ip6_hdr *ip, uint16_t plen, uint8_t next_header,
+                uint8_t hlim, uint8_t *src, uint8_t *dest);
     void UdpHdr(uint16_t, in_addr_t, uint16_t, in_addr_t, uint16_t);
+    void UdpHdr(uint16_t len, const uint8_t *src, uint16_t src_port,
+                const uint8_t *dest, uint16_t dest_port, uint8_t next_hdr);
     uint16_t UdpHdr(char *, uint16_t, uint16_t, in_addr_t, uint16_t,
                     in_addr_t, uint16_t);
     uint16_t IcmpHdr(char *buff, uint16_t buf_len, uint8_t type, uint8_t code,
@@ -53,6 +57,10 @@ public:
     uint32_t Sum(uint16_t *, std::size_t, uint32_t);
     uint16_t Csum(uint16_t *, std::size_t, uint32_t);
     uint16_t UdpCsum(in_addr_t, in_addr_t, std::size_t, udphdr *);
+    uint16_t Ipv6Csum(const uint8_t *src, const uint8_t *dest,
+                      uint16_t plen, uint8_t next_hdr, uint16_t *hdr);
+    uint16_t Icmpv6Csum(const uint8_t *src, const uint8_t *dest,
+                        icmp6_hdr *icmp, uint16_t plen);
 
     Agent *agent() { return agent_; }
     uint32_t GetVrfIndex() const { return pkt_info_->GetAgentHdr().vrf; }
@@ -70,6 +78,8 @@ protected:
     boost::asio::io_service &io_;
 
 private:
+    void UdpHdr(uint16_t len, uint16_t src_port, uint16_t dest_port);
+
     DISALLOW_COPY_AND_ASSIGN(ProtoHandler);
 };
 

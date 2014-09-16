@@ -9,6 +9,7 @@
 
 struct DhcpOptions;
 struct dhcphdr;
+struct Dhcpv6Hdr;
 struct dnshdr;
 struct ArpKey;
 class ArpEntry;
@@ -24,6 +25,7 @@ public:
 
     static void MacToString(const unsigned char *mac, std::string &mac_str);
     static std::string & DhcpMsgType(uint32_t msg_type);
+    static std::string & Dhcpv6MsgType(uint32_t msg_type);
 
 private:
     std::string IntToString(uint32_t val);
@@ -32,12 +34,14 @@ private:
     std::string IpProtocol(uint16_t prot);
 
     void DhcpStatsSandesh(std::string ctxt, bool more);
+    void Dhcpv6StatsSandesh(std::string ctxt, bool more);
     void ArpStatsSandesh(std::string ctxt, bool more);
     void DnsStatsSandesh(std::string ctxt, bool more);
     void IcmpStatsSandesh(std::string ctxt, bool more);
 
     void ArpPktTrace(PktTrace::Pkt &pkt, ArpPktSandesh *resp);
     void DhcpPktTrace(PktTrace::Pkt &pkt, DhcpPktSandesh *resp);
+    void Dhcpv6PktTrace(PktTrace::Pkt &pkt, Dhcpv6PktSandesh *resp);
     void DnsPktTrace(PktTrace::Pkt &pkt, DnsPktSandesh *resp);
     void IcmpPktTrace(PktTrace::Pkt &pkt, IcmpPktSandesh *resp);
     void OtherPktTrace(PktTrace::Pkt &pkt, PktSandesh *resp);
@@ -47,10 +51,12 @@ private:
     void FillMacHdr(ethhdr *eth, MacHdr &resp);
     void FillArpHdr(ether_arp *arp, ArpHdr &resp);
     void FillIpv4Hdr(iphdr *ip, Ipv4Hdr &resp);
+    void FillIpv6Hdr(ip6_hdr *ip, Ipv6Hdr &resp);
     void FillIcmpv4Hdr(icmphdr *icmp, Icmpv4Hdr &resp);
     void FillUdpHdr(udphdr *udp, UdpHdr &resp);
     void FillDhcpOptions(DhcpOptions *opt, std::string &resp, std::string &other, int32_t len);
     void FillDhcpv4Hdr(dhcphdr *dhcp, Dhcpv4Hdr &resp, int32_t len);
+    void FillDhcpv6Hdr(Dhcpv6Hdr *dhcp, Dhcpv6Header &resp, int32_t len);
     void FillDnsHdr(dnshdr *dns, DnsHdr &resp, int32_t dnslen);
     std::string FillOptionString(char *data, int32_t len, std::string msg);
     std::string FillOptionInteger(uint32_t data, std::string msg);

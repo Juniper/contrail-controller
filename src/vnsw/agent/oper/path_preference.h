@@ -96,7 +96,8 @@ struct PathPreferenceIntfState : public DBState {
     struct RouteAddrList {
         bool operator<(const RouteAddrList &rhs) const;
         bool operator==(const RouteAddrList &rhs) const;
-        Ip4Address ip_;
+        Address::Family family_;
+        IpAddress ip_;
         uint32_t plen_;
         std::string vrf_name_;
         mutable bool seen_;
@@ -104,7 +105,7 @@ struct PathPreferenceIntfState : public DBState {
     void Notify();
     void Insert(RouteAddrList &rt, bool traffic_seen);
     void DeleteOldEntries();
-    void UpdateDependentRoute(std::string vrf_name, Ip4Address ip,
+    void UpdateDependentRoute(std::string vrf_name, IpAddress ip,
                               uint32_t plen, bool traffic_seen,
                               PathPreferenceModule *path_preference_module);
 private:

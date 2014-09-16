@@ -24,6 +24,7 @@ struct Port {
    10:optional tuuid vm_project_id; 
    11:optional i16 vlan_id; 
    12:optional i16 port_type;
+   13:optional string ip6_address;
 }
 
 typedef list<Port> PortList

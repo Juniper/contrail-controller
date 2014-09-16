@@ -4,6 +4,7 @@
 
 #include <vector>
 #include <bitset>
+
 #include <boost/date_time/posix_time/posix_time.hpp>
 #include <boost/assign/list_of.hpp>
 #include <boost/unordered_map.hpp>
@@ -143,6 +144,8 @@ uint32_t FlowEntry::MatchAcl(const PacketHeader &hdr,
                              std::list<MatchAclParams> &acl,
                              bool add_implicit_deny, bool add_implicit_allow,
                              FlowPolicyInfo *info) {
+    PktHandler *pkt_handler = Agent::GetInstance()->pkt()->pkt_handler();
+
     // If there are no ACL to match, make it pass
     if (acl.size() == 0 &&  add_implicit_allow) {
         if (info) {
@@ -174,11 +177,10 @@ uint32_t FlowEntry::MatchAcl(const PacketHeader &hdr,
     // PASS default GW traffic, if it is ICMP or DNS
     if ((hdr.protocol == IPPROTO_ICMP ||
          (hdr.protocol == IPPROTO_UDP && 
-          (hdr.src_port == DNS_SERVER_PORT || hdr.dst_port == DNS_SERVER_PORT))) &&
-        (Agent::GetInstance()->pkt()->pkt_handler()->
-         IsGwPacket(data_.intf_entry.get(), hdr.dst_ip) ||
-         Agent::GetInstance()->pkt()->pkt_handler()->
-         IsGwPacket(data_.intf_entry.get(), hdr.src_ip))) {
+          (hdr.src_port == DNS_SERVER_PORT ||
+           hdr.dst_port == DNS_SERVER_PORT))) &&
+        (pkt_handler->IsGwPacket(data_.intf_entry.get(), hdr.dst_ip) ||
+         pkt_handler->IsGwPacket(data_.intf_entry.get(), hdr.src_ip))) {
         if (info) {
             info->uuid = FlowPolicyStateStr.at(DEFAULT_GW_ICMP_OR_DNS);
         }
@@ -287,8 +289,8 @@ bool FlowEntry::ActionRecompute() {
 
 void FlowEntry::SetPacketHeader(PacketHeader *hdr) {
     hdr->vrf = data_.vrf;
-    hdr->src_ip = key_.src.ipv4;
-    hdr->dst_ip = key_.dst.ipv4;
+    hdr->src_ip = key_.src_addr;
+    hdr->dst_ip = key_.dst_addr;
     hdr->protocol = key_.protocol;
     if (hdr->protocol == IPPROTO_UDP || hdr->protocol == IPPROTO_TCP) {
         hdr->src_port = key_.src_port;
@@ -311,8 +313,8 @@ void FlowEntry::SetOutPacketHeader(PacketHeader *hdr) {
         return;
 
     hdr->vrf = rflow->data().vrf;
-    hdr->src_ip = rflow->key().dst.ipv4;
-    hdr->dst_ip = rflow->key().src.ipv4;
+    hdr->src_ip = rflow->key().dst_addr;
+    hdr->dst_ip = rflow->key().src_addr;
     hdr->protocol = rflow->key().protocol;
     if (hdr->protocol == IPPROTO_UDP || hdr->protocol == IPPROTO_TCP) {
         hdr->src_port = rflow->key().dst_port;
@@ -941,7 +943,7 @@ bool FlowTable::ValidFlowMove(const FlowEntry *new_flow,
     }
 
      if (new_flow->data().flow_source_vrf == old_flow->data().flow_source_vrf &&
-         new_flow->key().src.ipv4 == old_flow->key().src.ipv4 &&
+         new_flow->key().src_addr == old_flow->key().src_addr &&
          new_flow->data().source_plen == old_flow->data().source_plen) {
          //Check if both flow originate from same source route
          return true;
@@ -1019,9 +1021,15 @@ void FlowEntry::set_flow_handle(uint32_t flow_handle) {
 }
 void FlowEntry::FillFlowInfo(FlowInfo &info) {
     info.set_flow_index(flow_handle_);
-    info.set_source_ip(key_.src.ipv4);
+    if (key_.family == Address::INET) {
+        info.set_source_ip(key_.src_addr.to_v4().to_ulong());
+        info.set_destination_ip(key_.dst_addr.to_v4().to_ulong());
+    } else {
+        // TODO : IPV6
+        info.set_source_ip(0);
+        info.set_destination_ip(0);
+    }
     info.set_source_port(key_.src_port);
-    info.set_destination_ip(key_.dst.ipv4);
     info.set_destination_port(key_.dst_port);
     info.set_protocol(key_.protocol);
     info.set_nh_id(key_.nh);
@@ -1051,13 +1059,23 @@ void FlowEntry::FillFlowInfo(FlowInfo &info) {
     if (is_flags_set(FlowEntry::NatFlow)) {
         info.set_nat(true);
         FlowEntry *nat_flow = reverse_flow_entry_.get();
+        // TODO : IPv6
         if (nat_flow) {
-            if (key_.src.ipv4 != nat_flow->key().dst.ipv4) {
-                info.set_nat_source_ip(nat_flow->key().dst.ipv4);
+            if (key_.src_addr != nat_flow->key().dst_addr) {
+                if (key_.family == Address::INET) {
+                    info.set_nat_source_ip
+                        (nat_flow->key().dst_addr.to_v4().to_ulong());
+                } else {
+                    info.set_nat_source_ip(0);
+                }
             }
 
-            if (key_.dst.ipv4 != nat_flow->key().src.ipv4) {
-                info.set_nat_destination_ip(nat_flow->key().src.ipv4);
+            if (key_.dst_addr != nat_flow->key().src_addr) {
+                if (key_.family == Address::INET) {
+                    info.set_nat_destination_ip(nat_flow->key().src_addr.to_v4().to_ulong());
+                } else {
+                    info.set_nat_destination_ip(0);
+                }
             }
 
             if (key_.src_port != nat_flow->key().dst_port)  {
@@ -1103,24 +1121,33 @@ void FlowEntry::FillFlowInfo(FlowInfo &info) {
     info.set_vrf_assign(acl_assigned_vrf());
 }
 
-bool FlowEntry::FlowSrcMatch(const RouteFlowKey &rkey) const {
-    uint32_t prefix = rkey.GetPrefix(key_.src.ipv4, data_.source_plen);
-    if (data_.flow_source_vrf == rkey.vrf &&
-        prefix == rkey.ip.ipv4 &&
-        data_.source_plen == rkey.plen) {
-        return true;
+bool FlowEntry::FlowSrcMatch(const RouteFlowKey &route_key) const {
+    if (data_.flow_source_vrf != route_key.vrf ||
+        data_.source_plen != route_key.plen ||
+        key_.family != route_key.family)
+        return false;
+
+    if (key_.family == Address::INET) {
+        return GetIp4SubnetAddress(key_.src_addr.to_v4(),
+                                   data_.source_plen) == route_key.ip;
+    } else {
+        return (GetIp6SubnetAddress(key_.src_addr.to_v6(),
+                                    data_.source_plen) == route_key.ip);
     }
-    return false;
 }
 
-bool FlowEntry::FlowDestMatch(const RouteFlowKey &rkey) const {
-    uint32_t prefix = rkey.GetPrefix(key_.dst.ipv4, data_.dest_plen);
-    if (data_.flow_dest_vrf == rkey.vrf &&
-        prefix == rkey.ip.ipv4 &&
-        data_.dest_plen == rkey.plen) {
-        return true;
+bool FlowEntry::FlowDestMatch(const RouteFlowKey &route_key) const {
+    if (data_.flow_dest_vrf != route_key.vrf ||
+        data_.dest_plen != route_key.plen ||
+        key_.family != route_key.family)
+        return false;
+    if (key_.family == Address::INET) {
+        return GetIp4SubnetAddress(key_.dst_addr.to_v4(),
+                                   data_.dest_plen) == route_key.ip;
+    } else {
+        return (GetIp6SubnetAddress(key_.dst_addr.to_v6(),
+                                    data_.dest_plen) == route_key.ip);
     }
-    return false;
 }
 
 void FlowEntry::UpdateReflexiveAction() {
@@ -1149,8 +1176,8 @@ void FlowEntry::UpdateReflexiveAction() {
 void FlowEntry::SetAclFlowSandeshData(const AclDBEntry *acl,
         FlowSandeshData &fe_sandesh_data) const {
     fe_sandesh_data.set_vrf(integerToString(data_.vrf));
-    fe_sandesh_data.set_src(Ip4Address(key_.src.ipv4).to_string());
-    fe_sandesh_data.set_dst(Ip4Address(key_.dst.ipv4).to_string());
+    fe_sandesh_data.set_src(key_.src_addr.to_string());
+    fe_sandesh_data.set_dst(key_.dst_addr.to_string());
     fe_sandesh_data.set_src_port(key_.src_port);
     fe_sandesh_data.set_dst_port(key_.dst_port);
     fe_sandesh_data.set_protocol(key_.protocol);
@@ -1212,8 +1239,12 @@ void FlowEntry::SetAclFlowSandeshData(const AclDBEntry *acl,
 
 }
 
-bool FlowEntry::SetRpfNH(const Inet4UnicastRouteEntry *rt) {
+bool FlowEntry::SetRpfNH(const AgentRoute *rt) {
     const NextHop *nh = rt->GetActiveNextHop();
+    if (key_.family != Address::INET) {
+        //TODO:IPV6
+        return false;
+    }
     if (nh->GetType() == NextHop::COMPOSITE &&
         !is_flags_set(FlowEntry::LocalFlow) &&
         is_flags_set(FlowEntry::IngressDir)) {
@@ -1226,7 +1257,9 @@ bool FlowEntry::SetRpfNH(const Inet4UnicastRouteEntry *rt) {
             //  If there are multiple instances of ECMP in local server
             //  then RPF NH would point to local composite NH(containing 
             //  local members only)
-        nh = rt->GetLocalNextHop();
+        const Inet4UnicastRouteEntry *route =
+            static_cast<const Inet4UnicastRouteEntry *>(rt);
+        nh = route->GetLocalNextHop();
     }
 
     const NhState *nh_state = NULL;
@@ -1361,8 +1394,16 @@ void FlowEntry::InitFwdFlow(const PktFlowInfo *info, const PktInfo *pkt,
         set_flags(FlowEntry::Multicast);
     }
 
-    GetSourceRouteInfo(ctrl->rt_);
-    GetDestRouteInfo(rev_ctrl->rt_);
+    if (key_.family == Address::INET) {
+        const Inet4UnicastRouteEntry* inet4_rt =
+            static_cast<const Inet4UnicastRouteEntry*>(ctrl->rt_);
+        const Inet4UnicastRouteEntry* inet4_rev_rt =
+            static_cast<const Inet4UnicastRouteEntry*>(rev_ctrl->rt_);
+        GetSourceRouteInfo(inet4_rt);
+        GetDestRouteInfo(inet4_rev_rt);
+    } else {
+        //TODO:IPV6
+    }
 }
 
 void FlowEntry::InitRevFlow(const PktFlowInfo *info,
@@ -1406,8 +1447,16 @@ void FlowEntry::InitRevFlow(const PktFlowInfo *info,
         reset_flags(FlowEntry::Trap);
     }
 
-    GetSourceRouteInfo(ctrl->rt_);
-    GetDestRouteInfo(rev_ctrl->rt_);
+    if (key_.family == Address::INET) {
+        const Inet4UnicastRouteEntry* inet4_rt =
+            static_cast<const Inet4UnicastRouteEntry*>(ctrl->rt_);
+        const Inet4UnicastRouteEntry* inet4_rev_rt =
+            static_cast<const Inet4UnicastRouteEntry*>(rev_ctrl->rt_);
+        GetSourceRouteInfo(inet4_rt);
+        GetDestRouteInfo(inet4_rev_rt);
+    } else {
+        //TODO:IPV6
+    }
 }
 
 void FlowEntry::InitAuditFlow(uint32_t flow_idx) {
@@ -1831,8 +1880,7 @@ void Inet4RouteUpdate::UnicastNotify(DBTablePartBase *partition, DBEntryBase *e)
 
     // Handle delete cases
     if (marked_delete_ || route->IsDeleted()) {
-        RouteFlowKey rkey(route->vrf()->vrf_id(),
-                          route->addr().to_ulong(), route->plen());
+        RouteFlowKey rkey(route->vrf()->vrf_id(), route->addr(), route->plen());
         Agent::GetInstance()->pkt()->flow_table()->DeleteRouteFlows(rkey);
         if (state) {
             route->ClearState(partition->parent(), id_);
@@ -1846,8 +1894,7 @@ void Inet4RouteUpdate::UnicastNotify(DBTablePartBase *partition, DBEntryBase *e)
         route->SetState(partition->parent(), id_, state);
     }
 
-    RouteFlowKey skey(route->vrf()->vrf_id(), 
-                      route->addr().to_ulong(), route->plen());
+    RouteFlowKey skey(route->vrf()->vrf_id(), route->addr(), route->plen());
     sort (new_sg_l.begin(), new_sg_l.end());
     if (state->sg_l_ != new_sg_l) {
         state->sg_l_ = new_sg_l;
@@ -1952,8 +1999,7 @@ void FlowTable::ResyncAclFlows(const AclDBEntry *acl)
     }
 }
 
-void FlowTable::ResyncRpfNH(const RouteFlowKey &key, 
-                            const Inet4UnicastRouteEntry *rt) {
+void FlowTable::ResyncRpfNH(const RouteFlowKey &key, const AgentRoute *rt) {
     RouteFlowTree::iterator rf_it;
     rf_it = route_flow_tree_.find(key);
     if (rf_it == route_flow_tree_.end()) {
@@ -1978,7 +2024,8 @@ void FlowTable::ResyncRpfNH(const RouteFlowKey &key,
     }
 }
 
-void FlowTable::ResyncRouteFlows(RouteFlowKey &key, SecurityGroupList &sg_l)
+void FlowTable::ResyncRouteFlows(RouteFlowKey &key,
+                                 SecurityGroupList &sg_l)
 {
     RouteFlowTree::iterator rf_it;
     rf_it = route_flow_tree_.find(key);
@@ -2002,7 +2049,7 @@ void FlowTable::ResyncRouteFlows(RouteFlowKey &key, SecurityGroupList &sg_l)
                        "Not found route key, vrf:"
                        + integerToString(key.vrf) 
                        + " ip:"
-                       + Ip4Address(key.ip.ipv4).to_string());
+                       + key.ip.to_string());
         }
         //Update SG id for reverse flow
         //So that SG match rules can be applied on the
@@ -2236,8 +2283,8 @@ void FlowTable::DeleteVmFlowInfo(FlowEntry *fe, const VmEntry *vm) {
 void FlowTable::DeleteRouteFlowInfo (FlowEntry *fe)
 {
     RouteFlowTree::iterator rf_it;
-    RouteFlowKey skey(fe->data().flow_source_vrf, fe->key().src.ipv4, 
-                      fe->data().source_plen);
+    RouteFlowKey skey(fe->data().flow_source_vrf,
+                      fe->key().src_addr, fe->data().source_plen);
     rf_it = route_flow_tree_.find(skey);
     RouteFlowInfo *route_flow_info;
     if (rf_it != route_flow_tree_.end()) {
@@ -2249,7 +2296,7 @@ void FlowTable::DeleteRouteFlowInfo (FlowEntry *fe)
         }
     }
    
-    RouteFlowKey dkey(fe->data().flow_dest_vrf, fe->key().dst.ipv4,
+    RouteFlowKey dkey(fe->data().flow_dest_vrf, fe->key().dst_addr,
                       fe->data().dest_plen);
     rf_it = route_flow_tree_.find(dkey);
     if (rf_it != route_flow_tree_.end()) {
@@ -2515,7 +2562,7 @@ void FlowTable::AddRouteFlowInfo (FlowEntry *fe)
     RouteFlowTree::iterator it;
     RouteFlowInfo *route_flow_info;
     if (fe->data().flow_source_vrf != VrfEntry::kInvalidIndex) {
-        RouteFlowKey skey(fe->data().flow_source_vrf, fe->key().src.ipv4,
+        RouteFlowKey skey(fe->data().flow_source_vrf, fe->key().src_addr,
                           fe->data().source_plen);
         it = route_flow_tree_.find(skey);
         if (it == route_flow_tree_.end()) {
@@ -2529,7 +2576,7 @@ void FlowTable::AddRouteFlowInfo (FlowEntry *fe)
     }
 
     if (fe->data().flow_dest_vrf != VrfEntry::kInvalidIndex) {
-        RouteFlowKey dkey(fe->data().flow_dest_vrf, fe->key().dst.ipv4, 
+        RouteFlowKey dkey(fe->data().flow_dest_vrf, fe->key().dst_addr,
                           fe->data().dest_plen);
         it = route_flow_tree_.find(dkey);
         if (it == route_flow_tree_.end()) {
@@ -2613,10 +2660,16 @@ DBTableBase::ListenerId FlowTable::nh_listener_id() {
     return nh_listener_->id();
 }
 
-Inet4UnicastRouteEntry * FlowTable::GetUcRoute(const VrfEntry *entry,
-        const Ip4Address &addr) {
-    route_key_.set_addr(addr);
-    Inet4UnicastRouteEntry *rt = entry->GetUcRoute(route_key_);
+AgentRoute *FlowTable::GetUcRoute(const VrfEntry *entry,
+                                  const IpAddress &addr) {
+    AgentRoute *rt = NULL;
+    if (addr.is_v4()) {
+        inet4_route_key_.set_addr(addr.to_v4());
+        rt = entry->GetUcRoute(inet4_route_key_);
+    } else {
+        inet6_route_key_.set_addr(addr.to_v6());
+        rt = entry->GetUcRoute(inet6_route_key_);
+    }
     if (rt != NULL && rt->IsRPFInvalid()) {
         return NULL;
     }
@@ -2840,7 +2893,11 @@ FlowTable::FlowTable(Agent *agent) :
     linklocal_flow_count_(), acl_listener_id_(),
     intf_listener_id_(), vn_listener_id_(), vm_listener_id_(),
     vrf_listener_id_(), nh_listener_(NULL),
-    route_key_(NULL, Ip4Address(), 32, false) {
+    inet4_route_key_(NULL, Ip4Address(), 32, false),
+    inet6_route_key_(NULL, Ip6Address(), 128, false) {
+    max_vm_flows_ =
+        (agent->ksync()->flowtable_ksync_obj()->flow_table_entries_count() *
+        (uint32_t) agent->params()->max_vm_flows()) / 100;
 }
 
 FlowTable::~FlowTable() {
@@ -2850,4 +2907,17 @@ FlowTable::~FlowTable() {
     agent_->vm_table()->Unregister(vm_listener_id_);
     agent_->vrf_table()->Unregister(vrf_listener_id_);
     delete nh_listener_;
+}
+
+bool RouteFlowKey::IsLess(const RouteFlowKey &rhs) const {
+    if (vrf != rhs.vrf)
+        return vrf < rhs.vrf;
+
+    if (family != rhs.family)
+        return family < rhs.family;
+
+    if (ip != rhs.ip)
+        return ip < rhs.ip;
+
+    return plen < rhs.vrf;
 }

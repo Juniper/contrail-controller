@@ -9,6 +9,7 @@
 #include <pkt/pkt_init.h>
 #include <services/services_init.h>
 #include <services/dhcp_proto.h>
+#include <services/dhcpv6_proto.h>
 #include <services/arp_proto.h>
 #include <services/dns_proto.h>
 #include <services/icmp_proto.h>
@@ -27,7 +28,7 @@ std::map<uint16_t, std::string> g_ip_protocol_map =
                             (41, "ipv6")
                             (47, "gre");
 
-std::map<uint32_t, std::string> g_dhcp_msg_types = 
+std::map<uint32_t, std::string> g_dhcp_msg_types =
                     boost::assign::map_list_of<uint32_t, std::string>
                             (DHCP_UNKNOWN, "Unknown")
                             (DHCP_DISCOVER, "Discover")
@@ -42,6 +43,21 @@ std::map<uint32_t, std::string> g_dhcp_msg_types =
                             (DHCP_LEASE_UNASSIGNED, "Lease Unassigned")
                             (DHCP_LEASE_UNKNOWN, "Lease Unknown")
                             (DHCP_LEASE_ACTIVE, "Lease Active");
+
+std::map<uint32_t, std::string> g_dhcpv6_msg_types =
+                    boost::assign::map_list_of<uint32_t, std::string>
+                            (DHCPV6_UNKNOWN, "Unknown")
+                            (DHCPV6_SOLICIT, "Solicit")
+                            (DHCPV6_ADVERTISE, "Advertise")
+                            (DHCPV6_REQUEST, "Request")
+                            (DHCPV6_CONFIRM, "Confirm")
+                            (DHCPV6_RENEW, "Renew")
+                            (DHCPV6_REBIND, "Rebind")
+                            (DHCPV6_REPLY, "Reply")
+                            (DHCPV6_RELEASE, "Release")
+                            (DHCPV6_DECLINE, "Decline")
+                            (DHCPV6_RECONFIGURE, "Reconfigure")
+                            (DHCPV6_INFORMATION_REQUEST, "Information Request");
 
 void ServicesSandesh::MacToString(const unsigned char *mac, std::string &mac_str) {
     char mstr[32];
@@ -83,6 +99,13 @@ std::string &ServicesSandesh::DhcpMsgType(uint32_t msg_type) {
     std::map<uint32_t, std::string>::iterator it = g_dhcp_msg_types.find(msg_type);
     if (it == g_dhcp_msg_types.end())
         return DhcpMsgType(DHCP_UNKNOWN);
+    return it->second;
+}
+
+std::string &ServicesSandesh::Dhcpv6MsgType(uint32_t msg_type) {
+    std::map<uint32_t, std::string>::iterator it = g_dhcpv6_msg_types.find(msg_type);
+    if (it == g_dhcpv6_msg_types.end())
+        return Dhcpv6MsgType(DHCPV6_OPTION_UNKNOWN);
     return it->second;
 }
 
@@ -132,6 +155,27 @@ void ServicesSandesh::DhcpStatsSandesh(std::string ctxt, bool more) {
     dhcp->set_nacks_sent(dstats.nacks);
     dhcp->set_relay_request(dstats.relay_req);
     dhcp->set_relay_response(dstats.relay_resp);
+    dhcp->set_context(ctxt);
+    dhcp->set_more(more);
+    dhcp->Response();
+}
+
+void ServicesSandesh::Dhcpv6StatsSandesh(std::string ctxt, bool more) {
+    Dhcpv6Stats *dhcp = new Dhcpv6Stats();
+    const Dhcpv6Proto::DhcpStats &dstats =
+                Agent::GetInstance()->dhcpv6_proto()->GetStats();
+    dhcp->set_dhcp_solicit(dstats.solicit);
+    dhcp->set_dhcp_advertise(dstats.advertise);
+    dhcp->set_dhcp_request(dstats.request);
+    dhcp->set_dhcp_confirm(dstats.confirm);
+    dhcp->set_dhcp_renew(dstats.renew);
+    dhcp->set_dhcp_rebind(dstats.rebind);
+    dhcp->set_dhcp_reply(dstats.reply);
+    dhcp->set_dhcp_release(dstats.release);
+    dhcp->set_dhcp_decline(dstats.decline);
+    dhcp->set_dhcp_reconfigure(dstats.reconfigure);
+    dhcp->set_information_request(dstats.information_request);
+    dhcp->set_dhcp_error(dstats.error);
     dhcp->set_context(ctxt);
     dhcp->set_more(more);
     dhcp->Response();
@@ -265,6 +309,24 @@ void ServicesSandesh::FillIpv4Hdr(iphdr *ip, Ipv4Hdr &resp) {
     Ip4Address da(ntohl(ip->daddr));
     resp.src_ip = sa.to_string();
     resp.dest_ip = da.to_string();
+}
+
+void ServicesSandesh::FillIpv6Hdr(ip6_hdr *ip, Ipv6Hdr &resp) {
+    resp.flow = ntohl(ip->ip6_flow);
+    resp.plen = ntohs(ip->ip6_plen);
+    resp.next_hdr = ip->ip6_nxt;
+    resp.hlim = ip->ip6_hlim;
+
+    boost::system::error_code ec;
+    boost::asio::ip::address_v6::bytes_type src_addr;
+    memcpy(&src_addr[0], ip->ip6_src.s6_addr, 16);
+    boost::asio::ip::address_v6 src(src_addr);
+    resp.src_ip = src.to_string(ec);
+
+    boost::asio::ip::address_v6::bytes_type dest_addr;
+    memcpy(&dest_addr[0], ip->ip6_dst.s6_addr, 16);
+    boost::asio::ip::address_v6 dest(dest_addr);
+    resp.dest_ip = dest.to_string(ec);
 }
 
 void ServicesSandesh::FillIcmpv4Hdr(icmphdr *icmp, Icmpv4Hdr &resp) {
@@ -447,6 +509,13 @@ void ServicesSandesh::FillDhcpv4Hdr(dhcphdr *dhcp, Dhcpv4Hdr &resp,
                     resp.dhcp_options, resp.other_options, len);
 }
 
+void ServicesSandesh::FillDhcpv6Hdr(Dhcpv6Hdr *dhcp, Dhcpv6Header &resp,
+                                    int32_t len) {
+    resp.type = Dhcpv6MsgType(dhcp->type);
+    PktToHexString(dhcp->xid, 3, resp.xid);
+    PktToHexString((uint8_t *)dhcp->options, len - 4, resp.options);
+}
+
 void ServicesSandesh::FillDnsHdr(dnshdr *dns, DnsHdr &resp, int32_t dnslen) {
     if (dnslen < (int32_t)sizeof(dnshdr))
         return;
@@ -520,6 +589,28 @@ void ServicesSandesh::DhcpPktTrace(PktTrace::Pkt &pkt, DhcpPktSandesh *resp) {
     list.push_back(data);
 }
 
+void ServicesSandesh::Dhcpv6PktTrace(PktTrace::Pkt &pkt, Dhcpv6PktSandesh *resp) {
+    Dhcpv6Pkt data;
+    FillPktData(pkt, data.info);
+    FillVrouterHdr(pkt, data.agent_hdr);
+    uint8_t *ptr = pkt.pkt + sizeof(ethhdr) + sizeof(agent_hdr);
+    FillMacHdr((ethhdr *)ptr, data.mac_hdr);
+    ptr += sizeof(ethhdr);
+    FillIpv6Hdr((ip6_hdr *)ptr, data.ip_hdr);
+    ptr += sizeof(ip6_hdr);
+    FillUdpHdr((udphdr *)ptr, data.udp_hdr);
+    ptr += sizeof(udphdr);
+    PktHandler *pkt_handler = Agent::GetInstance()->pkt()->pkt_handler();
+    std::size_t trace_size = pkt_handler->PktTraceSize(PktHandler::DHCPV6);
+    int32_t remaining = std::min(pkt.len, trace_size) -
+                        (2 * sizeof(ethhdr) + sizeof(agent_hdr) +
+                         sizeof(ip6_hdr) + sizeof(udphdr));
+    FillDhcpv6Hdr((Dhcpv6Hdr *)ptr, data.dhcp_hdr, remaining);
+    std::vector<Dhcpv6Pkt> &list =
+        const_cast<std::vector<Dhcpv6Pkt>&>(resp->get_pkt_list());
+    list.push_back(data);
+}
+
 void ServicesSandesh::DnsPktTrace(PktTrace::Pkt &pkt, DnsPktSandesh *resp) {
     DnsPkt data;
     FillPktData(pkt, data.info);
@@ -578,7 +669,8 @@ void ServicesSandesh::HandleRequest(PktHandler::PktModuleName mod,
     SandeshResponse *resp = NULL;
     boost::function<void(PktTrace::Pkt &)> cb;
     boost::array<std::string, PktHandler::MAX_MODULES> names =
-        { { "Invalid", "Flow", "Arp", "Dhcp", "Dns", "Icmp", "Diagnostics" } };
+        { { "Invalid", "Flow", "Arp", "Dhcp", "Dhcpv6", "Dns",
+            "Icmp", "Icmpv6", "Diagnostics", "IcmpError" } };
 
     switch (mod) {
         case PktHandler::ARP:
@@ -595,6 +687,14 @@ void ServicesSandesh::HandleRequest(PktHandler::PktModuleName mod,
             static_cast<DhcpPktSandesh *>(resp)->set_type(names.at(mod));
             cb = boost::bind(&ServicesSandesh::DhcpPktTrace, this, _1,
                              static_cast<DhcpPktSandesh *>(resp));
+            break;
+
+        case PktHandler::DHCPV6:
+            resp = new Dhcpv6PktSandesh();
+            Dhcpv6StatsSandesh(ctxt, true);
+            static_cast<Dhcpv6PktSandesh *>(resp)->set_type(names.at(mod));
+            cb = boost::bind(&ServicesSandesh::Dhcpv6PktTrace, this, _1,
+                             static_cast<Dhcpv6PktSandesh *>(resp));
             break;
 
         case PktHandler::DNS:
@@ -652,6 +752,11 @@ void ServicesSandesh::MetadataHandleRequest(std::string ctxt, bool more = false)
 void DhcpInfo::HandleRequest() const {
     ServicesSandesh ssandesh;
     ssandesh.HandleRequest(PktHandler::DHCP, context());
+}
+
+void Dhcpv6Info::HandleRequest() const {
+    ServicesSandesh ssandesh;
+    ssandesh.HandleRequest(PktHandler::DHCPV6, context());
 }
 
 void ArpInfo::HandleRequest() const {

@@ -359,15 +359,19 @@ void IntfSyncMsg(PortInfo *input, int id) {
 
 void IntfCfgAdd(int intf_id, const string &name, const string ipaddr,
                 int vm_id, int vn_id, const string &mac, uint16_t vlan,
-                int project_id) {
+                const string ip6addr, int project_id) {
     CfgIntKey *key = new CfgIntKey(MakeUuid(intf_id));
     CfgIntData *data = new CfgIntData();
     boost::system::error_code ec;
     IpAddress ip = Ip4Address::from_string(ipaddr, ec);
     char vm_name[MAX_TESTNAME_LEN];
     sprintf(vm_name, "vm%d", vm_id);
+    Ip6Address ip6 = Ip6Address();
+    if (!ip6addr.empty()) {
+        ip6 = Ip6Address::from_string(ip6addr, ec);
+    } 
     data->Init(MakeUuid(vm_id), MakeUuid(vn_id), MakeUuid(project_id),
-               name, ip, mac, vm_name, vlan, CfgIntEntry::CfgIntVMPort, 0);
+               name, ip, ip6, mac, vm_name, vlan, CfgIntEntry::CfgIntVMPort, 0);
 
     DBRequest req;
     req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
@@ -378,14 +382,16 @@ void IntfCfgAdd(int intf_id, const string &name, const string ipaddr,
 }
 
 void IntfCfgAdd(int intf_id, const string &name, const string ipaddr,
-                int vm_id, int vn_id, const string &mac) {
+                int vm_id, int vn_id, const string &mac, 
+                const string ip6addr) {
     IntfCfgAdd(intf_id, name, ipaddr, vm_id, vn_id, mac,
-               VmInterface::kInvalidVlanId);
+               VmInterface::kInvalidVlanId, ip6addr);
 }
 
 void IntfCfgAdd(PortInfo *input, int id) {
     IntfCfgAdd(input[id].intf_id, input[id].name, input[id].addr,
-               input[id].vm_id, input[id].vn_id, input[id].mac);
+  	       input[id].vm_id, input[id].vn_id, input[id].mac,
+	       input[id].ip6addr);
 }
 
 void IntfCfgDel(PortInfo *input, int id) {
@@ -1085,6 +1091,25 @@ bool RouteFind(const string &vrf_name, const string &addr, int plen) {
     return RouteFind(vrf_name, Ip4Address::from_string(addr), plen);
 }
 
+bool RouteFindV6(const string &vrf_name, const Ip6Address &addr, int plen) {
+    VrfEntry *vrf = Agent::GetInstance()->vrf_table()->FindVrfFromName(vrf_name);
+    if (vrf == NULL)
+        return false;
+
+    Inet6UnicastRouteKey key(NULL, vrf_name, addr, plen);
+    Inet6UnicastRouteEntry* route = 
+        static_cast<Inet6UnicastRouteEntry *>
+        (static_cast<Inet6UnicastAgentRouteTable *>(vrf->
+            GetInet6UnicastRouteTable())->FindActiveEntry(&key));
+    return (route != NULL);
+}
+
+bool RouteFindV6(const string &vrf_name, const string &addr, int plen) {
+    return RouteFindV6(vrf_name, Ip6Address::from_string(addr), plen);
+}
+
+
+
 bool L2RouteFind(const string &vrf_name, const struct ether_addr &mac) {
     Layer2RouteEntry *route =
         Layer2AgentRouteTable::FindRoute(Agent::GetInstance(), vrf_name, mac);
@@ -1155,6 +1180,20 @@ Inet4UnicastRouteEntry* RouteGet(const string &vrf_name, const Ip4Address &addr,
             GetInet4UnicastRouteTable())->FindActiveEntry(&key));
     return route;
 }
+
+Inet6UnicastRouteEntry* RouteGetV6(const string &vrf_name, const Ip6Address &addr, int plen) {
+    VrfEntry *vrf = Agent::GetInstance()->vrf_table()->FindVrfFromName(vrf_name);
+    if (vrf == NULL)
+        return NULL;
+
+    Inet6UnicastRouteKey key(NULL, vrf_name, addr, plen);
+    Inet6UnicastRouteEntry* route = 
+        static_cast<Inet6UnicastRouteEntry *>
+        (static_cast<Inet6UnicastAgentRouteTable *>(vrf->
+            GetInet6UnicastRouteTable())->FindActiveEntry(&key));
+    return route;
+}
+
 
 Inet4MulticastRouteEntry *MCRouteGet(const string &vrf_name, const Ip4Address &grp_addr) {
     VrfEntry *vrf = Agent::GetInstance()->vrf_table()->FindVrfFromName(vrf_name);
@@ -1809,9 +1848,10 @@ bool FlowStats(FlowIp *input, int id, uint32_t bytes, uint32_t pkts) {
     key.src_port = 0;
     key.dst_port = 0;
     key.nh = id;
-    key.src.ipv4 = input[id].sip;
-    key.dst.ipv4 = input[id].dip;
+    key.src_addr = IpAddress(Ip4Address(input[id].sip));
+    key.dst_addr = IpAddress(Ip4Address(input[id].dip));
     key.protocol = IPPROTO_ICMP; 
+    key.family = key.src_addr.is_v4() ? Address::INET : Address::INET6;
 
     FlowEntry *fe = Agent::GetInstance()->pkt()->flow_table()->Find(key);
     if (fe == NULL) {
@@ -2157,11 +2197,12 @@ bool FlowDelete(const string &vrf_name, const char *sip, const char *dip,
 
     FlowKey key;
     key.nh = nh_id;
-    key.src.ipv4 = ntohl(inet_addr(sip));
-    key.dst.ipv4 = ntohl(inet_addr(dip));
+    key.src_addr = IpAddress::from_string(sip);
+    key.dst_addr = IpAddress::from_string(dip);
     key.src_port = sport;
     key.dst_port = dport;
     key.protocol = proto;
+    key.family = key.src_addr.is_v4() ? Address::INET : Address::INET6;
 
     if (table->Find(key) == NULL) {
         return false;
@@ -2176,11 +2217,12 @@ bool FlowFail(int vrf_id, const char *sip, const char *dip,
     FlowTable *table = Agent::GetInstance()->pkt()->flow_table();
     FlowKey key;
     key.nh = nh_id;
-    key.src.ipv4 = ntohl(inet_addr(sip));
-    key.dst.ipv4 = ntohl(inet_addr(dip));
+    key.src_addr = IpAddress::from_string(sip);
+    key.dst_addr = IpAddress::from_string(dip);
     key.src_port = sport;
     key.dst_port = dport;
     key.protocol = proto;
+    key.family = key.src_addr.is_v4() ? Address::INET : Address::INET6;
 
     FlowEntry *fe = table->Find(key);
     if (fe == NULL) {
@@ -2218,11 +2260,12 @@ bool FlowGetNat(const string &vrf_name, const char *sip, const char *dip,
 
     FlowKey key;
     key.nh = nh_id;
-    key.src.ipv4 = ntohl(inet_addr(sip));
-    key.dst.ipv4 = ntohl(inet_addr(dip));
+    key.src_addr = IpAddress::from_string(sip);
+    key.dst_addr = IpAddress::from_string(dip);
     key.src_port = sport;
     key.dst_port = dport;
     key.protocol = proto;
+    key.family = key.src_addr.is_v4() ? Address::INET : Address::INET6;
 
     FlowEntry *entry = table->Find(key);
     EXPECT_TRUE(entry != NULL);
@@ -2258,10 +2301,11 @@ bool FlowGetNat(const string &vrf_name, const char *sip, const char *dip,
         return false;
 
     key.nh = nat_nh_id;
-    key.src.ipv4 = ntohl(inet_addr(nat_dip));
-    key.dst.ipv4 = ntohl(inet_addr(nat_sip));
+    key.src_addr = IpAddress::from_string(nat_dip);
+    key.dst_addr = IpAddress::from_string(nat_sip);
     key.src_port = nat_dport;
     key.dst_port = nat_sport;
+    key.family = key.src_addr.is_v4() ? Address::INET : Address::INET6;
     FlowEntry * rentry = table->Find(key);
     EXPECT_TRUE(rentry != NULL);
     if (rentry == NULL) {
@@ -2288,11 +2332,12 @@ FlowEntry* FlowGet(int vrf_id, std::string sip, std::string dip, uint8_t proto,
     FlowTable *table = Agent::GetInstance()->pkt()->flow_table();
     FlowKey key;
     key.nh = nh_id;
-    key.src.ipv4 = ntohl(inet_addr(sip.c_str()));
-    key.dst.ipv4 = ntohl(inet_addr(dip.c_str()));
+    key.src_addr = IpAddress::from_string(sip);
+    key.dst_addr = IpAddress::from_string(dip);
     key.src_port = sport;
     key.dst_port = dport;
     key.protocol = proto;
+    key.family = key.src_addr.is_v4() ? Address::INET : Address::INET6;
 
     FlowEntry *entry = table->Find(key);
     return entry;
@@ -2309,11 +2354,12 @@ bool FlowGet(int vrf_id, const char *sip, const char *dip, uint8_t proto,
     FlowTable *table = Agent::GetInstance()->pkt()->flow_table();
     FlowKey key;
     key.nh = nh_id;
-    key.src.ipv4 = ntohl(inet_addr(sip));
-    key.dst.ipv4 = ntohl(inet_addr(dip));
+    key.src_addr = Ip4Address::from_string(sip);
+    key.dst_addr = Ip4Address::from_string(dip);
     key.src_port = sport;
     key.dst_port = dport;
     key.protocol = proto;
+    key.family = key.src_addr.is_v4() ? Address::INET : Address::INET6;
 
     FlowEntry *entry = table->Find(key);
     EXPECT_TRUE(entry != NULL);
@@ -2348,12 +2394,12 @@ bool FlowGet(int vrf_id, const char *sip, const char *dip, uint8_t proto,
         if (entry->key().protocol != rev->key().protocol)
             ret = false;
 
-        EXPECT_EQ(entry->key().src.ipv4, rev->key().dst.ipv4);
-        if (entry->key().src.ipv4 != rev->key().dst.ipv4)
+        EXPECT_EQ(entry->key().src_addr, rev->key().dst_addr);
+        if (entry->key().src_addr != rev->key().dst_addr)
             ret = false;
 
-        EXPECT_EQ(entry->key().dst.ipv4, rev->key().src.ipv4);
-        if (entry->key().dst.ipv4 != rev->key().src.ipv4)
+        EXPECT_EQ(entry->key().dst_addr, rev->key().src_addr);
+        if (entry->key().dst_addr != rev->key().src_addr)
             ret = false;
 
         return ret;
@@ -2388,11 +2434,12 @@ bool FlowGet(const string &vrf_name, const char *sip, const char *dip,
 
     FlowKey key;
     key.nh = nh_id;
-    key.src.ipv4 = ntohl(inet_addr(sip));
-    key.dst.ipv4 = ntohl(inet_addr(dip));
+    key.src_addr = Ip4Address::from_string(sip);
+    key.dst_addr = Ip4Address::from_string(dip);
     key.src_port = sport;
     key.dst_port = dport;
     key.protocol = proto;
+    key.family = key.src_addr.is_v4() ? Address::INET : Address::INET6;
 
     FlowEntry *entry = table->Find(key);
     EXPECT_TRUE(entry != NULL);
@@ -2419,10 +2466,11 @@ bool FlowGet(const string &vrf_name, const char *sip, const char *dip,
 
     if (rflow) {
         key.nh = rev_nh_id;
-        key.src.ipv4 = ntohl(inet_addr(dip));
-        key.dst.ipv4 = ntohl(inet_addr(sip));
+        key.src_addr = Ip4Address::from_string(dip);
+        key.dst_addr = Ip4Address::from_string(sip);
         key.src_port = dport;
         key.dst_port = sport;
+        key.family = key.src_addr.is_v4() ? Address::INET : Address::INET6;
         FlowEntry * rentry = table->Find(key);
         EXPECT_TRUE(rentry != NULL);
         if (rentry == NULL) {
@@ -2453,12 +2501,12 @@ bool FlowGet(const string &vrf_name, const char *sip, const char *dip,
         if (entry->key().protocol != rev->key().protocol)
             ret = false;
 
-        EXPECT_EQ(entry->key().src.ipv4, rev->key().dst.ipv4);
-        if (entry->key().src.ipv4 != rev->key().dst.ipv4)
+        EXPECT_EQ(entry->key().src_addr, rev->key().dst_addr);
+        if (entry->key().src_addr != rev->key().dst_addr)
             ret = false;
 
-        EXPECT_EQ(entry->key().dst.ipv4, rev->key().src.ipv4);
-        if (entry->key().dst.ipv4 != rev->key().src.ipv4)
+        EXPECT_EQ(entry->key().dst_addr, rev->key().src_addr);
+        if (entry->key().dst_addr != rev->key().src_addr)
             ret = false;
 
         return ret;
@@ -2483,11 +2531,12 @@ bool FlowGet(const string &vrf_name, const char *sip, const char *dip,
 
     FlowKey key;
     key.nh = nh_id;
-    key.src.ipv4 = ntohl(inet_addr(sip));
-    key.dst.ipv4 = ntohl(inet_addr(dip));
+    key.src_addr = Ip4Address::from_string(sip);
+    key.dst_addr = Ip4Address::from_string(dip);
     key.src_port = sport;
     key.dst_port = dport;
     key.protocol = proto;
+    key.family = key.src_addr.is_v4() ? Address::INET : Address::INET6;
 
     FlowEntry *entry = table->Find(key);
     EXPECT_TRUE(entry != NULL);
@@ -2523,11 +2572,12 @@ bool FlowStatsMatch(const string &vrf_name, const char *sip,
 
     FlowKey key;
     key.nh = nh_id;
-    key.src.ipv4 = ntohl(inet_addr(sip));
-    key.dst.ipv4 = ntohl(inet_addr(dip));
+    key.src_addr = Ip4Address::from_string(sip);
+    key.dst_addr = Ip4Address::from_string(dip);
     key.src_port = sport;
     key.dst_port = dport;
     key.protocol = proto;
+    key.family = key.src_addr.is_v4() ? Address::INET : Address::INET6;
 
     FlowEntry *fe = table->Find(key);
     EXPECT_TRUE(fe != NULL);
@@ -2556,11 +2606,12 @@ bool FindFlow(const string &vrf_name, const char *sip, const char *dip,
 
     FlowKey key;
     key.nh = fwd_nh_id;
-    key.src.ipv4 = ntohl(inet_addr(sip));
-    key.dst.ipv4 = ntohl(inet_addr(dip));
+    key.src_addr = Ip4Address::from_string(sip);
+    key.dst_addr = Ip4Address::from_string(dip);
     key.src_port = sport;
     key.dst_port = dport;
     key.protocol = proto;
+    key.family = key.src_addr.is_v4() ? Address::INET : Address::INET6;
 
     FlowEntry *entry = table->Find(key);
     EXPECT_TRUE(entry != NULL);
@@ -2582,11 +2633,12 @@ bool FindFlow(const string &vrf_name, const char *sip, const char *dip,
         return false;
 
     key.nh = rev_nh_id;
-    key.src.ipv4 = ntohl(inet_addr(nat_dip));
-    key.dst.ipv4 = ntohl(inet_addr(nat_sip));
+    key.src_addr = Ip4Address::from_string(nat_dip);
+    key.dst_addr = Ip4Address::from_string(nat_sip);
     key.src_port = nat_dport;
     key.dst_port = nat_sport;
     key.protocol = proto;
+    key.family = key.src_addr.is_v4() ? Address::INET : Address::INET6;
 
     FlowEntry *nat_entry = table->Find(key);
     EXPECT_TRUE(nat_entry != NULL);

@@ -29,10 +29,10 @@ public:
     }
 
     bool Validate(PktInfo *msg) {
-        if (msg->ip == NULL) {
+        if (msg->ip == NULL && msg->ip6 == NULL) {
             FLOW_TRACE(DetailErr, msg->agent_hdr.cmd_param,
                        msg->agent_hdr.ifindex, msg->agent_hdr.vrf,
-                       msg->ip_saddr, msg->ip_daddr,
+                       msg->ether_type, 0,
                        "Flow : Non-IP packet. Dropping");
             return false;
         }

@@ -147,7 +147,7 @@ void MulticastHandler::HandleIpam(const VnEntry *vn) {
     std::map<uuid, string>::iterator it;
     string vrf_name;
 
-    if (!(vn->Ipv4Forwarding()) || vn->IsDeleted() || (ipam.size() == 0) ||
+    if (!(vn->layer3_forwarding()) || vn->IsDeleted() || (ipam.size() == 0) ||
         (vn->GetVrf() == NULL)) {
         delete_ipam = true;
     }
