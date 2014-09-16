@@ -25,9 +25,15 @@ else:
         'boost',
         'curl-7.24.0',
         'gperftools',
-        'libxml2', 
+        'libxml2',
         'log4cplus',
         'tbb',
+        'icu',
+    ]
+
+if platform.system() == 'FreeBSD':
+    subdirs += [
+        'icu',
     ]
 
 for dir in subdirs:
