@@ -4,7 +4,7 @@
 
 #include <cmn/agent_factory.h>
 #include <cmn/agent_cmn.h>
-#include <cmn/agent_param.h>
+#include <init/agent_param.h>
 #include <db/db.h>
 #include <base/task_trigger.h>
 #include <sandesh/sandesh_types.h>

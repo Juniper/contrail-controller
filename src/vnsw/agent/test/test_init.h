@@ -44,7 +44,7 @@
 #include <ksync/vnswif_listener.h>
 #include <ifmap/ifmap_agent_parser.h>
 #include <ifmap/ifmap_agent_table.h>
-#include <cmn/agent_param.h>
+#include <init/agent_param.h>
 #include <oper/vn.h>
 #include <oper/multicast.h>
 #include <oper/vm.h>
@@ -157,7 +157,7 @@ struct TestIp4Prefix {
 class TestClient {
 public:
     TestClient(TestAgentInit *init) :
-        agent_init_(init), agent_(init->agent()), param_(init->agent_param()) {
+        agent_init_(init), agent_(init->agent()), param_(init->agent()) {
         vn_notify_ = 0;
         vm_notify_ = 0;
         port_notify_ = 0;
@@ -554,7 +554,7 @@ public:
                                                    this, _1, _2));
     };
     TestAgentInit *agent_init() { return agent_init_.get(); }
-    AgentParam *param() { return param_; }
+    AgentParam *param() { return &param_; }
     Agent *agent() { return agent_; }
 
     void Shutdown();
@@ -577,7 +577,7 @@ public:
     std::vector<const NextHop *> comp_nh_list_;
     std::auto_ptr<TestAgentInit> agent_init_;
     Agent *agent_;
-    AgentParam *param_;
+    AgentParam param_;
 };
 
 TestClient *TestInit(const char *init_file = NULL, bool ksync_init = false, 

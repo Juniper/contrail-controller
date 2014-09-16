@@ -53,14 +53,13 @@ TestClient *TestInit(const char *init_file, bool ksync_init, bool pkt_init,
                      int vrouter_stats_interval) {
 
     TestClient *client = new TestClient(new TestAgentInit());
-
-    // Read agent parameters from config file and arguments
-    AgentParam *param = client->param();
     TestAgentInit *init = client->agent_init();
     Agent *agent = client->agent();
 
-    opt::variables_map var_map;
-    init->ProcessOptions(init_file, "test", var_map);
+    AgentParam *param = client->param();
+    init->set_agent_param(param);
+    // Read agent parameters from config file and arguments
+    init->ProcessOptions(init_file, "test");
     param->set_agent_stats_interval(agent_stats_interval);
     param->set_flow_stats_interval(flow_stats_interval);
     param->set_vrouter_stats_interval(vrouter_stats_interval);
@@ -118,7 +117,6 @@ TestClient *TestInit(const char *init_file, bool ksync_init, bool pkt_init,
 TestClient *VGwInit(const string &init_file, bool ksync_init) {
     TestClient *client = new TestClient(new TestAgentInit());
 
-    AgentParam *param = client->param();
     TestAgentInit *init = client->agent_init();
     Agent *agent = client->agent();
 
@@ -128,8 +126,9 @@ TestClient *VGwInit(const string &init_file, bool ksync_init) {
                                0, NULL);
 
     // Read agent parameters from config file and arguments
-    opt::variables_map var_map;
-    init->ProcessOptions(init_file, "test", var_map);
+    AgentParam *param(client->param());
+    init->set_agent_param(param);
+    init->ProcessOptions(init_file, "test");
 
     init->set_ksync_enable(ksync_init);
     init->set_packet_enable(true);

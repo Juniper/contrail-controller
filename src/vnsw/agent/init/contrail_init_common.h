@@ -19,8 +19,7 @@ public:
     virtual ~ContrailInitCommon();
 
     void ProcessOptions(const std::string &config_file,
-                        const std::string &program_name,
-                        const boost::program_options::variables_map &var_map);
+                        const std::string &program_name);
     int Start();
 
     // Initialization virtual methods

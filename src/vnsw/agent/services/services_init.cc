@@ -14,7 +14,7 @@
 #include "services/arp_proto.h"
 #include "services/icmp_proto.h"
 #include "services/metadata_proxy.h"
-#include "cmn/agent_param.h"
+#include "init/agent_param.h"
 
 
 SandeshTraceBufferPtr DhcpTraceBuf(SandeshTraceBufferCreate("Dhcp", 1000));

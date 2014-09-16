@@ -3,7 +3,7 @@
  */
 #include <cmn/agent_cmn.h>
 #include <cmn/agent_factory.h>
-#include <cmn/agent_param.h>
+#include <init/agent_param.h>
 
 #include <cfg/cfg_init.h>
 
@@ -24,10 +24,9 @@ ContrailAgentInit::~ContrailAgentInit() {
 }
 
 void ContrailAgentInit::ProcessOptions
-    (const std::string &config_file, const std::string &program_name,
-     const boost::program_options::variables_map &var_map) {
+    (const std::string &config_file, const std::string &program_name) {
 
-    ContrailInitCommon::ProcessOptions(config_file, program_name, var_map);
+    ContrailInitCommon::ProcessOptions(config_file, program_name);
 }
 
 /****************************************************************************

@@ -4,7 +4,7 @@
 #include <base/misc_utils.h>
 #include <cmn/buildinfo.h>
 #include <cmn/agent_cmn.h>
-#include <cmn/agent_param.h>
+#include <init/agent_param.h>
 #include <openstack/instance_service_server.h>
 #include <controller/controller_init.h>
 #include "linux_vxlan_agent_init.h"
@@ -25,93 +25,22 @@ bool GetBuildInfo(std::string &build_info_str) {
 }
 
 int main(int argc, char *argv[]) {
-    uint16_t http_server_port = ContrailPorts::HttpPortAgent();
-
     // Initialize the agent-init control class
     LinuxVxlanAgentInit init;
     Agent *agent = init.agent();
+    AgentParam params(agent, false, false, false, false);
 
-    opt::options_description desc("Command line options");
-    desc.add_options()
-        ("help", "help message")
-        ("config_file",
-         opt::value<string>()->default_value(agent->config_file()),
-         "Configuration file")
-        ("version", "Display version information")
-        ("COLLECTOR.server", opt::value<string>(),
-         "IP address of sandesh collector")
-        ("COLLECTOR.port", opt::value<uint16_t>(), "Port of sandesh collector")
-        ("CONTROL-NODE.server",
-         opt::value<std::vector<std::string> >()->multitoken(),
-         "IP addresses of control nodes."
-         " Max of 2 Ip addresses can be configured")
-        ("DEFAULT.debug", "Enable debug logging")
-        ("DEFAULT.flow_cache_timeout",
-         opt::value<uint16_t>()->default_value(Agent::kDefaultFlowCacheTimeout),
-         "Flow aging time in seconds")
-        ("DEFAULT.hostname", opt::value<string>(),
-         "Hostname of compute-node")
-        ("DEFAULT.headless", opt::value<bool>(),
-         "Run compute-node in headless mode")
-        ("DEFAULT.http_server_port",
-         opt::value<uint16_t>()->default_value(http_server_port),
-         "Sandesh HTTP listener port")
-        ("DEFAULT.log_category", opt::value<string>()->default_value("*"),
-         "Category filter for local logging of sandesh messages")
-        ("DEFAULT.log_file",
-         opt::value<string>()->default_value(agent->log_file()),
-         "Filename for the logs to be written to")
-        ("DEFAULT.log_level", opt::value<string>()->default_value("SYS_DEBUG"),
-         "Severity level for local logging of sandesh messages")
-        ("DEFAULT.log_local", "Enable local logging of sandesh messages")
-        ("DEFAULT.tunnel_type", opt::value<string>()->default_value("MPLSoGRE"),
-         "Tunnel Encapsulation type <MPLSoGRE|MPLSoUDP|VXLAN>")
-        ("DISCOVERY.server", opt::value<string>(),
-         "IP address of discovery server")
-        ("DISCOVERY.max_control_nodes", opt::value<uint16_t>(),
-         "Maximum number of control node info to be provided by discovery "
-         "service <1|2>")
-        ("DNS.server", opt::value<std::vector<std::string> >()->multitoken(),
-         "IP addresses of dns nodes. Max of 2 Ip addresses can be configured")
-        ("HYPERVISOR.type", opt::value<string>()->default_value("kvm"),
-         "Type of hypervisor <kvm|xen|vmware>")
-        ("HYPERVISOR.xen_ll_interface", opt::value<string>(),
-         "Port name on host for link-local network")
-        ("HYPERVISOR.xen_ll_ip", opt::value<string>(),
-         "IP Address and prefix or the link local port in ip/prefix format")
-        ("HYPERVISOR.vmware_physical_port", opt::value<string>(),
-         "Physical port used to connect to VMs in VMWare environment")
-        ("FLOWS.max_vm_flows", opt::value<uint16_t>(),
-         "Maximum flows allowed per VM - given as \% of maximum system flows")
-        ("FLOWS.max_system_linklocal_flows", opt::value<uint16_t>(),
-         "Maximum number of link-local flows allowed across all VMs")
-        ("FLOWS.max_vm_linklocal_flows", opt::value<uint16_t>(),
-         "Maximum number of link-local flows allowed per VM")
-        ("METADATA.metadata_proxy_secret", opt::value<string>(),
-         "Shared secret for metadata proxy service")
-        ("NETWORKS.control_network_ip", opt::value<string>(),
-         "control-channel IP address used by WEB-UI to connect to vnswad")
-        ("VIRTUAL-HOST-INTERFACE.name", opt::value<string>(),
-         "Name of virtual host interface")
-        ("VIRTUAL-HOST-INTERFACE.ip", opt::value<string>(),
-         "IP address and prefix in ip/prefix_len format")
-        ("VIRTUAL-HOST-INTERFACE.gateway", opt::value<string>(),
-         "Gateway IP address for virtual host")
-        ("VIRTUAL-HOST-INTERFACE.physical_interface", opt::value<string>(),
-         "Physical interface name to which virtual host interface maps to")
-        ;
-    opt::variables_map var_map;
+    opt::variables_map var_map = params.var_map();
     try {
-        opt::store(opt::parse_command_line(argc, argv, desc), var_map);
-        opt::notify(var_map);
+        params.ParseArguments(argc, argv);
     } catch (...) {
         cout << "Invalid arguments. ";
-        cout << desc << endl;
+        cout << params.options() << endl;
         exit(0);
     }
 
     if (var_map.count("help")) {
-        cout << desc << endl;
+        cout << params.options() << endl;
         exit(0);
     }
 
@@ -137,8 +66,9 @@ int main(int argc, char *argv[]) {
     GetBuildInfo(build_info);
     MiscUtils::LogVersionInfo(build_info, Category::VROUTER);
 
+    init.set_agent_param(&params);
     // Read agent parameters from config file and arguments
-    init.ProcessOptions(init_file, argv[0], var_map);
+    init.ProcessOptions(init_file, argv[0]);
 
     // kick start initialization
     int ret = 0;

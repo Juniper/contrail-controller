@@ -27,7 +27,7 @@
 #include <sandesh/sandesh_trace.h>
 
 #include <cmn/agent_cmn.h>
-#include <cmn/agent_param.h>
+#include <init/agent_param.h>
 #include <vgw/cfg_vgw.h>
 
 using namespace std;
@@ -610,21 +610,20 @@ void AgentParam::InitFromConfig() {
     return;
 }
 
-void AgentParam::InitFromArguments
-    (const boost::program_options::variables_map &var_map) {
-    ParseCollectorArguments(var_map);
-    ParseVirtualHostArguments(var_map);
-    ParseServerListArguments(var_map, xmpp_server_1_, xmpp_server_2_, 
+void AgentParam::InitFromArguments() {
+    ParseCollectorArguments(var_map_);
+    ParseVirtualHostArguments(var_map_);
+    ParseServerListArguments(var_map_, xmpp_server_1_, xmpp_server_2_, 
                              "CONTROL-NODE.server");
-    ParseServerListArguments(var_map, &dns_server_1_, &dns_port_1_,
+    ParseServerListArguments(var_map_, &dns_server_1_, &dns_port_1_,
                              &dns_server_2_, &dns_port_2_, "DNS.server");
-    ParseDiscoveryArguments(var_map);
-    ParseNetworksArguments(var_map);
-    ParseHypervisorArguments(var_map);
-    ParseDefaultSectionArguments(var_map);
-    ParseMetadataProxyArguments(var_map);
-    ParseHeadlessModeArguments(var_map);
-    ParseServiceInstanceArguments(var_map);
+    ParseDiscoveryArguments(var_map_);
+    ParseNetworksArguments(var_map_);
+    ParseHypervisorArguments(var_map_);
+    ParseDefaultSectionArguments(var_map_);
+    ParseMetadataProxyArguments(var_map_);
+    ParseHeadlessModeArguments(var_map_);
+    ParseServiceInstanceArguments(var_map_);
     return;
 }
 
@@ -752,14 +751,13 @@ void AgentParam::InitVhostAndXenLLPrefix() {
     xen_ll_.prefix_ = Ip4Address(xen_ll_.addr_.to_ulong() & mask);
 }
 
-void AgentParam::Init(const string &config_file, const string &program_name,
-                      const boost::program_options::variables_map &var_map) {
+void AgentParam::Init(const string &config_file, const string &program_name) {
     config_file_ = config_file;
     program_name_ = program_name;
 
     InitFromSystem();
     InitFromConfig();
-    InitFromArguments(var_map);
+    InitFromArguments();
     InitVhostAndXenLLPrefix();
 
     vgw_config_table_->Init(tree_);
@@ -815,7 +813,25 @@ void AgentParam::set_test_mode(bool mode) {
     test_mode_ = mode;
 }
 
-AgentParam::AgentParam(Agent *agent) :
+void AgentParam::AddOptions
+(const boost::program_options::options_description &opt) {
+    options_.add(opt);
+}
+
+void AgentParam::ParseArguments(int argc, char *argv[]) {
+    boost::program_options::store(opt::parse_command_line(argc, argv, options_),
+                                  var_map_);
+    boost::program_options::notify(var_map_);
+}
+
+AgentParam::AgentParam(Agent *agent, bool enable_flow_options,
+                       bool enable_vhost_options,
+                       bool enable_hypervisor_options,
+                       bool enable_service_options) :
+        enable_flow_options_(enable_flow_options),
+        enable_vhost_options_(enable_vhost_options),
+        enable_hypervisor_options_(enable_hypervisor_options),
+        enable_service_options_(enable_service_options),
         vhost_(), eth_port_(), xmpp_instance_count_(), xmpp_server_1_(),
         xmpp_server_2_(), dns_server_1_(), dns_server_2_(),
         dns_port_1_(ContrailPorts::DnsServerPort()),
@@ -834,8 +850,128 @@ AgentParam::AgentParam(Agent *agent) :
         headless_mode_(false), simulate_evpn_tor_(false),
         si_netns_command_(), si_netns_workers_(0),
         si_netns_timeout_(0) {
+
     vgw_config_table_ = std::auto_ptr<VirtualGatewayConfigTable>
         (new VirtualGatewayConfigTable(agent));
+
+    // Set common command line arguments supported
+    boost::program_options::options_description generic("Generic options");
+    generic.add_options()
+        ("help", "help message")
+        ("config_file", 
+         opt::value<string>()->default_value(agent->config_file()), 
+         "Configuration file")
+        ("version", "Display version information")
+        ("CONTROL-NODE.server", 
+         opt::value<std::vector<std::string> >()->multitoken(),
+         "IP addresses of control nodes."
+         " Max of 2 Ip addresses can be configured")
+        ("DEFAULT.collectors",
+         opt::value<std::vector<std::string> >()->multitoken(),
+         "Collector server list")
+        ("DEFAULT.debug", "Enable debug logging")
+        ("DEFAULT.flow_cache_timeout", 
+         opt::value<uint16_t>()->default_value(agent->kDefaultFlowCacheTimeout),
+         "Flow aging time in seconds")
+        ("DEFAULT.hostname", opt::value<string>(), 
+         "Hostname of compute-node")
+        ("DEFAULT.headless", opt::value<bool>(),
+         "Run compute-node in headless mode")
+        ("DEFAULT.http_server_port", 
+         opt::value<uint16_t>()->default_value(ContrailPorts::HttpPortAgent()), 
+         "Sandesh HTTP listener port")
+        ("DEFAULT.tunnel_type", opt::value<string>()->default_value("MPLSoGRE"),
+         "Tunnel Encapsulation type <MPLSoGRE|MPLSoUDP|VXLAN>")
+        ("DISCOVERY.server", opt::value<string>(), 
+         "IP address of discovery server")
+        ("DISCOVERY.max_control_nodes", opt::value<uint16_t>(), 
+         "Maximum number of control node info to be provided by discovery "
+         "service <1|2>")
+        ("DNS.server", opt::value<std::vector<std::string> >()->multitoken(),
+         "IP addresses of dns nodes. Max of 2 Ip addresses can be configured")
+        ("METADATA.metadata_proxy_secret", opt::value<string>(),
+         "Shared secret for metadata proxy service")
+        ("NETWORKS.control_network_ip", opt::value<string>(),
+         "control-channel IP address used by WEB-UI to connect to vnswad")
+        ;
+    options_.add(generic);
+
+    opt::options_description log("Logging options");
+    log.add_options()
+        ("DEFAULT.log_category", opt::value<string>()->default_value("*"),
+         "Category filter for local logging of sandesh messages")
+        ("DEFAULT.log_file", 
+         opt::value<string>()->default_value(agent->log_file()),
+         "Filename for the logs to be written to")
+        ("DEFAULT.log_files_count", opt::value<int>()->default_value(10),
+         "Maximum log file roll over index")
+        ("DEFAULT.log_file_size", opt::value<long>()->default_value(1024*1024),
+         "Maximum size of the log file")
+        ("DEFAULT.log_level", opt::value<string>()->default_value("SYS_DEBUG"),
+         "Severity level for local logging of sandesh messages")
+        ("DEFAULT.log_local", "Enable local logging of sandesh messages")
+        ("DEFAULT.use_syslog", "Enable logging to syslog")
+        ("DEFAULT.syslog_facility", opt::value<string>()->default_value("LOG_LOCAL0"),
+         "Syslog facility to receive log lines")
+        ("DEFAULT.log_flow", "Enable local logging of flow sandesh messages")
+        ;
+    options_.add(log);
+
+    if (enable_flow_options_) {
+        opt::options_description flow("Flow options");
+        flow.add_options()
+            ("FLOWS.max_vm_flows", opt::value<uint16_t>(), 
+             "Maximum flows allowed per VM - given as \% of maximum system flows")
+            ("FLOWS.max_system_linklocal_flows", opt::value<uint16_t>(), 
+             "Maximum number of link-local flows allowed across all VMs")
+            ("FLOWS.max_vm_linklocal_flows", opt::value<uint16_t>(), 
+             "Maximum number of link-local flows allowed per VM")
+            ;
+        options_.add(flow);
+    }
+
+    if (enable_hypervisor_options_) {
+        opt::options_description hypervisor("Hypervisor specific options");
+        hypervisor.add_options()
+            ("HYPERVISOR.type", opt::value<string>()->default_value("kvm"), 
+             "Type of hypervisor <kvm|xen|vmware>")
+            ("HYPERVISOR.xen_ll_interface", opt::value<string>(), 
+             "Port name on host for link-local network")
+            ("HYPERVISOR.xen_ll_ip", opt::value<string>(),
+             "IP Address and prefix or the link local port in ip/prefix format")
+            ("HYPERVISOR.vmware_physical_port", opt::value<string>(),
+             "Physical port used to connect to VMs in VMWare environment")
+            ;
+        options_.add(hypervisor);
+    }
+
+    if (enable_vhost_options_) {
+        opt::options_description vhost("VHOST interface specific options");
+        vhost.add_options()
+            ("VIRTUAL-HOST-INTERFACE.name", opt::value<string>(),
+             "Name of virtual host interface")
+            ("VIRTUAL-HOST-INTERFACE.ip", opt::value<string>(), 
+             "IP address and prefix in ip/prefix_len format")
+            ("VIRTUAL-HOST-INTERFACE.gateway", opt::value<string>(), 
+             "Gateway IP address for virtual host")
+            ("VIRTUAL-HOST-INTERFACE.physical_interface", opt::value<string>(), 
+             "Physical interface name to which virtual host interface maps to")
+            ;
+        options_.add(vhost);
+    }
+
+    if (enable_service_options_) {
+        opt::options_description service("Service instance specific options");
+        service.add_options()
+            ("SERVICE-INSTANCE.netns_command", opt::value<string>(),
+             "Script path used when a service instance is spawned with network namespace")
+            ("SERVICE-INSTANCE.netns_timeout", opt::value<string>(),
+             "Timeout used to set a netns command as failing and to destroy it")
+            ("SERVICE-INSTANCE.netns_workers", opt::value<string>(),
+             "Number of workers used to spawn netns command")
+            ;
+        options_.add(service);
+    }
 }
 
 AgentParam::~AgentParam() {

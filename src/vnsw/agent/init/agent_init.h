@@ -6,7 +6,7 @@
 #define vnsw_agent_init_agent_init_hpp
 
 #include <boost/program_options.hpp>
-#include <cmn/agent_param.h>
+#include <init/agent_param.h>
 
 class Agent;
 class AgentParam;
@@ -23,12 +23,13 @@ public:
     virtual ~AgentInit();
 
     Agent *agent() const { return agent_.get(); }
-    AgentParam *agent_param() const { return agent_param_.get(); }
+
+    AgentParam *agent_param() const { return agent_param_; }
+    void set_agent_param(AgentParam *param) { agent_param_ = param; }
 
     // Process options
     virtual void ProcessOptions
-        (const std::string &config_file, const std::string &program_name,
-         const boost::program_options::variables_map &var_map);
+        (const std::string &config_file, const std::string &program_name);
 
     // Kickstarts initialization
     virtual int Start();
@@ -147,7 +148,7 @@ public:
 
 private:
     std::auto_ptr<Agent> agent_;
-    std::auto_ptr<AgentParam> agent_param_;
+    AgentParam *agent_param_;
 
     std::auto_ptr<TaskTrigger> trigger_;
 

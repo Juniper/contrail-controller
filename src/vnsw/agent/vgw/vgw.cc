@@ -5,7 +5,7 @@
 
 #include <base/logging.h>
 #include <cmn/agent_cmn.h>
-#include <cmn/agent_param.h>
+#include <init/agent_param.h>
 #include <cfg/cfg_init.h>
 
 #include <oper/vm.h>
