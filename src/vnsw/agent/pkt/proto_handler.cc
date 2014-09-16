@@ -21,20 +21,15 @@ uint32_t ProtoHandler::EncapHeaderLen() const {
 }
 
 // send packet to the pkt0 interface
-void ProtoHandler::Send(uint16_t len, uint16_t itf, uint16_t vrf, 
-                        uint16_t cmd, PktHandler::PktModuleName mod) {
+void ProtoHandler::Send(uint16_t itf, uint16_t vrf, uint16_t cmd,
+                        PktHandler::PktModuleName mod) {
     // If pkt_info_->pkt is non-NULL, pkt is freed in destructor of pkt_info_
     if (agent_->pkt()->pkt_handler() == NULL) {
         return;
     }
 
-    uint16_t offset = (uint8_t *)pkt_info_->eth - pkt_info_->pkt;
-    PacketBufferPtr buff = agent_->pkt()->packet_buffer_manager()->Allocate
-        (mod, pkt_info_->pkt, len, offset, len, 0);
-    pkt_info_->pkt = NULL;
-
     AgentHdr hdr(itf, vrf, cmd);
-    agent_->pkt()->pkt_handler()->Send(hdr, buff);
+    agent_->pkt()->pkt_handler()->Send(hdr, pkt_info_->packet_buffer_ptr());
 }
 
 uint16_t ProtoHandler::EthHdr(char *buff, uint8_t len, const unsigned char *src,

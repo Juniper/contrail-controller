@@ -29,7 +29,10 @@ public:
     uint16_t data_len() const;
 
     uint32_t module() const { return module_; }
-    bool MoveOffset(uint16_t offset);
+    void set_module(uint32_t module) { module_ = module; }
+
+    void set_len(uint32_t len);
+    bool SetOffset(uint16_t offset);
 private:
     friend class PacketBufferManager;
     PacketBuffer(PacketBufferManager *mgr, uint32_t module, uint16_t len,

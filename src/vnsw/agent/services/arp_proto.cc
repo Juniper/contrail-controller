@@ -111,7 +111,8 @@ void ArpVrfState::SendArpRequestForVm(Inet4UnicastRouteEntry *route) {
             if (wait_for_traffic == false) {
                 continue;
             }
-            boost::shared_ptr<PktInfo> pkt(new PktInfo(NULL, 0, 0));
+            boost::shared_ptr<PktInfo> pkt
+                (new PktInfo(agent, MIN_ETH_PKT_LEN, PktHandler::ARP, 0));
             ArpHandler arp_handler(agent, pkt,
                                    *(agent->event_manager()->io_service()));
 

@@ -27,8 +27,9 @@ void DiagPktHandler::Reply() {
     SetReply();
     Swap();
     SetDiagChkSum();
-    Send(GetLength() - (2 * EncapHeaderLen()), GetInterfaceIndex(), GetVrfIndex(),
-         AgentHdr::TX_ROUTE, PktHandler::DIAG);
+    pkt_info_->set_len(GetLength() - (2 * EncapHeaderLen()));
+    Send(GetInterfaceIndex(), GetVrfIndex(), AgentHdr::TX_ROUTE,
+         PktHandler::DIAG);
 }
 
 bool DiagPktHandler::Run() {

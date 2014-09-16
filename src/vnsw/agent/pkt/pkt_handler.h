@@ -152,13 +152,23 @@ struct PktInfo {
         struct icmphdr  *icmp;
     } transp;
 
-    PktInfo(uint8_t *msg, std::size_t msg_size, std::size_t max_size);
+    PktInfo(Agent *agent, uint32_t buff_len, uint32_t module, uint32_t mdata);
+    PktInfo(const PacketBufferPtr &buff);
     PktInfo(InterTaskMsg *msg);
     virtual ~PktInfo();
 
     const AgentHdr &GetAgentHdr() const;
     void UpdateHeaderPtr();
     std::size_t hash() const;
+
+    PacketBuffer *packet_buffer() const { return packet_buffer_.get(); }
+    PacketBufferPtr packet_buffer_ptr() const { return packet_buffer_; }
+    void AllocPacketBuffer(Agent *agent, uint32_t module, uint16_t len,
+                           uint32_t mdata);
+    void set_len(uint32_t len);
+
+private:
+    PacketBufferPtr     packet_buffer_;
 };
 
 // Receive packets from the pkt0 (tap) interface, parse and send the packet to
@@ -204,11 +214,10 @@ public:
 
     void Register(PktModuleName type, RcvQueueFunc cb);
 
-    void Send(const AgentHdr &hdr, PacketBufferPtr buff);
+    void Send(const AgentHdr &hdr, const PacketBufferPtr &buff);
 
     // identify pkt type and send to the registered handler
-    void HandleRcvPkt(const AgentHdr &hdr, uint8_t *ptr, uint32_t offset,
-                      std::size_t data_len, std::size_t max_len);
+    void HandleRcvPkt(const AgentHdr &hdr, const PacketBufferPtr &buff);
     void SendMessage(PktModuleName mod, InterTaskMsg *msg); 
 
     bool IsGwPacket(const Interface *intf, uint32_t dst_ip);

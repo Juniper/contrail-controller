@@ -33,7 +33,7 @@ public:
 
     virtual bool Run() = 0;
 
-    void Send(uint16_t, uint16_t, uint16_t, uint16_t, PktHandler::PktModuleName);
+    void Send(uint16_t, uint16_t, uint16_t, PktHandler::PktModuleName);
 
     uint16_t EthHdr(char *buff, uint8_t len, const unsigned char *src,
                     const unsigned char *dest, const uint16_t proto,
@@ -62,6 +62,7 @@ public:
     uint16_t GetLength() const { return pkt_info_->len; }
     uint32_t GetCmdParam() const { return pkt_info_->GetAgentHdr().cmd_param; }
 
+    PktInfo *pkt_info() const { return pkt_info_.get(); }
     uint32_t EncapHeaderLen() const;
 protected:
     Agent   *agent_;

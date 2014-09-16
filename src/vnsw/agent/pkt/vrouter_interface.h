@@ -83,7 +83,7 @@ public:
 
     // Handle packet received by VrouterControlInterface
     // Format of packet trapped is OUTER_ETH - AGENT_HDR - PAYLOAD
-    bool Process(PacketBufferPtr pkt) {
+    bool Process(const PacketBufferPtr &pkt) {
         AgentHdr hdr;
         int agent_hdr_len = 0;
 
@@ -92,7 +92,7 @@ public:
             return false;
         }
 
-        pkt->MoveOffset(agent_hdr_len);
+        pkt->SetOffset(agent_hdr_len);
         return ControlInterface::Process(hdr, pkt);
     }
 
@@ -114,7 +114,7 @@ public:
 
     // Transmit packet on VrouterControlInterface.
     // Format of packet after encapsulation is OUTER_ETH - AGENT_HDR - PAYLOAD
-    virtual int Send(const AgentHdr &hdr, PacketBufferPtr pkt) {
+    virtual int Send(const AgentHdr &hdr, const PacketBufferPtr &pkt) {
         uint16_t agent_hdr_len = kAgentHdrLen;
         uint8_t *agent_hdr_buff = new uint8_t [agent_hdr_len];
         EncodeAgentHdr(agent_hdr_buff, hdr);
@@ -126,7 +126,8 @@ public:
         return ret - sizeof(agent_hdr);
     }
 
-    virtual int Send(uint8_t *buff, uint16_t buf_len, PacketBufferPtr pkt) = 0;
+    virtual int Send(uint8_t *buff, uint16_t buf_len,
+                     const PacketBufferPtr &pkt) = 0;
 private:
     AgentHdr::PktCommand VrCmdToAgentCmd(uint16_t vr_cmd) {
         AgentHdr::PktCommand cmd = AgentHdr::INVALID;

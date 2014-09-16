@@ -23,7 +23,7 @@ public:
     void ShutdownControlInterface();
 
     const std::string &Name() const { return name_; }
-    int Send(uint8_t *buff, uint16_t buff_len, PacketBufferPtr pkt);
+    int Send(uint8_t *buff, uint16_t buff_len, const PacketBufferPtr &pkt);
 
     const unsigned char *mac_address() const { return mac_address_; }
 protected:

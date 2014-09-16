@@ -27,8 +27,6 @@ bool Proto::ValidateAndEnqueueMessage(boost::shared_ptr<PktInfo> msg) {
     }
 
     if (RemovePktBuff()) {
-        if (msg->pkt)
-            delete [] msg->pkt;
         msg->pkt = NULL;
         msg->eth = NULL;
         msg->arp = NULL;

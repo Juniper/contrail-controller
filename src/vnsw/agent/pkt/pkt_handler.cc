@@ -59,27 +59,23 @@ uint32_t PktHandler::EncapHeaderLen() const {
 }
 
 // Send packet to tap interface
-void PktHandler::Send(const AgentHdr &hdr, PacketBufferPtr buff) {
+void PktHandler::Send(const AgentHdr &hdr, const PacketBufferPtr &buff) {
     stats_.PktSent(PktHandler::PktModuleName(buff->module()));
     pkt_trace_.at(buff->module()).AddPktTrace(PktTrace::Out, buff->data_len(),
                                               buff->data(), &hdr);
     if (agent_->pkt()->control_interface()->Send(hdr, buff) <= 0) {
         PKT_TRACE(Err, "Error sending packet");
     }
-
     return;
 }
 
 // Process the packet received from tap interface
-void PktHandler::HandleRcvPkt(const AgentHdr &hdr, uint8_t *ptr,
-                              uint32_t data_offset, std::size_t data_len,
-                              std::size_t max_len) {
-    boost::shared_ptr<PktInfo> pkt_info
-        (new PktInfo(ptr,(data_offset + data_len), max_len));
+void PktHandler::HandleRcvPkt(const AgentHdr &hdr, const PacketBufferPtr &buff){
+    boost::shared_ptr<PktInfo> pkt_info (new PktInfo(buff));
     PktType::Type pkt_type = PktType::INVALID;
     PktModuleName mod = INVALID;
     Interface *intf = NULL;
-    uint8_t *pkt = ptr + data_offset;
+    uint8_t *pkt = buff->data();
 
     pkt_info->agent_hdr = hdr;
     agent_->stats()->incr_pkt_exceptions();
@@ -118,13 +114,13 @@ void PktHandler::HandleRcvPkt(const AgentHdr &hdr, uint8_t *ptr,
     // Look for DHCP and DNS packets if corresponding service is enabled
     // Service processing over-rides ACL/Flow
     if (intf->dhcp_enabled() && (pkt_type == PktType::UDP)) {
-        if (pkt_info->dport == DHCP_SERVER_PORT || 
+        if (pkt_info->dport == DHCP_SERVER_PORT ||
             pkt_info->sport == DHCP_CLIENT_PORT) {
             mod = DHCP;
             goto enqueue;
         }
-    } 
-    
+    }
+
     if (intf->dns_enabled() && (pkt_type == PktType::UDP)) {
         if (pkt_info->dport == DNS_SERVER_PORT) {
             mod = DNS;
@@ -154,10 +150,9 @@ void PktHandler::HandleRcvPkt(const AgentHdr &hdr, uint8_t *ptr,
     }
 
 enqueue:
+    pkt_info->packet_buffer()->set_module(mod);
     stats_.PktRcvd(mod);
-    pkt_trace_.at(mod).AddPktTrace(PktTrace::In,
-                                   pkt_info->len - sizeof(agent_hdr),
-                                   pkt_info->pkt + sizeof(agent_hdr),
+    pkt_trace_.at(mod).AddPktTrace(PktTrace::In, pkt_info->len, pkt_info->pkt, 
                                    &pkt_info->agent_hdr);
 
     if (mod != INVALID) {
@@ -421,26 +416,56 @@ void PktHandler::PktStats::PktQThresholdExceeded(PktModuleName mod) {
 
 ///////////////////////////////////////////////////////////////////////////////
 
-PktInfo::PktInfo(uint8_t *msg, std::size_t msg_size, std::size_t max_len) : 
-    pkt(msg), len(msg_size), max_pkt_len(max_len), data(), ipc(),
-    type(PktType::INVALID), agent_hdr(), ether_type(-1), ip_saddr(),
-    ip_daddr(), ip_proto(), sport(), dport(), tcp_ack(false), tunnel(), eth(),
-    arp(), ip() {
+PktInfo::PktInfo(const PacketBufferPtr &buff) :
+    pkt(buff->data()), len(buff->data_len()), max_pkt_len(buff->buffer_len()),
+    data(), ipc(), type(PktType::INVALID), agent_hdr(), ether_type(-1),
+    ip_saddr(), ip_daddr(), ip_proto(), sport(), dport(), tcp_ack(false),
+    tunnel(), eth(), arp(), ip(), packet_buffer_(buff) {
+    transp.tcp = 0;
+}
+
+PktInfo::PktInfo(Agent *agent, uint32_t buff_len, uint32_t module,
+                 uint32_t mdata) :
+    len(), max_pkt_len(), data(), ipc(), type(PktType::INVALID),
+    agent_hdr(), ether_type(-1), ip_saddr(), ip_daddr(), ip_proto(), sport(),
+    dport(), tcp_ack(false), tunnel(), eth(), arp(), ip() {
+
+    packet_buffer_ = agent->pkt()->packet_buffer_manager()->Allocate
+        (module, buff_len, mdata);
+    pkt = packet_buffer_->data();
+    len = packet_buffer_->data_len();
+    max_pkt_len = packet_buffer_->buffer_len();
+
     transp.tcp = 0;
 }
 
 PktInfo::PktInfo(InterTaskMsg *msg) :
     pkt(), len(), max_pkt_len(0), data(), ipc(msg), type(PktType::MESSAGE),
     agent_hdr(), ether_type(-1), ip_saddr(), ip_daddr(), ip_proto(), sport(),
-    dport(), tcp_ack(false), tunnel(), eth(), arp(), ip() {
+    dport(), tcp_ack(false), tunnel(), eth(), arp(), ip(), packet_buffer_() {
     transp.tcp = 0;
 }
 
 PktInfo::~PktInfo() {
-    if (pkt) delete [] pkt;
 }
 
-const AgentHdr &PktInfo::GetAgentHdr() const {return agent_hdr;};
+const AgentHdr &PktInfo::GetAgentHdr() const {
+    return agent_hdr;
+}
+
+void PktInfo::AllocPacketBuffer(Agent *agent, uint32_t module, uint16_t len,
+                                uint32_t mdata) {
+    packet_buffer_ = agent->pkt()->packet_buffer_manager()->Allocate
+        (module, len, mdata);
+    pkt = packet_buffer_->data();
+    len = packet_buffer_->data_len();
+    max_pkt_len = packet_buffer_->buffer_len();
+}
+
+void PktInfo::set_len(uint32_t x) {
+    packet_buffer_->set_len(x);
+    len = x;
+}
 
 void PktInfo::UpdateHeaderPtr() {
     eth = (struct ethhdr *)(pkt);

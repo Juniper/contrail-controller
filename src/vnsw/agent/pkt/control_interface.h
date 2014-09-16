@@ -50,16 +50,11 @@ public:
     virtual uint32_t EncapsulationLength() const = 0;
 
     // Transmit packet on ControlInterface
-    virtual int Send(const AgentHdr &hdr, PacketBufferPtr pkt) = 0;
+    virtual int Send(const AgentHdr &hdr, const PacketBufferPtr &pkt) = 0;
 
     // Handle control packet. AgentHdr is already decoded
-    bool Process(const AgentHdr &hdr, PacketBufferPtr pkt) {
-        uint32_t encap_len = EncapsulationLength();
-        uint32_t len = pkt->data_len() + encap_len;
-
-        uint8_t *buff = new uint8_t[kMaxPacketSize];
-        memcpy(buff + encap_len, pkt->data(), pkt->data_len());
-        pkt_handler_->HandleRcvPkt(hdr, buff, encap_len, len, kMaxPacketSize);
+    bool Process(const AgentHdr &hdr, const PacketBufferPtr &pkt) {
+        pkt_handler_->HandleRcvPkt(hdr, pkt);
         return true;
     }
 
