@@ -143,24 +143,19 @@ void RouteExport::UnicastNotify(AgentXmppChannel *bgp_xmpp_peer,
                 //movement of tunnelt type from vxlan to mpls should result in
                 //withdraw and re add of route.
                 bool withdraw = false;
-                uint32_t withdraw_label = 0;
-                TunnelType::TypeBmap tunnel_type_to_be_withdrawn =
-                    TunnelType::AllType();
+                uint32_t withdraw_label = state->label_;
                 if (state->tunnel_type_ == TunnelType::VXLAN) {
                     //Vxlan ID changed or tunnel type is no more VXLAN
                     if ((path->GetActiveLabel() != state->label_) ||
                         (TunnelType::ComputeType(path->GetTunnelBmap()) !=
                          TunnelType::VXLAN)) {
                         withdraw = true;
-                        withdraw_label = state->label_;
-                        tunnel_type_to_be_withdrawn = TunnelType::VxlanType();
                     }
                 } else {
                     if (TunnelType::ComputeType(path->GetTunnelBmap()) ==
                         TunnelType::VXLAN) {
                         withdraw = true;
                         withdraw_label = 0;
-                        tunnel_type_to_be_withdrawn = TunnelType::MplsType();
                     }
                 }
 
@@ -168,7 +163,7 @@ void RouteExport::UnicastNotify(AgentXmppChannel *bgp_xmpp_peer,
                     state->exported_ =
                         AgentXmppChannel::ControllerSendRouteDelete(bgp_xmpp_peer,
                              static_cast<AgentRoute * >(route), state->vn_,
-                             withdraw_label, tunnel_type_to_be_withdrawn,
+                             withdraw_label, path->GetTunnelBmap(),
                              &path->sg_list(), type,
                              state->path_preference_);
                 }
