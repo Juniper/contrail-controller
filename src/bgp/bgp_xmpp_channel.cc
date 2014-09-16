@@ -1134,7 +1134,7 @@ void BgpXmppChannel::ProcessEnetItem(string vrf_name,
     }
 
     Ip4Prefix ip_prefix;
-    if (!mac_addr.IsBroadcast()) {
+    if (!mac_addr.IsBroadcast() && !item.entry.nlri.address.empty()) {
         ip_prefix = Ip4Prefix::FromString(item.entry.nlri.address, &error);
         if (error || ip_prefix.prefixlen() != 32) {
             BGP_LOG_PEER_INSTANCE(Peer(), vrf_name, SandeshLevel::SYS_WARN,

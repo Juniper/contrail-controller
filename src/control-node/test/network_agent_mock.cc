@@ -368,20 +368,32 @@ pugi::xml_document *XmppDocumentMock::RouteEnetAddDeleteXmlDoc(
     char *saveptr;
     char *tag;
     char *mac;
+    char *address;
     if (strchr(str, '-')) {
         tag = strtok_r(str, "-", &saveptr);
-        mac = strtok_r(NULL, ",", &saveptr);
+        if (strchr(str, ',')) {
+            mac = strtok_r(NULL, ",", &saveptr);
+            address = strtok_r(NULL, "", &saveptr);
+        } else {
+            mac = strtok_r(NULL, "", &saveptr);
+            address = NULL;
+        }
     } else {
         tag = NULL;
-        mac = strtok_r(str, ",", &saveptr);
+        if (strchr(str, ',')) {
+            mac = strtok_r(str, ",", &saveptr);
+            address = strtok_r(NULL, "", &saveptr);
+        } else {
+            mac = strtok_r(str, "", &saveptr);
+            address = NULL;
+        }
     }
-    char *address = strtok_r(NULL, "", &saveptr);
 
     rt_entry.entry.nlri.af = BgpAf::L2Vpn;
     rt_entry.entry.nlri.safi = BgpAf::Enet;
     rt_entry.entry.nlri.ethernet_tag = tag ? atoi(tag) : 0;
     rt_entry.entry.nlri.mac = std::string(mac) ;
-    rt_entry.entry.nlri.address = std::string(address);
+    rt_entry.entry.nlri.address = address ? string(address) : string();
 
     if (nexthops.empty()) {
         NextHop nexthop = NextHop(localaddr(), 0);
