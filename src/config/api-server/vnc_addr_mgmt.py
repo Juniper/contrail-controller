@@ -418,15 +418,7 @@ class AddrMgmt(object):
     # end net_create_notify
 
     def net_update_req(self, vn_fq_name, db_vn_dict, req_vn_dict, obj_uuid=None):
-        # ideally 3 way sync/audit needed here. DB to what we is in subnet_objs
-        # DB to what is in request. To simplify blow away subnet_objs and do
-        # sync only from DB to request.
         vn_fq_name_str = ':'.join(vn_fq_name)
-
-        try:
-            del self._subnet_objs[vn_fq_name_str]
-        except KeyError:
-            pass
 
         db_subnet_dicts = self._get_subnet_dicts(vn_fq_name, db_vn_dict)
         req_subnet_dicts = self._get_subnet_dicts(vn_fq_name, req_vn_dict)
@@ -481,11 +473,6 @@ class AddrMgmt(object):
 
         vn_dict = result
         vn_fq_name_str = ':'.join(vn_dict['fq_name'])
-        try:
-            del self._subnet_objs[vn_fq_name_str]
-        except KeyError:
-            pass
-
         self._create_subnet_objs(vn_fq_name_str, vn_dict)
     # end net_update_notify
 
