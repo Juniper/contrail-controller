@@ -1,0 +1,20 @@
+#
+# Copyright (c) 2014 Juniper Networks, Inc. All rights reserved.
+#
+
+# -*- mode: python; -*-
+
+Import('BuildEnv')
+
+env = BuildEnv.Clone()
+env.Append(CPPPATH = env['TOP'])
+
+libbgp_inet6 = env.Library('bgp_inet6',
+                           [
+                            'inet6_route.cc',
+                            'inet6_table.cc'
+                            ])
+
+inet6_unit_tests = env.SConscript('test/SConscript', exports='BuildEnv',
+                                  duplicate = 0)
+Return('inet6_unit_tests')

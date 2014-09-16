@@ -45,7 +45,7 @@ struct BgpNeighborRoutingTable {
 struct BgpNeighborResp {
     1: string peer;             // Peer name
     2: string peer_address (link="BgpNeighborReq");
-    36: bool deleted;           // Deletion in progress
+    42: bool deleted;           // Deletion in progress
     3: u32 peer_asn;
     4: string local_address;    // local ip address and port
     5: u32 local_asn;
@@ -73,6 +73,7 @@ struct BgpNeighborResp {
     33: peer_info.PeerUpdateStats tx_update_stats;
     34: peer_info.PeerSocketStats rx_socket_stats;
     35: peer_info.PeerSocketStats tx_socket_stats;
+    36: peer_info.PeerRxErrorStats rx_error_stats;
 }
 
 response sandesh BgpNeighborListResp {

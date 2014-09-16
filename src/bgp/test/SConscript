@@ -21,6 +21,8 @@ env.Append(LIBPATH = ['#/' + Dir('..').path,
                       '../../bgp/inet',
                       '../../bgp/ermvpn',
                       '../../bgp/evpn',
+                      '../../bgp/inet6',
+                      '../../bgp/inet6vpn',
                       '../../bgp/l3vpn',
                       '../../control-node',
                       '../../db',
@@ -70,11 +72,15 @@ if sys.platform == 'darwin':
     bgp_evpn = Dir('../evpn').path + '/libbgp_evpn.a'
     bgp_l3vpn = Dir('../l3vpn').path + '/libbgp_l3vpn.a'
     bgp_rtarget = Dir('../rtarget').path + '/librtarget.a'
+    bgp_inet6 = Dir('../inet6').path + '/libbgp_inet6.a'
+    bgp_inet6vpn = Dir('../inet6vpn').path + '/libbgp_inet6vpn.a'
     env.Prepend(LINKFLAGS =
                 ['-Wl,-force_load,' + bgp_inet,
                  '-Wl,-force_load,' + bgp_ermvpn,
                  '-Wl,-force_load,' + bgp_evpn,
                  '-Wl,-force_load,' + bgp_l3vpn,
+                 '-Wl,-force_load,' + bgp_inet6,
+                 '-Wl,-force_load,' + bgp_inet6vpn,
                  '-Wl,-force_load,' + bgp_rtarget])
 else:
     env.Prepend(LINKFLAGS =
@@ -85,10 +91,13 @@ else:
                  '-lbgp_evpn',
                  '-lbgp_l3vpn',
                  '-lrtarget',
+                 '-lbgp_inet6',
+                 '-lbgp_inet6vpn',
                  '-Wl,--no-whole-archive'])
 
 env.Append(LIBS = ['bgp_ermvpn', 'bgp_evpn'])
-env.Append(LIBS = ['bgp_inet', 'bgp_l3vpn'])
+env.Append(LIBS = ['bgp_inet', 'bgp_inet6', 'bgp_l3vpn',
+                   'bgp_inet6vpn'])
 env.Append(LIBS = ['route', 'net', 'routing_instance', 'rtarget'])
 env.Append(LIBS = ['extended_community', 'origin_vn', 'security_group', 'tunnel_encap'])
 env.Append(LIBS = ['xmpp', 'xmpp_unicast', 
@@ -229,6 +238,11 @@ bgp_xmpp_evpn_test = env.UnitTest('bgp_xmpp_evpn_test',
                                   ['bgp_xmpp_evpn_test.cc'])
 env.Alias('src/bgp:bgp_xmpp_evpn_test', bgp_xmpp_evpn_test)
 
+bgp_xmpp_inet6vpn_test = env.UnitTest('bgp_xmpp_inet6vpn_test',
+                                      ['bgp_xmpp_inet6vpn_test.cc'])
+env.Alias('controller/src/bgp:bgp_xmpp_inet6vpn_test', bgp_xmpp_inet6vpn_test)
+env.Alias('src/bgp:bgp_xmpp_inet6vpn_test', bgp_xmpp_inet6vpn_test)
+
 bgp_xmpp_mcast_test = env.UnitTest('bgp_xmpp_mcast_test',
                                    ['bgp_xmpp_mcast_test.cc'])
 env.Alias('src/bgp:bgp_xmpp_mcast_test', bgp_xmpp_mcast_test)
@@ -333,6 +347,7 @@ test_suite = [
     bgp_xmpp_channel_test,
     bgp_xmpp_deferq_test,
     bgp_xmpp_inetvpn_test,
+    bgp_xmpp_inet6vpn_test,
     bgp_xmpp_rtarget_test,
     bgp_xmpp_test,
     bgp_xmpp_wready_test,
@@ -357,6 +372,8 @@ env.Alias('controller/src/bgp:test', [
     test,
     'controller/src/bgp/ermvpn:test',
     'controller/src/bgp/evpn:test',
+    'controller/src/bgp/inet6:test',
+    'controller/src/bgp/inet6vpn:test',
     'controller/src/bgp/l3vpn:test',
     'controller/src/bgp/origin-vn:test',
     'controller/src/bgp/rtarget:test',
