@@ -41,7 +41,10 @@ public:
         Ip4Address gw_;
     };
 
-    AgentParam(Agent *agent);
+    AgentParam(Agent *agent, bool enable_flow_options = true,
+               bool enable_vhost_options = true,
+               bool enable_hypervisor_options = true,
+               bool enable_service_options = true);
     virtual ~AgentParam();
 
     bool IsVHostConfigured() {
@@ -121,20 +124,28 @@ public:
     bool isVmwareMode() const { return mode_ == MODE_VMWARE; }
 
     void Init(const std::string &config_file,
-              const std::string &program_name,
-              const boost::program_options::variables_map &var_map);
+              const std::string &program_name);
 
     int Validate();
     void LogConfig() const;
     void InitVhostAndXenLLPrefix();
     void set_test_mode(bool mode);
     bool test_mode() const { return test_mode_; }
+
+    void AddOptions(const boost::program_options::options_description &opt);
+    void ParseArguments(int argc, char *argv[]);
+    boost::program_options::variables_map var_map() const {
+        return var_map_;
+    }
+
+    boost::program_options::options_description options() const {
+        return options_;
+    }
 private:
     void ComputeFlowLimits();
     void InitFromSystem();
     void InitFromConfig();
-    void InitFromArguments
-        (const boost::program_options::variables_map &var_map);
+    void InitFromArguments();
     template <typename ValueType>
     bool GetOptValue(const boost::program_options::variables_map &var_map, 
                      ValueType &var, const std::string &val);
@@ -196,6 +207,13 @@ private:
         (const boost::program_options::variables_map &v);
     void ParseServiceInstanceArguments
         (const boost::program_options::variables_map &v);
+
+    boost::program_options::variables_map var_map_;
+    boost::program_options::options_description options_;
+    bool enable_flow_options_;
+    bool enable_vhost_options_;
+    bool enable_hypervisor_options_;
+    bool enable_service_options_;
 
     PortInfo vhost_;
     std::string eth_port_;

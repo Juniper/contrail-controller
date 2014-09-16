@@ -5,7 +5,7 @@
 #include <cmn/agent_cmn.h>
 
 #include <cmn/agent_factory.h>
-#include <cmn/agent_param.h>
+#include <init/agent_param.h>
 
 #include <cfg/cfg_init.h>
 #include <cfg/cfg_interface.h>
@@ -26,7 +26,6 @@
 AgentInit::AgentInit() :
     agent_(new Agent()), agent_param_(NULL), trigger_(),
     enable_controller_(true) {
-    agent_param_.reset(new AgentParam(agent_.get()));
 }
 
 AgentInit::~AgentInit() {
@@ -37,7 +36,6 @@ AgentInit::~AgentInit() {
     oper_.reset();
     agent_->db()->ClearFactoryRegistry();
     agent_.reset();
-    agent_param_.reset();
 
     scheduler->Terminate();
 }
@@ -46,9 +44,8 @@ AgentInit::~AgentInit() {
  * Initialization routines
 ****************************************************************************/
 void AgentInit::ProcessOptions
-    (const std::string &config_file, const std::string &program_name,
-     const boost::program_options::variables_map &var_map) {
-    agent_param_->Init(config_file, program_name, var_map);
+    (const std::string &config_file, const std::string &program_name) {
+    agent_param_->Init(config_file, program_name);
 }
 
 // Start of Agent init.
@@ -64,7 +61,7 @@ int AgentInit::Start() {
     agent_->set_task_scheduler(TaskScheduler::GetInstance());
 
     // Copy tunable parameters into agent_
-    agent_->CopyConfig(agent_param_.get());
+    agent_->CopyConfig(agent_param_);
 
     LoggingInit(agent_param_->log_file(), agent_param_->log_file_size(),
                 agent_param_->log_files_count(), agent_param_->use_syslog(),

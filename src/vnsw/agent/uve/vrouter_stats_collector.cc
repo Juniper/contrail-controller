@@ -4,7 +4,7 @@
 
 #include <db/db.h>
 #include <cmn/agent_cmn.h>
-#include <cmn/agent_param.h>
+#include <init/agent_param.h>
 #include <uve/stats_collector.h>
 #include <uve/vrouter_stats_collector.h>
 #include <uve/vrouter_uve_entry.h>

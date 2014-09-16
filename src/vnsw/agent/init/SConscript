@@ -8,8 +8,13 @@ import sys
 Import('AgentEnv')
 env = AgentEnv.Clone()
 
-sources = [ 'agent_init.cc' ]
+except_files = [ 'agent_param.cc' ]
+except_objs = AgentEnv.BuildExceptionCcObj(env, except_files)
+
+sources = [ 'agent_init.cc' ] + except_objs
 libvnswinit = env.Library('vnswinit', sources)
 
-sources = [ 'agent_init.cc', 'contrail_init_common.cc' ]
+sources = [ 'agent_init.cc', 'contrail_init_common.cc' ] + except_objs
 libcontrail_init_common = env.Library('contrail_init_common', sources)
+
+env.SConscript('test/SConscript', exports='AgentEnv', duplicate = 0)

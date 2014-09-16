@@ -11,7 +11,7 @@
 #include "oper/operdb_init.h"
 #include <cfg/cfg_init.h>
 #include <cmn/agent.h>
-#include <cmn/agent_param.h>
+#include <init/agent_param.h>
 #include <oper/agent_sandesh.h>
 #include <oper/agent_types.h>
 #include <oper/namespace_manager.h>

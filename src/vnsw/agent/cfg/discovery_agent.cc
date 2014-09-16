@@ -7,7 +7,7 @@
 #include <sandesh/sandesh.h>
 #include "base/logging.h"
 #include "cmn/agent_cmn.h"
-#include "cmn/agent_param.h"
+#include "init/agent_param.h"
 #include "discovery_agent.h"
 #include "controller/controller_init.h"
 #include "cmn/agent_cmn.h"

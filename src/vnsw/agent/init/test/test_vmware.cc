@@ -96,7 +96,7 @@ TEST_F(VmwareTest, VmwareVmPort_1) {
 
 int main(int argc, char **argv) {
     GETUSERARGS();
-    strcpy(init_file, "controller/src/vnsw/agent/cmn/test/cfg-vmware.ini");
+    strcpy(init_file, "controller/src/vnsw/agent/init/test/cfg-vmware.ini");
 
     client = TestInit(init_file, ksync_init);
     int ret = RUN_ALL_TESTS();

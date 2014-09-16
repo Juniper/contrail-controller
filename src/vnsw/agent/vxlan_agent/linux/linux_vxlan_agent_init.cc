@@ -11,7 +11,7 @@
 #include <bgp_schema_types.h>
 #include <agent_types.h>
 
-#include <cmn/agent_param.h>
+#include <init/agent_param.h>
 #include <cmn/agent_db.h>
 
 #include <oper/operdb_init.h>
@@ -51,10 +51,8 @@ LinuxVxlanAgentInit::~LinuxVxlanAgentInit() {
 }
 
 void LinuxVxlanAgentInit::ProcessOptions
-    (const std::string &config_file, const std::string &program_name,
-     const boost::program_options::variables_map &var_map) {
-
-    AgentInit::ProcessOptions(config_file, program_name, var_map);
+    (const std::string &config_file, const std::string &program_name) {
+    AgentInit::ProcessOptions(config_file, program_name);
 }
 
 int LinuxVxlanAgentInit::Start() {

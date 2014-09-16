@@ -8,12 +8,9 @@ import sys
 Import('AgentEnv')
 env = AgentEnv.Clone()
 
-except_files = [ 'agent_param.cc' ]
-except_objs = AgentEnv.BuildExceptionCcObj(env, except_files)
-
 vnswcmn_sources = ['agent.cc', 'agent_db.cc', 'agent_factory.cc',
                    'agent_signal.cc']
 
-vnswcmn = env.Library('vnswcmn', except_objs + vnswcmn_sources)
+vnswcmn = env.Library('vnswcmn', vnswcmn_sources)
 
 env.SConscript('test/SConscript', exports='AgentEnv', duplicate = 0)

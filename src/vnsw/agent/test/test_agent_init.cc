@@ -6,7 +6,7 @@
 
 #include <cmn/agent_cmn.h>
 #include <cmn/agent_factory.h>
-#include <cmn/agent_param.h>
+#include <init/agent_param.h>
 #include <cfg/cfg_init.h>
 
 #include <oper/operdb_init.h>
@@ -25,11 +25,11 @@ TestAgentInit::~TestAgentInit() {
 }
 
 void TestAgentInit::ProcessOptions
-    (const std::string &config_file, const std::string &program_name,
-     const boost::program_options::variables_map &var_map) {
+    (const std::string &config_file, const std::string &program_name) {
 
-    ContrailInitCommon::ProcessOptions(config_file, program_name, var_map);
+    ContrailInitCommon::ProcessOptions(config_file, program_name);
 
+    boost::program_options::variables_map var_map = agent_param()->var_map();
     if (var_map.count("disable-vhost")) {
         set_create_vhost(false);
     }

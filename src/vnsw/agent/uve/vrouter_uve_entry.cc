@@ -6,7 +6,7 @@
 #include <fstream>
 #include <uve/vrouter_uve_entry.h>
 #include <cfg/cfg_init.h>
-#include <cmn/agent_param.h>
+#include <init/agent_param.h>
 #include <oper/interface_common.h>
 #include <oper/interface.h>
 #include <oper/vm.h>
