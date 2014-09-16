@@ -51,6 +51,17 @@ public:
         uint32_t update_error;
     };
 
+    struct RxErrorStats {
+        RxErrorStats() : inet6_bad_xml_token_count(0),
+            inet6_bad_prefix_count(0), inet6_bad_nexthop_count(0),
+            inet6_bad_afi_safi_count(0) {
+        }
+        uint32_t inet6_bad_xml_token_count;
+        uint32_t inet6_bad_prefix_count;
+        uint32_t inet6_bad_nexthop_count;
+        uint32_t inet6_bad_afi_safi_count;
+    };
+
     struct UpdateStats {
         UpdateStats() : total(0), reach(0), unreach(0) {
         }
@@ -88,6 +99,7 @@ public:
     virtual void GetRxProtoStats(ProtoStats &) const = 0;
     virtual void GetRxRouteUpdateStats(UpdateStats &) const = 0;
     virtual void GetRxSocketStats(SocketStats &) const = 0;
+    virtual void GetRxErrorStats(RxErrorStats &) const = 0;
 
     virtual void GetTxProtoStats(ProtoStats &) const = 0;
     virtual void GetTxRouteUpdateStats(UpdateStats &) const = 0;

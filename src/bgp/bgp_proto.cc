@@ -148,8 +148,8 @@ const std::string BgpProto::Notification::ToString() const {
     return toString(static_cast<BgpProto::Notification::Code>(error), subcode);
 }
 
-const std::string BgpProto::Notification::toString(BgpProto::Notification::Code code,
-                                                   int sub_code) {
+const std::string BgpProto::Notification::toString(
+        BgpProto::Notification::Code code, int sub_code) {
     std::string msg("");
     switch (code) {
         case MsgHdrErr:
@@ -208,7 +208,8 @@ struct BgpAttrCodeCompare {
 int BgpProto::Update::Validate(const BgpPeer *peer, std::string &data) {
     BgpAttrCodeCompare comp;
     std::sort(path_attributes.begin(), path_attributes.end(), comp);
-    bool origin = false, nh = false, as_path = false, mp_reach_nlri = false, local_pref = false;
+    bool origin = false, nh = false, as_path = false, mp_reach_nlri = false,
+         local_pref = false;
 
     bool ibgp = (peer->PeerType() == IBGP);
 
@@ -278,8 +279,10 @@ int BgpProto::Update::Validate(const BgpPeer *peer, std::string &data) {
 int BgpProto::Update::CompareTo(const BgpProto::Update &rhs) const{
     KEY_COMPARE(withdrawn_routes.size(), rhs.withdrawn_routes.size());
     for (size_t i=0; i < withdrawn_routes.size(); i++) {
-        KEY_COMPARE(withdrawn_routes[i]->prefixlen, rhs.withdrawn_routes[i]->prefixlen);
-        KEY_COMPARE(withdrawn_routes[i]->prefix, rhs.withdrawn_routes[i]->prefix);
+        KEY_COMPARE(withdrawn_routes[i]->prefixlen,
+                    rhs.withdrawn_routes[i]->prefixlen);
+        KEY_COMPARE(withdrawn_routes[i]->prefix,
+                    rhs.withdrawn_routes[i]->prefix);
     }
 
     KEY_COMPARE(path_attributes.size(), rhs.path_attributes.size());
@@ -530,7 +533,8 @@ public:
             &BgpProtoPrefix::prefix> Setter;
 };
 
-class BgpUpdateWithdrawnRoutes : public ProtoSequence<BgpUpdateWithdrawnRoutes> {
+class BgpUpdateWithdrawnRoutes : 
+    public ProtoSequence<BgpUpdateWithdrawnRoutes> {
 public:
     static const int kSize = 2;
     static const int kMinOccurs = 0;
@@ -1099,7 +1103,8 @@ public:
 };
 
 
-class BgpPathAttributeMpNlriNexthopAddr : public ProtoElement<BgpPathAttributeMpNlriNexthopAddr> {
+class BgpPathAttributeMpNlriNexthopAddr : 
+    public ProtoElement<BgpPathAttributeMpNlriNexthopAddr> {
 public:
     static const int kSize = -1;
     typedef VectorAccessor<BgpMpNlri, uint8_t,
@@ -1122,7 +1127,8 @@ public:
         bool match(const BgpMpNlri *obj) {
             return 
                 (((obj->afi == BgpAf::IPv4) && (obj->safi == BgpAf::Unicast)) ||
-                 ((obj->afi == BgpAf::IPv4) && (obj->safi == BgpAf::Vpn)));
+                 ((obj->afi == BgpAf::IPv4) && (obj->safi == BgpAf::Vpn))     ||
+                 ((obj->afi == BgpAf::IPv6) && (obj->safi == BgpAf::Vpn)));
         }
     };
 
@@ -1226,7 +1232,8 @@ public:
     typedef EvpnPrefixLen Setter;
 };
 
-class BgpPathAttributeMpEvpnNlri : public ProtoSequence<BgpPathAttributeMpEvpnNlri> {
+class BgpPathAttributeMpEvpnNlri : 
+    public ProtoSequence<BgpPathAttributeMpEvpnNlri> {
 public:
     static const int kMinOccurs = 0;
     static const int kMaxOccurs = -1;
@@ -1245,7 +1252,8 @@ public:
     typedef mpl::list<BgpEvpnNlriType, BgpEvpnNlriLen, BgpPrefixAddress> Sequence;
 };
 
-class BgpPathAttributeMpNlriChoice : public ProtoChoice<BgpPathAttributeMpNlriChoice> {
+class BgpPathAttributeMpNlriChoice : 
+    public ProtoChoice<BgpPathAttributeMpNlriChoice> {
 public:
     static const int kSize = 0;
     struct MpChoice {
@@ -1257,6 +1265,9 @@ public:
                 value = 0;
             }
             if ((obj->afi == BgpAf::IPv4) && (obj->safi == BgpAf::Vpn)) {
+                value = 0;
+            }
+            if ((obj->afi == BgpAf::IPv6) && (obj->safi == BgpAf::Vpn)) {
                 value = 0;
             }
             if ((obj->afi == BgpAf::IPv4) && (obj->safi == BgpAf::RTarget)) {
@@ -1282,6 +1293,9 @@ public:
             }
             if ((obj->afi == BgpAf::IPv4) && (obj->safi == BgpAf::ErmVpn)) {
                 return 3;
+            }
+            if ((obj->afi == BgpAf::IPv6) && (obj->safi == BgpAf::Vpn)) {
+                return 0;
             }
             return -1;
         }

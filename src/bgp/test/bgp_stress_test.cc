@@ -36,6 +36,8 @@
 #include "bgp/bgp_session_manager.h"
 #include "bgp/inet/inet_table.h"
 #include "bgp/l3vpn/inetvpn_table.h"
+#include "bgp/inet6/inet6_table.h"
+#include "bgp/inet6vpn/inet6vpn_table.h"
 #include "bgp/routing-instance/peer_manager.h"
 #include "bgp/routing-instance/routing_instance.h"
 #include "bgp/routing-instance/routepath_replicator.h"
@@ -160,6 +162,7 @@ static bool d_close_from_control_node_ = false;
 static bool d_pause_after_initial_setup_ = false;
 static bool d_profile_heap_ = false;
 static bool d_no_mcast_routes_ = false;
+static bool d_no_inet6_routes_ = false;
 static bool d_no_sandesh_server_ = false;
 static string d_xmpp_server_ = "127.0.0.1";
 static string d_xmpp_source_ = "127.0.0.1";
@@ -217,7 +220,7 @@ static string GetRouterName(int router_id) {
 }
 
 BgpNullPeer::BgpNullPeer(BgpServerTest *server, int peer_id) {
-    for (int i = 0; i < 20; i++) {
+    for (int i = 0; i < 20; ++i) {
         ribout_creation_complete_.push_back(false);
     }
 
@@ -425,7 +428,7 @@ vector<int> BgpStressTestEvent::GetEventItems(int nitems, int inc) {
         if (!event_ids) event_ids = 1;
     }
 
-    for (int i = 0; i < event_ids; i++) {
+    for (int i = 0; i < event_ids; ++i) {
         while (true) {
             int item = BgpStressTestEvent::random(nitems);
             if (std::find(event_ids_list.begin(),
@@ -531,9 +534,10 @@ void BgpStressTest::SetUp() {
     rtinstance_ = static_cast<RoutingInstance *>(
         server_->routing_instance_mgr()->GetRoutingInstance(
             BgpConfigManager::kMasterInstance));
-    n_families_ = 2;
     families_.push_back(Address::INET);
     families_.push_back(Address::INETVPN);
+    families_.push_back(Address::INET6VPN);
+    n_families_ = families_.size();
 
     server_->session_manager()->Initialize(0);
     xmpp_server_test_->Initialize(0, false);
@@ -613,7 +617,7 @@ void BgpStressTest::SandeshShutdown() {
 
 void BgpStressTest::VerifyRoutingInstances() {
     for (int instance_id = 0; instance_id < (int) instances_.size();
-            instance_id++) {
+            ++instance_id) {
         if (instances_[instance_id]) {
             TASK_UTIL_EXPECT_NE(static_cast<RoutingInstance *>(NULL),
                     server_->routing_instance_mgr()->\
@@ -753,10 +757,15 @@ void BgpStressTest::VerifyControllerRoutes(int ninstances, int nagents,
                                            int count) {
     if (!n_peers_) return;
 
-    for (int i = 0; i < n_families_; i++) {
+    for (int i = 0; i < n_families_; ++i) {
         BgpTable *tb = rtinstance_->GetTable(families_[i]);
         if (count && (n_agents_ || n_peers_) &&
-                families_[i] == Address::INETVPN) {
+            ((families_[i] == Address::INETVPN) ||
+             (families_[i] == Address::INET6VPN))) {
+
+            if ((families_[i] == Address::INET6VPN) && d_no_inet6_routes_) {
+                continue;
+            }
             int npeers = n_peers_;
             npeers += nagents;
 
@@ -781,7 +790,7 @@ void BgpStressTest::VerifyRibOutCreationCompletion() {
     return;
     BOOST_FOREACH(BgpNullPeer *npeer, peers_) {
         if (!npeer) continue;
-        for (int i = 0; i < n_families_; i++) {
+        for (int i = 0; i < n_families_; ++i) {
             EXPECT_TRUE(npeer->ribout_creation_complete(families_[i]));
         }
     }
@@ -822,6 +831,7 @@ string BgpStressTest::GetRouterConfig(int router_id, int peer_id,
         out << "<address-families>";
         out << "<family>inet</family>";
         out << "<family>inet-vpn</family>";
+        out << "<family>inet6-vpn</family>";
         out << "<family>e-vpn</family>";
         out << "<family>erm-vpn</family>";
         out << "<family>route-target</family>";
@@ -840,7 +850,7 @@ string BgpStressTest::GetInstanceConfig(int instance_id, int ntargets) {
     string instance_name = GetInstanceName(instance_id);
     out << "<routing-instance name='" << instance_name << "'>\n";
 
-    for (int j = 1; j <= ntargets; j++) {
+    for (int j = 1; j <= ntargets; ++j) {
         out << "    <vrf-target>target:" << vn_id << ":";
         out << j << "</vrf-target>\n";
     }
@@ -872,7 +882,7 @@ BgpAttr *BgpStressTest::CreatePathAttr() {
 ExtCommunitySpec *BgpStressTest::CreateRouteTargets(int ntargets) {
     auto_ptr<ExtCommunitySpec> commspec(new ExtCommunitySpec());
 
-    for (int i = 1; i <= ntargets; i++) {
+    for (int i = 1; i <= ntargets; ++i) {
         RouteTarget tgt = RouteTarget::FromString(
                 "target:1:" + boost::lexical_cast<string>(i));
         const ExtCommunity::ExtCommunityValue &extcomm =
@@ -885,38 +895,182 @@ ExtCommunitySpec *BgpStressTest::CreateRouteTargets(int ntargets) {
     return commspec.release();
 }
 
-void BgpStressTest::AddBgpRoute(int family, int peer_id, int route_id,
-                                int ntargets) {
+void BgpStressTest::AddBgpInetRoute(int family, int peer_id, int route_id,
+                                    int ntargets) {
     string start_prefix;
 
     uint32_t label = 20000 + route_id;
     start_prefix = "20." + boost::lexical_cast<string>(peer_id) + ".1.1/32";
-    AddBgpRouteInternal(family, peer_id, ntargets, route_id, start_prefix,
-                        label);
+    AddBgpInetRouteInternal(family, peer_id, ntargets, route_id, start_prefix,
+                            label);
 
-    for (int i = 1; i <= n_instances_; i++) {
-        for (int agent = 1; agent <= n_agents_; agent++) {
+    for (int i = 1; i <= n_instances_; ++i) {
+        for (int agent = 1; agent <= n_agents_; ++agent) {
             Ip4Prefix prefix = GetAgentRoute(agent, i, 0);
-            AddBgpRouteInternal(family, peer_id, ntargets, route_id,
-                                prefix.ToString(), 30000 + route_id);
+            AddBgpInetRouteInternal(family, peer_id, ntargets, route_id,
+                                    prefix.ToString(), 30000 + route_id);
         }
     }
 }
 
-void BgpStressTest::AddBgpRoute(vector<int> families, vector<int> peer_ids,
-                                vector<int> route_ids, int ntargets) {
+void BgpStressTest::AddLocalPrefToAttr(BgpAttrSpec *attr_spec) {
+    boost::scoped_ptr<BgpAttrLocalPref> local_pref;
+    int localpref = 100; // Default preference
+    local_pref.reset(new BgpAttrLocalPref(localpref));
+    attr_spec->push_back(local_pref.get());
+}
+
+void BgpStressTest::AddNexthopToAttr(BgpAttrSpec *attr_spec, int peer_id) {
+    BgpAttrNextHop nexthop(0x66010000 + peer_id); // 0x66 is 'B' for BGP
+    attr_spec->push_back(&nexthop);
+}
+
+void BgpStressTest::AddTunnelEncapToAttr(BgpAttrSpec *attr_spec, int family,
+                                         int num_targets) {
+    boost::scoped_ptr<ExtCommunitySpec> commspec;
+
+    switch (family) {
+    case Address::INET6:
+        commspec.reset(new ExtCommunitySpec());
+        break;
+    case Address::INET6VPN:
+        commspec.reset(CreateRouteTargets(num_targets));
+        if (!commspec.get()) {
+            commspec.reset(new ExtCommunitySpec());
+        }
+        break;
+    default:
+        break;
+    }
+    TunnelEncap tun_encap(std::string("gre"));
+    commspec->communities.push_back(
+            get_value(tun_encap.GetExtCommunity().begin(), 8));
+    attr_spec->push_back(commspec.get());
+}
+
+void BgpStressTest::AddBgpInet6Route(int peer_id, int route_id,
+                                     int num_targets) {
+    BgpTable *table = rtinstance_->GetTable(Address::INET6);
+    if (!table) {
+        return;
+    }
+
+    if (peer_id >= (int) peers_.size() || !peers_[peer_id]) {
+        return;
+    }
+    IPeer *peer = peers_[peer_id]->peer();
+    if (!peer) {
+        return;
+    }
+    BGP_WAIT_FOR_PEER_STATE(peers_[peer_id]->peer(), StateMachine::ESTABLISHED);
+
+    // Create the attributes
+    BgpAttrSpec attr_spec;
+    AddLocalPrefToAttr(&attr_spec);
+    AddNexthopToAttr(&attr_spec, peer_id);
+    AddTunnelEncapToAttr(&attr_spec, Address::INET6, 0);
+    BgpAttrPtr attr = server_->attr_db()->Locate(attr_spec);
+
+    int label = 30000 + route_id;
+    DBRequest req;
+    req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
+    for (int instance = 1; instance <= n_instances_; ++instance) {
+        for (int agent = 1; agent <= n_agents_; ++agent) {
+            Inet6Prefix prefix6 =
+                CreateAgentInet6Prefix(agent, instance, route_id);
+            req.key.reset(new Inet6Table::RequestKey(prefix6, peer));
+            req.data.reset(new Inet6Table::RequestData(attr, 0, label));
+            table->Enqueue(&req);
+        }
+    }
+}
+
+void BgpStressTest::AddBgpInet6VpnRoute(int peer_id, int route_id,
+                                        int num_targets) {
+    BgpTable *table = rtinstance_->GetTable(Address::INET6VPN);
+    if (!table) {
+        return;
+    }
+
+    if (peer_id >= (int) peers_.size() || !peers_[peer_id]) {
+        return;
+    }
+    IPeer *peer = peers_[peer_id]->peer();
+    if (!peer) {
+        return;
+    }
+    BGP_WAIT_FOR_PEER_STATE(peers_[peer_id]->peer(), StateMachine::ESTABLISHED);
+
+    // Create the attributes
+    BgpAttrSpec attr_spec;
+    AddLocalPrefToAttr(&attr_spec);
+    AddNexthopToAttr(&attr_spec, peer_id);
+    AddTunnelEncapToAttr(&attr_spec, Address::INET6VPN, 0);
+    BgpAttrPtr attr = server_->attr_db()->Locate(attr_spec);
+
+    // For odd peer_id's, choose hard-coded value; for even, choose the
+    // peer_id. This is to have half of the RD's as dups.
+    string peer_id_str = (peer_id & 1) ? "9999" : integerToHexString(peer_id);
+    // b's in the address for bgp-peer routes
+    string pre_prefix = "65412:" + peer_id_str + ":2001:bbbb:bbbb::";
+
+    // We will get 'n_peers_' routes with prefix 2001:bbbb:bbbb::0:0:route_id,
+    // each with its own RD.
+    Inet6VpnPrefix b_prefix6 =
+        CreateInet6VpnPrefix(pre_prefix, 0, 0, route_id);
+
+    int label = 30000 + route_id;
+    DBRequest req;
+    req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
+    req.key.reset(new Inet6VpnTable::RequestKey(b_prefix6, peer));
+    req.data.reset(new Inet6VpnTable::RequestData(attr, 0, label));
+    table->Enqueue(&req);
+
+    for (int instance = 1; instance <= n_instances_; ++instance) {
+        for (int agent = 1; agent <= n_agents_; ++agent) {
+            // a's in the address for agent routes
+            pre_prefix = "65412:" + peer_id_str + ":2001:aaaa:aaaa::";
+            Inet6VpnPrefix a_prefix6 = CreateInet6VpnPrefix(pre_prefix, agent,
+                                                            instance, route_id);
+            req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
+            req.key.reset(new Inet6VpnTable::RequestKey(a_prefix6, peer));
+            req.data.reset(new Inet6VpnTable::RequestData(attr, 0, label));
+            table->Enqueue(&req);
+        }
+    }
+}
+
+void BgpStressTest::AddBgpRoutesInBulk(vector<int> families,
+        vector<int> peer_ids, vector<int> route_ids, int ntargets) {
     BOOST_FOREACH(int family, families) {
-        BOOST_FOREACH(int peer_id, peer_ids) {
-            BOOST_FOREACH(int route_id, route_ids) {
-                AddBgpRoute(family, peer_id, route_id, ntargets);
+        switch (families_[family]) {
+        case Address::INET:
+        case Address::INETVPN:
+            BOOST_FOREACH(int peer_id, peer_ids) {
+                BOOST_FOREACH(int route_id, route_ids) {
+                    AddBgpInetRoute(family, peer_id, route_id, ntargets);
+                }
             }
+            break;
+
+        case Address::INET6VPN:
+            if (!d_no_inet6_routes_) {
+                BOOST_FOREACH(int peer_id, peer_ids) {
+                    BOOST_FOREACH(int route_id, route_ids) {
+                        AddBgpInet6VpnRoute(peer_id, route_id, ntargets);
+                    }
+                }
+            }
+            break;
+
+        default:
+            assert(0);
         }
     }
 }
 
-void BgpStressTest::AddBgpRouteInternal(int family, int peer_id, int ntargets,
-                                        int route_id, string start_prefix,
-                                        int label) {
+void BgpStressTest::AddBgpInetRouteInternal(int family, int peer_id,
+        int ntargets, int route_id, string start_prefix, int label) {
     DBRequest req;
     boost::scoped_ptr<ExtCommunitySpec> commspec;
     boost::scoped_ptr<BgpAttrLocalPref> local_pref;
@@ -986,12 +1140,24 @@ void BgpStressTest::AddBgpRouteInternal(int family, int peer_id, int ntargets,
 
 void BgpStressTest::AddBgpRoutes(int family, int peer_id, int nroutes,
                                  int ntargets) {
-    DBRequest req;
-    boost::scoped_ptr<ExtCommunitySpec> commspec;
-    boost::scoped_ptr<BgpAttrLocalPref> local_pref;
+    switch (families_[family]) {
+    case Address::INET:
+    case Address::INETVPN:
+        for (int route_id = 0; route_id < nroutes; ++route_id) {
+            AddBgpInetRoute(family, peer_id, route_id, ntargets);
+        }
+        break;
 
-    for (int rt = 0; rt < nroutes; rt++) {
-        AddBgpRoute(family, peer_id, rt, ntargets);
+    case Address::INET6VPN:
+        if (!d_no_inet6_routes_) {
+            for (int route_id = 0; route_id < nroutes; ++route_id) {
+                AddBgpInet6VpnRoute(peer_id, route_id, ntargets);
+            }
+        }
+        break;
+
+    default:
+        assert(0);
     }
 }
 
@@ -1002,7 +1168,7 @@ void BgpStressTest::AddAllBgpRoutes(int nroutes, int ntargets) {
     BOOST_FOREACH(BgpNullPeer *npeer, peers_) {
         if (!npeer) continue;
 
-        for (int family = 0; family < n_families_; family++) {
+        for (int family = 0; family < n_families_; ++family) {
             AddBgpRoutes(family, npeer->peer_id(), nroutes, ntargets);
             if (nroutes) fed = true;
         }
@@ -1011,39 +1177,96 @@ void BgpStressTest::AddAllBgpRoutes(int nroutes, int ntargets) {
     if (fed) BGP_STRESS_TEST_LOG("All BGP Routes fed");
 }
 
-void BgpStressTest::DeleteBgpRoute(int family, int peer_id, int route_id,
-                                   int ntargets) {
+void BgpStressTest::DeleteBgpInetRoute(int family, int peer_id, int route_id,
+                                       int ntargets) {
     string start_prefix;
 
     start_prefix = "20." + boost::lexical_cast<string>(peer_id) + ".1.1/32";
-    DeleteBgpRouteInternal(family, peer_id, route_id, start_prefix, ntargets);
+    DeleteBgpInetRouteInternal(family, peer_id, route_id, start_prefix,
+                               ntargets);
 
-    for (int i = 1; i <= n_instances_; i++) {
-        for (int agent = 1; agent <= n_agents_; agent++) {
+    for (int i = 1; i <= n_instances_; ++i) {
+        for (int agent = 1; agent <= n_agents_; ++agent) {
             Ip4Prefix prefix = GetAgentRoute(agent, i, 0);
-            DeleteBgpRouteInternal(family, peer_id, route_id, prefix.ToString(),
-                                   ntargets);
+            DeleteBgpInetRouteInternal(family, peer_id, route_id,
+                                       prefix.ToString(), ntargets);
         }
     }
 }
 
-void BgpStressTest::DeleteBgpRoute(vector<int> families, vector<int> peer_ids,
-                                   vector<int> route_ids, int ntargets) {
-    BOOST_FOREACH(int family, families) {
-        BOOST_FOREACH(int peer_id, peer_ids) {
-            BOOST_FOREACH(int route_id, route_ids) {
-                DeleteBgpRoute(family, peer_id, route_id, ntargets);
-            }
-        }
+void BgpStressTest::DeleteBgpInet6VpnRoute(int peer_id, int route_id,
+                                           int num_targets) {
+    BgpTable *table = rtinstance_->GetTable(Address::INET6VPN);
+    if (!table) {
+        return;
     }
-}
 
-void BgpStressTest::DeleteBgpRouteInternal(int family, int peer_id,
-                                           int route_id, string start_prefix,
-                                           int ntargets) {
+    if (peer_id >= (int) peers_.size() || !peers_[peer_id]) {
+        return;
+    }
+    IPeer *peer = peers_[peer_id]->peer();
+    if (!peer) {
+        return;
+    }
+
+    // For odd peer_id's, choose hard-coded value; for even, choose the
+    // peer_id. This is have half of the RD's as dups.
+    string peer_id_str = (peer_id & 1) ? "9999" : integerToHexString(peer_id);
+    // b's in the address for bgp-peer routes
+    string pre_prefix = "65412:" + peer_id_str + ":2001:bbbb:bbbb::";
+    Inet6VpnPrefix b_prefix6 =
+        CreateInet6VpnPrefix(pre_prefix, 0, 0, route_id);
+
     DBRequest req;
-    boost::scoped_ptr<ExtCommunitySpec> commspec;
-    boost::scoped_ptr<BgpAttrLocalPref> local_pref;
+    req.oper = DBRequest::DB_ENTRY_DELETE;
+    req.key.reset(new Inet6VpnTable::RequestKey(b_prefix6, peer));
+    table->Enqueue(&req);
+
+    for (int instance = 1; instance <= n_instances_; ++instance) {
+        for (int agent = 1; agent <= n_agents_; ++agent) {
+            // a's in the address for agent routes
+            pre_prefix = "65412:" + peer_id_str + ":2001:aaaa:aaaa::";
+            Inet6VpnPrefix a_prefix6 = CreateInet6VpnPrefix(pre_prefix, agent,
+                                                            instance, route_id);
+            req.oper = DBRequest::DB_ENTRY_DELETE;
+            req.key.reset(new Inet6VpnTable::RequestKey(a_prefix6, peer));
+            table->Enqueue(&req);
+        }
+    }
+}
+
+void BgpStressTest::DeleteBgpRoutesInBulk(vector<int> families,
+        vector<int> peer_ids, vector<int> route_ids, int ntargets) {
+    BOOST_FOREACH(int family, families) {
+        switch (families_[family]) {
+        case Address::INET:
+        case Address::INETVPN:
+            BOOST_FOREACH(int peer_id, peer_ids) {
+                BOOST_FOREACH(int route_id, route_ids) {
+                    DeleteBgpInetRoute(family, peer_id, route_id, ntargets);
+                }
+            }
+            break;
+
+        case Address::INET6VPN:
+            if (!d_no_inet6_routes_) {
+                BOOST_FOREACH(int peer_id, peer_ids) {
+                    BOOST_FOREACH(int route_id, route_ids) {
+                        DeleteBgpInet6VpnRoute(peer_id, route_id, ntargets);
+                    }
+                }
+            }
+            break;
+
+        default:
+            assert(0);
+        }
+    }
+}
+
+void BgpStressTest::DeleteBgpInetRouteInternal(int family, int peer_id,
+        int route_id, string start_prefix, int ntargets) {
+    DBRequest req;
 
     if (peer_id >= (int) peers_.size() || !peers_[peer_id]) return;
     BgpTable *table = rtinstance_->GetTable(families_[family]);
@@ -1087,12 +1310,24 @@ void BgpStressTest::DeleteBgpRouteInternal(int family, int peer_id,
 
 void BgpStressTest::DeleteBgpRoutes(int family, int peer_id, int nroutes,
                                     int ntargets) {
-    DBRequest req;
-    boost::scoped_ptr<ExtCommunitySpec> commspec;
-    boost::scoped_ptr<BgpAttrLocalPref> local_pref;
+    switch (families_[family]) {
+    case Address::INET:
+    case Address::INETVPN:
+        for (int route_id = 0; route_id < nroutes; ++route_id) {
+            DeleteBgpInetRoute(family, peer_id, route_id, ntargets);
+        }
+        break;
 
-    for (int rt = 0; rt < nroutes; rt++) {
-        DeleteBgpRoute(family, peer_id, rt, ntargets);
+    case Address::INET6VPN:
+        if (!d_no_inet6_routes_) {
+            for (int route_id = 0; route_id < nroutes; ++route_id) {
+                DeleteBgpInet6VpnRoute(peer_id, route_id, ntargets);
+            }
+        }
+        break;
+
+    default:
+        assert(0);
     }
 }
 
@@ -1102,7 +1337,7 @@ void BgpStressTest::DeleteAllBgpRoutes(int nroutes, int ntargets, int npeers,
 
     BOOST_FOREACH(BgpNullPeer *npeer, peers_) {
         if (!npeer) continue;
-        for (int family = 0; family < n_families_; family++) {
+        for (int family = 0; family < n_families_; ++family) {
             DeleteBgpRoutes(family, npeer->peer_id(), nroutes, ntargets);
         }
     }
@@ -1127,7 +1362,7 @@ void BgpStressTest::SubscribeConfiguration(int agent_id, bool verify) {
 
     xmpp_agents_[agent_id]->vrouter_mgr_->Subscribe(agent_name, 0, false);
 
-    for (int i = 0; i < d_vms_count_; i++) {
+    for (int i = 0; i < d_vms_count_; ++i) {
         string vm_uuid = GetAgentVmConfigName(agent_id, i);
         TASK_UTIL_EXPECT_EQ(0, xmpp_agents_[agent_id]->vm_mgr_->Count(vm_uuid));
         xmpp_agents_[agent_id]->vm_mgr_->Subscribe(vm_uuid, 0, false);
@@ -1142,7 +1377,7 @@ void BgpStressTest::VerifyConfiguration(int agent_id, int &pending) {
        return;
    }
 
-    for (int i = 0; i < d_vms_count_; i++) {
+    for (int i = 0; i < d_vms_count_; ++i) {
         string vm_uuid = GetAgentVmConfigName(agent_id, i);
         TASK_UTIL_EXPECT_EQ_MSG(1,
             xmpp_agents_[agent_id]->vm_mgr_->Count(vm_uuid),
@@ -1185,7 +1420,7 @@ void BgpStressTest::UnsubscribeConfiguration(int agent_id, bool verify) {
     // xmpp_agents_[agent_id]->vrouter_mgr_->Unsubscribe(agent_name);
     xmpp_agents_[agent_id]->vrouter_mgr_->Clear();
 
-    for (int i = 0; i < d_vms_count_; i++) {
+    for (int i = 0; i < d_vms_count_; ++i) {
         string vm_uuid = GetAgentVmConfigName(agent_id, i);
         TASK_UTIL_EXPECT_NE(0, xmpp_agents_[agent_id]->vm_mgr_->Count(vm_uuid));
         xmpp_agents_[agent_id]->vm_mgr_->Unsubscribe(vm_uuid, 0, false);
@@ -1197,7 +1432,7 @@ void BgpStressTest::UnsubscribeConfiguration(int agent_id, bool verify) {
 
 void BgpStressTest::VerifyNoConfiguration(int agent_id, int &pending) {
 
-    for (int i = 0; i < d_vms_count_; i++) {
+    for (int i = 0; i < d_vms_count_; ++i) {
         string vm_uuid = GetAgentVmConfigName(agent_id, i);
         TASK_UTIL_EXPECT_EQ_MSG(0,
             xmpp_agents_[agent_id]->vm_mgr_->Count(vm_uuid),
@@ -1228,7 +1463,7 @@ void BgpStressTest::UnsubscribeConfiguration(vector<int> agent_ids,
 void BgpStressTest::SubscribeAgentsConfiguration(int nagents, bool verify) {
     vector<int> agents;
 
-    for (int agent_id = 0; agent_id < nagents; agent_id++) {
+    for (int agent_id = 0; agent_id < nagents; ++agent_id) {
         agents.push_back(agent_id);
     }
     SubscribeConfiguration(agents, verify);
@@ -1237,7 +1472,7 @@ void BgpStressTest::SubscribeAgentsConfiguration(int nagents, bool verify) {
 void BgpStressTest::UnsubscribeAgentsConfiguration(int nagents, bool verify) {
     vector<int> agents;
 
-    for (int agent_id = 0; agent_id < nagents; agent_id++) {
+    for (int agent_id = 0; agent_id < nagents; ++agent_id) {
         agents.push_back(agent_id);
     }
     UnsubscribeConfiguration(agents, verify);
@@ -1282,8 +1517,8 @@ void BgpStressTest::SubscribeRoutingInstance(int agent_id, int instance_id,
 
 void BgpStressTest::SubscribeAgents(int ninstances, int nagents) {
 
-    for (int agent_id = 0; agent_id < nagents; agent_id++) {
-        for (int instance_id = 0; instance_id <= ninstances; instance_id++) {
+    for (int agent_id = 0; agent_id < nagents; ++agent_id) {
+        for (int instance_id = 0; instance_id <= ninstances; ++instance_id) {
             SubscribeRoutingInstance(agent_id, instance_id, false);
         }
     }
@@ -1322,8 +1557,8 @@ void BgpStressTest::UnsubscribeRoutingInstance(int agent_id, int instance_id) {
 
 void BgpStressTest::UnsubscribeAgents(int nagents, int ninstances) {
 
-    for (int agent_id = 0; agent_id < nagents; agent_id++) {
-        for (int instance_id = 0; instance_id <= ninstances; instance_id++) {
+    for (int agent_id = 0; agent_id < nagents; ++agent_id) {
+        for (int instance_id = 0; instance_id <= ninstances; ++instance_id) {
             UnsubscribeRoutingInstance(agent_id, instance_id);
         }
     }
@@ -1373,8 +1608,47 @@ void BgpStressTest::AddXmppRoute(int instance_id, int agent_id, int route_id) {
                             prefix.ip4_addr().to_string(),
                             "10000-20000");
     }
+
+    if (!d_no_inet6_routes_) {
+        Inet6Prefix prefix6 = CreateAgentInet6Prefix(agent_id, instance_id,
+                                                     route_id);
+        test::NextHops agent_nexthop;
+        agent_nexthop.push_back(
+            test::NextHop(GetAgentNexthop(agent_id, route_id), 0));
+        xmpp_agents_[agent_id]->AddInet6Route(GetInstanceName(instance_id),
+                                             prefix6.ToString(), agent_nexthop);
+    }
 }
 
+Inet6Prefix BgpStressTest::CreateAgentInet6Prefix(int agent_id, int instance_id,
+                                                  int route_id) {
+    assert((agent_id < 65535) || (instance_id < 65535) || (route_id < 65535));
+    string agent_id_str = integerToHexString(agent_id);
+    string instance_id_str = integerToHexString(instance_id);
+    string route_id_str = integerToHexString(route_id);
+
+    // The pre-prefix should match the value in routines like
+    // AddBgpInet6VpnRoute
+    string prefix_str = "2001:aaaa:aaaa::" + agent_id_str + ":"
+                        + instance_id_str + ":" + route_id_str + "/128";
+    Inet6Prefix prefix = Inet6Prefix::FromString(prefix_str);
+    return prefix;
+}
+ 
+Inet6VpnPrefix BgpStressTest::CreateInet6VpnPrefix(string pre_prefix,
+        int agent_id, int instance_id, int route_id) {
+    assert((agent_id < 65535) || (instance_id < 65535) || (route_id < 65535));
+
+    string agent_id_str = integerToHexString(agent_id);
+    string instance_id_str = integerToHexString(instance_id);
+    string route_id_str = integerToHexString(route_id);
+
+    string prefix_str = pre_prefix + agent_id_str + ":" + instance_id_str + ":"
+                                   + route_id_str + "/128";
+    Inet6VpnPrefix prefix = Inet6VpnPrefix::FromString(prefix_str);
+    return prefix;
+}
+ 
 void BgpStressTest::AddXmppRoute(vector<int> instance_ids,
                                  vector<int> agent_ids,
                                  vector<int> route_ids) {
@@ -1388,15 +1662,15 @@ void BgpStressTest::AddXmppRoute(vector<int> instance_ids,
 }
 
 void BgpStressTest::AddXmppRoutes(int instance_id, int agent_id, int nroutes) {
-    for (int rt = 0; rt < nroutes; rt++) {
+    for (int rt = 0; rt < nroutes; ++rt) {
         AddXmppRoute(instance_id, agent_id, rt);
     }
 }
 
 void BgpStressTest::AddAllXmppRoutes(int ninstances, int nagents, int nroutes) {
 
-    for (int agent_id = 0; agent_id < nagents; agent_id++) {
-        for (int instance_id = 1; instance_id <= ninstances; instance_id++) {
+    for (int agent_id = 0; agent_id < nagents; ++agent_id) {
+        for (int instance_id = 1; instance_id <= ninstances; ++instance_id) {
             AddXmppRoutes(instance_id, agent_id, nroutes);
         }
     }
@@ -1441,8 +1715,8 @@ void BgpStressTest::DeleteXmppRoute(vector<int> instance_ids,
 
 void BgpStressTest::DeleteXmppRoutes(int ninstances, int agent_id,
                                      int nroutes) {
-    for (int instance_id = 1; instance_id <= ninstances; instance_id++) {
-        for (int rt = 0; rt < nroutes; rt++) {
+    for (int instance_id = 1; instance_id <= ninstances; ++instance_id) {
+        for (int rt = 0; rt < nroutes; ++rt) {
             DeleteXmppRoute(instance_id, agent_id, rt);
         }
     }
@@ -1452,7 +1726,7 @@ void BgpStressTest::DeleteXmppRoutes(int ninstances, int agent_id,
 void BgpStressTest::DeleteAllXmppRoutes(int ninstances, int nagents,
                                         int nroutes) {
 
-    for (int agent_id = 0; agent_id < nagents; agent_id++) {
+    for (int agent_id = 0; agent_id < nagents; ++agent_id) {
         DeleteXmppRoutes(ninstances, agent_id, nroutes);
     }
     // VerifyAgentRoutes(ninstances, 0);
@@ -1460,8 +1734,8 @@ void BgpStressTest::DeleteAllXmppRoutes(int ninstances, int nagents,
 
 size_t BgpStressTest::GetAllAgentRouteCount(int nagents, int ninstances) {
     size_t count = 0;
-    for (int agent_id = 0; agent_id < nagents; agent_id++) {
-        for (int instance_id = 1; instance_id <= ninstances; instance_id++) {
+    for (int agent_id = 0; agent_id < nagents; ++agent_id) {
+        for (int instance_id = 1; instance_id <= ninstances; ++instance_id) {
             if (!xmpp_agents_[agent_id]) continue;
             count += xmpp_agents_[agent_id]->route_mgr_->Count(
                          GetInstanceName(instance_id));
@@ -1475,8 +1749,8 @@ void BgpStressTest::VerifyAgentRoutes(int nagents, int ninstances, int routes) {
    if (d_no_agent_messages_processing_) return;
 
     size_t expected = 0;
-    for (int agent_id = 0; agent_id < nagents; agent_id++) {
-        for (int instance_id = 1; instance_id <= ninstances; instance_id++) {
+    for (int agent_id = 0; agent_id < nagents; ++agent_id) {
+        for (int instance_id = 1; instance_id <= ninstances; ++instance_id) {
             if (!xmpp_agents_[agent_id]) continue;
             expected += routes;
         }
@@ -1495,7 +1769,7 @@ void BgpStressTest::VerifyXmppRouteNextHops() {
     int agent_id = 0;
     BOOST_FOREACH(test::NetworkAgentMock *agent, xmpp_agents_) {
         agent_id++;
-        for (int i = 1; i <= n_instances_; i++) {
+        for (int i = 1; i <= n_instances_; ++i) {
             string instance_name = GetInstanceName(i);
             TASK_UTIL_EXPECT_EQ_MSG(n_instances_ * n_agents_ * n_routes_ +
                                     n_peers_ * n_routes_,
@@ -1504,7 +1778,7 @@ void BgpStressTest::VerifyXmppRouteNextHops() {
             if (d_no_agent_updates_processing_) {
                 continue;
             }
-            for (int rt = 0; rt < n_routes_; rt++) {
+            for (int rt = 0; rt < n_routes_; ++rt) {
                 Ip4Prefix prefix = GetAgentRoute(agent_id, i, rt);
                 TASK_UTIL_EXPECT_NE(
                     static_cast<test::NetworkAgentMock::RouteEntry *>(NULL),
@@ -1626,7 +1900,7 @@ void BgpStressTest::BringUpXmppAgent(vector<int> agent_ids, bool verify_state) {
 
 void BgpStressTest::BringUpXmppAgents(int nagents) {
     BGP_STRESS_TEST_LOG("Starting bringing up " << nagents << " agents");
-    for (int agent_id = 0; agent_id < nagents; agent_id++) {
+    for (int agent_id = 0; agent_id < nagents; ++agent_id) {
         vector<int> agent_ids;
 
         agent_ids.push_back(agent_id);
@@ -1684,13 +1958,13 @@ void BgpStressTest::BringDownXmppAgents(int nagents) {
         }
     } else {
         vector<int> agent_ids;
-        for (int agent_id = 0; agent_id < nagents; agent_id++) {
+        for (int agent_id = 0; agent_id < nagents; ++agent_id) {
             agent_ids.push_back(agent_id);
         }
         BringDownXmppAgent(agent_ids, false);
     }
 
-    for (int agent_id = 0; agent_id < nagents; agent_id++) {
+    for (int agent_id = 0; agent_id < nagents; ++agent_id) {
         TASK_UTIL_EXPECT_TRUE(!IsAgentEstablished(xmpp_agents_[agent_id]));
         if (!d_external_mode_) {
             TASK_UTIL_EXPECT_FALSE(XmppClientIsEstablished(
@@ -1757,11 +2031,11 @@ void BgpStressTest::AddBgpPeers(int npeers) {
         BGP_STRESS_TEST_LOG("Starting bringing up " << npeers << " bgp peers");
     }
 
-    for (p = 1; p <= npeers; p++) {
+    for (p = 1; p <= npeers; ++p) {
         AddBgpPeer(p, false);
     }
 
-    for (p = 1; p <= npeers; p++) {
+    for (p = 1; p <= npeers; ++p) {
         VerifyPeer(server_.get(), peers_[p]);
     }
 
@@ -1822,7 +2096,7 @@ void BgpStressTest::DeleteBgpPeer(vector<int> peer_ids, bool verify_state) {
 }
 
 void BgpStressTest::DeleteBgpPeers(int npeers) {
-    for (int p = 1; p <= npeers; p++) {
+    for (int p = 1; p <= npeers; ++p) {
         DeleteBgpPeer(p, true);
     }
 }
@@ -1863,7 +2137,7 @@ void BgpStressTest::ClearBgpPeer(vector<int> peer_ids) {
 void BgpStressTest::ClearBgpPeers(int npeers) {
     vector<int> peers;
 
-    for (int p = 1; p <= npeers; p++) {
+    for (int p = 1; p <= npeers; ++p) {
         peers.push_back(p);
     }
     ClearBgpPeer(peers);
@@ -1884,9 +2158,12 @@ void BgpStressTest::AddRouteTarget(int instance_id, int target) {
     //
     // Update vpn routes
     //
-    for (int i = 1; i <= n_peers_; i++) {
-        for (int j = 0; j < n_routes_; j++) {
-            AddBgpRoute(1, i, j, n_targets_); // Address::INETVPN
+    for (int i = 1; i <= n_peers_; ++i) {
+        for (int j = 0; j < n_routes_; ++j) {
+            AddBgpInetRoute(1, i, j, n_targets_); // Address::INETVPN
+            if (!d_no_inet6_routes_) {
+                AddBgpInet6VpnRoute(i, j, n_targets_);
+            }
         }
     }
 }
@@ -1901,9 +2178,9 @@ void BgpStressTest::RemoveRouteTarget(int instance_id, int target) {
     //
     // Update vpn routes
     //
-    for (int i = 1; i <= n_peers_; i++) {
-        for (int j = 0; j < n_routes_; j++) {
-            AddBgpRoute(1, i, j, n_targets_); // Address::INETVPN
+    for (int i = 1; i <= n_peers_; ++i) {
+        for (int j = 0; j < n_routes_; ++j) {
+            AddBgpInetRoute(1, i, j, n_targets_); // Address::INETVPN
         }
     }
 }
@@ -1937,7 +2214,7 @@ void BgpStressTest::AddRoutingInstance(vector<int> instance_ids, int ntargets) {
 
 void BgpStressTest::AddRoutingInstances(int ninstances, int ntargets) {
     if (d_external_mode_) return;
-    for (int instance_id = 0; instance_id <= ninstances; instance_id++) {
+    for (int instance_id = 0; instance_id <= ninstances; ++instance_id) {
         if (instance_id < (int) instances_.size() && instances_[instance_id])
             continue;
 
@@ -1951,7 +2228,7 @@ void BgpStressTest::DeleteRoutingInstance(int instance_id, int ntargets) {
     if (instance_id >= (int) instances_.size() || !instances_[instance_id])
         return;
 
-    for (int agent_id = 0; agent_id < n_agents_; agent_id++) {
+    for (int agent_id = 0; agent_id < n_agents_; ++agent_id) {
         UnsubscribeRoutingInstance(agent_id, instance_id);
     }
 
@@ -1984,7 +2261,7 @@ void BgpStressTest::DeleteRoutingInstance(vector<int> instance_ids,
 }
 
 void BgpStressTest::DeleteRoutingInstances() {
-    for (int instance_id = 0; instance_id <= n_instances_; instance_id++) {
+    for (int instance_id = 0; instance_id <= n_instances_; ++instance_id) {
         DeleteRoutingInstance(instance_id, n_targets_);
     }
 
@@ -2167,11 +2444,11 @@ void BgpStressTest::ValidateShowRouteSandeshResponse(Sandesh *sandesh) {
     ShowRouteResp *resp = dynamic_cast<ShowRouteResp *>(sandesh);
     EXPECT_NE(static_cast<ShowRouteResp *>(NULL), resp);
 
-    for (size_t i = 0; i < resp->get_tables().size(); i++) {
+    for (size_t i = 0; i < resp->get_tables().size(); ++i) {
         BGP_DEBUG_UT("***********************************************" << endl);
         BGP_DEBUG_UT(resp->get_tables()[i].routing_instance << " "
              << resp->get_tables()[i].routing_table_name << endl);
-            for (size_t j = 0; j < resp->get_tables()[i].routes.size(); j++) {
+            for (size_t j = 0; j < resp->get_tables()[i].routes.size(); ++j) {
                 BGP_DEBUG_UT(resp->get_tables()[i].routes[j].prefix << " "
                      << resp->get_tables()[i].routes[j].paths.size() << endl);
             }
@@ -2236,24 +2513,24 @@ TEST_P(BgpStressTest, RandomEvents) {
 
     HEAP_PROFILER_DUMP("bgp_stress_test");
 
-    for (int count = 1; !d_events_ || count <= d_events_; count++) {
+    for (int count = 1; !d_events_ || count <= d_events_; ++count) {
         switch (BgpStressTestEvent::GetTestEvent(count)) {
             case BgpStressTestEvent::ADD_BGP_ROUTE:
                 if (d_external_mode_) break;
                 if (!n_peers_ || !n_families_ || !n_routes_) break;
-                AddBgpRoute(BgpStressTestEvent::GetEventItems(n_families_),
-                            BgpStressTestEvent::GetEventItems(n_peers_, 1),
-                            BgpStressTestEvent::GetEventItems(n_routes_),
-                            n_targets_);
+                AddBgpRoutesInBulk(
+                    BgpStressTestEvent::GetEventItems(n_families_),
+                    BgpStressTestEvent::GetEventItems(n_peers_, 1),
+                    BgpStressTestEvent::GetEventItems(n_routes_), n_targets_);
                 break;
 
             case BgpStressTestEvent::DELETE_BGP_ROUTE:
                 if (d_external_mode_) break;
                 if (!n_peers_ || !n_families_ || !n_routes_) break;
-                DeleteBgpRoute(BgpStressTestEvent::GetEventItems(n_families_),
-                               BgpStressTestEvent::GetEventItems(n_peers_, 1),
-                               BgpStressTestEvent::GetEventItems(n_routes_),
-                               n_targets_);
+                DeleteBgpRoutesInBulk(
+                    BgpStressTestEvent::GetEventItems(n_families_),
+                    BgpStressTestEvent::GetEventItems(n_peers_, 1),
+                    BgpStressTestEvent::GetEventItems(n_routes_), n_targets_);
                 break;
 
             case BgpStressTestEvent::ADD_XMPP_ROUTE:
@@ -2342,7 +2619,7 @@ TEST_P(BgpStressTest, RandomEvents) {
                 if (!n_instances_) break;
                 if (!n_targets_) {
                     target = ++n_targets_;
-                    for (i = 1; i <= n_instances_; i++) {
+                    for (i = 1; i <= n_instances_; ++i) {
                         AddRouteTarget(i, target);
                     }
                 }
@@ -2363,7 +2640,7 @@ TEST_P(BgpStressTest, RandomEvents) {
             case BgpStressTestEvent::ADD_ROUTE_TARGET:
                 if (d_external_mode_) break;
                 target = ++n_targets_;
-                for (i = 1; i <= n_instances_; i++) {
+                for (i = 1; i <= n_instances_; ++i) {
                     AddRouteTarget(i, target);
                 }
                 break;
@@ -2373,7 +2650,7 @@ TEST_P(BgpStressTest, RandomEvents) {
                 if (!n_targets_) break;
                 target = n_targets_--;
 
-                for (i = 1; i <= n_instances_; i++) {
+                for (i = 1; i <= n_instances_; ++i) {
                     if (!n_targets_) {
                         DeleteRoutingInstance(i, 1);
                     }
@@ -2482,6 +2759,8 @@ static void process_command_line_args(int argc, const char **argv) {
             "set number of VMs (for configuration download)")
         ("no-multicast", bool_switch(&d_no_mcast_routes_),
              "Do not add multicast routes")
+        ("no-inet6", bool_switch(&d_no_inet6_routes_),
+             "Do not add ipv6 routes")
         ("no-verify-routes", bool_switch(&d_no_verify_routes_),
              "Do not verify routes")
         ("no-agents-updates-processing",
