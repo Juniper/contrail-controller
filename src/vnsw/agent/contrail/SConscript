@@ -2,6 +2,7 @@
 # Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
 #
 
+import sys
 import re
 import time
 import subprocess
@@ -22,11 +23,11 @@ buildinfo_dep_libs = [
     '#build/lib/libthrift.a',
     '#build/lib/libthriftasio.a',
     '#build/lib/libhttp.a',
-    '#build/lib/libhttp_parser.a', 
+    '#build/lib/libhttp_parser.a',
     '#build/lib/libpugixml.a',
     '#build/lib/libsandesh.a',
-    '#build/lib/libsandeshflow.a', 
-    '#build/lib/libsandeshvns.a',
+    '#build/lib/libsandeshflow.a',
+    '#build/lib/libsandeshvns.a'
 ]
 
 def MapBuildCmnLib(list):
@@ -39,11 +40,11 @@ buildinfo_dep_libs += MapBuildCmnLib([
     'db/libdb.a',
     'dns/bind/libbind_interface.a',
     'ifmap/libifmap_agent.a',
-    'ifmap/libifmap_common.a', 
-    'io/libio.a', 
+    'ifmap/libifmap_common.a',
+    'io/libio.a',
     'ksync/libksync.a',
     'net/libnet.a',
-    'route/libroute.a', 
+    'route/libroute.a',
     'schema/libbgp_schema.a',
     'schema/libifmap_vnc.a',
     'schema/libxmpp_unicast.a',
@@ -65,9 +66,9 @@ buildinfo_dep_libs += MapBuildAgentLib([
     'kstate/libkstate.a',
     'ksync/libvnswksync.a',
     'openstack/libnova_ins.a',
-    'openstack/libnova_ins_thrift.a', 
+    'openstack/libnova_ins_thrift.a',
     'oper/libvnswoperdb.a',
-    'pkt/libpkt.a', 'diag/libdiag.a', 
+    'pkt/libpkt.a', 'diag/libdiag.a',
     'services/libagent_services.a',
     'uve/libagentuve.a'
 ])
@@ -81,14 +82,14 @@ env.Depends('main.o', 'buildinfo.cc')
 # Add contrail-vrouter-agent specific libraries
 env.Prepend(LIBS = AgentEnv['CONTRAIL_LIBS'])
 
-# Whole-arhive flag causes the library to be included in the resulting output 
-# even though there may not be any calls requiring its presence. We need this 
-# for kstate library so that the HTML file for kstate  is listed in agent 
+# Whole-arhive flag causes the library to be included in the resulting output
+# even though there may not be any calls requiring its presence. We need this
+# for kstate library so that the HTML file for kstate  is listed in agent
 # introspect page
 env.Prepend(LINKFLAGS = ['-Wl,--whole-archive', '-rdynamic', '-lkstate',
                          '-Wl,--no-whole-archive'])
 
-#Add -Wno-return-type to ignore errors from thrift generated code in 
+#Add -Wno-return-type to ignore errors from thrift generated code in
 #InstanceService.h
 contrail_vrouter_agent = env.Program(target = 'contrail-vrouter-agent',
                      source = ['buildinfo.cc',
@@ -100,5 +101,5 @@ env.Default(contrail_vrouter_agent)
 
 # Please update sandesh/common/vns.sandesh on process name change
 env.Alias('install', env.Install(env['INSTALL_BIN'], contrail_vrouter_agent))
-env.Alias('install', env.Install(env['INSTALL_CONF'], 
+env.Alias('install', env.Install(env['INSTALL_CONF'],
           '../contrail-vrouter-agent.conf'))
