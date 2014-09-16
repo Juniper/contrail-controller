@@ -9,7 +9,6 @@ Import('BuildEnv')
 env = BuildEnv.Clone()
 
 cflags = env['CCFLAGS']
-cflags.remove('-Werror')
 env['CCFLAGS'] = cflags
 
 VariantDir('#/' + Dir('.').path + '/gen-cpp',
