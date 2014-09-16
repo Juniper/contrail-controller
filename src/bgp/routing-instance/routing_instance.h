@@ -119,10 +119,15 @@ private:
     // Cleanup all the state prior to deletion.
     void Shutdown();
 
-    BgpTable *InetVpnTableCreate(BgpServer *server);
+    BgpTable *VpnTableCreate(BgpServer *server, std::string table_name,
+                             Address::Family family);
     BgpTable *ErmVpnTableCreate(BgpServer *server);
     BgpTable *EvpnTableCreate(BgpServer *server);
     BgpTable *RTargetTableCreate(BgpServer *server);
+    BgpTable *VrfTableCreate(BgpServer *server, std::string table_name_suffix,
+                             Address::Family family);
+    void ClearFamilyRouteTarget(Address::Family vrf_family,
+                                Address::Family vpn_family);
 
     std::string name_;
     int index_;

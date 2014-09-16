@@ -8,9 +8,6 @@
 
 using namespace std;
 
-IpVpnAddress::IpVpnAddress() {
-}
-
 InetVpnPrefix::InetVpnPrefix()
   : prefixlen_(0) {
 }

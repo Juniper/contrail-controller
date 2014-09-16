@@ -127,3 +127,35 @@ boost::system::error_code Ip4PrefixParse(const string &str, Ip4Address *addr, in
     *addr = Ip4Address::from_string(addrstr, err);
     return err;
 }
+
+boost::system::error_code Inet6PrefixParse(const string &str, Ip6Address *addr,
+                                           int *plen) {
+    size_t pos = str.find('/');
+    if (pos == string::npos) {
+        return make_error_code(boost::system::errc::invalid_argument);
+    }
+    *plen = atoi(str.c_str() + pos + 1);
+    if ((*plen < 0) || (*plen > Address::kMaxV6PrefixLen)) {
+        return make_error_code(boost::system::errc::invalid_argument);
+    }
+
+    string addrstr = str.substr(0, pos);
+    boost::system::error_code err;
+    *addr = Ip6Address::from_string(addrstr, err);
+    return err;
+}
+
+// Ip6Address.to_v4() has exceptions. Plus, we dont have a to_v4() version
+// without exceptions that takes an boost::error_code.
+// If the v6-address is v4_mapped, return the ipv4 equivalent address. Else
+// return a 'zero' ipv4 address.
+Ip4Address Address::V4FromV4MappedV6(const Ip6Address &v6_address) {
+    Ip4Address v4_address;
+    if (v6_address.is_v4_mapped()) {
+        Ip6Address::bytes_type v6_bt = v6_address.to_bytes();
+        Ip4Address::bytes_type v4_bt = 
+            { { v6_bt[12], v6_bt[13], v6_bt[14], v6_bt[15] } };
+        v4_address = Ip4Address(v4_bt);
+    }
+    return v4_address;
+}
