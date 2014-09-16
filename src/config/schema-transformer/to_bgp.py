@@ -586,45 +586,9 @@ class VirtualNetworkST(DictST):
             for ri2 in vn.rinst.values():
                 if ri.get_fq_name_str() in ri2.connections:
                     ri2.delete_connection(ri)
-        rtgt_list = ri.obj.get_route_target_refs()
-        ri_fq_name_str = ri.obj.get_fq_name_str()
-        rtgt = int(self._rt_cf.get(ri_fq_name_str)['rtgt_num'])
-        self._rt_cf.remove(ri_fq_name_str)
-        self._rt_allocator.delete(rtgt)
-        service_chain = ri.service_chain
-        if service_chain is not None:
-            # self.free_service_chain_ip(service_chain)
-            self.free_service_chain_ip(ri.obj.name)
 
-            uve = UveServiceChainData(name=service_chain, deleted=True)
-            uve_msg = UveServiceChain(data=uve, sandesh=_sandesh)
-            uve_msg.send(sandesh=_sandesh)
-
-        # refresh the ri object because it could have changed
-        ri.obj = _vnc_lib.routing_instance_read(id=ri.obj.uuid)
-        vmi_refs = ri.obj.get_virtual_machine_interface_back_refs()
-        if vmi_refs:
-            for vmi in vmi_refs:
-                try:
-                    vmi_obj = _vnc_lib.virtual_machine_interface_read(
-                        fq_name=vmi['to'])
-                    if service_chain is not None:
-                        VirtualNetworkST.free_service_chain_vlan(
-                            vmi_obj.get_parent_fq_name_str(), service_chain)
-                except NoIdError:
-                    continue
-
-                vmi_obj.del_routing_instance(ri.obj)
-                _vnc_lib.virtual_machine_interface_update(vmi_obj)
-            # end for vmi
-        _vnc_lib.routing_instance_delete(ri.obj.get_fq_name())
-        for rtgt in rtgt_list:
-            try:
-                _vnc_lib.route_target_delete(fq_name=rtgt['to'])
-            except RefsExistError:
-                # if other routing instances are referring to this target,
-                # it will be deleted when those instances are deleted
-                pass
+        ri.delete(self)
+        del self.rinst[ri.name]
     # end delete_routing_instance
 
     def update_ipams(self):
@@ -1379,6 +1343,52 @@ class RoutingInstanceST(object):
         if len(rt_add) or len(rt_del or set()):
             _vnc_lib.routing_instance_update(self.obj)
     # end update_route_target_list
+
+    def delete(self, vn_obj=None):
+        rtgt_list = self.obj.get_route_target_refs()
+        ri_fq_name_str = self.obj.get_fq_name_str()
+        rt_cf = VirtualNetworkST._rt_cf
+        try:
+            rtgt = int(rt_cf.get(ri_fq_name_str)['rtgt_num'])
+            rt_cf.remove(ri_fq_name_str)
+            VirtualNetworkST._rt_allocator.delete(rtgt)
+        except pycassa.NotFoundException:
+            pass
+
+        service_chain = self.service_chain
+        if vn_obj is not None and service_chain is not None:
+            # self.free_service_chain_ip(service_chain)
+            vn_obj.free_service_chain_ip(self.obj.name)
+
+            uve = UveServiceChainData(name=service_chain, deleted=True)
+            uve_msg = UveServiceChain(data=uve, sandesh=_sandesh)
+            uve_msg.send(sandesh=_sandesh)
+
+        # refresh the ri object because it could have changed
+        self.obj = _vnc_lib.routing_instance_read(id=self.obj.uuid)
+        vmi_refs = self.obj.get_virtual_machine_interface_back_refs()
+        for vmi in vmi_refs or []:
+            try:
+                vmi_obj = _vnc_lib.virtual_machine_interface_read(
+                    id=vmi['uuid'])
+                if service_chain is not None:
+                    VirtualNetworkST.free_service_chain_vlan(
+                        vmi_obj.get_parent_fq_name_str(), service_chain)
+            except NoIdError:
+                continue
+
+            vmi_obj.del_routing_instance(ri.obj)
+            _vnc_lib.virtual_machine_interface_update(vmi_obj)
+        # end for vmi
+        _vnc_lib.routing_instance_delete(id=self.obj.uuid)
+        for rtgt in rtgt_list:
+            try:
+                _vnc_lib.route_target_delete(id=rtgt['uuid'])
+            except RefsExistError:
+                # if other routing instances are referring to this target,
+                # it will be deleted when those instances are deleted
+                pass
+
 # end class RoutingInstanceST
 
 
@@ -1455,8 +1465,7 @@ class ServiceChain(DictST):
                                           {'value': jsonpickle.encode(sc)})
         return sc
     # end find_or_create
-    
-            
+
     def update_ipams(self, vn2_name):
         if not self.created:
             return
@@ -1715,13 +1724,11 @@ class ServiceChain(DictST):
                 service_ri1 = vn1_obj.rinst.get(service_name1)
                 if service_ri1 is not None:
                     vn1_obj.delete_routing_instance(service_ri1)
-                    del vn1_obj.rinst[service_name1]
             if vn2_obj:
                 service_name2 = vn2_obj.get_service_name(self.name, service)
                 service_ri2 = vn2_obj.rinst.get(service_name2)
                 if service_ri2 is not None:
                     vn2_obj.delete_routing_instance(service_ri2)
-                    del vn2_obj.rinst[service_name2]
         # end for service
     # end destroy
 
@@ -2678,6 +2685,8 @@ class SchemaTransformer(object):
                 staticmethod(ConnectionState.get_process_state_cb),
                 NodeStatusUVE, NodeStatus)
 
+
+        self.reinit()
         # create cpu_info object to send periodic updates
         sysinfo_req = False
         cpu_info = vnc_cpu_info.CpuInfo(
@@ -2685,6 +2694,43 @@ class SchemaTransformer(object):
         self._cpu_info = cpu_info
 
     # end __init__
+
+    # Clean up stale objects
+    def reinit(self):
+        ri_list = _vnc_lib.routing_instances_list()['routing-instances']
+        for ri in ri_list:
+            try:
+                ri_obj = _vnc_lib.routing_instance_read(id=ri['uuid'])
+            except NoIdError:
+                continue
+            try:
+                _vnc_lib.virtual_network_read(id=ri_obj.parent_uuid)
+            except NoIdError:
+                try:
+                    ri_obj = RoutingInstanceST(ri_obj)
+                    ri_obj.delete()
+                except NoIdError:
+                    pass
+        # end for ri
+
+        acl_list = _vnc_lib.access_control_lists_list()['access-control-lists']
+        for acl in acl_list or []:
+            try:
+                acl_obj = _vnc_lib.access_control_list_read(id=acl['uuid'])
+            except NoIdError:
+                continue
+            try:
+                if acl_obj.parent_type == 'virtual-network':
+                    _vnc_lib.virtual_network_read(id=acl_obj.parent_uuid)
+                elif acl_obj.parent_type == 'security-group':
+                    _vnc_lib.security_group_read(id=acl_obj.parent_uuid)
+            except NoIdError:
+                try:
+                    _vnc_lib.access_control_list_delete(id=acl.uuid)
+                except NoIdError:
+                    pass
+        # end for acl
+    # end reinit
 
     def cleanup(self):
         # TODO cleanup sandesh context
