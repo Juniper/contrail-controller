@@ -15,10 +15,11 @@
 
 #include "base/util.h"
 #include "io/server_manager.h"
+#include "io/io_utils.h"
 
 class EventManager;
 class TcpSession;
-class TcpServerSocketStats;
+class SocketIOStats;
 
 class TcpServer {
 public:
@@ -54,27 +55,6 @@ public:
     virtual bool DisableSandeshLogMessages() { return false; }
 
     int GetPort() const;
-
-    struct SocketStats {
-        SocketStats() {
-            read_calls = 0;
-            read_bytes = 0;
-            write_calls = 0;
-            write_bytes = 0;
-            write_blocked = 0;
-            write_blocked_duration_usecs = 0;
-        }
-
-        void GetRxStats(TcpServerSocketStats &socket_stats) const;
-        void GetTxStats(TcpServerSocketStats &socket_stats) const;
-
-        tbb::atomic<uint64_t> read_calls;
-        tbb::atomic<uint64_t> read_bytes;
-        tbb::atomic<uint64_t> write_calls;
-        tbb::atomic<uint64_t> write_bytes;
-        tbb::atomic<uint64_t> write_blocked;
-        tbb::atomic<uint64_t> write_blocked_duration_usecs;
-    };
     const SocketStats &GetSocketStats() const { return stats_; }
 
     //
@@ -96,8 +76,8 @@ public:
     // wait until the server has deleted all sessions.
     void WaitForEmpty();
 
-    void GetRxSocketStats(TcpServerSocketStats &socket_stats) const;
-    void GetTxSocketStats(TcpServerSocketStats &socket_stats) const;
+    void GetRxSocketStats(SocketIOStats &socket_stats) const;
+    void GetTxSocketStats(SocketIOStats &socket_stats) const;
 
 protected:
     // Create a session object.

@@ -205,11 +205,11 @@ void BgpServerUnitTest::ValidateClearBgpNeighborResponse(
 void BgpServerUnitTest::ValidateShowBgpServerResponse(Sandesh *sandesh) {
     ShowBgpServerResp *resp = dynamic_cast<ShowBgpServerResp *>(sandesh);
     EXPECT_TRUE(resp != NULL);
-    const TcpServerSocketStats &rx_stats = resp->get_rx_socket_stats();
+    const SocketIOStats &rx_stats = resp->get_rx_socket_stats();
     EXPECT_NE(0, rx_stats.calls);
     EXPECT_NE(0, rx_stats.bytes);
     EXPECT_NE(0, rx_stats.average_bytes);
-    const TcpServerSocketStats &tx_stats = resp->get_tx_socket_stats();
+    const SocketIOStats &tx_stats = resp->get_tx_socket_stats();
     EXPECT_NE(0, tx_stats.calls);
     EXPECT_NE(0, tx_stats.bytes);
     EXPECT_NE(0, tx_stats.average_bytes);

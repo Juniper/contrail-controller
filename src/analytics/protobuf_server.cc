@@ -262,21 +262,14 @@ class ProtobufServer::ProtobufServerImpl {
             return true;
         }
 
-        virtual void HandleReceive(boost::asio::const_buffer &recv_buffer,
-            boost::asio::ip::udp::endpoint remote_endpoint,
-            std::size_t bytes_transferred,
-            const boost::system::error_code& error) {
-            if (error) {
-                LOG(ERROR, "ProtobufUdpServer Receive FAILED: " <<
-                    remote_endpoint << " : " << error);
-                DeallocateBuffer(recv_buffer);
-                return;
-            }
+        virtual void OnRead(boost::asio::const_buffer &recv_buffer,
+            const boost::asio::ip::udp::endpoint &remote_endpoint) {
             uint64_t timestamp;
             Message *message = NULL;
             if (!reader_.ParseSelfDescribingMessage(
                     boost::asio::buffer_cast<const uint8_t *>(recv_buffer),
-                    bytes_transferred, &timestamp, &message)) {
+                    boost::asio::buffer_size(recv_buffer), &timestamp,
+                    &message)) {
                 LOG(ERROR, "Reading protobuf message FAILED: " <<
                     remote_endpoint);
                 DeallocateBuffer(recv_buffer);

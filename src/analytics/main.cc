@@ -122,10 +122,10 @@ bool CollectorSummaryLogger(Collector *collector, const string & hostname,
     state.set_generator_infos(infos);
 
     // Get socket stats
-    TcpServerSocketStats rx_stats;
+    SocketIOStats rx_stats;
     collector->GetRxSocketStats(rx_stats);
     state.set_rx_socket_stats(rx_stats);
-    TcpServerSocketStats tx_stats;
+    SocketIOStats tx_stats;
     collector->GetTxSocketStats(tx_stats);
     state.set_tx_socket_stats(tx_stats);
 

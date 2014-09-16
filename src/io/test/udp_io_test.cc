@@ -61,7 +61,6 @@ class EchoServer: public UdpServer {
             }
 
             StartSend(remote_endpoint, snd.length(), send);
-            StartReceive();
         } else {
             DeallocateBuffer(recv_buffer);
         }
@@ -127,6 +126,7 @@ class EchoClient : public UdpServer {
         UDP_UT_LOG_DEBUG("rx (" << remote_endpoint << ")[" << error << "](" <<
             bytes_transferred << ")\"" << b << "\"\n");
         client_rx_done_ = true;
+        DeallocateBuffer(recv_buffer);
     }
 
     int GetTxBytes() { return tx_count_; }
@@ -159,8 +159,9 @@ class EchoServerTest : public ::testing::Test {
         task_util::WaitForIdle();
         server_->Shutdown();
         task_util::WaitForIdle();
-        UdpServerManager::DeleteServer(server_);
         UdpServerManager::DeleteServer(client_);
+        task_util::WaitForIdle();
+        UdpServerManager::DeleteServer(server_);
         task_util::WaitForIdle();
         if (thread_.get() != NULL) {
             thread_->Join();
@@ -196,8 +197,11 @@ class EchoServerBranchTest : public ::testing::Test {
         s->StartReceive();
         s->Initialize("127.0.0.1", 0);
         s->Initialize(0);  // hit error path.. shd ret
+        task_util::WaitForIdle();
         s->Shutdown();
+        task_util::WaitForIdle();
         UdpServerManager::DeleteServer(s);
+        task_util::WaitForIdle();
         UDP_UT_LOG_DEBUG("UDP branch test Shutdown: " << _test_run);
     }
 
@@ -231,6 +235,124 @@ TEST_F(EchoServerTest, Basic) {
 
 TEST_F(EchoServerBranchTest, Basic) {
     TestCreation();
+}
+
+class UdpRecvServerTest: public UdpServer {
+ public:
+    explicit UdpRecvServerTest(EventManager *evm) :
+        UdpServer(evm),
+        recv_msg_(0) {
+    }
+
+    ~UdpRecvServerTest() { }
+
+    void OnRead(boost::asio::const_buffer &recv_buffer,
+                const udp::endpoint &remote_endpoint) {
+        UDP_UT_LOG_DEBUG("Received " << boost::asio::buffer_size(recv_buffer)
+            << " bytes from " << remote_endpoint);
+        recv_msg_++;
+        DeallocateBuffer(recv_buffer);
+    }
+
+    int GetNumRecvMsg() const {
+        return recv_msg_;
+    }
+
+ private:
+    int recv_msg_;
+};
+
+class UdpLocalClient {
+ public:
+    explicit UdpLocalClient(int port) :
+        dst_port_(port),
+        socket_(-1) {
+    }
+    ~UdpLocalClient() {
+        if (socket_ != -1) {
+            close(socket_);
+        }
+    }
+    bool Connect() {
+        socket_ = socket(AF_INET, SOCK_DGRAM, 0);
+        assert(socket_ != -1);
+        struct sockaddr_in sin;
+        memset(&sin, 0, sizeof(sin));
+        sin.sin_family = AF_INET;
+#ifdef __APPLE__
+        sin.sin_len = sizeof(struct sockaddr_in);
+#endif
+        sin.sin_addr.s_addr = htonl(INADDR_LOOPBACK);
+        sin.sin_port = htons(dst_port_);
+        int res = connect(socket_, (sockaddr *) &sin,
+                          sizeof(struct sockaddr_in));
+        return (res != -1);
+    }
+    int Send(const u_int8_t *data, size_t len) {
+        return send(socket_, data, len, 0);
+    }
+    int Recv(u_int8_t *buffer, size_t len) {
+        return recv(socket_, buffer, len, 0);
+    }
+    void Close() {
+        int res = shutdown(socket_, SHUT_RDWR);
+        assert(res == 0);
+    }
+  private:
+    int dst_port_;
+    int socket_;
+};
+
+class UdpRecvTest : public ::testing::Test {
+ protected:
+    UdpRecvTest() :
+        evm_(new EventManager()) {
+    }
+    virtual void SetUp() {
+        server_ = new UdpRecvServerTest(evm_.get());
+        thread_.reset(new ServerThread(evm_.get()));
+    }
+    virtual void TearDown() {
+        task_util::WaitForIdle();
+        evm_->Shutdown();
+        task_util::WaitForIdle();
+        server_->Shutdown();
+        task_util::WaitForIdle();
+        UdpServerManager::DeleteServer(server_);
+        server_ = NULL;
+        if (thread_.get() != NULL) {
+            thread_->Join();
+        }
+        task_util::WaitForIdle();
+    }
+    std::auto_ptr<ServerThread> thread_;
+    std::auto_ptr<EventManager> evm_;
+    UdpRecvServerTest *server_;
+};
+
+TEST_F(UdpRecvTest, Basic) {
+    server_->Initialize(0);
+    server_->StartReceive();
+    task_util::WaitForIdle();
+    thread_->Start();           // Must be called after initialization
+    boost::system::error_code ec;
+    boost::asio::ip::udp::endpoint ep = server_->GetLocalEndpoint(&ec);
+    ASSERT_LT(0, ep.port());
+    UDP_UT_LOG_DEBUG("Server port: " << ep.port());
+    UdpLocalClient client(ep.port());
+    TASK_UTIL_EXPECT_TRUE(client.Connect());
+    const char msg[] = "Test Message";
+    int len = client.Send((const u_int8_t *) msg, sizeof(msg));
+    TASK_UTIL_EXPECT_EQ((int) sizeof(msg), len);
+    len += client.Send((const u_int8_t *) msg, sizeof(msg));
+    TASK_UTIL_EXPECT_EQ((int) 2 * sizeof(msg), len);
+    TASK_UTIL_EXPECT_EQ(2, server_->GetNumRecvMsg());
+    SocketIOStats rx_stats;
+    server_->GetRxSocketStats(rx_stats);
+    EXPECT_EQ(2, rx_stats.calls);
+    EXPECT_EQ(len, rx_stats.bytes);
+    client.Close();
+    task_util::WaitForIdle();
 }
 
 }  // namespace

@@ -15,6 +15,7 @@
 #include "io/event_manager.h"
 #include "io/tcp_server.h"
 #include "io/tcp_message_write.h"
+#include "io/io_utils.h"
 #include "io/io_log.h"
 
 using namespace boost::asio;
@@ -643,11 +644,11 @@ boost::system::error_code TcpSession::SetSocketOptions() {
     return ec;
 }
 
-void TcpSession::GetRxSocketStats(TcpServerSocketStats &socket_stats) const {
+void TcpSession::GetRxSocketStats(SocketIOStats &socket_stats) const {
     stats_.GetRxStats(socket_stats);
 }
 
-void TcpSession::GetTxSocketStats(TcpServerSocketStats &socket_stats) const {
+void TcpSession::GetTxSocketStats(SocketIOStats &socket_stats) const {
     stats_.GetTxStats(socket_stats);
 }
 
