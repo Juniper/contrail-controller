@@ -1298,6 +1298,7 @@ class VncKombuClient(object):
 class VncZkClient(object):
     _SUBNET_PATH = "/api-server/subnets"
     _FQ_NAME_TO_UUID_PATH = "/fq-name-to-uuid"
+    _MAX_SUBNET_ADDR_ALLOC = 65535
 
     def __init__(self, instance_id, zk_server_ip, reset_config, db_prefix):
         self._db_prefix = db_prefix
@@ -1334,7 +1335,8 @@ class VncZkClient(object):
             self._subnet_allocators[subnet] = IndexAllocator(
                 self._zk_client, self._subnet_path+'/'+subnet+'/',
                 size=0, start_idx=0, reverse=not addr_from_start,
-                alloc_list=subnet_alloc_list)
+                alloc_list=subnet_alloc_list,
+		max_alloc=self._MAX_SUBNET_ADDR_ALLOC)
     # end create_subnet_allocator
 
     def delete_subnet_allocator(self, subnet):

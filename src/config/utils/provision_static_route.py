@@ -30,6 +30,7 @@ class StaticRouteProvisioner(object):
         prefix = self._args.prefix
         vmi_id_got = self._args.virtual_machine_interface_id
         route_table_name = self._args.route_table_name
+        route_table_family = self._args.route_table_family
         
         project_fq_name_str = 'default-domain:'+ self._args.tenant_name
         project_fq_name = project_fq_name_str.split(':')
@@ -38,6 +39,7 @@ class StaticRouteProvisioner(object):
         route_table = RouteTableType(route_table_name)
         route_table.set_route([])
         intf_route_table = InterfaceRouteTable(
+                                interface_route_table_family = route_table_family,
                                 interface_route_table_routes = route_table,
                                 parent_obj=project_obj, 
                                 name=route_table_name)
@@ -63,7 +65,7 @@ class StaticRouteProvisioner(object):
         #Update the VMI Object now
         vmi_obj = self._vnc_lib.virtual_machine_interface_read(id = vmi_id_got)
         if self._args.oper == 'add':
-            vmi_obj.set_interface_route_table(intf_route_table_obj)
+            vmi_obj.add_interface_route_table(intf_route_table_obj)
         elif self._args.oper == 'del':
             if self.is_route_table_empty(intf_route_table_obj):
                 vmi_obj.del_interface_route_table(intf_route_table_obj)
@@ -118,6 +120,7 @@ class StaticRouteProvisioner(object):
                                         --prefix 2.2.2.0/24
                                         --virtual_machine_interface_id 242717c9-8e78-4c67-94a8-5fbef1f2f096 
                                         --route_table_name "MyRouteTable" 
+                                        --route_table_family "v4"
                                         --tenant_name "admin"
                                         --oper <add | del>
         '''
@@ -136,6 +139,7 @@ class StaticRouteProvisioner(object):
             'oper': 'add',
             'control_names': [],
             'route_table_name': 'CustomRouteTable',
+            'route_table_family': 'v4',
         }
         ksopts = {
             'user': 'user1',
@@ -181,6 +185,8 @@ class StaticRouteProvisioner(object):
             "--password", help="Password of keystone admin user")
         parser.add_argument(
             "--route_table_name", help="Route Table name. Default : CustomRouteTable")
+        parser.add_argument(
+            "--route_table_family", help="Route Table family, v4 or v6. Default : v4")
 
         self._args = parser.parse_args(remaining_argv)
 
