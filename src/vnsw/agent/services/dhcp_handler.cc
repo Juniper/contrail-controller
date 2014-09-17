@@ -509,6 +509,11 @@ bool DhcpHandler::ReadOptions(int16_t opt_rem_len) {
                     config_.domain_name_.assign((char *)opt->data, opt->len);
                 break;
 
+            case DHCP_OPTION_PARAMETER_REQUEST_LIST:
+                if (opt_rem_len >= opt->len + 2)
+                    parameters_.assign((char *)opt->data, opt->len);
+                break;
+
             case DHCP_OPTION_82:
                 ReadOption82(opt);
                 break;
@@ -1451,8 +1456,12 @@ uint16_t DhcpHandler::DhcpHdr(in_addr_t yiaddr, in_addr_t siaddr) {
         // Add classless route option
         opt_len = AddClasslessRouteOption(opt_len);
 
-        if (!is_flag_set(DHCP_OPTION_CLASSLESS_ROUTE) &&
-            !is_flag_set(DHCP_OPTION_ROUTER) && config_.gw_addr) {
+        // Send Router option even if Classless Static Routes option is present.
+        // When client requests Classless Static Routes option and this is
+        // included in the response, Router option is not included.
+        if (!is_flag_set(DHCP_OPTION_ROUTER) && config_.gw_addr &&
+            !(IsOptionRequested(DHCP_OPTION_CLASSLESS_ROUTE) &&
+              is_flag_set(DHCP_OPTION_CLASSLESS_ROUTE))) {
             opt = GetNextOptionPtr(opt_len);
             opt->WriteWord(DHCP_OPTION_ROUTER, config_.gw_addr, &opt_len);
         }
@@ -1544,6 +1553,15 @@ void DhcpHandler::SendDhcpResponse() {
     FillDhcpResponse(dest_mac, src_ip, dest_ip, siaddr, yiaddr);
     Send(GetInterfaceIndex(), pkt_info_->vrf, AgentHdr::TX_SWITCH,
          PktHandler::DHCP);
+}
+
+// Check if the option is requested by the client or not
+bool DhcpHandler::IsOptionRequested(uint8_t option) {
+    for (uint32_t i = 0; i < parameters_.size(); i++) {
+        if (parameters_[i] == option)
+            return true;
+    }
+    return false;
 }
 
 void DhcpHandler::UpdateStats() {

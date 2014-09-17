@@ -117,7 +117,8 @@ public:
                               const char *host_routes_string,
                               const char *dhcp_option_string,
                               bool check_other_options,
-                              const char *other_option_string) {
+                              const char *other_option_string,
+                              bool gateway) {
         if (memcmp(sandesh->Name(), "DhcpPktSandesh",
                    strlen("DhcpPktSandesh")) == 0) {
             DhcpPktSandesh *dhcp_pkt = (DhcpPktSandesh *)sandesh;
@@ -133,11 +134,11 @@ public:
                     std::string::npos) {
                     assert(0);
                 }
-                // Also check that when host routes are specified, GW option is not sent
+                // Check that when host routes are specified, GW option is sent
                 if (strlen(host_routes_string) &&
-                    pkt.dhcp_hdr.dhcp_options.find("Gateway : ") !=
+                    pkt.dhcp_hdr.dhcp_options.find("Gateway : ") ==
                     std::string::npos) {
-                    assert(0);
+                    if (gateway) assert(0);
                 }
             }
             if (check_other_options) {
@@ -310,6 +311,12 @@ public:
                     ptr += 2;
                     len += 2;
                     break;
+                case DHCP_OPTION_PARAMETER_REQUEST_LIST:
+                    *ptr = 1;
+                    *(ptr+1) = DHCP_OPTION_CLASSLESS_ROUTE;
+                    ptr += 2;
+                    len += 2;
+                    break;
                 case DHCP_OPTION_DOMAIN_NAME:
                     *ptr = 11;
                     memcpy(ptr+1, "test.domain", 11);
@@ -472,7 +479,7 @@ public:
         Sandesh::set_response_callback(boost::bind(
             &DhcpTest::CheckSandeshResponse, this, _1,
             dhcp_string, "", dhcp_option_string,
-            other_string, other_option_string));
+            other_string, other_option_string, true));
         sand->HandleRequest();
         client->WaitForIdle();
         sand->Release();
@@ -580,7 +587,7 @@ TEST_F(DhcpTest, DhcpReqTest) {
     DhcpInfo *sand = new DhcpInfo();
     Sandesh::set_response_callback(
         boost::bind(&DhcpTest::CheckSandeshResponse, this, _1,
-                    true, "", DHCP_RESPONSE_STRING, false, ""));
+                    true, "", DHCP_RESPONSE_STRING, false, "", true));
     sand->HandleRequest();
     client->WaitForIdle();
     sand->Release();
@@ -700,7 +707,7 @@ TEST_F(DhcpTest, DhcpOptionTest) {
     DhcpInfo *sand = new DhcpInfo();
     Sandesh::set_response_callback(boost::bind(&DhcpTest::CheckSandeshResponse,
                                                this, _1, false, "", "",
-                                               false, ""));
+                                               false, "", true));
     sand->HandleRequest();
     client->WaitForIdle();
     sand->Release();
@@ -749,7 +756,7 @@ TEST_F(DhcpTest, DhcpNakTest) {
     DhcpInfo *sand = new DhcpInfo();
     Sandesh::set_response_callback(boost::bind(&DhcpTest::CheckSandeshResponse,
                                                this, _1, false, "", "",
-                                               false, ""));
+                                               false, "", true));
     sand->HandleRequest();
     client->WaitForIdle();
     sand->Release();
@@ -1041,7 +1048,7 @@ TEST_F(DhcpTest, IpamSpecificDhcpOptions) {
                                                this, _1, true,
                                                HOST_ROUTE_STRING,
                                                IPAM_DHCP_OPTIONS_STRING,
-                                               false, ""));
+                                               false, "", true));
     sand->HandleRequest();
     client->WaitForIdle();
     sand->Release();
@@ -1068,7 +1075,7 @@ TEST_F(DhcpTest, IpamSpecificDhcpOptions) {
                                                this, _1, true,
                                                CHANGED_HOST_ROUTE_STRING,
                                                IPAM_DHCP_OPTIONS_STRING,
-                                               false, ""));
+                                               false, "", true));
     new_sand->HandleRequest();
     client->WaitForIdle();
     new_sand->Release();
@@ -1171,7 +1178,7 @@ TEST_F(DhcpTest, SubnetSpecificDhcpOptions) {
                                                this, _1, true,
                                                HOST_ROUTE_STRING,
                                                SUBNET_DHCP_OPTIONS_STRING,
-                                               false, ""));
+                                               false, "", true));
     sand->HandleRequest();
     client->WaitForIdle();
     sand->Release();
@@ -1200,6 +1207,7 @@ TEST_F(DhcpTest, PortSpecificDhcpOptions) {
         DHCP_OPTION_MSG_TYPE,
         DHCP_OPTION_HOST_NAME,
         DHCP_OPTION_DOMAIN_NAME,
+        DHCP_OPTION_PARAMETER_REQUEST_LIST,
         DHCP_OPTION_END
     };
     DhcpProto::DhcpStats stats;
@@ -1271,8 +1279,8 @@ TEST_F(DhcpTest, PortSpecificDhcpOptions) {
     client->WaitForIdle();
 
     ClearPktTrace();
-    SendDhcp(GetItfId(0), 0x8000, DHCP_DISCOVER, options, 4);
-    SendDhcp(GetItfId(0), 0x8000, DHCP_REQUEST, options, 4);
+    SendDhcp(GetItfId(0), 0x8000, DHCP_DISCOVER, options, 5);
+    SendDhcp(GetItfId(0), 0x8000, DHCP_REQUEST, options, 5);
     int count = 0;
     DHCP_CHECK (stats.acks < 1);
     EXPECT_EQ(1U, stats.discover);
@@ -1285,7 +1293,7 @@ TEST_F(DhcpTest, PortSpecificDhcpOptions) {
                                                this, _1, true,
                                                PORT_HOST_ROUTE_STRING,
                                                PORT_DHCP_OPTIONS_STRING,
-                                               false, ""));
+                                               false, "", false));
     sand->HandleRequest();
     client->WaitForIdle();
     sand->Release();
