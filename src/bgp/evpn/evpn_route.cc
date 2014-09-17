@@ -18,7 +18,7 @@ const uint32_t EvpnPrefix::kMaxTag = 0xFFFFFFFF;
 const size_t EvpnPrefix::kRdSize = RouteDistinguisher::kSize;
 const size_t EvpnPrefix::kEsiSize = EthernetSegmentId::kSize;
 const size_t EvpnPrefix::kTagSize = 4;
-const size_t EvpnPrefix::kMacSize = MacAddress::kSize;
+const size_t EvpnPrefix::kMacSize = MacAddress::size();
 const size_t EvpnPrefix::kLabelSize = BgpProtoPrefix::kLabelSize;
 
 const size_t EvpnPrefix::kMinAutoDiscoveryRouteSize =
