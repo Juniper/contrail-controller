@@ -730,6 +730,98 @@ TEST_F(CfgTest, change_in_gatewaywith_no_vrf) {
     WAIT_FOR(1000, 1000, (VrfFind("vrf1") == false));
 }
 
+TEST_F(CfgTest, l2_mode_configured_via_ipam_0_gw) {
+    client->Reset();
+    struct PortInfo input[] = {
+        {"vnet1", 1, "11.1.1.2", "00:00:00:01:01:11", 1, 1},
+    };
+
+    IpamInfo ipam_info[] = {
+        {"11.1.1.0", 24, "0.0.0.0", true},
+    };
+
+    CreateVmportEnv(input, 1, 0);
+    client->WaitForIdle();
+
+    WAIT_FOR(1000, 1000, (VmPortActive(input, 0) == true));
+
+    AddIPAM("vn1", ipam_info, 1);
+    client->WaitForIdle();
+
+    VnEntry *vn = VnGet(1);;
+    EXPECT_FALSE(vn->Ipv4Forwarding());
+    EXPECT_TRUE(vn->layer2_forwarding());
+
+    //Restore and cleanup
+    client->Reset();
+    DelIPAM("vn1");
+    client->WaitForIdle();
+    DeleteVmportEnv(input, 1, 1, 0);
+    client->WaitForIdle();
+    WAIT_FOR(1000, 1000, (VrfFind("vrf1") == false));
+}
+
+TEST_F(CfgTest, l2_mode_configured_via_ipam_linklocal_gw) {
+    client->Reset();
+    struct PortInfo input[] = {
+        {"vnet1", 1, "11.1.1.2", "00:00:00:01:01:11", 1, 1},
+    };
+
+    IpamInfo ipam_info[] = {
+        {"11.1.1.0", 24, "169.254.0.1", true},
+    };
+
+    CreateVmportEnv(input, 1, 0);
+    client->WaitForIdle();
+
+    WAIT_FOR(1000, 1000, (VmPortActive(input, 0) == true));
+
+    AddIPAM("vn1", ipam_info, 1);
+    client->WaitForIdle();
+
+    VnEntry *vn = VnGet(1);;
+    EXPECT_FALSE(vn->Ipv4Forwarding());
+    EXPECT_TRUE(vn->layer2_forwarding());
+
+    //Restore and cleanup
+    client->Reset();
+    DelIPAM("vn1");
+    client->WaitForIdle();
+    DeleteVmportEnv(input, 1, 1, 0);
+    client->WaitForIdle();
+    WAIT_FOR(1000, 1000, (VrfFind("vrf1") == false));
+}
+
+TEST_F(CfgTest, l2_mode_configured_via_ipam_non_linklocal_gw) {
+    client->Reset();
+    struct PortInfo input[] = {
+        {"vnet1", 1, "11.1.1.2", "00:00:00:01:01:11", 1, 1},
+    };
+
+    IpamInfo ipam_info[] = {
+        {"11.1.1.0", 24, "169.253.0.1", true},
+    };
+
+    CreateVmportEnv(input, 1, 0);
+    client->WaitForIdle();
+
+    WAIT_FOR(1000, 1000, (VmPortActive(input, 0) == true));
+
+    AddIPAM("vn1", ipam_info, 1);
+    client->WaitForIdle();
+
+    VnEntry *vn = VnGet(1);;
+    EXPECT_TRUE(vn->Ipv4Forwarding());
+    EXPECT_TRUE(vn->layer2_forwarding());
+
+    //Restore and cleanup
+    client->Reset();
+    DelIPAM("vn1");
+    client->WaitForIdle();
+    DeleteVmportEnv(input, 1, 1, 0);
+    client->WaitForIdle();
+    WAIT_FOR(1000, 1000, (VrfFind("vrf1") == false));
+}
 
 int main(int argc, char **argv) {
     GETUSERARGS();

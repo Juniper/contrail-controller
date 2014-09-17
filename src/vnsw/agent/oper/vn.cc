@@ -7,6 +7,7 @@
 #include <cmn/agent_cmn.h>
 
 #include <base/parse_object.h>
+#include <base/util.h>
 #include <ifmap/ifmap_link.h>
 #include <ifmap/ifmap_table.h>
 #include <vnc_cfg_types.h>
@@ -419,6 +420,16 @@ IFMapNode *VnTable::FindTarget(IFMapAgentTable *table, IFMapNode *node,
     return NULL;
 }
 
+bool VnTable::IsGatewayL2(const string &gateway) const {
+    boost::system::error_code ec;
+    Ip4Address gateway_ip = Ip4Address::from_string(gateway, ec);
+
+    //0.0.0.0 or 169.254.0.0/16 is L2
+    return ((gateway_ip == Ip4Address::from_string("0.0.0.0", ec)) ||
+            IsIp4SubnetMember(gateway_ip, Ip4Address::from_string("169.254.0.0",
+                                                                  ec), 16));
+}
+
 bool VnTable::IFNodeToReq(IFMapNode *node, DBRequest &req) {
     VirtualNetwork *cfg = static_cast <VirtualNetwork *> (node->GetObject());
     assert(cfg);
@@ -488,6 +499,10 @@ bool VnTable::IFNodeToReq(IFMapNode *node, DBRequest &req) {
                     assert(ipam);
                     const VnSubnetsType &subnets = ipam->data();
                     for (unsigned int i = 0; i < subnets.ipam_subnets.size(); ++i) {
+                        if (ipv4_forwarding &&
+                            IsGatewayL2(subnets.ipam_subnets[i].default_gateway))
+                            ipv4_forwarding = false;
+
                         vn_ipam.push_back(
                            VnIpam(subnets.ipam_subnets[i].subnet.ip_prefix,
                                   subnets.ipam_subnets[i].subnet.ip_prefix_len,
