@@ -231,6 +231,7 @@ private:
     void AddHostRouteForGw(VnEntry *vn, const VnIpam &ipam);
     void DelHostRouteForGw(VnEntry *vn, const VnIpam &ipam);
     bool ChangeHandler(DBEntry *entry, const DBRequest *req);
+    bool IsGatewayL2(const string &gateway) const;
     IFMapNode *FindTarget(IFMapAgentTable *table, IFMapNode *node, 
                           std::string node_type);
     DBTableWalker::WalkId walkid_;
