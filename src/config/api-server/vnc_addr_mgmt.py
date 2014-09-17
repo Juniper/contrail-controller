@@ -583,6 +583,9 @@ class AddrMgmt(object):
         for ipam_ref in ipam_refs:
             vnsn_data = ipam_ref['attr']
             ipam_subnets = vnsn_data['ipam_subnets']
+            l2_mode = False
+            l2_l3_mode = False
+            link_local_network = IPNetwork('169.254.0.0/16')
             for ipam_subnet in ipam_subnets:
                 subnet_dict = copy.deepcopy(ipam_subnet['subnet'])
                 prefix = subnet_dict['ip_prefix']
@@ -614,11 +617,27 @@ class AddrMgmt(object):
                         err_msg = "Invalid gateway Ip address:%s" \
                             %(gw)
                         return False, err_msg
-                    if gw_ip < IPAddress(network.first + 1) or gw_ip > IPAddress(network.last - 1):
+                    # gateway being 0.0.0.0 or 169.254.0.0/16 results in
+                    # vn being spawned in l2 forwarding mode
+                    if gw_ip == IPAddress('0.0.0.0') or \
+                       (gw_ip >= IPAddress(link_local_network.first) and \
+                       gw_ip <= IPAddress(link_local_network.last)):
+                        l2_mode = True
+                    elif gw_ip < IPAddress(network.first + 1) or \
+                         gw_ip > IPAddress(network.last - 1):
                         err_msg = "gateway Ip %s out of cidr: %s" \
                             %(gw, subnet_name)
                         return False, err_msg
-                
+                    else:
+                        l2_l3_mode = True
+
+                # Either all subnet will have gateway as required for l2 mode
+                # or for l2_l3 mode. Both can not co-exist as vn forwarding mode
+                # becomes ambiguous
+                if l2_mode == True and l2_l3_mode == True:
+                    err_msg = "gateway Ip of configured subnets conflicting " \
+                        "in deciding forwarding mode for virtual network."
+                    return False, err_msg
         return True, ""
     # end net_check_subnet
 
