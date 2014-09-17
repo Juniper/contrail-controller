@@ -154,7 +154,6 @@ class Subnet(object):
                  dns_nameservers=None,
                  alloc_pool_list=None,
                  addr_from_start=False):
-        self._version = 0
 
         """
         print 'Name = %s, prefix = %s, len = %s, gw = %s, db_conn = %s' \
@@ -226,6 +225,7 @@ class Subnet(object):
 
         self._name = name
         self._network = network
+        self._version = network.version
         self._exclude = exclude
         self.gw_ip = gw_ip
         self._alloc_pool_list = alloc_pool_list
@@ -446,7 +446,7 @@ class AddrMgmt(object):
                     raise AddrMgmtSubnetInvalid(vn_fq_name_str, key)
 
                 req_alloc_list = req_subnet['allocation_pools'] or []
-                db_alloc_list = db_subnet['allocation_pools']  or []
+                db_alloc_list = db_subnet['allocation_pools'] or []
                 if (len(req_alloc_list) != len(db_alloc_list)):
                     raise AddrMgmtSubnetInvalid(vn_fq_name_str, key)
 
@@ -696,7 +696,8 @@ class AddrMgmt(object):
 
     # allocate an IP address for given virtual network
     # we use the first available subnet unless provided
-    def ip_alloc_req(self, vn_fq_name, sub=None, asked_ip_addr=None):
+    def ip_alloc_req(self, vn_fq_name, sub=None, asked_ip_addr=None, 
+                     asked_ip_version=4):
         vn_fq_name_str = ':'.join(vn_fq_name)
         subnet_dicts = self._get_subnet_dicts(vn_fq_name)
 
@@ -730,6 +731,8 @@ class AddrMgmt(object):
                                     addr_from_start = subnet_dict['addr_start'])
                 self._subnet_objs[vn_fq_name_str][subnet_name] = subnet_obj
 
+            if asked_ip_version != subnet_obj.get_version():
+                continue
             if asked_ip_addr and not subnet_obj.ip_belongs(asked_ip_addr):
                 continue
             try:
