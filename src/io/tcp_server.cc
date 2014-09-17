@@ -287,19 +287,20 @@ void TcpServer::AcceptHandlerInternal(TcpServerPtr server,
         goto done;
     }
 
-    if (acceptor_ == NULL) {
-        TCP_SESSION_LOG_DEBUG(session, TCP_DIR_IN,
-                              "Session accepted after server shutdown: "
-                                  << remote.address().to_string()
-                                  << ":" << remote.port());
-        goto done;
-    }
-
     socket.reset(so_accept_.release());
     remote = socket->remote_endpoint(ec);
     if (ec) {
         TCP_SERVER_LOG_ERROR(this, TCP_DIR_IN,
                              "Accept: No remote endpoint: " << ec.message());
+        goto done;
+    }
+
+    if (acceptor_ == NULL) {
+        TCP_SESSION_LOG_DEBUG(session, TCP_DIR_IN,
+                              "Session accepted after server shutdown: "
+                                  << remote.address().to_string()
+                                  << ":" << remote.port());
+        socket->close(ec);
         goto done;
     }
 
