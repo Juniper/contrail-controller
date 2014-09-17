@@ -385,8 +385,14 @@ void ServicesSandesh::FillDhcpOptions(DhcpOptions *opt, std::string &resp,
                 break;
 
             case DHCP_OPTION_ROUTER:
-                if (len >= (2 + opt->len))
-                    resp += FillOptionIp(get_val(opt->data), "Gateway : ");
+                if (len >= (2 + opt->len)) {
+                    int16_t optlen = 0;
+                    while (optlen < opt->len) {
+                        resp += FillOptionIp(get_val(opt->data + optlen),
+                                             "Gateway : ");
+                        optlen += 4;
+                    }
+                }
                 break;
 
             case DHCP_OPTION_DNS:

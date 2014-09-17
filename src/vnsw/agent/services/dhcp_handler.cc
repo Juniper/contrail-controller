@@ -509,6 +509,11 @@ bool DhcpHandler::ReadOptions(int16_t opt_rem_len) {
                     config_.domain_name_.assign((char *)opt->data, opt->len);
                 break;
 
+            case DHCP_OPTION_PARAMETER_REQUEST_LIST:
+                if (opt_rem_len >= opt->len + 2)
+                    parameters_.assign((char *)opt->data, opt->len);
+                break;
+
             case DHCP_OPTION_82:
                 ReadOption82(opt);
                 break;
@@ -1261,8 +1266,14 @@ uint16_t DhcpHandler::AddDhcpOptions(
                 break;
 
             case OneIPPlus:
-                opt_len = AddIpOption(option, opt_len,
-                                      options[i].dhcp_option_value, 1, 0, 0);
+                if (option == DHCP_OPTION_ROUTER) {
+                    // Router option is added later
+                    routers_ = options[i].dhcp_option_value;
+                } else {
+                    opt_len = AddIpOption(option, opt_len,
+                                          options[i].dhcp_option_value,
+                                          1, 0, 0);
+                }
                 break;
 
             case TwoIPPlus:
@@ -1451,10 +1462,9 @@ uint16_t DhcpHandler::DhcpHdr(in_addr_t yiaddr, in_addr_t siaddr) {
         // Add classless route option
         opt_len = AddClasslessRouteOption(opt_len);
 
-        if (!is_flag_set(DHCP_OPTION_CLASSLESS_ROUTE) &&
-            !is_flag_set(DHCP_OPTION_ROUTER) && config_.gw_addr) {
-            opt = GetNextOptionPtr(opt_len);
-            opt->WriteWord(DHCP_OPTION_ROUTER, config_.gw_addr, &opt_len);
+        if (IsRouterOptionNeeded()) {
+            opt_len = AddIpOption(DHCP_OPTION_ROUTER, opt_len,
+                                  routers_, 1, 0, 0);
         }
 
         if (!is_flag_set(DHCP_OPTION_HOST_NAME) &&
@@ -1544,6 +1554,33 @@ void DhcpHandler::SendDhcpResponse() {
     FillDhcpResponse(dest_mac, src_ip, dest_ip, siaddr, yiaddr);
     Send(GetInterfaceIndex(), pkt_info_->vrf, AgentHdr::TX_SWITCH,
          PktHandler::DHCP);
+}
+
+// Check if the option is requested by the client or not
+bool DhcpHandler::IsOptionRequested(uint8_t option) {
+    for (uint32_t i = 0; i < parameters_.size(); i++) {
+        if (parameters_[i] == option)
+            return true;
+    }
+    return false;
+}
+
+bool DhcpHandler::IsRouterOptionNeeded() {
+    // If GW is not configured, dont include
+    if (!config_.gw_addr)
+        return false;
+
+    // If router option is already included, nothing to do
+    if (is_flag_set(DHCP_OPTION_ROUTER))
+        return false;
+
+    // When client requests Classless Static Routes option and this is
+    // included in the response, Router option is not included (RFC3442)
+    if (IsOptionRequested(DHCP_OPTION_CLASSLESS_ROUTE) &&
+        is_flag_set(DHCP_OPTION_CLASSLESS_ROUTE))
+        return false;
+
+    return true;
 }
 
 void DhcpHandler::UpdateStats() {

@@ -382,6 +382,8 @@ private:
                               in_addr_t src_ip, in_addr_t dest_ip,
                               in_addr_t siaddr, in_addr_t yiaddr);
     void SendDhcpResponse();
+    bool IsOptionRequested(uint8_t option);
+    bool IsRouterOptionNeeded();
     void UpdateStats();
     DhcpOptionCategory OptionCategory(uint32_t option) const;
     uint32_t OptionCode(const std::string &option) const;
@@ -401,7 +403,10 @@ private:
     // parse and store the host routes coming in config
     std::vector<OperDhcpOptions::Subnet> host_routes_;
     DhcpOptionLevel host_routes_level_;
+    // store the DHCP routers coming in config
+    std::string routers_;
 
+    std::string parameters_; // options requested by the DHCP client
     std::string nak_msg_;
     ConfigRecord config_;
     DhcpRequestData request_;
