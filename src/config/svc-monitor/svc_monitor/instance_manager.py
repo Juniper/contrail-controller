@@ -108,7 +108,7 @@ class InstanceManager(object):
         return rt_obj
     #end _set_static_routes
 
-    def _create_svc_vm_port(self, nic, vm_name, st_obj, si_obj):
+    def _create_svc_vm_port(self, nic, vm_name, st_obj, si_obj, user_visible=None):
         # get virtual network
         try:
             vn_obj = self._vnc_lib.virtual_network_read(id=nic['net-id'])
@@ -128,6 +128,9 @@ class InstanceManager(object):
             vmi_obj = self._vnc_lib.virtual_machine_interface_read(fq_name=port_fq_name)
         except NoIdError:
             vmi_obj = VirtualMachineInterface(parent_obj=proj_obj, name=port_name)
+            if user_visible is not None:
+                id_perms = IdPermsType(enable=True, user_visible=user_visible)
+                vmi_obj.set_id_perms(id_perms)
             vmi_created = True
 
         # set vn, itf_type, sg and static routes
@@ -176,11 +179,14 @@ class InstanceManager(object):
         return vmi_obj
     # end _create_svc_vm_port
 
-    def _create_svc_vn(self, vn_name, vn_subnet, proj_obj):
+    def _create_svc_vn(self, vn_name, vn_subnet, proj_obj, user_visible=None):
         self.logger.log(
             "Creating network %s subnet %s" % (vn_name, vn_subnet))
 
         vn_obj = VirtualNetwork(name=vn_name, parent_obj=proj_obj)
+        if user_visible is not None:
+            id_perms = IdPermsType(enable=True, user_visible=user_visible)
+            vn_obj.set_id_perms(id_perms)
         domain_name, project_name = proj_obj.get_fq_name()
         ipam_fq_name = [domain_name, 'default-project', 'default-network-ipam']
         ipam_obj = self._vnc_lib.network_ipam_read(fq_name=ipam_fq_name)
@@ -484,8 +490,11 @@ class NetworkNamespaceManager(InstanceManager):
 
             # Create virtual machine interfaces with an IP on networks
             for nic in nics:
+                user_visible = True
+                if nic['type'] == svc_info.get_left_if_str():
+                    user_visible = False
                 vmi_obj = self._create_svc_vm_port(nic, instance_name, st_obj,
-                                                   si_obj)
+                                                   si_obj, user_visible)
                 vmi_obj.set_virtual_machine(vm_obj)
                 self._vnc_lib.virtual_machine_interface_update(vmi_obj)
                 self.logger.log("Info: VMI %s updated with VM %s" %
@@ -557,7 +566,8 @@ class NetworkNamespaceManager(InstanceManager):
                                                 vn_fq_name)
         except NoIdError:
             snat_cidr = svc_info.get_snat_left_subnet()
-            vn_id = self._create_svc_vn(vn_name, snat_cidr, proj_obj)
+            vn_id = self._create_svc_vn(vn_name, snat_cidr, proj_obj,
+                                        user_visible=False)
 
         if vn_fq_name_str != ':'.join(vn_fq_name):
             si_props.set_left_virtual_network(':'.join(vn_fq_name))

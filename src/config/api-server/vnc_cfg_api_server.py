@@ -1017,10 +1017,9 @@ class VncApiServer(VncApiServerGen):
 
         # Start from default and update from obj_dict
         req_id_perms = obj_dict['id_perms']
-        if 'enable' in req_id_perms:
-            new_id_perms['enable'] = req_id_perms['enable']
-        if 'description' in req_id_perms:
-            new_id_perms['description'] = req_id_perms['description']
+        for key in ('enable', 'description', 'user_visible'):
+            if key in req_id_perms:
+                new_id_perms[key] = req_id_perms[key]
         # TODO handle perms present in req_id_perms
 
         obj_dict['id_perms'] = new_id_perms
