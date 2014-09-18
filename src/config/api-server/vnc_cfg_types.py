@@ -164,9 +164,14 @@ class InstanceIpServer(InstanceIpServerGen):
             return True,  ""
 
         req_ip = obj_dict.get("instance_ip_address", None)
+        req_ip_family = obj_dict.get("instance_ip_family", None)
+        if req_ip_family == "v4": req_ip_version = 4
+        if req_ip_family == "v6": req_ip_version = 6
+
         try:
             ip_addr = cls.addr_mgmt.ip_alloc_req(
-                vn_fq_name, asked_ip_addr=req_ip)
+                vn_fq_name, asked_ip_addr=req_ip, 
+                asked_ip_version=req_ip_version)
         except Exception as e:
             return (False, (500, str(e)))
         obj_dict['instance_ip_address'] = ip_addr

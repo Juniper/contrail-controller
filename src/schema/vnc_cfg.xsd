@@ -868,10 +868,20 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
      Link('virtual-machine-interface-routing-instance',
           'virtual-machine-interface', 'bgp:routing-instance', ['ref']) -->
 
+<xsd:simpleType name="IpAddressFamilyType">
+    <xsd:restriction base="xsd:string">
+        <xsd:enumeration value="v4"/>
+        <xsd:enumeration value="v6"/>
+    </xsd:restriction>
+</xsd:simpleType>
+
 <xsd:element name="instance-ip" type="ifmap:IdentityType"/>
 <xsd:element name="instance-ip-address" type="IpAddressType"/>
 <!--#IFMAP-SEMANTICS-IDL 
      Property('instance-ip-address', 'instance-ip') -->
+<xsd:element name="instance-ip-family" type="IpAddressFamilyType"/>
+<!--#IFMAP-SEMANTICS-IDL 
+     Property('instance-ip-family', 'instance-ip') -->
 <xsd:element name="instance-ip-mode" type="AddressMode"/>
 <!--#IFMAP-SEMANTICS-IDL 
      Property('instance-ip-mode', 'instance-ip') -->
@@ -915,6 +925,9 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
 <xsd:element name="floating-ip-fixed-ip-address" type="IpAddressType"/>
 <!--#IFMAP-SEMANTICS-IDL 
      Property('floating-ip-fixed-ip-address', 'floating-ip') -->
+<xsd:element name="floating-ip-address-family" type="IpAddressFamilyType"/>
+<!--#IFMAP-SEMANTICS-IDL 
+     Property('floating-ip-address-family', 'floating-ip') -->
 <xsd:element name="floating-ip-project"/>
 <!--#IFMAP-SEMANTICS-IDL 
      Link('floating-ip-project',
@@ -1143,6 +1156,9 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
 <!--#IFMAP-SEMANTICS-IDL 
      Link('virtual-machine-interface-route-table',
           'virtual-machine-interface', 'interface-route-table', ['ref']) -->
+<xsd:element name="interface-route-table-family" type="IpAddressFamilyType"/>
+<!--#IFMAP-SEMANTICS-IDL 
+     Property('interface-route-table-family', 'interface-route-table') -->
 <xsd:element name="interface-route-table-routes" type="RouteTableType"/>
 <!--#IFMAP-SEMANTICS-IDL 
      Property('interface-route-table-routes', 'interface-route-table') -->

@@ -21,8 +21,8 @@ LOG_DIR = '/var/log/contrail/'
 
 class IndexAllocator(object):
 
-    def __init__(self, zookeeper_client, path, size=0, start_idx=0, reverse=False,
-                 alloc_list=None):
+    def __init__(self, zookeeper_client, path, size=0, start_idx=0, 
+                 reverse=False,alloc_list=None, max_alloc=0):
         if alloc_list is None:
             self._alloc_list = [{'start':start_idx, 'end':start_idx+size}]
         else:
@@ -46,6 +46,10 @@ class IndexAllocator(object):
 
         self._size = size
         self._start_idx = start_idx
+        if max_alloc == 0:
+            self._max_alloc = self._size
+        else:
+            self._max_alloc = max_alloc
 
         self._zookeeper_client = zookeeper_client
         self._path = path
@@ -91,7 +95,11 @@ class IndexAllocator(object):
     # end _get_bit_from_zk_index
 
     def _set_in_use(self, idx):
-        # set idx bit to 1, extend the _in_use if needed
+        # if the index is higher than _max_alloc, do not use the bitarray, in
+        # order to reduce the size of the bitarray. Otherwise, set the bit
+        # corresponding to idx to 1 and extend the _in_use bitarray if needed
+        if idx > self._max_alloc:
+            return
         if idx >= self._in_use.length():
             temp = bitarray(idx - self._in_use.length())
             temp.setall(0)
@@ -104,7 +112,7 @@ class IndexAllocator(object):
     def alloc(self, value=None):
         if self._in_use.all():
             idx = self._in_use.length()
-            if idx > self._size:
+            if idx > self._max_alloc:
                 raise ResourceExhaustionError()
             self._in_use.append(1)
         else:
