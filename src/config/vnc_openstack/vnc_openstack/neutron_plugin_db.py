@@ -3763,6 +3763,15 @@ class DBInterface(object):
 
     #end port_delete
 
+    def _port_fixed_ips_is_present(self, check, against):
+        for addr in check['ip_address']:
+            for item in against:
+                if item['ip_address'] == addr:
+                    return True
+
+        return False
+    # end _port_fixed_ips_is_present
+
     def port_list(self, context=None, filters=None):
         project_obj = None
         ret_q_ports = []
@@ -3829,6 +3838,11 @@ class DBInterface(object):
                 if not self._filters_is_present(filters, 'name',
                                                 port_obj['name']):
                     continue
+                if 'fixed_ips' in filters and \
+                    not self._port_fixed_ips_is_present(filters['fixed_ips'],
+                                                        port_obj['fixed_ips']):
+                    continue
+
                 ret_list.append(port_obj)
             return ret_list
 
