@@ -720,7 +720,8 @@ struct InterfaceNHFlags {
     enum Type {
         INET4 = 1,
         LAYER2 = 2,
-        MULTICAST = 4
+        MULTICAST = 4,
+        INET6 = 8
     };
 };
 
@@ -730,7 +731,7 @@ public:
         NextHopKey(NextHop::INTERFACE, policy), intf_key_(intf),
         flags_(flags) {
             //TODO evpn changes remove this, just extra check
-            assert((flags != 0) || (flags == 1) ||
+            assert((flags != 0) || (flags == 1) || (flags_ == 8) ||
                    (flags == 5));
     }
 
@@ -741,7 +742,7 @@ public:
     virtual NextHop *AllocEntry() const;
     virtual NextHopKey *Clone() const {
         //TODO evpn changes remove this, just extra check
-        assert((flags_ != 0) || (flags_ == 1) ||
+        assert((flags_ != 0) || (flags_ == 1) || (flags_ == 8) ||
                (flags_ == 5));
         return new InterfaceNHKey(intf_key_->Clone(), policy_, flags_);
     }

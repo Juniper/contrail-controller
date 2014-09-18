@@ -16,6 +16,7 @@ public:
     enum ServiceList {
         ArpService,
         DhcpService,
+        Dhcpv6Service,
         DnsService,
     };
     ServicesModule(Agent *agent, const std::string &metadata_secret);
@@ -36,14 +37,18 @@ private:
     Agent *agent_;
     std::string metadata_secret_key_;
     boost::scoped_ptr<DhcpProto> dhcp_proto_;
+    boost::scoped_ptr<Dhcpv6Proto> dhcpv6_proto_;
     boost::scoped_ptr<DnsProto> dns_proto_;
     boost::scoped_ptr<ArpProto> arp_proto_;
     boost::scoped_ptr<IcmpProto> icmp_proto_;
+    boost::scoped_ptr<Icmpv6Proto> icmpv6_proto_;
     boost::scoped_ptr<IcmpErrorProto> icmp_error_proto_;
     boost::scoped_ptr<MetadataProxy> metadata_proxy_;
 };
 
 extern SandeshTraceBufferPtr DhcpTraceBuf;
+extern SandeshTraceBufferPtr Dhcpv6TraceBuf;
+extern SandeshTraceBufferPtr Icmpv6TraceBuf;
 extern SandeshTraceBufferPtr ArpTraceBuf;
 extern SandeshTraceBufferPtr MetadataTraceBuf;
 

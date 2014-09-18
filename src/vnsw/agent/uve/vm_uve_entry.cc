@@ -98,9 +98,11 @@ bool VmUveEntry::FrameInterfaceMsg(const VmInterface *vm_intf,
     }
     s_intf->set_ip_address(vm_intf->ip_addr().to_string());
     s_intf->set_mac_address(vm_intf->vm_mac());
+    s_intf->set_ip6_address(vm_intf->ip6_addr().to_string());
+    s_intf->set_ip6_active(vm_intf->ipv6_active());
 
     vector<VmFloatingIPAgent> uve_fip_list;
-    if (vm_intf->HasFloatingIp()) {
+    if (vm_intf->HasFloatingIp(Address::INET)) {
         const VmInterface::FloatingIpList fip_list = 
             vm_intf->floating_ip_list();
         VmInterface::FloatingIpSet::const_iterator it = 

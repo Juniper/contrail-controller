@@ -26,8 +26,9 @@ void KInterfaceReq::HandleRequest() const {
 
 void KRouteReq::HandleRequest() const {
     vr_route_req req;
+    std::vector<int8_t> marker;
 
-    req.set_rtr_marker(0);
+    req.set_rtr_marker(marker);
     KRouteResp *resp = new KRouteResp();
     resp->set_context(context());
 

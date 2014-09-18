@@ -339,7 +339,7 @@ private:
     bool ReadOptions(int16_t opt_rem_len);
     bool FindLeaseData();
     void FillDhcpInfo(uint32_t addr, int plen, uint32_t gw, uint32_t dns);
-    void UpdateDnsServer();
+    void FindDomainName();
     void WriteOption82(DhcpOptions *opt, uint16_t *optlen);
     bool ReadOption82(DhcpOptions *opt);
     bool CreateRelayPacket();

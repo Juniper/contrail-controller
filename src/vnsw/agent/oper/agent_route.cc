@@ -75,6 +75,7 @@ const string &AgentRouteTable::GetSuffix(Agent::RouteTableType type) {
     static const string uc_suffix(".uc.route.0");
     static const string mc_suffix(".mc.route.0");
     static const string l2_suffix(".l2.route.0");
+    static const string uc_inet6_suffix(".uc.route6.0");
 
     switch (type) {
     case Agent::INET4_UNICAST:
@@ -83,6 +84,8 @@ const string &AgentRouteTable::GetSuffix(Agent::RouteTableType type) {
         return mc_suffix;
     case Agent::LAYER2:
         return l2_suffix;
+    case Agent::INET6_UNICAST:
+        return uc_inet6_suffix;
     default:
         return Agent::NullString();
     }

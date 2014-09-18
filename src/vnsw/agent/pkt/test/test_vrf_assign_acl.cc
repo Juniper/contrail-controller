@@ -156,8 +156,8 @@ TEST_F(TestVrfAssignAclFlow, VrfAssignAcl1) {
                            1, 65535, "default-project:vn2:vn2", "yes");
 
     TestFlow flow[] = {
-        {  TestFlowPkt("1.1.1.1", "2.1.1.1", IPPROTO_TCP, 10, 20,
-                "default-project:vn1:vn1", VmPortGet(1)->id()),
+        {  TestFlowPkt(Address::INET, "1.1.1.1", "2.1.1.1", IPPROTO_TCP, 10, 20,
+                       "default-project:vn1:vn1", VmPortGet(1)->id()),
         {
             new VerifyVn("default-project:vn1", "default-project:vn2"),
             new VerifyAction((1 << TrafficAction::PASS) |
@@ -175,8 +175,8 @@ TEST_F(TestVrfAssignAclFlow, VrfAssignAcl2) {
     AddAddressVrfAssignAcl("intf1", 1, "1.1.1.0", "2.1.1.0", 6, 1, 65535,
                            1, 65535, "default-project:vn3:vn3", "yes");
     TestFlow flow[] = {
-        {  TestFlowPkt("1.1.1.1", "2.1.1.1", IPPROTO_TCP, 10, 20,
-                "default-project:vn1:vn1", VmPortGet(1)->id()),
+        {  TestFlowPkt(Address::INET, "1.1.1.1", "2.1.1.1", IPPROTO_TCP, 10, 20,
+                       "default-project:vn1:vn1", VmPortGet(1)->id()),
         {
             new VerifyVn("default-project:vn1", "default-project:vn3"),
             new VerifyAction((1 << TrafficAction::PASS) |
@@ -194,7 +194,7 @@ TEST_F(TestVrfAssignAclFlow, VrfAssignAcl3) {
     AddAddressVrfAssignAcl("intf1", 1, "1.1.1.0", "2.1.1.0", 6, 1, 65535,
                            1, 65535, "vrf4", "yes");
     TestFlow flow[] = {
-        {  TestFlowPkt("1.1.1.1", "2.1.1.1", IPPROTO_TCP, 10, 20,
+        {  TestFlowPkt(Address::INET, "1.1.1.1", "2.1.1.1", IPPROTO_TCP, 10, 20,
                 "default-project:vn1:vn1", VmPortGet(1)->id()),
         {
             new ShortFlow()
@@ -219,8 +219,8 @@ TEST_F(TestVrfAssignAclFlow, VrfAssignAcl4) {
                            1, 65535, "default-project:vn2:vn2", "no");
     client->WaitForIdle();
     TestFlow flow[] = {
-        {  TestFlowPkt("1.1.1.1", "2.1.1.1", IPPROTO_TCP, 10, 20,
-                "default-project:vn1:vn1", VmPortGet(1)->id()),
+        {  TestFlowPkt(Address::INET, "1.1.1.1", "2.1.1.1", IPPROTO_TCP, 10, 20,
+                       "default-project:vn1:vn1", VmPortGet(1)->id()),
         {
             new VerifyVn("default-project:vn1", "default-project:vn2"),
             new VerifyAction((1 << TrafficAction::DROP) | 
@@ -248,7 +248,7 @@ TEST_F(TestVrfAssignAclFlow, VrfAssignAcl5) {
                            1, 65535, "default-project:vn2:vn2", "yes");
     client->WaitForIdle();
      TestFlow flow[] = {
-        {  TestFlowPkt("1.1.1.1", "2.1.1.1", IPPROTO_TCP, 10, 20,
+        {  TestFlowPkt(Address::INET, "1.1.1.1", "2.1.1.1", IPPROTO_TCP, 10, 20,
                 "default-project:vn1:vn1", VmPortGet(1)->id()),
         {
             new VerifyVn("default-project:vn1", "default-project:vn2"),
@@ -299,7 +299,7 @@ TEST_F(TestVrfAssignAclFlow, VrfAssignAcl6) {
                                   GetActiveNextHop()->id();
 
     TestFlow flow[] = {
-        {  TestFlowPkt("3.1.1.1", "1.1.1.1", IPPROTO_TCP, 10, 20,
+        {  TestFlowPkt(Address::INET, "3.1.1.1", "1.1.1.1", IPPROTO_TCP, 10, 20,
                 "default-project:vn1:vn1", "10.1.1.101", vm_intf->label()),
         {
             new VerifyVn("default-project:vn2", "default-project:vn1"),
@@ -347,7 +347,7 @@ TEST_F(TestVrfAssignAclFlow, FloatingIp) {
     client->WaitForIdle();
 
      TestFlow flow[] = {
-        {  TestFlowPkt("4.1.1.1", "2.1.1.1", IPPROTO_TCP, 10, 20,
+        {  TestFlowPkt(Address::INET, "4.1.1.1", "2.1.1.1", IPPROTO_TCP, 10, 20,
                        "vrf4", VmPortGet(7)->id()),
         {
             new VerifyVn("default-project:vn1", "default-project:vn3"),

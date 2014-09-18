@@ -114,6 +114,7 @@ struct PortInfo {
     char mac[32];
     int vn_id;
     int vm_id;
+    char ip6addr[128];
 };
 
 struct FlowIp {

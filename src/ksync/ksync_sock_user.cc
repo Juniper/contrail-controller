@@ -1305,14 +1305,15 @@ Sandesh* RouteDumpHandler::GetFirst(Sandesh *from_req) {
     vr_route_req *orig_req, key;
     orig_req = static_cast<vr_route_req *>(from_req);
 
-    if (orig_req->get_rtr_marker()) {
+    if (orig_req->get_rtr_marker().size()) {
         key.set_rtr_vrf_id(orig_req->get_rtr_vrf_id());
         key.set_rtr_prefix(orig_req->get_rtr_marker());
         key.set_rtr_prefix_len(orig_req->get_rtr_marker_plen());
         it = sock->rt_tree.upper_bound(key);
     } else {
+        std::vector<int8_t> rtr_prefix;
         key.set_rtr_vrf_id(orig_req->get_rtr_vrf_id());
-        key.set_rtr_prefix(0);
+        key.set_rtr_prefix(rtr_prefix);
         key.set_rtr_prefix_len(0);
         it = sock->rt_tree.lower_bound(key);
     }

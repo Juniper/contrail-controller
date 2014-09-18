@@ -359,7 +359,7 @@ bool DhcpHandler::HandleVmRequest() {
         return true;
     }
     vm_itf_ = static_cast<VmInterface *>(itf);
-    if (!vm_itf_->ipv4_forwarding()) {
+    if (!vm_itf_->layer3_forwarding()) {
         DHCP_TRACE(Error, "DHCP request on VM port with disabled ipv4 service: "
                    << GetInterfaceIndex());
         return true;
@@ -422,7 +422,6 @@ bool DhcpHandler::HandleVmRequest() {
     }
 
     if (FindLeaseData()) {
-        UpdateDnsServer();
         SendDhcpResponse();
         Ip4Address ip(config_.ip_addr);
         DHCP_TRACE(Trace, "DHCP response sent; message = " << 
@@ -538,6 +537,7 @@ bool DhcpHandler::FindLeaseData() {
     Ip4Address ip = vm_itf_->ip_addr();
     // Change client name to VM name; this is the name assigned to the VM
     config_.client_name_ = vm_itf_->vm_name();
+    FindDomainName();
     if (vm_itf_->ipv4_active()) {
         if (vm_itf_->fabric_port()) {
             Inet4UnicastRouteEntry *rt = 
@@ -561,8 +561,12 @@ bool DhcpHandler::FindLeaseData() {
         const std::vector<VnIpam> &ipam = vm_itf_->vn()->GetVnIpam();
         unsigned int i;
         for (i = 0; i < ipam.size(); ++i) {
-            if (IsIp4SubnetMember(ip, ipam[i].ip_prefix, ipam[i].plen)) {
-                uint32_t default_gw = ipam[i].default_gw.to_ulong();
+            if (!ipam[i].IsV4()) {
+                continue;
+            }
+            if (IsIp4SubnetMember(ip, ipam[i].ip_prefix.to_v4(), 
+                                  ipam[i].plen)) {
+                uint32_t default_gw = ipam[i].default_gw.to_v4().to_ulong();
                 FillDhcpInfo(ip.to_ulong(), ipam[i].plen, default_gw, default_gw);
                 return true;
             }
@@ -584,7 +588,7 @@ bool DhcpHandler::FindLeaseData() {
     return true;
 }
 
-void DhcpHandler::UpdateDnsServer() {
+void DhcpHandler::FindDomainName() {
     if (config_.lease_time != (uint32_t) -1)
         return;
 
@@ -619,14 +623,6 @@ void DhcpHandler::UpdateDnsServer() {
                                      vdns_type_.domain_name);
     }
     config_.domain_name_ = vdns_type_.domain_name;
-
-    if (out_msg_type_ != DHCP_ACK)
-        return;
-
-    agent()->GetDnsProto()->SendUpdateDnsEntry(
-        vm_itf_, config_.client_name_, vm_itf_->ip_addr(), config_.plen,
-        ipam_type_.ipam_dns_server.virtual_dns_server_name, vdns_type_,
-        false, false);
 }
 
 void DhcpHandler::WriteOption82(DhcpOptions *opt, uint16_t *optlen) {
@@ -1161,10 +1157,10 @@ uint16_t DhcpHandler::AddConfigDhcpOptions(uint16_t opt_len) {
     if (vm_itf_->GetInterfaceDhcpOptions(&options))
         opt_len = AddDhcpOptions(opt_len, options, InterfaceLevel);
 
-    if (vm_itf_->GetSubnetDhcpOptions(&options))
+    if (vm_itf_->GetSubnetDhcpOptions(&options, false))
         opt_len = AddDhcpOptions(opt_len, options, SubnetLevel);
 
-    if (vm_itf_->GetIpamDhcpOptions(&options))
+    if (vm_itf_->GetIpamDhcpOptions(&options, false))
         opt_len = AddDhcpOptions(opt_len, options, IpamLevel);
 
     return opt_len;

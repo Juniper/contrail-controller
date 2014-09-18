@@ -56,4 +56,53 @@ extern void TxTcpMplsPacket(int ifindex, const char *out_sip,
                                const char *sip, const char *dip, uint16_t sport,
                                uint16_t dport, bool ack, int hash_id = 1);
 
+extern void MakeIp6Packet(PktGen *pkt, int ifindex, const char *sip,
+                          const char *dip, int proto, int hash_id,
+                          int cmd = AGENT_TRAP_FLOW_MISS, int vrf = -1);
+
+extern void TxIp6Packet(int ifindex, const char *sip, const char *dip,
+                        int proto, int hash_id = 1, int vrf = -1);
+
+extern void TxIp6PacketEcmp(int ifindex, const char *sip, const char *dip, 
+		                    int proto, int hash_id = 1);
+
+extern void MakeUdp6Packet(PktGen *pkt, int ifindex, const char *sip,
+                           const char *dip, uint16_t sport, uint16_t dport,
+                           int hash_id, uint32_t vrf_id);
+extern void TxUdp6Packet(int ifindex, const char *sip, const char *dip,
+                         uint16_t sport, uint16_t dport, int hash_id = 1,
+                         uint32_t vrf_id = -1);
+
+extern void MakeTcp6Packet(PktGen *pkt, int ifindex, const char *sip,
+                           const char *dip, uint16_t sport, uint16_t dport,
+                           bool ack, int hash_id, uint32_t vrf_id);
+extern void TxTcp6Packet(int ifindex, const char *sip, const char *dip,
+                         uint16_t sport, uint16_t dport, bool ack,
+                         int hash_id = 1, uint32_t vrf_id = -1);
+
+extern void MakeIp6MplsPacket(PktGen *pkt, int ifindex, const char *out_sip,
+                              const char *out_dip, uint32_t label,
+                              const char *sip, const char *dip, uint8_t proto,
+                              int hash_id);
+extern void TxIp6MplsPacket(int ifindex, const char *out_sip,
+                            const char *out_dip, uint32_t label,
+                            const char *sip, const char *dip, uint8_t proto,
+                            int hash_id = 1);
+extern void MakeUdp6MplsPacket(PktGen *pkt, int ifindex, const char *out_sip,
+                               const char *out_dip, uint32_t label,
+                               const char *sip, const char *dip, uint16_t sport,
+                               uint16_t dport, int hash_id);
+extern void TxUdp6MplsPacket(int ifindex, const char *out_sip,
+                             const char *out_dip, uint32_t label,
+                             const char *sip, const char *dip, uint16_t sport,
+                             uint16_t dport, int hash_id = 1);
+extern void MakeTcp6MplsPacket(PktGen *pkt, int ifindex, const char *out_sip,
+                               const char *out_dip, uint32_t label,
+                               const char *sip, const char *dip, uint16_t sport,
+                               uint16_t dport, bool ack, int hash_id);
+extern void TxTcp6MplsPacket(int ifindex, const char *out_sip,
+                             const char *out_dip, uint32_t label,
+                             const char *sip, const char *dip, uint16_t sport,
+                             uint16_t dport, bool ack, int hash_id = 1);
+
 #endif // __TEST_PKT_UTIL_H__

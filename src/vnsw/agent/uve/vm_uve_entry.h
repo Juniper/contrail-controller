@@ -34,21 +34,24 @@ public:
         FloatingIp *rev_fip_;
     };
     struct FloatingIp {
-        FloatingIp(const Ip4Address &ip, const std::string &vn)
-            : fip_(ip), vn_(vn) {
+        FloatingIp(const IpAddress &ip, const std::string &vn)
+            : family_(ip.is_v4() ? Address::INET : Address::INET6),
+              fip_(ip), vn_(vn) {
             in_bytes_ = 0;
             in_packets_ = 0;
             out_bytes_ = 0;
             out_packets_ = 0;
         }
-        FloatingIp(const Ip4Address &ip, const std::string &vn, uint64_t in_b,
+        FloatingIp(const IpAddress &ip, const std::string &vn, uint64_t in_b,
                    uint64_t in_p, uint64_t out_b, uint64_t out_p)
-            : fip_(ip), vn_(vn), in_bytes_(in_b), in_packets_(in_p),
+            : family_(ip.is_v4() ? Address::INET : Address::INET6),
+              fip_(ip), vn_(vn), in_bytes_(in_b), in_packets_(in_p),
               out_bytes_(out_b), out_packets_(out_p) {
         }
         void UpdateFloatingIpStats(const FipInfo &fip_info);
 
-        Ip4Address fip_;
+        Address::Family family_;
+        IpAddress fip_;
         std::string vn_;
         uint64_t in_bytes_;
         uint64_t in_packets_;

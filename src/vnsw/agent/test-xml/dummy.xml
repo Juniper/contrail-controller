@@ -1,0 +1,44 @@
+<?xml version="1.0"?>
+<test_suite name="flow">
+<test name="test1">
+    <virtual-network uuid="1" name="vn1"/>
+    <virtual-machine uuid="1" name="vm1"/>
+    <vrf uuid="1" name="vrf1" />
+    <vm-vrf uuid="1" name="tap1-vm1" />
+
+    <virtual-machine-interface nova="1"
+     uuid="1" name="tap1" mac="00:00:00:00:00:01" vn-name="vn1" vn-uuid="1"
+     vm-name="vm1" vm-uuid="1" vrf="vrf1" ip="1.1.1.1"
+    />
+
+    <acl name="acl1" uuid="1">
+      <ace src-sg="1" dst-sg="1" sport="0:65535" dport="0:65535"
+       action="pass"/>
+      <ace src-ip="1.1.1.0/24" dst-sg="1.1.1.0/24" sport="0:65535"
+       dport="0:65535" action="pass"/>
+    </acl>
+    <packet name="udp" interface="tap1" id="3"
+            sip="1.1.1.1" dip="1.1.1.2" proto="udp" sport="1" dport="2"/>
+    <validate name="validate-1">
+        <virtual-network name="vn1" uuid="1" present="1" />
+        <virtual-machine-interface name="tap1" uuid="1" present="1" active="1" />
+        <virtual-machine name="vm1" uuid="1" present="1"/>
+        <acl name="acl1" uuid="1" present="1"/>
+
+        <flow name="tcp" vrf="vrf1" nh="7" sip="1.1.1.1" dip="1.1.1.2"
+              proto="udp" sport="1" dport="2" svn="vn1" dvn="vn2"
+              action="pass"/> 
+    </validate>
+
+    <virtual-machine-interface delete="1" nova="1"
+     uuid="1" name="tap1" mac="00:00:00:00:00:01" vn-name="vn1" vn-uuid="1"
+     vm-name="vm1" vm-uuid="1" vrf="vrf1" ip="1.1.1.1"
+    />
+
+    <virtual-network delete="1" uuid="1" name="vn1"/>
+    <virtual-machine delete="1" uuid="1" name="vm1"/>
+    <vm-vrf delete="1" uuid="1" name="tap1-vm1" />
+    <vrf delete="1" uuid="1" name="vrf1" />
+    <acl delete="1" uuid="1" name="acl1" />
+</test>
+</test_suite>

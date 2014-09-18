@@ -48,13 +48,13 @@ void KSyncSandeshContext::FlowMsgHandler(vr_flow_req *r) {
         LOG(DEBUG, "Flow table size : " << r->get_fr_ftable_size());
     } else if (r->get_fr_op() == flow_op::FLOW_SET) {
         const KSyncIoContext *ioc = ksync_io_ctx();
-        FlowKey key;
-        key.nh = r->get_fr_flow_nh_id();
-        key.src.ipv4 = ntohl(r->get_fr_flow_sip());
-        key.dst.ipv4 = ntohl(r->get_fr_flow_dip());
-        key.src_port = ntohs(r->get_fr_flow_sport());
-        key.dst_port = ntohs(r->get_fr_flow_dport());
-        key.protocol = r->get_fr_flow_proto();
+        // TODO : IPv6
+        FlowKey key(r->get_fr_flow_nh_id(),
+                    Ip4Address(ntohl(r->get_fr_flow_sip())),
+                    Ip4Address(ntohl(r->get_fr_flow_dip())),
+                    r->get_fr_flow_proto(),
+                    ntohs(r->get_fr_flow_sport()),
+                    ntohs(r->get_fr_flow_dport()));
         FlowEntry *entry = flow_ksync_->ksync()->agent()->pkt()->flow_table()->
                            Find(key);
         in_addr src;

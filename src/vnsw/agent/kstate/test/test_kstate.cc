@@ -369,7 +369,7 @@ TEST_F(KStateTest, MirrorGetTest) {
     DeleteMirrorEntry();
 }
 
-TEST_F(KStateTest, RouteDumpTest) {
+TEST_F(KStateTest, DISABLED_RouteDumpTest) {
     if (!ksync_init_) {
         int rt_count = 0;
         TestRouteKState::Init(false);

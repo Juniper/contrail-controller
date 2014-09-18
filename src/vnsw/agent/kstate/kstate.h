@@ -58,6 +58,7 @@ protected:
     void *more_context_; /* context to hold marker info */
 private:
     void UpdateContext(void *);
+    const std::string PrefixToString(const std::vector<int8_t> &prefix);
 };
 
 #endif // vnsw_agent_kstate_h

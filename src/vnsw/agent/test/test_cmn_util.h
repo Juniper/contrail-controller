@@ -49,9 +49,9 @@ void DelNode(const char *node_name, const char *name);
 void IntfSyncMsg(PortInfo *input, int id);
 void IntfCfgAdd(int intf_id, const string &name, const string ipaddr,
                 int vm_id, int vn_id, const string &mac, uint16_t vlan,
-                int project_id = kProjectUuid);
+                const string ip6addr, int project_id = kProjectUuid);
 void IntfCfgAdd(int intf_id, const string &name, const string ipaddr,
-                int vm_id, int vn_id, const string &mac);
+                int vm_id, int vn_id, const string &mac, const string ip6addr);
 void IntfCfgAdd(PortInfo *input, int id);
 void IntfCfgDel(PortInfo *input, int id);
 NextHop *InetInterfaceNHGet(NextHopTable *table, const char *ifname,
@@ -118,6 +118,8 @@ void DeleteRoute(const char *vrf, const char *ip, uint8_t plen);
 void DeleteRoute(const char *vrf, const char *ip);
 bool RouteFind(const string &vrf_name, const Ip4Address &addr, int plen);
 bool RouteFind(const string &vrf_name, const string &addr, int plen);
+bool RouteFindV6(const string &vrf_name, const Ip6Address &addr, int plen);
+bool RouteFindV6(const string &vrf_name, const string &addr, int plen);
 bool L2RouteFind(const string &vrf_name, const struct ether_addr &mac);
 bool MCRouteFind(const string &vrf_name, const Ip4Address &saddr,
                  const Ip4Address &daddr);
@@ -126,6 +128,7 @@ bool MCRouteFind(const string &vrf_name, const string &saddr,
                  const string &daddr);
 bool MCRouteFind(const string &vrf_name, const string &addr);
 Inet4UnicastRouteEntry *RouteGet(const string &vrf_name, const Ip4Address &addr, int plen);
+Inet6UnicastRouteEntry *RouteGetV6(const string &vrf_name, const Ip6Address &addr, int plen);
 Inet4MulticastRouteEntry *MCRouteGet(const string &vrf_name, const Ip4Address &grp_addr);
 Inet4MulticastRouteEntry *MCRouteGet(const string &vrf_name, const string &grp_addr);
 Layer2RouteEntry *L2RouteGet(const string &vrf_name, const struct ether_addr &mac);
