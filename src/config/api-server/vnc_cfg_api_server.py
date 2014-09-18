@@ -281,6 +281,14 @@ class VncApiServer(VncApiServerGen):
         self._resource_classes['virtual-DNS'].generate_default_instance = False
         self._resource_classes[
             'global-vrouter-config'].generate_default_instance = False
+        self._resource_classes[
+            'loadbalancer-pool'].generate_default_instance = False
+        self._resource_classes[
+            'loadbalancer-member'].generate_default_instance = False
+        self._resource_classes[
+            'loadbalancer-healthmonitor'].generate_default_instance = False
+        self._resource_classes[
+            'virtual-ip'].generate_default_instance = False
 
         for act_res in _ACTION_RESOURCES:
             link = LinkObject('action', self._base_url, act_res['uri'],
