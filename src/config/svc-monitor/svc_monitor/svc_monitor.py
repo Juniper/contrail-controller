@@ -319,8 +319,8 @@ class SvcMonitor(object):
             return 'ACTIVE'
 
         if si_info['instance_type'] == 'virtual-machine':
-            proj_name = self._get_proj_name_from_si_fq_str(si_fq_str_str)
-            status = self.vm_manager.check_service(proj_name, si_obj)
+            proj_name = self._get_proj_name_from_si_fq_str(si_fq_name_str)
+            status = self.vm_manager.check_service(si_obj, proj_name)
         elif si_info['instance_type'] == 'network-namespace':
             status = self.netns_manager.check_service(si_obj)
 
