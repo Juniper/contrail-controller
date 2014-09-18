@@ -8,16 +8,17 @@
 
 struct DatabasePurgeStats {
     1: string                              purge_id
-    2: optional u64                        request_time
-    3: optional u64                        rows_deleted
-    4: optional u64                        duration
+    2: optional string                     purge_status
+    3: optional u64                        request_time
+    4: optional u64                        rows_deleted
+    5: optional u64                        duration
 }
 
 struct DatabasePurgeInfo {
     1: string                              name (key="ObjectDatabaseInfo")
     2: optional bool                       deleted
     3: optional u64                        number_of_purge_requests (aggtype="counter")
-    4: optional list<DatabasePurgeStats>   stats (tags=".purge_id, .request_time, .rows_deleted, .duration")
+    4: optional list<DatabasePurgeStats>   stats (tags=".purge_id, name:.purge_status, .request_time, .rows_deleted, .duration")
 }
 
 //DatabasePurge uve will be sent by Analytics-api

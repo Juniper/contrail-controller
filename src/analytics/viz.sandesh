@@ -578,6 +578,7 @@ const list<stat_table> _STAT_TABLES  = [
       'obj_table' : DATABASE_INFO_TABLE, 
       'attributes': [
           { 'name' : 'stats.purge_id',  'datatype' : 'string', 'index' : true},
+          { 'name' : 'stats.purge_status', 'datatype' : 'string', 'index' : true},
           { 'name' : 'stats.request_time', 'datatype' : 'int', 'index' : true},
           { 'name' : 'stats.rows_deleted', 'datatype' : 'int', 'index' : true},
           { 'name' : 'stats.duration',     'datatype' : 'int', 'index' : true},

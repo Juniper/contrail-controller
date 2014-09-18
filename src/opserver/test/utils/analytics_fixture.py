@@ -2,6 +2,7 @@
 # Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
 #
 
+import time
 import resource
 import socket
 import fixtures
@@ -19,6 +20,7 @@ from collector_introspect_utils import VerificationCollector
 from opserver.sandesh.viz.constants import COLLECTOR_GLOBAL_TABLE, SOURCE, MODULE
 from sandesh_common.vns.constants import NodeTypeNames, ModuleNames
 from sandesh_common.vns.ttypes import NodeType, Module
+from pysandesh.util import UTCTimestampUsec
 
 class Query(object):
     table = None
@@ -167,6 +169,8 @@ class OpServer(object):
                 '--redis_server_port', str(self._redis_port),
                 '--redis_query_port', 
                 str(self.analytics_fixture.redis_uves[0].port),
+                '--cassandra_server_list', '127.0.0.1:' +
+                str(self.analytics_fixture.cassandra_port),
                 '--http_server_port', str(self.http_port),
                 '--log_file', self._log_file,
                 '--rest_api_port', str(self.listen_port)]
@@ -1567,6 +1571,38 @@ class AnalyticsFixture(fixtures.Fixture):
         assert(len(res)>0)
         return True
     # end verify_where_query
+
+    @retry(delay=1, tries=5)
+    def verify_database_purge(self):
+        self.logger.info('Verify database purge');
+        vns = VerificationOpsSrv('127.0.0.1', self.opserver_port);
+        end_time = UTCTimestampUsec()
+        start_time = end_time - 3600*pow(10,6)
+        object_id = object_id = self.collectors[0].hostname
+        query = Query(table='ObjectCollectorInfo',
+                             start_time=start_time, end_time=end_time,
+                             select_fields=['ObjectId'])
+        json_qstr = json.dumps(query.__dict__)
+        res = vns.post_query_json(json_qstr)
+        if not res:
+            return False
+        else:
+            self.logger.info("log before purging %s" % res)
+            for r in res:
+                assert('ObjectId' in r)
+        json_qstr = json.dumps({'purge_input': 100})
+        res = vns.post_query_json(json_qstr)
+        self.logger.info("purging %s" % str(res))
+        assert(res['status'] == 'started')
+        time.sleep(20)
+        query = Query(table='ObjectCollectorInfo',
+                             start_time=start_time, end_time=end_time,
+                             select_fields=['ObjectId'])
+        json_qstr = json.dumps(query.__dict__)
+        res = vns.post_query_json(json_qstr)
+        self.logger.info("log after purging %s" % res)
+        assert(len(res)<=0)
+        return True
 
     @retry(delay=1, tries=5)
     def verify_object_table_query(self):
