@@ -267,8 +267,8 @@ protected:
     static void ValidateShowXmppServerResponse(Sandesh *sandesh) {
         ShowXmppServerResp *resp = dynamic_cast<ShowXmppServerResp *>(sandesh);
         EXPECT_TRUE(resp != NULL);
-        const TcpServerSocketStats &rx_stats = resp->get_rx_socket_stats();
-        const TcpServerSocketStats &tx_stats = resp->get_tx_socket_stats();
+        const SocketIOStats &rx_stats = resp->get_rx_socket_stats();
+        const SocketIOStats &tx_stats = resp->get_tx_socket_stats();
 
         cout << "****************************************************" << endl;
         cout << "RX: calls=" << rx_stats.calls << " bytes=" << rx_stats.bytes

@@ -1381,7 +1381,7 @@ public:
             static_cast<BgpSandeshContext *>(req->client_context());
 
         ShowBgpServerResp *resp = new ShowBgpServerResp;
-        TcpServerSocketStats peer_socket_stats;
+        SocketIOStats peer_socket_stats;
         bsc->bgp_server->session_manager()->GetRxSocketStats(peer_socket_stats);
         resp->set_rx_socket_stats(peer_socket_stats);
 
@@ -1419,7 +1419,7 @@ public:
             static_cast<BgpSandeshContext *>(req->client_context());
 
         ShowXmppServerResp *resp = new ShowXmppServerResp;
-        TcpServerSocketStats peer_socket_stats;
+        SocketIOStats peer_socket_stats;
         bsc->xmpp_peer_manager->xmpp_server()->GetRxSocketStats(
                          peer_socket_stats);
         resp->set_rx_socket_stats(peer_socket_stats);

@@ -22,6 +22,7 @@ libio = env.Library('io',
             SandeshGenSrcs +
             EventManagerSrc +
             [
+             'io_utils.cc',
              'tcp_message_write.cc',
              'tcp_server.cc',
              'tcp_session.cc',

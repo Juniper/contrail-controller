@@ -173,21 +173,17 @@ public:
         stats = update_stats_[1];
     }
 
-    virtual void GetRxSocketStats(SocketStats &stats) const {
-        TcpServer::SocketStats socket_stats;
-
+    virtual void GetRxSocketStats(IPeerDebugStats::SocketStats &stats) const {
         if (peer_->session()) {
-            socket_stats = peer_->session()->GetSocketStats();
+            io::SocketStats socket_stats(peer_->session()->GetSocketStats());
             stats.calls = socket_stats.read_calls;
             stats.bytes = socket_stats.read_bytes;
         }
     }
 
-    virtual void GetTxSocketStats(SocketStats &stats) const {
-        TcpServer::SocketStats socket_stats;
-
+    virtual void GetTxSocketStats(IPeerDebugStats::SocketStats &stats) const {
         if (peer_->session()) {
-            socket_stats = peer_->session()->GetSocketStats();
+            io::SocketStats socket_stats(peer_->session()->GetSocketStats());
             stats.calls = socket_stats.write_calls;
             stats.bytes = socket_stats.write_bytes;
             stats.blocked_count = socket_stats.write_blocked;

@@ -212,23 +212,19 @@ public:
         stats.unreach = peer_->stats_[1].unreach;
     }
 
-    virtual void GetRxSocketStats(SocketStats &stats)  const {
-        TcpServer::SocketStats socket_stats;
+    virtual void GetRxSocketStats(IPeerDebugStats::SocketStats &stats) const {
         const XmppSession *session = peer_->GetSession();
-
         if (session) {
-            socket_stats = session->GetSocketStats();
+            io::SocketStats socket_stats(session->GetSocketStats());
             stats.calls = socket_stats.read_calls;
             stats.bytes = socket_stats.read_bytes;
         }
     }
 
-    virtual void GetTxSocketStats(SocketStats &stats)  const {
-        TcpServer::SocketStats socket_stats;
+    virtual void GetTxSocketStats(IPeerDebugStats::SocketStats &stats) const {
         const XmppSession *session = peer_->GetSession();
-
         if (session) {
-            socket_stats = session->GetSocketStats();
+            io::SocketStats socket_stats(session->GetSocketStats());
             stats.calls = socket_stats.write_calls;
             stats.bytes = socket_stats.write_bytes;
             stats.blocked_count = socket_stats.write_blocked;

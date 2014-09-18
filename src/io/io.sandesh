@@ -50,13 +50,14 @@ systemlog sandesh TcpSessionMessageLog {
     4: string Message;
 }
 
-struct TcpServerSocketStats {
+struct SocketIOStats {
     1: u64 bytes;
     2: u64 calls;
     3: double average_bytes;
     4: string blocked_duration;
     5: u64 blocked_count;
     6: string average_blocked_duration;
+    7: u64 errors;
 }
 
 trace sandesh UdpMessageTrace {
