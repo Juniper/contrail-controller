@@ -220,12 +220,16 @@ class OpServerUtils(object):
     # end parse_query_result
 
     @staticmethod
-    def get_query_result(opserver_ip, opserver_port, qid, time_out=None):
+    def get_query_result(opserver_ip, opserver_port, json_str, qid, time_out=None):
         sleep_interval = 0.5
         time_left = time_out
         while True:
-            url = OpServerUtils.opserver_query_url(
-                opserver_ip, opserver_port) + '/' + qid
+            if ("purge_input" in json.loads(json_str)):
+                url = OpServerUtils.opserver_database_purge_query_url(
+                    opserver_ip, opserver_port) + '/' + qid
+            else:
+                url = OpServerUtils.opserver_query_url(
+                    opserver_ip, opserver_port) + '/' + qid
             resp = OpServerUtils.get_url_http(url)
             if resp.status_code != 200:
                 yield {}
@@ -333,6 +337,12 @@ class OpServerUtils(object):
         return "http://" + opserver_ip + ":" + opserver_port +\
             "/analytics/query"
     # end opserver_query_url
+
+    @staticmethod
+    def opserver_database_purge_query_url(opserver_ip, opserver_port):
+        return "http://" + opserver_ip + ":" + opserver_port +\
+            "/analytics/operation/database-purge"
+    # end opserver_database_purge_query_url
 
     @staticmethod
     def messages_xml_data_to_dict(messages_dict, msg_type):

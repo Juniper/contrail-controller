@@ -143,6 +143,7 @@ class OpServerClient(object):
             qid = resp['href'].rsplit('/', 1)[1]
             result = OpServerUtils.get_query_result(self._args.opserver_ip,
                                                     self._args.opserver_port,
+                                                    json.dumps(query_dict),
                                                     qid)
             for item in result:
                 print item

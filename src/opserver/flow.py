@@ -277,7 +277,7 @@ class FlowQuerier(object):
             resp = json.loads(resp)
             qid = resp['href'].rsplit('/', 1)[1]
             result = OpServerUtils.get_query_result(
-                self._args.opserver_ip, self._args.opserver_port, qid)
+                self._args.opserver_ip, self._args.opserver_port, json.dumps(flow_query.__dict__), qid)
         return result
     # end query
 

@@ -71,7 +71,10 @@ class VerificationOpsSrv (VerificationUtilBase):
         '''
         res = None
         try:
-            flows_url = OpServerUtils.opserver_query_url(self._ip, str(self._port))
+            if ("purge_input" in json.loads(json_str)):
+                flows_url = OpServerUtils.opserver_database_purge_query_url(self._ip, str(self._port))
+            else:
+                flows_url = OpServerUtils.opserver_query_url(self._ip, str(self._port))
             print flows_url
             print "query is: ", json_str
             res = []
@@ -84,7 +87,7 @@ class VerificationOpsSrv (VerificationUtilBase):
                 if resp is not None:
                     resp = json.loads(resp)
                     qid = resp['href'].rsplit('/', 1)[1]
-                    result = OpServerUtils.get_query_result(self._ip, str(self._port), qid, 30)
+                    result = OpServerUtils.get_query_result(self._ip, str(self._port), json_str, qid, 30)
                     for item in result:
                         res.append(item)
         except Exception as e:
@@ -120,7 +123,7 @@ class VerificationOpsSrv (VerificationUtilBase):
                     resp = json.loads(resp)
                     qid = resp['href'].rsplit('/', 1)[1]
                     result = OpServerUtils.get_query_result(
-                        self._ip, str(self._port), qid, 30)
+                        self._ip, str(self._port), json.dumps(query_dict), qid, 30)
                     for item in result:
                         res.append(item)
         except Exception as e:
