@@ -1102,9 +1102,9 @@ class DBInterface(object):
         if oper == CREATE:
             port_min = 0
             port_max = 65535
-            if sgr_q['port_range_min']:
+            if sgr_q['port_range_min'] is not None:
                 port_min = sgr_q['port_range_min']
-            if sgr_q['port_range_max']:
+            if sgr_q['port_range_max'] is not None:
                 port_max = sgr_q['port_range_max']
 
             endpt = [AddressType(security_group='any')]
