@@ -216,7 +216,7 @@ protected:
         bool include_xmpp) {
         ConcurrencyScope scope("db::DBTable");
         RouteDistinguisher rd(peer->address().to_ulong(), kVrfId);
-        EvpnPrefix prefix(rd, tag_, MacAddress::kBroadcastAddress, IpAddress());
+        EvpnPrefix prefix(rd, tag_, MacAddress::BroadcastMac(), IpAddress());
         EvpnTable::RequestKey key(prefix, peer);
         EvpnRoute *rt = dynamic_cast<EvpnRoute *>(blue_->Find(&key));
         if (rt == NULL)
@@ -257,7 +257,7 @@ protected:
     bool VerifyPeerNoUpdateInfo(PeerMock *peer) {
         ConcurrencyScope scope("db::DBTable");
         RouteDistinguisher rd(peer->address().to_ulong(), kVrfId);
-        EvpnPrefix prefix(rd, tag_, MacAddress::kBroadcastAddress, IpAddress());
+        EvpnPrefix prefix(rd, tag_, MacAddress::BroadcastMac(), IpAddress());
         EvpnTable::RequestKey key(prefix, peer);
         EvpnRoute *rt = dynamic_cast<EvpnRoute *>(blue_->Find(&key));
         if (rt == NULL)
@@ -325,7 +325,7 @@ protected:
         uint32_t label = 0) {
         EXPECT_TRUE(peer->IsXmppPeer());
         RouteDistinguisher rd(peer->address().to_ulong(), kVrfId);
-        EvpnPrefix prefix(rd, tag_, MacAddress::kBroadcastAddress, IpAddress());
+        EvpnPrefix prefix(rd, tag_, MacAddress::BroadcastMac(), IpAddress());
 
         BgpAttrSpec attr_spec;
         ExtCommunitySpec ext_comm;
@@ -382,7 +382,7 @@ protected:
     void DelXmppPeerBroadcastMacRoute(PeerMock *peer) {
         EXPECT_TRUE(peer->IsXmppPeer());
         RouteDistinguisher rd(peer->address().to_ulong(), kVrfId);
-        EvpnPrefix prefix(rd, tag_, MacAddress::kBroadcastAddress, IpAddress());
+        EvpnPrefix prefix(rd, tag_, MacAddress::BroadcastMac(), IpAddress());
 
         DBRequest delReq;
         delReq.key.reset(new EvpnTable::RequestKey(prefix, peer));
@@ -669,7 +669,7 @@ protected:
     void AddBgpPeerBroadcastMacRoute(PeerMock *peer) {
         EXPECT_FALSE(peer->IsXmppPeer());
         RouteDistinguisher rd(peer->address().to_ulong(), kVrfId);
-        EvpnPrefix prefix(rd, tag_, MacAddress::kBroadcastAddress, IpAddress());
+        EvpnPrefix prefix(rd, tag_, MacAddress::BroadcastMac(), IpAddress());
 
         BgpAttrSpec attr_spec;
         ExtCommunitySpec ext_comm;
@@ -724,7 +724,7 @@ protected:
     void DelBgpPeerBroadcastMacRoute(PeerMock *peer) {
         EXPECT_FALSE(peer->IsXmppPeer());
         RouteDistinguisher rd(peer->address().to_ulong(), kVrfId);
-        EvpnPrefix prefix(rd, tag_, MacAddress::kBroadcastAddress, IpAddress());
+        EvpnPrefix prefix(rd, tag_, MacAddress::BroadcastMac(), IpAddress());
 
         DBRequest delReq;
         delReq.key.reset(new EvpnTable::RequestKey(prefix, peer));
