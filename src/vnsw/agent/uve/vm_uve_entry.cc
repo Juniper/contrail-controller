@@ -444,6 +444,11 @@ bool VmUveEntry::UveInterfaceEntry::FillFloatingIpStats
             fip_list.list_.begin();
         while(it != fip_list.list_.end()) {
             const VmInterface::FloatingIp &ip = *it;
+            /* Skip FIP entries which are not yet activated */
+            if (!ip.installed_) {
+                it++;
+                continue;
+            }
             VmFloatingIPStats uve_fip;
             VmFloatingIPStatSamples diff_uve;
             uve_fip.set_ip_address(ip.floating_ip_.to_string());
