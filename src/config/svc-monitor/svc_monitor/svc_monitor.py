@@ -319,8 +319,8 @@ class SvcMonitor(object):
             return 'ACTIVE'
 
         if si_info['instance_type'] == 'virtual-machine':
-            proj_name = self._get_proj_name_from_si_fq_str(si_fq_str_str)
-            status = self.vm_manager.check_service(proj_name, si_obj)
+            proj_name = self._get_proj_name_from_si_fq_str(si_fq_name_str)
+            status = self.vm_manager.check_service(si_obj, proj_name)
         elif si_info['instance_type'] == 'network-namespace':
             status = self.netns_manager.check_service(si_obj)
 
@@ -689,6 +689,10 @@ def parse_args(args_str):
     }
     ksopts = {
         'auth_host': '127.0.0.1',
+        'auth_protocol': 'http',
+        'auth_port': '5000',
+        'auth_version': 'v2.0',
+        'auth_insecure': True,
         'admin_user': 'user1',
         'admin_password': 'password1',
         'admin_tenant_name': 'default-domain'
