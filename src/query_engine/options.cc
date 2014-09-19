@@ -97,6 +97,10 @@ void Options::Initialize(EventManager &evm,
              "Severity level for local logging of sandesh messages")
         ("DEFAULT.log_local", opt::bool_switch(&log_local_),
              "Enable local logging of sandesh messages")
+        ("DEFAULT.use_syslog", opt::bool_switch(&use_syslog_),
+             "Enable logging to syslog")
+        ("DEFAULT.syslog_facility", opt::value<string>()->default_value("LOG_LOCAL0"),
+             "Syslog facility to receive log lines")
         ("DEFAULT.max_slice", opt::value<int>()->default_value(100),
              "Max number of rows in chunk slice")
         ("DEFAULT.max_tasks", opt::value<int>()->default_value(16),
@@ -210,6 +214,8 @@ void Options::Process(int argc, char *argv[],
     GetOptValue<int>(var_map, log_files_count_, "DEFAULT.log_files_count");
     GetOptValue<long>(var_map, log_file_size_, "DEFAULT.log_file_size");
     GetOptValue<string>(var_map, log_level_, "DEFAULT.log_level");
+    GetOptValue<bool>(var_map, use_syslog_, "DEFAULT.use_syslog");
+    GetOptValue<string>(var_map, syslog_facility_, "DEFAULT.syslog_facility");
     GetOptValue<uint64_t>(var_map, start_time_, "DEFAULT.start_time");
     GetOptValue<int>(var_map, max_tasks_, "DEFAULT.max_tasks");
     GetOptValue<int>(var_map, max_slice_, "DEFAULT.max_slice");
