@@ -28,7 +28,7 @@ public:
     EthernetSegmentId();
     EthernetSegmentId(const uint8_t *data);
 
-    bool IsZero() { return CompareTo(EthernetSegmentId::kZeroEsi) == 0; }
+    bool IsZero() const { return CompareTo(EthernetSegmentId::kZeroEsi) == 0; }
     uint8_t Type() const { return data_[0]; }
 
     int CompareTo(const EthernetSegmentId &rhs) const;
