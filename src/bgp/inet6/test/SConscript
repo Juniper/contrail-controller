@@ -84,15 +84,30 @@ env.Prepend(LIBS = [
 if sys.platform != 'darwin':
     env.Append(LIBS=['rt', 'extended_community'])
     env.Prepend(LINKFLAGS = ['-Wl,--whole-archive',
+                             '-lbgp_ermvpn',
                              '-lbgp_evpn',
                              '-lbgp_inet',
-                             '-lbgp_l3vpn',
                              '-lbgp_inet6',
                              '-lbgp_inet6vpn',
+                             '-lbgp_l3vpn',
                              '-lrtarget',
-                             '-lbgp_ermvpn',
                              '-ltask_test',
                              '-Wl,--no-whole-archive'])
+else:
+    lib_ermvpn = Dir('../../ermvpn').path + '/libbgp_ermvpn.a'
+    env.Prepend(LINKFLAGS = ['-Wl,-force_load,' + lib_ermvpn])
+    lib_evpn = Dir('../../evpn').path + '/libbgp_evpn.a'
+    env.Prepend(LINKFLAGS = ['-Wl,-force_load,' + lib_evpn])
+    lib_inet = Dir('../../inet').path + '/libbgp_inet.a'
+    env.Prepend(LINKFLAGS = ['-Wl,-force_load,' + lib_inet])
+    lib_inet6 = Dir('../../inet6').path + '/libbgp_inet6.a'
+    env.Prepend(LINKFLAGS = ['-Wl,-force_load,' + lib_inet6])
+    lib_inet6vpn = Dir('../../inet6vpn').path + '/libbgp_inet6vpn.a'
+    env.Prepend(LINKFLAGS = ['-Wl,-force_load,' + lib_inet6vpn])
+    lib_l3vpn = Dir('../../l3vpn').path + '/libbgp_l3vpn.a'
+    env.Prepend(LINKFLAGS = ['-Wl,-force_load,' + lib_l3vpn])
+    lib_rtarget = Dir('../../rtarget').path + '/librtarget.a'
+    env.Prepend(LINKFLAGS = ['-Wl,-force_load,' + lib_rtarget])
 
 inet6_prefix_test = env.UnitTest('inet6_prefix_test', ['inet6_prefix_test.cc'])
 env.Alias('src/bgp/inet6:inet6_prefix_test', inet6_prefix_test)
