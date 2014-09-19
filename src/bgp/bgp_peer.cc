@@ -950,7 +950,7 @@ void BgpPeer::ProcessUpdate(const BgpProto::Update *msg) {
 
         for (vector<BgpProtoPrefix *>::const_iterator it =
              msg->withdrawn_routes.begin(); it != msg->withdrawn_routes.end();
-             ++it++) {
+             ++it) {
             DBRequest req;
             req.oper = DBRequest::DB_ENTRY_DELETE;
             req.data.reset(NULL);
