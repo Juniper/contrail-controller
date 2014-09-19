@@ -1639,6 +1639,18 @@ class DBInterface(object):
         return fip_q_dict
     #end _floatingip_vnc_to_neutron
 
+    def _port_delete_refs_virtual_machines(self, port_obj):
+        vm_refs = port_obj.get_virtual_machine_refs()
+        if not vm_refs:
+            return
+        port_obj.set_virtual_machine_list([])
+        self._virtual_machine_interface_update(port_obj)
+        for vm_ref in vm_refs:
+            try:
+                self._vnc_lib.virtual_machine_delete(id=vm_ref['uuid'])
+            except RefsExistError:
+                pass
+
     def _port_neutron_to_vnc(self, port_q, net_obj, oper):
         if oper == CREATE:
             project_id = str(uuid.UUID(port_q['tenant_id']))
@@ -1668,8 +1680,10 @@ class DBInterface(object):
         if 'name' in port_q and port_q['name']:
             port_obj.display_name = port_q['name']
 
-        if port_q.get('device_owner') != constants.DEVICE_OWNER_ROUTER_INTF:
+        if (port_q.get('device_owner') != constants.DEVICE_OWNER_ROUTER_INTF
+            and 'device_id' in port_q):
             instance_name = port_q.get('device_id')
+            self._port_delete_refs_virtual_machines(port_obj)
             if instance_name:
                 try:
                     instance_obj = self._ensure_instance_exists(instance_name)
