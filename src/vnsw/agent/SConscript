@@ -28,7 +28,7 @@ env.Prepend(CPPPATH = env['TOP_INCLUDE'] + '/thrift')
 def AddTopDir(list):
     return map(lambda x: Dir(env['TOP'] + '/' + x).abspath, list)
 
-env.Prepend(CPPPATH = AddTopDir([
+cpppath = [
     '',
     'base/sandesh',
     'dns',
@@ -41,8 +41,15 @@ env.Prepend(CPPPATH = AddTopDir([
     'vnsw/agent/cmn',
     'vnsw/agent/uve',
     'vnsw/agent/openstack',
-    'vrouter/sandesh'
-]))
+    'vrouter/sandesh',
+]
+
+if sys.platform.startswith('linux'):
+    cpppath.append('vnsw/agent/ksync/linux')
+elif sys.platform.startswith('freebsd'):
+    cpppath.append('vnsw/agent/ksync/freebsd')
+
+env.Prepend(CPPPATH = AddTopDir(cpppath))
 
 ##########################################################################
 # Build LIBPATH
