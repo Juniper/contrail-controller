@@ -406,6 +406,7 @@ env.Alias('controller/src/bgp:all-test', [
 evpn_test_suite = [
     bgp_evpn_manager_test,
     bgp_xmpp_evpn_test,
+    bgp_xmpp_evpn_mcast_test,
 ]
 
 evpn_test = env.TestSuite('bgp-evpn-test', evpn_test_suite)
