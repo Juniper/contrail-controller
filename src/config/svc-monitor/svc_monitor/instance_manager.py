@@ -49,6 +49,10 @@ class InstanceManager(object):
     def delete_service(self, vm_uuid, proj_name=None):
         pass
 
+    @abc.abstractmethod
+    def check_service(self, si_obj, proj_name=None):
+        pass
+
     def _get_default_security_group(self, vn_obj):
         sg_fq_name = vn_obj.get_fq_name()[:-1]
         sg_fq_name.append('default')
@@ -407,7 +411,7 @@ class VirtualMachineManager(InstanceManager):
         except nc_exc.NotFound:
             raise KeyError
 
-    def check_service(self, si_obj):
+    def check_service(self, si_obj, proj_name=None):
         vm_back_refs = si_obj.get_virtual_machine_back_refs()
         for vm_back_ref in vm_back_refs or []:
             status = self.novaclient_oper('servers', 'find', proj_name,
@@ -424,11 +428,13 @@ class VirtualMachineManager(InstanceManager):
             if client is not None:
                 return client
 
+        auth_url = self._args.auth_protocol + '://' + self._args.auth_host \
+                   + ':' + self._args.auth_port + '/' + self._args.auth_version
         self._nova[proj_name] = nc.Client(
             '2', username=self._args.admin_user, project_id=proj_name,
             api_key=self._args.admin_password,
             region_name=self._args.region_name, service_type='compute',
-            auth_url='http://' + self._args.auth_host + ':5000/v2.0')
+            auth_url=auth_url, insecure=self._args.auth_insecure)
         return self._nova[proj_name]
 
     def novaclient_oper(self, resource, oper, proj_name, **kwargs):
@@ -558,7 +564,7 @@ class NetworkNamespaceManager(InstanceManager):
                 (vm_obj.get_fq_name_str(), vr_obj.get_fq_name_str()))
         self._vnc_lib.virtual_machine_delete(id=vm_obj.uuid)
 
-    def check_service(self, si_obj):
+    def check_service(self, si_obj, proj_name=None):
         vm_back_refs = si_obj.get_virtual_machine_back_refs()
         if not vm_back_refs:
             return 'ERROR'
