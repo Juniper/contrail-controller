@@ -156,6 +156,19 @@ class InstanceIpServer(InstanceIpServerGen):
     generate_default_instance = False
 
     @classmethod
+    def _get_subnet_name(cls, vn_dict, subnet_uuid):
+        ipam_refs = vn_dict.get('network_ipam_refs', [])
+        subnet_name = None
+        for ipam in ipam_refs:
+            ipam_subnets = ipam['attr'].get('ipam_subnets', [])
+            for subnet in ipam_subnets:
+                if subnet['subnet_uuid'] == subnet_uuid:
+                    subnet_dict = subnet['subnet']
+                    subnet_name = subnet_dict['ip_prefix'] + '/' + str(
+                                  subnet_dict['ip_prefix_len'])
+                    return subnet_name
+
+    @classmethod
     def http_post_collection(cls, tenant_name, obj_dict, db_conn):
         vn_fq_name = obj_dict['virtual_network_refs'][0]['to']
         if ((vn_fq_name == cfgm_common.IP_FABRIC_VN_FQ_NAME) or
@@ -168,9 +181,18 @@ class InstanceIpServer(InstanceIpServerGen):
         if req_ip_family == "v4": req_ip_version = 4
         if req_ip_family == "v6": req_ip_version = 6
 
+        vn_id = {'uuid': db_conn.fq_name_to_uuid('virtual-network', vn_fq_name)}
+        (read_ok, vn_dict) = db_conn.dbe_read('virtual-network', vn_id)
+        if not read_ok:
+            return (False, (500, 'Internal error : ' + pformat(vn_dict)))
+
+        subnet_uuid = obj_dict.get('subnet_uuid', None)
+        sub = cls._get_subnet_name(vn_dict, subnet_uuid) if subnet_uuid else None
+        if subnet_uuid and not sub:
+            return (False, (404, "Subnet id " + subnet_uuid + " not found"))
         try:
             ip_addr = cls.addr_mgmt.ip_alloc_req(
-                vn_fq_name, asked_ip_addr=req_ip, 
+                vn_fq_name, sub=sub, asked_ip_addr=req_ip,
                 asked_ip_version=req_ip_version)
         except Exception as e:
             return (False, (500, str(e)))
@@ -353,6 +375,17 @@ class VirtualNetworkServer(VirtualNetworkServerGen):
     # end _check_route_targets
 
     @classmethod
+    def _check_and_create_subnet_uuid(cls, vn_dict):
+        ipam_refs = vn_dict.get('network_ipam_refs', [])
+        for ipam in ipam_refs:
+            vnsn = ipam['attr']
+            subnets = vnsn['ipam_subnets']
+            for subnet in subnets:
+                if not subnet['subnet_uuid']:
+                    subnet['subnet_uuid'] = str(uuid.uuid4())
+    # end _check_and_create_subnet_uuid
+
+    @classmethod
     def http_post_collection(cls, tenant_name, obj_dict, db_conn):
         try:
             fq_name = obj_dict['fq_name']
@@ -372,6 +405,8 @@ class VirtualNetworkServer(VirtualNetworkServerGen):
                                                                   quota_count)
                 if not ok:
                     return (False, (403, pformat(obj_dict['fq_name']) + ' : ' + quota_limit))
+
+        cls._check_and_create_subnet_uuid(obj_dict)
 
         (ok, error) =  cls._check_route_targets(obj_dict, db_conn)
         if not ok:
@@ -427,6 +462,8 @@ class VirtualNetworkServer(VirtualNetworkServerGen):
             cls.addr_mgmt.net_update_req(fq_name, read_result, obj_dict, id)
         except Exception as e:
             return (False, (500, str(e)))
+
+        cls._check_and_create_subnet_uuid(obj_dict)
 
         (ok, error) =  cls._check_route_targets(obj_dict, db_conn)
         if not ok:
