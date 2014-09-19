@@ -536,8 +536,9 @@ pugi::xml_document *XmppDocumentMock::RouteEnetAddDeleteXmlDoc(
     char *mac;
     char *address;
     if (strchr(str, '-')) {
+        bool has_ip = strchr(str, ',') != NULL;
         tag = strtok_r(str, "-", &saveptr);
-        if (strchr(str, ',')) {
+        if (has_ip) {
             mac = strtok_r(NULL, ",", &saveptr);
             address = strtok_r(NULL, "", &saveptr);
         } else {
@@ -546,7 +547,8 @@ pugi::xml_document *XmppDocumentMock::RouteEnetAddDeleteXmlDoc(
         }
     } else {
         tag = NULL;
-        if (strchr(str, ',')) {
+        bool has_ip = strchr(str, ',') != NULL;
+        if (has_ip) {
             mac = strtok_r(str, ",", &saveptr);
             address = strtok_r(NULL, "", &saveptr);
         } else {
