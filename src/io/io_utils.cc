@@ -27,6 +27,7 @@ void SocketStats::GetRxStats(SocketIOStats &socket_stats) const {
     if (read_calls) {
         socket_stats.average_bytes = read_bytes/read_calls;
     }
+    socket_stats.errors = read_errors;
 }
 
 void SocketStats::GetTxStats(SocketIOStats &socket_stats) const {
@@ -44,6 +45,7 @@ void SocketStats::GetTxStats(SocketIOStats &socket_stats) const {
                      write_blocked_duration_usecs/
                      write_blocked);
     }
+    socket_stats.errors = write_errors;
 }
 
 }  // namespace io
