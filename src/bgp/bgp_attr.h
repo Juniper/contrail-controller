@@ -515,7 +515,7 @@ public:
     const IpAddress &aggregator_adderess() const { return aggregator_address_; }
     const Ip4Address &originator_id() const { return originator_id_; }
     RouteDistinguisher source_rd() const { return source_rd_; }
-    EthernetSegmentId esi() const { return esi_; }
+    const EthernetSegmentId &esi() const { return esi_; }
     uint64_t params() const { return params_; }
     const AsPath *as_path() const { return as_path_.get(); }
     int as_path_count() const { return as_path_ ? as_path_->AsCount() : 0; }
