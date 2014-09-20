@@ -53,12 +53,14 @@ bool ProtobufReader::ParseSelfDescribingMessage(const uint8_t *data,
     const FileDescriptorSet &fds(sdm_message.proto_files());
     for (int i = 0; i < fds.file_size(); i++) {
         const FileDescriptorProto &fdp(fds.file(i));
+        tbb::mutex::scoped_lock lock(mutex_);
         const FileDescriptor *fd(dpool_.BuildFile(fdp));
         if (fd == NULL) {
             LOG(ERROR, "SelfDescribingMessage: " << msg_type <<
                 ": DescriptorPool BuildFile(" << i << ") FAILED");
             return false;
         }
+        lock.release();
     }
     // Extract the Descriptor
     const Descriptor *mdesc = dpool_.FindMessageTypeByName(msg_type);

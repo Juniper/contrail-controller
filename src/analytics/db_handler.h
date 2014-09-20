@@ -140,6 +140,7 @@ private:
     boost::scoped_ptr<GenDb::GenDbIf> dbif_;
 
     // Random generator for UUIDs
+    tbb::mutex umn_mutex_;
     boost::uuids::random_generator umn_gen_;
     std::string name_;
     std::string col_name_;

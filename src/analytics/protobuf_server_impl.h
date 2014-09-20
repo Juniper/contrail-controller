@@ -5,6 +5,8 @@
 #ifndef ANALYTICS_PROTOBUF_SERVER_IMPL_H_
 #define ANALYTICS_PROTOBUF_SERVER_IMPL_H_
 
+#include <tbb/mutex.h>
+
 #include <google/protobuf/descriptor.h>
 #include <google/protobuf/message.h>
 #include <google/protobuf/dynamic_message.h>
@@ -22,6 +24,7 @@ class ProtobufReader {
         uint64_t *timestamp, ::google::protobuf::Message **msg);
 
  private:
+    tbb::mutex mutex_;
     ::google::protobuf::DescriptorPool dpool_;
     ::google::protobuf::DynamicMessageFactory dmf_;
 };

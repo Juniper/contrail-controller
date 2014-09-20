@@ -2,6 +2,7 @@
  * Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
  */
 
+#include <pthread.h>
 #include <boost/bind.hpp>
 #include <boost/lexical_cast.hpp>
 #include <boost/assign/ptr_list_of.hpp>
@@ -652,6 +653,121 @@ TEST_F(DbHandlerTest, FlowTableInsertTest) {
     db_handler()->FlowTableInsert(msg->GetMessageNode(),
         msg->GetHeader());
     delete msg;
+}
+
+class UUIDRandomGenTest : public ::testing::Test {
+ public:
+    bool PopulateUUIDMap(std::map<std::string, unsigned int>& uuid_map,
+        unsigned int count, bool lock, bool rgen_on_stack) {
+        for (unsigned int i = 0; i < count; i++) {
+            std::string uuids = GenerateUUID(lock, rgen_on_stack);
+            std::map<std::string, unsigned int>::const_iterator it =
+                uuid_map.find(uuids);
+            if (it == uuid_map.end()) {
+                uuid_map[uuids] = i;
+            } else {
+                LOG(ERROR, "DUPLICATE uuid:" << uuids << " found in thread id:"
+                    << pthread_self() << ", counter:" << i <<
+                    ", earlier counter:" << it->second << ", id:" <<
+                    it->first);
+                EXPECT_EQ(0, 1);
+            }
+        }
+        return true;
+    }
+
+ private:
+    std::string GenerateUUID(bool lock, bool rgen_on_stack) {
+        boost::uuids::uuid uuid;
+        if (lock) {
+            tbb::mutex::scoped_lock lock(rgen_mutex_);
+            if (rgen_on_stack) {
+                uuid = boost::uuids::random_generator()();
+            } else {
+                uuid = rgen_();
+            }
+        } else {
+            if (rgen_on_stack) {
+                uuid = boost::uuids::random_generator()();
+            } else {
+                uuid = rgen_();
+            }
+        }
+        std::stringstream ss;
+        ss << uuid;
+        return ss.str();
+    }
+
+    tbb::mutex rgen_mutex_;
+    boost::uuids::random_generator rgen_;
+};
+
+class WorkerThread {
+ public:
+    typedef boost::function<void(void)> WorkerFn;
+    WorkerThread(WorkerFn fn) :
+        thread_id_(pthread_self()),
+        fn_(fn) {
+    }
+    static void *ThreadRun(void *objp) {
+        WorkerThread *obj = reinterpret_cast<WorkerThread *>(objp);
+        obj->fn_();
+        return NULL;
+    }
+    void Start() {
+        int res = pthread_create(&thread_id_, NULL, &ThreadRun, this);
+        assert(res == 0);
+    }
+    void Join() {
+        int res = pthread_join(thread_id_, NULL);
+        assert(res == 0);
+    }
+
+ private:
+    pthread_t thread_id_;
+    WorkerFn fn_;
+};
+
+TEST_F(UUIDRandomGenTest, SingleThread) {
+    unsigned int count = 10000;
+    std::map<std::string, unsigned int> uuid_map;
+    bool unique = PopulateUUIDMap(uuid_map, count, false, false);
+    EXPECT_TRUE(unique);
+}
+
+TEST_F(UUIDRandomGenTest, SingleThreadOnStack) {
+    unsigned int count = 10000;
+    std::map<std::string, unsigned int> uuid_map;
+    bool unique = PopulateUUIDMap(uuid_map, count, false, true);
+    EXPECT_TRUE(unique);
+}
+
+TEST_F(UUIDRandomGenTest, MultiThreadedLocked) {
+    unsigned int count = 1000000;
+    std::map<std::string, unsigned int> uuid_map1;
+    WorkerThread t1(boost::bind(&UUIDRandomGenTest::PopulateUUIDMap, this,
+        uuid_map1, count, true, false));
+    std::map<std::string, unsigned int> uuid_map2;
+    WorkerThread t2(boost::bind(&UUIDRandomGenTest::PopulateUUIDMap, this,
+        uuid_map2, count, true, false));
+    t1.Start();
+    t2.Start();
+    t1.Join();
+    t2.Join();
+}
+
+TEST_F(UUIDRandomGenTest, DISABLED_MultiThreadedNoLock) {
+    unsigned int count = 1000000;
+    std::map<std::string, unsigned int> uuid_map1;
+    WorkerThread t1(boost::bind(&UUIDRandomGenTest::PopulateUUIDMap, this,
+        uuid_map1, count, false, false));
+    std::map<std::string, unsigned int> uuid_map2;
+    WorkerThread t2(boost::bind(&UUIDRandomGenTest::PopulateUUIDMap, this,
+        uuid_map2, count, false, false));
+    t1.Start();
+    t2.Start();
+    t1.Join();
+    t2.Join();
 }
 
 int main(int argc, char **argv) {
