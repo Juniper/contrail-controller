@@ -838,7 +838,7 @@ class DBInterface(object):
     #end _network_list_project
 
     # find router ids on a given project
-    def _router_list_project(self, project_id=None):
+    def _router_list_project(self, project_id=None, detail=False):
         if project_id:
             try:
                 project_uuid = str(uuid.UUID(project_id))
@@ -848,9 +848,12 @@ class DBInterface(object):
         else:
             project_uuid = None
 
-        resp_dict = self._vnc_lib.logical_routers_list(parent_id=project_uuid)
+        resp = self._vnc_lib.logical_routers_list(parent_id=project_uuid,
+                                                  detail=detail)
+        if detail:
+            return resp
 
-        return resp_dict['logical-routers']
+        return resp['logical-routers']
     #end _router_list_project
 
     def _ipam_list_project(self, project_id):
@@ -1991,16 +1994,28 @@ class DBInterface(object):
         port_refs = fip_obj.get_virtual_machine_interface_refs()
         if port_refs:
             port_id = port_refs[0]['uuid']
-            port_obj = self._virtual_machine_interface_read(port_id=port_id,
-                                             fields=['instance_ip_back_refs'])
-
+            internal_net_id = None
             # find router_id from port
-            internal_net_obj = self._virtual_network_read(net_id=port_obj.get_virtual_network_refs()[0]['uuid'])
-            net_port_objs = [self._virtual_machine_interface_read(port_id=port['uuid']) for port in internal_net_obj.get_virtual_machine_interface_back_refs()]
-            for net_port_obj in net_port_objs:
-                routers = net_port_obj.get_logical_router_back_refs()
-                if routers:
-                    router_id = routers[0]['uuid']
+            router_list = self._router_list_project(
+                fip_obj.get_project_refs()[0]['uuid'], detail=True)
+            for router_obj in router_list or []:
+                for net in router_obj.get_virtual_network_refs() or []:
+                    if net['uuid'] != floating_net_id:
+                        continue
+                    for vmi in (router_obj.get_virtual_machine_interface_refs()
+                                or []):
+                        vmi_obj = self._vnc_lib.virtual_machine_interface_read(
+                                id=vmi['uuid'])
+                        if internal_net_id is None:
+                            port_obj = self._virtual_machine_interface_read(port_id=port_id)
+                            internal_net_id = port_obj.get_virtual_network_refs()[0]['uuid']
+                        if (vmi_obj.get_virtual_network_refs()[0]['uuid'] ==
+                            internal_net_id):
+                            router_id = router_obj.uuid
+                            break
+                    if router_id:
+                        break
+                if router_id:
                     break
 
         fip_q_dict['id'] = fip_obj.uuid
