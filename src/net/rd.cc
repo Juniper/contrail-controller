@@ -9,7 +9,7 @@
 
 using namespace std;
 
-RouteDistinguisher RouteDistinguisher::null_rd;
+RouteDistinguisher RouteDistinguisher::kZeroRd;
 
 RouteDistinguisher::RouteDistinguisher() {
     memset(data_, 0, kSize);
@@ -53,7 +53,7 @@ RouteDistinguisher RouteDistinguisher::FromString(
         if (errorp != NULL) {
             *errorp = make_error_code(boost::system::errc::invalid_argument);
         }
-        return RouteDistinguisher::null_rd;
+        return RouteDistinguisher::kZeroRd;
     }
 
     boost::system::error_code ec;
@@ -69,7 +69,7 @@ RouteDistinguisher RouteDistinguisher::FromString(
             if (errorp != NULL) {
                 *errorp = make_error_code(boost::system::errc::invalid_argument);
             }
-            return RouteDistinguisher::null_rd;
+            return RouteDistinguisher::kZeroRd;
         }
 
         put_value(rd.data_, 2, 0);
@@ -87,7 +87,7 @@ RouteDistinguisher RouteDistinguisher::FromString(
         if (errorp != NULL) {
             *errorp = make_error_code(boost::system::errc::invalid_argument);
         }
-        return RouteDistinguisher::null_rd;
+        return RouteDistinguisher::kZeroRd;
     }
 
     // ASN 0 is not allowed if the assigned number is not 0.
@@ -95,7 +95,7 @@ RouteDistinguisher RouteDistinguisher::FromString(
         if (errorp != NULL) {
             *errorp = make_error_code(boost::system::errc::invalid_argument);
         }
-        return RouteDistinguisher::null_rd;
+        return RouteDistinguisher::kZeroRd;
     }
 
     // Check assigned number for type 0.
@@ -103,7 +103,7 @@ RouteDistinguisher RouteDistinguisher::FromString(
         if (errorp != NULL) {
             *errorp = make_error_code(boost::system::errc::invalid_argument);
         }
-        return RouteDistinguisher::null_rd;
+        return RouteDistinguisher::kZeroRd;
     }
 
     // Check assigned number for type 1.
@@ -111,7 +111,7 @@ RouteDistinguisher RouteDistinguisher::FromString(
         if (errorp != NULL) {
             *errorp = make_error_code(boost::system::errc::invalid_argument);
         }
-        return RouteDistinguisher::null_rd;
+        return RouteDistinguisher::kZeroRd;
     }
 
     put_value(rd.data_ + offset, 8 - offset, value);

@@ -48,7 +48,7 @@ private:
 // release the label when processing a delete notification - we won't have the
 // path at that point.
 //
-// The RD will be null for BGP learnt routes and the RouterId will be null for
+// The RD will be zero for BGP learnt routes and the RouterId will be zero for
 // XMPP learnt routes.
 //
 McastForwarder::McastForwarder(McastSGEntry *sg_entry, ErmVpnRoute *route)
@@ -202,13 +202,13 @@ void McastForwarder::AddGlobalTreeRoute() {
         return;
 
     // Bail if we can't build a source RD.
-    if (sg_entry_->GetSourceRd() == RouteDistinguisher::null_rd)
+    if (sg_entry_->GetSourceRd().IsZero())
         return;
 
     // Construct the prefix and route key.
     BgpTable *table = static_cast<BgpTable *>(route_->get_table());
     ErmVpnPrefix prefix(ErmVpnPrefix::GlobalTreeRoute,
-        RouteDistinguisher::null_rd, router_id_,
+        RouteDistinguisher::kZeroRd, router_id_,
         sg_entry_->group(), sg_entry_->source());
     ErmVpnRoute rt_key(prefix);
 
@@ -438,7 +438,7 @@ void McastSGEntry::DeleteForwarder(McastForwarder *forwarder) {
 //
 RouteDistinguisher McastSGEntry::GetSourceRd() {
     if (!forest_node_)
-        return RouteDistinguisher::null_rd;
+        return RouteDistinguisher::kZeroRd;
     return forest_node_->route()->GetPrefix().route_distinguisher();
 }
 
@@ -470,7 +470,7 @@ void McastSGEntry::AddLocalTreeRoute() {
     BgpServer *server = partition_->server();
     Ip4Address router_id(server->bgp_identifier());
     ErmVpnPrefix prefix(ErmVpnPrefix::LocalTreeRoute,
-        RouteDistinguisher::null_rd, router_id, group_, source_);
+        RouteDistinguisher::kZeroRd, router_id, group_, source_);
     ErmVpnRoute rt_key(prefix);
 
     // Find or create the route.

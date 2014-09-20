@@ -108,9 +108,8 @@ BgpRoute *EvpnTable::RouteReplicate(BgpServer *server,
     BgpAttrPtr new_attr(src_path->GetAttr());
 
     if (IsDefault()) {
-        if (evpn_prefix.route_distinguisher().IsNull()) {
-            RouteDistinguisher rd = new_attr->source_rd();
-            evpn_prefix.set_route_distinguisher(rd);
+        if (evpn_prefix.route_distinguisher().IsZero()) {
+            evpn_prefix.set_route_distinguisher(new_attr->source_rd());
         }
 
         Ip4Address originator_id = new_attr->nexthop().to_v4();
@@ -118,7 +117,7 @@ BgpRoute *EvpnTable::RouteReplicate(BgpServer *server,
             new_attr.get(), originator_id);
     } else {
         if (evpn_prefix.type() == EvpnPrefix::MacAdvertisementRoute)
-            evpn_prefix.set_route_distinguisher(RouteDistinguisher::null_rd);
+            evpn_prefix.set_route_distinguisher(RouteDistinguisher::kZeroRd);
     }
     EvpnRoute rt_key(evpn_prefix);
 

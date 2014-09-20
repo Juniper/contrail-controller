@@ -350,7 +350,7 @@ TEST_F(BgpAttrTest, SourceRdBasic1) {
     attr_spec.push_back(&rd_spec);
     BgpAttrPtr ptr = attr_db_->Locate(attr_spec);
     EXPECT_EQ(1, attr_db_->Size());
-    EXPECT_FALSE(ptr->source_rd().IsNull());
+    EXPECT_FALSE(ptr->source_rd().IsZero());
     EXPECT_EQ(rd, ptr->source_rd());
     BgpAttr attr(*(ptr.get()));
     EXPECT_EQ(attr.source_rd(), ptr->source_rd());

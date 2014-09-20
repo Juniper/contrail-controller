@@ -93,14 +93,14 @@ BgpRoute *ErmVpnTable::RouteReplicate(BgpServer *server,
             return NULL;
     }
 
-    // RD is always null in the VRF.  When replicating to the VPN table, we
+    // RD is always zero in the VRF.  When replicating to the VPN table, we
     // pick up the RD from the SourceRD attribute. The SourceRD is always set
     // for Local and Global routes that the multicast code adds to a VRF.
     ErmVpnPrefix mprefix(mroute->GetPrefix());
     if (IsDefault()) {
         mprefix.set_route_distinguisher(src_path->GetAttr()->source_rd());
     } else {
-        mprefix.set_route_distinguisher(RouteDistinguisher::null_rd);
+        mprefix.set_route_distinguisher(RouteDistinguisher::kZeroRd);
     }
     ErmVpnRoute rt_key(mprefix);
 

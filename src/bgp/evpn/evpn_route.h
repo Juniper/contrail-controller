@@ -76,7 +76,7 @@ public:
     Address::Family family() const { return family_; }
     IpAddress ip_address() const { return ip_address_; }
     uint8_t ip_address_length() const;
-    void set_route_distinguisher(RouteDistinguisher rd) { rd_ = rd; }
+    void set_route_distinguisher(const RouteDistinguisher &rd) { rd_ = rd; }
 
 private:
     uint8_t type_;

@@ -1499,7 +1499,7 @@ void BgpXmppChannel::ProcessEnetItem(string vrf_name,
     if (mac_addr.IsBroadcast()) {
         rd = RouteDistinguisher(peer_->bgp_identifier(), instance_id);
     } else {
-        rd = RouteDistinguisher::null_rd;
+        rd = RouteDistinguisher::kZeroRd;
     }
 
     uint32_t ethernet_tag = item.entry.nlri.ethernet_tag;

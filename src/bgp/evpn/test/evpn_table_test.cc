@@ -557,7 +557,7 @@ TEST_F(EvpnTableMacAdvertisementTest, Hashing) {
 }
 
 //
-// Basic - RD in VRF is null.
+// Basic - RD in VRF is zero.
 //
 TEST_F(EvpnTableMacAdvertisementTest, ReplicateRouteFromVPN1) {
     ostringstream repr1, repr2;
