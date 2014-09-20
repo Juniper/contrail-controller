@@ -61,9 +61,8 @@ void AgentUve::Shutdown() {
 }
 
 void AgentUve::Init() {
-    Module::type module = Module::VROUTER_AGENT;
-    std::string module_id(g_vns_constants.ModuleNames.find(module)->second);
-    std::string instance_id(g_vns_constants.INSTANCE_ID_DEFAULT);
+    std::string module_id(agent_->discovery_client_name());
+    std::string instance_id(agent_->instance_id());
     EventManager *evm = agent_->event_manager();
     boost::asio::io_service &io = *evm->io_service();
 

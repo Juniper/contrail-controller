@@ -37,6 +37,9 @@ public:
     // Initialize the agent factory based on platform
     virtual void FactoryInit() = 0;
 
+    virtual std::string InstanceId();
+    virtual std::string ModuleName();
+
     // Init has two set of routines
     // - *Base routines that provide basic common initialization
     // - Another set of routines for platform specific initializations

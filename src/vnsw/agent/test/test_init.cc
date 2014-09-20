@@ -65,9 +65,9 @@ TestClient *TestInit(const char *init_file, bool ksync_init, bool pkt_init,
     param->set_vrouter_stats_interval(vrouter_stats_interval);
 
     // Initialize the agent-init control class
-    int sandesh_port = 0;
+    int introspect_port = 0;
     Sandesh::InitGeneratorTest("VNSWAgent", "Agent", "Test", "Test",
-                               agent->event_manager(), sandesh_port, NULL);
+                               agent->event_manager(), introspect_port, NULL);
 
     init->set_ksync_enable(ksync_init);
     init->set_packet_enable(true);
