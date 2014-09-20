@@ -89,7 +89,8 @@ class VRouterScheduler(object):
         except analytics_client.OpenContrailAPIFailed:
             return False
 
-        if not vrouter_status:
+        if not vrouter_status or 'NodeStatus' not in vrouter_status or \
+                'process_status' not in vrouter_status['NodeStatus']:
             return False
 
         for process in vrouter_status['NodeStatus']['process_status']:

@@ -799,6 +799,7 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
     <xsd:all>
         <xsd:element name='service-interface-type' type="ServiceInterfaceType"/>
         <xsd:element name='interface-mirror'  type="InterfaceMirrorType"/>
+        <xsd:element name="local-preference" type="xsd:integer" default='100'/>
     </xsd:all>
 </xsd:complexType>
 
@@ -1062,13 +1063,14 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
     <xsd:sequence>
         <xsd:element name='auto-policy' type="xsd:boolean" default='false'/>
         <xsd:element name='availability-zone' type='xsd:string'/>
-        <xsd:element name='management-virtual-network' type='xsd:string'/>
-        <xsd:element name='left-virtual-network' type='xsd:string'/>
-        <xsd:element name='left-ip-address' type='IpAddressType'/>
-        <xsd:element name='right-virtual-network' type='xsd:string'/>
-        <xsd:element name='right-ip-address' type='IpAddressType'/>
+        <xsd:element name='management-virtual-network' type='xsd:string'/> <!-- Will be DEPRECATED -->
+        <xsd:element name='left-virtual-network' type='xsd:string'/>       <!-- Will be DEPRECATED -->
+        <xsd:element name='left-ip-address' type='IpAddressType'/>         <!-- Will be DEPRECATED -->
+        <xsd:element name='right-virtual-network' type='xsd:string'/>      <!-- Will be DEPRECATED -->
+        <xsd:element name='right-ip-address' type='IpAddressType'/>        <!-- Will be DEPRECATED -->
         <xsd:element name='interface-list' type='ServiceInstanceInterfaceType' maxOccurs='unbounded'/>
         <xsd:element name='scale-out' type='ServiceScaleOutType'/>
+        <xsd:element name="ha-mode" type="AddressMode"/>
     </xsd:sequence>
 </xsd:complexType>
 
