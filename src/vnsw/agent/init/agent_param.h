@@ -47,6 +47,8 @@ public:
                bool enable_service_options = true);
     virtual ~AgentParam();
 
+    virtual int Validate();
+
     bool IsVHostConfigured() {
         return vhost_.addr_.to_ulong() != 0? true : false;
     }
@@ -126,7 +128,6 @@ public:
     void Init(const std::string &config_file,
               const std::string &program_name);
 
-    int Validate();
     void LogConfig() const;
     void InitVhostAndXenLLPrefix();
     void set_test_mode(bool mode);
@@ -141,11 +142,13 @@ public:
     boost::program_options::options_description options() const {
         return options_;
     }
-private:
-    void ComputeFlowLimits();
-    void InitFromSystem();
-    void InitFromConfig();
-    void InitFromArguments();
+protected:
+    void set_mode(Mode m) { mode_ = m; }
+    virtual void InitFromSystem();
+    virtual void InitFromConfig();
+    virtual void InitFromArguments();
+    boost::property_tree::ptree &tree() { return tree_; }
+
     template <typename ValueType>
     bool GetOptValue(const boost::program_options::variables_map &var_map, 
                      ValueType &var, const std::string &val);
@@ -175,6 +178,9 @@ private:
     (const boost::program_options::variables_map &var_map, Ip4Address *server1,
      uint16_t *port1, Ip4Address *server2, uint16_t *port2,
      const std::string &key);
+
+private:
+    void ComputeFlowLimits();
     void ParseCollector();
     void ParseVirtualHost();
     void ParseDiscovery();

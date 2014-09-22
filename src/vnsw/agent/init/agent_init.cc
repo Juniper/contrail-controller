@@ -48,17 +48,26 @@ void AgentInit::ProcessOptions
     agent_param_->Init(config_file, program_name);
 }
 
+string AgentInit::ModuleName() {
+    Module::type module = Module::VROUTER_AGENT;
+    return g_vns_constants.ModuleNames.find(module)->second;
+}
+
+string AgentInit::InstanceId() {
+    return g_vns_constants.INSTANCE_ID_DEFAULT;
+}
+
 // Start of Agent init.
 // Trigger init in DBTable task context
 int AgentInit::Start() {
-    Module::type module = Module::VROUTER_AGENT;
-    string module_name = g_vns_constants.ModuleNames.find(module)->second;
-
     // Call to GetScheduler::GetInstance() will also create Task Scheduler
     if (TaskScheduler::GetInstance() == NULL) {
         TaskScheduler::Initialize();
     }
     agent_->set_task_scheduler(TaskScheduler::GetInstance());
+    string module_name = ModuleName();
+    agent_->set_discovery_client_name(module_name);
+    agent_->set_instance_id(InstanceId());
 
     // Copy tunable parameters into agent_
     agent_->CopyConfig(agent_param_);

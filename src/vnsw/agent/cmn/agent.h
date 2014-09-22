@@ -477,6 +477,17 @@ public:
         ds_client_ = client;
     }
 
+    const std::string &discovery_client_name() const {
+        return discovery_client_name_;
+    }
+
+    void set_discovery_client_name(const std::string &name) {
+        discovery_client_name_ = name;
+    }
+
+    const std::string &instance_id() const { return instance_id_; }
+    void set_instance_id(const std::string &id) { instance_id_ = id; }
+
     // Multicast related
     const std::string &multicast_label_range(uint8_t idx) { 
         return label_range_[idx]; 
@@ -613,7 +624,7 @@ public:
         mirror_src_udp_port_ = mirr_port;
     }
 
-    int sandesh_port() const { return sandesh_port_;}
+    int introspect_port() const { return introspect_port_;}
 
     DB *db() const {return db_;}
 
@@ -715,7 +726,8 @@ private:
     uint16_t metadata_server_port_;
     std::string host_name_;
     std::string prog_name_;
-    int sandesh_port_;
+    int introspect_port_;
+    std::string instance_id_;
 
     // DB handles
     DB *db_;
@@ -760,6 +772,7 @@ private:
     std::string dss_addr_;
     uint32_t dss_port_;
     int dss_xs_instances_;
+    std::string discovery_client_name_;
     std::string label_range_[MAX_XMPP_SERVERS];
     std::string ip_fabric_intf_name_;
     std::string vhost_interface_name_;

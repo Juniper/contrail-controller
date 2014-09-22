@@ -31,8 +31,8 @@ void DiscoveryAgentClient::Init(AgentParam *param) {
         }
         dss_ep.port(port);
  
-        std::string subscriber_name = 
-            g_vns_constants.ModuleNames.find(Module::VROUTER_AGENT)->second;
+        std::string subscriber_name =
+            agent_cfg_->agent()->discovery_client_name();
         DiscoveryServiceClient *ds_client = 
             (new DiscoveryServiceClient(agent_cfg_->agent()->event_manager(), 
              dss_ep, subscriber_name));
@@ -89,9 +89,10 @@ void DiscoveryAgentClient::DiscoverySubscribeXmppHandler(std::vector<DSResponse>
 }
 
 void DiscoveryAgentClient::DiscoverServices() {
-    if (!agent_cfg_->agent()->discovery_server().empty()) {
+    Agent *agent = agent_cfg_->agent();
+    if (!agent->discovery_server().empty()) {
         DiscoveryServiceClient *ds_client = 
-            agent_cfg_->agent()->discovery_service_client();
+            agent->discovery_service_client();
         if (ds_client) {
 
             //subscribe to collector service
@@ -99,8 +100,8 @@ void DiscoveryAgentClient::DiscoverServices() {
                 Module::type module = Module::VROUTER_AGENT;
                 NodeType::type node_type = 
                     g_vns_constants.Module2NodeType.find(module)->second;
-                std::string subscriber_name = 
-                    g_vns_constants.ModuleNames.find(module)->second;
+                std::string subscriber_name =
+                    agent->discovery_client_name();
                 std::string node_type_name = 
                     g_vns_constants.NodeTypeNames.find(node_type)->second;
 
@@ -112,21 +113,21 @@ void DiscoveryAgentClient::DiscoverServices() {
                 Sandesh::InitGenerator(subscriber_name,
                                        Agent::GetInstance()->host_name(),
                                        node_type_name,
-                                       g_vns_constants.INSTANCE_ID_DEFAULT, 
-                                       Agent::GetInstance()->event_manager(),
-                                       Agent::GetInstance()->sandesh_port(),
+                                       agent->instance_id(),
+                                       agent->event_manager(),
+                                       agent->introspect_port(),
                                        csf,
                                        list,
                                        NULL);
             }
 
             //subscribe to Xmpp Server on controller
-            if (agent_cfg_->agent()->controller_ifmap_xmpp_server(0).empty()) {
+            if (agent->controller_ifmap_xmpp_server(0).empty()) {
                 DiscoveryAgentClient::DiscoverController(); 
             } 
 
             //subscribe to DNServer 
-            if (agent_cfg_->agent()->dns_server(0).empty()) {
+            if (agent->dns_server(0).empty()) {
                 DiscoveryAgentClient::DiscoverDNS(); 
             } 
         }

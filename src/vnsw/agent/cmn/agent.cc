@@ -208,7 +208,7 @@ void Agent::CopyConfig(AgentParam *params) {
     ip_fabric_intf_name_ = params_->eth_port();
     host_name_ = params_->host_name();
     prog_name_ = params_->program_name();
-    sandesh_port_ = params_->http_server_port();
+    introspect_port_ = params_->http_server_port();
     prefix_len_ = params_->vhost_plen();
     gateway_id_ = params_->vhost_gw();
     router_id_ = params_->vhost_addr();
@@ -261,19 +261,19 @@ void Agent::InitCollector() {
     NodeType::type node_type =
         g_vns_constants.Module2NodeType.find(module)->second;
     if (params_->collector_server_list().size() != 0) {
-        Sandesh::InitGenerator(g_vns_constants.ModuleNames.find(module)->second,
+        Sandesh::InitGenerator(discovery_client_name_,
                 params_->host_name(),
                 g_vns_constants.NodeTypeNames.find(node_type)->second,
-                g_vns_constants.INSTANCE_ID_DEFAULT,
+                instance_id_,
                 event_manager(),
                 params_->http_server_port(), 0,
                 params_->collector_server_list(),
                 NULL);
     } else {
-        Sandesh::InitGenerator(g_vns_constants.ModuleNames.find(module)->second,
+        Sandesh::InitGenerator(discovery_client_name_,
                 params_->host_name(),
                 g_vns_constants.NodeTypeNames.find(node_type)->second,
-                g_vns_constants.INSTANCE_ID_DEFAULT,
+                instance_id_,
                 event_manager(),
                 params_->http_server_port(),
                 NULL);
@@ -341,17 +341,18 @@ Agent::Agent() :
     ifmap_channel_(), xmpp_client_(), xmpp_init_(), dns_xmpp_channel_(),
     dns_xmpp_client_(), dns_xmpp_init_(), agent_stale_cleaner_(NULL),
     cn_mcast_builder_(NULL), ds_client_(NULL), host_name_(""),
-    prog_name_(""), sandesh_port_(0), db_(NULL), task_scheduler_(NULL),
-    agent_init_(NULL), intf_table_(NULL), nh_table_(NULL), uc_rt_table_(NULL),
-    mc_rt_table_(NULL), vrf_table_(NULL), vm_table_(NULL), vn_table_(NULL),
-    sg_table_(NULL), mpls_table_(NULL), acl_table_(NULL), mirror_table_(NULL),
-    vrf_assign_table_(NULL), mirror_cfg_table_(NULL),
-    intf_mirror_cfg_table_(NULL), intf_cfg_table_(NULL), 
-    router_id_(0), prefix_len_(0), 
+    prog_name_(""), introspect_port_(0),
+    instance_id_(g_vns_constants.INSTANCE_ID_DEFAULT), db_(NULL),
+    task_scheduler_(NULL), agent_init_(NULL), intf_table_(NULL),
+    nh_table_(NULL), uc_rt_table_(NULL), mc_rt_table_(NULL), vrf_table_(NULL),
+    vm_table_(NULL), vn_table_(NULL), sg_table_(NULL), mpls_table_(NULL),
+    acl_table_(NULL), mirror_table_(NULL), vrf_assign_table_(NULL),
+    mirror_cfg_table_(NULL), intf_mirror_cfg_table_(NULL),
+    intf_cfg_table_(NULL), router_id_(0), prefix_len_(0), 
     gateway_id_(0), xs_cfg_addr_(""), xs_idx_(0), xs_addr_(), xs_port_(),
     xs_stime_(), xs_dns_idx_(0), dns_addr_(), dns_port_(),
-    dss_addr_(""), dss_port_(0), dss_xs_instances_(0), label_range_(),
-    ip_fabric_intf_name_(""), vhost_interface_name_(""),
+    dss_addr_(""), dss_port_(0), dss_xs_instances_(0), discovery_client_name_(),
+    label_range_(), ip_fabric_intf_name_(""), vhost_interface_name_(""),
     pkt_interface_name_("pkt0"), cfg_listener_(NULL), arp_proto_(NULL),
     dhcp_proto_(NULL), dns_proto_(NULL), icmp_proto_(NULL), flow_proto_(NULL),
     local_peer_(NULL), local_vm_peer_(NULL), linklocal_peer_(NULL),
@@ -372,6 +373,8 @@ Agent::Agent() :
 
     SetAgentTaskPolicy();
     CreateLifetimeManager();
+
+    discovery_client_name_ = g_vns_constants.ModuleNames.find(Module::VROUTER_AGENT)->second;
 
     agent_signal_.reset(
         AgentObjectFactory::Create<AgentSignal>(event_mgr_));
