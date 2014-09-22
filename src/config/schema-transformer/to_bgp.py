@@ -2726,7 +2726,7 @@ class SchemaTransformer(object):
                     _vnc_lib.security_group_read(id=acl_obj.parent_uuid)
             except NoIdError:
                 try:
-                    _vnc_lib.access_control_list_delete(id=acl.uuid)
+                    _vnc_lib.access_control_list_delete(id=acl['uuid'])
                 except NoIdError:
                     pass
         # end for acl
