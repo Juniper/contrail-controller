@@ -25,6 +25,7 @@ import sandesh.viz.constants as VizConstants
 from pysandesh.gen_py.sandesh.ttypes import SandeshType, SandeshLevel
 from pysandesh.sandesh_logger import SandeshLogger
 from pysandesh.util import UTCTimestampUsec
+import commands
 
 OBJECT_TYPE_LIST = [table_info.log_query_name for table_info in \
     VizConstants._OBJECT_TABLES.values()]
@@ -115,25 +116,138 @@ class LogQuerier(object):
             type=int, default=514)
         parser.add_argument("--f", help="Tail logs from now", action="store_true")
         parser.add_argument("--keywords", help="comma seperated list of keywords")
+        parser.add_argument("--unique-message-type", \
+         help="Display list of message type", action="store_true")
         self._args = parser.parse_args()
         return 0
     # end parse_args
 
-    # Public functions
-    def query(self):
-        if self._args.f and (self._args.send_syslog or self._args.reverse or
-               self._args.start_time or self._args.end_time):
-            invalid_combination = " --f"
-            if self._args.send_syslog:
-                 invalid_combination += ", --send-syslog"
-            if self._args.reverse:
-                 invalid_combination += ", --reverse"
+    def validate_query(self):
+        if self._args.last:
+            invalid_combination = ""
             if self._args.start_time:
-                 invalid_combination += ", --start-time"
+                 invalid_combination += "--start-time, "
             if self._args.end_time:
-                 invalid_combination += ", --end-time"
-            print "Combination of options" + invalid_combination + " are not valid."
-            return -1
+                 invalid_combination += "--end-time, "
+            if invalid_combination is not "":
+                 print "[%s] options not supported with --last" \
+                  % invalid_combination[:-2]
+                 return -1
+        if self._args.f:
+            invalid_combination = ""
+            if self._args.send_syslog:
+                 invalid_combination += "--send-syslog, "
+            if self._args.reverse:
+                 invalid_combination += "--reverse, "
+            if self._args.start_time:
+                 invalid_combination += "--start-time, "
+            if self._args.end_time:
+                 invalid_combination += "--end-time, "
+            if self._args.last:
+                 invalid_combination += "--last, "
+            if invalid_combination is not "":
+                 print "[%s] options not supported with --f" \
+                  % invalid_combination[:-2]
+                 return -1
+
+        if self._args.unique_message_type is True:
+            args_list = (option for option in dir(self._args) \
+              if not option.startswith('_'))
+            invalid_option = ""
+            for option in args_list:
+                if not (option is 'start_time' or option is 'end_time' or
+                    option is 'last' or option is 'opserver_port' or
+                    option is 'opserver_ip' or option is 'syslog_port' or
+                    option is 'syslog_server' or
+                    option is 'unique_message_type'):
+                    if getattr(self._args,option):
+                        invalid_option += option + ', '
+                if option is 'syslog_port' and \
+                  not (getattr(self._args,option) == 514):
+                    invalid_option += option + ', '
+                if option is 'syslog_server' and \
+                  not (getattr(self._args,option) == 'localhost'):
+                    invalid_option += option + ', '
+            if invalid_option is not "":
+                print "[%s] options not supported with unique-message-type" \
+                 % invalid_option[:-2]
+                return -1
+
+        if (self._args.object_type is not None or
+           self._args.object_id is not None or
+           self._args.object_select_field is not None or
+           self._args.object_values is True):
+            # Validate object-type
+            if self._args.trace is not None:
+                print "--trace option is not supported with object query"
+                return -1
+            if self._args.all is True:
+                print "--all option is not supported with object query"
+                return -1
+            if self._args.object_type is not None:
+                if self._args.object_type in OBJECT_TYPE_LIST:
+                    if self._args.object_type not in OBJECT_TABLE_MAP:
+                        print 'Table not found for object-type [%s]' % \
+                            (self._args.object_type)
+                        return -1
+                else:
+                     print 'Unknown object-type [%s]' % (self._args.object_type)
+                     return -1
+            else:
+                print 'Object-type required for query'
+                return -1
+
+            # Validate object-id and object-values
+            if self._args.object_id is not None and \
+                self._args.object_values is True:
+                print 'Please specify either object-id' + \
+                 'or object-values but not both'
+                return -1
+
+            if self._args.object_values is False:
+                if self._args.object_select_field is not None:
+                    if ((self._args.object_select_field !=
+                         VizConstants.OBJECT_LOG) and
+                        (self._args.object_select_field !=
+                         VizConstants.SYSTEM_LOG)):
+                         print 'Invalid object-select-field. '\
+                             'Valid values are "%s" or "%s"' \
+                             % (VizConstants.OBJECT_LOG,
+                               VizConstants.SYSTEM_LOG)
+                         return -1
+            else:
+                if self._args.object_select_field:
+                    print 'Please specify either object-id with ' + \
+                         'object-select-field or only object-values'
+                    return -1
+                where_str = ""
+                if self._args.source is not None:
+                    where_str += "'Source', "
+                if self._args.module is not None:
+                    where_str += "'ModuleId', "
+                if self._args.category is not None:
+                    where_str += "'Category', "
+                if self._args.message_type is not None:
+                    where_str +="'Messagetype', "
+                if where_str is not "":
+                    print "Invalid/unsupported where-clause options " + \
+                     "[%s] for object-values query" % where_str[:-2]
+                    return -1
+
+        if self._args.trace is not None:
+            if self._args.all is True:
+                print "Please specify either trace or all but not both"
+                return -1
+            if self._args.source is None:
+                print 'Source is required for trace buffer dump'
+                return -1
+            if self._args.module is None:
+                print 'Module is required for trace buffer dump'
+                return -1
+        return 0
+
+    # Public functions
+    def post_query(self):
         start_time, end_time = self._start_time, self._end_time 
         messages_url = OpServerUtils.opserver_query_url(
             self._args.opserver_ip,
@@ -142,6 +256,16 @@ class LogQuerier(object):
         where_obj = []
         and_filter = []
         or_filter = []
+        if self._args.unique_message_type is True:
+            command_str = ("contrail-stats --table FieldNames.fields" +
+               " --where name=MessageTable* --select name fields.value" +
+               " --start-time " + str(start_time) +
+               " --end-time " + str(end_time) +
+               " --opserver-ip " + str(self._args.opserver_ip) +
+               " --opserver-port " + str(self._args.opserver_port))
+            res = commands.getoutput(command_str)
+            print str(res)
+            return None
         if self._args.source is not None:
             source_match = OpServerUtils.Match(name=VizConstants.SOURCE,
                                                value=self._args.source,
@@ -199,24 +323,8 @@ class LogQuerier(object):
            self._args.object_id is not None or
            self._args.object_select_field is not None or
            self._args.object_values is True):
-            # Validate object-type
-            if self._args.object_type is not None:
-                if self._args.object_type in OBJECT_TYPE_LIST:
-                    if self._args.object_type in OBJECT_TABLE_MAP:
-                        table = OBJECT_TABLE_MAP[self._args.object_type]
-                    else:
-                        print 'Table not found for object-type [%s]' % \
-                            (self._args.object_type)
-                        return -1
-                else:
-                    print 'Unknown object-type [%s]' % (self._args.object_type)
-                    return -1
-            else:
-                print 'Object-type required for query'
-                return -1
-            # Validate object-id and object-values
-            if self._args.object_id is not None and \
-               self._args.object_values is False:
+            table = OBJECT_TABLE_MAP[self._args.object_type]
+            if self._args.object_id is not None:
                 object_id = self._args.object_id
                 if object_id.endswith("*"):
                     id_match = OpServerUtils.Match(
@@ -229,22 +337,9 @@ class LogQuerier(object):
                         value=object_id,
                         op=OpServerUtils.MatchOp.EQUAL)
                 where_obj.append(id_match.__dict__)
-            elif self._args.object_id is not None and \
-               self._args.object_values is True:
-                print 'Please specify either object-id or object-values but not both'
-                return -1
 
             if self._args.object_values is False:
                 if self._args.object_select_field is not None:
-                    if ((self._args.object_select_field !=
-                         VizConstants.OBJECT_LOG) and
-                        (self._args.object_select_field !=
-                         VizConstants.SYSTEM_LOG)):
-                        print 'Invalid object-select-field. '\
-                            'Valid values are "%s" or "%s"' \
-                            % (VizConstants.OBJECT_LOG,
-                               VizConstants.SYSTEM_LOG)
-                        return -1
                     obj_sel_field = [self._args.object_select_field]
                     self._args.object_select_field = obj_sel_field
                 else:
@@ -257,14 +352,6 @@ class LogQuerier(object):
                     VizConstants.MESSAGE_TYPE,
                 ] + obj_sel_field
             else:
-                if self._args.object_select_field:
-                    print 'Please specify either object-id with ' + \
-                        'object-select-field or only object-values'
-                    return -1
-                if len(where_msg):
-                    options = [where['name'] for where in where_msg]
-                    print 'Invalid/unsupported where-clause options %s for object-values query' % str(options)
-                    return -1
                 select_list = [
                     OpServerUtils.OBJECT_ID
                 ]
@@ -276,12 +363,6 @@ class LogQuerier(object):
 
         elif self._args.trace is not None:
             table = VizConstants.COLLECTOR_GLOBAL_TABLE
-            if self._args.source is None:
-                print 'Source is required for trace buffer dump'
-                return -1
-            if self._args.module is None:
-                print 'Module is required for trace buffer dump'
-                return -1
             trace_buf_match = OpServerUtils.Match(
                 name=VizConstants.CATEGORY,
                 value=self._args.trace,
@@ -533,6 +614,8 @@ def main():
         querier = LogQuerier()
         if querier.parse_args() != 0:
             return
+        if querier.validate_query() == -1:
+            return
         if querier._args.f:
             start_time = UTCTimestampUsec() - 10*pow(10,6)
             while True:
@@ -540,7 +623,7 @@ def main():
                 querier._end_time = UTCTimestampUsec()
                 start_time = querier._end_time + 1
                 time.sleep(3)
-                result = querier.query()
+                result = querier.post_query()
                 if result == -1:
                     return
                 querier.display(result)
@@ -559,7 +642,7 @@ def main():
                         last = querier._args.last)
             except:
                 return -1
-            result = querier.query()
+            result = querier.post_query()
             if result == -1:
                 return
             querier.display(result)
