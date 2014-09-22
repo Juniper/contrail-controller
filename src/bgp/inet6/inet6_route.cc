@@ -3,21 +3,25 @@
  */
 
 #include "bgp/inet6/inet6_route.h"
+
 #include "bgp/inet6/inet6_table.h"
 #include "base/util.h"
 
 using boost::system::error_code;
+using std::copy;
+using std::string;
+using std::vector;
 
 Inet6Prefix::Inet6Prefix(const BgpProtoPrefix &prefix)
         : prefixlen_(prefix.prefixlen) {
     assert(prefix.prefixlen <= kMaxV6PrefixLen);
     Ip6Address::bytes_type bt = { { 0 } };
-    std::copy(prefix.prefix.begin(), prefix.prefix.end(), bt.begin());
+    copy(prefix.prefix.begin(), prefix.prefix.end(), bt.begin());
     ip6_addr_ = Ip6Address(bt);
 }
 
-std::string Inet6Prefix::ToString() const {
-    std::string repr(ip6_addr().to_string());
+string Inet6Prefix::ToString() const {
+    string repr(ip6_addr().to_string());
     repr.append("/" + integerToString(prefixlen()));
     return repr;
 }
@@ -38,7 +42,7 @@ int Inet6Prefix::CompareTo(const Inet6Prefix &rhs) const {
     return 0;
 }
 
-Inet6Prefix Inet6Prefix::FromString(const std::string &str, error_code *error) {
+Inet6Prefix Inet6Prefix::FromString(const string &str, error_code *error) {
     Inet6Prefix prefix;
     error_code pfxerr = Inet6PrefixParse(str, &prefix.ip6_addr_,
                                        &prefix.prefixlen_);
@@ -85,12 +89,12 @@ int Inet6Route::CompareTo(const Route &rhs) const {
     return prefix_.CompareTo(rt_other.prefix_);
 }
 
-std::string Inet6Route::ToString() const {
+string Inet6Route::ToString() const {
     return prefix_.ToString();
 }
 
 // Check whether 'this' is more specific than rhs.
-bool Inet6Route::IsMoreSpecific(const std::string &match) const {
+bool Inet6Route::IsMoreSpecific(const string &match) const {
     error_code ec;
 
     Inet6Prefix prefix = Inet6Prefix::FromString(match, &ec);
@@ -120,22 +124,22 @@ void Inet6Route::BuildProtoPrefix(BgpProtoPrefix *prefix,
     prefix->prefix.clear();
     const Ip6Address::bytes_type &addr_bytes = prefix_.ip6_addr().to_bytes();
     int num_bytes = (prefix->prefixlen + 7) / 8;
-    std::copy(addr_bytes.begin(), addr_bytes.begin() + num_bytes,
+    copy(addr_bytes.begin(), addr_bytes.begin() + num_bytes,
          back_inserter(prefix->prefix));
 }
 
-void Inet6Route::BuildBgpProtoNextHop(std::vector<uint8_t> &dest_nh,
+void Inet6Route::BuildBgpProtoNextHop(vector<uint8_t> &dest_nh,
                                       IpAddress src_nh) const {
     dest_nh.resize(sizeof(Ip6Address::bytes_type));
     const Ip6Address::bytes_type &addr_bytes = src_nh.to_v6().to_bytes();
-    std::copy(addr_bytes.begin(), addr_bytes.end(), dest_nh.begin());
+    copy(addr_bytes.begin(), addr_bytes.end(), dest_nh.begin());
 }
 
 // Routines for class Inet6Masks
 
 // Definitions of the static members
 bool Inet6Masks::initialized_ = false;
-std::vector<Inet6Prefix> Inet6Masks::masks_;
+vector<Inet6Prefix> Inet6Masks::masks_;
 
 const Inet6Prefix& Inet6Masks::PrefixlenToMask(uint8_t prefix_len) {
     assert(prefix_len <= Inet6Prefix::kMaxV6PrefixLen);

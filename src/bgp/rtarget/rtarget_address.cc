@@ -6,7 +6,8 @@
 
 #include "net/address.h"
 
-using namespace std;
+using std::copy;
+using std::string;
 
 RouteTarget RouteTarget::null_rtarget;
 
@@ -106,7 +107,7 @@ RouteTarget RouteTarget::FromString(const string &str, boost::system::error_code
     return rt;
 }
 
-std::string RouteTarget::ToString() const {
+string RouteTarget::ToString() const {
     uint8_t data[RouteTarget::kSize];
     copy(data_.begin(), data_.end(), &data[0]);
     if (data[0] == 0) {
@@ -114,13 +115,13 @@ std::string RouteTarget::ToString() const {
         uint32_t num = get_value(data + 4, 4);
         char temp[50];
         snprintf(temp, sizeof(temp), "target:%u:%u", asn, num);
-        return std::string(temp);
+        return string(temp);
     } else {
         Ip4Address addr(get_value(data + 2, 4));
         uint16_t num = get_value(data + 6, 2);
         char temp[50];
         snprintf(temp, sizeof(temp), "target:%s:%u",
                  addr.to_string().c_str(), num);
-        return std::string(temp);
+        return string(temp);
     }
 }

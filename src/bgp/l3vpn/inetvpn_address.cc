@@ -6,54 +6,64 @@
 
 #include "bgp/inet/inet_route.h"
 
-using namespace std;
+using std::copy;
+using std::string;
 
-InetVpnPrefix::InetVpnPrefix()
-  : prefixlen_(0) {
+InetVpnPrefix::InetVpnPrefix() : prefixlen_(0) {
 }
 
-InetVpnPrefix::InetVpnPrefix(const BgpProtoPrefix &prefix)
-  : rd_(&prefix.prefix[3]) {
-    size_t rdsize = RouteDistinguisher::kSize;
-    size_t labelsize = 3; // 3 bytes label
+int InetVpnPrefix::FromProtoPrefix(const BgpProtoPrefix &proto_prefix,
+                                   InetVpnPrefix *prefix, uint32_t *label) {
+    size_t nlri_size = proto_prefix.prefix.size();
+    size_t expected_min_nlri_size =
+        BgpProtoPrefix::kLabelSize + RouteDistinguisher::kSize;
 
-    assert(prefix.prefixlen <= (int) (rdsize + 4 + labelsize) * 8);
-    prefixlen_ = prefix.prefixlen - rdsize * 8 - labelsize * 8;
+    if (nlri_size < expected_min_nlri_size)
+        return -1;
+    if (nlri_size > expected_min_nlri_size + Address::kMaxV4Bytes)
+        return -1;
+
+    size_t label_offset = 0;
+    *label = proto_prefix.ReadLabel(label_offset);
+    size_t rd_offset = label_offset + BgpProtoPrefix::kLabelSize;
+    prefix->rd_ = RouteDistinguisher(&proto_prefix.prefix[rd_offset]);
+
+    size_t prefix_offset = rd_offset + RouteDistinguisher::kSize;
+    prefix->prefixlen_ = proto_prefix.prefixlen - prefix_offset * 8;
     Ip4Address::bytes_type bt = { { 0 } };
-    std::copy(prefix.prefix.begin() + labelsize + rdsize, prefix.prefix.end(), bt.begin());
-    addr_ = Ip4Address(bt);
+    copy(proto_prefix.prefix.begin() + prefix_offset,
+        proto_prefix.prefix.end(), bt.begin());
+    prefix->addr_ = Ip4Address(bt);
+
+    return 0;
 }
 
-void InetVpnPrefix::BuildProtoPrefix(uint32_t label, BgpProtoPrefix *prefix) const {
-    size_t rdsize = RouteDistinguisher::kSize;
-    size_t labelsize = 3; // 3 bytes label
-    prefix->prefixlen = prefixlen_ + (rdsize + labelsize) * 8;
-    int num_bytes = (prefix->prefixlen + 7) / 8;
-    prefix->prefix.clear();
-    prefix->prefix.resize(num_bytes);
+void InetVpnPrefix::BuildProtoPrefix(uint32_t label,
+                                     BgpProtoPrefix *proto_prefix) const {
+    proto_prefix->prefix.clear();
+    size_t prefix_size = (prefixlen_ + 7) / 8;
+    size_t nlri_size =
+        BgpProtoPrefix::kLabelSize + RouteDistinguisher::kSize + prefix_size;
 
-    uint32_t tmp = (label << 4 | 0x1); // Bottom stack
-    for (size_t i = 0; i < labelsize; i++) {
-        int offset = (labelsize - (i + 1)) * 8;
-        prefix->prefix[i] = ((tmp >> offset) & 0xff);
-    }
+    proto_prefix->prefix.resize(nlri_size, 0);
+    size_t label_offset = 0;
+    proto_prefix->WriteLabel(label_offset, label);
+    size_t rd_offset = label_offset + BgpProtoPrefix::kLabelSize;
+    copy(rd_.GetData(), rd_.GetData() + RouteDistinguisher::kSize,
+        proto_prefix->prefix.begin() + rd_offset);
 
-    std::copy(rd_.GetData(), rd_.GetData() + rdsize,
-              prefix->prefix.begin()+labelsize);
-
-    // prefixlen_ includes number of bits in RD and label. Lets calculate number of
-    // bytes in the IP address part.
-    int num_ip_bytes = num_bytes - rdsize - labelsize;
+    size_t prefix_offset = rd_offset + RouteDistinguisher::kSize;
+    proto_prefix->prefixlen = prefix_offset * 8 + prefixlen_;
     const Ip4Address::bytes_type &addr_bytes = addr_.to_bytes();
-
-    std::copy(addr_bytes.begin(), addr_bytes.begin() + num_ip_bytes,
-              prefix->prefix.begin()+rdsize+labelsize);
+    copy(addr_bytes.begin(), addr_bytes.begin() + prefix_size,
+        proto_prefix->prefix.begin() + prefix_offset);
 }
 
 // RD:inet4-prefix
-InetVpnPrefix InetVpnPrefix::FromString(const string &str, boost::system::error_code *errorp) {
+InetVpnPrefix InetVpnPrefix::FromString(const string &str,
+                                        boost::system::error_code *errorp) {
     InetVpnPrefix prefix;
-    
+
     size_t pos = str.rfind(':');
     if (pos == string::npos) {
         if (errorp != NULL) {
@@ -70,7 +80,7 @@ InetVpnPrefix InetVpnPrefix::FromString(const string &str, boost::system::error_
         }
         return prefix;
     }
-    
+
     string ip4pstr(str, pos + 1);
     boost::system::error_code pfxerr = Ip4PrefixParse(ip4pstr, &prefix.addr_,
                                        &prefix.prefixlen_);
@@ -98,4 +108,3 @@ bool InetVpnPrefix::operator==(const InetVpnPrefix &rhs) const {
         addr_ == rhs.addr_ &&
         prefixlen_ == rhs.prefixlen_);
 }
-

@@ -17,12 +17,15 @@
 class Inet6VpnPrefix {
 public:
     Inet6VpnPrefix();
-    explicit Inet6VpnPrefix(const BgpProtoPrefix &prefix);
     Inet6VpnPrefix(const RouteDistinguisher &rd, Ip6Address ip, int prefixlen)
         : rd_(rd), addr_(ip), prefixlen_(prefixlen) {
     }
+
+    static int FromProtoPrefix(const BgpProtoPrefix &proto_prefix,
+                               Inet6VpnPrefix *prefix, uint32_t *label);
     static Inet6VpnPrefix FromString(const std::string &str,
                                      boost::system::error_code *errorp = NULL);
+
     std::string ToString() const;
     bool IsMoreSpecific(const Inet6VpnPrefix &rhs) const;
     int CompareTo(const Inet6VpnPrefix &other) const;

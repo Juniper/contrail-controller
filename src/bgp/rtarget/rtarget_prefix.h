@@ -18,8 +18,12 @@ public:
     RTargetPrefix(as4_t as, RouteTarget rtarget) 
         : as_(as), rtarget_(rtarget) {
     }
+
+    static int FromProtoPrefix(const BgpProtoPrefix &proto_prefix,
+                               RTargetPrefix *prefix);
     static RTargetPrefix FromString(const std::string &str,
                                     boost::system::error_code *errorp = NULL);
+
     std::string ToString() const;
     RouteTarget rtarget() const { return rtarget_; }
     as4_t as() const { return as_; }
@@ -33,6 +37,5 @@ private:
     as4_t as_;
     RouteTarget rtarget_;
 };
-
 
 #endif

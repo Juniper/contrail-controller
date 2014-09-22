@@ -2,11 +2,14 @@
  * Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
  */
 
-#include "base/parse_object.h"
 #include "bgp/ermvpn/ermvpn_route.h"
+
+#include "base/parse_object.h"
 #include "bgp/ermvpn/ermvpn_table.h"
 
-using namespace std;
+using std::copy;
+using std::string;
+using std::vector;
 
 // BgpProtoPrefix format for erm-vpn prefix.
 //
@@ -39,58 +42,67 @@ ErmVpnPrefix::ErmVpnPrefix(uint8_t type, const RouteDistinguisher &rd,
       group_(group), source_(source) {
 }
 
-ErmVpnPrefix::ErmVpnPrefix(const BgpProtoPrefix &prefix) {
-    assert(IsValidForBgp(prefix.type));
-
+int ErmVpnPrefix::FromProtoPrefix(const BgpProtoPrefix &proto_prefix,
+    ErmVpnPrefix *prefix) {
     size_t rd_size = RouteDistinguisher::kSize;
-    size_t rtid_size = 4;
+    size_t rtid_size = Address::kMaxV4Bytes;
+    size_t nlri_size = proto_prefix.prefix.size();
+    size_t expected_nlri_size =
+        rd_size + rtid_size + 2 * (Address::kMaxV4Bytes + 1);
 
-    type_ = prefix.type;
+    if (!IsValidForBgp(proto_prefix.type))
+        return -1;
+    if (nlri_size != expected_nlri_size)
+        return -1;
 
+    prefix->type_ = proto_prefix.type;
     size_t rd_offset = 0;
-    rd_ = RouteDistinguisher(&prefix.prefix[rd_offset]);
-
+    prefix->rd_ = RouteDistinguisher(&proto_prefix.prefix[rd_offset]);
     size_t rtid_offset = rd_offset + rd_size;
-    router_id_ = Ip4Address(get_value(&prefix.prefix[rtid_offset], rtid_size));
-
+    prefix->router_id_ =
+        Ip4Address(get_value(&proto_prefix.prefix[rtid_offset], rtid_size));
     size_t source_offset = rtid_offset + rtid_size + 1;
-    source_ = Ip4Address(get_value(&prefix.prefix[source_offset], 4));
+    prefix->source_ = Ip4Address(
+        get_value(&proto_prefix.prefix[source_offset], Address::kMaxV4Bytes));
+    size_t group_offset = source_offset + Address::kMaxV4Bytes + 1;
+    prefix->group_ = Ip4Address(
+        get_value(&proto_prefix.prefix[group_offset], Address::kMaxV4Bytes));
 
-    size_t group_offset = source_offset + 4 + 1;
-    group_ = Ip4Address(get_value(&prefix.prefix[group_offset], 4));
+    return 0;
 }
 
-void ErmVpnPrefix::BuildProtoPrefix(BgpProtoPrefix *prefix) const {
+void ErmVpnPrefix::BuildProtoPrefix(BgpProtoPrefix *proto_prefix) const {
     assert(IsValidForBgp(type_));
 
     size_t rd_size = RouteDistinguisher::kSize;
-    size_t rtid_size = 4;
+    size_t rtid_size = Address::kMaxV4Bytes;
 
-    prefix->prefixlen = (rd_size + rtid_size + 1 + 4 + 1 + 4) * 8;
-    prefix->prefix.clear();
-    prefix->type = type_;
-    prefix->prefix.resize(prefix->prefixlen/8, 0);
+    proto_prefix->type = type_;
+    proto_prefix->prefix.clear();
+    proto_prefix->prefixlen =
+        (rd_size + rtid_size +  2 * (1 + Address::kMaxV4Bytes)) * 8;
+    proto_prefix->prefix.resize(proto_prefix->prefixlen / 8, 0);
 
     size_t rd_offset = 0;
-    std::copy(rd_.GetData(), rd_.GetData() + rd_size,
-        prefix->prefix.begin() + rd_offset);
+    copy(rd_.GetData(), rd_.GetData() + rd_size,
+        proto_prefix->prefix.begin() + rd_offset);
 
     size_t rtid_offset = rd_offset + rd_size;
     const Ip4Address::bytes_type &rtid_bytes = router_id_.to_bytes();
-    std::copy(rtid_bytes.begin(), rtid_bytes.begin() + 4,
-        prefix->prefix.begin() + rtid_offset);
+    copy(rtid_bytes.begin(), rtid_bytes.begin() + Address::kMaxV4Bytes,
+        proto_prefix->prefix.begin() + rtid_offset);
 
     size_t source_offset = rtid_offset + rtid_size + 1;
-    prefix->prefix[source_offset - 1] = 32;
+    proto_prefix->prefix[source_offset - 1] = Address::kMaxV4PrefixLen;
     const Ip4Address::bytes_type &source_bytes = source_.to_bytes();
-    std::copy(source_bytes.begin(), source_bytes.begin() + 4,
-        prefix->prefix.begin() + source_offset);
+    copy(source_bytes.begin(), source_bytes.begin() + Address::kMaxV4Bytes,
+        proto_prefix->prefix.begin() + source_offset);
 
-    size_t group_offset = source_offset + 4 + 1;
-    prefix->prefix[group_offset - 1] = 32;
+    size_t group_offset = source_offset + Address::kMaxV4Bytes + 1;
+    proto_prefix->prefix[group_offset - 1] = Address::kMaxV4PrefixLen;
     const Ip4Address::bytes_type &group_bytes = group_.to_bytes();
-    std::copy(group_bytes.begin(), group_bytes.begin() + 4,
-              prefix->prefix.begin() + group_offset);
+    copy(group_bytes.begin(), group_bytes.begin() + Address::kMaxV4Bytes,
+        proto_prefix->prefix.begin() + group_offset);
 }
 
 ErmVpnPrefix ErmVpnPrefix::FromString(const string &str,
@@ -273,10 +285,10 @@ void ErmVpnRoute::BuildProtoPrefix(BgpProtoPrefix *prefix,
 }
 
 void ErmVpnRoute::BuildBgpProtoNextHop(
-    std::vector<uint8_t> &nh, IpAddress nexthop) const {
+    vector<uint8_t> &nh, IpAddress nexthop) const {
     nh.resize(4);
     const Ip4Address::bytes_type &addr_bytes = nexthop.to_v4().to_bytes();
-    std::copy(addr_bytes.begin(), addr_bytes.end(), nh.begin());
+    copy(addr_bytes.begin(), addr_bytes.end(), nh.begin());
 }
 
 DBEntryBase::KeyPtr ErmVpnRoute::GetDBRequestKey() const {

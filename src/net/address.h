@@ -16,8 +16,10 @@ typedef boost::asio::ip::address_v6 Ip6Address;
 
 class Address {
 public:
-    static const uint8_t kMaxV6PrefixLen = 128;
+    static const uint8_t kMaxV4Bytes = 4;
+    static const uint8_t kMaxV4PrefixLen = 32;
     static const uint8_t kMaxV6Bytes = 16;
+    static const uint8_t kMaxV6PrefixLen = 128;
 
     enum Family {
         UNSPEC = 0,

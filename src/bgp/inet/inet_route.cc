@@ -3,16 +3,23 @@
  */
 
 #include "bgp/inet/inet_route.h"
+
 #include "bgp/inet/inet_table.h"
 
-using namespace std;
+using std::copy;
+using std::string;
+using std::vector;
 
-Ip4Prefix::Ip4Prefix(const BgpProtoPrefix &prefix)
-: prefixlen_(prefix.prefixlen) {
-    assert(prefix.prefixlen <= 32);
+int Ip4Prefix::FromProtoPrefix(const BgpProtoPrefix &proto_prefix,
+                               Ip4Prefix *prefix) {
+    if (proto_prefix.prefixlen > Address::kMaxV4PrefixLen)
+        return -1;
+    prefix->prefixlen_ = proto_prefix.prefixlen;
     Ip4Address::bytes_type bt = { { 0 } };
-    std::copy(prefix.prefix.begin(), prefix.prefix.end(), bt.begin());
-    ip4_addr_ = Ip4Address(bt);
+    copy(proto_prefix.prefix.begin(), proto_prefix.prefix.end(), bt.begin());
+    prefix->ip4_addr_ = Ip4Address(bt);
+
+    return 0;
 }
 
 string Ip4Prefix::ToString() const {
@@ -22,7 +29,6 @@ string Ip4Prefix::ToString() const {
     repr.append(strplen);
     return repr;
 }
-
 
 int Ip4Prefix::CompareTo(const Ip4Prefix &rhs) const {
     if (ip4_addr_ < rhs.ip4_addr_) {
@@ -40,7 +46,8 @@ int Ip4Prefix::CompareTo(const Ip4Prefix &rhs) const {
     return 0;
 }
 
-Ip4Prefix Ip4Prefix::FromString(const std::string &str, boost::system::error_code *errorp) {
+Ip4Prefix Ip4Prefix::FromString(const string &str,
+                                boost::system::error_code *errorp) {
     Ip4Prefix prefix;
     boost::system::error_code pfxerr = Ip4PrefixParse(str, &prefix.ip4_addr_,
                                        &prefix.prefixlen_);
@@ -107,8 +114,8 @@ void InetRoute::BuildProtoPrefix(BgpProtoPrefix *prefix,
          back_inserter(prefix->prefix));
 }
 
-void InetRoute::BuildBgpProtoNextHop(std::vector<uint8_t> &nh, IpAddress nexthop) const {
+void InetRoute::BuildBgpProtoNextHop(vector<uint8_t> &nh, IpAddress nexthop) const {
     nh.resize(4);
     const Ip4Address::bytes_type &addr_bytes = nexthop.to_v4().to_bytes();
-    std::copy(addr_bytes.begin(), addr_bytes.end(), nh.begin());
+    copy(addr_bytes.begin(), addr_bytes.end(), nh.begin());
 }
