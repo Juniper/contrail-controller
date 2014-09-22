@@ -1646,6 +1646,35 @@ class DBInterface(object):
         return fip_q_dict
     #end _floatingip_vnc_to_neutron
 
+    def _port_set_vm_instance(self, port_obj, instance_name):
+        """ This function also deletes the old virtual_machine object
+        associated with the port (if any) after the new virtual_machine
+        object is associated with it.
+        """
+        vm_refs = port_obj.get_virtual_machine_refs()
+        delete_vm_list = []
+        for vm_ref in vm_refs or []:
+            if vm_ref['to'] != [instance_name]:
+                delete_vm_list.append(vm_ref)
+
+        if instance_name:
+            try:
+                instance_obj = self._ensure_instance_exists(instance_name)
+                port_obj.set_virtual_machine(instance_obj)
+            except RefsExistError as e:
+                self._raise_contrail_exception('BadRequest',
+                                               resource='port', msg=str(e))
+        else:
+            port_obj.set_virtual_machine_list([])
+
+        if delete_vm_list:
+            self._virtual_machine_interface_update(port_obj)
+            for vm_ref in delete_vm_list:
+                try:
+                    self._vnc_lib.virtual_machine_delete(id=vm_ref['uuid'])
+                except RefsExistError:
+                    pass
+
     def _port_neutron_to_vnc(self, port_q, net_obj, oper):
         if oper == CREATE:
             project_id = str(uuid.UUID(port_q['tenant_id']))
@@ -1675,15 +1704,9 @@ class DBInterface(object):
         if 'name' in port_q and port_q['name']:
             port_obj.display_name = port_q['name']
 
-        if port_q.get('device_owner') != constants.DEVICE_OWNER_ROUTER_INTF:
-            instance_name = port_q.get('device_id')
-            if instance_name:
-                try:
-                    instance_obj = self._ensure_instance_exists(instance_name)
-                    port_obj.set_virtual_machine(instance_obj)
-                except RefsExistError as e:
-                    self._raise_contrail_exception('BadRequest',
-                                                   resource='port', msg=str(e))
+        if (port_q.get('device_owner') != constants.DEVICE_OWNER_ROUTER_INTF
+            and 'device_id' in port_q):
+            self._port_set_vm_instance(port_obj, port_q.get('device_id'))
 
         if 'device_owner' in port_q:
             port_obj.set_virtual_machine_interface_device_owner(port_q.get('device_owner'))
