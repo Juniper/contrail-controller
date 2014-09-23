@@ -229,6 +229,11 @@ class VirtualNetworkST(DictST):
         else:
             self._default_ri_name = self.obj.name
             self.locate_routing_instance(self._default_ri_name)
+
+        for ri in self.obj.get_routing_instances() or []:
+            ri_name = ri['to'][-1]
+            if ri_name not in self.rinst:
+                self.locate_routing_instance(ri_name)
         for policy in NetworkPolicyST.values():
             if policy.internal and name in policy.network_back_ref:
                 self.add_policy(policy.name)
@@ -1398,9 +1403,20 @@ class ServiceChain(DictST):
     
     @classmethod
     def init(cls):
+        # When schema transformer restarts, read all service chains from cassandra
         try:
             for (name,columns) in cls._service_chain_uuid_cf.get_range():
                 chain = jsonpickle.decode(columns['value'])
+
+                # Some service chains may not be valid any more. We may need to
+                # delete such service chain objects or we have to destroy them.
+                # To handle each case, we mark them with two separate flags,
+                # which will be reset when appropriate calls are made.
+                # Any service chains for which these flags are still set after
+                # all search results are received from ifmap, we will delete/
+                # destroy them
+                chain.present_stale = True
+                chain.created_stale = chain.created
                 cls._dict[name] = chain
         except pycassa.NotFoundException:
             pass
@@ -1419,6 +1435,9 @@ class ServiceChain(DictST):
 
         self.protocol = protocol
         self.created = False
+
+        self.present_stale = False
+        self.created_stale = False
     # end __init__
 
     def __eq__(self, other):
@@ -1456,6 +1475,7 @@ class ServiceChain(DictST):
                        protocol, service_list):
         sc = cls.find(left_vn, right_vn, direction, sp_list, dp_list, protocol)
         if sc is not None:
+            sc.present_stale = False
             return sc
         
         name = str(uuid.uuid4())
@@ -1491,6 +1511,7 @@ class ServiceChain(DictST):
 
     def create(self):
         if self.created:
+            self.created_stale = False
             # already created
             return
 
@@ -1608,6 +1629,9 @@ class ServiceChain(DictST):
                         vn.add_route(prefix, nexthop)
 
         self.created = True
+        self._service_chain_uuid_cf.insert(self.name,
+                                           {'value': jsonpickle.encode(self)})
+
         uve = UveServiceChainData(name=self.name)
         uve.source_virtual_network = self.left_vn
         uve.destination_virtual_network = self.right_vn
@@ -1716,6 +1740,9 @@ class ServiceChain(DictST):
             return
 
         self.created = False
+        self._service_chain_uuid_cf.insert(self.name,
+                                           {'value': jsonpickle.encode(self)})
+
         vn1_obj = VirtualNetworkST.get(self.left_vn)
         vn2_obj = VirtualNetworkST.get(self.right_vn)
 
@@ -2688,6 +2715,7 @@ class SchemaTransformer(object):
 
 
         self.reinit()
+        self.ifmap_search_done = False
         # create cpu_info object to send periodic updates
         sysinfo_req = False
         cpu_info = vnc_cpu_info.CpuInfo(
@@ -3180,12 +3208,23 @@ class SchemaTransformer(object):
         LogicalRouterST.delete(lr_name)
     # end delete_project_logical_router
 
+    def process_stale_objects(self):
+        for sc in ServiceChain.values():
+            if sc.created_stale:
+                sc.destroy()
+            if sc.present_stale:
+                sc.delete()
+    # end process_stale_objects
+
     def process_poll_result(self, poll_result_str):
         result_list = parse_poll_result(poll_result_str)
         self.current_network_set = set()
 
         # first pass thru the ifmap message and build data model
         for (result_type, idents, metas) in result_list:
+            if result_type != 'searchResult' and not self.ifmap_search_done:
+                self.ifmap_search_done = True
+                self.process_stale_objects()
             for meta in metas:
                 meta_name = re.sub('{.*}', '', meta.tag)
                 if result_type == 'deleteResult':
@@ -3762,29 +3801,27 @@ def parse_args(args_str):
 def run_schema_transformer(args):
     global _vnc_lib
 
+    def connection_state_update(status, message=None):
+        ConnectionState.update(
+            conn_type=ConnectionType.APISERVER, name='ApiServer',
+            status=status, message=message or '',
+            server_addrs=['%s:%s' % (args.api_server_ip,
+                                     args.api_server_port)])
+    # end connection_state_update
+
     # Retry till API server is up
     connected = False
-    ConnectionState.update(conn_type = ConnectionType.APISERVER,
-        name = 'ApiServer', status = ConnectionStatus.INIT,
-        message = '', server_addrs = ['%s:%s' % (args.api_server_ip,
-                                                 args.api_server_port)])
+    connection_state_update(ConnectionStatus.INIT)
     while not connected:
         try:
             _vnc_lib = VncApi(
                 args.admin_user, args.admin_password, args.admin_tenant_name,
                 args.api_server_ip, args.api_server_port)
             connected = True
-            ConnectionState.update(conn_type = ConnectionType.APISERVER,
-                name = 'ApiServer', status = ConnectionStatus.UP,
-                message = '', server_addrs = ['%s:%s    ' % (args.api_server_ip,
-                                                         args.api_server_port)])
+            connection_state_update(ConnectionStatus.UP)
         except requests.exceptions.ConnectionError as e:
             # Update connection info
-            ConnectionState.update(conn_type = ConnectionType.APISERVER,
-                name = 'ApiServer', status = ConnectionStatus.DOWN,
-                message = str(e),
-                server_addrs = ['%s:%s' % (args.api_server_ip,
-                                           args.api_server_port)])
+            connection_state_update(ConnectionStatus.DOWN, str(e))
             time.sleep(3)
         except ResourceExhaustionError:  # haproxy throws 503
             time.sleep(3)
@@ -3808,8 +3845,9 @@ def main(args_str=None):
         client_pfx = ''
         zk_path_pfx = ''
     _zookeeper_client = ZookeeperClient(client_pfx+"schema", args.zk_server_ip)
-    _zookeeper_client.master_election(zk_path_pfx+"/schema-transformer", os.getpid(),
-                                      run_schema_transformer, args)
+    _zookeeper_client.master_election(zk_path_pfx+"/schema-transformer",
+                                      os.getpid(), run_schema_transformer,
+                                      args)
 # end main
 
 
