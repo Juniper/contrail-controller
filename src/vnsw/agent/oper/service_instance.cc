@@ -233,6 +233,8 @@ static void FindAndSetInterfaces(
                 SubNetContainsIpv4(subnets.ipam_subnets[i],
                         properties->ip_addr_inside)) {
                 properties->ip_prefix_len_inside = prefix_len;
+                properties->gw_ip =
+                        subnets.ipam_subnets[i].default_gateway;
             } else if (netname == right_netname &&
                        SubNetContainsIpv4(subnets.ipam_subnets[i],
                                 properties->ip_addr_outside)) {
@@ -303,6 +305,7 @@ void ServiceInstance::Properties::Clear() {
     mac_addr_outside.empty();
     ip_addr_inside.empty();
     ip_addr_outside.empty();
+    gw_ip.empty();
     ip_prefix_len_inside = -1;
     ip_prefix_len_outside = -1;
     interface_count = 0;
@@ -363,6 +366,11 @@ int ServiceInstance::Properties::CompareTo(const Properties &rhs) const {
         return cmp;
     }
 
+    cmp = compare(gw_ip, rhs.gw_ip);
+    if (cmp != 0) {
+        return cmp;
+    }
+
     cmp = compare(pool_id, rhs.pool_id);
     if (cmp == 0) {
         if (!pool_id.is_nil())
@@ -410,6 +418,10 @@ std::string ServiceInstance::Properties::DiffString(
     if (compare(pool_id, rhs.pool_id)) {
         ss << " pool_id: -" << pool_id << " +" << rhs.pool_id;
     }
+
+    if (compare(gw_ip, rhs.gw_ip)) {
+        ss << " gw_ip: -" << gw_ip << " +" << rhs.gw_ip;
+    }
     return ss.str();
 }
 
@@ -432,6 +444,8 @@ bool ServiceInstance::Properties::Usable() const {
     }
 
     if (service_type == LoadBalancer) {
+        if (gw_ip.empty())
+            return false;
         return (!pool_id.is_nil());
     }
 

@@ -53,7 +53,7 @@ class NetnsManager(object):
     LBAAS_PROCESS = 'haproxy'
 
     def __init__(self, vm_uuid, nic_left, nic_right, root_helper='sudo',
-            cfg_file=None, update=False):
+            cfg_file=None, update=False, gw_ip=None):
         self.vm_uuid = vm_uuid
         self.namespace = self.NETNS_PREFIX + self.vm_uuid
         self.nic_left = nic_left
@@ -69,6 +69,7 @@ class NetnsManager(object):
         self.vrouter_client = ContrailVRouterApi()
         self.cfg_file = cfg_file
         self.update = update
+        self.gw_ip = gw_ip
 
     def _get_tap_name(self, uuid_str):
             return (self.TAP_PREFIX + uuid_str)[:self.DEV_NAME_LEN]
@@ -130,21 +131,25 @@ class NetnsManager(object):
         pid = self._get_lbaas_pid()
         if (self.update is False):
             if pid is not None:
-                cmd = """kill -9 %(pid)s""" % {'pid':pid}
-                try:
-                    s = subprocess.check_output(cmd, shell=True)
-                except subprocess.CalledProcessError:
-                    print "SIGKILL Error"
+                self.release_lbaas()
 
             self.ip_ns.netns.execute([self.LBAAS_PROCESS, '-f', self.cfg_file, '-D',
                                     '-p', pid_file])
+            self.ip_ns.netns.execute(['route', 'add', 'default', 'gw', self.gw_ip])
         else:
             if pid is not None:
                 self.ip_ns.netns.execute([self.LBAAS_PROCESS, '-f', self.cfg_file, '-D', '-p', pid_file, '-sf', pid])
             else:
                 print "No old Haproxy process to Update"
+        try:
+            self.ip_ns.netns.execute(['route', 'add', 'default', 'gw', self.gw_ip])
+        except RuntimeError:
+            pass
 
     def release_lbaas(self):
+        if not self.ip_ns.netns.exists(self.namespace):
+            raise ValueError('Need to create the network namespace before '
+                             'relasing lbaas')
         pid = self._get_lbaas_pid()
         if pid is not None:
             cmd = """kill -9 %(pid)s""" % {'pid':pid}
@@ -152,6 +157,11 @@ class NetnsManager(object):
                 s = subprocess.check_output(cmd, shell=True)
             except subprocess.CalledProcessError:
                 print "SIGKILL Error"
+        try:
+            self.ip_ns.netns.execute(['route', 'del', 'default'])
+        except RuntimeError:
+            pass
+        
 
     def destroy(self):
         if not self.ip_ns.netns.exists(self.namespace):
@@ -309,7 +319,11 @@ class VRouterNetns(object):
         create_parser.add_argument(
             "--cfg-file",
             default=None,
-            help=("config file for lbaas"))
+            help=("Config file for lbaas"))
+        create_parser.add_argument(
+            "--gw-ip",
+            default=None,
+            help=("Gateway IP for Virtual Network"))
         create_parser.set_defaults(func=self.create)
 
         destroy_parser = subparsers.add_parser('destroy')
@@ -365,7 +379,7 @@ class VRouterNetns(object):
         netns_mgr = NetnsManager(netns_name, nic_left, nic_right,
                                  root_helper=self.args.root_helper,
                                  cfg_file=self.args.cfg_file,
-                                 update=self.args.update)
+                                 update=self.args.update, gw_ip=self.args.gw_ip)
 
         if (self.args.update is False):
             if netns_mgr.is_netns_already_exists():
@@ -397,10 +411,9 @@ class VRouterNetns(object):
 
         netns_mgr = NetnsManager(netns_name, nic_left, nic_right,
                                  root_helper=self.args.root_helper,
-                                 cfg_file=self.args.cfg_file)
+                                 cfg_file=self.args.cfg_file, gw_ip=None)
 
         netns_mgr.unplug_namespace_interface()
-
         if self.args.service_type == self.SOURCE_NAT:
             netns_mgr.destroy()
         elif self.args.service_type == self.LOAD_BALANCER:

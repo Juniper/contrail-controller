@@ -387,6 +387,7 @@ void NamespaceManager::StartNetNS(ServiceInstance *svc_instance,
     if (props.service_type == ServiceInstance::LoadBalancer) {
         cmd_str << " --cfg-file " << loadbalancer_config_path_ <<
             props.pool_id << "/etc/haproxy/haproxy.cfg";
+        cmd_str << " --gw-ip " << props.gw_ip;
     }
 
     if (update) {
@@ -427,8 +428,11 @@ void NamespaceManager::StopNetNS(ServiceInstance *svc_instance,
 
     const ServiceInstance::Properties &props = state->properties();
     if (props.instance_id.is_nil() ||
-        props.vmi_inside.is_nil() ||
-        props.vmi_outside.is_nil()) {
+        props.vmi_inside.is_nil()) {
+        return;
+    }
+
+    if (props.interface_count == 2 && props.vmi_outside.is_nil()) {
         return;
     }
 
