@@ -950,10 +950,32 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
      Link('global-system-config-physical-router', 
              'global-system-config', 'physical-router', ['has']) -->
 
+<xsd:simpleType name="VirtualRouterType">
+    <xsd:restriction base="xsd:string">
+        <xsd:enumeration value="embedded"/>
+        <xsd:enumeration value="tor-agent"/>
+        <xsd:enumeration value="tor-service-node"/>
+    </xsd:restriction>
+</xsd:simpleType>
+
+<xsd:element name="virtual-router-type" type="VirtualRouterType"/>
+<!--#IFMAP-SEMANTICS-IDL
+     Property('virtual-router-type', 'virtual-router') -->
+
+<xsd:element name="physical-router-virtual-router"/>
+<!--#IFMAP-SEMANTICS-IDL
+    Link('physical-router-virtual-router',
+         'physical-router', 'virtual-router', ['ref']) -->
+
 <xsd:element name="physical-router-bgp-router"/>
 <!--#IFMAP-SEMANTICS-IDL 
     Link('physical-router-bgp-router',
          'physical-router', 'bgp-router', ['ref']) -->
+
+<xsd:element name="physical-router-virtual-network"/>
+<!--#IFMAP-SEMANTICS-IDL
+    Link('physical-router-virtual-network',
+         'physical-router', 'virtual-network', ['ref']) -->
 
 <xsd:element name="physical-interface" type="ifmap:IdentityType"/>
 <xsd:element name="physical-router-physical-interface"/>
@@ -970,6 +992,11 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
 <!--#IFMAP-SEMANTICS-IDL 
      Link('logical-interface-virtual-network',
           'logical-interface', 'virtual-network', ['ref']) -->
+
+<xsd:element name="logical-interface-virtual-machine-interface"/>
+<!--#IFMAP-SEMANTICS-IDL
+     Link('logical-interface-virtual-machine-interface',
+          'logical-interface', 'virtual-machine-interface', ['ref']) -->
 
 <xsd:element name="virtual-router" type="ifmap:IdentityType"/>
 <xsd:element name="global-system-config-virtual-router"/>
