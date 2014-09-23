@@ -19,6 +19,7 @@
 #include "db_handler.h"
 #include "ruleeng.h"
 #include "protobuf_collector.h"
+#include "sflow_collector.h"
 
 using std::string;
 using boost::system::error_code;
@@ -29,7 +30,7 @@ VizCollector::VizCollector(EventManager *evm, unsigned short listen_port,
             const std::vector<std::string> &cassandra_ips,
             const std::vector<int> &cassandra_ports,
             const std::string &redis_uve_ip, unsigned short redis_uve_port,
-            int syslog_port, bool dup, int analytics_ttl) :
+            int syslog_port, int sflow_port, bool dup, int analytics_ttl) :
     db_initializer_(new DbHandlerInitializer(evm, DbGlobalName(dup), -1,
         std::string("collector:DbIf"),
         boost::bind(&VizCollector::DbInitializeCb, this),
@@ -40,7 +41,9 @@ VizCollector::VizCollector(EventManager *evm, unsigned short listen_port,
         ruleeng_.get(), cassandra_ips, cassandra_ports, analytics_ttl)),
     syslog_listener_(new SyslogListeners(evm,
             boost::bind(&Ruleeng::rule_execute, ruleeng_.get(), _1, _2, _3),
-            db_initializer_->GetDbHandler(), syslog_port)) {
+            db_initializer_->GetDbHandler(), syslog_port)),
+    sflow_collector_(new SFlowCollector(evm, db_initializer_->GetDbHandler(),
+        sflow_port, -1)) {
     error_code error;
     if (dup)
         name_ = boost::asio::ip::host_name(error) + "dup";
@@ -122,6 +125,10 @@ void VizCollector::Shutdown() {
         protobuf_collector_->Shutdown();
         WaitForIdle();
     }
+    if (sflow_collector_) {
+        sflow_collector_->Shutdown();
+        WaitForIdle();
+    }
 
     db_initializer_->Shutdown();
     LOG(DEBUG, __func__ << " viz_collector done");
@@ -135,6 +142,9 @@ void VizCollector::DbInitializeCb() {
     }
     if (protobuf_collector_) {
         protobuf_collector_->Initialize();
+    }
+    if (sflow_collector_) {
+        sflow_collector_->Start();
     }
 }
 

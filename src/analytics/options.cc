@@ -112,6 +112,8 @@ void Options::Initialize(EventManager &evm,
              "Syslog facility to receive log lines")
         ("DEFAULT.syslog_port", opt::value<int>()->default_value(-1),
              "Syslog listener port (< 0 will disable the syslog)")
+        ("DEFAULT.sflow_port", opt::value<int>()->default_value(-1),
+             "sFlow listener port (< 0 will disable sFlow Collector)")
         ("DEFAULT.test_mode", opt::bool_switch(&test_mode_),
              "Enable collector to run in test-mode")
 
@@ -247,6 +249,7 @@ void Options::Process(int argc, char *argv[],
     GetOptValue<bool>(var_map, use_syslog_, "DEFAULT.use_syslog");
     GetOptValue<string>(var_map, syslog_facility_, "DEFAULT.syslog_facility");
     GetOptValue<int>(var_map, syslog_port_, "DEFAULT.syslog_port");
+    GetOptValue<int>(var_map, sflow_port_, "DEFAULT.sflow_port");
 
     GetOptValue<uint16_t>(var_map, discovery_port_, "DISCOVERY.port");
     GetOptValue<string>(var_map, discovery_server_, "DISCOVERY.server");

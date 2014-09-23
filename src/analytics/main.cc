@@ -270,6 +270,7 @@ int main(int argc, char *argv[])
          ostream_iterator<string>(css, " "));
     LOG(INFO, "COLLECTOR CASSANDRA SERVERS: " << css.str());
     LOG(INFO, "COLLECTOR SYSLOG LISTEN PORT: " << options.syslog_port());
+    LOG(INFO, "COLLECTOR SFLOW LISTEN PORT: " << options.sflow_port());
     uint16_t protobuf_port(0);
     bool protobuf_server_enabled =
         options.collector_protobuf_port(&protobuf_port);
@@ -286,6 +287,7 @@ int main(int argc, char *argv[])
             string("127.0.0.1"),
             options.redis_port(),
             options.syslog_port(),
+            options.sflow_port(),
             options.dup(),
             options.analytics_data_ttl());
 

@@ -1130,6 +1130,73 @@ bool DbHandler::FlowTableInsert(const pugi::xml_node &parent,
     return true;
 }
 
+bool DbHandler::UnderlayFlowSampleInsert(const UFlowData& flow_data,
+                                         uint64_t timestamp) {
+    const std::vector<UFlowSample>& flow = flow_data.get_flow();
+    for (std::vector<UFlowSample>::const_iterator it = flow.begin();
+         it != flow.end(); ++it) {
+        // Add all attributes
+        DbHandler::AttribMap amap;
+        DbHandler::Var name(flow_data.get_name());
+        amap.insert(std::make_pair("name", name));
+        DbHandler::Var pifindex = it->get_pifindex();
+        amap.insert(std::make_pair("flow.pifindex", pifindex));
+        DbHandler::Var sip = it->get_sip();
+        amap.insert(std::make_pair("flow.sip", sip));
+        DbHandler::Var dip = it->get_dip();
+        amap.insert(std::make_pair("flow.dip", dip));
+        DbHandler::Var sport = static_cast<uint64_t>(it->get_sport());
+        amap.insert(std::make_pair("flow.sport", sport));
+        DbHandler::Var dport = static_cast<uint64_t>(it->get_dport());
+        amap.insert(std::make_pair("flow.dport", dport));
+        DbHandler::Var protocol = static_cast<uint64_t>(it->get_protocol());
+        amap.insert(std::make_pair("flow.protocol", protocol));
+        // Add tag -> name
+        DbHandler::TagMap tmap_name;
+        DbHandler::AttribMap amap_name;
+        tmap_name.insert(std::make_pair("name",
+                std::make_pair(name, amap_name)));
+        StatTableInsert(timestamp, "UFlowData", "flow", tmap_name, amap);
+        // Add tag -> name:.pifindex
+        DbHandler::TagMap tmap_name_pifindex;
+        DbHandler::AttribMap amap_name_pifindex;
+        amap_name_pifindex.insert(std::make_pair("flow.pifindex", pifindex));
+        tmap_name_pifindex.insert(std::make_pair("name", std::make_pair(name,
+                amap_name_pifindex)));
+        StatTableInsert(timestamp, "UFlowData", "flow", tmap_name_pifindex,
+                amap);
+        // Add tag -> .sip
+        DbHandler::TagMap tmap_sip;
+        DbHandler::AttribMap amap_sip;
+        tmap_sip.insert(std::make_pair("flow.sip", std::make_pair(sip,
+                amap_sip)));
+        StatTableInsert(timestamp, "UFlowData", "flow", tmap_sip, amap);
+        // Add tag -> .dip
+        DbHandler::TagMap tmap_dip;
+        DbHandler::AttribMap amap_dip;
+        tmap_sip.insert(std::make_pair("flow.dip", std::make_pair(dip,
+                amap_dip)));
+        StatTableInsert(timestamp, "UFlowData", "flow", tmap_dip, amap);
+        // Add tag -> .protocol:.sport
+        DbHandler::TagMap tmap_protocol_sport;
+        DbHandler::AttribMap amap_protocol_sport;
+        amap_protocol_sport.insert(std::make_pair("flow.sport", sport));
+        tmap_protocol_sport.insert(std::make_pair("flow.protocol",
+                std::make_pair(protocol, amap_protocol_sport)));
+        StatTableInsert(timestamp, "UFlowData", "flow", tmap_protocol_sport,
+                amap);
+        // Add tag -> .protocol:.dport
+        DbHandler::TagMap tmap_protocol_dport;
+        DbHandler::AttribMap amap_protocol_dport;
+        amap_protocol_dport.insert(std::make_pair("flow.dport", dport));
+        tmap_protocol_dport.insert(std::make_pair("flow.protocol",
+                std::make_pair(protocol, amap_protocol_dport)));
+        StatTableInsert(timestamp, "UFlowData", "flow", tmap_protocol_dport,
+                amap);
+    }
+    return true;
+}
+
 DbHandlerInitializer::DbHandlerInitializer(EventManager *evm,
     const std::string &db_name, int db_task_instance,
     const std::string &timer_task_name,

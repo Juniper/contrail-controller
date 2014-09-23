@@ -28,6 +28,7 @@
 #include "gendb_if.h"
 #include "sandesh/sandesh.h"
 #include "viz_message.h"
+#include "uflow_types.h"
 
 class DbHandler {
 public:
@@ -112,6 +113,8 @@ public:
 
     bool FlowTableInsert(const pugi::xml_node& parent,
         const SandeshHeader &header);
+    bool UnderlayFlowSampleInsert(const UFlowData& flow_data,
+        uint64_t timestamp);
     bool GetStats(uint64_t &queue_count, uint64_t &enqueues,
         std::string &drop_level, std::vector<SandeshStats> &vdropmstats) const;
     bool GetStats(std::vector<GenDb::DbTableInfo> &vdbti,
