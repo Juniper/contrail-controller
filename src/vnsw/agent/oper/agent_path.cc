@@ -562,9 +562,13 @@ bool MulticastRoute::AddChangePath(Agent *agent, AgentPath *path) {
     nh = static_cast<NextHop *>(agent->nexthop_table()->
             FindActiveEntry(composite_nh_req_.key.get()));
     assert(nh);
-    if (nh && (nh->GetType() == NextHop::COMPOSITE)) {
-        const CompositeNH *cnh = static_cast<const CompositeNH *>(nh);
-        if (cnh->composite_nh_type() == Composite::EVPN) {
+    if (nh) {
+        if (nh->GetType() == NextHop::COMPOSITE) {
+            const CompositeNH *cnh = static_cast<const CompositeNH *>(nh);
+            if (cnh->composite_nh_type() == Composite::EVPN) {
+                is_subnet_discard = true;
+            }
+        } else if (nh->GetType() == NextHop::DISCARD) {
             is_subnet_discard = true;
         }
     }
@@ -607,6 +611,7 @@ bool MulticastRoute::CopyPathParameters(Agent *agent,
         path->set_tunnel_type(new_tunnel_type);
     }
 
+    path->set_is_subnet_discard(is_subnet_discard);
     path->ChangeNH(agent, nh);
 
     return true;

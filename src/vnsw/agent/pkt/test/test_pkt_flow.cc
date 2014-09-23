@@ -2066,6 +2066,11 @@ TEST_F(FlowTest, Subnet_broadcast_Flow) {
     AddIPAM("vn5", ipam_info, 1);
     client->WaitForIdle();
 
+    //Get the route
+    if (!RouteFind("vrf5", "11.1.1.255", 32)) {
+        return;
+    }
+
     TestFlow flow[] = {
         {  TestFlowPkt(vm1_ip, "11.1.1.255", 1, 0, 0, "vrf5", 
                        flow0->id()),
@@ -3540,6 +3545,9 @@ TEST_F(FlowTest, FlowPolicyUuid_16) {
     AddIPAM("vn5", ipam_info, 1);
     client->WaitForIdle();
 
+    if (!RouteFind("vrf5", "11.1.1.255", 32)) {
+        return;
+    }
     TestFlow flow[] = {
         {  TestFlowPkt(vm1_ip, "11.1.1.255", 1, 0, 0, "vrf5", 
                        flow0->id()),

@@ -363,7 +363,12 @@ public:
     }
 };
 
+BgpPeer *CreateBgpPeer(std::string addr, std::string name);
 BgpPeer *CreateBgpPeer(const Ip4Address &addr, std::string name);
 void DeleteBgpPeer(Peer *peer);
+void FillEvpnNextHop(BgpPeer *peer, std::string name,
+                     uint32_t label, uint32_t bmap);
+void FlushEvpnNextHop(BgpPeer *peer, std::string name,
+                      uint32_t tag);
 
 #endif // vnsw_agent_test_cmn_util_h

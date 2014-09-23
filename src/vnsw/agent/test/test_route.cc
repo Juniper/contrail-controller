@@ -271,6 +271,17 @@ TEST_F(RouteTest, SubnetRoute_1) {
     EXPECT_TRUE(rt1 != NULL);
     EXPECT_TRUE(rt2 != NULL);
     EXPECT_TRUE(rt3 != NULL);
+    EXPECT_TRUE(rt1->GetActiveNextHop()->GetType() == NextHop::DISCARD);
+    EXPECT_TRUE(rt2->GetActiveNextHop()->GetType() == NextHop::DISCARD);
+    EXPECT_TRUE(rt3->GetActiveNextHop()->GetType() == NextHop::DISCARD);
+    EXPECT_TRUE(rt1->IsRPFInvalid());
+    EXPECT_TRUE(rt2->IsRPFInvalid());
+    EXPECT_TRUE(rt3->IsRPFInvalid());
+
+    BgpPeer *peer = CreateBgpPeer("127.0.0.1", "remote");
+    FillEvpnNextHop(peer, "vrf1", 1000, TunnelType::MplsType());
+    client->WaitForIdle();
+
     EXPECT_TRUE(rt1->GetActiveNextHop()->GetType() == NextHop::COMPOSITE);
     EXPECT_TRUE(rt2->GetActiveNextHop()->GetType() == NextHop::COMPOSITE);
     EXPECT_TRUE(rt3->GetActiveNextHop()->GetType() == NextHop::COMPOSITE);
@@ -298,7 +309,10 @@ TEST_F(RouteTest, SubnetRoute_1) {
     client->Reset();
     DelIPAM("vn1");
     client->WaitForIdle();
+    FlushEvpnNextHop(peer, "vrf1", 0);
     DeleteVmportEnv(input, 1, 1, 0);
+    client->WaitForIdle();
+    DeleteBgpPeer(peer);
     client->WaitForIdle();
 }
 
@@ -331,10 +345,25 @@ TEST_F(RouteTest, SubnetRoute_2) {
     Inet4UnicastRouteEntry *rt1 = RouteGet(vrf_name_, subnet_vm_ip_1_, 24);
     Inet4UnicastRouteEntry *rt2 = RouteGet(vrf_name_, subnet_vm_ip_2_, 28);
     Inet4UnicastRouteEntry *rt3 = RouteGet(vrf_name_, subnet_vm_ip_3_, 16);
+    if((rt1 == NULL) && (rt2 == NULL) && (rt3 == NULL))
+        return;
+
 
     EXPECT_TRUE(rt1 != NULL);
     EXPECT_TRUE(rt2 != NULL);
     EXPECT_TRUE(rt3 != NULL);
+    EXPECT_TRUE(rt1->GetActiveNextHop()->GetType() == NextHop::DISCARD);
+    EXPECT_TRUE(rt2->GetActiveNextHop()->GetType() == NextHop::DISCARD);
+    EXPECT_TRUE(rt3->GetActiveNextHop()->GetType() == NextHop::DISCARD);
+    EXPECT_TRUE(rt1->IsRPFInvalid());
+    EXPECT_TRUE(rt2->IsRPFInvalid());
+    EXPECT_TRUE(rt3->IsRPFInvalid());
+
+
+    BgpPeer *peer = CreateBgpPeer("127.0.0.1", "remote");
+    FillEvpnNextHop(peer, "vrf1", 1000, TunnelType::MplsType());
+    client->WaitForIdle();
+
     EXPECT_TRUE(rt1->GetActiveNextHop()->GetType() == NextHop::COMPOSITE);
     EXPECT_TRUE(rt2->GetActiveNextHop()->GetType() == NextHop::COMPOSITE);
     EXPECT_TRUE(rt3->GetActiveNextHop()->GetType() == NextHop::COMPOSITE);
@@ -342,6 +371,7 @@ TEST_F(RouteTest, SubnetRoute_2) {
     EXPECT_TRUE(rt2->IsRPFInvalid());
     EXPECT_TRUE(rt3->IsRPFInvalid());
 
+    FlushEvpnNextHop(peer, "vrf1", 0);
     AddIPAM("vn1", ipam_info_2, 1);
     client->WaitForIdle();
 
@@ -351,10 +381,15 @@ TEST_F(RouteTest, SubnetRoute_2) {
     EXPECT_TRUE(rt1 == NULL);
     EXPECT_TRUE(rt2 != NULL);
     EXPECT_TRUE(rt3 == NULL);
+    EXPECT_TRUE(rt2->GetActiveNextHop()->GetType() == NextHop::DISCARD);
+    EXPECT_TRUE(rt2->IsRPFInvalid());
+
+    FillEvpnNextHop(peer, "vrf1", 1000, TunnelType::MplsType());
     EXPECT_TRUE(rt2->GetActiveNextHop()->GetType() == NextHop::COMPOSITE);
     EXPECT_TRUE(rt2->IsRPFInvalid());
 
     AddIPAM("vn1", ipam_info_3, 1);
+    FlushEvpnNextHop(peer, "vrf1", 0);
     client->WaitForIdle();
 
     //Just check for sandesh message handling
@@ -373,7 +408,7 @@ TEST_F(RouteTest, SubnetRoute_2) {
     EXPECT_TRUE(rt1 != NULL);
     EXPECT_TRUE(rt2 == NULL);
     EXPECT_TRUE(rt3 == NULL);
-    EXPECT_TRUE(rt1->GetActiveNextHop()->GetType() == NextHop::COMPOSITE);
+    EXPECT_TRUE(rt1->GetActiveNextHop()->GetType() == NextHop::DISCARD);
 
     client->Reset();
     DelIPAM("vn1");
@@ -386,6 +421,8 @@ TEST_F(RouteTest, SubnetRoute_2) {
     EXPECT_TRUE(rt3 == NULL);
 
     DeleteVmportEnv(input, 1, 1, 0);
+    client->WaitForIdle();
+    DeleteBgpPeer(peer);
     client->WaitForIdle();
 }
 

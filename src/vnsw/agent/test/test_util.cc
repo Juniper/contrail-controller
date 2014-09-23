@@ -2841,6 +2841,12 @@ bool VmPortServiceVlanCount(int id, unsigned int count) {
     return true;
 }
 
+BgpPeer *CreateBgpPeer(std::string addr, std::string name) {
+    boost::system::error_code ec;
+    Ip4Address ip = Ip4Address::from_string(addr, ec);
+    return (CreateBgpPeer(ip, name));
+}
+
 BgpPeer *CreateBgpPeer(const Ip4Address &addr, std::string name) {
     XmppChannelMock *xmpp_channel = new XmppChannelMock();
     AgentXmppChannel *channel;
@@ -2877,4 +2883,24 @@ void DeleteBgpPeer(Peer *peer) {
         (channel->GetXmppChannel());
     delete channel;
     delete xmpp_channel;
+}
+
+void FillEvpnNextHop(BgpPeer *peer, std::string vrf_name,
+                     uint32_t label, uint32_t bmap) {
+    TunnelOlist evpn_olist_map;
+    evpn_olist_map.push_back(OlistTunnelEntry(label,
+                                              IpAddress::from_string("8.8.8.8").to_v4(),
+                                              bmap));
+    MulticastHandler::ModifyEvpnMembers(peer, vrf_name,
+                                        evpn_olist_map, 0);
+    client->WaitForIdle();
+}
+
+void FlushEvpnNextHop(BgpPeer *peer, std::string vrf_name,
+                      uint32_t tag) {
+    TunnelOlist evpn_olist_map;
+    MulticastHandler::ModifyEvpnMembers(peer, vrf_name,
+                                        evpn_olist_map, tag,
+                                        ControllerPeerPath::kInvalidPeerIdentifier);
+    client->WaitForIdle();
 }
