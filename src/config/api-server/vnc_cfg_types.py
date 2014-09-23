@@ -178,7 +178,7 @@ class InstanceIpServer(InstanceIpServerGen):
 
         req_ip = obj_dict.get("instance_ip_address", None)
         req_ip_family = obj_dict.get("instance_ip_family", None)
-        if req_ip_family == "v4": req_ip_version = 4
+        req_ip_version = 4 # default ip v4
         if req_ip_family == "v6": req_ip_version = 6
 
         vn_id = {'uuid': db_conn.fq_name_to_uuid('virtual-network', vn_fq_name)}
