@@ -752,6 +752,8 @@ class AddrMgmt(object):
 
             if asked_ip_version != subnet_obj.get_version():
                 continue
+            if asked_ip_addr == str(subnet_obj.gw_ip):
+                return asked_ip_addr
             if asked_ip_addr and not subnet_obj.ip_belongs(asked_ip_addr):
                 continue
             try:
