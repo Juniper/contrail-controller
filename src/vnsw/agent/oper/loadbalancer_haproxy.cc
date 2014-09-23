@@ -125,6 +125,19 @@ void LoadbalancerHaproxy::GenerateBackend(
             props.healthmonitors().begin()->second;
         timeout = hm.timeout * 1000; //In milliseconds
         max_retries = hm.max_retries;
+        if (!hm.url_path.empty()) {
+            *out << string(4, ' ')
+                 << "option httpchk ";
+            if (!hm.http_method.empty()) {
+                *out << hm.http_method;
+            }
+            *out << " " << hm.url_path << endl;
+        }
+        if (!hm.expected_codes.empty()) {
+            *out << string(4, ' ')
+                 << "http-check expect status "
+                 << hm.expected_codes << endl;
+        }
     }
 
     for (LoadbalancerProperties::MemberMap::const_iterator iter =
