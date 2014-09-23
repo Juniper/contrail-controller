@@ -879,20 +879,13 @@ BgpAttr *BgpStressTest::CreatePathAttr() {
     return attr;
 }
 
-ExtCommunitySpec *BgpStressTest::CreateRouteTargets(int ntargets) {
-    auto_ptr<ExtCommunitySpec> commspec(new ExtCommunitySpec());
-
+void BgpStressTest::AddRouteTargetsToCommunitySpec(ExtCommunitySpec *commspec,
+                                                   int ntargets) {
     for (int i = 1; i <= ntargets; ++i) {
         RouteTarget tgt = RouteTarget::FromString(
                 "target:1:" + boost::lexical_cast<string>(i));
-        const ExtCommunity::ExtCommunityValue &extcomm =
-            tgt.GetExtCommunity();
-        uint64_t value = get_value(extcomm.data(), extcomm.size());
-        commspec->communities.push_back(value);
+        commspec->communities.push_back(tgt.GetExtCommunityValue());
     }
-
-    if (commspec->communities.empty()) return NULL;
-    return commspec.release();
 }
 
 void BgpStressTest::AddBgpInetRoute(int family, int peer_id, int route_id,
@@ -914,38 +907,20 @@ void BgpStressTest::AddBgpInetRoute(int family, int peer_id, int route_id,
 }
 
 void BgpStressTest::AddLocalPrefToAttr(BgpAttrSpec *attr_spec) {
-    boost::scoped_ptr<BgpAttrLocalPref> local_pref;
     int localpref = 100; // Default preference
-    local_pref.reset(new BgpAttrLocalPref(localpref));
-    attr_spec->push_back(local_pref.get());
+    BgpAttrLocalPref* local_pref = new BgpAttrLocalPref(localpref);
+    attr_spec->push_back(local_pref);
 }
 
 void BgpStressTest::AddNexthopToAttr(BgpAttrSpec *attr_spec, int peer_id) {
-    BgpAttrNextHop nexthop(0x66010000 + peer_id); // 0x66 is 'B' for BGP
-    attr_spec->push_back(&nexthop);
+    // 0x66 is 'B' for BGP
+    BgpAttrNextHop *nexthop = new BgpAttrNextHop(0x66010000 + peer_id);
+    attr_spec->push_back(nexthop);
 }
 
-void BgpStressTest::AddTunnelEncapToAttr(BgpAttrSpec *attr_spec, int family,
-                                         int num_targets) {
-    boost::scoped_ptr<ExtCommunitySpec> commspec;
-
-    switch (family) {
-    case Address::INET6:
-        commspec.reset(new ExtCommunitySpec());
-        break;
-    case Address::INET6VPN:
-        commspec.reset(CreateRouteTargets(num_targets));
-        if (!commspec.get()) {
-            commspec.reset(new ExtCommunitySpec());
-        }
-        break;
-    default:
-        break;
-    }
+void BgpStressTest::AddTunnelEncapToCommunitySpec(ExtCommunitySpec *commspec) {
     TunnelEncap tun_encap(std::string("gre"));
-    commspec->communities.push_back(
-            get_value(tun_encap.GetExtCommunity().begin(), 8));
-    attr_spec->push_back(commspec.get());
+    commspec->communities.push_back(tun_encap.GetExtCommunityValue());
 }
 
 void BgpStressTest::AddBgpInet6Route(int peer_id, int route_id,
@@ -968,8 +943,13 @@ void BgpStressTest::AddBgpInet6Route(int peer_id, int route_id,
     BgpAttrSpec attr_spec;
     AddLocalPrefToAttr(&attr_spec);
     AddNexthopToAttr(&attr_spec, peer_id);
-    AddTunnelEncapToAttr(&attr_spec, Address::INET6, 0);
+
+    ExtCommunitySpec* commspec(new ExtCommunitySpec());
+    AddTunnelEncapToCommunitySpec(commspec);
+    attr_spec.push_back(commspec);
+
     BgpAttrPtr attr = server_->attr_db()->Locate(attr_spec);
+    STLDeleteValues(&attr_spec);
 
     int label = 30000 + route_id;
     DBRequest req;
@@ -1005,8 +985,14 @@ void BgpStressTest::AddBgpInet6VpnRoute(int peer_id, int route_id,
     BgpAttrSpec attr_spec;
     AddLocalPrefToAttr(&attr_spec);
     AddNexthopToAttr(&attr_spec, peer_id);
-    AddTunnelEncapToAttr(&attr_spec, Address::INET6VPN, 0);
+
+    ExtCommunitySpec* commspec(new ExtCommunitySpec());
+    AddTunnelEncapToCommunitySpec(commspec);
+    AddRouteTargetsToCommunitySpec(commspec, num_targets);
+    attr_spec.push_back(commspec);
+
     BgpAttrPtr attr = server_->attr_db()->Locate(attr_spec);
+    STLDeleteValues(&attr_spec);
 
     // For odd peer_id's, choose hard-coded value; for even, choose the
     // peer_id. This is to have half of the RD's as dups.
@@ -1108,24 +1094,19 @@ void BgpStressTest::AddBgpInetRouteInternal(int family, int peer_id,
 
     BgpAttrNextHop nexthop(0x66010000 + peer_id); // 0x66 is 'B' for BGP
     attr_spec.push_back(&nexthop);
-    TunnelEncap tun_encap(std::string("gre"));
 
     switch (table->family()) {
         case Address::INET:
             commspec.reset(new ExtCommunitySpec());
-            commspec->communities.push_back(
-                    get_value(tun_encap.GetExtCommunity().begin(), 8));
+            AddTunnelEncapToCommunitySpec(commspec.get());
             attr_spec.push_back(commspec.get());
             req.key.reset(new InetTable::RequestKey(prefix, peer));
             break;
         case Address::INETVPN:
             req.key.reset(new InetVpnTable::RequestKey(vpn_prefix, peer));
-            commspec.reset(CreateRouteTargets(ntargets));
-            if (!commspec.get()) {
-                commspec.reset(new ExtCommunitySpec());
-            }
-            commspec->communities.push_back(
-                    get_value(tun_encap.GetExtCommunity().begin(), 8));
+            commspec.reset(new ExtCommunitySpec());
+            AddRouteTargetsToCommunitySpec(commspec.get(), ntargets);
+            AddTunnelEncapToCommunitySpec(commspec.get());
             attr_spec.push_back(commspec.get());
             break;
         default:

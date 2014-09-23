@@ -300,8 +300,9 @@ protected:
                                        int route_id);
     void AddLocalPrefToAttr(BgpAttrSpec *attr_spec);
     void AddNexthopToAttr(BgpAttrSpec *attr_spec, int peer_id);
-    void AddTunnelEncapToAttr(BgpAttrSpec *attr_spec, int family,
-                              int num_targets);
+    void AddRouteTargetsToCommunitySpec(ExtCommunitySpec *commspec,
+                                        int ntargets);
+    void AddTunnelEncapToCommunitySpec(ExtCommunitySpec *commspec);
     void AddBgpInet6Route(int peer_id, int route_id, int num_targets);
     Inet6VpnPrefix CreateInet6VpnPrefix(std::string pre_prefix, int agent_id,
                                         int instance_id, int route_id);
@@ -362,7 +363,6 @@ protected:
     size_t GetAllAgentRouteCount(int nagents, int ninstances);
     void VerifyXmppRouteNextHops();
 
-    ExtCommunitySpec *CreateRouteTargets(int ntargets);
     void InitParams();
 
     void SubscribeRoutingInstance(int agent_id, int instance_id,
