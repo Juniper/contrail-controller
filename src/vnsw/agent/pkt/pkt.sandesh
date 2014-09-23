@@ -112,6 +112,9 @@ struct SandeshFlowData {
     44: optional string nw_ace_uuid;
     45: i32 rpf_nh;
     46: optional string drop_reason;
+    47: optional string peer_vrouter;
+    48: optional string tunnel_type;
+    49: optional u16 underlay_source_port;
 }
 
 request sandesh FetchFlowRecord {

@@ -11,8 +11,11 @@
 #include "ksync/ksync_sock_user.h"
 #include <uve/test/agent_stats_collector_test.h>
 #include "uve/test/test_uve_util.h"
+#include "pkt/test/test_flow_util.h"
 
 using namespace std;
+#define remote_vm4_ip "13.1.1.2"
+#define remote_router_ip "10.1.1.2"
 
 void RouterIdDepInit(Agent *agent) {
 }
@@ -33,7 +36,7 @@ VmInterface *test0, *test1;
 
 class StatsTestMock : public ::testing::Test {
 public:
-    StatsTestMock() : util_() {}
+    StatsTestMock() : util_(), peer_(NULL) {}
     bool InterVnStatsMatch(const string &svn, const string &dvn, uint32_t pkts,
                            uint32_t bytes, bool out) {
         VnUveTableTest *vut = static_cast<VnUveTableTest *>
@@ -120,6 +123,7 @@ public:
         client->PortDelNotifyWait(2);
     }
     TestUveUtil util_;
+    BgpPeer *peer_;
 };
 
 TEST_F(StatsTestMock, FlowStatsTest) {
@@ -860,6 +864,83 @@ TEST_F(StatsTestMock, VnStatsTest) {
     //Reset the stats so that repeat of this test case works
     KSyncSockTypeMap::IfStatsSet(test0->id(), 0, 0, 0, 0, 0, 0);
     KSyncSockTypeMap::IfStatsSet(test1->id(), 0, 0, 0, 0, 0, 0);
+}
+
+//Flow parameters (vrouter, peer_vrouter and tunnel_type) verification for
+//local flow
+TEST_F(StatsTestMock, Underlay_1) {
+    TestFlow flow[] = {
+        //Send an ICMP flow from remote VM in vn3 to local VM in vn5
+        {
+            TestFlowPkt("1.1.1.1", "1.1.1.2", 1, 0, 0, "vrf5",
+                        flow0->id()),
+            {
+                new VerifyVn("vn5", "vn5"),
+            }
+        }
+    };
+
+    CreateFlow(flow, 1);
+    client->WaitForIdle();
+    EXPECT_EQ(2U, Agent::GetInstance()->pkt()->flow_table()->Size());
+
+    const FlowEntry *fe = flow[0].pkt_.FlowFetch();
+    const FlowEntry *rfe = fe->reverse_flow_entry();
+
+    EXPECT_STREQ(fe->peer_vrouter().c_str(),
+                 Agent::GetInstance()->router_id().to_string().c_str());
+    EXPECT_EQ(fe->tunnel_type().GetType(), TunnelType::INVALID);
+    EXPECT_EQ(fe->underlay_source_port(), 0);
+
+    EXPECT_STREQ(rfe->peer_vrouter().c_str(),
+                 Agent::GetInstance()->router_id().to_string().c_str());
+    EXPECT_EQ(rfe->tunnel_type().GetType(), TunnelType::INVALID);
+    EXPECT_EQ(rfe->underlay_source_port(), 0);
+
+    DeleteFlow(flow, 1);
+    client->WaitForIdle();
+    EXPECT_EQ(0U, Agent::GetInstance()->pkt()->flow_table()->Size());
+}
+
+//Flow parameters (vrouter, peer_vrouter and tunnel_type) verification for
+//non-local flow
+TEST_F(StatsTestMock, Underlay_2) {
+    /* Add remote VN route to vrf5 */
+    util_.CreateRemoteRoute("vrf5", remote_vm4_ip, remote_router_ip, 8, "vn3",
+                            peer_);
+
+    TestFlow flow[] = {
+        //Send an ICMP flow from remote VM in vn3 to local VM in vn5
+        {
+            TestFlowPkt(remote_vm4_ip, "1.1.1.1", 1, 0, 0, "vrf5",
+                        remote_router_ip, 16),
+            {
+                new VerifyVn("vn3", "vn5"),
+            }
+        }
+    };
+    CreateFlow(flow, 1);
+    client->WaitForIdle();
+    EXPECT_EQ(2U, Agent::GetInstance()->pkt()->flow_table()->Size());
+
+    const FlowEntry *fe = flow[0].pkt_.FlowFetch();
+    const FlowEntry *rfe = fe->reverse_flow_entry();
+
+    EXPECT_STREQ(fe->peer_vrouter().c_str(), remote_router_ip);
+    EXPECT_EQ(fe->tunnel_type().GetType(), TunnelType::MPLS_GRE);
+    EXPECT_EQ(fe->underlay_source_port(), 0);
+
+    EXPECT_STREQ(rfe->peer_vrouter().c_str(), remote_router_ip);
+    EXPECT_EQ(rfe->tunnel_type().GetType(), TunnelType::MPLS_GRE);
+    EXPECT_EQ(rfe->underlay_source_port(), 0);
+
+    DeleteFlow(flow, 1);
+    client->WaitForIdle();
+    EXPECT_EQ(0U, Agent::GetInstance()->pkt()->flow_table()->Size());
+
+    //Remove remote VM routes
+    util_.DeleteRemoteRoute("vrf5", remote_vm4_ip, peer_);
+    client->WaitForIdle();
 }
 
 int main(int argc, char *argv[]) {

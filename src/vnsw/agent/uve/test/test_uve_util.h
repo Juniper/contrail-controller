@@ -164,6 +164,28 @@ public:
         client->WaitForIdle();
     }
 
+    void CreateRemoteRoute(const char *vrf, const char *remote_vm,
+                           const char *serv, int label, const char *vn,
+                           BgpPeer *peer) {
+        boost::system::error_code ec;
+        Ip4Address addr = Ip4Address::from_string(remote_vm, ec);
+        Ip4Address gw = Ip4Address::from_string(serv, ec);
+        Inet4TunnelRouteAdd(peer, vrf, addr, 32, gw, TunnelType::AllType(), label, vn,
+                            SecurityGroupList(), PathPreference());
+        client->WaitForIdle(2);
+        WAIT_FOR(1000, 500, (RouteFind(vrf, addr, 32) == true));
+    }
+
+    void DeleteRemoteRoute(const char *vrf, const char *ip, BgpPeer *peer) {
+        boost::system::error_code ec;
+        Ip4Address addr = Ip4Address::from_string(ip, ec);
+        Agent::Agent::GetInstance()->
+            fabric_inet4_unicast_table()->DeleteReq(peer,
+                vrf, addr, 32, NULL);
+        client->WaitForIdle();
+        WAIT_FOR(1000, 1, (RouteFind(vrf, addr, 32) == false));
+    }
+
 };
 
 #endif
