@@ -115,7 +115,7 @@ class IntrospectUtil(object):
     def _load(self, path):
         url = self._mk_url_str(path)
         try:
-            resp = requests.get(url, timeout=0.01)
+            resp = requests.get(url, timeout=0.1)
             return etree.fromstring(resp.text)
         except requests.ConnectionError, e:
             if self._debug:
