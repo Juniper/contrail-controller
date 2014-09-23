@@ -147,10 +147,11 @@ class SyslogCollectorTest : public ::testing::Test
         task_util::WaitForIdle();
         evm_->Shutdown();
         task_util::WaitForIdle();
+        Sandesh::Uninit();
+        task_util::WaitForIdle();
         if (thread_.get() != NULL) {
             thread_->Join();
         }
-        Sandesh::Uninit();
         task_util::WaitForIdle();
     }
     SyslogMsgGen                   *gen_;

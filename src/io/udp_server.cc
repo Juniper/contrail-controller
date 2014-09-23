@@ -197,7 +197,6 @@ void UdpServer::HandleSendInternal(const_buffer send_buffer,
         stats_.write_errors++;
         UDP_SERVER_LOG_ERROR(this, UDP_DIR_OUT,
             "Send UDP server in WRONG state: " << state_);
-        DeallocateBuffer(send_buffer);
         return;
     }
     if (error) {
@@ -238,7 +237,6 @@ void UdpServer::HandleReceiveInternal(const_buffer recv_buffer,
         stats_.read_errors++;
         UDP_SERVER_LOG_ERROR(this, UDP_DIR_IN,
             "Receive UDP server in WRONG state: " << state_);
-        DeallocateBuffer(recv_buffer);
         return;
     }
     if (error) {
