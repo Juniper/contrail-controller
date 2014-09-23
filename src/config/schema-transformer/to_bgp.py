@@ -1172,7 +1172,8 @@ class SecurityGroupST(DictST):
         sg = cls._dict.get(name)
         if sg is None:
             return
-        sg.update_policy_entries(None)
+        _vnc_lib.access_control_list_delete(id=sg.ingress_acl.uuid)
+        _vnc_lib.access_control_list_delete(id=sg.egress_acl.uuid)
         sg_id = sg.obj.get_security_group_id()
         if sg_id is not None:
             cls._sg_id_allocator.delete(sg.obj.get_security_group_id())
