@@ -486,6 +486,49 @@ class SvcMonitor(object):
                 continue
     #end _addmsg_project_virtual_network
 
+    def _addmsg_floating_ip_virtual_machine_interface(self, idents):
+        fip_fq_str = idents['floating-ip']
+        vmi_fq_str = idents['virtual-machine-interface']
+
+        try:
+            fip_obj = self._vnc_lib.floating_ip_read(
+                fq_name_str=fip_fq_str)
+            vmi_obj = self._vnc_lib.virtual_machine_interface_read(
+                fq_name_str=vmi_fq_str)
+        except NoIdError:
+            return
+
+        # handle only if VIP back ref exists
+        vip_back_refs = vmi_obj.get_virtual_ip_back_refs()
+        if vip_back_refs is None:
+            return
+
+        # associate fip to all VMIs
+        iip_back_refs = vmi_obj.get_instance_ip_back_refs()
+        try:
+            iip_obj = self._vnc_lib.instance_ip_read(
+                id=iip_back_refs[0]['uuid'])
+        except NoIdError:
+            return
+
+        fip_updated = False
+        vmi_refs_iip = iip_obj.get_virtual_machine_interface_refs()
+        vmi_refs_fip = fip_obj.get_virtual_machine_interface_refs()
+        for vmi_ref_iip in vmi_refs_iip:
+            if vmi_ref_iip in vmi_refs_fip:
+                continue
+            try:
+                vmi_obj = self._vnc_lib.virtual_machine_interface_read(
+                    id=vmi_ref_iip['uuid'])
+            except NoIdError:
+                continue
+            fip_obj.add_virtual_machine_interface(vmi_obj)
+            fip_updated = True
+
+        if fip_updated:
+            self._vnc_lib.floating_ip_update(fip_obj)
+
+
     def process_poll_result(self, poll_result_str):
         result_list = parse_poll_result(poll_result_str)
 
