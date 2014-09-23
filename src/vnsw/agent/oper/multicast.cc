@@ -593,8 +593,13 @@ void MulticastHandler::ModifyEvpnMembers(const Peer *peer,
         return;
     }
 
+    bool delete_op = false;
+    if (peer_identifier == ControllerPeerPath::kInvalidPeerIdentifier) {
+        delete_op = true;
+    }
+
     MulticastHandler::GetInstance()->TriggerRemoteRouteChange(obj, peer, vrf_name, olist,
-                                     peer_identifier, false, Composite::EVPN,
+                                     peer_identifier, delete_op, Composite::EVPN,
                                      obj->evpn_mpls_label(), false, ethernet_tag);
     MCTRACE(Log, "Add EVPN TOR Olist ", vrf_name, grp.to_string(), 0);
 }
