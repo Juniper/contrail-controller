@@ -14,7 +14,7 @@ import requests
 from StringIO import StringIO
 from lxml import etree
 from sandesh_common.vns.constants import ServiceHttpPortMap, \
-    SupervisorPortMap
+    SupervisorPortMap, NodeUVEImplementedServices
 
 try:
     subprocess.check_call(["dpkg-vendor", "--derives-from", "debian"])
@@ -272,6 +272,7 @@ def check_svc_status(server_port, debug):
     cmd = 'supervisorctl -s http://localhost:' + str(server_port) + ' status'
     cmdout = subprocess.Popen(cmd.split(), stdout=subprocess.PIPE).communicate()[0]
     if cmdout.find('refused connection') == -1:
+        cmdout = cmdout.replace('   STARTING', 'initializing')
         cmdout = cmdout.replace('   RUNNING', 'active')
         cmdout = cmdout.replace('   STOPPED', 'inactive')
         cmdout = cmdout.replace('   FATAL', 'failed')
@@ -284,9 +285,12 @@ def check_svc_status(server_port, debug):
                 svc_name = supervisor_svc_info[0]
                 svc_status = supervisor_svc_info[1]
                 # Extract UVE state only for running processes
-                if svc_status == 'active':
+                if svc_name in NodeUVEImplementedServices and svc_status == 'active':
                     svc_uve_status = get_svc_uve_status(svc_name, debug)
-                    if svc_uve_status and svc_uve_status == 'Non-Functional':
+                    if svc_uve_status is not None:
+                        if svc_uve_status == 'Non-Functional':
+                            svc_status = 'initializing'
+                    else:
                         svc_status = 'initializing'
                 print '{0:<30}{1:<20}'.format(svc_name, svc_status)
         print

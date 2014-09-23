@@ -107,6 +107,17 @@ const map <string, u16> SupervisorPortMap = {
     SERVICE_WEBUI_SUPERVISOR : WebuiSupervisorPort,
 }
 
+const list<string> NodeUVEImplementedServices = [
+    SERVICE_VROUTER_AGENT,
+    SERVICE_CONTROL_NODE,
+    SERVICE_COLLECTOR,
+    SERVICE_QUERY_ENGINE,
+    SERVICE_OPSERVER,
+    SERVICE_API_SERVER,
+    SERVICE_SCHEMA_TRANSFORMER,
+    SERVICE_SVC_MONITOR,
+]
+
 enum Module {
     CONTROL_NODE,
     VROUTER_AGENT,
