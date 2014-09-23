@@ -1936,14 +1936,12 @@ void BgpXmppChannel::ProcessDeferredSubscribeRequest(RoutingInstance *instance,
         BgpTable *table = it->second;
         if (table->IsVpnTable() || table->family() == Address::RTARGET)
             continue;
-        // XXX: Todo, replace with IsVpnTable()
-        if (table->family() == Address::INET6VPN)
-            continue;
 
         RegisterTable(table, instance_id);
 
         MembershipRequestState state(SUBSCRIBE, instance_id);
-        routingtable_membership_request_map_.insert(make_pair(table->name(), state));
+        routingtable_membership_request_map_.insert(make_pair(table->name(),
+                                                    state));
     }
 }
 
