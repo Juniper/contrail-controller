@@ -97,7 +97,9 @@ FlowEntry::FlowEntry(const FlowKey &k) :
     key_(k), data_(), stats_(), flow_handle_(kInvalidFlowHandle),
     ksync_entry_(NULL), deleted_(false), flags_(0), short_flow_reason_(SHORT_UNKNOWN),
     linklocal_src_port_(),
-    linklocal_src_port_fd_(PktFlowInfo::kLinkLocalInvalidFd) {
+    linklocal_src_port_fd_(PktFlowInfo::kLinkLocalInvalidFd),
+    other_vrouter_(), tunnel_type_(TunnelType::INVALID),
+    underlay_source_port_(0) {
     flow_uuid_ = FlowTable::rand_gen_(); 
     egress_uuid_ = FlowTable::rand_gen_(); 
     refcount_ = 0;
@@ -818,7 +820,9 @@ void FlowEntry::UpdateKSync() {
          * Do not export stats on flow creation, it will be exported
          * while updating stats
          */
-        FlowStatsCollector::FlowExport(this, 0, 0);
+        FlowStatsCollector *fec = Agent::GetInstance()->uve()->
+                                    flow_stats_collector();
+        fec->FlowExport(this, 0, 0);
     }
     FlowTableKSyncObject *ksync_obj = 
         Agent::GetInstance()->ksync()->flowtable_ksync_obj();
@@ -1262,6 +1266,8 @@ bool FlowEntry::SetRpfNH(const Inet4UnicastRouteEntry *rt) {
 
 bool FlowEntry::InitFlowCmn(const PktFlowInfo *info, const PktControlInfo *ctrl,
                             const PktControlInfo *rev_ctrl) {
+    other_vrouter_ = info->other_vrouter;
+    tunnel_type_ = info->tunnel_type;
     if (stats_.last_modified_time) {
         if (is_flags_set(FlowEntry::NatFlow) != info->nat_done) {
             MakeShortFlow(SHORT_NAT_CHANGE);

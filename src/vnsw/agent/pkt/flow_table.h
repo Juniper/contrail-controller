@@ -424,6 +424,12 @@ class FlowEntry {
     void UpdateFipStatsInfo(uint32_t fip, uint32_t id);
     const std::string &sg_rule_uuid() const { return sg_rule_uuid_; }
     const std::string &nw_ace_uuid() const { return nw_ace_uuid_; }
+    const std::string &other_vrouter() const { return other_vrouter_; }
+    TunnelType tunnel_type() const { return tunnel_type_; }
+    uint16_t underlay_source_port() const { return underlay_source_port_; }
+    void set_underlay_source_port(uint16_t port) {
+        underlay_source_port_ = port;
+    }
     uint16_t short_flow_reason() const { return short_flow_reason_; }
 private:
     friend class FlowTable;
@@ -455,6 +461,13 @@ private:
     int linklocal_src_port_fd_;
     std::string sg_rule_uuid_;
     std::string nw_ace_uuid_;
+    //IP address of the src vrouter for egress flows and dst vrouter for
+    //ingress flows. Used only during flow-export
+    std::string other_vrouter_;
+    //Underlay IP protocol type. Used only during flow-export
+    TunnelType tunnel_type_;
+    //Underlay source port. 0 for local flows. Used during flow-export
+    uint16_t underlay_source_port_;
     // atomic refcount
     tbb::atomic<int> refcount_;
 };

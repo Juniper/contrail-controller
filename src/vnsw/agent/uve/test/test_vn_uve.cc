@@ -117,28 +117,7 @@ public:
         EXPECT_EQ((count + 1), Agent::GetInstance()->acl_table()->Size());
     }
 
-    void CreateRemoteRoute(const char *vrf, const char *remote_vm, 
-                           const char *serv, int label, const char *vn) {
-        boost::system::error_code ec;
-        Ip4Address addr = Ip4Address::from_string(remote_vm, ec);
-        Ip4Address gw = Ip4Address::from_string(serv, ec);
-        Inet4TunnelRouteAdd(peer_, vrf, addr, 32, gw, TunnelType::AllType(), label, vn,
-                            SecurityGroupList(), PathPreference());
-        client->WaitForIdle(2);
-        WAIT_FOR(1000, 500, (RouteFind(vrf, addr, 32) == true));
-    }
-
-    void DeleteRemoteRoute(const char *vrf, const char *ip) {
-        boost::system::error_code ec;
-        Ip4Address addr = Ip4Address::from_string(ip, ec);
-        Agent::Agent::GetInstance()->
-            fabric_inet4_unicast_table()->DeleteReq(peer_, 
-                vrf, addr, 32, NULL);
-        client->WaitForIdle();
-        WAIT_FOR(1000, 1, (RouteFind(vrf, addr, 32) == false));
-    }
     TestUveUtil util_;
-private:
     BgpPeer *peer_;
 };
 
@@ -523,7 +502,8 @@ TEST_F(UveVnUveTest, FlowCount_2) {
     FlowSetUp();
 
     /* Add remote VN route to vrf5 */
-    CreateRemoteRoute("vrf5", remote_vm4_ip, remote_router_ip, 8, "vn3");
+    util_.CreateRemoteRoute("vrf5", remote_vm4_ip, remote_router_ip, 8, "vn3",
+                            peer_);
 
     TestFlow flow[] = {
         //Send an ICMP flow from remote VM in vn3 to local VM in vn5
@@ -577,7 +557,7 @@ TEST_F(UveVnUveTest, FlowCount_2) {
     EXPECT_EQ(1U, uve1->get_egress_flow_count());
 
     //Remove remote VM routes
-    DeleteRemoteRoute("vrf5", remote_vm4_ip);
+    util_.DeleteRemoteRoute("vrf5", remote_vm4_ip, peer_);
     client->WaitForIdle();
 
     FlowTearDown();
