@@ -612,18 +612,17 @@ class NetworkNamespaceManager(InstanceManager):
 
             vr_back_refs = vm_obj.get_virtual_router_back_refs()
             if not vr_back_refs:
-                self.delete_service(vm_obj.uuid)
                 return 'ERROR'
 
             try:
                 vr_obj = self._vnc_lib.virtual_router_read(
                     id=vr_back_refs[0]['uuid'])
             except NoIdError:
-                self.delete_service(vm_obj.uuid)
                 return 'ERROR'
 
             if not self.vrouter_scheduler.vrouter_running(vr_obj.name):
-                self.delete_service(vm_obj.uuid)
+                vr_obj.del_virtual_machine(vm_obj)
+                self._vnc_lib.virtual_router_update(vr_obj)
                 return 'ERROR'
 
         return 'ACTIVE'
