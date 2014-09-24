@@ -36,6 +36,7 @@ class PhysicalDeviceManager {
     AGENT::PhysicalDeviceVnTable *physical_device_vn_table() const {
         return physical_device_vn_table_;
     }
+
  private:
     Agent *agent_;
     AGENT::PhysicalDeviceTable *device_table_;
