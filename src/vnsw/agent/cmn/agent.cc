@@ -504,3 +504,11 @@ bool Agent::isVmwareVcenterMode() const {
 
     return params_->isVmwareVcenterMode();
 }
+
+PhysicalDeviceManager *Agent::device_manager() const {
+    return device_manager_;
+}
+
+void Agent::set_device_manager(PhysicalDeviceManager *dev_mgmt) {
+    device_manager_ = dev_mgmt;
+}
