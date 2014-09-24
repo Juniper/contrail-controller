@@ -94,6 +94,7 @@ public:
         const SandeshHeader& header, const std::string& message_type,
         const boost::uuids::uuid& unm, const std::string keyword);
     virtual void MessageTableInsert(const VizMsg *vmsgp);
+    virtual void FieldNamesTableInsert(std::string field_name, std::string field_value, uint64_t temp);
     void MessageTableOnlyInsert(const VizMsg *vmsgp);
 
     void GetRuleMap(RuleMap& rulemap);
