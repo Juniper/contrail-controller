@@ -20,6 +20,7 @@ class LoadbalancerHaproxy;
 class NamespaceState;
 class NamespaceTask;
 class NamespaceTaskQueue;
+class Agent;
 
 /*
  * Starts and stops network namespaces corresponding to service-instances.

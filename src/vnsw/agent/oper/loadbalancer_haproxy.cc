@@ -8,6 +8,8 @@
 #include <fstream>
 #include <boost/assign/list_of.hpp>
 #include "base/logging.h"
+#include "agent.h"
+#include "agent_param.h"
 
 #include "loadbalancer_properties.h"
 
@@ -88,7 +90,13 @@ void LoadbalancerHaproxy::GenerateFrontend(
     *out << "frontend " << props.vip_uuid() << endl;
     const autogen::VirtualIpType &vip = props.vip_properties();
     *out << string(4, ' ')
-         << "bind " << vip.address << ":" << vip.protocol_port << endl;
+         << "bind " << vip.address << ":" << vip.protocol_port;
+    if (vip.protocol_port ==  LB_HAPROXY_SSL_PORT) {
+        *out << " ssl crt " <<
+            Agent::GetInstance()->params()->si_haproxy_ssl_cert_path();
+    }
+    *out << endl;
+
     *out << string(4, ' ')
          << "mode " << ProtocolMap(vip.protocol) << endl;
     *out << string(4, ' ')
