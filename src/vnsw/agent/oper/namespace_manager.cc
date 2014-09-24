@@ -370,20 +370,22 @@ void NamespaceManager::StartNetNS(ServiceInstance *svc_instance,
     cmd_str << " " << UuidToString(props.vmi_inside);
     cmd_str << " " << UuidToString(props.vmi_outside);
 
-    cmd_str << " --vmi-left-ip " << props.ip_addr_inside << "/";
-    cmd_str << props.ip_prefix_len_inside;
-    if (props.ip_prefix_len_outside != -1)  {
-        cmd_str << " --vmi-right-ip " << props.ip_addr_outside << "/";
-        cmd_str << props.ip_prefix_len_outside;
+    if (props.ip_prefix_len_inside != -1)  {
+        cmd_str << " --vmi-left-ip " << props.ip_addr_inside << "/";
+        cmd_str << props.ip_prefix_len_inside;
     } else {
-        cmd_str << " --vmi-right-ip 0.0.0.0/0";
+        cmd_str << " --vmi-left-ip 0.0.0.0/0";
     }
-    cmd_str << " --vmi-left-mac " << props.mac_addr_inside;
-    if (!props.mac_addr_outside.empty()) {
-        cmd_str << " --vmi-right-mac " << props.mac_addr_outside;
+    cmd_str << " --vmi-right-ip " << props.ip_addr_outside << "/";
+    cmd_str << props.ip_prefix_len_outside;
+
+    if (!props.mac_addr_inside.empty()) {
+        cmd_str << " --vmi-left-mac " << props.mac_addr_inside;
     } else {
-        cmd_str << " --vmi-right-mac 00:00:00:00:00:00";
+        cmd_str << " --vmi-left-mac 00:00:00:00:00:00";
     }
+    cmd_str << " --vmi-right-mac " << props.mac_addr_outside;
+
     if (props.service_type == ServiceInstance::LoadBalancer) {
         cmd_str << " --cfg-file " << loadbalancer_config_path_ <<
             props.pool_id << "/etc/haproxy/haproxy.cfg";
@@ -428,11 +430,11 @@ void NamespaceManager::StopNetNS(ServiceInstance *svc_instance,
 
     const ServiceInstance::Properties &props = state->properties();
     if (props.instance_id.is_nil() ||
-        props.vmi_inside.is_nil()) {
+        props.vmi_outside.is_nil()) {
         return;
     }
 
-    if (props.interface_count == 2 && props.vmi_outside.is_nil()) {
+    if (props.interface_count == 2 && props.vmi_inside.is_nil()) {
         return;
     }
 
