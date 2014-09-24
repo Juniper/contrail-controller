@@ -1,0 +1,13 @@
+#
+# Copyright (c) 2014 Juniper Networks, Inc. All rights reserved.
+#
+
+# -*- mode: python; -*-
+
+import sys
+Import('AgentEnv')
+env = AgentEnv.Clone()
+
+env.SConscript('tables/SConscript', exports='AgentEnv', duplicate=0)
+env.SConscript('ovs_tor_agent/SConscript', exports='AgentEnv', duplicate=0)
+env.SConscript('test/SConscript', exports='AgentEnv', duplicate=0)
