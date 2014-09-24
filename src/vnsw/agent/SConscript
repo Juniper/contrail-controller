@@ -290,6 +290,7 @@ subdirs = [
     'ksync',
     'openstack',
     'oper',
+    'physical_devices',
     'pkt',
     'services',
     'test',
