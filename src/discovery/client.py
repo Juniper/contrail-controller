@@ -301,6 +301,20 @@ class DiscoveryClient(object):
                     service, data = self.pubdata[cookie]
                     del self.pubdata[cookie]
                     self._publish_int(service, data)
+                elif r.status_code != 200:
+                    service, data = pub_list[cookie]
+                    ConnectionState.update(conn_type = ConnectionType.DISCOVERY,
+                        name = service, status = ConnectionStatus.DOWN,
+                        server_addrs = ['%s:%s' % (self._server_ip, \
+                            self._server_port)],
+                        message = 'HeartBeat Error: %d' % r.status_code)
+                else:
+                    service, data = pub_list[cookie]
+                    ConnectionState.update(conn_type = ConnectionType.DISCOVERY,
+                        name = service, status = ConnectionStatus.UP,
+                        server_addrs = ['%s:%s' % (self._server_ip, \
+                            self._server_port)],
+                        message = 'HeartBeat OK')
             gevent.sleep(HC_INTERVAL)
     # end client
 
