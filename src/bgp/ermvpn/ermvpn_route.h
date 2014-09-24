@@ -27,14 +27,17 @@ public:
     };
 
     ErmVpnPrefix();
-    explicit ErmVpnPrefix(const BgpProtoPrefix &prefix);
     ErmVpnPrefix(uint8_t type, const RouteDistinguisher &rd,
                  const Ip4Address &group, const Ip4Address &source);
     ErmVpnPrefix(uint8_t type, const RouteDistinguisher &rd,
                  const Ip4Address &router_id,
                  const Ip4Address &group, const Ip4Address &source);
+
+    static int FromProtoPrefix(const BgpProtoPrefix &proto_prefix,
+                               ErmVpnPrefix *prefix);
     static ErmVpnPrefix FromString(const std::string &str,
                                    boost::system::error_code *errorp = NULL);
+
     std::string ToString() const;
     std::string ToXmppIdString() const;
     static bool IsValidForBgp(uint8_t type);

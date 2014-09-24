@@ -53,19 +53,23 @@ TEST_F(RTargetPrefixTest, Error2) {
     EXPECT_EQ(RouteTarget::null_rtarget, prefix.rtarget());
 }
 
-TEST_F(RTargetPrefixTest, ProtoPrefix1) {
+TEST_F(RTargetPrefixTest, FromProtoPrefix1) {
     RTargetPrefix prefix(RTargetPrefix::FromString("64512:target:64512:1"));
     BgpProtoPrefix proto_prefix;
     prefix.BuildProtoPrefix(&proto_prefix);
-    RTargetPrefix prefix_1(proto_prefix);
+    RTargetPrefix prefix_1;
+    int result = RTargetPrefix::FromProtoPrefix(proto_prefix, &prefix_1);
+    EXPECT_EQ(0, result);
     EXPECT_TRUE((prefix.CompareTo(prefix_1) == 0));
 }
 
-TEST_F(RTargetPrefixTest, ProtoPrefix2) {
+TEST_F(RTargetPrefixTest, FromProtoPrefix2) {
     RTargetPrefix prefix;
     BgpProtoPrefix proto_prefix;
     prefix.BuildProtoPrefix(&proto_prefix);
-    RTargetPrefix prefix_1(proto_prefix);
+    RTargetPrefix prefix_1;
+    int result = RTargetPrefix::FromProtoPrefix(proto_prefix, &prefix_1);
+    EXPECT_EQ(0, result);
     EXPECT_TRUE((prefix.CompareTo(prefix_1) == 0));
 }
 

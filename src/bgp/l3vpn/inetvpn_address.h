@@ -18,8 +18,12 @@ public:
     InetVpnPrefix(const RouteDistinguisher &rd, Ip4Address ip, int prefixlen) 
         : rd_(rd), addr_(ip), prefixlen_(prefixlen) {
     }
+
+    static int FromProtoPrefix(const BgpProtoPrefix &proto_prefix,
+                               InetVpnPrefix *prefix, uint32_t *label);
     static InetVpnPrefix FromString(const std::string &str,
                                     boost::system::error_code *errorp = NULL);
+
     std::string ToString() const;
     bool IsMoreSpecific(const InetVpnPrefix &rhs) const;
     bool operator==(const InetVpnPrefix &rhs) const;

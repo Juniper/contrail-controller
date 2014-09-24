@@ -951,10 +951,18 @@ void BgpPeer::ProcessUpdate(const BgpProto::Update *msg) {
         for (vector<BgpProtoPrefix *>::const_iterator it =
              msg->withdrawn_routes.begin(); it != msg->withdrawn_routes.end();
              ++it) {
+            Ip4Prefix prefix;
+            int result = Ip4Prefix::FromProtoPrefix((**it), &prefix);
+            if (result) {
+                BGP_LOG_PEER(Message, this, SandeshLevel::SYS_WARN,
+                    BGP_LOG_FLAG_ALL, BGP_PEER_DIR_IN,
+                    "Withdrawn route parse error");
+                continue;
+            }
+
             DBRequest req;
             req.oper = DBRequest::DB_ENTRY_DELETE;
             req.data.reset(NULL);
-            Ip4Prefix prefix = Ip4Prefix(**it);
             req.key.reset(new InetTable::RequestKey(prefix, this));
             table->Enqueue(&req);
             inc_rx_route_unreach();
@@ -962,10 +970,18 @@ void BgpPeer::ProcessUpdate(const BgpProto::Update *msg) {
 
         for (vector<BgpProtoPrefix *>::const_iterator it = msg->nlri.begin();
              it != msg->nlri.end(); ++it) {
+            Ip4Prefix prefix;
+            int result = Ip4Prefix::FromProtoPrefix((**it), &prefix);
+            if (result) {
+                BGP_LOG_PEER(Message, this, SandeshLevel::SYS_WARN,
+                    BGP_LOG_FLAG_ALL, BGP_PEER_DIR_IN,
+                    "NLRI parse error");
+                continue;
+            }
+
             DBRequest req;
             req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
             req.data.reset(new InetTable::RequestData(attr, flags, 0));
-            Ip4Prefix prefix = Ip4Prefix(**it);
             req.key.reset(new InetTable::RequestKey(prefix, this));
             table->Enqueue(&req);
             inc_rx_route_reach();
@@ -1008,12 +1024,20 @@ void BgpPeer::ProcessUpdate(const BgpProto::Update *msg) {
             assert(table);
 
             vector<BgpProtoPrefix *>::const_iterator it;
-            for (it = nlri->nlri.begin(); it < nlri->nlri.end(); it++) {
+            for (it = nlri->nlri.begin(); it < nlri->nlri.end(); ++it) {
+                Ip4Prefix prefix;
+                int result = Ip4Prefix::FromProtoPrefix((**it), &prefix);
+                if (result) {
+                    BGP_LOG_PEER(Message, this, SandeshLevel::SYS_WARN,
+                        BGP_LOG_FLAG_ALL, BGP_PEER_DIR_IN,
+                        "NLRI parse error for inet route");
+                    continue;
+                }
+
                 DBRequest req;
                 req.oper = oper;
                 if (oper == DBRequest::DB_ENTRY_ADD_CHANGE)
                     req.data.reset(new InetTable::RequestData(attr, flags, 0));
-                Ip4Prefix prefix = Ip4Prefix(**it);
                 req.key.reset(new InetTable::RequestKey(prefix, this));
                 table->Enqueue(&req);
             }
@@ -1026,16 +1050,25 @@ void BgpPeer::ProcessUpdate(const BgpProto::Update *msg) {
             assert(table);
 
             vector<BgpProtoPrefix *>::const_iterator it;
-            for (it = nlri->nlri.begin(); it < nlri->nlri.end(); it++) {
-                uint32_t label = ((*it)->prefix[0] << 16 |
-                                  (*it)->prefix[1] << 8 |
-                                  (*it)->prefix[2]) >> 4;
+            for (it = nlri->nlri.begin(); it < nlri->nlri.end(); ++it) {
+                InetVpnPrefix prefix;
+                uint32_t label = 0;
+                int result =
+                    InetVpnPrefix::FromProtoPrefix((**it), &prefix, &label);
+                if (result) {
+                    BGP_LOG_PEER(Message, this, SandeshLevel::SYS_WARN,
+                        BGP_LOG_FLAG_ALL, BGP_PEER_DIR_IN,
+                        "NLRI parse error for inet-vpn route");
+                    continue;
+                }
+
                 DBRequest req;
                 req.oper = oper;
-                if (oper == DBRequest::DB_ENTRY_ADD_CHANGE)
-                    req.data.reset(new InetVpnTable::RequestData(attr, flags, label));
-                req.key.reset(new InetVpnTable::RequestKey(InetVpnPrefix(**it),
-                                                           this));
+                if (oper == DBRequest::DB_ENTRY_ADD_CHANGE) {
+                    req.data.reset(
+                        new InetVpnTable::RequestData(attr, flags, label));
+                }
+                req.key.reset(new InetVpnTable::RequestKey(prefix, this));
                 table->Enqueue(&req);
             }
             break;
@@ -1048,17 +1081,24 @@ void BgpPeer::ProcessUpdate(const BgpProto::Update *msg) {
 
             vector<BgpProtoPrefix *>::const_iterator it;
             for (it = nlri->nlri.begin(); it < nlri->nlri.end(); ++it) {
-                uint32_t label = ((*it)->prefix[0] << 16 |
-                                  (*it)->prefix[1] << 8 |
-                                  (*it)->prefix[2]) >> 4;
+                Inet6VpnPrefix prefix;
+                uint32_t label = 0;
+                int result =
+                    Inet6VpnPrefix::FromProtoPrefix((**it), &prefix, &label);
+                if (result) {
+                    BGP_LOG_PEER(Message, this, SandeshLevel::SYS_WARN,
+                        BGP_LOG_FLAG_ALL, BGP_PEER_DIR_IN,
+                        "NLRI parse error for inet6-vpn route");
+                    continue;
+                }
+
                 DBRequest req;
                 req.oper = oper;
                 if (oper == DBRequest::DB_ENTRY_ADD_CHANGE) {
                     req.data.reset(
-                            new Inet6VpnTable::RequestData(attr, flags, label));
+                        new Inet6VpnTable::RequestData(attr, flags, label));
                 }
-                req.key.reset(
-                    new Inet6VpnTable::RequestKey(Inet6VpnPrefix(**it), this));
+                req.key.reset(new Inet6VpnTable::RequestKey(prefix, this));
                 table->Enqueue(&req);
             }
             break;
@@ -1071,7 +1111,7 @@ void BgpPeer::ProcessUpdate(const BgpProto::Update *msg) {
             assert(table);
 
             vector<BgpProtoPrefix *>::const_iterator it;
-            for (it = nlri->nlri.begin(); it < nlri->nlri.end(); it++) {
+            for (it = nlri->nlri.begin(); it < nlri->nlri.end(); ++it) {
                 EvpnPrefix prefix;
                 BgpAttrPtr new_attr;
                 uint32_t label = 0;
@@ -1081,38 +1121,17 @@ void BgpPeer::ProcessUpdate(const BgpProto::Update *msg) {
                 if (result) {
                     BGP_LOG_PEER(Message, this, SandeshLevel::SYS_WARN,
                         BGP_LOG_FLAG_ALL, BGP_PEER_DIR_IN,
-                        "NLRI parse error for EVPN route type " << (*it)->type);
+                        "NLRI parse error for e-vpn route type " << (*it)->type);
                     continue;
                 }
 
                 DBRequest req;
                 req.oper = oper;
-                if (oper == DBRequest::DB_ENTRY_ADD_CHANGE)
-                    req.data.reset(new EvpnTable::RequestData(new_attr, flags, label));
+                if (oper == DBRequest::DB_ENTRY_ADD_CHANGE) {
+                    req.data.reset(
+                        new EvpnTable::RequestData(new_attr, flags, label));
+                }
                 req.key.reset(new EvpnTable::RequestKey(prefix, this));
-                table->Enqueue(&req);
-            }
-            break;
-        }
-
-        case Address::RTARGET: {
-            RTargetTable *table =
-                static_cast<RTargetTable *>(instance->GetTable(family));
-            assert(table);
-            if (oper == DBRequest::DB_ENTRY_DELETE && nlri->nlri.empty()) {
-                // End-Of-RIB message
-                end_of_rib_timer_->Cancel();
-                RegisterToVpnTables(true);
-                return;
-            }
-            vector<BgpProtoPrefix *>::const_iterator it;
-            for (it = nlri->nlri.begin(); it < nlri->nlri.end(); it++) {
-                DBRequest req;
-                req.oper = oper;
-                if (oper == DBRequest::DB_ENTRY_ADD_CHANGE)
-                    req.data.reset(new RTargetTable::RequestData(attr, flags, 0));
-                RTargetPrefix prefix = RTargetPrefix(**it);
-                req.key.reset(new RTargetTable::RequestKey(prefix, this));
                 table->Enqueue(&req);
             }
             break;
@@ -1124,20 +1143,65 @@ void BgpPeer::ProcessUpdate(const BgpProto::Update *msg) {
             assert(table);
 
             vector<BgpProtoPrefix *>::const_iterator it;
-            for (it = nlri->nlri.begin(); it < nlri->nlri.end(); it++) {
+            for (it = nlri->nlri.begin(); it < nlri->nlri.end(); ++it) {
                 if (!ErmVpnPrefix::IsValidForBgp((*it)->type)) {
                     BGP_LOG_PEER(Message, this, SandeshLevel::SYS_WARN,
                         BGP_LOG_FLAG_ALL, BGP_PEER_DIR_IN,
                         "ERMVPN: Unsupported route type " << (*it)->type);
                     continue;
                 }
+
+                ErmVpnPrefix prefix;
+                int result = ErmVpnPrefix::FromProtoPrefix((**it), &prefix);
+                if (result) {
+                    BGP_LOG_PEER(Message, this, SandeshLevel::SYS_WARN,
+                        BGP_LOG_FLAG_ALL, BGP_PEER_DIR_IN,
+                        "NLRI parse error for erm-vpn route type " << (*it)->type);
+                    continue;
+                }
+
                 DBRequest req;
                 req.oper = oper;
-                if (oper == DBRequest::DB_ENTRY_ADD_CHANGE)
-                    req.data.reset(new ErmVpnTable::RequestData(attr, flags,
-                                                              0));
-                req.key.reset(new ErmVpnTable::RequestKey(
-                                  ErmVpnPrefix(**it), this));
+                if (oper == DBRequest::DB_ENTRY_ADD_CHANGE) {
+                    req.data.reset(
+                        new ErmVpnTable::RequestData(attr, flags, 0));
+                }
+                req.key.reset(new ErmVpnTable::RequestKey(prefix, this));
+                table->Enqueue(&req);
+            }
+            break;
+        }
+
+        case Address::RTARGET: {
+            RTargetTable *table =
+                static_cast<RTargetTable *>(instance->GetTable(family));
+            assert(table);
+
+            // Check for End-Of-RIB message.
+            if (oper == DBRequest::DB_ENTRY_DELETE && nlri->nlri.empty()) {
+                end_of_rib_timer_->Cancel();
+                RegisterToVpnTables(true);
+                return;
+            }
+
+            vector<BgpProtoPrefix *>::const_iterator it;
+            for (it = nlri->nlri.begin(); it < nlri->nlri.end(); ++it) {
+                RTargetPrefix prefix;
+                int result = RTargetPrefix::FromProtoPrefix((**it), &prefix);
+                if (result) {
+                    BGP_LOG_PEER(Message, this, SandeshLevel::SYS_WARN,
+                        BGP_LOG_FLAG_ALL, BGP_PEER_DIR_IN,
+                        "NLRI parse error for rtarget route");
+                    continue;
+                }
+
+                DBRequest req;
+                req.oper = oper;
+                if (oper == DBRequest::DB_ENTRY_ADD_CHANGE) {
+                    req.data.reset(
+                        new RTargetTable::RequestData(attr, flags, 0));
+                }
+                req.key.reset(new RTargetTable::RequestKey(prefix, this));
                 table->Enqueue(&req);
             }
             break;

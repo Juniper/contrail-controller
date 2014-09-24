@@ -17,15 +17,17 @@ public:
     Ip4Prefix(Ip4Address addr, int prefixlen)
         : ip4_addr_(addr), prefixlen_(prefixlen) {
     }
-    explicit Ip4Prefix(const BgpProtoPrefix &prefix);
     int CompareTo(const Ip4Prefix &rhs) const;
 
     Ip4Address ip4_addr() const { return ip4_addr_; }
-    
+
     int prefixlen() const { return prefixlen_; }
 
+    static int FromProtoPrefix(const BgpProtoPrefix &proto_prefix,
+                               Ip4Prefix *prefix);
     static Ip4Prefix FromString(const std::string &str,
                                 boost::system::error_code *errorp = NULL);
+
     std::string ToString() const;
 
     bool operator==(const Ip4Prefix &rhs) const {

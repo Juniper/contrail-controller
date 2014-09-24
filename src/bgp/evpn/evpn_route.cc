@@ -3,11 +3,13 @@
  */
 
 #include "bgp/evpn/evpn_route.h"
-#include "bgp/evpn/evpn_table.h"
 
+#include "bgp/evpn/evpn_table.h"
 #include "bgp/bgp_server.h"
 
-using namespace std;
+using std::copy;
+using std::string;
+using std::vector;
 
 const EvpnPrefix EvpnPrefix::kNullPrefix;
 
@@ -686,7 +688,7 @@ void EvpnRoute::BuildBgpProtoNextHop(vector<uint8_t> &nh,
         IpAddress nexthop) const {
     nh.resize(4);
     const Ip4Address::bytes_type &addr_bytes = nexthop.to_v4().to_bytes();
-    std::copy(addr_bytes.begin(), addr_bytes.end(), nh.begin());
+    copy(addr_bytes.begin(), addr_bytes.end(), nh.begin());
 }
 
 DBEntryBase::KeyPtr EvpnRoute::GetDBRequestKey() const {
