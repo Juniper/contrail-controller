@@ -64,8 +64,9 @@ class InstanceManager(object):
         try:
             sg_obj = self._vnc_lib.security_group_read(fq_name=sg_fq_name)
         except Exception as e:
+            sg_fq_name_str = ':'.join(sg_fq_name)
             self.logger.log(
-                "Error: Security group default not found %s" % (proj_obj.name))
+                "Error: Security group not found %s" % (sg_fq_name_str))
         return sg_obj
 
     def _get_instance_name(self, si_obj, inst_count):
@@ -151,9 +152,12 @@ class InstanceManager(object):
             vmi_obj.set_virtual_network(vn_obj)
             vmi_updated = True
 
+        if if_properties is None:
+            if_properties = VirtualMachineInterfacePropertiesType(nic['type'])
+            vmi_obj.set_virtual_machine_interface_properties(if_properties)
+            vmi_updated = True
+
         if local_preference:
-            if if_properties is None:
-                if_properties = VirtualMachineInterfacePropertiesType(nic['type'])
             if local_preference != if_properties.get_local_preference():
                 if_properties.set_local_preference(local_preference)
                 vmi_obj.set_virtual_machine_interface_properties(if_properties)
@@ -323,7 +327,7 @@ class InstanceManager(object):
                     (st_props.get_service_type() ==
                      svc_info.get_snat_service_type())):
                 vn_id = self._create_snat_vn(proj_obj, si_obj,
-                                             si_props, vn_fq_name_str)
+                    si_props, vn_fq_name_str, idx)
             elif (itf_type == svc_info.get_right_if_str() and
                     (st_props.get_service_type() ==
                      svc_info.get_lb_service_type())):
@@ -660,7 +664,7 @@ class NetworkNamespaceManager(InstanceManager):
                              si_fq_str.split(':')[-1])
         self._delete_svc_vn(proj_obj.get_fq_name() + [vn_name])
 
-    def _create_snat_vn(self, proj_obj, si_obj, si_props, vn_fq_name_str):
+    def _create_snat_vn(self, proj_obj, si_obj, si_props, vn_fq_name_str, idx):
         # SNAT NetNS use a dedicated network (non shared vn)
         vn_name = '%s_%s' % (svc_info.get_snat_left_network_prefix_name(),
                              si_obj.name)
@@ -676,7 +680,7 @@ class NetworkNamespaceManager(InstanceManager):
         if vn_fq_name_str != ':'.join(vn_fq_name):
             left_if = ServiceInstanceInterfaceType(
                 virtual_network=':'.join(vn_fq_name))
-            si_props.insert_interface_list(0, left_if)
+            si_props.insert_interface_list(idx, left_if)
             si_obj.set_service_instance_properties(si_props)
             self._vnc_lib.service_instance_update(si_obj)
             self.logger.log("Info: SI %s updated with left vn %s" %
