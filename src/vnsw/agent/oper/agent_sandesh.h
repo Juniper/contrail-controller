@@ -164,6 +164,31 @@ private:
     bool stale_;
 };
 
+class AgentInet6UcRtSandesh : public AgentSandesh {
+public:
+    AgentInet6UcRtSandesh(VrfEntry *vrf, std::string context, bool stale) : 
+        AgentSandesh(context, ""), vrf_(vrf), stale_(stale) {
+        dump_table_ = true;
+    }
+    AgentInet6UcRtSandesh(VrfEntry *vrf, std::string context,
+                          Ip6Address addr, uint8_t plen, bool stale) : 
+        AgentSandesh(context, ""), vrf_(vrf), addr_(addr), plen_(plen), 
+            stale_(stale) {
+        dump_table_ = false;
+    }
+
+private:
+    DBTable *AgentGetTable();
+    void Alloc();
+    bool UpdateResp(DBEntryBase *entry);
+
+    VrfEntry *vrf_;
+    Ip6Address addr_;
+    uint8_t plen_;
+    bool stale_;
+    bool dump_table_;
+};
+
 class AgentAclSandesh : public AgentSandesh {
 public:
     AgentAclSandesh(std::string context, std::string name)

@@ -24,19 +24,33 @@ struct TestFlowKey {
 };
 
 #define vm1_ip "11.1.1.1"
+#define ip6_vm1_ip "::11.1.1.1"
 #define vm2_ip "11.1.1.2"
+#define ip6_vm2_ip "::11.1.1.2"
 #define vm3_ip "12.1.1.1"
+#define ip6_vm3_ip "::12.1.1.1"
 #define vm4_ip "13.1.1.1"
+#define ip6_vm4_ip "::13.1.1.1"
 #define vm5_ip "14.1.1.1"
+#define ip6_vm5_ip "::14.1.1.1"
 #define vm1_fip "14.1.1.100"
+#define ip6_vm1_fip "::14.1.1.100"
 #define vm1_fip2 "14.1.1.101"
+#define ip6_vm1_fip2 "::14.1.1.101"
 #define vm2_fip "14.1.1.100"
+#define ip6_vm2_fip "::14.1.1.100"
 #define remote_vm1_ip "11.1.1.3"
+#define ip6_remote_vm1_ip "::11.1.1.3"
 #define remote_vm3_ip "12.1.1.3"
+#define ip6_remote_vm3_ip "::12.1.1.3"
 #define remote_vm4_ip "13.1.1.2"
+#define ip6_remote_vm4_ip "::13.1.1.2"
 #define remote_router_ip "10.1.1.2"
+#define ip6_remote_router_ip "::10.1.1.2"
 #define vhost_ip_addr "10.1.2.1"
+#define ip6_vhost_ip_addr "::10.1.2.1"
 #define linklocal_ip "169.254.1.10"
+#define ip6_linklocal_ip "::169.254.1.10"
 #define linklocal_port 4000
 #define fabric_port 8000
 
@@ -148,21 +162,6 @@ public:
         WAIT_FOR(1000, 1, (RouteFind(vrf, addr, 32) == false));
     }
 
-    static void FlowDel(int vrf, const char *sip, const char *dip,
-                        int proto, int sport, int dport, 
-                        bool del_reverse_flow, uint32_t nh_id) {
-        FlowKey key;
-
-        key.nh = nh_id;
-        key.src.ipv4 = ntohl(inet_addr(sip));
-        key.dst.ipv4 = ntohl(inet_addr(dip));
-        key.protocol = proto;
-        key.src_port = sport;
-        key.dst_port = dport;
-        Agent::GetInstance()->pkt()->flow_table()->Delete(key, del_reverse_flow);
-        client->WaitForIdle();
-    }
-
     static void RunFlowAudit() {
         FlowTableKSyncObject *ksync_obj = 
             Agent::GetInstance()->ksync()->flowtable_ksync_obj();
@@ -232,8 +231,8 @@ public:
 
         PktInfo *pkt = pkt_1.get();
         pkt->vrf = vrf;
-        pkt->ip_saddr = ntohl(inet_addr(sip));
-        pkt->ip_daddr = ntohl(inet_addr(dip));
+        pkt->ip_saddr = Ip4Address(ntohl(inet_addr(sip)));
+        pkt->ip_daddr = Ip4Address(ntohl(inet_addr(dip)));
         pkt->ip_proto = proto;
         pkt->sport = sport;
         pkt->dport = dport;
@@ -241,13 +240,13 @@ public:
 
         flow_info->nat_vrf = nat_vrf;
         if (nat_sip) {
-            flow_info->nat_ip_saddr = ntohl(inet_addr(nat_sip));
+            flow_info->nat_ip_saddr = Ip4Address(ntohl(inet_addr(nat_sip)));
         } else {
             flow_info->nat_ip_saddr = pkt->ip_saddr;
         }
 
         if (nat_dip) {
-            flow_info->nat_ip_daddr = ntohl(inet_addr(nat_dip));
+            flow_info->nat_ip_daddr = Ip4Address(ntohl(inet_addr(nat_dip)));
         } else {
             flow_info->nat_ip_daddr = pkt->ip_daddr;
         }
@@ -587,30 +586,30 @@ bool FlowTest::ksync_init_;
 TEST_F(FlowTest, FlowAdd_1) {
     TestFlow flow[] = {
         //Add a ICMP forward and reverse flow
-        {  TestFlowPkt(vm1_ip, vm2_ip, 1, 0, 0, "vrf5", 
-                flow0->id()),
+        {  TestFlowPkt(Address::INET, vm1_ip, vm2_ip, 1, 0, 0, "vrf5",
+                       flow0->id()),
         {
             new VerifyVn("vn5", "vn5"),
             new VerifyVrf("vrf5", "vrf5")
         }
         },
-        {  TestFlowPkt(vm2_ip, vm1_ip, 1, 0, 0, "vrf5", 
-                flow1->id()),
+        {  TestFlowPkt(Address::INET, vm2_ip, vm1_ip, 1, 0, 0, "vrf5",
+                       flow1->id()),
         {
             new VerifyVn("vn5", "vn5"),
             new VerifyVrf("vrf5", "vrf5")
         }
         },
         //Add a TCP forward and reverse flow
-        {  TestFlowPkt(vm1_ip, vm2_ip, IPPROTO_TCP, 1000, 200, 
-                "vrf5", flow0->id()),
+        {  TestFlowPkt(Address::INET, vm1_ip, vm2_ip, IPPROTO_TCP, 1000, 200,
+                       "vrf5", flow0->id()),
         {
             new VerifyVn("vn5", "vn5"),
             new VerifyVrf("vrf5", "vrf5")
         }
         },
-        {  TestFlowPkt(vm2_ip, vm1_ip, IPPROTO_TCP, 200, 1000, 
-                "vrf5", flow1->id()),
+        {  TestFlowPkt(Address::INET, vm2_ip, vm1_ip, IPPROTO_TCP, 200, 1000,
+                       "vrf5", flow1->id()),
         {
             new VerifyVn("vn5", "vn5"),
             new VerifyVrf("vrf5", "vrf5")
@@ -632,6 +631,71 @@ TEST_F(FlowTest, FlowAdd_1) {
     flow_record_sandesh->set_nh(GetFlowKeyNH(input[0].intf_id));
     flow_record_sandesh->set_sip(vm1_ip);
     flow_record_sandesh->set_dip(vm2_ip);
+    flow_record_sandesh->set_src_port(1000);
+    flow_record_sandesh->set_dst_port(200);
+    flow_record_sandesh->set_protocol(IPPROTO_TCP);
+    flow_record_sandesh->HandleRequest();
+    client->WaitForIdle();
+    flow_record_sandesh->Release();
+
+    //Verify the ingress and egress flow counts
+    uint32_t in_count, out_count;
+    const FlowEntry *fe = flow[0].pkt_.FlowFetch();
+    const VnEntry *vn = fe->data().vn_entry.get();
+    agent()->pkt()->flow_table()->VnFlowCounters(vn, &in_count, &out_count);
+    EXPECT_EQ(4U, in_count);
+    EXPECT_EQ(4U, out_count);
+}
+
+TEST_F(FlowTest, Ip6_FlowAdd_1) {
+    TestFlow flow[] = {
+        //Add a ICMP forward and reverse flow
+
+        {  TestFlowPkt(Address::INET6, ip6_vm1_ip, ip6_vm2_ip, IPPROTO_ICMPV6,
+                       0, 0, "vrf5", flow0->id()),
+        {
+            new VerifyVn("vn5", "vn5"),
+            new VerifyVrf("vrf5", "vrf5")
+        }
+        },
+        {  TestFlowPkt(Address::INET6, ip6_vm2_ip, ip6_vm1_ip, IPPROTO_ICMPV6,
+                       0, 0, "vrf5", flow1->id()),
+        {
+            new VerifyVn("vn5", "vn5"),
+            new VerifyVrf("vrf5", "vrf5")
+        }
+        },
+        //Add a TCP forward and reverse flow
+        {  TestFlowPkt(Address::INET6, ip6_vm1_ip, ip6_vm2_ip, IPPROTO_TCP,
+                       1000, 200, "vrf5", flow0->id()),
+        {
+            new VerifyVn("vn5", "vn5"),
+            new VerifyVrf("vrf5", "vrf5")
+        }
+        },
+        {  TestFlowPkt(Address::INET6, ip6_vm2_ip, ip6_vm1_ip, IPPROTO_TCP,
+                       200, 1000, "vrf5", flow1->id()),
+        {
+            new VerifyVn("vn5", "vn5"),
+            new VerifyVrf("vrf5", "vrf5")
+        }
+        }
+    };
+
+    CreateFlow(flow, 4);
+    EXPECT_EQ(4U, agent()->pkt()->flow_table()->Size());
+
+    FetchAllFlowRecords *all_flow_records_sandesh = new FetchAllFlowRecords();
+    Sandesh::set_response_callback(boost::bind(&FlowTest::CheckSandeshResponse,
+                                               this, _1, 4));
+    all_flow_records_sandesh->HandleRequest();
+    client->WaitForIdle();
+    all_flow_records_sandesh->Release();
+
+    FetchFlowRecord *flow_record_sandesh = new FetchFlowRecord();
+    flow_record_sandesh->set_nh(GetFlowKeyNH(input[0].intf_id));
+    flow_record_sandesh->set_sip(ip6_vm1_ip);
+    flow_record_sandesh->set_dip(ip6_vm2_ip);
     flow_record_sandesh->set_src_port(1000);
     flow_record_sandesh->set_dst_port(200);
     flow_record_sandesh->set_protocol(IPPROTO_TCP);
@@ -670,7 +734,7 @@ TEST_F(FlowTest, FlowAdd_2) {
     TestFlow flow[] = {
         //Send an ICMP flow from remote VM to local VM
         {
-            TestFlowPkt(remote_vm1_ip, vm1_ip, 1, 0, 0, "vrf5", 
+            TestFlowPkt(Address::INET, remote_vm1_ip, vm1_ip, 1, 0, 0, "vrf5",
                     remote_router_ip, flow0->label()),
             { 
                 new VerifyVn("vn5", "vn5"),
@@ -679,7 +743,7 @@ TEST_F(FlowTest, FlowAdd_2) {
         },
         //Send a ICMP reply from local to remote VM
         {
-            TestFlowPkt(vm1_ip, remote_vm1_ip, 1, 0, 0, "vrf5", 
+            TestFlowPkt(Address::INET, vm1_ip, remote_vm1_ip, 1, 0, 0, "vrf5",
                     flow0->id()),
             {
                 new VerifyVn("vn5", "vn5"),
@@ -688,7 +752,7 @@ TEST_F(FlowTest, FlowAdd_2) {
         },
         //Send a TCP flow from remote VM to local VM
         {
-            TestFlowPkt(remote_vm3_ip, vm3_ip, IPPROTO_TCP, 1001, 1002,
+            TestFlowPkt(Address::INET, remote_vm3_ip, vm3_ip, IPPROTO_TCP, 1001, 1002,
                     "vrf5", remote_router_ip, flow2->label()),
             {
                 new VerifyVn("vn5", "vn5"),
@@ -697,7 +761,7 @@ TEST_F(FlowTest, FlowAdd_2) {
         },
         //Send a TCP reply from local VM to remote VM
         {
-            TestFlowPkt(vm3_ip, remote_vm3_ip, IPPROTO_TCP, 1002, 1001,
+            TestFlowPkt(Address::INET, vm3_ip, remote_vm3_ip, IPPROTO_TCP, 1002, 1001,
                     "vrf5", flow2->id()),
             {
                 new VerifyVn("vn5", "vn5"),
@@ -735,7 +799,7 @@ TEST_F(FlowTest, FlowAdd_3) {
     TestFlow flow[] = {
         //Send a ICMP request from local VM in vn5 to local VM in vn3
         {
-            TestFlowPkt(vm1_ip, vm4_ip, 1, 0, 0, "vrf5", 
+            TestFlowPkt(Address::INET, vm1_ip, vm4_ip, 1, 0, 0, "vrf5",
                     flow0->id()),
             {
                 new VerifyVn("vn5", "vn3"),
@@ -743,7 +807,7 @@ TEST_F(FlowTest, FlowAdd_3) {
         },
         //Send an ICMP reply from local VM in vn3 to local VM in vn5
         {
-            TestFlowPkt(vm4_ip, vm1_ip, 1, 0, 0, "vrf3", 
+            TestFlowPkt(Address::INET, vm4_ip, vm1_ip, 1, 0, 0, "vrf3",
                     flow3->id()),
             {
                 new VerifyVn("vn3", "vn5"),
@@ -751,7 +815,7 @@ TEST_F(FlowTest, FlowAdd_3) {
         },
         //Send a TCP packet from local VM in vn5 to local VM in vn3
         {
-            TestFlowPkt(vm1_ip, vm4_ip, IPPROTO_TCP, 200, 300, "vrf5", 
+            TestFlowPkt(Address::INET, vm1_ip, vm4_ip, IPPROTO_TCP, 200, 300, "vrf5",
                     flow0->id()),
             {
                 new VerifyVn("vn5", "vn3"),
@@ -759,7 +823,7 @@ TEST_F(FlowTest, FlowAdd_3) {
         },
         //Send an TCP packet from local VM in vn3 to local VM in vn5
         {
-            TestFlowPkt(vm4_ip, vm1_ip, IPPROTO_TCP, 300, 200, "vrf3", 
+            TestFlowPkt(Address::INET, vm4_ip, vm1_ip, IPPROTO_TCP, 300, 200, "vrf3",
                     flow3->id()),
             {
                 new VerifyVn("vn3", "vn5"),
@@ -801,7 +865,7 @@ TEST_F(FlowTest, FlowAdd_4) {
     TestFlow flow[] = {
         //Send an ICMP flow from remote VM in vn3 to local VM in vn5
         {
-            TestFlowPkt(remote_vm4_ip, vm1_ip, 1, 0, 0, "vrf5", 
+            TestFlowPkt(Address::INET, remote_vm4_ip, vm1_ip, 1, 0, 0, "vrf5",
                     remote_router_ip, 16),
             { 
                 new VerifyVn("vn3", "vn5"),
@@ -809,7 +873,7 @@ TEST_F(FlowTest, FlowAdd_4) {
         },
         //Send a ICMP reply from local VM in vn5 to remote VM in vn3
         {
-            TestFlowPkt(vm1_ip, remote_vm4_ip, 1, 0, 0, "vrf5", 
+            TestFlowPkt(Address::INET, vm1_ip, remote_vm4_ip, 1, 0, 0, "vrf5",
                     flow0->id()),
             {
                 new VerifyVn("vn5", "vn3"),
@@ -817,7 +881,7 @@ TEST_F(FlowTest, FlowAdd_4) {
         },
         //Send a TCP flow from remote VM in vn3 to local VM in vn5
         {
-            TestFlowPkt(remote_vm4_ip, vm1_ip, IPPROTO_TCP, 1006, 1007,
+            TestFlowPkt(Address::INET, remote_vm4_ip, vm1_ip, IPPROTO_TCP, 1006, 1007,
                     "vrf5", remote_router_ip, 16),
             {
                 new VerifyVn("vn3", "vn5"),
@@ -825,7 +889,7 @@ TEST_F(FlowTest, FlowAdd_4) {
         },
         //Send a TCP reply from local VM in vn5 to remote VM in vn3
         {
-            TestFlowPkt(vm1_ip, remote_vm4_ip, IPPROTO_TCP, 1007, 1006,
+            TestFlowPkt(Address::INET, vm1_ip, remote_vm4_ip, IPPROTO_TCP, 1007, 1006,
                     "vrf5", flow0->id()),
             {
                 new VerifyVn("vn5", "vn3"),
@@ -861,7 +925,7 @@ TEST_F(FlowTest, FlowAdd_5) {
     TestFlow flow[] = {
         //Send an ICMP flow from remote VM in vn3 to local VM in vn5
         {
-            TestFlowPkt(vm1_ip, vm2_ip, 1, 0, 0, "vrf5", 
+            TestFlowPkt(Address::INET, vm1_ip, vm2_ip, 1, 0, 0, "vrf5",
                     flow0->id()),
             { 
                 new VerifyVn("vn5", "vn5"),
@@ -898,7 +962,7 @@ TEST_F(FlowTest, FlowAdd_5) {
 TEST_F(FlowTest, FlowAdd_6) {
     TestFlow fwd_flow[] = {
         {
-            TestFlowPkt(vm1_ip, vm2_ip, IPPROTO_TCP, 1000, 200, "vrf5", 
+            TestFlowPkt(Address::INET, vm1_ip, vm2_ip, IPPROTO_TCP, 1000, 200, "vrf5",
                     flow0->id()),
             { 
                 new VerifyVn("vn5", "vn5"),
@@ -908,7 +972,7 @@ TEST_F(FlowTest, FlowAdd_6) {
 
     TestFlow rev_flow[] = {
         {
-            TestFlowPkt(vm2_ip, vm1_ip, IPPROTO_TCP, 200, 1000, "vrf5",
+            TestFlowPkt(Address::INET, vm2_ip, vm1_ip, IPPROTO_TCP, 200, 1000, "vrf5",
                     flow1->id()),
             { 
                 new VerifyVn("vn5", "vn5"),
@@ -946,14 +1010,14 @@ TEST_F(FlowTest, FlowAdd_6) {
 TEST_F(FlowTest, FlowIndexChange) {
     TestFlow flow[] = {
         {
-            TestFlowPkt(vm1_ip, vm2_ip, 1, 0, 0, "vrf5",
+            TestFlowPkt(Address::INET, vm1_ip, vm2_ip, 1, 0, 0, "vrf5",
                     flow0->id(), 1),
             { }
         }
     };
     TestFlow flow_new[] = {
         {
-            TestFlowPkt(vm1_ip, vm2_ip, 1, 0, 0, "vrf5",
+            TestFlowPkt(Address::INET, vm1_ip, vm2_ip, 1, 0, 0, "vrf5",
                     flow0->id(), 3),
             { }
         }
@@ -981,7 +1045,7 @@ TEST_F(FlowTest, Flow_On_PktIntf) {
     TestFlow flow[] = {
         //Send an ICMP flow from remote VM in vn3 to local VM in vn5
         {
-            TestFlowPkt(vm1_ip, "11.1.1.254", 1, 0, 0, "vrf5",
+            TestFlowPkt(Address::INET, vm1_ip, "11.1.1.254", 1, 0, 0, "vrf5",
                     flow0->id()),
             {
                 new VerifyVrf("vrf5", "vrf5")
@@ -998,7 +1062,7 @@ TEST_F(FlowTest, ShortFlow_1) {
     TestFlow flow[] = {
         //Send an ICMP flow from remote VM in vn3 to local VM in vn5
         {
-            TestFlowPkt(vm1_ip, "115.115.115.115", 1, 0, 0, "vrf5",
+            TestFlowPkt(Address::INET, vm1_ip, "115.115.115.115", 1, 0, 0, "vrf5",
                     flow0->id()),
             {
                 new ShortFlow()
@@ -1025,14 +1089,14 @@ TEST_F(FlowTest, FlowAge_1) {
     //Create bidirectional flow
     TestFlow flow[] = {
         {
-            TestFlowPkt(vm1_ip, vm2_ip, 1, 0, 0, "vrf5", 
+            TestFlowPkt(Address::INET, vm1_ip, vm2_ip, 1, 0, 0, "vrf5",
                     flow0->id(), 1),
             { 
                 new VerifyVn("vn5", "vn5"),
             }
         },
         {
-            TestFlowPkt(vm2_ip, vm1_ip, 1, 0, 0, "vrf5", 
+            TestFlowPkt(Address::INET, vm2_ip, vm1_ip, 1, 0, 0, "vrf5",
                     flow1->id(), 2),
             { 
                 new VerifyVn("vn5", "vn5"),
@@ -1093,22 +1157,22 @@ TEST_F(FlowTest, FlowAge_3) {
     //Create bidirectional flow
     TestFlow flow[] = {
         {
-            TestFlowPkt(vm1_ip, vm2_ip, 1, 0, 0, "vrf5", 
+            TestFlowPkt(Address::INET, vm1_ip, vm2_ip, 1, 0, 0, "vrf5",
                     flow0->id(), 1),
             { }
         },
         {
-            TestFlowPkt(vm1_ip, vm3_ip, 1, 0, 0, "vrf5", 
+            TestFlowPkt(Address::INET, vm1_ip, vm3_ip, 1, 0, 0, "vrf5",
                     flow0->id(), 2),
             { }
         },
         {
-            TestFlowPkt(vm1_ip, vm4_ip, 1, 0, 0, "vrf5", 
+            TestFlowPkt(Address::INET, vm1_ip, vm4_ip, 1, 0, 0, "vrf5",
                     flow0->id(), 3),
             { }
         },
         {
-            TestFlowPkt(vm2_ip, vm3_ip, 1, 0, 0, "vrf5", 
+            TestFlowPkt(Address::INET, vm2_ip, vm3_ip, 1, 0, 0, "vrf5",
                     flow1->id(), 4),
             { }
         },
@@ -1180,12 +1244,12 @@ TEST_F(FlowTest, ScaleFlowAge_1) {
                 10, "vn5");
         TestFlow flow[]=  {
             {
-                TestFlowPkt(vm1_ip, dip.to_string(), 1, 0, 0, "vrf5", 
+                TestFlowPkt(Address::INET, vm1_ip, dip.to_string(), 1, 0, 0, "vrf5", 
                         flow0->id(), i),
                 { }
             },
             {
-                TestFlowPkt(dip.to_string(), vm1_ip, 1, 0, 0, "vrf5",
+                TestFlowPkt(Address::INET, dip.to_string(), vm1_ip, 1, 0, 0, "vrf5",
                         flow0->id(), i + 100),
                 { }
             }
@@ -1226,7 +1290,7 @@ TEST_F(FlowTest, Nat_FlowAge_1) {
 
     TestFlow flow[] = {
         {
-            TestFlowPkt(vm1_ip, vm5_ip, 1, 0, 0, "vrf5", 
+            TestFlowPkt(Address::INET, vm1_ip, vm5_ip, 1, 0, 0, "vrf5",
                     flow0->id(), 1),
             { 
                 new VerifyNat(vm5_ip, vm1_fip, 1, 0, 0)
@@ -1262,21 +1326,15 @@ TEST_F(FlowTest, Nat_FlowAge_1) {
         flow_stats_collector()->UpdateFlowAgeTime(bkp_age_time);
 }
 
-#if 0
-TEST_F(FlowTest, teardown) {
-    FlowTest::TestTearDown();
-}
-#endif
-
 TEST_F(FlowTest, NonNatFlowAdd_1) {
     TestFlow flow[] = {
         {
-            TestFlowPkt(vm1_ip, vm2_ip, 1, 0, 0, "vrf5", 
+            TestFlowPkt(Address::INET, vm1_ip, vm2_ip, 1, 0, 0, "vrf5",
                     flow0->id()),
             {}
         },
         {
-            TestFlowPkt(vm2_ip, vm1_ip, 1, 0, 0, "vrf5",
+            TestFlowPkt(Address::INET, vm2_ip, vm1_ip, 1, 0, 0, "vrf5",
                     flow1->id()),
             {}
         }   
@@ -1311,12 +1369,12 @@ TEST_F(FlowTest, NonNatFlowAdd_1) {
 TEST_F(FlowTest, NonNatDupFlowAdd_1) {
     TestFlow flow[] = {
         {
-             TestFlowPkt(vm1_ip, vm2_ip, 1, 0, 0, "vrf5", 
+             TestFlowPkt(Address::INET, vm1_ip, vm2_ip, 1, 0, 0, "vrf5",
                                 flow0->id()),
             {}
         },
         {
-             TestFlowPkt(vm2_ip, vm1_ip, 1, 0, 0, "vrf5",
+             TestFlowPkt(Address::INET, vm2_ip, vm1_ip, 1, 0, 0, "vrf5",
                                 flow1->id()),
             {}
         }   
@@ -1340,7 +1398,7 @@ TEST_F(FlowTest, NonNatDupFlowAdd_1) {
 TEST_F(FlowTest, NonNatAddOldNat_1) {
     TestFlow nat_flow[] = {
         {
-            TestFlowPkt(vm1_ip, vm5_ip, 1, 0, 0, "vrf5", 
+            TestFlowPkt(Address::INET, vm1_ip, vm5_ip, 1, 0, 0, "vrf5",
                     flow0->id()),
             {
                 new VerifyNat(vm5_ip, vm1_fip, 1, 0, 0) 
@@ -1350,7 +1408,7 @@ TEST_F(FlowTest, NonNatAddOldNat_1) {
 
     TestFlow non_nat_flow[] = {
         {
-            TestFlowPkt(vm1_ip, vm5_ip, 1, 0, 0, "vrf5", 
+            TestFlowPkt(Address::INET, vm1_ip, vm5_ip, 1, 0, 0, "vrf5",
                     flow0->id()),
             { }
         }
@@ -1384,8 +1442,8 @@ TEST_F(FlowTest, NonNatAddOldNat_2) {
 #if 0
     TestFlow nat_flow[] = {
         {
-             TestFlowPkt(vm5_ip, vm1_fip, 1, 0, 0, "default-project:vn4:vn4",
-                    flow4->id()),
+             TestFlowPkt(Address::INET, vm5_ip, vm1_fip, 1, 0, 0, 
+                 "default-project:vn4:vn4", flow4->id()),
             {
                 new VerifyNat(vm1_ip, vm5_ip, 1, 0, 0) 
             }
@@ -1394,8 +1452,9 @@ TEST_F(FlowTest, NonNatAddOldNat_2) {
 
     TestFlow non_nat_flow[] = {
         {
-             TestFlowPkt(vm5_ip, vm1_fip, 1, 0, 0, "default-project:vn4:vn4",
-                    flow4->id()),
+             TestFlowPkt(Address::INET, vm5_ip, vm1_fip, 1, 0, 0, "vn4:vn4", 
+             TestFlowPkt(Address::INET, vm5_ip, vm1_fip, 1, 0, 0, 
+                 "default-project:vn4:vn4", flow4->id()),
             {
                 new VerifyVn(unknown_vn_, unknown_vn_)
             }
@@ -1429,7 +1488,7 @@ TEST_F(FlowTest, NonNatAddOldNat_2) {
 TEST_F(FlowTest, NonNatAddOldNat_3) {
     TestFlow nat_flow[] = {
         {
-            TestFlowPkt(vm1_ip, vm5_ip, 1, 0, 0, "vrf5", 
+            TestFlowPkt(Address::INET, vm1_ip, vm5_ip, 1, 0, 0, "vrf5", 
                     flow0->id()),
             {
                 new VerifyNat(vm5_ip, vm1_fip, 1, 0, 0) 
@@ -1439,7 +1498,7 @@ TEST_F(FlowTest, NonNatAddOldNat_3) {
 
     TestFlow non_nat_flow[] = {
         {
-            TestFlowPkt(vm1_ip, vm5_ip, 1, 0, 0, "vrf5", 
+            TestFlowPkt(Address::INET, vm1_ip, vm5_ip, 1, 0, 0, "vrf5",
                     flow0->id()),
             {
                 new VerifyVn("vn5", unknown_vn_)
@@ -1475,7 +1534,7 @@ TEST_F(FlowTest, NonNatAddOldNat_3) {
 TEST_F(FlowTest, NatFlowAdd_1) {
     TestFlow nat_flow[] = {
         {
-            TestFlowPkt(vm1_ip, vm5_ip, 1, 0, 0, "vrf5", 
+            TestFlowPkt(Address::INET, vm1_ip, vm5_ip, 1, 0, 0, "vrf5",
                     flow0->id(), 1),
             {
                 new VerifyNat(vm5_ip, vm1_fip, 1, 0, 0) 
@@ -1490,7 +1549,7 @@ TEST_F(FlowTest, NatFlowAdd_1) {
     //Send a reverse nat flow packet
     TestFlow nat_rev_flow[] = {
         {
-            TestFlowPkt(vm5_ip, vm1_fip, 1, 0, 0, "default-project:vn4:vn4",
+            TestFlowPkt(Address::INET, vm5_ip, vm1_fip, 1, 0, 0, "default-project:vn4:vn4",
                     flow4->id(), 2),
             {
                 new VerifyNat(vm1_ip, vm5_ip, 1, 0, 0)
@@ -1514,10 +1573,10 @@ TEST_F(FlowTest, NatFlowAdd_1) {
 TEST_F(FlowTest, NatFlowAdd_2) {
     TestFlow nat_flow[] = {
         {
-            TestFlowPkt(vm1_ip, vm5_ip, 1, 0, 0, "vrf5", 
+            TestFlowPkt(Address::INET, vm1_ip, vm5_ip, 1, 0, 0, "vrf5",
                     flow0->id(), 1),
             {
-                new VerifyNat(vm5_ip, vm1_fip, 1, 0, 0) 
+                new VerifyNat(vm5_ip, vm1_fip, 1, 0, 0)
             }
         }
     };
@@ -1528,8 +1587,8 @@ TEST_F(FlowTest, NatFlowAdd_2) {
     //Send a reverse nat flow packet
     TestFlow nat_rev_flow[] = {
         {
-             TestFlowPkt(vm5_ip, vm1_fip, 1, 0, 0, "default-project:vn4:vn4",
-                    flow4->id(), 2),
+             TestFlowPkt(Address::INET, vm5_ip, vm1_fip, 1, 0, 0, 
+                 "default-project:vn4:vn4", flow4->id(), 2),
             {
                 new VerifyNat(vm1_ip, vm5_ip, 1, 0, 0)
             }
@@ -1551,7 +1610,7 @@ TEST_F(FlowTest, NatAddOldNonNat_1) {
 
     TestFlow non_nat_flow[] = {
         {
-             TestFlowPkt(vm1_ip, vm5_ip, 1, 0, 0, "vrf5", 
+             TestFlowPkt(Address::INET, vm1_ip, vm5_ip, 1, 0, 0, "vrf5",
                     flow0->id(), 1),
             {
                 new VerifyVn("vn5", unknown_vn_) 
@@ -1565,7 +1624,7 @@ TEST_F(FlowTest, NatAddOldNonNat_1) {
     client->WaitForIdle();
     TestFlow nat_flow[] = {
         {
-             TestFlowPkt(vm1_ip, vm5_ip, 1, 0, 0, "vrf5", 
+             TestFlowPkt(Address::INET, vm1_ip, vm5_ip, 1, 0, 0, "vrf5",
                     flow0->id(), 1),
             {
                 new VerifyNat(vm5_ip, vm1_fip, 1, 0, 0) 
@@ -1585,12 +1644,12 @@ TEST_F(FlowTest, NatAddOldNonNat_1) {
 
 TEST_F(FlowTest, NatAddOldNonNat_2) {
     //Disassociate fip
-    DelLink("virtual-machine-interface", "flow0", "floating-ip", "fip1"); 
+    DelLink("virtual-machine-interface", "flow0", "floating-ip", "fip1");
     client->WaitForIdle();
 
     TestFlow non_nat_flow[] = {
         {
-             TestFlowPkt(vm1_ip, vm5_ip, 1, 0, 0, "vrf5", 
+             TestFlowPkt(Address::INET, vm1_ip, vm5_ip, 1, 0, 0, "vrf5",
                     flow0->id(), 1),
             {
                 new VerifyVn("vn5", unknown_vn_) 
@@ -1604,8 +1663,8 @@ TEST_F(FlowTest, NatAddOldNonNat_2) {
     client->WaitForIdle();
     TestFlow nat_flow[] = {
         {
-             TestFlowPkt(vm5_ip, vm1_fip, 1, 0, 0, "default-project:vn4:vn4",
-                    flow4->id(), 1),
+             TestFlowPkt(Address::INET, vm5_ip, vm1_fip, 1, 0, 0, 
+                    "default-project:vn4:vn4", flow4->id(), 1),
             {
                 new VerifyNat(vm1_ip, vm5_ip, 1, 0, 0) 
             }
@@ -1625,7 +1684,7 @@ TEST_F(FlowTest, NatAddOldNonNat_2) {
 TEST_F(FlowTest, NatAddOldNat_1) {
     TestFlow nat_flow[] = {
         {
-             TestFlowPkt(vm1_ip, vm5_ip, 1, 0, 0, "vrf5", 
+             TestFlowPkt(Address::INET, vm1_ip, vm5_ip, 1, 0, 0, "vrf5",
                     flow0->id(), 1),
             {
                 new VerifyNat(vm5_ip, vm1_fip, 1, 0, 0) 
@@ -1641,7 +1700,7 @@ TEST_F(FlowTest, NatAddOldNat_1) {
 
     TestFlow new_nat_flow[] = {
         {
-             TestFlowPkt(vm1_ip, vm5_ip, 1, 0, 0, "vrf5", 
+             TestFlowPkt(Address::INET, vm1_ip, vm5_ip, 1, 0, 0, "vrf5",
                     flow0->id(), 1),
             {
                 new VerifyNat(vm5_ip, vm1_fip2, 1, 0, 0) 
@@ -1659,7 +1718,7 @@ TEST_F(FlowTest, NatAddOldNat_1) {
 TEST_F(FlowTest, NatAddOldNat_2) {
     TestFlow nat_flow[] = {
         {
-             TestFlowPkt(vm1_ip, vm5_ip, 1, 0, 0, "vrf5", 
+             TestFlowPkt(Address::INET, vm1_ip, vm5_ip, 1, 0, 0, "vrf5",
                     flow0->id(), 1),
             {
                 new VerifyNat(vm5_ip, vm1_fip, 1, 0, 0) 
@@ -1675,7 +1734,7 @@ TEST_F(FlowTest, NatAddOldNat_2) {
 
     TestFlow new_nat_flow[] = {
         {
-             TestFlowPkt(vm2_ip, vm5_ip, 1, 0, 0, "vrf5", 
+             TestFlowPkt(Address::INET, vm2_ip, vm5_ip, 1, 0, 0, "vrf5",
                     flow1->id(), 1),
             {
                 new VerifyNat(vm5_ip, vm1_fip, 1, 0, 0)
@@ -1693,7 +1752,7 @@ TEST_F(FlowTest, NatAddOldNat_2) {
 TEST_F(FlowTest, NatAddOldNat_3) {
     TestFlow nat_flow[] = {
         {
-             TestFlowPkt(vm1_ip, vm5_ip, 1, 0, 0, "vrf5", 
+             TestFlowPkt(Address::INET, vm1_ip, vm5_ip, 1, 0, 0, "vrf5",
                     flow0->id(), 1),
             {
                 new VerifyNat(vm5_ip, vm1_fip, 1, 0, 0) 
@@ -1709,8 +1768,8 @@ TEST_F(FlowTest, NatAddOldNat_3) {
 
     TestFlow new_nat_flow[] = {
         {
-             TestFlowPkt(vm5_ip, vm1_fip, 1, 0, 0, "default-project:vn4:vn4",
-                    flow4->id(), 1),
+             TestFlowPkt(Address::INET, vm5_ip, vm1_fip, 1, 0, 0, 
+                    "default-project:vn4:vn4", flow4->id(), 1),
             {
                 new VerifyNat(vm2_ip, vm5_ip, 1, 0, 0)
             }
@@ -1728,7 +1787,7 @@ TEST_F(FlowTest, NatAddOldNat_3) {
 TEST_F(FlowTest, TwoNatFlow) {
     TestFlow nat_flow[] = {
         {
-             TestFlowPkt(vm1_ip, vm5_ip, 1, 0, 0, "vrf5", 
+             TestFlowPkt(Address::INET, vm1_ip, vm5_ip, 1, 0, 0, "vrf5",
                     flow0->id(), 1),
             {
                 new VerifyNat(vm5_ip, vm1_fip, 1, 0, 0) 
@@ -1739,8 +1798,8 @@ TEST_F(FlowTest, TwoNatFlow) {
     CreateFlow(nat_flow, 1);
     TestFlow nat_rev_flow[] = {
         {
-             TestFlowPkt(vm5_ip, vm1_fip, 1, 0, 0, "default-project:vn4:vn4",
-                    flow4->id(), 1),
+             TestFlowPkt(Address::INET, vm5_ip, vm1_fip, 1, 0, 0, 
+                 "default-project:vn4:vn4", flow4->id(), 1),
             {
                 new VerifyNat(vm1_ip, vm5_ip, 1, 0, 0)
             }
@@ -1770,7 +1829,7 @@ TEST_F(FlowTest, FlowAudit) {
         Agent::GetInstance()->vrf_table()->FindVrfFromId(1)->GetName();
     TestFlow flow[] = {
         {
-            TestFlowPkt("1.1.1.1", "2.2.2.2", 1, 0, 0, vrf_name,
+            TestFlowPkt(Address::INET, "1.1.1.1", "2.2.2.2", 1, 0, 0, vrf_name,
                     flow0->id(), 1),
             {
             }
@@ -1808,7 +1867,7 @@ TEST_F(FlowTest, AclDelete) {
         sport++;
         TestFlow flow[] = {
             {
-                TestFlowPkt(vm2_ip, vm1_ip, IPPROTO_TCP, sport, 40, "vrf5",
+                TestFlowPkt(Address::INET, vm2_ip, vm1_ip, IPPROTO_TCP, sport, 40, "vrf5",
                             flow1->id(), 1),
                 {
                     new VerifyVn("vn5", "vn5")
@@ -1831,7 +1890,7 @@ TEST_F(FlowTest, ICMPPortIgnoreTest) {
     for (uint32_t i = 0; i < 1; i++) {
         TestFlow flow[] = {
             {
-                TestFlowPkt(vm2_ip, vm1_ip, IPPROTO_ICMP, 0, 0, "vrf5",
+                TestFlowPkt(Address::INET, vm2_ip, vm1_ip, IPPROTO_ICMP, 0, 0, "vrf5",
                             flow1->id(), 1),
                 {
                     new VerifyVn("vn5", "vn5"),
@@ -1910,12 +1969,12 @@ TEST_F(FlowTest, Flow_with_encap_change) {
     client->WaitForIdle();
     TestFlow flow[] = {
         {
-            TestFlowPkt(vm1_ip, remote_vm1_ip, 1, 0, 0, "vrf5", 
+            TestFlowPkt(Address::INET, vm1_ip, remote_vm1_ip, 1, 0, 0, "vrf5",
                     flow0->id()),
             {}
         },
         {
-            TestFlowPkt(remote_vm1_ip, vm1_ip, 1, 0, 0, "vrf5", 
+            TestFlowPkt(Address::INET, remote_vm1_ip, vm1_ip, 1, 0, 0, "vrf5",
                     remote_router_ip, 16),
             {}
         }   
@@ -2001,7 +2060,7 @@ TEST_F(FlowTest, Flow_return_error) {
     client->WaitForIdle();
     TestFlow flow[] = {
         {
-            TestFlowPkt(vm1_ip, remote_vm1_ip, 1, 0, 0, "vrf5", 
+            TestFlowPkt(Address::INET, vm1_ip, remote_vm1_ip, 1, 0, 0, "vrf5",
                     flow0->id()),
             {}
         }
@@ -2072,11 +2131,11 @@ TEST_F(FlowTest, Subnet_broadcast_Flow) {
     }
 
     TestFlow flow[] = {
-        {  TestFlowPkt(vm1_ip, "11.1.1.255", 1, 0, 0, "vrf5", 
+        {  TestFlowPkt(Address::INET, vm1_ip, "11.1.1.255", 1, 0, 0, "vrf5",
                        flow0->id()),
         {}
         },
-        {  TestFlowPkt(vm2_ip, vm1_ip, 1, 0, 0, "vrf5",
+        {  TestFlowPkt(Address::INET, vm2_ip, vm1_ip, 1, 0, 0, "vrf5",
                        flow1->id()),
         {}
         }
@@ -2113,7 +2172,7 @@ TEST_F(FlowTest, Flow_ksync_nh_state_find_failure) {
     client->WaitForIdle();
     TestFlow flow[] = {
         {
-            TestFlowPkt(vm1_ip, remote_vm1_ip, 1, 0, 0, "vrf5", 
+            TestFlowPkt(Address::INET, vm1_ip, remote_vm1_ip, 1, 0, 0, "vrf5",
                     flow0->id(), 1001),
             {}
         }
@@ -2152,14 +2211,14 @@ TEST_F(FlowTest, Flow_entry_reuse) {
     client->WaitForIdle();
     TestFlow flow[] = {
         {
-            TestFlowPkt(vm1_ip, remote_vm1_ip, 1, 0, 0, "vrf5",
+            TestFlowPkt(Address::INET, vm1_ip, remote_vm1_ip, 1, 0, 0, "vrf5",
                     flow0->id(), 1001),
             {}
         }
     };
     TestFlow flow1[] = {
         {
-            TestFlowPkt(vm1_ip, remote_vm1_ip, 1, 0, 0, "vrf5",
+            TestFlowPkt(Address::INET, vm1_ip, remote_vm1_ip, 1, 0, 0, "vrf5",
                     flow0->id(), 1002),
             {}
         }
@@ -2206,7 +2265,7 @@ TEST_F(FlowTest, LinkLocalFlow_1) {
 
     TestFlow nat_flow[] = {
         {
-            TestFlowPkt(vm1_ip, linklocal_ip, IPPROTO_TCP, 3000, linklocal_port, "vrf5",
+            TestFlowPkt(Address::INET, vm1_ip, linklocal_ip, IPPROTO_TCP, 3000, linklocal_port, "vrf5",
                         flow0->id(), 1),
             {
                 new VerifyNat(fabric_ip, vhost_ip_addr, IPPROTO_TCP, fabric_port, 0) 
@@ -2237,7 +2296,7 @@ TEST_F(FlowTest, LinkLocalFlow_1) {
     // Check that a reverse pkt will not create a new flow
     TestFlow reverse_flow[] = {
         {
-            TestFlowPkt(fabric_ip, vhost_ip_addr, IPPROTO_TCP, fabric_port, linklocal_src_port, "vrf5",
+            TestFlowPkt(Address::INET, fabric_ip, vhost_ip_addr, IPPROTO_TCP, fabric_port, linklocal_src_port, "vrf5",
                         flow0->id(), 1),
             {
                 new VerifyNat(vm1_ip, linklocal_ip, IPPROTO_TCP, 3000, linklocal_port) 
@@ -2285,21 +2344,21 @@ TEST_F(FlowTest, LinkLocalFlow_Fail1) {
     // while one flow along with its reverse is a short flow
     TestFlow nat_flow[] = {
         {
-            TestFlowPkt(vm1_ip, linklocal_ip, IPPROTO_TCP, 3000, linklocal_port, "vrf5",
+            TestFlowPkt(Address::INET, vm1_ip, linklocal_ip, IPPROTO_TCP, 3000, linklocal_port, "vrf5",
                         flow0->id(), 1),
             {
                 new VerifyNat(fabric_ip, vhost_ip_addr, IPPROTO_TCP, fabric_port, 0) 
             }
         },
         {
-            TestFlowPkt(vm1_ip, linklocal_ip, IPPROTO_TCP, 3001, linklocal_port+1, "vrf5",
+            TestFlowPkt(Address::INET, vm1_ip, linklocal_ip, IPPROTO_TCP, 3001, linklocal_port+1, "vrf5",
                         flow0->id(), 1),
             {
                 new VerifyNat(fabric_ip, vhost_ip_addr, IPPROTO_TCP, fabric_port+1, 0) 
             }
         },
         {
-            TestFlowPkt(vm1_ip, linklocal_ip, IPPROTO_TCP, 3002, linklocal_port+2, "vrf5",
+            TestFlowPkt(Address::INET, vm1_ip, linklocal_ip, IPPROTO_TCP, 3002, linklocal_port+2, "vrf5",
                         flow0->id(), 1),
             {
                 new VerifyNat(fabric_ip, vhost_ip_addr, IPPROTO_TCP, fabric_port+2, 0) 
@@ -2367,28 +2426,28 @@ TEST_F(FlowTest, LinkLocalFlow_Fail2) {
     // while one flow along with its reverse is a short flow
     TestFlow nat_flow[] = {
         {
-            TestFlowPkt(vm1_ip, linklocal_ip, IPPROTO_TCP, 3000, linklocal_port, "vrf5",
+            TestFlowPkt(Address::INET, vm1_ip, linklocal_ip, IPPROTO_TCP, 3000, linklocal_port, "vrf5",
                         flow0->id(), 1),
             {
                 new VerifyNat(fabric_ip, vhost_ip_addr, IPPROTO_TCP, fabric_port, 0) 
             }
         },
         {
-            TestFlowPkt(vm1_ip, linklocal_ip, IPPROTO_TCP, 3001, linklocal_port+1, "vrf5",
+            TestFlowPkt(Address::INET, vm1_ip, linklocal_ip, IPPROTO_TCP, 3001, linklocal_port+1, "vrf5",
                         flow0->id(), 1),
             {
                 new VerifyNat(fabric_ip, vhost_ip_addr, IPPROTO_TCP, fabric_port+1, 0) 
             }
         },
         {
-            TestFlowPkt(vm2_ip, linklocal_ip, IPPROTO_TCP, 3002, linklocal_port+2, "vrf5",
+            TestFlowPkt(Address::INET, vm2_ip, linklocal_ip, IPPROTO_TCP, 3002, linklocal_port+2, "vrf5",
                         flow1->id(), 1),
             {
                 new VerifyNat(fabric_ip, vhost_ip_addr, IPPROTO_TCP, fabric_port+2, 0) 
             }
         },
         {
-            TestFlowPkt(vm2_ip, linklocal_ip, IPPROTO_TCP, 3003, linklocal_port+3, "vrf5",
+            TestFlowPkt(Address::INET, vm2_ip, linklocal_ip, IPPROTO_TCP, 3003, linklocal_port+3, "vrf5",
                         flow1->id(), 1),
             {
                 new VerifyNat(fabric_ip, vhost_ip_addr, IPPROTO_TCP, fabric_port+3, 0) 
@@ -2463,7 +2522,7 @@ TEST_F(FlowTest, FlowLimit_1) {
     TestFlow flow[] = {
         //Send a ICMP request from local VM in vn5 to local VM in vn3
         {
-            TestFlowPkt(vm1_ip, vm4_ip, 1, 0, 0, "vrf5", 
+            TestFlowPkt(Address::INET, vm1_ip, vm4_ip, 1, 0, 0, "vrf5", 
                     flow0->id()),
             {
                 new VerifyVn("vn5", "vn3"),
@@ -2471,7 +2530,7 @@ TEST_F(FlowTest, FlowLimit_1) {
         },
         //Send an ICMP reply from local VM in vn3 to local VM in vn5
         {
-            TestFlowPkt(vm4_ip, vm1_ip, 1, 0, 0, "vrf3", 
+            TestFlowPkt(Address::INET, vm4_ip, vm1_ip, 1, 0, 0, "vrf3", 
                     flow3->id()),
             {
                 new VerifyVn("vn3", "vn5"),
@@ -2479,7 +2538,7 @@ TEST_F(FlowTest, FlowLimit_1) {
         },
         //Send a TCP packet from local VM in vn5 to local VM in vn3
         {
-            TestFlowPkt(vm1_ip, vm4_ip, IPPROTO_TCP, 200, 300, "vrf5", 
+            TestFlowPkt(Address::INET, vm1_ip, vm4_ip, IPPROTO_TCP, 200, 300, "vrf5", 
                     flow0->id()),
             {
                 new VerifyVn("vn5", "vn3"),
@@ -2487,7 +2546,7 @@ TEST_F(FlowTest, FlowLimit_1) {
         },
         //Send an TCP packet from local VM in vn3 to local VM in vn5
         {
-            TestFlowPkt(vm4_ip, vm1_ip, IPPROTO_TCP, 300, 200, "vrf3", 
+            TestFlowPkt(Address::INET, vm4_ip, vm1_ip, IPPROTO_TCP, 300, 200, "vrf3", 
                     flow3->id()),
             {
                 new VerifyVn("vn3", "vn5"),
@@ -2522,7 +2581,7 @@ TEST_F(FlowTest, FlowLimit_2) {
     TestFlow short_flow[] = {
         //Send an ICMP flow from remote VM in vn3 to local VM in vn5
         {
-            TestFlowPkt(vm1_ip, "115.115.115.115", 1, 0, 0, "vrf5",
+            TestFlowPkt(Address::INET, vm1_ip, "115.115.115.115", 1, 0, 0, "vrf5",
                     flow0->id()),
             {
                 new ShortFlow()
@@ -2545,7 +2604,7 @@ TEST_F(FlowTest, FlowLimit_2) {
     TestFlow flow[] = {
         //Send a TCP packet from local VM in vn5 to local VM in vn3
         {
-            TestFlowPkt(vm1_ip, vm4_ip, IPPROTO_TCP, 100, 101, "vrf5",
+            TestFlowPkt(Address::INET, vm1_ip, vm4_ip, IPPROTO_TCP, 100, 101, "vrf5",
                     flow0->id()),
             {
                 new VerifyVn("vn5", "vn3"),
@@ -2553,7 +2612,7 @@ TEST_F(FlowTest, FlowLimit_2) {
         },
         //Send an TCP packet from local VM in vn3 to local VM in vn5
         {
-            TestFlowPkt(vm4_ip, vm1_ip, IPPROTO_TCP, 101, 100, "vrf3",
+            TestFlowPkt(Address::INET, vm4_ip, vm1_ip, IPPROTO_TCP, 101, 100, "vrf3",
                     flow3->id()),
             {
                 new VerifyVn("vn3", "vn5"),
@@ -2561,7 +2620,7 @@ TEST_F(FlowTest, FlowLimit_2) {
         },
         //Send a TCP packet from local VM in vn5 to local VM in vn3
         {
-            TestFlowPkt(vm1_ip, vm4_ip, IPPROTO_TCP, 200, 300, "vrf5",
+            TestFlowPkt(Address::INET, vm1_ip, vm4_ip, IPPROTO_TCP, 200, 300, "vrf5",
                     flow0->id()),
             {
                 new VerifyVn("vn5", "vn3"),
@@ -2569,7 +2628,7 @@ TEST_F(FlowTest, FlowLimit_2) {
         },
         //Send an TCP packet from local VM in vn3 to local VM in vn5
         {
-            TestFlowPkt(vm4_ip, vm1_ip, IPPROTO_TCP, 300, 200, "vrf3",
+            TestFlowPkt(Address::INET, vm4_ip, vm1_ip, IPPROTO_TCP, 300, 200, "vrf3",
                     flow3->id()),
             {
                 new VerifyVn("vn3", "vn5"),
@@ -2608,7 +2667,7 @@ TEST_F(FlowTest, Flow_introspect_delete_all) {
     client->WaitForIdle();
     TestFlow flow[] = {
         {
-            TestFlowPkt(vm1_ip, remote_vm1_ip, 1, 0, 0, "vrf5",
+            TestFlowPkt(Address::INET, vm1_ip, remote_vm1_ip, 1, 0, 0, "vrf5",
                     flow0->id()),
             {}
         }
@@ -2635,7 +2694,7 @@ TEST_F(FlowTest, Flow_introspect_delete_all) {
 TEST_F(FlowTest, Flow_Source_Vn_1) {
     TestFlow flow[] = {
         {
-            TestFlowPkt(vm1_ip, "17.1.1.1", 1, 0, 0, "vrf5",
+            TestFlowPkt(Address::INET, vm1_ip, "17.1.1.1", 1, 0, 0, "vrf5",
                         flow0->id(), 1),
             {
                 new VerifyVn("vn5", unknown_vn_),
@@ -2655,14 +2714,14 @@ TEST_F(FlowTest, Flow_Source_Vn_1) {
 TEST_F(FlowTest, FlowPolicyUuid_1) {
     TestFlow flow[] = {
         //Add a ICMP forward and reverse flow
-        {  TestFlowPkt(vm1_ip, vm2_ip, 1, 0, 0, "vrf5",
+        {  TestFlowPkt(Address::INET, vm1_ip, vm2_ip, 1, 0, 0, "vrf5",
                        flow0->id()),
         {
             new VerifyVn("vn5", "vn5"),
             new VerifyVrf("vrf5", "vrf5")
         }
         },
-        {  TestFlowPkt(vm2_ip, vm1_ip, 1, 0, 0, "vrf5",
+        {  TestFlowPkt(Address::INET, vm2_ip, vm1_ip, 1, 0, 0, "vrf5",
                        flow1->id()),
         {
             new VerifyVn("vn5", "vn5"),
@@ -2695,14 +2754,14 @@ TEST_F(FlowTest, FlowPolicyUuid_2) {
 
     TestFlow flow[] = {
         //Add a ICMP forward and reverse flow
-        {  TestFlowPkt(vm_a_ip, vm_b_ip, 1, 0, 0, "vrf6",
+        {  TestFlowPkt(Address::INET, vm_a_ip, vm_b_ip, 1, 0, 0, "vrf6",
                        flow5->id()),
         {
             new VerifyVn("vn6", "vn6"),
             new VerifyVrf("vrf6", "vrf6")
         }
         },
-        {  TestFlowPkt(vm_b_ip, vm_a_ip, 1, 0, 0, "vrf6",
+        {  TestFlowPkt(Address::INET, vm_b_ip, vm_a_ip, 1, 0, 0, "vrf6",
                        flow6->id()),
         {
             new VerifyVn("vn6", "vn6"),
@@ -2751,7 +2810,7 @@ TEST_F(FlowTest, FlowPolicyUuid_3) {
 
     TestFlow flow[] = {
         //Add a ICMP forward and reverse flow
-        {  TestFlowPkt(vm_a_ip, vm_b_ip, 1, 0, 0, "vrf6",
+        {  TestFlowPkt(Address::INET, vm_a_ip, vm_b_ip, 1, 0, 0, "vrf6",
                        flow5->id()),
         {
             new VerifyVn("vn6", "vn6"),
@@ -2806,7 +2865,7 @@ TEST_F(FlowTest, FlowPolicyUuid_4) {
 
     TestFlow flow[] = {
         //Add a ICMP forward flow
-        {  TestFlowPkt(vm_b_ip, vm_a_ip, 1, 0, 0, "vrf6",
+        {  TestFlowPkt(Address::INET, vm_b_ip, vm_a_ip, 1, 0, 0, "vrf6",
                        flow6->id()),
         {
             new VerifyVn("vn6", "vn6"),
@@ -2860,14 +2919,14 @@ TEST_F(FlowTest, FlowPolicyUuid_5) {
 
     TestFlow flow[] = {
         //Add a ICMP forward and reverse flow
-        {  TestFlowPkt(vm_a_ip, vm_b_ip, 1, 0, 0, "vrf6",
+        {  TestFlowPkt(Address::INET, vm_a_ip, vm_b_ip, 1, 0, 0, "vrf6",
                        flow5->id()),
         {
             new VerifyVn("vn6", "vn6"),
             new VerifyVrf("vrf6", "vrf6")
         }
         },
-        {  TestFlowPkt(vm_b_ip, vm_a_ip, 1, 0, 0, "vrf6",
+        {  TestFlowPkt(Address::INET, vm_b_ip, vm_a_ip, 1, 0, 0, "vrf6",
                        flow6->id()),
         {
             new VerifyVn("vn6", "vn6"),
@@ -2922,7 +2981,7 @@ TEST_F(FlowTest, FlowPolicyUuid_6) {
 
     TestFlow flow[] = {
         //Add a ICMP forward and reverse flow
-        {  TestFlowPkt(vm_a_ip, vm_b_ip, 1, 0, 0, "vrf6",
+        {  TestFlowPkt(Address::INET, vm_a_ip, vm_b_ip, 1, 0, 0, "vrf6",
                        flow5->id()),
         {
             new VerifyVn("vn6", "vn6"),
@@ -2975,7 +3034,7 @@ TEST_F(FlowTest, FlowPolicyUuid_7) {
     EXPECT_EQ(flow5->sg_list().list_.size(), 1U);
 
     TestFlow flow[] = {
-        {  TestFlowPkt(vm_b_ip, vm_a_ip, 1, 0, 0, "vrf6",
+        {  TestFlowPkt(Address::INET, vm_b_ip, vm_a_ip, 1, 0, 0, "vrf6",
                        flow6->id()),
         {
             new VerifyVn("vn6", "vn6"),
@@ -3030,14 +3089,14 @@ TEST_F(FlowTest, FlowPolicyUuid_8) {
 
     TestFlow flow[] = {
         //Add a ICMP forward and reverse flow
-        {  TestFlowPkt(vm_a_ip, vm_b_ip, 1, 0, 0, "vrf6",
+        {  TestFlowPkt(Address::INET, vm_a_ip, vm_b_ip, 1, 0, 0, "vrf6",
                        flow5->id()),
         {
             new VerifyVn("vn6", "vn6"),
             new VerifyVrf("vrf6", "vrf6")
         }
         },
-        {  TestFlowPkt(vm_b_ip, vm_a_ip, 1, 0, 0, "vrf6",
+        {  TestFlowPkt(Address::INET, vm_b_ip, vm_a_ip, 1, 0, 0, "vrf6",
                        flow6->id()),
         {
             new VerifyVn("vn6", "vn6"),
@@ -3097,14 +3156,14 @@ TEST_F(FlowTest, FlowPolicyUuid_9) {
 
     TestFlow flow[] = {
         //Add a ICMP forward and reverse flow
-        {  TestFlowPkt(vm_a_ip, vm_b_ip, 1, 0, 0, "vrf6",
+        {  TestFlowPkt(Address::INET, vm_a_ip, vm_b_ip, 1, 0, 0, "vrf6",
                        flow5->id()),
         {
             new VerifyVn("vn6", "vn6"),
             new VerifyVrf("vrf6", "vrf6")
         }
         },
-        {  TestFlowPkt(vm_b_ip, vm_a_ip, 1, 0, 0, "vrf6",
+        {  TestFlowPkt(Address::INET, vm_b_ip, vm_a_ip, 1, 0, 0, "vrf6",
                        flow6->id()),
         {
             new VerifyVn("vn6", "vn6"),
@@ -3170,7 +3229,7 @@ TEST_F(FlowTest, FlowPolicyUuid_10) {
     EXPECT_EQ(flow6->sg_list().list_.size(), 1U);
 
     TestFlow flow[] = {
-        {  TestFlowPkt(vm_a_ip, vm_b_ip, 1, 0, 0, "vrf6",
+        {  TestFlowPkt(Address::INET, vm_a_ip, vm_b_ip, 1, 0, 0, "vrf6",
                        flow5->id()),
         {
             new VerifyVn("vn6", "vn6"),
@@ -3238,7 +3297,7 @@ TEST_F(FlowTest, FlowPolicyUuid_11) {
     EXPECT_EQ(flow6->sg_list().list_.size(), 1U);
 
     TestFlow flow[] = {
-        {  TestFlowPkt(vm_a_ip, vm_b_ip, 1, 0, 0, "vrf6",
+        {  TestFlowPkt(Address::INET, vm_a_ip, vm_b_ip, 1, 0, 0, "vrf6",
                        flow5->id()),
         {
             new VerifyVn("vn6", "vn6"),
@@ -3509,8 +3568,8 @@ TEST_F(FlowTest, FlowPolicyUuid_15) {
 
     TestFlow nat_flow[] = {
         {
-            TestFlowPkt(vm1_ip, linklocal_ip, IPPROTO_TCP, 3000, linklocal_port, "vrf5",
-                        flow0->id(), 1),
+            TestFlowPkt(Address::INET, vm1_ip, linklocal_ip, IPPROTO_TCP, 3000,
+                        linklocal_port, "vrf5", flow0->id(), 1),
             {
                 new VerifyNat(fabric_ip, vhost_ip_addr, IPPROTO_TCP, fabric_port, 0)
             }
@@ -3549,7 +3608,7 @@ TEST_F(FlowTest, FlowPolicyUuid_16) {
         return;
     }
     TestFlow flow[] = {
-        {  TestFlowPkt(vm1_ip, "11.1.1.255", 1, 0, 0, "vrf5", 
+        {  TestFlowPkt(Address::INET, vm1_ip, "11.1.1.255", 1, 0, 0, "vrf5", 
                        flow0->id()),
         {}
         }

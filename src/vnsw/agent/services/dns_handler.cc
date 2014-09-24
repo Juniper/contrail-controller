@@ -65,7 +65,7 @@ bool DnsHandler::HandleRequest() {
     }
 
     const VmInterface *vmitf = static_cast<const VmInterface *>(itf);
-    if (!vmitf->ipv4_forwarding()) {
+    if (!vmitf->layer3_forwarding()) {
         DNS_BIND_TRACE(DnsBindError, "DNS request on VM port with disabled" 
                        "ipv4 service: " << itf);
         dns_proto->IncrStatsDrop();
@@ -81,9 +81,13 @@ bool DnsHandler::HandleRequest() {
         goto error;
     }
 
-    if (!vmitf->vn() || 
-        !vmitf->vn()->GetIpamData(vmitf->ip_addr(), &ipam_name_,
-                                          &ipam_type_)) {
+    if (!vmitf->vn() ||
+        (pkt_info_->ip_saddr.is_v4() &&
+         !vmitf->vn()->GetIpamData(vmitf->ip_addr(),
+                                   &ipam_name_, &ipam_type_)) ||
+        (pkt_info_->ip_saddr.is_v6() &&
+         !vmitf->vn()->GetIpamData(vmitf->ip6_addr(),
+                                   &ipam_name_, &ipam_type_))) {
         DNS_BIND_TRACE(DnsBindError, "Unable to find Ipam data; interface = "
                        << vmitf->name());
         ret = DNS_ERR_SERVER_FAIL;
@@ -726,19 +730,34 @@ DnsHandler::Resolve(dns_flags flags, const DnsItems &ques, DnsItems &ans,
 }
 
 void DnsHandler::SendDnsResponse() {
-    in_addr_t src_ip = pkt_info_->ip->daddr;
-    in_addr_t dest_ip = pkt_info_->ip->saddr;
     unsigned char dest_mac[ETH_ALEN];
     memcpy(dest_mac, pkt_info_->eth->h_source, ETH_ALEN);
 
     // fill in the response
     dns_resp_size_ += sizeof(udphdr);
-    UdpHdr(dns_resp_size_, src_ip, DNS_SERVER_PORT, 
-           dest_ip, ntohs(pkt_info_->transp.udp->source));
-    dns_resp_size_ += sizeof(iphdr);
-    IpHdr(dns_resp_size_, src_ip, dest_ip, IPPROTO_UDP);
-    EthHdr(agent()->vhost_interface()->mac().ether_addr_octet, dest_mac,
-           IP_PROTOCOL);
+    if (pkt_info_->ip) {
+        // IPv4 request
+        in_addr_t src_ip = pkt_info_->ip->daddr;
+        in_addr_t dest_ip = pkt_info_->ip->saddr;
+        UdpHdr(dns_resp_size_, src_ip, DNS_SERVER_PORT,
+               dest_ip, ntohs(pkt_info_->transp.udp->source));
+        dns_resp_size_ += sizeof(iphdr);
+        IpHdr(dns_resp_size_, src_ip, dest_ip, IPPROTO_UDP);
+        EthHdr(agent()->vhost_interface()->mac().ether_addr_octet, dest_mac,
+               ETHERTYPE_IP);
+    } else {
+        // IPv6 request
+        Ip6Address src_ip = pkt_info_->ip_daddr.to_v6();
+        Ip6Address dest_ip = pkt_info_->ip_saddr.to_v6();
+        UdpHdr(dns_resp_size_, src_ip.to_bytes().data(), DNS_SERVER_PORT,
+               dest_ip.to_bytes().data(), ntohs(pkt_info_->transp.udp->source),
+               IPPROTO_UDP);
+        Ip6Hdr(pkt_info_->ip6, dns_resp_size_, IPPROTO_UDP, 64,
+               src_ip.to_bytes().data(), dest_ip.to_bytes().data());
+        dns_resp_size_ += sizeof(ip6_hdr);
+        EthHdr(agent()->vhost_interface()->mac().ether_addr_octet, dest_mac,
+               ETHERTYPE_IPV6);
+    }
     dns_resp_size_ += sizeof(ethhdr);
     pkt_info_->set_len(dns_resp_size_);
 
@@ -793,11 +812,10 @@ void DnsHandler::UpdateOffsets(DnsItem &item, bool name_update_required) {
 
 void DnsHandler::UpdateGWAddress(DnsItem &item) {
     boost::system::error_code ec;
-    if (item.type == DNS_A_RECORD && 
+    if ((item.type == DNS_A_RECORD || item.type == DNS_AAAA_RECORD) &&
         (item.data == agent()->dns_server(0) ||
          item.data == agent()->dns_server(1))) {
-        boost::asio::ip::address_v4 addr(pkt_info_->ip_daddr);
-        item.data = addr.to_string(ec);
+        item.data = pkt_info_->ip_daddr.to_string(ec);
     }
 }
 
@@ -901,14 +919,20 @@ void DnsHandler::GetDomainName(const VmInterface *vm_itf,
             return;
     }
 
-    if (vm_itf->GetSubnetDhcpOptions(&options)) {
-        if (GetDomainNameFromDhcp(options, domain_name))
+    if (pkt_info_->ip_saddr.is_v4()) {
+        if (vm_itf->GetSubnetDhcpOptions(&options, false) ||
+            vm_itf->GetIpamDhcpOptions(&options, false)) {
+            GetDomainNameFromDhcp(options, domain_name);
             return;
+        }
     }
 
-    if (vm_itf->GetIpamDhcpOptions(&options)) {
-        if (GetDomainNameFromDhcp(options, domain_name))
+    if (pkt_info_->ip_saddr.is_v6()) {
+        if (vm_itf->GetSubnetDhcpOptions(&options, true) ||
+            vm_itf->GetIpamDhcpOptions(&options, true)) {
+            GetDomainNameFromDhcp(options, domain_name);
             return;
+        }
     }
 }
 

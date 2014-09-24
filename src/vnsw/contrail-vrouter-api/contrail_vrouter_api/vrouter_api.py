@@ -105,6 +105,8 @@ class ContrailVRouterApi(object):
                 ttypes.PortTypes._NAMES_TO_VALUES[kwargs['port_type']]
         else:
             data.port_type = ttypes.PortTypes.NovaVMPort
+        if 'ip6_address' in kwargs:
+            data.ip6_address = kwargs['ip6_address']
 
         data.validate()
 

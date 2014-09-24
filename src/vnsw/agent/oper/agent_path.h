@@ -106,7 +106,7 @@ public:
     const std::string &dest_vn_name() const {return dest_vn_name_;}
     const SecurityGroupList &sg_list() const {return sg_list_;}
     bool is_subnet_discard() const {return is_subnet_discard_;}
-    const Ip4Address subnet_gw_ip() const { return subnet_gw_ip_;}
+    const IpAddress subnet_gw_ip() const { return subnet_gw_ip_;}
 
     uint32_t GetActiveLabel() const;
     TunnelType::Type GetTunnelType() const {
@@ -129,7 +129,7 @@ public:
     void set_is_subnet_discard(bool discard) {
         is_subnet_discard_= discard;
     }
-    void set_subnet_gw_ip(const Ip4Address &ip) {
+    void set_subnet_gw_ip(const IpAddress &ip) {
         subnet_gw_ip_ = ip;
     }
     void set_local_ecmp_mpls_label(MplsLabel *mpls);
@@ -212,7 +212,7 @@ private:
     //This IP address gets used in sending arp query to the VM
     //helping in deciding the priority during live migration and
     //allowed address pair
-    Ip4Address subnet_gw_ip_;
+    IpAddress subnet_gw_ip_;
     DISALLOW_COPY_AND_ASSIGN(AgentPath);
 };
 
@@ -232,7 +232,7 @@ public:
                  uint32_t vxlan_id, bool force_policy, const string &vn_name,
                  uint8_t flags, const SecurityGroupList &sg_list,
                  const PathPreference &path_preference,
-                 const Ip4Address &subnet_gw_ip) :
+                 const IpAddress &subnet_gw_ip) :
         AgentRouteData(false), intf_(intf), mpls_label_(mpls_label),
         vxlan_id_(vxlan_id), force_policy_(force_policy),
         dest_vn_name_(vn_name), proxy_arp_(true), sync_route_(false),
@@ -264,7 +264,7 @@ private:
     SecurityGroupList sg_list_;
     TunnelType::TypeBmap tunnel_bmap_;
     PathPreference path_preference_;
-    Ip4Address subnet_gw_ip_;
+    IpAddress subnet_gw_ip_;
     DISALLOW_COPY_AND_ASSIGN(LocalVmRoute);
 };
 

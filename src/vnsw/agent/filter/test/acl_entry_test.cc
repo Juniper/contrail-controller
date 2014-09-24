@@ -45,8 +45,8 @@ TEST_F(AclEntryTest, Basic) {
     entry1->PopulateAclEntry(ae_spec1);
 
     PacketHeader *packet1 = new PacketHeader();
-    packet1->src_ip = 0x01010102;
-    packet1->dst_ip = 0xFFFFFF00;
+    packet1->src_ip = Ip4Address(0x01010102);
+    packet1->dst_ip = Ip4Address(0xFFFFFF00);
     packet1->protocol = 10;
     packet1->dst_port = 99;
 
@@ -54,7 +54,7 @@ TEST_F(AclEntryTest, Basic) {
     al = entry1->PacketMatch(*packet1);
     EXPECT_EQ(0U, al.size());
 
-    packet1->src_ip = 0x01010101;
+    packet1->src_ip = Ip4Address(0x01010101);
     packet1->protocol = 10;
     packet1->dst_port = 99;
     al = entry1->PacketMatch(*packet1);
@@ -64,14 +64,14 @@ TEST_F(AclEntryTest, Basic) {
     EXPECT_EQ(SimpleAction::PASS, static_cast<SimpleAction *>(*ial.operator->())->GetAction());
     // EXPECT_TRUE(entry1->Match(packet1));
 
-    packet1->src_ip = 0x01010101;
+    packet1->src_ip = Ip4Address(0x01010101);
     packet1->protocol = 11;
     packet1->dst_port = 99;
     al = entry1->PacketMatch(*packet1);
     EXPECT_EQ(0U, al.size());
     //EXPECT_FALSE(entry1->Match(packet1));
 
-    packet1->src_ip = 0x01010101;
+    packet1->src_ip = Ip4Address(0x01010101);
     packet1->protocol = 10;
     //Destination port would be ignored, since protocol is neither TCP or UDP
     packet1->dst_port = 101;
@@ -79,14 +79,14 @@ TEST_F(AclEntryTest, Basic) {
     EXPECT_EQ(1U, al.size());
     //EXPECT_FALSE(entry1->Match(packet1));
 
-    packet1->src_ip = 0x01010101;
+    packet1->src_ip = Ip4Address(0x01010101);
     packet1->protocol = 9;
     packet1->dst_port = 101;
     al = entry1->PacketMatch(*packet1);
     EXPECT_EQ(0U, al.size());
     //EXPECT_FALSE(entry1->Match(packet1));
 
-    packet1->src_ip = 0x01010101;
+    packet1->src_ip = Ip4Address(0x01010101);
     packet1->protocol = 9;
     packet1->dst_port = 100;
     al = entry1->PacketMatch(*packet1);
@@ -119,7 +119,7 @@ TEST_F(AclEntryTest, SubnetAddress) {
 
     AclEntry *entry1 = new AclEntry();
     PacketHeader *packet1 = new PacketHeader();
-    packet1->src_ip = 0x01010102;
+    packet1->src_ip = Ip4Address(0x01010102);
     packet1->protocol = 10;
     packet1->dst_port = 99;
     entry1->PopulateAclEntry(ae_spec1);
@@ -131,7 +131,7 @@ TEST_F(AclEntryTest, SubnetAddress) {
     EXPECT_EQ(TrafficAction::PASS, static_cast<SimpleAction *>(*ial.operator->())->GetAction());
     //EXPECT_TRUE(entry1->Match(packet1));
 
-    packet1->src_ip = 0x01010101;
+    packet1->src_ip = Ip4Address(0x01010101);
     packet1->protocol = 10;
     packet1->dst_port = 99;
     al = entry1->PacketMatch(*packet1);
@@ -140,7 +140,7 @@ TEST_F(AclEntryTest, SubnetAddress) {
     EXPECT_EQ(SimpleAction::PASS, static_cast<SimpleAction *>(*ial.operator->())->GetAction());
     //EXPECT_TRUE(entry1->Match(packet1));
 
-    packet1->src_ip = 0x01010110;
+    packet1->src_ip = Ip4Address(0x01010110);
     packet1->protocol = 10;
     packet1->dst_port = 99;
     al = entry1->PacketMatch(*packet1);
@@ -148,14 +148,14 @@ TEST_F(AclEntryTest, SubnetAddress) {
     EXPECT_EQ(SimpleAction::PASS, static_cast<SimpleAction *>(*ial.operator->())->GetAction());    
     //EXPECT_TRUE(entry1->Match(packet1));
 
-    packet1->src_ip = 0x01010101;
+    packet1->src_ip = Ip4Address(0x01010101);
     packet1->protocol = 11;
     packet1->dst_port = 99;
     al = entry1->PacketMatch(*packet1);
     EXPECT_EQ(0U, al.size());
     //EXPECT_FALSE(entry1->Match(packet1));
 
-    packet1->src_ip = 0x01010102;
+    packet1->src_ip = Ip4Address(0x01010102);
     packet1->protocol = 10;
     //Destination port would be ignored, since protocol is neither TCP or UDP
     packet1->dst_port = 101;
@@ -163,14 +163,14 @@ TEST_F(AclEntryTest, SubnetAddress) {
     EXPECT_EQ(1U, al.size());
     //EXPECT_FALSE(entry1->Match(packet1));
 
-    packet1->src_ip = 0x01010103;
+    packet1->src_ip = Ip4Address(0x01010103);
     packet1->protocol = 9;
     packet1->dst_port = 101;
     al = entry1->PacketMatch(*packet1);
     EXPECT_EQ(0U, al.size());
     //EXPECT_FALSE(entry1->Match(packet1));
 
-    packet1->src_ip = 0x01010104;
+    packet1->src_ip = Ip4Address(0x01010104);
     packet1->protocol = 9;
     packet1->dst_port = 100;
     al = entry1->PacketMatch(*packet1);
@@ -207,7 +207,7 @@ TEST_F(AclEntryTest, BasicAccept) {
     AclEntry *entry1 = new AclEntry();
 
     PacketHeader *packet1 = new PacketHeader();
-    packet1->src_ip = 0x01010102;
+    packet1->src_ip = Ip4Address(0x01010102);
     packet1->protocol = 10;
     packet1->dst_port = 99;
     entry1->PopulateAclEntry(ae_spec1);
@@ -221,7 +221,7 @@ TEST_F(AclEntryTest, BasicAccept) {
     //entry1->FindPermitDenyAction(action);
     //EXPECT_TRUE(action);
 
-    packet1->src_ip = 0x01010101;
+    packet1->src_ip = Ip4Address(0x01010101);
     packet1->protocol = 10;
     packet1->dst_port = 99;
     al = entry1->PacketMatch(*packet1);
@@ -232,7 +232,7 @@ TEST_F(AclEntryTest, BasicAccept) {
     //entry1->FindPermitDenyAction(action);
     //EXPECT_TRUE(action);
 
-    packet1->src_ip = 0x01010110;
+    packet1->src_ip = Ip4Address(0x01010110);
     packet1->protocol = 10;
     packet1->dst_port = 99;
     al = entry1->PacketMatch(*packet1);
@@ -241,7 +241,7 @@ TEST_F(AclEntryTest, BasicAccept) {
     EXPECT_EQ(SimpleAction::PASS, static_cast<SimpleAction *>(*ial.operator->())->GetAction());
     //EXPECT_TRUE(entry1->Match(packet1));
 
-    packet1->src_ip = 0x01010101;
+    packet1->src_ip = Ip4Address(0x01010101);
     packet1->protocol = 11;
     packet1->dst_port = 99;
     al = entry1->PacketMatch(*packet1);
@@ -249,7 +249,7 @@ TEST_F(AclEntryTest, BasicAccept) {
     EXPECT_EQ(0U, al.size());
     //EXPECT_FALSE(entry1->Match(packet1));
 
-    packet1->src_ip = 0x01010102;
+    packet1->src_ip = Ip4Address(0x01010102);
     packet1->protocol = 10;
     //Destination port would be ignored, since protocol is neither TCP or UDP
     packet1->dst_port = 101;
@@ -258,7 +258,7 @@ TEST_F(AclEntryTest, BasicAccept) {
     EXPECT_EQ(1U, al.size());
     //EXPECT_FALSE(entry1->Match(packet1));
 
-    packet1->src_ip = 0x01010103;
+    packet1->src_ip = Ip4Address(0x01010103);
     packet1->protocol = 9;
     packet1->dst_port = 101;
     al = entry1->PacketMatch(*packet1);
@@ -266,7 +266,7 @@ TEST_F(AclEntryTest, BasicAccept) {
     EXPECT_EQ(0U, al.size());
     //EXPECT_FALSE(entry1->Match(packet1));
 
-    packet1->src_ip = 0x01010104;
+    packet1->src_ip = Ip4Address(0x01010104);
     packet1->protocol = 9;
     packet1->dst_port = 100;
     al = entry1->PacketMatch(*packet1);
@@ -305,7 +305,7 @@ TEST_F(AclEntryTest, BasicDeny) {
     AclEntry *entry1 = new AclEntry();
 
     PacketHeader *packet1 = new PacketHeader();
-    packet1->src_ip = 0x01010102;
+    packet1->src_ip = Ip4Address(0x01010102);
     packet1->protocol = 10;
     packet1->dst_port = 99;
     entry1->PopulateAclEntry(ae_spec1);
@@ -319,7 +319,7 @@ TEST_F(AclEntryTest, BasicDeny) {
     //entry1->FindPermitDenyAction(action);
     //EXPECT_FALSE(action);
 
-    packet1->src_ip = 0x01010101;
+    packet1->src_ip = Ip4Address(0x01010101);
     packet1->protocol = 10;
     packet1->dst_port = 99;
     al = entry1->PacketMatch(*packet1);
@@ -330,7 +330,7 @@ TEST_F(AclEntryTest, BasicDeny) {
     //entry1->FindPermitDenyAction(action);
     //EXPECT_FALSE(action);
 
-    packet1->src_ip = 0x01010110;
+    packet1->src_ip = Ip4Address(0x01010110);
     packet1->protocol = 10;
     packet1->dst_port = 99;
     al = entry1->PacketMatch(*packet1);
@@ -341,7 +341,7 @@ TEST_F(AclEntryTest, BasicDeny) {
     //entry1->FindPermitDenyAction(action);
     //EXPECT_FALSE(action);
 
-    packet1->src_ip = 0x01010101;
+    packet1->src_ip = Ip4Address(0x01010101);
     packet1->protocol = 11;
     packet1->dst_port = 99;
     al = entry1->PacketMatch(*packet1);
@@ -349,7 +349,7 @@ TEST_F(AclEntryTest, BasicDeny) {
     EXPECT_EQ(0U, al.size());
     //EXPECT_FALSE(entry1->Match(packet1));
 
-    packet1->src_ip = 0x01010102;
+    packet1->src_ip = Ip4Address(0x01010102);
     packet1->protocol = 10;
     //Port would be ignored since protocol is not TCP or UDP
     packet1->dst_port = 101;
@@ -358,7 +358,7 @@ TEST_F(AclEntryTest, BasicDeny) {
     EXPECT_EQ(1U, al.size());
     //EXPECT_FALSE(entry1->Match(packet1));
 
-    packet1->src_ip = 0x01010103;
+    packet1->src_ip = Ip4Address(0x01010103);
     packet1->protocol = 9;
     packet1->dst_port = 101;
     al = entry1->PacketMatch(*packet1);
@@ -366,7 +366,7 @@ TEST_F(AclEntryTest, BasicDeny) {
     EXPECT_EQ(0U, al.size());
     //EXPECT_FALSE(entry1->Match(packet1));
 
-    packet1->src_ip = 0x01010104;
+    packet1->src_ip = Ip4Address(0x01010104);
     packet1->protocol = 9;
     packet1->dst_port = 100;
     al = entry1->PacketMatch(*packet1);
@@ -400,7 +400,7 @@ TEST_F(AclEntryTest, BasicIntrospecIpAclEntry) {
 
     AclEntry entry1;
     PacketHeader packet1;
-    packet1.src_ip = 0x02020202;
+    packet1.src_ip = Ip4Address(0x02020202);
     packet1.protocol = 10;
     packet1.dst_port = 99;
     entry1.PopulateAclEntry(ae_spec1);
@@ -514,7 +514,7 @@ TEST_F(AclEntryTest, BasicIntrospecSgAclEntry) {
     SecurityGroupList src_sg_id_l;
     src_sg_id_l.push_back(4);
     packet1.src_sg_id_l = &src_sg_id_l;
-    packet1.dst_ip = 0x02020210;
+    packet1.dst_ip = Ip4Address(0x02020210);
     packet1.protocol = 10;
     packet1.dst_port = 99;
     packet1.src_port  = 101;

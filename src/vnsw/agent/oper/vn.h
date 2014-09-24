@@ -23,9 +23,9 @@ namespace autogen {
 class VmInterface;
 
 struct VnIpam {
-    Ip4Address ip_prefix;
+    IpAddress ip_prefix;
     uint32_t   plen;
-    Ip4Address default_gw;
+    IpAddress default_gw;
     bool       installed;    // is the route to send pkts to host installed
     bool       dhcp_enable;
     std::string ipam_name;
@@ -37,10 +37,16 @@ struct VnIpam {
            const std::vector<autogen::RouteType> &host_routes)
         : plen(len), installed(false), dhcp_enable(dhcp), ipam_name(name) {
         boost::system::error_code ec;
-        ip_prefix = Ip4Address::from_string(ip, ec);
-        default_gw = Ip4Address::from_string(gw, ec);
+        ip_prefix = IpAddress::from_string(ip, ec);
+        default_gw = IpAddress::from_string(gw, ec);
         oper_dhcp_options.set_options(dhcp_options);
         oper_dhcp_options.set_host_routes(host_routes);
+    }
+    bool IsV4() const {
+        return ip_prefix.is_v4();
+    }
+    bool IsV6() const {
+        return ip_prefix.is_v6();
     }
     bool operator<(const VnIpam &rhs) const {
         if (ip_prefix != rhs.ip_prefix)
@@ -49,16 +55,34 @@ struct VnIpam {
         return (plen < rhs.plen);
     }
     Ip4Address GetBroadcastAddress() const {
-        Ip4Address broadcast(ip_prefix.to_ulong() | 
-                             ~(0xFFFFFFFF << (32 - plen)));
-        return broadcast;
+        if (ip_prefix.is_v4()) {
+            Ip4Address broadcast(ip_prefix.to_v4().to_ulong() | 
+                    ~(0xFFFFFFFF << (32 - plen)));
+            return broadcast;
+        } 
+        return Ip4Address(0);
     }
     Ip4Address GetSubnetAddress() const {
-        return GetIp4SubnetAddress(ip_prefix, plen);
+        if (ip_prefix.is_v4()) {
+            return GetIp4SubnetAddress(ip_prefix.to_v4(), plen);
+        }
+        return Ip4Address(0);
     }
-    bool IsSubnetMember(const Ip4Address &ip) const {
-        return ((ip_prefix.to_ulong() | ~(0xFFFFFFFF << (32 - plen))) == 
-                 (ip.to_ulong() | ~(0xFFFFFFFF << (32 - plen)))); 
+    Ip6Address GetV6SubnetAddress() const {
+        if (ip_prefix.is_v6()) {
+            return GetIp6SubnetAddress(ip_prefix.to_v6(), plen);
+        }
+        return Ip6Address();
+    }
+
+    bool IsSubnetMember(const IpAddress &ip) const {
+        if (ip_prefix.is_v4() && ip.is_v4()) {
+            return ((ip_prefix.to_v4().to_ulong() | ~(0xFFFFFFFF << (32 - plen))) == 
+                 (ip.to_v4().to_ulong() | ~(0xFFFFFFFF << (32 - plen))));
+        } else if (ip_prefix.is_v6() && ip.is_v6()) {
+            return IsIp6SubnetMember(ip.to_v6(), ip_prefix.to_v6(), plen);
+        }
+        return false;
     }
 };
 
@@ -89,12 +113,12 @@ struct VnData : public AgentData {
            const uuid &mirror_acl_id, const uuid &mc_acl_id, 
            const std::vector<VnIpam> &ipam, const VnIpamDataMap &vn_ipam_data,
            int vxlan_id, int vnid, bool layer2_forwarding,
-           bool ipv4_forwarding, bool admin_state) :
+           bool layer3_forwarding, bool admin_state) :
                 AgentData(), name_(name), vrf_name_(vrf_name), acl_id_(acl_id),
                 mirror_acl_id_(mirror_acl_id), mirror_cfg_acl_id_(mc_acl_id),
                 ipam_(ipam), vn_ipam_data_(vn_ipam_data), vxlan_id_(vxlan_id),
                 vnid_(vnid), layer2_forwarding_(layer2_forwarding), 
-                ipv4_forwarding_(ipv4_forwarding), admin_state_(admin_state) {
+                layer3_forwarding_(layer3_forwarding), admin_state_(admin_state) {
     };
     virtual ~VnData() { };
 
@@ -108,14 +132,14 @@ struct VnData : public AgentData {
     int vxlan_id_;
     int vnid_;
     bool layer2_forwarding_;
-    bool ipv4_forwarding_;
+    bool layer3_forwarding_;
     bool admin_state_;
 };
 
 class VnEntry : AgentRefCount<VnEntry>, public AgentDBEntry {
 public:
     VnEntry(uuid id) : uuid_(id), vxlan_id_(0), vnid_(0), layer2_forwarding_(true), 
-    ipv4_forwarding_(true), admin_state_(true) { };
+    layer3_forwarding_(true), admin_state_(true) { }
     virtual ~VnEntry() { };
 
     virtual bool IsLess(const DBEntry &rhs) const;
@@ -134,15 +158,17 @@ public:
     const AclDBEntry *GetMirrorCfgAcl() const {return mirror_cfg_acl_.get();};
     VrfEntry *GetVrf() const {return vrf_.get();};
     const std::vector<VnIpam> &GetVnIpam() const { return ipam_; };
-    const VnIpam *GetIpam(const Ip4Address &ip) const;
+    const VnIpam *GetIpam(const IpAddress &ip) const;
     bool GetVnHostRoutes(const std::string &ipam,
                          std::vector<OperDhcpOptions::Subnet> *routes) const;
-    bool GetIpamName(const Ip4Address &vm_addr, std::string *ipam_name) const;
-    bool GetIpamData(const Ip4Address &vm_addr, std::string *ipam_name,
+    bool GetIpamName(const IpAddress &vm_addr, std::string *ipam_name) const;
+    bool GetIpamData(const IpAddress &vm_addr, std::string *ipam_name,
                      autogen::IpamType *ipam_type) const;
-    bool GetIpamVdnsData(const Ip4Address &vm_addr, 
+    bool GetIpamVdnsData(const IpAddress &vm_addr,
                          autogen::IpamType *ipam_type,
                          autogen::VirtualDnsType *vdns_type) const;
+    bool GetPrefix(const Ip6Address &ip, Ip6Address *prefix,
+                   uint8_t *plen) const;
     std::string GetProject() const;
     int GetVxLanId() const;
     bool Resync(); 
@@ -153,8 +179,8 @@ public:
 
     const VxLanId *vxlan_id_ref() const {return vxlan_id_ref_.get();}
     const VxLanId *vxlan_id() const {return vxlan_id_ref_.get();}
-    bool layer2_forwarding() const {return layer2_forwarding_;}
-    bool Ipv4Forwarding() const {return ipv4_forwarding_;}
+    bool layer2_forwarding() const {return layer2_forwarding_;};
+    bool layer3_forwarding() const {return layer3_forwarding_;};
     bool admin_state() const {return admin_state_;}
 
     AgentDBTable *DBToTable() const;
@@ -180,7 +206,7 @@ private:
     int vxlan_id_;
     int vnid_;
     bool layer2_forwarding_;
-    bool ipv4_forwarding_;
+    bool layer3_forwarding_;
     bool admin_state_;
     VxLanIdRef vxlan_id_ref_;
     DISALLOW_COPY_AND_ASSIGN(VnEntry);

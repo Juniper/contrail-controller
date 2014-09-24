@@ -58,10 +58,10 @@ struct TestRouteCmp {
         if (lhs.get_rtr_vrf_id() != rhs.get_rtr_vrf_id()) {
             return lhs.get_rtr_vrf_id() < rhs.get_rtr_vrf_id();
         }
-        if (lhs.get_rtr_prefix() != rhs.get_rtr_prefix()) {
-            return lhs.get_rtr_prefix() < rhs.get_rtr_prefix();
+        if (lhs.get_rtr_prefix_len() != rhs.get_rtr_prefix_len()) {
+            return lhs.get_rtr_prefix_len() < rhs.get_rtr_prefix_len();
         }
-        return lhs.get_rtr_prefix_len() < rhs.get_rtr_prefix_len();
+        return lhs.get_rtr_prefix() < rhs.get_rtr_prefix();
     }
 };
 

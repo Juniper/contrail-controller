@@ -300,22 +300,39 @@ bool AddressMatch::SGMatch(const SecurityGroupList &sg_l, int id) const
     return false;
 }
 
+static bool SubnetMatch(const IpAddress &ip, const IpAddress &mask,
+                        const IpAddress &data) {
+    if (data.is_v4() && ip.is_v4()) {
+        if((mask.to_v4().to_ulong() & data.to_v4().to_ulong()) ==
+           ip.to_v4().to_ulong()) {
+            return true;
+        }
+        return false;
+    }
+
+    if (data.is_v6() && ip.is_v6()) {
+        const Ip6Address &ip6 = ip.to_v6();
+        const Ip6Address &data6 = data.to_v6();
+        const Ip6Address &mask6 = mask.to_v6();
+        for (int i = 0; i < 16; i++) {
+            if ((data6.to_bytes()[i] & mask6.to_bytes()[i])
+                != ip6.to_bytes()[i])
+                return false;
+        }
+        return true;
+    }
+
+    return false;
+}
+
 bool AddressMatch::Match(const PacketHeader *pheader) const
 {
-    
     if (policy_id_s_.compare("any") == 0) {
         return true;
     }
     if (src_) {
         if (addr_type_ == IP_ADDR) {
-            if (ip_addr_.is_v4()) {
-                if((ip_mask_.to_v4().to_ulong() & pheader->src_ip) == 
-                   ip_addr_.to_v4().to_ulong()) {
-                    return true;
-                } else {
-                    return false;
-                }
-            }
+            return SubnetMatch(ip_addr_, ip_mask_, pheader->src_ip);
         } else if (addr_type_ == NETWORK_ID) {
             if (pheader->src_policy_id && policy_id_s_.compare(*pheader->src_policy_id) == 0) {
                 return true;
@@ -327,14 +344,7 @@ bool AddressMatch::Match(const PacketHeader *pheader) const
         }
     } else { 
         if (addr_type_ == IP_ADDR) {
-            if (ip_addr_.is_v4()) {
-                if((ip_mask_.to_v4().to_ulong() & pheader->dst_ip) == 
-                   ip_addr_.to_v4().to_ulong()) {
-                    return true;
-                } else {
-                    return false;
-                }
-            }
+            return SubnetMatch(ip_addr_, ip_mask_, pheader->dst_ip);
         } else if (addr_type_ == NETWORK_ID) {
             if (pheader->dst_policy_id && policy_id_s_.compare(*pheader->dst_policy_id) == 0) {
                 return true;

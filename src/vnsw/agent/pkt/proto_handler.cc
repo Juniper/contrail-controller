@@ -103,27 +103,41 @@ void ProtoHandler::IpHdr(uint16_t len, in_addr_t src, in_addr_t dest,
     IpHdr((char *)pkt_info_->ip, sizeof(iphdr), len, src, dest, protocol);
 }
 
-uint16_t ProtoHandler::UdpHdr(char *buff, uint16_t buf_len, uint16_t len,
+void ProtoHandler::Ip6Hdr(ip6_hdr *ip, uint16_t plen, uint8_t next_header,
+                          uint8_t hlim, uint8_t *src, uint8_t *dest) {
+    ip->ip6_flow = htonl(0x60000000); // version 6, TC and Flow set to 0
+    ip->ip6_plen = htons(plen);
+    ip->ip6_nxt = next_header;
+    ip->ip6_hlim= hlim;
+    memcpy(ip->ip6_src.s6_addr, src, 16);
+    memcpy(ip->ip6_dst.s6_addr, dest, 16);
+}
+
+void ProtoHandler::FillUdpHdr(udphdr *udp, uint16_t len,
+                              uint16_t src_port, uint16_t dest_port) {
+    udp->source = htons(src_port);
+    udp->dest = htons(dest_port);
+    udp->len = htons(len);
+    udp->check = 0; 
+}
+
+uint16_t ProtoHandler::UdpHdr(udphdr *udp, uint16_t buf_len, uint16_t len,
                               in_addr_t src, uint16_t src_port, in_addr_t dest,
                               uint16_t dest_port) {
     if (buf_len < sizeof(udphdr))
         return 0;
 
-    udphdr *udp = (udphdr *) buff;
-    udp->source = htons(src_port);
-    udp->dest = htons(dest_port);
-    udp->len = htons(len);
-    udp->check = 0; 
-    
+    FillUdpHdr(udp, len, src_port, dest_port);
 #ifdef VNSW_AGENT_UDP_CSUM
-    udp->check = UdpCsum(src, dest, len, udp);
+    udp->check = UdpCsum(src, dest, len, pkt_info_->transp.udp);
 #endif
+
     return sizeof(udphdr);
 }
 
 void ProtoHandler::UdpHdr(uint16_t len, in_addr_t src, uint16_t src_port,
                           in_addr_t dest, uint16_t dest_port) {
-    UdpHdr((char *)pkt_info_->transp.udp, sizeof(udphdr), len, src, src_port,
+    UdpHdr(pkt_info_->transp.udp, sizeof(udphdr), len, src, src_port,
            dest, dest_port);
 }
 
@@ -146,6 +160,14 @@ uint16_t ProtoHandler::IcmpHdr(char *buff, uint16_t buf_len, uint8_t type,
 void ProtoHandler::IcmpChecksum(char *buff, uint16_t buf_len) {
     icmphdr *hdr = ((icmphdr *)buff);
     hdr->checksum = Csum((uint16_t *)buff, buf_len, 0);
+}
+
+void ProtoHandler::UdpHdr(uint16_t len, const uint8_t *src, uint16_t src_port,
+                          const uint8_t *dest, uint16_t dest_port,
+                          uint8_t next_hdr) {
+    FillUdpHdr(pkt_info_->transp.udp, len, src_port, dest_port);
+    pkt_info_->transp.udp->check = Ipv6Csum(src, dest, len, next_hdr,
+                                            (uint16_t *)pkt_info_->transp.udp);
 }
 
 uint32_t ProtoHandler::Sum(uint16_t *ptr, std::size_t len, uint32_t sum) {
@@ -174,9 +196,27 @@ uint16_t ProtoHandler::Csum(uint16_t *ptr, std::size_t len, uint32_t sum) {
 uint16_t ProtoHandler::UdpCsum(in_addr_t src, in_addr_t dest, 
                                std::size_t len, udphdr *udp) {
     uint32_t sum = 0;
-    PseudoUdpHdr phdr(src, dest, 0x11, htons(len));
+    PseudoUdpHdr phdr(src, dest, IPPROTO_UDP, htons(len));
     sum = Sum((uint16_t *)&phdr, sizeof(PseudoUdpHdr), sum);
     return Csum((uint16_t *)udp, len, sum);
+}
+
+uint16_t ProtoHandler::Ipv6Csum(const uint8_t *src, const uint8_t *dest,
+                                uint16_t plen, uint8_t next_hdr, uint16_t *hdr) {
+    uint32_t len = htonl((uint32_t)plen);
+    uint32_t next = htonl((uint32_t)next_hdr);
+
+    uint32_t pseudo = 0;
+    pseudo = Sum((uint16_t *)src, 16, 0);
+    pseudo = Sum((uint16_t *)dest, 16, pseudo);
+    pseudo = Sum((uint16_t *)&len, 4, pseudo);
+    pseudo = Sum((uint16_t *)&next, 4, pseudo);
+    return Csum(hdr, plen, pseudo);
+}
+
+uint16_t ProtoHandler::Icmpv6Csum(const uint8_t *src, const uint8_t *dest,
+                                  icmp6_hdr *icmp, uint16_t plen) {
+    return Ipv6Csum(src, dest, plen, IPPROTO_ICMPV6, (uint16_t *)icmp);
 }
 
 ///////////////////////////////////////////////////////////////////////////////

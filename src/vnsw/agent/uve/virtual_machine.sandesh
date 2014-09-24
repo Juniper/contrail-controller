@@ -36,6 +36,8 @@ struct VmInterfaceAgent {
     9: string gateway;
    10: bool l2_active;
    11: string uuid;
+   12: string ip6_address;
+   13: bool ip6_active;
 }
 
 struct VmCpuStats {

@@ -15,6 +15,7 @@ class LifetimeActor;
 class LifetimeManager;
 class ComponentNHData;
 class AgentRouteWalker;
+class Inet6UnicastRouteEntry;
 
 struct VrfKey : public AgentKey {
     VrfKey(const string &name) : AgentKey(), name_(name) { };
@@ -76,6 +77,8 @@ public:
     bool DBEntrySandesh(Sandesh *sresp, std::string &name) const;
     Inet4UnicastRouteEntry *GetUcRoute(const Ip4Address &addr) const;
     Inet4UnicastRouteEntry *GetUcRoute(const Inet4UnicastRouteEntry &rt_key) const;
+    Inet6UnicastRouteEntry *GetUcRoute(const Ip6Address &addr) const;
+    Inet6UnicastRouteEntry *GetUcRoute(const Inet6UnicastRouteEntry &rt_key) const;
 
     LifetimeActor *deleter();
     void SendObjectLog(AgentLogEvent::type event) const;
@@ -96,6 +99,7 @@ public:
     AgentRouteTable *GetInet4UnicastRouteTable() const;
     AgentRouteTable *GetInet4MulticastRouteTable() const;
     AgentRouteTable *GetLayer2RouteTable() const;
+    AgentRouteTable *GetInet6UnicastRouteTable() const;
     AgentRouteTable *GetRouteTable(uint8_t table_type) const;
 private:
     friend class VrfTable;
@@ -161,6 +165,7 @@ public:
     AgentRouteTable *GetInet4MulticastRouteTable(const std::string &vrf_name);
     AgentRouteTable *GetLayer2RouteTable(const std::string &vrf_name);
     AgentRouteTable *GetRouteTable(const string &vrf_name, uint8_t table_type);
+    AgentRouteTable *GetInet6UnicastRouteTable(const std::string &vrf_name);
     bool IsStaticVrf(const std::string &vrf_name) const {
         if (static_vrf_set_.find(vrf_name) != static_vrf_set_.end()) {
             return true;

@@ -293,7 +293,7 @@ bool GlobalVrouter::LinkLocalRouteManager::VnUpdateWalk(
             GetInet4UnicastRouteTable());
 
     if (is_add) {
-        if (vn_entry->Ipv4Forwarding()) {
+        if (vn_entry->layer3_forwarding()) {
             rt_table->AddVHostRecvRoute(agent->link_local_peer(),
                                         vrf_entry->GetName(),
                                         agent->vhost_interface_name(),
@@ -317,7 +317,7 @@ bool GlobalVrouter::LinkLocalRouteManager::VnNotify(DBTablePartBase *partition,
     VnEntry *vn_entry = static_cast<VnEntry *>(entry);
     VrfEntry *vrf_entry = vn_entry->GetVrf();
     Agent *agent = global_vrouter_->oper_db()->agent();
-    if (vn_entry->IsDeleted() || !vn_entry->Ipv4Forwarding() || !vrf_entry) {
+    if (vn_entry->IsDeleted() || !vn_entry->layer3_forwarding() || !vrf_entry) {
         LinkLocalDBState *state = static_cast<LinkLocalDBState *> 
             (vn_entry->GetState(partition->parent(), vn_id_));
         if (!state)
@@ -343,7 +343,7 @@ bool GlobalVrouter::LinkLocalRouteManager::VnNotify(DBTablePartBase *partition,
         return true;
     }
 
-    if (vn_entry->Ipv4Forwarding()) {
+    if (vn_entry->layer3_forwarding()) {
         if (vn_entry->GetState(partition->parent(), vn_id_))
             return true;
         LinkLocalDBState *state = new LinkLocalDBState(vrf_entry);

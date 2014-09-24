@@ -61,7 +61,7 @@ Ping::CreateTcpPkt(Agent *agent) {
                        ntohl(sip_.to_ulong()), ntohl(dip_.to_ulong()), 
                        IPPROTO_TCP);
     pkt_handler->EthHdr(agent->vhost_interface()->mac().ether_addr_octet,
-                        agent->vrrp_mac(), IP_PROTOCOL);
+                        agent->vrrp_mac(), ETHERTYPE_IP);
 
     return pkt_handler;
 }
@@ -89,7 +89,7 @@ Ping::CreateUdpPkt(Agent *agent) {
                        ntohl(sip_.to_ulong()), ntohl(dip_.to_ulong()), 
                        IPPROTO_UDP);
     pkt_handler->EthHdr(agent->vhost_interface()->mac().ether_addr_octet,
-                        agent->vrrp_mac(), IP_PROTOCOL);
+                        agent->vrrp_mac(), ETHERTYPE_IP);
 
     return pkt_handler;
 }

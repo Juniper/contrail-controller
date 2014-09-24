@@ -43,6 +43,26 @@ struct udp_packet {
     uint8_t payload[];
 }__attribute__((packed));
 
+struct icmp6_packet {
+    struct ethhdr eth;
+    struct ip6_hdr  ip; 
+    struct icmphdr icmp;
+} __attribute__((packed));
+
+struct tcp6_packet {
+    struct ethhdr eth;
+    struct ip6_hdr  ip; 
+    struct tcphdr tcp;
+    char   payload[TCP_PAYLOAD_SIZE];
+}__attribute__((packed));
+
+struct udp6_packet {
+    struct ethhdr eth;
+    struct ip6_hdr  ip; 
+    struct udphdr udp;
+    uint8_t payload[];
+}__attribute__((packed));
+
 class IpUtils {
 public:
     static uint16_t IPChecksum(uint16_t *data, uint32_t len) {
@@ -73,11 +93,8 @@ public:
         return ans;
     }
 
-    static void AddEthHdr(char *buff, int &len, const char *dmac, 
-                         const char *smac, uint16_t proto) {
-    }
-
-    static void IpInit(struct iphdr *ip, uint8_t proto, uint16_t len, uint32_t sip, uint32_t dip) {
+    static void IpInit(struct iphdr *ip, uint8_t proto, uint16_t len,
+                       uint32_t sip, uint32_t dip) {
         ip->saddr = htonl(sip);
         ip->daddr = htonl(dip);
         ip->version = 4;
@@ -89,6 +106,17 @@ public:
         ip->ttl = 255;
         ip->protocol = proto;
         ip->check = htons(IPChecksum((uint16_t *)ip, sizeof(struct iphdr)));
+    }
+
+    static void Ip6Init(struct ip6_hdr *ip, uint8_t proto, uint16_t len,
+                        uint32_t sip, uint32_t dip) {
+        bzero(ip, sizeof(*ip));
+        ip->ip6_src.s6_addr32[0] = htonl(sip);
+        ip->ip6_dst.s6_addr32[0] = htonl(dip);
+        ip->ip6_ctlun.ip6_un1.ip6_un1_flow = htonl(0x60000000);
+        ip->ip6_ctlun.ip6_un1.ip6_un1_plen = htons(len);
+        ip->ip6_ctlun.ip6_un1.ip6_un1_nxt = proto;
+        ip->ip6_ctlun.ip6_un1.ip6_un1_hlim = 255;
     }
 
     static void EthInit(ethhdr *eth, unsigned short proto) {
@@ -196,6 +224,79 @@ private:
     icmp_packet pkt;
 };
 
+class Tcp6Packet {
+public:
+    Tcp6Packet(uint16_t sp, uint16_t dp, uint32_t sip, uint32_t dip) {
+        uint16_t len;
+        Init(sp, dp);
+        len = sizeof(pkt.ip) + sizeof(pkt.tcp) + sizeof(pkt.payload);
+        IpUtils::Ip6Init(&pkt.ip, IPPROTO_TCP, len, sip, dip);
+        IpUtils::EthInit(&pkt.eth, ETH_P_IPV6);
+    }
+    unsigned char *GetPacket() const { return (unsigned char *)&pkt; } 
+private:
+    void Init(uint16_t sport, uint16_t dport) {
+        pkt.tcp.source = htons(sport);
+        pkt.tcp.dest = htons(dport);
+        pkt.tcp.seq = htonl(1);
+        pkt.tcp.ack_seq = htonl(0);
+
+        pkt.tcp.doff = 5;
+        pkt.tcp.fin = 0;
+        pkt.tcp.syn = 0;
+        pkt.tcp.rst = 0;
+        pkt.tcp.psh= 0;
+        pkt.tcp.ack = 0;
+        pkt.tcp.urg = 0;
+        pkt.tcp.res1 = 0;
+        pkt.tcp.res2 = 0;
+
+        pkt.tcp.window = htons(0);
+        pkt.tcp.check = htons(0);
+        pkt.tcp.urg_ptr = htons(0);
+    }
+    struct tcp6_packet pkt;
+};
+
+class Udp6Packet {
+public:
+    Udp6Packet(uint16_t sp, uint16_t dp, uint32_t sip, uint32_t dip) {
+        uint16_t len;
+        Init(sp, dp);
+        len = sizeof(pkt.ip) + sizeof(pkt.udp) + sizeof(pkt.payload);
+        IpUtils::Ip6Init(&pkt.ip, IPPROTO_UDP, len, sip, dip);
+        IpUtils::EthInit(&pkt.eth, ETH_P_IPV6);
+    }
+    unsigned char *GetPacket() const { return (unsigned char *)&pkt; } 
+private:
+    void Init(uint16_t sport, uint16_t dport) {
+        pkt.udp.source = htons(sport);
+        pkt.udp.dest = htons(dport);
+        pkt.udp.len = htons(sizeof(pkt.payload));
+        pkt.udp.check = htons(0); //ignoring checksum for now.
+        
+    }
+    struct udp6_packet pkt;
+};
+
+class Icmp6Packet {
+public:        
+    Icmp6Packet(uint8_t *smac, uint8_t *dmac, uint32_t sip, uint32_t dip) {
+        uint16_t len;
+        len = sizeof(pkt.ip) + sizeof(pkt.icmp);
+        IpUtils::Ip6Init(&(pkt.ip), IPPROTO_ICMPV6, len, sip, dip);
+        IpUtils::EthInit(&(pkt.eth), smac, dmac, ETH_P_IPV6);
+        pkt.icmp.type = ICMP_ECHO; 
+        pkt.icmp.code = 0;
+        pkt.icmp.checksum = IpUtils::IPChecksum((uint16_t *)&pkt.icmp, sizeof(icmp_packet));
+        pkt.icmp.un.echo.id = 0;
+        pkt.icmp.un.echo.sequence = 0; 
+    }
+    unsigned char *GetPacket() const { return (unsigned char *)&pkt; } 
+private:
+    icmp6_packet pkt;
+};
+
 class PktGen {
 public:
     const static int kMaxPktLen=1024;
@@ -221,6 +322,18 @@ public:
         ip->daddr = inet_addr(dip);
         ip->protocol = proto;
         len += sizeof(iphdr);
+    };
+
+    void AddIp6Hdr(const char *sip, const char *dip, uint16_t proto) {
+        struct ip6_hdr *ip = (struct ip6_hdr *)(buff + len);
+        bzero(ip, sizeof(*ip));
+        inet_pton(AF_INET6, sip, ip->ip6_src.s6_addr);
+        inet_pton(AF_INET6, dip, ip->ip6_dst.s6_addr);
+        ip->ip6_ctlun.ip6_un1.ip6_un1_flow = htonl(0x60000000);
+        ip->ip6_ctlun.ip6_un1.ip6_un1_plen = htons(len);
+        ip->ip6_ctlun.ip6_un1.ip6_un1_nxt = proto;
+        ip->ip6_ctlun.ip6_un1.ip6_un1_hlim = 255;
+        len += sizeof(ip6_hdr);
     };
 
     void AddUdpHdr(uint16_t sport, uint16_t dport, int plen) {

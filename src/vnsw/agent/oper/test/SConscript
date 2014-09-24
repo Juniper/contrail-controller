@@ -21,6 +21,8 @@ test_inet_interface = AgentEnv.MakeTestCmd(env, 'test_inet_interface',
 test_fabric_interface = AgentEnv.MakeTestCmd(env, 'test_fabric_interface',
                                              oper_flaky_test_suite)
 test_aap = AgentEnv.MakeTestCmd(env, 'test_aap', oper_flaky_test_suite)
+test_ipv6 = AgentEnv.MakeTestCmd(env, 'test_ipv6', oper_test_suite)
+env.Alias('agent:test_ipv6', test_ipv6)
 
 env.Append(LIBPATH = [
         '../../../../base/test',
