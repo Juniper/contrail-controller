@@ -70,7 +70,7 @@ private:
     boost::scoped_ptr<Ruleeng> ruleeng_;
     Collector *collector_;
     SyslogListeners *syslog_listener_;
-    boost::scoped_ptr<SFlowCollector> sflow_collector_;
+    SFlowCollector *sflow_collector_;
     boost::scoped_ptr<ProtobufCollector> protobuf_collector_;
     std::string name_;
 
