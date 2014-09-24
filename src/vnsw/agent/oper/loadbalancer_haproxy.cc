@@ -8,15 +8,17 @@
 #include <fstream>
 #include <boost/assign/list_of.hpp>
 #include "base/logging.h"
+#include "agent.h"
+#include "agent_param.h"
 
 #include "loadbalancer_properties.h"
 
 using namespace std;
 using boost::assign::map_list_of;
 
-LoadbalancerHaproxy::LoadbalancerHaproxy()
+LoadbalancerHaproxy::LoadbalancerHaproxy(Agent *agent)
         : protocol_default_("tcp"),
-          balance_default_("roundrobin") {
+          balance_default_("roundrobin"), agent_(agent) {
     protocol_map_ = map_list_of
             ("TCP", "tcp")
             ("HTTP", "http")
@@ -88,7 +90,12 @@ void LoadbalancerHaproxy::GenerateFrontend(
     *out << "frontend " << props.vip_uuid() << endl;
     const autogen::VirtualIpType &vip = props.vip_properties();
     *out << string(4, ' ')
-         << "bind " << vip.address << ":" << vip.protocol_port << endl;
+         << "bind " << vip.address << ":" << vip.protocol_port;
+    if (vip.protocol_port ==  LB_HAPROXY_SSL_PORT) {
+        *out << " ssl crt " << agent_->params()->si_netns_haproxy_ssl_path();
+    }
+    *out << endl;
+
     *out << string(4, ' ')
          << "mode " << ProtocolMap(vip.protocol) << endl;
     *out << string(4, ' ')

@@ -168,6 +168,15 @@ void AgentServiceInstanceSandesh::Alloc() {
     resp_ = new ServiceInstanceResp();
 }
 
+DBTable *AgentLoadBalancerSandesh::AgentGetTable() {
+    return static_cast<DBTable *>(Agent::GetInstance()->db()->
+                        FindTable("db.loadbalancer-pool.0"));
+}
+
+void AgentLoadBalancerSandesh::Alloc() {
+    resp_ = new LoadBalancerResp();
+}
+
 void AgentSandesh::DoSandesh() {
     DBTable *table;
 

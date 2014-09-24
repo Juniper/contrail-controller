@@ -20,6 +20,7 @@ class LoadbalancerHaproxy;
 class NamespaceState;
 class NamespaceTask;
 class NamespaceTaskQueue;
+class Agent;
 
 /*
  * Starts and stops network namespaces corresponding to service-instances.
@@ -65,7 +66,7 @@ class NamespaceManager {
     static const int kTimeoutDefault = 30;
     static const int kWorkersDefault = 1;
 
-    NamespaceManager(EventManager *evm);
+    NamespaceManager(Agent *agent);
 
     void Initialize(DB *database, AgentSignal *signal,
                     const std::string &netns_cmd, const int netns_workers,

@@ -15,14 +15,15 @@
 #include "oper/loadbalancer_haproxy.h"
 #include "oper/loadbalancer_properties.h"
 #include "cmn/agent_signal.h"
+#include "agent.h"
 
 using boost::uuids::uuid;
 
 static const char loadbalancer_config_path_default[] =
         "/var/lib/contrail/loadbalancer/";
 
-NamespaceManager::NamespaceManager(EventManager *evm)
-        : evm_(evm), si_table_(NULL),
+NamespaceManager::NamespaceManager(Agent *agent)
+        : evm_(agent->event_manager()), si_table_(NULL),
           si_listener_(DBTableBase::kInvalidId),
           lb_table_(NULL),
           lb_listener_(DBTableBase::kInvalidId),
@@ -30,7 +31,7 @@ NamespaceManager::NamespaceManager(EventManager *evm)
           work_queue_(TaskScheduler::GetInstance()->GetTaskId("db::DBTable"), 0,
                       boost::bind(&NamespaceManager::DequeueEvent, this, _1)),
           loadbalancer_config_path_(loadbalancer_config_path_default),
-          haproxy_(new LoadbalancerHaproxy()) {
+          haproxy_(new LoadbalancerHaproxy(agent)) {
 }
 
 void NamespaceManager::Initialize(DB *database, AgentSignal *signal,
