@@ -745,6 +745,8 @@ class AddrMgmt(object):
                                     addr_from_start = subnet_dict['addr_start'])
                 self._subnet_objs[vn_fq_name_str][subnet_name] = subnet_obj
 
+            if asked_ip_addr == str(subnet_obj.gw_ip):
+                return asked_ip_addr
             if asked_ip_addr and not subnet_obj.ip_belongs(asked_ip_addr):
                 continue
             try:
