@@ -41,9 +41,9 @@ VizCollector::VizCollector(EventManager *evm, unsigned short listen_port,
         ruleeng_.get(), cassandra_ips, cassandra_ports, analytics_ttl)),
     syslog_listener_(new SyslogListeners(evm,
             boost::bind(&Ruleeng::rule_execute, ruleeng_.get(), _1, _2, _3),
-            db_initializer_->GetDbHandler(), syslog_port)),
-    sflow_collector_(new SFlowCollector(evm, db_initializer_->GetDbHandler(),
-        sflow_port, -1)) {
+            db_initializer_->GetDbHandler(), syslog_port)) {
+    //sflow_collector_(new SFlowCollector(evm, db_initializer_->GetDbHandler(),
+    //    sflow_port, -1)) {
     error_code error;
     if (dup)
         name_ = boost::asio::ip::host_name(error) + "dup";
