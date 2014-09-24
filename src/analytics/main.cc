@@ -7,7 +7,7 @@
 #include <boost/asio/ip/host_name.hpp>
 #include <boost/program_options.hpp>
 #include <boost/tokenizer.hpp>
-
+#include <malloc.h>
 #include "analytics/options.h"
 #include "analytics/viz_constants.h"
 #include "base/cpuinfo.h"
@@ -177,6 +177,12 @@ void CollectorShutdown() {
 }
 
 static void terminate(int param) {
+    // Shutdown can result in a malloc-detected error
+    // Taking a stack trace during this error can result in 
+    // the process not terminating correctly
+    // using mallopt in this way ensures that we get a core,
+    // but we don't print a stack trace
+    mallopt(M_CHECK_ACTION, 2);
     CollectorShutdown();
 }
 
