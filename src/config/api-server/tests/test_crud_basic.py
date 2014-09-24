@@ -31,6 +31,7 @@ from vnc_api.vnc_api import *
 from vnc_api.common import exceptions as vnc_exceptions
 import vnc_api.gen.vnc_api_test_gen
 from vnc_api.gen.resource_test import *
+import cfgm_common
 
 sys.path.append('../common/tests')
 from test_utils import *
@@ -822,6 +823,40 @@ class TestVncCfgApiServer(test_case.ApiServerTestCase):
         rb_obj = self._vnc_lib.virtual_network_read(id=vn_obj.uuid)
         self.assertThat(rb_obj.display_name, Equals('foobar'))
 
+    def test_floatingip_as_instanceip(self):
+        ipam_fixt = self.useFixture(NetworkIpamTestFixtureGen(self._vnc_lib))
+
+        project_fixt = self.useFixture(ProjectTestFixtureGen(self._vnc_lib, 'default-project'))
+
+        subnet_vnc = IpamSubnetType(subnet=SubnetType('1.1.1.0', 24))
+        vnsn_data = VnSubnetsType([subnet_vnc])
+        logger.info("Creating a virtual network")
+        logger.info("Creating subnet 1.1.1.0/24")
+        vn_fixt = self.useFixture(VirtualNetworkTestFixtureGen(self._vnc_lib,
+                  network_ipam_ref_infos=[(ipam_fixt.getObj(), vnsn_data)]))
+        vn_fixt.getObj().set_router_external(True)
+        self._vnc_lib.virtual_network_update(vn_fixt.getObj())
+
+        logger.info("Fetching floating-ip-pool")
+        fip_pool_fixt = self.useFixture(
+            FloatingIpPoolTestFixtureGen(self._vnc_lib, 'floating-ip-pool',
+                                         parent_fixt=vn_fixt))
+
+        logger.info("Creating auto-alloc floating-ip")
+        fip_fixt = self.useFixture(
+            FloatingIpTestFixtureGen(
+                self._vnc_lib, 'fip1', parent_fixt=fip_pool_fixt,
+                project_refs=[project_fixt.getObj()]))
+        ip_allocated = fip_fixt.getObj().floating_ip_address
+
+        logger.info("Creating auto-alloc instance-ip, expecting an error")
+        with self.assertRaises(cfgm_common.exceptions.PermissionDenied):
+            iip_fixt = self.useFixture(
+                InstanceIpTestFixtureGen(
+                    self._vnc_lib, 'iip1', auto_prop_val=False,
+                    instance_ip_address=ip_allocated,
+                    virtual_network_refs=[vn_fixt.getObj()]))
+    # end test_floatingip_as_instanceip
 # end class TestVncCfgApiServer
 
 class TestLocalAuth(test_case.ApiServerTestCase):
