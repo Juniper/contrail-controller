@@ -303,7 +303,7 @@ class InstanceManager(object):
                     (st_props.get_service_type() ==
                      svc_info.get_snat_service_type())):
                 vn_id = self._create_snat_vn(proj_obj, si_obj,
-                                             si_props, vn_fq_name_str)
+                    si_props, vn_fq_name_str, idx)
             elif (itf_type == svc_info.get_right_if_str() and
                     (st_props.get_service_type() ==
                      svc_info.get_lb_service_type())):
@@ -618,7 +618,7 @@ class NetworkNamespaceManager(InstanceManager):
 
         return 'ACTIVE'
 
-    def _create_snat_vn(self, proj_obj, si_obj, si_props, vn_fq_name_str):
+    def _create_snat_vn(self, proj_obj, si_obj, si_props, vn_fq_name_str, idx):
         # SNAT NetNS use a dedicated network (non shared vn)
         vn_name = 'snat-si-left_%s' % si_obj.name
         vn_fq_name = proj_obj.get_fq_name() + [vn_name]
@@ -632,7 +632,7 @@ class NetworkNamespaceManager(InstanceManager):
         if vn_fq_name_str != ':'.join(vn_fq_name):
             left_if = ServiceInstanceInterfaceType(
                 virtual_network=':'.join(vn_fq_name))
-            si_props.insert_interface_list(0, left_if)
+            si_props.insert_interface_list(idx, left_if)
             si_obj.set_service_instance_properties(si_props)
             self._vnc_lib.service_instance_update(si_obj)
             self.logger.log("Info: SI %s updated with left vn %s" %
