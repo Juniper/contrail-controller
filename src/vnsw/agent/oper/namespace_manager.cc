@@ -15,6 +15,7 @@
 #include "oper/loadbalancer_haproxy.h"
 #include "oper/loadbalancer_properties.h"
 #include "cmn/agent_signal.h"
+#include "agent.h"
 
 using boost::uuids::uuid;
 

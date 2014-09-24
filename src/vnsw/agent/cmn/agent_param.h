@@ -82,6 +82,7 @@ public:
     std::string si_netns_command() const {return si_netns_command_;}
     const int si_netns_workers() const {return si_netns_workers_;}
     const int si_netns_timeout() const {return si_netns_timeout_;}
+    std::string si_netns_haproxy_ssl_path() const { return si_netns_haproxy_ssl_path_;}
 
     const std::string &config_file() const { return config_file_; }
     const std::string &program_name() const { return program_name_;}
@@ -239,6 +240,7 @@ private:
     std::string si_netns_command_;
     int si_netns_workers_;
     int si_netns_timeout_;
+    std::string si_netns_haproxy_ssl_path_;
 
     DISALLOW_COPY_AND_ASSIGN(AgentParam);
 };

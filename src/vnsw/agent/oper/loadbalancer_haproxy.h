@@ -8,7 +8,10 @@
 #include <boost/uuid/uuid.hpp>
 #include "base/util.h"
 
+#define LB_HAPROXY_SSL_PORT 443
+
 class LoadbalancerProperties;
+class Agent;
 
 class LoadbalancerHaproxy {
 public:

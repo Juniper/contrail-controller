@@ -442,6 +442,8 @@ void AgentParam::ParseServiceInstance() {
                           "SERVICE-INSTANCE.netns_workers");
     GetValueFromTree<int>(si_netns_timeout_,
                           "SERVICE-INSTANCE.netns_timeout");
+    GetValueFromTree<string>(si_netns_haproxy_ssl_path_,
+                             "SERVICE-INSTANCE.netns_haproxy_ssl_path");
 }
 
 void AgentParam::ParseCollectorArguments
@@ -561,6 +563,7 @@ void AgentParam::ParseServiceInstanceArguments
     GetOptValue<string>(var_map, si_netns_command_, "SERVICE-INSTANCE.netns_command");
     GetOptValue<int>(var_map, si_netns_workers_, "SERVICE-INSTANCE.netns_workers");
     GetOptValue<int>(var_map, si_netns_timeout_, "SERVICE-INSTANCE.netns_timeout");
+    GetOptValue<string>(var_map, si_netns_haproxy_ssl_path_, "SERVICE-INSTANCE.netns_haproxy_ssl_path");
 }
 
 // Initialize hypervisor mode based on system information
@@ -787,6 +790,7 @@ void AgentParam::LogConfig() const {
     LOG(DEBUG, "Service instance netns cmd  : " << si_netns_command_);
     LOG(DEBUG, "Service instance workers    : " << si_netns_workers_);
     LOG(DEBUG, "Service instance timeout    : " << si_netns_timeout_);
+    LOG(DEBUG, "Service instance HAProxy ssl: " << si_netns_haproxy_ssl_path_);
     if (mode_ == MODE_KVM) {
     LOG(DEBUG, "Hypervisor mode             : kvm");
         return;
@@ -825,7 +829,7 @@ AgentParam::AgentParam(Agent *agent) :
         flow_stats_interval_(FlowStatsInterval),
         vmware_physical_port_(""), test_mode_(false), debug_(false), tree_(),
         headless_mode_(false), si_netns_command_(), si_netns_workers_(0),
-        si_netns_timeout_(0) {
+        si_netns_timeout_(0), si_netns_haproxy_ssl_path_() {
     vgw_config_table_ = std::auto_ptr<VirtualGatewayConfigTable>
         (new VirtualGatewayConfigTable(agent));
 }
