@@ -292,7 +292,8 @@ class LogQuerier(object):
                 VizConstants.TIMESTAMP,
                 VizConstants.MESSAGE_TYPE,
                 VizConstants.SEQUENCE_NUM,
-                VizConstants.DATA
+                VizConstants.DATA,
+                VizConstants.SANDESH_TYPE
             ]
             sandesh_type_filter = OpServerUtils.Match(
                 name=VizConstants.SANDESH_TYPE,
