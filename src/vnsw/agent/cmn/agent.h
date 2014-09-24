@@ -668,6 +668,7 @@ public:
     VNController *controller() const;
     void set_controller(VNController *val);
 
+    // Physical Device Manager
     PhysicalDeviceManager *device_manager() const;
     void set_device_manager(PhysicalDeviceManager *dev_mgmt);
 
