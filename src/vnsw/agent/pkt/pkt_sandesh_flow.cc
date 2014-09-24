@@ -84,6 +84,9 @@ using boost::system::error_code;
                              (fe->data().nh_state_.get())->nh() != NULL) {  \
         data.set_rpf_nh((fe->data().nh_state_.get())->nh()->id());          \
     }                                                                       \
+    data.set_peer_vrouter(fe->peer_vrouter());                            \
+    data.set_tunnel_type(fe->tunnel_type().ToString());                     \
+    data.set_underlay_source_port(fe->underlay_source_port())
 
 
 const std::string PktSandeshFlow::start_key = "0:0:0:0:0.0.0.0:0.0.0.0";

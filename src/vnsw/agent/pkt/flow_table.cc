@@ -97,7 +97,9 @@ FlowEntry::FlowEntry(const FlowKey &k) :
     key_(k), data_(), stats_(), flow_handle_(kInvalidFlowHandle),
     ksync_entry_(NULL), deleted_(false), flags_(0), short_flow_reason_(SHORT_UNKNOWN),
     linklocal_src_port_(),
-    linklocal_src_port_fd_(PktFlowInfo::kLinkLocalInvalidFd) {
+    linklocal_src_port_fd_(PktFlowInfo::kLinkLocalInvalidFd),
+    peer_vrouter_(), tunnel_type_(TunnelType::INVALID),
+    underlay_source_port_(0) {
     flow_uuid_ = FlowTable::rand_gen_(); 
     egress_uuid_ = FlowTable::rand_gen_(); 
     refcount_ = 0;
@@ -810,7 +812,7 @@ uint32_t FlowEntry::acl_assigned_vrf_index() const {
     return 0;
 }
 
-void FlowEntry::UpdateKSync() {
+void FlowEntry::UpdateKSync(const FlowTable* table) {
     FlowInfo flow_info;
     FillFlowInfo(flow_info);
     if (stats_.last_modified_time != stats_.setup_time) {
@@ -818,7 +820,9 @@ void FlowEntry::UpdateKSync() {
          * Do not export stats on flow creation, it will be exported
          * while updating stats
          */
-        FlowStatsCollector::FlowExport(this, 0, 0);
+        FlowStatsCollector *fec = table->agent()->uve()->
+                                    flow_stats_collector();
+        fec->FlowExport(this, 0, 0);
     }
     FlowTableKSyncObject *ksync_obj = 
         Agent::GetInstance()->ksync()->flowtable_ksync_obj();
@@ -1010,13 +1014,14 @@ void FlowEntry::UpdateFipStatsInfo(uint32_t fip, uint32_t id) {
     stats_.fip_vm_port_id = id;
 }
 
-void FlowEntry::set_flow_handle(uint32_t flow_handle) {
+void FlowEntry::set_flow_handle(uint32_t flow_handle, const FlowTable* table) {
     /* trigger update KSync on flow handle change */
     if (flow_handle_ != flow_handle) {
         flow_handle_ = flow_handle;
-        UpdateKSync();
+        UpdateKSync(table);
     }
 }
+
 void FlowEntry::FillFlowInfo(FlowInfo &info) {
     info.set_flow_index(flow_handle_);
     info.set_source_ip(key_.src.ipv4);
@@ -1262,6 +1267,8 @@ bool FlowEntry::SetRpfNH(const Inet4UnicastRouteEntry *rt) {
 
 bool FlowEntry::InitFlowCmn(const PktFlowInfo *info, const PktControlInfo *ctrl,
                             const PktControlInfo *rev_ctrl) {
+    peer_vrouter_ = info->peer_vrouter;
+    tunnel_type_ = info->tunnel_type;
     if (stats_.last_modified_time) {
         if (is_flags_set(FlowEntry::NatFlow) != info->nat_done) {
             MakeShortFlow(SHORT_NAT_CHANGE);
@@ -1970,7 +1977,7 @@ void FlowTable::ResyncRpfNH(const RouteFlowKey &key,
         }
 
         if (flow->SetRpfNH(rt) == true) {
-            flow->UpdateKSync();
+            flow->UpdateKSync(this);
             FlowInfo flow_info;
             flow->FillFlowInfo(flow_info);
             FLOW_TRACE(Trace, "Resync RPF NH", flow_info);
@@ -2545,7 +2552,7 @@ void FlowTable::AddRouteFlowInfo (FlowEntry *fe)
 
 void FlowTable::ResyncAFlow(FlowEntry *fe) {
     fe->DoPolicy();
-    fe->UpdateKSync();
+    fe->UpdateKSync(this);
 
     // If this is forward flow, update the SG action for reflexive entry
     if (fe->is_flags_set(FlowEntry::ReverseFlow)) {
@@ -2561,7 +2568,7 @@ void FlowTable::ResyncAFlow(FlowEntry *fe) {
     // Check if there is change in action for reverse flow
     rflow->ActionRecompute();
 
-    rflow->UpdateKSync();
+    rflow->UpdateKSync(this);
 }
 
 void FlowTable::DeleteVnFlows(const VnEntry *vn)

@@ -349,7 +349,7 @@ class FlowEntry {
     };
 
     bool ActionRecompute();
-    void UpdateKSync();
+    void UpdateKSync(const FlowTable* table);
     int GetRefCount() { return refcount_; }
     void MakeShortFlow(FlowShortReason reason);
     const FlowStats &stats() const { return stats_;}
@@ -359,7 +359,7 @@ class FlowEntry {
     const uuid &flow_uuid() const { return flow_uuid_; }
     const uuid &egress_uuid() const { return egress_uuid_; }
     uint32_t flow_handle() const { return flow_handle_; }
-    void set_flow_handle(uint32_t flow_handle);
+    void set_flow_handle(uint32_t flow_handle, const FlowTable* table);
     FlowEntry * reverse_flow_entry() { return reverse_flow_entry_.get(); }
     const FlowEntry * reverse_flow_entry() const { return reverse_flow_entry_.get(); }
     void set_reverse_flow_entry(FlowEntry *reverse_flow_entry) {
@@ -424,6 +424,12 @@ class FlowEntry {
     void UpdateFipStatsInfo(uint32_t fip, uint32_t id);
     const std::string &sg_rule_uuid() const { return sg_rule_uuid_; }
     const std::string &nw_ace_uuid() const { return nw_ace_uuid_; }
+    const std::string &peer_vrouter() const { return peer_vrouter_; }
+    TunnelType tunnel_type() const { return tunnel_type_; }
+    uint16_t underlay_source_port() const { return underlay_source_port_; }
+    void set_underlay_source_port(uint16_t port) {
+        underlay_source_port_ = port;
+    }
     uint16_t short_flow_reason() const { return short_flow_reason_; }
 private:
     friend class FlowTable;
@@ -455,6 +461,13 @@ private:
     int linklocal_src_port_fd_;
     std::string sg_rule_uuid_;
     std::string nw_ace_uuid_;
+    //IP address of the src vrouter for egress flows and dst vrouter for
+    //ingress flows. Used only during flow-export
+    std::string peer_vrouter_;
+    //Underlay IP protocol type. Used only during flow-export
+    TunnelType tunnel_type_;
+    //Underlay source port. 0 for local flows. Used during flow-export
+    uint16_t underlay_source_port_;
     // atomic refcount
     tbb::atomic<int> refcount_;
 };

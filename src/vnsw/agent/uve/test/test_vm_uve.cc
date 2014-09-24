@@ -263,26 +263,6 @@ public:
         DeleteBgpPeer(peer_);
     }
 
-    void CreateRemoteRoute(const char *vrf, const char *remote_vm,
-                           const char *serv, int label, const char *vn) {
-        boost::system::error_code ec;
-        Ip4Address addr = Ip4Address::from_string(remote_vm, ec);
-        Ip4Address gw = Ip4Address::from_string(serv, ec);
-        Inet4TunnelRouteAdd(peer_, vrf, addr, 32, gw, TunnelType::AllType(), label, vn,
-                            SecurityGroupList(), PathPreference());
-        client->WaitForIdle(2);
-        WAIT_FOR(1000, 500, (RouteFind(vrf, addr, 32) == true));
-    }
-
-    void DeleteRemoteRoute(const char *vrf, const char *ip) {
-        boost::system::error_code ec;
-        Ip4Address addr = Ip4Address::from_string(ip, ec);
-        agent()->fabric_inet4_unicast_table()->DeleteReq(peer_,
-                vrf, addr, 32, NULL);
-        client->WaitForIdle();
-        WAIT_FOR(1000, 1, (RouteFind(vrf, addr, 32) == false));
-    }
-
     Agent *agent() {return agent_;}
 
     TestUveUtil util_;
@@ -971,8 +951,8 @@ TEST_F(UveVmUveTest, FipStats_4) {
 TEST_F(UveVmUveTest, FipStats_5) {
     FlowSetUp();
     CreatePeer();
-    CreateRemoteRoute("default-project:vn4:vn4", remote_vm_fip,
-                      remote_router_ip, 30, "default-project:vn4");
+    util_.CreateRemoteRoute("default-project:vn4:vn4", remote_vm_fip,
+                      remote_router_ip, 30, "default-project:vn4", peer_);
     client->WaitForIdle();
     TestFlow flow[] = {
         {
@@ -1032,7 +1012,7 @@ TEST_F(UveVmUveTest, FipStats_5) {
     EXPECT_EQ(300U, stats.get_out_bytes());
     //cleanup
     FlowTearDown();
-    DeleteRemoteRoute("default-project:vn4:vn4", remote_vm_fip);
+    util_.DeleteRemoteRoute("default-project:vn4:vn4", remote_vm_fip, peer_);
     RemoveFipConfig();
     DeletePeer();
     vmut->ClearCount();

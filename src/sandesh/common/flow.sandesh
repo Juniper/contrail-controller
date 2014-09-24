@@ -41,6 +41,10 @@ struct FlowDataIpv4 {
     28: optional string    action;
     29: optional string    sg_rule_uuid;
     30: optional string    nw_ace_uuid;
+    31: optional string    vrouter;
+    32: optional string    other_vrouter;
+    33: optional u16       underlay_proto;
+    34: optional u16       underlay_source_port;
 }
 
 flowlog sandesh FlowDataIpv4Object {

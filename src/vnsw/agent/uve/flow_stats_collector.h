@@ -42,8 +42,8 @@ public:
         UpdateFlowAgeTime(secs * 1000 * 1000);
     }
 
-    static void FlowExport(FlowEntry *flow, uint64_t diff_bytes, 
-                           uint64_t diff_pkts);
+    void FlowExport(FlowEntry *flow, uint64_t diff_bytes,
+                    uint64_t diff_pkts);
     void UpdateFlowStats(FlowEntry *flow, uint64_t &diff_bytes, 
                          uint64_t &diff_pkts);
     void Shutdown();
@@ -51,7 +51,8 @@ private:
     uint64_t GetFlowStats(const uint16_t &oflow_data, const uint32_t &data);
     bool ShouldBeAged(FlowStats *stats, const vr_flow_entry *k_flow,
                       uint64_t curr_time);
-    static void SourceIpOverride(FlowEntry *flow, FlowDataIpv4 &s_flow);
+    void SourceIpOverride(FlowEntry *flow, FlowDataIpv4 &s_flow);
+    void SetUnderlayInfo(FlowEntry *flow, FlowDataIpv4 &s_flow);
     uint64_t GetUpdatedFlowPackets(const FlowStats *stats, uint64_t k_flow_pkts);
     uint64_t GetUpdatedFlowBytes(const FlowStats *stats, uint64_t k_flow_bytes);
     AgentUve *agent_uve_;

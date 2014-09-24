@@ -43,7 +43,8 @@ public:
         linklocal_flow(false), tcp_ack(false), linklocal_bind_local_port(false),
         linklocal_src_port_fd(kLinkLocalInvalidFd), ecmp(false),
         in_component_nh_idx(-1), out_component_nh_idx(-1), trap_rev_flow(false),
-        fip_snat(false), fip_dnat(false), snat_fip(0), short_flow_reason(0) {
+        fip_snat(false), fip_dnat(false), snat_fip(0), short_flow_reason(0),
+        peer_vrouter(), tunnel_type(TunnelType::INVALID) {
     }
 
     static bool ComputeDirection(const Interface *intf);
@@ -121,6 +122,8 @@ public:
     bool                fip_dnat;
     uint32_t            snat_fip;
     uint16_t            short_flow_reason;
+    std::string         peer_vrouter;
+    TunnelType          tunnel_type;
 };
 
 #endif // __agent_pkt_flow_info_h_

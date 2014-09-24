@@ -19,6 +19,7 @@
 #include "oper/sg.h"
 #include "oper/global_vrouter.h"
 #include "oper/operdb_init.h"
+#include "oper/tunnel_nh.h"
 
 #include "filter/packet_header.h"
 #include "filter/acl.h"
@@ -865,11 +866,26 @@ void PktFlowInfo::IngressProcess(const PktInfo *pkt, PktControlInfo *in,
         RouteToOutInfo(out->rt_, pkt, this, in, out);
     }
 
+    if (out->rt_) {
+        const NextHop* nh = out->rt_->GetActiveNextHop();
+        if (nh && nh->GetType() == NextHop::TUNNEL) {
+            const TunnelNH* tunnel_nh = static_cast<const TunnelNH *>(nh);
+            const Ip4Address *ip = tunnel_nh->GetDip();
+            if (ip) {
+                peer_vrouter = ip->to_string();
+                tunnel_type = tunnel_nh->GetTunnelType();
+            }
+        } else {
+            peer_vrouter = flow_table->agent()->router_id().to_string();
+        }
+    }
     return;
 }
 
 void PktFlowInfo::EgressProcess(const PktInfo *pkt, PktControlInfo *in,
                                 PktControlInfo *out) {
+    peer_vrouter = Ip4Address(pkt->tunnel.ip_saddr).to_string();
+    tunnel_type = pkt->tunnel.type;
     MplsLabel *mpls = Agent::GetInstance()->mpls_table()->FindMplsLabel(pkt->tunnel.label);
     if (mpls == NULL) {
         LogError(pkt, "Invalid Label in egress flow");
