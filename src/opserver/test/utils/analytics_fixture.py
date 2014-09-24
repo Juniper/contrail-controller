@@ -1646,15 +1646,9 @@ class AnalyticsFixture(fixtures.Fixture):
             self.opserver.stop()
         except:
             pass
-        try: 
-            self.query_engine.stop()
-        except:
-            pass
+        self.query_engine.stop()
         for collector in self.collectors:
-            try:
-                collector.stop()
-            except:
-                pass
+            collector.stop()
         for redis_uve in self.redis_uves:
             redis_uve.stop()
         super(AnalyticsFixture, self).cleanUp()
