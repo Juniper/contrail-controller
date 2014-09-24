@@ -401,7 +401,7 @@ class VirtualNetworkServer(VirtualNetworkServerGen):
             vnsn = ipam['attr']
             subnets = vnsn['ipam_subnets']
             for subnet in subnets:
-                if not subnet['subnet_uuid']:
+                if not subnet.get('subnet_uuid'):
                     subnet['subnet_uuid'] = str(uuid.uuid4())
     # end _check_and_create_subnet_uuid
 
