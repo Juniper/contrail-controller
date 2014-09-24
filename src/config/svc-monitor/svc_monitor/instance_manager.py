@@ -133,34 +133,50 @@ class InstanceManager(object):
         proj_fq_name = si_obj.get_parent_fq_name()
         proj_obj = self._vnc_lib.project_read(fq_name=proj_fq_name)
         port_fq_name = proj_fq_name + [port_name]
-        vmi_created = False
+        vmi_create = False
+        vmi_updated = False
+        if_properties = None
         try:
             vmi_obj = self._vnc_lib.virtual_machine_interface_read(fq_name=port_fq_name)
+            if_properties = vmi_obj.get_virtual_machine_interface_properties()
         except NoIdError:
             vmi_obj = VirtualMachineInterface(parent_obj=proj_obj, name=port_name)
             if user_visible is not None:
                 id_perms = IdPermsType(enable=True, user_visible=user_visible)
                 vmi_obj.set_id_perms(id_perms)
-            vmi_created = True
+            vmi_create = True
 
         # set vn, itf_type, sg and static routes
-        vmi_obj.set_virtual_network(vn_obj)
-        if_properties = VirtualMachineInterfacePropertiesType(nic['type'])
+        if vmi_obj.get_virtual_network_refs() is None:
+            vmi_obj.set_virtual_network(vn_obj)
+            vmi_updated = True
+
         if local_preference:
-            if_properties.set_local_preference(local_preference)
-        vmi_obj.set_virtual_machine_interface_properties(if_properties)
+            if if_properties is None:
+                if_properties = VirtualMachineInterfacePropertiesType(nic['type'])
+            if local_preference != if_properties.get_local_preference():
+                if_properties.set_local_preference(local_preference)
+                vmi_obj.set_virtual_machine_interface_properties(if_properties)
+                vmi_updated = True
+
         st_props = st_obj.get_service_template_properties()
         if (st_props.service_mode in ['in-network', 'in-network-nat'] and
             proj_obj.name != 'default-project'):
-            sg_obj = self._get_default_security_group(vn_obj)
-            vmi_obj.set_security_group(sg_obj)
-        if nic['static-route-enable']:
-            rt_obj = self._set_static_routes(nic, vmi_obj, proj_obj, si_obj)
-            vmi_obj.set_interface_route_table(rt_obj)
+            if vmi_obj.get_security_group_refs() is None:
+                sg_obj = self._get_default_security_group(vn_obj)
+                vmi_obj.set_security_group(sg_obj)
+                vmi_updated = True
 
-        if vmi_created:
+        if nic['static-route-enable']:
+            if vmi_obj.get_interface_route_table_refs() is None:
+                rt_obj = self._set_static_routes(nic, vmi_obj,
+                    proj_obj, si_obj)
+                vmi_obj.set_interface_route_table(rt_obj)
+                vmi_updated = True
+
+        if vmi_create:
             self._vnc_lib.virtual_machine_interface_create(vmi_obj)
-        else:
+        elif vmi_updated:
             self._vnc_lib.virtual_machine_interface_update(vmi_obj)
 
         # instance ip
@@ -179,18 +195,28 @@ class InstanceManager(object):
                 % (instance_name, proj_obj.name))
             return
 
-        # set active-standy flag for instance ip
+        # set active-standby flag for instance ip
         si_props = si_obj.get_service_instance_properties()
         if si_props.get_scale_out():
             max_instances = si_props.get_scale_out().get_max_instances()
         else:
             max_instances = 1
-        if max_instances > 1:
-            iip_obj.set_instance_ip_mode(u'active-active');
-        else:
-            iip_obj.set_instance_ip_mode(u'active-standby');
-        iip_obj.add_virtual_machine_interface(vmi_obj)
-        self._vnc_lib.instance_ip_update(iip_obj)
+
+        # check if vmi already linked to iip
+        iip_update = True
+        vmi_refs = iip_obj.get_virtual_machine_interface_refs()
+        for vmi_ref in vmi_refs or []:
+            if vmi_obj.uuid == vmi_ref['uuid']:
+                iip_update = False
+
+        if iip_update:
+            if max_instances > 1:
+                iip_obj.set_instance_ip_mode(u'active-active');
+            else:
+                iip_obj.set_instance_ip_mode(u'active-standby');
+
+            iip_obj.add_virtual_machine_interface(vmi_obj)
+            self._vnc_lib.instance_ip_update(iip_obj)
 
         return vmi_obj
 
@@ -489,13 +515,6 @@ class NetworkNamespaceManager(InstanceManager):
             self.logger.log("Cannot find service template associated to "
                              "service instance %s" % si_obj.get_fq_name_str())
             return
-        '''TODO: add check for lb and snat. Need a new class to drive this
-        if (st_props.get_service_type() != svc_info.get_snat_service_type()):
-            self.logger.log("Only service type 'source-nat' is supported "
-                             "with 'network-namespace' service "
-                             "virtualization type")
-            return
-        '''
 
         # populate nic information
         nics = self._get_nic_info(si_obj, si_props, st_props)
@@ -522,29 +541,32 @@ class NetworkNamespaceManager(InstanceManager):
                 self._vnc_lib.virtual_machine_create(vm_obj)
                 self.logger.log("Info: VM %s created" % (instance_name))
 
-            vm_obj.set_service_instance(si_obj)
-            self._vnc_lib.virtual_machine_update(vm_obj)
-            self.logger.log("Info: VM %s updated with SI %s" %
-                             (instance_name, si_obj.get_fq_name_str()))
+            si_refs = vm_obj.get_service_instance_refs()
+            if (si_refs is None) or (si_refs[0]['to'][0] == 'ERROR'):
+                vm_obj.set_service_instance(si_obj)
+                self._vnc_lib.virtual_machine_update(vm_obj)
+                self.logger.log("Info: VM %s updated with SI %s" %
+                    (instance_name, si_obj.get_fq_name_str()))
 
             # Create virtual machine interfaces with an IP on networks
             row_entry = {}
             local_preference = None
+            row_entry['local_preference'] = str(0)
             if local_prefs:
                 local_preference = local_prefs[inst_count]
-                row_entry['local_preference'] = local_preference
+                row_entry['local_preference'] = str(local_preference)
 
             for nic in nics:
                 user_visible = True
                 if nic['type'] == svc_info.get_left_if_str():
                     user_visible = False
-                vmi_obj = self._create_svc_vm_port(nic, instance_name, st_obj,
-                                                   si_obj, local_preference,
-                                                   user_visible)
-                vmi_obj.set_virtual_machine(vm_obj)
-                self._vnc_lib.virtual_machine_interface_update(vmi_obj)
-                self.logger.log("Info: VMI %s updated with VM %s" %
-                                 (vmi_obj.get_fq_name_str(), instance_name))
+                if vmi_obj.get_virtual_machine_refs() is None:
+                    vmi_obj = self._create_svc_vm_port(nic, instance_name, st_obj,
+                        si_obj, int(local_preference), user_visible)
+                    vmi_obj.set_virtual_machine(vm_obj)
+                    self._vnc_lib.virtual_machine_interface_update(vmi_obj)
+                    self.logger.log("Info: VMI %s updated with VM %s" %
+                        (vmi_obj.get_fq_name_str(), instance_name))
 
             # store NetNS instance in db use for linking when NetNS
             # is up. If the 'vrouter_name' key does not exist that means the
@@ -554,12 +576,15 @@ class NetworkNamespaceManager(InstanceManager):
             row_entry['instance_type'] = svc_info.get_netns_instance_type()
 
             # Associate instance on the scheduled vrouter
-            chosen_vr_fq_name = self.vrouter_scheduler.schedule(si_obj.uuid,
-                                                                vm_obj.uuid)
-            if chosen_vr_fq_name:
-                row_entry['vrouter_name'] = chosen_vr_fq_name[-1]
-                self.logger.log("Info: VRouter %s updated with VM %s" %
-                                 (':'.join(chosen_vr_fq_name), instance_name))
+            chosen_vr_fq_name = None
+            row_entry['vrouter_name'] = 'None'
+            if vm_obj.get_virtual_router_back_refs() is None:
+                chosen_vr_fq_name = self.vrouter_scheduler.schedule(
+                    si_obj.uuid, vm_obj.uuid)
+                if chosen_vr_fq_name:
+                    row_entry['vrouter_name'] = chosen_vr_fq_name[-1]
+                    self.logger.log("Info: VRouter %s updated with VM %s" %
+                        (':'.join(chosen_vr_fq_name), instance_name))
 
             self.db.virtual_machine_insert(vm_obj.uuid, row_entry)
 
@@ -688,7 +713,7 @@ class NetworkNamespaceManager(InstanceManager):
 
             vm_entry = self.db.virtual_machine_get(vm_obj.uuid)
             if vm_entry:
-                local_prefs[inst_count] = vm_entry['local_preference']
+                local_prefs[inst_count] = int(vm_entry['local_preference'])
 
         if not local_prefs[0] and not local_prefs[1]:
             local_prefs[0] = _ACTIVE_LOCAL_PREFERENCE
