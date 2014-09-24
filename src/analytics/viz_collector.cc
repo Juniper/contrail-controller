@@ -67,7 +67,8 @@ VizCollector::VizCollector(EventManager *evm, DbHandler *db_handler,
     collector_(collector),
     syslog_listener_(new SyslogListeners (evm,
             boost::bind(&Ruleeng::rule_execute, ruleeng, _1, _2, _3),
-            db_handler)) {
+            db_handler)),
+    sflow_collector_(NULL) {
     error_code error;
     name_ = boost::asio::ip::host_name(error);
 }
@@ -128,6 +129,7 @@ void VizCollector::Shutdown() {
     if (sflow_collector_) {
         sflow_collector_->Shutdown();
         WaitForIdle();
+        UdpServerManager::DeleteServer(sflow_collector_);
     }
 
     db_initializer_->Shutdown();
