@@ -291,6 +291,9 @@ public:
 
     const std::string &virtual_network() const { return virtual_network_; }
     int virtual_network_index() const { return virtual_network_index_; }
+    bool virtual_network_allow_transit() const {
+        return virtual_network_allow_transit_;
+    }
 
     IFMapNode *node() { return node_proxy_.node(); }
     const std::string &name() const { return name_; }
@@ -313,6 +316,7 @@ private:
     RouteTargetList export_list_;
     std::string virtual_network_;
     int virtual_network_index_;
+    bool virtual_network_allow_transit_;
 
     boost::intrusive_ptr<const autogen::RoutingInstance> instance_config_;
 

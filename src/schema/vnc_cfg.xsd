@@ -643,6 +643,7 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
 
 <xsd:complexType name='VirtualNetworkType'>
     <xsd:all>
+        <xsd:element name='allow-transit' type="xsd:boolean"/>
         <!-- A unique id for the network, auto generated -->
         <xsd:element name='network-id' type='xsd:integer'/>
         <!-- VNI for the network, configured by user -->
