@@ -51,6 +51,24 @@ class diskUsage:
     disk_avail = ''
     disk_size = ''
 
+class prevOsdLatency:
+    # primary osd read latency sum
+    prev_op_rsum = 0
+    # replica osd read latency sum
+    prev_subop_rsum = 0
+    # primary osd total read latency samples
+    prev_op_rcount = 0
+    # replica osd total read latency samples
+    prev_subop_rcount = 0
+    # primary osd write latency sum
+    prev_op_wsum = 0
+    # replica osd write latency sum
+    prev_subop_wsum = 0
+    # primary osd total write latency samples
+    prev_op_wcount = 0
+    # replica osd total write latency samples
+    prev_subop_wcount = 0
+
 class EventManager:
     rules_data = []
     headers = dict()
@@ -67,6 +85,7 @@ class EventManager:
         self.node_type = node_type
         self._hostname = socket.gethostname()
         self.dict_of_osds = dict()
+        self.prev_latency_dict = dict()
         self.units = self.init_units()
         self.curr_read_kbytes = 0
         self.curr_write_kbytes = 0
@@ -107,7 +126,7 @@ class EventManager:
         return p.stdout.read()
 
     def call_send(self, send_inst):
-        # sys.stderr.write('sending UVE:' +str(send_inst))
+        #sys.stderr.write('sending UVE:' +str(send_inst))
         send_inst.send()
 
     '''
@@ -137,13 +156,12 @@ class EventManager:
                     pool_stats.writes = int(arr1[9])
                     pool_stats.write_kbytes = int(arr1[10])
                     cs_pool.info_stats = [pool_stats]
-                    pool_stats_trace = ComputeStoragePoolTrace(
-                        data=cs_pool)
+                    pool_stats_trace = ComputeStoragePoolTrace(data=cs_pool)
                     self.call_send(pool_stats_trace)
 
 
 
-    def populate_osd_total_stats(self, osdname, osd_stats):
+    def populate_osd_total_stats(self, osdname, osd_stats, prev_osd_latency):
         ceph_name = "ceph-" + osdname + ".asok"
         cmd = "ceph --admin-daemon /var/run/ceph/" + ceph_name + \
               " perf dump | egrep  -w \"\\\"op_w\\\":|\\\"" + \
@@ -156,8 +174,7 @@ class EventManager:
                 return False
             arr1 = res1.splitlines()
             for line1 in arr1:
-                result = re.sub(
-                             '\s+', ' ', line1).strip()
+                result = re.sub('\s+', ' ', line1).strip()
                 line2 = result.split(":")
                 if len(line2) != 0:
                     if line2[0].find('subop_r_out_bytes') != -1 or \
@@ -178,36 +195,41 @@ class EventManager:
                             line2[1].rstrip(",").strip(' '))
         except:
             pass
+
+        res2 = self.populate_osd_latency_stats(osdname,  osd_stats,
+                                               prev_osd_latency)
+        if res2 is None:
+            return False
         return True
 
     def diff_read_kbytes(self, line, osd_stats, temp_osd_stats,
                          osd_prev_stats):
-        self.curr_read_kbytes += int(
-            line.rstrip(",").strip(' ')) / 1024
+        # 'line' format : " xyz,"
+        self.curr_read_kbytes += int(line.rstrip(",").strip(' ')) / 1024
         temp_osd_stats.read_kbytes = self.curr_read_kbytes
         osd_stats.read_kbytes = self.curr_read_kbytes - \
             osd_prev_stats.read_kbytes
 
     def diff_write_kbytes(self, line, osd_stats, temp_osd_stats,
                           osd_prev_stats):
-        self.curr_write_kbytes += int(
-            line.rstrip(",").strip(' ')) / 1024
+        # 'line' format : " xyz,"
+        self.curr_write_kbytes += int(line.rstrip(",").strip(' ')) / 1024
         temp_osd_stats.write_kbytes = self.curr_write_kbytes
         osd_stats.write_kbytes = self.curr_write_kbytes - \
             osd_prev_stats.write_kbytes
 
     def diff_read_cnt(self, line, osd_stats, temp_osd_stats,
                       osd_prev_stats):
-        self.curr_reads += int(
-            line.rstrip(",").strip(' '))
+        # 'line' format : " xyz,"
+        self.curr_reads += int(line.rstrip(",").strip(' '))
         temp_osd_stats.reads = self.curr_reads
         osd_stats.reads = self.curr_reads - \
             osd_prev_stats.reads
 
     def diff_write_cnt(self, line, osd_stats, temp_osd_stats,
                        osd_prev_stats):
-        self.curr_writes += int(
-            line.rstrip(",").strip(' '))
+        # 'line' format : " xyz,"
+        self.curr_writes += int(line.rstrip(",").strip(' '))
         temp_osd_stats.writes = self.curr_writes
         osd_stats.writes = self.curr_writes - \
             osd_prev_stats.writes
@@ -227,52 +249,110 @@ class EventManager:
                 return False
             arr1 = res1.splitlines()
             for line1 in arr1:
-                result = re.sub(
-                    '\s+', ' ', line1).strip()
+                result = re.sub('\s+', ' ', line1).strip()
                 line2 = result.split(":")
                 if len(line2) != 0:
                     if line2[0].find('subop_r_out_bytes') != -1 or \
                         line2[0].find('op_r_out_bytes') != -1:
                         self.diff_read_kbytes(line2[1],
-                            osd_stats, temp_osd_stats, osd_prev_stats)
+                                              osd_stats,
+                                              temp_osd_stats,
+                                              osd_prev_stats)
                     elif line2[0].find('subop_w_in_bytes') != -1 or \
                         line2[0].find('op_w_in_bytes') != -1:
                         self.diff_write_kbytes(line2[1],
-                            osd_stats, temp_osd_stats, osd_prev_stats)
+                                               osd_stats,
+                                               temp_osd_stats,
+                                               osd_prev_stats)
                     elif line2[0].find('subop_r') != -1 or \
-                        line2[0].find('op_r') != -1:
+                         line2[0].find('op_r') != -1:
                         self.diff_read_cnt(line2[1],
-                            osd_stats, temp_osd_stats, osd_prev_stats)
+                                           osd_stats,
+                                           temp_osd_stats,
+                                           osd_prev_stats)
                     elif line2[0].find('subop_w') != -1 or \
                         line2[0].find('op_w') != -1:
                         self.diff_write_cnt(line2[1],
-                            osd_stats, temp_osd_stats, osd_prev_stats)
+                                            osd_stats,
+                                            temp_osd_stats,
+                                            osd_prev_stats)
         except:
             pass
         return True
 
 
-    def compute_read_latency(self, arr, line, index, osd_stats):
+    def compute_read_latency(self, arr, line, index, osd_stats,
+                             prev_osd_latency, op_flag):
+        # 'line' format : " xyz,"
         avgcount = int(line.rstrip(",").strip(' '))
+        # 'arr' format : "'sum': xyz.yzw},"
         sum_rlatency = int(
             float(arr[index + 1].split(":")[1].strip().rstrip("},")))
+        # sum_rlatency is in seconds
+        # multiplied by 1000 to convert seconds to milliseconds
         if avgcount != 0:
-            osd_stats.op_r_latency += (sum_rlatency * 1000) / avgcount
+            # op_flag = 1 indicates replica osd read latency
+            if op_flag == 1:
+                osd_stats.op_r_latency += ((sum_rlatency * 1000) - \
+                    (prev_osd_latency.prev_subop_rsum * 1000)) / \
+                    (avgcount - prev_osd_latency.prev_subop_rcount)
+                prev_osd_latency.prev_subop_rsum = sum_rlatency
+                prev_osd_latency.prev_subop_rcount = avgcount
+            # op_flag = 2 indicates primary osd read latency
+            if op_flag == 2:
+                osd_stats.op_r_latency += ((sum_rlatency * 1000) - \
+                    (prev_osd_latency.prev_op_rsum * 1000)) / \
+                    (avgcount - prev_osd_latency.prev_op_rcount)
+                prev_osd_latency.prev_op_rsum = sum_rlatency
+                prev_osd_latency.prev_op_rcount = avgcount
         else:
             osd_stats.op_r_latency += 0
+            # op_flag = 1 indicates replica osd read latency
+            if op_flag == 1:
+                prev_osd_latency.prev_subop_rsum = 0
+                prev_osd_latency.prev_subop_rcount = 0
+            # op_flag = 2 indicates primary osd read latency
+            if op_flag == 2:
+                prev_osd_latency.prev_op_rsum = 0
+                prev_osd_latency.prev_op_rcount = 0
 
-    def compute_write_latency(self, arr, line, index, osd_stats):
+    def compute_write_latency(self, arr, line, index, osd_stats,
+                              prev_osd_latency, op_flag):
+        # line format : " xyz,"
         avgcount = int(line.rstrip(",").strip(' '))
+        # arr format : "'sum': xyz.yzw},"
         sum_wlatency = int(
             float(arr[index + 1].split(":")[1].strip().rstrip("},")))
+        # sum_wlatency is in seconds
+        # multiplied by 1000 to convert seconds to milliseconds
         if avgcount != 0:
-            osd_stats.op_w_latency += (sum_wlatency * 1000) / avgcount
+            # op_flag = 1 indicates replica osd write latency
+            if op_flag == 1:
+                osd_stats.op_w_latency += ((sum_wlatency * 1000) - \
+                    (prev_osd_latency.prev_subop_wsum * 1000)) / \
+                    (avgcount - prev_osd_latency.prev_subop_wcount)
+                prev_osd_latency.prev_subop_wsum = sum_wlatency
+                prev_osd_latency.prev_subop_wcount = avgcount
+            # op_flag = 2 indicates primary osd write latency
+            if op_flag == 2:
+                osd_stats.op_w_latency += ((sum_wlatency * 1000) - \
+                    (prev_osd_latency.prev_op_wsum * 1000)) / \
+                    (avgcount - prev_osd_latency.prev_op_wcount)
+                prev_osd_latency.prev_op_wsum = sum_wlatency
+                prev_osd_latency.prev_op_wcount = avgcount
         else:
             osd_stats.op_w_latency += 0
+            # op_flag = 1 indicates replica osd write latency
+            if op_flag == 1:
+                prev_osd_latency.prev_subop_wsum = 0
+                prev_osd_latency.prev_subop_wcount = 0
+            # op_flag = 2 indicates primary osd write latency
+            if op_flag == 2:
+                prev_osd_latency.prev_op_wsum = 0
+                prev_osd_latency.prev_op_wcount = 0
 
-    def populate_osd_latency_stats(self, osdname, osd_stats):
-       ceph_name = "ceph-" + \
-           osdname + ".asok"
+    def populate_osd_latency_stats(self, osdname, osd_stats, prev_osd_latency):
+       ceph_name = "ceph-" + osdname + ".asok"
        cmd2 = "ceph --admin-daemon /var/run/ceph/" + ceph_name + \
            " perf dump | egrep -A 1 -w \"\\\"" +\
            "op_r_latency\\\":|\\\"subop_r_latency\\\":|" + \
@@ -286,18 +366,25 @@ class EventManager:
            for index in range(len(arr2)):
            # replace multiple spaces
            # to single space here
-               result = re.sub(
-                   '\s+', ' ', arr2[index]).strip()
+               result = re.sub('\s+', ' ', arr2[index]).strip()
                line2 = result.split(":")
                if len(line2) != 0:
-                   if line2[0].find('subop_r_latency') != -1 or \
-                       line2[0].find('op_r_latency') != -1:
+                   # subop_r_latency: replica osd read latency value
+                   if line2[0].find('subop_r_latency') != -1:
                        self.compute_read_latency(arr2,
-                           line2[2], index, osd_stats)
-                   elif line2[0].find('subop_w_latency') != -1 or \
-                       line2[0].find('op_w_latency') != -1:
+                           line2[2], index, osd_stats, prev_osd_latency, 1)
+                   # op_r_latency: primary osd read latency value
+                   elif line2[0].find('op_r_latency') != -1:
+                       self.compute_read_latency(arr2,
+                           line2[2], index, osd_stats, prev_osd_latency, 2)
+                   # subop_w_latency: replica osd write latency value
+                   elif line2[0].find('subop_w_latency') != -1:
                        self.compute_write_latency(arr2,
-                           line2[2], index, osd_stats)
+                           line2[2], index, osd_stats, prev_osd_latency, 1)
+                   # op_w_latency: primary osd write latency value
+                   elif line2[0].find('op_w_latency') != -1:
+                       self.compute_write_latency(arr2,
+                           line2[2], index, osd_stats, prev_osd_latency, 2)
        except:
            pass
        return True
@@ -317,8 +404,7 @@ class EventManager:
         linecount = 0
         for line in arr:
             no_prev_osd = 0
-            cmd = "cat /var/lib/ceph/osd/" + \
-                    arr[linecount] + "/active"
+            cmd = "cat /var/lib/ceph/osd/" + arr[linecount] + "/active"
             is_active = self.call_subprocess(cmd)
             if is_active is None:
                 return
@@ -327,6 +413,7 @@ class EventManager:
             cs_osd_state = ComputeStorageOsdState()
             osd_stats = OsdStats()
             temp_osd_stats = OsdStats()
+            prev_osd_latency = prevOsdLatency()
             #initialize fields
             osd_stats.reads = 0
             osd_stats.writes = 0
@@ -353,19 +440,23 @@ class EventManager:
                 cs_osd.uuid = uuid.rstrip("\n")
                 osd_prev_stats = self.dict_of_osds.get(
                     cs_osd.uuid)
-                cs_osd.name = self._hostname + \
-                    ':' + osd_name
+                cs_osd.name = self._hostname + ':' + osd_name
                 if osd_prev_stats is None:
                     no_prev_osd = 1
-                    rval = self.populate_osd_total_stats(osd_name, osd_stats)
+                    rval = self.populate_osd_total_stats(osd_name,
+                                                         osd_stats,
+                                                         prev_osd_latency)
                 else:
+                    prev_osd_latency = self.prev_latency_dict.get(
+                        cs_osd.uuid)
                     rval = self.populate_osd_diff_stats(osd_name, osd_stats,
                                                         temp_osd_stats,
                                                         osd_prev_stats)
                     if rval == False:
                         return
                     rval = self.populate_osd_latency_stats(osd_name,
-                                                           osd_stats)
+                                                           osd_stats,
+                                                           prev_osd_latency)
                 if rval == False:
                     return
             else:
@@ -378,9 +469,10 @@ class EventManager:
                 self.call_send(osd_stats_trace)
                 self.dict_of_osds[
                     cs_osd.uuid] = temp_osd_stats
+                self.prev_latency_dict[cs_osd.uuid] = prev_osd_latency
             else:
-                self.dict_of_osds[
-                    cs_osd.uuid] = osd_stats
+                self.dict_of_osds[cs_osd.uuid] = osd_stats
+                self.prev_latency_dict[cs_osd.uuid] = prev_osd_latency
             linecount = linecount + 1
 
 
@@ -472,8 +564,7 @@ class EventManager:
                     disk_usage_obj.disk_avail = arr1[3]
                     disk_usage.append(disk_usage_obj)
 
-        # create a dictionary of disk_name: model_num +
-        # serial_num
+# create a dictionary of disk_name: model_num + serial_num
         new_dict = dict()
         resp = self.call_subprocess('ls -l /dev/disk/by-id/')
         if resp is None:
