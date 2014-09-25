@@ -11,6 +11,7 @@
 #include "db/db_entry.h"
 #include "db/db_table.h"
 #include "ifmap/ifmap_node.h"
+#include "net/address.h"
 
 #include <cfg/cfg_init.h>
 #include <cfg/cfg_interface.h>
@@ -556,6 +557,12 @@ void Interface::SetItfSandeshData(ItfSandeshData &data) const {
         data.set_active("Inactive");
     }
 
+    if (ipv6_active_) {
+        data.set_ip6_active("Active");
+    } else {
+        data.set_ip6_active("Inactive");
+    }
+
     if (l2_active_) {
         data.set_l2_active("L2 Active");
     } else {
@@ -592,6 +599,7 @@ void Interface::SetItfSandeshData(ItfSandeshData &data) const {
         if (vintf->vm())
             data.set_vm_uuid(UuidToString(vintf->vm()->GetUuid()));
         data.set_ip_addr(vintf->ip_addr().to_string());
+        data.set_ip6_addr(vintf->ip6_addr().to_string());
         data.set_mac_addr(vintf->vm_mac());
         data.set_mdata_ip_addr(vintf->mdata_ip_addr().to_string());
         data.set_vxlan_id(vintf->vxlan_id());
@@ -811,3 +819,12 @@ void Interface::SendTrace(Trace event) const {
     OPER_TRACE(Interface, intf_info);
 }
 
+bool Interface::ip_active(Address::Family family) const {
+    if (family == Address::INET)
+        return ipv4_active_;
+    else if (family == Address::INET6)
+        return ipv6_active_;
+    else
+        assert(0);
+    return false;
+}

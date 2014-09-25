@@ -128,8 +128,12 @@ public:
         }
 
         static char ByteValue(const TestRouteEntry *node, std::size_t i) {
-            Ip4Address addr = Ip4Address::from_string(node->get_prefix());
-            return addr.to_bytes()[i];
+            IpAddress addr = IpAddress::from_string(node->get_prefix());
+            if (addr.is_v4()) {
+                return addr.to_v4().to_bytes()[i];
+            } else if(addr.is_v6()) {
+                return addr.to_v6().to_bytes()[i];
+            }
         }
     };
 

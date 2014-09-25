@@ -2,6 +2,7 @@
  * Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
  */
 
+#include <boost/array.hpp>
 #include "test/test_init.h"
 #include "test/test_cmn_util.h"
 #include "oper/mirror_table.h"
@@ -847,11 +848,15 @@ TEST_F(KStateSandeshTest, VxlanTest_MultiResponse) {
 TEST_F(KStateSandeshTest, RouteTest) {
     //Create 2 route objects in mock Kernel
     vr_route_req req1, req2;
+    boost::array<unsigned char, 3> bytes1 = { {0x10, 0x10, 0x10} };
+    boost::array<unsigned char, 3> bytes2 = { {0x20, 0x20, 0x20} };
+    std::vector<int8_t> prefix1(bytes1.begin(), bytes1.end());
+    std::vector<int8_t> prefix2(bytes2.begin(), bytes2.end());
     req1.set_rtr_vrf_id(1);
-    req1.set_rtr_prefix(0x101010);
+    req1.set_rtr_prefix(prefix1);
     req1.set_rtr_prefix_len(32);
     req1.set_rtr_vrf_id(2);
-    req2.set_rtr_prefix(0x202020);
+    req2.set_rtr_prefix(prefix2);
     req2.set_rtr_prefix_len(32);
     KSyncSockTypeMap::RouteAdd(req1);
     KSyncSockTypeMap::RouteAdd(req2);
@@ -883,12 +888,14 @@ TEST_F(KStateSandeshTest, RouteTest) {
 
 TEST_F(KStateSandeshTest, RouteTest_MultiResponse) {
     //Create 100 vrfs in mock Kernel
-    uint32_t ip = 0x30303000;
     vr_route_req req;
     req.set_rtr_vrf_id(10);
     req.set_rtr_prefix_len(32);
     for(int i = 1; i <= 50; i++) {
-        req.set_rtr_prefix((ip +i));
+        boost::array<unsigned char, 3> bytes = { {0x30, 0x30, 0x30} };
+        std::vector<int8_t> prefix(bytes.begin(), bytes.end());
+        prefix.push_back(i);
+        req.set_rtr_prefix(prefix);
         KSyncSockTypeMap::RouteAdd(req);
     }
     //Send Route DUMP request
@@ -903,7 +910,10 @@ TEST_F(KStateSandeshTest, RouteTest_MultiResponse) {
 
     //cleanup
     for(int i = 1; i <= 50; i++) {
-        req.set_rtr_prefix((ip +i));
+        boost::array<unsigned char, 3> bytes = { {0x30, 0x30, 0x30} };
+        std::vector<int8_t> prefix(bytes.begin(), bytes.end());
+        prefix.push_back(i);
+        req.set_rtr_prefix(prefix);
         KSyncSockTypeMap::RouteDelete(req);
     }
 }
@@ -1055,14 +1065,14 @@ TEST_F(KStateSandeshTest, DISABLED_FlowTest_1) {
     FlowSetUp();
     TestFlow flow[] = {
         //Add a ICMP forward and reverse flow
-        {  TestFlowPkt(vm1_ip, vm2_ip, 1, 0, 0, "vrf5", 
+        {  TestFlowPkt(Address::INET, vm1_ip, vm2_ip, 1, 0, 0, "vrf5",
                 flow0->id()),
         {
             new VerifyVn("vn5", "vn5"),
             new VerifyVrf("vrf5", "vrf5")
         }
         },
-        {  TestFlowPkt(vm2_ip, vm1_ip, 1, 0, 0, "vrf5", 
+        {  TestFlowPkt(Address::INET, vm2_ip, vm1_ip, 1, 0, 0, "vrf5",
                 flow1->id()),
         {
             new VerifyVn("vn5", "vn5"),
@@ -1070,14 +1080,14 @@ TEST_F(KStateSandeshTest, DISABLED_FlowTest_1) {
         }
         },
         //Add a TCP forward and reverse flow
-        {  TestFlowPkt(vm1_ip, vm2_ip, IPPROTO_TCP, 1000, 200, 
+        {  TestFlowPkt(Address::INET, vm1_ip, vm2_ip, IPPROTO_TCP, 1000, 200,
                 "vrf5", flow0->id()),
         {
             new VerifyVn("vn5", "vn5"),
             new VerifyVrf("vrf5", "vrf5")
         }
         },
-        {  TestFlowPkt(vm2_ip, vm1_ip, IPPROTO_TCP, 200, 1000, 
+        {  TestFlowPkt(Address::INET, vm2_ip, vm1_ip, IPPROTO_TCP, 200, 1000,
                 "vrf5", flow1->id()),
         {
             new VerifyVn("vn5", "vn5"),
@@ -1129,12 +1139,12 @@ TEST_F(KStateSandeshTest, DISABLED_FlowTest_2) {
                 10, "vn5");
         TestFlow flow[]=  {
             {
-                TestFlowPkt(vm1_ip, dip.to_string(), 1, 0, 0, "vrf5", 
+                TestFlowPkt(Address::INET, vm1_ip, dip.to_string(), 1, 0, 0, "vrf5",
                         flow0->id(), i),
                 { }
             },
             {
-                TestFlowPkt(dip.to_string(), vm1_ip, 1, 0, 0, "vrf5",
+                TestFlowPkt(Address::INET, dip.to_string(), vm1_ip, 1, 0, 0, "vrf5",
                         flow0->id(), i + 100),
                 { }
             }

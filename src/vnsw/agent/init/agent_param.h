@@ -30,7 +30,7 @@ public:
 
     struct PortInfo {
         PortInfo() : 
-            name_(""), vrf_(""), addr_(0), prefix_(0), plen_(0), gw_(0) {};
+            name_(""), vrf_(""), addr_(0), prefix_(0), plen_(0), gw_(0) {}
         ~PortInfo() { };
 
         std::string name_;

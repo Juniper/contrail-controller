@@ -297,8 +297,8 @@ TEST_F(AclTest, PacketMatching) {
 
     PacketHeader *packet1 = new PacketHeader();
     AclEntryIDList ace_list;
-    packet1->src_ip = 0x01010102;
-    packet1->dst_ip = 0xFFFFFFFF;
+    packet1->src_ip = Ip4Address(0x01010102);
+    packet1->dst_ip = Ip4Address(0xFFFFFFFF);
     packet1->protocol = 10;
     packet1->dst_port = 99;
     MatchAclParams m_acl;

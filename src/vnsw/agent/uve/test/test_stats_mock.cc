@@ -872,7 +872,7 @@ TEST_F(StatsTestMock, Underlay_1) {
     TestFlow flow[] = {
         //Send an ICMP flow from remote VM in vn3 to local VM in vn5
         {
-            TestFlowPkt("1.1.1.1", "1.1.1.2", 1, 0, 0, "vrf5",
+            TestFlowPkt(Address::INET, "1.1.1.1", "1.1.1.2", 1, 0, 0, "vrf5",
                         flow0->id()),
             {
                 new VerifyVn("vn5", "vn5"),
@@ -912,7 +912,7 @@ TEST_F(StatsTestMock, Underlay_2) {
     TestFlow flow[] = {
         //Send an ICMP flow from remote VM in vn3 to local VM in vn5
         {
-            TestFlowPkt(remote_vm4_ip, "1.1.1.1", 1, 0, 0, "vrf5",
+            TestFlowPkt(Address::INET, remote_vm4_ip, "1.1.1.1", 1, 0, 0, "vrf5",
                         remote_router_ip, 16),
             {
                 new VerifyVn("vn3", "vn5"),

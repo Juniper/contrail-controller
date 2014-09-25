@@ -49,9 +49,9 @@ void DelNode(const char *node_name, const char *name);
 void IntfSyncMsg(PortInfo *input, int id);
 void IntfCfgAdd(int intf_id, const string &name, const string ipaddr,
                 int vm_id, int vn_id, const string &mac, uint16_t vlan,
-                int project_id = kProjectUuid);
+                const string ip6addr, int project_id = kProjectUuid);
 void IntfCfgAdd(int intf_id, const string &name, const string ipaddr,
-                int vm_id, int vn_id, const string &mac);
+                int vm_id, int vn_id, const string &mac, const string ip6addr);
 void IntfCfgAdd(PortInfo *input, int id);
 void IntfCfgDel(PortInfo *input, int id);
 NextHop *InetInterfaceNHGet(NextHopTable *table, const char *ifname,
@@ -75,6 +75,8 @@ bool VmPortL2Active(int id);
 bool VmPortL2Active(PortInfo *input, int id);
 bool VmPortActive(int id);
 bool VmPortActive(PortInfo *input, int id);
+bool VmPortV6Active(int id);
+bool VmPortV6Active(PortInfo *input, int id);
 bool VmPortPolicyEnabled(int id);
 bool VmPortPolicyEnabled(PortInfo *input, int id);
 Interface *VmPortGet(int id);
@@ -118,6 +120,8 @@ void DeleteRoute(const char *vrf, const char *ip, uint8_t plen);
 void DeleteRoute(const char *vrf, const char *ip);
 bool RouteFind(const string &vrf_name, const Ip4Address &addr, int plen);
 bool RouteFind(const string &vrf_name, const string &addr, int plen);
+bool RouteFindV6(const string &vrf_name, const Ip6Address &addr, int plen);
+bool RouteFindV6(const string &vrf_name, const string &addr, int plen);
 bool L2RouteFind(const string &vrf_name, const struct ether_addr &mac);
 bool MCRouteFind(const string &vrf_name, const Ip4Address &saddr,
                  const Ip4Address &daddr);
@@ -126,6 +130,7 @@ bool MCRouteFind(const string &vrf_name, const string &saddr,
                  const string &daddr);
 bool MCRouteFind(const string &vrf_name, const string &addr);
 Inet4UnicastRouteEntry *RouteGet(const string &vrf_name, const Ip4Address &addr, int plen);
+Inet6UnicastRouteEntry *RouteGetV6(const string &vrf_name, const Ip6Address &addr, int plen);
 Inet4MulticastRouteEntry *MCRouteGet(const string &vrf_name, const Ip4Address &grp_addr);
 Inet4MulticastRouteEntry *MCRouteGet(const string &vrf_name, const string &grp_addr);
 Layer2RouteEntry *L2RouteGet(const string &vrf_name, const struct ether_addr &mac);
@@ -197,14 +202,18 @@ void DeleteGlobalVrouterConfig();
 void send_icmp(int fd, uint8_t smac, uint8_t dmac, uint32_t sip, uint32_t dip);
 bool FlowStats(FlowIp *input, int id, uint32_t bytes, uint32_t pkts);
 void DeleteVmportEnv(struct PortInfo *input, int count, int del_vn, int acl_id = 0,
-                     const char *vn = NULL, const char *vrf = NULL);
+                     const char *vn = NULL, const char *vrf = NULL,
+                     bool with_ip = false, bool with_ip6 = false);
 void DeleteVmportFIpEnv(struct PortInfo *input, int count, int del_vn, int acl_id = 0,
                      const char *vn = NULL, const char *vrf = NULL);
 void CreateVmportEnvInternal(struct PortInfo *input, int count, int acl_id = 0,
                      const char *vn = NULL, const char *vrf = NULL, 
                      const char *vm_interface_attr = NULL, bool l2_vn = false,
                      bool with_ip = false, bool ecmp = false,
-                     bool vn_admin_state = true);
+                     bool vn_admin_state = true, bool with_ip6 = false);
+void CreateV6VmportEnv(struct PortInfo *input, int count, int acl_id = 0,
+                       const char *vn = NULL, const char *vrf = NULL,
+                       bool with_v4_ip = true);
 void CreateL2VmportEnv(struct PortInfo *input, int count, int acl_id = 0,
                      const char *vn = NULL, const char *vrf = NULL);
 void CreateVmportEnvWithoutIp(struct PortInfo *input, int count, int acl_id = 0,

@@ -65,10 +65,22 @@ InstanceServiceAsyncHandler::AddPort(const PortList& port_list) {
         uuid vn_id = ConvertToUuid(port.vn_id);
         uuid vm_project_id = ConvertToUuid(port.vm_project_id);
         boost::system::error_code ec;
+        bool v6_correct = true, v4_correct = true;
         IpAddress ip = IpAddress::from_string(port.ip_address, ec);
         if (ec.value() != 0) {
             CFG_TRACE(IntfInfo,
-                      "IP address is not correct, " + port.ip_address);
+                      "IPv4 address is not correct, " + port.ip_address);
+            v4_correct = false;
+        }
+      
+        Ip6Address ip6 = Ip6Address::from_string(port.ip6_address, ec);
+        if (ec.value() != 0) {
+            CFG_TRACE(IntfInfo,
+                      "IPv6 address is not correct, " + port.ip6_address);
+            v6_correct = false;
+        }
+
+        if (!v4_correct && !v6_correct) {
             return false;
         }
         
@@ -95,7 +107,7 @@ InstanceServiceAsyncHandler::AddPort(const PortList& port_list) {
         }
 
         cfg_int_data->Init(instance_id, vn_id, vm_project_id,
-                           port.tap_name, ip,
+                           port.tap_name, ip, ip6, 
                            port.mac_address,
                            port.display_name, vlan_id, port_type, version);
         req.data.reset(cfg_int_data);
@@ -105,7 +117,7 @@ InstanceServiceAsyncHandler::AddPort(const PortList& port_list) {
                   port.ip_address, port.tap_name, port.mac_address,
                   port.display_name, port.hostname, port.host, version,
                   vlan_id, UuidToString(vm_project_id),
-                  CfgIntEntry::CfgIntTypeToString(port_type));
+                  CfgIntEntry::CfgIntTypeToString(port_type), port.ip6_address);
     }
     return true;
 }
@@ -512,8 +524,13 @@ void AddPortReq::HandleRequest() const {
     int16_t port_type = get_port_type();
     CfgIntEntry::CfgIntType intf_type;
 
-    boost::system::error_code ec;
+    boost::system::error_code ec, ec6;
     IpAddress ip(IpAddress::from_string(get_ip_address(), ec));
+    Ip6Address ip6 = Ip6Address::from_string(get_ip6_address(), ec6);
+    if ((ec != 0) && (ec6 != 0)) {
+        resp_str += "Neither Ipv4 nor IPv6 address is correct, ";
+        err = true;
+    }
     string mac_address = get_mac_address();
 
     if (port_uuid == nil_uuid()) {
@@ -526,10 +543,6 @@ void AddPortReq::HandleRequest() const {
     }
     if (vn_uuid == nil_uuid()) {
         resp_str += "Vn uuid is not correct, ";
-        err = true;
-    }
-    if (ec != 0) {
-        resp_str += "Ip address is not correct, ";
         err = true;
     }
     if (!ValidateMac(mac_address)) {
@@ -555,7 +568,7 @@ void AddPortReq::HandleRequest() const {
     }
 
     cfg_int_data->Init(instance_uuid, vn_uuid, vm_project_uuid,
-                       tap_name, ip,
+                       tap_name, ip, ip6,
                        mac_address,
                        vm_name, vlan_id, intf_type, 0);
     req.data.reset(cfg_int_data);

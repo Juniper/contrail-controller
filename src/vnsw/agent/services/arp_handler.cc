@@ -89,7 +89,7 @@ bool ArpHandler::HandlePacket() {
     }
     if (itf->type() == Interface::VM_INTERFACE) {
         const VmInterface *vm_itf = static_cast<const VmInterface *>(itf);
-        if (!vm_itf->ipv4_forwarding()) {
+        if (!vm_itf->layer3_forwarding()) {
             ARP_TRACE(Error, "Received ARP packet on ipv4 disabled interface");
             return true;
         }

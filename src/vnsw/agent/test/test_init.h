@@ -114,6 +114,7 @@ struct PortInfo {
     char mac[32];
     int vn_id;
     int vm_id;
+    char ip6addr[128];
 };
 
 struct FlowIp {
@@ -143,9 +144,9 @@ public:
 };
 
 struct IpamInfo {
-    char ip_prefix[32];
+    char ip_prefix[128];
     int plen;
-    char gw[32];
+    char gw[128];
     bool dhcp_enable;
 };
 

@@ -749,7 +749,7 @@ TEST_F(CfgTest, l2_mode_configured_via_ipam_0_gw) {
     client->WaitForIdle();
 
     VnEntry *vn = VnGet(1);;
-    EXPECT_FALSE(vn->Ipv4Forwarding());
+    EXPECT_FALSE(vn->layer3_forwarding());
     EXPECT_TRUE(vn->layer2_forwarding());
 
     //Restore and cleanup
@@ -780,7 +780,7 @@ TEST_F(CfgTest, l2_mode_configured_via_ipam_linklocal_gw) {
     client->WaitForIdle();
 
     VnEntry *vn = VnGet(1);;
-    EXPECT_FALSE(vn->Ipv4Forwarding());
+    EXPECT_FALSE(vn->layer3_forwarding());
     EXPECT_TRUE(vn->layer2_forwarding());
 
     //Restore and cleanup
@@ -811,7 +811,7 @@ TEST_F(CfgTest, l2_mode_configured_via_ipam_non_linklocal_gw) {
     client->WaitForIdle();
 
     VnEntry *vn = VnGet(1);;
-    EXPECT_TRUE(vn->Ipv4Forwarding());
+    EXPECT_TRUE(vn->layer3_forwarding());
     EXPECT_TRUE(vn->layer2_forwarding());
 
     //Restore and cleanup

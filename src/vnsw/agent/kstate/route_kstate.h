@@ -19,7 +19,7 @@ public:
 
 struct RouteContext {
     uint32_t vrf_id;
-    int      marker;
+    std::vector<int8_t> marker;
     int      marker_plen;
 };
 #endif //vnsw_agent_route_kstate_h

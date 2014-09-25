@@ -96,6 +96,8 @@ public:
     const std::string &name() const {return name_;}
     VrfEntry *vrf() const {return vrf_.get();}
     bool ipv4_active() const {return ipv4_active_;}
+    bool ipv6_active() const {return ipv6_active_;}
+    bool ip_active(Address::Family family) const;
     bool l2_active() const {return l2_active_;}
     const uint32_t id() const {return id_;}
     bool dhcp_enabled() const {return dhcp_enabled_;}
@@ -121,6 +123,7 @@ protected:
     uint32_t label_;
     uint32_t l2_label_;
     bool ipv4_active_;
+    bool ipv6_active_;
     bool l2_active_;
     size_t id_;
     bool dhcp_enabled_;

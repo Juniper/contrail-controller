@@ -86,8 +86,13 @@ void FlowStatsCollector::SourceIpOverride(FlowEntry *flow,
     if (flow->is_flags_set(FlowEntry::NatFlow) && s_flow.get_direction_ing() &&
         rev_flow) {
         const FlowKey *nat_key = &rev_flow->key();
-        if (flow->key().src.ipv4 != nat_key->dst.ipv4) {
-            s_flow.set_sourceip(nat_key->dst.ipv4);
+        if (flow->key().src_addr != nat_key->dst_addr) {
+            // TODO: IPV6
+            if (flow->key().family == Address::INET) {
+                s_flow.set_sourceip(nat_key->dst_addr.to_v4().to_ulong());
+            } else {
+                s_flow.set_sourceip(0);
+            }
         }
     }
 }
@@ -104,8 +109,14 @@ void FlowStatsCollector::FlowExport(FlowEntry *flow, uint64_t diff_bytes,
     s_flow.set_diff_bytes(diff_bytes);
     s_flow.set_diff_packets(diff_pkts);
 
-    s_flow.set_sourceip(flow->key().src.ipv4);
-    s_flow.set_destip(flow->key().dst.ipv4);
+    // TODO: IPV6
+    if (flow->key().family == Address::INET) {
+        s_flow.set_sourceip(flow->key().src_addr.to_v4().to_ulong());
+        s_flow.set_destip(flow->key().dst_addr.to_v4().to_ulong());
+    } else {
+        s_flow.set_sourceip(0);
+        s_flow.set_destip(0);
+    }
     s_flow.set_protocol(flow->key().protocol);
     s_flow.set_sport(flow->key().src_port);
     s_flow.set_dport(flow->key().dst_port);

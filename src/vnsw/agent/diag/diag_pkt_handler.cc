@@ -69,7 +69,7 @@ bool DiagPktHandler::Run() {
     return true;
 }
 
-void DiagPktHandler::TcpHdr(in_addr_t src, uint16_t sport, in_addr_t dst, 
+void DiagPktHandler::TcpHdr(in_addr_t src, uint16_t sport, in_addr_t dst,
                             uint16_t dport, bool is_syn, uint32_t seq_no,
                             uint16_t len) {
     struct tcphdr *tcp = pkt_info_->transp.tcp;
@@ -94,7 +94,7 @@ void DiagPktHandler::TcpHdr(in_addr_t src, uint16_t sport, in_addr_t dst,
     tcp->check = TcpCsum(src, dst, len, tcp);
 }
 
-uint16_t DiagPktHandler::TcpCsum(in_addr_t src, in_addr_t dest, uint16_t len, 
+uint16_t DiagPktHandler::TcpCsum(in_addr_t src, in_addr_t dest, uint16_t len,
                                  tcphdr *tcp) {
     uint32_t sum = 0;
     PseudoTcpHdr phdr(src, dest, htons(len));
@@ -105,15 +105,16 @@ uint16_t DiagPktHandler::TcpCsum(in_addr_t src, in_addr_t dest, uint16_t len,
 void DiagPktHandler::SwapL4() {
     if (pkt_info_->ip_proto == IPPROTO_TCP) {
         tcphdr *tcp = pkt_info_->transp.tcp;
-        TcpHdr(htonl(pkt_info_->ip_daddr), ntohs(tcp->dest), 
-               htonl(pkt_info_->ip_saddr), ntohs(tcp->source), 
-               false, ntohs(tcp->ack_seq), 
+        TcpHdr(htonl(pkt_info_->ip_daddr.to_v4().to_ulong()), ntohs(tcp->dest),
+               htonl(pkt_info_->ip_saddr.to_v4().to_ulong()),
+               ntohs(tcp->source), false, ntohs(tcp->ack_seq),
                ntohs(pkt_info_->ip->tot_len) - sizeof(iphdr));
 
     } else if(pkt_info_->ip_proto == IPPROTO_UDP) {
         udphdr *udp = pkt_info_->transp.udp;
-        UdpHdr(ntohs(udp->len), pkt_info_->ip_daddr, ntohs(udp->dest),
-               pkt_info_->ip_saddr, ntohs(udp->source));
+        UdpHdr(ntohs(udp->len), pkt_info_->ip_daddr.to_v4().to_ulong(),
+               ntohs(udp->dest), pkt_info_->ip_saddr.to_v4().to_ulong(),
+               ntohs(udp->source));
     }
 }
 

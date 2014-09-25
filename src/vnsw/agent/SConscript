@@ -309,6 +309,9 @@ if not sys.platform.startswith('freebsd'):
     env.SConscript('vxlan_agent/SConscript', exports=['AgentEnv', 'BuildEnv'],
                    duplicate=0)
 
+env.SConscript('test-xml/SConscript', exports=['AgentEnv', 'BuildEnv'],
+               duplicate=0)
+
 ##########################################################################
 # Utility functions
 ##########################################################################

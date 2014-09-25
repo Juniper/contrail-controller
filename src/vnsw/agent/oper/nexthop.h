@@ -718,9 +718,11 @@ private:
 /////////////////////////////////////////////////////////////////////////////
 struct InterfaceNHFlags {
     enum Type {
+        INVALID,
         INET4 = 1,
         LAYER2 = 2,
-        MULTICAST = 4
+        MULTICAST = 4,
+        INET6 = 8
     };
 };
 
@@ -730,8 +732,11 @@ public:
         NextHopKey(NextHop::INTERFACE, policy), intf_key_(intf),
         flags_(flags) {
             //TODO evpn changes remove this, just extra check
-            assert((flags != 0) || (flags == 1) ||
-                   (flags == 5));
+            assert((flags != (InterfaceNHFlags::INVALID)) ||
+                    (flags == (InterfaceNHFlags::INET4)) ||
+                    (flags_ == (InterfaceNHFlags::INET6)) ||
+                    (flags ==
+                     (InterfaceNHFlags::INET4|InterfaceNHFlags::MULTICAST)));
     }
 
     virtual ~InterfaceNHKey() {};
@@ -741,8 +746,11 @@ public:
     virtual NextHop *AllocEntry() const;
     virtual NextHopKey *Clone() const {
         //TODO evpn changes remove this, just extra check
-        assert((flags_ != 0) || (flags_ == 1) ||
-               (flags_ == 5));
+        assert((flags_ != (InterfaceNHFlags::INVALID)) ||
+                (flags_ == (InterfaceNHFlags::INET4)) ||
+                (flags_ == (InterfaceNHFlags::INET6)) ||
+                (flags_ ==
+                 (InterfaceNHFlags::INET4|InterfaceNHFlags::MULTICAST)));
         return new InterfaceNHKey(intf_key_->Clone(), policy_, flags_);
     }
     virtual bool NextHopKeyIsLess(const NextHopKey &rhs) const {

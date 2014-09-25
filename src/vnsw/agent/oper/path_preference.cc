@@ -273,6 +273,10 @@ void PathPreferenceSM::EnqueuePathChange() {
 
 bool PathPreferenceIntfState::RouteAddrList::operator<(
         const RouteAddrList &rhs) const {
+    if (family_ != rhs.family_) {
+        return family_ < rhs.family_;
+    }
+
     if (ip_ != rhs.ip_) {
         return ip_ < rhs.ip_;
     }
@@ -286,8 +290,8 @@ bool PathPreferenceIntfState::RouteAddrList::operator<(
 
 bool PathPreferenceIntfState::RouteAddrList::operator==(
         const RouteAddrList &rhs) const {
-    if ((ip_ == rhs.ip_) && (plen_ == rhs.plen_) &&
-        (vrf_name_ == rhs.vrf_name_)) {
+    if ((family_ == rhs.family_) && (ip_ == rhs.ip_) &&
+        (plen_ == rhs.plen_) && (vrf_name_ == rhs.vrf_name_)) {
         return true;
     }
     return false;
@@ -321,10 +325,14 @@ void PathPreferenceIntfState::DeleteOldEntries() {
 }
 
 void PathPreferenceIntfState::UpdateDependentRoute(std::string vrf_name,
-                                                    Ip4Address ip, uint32_t plen,
+                                                    IpAddress ip, uint32_t plen,
                                                     bool traffic_seen,
                                                     PathPreferenceModule
                                                     *path_preference_module) {
+    if (ip.is_v6()) {
+        //TODO:IPv6 handling
+        return;
+    }
     if (instance_ip_.vrf_name_ != vrf_name ||
         instance_ip_.plen_ != plen ||
         instance_ip_.ip_ != ip) {
@@ -347,7 +355,8 @@ void PathPreferenceIntfState::UpdateDependentRoute(std::string vrf_name,
             continue;
         }
 
-        Inet4UnicastRouteKey rt_key(NULL, it->vrf_name_, it->ip_, it->plen_);
+        Inet4UnicastRouteKey rt_key(NULL, it->vrf_name_, it->ip_.to_v4(),
+                                    it->plen_);
         const Inet4UnicastRouteEntry *rt =
             static_cast<const Inet4UnicastRouteEntry *>(
             vrf->GetInet4UnicastRouteTable()->FindActiveEntry(&rt_key));
@@ -392,10 +401,16 @@ void PathPreferenceIntfState::Notify() {
     VmInterface::FloatingIpSet::const_iterator it = fip_list.begin();
     for (;it != fip_list.end(); ++it) {
         RouteAddrList rt;
-        rt.plen_ = 32;
         rt.vrf_name_ = it->vrf_name_;
-        rt.ip_ = it->floating_ip_;
-        Insert(rt, traffic_seen);
+        if (it->floating_ip_.is_v4()) {
+            rt.plen_ = 32;
+            rt.ip_ = it->floating_ip_.to_v4();
+            Insert(rt, traffic_seen);
+        } else if (it->floating_ip_.is_v6()) {
+            rt.plen_ = 128;
+            rt.ip_ = it->floating_ip_.to_v6();
+            Insert(rt, traffic_seen);
+        }
     }
 
     //Go thru interface static routes

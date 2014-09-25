@@ -14,10 +14,8 @@ using boost::system::error_code;
 
 #define SET_SANDESH_FLOW_DATA(data, fe)                                     \
     data.set_vrf(fe->data().vrf);                                           \
-    Ip4Address sip(fe->key().src.ipv4);                                     \
-    data.set_sip(sip.to_string());                                          \
-    Ip4Address dip(fe->key().dst.ipv4);                                     \
-    data.set_dip(dip.to_string());                                          \
+    data.set_sip(fe->key().src_addr.to_string());                           \
+    data.set_dip(fe->key().dst_addr.to_string());                           \
     data.set_src_port((unsigned)fe->key().src_port);                        \
     data.set_dst_port((unsigned)fe->key().dst_port);                        \
     data.set_protocol(fe->key().protocol);                                  \
@@ -250,8 +248,8 @@ string PktSandeshFlow::GetFlowKey(const FlowKey &key) {
     ss << key.src_port << ":";
     ss << key.dst_port << ":";
     ss << (uint16_t)key.protocol << ":";
-    ss << Ip4Address(key.src.ipv4).to_string() << ":";
-    ss << Ip4Address(key.dst.ipv4).to_string();
+    ss << key.src_addr.to_string() << ":";
+    ss << key.dst_addr.to_string();
     return ss.str();
 }
 
@@ -282,8 +280,10 @@ bool PktSandeshFlow::SetFlowKey(string key) {
         dip = item;
     }
 
-    flow_iteration_key_.src.ipv4 = ntohl(inet_addr(sip.c_str()));
-    flow_iteration_key_.dst.ipv4 = ntohl(inet_addr(dip.c_str()));
+    // TODO : IPv6
+    error_code ec;
+    flow_iteration_key_.src_addr = Ip4Address::from_string(sip.c_str(), ec);
+    flow_iteration_key_.dst_addr = Ip4Address::from_string(dip.c_str(), ec);
     flow_iteration_key_.protocol = proto;
     return true;
 }
@@ -362,8 +362,8 @@ void FetchFlowRecord::HandleRequest() const {
     FlowKey key;
     key.nh = get_nh();
     error_code ec;
-    key.src.ipv4 = Ip4Address::from_string(get_sip(), ec).to_ulong();
-    key.dst.ipv4 = Ip4Address::from_string(get_dip(), ec).to_ulong();
+    key.src_addr = Ip4Address::from_string(get_sip(), ec);
+    key.dst_addr = Ip4Address::from_string(get_dip(), ec);
     key.src_port = (unsigned)get_src_port();
     key.dst_port = (unsigned)get_dst_port();
     key.protocol = get_protocol();

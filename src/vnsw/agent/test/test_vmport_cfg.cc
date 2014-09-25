@@ -92,7 +92,7 @@ TEST_F(CfgTest, AddDelExport) {
     boost::system::error_code ec;
     IpAddress ip = Ip4Address::from_string("1.1.1.1", ec);
     data->Init(MakeUuid(1), MakeUuid(1), MakeUuid(kProjectUuid),
-               "vnet1", ip, "00:00:00:01:01:01", "",
+               "vnet1", ip, Ip6Address(), "00:00:00:01:01:01", "",
                VmInterface::kInvalidVlanId, CfgIntEntry::CfgIntVMPort, 0);
 
     DBRequest req;
@@ -105,7 +105,7 @@ TEST_F(CfgTest, AddDelExport) {
     CfgIntData *data1 = new CfgIntData();
     ip = Ip4Address::from_string("1.1.1.1", ec);
     data1->Init(MakeUuid(1), MakeUuid(1), MakeUuid(kProjectUuid),
-                "vnet1", ip, "00:00:00:01:01:01", "",
+                "vnet1", ip, Ip6Address(), "00:00:00:01:01:01", "",
                 VmInterface::kInvalidVlanId, CfgIntEntry::CfgIntVMPort, 0);
     req.key.reset(key1);
     req.data.reset(data1);

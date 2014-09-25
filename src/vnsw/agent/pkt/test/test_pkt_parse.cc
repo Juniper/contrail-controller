@@ -263,13 +263,13 @@ static bool ValidateIpPktInfo(PktInfo *pkt_info, const char *sip,
         ret = false;
     }
 
-    EXPECT_EQ(pkt_info->ip_saddr, htonl(inet_addr(sip)));
-    if (pkt_info->ip_saddr != htonl(inet_addr(sip))) {
+    EXPECT_EQ(pkt_info->ip_saddr.to_v4().to_ulong(), htonl(inet_addr(sip)));
+    if (pkt_info->ip_saddr.to_v4().to_ulong() != htonl(inet_addr(sip))) {
         ret = false;
     }
 
-    EXPECT_EQ(pkt_info->ip_daddr, htonl(inet_addr(dip)));
-    if (pkt_info->ip_daddr != htonl(inet_addr(dip))) {
+    EXPECT_EQ(pkt_info->ip_daddr.to_v4().to_ulong(), htonl(inet_addr(dip)));
+    if (pkt_info->ip_daddr.to_v4().to_ulong() != htonl(inet_addr(dip))) {
         ret = false;
     }
 
@@ -313,8 +313,84 @@ static bool ValidateIpPktInfo(PktInfo *pkt_info, const char *sip,
             ret = false;
         }
     } else {
-        EXPECT_EQ(pkt_info->type, PktType::IPV4);
-        if (pkt_info->type != PktType::IPV4) {
+        EXPECT_EQ(pkt_info->type, PktType::IP);
+        if (pkt_info->type != PktType::IP) {
+            ret = false;
+        }
+    }
+
+    return ret;
+}
+
+static bool ValidateIp6PktInfo(PktInfo *pkt_info, const char *sip,
+                               const char *dip, uint16_t proto, uint16_t sport,
+                               uint16_t dport) {
+    bool ret = true;
+
+    EXPECT_TRUE(pkt_info->ip6 != NULL);
+    if (pkt_info->ip6 == NULL) {
+        ret = false;
+    }
+
+    EXPECT_TRUE(pkt_info->ip == NULL);
+
+    EXPECT_TRUE((pkt_info->ip_saddr.to_v6() == Ip6Address::from_string(sip)));
+    if (pkt_info->ip_saddr.to_v6() != Ip6Address::from_string(sip)) {
+        ret = false;
+    }
+
+    EXPECT_TRUE((pkt_info->ip_daddr.to_v6() == Ip6Address::from_string(dip)));
+    if (pkt_info->ip_daddr.to_v6() != Ip6Address::from_string(dip)) {
+        ret = false;
+    }
+
+    EXPECT_EQ(pkt_info->ip_proto, proto);
+    if (pkt_info->ip_proto != proto) {
+        ret = false;
+    }
+
+    if (proto == IPPROTO_UDP) {
+        EXPECT_EQ(pkt_info->type, PktType::UDP);
+        if (pkt_info->type != PktType::UDP) {
+            ret = false;
+        }
+
+        EXPECT_EQ(pkt_info->sport, sport);
+        if (pkt_info->sport != sport) {
+            ret = false;
+        }
+
+        EXPECT_EQ(pkt_info->dport, dport);
+        if (pkt_info->dport != dport) {
+            ret = false;
+        }
+    } else if (proto == IPPROTO_TCP) {
+        EXPECT_EQ(pkt_info->type, PktType::TCP);
+        if (pkt_info->type != PktType::TCP) {
+            ret = false;
+        }
+
+        EXPECT_EQ(pkt_info->sport, sport);
+        if (pkt_info->sport != sport) {
+            ret = false;
+        }
+        EXPECT_EQ(pkt_info->dport, dport);
+        if (pkt_info->dport != dport) {
+            ret = false;
+        }
+    } else if (proto == IPPROTO_ICMP) {
+        EXPECT_EQ(pkt_info->type, PktType::ICMP);
+        if (pkt_info->type != PktType::ICMP) {
+            ret = false;
+        }
+    } else if (proto == IPPROTO_ICMPV6) {
+        EXPECT_EQ(pkt_info->type, PktType::ICMPV6);
+        if (pkt_info->type != PktType::ICMPV6) {
+            ret = false;
+        }
+    } else {
+        EXPECT_EQ(pkt_info->type, PktType::IP);
+        if (pkt_info->type != PktType::IP) {
             ret = false;
         }
     }
@@ -350,6 +426,34 @@ TEST_F(PktParseTest, IP_On_Vnet_1) {
                                   1, 2));
 }
 
+TEST_F(PktParseTest, IPv6_On_Vnet_1) {
+    VmInterface *vnet1 = VmInterfaceGet(1);
+    PktGen *pkt = new PktGen();
+    PktInfo pkt_info(NULL, 0, 0, 0);
+
+    pkt->Reset();
+    MakeIp6Packet(pkt, vnet1->id(), "1::1", "1::2",
+                  IPPROTO_ICMPV6, 1, -1);
+    TestPkt(&pkt_info, pkt);
+    client->WaitForIdle();
+    EXPECT_TRUE(ValidateIp6PktInfo(&pkt_info, "1::1", "1::2", IPPROTO_ICMPV6,
+                                   0, 0));
+
+    pkt->Reset();
+    MakeUdp6Packet(pkt, vnet1->id(), "1::1", "1::2", 1, 2, 2, -1);
+    TestPkt(&pkt_info, pkt);
+    client->WaitForIdle();
+    EXPECT_TRUE(ValidateIp6PktInfo(&pkt_info, "1::1", "1::2", IPPROTO_UDP,
+                                   1, 2));
+
+    pkt->Reset();
+    MakeTcp6Packet(pkt, vnet1->id(), "1::1", "1::2", 1, 2, false, 3, -1);
+    TestPkt(&pkt_info, pkt);
+    client->WaitForIdle();
+    EXPECT_TRUE(ValidateIp6PktInfo(&pkt_info, "1::1", "1::2", IPPROTO_TCP,
+                                   1, 2));
+}
+
 TEST_F(PktParseTest, IP_On_Eth_1) {
     PhysicalInterface *eth = EthInterfaceGet("vnet0");
     std::auto_ptr<PktGen> pkt(new PktGen());
@@ -376,6 +480,30 @@ TEST_F(PktParseTest, IP_On_Eth_1) {
     EXPECT_EQ(pkt_info3.type, PktType::INVALID);
 }
 
+TEST_F(PktParseTest, IPv6_On_Eth_1) {
+    PhysicalInterface *eth = EthInterfaceGet("vnet0");
+    PktGen *pkt = new PktGen();
+    PktInfo pkt_info(NULL, 0, 0, 0);
+
+    pkt->Reset();
+    MakeIp6Packet(pkt, eth->id(), "1::1", "1::2", IPPROTO_ICMPV6, 1, -1);
+    TestPkt(&pkt_info, pkt);
+    client->WaitForIdle();
+    EXPECT_EQ(pkt_info.type, PktType::INVALID);
+
+    pkt->Reset();
+    MakeUdp6Packet(pkt, eth->id(), "1::1", "1::2", 1, 2, 2, -1);
+    TestPkt(&pkt_info, pkt);
+    client->WaitForIdle();
+    EXPECT_EQ(pkt_info.type, PktType::INVALID);
+
+    pkt->Reset();
+    MakeTcp6Packet(pkt, eth->id(), "1::1", "1::2", 1, 2, false, 3, -1);
+    TestPkt(&pkt_info, pkt);
+    client->WaitForIdle();
+    EXPECT_EQ(pkt_info.type, PktType::INVALID);
+}
+
 TEST_F(PktParseTest, GRE_On_Vnet_1) {
     VmInterface *vnet1 = VmInterfaceGet(1);
     std::auto_ptr<PktGen> pkt(new PktGen());
@@ -386,7 +514,7 @@ TEST_F(PktParseTest, GRE_On_Vnet_1) {
     PktInfo pkt_info1(Agent::GetInstance(), 100, 0, 0);
     TestPkt(&pkt_info1, pkt.get());
     client->WaitForIdle();
-    EXPECT_EQ(pkt_info1.type, PktType::IPV4);
+    EXPECT_EQ(pkt_info1.type, PktType::IP);
     EXPECT_EQ(pkt_info1.tunnel.label, 0xFFFFFFFF);
 
     pkt->Reset();
@@ -406,6 +534,36 @@ TEST_F(PktParseTest, GRE_On_Vnet_1) {
     client->WaitForIdle();
     EXPECT_TRUE(ValidateIpPktInfo(&pkt_info3, "1.1.1.1", "1.1.1.2", 47, 0, 0));
     EXPECT_EQ(pkt_info3.tunnel.label, 0xFFFFFFFF);
+}
+
+TEST_F(PktParseTest, IPv6_GRE_On_Vnet_1) {
+    VmInterface *vnet1 = VmInterfaceGet(1);
+    PktGen *pkt = new PktGen();
+    PktInfo pkt_info(NULL, 0, 0, 0);
+
+    pkt->Reset();
+    MakeIp6MplsPacket(pkt, vnet1->id(), "1.1.1.1", "1.1.1.2", 1,
+                      "10::10", "11::11", IPPROTO_ICMPV6, 1);
+    TestPkt(&pkt_info, pkt);
+    client->WaitForIdle();
+    EXPECT_EQ(pkt_info.type, PktType::IP);
+    EXPECT_EQ(pkt_info.tunnel.label, 0xFFFFFFFF);
+
+    pkt->Reset();
+    MakeUdp6MplsPacket(pkt, vnet1->id(), "1.1.1.1", "1.1.1.2", 1,
+                      "10::10", "11::11", 1, 2, 2);
+    TestPkt(&pkt_info, pkt);
+    client->WaitForIdle();
+    EXPECT_TRUE(ValidateIpPktInfo(&pkt_info, "1.1.1.1", "1.1.1.2", 47, 0, 0));
+    EXPECT_EQ(pkt_info.tunnel.label, 0xFFFFFFFF);
+
+    pkt->Reset();
+    MakeUdp6MplsPacket(pkt, vnet1->id(), "1.1.1.1", "1.1.1.2", 1,
+                      "10::10", "11::11", 1, 2, 3);
+    TestPkt(&pkt_info, pkt);
+    client->WaitForIdle();
+    EXPECT_TRUE(ValidateIpPktInfo(&pkt_info, "1.1.1.1", "1.1.1.2", 47, 0, 0));
+    EXPECT_EQ(pkt_info.tunnel.label, 0xFFFFFFFF);
 }
 
 TEST_F(PktParseTest, GRE_On_Enet_1) {
@@ -442,6 +600,41 @@ TEST_F(PktParseTest, GRE_On_Enet_1) {
     EXPECT_TRUE(ValidateIpPktInfo(&pkt_info3, "10.10.10.10", "11.11.11.11",
                                   IPPROTO_TCP, 1, 2));
     EXPECT_EQ(pkt_info3.tunnel.label, vnet1->label());
+}
+
+TEST_F(PktParseTest, IPv6_GRE_On_Enet_1) {
+    PhysicalInterface *eth = EthInterfaceGet("vnet0");
+    VmInterface *vnet1 = VmInterfaceGet(1);
+    PktGen *pkt = new PktGen();
+    PktInfo pkt_info(NULL, 0, 0, 0);
+
+    pkt->Reset();
+    MakeIp6MplsPacket(pkt, eth->id(), "1.1.1.1", "10.1.1.1",
+                      vnet1->label(), "10::10", "11::11", IPPROTO_ICMPV6, 1);
+    TestPkt(&pkt_info, pkt);
+    client->WaitForIdle();
+    EXPECT_TRUE(ValidateIp6PktInfo(&pkt_info, "10::10", "11::11",
+                                   IPPROTO_ICMPV6, 0, 0));
+    EXPECT_EQ(pkt_info.tunnel.label, vnet1->label());
+
+    pkt->Reset();
+    MakeUdp6MplsPacket(pkt, eth->id(), "1.1.1.1", "10.1.1.1",
+                       vnet1->label(), "10::10", "11::11", 1, 2, 1);
+    TestPkt(&pkt_info, pkt);
+    client->WaitForIdle();
+    EXPECT_TRUE(ValidateIp6PktInfo(&pkt_info, "10::10", "11::11",
+                                  IPPROTO_UDP, 1, 2));
+    EXPECT_EQ(pkt_info.tunnel.label, vnet1->label());
+
+    pkt->Reset();
+    MakeTcp6MplsPacket(pkt, eth->id(), "1.1.1.1", "10.1.1.1",
+                       vnet1->label(), "10::10", "11::11", 1, 2, 
+                      false, 1);
+    TestPkt(&pkt_info, pkt);
+    client->WaitForIdle();
+    EXPECT_TRUE(ValidateIp6PktInfo(&pkt_info, "10::10", "11::11",
+                                  IPPROTO_TCP, 1, 2));
+    EXPECT_EQ(pkt_info.tunnel.label, vnet1->label());
 }
 
 TEST_F(PktParseTest, Invalid_GRE_On_Enet_1) {
@@ -499,6 +692,60 @@ TEST_F(PktParseTest, Invalid_GRE_On_Enet_1) {
     client->WaitForIdle();
     EXPECT_TRUE(pkt_info4.ip != NULL);
     EXPECT_EQ(pkt_info4.type, PktType::INVALID);
+}
+
+TEST_F(PktParseTest, IPv6_Invalid_GRE_On_Enet_1) {
+    PhysicalInterface *eth = EthInterfaceGet("vnet0");
+    VmInterface *vnet1 = VmInterfaceGet(1);
+    PktGen *pkt = new PktGen();
+    PktInfo pkt_info(NULL, 0, 0, 0);
+
+    // Invalid Label
+    pkt->Reset();
+    MakeIp6MplsPacket(pkt, eth->id(), "1.1.1.1", "10.1.1.1",
+                      1000, "10::10", "11::11", 1, 1);
+    TestPkt(&pkt_info, pkt);
+    client->WaitForIdle();
+    EXPECT_TRUE(pkt_info.ip != NULL);
+    EXPECT_EQ(pkt_info.type, PktType::INVALID);
+
+    // Invalid IP-DA
+    pkt->Reset();
+    MakeUdp6MplsPacket(pkt, eth->id(), "1.1.1.1", "10.1.1.2",
+                      vnet1->label(), "10::10", "11::11", 1, 2, 1);
+    TestPkt(&pkt_info, pkt);
+    client->WaitForIdle();
+    EXPECT_EQ(pkt_info.type, PktType::INVALID);
+    EXPECT_EQ(pkt_info.tunnel.label, 0xFFFFFFFF);
+
+    // Invalid Protocol in GRE header
+    pkt->Reset();
+    pkt->AddEthHdr("00:00:00:00:00:01", "00:00:00:00:00:02", 0x800);
+    pkt->AddAgentHdr(eth->id(), AGENT_TRAP_FLOW_MISS);
+    pkt->AddEthHdr("00:00:00:00:00:01", "00:00:00:00:00:02", 0x800);
+    pkt->AddIpHdr("1.1.1.1", "10.1.1.1", IPPROTO_GRE);
+    pkt->AddGreHdr(0x800);
+    pkt->AddMplsHdr(vnet1->label(), true);
+    pkt->AddIp6Hdr("1::1", "2::2", 1);
+    TestPkt(&pkt_info, pkt);
+    client->WaitForIdle();
+    EXPECT_EQ(pkt_info.type, PktType::INVALID);
+    EXPECT_EQ(pkt_info.tunnel.label, 0xFFFFFFFF);
+
+    // Pkt with MPLS Label stack
+    pkt->Reset();
+    pkt->AddEthHdr("00:00:00:00:00:01", "00:00:00:00:00:02", 0x800);
+    pkt->AddAgentHdr(eth->id(), AGENT_TRAP_FLOW_MISS);
+    pkt->AddEthHdr("00:00:00:00:00:01", "00:00:00:00:00:02", 0x800);
+    pkt->AddIpHdr("1.1.1.1", "10.1.1.1", IPPROTO_GRE);
+    pkt->AddGreHdr();
+    pkt->AddMplsHdr(vnet1->label(), false);
+    pkt->AddMplsHdr(vnet1->label(), true);
+    pkt->AddIp6Hdr("1::1", "2::2", 1);
+    TestPkt(&pkt_info, pkt);
+    client->WaitForIdle();
+    EXPECT_TRUE(pkt_info.ip != NULL);
+    EXPECT_EQ(pkt_info.type, PktType::INVALID);
 }
 
 int main(int argc, char *argv[]) {

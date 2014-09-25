@@ -46,7 +46,7 @@ void InterfaceCfgClient::Notify(DBTablePartBase *partition, DBEntryBase *e) {
                          entry->GetUuid(), entry->GetIfname(),
                          entry->ip_addr().to_v4(), entry->GetMacAddr(),
                          entry->vm_name(), entry->vm_project_uuid(),
-                         vlan_id, port);
+                         vlan_id, port, entry->ip6_addr());
         IFMapNode *node = UuidToIFNode(entry->GetUuid());
         if (node != NULL) {
             DBRequest req;
