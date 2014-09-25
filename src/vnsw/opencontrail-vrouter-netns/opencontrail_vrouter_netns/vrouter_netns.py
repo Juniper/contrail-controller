@@ -59,7 +59,8 @@ class NetnsManager(object):
         self.nic_left = nic_left
         self.nic_right = nic_right
         self.root_helper = root_helper
-        self.nic_left['name'] = (self.LEFT_DEV_PREFIX +
+        if self.nic_left:
+            self.nic_left['name'] = (self.LEFT_DEV_PREFIX +
                                  self.nic_left['uuid'])[:self.DEV_NAME_LEN]
         if self.nic_right:
             self.nic_right['name'] = (self.RIGH_DEV_PREFIX +
@@ -175,10 +176,11 @@ class NetnsManager(object):
         self.ip_ns.netns.delete(self.namespace)
 
     def plug_namespace_interface(self):
-        if not self.nic_left:
-            raise ValueError('Need left interface to plug a '
+        if not self.nic_right:
+            raise ValueError('Need right interface to plug a '
                              'network namespace onto vrouter')
-        self._add_port_to_agent(self.nic_left,
+        if self.nic_left:
+            self._add_port_to_agent(self.nic_left,
                                 display_name='NetNS %s left interface' %
                                 self.vm_uuid)
 
@@ -188,10 +190,11 @@ class NetnsManager(object):
                                 self.vm_uuid)
 
     def unplug_namespace_interface(self):
-        if not self.nic_left:
-            raise ValueError('Need left interface to unplug a '
+        if not self.nic_right:
+            raise ValueError('Need right interface to unplug a '
                              'network namespace onto vrouter')
-        self._delete_port_to_agent(self.nic_left)
+        if self.nic_left:
+            self._delete_port_to_agent(self.nic_left)
         if self.nic_right:
             self._delete_port_to_agent(self.nic_right)
 
@@ -352,16 +355,17 @@ class VRouterNetns(object):
         netns_name = validate_uuid(self.args.vm_id)
 
         nic_left = {}
-        nic_left['uuid'] = validate_uuid(self.args.vmi_left_id)
-        if self.args.vmi_left_mac:
-            nic_left['mac'] = netaddr.EUI(self.args.vmi_left_mac,
+        if uuid.UUID(self.args.vmi_left_id).int:
+            nic_left['uuid'] = validate_uuid(self.args.vmi_left_id)
+            if self.args.vmi_left_mac:
+                nic_left['mac'] = netaddr.EUI(self.args.vmi_left_mac,
                                           dialect=netaddr.mac_unix)
-        else:
-            nic_left['mac'] = None
-        if self.args.vmi_left_ip:
-            nic_left['ip'] = netaddr.IPNetwork(self.args.vmi_left_ip)
-        else:
-            nic_left['ip'] = None
+            else:
+                nic_left['mac'] = None
+            if self.args.vmi_left_ip:
+                nic_left['ip'] = netaddr.IPNetwork(self.args.vmi_left_ip)
+            else:
+                nic_left['ip'] = None
 
         nic_right = {}
         if uuid.UUID(self.args.vmi_right_id).int:
@@ -404,7 +408,9 @@ class VRouterNetns(object):
 
     def destroy(self):
         netns_name = validate_uuid(self.args.vm_id)
-        nic_left = {'uuid': validate_uuid(self.args.vmi_left_id)}
+        nic_left = {}
+        if uuid.UUID(self.args.vmi_left_id).int:
+            nic_left = {'uuid': validate_uuid(self.args.vmi_left_id)}
         nic_right = {}
         if uuid.UUID(self.args.vmi_right_id).int:
             nic_right = {'uuid': validate_uuid(self.args.vmi_right_id)}

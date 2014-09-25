@@ -184,10 +184,10 @@ static void FindAndSetInterfaces(
      * The inside virtual-network is optional for loadbalancer.
      */
     properties->interface_count = si_properties.interface_list.size();
-    std::string left_netname = si_properties.interface_list[0].virtual_network;
-    std::string right_netname = "None";
+    std::string right_netname = si_properties.interface_list[0].virtual_network;
+    std::string left_netname = "None";
     if (properties->interface_count == 2) {
-        right_netname = si_properties.interface_list[1].virtual_network;
+        left_netname = si_properties.interface_list[1].virtual_network;
     }
 
     /*
@@ -233,11 +233,11 @@ static void FindAndSetInterfaces(
                 SubNetContainsIpv4(subnets.ipam_subnets[i],
                         properties->ip_addr_inside)) {
                 properties->ip_prefix_len_inside = prefix_len;
-                properties->gw_ip =
-                        subnets.ipam_subnets[i].default_gateway;
             } else if (netname == right_netname &&
                        SubNetContainsIpv4(subnets.ipam_subnets[i],
                                 properties->ip_addr_outside)) {
+                properties->gw_ip =
+                        subnets.ipam_subnets[i].default_gateway;
                 properties->ip_prefix_len_outside = prefix_len;
             }
         }
@@ -427,17 +427,17 @@ std::string ServiceInstance::Properties::DiffString(
 
 bool ServiceInstance::Properties::Usable() const {
     bool common = (!instance_id.is_nil() &&
-                   !vmi_inside.is_nil() &&
-                   !ip_addr_inside.empty() &&
-                   (ip_prefix_len_inside >= 0));
+                   !vmi_outside.is_nil() &&
+                   !ip_addr_outside.empty() &&
+                   (ip_prefix_len_outside >= 0));
     if (!common) {
         return false;
     }
 
     if (service_type == SourceNAT || interface_count == 2) {
-        bool outside = (!vmi_outside.is_nil() &&
-                       !ip_addr_outside.empty() &&
-                       (ip_prefix_len_outside >= 0));
+        bool outside = (!vmi_inside.is_nil() &&
+                       !ip_addr_inside.empty() &&
+                       (ip_prefix_len_inside >= 0));
         if (!outside) {
             return false;
         }
