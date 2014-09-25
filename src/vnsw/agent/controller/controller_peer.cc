@@ -366,13 +366,14 @@ void AgentXmppChannel::ReceiveMulticastUpdate(XmlPugi *pugi) {
     }
 }
 
-void AgentXmppChannel::ReceiveV6Update(XmlPugi *pugi) {
+void AgentXmppChannel::ReceiveV4V6Update(XmlPugi *pugi) {
 
     pugi::xml_node node = pugi->FindNode("items");
     pugi::xml_attribute attr = node.attribute("node");
 
+    const char *af = NULL;
     char *saveptr;
-    strtok_r(const_cast<char *>(attr.value()), "/", &saveptr);
+    af = strtok_r(const_cast<char *>(attr.value()), "/", &saveptr);
     strtok_r(NULL, "/", &saveptr);
     char *vrf_name =  strtok_r(NULL, "", &saveptr);
 
@@ -386,9 +387,13 @@ void AgentXmppChannel::ReceiveV6Update(XmlPugi *pugi) {
         return;
     }
 
-    Inet6UnicastAgentRouteTable *rt_table = 
-        static_cast<Inet6UnicastAgentRouteTable *>
-                (vrf->GetInet6UnicastRouteTable());
+    AgentRouteTable *rt_table = NULL;
+    if (atoi(af) == BgpAf::IPv4) {
+        rt_table = vrf->GetInet4UnicastRouteTable();
+    } else if (atoi(af) == BgpAf::IPv6) {
+        rt_table = vrf->GetInet6UnicastRouteTable();
+    }
+
     if (!rt_table) {
         CONTROLLER_TRACE(Trace, GetBgpPeerName(), vrf_name, 
                          "VRF not found");
@@ -403,20 +408,38 @@ void AgentXmppChannel::ReceiveV6Update(XmlPugi *pugi) {
                 if (strcmp(node.name(), "retract") == 0)  {
                     std::string id = node.first_attribute().value();
                     CONTROLLER_TRACE(Trace, GetBgpPeerName(), vrf_name,
-                                     "Delete v6 Node id:" + id);
+                                     "Delete Node id:" + id);
+
                     boost::system::error_code ec;
-                    Ip6Address prefix_addr;
                     int prefix_len;
+                    if (atoi(af) == BgpAf::IPv4) {
+                        Ip4Address prefix_addr;
+                        ec = Ip4PrefixParse(id, &prefix_addr, &prefix_len);
+                        if (ec.value() != 0) {
+                            CONTROLLER_TRACE(Trace, GetBgpPeerName(), vrf_name,
+                                    "Error parsing v4 prefix for delete");
+                            return;
+                        }
 
-                    ec = Inet6PrefixParse(id, &prefix_addr, &prefix_len);
-                    if (ec.value() != 0) {
-                        CONTROLLER_TRACE(Trace, GetBgpPeerName(), vrf_name,
-                                "Error parsing v6 prefix for delete");
-                        return;
+                        Inet4UnicastAgentRouteTable *rt4_table = 
+                            static_cast<Inet4UnicastAgentRouteTable *>(rt_table);
+                        rt4_table->DeleteReq(bgp_peer_id(), vrf_name,
+                                             prefix_addr, prefix_len,
+                                             new ControllerVmRoute(bgp_peer_id()));
+
+                    } else if (atoi(af) == BgpAf::IPv6) {
+                        Ip6Address prefix_addr;
+                        ec = Inet6PrefixParse(id, &prefix_addr, &prefix_len);
+                        if (ec.value() != 0) {
+                            CONTROLLER_TRACE(Trace, GetBgpPeerName(), vrf_name,
+                                    "Error parsing v6 prefix for delete");
+                            return;
+                        }
+                        Inet6UnicastAgentRouteTable *rt6_table = 
+                            static_cast<Inet6UnicastAgentRouteTable *>(rt_table);
+                        rt6_table->DeleteReq(bgp_peer_id(), vrf_name,
+                                             prefix_addr, prefix_len);
                     }
-
-                    rt_table->DeleteReq(bgp_peer_id(), vrf_name,
-                                        prefix_addr, prefix_len);
                 }
             }
             return;
@@ -438,16 +461,32 @@ void AgentXmppChannel::ReceiveV6Update(XmlPugi *pugi) {
                                         ++iter) {
             item = &*iter;
             boost::system::error_code ec;
-            Ip6Address prefix_addr;
             int prefix_len;
-            ec = Inet6PrefixParse(item->entry.nlri.address, &prefix_addr,
-                                  &prefix_len);
-            if (ec.value() != 0) {
+
+            if (atoi(af) == BgpAf::IPv4) {
+                Ip4Address prefix_addr;
+                ec = Ip4PrefixParse(item->entry.nlri.address, &prefix_addr,
+                                    &prefix_len);
+                if (ec.value() != 0) {
+                    CONTROLLER_TRACE(Trace, GetBgpPeerName(), vrf_name,
+                            "Error parsing v4 route address");
+                    return;
+                }
+                AddRoute(vrf_name, prefix_addr, prefix_len, item);
+            } else if (atoi(af) == BgpAf::IPv6) {
+                Ip6Address prefix_addr;
+                ec = Inet6PrefixParse(item->entry.nlri.address, &prefix_addr,
+                                      &prefix_len);
+                if (ec.value() != 0) {
+                    CONTROLLER_TRACE(Trace, GetBgpPeerName(), vrf_name,
+                            "Error parsing v6 route address");
+                    return;
+                }
+                AddInet6Route(vrf_name, prefix_addr, prefix_len, item);
+            } else {
                 CONTROLLER_TRACE(Trace, GetBgpPeerName(), vrf_name,
-                        "Error parsing v6 route address");
-                return;
+                                 "Error updating route, Unknown IP family");
             }
-            AddInet6Route(vrf_name, prefix_addr, prefix_len, item);
         }
     }
 }
@@ -958,7 +997,7 @@ void AgentXmppChannel::ReceiveUpdate(const XmppStanza::XmppMessage *msg) {
       
         XmlBase *impl = msg->dom.get();
         XmlPugi *pugi = reinterpret_cast<XmlPugi *>(impl);        
-        pugi::xml_node node = pugi->FindNode("items");
+        pugi->FindNode("items");
         pugi->ReadNode("items"); //sets the context
         std::string nodename = pugi->ReadAttrib("node");
 
@@ -984,84 +1023,12 @@ void AgentXmppChannel::ReceiveUpdate(const XmppStanza::XmppMessage *msg) {
             ReceiveEvpnUpdate(pugi);
             return;
         }
-        if (atoi(af) == BgpAf::IPv6 && atoi(safi) == BgpAf::Unicast) {
-            ReceiveV6Update(pugi);
+        if (atoi(safi) == BgpAf::Unicast) {
+            ReceiveV4V6Update(pugi);
             return;
         }
-
-        VrfKey vrf_key(vrf_name);
-        VrfEntry *vrf = 
-            static_cast<VrfEntry *>(agent_->vrf_table()->
-                                    FindActiveEntry(&vrf_key));
-        if (!vrf) {
-            CONTROLLER_TRACE (Trace, GetBgpPeerName(), vrf_name,
-                    "VRF not found");
-            return;
-        }
-
-        Inet4UnicastAgentRouteTable *rt_table = 
-            static_cast<Inet4UnicastAgentRouteTable *>
-            (vrf->GetInet4UnicastRouteTable());
-        if (!rt_table) {
-            CONTROLLER_TRACE(Trace, GetBgpPeerName(), vrf_name, 
-                             "VRF not found");
-            return;
-        }
-
-        if (!pugi->IsNull(node)) {
-  
-            pugi::xml_node node_check = pugi->FindNode("retract");
-            if (!pugi->IsNull(node_check)) {
-                for (node = node.first_child(); node; node = node.next_sibling()) {
-                    if (strcmp(node.name(), "retract") == 0)  {
-                        std::string id = node.first_attribute().value();
-                        CONTROLLER_TRACE(Trace, GetBgpPeerName(), vrf_name,
-                                        "Delete Node id:" + id);
-                        boost::system::error_code ec;
-                        Ip4Address prefix_addr;
-                        int prefix_len;
-                        ec = Ip4PrefixParse(id, &prefix_addr, &prefix_len);
-                        if (ec.value() != 0) {
-                            CONTROLLER_TRACE(Trace, GetBgpPeerName(), vrf_name,
-                                    "Error parsing prefix for delete");
-                            return;
-                        }
-                        rt_table->DeleteReq(bgp_peer_id(), vrf_name,
-                                        prefix_addr, prefix_len,
-                                        new ControllerVmRoute(bgp_peer_id()));
-                    }
-                }
-                return;
-            }
-           
-            //Call Auto-generated Code to return struct
-            auto_ptr<AutogenProperty> xparser(new AutogenProperty());
-            if (ItemsType::XmlParseProperty(node, &xparser) == false) {
-                CONTROLLER_TRACE(Trace, GetBgpPeerName(), vrf_name,
-                                 "Xml Parsing Failed");
-                return;
-            }
-            ItemsType *items;
-            ItemType *item;
-
-            items = (static_cast<ItemsType *>(xparser.get()));
-            for (vector<ItemType>::iterator iter =items->item.begin();
-                                            iter != items->item.end();
-                                            ++iter) {
-                item = &*iter;
-                boost::system::error_code ec;
-                Ip4Address prefix_addr;
-                int prefix_len;
-                ec = Ip4PrefixParse(item->entry.nlri.address, &prefix_addr,
-                                    &prefix_len);
-                if (ec.value() != 0) {
-                    CONTROLLER_TRACE(Trace, GetBgpPeerName(), vrf_name,
-                            "Error parsing route address");
-                    return;
-                }
-                AddRoute(vrf_name, prefix_addr, prefix_len, item);
-            }
-        }
+        CONTROLLER_TRACE (Trace, GetBgpPeerName(), vrf_name,
+            "Error Route update, Unknown Address Family or safi");
     }
 }
 
@@ -1602,13 +1569,14 @@ bool AgentXmppChannel::ControllerSendSubscribe(AgentXmppChannel *peer,
     return (peer->SendUpdate(data_,datalen_));
 }
 
-bool AgentXmppChannel::ControllerSendV4UnicastRouteCommon(AgentRoute *route,
+bool AgentXmppChannel::ControllerSendV4V6UnicastRouteCommon(AgentRoute *route,
                                        std::string vn,
                                        const SecurityGroupList *sg_list,
                                        uint32_t mpls_label,
                                        TunnelType::TypeBmap bmap,
                                        const PathPreference &path_preference,
-                                       bool associate) {
+                                       bool associate,
+                                       Agent::RouteTableType type) {
 
     static int id = 0;
     ItemType item;
@@ -1619,7 +1587,11 @@ bool AgentXmppChannel::ControllerSendV4UnicastRouteCommon(AgentRoute *route,
     auto_ptr<XmlBase> impl(XmppStanza::AllocXmppXmlImpl());
     XmlPugi *pugi = reinterpret_cast<XmlPugi *>(impl.get());
 
-    item.entry.nlri.af = BgpAf::IPv4; 
+    if (type == Agent::INET4_UNICAST) {
+        item.entry.nlri.af = BgpAf::IPv4; 
+    } else {
+        item.entry.nlri.af = BgpAf::IPv6; 
+    } 
     item.entry.nlri.safi = BgpAf::Unicast; 
     stringstream rstr;
     rstr << route->ToString();
@@ -1691,113 +1663,6 @@ bool AgentXmppChannel::ControllerSendV4UnicastRouteCommon(AgentRoute *route,
 
     stringstream collection_id;
     collection_id << "collection" << id++;
-    pugi->ModifyAttribute("id", collection_id.str()); 
-    pugi->AddChildNode("pubsub", "");
-    pugi->AddAttribute("xmlns", "http://jabber.org/protocol/pubsub");
-    pugi->AddChildNode("collection", "");
-
-    pugi->AddAttribute("node", route->vrf()->GetName());
-    if (associate) {
-        pugi->AddChildNode("associate", "");
-    } else {
-        pugi->AddChildNode("dissociate", "");
-    }
-    pugi->AddAttribute("node", node_id);
-
-    datalen_ = XmppProto::EncodeMessage(impl.get(), data_, sizeof(data_));
-    // send data
-    return (SendUpdate(data_,datalen_));
-}
-
-bool AgentXmppChannel::ControllerSendV6UnicastRouteCommon(
-                                               AgentRoute *route,
-                                               std::string vn, 
-                                               const SecurityGroupList *sg_list,
-                                               uint32_t mpls_label,
-                                               TunnelType::TypeBmap bmap,
-                                               const PathPreference
-                                               &path_preference,
-                                               bool associate) {
-    static int id = 0;
-    ItemType item;
-    uint8_t data_[4096];
-    size_t datalen_;
-   
-    //Build the DOM tree
-    auto_ptr<XmlBase> impl(XmppStanza::AllocXmppXmlImpl());
-    XmlPugi *pugi = reinterpret_cast<XmlPugi *>(impl.get());
-
-    item.entry.nlri.af = BgpAf::IPv6; 
-    item.entry.nlri.safi = BgpAf::Unicast; 
-    stringstream rstr;
-    rstr << route->ToString();
-    item.entry.nlri.address = rstr.str();
-
-    string rtr(agent_->router_id().to_string());
-
-    autogen::NextHopType nh;
-    nh.af = BgpAf::IPv4;
-    nh.address = rtr;
-    nh.label = mpls_label;
-    if (bmap & TunnelType::GREType()) {
-        nh.tunnel_encapsulation_list.tunnel_encapsulation.push_back("gre");
-    }
-    if (bmap & TunnelType::UDPType()) {
-        nh.tunnel_encapsulation_list.tunnel_encapsulation.push_back("udp");
-    }
-    item.entry.next_hops.next_hop.push_back(nh);
-
-    if (sg_list && sg_list->size()) {
-        item.entry.security_group_list.security_group = *sg_list;
-    }
-
-    item.entry.version = 1; //TODO
-    item.entry.virtual_network = vn;
-   
-    //Set sequence number and preference of route
-    item.entry.sequence_number = path_preference.sequence();
-    item.entry.local_preference = path_preference.preference();
-
-    pugi->AddNode("iq", "");
-    pugi->AddAttribute("type", "set");
-    
-    pugi->AddAttribute("from", channel_->FromString());
-    std::string to(channel_->ToString());
-    to += "/";
-    to += XmppInit::kBgpPeer; 
-    pugi->AddAttribute("to", to);
-
-    stringstream pubsub_id;
-    pubsub_id << "pubsub_v6" << id;
-    pugi->AddAttribute("id", pubsub_id.str()); 
-
-    pugi->AddChildNode("pubsub", "");
-    pugi->AddAttribute("xmlns", "http://jabber.org/protocol/pubsub");
-    pugi->AddChildNode("publish", "");
-
-    stringstream ss_node;
-    ss_node << item.entry.nlri.af << "/" 
-            << item.entry.nlri.safi << "/" 
-            << route->vrf()->GetName() << "/" 
-            << route->GetAddressString();
-    std::string node_id(ss_node.str());
-    pugi->AddAttribute("node", node_id);
-    pugi->AddChildNode("item", "");
-
-    pugi::xml_node node = pugi->FindNode("item");
-
-    //Call Auto-generated Code to encode the struct
-    item.Encode(&node);
-
-    datalen_ = XmppProto::EncodeMessage(impl.get(), data_, sizeof(data_));
-    // send data
-    SendUpdate(data_,datalen_);
-
-    pugi->DeleteNode("pubsub");
-    pugi->ReadNode("iq");
-
-    stringstream collection_id;
-    collection_id << "collection_v6" << id++;
     pugi->ModifyAttribute("id", collection_id.str()); 
     pugi->AddChildNode("pubsub", "");
     pugi->AddAttribute("xmlns", "http://jabber.org/protocol/pubsub");
@@ -2098,16 +1963,12 @@ bool AgentXmppChannel::ControllerSendRouteAdd(AgentXmppChannel *peer,
                      route->ToString(),
                      true, label);
     bool ret = false;
-    if ((type == Agent::INET4_UNICAST) &&
-        (peer->agent()->simulate_evpn_tor() == false)) {
-        ret = peer->ControllerSendV4UnicastRouteCommon(route, vn,
-                                                       sg_list, label, bmap,
-                                                       path_preference, true);
-    }
-    if (type == Agent::INET6_UNICAST) {
-        ret = peer->ControllerSendV6UnicastRouteCommon(route, vn,
-                                          sg_list, label, bmap,
-                                          path_preference, true);
+    if (((type == Agent::INET4_UNICAST) || (type == Agent::INET6_UNICAST)) &&
+         (peer->agent()->simulate_evpn_tor() == false)) {
+        ret = peer->ControllerSendV4V6UnicastRouteCommon(route, vn,
+                                                   sg_list, label, bmap,
+                                                   path_preference, true, 
+                                                   type);
     }
     if (type == Agent::LAYER2) {
         ret = peer->ControllerSendEvpnRouteCommon(route, vn,
@@ -2134,18 +1995,14 @@ bool AgentXmppChannel::ControllerSendRouteDelete(AgentXmppChannel *peer,
                      route->ToString(),
                      false, 0);
     bool ret = false;
-    if ((type == Agent::INET4_UNICAST) &&
-        (peer->agent()->simulate_evpn_tor() == false)) {
-        ret = peer->ControllerSendV4UnicastRouteCommon(route, vn,
+    if (((type == Agent::INET4_UNICAST) || (type == Agent::INET6_UNICAST)) &&
+         (peer->agent()->simulate_evpn_tor() == false)) {
+        ret = peer->ControllerSendV4V6UnicastRouteCommon(route, vn,
                                                        sg_list, label,
                                                        bmap,
                                                        path_preference,
-                                                       false);
-    }
-    if (type == Agent::INET6_UNICAST) {
-        ret = peer->ControllerSendV6UnicastRouteCommon(route, vn,
-                                          sg_list, label, bmap,
-                                          path_preference, false);
+                                                       false,
+                                                       type);
     }
     if (type == Agent::LAYER2) {
         ret = peer->ControllerSendEvpnRouteCommon(route, vn,
