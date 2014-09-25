@@ -19,6 +19,7 @@ env.Alias('controller/test', [
     'controller/src/ifmap:test',
     'controller/src/io:test',
     'controller/src/net:test',
+    'controller/src/opserver:test',
     'controller/src/query_engine:test',
     'controller/src/schema:test',
     'controller/src/xmpp:test',
@@ -36,7 +37,6 @@ env.Alias('controller/flaky-test', [
     'controller/src/gendb:flaky-test',
     'controller/src/ifmap:flaky-test',
     'controller/src/io:flaky-test',
-    'controller/src/opserver:test',
     'controller/src/xmpp:flaky-test',
 ])
 

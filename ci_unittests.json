@@ -9,6 +9,7 @@
         ],
         "scons_test_targets" : [
             "controller/src/analytics:test",
+            "controller/src/opserver:test",
             "controller/src/bfd:test",
             "controller/src/query_engine:test"
         ],
