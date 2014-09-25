@@ -382,10 +382,8 @@ TEST_F(CfgTest, vn_forwarding_mode_changed_1) {
     EXPECT_TRUE(vn->GetVxLanId() == 1);
 
     string vrf_name = "vrf1";
-    struct ether_addr vxlan_vm_mac;
-    memcpy(&vxlan_vm_mac, ether_aton("00:00:01:01:01:10"), sizeof(struct ether_addr));
-    struct ether_addr vxlan_flood_mac;
-    memcpy(&vxlan_flood_mac, ether_aton("ff:ff:ff:ff:ff:ff"), sizeof(struct ether_addr));
+    MacAddress vxlan_vm_mac("00:00:01:01:01:10");
+    MacAddress vxlan_flood_mac = MacAddress::BroadcastMac();
     Ip4Address vm_ip = Ip4Address::from_string("1.1.1.10");
     Ip4Address subnet_ip = Ip4Address::from_string("1.1.1.255");
     Ip4Address flood_ip = Ip4Address::from_string("255.255.255.255");
@@ -481,10 +479,8 @@ TEST_F(CfgTest, vn_forwarding_mode_changed_2) {
     EXPECT_TRUE(vn->GetVxLanId() == 1);
 
     string vrf_name = "vrf1";
-    struct ether_addr vxlan_vm_mac;
-    memcpy(&vxlan_vm_mac, ether_aton("00:00:01:01:01:10"), sizeof(struct ether_addr));
-    struct ether_addr vxlan_flood_mac;
-    memcpy(&vxlan_flood_mac, ether_aton("ff:ff:ff:ff:ff:ff"), sizeof(struct ether_addr));
+    MacAddress vxlan_vm_mac("00:00:01:01:01:10");
+    MacAddress vxlan_flood_mac = MacAddress::BroadcastMac();
     Ip4Address vm_ip = Ip4Address::from_string("1.1.1.10");
     Ip4Address subnet_ip = Ip4Address::from_string("1.1.1.255");
     Ip4Address flood_ip = Ip4Address::from_string("255.255.255.255");
@@ -495,7 +491,7 @@ TEST_F(CfgTest, vn_forwarding_mode_changed_2) {
     Inet4UnicastRouteEntry *uc_rt;
     Inet4UnicastRouteEntry *subnet_rt;
     Inet4MulticastRouteEntry *flood_rt;
-    
+
     //default to l2 mode
     client->WaitForIdle();
     l2_uc_rt = L2RouteGet(vrf_name, vxlan_vm_mac);

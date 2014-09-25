@@ -295,7 +295,7 @@ public:
     };
 
     struct ConfigRecord {
-        ConfigRecord() : ip_addr(0), subnet_mask(0), bcast_addr(0), gw_addr(0), 
+        ConfigRecord() : ip_addr(0), subnet_mask(0), bcast_addr(0), gw_addr(0),
                          dns_addr(0), plen(0), lease_time(-1) {
         }
 
@@ -312,12 +312,12 @@ public:
 
     struct DhcpRequestData {
         DhcpRequestData() : xid(-1), flags(0), ip_addr(0) {
-            memset(mac_addr, 0, ETH_ALEN);
+            memset(mac_addr, 0, ETHER_ADDR_LEN);
         }
         void UpdateData(uint32_t id, uint16_t fl, uint8_t *mac) {
             xid = id;
             flags = fl;
-            memcpy(mac_addr, mac, ETH_ALEN);
+            memcpy(mac_addr, mac, ETHER_ADDR_LEN);
         }
 
         uint32_t  xid;
@@ -378,7 +378,7 @@ private:
                             std::vector<autogen::DhcpOptionType> &options,
                             DhcpOptionLevel level);
     uint16_t AddClasslessRouteOption(uint16_t opt_len);
-    uint16_t FillDhcpResponse(unsigned char *dest_mac,
+    uint16_t FillDhcpResponse(const MacAddress &dest_mac,
                               in_addr_t src_ip, in_addr_t dest_ip,
                               in_addr_t siaddr, in_addr_t yiaddr);
     void SendDhcpResponse();

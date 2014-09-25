@@ -34,7 +34,7 @@ protected:
 
     std::string name_;
     int tap_fd_;
-    unsigned char mac_address_[ETH_ALEN];
+    unsigned char mac_address_[ETHER_ADDR_LEN];
     boost::asio::posix::stream_descriptor input_;
 
     uint8_t *read_buff_;

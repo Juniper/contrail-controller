@@ -721,16 +721,8 @@ void VrouterUveEntry::SendVrouterUve() {
     }
 }
 
-string VrouterUveEntry::GetMacAddress(const ether_addr &mac) const {
-    stringstream ss;
-    ss << setbase(16) << setfill('0') << setw(2) 
-      << static_cast<unsigned int>(mac.ether_addr_octet[0])
-      << static_cast<unsigned int>(mac.ether_addr_octet[1])
-      << static_cast<unsigned int>(mac.ether_addr_octet[2])
-      << static_cast<unsigned int>(mac.ether_addr_octet[3])
-      << static_cast<unsigned int>(mac.ether_addr_octet[4])
-      << static_cast<unsigned int>(mac.ether_addr_octet[5]);
-    return ss.str();
+string VrouterUveEntry::GetMacAddress(const MacAddress &mac) const {
+    return mac.ToString();
 }
 
 uint8_t VrouterUveEntry::CalculateBandwitdh(uint64_t bytes, int speed_mbps, 

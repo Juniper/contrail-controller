@@ -76,8 +76,8 @@ private:
     struct in_addr dip_;
     uint16_t sport_;
     uint16_t dport_;
-    struct ether_addr smac_;
-    struct ether_addr dmac_;
+    MacAddress smac_;
+    MacAddress dmac_;
     bool valid_;
     bool policy_;
     bool is_mcast_nh_;

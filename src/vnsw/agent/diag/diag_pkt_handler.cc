@@ -105,9 +105,9 @@ uint16_t DiagPktHandler::TcpCsum(in_addr_t src, in_addr_t dest, uint16_t len,
 void DiagPktHandler::SwapL4() {
     if (pkt_info_->ip_proto == IPPROTO_TCP) {
         tcphdr *tcp = pkt_info_->transp.tcp;
-        TcpHdr(htonl(pkt_info_->ip_daddr), ntohs(tcp->dest), 
-               htonl(pkt_info_->ip_saddr), ntohs(tcp->source), 
-               false, ntohs(tcp->ack_seq), 
+        TcpHdr(htonl(pkt_info_->ip_daddr), ntohs(tcp->dest),
+               htonl(pkt_info_->ip_saddr), ntohs(tcp->source),
+               false, ntohs(tcp->ack_seq),
                ntohs(pkt_info_->ip->tot_len) - sizeof(iphdr));
 
     } else if(pkt_info_->ip_proto == IPPROTO_UDP) {
@@ -125,7 +125,7 @@ void DiagPktHandler::SwapIpHdr() {
 
 void DiagPktHandler::SwapEthHdr() {
     ethhdr *eth = pkt_info_->eth;
-    EthHdr(eth->h_dest, eth->h_source, ntohs(eth->h_proto));
+    EthHdr(MacAddress(eth->h_dest), MacAddress(eth->h_source), ntohs(eth->h_proto));
 }
 
 void DiagPktHandler::Swap() {

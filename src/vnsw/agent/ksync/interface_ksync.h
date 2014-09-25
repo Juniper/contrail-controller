@@ -24,7 +24,7 @@ using namespace std;
 
 void KSyncInterfaceCreate(Interface::Type type, const char *if_name,
                           uint32_t vrf_id, uint32_t &ifindex, uint32_t &fd,
-                          struct ether_addr &mac);
+                          MacAddress &mac);
 void KSyncInterfaceDelete(Interface::Type type, const char *if_name,
                           uint32_t vrf_id, uint32_t ifindex, uint32_t fd);
 void GetPhyMac(const char *ifname, char *mac);
@@ -34,26 +34,26 @@ class InterfaceKSyncObject;
 
 class InterfaceKSyncEntry : public KSyncNetlinkDBEntry {
 public:
-    InterfaceKSyncEntry(InterfaceKSyncObject *obj, 
+    InterfaceKSyncEntry(InterfaceKSyncObject *obj,
                         const InterfaceKSyncEntry *entry, uint32_t index);
     InterfaceKSyncEntry(InterfaceKSyncObject *obj, const Interface *intf);
     virtual ~InterfaceKSyncEntry();
 
-	const uint8_t *mac() const { 
+	const MacAddress &mac() const {
         if (parent_.get() == NULL) {
-            return mac_.ether_addr_octet;
+            return mac_;
         } else {
-            const InterfaceKSyncEntry *parent = 
+            const InterfaceKSyncEntry *parent =
                         static_cast<const InterfaceKSyncEntry *>(parent_.get());
             return parent->mac();
         }
-    }   
+    }
 
     uint32_t interface_id() const {return interface_id_;}
     const string &interface_name() const {return interface_name_;}
     bool has_service_vlan() const {return has_service_vlan_;}
 
-    KSyncDBObject *GetObject(); 
+    KSyncDBObject *GetObject();
     virtual bool Sync(DBEntry *e);
     virtual bool IsLess(const KSyncEntry &rhs) const;
     virtual std::string ToString() const;
@@ -79,7 +79,7 @@ private:
     InterfaceKSyncObject *ksync_obj_;
     bool l2_active_;
     bool layer2_forwarding_;
-    struct ether_addr mac_;
+    MacAddress mac_;
     Interface::MirrorDirection mirror_direction_;
     int network_id_;
     size_t os_index_;

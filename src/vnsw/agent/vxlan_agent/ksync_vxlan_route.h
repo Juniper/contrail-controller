@@ -135,13 +135,13 @@ public:
     // Virtual method invoked when a FDB entry is to be Deleted
     virtual bool Delete() = 0;
 
-    const struct ether_addr &mac() const { return mac_; }
+    const MacAddress &mac() const { return mac_; }
     const KSyncVxlanBridgeEntry *bridge() const { return bridge_; }
     const KSyncVxlanPortEntry *port() const { return port_; }
     const Ip4Address &tunnel_dest() const { return tunnel_dest_; }
 private:
     KSyncVxlanBridgeEntry *bridge_;
-    struct ether_addr mac_;
+    MacAddress mac_;
     KSyncVxlanPortEntry *port_;
     Ip4Address tunnel_dest_;
     DISALLOW_COPY_AND_ASSIGN(KSyncVxlanFdbEntry);

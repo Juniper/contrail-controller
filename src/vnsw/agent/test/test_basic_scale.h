@@ -754,49 +754,40 @@ protected:
 
     void VerifyRoutes(bool deleted) {
         int intf_id = 1;
-        struct ether_addr *flood_mac = 
-            (struct ether_addr *)malloc(sizeof(struct ether_addr));
-        stringstream flood_mac_str;
-        flood_mac_str << "ff:ff:ff:ff:ff:ff";
-        memcpy (flood_mac, ether_aton(flood_mac_str.str().c_str()), 
-                sizeof(struct ether_addr));
-        struct ether_addr *local_vm_mac = 
-            (struct ether_addr *)malloc(sizeof(struct ether_addr));
+        MacAddress flood_mac = MacAddress::BroadcastMac();
+        MacAddress local_vm_mac;
         for (int vn_cnt = 1; vn_cnt <= num_vns; vn_cnt++) {
             stringstream ip_addr;
             ip_addr << vn_cnt << ".1.1.0";
-            Ip4Address addr = 
+            Ip4Address addr =
                 IncrementIpAddress(Ip4Address::from_string(ip_addr.str()));
             stringstream name;
             name << "vrf" << intf_id;
             for (int vm_cnt = 0; vm_cnt < num_vms_per_vn; vm_cnt++) {
                 stringstream mac;
-                mac << "00:00:00:00:" << std::hex << vn_cnt << ":" << 
+                mac << "00:00:00:00:" << std::hex << vn_cnt << ":" <<
                     std::hex << (vm_cnt + 1);
-                memcpy (local_vm_mac, ether_aton(mac.str().c_str()), 
-                        sizeof(struct ether_addr));
+                local_vm_mac = MacAddress::FromString(mac.str());
                 if (deleted) {
                     WAIT_FOR(1000, 10000, !(RouteFind(name.str(), addr.to_string(), 32)));
-                    WAIT_FOR(1000, 10000, !(L2RouteFind(name.str(), *local_vm_mac)));
+                    WAIT_FOR(1000, 10000, !(L2RouteFind(name.str(), local_vm_mac)));
                 } else {
                     WAIT_FOR(1000, 10000, (RouteFind(name.str(), addr.to_string(), 32)));
-                    WAIT_FOR(1000, 10000, (L2RouteFind(name.str(), *local_vm_mac)));
+                    WAIT_FOR(1000, 10000, (L2RouteFind(name.str(), local_vm_mac)));
                 }
                 addr = IncrementIpAddress(addr);
             }
             if (deleted) {
-                WAIT_FOR(1000, 10000, !(MCRouteFind(name.str(), 
+                WAIT_FOR(1000, 10000, !(MCRouteFind(name.str(),
                                                    Ip4Address::from_string("255.255.255.255"))));
-                WAIT_FOR(1000, 10000, !(L2RouteFind(name.str(), *flood_mac)));
+                WAIT_FOR(1000, 10000, !(L2RouteFind(name.str(), flood_mac)));
             } else {
-                WAIT_FOR(1000, 10000, (MCRouteFind(name.str(), 
+                WAIT_FOR(1000, 10000, (MCRouteFind(name.str(),
                                                   Ip4Address::from_string("255.255.255.255"))));
-                WAIT_FOR(1000, 10000, (L2RouteFind(name.str(), *flood_mac)));
+                WAIT_FOR(1000, 10000, (L2RouteFind(name.str(), flood_mac)));
             }
             intf_id++;
         }
-        delete flood_mac;
-        delete local_vm_mac;
     }
 
     void XmppConnectionSetUp() {

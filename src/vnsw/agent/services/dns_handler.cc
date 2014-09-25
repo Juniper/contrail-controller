@@ -728,16 +728,15 @@ DnsHandler::Resolve(dns_flags flags, const DnsItems &ques, DnsItems &ans,
 void DnsHandler::SendDnsResponse() {
     in_addr_t src_ip = pkt_info_->ip->daddr;
     in_addr_t dest_ip = pkt_info_->ip->saddr;
-    unsigned char dest_mac[ETH_ALEN];
-    memcpy(dest_mac, pkt_info_->eth->h_source, ETH_ALEN);
+    MacAddress dest_mac(pkt_info_->eth->h_source);
 
     // fill in the response
     dns_resp_size_ += sizeof(udphdr);
-    UdpHdr(dns_resp_size_, src_ip, DNS_SERVER_PORT, 
+    UdpHdr(dns_resp_size_, src_ip, DNS_SERVER_PORT,
            dest_ip, ntohs(pkt_info_->transp.udp->source));
     dns_resp_size_ += sizeof(iphdr);
     IpHdr(dns_resp_size_, src_ip, dest_ip, IPPROTO_UDP);
-    EthHdr(agent()->vhost_interface()->mac().ether_addr_octet, dest_mac,
+    EthHdr(agent()->vhost_interface()->mac(), dest_mac,
            IP_PROTOCOL);
     dns_resp_size_ += sizeof(ethhdr);
     pkt_info_->set_len(dns_resp_size_);

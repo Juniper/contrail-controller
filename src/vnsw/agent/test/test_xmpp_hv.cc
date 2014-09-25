@@ -70,16 +70,15 @@ TEST_F(AgentBasicScaleTest, Basic) {
     WAIT_FOR(1000, 10000, MCRouteFind("vrf1", mc_addr));
     Ip4Address uc_addr = Ip4Address::from_string("1.1.1.1");
     WAIT_FOR(1000, 1000, RouteFind("vrf1", uc_addr, 32));
-    const struct ether_addr *flood_mac = ether_aton("ff:ff:ff:ff:ff:ff");
-    EXPECT_TRUE(L2RouteFind("vrf1", *flood_mac));
-    const struct ether_addr *mac = ether_aton("00:00:00:00:01:01");
-    EXPECT_TRUE(L2RouteFind("vrf1", *mac));
+    EXPECT_TRUE(L2RouteFind("vrf1", MacAddress::BroadcastMac()));
+    MacAddress mac("00:00:00:00:01:01");
+    EXPECT_TRUE(L2RouteFind("vrf1", mac));
 
     VerifyVmPortActive(true);
     VerifyRoutes(false);
     mc_addr = Ip4Address::from_string("1.1.1.255");
     EXPECT_TRUE(RouteFind("vrf1", mc_addr, 32));
-    
+
     //Delete vm-port and route entry in vrf1
     DelIPAM("vn1");
     WAIT_FOR(1000, 10000, !RouteFind("vrf1", Ip4Address::from_string("1.1.1.255"), 32));
